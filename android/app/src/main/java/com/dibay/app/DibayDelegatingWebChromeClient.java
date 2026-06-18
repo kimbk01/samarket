@@ -48,9 +48,31 @@ public final class DibayDelegatingWebChromeClient extends WebChromeClient {
   @Override
   public boolean onConsoleMessage(ConsoleMessage consoleMessage) {
     String msg = consoleMessage.message();
+    int line = consoleMessage.lineNumber();
+    String source = consoleMessage.sourceId();
+    ConsoleMessage.MessageLevel level = consoleMessage.messageLevel();
+    if (msg != null && !msg.isEmpty()) {
+      int logPriority = android.util.Log.INFO;
+      if (level == ConsoleMessage.MessageLevel.ERROR) {
+        logPriority = android.util.Log.ERROR;
+      } else if (level == ConsoleMessage.MessageLevel.WARNING) {
+        logPriority = android.util.Log.WARN;
+      }
+      android.util.Log.println(
+          logPriority,
+          "DIBAY_WebView",
+          "webview_console_message level="
+              + level
+              + " line="
+              + line
+              + " source="
+              + (source != null ? source : "")
+              + " msg="
+              + msg);
+    }
     if (msg != null && msg.contains("DIBAY_PUSH_REGISTER")) {
-      int level = msg.contains("_FAIL") ? android.util.Log.ERROR : android.util.Log.INFO;
-      android.util.Log.println(level, "DIBAY_PUSH_REGISTER", msg);
+      int pushLogPriority = msg.contains("_FAIL") ? android.util.Log.ERROR : android.util.Log.INFO;
+      android.util.Log.println(pushLogPriority, "DIBAY_PUSH_REGISTER", msg);
     }
     if (msg != null && msg.contains("incoming_presenter_decision")) {
       android.util.Log.i("DIBAY_CALL", msg.trim());

@@ -16,9 +16,12 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.widget.Button;
 import android.widget.FrameLayout;
+import android.widget.TextView;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
+import com.getcapacitor.BridgeWebViewClient;
 import android.app.PictureInPictureParams;
 import android.util.Rational;
 import com.dibay.app.call.CallScreenStateReceiver;
@@ -30,6 +33,8 @@ import java.security.MessageDigest;
 
 public class MainActivity extends BridgeActivity {
   private static final String TAG = "DIBAY_OAuth";
+  private static final String WEBVIEW_LOG_TAG = "DIBAY_WebView";
+  private static final long WEBVIEW_LOAD_TIMEOUT_MS = 10_000L;
   private static final String ROUTE_PREFS = "dibay_push_route";
   private static final String CALL_ROUTE_PREFS = "dibay_call_pending_route";
   private static final String ROUTE_LOG_TAG = "DIBAY_PUSH_ROUTE";
@@ -56,8 +61,24 @@ public class MainActivity extends BridgeActivity {
   private String pendingNotificationId = null;
   private volatile boolean routeInjectedForCurrentPending = false;
   private volatile boolean dibayWebChromeClientAttached = false;
+  private volatile boolean dibayWebViewClientAttached = false;
   private volatile boolean callRouteLoadingVisible = false;
   private View callRouteLoadingOverlay = null;
+  private View webViewLoadErrorOverlay = null;
+  private TextView webViewLoadErrorDetail = null;
+  private volatile boolean mainFrameLoadFinished = false;
+  private volatile String lastMainFrameLoadFailure = null;
+  private volatile String pendingMainFrameUrl = null;
+  private final Runnable webViewLoadTimeoutRunnable =
+      () -> {
+        if (mainFrameLoadFinished) return;
+        String url = pendingMainFrameUrl;
+        String reason = lastMainFrameLoadFailure != null ? lastMainFrameLoadFailure : "net::ERR_TIMED_OUT";
+        Log.e(
+            WEBVIEW_LOG_TAG,
+            "webview_load_timeout url=" + (url != null ? url : "") + " reason=" + reason);
+        showWebViewLoadErrorOverlay(url, reason);
+      };
   private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
   public static boolean isAppVisibleForIncomingCall() {
@@ -411,8 +432,20 @@ public class MainActivity extends BridgeActivity {
     registerPlugin(com.dibay.app.call.DibayCallAudioRoutePlugin.class);
     registerPlugin(com.dibay.app.call.NativeCallServicePlugin.class);
     super.onCreate(savedInstanceState);
+    Log.i(WEBVIEW_LOG_TAG, "app_start package=" + getPackageName());
+    String serverOrigin = DibayServerOrigin.resolve(this);
+    Log.i(WEBVIEW_LOG_TAG, "capacitor_server_url=" + (serverOrigin != null ? serverOrigin : "(missing)"));
+    if (serverOrigin != null && isForbiddenCapacitorServerUrl(serverOrigin)) {
+      Log.e(
+          WEBVIEW_LOG_TAG,
+          "capacitor_server_url_forbidden url="
+              + serverOrigin
+              + " — rebuild with npm run cap:sync:vercel");
+    }
     webViewPermissionDelegate = new DibayWebViewPermissionDelegate(this);
     attachDibayWebChromeClient();
+    attachDibayWebViewClient();
+    ensureWebViewLoadErrorOverlay();
     logNativeAuthBootState();
     handleNotificationLaunchIntent(getIntent());
   }
@@ -423,6 +456,7 @@ public class MainActivity extends BridgeActivity {
     appVisible = true;
     activeInstance = this;
     attachDibayWebChromeClient();
+    attachDibayWebViewClient();
   }
 
   @Override
@@ -431,6 +465,7 @@ public class MainActivity extends BridgeActivity {
     appVisible = true;
     activeInstance = this;
     attachDibayWebChromeClient();
+    attachDibayWebViewClient();
     flushPendingAppPathIfAny();
     scheduleFlushPendingTerminalEvents();
     String callId = DibayActiveCallSessionManager.getActiveCallId();
@@ -501,6 +536,130 @@ public class MainActivity extends BridgeActivity {
     webView.setWebChromeClient(new DibayDelegatingWebChromeClient(existing, webViewPermissionDelegate));
     dibayWebChromeClientAttached = true;
     Log.i("DIBAY_WebPerm", "delegating_web_chrome_client_attached");
+  }
+
+  private void attachDibayWebViewClient() {
+    Bridge bridge = getBridge();
+    if (bridge == null) return;
+    if (dibayWebViewClientAttached) return;
+    BridgeWebViewClient existing = bridge.getWebViewClient();
+    if (existing instanceof DibayBridgeWebViewClient) {
+      dibayWebViewClientAttached = true;
+      return;
+    }
+    DibayBridgeWebViewClient client =
+        new DibayBridgeWebViewClient(
+            bridge,
+            new DibayBridgeWebViewClient.LoadMonitor() {
+              @Override
+              public void onMainFramePageStarted(String url) {
+                MainActivity.this.onWebViewMainFrameStarted(url);
+              }
+
+              @Override
+              public void onMainFramePageFinished(String url) {
+                MainActivity.this.onWebViewMainFrameFinished(url);
+              }
+
+              @Override
+              public void onMainFrameLoadFailed(String url, String reason) {
+                MainActivity.this.onWebViewMainFrameFailed(url, reason);
+              }
+            });
+    bridge.setWebViewClient(client);
+    dibayWebViewClientAttached = true;
+    Log.i(WEBVIEW_LOG_TAG, "dibay_bridge_webview_client_attached");
+  }
+
+  private void onWebViewMainFrameStarted(String url) {
+    mainHandler.post(
+        () -> {
+          mainFrameLoadFinished = false;
+          lastMainFrameLoadFailure = null;
+          pendingMainFrameUrl = url;
+          hideWebViewLoadErrorOverlay();
+          mainHandler.removeCallbacks(webViewLoadTimeoutRunnable);
+          mainHandler.postDelayed(webViewLoadTimeoutRunnable, WEBVIEW_LOAD_TIMEOUT_MS);
+        });
+  }
+
+  private void onWebViewMainFrameFinished(String url) {
+    mainHandler.post(
+        () -> {
+          mainFrameLoadFinished = true;
+          pendingMainFrameUrl = url;
+          mainHandler.removeCallbacks(webViewLoadTimeoutRunnable);
+          hideWebViewLoadErrorOverlay();
+        });
+  }
+
+  private void onWebViewMainFrameFailed(String url, String reason) {
+    mainHandler.post(
+        () -> {
+          lastMainFrameLoadFailure = reason;
+          pendingMainFrameUrl = url;
+          mainHandler.removeCallbacks(webViewLoadTimeoutRunnable);
+          showWebViewLoadErrorOverlay(url, reason);
+        });
+  }
+
+  private void ensureWebViewLoadErrorOverlay() {
+    if (webViewLoadErrorOverlay != null) return;
+    ViewGroup decor = (ViewGroup) getWindow().getDecorView();
+    webViewLoadErrorOverlay =
+        LayoutInflater.from(this).inflate(R.layout.dibay_webview_load_error_overlay, decor, false);
+    webViewLoadErrorDetail = webViewLoadErrorOverlay.findViewById(R.id.dibay_webview_error_detail);
+    Button retry = webViewLoadErrorOverlay.findViewById(R.id.dibay_webview_error_retry);
+    retry.setOnClickListener(v -> retryWebViewLoad());
+    decor.addView(webViewLoadErrorOverlay);
+  }
+
+  private void showWebViewLoadErrorOverlay(String url, String reason) {
+    ensureWebViewLoadErrorOverlay();
+    if (webViewLoadErrorOverlay == null) return;
+    if (webViewLoadErrorDetail != null) {
+      String detail = (url != null ? url : "") + "\n" + (reason != null ? reason : "");
+      webViewLoadErrorDetail.setText(detail.trim());
+      webViewLoadErrorDetail.setVisibility(View.VISIBLE);
+    }
+    webViewLoadErrorOverlay.setVisibility(View.VISIBLE);
+    Log.e(WEBVIEW_LOG_TAG, "webview_load_error_ui_shown url=" + url + " reason=" + reason);
+  }
+
+  private void hideWebViewLoadErrorOverlay() {
+    if (webViewLoadErrorOverlay == null) return;
+    webViewLoadErrorOverlay.setVisibility(View.GONE);
+  }
+
+  private void retryWebViewLoad() {
+    Log.i(WEBVIEW_LOG_TAG, "webview_retry_clicked");
+    hideWebViewLoadErrorOverlay();
+    mainFrameLoadFinished = false;
+    lastMainFrameLoadFailure = null;
+    Bridge bridge = getBridge();
+    if (bridge == null) return;
+    WebView webView = bridge.getWebView();
+    if (webView == null) return;
+    String origin = DibayServerOrigin.resolve(this);
+    if (origin != null && !origin.isEmpty()) {
+      pendingMainFrameUrl = origin;
+      webView.loadUrl(origin);
+    } else {
+      webView.reload();
+    }
+    mainHandler.removeCallbacks(webViewLoadTimeoutRunnable);
+    mainHandler.postDelayed(webViewLoadTimeoutRunnable, WEBVIEW_LOAD_TIMEOUT_MS);
+  }
+
+  private static boolean isForbiddenCapacitorServerUrl(String origin) {
+    if (origin == null || origin.isEmpty()) return false;
+    String lower = origin.toLowerCase();
+    return lower.contains("localhost")
+        || lower.contains("127.0.0.1")
+        || lower.contains("192.168.")
+        || lower.contains("10.0.")
+        || lower.contains("ngrok")
+        || (lower.contains(".vercel.app") && !lower.equals("https://samarket.vercel.app"));
   }
 
   @Override

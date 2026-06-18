@@ -32,8 +32,18 @@ export type NativeIncomingCallPlugin = {
   getForegroundIncomingCallId(): Promise<{ callId?: string | null }>;
 };
 
-let pluginPromise: Promise<{ plugin: NativeIncomingCallPlugin } | null> | null = null;
+let pluginPromise: Promise<NativeIncomingCallPlugin | null> | null = null;
 let syncPlugin: NativeIncomingCallPlugin | null | undefined;
+
+/**
+ * Capacitor plugin proxies trap arbitrary properties, including `then`.
+ * Promise/async assimilation would call `NativeIncomingCall.then()` and throw UNIMPLEMENTED.
+ */
+function resolveNativePluginWithoutThenableAssimilation(
+  plugin: NativeIncomingCallPlugin,
+): Promise<NativeIncomingCallPlugin> {
+  return Promise.resolve({ plugin }).then((wrapped) => wrapped.plugin);
+}
 
 /** User-gesture ring stop — await 없이 Capacitor plugin 호출 (accept/reject 즉시). */
 export function getSyncNativeIncomingCallPlugin(): NativeIncomingCallPlugin | null {
@@ -47,26 +57,23 @@ export function getSyncNativeIncomingCallPlugin(): NativeIncomingCallPlugin | nu
   return syncPlugin;
 }
 
-export async function getNativeIncomingCallPlugin(): Promise<NativeIncomingCallPlugin | null> {
+export function getNativeIncomingCallPlugin(): Promise<NativeIncomingCallPlugin | null> {
+  if (!isCapacitorNativePlatform()) return Promise.resolve(null);
   const sync = getSyncNativeIncomingCallPlugin();
-  if (sync) return sync;
-  if (!isCapacitorNativePlatform()) return null;
+  if (sync) return resolveNativePluginWithoutThenableAssimilation(sync);
   if (!pluginPromise) {
     pluginPromise = (async () => {
       try {
-        const { registerPlugin } = await import("@capacitor/core");
-        /**
-         * Capacitor plugin proxy traps arbitrary properties, including `then`.
-         * Returning it directly from a Promise makes JS treat it as a thenable and calls
-         * `NativeIncomingCall.then()`. Wrap it so Promise resolution never touches the proxy.
-         */
-        return { plugin: registerPlugin<NativeIncomingCallPlugin>("NativeIncomingCall") };
+        const { registerPlugin: register } = await import("@capacitor/core");
+        return await resolveNativePluginWithoutThenableAssimilation(
+          register<NativeIncomingCallPlugin>("NativeIncomingCall"),
+        );
       } catch {
         return null;
       }
     })();
   }
-  return (await pluginPromise)?.plugin ?? null;
+  return pluginPromise;
 }
 
 export async function readNativePersistedPendingPushRoute(
