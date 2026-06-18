@@ -35,7 +35,7 @@ import {
   MessengerSettingsSheet,
 } from "@/components/community-messenger/community-messenger-home-lazy-sheets";
 import { samTier1HeaderRightColumn } from "@/lib/ui/tier1-header-icon";
-import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
+import { tryRedirectMessengerHomeAuthBlocked } from "@/lib/community-messenger/home/messenger-home-auth-blocked-redirect";
 import {
   resolveImportantRoomHighlightReason,
   type MessengerNotificationCenterItem,
@@ -1099,11 +1099,11 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           });
           return;
         }
-        const apiErr =
-          typeof json.error === "string" && json.error.trim() ? json.error.trim() : "";
-        const authHint = res.status === 401 ? t("common_login_required") : "";
         if (
-          redirectForBlockedAction(router, apiErr || authHint || undefined, messengerListPathname)
+          tryRedirectMessengerHomeAuthBlocked(router, res, json, {
+            nextPath: messengerListPathname,
+            loginRequiredMessage: t("common_login_required"),
+          })
         ) {
           return;
         }
@@ -1399,11 +1399,11 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           void refresh(true);
           return;
         }
-        const apiErr =
-          typeof json.error === "string" && json.error.trim() ? json.error.trim() : "";
-        const authHint = res.status === 401 ? t("common_login_required") : "";
         if (
-          redirectForBlockedAction(router, apiErr || authHint || undefined, messengerListPathname)
+          tryRedirectMessengerHomeAuthBlocked(router, res, json, {
+            nextPath: messengerListPathname,
+            loginRequiredMessage: t("common_login_required"),
+          })
         ) {
           return;
         }
@@ -1492,11 +1492,11 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           void refreshFriendSearch(searchKeyword);
           return;
         }
-        const apiErr =
-          typeof json.error === "string" && json.error.trim() ? json.error.trim() : "";
-        const authHint = res.status === 401 ? t("common_login_required") : "";
         if (
-          redirectForBlockedAction(router, apiErr || authHint || undefined, messengerListPathname)
+          tryRedirectMessengerHomeAuthBlocked(router, res, json, {
+            nextPath: messengerListPathname,
+            loginRequiredMessage: t("common_login_required"),
+          })
         ) {
           return;
         }
@@ -1547,11 +1547,11 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         navigateToCommunityRoomWithViewer(json.roomId);
         return;
       }
-      const apiErr =
-        typeof json.error === "string" && json.error.trim() ? json.error.trim() : "";
-      const authHint = res.status === 401 ? t("common_login_required") : "";
       if (
-        redirectForBlockedAction(router, apiErr || authHint || undefined, messengerListPathname)
+        tryRedirectMessengerHomeAuthBlocked(router, res, json, {
+          nextPath: messengerListPathname,
+          loginRequiredMessage: t("common_login_required"),
+        })
       ) {
         return;
       }
@@ -1613,11 +1613,11 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         navigateToCommunityRoomWithViewer(json.roomId);
         return;
       }
-      const apiErr =
-        typeof json.error === "string" && json.error.trim() ? json.error.trim() : "";
-      const authHint = res.status === 401 ? t("common_login_required") : "";
       if (
-        redirectForBlockedAction(router, apiErr || authHint || undefined, messengerListPathname)
+        tryRedirectMessengerHomeAuthBlocked(router, res, json, {
+          nextPath: messengerListPathname,
+          loginRequiredMessage: t("common_login_required"),
+        })
       ) {
         return;
       }

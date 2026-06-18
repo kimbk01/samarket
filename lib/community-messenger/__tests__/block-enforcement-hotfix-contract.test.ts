@@ -40,7 +40,9 @@ describe("CM block enforcement hotfix contract", () => {
   });
 
   it("post-ack notify filters blocked recipients", () => {
-    const src = read("lib/community-messenger/server/community-messenger-send-post-ack-effects.ts");
-    expect(src).toContain("isBlockedEitherWayActive");
+    const postAck = read("lib/community-messenger/server/community-messenger-send-post-ack-effects.ts");
+    expect(postAck).toContain("notifyMessagePipeline");
+    const pipeline = read("lib/notifications/pipeline/notify-message-pipeline.ts");
+    expect(pipeline).toContain("isNotificationBlockedForRecipient");
   });
 });

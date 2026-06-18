@@ -9280,14 +9280,8 @@ export async function validateCommunityMessengerGroupTargets(
   userId: string,
   memberIds: string[]
 ): Promise<{ ok: true; memberIds: string[] } | { ok: false; error: string }> {
-  const sb = getSupabaseOrNull();
-  if (sb) {
-    const { validateGroupInviteTargets } = await import("@/lib/community-messenger/group/group-room-service");
-    return validateGroupInviteTargets(userId, memberIds, sb);
-  }
-  const peerIds = dedupeIds(memberIds.filter((id) => id && id !== userId));
-  if (!peerIds.length) return { ok: false, error: "members_required" };
-  return { ok: true, memberIds: peerIds };
+  const { validateGroupInviteTargets } = await import("@/lib/community-messenger/group/group-room-service");
+  return validateGroupInviteTargets(userId, memberIds, getSupabaseOrNull());
 }
 
 export async function toggleCommunityMessengerFavoriteFriend(
