@@ -28,7 +28,7 @@ describe("sw.js incoming-call wake regression", () => {
 describe("call terminal navigation policy", () => {
   it("terminal paths use call_logs; non-terminal keeps navigateBack", () => {
     const client = read("components/community-messenger/CommunityMessengerCallClient.tsx");
-    expect(client).toContain("navigateToCommunityMessengerCallLogsAfterTerminal");
+    expect(client).toContain("finalizeCommunityMessengerCallTerminalExit");
     expect(client).toContain("beginRingingCallDismiss");
     expect(client).toContain("closeTerminalView");
     // loading cancel / ringing block / pip minimize still use navigateBack

@@ -70,7 +70,9 @@ describe("bumpNotificationTarget actor gate", () => {
     const routeSrc = read("app/api/community-messenger/rooms/[roomId]/calls/route.ts");
     const serviceSrc = read("lib/community-messenger/service.ts");
     expect(routeSrc).toContain("startCommunityMessengerCallSession");
-    expect(serviceSrc).toContain("ensureNoBlockedEitherWay(input.userId, peerUserId)");
+    expect(serviceSrc).toContain("canStartDirectCallBetweenUsers({");
+    expect(serviceSrc).toContain("callerUserId: input.userId");
+    expect(serviceSrc).toContain("calleeUserId: peerUserId");
   });
 
   it("admin block-history reads SSOT first", () => {

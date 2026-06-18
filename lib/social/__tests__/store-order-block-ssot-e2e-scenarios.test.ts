@@ -16,14 +16,16 @@ describe.todo("store-order chat block SSOT E2E scenarios", () => {
 });
 
 describe("call block SSOT contract", () => {
-  it("startCommunityMessengerCallSession checks ensureNoBlockedEitherWay", async () => {
+  it("startCommunityMessengerCallSession delegates block gate to canStartDirectCallBetweenUsers", async () => {
     const { readFileSync } = await import("node:fs");
     const { join } = await import("node:path");
     const src = readFileSync(
       join(process.cwd(), "lib/community-messenger/service.ts"),
       "utf8"
     );
-    expect(src).toContain("ensureNoBlockedEitherWay(input.userId, peerUserId)");
+    expect(src).toContain("canStartDirectCallBetweenUsers({");
+    expect(src).toContain("callerUserId: input.userId");
+    expect(src).toContain("calleeUserId: peerUserId");
     expect(src).toContain('error: "blocked_target"');
     expect(src).toContain("ensureNoBlockedEitherWay(recipient, callerId)");
     expect(src).toContain("ensureNoBlockedEitherWay(initiator, recipient)");
