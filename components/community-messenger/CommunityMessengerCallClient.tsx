@@ -54,9 +54,13 @@ import {
   syncDevicePermissionState,
 } from "@/lib/permissions/dibay-device-permission-store";
 import {
+  isVideoPipFirstOutgoingPhase,
   shouldMountLocalVideoPipShell,
   shouldRetainPrimedDeviceStreamForVideoPreview,
   shouldShowLocalVideoPipChrome,
+  shouldShowPipFirstLocalPreviewChrome,
+  shouldSuppressCameraPreparingOverlayForPipFirst,
+  shouldUsePipFirstLocalSlot,
   shouldUseSoloLocalFullVideoLayout,
 } from "@/lib/community-messenger/call-video-layout";
 import {
@@ -254,6 +258,33 @@ import { OutgoingRingCameraPreview } from "@/components/community-messenger/Outg
 
 const CALL_CLIENT_TIER = getPublicDeployTier();
 const MAX_MOBILE_CALL_ACTIONS = 5;
+
+function getLocalVideoMountTarget(args: {
+  pipFirstLocalSlot: boolean;
+  layoutSwapped: boolean;
+  soloLocalFull: boolean;
+  smallEl: HTMLDivElement | null;
+  largeEl: HTMLDivElement | null;
+}): HTMLDivElement | null {
+  const { pipFirstLocalSlot, layoutSwapped, soloLocalFull, smallEl, largeEl } = args;
+  if (soloLocalFull && !pipFirstLocalSlot) return largeEl;
+  return layoutSwapped ? largeEl : smallEl;
+}
+
+function buildVideoPipFirstPolicyArgs(args: {
+  session: CommunityMessengerCallSession | null;
+  joined: boolean;
+  remoteJoined: boolean;
+}) {
+  const s = args.session;
+  return {
+    callKind: (s?.callKind ?? "voice") as CommunityMessengerCallKind,
+    sessionStatus: s?.status ?? "ended",
+    isInitiator: Boolean(s?.isMineInitiator),
+    joined: args.joined,
+    remoteJoined: args.remoteJoined,
+  };
+}
 
 type SessionResponse = { ok?: boolean; session?: CommunityMessengerCallSession; error?: string };
 type TokenResponse = { ok?: boolean; connection?: CommunityMessengerManagedCallConnection; error?: string };
@@ -635,6 +666,8 @@ export function CommunityMessengerCallClient({
   const videoStageRef = useRef<HTMLDivElement | null>(null);
   /** 발신 링 단계: 프라임된 getUserMedia 스트림 HTML 미리보기(조인 시 Agora 소비 전 해제) */
   const ringPreviewVideoRef = useRef<HTMLVideoElement | null>(null);
+  /** PiP-first 발신: prejoin HTML 미리보기(PiP slot) */
+  const pipPrejoinVideoRef = useRef<HTMLVideoElement | null>(null);
   /**
    * Agora `consumePrimed` 이후에도 HTML 미리보기를 유지 — `status: active`·조인 중
    * `peek` 가 null 이 되어도 동일 MediaStream 트랙은 살아 있음.
@@ -1896,11 +1929,18 @@ export function CommunityMessengerCallClient({
       remoteJoined: remoteJoinedRef.current,
       isInitiator: s?.isMineInitiator ?? false,
     });
+    const pipFirstLocalSlot = shouldUsePipFirstLocalSlot(
+      buildVideoPipFirstPolicyArgs({
+        session: s,
+        joined: joinedRef.current,
+        remoteJoined: remoteJoinedRef.current,
+      })
+    );
 
     const sm = smallVideoRef.current;
     const lg = largeVideoRef.current;
 
-    if (soloLocalFull) {
+    if (soloLocalFull && !pipFirstLocalSlot) {
       clearLocalVideoContainer(sm);
       if (!videoTrack || !lg) {
         setLocalVideoReady(false);
@@ -1930,7 +1970,13 @@ export function CommunityMessengerCallClient({
       return ok;
     }
 
-    const localEl = swapped ? lg : sm;
+    const localEl = getLocalVideoMountTarget({
+      pipFirstLocalSlot,
+      layoutSwapped: swapped,
+      soloLocalFull,
+      smallEl: sm,
+      largeEl: lg,
+    });
     const mainEl = swapped ? sm : lg;
     if (localEl) clearLocalVideoContainer(localEl);
     /** 솔로 풀(발신 링) → PiP 전환 시 메인 슬롯에 남은 로컬 Agora DOM 제거 */
@@ -2001,8 +2047,11 @@ export function CommunityMessengerCallClient({
       remoteJoined,
       isInitiator: session.isMineInitiator,
     });
+    const pipFirstLocalSlot = shouldUsePipFirstLocalSlot(
+      buildVideoPipFirstPolicyArgs({ session, joined, remoteJoined })
+    );
 
-    if (soloLocalFull) {
+    if (soloLocalFull && !pipFirstLocalSlot) {
       void bindLocalVideoTrack();
       setRemoteVideoReady(false);
       return;
@@ -2039,17 +2088,30 @@ export function CommunityMessengerCallClient({
         remoteJoined: remoteJoinedRef.current,
         isInitiator: session.isMineInitiator,
       });
+      const pipFirstLocalSlot = shouldUsePipFirstLocalSlot(
+        buildVideoPipFirstPolicyArgs({
+          session,
+          joined: joinedRef.current,
+          remoteJoined: remoteJoinedRef.current,
+        })
+      );
       const localTrack = localTracksRef.current?.videoTrack ?? null;
       const remoteTrack = remoteVideoTrackRef.current;
       const lg = largeVideoRef.current;
       const sm = smallVideoRef.current;
 
-      if (soloLocalFull) {
+      if (soloLocalFull && !pipFirstLocalSlot) {
         reapplyAgoraVideoTrack(localTrack, lg, { fit: "cover", mirror: true });
         return;
       }
 
-      const localEl = swapped ? lg : sm;
+      const localEl = getLocalVideoMountTarget({
+        pipFirstLocalSlot,
+        layoutSwapped: swapped,
+        soloLocalFull,
+        smallEl: sm,
+        largeEl: lg,
+      });
       const remoteEl = swapped ? sm : lg;
       if (remoteTrack && remoteEl) {
         reapplyAgoraVideoTrack(remoteTrack, remoteEl, { fit: "cover", mirror: false });
@@ -2137,7 +2199,31 @@ export function CommunityMessengerCallClient({
   }, [camOff, session?.id, session?.callKind, session?.status, joined, bindLocalVideoTrack]);
 
   const switchCameraFacing = useCallback(async () => {
+    const s = sessionRef.current;
     const v = localTracksRef.current?.videoTrack;
+    const pipFirstOutgoing =
+      s?.callKind === "video" &&
+      isVideoPipFirstOutgoingPhase(
+        buildVideoPipFirstPolicyArgs({
+          session: s,
+          joined: joinedRef.current,
+          remoteJoined: remoteJoinedRef.current,
+        })
+      );
+    if (!v && pipFirstOutgoing) {
+      setBusy("camera");
+      try {
+        useRearFacingRef.current = !useRearFacingRef.current;
+        const prime = await primeOutgoingCallMediaBeforeNavigate("video");
+        if (prime.ok) {
+          heldPreJoinVideoPreviewRef.current =
+            peekPrimedCommunityMessengerDeviceStream("video") ?? heldPreJoinVideoPreviewRef.current;
+        }
+      } finally {
+        setBusy(null);
+      }
+      return;
+    }
     if (!v || !isCommunityMessengerCameraSwitchSupported(v)) return;
     console.info("[cm-call-video] camera_switch_start", { sessionId: sessionRef.current?.id?.slice(-8) });
     setBusy("camera");
@@ -2170,7 +2256,10 @@ export function CommunityMessengerCallClient({
   const toggleCamEnabled = useCallback(async () => {
     const v = localTracksRef.current?.videoTrack;
     const client = clientRef.current;
-    if (!v) return;
+    if (!v) {
+      setCamOff((prev) => !prev);
+      return;
+    }
     const nextOff = !camOff;
     setCamOff(nextOff);
     try {
@@ -2460,8 +2549,30 @@ export function CommunityMessengerCallClient({
           const tracks = await createCommunityMessengerAgoraLocalTracks("video");
           localTracksRef.current = tracks;
           const lg = largeVideoRef.current;
-          if (tracks.videoTrack && lg) {
-            const localPlayOk = await bindAgoraLocalVideoTrack(tracks.videoTrack, lg, {
+          const sm = smallVideoRef.current;
+          const pipFirstLocalSlot = shouldUsePipFirstLocalSlot(
+            buildVideoPipFirstPolicyArgs({
+              session: targetSession,
+              joined: false,
+              remoteJoined: false,
+            })
+          );
+          const soloLocalFull = shouldUseSoloLocalFullVideoLayout({
+            callKind: targetSession.callKind,
+            sessionStatus: targetSession.status,
+            joined: false,
+            remoteJoined: false,
+            isInitiator: targetSession.isMineInitiator,
+          });
+          const localEl = getLocalVideoMountTarget({
+            pipFirstLocalSlot,
+            layoutSwapped: false,
+            soloLocalFull,
+            smallEl: sm,
+            largeEl: lg,
+          });
+          if (tracks.videoTrack && localEl) {
+            const localPlayOk = await bindAgoraLocalVideoTrack(tracks.videoTrack, localEl, {
               fit: "cover",
               mirror: true,
             });
@@ -4241,6 +4352,8 @@ export function CommunityMessengerCallClient({
           videoCall: true,
           sessionStatus: session?.status,
           joined,
+          isInitiator: session?.isMineInitiator,
+          remoteJoined,
         })
     ),
     positionMode: presentation === "minimized" ? "viewport-fixed" : "stage-absolute",
@@ -4306,7 +4419,43 @@ export function CommunityMessengerCallClient({
   }, [session?.callKind, session?.isMineInitiator, session?.status]);
 
   useLayoutEffect(() => {
-    if (showOutgoingRingCameraPreview || !preJoinVideoPreviewStream || localVideoReady) {
+    const pipFirstOutgoing =
+      session?.callKind === "video" &&
+      Boolean(session) &&
+      isVideoPipFirstOutgoingPhase(
+        buildVideoPipFirstPolicyArgs({ session, joined, remoteJoined })
+      );
+
+    if (localVideoReady) {
+      setPreJoinVideoElementReady(false);
+      detachPreJoinHtmlVideo(ringPreviewVideoRef.current);
+      detachPreJoinHtmlVideo(pipPrejoinVideoRef.current);
+      return;
+    }
+
+    if (pipFirstOutgoing) {
+      detachPreJoinHtmlVideo(ringPreviewVideoRef.current);
+      if (showOutgoingRingCameraPreview || !preJoinVideoPreviewStream) {
+        setPreJoinVideoElementReady(false);
+        detachPreJoinHtmlVideo(pipPrejoinVideoRef.current);
+        return;
+      }
+      const el = pipPrejoinVideoRef.current;
+      if (!el) return;
+      setPreJoinVideoElementReady(false);
+      let cancelled = false;
+      void attachPreJoinHtmlVideo(el, preJoinVideoPreviewStream).then((ok) => {
+        if (!cancelled) setPreJoinVideoElementReady(ok);
+      });
+      return () => {
+        cancelled = true;
+        if (!localVideoReady) return;
+        detachPreJoinHtmlVideo(el);
+      };
+    }
+
+    detachPreJoinHtmlVideo(pipPrejoinVideoRef.current);
+    if (showOutgoingRingCameraPreview || !preJoinVideoPreviewStream) {
       setPreJoinVideoElementReady(false);
       detachPreJoinHtmlVideo(ringPreviewVideoRef.current);
       return;
@@ -4323,14 +4472,22 @@ export function CommunityMessengerCallClient({
       if (!localVideoReady) return;
       detachPreJoinHtmlVideo(el);
     };
-  }, [localVideoReady, preJoinVideoPreviewStream, showOutgoingRingCameraPreview]);
+  }, [
+    joined,
+    localVideoReady,
+    preJoinVideoPreviewStream,
+    remoteJoined,
+    session,
+    showOutgoingRingCameraPreview,
+  ]);
 
   useEffect(() => {
     if (!localVideoReady) return;
     heldPreJoinVideoPreviewRef.current = null;
-    if (ringPreviewVideoRef.current) {
+    for (const el of [ringPreviewVideoRef.current, pipPrejoinVideoRef.current]) {
+      if (!el) continue;
       try {
-        ringPreviewVideoRef.current.srcObject = null;
+        el.srcObject = null;
       } catch {
         /* noop */
       }
@@ -4377,28 +4534,73 @@ export function CommunityMessengerCallClient({
     videoCall: session?.callKind === "video",
     sessionStatus: session?.status,
     joined,
+    isInitiator: session?.isMineInitiator,
+    remoteJoined,
   });
 
-  const miniVideoSlotEl = useMemo(
-    () =>
-      session?.callKind === "video" ? (
-        <div className="relative h-full w-full bg-[#003D29] [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:object-cover">
-          <div ref={smallVideoRef} className="h-full w-full" />
-          {camOff ? (
-            <div className="pointer-events-none absolute inset-0 z-[2] flex flex-col items-center justify-center gap-1.5 bg-[#003D29]">
-              <SamarketUserAvatarThumb
-                avatarUrl={selfAvatarUrlForPip}
-                size={40}
-                roundedClassName="rounded-full"
-                className="ring-1 ring-[#D4E9E2]/28"
-              />
-              <VideoOff size={14} strokeWidth={2.25} className="text-[#F1F8F4]/90" aria-hidden />
-            </div>
-          ) : null}
-        </div>
-      ) : undefined,
-    [camOff, selfAvatarUrlForPip, session?.callKind]
-  );
+  const pipFirstOutgoingForSlot =
+    session?.callKind === "video" &&
+    Boolean(session) &&
+    isVideoPipFirstOutgoingPhase(
+      buildVideoPipFirstPolicyArgs({ session, joined, remoteJoined })
+    );
+
+  const miniVideoSlotEl = useMemo(() => {
+    if (session?.callKind !== "video") return undefined;
+    const ringCameraPreviewActive =
+      session &&
+      shouldShowOutgoingRingCameraPreview({
+        callKind: session.callKind,
+        sessionStatus: session.status,
+        isInitiator: session.isMineInitiator,
+      });
+    const showPipPrejoin =
+      pipFirstOutgoingForSlot &&
+      !camOff &&
+      (ringCameraPreviewActive || (Boolean(preJoinVideoPreviewStream) && !localVideoReady));
+    return (
+      <div className="relative h-full w-full bg-[#003D29] [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:object-cover">
+        <div ref={smallVideoRef} className="h-full w-full" />
+        {showPipPrejoin ? (
+          ringCameraPreviewActive ? (
+            <OutgoingRingCameraPreview stream={preJoinVideoPreviewStream} />
+          ) : (
+            <video
+              ref={pipPrejoinVideoRef}
+              className={`absolute inset-0 z-[2] h-full w-full object-cover transition-opacity duration-100 ${
+                preJoinVideoElementReady ? "opacity-100" : "opacity-0"
+              }`}
+              muted
+              playsInline
+              autoPlay
+              controls={false}
+              disablePictureInPicture
+              disableRemotePlayback
+            />
+          )
+        ) : null}
+        {camOff ? (
+          <div className="pointer-events-none absolute inset-0 z-[2] flex flex-col items-center justify-center gap-1.5 bg-[#003D29]">
+            <SamarketUserAvatarThumb
+              avatarUrl={selfAvatarUrlForPip}
+              size={40}
+              roundedClassName="rounded-full"
+              className="ring-1 ring-[#D4E9E2]/28"
+            />
+            <VideoOff size={14} strokeWidth={2.25} className="text-[#F1F8F4]/90" aria-hidden />
+          </div>
+        ) : null}
+      </div>
+    );
+  }, [
+    camOff,
+    localVideoReady,
+    pipFirstOutgoingForSlot,
+    preJoinVideoElementReady,
+    preJoinVideoPreviewStream,
+    selfAvatarUrlForPip,
+    session,
+  ]);
 
   useLayoutEffect(() => {
     const livePresentation =
@@ -4498,6 +4700,15 @@ export function CommunityMessengerCallClient({
   }
 
   const videoCall = session.callKind === "video";
+  const pipFirstOutgoing = videoCall
+    ? isVideoPipFirstOutgoingPhase(
+        buildVideoPipFirstPolicyArgs({ session, joined, remoteJoined })
+      )
+    : false;
+  const hasLocalPreviewOrTrack =
+    Boolean(localTracksRef.current?.videoTrack) ||
+    hasLiveCommunityMessengerVideoPreviewStream(preJoinVideoPreviewStream) ||
+    localVideoReady;
   const directPhase = resolveDirectCallPhase(session.status, joined, remoteJoined);
   const suppressTerminalView =
     isTerminalCallSessionStatus(session.status) &&
@@ -4686,6 +4897,12 @@ export function CommunityMessengerCallClient({
         }
       );
     } else {
+      const switchCameraDisabled = pipFirstOutgoing
+        ? !hasLocalPreviewOrTrack || busy === "camera"
+        : !mediaReady || !cameraSwitchSupported || busy === "camera";
+      const cameraToggleDisabled = pipFirstOutgoing
+        ? !hasLocalPreviewOrTrack || busy === "join" || busy === "upgrade"
+        : !mediaReady || busy === "join" || busy === "upgrade";
       primaryActions.push(
         {
           id: "speaker",
@@ -4699,7 +4916,7 @@ export function CommunityMessengerCallClient({
           id: "switch-camera",
           label: t("cm_ui_switch_camera"),
           icon: "camera-switch",
-          disabled: !mediaReady || !cameraSwitchSupported || busy === "camera",
+          disabled: switchCameraDisabled,
           onClick: () => void switchCameraFacing(),
         },
         {
@@ -4707,7 +4924,7 @@ export function CommunityMessengerCallClient({
           label: t("cm_ui_video_short"),
           icon: "camera",
           active: !camOff,
-          disabled: !mediaReady || busy === "join" || busy === "upgrade",
+          disabled: cameraToggleDisabled,
           onClick: () => void toggleCamEnabled(),
         },
         {
@@ -4900,12 +5117,30 @@ export function CommunityMessengerCallClient({
     videoCall,
     sessionStatus: session.status,
     joined,
+    isInitiator: session.isMineInitiator,
+    remoteJoined,
   });
   /** PiP 크롬 — 로컬 트랙 play 완료 후 표시 */
-  const videoPipChromeActive = shouldShowLocalVideoPipChrome({
-    videoCall,
-    sessionStatus: session.status,
-    joined,
+  const videoPipChromeActive =
+    shouldShowLocalVideoPipChrome({
+      videoCall,
+      sessionStatus: session.status,
+      joined,
+      localVideoReady,
+    }) ||
+    shouldShowPipFirstLocalPreviewChrome({
+      pipFirstOutgoing,
+      pipShellMounted,
+      preJoinReady: preJoinVideoElementReady,
+      localVideoReady,
+    });
+  const suppressCameraPreparingOverlay = shouldSuppressCameraPreparingOverlayForPipFirst({
+    pipFirstOutgoing,
+    pipShellMounted,
+    preJoinReady: preJoinVideoElementReady,
+    heldPreJoin: hasLiveCommunityMessengerVideoPreviewStream(
+      preJoinVideoPreviewStream ?? heldPreJoinVideoPreviewRef.current
+    ),
     localVideoReady,
   });
 
@@ -4945,14 +5180,15 @@ export function CommunityMessengerCallClient({
           ? !(remoteJoined && remoteVideoReady)
           : callScreenPhase === "ringing" || callScreenPhase === "connecting")
     ),
+    pipFirstOutgoingMainPlaceholder: pipFirstOutgoing && !remoteJoined,
     primaryActions: visibleActions.primaryActions,
     secondaryActions: visibleActions.secondaryActions,
     mainVideoSlot: videoCall ? (
       <div className="absolute inset-0 min-h-0 bg-[#003D29] [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:min-h-0 [&_video]:object-cover">
         <div ref={largeVideoRef} className="absolute inset-0 z-[1] h-full min-h-0 w-full" />
-        {showOutgoingRingCameraPreview ? (
+        {!pipFirstOutgoing && showOutgoingRingCameraPreview ? (
           <OutgoingRingCameraPreview stream={preJoinVideoPreviewStream} />
-        ) : preJoinVideoPreviewStream && !localVideoReady ? (
+        ) : !pipFirstOutgoing && preJoinVideoPreviewStream && !localVideoReady ? (
           <video
             ref={ringPreviewVideoRef}
             className={`absolute inset-0 z-[2] h-full w-full object-cover transition-opacity duration-100 ${
@@ -4970,7 +5206,8 @@ export function CommunityMessengerCallClient({
         !localVideoReady &&
         (!preJoinVideoPreviewStream || !preJoinVideoElementReady) &&
         !showOutgoingRingCameraPreview &&
-        !permissionBlockedUi ? (
+        !permissionBlockedUi &&
+        !suppressCameraPreparingOverlay ? (
           <div
             className="absolute inset-0 z-[2] flex items-center justify-center bg-[#003D29] pointer-events-none"
             aria-hidden

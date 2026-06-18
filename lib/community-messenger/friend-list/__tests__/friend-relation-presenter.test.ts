@@ -36,4 +36,22 @@ describe("friend-relation-presenter", () => {
     });
     expect(blockedReadd.canAddFriend).toBe(false);
   });
+
+  it("strips leading @ from profile subtitle public id", () => {
+    const row = presentFriendListRow({
+      profile: {
+        id: "peer",
+        label: "Peer",
+        subtitle: "@aa11",
+        avatarUrl: null,
+        isFriend: true,
+        isFavoriteFriend: false,
+        blocked: false,
+        isHiddenFriend: false,
+        following: false,
+      },
+      viewerUserId: "me",
+    });
+    expect(row.publicId).toBe("aa11");
+  });
 });

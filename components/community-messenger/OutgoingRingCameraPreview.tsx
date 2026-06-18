@@ -48,7 +48,7 @@ export function OutgoingRingCameraPreview({ stream }: OutgoingRingCameraPreviewP
   return (
     <video
       ref={videoRef}
-      className={`absolute inset-0 z-[3] h-full w-full object-cover transition-opacity duration-100 ${
+      className={`absolute inset-0 z-[2] h-full w-full object-cover transition-opacity duration-100 ${
         ready ? "opacity-100" : "opacity-0"
       }`}
       muted

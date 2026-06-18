@@ -516,6 +516,8 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
         setIncompleteConfirmOpen(true);
       } else if (setupNext) {
         await tryNavigateAfterRequirementSave(freshProfile ?? profile);
+      } else if (!setupMode) {
+        router.push(backHref);
       }
     } else {
       setMessage({ type: "error", text: result.error });
@@ -583,6 +585,9 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
         onCancel={() => {
           setIncompleteConfirmOpen(false);
           setPendingIncompleteFields([]);
+          if (!setupMode) {
+            router.push(backHref);
+          }
         }}
         title={t("profile_edit_save_incomplete_title")}
         description={

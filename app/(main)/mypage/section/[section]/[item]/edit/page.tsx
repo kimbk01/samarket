@@ -2,8 +2,8 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { ProfileEditForm } from "@/components/my/edit/ProfileEditForm";
-import { buildMypageItemHref } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
+import { MYPAGE_MAIN_HREF } from "@/lib/my/mypage-info-hub";
 
 export default function MypageSectionProfileEditPage({
   params,
@@ -32,7 +32,5 @@ async function MypageSectionProfileEditPageBody({
     notFound();
   }
 
-  const backHref = buildMypageItemHref("account", "profile");
-
-  return <ProfileEditForm backHref={backHref} />;
+  return <ProfileEditForm backHref={MYPAGE_MAIN_HREF} />;
 }

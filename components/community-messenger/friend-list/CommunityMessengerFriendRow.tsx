@@ -2,6 +2,7 @@
 
 import { Star } from "lucide-react";
 import { SamarketUserAvatarThumb } from "@/components/profile/SamarketUserAvatarThumb";
+import { formatAtUsername } from "@/lib/users/user-label";
 import { CommunityMessengerFriendStatusBadge } from "@/components/community-messenger/friend-list/CommunityMessengerFriendStatusBadge";
 import type { FriendListRowViewModel } from "@/lib/community-messenger/friend-list/friend-relation-presenter";
 
@@ -36,7 +37,7 @@ export function CommunityMessengerFriendRow({ row, onPress, onLongPress, disable
           />
         </div>
         {row.publicId ? (
-          <p className="truncate sam-text-helper text-sam-fg-muted">@{row.publicId}</p>
+          <p className="truncate sam-text-helper text-sam-fg-muted">{formatAtUsername(row.publicId)}</p>
         ) : row.subtitle ? (
           <p className="truncate sam-text-helper text-sam-fg-muted">{row.subtitle}</p>
         ) : null}

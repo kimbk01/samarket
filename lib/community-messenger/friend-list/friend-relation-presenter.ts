@@ -103,7 +103,7 @@ export function presentFriendListRow(input: FriendRelationPresenterInput): Frien
   return {
     profileId: input.profile.id,
     displayName: input.profile.label,
-    publicId: input.profile.subtitle?.trim() || null,
+    publicId: input.profile.subtitle?.trim().replace(/^@+/, "") || null,
     avatarUrl: input.profile.avatarUrl ?? null,
     status,
     statusBadgeKey: badge.key,

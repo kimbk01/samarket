@@ -121,11 +121,14 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
     armIdleHideTimer();
   }, [armIdleHideTimer]);
 
+  const outgoingVideoPipFirstHero = Boolean(vm.pipFirstOutgoingMainPlaceholder);
+
   /**
    * 솔로 상단 상태줄 — PiP(`showLocalVideo`) 유무와 무관해야 함.
-   * 예전에는 `!showLocalVideo` 때문에 PiP 켜진 순간 레이아웃이 꺼져 검은 화면+중앙 카드로 떨어졌다.
+   * PiP-first 발신 pre-remote 는 중앙 hero 로 대체한다.
    */
   const outgoingSoloVideoLayout =
+    !outgoingVideoPipFirstHero &&
     vm.mode === "video" &&
     !vm.showRemoteVideo &&
     (vm.direction === "outgoing" ||
@@ -133,18 +136,20 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
         (vm.phase === "ringing" || vm.phase === "connecting" || vm.phase === "connected")));
 
   /** 발신 영상은 `CallHeader` 없음 — 오버레이만 safe-area 에 맞춤 */
-  const outgoingVideoCompactTop = vm.mode === "video" && vm.direction === "outgoing";
+  const outgoingVideoCompactTop =
+    vm.mode === "video" && vm.direction === "outgoing" && !outgoingVideoPipFirstHero;
   const topOverlayPad = outgoingVideoCompactTop
     ? "pt-[max(8px,calc(env(safe-area-inset-top)+12px))]"
     : "pt-[max(8px,calc(env(safe-area-inset-top)+48px))]";
 
-  /** 발신 영상은 중앙 대기 카드(아바타+검은 배경) 금지 — 항상 카메라·영상 레이어 유지 */
+  /** 발신 영상은 중앙 대기 카드(아바타+검은 배경) 금지 — PiP-first pre-remote 는 예외 */
   const showAvatarCenterCard =
-    !(vm.mode === "video" && vm.direction === "outgoing") &&
+    !(vm.mode === "video" && vm.direction === "outgoing" && !outgoingVideoPipFirstHero) &&
     !vm.showRemoteVideo &&
     !outgoingSoloVideoLayout &&
     !pipShellMounted &&
-    !vm.showLocalVideo;
+    !vm.showLocalVideo &&
+    !outgoingVideoPipFirstHero;
 
   /** 영상 수신 벨·연결 중 — 카톡/텔레그램식 중앙 발신자 아바타 */
   const incomingVideoRingHero =
@@ -343,6 +348,47 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
               >
                 {vm.peerLabel}
               </h2>
+            </div>
+          </div>
+        ) : null}
+
+        {outgoingVideoPipFirstHero ? (
+          <div className="pointer-events-none absolute inset-0 z-[5] flex flex-col items-center justify-center px-6 pb-[clamp(128px,18dvh,172px)] pt-[max(72px,calc(env(safe-area-inset-top)+64px))]">
+            <div className="flex w-full max-w-md flex-col items-center text-center">
+              <CallAvatar label={vm.peerLabel} avatarUrl={vm.peerAvatarUrl} pulse theme={vm.visualTheme} />
+              <h2
+                className={`mt-6 text-center text-[clamp(1.35rem,5.5vw,2rem)] font-bold leading-tight tracking-tight ${
+                  isStarbucks ? "text-[#F1F8F4]" : "text-white"
+                }`}
+              >
+                {vm.peerLabel}
+              </h2>
+              <div
+                className={`mt-3 flex items-center justify-center gap-2 sam-text-body font-medium ${
+                  isStarbucks ? "text-[#D4E9E2]/95" : "text-white/90"
+                }`}
+              >
+                <span
+                  className={
+                    isStarbucks
+                      ? "inline-flex h-2 w-2 animate-pulse rounded-full bg-[#CBA258] shadow-[0_0_0_4px_rgba(203,162,88,0.22)]"
+                      : "inline-flex h-2 w-2 animate-pulse rounded-full bg-amber-300 shadow-[0_0_0_4px_rgba(251,191,36,0.22)]"
+                  }
+                  aria-hidden
+                />
+                <span>{timer ?? vm.statusText}</span>
+              </div>
+              {detailLine ? (
+                <p
+                  className={`mt-2 sam-text-body-secondary leading-snug ${
+                    isStarbucks
+                      ? "text-[#D4E9E2]/80 drop-shadow-[0_1px_10px_rgba(0,61,41,0.48)]"
+                      : "text-white/72 drop-shadow-[0_1px_10px_rgba(0,0,0,0.5)]"
+                  }`}
+                >
+                  {detailLine}
+                </p>
+              ) : null}
             </div>
           </div>
         ) : null}
