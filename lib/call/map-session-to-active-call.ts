@@ -1,4 +1,5 @@
 import type { ActiveCallSessionPhase } from "@/lib/call/active-call-session";
+import { mapLegacyPhaseToMachine } from "@/lib/call/active-call-session-machine";
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 
 const TERMINAL_STATUSES = new Set<CommunityMessengerCallSession["status"]>([
@@ -36,4 +37,12 @@ export function mapSessionStatusToActiveCallPhase(
     return joined ? "active" : "connecting";
   }
   return "idle";
+}
+
+export function mapSessionStatusToMachinePhase(
+  session: Pick<CommunityMessengerCallSession, "status" | "isMineInitiator">,
+  joined: boolean,
+) {
+  const legacy = mapSessionStatusToActiveCallPhase(session, joined);
+  return mapLegacyPhaseToMachine(legacy, joined);
 }

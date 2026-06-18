@@ -133,6 +133,7 @@
     "test": "vitest run",
     "verify:messenger-hot-path-contract": "node scripts/verify-messenger-hot-path-contract.cjs",
     "verify:incoming-call-push-delivery-contract": "node scripts/verify-incoming-call-push-delivery-contract.cjs",
+    "verify:active-call-lifecycle-contract": "node scripts/verify-active-call-lifecycle-contract.mjs",
     "verify:messenger-home": "vitest run lib/runtime/__tests__/messenger-home-verification-counters.test.ts",
     "verify:messenger-home-list-owner": "node scripts/verify-messenger-home-list-owner.cjs",
     "verify:messenger-realtime-store-scope": "node scripts/verify-messenger-realtime-store-scope.cjs",

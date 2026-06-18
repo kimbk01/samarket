@@ -10,8 +10,8 @@ import {
   resumeActiveCallSessionFromNative,
   subscribeActiveCallSession,
 } from "@/lib/call/active-call-session";
-import { mapSessionStatusToActiveCallPhase } from "@/lib/call/map-session-to-active-call";
-import { readNativeActiveCallId } from "@/lib/call/native/native-call-service";
+import { mapSessionStatusToActiveCallPhase, mapSessionStatusToMachinePhase } from "@/lib/call/map-session-to-active-call";
+import { readNativeActiveCallId, readNativeActiveCallSnapshot } from "@/lib/call/native/native-call-service";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 import {
   fetchActiveDirectCallSessionForRecovery,
@@ -24,6 +24,7 @@ import {
   readActiveDirectVideoCallSessionId,
   readMinimizedCommunityCallSessionId,
 } from "@/lib/community-messenger/direct-call-minimize";
+import { appendDibayCallQaLog } from "@/lib/call/qa/dibay-call-qa-log";
 import { logDibayCall } from "@/lib/community-messenger/call-orchestrator";
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -84,6 +85,11 @@ export function CallActiveSessionRecoveryHost() {
         });
       }
       router.replace(href);
+      appendDibayCallQaLog({
+        step: "active_call_screen_restored",
+        callId: targetSid,
+        extra: { source, href },
+      });
     };
 
     const tryRecovery = async (reason: "initial" | "auth_ready"): Promise<void> => {
@@ -107,12 +113,24 @@ export function CallActiveSessionRecoveryHost() {
       inFlightRef.current = true;
       try {
         if (isCapacitorNativePlatform()) {
-          const nativeCallId = (await readNativeActiveCallId())?.trim();
+          const snapshot = await readNativeActiveCallSnapshot();
+          const nativeCallId = (snapshot?.callId ?? (await readNativeActiveCallId()))?.trim();
           if (nativeCallId && !cancelled && !routedRef.current) {
+            logDibayCall("active_call_resume_check", {
+              sessionId: nativeCallId,
+              callId: nativeCallId,
+              phase: snapshot?.phase ?? "unknown",
+            });
             const nativeSession = await fetchCallSessionForResume(nativeCallId);
             const nativeStatus = nativeSession?.status?.trim().toLowerCase() ?? "";
             if (nativeSession && !isTerminalCallRecoveryStatus(nativeStatus)) {
-              const phase = mapSessionStatusToActiveCallPhase(nativeSession, nativeStatus === "active");
+              appendDibayCallQaLog({
+                step: "active_call_resume_found",
+                callId: nativeCallId,
+                extra: { source: "native_resume" },
+              });
+              const joined = nativeStatus === "active";
+              const phase = mapSessionStatusToActiveCallPhase(nativeSession, joined);
               if (phase !== "idle") {
                 resumeActiveCallSessionFromNative({
                   callId: nativeSession.id,
@@ -121,6 +139,8 @@ export function CallActiveSessionRecoveryHost() {
                   role: nativeSession.isMineInitiator ? "caller" : "callee",
                   mediaType: nativeSession.callKind,
                   phase,
+                  machinePhase: mapSessionStatusToMachinePhase(nativeSession, joined),
+                  connected: joined,
                 });
               }
               routeToCall(nativeSession.id, "native_resume");

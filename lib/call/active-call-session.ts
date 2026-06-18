@@ -2,10 +2,18 @@
 
 import { clearAgoraJoinGuard } from "@/lib/call/actions/agora-join-guard";
 import { logDibayCall, sealDibayCallTerminalSurface } from "@/lib/community-messenger/call-orchestrator";
-import { endNativeCallService } from "@/lib/call/native/native-call-service";
+import { appendDibayCallQaLog } from "@/lib/call/qa/dibay-call-qa-log";
 import { stopCommunityMessengerCallTone } from "@/lib/community-messenger/call-feedback-sound";
 import { stopCallRingtone } from "@/lib/community-messenger/call-ringtone-controller";
 import { stopCallHeartbeatWatchdog } from "@/lib/call/native/call-heartbeat-watchdog";
+import { endNativeCallService, reportNativeCallRemoteEnded } from "@/lib/call/native/native-call-service";
+import {
+  canCleanupActiveCall,
+  mapLegacyPhaseToMachine,
+  mapMachinePhaseToLegacy,
+  transitionMachinePhase,
+  type ActiveCallSessionMachinePhase,
+} from "@/lib/call/active-call-session-machine";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
 
 /** 제품 라이프사이클 — callId 기준 단일 activeCallSession */
@@ -29,7 +37,16 @@ export type ActiveCallSession = {
   role: ActiveCallSessionRole;
   mediaType: CommunityMessengerCallKind;
   phase: Exclude<ActiveCallSessionPhase, "idle">;
+  /** P4 machine phase — session SSOT for lifecycle */
+  machinePhase: ActiveCallSessionMachinePhase;
+  connected: boolean;
   updatedAt: number;
+};
+
+export type ActiveCallSessionInput = Omit<ActiveCallSession, "updatedAt" | "machinePhase" | "connected"> & {
+  machinePhase?: ActiveCallSessionMachinePhase;
+  connected?: boolean;
+  updatedAt?: number;
 };
 
 const LIVE_PHASES = new Set<ActiveCallSessionPhase>([
@@ -73,14 +90,19 @@ export function getActiveCallSessionCallId(): string | null {
 }
 
 export function setActiveCallSession(
-  input: Omit<ActiveCallSession, "updatedAt"> & { updatedAt?: number },
+  input: ActiveCallSessionInput,
   source = "client",
 ): ActiveCallSession {
+  const machinePhase =
+    input.machinePhase ??
+    mapLegacyPhaseToMachine(input.phase, input.connected ?? input.phase === "active");
   const next: ActiveCallSession = {
     ...input,
     callId: input.callId.trim(),
     roomId: input.roomId?.trim() || null,
     peerUserId: input.peerUserId?.trim() || null,
+    connected: input.connected ?? input.phase === "active",
+    machinePhase,
     updatedAt: input.updatedAt ?? Date.now(),
   };
   const created = !activeSession || activeSession.callId !== next.callId;
@@ -109,13 +131,80 @@ export function patchActiveCallSessionPhase(
     hardClearActiveCallSession(sid, source);
     return null;
   }
-  activeSession = { ...activeSession, phase, updatedAt: Date.now() };
+  const machinePhase = transitionMachinePhase(
+    activeSession.machinePhase,
+    mapLegacyPhaseToMachine(phase, activeSession.connected),
+  );
+  activeSession = {
+    ...activeSession,
+    phase,
+    machinePhase,
+    updatedAt: Date.now(),
+  };
+  notifySync();
+  return activeSession;
+}
+
+export function patchActiveCallSessionMachinePhase(
+  callId: string,
+  machinePhase: ActiveCallSessionMachinePhase,
+  source = "client",
+): ActiveCallSession | null {
+  const sid = callId.trim();
+  if (!sid || !activeSession || activeSession.callId !== sid) return null;
+  const prev = activeSession.machinePhase;
+  const nextPhase = transitionMachinePhase(prev, machinePhase);
+  if (nextPhase !== machinePhase && prev !== machinePhase) {
+    logDibayCall("active_call_machine_transition_blocked", {
+      sessionId: sid,
+      callId: sid,
+      from: prev,
+      to: machinePhase,
+      source,
+    });
+  }
+  activeSession = {
+    ...activeSession,
+    machinePhase: nextPhase,
+    phase:
+      mapMachinePhaseToLegacy(nextPhase) === "idle"
+        ? activeSession.phase
+        : (mapMachinePhaseToLegacy(nextPhase) as Exclude<ActiveCallSessionPhase, "idle">),
+    connected: nextPhase === "CONNECTED" || activeSession.connected,
+    updatedAt: Date.now(),
+  };
+  if (prev !== nextPhase) {
+    const lifecycleStep =
+      nextPhase === "BACKGROUNDED"
+        ? "call_lifecycle_background_keep_alive"
+        : nextPhase === "SCREEN_OFF_ACTIVE"
+          ? "call_lifecycle_screen_off_keep_alive"
+          : nextPhase === "RECONNECTING"
+            ? "media_reconnecting"
+            : nextPhase === "CONNECTED" && prev === "RECONNECTING"
+              ? "media_reconnected"
+              : null;
+    if (lifecycleStep) {
+      appendDibayCallQaLog({
+        step: lifecycleStep,
+        callId: sid,
+        phase: nextPhase,
+        extra: { from: prev, source },
+      });
+    }
+    appendDibayCallQaLog({
+      step: "active_call_machine_phase",
+      callId: sid,
+      phase: nextPhase,
+      extra: { from: prev, source },
+    });
+  }
   notifySync();
   return activeSession;
 }
 
 export function resumeActiveCallSessionFromNative(
-  input: Omit<ActiveCallSession, "updatedAt">,
+  input: ActiveCallSessionInput,
   source = "native_resume",
 ): ActiveCallSession {
   const session = setActiveCallSession(input, source);
@@ -139,9 +228,23 @@ export async function hardClearActiveCallSession(
     notifySync();
     return;
   }
+  if (!canCleanupActiveCall(reason)) {
+    logDibayCall("active_call_cleanup_blocked", {
+      sessionId: sid,
+      callId: sid,
+      reason,
+    });
+    return;
+  }
   logDibayCall("active_session_hard_clear", {
     sessionId: sid,
     callId: sid,
+    reason,
+  });
+  appendDibayCallQaLog({
+    step: "active_call_cleanup",
+    callId: sid,
+    cleanupReason: reason,
     reason,
   });
   activeSession = null;
@@ -150,7 +253,20 @@ export async function hardClearActiveCallSession(
   stopCommunityMessengerCallTone();
   clearAgoraJoinGuard(sid);
   sealDibayCallTerminalSurface(sid);
-  await endNativeCallService(sid, reason);
+  const normalizedReason = reason.trim().toLowerCase();
+  const isRemoteNativeEnd =
+    normalizedReason === "remote_ended" ||
+    normalizedReason === "native_stale_terminal" ||
+    normalizedReason === "recovery_no_live_session" ||
+    normalizedReason === "ended" ||
+    normalizedReason === "rejected" ||
+    normalizedReason === "cancelled" ||
+    normalizedReason === "missed";
+  if (isRemoteNativeEnd) {
+    await reportNativeCallRemoteEnded(sid);
+  } else {
+    await endNativeCallService(sid, reason);
+  }
   notifySync();
 }
 

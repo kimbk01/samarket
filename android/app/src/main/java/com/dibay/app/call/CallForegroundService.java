@@ -53,7 +53,9 @@ public class CallForegroundService extends Service {
   private volatile boolean taskRemovedKeepAlive;
 
   public static String getActiveCallId() {
-    String id = ACTIVE_CALL_ID.get();
+    String id = DibayActiveCallSessionManager.getActiveCallId();
+    if (id != null && !id.isEmpty()) return id;
+    id = ACTIVE_CALL_ID.get();
     return id != null ? id : "";
   }
 
@@ -217,6 +219,7 @@ public class CallForegroundService extends Service {
     FOREGROUND_STARTED_FOR.set(sid);
     lastHeartbeatAtMs = System.currentTimeMillis();
     scheduleHeartbeatWatchdog();
+    DibayActiveCallSessionManager.syncFromForegroundService(sid, kind);
     DibayCallLog.once("foreground_service_started", sid, "source=fgs");
     DibayCallLog.once("call_service_start", sid, "source=fgs");
     return START_STICKY;
@@ -323,6 +326,8 @@ public class CallForegroundService extends Service {
         .setContentTitle("DIBAY 통화")
         .setContentText(label + " 진행 중 · 탭하여 복귀")
         .setOngoing(true)
+        .setAutoCancel(false)
+        .setDeleteIntent(null)
         .setCategory(NotificationCompat.CATEGORY_CALL)
         .setPriority(NotificationCompat.PRIORITY_LOW)
         .setContentIntent(contentIntent)
@@ -369,6 +374,13 @@ public class CallForegroundService extends Service {
     taskRemovedKeepAlive = false;
     final String sid = callId != null && !callId.trim().isEmpty() ? callId.trim() : ACTIVE_CALL_ID.get();
     if (sid != null && !sid.isEmpty()) {
+      if (!DibayActiveCallSessionManager.canCleanup(reason != null ? reason : "client_end")) {
+        DibayCallLog.once("active_call_cleanup_blocked", sid, "reason=" + reason);
+        return;
+      }
+      if ("notification_end".equals(reason) || "client_end".equals(reason) || "local_ended".equals(reason)) {
+        DibayActiveCallSessionManager.onLocalEndNotified(sid);
+      }
       IncomingCallNotificationBuilder.dismissIncomingCall(this, sid);
       CallActivityRouter.clearRouteLatch(sid);
       new Thread(
@@ -388,6 +400,7 @@ public class CallForegroundService extends Service {
     if (sid != null) {
       DibayIncomingCallNativeStore.clear(this, sid, reason);
     }
+    DibayActiveCallSessionManager.clearSession();
     stopForeground(true);
     stopSelf();
     if (sid != null) {

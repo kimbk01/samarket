@@ -49,7 +49,10 @@ export type DibayCallFlowStep =
   | "call_history_start_blocked_active_call"
   | "active_session_hard_clear"
   | "foreground_service_started"
-  | "foreground_service_stopped";
+  | "foreground_service_stopped"
+  | "active_call_cleanup_blocked";
+
+import { bridgeDibayCallLogToQa } from "@/lib/call/qa/dibay-call-qa-log-bridge";
 
 const emittedSteps = new Set<string>();
 
@@ -71,6 +74,7 @@ export function logDibayCallFlow(
     emittedSteps.add(key);
   }
   console.info(`[DIBAY_CALL] ${step}`, { step, at: Date.now(), ...extra });
+  bridgeDibayCallLogToQa(step, extra);
 }
 
 /** 테스트·세션 리셋용 */

@@ -100,14 +100,24 @@ import {
 } from "@/lib/community-messenger/call-lifecycle";
 import {
   hardClearActiveCallSession,
+  patchActiveCallSessionMachinePhase,
   patchActiveCallSessionPhase,
   setActiveCallSession,
 } from "@/lib/call/active-call-session";
 import { releaseCallActionLock } from "@/lib/call/call-action-lock";
-import { mapSessionStatusToActiveCallPhase } from "@/lib/call/map-session-to-active-call";
+import {
+  mapSessionStatusToActiveCallPhase,
+  mapSessionStatusToMachinePhase,
+} from "@/lib/call/map-session-to-active-call";
+import { patchCallSessionHeartbeat } from "@/lib/call/call-server-heartbeat-client";
+import { appendDibayCallQaLog } from "@/lib/call/qa/dibay-call-qa-log";
 import { joinCommunityMessengerAgoraChannelOnce } from "@/lib/call/actions/agora-join-guard";
 import { startCallHeartbeatWatchdog, stopCallHeartbeatWatchdog } from "@/lib/call/native/call-heartbeat-watchdog";
-import { startNativeCallService } from "@/lib/call/native/native-call-service";
+import {
+  reportNativeCallAppState,
+  startNativeCallService,
+} from "@/lib/call/native/native-call-service";
+import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 import {
   cmCallAudioCleanup,
   cmCallFlow,
@@ -1612,6 +1622,14 @@ export function CommunityMessengerCallClient({
       remoteJoined,
       chromeVisible: localVideoReady,
     });
+    if (session?.id) {
+      appendDibayCallQaLog({
+        step: "active_call_pip_entered",
+        callId: session.id,
+        mediaType: "video",
+        extra: { inAppPip: true, layoutSwapped, remoteJoined },
+      });
+    }
   }, [session?.callKind, session?.id, joined, localVideoReady, layoutSwapped, remoteJoined]);
 
   /** 링·active 동안 프라임 미리보기 스트림이 idle 90초 TTL 로 끊기지 않게 유지 */
@@ -1638,11 +1656,12 @@ export function CommunityMessengerCallClient({
     if (!s?.id) return;
     if (isTerminalCallSessionStatus(s.status)) {
       stopCallHeartbeatWatchdog(s.id);
-      void hardClearActiveCallSession(s.id, s.status);
+      void hardClearActiveCallSession(s.id, "remote_ended");
       releaseCallActionLock("terminal");
       return;
     }
     const phase = mapSessionStatusToActiveCallPhase(s, joined);
+    const machinePhase = mapSessionStatusToMachinePhase(s, joined);
     if (phase === "idle") {
       stopCallHeartbeatWatchdog(s.id);
       return;
@@ -1655,16 +1674,55 @@ export function CommunityMessengerCallClient({
         role: s.isMineInitiator ? "caller" : "callee",
         mediaType: s.callKind,
         phase,
+        machinePhase,
+        connected: joined && s.status === "active",
       },
       "call_client",
     );
     if (phase === "active" && joined) {
+      patchActiveCallSessionMachinePhase(s.id, "CONNECTED", "agora_joined");
       void startNativeCallService(s.id, { callKind: s.callKind, phase: "active" });
       startCallHeartbeatWatchdog(s.id);
     } else {
       stopCallHeartbeatWatchdog(s.id);
     }
   }, [joined, session]);
+
+  /** P4 — voice/video: background phase + native bridge; video only pauses camera */
+  useEffect(() => {
+    if (!session?.id || session.status !== "active" || !joined) return;
+    const sid = session.id;
+    const isVideo = session.callKind === "video";
+    const onVis = () => {
+      const hidden = document.visibilityState === "hidden";
+      if (hidden) {
+        patchActiveCallSessionMachinePhase(sid, "BACKGROUNDED", "visibility_hidden");
+        if (isCapacitorNativePlatform()) {
+          void reportNativeCallAppState(sid, "background");
+        }
+        if (isVideo) {
+          const tracks = localTracksRef.current;
+          if (tracks?.videoTrack) {
+            void tracks.videoTrack.setEnabled(false).catch(() => {});
+          }
+        }
+      } else {
+        patchActiveCallSessionMachinePhase(sid, "REENTERING", "visibility_visible");
+        if (isCapacitorNativePlatform()) {
+          void reportNativeCallAppState(sid, "foreground");
+        }
+        if (isVideo) {
+          const tracks = localTracksRef.current;
+          if (tracks?.videoTrack) {
+            void tracks.videoTrack.setEnabled(true).catch(() => {});
+          }
+        }
+        patchActiveCallSessionMachinePhase(sid, "CONNECTED", "foreground_resume");
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [joined, session?.callKind, session?.id, session?.status]);
 
   useEffect(() => {
     if (!session || !isTerminalCallSessionStatus(session.status)) return;
@@ -2354,17 +2412,23 @@ export function CommunityMessengerCallClient({
           }
           if (cur === "RECONNECTING") {
             setAgoraReconnecting(true);
+            patchActiveCallSessionMachinePhase(active.id, "RECONNECTING", "agora_connection");
+            void patchCallSessionHeartbeat(active.id, { reconnecting: true });
             agoraNetworkHooksRef.current.clearTimers();
             agoraNetworkHooksRef.current.scheduleFailTimer();
             return;
           }
           if (cur === "CONNECTED") {
             setAgoraReconnecting(false);
+            patchActiveCallSessionMachinePhase(active.id, "CONNECTED", "agora_reconnected");
+            void patchCallSessionHeartbeat(active.id, { reconnecting: false });
             agoraNetworkHooksRef.current.clearTimers();
             return;
           }
           if (cur === "DISCONNECTED" || cur === "DISCONNECTING") {
             setAgoraReconnecting(true);
+            patchActiveCallSessionMachinePhase(active.id, "RECONNECTING", "agora_disconnected");
+            void patchCallSessionHeartbeat(active.id, { reconnecting: true });
             agoraNetworkHooksRef.current.clearTimers();
             agoraNetworkHooksRef.current.scheduleRecovery();
             if (cur === "DISCONNECTED") void refreshSession(true);

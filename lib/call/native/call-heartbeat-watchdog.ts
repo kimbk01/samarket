@@ -1,5 +1,6 @@
 "use client";
 
+import { patchCallSessionHeartbeat } from "@/lib/call/call-server-heartbeat-client";
 import { runCallEndGuard } from "@/lib/call/actions/call-end-guard";
 import { logDibayCallFlow } from "@/lib/call/logging/call-flow-log";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
@@ -35,6 +36,14 @@ async function pingNativeHeartbeat(callId: string): Promise<void> {
     await nativeCallService.heartbeat(callId);
   } catch {
     /* native plugin optional */
+  }
+}
+
+async function pingServerHeartbeat(callId: string, reconnecting: boolean): Promise<void> {
+  try {
+    await patchCallSessionHeartbeat(callId, { reconnecting });
+  } catch {
+    /* best-effort */
   }
 }
 
@@ -87,6 +96,7 @@ export function startCallHeartbeatWatchdog(callId: string): void {
     handle.lastPingAt = Date.now();
     logDibayCallFlow("call_heartbeat_ping", { sessionId: sid, callId: sid }, { repeat: true });
     void pingNativeHeartbeat(sid);
+    void pingServerHeartbeat(sid, false);
     scheduleTimeout(handle);
   };
 

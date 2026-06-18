@@ -19,6 +19,10 @@ import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
+import android.app.PictureInPictureParams;
+import android.util.Rational;
+import com.dibay.app.call.CallScreenStateReceiver;
+import com.dibay.app.call.DibayActiveCallSessionManager;
 import com.capacitorjs.plugins.browser.BrowserPlugin;
 import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeActivity;
@@ -429,13 +433,57 @@ public class MainActivity extends BridgeActivity {
     attachDibayWebChromeClient();
     flushPendingAppPathIfAny();
     scheduleFlushPendingTerminalEvents();
+    String callId = DibayActiveCallSessionManager.getActiveCallId();
+    if (callId != null && !callId.isEmpty()) {
+      CallScreenStateReceiver.register(this);
+      DibayActiveCallSessionManager.onAppForeground(this, callId);
+    }
   }
 
   @Override
   public void onStop() {
     appVisible = false;
     if (activeInstance == this) activeInstance = null;
+    String callId = DibayActiveCallSessionManager.getActiveCallId();
+    if (callId != null && !callId.isEmpty() && DibayActiveCallSessionManager.isConnected()) {
+      DibayActiveCallSessionManager.onAppBackground(callId);
+    }
     super.onStop();
+  }
+
+  @Override
+  public void onUserLeaveHint() {
+    super.onUserLeaveHint();
+    tryEnterVideoCallPip();
+  }
+
+  @Override
+  public void onPictureInPictureModeChanged(boolean isInPictureInPictureMode) {
+    super.onPictureInPictureModeChanged(isInPictureInPictureMode);
+    String callId = DibayActiveCallSessionManager.getActiveCallId();
+    if (callId == null || callId.isEmpty()) return;
+    if (isInPictureInPictureMode) {
+      DibayActiveCallSessionManager.onPipEntered(callId);
+    } else {
+      DibayActiveCallSessionManager.onPipExited(callId);
+    }
+  }
+
+  /** Video active call — system PiP when home/back; failure must not end call */
+  private void tryEnterVideoCallPip() {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
+    String callId = DibayActiveCallSessionManager.getActiveCallId();
+    if (callId == null || callId.isEmpty() || !DibayActiveCallSessionManager.isConnected()) return;
+    if (!"video".equalsIgnoreCase(DibayActiveCallSessionManager.getMediaType())) return;
+    if (isInPictureInPictureMode()) return;
+    try {
+      PictureInPictureParams params =
+          new PictureInPictureParams.Builder().setAspectRatio(new Rational(9, 16)).build();
+      enterPictureInPictureMode(params);
+    } catch (Exception e) {
+      Log.w("DIBAY_CALL", "active_call_pip_enter_failed callId=" + callId, e);
+      DibayCallLog.once("active_call_pip_enter_failed", callId, "err=" + e.getClass().getSimpleName());
+    }
   }
 
   private void attachDibayWebChromeClient() {

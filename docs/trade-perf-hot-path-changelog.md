@@ -303,3 +303,11 @@ run2: wave1/2/3 각 0–1ms, `[route-perf]` `badge_query_ms: 3`. run3 route JSON
 | Console 401 잔류 | **TODO** (me_profile · auth/session · oauth) | — |
 
 ---
+
+## P4 Active Call Session (2026-06-18)
+
+| 날짜 | 영역 | 변경 | 파일(대표) | 검증 | 재발 방지 |
+|------|------|------|------------|------|-----------|
+| 2026-06-18 | 메신저 통화 | **ActiveCallSession SSOT** — Android FGS/PiP/screen-off keep-alive, iOS CallKit+AVAudioSession, JS presenter background·RECONNECTING, 서버 heartbeat·stale cleanup RPC | `lib/call/active-call-session-machine.ts`, `DibayActiveCallSessionManager.java`, `call-server-heartbeat.ts`, migrations `20260618140000_*`/`20260618150000_*` | `verify:active-call-lifecycle-contract`, unit tests | forbidden cleanup reason 가드·native `reportRemoteEnded` 브리지 유지 |
+
+---

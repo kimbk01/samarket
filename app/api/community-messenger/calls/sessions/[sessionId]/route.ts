@@ -9,6 +9,7 @@ import {
   updateCommunityMessengerCallSession,
   upgradeCommunityMessengerCallSessionToVideo,
 } from "@/lib/community-messenger/service";
+import { heartbeatCommunityMessengerCallSession } from "@/lib/community-messenger/call-session-heartbeat";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 
 export const runtime = "nodejs";
@@ -55,9 +56,19 @@ export async function PATCH(
   if (!rateLimit.ok) return rateLimit.response;
 
   let body: {
-    action?: "accept" | "reject" | "cancel" | "end" | "leave" | "missed" | "upgrade_to_video" | "downgrade_to_voice";
+    action?:
+      | "accept"
+      | "reject"
+      | "cancel"
+      | "end"
+      | "leave"
+      | "missed"
+      | "upgrade_to_video"
+      | "downgrade_to_voice"
+      | "heartbeat";
     durationSeconds?: number;
     clientEndedReason?: string;
+    reconnecting?: boolean;
   };
   try {
     body = await req.json();
@@ -79,6 +90,15 @@ export async function PATCH(
     const result = await downgradeCommunityMessengerCallSessionToVoice({
       userId: auth.userId,
       sessionId,
+    });
+    return NextResponse.json(result, { status: result.ok ? 200 : 400 });
+  }
+
+  if (body.action === "heartbeat") {
+    const result = await heartbeatCommunityMessengerCallSession({
+      userId: auth.userId,
+      sessionId,
+      reconnecting: body.reconnecting === true,
     });
     return NextResponse.json(result, { status: result.ok ? 200 : 400 });
   }

@@ -6,6 +6,7 @@ import type {
   CommunityMessengerCallSessionStatus,
 } from "@/lib/community-messenger/types";
 import { clearNativePersistedCallPendingRoute } from "@/lib/push/native/push-route-native-bridge";
+import { bridgeDibayCallLogToQa } from "@/lib/call/qa/dibay-call-qa-log-bridge";
 
 export type DibayCallOrchestratorState =
   | "IDLE"
@@ -80,7 +81,10 @@ export type DibayCallLogStep =
   | "call_history_start_blocked_active_call"
   | "active_session_hard_clear"
   | "foreground_service_started"
-  | "foreground_service_stopped";
+  | "foreground_service_stopped"
+  | "active_call_cleanup_blocked"
+  | "active_call_machine_transition_blocked"
+  | "active_call_resume_check";
 
 type ActionFlight = {
   action: DibayCallOrchestratorAction;
@@ -130,6 +134,7 @@ export function logDibayCall(step: DibayCallLogStep, extra: Record<string, unkno
     at: Date.now(),
     ...extra,
   });
+  bridgeDibayCallLogToQa(step, extra);
 }
 
 export function markDibayCallTerminal(sessionId: string | null | undefined, now = Date.now()): void {

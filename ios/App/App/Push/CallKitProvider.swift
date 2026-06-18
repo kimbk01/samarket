@@ -37,6 +37,21 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
     callUuidBySessionId.removeValue(forKey: uuidString)
   }
 
+  /** P4 — outgoing/active CallKit session for connected calls */
+  func reportOutgoingCallStarted(sessionId: String, hasVideo: Bool) {
+    let uuid = uuidFromSession(sessionId: sessionId)
+    callUuidBySessionId[sessionId] = uuid
+    let handle = CXHandle(type: .generic, value: sessionId)
+    let start = CXStartCallAction(call: uuid, handle: handle)
+    start.isVideo = hasVideo
+    let transaction = CXTransaction(action: start)
+    CXCallController().request(transaction) { error in
+      if let error = error {
+        NSLog("[DIBAY_CALL] ios_callkit_start_failed callId=%@ err=%@", sessionId, error.localizedDescription)
+      }
+    }
+  }
+
   /** NativeCallService contract — in-memory CallKit map */
   func getActiveCallSessionId() -> String? {
     callUuidBySessionId.keys.first

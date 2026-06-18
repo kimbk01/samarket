@@ -2,7 +2,6 @@ package com.dibay.app.call;
 
 import android.content.Intent;
 import com.dibay.app.DibayCallLog;
-import com.dibay.app.IncomingCallIntentHelper;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -21,6 +20,7 @@ public class NativeCallServicePlugin extends Plugin {
       call.reject("invalid_call_id");
       return;
     }
+    CallScreenStateReceiver.register(getContext());
     CallActivityRouter.onNativeAcceptPrep(getContext(), callId, callKind);
     JSObject result = new JSObject();
     result.put("ok", true);
@@ -36,6 +36,9 @@ public class NativeCallServicePlugin extends Plugin {
       call.reject("invalid_call_id");
       return;
     }
+    CallScreenStateReceiver.register(getContext());
+    DibayActiveCallSessionManager.bindActiveCall(
+        callId, callKind, DibayActiveCallSessionManager.PHASE_CONNECTED);
     CallForegroundService.start(getContext(), callId, callKind, phase);
     JSObject result = new JSObject();
     result.put("ok", true);
@@ -46,7 +49,14 @@ public class NativeCallServicePlugin extends Plugin {
   public void endCall(PluginCall call) {
     String callId = call.getString("callId", "").trim();
     String reason = call.getString("reason", "client_end");
-    CallForegroundService.stop(getContext(), callId, reason);
+    if (!DibayActiveCallSessionManager.canCleanup(reason)) {
+      DibayCallLog.once("active_call_cleanup_blocked", callId, "reason=" + reason);
+      JSObject blocked = new JSObject();
+      blocked.put("ok", false);
+      call.resolve(blocked);
+      return;
+    }
+    DibayActiveCallSessionManager.requestCleanup(getContext(), callId, reason);
     JSObject result = new JSObject();
     result.put("ok", true);
     call.resolve(result);
@@ -55,7 +65,10 @@ public class NativeCallServicePlugin extends Plugin {
   @PluginMethod
   public void getActiveCallId(PluginCall call) {
     JSObject result = new JSObject();
-    String active = CallForegroundService.getActiveCallId();
+    String active = DibayActiveCallSessionManager.getActiveCallId();
+    if (active.isEmpty()) {
+      active = CallForegroundService.getActiveCallId();
+    }
     result.put("callId", active.isEmpty() ? null : active);
     call.resolve(result);
   }
@@ -71,5 +84,55 @@ public class NativeCallServicePlugin extends Plugin {
     JSObject result = new JSObject();
     result.put("ok", true);
     call.resolve(result);
+  }
+
+  @PluginMethod
+  public void reportAppState(PluginCall call) {
+    String callId = call.getString("callId", "").trim();
+    String state = call.getString("state", "foreground");
+    if (callId.isEmpty()) {
+      call.reject("invalid_call_id");
+      return;
+    }
+    switch (state) {
+      case "background":
+        DibayActiveCallSessionManager.onAppBackground(callId);
+        break;
+      case "screen_off":
+        DibayActiveCallSessionManager.onScreenOff(callId);
+        break;
+      case "foreground":
+      default:
+        DibayActiveCallSessionManager.onAppForeground(getContext(), callId);
+        break;
+    }
+    JSObject result = new JSObject();
+    result.put("ok", true);
+    call.resolve(result);
+  }
+
+  @PluginMethod
+  public void getActiveCallSnapshot(PluginCall call) {
+    JSObject result = new JSObject();
+    String active = DibayActiveCallSessionManager.getActiveCallId();
+    if (active.isEmpty()) {
+      active = CallForegroundService.getActiveCallId();
+    }
+    result.put("callId", active.isEmpty() ? null : active);
+    result.put("phase", DibayActiveCallSessionManager.getPhase());
+    result.put("mediaType", DibayActiveCallSessionManager.getMediaType());
+    result.put("connected", DibayActiveCallSessionManager.isConnected());
+    call.resolve(result);
+  }
+
+  @PluginMethod
+  public void reportRemoteEnded(PluginCall call) {
+    String callId = call.getString("callId", "").trim();
+    if (callId.isEmpty()) {
+      call.reject("invalid_call_id");
+      return;
+    }
+    DibayActiveCallSessionManager.onRemoteEnded(getContext(), callId);
+    call.resolve(new JSObject().put("ok", true));
   }
 }

@@ -1,0 +1,108 @@
+{
+  "at": "2026-06-18T13:35:31.609Z",
+  "mode": "adb-only",
+  "deviceA": {
+    "serial": "8b37179f7d94",
+    "account": "aaaa"
+  },
+  "deviceB": {
+    "serial": "RFCY40PY2CA",
+    "account": "qqqq"
+  },
+  "peerUserId": "9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8",
+  "initiatorUserId": "11111111-1111-1111-1111-111111111111",
+  "results": [
+    {
+      "id": "A",
+      "name": "voice + B screen off",
+      "pass": false,
+      "callId": null,
+      "notes": [
+        "no callId"
+      ]
+    },
+    {
+      "id": "B",
+      "name": "video + B screen off",
+      "pass": false,
+      "callId": null,
+      "notes": [
+        "no callId"
+      ]
+    },
+    {
+      "id": "C",
+      "name": "B home",
+      "pass": false,
+      "callId": null,
+      "notes": [
+        "no callId"
+      ]
+    },
+    {
+      "id": "D",
+      "name": "B lock",
+      "pass": false,
+      "callId": null,
+      "notes": [
+        "no callId"
+      ]
+    },
+    {
+      "id": "E",
+      "name": "B force-stop",
+      "pass": false,
+      "callId": null,
+      "notes": [
+        "no callId"
+      ]
+    },
+    {
+      "id": "F",
+      "name": "A ends → B remote",
+      "pass": false,
+      "callId": null,
+      "notes": [
+        "no callId"
+      ]
+    },
+    {
+      "id": "G",
+      "name": "B ends → A remote",
+      "pass": false,
+      "callId": null,
+      "notes": [
+        "no callId"
+      ]
+    },
+    {
+      "id": "H",
+      "name": "network blip B",
+      "pass": false,
+      "callId": null,
+      "notes": [
+        "no callId"
+      ]
+    },
+    {
+      "id": "I",
+      "name": "re-entry",
+      "pass": false,
+      "callId": null,
+      "notes": [
+        "no callId"
+      ]
+    },
+    {
+      "id": "J",
+      "name": "video PiP B",
+      "pass": false,
+      "callId": null,
+      "notes": [
+        "no callId"
+      ]
+    }
+  ],
+  "passCount": 0,
+  "total": 10
+}

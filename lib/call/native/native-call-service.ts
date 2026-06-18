@@ -1,10 +1,20 @@
 "use client";
 
 import { registerPlugin } from "@capacitor/core";
+import { canCleanupActiveCall } from "@/lib/call/active-call-session-machine";
 import { logDibayCallFlow } from "@/lib/call/logging/call-flow-log";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 
 export const NATIVE_CALL_SERVICE_PLUGIN_ID = "NativeCallService";
+
+export type NativeCallAppState = "foreground" | "background" | "screen_off";
+
+export type NativeActiveCallSnapshot = {
+  callId: string | null;
+  phase: string | null;
+  mediaType: string | null;
+  connected: boolean;
+};
 
 export type NativeCallServicePlugin = {
   prepareAccept(options: { callId: string; callKind?: string }): Promise<{ ok: boolean }>;
@@ -12,6 +22,9 @@ export type NativeCallServicePlugin = {
   endCall(options: { callId: string; reason?: string }): Promise<{ ok: boolean }>;
   getActiveCallId(): Promise<{ callId: string | null }>;
   heartbeat(options: { callId: string }): Promise<{ ok: boolean }>;
+  reportAppState(options: { callId: string; state: NativeCallAppState }): Promise<{ ok: boolean }>;
+  getActiveCallSnapshot(): Promise<NativeActiveCallSnapshot>;
+  reportRemoteEnded(options: { callId: string }): Promise<{ ok: boolean }>;
 };
 
 const NativeCallService = registerPlugin<NativeCallServicePlugin>(NATIVE_CALL_SERVICE_PLUGIN_ID);
@@ -70,6 +83,10 @@ export async function startNativeCallService(
 export async function endNativeCallService(callId: string, reason = "client_end"): Promise<boolean> {
   const sid = callId.trim();
   if (!sid) return false;
+  if (!canCleanupActiveCall(reason)) {
+    logDibayCallFlow("active_call_cleanup_blocked", { callId: sid, reason });
+    return false;
+  }
   const result = await invokeNative<{ ok: boolean }>("endCall", { callId: sid, reason });
   if (result?.ok) {
     logDibayCallFlow("call_service_stop", { callId: sid, reason });
@@ -94,6 +111,42 @@ export async function pingNativeCallHeartbeat(callId: string): Promise<boolean> 
   return result?.ok ?? false;
 }
 
+export async function reportNativeCallAppState(
+  callId: string,
+  state: NativeCallAppState,
+): Promise<boolean> {
+  const sid = callId.trim();
+  if (!sid) return false;
+  const result = await invokeNative<{ ok: boolean }>("reportAppState", { callId: sid, state });
+  return result?.ok ?? false;
+}
+
+export async function readNativeActiveCallSnapshot(): Promise<NativeActiveCallSnapshot | null> {
+  const result = await invokeNative<NativeActiveCallSnapshot>("getActiveCallSnapshot");
+  if (!result) return null;
+  return result;
+}
+
+const REMOTE_NATIVE_END_REASONS = new Set([
+  "remote_ended",
+  "ended",
+  "rejected",
+  "cancelled",
+  "missed",
+  "native_stale_terminal",
+  "recovery_no_live_session",
+]);
+
+export async function reportNativeCallRemoteEnded(callId: string): Promise<boolean> {
+  const sid = callId.trim();
+  if (!sid) return false;
+  const result = await invokeNative<{ ok: boolean }>("reportRemoteEnded", { callId: sid });
+  if (result?.ok) {
+    logDibayCallFlow("call_service_stop", { callId: sid, reason: "remote_ended" });
+  }
+  return result?.ok ?? false;
+}
+
 export const nativeCallService = {
   prepareAccept: prepareNativeCallAccept,
   startCall: startNativeCallService,
@@ -101,4 +154,7 @@ export const nativeCallService = {
   getActiveCallId: readNativeActiveCallId,
   getActiveCall: readNativeActiveCallId,
   heartbeat: pingNativeCallHeartbeat,
+  reportAppState: reportNativeCallAppState,
+  getActiveCallSnapshot: readNativeActiveCallSnapshot,
+  reportRemoteEnded: reportNativeCallRemoteEnded,
 };

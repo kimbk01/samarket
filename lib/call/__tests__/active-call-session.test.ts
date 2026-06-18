@@ -6,6 +6,10 @@ import {
   setActiveCallSession,
 } from "@/lib/call/active-call-session";
 import {
+  endNativeCallService,
+  reportNativeCallRemoteEnded,
+} from "@/lib/call/native/native-call-service";
+import {
   acquireCallActionLock,
   isOutgoingCallStartBlocked,
   releaseCallActionLock,
@@ -19,6 +23,7 @@ vi.mock("@/lib/community-messenger/call-orchestrator", () => ({
 
 vi.mock("@/lib/call/native/native-call-service", () => ({
   endNativeCallService: vi.fn(async () => true),
+  reportNativeCallRemoteEnded: vi.fn(async () => true),
 }));
 
 vi.mock("@/lib/community-messenger/call-feedback-sound", () => ({
@@ -47,7 +52,7 @@ describe("active-call-session SSOT", () => {
     expect(getActiveCallSessionCallId()).toBe("call-1");
   });
 
-  it("hard clears terminal session", async () => {
+  it("hard clears terminal session via remote native bridge", async () => {
     setActiveCallSession({
       callId: "call-2",
       roomId: "room-1",
@@ -55,9 +60,47 @@ describe("active-call-session SSOT", () => {
       role: "caller",
       mediaType: "voice",
       phase: "active",
+      machinePhase: "CONNECTED",
+      connected: true,
     });
     await hardClearActiveCallSession("call-2", "ended");
     expect(getActiveCallSessionCallId()).toBeNull();
+    expect(vi.mocked(reportNativeCallRemoteEnded)).toHaveBeenCalledWith("call-2");
+    expect(vi.mocked(endNativeCallService)).not.toHaveBeenCalled();
+  });
+
+  it("hard clears local end via endNativeCallService", async () => {
+    setActiveCallSession({
+      callId: "call-2b",
+      roomId: "room-1",
+      peerUserId: null,
+      role: "caller",
+      mediaType: "voice",
+      phase: "active",
+      machinePhase: "CONNECTED",
+      connected: true,
+    });
+    vi.mocked(endNativeCallService).mockClear();
+    vi.mocked(reportNativeCallRemoteEnded).mockClear();
+    await hardClearActiveCallSession("call-2b", "local_ended");
+    expect(getActiveCallSessionCallId()).toBeNull();
+    expect(vi.mocked(endNativeCallService)).toHaveBeenCalledWith("call-2b", "local_ended");
+    expect(vi.mocked(reportNativeCallRemoteEnded)).not.toHaveBeenCalled();
+  });
+
+  it("blocks forbidden cleanup reason", async () => {
+    setActiveCallSession({
+      callId: "call-3",
+      roomId: "room-1",
+      peerUserId: null,
+      role: "caller",
+      mediaType: "voice",
+      phase: "active",
+      machinePhase: "CONNECTED",
+      connected: true,
+    });
+    await hardClearActiveCallSession("call-3", "activity_destroyed");
+    expect(getActiveCallSessionCallId()).toBe("call-3");
   });
 });
 

@@ -18358,6 +18358,11 @@ export async function updateCommunityMessengerCallSession(input: {
         if (useClientFailure) updatePayload.ended_reason = fr;
         else if (er) updatePayload.ended_reason = er;
         else if (next.nextStatus === "active") updatePayload.ended_reason = null;
+        if (next.nextStatus === "active") {
+          const hbSeed = nowIso();
+          updatePayload.caller_last_heartbeat_at = hbSeed;
+          updatePayload.callee_last_heartbeat_at = hbSeed;
+        }
         const result = await (sb as any)
           .from("community_messenger_call_sessions")
           .update(updatePayload)

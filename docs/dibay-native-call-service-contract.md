@@ -3,40 +3,39 @@
 JS bridge: `lib/call/native/native-call-service.ts`  
 Capacitor plugin id: **`NativeCallService`**
 
-CallKit (iOS) and Android FGS are the **system** live-call SSOT on native.  
-JS `activeCallSession` (`lib/call/active-call-session.ts`) is auxiliary UI + lock coordination.
+CallKit (iOS) and Android FGS + `DibayActiveCallSessionManager` are the **system** live-call SSOT on native.  
+JS `activeCallSession` + `active-call-session-machine.ts` are auxiliary UI + cleanup reason coordination.
+
+See also: `docs/community-messenger-active-call-lifecycle.md`
 
 ## Methods (TS ↔ Android ↔ iOS)
 
-| Method | TS export | Android (`NativeCallServicePlugin.java`) | iOS (`NativeCallServicePlugin.swift`) |
-|--------|-----------|------------------------------------------|---------------------------------------|
-| prepareAccept | `prepareNativeCallAccept` | `prepareAccept` → FGS prep | stub `{ ok: true }` |
-| startCall | `startNativeCallService` | `startCall` → `CallForegroundService` | stub `{ ok: true }` |
-| endCall | `endNativeCallService` | `endCall` → stop FGS | `endCall` → `CallKitProvider.reportCallEnded` |
-| getActiveCallId | `readNativeActiveCallId` / **`getActiveCall`** alias | `getActiveCallId` → FGS map | `getActiveCallId` → CallKit in-memory map |
-| heartbeat | `pingNativeCallHeartbeat` | `heartbeat` → FGS watchdog | stub `{ ok: true }` |
+| Method | TS export | Android | iOS |
+|--------|-----------|---------|-----|
+| prepareAccept | `prepareNativeCallAccept` | FGS prep + screen receiver | Manager ACCEPTED + AVAudioSession |
+| startCall | `startNativeCallService` | Manager CONNECTED + FGS | Manager CONNECTED + CallKit start |
+| endCall | `endNativeCallService` | Manager cleanup guard + FGS stop | Manager cleanup guard + CallKit end |
+| getActiveCallId | `readNativeActiveCallId` | Manager / FGS | Manager / CallKit map |
+| heartbeat | `pingNativeCallHeartbeat` | FGS watchdog | Manager persist |
+| reportAppState | `reportNativeCallAppState` | BACKGROUNDED / SCREEN_OFF / foreground | Same phases |
+| getActiveCallSnapshot | `readNativeActiveCallSnapshot` | `{ callId, phase, mediaType, connected }` | Same |
+
+## Cleanup reasons
+
+Forbidden (native + JS reject): `activity_destroyed`, `webview_reload`, `notification_dismissed`, `screen_off`, `backgrounded`, `app_swipe`, `unknown`.
+
+Allowed: `local_ended`, `remote_ended`, `heartbeat_timeout`, `media_failed_after_connected`, …
 
 ## Cold start recovery (JS)
 
-1. `readNativeActiveCallId()` (or `getActiveCall()`)
+1. `readNativeActiveCallId()` or `readNativeActiveCallSnapshot()`
 2. `GET /api/community-messenger/calls/sessions/{callId}`
-3. live (`ringing|active`) → `router.replace(/calls/{id}?source=native_resume)` + SSOT sync
-4. terminal → `hardClearActiveCallSession`
+3. live (`ringing|active`) → route + SSOT sync; **no incoming UI**
+4. terminal → `hardClearActiveCallSession("remote_ended")`
 
 Implemented in `CallActiveSessionRecoveryHost.tsx`.
 
-## VoIP / FCM payload alignment
+## Server heartbeat
 
-| Field | FCM incoming | VoIP PushKit |
-|-------|--------------|--------------|
-| session id | `callId` / `sessionId` | `sessionId` |
-| kind | `callKind` voice/video | `hasVideo` bool |
-| action | notification accept intent | CallKit answer → `dibay:voip-call-action` accept |
-
-JS listener: `lib/push/native/dibay-voip-call-bridge.ts`  
-Native emitter: `ios/App/App/Push/DibayPushTokenBridge.swift`
-
-## iOS stub scope (P0)
-
-- Full outgoing CallKit parity is **out of scope** (2nd phase).
-- Stub ensures JS methods never crash; accept/end route through existing accept gateway + `hardClear`.
+Client: `patchCallSessionHeartbeat` every 10s with native ping.  
+PATCH `action=heartbeat` on `active` sessions. Stale cleanup: `POST .../calls/sessions/stale-cleanup`.
