@@ -12,6 +12,12 @@ describe("messenger call logs scroll chrome surface", () => {
     ).toBe(true);
   });
 
+  it("enables on hub friends section", () => {
+    expect(isMessengerCallLogsBottomNavScrollHideSurface("/community-messenger", "section=friends")).toBe(
+      true
+    );
+  });
+
   it("disables on other messenger hub sections", () => {
     expect(isMessengerCallLogsBottomNavScrollHideSurface("/community-messenger", "section=chats")).toBe(
       false
@@ -32,7 +38,7 @@ describe("messenger call logs scroll chrome surface", () => {
       )
     ).toBe(true);
     expect(resolveBottomNavScrollHideEnabled("/community-messenger", false, "section=friends")).toBe(
-      false
+      true
     );
   });
 });

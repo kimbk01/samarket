@@ -24,7 +24,7 @@ import {
 export const BOTTOM_NAV_REVEAL_AFTER_SCROLL_IDLE_MS = 1800;
 
 /**
- * `/philife`(헤더 메신저 푸시가 아닐 때)·거래 플로팅면·배달(`/stores`)·내정보 홈·메신저 통화 기록 :
+ * `/philife`(헤더 메신저 푸시가 아닐 때)·거래 플로팅면·배달(`/stores`)·내정보 홈·메신저 통화 기록·친구 목록 :
  * 아래로 스크롤 시 하단 탭을 접기.
  */
 export function resolveBottomNavScrollHideEnabled(

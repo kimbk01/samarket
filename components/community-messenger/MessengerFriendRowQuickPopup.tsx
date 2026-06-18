@@ -1,9 +1,10 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useId, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useId, useState } from "react";
+import { Bell, BellOff } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { MessengerHomeBottomSheetShell } from "@/components/community-messenger/MessengerSheetUi";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 
 type Step = "main" | "call";
@@ -101,11 +102,6 @@ export function MessengerFriendRowQuickPopup({
   const { t } = useI18n();
   const pid = profile.id;
   const titleId = useId();
-  const panelRef = useRef<HTMLDivElement>(null);
-  /** Only close dimmer on a real pointer cycle on the dimmer (avoids synthetic `click` after touch). */
-  const dimmerPointerIdRef = useRef<number | null>(null);
-  /** Ignore dimmer close briefly after open (same touch can synthesize a follow-up on mobile). */
-  const dimmerSuppressUntilRef = useRef(0);
   const [step, setStep] = useState<Step>("main");
   const [launching, setLaunching] = useState<null | "chat" | "voice" | "video">(null);
 
@@ -115,7 +111,6 @@ export function MessengerFriendRowQuickPopup({
       setLaunching((prev) => (prev === null ? prev : null));
       return;
     }
-    dimmerSuppressUntilRef.current = Date.now() + 320;
     setStep((prev) => (prev === "main" ? prev : "main"));
     setLaunching((prev) => (prev === null ? prev : null));
   }, [open, pid]);
@@ -129,8 +124,7 @@ export function MessengerFriendRowQuickPopup({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  if (!open || typeof document === "undefined") return null;
-  if (!document.body) return null;
+  if (!open) return null;
 
   const bChat = busyId === `room:${pid}`;
   const bVoice = pendingVoice || busyId === `call:voice:${pid}`;
@@ -149,217 +143,202 @@ export function MessengerFriendRowQuickPopup({
     window.setTimeout(() => onClose(), ms);
   };
 
-  return createPortal(
-    <>
-      <div
-        className="fixed inset-0 z-[55] bg-black/50"
-        data-messenger-friend-quick-popup="true"
-        aria-hidden
-        onPointerDown={(e) => {
-          if (e.button !== 0) return;
-          if (e.target !== e.currentTarget) return;
-          dimmerPointerIdRef.current = e.pointerId;
-        }}
-        onPointerUp={(e) => {
-          if (e.button !== 0) return;
-          if (e.target !== e.currentTarget) return;
-          if (dimmerPointerIdRef.current !== e.pointerId) return;
-          dimmerPointerIdRef.current = null;
-          if (Date.now() < dimmerSuppressUntilRef.current) return;
-          onClose();
-        }}
-        onPointerCancel={() => {
-          dimmerPointerIdRef.current = null;
-        }}
-      />
-      <div
-        className="pointer-events-none fixed inset-0 z-[56] flex items-center justify-center px-4 py-6"
-        data-messenger-friend-quick-popup="true"
-        data-messenger-shell
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-      >
-        <div
-          ref={panelRef}
-          data-messenger-friend-sheet="true"
-          className="pointer-events-auto w-full max-w-[420px] overflow-hidden rounded-[24px] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[0_24px_70px_rgba(15,23,42,0.34)]"
-        >
-          {step === "main" ? (
-            <>
-              <div className="border-b border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-4 py-3">
-                <p id={titleId} className="truncate sam-text-body-lg font-semibold" style={{ color: "var(--messenger-text)" }}>
-                  {profile.label}
-                </p>
-                <p className="mt-1 truncate sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }}>
-                  {profile.bio?.trim() || profile.subtitle?.trim() || ""}
-                </p>
-                <div className="mt-3 grid grid-cols-3 gap-2">
-                  <ActionTile
-                    label={bChat ? t("cm_ui_connecting") : t("cm_ui_direct_chat")}
-                    icon={<IconChatOutline className="h-5 w-5" />}
-                    onClick={() => {
-                      haptic(12);
-                      setLaunching("chat");
-                      window.setTimeout(() => onChat(), 220);
-                      closeAfterPress(300);
-                    }}
-                    disabled={anyBusy}
-                  />
-                  <ActionTile
-                    label={bVoice ? t("cm_ui_connecting") : t("nav_voice_call_label")}
-                    icon={<IconPhoneOutline className="h-5 w-5" />}
-                    onClick={() => {
-                      haptic(14);
-                      setLaunching("voice");
-                      window.setTimeout(() => onVoiceCall(), 220);
-                      closeAfterPress(300);
-                    }}
-                    disabled={anyBusy}
-                  />
-                  <ActionTile
-                    label={bVideo ? t("cm_ui_connecting") : t("nav_video_call_label")}
-                    icon={<IconVideoOutline className="h-5 w-5" />}
-                    onClick={() => {
-                      haptic(14);
-                      setLaunching("video");
-                      window.setTimeout(() => onVideoCall(), 220);
-                      closeAfterPress(300);
-                    }}
-                    disabled={anyBusy}
-                  />
-                </div>
-              </div>
+  const muteIcon =
+    typeof directRoomMuted === "boolean" ?
+      directRoomMuted ?
+        <Bell className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
+      : <BellOff className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
+    : null;
 
-              <div className="px-4 py-3">
-                <div className="overflow-hidden rounded-[18px] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)]">
+  return (
+    <MessengerHomeBottomSheetShell
+      onClose={onClose}
+      closeAriaLabel={t("nav_close")}
+      dialogAriaLabel={profile.label}
+      anchor="center"
+      panelClassName="w-full max-w-[420px] overflow-hidden rounded-[24px] shadow-[0_24px_70px_rgba(15,23,42,0.34)]"
+    >
+      <div data-messenger-friend-quick-popup="true" data-messenger-friend-sheet="true" className="flex max-h-[min(80dvh,560px)] flex-col overflow-hidden">
+        {step === "main" ? (
+          <>
+            <div className="border-b border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-4 py-3">
+              <p id={titleId} className="truncate sam-text-body-lg font-semibold" style={{ color: "var(--messenger-text)" }}>
+                {profile.label}
+              </p>
+              <p className="mt-1 truncate sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }}>
+                {profile.bio?.trim() || profile.subtitle?.trim() || ""}
+              </p>
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                <ActionTile
+                  label={bChat ? t("cm_ui_connecting") : t("cm_ui_direct_chat")}
+                  icon={<IconChatOutline className="h-5 w-5" />}
+                  onClick={() => {
+                    haptic(12);
+                    setLaunching("chat");
+                    window.setTimeout(() => onChat(), 220);
+                    closeAfterPress(300);
+                  }}
+                  disabled={anyBusy}
+                />
+                <ActionTile
+                  label={bVoice ? t("cm_ui_connecting") : t("nav_voice_call_label")}
+                  icon={<IconPhoneOutline className="h-5 w-5" />}
+                  onClick={() => {
+                    haptic(14);
+                    setLaunching("voice");
+                    window.setTimeout(() => onVoiceCall(), 220);
+                    closeAfterPress(300);
+                  }}
+                  disabled={anyBusy}
+                />
+                <ActionTile
+                  label={bVideo ? t("cm_ui_connecting") : t("nav_video_call_label")}
+                  icon={<IconVideoOutline className="h-5 w-5" />}
+                  onClick={() => {
+                    haptic(14);
+                    setLaunching("video");
+                    window.setTimeout(() => onVideoCall(), 220);
+                    closeAfterPress(300);
+                  }}
+                  disabled={anyBusy}
+                />
+              </div>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+              <div className="overflow-hidden rounded-[18px] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)]">
+                <SheetRow
+                  label={t("cm_ui_open_profile")}
+                  onClick={() => {
+                    haptic(10);
+                    onOpenProfile();
+                    closeAfterPress();
+                  }}
+                />
+                <SheetRow
+                  label={favoriteActive ? t("cm_ui_unfavorite") : t("cm_ui_favorite")}
+                  onClick={() => {
+                    haptic(10);
+                    onToggleFavorite();
+                    closeAfterPress();
+                  }}
+                  disabled={busyId != null}
+                />
+                {showMuteRow && onToggleMute ? (
                   <SheetRow
-                    label={t("cm_ui_open_profile")}
+                    label={
+                      notificationsBusy
+                        ? t("common_processing")
+                        : typeof directRoomMuted === "boolean"
+                          ? directRoomMuted
+                            ? t("cm_ui_turn_on_conversation_notifications")
+                            : t("cm_ui_turn_off_conversation_notifications")
+                          : t("cm_ui_conversation_notifications")
+                    }
+                    sub={
+                      typeof directRoomMuted === "boolean"
+                        ? directRoomMuted
+                          ? t("cm_ui_current_off")
+                          : t("cm_ui_current_on")
+                        : undefined
+                    }
+                    icon={muteIcon}
                     onClick={() => {
                       haptic(10);
-                      onOpenProfile();
+                      onToggleMute();
                       closeAfterPress();
                     }}
+                    disabled={anyBusy || typeof directRoomMuted !== "boolean" || notificationsBusy}
                   />
-                  <SheetRow
-                    label={favoriteActive ? t("cm_ui_unfavorite") : t("cm_ui_favorite")}
-                    onClick={() => {
-                      haptic(10);
-                      onToggleFavorite();
-                      closeAfterPress();
-                    }}
-                    disabled={busyId != null}
-                  />
-                  {showMuteRow && onToggleMute ? (
-                    <SheetRow
-                      label={
-                        notificationsBusy
-                          ? t("common_processing")
-                          : typeof directRoomMuted === "boolean"
-                            ? directRoomMuted
-                              ? t("cm_ui_turn_on_conversation_notifications")
-                              : t("cm_ui_turn_off_conversation_notifications")
-                            : t("cm_ui_conversation_notifications")
-                      }
-                      sub={typeof directRoomMuted === "boolean" ? (directRoomMuted ? t("cm_ui_current_off") : t("cm_ui_current_on")) : undefined}
-                      onClick={() => {
-                        haptic(10);
-                        onToggleMute();
-                        closeAfterPress();
-                      }}
-                      disabled={anyBusy || typeof directRoomMuted !== "boolean" || notificationsBusy}
-                    />
-                  ) : null}
-                </div>
-
-            <div className="mt-3 overflow-hidden rounded-[18px] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)]">
-                  <SheetRow
-                    label={isHidden ? t("cm_ui_unhide") : t("common_hide")}
-                    onClick={() => {
-                      haptic(12);
-                      onHide();
-                      closeAfterPress();
-                    }}
-                    danger
-                  />
-                  <SheetRow
-                    label={isBlocked ? t("cm_ui_unblock") : t("common_block")}
-                    onClick={() => {
-                      haptic(12);
-                      onBlock();
-                      closeAfterPress();
-                    }}
-                    danger
-                  />
-                  <SheetRow
-                    label={t("cm_ui_remove_friend")}
-                    onClick={() => {
-                      haptic(14);
-                      onRemove();
-                      closeAfterPress();
-                    }}
-                    danger
-                  />
-                </div>
+                ) : null}
               </div>
+
+              <div className="mt-3 overflow-hidden rounded-[18px] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)]">
+                <SheetRow
+                  label={isHidden ? t("cm_ui_unhide") : t("common_hide")}
+                  onClick={() => {
+                    haptic(12);
+                    onHide();
+                    closeAfterPress();
+                  }}
+                  danger
+                />
+                <SheetRow
+                  label={isBlocked ? t("cm_ui_unblock") : t("common_block")}
+                  onClick={() => {
+                    haptic(12);
+                    onBlock();
+                    closeAfterPress();
+                  }}
+                  danger
+                />
+                <SheetRow
+                  label={t("cm_ui_remove_friend")}
+                  onClick={() => {
+                    haptic(14);
+                    onRemove();
+                    closeAfterPress();
+                  }}
+                  danger
+                />
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full shrink-0 border-t border-[color:var(--messenger-divider)] px-4 py-3 sam-text-body font-medium"
+              style={{ color: "var(--messenger-text-secondary)" }}
+            >
+              {t("nav_close")}
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="flex items-center gap-1 border-b border-[color:var(--messenger-divider)] px-2 py-2">
               <button
                 type="button"
-                onClick={onClose}
-                className="w-full border-t border-[color:var(--messenger-divider)] px-4 py-3 sam-text-body font-medium"
-                style={{ color: "var(--messenger-text-secondary)" }}
+                onClick={() => setStep("main")}
+                className="flex h-8 w-8 items-center justify-center rounded-lg sam-text-page-title active:bg-[color:var(--messenger-primary-soft)]"
+                style={{ color: "var(--messenger-text)" }}
+                aria-label={t("nav_back")}
               >
-                {t("nav_close")}
+                ‹
               </button>
-            </>
-          ) : (
-            <>
-              <div className="flex items-center gap-1 border-b border-[color:var(--messenger-divider)] px-2 py-2">
-                <button
-                  type="button"
-                  onClick={() => setStep("main")}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg sam-text-page-title active:bg-[color:var(--messenger-primary-soft)]"
-                  style={{ color: "var(--messenger-text)" }}
-                  aria-label={t("nav_back")}
-                >
-                  ‹
-                </button>
-                <p className="flex-1 text-center sam-text-body-secondary font-semibold" style={{ color: "var(--messenger-text)" }}>
-                  {t("cm_ui_make_call")}
-                </p>
-                <span className="w-8" />
+              <p className="flex-1 text-center sam-text-body-secondary font-semibold" style={{ color: "var(--messenger-text)" }}>
+                {t("cm_ui_make_call")}
+              </p>
+              <span className="w-8" />
+            </div>
+            <div className="px-4 py-4">
+              <div className="overflow-hidden rounded-[18px] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)]">
+                <SheetRow
+                  label={bVoice ? t("cm_ui_voice_call_connecting") : t("cm_ui_voice_call")}
+                  sub={t("cm_ui_voice_short")}
+                  icon={<IconPhoneOutline className="h-5 w-5" />}
+                  onClick={() => {
+                    haptic(14);
+                    onVoiceCall();
+                    closeAfterPress();
+                  }}
+                  disabled={anyBusy}
+                />
+                <SheetRow
+                  label={bVideo ? t("cm_ui_video_call_connecting") : t("cm_ui_video_call")}
+                  sub={t("cm_ui_video_short")}
+                  icon={<IconVideoOutline className="h-5 w-5" />}
+                  onClick={() => {
+                    haptic(14);
+                    onVideoCall();
+                    closeAfterPress();
+                  }}
+                  disabled={anyBusy}
+                />
               </div>
-              <div className="px-4 py-4">
-                <div className="overflow-hidden rounded-[18px] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)]">
-                  <SheetRow
-                    label={bVoice ? t("cm_ui_voice_call_connecting") : t("cm_ui_voice_call")}
-                    sub={t("cm_ui_voice_short")}
-                    icon={<IconPhoneOutline className="h-5 w-5" />}
-                    onClick={() => {
-                      haptic(14);
-                      onVoiceCall();
-                      closeAfterPress();
-                    }}
-                    disabled={anyBusy}
-                  />
-                  <SheetRow
-                    label={bVideo ? t("cm_ui_video_call_connecting") : t("cm_ui_video_call")}
-                    sub={t("cm_ui_video_short")}
-                    icon={<IconVideoOutline className="h-5 w-5" />}
-                    onClick={() => {
-                      haptic(14);
-                      onVideoCall();
-                      closeAfterPress();
-                    }}
-                    disabled={anyBusy}
-                  />
-                </div>
-              </div>
-            </>
-          )}
-        </div>
+            </div>
+          </>
+        )}
       </div>
-    </>,
-    document.body
+    </MessengerHomeBottomSheetShell>
   );
 }
 
@@ -413,7 +392,7 @@ function SheetRow({
       }`}
       style={{ color: danger ? "var(--ui-danger)" : "var(--messenger-text)" }}
     >
-      {icon ? <span className="shrink-0">{icon}</span> : null}
+      {icon ? <span className="shrink-0 text-[color:var(--messenger-primary)]">{icon}</span> : null}
       <span className="min-w-0 flex-1">
         <span className="block sam-text-body font-medium">{label}</span>
         {sub ? <span className="mt-0.5 block sam-text-xxs text-[color:var(--messenger-text-secondary)]">{sub}</span> : null}

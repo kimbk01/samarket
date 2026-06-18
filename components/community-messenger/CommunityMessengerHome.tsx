@@ -3045,6 +3045,8 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           onClose={() => closeHomeOverlay("friends-privacy")}
           onToggleHidden={(userId) => void toggleHiddenFriend(userId)}
           onToggleBlock={(userId) => void toggleBlock(userId)}
+          onToggleMute={(userId) => onFriendToggleRoomMuteStable(userId)}
+          friendNotificationsBusy={friendNotificationsBusyStable}
           onOpenChat={(userId) => {
             closeHomeOverlay("friends-privacy");
             void startDirectRoom(userId);

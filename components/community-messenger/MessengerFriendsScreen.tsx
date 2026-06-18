@@ -5,6 +5,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "reac
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessengerResetTransientUiFn } from "@/lib/community-messenger/messenger-reset-transient-ui";
 import { MessengerFriendRowQuickPopup } from "@/components/community-messenger/MessengerFriendRowQuickPopup";
+import { MessengerFriendsPrivacySummaryIcons } from "@/components/community-messenger/MessengerFriendsPrivacySheet";
 import { CommunityMessengerFriendList } from "@/components/community-messenger/friend-list/CommunityMessengerFriendList";
 import type { CommunityMessengerFriendRequest, CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 import type { MessengerFriendStateModel } from "@/lib/community-messenger/messenger-friend-model";
@@ -161,11 +162,15 @@ export function MessengerFriendsScreen({
             className="flex w-full items-center justify-between border-b border-t border-[color:var(--messenger-divider)] bg-[color:var(--messenger-bg)] px-3 py-2.5 text-left active:bg-[color:var(--messenger-surface-muted)]"
             style={{ color: "var(--messenger-text)" }}
           >
-            <div>
+            <div className="min-w-0 flex-1">
               <p className="sam-text-body font-medium">{t("cm_ui_hidden_blocked_notifications_off")}</p>
-              <p className="mt-0.5 sam-text-xxs tabular-nums" style={{ color: "var(--messenger-text-secondary)" }}>
-                {t("cm_ui_hidden_count", { count: friendStateModel.hidden.length })} · {t("cm_ui_block_count", { count: friendStateModel.blocked.length })} · {t("cm_ui_off_count", { count: friendStateModel.muted.length })}
-              </p>
+              <div className="mt-0.5">
+                <MessengerFriendsPrivacySummaryIcons
+                  hiddenCount={friendStateModel.hidden.length}
+                  blockedCount={friendStateModel.blocked.length}
+                  mutedCount={friendStateModel.muted.length}
+                />
+              </div>
             </div>
             <span className="sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }} aria-hidden>
               ›
