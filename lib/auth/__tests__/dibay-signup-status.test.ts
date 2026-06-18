@@ -128,4 +128,15 @@ describe("dibay-signup-status", () => {
     expect(status.phase).toBe("terms_required");
     expect(status.signupComplete).toBe(false);
   });
+
+  it("treats legacy username_confirmed as complete when dibay_id is empty", () => {
+    expect(
+      isDibayIdComplete({
+        dibay_id: null,
+        dibay_id_locked: false,
+        username: "legacyuser",
+        username_confirmed: true,
+      })
+    ).toBe(true);
+  });
 });

@@ -100,6 +100,7 @@ const SELECT_FULL = [
   "username",
   "dibay_id",
   "dibay_id_locked",
+  "username_confirmed",
   "onboarding_status",
   "onboarding_completed_at",
   "auth_provider",
@@ -112,6 +113,7 @@ const SELECT_MID = [
   "username",
   "dibay_id",
   "dibay_id_locked",
+  "username_confirmed",
   "onboarding_status",
   "onboarding_completed_at",
   "nickname",
@@ -159,7 +161,7 @@ const SELECT_MID = [
 ].join(", ");
 
 const SELECT_MEMBER =
-  "id, email, display_name, username, dibay_id, dibay_id_locked, onboarding_status, onboarding_completed_at, nickname, avatar_url, profile_completed, role, is_admin, member_type, status, member_status, phone, phone_country_code, phone_number, phone_verified, phone_verification_status, phone_verified_at, auth_login_email, provider, provider_user_id, auth_provider, active_session_id, last_login_at, last_device_info, terms_accepted_at, terms_version, privacy_accepted_at, privacy_version, deleted_at, deletion_requested_at, manual_account_type";
+  "id, email, display_name, username, dibay_id, dibay_id_locked, username_confirmed, onboarding_status, onboarding_completed_at, nickname, avatar_url, profile_completed, role, is_admin, member_type, status, member_status, phone, phone_country_code, phone_number, phone_verified, phone_verification_status, phone_verified_at, auth_login_email, provider, provider_user_id, auth_provider, active_session_id, last_login_at, last_device_info, terms_accepted_at, terms_version, privacy_accepted_at, privacy_version, deleted_at, deletion_requested_at, manual_account_type";
 
 /** username·auth_provider 가 아주 옛 스키마에 없을 때 */
 const SELECT_LEGACY =
@@ -179,6 +181,7 @@ const SELECT_ME_PROFILE_LITE = [
   "username",
   "dibay_id",
   "dibay_id_locked",
+  "username_confirmed",
   "onboarding_status",
   "onboarding_completed_at",
   "role",

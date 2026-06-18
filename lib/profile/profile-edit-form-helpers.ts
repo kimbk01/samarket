@@ -1,7 +1,7 @@
 import type { ProfileRow } from "@/lib/profile/types";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { hasValidDisplayName } from "@/lib/auth/post-login-profile-policy";
-import { isDibayIdComplete } from "@/lib/auth/dibay-signup-status";
+import { isPublicIdSetupComplete } from "@/lib/auth/dibay-public-id-ssot";
 import { isProfileContactVerified } from "@/lib/profile/profile-contact-verification-ui";
 import { withDefaultAvatar } from "@/lib/profile/default-avatar";
 
@@ -40,12 +40,7 @@ export function computeProfileEditFieldComplete(input: {
   addressList: UserAddressDTO[] | null;
 }): ProfileEditFieldComplete {
   const { profile, displayName, addressList } = input;
-  const usernameComplete = isDibayIdComplete({
-    dibay_id: profile.dibay_id,
-    dibay_id_locked: profile.dibay_id_locked,
-    username: profile.username,
-    username_confirmed: profile.dibay_id_locked === true ? true : null,
-  });
+  const usernameComplete = isPublicIdSetupComplete(profile);
 
   return {
     nickname: hasValidDisplayName({

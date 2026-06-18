@@ -1,10 +1,13 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Check } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { normalizeDibayIdInput } from "@/lib/auth/dibay-id-policy";
-import { formatAtUsername } from "@/lib/users/user-label";
+import {
+  evaluatePublicIdProfileView,
+  resolvePublicIdInputSeed,
+} from "@/lib/auth/dibay-public-id-ssot";
 import {
   OWNER_STORE_PROFILE_CONTROL_CLASS,
 } from "@/lib/business/owner-store-stack";
@@ -24,6 +27,7 @@ type ProfileDibayIdSectionProps = {
   dibayId: string | null;
   dibayIdLocked: boolean;
   username: string | null;
+  usernameConfirmed?: boolean | null;
   highlighted?: boolean;
   fieldComplete?: boolean;
   onConfirmed: (confirmedDibayId: string) => void | Promise<void>;
@@ -33,6 +37,7 @@ export function ProfileDibayIdSection({
   dibayId,
   dibayIdLocked,
   username,
+  usernameConfirmed = null,
   highlighted = false,
   fieldComplete = true,
   onConfirmed,
@@ -45,8 +50,33 @@ export function ProfileDibayIdSection({
   const [error, setError] = useState<string | null>(null);
   const inFlightRef = useRef(false);
 
+  const publicIdView = useMemo(
+    () =>
+      evaluatePublicIdProfileView({
+        dibay_id: dibayId,
+        dibay_id_locked: dibayIdLocked,
+        username,
+        username_confirmed: usernameConfirmed,
+      }),
+    [dibayId, dibayIdLocked, username, usernameConfirmed]
+  );
+  const inputSeed = useMemo(
+    () =>
+      resolvePublicIdInputSeed({
+        dibay_id: dibayId,
+        dibay_id_locked: dibayIdLocked,
+        username,
+        username_confirmed: usernameConfirmed,
+      }),
+    [dibayId, dibayIdLocked, username, usernameConfirmed]
+  );
+
+  useEffect(() => {
+    if (publicIdView.setupComplete) return;
+    setRaw((prev) => (prev.trim().length > 0 ? prev : inputSeed));
+  }, [inputSeed, publicIdView.setupComplete]);
+
   const normalized = useMemo(() => normalizeDibayIdInput(raw), [raw]);
-  const lockedId = formatAtUsername(username ?? dibayId);
 
   const reserve = async () => {
     if (!normalized) return;
@@ -129,10 +159,10 @@ export function ProfileDibayIdSection({
     ? OWNER_STORE_PROFILE_CONTROL_CLASS
     : `${OWNER_STORE_PROFILE_CONTROL_CLASS} ${PROFILE_EDIT_FIELD_INCOMPLETE_CLASS}`;
 
-  if (dibayIdLocked && lockedId) {
+  if (publicIdView.setupComplete && publicIdView.atDisplay) {
     return (
       <div className={wrapClass} data-profile-field="dibay_id">
-        <p className="mt-1 text-[16px] font-semibold text-[#1E3932]">{lockedId}</p>
+        <p className="mt-1 text-[16px] font-semibold text-[#1E3932]">{publicIdView.atDisplay}</p>
         <p className="mt-1 text-[13px] text-[#6F4E37]">{t("profile_edit_dibay_id_locked_hint")}</p>
       </div>
     );
@@ -142,24 +172,29 @@ export function ProfileDibayIdSection({
     <div className={wrapClass} data-profile-field="dibay_id">
       <div className="space-y-3">
         <div>
-          <input
-            id="profile-dibay-id"
-            type="text"
-            autoComplete="off"
-            spellCheck={false}
-            value={raw}
-            onChange={(e) => {
-              setRaw(e.target.value);
-              setAvailable(null);
-              setError(null);
-            }}
-            onFocus={scrollInputAboveKeyboard}
-            placeholder={safeT("profile_edit_dibay_id_placeholder", {
-              fallbackKo: "아이디를 입력해 주세요",
-              fallbackEn: "Enter your username",
-            })}
-            className={inputClass}
-          />
+          <div className="relative">
+            <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-[15px] text-[#6F4E37]">
+              @
+            </span>
+            <input
+              id="profile-dibay-id"
+              type="text"
+              autoComplete="off"
+              spellCheck={false}
+              value={raw}
+              onChange={(e) => {
+                setRaw(e.target.value);
+                setAvailable(null);
+                setError(null);
+              }}
+              onFocus={scrollInputAboveKeyboard}
+              placeholder={safeT("profile_edit_dibay_id_placeholder", {
+                fallbackKo: "아이디를 입력해 주세요",
+                fallbackEn: "Enter your username",
+              })}
+              className={`${inputClass} pl-7`}
+            />
+          </div>
           <p className="mt-1 text-[13px] text-[#6F4E37]">{t("profile_edit_dibay_id_helper")}</p>
         </div>
         {error ? (

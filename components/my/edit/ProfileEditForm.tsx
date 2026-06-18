@@ -24,7 +24,7 @@ import {
   fetchMandatoryAddressGateDeduped,
   invalidateMandatoryAddressGateClientCache,
 } from "@/lib/addresses/mandatory-address-gate-client";
-import { isDibayIdComplete } from "@/lib/auth/dibay-signup-status";
+import { isPublicIdSetupComplete } from "@/lib/auth/dibay-public-id-ssot";
 import { hasValidDisplayName } from "@/lib/auth/post-login-profile-policy";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import {
@@ -402,12 +402,7 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
       ready = isProfileContactVerified(currentProfile);
     }
     if (ready && requiredSlugs.has("dibay_id") && currentProfile) {
-      ready = isDibayIdComplete({
-        dibay_id: currentProfile.dibay_id,
-        dibay_id_locked: currentProfile.dibay_id_locked,
-        username: currentProfile.username,
-        username_confirmed: currentProfile.dibay_id_locked === true ? true : null,
-      });
+      ready = isPublicIdSetupComplete(currentProfile);
     }
     if (ready && requiredSlugs.has("address")) {
       invalidateMandatoryAddressGateClientCache();
@@ -543,12 +538,7 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
   }
 
   const dibayIdLocked = profile.dibay_id_locked === true;
-  const usernameComplete = isDibayIdComplete({
-    dibay_id: profile.dibay_id,
-    dibay_id_locked: profile.dibay_id_locked,
-    username: profile.username,
-    username_confirmed: profile.dibay_id_locked === true ? true : null,
-  });
+  const usernameComplete = isPublicIdSetupComplete(profile);
   const sectionHighlight = (slug: string) =>
     isRequiredSlug(slug) ? "rounded-ui-rect ring-2 ring-[#00704A]/40" : undefined;
   const setupCompleteInput = {
@@ -666,6 +656,7 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
                 dibayId={profile.dibay_id ?? null}
                 dibayIdLocked={dibayIdLocked}
                 username={profile.username ?? profile.dibay_id ?? null}
+                usernameConfirmed={profile.username_confirmed ?? null}
                 usernameComplete={usernameComplete}
                 usernameHighlighted={isRequiredSlug("dibay_id")}
                 nicknameComplete={fieldComplete.nickname}

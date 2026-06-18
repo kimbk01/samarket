@@ -18,6 +18,7 @@ export interface ProfileBasicFieldsProps {
   dibayId: string | null;
   dibayIdLocked: boolean;
   username: string | null;
+  usernameConfirmed?: boolean | null;
   usernameComplete: boolean;
   usernameHighlighted?: boolean;
   nicknameComplete?: boolean;
@@ -40,6 +41,7 @@ export function ProfileBasicFields({
   dibayId,
   dibayIdLocked,
   username,
+  usernameConfirmed = null,
   usernameComplete,
   usernameHighlighted = false,
   nicknameComplete = true,
@@ -79,6 +81,7 @@ export function ProfileBasicFields({
             dibayId={dibayId}
             dibayIdLocked={dibayIdLocked}
             username={username}
+            usernameConfirmed={usernameConfirmed}
             highlighted={usernameHighlighted}
             fieldComplete={dibayIdComplete}
             onConfirmed={onDibayIdConfirmed}

@@ -17,6 +17,7 @@ export function profileRowToClientProfile(row: ProfileRow): Profile {
     username: row.dibay_id ?? row.username ?? null,
     dibay_id: row.dibay_id ?? null,
     dibay_id_locked: row.dibay_id_locked === true,
+    username_confirmed: row.username_confirmed ?? null,
     onboarding_status: row.onboarding_status ?? null,
     onboarding_completed_at: row.onboarding_completed_at ?? null,
     profile_completed: row.profile_completed === true,

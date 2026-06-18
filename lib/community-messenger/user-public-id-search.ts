@@ -8,6 +8,11 @@ import {
   escapePostgrestDoubleQuotedIlike,
 } from "@/lib/community-messenger/profile-user-search-filter";
 import { resolveDirectInteractionGuard } from "@/lib/community-messenger/social-relations";
+import {
+  isPublicIdSearchEligible,
+  resolveSearchablePublicId,
+  type ProfilePublicIdFields,
+} from "@/lib/auth/dibay-public-id-ssot";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
@@ -30,14 +35,11 @@ export type CommunityMessengerUserSearchResult = {
   highlightRanges: Array<{ start: number; end: number }>;
 };
 
-type ProfileCandidate = {
+type ProfileCandidate = ProfilePublicIdFields & {
   id: string;
   display_name: string | null;
   nickname: string | null;
-  username: string | null;
-  dibay_id: string | null;
   avatar_url: string | null;
-  username_confirmed: boolean | null;
 };
 
 function trimText(value: unknown): string {
@@ -50,16 +52,6 @@ function getSupabaseOrNull() {
   } catch {
     return tryCreateSupabaseServiceClient();
   }
-}
-
-function resolvePublicId(row: ProfileCandidate): string | null {
-  const dibay = trimText(row.dibay_id);
-  if (dibay) return dibay.toLowerCase();
-  if (row.username_confirmed === true) {
-    const username = trimText(row.username);
-    if (username) return username.toLowerCase();
-  }
-  return null;
 }
 
 function displayLabel(row: ProfileCandidate): string {
@@ -76,7 +68,7 @@ function rankMatchType(
   query: string
 ): CommunityMessengerUserSearchMatchType | null {
   const q = query.toLowerCase();
-  const publicId = resolvePublicId(row);
+  const publicId = resolveSearchablePublicId(row);
   if (publicId) {
     if (publicId === q) return "exact";
     if (publicId.startsWith(q)) return "prefix";
@@ -145,8 +137,7 @@ function buildSearchOrFilter(query: string): string | null {
 }
 
 function isEligibleProfile(row: ProfileCandidate): boolean {
-  if (trimText(row.dibay_id)) return true;
-  return row.username_confirmed === true && Boolean(trimText(row.username));
+  return isPublicIdSearchEligible(row);
 }
 
 export async function searchCommunityMessengerUsersRanked(
@@ -179,7 +170,7 @@ export async function searchCommunityMessengerUsersRanked(
     .map((row) => {
       const matchType = rankMatchType(row, query);
       if (!matchType) return null;
-      const publicId = resolvePublicId(row);
+      const publicId = resolveSearchablePublicId(row);
       const displayName = displayLabel(row);
       const highlightRanges =
         matchType === "name"

@@ -18,6 +18,7 @@ export interface ProfileRow {
   username?: string | null;
   dibay_id?: string | null;
   dibay_id_locked?: boolean;
+  username_confirmed?: boolean | null;
   onboarding_status?: string | null;
   onboarding_completed_at?: string | null;
   nickname: string | null;

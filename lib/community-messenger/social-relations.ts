@@ -19,6 +19,11 @@ import {
   type DirectCallPolicy,
   logCallPermission,
 } from "@/lib/community-messenger/direct-call-permission";
+import {
+  isPublicIdSearchEligible,
+  resolveSearchablePublicId,
+  type ProfilePublicIdFields,
+} from "@/lib/auth/dibay-public-id-ssot";
 import { getFriendshipPairState, isAcceptedFriendPair } from "@/lib/community-messenger/friendship-resolver";
 
 export type { BlockSource } from "@/lib/social/block-ssot-types";
@@ -321,7 +326,7 @@ export async function resolveUserByPublicId(
 
   const { data: byDibay } = await (sb as any)
     .from("profiles")
-    .select("id, display_name, nickname, username, dibay_id, avatar_url")
+    .select("id, display_name, nickname, username, dibay_id, dibay_id_locked, username_confirmed, avatar_url")
     .ilike("dibay_id", keyword)
     .limit(1)
     .maybeSingle();
@@ -330,7 +335,7 @@ export async function resolveUserByPublicId(
   if (!row?.id) {
     const { data: byUsername } = await (sb as any)
       .from("profiles")
-      .select("id, display_name, nickname, username, dibay_id, avatar_url")
+      .select("id, display_name, nickname, username, dibay_id, dibay_id_locked, username_confirmed, avatar_url")
       .ilike("username", keyword)
       .eq("username_confirmed", true)
       .limit(1)
@@ -342,7 +347,16 @@ export async function resolveUserByPublicId(
   const id = trimText(row.id);
   const display =
     trimText(row.display_name) || trimText(row.nickname) || trimText(row.username) || id;
-  const publicId = trimText(row.dibay_id) || trimText(row.username) || null;
+  const publicIdFields: ProfilePublicIdFields = {
+    dibay_id: trimText(row.dibay_id) || null,
+    dibay_id_locked: row.dibay_id_locked === true ? true : row.dibay_id_locked === false ? false : null,
+    username: trimText(row.username) || null,
+    username_confirmed:
+      row.username_confirmed === true ? true : row.username_confirmed === false ? false : null,
+  };
+  if (!isPublicIdSearchEligible(publicIdFields)) return null;
+  const publicId = resolveSearchablePublicId(publicIdFields);
+  if (!publicId) return null;
   return {
     id,
     displayName: display,

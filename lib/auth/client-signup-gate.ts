@@ -1,4 +1,5 @@
 import type { Profile } from "@/lib/types/profile";
+import { normalizeProfilePublicIdFields } from "@/lib/auth/dibay-public-id-ssot";
 import {
   deriveDibaySignupStatus,
   type DibaySignupProfileInput,
@@ -8,10 +9,12 @@ import {
 export function profileToDibaySignupInput(user: Profile): DibaySignupProfileInput {
   return {
     id: user.id,
-    dibay_id: user.dibay_id ?? null,
-    dibay_id_locked: user.dibay_id_locked ?? null,
-    username: user.username ?? null,
-    username_confirmed: user.dibay_id_locked === true ? true : null,
+    ...normalizeProfilePublicIdFields({
+      dibay_id: user.dibay_id ?? null,
+      dibay_id_locked: user.dibay_id_locked ?? null,
+      username: user.username ?? null,
+      username_confirmed: user.username_confirmed ?? null,
+    }),
     display_name: user.display_name ?? user.nickname ?? null,
     avatar_url: user.avatar_url ?? null,
     terms_accepted_at: user.terms_accepted_at ?? null,

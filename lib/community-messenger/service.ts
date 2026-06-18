@@ -2,6 +2,7 @@ import type { CommunityMessengerRoomSnapshotDiagnostics } from "@/lib/chat-domai
 import { randomUUID } from "crypto";
 import { after } from "next/server";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { resolvePublicIdAtDisplay } from "@/lib/auth/dibay-public-id-ssot";
 import { getPublicDeployTier } from "@/lib/config/deploy-surface";
 import { registerCommunityMessengerServiceCacheFootprintGetter } from "@/lib/community-messenger/dev/cm-service-cache-footprint-registry";
 import { pruneByExpiresAtAndMaxSize } from "@/lib/http/memory-map-prune";
@@ -938,8 +939,7 @@ async function filterDirectIncomingRowsForPolicy(
 }
 
 export function profileDibaySubtitle(row: ProfileRow | null | undefined): string | undefined {
-  const id = trimText(row?.dibay_id) || trimText(row?.username);
-  return id ? `@${id}` : undefined;
+  return resolvePublicIdAtDisplay(row) ?? undefined;
 }
 
 export function profileLabel(row: ProfileRow | null | undefined, fallbackId: string): string {
