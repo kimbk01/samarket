@@ -7,6 +7,7 @@ import {
   formatKb,
   loadBaseline,
   measureBundleMetrics,
+  validateBaselineIntegrity,
 } from "./lib/bundle-budget-metrics.mjs";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -36,6 +37,16 @@ try {
   throw e;
 }
 
+const integrity = validateBaselineIntegrity(baselineFile);
+if (!integrity.ok) {
+  console.error(`[bundle-budget] baseline JSON integrity FAIL (${BASELINE_REL}):`);
+  for (const err of integrity.errors) {
+    console.error(`  - ${err}`);
+  }
+  console.error(`[bundle-budget] Regenerate: npm run build && npm run check:bundle:update-baseline -- --force`);
+  process.exit(2);
+}
+
 const { failures } = evaluateBundleBudgetLock(baselineFile, measured);
 
 console.log(`[bundle-budget] lock baseline ${baselineFile.recordedAt} (${baselineFile.recordedFrom ?? "n/a"})`);
@@ -48,13 +59,13 @@ for (const e of measured.entries.slice(0, TOP_N)) {
 const m = baselineFile.metrics;
 const s = baselineFile.growth_slack_kb ?? {};
 console.log(
-  `[bundle-budget] messenger home: ${formatKb(measured.messenger.home.bytes)} (baseline ${m.messenger_home_js_kb}+${s.messenger_home_js ?? 200} KB, refs ${measured.messenger.home.refsCount})`
+  `[bundle-budget] messenger home: ${formatKb(measured.messenger.home.bytes)} (baseline ${m.messenger_home_js_kb}±${s.messenger_home_js ?? 200} KB, refs ${measured.messenger.home.refsCount})`
 );
 console.log(
-  `[bundle-budget] messenger room: ${formatKb(measured.messenger.room.bytes)} (baseline ${m.messenger_room_js_kb}+${s.messenger_room_js ?? 200} KB, refs ${measured.messenger.room.refsCount})`
+  `[bundle-budget] messenger room: ${formatKb(measured.messenger.room.bytes)} (baseline ${m.messenger_room_js_kb}±${s.messenger_room_js ?? 200} KB, refs ${measured.messenger.room.refsCount})`
 );
 console.log(
-  `[bundle-budget] messenger call: ${formatKb(measured.messenger.call.bytes)} (baseline ${m.messenger_call_js_kb}+${s.messenger_call_js ?? 300} KB, refs ${measured.messenger.call.refsCount})`
+  `[bundle-budget] messenger call: ${formatKb(measured.messenger.call.bytes)} (baseline ${m.messenger_call_js_kb}±${s.messenger_call_js ?? 300} KB, refs ${measured.messenger.call.refsCount})`
 );
 
 if (failures.length) {

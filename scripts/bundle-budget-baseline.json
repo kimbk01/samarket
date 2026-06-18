@@ -2,10 +2,10 @@
   "recordedAt": "2026-06-18",
   "recordedFrom": "npm run check:bundle:update-baseline",
   "metrics": {
-    "total_client_js_kb": 15729,
-    "messenger_home_js_kb": 5365,
-    "messenger_room_js_kb": 5372,
-    "messenger_call_js_kb": 5521
+    "total_client_js_kb": 18887,
+    "messenger_home_js_kb": 3879,
+    "messenger_room_js_kb": 3886,
+    "messenger_call_js_kb": 5510
   },
   "growth_slack_kb": {
     "total_client_js": 500,
@@ -15,7 +15,7 @@
   },
   "top_chunks": [
     {
-      "path": ".next/static/chunks/9625378c34a9040d.js",
+      "path": ".next/static/chunks/a2d2ff3649f65b0a.js",
       "kb": 1534
     },
     {
@@ -23,16 +23,24 @@
       "kb": 1473
     },
     {
+      "path": ".next/static/chunks/4c6b32f4447aac4a.js",
+      "kb": 1473
+    },
+    {
+      "path": ".next/static/chunks/59ccdb03bde461bf.js",
+      "kb": 1473
+    },
+    {
       "path": ".next/static/chunks/fda854d77e872289.js",
       "kb": 335
     },
     {
-      "path": ".next/static/chunks/0af36611b63226b0.js",
-      "kb": 248
+      "path": ".next/static/chunks/cb961e406bd344e5.js",
+      "kb": 258
     },
     {
-      "path": ".next/static/chunks/e3a2f73b050d583f.js",
-      "kb": 240
+      "path": ".next/static/chunks/529698128d692c12.js",
+      "kb": 250
     },
     {
       "path": ".next/static/chunks/00a68db08414d08c.js",
@@ -53,14 +61,23 @@
     {
       "path": ".next/static/chunks/54d1884f9e0085cb.js",
       "kb": 160
-    },
-    {
-      "path": ".next/static/chunks/2ef8c4353a20e7be.js",
-      "kb": 141
-    },
-    {
-      "path": ".next/static/chunks/1f5d6b0c4520fb7d.js",
-      "kb": 126
     }
-  ]
+  ],
+  "provenance": {
+    "measurement_version": 1,
+    "recorded_at_iso": "2026-06-18T21:55:14.672Z",
+    "build_id": "dgRO-8cEt_I8GZFvbQJSx",
+    "chunk_file_count": 530,
+    "bytes": {
+      "total_client_js": 19340407,
+      "messenger_home_js": 3972332,
+      "messenger_room_js": 3979183,
+      "messenger_call_js": 5641768
+    },
+    "messenger_refs": {
+      "home": 54,
+      "room": 56,
+      "call": 58
+    }
+  }
 }

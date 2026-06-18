@@ -8,7 +8,7 @@ CI(`npm run ci`) 실패를 **같은 클래스로 반복하지 않기** 위한 �
 |---|---|---|
 | **Browser SDK in Node** | `window is not defined`, Agora import 실패 | `vitest.config.ts` alias + `tests/vitest-setup.node.ts` |
 | **구현 문자열 계약** | 리팩터 후 `toContain("함수호출(...)")` 깨짐 | `SSOT_CONTRACT:` 마커 + `ssot-source-contract-registry.ts` |
-| **번들 baseline drift** | `check:bundle` exit 2 | 의도적 증가 시 `check:bundle:update-baseline -- --force` 커밋 |
+| **번들 baseline drift** | `check:bundle` exit 2 | **단일 provenance + 양방향 ±slack lock** · 갱신은 `update-baseline` 전용 |
 
 ## 2. Vitest (Node 환경)
 
@@ -31,7 +31,11 @@ CI(`npm run ci`) 실패를 **같은 클래스로 반복하지 않기** 위한 �
 ## 4. 번들 baseline
 
 - CI 마지막 단계: `npm run build` → `npm run check:bundle`.
-- messenger home/room/call route JS 가 baseline+slack 초과 시 **기능 PR 과 함께** baseline JSON 갱신.
+- **단일 측정 원천**: `scripts/bundle-budget-baseline.json` 의 `metrics` 와 `provenance.bytes` 는 **같은 `measureBundleMetrics()` 호출**에서만 갱신 (`check:bundle:update-baseline`). 수동 편집·혼합 빌드 값 **금지**.
+- **커밋 전 구조 검증**: `verify:bundle-budget-baseline` — provenance 필수 · bytes↔KB round-trip · messenger ⊆ total.
+- **양방향 drift lock**: `check:bundle` 은 baseline ± slack 범위 밖이면 FAIL (증가·**과대 baseline**·비정상 감소 모두).
+- **total 하향 갱신**: `check:bundle:update-baseline -- --force --allow-regression` (의도적 축소만).
+- messenger home/room/call route JS 가 baseline±slack 초과 시 **기능 PR 과 함께** baseline JSON 갱신.
 - 갱신: `npm run build && npm run check:bundle:update-baseline -- --force`
 
 ## 5. Cursor Agent

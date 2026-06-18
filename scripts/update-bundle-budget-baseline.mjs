@@ -3,14 +3,17 @@ import path from "path";
 import { fileURLToPath } from "url";
 import {
   BASELINE_REL,
+  buildBaselineProvenanceFromRoot,
   loadBaseline,
   measureBundleMetrics,
   metricsToBaselinePayload,
+  validateBaselineIntegrity,
 } from "./lib/bundle-budget-metrics.mjs";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const baselinePath = path.join(root, BASELINE_REL);
 const force = process.argv.includes("--force");
+const allowRegression = process.argv.includes("--allow-regression");
 
 let measured;
 try {
@@ -25,6 +28,8 @@ try {
 }
 
 const nextMetrics = metricsToBaselinePayload(measured, 12);
+const provenance = buildBaselineProvenanceFromRoot(root, measured);
+
 let prev = null;
 if (fs.existsSync(baselinePath)) {
   try {
@@ -48,6 +53,14 @@ if (prev && !force) {
   }
 }
 
+if (prev?.metrics && nextMetrics.total_client_js_kb < (prev.metrics.total_client_js_kb ?? 0) && !allowRegression) {
+  console.error(
+    `[bundle-budget:update] Refusing to lower total_client_js_kb (${prev.metrics.total_client_js_kb} → ${nextMetrics.total_client_js_kb}).`
+  );
+  console.error(`[bundle-budget:update] Pass --allow-regression if bundle shrink is intentional.`);
+  process.exit(1);
+}
+
 const payload = {
   recordedAt: new Date().toISOString().slice(0, 10),
   recordedFrom: "npm run check:bundle:update-baseline",
@@ -64,7 +77,17 @@ const payload = {
     messenger_call_js: 300,
   },
   top_chunks: nextMetrics.top_chunks,
+  provenance,
 };
+
+const integrity = validateBaselineIntegrity(payload);
+if (!integrity.ok) {
+  console.error(`[bundle-budget:update] internal integrity check failed:`);
+  for (const err of integrity.errors) {
+    console.error(`  - ${err}`);
+  }
+  process.exit(1);
+}
 
 fs.writeFileSync(baselinePath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
 
@@ -72,5 +95,5 @@ if (prev?.metrics) {
   const d = nextMetrics.total_client_js_kb - (prev.metrics.total_client_js_kb ?? 0);
   console.log(`[bundle-budget:update] total client js delta: ${d >= 0 ? "+" : ""}${d} KB`);
 }
-console.log(`[bundle-budget:update] wrote ${BASELINE_REL}`);
+console.log(`[bundle-budget:update] wrote ${BASELINE_REL} (build_id=${provenance.build_id ?? "n/a"}, chunks=${provenance.chunk_file_count})`);
 console.log(JSON.stringify(payload.metrics, null, 2));

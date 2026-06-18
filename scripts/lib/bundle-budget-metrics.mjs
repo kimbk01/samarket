@@ -2,6 +2,8 @@ import fs from "fs";
 import path from "path";
 
 export const BASELINE_REL = "scripts/bundle-budget-baseline.json";
+/** Bump when measurement semantics change — baseline provenance must match. */
+export const BASELINE_MEASUREMENT_VERSION = 1;
 
 export function envInt(name, fallback) {
   const raw = process.env[name];
@@ -113,6 +115,15 @@ export function measureBundleMetrics(root) {
   };
 }
 
+export function readNextBuildId(root) {
+  const buildIdPath = path.join(root, ".next", "BUILD_ID");
+  try {
+    return fs.readFileSync(buildIdPath, "utf8").trim();
+  } catch {
+    return null;
+  }
+}
+
 /**
  * @param {ReturnType<typeof measureBundleMetrics>} measured
  * @param {number} topN
@@ -128,6 +139,107 @@ export function metricsToBaselinePayload(measured, topN = 12) {
       kb: kbFromBytes(e.size),
     })),
   };
+}
+
+/** @param {string} root repo root — used for BUILD_ID lookup */
+export function buildBaselineProvenanceFromRoot(root, measured) {
+  return {
+    measurement_version: BASELINE_MEASUREMENT_VERSION,
+    recorded_at_iso: new Date().toISOString(),
+    build_id: readNextBuildId(root),
+    chunk_file_count: measured.entries.length,
+    bytes: {
+      total_client_js: measured.totalBytes,
+      messenger_home_js: measured.messenger.home.bytes,
+      messenger_room_js: measured.messenger.room.bytes,
+      messenger_call_js: measured.messenger.call.bytes,
+    },
+    messenger_refs: {
+      home: measured.messenger.home.refsCount,
+      room: measured.messenger.room.refsCount,
+      call: measured.messenger.call.refsCount,
+    },
+  };
+}
+
+const METRIC_BYTE_KEYS = [
+  ["total_client_js_kb", "total_client_js"],
+  ["messenger_home_js_kb", "messenger_home_js"],
+  ["messenger_room_js_kb", "messenger_room_js"],
+  ["messenger_call_js_kb", "messenger_call_js"],
+];
+
+/**
+ * Validates committed baseline JSON internal consistency (no .next build required).
+ * @returns {{ ok: true } | { ok: false, errors: string[] }}
+ */
+export function validateBaselineIntegrity(baselineFile) {
+  const errors = [];
+  const metrics = baselineFile?.metrics ?? {};
+  const provenance = baselineFile?.provenance;
+
+  if (!provenance || typeof provenance !== "object") {
+    errors.push("provenance block is required (run npm run check:bundle:update-baseline after build)");
+    return { ok: false, errors };
+  }
+
+  if (provenance.measurement_version !== BASELINE_MEASUREMENT_VERSION) {
+    errors.push(
+      `provenance.measurement_version must be ${BASELINE_MEASUREMENT_VERSION} (got ${provenance.measurement_version})`
+    );
+  }
+
+  const bytes = provenance.bytes;
+  if (!bytes || typeof bytes !== "object") {
+    errors.push("provenance.bytes is required");
+    return { ok: false, errors };
+  }
+
+  for (const [metricKey, byteKey] of METRIC_BYTE_KEYS) {
+    const rawBytes = bytes[byteKey];
+    const metricKb = metrics[metricKey];
+    if (!Number.isFinite(rawBytes) || rawBytes <= 0) {
+      errors.push(`provenance.bytes.${byteKey} must be a positive number`);
+      continue;
+    }
+    if (!Number.isFinite(metricKb) || metricKb <= 0) {
+      errors.push(`metrics.${metricKey} must be a positive number`);
+      continue;
+    }
+    if (kbFromBytes(rawBytes) !== metricKb) {
+      errors.push(
+        `metrics.${metricKey} (${metricKb} KB) must match provenance.bytes.${byteKey} (${kbFromBytes(rawBytes)} KB)`
+      );
+    }
+  }
+
+  const totalBytes = bytes.total_client_js;
+  if (Number.isFinite(totalBytes)) {
+    for (const [label, key] of [
+      ["messenger_home_js", "messenger_home_js"],
+      ["messenger_room_js", "messenger_room_js"],
+      ["messenger_call_js", "messenger_call_js"],
+    ]) {
+      const part = bytes[key];
+      if (Number.isFinite(part) && part > totalBytes) {
+        errors.push(`provenance.bytes.${key} (${part}) cannot exceed provenance.bytes.total_client_js (${totalBytes})`);
+      }
+    }
+  }
+
+  if (!Number.isFinite(provenance.chunk_file_count) || provenance.chunk_file_count <= 0) {
+    errors.push("provenance.chunk_file_count must be a positive number");
+  }
+
+  const topChunks = baselineFile.top_chunks;
+  if (Array.isArray(topChunks) && topChunks.length > 0 && Number.isFinite(metrics.total_client_js_kb)) {
+    const largest = topChunks[0]?.kb;
+    if (Number.isFinite(largest) && largest > metrics.total_client_js_kb) {
+      errors.push("top_chunks[0].kb cannot exceed metrics.total_client_js_kb");
+    }
+  }
+
+  return errors.length ? { ok: false, errors } : { ok: true };
 }
 
 /**
@@ -175,17 +287,30 @@ export function evaluateBundleBudgetLock(baselineFile, measured) {
 
   for (const c of checks) {
     const maxKb = c.baselineKb + c.slackKb;
+    const minKb = Math.max(0, c.baselineKb - c.slackKb);
     const delta = c.actualKb - c.baselineKb;
     const line =
       c.refs != null
-        ? `${c.label}: ${c.actualKb} KB (baseline ${c.baselineKb} + slack ${c.slackKb} = max ${maxKb}, refs ${c.refs})`
-        : `${c.label}: ${c.actualKb} KB (baseline ${c.baselineKb} + slack ${c.slackKb} = max ${maxKb})`;
+        ? `${c.label}: ${c.actualKb} KB (baseline ${c.baselineKb} ± slack ${c.slackKb} = [${minKb}, ${maxKb}], refs ${c.refs})`
+        : `${c.label}: ${c.actualKb} KB (baseline ${c.baselineKb} ± slack ${c.slackKb} = [${minKb}, ${maxKb}])`;
     if (c.actualKb > maxKb) {
       failures.push({
         key: c.key,
+        direction: "over_max",
         message: `${line} — FAIL (+${c.actualKb - maxKb} KB over max)`,
         actualKb: c.actualKb,
         maxKb,
+        minKb,
+        deltaFromBaseline: delta,
+      });
+    } else if (c.actualKb < minKb) {
+      failures.push({
+        key: c.key,
+        direction: "under_min",
+        message: `${line} — FAIL (${minKb - c.actualKb} KB under min; baseline stale or bundle shrank — run check:bundle:update-baseline)`,
+        actualKb: c.actualKb,
+        maxKb,
+        minKb,
         deltaFromBaseline: delta,
       });
     }
