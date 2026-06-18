@@ -176,6 +176,16 @@ describe("computeRouteTransitionEnterKind", () => {
     );
     expect(k).toBe("profile-edit-back");
   });
+
+  it("profile edit to mypage subsection keeps subtle (not profile-edit-back)", () => {
+    const lastForwardAxisRef = { current: "rtl" as "ltr" | "rtl" | null };
+    const k = computeRouteTransitionEnterKind(
+      "/mypage/section/account/profile/edit",
+      "/mypage/section/trade/sales",
+      { popstateBack: false, lastForwardAxisRef },
+    );
+    expect(k).toBe("subtle");
+  });
 });
 
 describe("computeRouteTransitionEnterKind with dynamic resolver", () => {

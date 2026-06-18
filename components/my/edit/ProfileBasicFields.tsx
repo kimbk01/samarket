@@ -74,14 +74,16 @@ export function ProfileBasicFields({
       </ProfileEditFieldRow>
 
       <ProfileEditFieldRow label={t("profile_edit_username_label")}>
-        <ProfileDibayIdSection
-          dibayId={dibayId}
-          dibayIdLocked={dibayIdLocked}
-          username={username}
-          highlighted={usernameHighlighted}
-          fieldComplete={dibayIdComplete}
-          onConfirmed={onDibayIdConfirmed}
-        />
+        <div data-profile-field="dibay_id">
+          <ProfileDibayIdSection
+            dibayId={dibayId}
+            dibayIdLocked={dibayIdLocked}
+            username={username}
+            highlighted={usernameHighlighted}
+            fieldComplete={dibayIdComplete}
+            onConfirmed={onDibayIdConfirmed}
+          />
+        </div>
       </ProfileEditFieldRow>
 
       <ProfileEditFieldRow label={t("profile_edit_status_label")}>

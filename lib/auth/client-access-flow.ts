@@ -50,6 +50,11 @@ export function buildDibayIdHref(next?: string): string {
   return `/mypage/section/account/profile/edit?required=dibay_id&next=${encodeURIComponent(target)}`;
 }
 
+export function buildAddressEditHref(next?: string): string {
+  const target = next?.trim() || currentHrefFallback();
+  return `/mypage/section/account/profile/edit?required=address&next=${encodeURIComponent(target)}`;
+}
+
 export function buildProfileSetupHrefForNext(next?: string): string {
   const target = next?.trim() || currentHrefFallback();
   return `/mypage/section/account/profile/edit?next=${encodeURIComponent(target)}`;

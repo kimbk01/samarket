@@ -123,13 +123,9 @@ export function computeRouteTransitionEnterKind(
     kind = "store-apply-forward";
   } else if (isStoreOwnerApplyPath(prevPath) && isMypagePath(nextPath)) {
     kind = "store-apply-back";
-  } else if (isProfileEditRoute(nextPath) && isMypageRootPath(prevPath)) {
+  } else if (isProfileEditRoute(nextPath) && isMypagePath(prevPath) && !isProfileEditRoute(prevPath)) {
     kind = "profile-edit-forward";
   } else if (isMypageRootPath(nextPath) && isProfileEditRoute(prevPath)) {
-    kind = "profile-edit-back";
-  } else if (isProfileEditRoute(nextPath) && isMypagePath(prevPath)) {
-    kind = "profile-edit-forward";
-  } else if (isProfileEditRoute(prevPath) && isMypagePath(nextPath)) {
     kind = "profile-edit-back";
   } else if (isStoresOwnerStackPath(prevPath) && !isStoresOwnerStackPath(nextPath)) {
     /** 매장 운영 스택에서 탭 밖으로 나갈 때 — 좌→우 퇴장 */

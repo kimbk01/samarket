@@ -60,7 +60,7 @@ describe("resolvePostLoginRoute", () => {
     ).toBe("/philife");
   });
 
-  it("defaults to / when next is absent after consent", () => {
+  it("defaults to /mypage when next is absent after consent", () => {
     expect(
       resolvePostLoginRoute({
         hasSession: true,
@@ -74,7 +74,7 @@ describe("resolvePostLoginRoute", () => {
           onboardingStatus: "oauth_authenticated",
         }),
       })
-    ).toBe("/");
+    ).toBe("/mypage");
   });
 
   it("does not block on address or phone", () => {

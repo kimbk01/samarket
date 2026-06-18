@@ -15,6 +15,9 @@ import {
   MYPAGE_HOME_OUTLINE_BTN_CLASS,
 } from "@/lib/ui/mypage-home-starbucks-styles";
 
+const MYPAGE_HOME_ADDRESS_ROW_ERROR_CLASS =
+  "rounded-ui-rect border-2 border-red-400 bg-red-50/80 ring-1 ring-red-200/60";
+
 /**
  * 내정보 프로필 — 스타벅스 팔레트 · 프로필 편집과 동일 타이포 · 하단 액션(수정·로그아웃).
  * md+ : 가로형 — 좌 프로필·우 액션 버튼, 주소는 전체 폭.
@@ -23,9 +26,12 @@ export function MyInfoProfileCard({
   avatarUrl,
   displayName,
   atUsername,
+  dibayIdIncomplete = false,
+  dibayIdSetupHref,
   addressPresentation,
   addressFallbackLine,
-  onAddressPress,
+  addressEmpty = false,
+  addressEditHref,
   editHref,
   rightMetaSlot,
   onLogoutPress,
@@ -33,9 +39,12 @@ export function MyInfoProfileCard({
   avatarUrl: string | null;
   displayName: string;
   atUsername?: string | null;
+  dibayIdIncomplete?: boolean;
+  dibayIdSetupHref?: string;
   addressPresentation?: AddressBookCardPresentation | null;
   addressFallbackLine?: string;
-  onAddressPress?: () => void;
+  addressEmpty?: boolean;
+  addressEditHref?: string;
   editHref: string;
   rightMetaSlot?: React.ReactNode;
   onLogoutPress?: () => void;
@@ -44,18 +53,41 @@ export function MyInfoProfileCard({
   const hasPresentation = Boolean(addressPresentation?.gatePrefix || addressPresentation?.streetBody);
   const fallback = (addressFallbackLine ?? "").trim();
   const placeholderDash = t("mypage_comp_placeholder_dash");
+  const addressPrompt = addressEmpty
+    ? t("mypage_comp_address_empty_required")
+    : fallback || t("mypage_comp_address_empty");
 
   const addressLine = (
-    <span className={`min-w-0 flex-1 line-clamp-2 break-words ${MYINFO_TYPO.subText}`}>
+    <span
+      className={`min-w-0 flex-1 line-clamp-2 break-words ${MYINFO_TYPO.subText} ${
+        addressEmpty ? "font-medium text-red-700" : ""
+      }`}
+    >
       {hasPresentation ? (
         <AddressPhCardLineText presentation={addressPresentation ?? null} />
-      ) : fallback ? (
-        fallback
+      ) : addressPrompt ? (
+        addressPrompt
       ) : (
         placeholderDash
       )}
     </span>
   );
+
+  const usernameLine =
+    dibayIdIncomplete && dibayIdSetupHref ? (
+      <Link
+        href={dibayIdSetupHref}
+        className={`mt-0.5 inline-block truncate text-left text-[14px] font-semibold text-[#00704A] underline-offset-2 hover:underline`}
+      >
+        {t("mypage_comp_set_dibay_id")}
+      </Link>
+    ) : atUsername ? (
+      <p className={`mt-0.5 truncate text-left ${MYINFO_TYPO.handle}`}>{atUsername}</p>
+    ) : null;
+
+  const addressRowClass = addressEmpty
+    ? `${MYPAGE_HOME_ADDRESS_ROW_CLASS} ${MYPAGE_HOME_ADDRESS_ROW_ERROR_CLASS}`
+    : MYPAGE_HOME_ADDRESS_ROW_CLASS;
 
   const actionButtons = (
     <>
@@ -87,9 +119,7 @@ export function MyInfoProfileCard({
 
             <div className="min-w-0 flex-1 pt-0.5">
               <p className={`${MYINFO_TYPO.profileName} truncate text-left`}>{displayName}</p>
-              {atUsername ? (
-                <p className={`mt-0.5 truncate text-left ${MYINFO_TYPO.handle}`}>{atUsername}</p>
-              ) : null}
+              {usernameLine}
               {rightMetaSlot ? <div className="mt-2.5 flex justify-start">{rightMetaSlot}</div> : null}
             </div>
           </div>
@@ -99,19 +129,18 @@ export function MyInfoProfileCard({
           </div>
         </div>
 
-        {onAddressPress ? (
-          <button
-            type="button"
-            onClick={onAddressPress}
-            className={MYPAGE_HOME_ADDRESS_ROW_CLASS}
+        {addressEditHref ? (
+          <Link
+            href={addressEditHref}
+            className={addressRowClass}
             aria-label={t("mypage_comp_address_change_aria")}
           >
             <AddressKindHeadPin kind="master" className="mt-0.5 shrink-0" />
             {addressLine}
             <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-[#00704A]/50" aria-hidden />
-          </button>
+          </Link>
         ) : (
-          <div className={MYPAGE_HOME_ADDRESS_ROW_CLASS}>
+          <div className={addressRowClass}>
             <AddressKindHeadPin kind="master" className="mt-0.5 shrink-0" />
             {addressLine}
           </div>

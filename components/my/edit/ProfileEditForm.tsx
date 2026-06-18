@@ -655,7 +655,9 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
 
           <ProfileEditSection
             title={t("profile_edit_section_basic")}
-            className={sectionHighlight("nickname")}
+            className={
+              [sectionHighlight("nickname"), sectionHighlight("dibay_id")].filter(Boolean).join(" ") || undefined
+            }
           >
             <div data-profile-field="nickname">
               <ProfileBasicFields

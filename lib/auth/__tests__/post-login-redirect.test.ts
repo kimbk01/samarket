@@ -3,8 +3,8 @@ import { resolvePostLoginTarget, resolveSafeReturnTo } from "@/lib/auth/post-log
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 
 describe("post-login-redirect", () => {
-  it("POST_LOGIN_PATH is root", () => {
-    expect(POST_LOGIN_PATH).toBe("/");
+  it("POST_LOGIN_PATH is mypage home", () => {
+    expect(POST_LOGIN_PATH).toBe("/mypage");
   });
 
   it("resolveSafeReturnTo sanitizes internal paths", () => {

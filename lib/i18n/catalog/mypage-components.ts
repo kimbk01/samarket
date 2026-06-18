@@ -61,6 +61,8 @@ export const mypageComponentsMessages = {
     // MyPageHomeDashboard
     mypage_comp_address_loading: "대표 주소를 확인하는 중입니다",
     mypage_comp_address_empty: "대표 주소를 설정해 주세요",
+    mypage_comp_address_empty_required: "대표 주소를 입력 바랍니다",
+    mypage_comp_set_dibay_id: "아이디 설정하세요",
     mypage_comp_display_name_empty: "닉네임 없음",
     mypage_comp_stat_points: "포인트",
     mypage_comp_stat_active_trade: "진행중 거래",
@@ -786,6 +788,8 @@ export const mypageComponentsMessages = {
 
     mypage_comp_address_loading: "Checking your primary address…",
     mypage_comp_address_empty: "Please set a primary address",
+    mypage_comp_address_empty_required: "Please enter your primary address",
+    mypage_comp_set_dibay_id: "Set your username",
     mypage_comp_display_name_empty: "No nickname",
     mypage_comp_stat_points: "Points",
     mypage_comp_stat_active_trade: "Active trades",

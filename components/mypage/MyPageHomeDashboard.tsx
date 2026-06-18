@@ -23,8 +23,7 @@ import { fetchMeStoreOrdersListDeduped } from "@/lib/stores/store-delivery-api-c
 import { useRepresentativeAddressPresentation } from "@/hooks/use-representative-address-line";
 import { formatAtUsername, resolveDisplayName } from "@/lib/users/user-label";
 import { MyInfoProfileCard } from "@/components/mypage/myinfo/MyInfoProfileCard";
-import { DeliveryStyleAddressPickerSheet } from "@/components/addresses/DeliveryStyleAddressPickerSheet";
-import { buildMypageAddressesHrefFromPath, resolveAddressFlowEntryPath } from "@/lib/addresses/mypage-addresses-return-to";
+import { buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
 import { MyInfoStatGrid } from "@/components/mypage/myinfo/MyInfoStatGrid";
 import { MyInfoQuickAccessSection } from "@/components/mypage/myinfo/MyInfoQuickAccessSection";
 import {
@@ -37,6 +36,8 @@ import { dibayMyInfoPerfMark, dibayMyInfoPerfMaybeLogTotal } from "@/lib/runtime
 import type { AddressDefaultsSnapshot } from "@/lib/addresses/address-defaults-snapshot";
 import { isClientSignupComplete } from "@/lib/auth/client-signup-gate";
 import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
+import { isDibayIdComplete } from "@/lib/auth/dibay-signup-status";
+import { buildAddressEditHref, buildDibayIdHref } from "@/lib/auth/client-access-flow";
 
 const COLUMN_STACK_CLASS = "flex min-w-0 flex-col gap-3 md:gap-4";
 
@@ -72,7 +73,6 @@ export function MyPageHomeDashboard({
   const { count: favoriteCount } = useMyFavoriteCount();
   const ownerHub = useOwnerHubBadgeBreakdown();
   const [orderCount, setOrderCount] = useState<number | null>(() => homeDashboardCounts?.storeOrderCount ?? null);
-  const [addressSheetOpen, setAddressSheetOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [logoutSubmitting, setLogoutSubmitting] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
@@ -156,7 +156,25 @@ export function MyPageHomeDashboard({
       : t("mypage_comp_address_empty")
     : t("mypage_comp_address_empty");
   const displayName = resolveDisplayName(profile) || t("mypage_comp_display_name_empty");
-  const atUsername = formatAtUsername(profile.username ?? null);
+  const dibayIdComplete = isDibayIdComplete({
+    dibay_id: profile.dibay_id,
+    dibay_id_locked: profile.dibay_id_locked,
+    username: profile.username,
+    username_confirmed: profile.dibay_id_locked === true ? true : null,
+  });
+  const atUsername = dibayIdComplete ? formatAtUsername(profile.username ?? null) : null;
+  const addressReady =
+    signupComplete &&
+    representativeAddressPresentation.status === "ready" &&
+    Boolean(representativeAddressPresentation.presentation);
+  const addressEmpty =
+    signupComplete &&
+    representativeAddressPresentation.status === "ready" &&
+    !representativeAddressPresentation.presentation &&
+    !profileAddressLine;
+  const profileEditReturnNext = pathname + (searchParams?.toString() ? `?${searchParams.toString()}` : "");
+  const dibayIdSetupHref = buildDibayIdHref(profileEditReturnNext);
+  const addressEditHref = buildAddressEditHref(profileEditReturnNext);
 
   const statRows = useMemo((): { label: string; value: string; href: string; accent?: boolean }[] => {
     const activeTrade =
@@ -210,19 +228,18 @@ export function MyPageHomeDashboard({
           avatarUrl={profile.avatar_url}
           displayName={displayName}
           atUsername={atUsername}
+          dibayIdIncomplete={signupComplete && !dibayIdComplete}
+          dibayIdSetupHref={dibayIdSetupHref}
           addressPresentation={
-            signupComplete && representativeAddressPresentation.status === "ready"
-              ? representativeAddressPresentation.presentation
-              : null
+            addressReady ? representativeAddressPresentation.presentation : null
           }
           addressFallbackLine={
-            signupComplete &&
-            representativeAddressPresentation.status === "ready" &&
-            !representativeAddressPresentation.presentation
-              ? profileAddressLine || addressFallbackLine
+            addressReady
+              ? profileAddressLine
               : addressFallbackLine
           }
-          onAddressPress={() => setAddressSheetOpen(true)}
+          addressEmpty={addressEmpty}
+          addressEditHref={addressEditHref}
           editHref={MYPAGE_PROFILE_EDIT_HREF}
           onLogoutPress={() => {
             setLogoutError(null);
@@ -281,16 +298,6 @@ export function MyPageHomeDashboard({
           </div>
         </div>
       </div>
-
-      <DeliveryStyleAddressPickerSheet
-        open={addressSheetOpen}
-        onClose={() => setAddressSheetOpen(false)}
-        purpose="master"
-        managementReturnTo={resolveAddressFlowEntryPath(
-          pathname,
-          searchParams?.toString() ? `?${searchParams.toString()}` : ""
-        )}
-      />
 
       <LogoutConfirmModal
         open={logoutOpen}

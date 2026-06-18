@@ -43,7 +43,8 @@ function shouldRefetchGateOnPathChange(prev: string | null, next: string): boole
 }
 
 /**
- * 로그인 상태에서 대표 주소(`isDefaultMaster`)가 없으면 프로필 setup 으로 보냅니다.
+ * 로그인 상태에서 대표 주소(`isDefaultMaster`)가 없으면 setup 으로 보냅니다.
+ * 내정보 홈(`/mypage`)은 CTA 로 유도 — 강제 redirect 제외.
  * 주소·프로필 수정 플로우 경로는 제외합니다.
  */
 export function MandatoryAddressGate() {
@@ -60,6 +61,8 @@ export function MandatoryAddressGate() {
       if (!needsBlock || deferOverlayForStoresLcp) return;
       if (isProfileSetupDeferredForSession()) return;
       const p = pathRef.current;
+      /** 내정보 홈 — 대표 주소·아이디 CTA 로 유도, setup 강제 이동 금지 */
+      if (p === "/mypage" || p === "/my") return;
       if (isGateExcludedPath(p)) return;
       const search = typeof window !== "undefined" ? window.location.search : "";
       const target = buildProfileSetupHref({ next: `${p.split("?")[0]}${search}` });
