@@ -3,6 +3,9 @@
 /**
  * 수신 벨 단일 소유 — Web 브라우저 또는 Android Native (Capacitor APK).
  * 동일 callId 재시작 금지. tombstone 이후 start 무시.
+ *
+ * Android APK: OS ring 은 FCM → {@link IncomingCallRingOwner} (native) only.
+ * Web sync(null) must not blind-stop native ring before sessions hydrate.
  */
 import { logDibayCall } from "@/lib/community-messenger/call-orchestrator";
 import { playIncomingCallRingtone, stopCallRingtone } from "@/lib/community-messenger/call-ringtone-controller";
@@ -63,9 +66,6 @@ export function syncIncomingCallRing(candidate: IncomingRingSyncCandidate | null
   if (!candidate) {
     if (activeRingCallId) {
       stopIncomingCallRing("sync_clear", activeRingCallId);
-    } else if (useNativeRingOwner()) {
-      // Native OS ring is not tracked by activeRingCallId — still stop on clear.
-      stopNativeRing(null);
     }
     return;
   }

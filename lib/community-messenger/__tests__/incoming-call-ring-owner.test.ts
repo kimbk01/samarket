@@ -62,6 +62,27 @@ describe("incoming-call ring-owner", () => {
     vi.mocked(resolveCapacitorShellPlatform).mockReturnValue(null);
   });
 
+  it("Android Capacitor sync(null) without tracked callId does not blind-stop native ring", () => {
+    vi.mocked(isCapacitorNativePlatform).mockReturnValue(true);
+    vi.mocked(resolveCapacitorShellPlatform).mockReturnValue("android");
+    syncIncomingCallRing(null);
+    expect(stopNativeIncomingRingtoneFireAndForget).not.toHaveBeenCalled();
+    vi.mocked(isCapacitorNativePlatform).mockReturnValue(false);
+    vi.mocked(resolveCapacitorShellPlatform).mockReturnValue(null);
+  });
+
+  it("Android Capacitor sync(null) after sync still stops native for tracked callId", () => {
+    vi.mocked(isCapacitorNativePlatform).mockReturnValue(true);
+    vi.mocked(resolveCapacitorShellPlatform).mockReturnValue("android");
+    const hard = new Map<string, number>();
+    syncIncomingCallRing({ sessionId: "c-android-clear", callKind: "voice", hardClearedAt: hard, source: "test" });
+    vi.clearAllMocks();
+    syncIncomingCallRing(null);
+    expect(stopNativeIncomingRingtoneFireAndForget).toHaveBeenCalledWith("c-android-clear");
+    vi.mocked(isCapacitorNativePlatform).mockReturnValue(false);
+    vi.mocked(resolveCapacitorShellPlatform).mockReturnValue(null);
+  });
+
   it("Android Capacitor ring owner does not start WebAudio", () => {
     vi.mocked(isCapacitorNativePlatform).mockReturnValue(true);
     vi.mocked(resolveCapacitorShellPlatform).mockReturnValue("android");

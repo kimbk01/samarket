@@ -66,16 +66,7 @@ public class NativeIncomingCallPlugin extends Plugin {
   @PluginMethod
   public void stopIncomingRingtone(PluginCall call) {
     String sessionId = call.getString("sessionId", "").trim();
-    IncomingCallCleanupReason cleanupReason =
-        IncomingCallCleanupReason.fromWire(call.getString("reason", "accepted"));
-    if (cleanupReason == null) {
-      cleanupReason = IncomingCallCleanupReason.ACCEPTED;
-    }
-    IncomingCallTerminalHandler.stopIncomingPresentation(
-        getContext(),
-        sessionId.isEmpty() ? null : sessionId,
-        cleanupReason,
-        "web_plugin");
+    IncomingCallRingOwner.stop(getContext(), sessionId.isEmpty() ? null : sessionId);
     call.resolve();
   }
 
@@ -84,7 +75,9 @@ public class NativeIncomingCallPlugin extends Plugin {
     String sessionId = call.getString("sessionId", "").trim();
     String reason = call.getString("reason", "consumed");
     if (!sessionId.isEmpty()) {
-      IncomingCallTerminalHandler.handleWebConsumed(getContext(), sessionId, reason, "web_plugin");
+      DibayCallConsumedStore.mark(getContext(), sessionId, reason);
+      IncomingCallRingOwner.stop(getContext(), sessionId);
+      IncomingCallNotificationBuilder.dismissIncomingCall(getContext(), sessionId);
     }
     call.resolve();
   }
@@ -145,14 +138,6 @@ public class NativeIncomingCallPlugin extends Plugin {
     if (callId != null && !callId.isEmpty()) {
       result.put("callId", callId);
     }
-    call.resolve(result);
-  }
-
-  /** Web foreground banner — native {@link MainActivity#isAppVisibleForIncomingCall()} SSOT. */
-  @PluginMethod
-  public void isAppForegroundForIncoming(PluginCall call) {
-    JSObject result = new JSObject();
-    result.put("foreground", MainActivity.isAppVisibleForIncomingCall());
     call.resolve(result);
   }
 }

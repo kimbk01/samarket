@@ -4,41 +4,46 @@ import android.content.Context;
 import android.os.PowerManager;
 import android.util.Log;
 
-/** Keeps CPU awake during lock/background incoming ring + UI delivery. */
+/** Lock / background incoming — keep CPU awake so ring + UI delivery are not deferred. */
 public final class IncomingCallWakeLock {
-  private static final String TAG = "DIBAY_INCOMING_CALL";
-  private static final String LOCK_TAG = "dibay:incoming_call";
-  private static PowerManager.WakeLock active;
+  private static final String TAG = "DIBAY_CALL";
+  private static PowerManager.WakeLock wakeLock;
 
   private IncomingCallWakeLock() {}
 
   public static void acquire(Context context, String callId) {
+    acquireInternal(context, callId, 60_000L, "background");
+  }
+
+  /** Lock / screen-off — longer hold + wakeup so cold FGS + Activity are not deferred. */
+  public static void acquireForLockScreen(Context context, String callId) {
+    acquireInternal(context, callId, 90_000L, "lock");
+  }
+
+  private static void acquireInternal(Context context, String callId, long timeoutMs, String source) {
     if (context == null) return;
     release();
     try {
-      PowerManager pm = context.getApplicationContext().getSystemService(PowerManager.class);
+      PowerManager pm = (PowerManager) context.getApplicationContext().getSystemService(Context.POWER_SERVICE);
       if (pm == null) return;
-      PowerManager.WakeLock lock =
+      wakeLock =
           pm.newWakeLock(
               PowerManager.PARTIAL_WAKE_LOCK | PowerManager.ACQUIRE_CAUSES_WAKEUP,
-              LOCK_TAG + ":" + (callId != null ? callId.trim() : "unknown"));
-      lock.setReferenceCounted(false);
-      lock.acquire(60_000L);
-      active = lock;
-      Log.i(TAG, "[call-ui] incoming_wake_lock_acquired callId=" + callId);
+              "dibay:incoming:" + (callId != null ? callId : "call"));
+      wakeLock.setReferenceCounted(false);
+      wakeLock.acquire(timeoutMs);
+      Log.i(TAG, "[DIBAY_CALL] incoming_wake_lock_acquired callId=" + callId + " source=" + source);
     } catch (Exception error) {
-      Log.w(TAG, "[call-ui] incoming_wake_lock_failed callId=" + callId + " err=" + error.getMessage());
+      Log.w(TAG, "[DIBAY_CALL] incoming_wake_lock_failed err=" + error.getMessage());
     }
   }
 
   public static void release() {
-    if (active == null) return;
+    if (wakeLock == null) return;
     try {
-      if (active.isHeld()) {
-        active.release();
-      }
+      if (wakeLock.isHeld()) wakeLock.release();
     } catch (Exception ignored) {
     }
-    active = null;
+    wakeLock = null;
   }
 }

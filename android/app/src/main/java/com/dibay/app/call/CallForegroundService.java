@@ -20,9 +20,9 @@ import com.dibay.app.CallSessionPatchHelper;
 import com.dibay.app.DibayCallLog;
 import com.dibay.app.DibayCallPushLog;
 import com.dibay.app.DibayIncomingCallNativeStore;
+import com.dibay.app.IncomingCallBackgroundNotifier;
 import com.dibay.app.IncomingCallIntentHelper;
 import com.dibay.app.IncomingCallNotificationBuilder;
-import com.dibay.app.IncomingCallRingingCoordinator;
 import com.dibay.app.MainActivity;
 import com.dibay.app.R;
 import java.util.concurrent.atomic.AtomicReference;
@@ -54,11 +54,6 @@ public class CallForegroundService extends Service {
 
   public static String getActiveCallId() {
     String id = ACTIVE_CALL_ID.get();
-    return id != null ? id : "";
-  }
-
-  public static String getRingingCallId() {
-    String id = RINGING_FOREGROUND_FOR.get();
     return id != null ? id : "";
   }
 
@@ -415,13 +410,14 @@ public class CallForegroundService extends Service {
         sid,
         notification,
         android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL)) {
+      IncomingCallBackgroundNotifier.deliverPendingPresentation(getApplicationContext(), sid, "fgs_promote_failed");
       stopSelf();
       return;
     }
     RINGING_FOREGROUND_FOR.set(sid);
     DibayCallPushLog.info("foreground_service_started_ringing", sid, "ok=true phase=ringing");
     DibayCallLog.once("foreground_service_started", sid, "phase=ringing");
-    IncomingCallRingingCoordinator.deliverPendingPresentation(this, sid);
+    IncomingCallBackgroundNotifier.deliverPendingPresentation(this, sid, "fgs_ringing");
   }
 
   private void stopRingingForeground(String callId, String reason) {

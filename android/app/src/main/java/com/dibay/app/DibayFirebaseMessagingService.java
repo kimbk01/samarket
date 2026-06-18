@@ -10,7 +10,6 @@ import android.net.Uri;
 import android.os.Build;
 import android.util.Log;
 import androidx.core.app.NotificationCompat;
-import com.dibay.app.call.CallForegroundService;
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
 import java.text.SimpleDateFormat;
@@ -95,28 +94,6 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
       return;
     }
     String callId = payload.callId;
-    IncomingCallSessionMachine.ReceiveDecision receive =
-        IncomingCallSessionMachine.onIncomingFcmReceived(this, payload, receivedAtMs);
-    if (!receive.proceed) {
-      if (receive.busyRejected) {
-        Log.i(TAG, "[DIBAY_CALL] incoming_busy_ignored callId=" + callId);
-      }
-      if (receive.staleIgnored) {
-        Log.i(TAG, "[DIBAY_CALL] incoming_ignored_consumed callId=" + callId);
-        IncomingCallNotificationBuilder.dismissIncomingCall(this, callId);
-      }
-      return;
-    }
-
-    if (receive.duplicateMerge) {
-      Log.i(TAG, "[call-push] incoming_duplicate_fcm_merge callId=" + callId);
-      IncomingCallRouteDecision mergeDecision = IncomingCallRouteDecision.resolve(this, appVisible, callId);
-      if (!mergeDecision.foregroundUnlockedInteractive) {
-        IncomingCallNotificationBuilder.refreshIncomingCallIfPresent(this, payload, mergeDecision);
-      }
-      return;
-    }
-
     DibayCallPushLog.logIncomingReceived(this, message, data, payload, appVisible, receivedAtMs);
     DibayCallPushLog.logPriorityCheck(message, data, callId);
 
@@ -165,42 +142,7 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
     DibayIncomingCallNativeStore.setRinging(this, payload, pendingRoute, expiry.effectiveExpiresAtMs);
     MainActivity.persistCallPendingRoute(this, pendingRoute, payload, expiry.effectiveExpiresAtMs);
 
-    IncomingCallRouteDecision decision = IncomingCallRouteDecision.resolve(this, appVisible, callId);
-    IncomingCallSessionMachine.onRouted(callId, "fcm");
-
-    if (decision.foregroundUnlockedInteractive) {
-      Log.i(TAG, "[call-native] incoming_call_foreground_native_pill callId=" + callId);
-      startNativeRinging(callId, "fcm_foreground");
-      MainActivity.deliverCallIncomingEvent(payload);
-      return;
-    }
-
-    Log.i(
-        TAG,
-        "incoming_call_native_notification"
-            + " callId="
-            + callId
-            + " selectedSurface="
-            + decision.selectedSurfaceName());
-
-    IncomingCallRingingCoordinator.startRingingWithPresentation(this, callId, payload.callType, payload, decision);
-    IncomingCallActionCoordinator.scheduleMissedTimeout(this, payload);
-  }
-
-  private void startNativeRinging(String callId, String source) {
-    String active = IncomingCallRingOwner.getActiveCallId();
-    if (callId != null && callId.equals(active)) {
-      IncomingCallNotificationBuilder.logRingOwnerDecision(callId, false, "skip_existing_owner:" + source);
-      DibayCallPushLog.info("ringtone_skip_existing_owner", callId, "source=" + source);
-      return;
-    }
-    boolean started = IncomingCallRingOwner.start(this, callId, source);
-    IncomingCallNotificationBuilder.logRingOwnerDecision(callId, started, source);
-    if (started) {
-      DibayCallPushLog.info("ringtone_start_native", callId, "source=" + source);
-    } else {
-      DibayCallPushLog.info("ringtone_skip_existing_owner", callId, "source=" + source + "_start_rejected");
-    }
+    IncomingCallPushDelivery.deliver(this, payload);
   }
 
   private static String formatIsoUtc(long millis) {

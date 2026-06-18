@@ -4,7 +4,6 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.app.KeyguardManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
@@ -85,7 +84,6 @@ public class IncomingCallActivity extends AppCompatActivity {
     }
 
     Log.i(TAG, "[call-ui] incoming_activity_shown callId=" + callId);
-    IncomingCallSessionMachine.onPresented(callId, "activity");
     DibayCallLog.once("incoming_activity_created", callId, "source=activity");
     DibayCallLog.once("incoming_render", callId, "source=activity");
 
@@ -191,10 +189,6 @@ public class IncomingCallActivity extends AppCompatActivity {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
       setShowWhenLocked(true);
       setTurnScreenOn(true);
-      KeyguardManager keyguardManager = getSystemService(KeyguardManager.class);
-      if (keyguardManager != null && keyguardManager.isKeyguardLocked()) {
-        keyguardManager.requestDismissKeyguard(this, null);
-      }
     } else {
       getWindow()
           .addFlags(

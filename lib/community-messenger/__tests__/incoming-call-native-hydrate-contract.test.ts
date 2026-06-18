@@ -50,9 +50,7 @@ describe("incoming-call native hydrate contract", () => {
     expect(global).toContain("syncNativeIncomingCallState");
     expect(global).toContain("hydrateDibayCallConsumedFromNative");
     expect(global).toContain("drainPendingTerminalEventsFromNative");
-    expect(global).toContain("syncNativeIncomingAppForeground");
-    expect(global).toContain("isAppForegroundForIncoming");
-    expect(global).toContain("resolveIncomingAppForeground");
+    expect(global).toContain('appStateChange');
     expect(global).toContain("isCallConsumedIncludingNative");
   });
 });
@@ -62,7 +60,22 @@ describe("incoming-call ring ownership contract", () => {
     const ringOwner = read("lib/community-messenger/incoming-call/ring-owner.ts");
     expect(ringOwner).toContain("ring_start_skipped_native_owner");
     expect(ringOwner).toContain('resolveCapacitorShellPlatform() === "android"');
+    expect(ringOwner).toContain("must not blind-stop native ring");
     expect(ringOwner).toContain("stopNativeIncomingRingtoneFireAndForget");
+  });
+
+  it("IncomingCallPushDelivery centralizes push ring + surface routing", () => {
+    const delivery = read("android/app/src/main/java/com/dibay/app/IncomingCallPushDelivery.java");
+    expect(delivery).toContain("IncomingCallRingOwner.start");
+    expect(delivery).toContain("source=push_delivery");
+    expect(delivery).toContain("IncomingCallForegroundUiLauncher.showUi");
+    expect(delivery).toContain("presentLockIncoming");
+
+    const fcm = read("android/app/src/main/java/com/dibay/app/DibayFirebaseMessagingService.java");
+    expect(fcm).toContain("IncomingCallPushDelivery.deliver");
+
+    const debug = read("android/app/src/debug/java/com/dibay/app/DibayCallDebugCommandReceiver.java");
+    expect(debug).toContain("IncomingCallPushDelivery.deliver");
   });
 
   it("IncomingCallRingOwner centralizes native foreground ring start/stop", () => {
@@ -70,7 +83,7 @@ describe("incoming-call ring ownership contract", () => {
     expect(owner).toContain("DibayCallConsumedStore.isConsumed");
     expect(owner).toContain("ring_deduped");
     const activity = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
-    expect(activity).toContain("IncomingCallRingOwner.start");
+    expect(activity).not.toContain("IncomingCallRingOwner.start");
     expect(activity).not.toContain("DibayForegroundRingtone.start");
   });
 });

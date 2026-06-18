@@ -1,6 +1,5 @@
 package com.dibay.app;
 
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
@@ -28,70 +27,45 @@ public class DibayFirebaseMessagingServiceTerminalTest {
     context = ApplicationProvider.getApplicationContext();
     service = Robolectric.setupService(DibayFirebaseMessagingService.class);
     ShadowLog.clear();
-    IncomingCallSessionMachine.resetForTest();
-  }
-
-  private void seedActiveSession(String callId) {
-    IncomingCallPayload payload =
-        new IncomingCallPayload(
-            callId,
-            "room-1",
-            "caller-1",
-            "Caller",
-            null,
-            "audio",
-            null,
-            "Incoming",
-            "Call",
-            null);
-    IncomingCallSessionMachine.onIncomingFcmReceived(context, payload, System.currentTimeMillis());
-    IncomingCallSessionMachine.onRinging(callId, "unit_test");
   }
 
   @Test
-  public void onMessageReceived_callCanceled_deferredWhenServerProbeFails() {
-    String callId = "fcm-terminal-cancel";
-    seedActiveSession(callId);
+  public void onMessageReceived_callCanceled_marksConsumed_whenAppNotVisible() {
+    String callId = "fcm-terminal-" + System.currentTimeMillis();
     Map<String, String> data = new HashMap<>();
     data.put("type", "call_canceled");
     data.put("callId", callId);
     data.put("title", "통화");
     data.put("body", "");
 
-    service.onMessageReceived(new RemoteMessage.Builder("dibay-test-sender").setData(data).build());
+    RemoteMessage message =
+        new RemoteMessage.Builder("dibay-test-sender").setData(data).build();
 
-    assertFalse(DibayCallConsumedStore.isConsumed(context, callId));
-    assertLogContains("server_probe_failed_deferred");
+    // appVisible=false (no resumed MainActivity)
+    service.onMessageReceived(message);
+
+    assertTrue(DibayCallConsumedStore.isConsumed(context, callId));
+    assertLogContains("terminal_received");
+    assertLogContains("call_canceled_native_handled");
   }
 
   @Test
   public void onMessageReceived_callRejected_marksConsumed_whenAppNotVisible() {
-    String callId = "fcm-rejected-active";
-    seedActiveSession(callId);
+    String callId = "fcm-rejected-" + System.currentTimeMillis();
     Map<String, String> data = new HashMap<>();
     data.put("type", "call_rejected");
     data.put("callId", callId);
     data.put("title", "통화");
     data.put("body", "");
 
-    service.onMessageReceived(new RemoteMessage.Builder("dibay-test-sender").setData(data).build());
+    RemoteMessage message =
+        new RemoteMessage.Builder("dibay-test-sender").setData(data).build();
+
+    service.onMessageReceived(message);
 
     assertTrue(DibayCallConsumedStore.isConsumed(context, callId));
     assertLogContains("terminal_received");
     assertLogContains("terminal_handler_done");
-  }
-
-  @Test
-  public void onMessageReceived_callCanceled_staleWithoutActiveSession() {
-    String callId = "fcm-terminal-stale";
-    Map<String, String> data = new HashMap<>();
-    data.put("type", "call_canceled");
-    data.put("callId", callId);
-
-    service.onMessageReceived(new RemoteMessage.Builder("dibay-test-sender").setData(data).build());
-
-    assertFalse(DibayCallConsumedStore.isConsumed(context, callId));
-    assertLogContains("stale_duplicate_ignored");
   }
 
   private void assertLogContains(String needle) {

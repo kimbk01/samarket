@@ -104,14 +104,36 @@ TTL: **120 seconds** (Web consumed, `hardClearedAt`, Native `DibayCallConsumedSt
 
 ## 6. Platform ring ownership
 
-| Platform | Ring owner | Forbidden |
-|----------|------------|-----------|
-| Android APK (Capacitor) | `IncomingCallRingOwner` → `DibayForegroundRingtone` | WebAudio `playIncomingCallRingtone` |
-| Browser / PWA | `call-ring-owner` → `call-ringtone-controller` | `stopNativeIncomingRingtone` / `markCallConsumed` for ring only |
+| Platform | Ring start | Ring stop | Forbidden |
+|----------|------------|-----------|-----------|
+| Android APK (Capacitor) | **`IncomingCallPushDelivery`** → `IncomingCallRingOwner` → `DibayForegroundRingtone` (once, `source=push_delivery`) | `IncomingCallTerminalHandler` · `stopIncomingCallRing(sessionId)` · native missed timeout | WebAudio; `MainActivity` ring start; `BackgroundNotifier` ring start; notification channel sound |
+| Browser / PWA | `syncIncomingCallRing` → `call-ringtone-controller` | `stopIncomingCallRing` / `sync_clear` | `stopNativeIncomingRingtone` on sync(null) without sessionId |
+
+### Android Web lane (Capacitor)
+
+- `syncIncomingCallRing` on Android: **no WebAudio** (`ring_start_skipped_native_owner`).
+- `syncIncomingCallRing(null)` when `activeRingCallId` is null: **must not** call `stopNativeIncomingRingtone` — native FCM ring outlives Web hydrate race.
+- Stop native only via explicit `sessionId`: terminal, tombstone, `sync_clear` after tracked sync, `resetIncomingCallRingOwner`.
 
 ---
 
-## 7. File roles (target layout)
+## 7. Android push delivery (native SSOT)
+
+**Single entry:** `IncomingCallPushDelivery.deliver()` — used by `DibayFirebaseMessagingService` and debug adb receiver.
+
+| Surface | Detection | UI | Ring |
+|---------|-----------|-----|------|
+| Foreground unlocked | `isForegroundUnlockedInteractive` | `ForegroundIncomingCallActivity` + Web `dibay:call-event` | PushDelivery (not MainActivity) |
+| Lock / sleep | keyguard locked or not interactive | FGS → silent CallStyle/FSI → `IncomingCallActivity` | PushDelivery |
+| Background home | app not visible, unlocked | FGS `startForeground` → Activity → silent notify | PushDelivery |
+
+**UI vs ring decoupling:** notification channel `dibay_calls_incoming_v7` is **silent**; OS ringtone is **RingOwner only**. FSI/Activity carry visibility without channel sound.
+
+**Background defer:** `PendingIncomingPresentation` until `CallForegroundService` ringing phase calls `deliverPendingPresentation` (CallStyle API 34+ requires FGS before notify).
+
+---
+
+## 8. File roles (target layout)
 
 | Path | Role |
 |------|------|
@@ -122,14 +144,17 @@ TTL: **120 seconds** (Web consumed, `hardClearedAt`, Native `DibayCallConsumedSt
 | `call-bridge/native-consumed-bridge.ts` | Web ↔ Native tombstone hydrate |
 | `GlobalCommunityMessengerIncomingCall.tsx` | Subscribe + render + delegate (no policy) |
 | `CommunityMessengerCallClient.tsx` | Active call screen only (no incoming bell) |
-| `DibayFirebaseMessagingService.java` | FCM receive → normalizer/handler |
+| `DibayFirebaseMessagingService.java` | FCM validate → `IncomingCallPushDelivery.deliver` |
+| `IncomingCallPushDelivery.java` | Push ring + surface routing SSOT |
+| `IncomingCallBackgroundNotifier.java` | Lock/background UI only (no ring) |
 | `IncomingCallTerminalHandler.java` | Native terminal SSOT |
-| `IncomingCallRingOwner.java` | Native ring SSOT |
+| `IncomingCallRingOwner.java` | Native OS ringtone SSOT |
+| `lib/community-messenger/incoming-call/ring-owner.ts` | Web ring sync (Android defers to native) |
 | `public/sw.js` | Web push adapter (chat + call wake); no ring |
 
 ---
 
-## 8. Real-device QA matrix (A–G)
+## 9. Real-device QA matrix (A–G)
 
 Run on **2 devices** after Vercel deploy + APK reinstall.  
 Log filter: `DIBAY_CALL DIBAY_FCM DIBAY_INCOMING_CALL`
@@ -153,7 +178,7 @@ Log filter: `DIBAY_CALL DIBAY_FCM DIBAY_INCOMING_CALL`
 
 ---
 
-## 9. Phase plan
+## 10. Phase plan
 
 | Phase | Work |
 |-------|------|
@@ -164,8 +189,9 @@ Log filter: `DIBAY_CALL DIBAY_FCM DIBAY_INCOMING_CALL`
 
 ---
 
-## 10. Change log
+## 11. Change log
 
 | Date | Change |
 |------|--------|
+| 2026-06-18 | PushDelivery SSOT — ring/UI decouple, Web native blind-stop fix, `.mdc` contract + verify script |
 | 2026-06-17 | Initial SSOT — phase 1 structural contract |

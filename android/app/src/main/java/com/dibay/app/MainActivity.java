@@ -57,7 +57,7 @@ public class MainActivity extends BridgeActivity {
   private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
   public static boolean isAppVisibleForIncomingCall() {
-    return DibayAppVisibility.hasResumedActivity();
+    return appVisible;
   }
 
   static MainActivity getActiveInstance() {
@@ -72,11 +72,11 @@ public class MainActivity extends BridgeActivity {
     act.mainHandler.post(() -> act.injectForegroundIncomingUiEvent(sid, visible));
   }
 
-  /** FCM foreground — WebView session sync + native foreground incoming pill (SSOT UI). */
+  /** FCM foreground — WebView legacy call bridge (incoming_call / call_canceled) */
   static void deliverCallIncomingEvent(IncomingCallPayload payload) {
     MainActivity act = activeInstance;
     if (act == null || payload == null || !payload.isValid()) return;
-    act.mainHandler.post(() -> act.presentForegroundIncomingCall(payload));
+    act.mainHandler.post(() -> act.injectCallIncomingEvent(payload));
   }
 
   /** FCM foreground — 발신 취소를 WebView legacy call bridge 에 전달 */
@@ -154,11 +154,11 @@ public class MainActivity extends BridgeActivity {
                 null));
   }
 
-  /**
-   * Foreground unlocked — native pill is primary UI (Kakao/Telegram parity on APK).
-   * WebView gets dibay:call-event for session sync only; ring stays RingOwner SSOT on FCM path.
-   */
-  private void presentForegroundIncomingCall(IncomingCallPayload payload) {
+  private void injectCallIncomingEvent(IncomingCallPayload payload) {
+    Bridge bridge = getBridge();
+    if (bridge == null) return;
+    WebView webView = bridge.getWebView();
+    if (webView == null) return;
     if (DibayCallConsumedStore.isConsumed(this, payload.callId)) {
       Log.i("DIBAY_CALL", "[DIBAY_CALL] incoming_ignored_consumed callId=" + payload.callId);
       return;
@@ -167,20 +167,10 @@ public class MainActivity extends BridgeActivity {
       Log.i("DIBAY_CALL", "[DIBAY_CALL] incoming_ignored_completed callId=" + payload.callId);
       return;
     }
-    injectCallIncomingWebEvent(payload);
-    IncomingCallForegroundUiLauncher.showUi(this, payload);
-    IncomingCallActionCoordinator.scheduleMissedTimeout(this, payload);
-    Log.i("DIBAY_CALL", "[DIBAY_CALL] incoming_received callId=" + payload.callId + " source=foreground_native");
-    Log.i(ROUTE_LOG_TAG, "[call-native] foreground_incoming_native_pill callId=" + payload.callId);
-  }
-
-  /** Web session sync only — no ring, no fake presented, no UI claims. */
-  private void injectCallIncomingWebEvent(IncomingCallPayload payload) {
-    Bridge bridge = getBridge();
-    if (bridge == null) return;
-    WebView webView = bridge.getWebView();
-    if (webView == null) return;
-    IncomingCallActionCoordinator.registerIncoming(this, payload.callId);
+    if (!IncomingCallActionCoordinator.registerIncoming(this, payload.callId)) {
+      Log.i(ROUTE_LOG_TAG, "[call-native] incoming_duplicate_ignored callId=" + payload.callId);
+      return;
+    }
     final String callId = safeJs(payload.callId);
     final String roomId = safeJs(payload.roomId);
     final String callerId = safeJs(payload.callerId);
@@ -202,8 +192,10 @@ public class MainActivity extends BridgeActivity {
             + callType
             + "'}}));}catch(e){}})();";
     webView.post(() -> webView.evaluateJavascript(js, null));
-    Log.i(ROUTE_LOG_TAG, "[call-native] foreground_incoming_web_sync callId=" + payload.callId);
+    Log.i("DIBAY_CALL", "[DIBAY_CALL] incoming_received callId=" + payload.callId + " source=foreground_event");
+    Log.i(ROUTE_LOG_TAG, "[call-native] foreground_incoming_event callId=" + payload.callId);
   }
+
   private void injectForegroundIncomingUiEvent(String callId, boolean visible) {
     Bridge bridge = getBridge();
     if (bridge == null) return;
@@ -242,9 +234,17 @@ public class MainActivity extends BridgeActivity {
                 + "',status:'"
                 + safeStatus
                 + "'}}));}catch(e){}})();";
+    String sid = callId != null ? callId.trim() : "";
+    if (!sid.isEmpty()) {
+      String consumedReason = mapWebTerminalConsumedReason(status);
+      DibayCallConsumedStore.mark(this, sid, consumedReason);
+      IncomingCallActionCoordinator.complete(sid, status != null ? status : "cancelled");
+      IncomingCallNotificationBuilder.dismissIncomingCall(this, sid);
+    }
+    IncomingCallRingOwner.stop(this, callId);
     hideCallRouteLoadingOverlay();
     webView.post(() -> webView.evaluateJavascript(js, null));
-    Log.i("DIBAY_CALL", "[DIBAY_CALL] terminal_web_inject callId=" + callId + " status=" + status + " source=webview_inject");
+    Log.i("DIBAY_CALL", "[DIBAY_CALL] terminal_received callId=" + callId + " status=" + status + " source=webview_inject");
   }
 
   private void injectCallCanceledEvent(String callId) {
@@ -257,6 +257,13 @@ public class MainActivity extends BridgeActivity {
         "(function(){try{window.dispatchEvent(new CustomEvent('dibay:call-event',{detail:{type:'call_canceled',sessionId:'"
             + safeCallId
             + "'}}));}catch(e){}})();";
+    String sid = callId != null ? callId.trim() : "";
+    if (!sid.isEmpty()) {
+      DibayCallConsumedStore.mark(this, sid, "cancelled");
+      IncomingCallActionCoordinator.complete(sid, "cancelled");
+      IncomingCallNotificationBuilder.dismissIncomingCall(this, sid);
+    }
+    IncomingCallRingOwner.stop(this, callId);
     webView.post(() -> webView.evaluateJavascript(js, null));
     Log.i(ROUTE_LOG_TAG, "[call-native] foreground_canceled_event callId=" + callId);
   }

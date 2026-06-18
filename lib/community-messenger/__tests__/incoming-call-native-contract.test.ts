@@ -31,15 +31,14 @@ describe("incoming-call native contract", () => {
     expect(src).toContain("notification_accept_activity_open");
   });
 
-  it("native plugin routes markCallConsumed through TerminalHandler SSOT", () => {
+  it("native plugin exposes markCallConsumed for Web consumed bridge", () => {
     const plugin = read("android/app/src/main/java/com/dibay/app/NativeIncomingCallPlugin.java");
-    expect(plugin).toContain("handleWebConsumed");
-    expect(plugin).toContain("stopIncomingPresentation");
+    expect(plugin).toContain("markCallConsumed");
     expect(plugin).toContain("isCallConsumed");
     expect(plugin).toContain("listConsumedCallIds");
     expect(plugin).toContain("drainPendingTerminalEvents");
     expect(plugin).toContain("getForegroundIncomingCallId");
-    expect(plugin).toContain("isAppForegroundForIncoming");
+    expect(plugin).toContain("DibayCallConsumedStore.mark");
     const store = read("android/app/src/main/java/com/dibay/app/DibayCallConsumedStore.java");
     expect(store).toContain("isConsumed");
     expect(store).toContain("listConsumed");
@@ -58,18 +57,17 @@ describe("incoming-call native contract", () => {
     expect(fcm).toContain("incoming_ignored_consumed");
   });
 
-  it("native duplicate incoming still syncs Web session on foreground reinject", () => {
+  it("native duplicate incoming callId returns before notification or foreground event", () => {
     const activity = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
     expect(activity).toContain("IncomingCallActionCoordinator.registerIncoming(this, payload.callId)");
-    expect(activity).not.toContain("incoming_duplicate_ignored");
+    expect(activity).toContain("incoming_duplicate_ignored");
     const foregroundDedupe = activity.indexOf("IncomingCallActionCoordinator.registerIncoming(this, payload.callId)");
     const eventDispatch = activity.indexOf("window.dispatchEvent(new CustomEvent('dibay:call-event'");
     expect(foregroundDedupe).toBeLessThan(eventDispatch);
 
     const notification = read("android/app/src/main/java/com/dibay/app/IncomingCallNotificationBuilder.java");
     expect(notification).toContain("IncomingCallActionCoordinator.registerIncoming(context, sid)");
-    expect(notification).toContain("if (!firstIncoming) {\n      return;\n    }");
-    expect(notification).toContain("duplicateRefresh");
+    expect(notification).toContain("incoming_ui_duplicate_blocked");
   });
 
   it("native incoming register checks consumed store before active duplicate state", () => {
@@ -95,13 +93,15 @@ describe("incoming-call native contract", () => {
     expect(src).toContain("buildMainActivityCallAcceptIntent");
   });
 
-  it("FCM foreground unlocked launches native pill via MainActivity", () => {
+  it("FCM foreground unlocked launches native pill instead of web-only delegate", () => {
+    const delivery = read("android/app/src/main/java/com/dibay/app/IncomingCallPushDelivery.java");
+    expect(delivery).toContain("incoming_call_foreground_native_ui");
+    expect(delivery).toContain("IncomingCallForegroundUiLauncher.showUi");
+    expect(delivery).toContain("isForegroundUnlockedInteractive");
     const fcm = read("android/app/src/main/java/com/dibay/app/DibayFirebaseMessagingService.java");
-    expect(fcm).toContain("incoming_call_foreground_native_pill");
-    expect(fcm).toContain("IncomingCallRouteDecision.resolve");
-    expect(fcm).toContain("MainActivity.deliverCallIncomingEvent");
-    const main = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
-    expect(main).toContain("IncomingCallForegroundUiLauncher.showUi");
+    expect(fcm).toContain("IncomingCallPushDelivery.deliver");
+    const manifest = read("android/app/src/main/AndroidManifest.xml");
+    expect(manifest).toContain("ForegroundIncomingCallActivity");
   });
 
   it("IncomingCallTerminalHandler centralizes terminal dismiss, consumed, ring stop, activity finish", () => {
@@ -153,19 +153,21 @@ describe("incoming-call native contract", () => {
     );
   });
 
-  it("Global defers Web banner on Capacitor APK (native pill primary)", () => {
+  it("Global defers Android foreground banner to native pill only", () => {
     const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
-    expect(global).toContain("preferNativeAndroidForegroundIncoming: isCapacitorNativePlatform()");
-    expect(global).toContain("ForegroundIncomingCallHost");
+    expect(global).toContain("preferNativeAndroidForegroundIncoming");
+    expect(global).toContain("nativeForegroundIncomingCallId");
+    expect(global).toContain("onForegroundIncomingUi");
   });
 
   it("notification posts immediately then enriches avatar async", () => {
     const notification = read("android/app/src/main/java/com/dibay/app/IncomingCallNotificationBuilder.java");
     expect(notification).toContain("incoming_posted_immediate");
     expect(notification).toContain("incoming_avatar_enriched");
-    expect(notification.indexOf("incoming_posted_immediate")).toBeLessThan(
-      notification.indexOf("incoming_avatar_enriched")
-    );
+    const postIdx = notification.indexOf("postNotificationWithFallback");
+    const enrichIdx = notification.indexOf("incoming_avatar_enriched");
+    expect(postIdx).toBeGreaterThan(-1);
+    expect(enrichIdx).toBeGreaterThan(postIdx);
   });
 
   it("P0 native FCM receive logs priority, Doze grace, ringtone, route, and ack before WebView", () => {
@@ -175,9 +177,12 @@ describe("incoming-call native contract", () => {
     expect(fcm).toContain("IncomingCallPushAckHelper.sendAsync");
     expect(fcm).toContain("IncomingCallSessionStatusProbe.shouldProbe");
     expect(fcm).toContain("incoming_late_terminal_blocked");
-    expect(fcm).toContain("IncomingCallRingOwner.start");
-    expect(fcm).toContain("ringtone_start_native");
+    expect(fcm).toContain("IncomingCallPushDelivery.deliver");
     expect(fcm).toContain("MainActivity.persistCallPendingRoute");
+
+    const delivery = read("android/app/src/main/java/com/dibay/app/IncomingCallPushDelivery.java");
+    expect(delivery).toContain("IncomingCallRingOwner.start");
+    expect(delivery).toContain("source=push_delivery");
 
     const log = read("android/app/src/main/java/com/dibay/app/DibayCallPushLog.java");
     expect(log).toContain("[DIBAY_CALL_PUSH]");
@@ -188,13 +193,12 @@ describe("incoming-call native contract", () => {
 
   it("P0 notification fallback detects blocked channels, FSI, and Activity fallback", () => {
     const notification = read("android/app/src/main/java/com/dibay/app/IncomingCallNotificationBuilder.java");
-    expect(notification).toContain("dibay_calls_incoming_v5");
+    expect(notification).toContain("dibay_calls_incoming_v7");
     expect(notification).toContain("notification_channel_blocked");
     expect(notification).toContain("notification_permission_denied");
     expect(notification).toContain("full_screen_intent_attached");
     expect(notification).toContain("incoming_notification_posted");
     expect(notification).toContain("incoming_activity_fallback_attempt");
-    expect(notification).not.toContain("DEFAULT_ALL");
   });
 
   it("P0 ringing foreground service and native store are cleared on terminal paths", () => {

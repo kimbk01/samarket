@@ -1,0 +1,62 @@
+---
+description: Android 수신 통화 FCM·벨·UI — PushDelivery SSOT 회귀 금지 (확인된 근본 원인 고정)
+globs:
+  - "**/IncomingCallPushDelivery.java"
+  - "**/IncomingCallRingOwner.java"
+  - "**/IncomingCallBackgroundNotifier.java"
+  - "**/IncomingCallNotificationBuilder.java"
+  - "**/DibayFirebaseMessagingService.java"
+  - "**/DibayCallDebugCommandReceiver.java"
+  - "**/IncomingCallWakeLock.java"
+  - "**/PendingIncomingPresentation.java"
+  - "**/call/CallForegroundService.java"
+  - "**/ForegroundIncomingCallActivity.java"
+  - "**/incoming-call/ring-owner.ts"
+  - "**/GlobalCommunityMessengerIncomingCall.tsx"
+  - "**/foreground-incoming-presenter.ts"
+alwaysApply: false
+---
+
+# 수신 통화 Push Delivery — 근본 계약 (되돌리지 말 것)
+
+**권위 문서:** `docs/community-messenger/incoming-call-ssot.md` §11 · `docs/community-messenger-native-call-receive.md`
+
+**검증:** `npm run verify:incoming-call-push-delivery-contract` · `scripts/run-incoming-call-revert-smoke.sh` (adb)
+
+## 확인된 근본 원인 (재발 방지)
+
+| 증상 | 근본 원인 | 금지 |
+|------|-----------|------|
+| 앱 밖/잠금 UI 없음·벨만 | UI를 FGS만에 위임, `promoteToForeground` 실패 시 Activity 미기동 | lock/background에서 FCM만 ring+FGS로 끝내기 |
+| UI 고치면 벨 2번 | notification channel sound + `RingOwner` + `DEFAULT_ALL` 중복 | 채널 벨소리·`DEFAULT_ALL`로 ring — **RingOwner만** |
+| 벨 줄이면 UI 깨짐 | FSI/notification을 ring 경로에 묶어 UI도 같이 제거 | UI(Activity+silent CallStyle/FSI)와 ring 분리 |
+| **앱 안 벨 잠깐 끊김** | Web `syncIncomingCallRing(null)`이 세션 hydrate 전 Native ring blind-stop | Android에서 `activeRingCallId` 없을 때 `stopNativeIncomingRingtone` |
+| 포그라운드 ring 늦음/누락 | FCM foreground가 `MainActivity` WebView inject에만 의존 | push boundary에서 ring 없이 UI만 |
+| API 34+ CallStyle crash | FGS `startForeground` 전 CallStyle notify | FGS 후 silent notify; build fail 시 legacy fallback |
+
+## 소유권 (SSOT)
+
+```
+FCM/debug → IncomingCallPushDelivery.deliver()
+              ├─ Ring: IncomingCallRingOwner (1회, source=push_delivery)
+              ├─ Foreground unlocked: ForegroundIncomingCallActivity + Web event (ring 재시작 금지)
+              ├─ Lock/sleep: WakeLock(lock) → FGS → silent notify/FSI → IncomingCallActivity
+              └─ Background home: PendingPresentation → FGS startForeground → Activity → silent notify
+Web Android: syncIncomingCallRing — WebAudio 금지, native blind-stop 금지
+Terminal: IncomingCallTerminalHandler — ring stop + consumed + UI dismiss
+```
+
+## DO NOT
+
+1. **`MainActivity`에서 `IncomingCallRingOwner.start`** — ring은 PushDelivery만.
+2. **`IncomingCallBackgroundNotifier`에서 ring start** — PushDelivery가 이미 시작함.
+3. **notification channel에 ring sound / `DEFAULT_ALL`** — `dibay_calls_incoming_v7` silent.
+4. **Web `sync(null)` → `stopNativeIncomingRingtone()` without sessionId** — tombstone/terminal/sync_clear(sessionId)만.
+5. **foreground unlocked에서 `IncomingCallActivity`(full-screen lock UI)** — `ForegroundIncomingCallActivity` pill.
+6. **DibayFirebaseMessagingService / debug receiver에 분기 로직 복제** — `IncomingCallPushDelivery`만.
+
+## 수정 후 필수
+
+1. `npm run verify:incoming-call-push-delivery-contract`
+2. `vitest run lib/community-messenger/__tests__/incoming-call-ring-owner.test.ts lib/community-messenger/__tests__/incoming-call-native-hydrate-contract.test.ts`
+3. adb smoke (기기 연결 시): `bash scripts/run-incoming-call-revert-smoke.sh`

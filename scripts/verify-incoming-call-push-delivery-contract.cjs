@@ -1,0 +1,102 @@
+/**
+ * Android 수신 통화 PushDelivery SSOT — 구조 회귀 탐지.
+ * 규칙: .cursor/rules/incoming-call-push-delivery-contract.mdc
+ *
+ * 사용: npm run verify:incoming-call-push-delivery-contract
+ */
+const fs = require("fs");
+const path = require("path");
+
+const root = path.join(__dirname, "..");
+
+function read(rel) {
+  return fs.readFileSync(path.join(root, rel), "utf8");
+}
+
+let failed = false;
+
+function fail(msg) {
+  console.error(`verify:incoming-call-push-delivery-contract FAIL — ${msg}`);
+  failed = true;
+}
+
+function pass(msg) {
+  console.log(`  OK ${msg}`);
+}
+
+const delivery = read("android/app/src/main/java/com/dibay/app/IncomingCallPushDelivery.java");
+const fcm = read("android/app/src/main/java/com/dibay/app/DibayFirebaseMessagingService.java");
+const debug = read("android/app/src/debug/java/com/dibay/app/DibayCallDebugCommandReceiver.java");
+const notifier = read("android/app/src/main/java/com/dibay/app/IncomingCallBackgroundNotifier.java");
+const main = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
+const ringOwnerTs = read("lib/community-messenger/incoming-call/ring-owner.ts");
+const notifBuilder = read("android/app/src/main/java/com/dibay/app/IncomingCallNotificationBuilder.java");
+
+if (!delivery.includes("IncomingCallRingOwner.start")) {
+  fail("IncomingCallPushDelivery must start ring at push boundary");
+} else {
+  pass("PushDelivery starts IncomingCallRingOwner");
+}
+
+if (!delivery.includes("source=push_delivery")) {
+  fail("PushDelivery must log source=push_delivery");
+} else {
+  pass("PushDelivery ring log source");
+}
+
+if (!fcm.includes("IncomingCallPushDelivery.deliver")) {
+  fail("DibayFirebaseMessagingService must delegate to IncomingCallPushDelivery");
+} else {
+  pass("FCM delegates to PushDelivery");
+}
+
+if (!debug.includes("IncomingCallPushDelivery.deliver")) {
+  fail("DibayCallDebugCommandReceiver must delegate to IncomingCallPushDelivery");
+} else {
+  pass("Debug receiver delegates to PushDelivery");
+}
+
+if (notifier.includes("startNativeRingOnce") || notifier.includes("IncomingCallRingOwner.start")) {
+  fail("IncomingCallBackgroundNotifier must not start ring (PushDelivery SSOT)");
+} else {
+  pass("BackgroundNotifier has no ring start");
+}
+
+if (main.includes("IncomingCallRingOwner.start")) {
+  fail("MainActivity must not start ring (PushDelivery SSOT)");
+} else {
+  pass("MainActivity has no IncomingCallRingOwner.start");
+}
+
+if (
+  ringOwnerTs.includes("else if (useNativeRingOwner())") &&
+  ringOwnerTs.match(/syncIncomingCallRing[\s\S]*?else if \(useNativeRingOwner\(\)\)/)
+) {
+  fail("ring-owner sync(null) must not blind-stop native in else branch");
+} else {
+  pass("ring-owner sync(null) no native blind-stop branch");
+}
+
+if (!ringOwnerTs.includes("must not blind-stop native ring")) {
+  fail("ring-owner must document native blind-stop prohibition");
+} else {
+  pass("ring-owner blind-stop contract comment");
+}
+
+if (!notifBuilder.includes("dibay_calls_incoming_v7")) {
+  fail("notification channel must use silent incoming channel id");
+} else {
+  pass("silent notification channel id");
+}
+
+if (notifBuilder.includes("setDefaults(Notification.DEFAULT_ALL)")) {
+  fail("incoming notification must not use DEFAULT_ALL (double ring)");
+} else {
+  pass("no DEFAULT_ALL on incoming notification");
+}
+
+if (failed) {
+  process.exit(1);
+}
+
+console.log("verify:incoming-call-push-delivery-contract PASS");
