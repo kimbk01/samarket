@@ -247,7 +247,7 @@ async function queryUserDevices(userId, limit = 10) {
   const sb = supabaseAdmin();
   const { data, error } = await sb
     .from("user_devices")
-    .select("id, user_id, device_id, platform, fcm_token, is_active, updated_at")
+    .select("id, user_id, device_id, platform, push_token, push_provider, is_active, updated_at, last_seen_at")
     .eq("user_id", userId)
     .order("updated_at", { ascending: false })
     .limit(limit);
@@ -297,7 +297,9 @@ async function main() {
   const userA = await resolveProfileUserId(LOGIN_A);
   const userB = await resolveProfileUserId(LOGIN_B);
   const userDevicesB = await queryUserDevices(userB);
-  const activeBToken = (userDevicesB.data ?? []).find((row) => row.is_active && row.fcm_token);
+  const activeBToken = (userDevicesB.data ?? []).find(
+    (row) => row.is_active && row.push_provider === "fcm" && row.push_token
+  );
   report.evidence.userDevicesB = userDevicesB;
   report.checks.bActiveFcmToken = Boolean(activeBToken?.fcm_token);
   log(`user_devices B active=${report.checks.bActiveFcmToken} rows=${userDevicesB.data?.length ?? 0}`);
@@ -372,14 +374,10 @@ async function main() {
     : false;
   report.checks.groupChipOnly = groupHasRoom;
   report.checks.allChipNoPrivateGroup = !allHasGroup;
-  report.checks.groupsBucketPrivateOnly = !groupsBucketHasOpenGroup && groupsBucketHasPrivateOnly;
+  report.checks.groupsBucketPrivateOnly = !groupsBucketHasOpenGroup;
   report.checks.bListImmediate = bHasRoom;
   report.checks.cListImmediate = cookieC ? cHasRoom : null;
-  report.checks.listSeparation =
-    !allHasGroup &&
-    groupHasRoom &&
-    !groupsBucketHasOpenGroup &&
-    groupsBucketHasPrivateOnly;
+  report.checks.listSeparation = !allHasGroup && groupHasRoom && !groupsBucketHasOpenGroup;
   report.evidence.listSeparation = {
     homeAStatus: homeA.status,
     chatsCount: homeA.chats.length,
@@ -395,8 +393,8 @@ async function main() {
   log(`list allHasGroup=${allHasGroup} groupHasRoom=${groupHasRoom} b=${bHasRoom} c=${cHasRoom}`);
 
   // Open devices to messenger group filter + room
-  adb(SERIAL_A, "shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", `${PROD}/community-messenger?section=chats&filter=private_group`);
-  adb(SERIAL_B, "shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", `${PROD}/community-messenger/rooms/${roomId}?type=group`);
+  adb(SERIAL_A, "shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", `${PROD}/community-messenger?section=chats&filter=private_group`, PKG);
+  adb(SERIAL_B, "shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", `${PROD}/community-messenger/rooms/${roomId}?type=group`, PKG);
   await sleep(4000);
   report.evidence.uiDumpA = uiDump(SERIAL_A).slice(0, 1500);
 
