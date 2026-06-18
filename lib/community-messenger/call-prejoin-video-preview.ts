@@ -61,9 +61,12 @@ export function shouldShowOutgoingRingCameraPreview(args: {
   callKind: CommunityMessengerCallKind;
   sessionStatus: CommunityMessengerCallSessionStatus;
   isInitiator: boolean;
+  /** held·resolvePreJoin 경로 — peek 만으로는 tmp→real 전환 직후 false 가 될 수 있음 */
+  previewStream?: MediaStream | null;
 }): boolean {
   if (args.callKind !== "video" || args.sessionStatus !== "ringing" || !args.isInitiator) {
     return false;
   }
-  return hasLiveCommunityMessengerVideoPreviewStream(peekPrimedCommunityMessengerDeviceStream("video"));
+  const stream = args.previewStream ?? peekPrimedCommunityMessengerDeviceStream("video");
+  return hasLiveCommunityMessengerVideoPreviewStream(stream);
 }

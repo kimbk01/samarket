@@ -172,6 +172,7 @@ import {
   installDibayFcmCallBridge,
 } from "@/lib/community-messenger/dibay-fcm-call-bridge";
 import { logDibayCall } from "@/lib/community-messenger/call-orchestrator";
+import { primeCommunityMessengerCallConnectionPrefetch } from "@/lib/community-messenger/call-connection-prefetch";
 import { getActiveCallSessionCallId, subscribeActiveCallSession } from "@/lib/call/active-call-session";
 import {
   filterIncomingSessionsRespectingConsumed,
@@ -407,6 +408,8 @@ export function GlobalCommunityMessengerIncomingCall() {
         media: s.callKind,
         serverSkewMs: skew >= 0 ? skew : null,
       });
+      /** Telegram-style — 수신 벨 표시와 동시에 Agora token·SDK warm */
+      primeCommunityMessengerCallConnectionPrefetch(s.id);
     }
   }, [sessions]);
 

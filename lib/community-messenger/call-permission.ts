@@ -292,3 +292,27 @@ export function discardPrimedCommunityMessengerDevicePermission() {
   if (typeof window === "undefined") return;
   clearPrimedDeviceStream(true);
 }
+
+/**
+ * tmp→real 발신 bootstrap — Agora 조인 전 오디오 트랙만 정리(일부 기기 송신 무음 방지).
+ * PiP HTML 미리보기용 비디오 트랙은 live 이면 primed 상태를 유지한다.
+ */
+export function discardPrimedCommunityMessengerCallAudioTracksOnly(): void {
+  if (typeof window === "undefined" || !primedDeviceStreamState) return;
+  const stream = primedDeviceStreamState.stream;
+  for (const track of stream.getAudioTracks()) {
+    try {
+      track.stop();
+    } catch {
+      /* noop */
+    }
+  }
+  const liveVideo = stream.getVideoTracks().some((t) => t.readyState === "live");
+  if (!liveVideo) {
+    clearPrimedDeviceStream(true);
+    return;
+  }
+  if (!primedIdleReleaseSuspended) {
+    armPrimedDeviceStreamIdleRelease();
+  }
+}

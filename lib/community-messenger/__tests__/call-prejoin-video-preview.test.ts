@@ -3,6 +3,7 @@ import {
   hasLiveCommunityMessengerVideoPreviewStream,
   resolvePreJoinVideoPreviewStream,
   shouldPreserveHeldPreJoinVideoOnSessionRouteChange,
+  shouldShowOutgoingRingCameraPreview,
 } from "@/lib/community-messenger/call-prejoin-video-preview";
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 
@@ -82,6 +83,18 @@ describe("resolvePreJoinVideoPreviewStream", () => {
         heldStream: stream,
       })
     ).toBe(stream);
+  });
+
+  it("shouldShowOutgoingRingCameraPreview accepts held previewStream", () => {
+    const stream = fakeStream();
+    expect(
+      shouldShowOutgoingRingCameraPreview({
+        callKind: "video",
+        sessionStatus: "ringing",
+        isInitiator: true,
+        previewStream: stream,
+      })
+    ).toBe(true);
   });
 });
 

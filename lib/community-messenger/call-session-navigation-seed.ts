@@ -18,7 +18,17 @@ import {
   cmCallLatencyInfo,
 } from "@/lib/community-messenger/cm-call-debug";
 import { primeOutgoingCallMediaBeforeNavigate } from "@/lib/community-messenger/call-media-bootstrap";
-import { discardPrimedCommunityMessengerDevicePermission } from "@/lib/community-messenger/call-permission";
+import {
+  discardPrimedCommunityMessengerCallAudioTracksOnly,
+  discardPrimedCommunityMessengerDevicePermission,
+} from "@/lib/community-messenger/call-permission";
+import { writeTerminalCallRecoverySuppress } from "@/lib/community-messenger/call-active-session-recovery";
+import {
+  clearAllCommunityCallLocalSessionFlags,
+} from "@/lib/community-messenger/direct-call-minimize";
+import { resetCommunityMessengerCallRuntimeSurface } from "@/lib/community-messenger/call-runtime-registry";
+import { notifyCommunityCallHostSync } from "@/components/layout/providers/CommunityMessengerActiveCallHost";
+import { hardClearActiveCallSession } from "@/lib/call/active-call-session";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { safeTranslate } from "@/lib/i18n/safe-translate";
 import {
@@ -193,6 +203,34 @@ export function takeCallNavigationReturnPath(): string | null {
 
 /** 통화 종료 후 메신저 통화 목록 탭 */
 export const COMMUNITY_MESSENGER_CALL_LOGS_HREF = "/community-messenger?section=call_logs";
+
+/** 종료·거절·취소 직후 host·active 복구가 통화 화면을 다시 띄우지 않게 한다 */
+export function pinCommunityMessengerCallTerminalSurfaceDismiss(sessionId: string): void {
+  const sid = sessionId.trim();
+  if (!sid) return;
+  writeTerminalCallRecoverySuppress(sid);
+  clearAllCommunityCallLocalSessionFlags();
+  notifyCommunityCallHostSync();
+  try {
+    resetCommunityMessengerCallRuntimeSurface();
+  } catch {
+    /* ignore */
+  }
+}
+
+/** 터미널 확정 — surface 정리 + active 세션 해제 + 통화 목록으로 즉시 복귀 */
+export function finalizeCommunityMessengerCallTerminalExit(
+  router: { replace: (href: string) => void },
+  sessionId: string,
+  source = "call_client_terminal"
+): void {
+  const sid = sessionId.trim();
+  pinCommunityMessengerCallTerminalSurfaceDismiss(sid);
+  if (sid) {
+    void hardClearActiveCallSession(sid, source);
+  }
+  navigateToCommunityMessengerCallLogsAfterTerminal(router);
+}
 
 /** 종료·거절·취소·missed 직후 — return path 무시하고 통화 목록으로 */
 export function navigateToCommunityMessengerCallLogsAfterTerminal(router: { replace: (href: string) => void }): void {
@@ -607,8 +645,12 @@ async function applyOutgoingTempCallBootstrapResult(
     role: "initiator",
     roomId: result.roomId,
   });
-  /** tmp 링 미리보기 GUM — real 세션·Agora 조인 전 해제(일부 기기에서 프라임 오디오 재사용 시 송신 무음) */
-  discardPrimedCommunityMessengerDevicePermission();
+  /** tmp→real: 오디오만 정리 — PiP 비디오 미리보기는 live 트랙 유지 */
+  if (kind === "video") {
+    discardPrimedCommunityMessengerCallAudioTracksOnly();
+  } else {
+    discardPrimedCommunityMessengerDevicePermission();
+  }
   callNavigationGo(router)(`/community-messenger/calls/${encodeURIComponent(result.session.id)}`);
 }
 
@@ -687,6 +729,15 @@ export async function launchOutgoingDirectCall(
   const tempSessionId = decodeURIComponent(
     href.split("/community-messenger/calls/")[1]?.split("?")[0] ?? ""
   );
+  /** Telegram-style — 셸 먼저, GUM·mic 프라임은 tmp 셸·bootstrap 과 병렬 */
+  void primeOutgoingCallMediaBeforeNavigate(input.kind).then((prime) => {
+    if (!prime.ok) {
+      if (input.kind === "video") {
+        stopCommunityMessengerCallTone();
+        showMessengerSnackbar(outgoingCallMediaPrimeFailureMessage("video"), { variant: "error" });
+      }
+    }
+  });
   ensureOutgoingTempCallBootstrap({
     tempSessionId,
     roomId: input.roomId?.trim() || null,

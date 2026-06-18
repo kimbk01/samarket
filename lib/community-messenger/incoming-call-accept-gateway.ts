@@ -14,6 +14,7 @@ import {
   primeCommunityMessengerCallNavigationSeed,
   rememberCallNavigationReturnPath,
 } from "@/lib/community-messenger/call-session-navigation-seed";
+import { primeCommunityMessengerCallConnectionPrefetch } from "@/lib/community-messenger/call-connection-prefetch";
 import { unlockCommunityMessengerCallPlaybackFromUserGesture } from "@/lib/community-messenger/call-feedback-sound";
 import { getActiveCallSessionCallId, setActiveCallSession } from "@/lib/call/active-call-session";
 import { mapSessionStatusToActiveCallPhase } from "@/lib/call/map-session-to-active-call";
@@ -227,6 +228,7 @@ export async function runIncomingCallAccept(args: RunIncomingCallAcceptArgs): Pr
   unlockCommunityMessengerCallPlaybackFromUserGesture();
   rememberCallNavigationReturnPath();
   primeCommunityMessengerCallNavigationSeed(sid, s);
+  primeCommunityMessengerCallConnectionPrefetch(sid);
 
   if (!tryClaimIncomingCallAccept(sid)) {
     logDibayCall("accept_failed", {

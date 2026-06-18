@@ -146,9 +146,9 @@ describe("incoming-call policy contracts", () => {
   it("terminal call end navigates to call_logs section", () => {
     const nav = read("lib/community-messenger/call-session-navigation-seed.ts");
     expect(nav).toContain("COMMUNITY_MESSENGER_CALL_LOGS_HREF");
-    expect(nav).toContain("navigateToCommunityMessengerCallLogsAfterTerminal");
+    expect(nav).toContain("finalizeCommunityMessengerCallTerminalExit");
     const client = read("components/community-messenger/CommunityMessengerCallClient.tsx");
-    expect(client).toContain("navigateToCommunityMessengerCallLogsAfterTerminal");
+    expect(client).toContain("finalizeCommunityMessengerCallTerminalExit");
     expect(client).toContain("stale_ringing_blocked");
   });
 });
