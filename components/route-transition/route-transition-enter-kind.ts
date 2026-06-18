@@ -10,6 +10,7 @@ import {
   isStoresOwnerStackPath,
   storesOwnerStackDepth,
 } from "@/lib/business/owner-stack-path";
+import { isProfileEditPath } from "@/lib/mypage/mypage-mobile-nav-registry";
 
 function normalizePathKey(path: string | null | undefined): string {
   return String(path ?? "").split("?")[0]?.trim() ?? "";
@@ -23,6 +24,16 @@ function isMypageStoreSectionPath(path: string | null | undefined): boolean {
 function isMypagePath(path: string | null | undefined): boolean {
   const p = normalizePathKey(path);
   return p === "/mypage" || p.startsWith("/mypage/") || p === "/my" || p.startsWith("/my/");
+}
+
+function isMypageRootPath(path: string | null | undefined): boolean {
+  const p = normalizePathKey(path);
+  return p === "/mypage" || p === "/my";
+}
+
+function isProfileEditRoute(path: string | null | undefined): boolean {
+  const p = normalizePathKey(path);
+  return isProfileEditPath(p);
 }
 
 function isStoreOwnerApplyPath(path: string | null | undefined): boolean {
@@ -48,6 +59,12 @@ function syncLastForwardAxisAfterKind(
   }
   if (kind === "store-apply-forward") {
     ref.current = "rtl";
+  }
+  if (kind === "profile-edit-forward") {
+    ref.current = "rtl";
+  }
+  if (kind === "profile-edit-back") {
+    ref.current = null;
   }
 }
 
@@ -106,6 +123,14 @@ export function computeRouteTransitionEnterKind(
     kind = "store-apply-forward";
   } else if (isStoreOwnerApplyPath(prevPath) && isMypagePath(nextPath)) {
     kind = "store-apply-back";
+  } else if (isProfileEditRoute(nextPath) && isMypageRootPath(prevPath)) {
+    kind = "profile-edit-forward";
+  } else if (isMypageRootPath(nextPath) && isProfileEditRoute(prevPath)) {
+    kind = "profile-edit-back";
+  } else if (isProfileEditRoute(nextPath) && isMypagePath(prevPath)) {
+    kind = "profile-edit-forward";
+  } else if (isProfileEditRoute(prevPath) && isMypagePath(nextPath)) {
+    kind = "profile-edit-back";
   } else if (isStoresOwnerStackPath(prevPath) && !isStoresOwnerStackPath(nextPath)) {
     /** 매장 운영 스택에서 탭 밖으로 나갈 때 — 좌→우 퇴장 */
     kind = "ltr-back";

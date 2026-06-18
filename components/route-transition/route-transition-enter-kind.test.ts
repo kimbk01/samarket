@@ -155,6 +155,27 @@ describe("computeRouteTransitionEnterKind", () => {
     expect(k).toBe("store-apply-back");
     expect(lastForwardAxisRef.current).toBe(null);
   });
+
+  it("mypage to profile edit uses profile-edit-forward", () => {
+    const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
+    const k = computeRouteTransitionEnterKind(
+      "/mypage",
+      "/mypage/section/account/profile/edit",
+      { popstateBack: false, lastForwardAxisRef },
+    );
+    expect(k).toBe("profile-edit-forward");
+    expect(lastForwardAxisRef.current).toBe("rtl");
+  });
+
+  it("profile edit back to mypage uses profile-edit-back", () => {
+    const lastForwardAxisRef = { current: "rtl" as "ltr" | "rtl" | null };
+    const k = computeRouteTransitionEnterKind(
+      "/mypage/section/account/profile/edit",
+      "/mypage",
+      { popstateBack: true, lastForwardAxisRef },
+    );
+    expect(k).toBe("profile-edit-back");
+  });
 });
 
 describe("computeRouteTransitionEnterKind with dynamic resolver", () => {

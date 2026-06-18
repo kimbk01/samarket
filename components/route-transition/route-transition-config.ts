@@ -26,7 +26,11 @@ export type RouteTransitionEnterKind =
   /** 내정보 → `/stores/owner/apply` — 370ms 우→좌 */
   | "store-apply-forward"
   /** `/stores/owner/apply` → 내정보 — 370ms 좌→우 */
-  | "store-apply-back";
+  | "store-apply-back"
+  /** 내정보 → 프로필 수정 — 440ms 우→좌 80% */
+  | "profile-edit-forward"
+  /** 프로필 수정 → 내정보 — 360ms 좌→우 80% */
+  | "profile-edit-back";
 
 export function normalizePathForRouteTransition(pathname: string | null): string {
   return (pathname ?? "").split("?")[0]?.trim() ?? "";
@@ -105,6 +109,10 @@ export function routeTransitionPushAxisForKind(
     case "rtl-back":
     case "store-apply-forward":
       return "rtl";
+    case "profile-edit-forward":
+      return "rtl";
+    case "profile-edit-back":
+      return "ltr";
     case "none":
     case "subtle":
       return null;
@@ -123,6 +131,8 @@ export const ROUTE_TRANSITION_ENTER_CLASSES = [
   "main-shell-route-enter-subtle",
   "store-owner-apply-route-enter-rtl-forward",
   "store-owner-apply-route-enter-ltr-back",
+  "profile-edit-route-enter-forward",
+  "profile-edit-route-enter-back",
 ] as const;
 
 export const ROUTE_TRANSITION_EXIT_CLASSES = [
@@ -150,6 +160,10 @@ export function routeTransitionClassForKind(kind: RouteTransitionEnterKind): str
       return "store-owner-apply-route-enter-rtl-forward";
     case "store-apply-back":
       return "store-owner-apply-route-enter-ltr-back";
+    case "profile-edit-forward":
+      return "profile-edit-route-enter-forward";
+    case "profile-edit-back":
+      return "profile-edit-route-enter-back";
     default: {
       const _exhaustive: never = kind;
       return _exhaustive;
@@ -170,6 +184,8 @@ export function routeTransitionExitClassForKind(kind: RouteTransitionEnterKind):
       return "main-shell-route-exit-rtl";
     case "none":
     case "subtle":
+    case "profile-edit-forward":
+    case "profile-edit-back":
       return null;
     default: {
       const _exhaustive: never = kind;
@@ -195,6 +211,8 @@ export function ownerStackRouteTransitionClassForKind(
       return "owner-stack-route-enter-ltr-back";
     case "store-apply-forward":
     case "store-apply-back":
+    case "profile-edit-forward":
+    case "profile-edit-back":
       return null;
     default: {
       const _exhaustive: never = kind;
