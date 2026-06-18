@@ -184,24 +184,6 @@ export async function POST(
   if (!phone.ok) return phone.response;
   if (!canon.ok) return canon.response;
   const { recordMessengerApiTiming } = await import("@/lib/community-messenger/monitoring/messenger-api-route-timing");
-  const { assertDirectRoomCommunicationNotBlocked } = await import(
-    "@/lib/community-messenger/direct-room-communication-gate"
-  );
-  const blockGate = await assertDirectRoomCommunicationNotBlocked({
-    viewerUserId: userId,
-    roomId: canon.canonicalRoomId,
-  });
-  if (!blockGate.ok) {
-    recordMessengerApiTiming(
-      "POST /api/community-messenger/rooms/[roomId]/messages",
-      Math.round(performance.now() - wall0),
-      403
-    );
-    return jsonError("차단된 사용자와는 메시지를 주고받을 수 없습니다.", 403, {
-      code: "blocked_target",
-      error: "blocked_target",
-    });
-  }
   const body = parsed.value;
   const canonicalRoomId = canon.canonicalRoomId;
   const gateMs = Math.round(performance.now() - wall0);

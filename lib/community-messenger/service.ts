@@ -15203,14 +15203,6 @@ async function trySendCommunityMessengerTextAtomic(
   | { ok: false; error: string }
   | null
 > {
-  const blockGate = await assertDirectRoomCommunicationNotBlocked({
-    viewerUserId: input.userId,
-    roomId,
-    supabase: sb,
-  });
-  if (!blockGate.ok) {
-    return { ok: false, error: "blocked_target" };
-  }
   /**
    * 거래 전송 가드·dedupe·unread 는 `community_messenger_send_text_message` RPC 가 단일 트랜잭션으로 처리.
    * 사전 `product_chats` 조회는 ACK RTT 만 늘리므로 atomic 경로에서는 생략한다.

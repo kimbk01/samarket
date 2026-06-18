@@ -9,18 +9,17 @@ function read(path: string): string {
 }
 
 describe("CM block enforcement hotfix contract", () => {
-  it("sendCommunityMessengerMessage gates blocked_target before send", () => {
+  it("sendCommunityMessengerMessage gates blocked_target once before atomic RPC", () => {
     const src = read("lib/community-messenger/service.ts");
-    expect(src).toContain("assertDirectRoomCommunicationNotBlocked");
-    expect(src).toContain('error: "blocked_target"');
-  });
-
-  it("atomic send path gates blocked_target before RPC", () => {
-    const src = read("lib/community-messenger/service.ts");
-    const fn = src.slice(src.indexOf("async function trySendCommunityMessengerTextAtomic"));
-    expect(fn).toContain("assertDirectRoomCommunicationNotBlocked");
-    expect(fn.indexOf("community_messenger_send_text_message")).toBeGreaterThan(
-      fn.indexOf("assertDirectRoomCommunicationNotBlocked")
+    const sendStart = src.indexOf("export async function sendCommunityMessengerMessage");
+    const atomicStart = src.indexOf("async function trySendCommunityMessengerTextAtomic");
+    const atomicFn = src.slice(atomicStart, sendStart);
+    const sendFn = src.slice(sendStart, sendStart + 4000);
+    expect(sendFn).toContain("assertDirectRoomCommunicationNotBlocked");
+    expect(sendFn).toContain('error: "blocked_target"');
+    expect(atomicFn).not.toContain("assertDirectRoomCommunicationNotBlocked");
+    expect(sendFn.indexOf("assertDirectRoomCommunicationNotBlocked")).toBeLessThan(
+      sendFn.indexOf("trySendCommunityMessengerTextAtomic")
     );
   });
 
@@ -33,13 +32,11 @@ describe("CM block enforcement hotfix contract", () => {
     expect(reuseIdx).toBeGreaterThan(gateIdx);
   });
 
-  it("message POST route gates blocked_target before send handler", () => {
+  it("message POST route maps blocked_target to 403 without duplicate gate", () => {
     const src = read("app/api/community-messenger/rooms/[roomId]/messages/route.ts");
-    expect(src).toContain("assertDirectRoomCommunicationNotBlocked");
-    const gateIdx = src.indexOf("assertDirectRoomCommunicationNotBlocked");
-    const sendIdx = src.indexOf("sendCommunityMessengerMessage");
-    expect(gateIdx).toBeGreaterThan(-1);
-    expect(sendIdx).toBeGreaterThan(gateIdx);
+    expect(src).toContain('responsePayload.error === "blocked_target"');
+    expect(src).toContain("403");
+    expect(src).not.toContain("assertDirectRoomCommunicationNotBlocked");
   });
 
   it("post-ack notify filters blocked recipients", () => {

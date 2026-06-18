@@ -32,33 +32,34 @@ export async function resolveDirectRoomPeerUserId(
   const sb = supabase ?? getSupabaseOrNull();
   if (!sb) return null;
 
-  const { data: room } = await (sb as any)
-    .from("community_messenger_rooms")
-    .select("room_type, direct_key")
-    .eq("id", rid)
-    .maybeSingle();
+  const [{ data: room }, { data: rows }] = await Promise.all([
+    (sb as any)
+      .from("community_messenger_rooms")
+      .select("room_type, direct_key")
+      .eq("id", rid)
+      .maybeSingle(),
+    (sb as any).from("community_messenger_participants").select("user_id").eq("room_id", rid),
+  ]);
+
   const roomType = trimText((room as { room_type?: string } | null)?.room_type);
   if (roomType !== "direct") return null;
 
+  const peers = dedupeIds(
+    ((rows ?? []) as Array<{ user_id?: string | null }>)
+      .map((row) => trimText(row.user_id))
+      .filter((id) => id && id !== viewer)
+  );
+  if (peers.length >= 1) return peers[0] ?? null;
+
   const directKey = trimText((room as { direct_key?: string } | null)?.direct_key);
-  if (directKey) {
+  if (directKey && !directKey.startsWith("trade_") && !directKey.startsWith("store_order:")) {
     const parts = directKey.split(":").filter(Boolean);
     if (parts.length === 2) {
       if (parts[0] === viewer) return parts[1] ?? null;
       if (parts[1] === viewer) return parts[0] ?? null;
     }
   }
-
-  const { data: rows } = await (sb as any)
-    .from("community_messenger_participants")
-    .select("user_id")
-    .eq("room_id", rid);
-  const peers = dedupeIds(
-    ((rows ?? []) as Array<{ user_id?: string | null }>)
-      .map((row) => trimText(row.user_id))
-      .filter((id) => id && id !== viewer)
-  );
-  return peers[0] ?? null;
+  return null;
 }
 
 function dedupeIds(values: Iterable<string>): string[] {
