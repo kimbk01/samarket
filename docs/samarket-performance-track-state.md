@@ -6,7 +6,7 @@
 
 | 필드 | 값 |
 |------|-----|
-| Last updated | 2026-06-12 (BN13·BN14 **마감**) |
+| Last updated | 2026-06-18 (CM-ROOM-LOCKDOWN · CALL-LOG-SWIPE **마감**) |
 | Owner | (선택) |
 
 ---
@@ -408,6 +408,21 @@ SAMARKET_BASE_URL=https://dibaY.vercel.app SAMARKET_PROD_PERF_MEASURE=1 npm run 
 
 | 트랙 이름 | **PDS1** Prod Deploy Sync for OPS1-B |
 | **트랙 상태** | **■ 종료** — prod headers 10/10 · OPS1-B gate_met |
+
+| 트랙 이름 | **CM-ROOM-LOCKDOWN** Community Messenger 방 코어 안정화 |
+| **트랙 상태** | **■ 종료** (2026-06-18) |
+| 이번 원인 1개 | cold/re-entry paint seed 분열(`lastMessage` only)·scroll owner 중복·send optimistic/ack/finally 삼중 scroll·direct→virtual 조기 전환. |
+| 이번 조치 | `hasMessengerRoomHydrationTimelineSeed` · entry scroll owner SSOT · send `own_message_append` 단일화 · `skip_ack_id_replace` · re-entry `reentry_hydration_restored` · 회귀 테스트 52+건. |
+| 검증 | lint/tsc/i18n PASS · unit PASS · build · cap sync · assembleDebug · adb install `RFCY40PY2CA`. |
+| 커밋 | `a43829f1` · `17767f68` (선행 first-entry) |
+| lock | `docs/community-messenger-mobile-room-viewport.md` §7 · `messenger-room-entry-scroll-owner` |
+
+| 트랙 이름 | **CALL-LOG-SWIPE** 통화 목록 스와이프 삭제 |
+| **트랙 상태** | **■ 종료** (2026-06-18) |
+| 이번 원인 1개 | 삭제 액션 레이어 `z-[1]`이 행 위에 항상 그려짐 + 삭제 탭 ghost click → 상세 진입 + 확인 팝업 경로 혼선. |
+| 이번 조치 | 채팅 목록과 동일 stacking(액션 뒤·surface `z-[1]`) · `dragX===0` 시 `pointer-events-none` · 스와이프 삭제 즉시 API DELETE(팝업 제거) · outside-tap 닫기 유지. |
+| 검증 | call-log unit 7 PASS · lint/tsc/build · cap sync · assembleDebug · adb install. |
+| 커밋 | `0fc2de92` |
 
 ---
 

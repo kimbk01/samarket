@@ -120,3 +120,4 @@ npx vitest run lib/community-messenger/__tests__/call-incoming-terminal.test.ts 
 | 2026-06-16 | `DibayFcmCallRouteHost` — `dibay:call-route` 이벤트·native SharedPreferences 백업 소비(수락 후 화면 사라짐 수정) |
 | 2026-06-16 | Android 잠금/슬립 — FSI 여부와 무관 `IncomingCallActivity` 직접 실행 |
 | 2026-06-16 | `ensureCallMediaForUserGesture` — 수락/발신 시 OS·GUM 권한 요청; 영상 발신 GUM 프라임 |
+| 2026-06-18 | 통화 목록 스와이프 삭제 **완료** — 스와이프 시에만 삭제 노출·즉시 DELETE·상세 ghost navigate 차단 (`0fc2de92`) |

@@ -1,0 +1,33 @@
+{
+  "completed_at": "2026-06-18",
+  "tracks": [
+    {
+      "id": "CM-ROOM-LOCKDOWN",
+      "title": "Community Messenger Room Core Stabilization / Lockdown",
+      "status": "COMPLETE",
+      "commits": ["17767f68", "a43829f1"],
+      "verdict": "cold=re-entry paint SSOT, single scroll owner, send pipeline dedupe, layout transition lock, regression tests PASS",
+      "apk": "android/app/build/outputs/apk/debug/app-debug.apk",
+      "device_qa": "Samsung RFCY40PY2CA — install Success"
+    },
+    {
+      "id": "CALL-LOG-SWIPE",
+      "title": "통화 목록 스와이프 삭제",
+      "status": "COMPLETE",
+      "commits": ["0fc2de92"],
+      "verdict": "스와이프 시에만 삭제 노출, 탭 즉시 삭제, 상세 진입 회귀 없음",
+      "apk": "android/app/build/outputs/apk/debug/app-debug.apk",
+      "device_qa": "Samsung RFCY40PY2CA — install Success"
+    }
+  ],
+  "verification": {
+    "lint": "PASS",
+    "tsc": "PASS",
+    "i18n": "PASS",
+    "unit_tests": "PASS",
+    "build": "PASS",
+    "cap_sync_android": "PASS",
+    "gradlew_assembleDebug": "PASS",
+    "adb_install": "PASS"
+  }
+}

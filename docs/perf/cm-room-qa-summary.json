@@ -4,7 +4,7 @@
   "device": "Samsung RFCY40PY2CA (adb connected)",
   "trace_server": "NEXT_PUBLIC_MESSENGER_PERF_TRACE=1 npm run dev -- -p 3001",
   "apk_server_url": "http://192.168.100.64:3001",
-  "verdict": "COMPLETE — Playwright #10 chip PASS + Samsung 실기기 시각 QA PASS",
+  "verdict": "COMPLETE — CM-ROOM-LOCKDOWN + CALL-LOG-SWIPE (2026-06-18, commits a43829f1 · 0fc2de92)",
   "automated_pass": {
     "playwright_10_chip_race": {
       "profiles": ["Pixel 7", "iPhone 14", "iPad Pro 11"],
