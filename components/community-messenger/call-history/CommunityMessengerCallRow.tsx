@@ -10,6 +10,7 @@ import {
   CALL_LOG_SWIPE_ACTION_ATTR,
   COMMUNITY_MESSENGER_CALL_LOG_SWIPE_ACTION_W_PX,
   communityMessengerCallLogSwipeItemId,
+  isCallLogSwipeDeleteActionInteractive,
 } from "@/lib/community-messenger/call-history/call-log-swipe";
 import { presentCallHistoryRow } from "@/lib/community-messenger/call-history/call-history-presenter";
 import { formatCallLogListTime, resolveCallLogListTimestampIso } from "@/lib/community-messenger/call-log-row-copy";
@@ -58,6 +59,8 @@ export function CommunityMessengerCallRow({
   });
   /** 삭제·스와이프 액션 탭 직후 navigate click 재타겟팅 차단 */
   const swipeActionTapRef = useRef(false);
+
+  const deleteActionInteractive = isCallLogSwipeDeleteActionInteractive(dragX) || swipeOpen;
 
   useEffect(() => {
     dragXRef.current = dragX;
@@ -147,11 +150,12 @@ export function CommunityMessengerCallRow({
 
   const handleDeleteRequest = useCallback(() => {
     swipeActionTapRef.current = true;
+    closeSwipe();
     onDeleteRequest(call);
     window.setTimeout(() => {
       swipeActionTapRef.current = false;
-    }, 400);
-  }, [call, onDeleteRequest]);
+    }, 500);
+  }, [call, closeSwipe, onDeleteRequest]);
 
   const handleNavigate = useCallback(() => {
     if (swipeActionTapRef.current) return;
@@ -186,9 +190,11 @@ export function CommunityMessengerCallRow({
   return (
     <li className="relative overflow-hidden border-b border-sam-border" data-call-log-row="true">
       <div
-        className="absolute inset-y-0 right-0 z-[1] flex items-stretch"
+        className={`absolute inset-y-0 right-0 flex items-stretch ${
+          deleteActionInteractive ? "pointer-events-auto" : "pointer-events-none"
+        }`}
         style={{ width: actionWidth }}
-        aria-hidden={!swipeOpen}
+        aria-hidden={dragX === 0}
         {...{ [CALL_LOG_SWIPE_ACTION_ATTR]: "delete" }}
       >
         <button
@@ -196,14 +202,17 @@ export function CommunityMessengerCallRow({
           data-call-log-delete-action="true"
           {...{ [CALL_LOG_SWIPE_ACTION_ATTR]: "delete" }}
           onPointerDownCapture={(e) => {
+            e.preventDefault();
             e.stopPropagation();
           }}
           onPointerDown={(e) => {
-            e.stopPropagation();
-          }}
-          onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
+          }}
+          onPointerUp={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.button !== 0 || !deleteActionInteractive) return;
             handleDeleteRequest();
           }}
           className="flex h-full w-full items-center justify-center bg-red-600 px-2 text-center text-sm font-semibold text-white active:opacity-90"
@@ -213,7 +222,7 @@ export function CommunityMessengerCallRow({
       </div>
 
       <div
-        className="relative flex min-h-[64px] w-full touch-pan-y items-stretch bg-sam-app"
+        className="relative z-[1] flex min-h-[64px] w-full touch-pan-y items-stretch bg-sam-app"
         data-call-log-swipe-surface={swipeSurfaceDataAttr}
         style={{
           transform: `translate3d(${dragX}px,0,0)`,

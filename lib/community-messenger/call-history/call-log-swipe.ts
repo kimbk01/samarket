@@ -18,3 +18,8 @@ export function shouldCloseCallLogSwipeOnOutsidePointerDown(target: EventTarget 
   if (target.closest(`[${CALL_LOG_SWIPE_ACTION_ATTR}]`)) return false;
   return true;
 }
+
+/** 삭제 액션 레이어가 닫힌 상태에서 터치·클릭을 받지 않음 (채팅 목록 스와이프와 동일) */
+export function isCallLogSwipeDeleteActionInteractive(dragX: number): boolean {
+  return dragX < 0;
+}

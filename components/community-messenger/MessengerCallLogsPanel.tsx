@@ -10,7 +10,6 @@ import {
   type CallPeerDetailSelection,
 } from "@/components/community-messenger/call-history/CommunityMessengerCallPeerDetailPanel";
 import { CommunityMessengerCallPeerDetailShell } from "@/components/community-messenger/call-history/CommunityMessengerCallPeerDetailShell";
-import { MessengerCallLogDeleteConfirmDialog } from "@/components/community-messenger/MessengerCallLogDeleteConfirmDialog";
 import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 import { runCommunityMessengerRoomForwardNavigation } from "@/lib/community-messenger/community-messenger-room-forward-navigation";
 import { presentCallHistoryRow } from "@/lib/community-messenger/call-history/call-history-presenter";
@@ -65,10 +64,6 @@ type Props = {
   onBootstrapCallsChange?: (calls: CommunityMessengerCallLog[]) => void;
 };
 
-type DeleteConfirmState = {
-  call: CommunityMessengerCallLog;
-};
-
 type OutgoingConfirmState = {
   call: CommunityMessengerCallLog;
   kind: "voice" | "video";
@@ -108,9 +103,8 @@ export function MessengerCallLogsPanel({
     [controlledOnOpenSwipeItem, swipeControlled]
   );
   const [outgoingConfirm, setOutgoingConfirm] = useState<OutgoingConfirmState | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState | null>(null);
+  const [deletingCallId, setDeletingCallId] = useState<string | null>(null);
   const [outgoingBusy, setOutgoingBusy] = useState(false);
-  const [deleteBusy, setDeleteBusy] = useState(false);
   const [portalReady, setPortalReady] = useState(false);
   const mountRefreshDoneRef = useRef(false);
   const skipMountRefetchOnceRef = useRef(false);
@@ -180,9 +174,9 @@ export function MessengerCallLogsPanel({
   }, [setOpenedSwipeItemId]);
 
   useEffect(() => {
-    if (!outgoingConfirm && !deleteConfirm && !peerDetailOpen) return;
+    if (!outgoingConfirm && !peerDetailOpen) return;
     closeCallLogSwipe();
-  }, [closeCallLogSwipe, deleteConfirm, outgoingConfirm, peerDetailOpen]);
+  }, [closeCallLogSwipe, outgoingConfirm, peerDetailOpen]);
 
   useEffect(() => {
     setPortalReady(true);
@@ -289,65 +283,54 @@ export function MessengerCallLogsPanel({
     [closeCallLogSwipe]
   );
 
-  const onDeleteRequest = useCallback(
-    (call: CommunityMessengerCallLog) => {
+  const performDeleteCallLog = useCallback(
+    async (call: CommunityMessengerCallLog) => {
+      const targetId = call.id?.trim();
+      if (!targetId || deletingCallId) return;
+      setDeletingCallId(targetId);
       closeCallLogSwipe();
-      setDeleteConfirm({ call });
+      try {
+        const res = await fetch(`/api/community-messenger/calls/logs/${encodeURIComponent(targetId)}`, {
+          method: "DELETE",
+          credentials: "include",
+        });
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean };
+        if (!res.ok || !json.ok) {
+          showMessengerSnackbar(t("cm_ui_call_log_delete_failed"), { variant: "error" });
+          return;
+        }
+        setCalls((prev) => {
+          const next = prev.filter((row) => row.id !== targetId);
+          onBootstrapCallsChange?.(enrichCalls(next));
+          return next;
+        });
+        showMessengerSnackbar(
+          safeT("cm_ui_call_log_deleted", {
+            fallbackKo: "통화 기록을 삭제했습니다.",
+            fallbackEn: "Call log deleted.",
+          }),
+          { variant: "success" }
+        );
+      } catch {
+        showMessengerSnackbar(t("cm_ui_call_log_delete_failed"), { variant: "error" });
+      } finally {
+        setDeletingCallId(null);
+      }
     },
-    [closeCallLogSwipe]
+    [closeCallLogSwipe, deletingCallId, enrichCalls, onBootstrapCallsChange, safeT, t]
   );
 
-  const handleDeleteConfirm = useCallback(async () => {
-    const target = deleteConfirm?.call;
-    if (!target || deleteBusy) return;
-    setDeleteBusy(true);
-    try {
-      const res = await fetch(`/api/community-messenger/calls/logs/${encodeURIComponent(target.id)}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      const json = (await res.json().catch(() => ({}))) as { ok?: boolean };
-      if (!res.ok || !json.ok) {
-        showMessengerSnackbar(t("cm_ui_call_log_delete_failed"), { variant: "error" });
-        return;
-      }
-      setCalls((prev) => {
-        const next = prev.filter((row) => row.id !== target.id);
-        onBootstrapCallsChange?.(enrichCalls(next));
-        return next;
-      });
-      closeCallLogSwipe();
-      setDeleteConfirm(null);
-      showMessengerSnackbar(
-        safeT("cm_ui_call_log_deleted", {
-          fallbackKo: "통화 기록을 삭제했습니다.",
-          fallbackEn: "Call log deleted.",
-        }),
-        { variant: "success" }
-      );
-    } catch {
-      showMessengerSnackbar(t("cm_ui_call_log_delete_failed"), { variant: "error" });
-    } finally {
-      setDeleteBusy(false);
-    }
-  }, [
-    closeCallLogSwipe,
-    deleteBusy,
-    deleteConfirm,
-    enrichCalls,
-    onBootstrapCallsChange,
-    safeT,
-    t,
-  ]);
+  const onDeleteRequest = useCallback(
+    (call: CommunityMessengerCallLog) => {
+      void performDeleteCallLog(call);
+    },
+    [performDeleteCallLog]
+  );
 
   const handlePeerDetailClosed = useCallback(() => {
     setPeerDetailOpen(false);
     setPeerDetailSelection(null);
   }, []);
-
-  const closeDeleteConfirm = useCallback(() => {
-    if (!deleteBusy) setDeleteConfirm(null);
-  }, [deleteBusy]);
 
   const handleOutgoingConfirm = useCallback(() => {
     const next = outgoingConfirm;
@@ -407,31 +390,19 @@ export function MessengerCallLogsPanel({
   const peerDetailCalls = useMemo(() => calls, [calls]);
 
   const overlayDialogs =
-    portalReady && (outgoingConfirm || deleteConfirm)
+    portalReady && outgoingConfirm
       ? createPortal(
           <div className="relative z-[1400]">
-            {outgoingConfirm ? (
-              <MessengerOutgoingCallConfirmDialog
-                open
-                peerLabel={outgoingConfirm.peerLabel}
-                kind={outgoingConfirm.kind}
-                busy={outgoingBusy}
-                onCancel={() => {
-                  if (!outgoingBusy) setOutgoingConfirm(null);
-                }}
-                onConfirm={handleOutgoingConfirm}
-              />
-            ) : null}
-            {deleteConfirm ? (
-              <MessengerCallLogDeleteConfirmDialog
-                open
-                busy={deleteBusy}
-                onCancel={closeDeleteConfirm}
-                onConfirm={() => {
-                  void handleDeleteConfirm();
-                }}
-              />
-            ) : null}
+            <MessengerOutgoingCallConfirmDialog
+              open
+              peerLabel={outgoingConfirm.peerLabel}
+              kind={outgoingConfirm.kind}
+              busy={outgoingBusy}
+              onCancel={() => {
+                if (!outgoingBusy) setOutgoingConfirm(null);
+              }}
+              onConfirm={handleOutgoingConfirm}
+            />
           </div>,
           document.body
         )

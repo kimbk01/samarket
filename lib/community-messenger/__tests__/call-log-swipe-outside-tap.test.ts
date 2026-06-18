@@ -4,6 +4,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CALL_LOG_SWIPE_ACTION_ATTR,
+  isCallLogSwipeDeleteActionInteractive,
   shouldCloseCallLogSwipeOnOutsidePointerDown,
 } from "@/lib/community-messenger/call-history/call-log-swipe";
 
@@ -38,5 +39,16 @@ describe("shouldCloseCallLogSwipeOnOutsidePointerDown", () => {
   it("returns false for non-Element targets", () => {
     expect(shouldCloseCallLogSwipeOnOutsidePointerDown(null)).toBe(false);
     expect(shouldCloseCallLogSwipeOnOutsidePointerDown(document.createTextNode("x"))).toBe(false);
+  });
+});
+
+describe("isCallLogSwipeDeleteActionInteractive", () => {
+  it("is false when row is closed (dragX=0)", () => {
+    expect(isCallLogSwipeDeleteActionInteractive(0)).toBe(false);
+  });
+
+  it("is true when row is swiped open (dragX<0)", () => {
+    expect(isCallLogSwipeDeleteActionInteractive(-72)).toBe(true);
+    expect(isCallLogSwipeDeleteActionInteractive(-1)).toBe(true);
   });
 });

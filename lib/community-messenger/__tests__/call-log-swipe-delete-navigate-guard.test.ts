@@ -31,11 +31,11 @@ describe("call log swipe delete must not trigger navigate", () => {
     deleteBtn.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
     expect(onOpenSwipeItem).not.toHaveBeenCalled();
 
-    deleteBtn.onclick = (e) => {
+    deleteBtn.addEventListener("pointerup", (e) => {
       e.stopPropagation();
       onDeleteRequest();
-    };
-    deleteBtn.click();
+    });
+    deleteBtn.dispatchEvent(new MouseEvent("pointerup", { bubbles: true, button: 0 }));
     expect(onDeleteRequest).toHaveBeenCalledTimes(1);
     expect(onNavigate).not.toHaveBeenCalled();
 
