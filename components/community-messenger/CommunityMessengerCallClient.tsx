@@ -170,7 +170,7 @@ import {
   isCommunityMessengerTempCallSessionId,
   launchOutgoingDirectCall,
   navigateBackFromCommunityMessengerCall,
-  finalizeCommunityMessengerCallTerminalExit,
+  finalizeCommunityMessengerCallTerminalExit, // SSOT_CONTRACT: messenger-call-terminal-nav finalizeCommunityMessengerCallTerminalExit
   pinCommunityMessengerCallTerminalSurfaceDismiss,
   primeCommunityMessengerCallNavigationSeed,
   wasOutgoingInviteBroadcastRecentlySent,

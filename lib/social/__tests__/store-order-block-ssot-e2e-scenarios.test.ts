@@ -15,19 +15,4 @@ describe.todo("store-order chat block SSOT E2E scenarios", () => {
   it("store_order owner hub badge: 차단 시 store_order_participant_unread 증가 없음 (수동 확인)");
 });
 
-describe("call block SSOT contract", () => {
-  it("startCommunityMessengerCallSession delegates block gate to canStartDirectCallBetweenUsers", async () => {
-    const { readFileSync } = await import("node:fs");
-    const { join } = await import("node:path");
-    const src = readFileSync(
-      join(process.cwd(), "lib/community-messenger/service.ts"),
-      "utf8"
-    );
-    expect(src).toContain("canStartDirectCallBetweenUsers({");
-    expect(src).toContain("callerUserId: input.userId");
-    expect(src).toContain("calleeUserId: peerUserId");
-    expect(src).toContain('error: "blocked_target"');
-    expect(src).toContain("ensureNoBlockedEitherWay(recipient, callerId)");
-    expect(src).toContain("ensureNoBlockedEitherWay(initiator, recipient)");
-  });
-});
+// 통화 차단 SSOT — lib/test-utils/__tests__/ssot-source-contract-markers.test.ts

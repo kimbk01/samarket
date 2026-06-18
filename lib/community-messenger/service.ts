@@ -17286,6 +17286,7 @@ async function sendIncomingCallPushBestEffort(input: {
   const roomId = trimText(input.roomId);
   const callerId = trimText(input.callerId);
   if (!recipient || !sessionId || !roomId || !callerId) return;
+  // SSOT_CONTRACT: messenger-call-push-block ensureNoBlockedEitherWay
   if (!(await ensureNoBlockedEitherWay(recipient, callerId))) return;
   const profileMap = await fetchProfilesByIds([callerId]);
   const callerProfile = profileMap.get(callerId);
@@ -17476,6 +17477,7 @@ export async function startCommunityMessengerCallSession(input: {
   }
   if (!isGroupRoom && peerUserId) {
     const callKindInput = input.callKind === "video" ? "video" : "audio";
+    // SSOT_CONTRACT: messenger-direct-call-start-gate canStartDirectCallBetweenUsers
     const directCallGate = await canStartDirectCallBetweenUsers({
       callerUserId: input.userId,
       calleeUserId: peerUserId,
@@ -18091,6 +18093,7 @@ export async function updateCommunityMessengerCallSession(input: {
       ) {
         const initiator = trimText(session.initiator_user_id);
         const recipient = trimText(session.recipient_user_id!);
+        // SSOT_CONTRACT: messenger-call-accept-block ensureNoBlockedEitherWay
         if (!(await ensureNoBlockedEitherWay(initiator, recipient))) {
           return { ok: false, error: "blocked_target" };
         }

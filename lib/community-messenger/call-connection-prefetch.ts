@@ -53,6 +53,9 @@ export function primeCommunityMessengerCallConnectionPrefetch(sessionId: string)
     promise,
     fetchedAt: Date.now(),
   });
+  void promise.catch(() => {
+    /* best-effort warm — join 시 fetchFresh 로 fallback */
+  });
 }
 
 export function peekPrefetchedCommunityMessengerCallConnection(

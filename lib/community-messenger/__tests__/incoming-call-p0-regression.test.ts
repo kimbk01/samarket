@@ -28,6 +28,7 @@ describe("sw.js incoming-call wake regression", () => {
 describe("call terminal navigation policy", () => {
   it("terminal paths use call_logs; non-terminal keeps navigateBack", () => {
     const client = read("components/community-messenger/CommunityMessengerCallClient.tsx");
+    // SSOT marker: ssot-source-contract-markers.test.ts (messenger-call-terminal-nav)
     expect(client).toContain("finalizeCommunityMessengerCallTerminalExit");
     expect(client).toContain("beginRingingCallDismiss");
     expect(client).toContain("closeTerminalView");

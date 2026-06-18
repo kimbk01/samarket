@@ -11,10 +11,13 @@ export default defineConfig({
       "@": __dirname,
       "@domain/philife/api": path.resolve(__dirname, "lib/philife/api.ts"),
       "server-only": path.resolve(__dirname, "tests/vitest-mocks/server-only.ts"),
+      /** Browser-only — Node vitest 전역 stub (samarket-ci-stability-regulation.mdc) */
+      "agora-rtc-sdk-ng": path.resolve(__dirname, "tests/vitest-mocks/agora-rtc-sdk-ng.ts"),
     },
   },
   test: {
     environment: "node",
+    setupFiles: [path.resolve(__dirname, "tests/vitest-setup.node.ts")],
     testTimeout: 15000,
     /**
      * Playwright 전용 스펙은 Vitest 수집 대상에서 제외한다.

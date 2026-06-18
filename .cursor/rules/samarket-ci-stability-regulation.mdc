@@ -1,0 +1,41 @@
+# CI 안정성 — Vitest·SSOT 계약·번들
+
+CI(`npm run ci`) 실패를 **같은 클래스로 반복하지 않기** 위한 규칙.
+
+## 1. 근본 원인 (3종)
+
+| 클래스 | 증상 | 근본 대책 |
+|---|---|---|
+| **Browser SDK in Node** | `window is not defined`, Agora import 실패 | `vitest.config.ts` alias + `tests/vitest-setup.node.ts` |
+| **구현 문자열 계약** | 리팩터 후 `toContain("함수호출(...)")` 깨짐 | `SSOT_CONTRACT:` 마커 + `ssot-source-contract-registry.ts` |
+| **번들 baseline drift** | `check:bundle` exit 2 | 의도적 증가 시 `check:bundle:update-baseline -- --force` 커밋 |
+
+## 2. Vitest (Node 환경)
+
+- **금지**: Agora·DOM 의존 모듈을 per-test `vi.mock` 만으로 방어 (누락 시 CI 전체 실패).
+- **필수**: `agora-rtc-sdk-ng` → `tests/vitest-mocks/agora-rtc-sdk-ng.ts` alias 유지.
+- **필수**: `setupFiles: ["tests/vitest-setup.node.ts"]` — placeholder (전역 `window` 덮어쓰기 **금지**, delivery 등 setTimeout 의존 테스트 깨짐).
+- 새 browser-only 패키지 추가 시 동일 패턴으로 `tests/vitest-mocks/` stub + alias.
+
+## 3. SSOT 소스 계약
+
+- **금지**: `readFileSync` + `expect(src).toContain("input.userId, peerUserId")` 같은 **call-site 시그니처** 검증.
+- **필수**: 게이트·라우팅 경계에 한 줄 주석:
+  ```ts
+  // SSOT_CONTRACT: <id> <stable-token>
+  ```
+- **필수**: 마커 목록은 `lib/test-utils/ssot-source-contract-registry.ts` 에만 추가.
+- **검증**: `lib/test-utils/__tests__/ssot-source-contract-markers.test.ts` (CI `npm run test` 포함).
+- 리팩터로 구현이 바뀌면 **마커·registry·also** 를 같은 PR 에 갱신.
+
+## 4. 번들 baseline
+
+- CI 마지막 단계: `npm run build` → `npm run check:bundle`.
+- messenger home/room/call route JS 가 baseline+slack 초과 시 **기능 PR 과 함께** baseline JSON 갱신.
+- 갱신: `npm run build && npm run check:bundle:update-baseline -- --force`
+
+## 5. Cursor Agent
+
+- 통화·메신저 SSOT 변경 시 registry 마커 확인.
+- vitest 추가 시 Agora transitive import 가능성 먼저 점검 (전역 alias로 해결되는지).
+- CI 수정만 하는 PR 이라도 **클래스별 근본 규칙** 위반 패턴을 남기지 말 것.
