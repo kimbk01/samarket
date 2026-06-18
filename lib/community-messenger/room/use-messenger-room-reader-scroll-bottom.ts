@@ -30,6 +30,12 @@ import {
   resolveMessengerRoomNearBottomForAutoScroll,
   syncMessengerRoomStickToBottomFromViewport,
 } from "@/lib/community-messenger/room/messenger-room-scroll-near-bottom";
+import {
+  canRunMessengerRoomScrollOwner,
+  markMessengerRoomEntryScrollSettled,
+  markMessengerRoomScrollOwnerRun,
+  resetMessengerRoomEntryScrollOwner,
+} from "@/lib/community-messenger/room/messenger-room-entry-scroll-owner";
 
 /**
  * @see docs/community-messenger-mobile-room-viewport.md
@@ -93,6 +99,9 @@ export function useMessengerRoomReaderScrollBottom({
     (opts?: { reason?: string }) => {
       const id = roomId?.trim();
       const reason = opts?.reason ?? "explicit";
+      if (id && !canRunMessengerRoomScrollOwner(id, reason)) {
+        return;
+      }
       const alwaysScroll = reason === "own_message_append" || reason === "explicit";
       if (!alwaysScroll) {
         const nearBottom = resolveMessengerRoomNearBottomForAutoScroll({
@@ -161,11 +170,21 @@ export function useMessengerRoomReaderScrollBottom({
             room_id_suffix: id && id.length > 8 ? id.slice(-8) : id,
           });
         }
-        if (reason === "room_entry_initial") {
+        if (reason === "room_entry_initial" || reason === "timeline_delivery_direct_paint") {
           logChatRoomScroll("initial_anchor_bottom", {
             roomIdSuffix: id && id.length > 8 ? id.slice(-8) : id,
             bottomDistancePx: Math.round(bottomDist),
             reason,
+          });
+          if (id) {
+            markMessengerRoomEntryScrollSettled(id, reason);
+          }
+        }
+        if (id) {
+          markMessengerRoomScrollOwnerRun(id, reason, {
+            scrollTop: vp?.scrollTop,
+            scrollHeight: vp?.scrollHeight,
+            clientHeight: vp?.clientHeight,
           });
         }
         } else if (cmScrollAnalysisEnabled()) {
@@ -220,6 +239,8 @@ export function useMessengerRoomReaderScrollBottom({
       disposeCmPolishImageLayoutShiftObserver();
       ensureCmPolishImageLayoutShiftObserver();
     }
+    const rid = roomId?.trim();
+    if (rid) resetMessengerRoomEntryScrollOwner(rid);
     stickToBottomRef.current = true;
     const el = messagesViewportRef.current;
     if (!el) {
@@ -298,6 +319,8 @@ export function useMessengerRoomReaderScrollBottom({
       cancelAnimationFrame(rafId);
       /** ResizeObserver·vv 콜백당 스케줄 1회 rAF 로 레이아웃 스래시 완화 */
       rafId = requestAnimationFrame(() => {
+        const rid = roomId.trim();
+        if (!canRunMessengerRoomScrollOwner(rid, "viewport_resize_restore")) return;
         const t0 = typeof performance !== "undefined" ? performance.now() : 0;
         const box = messagesViewportRef.current;
         if (!box || !lastScrollGeomRef.current.ready) return;

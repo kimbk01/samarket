@@ -104,6 +104,7 @@ import {
   noteCmRoomR5Phase2BodyMount,
 } from "@/lib/community-messenger/room/cm-room-r5-timeline-mount-instrumentation";
 import { entryTimingT0 } from "@/lib/community-messenger/room/cm-room-entry-timing";
+import { setMessengerRoomEntryHydrationPass } from "@/lib/community-messenger/room/messenger-room-entry-scroll-owner";
 
 function pushCmR8PerfEvent(roomId: string, event: string, payload: Record<string, unknown>): void {
   if (typeof window === "undefined") return;
@@ -176,6 +177,12 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
     rootRef.current = node;
     setChatShellMounted(Boolean(node));
   }, []);
+
+  useEffect(() => {
+    if (!roomIdStable) return;
+    setMessengerRoomEntryHydrationPass(roomIdStable, hydrationPass);
+  }, [hydrationPass, roomIdStable]);
+
   useLayoutEffect(() => {
     const rid = roomIdStable;
     if (!rid) return;

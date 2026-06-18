@@ -4,7 +4,10 @@ import { useEffect } from "react";
 import { useSyncExternalStore } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CommunityMessengerCallRow } from "@/components/community-messenger/call-history/CommunityMessengerCallRow";
-import { communityMessengerCallLogSwipeItemId } from "@/lib/community-messenger/call-history/call-log-swipe";
+import {
+  communityMessengerCallLogSwipeItemId,
+  shouldCloseCallLogSwipeOnOutsidePointerDown,
+} from "@/lib/community-messenger/call-history/call-log-swipe";
 import { mergeCallHistoryForHomeList } from "@/lib/community-messenger/call-history/call-history-merge";
 import { sortCallHistoryEntries } from "@/lib/community-messenger/call-history/call-history-sorter";
 import {
@@ -55,9 +58,7 @@ export function CommunityMessengerCallHistory({
   useEffect(() => {
     if (!openedSwipeItemId) return;
     const onPointerDown = (event: PointerEvent) => {
-      const target = event.target;
-      if (!(target instanceof Element)) return;
-      if (target.closest("[data-call-log-swipe-surface='open']")) return;
+      if (!shouldCloseCallLogSwipeOnOutsidePointerDown(event.target)) return;
       onOpenSwipeItem(null);
     };
     document.addEventListener("pointerdown", onPointerDown, true);

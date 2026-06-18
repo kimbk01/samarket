@@ -1,6 +1,10 @@
 import type { MutableRefObject, RefObject } from "react";
 import { isMessengerRoomNearBottomFromMetrics } from "@/lib/community-messenger/room/messenger-room-timeline-ssot";
 import { MESSENGER_STICK_TO_BOTTOM_THRESHOLD_PX } from "@/lib/ui/messenger-chat-viewport-tuning";
+import {
+  canRunMessengerRoomScrollOwner,
+  markMessengerRoomScrollOwnerRun,
+} from "@/lib/community-messenger/room/messenger-room-entry-scroll-owner";
 
 /** 타임라인 말풍선 행 — 진입 스크롤·페인트 대기 단일 셀렉터 */
 export const CM_TIMELINE_MESSAGE_ROW_SELECTOR = "[data-cm-timeline-message-row]";
@@ -24,15 +28,31 @@ export function resolveUseDirectMessengerTimelineLayout(opts: {
   /** 요약·store_order system 이 있으면 도크 없어도 direct(가상 겹침 방지) */
   hasStoreOrderTimeline?: boolean;
   virtualizerHasMeasuredRange: boolean;
+  /** pass3·진입 스크롤 settle 전 virtual 전환 금지 (일반 1:1·그룹) */
+  entryReadyForVirtual?: boolean;
 }): boolean {
   const storeOrderTimeline = Boolean(opts.hasStoreOrderDock || opts.hasStoreOrderTimeline);
   const minHydrationPass = storeOrderTimeline ? 1 : 2;
   const effectiveCount = Math.max(opts.displayMessageCount, opts.seedMessageCount ?? 0);
+  const entryReadyForVirtual = opts.entryReadyForVirtual ?? true;
   return (
     opts.hydrationPass >= minHydrationPass &&
     effectiveCount > 0 &&
-    (storeOrderTimeline || !opts.virtualizerHasMeasuredRange)
+    (storeOrderTimeline || !opts.virtualizerHasMeasuredRange || !entryReadyForVirtual)
   );
+}
+
+/** virtual row offset 유효성 — direct→virtual 전환 시 NaN·중복 index 방지 */
+export function areTimelineVirtualRowOffsetsValid(
+  rows: ReadonlyArray<{ index: number; start: number }>
+): boolean {
+  const seen = new Set<number>();
+  for (const row of rows) {
+    if (!Number.isFinite(row.start) || row.start < 0 || row.index < 0) return false;
+    if (seen.has(row.index)) return false;
+    seen.add(row.index);
+  }
+  return true;
 }
 
 type ScheduleScrollAfterRowsOpts = {
@@ -86,7 +106,14 @@ export function scheduleMessengerScrollToBottomAfterRowsPainted(
     }
     if (vp && messengerTimelineViewportHasMessageRows(vp)) {
       cancelPending();
-      opts.scroll({ reason: opts.reason });
+      if (canRunMessengerRoomScrollOwner(rid, opts.reason)) {
+        markMessengerRoomScrollOwnerRun(rid, opts.reason, {
+          scrollTop: vp.scrollTop,
+          scrollHeight: vp.scrollHeight,
+          clientHeight: vp.clientHeight,
+        });
+        opts.scroll({ reason: opts.reason });
+      }
       return;
     }
     if (attempts < maxAttempts) {

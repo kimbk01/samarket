@@ -7,6 +7,7 @@ import { CommunityMessengerCallActionButton } from "@/components/community-messe
 import { CommunityMessengerCallDirectionBadge } from "@/components/community-messenger/call-history/CommunityMessengerCallDirectionBadge";
 import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultAvatarFace";
 import {
+  CALL_LOG_SWIPE_ACTION_ATTR,
   COMMUNITY_MESSENGER_CALL_LOG_SWIPE_ACTION_W_PX,
   communityMessengerCallLogSwipeItemId,
 } from "@/lib/community-messenger/call-history/call-log-swipe";
@@ -55,6 +56,8 @@ export function CommunityMessengerCallRow({
     active: false,
     dragging: false,
   });
+  /** 삭제·스와이프 액션 탭 직후 navigate click 재타겟팅 차단 */
+  const swipeActionTapRef = useRef(false);
 
   useEffect(() => {
     dragXRef.current = dragX;
@@ -142,7 +145,16 @@ export function CommunityMessengerCallRow({
     [actionWidth, onOpenSwipeItem, swipeItemId]
   );
 
+  const handleDeleteRequest = useCallback(() => {
+    swipeActionTapRef.current = true;
+    onDeleteRequest(call);
+    window.setTimeout(() => {
+      swipeActionTapRef.current = false;
+    }, 400);
+  }, [call, onDeleteRequest]);
+
   const handleNavigate = useCallback(() => {
+    if (swipeActionTapRef.current) return;
     if (swipeOpen) {
       closeSwipe();
       return;
@@ -174,15 +186,25 @@ export function CommunityMessengerCallRow({
   return (
     <li className="relative overflow-hidden border-b border-sam-border" data-call-log-row="true">
       <div
-        className="absolute inset-y-0 right-0 flex items-stretch"
+        className="absolute inset-y-0 right-0 z-[1] flex items-stretch"
         style={{ width: actionWidth }}
         aria-hidden={!swipeOpen}
+        {...{ [CALL_LOG_SWIPE_ACTION_ATTR]: "delete" }}
       >
         <button
           type="button"
-          onClick={(e) => {
+          data-call-log-delete-action="true"
+          {...{ [CALL_LOG_SWIPE_ACTION_ATTR]: "delete" }}
+          onPointerDownCapture={(e) => {
             e.stopPropagation();
-            onDeleteRequest(call);
+          }}
+          onPointerDown={(e) => {
+            e.stopPropagation();
+          }}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleDeleteRequest();
           }}
           className="flex h-full w-full items-center justify-center bg-red-600 px-2 text-center text-sm font-semibold text-white active:opacity-90"
         >
@@ -207,7 +229,7 @@ export function CommunityMessengerCallRow({
           disabled={!vm.canNavigate}
           onClick={(e) => {
             e.stopPropagation();
-            if (isDragging) return;
+            if (isDragging || swipeActionTapRef.current) return;
             handleNavigate();
           }}
           className={`flex min-w-0 flex-1 items-center gap-3 px-3 py-2 text-left transition-transform duration-100 active:scale-[0.98] active:bg-sam-primary-soft ${

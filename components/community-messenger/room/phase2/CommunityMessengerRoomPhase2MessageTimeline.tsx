@@ -80,6 +80,14 @@ import {
   resolveUseDirectMessengerTimelineLayout,
   scheduleMessengerScrollToBottomAfterRowsPainted,
 } from "@/lib/community-messenger/room/messenger-timeline-layout-mode";
+import {
+  isMessengerRoomReadyForVirtualLayout,
+  logCmTimelineLayoutModeChanged,
+  logCmVirtualizerUpgradeBegin,
+  logCmVirtualizerUpgradeCommit,
+  markMessengerRoomLayoutSettling,
+  setMessengerRoomFirstCommitRowsLocked,
+} from "@/lib/community-messenger/room/messenger-room-entry-scroll-owner";
 import { useDeliveryRoomMessageSenderLabel } from "@/lib/store-order-chat/use-delivery-room-message-sender-label";
 import {
   noteCmRoomR5TimelineComponentMount,
@@ -1077,6 +1085,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     hasStoreOrderDock,
     hasStoreOrderTimeline,
     virtualizerHasMeasuredRange: virtualizerHasMeasuredRangeForLayout,
+    entryReadyForVirtual: hasStoreOrderDock || hasStoreOrderTimeline || isMessengerRoomReadyForVirtualLayout(vm.streamRoomId),
   });
 
   const timelineRowsStackClass =
@@ -1146,7 +1155,8 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     }
     if (!virtualizerHasMeasuredRangeRaw) return;
     if (upgradeScheduleStartedRef.current) return;
-    if (finalTimelinePaintMessages.length <= 0 || hydrationPass < 2) return;
+    if (finalTimelinePaintMessages.length <= 0 || hydrationPass < 3) return;
+    if (!isMessengerRoomReadyForVirtualLayout(vm.streamRoomId)) return;
     upgradeScheduleStartedRef.current = true;
 
     const st = getCmR9State(vm.streamRoomId);
@@ -1181,12 +1191,15 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
         upgradeIdleCancelRef.current?.();
         upgradeIdleCancelRef.current = scheduleCmR10IdleWork(() => {
           if (cancelled) return;
+          if (!isMessengerRoomReadyForVirtualLayout(vm.streamRoomId)) return;
           const commit = getCmR9State(vm.streamRoomId);
           commit.upgradeStage = "virtualized";
           commit.virtualizerUpgradeStartMs = nowFromT0Ms();
+          markMessengerRoomLayoutSettling(vm.streamRoomId, true);
           holdDirectDomRef.current = false;
           setHoldDirectDom(false);
           setFirstCommitRowsLocked(false);
+          setMessengerRoomFirstCommitRowsLocked(vm.streamRoomId, false);
         });
       });
     });
@@ -1309,6 +1322,22 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
 
   const prevUseDirectLayoutRef = useRef(useDirectTimelineLayout);
   useLayoutEffect(() => {
+    logCmTimelineLayoutModeChanged(vm.streamRoomId, {
+      directLayout: useDirectTimelineLayout,
+      hydrationPass,
+      holdDirectDom: holdDirectDomRef.current,
+      measuredRange: virtualizerHasMeasuredRangeForLayout,
+      rowCount: finalTimelinePaintMessages.length,
+    });
+  }, [
+    finalTimelinePaintMessages.length,
+    hydrationPass,
+    useDirectTimelineLayout,
+    virtualizerHasMeasuredRangeForLayout,
+    vm.streamRoomId,
+  ]);
+
+  useLayoutEffect(() => {
     const prevDirect = prevUseDirectLayoutRef.current;
     prevUseDirectLayoutRef.current = useDirectTimelineLayout;
     if (!prevDirect || useDirectTimelineLayout) return;
@@ -1337,7 +1366,13 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
       rows_replace_count: st.rowsIdentityReplaceCount,
       upgrade_stage: st.upgradeStage,
     });
-  }, [finalTimelinePaintMessages.length, useDirectTimelineLayout, vm.chatVirtualizer, vm.streamRoomId]);
+    logCmVirtualizerUpgradeBegin(vm.streamRoomId, {
+      hydrationPass,
+      holdDirectDom: holdDirectDomRef.current,
+      rowCount: finalTimelinePaintMessages.length,
+      measuredRange: virtualizerHasMeasuredRangeForLayout,
+    });
+  }, [finalTimelinePaintMessages.length, hydrationPass, useDirectTimelineLayout, virtualizerHasMeasuredRangeForLayout, vm.chatVirtualizer, vm.streamRoomId]);
 
   useEffect(() => {
     const renderSource = resolveCmRoomRenderSource({
@@ -1471,8 +1506,15 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
       });
       st.active = false;
       setFirstCommitRowsLocked(false);
+      markMessengerRoomLayoutSettling(vm.streamRoomId, false);
+      logCmVirtualizerUpgradeCommit(vm.streamRoomId, {
+        hydrationPass,
+        rowCount: finalTimelinePaintMessages.length,
+        virtualItemsCount: st.virtualItemsCount,
+        commitSpanMs,
+      });
     }
-  }, [finalTimelinePaintMessages.length, useDirectTimelineLayout, vm.chatVirtualizer, vm.streamRoomId]);
+  }, [finalTimelinePaintMessages.length, hydrationPass, useDirectTimelineLayout, vm.chatVirtualizer, vm.streamRoomId]);
 
   const lastDisplayMessageId =
     vm.displayRoomMessages[vm.displayRoomMessages.length - 1]?.id ?? "";
