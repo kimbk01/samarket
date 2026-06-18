@@ -7,8 +7,8 @@ vi.mock("@/lib/community-messenger/call-provider/client", () => ({
   createCommunityMessengerAgoraClient: vi.fn(),
 }));
 
-vi.mock("@/lib/community-messenger/call-provider/group-agora-session", () => ({
-  fetchGroupAgoraConnection: (...args: unknown[]) => fetchGroupAgoraConnectionMock(...args),
+vi.mock("@/lib/community-messenger/call-provider/load-group-agora-session.client", () => ({
+  loadFetchGroupAgoraConnection: async () => fetchGroupAgoraConnectionMock,
 }));
 
 const connection: CommunityMessengerManagedCallConnection = {
@@ -27,6 +27,16 @@ describe("call-connection-prefetch", () => {
     fetchGroupAgoraConnectionMock.mockReset();
   });
 
+  it("does not statically import group-agora-session at module top level", async () => {
+    const src = await import("node:fs/promises").then((fs) =>
+      fs.readFile("lib/community-messenger/call-connection-prefetch.ts", "utf8")
+    );
+    expect(src).not.toMatch(
+      /^\s*import\s+\{[^}]*fetchGroupAgoraConnection[^}]*\}\s+from\s+["']@\/lib\/community-messenger\/call-provider\/group-agora-session["']/m
+    );
+    expect(src).toContain("loadFetchGroupAgoraConnection");
+  });
+
   it("primeCommunityMessengerCallConnectionPrefetch stores resolved connection", async () => {
     fetchGroupAgoraConnectionMock.mockResolvedValue(connection);
     const mod = await import("@/lib/community-messenger/call-connection-prefetch");
@@ -34,6 +44,7 @@ describe("call-connection-prefetch", () => {
     await vi.waitFor(() => {
       expect(mod.peekPrefetchedCommunityMessengerCallConnection("sess-1")).toEqual(connection);
     });
+    expect(fetchGroupAgoraConnectionMock).toHaveBeenCalledWith("sess-1");
   });
 
   it("resolveCommunityMessengerCallConnection prefers ref then module prefetch", async () => {
@@ -62,5 +73,6 @@ describe("call-connection-prefetch", () => {
     });
     expect(resolved).toEqual(connection);
     expect(fresh).toHaveBeenCalledTimes(1);
+    expect(fetchGroupAgoraConnectionMock).not.toHaveBeenCalled();
   });
 });

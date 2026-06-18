@@ -7,7 +7,7 @@ import { CapacitorNativeMarkerBootstrap } from "@/components/platform/CapacitorN
 import { SupabaseAuthSync } from "@/components/auth/SupabaseAuthSync";
 import { AppLanguageProvider } from "@/components/i18n/AppLanguageProvider";
 import { AppTitle } from "@/components/layout/AppTitle";
-import { CallIncomingChrome } from "@/components/layout/providers/CallIncomingChrome";
+import { CallIncomingChromeRoot } from "@/components/layout/providers/CallIncomingChromeRoot";
 import { MainShellMessengerParticipantBridge } from "@/components/layout/MainShellMessengerParticipantBridge";
 import { APP_PRODUCT_DISPLAY_NAME } from "@/lib/brand/app-display-name";
 import {
@@ -112,7 +112,7 @@ export default async function RootLayout({
             <SupabaseAuthSync />
             <CapacitorNativeMarkerBootstrap />
             <OAuthReturnListener />
-            <CallIncomingChrome />
+            <CallIncomingChromeRoot />
             <MainShellMessengerParticipantBridge regionBarInLayout={true} />
             {children}
           </AppBootProvider>

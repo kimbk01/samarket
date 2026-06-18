@@ -1,12 +1,19 @@
 "use client";
 
-import { fetchGroupAgoraConnection } from "@/lib/community-messenger/call-provider/group-agora-session";
+import { loadFetchGroupAgoraConnection } from "@/lib/community-messenger/call-provider/load-group-agora-session.client";
 import type { CommunityMessengerManagedCallConnection } from "@/lib/community-messenger/types";
 
 const PREFETCH_MAX_AGE_MS = 90_000;
 
 async function warmCommunityMessengerCallProviderBundle(): Promise<void> {
   await import("@/lib/community-messenger/call-provider/client").catch(() => {});
+}
+
+async function fetchGroupAgoraConnectionDeferred(
+  sessionId: string
+): Promise<CommunityMessengerManagedCallConnection | null> {
+  const fetchGroupAgoraConnection = await loadFetchGroupAgoraConnection();
+  return fetchGroupAgoraConnection(sessionId);
 }
 
 type PrefetchSlot = {
@@ -30,7 +37,7 @@ export function primeCommunityMessengerCallConnectionPrefetch(sessionId: string)
 
   void warmCommunityMessengerCallProviderBundle();
 
-  const promise = fetchGroupAgoraConnection(sid)
+  const promise = fetchGroupAgoraConnectionDeferred(sid)
     .then((connection) => {
       if (!connection) {
         prefetchBySessionId.delete(sid);
