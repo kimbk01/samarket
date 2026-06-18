@@ -69,6 +69,7 @@ import {
 import { getActiveCallSessionCallId } from "@/lib/call/active-call-session";
 import {
   guardInstantOutgoingCallStart,
+  isOutgoingCallPhoneVerificationRequired,
   navigateBlockedOutgoingCall,
 } from "@/lib/call/outgoing-call-start-guard";
 import { cmCallLatencyInfo, cmCallLatencyMarkClick, setCmCallLatencyContext } from "@/lib/community-messenger/cm-call-debug";
@@ -590,6 +591,7 @@ export function useMessengerRoomPhase2Controller() {
         kind,
       });
       if (!guard.ok) {
+        if (isOutgoingCallPhoneVerificationRequired(guard)) return false;
         if (guard.blockedCallId) navigateBlockedOutgoingCall(router, guard.blockedCallId);
         else showMessengerSnackbar(guard.userMessage, { variant: "error" });
         return false;
@@ -634,6 +636,7 @@ export function useMessengerRoomPhase2Controller() {
         outgoingDialSyncGuardRef.current = false;
         setOutgoingDialLocked(false);
         if (!result.ok) {
+          if (isOutgoingCallPhoneVerificationRequired(result)) return;
           showMessengerSnackbar(result.userMessage, { variant: "error" });
         }
       })();
@@ -1736,6 +1739,7 @@ export function useMessengerRoomPhase2Controller() {
         kind,
       });
       if (!guard.ok) {
+        if (isOutgoingCallPhoneVerificationRequired(guard)) return false;
         if (guard.blockedCallId) navigateBlockedOutgoingCall(router, guard.blockedCallId);
         else showMessengerSnackbar(guard.userMessage, { variant: "error" });
         return false;
@@ -1761,6 +1765,7 @@ export function useMessengerRoomPhase2Controller() {
         outgoingDialSyncGuardRef.current = false;
         setOutgoingDialLocked(false);
         if (!result.ok) {
+          if (isOutgoingCallPhoneVerificationRequired(result)) return;
           showMessengerSnackbar(result.userMessage, { variant: "error" });
         }
       })();

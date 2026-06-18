@@ -12,6 +12,7 @@ import {
 import { launchOutgoingDirectCall } from "@/lib/community-messenger/call-session-navigation-seed";
 import {
   guardInstantOutgoingCallStart,
+  isOutgoingCallPhoneVerificationRequired,
   navigateBlockedOutgoingCall,
 } from "@/lib/call/outgoing-call-start-guard";
 import { useOutgoingCallBlocked } from "@/lib/call/use-outgoing-call-blocked";
@@ -53,6 +54,7 @@ export function TradeChatCallHeaderButtons(props: {
         kind,
       });
       if (!guard.ok) {
+        if (isOutgoingCallPhoneVerificationRequired(guard)) return;
         if (guard.blockedCallId) navigateBlockedOutgoingCall(router, guard.blockedCallId);
         else onErrorMessage(guard.userMessage);
         return;
@@ -103,6 +105,7 @@ export function TradeChatCallHeaderButtons(props: {
         });
         const result = await launchOutgoingDirectCall({ kind, roomId: messengerRoomId }, router);
         if (!result.ok) {
+          if (isOutgoingCallPhoneVerificationRequired(result)) return;
           onErrorMessage(result.userMessage);
         }
       } catch {

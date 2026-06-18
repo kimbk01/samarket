@@ -11,6 +11,14 @@ import {
 } from "@/lib/call/call-action-lock";
 import { guardInstantOutgoingCallStart } from "@/lib/call/outgoing-call-start-guard";
 
+vi.mock("@/lib/auth/get-current-user", () => ({
+  getCurrentUser: () => ({ id: "user-1", phone_verified: true }),
+}));
+
+vi.mock("@/lib/auth/phone-verification-required-client", () => ({
+  openPhoneVerificationRequiredSheet: vi.fn(),
+}));
+
 describe("outgoing call start reuse guard", () => {
   beforeEach(() => {
     resetActiveCallSessionForTests();

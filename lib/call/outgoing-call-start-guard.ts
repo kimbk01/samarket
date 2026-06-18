@@ -1,6 +1,10 @@
 "use client";
 
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
+import {
+  assertPhoneVerifiedForMessengerActionOrOpenSheet,
+  resolveMessengerActionReturnPath,
+} from "@/lib/auth/assert-phone-verified-for-messenger-action-client";
 import { getActiveCallSessionCallId } from "@/lib/call/active-call-session";
 import { isOutgoingCallStartBlocked } from "@/lib/call/call-action-lock";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
@@ -14,7 +18,13 @@ export type InstantOutgoingCallGuardInput = {
 
 export type InstantOutgoingCallGuardResult =
   | { ok: true }
-  | { ok: false; blockedCallId: string; userMessage: string };
+  | { ok: false; blockedCallId: string; userMessage: string; phoneVerificationRequired?: boolean };
+
+export function isOutgoingCallPhoneVerificationRequired(result: {
+  phoneVerificationRequired?: boolean;
+}): boolean {
+  return result.phoneVerificationRequired === true;
+}
 
 function alreadyInProgressMessage(): string {
   return safeTranslate(getRuntimeAppLanguage(), "cm_ui_call_already_in_progress", {
@@ -27,6 +37,9 @@ function alreadyInProgressMessage(): string {
 export function guardInstantOutgoingCallStart(
   _input?: InstantOutgoingCallGuardInput,
 ): InstantOutgoingCallGuardResult {
+  if (!assertPhoneVerifiedForMessengerActionOrOpenSheet(resolveMessengerActionReturnPath())) {
+    return { ok: false, blockedCallId: "", userMessage: "", phoneVerificationRequired: true };
+  }
   const activeCallId = getActiveCallSessionCallId();
   if (activeCallId) {
     return { ok: false, blockedCallId: activeCallId, userMessage: alreadyInProgressMessage() };

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { requirePhoneVerified } from "@/lib/auth/server-guards";
 import { startCommunityMessengerCallSession } from "@/lib/community-messenger/service";
 /** SSOT_CONTRACT: messenger-call-init-route startCommunityMessengerCallSession */
 import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
@@ -14,6 +15,9 @@ export async function POST(
 ) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
+
+  const phone = await requirePhoneVerified(auth.userId);
+  if (!phone.ok) return phone.response;
 
   const rateLimit = await enforceRateLimit({
     key: `community-messenger:room-call-start:${getRateLimitKey(req, auth.userId)}`,

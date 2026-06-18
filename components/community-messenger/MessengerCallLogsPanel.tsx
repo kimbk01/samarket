@@ -23,7 +23,7 @@ import {
   useCommunityCallHistoryRealtimeSync,
 } from "@/lib/community-messenger/call-history/use-community-call-history-realtime-sync";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
-import { guardInstantOutgoingCallStart } from "@/lib/call/outgoing-call-start-guard";
+import { guardInstantOutgoingCallStart, isOutgoingCallPhoneVerificationRequired } from "@/lib/call/outgoing-call-start-guard";
 import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
 import type { CommunityMessengerCallLog, CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 
@@ -219,6 +219,7 @@ export function MessengerCallLogsPanel({
     ) => {
       const guard = guardInstantOutgoingCallStart({ peerUserId, kind, roomId });
       if (!guard.ok) {
+        if (isOutgoingCallPhoneVerificationRequired(guard)) return;
         showMessengerSnackbar(guard.userMessage, { variant: "error" });
         return;
       }
@@ -230,6 +231,7 @@ export function MessengerCallLogsPanel({
       if (!dialInput) return;
       const result = await launchOutgoingDirectCall(dialInput, router);
       if (!result.ok) {
+        if (isOutgoingCallPhoneVerificationRequired(result)) return;
         showMessengerSnackbar(result.userMessage, { variant: "error" });
       }
     },

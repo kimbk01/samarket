@@ -2,7 +2,7 @@
 
 import { useLayoutEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { launchOutgoingDirectCall } from "@/lib/community-messenger/call-session-navigation-seed";
+import { launchOutgoingDirectCall, isOutgoingCallPhoneVerificationRequired } from "@/lib/community-messenger/call-session-navigation-seed";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
@@ -49,6 +49,7 @@ export function CommunityMessengerOutgoingDialPageClient() {
         router
       );
       if (!result.ok) {
+        if (isOutgoingCallPhoneVerificationRequired(result)) return;
         setError(result.userMessage);
       }
     })();

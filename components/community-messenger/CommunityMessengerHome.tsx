@@ -87,6 +87,7 @@ import {
 } from "@/lib/community-messenger/call-session-navigation-seed";
 import {
   guardInstantOutgoingCallStart,
+  isOutgoingCallPhoneVerificationRequired,
   navigateBlockedOutgoingCall,
 } from "@/lib/call/outgoing-call-start-guard";
 import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
@@ -1141,6 +1142,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         kind,
       });
       if (!guard.ok) {
+        if (isOutgoingCallPhoneVerificationRequired(guard)) return false;
         if (guard.blockedCallId) navigateBlockedOutgoingCall(router, guard.blockedCallId);
         else showMessengerSnackbar(guard.userMessage, { variant: "error" });
         return false;
@@ -1184,6 +1186,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         );
         releaseDialGuard();
         if (!result.ok) {
+          if (isOutgoingCallPhoneVerificationRequired(result)) return;
           showMessengerSnackbar(result.userMessage, { variant: "error" });
         }
       })();

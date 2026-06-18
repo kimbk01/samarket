@@ -168,6 +168,7 @@ import {
   ensureOutgoingTempCallBootstrap,
   hydrateCommunityMessengerCallClientSession,
   isCommunityMessengerTempCallSessionId,
+  isOutgoingCallPhoneVerificationRequired,
   launchOutgoingDirectCall,
   navigateBackFromCommunityMessengerCall,
   finalizeCommunityMessengerCallTerminalExit, // SSOT_CONTRACT: messenger-call-terminal-nav finalizeCommunityMessengerCallTerminalExit
@@ -4839,6 +4840,7 @@ export function CommunityMessengerCallClient({
           router
         );
         if (!result.ok) {
+          if (isOutgoingCallPhoneVerificationRequired(result)) return;
           showMessengerSnackbar(result.userMessage, { variant: "error" });
         }
       } catch {

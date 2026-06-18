@@ -1,6 +1,11 @@
 import type { CommunityMessengerCallKind, CommunityMessengerCallSession } from "@/lib/community-messenger/types";
+import {
+  assertPhoneVerifiedForMessengerActionOrOpenSheet,
+  resolveMessengerActionReturnPath,
+} from "@/lib/auth/assert-phone-verified-for-messenger-action-client";
 import { isPhoneVerificationRequiredApiPayload } from "@/lib/auth/phone-verification-required-detect";
-import { STORE_PHONE_GATE_MESSAGE } from "@/lib/auth/store-member-policy";
+import { openPhoneVerificationRequiredSheet } from "@/lib/auth/phone-verification-required-client";
+import { isOutgoingCallPhoneVerificationRequired } from "@/lib/call/outgoing-call-start-guard";
 import {
   primeOutgoingRingbackWebAudioFromUserGesture,
   rememberOutgoingRingtonePrimedForSession,
@@ -324,7 +329,9 @@ export function buildCommunityMessengerOutgoingDialHref(args: BuildCommunityMess
 
 export type OutgoingCallSessionBootstrapResult =
   | { ok: true; session: CommunityMessengerCallSession; roomId: string; reused?: boolean }
-  | { ok: false; userMessage: string; blockedCallId?: string };
+  | { ok: false; userMessage: string; blockedCallId?: string; phoneVerificationRequired?: boolean };
+
+export { isOutgoingCallPhoneVerificationRequired };
 
 function outgoingCallMediaPrimeFailureMessage(kind: CommunityMessengerCallKind): string {
   const lang = getRuntimeAppLanguage();
@@ -406,6 +413,11 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCoreUnlocked(arg
     releaseCallActionLock(reason);
     return { ok: false, userMessage };
   };
+  const failPhoneVerification = (reason = "phone_verification_required"): OutgoingCallSessionBootstrapResult => {
+    releaseCallActionLock(reason);
+    openPhoneVerificationRequiredSheet({ next: resolveMessengerActionReturnPath() });
+    return { ok: false, userMessage: "", phoneVerificationRequired: true };
+  };
   let roomId = args.roomId?.trim() ?? "";
 
   cmCallLatencyInfo("bootstrap_start", {
@@ -456,7 +468,7 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCoreUnlocked(arg
       return fail("로그인이 필요합니다.");
     }
     if (isPhoneVerificationRequiredApiPayload(json)) {
-      return fail(String(json.error ?? "").trim() || STORE_PHONE_GATE_MESSAGE);
+      return failPhoneVerification();
     }
     if (res.status === 403) {
       const err = String(json.error ?? "").trim();
@@ -514,7 +526,7 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCoreUnlocked(arg
   const resolvedSessionId = json.callId?.trim() || json.session?.id?.trim() || "";
   if (!res.ok || !json.ok || !resolvedSessionId || !json.session?.id) {
     if (isPhoneVerificationRequiredApiPayload(json)) {
-      return fail(String(json.error ?? "").trim() || STORE_PHONE_GATE_MESSAGE, "create_failed");
+      return failPhoneVerification("create_failed");
     }
     if (json.error === "group_call_not_supported_yet") {
       return fail("그룹 통화 실연결은 다음 단계에서 지원합니다.", "create_failed");
@@ -637,7 +649,9 @@ async function applyOutgoingTempCallBootstrapResult(
   if (!result.ok) {
     stopCommunityMessengerCallTone();
     discardPrimedCommunityMessengerDevicePermission();
-    showMessengerSnackbar(result.userMessage, { variant: "error" });
+    if (!isOutgoingCallPhoneVerificationRequired(result) && result.userMessage.trim()) {
+      showMessengerSnackbar(result.userMessage, { variant: "error" });
+    }
     if (result.blockedCallId) {
       callNavigationGo(router)(`/community-messenger/calls/${encodeURIComponent(result.blockedCallId)}`);
       return;
@@ -720,6 +734,9 @@ export async function launchOutgoingDirectCall(
   },
   router: { push: (href: string) => void; replace?: (href: string) => void }
 ): Promise<OutgoingCallSessionBootstrapResult> {
+  if (!assertPhoneVerifiedForMessengerActionOrOpenSheet(resolveMessengerActionReturnPath())) {
+    return { ok: false, userMessage: "", phoneVerificationRequired: true };
+  }
   unlockCommunityMessengerCallPlaybackFromUserGesture();
   primeOutgoingRingbackWebAudioFromUserGesture(input.kind);
   if (typeof window !== "undefined") {
@@ -780,6 +797,9 @@ export async function bootstrapCommunityMessengerOutgoingCallAndNavigate(
   },
   navigate: (href: string) => void
 ): Promise<OutgoingCallSessionBootstrapResult> {
+  if (!assertPhoneVerifiedForMessengerActionOrOpenSheet(resolveMessengerActionReturnPath())) {
+    return { ok: false, userMessage: "", phoneVerificationRequired: true };
+  }
   /** 첫 `await` 전에만 유효한 사용자 활성화 — 링백·GUM 프라임·자동재생 정책 대응 */
   unlockCommunityMessengerCallPlaybackFromUserGesture();
   primeOutgoingRingbackWebAudioFromUserGesture(input.kind);
