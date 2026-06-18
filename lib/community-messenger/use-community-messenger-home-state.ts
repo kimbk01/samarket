@@ -518,7 +518,11 @@ export function useCommunityMessengerHomeState({
     } else if (pillar === "delivery") {
       next = baseChatListItems.filter((item) => communityMessengerRoomIsConfirmedDelivery(item.room));
     } else if (chatKindFilter === "all") {
-      next = baseChatListItems.filter((item) => communityMessengerRoomInboxGroupKind(item.room) === "general");
+      next = baseChatListItems.filter(
+        (item) =>
+          item.room.roomType === "direct" &&
+          communityMessengerRoomInboxGroupKind(item.room) === "general"
+      );
     } else {
       next = baseChatListItems;
     }

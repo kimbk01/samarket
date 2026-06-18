@@ -1,0 +1,69 @@
+import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
+
+export type GroupMessageRoomKind = "direct" | "group" | "trade";
+
+/** FCM data.kind for CM group message push (P0 contract token). */
+export const GROUP_MESSAGE_FCM_PUSH_KIND = "group_message" as const;
+
+export function isTradeMessengerDirectKey(directKey: string | null | undefined): boolean {
+  const t = (directKey ?? "").trim();
+  return t.startsWith("trade_pc:") || t.startsWith("trade_item:");
+}
+
+/**
+ * Notification / push routing kind — `roomType` + ledger `direct_key`.
+ * private_group · open_group → group; trade ledger keys → trade; else direct.
+ */
+export function resolveGroupMessageRoomKind(
+  roomType: CommunityMessengerRoomSummary["roomType"] | string,
+  directKey: string | null | undefined
+): GroupMessageRoomKind {
+  if (roomType === "private_group" || roomType === "open_group") return "group";
+  if (isTradeMessengerDirectKey(directKey)) return "trade";
+  return "direct";
+}
+
+export type GroupChatListKindFilter = "all" | "direct" | "private_group" | "trade" | "delivery";
+
+type ChatListFilterRoom = Pick<
+  CommunityMessengerRoomSummary,
+  "roomType" | "contextMeta" | "messengerDirectKey"
+>;
+
+function roomIsConfirmedTrade(room: ChatListFilterRoom): boolean {
+  if (room.contextMeta?.kind === "trade") return true;
+  const dk = (room.messengerDirectKey ?? "").trim();
+  return dk.startsWith("trade_pc:") || dk.startsWith("trade_item:");
+}
+
+function roomIsConfirmedDelivery(room: ChatListFilterRoom): boolean {
+  if (room.contextMeta?.kind === "delivery") return true;
+  const dk = (room.messengerDirectKey ?? "").trim();
+  if (dk.startsWith("trade_pc:") || dk.startsWith("trade_item:")) return false;
+  return dk.startsWith("store_order:") || dk.startsWith("trade_order:");
+}
+
+/** Mirrors `use-community-messenger-home-state` visible chat list kind chips. */
+export function matchesGroupChatListKindFilter(
+  room: ChatListFilterRoom,
+  chatKindFilter: GroupChatListKindFilter
+): boolean {
+  if (chatKindFilter === "all") return room.roomType !== "open_group";
+  if (chatKindFilter === "direct") return room.roomType === "direct";
+  if (chatKindFilter === "private_group") return room.roomType === "private_group";
+  if (chatKindFilter === "trade") return roomIsConfirmedTrade(room);
+  if (chatKindFilter === "delivery") return roomIsConfirmedDelivery(room);
+  return true;
+}
+
+/** Open-chat tab — joined private/open groups (not archived). */
+export function groupRoomAppearsInOpenChatJoinedList(room: Pick<CommunityMessengerRoomSummary, "roomType">): boolean {
+  return room.roomType === "private_group" || room.roomType === "open_group";
+}
+
+export function groupMessageFcmPayloadKindForRoom(
+  roomType: CommunityMessengerRoomSummary["roomType"] | string,
+  directKey: string | null | undefined
+): typeof GROUP_MESSAGE_FCM_PUSH_KIND | null {
+  return resolveGroupMessageRoomKind(roomType, directKey) === "group" ? GROUP_MESSAGE_FCM_PUSH_KIND : null;
+}

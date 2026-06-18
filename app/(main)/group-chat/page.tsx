@@ -1,5 +1,6 @@
-import GroupChatHomePageClient from "./GroupChatHomePageClient";
+import { redirect } from "next/navigation";
 
+/** CONTRACT: Large-group experimental axis — user-facing SSOT is CM private_group. */
 export default function GroupChatHomePage() {
-  return <GroupChatHomePageClient />;
+  redirect("/community-messenger?section=chats&filter=private_group");
 }

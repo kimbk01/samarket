@@ -15257,7 +15257,9 @@ export async function sendCommunityMessengerMessage(input: {
       .from("community_messenger_participants")
       .select("user_id")
       .eq("room_id", roomId)
-      .neq("user_id", input.userId);
+      .neq("user_id", input.userId)
+      .is("left_at", null)
+      .is("blocked_hidden_at", null);
     let replyInsertFields: Record<string, unknown> = {};
     if (replyToMessageIdOpt) {
       const r = await resolveCommunityMessengerReplyFieldsForFallbackInsert(sb as SupabaseLike, {
@@ -15626,7 +15628,9 @@ export async function sendCommunityMessengerImageMessage(input: {
         .from("community_messenger_participants")
         .select("user_id")
         .eq("room_id", roomId)
-        .neq("user_id", input.userId);
+        .neq("user_id", input.userId)
+        .is("left_at", null)
+        .is("blocked_hidden_at", null);
       const imageRecipientUserIds = ((imageRecipientRows ?? []) as Array<{ user_id: string }>)
         .map((p) => p.user_id)
         .filter((uid) => Boolean(uid?.trim()));
@@ -15802,7 +15806,9 @@ export async function sendCommunityMessengerStickerMessage(input: {
         .from("community_messenger_participants")
         .select("user_id")
         .eq("room_id", roomId)
-        .neq("user_id", input.userId);
+        .neq("user_id", input.userId)
+        .is("left_at", null)
+        .is("blocked_hidden_at", null);
       const recipientUserIds = ((recipientRows ?? []) as Array<{ user_id: string }>)
         .map((p) => p.user_id)
         .filter((uid) => Boolean(uid?.trim()));
@@ -15972,7 +15978,9 @@ export async function sendCommunityPostShareMessage(input: {
         .from("community_messenger_participants")
         .select("user_id")
         .eq("room_id", roomId)
-        .neq("user_id", input.userId);
+        .neq("user_id", input.userId)
+        .is("left_at", null)
+        .is("blocked_hidden_at", null);
       const recipientUserIds = ((recipientRows ?? []) as Array<{ user_id: string }>)
         .map((p) => p.user_id)
         .filter((uid) => Boolean(uid?.trim()));
@@ -16129,7 +16137,9 @@ export async function sendCommunityMessengerFileMessage(input: {
         .from("community_messenger_participants")
         .select("user_id")
         .eq("room_id", roomId)
-        .neq("user_id", input.userId);
+        .neq("user_id", input.userId)
+        .is("left_at", null)
+        .is("blocked_hidden_at", null);
       const fileRecipientUserIds = ((fileRecipientRows ?? []) as Array<{ user_id: string }>)
         .map((p) => p.user_id)
         .filter((uid) => Boolean(uid?.trim()));
@@ -16879,7 +16889,9 @@ export async function sendCommunityMessengerVoiceMessage(input: {
         .from("community_messenger_participants")
         .select("user_id")
         .eq("room_id", roomId)
-        .neq("user_id", input.userId);
+        .neq("user_id", input.userId)
+        .is("left_at", null)
+        .is("blocked_hidden_at", null);
       const voiceRecipientUserIds = ((voiceRecipientRows ?? []) as Array<{ user_id: string }>)
         .map((p) => p.user_id)
         .filter((uid) => Boolean(uid?.trim()));

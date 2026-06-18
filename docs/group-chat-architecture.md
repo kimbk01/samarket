@@ -1,5 +1,7 @@
 # 확장 가능한 그룹 채팅 아키텍처 (100+ 멤버)
 
+> **Large group / experimental axis** — 사용자 대면 SSOT는 CM `private_group` (`/community-messenger?section=chats&filter=private_group`). 이 문서·`/api/group-chat` 축은 실험·대규모 오픈그룹용.
+
 요약 인덱스. 상세는 하위 문서를 따른다.
 
 ---
