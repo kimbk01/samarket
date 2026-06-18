@@ -22,8 +22,17 @@ describe("block SSOT save contract", () => {
     expect(src).toContain("unblockUserSocial");
   });
 
-  it("blockUserSocial writes user_social_relations blocked", () => {
+  it("blockUserSocial writes user_social_relations blocked with is_active", () => {
     const src = read("lib/community-messenger/social-relations.ts");
     expect(src).toMatch(/from\("user_social_relations"\)[\s\S]*relation_type:\s*"blocked"/);
+    expect(src).toContain("is_active: true");
+    expect(src).toContain("unblocked_at: null");
+  });
+
+  it("unblockUserSocial soft-unblocks without deleting row", () => {
+    const src = read("lib/community-messenger/social-relations.ts");
+    expect(src).toContain("is_active: false");
+    expect(src).toContain("unblocked_at:");
+    expect(src).not.toMatch(/unblockUserSocial[\s\S]*\.delete\(\)/);
   });
 });

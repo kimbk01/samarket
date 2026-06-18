@@ -569,7 +569,7 @@ export function useMessengerRoomPhase2Controller() {
         const gate = snapshot.directCallGate;
         const allowed = kind === "video" ? gate.canStartVideo : gate.canStartVoice;
         if (!allowed) {
-          const code: DirectCallDenyCode = gate.denyCode ?? "deny_not_friend";
+          const code: DirectCallDenyCode = gate.denyCode ?? "deny_blocked";
           logCallPermission("ui_gate_start", {
             callerUserId: snapshot.viewerUserId,
             calleeUserId: snapshot.room.peerUserId ?? undefined,

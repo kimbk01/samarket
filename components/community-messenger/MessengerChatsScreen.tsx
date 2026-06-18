@@ -36,6 +36,7 @@ type Props = {
   items: UnifiedRoomListItem[];
   viewerUserId?: string | null;
   favoriteFriendIds: Set<string>;
+  savedFriendIds?: Set<string>;
   busyId: string | null;
   onTogglePin: (room: CommunityMessengerRoomSummary) => void;
   onToggleMute: (room: CommunityMessengerRoomSummary) => void;
@@ -65,6 +66,7 @@ export function MessengerChatsScreen({
   items,
   viewerUserId = null,
   favoriteFriendIds,
+  savedFriendIds,
   busyId,
   onTogglePin,
   onToggleMute,
@@ -155,6 +157,7 @@ export function MessengerChatsScreen({
           viewerUserId={viewerUserId}
           listContext={listContext}
           favoriteFriendIds={favoriteFriendIds}
+          savedFriendIds={savedFriendIds}
           busyId={busyId}
           onTogglePin={onTogglePin}
           onToggleMute={onToggleMute}
@@ -188,6 +191,7 @@ export function MessengerOpenChatScreen({
   joinedItems,
   viewerUserId = null,
   favoriteFriendIds,
+  savedFriendIds,
   busyId,
   onTogglePin,
   onToggleMute,
@@ -206,6 +210,7 @@ export function MessengerOpenChatScreen({
   joinedItems: UnifiedRoomListItem[];
   viewerUserId?: string | null;
   favoriteFriendIds: Set<string>;
+  savedFriendIds?: Set<string>;
   busyId: string | null;
   onTogglePin: (room: CommunityMessengerRoomSummary) => void;
   onToggleMute: (room: CommunityMessengerRoomSummary) => void;
@@ -286,6 +291,7 @@ export function MessengerOpenChatScreen({
             viewerUserId={viewerUserId}
             listContext="open_chat"
             favoriteFriendIds={favoriteFriendIds}
+          savedFriendIds={savedFriendIds}
             busyId={busyId}
             onTogglePin={onTogglePin}
             onToggleMute={onToggleMute}

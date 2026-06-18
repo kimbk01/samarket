@@ -12,16 +12,30 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-async function parseBlockBody(req: NextRequest): Promise<{ targetUserId: string | null; roomId: string | null }> {
-  let body: { targetUserId?: string; roomId?: string };
+async function parseBlockBody(req: NextRequest): Promise<{
+  targetUserId: string | null;
+  roomId: string | null;
+  blockSource: "chat_room" | "incoming_call" | "profile" | "call_log" | "friend_list" | null;
+}> {
+  let body: { targetUserId?: string; roomId?: string; blockSource?: string };
   try {
     body = await req.json();
   } catch {
-    return { targetUserId: null, roomId: null };
+    return { targetUserId: null, roomId: null, blockSource: null };
   }
+  const rawSource = String(body.blockSource ?? "").trim();
+  const blockSource =
+    rawSource === "chat_room" ||
+    rawSource === "incoming_call" ||
+    rawSource === "profile" ||
+    rawSource === "call_log" ||
+    rawSource === "friend_list"
+      ? rawSource
+      : null;
   return {
     targetUserId: String(body.targetUserId ?? "").trim() || null,
     roomId: String(body.roomId ?? "").trim() || null,
+    blockSource,
   };
 }
 
@@ -42,12 +56,14 @@ export async function POST(req: NextRequest) {
   });
   if (!rateLimit.ok) return rateLimit.response;
 
-  const { targetUserId, roomId } = await parseBlockBody(req);
+  const { targetUserId, roomId, blockSource } = await parseBlockBody(req);
   if (!targetUserId || targetUserId === auth.userId) {
     return NextResponse.json({ ok: false, error: "bad_target" }, { status: 400 });
   }
 
-  const result = await blockUserSocial(auth.userId, targetUserId);
+  const result = await blockUserSocial(auth.userId, targetUserId, {
+    blockSource: blockSource ?? (roomId ? "chat_room" : "profile"),
+  });
   if (result.ok) {
     await cleanupCommunityMessengerFriendGraphOnBlock(auth.userId, targetUserId);
     const hide = await hideDirectRoomsOnBlockForViewer({

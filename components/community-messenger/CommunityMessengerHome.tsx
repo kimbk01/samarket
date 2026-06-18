@@ -912,6 +912,11 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     return resolveMessengerFriendAddCta(friendProfileForSheet);
   }, [friendProfileForSheet, data?.me?.id]);
 
+  const savedFriendIds = useMemo(
+    () => new Set((data?.friends ?? []).map((friend) => friend.id.trim()).filter(Boolean)),
+    [data?.friends]
+  );
+
   const homeRoomIds = useMemo(
     () => [...(data?.chats ?? []), ...(data?.groups ?? [])].map((room) => room.id),
     [data?.chats, data?.groups]
@@ -1465,17 +1470,24 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   );
 
   const toggleBlock = useCallback(
-    async (targetUserId: string) => {
+    async (targetUserId: string, options?: { blockSource?: "friend_list" | "chat_room" | "profile" | "incoming_call" | "call_log" }) => {
       setBusyId(`block:${targetUserId}`);
       try {
         const isBlocked = resolvePeerBlockedState(targetUserId);
         const res = await fetch("/api/community-messenger/relations/block", {
           method: isBlocked ? "DELETE" : "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ targetUserId }),
+          body: JSON.stringify(
+            isBlocked
+              ? { targetUserId }
+              : { targetUserId, blockSource: options?.blockSource ?? "profile" }
+          ),
         });
-        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; unblocked?: boolean };
         if (res.ok && json.ok) {
+          if (isBlocked) {
+            showMessengerSnackbar(t("cm_social_unblock_success"), { variant: "success" });
+          }
           void refresh(true);
           void refreshFriendSearch(searchKeyword);
           return;
@@ -2706,7 +2718,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   );
   const onListPaneToggleBlock = useCallback(
     (userId: string) => {
-      void toggleBlock(userId);
+      void toggleBlock(userId, { blockSource: "friend_list" });
     },
     [toggleBlock]
   );
@@ -2824,6 +2836,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         friendHasDirectRoomStable={friendHasDirectRoomStable}
         primaryListItems={primaryListItems}
         favoriteFriendIds={favoriteFriendIds}
+        savedFriendIds={savedFriendIds}
         handleMessengerHomeTogglePin={handleMessengerHomeTogglePin}
         handleMessengerHomeToggleMute={handleMessengerHomeToggleMute}
         handleMessengerHomeMarkRoomRead={handleMessengerHomeMarkRoomRead}
@@ -3069,6 +3082,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           searchMessageMatches={searchMessageMatches}
           searchOpenChatMatches={searchOpenChatMatches}
           favoriteFriendIds={favoriteFriendIds}
+        savedFriendIds={savedFriendIds}
           busyId={busyId}
           onTogglePin={handleMessengerHomeTogglePin}
           onToggleMute={handleMessengerHomeToggleMute}

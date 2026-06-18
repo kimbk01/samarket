@@ -70,7 +70,7 @@ export function MessengerFriendProfileSheet({
 
   const useFriendAddGate = Boolean(friendAddCta && onFriendAdd);
   const canMessage = !profile.blocked;
-  const canCall = canMessage && Boolean(profile.isFriend);
+  const canCall = canMessage;
   const cta = friendAddCta;
 
   return (

@@ -33,6 +33,7 @@ export function patchRoomSnapshotAfterFriendshipAccepted(
   const directCallGate: DirectCallGateSnapshot = {
     canStartVoice: true,
     canStartVideo: true,
+    relationLabel: "mutual_friend",
   };
   const members = prev.members.map((member) =>
     member.id === peer ? { ...member, isFriend: true } : member
@@ -41,6 +42,7 @@ export function patchRoomSnapshotAfterFriendshipAccepted(
     ...prev,
     members,
     peerFriendshipState: "accepted",
+    peerRelationLabel: "mutual_friend",
     directCallGate,
   };
 }

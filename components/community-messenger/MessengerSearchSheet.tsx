@@ -62,6 +62,7 @@ type Props = {
   searchMessageMatches: UnifiedRoomListItem[];
   searchOpenChatMatches: CommunityMessengerDiscoverableGroupSummary[];
   favoriteFriendIds: Set<string>;
+  savedFriendIds?: Set<string>;
   busyId: string | null;
   onTogglePin: (room: CommunityMessengerRoomSummary) => void;
   onToggleMute: (room: CommunityMessengerRoomSummary) => void;
@@ -427,6 +428,7 @@ export function MessengerSearchSheet({
   searchMessageMatches,
   searchOpenChatMatches,
   favoriteFriendIds,
+  savedFriendIds,
   busyId,
   onTogglePin,
   onToggleMute,
@@ -524,6 +526,7 @@ export function MessengerSearchSheet({
                           item={item}
                           viewerUserId={viewerUserId}
                           favoriteFriendIds={favoriteFriendIds}
+                          savedFriendIds={savedFriendIds}
                           busyId={busyId}
                           onTogglePin={onTogglePin}
                           onToggleMute={onToggleMute}

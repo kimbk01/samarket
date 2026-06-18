@@ -113,8 +113,8 @@ import {
   unblockUserSocial,
 } from "@/lib/community-messenger/social-relations";
 import {
-  buildDirectCallGateSnapshot,
   canStartDirectCallBetweenUsers,
+  directCallGateFromPermissionResult,
   logCallPermission,
   mapDenyCodeToApiError,
 } from "@/lib/community-messenger/direct-call-permission";
@@ -1624,7 +1624,7 @@ async function getViewerRelationSets(
         .in("target_user_id", uniqueTargets),
       (sb as any)
         .from("user_social_relations")
-        .select("target_user_id, relation_type")
+        .select("target_user_id, relation_type, is_active")
         .eq("owner_user_id", userId)
         .in("target_user_id", uniqueTargets),
       (sb as any)
@@ -1650,12 +1650,13 @@ async function getViewerRelationSets(
     for (const row of (socialRows ?? []) as Array<{
       target_user_id?: string;
       relation_type?: string | null;
+      is_active?: boolean | null;
     }>) {
       const target = trimText(row.target_user_id);
       const relationType = trimText(row.relation_type);
       if (!target) continue;
       if (relationType === "friend") friendIds.add(target);
-      if (relationType === "blocked") blocked.add(target);
+      if (relationType === "blocked" && row.is_active !== false) blocked.add(target);
     }
 
     if (friendIds.size) {
@@ -3899,6 +3900,12 @@ function buildCallLogEntriesFromRows(
       isOutgoing,
       endedReason: sessionEndedReason,
       displayType,
+      peerRelationLabel:
+        sessionMode === "group" || !peerUserId
+          ? undefined
+          : peer?.isFriend
+            ? "mutual_friend"
+            : "stranger",
     };
   });
 }
@@ -4410,6 +4417,15 @@ async function mapCallSession(
     peerAvatarUrl = peerProfile?.avatarUrl ?? null;
   }
 
+  const peerProfileForRelation =
+    sessionMode === "direct" && peerUserId ? profileById?.get(peerUserId) ?? null : null;
+  const peerRelationLabel =
+    sessionMode === "direct" && peerUserId
+      ? peerProfileForRelation?.isFriend
+        ? "mutual_friend"
+        : "stranger"
+      : undefined;
+
   return {
     id: session.id,
     roomId: isDbSession ? session.room_id : session.roomId,
@@ -4419,6 +4435,7 @@ async function mapCallSession(
     peerUserId,
     peerLabel,
     peerAvatarUrl,
+    ...(peerRelationLabel ? { peerRelationLabel } : {}),
     callKind: (isDbSession ? session.call_kind : session.callKind) as CommunityMessengerCallKind,
     status: (isDbSession ? session.status : session.status) as CommunityMessengerCallSessionStatus,
     startedAt: trimText(isDbSession ? session.started_at : session.startedAt) || nowIso(),
@@ -14501,6 +14518,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
 
   let peerFriendshipState: CommunityMessengerRoomSnapshot["peerFriendshipState"];
   let directCallGate: CommunityMessengerRoomSnapshot["directCallGate"];
+  let peerRelationLabel: CommunityMessengerRoomSnapshot["peerRelationLabel"];
   let membersForSnapshot = members;
   const snapContextKind = summary.contextMeta?.kind;
   const isGeneralDirectRoom =
@@ -14508,16 +14526,21 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     peerUserId &&
     snapContextKind !== "trade" &&
     snapContextKind !== "delivery";
-  if (isGeneralDirectRoom && sb && !isCriticalTier && !deferSecondary) {
+  if (isGeneralDirectRoom && sb) {
     const friendshipResolution = await getFriendshipPairState(sb, userId, peerUserId);
-    directCallGate = await buildDirectCallGateSnapshot({
+    peerFriendshipState = peerFriendshipStateFromResolution(friendshipResolution);
+    const gateResult = await canStartDirectCallBetweenUsers({
       callerUserId: userId,
       calleeUserId: peerUserId,
       roomId: id,
+      callKind: "audio",
       supabase: sb,
       friendshipPreload: friendshipResolution,
+      /** critical/defer 첫 페인트 — participant room 쿼리는 API gate 에 위임 */
+      skipRoomCheck: isCriticalTier || deferSecondary,
     });
-    peerFriendshipState = peerFriendshipStateFromResolution(friendshipResolution);
+    directCallGate = directCallGateFromPermissionResult(gateResult);
+    peerRelationLabel = gateResult.relationLabel;
     if (friendshipResolution.state === "accepted") {
       membersForSnapshot = members.map((member) =>
         member.id === peerUserId ? { ...member, isFriend: true } : member
@@ -14551,6 +14574,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     ...(unknownPeerNoticeDismissed !== undefined ? { unknownPeerNoticeDismissed } : {}),
     ...(peerFriendshipState ? { peerFriendshipState } : {}),
     ...(directCallGate ? { directCallGate } : {}),
+    ...(peerRelationLabel ? { peerRelationLabel } : {}),
   };
   if (diagnostics) {
     diagnostics.messagesFetchMs = Math.round(messagesFetchMs);

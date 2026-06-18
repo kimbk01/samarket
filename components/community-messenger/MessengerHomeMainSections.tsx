@@ -65,6 +65,7 @@ type Props = {
   friendHasDirectRoom: (userId: string) => boolean;
   primaryListItems: UnifiedRoomListItem[];
   favoriteFriendIds: Set<string>;
+  savedFriendIds?: Set<string>;
   onTogglePin: (room: CommunityMessengerRoomSummary) => void;
   onToggleMute: (room: CommunityMessengerRoomSummary) => void;
   onMarkRead: (room: CommunityMessengerRoomSummary) => void;
@@ -133,6 +134,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
   friendHasDirectRoom,
   primaryListItems,
   favoriteFriendIds,
+  savedFriendIds,
   onTogglePin,
   onToggleMute,
   onMarkRead,
@@ -211,6 +213,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
             items={primaryListItems}
             viewerUserId={viewerUserId}
             favoriteFriendIds={favoriteFriendIds}
+            savedFriendIds={savedFriendIds}
             busyId={busyId}
             onTogglePin={onTogglePin}
             onToggleMute={onToggleMute}
@@ -236,6 +239,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
             joinedItems={openChatJoinedItems}
             viewerUserId={viewerUserId}
             favoriteFriendIds={favoriteFriendIds}
+            savedFriendIds={savedFriendIds}
             busyId={busyId}
             onTogglePin={onTogglePin}
             onToggleMute={onToggleMute}
@@ -276,6 +280,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
             items={primaryListItems}
             viewerUserId={viewerUserId}
             favoriteFriendIds={favoriteFriendIds}
+            savedFriendIds={savedFriendIds}
             busyId={busyId}
             onTogglePin={onTogglePin}
             onToggleMute={onToggleMute}

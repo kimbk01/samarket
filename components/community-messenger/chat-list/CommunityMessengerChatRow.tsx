@@ -12,6 +12,7 @@ export type CommunityMessengerChatRowProps = {
   item: UnifiedRoomListItem;
   viewerUserId?: string | null;
   favoriteFriendIds: Set<string>;
+  savedFriendIds?: Set<string>;
   busyId: string | null;
   onTogglePin: (room: CommunityMessengerRoomSummary) => void;
   onToggleMute: (room: CommunityMessengerRoomSummary) => void;

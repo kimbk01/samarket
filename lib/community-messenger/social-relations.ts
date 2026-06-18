@@ -11,6 +11,8 @@ import {
   fetchBlockedPairFromSb,
   type BlockedRelation,
 } from "@/lib/social/user-block-ssot";
+import type { BlockSource } from "@/lib/social/block-ssot-types";
+import { SOCIAL_BLOCK_ACTIVE_OR_LEGACY } from "@/lib/social/block-ssot-types";
 import {
   canStartDirectCallBetweenUsers,
   resolveDirectCallPolicy,
@@ -18,6 +20,8 @@ import {
   logCallPermission,
 } from "@/lib/community-messenger/direct-call-permission";
 import { getFriendshipPairState, isAcceptedFriendPair } from "@/lib/community-messenger/friendship-resolver";
+
+export type { BlockSource } from "@/lib/social/block-ssot-types";
 
 export type MessengerDirectCallPolicy = DirectCallPolicy;
 
@@ -163,9 +167,10 @@ export async function listBlockedByMeIds(ownerUserId: string): Promise<string[]>
   const [socialRes, legacyRes] = await Promise.all([
     (sb as any)
       .from("user_social_relations")
-      .select("target_user_id")
+      .select("target_user_id, is_active, relation_type")
       .eq("owner_user_id", owner)
-      .eq("relation_type", "blocked"),
+      .eq("relation_type", "blocked")
+      .or(SOCIAL_BLOCK_ACTIVE_OR_LEGACY),
     (sb as any)
       .from("user_relationships")
       .select("target_user_id")
@@ -173,7 +178,12 @@ export async function listBlockedByMeIds(ownerUserId: string): Promise<string[]>
       .or("relation_type.eq.blocked,type.eq.blocked"),
   ]);
 
-  for (const row of (socialRes.data ?? []) as Array<{ target_user_id?: string }>) {
+  for (const row of (socialRes.data ?? []) as Array<{
+    target_user_id?: string;
+    is_active?: boolean | null;
+    relation_type?: string;
+  }>) {
+    if (row.relation_type === "blocked" && row.is_active === false) continue;
     const id = trimText(row.target_user_id);
     if (id) ids.add(id);
   }
@@ -471,7 +481,8 @@ export async function removeFriendSaved(
 
 export async function blockUserSocial(
   ownerUserId: string,
-  targetUserId: string
+  targetUserId: string,
+  options?: { blockSource?: BlockSource; blockReason?: string }
 ): Promise<{ ok: boolean; error?: string }> {
   const owner = trimText(ownerUserId);
   const target = trimText(targetUserId);
@@ -479,6 +490,8 @@ export async function blockUserSocial(
 
   const sb = getSupabaseOrNull();
   if (!sb) return { ok: false, error: "supabase_unavailable" };
+
+  const now = new Date().toISOString();
 
   await (sb as any)
     .from("user_social_relations")
@@ -494,7 +507,13 @@ export async function blockUserSocial(
         owner_user_id: owner,
         target_user_id: target,
         relation_type: "blocked",
-        updated_at: new Date().toISOString(),
+        is_active: true,
+        blocked_at: now,
+        unblocked_at: null,
+        last_action_at: now,
+        updated_at: now,
+        block_source: options?.blockSource ?? "profile",
+        ...(options?.blockReason ? { block_reason: options.blockReason } : {}),
       },
       { onConflict: "owner_user_id,target_user_id" }
     );
@@ -510,14 +529,18 @@ export async function blockUserSocial(
     /* non-fatal */
   }
 
-  logSocialRelationEvent("social_relation_blocked", { ownerUserId: owner, targetUserId: target });
+  logSocialRelationEvent("social_relation_blocked", {
+    ownerUserId: owner,
+    targetUserId: target,
+    blockSource: options?.blockSource ?? "",
+  });
   return { ok: true };
 }
 
 export async function unblockUserSocial(
   ownerUserId: string,
   targetUserId: string
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<{ ok: boolean; error?: string; wasActive?: boolean }> {
   const owner = trimText(ownerUserId);
   const target = trimText(targetUserId);
   if (!owner || !target) return { ok: false, error: "bad_target" };
@@ -525,9 +548,33 @@ export async function unblockUserSocial(
   const sb = getSupabaseOrNull();
   if (!sb) return { ok: false, error: "supabase_unavailable" };
 
+  const now = new Date().toISOString();
+
+  const { data: existing } = await (sb as any)
+    .from("user_social_relations")
+    .select("id, is_active, relation_type")
+    .eq("owner_user_id", owner)
+    .eq("target_user_id", target)
+    .eq("relation_type", "blocked")
+    .maybeSingle();
+
+  if (!existing?.id) {
+    await syncLegacyBlockRow(sb, owner, target, false);
+    return { ok: true, wasActive: false };
+  }
+
+  if (existing.is_active === false) {
+    return { ok: true, wasActive: false };
+  }
+
   const { error } = await (sb as any)
     .from("user_social_relations")
-    .delete()
+    .update({
+      is_active: false,
+      unblocked_at: now,
+      last_action_at: now,
+      updated_at: now,
+    })
     .eq("owner_user_id", owner)
     .eq("target_user_id", target)
     .eq("relation_type", "blocked");
@@ -536,7 +583,7 @@ export async function unblockUserSocial(
   await syncLegacyBlockRow(sb, owner, target, false);
 
   logSocialRelationEvent("social_relation_unblocked", { ownerUserId: owner, targetUserId: target });
-  return { ok: true };
+  return { ok: true, wasActive: true };
 }
 
 export async function fetchFriendSavedAtByPeerId(

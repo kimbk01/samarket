@@ -21,9 +21,12 @@ export type IncomingCallBannerProps = {
   ringTimeoutSeconds?: number | null;
   busyReject: boolean;
   busyAccept: boolean;
+  showStrangerHint?: boolean;
+  busyBlock?: boolean;
   onExpand: () => void;
   onReject: () => void;
   onAccept: () => void;
+  onBlock?: () => void;
 };
 
 function remainingSeconds(startedAt: string | null | undefined, timeoutSeconds: number | null | undefined): number | null {
@@ -42,9 +45,12 @@ export function IncomingCallBanner(props: IncomingCallBannerProps) {
     ringTimeoutSeconds,
     busyReject,
     busyAccept,
+    showStrangerHint = false,
+    busyBlock = false,
     onExpand,
     onReject,
     onAccept,
+    onBlock,
   } = props;
   const [remainSec, setRemainSec] = useState<number | null>(() => remainingSeconds(startedAt, ringTimeoutSeconds));
   useEffect(() => {
@@ -86,7 +92,12 @@ export function IncomingCallBanner(props: IncomingCallBannerProps) {
           </div>
           <div className="min-w-0">
             <p className="truncate sam-text-body font-semibold leading-tight text-white">{peerLabel}</p>
-            <p className="mt-0.5 truncate sam-text-helper font-medium text-white/78">
+            {showStrangerHint ? (
+              <p className="mt-0.5 truncate sam-text-xxs font-medium text-amber-200/90">
+                {t("cm_social_stranger_incoming_call")}
+              </p>
+            ) : null}
+            <p className={`truncate sam-text-helper font-medium text-white/78 ${showStrangerHint ? "mt-0.5" : "mt-0.5"}`}>
               {callKind === "video"
                 ? safeT("cm_ui_dibay_video_call_brand", {
                     fallbackKo: "DiBay 영상 통화",
@@ -109,6 +120,17 @@ export function IncomingCallBanner(props: IncomingCallBannerProps) {
         >
           <PhoneOff size={24} strokeWidth={2.4} />
         </button>
+        {onBlock ? (
+          <button
+            type="button"
+            disabled={busyBlock || busyReject || busyAccept}
+            onClick={onBlock}
+            className="flex h-10 shrink-0 items-center justify-center rounded-full border border-white/20 px-2.5 sam-text-xxs font-semibold text-white/90 disabled:opacity-40"
+            aria-label={t("cm_social_block")}
+          >
+            {t("cm_social_block")}
+          </button>
+        ) : null}
         <button
           type="button"
           disabled={busyAccept}

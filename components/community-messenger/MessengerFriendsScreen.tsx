@@ -5,6 +5,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "reac
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessengerResetTransientUiFn } from "@/lib/community-messenger/messenger-reset-transient-ui";
 import { MessengerFriendRowQuickPopup } from "@/components/community-messenger/MessengerFriendRowQuickPopup";
+import { MessengerBlockPeerConfirmModal } from "@/components/community-messenger/MessengerBlockPeerConfirmModal";
 import { MessengerFriendsPrivacySummaryIcons } from "@/components/community-messenger/MessengerFriendsPrivacySheet";
 import { CommunityMessengerFriendList } from "@/components/community-messenger/friend-list/CommunityMessengerFriendList";
 import type { CommunityMessengerFriendRequest, CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
@@ -72,6 +73,7 @@ export function MessengerFriendsScreen({
 }: Props) {
   const { t } = useI18n();
   const [quickMenuUserId, setQuickMenuUserId] = useState<string | null>(null);
+  const [blockConfirmUserId, setBlockConfirmUserId] = useState<string | null>(null);
 
   useLayoutEffect(() => {
     friendQuickMenuBlocksTabSwipeRef.current = quickMenuUserId != null;
@@ -199,11 +201,24 @@ export function MessengerFriendsScreen({
           onToggleMute={() => onFriendToggleRoomMute(quickProfile.id)}
           onHide={() => onFriendHide(quickProfile.id)}
           onRemove={() => onFriendRemove(quickProfile.id)}
-          onBlock={() => onFriendBlock(quickProfile.id)}
+          onBlock={() => {
+            closeFriendQuickMenu();
+            setBlockConfirmUserId(quickProfile.id);
+          }}
           isHidden={Boolean(quickProfile.isHiddenFriend)}
           isBlocked={Boolean(quickProfile.blocked)}
         />
       ) : null}
+      <MessengerBlockPeerConfirmModal
+        open={Boolean(blockConfirmUserId)}
+        busy={Boolean(blockConfirmUserId && busyId === `block:${blockConfirmUserId}`)}
+        onCancel={() => setBlockConfirmUserId(null)}
+        onConfirm={() => {
+          if (!blockConfirmUserId) return;
+          onFriendBlock(blockConfirmUserId);
+          setBlockConfirmUserId(null);
+        }}
+      />
     </>
   );
 }

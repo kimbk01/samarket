@@ -92,6 +92,8 @@ type Props = {
   item: UnifiedRoomListItem;
   viewerUserId?: string | null;
   favoriteFriendIds: Set<string>;
+  /** 친구 목록(saved)에 없는 1:1 general peer — 「친구 아님」 배지 */
+  savedFriendIds?: Set<string>;
   busyId: string | null;
   onTogglePin: (room: CommunityMessengerRoomSummary) => void;
   onToggleMute: (room: CommunityMessengerRoomSummary) => void;
@@ -132,6 +134,8 @@ function messengerChatListItemPropsEqual(prev: Props, next: Props): boolean {
   }
   if (prev.viewerUserId !== next.viewerUserId) reasons.push("viewerUserId");
   if (!favoriteFriendIdsEqual(prev.favoriteFriendIds, next.favoriteFriendIds)) reasons.push("favoriteFriendIds");
+  if (!favoriteFriendIdsEqual(prev.savedFriendIds ?? new Set(), next.savedFriendIds ?? new Set()))
+    reasons.push("savedFriendIds");
   if (prev.busyId !== next.busyId) reasons.push("busyId");
   if (prev.openedSwipeItemId !== next.openedSwipeItemId) reasons.push("openedSwipeItemId");
   if (prev.listContext !== next.listContext) reasons.push("listContext");
@@ -160,6 +164,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   item,
   viewerUserId = null,
   favoriteFriendIds,
+  savedFriendIds,
   busyId: _busyId,
   onTogglePin,
   onToggleMute,
@@ -233,6 +238,12 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   const releasePressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const commerceMeta = room.contextMeta;
   const isFavorite = room.peerUserId ? favoriteFriendIds.has(room.peerUserId) : false;
+  const showStrangerBadge =
+    room.roomType === "direct" &&
+    !room.contextMeta?.kind &&
+    Boolean(room.peerUserId?.trim()) &&
+    savedFriendIds != null &&
+    !savedFriendIds.has((room.peerUserId ?? "").trim());
   /** presence dot — 일반 1:1 direct 만 구독 (거래·배달·시스템 묶음 행 제외) */
   const presencePeerUserId =
     room.roomType === "direct" &&
@@ -832,6 +843,11 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
             </span>
           ) : null}
           <CommunityMessengerChatTypeBadge room={room} />
+          {showStrangerBadge ? (
+            <span className="shrink-0 rounded-[6px] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-1 py-px sam-text-xxs font-medium text-[color:var(--messenger-text-secondary)]">
+              {t("cm_peer_badge_not_friend")}
+            </span>
+          ) : null}
           {room.philifeMeetingMemberLabel ? (
             <span
               className="shrink-0 rounded-[6px] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-1 py-px sam-text-xxs font-medium text-[color:var(--messenger-text-secondary)]"

@@ -167,7 +167,7 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
       if (!gate) return true;
       const allowed = kind === "video" ? gate.canStartVideo : gate.canStartVoice;
       if (allowed) return true;
-      const code: DirectCallDenyCode = gate.denyCode ?? "deny_not_friend";
+      const code: DirectCallDenyCode = gate.denyCode ?? "deny_blocked";
       logCallPermission("ui_gate_start", {
         callerUserId: vm.snapshot.viewerUserId,
         calleeUserId: peerUserId || undefined,

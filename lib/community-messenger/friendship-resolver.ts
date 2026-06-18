@@ -132,6 +132,35 @@ export async function isAcceptedFriendPair(
   return resolved.state === "accepted";
 }
 
+async function isFriendSavedRow(
+  sb: SupabaseClient<any>,
+  ownerUserId: string,
+  targetUserId: string
+): Promise<boolean> {
+  const owner = trimText(ownerUserId);
+  const target = trimText(targetUserId);
+  if (!owner || !target || owner === target) return false;
+  const { data, error } = await (sb as any)
+    .from("user_social_relations")
+    .select("id")
+    .eq("owner_user_id", owner)
+    .eq("target_user_id", target)
+    .eq("relation_type", "friend")
+    .maybeSingle();
+  if (error && !isMissingTableError(error)) return false;
+  return Boolean(data?.id);
+}
+
+/** viewer 기준 target 을 friend 로 저장했는지 (단방향) */
+export async function isFriendSavedByOwner(
+  sb: SupabaseClient<any> | null,
+  ownerUserId: string,
+  targetUserId: string
+): Promise<boolean> {
+  if (!sb) return false;
+  return isFriendSavedRow(sb, ownerUserId, targetUserId);
+}
+
 export function peerFriendshipStateFromResolution(
   resolution: FriendshipPairResolution
 ): "accepted" | "pending" | "none" | "blocked" {

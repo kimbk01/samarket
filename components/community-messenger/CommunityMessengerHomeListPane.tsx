@@ -90,6 +90,7 @@ type Props = {
   friendHasDirectRoomStable: (userId: string) => boolean;
   primaryListItems: UnifiedRoomListItem[];
   favoriteFriendIds: Set<string>;
+  savedFriendIds?: Set<string>;
   handleMessengerHomeTogglePin: (room: CommunityMessengerRoomSummary) => void;
   handleMessengerHomeToggleMute: (room: CommunityMessengerRoomSummary) => void;
   handleMessengerHomeMarkRoomRead: (room: CommunityMessengerRoomSummary) => void;
@@ -412,6 +413,7 @@ export const CommunityMessengerHomeListPane = memo(function CommunityMessengerHo
               friendHasDirectRoom={props.friendHasDirectRoomStable}
               primaryListItems={props.primaryListItems}
               favoriteFriendIds={props.favoriteFriendIds}
+              savedFriendIds={props.savedFriendIds}
               onTogglePin={props.handleMessengerHomeTogglePin}
               onToggleMute={props.handleMessengerHomeToggleMute}
               onMarkRead={props.handleMessengerHomeMarkRoomRead}

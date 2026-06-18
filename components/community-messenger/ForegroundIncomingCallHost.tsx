@@ -12,9 +12,11 @@ export type ForegroundIncomingCallHostProps = {
   ringTimeoutSeconds: number;
   busyReject: boolean;
   busyAccept: boolean;
+  busyBlock?: boolean;
   onExpand: () => void;
   onReject: () => void;
   onAccept: () => void;
+  onBlock?: () => void;
 };
 
 /**
@@ -27,9 +29,11 @@ export function ForegroundIncomingCallHost(props: ForegroundIncomingCallHostProp
     ringTimeoutSeconds,
     busyReject,
     busyAccept,
+    busyBlock = false,
     onExpand,
     onReject,
     onAccept,
+    onBlock,
   } = props;
 
   const [portalReady, setPortalReady] = useState(false);
@@ -54,9 +58,12 @@ export function ForegroundIncomingCallHost(props: ForegroundIncomingCallHostProp
         startedAt={session.startedAt ?? null}
         busyReject={busyReject}
         busyAccept={busyAccept}
+        showStrangerHint={session.peerRelationLabel != null && session.peerRelationLabel !== "mutual_friend"}
+        busyBlock={busyBlock}
         onExpand={onExpand}
         onReject={onReject}
         onAccept={onAccept}
+        onBlock={onBlock}
       />
     </div>
   );

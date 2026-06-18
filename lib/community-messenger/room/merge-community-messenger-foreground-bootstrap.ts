@@ -87,5 +87,10 @@ export function mergeCommunityMessengerForegroundBootstrapIntoSnapshot(
     membersDeferred: next.membersDeferred ?? prev.membersDeferred,
     bootstrapEnrichmentPending:
       next.bootstrapEnrichmentPending ?? prev.bootstrapEnrichmentPending,
+    peerFriendshipState: next.peerFriendshipState ?? prev.peerFriendshipState,
+    peerRelationLabel: next.peerRelationLabel ?? prev.peerRelationLabel,
+    directCallGate: next.directCallGate ?? prev.directCallGate,
+    unknownPeerNoticeDismissed:
+      next.unknownPeerNoticeDismissed ?? prev.unknownPeerNoticeDismissed,
   };
 }

@@ -22,6 +22,7 @@ type Props = {
   items: UnifiedRoomListItem[];
   viewerUserId?: string | null;
   favoriteFriendIds: Set<string>;
+  savedFriendIds?: Set<string>;
   busyId: string | null;
   listContext: MessengerChatListContext;
   onTogglePin: (room: CommunityMessengerRoomSummary) => void;

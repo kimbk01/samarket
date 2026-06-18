@@ -69,4 +69,22 @@ describe("mergeCommunityMessengerForegroundBootstrapIntoSnapshot activeCall", ()
     const b = baseSnapshot(callSession({ id: "s1", status: "ringing" }));
     expect(roomBootstrapTimelineFingerprint(a)).not.toBe(roomBootstrapTimelineFingerprint(b));
   });
+
+  it("merges directCallGate and peerFriendshipState from foreground bootstrap", () => {
+    const prev = {
+      ...baseSnapshot(null),
+      room: { ...baseSnapshot(null).room, roomType: "direct" as const, peerUserId: "peer-1" },
+      peerFriendshipState: undefined,
+      directCallGate: undefined,
+    } as unknown as CommunityMessengerRoomSnapshot;
+    const next = {
+      ...prev,
+      peerFriendshipState: "accepted" as const,
+      directCallGate: { canStartVoice: true, canStartVideo: true, relationLabel: "mutual_friend" as const },
+      peerRelationLabel: "mutual_friend" as const,
+    };
+    const merged = mergeCommunityMessengerForegroundBootstrapIntoSnapshot(prev, next);
+    expect(merged.peerFriendshipState).toBe("accepted");
+    expect(merged.directCallGate?.canStartVoice).toBe(true);
+  });
 });

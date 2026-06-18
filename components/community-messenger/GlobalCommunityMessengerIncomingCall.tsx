@@ -2094,6 +2094,24 @@ export function GlobalCommunityMessengerIncomingCall() {
     }
   }, [busyId, refresh, sessions]);
 
+  const blockIncomingCall = useCallback(
+    async (session: CommunityMessengerCallSession) => {
+      const peerUserId = session.peerUserId?.trim();
+      if (!peerUserId || busyId) return;
+      await rejectCall(session.id);
+      await fetch("/api/community-messenger/relations/block", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          targetUserId: peerUserId,
+          roomId: session.roomId,
+          blockSource: "incoming_call",
+        }),
+      });
+    },
+    [busyId, rejectCall]
+  );
+
   const expandIncomingCall = useCallback(
     (session: CommunityMessengerCallSession) => {
       if (busyId === `accept:${session.id}` || busyId === `reject:${session.id}`) return;
@@ -2236,9 +2254,11 @@ export function GlobalCommunityMessengerIncomingCall() {
       ringTimeoutSeconds={ringTimeoutSeconds}
       busyReject={busyId === `reject:${bannerSession.id}`}
       busyAccept={busyId === `accept:${bannerSession.id}`}
+      busyBlock={false}
       onExpand={() => expandIncomingCall(bannerSession)}
       onReject={() => void rejectCall(bannerSession.id)}
       onAccept={() => acceptCall(bannerSession)}
+      onBlock={() => void blockIncomingCall(bannerSession)}
     />
   );
 }

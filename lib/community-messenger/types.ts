@@ -408,7 +408,10 @@ export type CommunityMessengerRoomSnapshot = {
     canStartVoice: boolean;
     canStartVideo: boolean;
     denyCode?: DirectCallDenyCode;
+    relationLabel?: import("@/lib/community-messenger/peer-relation-label").PeerRelationLabel;
   };
+  /** Kakao-style — 친구 목록·경고 문구용 */
+  peerRelationLabel?: import("@/lib/community-messenger/peer-relation-label").PeerRelationLabel;
 };
 
 /** `getCommunityMessengerRoomSnapshot` 초기 메시지 윈도 — 부트스트랩 API·가상 스크롤 `hasMore` 판단과 맞춤 */
@@ -443,6 +446,8 @@ export type CommunityMessengerCallLog = {
   /** 1:1 상대·그룹방 아바타 — 통화 목록 행 썸네일 */
   peerAvatarUrl: string | null;
   peerUserId: string | null;
+  /** 1:1 — mutual friend 가 아니면 stranger 배지 */
+  peerRelationLabel?: import("@/lib/community-messenger/peer-relation-label").PeerRelationLabel;
   participantCount: number;
   participantLabels: string[];
   callKind: CommunityMessengerCallKind;
@@ -467,6 +472,8 @@ export type CommunityMessengerCallSession = {
   peerUserId: string | null;
   peerLabel: string;
   peerAvatarUrl?: string | null;
+  /** 수신 1:1 — caller relation for stranger hint */
+  peerRelationLabel?: import("@/lib/community-messenger/peer-relation-label").PeerRelationLabel;
   callKind: CommunityMessengerCallKind;
   status: CommunityMessengerCallSessionStatus;
   startedAt: string;

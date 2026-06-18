@@ -1,13 +1,24 @@
 /**
- * DIBAY 차단 SSOT — `user_social_relations.relation_type = 'blocked'`
+ * DIBAY 차단 SSOT — `user_social_relations.relation_type = 'blocked'` + `is_active = true`
  *
  * 신규 저장·해제·판단 기준: `user_social_relations` (owner_user_id → target_user_id, 단방향)
+ * 해제: row 삭제 금지 — `is_active=false`, `unblocked_at` 저장 (자동 친구 복구 금지)
  * Legacy 읽기 fallback: `user_relationships`, `user_blocks` (마이그레이션 완료 후 제거 예정)
+ * `community_messenger_participants.blocked_hidden_at` — 채팅 목록 숨김만 (gate 아님)
  *
  * TODO(migration): legacy-only 차단 row → SSOT backfill 스크립트 후 fallback 쿼리 축소
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  isActiveSocialBlockRow,
+  SOCIAL_BLOCK_ACTIVE_OR_LEGACY,
+  type BlockSource,
+  type SocialBlockRow,
+} from "@/lib/social/block-ssot-types";
+
+export type { BlockSource, SocialBlockRow };
+export { isActiveSocialBlockRow, SOCIAL_BLOCK_ACTIVE_OR_LEGACY };
 
 export type BlockedRelation = {
   blockedByMe: boolean;
@@ -56,8 +67,16 @@ export async function fetchBlockedAuthorIdsForViewerSb(
     { data: legacyBlocksIn },
   ] = await Promise.all([
     // remove after migration complete — legacy fallback read only
-    sb.from("user_social_relations").select("target_user_id").eq("owner_user_id", v).eq("relation_type", "blocked"),
-    sb.from("user_social_relations").select("owner_user_id").eq("target_user_id", v).eq("relation_type", "blocked"),
+    sb.from("user_social_relations")
+      .select("target_user_id")
+      .eq("owner_user_id", v)
+      .eq("relation_type", "blocked")
+      .or(SOCIAL_BLOCK_ACTIVE_OR_LEGACY),
+    sb.from("user_social_relations")
+      .select("owner_user_id")
+      .eq("target_user_id", v)
+      .eq("relation_type", "blocked")
+      .or(SOCIAL_BLOCK_ACTIVE_OR_LEGACY),
     // remove after migration complete
     sb.from("user_relationships").select("target_user_id").eq("user_id", v).or("relation_type.eq.blocked,type.eq.blocked"),
     sb.from("user_relationships").select("user_id").eq("target_user_id", v).or("relation_type.eq.blocked,type.eq.blocked"),
@@ -95,7 +114,7 @@ export async function fetchBlockedPairFromSb(
   ] = await Promise.all([
     (sb as any)
       .from("user_social_relations")
-      .select("owner_user_id")
+      .select("owner_user_id, is_active, relation_type")
       .eq("relation_type", "blocked")
       .or(`and(owner_user_id.eq.${a},target_user_id.eq.${b}),and(owner_user_id.eq.${b},target_user_id.eq.${a})`),
     // remove after migration complete
@@ -113,7 +132,8 @@ export async function fetchBlockedPairFromSb(
   let blockedByMe = Boolean(blockOut?.id);
   let blockedByPeer = Boolean(blockIn?.id);
 
-  for (const row of (socialRows ?? []) as Array<{ owner_user_id?: string }>) {
+  for (const row of (socialRows ?? []) as Array<{ owner_user_id?: string; is_active?: boolean | null; relation_type?: string }>) {
+    if (!isActiveSocialBlockRow(row)) continue;
     const owner = trimId(row.owner_user_id);
     if (owner === a) blockedByMe = true;
     if (owner === b) blockedByPeer = true;

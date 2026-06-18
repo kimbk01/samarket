@@ -36,6 +36,23 @@ export function shouldShowUnknownPeerNotice(input: {
   return true;
 }
 
+/** Kakao-style — mutual/saved_by_me 는 stranger 안내 숨김 */
+export function shouldShowStrangerPeerNotice(input: {
+  relationLabel: import("@/lib/community-messenger/peer-relation-label").PeerRelationLabel;
+  blockedByMe: boolean;
+  blockedByPeer: boolean;
+}): boolean {
+  if (input.blockedByMe || input.blockedByPeer) return false;
+  if (
+    input.relationLabel === "mutual_friend" ||
+    input.relationLabel === "saved_by_me" ||
+    input.relationLabel === "blocked"
+  ) {
+    return false;
+  }
+  return true;
+}
+
 type InboundDirectChatMessage = {
   senderId?: string | null;
   messageType?: string | null;

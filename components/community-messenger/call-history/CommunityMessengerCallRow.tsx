@@ -254,6 +254,11 @@ export function CommunityMessengerCallRow({
               ) : null}
             </p>
             <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1.5">
+              {call.peerRelationLabel && call.peerRelationLabel !== "mutual_friend" ? (
+                <span className="rounded-full bg-sam-surface-muted px-1.5 py-0.5 sam-text-xxs font-medium text-sam-fg-muted">
+                  {t("cm_peer_badge_not_friend")}
+                </span>
+              ) : null}
               <CommunityMessengerCallDirectionBadge displayType={vm.displayType} />
               <p className="truncate sam-text-body-secondary" style={{ color: vm.subtitleColor }}>
                 {subtitleText}

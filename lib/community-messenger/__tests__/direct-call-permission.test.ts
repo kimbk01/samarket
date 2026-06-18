@@ -19,14 +19,21 @@ import {
   canStartDirectCallBetweenUsers,
   resolveDirectCallPolicy,
   mapDenyCodeToApiError,
+  directCallGateFromPermissionResult,
 } from "@/lib/community-messenger/direct-call-permission";
 import { getFriendshipPairState } from "@/lib/community-messenger/friendship-resolver";
+import { resolvePeerRelationLabel } from "@/lib/community-messenger/peer-relation-label";
 
 const CALLER = "11111111-1111-1111-1111-111111111111";
 const CALLEE = "22222222-2222-2222-2222-222222222222";
 const ROOM = "33333333-3333-3333-3333-333333333333";
 
-function mockSb(profiles: Record<string, unknown>, participants: Array<{ user_id: string }> = [], room: Record<string, unknown> | null = null) {
+function mockSb(
+  profiles: Record<string, unknown>,
+  participants: Array<{ user_id: string }> = [],
+  room: Record<string, unknown> | null = null,
+  socialFriendRows: Array<{ owner_user_id: string; target_user_id: string }> = []
+) {
   return {
     from: vi.fn((table: string) => {
       if (table === "profiles") {
@@ -57,14 +64,17 @@ function mockSb(profiles: Record<string, unknown>, participants: Array<{ user_id
       if (table === "user_social_relations") {
         return {
           select: vi.fn(() => ({
-            eq: vi.fn(() => ({
-              eq: vi.fn(() => ({
+            eq: vi.fn((col: string, val: string) => ({
+              eq: vi.fn((col2: string, val2: string) => ({
                 eq: vi.fn(() => ({
-                  maybeSingle: vi.fn(async () => ({ data: null, error: null })),
+                  maybeSingle: vi.fn(async () => {
+                    const hit = socialFriendRows.find(
+                      (r) => r.owner_user_id === val && r.target_user_id === val2
+                    );
+                    return { data: hit ? { id: "f1" } : null, error: null };
+                  }),
                 })),
-                maybeSingle: vi.fn(async () => ({ data: null, error: null })),
               })),
-              maybeSingle: vi.fn(async () => ({ data: null, error: null })),
             })),
           })),
         };
@@ -94,15 +104,37 @@ function mockSb(profiles: Record<string, unknown>, participants: Array<{ user_id
 }
 
 describe("resolveDirectCallPolicy", () => {
-  it("defaults null/unknown to friends_only", () => {
-    expect(resolveDirectCallPolicy(null)).toBe("friends_only");
-    expect(resolveDirectCallPolicy("")).toBe("friends_only");
+  it("defaults null/unknown to everybody (Kakao)", () => {
+    expect(resolveDirectCallPolicy(null)).toBe("everybody");
+    expect(resolveDirectCallPolicy("")).toBe("everybody");
     expect(resolveDirectCallPolicy("everyone")).toBe("everybody");
+    expect(resolveDirectCallPolicy("friends_only")).toBe("friends_only");
     expect(resolveDirectCallPolicy("nobody")).toBe("nobody");
   });
 });
 
-describe("canStartDirectCallBetweenUsers", () => {
+describe("resolvePeerRelationLabel", () => {
+  it("classifies mutual friend and stranger", () => {
+    expect(
+      resolvePeerRelationLabel({
+        blockedEitherWay: false,
+        savedByMe: true,
+        savedByPeer: true,
+        friendship: { state: "accepted", source: "friendships_ssot" },
+      })
+    ).toBe("mutual_friend");
+    expect(
+      resolvePeerRelationLabel({
+        blockedEitherWay: false,
+        savedByMe: false,
+        savedByPeer: false,
+        friendship: { state: "none", source: "none" },
+      })
+    ).toBe("stranger");
+  });
+});
+
+describe("canStartDirectCallBetweenUsers — Kakao open call", () => {
   beforeEach(() => {
     vi.spyOn(console, "info").mockImplementation(() => {});
     vi.mocked(fetchBlockedPairFromSb).mockResolvedValue({
@@ -117,94 +149,52 @@ describe("canStartDirectCallBetweenUsers", () => {
     vi.restoreAllMocks();
   });
 
-  it("A: pre-request denies not friend", async () => {
-    const sb = mockSb({ messenger_direct_call_policy: "friends_only", status: "active" });
+  it("B: stranger + active direct room → audio call allowed", async () => {
+    const sb = mockSb(
+      { messenger_direct_call_policy: "everyone", status: "active" },
+      [{ user_id: CALLER }, { user_id: CALLEE }],
+      { room_type: "direct", room_status: "active", is_readonly: false }
+    );
     const result = await canStartDirectCallBetweenUsers({
       callerUserId: CALLER,
       calleeUserId: CALLEE,
+      roomId: ROOM,
       callKind: "audio",
       supabase: sb,
-      skipRoomCheck: true,
     });
-    expect(result).toEqual({ allowed: false, code: "deny_not_friend" });
+    expect(result).toMatchObject({ allowed: true, relationLabel: "stranger" });
   });
 
-  it("B: pending denies pending friend", async () => {
-    vi.mocked(fetchFriendshipPairRow).mockResolvedValue({
-      id: "f1",
-      requester_user_id: CALLER,
-      addressee_user_id: CALLEE,
-      status: "pending",
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
-    const sb = mockSb({ messenger_direct_call_policy: "friends_only", status: "active" });
+  it("C: stranger → video call allowed", async () => {
+    const sb = mockSb({ messenger_direct_call_policy: "everyone", status: "active" });
     const result = await canStartDirectCallBetweenUsers({
-      callerUserId: CALLER,
-      calleeUserId: CALLEE,
-      callKind: "audio",
-      supabase: sb,
-      skipRoomCheck: true,
-    });
-    expect(result).toEqual({ allowed: false, code: "deny_pending_friend" });
-  });
-
-  it("C-D: accepted allows audio and video", async () => {
-    vi.mocked(fetchFriendshipPairRow).mockResolvedValue({
-      id: "f1",
-      requester_user_id: CALLER,
-      addressee_user_id: CALLEE,
-      status: "accepted",
-      readd_blocked_until: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
-    const sb = mockSb({ messenger_direct_call_policy: "friends_only", status: "active" });
-    const audio = await canStartDirectCallBetweenUsers({
-      callerUserId: CALLER,
-      calleeUserId: CALLEE,
-      callKind: "audio",
-      supabase: sb,
-      skipRoomCheck: true,
-    });
-    const video = await canStartDirectCallBetweenUsers({
       callerUserId: CALLER,
       calleeUserId: CALLEE,
       callKind: "video",
       supabase: sb,
       skipRoomCheck: true,
     });
-    expect(audio).toEqual({ allowed: true, reason: "allow_friend" });
-    expect(video).toEqual({ allowed: true, reason: "allow_friend" });
-  });
-
-  it("E: friendships accepted allows even if social fallback empty", async () => {
-    vi.mocked(fetchFriendshipPairRow).mockResolvedValue({
-      id: "f1",
-      requester_user_id: CALLER,
-      addressee_user_id: CALLEE,
-      status: "accepted",
-      readd_blocked_until: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
-    const sb = mockSb({ messenger_direct_call_policy: "friends_only", status: "active" });
-    const result = await canStartDirectCallBetweenUsers({
-      callerUserId: CALLER,
-      calleeUserId: CALLEE,
-      callKind: "audio",
-      supabase: sb,
-      skipRoomCheck: true,
-    });
     expect(result.allowed).toBe(true);
   });
 
-  it("F: block denies", async () => {
+  it("F/H: block denies with deny_blocked", async () => {
     vi.mocked(fetchBlockedPairFromSb).mockResolvedValue({
       blockedByMe: true,
       blockedByPeer: false,
       blockedEitherWay: true,
     });
+    const sb = mockSb({ messenger_direct_call_policy: "everyone", status: "active" });
+    const result = await canStartDirectCallBetweenUsers({
+      callerUserId: CALLER,
+      calleeUserId: CALLEE,
+      callKind: "audio",
+      supabase: sb,
+      skipRoomCheck: true,
+    });
+    expect(result).toEqual({ allowed: false, code: "deny_blocked", relationLabel: "blocked" });
+  });
+
+  it("M: mutual friend allows without extra privacy gate", async () => {
     vi.mocked(fetchFriendshipPairRow).mockResolvedValue({
       id: "f1",
       requester_user_id: CALLER,
@@ -214,7 +204,7 @@ describe("canStartDirectCallBetweenUsers", () => {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     });
-    const sb = mockSb({ messenger_direct_call_policy: "friends_only", status: "active" });
+    const sb = mockSb({ messenger_direct_call_policy: "everyone", status: "active" });
     const result = await canStartDirectCallBetweenUsers({
       callerUserId: CALLER,
       calleeUserId: CALLEE,
@@ -222,42 +212,12 @@ describe("canStartDirectCallBetweenUsers", () => {
       supabase: sb,
       skipRoomCheck: true,
     });
-    expect(result).toEqual({ allowed: false, code: "deny_blocked" });
+    expect(result).toMatchObject({ allowed: true, relationLabel: "mutual_friend" });
   });
 
-  it("G: readd cooldown denies not friend", async () => {
-    vi.mocked(fetchFriendshipPairRow).mockResolvedValue({
-      id: "f1",
-      requester_user_id: CALLER,
-      addressee_user_id: CALLEE,
-      status: "removed",
-      readd_blocked_until: new Date(Date.now() + 86_400_000).toISOString(),
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
-    const sb = mockSb({ messenger_direct_call_policy: "friends_only", status: "active" });
-    const result = await canStartDirectCallBetweenUsers({
-      callerUserId: CALLER,
-      calleeUserId: CALLEE,
-      callKind: "audio",
-      supabase: sb,
-      skipRoomCheck: true,
-    });
-    expect(result).toEqual({ allowed: false, code: "deny_not_friend" });
-  });
-
-  it("H: hidden room flags do not deny when room active direct participants ok", async () => {
-    vi.mocked(fetchFriendshipPairRow).mockResolvedValue({
-      id: "f1",
-      requester_user_id: CALLER,
-      addressee_user_id: CALLEE,
-      status: "accepted",
-      readd_blocked_until: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
+  it("N: hidden room is not a deny reason when room active", async () => {
     const sb = mockSb(
-      { messenger_direct_call_policy: "friends_only", status: "active" },
+      { messenger_direct_call_policy: "everyone", status: "active" },
       [{ user_id: CALLER }, { user_id: CALLEE }],
       { room_type: "direct", room_status: "active", is_readonly: false }
     );
@@ -271,16 +231,7 @@ describe("canStartDirectCallBetweenUsers", () => {
     expect(result.allowed).toBe(true);
   });
 
-  it("I: friends_only + accepted allows", async () => {
-    vi.mocked(fetchFriendshipPairRow).mockResolvedValue({
-      id: "f1",
-      requester_user_id: CALLER,
-      addressee_user_id: CALLEE,
-      status: "accepted",
-      readd_blocked_until: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
+  it("explicit friends_only policy denies stranger", async () => {
     const sb = mockSb({ messenger_direct_call_policy: "friends_only", status: "active" });
     const result = await canStartDirectCallBetweenUsers({
       callerUserId: CALLER,
@@ -289,10 +240,10 @@ describe("canStartDirectCallBetweenUsers", () => {
       supabase: sb,
       skipRoomCheck: true,
     });
-    expect(result.allowed).toBe(true);
+    expect(result).toMatchObject({ allowed: false, code: "deny_privacy" });
   });
 
-  it("J: nobody + accepted denies privacy", async () => {
+  it("nobody policy denies even mutual friend", async () => {
     vi.mocked(fetchFriendshipPairRow).mockResolvedValue({
       id: "f1",
       requester_user_id: CALLER,
@@ -310,33 +261,12 @@ describe("canStartDirectCallBetweenUsers", () => {
       supabase: sb,
       skipRoomCheck: true,
     });
-    expect(result).toEqual({ allowed: false, code: "deny_privacy" });
+    expect(result).toEqual({ allowed: false, code: "deny_privacy", relationLabel: "mutual_friend" });
   });
 
-  it("K: everybody allows without friendship", async () => {
-    const sb = mockSb({ messenger_direct_call_policy: "everybody", status: "active" });
-    const result = await canStartDirectCallBetweenUsers({
-      callerUserId: CALLER,
-      calleeUserId: CALLEE,
-      callKind: "audio",
-      supabase: sb,
-      skipRoomCheck: true,
-    });
-    expect(result).toEqual({ allowed: true, reason: "allow_everybody_policy" });
-  });
-
-  it("L: missing participant denies room mismatch", async () => {
-    vi.mocked(fetchFriendshipPairRow).mockResolvedValue({
-      id: "f1",
-      requester_user_id: CALLER,
-      addressee_user_id: CALLEE,
-      status: "accepted",
-      readd_blocked_until: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
+  it("missing participant denies room mismatch", async () => {
     const sb = mockSb(
-      { messenger_direct_call_policy: "friends_only", status: "active" },
+      { messenger_direct_call_policy: "everyone", status: "active" },
       [{ user_id: CALLER }],
       { room_type: "direct", room_status: "active", is_readonly: false }
     );
@@ -347,37 +277,29 @@ describe("canStartDirectCallBetweenUsers", () => {
       callKind: "audio",
       supabase: sb,
     });
-    expect(result).toEqual({ allowed: false, code: "deny_room_state_mismatch" });
+    expect(result).toMatchObject({ allowed: false, code: "deny_room_state_mismatch" });
   });
 
-  it("M: suspended callee denies deleted account", async () => {
-    vi.mocked(fetchFriendshipPairRow).mockResolvedValue({
-      id: "f1",
-      requester_user_id: CALLER,
-      addressee_user_id: CALLEE,
-      status: "accepted",
-      readd_blocked_until: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+  it("directCallGate includes relationLabel", () => {
+    const gate = directCallGateFromPermissionResult({
+      allowed: true,
+      reason: "allow_open_direct",
+      relationLabel: "stranger",
     });
-    const sb = mockSb({ messenger_direct_call_policy: "friends_only", status: "suspended" });
-    const result = await canStartDirectCallBetweenUsers({
-      callerUserId: CALLER,
-      calleeUserId: CALLEE,
-      callKind: "audio",
-      supabase: sb,
-      skipRoomCheck: true,
+    expect(gate).toEqual({
+      canStartVoice: true,
+      canStartVideo: true,
+      relationLabel: "stranger",
     });
-    expect(result).toEqual({ allowed: false, code: "deny_deleted_account" });
   });
 
   it("maps deny codes to API errors", () => {
-    expect(mapDenyCodeToApiError("deny_pending_friend")).toBe("call_denied_pending_friend");
+    expect(mapDenyCodeToApiError("deny_blocked")).toBe("call_denied_blocked");
     expect(mapDenyCodeToApiError("deny_privacy")).toBe("call_denied_privacy");
   });
 
   it("friendshipPreload skips duplicate friendship fetch", async () => {
-    const sb = mockSb({ messenger_direct_call_policy: "friends_only", status: "active" });
+    const sb = mockSb({ messenger_direct_call_policy: "everyone", status: "active" });
     await canStartDirectCallBetweenUsers({
       callerUserId: CALLER,
       calleeUserId: CALLEE,
