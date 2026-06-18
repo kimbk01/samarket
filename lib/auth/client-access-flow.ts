@@ -10,6 +10,7 @@ import { getMyProfile } from "@/lib/profile/getMyProfile";
 import { setSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
 import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { openPhoneVerificationRequiredSheet } from "@/lib/auth/phone-verification-required-client";
 import { openLoginRequiredSheet } from "@/lib/auth/require-auth-action";
 import { isAccountDependentPath, sanitizeLoginNextPath } from "@/lib/auth/auth-route-classification";
 
@@ -80,10 +81,16 @@ export function redirectForBlockedAction(
   error: string | null | undefined,
   next?: string
 ): boolean {
+  const returnNext = next?.trim() || currentHrefFallback();
   if (isLoginRequiredError(error)) {
-    openLoginRequiredSheet({ actionType: "messenger_open", next: next?.trim() || currentHrefFallback() });
+    openLoginRequiredSheet({ actionType: "messenger_open", next: returnNext });
     return true;
   }
+  if (isPhoneVerificationRequiredError(error)) {
+    openPhoneVerificationRequiredSheet({ next: returnNext });
+    return true;
+  }
+  void router;
   return false;
 }
 

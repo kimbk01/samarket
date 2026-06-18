@@ -10,4 +10,10 @@ describe("getMessengerRoomActionErrorMessage", () => {
     );
     expect(getMessengerRoomActionErrorMessage("composer_busy", t)).toBe("tr:nav_messenger_action_failed");
   });
+
+  it("maps phone verification required", () => {
+    expect(getMessengerRoomActionErrorMessage("PHONE_VERIFICATION_REQUIRED", t)).toBe(
+      "tr:auth_phone_gate_unverified_title"
+    );
+  });
 });

@@ -39,6 +39,8 @@ export function getMessengerRoomActionErrorMessage(
       return t("nav_messenger_friend_required");
     case "blocked_target":
       return t("cm_social_blocked_message_denied");
+    case "PHONE_VERIFICATION_REQUIRED":
+      return t("auth_phone_gate_unverified_title");
     case "invalid_target":
       return t("nav_messenger_invalid_target");
     case "members_required":

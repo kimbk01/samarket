@@ -148,7 +148,10 @@ export const authUiMessages = {
     auth_logout_all_confirm_title: "모든 기기에서 로그아웃하시겠습니까?",
     auth_logout_all_confirm_body: "연결된 모든 기기에서 로그아웃됩니다. 다시 이용하려면 로그인이 필요합니다.",
     auth_phone_gate_title: "전화번호 인증이 필요합니다",
+    auth_phone_gate_unverified_title: "전화번호 인증이 완료되지 않았습니다",
     auth_phone_gate_requirement: "전화번호 인증 후 이용할 수 있습니다.",
+    auth_phone_gate_messenger_action_body:
+      "메시지 전송 등 이 기능을 사용하려면 전화번호 인증이 필요합니다. 인증 후 다시 시도해 주세요.",
     auth_phone_gate_body:
       "동네 글쓰기·거래 글쓰기·커뮤니티 메신저 채팅(시작·이어가기)은 {requirement} 피드·목록 읽기만 할 때는 로그인만 되어 있으면 됩니다. 관리자가 전화 인증을 대신 처리한 정식 회원은 동일한 권한으로 이용할 수 있습니다.",
     auth_phone_gate_verify: "전화 인증하기",
@@ -373,7 +376,10 @@ export const authUiMessages = {
     auth_logout_all_confirm_title: "Sign out on all devices?",
     auth_logout_all_confirm_body: "You will be signed out on every device. Sign in again to continue.",
     auth_phone_gate_title: "Phone verification required",
+    auth_phone_gate_unverified_title: "Phone verification is not complete",
     auth_phone_gate_requirement: "Available after phone verification.",
+    auth_phone_gate_messenger_action_body:
+      "Phone verification is required to send messages and use this feature. Verify your number and try again.",
     auth_phone_gate_body:
       "Posting, trading, and starting or continuing Community Messenger chats require {requirement} You only need to be signed in to read feeds and lists. Members verified by an admin have the same access.",
     auth_phone_gate_verify: "Verify phone",

@@ -11,6 +11,7 @@ import { PostLogoutBfcacheGuard } from "@/components/auth/PostLogoutBfcacheGuard
 import { AuthSessionBoundary } from "@/components/auth/AuthSessionBoundary";
 import { DibaySignupGate } from "@/components/auth/DibaySignupGate";
 import { LoginRequiredSheet } from "@/components/auth/LoginRequiredSheet";
+import { PhoneVerificationRequiredSheet } from "@/components/auth/PhoneVerificationRequiredSheet";
 import { MissingProfileInfoModal } from "@/components/profile/MissingProfileInfoModal";
 import { ConditionalAppShell } from "@/components/layout/ConditionalAppShell";
 import { OwnerHubBadgeRuntime } from "@/components/layout/OwnerHubBadgeRuntime";
@@ -183,6 +184,7 @@ export function MainAppProviderTree({
           <DibaySignupGate />
           <OwnerHubBadgeRuntime />
           <LoginRequiredSheet />
+          <PhoneVerificationRequiredSheet />
           <MissingProfileInfoModal />
           <DiBaYDevicePermissionOnboardingGate />
           <NativePushRegistrationLazy />

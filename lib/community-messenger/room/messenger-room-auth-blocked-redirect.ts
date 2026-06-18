@@ -1,6 +1,7 @@
 "use client";
 
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
+import { isPhoneVerificationRequiredApiPayload } from "@/lib/auth/phone-verification-required-detect";
 import { pickMessengerApiErrorField } from "@/lib/community-messenger/room/messenger-room-action-error-messages";
 
 export type MessengerRoomAuthRouterLike = { push: (href: string) => void };
@@ -26,5 +27,8 @@ export function tryRedirectMessengerRoomAuthBlocked(
       : opts.streamRoomId?.trim()
         ? `/community-messenger/rooms/${encodeURIComponent(opts.streamRoomId.trim())}`
         : "/community-messenger";
+  if (isPhoneVerificationRequiredApiPayload(json)) {
+    return redirectForBlockedAction(router, "PHONE_VERIFICATION_REQUIRED", next);
+  }
   return redirectForBlockedAction(router, errText || undefined, next);
 }
