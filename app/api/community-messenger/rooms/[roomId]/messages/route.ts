@@ -201,9 +201,17 @@ export async function POST(
     recordMessengerApiTiming(
       "POST /api/community-messenger/rooms/[roomId]/messages",
       Math.round(performance.now() - t0),
-      cached.res.ok ? 200 : 400
+      cached.res.ok ? 200 : cached.res.error === "blocked_target" ? 403 : 400
     );
-    return cached.res.ok ? jsonOk(cached.res) : jsonError(cached.res.error ?? "메시지 전송에 실패했습니다.", 400, cached.res);
+    if (cached.res.ok) return jsonOk(cached.res);
+    if (cached.res.error === "blocked_target") {
+      return jsonError("차단된 사용자와는 메시지를 주고받을 수 없습니다.", 403, {
+        ...cached.res,
+        code: "blocked_target",
+        error: "blocked_target",
+      });
+    }
+    return jsonError(cached.res.error ?? "메시지 전송에 실패했습니다.", 400, cached.res);
   }
   const result = await runSingleFlight(key, async () => {
     const cm = await sendServiceImport;
@@ -275,7 +283,7 @@ export async function POST(
   recordMessengerApiTiming(
     "POST /api/community-messenger/rooms/[roomId]/messages",
     handlerMs,
-    responsePayload.ok ? 200 : 400
+    responsePayload.ok ? 200 : responsePayload.error === "blocked_target" ? 403 : 400
   );
   const ackHeaders = {
     "x-samarket-send-route-ms": String(routeMs),
@@ -285,9 +293,15 @@ export async function POST(
   };
   return responsePayload.ok
     ? jsonOk(responsePayload, { headers: ackHeaders })
-    : jsonError(responsePayload.error ?? "메시지 전송에 실패했습니다.", { status: 400, headers: ackHeaders }, {
-        ...responsePayload,
-      });
+    : responsePayload.error === "blocked_target"
+      ? jsonError(
+          "차단된 사용자와는 메시지를 주고받을 수 없습니다.",
+          { status: 403, headers: ackHeaders },
+          { ...responsePayload, code: "blocked_target", error: "blocked_target" }
+        )
+      : jsonError(responsePayload.error ?? "메시지 전송에 실패했습니다.", { status: 400, headers: ackHeaders }, {
+          ...responsePayload,
+        });
 }
 
 function trimText(v: unknown): string {

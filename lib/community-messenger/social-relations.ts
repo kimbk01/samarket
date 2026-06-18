@@ -94,12 +94,21 @@ export async function isBlockedByOther(viewerUserId: string, targetUserId: strin
 }
 
 export async function isBlockedEitherWay(userId: string, targetUserId: string): Promise<boolean> {
+  return isBlockedEitherWayActive(userId, targetUserId);
+}
+
+/** SSOT active block — `user_social_relations.relation_type=blocked` AND `is_active !== false` (+ legacy fallback) */
+export async function isBlockedEitherWayActive(
+  userId: string,
+  targetUserId: string,
+  supabase?: import("@supabase/supabase-js").SupabaseClient<any> | null
+): Promise<boolean> {
   const a = trimText(userId);
   const b = trimText(targetUserId);
   if (!a || !b || a === b) return false;
-  const sb = getSupabaseOrNull();
-  const { blockedByMe, blockedByPeer } = await fetchBlockedPairsEitherWay(sb, a, b);
-  return blockedByMe || blockedByPeer;
+  const sb = supabase ?? getSupabaseOrNull();
+  const rel = await fetchBlockedPairFromSb(sb, a, b);
+  return rel.blockedEitherWay;
 }
 
 /** 내가 대상을 차단했는지 (`user_social_relations` + legacy `user_relationships`) */

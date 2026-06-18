@@ -118,6 +118,7 @@ import {
   logCallPermission,
   mapDenyCodeToApiError,
 } from "@/lib/community-messenger/direct-call-permission";
+import { assertDirectRoomCommunicationNotBlocked } from "@/lib/community-messenger/direct-room-communication-gate";
 import {
   getFriendshipPairState,
   peerFriendshipStateFromResolution,
@@ -15202,6 +15203,14 @@ async function trySendCommunityMessengerTextAtomic(
   | { ok: false; error: string }
   | null
 > {
+  const blockGate = await assertDirectRoomCommunicationNotBlocked({
+    viewerUserId: input.userId,
+    roomId,
+    supabase: sb,
+  });
+  if (!blockGate.ok) {
+    return { ok: false, error: "blocked_target" };
+  }
   /**
    * 거래 전송 가드·dedupe·unread 는 `community_messenger_send_text_message` RPC 가 단일 트랜잭션으로 처리.
    * 사전 `product_chats` 조회는 ACK RTT 만 늘리므로 atomic 경로에서는 생략한다.
@@ -15329,6 +15338,16 @@ export async function sendCommunityMessengerMessage(input: {
   const replyToMessageIdOpt = trimText(input.replyToMessageId ?? "");
   const membershipPreflightDone = input.membershipPreflightDone === true;
   const sb = getSupabaseOrNull();
+  if (sb) {
+    const blockGate = await assertDirectRoomCommunicationNotBlocked({
+      viewerUserId: input.userId,
+      roomId,
+      supabase: sb,
+    });
+    if (!blockGate.ok) {
+      return { ok: false, error: "blocked_target" };
+    }
+  }
   if (sb) {
     const atomic = await trySendCommunityMessengerTextAtomic(
       sb,
@@ -17423,19 +17442,13 @@ export async function startCommunityMessengerCallSession(input: {
   let snapshot: CommunityMessengerRoomSnapshot | null = null;
   let isGroupRoom: boolean;
   let peerUserId: string | null;
+  let activeCallForReuse: CommunityMessengerCallSession | null = null;
+  let reusePeerUserId: string | null = null;
 
   if (resolved.kind === "fullSnapshot") {
     snapshot = resolved.snapshot;
     if (snapshot.room.roomStatus !== "active" || snapshot.room.isReadonly) {
       return { ok: false, error: "room_unavailable" };
-    }
-    if (!dialFresh && snapshot.activeCall && !isTerminalCallSessionStatus(snapshot.activeCall.status)) {
-      maybeResendIncomingCallPushForReusedSession(
-        snapshot.activeCall,
-        snapshot.room.peerUserId ?? null,
-        input.userId
-      );
-      return { ok: true, session: snapshot.activeCall, reused: true };
     }
     isGroupRoom = isCommunityMessengerGroupRoomType(snapshot.room.roomType);
     peerUserId = isGroupRoom
@@ -17445,20 +17458,20 @@ export async function startCommunityMessengerCallSession(input: {
     if (isGroupRoom && snapshot.members.length > 4) {
       return { ok: false, error: "group_call_limit_exceeded" };
     }
+    if (!dialFresh && snapshot.activeCall && !isTerminalCallSessionStatus(snapshot.activeCall.status)) {
+      activeCallForReuse = snapshot.activeCall;
+      reusePeerUserId = snapshot.room.peerUserId ?? peerUserId;
+    }
   } else {
     if (resolved.roomStatus !== "active" || resolved.isReadonly) {
       return { ok: false, error: "room_unavailable" };
     }
-    if (!dialFresh && resolved.activeCall && !isTerminalCallSessionStatus(resolved.activeCall.status)) {
-      maybeResendIncomingCallPushForReusedSession(
-        resolved.activeCall,
-        resolved.peerUserId,
-        input.userId
-      );
-      return { ok: true, session: resolved.activeCall, reused: true };
-    }
     peerUserId = resolved.peerUserId;
     isGroupRoom = false;
+    if (!dialFresh && resolved.activeCall && !isTerminalCallSessionStatus(resolved.activeCall.status)) {
+      activeCallForReuse = resolved.activeCall;
+      reusePeerUserId = resolved.peerUserId;
+    }
   }
 
   if (isGroupRoom && !snapshot) {
@@ -17466,18 +17479,9 @@ export async function startCommunityMessengerCallSession(input: {
   }
 
   const sb = getSupabaseOrNull();
-  if (!isGroupRoom && sb && !dialFresh) {
-    const callerLiveId = await getUserLiveDirectCallSessionId(sb, input.userId, "live");
-    if (callerLiveId) {
-      const existingCallerSession = await loadDirectCallSessionRowById(sb, input.userId, callerLiveId);
-      if (existingCallerSession && !isTerminalCallSessionStatus(existingCallerSession.status)) {
-        return { ok: true, session: existingCallerSession, reused: true };
-      }
-    }
-  }
   if (!isGroupRoom && peerUserId) {
     const callKindInput = input.callKind === "video" ? "video" : "audio";
-    // SSOT_CONTRACT: messenger-direct-call-start-gate canStartDirectCallBetweenUsers
+    // SSOT_CONTRACT: messenger-direct-call-start-gate canStartDirectCallBetweenUsers (before reuse)
     const directCallGate = await canStartDirectCallBetweenUsers({
       callerUserId: input.userId,
       calleeUserId: peerUserId,
@@ -17488,6 +17492,25 @@ export async function startCommunityMessengerCallSession(input: {
     });
     if (!directCallGate.allowed) {
       return { ok: false, error: mapDenyCodeToApiError(directCallGate.code) };
+    }
+  }
+
+  if (activeCallForReuse) {
+    maybeResendIncomingCallPushForReusedSession(
+      activeCallForReuse,
+      reusePeerUserId,
+      input.userId
+    );
+    return { ok: true, session: activeCallForReuse, reused: true };
+  }
+
+  if (!isGroupRoom && sb && !dialFresh) {
+    const callerLiveId = await getUserLiveDirectCallSessionId(sb, input.userId, "live");
+    if (callerLiveId) {
+      const existingCallerSession = await loadDirectCallSessionRowById(sb, input.userId, callerLiveId);
+      if (existingCallerSession && !isTerminalCallSessionStatus(existingCallerSession.status)) {
+        return { ok: true, session: existingCallerSession, reused: true };
+      }
     }
   }
 
