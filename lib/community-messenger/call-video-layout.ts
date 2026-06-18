@@ -49,13 +49,9 @@ export function shouldSuppressCameraPreparingOverlayForPipFirst(args: {
   heldPreJoin?: boolean;
   localVideoReady?: boolean;
 }): boolean {
-  if (!args.pipFirstOutgoing) return false;
-  return Boolean(
-    args.pipShellMounted ||
-      args.preJoinReady ||
-      args.heldPreJoin ||
-      args.localVideoReady
-  );
+  /** PiP-first 발신 — 메인 슬롯에 「카메라 준비중」 오버레이 금지(보조 PiP 전용) */
+  if (args.pipFirstOutgoing) return true;
+  return false;
 }
 
 /** PiP-first 발신 — prejoin 또는 Agora local ready 시 PiP 크롬 표시 */
@@ -66,7 +62,8 @@ export function shouldShowPipFirstLocalPreviewChrome(args: {
   localVideoReady?: boolean;
 }): boolean {
   if (!args.pipFirstOutgoing || !args.pipShellMounted) return false;
-  return Boolean(args.preJoinReady || args.localVideoReady);
+  /** shell 마운트 즉시 PiP 타일 표시 — prejoin attach 전에도 빈 타일·곧 영상 */
+  return true;
 }
 
 export function isLiveCommunityMessengerCallSessionStatus(

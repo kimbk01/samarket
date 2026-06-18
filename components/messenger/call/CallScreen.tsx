@@ -106,6 +106,9 @@ export function CallScreen({
 function renderCallView(vm: CallScreenViewModel) {
   const isTerminalPhase =
     vm.phase === "ended" || vm.phase === "declined" || vm.phase === "missed" || vm.phase === "failed";
+  if (isTerminalPhase && vm.suppressTerminalView) {
+    return null;
+  }
   if (isTerminalPhase && !vm.suppressTerminalView) {
     return <EndedCallView vm={vm} />;
   }

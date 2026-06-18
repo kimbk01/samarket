@@ -148,27 +148,12 @@ describe("PiP-first video layout policy", () => {
     expect(shouldUseSoloLocalFullVideoLayout({ ...args })).toBe(false);
   });
 
-  it("camera preparing overlay suppressed only when PiP preview/local ready", () => {
+  it("camera preparing overlay suppressed on PiP-first main (always)", () => {
     expect(
       shouldSuppressCameraPreparingOverlayForPipFirst({
         pipFirstOutgoing: true,
-        pipShellMounted: true,
-        preJoinReady: false,
-        heldPreJoin: false,
-        localVideoReady: false,
       })
     ).toBe(true);
-    expect(
-      shouldSuppressCameraPreparingOverlayForPipFirst({
-        pipFirstOutgoing: true,
-        preJoinReady: true,
-      })
-    ).toBe(true);
-    expect(
-      shouldSuppressCameraPreparingOverlayForPipFirst({
-        pipFirstOutgoing: true,
-      })
-    ).toBe(false);
     expect(
       shouldSuppressCameraPreparingOverlayForPipFirst({
         pipFirstOutgoing: false,
@@ -177,12 +162,12 @@ describe("PiP-first video layout policy", () => {
     ).toBe(false);
   });
 
-  it("shows PiP preview chrome for prejoin before Agora local ready", () => {
+  it("shows PiP preview chrome when PiP-first shell is mounted", () => {
     expect(
       shouldShowPipFirstLocalPreviewChrome({
         pipFirstOutgoing: true,
         pipShellMounted: true,
-        preJoinReady: true,
+        preJoinReady: false,
         localVideoReady: false,
       })
     ).toBe(true);

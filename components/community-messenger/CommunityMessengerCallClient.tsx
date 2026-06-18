@@ -921,11 +921,25 @@ export function CommunityMessengerCallClient({
     ensureOutgoingTempCallBootstrap({ tempSessionId: sessionId, roomId, peerUserId, kind, router });
   }, [router, searchParams, sessionId]);
 
-  /** real 세션 발신 영상 ringing — 링 카메라 미리보기만 프라임(조인 마이크는 Agora 가 새로 연다) */
+  /** real 세션 발신 영상 PiP-first — ringing·active-pre-remote 카메라 프라임 */
   useEffect(() => {
     if (isCommunityMessengerTempCallSessionId(sessionId)) return;
     const s = session;
-    if (!s?.isMineInitiator || s.callKind !== "video" || s.status !== "ringing") return;
+    if (!s?.isMineInitiator || s.callKind !== "video") return;
+    if (
+      !isVideoPipFirstOutgoingPhase(
+        buildVideoPipFirstPolicyArgs({
+          session: s,
+          joined: joinedRef.current,
+          remoteJoined: remoteJoinedRef.current,
+        })
+      )
+    ) {
+      return;
+    }
+    /** Agora 조인·로컬 play 이후 재프라임 금지 — GUM 이중 획득·카메라 깜빡임 방지 */
+    if (joinedRef.current && localTracksRef.current?.videoTrack) return;
+    if (localVideoReadyRef.current) return;
     if (peekPrimedCommunityMessengerDeviceStream("video")) return;
     let cancelled = false;
     void primeOutgoingCallMediaBeforeNavigate("video").then((prime) => {
@@ -1775,6 +1789,16 @@ export function CommunityMessengerCallClient({
     logDibayCall("state_end", { sessionId: session.id, status: session.status, source: "call_client_terminal" });
     cmCallAudioCleanup("terminal_session_cleanup_immediate", { status: session.status, sessionId: session.id });
     joiningRef.current = false;
+    setLocalVideoReady(false);
+    setPreJoinVideoElementReady(false);
+    setRemoteVideoReady(false);
+    setLocalVideoPlayBlocked(false);
+    heldPreJoinVideoPreviewRef.current = null;
+    try {
+      resetCommunityMessengerCallRuntimeSurface();
+    } catch {
+      /* ignore */
+    }
     const er = session.endedReason;
     if (!er || !isMessengerCallClientFailureReason(er)) {
       setErrorMessage(null);
@@ -4435,7 +4459,12 @@ export function CommunityMessengerCallClient({
 
     if (pipFirstOutgoing) {
       detachPreJoinHtmlVideo(ringPreviewVideoRef.current);
-      if (showOutgoingRingCameraPreview || !preJoinVideoPreviewStream) {
+      if (showOutgoingRingCameraPreview) {
+        setPreJoinVideoElementReady(false);
+        detachPreJoinHtmlVideo(pipPrejoinVideoRef.current);
+        return;
+      }
+      if (!preJoinVideoPreviewStream) {
         setPreJoinVideoElementReady(false);
         detachPreJoinHtmlVideo(pipPrejoinVideoRef.current);
         return;
@@ -4554,15 +4583,12 @@ export function CommunityMessengerCallClient({
         sessionStatus: session.status,
         isInitiator: session.isMineInitiator,
       });
-    const showPipPrejoin =
-      pipFirstOutgoingForSlot &&
-      !camOff &&
-      (ringCameraPreviewActive || (Boolean(preJoinVideoPreviewStream) && !localVideoReady));
+    const showPipPrejoin = pipFirstOutgoingForSlot && !camOff && !localVideoReady;
     return (
       <div className="relative h-full w-full bg-[#003D29] [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:object-cover">
         <div ref={smallVideoRef} className="h-full w-full" />
         {showPipPrejoin ? (
-          ringCameraPreviewActive ? (
+          ringCameraPreviewActive || hasLiveCommunityMessengerVideoPreviewStream(preJoinVideoPreviewStream) ? (
             <OutgoingRingCameraPreview stream={preJoinVideoPreviewStream} />
           ) : (
             <video
@@ -4728,6 +4754,10 @@ export function CommunityMessengerCallClient({
       : calleeAcceptBridgeLayout && effectiveDirectPhase === "ringing"
         ? "connecting"
         : effectiveDirectPhase;
+  /** PiP-first 발신 — 상대 수락(active) 후 「연결중·미디어 붙이는중」 없이 즉시 통화 UI */
+  const instantVideoOutgoingUi =
+    pipFirstOutgoing && session.status === "active" && !agoraReconnecting;
+  const displayCallPhase: CallPhase = instantVideoOutgoingUi ? "connected" : callScreenPhase;
   /** 발신자: 상대 수락(active) 후 media ready 이면 자동 Agora 조인 — 앱 레벨 권한 오버레이 없음 */
   const acceptFromScreen = () => {
     autoJoinBlockedRef.current = false;
@@ -5061,7 +5091,7 @@ export function CommunityMessengerCallClient({
       ? terminalFailureHeadline
       : failureEndedDetail !== null
         ? t("cm_ui_call_ended")
-        : callScreenPhase === "ringing"
+        : displayCallPhase === "ringing"
             ? session.isMineInitiator
               ? videoCall
                 ? t("cm_ui_outgoing_video_dialing")
@@ -5069,25 +5099,27 @@ export function CommunityMessengerCallClient({
               : videoCall
                 ? t("cm_ui_incoming_video_ringing")
                 : t("cm_ui_incoming_voice_ringing")
-            : callScreenPhase === "connecting"
+            : displayCallPhase === "connecting"
               ? permissionBlockedUi
                 ? videoCall
                   ? t("cm_ui_mic_camera_permission_required")
                   : t("cm_ui_mic_permission_required")
-                : t("cm_ui_connecting")
-              : callScreenPhase === "reconnecting"
+                : instantVideoOutgoingUi
+                  ? t("cm_ui_call_active_video")
+                  : t("cm_ui_connecting")
+              : displayCallPhase === "reconnecting"
                 ? t("cm_ui_call_reconnecting")
-              : callScreenPhase === "connected"
+              : displayCallPhase === "connected"
                 ? videoCall
                   ? t("cm_ui_call_active_video")
                   : t("cm_ui_call_active_voice")
-                : callScreenPhase === "declined"
+                : displayCallPhase === "declined"
                   ? t("cm_ui_peer_declined_call")
-                  : callScreenPhase === "missed"
+                  : displayCallPhase === "missed"
                     ? t("cm_ui_call_missed_status")
-                    : callScreenPhase === "failed"
+                    : displayCallPhase === "failed"
                       ? t("cm_ui_call_ended")
-                      : callScreenPhase === "ended"
+                      : displayCallPhase === "ended"
                         ? session.status === "cancelled"
                           ? t("cm_ui_call_cancelled")
                           : t("cm_ui_call_ended")
@@ -5098,18 +5130,24 @@ export function CommunityMessengerCallClient({
     errorMessage ??
     (localVideoPlayBlocked && !permissionBlockedUi
       ? t("cm_ui_video_preparing_display")
-      : callScreenPhase === "ringing"
+      : displayCallPhase === "ringing"
         ? session.isMineInitiator
           ? t("cm_ui_waiting_for_peer_answer")
           : t("cm_ui_choose_accept_or_reject")
-        : callScreenPhase === "connecting"
-          ? calleeAcceptBridgeLayout
-            ? t("cm_ui_call_connecting_session")
-            : t("cm_ui_call_attaching_media")
-          : callScreenPhase === "reconnecting"
+        : displayCallPhase === "connecting"
+          ? instantVideoOutgoingUi
+            ? !remoteJoined
+              ? t("cm_ui_waiting_for_peer_answer")
+              : null
+            : calleeAcceptBridgeLayout
+              ? t("cm_ui_call_connecting_session")
+              : t("cm_ui_call_attaching_media")
+          : displayCallPhase === "reconnecting"
             ? t("cm_ui_call_reconnecting")
-            : callScreenPhase === "connected"
-              ? lastMileLine
+            : displayCallPhase === "connected"
+              ? instantVideoOutgoingUi && !remoteJoined
+                ? t("cm_ui_waiting_for_peer_answer")
+                : lastMileLine
               : null);
 
   /** PiP shell — joined 직후 DOM 마운트(`localVideoReady` 와 분리) */
@@ -5149,7 +5187,7 @@ export function CommunityMessengerCallClient({
     visualTheme: "starbucks",
     mode: videoCall ? "video" : "voice",
     direction: session.isMineInitiator ? "outgoing" : "incoming",
-    phase: callScreenPhase,
+    phase: displayCallPhase,
     peerLabel: session.peerLabel,
     peerAvatarUrl: session.peerAvatarUrl ?? null,
     statusText,
@@ -5160,7 +5198,7 @@ export function CommunityMessengerCallClient({
       directPhase === "ringing" && ringStartAt
         ? t("cm_ui_call_timer_starts_after_connect")
         : null,
-    connectionLabel: callScreenPhase === "connected" ? lastMileLine : null,
+    connectionLabel: displayCallPhase === "connected" ? lastMileLine : null,
     connectedAt: connectedAtTs,
     endedAt: terminalClosedAt,
     endedDurationSeconds,
@@ -5171,14 +5209,14 @@ export function CommunityMessengerCallClient({
       localVideoMinimized: true,
     },
     onBack:
-      videoCall && session.isMineInitiator && (callScreenPhase === "ringing" || callScreenPhase === "connecting")
+      videoCall && session.isMineInitiator && (displayCallPhase === "ringing" || displayCallPhase === "connecting")
         ? () => void endCall()
         : null,
     hideOutgoingVideoBrandRow: Boolean(
       videoCall &&
         (session.isMineInitiator
           ? !(remoteJoined && remoteVideoReady)
-          : callScreenPhase === "ringing" || callScreenPhase === "connecting")
+          : displayCallPhase === "ringing" || displayCallPhase === "connecting")
     ),
     pipFirstOutgoingMainPlaceholder: pipFirstOutgoing && !remoteJoined,
     primaryActions: visibleActions.primaryActions,
@@ -5258,6 +5296,10 @@ export function CommunityMessengerCallClient({
         {videoCall ? <div ref={largeVideoRef} className="h-full w-full" /> : null}
       </div>
     );
+  }
+
+  if (suppressTerminalView && isTerminalCallSessionStatus(session.status)) {
+    return null;
   }
 
   return (
