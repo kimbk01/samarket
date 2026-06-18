@@ -33,11 +33,13 @@ describe("CM block enforcement hotfix contract", () => {
     expect(reuseIdx).toBeGreaterThan(gateIdx);
   });
 
-  it("message POST route returns 403 for blocked_target", () => {
+  it("message POST route gates blocked_target before send handler", () => {
     const src = read("app/api/community-messenger/rooms/[roomId]/messages/route.ts");
-    expect(src).toContain('responsePayload.error === "blocked_target"');
-    expect(src).toContain("403");
-    expect(src).toContain("차단된 사용자와는 메시지를 주고받을 수 없습니다.");
+    expect(src).toContain("assertDirectRoomCommunicationNotBlocked");
+    const gateIdx = src.indexOf("assertDirectRoomCommunicationNotBlocked");
+    const sendIdx = src.indexOf("sendCommunityMessengerMessage");
+    expect(gateIdx).toBeGreaterThan(-1);
+    expect(sendIdx).toBeGreaterThan(gateIdx);
   });
 
   it("post-ack notify filters blocked recipients", () => {
