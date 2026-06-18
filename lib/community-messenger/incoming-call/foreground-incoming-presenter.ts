@@ -3,7 +3,10 @@ import {
   canShowIncoming,
   type CallTerminalTombstoneContext,
 } from "@/lib/community-messenger/call-state/call-terminal-tombstone";
-import { isRingingIncomingOverlayCandidate } from "@/lib/community-messenger/call-incoming-terminal";
+import {
+  isDirectRingingCalleeForSound,
+  isRingingIncomingOverlayCandidate,
+} from "@/lib/community-messenger/call-incoming-terminal";
 import {
   extractCommunityMessengerCallRouteSessionId,
   resolveIncomingCallSurface,
@@ -40,7 +43,20 @@ export type ForegroundIncomingPresenterInput = {
   preferNativeAndroidForegroundIncoming?: boolean;
   /** Native {@link ForegroundIncomingCallActivity} 가 표시 중인 callId */
   nativeForegroundIncomingCallId?: string | null;
+  /** Capacitor — native MainActivity appVisible (WebView visibility 보완) */
+  isCapacitorNative?: boolean;
+  nativeAppForeground?: boolean | null;
 };
+
+function isForegroundBannerRingingCandidate(
+  s: CommunityMessengerCallSession,
+  uid: string,
+  foregroundWakeSessionIds?: ReadonlySet<string> | null
+): boolean {
+  if (isRingingIncomingOverlayCandidate(s, uid)) return true;
+  if (foregroundWakeSessionIds?.has(s.id) && isDirectRingingCalleeForSound(s, uid)) return true;
+  return false;
+}
 
 function emptyDecision(reason: string): ForegroundIncomingPresenterDecision {
   return {
@@ -57,13 +73,14 @@ function collectBusyFilteredRingingCandidates(
   sessions: CommunityMessengerCallSession[],
   uid: string,
   pathname: string | null | undefined,
-  viewerLiveSessionId: string | null | undefined
+  viewerLiveSessionId: string | null | undefined,
+  foregroundWakeSessionIds?: ReadonlySet<string> | null
 ): CommunityMessengerCallSession[] {
   const candidates: CommunityMessengerCallSession[] = [];
   for (const s of sessions) {
     if (s.status !== "ringing") continue;
     if (s.endedAt || s.cancelledAt) continue;
-    if (!isRingingIncomingOverlayCandidate(s, uid)) continue;
+    if (!isForegroundBannerRingingCandidate(s, uid, foregroundWakeSessionIds)) continue;
     const busy = evaluateIncomingCallBusyPolicy({
       incoming: s,
       otherLiveSessionId: resolveOverlayBusyLiveSessionId({
@@ -118,14 +135,15 @@ export function resolveForegroundIncomingPresentation(
     input.sessions,
     uid,
     pathname,
-    input.viewerLiveSessionId
+    input.viewerLiveSessionId,
+    input.foregroundWakeSessionIds
   );
   if (candidates.length === 0) {
     const ringing = input.sessions.filter(
       (s) => s.status === "ringing" && !s.endedAt && !s.cancelledAt
     );
     for (const s of ringing) {
-      if (!isRingingIncomingOverlayCandidate(s, uid)) continue;
+      if (!isForegroundBannerRingingCandidate(s, uid, input.foregroundWakeSessionIds)) continue;
       const busy = evaluateIncomingCallBusyPolicy({
         incoming: s,
         otherLiveSessionId: resolveOverlayBusyLiveSessionId({
@@ -176,7 +194,32 @@ export function resolveForegroundIncomingPresentation(
   }
 
   const visibilityState = input.visibilityState ?? "visible";
-  const isAppForeground = input.isAppForeground ?? visibilityState === "visible";
+  const isAppForeground =
+    input.isAppForeground ??
+    (input.isCapacitorNative && input.nativeAppForeground === true
+      ? true
+      : visibilityState === "visible");
+
+  const isNativeForegroundWake =
+    input.isCapacitorNative === true &&
+    isAppForeground &&
+    input.foregroundWakeSessionIds?.has(session.id) === true;
+
+  if (
+    isNativeForegroundWake &&
+    !input.preferNativeAndroidForegroundIncoming &&
+    !shouldHideGlobalIncomingOverlayForSession(pathname, session.id)
+  ) {
+    return {
+      sessionId: session.id,
+      session,
+      surface: "top-banner",
+      reason: "ok:native_foreground_wake",
+      shouldRender: true,
+      selectedRingingSessionId,
+    };
+  }
+
   const resolvedSurface = resolveIncomingCallSurface({
     visibilityState,
     currentPathname: pathname,

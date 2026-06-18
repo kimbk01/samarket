@@ -10,6 +10,7 @@ public class DibayApplication extends Application {
   @Override
   public void onCreate() {
     super.onCreate();
+    DibayAppVisibility.register(this);
     String appKey = getString(R.string.kakao_native_app_key).trim();
     if (appKey.isEmpty()) {
       Log.w(TAG, "kakao_native_app_key_missing");

@@ -95,6 +95,7 @@
 
         <service
             android:name=".DibayFirebaseMessagingService"
+            android:directBootAware="true"
             android:exported="false">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
@@ -107,6 +108,8 @@
             android:exported="false"
             android:launchMode="singleTask"
             android:noHistory="true"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
             android:theme="@style/AppTheme.IncomingCall" />
 
         <activity

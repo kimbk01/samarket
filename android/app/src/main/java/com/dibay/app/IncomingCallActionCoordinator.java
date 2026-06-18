@@ -56,6 +56,7 @@ public final class IncomingCallActionCoordinator {
     String sid = callId.trim();
     if (COMPLETED_ACTIONS.containsKey(sid)) {
       Log.i(TAG, "[call-flow] duplicate_terminal_action_blocked callId=" + sid + " action=" + action);
+      logActionGuard(sid, action, false, true);
       return false;
     }
     String key = sid + ":terminal";
@@ -63,9 +64,44 @@ public final class IncomingCallActionCoordinator {
     Long prev = IN_FLIGHT.putIfAbsent(key, now);
     if (prev != null) {
       Log.i(TAG, "[call-flow] duplicate_" + action + "_blocked callId=" + callId);
+      logActionGuard(sid, action, false, true);
       return false;
     }
+    logActionGuard(sid, action, true, false);
     return true;
+  }
+
+  private static void logActionGuard(String callId, String action, boolean singleFlight, boolean duplicateIgnored) {
+    Log.i(
+        "DIBAY_CALL",
+        "[DIBAY_CALL] incoming_action_guard"
+            + " callId="
+            + callId
+            + " action="
+            + action
+            + " singleFlight="
+            + singleFlight
+            + " duplicateIgnored="
+            + duplicateIgnored);
+  }
+
+  private static void logIncomingCleanup(
+      String callId, String reason, boolean ringStopped, boolean serviceStopped, boolean notificationCancelled, boolean activityFinished) {
+    Log.i(
+        "DIBAY_CALL",
+        "[DIBAY_CALL] incoming_cleanup"
+            + " callId="
+            + callId
+            + " reason="
+            + reason
+            + " ringStopped="
+            + ringStopped
+            + " serviceStopped="
+            + serviceStopped
+            + " notificationCancelled="
+            + notificationCancelled
+            + " activityFinished="
+            + activityFinished);
   }
 
   public static void end(String callId, String action) {
@@ -85,14 +121,19 @@ public final class IncomingCallActionCoordinator {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
     String sid = callId.trim();
     if (!tryBegin(sid, "accept")) return;
+    if (!IncomingCallSessionMachine.tryBeginAccepting(sid, "coordinator")) return;
     DibayCallLog.once("accept_start", sid, "source=native_pending_web");
     Log.i(CALL_TAG, "[call-state] accept_pending_web callId=" + sid);
     DibayCallConsumedStore.mark(context, sid, "accepted");
-    IncomingCallRingOwner.stop(context, sid);
-    DibayCallPushLog.info("ringtone_stop_native", sid, "reason=accept");
-    CallForegroundService.stopRinging(context, sid, "accept");
+    IncomingCallRingOwner.stopWithReason(
+        context, sid, IncomingCallCleanupReason.ACCEPTED, "accept", "coordinator");
+    DibayCallPushLog.info("ringtone_stop_native", sid, "reason=accepted");
+    CallForegroundService.stopRinging(context, sid, "accepted");
     DibayIncomingCallNativeStore.markState(context, sid, DibayIncomingCallNativeStore.STATE_CONNECTING);
     IncomingCallNotificationBuilder.dismissIncomingCall(context, sid);
+    IncomingCallSessionMachine.onAccepted(sid, "coordinator");
+    IncomingCallSessionMachine.logIncomingCleanup(
+        sid, IncomingCallCleanupReason.ACCEPTED, "coordinator", true, true, true, false);
     if (!shouldLaunchAcceptRoute(sid)) {
       Log.i(CALL_TAG, "[call-route] incoming_accept_launch_deduped callId=" + sid);
       end(sid, "accept");
@@ -124,14 +165,19 @@ public final class IncomingCallActionCoordinator {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
     String sid = callId.trim();
     if (!tryBegin(sid, "reject")) return;
+    if (!IncomingCallSessionMachine.tryBeginRejecting(sid, "coordinator")) return;
     DibayCallLog.once("call_end", sid, "source=native_reject");
     DibayCallConsumedStore.mark(context, sid, "declined");
-    IncomingCallRingOwner.stop(context, sid);
-    DibayCallPushLog.info("ringtone_stop_native", sid, "reason=reject");
-    CallForegroundService.stopRinging(context, sid, "reject");
-    DibayIncomingCallNativeStore.clear(context, sid, "reject");
+    IncomingCallRingOwner.stopWithReason(
+        context, sid, IncomingCallCleanupReason.REJECTED, "reject", "coordinator");
+    DibayCallPushLog.info("ringtone_stop_native", sid, "reason=rejected");
+    CallForegroundService.stopRinging(context, sid, "rejected");
+    DibayIncomingCallNativeStore.clear(context, sid, "rejected");
     IncomingCallNotificationBuilder.dismissIncomingCall(context, sid);
     IncomingCallTerminalHandler.finishIncomingUiOnly(context, sid);
+    IncomingCallSessionMachine.onRejected(sid, "coordinator");
+    IncomingCallSessionMachine.logIncomingCleanup(
+        sid, IncomingCallCleanupReason.REJECTED, "coordinator", true, true, true, true);
     Log.i("DIBAY_CALL", "[DIBAY_CALL] reject_patch_start callId=" + sid);
     final Context app = context.getApplicationContext();
     new Thread(
@@ -151,6 +197,10 @@ public final class IncomingCallActionCoordinator {
         .start();
   }
 
+  private static final long MISSED_PROBE_RETRY_MS = 5_000L;
+  private static final int MISSED_PROBE_MAX_RETRIES = 3;
+  private static final ConcurrentHashMap<String, Integer> MISSED_PROBE_RETRIES = new ConcurrentHashMap<>();
+
   public static void scheduleMissedTimeout(Context context, IncomingCallPayload payload) {
     if (context == null || payload == null || !payload.isValid()) return;
     long delayMs = resolveTimeoutDelayMs(payload.expiresAt);
@@ -162,15 +212,48 @@ public final class IncomingCallActionCoordinator {
     if (context == null || payload == null || !payload.isValid()) return;
     String sid = payload.callId.trim();
     if (COMPLETED_ACTIONS.containsKey(sid)) return;
+    if (!IncomingCallSessionMachine.canApplyMissedTimeout(sid)) {
+      Log.w(CALL_TAG, "[call-state] missed_timeout_ignored_phase callId=" + sid);
+      return;
+    }
+    IncomingCallSessionStatusProbe.ProbeResult probe = IncomingCallSessionStatusProbe.probe(context, sid);
+    if (!probe.ok) {
+      IncomingCallSessionStatusProbe.logProbeDeferred(sid, "missed_timeout", probe.failureDetail);
+      scheduleMissedProbeRetry(context, payload);
+      return;
+    }
+    if (IncomingCallSessionStatusProbe.isTerminalStatus(probe.status)) {
+      Log.i(CALL_TAG, "[call-state] missed_timeout_skipped_terminal callId=" + sid + " status=" + probe.status);
+      MISSED_PROBE_RETRIES.remove(sid);
+      return;
+    }
+    if (IncomingCallSessionStatusProbe.isActiveStatus(probe.status)) {
+      Log.i(CALL_TAG, "[call-state] missed_timeout_skipped_active callId=" + sid);
+      MISSED_PROBE_RETRIES.remove(sid);
+      return;
+    }
+    if (!IncomingCallSessionStatusProbe.statusAllowsCleanup(
+        IncomingCallCleanupReason.MISSED_TIMEOUT, probe.status)) {
+      Log.w(
+          CALL_TAG,
+          "[call-state] missed_timeout_blocked_server_status callId=" + sid + " status=" + probe.status);
+      return;
+    }
+    MISSED_PROBE_RETRIES.remove(sid);
     if (!tryBegin(sid, "missed")) return;
     DibayCallLog.once("ring_timeout", sid);
     Log.i(CALL_TAG, "[call-state] missed_timeout callId=" + sid);
+    IncomingCallSessionMachine.onMissed(sid, "timeout");
     DibayCallConsumedStore.mark(context, sid, "missed");
-    IncomingCallRingOwner.stop(context, sid);
-    DibayCallPushLog.info("ringtone_stop_native", sid, "reason=missed");
-    CallForegroundService.stopRinging(context, sid, "missed");
-    DibayIncomingCallNativeStore.clear(context, sid, "missed");
+    IncomingCallRingOwner.stopWithReason(
+        context, sid, IncomingCallCleanupReason.MISSED_TIMEOUT, "missed_timeout", "coordinator");
+    DibayCallPushLog.info("ringtone_stop_native", sid, "reason=missed_timeout");
+    CallForegroundService.stopRinging(context, sid, "missed_timeout");
+    DibayIncomingCallNativeStore.clear(context, sid, "missed_timeout");
     IncomingCallNotificationBuilder.dismissIncomingCall(context, sid);
+    IncomingCallTerminalHandler.finishIncomingUiOnly(context, sid);
+    IncomingCallSessionMachine.logIncomingCleanup(
+        sid, IncomingCallCleanupReason.MISSED_TIMEOUT, "timeout", true, true, true, true);
     new Thread(
             () -> {
               boolean ok = CallSessionPatchHelper.patch(context.getApplicationContext(), sid, "missed");
@@ -214,6 +297,20 @@ public final class IncomingCallActionCoordinator {
         ACTIVE_INCOMING.remove(entry.getKey(), entry.getValue());
       }
     }
+  }
+
+  private static void scheduleMissedProbeRetry(Context context, IncomingCallPayload payload) {
+    if (context == null || payload == null || !payload.isValid()) return;
+    String sid = payload.callId.trim();
+    int attempt = MISSED_PROBE_RETRIES.merge(sid, 1, Integer::sum);
+    if (attempt > MISSED_PROBE_MAX_RETRIES) {
+      Log.w(CALL_TAG, "[call-state] missed_probe_retry_exhausted callId=" + sid);
+      MISSED_PROBE_RETRIES.remove(sid);
+      return;
+    }
+    new Handler(Looper.getMainLooper())
+        .postDelayed(
+            () -> handleMissedTimeout(context.getApplicationContext(), payload), MISSED_PROBE_RETRY_MS);
   }
 
   private static long resolveTimeoutDelayMs(String expiresAt) {

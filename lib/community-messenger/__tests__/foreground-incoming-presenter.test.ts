@@ -209,7 +209,7 @@ describe("foreground-incoming-presenter", () => {
     expect(decision.reason).toBe("native_foreground_primary");
   });
 
-  it("always suppresses web banner on Android foreground (native pill is sole surface)", () => {
+  it("renders web banner on Android foreground when native pill is disabled", () => {
     const incoming = ringingSession("call-1");
     const decision = resolveForegroundIncomingPresentation({
       sessions: [incoming],
@@ -220,12 +220,52 @@ describe("foreground-incoming-presenter", () => {
       incomingTabLeader: true,
       visibilityState: "visible",
       isAppForeground: true,
-      preferNativeAndroidForegroundIncoming: true,
+      preferNativeAndroidForegroundIncoming: false,
       nativeForegroundIncomingCallId: null,
     });
 
-    expect(decision.shouldRender).toBe(false);
-    expect(decision.reason).toBe("native_foreground_primary");
+    expect(decision.shouldRender).toBe(true);
+    expect(decision.reason).toBe("ok");
+    expect(decision.surface).toBe("top-banner");
+  });
+
+  it("forces top-banner on Capacitor native FCM foreground wake (/philife)", () => {
+    const incoming = ringingSession("call-fcm", { source: "fcm_wake", isPreview: true });
+    const decision = resolveForegroundIncomingPresentation({
+      sessions: [incoming],
+      pathname: "/philife",
+      viewerUserId: "self",
+      viewerLiveSessionId: null,
+      tombstone,
+      incomingTabLeader: true,
+      visibilityState: "visible",
+      isAppForeground: true,
+      foregroundWakeSessionIds: new Set(["call-fcm"]),
+      isCapacitorNative: true,
+      nativeAppForeground: true,
+      preferNativeAndroidForegroundIncoming: false,
+    });
+
+    expect(decision.shouldRender).toBe(true);
+    expect(decision.reason).toBe("ok:native_foreground_wake");
+    expect(decision.surface).toBe("top-banner");
+  });
+
+  it("shows top-banner on /philife for normal foreground ringing", () => {
+    const incoming = ringingSession("call-philife");
+    const decision = resolveForegroundIncomingPresentation({
+      sessions: [incoming],
+      pathname: "/philife",
+      viewerUserId: "self",
+      viewerLiveSessionId: null,
+      tombstone,
+      incomingTabLeader: true,
+      visibilityState: "visible",
+      isAppForeground: true,
+    });
+
+    expect(decision.shouldRender).toBe(true);
+    expect(decision.reason).toBe("ok");
   });
 
   it("ForegroundIncomingCallHost uses body portal and banner z layer", () => {

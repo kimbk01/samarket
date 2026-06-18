@@ -50,7 +50,9 @@ describe("incoming-call native hydrate contract", () => {
     expect(global).toContain("syncNativeIncomingCallState");
     expect(global).toContain("hydrateDibayCallConsumedFromNative");
     expect(global).toContain("drainPendingTerminalEventsFromNative");
-    expect(global).toContain('appStateChange');
+    expect(global).toContain("syncNativeIncomingAppForeground");
+    expect(global).toContain("isAppForegroundForIncoming");
+    expect(global).toContain("resolveIncomingAppForeground");
     expect(global).toContain("isCallConsumedIncludingNative");
   });
 });

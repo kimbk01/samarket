@@ -18,6 +18,16 @@ export function readIncomingCallVisibilityState(): IncomingCallVisibilityState {
       : "visible";
 }
 
+/** Capacitor — native appVisible OR WebView visibility (카톡/텔레그램 in-app 수신 배너). */
+export function resolveIncomingAppForeground(args: {
+  isCapacitorNative: boolean;
+  visibilityState: IncomingCallVisibilityState;
+  nativeAppForeground: boolean | null;
+}): boolean {
+  if (args.isCapacitorNative && args.nativeAppForeground === true) return true;
+  return args.visibilityState === "visible";
+}
+
 export function shouldRunIncomingCallBackupHttpRequest(args: {
   pathname: string | null;
   hasRingingDirectCallee: boolean;

@@ -28,17 +28,36 @@ public class IncomingCallTerminalHandlerTest {
     Application app = ApplicationProvider.getApplicationContext();
     context = app.getApplicationContext();
     ShadowLog.clear();
+    IncomingCallSessionMachine.resetForTest();
+    IncomingCallRingOwner.stopAll(context);
     DibayCallConsumedStore.mark(context, "stale", "cancelled");
-    // reset coordinator state for isolated tests
     IncomingCallActionCoordinator.complete("stale", "cancelled");
   }
 
+  private void seedActiveSession(String callId) {
+    IncomingCallPayload payload =
+        new IncomingCallPayload(
+            callId,
+            "room-1",
+            "caller-1",
+            "Caller",
+            null,
+            "audio",
+            null,
+            "Incoming",
+            "Call",
+            null);
+    IncomingCallSessionMachine.onIncomingFcmReceived(context, payload, System.currentTimeMillis());
+    IncomingCallSessionMachine.onRinging(callId, "unit_test");
+  }
+
   @Test
-  public void handle_marksConsumed_stopsCoordinator_clearsPending_andBroadcastsTerminal() {
+  public void handle_rejected_marksConsumed_stopsCoordinator_clearsPending_andBroadcastsTerminal() {
     String callId = "terminal-unit-1";
+    seedActiveSession(callId);
     seedPendingRoutes(callId);
 
-    IncomingCallTerminalHandler.handle(context, callId, "cancelled", "unit_test");
+    IncomingCallTerminalHandler.handle(context, callId, "rejected", "unit_test");
 
     assertTrue(DibayCallConsumedStore.isConsumed(context, callId));
     assertTrue(IncomingCallActionCoordinator.isCompleted(callId));
@@ -58,16 +77,23 @@ public class IncomingCallTerminalHandlerTest {
 
     assertLogContains("terminal_received");
     assertLogContains("terminal_tombstone_mark");
-    assertLogContains("ring_stop");
-    assertLogContains("call_canceled_native_handled");
     assertLogContains("terminal_handler_done");
+  }
+
+  @Test
+  public void handle_cancelled_deferredWhenServerProbeFails() {
+    String callId = "terminal-cancel-deferred";
+    seedActiveSession(callId);
+    IncomingCallTerminalHandler.handle(context, callId, "cancelled", "unit_test");
+    assertFalse(DibayCallConsumedStore.isConsumed(context, callId));
+    assertLogContains("server_probe_failed_deferred");
   }
 
   @Test
   public void handle_runsWhenAppNotVisible_backgroundSource() {
     String callId = "terminal-bg-2";
-    // MainActivity.appVisible defaults false when activity not resumed.
-    IncomingCallTerminalHandler.handle(context, callId, "cancelled", "fcm:call_canceled");
+    seedActiveSession(callId);
+    IncomingCallTerminalHandler.handle(context, callId, "rejected", "fcm:call_rejected");
     assertTrue(DibayCallConsumedStore.isConsumed(context, callId));
     assertLogContains("terminal_received");
   }

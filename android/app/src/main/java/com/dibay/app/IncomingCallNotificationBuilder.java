@@ -9,8 +9,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
-import android.media.AudioAttributes;
-import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
@@ -23,14 +21,14 @@ import androidx.core.content.ContextCompat;
 import androidx.core.graphics.drawable.IconCompat;
 
 /**
- * Messenger-style incoming call notification — system call category with accept/decline actions.
+ * Messenger-style incoming call notification — silent carrier; ringtone is {@link IncomingCallRingOwner} only.
  *
- * <p>Foreground unlocked uses {@link ForegroundIncomingCallActivity} pill. Lock/screen-off uses
- * notification actions plus optional full-screen intent bridge ({@link IncomingCallActivity}).
+ * <p>Foreground unlocked: Web {@code IncomingCallBanner} (no notification). Lock+FSI: {@link
+ * IncomingCallActivity}. Fallback: {@link NotificationCompat.CallStyle}.
  */
 public final class IncomingCallNotificationBuilder {
-  /** Production channel — versioned because OS channel importance is sticky per id. */
-  public static final String CHANNEL_ID = "dibay_calls_incoming_v3";
+  /** Silent channel — versioned because OS channel sound/importance is sticky per id. */
+  public static final String CHANNEL_ID = "dibay_calls_incoming_v5";
   /** Spec alias — same channel as {@link #CHANNEL_ID}. */
   public static final String CHANNEL_ID_ALIAS = "dibay_incoming_calls";
   public static final int INCOMING_CALL_NOTIFICATION_BASE_ID = 91001;
@@ -47,25 +45,40 @@ public final class IncomingCallNotificationBuilder {
     if (existing != null) {
       DibayCallPushLog.info(
           "notification_channel_checked", null, "channelId=" + CHANNEL_ID + " importance=" + existing.getImportance());
+      logRingOwnerDecision(null, false, "channel_exists");
       return;
     }
     NotificationChannel channel =
-        new NotificationChannel(CHANNEL_ID, "수신 통화", NotificationManager.IMPORTANCE_MAX);
-    channel.setDescription("수신 음성·영상 통화 (alias " + CHANNEL_ID_ALIAS + ")");
+        new NotificationChannel(CHANNEL_ID, "수신 통화", NotificationManager.IMPORTANCE_HIGH);
+    channel.setDescription("수신 음성·영상 통화 — silent (ring via RingOwner, alias " + CHANNEL_ID_ALIAS + ")");
     channel.enableVibration(true);
     channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
-    Uri ringtone = Settings.System.DEFAULT_RINGTONE_URI;
-    if (ringtone != null) {
-      channel.setSound(
-          ringtone,
-          new AudioAttributes.Builder()
-              .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
-              .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-              .build());
+    channel.setSound(null, null);
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+      channel.setAllowBubbles(false);
+    }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+      channel.setBypassDnd(true);
     }
     nm.createNotificationChannel(channel);
     DibayCallPushLog.info(
-        "notification_channel_created", null, "channelId=" + CHANNEL_ID + " importance=IMPORTANCE_MAX");
+        "notification_channel_created", null, "channelId=" + CHANNEL_ID + " importance=IMPORTANCE_HIGH sound=disabled");
+    logRingOwnerDecision(null, false, "channel_created_silent");
+  }
+
+  public static void logRingOwnerDecision(String callId, boolean ringOwnerStart, String reason) {
+    Log.i(
+        "DIBAY_CALL",
+        "[DIBAY_CALL] ring_owner_decision"
+            + " callId="
+            + (callId != null ? callId : "")
+            + " ringOwnerStart="
+            + ringOwnerStart
+            + " notificationSound=disabled"
+            + " channelId="
+            + CHANNEL_ID
+            + " reason="
+            + reason);
   }
 
   public static boolean canPostNotifications(Context context) {
@@ -99,12 +112,33 @@ public final class IncomingCallNotificationBuilder {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return;
     try {
       Intent intent = new Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT);
-      intent.setData(Uri.fromParts("package", context.getPackageName(), null));
+      intent.setData(android.net.Uri.fromParts("package", context.getPackageName(), null));
       intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
       context.startActivity(intent);
     } catch (Exception error) {
       Log.w(TAG, "[incoming-call-native] fsi_settings_open_failed " + error.getMessage());
     }
+  }
+
+  public static void refreshIncomingCallIfPresent(
+      Context context, IncomingCallPayload payload, IncomingCallRouteDecision decision) {
+    if (payload == null || !payload.isValid() || decision == null) return;
+    String sid = payload.callId.trim();
+    if (!IncomingCallSessionMachine.isActiveRingingCall(sid)) return;
+    showIncomingCall(
+        context,
+        sid,
+        payload.title,
+        payload.body,
+        null,
+        payload.callType,
+        payload.expiresAt,
+        payload.roomId,
+        payload.callerId,
+        payload.callerName,
+        payload.callerAvatarUrl,
+        decision,
+        true);
   }
 
   public static void showIncomingCall(
@@ -114,6 +148,19 @@ public final class IncomingCallNotificationBuilder {
 
   public static void showIncomingCall(Context context, IncomingCallPayload payload) {
     if (payload == null || !payload.isValid()) return;
+    boolean appVisible = MainActivity.isAppVisibleForIncomingCall();
+    IncomingCallRouteDecision decision =
+        IncomingCallRouteDecision.resolve(context, appVisible, payload.callId);
+    showIncomingCall(context, payload, decision);
+  }
+
+  public static void showIncomingCall(
+      Context context, IncomingCallPayload payload, IncomingCallRouteDecision decision) {
+    if (payload == null || !payload.isValid() || decision == null) return;
+    if (decision.selectedSurface == IncomingCallRouteDecision.SelectedSurface.FOREGROUND_BANNER) {
+      Log.w(TAG, "[call-notification] incoming_skipped_foreground_banner callId=" + payload.callId);
+      return;
+    }
     showIncomingCall(
         context,
         payload.callId,
@@ -125,7 +172,8 @@ public final class IncomingCallNotificationBuilder {
         payload.roomId,
         payload.callerId,
         payload.callerName,
-        payload.callerAvatarUrl);
+        payload.callerAvatarUrl,
+        decision);
   }
 
   public static void showIncomingCall(
@@ -136,7 +184,10 @@ public final class IncomingCallNotificationBuilder {
       String deepLinkUrl,
       String callType,
       String expiresAt) {
-    showIncomingCall(context, sessionId, title, body, deepLinkUrl, callType, expiresAt, null, null, null, null);
+    boolean appVisible = MainActivity.isAppVisibleForIncomingCall();
+    IncomingCallRouteDecision decision = IncomingCallRouteDecision.resolve(context, appVisible, sessionId);
+    showIncomingCall(
+        context, sessionId, title, body, deepLinkUrl, callType, expiresAt, null, null, null, null, decision);
   }
 
   public static void showIncomingCall(
@@ -150,11 +201,49 @@ public final class IncomingCallNotificationBuilder {
       String roomId,
       String callerId,
       String callerNameFromPayload,
-      String callerAvatarUrl) {
+      String callerAvatarUrl,
+      IncomingCallRouteDecision decision) {
+    showIncomingCall(
+        context,
+        sessionId,
+        title,
+        body,
+        deepLinkUrl,
+        callType,
+        expiresAt,
+        roomId,
+        callerId,
+        callerNameFromPayload,
+        callerAvatarUrl,
+        decision,
+        false);
+  }
+
+  public static void showIncomingCall(
+      Context context,
+      String sessionId,
+      String title,
+      String body,
+      String deepLinkUrl,
+      String callType,
+      String expiresAt,
+      String roomId,
+      String callerId,
+      String callerNameFromPayload,
+      String callerAvatarUrl,
+      IncomingCallRouteDecision decision,
+      boolean duplicateRefresh) {
     ensureChannel(context);
-    if (sessionId == null || sessionId.trim().isEmpty()) return;
+    if (sessionId == null || sessionId.trim().isEmpty() || decision == null) return;
     String sid = sessionId.trim();
-    boolean firstIncoming = IncomingCallActionCoordinator.registerIncoming(context, sid);
+    if (!duplicateRefresh && !IncomingCallSessionMachine.canRepresentIncomingUi(sid)) {
+      Log.w(TAG, "[call-notification] incoming_ui_blocked_phase callId=" + sid);
+      return;
+    }
+    boolean firstIncoming =
+        duplicateRefresh
+            ? IncomingCallSessionMachine.isActiveRingingCall(sid)
+            : IncomingCallActionCoordinator.registerIncoming(context, sid);
     if (!firstIncoming) {
       return;
     }
@@ -168,21 +257,9 @@ public final class IncomingCallNotificationBuilder {
     if (diagnostics.channelBlocked) {
       DibayCallPushLog.warn("notification_channel_blocked", sid, diagnostics.toLogString());
     }
-    boolean lockScreenBridge =
-        DibayKeyguardHelper.isKeyguardLocked(context) || !DibayKeyguardHelper.isInteractive(context);
-    boolean fsiAllowed = canPostFullScreenIntent(context);
-    DibayCallPushLog.info(
-        fsiAllowed ? "full_screen_intent_allowed" : "full_screen_intent_blocked",
-        sid,
-        "lockScreenBridge=" + lockScreenBridge);
-    Log.i(
-        TAG,
-        "[call-push] lock_bridge="
-            + lockScreenBridge
-            + " fsiAllowed="
-            + fsiAllowed
-            + " callId="
-            + sid);
+
+    logRingOwnerDecision(sid, false, "notification_post_silent");
+    logIncomingUiSurface(sid, decision, false);
 
     final Context app = context.getApplicationContext();
     final int notificationId = INCOMING_CALL_NOTIFICATION_BASE_ID + Math.abs(sid.hashCode() % 1000);
@@ -201,8 +278,7 @@ public final class IncomingCallNotificationBuilder {
             callerAvatarUrl,
             null,
             null,
-            lockScreenBridge,
-            fsiAllowed,
+            decision,
             firstIncoming);
     NotificationManager nm = (NotificationManager) app.getSystemService(Context.NOTIFICATION_SERVICE);
     boolean posted = false;
@@ -210,14 +286,24 @@ public final class IncomingCallNotificationBuilder {
       try {
         nm.notify(notificationId, immediate);
         posted = true;
-        DibayCallLog.once("notification_created", sid, "source=notification");
-        DibayCallPushLog.info("incoming_notification_posted", sid, diagnostics.toLogString());
-        Log.i(TAG, "[call-notification] incoming_posted_immediate callId=" + sid + " first=" + firstIncoming);
+        DibayCallLog.once("notification_created", sid, "source=notification surface=" + decision.selectedSurfaceName());
+        DibayCallPushLog.info(
+            "incoming_notification_posted",
+            sid,
+            diagnostics.toLogString() + " surface=" + decision.selectedSurfaceName() + " sound=disabled");
+        Log.i(
+            TAG,
+            "[call-notification] incoming_posted_immediate callId="
+                + sid
+                + " first="
+                + firstIncoming
+                + " surface="
+                + decision.selectedSurfaceName());
       } catch (Exception error) {
         DibayCallPushLog.warn(
             "incoming_notification_post_failed",
             sid,
-            diagnostics.toLogString() + " err=" + error.getClass().getSimpleName());
+            diagnostics.toLogString() + " err=" + error.getClass().getSimpleName() + " msg=" + error.getMessage());
       }
     } else {
       DibayCallPushLog.warn("incoming_notification_post_failed", sid, "notificationManager=null");
@@ -248,8 +334,7 @@ public final class IncomingCallNotificationBuilder {
                       callerAvatarUrl,
                       callerIcon,
                       callerBitmap,
-                      lockScreenBridge,
-                      fsiAllowed,
+                      decision,
                       firstIncoming);
               MAIN.post(
                   () -> {
@@ -262,6 +347,22 @@ public final class IncomingCallNotificationBuilder {
                   });
             })
         .start();
+  }
+
+  private static void logIncomingUiSurface(String callId, IncomingCallRouteDecision decision, boolean fallbackLaunch) {
+    boolean duplicateSuppressed =
+        decision.selectedSurface == IncomingCallRouteDecision.SelectedSurface.INCOMING_ACTIVITY;
+    Log.i(
+        "DIBAY_CALL",
+        "[DIBAY_CALL] incoming_ui_surface"
+            + " callId="
+            + callId
+            + " surface="
+            + decision.selectedSurfaceName()
+            + " fallback="
+            + fallbackLaunch
+            + " duplicateSuppressed="
+            + duplicateSuppressed);
   }
 
   private static Notification buildIncomingNotification(
@@ -277,8 +378,7 @@ public final class IncomingCallNotificationBuilder {
       String callerAvatarUrl,
       IconCompat callerIcon,
       Bitmap callerBitmap,
-      boolean lockScreenBridge,
-      boolean fsiAllowed,
+      IncomingCallRouteDecision decision,
       boolean firstIncoming) {
     String callerName = IncomingCallUiCopy.callerDisplayName(callerNameFromPayload, title, body);
     String callKindLabel = IncomingCallUiCopy.statusBrandLabel(context, callType, title, body);
@@ -328,6 +428,14 @@ public final class IncomingCallNotificationBuilder {
     PendingIntent declinePi =
         PendingIntent.getBroadcast(context, sid.hashCode() + 3, decline, flags);
 
+    boolean useFsiPrimary =
+        decision.selectedSurface == IncomingCallRouteDecision.SelectedSurface.INCOMING_ACTIVITY
+            && firstIncoming
+            && decision.fsiAllowed
+            && fullScreenPi != null;
+    boolean useCallStylePrimary =
+        decision.selectedSurface == IncomingCallRouteDecision.SelectedSurface.CALLSTYLE_FALLBACK;
+
     NotificationCompat.Builder builder =
         new NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
@@ -339,43 +447,73 @@ public final class IncomingCallNotificationBuilder {
             .setOngoing(true)
             .setAutoCancel(false)
             .setContentIntent(contentPi)
-            .setDefaults(Notification.DEFAULT_ALL)
-            .setColor(ContextCompat.getColor(context, R.color.dibay_incoming_primary))
-            .setColorized(true);
+            .setDefaults(Notification.DEFAULT_VIBRATE)
+            .setSilent(true);
+
+    if (!useCallStylePrimary) {
+      builder.setOnlyAlertOnce(true);
+      builder
+          .setColor(ContextCompat.getColor(context, R.color.dibay_incoming_primary))
+          .setColorized(true);
+    }
 
     if (callerBitmap != null) {
       builder.setLargeIcon(callerBitmap);
     }
 
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+    if (useFsiPrimary) {
+      builder
+          .setStyle(new NotificationCompat.BigTextStyle().bigText(callKindLabel))
+          .addAction(new NotificationCompat.Action.Builder(0, rejectLabel, declinePi).build())
+          .setFullScreenIntent(fullScreenPi, true);
+      DibayCallPushLog.info("full_screen_intent_attached", sid, "api=fsi_primary callstyle_suppressed=true");
+      Log.i(TAG, "[call-notification] fsi_attached callId=" + sid + " callstyle_suppressed=true");
+    } else if (useCallStylePrimary && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
       Person.Builder personBuilder = new Person.Builder().setName(callerName).setImportant(true);
       if (callerIcon != null) {
         personBuilder.setIcon(callerIcon);
       }
       Person caller = personBuilder.build();
-      builder.setStyle(NotificationCompat.CallStyle.forIncomingCall(caller, declinePi, acceptPi));
-      builder.setFullScreenIntent(null, false);
-      if (firstIncoming && lockScreenBridge && fsiAllowed && fullScreenPi != null) {
-        builder.setFullScreenIntent(fullScreenPi, true);
-        DibayCallPushLog.info("full_screen_intent_attached", sid, "api=call_style");
-        Log.i(TAG, "[call-notification] fsi_attached callId=" + sid);
-      } else if (firstIncoming && lockScreenBridge && !fsiAllowed) {
-        Log.w(TAG, "[call-notification] fsi_skipped_denied callId=" + sid);
+      try {
+        builder.setStyle(NotificationCompat.CallStyle.forIncomingCall(caller, declinePi, acceptPi));
+        if (decision.fsiAllowed && fullScreenPi != null) {
+          builder.setFullScreenIntent(fullScreenPi, true);
+          DibayCallPushLog.info("callstyle_attached", sid, "api=callstyle_fallback fsi=true");
+          Log.i(TAG, "[call-notification] callstyle_attached callId=" + sid + " fsi=true");
+        } else {
+          builder.setFullScreenIntent(null, false);
+          DibayCallPushLog.info("callstyle_attached", sid, "api=callstyle_fallback fsi=false");
+          Log.i(TAG, "[call-notification] callstyle_attached callId=" + sid);
+        }
+      } catch (IllegalArgumentException | IllegalStateException error) {
+        DibayCallPushLog.warn(
+            "callstyle_build_failed",
+            sid,
+            "err=" + error.getClass().getSimpleName() + " msg=" + error.getMessage() + " fallback=legacy_actions");
+        builder
+            .setStyle(new NotificationCompat.BigTextStyle().bigText(callKindLabel))
+            .addAction(new NotificationCompat.Action.Builder(0, rejectLabel, declinePi).build())
+            .addAction(new NotificationCompat.Action.Builder(0, acceptLabel, acceptPi).build());
+        if (decision.fsiAllowed && fullScreenPi != null) {
+          builder.setFullScreenIntent(fullScreenPi, true);
+        } else {
+          builder.setFullScreenIntent(null, false);
+        }
+        Log.w(TAG, "[call-notification] callstyle_fallback_legacy callId=" + sid);
       }
+    } else if (useCallStylePrimary) {
+      builder
+          .setStyle(new NotificationCompat.BigTextStyle().bigText(callKindLabel))
+          .addAction(new NotificationCompat.Action.Builder(0, rejectLabel, declinePi).build())
+          .addAction(new NotificationCompat.Action.Builder(0, acceptLabel, acceptPi).build());
+      builder.setFullScreenIntent(null, false);
+      DibayCallPushLog.info("callstyle_attached", sid, "api=legacy_fallback fsi=false");
+      Log.i(TAG, "[call-notification] callstyle_attached_legacy callId=" + sid);
     } else {
       builder
           .setStyle(new NotificationCompat.BigTextStyle().bigText(callKindLabel))
-          .addAction(
-              new NotificationCompat.Action.Builder(0, rejectLabel, declinePi).build())
-          .addAction(
-              new NotificationCompat.Action.Builder(0, acceptLabel, acceptPi).build());
-      if (firstIncoming && lockScreenBridge && fsiAllowed && fullScreenPi != null) {
-        builder.setFullScreenIntent(fullScreenPi, true);
-        DibayCallPushLog.info("full_screen_intent_attached", sid, "api=legacy_style");
-        Log.i(TAG, "[call-notification] fsi_attached callId=" + sid);
-      } else if (firstIncoming && lockScreenBridge && !fsiAllowed) {
-        Log.w(TAG, "[call-notification] fsi_skipped_denied callId=" + sid);
-      }
+          .addAction(new NotificationCompat.Action.Builder(0, rejectLabel, declinePi).build());
+      builder.setFullScreenIntent(null, false);
     }
 
     return builder.build();
@@ -439,6 +577,7 @@ public final class IncomingCallNotificationBuilder {
       }
       incomingUi.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
       context.startActivity(incomingUi);
+      logIncomingUiSurface(sid, IncomingCallRouteDecision.resolve(context, false, sid), true);
       DibayCallPushLog.info("incoming_activity_fallback_success", sid, "reason=notification_unavailable");
     } catch (Exception error) {
       DibayCallPushLog.warn(

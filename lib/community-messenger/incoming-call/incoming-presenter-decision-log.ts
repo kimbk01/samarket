@@ -31,6 +31,9 @@ export type IncomingPresenterDecisionInput = {
   incomingSurface: IncomingCallSurface | null;
   renderIncomingBanner: boolean;
   hardClearedAt: Map<string, number>;
+  /** resolveForegroundIncomingPresentation.reason — diagnostics SSOT */
+  presenterReason?: string | null;
+  incomingAppForeground?: boolean;
 };
 
 export type IncomingPresenterDecisionPayload = {
@@ -56,6 +59,8 @@ export type IncomingPresenterDecisionPayload = {
   viewerLiveSessionId: string | null;
   sessionsCount: number;
   reason: string;
+  presenterReason: string | null;
+  incomingAppForeground: boolean | null;
   ringingSessionIds: string[];
   firstRingingSkipDetail: string | null;
 };
@@ -152,7 +157,10 @@ export function buildIncomingPresenterDecisionPayload(
   } else if (shouldHideForSameCallRoute) {
     reason = `hide_same_call_route:route=${routeCallId}:incoming=${firstRingingCalleeSessionId}`;
   } else if (!input.visibleSession) {
-    reason = "visible_session_null_unexpected";
+    reason =
+      input.presenterReason != null && input.presenterReason.length > 0
+        ? `banner_blocked:${input.presenterReason}`
+        : "visible_session_null_unexpected";
   } else if (input.incomingSurface !== "top-banner") {
     reason = `incoming_surface_not_banner:${input.incomingSurface ?? "null"}`;
   } else if (!input.renderIncomingBanner) {
@@ -181,11 +189,13 @@ export function buildIncomingPresenterDecisionPayload(
     isConsumed,
     isTerminal,
     visibilityState: input.incomingVisibilityState,
-    appVisibleProxy: input.incomingVisibilityState === "visible",
+    appVisibleProxy: input.incomingAppForeground ?? input.incomingVisibilityState === "visible",
     busyPolicyShouldAutoReject,
     viewerLiveSessionId: input.viewerLiveSessionId,
     sessionsCount: input.sessions.length,
     reason,
+    presenterReason: input.presenterReason ?? null,
+    incomingAppForeground: input.incomingAppForeground ?? null,
     ringingSessionIds: input.sessions
       .filter((s) => s.status === "ringing")
       .map((s) => s.id),

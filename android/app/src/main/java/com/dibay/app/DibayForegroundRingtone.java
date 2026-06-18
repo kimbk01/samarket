@@ -15,20 +15,29 @@ public final class DibayForegroundRingtone {
 
   private DibayForegroundRingtone() {}
 
-  public static void start(Context context, String callId) {
+  public static void start(Context context, String callId, String source, long timestampMs) {
     if (context == null) return;
-    stop(null);
+    Context app = context.getApplicationContext();
+    boolean keyguardLocked = DibayKeyguardHelper.isKeyguardLocked(app);
+    if (keyguardLocked || !DibayKeyguardHelper.isInteractive(app)) {
+      IncomingCallWakeLock.acquire(app, callId);
+    }
+    stop(null, null, -1L, null);
     try {
       Uri uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
       if (uri == null) return;
       Ringtone ringtone = RingtoneManager.getRingtone(context.getApplicationContext(), uri);
       if (ringtone == null) return;
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-        ringtone.setAudioAttributes(
+        AudioAttributes.Builder attrs =
             new AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .build());
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+          attrs.setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION_SIGNALLING);
+        } else {
+          attrs.setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE);
+        }
+        ringtone.setAudioAttributes(attrs.build());
       }
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
         ringtone.setLooping(true);
@@ -36,14 +45,21 @@ public final class DibayForegroundRingtone {
       ringtone.play();
       active = ringtone;
       String sid = callId != null ? callId.trim() : "";
-      DibayCallLog.once("ring_start", sid, "source=native_foreground");
-      Log.i(TAG, "[DIBAY_CALL] ring_start callId=" + sid + " source=native_foreground");
+      String src = source != null ? source : "native_foreground";
+      Log.i(
+          TAG,
+          "[DIBAY_CALL] ring_start callId="
+              + sid
+              + " source="
+              + src
+              + " timestamp="
+              + timestampMs);
     } catch (Exception e) {
       Log.w(TAG, "[DIBAY_CALL] ring_start_failed err=" + e.getMessage());
     }
   }
 
-  public static void stop(String callId) {
+  public static void stop(String callId, String reason, long elapsedMsFromStart, String stopCaller) {
     if (active == null) return;
     try {
       active.stop();
@@ -52,8 +68,34 @@ public final class DibayForegroundRingtone {
     active = null;
     if (callId != null && !callId.trim().isEmpty()) {
       String sid = callId.trim();
-      DibayCallLog.once("ring_stop", sid, "source=native_foreground");
-      Log.i(TAG, "[DIBAY_CALL] ring_stop callId=" + sid + " source=native_foreground");
+      String r = reason != null ? reason : "app_shutdown_safe_clear";
+      String caller = stopCaller != null ? stopCaller : "native_foreground";
+      if (elapsedMsFromStart >= 0L
+          && elapsedMsFromStart < IncomingCallCleanupReason.earlyRingStopAllowedMs()) {
+        IncomingCallCleanupReason cr = IncomingCallCleanupReason.fromWire(r);
+        if (cr == null || !cr.allowsEarlyRingStop()) {
+          Log.e(
+              TAG,
+              "[DIBAY_CALL] ring_stop_early_failure callId="
+                  + sid
+                  + " reason="
+                  + r
+                  + " elapsedMsFromStart="
+                  + elapsedMsFromStart
+                  + " stopCaller="
+                  + caller);
+        }
+      }
+      Log.i(
+          TAG,
+          "[DIBAY_CALL] ring_stop callId="
+              + sid
+              + " reason="
+              + r
+              + " elapsedMsFromStart="
+              + elapsedMsFromStart
+              + " stopCaller="
+              + caller);
     }
   }
 }

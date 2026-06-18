@@ -30,6 +30,7 @@ export type NativeIncomingCallPlugin = {
     items: Array<{ sessionId: string; status?: string; at?: number }>;
   }>;
   getForegroundIncomingCallId(): Promise<{ callId?: string | null }>;
+  isAppForegroundForIncoming(): Promise<{ foreground?: boolean }>;
 };
 
 let pluginPromise: Promise<{ plugin: NativeIncomingCallPlugin } | null> | null = null;

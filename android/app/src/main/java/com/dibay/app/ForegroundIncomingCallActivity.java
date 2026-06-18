@@ -83,6 +83,7 @@ public class ForegroundIncomingCallActivity extends AppCompatActivity {
 
     Log.i(TAG, "[call-ui] foreground_incoming_activity_shown callId=" + callId);
     DibayCallLog.once("incoming_activity_created", callId, "source=foreground_activity");
+    IncomingCallSessionMachine.onPresented(callId, "foreground_activity");
     ForegroundIncomingCallRegistry.setActive(callId);
     MainActivity.notifyForegroundIncomingUiState(callId, true);
 
