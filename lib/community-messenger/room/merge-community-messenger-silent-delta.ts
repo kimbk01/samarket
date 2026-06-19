@@ -1,7 +1,5 @@
+import { coalesceRoomSummarySnapshotRow } from "@/lib/community-messenger/consistency/messenger-consistency-merge";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
-import {
-  resolveMessengerUnreadMerge,
-} from "@/lib/community-messenger/consistency/messenger-consistency-merge";
 
 /**
  * `silent_delta` 부트스트랩 응답을 기존 스냅샷 위에 얹는다 — 타임라인·멤버·trade·통화·presence 유지.
@@ -11,16 +9,22 @@ export function mergeCommunityMessengerSilentDeltaIntoSnapshot(
   delta: CommunityMessengerRoomSnapshot
 ): CommunityMessengerRoomSnapshot {
   const dr = delta.room;
-  const incomingLm = String(dr.lastMessageAt ?? "");
-  const unreadResolved = resolveMessengerUnreadMerge({
-    surface: "room_bootstrap",
-    roomId: prev.room.id,
-    incomingUnread: dr.unreadCount,
-    incomingLastMessageAt: incomingLm,
-    source: "silent_delta",
-    eventType: "silent_delta",
-    prevUnread: prev.room.unreadCount,
-  });
+  const roomMerged = coalesceRoomSummarySnapshotRow(
+    prev.room,
+    {
+      ...prev.room,
+      unreadCount: dr.unreadCount,
+      lastMessage: dr.lastMessage,
+      lastMessageAt: dr.lastMessageAt,
+      lastMessageType: dr.lastMessageType,
+    },
+    {
+      surface: "room_bootstrap",
+      roomId: prev.room.id,
+      source: "silent_delta",
+      eventType: "silent_delta",
+    }
+  );
   return {
     ...prev,
     viewerUserId: delta.viewerUserId || prev.viewerUserId,
@@ -28,7 +32,7 @@ export function mergeCommunityMessengerSilentDeltaIntoSnapshot(
     ...(Object.prototype.hasOwnProperty.call(delta, "activeCall") ? { activeCall: delta.activeCall } : {}),
     room: {
       ...prev.room,
-      unreadCount: unreadResolved.unreadCount,
+      unreadCount: roomMerged.unreadCount,
       lastMessage: dr.lastMessage,
       lastMessageAt: dr.lastMessageAt,
       lastMessageType: dr.lastMessageType,

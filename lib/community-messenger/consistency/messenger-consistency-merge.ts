@@ -18,6 +18,7 @@ import {
 import {
   resolveUnreadWithLocalReadGuard,
   setLocalReadGuard,
+  shouldSuppressStaleUnread,
 } from "@/lib/community-messenger/read/local-read-guard";
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 
@@ -36,23 +37,28 @@ export type MessengerUnreadMergeInput = {
   crossTabState?: string;
 };
 
-/** snapshot fetch 가 realtime truth 보다 오래됐고 unread 를 올리려 할 때 — merge/alert 전에 prev 유지 */
+/** snapshot fetch 가 realtime·read guard 보다 오래됐고 unread 를 올리려 할 때 — merge/alert 전에 prev 유지 */
 export function isStaleUnreadSnapshotRow(
   prev: CommunityMessengerRoomSummary,
   incoming: CommunityMessengerRoomSummary,
   incomingSnapshotUpdatedAt?: string | null
 ): boolean {
-  const incomingVersionMs = versionMsFromIso(
-    incoming.lastMessageAt,
-    incomingSnapshotUpdatedAt ?? undefined
-  );
+  if (incoming.unreadCount <= prev.unreadCount) return false;
+
+  const lastMessageAt = String(incoming.lastMessageAt ?? "");
+  if (
+    shouldSuppressStaleUnread({
+      roomId: incoming.id,
+      incomingUnread: incoming.unreadCount,
+      incomingLastMessageAt: lastMessageAt,
+    })
+  ) {
+    return true;
+  }
+
+  const incomingVersionMs = versionMsFromIso(lastMessageAt, incomingSnapshotUpdatedAt ?? undefined);
   const truthMs = getRoomTruthVersionMs(incoming.id);
-  return (
-    incomingVersionMs > 0 &&
-    truthMs > 0 &&
-    incomingVersionMs < truthMs &&
-    incoming.unreadCount > prev.unreadCount
-  );
+  return incomingVersionMs > 0 && truthMs > 0 && incomingVersionMs < truthMs;
 }
 
 /** bootstrap / home-sync list row — stale unread snapshot 은 prev 그대로 (regression alert 유발 없음) */
@@ -124,7 +130,7 @@ export function resolveMessengerUnreadMerge(input: MessengerUnreadMergeInput): M
     const analysis = buildAnalysis(input, {
       unreadCount: prevUnread,
       resolution_path: "reconnect_stale_discard",
-      stale_detected: true,
+      stale_detected: false,
       flicker_detected: false,
       duplicate_event_detected: false,
       incomingVersionMs,
@@ -137,7 +143,7 @@ export function resolveMessengerUnreadMerge(input: MessengerUnreadMergeInput): M
       suppressed: true,
       allowedNewMessage: false,
       resolution_path: "reconnect_stale_discard",
-      stale_detected: true,
+      stale_detected: false,
       flicker_detected: false,
       duplicate_event_detected: false,
     };
@@ -155,8 +161,9 @@ export function resolveMessengerUnreadMerge(input: MessengerUnreadMergeInput): M
     : guard.allowedNewMessage
       ? "new_message_accepted"
       : "server_accepted";
-  let stale_detected = false;
+  const stale_detected = false;
   let flicker_detected = false;
+  let blockedStaleUnread = false;
 
   if (
     incomingVersionMs > 0 &&
@@ -165,7 +172,7 @@ export function resolveMessengerUnreadMerge(input: MessengerUnreadMergeInput): M
     unreadCount > prevUnread
   ) {
     unreadCount = prevUnread;
-    stale_detected = true;
+    blockedStaleUnread = true;
     resolution_path = "stale_version_discard";
   }
 
@@ -181,7 +188,7 @@ export function resolveMessengerUnreadMerge(input: MessengerUnreadMergeInput): M
     });
   }
 
-  if (!stale_detected && !guard.suppressed) {
+  if (!blockedStaleUnread && !guard.suppressed) {
     bumpRoomTruthVersion(
       input.roomId,
       Math.max(incomingVersionMs, versionMsFromIso(input.incomingLastMessageAt)),
@@ -205,7 +212,7 @@ export function resolveMessengerUnreadMerge(input: MessengerUnreadMergeInput): M
 
   return {
     unreadCount,
-    suppressed: guard.suppressed || stale_detected,
+    suppressed: guard.suppressed || blockedStaleUnread,
     allowedNewMessage: guard.allowedNewMessage,
     resolution_path,
     stale_detected,

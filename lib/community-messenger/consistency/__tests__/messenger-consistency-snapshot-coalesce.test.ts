@@ -1,5 +1,9 @@
 import { describe, expect, it, beforeEach } from "vitest";
 import {
+  clearLocalReadGuardsForTests,
+  setLocalReadGuard,
+} from "@/lib/community-messenger/read/local-read-guard";
+import {
   clearMessengerConsistencyStateForTests,
   bumpRoomTruthVersion,
 } from "@/lib/community-messenger/consistency/messenger-consistency-version";
@@ -39,6 +43,7 @@ function room(partial: Partial<CommunityMessengerRoomSummary> & { id: string }):
 describe("messenger-consistency snapshot coalesce", () => {
   beforeEach(() => {
     clearMessengerConsistencyStateForTests();
+    clearLocalReadGuardsForTests();
   });
 
   it("drops stale unread snapshot before merge (no unread resurrection)", () => {
@@ -88,5 +93,34 @@ describe("messenger-consistency snapshot coalesce", () => {
     });
 
     expect(merged.unreadCount).toBe(1);
+  });
+
+  it("drops unread resurrection when local read guard is active", () => {
+    const prev = room({
+      id: "room-c",
+      unreadCount: 0,
+      lastMessageAt: "2026-06-05T12:00:00.000Z",
+    });
+    setLocalReadGuard({
+      roomId: "room-c",
+      referenceLastMessageAt: "2026-06-05T12:00:00.000Z",
+      source: "manual",
+    });
+
+    const stale = room({
+      id: "room-c",
+      unreadCount: 1,
+      lastMessageAt: "2026-06-05T12:00:00.000Z",
+    });
+
+    const merged = coalesceRoomSummarySnapshotRow(prev, stale, {
+      surface: "home_sync",
+      roomId: "room-c",
+      source: "home_sync_replace",
+      eventType: "replace",
+    });
+
+    expect(merged).toBe(prev);
+    expect(merged.unreadCount).toBe(0);
   });
 });

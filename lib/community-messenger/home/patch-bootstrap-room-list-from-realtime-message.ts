@@ -1,3 +1,8 @@
+import {
+  bumpRoomTruthVersion,
+  versionMsFromIso,
+} from "@/lib/community-messenger/consistency/messenger-consistency-version";
+import { setLocalReadGuard } from "@/lib/community-messenger/read/local-read-guard";
 import type {
   CommunityMessengerBootstrap,
   CommunityMessengerMessage,
@@ -139,6 +144,10 @@ export function patchBootstrapRoomListForRealtimeMessageInsert(
   const nextGroups = bumpRoomUnreadIfNeeded(patchRoomInList(data.groups ?? [], rid, preview), rid, boost);
   if (nextChats === data.chats && nextGroups === data.groups) return data;
   if (mid) lastRealtimeListMessageAppliedByRoomId.set(roomKey, mid);
+  const versionMs = versionMsFromIso(preview.lastMessageAt);
+  if (versionMs > 0) {
+    bumpRoomTruthVersion(rid, versionMs, "realtime_message_insert");
+  }
   return {
     ...data,
     chats: nextChats,
@@ -186,5 +195,15 @@ export function patchBootstrapRoomListForSenderLocalEcho(
     if (!hit) return data;
   }
   if (nextChats === data.chats && nextGroups === data.groups) return data;
+  const refAt = preview?.lastMessageAt?.trim() ?? "";
+  setLocalReadGuard({
+    roomId: rid,
+    referenceLastMessageAt: refAt,
+    source: "room_enter",
+  });
+  const versionMs = versionMsFromIso(refAt);
+  if (versionMs > 0) {
+    bumpRoomTruthVersion(rid, versionMs, "sender_local_echo");
+  }
   return { ...data, chats: nextChats, groups: nextGroups };
 }

@@ -49,7 +49,7 @@ mustInclude(
 );
 mustInclude(
   "lib/community-messenger/room/merge-community-messenger-silent-delta.ts",
-  "resolveMessengerUnreadMerge"
+  "coalesceRoomSummarySnapshotRow"
 );
 mustInclude(
   "lib/community-messenger/home/merge-bootstrap-room-summary-into-lists.ts",
@@ -66,6 +66,10 @@ mustInclude(
 mustInclude(
   "lib/community-messenger/consistency/messenger-consistency-analysis.ts",
   "[messenger-consistency-analysis]"
+);
+mustInclude(
+  "lib/community-messenger/home/patch-bootstrap-room-list-from-realtime-message.ts",
+  "bumpRoomTruthVersion"
 );
 mustInclude(
   "lib/community-messenger/consistency/messenger-consistency-regression-guard.ts",
