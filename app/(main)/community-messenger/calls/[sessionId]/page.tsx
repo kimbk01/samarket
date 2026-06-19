@@ -2,9 +2,9 @@
 
 import { useSyncExternalStore } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { CommunityMessengerCallClient } from "@/components/community-messenger/CommunityMessengerCallClient";
 import { CommunityMessengerCallRouteLoading } from "@/components/community-messenger/CommunityMessengerCallRouteLoading";
 import { CommunityMessengerCallEnterShell } from "@/components/community-messenger/call-history/CommunityMessengerCallEnterShell";
+import { CommunityMessengerCallPageAcceptShellLayer } from "@/components/community-messenger/call-ui/CommunityMessengerCallPageAcceptShellLayer";
 import { subscribeCommunityCallHostSync } from "@/components/layout/providers/CommunityMessengerActiveCallHost";
 import { isCallSessionHostedByActiveCallHost } from "@/lib/community-messenger/direct-call-minimize";
 import { isCommunityMessengerTempCallSessionId } from "@/lib/community-messenger/call-session-navigation-seed";
@@ -44,13 +44,14 @@ export default function CommunityMessengerCallPage() {
 
   const instantOutgoingDialEnter = isCommunityMessengerTempCallSessionId(sessionId);
   const instantIncomingAcceptEnter = isIncomingAcceptInstantEnterRoute(searchParams);
+  const isAcceptRoute = instantIncomingAcceptEnter;
 
   return (
     <CommunityMessengerCallEnterShell
       instantOutgoingDialEnter={instantOutgoingDialEnter}
       instantIncomingAcceptEnter={instantIncomingAcceptEnter}
     >
-      <CommunityMessengerCallClient key={sessionId} sessionId={sessionId} initialSession={null} />
+      <CommunityMessengerCallPageAcceptShellLayer sessionId={sessionId} isAcceptRoute={isAcceptRoute} />
     </CommunityMessengerCallEnterShell>
   );
 }

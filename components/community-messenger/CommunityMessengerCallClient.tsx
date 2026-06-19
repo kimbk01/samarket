@@ -562,11 +562,14 @@ export function CommunityMessengerCallClient({
   sessionId,
   initialSession = null,
   presentation = "fullscreen",
+  onCallScreenPainted,
 }: {
   sessionId: string;
   /** RSC에서 미리 조회해 첫 페인트·클라이언트 중복 요청을 줄인다 */
   initialSession?: CommunityMessengerCallSession | null;
   presentation?: "fullscreen" | "minimized";
+  /** P2-A — 첫 통화 UI 페인트 시 shell hide */
+  onCallScreenPainted?: (payload: { sessionId: string }) => void;
 }) {
   const { t } = useI18n();
   useMessengerCallMainBottomNavSuppress(presentation !== "minimized");
@@ -1043,6 +1046,7 @@ export function CommunityMessengerCallClient({
       callKind: session.callKind,
       role: session.isMineInitiator ? "initiator" : "recipient",
     });
+    onCallScreenPainted?.({ sessionId: session.id });
     cmCallLatencyInfo("first_call_screen_painted", {
       sessionId: session.id,
       status: session.status,
@@ -1050,7 +1054,7 @@ export function CommunityMessengerCallClient({
       callKind: session.callKind,
       role: session.isMineInitiator ? "initiator" : "recipient",
     });
-  }, [loading, session]);
+  }, [loading, onCallScreenPainted, session]);
 
   useEffect(() => {
     if (!session?.isMineInitiator || session.status !== "ringing") return;
