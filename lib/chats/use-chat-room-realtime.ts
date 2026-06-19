@@ -8,12 +8,8 @@ import { waitForSupabaseRealtimeAuth } from "@/lib/supabase/wait-for-realtime-au
 import { integratedChatRowToMessage } from "@/lib/chats/fetch-chat-room-messages-api";
 import { mapProductChatMessageRow } from "@/lib/chats/map-product-chat-message-row";
 import { groupMessageRowToChatMessage } from "@/lib/group-chat/map-group-message-row";
-import {
-  CHAT_ROOM_MESSAGE_BUMP_EVENT,
-  chatRoomRealtimeChannelName,
-  chatRoomRealtimeTableForMode,
-  type ChatRealtimeMode,
-} from "@/lib/chats/realtime/chat-room-realtime-channel";
+
+export type ChatRealtimeMode = "integrated" | "legacy" | "group";
 
 /** 방 단위 Realtime 진단 · UI 스트립용 */
 export type ChatRoomRealtimeConnectionState =
@@ -26,25 +22,6 @@ export type ChatRoomRealtimeConnectionState =
 /** 끊김 후 재연결 백오프 — 실서비스 체감 우선(과도한 재시도는 max 로 제한) */
 const RETRY_BASE_MS = 380;
 const RETRY_MAX_MS = 22_000;
-
-function mapChatRealtimeRow(args: {
-  mode: ChatRealtimeMode;
-  row: Record<string, unknown> | undefined;
-  includeHiddenMessages: boolean;
-  hiddenReasonPrefix?: string;
-}): ChatMessage | null {
-  const { mode, row, includeHiddenMessages, hiddenReasonPrefix } = args;
-  return mode === "integrated"
-    ? integratedChatRowToMessage(row, {
-        includeHiddenMessages,
-        hiddenReasonPrefix,
-      })
-    : mode === "group"
-      ? groupMessageRowToChatMessage(row)
-      : row
-        ? mapProductChatMessageRow(row)
-        : null;
-}
 
 /**
  * Supabase Realtime `postgres_changes` — 방 단위 구독 + 끊김 시 백오프 재연결 + 포그라운드 시 재시도.
@@ -150,30 +127,17 @@ export function useChatRoomRealtime(args: {
 
       emitConn(attempt > 0 ? "reconnecting" : "connecting");
 
-      const table = chatRoomRealtimeTableForMode(mode);
+      const table =
+        mode === "integrated"
+          ? "chat_messages"
+          : mode === "group"
+            ? "group_messages"
+            : "product_chat_messages";
       const col = mode === "integrated" || mode === "group" ? "room_id" : "product_chat_id";
       const filter = `${col}=eq.${roomId}`;
 
       const channel = sb
-        .channel(chatRoomRealtimeChannelName(mode, roomId))
-        .on("broadcast", { event: CHAT_ROOM_MESSAGE_BUMP_EVENT }, (msg) => {
-          try {
-            const payload = (msg as { payload?: unknown }).payload;
-            if (!payload || typeof payload !== "object") return;
-            const p = payload as { mode?: unknown; roomId?: unknown; row?: unknown };
-            if (p.mode !== mode || String(p.roomId ?? "").trim() !== roomId) return;
-            const row = p.row && typeof p.row === "object" ? (p.row as Record<string, unknown>) : undefined;
-            const mapped = mapChatRealtimeRow({
-              mode,
-              row,
-              includeHiddenMessages,
-              hiddenReasonPrefix,
-            });
-            if (mapped) onMessageRef.current(mapped);
-          } catch {
-            /* ignore */
-          }
-        })
+        .channel(`kasama-chat:${table}:${roomId}`)
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table, filter },
@@ -185,12 +149,17 @@ export function useChatRoomRealtime(args: {
                 return;
               }
               const row = payload.new as Record<string, unknown> | undefined;
-              const msg = mapChatRealtimeRow({
-                mode,
-                row,
-                includeHiddenMessages,
-                hiddenReasonPrefix,
-              });
+              const msg =
+                mode === "integrated"
+                  ? integratedChatRowToMessage(row, {
+                      includeHiddenMessages,
+                      hiddenReasonPrefix,
+                    })
+                  : mode === "group"
+                    ? groupMessageRowToChatMessage(row)
+                    : row
+                      ? mapProductChatMessageRow(row)
+                      : null;
               if (!msg && mode === "integrated" && payload.eventType === "UPDATE") {
                 const id = row?.id;
                 if (typeof id === "string") onRemovedRef.current?.(id);

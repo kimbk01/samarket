@@ -11,7 +11,6 @@ import {
 import { parseCommunityMessengerBumpMessageSnapshot } from "@/lib/community-messenger/realtime/community-messenger-room-bump-message-snapshot";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { subscribeCommunityMessengerRoomBumpBroadcast } from "@/lib/community-messenger/realtime/room-bump-broadcast";
-import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 
 type RoomBumpListener = {
   onBump: (payload: Record<string, unknown>) => void;
@@ -66,30 +65,24 @@ export function useMessengerRoomBumpBroadcastSubscription({
   roomId,
   streamRoomId,
   roomReadyForRealtime,
-  viewerUserIdHint,
   snapshot,
   initialServerSnapshot,
   snapshotRef,
   roomMembersDisplayRef,
   remoteBumpCatchUpRafRef,
   lastRemoteBumpDedupeRef,
-  peerTailMarkReadHintRef,
   setRoomMessages,
   catchUpAfterRemoteBump,
 }: {
   roomId: string;
   streamRoomId: string;
   roomReadyForRealtime: boolean;
-  /** placeholder/bootstrap 경합 중에도 Broadcast 구독 viewer 를 잃지 않게 하는 RSC viewer hint. */
-  viewerUserIdHint?: string | null;
   snapshot: CommunityMessengerRoomSnapshot | null;
   initialServerSnapshot: CommunityMessengerRoomSnapshot | null;
   snapshotRef: MutableRefObject<CommunityMessengerRoomSnapshot | null>;
   roomMembersDisplayRef: MutableRefObject<CommunityMessengerProfileLite[]>;
   remoteBumpCatchUpRafRef: MutableRefObject<number | null>;
   lastRemoteBumpDedupeRef: MutableRefObject<string>;
-  /** Broadcast snapshot fallback 도 postgres_changes INSERT 와 동일한 읽음 힌트를 제공한다. */
-  peerTailMarkReadHintRef?: MutableRefObject<string | null>;
   setRoomMessages: Dispatch<SetStateAction<Array<CommunityMessengerMessage & { pending?: boolean }>>>;
   catchUpAfterRemoteBump: (
     hintMessageId?: string | null,
@@ -103,11 +96,8 @@ export function useMessengerRoomBumpBroadcastSubscription({
    */
   useEffect(() => {
     const viewer =
-      snapshot?.viewerUserId?.trim() ||
-      initialServerSnapshot?.viewerUserId?.trim() ||
-      viewerUserIdHint?.trim() ||
-      "";
-    if (!viewer) return;
+      snapshot?.viewerUserId?.trim() ?? initialServerSnapshot?.viewerUserId?.trim() ?? "";
+    if (!viewer || !roomReadyForRealtime) return;
 
     const route = String(roomId ?? "").trim();
     const stream = String(streamRoomId ?? "").trim();
@@ -196,31 +186,6 @@ export function useMessengerRoomBumpBroadcastSubscription({
           const enriched =
             member?.label && member.label.trim().length > 0 ? { ...pre, senderLabel: member.label } : pre;
           setRoomMessages((prev) => mergeRoomMessages(prev, [enriched]));
-          if (!enriched.isMine) {
-            if (
-              peerTailMarkReadHintRef &&
-              typeof document !== "undefined" &&
-              document.visibilityState === "visible"
-            ) {
-              const mid = String(enriched.id ?? "").trim();
-              if (mid) peerTailMarkReadHintRef.current = mid;
-            }
-            postCommunityMessengerBusEvent({
-              type: "cm.room.incoming_message",
-              roomId: String(enriched.roomId ?? streamRoomId).trim(),
-              viewerUserId: viewer,
-              messageRow: {
-                id: enriched.id,
-                room_id: enriched.roomId,
-                sender_id: enriched.senderId,
-                message_type: enriched.messageType,
-                content: enriched.content,
-                metadata: enriched.metadata ?? {},
-                created_at: enriched.createdAt,
-              },
-              at: Date.now(),
-            });
-          }
           catchUpHint = catchUpHint || String(pre.id ?? "").trim();
           mergedSnapshot = true;
         }
@@ -254,12 +219,10 @@ export function useMessengerRoomBumpBroadcastSubscription({
   }, [
     catchUpAfterRemoteBump,
     initialServerSnapshot?.viewerUserId,
-    peerTailMarkReadHintRef,
     roomId,
     roomReadyForRealtime,
     snapshot?.room?.id,
     snapshot?.viewerUserId,
     streamRoomId,
-    viewerUserIdHint,
   ]);
 }

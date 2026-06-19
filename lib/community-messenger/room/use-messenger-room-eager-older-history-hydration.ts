@@ -3,18 +3,39 @@
 import { useEffect, useRef } from "react";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { recordCmRoomEntryMilestone } from "@/lib/community-messenger/room/cm-room-entry-instrumentation";
+import { isCommunityMessengerStoreOrderDeliveryRoom } from "@/lib/community-messenger/room-context-meta";
+
+function snapshotNeedsOlderHistory(snapshot: CommunityMessengerRoomSnapshot): boolean {
+  if (snapshot.hasMoreOlderMessages === true) return true;
+  const lim = snapshot.bootstrapInitialMessageLimit;
+  return typeof lim === "number" && lim > 0 && snapshot.messages.length >= lim;
+}
+
+function roomMessagesNeedOlderHistory(
+  snapshot: CommunityMessengerRoomSnapshot | null,
+  roomMessageCount: number
+): boolean {
+  if (!snapshot) return false;
+  if (snapshotNeedsOlderHistory(snapshot)) return true;
+  return (snapshot.messages?.length ?? 0) > roomMessageCount && roomMessageCount > 0;
+}
 
 export function shouldEagerHydrateMessengerRoomOlderHistory(input: {
   snapshot: CommunityMessengerRoomSnapshot | null;
   roomMessageCount: number;
 }): boolean {
-  void input;
-  return false;
+  if (!input.snapshot) return false;
+  if (!isCommunityMessengerStoreOrderDeliveryRoom(input.snapshot.room)) return false;
+  return (
+    snapshotNeedsOlderHistory(input.snapshot) ||
+    roomMessagesNeedOlderHistory(input.snapshot, input.roomMessageCount)
+  );
 }
 
 /**
  * 진입 시 `hasMoreOlderMessages` 이면 스크롤 상단 센티넬을 기다리지 않고 이전 페이지를 연속 fetch.
- * 현재는 진입 window 만 유지하고, 과거 내역은 상단 스크롤 때 로드한다.
+ * 주문 채팅(매장 슬라이드·구매자 URL) — 양측 동일 히스토리를 첫 페인트에 맞춘다.
+ * 일반 메신저/통화 내역 방은 진입 window 만 유지하고, 과거 내역은 상단 스크롤 때 로드한다.
  */
 export function useMessengerRoomEagerOlderHistoryHydration({
   roomId,
