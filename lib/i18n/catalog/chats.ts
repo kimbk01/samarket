@@ -66,6 +66,10 @@ export const chatsMessages = {
     chats_trade_call_policy_voice_and_video: "이 글에서는 거래 채팅에서 음성·영상 통화가 허용돼요.",
     chats_trade_call_policy_edit_hint: "통화 허용은 글 수정에서 바꿀 수 있어요.",
     chats_trade_list_completed_preview: "거래가 완료되었습니다.",
+    chats_trade_list_sold_completed_label: "판매완료",
+    chats_trade_list_completed_chat_preview: "거래가 완료된 채팅입니다.",
+    chats_delivery_list_completed_label: "배달완료",
+    chats_delivery_list_completed_chat_preview: "주문이 완료된 채팅입니다.",
     chats_listing_save_schema_error:
       "판매 단계를 DB에 반영하지 못했습니다. Supabase에 posts.seller_listing_state 컬럼이 있는지 확인한 뒤 다시 시도해 주세요.",
     chats_listing_save_network_error: "네트워크 오류로 저장하지 못했습니다.",
@@ -162,6 +166,10 @@ export const chatsMessages = {
     chats_trade_call_policy_voice_and_video: "Voice and video calls are allowed in trade chat on this listing.",
     chats_trade_call_policy_edit_hint: "You can change call permissions when editing the listing.",
     chats_trade_list_completed_preview: "The trade is complete.",
+    chats_trade_list_sold_completed_label: "Sold",
+    chats_trade_list_completed_chat_preview: "This trade chat is complete.",
+    chats_delivery_list_completed_label: "Delivered",
+    chats_delivery_list_completed_chat_preview: "This order chat is complete.",
     chats_listing_save_schema_error:
       "Could not save the listing stage. Check that posts.seller_listing_state exists in Supabase, then try again.",
     chats_listing_save_network_error: "Could not save because of a network error.",

@@ -34,6 +34,8 @@ import {
   type CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
 import { dedupeTradeMessengerRoomSummaries } from "@/lib/community-messenger/trade-list-canonical-key";
+import { dedupeDeliveryMessengerRoomSummaries } from "@/lib/community-messenger/dedupe-delivery-messenger-room-summaries";
+import { pickVisibleDedupedCommerceRoomIds, shouldShowCommerceChatInList } from "@/lib/community-messenger/chat-room-list-lifecycle-policy";
 import {
   compareMessengerFriendsForHomeList,
   partitionMessengerFriendsByNew,
@@ -488,7 +490,11 @@ export function useCommunityMessengerHomeState({
   const tradePillarSummaryStableRef = useRef<MessengerPillarSummary>(EMPTY_PILLAR_SUMMARY);
   const tradePillarSummary = useMemo<MessengerPillarSummary>(() => {
     const next = summarizePillarItems(
-      baseChatListItems.filter((item) => communityMessengerRoomIsConfirmedTrade(item.room))
+      baseChatListItems.filter(
+        (item) =>
+          communityMessengerRoomIsConfirmedTrade(item.room) &&
+          shouldShowCommerceChatInList(item.room)
+      )
     );
     return stabilizePillarSummary(next, tradePillarSummaryStableRef);
   }, [baseChatListItems]);
@@ -496,7 +502,11 @@ export function useCommunityMessengerHomeState({
   const deliveryPillarSummaryStableRef = useRef<MessengerPillarSummary>(EMPTY_PILLAR_SUMMARY);
   const deliveryPillarSummary = useMemo<MessengerPillarSummary>(() => {
     const next = summarizePillarItems(
-      baseChatListItems.filter((item) => communityMessengerRoomIsConfirmedDelivery(item.room))
+      baseChatListItems.filter(
+        (item) =>
+          communityMessengerRoomIsConfirmedDelivery(item.room) &&
+          shouldShowCommerceChatInList(item.room)
+      )
     );
     return stabilizePillarSummary(next, deliveryPillarSummaryStableRef);
   }, [baseChatListItems]);
@@ -513,12 +523,20 @@ export function useCommunityMessengerHomeState({
     let next: UnifiedRoomListItem[];
     if (pillar === "trade") {
       const tradeItems = baseChatListItems.filter((item) => communityMessengerRoomIsConfirmedTrade(item.room));
-      const keepIds = new Set(
-        dedupeTradeMessengerRoomSummaries(tradeItems.map((item) => item.room)).map((room) => room.id)
+      const keepIds = pickVisibleDedupedCommerceRoomIds(
+        tradeItems.map((item) => item.room),
+        dedupeTradeMessengerRoomSummaries
       );
       next = tradeItems.filter((item) => keepIds.has(item.room.id));
     } else if (pillar === "delivery") {
-      next = baseChatListItems.filter((item) => communityMessengerRoomIsConfirmedDelivery(item.room));
+      const deliveryItems = baseChatListItems.filter((item) =>
+        communityMessengerRoomIsConfirmedDelivery(item.room)
+      );
+      const keepIds = pickVisibleDedupedCommerceRoomIds(
+        deliveryItems.map((item) => item.room),
+        dedupeDeliveryMessengerRoomSummaries
+      );
+      next = deliveryItems.filter((item) => keepIds.has(item.room.id));
     } else {
       next = unifiedRooms.filter((item) => {
         if (!communityMessengerRoomIsVisibleInMainChatInbox(item.room)) return false;
@@ -530,8 +548,8 @@ export function useCommunityMessengerHomeState({
           return chatKindFilter === "private_group";
         }
         if (chatKindFilter === "direct") return item.room.roomType === "direct";
-        if (chatKindFilter === "trade") return communityMessengerRoomIsConfirmedTrade(item.room);
-        if (chatKindFilter === "delivery") return communityMessengerRoomIsConfirmedDelivery(item.room);
+        if (chatKindFilter === "trade") return communityMessengerRoomIsConfirmedTrade(item.room) && shouldShowCommerceChatInList(item.room);
+        if (chatKindFilter === "delivery") return communityMessengerRoomIsConfirmedDelivery(item.room) && shouldShowCommerceChatInList(item.room);
         return false;
       });
     }
@@ -567,7 +585,9 @@ export function useCommunityMessengerHomeState({
       if (chatKindFilter === "direct" && room.roomType !== "direct") return false;
       if (chatKindFilter === "private_group" && room.roomType !== "private_group") return false;
       if (chatKindFilter === "trade" && !communityMessengerRoomIsConfirmedTrade(room)) return false;
+      if (chatKindFilter === "trade" && !shouldShowCommerceChatInList(room)) return false;
       if (chatKindFilter === "delivery" && !communityMessengerRoomIsConfirmedDelivery(room)) return false;
+      if (chatKindFilter === "delivery" && !shouldShowCommerceChatInList(room)) return false;
       if (!keyword) return true;
       const meetingRoleHaystack = room.philifeMeetingMemberLabel
         ? philifeMeetingMemberRoleLabel(room.philifeMeetingMemberLabel)

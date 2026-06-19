@@ -44,7 +44,20 @@ export function parseCommunityMessengerRoomContextMeta(raw: string | null | unde
     if (typeof o.tradeFlowStatus === "string" && o.tradeFlowStatus.trim()) {
       out.tradeFlowStatus = o.tradeFlowStatus.trim();
     }
+    if (typeof o.sellerId === "string" && o.sellerId.trim()) out.sellerId = o.sellerId.trim();
+    if (typeof o.buyerId === "string" && o.buyerId.trim()) out.buyerId = o.buyerId.trim();
+    if (typeof o.completedAt === "string" && o.completedAt.trim()) out.completedAt = o.completedAt.trim();
+    if (typeof o.sellerCompletedAt === "string" && o.sellerCompletedAt.trim()) {
+      out.sellerCompletedAt = o.sellerCompletedAt.trim();
+    }
+    if (typeof o.buyerConfirmedAt === "string" && o.buyerConfirmedAt.trim()) {
+      out.buyerConfirmedAt = o.buyerConfirmedAt.trim();
+    }
     if (typeof o.storeOrderId === "string" && o.storeOrderId.trim()) out.storeOrderId = o.storeOrderId.trim();
+    if (typeof o.orderStatus === "string" && o.orderStatus.trim()) out.orderStatus = o.orderStatus.trim();
+    if (typeof o.deliveryCompletedAt === "string" && o.deliveryCompletedAt.trim()) {
+      out.deliveryCompletedAt = o.deliveryCompletedAt.trim();
+    }
     if (typeof o.orderNo === "string" && o.orderNo.trim()) out.orderNo = o.orderNo.trim();
     if (typeof o.storeId === "string" && o.storeId.trim()) out.storeId = o.storeId.trim();
     if (typeof o.storeDisplayName === "string" && o.storeDisplayName.trim()) {

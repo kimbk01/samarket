@@ -1,6 +1,13 @@
 /**
- * 거래 탭·home-sync 목록 dedupe — 동일 product_chats / post 단위 1행.
+ * 거래 탭·home-sync 목록 dedupe — 상품×판매자×구매자 1행.
  * @see docs/trade-chat-room-identity.md
+ *
+ * Canonical key 우선순위:
+ * 1. pc:{productChatId}
+ * 2. trade:{postId}:{sellerId}:{buyerId}
+ * 3. room:{roomId}
+ *
+ * post:{postId} 단독 key 는 사용하지 않는다.
  */
 import { parseTradeMessengerDirectKey } from "@/lib/messenger-policy/parse-trade-messenger-direct-key";
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
@@ -16,19 +23,37 @@ function roomIsTradeSummary(summary: CommunityMessengerRoomSummary): boolean {
   );
 }
 
-/** 목록 dedupe 그룹 키 — `productChatId` 우선, 없으면 `postId`, 마지막으로 direct_key 원장 id. */
+function tradeTripleFromMeta(summary: CommunityMessengerRoomSummary): {
+  postId: string;
+  sellerId: string;
+  buyerId: string;
+} | null {
+  const meta = summary.contextMeta?.kind === "trade" ? summary.contextMeta : null;
+  if (!meta) return null;
+  const postId = trimId(meta.postId);
+  const sellerId = trimId(meta.sellerId);
+  const buyerId = trimId(meta.buyerId);
+  if (!postId || !sellerId || !buyerId) return null;
+  return { postId, sellerId, buyerId };
+}
+
+/** 목록 dedupe 그룹 키 */
 export function tradeMessengerListCanonicalKey(summary: CommunityMessengerRoomSummary): string | null {
-  const meta = summary.contextMeta;
+  if (!roomIsTradeSummary(summary)) return null;
+
+  const meta = summary.contextMeta?.kind === "trade" ? summary.contextMeta : null;
   const parsed = parseTradeMessengerDirectKey(summary.messengerDirectKey);
-  if (meta?.kind === "trade") {
-    const pcid = trimId(meta.productChatId);
-    if (pcid) return `pc:${pcid}`;
-    const postId = trimId(meta.postId);
-    if (postId) return `post:${postId}`;
+
+  const pcid = trimId(meta?.productChatId) || (parsed?.kind === "trade_pc" ? trimId(parsed.productChatId) : "");
+  if (pcid) return `pc:${pcid}`;
+
+  const triple = tradeTripleFromMeta(summary);
+  if (triple) {
+    return `trade:${triple.postId}:${triple.sellerId}:${triple.buyerId}`;
   }
-  if (parsed?.kind === "trade_pc") return `pc:${parsed.productChatId}`;
-  if (parsed?.kind === "trade_item") return `item:${parsed.itemTradeChatRoomId}`;
-  return null;
+
+  const roomId = trimId(summary.id);
+  return roomId ? `room:${roomId}` : null;
 }
 
 function preferTradeSummary(

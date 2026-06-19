@@ -1,0 +1,38 @@
+{
+  "auditedAt": "2026-06-19T02:19:46.930Z",
+  "base": "http://127.0.0.1:3000 (dev)",
+  "out": {
+    "full": {
+      "status": 200,
+      "tradeCount": 7,
+      "deliveryCount": 10,
+      "tradeWithSellerBuyer": 7,
+      "deliveryWithOrderStatus": 10,
+      "deliveryWithCompletedAt": 4,
+      "completedDeliveryReadonly": 4,
+      "completedDeliveryHideBy7d": 4,
+      "sampleCompleted": {
+        "roomId": "a780d82e-2d1c-4481-a90b-9661067e2eba",
+        "isReadonly": true,
+        "orderStatus": "completed",
+        "completedAt": "2026-06-08T07:49:10.294023+00:00"
+      }
+    },
+    "critical": {
+      "status": 200,
+      "tradeCount": 4,
+      "deliveryCount": 4,
+      "tradeWithSellerBuyer": 4,
+      "deliveryWithOrderStatus": 4,
+      "deliveryWithCompletedAt": 1,
+      "completedDeliveryReadonly": 1,
+      "completedDeliveryHideBy7d": 1,
+      "sampleCompleted": {
+        "roomId": "a780d82e-2d1c-4481-a90b-9661067e2eba",
+        "isReadonly": true,
+        "orderStatus": "completed",
+        "completedAt": "2026-06-08T07:49:10.294023+00:00"
+      }
+    }
+  }
+}
