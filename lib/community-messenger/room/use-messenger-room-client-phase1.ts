@@ -1338,6 +1338,7 @@ export function useMessengerRoomClientPhase1({
     roomMembersDisplayRef,
     remoteBumpCatchUpRafRef,
     lastRemoteBumpDedupeRef,
+    peerTailMarkReadHintRef,
     setRoomMessages,
     catchUpAfterRemoteBump,
   });

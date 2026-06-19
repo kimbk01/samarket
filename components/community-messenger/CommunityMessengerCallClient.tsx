@@ -268,6 +268,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { VideoOff } from "lucide-react";
 import { SamarketUserAvatarThumb } from "@/components/profile/SamarketUserAvatarThumb";
 import { OutgoingRingCameraPreview } from "@/components/community-messenger/OutgoingRingCameraPreview";
+import { CommunityMessengerCallRouteLoading } from "@/components/community-messenger/CommunityMessengerCallRouteLoading";
 
 const CALL_CLIENT_TIER = getPublicDeployTier();
 const MAX_MOBILE_CALL_ACTIONS = 5;
@@ -5483,7 +5484,11 @@ export function CommunityMessengerCallClient({
   }
 
   if (suppressTerminalView && isTerminalCallSessionStatus(session.status)) {
-    return null;
+    return (
+      <div className="relative flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-[#003D29]">
+        <CommunityMessengerCallRouteLoading />
+      </div>
+    );
   }
 
   return (

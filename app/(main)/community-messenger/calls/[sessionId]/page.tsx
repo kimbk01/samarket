@@ -35,7 +35,11 @@ export default function CommunityMessengerCallPage() {
   }
 
   if (hostOwnsSession) {
-    return <CommunityMessengerCallRouteLoading />;
+    return (
+      <div className="fixed inset-0 z-[1280] flex min-h-0 flex-col bg-[#003D29]">
+        <CommunityMessengerCallRouteLoading />
+      </div>
+    );
   }
 
   const instantOutgoingDialEnter = isCommunityMessengerTempCallSessionId(sessionId);

@@ -261,7 +261,7 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
                   : "drop-shadow-[0_2px_14px_rgba(0,0,0,0.55)]"
               }`}
             >
-              {!incomingVideoRingHero && !vm.hideOutgoingVideoBrandRow ? (
+              {vm.direction === "outgoing" && !vm.hideOutgoingVideoBrandRow ? (
                 <div className={`flex items-center justify-center gap-2 ${isStarbucks ? "text-[#F1F8F4]/95" : "text-white/95"}`}>
                   <span className="min-w-0 truncate sam-text-body font-medium tracking-tight">
                     {t("cm_ui_samarket_video_call_brand")}…
