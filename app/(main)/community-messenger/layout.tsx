@@ -8,11 +8,16 @@ import { CommunityMessengerRoomRouteChunkWarmHubVisible } from "@/components/com
 import { MessengerSnackbarHost } from "@/components/community-messenger/MessengerSnackbarHost";
 import { CommunityMessengerPresenceRuntimeChrome } from "@/components/layout/providers/CommunityMessengerPresenceRuntimeChrome";
 import { MessengerBootstrapEarlyWarm } from "@/components/community-messenger/MessengerBootstrapEarlyWarm";
+import { Suspense } from "react";
+import { IncomingAcceptTransitionShellHost } from "@/components/community-messenger/call-ui/IncomingAcceptTransitionShellHost";
 
 export default function CommunityMessengerLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
       <CommunityMessengerPresenceRuntimeChrome />
+      <Suspense fallback={null}>
+        <IncomingAcceptTransitionShellHost />
+      </Suspense>
       <MessengerBootstrapEarlyWarm />
       <CommunityMessengerRoomClientPrefetch />
       <CommunityMessengerRoomRouteChunkWarmHubVisible />

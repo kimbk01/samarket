@@ -36,6 +36,7 @@ export function CommunityMessengerCallPageAcceptShellLayer({ sessionId, isAccept
     shellVisibleLoggedRef.current = true;
     logIncomingConnectingShellVisible({
       sessionId,
+      phase: "call_page",
       callKind: shellMeta.callKind,
       peerLabel: shellMeta.peerLabel,
     });
@@ -44,7 +45,7 @@ export function CommunityMessengerCallPageAcceptShellLayer({ sessionId, isAccept
   const hideShell = useCallback(() => {
     setShellVisible((prev) => {
       if (!prev) return prev;
-      logIncomingConnectingShellHidden({ sessionId });
+      logIncomingConnectingShellHidden({ sessionId, phase: "call_page" });
       return false;
     });
   }, [sessionId]);
