@@ -159,3 +159,23 @@ export async function markMissedCallEventsRead(
   if (error) return 0;
   return data?.length ?? 0;
 }
+
+/** 통화목록(`call_logs`) 진입 — 미읽음 부재중 알림 전체 읽음 */
+export async function markAllMissedCallEventsRead(
+  sb: SupabaseClient<any>,
+  userId: string
+): Promise<number> {
+  const uid = userId.trim();
+  if (!uid) return 0;
+  const now = new Date().toISOString();
+  const { data, error } = await sb
+    .from("notification_events")
+    .update({ unread: false, read_at: now, opened_at: now })
+    .eq("user_id", uid)
+    .eq("type", "missed_call")
+    .eq("unread", true)
+    .is("read_at", null)
+    .select("id");
+  if (error) return 0;
+  return data?.length ?? 0;
+}

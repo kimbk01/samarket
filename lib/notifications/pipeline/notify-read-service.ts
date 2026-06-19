@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  markAllMissedCallEventsRead,
   markMissedCallEventsRead,
   markNotificationEventRead,
   markRoomNotificationEventsRead,
@@ -42,9 +43,12 @@ export async function markRoomRead(
 export async function markMissedCallsRead(
   sb: SupabaseClient<any>,
   userId: string,
-  opts: { roomId?: string; callSessionId?: string }
+  opts: { roomId?: string; callSessionId?: string; scope?: "call_logs" }
 ): Promise<number> {
-  const count = await markMissedCallEventsRead(sb, userId, opts);
+  const count =
+    opts.scope === "call_logs"
+      ? await markAllMissedCallEventsRead(sb, userId)
+      : await markMissedCallEventsRead(sb, userId, opts);
   if (count > 0) {
     invalidateNotificationBadgeCache(userId);
     logMissedCall("read_marked", { userId, ...opts, count });

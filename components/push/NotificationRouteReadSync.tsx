@@ -3,9 +3,11 @@
 import { useEffect, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
+  postNotificationCallLogsMissedCallsRead,
   postNotificationMissedCallRead,
   postNotificationRoomRead,
 } from "@/lib/notifications/client/notification-event-read-client";
+import { isMessengerCallLogsSurface } from "@/lib/notifications/routing/is-messenger-call-logs-surface";
 
 function parseCommunityMessengerRoomId(pathname: string): string | null {
   const m = /^\/community-messenger\/rooms\/([^/?#]+)/.exec(pathname);
@@ -27,8 +29,18 @@ export function NotificationRouteReadSync() {
   const searchParams = useSearchParams();
   const lastRoomKeyRef = useRef<string | null>(null);
   const lastMissedKeyRef = useRef<string | null>(null);
+  const lastCallLogsKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
+    const section = searchParams?.get("section")?.trim() ?? "";
+    if (isMessengerCallLogsSurface(pathname, section)) {
+      const callLogsKey = `${pathname}:${section}`;
+      if (lastCallLogsKeyRef.current === callLogsKey) return;
+      lastCallLogsKeyRef.current = callLogsKey;
+      void postNotificationCallLogsMissedCallsRead();
+      return;
+    }
+
     const cmRoomId = parseCommunityMessengerRoomId(pathname);
     const tradeRoomId = parseTradeChatRoomId(pathname);
     const roomId = cmRoomId ?? tradeRoomId;

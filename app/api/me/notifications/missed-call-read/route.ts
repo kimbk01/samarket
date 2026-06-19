@@ -16,11 +16,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "server_misconfigured" }, { status: 503 });
   }
 
-  let body: { roomId?: string; callSessionId?: string } = {};
+  let body: { roomId?: string; callSessionId?: string; scope?: string } = {};
   try {
     body = (await req.json()) as typeof body;
   } catch {
     return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
+  }
+
+  const scope = String(body.scope ?? "").trim();
+  if (scope === "call_logs") {
+    const cleared = await markMissedCallsRead(sb, userId, { scope: "call_logs" });
+    return NextResponse.json({ ok: true, cleared });
   }
 
   const roomId = String(body.roomId ?? "").trim();

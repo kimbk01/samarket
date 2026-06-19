@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 import type { BottomNavIconKey } from "@/lib/main-menu/bottom-nav-config";
 import {
   getNotificationBadgeCountSnapshot,
+  subscribeNotificationBadgeCount,
 } from "@/lib/notifications/notification-badge-count-store";
 import {
   OWNER_HUB_BADGE_EMPTY,
@@ -90,7 +91,19 @@ export function useOwnerHubBadgeTabUnreadCount(icon: BottomNavIconKey): number {
     () => tabUnreadFromBreakdown(icon, getOwnerHubBadgeSnapshot(), hasOwnerStoreRef.current),
     [icon]
   );
-  const raw = useSyncExternalStore(subscribeOwnerHubBadge, readTabUnread, () => 0);
+  const fromHub = useSyncExternalStore(subscribeOwnerHubBadge, readTabUnread, () => 0);
+  const eventsTotal = useSyncExternalStore(
+    icon === "chat" ? subscribeNotificationBadgeCount : () => () => {},
+    () => (icon === "chat" ? getNotificationBadgeCountSnapshot()?.total ?? null : null),
+    () => null
+  );
+  const raw =
+    icon === "chat" && eventsTotal != null
+      ? resolveBottomNavMessengerTabBadgeForOwnerStore(
+          { ...getOwnerHubBadgeSnapshot(), communityMessengerUnread: eventsTotal },
+          hasOwnerStore
+        )
+      : fromHub;
   const lastBumpRef = useRef<{ icon: BottomNavIconKey; n: number } | null>(null);
   const traceComponent = `useOwnerHubBadgeTabUnreadCount:${icon}`;
   useEffect(() => {
