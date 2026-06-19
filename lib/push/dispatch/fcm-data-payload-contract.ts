@@ -103,6 +103,38 @@ function appendCallFields(
   if (roomId) fields.roomId = roomId;
 }
 
+function appendMessageDisplayFields(
+  fields: Record<string, unknown>,
+  meta: Record<string, unknown> | null
+): void {
+  if (!meta) return;
+  const display =
+    meta.display_payload && typeof meta.display_payload === "object"
+      ? (meta.display_payload as Record<string, unknown>)
+      : null;
+
+  const senderName = trimText(meta.sender_name ?? meta.senderName ?? display?.senderName);
+  const senderAvatarUrl = trimText(
+    meta.sender_avatar_url ?? meta.senderAvatarUrl ?? display?.senderAvatarUrl
+  );
+  const roomName = trimText(meta.room_name ?? meta.roomName ?? display?.roomName);
+  const roomKind = trimText(meta.room_kind ?? meta.roomKind ?? display?.roomKind);
+  const previewKind = trimText(meta.preview_kind ?? meta.previewKind ?? display?.previewKind);
+  const contextLabel = trimText(meta.context_label ?? meta.contextLabel ?? display?.contextLabel);
+  const routeUrl = trimText(display?.routeUrl ?? meta.route_url ?? meta.routeUrl);
+
+  if (senderName) fields.senderName = senderName;
+  if (senderAvatarUrl) {
+    fields.senderAvatarUrl = senderAvatarUrl;
+    fields.senderAvatar = senderAvatarUrl;
+  }
+  if (roomName) fields.roomName = roomName;
+  if (roomKind) fields.roomKind = roomKind;
+  if (previewKind) fields.previewKind = previewKind;
+  if (contextLabel) fields.contextLabel = contextLabel;
+  if (routeUrl) fields.routeUrl = routeUrl;
+}
+
 export function buildFcmDataFields(
   out: NotificationSideEffectPayloadOut,
   opts: DispatchPushOptions | undefined,
@@ -274,6 +306,16 @@ export function buildFcmDataFields(
     }
     default:
       break;
+  }
+
+  if (
+    type === "chat_message" ||
+    type === "group_message" ||
+    type === "trade_message" ||
+    type === "delivery_order" ||
+    (type === "notification" && meta && trimText(meta.room_id ?? meta.roomId))
+  ) {
+    appendMessageDisplayFields(fields, meta);
   }
 
   return fields;

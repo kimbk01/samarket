@@ -21,17 +21,24 @@ function absolutizeLink(link: string): string | null {
 
 function buildPushPayload(row: NotificationEventRow, badgeCount: number): NotificationSideEffectPayloadOut {
   const roomId = row.room_id ?? "";
+  const display =
+    row.display_payload && typeof row.display_payload === "object"
+      ? (row.display_payload as Record<string, unknown>)
+      : null;
+  const routeFromDisplay =
+    display && typeof display.routeUrl === "string" ? String(display.routeUrl).trim() : "";
   const link_url =
-    row.type === "missed_call" && roomId && row.call_session_id
+    routeFromDisplay ||
+    (row.type === "missed_call" && roomId && row.call_session_id
       ? buildMissedCallWebPath(roomId, row.call_session_id)
       : (row.type === "group_message" ||
-          row.type === "mention_message" ||
-          row.type === "pin_message") &&
-        roomId
+            row.type === "mention_message" ||
+            row.type === "pin_message") &&
+          roomId
         ? buildGroupRoomWebPath(roomId)
         : roomId
           ? buildChatRoomWebPath(roomId)
-          : "/community-messenger";
+          : "/community-messenger");
   return {
     user_id: row.user_id,
     notification_type:
@@ -49,6 +56,14 @@ function buildPushPayload(row: NotificationEventRow, badgeCount: number): Notifi
       message_id: row.message_id,
       session_id: row.call_session_id,
       badge_count: badgeCount,
+      sender_id: row.actor_user_id,
+      sender_name: display?.senderName,
+      sender_avatar_url: display?.senderAvatarUrl,
+      room_name: display?.roomName,
+      room_kind: display?.roomKind,
+      preview_kind: display?.previewKind,
+      context_label: display?.contextLabel,
+      display_payload: display,
     },
   };
 }

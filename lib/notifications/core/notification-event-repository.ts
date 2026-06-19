@@ -51,6 +51,7 @@ export async function createNotificationEvent(
     message_id: input.messageId?.trim() || null,
     title: input.title,
     body: input.body ?? "",
+    display_payload: input.displayPayload ?? {},
     unread: input.unread !== false,
     muted_snapshot: input.mutedSnapshot === true,
     push_suppressed_reason: input.pushSuppressedReason ?? null,

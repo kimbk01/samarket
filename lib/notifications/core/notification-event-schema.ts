@@ -32,6 +32,7 @@ export type CreateNotificationEventInput = {
   messageId?: string | null;
   title: string;
   body: string;
+  displayPayload?: Record<string, unknown> | null;
   dedupeKey: string;
   mutedSnapshot?: boolean;
   pushSuppressedReason?: PushSuppressReason | null;
@@ -51,6 +52,7 @@ export type NotificationEventRow = {
   message_id: string | null;
   title: string;
   body: string;
+  display_payload: Record<string, unknown> | null;
   unread: boolean;
   read_at: string | null;
   delivered_at: string | null;

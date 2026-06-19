@@ -36,7 +36,7 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
     if (data == null || data.isEmpty()) {
       RemoteMessage.Notification n = message.getNotification();
       if (n != null) {
-        showMessageNotification(n.getTitle(), n.getBody(), null, null, null, null, 0);
+        showMessageNotification(n.getTitle(), n.getBody(), null, null, null, null, 0, null);
       }
       return;
     }
@@ -78,28 +78,35 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
         Log.i(TAG, "[fcm] foreground_skip_system_notification type=" + type);
         return;
       }
-      String routeUrl = resolveChatRouteUrl(data);
+      String routeUrl = firstNonEmpty(data.get("routeUrl"), resolveChatRouteUrl(data));
+      String payloadTitle = firstNonEmpty(data.get("title"), title);
+      String payloadBody = firstNonEmpty(data.get("body"), body);
       showMessageNotification(
-          title,
-          body,
+          payloadTitle,
+          payloadBody,
           routeUrl,
           data.get("tag"),
           firstNonEmpty(data.get("notificationEventId"), data.get("notificationId")),
           type,
-          parseBadgeCount(data));
+          parseBadgeCount(data),
+          data);
       return;
     }
 
     Log.i(TAG, "[fcm] unknown_type_fallback type=" + type);
     if (appVisible) return;
+    String routeUrl = firstNonEmpty(data.get("routeUrl"), resolveChatRouteUrl(data));
+    String payloadTitle = firstNonEmpty(data.get("title"), title);
+    String payloadBody = firstNonEmpty(data.get("body"), body);
     showMessageNotification(
-        title,
-        body,
-        resolveChatRouteUrl(data),
+        payloadTitle,
+        payloadBody,
+        routeUrl,
         data.get("tag"),
         firstNonEmpty(data.get("notificationEventId"), data.get("notificationId")),
         type,
-        parseBadgeCount(data));
+        parseBadgeCount(data),
+        data);
   }
 
   private static int parseBadgeCount(Map<String, String> data) {
@@ -245,7 +252,8 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
       String tag,
       String notificationId,
       String type,
-      int badgeCount) {
+      int badgeCount,
+      Map<String, String> data) {
     if (notificationId != null && shouldSkipEventDedupe(notificationId)) {
       Log.i(TAG, "[notify-message] native_notification_dedupe eventId=" + notificationId);
       return;
@@ -294,7 +302,20 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
     NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
     if (nm != null) {
       nm.notify(requestCode, builder.build());
-      Log.i(TAG, "[notify-message] native_notification_posted title=" + safeTitle + " badge=" + badgeCount);
+      String previewKind = data != null ? firstNonEmpty(data.get("previewKind")) : null;
+      String senderName = data != null ? firstNonEmpty(data.get("senderName")) : null;
+      Log.i(
+          TAG,
+          "[notify-message] native_notification_posted title="
+              + safeTitle
+              + " body="
+              + safeBody
+              + " previewKind="
+              + (previewKind != null ? previewKind : "-")
+              + " senderName="
+              + (senderName != null ? senderName : "-")
+              + " badge="
+              + badgeCount);
     }
   }
 }

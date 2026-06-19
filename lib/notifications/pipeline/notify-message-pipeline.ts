@@ -10,14 +10,16 @@ import { shouldNotifyMentionRecipient } from "@/lib/community-messenger/group/gr
 import type { NotificationMessageRoomKind } from "@/lib/notifications/core/notification-event-types";
 import { createNotificationEvent } from "@/lib/notifications/core/notification-event-repository";
 import { logNotifyMessage } from "@/lib/notifications/core/notification-logs";
+import {
+  buildRecipientMessageNotificationDisplay,
+  loadMessageNotificationDisplaySharedContext,
+} from "@/lib/notifications/display/load-message-notification-display-context";
 import { isNotificationBlockedForRecipient } from "@/lib/notifications/policy/notification-block-policy";
 import { isRoomMutedForUser } from "@/lib/notifications/policy/notification-mute-policy";
 import {
   loadRecipientPresenceSnapshot,
   resolvePresenceSuppressDecision,
 } from "@/lib/notifications/policy/notification-presence-policy";
-import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
-import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 import { invalidateNotificationBadgeCache } from "@/lib/notifications/pipeline/notify-badge-service";
 import { dispatchNotificationPushIfAllowed } from "@/lib/notifications/pipeline/notify-push-dispatcher";
 import { markRoomRead } from "@/lib/notifications/pipeline/notify-read-service";
@@ -39,38 +41,6 @@ function resolveEventType(input: NotifyMessagePipelineInput) {
   return resolveMessageEventTypeFromDirectKey(input.directKey);
 }
 
-async function buildTitleBody(
-  sb: SupabaseClient<any>,
-  recipientUserId: string,
-  preview: string,
-  input: NotifyMessagePipelineInput
-): Promise<{ title: string; body: string }> {
-  const language = await loadNotificationUserLanguage(sb, recipientUserId);
-  const previewBody = preview.slice(0, 200);
-  if (input.roomKind === "group") {
-    const isMentioned = shouldNotifyMentionRecipient({
-      mentionUserIds: input.mentionUserIds ?? [],
-      recipientUserId,
-      senderUserId: input.senderUserId,
-    });
-    if (isMentioned) {
-      return {
-        title: notifySafeT(language, "notify_group_mention_message_title"),
-        body: previewBody || notifySafeT(language, "notify_group_mention_message_body"),
-      };
-    }
-    return {
-      title: notifySafeT(language, "notify_group_chat_message_title"),
-      body: previewBody || notifySafeT(language, "notify_group_chat_new_message_preview"),
-    };
-  }
-  const title = input.hasMention
-    ? notifySafeT(language, "notify_chat_mention_title")
-    : notifySafeT(language, "notify_chat_new_message_title");
-  const body = previewBody || notifySafeT(language, "notify_chat_message_arrived_body");
-  return { title, body };
-}
-
 export async function notifyMessagePipeline(
   sb: SupabaseClient<any>,
   input: NotifyMessagePipelineInput
@@ -84,6 +54,16 @@ export async function notifyMessagePipeline(
   const baseEventType = resolveEventType(input);
 
   logNotifyMessage("create_start", { roomId, messageId, recipientCount: recipients.length });
+
+  const displayShared = await loadMessageNotificationDisplaySharedContext(sb, {
+    roomId,
+    messageId,
+    senderUserId,
+    recipientUserIds: recipients,
+    preview: input.preview,
+    roomKind: input.roomKind,
+    directKey: input.directKey,
+  });
 
   for (const recipientUserId of recipients) {
     if (!recipientUserId || recipientUserId === senderUserId) continue;
@@ -124,7 +104,19 @@ export async function notifyMessagePipeline(
       logNotifyMessage("suppressed_same_room", { roomId, recipientUserId });
     }
 
-    const { title, body } = await buildTitleBody(sb, recipientUserId, input.preview, input);
+    const display = await buildRecipientMessageNotificationDisplay(
+      sb,
+      {
+        roomId,
+        messageId,
+        senderUserId,
+        recipientUserId,
+        preview: input.preview,
+        roomKind: input.roomKind,
+        directKey: input.directKey,
+      },
+      displayShared
+    );
 
     const created = await createNotificationEvent(sb, {
       userId: recipientUserId,
@@ -133,8 +125,9 @@ export async function notifyMessagePipeline(
       roomId,
       messageId,
       actorUserId: senderUserId,
-      title,
-      body,
+      title: display.title,
+      body: display.body,
+      displayPayload: display,
       dedupeKey,
       mutedSnapshot: muted,
       pushSuppressedReason,

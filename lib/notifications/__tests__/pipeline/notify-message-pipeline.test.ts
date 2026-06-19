@@ -43,6 +43,16 @@ vi.mock("@/lib/notifications/notification-user-language", () => ({
   loadNotificationUserLanguage: (...args: unknown[]) => loadNotificationUserLanguage(...args),
 }));
 
+const loadMessageNotificationDisplaySharedContext = vi.fn();
+const buildRecipientMessageNotificationDisplay = vi.fn();
+
+vi.mock("@/lib/notifications/display/load-message-notification-display-context", () => ({
+  loadMessageNotificationDisplaySharedContext: (...args: unknown[]) =>
+    loadMessageNotificationDisplaySharedContext(...args),
+  buildRecipientMessageNotificationDisplay: (...args: unknown[]) =>
+    buildRecipientMessageNotificationDisplay(...args),
+}));
+
 import { notifyMessagePipeline } from "@/lib/notifications/pipeline/notify-message-pipeline";
 
 const sb = {} as never;
@@ -70,9 +80,30 @@ describe("notify-message-pipeline", () => {
     });
     resolvePresenceSuppressDecision.mockReturnValue(defaultPresenceDecision());
     loadNotificationUserLanguage.mockResolvedValue("ko");
+    loadMessageNotificationDisplaySharedContext.mockResolvedValue({
+      resolvedRoomKind: "direct",
+      messageType: "text",
+      textContent: "hello",
+      sender: { displayName: "sender-a", avatarUrl: null },
+      room: { name: null, contextLabel: null },
+      chatPreviewByUserId: new Map([["user-b", true]]),
+    });
+    buildRecipientMessageNotificationDisplay.mockImplementation(async (_sb, input) => ({
+      senderName: "sender-a",
+      senderAvatarUrl: null,
+      roomKind: input.roomKind ?? "direct",
+      roomName: input.roomKind === "group" ? "group-room" : null,
+      contextLabel: null,
+      previewText: input.preview ?? "hello",
+      previewKind: "text",
+      privacyRedacted: false,
+      routeUrl: `/community-messenger/rooms/${input.roomId}`,
+      title: input.roomKind === "group" ? "group-room" : "sender-a",
+      body: input.roomKind === "group" ? `sender-a: ${input.preview ?? "hello"}` : input.preview ?? "hello",
+    }));
     createNotificationEvent.mockResolvedValue({
       ok: true,
-      row: { id: "evt-1", user_id: "user-b", push_suppressed_reason: null },
+      row: { id: "evt-1", user_id: "user-b", push_suppressed_reason: null, display_payload: {} },
     });
     dispatchNotificationPushIfAllowed.mockResolvedValue(undefined);
     markRoomRead.mockResolvedValue(0);
