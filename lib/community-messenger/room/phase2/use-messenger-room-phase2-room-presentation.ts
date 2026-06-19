@@ -115,6 +115,7 @@ export function useMessengerRoomPhase2RoomPresentation({
       (snapshot.myRole === "owner" ||
         (snapshot.myRole === "admin" && snapshot.room.allowAdminEditNotice !== false))
   );
+  const canPinGroupMessage = canEditPrivateGroupMeta;
   const canManageGroupPermissions = Boolean(isPrivateGroupRoom && snapshot?.myRole === "owner");
   const canManageMemberRoles = Boolean(isPrivateGroupRoom && snapshot?.myRole === "owner");
   const canKickGroupMembers = Boolean(
@@ -219,6 +220,7 @@ export function useMessengerRoomPhase2RoomPresentation({
     privateGroupNotice,
     canEditGroupNotice,
     canEditPrivateGroupMeta,
+    canPinGroupMessage,
     canManageGroupPermissions,
     canManageMemberRoles,
     canKickGroupMembers,

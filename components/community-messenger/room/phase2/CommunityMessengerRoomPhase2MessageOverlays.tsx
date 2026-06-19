@@ -64,6 +64,20 @@ export function CommunityMessengerRoomPhase2MessageOverlays() {
           onEdit={() => {
             vm.startEditMessage(messageActionItem.item);
           }}
+          showPin={vm.isPrivateGroupRoom && vm.canPinGroupMessage && messageActionItem.item.messageType !== "system"}
+          pinLabel={
+            vm.snapshot.room.pinnedMessageId === messageActionItem.item.id
+              ? vm.t("cm_ui_group_unpin_message")
+              : vm.t("cm_ui_group_pin_message")
+          }
+          pinDisabled={vm.busy === "group-pin"}
+          onPin={() => {
+            const pinnedId = vm.snapshot.room.pinnedMessageId;
+            const nextId =
+              pinnedId === messageActionItem.item.id ? null : messageActionItem.item.id;
+            vm.setMessageActionItem(null);
+            void vm.pinGroupMessage(nextId);
+          }}
         />
       ) : null}
       {callStubSheet ? (

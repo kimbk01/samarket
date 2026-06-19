@@ -54,6 +54,7 @@ export type MessageActionMenuProps = {
   deleteForMe?: { disabled: boolean; title?: string; onClick: () => void };
   deleteForEveryone?: { disabled: boolean; title?: string; onClick: () => void };
   deleteVoiceHard?: { onClick: () => void };
+  pin?: { label: string; disabled: boolean; title?: string; onClick: () => void };
 };
 
 export function MessageActionMenu(props: MessageActionMenuProps) {
@@ -76,6 +77,7 @@ export function MessageActionMenu(props: MessageActionMenuProps) {
     deleteForMe,
     deleteForEveryone,
     deleteVoiceHard,
+    pin,
   } = props;
 
   const hasDeleteRows = Boolean(deleteForMe || deleteForEveryone || deleteVoiceHard);
@@ -102,6 +104,14 @@ export function MessageActionMenu(props: MessageActionMenuProps) {
         disabled={roomUnavailable || replyDisabled}
         title={replyTitle}
       />
+      {pin ? (
+        <MenuRow
+          label={pin.label}
+          onClick={pin.onClick}
+          disabled={roomUnavailable || pin.disabled}
+          title={pin.title}
+        />
+      ) : null}
       <div className="border-b border-neutral-200 dark:border-neutral-700">
         <MenuRow
           label={t("common_share")}

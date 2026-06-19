@@ -16,7 +16,10 @@ import { collectMergedCatalog, MESSAGE_KEY_PATTERN } from "./lib/i18n-catalog-me
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 const KEY_IN_CODE =
-  /\b(?:t|safeT|translate|safeTranslate|storeOrderOpsSafeT|resolveSafeMessageKey)\(\s*["']([a-z][a-z0-9]*(?:_[a-z0-9]+)+)["']/g;
+  /\b(?:t|safeT|translate|safeTranslate|storeOrderOpsSafeT|resolveSafeMessageKey|notifySafeT)\(\s*["']([a-z][a-z0-9]*(?:_[a-z0-9]+)+)["']/g;
+const KEY_LABEL_IN_CODE = /labelKey:\s*["']([a-z][a-z0-9]*(?:_[a-z0-9]+)+)["']/g;
+const KEY_AS_MESSAGE_IN_CODE =
+  /["']([a-z][a-z0-9]*(?:_[a-z0-9]+)+)["']\s*as\s*MessageKey/g;
 const KEY_IN_CATALOG = /^\+\s+([a-z][a-z0-9]*(?:_[a-z0-9]+)+)\s*:/gm;
 
 function parseArgs(argv) {
@@ -68,9 +71,11 @@ function extractAddedKeys(diffText) {
   while ((m = KEY_IN_CATALOG.exec(block)) !== null) {
     keys.add(m[1]);
   }
-  KEY_IN_CODE.lastIndex = 0;
-  while ((m = KEY_IN_CODE.exec(block)) !== null) {
-    keys.add(m[1]);
+  for (const re of [KEY_IN_CODE, KEY_LABEL_IN_CODE, KEY_AS_MESSAGE_IN_CODE]) {
+    re.lastIndex = 0;
+    while ((m = re.exec(block)) !== null) {
+      keys.add(m[1]);
+    }
   }
   return [...keys].filter((k) => MESSAGE_KEY_PATTERN.test(k)).sort();
 }

@@ -92,6 +92,10 @@ export type MessengerTimelineVirtualRowProps = {
   streamRoomId: string;
   /** 상대 읽음 표시 — 해당 행에만 변함 → 전 행 memo 깨짐 방지 */
   mineUnreadBadgeVisible: boolean;
+  /** private_group — tail read count label e.g. "읽음 3" */
+  groupReadReceiptLabel?: string;
+  /** private_group — highlight @mentions in text bubbles */
+  highlightMentions?: boolean;
   timelineHighlightMessageId: string | null;
   messageActionItemId: string | null;
   callStubSheetItemId: string | null;
@@ -141,6 +145,8 @@ function messengerTimelineVirtualRowPropsAreEqual(
     a.peerAvatar === b.peerAvatar &&
     a.streamRoomId === b.streamRoomId &&
     a.mineUnreadBadgeVisible === b.mineUnreadBadgeVisible &&
+    a.groupReadReceiptLabel === b.groupReadReceiptLabel &&
+    a.highlightMentions === b.highlightMentions &&
     a.timelineHighlightMessageId === b.timelineHighlightMessageId &&
     a.messageActionItemId === b.messageActionItemId &&
     a.callStubSheetItemId === b.callStubSheetItemId &&
@@ -182,6 +188,8 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
   peerAvatar,
   streamRoomId,
   mineUnreadBadgeVisible,
+  groupReadReceiptLabel,
+  highlightMentions = false,
   timelineHighlightMessageId,
   messageActionItemId,
   callStubSheetItemId,
@@ -457,6 +465,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
         item={item}
         linkPreviewEnabled={entryLightRow ? false : linkPreviewEnabled}
         sendingLabel={sendingLabel}
+        highlightMentions={highlightMentions}
       />
     );
 
@@ -559,6 +568,10 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
                   ) : null}
                   {mineUnreadBadgeVisible ? (
                     <span className="shrink-0 pb-0.5 text-[11px] leading-none text-[#65676b]">{t("cm_ui_unread")}</span>
+                  ) : groupReadReceiptLabel ? (
+                    <span className="shrink-0 pb-0.5 text-[11px] leading-none text-[#65676b]">
+                      {groupReadReceiptLabel}
+                    </span>
                   ) : null}
                   {renderBubbleStack(viberBubble)}
                 </>

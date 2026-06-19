@@ -75,6 +75,9 @@
     "measure:owner-dashboard-waterfall": "node scripts/measure-owner-dashboard-waterfall.mjs",
     "verify:routes": "node scripts/verify-app-routes.cjs",
     "verify:deploy-imports": "node scripts/verify-deploy-imports.mjs",
+    "verify:deploy-imports:staged": "node scripts/verify-deploy-imports.mjs --staged",
+    "verify:i18n-staged-catalog:staged": "node scripts/verify-i18n-staged-catalog.mjs --staged",
+    "verify:pre-commit": "node scripts/verify-pre-commit.mjs",
     "verify:app-boot-consent-contract": "node scripts/verify-app-boot-consent-contract.cjs",
     "verify:trade-hot-path-contract": "node scripts/verify-trade-hot-path-contract.cjs",
     "verify:trade-primary-tab-transition": "node scripts/verify-trade-primary-tab-transition-contract.cjs",
@@ -116,7 +119,7 @@
     "verify:push-dispatch-contract": "node scripts/verify-push-dispatch-contract.mjs",
     "verify:push-phase1-ready": "node scripts/verify-push-phase1-ready.mjs",
     "qa:native-oauth-device": "node scripts/print-native-oauth-device-qa.mjs",
-    "check": "npm run verify:bundle-budget-baseline && npm run verify:routes && npm run verify:app-boot-consent-contract && npm run verify:trade-hot-path-contract && npm run verify:store-cart-sheet-contract && npm run verify:store-payment-cod-label-contract && npm run verify:store-cart-hooks-contract && npm run verify:thumbnail-contract && npm run verify:stores-home-hub-contract && npx tsc --noEmit && npm run lint && npm run test && npm run build && npm run check:bundle",
+    "check": "npm run verify:bundle-budget-baseline && npm run verify:routes && npm run verify:app-boot-consent-contract && npm run verify:trade-hot-path-contract && npm run verify:store-cart-sheet-contract && npm run verify:store-payment-cod-label-contract && npm run verify:store-cart-hooks-contract && npm run verify:thumbnail-contract && npm run verify:stores-home-hub-contract && npm run verify:deploy-imports && npx tsc --noEmit && npm run lint && npm run test && npm run build && npm run check:bundle",
     "ci": "npm run check",
     "check:supabase-dns": "node scripts/check-supabase-dns.mjs",
     "tokens:apply-visual": "node scripts/apply-samarket-visual-tokens.mjs",
@@ -180,7 +183,8 @@
     "sql:copy:meeting-chat-rooms": "node scripts/copy-sql-clipboard.mjs supabase/migrations/20260331150000_meeting_chat_rooms.sql",
     "sql:copy:meeting-chat-rooms-rls": "node scripts/copy-sql-clipboard.mjs supabase/migrations/20260331160000_meeting_chat_private_rls.sql",
     "sql:copy:r2-d1-delivery-catchup": "node scripts/copy-sql-clipboard.mjs supabase/scripts/r2-d1-store-order-deliveries-schema-catchup.sql",
-    "apply:r2-d1-delivery-schema": "node scripts/apply-r2-d1-delivery-schema-catchup.mjs"
+    "apply:r2-d1-delivery-schema": "node scripts/apply-r2-d1-delivery-schema-catchup.mjs",
+    "prepare": "node scripts/install-git-hooks.mjs"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.0",

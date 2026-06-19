@@ -53,6 +53,9 @@ import { ChatEmojiPicker } from "@/components/chat-ui/ChatEmojiPicker";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { isMessengerComposerOutboundBusy } from "@/lib/community-messenger/room/messenger-composer-outbound-busy";
 import { Crown, Image as ImageIcon, Link2, Megaphone, Search, Smile, Sticker } from "lucide-react";
+import { GroupInviteLinkSection } from "@/components/community-messenger/group/GroupInviteLinkSection";
+import { GroupMemberRoleBadge } from "@/components/community-messenger/group/GroupMemberRoleBadge";
+import { GroupRoomMediaAlbumTabs } from "@/components/community-messenger/group/GroupRoomMediaAlbumPanel";
 
 export function CommunityMessengerRoomPhase2RoomSheets() {
   const vm = useMessengerRoomPhase2View();
@@ -313,6 +316,34 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     <p className="mt-1 sam-text-body-secondary text-[#004C3F]">{vm.t("nav_messenger_open_group_settings")}</p>
                     {vm.canEditPrivateGroupMeta ? (
                       <div className="mt-3 grid gap-2">
+                        <div className="flex items-center gap-3">
+                          <SamarketThumbnail
+                            src={vm.privateGroupAvatarUrl ?? vm.snapshot.room.avatarUrl}
+                            size={56}
+                            roundedClassName="rounded-[12px]"
+                            className="bg-white ring-1 ring-[#006241]/20"
+                            fallbackSrc=""
+                            fallbackNode={
+                              <span className="sam-text-page-title font-semibold text-[#006241]">
+                                {vm.privateGroupTitle.trim().slice(0, 1).toUpperCase() || "?"}
+                              </span>
+                            }
+                          />
+                          <label className="min-h-[44px] cursor-pointer rounded-ui-rect border border-[#006241]/30 bg-white px-3 py-2 sam-text-helper font-semibold text-[#006241]">
+                            {vm.t("cm_ui_photo_gallery")}
+                            <input
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp,image/gif"
+                              className="sr-only"
+                              disabled={vm.busy === "private-group-avatar"}
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                e.target.value = "";
+                                if (file) void vm.uploadPrivateGroupAvatar(file);
+                              }}
+                            />
+                          </label>
+                        </div>
                         <input
                           value={vm.privateGroupTitle}
                           onChange={(e) => vm.setPrivateGroupTitle(e.target.value)}
@@ -348,6 +379,15 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                         {vm.snapshot.room.isMuted ? vm.t("cm_ui_turn_on_room_notifications") : vm.t("cm_ui_turn_off_room_notifications")}
                       </button>
                     </div>
+                    <GroupInviteLinkSection
+                      state={vm.groupInviteLinkState}
+                      loading={vm.groupInviteLinkLoading}
+                      canManage={vm.canEditPrivateGroupMeta}
+                      busy={vm.busy}
+                      onCopy={() => void vm.copyGroupInviteLink()}
+                      onRegenerate={() => void vm.regenerateGroupInviteLink()}
+                      onDisable={() => void vm.disableGroupInviteLink()}
+                    />
                   </div>
                 ) : null}
 
@@ -547,9 +587,9 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                             {displayLabel}
                             {isSelf ? ` (${vm.t("nav_messenger_me")})` : ""}
                           </p>
-                          {member.memberRole === "admin" && !isRoomOwner ? (
-                            <p className="sam-text-xxs text-sam-muted">{vm.t("cm_ui_admin")}</p>
-                          ) : null}
+                          <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                            <GroupMemberRoleBadge role={isRoomOwner ? "owner" : member.memberRole} />
+                          </div>
                         </div>
                         {!isSelf ? <span className="sam-text-page-title text-sam-meta">›</span> : null}
                       </button>
@@ -738,12 +778,9 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="sam-text-body font-semibold text-sam-fg">{member.label}</p>
                             {vm.snapshot.room.ownerUserId && messengerUserIdsEqual(member.id, vm.snapshot.room.ownerUserId) ? (
-                              <span className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-0.5 sam-text-xxs font-semibold text-sam-fg">
-                                {vm.t("nav_messenger_owner_label")}
-                              </span>
-                            ) : null}
-                            {member.memberRole === "admin" ? (
-                              <span className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-0.5 sam-text-xxs font-semibold text-sam-fg">{vm.t("cm_ui_admin")}</span>
+                              <GroupMemberRoleBadge role="owner" />
+                            ) : member.memberRole === "admin" ? (
+                              <GroupMemberRoleBadge role="admin" />
                             ) : null}
                             {messengerUserIdsEqual(member.id, vm.snapshot.viewerUserId) ? (
                               <span className="rounded-ui-rect bg-sam-surface-muted px-2 py-0.5 sam-text-xxs font-semibold text-sam-fg">{vm.t("nav_messenger_me")}</span>
@@ -1476,7 +1513,9 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
               <>
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="sam-text-body-secondary font-medium text-sam-fg">{vm.t("cm_ui_room_media")}</p>
+                    <p className="sam-text-body-secondary font-medium text-sam-fg">
+                      {vm.isPrivateGroupRoom ? vm.t("cm_ui_group_media_album") : vm.t("cm_ui_room_media")}
+                    </p>
                     <h2 className="mt-1 sam-text-page-title font-semibold text-sam-fg">{vm.t("cm_ui_photo_voice")}</h2>
                   </div>
                   <button
@@ -1487,6 +1526,17 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     {vm.t("tier1_back")}
                   </button>
                 </div>
+                {vm.isPrivateGroupRoom ? (
+                  <GroupRoomMediaAlbumTabs
+                    roomId={vm.streamRoomId}
+                    enabled={vm.activeSheet === "media"}
+                    onOpenMessage={(id) => {
+                      vm.dismissRoomSheet();
+                      vm.scrollToRoomMessage(id);
+                    }}
+                  />
+                ) : (
+                  <>
                 <div className="mt-4 grid grid-cols-2 gap-2">
                   <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
                     <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("cm_ui_photo")}</p>
@@ -1543,6 +1593,8 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     <p className="py-8 text-center sam-text-body-secondary text-sam-muted">{vm.t("cm_ui_no_media")}</p>
                   )}
                 </div>
+                  </>
+                )}
               </>
             ) : null}
 

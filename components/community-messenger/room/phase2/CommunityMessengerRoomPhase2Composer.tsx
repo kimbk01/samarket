@@ -84,6 +84,12 @@ import {
   buildReplyPreviewSnapshot,
   formatReplyQuoteKakaoHeader,
 } from "@/lib/community-messenger/message-actions/message-reply-policy";
+import {
+  buildGroupMentionCandidates,
+  extractActiveMentionQuery,
+  GroupMentionAutocomplete,
+  type GroupMentionCandidate,
+} from "@/components/community-messenger/group/GroupMentionAutocomplete";
 import { MessengerComposerSector } from "@/components/community-messenger/line-ui";
 import { ChatComposer } from "@/components/chat/ChatComposer";
 import { resolveCommunityMessengerDeliveryContextMeta } from "@/lib/community-messenger/room-context-meta";
@@ -156,6 +162,14 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
   } = useMessengerRoomClientPhase1Context();
   const roomKey = vm.snapshot.room.id;
   const [draft, setDraft] = useState("");
+  const isPrivateGroupRoom = vm.snapshot.room.roomType === "private_group";
+  const mentionCandidates = useMemo(
+    () => buildGroupMentionCandidates(vm.snapshot.members, vm.snapshot.viewerUserId),
+    [vm.snapshot.members, vm.snapshot.viewerUserId]
+  );
+  const [mentionOpen, setMentionOpen] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState("");
+  const [mentionActiveIndex, setMentionActiveIndex] = useState(0);
   const composerMountRecordedRef = useRef(false);
   const composerFrameFinalizedRef = useRef(false);
   const composerFrameLoggedRef = useRef(false);
@@ -357,6 +371,37 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
           ? safeT("nav_messenger_input_placeholder", { fallbackKo: "메시지를 입력하세요", fallbackEn: "Type a message" })
           : safeT("cm_ui_message", { fallbackKo: "메시지", fallbackEn: "Message" });
 
+  const pickMention = useCallback(
+    (candidate: GroupMentionCandidate) => {
+      const ta = vm.composerTextareaRef.current;
+      const caret = ta?.selectionStart ?? draft.length;
+      const head = draft.slice(0, caret);
+      const tail = draft.slice(caret);
+      const at = head.lastIndexOf("@");
+      if (at < 0) return;
+      const next = `${head.slice(0, at)}@${candidate.mentionKey} ${tail}`;
+      setDraft(next);
+      setMentionOpen(false);
+      queueMicrotask(() => ta?.focus());
+    },
+    [draft, vm.composerTextareaRef]
+  );
+
+  const handleDraftChange = useCallback(
+    (value: string) => {
+      setDraft(value);
+      queueMicrotask(() => notifyChatInputCommitForPerf());
+      if (!isPrivateGroupRoom) return;
+      const ta = vm.composerTextareaRef.current;
+      const caret = ta?.selectionStart ?? value.length;
+      const q = extractActiveMentionQuery(value, caret);
+      setMentionOpen(q !== null);
+      setMentionQuery(q ?? "");
+      setMentionActiveIndex(0);
+    },
+    [isPrivateGroupRoom, vm.composerTextareaRef]
+  );
+
   const commitTextSend = useCallback(async () => {
     if (
       vm.roomUnavailable ||
@@ -458,14 +503,21 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
             </div>
           </div>
         ) : null}
+        <div className="relative">
+          {isPrivateGroupRoom ? (
+            <GroupMentionAutocomplete
+              open={mentionOpen}
+              query={mentionQuery}
+              candidates={mentionCandidates}
+              activeIndex={mentionActiveIndex}
+              onPick={pickMention}
+            />
+          ) : null}
         <MessengerComposerSector
           draft={draft}
           placeholder={composerPlaceholder}
           textareaRef={vm.composerTextareaRef}
-          onDraftChange={(value) => {
-            setDraft(value);
-            queueMicrotask(() => notifyChatInputCommitForPerf());
-          }}
+          onDraftChange={handleDraftChange}
           onAttach={() => vm.setActiveSheet("attach")}
           onSend={commitTextSend}
           onTextareaKeyDown={(e) => {
@@ -553,6 +605,7 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
           }}
           t={t}
         />
+        </div>
     </>
   );
 

@@ -13,6 +13,7 @@ import {
 } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import { MessengerChatImageBubble } from "@/components/community-messenger/room/MessengerChatImageBubble";
 import { VoiceMessageBubble } from "@/components/community-messenger/room/community-messenger-room-phase2-lazy";
+import { GroupMentionText } from "@/components/community-messenger/group/GroupMentionText";
 
 export type TimelineViberBubbleMessage = CommunityMessengerMessage & { pending?: boolean };
 
@@ -189,12 +190,20 @@ export const TimelineViberInnerTextDefault = memo(function TimelineViberInnerTex
   item,
   linkPreviewEnabled,
   sendingLabel,
+  highlightMentions = false,
 }: {
   item: TimelineViberBubbleMessage;
   linkPreviewEnabled: boolean;
   sendingLabel: string;
+  highlightMentions?: boolean;
 }) {
   const mineLight = item.isMine;
+  const body =
+    highlightMentions && item.messageType === "text" ? (
+      <GroupMentionText content={item.content} isMine={mineLight} />
+    ) : (
+      item.content
+    );
   return (
     <div className="flex w-max max-w-full flex-col gap-2">
       <div className="flex flex-wrap items-end gap-x-2 gap-y-0.5">
@@ -203,7 +212,7 @@ export const TimelineViberInnerTextDefault = memo(function TimelineViberInnerTex
             mineLight ? "text-inherit" : "text-[color:var(--cm-room-bubble-incoming-fg,#050505)]"
           }`}
         >
-          {item.content}
+          {body}
         </p>
         {item.pending ? (
           <span

@@ -1,0 +1,36 @@
+[group-p1-qa] P1 QA start prod=https://samarket.vercel.app A=RFCY40PY2CA B=RFCY40PY2CA
+[group-p1-qa] --- APK WebView preflight (shared P0 path) ---
+[group-p1-qa] A before login probe={"ok":false,"status":401}
+[group-p1-qa] A after inject probe={"ok":true,"userId":"11111111-1111-1111-1111-111111111111","username":"aaaa"}
+[group-p1-qa] A logcat --------- beginning of main
+[group-p1-qa] A logcat 06-19 08:56:50.133 27205 27205 I DIBAY_NOTIFY: [notify-open] tap_received notificationId=null
+[group-p1-qa] A logcat 06-19 08:56:50.179 27205 27205 I DIBAY_NOTIFY: [notify-open] tap_received notificationId=null
+[group-p1-qa] A logcat 06-19 08:56:51.527 27205 27205 I DIBAY_PUSH_REGISTER: [DIBAY_PUSH_REGISTER] {"step":"mount","href":"https://samarket.vercel.app/philife","hasCapacitor":true,"isNativePlatform":true,"platform":"android","hasAndroidBridge":true,"hasNativeOAuthLauncherPluginHeader":true,"hasNativeAppleAuthPluginHeader":false,"hasNativeKakaoAuthPluginHeader":true,"hasNativeGoogleAuthPluginHeader":true,"nativeAppleLoginAvailable":false,"nativeKakaoLoginAvailable":true,"nativeGoogleLoginAvailable":true,"hasCapacitorNativePromise":true,"bridgeReady":true,"oauthNativeLaunchAvailable":true,"dibayAppPlatformMarker":"android","locationHref":"https://samarket.vercel.app/philife","detectedNative":true,"oauthLaunchShell":true}
+[group-p1-qa] B before login probe={"ok":false,"status":401}
+[group-p1-qa] B after inject probe={"ok":true,"userId":"9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8","username":"qqqq"}
+[group-p1-qa] --- create private_group ---
+[group-p1-qa] roomId=4a83e335-645c-4a98-913e-c291f2f882cb
+[group-p1-qa] --- send + mention ---
+[group-p1-qa] --- pin message ---
+[group-p1-qa] --- read counts batch ---
+[group-p1-qa] --- profile ---
+[group-p1-qa] --- invite link ---
+[group-p1-qa] --- media album ---
+[group-p1-qa] --- FCM group_message (no unknown_type_fallback) ---
+[group-p1-qa] --- APK room entry ---
+[group-p1-qa] A-room navigated https://samarket.vercel.app/community-messenger/rooms/4a83e335-645c-4a98-913e-c291f2f882cb?type=group
+[group-p1-qa] verdict=ACCEPT/CLOSE 12/12
+e={"ok":false,"status":401}
+[group-p1-qa] B after inject probe={"ok":true,"userId":"9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8","username":"qqqq"}
+[group-p1-qa] --- create private_group ---
+[group-p1-qa] roomId=4a83e335-645c-4a98-913e-c291f2f882cb
+[group-p1-qa] --- send + mention ---
+[group-p1-qa] --- pin message ---
+[group-p1-qa] --- read counts batch ---
+[group-p1-qa] --- profile ---
+[group-p1-qa] --- invite link ---
+[group-p1-qa] --- media album ---
+[group-p1-qa] --- FCM group_message (no unknown_type_fallback) ---
+[group-p1-qa] --- APK room entry ---
+[group-p1-qa] A-room navigated https://samarket.vercel.app/community-messenger/rooms/4a83e335-645c-4a98-913e-c291f2f882cb?type=group
+[group-p1-qa] verdict=ACCEPT/CLOSE 12/12

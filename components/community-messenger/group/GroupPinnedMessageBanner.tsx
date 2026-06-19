@@ -22,7 +22,7 @@ export function GroupPinnedMessageBanner({
     <button
       type="button"
       onClick={onClick}
-      className="mx-3 mb-2 flex w-[calc(100%-1.5rem)] items-start gap-2 rounded-ui-rect border border-[#006241]/20 bg-[#EAF4EF] px-3 py-2 text-left active:bg-[#004C3F]/10"
+      className="mx-3 mb-2 flex min-h-[44px] w-[calc(100%-1.5rem)] items-start gap-2 rounded-ui-rect border border-[#006241]/20 bg-[#EAF4EF] px-3 py-2 text-left active:bg-[#004C3F]/10"
     >
       <Pin className="mt-0.5 h-4 w-4 shrink-0 text-[#006241]" aria-hidden />
       <div className="min-w-0 flex-1">

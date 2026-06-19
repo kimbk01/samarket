@@ -12,9 +12,13 @@ import {
 } from "@/lib/community-messenger/room/messenger-room-ui-constants";
 import {
   communityMessengerMemberAvatar,
+  communityMessengerMessageSearchText,
   formatRoomCallStatus,
   formatTime,
 } from "@/components/community-messenger/room/community-messenger-room-helpers";
+import { GroupPinnedMessageBanner } from "@/components/community-messenger/group/GroupPinnedMessageBanner";
+import { useGroupMessageReadCounts } from "@/lib/community-messenger/group/use-group-message-read-counts";
+import { stripMentionTokensForPreview } from "@/lib/community-messenger/group/group-room-mention-parser";
 import {
   getCallStubTimelineStatusLine,
   inferResolvedEventFromStoredCallStatus,
@@ -535,6 +539,27 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     () => roomHasStoreOrderTimelineMessages(vm.displayRoomMessages),
     [vm.displayRoomMessages]
   );
+  const pinnedMessageId = vm.isPrivateGroupRoom ? vm.snapshot.room.pinnedMessageId ?? null : null;
+  const pinnedMessage = useMemo(() => {
+    if (!pinnedMessageId) return null;
+    return vm.displayRoomMessages.find((m) => m.id === pinnedMessageId) ?? null;
+  }, [pinnedMessageId, vm.displayRoomMessages]);
+  const pinnedPreviewText = useMemo(() => {
+    if (!pinnedMessageId) return "";
+    if (pinnedMessage) {
+      const raw = communityMessengerMessageSearchText(pinnedMessage);
+      return stripMentionTokensForPreview(raw) || raw.slice(0, 120);
+    }
+    return "…";
+  }, [pinnedMessage, pinnedMessageId]);
+  const groupMineMessageIds = useMemo(() => {
+    if (!vm.isPrivateGroupRoom) return [] as string[];
+    return vm.displayRoomMessages
+      .filter((m) => m.isMine && m.messageType !== "system" && !m.pending)
+      .slice(-24)
+      .map((m) => m.id);
+  }, [vm.displayRoomMessages, vm.isPrivateGroupRoom]);
+  const { counts: groupReadCounts } = useGroupMessageReadCounts(vm.streamRoomId, groupMineMessageIds);
   /** 거래 도크는 타임라인 안; 배달 주문 chrome·composer는 스크롤 밖 — tail class 분기 */
   const timelineInnerTailClass = hasTradeDock
     ? "chat-timeline-inner--trade"
@@ -1924,6 +1949,15 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
           ) : null}
           </div>
           <div className={`chat-timeline-inner px-3 sm:px-4 ${timelineInnerTailClass}`}>
+            {vm.isPrivateGroupRoom && pinnedMessageId && pinnedPreviewText ? (
+              <div className="sticky top-0 z-[5] -mx-3 bg-[color:var(--cm-room-chat-bg)] pb-1 pt-0 sm:-mx-4">
+                <GroupPinnedMessageBanner
+                  previewText={pinnedPreviewText}
+                  senderLabel={pinnedMessage?.senderLabel}
+                  onClick={() => void vm.focusTimelineMessage(pinnedMessageId)}
+                />
+              </div>
+            ) : null}
             <div className="chat-message-stack">
           {vm.hasMoreOlderMessages && vm.roomMessages.length > 0 ? (
             <div
@@ -1993,10 +2027,18 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                   showPeerName;
                 const peerAvatar = !item.isMine ? messageRowPreamble.peerAvatarFor(item.senderId) : null;
                 const mineUnreadBadgeVisible =
+                  !vm.isPrivateGroupRoom &&
                   item.isMine &&
                   item.messageType !== "system" &&
                   latestReadableMineMessageId === item.id &&
                   !peerHasReadMyLatestMessage;
+                const groupReadReceiptLabel =
+                  vm.isPrivateGroupRoom &&
+                  item.isMine &&
+                  item.messageType !== "system" &&
+                  groupReadCounts[item.id]?.label
+                    ? groupReadCounts[item.id]!.label
+                    : undefined;
                 const showMineClusterStart =
                   item.isMine &&
                   item.messageType !== "system" &&
@@ -2081,6 +2123,8 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                     peerAvatar={peerAvatar}
                     streamRoomId={vm.streamRoomId}
                     mineUnreadBadgeVisible={mineUnreadBadgeVisible}
+                    groupReadReceiptLabel={groupReadReceiptLabel}
+                    highlightMentions={vm.isPrivateGroupRoom}
                     timelineHighlightMessageId={vm.timelineHighlightMessageId}
                     messageActionItemId={vm.messageActionItem?.item.id ?? null}
                     callStubSheetItemId={vm.callStubSheet?.item.id ?? null}

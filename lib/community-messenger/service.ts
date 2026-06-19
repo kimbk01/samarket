@@ -366,6 +366,7 @@ type RoomRow = {
   is_discoverable?: boolean | null;
   allow_member_invite?: boolean | null;
   notice_text?: string | null;
+  pinned_message_id?: string | null;
   notice_updated_at?: string | null;
   notice_updated_by?: string | null;
   allow_admin_invite?: boolean | null;
@@ -529,6 +530,7 @@ type DevRoom = {
   isDiscoverable: boolean;
   allowMemberInvite: boolean;
   noticeText?: string;
+  pinnedMessageId?: string | null;
   noticeUpdatedAt?: string | null;
   noticeUpdatedBy?: string | null;
   allowAdminInvite?: boolean;
@@ -2159,6 +2161,8 @@ function buildRoomSummaryFromHydratedMembers(
   const isDiscoverable = isDbRoom ? room.is_discoverable === true : room.isDiscoverable;
   const allowMemberInvite = isDbRoom ? room.allow_member_invite !== false : room.allowMemberInvite;
   const noticeText = trimText(isDbRoom ? room.notice_text : room.noticeText);
+  const pinnedMessageId =
+    trimText(isDbRoom ? (room as RoomRow).pinned_message_id : (room as DevRoom).pinnedMessageId) || null;
   const noticeUpdatedAt = trimText(isDbRoom ? room.notice_updated_at : room.noticeUpdatedAt) || null;
   const noticeUpdatedBy = trimText(isDbRoom ? room.notice_updated_by : room.noticeUpdatedBy) || null;
   const allowAdminInvite = isDbRoom ? room.allow_admin_invite !== false : room.allowAdminInvite !== false;
@@ -2251,6 +2255,7 @@ function buildRoomSummaryFromHydratedMembers(
     requiresPassword,
     allowMemberInvite,
     noticeText,
+    pinnedMessageId,
     noticeUpdatedAt,
     noticeUpdatedBy,
     allowAdminInvite,
@@ -3237,7 +3242,7 @@ async function fetchRoomsPayloadByRoomIds(
           (sb as any)
             .from("community_messenger_rooms")
             .select(
-              "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, direct_key, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type"
+              "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, direct_key, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, pinned_message_id, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type"
             )
             .in("id", uniqueRoomIds),
           (sb as any)
@@ -3545,7 +3550,7 @@ async function fetchDiscoverableOpenGroupsRawState(userId: string): Promise<Disc
       (sb as any)
         .from("community_messenger_rooms")
         .select(
-          "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type"
+          "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, pinned_message_id, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type"
         )
         .eq("room_type", "open_group")
         .eq("is_discoverable", true)
@@ -13291,7 +13296,7 @@ export async function runCommunityMessengerRoomTradeDiagnosticsParallelForE2e(
   const { data: roomData } = await (sb as any)
     .from("community_messenger_rooms")
     .select(
-      "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type"
+      "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, pinned_message_id, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type"
     )
     .eq("id", id)
     .maybeSingle();
@@ -13531,7 +13536,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     const roomSelectColsDeferSeedNoNoticeBody =
       "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type";
     const roomSelectColsFull =
-      "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type";
+      "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, pinned_message_id, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type";
     const roomSelectForBootstrap =
       deferSecondaryRequested || isCriticalTier ? roomSelectColsDeferSeedNoNoticeBody : roomSelectColsFull;
     const roomQuery = (sb as any)

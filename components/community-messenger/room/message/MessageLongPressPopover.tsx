@@ -42,6 +42,10 @@ export type MessageLongPressPopoverProps = {
   onHideForMe: () => void;
   onDeleteForEveryone: () => void;
   onDeleteVoice?: () => void;
+  onPin?: () => void;
+  pinLabel?: string;
+  pinDisabled?: boolean;
+  showPin?: boolean;
 };
 
 export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
@@ -291,6 +295,17 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
           deleteForMe={deleteForMe}
           deleteForEveryone={deleteForEveryone}
           deleteVoiceHard={deleteVoiceHard}
+          pin={
+            props.showPin && props.onPin
+              ? {
+                  label: props.pinLabel ?? "",
+                  disabled: Boolean(props.pinDisabled),
+                  onClick: () => {
+                    props.onPin?.();
+                  },
+                }
+              : undefined
+          }
         />
       </div>
     </div>

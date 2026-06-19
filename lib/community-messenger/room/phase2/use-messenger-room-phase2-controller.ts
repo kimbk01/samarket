@@ -51,6 +51,7 @@ import {
 import { buildCommunityMessengerInternalShareClipboard } from "@/lib/community-messenger/message-actions/message-internal-share-card";
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
 import { communityMessengerGroupRoomApiPath } from "@/lib/community-messenger/group/group-room-deeplink";
+import { useGroupRoomInviteLink } from "@/lib/community-messenger/group/use-group-room-invite-link";
 import { forgetMessengerRoomClientBootstrapFlights } from "@/lib/community-messenger/room/messenger-room-bootstrap-refresh";
 import { messengerMonitorMessageRtt } from "@/lib/community-messenger/monitoring/client";
 import {
@@ -299,6 +300,7 @@ export function useMessengerRoomPhase2Controller() {
   } = phase1;
 
   const [attachmentConfirmDraft, setAttachmentConfirmDraft] = useState<MessengerAttachmentConfirmDraft | null>(null);
+  const [privateGroupAvatarUrl, setPrivateGroupAvatarUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const rid = roomId?.trim();
@@ -349,6 +351,7 @@ export function useMessengerRoomPhase2Controller() {
     privateGroupNotice,
     canEditGroupNotice,
     canEditPrivateGroupMeta,
+    canPinGroupMessage,
     canManageGroupPermissions,
     canManageMemberRoles,
     canKickGroupMembers,
@@ -368,6 +371,8 @@ export function useMessengerRoomPhase2Controller() {
     t,
     callPanel,
   });
+
+  const groupInviteLink = useGroupRoomInviteLink(streamRoomId, Boolean(isPrivateGroupRoom && snapshot));
 
   useEffect(() => {
     /* 스냅샷 로딩 전에는 activeCall 을 알 수 없음 — null 로 dispose 하면 미니화(detached) 연결까지 끊긴다 */
@@ -652,6 +657,7 @@ export function useMessengerRoomPhase2Controller() {
     }
     if (!isPrivateGroupRoom) return;
     setPrivateGroupTitle(snapshot.room.title);
+    setPrivateGroupAvatarUrl(snapshot.room.avatarUrl ?? null);
     setGroupAllowMemberInvite(snapshot.room.allowMemberInvite !== false);
     setGroupAllowAdminInvite(snapshot.room.allowAdminInvite !== false);
     setGroupAllowAdminKick(snapshot.room.allowAdminKick !== false);
@@ -683,7 +689,10 @@ export function useMessengerRoomPhase2Controller() {
       const res = await fetch(`${communityMessengerGroupRoomApiPath(streamRoomId)}/profile`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: privateGroupTitle }),
+        body: JSON.stringify({
+          title: privateGroupTitle,
+          avatarUrl: privateGroupAvatarUrl,
+        }),
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
@@ -700,6 +709,7 @@ export function useMessengerRoomPhase2Controller() {
     getRoomActionErrorMessage,
     isPrivateGroupRoom,
     privateGroupTitle,
+    privateGroupAvatarUrl,
     redirectIfMessengerAuthBlocked,
     refresh,
     streamRoomId,
@@ -1808,6 +1818,121 @@ export function useMessengerRoomPhase2Controller() {
     ]
   );
 
+  const uploadPrivateGroupAvatar = useCallback(
+    async (file: File) => {
+      if (!isPrivateGroupRoom || !canEditPrivateGroupMeta) return;
+      setBusy("private-group-avatar");
+      try {
+        const fd = new FormData();
+        fd.set("file", file);
+        const uploadRes = await fetch("/api/me/profile/avatar", { method: "POST", body: fd, credentials: "include" });
+        const uploadJson = (await uploadRes.json().catch(() => ({}))) as { ok?: boolean; url?: string };
+        if (!uploadRes.ok || !uploadJson.ok || !uploadJson.url) {
+          showMessengerSnackbar(getRoomActionErrorMessage(), { variant: "error" });
+          return;
+        }
+        setPrivateGroupAvatarUrl(uploadJson.url);
+        const patchRes = await fetch(`${communityMessengerGroupRoomApiPath(streamRoomId)}/profile`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ avatarUrl: uploadJson.url }),
+        });
+        const patchJson = (await patchRes.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        if (!patchRes.ok || !patchJson.ok) {
+          if (redirectIfMessengerAuthBlocked(patchRes, patchJson)) return;
+          showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(patchJson)), { variant: "error" });
+          return;
+        }
+        await refresh(true);
+        showMessengerSnackbar(translateCmUi("nav_messenger_save_room_settings"), { variant: "success" });
+      } finally {
+        setBusy(null);
+      }
+    },
+    [
+      canEditPrivateGroupMeta,
+      getRoomActionErrorMessage,
+      isPrivateGroupRoom,
+      redirectIfMessengerAuthBlocked,
+      refresh,
+      streamRoomId,
+    ]
+  );
+
+  const copyGroupInviteLink = useCallback(async () => {
+    const url = groupInviteLink.state.inviteUrl;
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      showMessengerSnackbar(t("cm_ui_copied_success"), { variant: "success" });
+    } catch {
+      showMessengerSnackbar(t("cm_ui_copy_failed"), { variant: "error" });
+    }
+  }, [groupInviteLink.state.inviteUrl, t]);
+
+  const regenerateGroupInviteLink = useCallback(async () => {
+    if (!isPrivateGroupRoom) return;
+    setBusy("group-invite");
+    try {
+      const res = await fetch(`${communityMessengerGroupRoomApiPath(streamRoomId)}/regenerate-link`, {
+        method: "POST",
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        inviteToken?: string;
+        inviteUrl?: string;
+        error?: string;
+      };
+      if (!res.ok || !json.ok) {
+        if (redirectIfMessengerAuthBlocked(res, json)) return;
+        showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
+        return;
+      }
+      groupInviteLink.setState({
+        inviteToken: json.inviteToken?.trim() || null,
+        inviteUrl: json.inviteUrl?.trim() || null,
+        enabled: true,
+      });
+      showMessengerSnackbar(t("cm_ui_group_invite_regenerate"), { variant: "success" });
+    } finally {
+      setBusy(null);
+    }
+  }, [
+    getRoomActionErrorMessage,
+    groupInviteLink,
+    isPrivateGroupRoom,
+    redirectIfMessengerAuthBlocked,
+    streamRoomId,
+    t,
+  ]);
+
+  const disableGroupInviteLink = useCallback(async () => {
+    if (!isPrivateGroupRoom) return;
+    setBusy("group-invite");
+    try {
+      const res = await fetch(`${communityMessengerGroupRoomApiPath(streamRoomId)}/invite-link`, {
+        method: "DELETE",
+      });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || !json.ok) {
+        if (redirectIfMessengerAuthBlocked(res, json)) return;
+        showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
+        return;
+      }
+      groupInviteLink.setState({ inviteToken: null, inviteUrl: null, enabled: false });
+      showMessengerSnackbar(t("cm_ui_group_invite_disable"), { variant: "success" });
+    } finally {
+      setBusy(null);
+    }
+  }, [
+    getRoomActionErrorMessage,
+    groupInviteLink,
+    isPrivateGroupRoom,
+    redirectIfMessengerAuthBlocked,
+    streamRoomId,
+    t,
+  ]);
+
   const removeGroupMember = useCallback(
     async (targetUserId: string, label: string) => {
       if (!window.confirm(t("cm_ui_confirm_remove_group_member", { name: label }))) return;
@@ -2232,6 +2357,7 @@ export function useMessengerRoomPhase2Controller() {
     privateGroupNotice,
     canEditGroupNotice,
     canEditPrivateGroupMeta,
+    canPinGroupMessage,
     canManageGroupPermissions,
     canManageMemberRoles,
     canKickGroupMembers,
@@ -2265,6 +2391,14 @@ export function useMessengerRoomPhase2Controller() {
     startManagedDirectCall,
     saveOpenGroupSettings,
     savePrivateGroupSettings,
+    privateGroupAvatarUrl,
+    setPrivateGroupAvatarUrl,
+    uploadPrivateGroupAvatar,
+    groupInviteLinkState: groupInviteLink.state,
+    groupInviteLinkLoading: groupInviteLink.loading,
+    copyGroupInviteLink,
+    regenerateGroupInviteLink,
+    disableGroupInviteLink,
     pinGroupMessage,
     leaveRoom,
     openMembersForOwnerTransfer,

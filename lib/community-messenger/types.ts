@@ -160,6 +160,8 @@ export type CommunityMessengerRoomSummary = {
   requiresPassword: boolean;
   allowMemberInvite: boolean;
   noticeText?: string;
+  /** private_group P1 — pinned notice message id (Kakao-style banner) */
+  pinnedMessageId?: string | null;
   noticeUpdatedAt?: string | null;
   noticeUpdatedBy?: string | null;
   allowAdminInvite?: boolean;
