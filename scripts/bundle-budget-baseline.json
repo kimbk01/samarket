@@ -1,11 +1,11 @@
 {
-  "recordedAt": "2026-06-18",
+  "recordedAt": "2026-06-19",
   "recordedFrom": "npm run check:bundle:update-baseline",
   "metrics": {
-    "total_client_js_kb": 18887,
-    "messenger_home_js_kb": 3879,
-    "messenger_room_js_kb": 3886,
-    "messenger_call_js_kb": 5510
+    "total_client_js_kb": 19460,
+    "messenger_home_js_kb": 3931,
+    "messenger_room_js_kb": 3937,
+    "messenger_call_js_kb": 5556
   },
   "growth_slack_kb": {
     "total_client_js": 500,
@@ -15,8 +15,8 @@
   },
   "top_chunks": [
     {
-      "path": ".next/static/chunks/a2d2ff3649f65b0a.js",
-      "kb": 1534
+      "path": ".next/static/chunks/7c21d6493c9890c9.js",
+      "kb": 1542
     },
     {
       "path": ".next/static/chunks/254f30e6cd6f178b.js",
@@ -31,53 +31,53 @@
       "kb": 1473
     },
     {
-      "path": ".next/static/chunks/fda854d77e872289.js",
-      "kb": 335
+      "path": ".next/static/chunks/62226b0bc4c89ea3.js",
+      "kb": 351
     },
     {
-      "path": ".next/static/chunks/cb961e406bd344e5.js",
-      "kb": 258
-    },
-    {
-      "path": ".next/static/chunks/529698128d692c12.js",
-      "kb": 250
+      "path": ".next/static/chunks/4e945d83fa86db86.js",
+      "kb": 291
     },
     {
       "path": ".next/static/chunks/00a68db08414d08c.js",
       "kb": 219
     },
     {
-      "path": ".next/static/chunks/cecdde9464615cb7.js",
-      "kb": 181
+      "path": ".next/static/chunks/cc652bbff46b1221.js",
+      "kb": 209
+    },
+    {
+      "path": ".next/static/chunks/a4dbb73f10a48478.js",
+      "kb": 186
     },
     {
       "path": ".next/static/chunks/9f5ce8b8f91b3575.js",
       "kb": 167
     },
     {
-      "path": ".next/static/chunks/0e15c351f49ecb97.js",
-      "kb": 160
+      "path": ".next/static/chunks/37bc09573d9343b9.js",
+      "kb": 163
     },
     {
-      "path": ".next/static/chunks/54d1884f9e0085cb.js",
+      "path": ".next/static/chunks/0e15c351f49ecb97.js",
       "kb": 160
     }
   ],
   "provenance": {
     "measurement_version": 1,
-    "recorded_at_iso": "2026-06-18T21:55:14.672Z",
-    "build_id": "dgRO-8cEt_I8GZFvbQJSx",
-    "chunk_file_count": 530,
+    "recorded_at_iso": "2026-06-19T20:59:55.983Z",
+    "build_id": "XFBldLjaQPOT2czCRUL6s",
+    "chunk_file_count": 541,
     "bytes": {
-      "total_client_js": 19340407,
-      "messenger_home_js": 3972332,
-      "messenger_room_js": 3979183,
-      "messenger_call_js": 5641768
+      "total_client_js": 19926603,
+      "messenger_home_js": 4024863,
+      "messenger_room_js": 4031714,
+      "messenger_call_js": 5689236
     },
     "messenger_refs": {
-      "home": 54,
-      "room": 56,
-      "call": 58
+      "home": 52,
+      "room": 54,
+      "call": 56
     }
   }
 }
