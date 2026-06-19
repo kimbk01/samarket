@@ -32,11 +32,6 @@ import {
   markIncomingCallSurfaceConsumed,
   releaseIncomingCallSurface,
 } from "@/lib/community-messenger/incoming-call-surface-owner";
-import {
-  hideCallConnectingSurface,
-  requestCallConnectingSurface,
-} from "@/lib/community-messenger/call-connecting-surface/call-connecting-surface-store";
-import { writeIncomingCallPeerSnapshotFromSession } from "@/lib/community-messenger/call-connecting-surface/incoming-call-peer-snapshot";
 
 export type IncomingCallGatewayRouter = {
   replace: (href: string) => void;
@@ -175,7 +170,6 @@ export async function runNativePendingAcceptCall(
 
   const session = await fetchCommunityMessengerCallSessionByIdClient(sid);
   if (!session) {
-    hideCallConnectingSurface(sid, "session_fetch_failed");
     logDibayCall("accept_failed", { sessionId: sid, callId: sid, source, reason: "session_fetch_failed" });
     return { ok: false, sessionId: sid, reason: "session_fetch_failed" };
   }
@@ -256,8 +250,6 @@ export async function runIncomingCallAccept(args: RunIncomingCallAcceptArgs): Pr
 
   unlockCommunityMessengerCallPlaybackFromUserGesture();
   rememberCallNavigationReturnPath();
-  writeIncomingCallPeerSnapshotFromSession(s, args.source);
-  requestCallConnectingSurface(sid, args.source);
   primeCommunityMessengerCallNavigationSeed(sid, s);
   primeCommunityMessengerCallConnectionPrefetch(sid);
 
@@ -274,7 +266,6 @@ export async function runIncomingCallAccept(args: RunIncomingCallAcceptArgs): Pr
       reason: "duplicate_accept_blocked",
       source: args.source,
     });
-    hideCallConnectingSurface(sid, "duplicate_accept_blocked");
     return { ok: false, sessionId: sid, reason: "duplicate_accept_blocked" };
   }
 
@@ -285,7 +276,6 @@ export async function runIncomingCallAccept(args: RunIncomingCallAcceptArgs): Pr
     const permission = await ensureCallMediaForUserGesture(s.callKind);
     if (!permission.ok) {
       setDibayCallSessionPhase(sid, "incoming");
-      hideCallConnectingSurface(sid, "permission_denied");
       logDibayCall("accept_failed", { sessionId: sid, callId: sid, source: args.source, reason: "permission_denied" });
       return { ok: false, sessionId: sid, reason: "permission_denied" };
     }
@@ -302,7 +292,6 @@ export async function runIncomingCallAccept(args: RunIncomingCallAcceptArgs): Pr
     );
     if (!patched.ok || !patched.session) {
       setDibayCallSessionPhase(sid, "incoming");
-      hideCallConnectingSurface(sid, "patch_failed");
       logDibayCall("accept_failed", { sessionId: sid, callId: sid, source: args.source, reason: "patch_failed" });
       return { ok: false, sessionId: sid, reason: "patch_failed" };
     }
@@ -315,7 +304,6 @@ export async function runIncomingCallAccept(args: RunIncomingCallAcceptArgs): Pr
     logDibayCall("accept_success", { sessionId: sid, callId: sid, source: args.source });
 
     const updated = patched.session;
-    writeIncomingCallPeerSnapshotFromSession(updated, "accept_patch_ok");
     /** replace 직전 active 세션 시드 — ringing seed 로 첫 paint 가 IncomingCallView 로 튀는 것 방지 (P1-1b) */
     primeCommunityMessengerCallNavigationSeed(updated.id, updated);
     const phase = mapSessionStatusToActiveCallPhase(updated, false);
@@ -339,7 +327,6 @@ export async function runIncomingCallAccept(args: RunIncomingCallAcceptArgs): Pr
     return { ok: true, sessionId: sid };
   } catch {
     setDibayCallSessionPhase(sid, "incoming");
-    hideCallConnectingSurface(sid, "exception");
     logDibayCall("call_route_open_failed", { sessionId: sid, callId: sid, source: args.source });
     return { ok: false, sessionId: sid, reason: "exception" };
   } finally {

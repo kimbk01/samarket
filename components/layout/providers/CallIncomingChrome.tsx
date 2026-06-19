@@ -8,7 +8,6 @@ import { CallActiveSessionRecoveryHost } from "@/components/layout/providers/Cal
 import { CommunityMessengerActiveCallHost } from "@/components/layout/providers/CommunityMessengerActiveCallHost";
 import { DibayFcmCallRouteHost } from "@/components/layout/providers/DibayFcmCallRouteHost";
 import { DibayVoipCallBridgeHost } from "@/lib/push/native/dibay-voip-call-bridge";
-import { CallConnectingSurfaceHost } from "@/components/community-messenger/call-ui/CallConnectingSurfaceHost";
 
 const IncomingCallOverlay = dynamic(
   () =>
@@ -25,7 +24,6 @@ const IncomingCallOverlay = dynamic(
 export function CallIncomingChrome() {
   return (
     <CallProvider>
-      <CallConnectingSurfaceHost />
       <DibayFcmCallRouteHost />
       <DibayVoipCallBridgeHost />
       <CallActiveSessionRecoveryHost />

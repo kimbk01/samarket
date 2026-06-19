@@ -181,7 +181,6 @@ import {
   logCallLatencyMediaCleanupDone,
   logCallLatencyMediaCleanupStart,
 } from "@/lib/community-messenger/call-latency-trace";
-import { notifyCallScreenPaintedForConnectingSurface } from "@/lib/community-messenger/call-connecting-surface/call-connecting-surface-store";
 import {
   clearCommunityMessengerCallConnectionPrefetch,
   peekPrefetchedCommunityMessengerCallConnection,
@@ -1044,9 +1043,6 @@ export function CommunityMessengerCallClient({
       callKind: session.callKind,
       role: session.isMineInitiator ? "initiator" : "recipient",
     });
-    if (!session.isMineInitiator) {
-      notifyCallScreenPaintedForConnectingSurface(session.id);
-    }
     cmCallLatencyInfo("first_call_screen_painted", {
       sessionId: session.id,
       status: session.status,
@@ -4853,30 +4849,21 @@ export function CommunityMessengerCallClient({
   ]);
 
   if (loading && !session) {
-    const hydrateAcceptRoute =
-      requestedAction === "accept" || nativeAcceptRoute || searchParams.get("nativeAccept") === "1";
-    /** 수신 accept — CallConnectingSurfaceHost 가 UI 담당; 이중 hydrate(통화/발신형) 금지 */
-    if (hydrateAcceptRoute) {
-      return (
-        <div
-          className="relative flex min-h-0 flex-1 flex-col overflow-hidden"
-          aria-hidden="true"
-          data-call-client-accept-deferred="1"
-        />
-      );
-    }
-    /** 시드 없이 진입한 짧은 구간 — 발신 tmp_·kind 쿼리 로딩 껍데기 */
+    /** 시드 없이 진입한 짧은 구간 — 발신 tmp_·kind 쿼리·수신 accept route 로딩 껍데기 */
     const dismissHydrate = () => navigateBackFromCommunityMessengerCall(router, null);
     const hydrateKind = searchParams.get("kind") === "video" ? "video" : "voice";
+    const hydrateAcceptRoute =
+      requestedAction === "accept" || nativeAcceptRoute || searchParams.get("nativeAccept") === "1";
     const hydrateVm: CallScreenViewModel = {
       visualTheme: "starbucks",
       mode: hydrateKind,
-      direction: "outgoing",
-      phase: "ringing",
+      direction: hydrateAcceptRoute ? "incoming" : "outgoing",
+      phase: hydrateAcceptRoute ? "connecting" : "ringing",
       peerLabel: t("cm_ui_call_label"),
       peerAvatarUrl: null,
-      statusText:
-        hydrateKind === "video"
+      statusText: hydrateAcceptRoute
+        ? t("cm_ui_connecting")
+        : hydrateKind === "video"
           ? t("cm_ui_outgoing_video_dialing")
           : t("cm_ui_outgoing_voice_dialing"),
       subStatusText: t("cm_ui_call_loading_session"),
@@ -4905,7 +4892,7 @@ export function CommunityMessengerCallClient({
         },
       ],
       mainVideoSlot:
-        hydrateKind === "video" ? (
+        !hydrateAcceptRoute && hydrateKind === "video" ? (
           <HydrateOutgoingVideoPreview loadingLabel={t("common_loading")} />
         ) : undefined,
       showRemoteVideo: false,
