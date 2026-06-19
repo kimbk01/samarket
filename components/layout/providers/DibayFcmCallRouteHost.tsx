@@ -6,11 +6,17 @@ import {
   clearDibayCallPendingRoute,
   readDibayCallPendingRoute,
 } from "@/lib/community-messenger/dibay-fcm-call-bridge";
+import {
+  isNativeIncomingHydrateRoute,
+  readIncomingCallVisibilityState,
+  shouldReplayCallPendingRoute,
+} from "@/lib/community-messenger/incoming-call-ui-policy";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 import { onCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { shouldReplaceRoute } from "@/lib/push/push-route-policy";
 import {
   clearNativePersistedCallPendingRoute,
+  getNativeIncomingCallPlugin,
   readNativePersistedCallPendingRoute,
 } from "@/lib/push/native/push-route-native-bridge";
 import {
@@ -47,15 +53,62 @@ function resolveNativeAcceptSource(path: string): "native_notification_accept" |
 export function DibayFcmCallRouteHost() {
   const router = useRouter();
   const lastRouteRef = useRef<{ path: string; at: number } | null>(null);
+  const nativeForegroundIncomingCallIdRef = useRef<string | null>(null);
+  const capacitorAppActiveRef = useRef(true);
 
   useLayoutEffect(() => {
     if (!isCapacitorNativePlatform()) return;
 
     let mounted = true;
+    let removeAppStateListener: (() => void) | undefined;
 
-    const navigate = (rawPath: string) => {
+    const readRoutePolicyContext = async () => {
+      let capacitorAppActive = capacitorAppActiveRef.current;
+      try {
+        const { App } = await import("@capacitor/app");
+        const state = await App.getState();
+        capacitorAppActive = state.isActive;
+        capacitorAppActiveRef.current = state.isActive;
+      } catch {
+        /* best-effort */
+      }
+
+      let nativeForegroundIncomingCallId = nativeForegroundIncomingCallIdRef.current;
+      try {
+        const plugin = await getNativeIncomingCallPlugin();
+        const res = await plugin?.getForegroundIncomingCallId();
+        nativeForegroundIncomingCallId = res?.callId?.trim() || null;
+        nativeForegroundIncomingCallIdRef.current = nativeForegroundIncomingCallId;
+      } catch {
+        /* best-effort */
+      }
+
+      return {
+        capacitorAppActive,
+        visibilityState: readIncomingCallVisibilityState(),
+        nativeForegroundIncomingCallId,
+      };
+    };
+
+    const navigate = async (rawPath: string) => {
       const path = rawPath.trim();
       if (!path.startsWith("/community-messenger/calls/")) return;
+
+      const policyCtx = await readRoutePolicyContext();
+      const replay = shouldReplayCallPendingRoute(path, policyCtx);
+      if (!replay.allow) {
+        if (isNativeIncomingHydrateRoute(path)) {
+          clearDibayCallPendingRoute();
+          void clearNativePersistedCallPendingRoute();
+        }
+        logDibayCall("pending_route_deferred", {
+          path,
+          sessionId: extractDibayCallSessionIdFromPath(path) ?? undefined,
+          source: replay.reason,
+        });
+        console.info("[call-route] pending_route_deferred", { path, reason: replay.reason });
+        return;
+      }
 
       const now = Date.now();
       if (!dibayRouteLaneAllow(path)) {
@@ -120,17 +173,36 @@ export function DibayFcmCallRouteHost() {
     };
 
     const consumePendingRoutes = async () => {
+      const policyCtx = await readRoutePolicyContext();
       const sessionPending = readDibayCallPendingRoute();
       if (sessionPending) {
+        const replay = shouldReplayCallPendingRoute(sessionPending, policyCtx);
+        if (!replay.allow) {
+          console.info("[call-route] pending_route_deferred", {
+            path: sessionPending,
+            source: "session",
+            reason: replay.reason,
+          });
+          return;
+        }
         console.info("[call-route] pending_route_replayed", { path: sessionPending, source: "session" });
-        navigate(sessionPending);
+        await navigate(sessionPending);
         return;
       }
       const nativePending = await readNativePersistedCallPendingRoute();
       if (!mounted) return;
       if (nativePending) {
+        const replay = shouldReplayCallPendingRoute(nativePending.path, policyCtx);
+        if (!replay.allow) {
+          console.info("[call-route] pending_route_deferred", {
+            path: nativePending.path,
+            source: "native",
+            reason: replay.reason,
+          });
+          return;
+        }
         console.info("[call-route] pending_route_replayed", { path: nativePending.path, source: "native" });
-        navigate(nativePending.path);
+        await navigate(nativePending.path);
       }
     };
 
@@ -152,18 +224,49 @@ export function DibayFcmCallRouteHost() {
       const path = detail?.path?.trim();
       if (!path) return;
       console.info("[call-route] notification_tap_received", { path });
-      navigate(path);
+      void navigate(path);
+    };
+
+    const onForegroundIncomingUi = (event: Event) => {
+      const detail = (event as CustomEvent<{ type?: string; sessionId?: string; visible?: boolean }>).detail;
+      if (detail?.type !== "foreground_incoming_ui") return;
+      const sessionId = detail.sessionId?.trim() ?? "";
+      nativeForegroundIncomingCallIdRef.current =
+        detail.visible !== false && sessionId ? sessionId : null;
     };
 
     window.addEventListener("dibay:call-route", onCallRoute);
+    window.addEventListener("dibay:call-event", onForegroundIncomingUi);
     window.addEventListener("focus", maybeConsumeOnResume);
     document.addEventListener("visibilitychange", maybeConsumeOnResume);
+
+    void (async () => {
+      try {
+        const { App } = await import("@capacitor/app");
+        const sub = await App.addListener("appStateChange", ({ isActive }) => {
+          capacitorAppActiveRef.current = isActive;
+          if (isActive) void consumePendingRoutes();
+        });
+        if (!mounted) {
+          void sub.remove();
+          return;
+        }
+        removeAppStateListener = () => {
+          void sub.remove();
+        };
+      } catch {
+        /* best-effort */
+      }
+    })();
+
     return () => {
       mounted = false;
       offTerminal();
       window.removeEventListener("dibay:call-route", onCallRoute);
+      window.removeEventListener("dibay:call-event", onForegroundIncomingUi);
       window.removeEventListener("focus", maybeConsumeOnResume);
       document.removeEventListener("visibilitychange", maybeConsumeOnResume);
+      removeAppStateListener?.();
     };
   }, [router]);
 

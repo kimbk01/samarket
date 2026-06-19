@@ -76,6 +76,7 @@ export type DibayCallLogStep =
   | "active_session_resume_from_native"
   | "task_removed_keep_foreground_service"
   | "notification_resume_route"
+  | "pending_route_deferred"
   | "call_history_start_lock_acquired"
   | "call_history_start_lock_reused"
   | "call_history_start_blocked_active_call"

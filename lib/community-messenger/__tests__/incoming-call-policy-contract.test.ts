@@ -64,10 +64,11 @@ describe("incoming-call policy contracts", () => {
     expect(src).toContain("일반 `action=accept` 는 아직 PATCH 가 필요");
   });
 
-  it("RouteHost consumes pending call route on resume", () => {
+  it("RouteHost defers native_push hydrate routes until foreground", () => {
     const src = read("components/layout/providers/DibayFcmCallRouteHost.tsx");
-    expect(src).toContain("visibilitychange");
-    expect(src).toContain("maybeConsumeOnResume");
+    expect(src).toContain("shouldReplayCallPendingRoute");
+    expect(src).toContain("pending_route_deferred");
+    expect(src).toContain("isNativeIncomingHydrateRoute");
   });
 
   it("banner expand opens preview route without accept PATCH", () => {

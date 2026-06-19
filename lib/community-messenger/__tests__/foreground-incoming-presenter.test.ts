@@ -201,12 +201,13 @@ describe("foreground-incoming-presenter", () => {
       incomingTabLeader: true,
       visibilityState: "visible",
       isAppForeground: true,
+      capacitorAppActive: true,
       preferNativeAndroidForegroundIncoming: true,
       nativeForegroundIncomingCallId: "call-1",
     });
 
     expect(decision.shouldRender).toBe(false);
-    expect(decision.reason).toBe("native_foreground_primary");
+    expect(decision.reason).toBe("native_foreground_pill_active");
   });
 
   it("always suppresses web banner on Android foreground (native pill is sole surface)", () => {
@@ -220,12 +221,32 @@ describe("foreground-incoming-presenter", () => {
       incomingTabLeader: true,
       visibilityState: "visible",
       isAppForeground: true,
+      capacitorAppActive: true,
       preferNativeAndroidForegroundIncoming: true,
       nativeForegroundIncomingCallId: null,
     });
 
     expect(decision.shouldRender).toBe(false);
     expect(decision.reason).toBe("native_foreground_primary");
+  });
+
+  it("suppresses web banner when app is background on Capacitor", () => {
+    const incoming = ringingSession("call-1");
+    const decision = resolveForegroundIncomingPresentation({
+      sessions: [incoming],
+      pathname: "/community-messenger",
+      viewerUserId: "self",
+      viewerLiveSessionId: null,
+      tombstone,
+      incomingTabLeader: true,
+      visibilityState: "hidden",
+      isCapacitorNative: true,
+      capacitorAppActive: false,
+      preferNativeAndroidForegroundIncoming: true,
+    });
+
+    expect(decision.shouldRender).toBe(false);
+    expect(decision.reason).toBe("native_background_or_lock");
   });
 
   it("ForegroundIncomingCallHost uses body portal and banner z layer", () => {

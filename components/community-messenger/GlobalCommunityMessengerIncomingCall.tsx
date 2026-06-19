@@ -162,6 +162,7 @@ import {
 import {
   isIncomingCallWindowForeground,
   readIncomingCallVisibilityState,
+  resolveIncomingAppForeground,
   shouldRunIncomingCallBackupHttpRequest,
 } from "@/lib/community-messenger/incoming-call-ui-policy";
 import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
@@ -255,6 +256,8 @@ export function GlobalCommunityMessengerIncomingCall() {
   const [incomingVisibilityState, setIncomingVisibilityState] = useState<
     "visible" | "hidden" | "prerender" | "unloaded"
   >(() => readIncomingCallVisibilityState());
+  /** Capacitor App.isActive — WebView visibility 보완 (bg/lock web suppress) */
+  const [capacitorAppActive, setCapacitorAppActive] = useState<boolean | null>(null);
   /** 수신 목록 GET 실패(이전 목록은 유지). 세션 거절 등 액션 실패는 별도 */
   const [incomingListError, setIncomingListError] = useState<string | null>(null);
   const seenIdsRef = useRef<Set<string>>(new Set());
@@ -998,7 +1001,10 @@ export function GlobalCommunityMessengerIncomingCall() {
       try {
         const { App } = await import("@capacitor/app");
         if (disposed) return;
+        const initial = await App.getState();
+        if (!disposed) setCapacitorAppActive(initial.isActive);
         const handle = await App.addListener("appStateChange", ({ isActive }) => {
+          setCapacitorAppActive(isActive);
           if (isActive) void syncNativeIncomingCallState();
         });
         removeListener = () => {
@@ -1013,6 +1019,16 @@ export function GlobalCommunityMessengerIncomingCall() {
       removeListener?.();
     };
   }, [userId, syncNativeIncomingCallState]);
+
+  const incomingAppForeground = useMemo(
+    () =>
+      resolveIncomingAppForeground({
+        isCapacitorNative: isCapacitorNativePlatform(),
+        visibilityState: incomingVisibilityState,
+        capacitorAppActive,
+      }),
+    [capacitorAppActive, incomingVisibilityState]
+  );
 
   /**
    * 폴링은 `realtime 미정상` 또는 `직통 ringing` 때만 켠다.
@@ -1692,7 +1708,7 @@ export function GlobalCommunityMessengerIncomingCall() {
         !shouldUseIncomingCallBrowserNotification({
           visibilityState: incomingVisibilityState,
           currentPathname: pathname,
-          isAppForeground: incomingVisibilityState === "visible",
+          isAppForeground: incomingAppForeground,
           sessionStatus: session.status,
           callKind: session.callKind,
         })
@@ -1716,7 +1732,7 @@ export function GlobalCommunityMessengerIncomingCall() {
       const stillRinging = sessions.some((s) => s.id === id && s.status === "ringing");
       if (!stillRinging) incomingCallBrowserNotifiedIdsRef.current.delete(id);
     }
-  }, [incomingVisibilityState, pathname, sessions, userId]);
+  }, [incomingAppForeground, incomingVisibilityState, pathname, sessions, userId]);
 
   /** ringing 이 목록에서 사라졌을 때(타임아웃 부재 등) 부재 사운드 — 사용자가 거절/수락한 경우는 제외 */
   useEffect(() => {
@@ -1804,13 +1820,17 @@ export function GlobalCommunityMessengerIncomingCall() {
         tombstone: buildCallTombstoneContext(hardClearedIncomingSessionsAtRef.current),
         incomingTabLeader,
         visibilityState: incomingVisibilityState,
-        isAppForeground: incomingVisibilityState === "visible",
+        isAppForeground: incomingAppForeground,
+        capacitorAppActive,
+        isCapacitorNative: isCapacitorNativePlatform(),
         foregroundWakeSessionIds,
         preferNativeAndroidForegroundIncoming: isCapacitorNativePlatform(),
         nativeForegroundIncomingCallId,
       }),
     [
+      capacitorAppActive,
       foregroundWakeSessionIds,
+      incomingAppForeground,
       incomingTabLeader,
       incomingVisibilityState,
       nativeForegroundIncomingCallId,

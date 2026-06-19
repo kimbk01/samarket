@@ -10,6 +10,10 @@ import {
   resolveOverlayBusyLiveSessionId,
   shouldHideGlobalIncomingOverlayForSession,
 } from "@/lib/community-messenger/incoming-call-surface";
+import {
+  resolveIncomingAppForeground,
+  shouldSuppressWebIncomingPresenter,
+} from "@/lib/community-messenger/incoming-call-ui-policy";
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 
 export type ForegroundIncomingPresenterSurface = "none" | "top-banner";
@@ -34,6 +38,9 @@ export type ForegroundIncomingPresenterInput = {
   incomingTabLeader: boolean;
   visibilityState?: "visible" | "hidden" | "prerender" | "unloaded" | null;
   isAppForeground?: boolean;
+  /** Capacitor App.isActive — WebView visibility 보완 */
+  capacitorAppActive?: boolean | null;
+  isCapacitorNative?: boolean;
   /** FCM/native foreground wake 로 등록된 callId — stale ringing 보다 우선 */
   foregroundWakeSessionIds?: ReadonlySet<string> | null;
   /** Android Capacitor — 앱 안 foreground 수신은 Native pill 1차 */
@@ -176,7 +183,35 @@ export function resolveForegroundIncomingPresentation(
   }
 
   const visibilityState = input.visibilityState ?? "visible";
-  const isAppForeground = input.isAppForeground ?? visibilityState === "visible";
+  const isCapacitorNative =
+    input.isCapacitorNative ?? input.preferNativeAndroidForegroundIncoming === true;
+  const isAppForeground =
+    input.isAppForeground ??
+    resolveIncomingAppForeground({
+      isCapacitorNative,
+      visibilityState,
+      capacitorAppActive: input.capacitorAppActive,
+    });
+
+  const suppress = shouldSuppressWebIncomingPresenter({
+    isCapacitorNative,
+    visibilityState,
+    capacitorAppActive: input.capacitorAppActive,
+    nativeForegroundIncomingCallId: input.nativeForegroundIncomingCallId,
+    incomingSessionId: session.id,
+    preferNativeAndroidForegroundIncoming: input.preferNativeAndroidForegroundIncoming,
+  });
+  if (suppress.suppress) {
+    return {
+      sessionId: session.id,
+      session,
+      surface: "none",
+      reason: suppress.reason,
+      shouldRender: false,
+      selectedRingingSessionId,
+    };
+  }
+
   const resolvedSurface = resolveIncomingCallSurface({
     visibilityState,
     currentPathname: pathname,
@@ -192,17 +227,6 @@ export function resolveForegroundIncomingPresentation(
       session,
       surface: "none",
       reason: `incoming_surface_not_banner:${resolvedSurface}`,
-      shouldRender: false,
-      selectedRingingSessionId,
-    };
-  }
-
-  if (input.preferNativeAndroidForegroundIncoming && isAppForeground) {
-    return {
-      sessionId: session.id,
-      session,
-      surface: "none",
-      reason: "native_foreground_primary",
       shouldRender: false,
       selectedRingingSessionId,
     };
