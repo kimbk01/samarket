@@ -56,6 +56,7 @@ public class MainActivity extends BridgeActivity {
   private static volatile boolean appVisible = false;
   private static volatile MainActivity activeInstance = null;
 
+  private DibayWebSafeAreaBridge webSafeAreaBridge;
   private DibayWebViewPermissionDelegate webViewPermissionDelegate;
   private String pendingAppPath = null;
   private String pendingNotificationId = null;
@@ -494,6 +495,8 @@ public class MainActivity extends BridgeActivity {
     registerPlugin(com.dibay.app.call.DibayCallAudioRoutePlugin.class);
     registerPlugin(com.dibay.app.call.NativeCallServicePlugin.class);
     super.onCreate(savedInstanceState);
+    webSafeAreaBridge = new DibayWebSafeAreaBridge(this);
+    webSafeAreaBridge.attach();
     Log.i(WEBVIEW_LOG_TAG, "app_start package=" + getPackageName());
     String serverOrigin = DibayServerOrigin.resolve(this);
     Log.i(WEBVIEW_LOG_TAG, "capacitor_server_url=" + (serverOrigin != null ? serverOrigin : "(missing)"));
@@ -528,6 +531,9 @@ public class MainActivity extends BridgeActivity {
     activeInstance = this;
     attachDibayWebChromeClient();
     attachDibayWebViewClient();
+    if (webSafeAreaBridge != null) {
+      webSafeAreaBridge.refreshIfPossible();
+    }
     flushPendingAppPathIfAny();
     scheduleFlushPendingTerminalEvents();
     String callId = DibayActiveCallSessionManager.getActiveCallId();
@@ -652,6 +658,9 @@ public class MainActivity extends BridgeActivity {
           pendingMainFrameUrl = url;
           mainHandler.removeCallbacks(webViewLoadTimeoutRunnable);
           hideWebViewLoadErrorOverlay();
+          if (webSafeAreaBridge != null) {
+            webSafeAreaBridge.refreshIfPossible();
+          }
         });
   }
 
