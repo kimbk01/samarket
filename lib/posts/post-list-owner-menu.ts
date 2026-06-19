@@ -3,7 +3,9 @@ import {
   allowSoftDelete,
   deriveTradeLifecycleStatus,
   tradeLifecycleHint,
+  tradeLifecycleHintKey,
 } from "@/lib/trade/trade-lifecycle-policy";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 export type PostListOwnerMenuInput = {
   author_id?: string | null;
@@ -42,6 +44,16 @@ export function ownerEditLockedFromPost(post: PostListOwnerMenuInput): boolean {
 /** 삭제 메뉴 비활성 (판매중·초안만 삭제 가능) */
 export function ownerDeleteLockedFromPost(post: PostListOwnerMenuInput): boolean {
   return !allowSoftDelete(lifecycleFromPost(post));
+}
+
+export function ownerEditLockHintKey(post: PostListOwnerMenuInput): MessageKey | null {
+  if (!ownerEditLockedFromPost(post)) return null;
+  return tradeLifecycleHintKey(lifecycleFromPost(post)) ?? "ui_post_owner_edit_locked_default";
+}
+
+export function ownerDeleteLockHintKey(post: PostListOwnerMenuInput): MessageKey | null {
+  if (!ownerDeleteLockedFromPost(post)) return null;
+  return "ui_post_owner_delete_locked_hint";
 }
 
 export function ownerEditLockHint(post: PostListOwnerMenuInput): string {

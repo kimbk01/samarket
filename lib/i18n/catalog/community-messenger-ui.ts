@@ -487,6 +487,14 @@ export const communityMessengerUiMessages = {
     cm_ui_keypad: "자판",
     cm_ui_leave: "나가기",
     cm_ui_leave_chat_room: "채팅방 나가기",
+    cm_ui_leave_confirm_aria: "채팅방 나가기 확인",
+    cm_ui_leave_confirm_group:
+      "채팅방을 나가면 대화 목록에서 삭제되며, 다시 참여하려면 초대가 필요합니다. 나가시겠습니까?",
+    cm_ui_leave_confirm_trade:
+      "거래 채팅에서 나가면 상대방 화면에 따라 대화가 제한될 수 있습니다. 나가시겠습니까?",
+    cm_ui_leave_confirm_direct: "대화를 나가면 내 목록에서만 삭제됩니다. 나가시겠습니까?",
+    cm_ui_swipe_mark_read: "읽음",
+    cm_ui_swipe_restore: "복원",
     cm_ui_leave_first_greeting: "첫 인사를 남겨보세요.",
     cm_ui_list_is_empty: "목록이 비어 있습니다.",
     cm_ui_loading_conversation: "대화 불러오는 중",
@@ -1454,6 +1462,14 @@ export const communityMessengerUiMessages = {
     cm_ui_keypad: "Keypad",
     cm_ui_leave: "Leave",
     cm_ui_leave_chat_room: "Leave chat room",
+    cm_ui_leave_confirm_aria: "Confirm leaving chat room",
+    cm_ui_leave_confirm_group:
+      "If you leave, this chat will be removed from your list and you'll need an invite to rejoin. Leave anyway?",
+    cm_ui_leave_confirm_trade:
+      "Leaving may limit the conversation on the other side's screen. Leave anyway?",
+    cm_ui_leave_confirm_direct: "Leaving will only remove this chat from your list. Leave anyway?",
+    cm_ui_swipe_mark_read: "Read",
+    cm_ui_swipe_restore: "Restore",
     cm_ui_leave_first_greeting: "Leave the first greeting.",
     cm_ui_list_is_empty: "List is empty.",
     cm_ui_loading_conversation: "Loading conversation",

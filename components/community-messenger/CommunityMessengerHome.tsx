@@ -123,7 +123,8 @@ import {
   parseCommunityMessengerMarkReadResponse,
 } from "@/lib/community-messenger/room/community-messenger-mark-read-fetch";
 import { CommunityMessengerHomeReturnConsume } from "@/components/community-messenger/CommunityMessengerHomeReturnConsume";
-import { getSwipeLeaveConfirmMessage } from "@/lib/messenger-policy/chat-room-swipe-actions";
+import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
+import { getSwipeLeaveConfirmI18nKey } from "@/lib/messenger-policy/chat-room-swipe-actions";
 import { toMessengerPolicyRoomType } from "@/lib/messenger-policy/messenger-policy-room-type";
 import { defaultTradeChatRoomHref } from "@/lib/chats/trade-chat-notification-href";
 import {
@@ -646,6 +647,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     listContext: MessengerChatListContext;
     anchorRect: MessengerMenuAnchorRect | null;
   } | null>(null);
+  const [leaveConfirmRoom, setLeaveConfirmRoom] = useState<CommunityMessengerRoomSummary | null>(null);
   const [openedSwipeItemId, setOpenedSwipeItemId] = useState<string | null>(null);
   const [openedMenuItemId, setOpenedMenuItemId] = useState<string | null>(null);
   const [messengerOverlayGeneration, setMessengerOverlayGeneration] = useState(0);
@@ -2671,36 +2673,48 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     }
   }, [t]);
 
-  const leaveMessengerRoom = useCallback(
-    async (room: CommunityMessengerRoomSummary) => {
-      const policy = toMessengerPolicyRoomType({
-        roomType: room.roomType,
-        contextMeta: room.contextMeta ?? null,
+  const leaveConfirmI18nKey = useMemo(() => {
+    if (!leaveConfirmRoom) return null;
+    const policy = toMessengerPolicyRoomType({
+      roomType: leaveConfirmRoom.roomType,
+      contextMeta: leaveConfirmRoom.contextMeta ?? null,
+    });
+    return getSwipeLeaveConfirmI18nKey(policy);
+  }, [leaveConfirmRoom]);
+
+  const cancelLeaveMessengerRoom = useCallback(() => {
+    setLeaveConfirmRoom(null);
+  }, []);
+
+  const executeLeaveMessengerRoom = useCallback(async () => {
+    const room = leaveConfirmRoom;
+    if (!room) return;
+    setLeaveConfirmRoom(null);
+    const roomId = room.id;
+    setBusyId(`room-leave:${roomId}`);
+    setActionError(null);
+    removeRoomFromBootstrapState(roomId);
+    try {
+      const res = await fetch(`${communityMessengerRoomResourcePath(roomId)}/leave`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quiet: false }),
       });
-      if (!window.confirm(getSwipeLeaveConfirmMessage(policy))) return;
-      const roomId = room.id;
-      setBusyId(`room-leave:${roomId}`);
-      setActionError(null);
-      removeRoomFromBootstrapState(roomId);
-      try {
-        const res = await fetch(`${communityMessengerRoomResourcePath(roomId)}/leave`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ quiet: false }),
-        });
-        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-        if (res.ok && json.ok) {
-          setRoomActionSheet(null);
-        } else {
-          setActionError(getMessengerActionErrorMessage(json.error ?? "leave_failed"));
-          void refresh(true);
-        }
-      } finally {
-        setBusyId(null);
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (res.ok && json.ok) {
+        setRoomActionSheet(null);
+      } else {
+        setActionError(getMessengerActionErrorMessage(json.error ?? "leave_failed"));
+        void refresh(true);
       }
-    },
-    [getMessengerActionErrorMessage, refresh, removeRoomFromBootstrapState]
-  );
+    } finally {
+      setBusyId(null);
+    }
+  }, [getMessengerActionErrorMessage, leaveConfirmRoom, refresh, removeRoomFromBootstrapState]);
+
+  const leaveMessengerRoom = useCallback((room: CommunityMessengerRoomSummary) => {
+    setLeaveConfirmRoom(room);
+  }, []);
 
   const clearLocalRoomPreview = useCallback((roomId: string) => {
     invalidateRoomSnapshot(roomId);
@@ -3511,6 +3525,24 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           onJoinAliasAvatarUrlChange={setJoinAliasAvatarUrl}
           joinAliasBio={joinAliasBio}
           onJoinAliasBioChange={setJoinAliasBio}
+        />
+      ) : null}
+
+      {leaveConfirmRoom && leaveConfirmI18nKey ? (
+        <MobileConfirmBottomSheet
+          open
+          onCancel={cancelLeaveMessengerRoom}
+          title={t("cm_ui_leave_chat_room")}
+          description={t(leaveConfirmI18nKey)}
+          cancelLabel={t("common_cancel")}
+          confirmLabel={t("cm_ui_leave")}
+          confirmTone="danger"
+          onConfirm={() => {
+            void executeLeaveMessengerRoom();
+          }}
+          zIndexClass="z-[70]"
+          ariaLabel={t("cm_ui_leave_confirm_aria")}
+          interactionMode="blocking"
         />
       ) : null}
 

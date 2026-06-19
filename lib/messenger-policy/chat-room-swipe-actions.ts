@@ -1,4 +1,5 @@
 import type { MessengerChatListContext } from "@/lib/community-messenger/messenger-ia";
+import type { MessageKey } from "@/lib/i18n/messages";
 import type { MessengerPolicyRoomType } from "@/lib/messenger-policy/messenger-policy-room-type";
 
 /** @deprecated `MessengerChatListContext` 사용 권장 */
@@ -8,7 +9,7 @@ export type MessengerSwipeActionKind = "archive" | "read" | "leave";
 
 export type MessengerSwipeActionDef = {
   kind: MessengerSwipeActionKind;
-  label: string;
+  labelKey: MessageKey;
   disabled: boolean;
 };
 
@@ -24,25 +25,26 @@ export function getSwipeActions(input: {
   const { listContext } = input;
   if (listContext === "open_chat") {
     return [
-      { kind: "read", label: "읽음", disabled: false },
-      { kind: "leave", label: "나가기", disabled: false },
+      { kind: "read", labelKey: "cm_ui_swipe_mark_read", disabled: false },
+      { kind: "leave", labelKey: "cm_ui_leave", disabled: false },
     ];
   }
-  const archiveLabel = listContext === "archive" ? "복원" : "보관";
+  const archiveLabelKey = listContext === "archive" ? "cm_ui_swipe_restore" : "cm_ui_archive";
   return [
-    { kind: "archive", label: archiveLabel, disabled: false },
-    { kind: "read", label: "읽음", disabled: false },
-    { kind: "leave", label: "나가기", disabled: false },
+    { kind: "archive", labelKey: archiveLabelKey, disabled: false },
+    { kind: "read", labelKey: "cm_ui_swipe_mark_read", disabled: false },
+    { kind: "leave", labelKey: "cm_ui_leave", disabled: false },
   ];
 }
 
-/** 스와이프 나가기 확인 문구 — room 정책별 */
-export function getSwipeLeaveConfirmMessage(policyType: MessengerPolicyRoomType): string {
-  if (policyType === "trade") {
-    return "거래 채팅에서 나가면 상대방 화면에 따라 대화가 제한될 수 있습니다. 나가시겠습니까?";
-  }
-  if (policyType === "group") {
-    return "채팅방을 나가면 대화 목록에서 삭제되며, 다시 참여하려면 초대가 필요합니다. 나가시겠습니까?";
-  }
-  return "대화를 나가면 내 목록에서만 삭제됩니다. 나가시겠습니까?";
+export type MessengerSwipeLeaveConfirmKey =
+  | "cm_ui_leave_confirm_trade"
+  | "cm_ui_leave_confirm_group"
+  | "cm_ui_leave_confirm_direct";
+
+/** 스와이프 나가기 확인 i18n key — room 정책별 */
+export function getSwipeLeaveConfirmI18nKey(policyType: MessengerPolicyRoomType): MessengerSwipeLeaveConfirmKey {
+  if (policyType === "trade") return "cm_ui_leave_confirm_trade";
+  if (policyType === "group") return "cm_ui_leave_confirm_group";
+  return "cm_ui_leave_confirm_direct";
 }

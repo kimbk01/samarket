@@ -1,5 +1,22 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { isMutualFriend } from "@/lib/community-messenger/social-relations";
+
+const root = join(process.cwd());
+
+function read(path: string): string {
+  return readFileSync(join(root, path), "utf8");
+}
+
+describe("me relations hidden SSOT contract", () => {
+  it("hidden list route uses user_relationships not user_hides", () => {
+    const src = read("app/api/me/relations/[type]/route.ts");
+    expect(src).toContain("listHiddenUserRelationshipRows");
+    expect(src).toContain("removeHiddenUserRelationshipById");
+    expect(src).not.toContain("user_hides");
+  });
+});
 
 describe("isMutualFriend (contract)", () => {
   it("is exported for approval-based friend checks", () => {

@@ -674,7 +674,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                         vm.openMembersForOwnerTransfer();
                         return;
                       }
-                      void vm.leaveRoom();
+                      void vm.requestLeaveRoom();
                     }}
                     disabled={vm.busy === "leave-room"}
                     className="w-full rounded-ui-rect border border-red-200 bg-sam-surface px-4 py-3 text-left sam-text-body font-semibold text-red-700 disabled:opacity-40"
@@ -1170,7 +1170,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                               vm.setActiveSheet("members");
                               return;
                             }
-                            void vm.leaveRoom();
+                            void vm.requestLeaveRoom();
                           }}
                           disabled={vm.busy === "leave-room"}
                           className="rounded-ui-rect border border-red-200 bg-sam-surface px-4 py-3 text-left sam-text-body-secondary font-semibold text-red-700 disabled:opacity-40"
@@ -1453,7 +1453,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                         <div className="mt-3 flex justify-end">
                           <button
                             type="button"
-                            onClick={() => void vm.leaveRoom()}
+                            onClick={() => void vm.requestLeaveRoom()}
                             disabled={vm.busy === "leave-room"}
                             className="rounded-ui-rect border border-red-200 bg-sam-surface px-4 py-3 sam-text-body-secondary font-semibold text-red-700 disabled:opacity-40"
                           >

@@ -208,6 +208,68 @@ export async function listBlockedByMeIds(ownerUserId: string): Promise<string[]>
   return [...ids];
 }
 
+export type HiddenUserRelationshipRow = {
+  id: string;
+  targetUserId: string;
+  createdAt: string;
+};
+
+/** CM·마이페이지 숨김 SSOT — `user_relationships.relation_type=hidden` */
+export async function listHiddenUserRelationshipRows(
+  ownerUserId: string
+): Promise<HiddenUserRelationshipRow[]> {
+  const owner = trimText(ownerUserId);
+  if (!owner) return [];
+  const sb = getSupabaseOrNull();
+  if (!sb) return [];
+
+  const { data, error } = await (sb as any)
+    .from("user_relationships")
+    .select("id, target_user_id, created_at")
+    .eq("user_id", owner)
+    .or("relation_type.eq.hidden,type.eq.hidden")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    if (isMissingTableError(error)) return [];
+    return [];
+  }
+
+  return ((data ?? []) as Array<{ id?: string; target_user_id?: string; created_at?: string }>)
+    .map((row) => ({
+      id: trimText(row.id),
+      targetUserId: trimText(row.target_user_id),
+      createdAt: trimText(row.created_at),
+    }))
+    .filter((row) => row.id && row.targetUserId);
+}
+
+export async function removeHiddenUserRelationshipById(
+  ownerUserId: string,
+  relationId: string
+): Promise<{ ok: boolean; error?: string }> {
+  const owner = trimText(ownerUserId);
+  const id = trimText(relationId);
+  if (!owner || !id) return { ok: false, error: "bad_target" };
+  const sb = getSupabaseOrNull();
+  if (!sb) return { ok: false, error: "supabase_unavailable" };
+
+  const { error } = await (sb as any)
+    .from("user_relationships")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", owner)
+    .or("relation_type.eq.hidden,type.eq.hidden");
+
+  if (error) {
+    if (isMissingTableError(error)) return { ok: true };
+    return { ok: false, error: String(error.message ?? "hidden_remove_failed") };
+  }
+
+  logSocialRelationEvent("social_relation_hidden_removed", { ownerUserId: owner, relationId: id });
+  return { ok: true };
+}
+
 async function fetchProfileCallPolicy(
   sb: NonNullable<ReturnType<typeof getSupabaseOrNull>>,
   userId: string

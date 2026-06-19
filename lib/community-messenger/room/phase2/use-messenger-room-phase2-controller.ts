@@ -760,8 +760,18 @@ export function useMessengerRoomPhase2Controller() {
     snapshot,
   ]);
 
+  const [leaveRoomConfirmOpen, setLeaveRoomConfirmOpen] = useState(false);
+
+  const requestLeaveRoom = useCallback(() => {
+    setLeaveRoomConfirmOpen(true);
+  }, []);
+
+  const cancelLeaveRoomConfirm = useCallback(() => {
+    setLeaveRoomConfirmOpen(false);
+  }, []);
+
   const leaveRoom = useCallback(async () => {
-    if (!window.confirm(t("nav_messenger_leave_group_confirm"))) return;
+    setLeaveRoomConfirmOpen(false);
     setBusy("leave-room");
     try {
       const res = await fetch(`${communityMessengerRoomResourcePath(streamRoomId)}/leave`, {
@@ -2401,6 +2411,9 @@ export function useMessengerRoomPhase2Controller() {
     disableGroupInviteLink,
     pinGroupMessage,
     leaveRoom,
+    leaveRoomConfirmOpen,
+    requestLeaveRoom,
+    cancelLeaveRoomConfirm,
     openMembersForOwnerTransfer,
     openInfoSheet,
     sendRawText,

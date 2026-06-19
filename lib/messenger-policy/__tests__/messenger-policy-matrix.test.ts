@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { canSendMessageInRoom } from "@/lib/messenger-policy/chat-room-permission";
 import { evaluateTradeMessagingForMessengerRoom } from "@/lib/messenger-policy/load-trade-product-chat-exit-for-room";
 import { getRoomUiStateAfterLeave, leavePolicyMetaForRoom } from "@/lib/messenger-policy/chat-room-exit-policy";
-import { getSwipeActions, getSwipeLeaveConfirmMessage } from "@/lib/messenger-policy/chat-room-swipe-actions";
+import { getSwipeActions, getSwipeLeaveConfirmI18nKey } from "@/lib/messenger-policy/chat-room-swipe-actions";
 import { toMessengerPolicyRoomType } from "@/lib/messenger-policy/messenger-policy-room-type";
 
 const pc = (
@@ -111,16 +111,16 @@ describe("getRoomUiStateAfterLeave", () => {
   });
 });
 
-describe("getSwipeActions / getSwipeLeaveConfirmMessage", () => {
+describe("getSwipeActions / getSwipeLeaveConfirmI18nKey", () => {
   it("returns three actions with archive restore label in archive tab", () => {
     const a = getSwipeActions({ policyType: "trade", listContext: "archive" });
     expect(a.map((x) => x.kind)).toEqual(["archive", "read", "leave"]);
-    expect(a[0].label).toBe("복원");
+    expect(a[0].labelKey).toBe("cm_ui_swipe_restore");
   });
-  it("confirm copy differs by policy type", () => {
-    expect(getSwipeLeaveConfirmMessage("trade")).toContain("거래");
-    expect(getSwipeLeaveConfirmMessage("group")).toContain("초대");
-    expect(getSwipeLeaveConfirmMessage("direct")).toContain("내 목록");
+  it("confirm key differs by policy type", () => {
+    expect(getSwipeLeaveConfirmI18nKey("trade")).toBe("cm_ui_leave_confirm_trade");
+    expect(getSwipeLeaveConfirmI18nKey("group")).toBe("cm_ui_leave_confirm_group");
+    expect(getSwipeLeaveConfirmI18nKey("direct")).toBe("cm_ui_leave_confirm_direct");
   });
 });
 

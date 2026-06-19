@@ -351,7 +351,7 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
       }}
       onToggleMute={() => void vm.toggleRoomMute()}
       onToggleArchive={() => void vm.toggleRoomArchive()}
-      onLeaveRoom={() => void vm.leaveRoom()}
+      onLeaveRoom={() => void vm.requestLeaveRoom()}
     />
   );
 }

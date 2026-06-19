@@ -1009,7 +1009,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
             disabled={swipeActionDisabled(action.kind)}
             className={`flex w-[78px] items-center justify-center px-2 sam-text-helper font-semibold text-white disabled:opacity-50 ${swipeActionSurfaceClass(action.kind)}`}
           >
-            {action.label}
+            {t(action.labelKey)}
           </button>
         ))}
       </div>

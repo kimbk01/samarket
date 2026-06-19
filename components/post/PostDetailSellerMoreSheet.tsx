@@ -2,7 +2,6 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useEffect, useState } from "react";
-import { SELLER_CANCEL_SALE_CONFIRM_MESSAGE } from "@/lib/posts/seller-cancel-sale-ui";
 
 function IconPencil({ className }: { className?: string }) {
   return (
@@ -109,7 +108,7 @@ export function PostDetailSellerMoreSheet({
             className="flex w-full items-center gap-3 rounded-ui-rect px-3 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-surface disabled:cursor-not-allowed disabled:opacity-45"
           >
             <IconPencil className="h-5 w-5 text-sam-muted" />
-            수정
+            {t("common_edit")}
           </button>
           <button
             type="button"
@@ -123,18 +122,18 @@ export function PostDetailSellerMoreSheet({
             className="flex w-full items-center gap-3 rounded-ui-rect px-3 py-2.5 text-left sam-text-body text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-45"
           >
             <IconTrash className="h-5 w-5 text-red-500" />
-            삭제
+            {t("common_delete")}
           </button>
           <button
             type="button"
             disabled={busy}
             onClick={() => {
-              if (!window.confirm(SELLER_CANCEL_SALE_CONFIRM_MESSAGE)) return;
+              if (!window.confirm(t("mypage_comp_product_cancel_sale_confirm"))) return;
               onCancelSale();
             }}
             className="mt-2 flex w-full items-center justify-center rounded-ui-rect bg-red-600 px-3 py-3 sam-text-body font-semibold text-white hover:bg-red-700 disabled:opacity-50"
           >
-            물품 판매 취소
+            {t("mypage_comp_product_cancel_sale")}
           </button>
           <button
             type="button"
@@ -142,7 +141,7 @@ export function PostDetailSellerMoreSheet({
             disabled={busy}
             className="mt-2 w-full rounded-ui-rect border border-sam-border bg-sam-surface py-2.5 sam-text-body font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50"
           >
-            닫기
+            {t("common_close")}
           </button>
         </div>
       </div>

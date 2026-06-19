@@ -4,8 +4,11 @@ import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenge
 import { MessageLongPressPopover } from "@/components/community-messenger/room/message/MessageLongPressPopover";
 import { CallStubActionPopover } from "@/components/community-messenger/room/message/CallStubActionPopover";
 import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
+import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { getSwipeLeaveConfirmI18nKey } from "@/lib/messenger-policy/chat-room-swipe-actions";
+import { toMessengerPolicyRoomType } from "@/lib/messenger-policy/messenger-policy-room-type";
 
 export function CommunityMessengerRoomPhase2MessageOverlays() {
   const { t } = useI18n();
@@ -19,6 +22,15 @@ export function CommunityMessengerRoomPhase2MessageOverlays() {
     vm.call.busy === "call-start" ||
     vm.call.busy === "device-prepare" ||
     vm.call.busy === "call-accept";
+
+  const leaveConfirmI18nKey = vm.snapshot
+    ? getSwipeLeaveConfirmI18nKey(
+        toMessengerPolicyRoomType({
+          roomType: vm.snapshot.room.roomType,
+          contextMeta: vm.snapshot.room.contextMeta ?? null,
+        })
+      )
+    : "cm_ui_leave_confirm_direct";
 
   return (
     <>
@@ -118,6 +130,23 @@ export function CommunityMessengerRoomPhase2MessageOverlays() {
           onConfirm={() => {
             void vm.confirmCallStubOutgoing();
           }}
+        />
+      ) : null}
+      {vm.leaveRoomConfirmOpen ? (
+        <MobileConfirmBottomSheet
+          open
+          onCancel={vm.cancelLeaveRoomConfirm}
+          title={t("cm_ui_leave_chat_room")}
+          description={t(leaveConfirmI18nKey)}
+          cancelLabel={t("common_cancel")}
+          confirmLabel={t("cm_ui_leave")}
+          confirmTone="danger"
+          onConfirm={() => {
+            void vm.leaveRoom();
+          }}
+          zIndexClass="z-[70]"
+          ariaLabel={t("cm_ui_leave_confirm_aria")}
+          interactionMode="blocking"
         />
       ) : null}
     </>

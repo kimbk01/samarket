@@ -64,9 +64,9 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import { shouldBlockNewItemChatForBuyer } from "@/lib/trade/reserved-item-chat";
 import { POST_DETAIL_SELLER_ANCHOR_ID } from "@/lib/posts/post-detail-anchors";
 import {
-  ownerDeleteLockHint,
+  ownerDeleteLockHintKey,
   ownerDeleteLockedFromPost,
-  ownerEditLockHint,
+  ownerEditLockHintKey,
   ownerEditLockedFromPost,
 } from "@/lib/posts/post-list-owner-menu";
 import { resolveTradePostListingLocationLine } from "@/lib/posts/post-listing-location-label";
@@ -1872,8 +1872,14 @@ export function PostDetailView({
         busy={sellerSheetBusy}
         editLocked={sellerSheetEditLocked}
         deleteLocked={sellerSheetDeleteLocked}
-        editLockHint={ownerEditLockHint(ownerMenuPost)}
-        deleteLockHint={ownerDeleteLockHint(ownerMenuPost)}
+        editLockHint={(() => {
+          const key = ownerEditLockHintKey(ownerMenuPost);
+          return key ? t(key) : "";
+        })()}
+        deleteLockHint={(() => {
+          const key = ownerDeleteLockHintKey(ownerMenuPost);
+          return key ? t(key) : "";
+        })()}
       />
       <OfferModal
         open={offerModalOpen}

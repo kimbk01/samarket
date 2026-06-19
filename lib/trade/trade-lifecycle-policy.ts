@@ -1,4 +1,5 @@
 import { normalizeSellerListingState } from "@/lib/products/seller-listing-state";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 /** 거래 글 통합 라이프사이클 (posts + meta + seller_listing_state 기반) */
 export type TradeLifecycleStatus =
@@ -165,6 +166,19 @@ export function tradeLifecycleHint(status: TradeLifecycleStatus): string | null 
       return "거래 진행중입니다. 가격 및 조건 수정이 불가능합니다.";
     case "completed":
       return "거래 완료된 게시글입니다.";
+    default:
+      return null;
+  }
+}
+
+export function tradeLifecycleHintKey(status: TradeLifecycleStatus): MessageKey | null {
+  switch (status) {
+    case "negotiating":
+      return "ui_post_lifecycle_hint_negotiating";
+    case "in_progress":
+      return "ui_post_lifecycle_hint_in_progress";
+    case "completed":
+      return "ui_post_lifecycle_hint_completed";
     default:
       return null;
   }
