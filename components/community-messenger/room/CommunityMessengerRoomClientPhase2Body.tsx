@@ -317,10 +317,25 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
     room.snapshot.room.id,
   ]);
 
-  const view: MessengerRoomPhase2ViewModel = {
-    ...room,
-    snapshot: room.snapshot as CommunityMessengerRoomSnapshot,
-  };
+  const view = useMemo(
+    (): MessengerRoomPhase2ViewModel => ({
+      ...room,
+      snapshot: room.snapshot as CommunityMessengerRoomSnapshot,
+    }),
+    [
+      room,
+      room.snapshot,
+      room.roomMessages,
+      room.displayRoomMessages,
+      room.chatVirtualizer,
+      room.scrollMessengerToBottom,
+      room.updateStickToBottomFromScroll,
+      room.loading,
+      room.timelineInitialLoadComplete,
+      room.busy,
+      room.message,
+    ]
+  );
   const tradeViewerRole = useMemo(
     () => messengerTradeViewerRoleFromContextMeta(view.snapshot.room.contextMeta ?? undefined),
     [view.snapshot.room.contextMeta]

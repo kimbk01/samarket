@@ -198,7 +198,6 @@ export function CommunityMessengerRoomClientInner(props: {
     <MessengerRoomClientPhase1Context.Provider value={phase1}>
       {phase1.timelineHeavyLive ? (
         <MessengerRoomPhase1TimelineHeavyHost
-          key={`${phase1.roomId}:${phase1.timelineVirtualizerGeneration}`}
           {...phase1.timelineHeavyHostInput}
           onReady={phase1.onTimelineHeavyReady}
         />

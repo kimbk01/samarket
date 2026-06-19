@@ -19,7 +19,7 @@ import {
   isRoomSnapshotFreshWithin,
   peekRoomSnapshot,
 } from "@/lib/community-messenger/room-snapshot-cache";
-import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
+import type { CommunityMessengerMessage, CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { forgetSingleFlight, getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
 import { resolveCmRoomBootstrapFetchPriority, runCmBootstrapNetworkWork } from "@/lib/community-messenger/dev/cm-event-loop-dev";
 import {
@@ -65,7 +65,7 @@ import { isMessengerRoomTimelineBootstrapSeedComplete } from "@/lib/community-me
 import { isMessengerRoomBootstrapReadySnapshot } from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
 import { noteCmRoomR5BootstrapFingerprintSkip } from "@/lib/community-messenger/room/cm-room-r5-timeline-mount-instrumentation";
 import { mergeRoomMessages } from "@/components/community-messenger/room/community-messenger-room-helpers";
-import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
+import { roomMessagesTimelineFingerprint } from "@/lib/community-messenger/room/messenger-room-timeline-paint-model";
 import {
   isCmRoomEntryPriorityModeActive,
   logCmRoomBootstrapPatchOnly,
@@ -169,7 +169,11 @@ function applyPrimedTimelineSeed(
     if (prev.length === 0) {
       return msgs as Array<CommunityMessengerMessage & { pending?: boolean }>;
     }
-    return mergeRoomMessages(prev, msgs);
+    const next = mergeRoomMessages(prev, msgs);
+    if (roomMessagesTimelineFingerprint(prev) === roomMessagesTimelineFingerprint(next)) {
+      return prev;
+    }
+    return next;
   });
   return true;
 }

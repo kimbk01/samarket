@@ -147,7 +147,7 @@ import { useMessengerRoomLoadOlderMessagesFetch } from "@/lib/community-messenge
 import { useMessengerRoomLoadOlderMessagesIntersection } from "@/lib/community-messenger/room/use-messenger-room-load-older-messages-intersection";
 import { useMessengerRoomEagerOlderHistoryHydration } from "@/lib/community-messenger/room/use-messenger-room-eager-older-history-hydration";
 import { useMessengerRoomReaderScrollBottom } from "@/lib/community-messenger/room/use-messenger-room-reader-scroll-bottom";
-import { useMessengerRoomTradeDockScrollAnchor } from "@/lib/community-messenger/room/use-messenger-room-trade-dock-scroll-anchor";
+import { roomMessagesTimelineFingerprint } from "@/lib/community-messenger/room/messenger-room-timeline-paint-model";
 import { useMessengerRoomReaderScrollRoomLifecycle } from "@/lib/community-messenger/room/use-messenger-room-reader-scroll-room-lifecycle";
 import { useMessengerRoomVisibilityBusCatchup } from "@/lib/community-messenger/room/use-messenger-room-visibility-bus-catchup";
 import {
@@ -559,7 +559,6 @@ export function useMessengerRoomClientPhase1({
   const [roomReadyForRealtime, setRoomReadyForRealtime] = useState(false);
   /** R2-M8: viewport DOM 부착 후에만 virtualizer·파생 목록 마운트 (scroll root 없이 getVirtualItems()=[] 방지) */
   const [timelineViewportMounted, setTimelineViewportMounted] = useState(false);
-  const [timelineVirtualizerGeneration, setTimelineVirtualizerGeneration] = useState(0);
   const [timelineHeavyLive, setTimelineHeavyLive] = useState(false);
   const [timelineHeavyBundle, setTimelineHeavyBundle] = useState<MessengerRoomPhase1TimelineHeavyBundle | null>(
     null
@@ -575,9 +574,6 @@ export function useMessengerRoomClientPhase1({
 
   const notifyTimelineViewportMounted = useCallback((mounted: boolean) => {
     setTimelineViewportMounted(mounted);
-    if (mounted) {
-      setTimelineVirtualizerGeneration((g) => g + 1);
-    }
   }, []);
 
   useLayoutEffect(() => {
@@ -588,69 +584,28 @@ export function useMessengerRoomClientPhase1({
     setTimelineHeavyBundle(null);
   }, [roomId]);
 
-  /** scroll root 부착 후 heavy virtualizer — 시드·pass3 전에는 entry direct paint 우선(R7). */
+  /** scroll root 부착 후 heavy virtualizer — seed 있으면 동일 tick attach (tail slice·upgrade 없음). */
   useLayoutEffect(() => {
     if (!timelineViewportMounted) return;
-    const hasTimelineSeed =
-      roomMessages.length > 0 ||
-      (snapshot?.messages?.length ?? 0) > 0 ||
-      Boolean(snapshot?.room.lastMessage?.trim());
-    const rid = roomId.trim();
-    const entrySliceDefer =
-      hasTimelineSeed && roomMessages.length > CM_ROOM_ENTRY_SEED_PAINT_ROW_CAP;
     let cancelled = false;
     const attachHeavy = () => {
       if (cancelled) return;
       setTimelineHeavyLive(true);
+      const rid = roomId.trim();
       if (rid) noteCmRoomR6HeavyHostMount(rid);
     };
-    if (!hasTimelineSeed) {
-      attachHeavy();
-      return;
-    }
-    if (!entrySliceDefer) {
-      if (typeof requestIdleCallback === "function") {
-        const idleId = requestIdleCallback(attachHeavy, { timeout: 48 });
-        return () => {
-          cancelled = true;
-          cancelIdleCallback(idleId);
-        };
-      }
-      const rafId = requestAnimationFrame(() => {
-        requestAnimationFrame(attachHeavy);
-      });
+    if (typeof requestAnimationFrame === "function") {
+      const rafId = requestAnimationFrame(attachHeavy);
       return () => {
         cancelled = true;
         cancelAnimationFrame(rafId);
       };
     }
-    /**
-     * R11: timeline_rows_prepare→first_row_commit 구간에서 2.5s stall의 주원인이
-     * heavy host attach fallback timeout(2500ms)으로 확인되어, entry seed가 있으면
-     * direct seed row와 같은 tick(2x rAF)에서 heavy를 붙인다.
-     * DO NOT: API/bootstrap/unread/realtime 계약 변경.
-     */
-    pushCmR8PerfEvent(rid, "timeline_heavy_attach_scheduler", {
-      has_timeline_seed: hasTimelineSeed,
-      entry_slice_defer: entrySliceDefer,
-      scheduler_mode: "same_tick_raf",
-    });
-    const rafOuter = requestAnimationFrame(() => {
-      const rafInner = requestAnimationFrame(attachHeavy);
-      if (cancelled) cancelAnimationFrame(rafInner);
-    });
+    attachHeavy();
     return () => {
       cancelled = true;
-      cancelAnimationFrame(rafOuter);
     };
-  }, [
-    roomId,
-    roomMessages.length,
-    snapshot?.messages?.length,
-    snapshot?.room.lastMessage,
-    timelineViewportMounted,
-    timelineVirtualizerGeneration,
-  ]);
+  }, [roomId, timelineViewportMounted]);
 
   useEffect(() => {
     const viewerId = snapshot?.viewerUserId?.trim() || initialServerSnapshot?.viewerUserId?.trim() || "";
@@ -1516,6 +1471,9 @@ export function useMessengerRoomClientPhase1({
           directLayout: false,
         });
       }
+      if (roomMessagesTimelineFingerprint(prev) === roomMessagesTimelineFingerprint(next)) {
+        return prev;
+      }
       return next;
     });
   }, [snapshot]);
@@ -1730,6 +1688,8 @@ export function useMessengerRoomClientPhase1({
     messagesViewportRef,
     messageEndRef,
     roomMessages,
+    virtualizer: chatVirtualizer,
+    messageCount: displayRoomMessages.length,
     deferEntryScrollToDeliveryDirectTimeline: storeOrderDockScrollAnchorEnabled,
   });
 
@@ -1884,7 +1844,6 @@ export function useMessengerRoomClientPhase1({
   }
   return {
   timelineHeavyLive,
-  timelineVirtualizerGeneration,
   notifyTimelineViewportMounted,
   onTimelineHeavyReady,
   timelineHeavyHostInput: {

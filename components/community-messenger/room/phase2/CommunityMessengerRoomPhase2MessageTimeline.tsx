@@ -24,11 +24,17 @@ import {
   inferResolvedEventFromStoredCallStatus,
 } from "@/lib/community-messenger/call-event-message";
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
+import { MessengerRoomMessageListHost } from "@/components/community-messenger/room/MessengerRoomMessageListHost";
 import { MessengerTimelineVirtualRow } from "@/components/community-messenger/room/phase2/MessengerTimelineVirtualRow";
 import { MessengerRoomNewMessagesBelowChip } from "@/components/community-messenger/room/MessengerRoomNewMessagesBelowChip";
 import { StoreDeliveryBufferingSpinner } from "@/components/stores/StoreDeliveryBufferingSpinner";
 import { shouldShowMessengerRoomTimelineHydrationSkeleton } from "@/lib/community-messenger/room/messenger-room-timeline-hydration";
 import { resolveMessengerRoomTimelinePaintSource } from "@/lib/community-messenger/room/messenger-room-timeline-ssot";
+import {
+  buildMessengerRoomFallbackVirtualRows,
+  buildMessengerRoomTimelinePaintModel,
+  selectMessengerRoomVirtualRows,
+} from "@/lib/community-messenger/room/messenger-room-timeline-paint-model";
 import { resolveMessengerRoomTimelineLoadUi } from "@/lib/community-messenger/room/messenger-room-timeline-load-ui";
 import { MessengerImageLightbox } from "@/components/community-messenger/room/MessengerImageLightbox";
 import {
@@ -1095,35 +1101,16 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     [vm.setCallStubSheet]
   );
 
-  const virtualItemsForLayout = vm.chatVirtualizer.getVirtualItems();
-  const virtualizerHasMeasuredRangeRaw =
-    virtualItemsForLayout.length > 0 || vm.chatVirtualizer.getTotalSize() > 0;
-
-  /** R10 — virtualizer 측정 직후 DOM 스왑 금지: metadata·idle 후 1회만 direct 해제 */
-  const virtualizerHasMeasuredRangeForLayout =
-    hasStoreOrderDock || !holdDirectDom ? virtualizerHasMeasuredRangeRaw : false;
-
-  const useDirectTimelineLayout = resolveUseDirectMessengerTimelineLayout({
-    hydrationPass,
-    displayMessageCount: vm.displayRoomMessages.length,
-    seedMessageCount: vm.roomMessages.length,
-    hasStoreOrderDock,
-    hasStoreOrderTimeline,
-    virtualizerHasMeasuredRange: virtualizerHasMeasuredRangeForLayout,
-    entryReadyForVirtual: hasStoreOrderDock || hasStoreOrderTimeline || isMessengerRoomReadyForVirtualLayout(vm.streamRoomId),
-  });
-
-  const timelineRowsStackClass =
-    useDirectTimelineLayout && (hasStoreOrderDock || hasStoreOrderTimeline) ? "flex flex-col gap-3" : "";
-
-  const timelinePaintSource = useMemo(
+  const paintModel = useMemo(
     () =>
-      resolveMessengerRoomTimelinePaintSource({
+      buildMessengerRoomTimelinePaintModel({
         displayRoomMessages: vm.displayRoomMessages,
         roomMessages: vm.roomMessages,
         loading: vm.loading,
         timelineInitialLoadComplete: vm.timelineInitialLoadComplete,
         snapshot: vm.snapshot,
+        hasStoreOrderDock,
+        hasStoreOrderTimeline,
       }),
     [
       vm.displayRoomMessages,
@@ -1131,157 +1118,34 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
       vm.loading,
       vm.timelineInitialLoadComplete,
       vm.snapshot,
+      hasStoreOrderDock,
+      hasStoreOrderTimeline,
     ]
   );
 
-  const { paintMessages: timelinePaintMessages, entrySliceActive, seedRowsRenderedCount } = useMemo(
-    () => sliceTimelineEntryPaintMessages(timelinePaintSource, hydrationPass),
-    [hydrationPass, timelinePaintSource]
-  );
+  const useDirectTimelineLayout = paintModel.useDirectLayout;
+  const finalTimelinePaintMessages = paintModel.paintMessages;
+  const entrySliceActive = false;
+  const seedRowsRenderedCount = finalTimelinePaintMessages.length;
 
-  const finalTimelinePaintMessages = useMemo(() => {
-    if (!firstCommitRowsLocked) return timelinePaintMessages;
-    if (timelinePaintMessages.length > 0) {
-      if (!stableFirstCommitRowsRef.current) {
-        stableFirstCommitRowsRef.current = timelinePaintMessages;
-      }
-      return stableFirstCommitRowsRef.current;
-    }
-    return stableFirstCommitRowsRef.current ?? timelinePaintMessages;
-  }, [firstCommitRowsLocked, timelinePaintMessages]);
+  const timelineRowsStackClass =
+    useDirectTimelineLayout && (hasStoreOrderDock || hasStoreOrderTimeline) ? "flex flex-col gap-3" : "";
 
-  /**
-   * 일반 1:1·그룹 direct layout — FMV용 첫 행 freeze 후 전송·수신으로 목록이 늘어나면 즉시 unlock.
-   * (배달은 hasStoreOrderDock 분기에서 별도 unlock — 2026-05-24 회귀와 동일 클래스)
-   */
-  useLayoutEffect(() => {
-    if (!firstCommitRowsLocked) return;
-    const frozen = stableFirstCommitRowsRef.current;
-    if (!frozen || frozen.length === 0) return;
-    if (timelinePaintMessages.length > frozen.length) {
-      setFirstCommitRowsLocked(false);
-      setMessengerRoomFirstCommitRowsLocked(vm.streamRoomId, false);
-      return;
-    }
-    const frozenLastId = frozen[frozen.length - 1]?.id ?? "";
-    const liveLastId = timelinePaintMessages[timelinePaintMessages.length - 1]?.id ?? "";
-    const liveLastPending = Boolean(timelinePaintMessages[timelinePaintMessages.length - 1]?.pending);
-    if (liveLastId && (frozenLastId !== liveLastId || liveLastPending)) {
-      setFirstCommitRowsLocked(false);
-      setMessengerRoomFirstCommitRowsLocked(vm.streamRoomId, false);
-    }
-  }, [firstCommitRowsLocked, timelinePaintMessages]);
+  const virtualizerUpgradeDeferHeavy = false;
+  const virtualItemsForLayout = vm.chatVirtualizer.getVirtualItems();
+  const virtualizerHasMeasuredRangeForLayout =
+    !useDirectTimelineLayout &&
+    (virtualItemsForLayout.length > 0 || vm.chatVirtualizer.getTotalSize() > 0);
 
-  useEffect(() => {
-    if (hasStoreOrderDock) {
-      holdDirectDomRef.current = false;
-      setHoldDirectDom(false);
-      // 배달·주문 direct layout은 virtualizer upgrade 경로를 거치지 않아
-      // firstCommitRowsLocked가 해제되지 않는다. holdDirectDom 해제 시 함께 unlock.
-      setFirstCommitRowsLocked(false);
-      return;
-    }
-    if (!virtualizerHasMeasuredRangeRaw) return;
-    if (upgradeScheduleStartedRef.current) return;
-    if (finalTimelinePaintMessages.length <= 0 || hydrationPass < 3) return;
-    if (!isMessengerRoomReadyForVirtualLayout(vm.streamRoomId)) return;
-    upgradeScheduleStartedRef.current = true;
-
-    const st = getCmR9State(vm.streamRoomId);
-    st.upgradeStage = "scheduled";
-    if (st.virtualizerUpgradeScheduledMs == null) {
-      st.virtualizerUpgradeScheduledMs = nowFromT0Ms();
-    }
-    pushCmR8PerfEvent(vm.streamRoomId, "virtualizer_upgrade_scheduled", {
-      virtualizer_upgrade_scheduled_ms: st.virtualizerUpgradeScheduledMs,
-      upgrade_stage: st.upgradeStage,
-      rows_before_upgrade_count: finalTimelinePaintMessages.length,
-    });
-
-    let cancelled = false;
-    let raf2 = 0;
-    const raf1 = requestAnimationFrame(() => {
-      if (cancelled) return;
-      raf2 = requestAnimationFrame(() => {
-        if (cancelled) return;
-        const meta = getCmR9State(vm.streamRoomId);
-        meta.upgradeStage = "metadata";
-        meta.virtualizerRowMapStartMs = nowFromT0Ms();
-        void vm.chatVirtualizer.getVirtualItems();
-        void vm.chatVirtualizer.getTotalSize();
-        meta.virtualizerRowMapEndMs = nowFromT0Ms();
-        pushCmR8PerfEvent(vm.streamRoomId, "virtualizer_upgrade_metadata", {
-          virtualizer_row_map_start_ms: meta.virtualizerRowMapStartMs,
-          virtualizer_row_map_end_ms: meta.virtualizerRowMapEndMs,
-          upgrade_stage: meta.upgradeStage,
-        });
-
-        upgradeIdleCancelRef.current?.();
-        upgradeIdleCancelRef.current = scheduleCmR10IdleWork(() => {
-          if (cancelled) return;
-          if (!isMessengerRoomReadyForVirtualLayout(vm.streamRoomId)) return;
-          const commit = getCmR9State(vm.streamRoomId);
-          commit.upgradeStage = "virtualized";
-          commit.virtualizerUpgradeStartMs = nowFromT0Ms();
-          markMessengerRoomLayoutSettling(vm.streamRoomId, true);
-          holdDirectDomRef.current = false;
-          setHoldDirectDom(false);
-          setFirstCommitRowsLocked(false);
-          setMessengerRoomFirstCommitRowsLocked(vm.streamRoomId, false);
-        });
-      });
-    });
-
-    return () => {
-      cancelled = true;
-      cancelAnimationFrame(raf1);
-      if (raf2) cancelAnimationFrame(raf2);
-      upgradeIdleCancelRef.current?.();
-      upgradeIdleCancelRef.current = null;
-    };
-  }, [
-    finalTimelinePaintMessages.length,
-    hasStoreOrderDock,
-    hydrationPass,
-    virtualizerHasMeasuredRangeRaw,
-    vm.chatVirtualizer,
-    vm.streamRoomId,
-  ]);
-
-  const virtualizerUpgradeDeferHeavy =
-    !hasStoreOrderDock &&
-    (holdDirectDom || isCmR10VirtualizerUpgradeActive(vm.streamRoomId));
-
-  /** 가상 행 map 직전: 동일 sender `members.find` 반복을 줄이기 위한 아바타 캐시. cluster 간격 ms 는 가시 행에서만 `item`/`prev`로 계산한다. */
+  /** 가상 행 — hydration cap·upgrade tail slice 없음 */
   const cappedVirtualRows = useMemo(() => {
     if (useDirectTimelineLayout) return [];
-    const st = getCmR9State(vm.streamRoomId);
-    if (st.active && st.virtualizerRowMapStartMs == null) {
-      st.virtualizerRowMapStartMs = nowFromT0Ms();
-    }
     const virtualItems = vm.chatVirtualizer.getVirtualItems();
-    let selected = selectTimelineVirtualRows(virtualItems, hydrationPass);
-    if (st.active && selected.length > CM_R10_UPGRADE_TAIL_ROWS) {
-      selected = selected.slice(-CM_R10_UPGRADE_TAIL_ROWS);
-    }
-    if (st.active && st.virtualizerRowMapEndMs == null) {
-      st.virtualizerRowMapEndMs = nowFromT0Ms();
-    }
+    const selected = selectMessengerRoomVirtualRows(virtualItems);
     if (selected.length > 0) return selected;
     if (finalTimelinePaintMessages.length <= 0) return [];
-    const fallback = buildTimelineFallbackVirtualRows(finalTimelinePaintMessages, hydrationPass);
-    if (st.active && fallback.length > CM_R10_UPGRADE_TAIL_ROWS) {
-      return fallback.slice(-CM_R10_UPGRADE_TAIL_ROWS);
-    }
-    return fallback;
-  }, [
-    finalTimelinePaintMessages,
-    hydrationPass,
-    holdDirectDom,
-    useDirectTimelineLayout,
-    vm.chatVirtualizer,
-    vm.streamRoomId,
-  ]);
+    return buildMessengerRoomFallbackVirtualRows(finalTimelinePaintMessages);
+  }, [finalTimelinePaintMessages, useDirectTimelineLayout, vm.chatVirtualizer]);
 
   const timelineContentHeight = useMemo(() => {
     if (useDirectTimelineLayout) return 0;
@@ -1348,12 +1212,11 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     return rows;
   }, [cappedVirtualRows, finalTimelinePaintMessages, useDirectTimelineLayout, vm.streamRoomId]);
 
-  const prevUseDirectLayoutRef = useRef(useDirectTimelineLayout);
   useLayoutEffect(() => {
     logCmTimelineLayoutModeChanged(vm.streamRoomId, {
       directLayout: useDirectTimelineLayout,
       hydrationPass,
-      holdDirectDom: holdDirectDomRef.current,
+      holdDirectDom: false,
       measuredRange: virtualizerHasMeasuredRangeForLayout,
       rowCount: finalTimelinePaintMessages.length,
     });
@@ -1364,43 +1227,6 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     virtualizerHasMeasuredRangeForLayout,
     vm.streamRoomId,
   ]);
-
-  useLayoutEffect(() => {
-    const prevDirect = prevUseDirectLayoutRef.current;
-    prevUseDirectLayoutRef.current = useDirectTimelineLayout;
-    if (!prevDirect || useDirectTimelineLayout) return;
-    const st = getCmR9State(vm.streamRoomId);
-    const at = nowFromT0Ms();
-    st.active = true;
-    st.upgradeStage = "virtualized";
-    st.scrollAnchorDeferred = true;
-    st.virtualizerUpgradeBeginMs = at;
-    st.virtualizerUpgradeStartMs = at;
-    st.virtualizerUpgradeCommitStartMs = at;
-    st.rowsBeforeUpgradeCount = finalTimelinePaintMessages.length;
-    st.rowsAfterUpgradeCount = finalTimelinePaintMessages.length;
-    st.virtualItemsCount = vm.chatVirtualizer.getVirtualItems().length;
-    st.rowMeasureCount = 0;
-    st.avatarRenderCount = 0;
-    st.mediaDeferCount = 0;
-    st.linkPreviewDeferCount = 0;
-    st.rowsIdentityReplaceCount = rowsReplaceCountRef.current;
-    pushCmR8PerfEvent(vm.streamRoomId, "virtualizer_upgrade_begin", {
-      virtualizer_upgrade_begin_ms: st.virtualizerUpgradeBeginMs,
-      virtualizer_upgrade_start_ms: st.virtualizerUpgradeStartMs,
-      virtualizer_upgrade_commit_start_ms: st.virtualizerUpgradeCommitStartMs,
-      rows_before_upgrade_count: st.rowsBeforeUpgradeCount,
-      virtual_items_count: st.virtualItemsCount,
-      rows_replace_count: st.rowsIdentityReplaceCount,
-      upgrade_stage: st.upgradeStage,
-    });
-    logCmVirtualizerUpgradeBegin(vm.streamRoomId, {
-      hydrationPass,
-      holdDirectDom: holdDirectDomRef.current,
-      rowCount: finalTimelinePaintMessages.length,
-      measuredRange: virtualizerHasMeasuredRangeForLayout,
-    });
-  }, [finalTimelinePaintMessages.length, hydrationPass, useDirectTimelineLayout, virtualizerHasMeasuredRangeForLayout, vm.chatVirtualizer, vm.streamRoomId]);
 
   useEffect(() => {
     const renderSource = resolveCmRoomRenderSource({
@@ -1471,78 +1297,6 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     vm.snapshot.messages.length,
     vm.streamRoomId,
   ]);
-
-  useLayoutEffect(() => {
-    const st = getCmR9State(vm.streamRoomId);
-    if (!st.active || st.virtualizerUpgradeCommitEndMs != null) return;
-    if (useDirectTimelineLayout) return;
-    if (viewportPaintRecordedRef.current) {
-      const endMs = nowFromT0Ms();
-      st.virtualizerUpgradeCommitEndMs = endMs;
-      st.rowsAfterUpgradeCount = finalTimelinePaintMessages.length;
-      st.virtualItemsCount = vm.chatVirtualizer.getVirtualItems().length;
-      const commitSpanMs =
-        st.virtualizerUpgradeCommitStartMs != null && endMs != null
-          ? Math.max(0, endMs - st.virtualizerUpgradeCommitStartMs)
-          : null;
-      const measureSpanMs =
-        st.virtualizerMeasureBeginMs != null && st.virtualizerMeasureEndMs != null
-          ? Math.max(0, st.virtualizerMeasureEndMs - st.virtualizerMeasureBeginMs)
-          : 0;
-      const scrollSpanMs =
-        st.scrollAnchorRestoreBeginMs != null && st.scrollAnchorRestoreEndMs != null
-          ? Math.max(0, st.scrollAnchorRestoreEndMs - st.scrollAnchorRestoreBeginMs)
-          : 0;
-      let reason: CmR9UpgradeBlockerReason = "unknown";
-      const r10Blocker = classifyCmR10UpgradeBlocker(st);
-      if (measureSpanMs >= 120 || st.rowMeasureCount >= CM_R10_UPGRADE_MEASURE_CAP) {
-        reason = "virtualizer_measure_batch";
-      } else if (scrollSpanMs >= 120) reason = "scroll_anchor_restore";
-      else if (st.avatarRenderCount >= 8) reason = "avatar_profile_cluster";
-      else if (st.mediaDeferCount > 0 || st.linkPreviewDeferCount > 0) reason = "media_or_link_preview";
-      else if (st.rowsIdentityReplaceCount > 1) reason = "rows_identity_replace";
-      else if (st.layoutEffectCount >= 10) reason = "layout_effect_loop";
-      else if (st.rowMeasureCount > 0) reason = "row_component_render";
-      st.upgradeBlockerReason = reason;
-      st.virtualizerUpgradeBlocker = r10Blocker;
-      st.upgradeStage = "done";
-      st.scrollAnchorDeferred = false;
-      pushCmR8PerfEvent(vm.streamRoomId, "virtualizer_upgrade_commit_done", {
-        virtualizer_upgrade_start_ms: st.virtualizerUpgradeStartMs,
-        virtualizer_upgrade_commit_start_ms: st.virtualizerUpgradeCommitStartMs,
-        virtualizer_upgrade_commit_end_ms: st.virtualizerUpgradeCommitEndMs,
-        virtualizer_measure_start_ms: st.virtualizerMeasureBeginMs,
-        virtualizer_measure_end_ms: st.virtualizerMeasureEndMs,
-        virtualizer_row_map_start_ms: st.virtualizerRowMapStartMs,
-        virtualizer_row_map_end_ms: st.virtualizerRowMapEndMs,
-        virtualizer_scroll_anchor_start_ms: st.virtualizerScrollAnchorStartMs,
-        virtualizer_scroll_anchor_end_ms: st.virtualizerScrollAnchorEndMs,
-        scroll_anchor_restore_begin_ms: st.scrollAnchorRestoreBeginMs,
-        scroll_anchor_restore_end_ms: st.scrollAnchorRestoreEndMs,
-        rows_before_upgrade_count: st.rowsBeforeUpgradeCount,
-        rows_after_upgrade_count: st.rowsAfterUpgradeCount,
-        virtual_items_count: st.virtualItemsCount,
-        row_measure_count: st.rowMeasureCount,
-        measure_cap_skipped_count: st.measureCapSkippedCount,
-        avatar_render_count: st.avatarRenderCount,
-        media_defer_count: st.mediaDeferCount,
-        link_preview_defer_count: st.linkPreviewDeferCount,
-        commit_span_ms: commitSpanMs,
-        upgrade_blocker_reason: st.upgradeBlockerReason,
-        virtualizer_upgrade_blocker: st.virtualizerUpgradeBlocker,
-        upgrade_stage: st.upgradeStage,
-      });
-      st.active = false;
-      setFirstCommitRowsLocked(false);
-      markMessengerRoomLayoutSettling(vm.streamRoomId, false);
-      logCmVirtualizerUpgradeCommit(vm.streamRoomId, {
-        hydrationPass,
-        rowCount: finalTimelinePaintMessages.length,
-        virtualItemsCount: st.virtualItemsCount,
-        commitSpanMs,
-      });
-    }
-  }, [finalTimelinePaintMessages.length, hydrationPass, useDirectTimelineLayout, vm.chatVirtualizer, vm.streamRoomId]);
 
   const lastDisplayMessageId =
     vm.displayRoomMessages[vm.displayRoomMessages.length - 1]?.id ?? "";
@@ -1972,13 +1726,10 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
             </div>
           ) : null}
           {finalTimelinePaintMessages.length ? (
-            <div
-              className={`relative w-full ${timelineRowsStackClass}`}
-              style={
-                useDirectTimelineLayout || timelineContentHeight <= 0
-                  ? undefined
-                  : { height: timelineContentHeight }
-              }
+            <MessengerRoomMessageListHost
+              useDirectLayout={useDirectTimelineLayout}
+              contentHeight={timelineContentHeight}
+              stackClassName={timelineRowsStackClass}
             >
               {timelineRows.map((virtualRow, cappedMapIndex) => {
                 const index = virtualRow.index;
@@ -2167,7 +1918,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                   />
                 );
               })}
-            </div>
+            </MessengerRoomMessageListHost>
           ) : timelineLoadUi === "loading" && showTimelineHydrationSkeleton ? (
             <div
               className="flex min-h-[40vh] flex-col items-center justify-center py-16"

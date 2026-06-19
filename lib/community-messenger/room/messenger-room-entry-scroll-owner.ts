@@ -82,6 +82,7 @@ export function isMessengerRoomReadyForVirtualLayout(roomId: string): boolean {
 
 const ENTRY_SCROLL_REASONS = new Set<CmScrollOwnerReason>([
   "room_entry_initial",
+  "room_entry_restore",
   "timeline_delivery_direct_paint",
   "schedule_after_rows_painted",
 ]);

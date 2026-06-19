@@ -487,6 +487,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
       data-index={virtualIndex}
       ref={measureElement}
       data-cm-timeline-message-row=""
+      data-cm-message-id={String(item.id ?? "")}
       id={`cm-room-msg-${item.id}`}
       className={`${directLayout ? "relative" : "absolute left-0 top-0"} flex w-full flex-col scroll-mt-24 ${rowPaddingTopClass} pb-1 ${
         item.messageType === "system" ? "items-center" : ""
