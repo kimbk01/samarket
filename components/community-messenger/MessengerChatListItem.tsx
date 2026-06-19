@@ -35,6 +35,7 @@ import {
 } from "@/lib/community-messenger/use-community-messenger-home-state";
 import {
   getSwipeActions,
+  type MessengerSwipeActionDef,
   type MessengerSwipeActionKind,
 } from "@/lib/messenger-policy/chat-room-swipe-actions";
 import { toMessengerPolicyRoomType } from "@/lib/messenger-policy/messenger-policy-room-type";
@@ -76,6 +77,24 @@ const DRAG_START_X = 16;
 const DRAG_CANCEL_Y = 14;
 const PRESS_RELEASE_MS = 90;
 const LONG_PRESS_THRESHOLD_MS = 560;
+
+function swipeActionLabel(
+  action: MessengerSwipeActionDef,
+  safeT: ReturnType<typeof useI18n>["safeT"]
+): string {
+  switch (action.labelKey) {
+    case "cm_ui_swipe_mark_read":
+      return safeT(action.labelKey, { fallbackKo: "읽음", fallbackEn: "Read" });
+    case "cm_ui_swipe_restore":
+      return safeT(action.labelKey, { fallbackKo: "복원", fallbackEn: "Restore" });
+    case "cm_ui_archive":
+      return safeT(action.labelKey, { fallbackKo: "보관", fallbackEn: "Archive" });
+    case "cm_ui_leave":
+      return safeT(action.labelKey, { fallbackKo: "나가기", fallbackEn: "Leave" });
+    default:
+      return safeT(action.labelKey, { fallbackKo: "확인", fallbackEn: "Confirm" });
+  }
+}
 
 export type MessengerMenuAnchorRect = {
   top: number;
@@ -182,7 +201,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   onResetTransientUi,
   listVisual = "default",
 }: Props) {
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
   useCmDevRenderTrace("MessengerChatListItem");
   const onLeaveRoom = onLeaveRoomProp ?? MESSENGER_CHAT_LIST_ITEM_NOOP_LEAVE_ROOM;
   if (!shouldFreezeRoomListSubtree()) {
@@ -1009,7 +1028,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
             disabled={swipeActionDisabled(action.kind)}
             className={`flex w-[78px] items-center justify-center px-2 sam-text-helper font-semibold text-white disabled:opacity-50 ${swipeActionSurfaceClass(action.kind)}`}
           >
-            {t(action.labelKey)}
+            {swipeActionLabel(action, safeT)}
           </button>
         ))}
       </div>

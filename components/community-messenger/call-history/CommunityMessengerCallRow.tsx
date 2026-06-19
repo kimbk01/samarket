@@ -217,7 +217,7 @@ export function CommunityMessengerCallRow({
           }}
           className="flex h-full w-full items-center justify-center bg-red-600 px-2 text-center text-sm font-semibold text-white active:opacity-90"
         >
-          {t("common_delete")}
+          {safeT("common_delete", { fallbackKo: "삭제", fallbackEn: "Delete" })}
         </button>
       </div>
 

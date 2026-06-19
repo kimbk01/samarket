@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { messengerFriendSwipeItemId } from "@/lib/community-messenger/messenger-ia";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 import { useCommunityMessengerPeerPresence } from "@/lib/community-messenger/realtime/presence/use-community-messenger-peer-presence";
@@ -49,6 +50,7 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
   onRemoveFriend,
   onBlockFriend,
 }: Props) {
+  const { t, safeT } = useI18n();
   const peerPresence = useCommunityMessengerPeerPresence(friend.id);
   const [dragX, setDragX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -249,8 +251,19 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
     [clearLongPressTimer, leftSwipeItemId, onCloseFriendQuickMenu, onCloseMenuItem, onOpenSwipeItem, rightSwipeItemId]
   );
 
-  const hideLabel = friend.isHiddenFriend ? "숨김 해제" : "숨기기";
-  const blockLabel = friend.blocked ? "차단 해제" : "차단";
+  const favoriteSwipeLabel = friend.isFavoriteFriend
+    ? safeT("cm_ui_release", { fallbackKo: "해제", fallbackEn: "Release" })
+    : safeT("cm_ui_favorite", { fallbackKo: "즐겨찾기", fallbackEn: "Favorite" });
+  const hideSwipeLabel = friend.isHiddenFriend
+    ? safeT("cm_ui_unhide", { fallbackKo: "숨김 해제", fallbackEn: "Unhide" })
+    : safeT("common_hide", { fallbackKo: "숨기기", fallbackEn: "Hide" });
+  const blockSwipeLabel = friend.blocked
+    ? safeT("cm_ui_unblock", { fallbackKo: "차단 해제", fallbackEn: "Unblock" })
+    : safeT("cm_social_block", { fallbackKo: "차단", fallbackEn: "Block" });
+  const removeSwipeLabel = safeT("common_delete", { fallbackKo: "삭제", fallbackEn: "Delete" });
+  const favoriteAriaLabel = friend.isFavoriteFriend
+    ? safeT("cm_ui_unfavorite", { fallbackKo: "즐겨찾기 해제", fallbackEn: "Unfavorite" })
+    : safeT("cm_ui_favorite", { fallbackKo: "즐겨찾기", fallbackEn: "Favorite" });
 
   return (
     <div
@@ -265,14 +278,14 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
           onClick={() => runAction(swipeToggleFavorite)}
           className="flex w-[72px] items-center justify-center bg-violet-600 sam-text-helper font-semibold text-white active:opacity-90"
         >
-          {friend.isFavoriteFriend ? "해제" : "즐겨찾기"}
+          {favoriteSwipeLabel}
         </button>
         <button
           type="button"
           onClick={() => runAction(swipeHideFriend)}
           className="flex w-[72px] items-center justify-center bg-amber-600 sam-text-helper font-semibold text-white active:opacity-90"
         >
-          {hideLabel}
+          {hideSwipeLabel}
         </button>
       </div>
       <div className="absolute inset-y-0 right-0 flex" aria-hidden={dragX >= 0}>
@@ -281,14 +294,14 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
           onClick={() => runAction(swipeRemoveFriend)}
           className="flex w-[72px] items-center justify-center bg-orange-600 sam-text-helper font-semibold text-white active:opacity-90"
         >
-          삭제
+          {removeSwipeLabel}
         </button>
         <button
           type="button"
           onClick={() => runAction(swipeBlockFriend)}
           className="flex w-[72px] items-center justify-center bg-red-600 sam-text-helper font-semibold text-white active:opacity-90"
         >
-          {blockLabel}
+          {blockSwipeLabel}
         </button>
       </div>
 
@@ -363,7 +376,7 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
                   color: friend.isFavoriteFriend ? "var(--messenger-primary)" : "var(--messenger-text-secondary)",
                   backgroundColor: friend.isFavoriteFriend ? "var(--messenger-primary-soft)" : "transparent",
                 }}
-                aria-label={friend.isFavoriteFriend ? "즐겨찾기 해제" : "즐겨찾기"}
+                aria-label={favoriteAriaLabel}
                 aria-pressed={friend.isFavoriteFriend}
               >
                 {friend.isFavoriteFriend ? "★" : "☆"}
@@ -377,14 +390,14 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
               <span
                 className="shrink-0 rounded-[6px] border border-[color:color-mix(in_srgb,var(--messenger-primary)32%,var(--messenger-surface))] bg-[color:var(--messenger-badge-direct-bg)] px-1 py-px text-[10.5px] font-medium leading-tight text-[color:var(--messenger-primary)]"
               >
-                친구
+                {t("cm_ui_friend_label")}
               </span>
               {friend.blocked ? (
                 <span
                   className="shrink-0 rounded-[6px] border border-[color:var(--messenger-divider)] px-1 py-px sam-text-xxs font-medium"
                   style={{ color: "var(--messenger-text-secondary)" }}
                 >
-                  차단
+                  {t("cm_friend_badge_blocked")}
                 </span>
               ) : null}
             </div>
