@@ -175,6 +175,7 @@ import {
   primeCommunityMessengerCallNavigationSeed,
   wasOutgoingInviteBroadcastRecentlySent,
 } from "@/lib/community-messenger/call-session-navigation-seed";
+import { readCallAcceptHydratePeer } from "@/lib/community-messenger/call-accept-hydrate-peer";
 import { primeOutgoingCallMediaBeforeNavigate } from "@/lib/community-messenger/call-media-bootstrap";
 import {
   logCallLatencyCallScreenPainted,
@@ -4851,16 +4852,18 @@ export function CommunityMessengerCallClient({
   if (loading && !session) {
     /** 시드 없이 진입한 짧은 구간 — 발신 tmp_·kind 쿼리·수신 accept route 로딩 껍데기 */
     const dismissHydrate = () => navigateBackFromCommunityMessengerCall(router, null);
-    const hydrateKind = searchParams.get("kind") === "video" ? "video" : "voice";
     const hydrateAcceptRoute =
       requestedAction === "accept" || nativeAcceptRoute || searchParams.get("nativeAccept") === "1";
+    const hydratePeer = readCallAcceptHydratePeer(sessionId);
+    const hydrateKind =
+      hydratePeer?.callKind ?? (searchParams.get("kind") === "video" ? "video" : "voice");
     const hydrateVm: CallScreenViewModel = {
       visualTheme: "starbucks",
       mode: hydrateKind,
       direction: hydrateAcceptRoute ? "incoming" : "outgoing",
       phase: hydrateAcceptRoute ? "connecting" : "ringing",
-      peerLabel: t("cm_ui_call_label"),
-      peerAvatarUrl: null,
+      peerLabel: hydratePeer?.peerLabel ?? t("cm_ui_call_label"),
+      peerAvatarUrl: hydratePeer?.peerAvatarUrl ?? null,
       statusText: hydrateAcceptRoute
         ? t("cm_ui_connecting")
         : hydrateKind === "video"
@@ -4959,9 +4962,9 @@ export function CommunityMessengerCallClient({
       : calleeAcceptBridgeLayout && effectiveDirectPhase === "ringing" && !calleeAcceptInFlightUi
         ? "connecting"
         : effectiveDirectPhase;
-  /** Telegram-style — active·수락 탭 직후 즉시 통화 UI (Agora join·remote는 백그라운드) */
+  /** Agora join 완료 후에만 connected UI — PATCH active 직후 품질 확인 문구 노출 방지 */
   const instantCallActiveUi =
-    !agoraReconnecting && (session.status === "active" || calleeAcceptInFlightUi);
+    !agoraReconnecting && session.status === "active" && joined;
   const suppressCalleeIncomingBellUi =
     !session.isMineInitiator &&
     session.status === "ringing" &&

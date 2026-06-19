@@ -23,6 +23,11 @@ import {
 } from "@/lib/community-messenger/call-orchestrator";
 import { runNativePendingAcceptCall } from "@/lib/community-messenger/incoming-call-accept-gateway";
 import {
+  buildCalleeAcceptActiveSessionSeed,
+  readCallAcceptHydratePeer,
+} from "@/lib/community-messenger/call-accept-hydrate-peer";
+import { primeCommunityMessengerCallNavigationSeed } from "@/lib/community-messenger/call-session-navigation-seed";
+import {
   claimIncomingCallSurface,
   isRingingOnlyIncomingCallRoute,
 } from "@/lib/community-messenger/incoming-call-surface-owner";
@@ -113,6 +118,13 @@ export function DibayFcmCallRouteHost() {
           clearDibayCallPendingRoute();
           void clearNativePersistedCallPendingRoute();
           if (isNativeAcceptPatchCompleteRoute(path)) {
+            const hydratePeer = readCallAcceptHydratePeer(acceptSessionId);
+            if (hydratePeer) {
+              primeCommunityMessengerCallNavigationSeed(
+                acceptSessionId,
+                buildCalleeAcceptActiveSessionSeed(hydratePeer)
+              );
+            }
             router.replace(path);
             console.info("[call-route] webview_route_delivered", { path, via: "accept_route_active" });
             return;

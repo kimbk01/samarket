@@ -186,6 +186,7 @@ import {
   installDibayFcmCallBridge,
 } from "@/lib/community-messenger/dibay-fcm-call-bridge";
 import { logDibayCall } from "@/lib/community-messenger/call-orchestrator";
+import { writeCallAcceptHydratePeerFromSession } from "@/lib/community-messenger/call-accept-hydrate-peer";
 import { primeCommunityMessengerCallConnectionPrefetch } from "@/lib/community-messenger/call-connection-prefetch";
 import { getActiveCallSessionCallId, subscribeActiveCallSession } from "@/lib/call/active-call-session";
 import {
@@ -1286,6 +1287,7 @@ export function GlobalCommunityMessengerIncomingCall() {
               hard
             );
             if (optimistic) {
+              writeCallAcceptHydratePeerFromSession(optimistic, "sw_incoming_wake");
               setSessions((prev) => mergeForegroundIncomingWakeSession(prev, optimistic));
             }
           }
@@ -1426,6 +1428,7 @@ export function GlobalCommunityMessengerIncomingCall() {
           if (uid && sid) {
             const optimistic = buildForegroundIncomingWakeOptimisticSession(uid, detail, hard);
             if (optimistic) {
+              writeCallAcceptHydratePeerFromSession(optimistic, "fcm_incoming_wake");
               setSessions((prev) => mergeForegroundIncomingWakeSession(prev, optimistic));
             }
           }
