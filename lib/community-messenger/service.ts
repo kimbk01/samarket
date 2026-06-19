@@ -78,6 +78,7 @@ import {
   cmTradeChatModeLockedCopy,
 } from "@/lib/community-messenger/cm-home-list-copy";
 import { buildMessengerContextMetaFromProductChatSnapshot } from "@/lib/community-messenger/product-chat-messenger-meta";
+import { enrichCommerceChatRoomLifecycleForList } from "@/lib/community-messenger/commerce-chat-room-lifecycle-enrich";
 import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
 import {
   enrichMessengerTradeUnreadWithLegacyTrade,
@@ -4054,11 +4055,13 @@ export async function listCommunityMessengerMyChatsAndGroups(
     }
     const snap = await tryBuildHomeSyncCriticalFromSnapshot(sbSnap as never, userId, options?.trace);
     if (snap) {
+      const chats = dedupeTradeMessengerRoomSummaries(snap.chats);
+      await enrichCommerceChatRoomLifecycleForList(sbSnap, chats);
       if (messengerPerfStepsEnabled()) {
         logMessengerPerfMs("listCommunityMessengerMyChatsAndGroups_wall", performance.now() - tListTop);
       }
       return {
-        chats: dedupeTradeMessengerRoomSummaries(snap.chats),
+        chats,
         groups: snap.groups,
       };
     }
@@ -4216,6 +4219,7 @@ export async function listCommunityMessengerMyChatsAndGroups(
     if (homeSyncBreakdownEnabled()) {
       phaseRows.push({ phase: "enrich_trade_room_context_meta_deferred", ms: 0 });
     }
+    await enrichCommerceChatRoomLifecycleForList(sbList, mySummaries);
   } else {
     const tTradeCtx = performance.now();
     await enrichTradeRoomContextMetaForBootstrap(userId, mySummaries, undefined, options?.trace, {
@@ -8706,6 +8710,7 @@ async function enrichTradeRoomContextMetaForBootstrap(
       };
     }
   }
+  await enrichCommerceChatRoomLifecycleForList(sb, summaries);
 }
 
 export async function listCommunityMessengerFriends(userId: string): Promise<CommunityMessengerProfileLite[]> {

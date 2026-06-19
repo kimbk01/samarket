@@ -32,6 +32,12 @@ export type StoreOrderMessengerContextInput = {
   paymentAmount?: number | null;
   /** UI/주문 상태 라벨 (예: 상품준비, 배송중) */
   orderStatusLabel?: string | null;
+  /** `store_orders.order_status` raw — lifecycle·readonly 판정 */
+  orderStatusRaw?: string | null;
+  /** `store_order_events.order_completed` created_at */
+  deliveryCompletedAt?: string | null;
+  /** 배달 완료 통합 시각 — `deliveryCompletedAt` 과 동일 소스 */
+  completedAt?: string | null;
 };
 
 export function buildMessengerContextMetaFromStoreOrder(input: StoreOrderMessengerContextInput): CommunityMessengerRoomContextMetaV1 {
@@ -68,6 +74,15 @@ export function buildMessengerContextMetaFromStoreOrder(input: StoreOrderMesseng
   }
   const step = input.orderStatusLabel?.trim();
   if (step) meta.stepLabel = step;
+  const orderStatus = input.orderStatusRaw?.trim();
+  if (orderStatus) meta.orderStatus = orderStatus;
+  const deliveryCompletedAt = input.deliveryCompletedAt?.trim();
+  if (deliveryCompletedAt) {
+    meta.deliveryCompletedAt = deliveryCompletedAt;
+    meta.completedAt = input.completedAt?.trim() || deliveryCompletedAt;
+  } else if (input.completedAt?.trim()) {
+    meta.completedAt = input.completedAt.trim();
+  }
   return meta;
 }
 
@@ -106,6 +121,7 @@ export function buildMessengerContextInputFromStoreOrderSnapshot(
     productTitle: headline,
     paymentAmount: args.paymentAmount,
     orderStatusLabel: buyerOrderStatusLabel(args.orderStatus, lang),
+    orderStatusRaw: args.orderStatus,
     thumbnailUrl: args.thumbnailUrl ?? null,
     storeVoiceMessagesEnabled: args.storeVoiceMessagesEnabled ?? null,
     storeVoiceCallsEnabled: args.storeVoiceCallsEnabled ?? null,

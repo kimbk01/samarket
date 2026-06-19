@@ -116,8 +116,22 @@ export type CommunityMessengerRoomContextMetaV1 = {
   sellerDisplayName?: string;
   /** Mirrors `product_chats.trade_flow_status` for list/header sync. */
   tradeFlowStatus?: string;
+  /** 거래 triple dedupe·목록 정책 — `product_chats.seller_id` */
+  sellerId?: string;
+  /** 거래 triple dedupe·목록 정책 — `product_chats.buyer_id` */
+  buyerId?: string;
+  /** 거래 완료 시각(통합) — 목록 7일 정책 앵커 */
+  completedAt?: string;
+  /** `product_chats.seller_completed_at` */
+  sellerCompletedAt?: string;
+  /** `product_chats.buyer_confirmed_at` */
+  buyerConfirmedAt?: string;
   /** 배달·매장 주문 채팅(`store_order`)의 원본 주문 id */
   storeOrderId?: string;
+  /** `store_orders.order_status` raw — completed 판정·readonly */
+  orderStatus?: string;
+  /** 주문 완료 시각 — 배달 목록 7일 정책 앵커 */
+  deliveryCompletedAt?: string;
   /** 배달·매장 주문 번호 — 목록/헤더 보조 표시 */
   orderNo?: string;
   /** 배달·매장 주문의 매장 id */

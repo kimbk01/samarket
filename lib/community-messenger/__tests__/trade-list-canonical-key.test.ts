@@ -47,6 +47,60 @@ describe("tradeMessengerListCanonicalKey", () => {
     );
     expect(key).toBe("pc:pc-1");
   });
+
+  it("uses trade triple when productChatId is missing", () => {
+    const key = tradeMessengerListCanonicalKey(
+      tradeSummary({
+        id: "room-a",
+        contextMeta: {
+          v: 1,
+          kind: "trade",
+          postId: "post-1",
+          sellerId: "seller-1",
+          buyerId: "buyer-a",
+        },
+      })
+    );
+    expect(key).toBe("trade:post-1:seller-1:buyer-a");
+  });
+
+  it("does not collapse different buyers on the same post", () => {
+    const buyerA = tradeMessengerListCanonicalKey(
+      tradeSummary({
+        id: "room-a",
+        contextMeta: {
+          v: 1,
+          kind: "trade",
+          postId: "post-1",
+          sellerId: "seller-1",
+          buyerId: "buyer-a",
+        },
+      })
+    );
+    const buyerB = tradeMessengerListCanonicalKey(
+      tradeSummary({
+        id: "room-b",
+        contextMeta: {
+          v: 1,
+          kind: "trade",
+          postId: "post-1",
+          sellerId: "seller-1",
+          buyerId: "buyer-b",
+        },
+      })
+    );
+    expect(buyerA).not.toBe(buyerB);
+  });
+
+  it("falls back to room id when triple is incomplete", () => {
+    const key = tradeMessengerListCanonicalKey(
+      tradeSummary({
+        id: "room-only",
+        contextMeta: { v: 1, kind: "trade", postId: "post-1" },
+      })
+    );
+    expect(key).toBe("room:room-only");
+  });
 });
 
 describe("dedupeTradeMessengerRoomSummaries", () => {
@@ -74,5 +128,30 @@ describe("dedupeTradeMessengerRoomSummaries", () => {
     expect(out.find((r) => r.id === "room-item")).toBeTruthy();
     expect(out.find((r) => r.id === "room-pc")).toBeFalsy();
     expect(out.find((r) => r.id === "dm-1")).toBeTruthy();
+  });
+
+  it("keeps separate rows for same postId with different buyerId", () => {
+    const a = tradeSummary({
+      id: "room-a",
+      contextMeta: {
+        v: 1,
+        kind: "trade",
+        postId: "post-1",
+        sellerId: "seller-1",
+        buyerId: "buyer-a",
+      },
+    });
+    const b = tradeSummary({
+      id: "room-b",
+      contextMeta: {
+        v: 1,
+        kind: "trade",
+        postId: "post-1",
+        sellerId: "seller-1",
+        buyerId: "buyer-b",
+      },
+    });
+    const out = dedupeTradeMessengerRoomSummaries([a, b]);
+    expect(out).toHaveLength(2);
   });
 });

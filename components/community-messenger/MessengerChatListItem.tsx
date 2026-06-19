@@ -57,6 +57,7 @@ import { prefetchStoreProfileThumbnailIfNeeded } from "@/lib/community-messenger
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { SamarketUserAvatarThumb } from "@/components/profile/SamarketUserAvatarThumb";
 import { prefetchTradePostThumbnailIfNeeded } from "@/lib/community-messenger/trade-chat-list/trade-post-thumbnail-cache";
+import { resolveCommerceChatListPresentation } from "@/lib/community-messenger/commerce-chat-list-presentation";
 import { useTradeChatListPostPreviewFields } from "@/lib/community-messenger/trade-chat-list/use-trade-chat-list-post-preview-fields";
 import { useMessengerChatListUnread } from "@/lib/community-messenger/read/messenger-chat-list-unread-display";
 import {
@@ -275,8 +276,24 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       : commerceMeta?.kind === "trade" && tradeViewerRoleForTint === "buyer"
         ? "bg-[color:var(--messenger-trade-list-buyer-bg)]"
         : "bg-[color:var(--messenger-bg)]";
-  const tradeItemStateLabel = commerceMeta?.kind === "trade" ? commerceMeta.itemStateLabel?.trim() || null : null;
-  const deliveryStepLabel = commerceMeta?.kind === "delivery" ? commerceMeta.stepLabel?.trim() || null : null;
+  const commerceListPresentation = useMemo(
+    () => resolveCommerceChatListPresentation(room),
+    [room]
+  );
+  const tradeItemStateLabel = useMemo(() => {
+    if (commerceMeta?.kind !== "trade") return null;
+    if (commerceListPresentation.statusLabelKey) {
+      return t(commerceListPresentation.statusLabelKey);
+    }
+    return commerceMeta.itemStateLabel?.trim() || null;
+  }, [commerceMeta, commerceListPresentation.statusLabelKey, t]);
+  const deliveryStepLabel = useMemo(() => {
+    if (commerceMeta?.kind !== "delivery") return null;
+    if (commerceListPresentation.statusLabelKey) {
+      return t(commerceListPresentation.statusLabelKey);
+    }
+    return commerceMeta.stepLabel?.trim() || null;
+  }, [commerceMeta, commerceListPresentation.statusLabelKey, t]);
 
   const isTradeChatListVisual = listVisual === "trade";
   const isDeliveryChatListVisual = listVisual === "delivery";
@@ -356,6 +373,9 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     return arr[arr.length - 1] ?? null;
   });
   const tradePreviewLine = useMemo(() => {
+    if (commerceListPresentation.previewKey) {
+      return t(commerceListPresentation.previewKey);
+    }
     if (!isTradeChatListVisual || !tradeRowModel) return item.preview;
     return buildTradeChatListPreviewLine({
       listPreview: item.preview,
@@ -363,7 +383,21 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       lastClientMessage,
       t,
     });
-  }, [isTradeChatListVisual, tradeRowModel, item.preview, lastClientMessage, t]);
+  }, [
+    commerceListPresentation.previewKey,
+    isTradeChatListVisual,
+    tradeRowModel,
+    item.preview,
+    lastClientMessage,
+    t,
+  ]);
+
+  const deliveryPreviewLine = useMemo(() => {
+    if (commerceListPresentation.previewKey && isDeliveryChatListVisual) {
+      return t(commerceListPresentation.previewKey);
+    }
+    return item.preview;
+  }, [commerceListPresentation.previewKey, isDeliveryChatListVisual, item.preview, t]);
 
   useEffect(() => {
     if (!isTradeChatListVisual || process.env.NODE_ENV !== "development") return;
@@ -815,8 +849,12 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         trailing={trailingBlock}
         storeName={deliveryRowModel.storeName}
         orderNoLine={deliveryOrderNoLine}
-        deliveryStatusLine={deliveryRowModel.orderStatusLabel}
-        lastMessageLine={item.preview}
+        deliveryStatusLine={
+          commerceListPresentation.statusLabelKey
+            ? t(commerceListPresentation.statusLabelKey)
+            : deliveryRowModel.orderStatusLabel
+        }
+        lastMessageLine={deliveryPreviewLine}
         unread={displayedUnreadCount > 0}
       />
     ) : isTradeChatListVisual && tradeRowModel ? (

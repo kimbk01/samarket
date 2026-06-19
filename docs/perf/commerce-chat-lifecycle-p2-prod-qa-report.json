@@ -1,0 +1,651 @@
+{
+  "startedAt": "2026-06-19T02:17:41.636Z",
+  "finishedAt": "2026-06-19T02:17:51.926Z",
+  "environment": {
+    "device": "RFCY40PY2CA",
+    "prod": "https://samarket.vercel.app",
+    "login": "aaaa",
+    "userId": "11111111-1111-1111-1111-111111111111",
+    "qaMode": "apk-webview-cdp"
+  },
+  "apiPaths": {
+    "full": "/api/community-messenger/home-sync?tier=full&fresh=1",
+    "critical": "/api/community-messenger/home-sync?tier=critical&fresh=1"
+  },
+  "homeSync": {
+    "full": {
+      "httpStatus": 200,
+      "ok": true,
+      "label": "home-sync-tier-full",
+      "totalChats": 19,
+      "tradeCount": 8,
+      "deliveryCount": 10,
+      "tradeFieldRates": {
+        "sellerId": 0,
+        "buyerId": 0,
+        "tradeFlowStatus": 0.75,
+        "sellerCompletedAt": 0,
+        "buyerConfirmedAt": 0,
+        "completedAt": 0
+      },
+      "deliveryFieldRates": {
+        "storeOrderId": 0.9,
+        "orderStatus": 0,
+        "deliveryCompletedAt": 0,
+        "completedAt": 0
+      },
+      "tradeSamples": [
+        {
+          "roomId": "0b99ce3d-39c7-45e4-a79e-ee6308e66a1b",
+          "directKey": "store_order:4d3f9f38-8735-4185-9a0b-82e603f43db0",
+          "isReadonly": false,
+          "contextMeta": {
+            "v": 1,
+            "kind": "trade",
+            "headline": "E2E diag seed",
+            "roleLabel": "구매자",
+            "productChatId": "010b40b9-d303-474d-a0fa-0252947adf66",
+            "tradeFlowStatus": "chatting"
+          },
+          "fields": {
+            "sellerId": false,
+            "buyerId": false,
+            "tradeFlowStatus": true,
+            "sellerCompletedAt": false,
+            "buyerConfirmedAt": false,
+            "completedAt": false
+          },
+          "completed": false,
+          "policyHide": false
+        },
+        {
+          "roomId": "c806959d-a709-41f5-9399-892ca35a6bc6",
+          "directKey": "trade_item:15f883f1-896d-438c-983c-7fc3160b268e",
+          "isReadonly": false,
+          "contextMeta": {
+            "v": 1,
+            "kind": "trade",
+            "headline": "족같이 일할 사람 구해요",
+            "priceLabel": "₱20,000",
+            "thumbnailUrl": null,
+            "roleLabel": "구매자",
+            "itemStateLabel": "문의중",
+            "categoryMenuLabel": "일자리",
+            "productChatId": "39048cbb-d41e-4cbe-adde-59bd52d5f76d",
+            "postId": "92e97087-2a0e-4bb4-bdd4-ebbf97f50fc6",
+            "sellerDisplayName": "메인관리자 (@aaaa)",
+            "tradeFlowStatus": "chatting"
+          },
+          "fields": {
+            "sellerId": false,
+            "buyerId": false,
+            "tradeFlowStatus": true,
+            "sellerCompletedAt": false,
+            "buyerConfirmedAt": false,
+            "completedAt": false
+          },
+          "completed": false,
+          "policyHide": false
+        },
+        {
+          "roomId": "30f97067-27f6-4bfa-8dfb-27f4f4f6ca13",
+          "directKey": "0c4b0a80-9755-4ebe-9a10-f8e1ced4c0cc:11111111-1111-1111-1111-111111111111",
+          "isReadonly": false,
+          "contextMeta": {
+            "v": 1,
+            "kind": "trade",
+            "headline": "거래",
+            "thumbnailUrl": null,
+            "stepLabel": "대화 중",
+            "productChatId": "0470da91-301f-4913-8f34-57e871f8a349"
+          },
+          "fields": {
+            "sellerId": false,
+            "buyerId": false,
+            "tradeFlowStatus": false,
+            "sellerCompletedAt": false,
+            "buyerConfirmedAt": false,
+            "completedAt": false
+          },
+          "completed": false,
+          "policyHide": false
+        },
+        {
+          "roomId": "9362db41-4f6e-4dde-a0a6-430c0efd0fad",
+          "directKey": "trade_item:176ca9df-9e4a-4a72-8350-398f092c52d8",
+          "isReadonly": false,
+          "contextMeta": null,
+          "fields": {
+            "sellerId": false,
+            "buyerId": false,
+            "tradeFlowStatus": false,
+            "sellerCompletedAt": false,
+            "buyerConfirmedAt": false,
+            "completedAt": false
+          },
+          "completed": false,
+          "policyHide": false
+        },
+        {
+          "roomId": "af26d2c2-bbe8-43a2-9fff-89101291a657",
+          "directKey": "trade_item:fbf3a077-dd0e-4fab-a9f5-fdbee1e115f2",
+          "isReadonly": false,
+          "contextMeta": {
+            "v": 1,
+            "kind": "trade",
+            "headline": "ㄹㅋㅇㄹ",
+            "priceLabel": "₱1,000",
+            "thumbnailUrl": null,
+            "roleLabel": "구매자",
+            "itemStateLabel": "판매중",
+            "categoryMenuLabel": "거래",
+            "productChatId": "5554ef56-9981-4d0e-9f87-ceff50b1428c",
+            "postId": "b3c32bd5-ebea-42c4-be15-90d5b5f0bf05",
+            "sellerDisplayName": "테스트1 (@aa11)",
+            "tradeFlowStatus": "chatting"
+          },
+          "fields": {
+            "sellerId": false,
+            "buyerId": false,
+            "tradeFlowStatus": true,
+            "sellerCompletedAt": false,
+            "buyerConfirmedAt": false,
+            "completedAt": false
+          },
+          "completed": false,
+          "policyHide": false
+        },
+        {
+          "roomId": "8b621ca9-4ca5-46b1-a490-11e4d6296cbc",
+          "directKey": "trade_item:4bdaa017-4036-4569-8a98-dc4a6e2461a5",
+          "isReadonly": false,
+          "contextMeta": {
+            "v": 1,
+            "kind": "trade",
+            "headline": "팝니다 · 222222",
+            "priceLabel": "₱52,220",
+            "thumbnailUrl": "https://ckdosyydvgzqwpbwuhon.supabase.co/storage/v1/object/public/post-images/11111111-1111-1111-1111-111111111111/1775809611662-0.jpg",
+            "roleLabel": "구매자",
+            "itemStateLabel": "판매중",
+            "categoryMenuLabel": "중고차",
+            "productChatId": "505d65d4-c66c-4085-b83e-1e6f8092a9cf",
+            "postId": "aec9bbbe-15ee-4643-8cf8-1a9b707beeb3",
+            "sellerDisplayName": "메인관리자 (@aaaa)",
+            "tradeFlowStatus": "chatting"
+          },
+          "fields": {
+            "sellerId": false,
+            "buyerId": false,
+            "tradeFlowStatus": true,
+            "sellerCompletedAt": false,
+            "buyerConfirmedAt": false,
+            "completedAt": false
+          },
+          "completed": false,
+          "policyHide": false
+        },
+        {
+          "roomId": "a8619e14-a013-447f-9df7-53f5ba8828de",
+          "directKey": "trade_item:d79f7b19-aba5-43a3-b660-56c58c2e0bf1",
+          "isReadonly": false,
+          "contextMeta": {
+            "v": 1,
+            "kind": "trade",
+            "headline": "거래",
+            "thumbnailUrl": null,
+            "roleLabel": "구매자",
+            "itemStateLabel": "판매중",
+            "productChatId": "9925cf7a-8cd8-4484-a096-8786e86eb85c",
+            "postId": "92e97087-2a0e-4bb4-bdd4-ebbf97f50fc6",
+            "tradeFlowStatus": "chatting"
+          },
+          "fields": {
+            "sellerId": false,
+            "buyerId": false,
+            "tradeFlowStatus": true,
+            "sellerCompletedAt": false,
+            "buyerConfirmedAt": false,
+            "completedAt": false
+          },
+          "completed": false,
+          "policyHide": false
+        },
+        {
+          "roomId": "7da1dbb4-e1d8-4529-810b-4e139d5b93a3",
+          "directKey": "trade_item:d7930121-a652-4672-b4ba-a0577e9c9969",
+          "isReadonly": false,
+          "contextMeta": {
+            "v": 1,
+            "kind": "trade",
+            "headline": "거래",
+            "thumbnailUrl": null,
+            "roleLabel": "구매자",
+            "itemStateLabel": "판매중",
+            "productChatId": "5b22a0c8-0881-4e45-a307-ece2c6145438",
+            "tradeFlowStatus": "chatting"
+          },
+          "fields": {
+            "sellerId": false,
+            "buyerId": false,
+            "tradeFlowStatus": true,
+            "sellerCompletedAt": false,
+            "buyerConfirmedAt": false,
+            "completedAt": false
+          },
+          "completed": false,
+          "policyHide": false
+        }
+      ],
+      "deliverySamples": [
+        {
+          "roomId": "0b99ce3d-39c7-45e4-a79e-ee6308e66a1b",
+          "directKey": "store_order:4d3f9f38-8735-4185-9a0b-82e603f43db0",
+          "isReadonly": false,
+          "contextMeta": {
+            "v": 1,
+            "kind": "trade",
+            "headline": "E2E diag seed",
+            "roleLabel": "구매자",
+            "productChatId": "010b40b9-d303-474d-a0fa-0252947adf66",
+            "tradeFlowStatus": "chatting"
+          },
+          "fields": {
+            "storeOrderId": false,
+            "orderStatus": false,
+            "deliveryCompletedAt": false,
+            "completedAt": false
+          },
+          "completed": false,
+          "policyHide": false
+        },
+        {
+          "roomId": "a780d82e-2d1c-4481-a90b-9661067e2eba",
+          "directKey": "store_order:f982f251-f647-45a0-9e4a-763cbb3daa02",
+          "isReadonly": false,
+          "contextMeta": {
+            "v": 1,
+            "kind": "delivery",
+            "headline": "VERGIE NI TEA · Order SO1780904922380be09",
+            "priceLabel": "₱3,500",
+            "thumbnailUrl": null,
+            "stepLabel": "Delivered",
+            "storeOrderId": "f982f251-f647-45a0-9e4a-763cbb3daa02",
+            "orderNo": "SO1780904922380be09",
+            "storeId": "a41e77d1-d26b-40a0-ac52-0d9e1cc7be3e",
+            "storeDisplayName": "VERGIE NI TEA",
+            "fulfillmentType": "local_delivery",
+            "storeVoiceMessagesEnabled": true,
+            "storeVoiceCallsEnabled": true,
+            "storeVideoCallsEnabled": true
+          },
+          "fields": {
+            "storeOrderId": true,
+            "orderStatus": false,
+            "deliveryCompletedAt": false,
+            "completedAt": false
+          },
+          "completed": false,
+          "policyHide": false
+        },
+        {
+          "roomId": "3ffdd41b-8622-4775-9dd9-e31b4fc58ff5",
+          "directKey": "store_order:1dc37564-abdc-4f3d-87f3-8e6a88ae956e",
+          "isReadonly": false,
+          "contextMeta": {
+            "v": 1,
+            "kind": "delivery",
+            "headline": "나의 오른손딸방 · Order SO17790328072479ef7",
+            "priceLabel": "₱2,000",
+            "thumbnailUrl": "https://ckdosyydvgzqwpbwuhon.supabase.co/storage/v1/object/public/store-product-images/19085860-52d2-4183-b033-e71fcb58bcec/d13cf95a-e8d4-4e41-94e4-068dd6be0490.webp",
+            "stepLabel": "Ready for pickup",
+            "storeOrderId": "1dc37564-abdc-4f3d-87f3-8e6a88ae956e",
+            "orderNo": "SO17790328072479ef7",
+            "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
+            "storeDisplayName": "나의 오른손딸방",
+            "fulfillmentType": "local_delivery"
+          },
+          "fields": {
+            "storeOrderId": true,
+            "orderStatus": false,
+            "deliveryCompletedAt": false,
+            "completedAt": false
+          },
+          "completed": false,
+          "policyHide": false
+        },
+        {
+          "roomId": "2aac905a-6bf8-45b5-970b-344c2dcbda06",
+          "directKey": "store_order:558d9c25-135b-441a-af41-3e8cbf2699db",
+          "isReadonly": false,
+          "contextMeta": {
+            "v": 1,
+            "kind": "delivery",
+            "headline": "나의 오른손딸방 · Order SO177903266208528bb",
+            "priceLabel": "₱2,000",
+            "thumbnailUrl": "https://ckdosyydvgzqwpbwuhon.supabase.co/storage/v1/object/public/store-product-images/19085860-52d2-4183-b033-e71fcb58bcec/d13cf95a-e8d4-4e41-94e4-068dd6be0490.webp",
+            "stepLabel": "Ready for pickup",
+            "storeOrderId": "558d9c25-135b-441a-af41-3e8cbf2699db",
+            "orderNo": "SO177903266208528bb",
+            "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
+            "storeDisplayName": "나의 오른손딸방",
+            "fulfillmentType": "local_delivery"
+          },
+          "fields": {
+            "storeOrderId": true,
+            "orderStatus": false,
+            "deliveryCompletedAt": false,
+            "completedAt": false
+          },
+          "completed": false,
+          "policyHide": false
+        },
+        {
+          "roomId": "8a63c6ce-d75d-4984-8bba-e4faa92709ea",
+          "directKey": "store_order:64ac05a9-a60c-413b-8130-1c48977fdb80",
+          "isReadonly": false,
+          "contextMeta": {
+            "v": 1,
+            "kind": "delivery",
+            "headline": "나의 오른손딸방 · Order SO1779032028570b6b0",
+            "priceLabel": "₱2,000",
+            "thumbnailUrl": "https://ckdosyydvgzqwpbwuhon.supabase.co/storage/v1/object/public/store-product-images/19085860-52d2-4183-b033-e71fcb58bcec/d13cf95a-e8d4-4e41-94e4-068dd6be0490.webp",
+            "stepLabel": "Delivered",
+            "storeOrderId": "64ac05a9-a60c-413b-8130-1c48977fdb80",
+            "orderNo": "SO1779032028570b6b0",
+            "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
+            "storeDisplayName": "나의 오른손딸방",
+            "fulfillmentType": "local_delivery"
+          },
+          "fields": {
+            "storeOrderId": true,
+            "orderStatus": false,
+            "deliveryCompletedAt": false,
+            "completedAt": false
+          },
+          "completed": false,
+          "policyHide": false
+        },
+        {
+          "roomId": "123d8066-7b33-43a3-adb6-f2644baaf935",
+          "directKey": "store_order:542d3e27-1435-47ab-84c4-a8a233fac2ac",
+          "isReadonly": false,
+          "contextMeta": {
+            "v": 1,
+            "kind": "delivery",
+            "headline": "나의 오른손딸방 · Order SO1779032734488a739",
+            "priceLabel": "₱2,000",
+            "thumbnailUrl": "https://ckdosyydvgzqwpbwuhon.supabase.co/storage/v1/object/public/store-product-images/19085860-52d2-4183-b033-e71fcb58bcec/d13cf95a-e8d4-4e41-94e4-068dd6be0490.webp",
+            "stepLabel": "Ready for pickup",
+            "storeOrderId": "542d3e27-1435-47ab-84c4-a8a233fac2ac",
+            "orderNo": "SO1779032734488a739",
+            "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
+            "storeDisplayName": "나의 오른손딸방",
+            "fulfillmentType": "local_delivery"
+          },
+          "fields": {
+            "storeOrderId": true,
+            "orderStatus": false,
+            "deliveryCompletedAt": false,
+            "completedAt": false
+          },
+          "completed": false,
+          "policyHide": false
+        },
+        {
+          "roomId": "8545493c-b221-480f-b219-cf05a007dc91",
+          "directKey": "store_order:0540c564-0af9-404f-a999-50b352d78fa1",
+          "isReadonly": false,
+          "contextMeta": {
+            "v": 1,
+            "kind": "delivery",
+            "headline": "나의 오른손딸방 · Order SO17790336634824de7",
+            "priceLabel": "₱2,000",
+            "thumbnailUrl": "https://ckdosyydvgzqwpbwuhon.supabase.co/storage/v1/object/public/store-product-images/19085860-52d2-4183-b033-e71fcb58bcec/d13cf95a-e8d4-4e41-94e4-068dd6be0490.webp",
+            "stepLabel": "Delivered",
+            "storeOrderId": "0540c564-0af9-404f-a999-50b352d78fa1",
+            "orderNo": "SO17790336634824de7",
+            "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
+            "storeDisplayName": "나의 오른손딸방",
+            "fulfillmentType": "local_delivery"
+          },
+          "fields": {
+            "storeOrderId": true,
+            "orderStatus": false,
+            "deliveryCompletedAt": false,
+            "completedAt": false
+          },
+          "completed": false,
+          "policyHide": false
+        },
+        {
+          "roomId": "755c090a-033c-49b1-8368-5727a4b34fc5",
+          "directKey": "store_order:f359551b-0edc-47ce-9806-caae3d3bd986",
+          "isReadonly": false,
+          "contextMeta": {
+            "v": 1,
+            "kind": "delivery",
+            "headline": "나의 오른손딸방 · Order SO17790332283248feb",
+            "priceLabel": "₱2,000",
+            "thumbnailUrl": null,
+            "stepLabel": "Delivered",
+            "storeOrderId": "f359551b-0edc-47ce-9806-caae3d3bd986",
+            "orderNo": "SO17790332283248feb",
+            "storeId": "19085860-52d2-4183-b033-e71fcb58bcec",
+            "fulfillmentType": "local_delivery"
+          },
+          "fields": {
+            "storeOrderId": true,
+            "orderStatus": false,
+            "deliveryCompletedAt": false,
+            "completedAt": false
+          },
+          "completed": false,
+          "policyHide": false
+        }
+      ],
+      "completedTradeCount": 0,
+      "completedDeliveryCount": 0,
+      "completedTradeWithTimestamp": 0,
+      "completedDeliveryWithTimestamp": 0,
+      "policyChecks": {
+        "completedTradeVisibleInList": 0,
+        "completedTradeHiddenByPolicy": 0,
+        "completedDeliveryVisibleInList": 0,
+        "completedDeliveryHiddenByPolicy": 0,
+        "completedWithoutTimestamp": []
+      }
+    },
+    "critical": {
+      "httpStatus": 200,
+      "ok": true,
+      "label": "home-sync-tier-critical",
+      "totalChats": 10,
+      "tradeCount": 4,
+      "deliveryCount": 4,
+      "tradeFieldRates": {
+        "sellerId": 0,
+        "buyerId": 0,
+        "tradeFlowStatus": 0,
+        "sellerCompletedAt": 0,
+        "buyerConfirmedAt": 0,
+        "completedAt": 0
+      },
+      "deliveryFieldRates": {
+        "storeOrderId": 0,
+        "orderStatus": 0,
+        "deliveryCompletedAt": 0,
+        "completedAt": 0
+      },
+      "tradeSamples": [
+        {
+          "roomId": "c806959d-a709-41f5-9399-892ca35a6bc6",
+          "directKey": "trade_item:15f883f1-896d-438c-983c-7fc3160b268e",
+          "isReadonly": false,
+          "contextMeta": null,
+          "fields": {
+            "sellerId": false,
+            "buyerId": false,
+            "tradeFlowStatus": false,
+            "sellerCompletedAt": false,
+            "buyerConfirmedAt": false,
+            "completedAt": false
+          },
+          "completed": false,
+          "policyHide": false
+        },
+        {
+          "roomId": "9362db41-4f6e-4dde-a0a6-430c0efd0fad",
+          "directKey": "trade_item:176ca9df-9e4a-4a72-8350-398f092c52d8",
+          "isReadonly": false,
+          "contextMeta": null,
+          "fields": {
+            "sellerId": false,
+            "buyerId": false,
+            "tradeFlowStatus": false,
+            "sellerCompletedAt": false,
+            "buyerConfirmedAt": false,
+            "completedAt": false
+          },
+          "completed": false,
+          "policyHide": false
+        },
+        {
+          "roomId": "af26d2c2-bbe8-43a2-9fff-89101291a657",
+          "directKey": "trade_item:fbf3a077-dd0e-4fab-a9f5-fdbee1e115f2",
+          "isReadonly": false,
+          "contextMeta": null,
+          "fields": {
+            "sellerId": false,
+            "buyerId": false,
+            "tradeFlowStatus": false,
+            "sellerCompletedAt": false,
+            "buyerConfirmedAt": false,
+            "completedAt": false
+          },
+          "completed": false,
+          "policyHide": false
+        },
+        {
+          "roomId": "8b621ca9-4ca5-46b1-a490-11e4d6296cbc",
+          "directKey": "trade_item:4bdaa017-4036-4569-8a98-dc4a6e2461a5",
+          "isReadonly": false,
+          "contextMeta": null,
+          "fields": {
+            "sellerId": false,
+            "buyerId": false,
+            "tradeFlowStatus": false,
+            "sellerCompletedAt": false,
+            "buyerConfirmedAt": false,
+            "completedAt": false
+          },
+          "completed": false,
+          "policyHide": false
+        }
+      ],
+      "deliverySamples": [
+        {
+          "roomId": "0b99ce3d-39c7-45e4-a79e-ee6308e66a1b",
+          "directKey": "store_order:4d3f9f38-8735-4185-9a0b-82e603f43db0",
+          "isReadonly": false,
+          "contextMeta": null,
+          "fields": {
+            "storeOrderId": false,
+            "orderStatus": false,
+            "deliveryCompletedAt": false,
+            "completedAt": false
+          },
+          "completed": false,
+          "policyHide": false
+        },
+        {
+          "roomId": "a780d82e-2d1c-4481-a90b-9661067e2eba",
+          "directKey": "store_order:f982f251-f647-45a0-9e4a-763cbb3daa02",
+          "isReadonly": false,
+          "contextMeta": null,
+          "fields": {
+            "storeOrderId": false,
+            "orderStatus": false,
+            "deliveryCompletedAt": false,
+            "completedAt": false
+          },
+          "completed": false,
+          "policyHide": false
+        },
+        {
+          "roomId": "3ffdd41b-8622-4775-9dd9-e31b4fc58ff5",
+          "directKey": "store_order:1dc37564-abdc-4f3d-87f3-8e6a88ae956e",
+          "isReadonly": false,
+          "contextMeta": null,
+          "fields": {
+            "storeOrderId": false,
+            "orderStatus": false,
+            "deliveryCompletedAt": false,
+            "completedAt": false
+          },
+          "completed": false,
+          "policyHide": false
+        },
+        {
+          "roomId": "2aac905a-6bf8-45b5-970b-344c2dcbda06",
+          "directKey": "store_order:558d9c25-135b-441a-af41-3e8cbf2699db",
+          "isReadonly": false,
+          "contextMeta": null,
+          "fields": {
+            "storeOrderId": false,
+            "orderStatus": false,
+            "deliveryCompletedAt": false,
+            "completedAt": false
+          },
+          "completed": false,
+          "policyHide": false
+        }
+      ],
+      "completedTradeCount": 0,
+      "completedDeliveryCount": 0,
+      "completedTradeWithTimestamp": 0,
+      "completedDeliveryWithTimestamp": 0,
+      "policyChecks": {
+        "completedTradeVisibleInList": 0,
+        "completedTradeHiddenByPolicy": 0,
+        "completedDeliveryVisibleInList": 0,
+        "completedDeliveryHiddenByPolicy": 0,
+        "completedWithoutTimestamp": []
+      }
+    }
+  },
+  "groundTruth": {
+    "ok": true,
+    "completedProductChats": 0,
+    "completedStoreOrders": 4,
+    "orderCompletedEvents": 4,
+    "sampleProductChat": null,
+    "sampleCompletedOrder": {
+      "id": "f982f251-f647-45a0-9e4a-763cbb3daa02",
+      "order_status": "completed",
+      "community_messenger_room_id": "a780d82e-2d1c-4481-a90b-9661067e2eba"
+    }
+  },
+  "logcat": {
+    "errorHits": [],
+    "dibayHits": [
+      "06-19 10:17:42.038  7875  7875 E DIBAY_WebView: webview_console_message level=ERROR line=1 source=https://samarket.vercel.app/_next/static/chunks/ea87d0279d4b9654.js msg=Uncaught (in promise) Error: \"NativeIncomingCall.then()\" is not implemented on android",
+      "06-19 10:17:42.038  7875  7875 E Capacitor/Console: File: https://samarket.vercel.app/_next/static/chunks/ea87d0279d4b9654.js - Line 1 - Msg: Uncaught (in promise) Error: \"NativeIncomingCall.then()\" is not implemented on android",
+      "06-19 10:17:44.929  7875  7875 E DIBAY_WebView: webview_console_message level=ERROR line=1 source=https://samarket.vercel.app/_next/static/chunks/ea87d0279d4b9654.js msg=Uncaught (in promise) Error: \"NativeIncomingCall.then()\" is not implemented on android",
+      "06-19 10:17:44.929  7875  7875 E Capacitor/Console: File: https://samarket.vercel.app/_next/static/chunks/ea87d0279d4b9654.js - Line 1 - Msg: Uncaught (in promise) Error: \"NativeIncomingCall.then()\" is not implemented on android",
+      "06-19 10:17:45.448  7875  7875 E DIBAY_WebView: webview_console_message level=ERROR line=1 source=https://samarket.vercel.app/_next/static/chunks/ea87d0279d4b9654.js msg=Uncaught (in promise) Error: \"NativeIncomingCall.then()\" is not implemented on android",
+      "06-19 10:17:45.448  7875  7875 E Capacitor/Console: File: https://samarket.vercel.app/_next/static/chunks/ea87d0279d4b9654.js - Line 1 - Msg: Uncaught (in promise) Error: \"NativeIncomingCall.then()\" is not implemented on android",
+      "06-19 10:17:45.464  7875  7875 E DIBAY_WebView: webview_console_message level=ERROR line=1 source=https://samarket.vercel.app/_next/static/chunks/ea87d0279d4b9654.js msg=Uncaught (in promise) Error: \"NativeIncomingCall.then()\" is not implemented on android",
+      "06-19 10:17:45.464  7875  7875 E Capacitor/Console: File: https://samarket.vercel.app/_next/static/chunks/ea87d0279d4b9654.js - Line 1 - Msg: Uncaught (in promise) Error: \"NativeIncomingCall.then()\" is not implemented on android",
+      "06-19 10:17:45.464  7875  7875 E DIBAY_WebView: webview_console_message level=ERROR line=1 source=https://samarket.vercel.app/_next/static/chunks/ea87d0279d4b9654.js msg=Uncaught (in promise) Error: \"NativeIncomingCall.then()\" is not implemented on android",
+      "06-19 10:17:45.464  7875  7875 E Capacitor/Console: File: https://samarket.vercel.app/_next/static/chunks/ea87d0279d4b9654.js - Line 1 - Msg: Uncaught (in promise) Error: \"NativeIncomingCall.then()\" is not implemented on android",
+      "06-19 10:17:45.465  7875  7875 E DIBAY_WebView: webview_console_message level=ERROR line=1 source=https://samarket.vercel.app/_next/static/chunks/ea87d0279d4b9654.js msg=Uncaught (in promise) Error: \"NativeIncomingCall.then()\" is not implemented on android",
+      "06-19 10:17:45.465  7875  7875 E Capacitor/Console: File: https://samarket.vercel.app/_next/static/chunks/ea87d0279d4b9654.js - Line 1 - Msg: Uncaught (in promise) Error: \"NativeIncomingCall.then()\" is not implemented on android"
+    ]
+  },
+  "verdict": {
+    "homeSyncReachable": true,
+    "tradeLifecycleFields": "FAIL_PARTIAL",
+    "deliveryLifecycleFields": "FAIL_PARTIAL",
+    "logcatClean": true
+  }
+}
