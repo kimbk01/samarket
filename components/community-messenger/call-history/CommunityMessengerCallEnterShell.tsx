@@ -20,6 +20,8 @@ type AnimPhase = "enter" | "enter-active" | "idle" | "exit" | "exit-active";
 
 type Props = {
   children: ReactNode;
+  /** tmp 발신 dial — 440ms 슬라이드 생략 (수신·active·일반 진입에는 미적용) */
+  instantOutgoingDialEnter?: boolean;
 };
 
 const CommunityMessengerCallAnimatedBackContext = createContext<(() => void) | null>(null);
@@ -41,15 +43,19 @@ function usePrefersReducedMotion(): boolean {
   return reduced;
 }
 
-/** 통화 라우트 진입·복귀 — 440ms 우→좌 슬라이드 */
-export function CommunityMessengerCallEnterShell({ children }: Props) {
+/** 통화 라우트 진입·복귀 — 440ms 우→좌 슬라이드 (tmp 발신 dial 은 instantOutgoingDialEnter 로 생략) */
+export function CommunityMessengerCallEnterShell({
+  children,
+  instantOutgoingDialEnter = false,
+}: Props) {
   const router = useRouter();
   const reducedMotion = usePrefersReducedMotion();
-  const [phase, setPhase] = useState<AnimPhase>(reducedMotion ? "idle" : "enter");
+  const skipEnterSlide = reducedMotion || instantOutgoingDialEnter;
+  const [phase, setPhase] = useState<AnimPhase>(skipEnterSlide ? "idle" : "enter");
   const exitingRef = useRef(false);
 
   useEffect(() => {
-    if (reducedMotion) {
+    if (skipEnterSlide) {
       setPhase("idle");
       return;
     }
@@ -57,15 +63,15 @@ export function CommunityMessengerCallEnterShell({ children }: Props) {
       setPhase((current) => (current === "enter" ? "enter-active" : current));
     });
     return () => window.cancelAnimationFrame(raf);
-  }, [reducedMotion]);
+  }, [skipEnterSlide]);
 
   useEffect(() => {
-    if (phase !== "enter-active" || reducedMotion) return;
+    if (phase !== "enter-active" || skipEnterSlide) return;
     const t = window.setTimeout(() => {
       setPhase((current) => (current === "enter-active" ? "idle" : current));
     }, MESSENGER_CALL_SLIDE_ENTER_MS + 80);
     return () => window.clearTimeout(t);
-  }, [phase, reducedMotion]);
+  }, [phase, skipEnterSlide]);
 
   const requestAnimatedBack = useCallback(() => {
     if (exitingRef.current) return;

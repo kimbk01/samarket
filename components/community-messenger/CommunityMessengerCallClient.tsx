@@ -177,6 +177,7 @@ import {
   wasOutgoingInviteBroadcastRecentlySent,
 } from "@/lib/community-messenger/call-session-navigation-seed";
 import { primeOutgoingCallMediaBeforeNavigate } from "@/lib/community-messenger/call-media-bootstrap";
+import { logCallLatencyCallScreenPainted } from "@/lib/community-messenger/call-latency-trace";
 import {
   clearCommunityMessengerCallConnectionPrefetch,
   peekPrefetchedCommunityMessengerCallConnection,
@@ -941,11 +942,12 @@ export function CommunityMessengerCallClient({
     ensureOutgoingTempCallBootstrap({ tempSessionId: sessionId, roomId, peerUserId, kind, router });
   }, [router, searchParams, sessionId]);
 
-  /** real 세션 발신 영상 PiP-first — ringing·active-pre-remote 카메라 프라임 */
+  /** real 세션 발신 영상 — active(connecting_media) 이후만 프라임; ringing dial GUM 금지(P1-1) */
   useEffect(() => {
     if (isCommunityMessengerTempCallSessionId(sessionId)) return;
     const s = session;
     if (!s?.isMineInitiator || s.callKind !== "video") return;
+    if (s.status === "ringing") return;
     if (
       !isVideoPipFirstOutgoingPhase(
         buildVideoPipFirstPolicyArgs({
@@ -1030,6 +1032,13 @@ export function CommunityMessengerCallClient({
   useEffect(() => {
     if (!session || loading || latencyFirstScreenLoggedRef.current) return;
     latencyFirstScreenLoggedRef.current = true;
+    logCallLatencyCallScreenPainted({
+      sessionId: session.id,
+      status: session.status,
+      initiator: session.isMineInitiator,
+      callKind: session.callKind,
+      role: session.isMineInitiator ? "initiator" : "recipient",
+    });
     cmCallLatencyInfo("first_call_screen_painted", {
       sessionId: session.id,
       status: session.status,
@@ -2295,6 +2304,7 @@ export function CommunityMessengerCallClient({
         })
       );
     if (!v && pipFirstOutgoing) {
+      if (s?.status === "ringing") return;
       setBusy("camera");
       try {
         useRearFacingRef.current = !useRearFacingRef.current;

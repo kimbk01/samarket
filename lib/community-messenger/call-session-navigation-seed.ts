@@ -24,6 +24,11 @@ import {
 } from "@/lib/community-messenger/cm-call-debug";
 import { primeOutgoingCallMediaBeforeNavigate } from "@/lib/community-messenger/call-media-bootstrap";
 import {
+  logCallLatencyDialClick,
+  logCallLatencyRouteReplace,
+  logCallMediaOutgoingVideoGumDeferred,
+} from "@/lib/community-messenger/call-latency-trace";
+import {
   discardPrimedCommunityMessengerCallAudioTracksOnly,
   discardPrimedCommunityMessengerDevicePermission,
 } from "@/lib/community-messenger/call-permission";
@@ -737,6 +742,11 @@ export async function launchOutgoingDirectCall(
   if (!assertPhoneVerifiedForMessengerActionOrOpenSheet(resolveMessengerActionReturnPath())) {
     return { ok: false, userMessage: "", phoneVerificationRequired: true };
   }
+  logCallLatencyDialClick({
+    callKind: input.kind,
+    roomId: input.roomId?.trim() || undefined,
+    peerUserId: input.peerUserId?.trim() || undefined,
+  });
   unlockCommunityMessengerCallPlaybackFromUserGesture();
   primeOutgoingRingbackWebAudioFromUserGesture(input.kind);
   if (typeof window !== "undefined") {
@@ -753,15 +763,22 @@ export async function launchOutgoingDirectCall(
   const tempSessionId = decodeURIComponent(
     href.split("/community-messenger/calls/")[1]?.split("?")[0] ?? ""
   );
-  /** Telegram-style — 셸 먼저, GUM·mic 프라임은 tmp 셸·bootstrap 과 병렬 */
-  void primeOutgoingCallMediaBeforeNavigate(input.kind).then((prime) => {
-    if (!prime.ok) {
-      if (input.kind === "video") {
-        stopCommunityMessengerCallTone();
-        showMessengerSnackbar(outgoingCallMediaPrimeFailureMessage("video"), { variant: "error" });
-      }
-    }
+  logCallLatencyRouteReplace({
+    sessionId: tempSessionId,
+    callKind: input.kind,
+    roomId: input.roomId?.trim() || undefined,
   });
+  /** Telegram-style — 셸 먼저; video dial GUM 금지(P1-1), voice 는 권한 check-only 병렬 */
+  if (input.kind === "video") {
+    logCallMediaOutgoingVideoGumDeferred({ phase: "launch_outgoing_direct_call" });
+  } else {
+    void primeOutgoingCallMediaBeforeNavigate(input.kind).then((prime) => {
+      if (!prime.ok) {
+        stopCommunityMessengerCallTone();
+        showMessengerSnackbar(outgoingCallMediaPrimeFailureMessage(input.kind), { variant: "error" });
+      }
+    });
+  }
   ensureOutgoingTempCallBootstrap({
     tempSessionId,
     roomId: input.roomId?.trim() || null,

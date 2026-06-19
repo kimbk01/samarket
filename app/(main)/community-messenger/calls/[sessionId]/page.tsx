@@ -7,6 +7,7 @@ import { CommunityMessengerCallRouteLoading } from "@/components/community-messe
 import { CommunityMessengerCallEnterShell } from "@/components/community-messenger/call-history/CommunityMessengerCallEnterShell";
 import { subscribeCommunityCallHostSync } from "@/components/layout/providers/CommunityMessengerActiveCallHost";
 import { isCallSessionHostedByActiveCallHost } from "@/lib/community-messenger/direct-call-minimize";
+import { isCommunityMessengerTempCallSessionId } from "@/lib/community-messenger/call-session-navigation-seed";
 
 /**
  * 통화 화면 — active direct 영상통화는 `CommunityMessengerActiveCallHost` 가 CallClient 를 단일 상주.
@@ -32,7 +33,9 @@ export default function CommunityMessengerCallPage() {
   }
 
   return (
-    <CommunityMessengerCallEnterShell>
+    <CommunityMessengerCallEnterShell
+      instantOutgoingDialEnter={isCommunityMessengerTempCallSessionId(sessionId)}
+    >
       <CommunityMessengerCallClient key={sessionId} sessionId={sessionId} initialSession={null} />
     </CommunityMessengerCallEnterShell>
   );
