@@ -11,8 +11,8 @@
   flex-direction: column;
   border-right: 1px solid var(--sam-border, #e5e7eb);
   background: var(--sam-surface, #fff);
-  padding-top: max(0.5rem, env(safe-area-inset-top, 0px));
-  padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+  padding-top: max(0.5rem, var(--safe-top));
+  padding-bottom: max(0.5rem, var(--safe-bottom));
 }
 
 @media (min-width: 1025px) {

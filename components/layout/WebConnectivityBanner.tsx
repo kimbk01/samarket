@@ -29,7 +29,7 @@ export function WebConnectivityBanner() {
     <div
       role="status"
       aria-live="polite"
-      className="pointer-events-none fixed inset-x-0 top-0 z-[100] flex justify-center px-3 pt-[max(0.5rem,env(safe-area-inset-top))]"
+      className="pointer-events-none fixed inset-x-0 top-0 z-[100] flex justify-center px-3 pt-[max(0.5rem,var(--safe-top))]"
     >
       <div className="pointer-events-auto max-w-lg rounded-full border border-sam-border-default bg-sam-warning-soft px-4 py-2 text-center text-sm text-sam-text-primary shadow-sm">
         {t("app_connectivity_offline")}

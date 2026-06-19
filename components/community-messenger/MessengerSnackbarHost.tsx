@@ -18,7 +18,7 @@ export function MessengerSnackbarHost() {
         : "border-white/12 bg-sam-ink/[0.97] text-white";
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-[max(10px,env(safe-area-inset-bottom))] z-[200] flex justify-center px-3">
+    <div className="pointer-events-none fixed inset-x-0 bottom-[max(10px,var(--safe-bottom))] z-[200] flex justify-center px-3">
       <div
         role="status"
         aria-live="polite"

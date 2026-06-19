@@ -8,7 +8,7 @@ function readSafeAreaTopPx(): number {
   const tag = "di" + "v";
   const probe = document.createElement(tag);
   probe.style.cssText =
-    "position:fixed;top:0;left:0;width:0;height:0;padding-top:env(safe-area-inset-top,0px);visibility:hidden;pointer-events:none";
+    "position:fixed;top:0;left:0;width:0;height:0;padding-top:var(--safe-top);visibility:hidden;pointer-events:none";
   document.documentElement.appendChild(probe);
   const top = probe.getBoundingClientRect().height;
   probe.remove();

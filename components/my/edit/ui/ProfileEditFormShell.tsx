@@ -18,7 +18,7 @@ export function ProfileEditFormShell({ children }: { children: ReactNode }) {
     <div
       className={`${PROFILE_EDIT_BODY_CLASS} ${PROFILE_EDIT_HEADER_BODY_OFFSET_CLASS} ${SECTOR_HEADER_CONTENT_TOP_PAD_CLASS} space-y-3`}
       style={{
-        paddingBottom: `calc(5.5rem + env(safe-area-inset-bottom, 0px) + ${keyboardInset}px)`,
+        paddingBottom: `calc(5.5rem + var(--safe-bottom) + ${keyboardInset}px)`,
       }}
     >
       {children}

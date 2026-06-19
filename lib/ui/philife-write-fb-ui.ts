@@ -17,4 +17,4 @@ export const PHILIFE_WRITE_FORM_ROOT_CLASS = "min-w-0 w-full max-w-full space-y-
 
 /** 스크롤 본문 — 고정 하단 취소·등록 바 높이만큼 여백 */
 export const PHILIFE_WRITE_SCROLL_BODY_CLASS =
-  "min-h-0 flex-1 overflow-y-auto overscroll-y-contain pb-[calc(4.75rem+env(safe-area-inset-bottom,0px))]";
+  "min-h-0 flex-1 overflow-y-auto overscroll-y-contain pb-[calc(4.75rem+var(--safe-bottom))]";

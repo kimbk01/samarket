@@ -26,15 +26,15 @@ export const STORE_DETAIL_METRIC_TILE =
 export const STORE_DETAIL_STICKY_HEADER =
   "sticky z-[35] rounded-ui-rect border-b border-stone-200 bg-white/80 shadow-sm backdrop-blur-md";
 
-export const STORE_DETAIL_STICKY_TOP_SAFE = "top-[env(safe-area-inset-top,0px)]";
+export const STORE_DETAIL_STICKY_TOP_SAFE = "top-[var(--safe-top)]";
 
 /**
  * `top` offset for the 2nd-row menu/category tab bar below Tier1 store header
  * (two-row when ordering: store row + menu/story/coupon row).
  */
 export const STORE_DETAIL_MENU_STICKY_TOP_CLASS =
-  "top-[calc(env(safe-area-inset-top,0px)+104px)]";
+  "top-[calc(var(--safe-top)+104px)]";
 
 /** 2nd-depth subheader (product title, min order, zone title, report page, etc.) */
 export const STORE_DETAIL_SUBHEADER_STICKY =
-  "sticky z-[34] border-b border-gray-100 bg-white top-[calc(env(safe-area-inset-top,0px)+54px)]";
+  "sticky z-[34] border-b border-gray-100 bg-white top-[calc(var(--safe-top)+54px)]";

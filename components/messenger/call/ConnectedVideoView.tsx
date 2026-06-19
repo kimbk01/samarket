@@ -139,8 +139,8 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
   const outgoingVideoCompactTop =
     vm.mode === "video" && vm.direction === "outgoing" && !outgoingVideoPipFirstHero;
   const topOverlayPad = outgoingVideoCompactTop
-    ? "pt-[max(8px,calc(env(safe-area-inset-top)+12px))]"
-    : "pt-[max(8px,calc(env(safe-area-inset-top)+48px))]";
+    ? "pt-[max(8px,calc(var(--safe-top)+12px))]"
+    : "pt-[max(8px,calc(var(--safe-top)+48px))]";
 
   /** 발신 영상은 중앙 대기 카드(아바타+검은 배경) 금지 — PiP-first pre-remote 는 예외 */
   const showAvatarCenterCard =
@@ -165,8 +165,8 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
     vm.direction === "incoming" &&
     (vm.phase === "ringing" || vm.phase === "connecting");
   const actionBarPaddingBottom = liftIncomingRingingActions
-    ? "pb-[max(18px,calc(env(safe-area-inset-bottom,0px)+18px))]"
-    : "pb-[max(14px,calc(env(safe-area-inset-bottom,0px)+8px))]";
+    ? "pb-[max(18px,calc(var(--safe-bottom)+18px))]"
+    : "pb-[max(14px,calc(var(--safe-bottom)+8px))]";
   const actionBarPaddingTop = liftIncomingRingingActions ? "pt-14" : "pt-12";
 
   const pipAllowPointer = shouldAllowPipPointerInteraction({
@@ -315,8 +315,8 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
           <div
             className={`absolute right-3 z-[8] ${
               outgoingVideoCompactTop
-                ? "top-[max(10px,calc(env(safe-area-inset-top)+6px))]"
-                : "top-[max(52px,calc(env(safe-area-inset-top)+40px))]"
+                ? "top-[max(10px,calc(var(--safe-top)+6px))]"
+                : "top-[max(52px,calc(var(--safe-top)+40px))]"
             }`}
           >
             <button
@@ -335,9 +335,9 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
         ) : null}
 
         {incomingVideoRingHero ? (
-          <div className="pointer-events-none absolute inset-0 z-[5] flex flex-col items-center justify-center px-6 pb-[clamp(128px,18dvh,172px)] pt-[max(72px,calc(env(safe-area-inset-top)+64px))]">
+          <div className="pointer-events-none absolute inset-0 z-[5] flex flex-col items-center justify-center px-6 pb-[clamp(128px,18dvh,172px)] pt-[max(72px,calc(var(--safe-top)+64px))]">
             <div className="flex w-full max-w-md flex-col items-center text-center">
-              <div className="mb-6 w-full pt-[max(8px,calc(env(safe-area-inset-top)+4px))]">
+              <div className="mb-6 w-full pt-[max(8px,calc(var(--safe-top)+4px))]">
                 <IncomingCallBrandHeader mode="video" visualTheme={vm.visualTheme} />
               </div>
               <CallAvatar label={vm.peerLabel} avatarUrl={vm.peerAvatarUrl} pulse theme={vm.visualTheme} />
@@ -353,7 +353,7 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
         ) : null}
 
         {outgoingVideoPipFirstHero ? (
-          <div className="pointer-events-none absolute inset-0 z-[5] flex flex-col items-center justify-center px-6 pb-[clamp(128px,18dvh,172px)] pt-[max(72px,calc(env(safe-area-inset-top)+64px))]">
+          <div className="pointer-events-none absolute inset-0 z-[5] flex flex-col items-center justify-center px-6 pb-[clamp(128px,18dvh,172px)] pt-[max(72px,calc(var(--safe-top)+64px))]">
             <div className="flex w-full max-w-md flex-col items-center text-center">
               <CallAvatar label={vm.peerLabel} avatarUrl={vm.peerAvatarUrl} pulse theme={vm.visualTheme} />
               <h2
@@ -428,7 +428,7 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
         ) : null}
         {vm.participantsSummary ? (
           <div
-            className={`absolute left-4 top-[calc(env(safe-area-inset-top)+52px)] z-[3] rounded-full px-3 py-1.5 sam-text-helper font-medium backdrop-blur-sm ${
+            className={`absolute left-4 top-[calc(var(--safe-top)+52px)] z-[3] rounded-full px-3 py-1.5 sam-text-helper font-medium backdrop-blur-sm ${
               isStarbucks ? "bg-[#003D29]/45 text-[#F1F8F4] ring-1 ring-[#D4E9E2]/18" : "bg-black/30 text-white/90"
             }`}
           >

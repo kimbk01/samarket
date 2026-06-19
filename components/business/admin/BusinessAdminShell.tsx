@@ -151,15 +151,15 @@ export function BusinessAdminShell({
     const isStoreOwnerAdminSubroute = ownerPathNorm.startsWith("/stores/owner/");
     if (isOwnerMobileAdminShell) {
       if (isOwnerFormBottomNavHiddenRoute) {
-        return "pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] sm:pb-3";
+        return "pb-[max(0.5rem,var(--safe-bottom))] sm:pb-3";
       }
       return OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS;
     }
     if (f.showBottomNav) return "pb-4 sm:pb-5 lg:pb-6";
     if (isStoreOwnerAdminSubroute) {
-      return "pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] sm:pb-3 md:pb-4 lg:pb-6";
+      return "pb-[max(0.5rem,var(--safe-bottom))] sm:pb-3 md:pb-4 lg:pb-6";
     }
-    return "pb-[calc(5rem+env(safe-area-inset-bottom,0px))] lg:pb-8";
+    return "pb-[calc(5rem+var(--safe-bottom))] lg:pb-8";
   }, [pathname, ownerPathNorm, isOwnerMobileAdminShell, isOwnerFormBottomNavHiddenRoute]);
 
   /** 상품 목록 허브 — 하단 탭 없음, 과한 main pb·클라 pb-8 중복 제거 대상 */
@@ -611,7 +611,7 @@ export function BusinessAdminShell({
           rightSlot={<div className="flex shrink-0 items-center gap-1">{hubPartialHeaderRight}</div>}
         />
         <main
-          className={`mx-auto w-full max-w-6xl min-w-0 bg-[var(--biz-app-bg)] px-2 pt-[calc(env(safe-area-inset-top,0px)+3.5rem+0.75rem)] sm:px-2 ${ownerMainBottomPad}`}
+          className={`mx-auto w-full max-w-6xl min-w-0 bg-[var(--biz-app-bg)] px-2 pt-[calc(var(--safe-top)+3.5rem+0.75rem)] sm:px-2 ${ownerMainBottomPad}`}
         >
           {children}
         </main>
@@ -785,7 +785,7 @@ export function BusinessAdminShell({
             <main
               className={`mx-auto w-full min-w-0 bg-[var(--biz-app-bg)] ${
                 isOwnerStoreProductComposerRoute
-                  ? "flex min-h-0 max-w-6xl flex-1 flex-col overflow-hidden px-2 sm:px-2 pt-[calc(env(safe-area-inset-top,0px)+3.5rem+0.75rem)]"
+                  ? "flex min-h-0 max-w-6xl flex-1 flex-col overflow-hidden px-2 sm:px-2 pt-[calc(var(--safe-top)+3.5rem+0.75rem)]"
                   : `${ownerUnifiedMainLayoutClass} ${isOwnerDesktopStackViewport ? ownerMainBottomPadForChildren : ""}`
               }`}
             >

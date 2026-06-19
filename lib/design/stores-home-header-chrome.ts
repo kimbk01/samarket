@@ -115,7 +115,7 @@ export const STORES_HOME_HEADER_APPLY_TITLE_CLASS =
 
 /** `BodyPortal` 고정 시 본문 offset — 52px 밴드 + safe-area (홈·apply 동일) */
 export const STORES_HOME_HEADER_FIXED_BODY_OFFSET_CLASS =
-  "pt-[calc(env(safe-area-inset-top,0px)+var(--delivery-header-h))]";
+  "pt-[calc(var(--safe-top)+var(--delivery-header-h))]";
 
 /** `@deprecated` — `STORES_HOME_HEADER_FIXED_BODY_OFFSET_CLASS` 와 동일 */
 export const STORES_OWNER_APPLY_HEADER_BODY_OFFSET_CLASS =

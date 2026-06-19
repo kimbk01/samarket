@@ -82,7 +82,7 @@ export function TradeHistoryStackPanel() {
       </header>
 
       <div
-        className={`min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[max(1rem,env(safe-area-inset-bottom,0px))] pt-2 ${PHILIFE_FEED_INSET_X_CLASS}`}
+        className={`min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[max(1rem,var(--safe-bottom))] pt-2 ${PHILIFE_FEED_INSET_X_CLASS}`}
       >
         {tab === "purchases" ? (
           <TradeHubSectionShell title={t("trade_031")}>

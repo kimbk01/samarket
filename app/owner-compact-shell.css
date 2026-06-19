@@ -66,7 +66,7 @@ body[data-owner-compact-shell] {
   max-width: 100vw;
   border-bottom: 1px solid #dde5e0;
   background-color: #fff;
-  padding-top: var(--owner-shell-safe-top, env(safe-area-inset-top, 0px));
+  padding-top: var(--owner-shell-safe-top, var(--safe-top));
   overflow-x: clip;
 }
 
@@ -78,8 +78,8 @@ body[data-owner-compact-shell] {
   max-width: min(var(--owner-shell-content-max, 42rem), 100%);
   height: var(--owner-shell-toolbar-h, 3.5rem);
   margin-inline: auto;
-  padding-left: var(--owner-shell-pad-left, max(0.5rem, env(safe-area-inset-left, 0px)));
-  padding-right: var(--owner-shell-pad-right, max(0.5rem, env(safe-area-inset-right, 0px)));
+  padding-left: var(--owner-shell-pad-left, max(0.5rem, var(--safe-left)));
+  padding-right: var(--owner-shell-pad-right, max(0.5rem, var(--safe-right)));
   align-items: center;
   column-gap: 0.25rem;
 }
@@ -89,7 +89,7 @@ body[data-owner-compact-shell] {
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
-  padding-top: var(--owner-shell-main-pt, calc(env(safe-area-inset-top, 0px) + 3.5rem));
+  padding-top: var(--owner-shell-main-pt, calc(var(--safe-top) + 3.5rem));
 }
 
 .owner-compact-shell__column {
@@ -98,8 +98,8 @@ body[data-owner-compact-shell] {
   min-width: 0;
   max-width: min(var(--owner-shell-content-max, 42rem), 100%);
   margin-inline: auto;
-  padding-left: var(--owner-shell-pad-left, max(0.5rem, env(safe-area-inset-left, 0px)));
-  padding-right: var(--owner-shell-pad-right, max(0.5rem, env(safe-area-inset-right, 0px)));
+  padding-left: var(--owner-shell-pad-left, max(0.5rem, var(--safe-left)));
+  padding-right: var(--owner-shell-pad-right, max(0.5rem, var(--safe-right)));
 }
 
 .owner-compact-shell__scroll {
@@ -114,7 +114,7 @@ body[data-owner-compact-shell] {
 }
 
 .owner-compact-shell__main-pb {
-  padding-bottom: var(--owner-shell-main-pb, calc(76px + env(safe-area-inset-bottom, 0px)));
+  padding-bottom: var(--owner-shell-main-pb, calc(76px + var(--safe-bottom)));
 }
 
 /**
@@ -124,8 +124,8 @@ body[data-owner-compact-shell] {
 .owner-compact-shell__bleed-x {
   margin-left: calc(-1 * var(--owner-shell-pad-left, 0.5rem));
   margin-right: calc(-1 * var(--owner-shell-pad-right, 0.5rem));
-  padding-left: var(--owner-shell-pad-left, max(0.5rem, env(safe-area-inset-left, 0px)));
-  padding-right: var(--owner-shell-pad-right, max(0.5rem, env(safe-area-inset-right, 0px)));
+  padding-left: var(--owner-shell-pad-left, max(0.5rem, var(--safe-left)));
+  padding-right: var(--owner-shell-pad-right, max(0.5rem, var(--safe-right)));
 }
 
 /** 저장·취소·카테고리 하단 바 — 컴팩트에서 헤더와 동일 읽기 폭 */
@@ -138,8 +138,8 @@ body[data-owner-compact-shell] {
 body[data-owner-compact-shell] .owner-store-admin-footer-bar {
   max-width: min(var(--owner-shell-content-max, 42rem), 100%);
   margin-inline: auto;
-  padding-left: var(--owner-shell-pad-left, max(0.5rem, env(safe-area-inset-left, 0px)));
-  padding-right: var(--owner-shell-pad-right, max(0.5rem, env(safe-area-inset-right, 0px)));
+  padding-left: var(--owner-shell-pad-left, max(0.5rem, var(--safe-left)));
+  padding-right: var(--owner-shell-pad-right, max(0.5rem, var(--safe-right)));
 }
 
 /**
@@ -190,9 +190,9 @@ body[data-owner-compact-shell] .owner-store-admin-footer-bar {
   height: 100svh;
   max-height: 100dvh;
   max-height: 100svh;
-  padding-top: env(safe-area-inset-top, 0px);
-  padding-right: env(safe-area-inset-right, 0px);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-top: var(--safe-top);
+  padding-right: var(--safe-right);
+  padding-bottom: var(--safe-bottom);
   overflow: hidden;
   border-left: 1px solid var(--biz-card-border, #e7eaef);
   background-color: var(--biz-card-bg, var(--dibay-card));

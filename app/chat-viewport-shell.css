@@ -14,8 +14,8 @@
   overflow: hidden;
   height: var(--chat-viewport-height, 100dvh);
   max-height: var(--chat-viewport-height, 100dvh);
-  padding-top: env(safe-area-inset-top, 0px);
-  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--chat-bottom-inset, 0px));
+  padding-top: var(--safe-top);
+  padding-bottom: calc(var(--safe-bottom) + var(--chat-bottom-inset, 0px));
 }
 
 [data-cm-room].chat-viewport-shell.chat-viewport-shell--embedded {

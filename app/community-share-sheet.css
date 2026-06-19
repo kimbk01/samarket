@@ -11,7 +11,7 @@
 .community-share-sheet-panel {
   position: absolute;
   inset-inline: 0;
-  bottom: calc(var(--app-bottom-nav-height, 60px) + env(safe-area-inset-bottom, 0px));
+  bottom: calc(var(--app-bottom-nav-height, 60px) + var(--safe-bottom));
   transform: translate3d(0, 100%, 0);
   will-change: transform;
   touch-action: manipulation;
@@ -20,20 +20,20 @@
 html:has(.app-bottom-nav-shell--delivery) .community-share-sheet-panel {
   bottom: calc(
     var(--app-bottom-nav-height, 60px) + var(--delivery-home-overhang, 0px) +
-      env(safe-area-inset-bottom, 0px)
+      var(--safe-bottom)
   );
 }
 
 html:not(:has(.app-bottom-nav-shell)) .community-share-sheet-panel {
-  bottom: env(safe-area-inset-bottom, 0px);
+  bottom: var(--safe-bottom);
 }
 
 html:has(.app-bottom-nav-shell--scroll-hidden) .community-share-sheet-panel {
-  bottom: env(safe-area-inset-bottom, 0px);
+  bottom: var(--safe-bottom);
 }
 
 .community-share-sheet-panel--nav-hidden {
-  bottom: env(safe-area-inset-bottom, 0px) !important;
+  bottom: var(--safe-bottom) !important;
 }
 
 .community-share-sheet-panel--entering {

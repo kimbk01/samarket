@@ -48,7 +48,7 @@ export const ADDR_MAP_HOST = "relative min-h-0 flex-1 bg-sam-surface-muted";
 
 export const ADDR_BOTTOM_BAR = "shrink-0 border-t border-sam-primary-border/50 bg-sam-surface safe-area-pb";
 
-export const ADDR_BOTTOM_INNER = `flex flex-col gap-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 ${ADDR_CONTENT_COLUMN}`;
+export const ADDR_BOTTOM_INNER = `flex flex-col gap-2 pb-[max(0.75rem,var(--safe-bottom))] pt-3 ${ADDR_CONTENT_COLUMN}`;
 
 export const ADDR_BODY_STRONG = "sam-text-body font-medium text-sam-fg";
 

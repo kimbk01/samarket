@@ -76,7 +76,7 @@ export function MessengerFriendProfileSheet({
   return (
     <div className="fixed inset-0 z-[45] flex flex-col justify-end bg-black/25" role="dialog" aria-modal="true" aria-labelledby="messenger-friend-sheet-title">
       <button type="button" className="min-h-0 flex-1 cursor-default" aria-label={t("nav_close")} onClick={onClose} />
-      <div className="max-h-[82vh] w-full overflow-y-auto rounded-t-[12px] border border-ui-border bg-ui-surface px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
+      <div className="max-h-[82vh] w-full overflow-y-auto rounded-t-[12px] border border-ui-border bg-ui-surface px-3 pb-[max(0.75rem,var(--safe-bottom))] pt-2">
         <div className="flex flex-col items-center border-b border-ui-border pb-3 text-center">
           <span className="relative inline-flex h-16 w-16 shrink-0">
             <SamarketThumbnail

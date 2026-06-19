@@ -69,7 +69,7 @@ export function OwnerOrderRejectSheet({
       <div
         className={[
           "relative z-[1] w-full max-w-md rounded-t-[16px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] p-4 shadow-2xl sm:rounded-[16px]",
-          "max-h-[min(90vh,520px)] overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))]",
+          "max-h-[min(90vh,520px)] overflow-y-auto pb-[max(1rem,var(--safe-bottom))]",
         ].join(" ")}
       >
         <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-[var(--biz-card-border)] sm:hidden" aria-hidden />

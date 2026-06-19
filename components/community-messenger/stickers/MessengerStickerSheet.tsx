@@ -166,7 +166,7 @@ export function MessengerStickerSheet({
           </button>
         ))}
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-[max(0.75rem,var(--safe-bottom))] pt-2">
         {itemsBusy ? (
           <p className="py-6 text-center sam-text-body-secondary text-sam-muted">{t("common_loading")}</p>
         ) : !items?.length ? (

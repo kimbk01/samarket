@@ -291,7 +291,7 @@ export function OwnerStoreOrdersMobileBody({
         ref={(el) => {
           listScrollRef.current = el;
         }}
-        className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain pb-[max(0.5rem,env(safe-area-inset-bottom,0px))]"
+        className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain pb-[max(0.5rem,var(--safe-bottom))]"
       >
         <div className="space-y-2.5 py-3">
           {deepLinkMissBanner}

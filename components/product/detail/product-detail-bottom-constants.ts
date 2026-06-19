@@ -13,7 +13,7 @@ export const TRADE_POST_DETAIL_BOTTOM_SHELL = `fixed bottom-0 left-1/2 z-30 flex
 
 /** 구매자 첫 줄: 찜·부동산 요약·CTA (+ 하단 safe-area, 판매자 밴드와 중복 없음) */
 export const TRADE_POST_DETAIL_BOTTOM_PRIMARY_ROW =
-  "flex min-h-[56px] w-full max-w-full items-stretch gap-0 pb-[max(10px,env(safe-area-inset-bottom))] sm:min-h-[58px] md:min-h-[60px]";
+  "flex min-h-[56px] w-full max-w-full items-stretch gap-0 pb-[max(10px,var(--safe-bottom))] sm:min-h-[58px] md:min-h-[60px]";
 
 /** 관심 — 고정 폭 컬럼 (분기 공통) */
 export const TRADE_POST_DETAIL_BOTTOM_FAVORITE_BTN =
@@ -48,5 +48,5 @@ export const TRADE_POST_DETAIL_BOTTOM_LOADING_PLACEHOLDER =
 
 /** 판매자 전용 두 번째 밴드 */
 export const TRADE_POST_DETAIL_BOTTOM_SELLER_BAND =
-  "w-full border-t border-[#E4E6EB] bg-[#F0F2F5] px-3 pb-[max(10px,env(safe-area-inset-bottom))] pt-3 dark:border-sam-border dark:bg-sam-app sm:px-4 md:px-5";
+  "w-full border-t border-[#E4E6EB] bg-[#F0F2F5] px-3 pb-[max(10px,var(--safe-bottom))] pt-3 dark:border-sam-border dark:bg-sam-app sm:px-4 md:px-5";
 

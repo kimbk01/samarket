@@ -120,7 +120,7 @@ export const STORE_COMMERCE_ACTION_BTN_CLASS = STORE_COMMERCE_ACTION_BTN_ACTIVE_
  * `app-bottom-nav-plane` 과 동일 패턴.
  */
 export const STORE_COMMERCE_ACTION_PLANE_BOTTOM_PAD =
-  "calc(var(--store-commerce-action-plane-pb,0.75rem)+env(safe-area-inset-bottom,0px))";
+  "calc(var(--store-commerce-action-plane-pb,0.75rem)+var(--safe-bottom))";
 
 /** @deprecated 셸 inline padding 제거 — plane CSS 가 담당 */
 export function storeCommerceActionShellStyle(): Record<string, never> {
@@ -141,7 +141,7 @@ export function storeCommerceActionContentPadClass(variant: StoreCommerceActionV
             : variant === "cart-checkout"
               ? "6.25rem"
               : "5.75rem";
-  return `pb-[calc(${core}+var(--store-commerce-action-plane-pb,0.75rem)+env(safe-area-inset-bottom,0px))]`;
+  return `pb-[calc(${core}+var(--store-commerce-action-plane-pb,0.75rem)+var(--safe-bottom))]`;
 }
 
 export const STORE_DETAIL_ROOT_BOTTOM_PADDING_WITH_CART_STRIP_CLASS =
@@ -155,5 +155,5 @@ export const STORE_DETAIL_ROOT_BOTTOM_PADDING_CLASS =
 
 export function storeCommerceActionToastBottomCss(totalQty: number): string {
   const core = totalQty > 0 ? "5.75rem" : "4.75rem";
-  return `max(calc(${core} + var(--store-commerce-action-plane-pb, 0.75rem) + env(safe-area-inset-bottom, 0px)), ${totalQty > 0 ? "96px" : "80px"})`;
+  return `max(calc(${core} + var(--store-commerce-action-plane-pb, 0.75rem) + var(--safe-bottom)), ${totalQty > 0 ? "96px" : "80px"})`;
 }

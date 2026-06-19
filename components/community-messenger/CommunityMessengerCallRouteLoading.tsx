@@ -17,7 +17,7 @@ export function CommunityMessengerCallRouteLoading() {
         <CallBackground mode="video" phase="connecting" showVideo={false} theme="starbucks" />
         <div className="relative z-[1] flex min-h-0 flex-1 flex-col">
           <CallHeader onBack={null} topLabel={null} trailing={null} />
-          <div className="relative z-[2] flex min-h-0 flex-1 flex-col justify-end px-4 pb-[max(14px,calc(env(safe-area-inset-bottom)+8px))] pt-2">
+          <div className="relative z-[2] flex min-h-0 flex-1 flex-col justify-end px-4 pb-[max(14px,calc(var(--safe-bottom)+8px))] pt-2">
             <div className="flex min-h-0 flex-1 flex-col justify-start pt-[min(18vh,140px)]">
               <div className="w-full max-w-md self-center px-2">
                 <div className="px-6 text-center">

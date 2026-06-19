@@ -32,7 +32,7 @@ function readSafeAreaInsetBottomPx(): number {
   if (typeof document === "undefined") return 0;
   const el = document.createElement("div");
   el.style.cssText =
-    "position:absolute;left:-9999px;bottom:0;visibility:hidden;padding-bottom:env(safe-area-inset-bottom,0px);";
+    "position:absolute;left:-9999px;bottom:0;visibility:hidden;padding-bottom:var(--safe-bottom);";
   document.body.appendChild(el);
   const pb = parseFloat(getComputedStyle(el).paddingBottom || "0") || 0;
   document.body.removeChild(el);
@@ -142,7 +142,7 @@ export function CallScreenShell({
     variant === "overlay"
       ? `fixed inset-x-0 top-0 ${CALL_OVERLAY_PORTAL_Z} flex h-[var(--call-viewport-height,100dvh)] max-h-[var(--call-viewport-height,100dvh)] min-h-0 flex-col overflow-hidden ${surfaceClassName}`
       : variant === "dock-top"
-        ? `fixed inset-x-0 top-0 ${CALL_OVERLAY_PORTAL_Z} flex max-h-[min(520px,92dvh)] min-h-0 flex-col overflow-hidden pt-[max(14px,calc(env(safe-area-inset-top,0px)+8px))] ${surfaceClassName}`
+        ? `fixed inset-x-0 top-0 ${CALL_OVERLAY_PORTAL_Z} flex max-h-[min(520px,92dvh)] min-h-0 flex-col overflow-hidden pt-[max(14px,calc(var(--safe-top)+8px))] ${surfaceClassName}`
         : `flex h-[var(--call-viewport-height,100dvh)] max-h-[var(--call-viewport-height,100dvh)] min-h-0 flex-col overflow-hidden ${surfaceClassName}`;
   const shell = (
     <div ref={shellRef} data-messenger-shell data-call-screen-shell className={`${base} ${className}`.trim()}>

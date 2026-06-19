@@ -92,7 +92,7 @@ export function MessengerSettingsSheet({
             {t("nav_close")}
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[color:var(--messenger-bg)] px-3 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[color:var(--messenger-bg)] px-3 pb-[max(1rem,var(--safe-bottom))] pt-3">
           <div className="space-y-4">
             <MessengerSettingsBlock title={t("common_notifications")}>
               <SettingsToggleRow

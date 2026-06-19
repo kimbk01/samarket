@@ -23,7 +23,7 @@ export function ProfileEditHeader({
 
   return (
     <BodyPortal>
-      <div className="pointer-events-none fixed inset-x-0 top-0 z-[55] pt-[env(safe-area-inset-top,0px)]">
+      <div className="pointer-events-none fixed inset-x-0 top-0 z-[55] pt-[var(--safe-top)]">
         <header
           data-profile-edit-header
           className={`pointer-events-auto ${SECTOR_HEADER_SHELL_CLASS} ${SECTOR_HEADER_SHELL_EMBEDDED_CLASS}`}

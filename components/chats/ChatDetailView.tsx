@@ -2280,7 +2280,7 @@ export function ChatDetailView({
         isStoreOrderSeller ? (
           <div
             className={`sticky bottom-0 z-10 mx-auto w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} shrink-0 border-t bg-sam-surface safe-area-pb ${isStoreOrderChat ? "border-sam-border" : "border-sam-border"}`}
-            style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom, 0px))" }}
+            style={{ paddingBottom: "max(0.5rem, var(--safe-bottom))" }}
           >
             {sellerComposerQuickBar}
             <div className="px-4 py-3 text-center">
@@ -2301,7 +2301,7 @@ export function ChatDetailView({
       ) : (
         <div
           className={`sticky bottom-0 z-10 mx-auto w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} shrink-0 border-t bg-sam-surface safe-area-pb ${isStoreOrderChat ? "border-sam-border" : "border-sam-border"} ${!canWriteTradeMessage ? "pt-2" : "pt-3"}`}
-          style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom, 0px))" }}
+          style={{ paddingBottom: "max(0.5rem, var(--safe-bottom))" }}
         >
           {!canWriteTradeMessage ? (
             <div className="rounded-t-lg border-x border-t border-sam-border-soft bg-sam-primary-soft/35 px-4 pb-2 pt-1.5 text-center">
@@ -2449,7 +2449,7 @@ export function ChatDetailView({
       )}
 
       {messengerTradeToast ? (
-        <p className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] left-0 right-0 z-[55] bg-sam-ink px-3 py-2 text-center text-xs text-white">
+        <p className="fixed bottom-[calc(5rem+var(--safe-bottom))] left-0 right-0 z-[55] bg-sam-ink px-3 py-2 text-center text-xs text-white">
           {messengerTradeToast}
         </p>
       ) : null}
@@ -2457,7 +2457,7 @@ export function ChatDetailView({
       {reviewSheetOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4">
           <div
-            className={`flex max-h-full min-h-0 w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} flex-col overflow-hidden rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface shadow-sam-elevated sm:max-h-[min(90vh,calc(100dvh-3.5rem-env(safe-area-inset-bottom,0px)))] sm:rounded-ui-rect`}
+            className={`flex max-h-full min-h-0 w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} flex-col overflow-hidden rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface shadow-sam-elevated sm:max-h-[min(90vh,calc(100dvh-3.5rem-var(--safe-bottom)))] sm:rounded-ui-rect`}
           >
             <div className="flex shrink-0 items-center justify-between border-b border-sam-border-soft px-4 py-3">
               <h2 className="sam-text-body-lg font-semibold text-sam-fg">{t("chats_write_review_title")}</h2>

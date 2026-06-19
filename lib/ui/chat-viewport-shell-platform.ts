@@ -35,7 +35,7 @@ export function resolveChatViewportShellPlatform(): ChatViewportShellPlatform {
 
 /**
  * 키보드 open → keyboard overlay. closed → Android nav / gesture gap (visualViewport).
- * iOS safe-area 는 CSS env() 로 shell·timeline 에 추가.
+ * iOS safe-area 는 CSS `--safe-*`(env) 로 shell·timeline 에 추가. Android 는 native bridge fallback 포함.
  */
 export function resolveChatBottomInsetCssPx(): number {
   const keyboard = resolveChatShellKeyboardOverlayCssPx();

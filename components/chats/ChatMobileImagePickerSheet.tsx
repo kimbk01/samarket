@@ -72,8 +72,8 @@ export function ChatMobileImagePickerSheet({ open, files, onClose, onConfirm }: 
       style={{
         height: "100dvh",
         maxHeight: "100dvh",
-        paddingTop: "env(safe-area-inset-top)",
-        paddingBottom: "env(safe-area-inset-bottom)",
+        paddingTop: "var(--safe-top)",
+        paddingBottom: "var(--safe-bottom)",
       }}
       role="dialog"
       aria-modal

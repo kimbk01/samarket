@@ -110,7 +110,7 @@ export function PhoneVerificationRequiredSheet() {
         aria-modal="true"
         aria-labelledby="phone-verification-required-title"
         aria-describedby="phone-verification-required-desc"
-        className={`pointer-events-auto w-full rounded-t-[20px] border border-b-0 border-sam-border bg-sam-surface px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 shadow-[0_-8px_32px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none ${
+        className={`pointer-events-auto w-full rounded-t-[20px] border border-b-0 border-sam-border bg-sam-surface px-5 pb-[max(1rem,var(--safe-bottom))] pt-4 shadow-[0_-8px_32px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none ${
           entered ? "translate-y-0" : "translate-y-full"
         }`}
       >

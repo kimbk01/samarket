@@ -4,6 +4,10 @@
  */
 
 import { PHILIFE_FEED_INSET_X_CLASS } from "@/lib/philife/philife-flat-ui-classes";
+import {
+  APP_SECTOR_HEADER_OFFSET_TOP_CLASS,
+  APP_TIER1_SAFE_X_PAD_CLASS,
+} from "@/lib/ui/safe-area-layout-classes";
 
 /** 메인 컬럼 `max-w-*` 체인만 — 고정 하단 바·상세 풀폭 래퍼 등에서 본문과 동일 폭으로 맞출 때 */
 export const APP_MAIN_COLUMN_MAX_WIDTH_CLASS =
@@ -76,9 +80,8 @@ export const APP_MAIN_TAB_SCROLL_BODY_CLASS = `${APP_MAIN_COLUMN_CLASS} min-h-0 
 export const APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS =
   "relative min-w-0 w-[100dvw] max-w-[100dvw] shrink-0 ml-[calc(50%-50dvw)]";
 
-/** safe-area와 본문 거터(12/16/20px) 중 큰 값 — 좌·우 패딩만 */
-const APP_TIER1_SAFE_X_PAD =
-  "pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] md:pl-[max(1.25rem,env(safe-area-inset-left,0px))] md:pr-[max(1.25rem,env(safe-area-inset-right,0px))]";
+/** safe-area와 본문 거터(12/16/20px) 중 큰 값 — 좌·우 패딩만 (`safe-area-layout-classes.ts`) */
+const APP_TIER1_SAFE_X_PAD = APP_TIER1_SAFE_X_PAD_CLASS;
 
 /**
  * 뷰포트 풀폭 1단 앱바 **내부** — 기기 좌우·노치(safe-area)와 본문 거터 단계 중 큰 값.
@@ -109,8 +112,7 @@ export const TRADE_HUB_LIST_ITEM_CARD_CLASS =
   "relative overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-none";
 
 /** standalone fixed 섹터 헤더 아래 본문 offset — `app/sector-header.css` `--sector-header-h` 와 동기 */
-export const APP_SECTOR_HEADER_OFFSET_TOP_CLASS =
-  "pt-[calc(var(--sector-header-h,52px)+env(safe-area-inset-top,0px))]";
+export { APP_SECTOR_HEADER_OFFSET_TOP_CLASS };
 
 /** 섹터 헤더 직후 본문 최소 상단 여백 */
 export const APP_SECTOR_HEADER_CONTENT_TOP_PAD_CLASS = "pt-2";

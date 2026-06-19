@@ -846,7 +846,7 @@ export function MyStoreOrdersView({
     <div
       className={
         isDeliveryHub
-          ? "min-h-0 min-w-0 flex-1 bg-[#f6f6f6] pb-[max(0.75rem,env(safe-area-inset-bottom,0px))]"
+          ? "min-h-0 min-w-0 flex-1 bg-[#f6f6f6] pb-[max(0.75rem,var(--safe-bottom))]"
           : embedded
             ? "min-w-0 pb-1"
             : "w-full min-h-0 bg-sam-app dark:bg-[#18191A]"

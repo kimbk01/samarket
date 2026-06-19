@@ -87,7 +87,7 @@ export function DeliveryBottomNav({ initialItems }: { initialItems: DeliveryBott
       className={[
         "fixed bottom-0 left-0 right-0 z-20 pointer-events-none",
         "w-full min-w-0 max-w-none overflow-x-clip",
-        "pb-[env(safe-area-inset-bottom,0px)]",
+        "pb-[var(--safe-bottom)]",
         transitionClass,
         resolveBottomNavScrollHideOuterClass(hidden),
       ]

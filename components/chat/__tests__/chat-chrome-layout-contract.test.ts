@@ -39,9 +39,10 @@ describe("chat chrome layout contract", () => {
     expect(src).not.toMatch(/sticky bottom-0/);
   });
 
-  it("shell CSS uses safe-area on viewport shell and 100dvh narrow modifier", () => {
+  it("shell CSS uses safe-area SSOT on viewport shell and 100dvh narrow modifier", () => {
     const css = readSrc("app/chat-viewport-shell.css");
-    expect(css).toContain("padding-top: env(safe-area-inset-top");
+    expect(css).toContain("padding-top: var(--safe-top)");
+    expect(css).toContain("padding-bottom: calc(var(--safe-bottom");
     expect(css).toContain("--chat-viewport-height");
     expect(css).toContain("--chat-composer-height");
     expect(css).toContain("--chat-bottom-inset");

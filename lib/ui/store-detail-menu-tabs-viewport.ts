@@ -29,9 +29,9 @@ export function storeDetailCategoryTabsStickyTopCss(): string {
   const tabletExtra = isTabletViewport() ? STORE_DETAIL_TABLET_STICKY_TOP_EXTRA_PX : 0;
   const headerH = `var(--delivery-header-h, ${STORE_DETAIL_HEADER_BAR_PX}px)`;
   if (tabletExtra > 0) {
-    return `calc(env(safe-area-inset-top, 0px) + ${headerH} + ${tabletExtra}px)`;
+    return `calc(var(--safe-top) + ${headerH} + ${tabletExtra}px)`;
   }
-  return `calc(env(safe-area-inset-top, 0px) + ${headerH})`;
+  return `calc(var(--safe-top) + ${headerH})`;
 }
 
 function measureNoticeBarHeightPx(): number {

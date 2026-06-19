@@ -4,8 +4,8 @@
  * 정책 (`docs/community-messenger-mobile-room-viewport.md` 와 함께 읽기):
  * - Android · iOS 분기 없이 동일 토큰을 사용한다.
  * - 동적 뷰포트는 `100dvh` 우선, 미지원 브라우저는 `100vh` fallback.
- * - safe-area SSOT: `--safe-*` = max(env, native `--dibay-safe-*`). Android WebView bridge:
- *   `DibayWebSafeAreaBridge` → `MainActivity`.
+ * - iOS · Android · tablet — safe-area SSOT `--safe-*` (= max(env, native `--dibay-safe-*`)).
+ * - Android WebView bridge: `DibayWebSafeAreaBridge` → `MainActivity`.
  * - 메신저 방은 `app/chat-viewport-shell.css` · `use-chat-viewport-shell-insets.ts`.
  *   `--safe-bottom`(system nav) + `--chat-bottom-inset`(keyboard only) — 이중 nav 차감 금지.
  *

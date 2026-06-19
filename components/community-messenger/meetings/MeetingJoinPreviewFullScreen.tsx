@@ -47,7 +47,7 @@ export function MeetingJoinPreviewFullScreen({
 
   return (
     <div className="fixed inset-0 z-[55] flex flex-col bg-[color:var(--messenger-bg)]" role="dialog" aria-modal="true">
-      <header className="flex shrink-0 items-center justify-between border-b border-[color:var(--messenger-divider)] px-3 py-2 pt-[max(0.5rem,env(safe-area-inset-top))]">
+      <header className="flex shrink-0 items-center justify-between border-b border-[color:var(--messenger-divider)] px-3 py-2 pt-[max(0.5rem,var(--safe-top))]">
         <button
           type="button"
           onClick={onClose}
@@ -151,7 +151,7 @@ export function MeetingJoinPreviewFullScreen({
         </div>
       </div>
 
-      <div className="shrink-0 border-t border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-4 py-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <div className="shrink-0 border-t border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-4 py-3 pb-[max(1rem,var(--safe-bottom))]">
         <button
           type="button"
           disabled={joinDisabled}

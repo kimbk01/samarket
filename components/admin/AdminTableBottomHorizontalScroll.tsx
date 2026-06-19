@@ -30,7 +30,7 @@ export function AdminTableBottomHorizontalScroll(props: {
         onScroll={onScroll}
         role="region"
         aria-label={ariaLabel}
-        className="h-12 w-full overflow-x-auto overflow-y-hidden overscroll-x-contain px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] [-webkit-overflow-scrolling:touch] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-2.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#98a2b3] [&::-webkit-scrollbar-track]:bg-[#eef2f6]"
+        className="h-12 w-full overflow-x-auto overflow-y-hidden overscroll-x-contain px-3 pt-2 pb-[max(0.5rem,var(--safe-bottom))] [-webkit-overflow-scrolling:touch] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-2.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#98a2b3] [&::-webkit-scrollbar-track]:bg-[#eef2f6]"
       >
         <div className="h-2 shrink-0" style={{ width: Math.max(tableScrollWidth, 1) }} aria-hidden />
       </div>

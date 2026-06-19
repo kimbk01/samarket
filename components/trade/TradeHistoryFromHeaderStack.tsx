@@ -128,7 +128,7 @@ export function TradeHistoryFromHeaderStack({ children }: { children: ReactNode 
             />
           ) : null}
           <div
-            className="pointer-events-auto fixed inset-y-0 left-0 z-[51] flex max-h-[100dvh] min-h-0 min-w-0 flex-col overflow-hidden border-r border-sam-border bg-sam-app pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)] pt-0 text-sam-fg will-change-transform [overscroll-behavior:contain]"
+            className="pointer-events-auto fixed inset-y-0 left-0 z-[51] flex max-h-[100dvh] min-h-0 min-w-0 flex-col overflow-hidden border-r border-sam-border bg-sam-app pl-[var(--safe-left)] pr-[var(--safe-right)] pt-0 text-sam-fg will-change-transform [overscroll-behavior:contain]"
             style={{
               transform: panelX,
               transition: `transform ${PANEL_MS}ms ${PANEL_EASE}`,

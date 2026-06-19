@@ -261,7 +261,7 @@ export function TradeFrequentPhrasesSheet({
           </div>
         ) : null}
 
-        <div className="max-h-[min(58vh,480px)] overflow-y-auto overscroll-y-contain pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <div className="max-h-[min(58vh,480px)] overflow-y-auto overscroll-y-contain pb-[max(0.75rem,var(--safe-bottom))]">
           {phrases.length === 0 ? (
             <p className="px-4 py-10 text-center text-[11px] leading-relaxed text-sam-muted">
               {t("trade_write_frequent_phrases_empty")}

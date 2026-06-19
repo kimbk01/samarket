@@ -38,7 +38,7 @@ export function DeliverySheet({
           aria-modal="true"
           aria-labelledby={titleId}
           className={`pointer-events-auto ${DeliveryTheme.sheet.panel} ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS}`}
-          style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom, 0px))" }}
+          style={{ paddingBottom: "max(12px, var(--safe-bottom))" }}
         >
           <div className={`${DeliveryTheme.sheet.pad} pb-2`}>
             <span className={DeliveryTheme.sheet.handle} aria-hidden />

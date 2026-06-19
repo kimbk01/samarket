@@ -51,8 +51,8 @@ export function TradeChatEntryCreatingOverlay() {
   if (!visible) return null;
 
   const panelStyle = {
-    paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))",
-    paddingTop: "max(1.5rem, env(safe-area-inset-top))",
+    paddingBottom: "max(1.5rem, var(--safe-bottom))",
+    paddingTop: "max(1.5rem, var(--safe-top))",
   } as const;
 
   const title = phase === "entering" ? t("chats_overlay_entering_title") : t("chats_overlay_resolving_title");

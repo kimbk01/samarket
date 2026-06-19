@@ -14,7 +14,7 @@ export function StoreDetailOrderSkeleton() {
   const { t } = useI18n();
   return (
     <div className="min-h-[100dvh] overflow-x-hidden bg-white pb-8 [-webkit-overflow-scrolling:touch]">
-      <div className="pt-[env(safe-area-inset-top,0px)]">
+      <div className="pt-[var(--safe-top)]">
         <div className="flex h-14 items-center justify-between px-4">
           <Shimmer className="h-10 w-10 rounded-full" />
           <Shimmer className="h-4 w-24 rounded" />

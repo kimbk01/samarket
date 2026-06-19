@@ -2317,7 +2317,7 @@ export function GlobalCommunityMessengerIncomingCall() {
     if (incomingListError) {
       return (
         <div
-          className="pointer-events-auto fixed inset-x-0 bottom-[max(8px,env(safe-area-inset-bottom))] z-[61] px-3"
+          className="pointer-events-auto fixed inset-x-0 bottom-[max(8px,var(--safe-bottom))] z-[61] px-3"
           role="alert"
         >
           <div className="rounded-ui-rect border border-sam-border bg-sam-ink/95 px-3 py-2.5 sam-text-body-secondary text-white shadow-sam-elevated backdrop-blur-sm">

@@ -32,7 +32,7 @@ export function PhilifeWriteActionFooter({
       aria-label={t("philife_write_footer_aria")}
       className="fixed bottom-0 left-0 right-0 z-[55] border-t border-[#e4e6eb] bg-white shadow-[0_-2px_8px_rgba(0,0,0,0.06)]"
       style={{
-        paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${keyboardInset}px)`,
+        paddingBottom: `calc(var(--safe-bottom) + ${keyboardInset}px)`,
       }}
     >
       {error ? (

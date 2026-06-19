@@ -143,7 +143,7 @@ export function CommunityShareSheet({
   const panelScrollHiddenClass = bottomNavHiddenByScroll ? "community-share-sheet-panel--nav-hidden" : "";
 
   const toastNode = toast ? (
-    <div className="pointer-events-none fixed inset-x-0 bottom-[max(5rem,env(safe-area-inset-bottom))] z-[1400] flex justify-center px-4">
+    <div className="pointer-events-none fixed inset-x-0 bottom-[max(5rem,var(--safe-bottom))] z-[1400] flex justify-center px-4">
       <p className="flex max-w-sm items-center gap-2 rounded-full bg-[#1f2937] px-4 py-2.5 text-[14px] font-medium text-white shadow-lg">
         <Check className="h-4 w-4 shrink-0 text-[#86efac]" aria-hidden />
         <span>{toast}</span>

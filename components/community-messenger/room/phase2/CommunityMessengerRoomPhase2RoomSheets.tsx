@@ -70,8 +70,8 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
             isGroupMenuDrawer
               ? "fixed inset-0 z-[40] flex justify-end bg-black/30"
               : isAttachMenuSheet
-                ? "fixed inset-0 z-[40] flex items-center justify-center bg-transparent px-4 py-[max(1rem,env(safe-area-inset-top,0px))]"
-                : "fixed inset-0 z-[40] flex flex-col justify-end bg-black/30 pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))]"
+                ? "fixed inset-0 z-[40] flex items-center justify-center bg-transparent px-4 py-[max(1rem,var(--safe-top))]"
+                : "fixed inset-0 z-[40] flex flex-col justify-end bg-black/30 pb-[calc(3.5rem+var(--safe-bottom))]"
           }
           onClick={() => {
             if (vm.activeSheet === "attach-confirm") vm.cancelAttachmentConfirm();
@@ -81,14 +81,14 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
           <div
             className={
               isGroupMenuDrawer
-                ? "flex h-full min-h-0 w-full max-w-[420px] flex-col overflow-y-auto border-l border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[-8px_0_32px_rgba(0,0,0,0.12)]"
+                ? "flex h-full min-h-0 w-full max-w-[420px] flex-col overflow-y-auto border-l border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] p-4 pb-[max(1rem,var(--safe-bottom))] shadow-[-8px_0_32px_rgba(0,0,0,0.12)]"
                 : `overflow-y-auto ${
                     vm.activeSheet === "attach"
                       ? "max-h-[min(80dvh,32rem)] w-[80%] max-w-[360px] rounded-ui-rect border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] shadow-[0_10px_28px_rgba(0,0,0,0.10)]"
                       : vm.activeSheet === "attach-confirm" ||
                     vm.activeSheet === "stickers" ||
                     vm.activeSheet === "emoji"
-                        ? "max-h-[85vh] w-full rounded-t-ui-rect border-t border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_32px_rgba(0,0,0,0.08)]"
+                        ? "max-h-[85vh] w-full rounded-t-ui-rect border-t border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] pb-[max(0.75rem,var(--safe-bottom))] shadow-[0_-8px_32px_rgba(0,0,0,0.08)]"
                         : `mx-auto max-h-[78vh] w-full max-w-[520px] rounded-t-ui-rect border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] shadow-[0_-8px_32px_rgba(0,0,0,0.08)] ${
                             vm.activeSheet === "menu" && !vm.isGroupRoom ? "p-0" : "p-5"
                           }`

@@ -2772,8 +2772,8 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       data-cm-messenger-home-root
       className={
         fromPhilifeHeaderStack
-          ? "min-h-0 space-y-2 bg-[color:var(--messenger-bg)] px-0 pt-0 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] text-[color:var(--messenger-text)]"
-          : "min-h-0 space-y-2 bg-[color:var(--messenger-bg)] px-0 py-2 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] text-[color:var(--messenger-text)]"
+          ? "min-h-0 space-y-2 bg-[color:var(--messenger-bg)] px-0 pt-0 pb-[calc(7rem+var(--safe-bottom))] text-[color:var(--messenger-text)]"
+          : "min-h-0 space-y-2 bg-[color:var(--messenger-bg)] px-0 py-2 pb-[calc(7rem+var(--safe-bottom))] text-[color:var(--messenger-text)]"
       }
     >
       <CommunityMessengerHomeReturnConsume />

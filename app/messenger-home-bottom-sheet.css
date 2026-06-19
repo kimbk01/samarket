@@ -3,32 +3,32 @@
  * `MAIN_BOTTOM_NAV_SHEET_*` Tailwind 와 동기: `bottom-nav-config.ts`, `app-bottom-nav.css`.
  */
 .messenger-home-bottom-sheet-panel {
-  bottom: calc(var(--app-bottom-nav-height, 60px) + env(safe-area-inset-bottom, 0px));
+  bottom: calc(var(--app-bottom-nav-height, 60px) + var(--safe-bottom));
   max-height: min(
-    calc(100dvh - var(--app-bottom-nav-height, 60px) - env(safe-area-inset-bottom, 0px)),
-    calc(88dvh - var(--app-bottom-nav-height, 60px) - env(safe-area-inset-bottom, 0px))
+    calc(100dvh - var(--app-bottom-nav-height, 60px) - var(--safe-bottom)),
+    calc(88dvh - var(--app-bottom-nav-height, 60px) - var(--safe-bottom))
   );
 }
 
 html:has(.app-bottom-nav-shell--delivery) .messenger-home-bottom-sheet-panel {
   bottom: calc(
     var(--app-bottom-nav-height, 60px) + var(--delivery-home-overhang, 0px) +
-      env(safe-area-inset-bottom, 0px)
+      var(--safe-bottom)
   );
   max-height: min(
     calc(
       100dvh - var(--app-bottom-nav-height, 60px) - var(--delivery-home-overhang, 0px) -
-        env(safe-area-inset-bottom, 0px)
+        var(--safe-bottom)
     ),
     calc(
       88dvh - var(--app-bottom-nav-height, 60px) - var(--delivery-home-overhang, 0px) -
-        env(safe-area-inset-bottom, 0px)
+        var(--safe-bottom)
     )
   );
 }
 
 html:not(:has(.app-bottom-nav-shell)) .messenger-home-bottom-sheet-panel {
-  bottom: env(safe-area-inset-bottom, 0px);
+  bottom: var(--safe-bottom);
   max-height: min(88dvh, 520px);
 }
 

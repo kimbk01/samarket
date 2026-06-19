@@ -54,7 +54,7 @@ function RowActionSheet({
   return (
     <div className="fixed inset-0 z-[43] flex flex-col justify-end bg-black/30">
       <button type="button" className="min-h-0 flex-1 cursor-default" aria-label={t("nav_close")} onClick={onClose} />
-      <div className="rounded-t-[12px] border border-ui-border bg-ui-surface px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
+      <div className="rounded-t-[12px] border border-ui-border bg-ui-surface px-3 pb-[max(0.75rem,var(--safe-bottom))] pt-2">
         <p className="px-1 pb-2 text-center sam-text-helper font-medium text-ui-muted">{title}</p>
         <div className="flex flex-col gap-1">
           {actions.map((action) => (

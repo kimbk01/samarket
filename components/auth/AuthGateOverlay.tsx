@@ -36,7 +36,7 @@ export function AuthGateOverlay({
 
   return createPortal(
     <div
-      className={`fixed inset-0 ${AUTH_GATE_OVERLAY_Z_CLASS} flex items-center justify-center bg-black/50 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]`}
+      className={`fixed inset-0 ${AUTH_GATE_OVERLAY_Z_CLASS} flex items-center justify-center bg-black/50 p-4 pb-[max(1rem,var(--safe-bottom))] pt-[max(1rem,var(--safe-top))]`}
       role={role}
       aria-modal="true"
       aria-labelledby={labelledBy}

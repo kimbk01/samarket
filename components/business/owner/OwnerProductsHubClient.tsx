@@ -302,7 +302,7 @@ export function OwnerProductsHubClient({
     "min-h-11 min-w-0 flex-1 touch-manipulation select-none rounded-ui-rect px-3 py-2.5 text-center sam-text-body-secondary font-semibold no-underline";
 
   return (
-    <div className="max-w-full overflow-x-hidden bg-sam-app pb-[max(0px,env(safe-area-inset-bottom,0px))]">
+    <div className="max-w-full overflow-x-hidden bg-sam-app pb-[max(0px,var(--safe-bottom))]">
       <div
         className="flex gap-2 border-b border-sam-border-soft bg-sam-surface py-2.5"
       >

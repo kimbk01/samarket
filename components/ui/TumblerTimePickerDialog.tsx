@@ -158,7 +158,7 @@ export function TumblerTimePickerDialog({
   return (
     <BodyPortal>
       <div
-        className="fixed inset-0 z-[200] flex items-center justify-center bg-transparent px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))]"
+        className="fixed inset-0 z-[200] flex items-center justify-center bg-transparent px-4 pt-[max(1rem,var(--safe-top))] pb-[max(1rem,var(--safe-bottom))] pl-[max(1rem,var(--safe-left))] pr-[max(1rem,var(--safe-right))]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="tumbler-time-title"

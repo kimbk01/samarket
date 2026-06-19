@@ -370,7 +370,7 @@ export function CommunityMessengerTradeProcessSection({
       {reviewSheetOpen && room ? (
         <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50 sm:items-center sm:p-4">
           <div
-            className={`flex max-h-full min-h-0 w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} flex-col overflow-hidden rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface shadow-sam-elevated sm:max-h-[min(90vh,calc(100dvh-3.5rem-env(safe-area-inset-bottom,0px)))] sm:rounded-ui-rect`}
+            className={`flex max-h-full min-h-0 w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} flex-col overflow-hidden rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface shadow-sam-elevated sm:max-h-[min(90vh,calc(100dvh-3.5rem-var(--safe-bottom)))] sm:rounded-ui-rect`}
           >
             <div className="flex shrink-0 items-center justify-between border-b border-sam-border-soft px-4 py-3">
               <h2 className="sam-text-body-lg font-semibold text-sam-fg">{t("cm_ui_write_review")}</h2>

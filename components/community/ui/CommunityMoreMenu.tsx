@@ -219,7 +219,7 @@ export function CommunityMoreMenu({ postId, targetUserId, canReport, onReport }:
         ) : null}
       </div>
       {toast ? (
-        <div className="pointer-events-none fixed inset-x-0 bottom-[max(5rem,env(safe-area-inset-bottom))] z-[120] flex justify-center px-4">
+        <div className="pointer-events-none fixed inset-x-0 bottom-[max(5rem,var(--safe-bottom))] z-[120] flex justify-center px-4">
           <p className="pointer-events-auto flex max-w-sm items-center gap-3 rounded-full bg-[#1f2937] px-4 py-2.5 text-[14px] font-medium text-white shadow-lg">
             <span>{toast}</span>
             {undoHide ? (

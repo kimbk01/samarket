@@ -129,7 +129,7 @@ export function MobileConfirmBottomSheet({
         aria-label={t("ui_sheet_close_aria")}
       />
       <div
-        className={`relative w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] border border-sam-border border-b-0 bg-sam-surface px-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] pt-2 shadow-sam-elevated transition-transform duration-300 ease-[cubic-bezier(0.22,0.9,0.32,1)] ${
+        className={`relative w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] border border-sam-border border-b-0 bg-sam-surface px-4 pb-[max(1rem,var(--safe-bottom))] pt-2 shadow-sam-elevated transition-transform duration-300 ease-[cubic-bezier(0.22,0.9,0.32,1)] ${
           entered ? "translate-y-0" : "translate-y-full"
         }`}
       >
@@ -282,7 +282,7 @@ export function MobileDualActionBottomSheet({
         aria-label={t("ui_sheet_close_aria")}
       />
       <div
-        className={`relative w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] border border-sam-border border-b-0 bg-sam-surface px-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] pt-2 shadow-sam-elevated transition-transform duration-300 ease-[cubic-bezier(0.22,0.9,0.32,1)] ${
+        className={`relative w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] border border-sam-border border-b-0 bg-sam-surface px-4 pb-[max(1rem,var(--safe-bottom))] pt-2 shadow-sam-elevated transition-transform duration-300 ease-[cubic-bezier(0.22,0.9,0.32,1)] ${
           entered ? "translate-y-0" : "translate-y-full"
         }`}
       >

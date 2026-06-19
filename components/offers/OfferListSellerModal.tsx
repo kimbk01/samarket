@@ -113,7 +113,7 @@ export function OfferListSellerModal({
 
         {/* 유일한 세로 스크롤 영역 — 목록·로딩·빈 상태·오류 전부 이 안에서만 이동 */}
         <div
-          className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-[#F0F2F5] px-3 pt-2 pb-[max(12px,env(safe-area-inset-bottom))] [-webkit-overflow-scrolling:touch] dark:bg-sam-app"
+          className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-[#F0F2F5] px-3 pt-2 pb-[max(12px,var(--safe-bottom))] [-webkit-overflow-scrolling:touch] dark:bg-sam-app"
           data-offer-received-scroll="true"
         >
           <OfferListSeller

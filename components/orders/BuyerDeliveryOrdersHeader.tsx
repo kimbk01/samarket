@@ -29,10 +29,10 @@ export function BuyerDeliveryOrdersHeader() {
   return (
     <BodyPortal>
       <header
-        className="fixed inset-x-0 top-0 z-[55] border-b border-sam-border bg-sam-surface/95 pt-[env(safe-area-inset-top,0px)] backdrop-blur-sm"
+        className="fixed inset-x-0 top-0 z-[55] border-b border-sam-border bg-sam-surface/95 pt-[var(--safe-top)] backdrop-blur-sm"
         aria-label={t("tier1_order")}
       >
-        <div className="flex h-14 w-full min-w-0 items-center gap-2 pl-[max(0.75rem,env(safe-area-inset-left,0px))] pr-[max(0.75rem,env(safe-area-inset-right,0px))] sm:pl-[max(1rem,env(safe-area-inset-left,0px))] sm:pr-[max(1rem,env(safe-area-inset-right,0px))]">
+        <div className="flex h-14 w-full min-w-0 items-center gap-2 pl-[max(0.75rem,var(--safe-left))] pr-[max(0.75rem,var(--safe-right))] sm:pl-[max(1rem,var(--safe-left))] sm:pr-[max(1rem,var(--safe-right))]">
           <AppBackButton
             backHref={OWNER_MOBILE_EXIT_HREF}
             preferHistoryBack
@@ -60,4 +60,4 @@ export function BuyerDeliveryOrdersHeader() {
 }
 
 export const BUYER_DELIVERY_ORDERS_HEADER_OFFSET_CLASS =
-  "pt-[calc(env(safe-area-inset-top,0px)+3.5rem)]";
+  "pt-[calc(var(--safe-top)+3.5rem)]";

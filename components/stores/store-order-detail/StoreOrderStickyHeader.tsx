@@ -108,7 +108,7 @@ export function StoreOrderStickyHeader({
 
   const header = (
     <header
-      className={`fixed inset-x-0 top-0 z-[60] pt-[env(safe-area-inset-top,0px)] transition-[background-color,box-shadow,border-color] duration-[180ms] ease-out ${
+      className={`fixed inset-x-0 top-0 z-[60] pt-[var(--safe-top)] transition-[background-color,box-shadow,border-color] duration-[180ms] ease-out ${
         elevated
           ? "border-b border-black/[0.06] bg-white shadow-[0_1px_0_rgba(0,0,0,0.04)]"
           : "border-b border-transparent bg-transparent"

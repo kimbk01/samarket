@@ -20,7 +20,7 @@ export function TradeHubSideNav() {
     <aside
       className="sticky z-[1] w-[4.75rem] shrink-0 self-start pt-1 sm:w-32"
       style={{
-        top: "calc(6.25rem + env(safe-area-inset-top, 0px))",
+        top: "calc(6.25rem + var(--safe-top))",
       }}
       aria-label={t("mypage_comp_trade_hub_side_nav_aria")}
     >

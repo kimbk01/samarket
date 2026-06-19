@@ -418,7 +418,7 @@ export function WriteSheetFlowInner({
         interactionMode="blocking"
       />
     <div
-      className={`${APP_TRADE_WRITE_HORIZONTAL_CLASS} space-y-4 pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] pt-3`}
+      className={`${APP_TRADE_WRITE_HORIZONTAL_CLASS} space-y-4 pb-[max(1.25rem,var(--safe-bottom))] pt-3`}
     >
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
         <label

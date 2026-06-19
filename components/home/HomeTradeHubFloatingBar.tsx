@@ -236,7 +236,7 @@ export function HomeTradeHubFloatingBar() {
               </div>
             </div>
             <div
-              className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} pb-[max(1rem,env(safe-area-inset-bottom,0px))] pt-2`}
+              className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} pb-[max(1rem,var(--safe-bottom))] pt-2`}
             >
               <HomeTradeHistorySheetContent />
             </div>

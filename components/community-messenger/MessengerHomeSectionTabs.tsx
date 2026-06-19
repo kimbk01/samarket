@@ -62,7 +62,7 @@ export function MessengerHomeSectionTabs({
       data-cm-messenger-section-tabs
       className="sticky top-0 z-20 min-w-0 w-full overflow-x-hidden bg-[color:var(--messenger-bg)]"
     >
-      <div className="box-border py-2 pl-[max(0.75rem,env(safe-area-inset-left,0px))] pr-[max(0.75rem,env(safe-area-inset-right,0px))]">
+      <div className="box-border py-2 pl-[max(0.75rem,var(--safe-left))] pr-[max(0.75rem,var(--safe-right))]">
         <HorizontalDragScroll
           className="flex min-w-0 max-w-full items-center justify-start gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           style={{ WebkitOverflowScrolling: "touch" }}

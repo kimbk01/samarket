@@ -22,7 +22,7 @@ export function ProfileEditBottomSaveBar({
     <div
       className="pointer-events-none fixed inset-x-0 bottom-0 z-30 border-t border-[#00704A]/12 bg-[#F2F0EB]/95 backdrop-blur-md supports-[backdrop-filter]:bg-[#F2F0EB]/88"
       style={{
-        paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${keyboardInset}px)`,
+        paddingBottom: `calc(var(--safe-bottom) + ${keyboardInset}px)`,
       }}
     >
       <div className="pointer-events-auto mx-auto flex w-full max-w-[768px] gap-2 px-4 py-3">

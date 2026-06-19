@@ -319,5 +319,6 @@ run2: wave1/2/3 각 0–1ms, `[route-perf]` `badge_query_ms: 3`. run3 route JSON
 |------|------|------|------------|------|-----------|
 | 2026-06-20 | 전역 shell | **Safe area SSOT** — `--safe-* = max(env, --dibay-safe-*)`·Android `DibayWebSafeAreaBridge` inject·header/bottom nav/messenger hub shell·keyboard `--chat-bottom-inset` nav 분리 | `app/app-shell.css`, `DibayWebSafeAreaBridge.java`, `app-bottom-nav.css`, `conditional-app-shell-flags.ts`, `chat-viewport-shell-platform.ts` | `tsc`, `vitest chat-viewport-shell-platform`, adb probe | env-only·페이지별 padding 땜질·모델 분기 금지 |
 | 2026-06-20 | 채팅 방 viewport | **역행** — keyboard/resize 계약 깨짐(키보드 open 시 상단 밀림). `chat-viewport-shell.css`·`chat-viewport-shell-platform.ts`·chat detail shell height 를 P0 이전 env()/vv gap 계약으로 원복 | `app/chat-viewport-shell.css`, `lib/ui/chat-viewport-shell-platform.ts`, `conditional-app-shell-flags.ts` | `vitest chat-viewport-shell-platform` | 채팅 keyboard resize 는 기존 계약 유지·safe area 는 shell/header/nav 만 |
+| 2026-06-20 | 전역 shell P1 | **env→`var(--safe-*)` 일괄** — lib·app·components 잔존 `env(safe-area-inset-*)` 제거·`safe-area-layout-classes.ts`·채팅 shell padding SSOT | `lib/ui/safe-area-layout-classes.ts`, `app/*.css`, `lib/`, `components/` | `vitest chat-chrome-layout-contract`, `tsc` | env 직접 참조·기기 분기 padding 금지 |
 
 ---

@@ -249,7 +249,7 @@ function ChatInputBarInner({
           data-delivery-composer-host
           className="delivery-ui relative w-full shrink-0 border-t border-[#e8e8e8] bg-white px-2 pt-0"
           style={{
-            paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${instagramFooterBottomPx}px)`,
+            paddingBottom: `calc(var(--safe-bottom) + ${instagramFooterBottomPx}px)`,
           }}
         >
           {onImageFilesSelected ? (
@@ -364,7 +364,7 @@ function ChatInputBarInner({
     <>
     <div
       className={`relative flex min-h-[50px] max-h-[64px] w-full min-w-0 items-center bg-sam-surface safe-area-pb ${ig ? "gap-1.5" : "gap-2"} ${APP_MAIN_GUTTER_X_CLASS}`}
-      style={{ paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${composerBottomPadPx}px)` }}
+      style={{ paddingBottom: `calc(var(--safe-bottom) + ${composerBottomPadPx}px)` }}
     >
       {/* 이모지 패널: 입력창 위, 다양한 이모지 그리드 */}
       {showEmojiButton && emojiOpen && (

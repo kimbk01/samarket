@@ -410,7 +410,7 @@ export function ImageEditorModal({
         </div>
       ) : null}
 
-      <footer className="shrink-0 border-t border-white/10 bg-neutral-950 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+      <footer className="shrink-0 border-t border-white/10 bg-neutral-950 pb-[max(0.75rem,var(--safe-bottom))]">
         <div className="flex justify-around gap-1 px-2 pt-2">
           {toolBtn("crop", <Crop className="stroke-[1.5]" />, t("trade_write_image_editor_crop"))}
           <button

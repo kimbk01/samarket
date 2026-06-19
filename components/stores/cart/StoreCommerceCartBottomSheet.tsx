@@ -53,12 +53,12 @@ export function StoreCommerceCartBottomSheet({
           </div>
           <div className="px-4 pb-2">{children}</div>
           {footer ? (
-            <div className="shrink-0 border-t border-neutral-100 bg-white px-4 pt-3 pb-[calc(var(--store-commerce-action-plane-pb,0.75rem)+env(safe-area-inset-bottom,0px))]">
+            <div className="shrink-0 border-t border-neutral-100 bg-white px-4 pt-3 pb-[calc(var(--store-commerce-action-plane-pb,0.75rem)+var(--safe-bottom))]">
               {footer}
             </div>
           ) : (
             <div
-              className="shrink-0 bg-white pb-[env(safe-area-inset-bottom,0px)]"
+              className="shrink-0 bg-white pb-[var(--safe-bottom)]"
               aria-hidden
             />
           )}

@@ -24,7 +24,7 @@ function showEphemeralAccessDeniedToast(message: string): void {
   const el = document.createElement("div");
   el.setAttribute("role", "status");
   el.className =
-    "pointer-events-none fixed left-1/2 top-[calc(env(safe-area-inset-top,0px)+3.5rem)] z-[140] max-w-[min(92vw,22rem)] -translate-x-1/2 rounded-ui-rect bg-neutral-900/92 px-4 py-2.5 text-center text-[13px] font-semibold text-white shadow-lg";
+    "pointer-events-none fixed left-1/2 top-[calc(var(--safe-top)+3.5rem)] z-[140] max-w-[min(92vw,22rem)] -translate-x-1/2 rounded-ui-rect bg-neutral-900/92 px-4 py-2.5 text-center text-[13px] font-semibold text-white shadow-lg";
   el.textContent = message;
   document.body.appendChild(el);
   window.setTimeout(() => {

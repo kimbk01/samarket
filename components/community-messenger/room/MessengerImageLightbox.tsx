@@ -36,7 +36,7 @@ export function MessengerImageLightbox(props: {
       aria-modal="true"
       aria-label={t("cm_ui_image_zoom_view")}
     >
-      <div className="flex shrink-0 items-center justify-between gap-2 px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+      <div className="flex shrink-0 items-center justify-between gap-2 px-3 py-2 pb-[max(0.5rem,var(--safe-bottom))]">
         <button
           type="button"
           onClick={onClose}

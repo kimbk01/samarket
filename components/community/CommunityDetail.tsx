@@ -386,7 +386,7 @@ export function CommunityDetail({
     : undefined;
 
   return (
-    <div className="pb-[max(1rem,env(safe-area-inset-bottom))]">
+    <div className="pb-[max(1rem,var(--safe-bottom))]">
       <CommunityPostDetailHeader titleText={tier1Title} backHref={backToFeedHref} />
 
       <article ref={articleRef} className="w-full min-w-0 px-4 pb-6">
@@ -608,7 +608,7 @@ export function CommunityDetail({
       ) : null}
       <CommunityShareSheet {...communityShare} />
       {actionToast ? (
-        <div className="pointer-events-none fixed inset-x-0 bottom-[max(5rem,env(safe-area-inset-bottom))] z-[1400] flex justify-center px-4">
+        <div className="pointer-events-none fixed inset-x-0 bottom-[max(5rem,var(--safe-bottom))] z-[1400] flex justify-center px-4">
           <p className="max-w-sm rounded-full bg-[#1f2937] px-4 py-2.5 text-center text-[14px] font-medium text-white shadow-lg">
             {actionToast}
           </p>

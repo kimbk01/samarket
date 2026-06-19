@@ -918,7 +918,7 @@
     border-top: 1px solid var(--delivery-border);
     background: var(--delivery-bg-card);
     padding: 12px var(--delivery-page-x);
-    padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
+    padding-bottom: max(12px, var(--safe-bottom));
   }
 
   .delivery-sticky-cta__inner {

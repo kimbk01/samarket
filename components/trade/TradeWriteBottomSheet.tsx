@@ -167,7 +167,7 @@ export function TradeWriteBottomSheet() {
     >
       <div
         ref={panelRef}
-        className={`pointer-events-auto flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-sam-app pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)] text-sam-fg transition-transform duration-500 ease-[cubic-bezier(0.25,0.1,0.2,1)] ${
+        className={`pointer-events-auto flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-sam-app pt-[var(--safe-top)] pb-[var(--safe-bottom)] text-sam-fg transition-transform duration-500 ease-[cubic-bezier(0.25,0.1,0.2,1)] ${
           panelOpen ? "translate-y-0 shadow-[0_-1px_0_0_rgba(15,23,42,0.06)]" : "translate-y-full shadow-none"
         }`}
       >

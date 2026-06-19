@@ -10,7 +10,7 @@ const ARIA_CLOSE = "\uB2EB\uAE30";
 export type DeliveryModalPlacement = "center" | "above-checkout-footer";
 
 const CHECKOUT_ABOVE_FOOTER_PAD =
-  "pb-[calc(5.25rem+env(safe-area-inset-bottom,0px))]";
+  "pb-[calc(5.25rem+var(--safe-bottom))]";
 
 export function DeliveryModal({
   open,

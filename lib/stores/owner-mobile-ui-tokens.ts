@@ -51,11 +51,11 @@ export const OWNER_MOBILE_PAGE_HEADER_Z_CLASS = "z-[56]";
 export const OWNER_MOBILE_ORDER_DETAIL_OVERLAY_Z_CLASS = "z-[80]";
 
 /** `OwnerStoreOrderDetailPanel` 루트 — viewport 전체, safe-area 상단 */
-export const OWNER_MOBILE_ORDER_DETAIL_OVERLAY_SHELL_CLASS = `fixed inset-0 flex min-h-0 flex-col bg-[var(--biz-app-bg)] ${OWNER_MOBILE_ORDER_DETAIL_OVERLAY_Z_CLASS} pt-[env(safe-area-inset-top,0px)]`;
+export const OWNER_MOBILE_ORDER_DETAIL_OVERLAY_SHELL_CLASS = `fixed inset-0 flex min-h-0 flex-col bg-[var(--biz-app-bg)] ${OWNER_MOBILE_ORDER_DETAIL_OVERLAY_Z_CLASS} pt-[var(--safe-top)]`;
 
 /** 상세 하단 액션 푸터 — 홈 인디케이터 여백 */
 export const OWNER_MOBILE_ORDER_DETAIL_FOOTER_PAD_CLASS =
-  "pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]";
+  "pb-[calc(0.75rem+var(--safe-bottom))]";
 
 /**
  * 오너 컴팩트 고정 헤더 — `BodyPortal` + `owner-compact-shell.css`.
@@ -114,7 +114,7 @@ export const OWNER_HUB_FIXED_HEADER_OFFSET_CLASS = OWNER_MOBILE_PAGE_HEADER_MAIN
 /** Orders page: fixed page header stack */
 export const OWNER_ORDERS_HEADER_STACK_HEIGHT = "7.75rem";
 export const OWNER_ORDERS_MAIN_TOP_PAD_CLASS =
-  "pt-[calc(env(safe-area-inset-top,0px)+7.75rem)]";
+  "pt-[calc(var(--safe-top)+7.75rem)]";
 
 export function ownerOrderStatusTone(status: string): {
   badgeBg: string;

@@ -57,5 +57,5 @@ export const PROFILE_EDIT_SECONDARY_BTN_CLASS =
 
 /** 고정 헤더 아래 본문 — `--sector-header-h`(52px) + safe-area */
 export const PROFILE_EDIT_HEADER_BODY_OFFSET_CLASS =
-  "pt-[calc(env(safe-area-inset-top,0px)+var(--sector-header-h,52px))]";
+  "pt-[calc(var(--safe-top)+var(--sector-header-h,52px))]";
 

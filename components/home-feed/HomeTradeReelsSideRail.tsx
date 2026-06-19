@@ -12,7 +12,7 @@ import { APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
 import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
 
 /** 하단 탭(3.5rem+safe) + 본문과 동일 2pt 간격 */
-const RAIL_BOTTOM = "calc(3.5rem + env(safe-area-inset-bottom, 0px) + 2pt)";
+const RAIL_BOTTOM = "calc(3.5rem + var(--safe-bottom) + 2pt)";
 
 const SLIDE_MS = 380;
 const SLIDE_EASE = "cubic-bezier(0.25, 0.9, 0.35, 1)";

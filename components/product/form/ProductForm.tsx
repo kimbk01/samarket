@@ -170,7 +170,7 @@ export function ProductForm({
         error={errors.region}
       />
       <ProductConditionSelect value={condition} onChange={setCondition} />
-      <div className="fixed bottom-0 left-0 right-0 z-10 border-t border-sam-border-soft bg-sam-surface pb-[env(safe-area-inset-bottom,0px)]">
+      <div className="fixed bottom-0 left-0 right-0 z-10 border-t border-sam-border-soft bg-sam-surface pb-[var(--safe-bottom)]">
         <div className={`${APP_MYPAGE_SUBPAGE_BODY_CLASS} flex min-w-0 gap-2 py-3`}>
         {onCancel && (
           <button

@@ -86,7 +86,7 @@ export function StoreBaeminProductDetailView(props: StoreBaeminProductDetailView
 
   return (
     <>
-      <div className="bg-white pb-[calc(6.5rem+var(--store-commerce-action-plane-pb,0.75rem)+env(safe-area-inset-bottom,0px))]">
+      <div className="bg-white pb-[calc(6.5rem+var(--store-commerce-action-plane-pb,0.75rem)+var(--safe-bottom))]">
         <StoreBaeminProductDetailInfo
           storeSlug={storeSlug}
           productId={productId}

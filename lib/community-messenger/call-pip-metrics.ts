@@ -432,7 +432,7 @@ export function readCallPipSafeAreaInsetsFromDom(): { safeTop: number; safeBotto
   if (safeBottom <= 0 || safeTop <= 0) {
     const el = document.createElement("div");
     el.style.cssText =
-      "position:absolute;left:-9999px;visibility:hidden;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);";
+      "position:absolute;left:-9999px;visibility:hidden;padding-top:var(--safe-top);padding-bottom:var(--safe-bottom);";
     document.body.appendChild(el);
     const computed = getComputedStyle(el);
     if (safeTop <= 0) {

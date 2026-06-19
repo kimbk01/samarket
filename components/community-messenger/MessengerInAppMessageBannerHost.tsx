@@ -17,7 +17,7 @@ export function MessengerInAppMessageBannerHost() {
 
   return (
     <div
-      className="pointer-events-none fixed inset-x-0 top-0 z-[50] flex justify-center px-3 pt-[max(0.5rem,env(safe-area-inset-top))]"
+      className="pointer-events-none fixed inset-x-0 top-0 z-[50] flex justify-center px-3 pt-[max(0.5rem,var(--safe-top))]"
       role="status"
       aria-live="polite"
     >

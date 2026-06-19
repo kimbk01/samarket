@@ -424,7 +424,7 @@ export function AdminPostsManagementPage({
           />
 
           {showBottomFixedScroll && (
-            <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-sam-border bg-sam-surface md:hidden px-3 pb-[env(safe-area-inset-bottom,0px)]">
+            <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-sam-border bg-sam-surface md:hidden px-3 pb-[var(--safe-bottom)]">
               <div
                 ref={bottomScrollRef}
                 onScroll={onBottomHorizontalScroll}

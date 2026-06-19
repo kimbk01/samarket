@@ -19,7 +19,7 @@ export function BusinessDashboardMobileBar({
   if (!show) return null;
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-20 border-t border-sam-border bg-sam-surface/95 px-3 py-2 backdrop-blur-sm lg:hidden pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]">
+    <div className="fixed inset-x-0 bottom-0 z-20 border-t border-sam-border bg-sam-surface/95 px-3 py-2 backdrop-blur-sm lg:hidden pb-[calc(0.5rem+var(--safe-bottom))]">
       <div className="mx-auto flex max-w-lg gap-2">
         <Link
           href={storeOrdersHref}

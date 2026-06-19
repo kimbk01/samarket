@@ -939,7 +939,7 @@ export function AddressEditorSheet(props: {
       className={
         layout === "page"
           ? "w-full min-w-0 space-y-2"
-          : "shrink-0 space-y-2 border-t border-sam-border bg-sam-app/40 px-3 pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] pt-3 sm:px-4"
+          : "shrink-0 space-y-2 border-t border-sam-border bg-sam-app/40 px-3 pb-[max(0.5rem,var(--safe-bottom))] pt-3 sm:px-4"
       }
     >
       {err ? <p className="text-center sam-text-body-secondary font-medium text-sam-danger">{err}</p> : null}

@@ -119,7 +119,7 @@ export function OAuthProviderLoginPanel({
         onClick={onCancel}
       />
       <div
-        className={`relative flex min-h-[100dvh] max-h-[100dvh] w-full flex-col bg-sam-app px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1.25rem,env(safe-area-inset-top))] ${sheetClass}`}
+        className={`relative flex min-h-[100dvh] max-h-[100dvh] w-full flex-col bg-sam-app px-6 pb-[max(1.5rem,var(--safe-bottom))] pt-[max(1.25rem,var(--safe-top))] ${sheetClass}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center space-y-4 text-center">

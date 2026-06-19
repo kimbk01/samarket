@@ -10,7 +10,7 @@ export function CommunityMessengerHomeShellSkeleton({ compact = false }: { compa
       className={
         compact
           ? "min-h-[56dvh] space-y-3 px-1 pt-1"
-          : "min-h-0 space-y-3 bg-[color:var(--messenger-bg,#f7f8fb)] px-3 py-2 pb-[calc(7rem+env(safe-area-inset-bottom,0px))]"
+          : "min-h-0 space-y-3 bg-[color:var(--messenger-bg,#f7f8fb)] px-3 py-2 pb-[calc(7rem+var(--safe-bottom))]"
       }
       aria-hidden
       data-cm-home-skeleton={compact ? "compact" : "full"}
@@ -111,7 +111,7 @@ export function CommunityMessengerRoomShellSkeleton() {
         </div>
       </div>
 
-      <div className="border-t border-[color:var(--cm-room-divider,#d9dee7)] bg-[color:var(--cm-room-header-bg,#fff)] px-3 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]">
+      <div className="border-t border-[color:var(--cm-room-divider,#d9dee7)] bg-[color:var(--cm-room-header-bg,#fff)] px-3 py-3 pb-[calc(0.75rem+var(--safe-bottom))]">
         <div className="flex items-center gap-2">
           <SkeletonPulse className="h-10 w-10 rounded-full" />
           <SkeletonPulse className="h-11 flex-1 rounded-full" />

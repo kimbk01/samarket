@@ -196,7 +196,7 @@ export function OfferModal({
         </div>
 
         {/* 하단 고정 액션 — FB식 전폭 프라이머리 + 텍스트 취소 */}
-        <footer className="shrink-0 border-t border-sam-border bg-sam-surface px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3">
+        <footer className="shrink-0 border-t border-sam-border bg-sam-surface px-4 pb-[max(12px,var(--safe-bottom))] pt-3">
           <button
             type="button"
             disabled={busy}

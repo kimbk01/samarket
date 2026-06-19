@@ -13,11 +13,11 @@ export const OWNER_STORE_ADMIN_FOOTER_FIXED_SHELL_CLASS =
   "pointer-events-none fixed inset-x-0 z-[54] border-t border-sam-border bg-sam-surface/95 backdrop-blur-md supports-[backdrop-filter]:bg-sam-surface/88";
 
 export const OWNER_STORE_ADMIN_FOOTER_FIXED_BOTTOM_CLASS =
-  "bottom-0 pb-[env(safe-area-inset-bottom,0px)]";
+  "bottom-0 pb-[var(--safe-bottom)]";
 
 /** 고정 footer 높이(`BOTTOM_NAV_SHELL.heightClass`) + safe-area — 폼 하단 패딩 */
 export const OWNER_STORE_ADMIN_FOOTER_FORM_PAD_CLASS =
-  "pb-[calc(60px+env(safe-area-inset-bottom,0px))]";
+  "pb-[calc(60px+var(--safe-bottom))]";
 
 export const OWNER_STORE_ADMIN_FOOTER_INNER_CLASS =
   `pointer-events-auto mx-auto w-full max-w-[42rem] px-2 ${OWNER_STORE_ADMIN_FOOTER_BAR_CLASS} ${OWNER_DESKTOP_SHELL_MIN_TW}:px-2`;

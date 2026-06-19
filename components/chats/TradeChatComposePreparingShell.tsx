@@ -66,7 +66,7 @@ export function TradeChatComposePreparingShell({
           <p className="mt-2 text-center text-[12px] text-sam-muted">{t("chats_compose_preparing_description")}</p>
         </div>
 
-        <footer className="border-t border-sam-border-soft bg-sam-surface px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <footer className="border-t border-sam-border-soft bg-sam-surface px-4 py-3 pb-[max(0.75rem,var(--safe-bottom))]">
           <div className={`${COL} flex flex-col gap-2`}>
             <div className="flex items-center gap-2">
               <div className="h-10 w-10 shrink-0 rounded-full bg-sam-surface-muted" aria-hidden />

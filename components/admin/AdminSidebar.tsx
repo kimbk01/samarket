@@ -76,7 +76,7 @@ export function AdminSidebar({
             {t("admin_brand")}
           </Link>
         </div>
-        <nav className="admin-sidebar__nav min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-2 py-3 [-webkit-overflow-scrolling:touch] pb-[max(0.75rem,env(safe-area-inset-bottom,0px))]">
+        <nav className="admin-sidebar__nav min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-2 py-3 [-webkit-overflow-scrolling:touch] pb-[max(0.75rem,var(--safe-bottom))]">
           {menu.map((item) =>
             item.children?.length ? (
               <AdminSidebarGroup

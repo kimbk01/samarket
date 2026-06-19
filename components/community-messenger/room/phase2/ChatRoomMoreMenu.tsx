@@ -202,7 +202,7 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
   const showMannerBattery = !menuProfile?.hideMannerBattery;
 
   return (
-    <div className="delivery-ui flex flex-col pb-[env(safe-area-inset-bottom,0px)]">
+    <div className="delivery-ui flex flex-col pb-[var(--safe-bottom)]">
       <div className="border-b border-[color:var(--cm-room-divider)] px-3 py-3">
         <div className="flex items-center gap-3">
           <div
