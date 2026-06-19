@@ -1,10 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  buildMentionDedupeKey,
   buildMessageDedupeKey,
   categoryForEventType,
   eventTypeForMessageRoomKind,
   resolveMessageEventTypeFromDirectKey,
 } from "@/lib/notifications/core/notification-policy";
+import { shouldNotifyMentionRecipient } from "@/lib/community-messenger/group/group-room-mention-policy";
 import type { NotificationMessageRoomKind } from "@/lib/notifications/core/notification-event-types";
 import { createNotificationEvent } from "@/lib/notifications/core/notification-event-repository";
 import { logNotifyMessage } from "@/lib/notifications/core/notification-logs";
@@ -29,6 +31,7 @@ export type NotifyMessagePipelineInput = {
   roomKind?: NotificationMessageRoomKind;
   directKey?: string | null;
   hasMention?: boolean;
+  mentionUserIds?: string[];
 };
 
 function resolveEventType(input: NotifyMessagePipelineInput) {
@@ -45,6 +48,17 @@ async function buildTitleBody(
   const language = await loadNotificationUserLanguage(sb, recipientUserId);
   const previewBody = preview.slice(0, 200);
   if (input.roomKind === "group") {
+    const isMentioned = shouldNotifyMentionRecipient({
+      mentionUserIds: input.mentionUserIds ?? [],
+      recipientUserId,
+      senderUserId: input.senderUserId,
+    });
+    if (isMentioned) {
+      return {
+        title: notifySafeT(language, "notify_group_mention_message_title"),
+        body: previewBody || notifySafeT(language, "notify_group_mention_message_body"),
+      };
+    }
     return {
       title: notifySafeT(language, "notify_group_chat_message_title"),
       body: previewBody || notifySafeT(language, "notify_group_chat_new_message_preview"),
@@ -67,9 +81,7 @@ export async function notifyMessagePipeline(
   const recipients = input.recipientUserIds.map((id) => id.trim()).filter(Boolean);
   if (!roomId || !messageId || !senderUserId || !recipients.length) return;
 
-  const eventType = resolveEventType(input);
-  const category = categoryForEventType(eventType);
-  const dedupeKey = buildMessageDedupeKey(roomId, messageId);
+  const baseEventType = resolveEventType(input);
 
   logNotifyMessage("create_start", { roomId, messageId, recipientCount: recipients.length });
 
@@ -81,7 +93,18 @@ export async function notifyMessagePipeline(
       continue;
     }
 
-    const muted = await isRoomMutedForUser(sb, recipientUserId, roomId);
+    const isMentioned = shouldNotifyMentionRecipient({
+      mentionUserIds: input.mentionUserIds ?? [],
+      recipientUserId,
+      senderUserId,
+    });
+    const eventType = isMentioned ? ("mention_message" as const) : baseEventType;
+    const category = categoryForEventType(eventType);
+    const dedupeKey = isMentioned
+      ? buildMentionDedupeKey(roomId, messageId, recipientUserId)
+      : buildMessageDedupeKey(roomId, messageId);
+
+    const muted = isMentioned ? false : await isRoomMutedForUser(sb, recipientUserId, roomId);
     const presence = await loadRecipientPresenceSnapshot(sb, recipientUserId);
     const presenceDecision = resolvePresenceSuppressDecision(presence, roomId);
 

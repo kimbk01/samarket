@@ -6,6 +6,7 @@ import type {
   GroupRoomRole,
   GroupRoomSettingsPatch,
 } from "@/lib/community-messenger/group/group-room.types";
+import { generateGroupInviteToken } from "@/lib/community-messenger/group/group-room-invite-token";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export type GroupRoomSupabase = SupabaseClient<any>;
@@ -66,6 +67,8 @@ export async function insertPrivateGroupRoom(
       allow_member_call: true,
       last_message: "",
       last_message_type: "system",
+      invite_token: generateGroupInviteToken(),
+      invite_link_enabled: true,
     })
     .select("id")
     .single();

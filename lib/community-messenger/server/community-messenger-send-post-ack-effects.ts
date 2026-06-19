@@ -7,6 +7,10 @@ import { invalidateFullBootstrapSnapshotCache } from "@/lib/community-messenger/
 import { invalidateHomeSyncSnapshotCache } from "@/lib/community-messenger/home-sync-snapshot-cache";
 import { invalidateRoomBootstrapSnapshotCache } from "@/lib/community-messenger/room-bootstrap-snapshot-cache";
 import { resolveGroupMessageRoomKind } from "@/lib/community-messenger/group/group-room-notification-policy";
+import {
+  persistMessageMentionUserIds,
+  resolveMentionUserIdsForGroupRoom,
+} from "@/lib/community-messenger/group/group-room-mention-service";
 import type { CommunityMessengerRoomType } from "@/lib/community-messenger/types";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 import { mirrorCommunityMessengerTextToItemTradeLedger } from "@/lib/trade/mirror-community-messenger-text-to-item-trade-ledger";
@@ -79,6 +83,13 @@ export async function runCommunityMessengerSendPostAckEffects(
     String(effects.roomType ?? ""),
     effects.directKey ?? null
   );
+  let mentionUserIds: string[] = [];
+  if (roomKind === "group" && messageId) {
+    mentionUserIds = await resolveMentionUserIdsForGroupRoom(sb, roomId, content).catch(() => []);
+    if (mentionUserIds.length) {
+      await persistMessageMentionUserIds(sb, messageId, mentionUserIds).catch(() => {});
+    }
+  }
   if (messageId) {
     await notifyMessagePipeline(sb, {
       roomId,
@@ -89,6 +100,7 @@ export async function runCommunityMessengerSendPostAckEffects(
       directKey: effects.directKey,
       hasMention: effects.hasMention ?? /@\S/.test(content),
       roomKind,
+      mentionUserIds,
     }).catch(() => {});
   }
   invalidateOwnerHubBadgeForCommunityMessengerPeers(senderUserId, recipientUserIds, roomId);

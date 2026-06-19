@@ -1,6 +1,8 @@
 export const NOTIFICATION_EVENT_TYPES = [
   "chat_message",
   "group_message",
+  "mention_message",
+  "pin_message",
   "trade_message",
   "store_order_message",
   "missed_call",

@@ -680,7 +680,7 @@ export function useMessengerRoomPhase2Controller() {
     if (!isPrivateGroupRoom || !snapshot) return;
     setBusy("private-group-settings");
     try {
-      const res = await fetch(`${communityMessengerGroupRoomApiPath(streamRoomId)}/settings`, {
+      const res = await fetch(`${communityMessengerGroupRoomApiPath(streamRoomId)}/profile`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: privateGroupTitle }),
@@ -1651,10 +1651,10 @@ export function useMessengerRoomPhase2Controller() {
     async (targetUserId: string, nextRole: "admin" | "member") => {
       setBusy(`group-role:${targetUserId}`);
       try {
-        const res = await fetch(communityMessengerRoomResourcePath(streamRoomId), {
+        const res = await fetch(`${communityMessengerGroupRoomApiPath(streamRoomId)}/roles`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "group_member_role", targetUserId, nextRole }),
+          body: JSON.stringify({ targetUserId, nextRole }),
         });
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !json.ok) {
@@ -1772,6 +1772,40 @@ export function useMessengerRoomPhase2Controller() {
       return true;
     },
     [router, t]
+  );
+
+  const pinGroupMessage = useCallback(
+    async (messageId: string | null) => {
+      if (!isPrivateGroupRoom) return;
+      setBusy("group-pin");
+      try {
+        const res = await fetch(`${communityMessengerGroupRoomApiPath(streamRoomId)}/pinned-message`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messageId }),
+        });
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        if (!res.ok || !json.ok) {
+          if (redirectIfMessengerAuthBlocked(res, json)) return;
+          showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
+          return;
+        }
+        await refresh(true);
+        showMessengerSnackbar(
+          translateCmUi(messageId ? "cm_ui_group_pin_message" : "cm_ui_group_unpin_message"),
+          { variant: "success" }
+        );
+      } finally {
+        setBusy(null);
+      }
+    },
+    [
+      getRoomActionErrorMessage,
+      isPrivateGroupRoom,
+      redirectIfMessengerAuthBlocked,
+      refresh,
+      streamRoomId,
+    ]
   );
 
   const removeGroupMember = useCallback(
@@ -2231,6 +2265,7 @@ export function useMessengerRoomPhase2Controller() {
     startManagedDirectCall,
     saveOpenGroupSettings,
     savePrivateGroupSettings,
+    pinGroupMessage,
     leaveRoom,
     openMembersForOwnerTransfer,
     openInfoSheet,

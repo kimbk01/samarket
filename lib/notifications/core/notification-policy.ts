@@ -7,6 +7,8 @@ import type {
 const ADMIN_SOUND_KEY_BY_TYPE: Record<NotificationEventType, string> = {
   chat_message: "message_default",
   group_message: "group_message",
+  mention_message: "group_message",
+  pin_message: "group_message",
   trade_message: "trade_message",
   store_order_message: "store_order",
   missed_call: "missed_call",
@@ -16,6 +18,8 @@ const ADMIN_SOUND_KEY_BY_TYPE: Record<NotificationEventType, string> = {
 export function categoryForEventType(type: NotificationEventType): NotificationEventCategory {
   switch (type) {
     case "group_message":
+    case "mention_message":
+    case "pin_message":
       return "group";
     case "trade_message":
       return "trade";
@@ -57,6 +61,10 @@ export function adminSoundKeyForEventType(type: NotificationEventType): string {
 
 export function buildMessageDedupeKey(roomId: string, messageId: string): string {
   return `msg:${roomId.trim()}:${messageId.trim()}`;
+}
+
+export function buildMentionDedupeKey(roomId: string, messageId: string, userId: string): string {
+  return `mention:${roomId.trim()}:${messageId.trim()}:${userId.trim()}`;
 }
 
 export function buildMissedCallDedupeKey(callSessionId: string, userId: string): string {

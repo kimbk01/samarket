@@ -76,6 +76,8 @@ export function resolveFcmPushType(
 
   if (out.notification_type === "chat") {
     if (metaKind === "group_message") return "group_message";
+    if (metaKind === "mention_message") return "group_message";
+    if (metaKind === "pin_message") return "group_message";
     if (metaKind === "trade_chat") return "trade_message";
     if (metaKind === "community_chat") return "chat_message";
     if (meta?.room_id) return "chat_message";

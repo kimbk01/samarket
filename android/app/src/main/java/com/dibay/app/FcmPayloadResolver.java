@@ -143,6 +143,15 @@ public final class FcmPayloadResolver {
         if (roomId != null) return "/community-messenger/rooms/" + android.net.Uri.encode(roomId);
         break;
       }
+      case "group_message": {
+        String roomId = firstNonEmpty(data.get("roomId"), data.get("room_id"));
+        if (roomId != null) {
+          return "/community-messenger/rooms/"
+              + android.net.Uri.encode(roomId)
+              + "?type=group";
+        }
+        break;
+      }
       case "trade_message": {
         String roomId = firstNonEmpty(data.get("roomId"), data.get("room_id"));
         if (roomId != null) return "/chats/" + android.net.Uri.encode(roomId);
@@ -183,6 +192,7 @@ public final class FcmPayloadResolver {
 
   public static boolean isStandardRouteType(String type) {
     return "chat_message".equals(type)
+        || "group_message".equals(type)
         || "trade_message".equals(type)
         || "delivery_order".equals(type)
         || "community_comment".equals(type);

@@ -24,7 +24,10 @@ function buildPushPayload(row: NotificationEventRow, badgeCount: number): Notifi
   const link_url =
     row.type === "missed_call" && roomId && row.call_session_id
       ? buildMissedCallWebPath(roomId, row.call_session_id)
-      : row.type === "group_message" && roomId
+      : (row.type === "group_message" ||
+          row.type === "mention_message" ||
+          row.type === "pin_message") &&
+        roomId
         ? buildGroupRoomWebPath(roomId)
         : roomId
           ? buildChatRoomWebPath(roomId)

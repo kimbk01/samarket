@@ -5,6 +5,8 @@ import type { NotificationDomain } from "@/lib/notifications/notification-domain
 const TYPE_TO_DOMAIN: Partial<Record<NotificationEventType, NotificationDomain>> = {
   chat_message: "community_direct_chat",
   group_message: "community_group_chat",
+  mention_message: "community_group_chat",
+  pin_message: "community_group_chat",
   trade_message: "trade_chat",
   store_order_message: "order",
 };
