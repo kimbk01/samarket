@@ -5,7 +5,10 @@ import type { CommunityMessengerCallSession } from "@/lib/community-messenger/ty
 import { buildCallTombstoneContext } from "@/lib/community-messenger/call-events/fcm-call-event-normalizer";
 import { MESSENGER_FOREGROUND_INCOMING_BANNER_Z_CLASS } from "@/lib/community-messenger/incoming-call-surface";
 import { resolveForegroundIncomingPresentation } from "@/lib/community-messenger/incoming-call/foreground-incoming-presenter";
-import { resetIncomingCallSurfaceOwner } from "@/lib/community-messenger/incoming-call-surface-owner";
+import {
+  getIncomingCallSurfaceOwner,
+  resetIncomingCallSurfaceOwner,
+} from "@/lib/community-messenger/incoming-call-surface-owner";
 
 function ringingSession(
   id: string,
@@ -211,10 +214,10 @@ describe("foreground-incoming-presenter", () => {
     });
 
     expect(decision.shouldRender).toBe(false);
-    expect(decision.reason).toBe("native_foreground_primary");
+    expect(decision.reason).toBe("android_native_pill_ssot");
   });
 
-  it("allows web banner on Android foreground when native pill is absent", () => {
+  it("preempts web banner on Android APK foreground before native pill visible event", () => {
     const incoming = ringingSession("call-1");
     resetIncomingCallSurfaceOwner();
     const decision = resolveForegroundIncomingPresentation({
@@ -227,6 +230,27 @@ describe("foreground-incoming-presenter", () => {
       visibilityState: "visible",
       isAppForeground: true,
       preferNativeAndroidForegroundIncoming: true,
+      nativeForegroundIncomingCallId: null,
+    });
+
+    expect(decision.shouldRender).toBe(false);
+    expect(decision.reason).toBe("android_native_pill_ssot");
+    expect(getIncomingCallSurfaceOwner("call-1")).toBe("native_foreground_pill");
+  });
+
+  it("allows web banner on browser foreground when native pill is absent", () => {
+    const incoming = ringingSession("call-1");
+    resetIncomingCallSurfaceOwner();
+    const decision = resolveForegroundIncomingPresentation({
+      sessions: [incoming],
+      pathname: "/community-messenger",
+      viewerUserId: "self",
+      viewerLiveSessionId: null,
+      tombstone,
+      incomingTabLeader: true,
+      visibilityState: "visible",
+      isAppForeground: true,
+      preferNativeAndroidForegroundIncoming: false,
       nativeForegroundIncomingCallId: null,
     });
 

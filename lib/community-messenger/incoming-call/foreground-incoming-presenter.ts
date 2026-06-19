@@ -12,8 +12,10 @@ import {
 } from "@/lib/community-messenger/incoming-call-surface";
 import {
   canRenderIncomingCallSurface,
+  claimIncomingCallSurface,
   getIncomingCallSurfaceOwner,
   isIncomingCallSurfaceTerminal,
+  releaseIncomingCallSurface,
 } from "@/lib/community-messenger/incoming-call-surface-owner";
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 
@@ -197,6 +199,27 @@ export function resolveForegroundIncomingPresentation(
       session,
       surface: "none",
       reason: `incoming_surface_not_banner:${resolvedSurface}`,
+      shouldRender: false,
+      selectedRingingSessionId,
+    };
+  }
+
+  /**
+   * Android APK foreground — Native pill SSOT.
+   * Realtime/poll may arrive before FCM `foreground_incoming_ui`; preempt web banner claim.
+   */
+  if (
+    input.preferNativeAndroidForegroundIncoming &&
+    isAppForeground &&
+    visibilityState === "visible"
+  ) {
+    releaseIncomingCallSurface(session.id, "web_foreground_overlay", "android_foreground_preempt");
+    claimIncomingCallSurface(session.id, "native_foreground_pill", "android_foreground_preempt");
+    return {
+      sessionId: session.id,
+      session,
+      surface: "none",
+      reason: "android_native_pill_ssot",
       shouldRender: false,
       selectedRingingSessionId,
     };

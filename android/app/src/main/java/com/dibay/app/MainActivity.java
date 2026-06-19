@@ -97,6 +97,15 @@ public class MainActivity extends BridgeActivity {
     act.mainHandler.post(() -> act.injectForegroundIncomingUiEvent(sid, visible));
   }
 
+  /** Native pill accept — Web consumed/surface release before pill finish. */
+  static void deliverForegroundIncomingAcceptEvent(String callId) {
+    MainActivity act = activeInstance;
+    if (act == null) return;
+    final String sid = callId != null ? callId.trim() : "";
+    if (sid.isEmpty()) return;
+    act.mainHandler.post(() -> act.injectForegroundIncomingAcceptEvent(sid));
+  }
+
   /** FCM foreground — WebView legacy call bridge (incoming_call / call_canceled) */
   static void deliverCallIncomingEvent(IncomingCallPayload payload) {
     MainActivity act = activeInstance;
@@ -235,6 +244,20 @@ public class MainActivity extends BridgeActivity {
             + "}}));}catch(e){}})();";
     webView.post(() -> webView.evaluateJavascript(js, null));
     Log.i("DIBAY_CALL", "[DIBAY_CALL] foreground_incoming_ui callId=" + callId + " visible=" + visible);
+  }
+
+  private void injectForegroundIncomingAcceptEvent(String callId) {
+    Bridge bridge = getBridge();
+    if (bridge == null) return;
+    WebView webView = bridge.getWebView();
+    if (webView == null) return;
+    final String safeCallId = safeJs(callId);
+    final String js =
+        "(function(){try{window.dispatchEvent(new CustomEvent('dibay:call-event',{detail:{type:'foreground_incoming_accept',sessionId:'"
+            + safeCallId
+            + "'}}));}catch(e){}})();";
+    webView.post(() -> webView.evaluateJavascript(js, null));
+    Log.i("DIBAY_CALL", "[DIBAY_CALL] foreground_incoming_accept callId=" + callId);
   }
 
   private void injectCallTerminalEvent(String callId, String status) {

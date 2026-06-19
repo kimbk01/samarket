@@ -158,6 +158,17 @@ describe("incoming-call native contract", () => {
     expect(global).toContain("preferNativeAndroidForegroundIncoming");
     expect(global).toContain("nativeForegroundIncomingCallId");
     expect(global).toContain("onForegroundIncomingUi");
+    expect(global).toContain("onNativeForegroundAccept");
+    const presenter = read("lib/community-messenger/incoming-call/foreground-incoming-presenter.ts");
+    expect(presenter).toContain("android_native_pill_ssot");
+  });
+
+  it("native accept injects foreground_incoming_accept before route launch", () => {
+    const coordinator = read("android/app/src/main/java/com/dibay/app/IncomingCallActionCoordinator.java");
+    expect(coordinator).toContain("deliverForegroundIncomingAcceptEvent");
+    const activity = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
+    expect(activity).toContain("foreground_incoming_accept");
+    expect(activity).toContain("injectForegroundIncomingAcceptEvent");
   });
 
   it("notification posts immediately then enriches avatar async", () => {

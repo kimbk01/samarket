@@ -30,6 +30,8 @@ type DibayFcmCallBridgeHandlers = {
   onFcmTerminal: (detail: NormalizedFcmTerminalDispatch) => void;
   /** Android native foreground incoming pill visibility */
   onForegroundIncomingUi?: (detail: { sessionId: string; visible: boolean }) => void;
+  /** Native pill accept — Web consumed/surface release before pill finish */
+  onNativeForegroundAccept?: (detail: { sessionId: string }) => void;
 };
 
 export function writeDibayCallPendingRoute(path: string): void {
@@ -84,6 +86,11 @@ export function installDibayFcmCallBridge(handlers: DibayFcmCallBridgeHandlers):
         sessionId,
         visible: detail.visible !== false,
       });
+      return;
+    }
+    if (detail.type === "foreground_incoming_accept") {
+      const sessionId = detail.sessionId?.trim() ?? "";
+      if (sessionId) handlers.onNativeForegroundAccept?.({ sessionId });
       return;
     }
     if (detail.type === "incoming_call") {

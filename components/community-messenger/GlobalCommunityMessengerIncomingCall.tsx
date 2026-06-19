@@ -129,7 +129,11 @@ import {
 } from "@/lib/push/native/dibay-call-consumed-native-bridge";
 import { getNativeIncomingCallPlugin } from "@/lib/push/native/push-route-native-bridge";
 import { incomingRingTimeoutMsFromConfig } from "@/lib/community-messenger/messenger-call-ring-timeout";
-import { acceptIncomingCallOnce, runIncomingCallReject } from "@/lib/community-messenger/incoming-call-accept-gateway";
+import {
+  acceptIncomingCallOnce,
+  applyIncomingCallConsumedSideEffects,
+  runIncomingCallReject,
+} from "@/lib/community-messenger/incoming-call-accept-gateway";
 import { buildIncomingCallPreviewHref } from "@/lib/community-messenger/incoming-call-preview-route";
 import {
   canRenderIncomingCallSurface,
@@ -1356,10 +1360,33 @@ export function GlobalCommunityMessengerIncomingCall() {
         const sid = sessionId.trim();
         setNativeForegroundIncomingCallId(visible && sid ? sid : null);
         if (visible && sid) {
+          releaseIncomingCallSurface(sid, "web_foreground_overlay", "foreground_incoming_ui_visible");
           claimIncomingCallSurface(sid, "native_foreground_pill", "foreground_incoming_ui");
         } else if (sid) {
           releaseIncomingCallSurface(sid, "native_foreground_pill", "foreground_incoming_ui_hidden");
         }
+      },
+      onNativeForegroundAccept: ({ sessionId: sid }) => {
+        logDibayCall("accept_start", {
+          sessionId: sid,
+          callId: sid,
+          source: "native_pill_accept",
+        });
+        applyIncomingCallConsumedSideEffects(sid, "accepted", "native_pill_accept");
+        releaseIncomingCallSurface(sid, "native_foreground_pill", "native_pill_accept");
+        releaseIncomingCallSurface(sid, "web_foreground_overlay", "native_pill_accept");
+        setNativeForegroundIncomingCallId(null);
+        activeIncomingCallIdsRef.current.delete(sid);
+        dismissIncomingPresenterAfterAccept({
+          sessionId: sid,
+          dismissedAt: dismissedIncomingSessionsAtRef.current,
+          hardClearedAt: hardClearedIncomingSessionsAtRef.current,
+          activeIncomingCallIds: activeIncomingCallIdsRef.current,
+          suppressMissedSound: suppressMissedSoundRef.current,
+          ringStopSource: "native_pill_accept",
+          removeSessionFromIncomingList: (id) =>
+            setSessions((prev) => prev.filter((item) => item.id !== id)),
+        });
       },
       onIncomingWake: (detail) => {
         void (async () => {
@@ -1391,6 +1418,9 @@ export function GlobalCommunityMessengerIncomingCall() {
             logDibayCall("incoming_received", { sessionId: sid, callId: sid, source: "fcm_wake" });
             if (typeof document !== "undefined" && document.visibilityState !== "visible") {
               claimIncomingCallSurface(sid, "native_fullscreen", "fcm_wake_background");
+            } else {
+              releaseIncomingCallSurface(sid, "web_foreground_overlay", "fcm_wake_foreground");
+              claimIncomingCallSurface(sid, "native_foreground_pill", "fcm_wake_foreground");
             }
           }
           bumpIncomingListFastSync();

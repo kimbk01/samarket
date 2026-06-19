@@ -88,6 +88,7 @@ public final class IncomingCallActionCoordinator {
     DibayCallLog.once("accept_start", sid, "source=native_pending_web");
     Log.i(CALL_TAG, "[call-state] accept_pending_web callId=" + sid);
     DibayCallConsumedStore.mark(context, sid, "accepted");
+    MainActivity.deliverForegroundIncomingAcceptEvent(sid);
     IncomingCallRingOwner.stop(context, sid);
     DibayCallPushLog.info("ringtone_stop_native", sid, "reason=accept");
     CallForegroundService.stopRinging(context, sid, "accept");
