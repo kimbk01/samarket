@@ -22,6 +22,8 @@ type Props = {
   children: ReactNode;
   /** tmp 발신 dial — 440ms 슬라이드 생략 (수신·active·일반 진입에는 미적용) */
   instantOutgoingDialEnter?: boolean;
+  /** 수신 accept route (`action=accept` / `nativeAccept=1`) — 440ms 슬라이드 생략 (P1-1b) */
+  instantIncomingAcceptEnter?: boolean;
 };
 
 const CommunityMessengerCallAnimatedBackContext = createContext<(() => void) | null>(null);
@@ -43,14 +45,15 @@ function usePrefersReducedMotion(): boolean {
   return reduced;
 }
 
-/** 통화 라우트 진입·복귀 — 440ms 우→좌 슬라이드 (tmp 발신 dial 은 instantOutgoingDialEnter 로 생략) */
+/** 통화 라우트 진입·복귀 — 440ms 우→좌 슬라이드 (tmp 발신·수신 accept 는 instant*Enter 로 생략) */
 export function CommunityMessengerCallEnterShell({
   children,
   instantOutgoingDialEnter = false,
+  instantIncomingAcceptEnter = false,
 }: Props) {
   const router = useRouter();
   const reducedMotion = usePrefersReducedMotion();
-  const skipEnterSlide = reducedMotion || instantOutgoingDialEnter;
+  const skipEnterSlide = reducedMotion || instantOutgoingDialEnter || instantIncomingAcceptEnter;
   const [phase, setPhase] = useState<AnimPhase>(skipEnterSlide ? "idle" : "enter");
   const exitingRef = useRef(false);
 

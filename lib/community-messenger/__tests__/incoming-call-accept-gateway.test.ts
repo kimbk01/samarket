@@ -61,6 +61,7 @@ import { tryClaimIncomingCallAccept } from "@/lib/community-messenger/incoming-c
 import { dismissAllIncomingCallNotificationsFireAndForget } from "@/lib/push/native/dismiss-native-incoming-call-notification";
 import { postCommunityMessengerCallIncomingConsumedBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { isDibayCallConsumed, resetDibayCallSessionState } from "@/lib/community-messenger/incoming-call-state";
+import { primeCommunityMessengerCallNavigationSeed } from "@/lib/community-messenger/call-session-navigation-seed";
 import {
   acceptIncomingCallOnce,
   runIncomingCallAccept,
@@ -106,9 +107,12 @@ describe("incoming-call-accept-gateway", () => {
 
     await runIncomingCallAccept({ session, router, source: "incoming_banner_accept" });
     expect(patchCommunityMessengerCallSession).toHaveBeenCalledTimes(1);
+    expect(router.replace).toHaveBeenCalledTimes(1);
     expect(router.replace).toHaveBeenCalledWith(
       "/community-messenger/calls/s1?action=accept&nativeAccept=1&mode=active"
     );
+    expect(primeCommunityMessengerCallNavigationSeed).toHaveBeenCalledTimes(2);
+    expect(primeCommunityMessengerCallNavigationSeed).toHaveBeenLastCalledWith("s1", { id: "s1" });
     expect(isDibayCallConsumed("s1")).toBe(true);
     expect(postCommunityMessengerCallIncomingConsumedBusEvent).toHaveBeenCalledWith("s1", "accepted");
   });

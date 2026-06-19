@@ -304,6 +304,8 @@ export async function runIncomingCallAccept(args: RunIncomingCallAcceptArgs): Pr
     logDibayCall("accept_success", { sessionId: sid, callId: sid, source: args.source });
 
     const updated = patched.session;
+    /** replace 직전 active 세션 시드 — ringing seed 로 첫 paint 가 IncomingCallView 로 튀는 것 방지 (P1-1b) */
+    primeCommunityMessengerCallNavigationSeed(updated.id, updated);
     const phase = mapSessionStatusToActiveCallPhase(updated, false);
     if (phase !== "idle") {
       setActiveCallSession(

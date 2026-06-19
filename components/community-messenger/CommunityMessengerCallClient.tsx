@@ -4825,18 +4825,23 @@ export function CommunityMessengerCallClient({
   ]);
 
   if (loading && !session) {
-    /** 시드 없이 진입한 짧은 구간 — 발신 tmp_·kind 쿼리·FCM `?action=accept` 공통 로딩 껍데기 */
+    /** 시드 없이 진입한 짧은 구간 — 발신 tmp_·kind 쿼리·수신 accept route 로딩 껍데기 */
     const dismissHydrate = () => navigateBackFromCommunityMessengerCall(router, null);
     const hydrateKind = searchParams.get("kind") === "video" ? "video" : "voice";
+    const hydrateAcceptRoute =
+      requestedAction === "accept" || nativeAcceptRoute || searchParams.get("nativeAccept") === "1";
     const hydrateVm: CallScreenViewModel = {
       visualTheme: "starbucks",
       mode: hydrateKind,
-      direction: "outgoing",
-      phase: "ringing",
+      direction: hydrateAcceptRoute ? "incoming" : "outgoing",
+      phase: hydrateAcceptRoute ? "connecting" : "ringing",
       peerLabel: t("cm_ui_call_label"),
       peerAvatarUrl: null,
-      statusText:
-        hydrateKind === "video" ? t("cm_ui_outgoing_video_dialing") : t("cm_ui_outgoing_voice_dialing"),
+      statusText: hydrateAcceptRoute
+        ? t("cm_ui_connecting")
+        : hydrateKind === "video"
+          ? t("cm_ui_outgoing_video_dialing")
+          : t("cm_ui_outgoing_voice_dialing"),
       subStatusText: t("cm_ui_call_loading_session"),
       topLabel: null,
       onTopLabelClick: null,
@@ -4863,7 +4868,7 @@ export function CommunityMessengerCallClient({
         },
       ],
       mainVideoSlot:
-        hydrateKind === "video" ? (
+        !hydrateAcceptRoute && hydrateKind === "video" ? (
           <HydrateOutgoingVideoPreview loadingLabel={t("common_loading")} />
         ) : undefined,
       showRemoteVideo: false,
