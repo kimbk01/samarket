@@ -22,12 +22,12 @@
 | 단계 | 상태 | 비고 |
 |------|------|------|
 | 로컬 코드·테스트·문서 | **완료** | lifecycle enrich·policy·QA 스크립트·`docs/perf/*` 산출물 |
-| **git commit** | **미진행** | lifecycle 변경 **working tree** (staged 없음). `origin/main` HEAD `5141d228` 에 미포함 |
-| **git push** | **미진행** | commit 선행 필요 |
-| **Vercel prod deploy** | **미진행** | push·빌드 후 prod WebView 재QA |
-| **APK 빌드** | **미진행** | WebView QA는 prod URL 기준; lifecycle 전용 APK 산출물 없음 |
+| **git commit** | **완료** | `5af69a36` feat(cm): commerce chat list lifecycle enrich and 7-day policy |
+| **git push** | **완료** | `origin/main` @ `5af69a36` |
+| **Vercel prod deploy** | **진행/확인 필요** | push 직후 — Vercel 대시보드 또는 prod WebView 재QA로 확인 |
+| **APK 빌드** | **완료** | `docs/perf/dibay-commerce-chat-lifecycle-p2-5af69a36.apk` (debug, `cap:sync:vercel` + `assembleDebug`) |
 
-**다음 액션:** lifecycle 범위 파일 스테이징 → commit → push → Vercel deploy → `node scripts/qa/commerce-chat-lifecycle-p2-adb-qa.mjs` → P2 CLOSE 4조건 충족 시 CLOSE.
+**다음 액션:** Vercel deploy 완료 확인 → `node scripts/qa/commerce-chat-lifecycle-p2-adb-qa.mjs` → P2 CLOSE 4조건 충족 시 CLOSE.
 
 ### P2 PARTIAL — 확인된 좋은 점
 
@@ -184,3 +184,4 @@
 | 2026-06-19 | P2 PARTIAL | prod WebView CDP QA — lifecycle 필드 미배포 FAIL; 로컬 dev API PASS; critical snapshot enrich 보강; QA 스크립트 `commerce-chat-lifecycle-p2-adb-qa.mjs` |
 | 2026-06-19 | P2 PARTIAL 유지 | 사용자 확인 — 배포 gap; 상태 「P1 코드 완료 + 실기기 QA 완료 + prod 배포 대기」; P2 CLOSE 4조건·절차 명시; P3는 CLOSE 이후 |
 | 2026-06-19 | dev-side 완료 | 개발·QA·문서 완료 확정; commit/push/Vercel/APK **미진행** 확인 (`main` @ `5141d228`) |
+| 2026-06-19 | pipeline | commit `5af69a36` push 완료; APK `docs/perf/dibay-commerce-chat-lifecycle-p2-5af69a36.apk`; Vercel deploy 후 P2 재QA |
