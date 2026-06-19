@@ -4,6 +4,12 @@
  * Usage:
  *   node scripts/qa/notification-p0-adb-qa.mjs
  *   P0_PREFLIGHT_ONLY=1 node scripts/qa/notification-p0-adb-qa.mjs
+ *   P0_SCENARIO=3|4A|4B node scripts/qa/notification-p0-adb-qa.mjs
+ *   P0_APK_LOGIN=1 node scripts/qa/notification-p0-adb-qa.mjs  # B APK qqqq login helper
+ *
+ * Scenario 4 split:
+ *   4A = normal killed (HOME + recents swipe + am kill) — P0 required
+ *   4B = adb am force-stop — OS limitation check only (GCM CANCELLED)
  */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -22,15 +28,17 @@ const USER_A = "11111111-1111-1111-1111-111111111111";
 const USER_B = "9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8";
 const DIRECT_ROOM = process.env.P0_DIRECT_ROOM?.trim() || "b19e2672-f26f-4a2e-8125-52575da4a62a";
 const PREFLIGHT_ONLY = process.env.P0_PREFLIGHT_ONLY === "1";
+const P0_SCENARIO = process.env.P0_SCENARIO?.trim() || "";
+const P0_APK_LOGIN = process.env.P0_APK_LOGIN !== "0";
 const OUT = path.join(ROOT, "docs/perf/notification-p0-adb-qa-run.log");
 const OUT_JSON = path.join(ROOT, "docs/perf/notification-p0-adb-qa-report.json");
-const TAGS = "DIBAY_FCM DIBAY_NOTIFY DIBAY_MISSED_CALL ReactNativeJS";
+const TAGS = "DIBAY_FCM DIBAY_PUSH_REGISTER DIBAY_NOTIFY DIBAY_MISSED_CALL ReactNativeJS";
 
 function loadEnvLocal() {
   for (const rel of [".env.local", ".env"]) {
     const p = path.join(ROOT, rel);
     if (!fs.existsSync(p)) continue;
-    for (const line of fs.readFileSync(p, "utf8").split(/\r?\n/)) {
+    for (const line of fs.readFileSync(p, "utf8").split("\n")) {
       const t = line.trim();
       if (!t || t.startsWith("#")) continue;
       const i = t.indexOf("=");
@@ -155,12 +163,166 @@ async function queryActiveUserDevices(userId) {
   const sb = supabaseAdmin();
   const { data, error } = await sb
     .from("user_devices")
-    .select("id,user_id,platform,is_active,updated_at,fcm_token")
+    .select("id,user_id,platform,push_provider,is_active,updated_at,device_id,push_token")
     .eq("user_id", userId)
     .eq("is_active", true)
     .order("updated_at", { ascending: false })
     .limit(5);
   return { data: data ?? [], error: error?.message ?? null };
+}
+
+async function queryDeliveries(limit = 5) {
+  const sb = supabaseAdmin();
+  const { data, error } = await sb
+    .from("notification_deliveries")
+    .select("id,status,reason,provider,created_at,event_id,user_id")
+    .eq("user_id", USER_B)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  return { data: data ?? [], error: error?.message ?? null };
+}
+
+function dibayMessageNotifications(serial) {
+  const text = adb(serial, "shell", "dumpsys", "notification", "--noredact");
+  const hits = text.split("\n").filter(
+    (l) => l.includes("com.dibay.app") && (l.includes("dibay_messages") || l.includes("StatusBarNotification"))
+  );
+  return { count: hits.length, samples: hits.slice(-8) };
+}
+
+function analyzeFcmLogcat(serial) {
+  const filtered = logcatDump(serial);
+  const full = adb(serial, "logcat", "-d");
+  const gcm = full
+    .split("\n")
+    .filter((l) => /GCM|FirebaseMessaging|CANCELLED|c2dm/.test(l))
+    .slice(-8)
+    .join("\n");
+  const t = `${filtered}\n${gcm}`;
+  return {
+    messageReceived: /\[fcm\] message_received/.test(t),
+    dataTypeChat: /data_type_detected type=chat_message/.test(t),
+    nativePosted: /native_notification_posted/.test(t),
+    gcmCancelled: /result=CANCELLED/.test(t),
+    fcmLines: filtered.split("\n").filter(Boolean).slice(-20),
+    gcmLines: gcm.split("\n").filter(Boolean),
+  };
+}
+
+async function killBNormal() {
+  adb(SERIAL_B, "shell", "input", "keyevent", "3");
+  await sleep(800);
+  adb(SERIAL_B, "shell", "input", "keyevent", "187");
+  await sleep(1200);
+  const sz = adb(SERIAL_B, "shell", "wm", "size");
+  const m = sz.match(/(\d+)x(\d+)/);
+  const w = Number(m?.[1] ?? 1080);
+  const h = Number(m?.[2] ?? 2400);
+  adb(
+    SERIAL_B,
+    "shell",
+    "input",
+    "swipe",
+    String(Math.floor(w / 2)),
+    String(Math.floor(h * 0.75)),
+    String(Math.floor(w / 2)),
+    "0",
+    "350"
+  );
+  await sleep(800);
+  adb(SERIAL_B, "shell", "am", "kill", PKG);
+  await sleep(1500);
+}
+
+async function forceStopB() {
+  adb(SERIAL_B, "shell", "am", "force-stop", PKG);
+  await sleep(2000);
+}
+
+function runApkBLoginHelper() {
+  if (!P0_APK_LOGIN) {
+    log("P0_APK_LOGIN=0 — skip APK WebView qqqq login helper");
+    return { ok: true, skipped: true };
+  }
+  log("APK WebView qqqq login/register helper");
+  const r = spawnSync("node", [path.join(ROOT, "scripts/qa/notification-p0-apk-b-login.mjs")], {
+    encoding: "utf8",
+    env: process.env,
+  });
+  log(`apk-login exit=${r.status}`);
+  if (r.stdout) log(r.stdout.trim().split("\n").slice(-4).join(" | "));
+  return { ok: r.status === 0, exit: r.status };
+}
+
+async function runFcmKillScenario(id, name, prepKill, authA, authB) {
+  await requireQqqqActiveDevice();
+  log(`--- scenario ${id}: ${name} ---`);
+  const t0 = Date.now();
+  adb(SERIAL_B, "logcat", "-c");
+  const notifBefore = dibayMessageNotifications(SERIAL_B);
+  adb(SERIAL_B, "shell", "am", "start", "-n", ACT);
+  adb(SERIAL_B, "shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", `${PROD}/community-messenger`);
+  await sleep(5000);
+  const badgeBefore = await badgeCountForB(authB);
+  await prepKill();
+  await sleep(2000);
+  const msg = await sendMessage(authA, `P0-QA-${id} ${name} ${t0}`);
+  await sleep(15000);
+  const analysis = analyzeFcmLogcat(SERIAL_B);
+  const notifAfter = dibayMessageNotifications(SERIAL_B);
+  const badgeAfter = await badgeCountForB(authB);
+  const deliveries = await queryDeliveries(5);
+  const sentRows = deliveries.data.filter((d) => d.status === "sent");
+
+  const passCore =
+    msg.status === 200 &&
+    msg.json?.ok === true &&
+    analysis.messageReceived &&
+    analysis.dataTypeChat &&
+    analysis.nativePosted;
+
+  let pass;
+  let verdict;
+  let p0Required = false;
+  let osLimitationOnly = false;
+
+  if (id === "4A") {
+    p0Required = true;
+    pass = passCore;
+    verdict = pass ? "app-normal-killed" : analysis.gcmCancelled ? "os-policy" : "app-fcm";
+  } else {
+    p0Required = false;
+    if (analysis.gcmCancelled && !passCore) {
+      pass = false;
+      osLimitationOnly = true;
+      verdict = "android-force-stop-limitation";
+    } else {
+      pass = passCore;
+      verdict = pass ? "app-force-stop-fcm" : "app-fcm";
+    }
+  }
+
+  log(
+    `scenario${id} PASS=${pass} p0Required=${p0Required} verdict=${verdict} gcmCancelled=${analysis.gcmCancelled} notifDelta=${notifAfter.count - notifBefore.count}`
+  );
+
+  return {
+    id,
+    name,
+    pass,
+    p0Required,
+    osLimitationOnly,
+    msgStatus: msg.status,
+    badgeBefore: badgeBefore.json?.total ?? 0,
+    badgeAfter: badgeAfter.json?.total ?? 0,
+    notifBefore: notifBefore.count,
+    notifAfter: notifAfter.count,
+    notifDelta: notifAfter.count - notifBefore.count,
+    deliveriesRecent: deliveries.data.slice(0, 3),
+    deliveriesSent: sentRows.length,
+    analysis,
+    verdict,
+  };
 }
 
 async function queryEvents(limit = 20) {
@@ -268,11 +430,35 @@ async function runAuthPreflight(authA, authB) {
   return preflight;
 }
 
+function shouldRunScenario(id) {
+  if (!P0_SCENARIO) return true;
+  const s = P0_SCENARIO.toUpperCase();
+  const key = String(id).toUpperCase();
+  if (s === key) return true;
+  if (s === "4" && (key === "4A" || key === "4B")) return true;
+  const n = Number(P0_SCENARIO);
+  return Number.isFinite(n) && n === id;
+}
+
+function needsFcmDeviceSetup() {
+  return shouldRunScenario(3) || shouldRunScenario("4A") || shouldRunScenario("4B");
+}
+
+async function requireQqqqActiveDevice() {
+  const devicesB = await queryActiveUserDevices(USER_B);
+  log(`qqqq active user_devices=${devicesB.data?.length ?? 0}`);
+  if ((devicesB.data?.length ?? 0) === 0) {
+    log("STOP: qqqq user_devices active row = 0 — run APK login + FCM register first");
+    process.exit(1);
+  }
+  return devicesB;
+}
+
 async function main() {
   fs.mkdirSync(path.dirname(OUT), { recursive: true });
   fs.writeFileSync(OUT, "");
   log(`A=${SERIAL_A}(aaaa) B=${SERIAL_B}(qqqq) room=${DIRECT_ROOM}`);
-  log(`prod=${PROD} preflightOnly=${PREFLIGHT_ONLY}`);
+  log(`prod=${PROD} preflightOnly=${PREFLIGHT_ONLY} scenario=${P0_SCENARIO || "all"}`);
 
   const devices = adb("", "devices");
   if (!devices.includes(SERIAL_A) || !devices.includes(SERIAL_B)) {
@@ -314,8 +500,16 @@ async function main() {
   adb(SERIAL_B, "logcat", "-c");
 
   const results = [];
+  let afterEvents = { data: [] };
+  let badge1 = { status: 0, json: {} };
+
+  if (needsFcmDeviceSetup()) {
+    runApkBLoginHelper();
+    await requireQqqqActiveDevice();
+  }
 
   // Scenario 1 — B in app, outside room
+  if (shouldRunScenario(1)) {
   log("--- scenario 1: in-app outside room ---");
   adb(SERIAL_B, "shell", "am", "start", "-n", ACT);
   await sleep(2000);
@@ -326,7 +520,7 @@ async function main() {
   const msg1 = await sendMessage(authA, `P0-QA-1 ${new Date().toISOString()}`);
   await sleep(8000);
   const afterEvents = await queryEvents(10);
-  const badge1 = await badgeCountForB(authB);
+  badge1 = await badgeCountForB(authB);
   const bLog1 = logcatDump(SERIAL_B);
   const s1Pass =
     msg1.status === 200 &&
@@ -347,10 +541,13 @@ async function main() {
   log(`scenario1 PASS=${s1Pass} msg=${msg1.status} events+${results[0].eventsDelta} badgeApi=${badge1.status}`);
 
   // Scenario 2 — same room foreground (presence)
+  }
+
+  if (shouldRunScenario(2)) {
   log("--- scenario 2: same room foreground ---");
   adb(SERIAL_B, "shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", `dibay://chat/${DIRECT_ROOM}`);
   await sleep(5000);
-  const before2 = await queryEvents(3);
+  const _before2 = await queryEvents(3);
   const msg2 = await sendMessage(authA, `P0-QA-2 same-room ${Date.now()}`);
   await sleep(8000);
   const after2 = await queryEvents(5);
@@ -371,43 +568,54 @@ async function main() {
   log(`scenario2 PASS=${s2Pass} latest=${JSON.stringify(latest2 ?? null)}`);
 
   // Scenario 3 — background
+  }
+
+  if (shouldRunScenario(3)) {
+  await requireQqqqActiveDevice();
   log("--- scenario 3: background ---");
+  adb(SERIAL_B, "logcat", "-c");
+  const notif3Before = dibayMessageNotifications(SERIAL_B);
+  const badge3Before = await badgeCountForB(authB);
   adb(SERIAL_B, "shell", "input", "keyevent", "3");
   await sleep(1500);
   const msg3 = await sendMessage(authA, `P0-QA-3 bg ${Date.now()}`);
   await sleep(10000);
-  const bLog3 = logcatDump(SERIAL_B);
-  const s3Pass = bLog3.includes("native_notification_posted") || bLog3.includes("[fcm] message_received");
+  const analysis3 = analyzeFcmLogcat(SERIAL_B);
+  const badge3After = await badgeCountForB(authB);
+  const deliveries3 = await queryDeliveries(3);
+  const s3Pass =
+    msg3.status === 200 &&
+    msg3.json?.ok === true &&
+    analysis3.messageReceived &&
+    analysis3.nativePosted;
   results.push({
     id: 3,
     name: "background",
     pass: s3Pass,
+    p0Required: true,
     msgStatus: msg3.status,
-    fcmLines: bLog3.split("\n").filter(Boolean).slice(-15),
+    badgeBefore: badge3Before.json?.total ?? 0,
+    badgeAfter: badge3After.json?.total ?? 0,
+    notifBefore: notif3Before.count,
+    notifAfter: dibayMessageNotifications(SERIAL_B).count,
+    deliveriesRecent: deliveries3.data.slice(0, 3),
+    fcmLines: analysis3.fcmLines,
     verdict: msg3.status !== 200 ? "qa-auth-or-route" : s3Pass ? "app" : "app-fcm",
   });
   log(`scenario3 PASS=${s3Pass}`);
 
-  // Scenario 4 — force stop
-  log("--- scenario 4: force stop ---");
-  adb(SERIAL_B, "shell", "am", "force-stop", PKG);
-  await sleep(2000);
-  const msg4 = await sendMessage(authA, `P0-QA-4 killed ${Date.now()}`);
-  await sleep(12000);
-  adb(SERIAL_B, "logcat", "-c");
-  await sleep(2000);
-  const bLog4 = logcatDump(SERIAL_B);
-  const s4Pass = bLog4.includes("[fcm]") || bLog4.includes("native_notification");
-  results.push({
-    id: 4,
-    name: "force stop",
-    pass: s4Pass,
-    msgStatus: msg4.status,
-    note: "log after force-stop — may need notification tap",
-    verdict: msg4.status !== 200 ? "qa-auth-or-route" : s4Pass ? "app" : "app-fcm",
-  });
-  log(`scenario4 PASS=${s4Pass}`);
+  // Scenario 4A / 4B — killed vs force-stop
+  }
 
+  if (shouldRunScenario("4A")) {
+  results.push(await runFcmKillScenario("4A", "normal-killed-recents", killBNormal, authA, authB));
+  }
+
+  if (shouldRunScenario("4B")) {
+  results.push(await runFcmKillScenario("4B", "adb-force-stop", forceStopB, authA, authB));
+  }
+
+  if (!P0_SCENARIO) {
   for (const id of [5, 6, 7, 8, 9, 10]) {
     results.push({
       id,
@@ -416,6 +624,7 @@ async function main() {
       note: "NOT RUN — automated script covers 1-4; manual/device scenarios 5-10 pending",
       verdict: "qa-script-gap",
     });
+  }
   }
 
   const summary = {
@@ -430,7 +639,8 @@ async function main() {
   };
   fs.writeFileSync(OUT_JSON, JSON.stringify(summary, null, 2));
   log(`report written docs/perf/notification-p0-adb-qa-report.json`);
-  log(`PASS count ${results.filter((r) => r.pass).length}/${results.length} (scenarios 5-10 not automated)`);
+  log(`PASS count ${results.filter((r) => r.pass).length}/${results.length}`);
+  log(`P0-required PASS ${results.filter((r) => r.p0Required && r.pass).length}/${results.filter((r) => r.p0Required).length}`);
 }
 
 main().catch((e) => {
