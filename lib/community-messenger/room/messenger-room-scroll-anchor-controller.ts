@@ -23,13 +23,17 @@ import {
   resolveMessengerRoomNearBottomForAutoScroll,
   syncMessengerRoomStickToBottomFromViewport,
 } from "@/lib/community-messenger/room/messenger-room-scroll-near-bottom";
+import { MESSENGER_VIRTUAL_FALLBACK_TAIL_ROWS } from "@/lib/community-messenger/room/messenger-room-timeline-paint-model";
 import { messengerRoomTracksScrollPosition } from "@/lib/community-messenger/notifications/messenger-notification-rollout";
 import { useMessengerRoomReaderStateStore } from "@/lib/community-messenger/notifications/messenger-room-reader-state-store";
 
 export type MessengerRoomScrollAnchorRequest = {
   reason: CmScrollOwnerReason;
   force?: boolean;
+  retryCount?: number;
 };
+
+const MAX_SCROLL_APPLY_RETRIES = 12;
 
 type VirtualizerLike = Pick<Virtualizer<HTMLDivElement, Element>, "scrollToIndex">;
 
@@ -55,6 +59,7 @@ type ScrollAnchorControllerOpts = {
   virtualizer?: VirtualizerLike;
   messageCount: number;
   deferEntryScrollToDeliveryDirectTimeline?: boolean;
+  timelineViewportMounted?: boolean;
 };
 
 function isAlwaysScrollReason(reason: CmScrollOwnerReason): boolean {
@@ -88,6 +93,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     virtualizer,
     messageCount,
     deferEntryScrollToDeliveryDirectTimeline = false,
+    timelineViewportMounted = false,
   } = opts;
 
   const lastScrollGeomRef = useRef<{ sh: number; st: number; ch: number; ready: boolean }>({
@@ -122,21 +128,21 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
   }, [roomId, messagesViewportRef, stickToBottomRef]);
 
   const applyScrollRequest = useCallback(
-    (request: MessengerRoomScrollAnchorRequest) => {
+    (request: MessengerRoomScrollAnchorRequest): boolean => {
       const rid = roomId.trim();
       const reason = request.reason;
       const force = request.force === true;
 
       if (rid && !force && !canRunMessengerRoomScrollOwner(rid, reason)) {
-        return;
+        return true;
       }
 
       const vp = messagesViewportRef.current;
-      if (!vp) return;
+      if (!vp) return false;
 
       if (reason === "prepend_older_preserve_position") {
         syncScrollGeomFromViewport();
-        return;
+        return true;
       }
 
       if (reason === "room_entry_restore") {
@@ -147,6 +153,10 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
             stickToBottomRef.current = true;
           } else if (persisted.firstVisibleMessageId) {
             const anchorTop = resolveScrollTopForAnchorMessage(vp, persisted.firstVisibleMessageId);
+            if (anchorTop == null && messageCount > MESSENGER_VIRTUAL_FALLBACK_TAIL_ROWS) {
+              vp.scrollTop = persisted.scrollTop;
+              return false;
+            }
             vp.scrollTop = anchorTop ?? persisted.scrollTop;
             stickToBottomRef.current = false;
           } else {
@@ -168,7 +178,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
             });
             markMessengerRoomEntryScrollSettled(rid, reason);
           }
-          return;
+          return true;
         }
       }
 
@@ -181,7 +191,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
           activeSheet,
           lastScrollGeomRef,
         });
-        if (!nearBottom) return;
+        if (!nearBottom) return true;
       }
 
       if (alwaysScroll || isEntryRestoreReason(reason)) {
@@ -219,6 +229,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
           markMessengerRoomEntryScrollSettled(rid, reason);
         }
       }
+      return true;
     },
     [
       activeSheet,
@@ -236,7 +247,22 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     const batch = queueRef.current.splice(0, queueRef.current.length);
     if (batch.length === 0) return;
     for (const req of batch) {
-      applyScrollRequest(req);
+      const applied = applyScrollRequest(req);
+      if (!applied) {
+        const retryCount = (req.retryCount ?? 0) + 1;
+        if (retryCount <= MAX_SCROLL_APPLY_RETRIES) {
+          queueRef.current.push({ ...req, retryCount });
+        }
+      }
+    }
+    if (queueRef.current.length > 0) {
+      if (typeof requestAnimationFrame !== "function") {
+        flushScrollQueue();
+        return;
+      }
+      flushRafRef.current = requestAnimationFrame(() => {
+        flushRafRef.current = requestAnimationFrame(flushScrollQueue);
+      });
     }
   }, [applyScrollRequest]);
 
@@ -299,6 +325,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
 
   useLayoutEffect(() => {
     if (deferEntryScrollToDeliveryDirectTimeline || roomMessages.length <= 0) return;
+    if (!timelineViewportMounted) return;
     if (entryScrollDoneRef.current) return;
     entryScrollDoneRef.current = true;
 
@@ -307,7 +334,13 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     enqueueScrollAnchor({
       reason: hasPersisted ? "room_entry_restore" : "room_entry_initial",
     });
-  }, [deferEntryScrollToDeliveryDirectTimeline, enqueueScrollAnchor, roomId, roomMessages.length]);
+  }, [
+    deferEntryScrollToDeliveryDirectTimeline,
+    enqueueScrollAnchor,
+    roomId,
+    roomMessages.length,
+    timelineViewportMounted,
+  ]);
 
   useEffect(() => {
     const last = roomMessages[roomMessages.length - 1];

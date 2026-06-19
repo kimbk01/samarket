@@ -33,6 +33,7 @@ import { resolveMessengerRoomTimelinePaintSource } from "@/lib/community-messeng
 import {
   buildMessengerRoomFallbackVirtualRows,
   buildMessengerRoomTimelinePaintModel,
+  estimateMessengerRoomTimelineTotalHeight,
   selectMessengerRoomVirtualRows,
 } from "@/lib/community-messenger/room/messenger-room-timeline-paint-model";
 import { resolveMessengerRoomTimelineLoadUi } from "@/lib/community-messenger/room/messenger-room-timeline-load-ui";
@@ -1152,10 +1153,8 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     const total = vm.chatVirtualizer.getTotalSize();
     if (total > 0) return total;
     if (vm.displayRoomMessages.length <= 0) return 0;
-    const last = cappedVirtualRows[cappedVirtualRows.length - 1];
-    if (!last) return 0;
-    return last.start + estimateMessengerTimelineRowPx(vm.displayRoomMessages[last.index]);
-  }, [cappedVirtualRows, useDirectTimelineLayout, vm.chatVirtualizer, vm.displayRoomMessages]);
+    return estimateMessengerRoomTimelineTotalHeight(vm.displayRoomMessages);
+  }, [useDirectTimelineLayout, vm.chatVirtualizer, vm.displayRoomMessages]);
 
   useLayoutEffect(() => {
     if (hydrationPass < 2) return;

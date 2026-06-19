@@ -5,7 +5,9 @@ import {
   saveMessengerRoomScrollPosition,
 } from "@/lib/community-messenger/room/messenger-room-scroll-position-store";
 import {
+  buildMessengerRoomFallbackVirtualRows,
   buildMessengerRoomTimelinePaintModel,
+  MESSENGER_VIRTUAL_FALLBACK_TAIL_ROWS,
   roomMessagesTimelineFingerprint,
 } from "@/lib/community-messenger/room/messenger-room-timeline-paint-model";
 import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
@@ -58,5 +60,13 @@ describe("messenger-room-timeline-paint-model", () => {
     const a = [msg("1"), msg("2")];
     const b = [msg("1"), msg("2")];
     expect(roomMessagesTimelineFingerprint(a)).toBe(roomMessagesTimelineFingerprint(b));
+  });
+
+  it("caps virtual fallback rows to tail window", () => {
+    const messages = Array.from({ length: 120 }, (_, i) => msg(`m-${i}`));
+    const rows = buildMessengerRoomFallbackVirtualRows(messages);
+    expect(rows).toHaveLength(MESSENGER_VIRTUAL_FALLBACK_TAIL_ROWS);
+    expect(rows[0]?.index).toBe(120 - MESSENGER_VIRTUAL_FALLBACK_TAIL_ROWS);
+    expect(rows.at(-1)?.index).toBe(119);
   });
 });

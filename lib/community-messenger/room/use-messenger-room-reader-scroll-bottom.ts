@@ -22,6 +22,7 @@ export function useMessengerRoomReaderScrollBottom({
   virtualizer,
   messageCount,
   deferEntryScrollToDeliveryDirectTimeline = false,
+  timelineViewportMounted = false,
 }: {
   roomId: string;
   activeSheet:
@@ -44,6 +45,7 @@ export function useMessengerRoomReaderScrollBottom({
   virtualizer?: VirtualizerLike;
   messageCount?: number;
   deferEntryScrollToDeliveryDirectTimeline?: boolean;
+  timelineViewportMounted?: boolean;
 }): {
   scrollMessengerToBottom: (opts?: { reason?: string }) => void;
   updateStickToBottomFromScroll: () => void;
@@ -59,6 +61,7 @@ export function useMessengerRoomReaderScrollBottom({
     virtualizer,
     messageCount: messageCount ?? roomMessages.length,
     deferEntryScrollToDeliveryDirectTimeline,
+    timelineViewportMounted,
   });
 
   return {

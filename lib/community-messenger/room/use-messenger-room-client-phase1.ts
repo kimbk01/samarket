@@ -1691,6 +1691,7 @@ export function useMessengerRoomClientPhase1({
     virtualizer: chatVirtualizer,
     messageCount: displayRoomMessages.length,
     deferEntryScrollToDeliveryDirectTimeline: storeOrderDockScrollAnchorEnabled,
+    timelineViewportMounted,
   });
 
   useEffect(() => {

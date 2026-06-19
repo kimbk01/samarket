@@ -54,15 +54,33 @@ export function selectMessengerRoomVirtualRows<T extends { index: number }>(item
   return items;
 }
 
-/** virtualizer 미측정 fallback — 전체 tail 윈도( cap 없음 ) */
-export function buildMessengerRoomFallbackVirtualRows(
+/** virtualizer 첫 측정 전 DOM fallback — tail만 paint (대형 방 O(n) 렌더 방지) */
+export const MESSENGER_VIRTUAL_FALLBACK_TAIL_ROWS = 24;
+
+export function estimateMessengerRoomTimelineTotalHeight(
   messages: ReadonlyArray<Pick<CommunityMessengerMessage, "messageType" | "content" | "metadata">>
+): number {
+  let total = 0;
+  for (let i = 0; i < messages.length; i += 1) {
+    total += estimateMessengerTimelineRowPx(messages[i]);
+  }
+  return total;
+}
+
+export function buildMessengerRoomFallbackVirtualRows(
+  messages: ReadonlyArray<Pick<CommunityMessengerMessage, "messageType" | "content" | "metadata">>,
+  opts?: { maxRows?: number }
 ): Array<{ index: number; start: number }> {
   const messageCount = messages.length;
   if (messageCount <= 0) return [];
+  const maxRows = Math.max(1, opts?.maxRows ?? MESSENGER_VIRTUAL_FALLBACK_TAIL_ROWS);
+  const startIndex = Math.max(0, messageCount - maxRows);
   const rows: Array<{ index: number; start: number }> = [];
   let offset = 0;
-  for (let i = 0; i < messageCount; i += 1) {
+  for (let i = 0; i < startIndex; i += 1) {
+    offset += estimateMessengerTimelineRowPx(messages[i]);
+  }
+  for (let i = startIndex; i < messageCount; i += 1) {
     rows.push({ index: i, start: offset });
     offset += estimateMessengerTimelineRowPx(messages[i]);
   }
