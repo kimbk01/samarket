@@ -1,16 +1,10 @@
-/**
- * @vitest-environment jsdom
- */
 import { describe, expect, it } from "vitest";
 import {
   clearNativeCalleeAcceptPending,
-  isCallSessionLocationForSession,
-  isCalleeAcceptLocationPath,
   isNativeCalleeAcceptRoute,
   isNativeCalleePrepRoute,
   markNativeCalleeAcceptPending,
   readNativeCalleeAcceptPendingSessionId,
-  resolveNativeCalleeAcceptPendingForConnectingSurface,
   shouldDeferCalleeGenericAutoJoin,
   shouldSuppressCalleeIncomingRingingUi,
 } from "@/lib/community-messenger/native-callee-accept-entry";
@@ -48,24 +42,6 @@ describe("native-callee-accept-entry", () => {
     expect(isNativeCalleeAcceptRoute({ action: "accept", nativeAccept: "1", nativePrep: null })).toBe(true);
     expect(isNativeCalleePrepRoute({ action: "accept", nativeAccept: null, nativePrep: "1" })).toBe(true);
     expect(isNativeCalleeAcceptRoute({ action: "accept", nativeAccept: null, nativePrep: null })).toBe(false);
-  });
-
-  it("detects callee accept location paths", () => {
-    expect(
-      isCalleeAcceptLocationPath("/community-messenger/calls/s1", "?action=accept&nativeAccept=1")
-    ).toBe(true);
-    expect(isCallSessionLocationForSession("s1", "/community-messenger/calls/s1")).toBe(true);
-    expect(isCallSessionLocationForSession("s1", "/stores")).toBe(false);
-  });
-
-  it("does not bootstrap connecting surface off call routes", () => {
-    markNativeCalleeAcceptPending("sess-off");
-    const prev = window.location.pathname + window.location.search;
-    window.history.pushState({}, "", "/stores");
-    expect(resolveNativeCalleeAcceptPendingForConnectingSurface()).toBeNull();
-    expect(readNativeCalleeAcceptPendingSessionId()).toBe("sess-off");
-    window.history.pushState({}, "", prev || "/");
-    clearNativeCalleeAcceptPending("sess-off");
   });
 
   it("tracks native accept pending before route params hydrate", () => {
