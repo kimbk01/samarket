@@ -11,6 +11,7 @@ import {
   cmCallIncomingTracePatch,
   cmCallIncomingTracePublishToStorage,
 } from "@/lib/community-messenger/cm-call-debug";
+import { logCallLatencyCmInviteRingEmit } from "@/lib/community-messenger/call-latency-trace";
 
 export const CM_CALL_INVITE_BROADCAST_RING = "cm_invite_ring";
 export const CM_CALL_INVITE_BROADCAST_HANGUP = "cm_invite_hangup";
@@ -205,6 +206,12 @@ export async function notifyCommunityMessengerCallInviteRingBestEffort(
       callKind: session.callKind,
       startedAtIso: session.startedAt,
       initiatorUserId: initiator,
+      tmpSessionId: dialTmp || undefined,
+    });
+    logCallLatencyCmInviteRingEmit({
+      sessionId: session.id,
+      roomId: session.roomId,
+      callKind: session.callKind,
       tmpSessionId: dialTmp || undefined,
     });
     cmCallIncomingTracePatch(session.id, { signal_emit_ms: Date.now() });

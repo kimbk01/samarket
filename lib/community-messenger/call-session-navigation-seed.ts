@@ -26,6 +26,8 @@ import { primeOutgoingCallMediaBeforeNavigate } from "@/lib/community-messenger/
 import {
   logCallLatencyDialClick,
   logCallLatencyRouteReplace,
+  logCallLatencySessionCreated,
+  logCallLatencyTerminalCleanupDone,
   logCallMediaOutgoingVideoGumDeferred,
 } from "@/lib/community-messenger/call-latency-trace";
 import {
@@ -242,6 +244,7 @@ export function finalizeCommunityMessengerCallTerminalExit(
   pinCommunityMessengerCallTerminalSurfaceDismiss(sid);
   if (sid) {
     syncTerminalCallClientState(sid, source);
+    logCallLatencyTerminalCleanupDone({ sessionId: sid, source });
     void hardClearActiveCallSession(sid, source);
   }
   navigateToCommunityMessengerCallLogsAfterTerminal(router);
@@ -585,6 +588,14 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCoreUnlocked(arg
       : {}),
   });
   cmCallFlow("session_created", { sessionId: json.session.id, roomId, callKind: args.kind });
+  logCallLatencySessionCreated({
+    sessionId: json.session.id,
+    roomId,
+    callKind: args.kind,
+    role: "initiator",
+    durationMs: clientPostMs,
+    reused: json.reused === true,
+  });
   cmCallLatencyAnalysis({
     totalMs: clientPostMs,
     serverMs: json._callStartTimingsMs,

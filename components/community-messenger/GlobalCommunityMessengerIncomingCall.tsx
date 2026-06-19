@@ -158,6 +158,7 @@ import {
   notifyCommunityMessengerCallInviteHangupBestEffort,
   subscribeCommunityMessengerCallInviteBroadcast,
 } from "@/lib/community-messenger/call-invite-realtime-broadcast";
+import { logCallLatencyCmInviteRingReceived } from "@/lib/community-messenger/call-latency-trace";
 import {
   onCommunityMessengerBusEvent,
   postCommunityMessengerBusEvent,
@@ -1163,6 +1164,12 @@ export function GlobalCommunityMessengerIncomingCall() {
         if (sid) {
           cmCallIncomingTraceMergeFromStorage(sid);
           cmCallIncomingTracePatch(sid, { receiver_signal_received_ms: now }, { onlyIfUnset: true });
+          logCallLatencyCmInviteRingReceived({
+            sessionId: sid,
+            source: "broadcast_ring",
+            roomId: typeof payload.roomId === "string" ? payload.roomId : undefined,
+            callKind: payload.callKind === "video" || payload.callKind === "voice" ? payload.callKind : undefined,
+          });
         }
         const optimistic = communityMessengerIncomingSessionFromInviteBroadcast(userId, payload);
         if (optimistic) {

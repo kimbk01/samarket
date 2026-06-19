@@ -176,7 +176,11 @@ import {
   wasOutgoingInviteBroadcastRecentlySent,
 } from "@/lib/community-messenger/call-session-navigation-seed";
 import { primeOutgoingCallMediaBeforeNavigate } from "@/lib/community-messenger/call-media-bootstrap";
-import { logCallLatencyCallScreenPainted } from "@/lib/community-messenger/call-latency-trace";
+import {
+  logCallLatencyCallScreenPainted,
+  logCallLatencyMediaCleanupDone,
+  logCallLatencyMediaCleanupStart,
+} from "@/lib/community-messenger/call-latency-trace";
 import {
   clearCommunityMessengerCallConnectionPrefetch,
   peekPrefetchedCommunityMessengerCallConnection,
@@ -1665,18 +1669,24 @@ export function CommunityMessengerCallClient({
   const disposeCallMedia = useCallback(
     async (opts?: { domAudioNuclear?: boolean }) => {
       const domAudioNuclear = Boolean(opts?.domAudioNuclear);
-      cmCallAudioCleanup("disposeCallMedia_start", { sessionId: sessionRef.current?.id ?? null });
-      const sid = sessionRef.current?.id;
+      const sid = sessionRef.current?.id ?? sessionId;
+      logCallLatencyMediaCleanupStart({
+        sessionId: sid,
+        domAudioNuclear,
+      });
+      cmCallAudioCleanup("disposeCallMedia_start", { sessionId: sid ?? null });
       if (sid) {
         const taken = takeDetachedCommunityCallCleanup(sid);
         if (taken) {
           await taken();
+          logCallLatencyMediaCleanupDone({ sessionId: sid, domAudioNuclear, detached: true });
           return;
         }
       }
       await cleanupClient(domAudioNuclear, sid ?? sessionId);
+      logCallLatencyMediaCleanupDone({ sessionId: sid, domAudioNuclear });
       console.info("[cm-call-state] call_ended_cleanup_done", {
-        sessionId: sessionRef.current?.id ?? sessionId,
+        sessionId: sid,
         domAudioNuclear,
       });
     },
