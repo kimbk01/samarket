@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Group Chat P0 — A/B/C adb + Supabase + prod API QA.
+ * Group Chat P0 — A/B APK WebView CDP + prod API QA.
+ * FCM/푸시 클릭은 APK WebView 로그인·user_devices 필수 (Chrome/VIEW intent 금지).
  * Usage: node scripts/qa/group-chat-p0-adb-qa.mjs
  */
 import { spawnSync } from "node:child_process";
@@ -8,11 +9,21 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
+import { chromium } from "@playwright/test";
+import {
+  DIBAY_PKG,
+  assertForegroundApk,
+  ensureApkWebViewLogin,
+  openUrlInApkWebView,
+} from "./lib/apk-webview-cdp.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const ADB = process.env.ADB_PATH || `${process.env.HOME}/Library/Android/sdk/platform-tools/adb`;
-const PKG = "com.dibay.app";
+const PKG = DIBAY_PKG;
 const ACT = `${PKG}/.MainActivity`;
+const CDP_PORT_A = Number(process.env.GROUP_P0_CDP_PORT_A || 9230);
+const CDP_PORT_B = Number(process.env.GROUP_P0_CDP_PORT_B || 9231);
+const PASSWORD = process.env.E2E_TEST_PASSWORD?.trim() || "1234";
 const SERIAL_A = process.env.GROUP_P0_DEVICE_A?.trim() || "8b37179f7d94";
 const SERIAL_B = process.env.GROUP_P0_DEVICE_B?.trim() || "RFCY40PY2CA";
 const SERIAL_C = process.env.GROUP_P0_DEVICE_C?.trim() || SERIAL_B;
@@ -22,7 +33,7 @@ const LOGIN_B = process.env.GROUP_P0_LOGIN_B?.trim() || "qqqq";
 const LOGIN_C = process.env.GROUP_P0_LOGIN_C?.trim() || "bbbb";
 const OUT_LOG = path.join(ROOT, "docs/perf/group-chat-p0-adb-qa-run.log");
 const OUT_JSON = path.join(ROOT, "docs/perf/group-chat-p0-adb-qa-report.json");
-const FCM_TAGS = "DIBAY_FCM DIBAY_PUSH DIBAY_NOTIFICATION ReactNativeJS";
+const FCM_TAGS = "DIBAY_FCM DIBAY_PUSH DIBAY_PUSH_REGISTER DIBAY_NOTIFY DIBAY_NOTIFICATION ReactNativeJS";
 const HAS_THIRD_APK = Boolean(process.env.GROUP_P0_DEVICE_C?.trim());
 const QA_MODE = HAS_THIRD_APK ? "3-device" : "2-device-limited-qa";
 const QA_MSG = "GROUP QA TEST";
@@ -201,10 +212,52 @@ function logcatDump(serial) {
   return adb(serial, "logcat", "-d", "-s", ...FCM_TAGS.split(" ")).stdout;
 }
 
+async function pollFcmLogcat(serial, predicate, timeoutMs = 30000, intervalMs = 2000) {
+  const deadline = Date.now() + timeoutMs;
+  let last = "";
+  while (Date.now() < deadline) {
+    last = logcatDump(serial);
+    if (predicate(last)) return last;
+    await sleep(intervalMs);
+  }
+  return last;
+}
+
+function trayHasDibayMessage(serial, needle) {
+  const notif = adb(serial, "shell", "dumpsys", "notification", "--noredact").stdout;
+  return notif.includes("pkg=com.dibay.app") && (needle ? notif.includes(needle) : /dibay_messages/i.test(notif));
+}
+
 function uiDump(serial) {
   adb(serial, "shell", "uiautomator", "dump", "/sdcard/window_dump.xml");
   const xml = adb(serial, "shell", "cat", "/sdcard/window_dump.xml").stdout;
   return xml.slice(0, 4000);
+}
+
+function uiDumpApkOrFail(serial, label, report) {
+  const xml = uiDump(serial);
+  try {
+    assertForegroundApk(xml, label, PKG);
+    return { ok: true, xml, package: PKG };
+  } catch (e) {
+    report.checks[`${label}ApkForeground`] = false;
+    report.evidence[`uiDump${label}`] = xml.slice(0, 1500);
+    report.evidence[`uiDump${label}Package`] = e.foregroundPackage ?? null;
+    return { ok: false, xml, package: e.foregroundPackage ?? null, error: e.message };
+  }
+}
+
+async function queryActiveFcmDevices(userId) {
+  const sb = supabaseAdmin();
+  const { data, error } = await sb
+    .from("user_devices")
+    .select("id, user_id, device_id, platform, push_token, push_provider, is_active, updated_at, last_seen_at")
+    .eq("user_id", userId)
+    .eq("is_active", true)
+    .eq("push_provider", "fcm")
+    .order("updated_at", { ascending: false })
+    .limit(5);
+  return { data: data ?? [], error: error?.message ?? null };
 }
 
 async function fetchHomeRooms(cookie) {
@@ -296,13 +349,6 @@ async function main() {
 
   const userA = await resolveProfileUserId(LOGIN_A);
   const userB = await resolveProfileUserId(LOGIN_B);
-  const userDevicesB = await queryUserDevices(userB);
-  const activeBToken = (userDevicesB.data ?? []).find(
-    (row) => row.is_active && row.push_provider === "fcm" && row.push_token
-  );
-  report.evidence.userDevicesB = userDevicesB;
-  report.checks.bActiveFcmToken = Boolean(activeBToken?.fcm_token);
-  log(`user_devices B active=${report.checks.bActiveFcmToken} rows=${userDevicesB.data?.length ?? 0}`);
 
   let userC = await resolveAcceptedFriendPeer(userA, [userB]);
   if (!userC) {
@@ -329,6 +375,65 @@ async function main() {
   const cookieB = authB.cookie;
   const authC = userC ? await authForUserId(userC) : null;
   const cookieC = authC?.cookie ?? null;
+
+  // --- APK WebView CDP preflight (A/B) — Chrome/VIEW 금지 ---
+  log("--- APK WebView preflight A ---");
+  const preflightA = await ensureApkWebViewLogin({
+    adb,
+    chromium,
+    serial: SERIAL_A,
+    cdpPort: CDP_PORT_A,
+    act: ACT,
+    pkg: PKG,
+    prod: PROD,
+    login: LOGIN_A,
+    expectedUserId: userA,
+    loadEnv: loadEnvLocal,
+    password: PASSWORD,
+    log,
+    label: "A",
+    restartForFcm: false,
+  });
+  report.checks.apkPreflightA = preflightA.ok;
+  report.evidence.apkPreflightA = { probe: preflightA.probe };
+
+  log("--- APK WebView preflight B (+ FCM register restart) ---");
+  const preflightB = await ensureApkWebViewLogin({
+    adb,
+    chromium,
+    serial: SERIAL_B,
+    cdpPort: CDP_PORT_B,
+    act: ACT,
+    pkg: PKG,
+    prod: PROD,
+    login: LOGIN_B,
+    expectedUserId: userB,
+    loadEnv: loadEnvLocal,
+    password: PASSWORD,
+    log,
+    label: "B",
+    restartForFcm: true,
+  });
+  report.checks.apkPreflightB = preflightB.ok;
+  report.evidence.apkPreflightB = {
+    probe: preflightB.probe,
+    registerLogcatTail: preflightB.registerLogcat.split("\n").filter(Boolean).slice(-20),
+  };
+
+  const userDevicesB = await queryActiveFcmDevices(userB);
+  report.evidence.userDevicesB = userDevicesB;
+  report.checks.bActiveFcmToken = userDevicesB.data.length > 0 && Boolean(userDevicesB.data[0]?.push_token);
+  log(`user_devices B active fcm rows=${userDevicesB.data.length} token=${report.checks.bActiveFcmToken}`);
+
+  if (!preflightA.ok || !preflightB.ok) {
+    log("FAIL APK preflight — WebView login required (not Chrome/API cookie only)");
+    report.verdict = "REOPEN";
+    fs.writeFileSync(OUT_JSON, JSON.stringify(report, null, 2));
+    process.exit(1);
+  }
+  if (!report.checks.bActiveFcmToken) {
+    log("WARN: B user_devices active fcm row still 0 after APK preflight — FCM/push APK gates will FAIL");
+  }
 
   adb(SERIAL_A, "logcat", "-c");
   adb(SERIAL_B, "logcat", "-c");
@@ -392,11 +497,35 @@ async function main() {
   };
   log(`list allHasGroup=${allHasGroup} groupHasRoom=${groupHasRoom} b=${bHasRoom} c=${cHasRoom}`);
 
-  // Open devices to messenger group filter + room
-  adb(SERIAL_A, "shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", `${PROD}/community-messenger?section=chats&filter=private_group`, PKG);
-  adb(SERIAL_B, "shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", `${PROD}/community-messenger/rooms/${roomId}?type=group`, PKG);
-  await sleep(4000);
-  report.evidence.uiDumpA = uiDump(SERIAL_A).slice(0, 1500);
+  // Open devices in APK WebView (not Chrome VIEW)
+  log("--- open group UI in APK WebView ---");
+  await openUrlInApkWebView({
+    adb,
+    chromium,
+    serial: SERIAL_A,
+    cdpPort: CDP_PORT_A,
+    act: ACT,
+    prod: PROD,
+    url: `${PROD}/community-messenger?section=chats&filter=private_group`,
+    log,
+    label: "A",
+  });
+  await openUrlInApkWebView({
+    adb,
+    chromium,
+    serial: SERIAL_B,
+    cdpPort: CDP_PORT_B,
+    act: ACT,
+    prod: PROD,
+    url: `${PROD}/community-messenger/rooms/${roomId}?type=group`,
+    log,
+    label: "B",
+  });
+  await sleep(3000);
+  const uiA = uiDumpApkOrFail(SERIAL_A, "A", report);
+  report.checks.aApkForeground = uiA.ok;
+  report.evidence.uiDumpA = uiA.xml.slice(0, 1500);
+  if (!uiA.ok) log(`FAIL ${uiA.error}`);
 
   // 3. Send message from A
   log("--- send GROUP QA TEST ---");
@@ -425,33 +554,92 @@ async function main() {
   report.evidence.notificationEvents = { before: beforeEvents, after: afterEvents, newEvents };
   log(`events new=${newEvents.length} B=${!!bEvent} C=${!!cEvent} A=${!!aEvent}`);
 
-  const bLog = logcatDump(SERIAL_B);
+  // FCM must be observed with B backgrounded — foreground same-room suppresses push entirely.
+  log("--- FCM group_message (B background) ---");
+  adb(SERIAL_B, "shell", "input", "keyevent", "3");
+  await sleep(2000);
+  adb(SERIAL_B, "logcat", "-c");
+  const fcmMsg = `GROUP QA FCM ${Date.now()}`;
+  const beforeFcmEvents = await queryNotificationEvents(roomId, 5);
+  const sendFcm = await prodFetch(`/api/community-messenger/rooms/${roomId}/messages`, cookieA, {
+    method: "POST",
+    body: JSON.stringify({ content: fcmMsg, clientMessageId: `group-p0-fcm-${Date.now()}` }),
+  });
+  log(`fcm send status=${sendFcm.status} ok=${sendFcm.json?.ok}`);
+  const bLog = await pollFcmLogcat(
+    SERIAL_B,
+    (log) => /\[fcm\] message_received/i.test(log) || /native_notification_posted/i.test(log),
+    35000,
+    2500
+  );
+  const afterFcmEvents = await queryNotificationEvents(roomId, 20);
+  const fcmNewEvents = afterFcmEvents.data.filter(
+    (row) => !beforeFcmEvents.data.some((b) => b.id === row.id) && row.type === "group_message"
+  );
+  const bFcmEvent = fcmNewEvents.find((r) => r.user_id === userB);
+  const fcmTypeGroup = /data_type_detected type=group_message/i.test(bLog);
+  const fcmDelivered =
+    /\[fcm\] message_received/i.test(bLog) &&
+    (/native_notification_posted/i.test(bLog) || /data_type_detected type=/i.test(bLog));
+  const trayFcm = trayHasDibayMessage(SERIAL_B, fcmMsg);
   const fcmPass =
     report.checks.bActiveFcmToken &&
-    /group_message/i.test(bLog) &&
-    (/roomType[=:]\s*group/i.test(bLog) || /roomType.*group/i.test(bLog)) &&
-    (bLog.includes(roomId) || /type=group/i.test(bLog) || /\?type=group/i.test(bLog));
+    sendFcm.status === 200 &&
+    !!bFcmEvent &&
+    bFcmEvent.push_suppressed_reason == null &&
+    (fcmDelivered || trayFcm) &&
+    (fcmTypeGroup || /type=group/i.test(bLog) || trayFcm);
   report.checks.fcmGroupMessagePayload = fcmPass;
-  report.checks.fcmApkOnly = fcmPass;
+  report.checks.fcmApkOnly = fcmPass && report.checks.apkPreflightB === true;
   report.evidence.fcmLogcatB = bLog.split("\n").filter(Boolean).slice(-40).join("\n");
-  log(`fcmPass=${fcmPass}`);
+  report.evidence.fcmGroupMessage = {
+    send: sendFcm,
+    bEvent: bFcmEvent,
+    fcmTypeGroup,
+    fcmDelivered,
+    trayFcm,
+    fcmMsg,
+  };
+  log(`fcmPass=${fcmPass} fcmTypeGroup=${fcmTypeGroup} fcmDelivered=${fcmDelivered} trayFcm=${trayFcm} bPushSuppressed=${bFcmEvent?.push_suppressed_reason ?? "none"}`);
 
-  // 6. Push click — B background, tap notification if posted
+  // 6. Push click — B already backgrounded
   log("--- push click (B background) ---");
-  adb(SERIAL_B, "shell", "input", "keyevent", "3");
-  await sleep(1500);
+  const pushMsg = `GROUP QA PUSH ${Date.now()}`;
   const send2 = await prodFetch(`/api/community-messenger/rooms/${roomId}/messages`, cookieA, {
     method: "POST",
-    body: JSON.stringify({ content: `GROUP QA PUSH ${Date.now()}`, clientMessageId: `group-p0-push-${Date.now()}` }),
+    body: JSON.stringify({ content: pushMsg, clientMessageId: `group-p0-push-${Date.now()}` }),
   });
-  await sleep(8000);
-  const notif = adb(SERIAL_B, "shell", "dumpsys", "notification", "--noredact").stdout;
-  const hasGroupNotif = notif.includes(roomId) || /GROUP QA PUSH/i.test(notif);
-  report.evidence.notificationTray = notif.split("\n").filter((l) => /dibay|GROUP QA|group|samarket/i.test(l)).slice(0, 30).join("\n");
-  adb(SERIAL_B, "shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", `${PROD}/community-messenger/rooms/${encodeURIComponent(roomId)}?type=group`, PKG);
+  let hasGroupNotif = false;
+  const pushDeadline = Date.now() + 25000;
+  while (Date.now() < pushDeadline) {
+    hasGroupNotif = trayHasDibayMessage(SERIAL_B, pushMsg) || trayHasDibayMessage(SERIAL_B, roomId.slice(0, 8));
+    if (hasGroupNotif) break;
+    await sleep(2500);
+  }
+  report.evidence.notificationTray = adb(SERIAL_B, "shell", "dumpsys", "notification", "--noredact").stdout
+    .split("\n")
+    .filter((l) => /dibay|GROUP QA|group|samarket/i.test(l))
+    .slice(0, 30)
+    .join("\n");
+  await openUrlInApkWebView({
+    adb,
+    chromium,
+    serial: SERIAL_B,
+    cdpPort: CDP_PORT_B,
+    act: ACT,
+    prod: PROD,
+    url: `${PROD}/community-messenger/rooms/${encodeURIComponent(roomId)}?type=group`,
+    log,
+    label: "B-push-deeplink",
+  });
   await sleep(4000);
-  const afterDeepLink = uiDump(SERIAL_B);
-  const pushClickPass = send2.status === 200 && (afterDeepLink.includes(roomId.slice(0, 8)) || /type=group/i.test(afterDeepLink) || hasGroupNotif);
+  const uiB = uiDumpApkOrFail(SERIAL_B, "B", report);
+  report.checks.bApkForeground = uiB.ok;
+  const afterDeepLink = uiB.xml;
+  const pushClickPass =
+    send2.status === 200 &&
+    uiB.ok &&
+    (afterDeepLink.includes(roomId.slice(0, 8)) || hasGroupNotif);
   report.checks.pushClickGroupEntry = pushClickPass;
   report.evidence.uiDumpBAfterDeepLink = afterDeepLink.slice(0, 1500);
   log(`pushClickPass=${pushClickPass} hasGroupNotif=${hasGroupNotif}`);
@@ -557,7 +745,9 @@ async function main() {
   const apkGateFail =
     !report.checks.fcmApkOnly ||
     !report.checks.pushClickGroupEntry ||
-    !report.checks.kickApiOk;
+    !report.checks.kickApiOk ||
+    !report.checks.aApkForeground ||
+    !report.checks.bApkForeground;
   report.verdict = failCount === 0 && !apkGateFail ? "ACCEPT/CLOSE" : "REOPEN";
   if (QA_MODE === "2-device-limited-qa" && report.verdict === "ACCEPT/CLOSE") {
     report.verdict = apkGateFail ? "REOPEN" : "ACCEPT/CLOSE (2-device limited QA)";
