@@ -167,7 +167,7 @@
 |----|-----------|------|
 | MP-AUDIT-1 | warm cache → `bootstrap_full_seed` 승격 | 첫 홈 진입 `Failed to load` 고정 방지 |
 | MP-AUDIT-2 | 홈 클라 bootstrap fetch ≤ **2** (`home_bootstrap_client_fetch_total`) | warm+foreground 중복 GET 금지 |
-| MP-AUDIT-3 | 텍스트 POST bump **`after()`** | ACK 에 bump·배지 RTT 합산 금지 |
+| MP-AUDIT-3 | 텍스트 POST 수신 bump **ACK 전 await** | `postgres_changes`/`after()` 누락 시 상대방 실시간 수신·badge target 동시 누락 금지 |
 | MP-AUDIT-4 | atomic send **RPC 단일** — 사전 `loadTradeProductChatExitSnapshotForMessengerRoom` 금지 | 거래 가드는 `community_messenger_send_text_message` 에만 |
 | MP-AUDIT-5 | `list_prefetch`·`room_client_block` **single-flight 합류** | `room_bootstrap_get_count` 과다·primed skip 누락 금지 |
 | MP-AUDIT-6 | POST canonical resolve **parse·rate·phone 과 병렬** | 멤버십 왕복을 ACK 직전 직렬 대기에 두지 않음 |
@@ -177,13 +177,13 @@
 | MP-AUDIT-10 | pass2 row commit 시 **FMR + display_ready** (heavy 대기 금지) | merge→display ≤100ms 목표·FMR null 금지 |
 | MP-AUDIT-13 | send RPC insert 경로 **participants 선조회 제거** — unread `UPDATE … RETURNING` 으로 `recipient_user_ids` | ACK 전 participants 이중 스캔 금지 |
 | MP-AUDIT-13b | POST send 응답 **`x-samarket-send-*-ms`** 헤더 | 클라 RTT 와 서버 handler 분리 관측 |
-| MP-AUDIT-14 | atomic send **postAckEffects** — notify·mirror·hub invalidate 는 route **`after()`** 만 | ACK handler 에 in-app notify·동기 invalidate 금지 |
+| MP-AUDIT-14 | atomic send **postAckEffects** — notify·mirror·hub invalidate 는 route **`after()`** 만, 수신 bump 는 제외 | ACK handler 에 in-app notify·동기 invalidate 금지 |
 
 ### 런타임 목표 (H축 — 체크시트 `[x]` 별도 합목)
 
 | 지표 | 목표 | 현재 베이스라인 |
 |------|------|----------------|
-| `x-samarket-send-handler-ms` (서버 handler) | ≤ 200ms prod warm | **prod warm p95 196ms** (min 42 · max 196, 6샘플, MP-AUDIT-14, `docs/perf/messenger-ack-warm-prod-latest.json`) |
+| `x-samarket-send-handler-ms` (서버 handler) | ≤ 200ms prod warm | **재측정 필요** — 수신 bump ACK 전 보장으로 MP-AUDIT-14 baseline(196ms)은 이전 계약 |
 | `ack_ms` (클라 왕복) | ≤ 200ms (참고) | prod warm p95 **354ms** — RTT·클라 스택 별도 축 |
 | `ack_ms` (dev warm) | — | dev warm **159–318ms**, avg≈240 (MP-AUDIT-7/8 후) |
 | `home_bootstrap_client_fetch_total` | ≤ 2 | 2 (PASS) |

@@ -185,6 +185,22 @@ export async function POST(
       messageCreatedAt: typeof msg?.createdAt === "string" ? msg.createdAt : undefined,
       messageForBump: result.message ?? null,
     };
+    /**
+     * 그룹도 일반 CM 방과 동일하게 수신 신호는 ACK 전에 보장한다.
+     * DO NOT: room broadcast bump 를 after() best-effort 로 되돌리면 그룹 메시지 실시간 수신이 빠질 수 있다.
+     */
+    try {
+      const { publishMessengerRoomBumpAfterMutation } = await import(
+        "@/lib/community-messenger/server/publish-messenger-room-bump"
+      );
+      await publishMessengerRoomBumpAfterMutation(bumpArgs);
+    } catch (err) {
+      console.warn("[cm-group-room-bump-before-ack-failed]", {
+        roomId,
+        messageId: bumpArgs.messageId ?? null,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
     after(async () => {
       if (postAckEffects) {
         try {
@@ -197,14 +213,6 @@ export async function POST(
         } catch {
           /* best-effort */
         }
-      }
-      try {
-        const { publishMessengerRoomBumpAfterMutation } = await import(
-          "@/lib/community-messenger/server/publish-messenger-room-bump"
-        );
-        await publishMessengerRoomBumpAfterMutation(bumpArgs);
-      } catch {
-        /* best-effort */
       }
     });
   }

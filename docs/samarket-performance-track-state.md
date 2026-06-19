@@ -303,6 +303,15 @@
 | 판정 | **구조·H축 성공** — post-ACK 부수효과 분리 후 prod 서버 handler **≤200ms** 안정. 클라 ack 200ms 는 RTT·별도 트랙 |
 | 다음 | ~~prod 재실측~~ 완료. (선택) 동일 리전·실기기 클라 ack 왕복 |
 
+## CM-RT-ACK-1 — 메시지 수신 신호 ACK 전 보장 (2026-06-20)
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 상태 | **구현 중 · 실기기 2계정 QA 필요** |
+| 이번 원인 1개 | 메시지 INSERT 성공 후 room broadcast bump·badge target bump 가 `after()` best-effort 에 묶이면, ACK 는 성공했는데 상대방 실시간 수신·배지/알림 신호가 같이 빠질 수 있다. 그룹 CM route 도 동일 누락 구조였다. |
+| 이번 조치 | 일반 CM(일반·거래·배달 directKey)과 그룹 CM은 수신 bump 를 ACK 전 `await` 로 보장하고, notification event·push·mirror 같은 무거운 postAckEffects 는 `after()` 에 유지. 레거시 chat/group-chat 은 `postgres_changes` 보강 Broadcast 를 추가한다. |
+| 판정 | **코드 검증 전** — `verify:messenger-hot-path-contract`, 관련 tsc/vitest, 두 계정 실기기 수신 QA 후 판정. |
+
 ---
 
 ## 메신저 실시간 근본조치 (2026-04-22)
@@ -339,7 +348,7 @@
 | **SOL1** `/api/me/store-orders` **buyer store orders list snapshot-first** | **2026-05-25 Structural PASS · LFC1-B hard delete** — `get_buyer_store_orders_list_snapshot` deployed · snapshot-only read path · fallback **removed** · `query_wave_2_ms=0` · `rpc_removed=1` · event invalidation wired. **재개 금지**(legacy 2-wave orders+stores+unread aggregate·request-time list recompute). lock: [buyer-orders-list-regression-lock.md](./perf/buyer-orders-list-regression-lock.md). |
 | **SB1** `/api/stores/browse` **stores browse snapshot-first** | **2026-05-25 Structural PASS · LFC1-B hard delete** — `get_stores_browse_snapshot` deployed · snapshot-only read path · fallback **removed** · `query_wave_2_ms=0` · `rpc_removed=1` · event invalidation wired. **재개 금지**(legacy taxonomy+stores+products/banners multi-wave·request-time browse aggregate). lock: [stores-browse-regression-lock.md](./perf/stores-browse-regression-lock.md). |
 | **FBT1** `/api/community-messenger/bootstrap` **full bootstrap tier snapshot-first** | **2026-05-25 Structural PASS · LFC1-C hard delete** — `get_cm_bootstrap_full_snapshot` deployed · full + `?tier=critical` snapshot-only · fallback **removed** · `query_wave_2_ms=0` · `rpc_removed=1` · reconnect stress PASS. **재개 금지**(legacy full/critical bootstrap monolith). lock: [full-bootstrap-regression-lock.md](./perf/full-bootstrap-regression-lock.md). |
-| **MP-AUDIT-14** send **post-ACK 부수효과** `after()` | **2026-06-10 종료** — notify·mirror·invalidate 를 route `after()` 로 분리 · prod warm 서버 handler **p95 196ms** (≤200). **재개 금지**(ACK handler 인라인 notify·동기 invalidate). lock: `verify:messenger-hot-path-contract` · `docs/messenger-performance-architecture.md` §11 |
+| **MP-AUDIT-14** send **post-ACK 부수효과** `after()` | **2026-06-10 종료** — notify·mirror·invalidate 를 route `after()` 로 분리 · prod warm 서버 handler **p95 196ms** (≤200). **재개 금지**(ACK handler 인라인 notify·동기 invalidate). 단, 2026-06-20 이후 수신 room bump 는 실시간 보장을 위해 ACK 전 예외. lock: `verify:messenger-hot-path-contract` · `docs/messenger-performance-architecture.md` §11 |
 
 ---
 

@@ -62,20 +62,21 @@ function fail(msg) {
   failed = true;
 }
 
-// 1) 텍스트 전송 POST — bump 는 after() (ACK 에 합산 금지)
+// 1) 텍스트 전송 POST — 수신 bump 는 ACK 전, 무거운 postAckEffects 는 after()
 const messagesRoute = read("app/api/community-messenger/rooms/[roomId]/messages/route.ts");
 const postBody = extractAsyncExportBody(messagesRoute, "POST");
 if (!postBody) {
   fail("POST handler not found in messages/route.ts");
 } else {
-  if (!postBody.includes("after(async")) {
-    fail("POST .../messages must defer bump via after(async …)");
+  const afterIdx = postBody.indexOf("after(async");
+  const bumpAwaitIdx = postBody.indexOf("await publishMessengerRoomBumpAfterMutation");
+  if (afterIdx < 0) {
+    fail("POST .../messages must keep after(async …) for postAckEffects");
   }
-  const bumpAwaitOutsideAfter =
-    /await\s+publishMessengerRoomBumpAfterMutation/.test(postBody) &&
-    !/after\s*\(\s*async[\s\S]*await\s+publishMessengerRoomBumpAfterMutation/.test(postBody);
-  if (bumpAwaitOutsideAfter) {
-    fail("POST .../messages must not await publishMessengerRoomBumpAfterMutation before jsonOk response");
+  if (bumpAwaitIdx < 0) {
+    fail("POST .../messages must await publishMessengerRoomBumpAfterMutation before ACK");
+  } else if (afterIdx >= 0 && bumpAwaitIdx > afterIdx) {
+    fail("POST .../messages must not defer publishMessengerRoomBumpAfterMutation inside after()");
   }
   if (!postBody.includes("membershipPreflightDone: true")) {
     fail("POST .../messages must pass membershipPreflightDone: true to sendCommunityMessengerMessage");
@@ -107,6 +108,31 @@ if (!atomicBody) {
 // 2b) POST — postAckEffects 는 after() 에서만 실행
 if (postBody && !postBody.includes("runCommunityMessengerSendPostAckEffects")) {
   fail("POST .../messages must defer postAckEffects via runCommunityMessengerSendPostAckEffects in after()");
+}
+if (postBody) {
+  const afterIdx = postBody.indexOf("after(async");
+  const effectsIdx = postBody.indexOf("runCommunityMessengerSendPostAckEffects");
+  if (effectsIdx >= 0 && afterIdx >= 0 && effectsIdx < afterIdx) {
+    fail("POST .../messages must not run postAckEffects before after()");
+  }
+}
+
+// 2c) 그룹 CM 전송도 일반 CM 과 동일하게 수신 bump 는 ACK 전
+const groupMessagesRoute = read("app/api/community-messenger/group-rooms/[roomId]/messages/route.ts");
+const groupPostBody = extractAsyncExportBody(groupMessagesRoute, "POST");
+if (!groupPostBody) {
+  fail("POST handler not found in group-rooms/[roomId]/messages/route.ts");
+} else {
+  const afterIdx = groupPostBody.indexOf("after(async");
+  const bumpAwaitIdx = groupPostBody.indexOf("await publishMessengerRoomBumpAfterMutation");
+  if (afterIdx < 0) {
+    fail("POST .../group-rooms/messages must keep after(async …) for postAckEffects");
+  }
+  if (bumpAwaitIdx < 0) {
+    fail("POST .../group-rooms/messages must await publishMessengerRoomBumpAfterMutation before ACK");
+  } else if (afterIdx >= 0 && bumpAwaitIdx > afterIdx) {
+    fail("POST .../group-rooms/messages must not defer publishMessengerRoomBumpAfterMutation inside after()");
+  }
 }
 
 // 3) 홈 bootstrap 클라 fetch — AbortSignal 이 있어도 single-flight 합류

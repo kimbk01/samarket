@@ -18,6 +18,7 @@ import {
 import { loadGroupRoomMessageRowsForUser } from "@/lib/group-chat/server/load-group-room-messages";
 import { getActiveGroupMembership } from "@/lib/group-chat/server/assert-group-member";
 import { notifyMessagePipeline } from "@/lib/notifications/pipeline/notify-message-pipeline";
+import { publishChatRoomMessageBumpFromServer } from "@/lib/chats/server/publish-chat-room-message-bump";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -125,7 +126,7 @@ export async function POST(
       body: bodyRaw || (messageType === "image" ? "(이미지)" : ""),
       metadata: {},
     })
-    .select("id, created_at, seq")
+    .select("id, room_id, sender_id, message_type, body, metadata, created_at, seq, deleted_at, hidden_by_moderator")
     .single();
 
   if (insErr) {
@@ -150,14 +151,33 @@ export async function POST(
     .map((m) => String(m.user_id ?? "").trim())
     .filter((uid) => uid && uid !== auth.userId);
 
-  void notifyMessagePipeline(sb, {
+  const realtimeBumpPromise = publishChatRoomMessageBumpFromServer(sb, {
+    mode: "group",
+    roomId,
+    row: inserted as Record<string, unknown>,
+  }).catch((err) => {
+    console.warn("[legacy-group-chat-bump-before-ack-failed]", {
+      roomId,
+      messageId: row.id,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  });
+  const notifyPromise = notifyMessagePipeline(sb, {
     roomId,
     messageId: row.id,
     senderUserId: auth.userId,
     preview,
     recipientUserIds,
     roomKind: "group",
-  }).catch(() => {});
+  }).catch((err) => {
+    console.warn("[legacy-group-chat-notify-before-ack-failed]", {
+      roomId,
+      messageId: row.id,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  });
+
+  await Promise.all([realtimeBumpPromise, notifyPromise]);
 
   return jsonOk({
     message: {

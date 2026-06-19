@@ -34,6 +34,7 @@ import { loadIntegratedChatRoomMessageRowsForUser } from "@/lib/chats/server/loa
 import { MESSENGER_MONITORING_LABEL_DOMAIN } from "@/lib/chat-domain/messenger-domains";
 import { recordMessengerApiTiming } from "@/lib/community-messenger/monitoring/messenger-api-route-timing";
 import { syncPostInquiryNegotiatingFromItemTradeChats } from "@/lib/trade/maybe-auto-promote-trade-listing-negotiating";
+import { publishChatRoomMessageBumpFromServer } from "@/lib/chats/server/publish-chat-room-message-bump";
 
 const TRADE_CHAT_GET_MESSAGES_ROUTE = "GET /api/chat/rooms/[roomId]/messages";
 const TRADE_CHAT_POST_MESSAGES_ROUTE = "POST /api/chat/rooms/[roomId]/messages";
@@ -312,7 +313,7 @@ export async function POST(
       body: bodyText,
       metadata,
     })
-    .select("id, created_at")
+    .select("id, room_id, sender_id, message_type, body, metadata, created_at, read_at, deleted_by_sender, is_hidden_by_admin, hidden_reason")
     .single();
 
   if (insertErr) {
@@ -384,8 +385,19 @@ export async function POST(
       roomKind: "trade_legacy",
     });
   })();
+  const realtimeBumpPromise = publishChatRoomMessageBumpFromServer(sbAny, {
+    mode: "integrated",
+    roomId,
+    row: msg as Record<string, unknown>,
+  }).catch((err) => {
+    console.warn("[legacy-integrated-chat-bump-before-ack-failed]", {
+      roomId,
+      messageId: msgId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  });
 
-  await Promise.all([updateRoomPromise, touchLegacyPromise, bumpAndNotifyPromise]);
+  await Promise.all([updateRoomPromise, touchLegacyPromise, bumpAndNotifyPromise, realtimeBumpPromise]);
 
   if (roomAny.room_type === "item_trade" && roomAny.item_id) {
     void syncPostInquiryNegotiatingFromItemTradeChats(sbAny, String(roomAny.item_id)).catch(() => {

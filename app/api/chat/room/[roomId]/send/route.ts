@@ -20,6 +20,7 @@ import { notifyMessagePipeline } from "@/lib/notifications/pipeline/notify-messa
 import { parseRoomId } from "@/lib/validate-params";
 import { enforceTradeChatSendQuota } from "@/lib/security/rate-limit-presets";
 import { syncPostInquiryNegotiatingFromItemTradeChats } from "@/lib/trade/maybe-auto-promote-trade-listing-negotiating";
+import { publishChatRoomMessageBumpFromServer } from "@/lib/chats/server/publish-chat-room-message-bump";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -134,7 +135,7 @@ export async function POST(
       content,
       image_url: messageType === "image" ? imageList[0] ?? null : null,
     })
-    .select("id, created_at")
+    .select("id, product_chat_id, sender_id, message_type, content, image_url, read_at, created_at, is_hidden")
     .single();
 
   if (msgErr) {
@@ -169,16 +170,37 @@ export async function POST(
   const otherId = isSeller ? room.buyer_id : room.seller_id;
   await sbAny.from("product_chats").update(updates).eq("id", roomId);
 
-  if (otherId && msg?.id) {
-    void notifyMessagePipeline(sbAny, {
+  const messageId = String(msg?.id ?? "");
+  const realtimeBumpPromise = publishChatRoomMessageBumpFromServer(sbAny, {
+    mode: "legacy",
+    roomId,
+    row: msg as Record<string, unknown>,
+  }).catch((err) => {
+    console.warn("[legacy-product-chat-bump-before-ack-failed]", {
       roomId,
-      messageId: String(msg.id),
-      senderUserId: userId,
-      preview,
-      recipientUserIds: [otherId],
-      roomKind: "trade_legacy",
-    }).catch(() => {});
-  }
+      messageId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  });
+  const notifyPromise =
+    otherId && messageId
+      ? notifyMessagePipeline(sbAny, {
+          roomId,
+          messageId,
+          senderUserId: userId,
+          preview,
+          recipientUserIds: [otherId],
+          roomKind: "trade_legacy",
+        }).catch((err) => {
+          console.warn("[legacy-product-chat-notify-before-ack-failed]", {
+            roomId,
+            messageId,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        })
+      : Promise.resolve();
+
+  await Promise.all([realtimeBumpPromise, notifyPromise]);
 
   if (postId) {
     void syncPostInquiryNegotiatingFromItemTradeChats(sbAny, postId).catch(() => {});
@@ -186,7 +208,7 @@ export async function POST(
 
   return NextResponse.json({
     ok: true,
-    messageId: msg?.id ?? "",
+    messageId,
     createdAt: msg?.created_at ?? new Date().toISOString(),
   });
 }

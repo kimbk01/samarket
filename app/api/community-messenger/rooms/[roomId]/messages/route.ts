@@ -240,7 +240,24 @@ export async function POST(
       messageCreatedAt: typeof msg?.createdAt === "string" ? msg.createdAt : undefined,
       messageForBump: result.message ?? null,
     };
-    /** mark_read 와 동일 — ACK 는 RPC 직후 반환, 알림·배지·bump 는 `after()` (MP-AUDIT-14). */
+    /**
+     * 메시지 수신 신호는 ACK 전에 보장한다.
+     * DO NOT: room broadcast bump 를 after() best-effort 로 되돌리면 상대방 실시간 수신과 배지 target 이 함께 누락될 수 있다.
+     */
+    try {
+      const { publishMessengerRoomBumpAfterMutation } = await import(
+        "@/lib/community-messenger/server/publish-messenger-room-bump"
+      );
+      await publishMessengerRoomBumpAfterMutation(bumpArgs);
+    } catch (err) {
+      console.warn("[cm-room-bump-before-ack-failed]", {
+        roomId: canonicalRoomId,
+        rawRouteRoomId: canon.rawRouteRoomId,
+        messageId: bumpArgs.messageId ?? null,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+    /** 알림 이벤트·푸시·거래 미러는 ACK 뒤에서 실행해 전송 체감을 보호한다. */
     after(async () => {
       if (postAckEffects) {
         try {
@@ -253,14 +270,6 @@ export async function POST(
         } catch {
           /* best-effort */
         }
-      }
-      try {
-        const { publishMessengerRoomBumpAfterMutation } = await import(
-          "@/lib/community-messenger/server/publish-messenger-room-bump"
-        );
-        await publishMessengerRoomBumpAfterMutation(bumpArgs);
-      } catch {
-        /* best-effort: 수신측은 Postgres Realtime·재요청으로 정합 */
       }
     });
   }
