@@ -1,7 +1,7 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { CallConnectingSurface } from "@/components/community-messenger/call-ui/CallConnectingSurface";
 import {
   getCallConnectingSurfaceState,
   hideCallConnectingSurfaceAny,
@@ -10,10 +10,27 @@ import {
 } from "@/lib/community-messenger/call-connecting-surface/call-connecting-surface-store";
 import { readIncomingCallPeerSnapshot } from "@/lib/community-messenger/call-connecting-surface/incoming-call-peer-snapshot";
 import { onCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
-import { readNativeCalleeAcceptPendingSessionId } from "@/lib/community-messenger/native-callee-accept-entry";
+import {
+  isCallSessionLocationForSession,
+  isCalleeAcceptLocationPath,
+  resolveNativeCalleeAcceptPendingForConnectingSurface,
+} from "@/lib/community-messenger/native-callee-accept-entry";
+
+const CallConnectingSurface = dynamic(
+  () => import("./CallConnectingSurface").then((m) => m.CallConnectingSurface),
+  { ssr: false }
+);
 
 function isAcceptCallRoutePath(path: string): boolean {
   return path.includes("action=accept") || path.includes("nativeAccept=1");
+}
+
+function isConnectingSurfaceRouteForSession(sessionId: string): boolean {
+  if (typeof window === "undefined") return false;
+  return (
+    isCalleeAcceptLocationPath(window.location.pathname, window.location.search) ||
+    isCallSessionLocationForSession(sessionId)
+  );
 }
 
 /**
@@ -37,14 +54,21 @@ export function CallConnectingSurfaceHost() {
   }, [surface?.sessionId, snapshot]);
 
   useEffect(() => {
-    const syncPendingAccept = () => {
-      const pendingSid = readNativeCalleeAcceptPendingSessionId();
+    if (!surface) return;
+    if (!isConnectingSurfaceRouteForSession(surface.sessionId)) {
+      hideCallConnectingSurfaceAny("off_route");
+    }
+  }, [surface?.sessionId]);
+
+  useEffect(() => {
+    const bootstrapPendingAcceptSurface = () => {
+      const pendingSid = resolveNativeCalleeAcceptPendingForConnectingSurface();
       if (pendingSid) {
         requestCallConnectingSurface(pendingSid, "native_callee_accept_pending");
       }
     };
 
-    syncPendingAccept();
+    bootstrapPendingAcceptSurface();
 
     const onCallRoute = (ev: Event) => {
       const path = (ev as CustomEvent<{ path?: string }>).detail?.path?.trim() ?? "";
@@ -56,8 +80,6 @@ export function CallConnectingSurfaceHost() {
 
     window.addEventListener("dibay:call-route", onCallRoute);
     window.addEventListener("dibay:push-route", onCallRoute);
-    window.addEventListener("focus", syncPendingAccept);
-    document.addEventListener("visibilitychange", syncPendingAccept);
 
     const offTerminal = onCommunityMessengerBusEvent((ev) => {
       if (ev.type !== "cm.call.session_terminal") return;
@@ -73,12 +95,14 @@ export function CallConnectingSurfaceHost() {
       offTerminal();
       window.removeEventListener("dibay:call-route", onCallRoute);
       window.removeEventListener("dibay:push-route", onCallRoute);
-      window.removeEventListener("focus", syncPendingAccept);
-      document.removeEventListener("visibilitychange", syncPendingAccept);
     };
   }, []);
 
   if (!surface) return null;
+
+  if (!isConnectingSurfaceRouteForSession(surface.sessionId)) {
+    return null;
+  }
 
   if (!snapshot) {
     return (
