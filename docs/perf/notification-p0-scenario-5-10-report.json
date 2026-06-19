@@ -1,0 +1,63 @@
+{
+  "at": "2026-06-19T00:27:54.685Z",
+  "platform": "android-apk",
+  "devices": {
+    "A": "8b37179f7d94",
+    "B": "RFCY40PY2CA"
+  },
+  "qqqqDevices": [
+    {
+      "id": "900baf09-8dd7-4aa5-a7d0-3897c6554303",
+      "user_id": "9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8",
+      "platform": "android",
+      "is_active": true,
+      "updated_at": "2026-06-19T00:17:05.442+00:00",
+      "device_id": "86bff38c-3ce0-417f-8848-0f95c528e438",
+      "push_provider": "fcm"
+    }
+  ],
+  "results": [
+    {
+      "id": 10,
+      "name": "missed call history read",
+      "pass": true,
+      "p0Required": true,
+      "badgeBefore": 8,
+      "badgeAfter": 6,
+      "missedCallBadgeBefore": 2,
+      "missedCallBadgeAfter": 0,
+      "readAtSet": true,
+      "eventsSample": [
+        {
+          "id": "4be64861-2b83-4b17-bbac-eea85654fa57",
+          "user_id": "9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8",
+          "type": "missed_call",
+          "room_id": "b19e2672-f26f-4a2e-8125-52575da4a62a",
+          "read_at": "2026-06-19T00:27:47.139+00:00",
+          "opened_at": "2026-06-19T00:27:47.139+00:00",
+          "created_at": "2026-06-19T00:26:41.304366+00:00",
+          "unread": false,
+          "category": "missed_call"
+        },
+        {
+          "id": "10c37d38-57c7-4547-bbda-7892ffa0cd3c",
+          "user_id": "9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8",
+          "type": "missed_call",
+          "room_id": "b19e2672-f26f-4a2e-8125-52575da4a62a",
+          "read_at": "2026-06-19T00:27:47.139+00:00",
+          "opened_at": "2026-06-19T00:27:47.139+00:00",
+          "created_at": "2026-06-19T00:25:19.690941+00:00",
+          "unread": false,
+          "category": "missed_call"
+        }
+      ],
+      "logcatTail": [
+        "--------- beginning of main",
+        "06-19 08:27:46.251 18769 18769 I DIBAY_NOTIFY: [notify-open] tap_received notificationId=null",
+        "06-19 08:27:46.316 18769 18769 I DIBAY_NOTIFY: [notify-open] deeplink_consumed path=/community-messenger/rooms/b19e2672-f26f-4a2e-8125-52575da4a62a?focus=call-history"
+      ],
+      "verdict": "app-missed-read"
+    }
+  ],
+  "iosStatus": "NOT VERIFIED — see docs/dibay-notification-p0-ios-qa.md"
+}
