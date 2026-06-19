@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import type { MessengerChatListVisual, MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
 import {
@@ -9,9 +8,13 @@ import {
   messengerChatListChipLabel,
 } from "@/lib/community-messenger/messenger-ia";
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
-import type { UnifiedRoomListItem } from "@/lib/community-messenger/use-community-messenger-home-state";
+import type {
+  MessengerPillarSummary,
+  UnifiedRoomListItem,
+} from "@/lib/community-messenger/use-community-messenger-home-state";
 import type { MessengerResetTransientUiFn } from "@/lib/community-messenger/messenger-reset-transient-ui";
 import { CommunityMessengerChatList } from "@/components/community-messenger/chat-list/CommunityMessengerChatList";
+import { MessengerPillarSummaryRow } from "@/components/community-messenger/MessengerPillarSummaryRow";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MessengerChatFilterSheet } from "@/components/community-messenger/MessengerChatFilterSheet";
 
@@ -58,6 +61,16 @@ type Props = {
   onCloseMenuItem: (id?: string) => void;
   onResetTransientUi: MessengerResetTransientUiFn;
   onListScrollStart: () => void;
+  /**
+   * 인박스 상단 묶음 행(거래·배달). 거래/배달 서브 라우트(`pillar` 모드)나
+   * `chatListChip !== "all"` 일 때는 숨긴다.
+   */
+  pillarSummaries?: {
+    trade: MessengerPillarSummary;
+    delivery: MessengerPillarSummary;
+  } | null;
+  /** 인박스로 들어올 때 받은 `?from=...` — 묶음 행 서브 라우트 진입 시 보존 */
+  entryOriginQuery?: string | null;
   /** `/community-messenger/trade-chats` · `/delivery-chats` 전용 행 */
   chatListVisual?: MessengerChatListVisual;
 };
@@ -84,10 +97,14 @@ export function MessengerChatsScreen({
   onCloseMenuItem,
   onResetTransientUi,
   onListScrollStart,
+  pillarSummaries = null,
+  entryOriginQuery = null,
   chatListVisual = "default",
 }: Props) {
   const { t, safeT } = useI18n();
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
+  const showPillarSummaryRows =
+    Boolean(pillarSummaries) && chatListChip === "all" && listContext === "default";
   const onDocumentScroll = useCallback(() => {
     setFilterSheetOpen((prev) => (prev ? false : prev));
     onListScrollStart();
@@ -151,6 +168,21 @@ export function MessengerChatsScreen({
         }}
       />
 
+      {showPillarSummaryRows && pillarSummaries ? (
+        <div className="space-y-px border-b border-[color:var(--messenger-divider)] pb-1">
+          <MessengerPillarSummaryRow
+            variant="trade"
+            summary={pillarSummaries.trade}
+            entryOriginQuery={entryOriginQuery}
+          />
+          <MessengerPillarSummaryRow
+            variant="delivery"
+            summary={pillarSummaries.delivery}
+            entryOriginQuery={entryOriginQuery}
+          />
+        </div>
+      ) : null}
+
       {items.length ? (
         <CommunityMessengerChatList
           items={items}
@@ -171,7 +203,7 @@ export function MessengerChatsScreen({
           onResetTransientUi={onResetTransientUi}
           listVisual={chatListVisual}
         />
-      ) : (
+      ) : showPillarSummaryRows ? null : (
         <div
           data-cm-home-empty-state="true"
           className={`px-3 py-8 text-center sam-text-body-secondary leading-snug whitespace-pre-line ${

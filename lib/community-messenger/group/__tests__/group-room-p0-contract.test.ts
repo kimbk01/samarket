@@ -177,19 +177,25 @@ describe("group-room P0 contract", () => {
       ).toBe(false);
     });
 
-    it("all filter excludes open_group and private_group from main chat inbox mirror", () => {
+    it("all filter includes private_group and general direct only", () => {
       expect(
         matchesGroupChatListKindFilter({ roomType: "open_group", contextMeta: null, messengerDirectKey: null }, "all")
       ).toBe(false);
       expect(
         matchesGroupChatListKindFilter({ roomType: "private_group", contextMeta: null, messengerDirectKey: null }, "all")
-      ).toBe(false);
+      ).toBe(true);
       expect(
         matchesGroupChatListKindFilter(
           { roomType: "direct", contextMeta: null, messengerDirectKey: "trade_pc:x" },
           "all"
         )
       ).toBe(false);
+      expect(
+        matchesGroupChatListKindFilter(
+          { roomType: "direct", contextMeta: null, messengerDirectKey: null },
+          "all"
+        )
+      ).toBe(true);
     });
 
     it("open chat joined list includes open_group only", () => {

@@ -10,11 +10,11 @@ import {
 } from "@/lib/community-messenger/messenger-friend-model";
 import {
   buildGeneralDirectRoomByPeerMap,
-  communityMessengerRoomInboxGroupKind,
   communityMessengerRoomIsConfirmedDelivery,
   communityMessengerRoomIsConfirmedTrade,
   messengerDirectThreadListCollapseKey,
 } from "@/lib/community-messenger/messenger-room-domain";
+import { matchesGroupChatListKindFilter } from "@/lib/community-messenger/group/group-room-notification-policy";
 import { philifeMeetingMemberRoleLabel } from "@/lib/community-messenger/cm-ui-translate";
 import {
   formatCallPreview,
@@ -505,8 +505,8 @@ export function useCommunityMessengerHomeState({
    * visibleChatListItems 필터 입력 원본.
    * - 거래/배달 서브 라우트(`pillar`): 해당 도메인 방만.
    * - 메신저 홈 인박스(`pillar == null`) + 전체 칩: 거래·배달은 상단 그룹 행으로만 보이고,
-   *   실제 리스트에는 일반 채팅만 둔다.
-   * - `kind=거래`·`kind=배달`·`1:1`·`그룹` 등으로 좁혔을 때는 전체 base 를 쓴다(묶음 행은 UI 에서 숨김).
+   *   스크롤 목록에는 1:1(일반) + private_group 을 `unifiedRooms` 정렬 그대로 둔다.
+   * - `kind=거래`·`kind=배달`·`1:1`·`그룹` 등으로 좁혔을 때는 kind 에 맞는 방만(묶음 행은 UI 에서 숨김).
    */
   const pillarBaseChatListItemsStableRef = useRef<UnifiedRoomListItem[]>([]);
   const pillarBaseChatListItems = useMemo(() => {
@@ -519,17 +519,24 @@ export function useCommunityMessengerHomeState({
       next = tradeItems.filter((item) => keepIds.has(item.room.id));
     } else if (pillar === "delivery") {
       next = baseChatListItems.filter((item) => communityMessengerRoomIsConfirmedDelivery(item.room));
-    } else if (chatKindFilter === "all") {
-      next = baseChatListItems.filter(
-        (item) =>
-          item.room.roomType === "direct" &&
-          communityMessengerRoomInboxGroupKind(item.room) === "general"
-      );
     } else {
-      next = baseChatListItems;
+      next = unifiedRooms.filter((item) => {
+        if (!communityMessengerRoomIsVisibleInMainChatInbox(item.room)) return false;
+        if (item.room.roomType === "open_group") return false;
+        if (chatKindFilter === "all") {
+          return matchesGroupChatListKindFilter(item.room, "all");
+        }
+        if (item.room.roomType === "private_group") {
+          return chatKindFilter === "private_group";
+        }
+        if (chatKindFilter === "direct") return item.room.roomType === "direct";
+        if (chatKindFilter === "trade") return communityMessengerRoomIsConfirmedTrade(item.room);
+        if (chatKindFilter === "delivery") return communityMessengerRoomIsConfirmedDelivery(item.room);
+        return false;
+      });
     }
     return stabilizeRoomListItems(next, pillarBaseChatListItemsStableRef);
-  }, [baseChatListItems, pillar, chatKindFilter]);
+  }, [baseChatListItems, unifiedRooms, pillar, chatKindFilter]);
 
   const archiveListItemsStableRef = useRef<UnifiedRoomListItem[]>([]);
   const archiveListItems = useMemo(() => {

@@ -1748,6 +1748,8 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     searchSheetRoomItems,
     primaryListItems,
     friendStateModel,
+    tradePillarSummary,
+    deliveryPillarSummary,
   } = useCommunityMessengerHomeState({
     data,
     mainSection,
@@ -1757,6 +1759,11 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     openGroupSearch,
     pillar,
   });
+
+  const inboxPillarSummaries = useMemo(
+    () => (pillar ? null : { trade: tradePillarSummary, delivery: deliveryPillarSummary }),
+    [deliveryPillarSummary, pillar, tradePillarSummary]
+  );
 
   /** Home 마운트 경로에서는 room 서브 pathname 이 없음 — realtime 은 `homeRoomIds` 만 사용 */
   const routeOpenMessengerRoomIdNorm = null;
@@ -2859,6 +2866,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         retryText={t("common_try_again_later")}
         onRetry={onMessengerHomeRetryStable}
         entryOriginQuery={entryOriginQuery}
+        pillarSummaries={inboxPillarSummaries}
         bootstrapCalls={messengerHomeBootstrapCalls}
         callsHydrating={Boolean(data?.deferredCallLog)}
         onStartDirectCall={startDirectCall}

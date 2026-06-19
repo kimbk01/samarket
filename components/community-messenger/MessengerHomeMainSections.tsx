@@ -23,6 +23,7 @@ import type { CommunityMessengerProfileLite, CommunityMessengerRoomSummary, Comm
 import type { MessengerCallLogsStartDirectCallFn } from "@/components/community-messenger/MessengerCallLogsPanel";
 import type { MessengerFriendStateModel } from "@/lib/community-messenger/messenger-friend-model";
 import type {
+  MessengerPillarSummary,
   UnifiedRoomListItem,
 } from "@/lib/community-messenger/use-community-messenger-home-state";
 import type { MessengerResetTransientUiFn } from "@/lib/community-messenger/messenger-reset-transient-ui";
@@ -86,6 +87,8 @@ type Props = {
   receivedFriendRequestCount: number;
   /** 인박스로 들어올 때 받은 `?from=...` */
   entryOriginQuery?: string | null;
+  /** 인박스 상단 거래·배달 묶음 행 — pillar 서브 라우트에서는 null */
+  pillarSummaries?: { trade: MessengerPillarSummary; delivery: MessengerPillarSummary } | null;
   /** 거래 서브라우트(`/trade-chats`) — `listVisual="trade"` */
   chatListVisual?: MessengerChatListVisual;
   bootstrapCalls?: CommunityMessengerCallLog[];
@@ -150,6 +153,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
   incomingRequestCount,
   receivedFriendRequestCount,
   entryOriginQuery = null,
+  pillarSummaries = null,
   chatListVisual = "default",
   bootstrapCalls = [],
   callsHydrating = false,
@@ -230,6 +234,8 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
             onCloseMenuItem={onCloseMenuItem}
             onResetTransientUi={onResetTransientUi}
             onListScrollStart={onListScrollStart}
+            pillarSummaries={pillarSummaries}
+            entryOriginQuery={entryOriginQuery}
             chatListVisual={chatListVisual}
           />
         ) : null}

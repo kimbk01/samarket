@@ -49,6 +49,7 @@ export function matchesGroupChatListKindFilter(
   chatKindFilter: GroupChatListKindFilter
 ): boolean {
   if (chatKindFilter === "all") {
+    if (room.roomType === "private_group") return true;
     if (room.roomType !== "direct") return false;
     if (roomIsConfirmedTrade(room) || roomIsConfirmedDelivery(room)) return false;
     return true;

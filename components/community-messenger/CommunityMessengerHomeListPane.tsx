@@ -36,6 +36,7 @@ import {
   communityMessengerRoomSummaryListsDisplayEqual,
   messengerStringSetsEqual,
   roomListItemsDisplayEqual,
+  type MessengerPillarSummary,
   type UnifiedRoomListItem,
 } from "@/lib/community-messenger/use-community-messenger-home-state";
 import { profileArraysReferenceEqual } from "@/lib/community-messenger/home/merge-bootstrap-lists-preserve-refs";
@@ -115,6 +116,8 @@ type Props = {
   onRetry: () => void;
   /** 인박스 진입 시점의 `?from=...` — 묶음 행이 서브 라우트로 진입할 때 보존. */
   entryOriginQuery?: string | null;
+  /** 인박스 상단 거래·배달 묶음 행 — pillar 서브 라우트에서는 null */
+  pillarSummaries?: { trade: MessengerPillarSummary; delivery: MessengerPillarSummary } | null;
   chatListVisual?: MessengerChatListVisual;
   bootstrapCalls?: CommunityMessengerCallLog[];
   callsHydrating?: boolean;
@@ -148,6 +151,7 @@ function communityMessengerHomeListPanePropsEqual(prev: Props, next: Props): boo
   if (prev.loginRequiredText !== next.loginRequiredText) reasons.push("loginRequiredText");
   if (prev.retryText !== next.retryText) reasons.push("retryText");
   if (prev.entryOriginQuery !== next.entryOriginQuery) reasons.push("entryOriginQuery");
+  if (prev.pillarSummaries !== next.pillarSummaries) reasons.push("pillarSummaries");
   if (prev.chatListVisual !== next.chatListVisual) reasons.push("chatListVisual");
   if (prev.callsHydrating !== next.callsHydrating) reasons.push("callsHydrating");
   if (prev.showSectionTabs !== next.showSectionTabs) reasons.push("showSectionTabs");
@@ -429,6 +433,7 @@ export const CommunityMessengerHomeListPane = memo(function CommunityMessengerHo
               incomingRequestCount={props.incomingRequestCount}
               receivedFriendRequestCount={props.receivedFriendRequestCount}
               entryOriginQuery={props.entryOriginQuery ?? null}
+              pillarSummaries={props.pillarSummaries ?? null}
               chatListVisual={props.chatListVisual ?? "default"}
               bootstrapCalls={props.bootstrapCalls ?? []}
               callsHydrating={props.callsHydrating ?? false}

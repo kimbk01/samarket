@@ -7,6 +7,7 @@ import { getPublicDeployTier } from "@/lib/config/deploy-surface";
 import { registerCommunityMessengerServiceCacheFootprintGetter } from "@/lib/community-messenger/dev/cm-service-cache-footprint-registry";
 import { pruneByExpiresAtAndMaxSize } from "@/lib/http/memory-map-prune";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
+import { resolveCallLogDisplayPeerUserId } from "@/lib/community-messenger/call-history/call-log-display-peer";
 import {
   parseCommunityMessengerRoomContextMeta,
   serializeCommunityMessengerRoomContextMeta,
@@ -3837,9 +3838,6 @@ function buildCallLogEntriesFromRows(
     const isDbCall = isDbCallLogRow(row);
     const roomId = (isDbCall ? row.room_id : row.roomId) ?? null;
     const sessionId = (isDbCall ? row.session_id : row.sessionId) ?? null;
-    const peerUserId = (isDbCall ? row.peer_user_id : row.peerUserId) ?? null;
-    const peer = peerUserId ? profileById.get(peerUserId) : undefined;
-    const startedAt = trimText(isDbCall ? row.started_at : row.startedAt) || nowIso();
     const session = sessionId ? sessionMap.get(sessionId) : null;
     const roomMeta = roomId ? roomMetaMap.get(roomId) : null;
     const sessionMode =
@@ -3850,6 +3848,40 @@ function buildCallLogEntriesFromRows(
           : roomMeta?.roomType && roomMeta.roomType !== "direct"
             ? "group"
             : "direct";
+    const sessionPeerHint =
+      session && "initiator_user_id" in session
+        ? {
+            initiatorUserId: trimText(String(session.initiator_user_id ?? "")) || null,
+            recipientUserId:
+              "recipient_user_id" in session
+                ? trimText(String(session.recipient_user_id ?? "")) || null
+                : null,
+          }
+        : session && "initiatorUserId" in session
+          ? {
+              initiatorUserId: trimText(String(session.initiatorUserId ?? "")) || null,
+              recipientUserId:
+                "recipientUserId" in session
+                  ? trimText(String(session.recipientUserId ?? "")) || null
+                  : null,
+            }
+          : null;
+    const displayPeerUserId =
+      sessionMode === "group"
+        ? null
+        : resolveCallLogDisplayPeerUserId(
+            userId,
+            {
+              callerUserId: isDbCall ? row.caller_user_id : row.callerUserId,
+              peerUserId: isDbCall ? row.peer_user_id : row.peerUserId,
+            },
+            {
+              session: sessionPeerHint,
+              roomPeerUserId: roomMeta?.peerUserId ?? null,
+            }
+          );
+    const peer = displayPeerUserId ? profileById.get(displayPeerUserId) : undefined;
+    const startedAt = trimText(isDbCall ? row.started_at : row.startedAt) || nowIso();
     const participants = sessionId ? participantsBySession.get(sessionId) ?? [] : [];
     const participantLabels = participants
       .filter((participant) => !participant.isMe)
@@ -3895,7 +3927,7 @@ function buildCallLogEntriesFromRows(
         sessionMode === "group" ? null : peer?.subtitle?.trim().replace(/^@+/, "") || null,
       peerAvatarUrl:
         sessionMode === "group" ? roomMeta?.avatarUrl ?? null : peer?.avatarUrl ?? null,
-      peerUserId,
+      peerUserId: displayPeerUserId,
       participantCount,
       participantLabels,
       callKind: (isDbCall ? row.call_kind : row.callKind) as CommunityMessengerCallKind,
@@ -3907,7 +3939,7 @@ function buildCallLogEntriesFromRows(
       endedReason: sessionEndedReason,
       displayType,
       peerRelationLabel:
-        sessionMode === "group" || !peerUserId
+        sessionMode === "group" || !displayPeerUserId
           ? undefined
           : peer?.isFriend
             ? "mutual_friend"
@@ -3925,7 +3957,21 @@ export async function listCommunityMessengerCallLogs(userId: string): Promise<Co
     rows.map((row) => callLogSessionId(row) ?? "").filter(Boolean)
   );
   const peerIds = dedupeIds(
-    rows.map((row) => callLogPeerUserId(row) ?? "").filter(Boolean)
+    rows.flatMap((row) => {
+      const ids: string[] = [];
+      if (isDbCallLogRow(row)) {
+        const caller = trimText(row.caller_user_id);
+        const peer = trimText(row.peer_user_id ?? "");
+        if (caller) ids.push(caller);
+        if (peer) ids.push(peer);
+      } else {
+        const caller = trimText(row.callerUserId ?? "");
+        const peer = trimText(row.peerUserId ?? "");
+        if (caller) ids.push(caller);
+        if (peer) ids.push(peer);
+      }
+      return ids;
+    })
   );
   const roomPayload = await fetchRoomsPayloadByRoomIds(roomIds);
   const sessionParticipantUserIds = await fetchCallSessionParticipantUserIds(sessionIds);
