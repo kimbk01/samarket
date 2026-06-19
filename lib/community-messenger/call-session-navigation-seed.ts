@@ -1,5 +1,9 @@
 import type { CommunityMessengerCallKind, CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 import {
+  buildCalleeAcceptActiveSessionSeed,
+  readCallAcceptHydratePeer,
+} from "@/lib/community-messenger/call-accept-hydrate-peer";
+import {
   assertPhoneVerifiedForMessengerActionOrOpenSheet,
   resolveMessengerActionReturnPath,
 } from "@/lib/auth/assert-phone-verified-for-messenger-action-client";
@@ -184,7 +188,14 @@ export function hydrateCommunityMessengerCallClientSession(
   }
   ensureCallNavigationSeedMemoryMatchesRoute(sessionId);
   const seeded = consumeCommunityMessengerCallNavigationSeed(sessionId);
-  return seeded ? { session: seeded, loading: false } : { session: null, loading: true };
+  if (seeded) return { session: seeded, loading: false };
+  const hydratePeer = readCallAcceptHydratePeer(sessionId);
+  if (hydratePeer) {
+    const stub = buildCalleeAcceptActiveSessionSeed(hydratePeer);
+    primeCommunityMessengerCallNavigationSeed(sessionId, stub);
+    return { session: stub, loading: false };
+  }
+  return { session: null, loading: true };
 }
 
 /**

@@ -175,7 +175,10 @@ import {
   primeCommunityMessengerCallNavigationSeed,
   wasOutgoingInviteBroadcastRecentlySent,
 } from "@/lib/community-messenger/call-session-navigation-seed";
-import { readCallAcceptHydratePeer } from "@/lib/community-messenger/call-accept-hydrate-peer";
+import {
+  hasCallAcceptHydratePeerLabel,
+  readCallAcceptHydratePeer,
+} from "@/lib/community-messenger/call-accept-hydrate-peer";
 import { primeOutgoingCallMediaBeforeNavigate } from "@/lib/community-messenger/call-media-bootstrap";
 import {
   logCallLatencyCallScreenPainted,
@@ -4857,12 +4860,34 @@ export function CommunityMessengerCallClient({
     const hydratePeer = readCallAcceptHydratePeer(sessionId);
     const hydrateKind =
       hydratePeer?.callKind ?? (searchParams.get("kind") === "video" ? "video" : "voice");
+
+    if (hydrateAcceptRoute && (!hydratePeer || !hasCallAcceptHydratePeerLabel(hydratePeer))) {
+      return (
+        <div
+          className="relative flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-[#003D29]"
+          data-call-client-accept-hydrate-skeleton="1"
+          data-call-id={sessionId}
+        >
+          <div className="flex min-h-0 flex-1 flex-col items-center pt-[min(18vh,140px)]">
+            <div
+              className="h-[clamp(120px,36vw,168px)] w-[clamp(120px,36vw,168px)] animate-pulse rounded-full bg-[#D4E9E2]/22"
+              aria-hidden
+            />
+            <p className="mt-5 sam-text-section-title font-semibold text-[#F1F8F4]">{t("cm_ui_connecting")}</p>
+            <p className="mt-2 sam-text-body-secondary text-[#D4E9E2]/68">{t("cm_ui_call_loading_session")}</p>
+          </div>
+        </div>
+      );
+    }
+
     const hydrateVm: CallScreenViewModel = {
       visualTheme: "starbucks",
       mode: hydrateKind,
       direction: hydrateAcceptRoute ? "incoming" : "outgoing",
       phase: hydrateAcceptRoute ? "connecting" : "ringing",
-      peerLabel: hydratePeer?.peerLabel ?? t("cm_ui_call_label"),
+      peerLabel: hydrateAcceptRoute
+        ? (hydratePeer?.peerLabel ?? "")
+        : (hydratePeer?.peerLabel ?? t("cm_ui_call_label")),
       peerAvatarUrl: hydratePeer?.peerAvatarUrl ?? null,
       statusText: hydrateAcceptRoute
         ? t("cm_ui_connecting")

@@ -1140,6 +1140,17 @@ public class MainActivity extends BridgeActivity {
         });
   }
 
+  private static String normalizeCalleeAcceptAppPath(String appPath) {
+    if (appPath == null || !isCalleeAcceptCallRoute(appPath)) return appPath;
+    String sid = extractCallSessionIdFromAppPath(appPath);
+    if (sid == null || sid.isEmpty()) return appPath;
+    String source = appPath.contains("source=activity") ? "activity" : "notification";
+    return "/community-messenger/calls/"
+        + android.net.Uri.encode(sid)
+        + "?action=accept&nativeAccept=1&mode=active&source="
+        + source;
+  }
+
   private static boolean isCalleeAcceptCallRoute(String appPath) {
     return appPath != null
         && appPath.startsWith("/community-messenger/calls/")
@@ -1241,11 +1252,19 @@ public class MainActivity extends BridgeActivity {
     if (webView == null) return false;
     final boolean acceptRoute = isCalleeAcceptCallRoute(appPath);
     final boolean callRoute = appPath.startsWith("/community-messenger/calls/");
-    final boolean webReady = isWebViewOnAppOrigin(webView);
-    if (acceptRoute && webReady) {
-      injectWebViewRouteViaJs(webView, appPath, notificationId);
-      clearPersistedPendingPushRoute(this);
-      return true;
+    if (acceptRoute) {
+      final String normalizedAcceptPath = normalizeCalleeAcceptAppPath(appPath);
+      if (loadCallRouteDirectly(webView, normalizedAcceptPath)) {
+        routeInjectedForCurrentPending = true;
+        pendingAppPath = null;
+        pendingNotificationId = null;
+        clearPersistedPendingPushRoute(this);
+        hideCallRouteLoadingOverlay();
+        Log.i(ROUTE_LOG_TAG, "[push-route] webview_call_route_loaded path=" + normalizedAcceptPath);
+        return true;
+      }
+      Log.w(ROUTE_LOG_TAG, "[push-route] accept_loadUrl_failed path=" + normalizedAcceptPath);
+      return false;
     }
     if (callRoute && loadCallRouteDirectly(webView, appPath)) {
       routeInjectedForCurrentPending = true;
@@ -1287,14 +1306,14 @@ public class MainActivity extends BridgeActivity {
     if (isCalleeAcceptCallRoute(appPath)) {
       final String acceptSessionId = extractCallSessionIdFromAppPath(appPath);
       if (acceptSessionId != null) {
-        final long at = System.currentTimeMillis();
-        final String pendingJs =
-            "try{sessionStorage.setItem('cm_native_callee_accept_pending',JSON.stringify({sessionId:'"
-                + acceptSessionId.replace("\\", "\\\\").replace("'", "\\'")
-                + "',at:"
-                + at
-                + "}));}catch(e){}";
-        webView.post(() -> webView.evaluateJavascript(pendingJs, null));
+        final String bootstrapJs =
+            DibayIncomingCallNativeStore.buildAcceptRouteBootstrapJs(this, acceptSessionId);
+        webView.post(
+            () ->
+                webView.evaluateJavascript(
+                    bootstrapJs,
+                    ignored -> webView.loadUrl(loadTarget)));
+        return true;
       }
     }
     webView.post(() -> webView.loadUrl(loadTarget));

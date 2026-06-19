@@ -6,7 +6,7 @@ import type {
 } from "@/lib/community-messenger/types";
 import { incomingCallPeerNicknameLabel } from "@/lib/users/user-label";
 
-const KEY = "samarket.cm.call_accept_hydrate_peer.v1";
+export const CALL_ACCEPT_HYDRATE_PEER_KEY = "samarket.cm.call_accept_hydrate_peer.v1";
 const TTL_MS = 120_000;
 
 export type CallAcceptHydratePeer = {
@@ -19,6 +19,13 @@ export type CallAcceptHydratePeer = {
   at: number;
   source?: string;
 };
+
+export function hasCallAcceptHydratePeerLabel(
+  peer: Pick<CallAcceptHydratePeer, "peerLabel"> | null | undefined
+): boolean {
+  const label = incomingCallPeerNicknameLabel(peer?.peerLabel) ?? peer?.peerLabel?.trim() ?? "";
+  return label.length > 0;
+}
 
 export function writeCallAcceptHydratePeer(input: {
   sessionId: string;
@@ -33,12 +40,11 @@ export function writeCallAcceptHydratePeer(input: {
   const sessionId = input.sessionId.trim();
   if (!sessionId) return;
   const peerLabel = incomingCallPeerNicknameLabel(input.peerLabel) ?? input.peerLabel?.trim() ?? "";
-  if (!peerLabel) return;
   const callKind =
     input.callKind === "video" || input.callKind === "voice" ? input.callKind : "voice";
   try {
     window.sessionStorage.setItem(
-      KEY,
+      CALL_ACCEPT_HYDRATE_PEER_KEY,
       JSON.stringify({
         sessionId,
         peerLabel,
@@ -79,7 +85,7 @@ export function readCallAcceptHydratePeer(
   const sid = sessionId.trim();
   if (!sid) return null;
   try {
-    const raw = window.sessionStorage.getItem(KEY);
+    const raw = window.sessionStorage.getItem(CALL_ACCEPT_HYDRATE_PEER_KEY);
     if (!raw) return null;
     const o = JSON.parse(raw) as CallAcceptHydratePeer;
     if (!o || o.sessionId !== sid) return null;
@@ -88,12 +94,12 @@ export function readCallAcceptHydratePeer(
       return null;
     }
     const peerLabel = incomingCallPeerNicknameLabel(o.peerLabel) ?? o.peerLabel?.trim() ?? "";
-    if (!peerLabel) return null;
+    const callKind = o.callKind === "video" ? "video" : "voice";
     return {
       sessionId: sid,
       peerLabel,
       peerAvatarUrl: o.peerAvatarUrl ?? null,
-      callKind: o.callKind === "video" ? "video" : "voice",
+      callKind,
       roomId: o.roomId ?? null,
       peerUserId: o.peerUserId ?? null,
       at: typeof o.at === "number" ? o.at : now,
@@ -108,12 +114,14 @@ export function clearCallAcceptHydratePeer(sessionId?: string): void {
   if (typeof window === "undefined") return;
   try {
     if (!sessionId?.trim()) {
-      window.sessionStorage.removeItem(KEY);
+      window.sessionStorage.removeItem(CALL_ACCEPT_HYDRATE_PEER_KEY);
       return;
     }
-    const current = readCallAcceptHydratePeer(sessionId);
-    if (current?.sessionId === sessionId.trim()) {
-      window.sessionStorage.removeItem(KEY);
+    const raw = window.sessionStorage.getItem(CALL_ACCEPT_HYDRATE_PEER_KEY);
+    if (!raw) return;
+    const o = JSON.parse(raw) as { sessionId?: string };
+    if (o?.sessionId === sessionId.trim()) {
+      window.sessionStorage.removeItem(CALL_ACCEPT_HYDRATE_PEER_KEY);
     }
   } catch {
     /* ignore */

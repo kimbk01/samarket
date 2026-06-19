@@ -4,16 +4,16 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
   buildCalleeAcceptActiveSessionSeed,
+  CALL_ACCEPT_HYDRATE_PEER_KEY,
   clearCallAcceptHydratePeer,
+  hasCallAcceptHydratePeerLabel,
   readCallAcceptHydratePeer,
   writeCallAcceptHydratePeer,
 } from "@/lib/community-messenger/call-accept-hydrate-peer";
 
-const KEY = "samarket.cm.call_accept_hydrate_peer.v1";
-
 describe("call-accept-hydrate-peer", () => {
   afterEach(() => {
-    window.sessionStorage.removeItem(KEY);
+    window.sessionStorage.removeItem(CALL_ACCEPT_HYDRATE_PEER_KEY);
   });
 
   it("writes and reads callee peer meta by sessionId", () => {
@@ -34,6 +34,16 @@ describe("call-accept-hydrate-peer", () => {
     });
   });
 
+  it("stores hydrate peer without peerLabel for skeleton first paint", () => {
+    writeCallAcceptHydratePeer({ sessionId: "sess-no-label", peerLabel: "", callKind: "voice" });
+    const raw = window.sessionStorage.getItem(CALL_ACCEPT_HYDRATE_PEER_KEY);
+    expect(raw).toContain("sess-no-label");
+    const peer = readCallAcceptHydratePeer("sess-no-label");
+    expect(peer?.sessionId).toBe("sess-no-label");
+    expect(hasCallAcceptHydratePeerLabel(peer)).toBe(false);
+    clearCallAcceptHydratePeer("sess-no-label");
+  });
+
   it("builds active callee navigation seed from hydrate peer", () => {
     const peer = {
       sessionId: "sess-2",
@@ -46,11 +56,5 @@ describe("call-accept-hydrate-peer", () => {
     expect(seed.status).toBe("active");
     expect(seed.isMineInitiator).toBe(false);
     expect(seed.peerLabel).toBe("Bob");
-  });
-
-  it("skips empty peer labels", () => {
-    writeCallAcceptHydratePeer({ sessionId: "sess-3", peerLabel: "" });
-    expect(window.sessionStorage.getItem(KEY)).toBeNull();
-    clearCallAcceptHydratePeer("sess-3");
   });
 });

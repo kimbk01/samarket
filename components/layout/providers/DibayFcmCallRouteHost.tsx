@@ -125,8 +125,18 @@ export function DibayFcmCallRouteHost() {
                 buildCalleeAcceptActiveSessionSeed(hydratePeer)
               );
             }
-            router.replace(path);
-            console.info("[call-route] webview_route_delivered", { path, via: "accept_route_active" });
+            const currentPath =
+              typeof window !== "undefined"
+                ? `${window.location.pathname}${window.location.search}`
+                : "";
+            if (currentPath !== path) {
+              router.replace(path);
+            }
+            console.info("[call-route] webview_route_delivered", {
+              path,
+              via: "accept_route_active",
+              skippedReplace: currentPath === path,
+            });
             return;
           }
           void runNativePendingAcceptCall(router, acceptSessionId, resolveNativeAcceptSource(path)).then(

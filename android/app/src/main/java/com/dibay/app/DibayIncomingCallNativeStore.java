@@ -2,6 +2,8 @@ package com.dibay.app;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 /** Persistent native incoming-call state shared by FCM, notification actions, and WebView resume. */
 public final class DibayIncomingCallNativeStore {
@@ -83,38 +85,80 @@ public final class DibayIncomingCallNativeStore {
     return context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_CALL_ID, "");
   }
 
-  /** Web `samarket.cm.call_accept_hydrate_peer.v1` — accept loadUrl 직전 발신 메타 priming */
-  public static String buildCallAcceptHydratePeerSessionJs(Context context, String callId) {
-    if (context == null || callId == null || callId.trim().isEmpty()) return "";
+  /** Web accept bootstrap — hydrate peer + navigation seed + native pending (loadUrl callback 직전) */
+  public static String buildAcceptRouteBootstrapJs(Context context, String callId) {
+    if (context == null || callId == null || callId.trim().isEmpty()) return "(function(){})();";
     Context app = context.getApplicationContext();
     SharedPreferences prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
     String sid = callId.trim();
-    if (!sid.equals(prefs.getString(KEY_CALL_ID, ""))) return "";
-    String callerName = prefs.getString(KEY_CALLER_NAME, "");
-    String avatarUrl = prefs.getString(KEY_CALLER_AVATAR_URL, "");
-    String roomId = prefs.getString(KEY_ROOM_ID, "");
-    String callerId = prefs.getString(KEY_CALLER_ID, "");
-    String mediaType = prefs.getString(KEY_MEDIA_TYPE, "");
-    String callKind = "video".equalsIgnoreCase(mediaType) ? "video" : "voice";
-    String safeName = callerName != null ? callerName.replace("\\", "\\\\").replace("'", "\\'") : "";
-    String safeAvatar = avatarUrl != null ? avatarUrl.replace("\\", "\\\\").replace("'", "\\'") : "";
-    String safeRoom = roomId != null ? roomId.replace("\\", "\\\\").replace("'", "\\'") : "";
-    String safeCaller = callerId != null ? callerId.replace("\\", "\\\\").replace("'", "\\'") : "";
-    long at = System.currentTimeMillis();
-    return "try{sessionStorage.setItem('samarket.cm.call_accept_hydrate_peer.v1',JSON.stringify({sessionId:'"
-        + sid.replace("\\", "\\\\").replace("'", "\\'")
-        + "',peerLabel:'"
-        + safeName
-        + "',peerAvatarUrl:'"
-        + safeAvatar
-        + "',callKind:'"
-        + callKind
-        + "',roomId:'"
-        + safeRoom
-        + "',peerUserId:'"
-        + safeCaller
-        + "',at:"
-        + at
-        + ",source:'native_store'}));}catch(e){}";
+    if (!sid.equals(prefs.getString(KEY_CALL_ID, ""))) return "(function(){})();";
+    try {
+      long at = System.currentTimeMillis();
+      String callerName = prefs.getString(KEY_CALLER_NAME, "");
+      String avatarUrl = prefs.getString(KEY_CALLER_AVATAR_URL, "");
+      String roomId = prefs.getString(KEY_ROOM_ID, "");
+      String callerId = prefs.getString(KEY_CALLER_ID, "");
+      String mediaType = prefs.getString(KEY_MEDIA_TYPE, "");
+      String callKind = "video".equalsIgnoreCase(mediaType) ? "video" : "voice";
+      String peerLabel = callerName != null ? callerName.trim() : "";
+
+      JSONObject hydratePeer = new JSONObject();
+      hydratePeer.put("sessionId", sid);
+      hydratePeer.put("peerLabel", peerLabel);
+      hydratePeer.put("peerAvatarUrl", avatarUrl != null ? avatarUrl.trim() : "");
+      hydratePeer.put("callKind", callKind);
+      hydratePeer.put("roomId", roomId != null ? roomId.trim() : "");
+      hydratePeer.put("peerUserId", callerId != null ? callerId.trim() : "");
+      hydratePeer.put("at", at);
+      hydratePeer.put("source", "native_store");
+
+      String nowIso = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US)
+          .format(new java.util.Date(at));
+
+      JSONObject session = new JSONObject();
+      session.put("id", sid);
+      session.put("roomId", roomId != null ? roomId.trim() : "");
+      session.put("sessionMode", "direct");
+      session.put("initiatorUserId", callerId != null ? callerId.trim() : "");
+      session.put("recipientUserId", JSONObject.NULL);
+      session.put("peerUserId", callerId != null ? callerId.trim() : "");
+      session.put("peerLabel", peerLabel);
+      if (avatarUrl != null && !avatarUrl.trim().isEmpty()) {
+        session.put("peerAvatarUrl", avatarUrl.trim());
+      } else {
+        session.put("peerAvatarUrl", JSONObject.NULL);
+      }
+      session.put("callKind", callKind);
+      session.put("status", "active");
+      session.put("startedAt", nowIso);
+      session.put("answeredAt", nowIso);
+      session.put("endedAt", JSONObject.NULL);
+      session.put("isMineInitiator", false);
+      session.put("participants", new JSONArray());
+      session.put("source", "native_accept_bootstrap");
+
+      JSONObject navSeed = new JSONObject();
+      navSeed.put("sessionId", sid);
+      navSeed.put("session", session);
+      navSeed.put("at", at);
+
+      JSONObject pending = new JSONObject();
+      pending.put("sessionId", sid);
+      pending.put("at", at);
+
+      return "(function(){try{"
+          + "sessionStorage.setItem('samarket.cm.call_accept_hydrate_peer.v1',"
+          + JSONObject.quote(hydratePeer.toString())
+          + ");"
+          + "sessionStorage.setItem('samarket.cm.call_session_seed.v1',"
+          + JSONObject.quote(navSeed.toString())
+          + ");"
+          + "sessionStorage.setItem('cm_native_callee_accept_pending',"
+          + JSONObject.quote(pending.toString())
+          + ");"
+          + "}catch(e){}})();";
+    } catch (Exception error) {
+      return "(function(){})();";
+    }
   }
 }
