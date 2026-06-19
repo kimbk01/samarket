@@ -1,0 +1,23 @@
+{
+  "artifact": "docs/perf/dibay-recovery-safe-dd0abb07-20260619.apk",
+  "git_commit": "dd0abb07f1e081693e1cc27d81c8b2a698446349",
+  "rollback_base": "e9fafeaebccef37a323232f6fa0906c4fa849c70",
+  "code_base": "6dd003c3566b6506ab604165a11da3b0e487ae8b",
+  "built_at": "2026-06-19T13:50:00+08:00",
+  "capacitor_server_url": "https://samarket.vercel.app",
+  "variant": "debug",
+  "excluded_patches": [
+    "70443c64 call overlay + pip",
+    "5141d228 call control optimistic state machine",
+    "9a5ca271 duplicate incoming surface suppress",
+    "c42665c7/d2b5ae6d foreground notification banner"
+  ],
+  "included_cherry_picks": [
+    "5af69a36 commerce chat list lifecycle",
+    "c940fdb3 community_posts SSOT",
+    "d59342be leave/hidden-user i18n",
+    "8a0fdcff messenger list swipe i18n",
+    "4a1947e5 docs"
+  ],
+  "install": "adb install -r docs/perf/dibay-recovery-safe-dd0abb07-20260619.apk"
+}
