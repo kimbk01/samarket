@@ -8,7 +8,7 @@ export const CALL_PIP_CORNERS: readonly CallPipCorner[] = [
   "bottomRight",
 ] as const;
 
-export const CALL_PIP_DEFAULT_CORNER: CallPipCorner = "bottomRight";
+export const CALL_PIP_DEFAULT_CORNER: CallPipCorner = "topRight";
 
 /** CSS aspect-ratio 3/4 — height = width × CALL_PIP_PORTRAIT_HEIGHT_RATIO (1.38) */
 export const CALL_PIP_ASPECT_RATIO_WIDTH = 3;

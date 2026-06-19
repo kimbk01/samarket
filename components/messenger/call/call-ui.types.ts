@@ -1,5 +1,6 @@
 import type { CSSProperties, PointerEventHandler, ReactNode, RefObject } from "react";
 import type { CallPipCorner, CallVideoPipPositionMode } from "@/lib/community-messenger/call-pip-metrics";
+import type { CallOverlayBackdropMode } from "@/lib/community-messenger/call-video-layout";
 
 /** 카카오톡/텔레그램/바이버식 영상통화: PiP 4모서리 스냅, 드래그, 탭 스왑·더블탭 확대 — 세로 self view (3:4) */
 export type VideoCallPipLayoutBindings = {
@@ -106,6 +107,8 @@ export type CallScreenViewModel = {
   hideOutgoingVideoBrandRow?: boolean;
   /** PiP-first 발신 pre-remote — 메인에 상대 아바타·대기 UI */
   pipFirstOutgoingMainPlaceholder?: boolean;
+  /** 통화 오버레이 배경 모드 — 미지정 시 CallScreen 이 phase·remote 기준 resolve */
+  overlayBackdropMode?: CallOverlayBackdropMode;
   /** 벨 거절·취소 직후 `EndedCallView` 대신 ringing UI 유지(복귀 전 단일 화면). */
   suppressTerminalView?: boolean;
 };

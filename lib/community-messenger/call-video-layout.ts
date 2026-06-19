@@ -1,3 +1,4 @@
+import type { CallPipCorner } from "@/lib/community-messenger/call-pip-metrics";
 import type {
   CommunityMessengerCallKind,
   CommunityMessengerCallSessionStatus,
@@ -157,4 +158,61 @@ export function shouldAllowPipPointerInteraction(args: {
   hasPipGestureBindings: boolean;
 }): boolean {
   return Boolean(args.pipShellMounted && args.hasPipGestureBindings);
+}
+
+/** 카톡/텔레그램식 통화 오버레이 배경 모드 — 렌더링 전용 */
+export type CallOverlayBackdropMode = "peer-blur-dim" | "remote-video-dim" | "voice-gradient";
+
+export type ResolveCallOverlayBackdropModeArgs = {
+  mode: "voice" | "video";
+  direction: "outgoing" | "incoming";
+  phase: string;
+  showRemoteVideo?: boolean;
+  pipFirstOutgoingMainPlaceholder?: boolean;
+};
+
+/** 통화 오버레이 배경 — remote 영상 연결 후에도 얇은 dim 유지 */
+export function resolveCallOverlayBackdropMode(
+  args: ResolveCallOverlayBackdropModeArgs
+): CallOverlayBackdropMode {
+  if (args.mode === "voice") return "voice-gradient";
+  if (args.showRemoteVideo) return "remote-video-dim";
+  return "peer-blur-dim";
+}
+
+/** CallScreenShell — 불투명 black/green 풀스크린 대신 translucent overlay */
+export function shouldUseTranslucentCallShell(_args?: {
+  variant?: "overlay" | "page" | "dock-top";
+}): boolean {
+  return (_args?.variant ?? "overlay") !== "dock-top";
+}
+
+/** translucent overlay shell surface class */
+export const TRANSLUCENT_CALL_SHELL_SURFACE =
+  "bg-black/35 backdrop-blur-[2px] supports-[backdrop-filter]:backdrop-blur-md";
+
+/** PiP-first·placeholder 구간 — mainVideoSlot 불투명 fill 금지 */
+export function shouldUseTransparentMainVideoSlotRoot(args: {
+  videoCall: boolean;
+  showRemoteVideo?: boolean;
+  pipFirstOutgoingMainPlaceholder?: boolean;
+}): boolean {
+  if (!args.videoCall) return false;
+  if (args.showRemoteVideo) return false;
+  return Boolean(args.pipFirstOutgoingMainPlaceholder);
+}
+
+/** 카톡/텔레그램식 — 내부 PiP 기본 우상단(connected·발신 영상) */
+export function shouldDefaultPipCornerTop(args: {
+  videoCall: boolean;
+  pipShellMounted?: boolean;
+}): boolean {
+  return Boolean(args.videoCall && args.pipShellMounted);
+}
+
+export function resolveCallDefaultPipCorner(args: {
+  videoCall: boolean;
+  pipShellMounted?: boolean;
+}): CallPipCorner {
+  return shouldDefaultPipCornerTop(args) ? "topRight" : "bottomRight";
 }

@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   isVideoPipFirstOutgoingPhase,
+  resolveCallDefaultPipCorner,
+  resolveCallOverlayBackdropMode,
   shouldAllowPipPointerInteraction,
+  shouldDefaultPipCornerTop,
   shouldMountLocalVideoPipShell,
   shouldMountPipBeforeJoin,
   shouldRetainPrimedDeviceStreamForVideoPreview,
@@ -10,6 +13,8 @@ import {
   shouldSuppressCameraPreparingOverlayForPipFirst,
   shouldUsePipFirstLocalSlot,
   shouldUseSoloLocalFullVideoLayout,
+  shouldUseTranslucentCallShell,
+  shouldUseTransparentMainVideoSlotRoot,
 } from "@/lib/community-messenger/call-video-layout";
 
 describe("shouldUseSoloLocalFullVideoLayout", () => {
@@ -280,5 +285,83 @@ describe("shouldAllowPipPointerInteraction", () => {
     expect(
       shouldAllowPipPointerInteraction({ pipShellMounted: true, hasPipGestureBindings: false })
     ).toBe(false);
+  });
+});
+
+describe("call overlay backdrop policy", () => {
+  it("voice uses voice-gradient backdrop", () => {
+    expect(
+      resolveCallOverlayBackdropMode({
+        mode: "voice",
+        direction: "outgoing",
+        phase: "ringing",
+      })
+    ).toBe("voice-gradient");
+  });
+
+  it("video connected remote uses remote-video-dim", () => {
+    expect(
+      resolveCallOverlayBackdropMode({
+        mode: "video",
+        direction: "outgoing",
+        phase: "connected",
+        showRemoteVideo: true,
+      })
+    ).toBe("remote-video-dim");
+  });
+
+  it("video pre-remote placeholder uses peer-blur-dim", () => {
+    expect(
+      resolveCallOverlayBackdropMode({
+        mode: "video",
+        direction: "outgoing",
+        phase: "ringing",
+        pipFirstOutgoingMainPlaceholder: true,
+      })
+    ).toBe("peer-blur-dim");
+  });
+});
+
+describe("translucent call shell policy", () => {
+  it("overlay and page variants use translucent shell", () => {
+    expect(shouldUseTranslucentCallShell({ variant: "overlay" })).toBe(true);
+    expect(shouldUseTranslucentCallShell({ variant: "page" })).toBe(true);
+  });
+
+  it("dock-top keeps opaque shell for room dock", () => {
+    expect(shouldUseTranslucentCallShell({ variant: "dock-top" })).toBe(false);
+  });
+});
+
+describe("transparent main video slot root", () => {
+  it("PiP-first placeholder avoids opaque main fill", () => {
+    expect(
+      shouldUseTransparentMainVideoSlotRoot({
+        videoCall: true,
+        pipFirstOutgoingMainPlaceholder: true,
+      })
+    ).toBe(true);
+  });
+
+  it("remote video main keeps opaque root option", () => {
+    expect(
+      shouldUseTransparentMainVideoSlotRoot({
+        videoCall: true,
+        showRemoteVideo: true,
+        pipFirstOutgoingMainPlaceholder: true,
+      })
+    ).toBe(false);
+  });
+});
+
+describe("PiP default corner policy", () => {
+  it("video in-call PiP defaults to top-right", () => {
+    expect(shouldDefaultPipCornerTop({ videoCall: true, pipShellMounted: true })).toBe(true);
+    expect(resolveCallDefaultPipCorner({ videoCall: true, pipShellMounted: true })).toBe("topRight");
+  });
+
+  it("non-video keeps bottom-right fallback", () => {
+    expect(shouldDefaultPipCornerTop({ videoCall: false, pipShellMounted: true })).toBe(false);
+    expect(resolveCallDefaultPipCorner({ videoCall: false, pipShellMounted: true })).toBe("bottomRight");
   });
 });

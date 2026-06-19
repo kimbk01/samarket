@@ -217,7 +217,11 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
         }}
         className="absolute inset-0 h-full min-h-0"
       >
-        <div className="absolute inset-0 z-0 h-full min-h-full bg-black [&_video]:pointer-events-none [&_video]:h-full [&_video]:min-h-full [&_video]:w-full [&_video]:object-cover [&_[id^=agora]]:h-full [&_[id^=agora]]:w-full">
+        <div
+          className={`absolute inset-0 z-0 h-full min-h-full ${
+            vm.showRemoteVideo ? "bg-black" : "bg-transparent"
+          } [&_video]:pointer-events-none [&_video]:h-full [&_video]:min-h-full [&_video]:w-full [&_video]:object-cover [&_[id^=agora]]:h-full [&_[id^=agora]]:w-full`}
+        >
           {vm.mainVideoSlot}
         </div>
 

@@ -56,6 +56,7 @@ import {
 } from "@/lib/permissions/dibay-device-permission-store";
 import {
   isVideoPipFirstOutgoingPhase,
+  resolveCallOverlayBackdropMode,
   shouldMountLocalVideoPipShell,
   shouldRetainPrimedDeviceStreamForVideoPreview,
   shouldShowLocalVideoPipChrome,
@@ -136,6 +137,7 @@ import {
   minimizeCommunityCallToPip,
   shouldSkipCallClientUnmountDispose,
   clearMinimizedCommunityCallSessionFlags,
+  readMinimizedCommunityCallSessionId,
   writeActiveDirectVideoCallSession,
   isCommunityMessengerDedicatedCallSessionPath,
 } from "@/lib/community-messenger/direct-call-minimize";
@@ -542,7 +544,7 @@ function HydrateOutgoingVideoPreview({ loadingLabel }: { loadingLabel: string })
   }
 
   return (
-    <div className="absolute inset-0 flex items-center justify-center bg-[#003D29]">
+    <div className="absolute inset-0 flex items-center justify-center bg-transparent">
       <span className="sam-text-body-secondary text-[#D4E9E2]/58">{loadingLabel}</span>
     </div>
   );
@@ -566,6 +568,20 @@ export function CommunityMessengerCallClient({
   const requestedAction = searchParams.get("action");
   const incomingPreviewRoute = isIncomingCallPreviewRoute(searchParams);
   const nativeAcceptRoute = isNativeCalleeAcceptRoute(readNativeCalleeAcceptRouteParams(searchParams));
+
+  /** 전용 통화 라우트 진입 — stale minimized 플래그로 global PiP-only 가 되지 않게 복귀 */
+  useLayoutEffect(() => {
+    const sid = sessionId.trim();
+    if (!sid) return;
+    const onDedicatedCallRoute = isCommunityMessengerDedicatedCallSessionPath(pathname, sid);
+    if (!onDedicatedCallRoute) return;
+    if (readMinimizedCommunityCallSessionId() !== sid) return;
+    clearMinimizedCommunityCallSessionFlags();
+    resumeDetachedCommunityCall(sid);
+    notifyCommunityCallHostSync();
+    syncCommunityMessengerCallRuntimeSurface({ presentation: "fullscreen" });
+  }, [pathname, sessionId]);
+
   const [initialCallHydration] = useState(() => {
     if (initialSession != null) {
       return { session: initialSession, loading: false };
@@ -4646,7 +4662,7 @@ export function CommunityMessengerCallClient({
       });
     const showPipPrejoin = pipFirstOutgoingForSlot && !camOff && !localVideoReady;
     return (
-      <div className="relative h-full w-full bg-[#003D29] [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:object-cover">
+      <div className="relative h-full w-full bg-black/35 [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:object-cover">
         <div ref={smallVideoRef} className="h-full w-full" />
         {showPipPrejoin ? (
           ringCameraPreviewActive || hasLiveCommunityMessengerVideoPreviewStream(preJoinVideoPreviewStream) ? (
@@ -4667,7 +4683,7 @@ export function CommunityMessengerCallClient({
           )
         ) : null}
         {camOff ? (
-          <div className="pointer-events-none absolute inset-0 z-[2] flex flex-col items-center justify-center gap-1.5 bg-[#003D29]">
+          <div className="pointer-events-none absolute inset-0 z-[2] flex flex-col items-center justify-center gap-1.5 bg-black/45 backdrop-blur-sm">
             <SamarketUserAvatarThumb
               avatarUrl={selfAvatarUrlForPip}
               size={40}
@@ -4690,12 +4706,7 @@ export function CommunityMessengerCallClient({
   ]);
 
   useLayoutEffect(() => {
-    const livePresentation =
-      presentation === "minimized"
-        ? "minimized"
-        : joined && session?.status === "active"
-          ? "fullscreen"
-          : "idle";
+    const livePresentation = presentation === "minimized" ? "minimized" : "fullscreen";
     syncCommunityMessengerCallRuntimeSurface({
       presentation: livePresentation,
       videoPipLayout: pipShellMountedForSync ? videoPipGesture : null,
@@ -5244,6 +5255,9 @@ export function CommunityMessengerCallClient({
   });
 
   const visibleActions = fitCallActionsForMobile(primaryActions, secondaryActions);
+  const showRemoteVideoForVm = videoCall ? remoteJoined && remoteVideoReady : false;
+  const mainVideoSlotRootClass =
+    showRemoteVideoForVm ? "bg-black" : "bg-transparent";
   const callVm: CallScreenViewModel = {
     visualTheme: "starbucks",
     mode: videoCall ? "video" : "voice",
@@ -5280,10 +5294,17 @@ export function CommunityMessengerCallClient({
           : displayCallPhase === "ringing" || displayCallPhase === "connecting")
     ),
     pipFirstOutgoingMainPlaceholder: pipFirstOutgoing && !remoteJoined,
+    overlayBackdropMode: resolveCallOverlayBackdropMode({
+      mode: videoCall ? "video" : "voice",
+      direction: session.isMineInitiator ? "outgoing" : "incoming",
+      phase: displayCallPhase,
+      showRemoteVideo: showRemoteVideoForVm,
+      pipFirstOutgoingMainPlaceholder: pipFirstOutgoing && !remoteJoined,
+    }),
     primaryActions: visibleActions.primaryActions,
     secondaryActions: visibleActions.secondaryActions,
     mainVideoSlot: videoCall ? (
-      <div className="absolute inset-0 min-h-0 bg-[#003D29] [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:min-h-0 [&_video]:object-cover">
+      <div className={`absolute inset-0 min-h-0 ${mainVideoSlotRootClass} [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:min-h-0 [&_video]:object-cover`}>
         <div ref={largeVideoRef} className="absolute inset-0 z-[1] h-full min-h-0 w-full" />
         {!pipFirstOutgoing && showOutgoingRingCameraPreview ? (
           <OutgoingRingCameraPreview stream={preJoinVideoPreviewStream} />
@@ -5308,7 +5329,7 @@ export function CommunityMessengerCallClient({
         !permissionBlockedUi &&
         !suppressCameraPreparingOverlay ? (
           <div
-            className="absolute inset-0 z-[2] flex items-center justify-center bg-[#003D29] pointer-events-none"
+            className="pointer-events-none absolute inset-0 z-[2] flex items-center justify-center bg-black/40 backdrop-blur-sm"
             aria-hidden
           >
             <span className="sam-text-body-secondary text-center text-[#D4E9E2]/70">
@@ -5319,7 +5340,7 @@ export function CommunityMessengerCallClient({
       </div>
     ) : undefined,
     miniVideoSlot: miniVideoSlotEl,
-    showRemoteVideo: videoCall ? remoteJoined && remoteVideoReady : false,
+    showRemoteVideo: showRemoteVideoForVm,
     pipShellMounted,
     showLocalVideo: videoPipChromeActive,
     videoPipLayout: pipShellMounted ? videoPipGesture : null,
