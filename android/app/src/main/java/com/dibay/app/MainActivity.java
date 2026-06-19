@@ -107,7 +107,7 @@ public class MainActivity extends BridgeActivity {
   }
 
   /** Native reject / swipe dismiss — Web consumed before PATCH completes. */
-  static void deliverForegroundIncomingRejectEvent(Context context, String callId, String source) {
+  static void deliverForegroundIncomingRejectEvent(android.content.Context context, String callId, String source) {
     final String sid = callId != null ? callId.trim() : "";
     if (sid.isEmpty()) return;
     final String src = source != null && !source.trim().isEmpty() ? source.trim() : "native_reject";
