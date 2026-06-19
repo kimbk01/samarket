@@ -78,6 +78,11 @@ export function AccountTab({
         <MyPageQuickActions
           items={[
             { label: t("mypage_comp_profile_edit"), href: MYPAGE_PROFILE_EDIT_HREF, caption: t("mypage_comp_account_profile_edit_caption") },
+            {
+              label: t("mypage_comp_nav_sec_community_posts_label"),
+              href: "/mypage/community-posts",
+              caption: t("mypage_comp_account_profile_posts_hint"),
+            },
             { label: t("mypage_comp_nav_sec_account_basic_label"), href: "/mypage/account", caption: t("mypage_comp_account_basic_caption") },
             {
               label: t("mypage_comp_nav_sec_settings_address_label"),

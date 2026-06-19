@@ -5,6 +5,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { createPost } from "@/lib/posts/createPost";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { invalidateCommunityAuthorPostsClientCaches } from "@/lib/community/invalidate-community-author-posts-client";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import { WriteScreenTier1Sync } from "../WriteScreenTier1Sync";
@@ -57,6 +59,8 @@ export function CommunityWriteForm({
           content: content.trim(),
         });
         if (res.ok) {
+          const authorId = getCurrentUser()?.id?.trim();
+          if (authorId) invalidateCommunityAuthorPostsClientCaches(authorId);
           onSuccess(res.id);
         } else {
           if (redirectForBlockedAction(router, res.error, pathname || `/write/${category.slug}`)) return;

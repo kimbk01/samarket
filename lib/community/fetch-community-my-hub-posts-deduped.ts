@@ -17,6 +17,18 @@ export type CommunityMyHubPostsResult = {
 const TTL_MS = 20_000;
 const cacheByUser = new Map<string, { expiresAt: number; value: CommunityMyHubPostsResult }>();
 
+/** 테스트·작성 직후 갱신용 */
+export function invalidateCommunityMyHubPostsCache(userId: string): void {
+  const uid = userId.trim();
+  if (!uid) return;
+  cacheByUser.delete(uid);
+}
+
+/** @internal 테스트 전용 — Map 초기화 */
+export function resetCommunityMyHubPostsCacheForTests(): void {
+  cacheByUser.clear();
+}
+
 /**
  * 내허브 "내가 쓴 글" 목록 — 재진입/다중 마운트 시 단일 요청으로 합류한다.
  */

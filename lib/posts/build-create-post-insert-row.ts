@@ -10,6 +10,7 @@ export function buildCreatePostInsertRow(
   const row: Record<string, unknown> = {
     user_id: userId,
     trade_category_id: payload.categoryId,
+    type: payload.type,
     title: payload.title.trim(),
     content: payload.content.trim(),
     status: "active",
@@ -17,6 +18,10 @@ export function buildCreatePostInsertRow(
     created_at: now,
     updated_at: now,
   };
+
+  if (payload.type === "community") {
+    row.community_topic_id = payload.categoryId;
+  }
 
   if (payload.type === "trade" && "price" in payload) {
     row.price = payload.price != null ? Number(payload.price) : null;

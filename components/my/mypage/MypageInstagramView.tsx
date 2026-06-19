@@ -730,7 +730,7 @@ function BoardSection({
         <QuickActionGrid
           items={[
             { label: t("mypage_hub_my_activity"), href: "/mypage/community-posts" },
-            { label: t("mypage_hub_comments_reactions"), href: "/mypage/community-posts" },
+            { label: t("mypage_hub_comments_reactions"), href: "/mypage/community-activity" },
             { label: t("settings_hidden_users"), href: "/mypage/settings/hidden-users" },
             { label: t("settings_blocked_users"), href: "/mypage/settings/blocked-users" },
           ]}

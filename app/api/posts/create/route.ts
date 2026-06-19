@@ -148,5 +148,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "저장에 실패했습니다." }, { status: 500 });
   }
 
+  if (parsed.type === "community") {
+    const { mirrorLegacyCommunityPostToSsot } = await import(
+      "@/lib/community-feed/mirror-legacy-community-post"
+    );
+    await mirrorLegacyCommunityPostToSsot(
+      sb as import("@supabase/supabase-js").SupabaseClient,
+      id,
+      userId
+    ).catch((err) => {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[posts/create] community SSOT mirror:", err);
+      }
+    });
+  }
+
   return NextResponse.json({ ok: true, id });
 }

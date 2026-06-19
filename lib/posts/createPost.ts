@@ -51,6 +51,14 @@ export async function createPost(
     }
     const id = typeof data.id === "string" ? data.id.trim() : "";
     if (!id) return { ok: false, error: "저장에 실패했습니다." };
+    if (typeof window !== "undefined") {
+      const { getCurrentUser } = await import("@/lib/auth/get-current-user");
+      const { invalidateCommunityAuthorPostsClientCaches } = await import(
+        "@/lib/community/invalidate-community-author-posts-client"
+      );
+      const uid = getCurrentUser()?.id?.trim() ?? userId.trim();
+      if (uid) invalidateCommunityAuthorPostsClientCaches(uid);
+    }
     return { ok: true, id };
   } catch (e) {
     return {

@@ -9,6 +9,8 @@ import type { CommunityTopicDTO } from "@/lib/community-feed/types";
 import { normalizeSectionSlug } from "@/lib/community-feed/constants";
 import { philifePostsRootUrl, philifeUploadImageUrl } from "@domain/philife/api";
 import { philifeAppPaths } from "@domain/philife/paths";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { invalidateCommunityAuthorPostsClientCaches } from "@/lib/community/invalidate-community-author-posts-client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   COMMUNITY_BUTTON_PRIMARY_CLASS,
@@ -123,6 +125,8 @@ export function CommunityWriteFormClient({
       });
       const data = (await res.json()) as { ok?: boolean; id?: string; error?: string };
       if (data.ok && data.id) {
+        const authorId = getCurrentUser()?.id?.trim();
+        if (authorId) invalidateCommunityAuthorPostsClientCaches(authorId);
         router.push(`/philife/${data.id}`);
         return;
       }

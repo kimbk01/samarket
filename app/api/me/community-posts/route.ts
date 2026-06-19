@@ -13,5 +13,8 @@ export async function GET(req: NextRequest) {
   const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(Math.floor(limitRaw), 20) : 5;
   const posts = await listCommunityPostsForUser(auth.userId, limit);
 
-  return NextResponse.json({ ok: true, posts });
+  return NextResponse.json(
+    { ok: true, posts },
+    { headers: { "Cache-Control": "private, no-store" } }
+  );
 }

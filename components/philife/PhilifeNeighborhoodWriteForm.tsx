@@ -51,6 +51,7 @@ import { postAdTypeLabel } from "@/lib/ads/post-ad-label-keys";
 import { useUserPointBalance } from "@/hooks/useUserPointBalance";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { invalidateCommunityAuthorPostsClientCaches } from "@/lib/community/invalidate-community-author-posts-client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   philifeWriteAdProductPointCost,
@@ -705,6 +706,8 @@ export function PhilifeNeighborhoodWriteForm({
         setErr(msg);
         return;
       }
+      const authorId = getCurrentUser()?.id?.trim();
+      if (authorId) invalidateCommunityAuthorPostsClientCaches(authorId);
       /** 모임 생성 시 커뮤니티 모임 피드로, 일반 글은 게시글로 이동 */
       if (onSheetExitBeforeNavigate) {
         await onSheetExitBeforeNavigate();
