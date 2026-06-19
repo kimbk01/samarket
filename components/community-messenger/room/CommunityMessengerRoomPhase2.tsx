@@ -33,11 +33,17 @@ export function CommunityMessengerRoomClientPhase2() {
   const isNarrowViewport = useMatchMaxWidthMd();
   const roomId = phase1.roomId?.trim() ?? "";
   const snapshot = phase1.snapshot;
-  const [entryPass, setEntryPass] = useState(() => {
+  const hasTimelineSeed = hasCmRoomTimelineSeedFromPhase1(phase1);
+  const resolveInitialEntryPass = () => {
     if (isCmRoomSubtreeEntryPassAdvanced(roomId)) return 1;
     return shouldSkipInRoutePass0ForPreRouteOverlay(roomId) ? 1 : 0;
+  };
+  const [entryPass, setEntryPass] = useState(() => {
+    return resolveInitialEntryPass();
   });
-  const [phase2BodyReady, setPhase2BodyReady] = useState(false);
+  const [phase2BodyReady, setPhase2BodyReady] = useState(() => {
+    return resolveInitialEntryPass() >= 1 && hasTimelineSeed;
+  });
   const prevEntryRoomRef = useRef(roomId);
   const composerFocused = useMessengerUIStore((s) => s.composerFocused);
   const keyboardOverlapSuppressed = Boolean(isNarrowViewport);
@@ -57,14 +63,12 @@ export function CommunityMessengerRoomClientPhase2() {
     setEntryPass(shouldSkipInRoutePass0ForPreRouteOverlay(roomId) ? 1 : 0);
   }, [roomId]);
 
-  const hasTimelineSeed = hasCmRoomTimelineSeedFromPhase1(phase1);
-
   useLayoutEffect(() => {
     if (!hasTimelineSeed) return;
     void import("@/components/community-messenger/room/CommunityMessengerRoomClientPhase2Body");
   }, [hasTimelineSeed, roomId]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (entryPass < 1) {
       setPhase2BodyReady(false);
       return;

@@ -5,7 +5,7 @@ import type { Virtualizer } from "@tanstack/react-virtual";
 import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
 import { useMessengerRoomScrollAnchorController } from "@/lib/community-messenger/room/messenger-room-scroll-anchor-controller";
 
-type VirtualizerLike = Pick<Virtualizer<HTMLDivElement, Element>, "scrollToIndex">;
+type VirtualizerLike = Pick<Virtualizer<HTMLDivElement, Element>, "scrollToIndex" | "getTotalSize">;
 
 /**
  * @see docs/community-messenger-mobile-room-viewport.md
@@ -23,6 +23,7 @@ export function useMessengerRoomReaderScrollBottom({
   messageCount,
   deferEntryScrollToDeliveryDirectTimeline = false,
   timelineViewportMounted = false,
+  timelineHeavyReady = false,
 }: {
   roomId: string;
   activeSheet:
@@ -46,6 +47,7 @@ export function useMessengerRoomReaderScrollBottom({
   messageCount?: number;
   deferEntryScrollToDeliveryDirectTimeline?: boolean;
   timelineViewportMounted?: boolean;
+  timelineHeavyReady?: boolean;
 }): {
   scrollMessengerToBottom: (opts?: { reason?: string }) => void;
   updateStickToBottomFromScroll: () => void;
@@ -62,6 +64,7 @@ export function useMessengerRoomReaderScrollBottom({
     messageCount: messageCount ?? roomMessages.length,
     deferEntryScrollToDeliveryDirectTimeline,
     timelineViewportMounted,
+    timelineHeavyReady,
   });
 
   return {

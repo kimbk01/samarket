@@ -108,7 +108,10 @@ import {
   markMessengerRoomEntryScrollSettled,
   setMessengerRoomEntryHydrationPass,
 } from "@/lib/community-messenger/room/messenger-room-entry-scroll-owner";
-import { hasMessengerRoomHydrationTimelineSeed } from "@/lib/community-messenger/room/messenger-room-timeline-hydration";
+import {
+  hasMessengerRoomHydrationTimelineSeed,
+  resolveMessengerRoomPhase2HydrationPassInitial,
+} from "@/lib/community-messenger/room/messenger-room-timeline-hydration";
 
 function pushCmR8PerfEvent(roomId: string, event: string, payload: Record<string, unknown>): void {
   if (typeof window === "undefined") return;
@@ -168,15 +171,12 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
   const roomIdStable = String(room.snapshot.room.id ?? "").trim();
   const [hydrationPass, setHydrationPass] = useState<CmRoomPhase2HydrationPass>(() => {
     const persisted = getCmRoomSubtreeHydrationPass(roomIdStable);
-    if (persisted >= 3) return persisted as CmRoomPhase2HydrationPass;
     const hasTimelineSeed = hasMessengerRoomHydrationTimelineSeed({
       roomMessagesLength: room.roomMessages?.length ?? 0,
       snapshotMessagesLength: room.snapshot.messages?.length ?? 0,
       snapshot: room.snapshot,
     });
-    if (hasTimelineSeed) return 2;
-    if (persisted >= 2) return persisted as CmRoomPhase2HydrationPass;
-    return persisted as CmRoomPhase2HydrationPass;
+    return resolveMessengerRoomPhase2HydrationPassInitial({ persistedPass: persisted, hasTimelineSeed });
   });
   const setMessengerShellRef = useCallback((node: HTMLDivElement | null) => {
     rootRef.current = node;
@@ -226,15 +226,11 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
         hydrationPass,
         Math.max(room.roomMessages.length, room.snapshot.messages?.length ?? 0)
       );
-      if (hydrationPass < 2) {
-        setHydrationPass(2);
-        setCmRoomSubtreeHydrationPass(rid, 2);
-      }
-      if (shouldSkipCmRoomHydrationPassSchedule(rid, 3)) return;
-      return scheduleCmRoomPass2IdleExpand(() => {
+      if (hydrationPass < 3) {
         setHydrationPass(3);
         setCmRoomSubtreeHydrationPass(rid, 3);
-      }, 120);
+      }
+      return;
     }
     if (persisted >= 2) {
       setHydrationPass(persisted as CmRoomPhase2HydrationPass);
@@ -248,6 +244,7 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
   }, [hydrationPass, room.roomMessages.length, roomIdStable, room.snapshot.messages.length, room.snapshot]);
 
   useEffect(() => {
+    if (hydrationPass >= 3) return;
     if (hydrationPass < 2) return;
     const rid = roomIdStable;
     if (!rid) return;

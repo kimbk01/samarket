@@ -1,8 +1,23 @@
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
+import type { CmRoomPhase2HydrationPass } from "@/lib/community-messenger/room/cm-room-phase2-hydration-context";
 
 /**
  * hydration pass 진입 시 paintable 메시지 시드만 인정 — lastMessage only 금지.
  */
+/**
+ * paintable seed 가 있으면 pass2→3 idle 확장 없이 pass3 — 대량 call_stub·메시지 방 진입 깜빡임 방지.
+ */
+export function resolveMessengerRoomPhase2HydrationPassInitial(input: {
+  persistedPass: number;
+  hasTimelineSeed: boolean;
+}): CmRoomPhase2HydrationPass {
+  if (input.persistedPass >= 3) return 3;
+  if (input.hasTimelineSeed) return 3;
+  if (input.persistedPass >= 2) return 2;
+  const clamped = Math.max(1, Math.min(3, input.persistedPass));
+  return clamped as CmRoomPhase2HydrationPass;
+}
+
 export function hasMessengerRoomHydrationTimelineSeed(input: {
   roomMessagesLength: number;
   snapshotMessagesLength: number;

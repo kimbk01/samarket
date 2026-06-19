@@ -77,6 +77,7 @@ export const CommunityMessengerRoomPass1ComposerShell = memo(function CommunityM
   const phase1Ctx = useMessengerRoomClientPhase1ContextOptional();
   const notifyComposerTextareaVisibleForSeededBootstrap =
     phase1Ctx?.notifyComposerTextareaVisibleForSeededBootstrap ?? (() => undefined);
+  const setPhase1Message = phase1Ctx?.setMessage;
   const [draft, setDraft] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const mountRecordedRef = useRef(false);
@@ -134,13 +135,26 @@ export const CommunityMessengerRoomPass1ComposerShell = memo(function CommunityM
     };
   }, [composerEntryVisible, notifyComposerTextareaVisibleForSeededBootstrap, roomKey]);
 
-  const commitTextSend = useCallback(() => {
+  const handleDraftChange = useCallback(
+    (value: string) => {
+      setDraft(value);
+      setPhase1Message?.(value);
+    },
+    [setPhase1Message]
+  );
+
+  const commitTextSend = useCallback(async () => {
     if (!vm) return;
     const text = draft.trim();
     if (!text || vm.roomUnavailable) return;
     setDraft("");
-    void vm.sendMessage(text);
-  }, [draft, vm]);
+    setPhase1Message?.("");
+    const ok = await vm.sendMessage(text);
+    if (!ok) {
+      setDraft(text);
+      setPhase1Message?.(text);
+    }
+  }, [draft, setPhase1Message, vm]);
 
   if (!vm) return null;
 
@@ -177,7 +191,7 @@ export const CommunityMessengerRoomPass1ComposerShell = memo(function CommunityM
           vm.composerTextareaRef.current = node;
           if (node) noteR2M9Stage("textarea_dom_attach");
         }}
-        onDraftChange={setDraft}
+        onDraftChange={handleDraftChange}
         onAttach={() => vm.setActiveSheet("attach")}
         onSend={commitTextSend}
         onTextareaKeyDown={(e) => {

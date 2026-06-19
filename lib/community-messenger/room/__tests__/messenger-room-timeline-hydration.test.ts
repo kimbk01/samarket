@@ -4,6 +4,7 @@ import {
   hasMessengerRoomHydrationTimelineSeed,
   isMessengerRoomTimelineBootstrapSeedComplete,
   isMessengerRoomTimelinePaintableBootstrapSeed,
+  resolveMessengerRoomPhase2HydrationPassInitial,
   shouldShowMessengerRoomTimelineHydrationSkeleton,
 } from "@/lib/community-messenger/room/messenger-room-timeline-hydration";
 
@@ -136,5 +137,17 @@ describe("messenger-room-timeline-hydration", () => {
         },
       })
     ).toBe(true);
+  });
+
+  it("resolveMessengerRoomPhase2HydrationPassInitial — seed → pass3 (no pass2 idle expand)", () => {
+    expect(
+      resolveMessengerRoomPhase2HydrationPassInitial({ persistedPass: 1, hasTimelineSeed: true })
+    ).toBe(3);
+    expect(
+      resolveMessengerRoomPhase2HydrationPassInitial({ persistedPass: 2, hasTimelineSeed: true })
+    ).toBe(3);
+    expect(
+      resolveMessengerRoomPhase2HydrationPassInitial({ persistedPass: 1, hasTimelineSeed: false })
+    ).toBe(1);
   });
 });

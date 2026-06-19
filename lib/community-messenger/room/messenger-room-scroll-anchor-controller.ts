@@ -35,7 +35,7 @@ export type MessengerRoomScrollAnchorRequest = {
 
 const MAX_SCROLL_APPLY_RETRIES = 12;
 
-type VirtualizerLike = Pick<Virtualizer<HTMLDivElement, Element>, "scrollToIndex">;
+type VirtualizerLike = Pick<Virtualizer<HTMLDivElement, Element>, "scrollToIndex" | "getTotalSize">;
 
 type ScrollAnchorControllerOpts = {
   roomId: string;
@@ -60,6 +60,7 @@ type ScrollAnchorControllerOpts = {
   messageCount: number;
   deferEntryScrollToDeliveryDirectTimeline?: boolean;
   timelineViewportMounted?: boolean;
+  timelineHeavyReady?: boolean;
 };
 
 function isAlwaysScrollReason(reason: CmScrollOwnerReason): boolean {
@@ -94,6 +95,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     messageCount,
     deferEntryScrollToDeliveryDirectTimeline = false,
     timelineViewportMounted = false,
+    timelineHeavyReady = false,
   } = opts;
 
   const lastScrollGeomRef = useRef<{ sh: number; st: number; ch: number; ready: boolean }>({
@@ -196,6 +198,14 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
 
       if (alwaysScroll || isEntryRestoreReason(reason)) {
         const count = messageCount;
+        if (
+          count > 0 &&
+          virtualizer &&
+          reason === "room_entry_initial" &&
+          (virtualizer.getTotalSize?.() ?? 0) <= 0
+        ) {
+          return false;
+        }
         if (count > 0 && virtualizer && (alwaysScroll || reason !== "viewport_resize_restore")) {
           try {
             virtualizer.scrollToIndex(count - 1, { align: "end" });
@@ -326,6 +336,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
   useLayoutEffect(() => {
     if (deferEntryScrollToDeliveryDirectTimeline || roomMessages.length <= 0) return;
     if (!timelineViewportMounted) return;
+    if (!timelineHeavyReady) return;
     if (entryScrollDoneRef.current) return;
     entryScrollDoneRef.current = true;
 
@@ -339,6 +350,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     enqueueScrollAnchor,
     roomId,
     roomMessages.length,
+    timelineHeavyReady,
     timelineViewportMounted,
   ]);
 

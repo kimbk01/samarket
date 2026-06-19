@@ -92,12 +92,10 @@ import {
   scheduleMessengerScrollToBottomAfterRowsPainted,
 } from "@/lib/community-messenger/room/messenger-timeline-layout-mode";
 import {
-  isMessengerRoomReadyForVirtualLayout,
   logCmTimelineLayoutModeChanged,
   logCmVirtualizerUpgradeBegin,
   logCmVirtualizerUpgradeCommit,
   markMessengerRoomLayoutSettling,
-  setMessengerRoomFirstCommitRowsLocked,
 } from "@/lib/community-messenger/room/messenger-room-entry-scroll-owner";
 import { useDeliveryRoomMessageSenderLabel } from "@/lib/store-order-chat/use-delivery-room-message-sender-label";
 import {
@@ -533,11 +531,8 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     directLayout: boolean;
   } | null>(null);
   const stableFirstCommitRowsRef = useRef<Array<(typeof vm.displayRoomMessages)[number]> | null>(null);
-  const [firstCommitRowsLocked, setFirstCommitRowsLocked] = useState(true);
   const firstRowTraceRef = useRef<CmR11FirstRowTrace>(createEmptyCmR11FirstRowTrace());
   const firstRowTraceCommittedRef = useRef(false);
-  const holdDirectDomRef = useRef(true);
-  const [holdDirectDom, setHoldDirectDom] = useState(true);
   const upgradeScheduleStartedRef = useRef(false);
   const upgradeIdleCancelRef = useRef<(() => void) | null>(null);
   const hasTradeDock = Boolean(vm.showMessengerTradeProcessDock);
@@ -594,11 +589,8 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     rowsReplaceCountRef.current = 0;
     rowsPrevRef.current = null;
     stableFirstCommitRowsRef.current = null;
-    setFirstCommitRowsLocked(true);
     firstRowTraceRef.current = createEmptyCmR11FirstRowTrace();
     firstRowTraceCommittedRef.current = false;
-    holdDirectDomRef.current = true;
-    setHoldDirectDom(true);
     upgradeScheduleStartedRef.current = false;
     upgradeIdleCancelRef.current?.();
     upgradeIdleCancelRef.current = null;
@@ -659,10 +651,6 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
       viewportIoRef.current = null;
       if (payload.first_row_rendered && !payload.empty_room) {
         recordDomFirstPaintIfNeeded("fallback_visible_rows");
-        const st = getCmR9State(vm.streamRoomId);
-        if (!st.active && st.upgradeStage === "done") {
-          setFirstCommitRowsLocked(false);
-        }
       }
       finalizeFirstRowVisibilityTrace(
         "layout_effect",
@@ -837,13 +825,6 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
       vm.snapshot.room.lastMessage,
     ]
   );
-
-  /** pass3 full-list 확장 시 first-row freeze 해제 — 대량 방 깜빡임 완화 */
-  useLayoutEffect(() => {
-    if (hydrationPass < 3 || !firstCommitRowsLocked) return;
-    stableFirstCommitRowsRef.current = null;
-    setFirstCommitRowsLocked(false);
-  }, [firstCommitRowsLocked, hydrationPass]);
 
   /**
    * 내 최신 확정 발화 id + 상대 읽음 커서 비교 — 기존에는 역순 스캔 2회 + `filter(!pending)` 전체 1회가 겹쳤다.

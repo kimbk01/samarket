@@ -584,27 +584,12 @@ export function useMessengerRoomClientPhase1({
     setTimelineHeavyBundle(null);
   }, [roomId]);
 
-  /** scroll root 부착 후 heavy virtualizer — seed 있으면 동일 tick attach (tail slice·upgrade 없음). */
+  /** scroll root 부착 직후 heavy virtualizer — rAF 지연 없이 동일 layout commit (fallback→virtual 2paint 방지). */
   useLayoutEffect(() => {
     if (!timelineViewportMounted) return;
-    let cancelled = false;
-    const attachHeavy = () => {
-      if (cancelled) return;
-      setTimelineHeavyLive(true);
-      const rid = roomId.trim();
-      if (rid) noteCmRoomR6HeavyHostMount(rid);
-    };
-    if (typeof requestAnimationFrame === "function") {
-      const rafId = requestAnimationFrame(attachHeavy);
-      return () => {
-        cancelled = true;
-        cancelAnimationFrame(rafId);
-      };
-    }
-    attachHeavy();
-    return () => {
-      cancelled = true;
-    };
+    setTimelineHeavyLive(true);
+    const rid = roomId.trim();
+    if (rid) noteCmRoomR6HeavyHostMount(rid);
   }, [roomId, timelineViewportMounted]);
 
   useEffect(() => {
@@ -1692,6 +1677,7 @@ export function useMessengerRoomClientPhase1({
     messageCount: displayRoomMessages.length,
     deferEntryScrollToDeliveryDirectTimeline: storeOrderDockScrollAnchorEnabled,
     timelineViewportMounted,
+    timelineHeavyReady: Boolean(timelineHeavyBundle),
   });
 
   useEffect(() => {
