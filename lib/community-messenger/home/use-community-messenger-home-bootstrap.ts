@@ -71,6 +71,7 @@ import type {
   CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
 import { applyHomeListPatch, peekLastHomeListPatchStats } from "@/lib/community-messenger/home-list-patch";
+import { mergeCallHistoryLists } from "@/lib/community-messenger/call-history/call-history-snapshot-merge";
 import { finishSilentRefreshRound, tryEnterSilentRefreshRound } from "@/lib/http/silent-refresh-coalesce";
 import { isLikelyFetchAbortError, logFetchClientTelemetry } from "@/lib/http/fetch-client-telemetry";
 import { fetchCommunityMessengerBootstrapClient } from "@/lib/community-messenger/cm-bootstrap-client-fetch";
@@ -434,13 +435,14 @@ export function useCommunityMessengerHomeBootstrap({
       if (!res.ok || !json.ok) return;
       setData((prev) => {
         if (!prev) return prev;
-        const nextCalls = json.calls ?? prev.calls;
+        const incomingCalls = json.calls ?? prev.calls;
+        const callsMerged = mergeCallHistoryLists(prev.calls ?? [], incomingCalls ?? []);
         const nextCallsTab = json.tabs?.calls ?? prev.tabs.calls;
         const { deferredCallLog: _omit, ...rest } = prev;
         void _omit;
         const merged: CommunityMessengerBootstrap = {
           ...rest,
-          calls: nextCalls,
+          calls: callsMerged.list,
           tabs: { ...rest.tabs, calls: nextCallsTab },
         };
         const resolved = resolveMessengerHomeBootstrapSetData("deferred-calls", prev, merged, {

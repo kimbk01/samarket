@@ -3,7 +3,7 @@ import type {
   CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
 import { isCommunityMessengerPrivateGroupListRoomType } from "@/lib/community-messenger/types";
-import { mergeRoomSummaryWithConsistency } from "@/lib/community-messenger/consistency/messenger-consistency-merge";
+import { coalesceRoomSummarySnapshotRow } from "@/lib/community-messenger/consistency/messenger-consistency-merge";
 import { bumpMessengerRenderPerf } from "@/lib/runtime/samarket-runtime-debug";
 
 /** `messenger-realtime-store.normalizeRoomId` 와 동일 — 스토어 모듈 의존 없이 목록 병합만 유지 */
@@ -92,7 +92,7 @@ export function mergeBootstrapRoomSummaryIntoLists(
     (data[targetKey] ?? []).find((r) => sameMessengerListRoomId(r.id, summary.id)) ??
     (data[otherKey] ?? []).find((r) => sameMessengerListRoomId(r.id, summary.id));
   const summaryMerged = prevRow
-    ? mergeRoomSummaryWithConsistency(prevRow, summary, {
+    ? coalesceRoomSummarySnapshotRow(prevRow, summary, {
         surface: "room_list",
         roomId: summary.id,
         source: "merge_room_summary",

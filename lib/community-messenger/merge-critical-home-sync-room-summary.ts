@@ -1,6 +1,4 @@
-import {
-  mergeRoomSummaryWithConsistency,
-} from "@/lib/community-messenger/consistency/messenger-consistency-merge";
+import { coalesceRoomSummarySnapshotRow } from "@/lib/community-messenger/consistency/messenger-consistency-merge";
 import type {
   CommunityMessengerRoomContextMetaV1,
   CommunityMessengerRoomSummary,
@@ -67,7 +65,7 @@ export function mergeMessengerRoomSummaryForHomeSyncCriticalPatch(
   if (!prev) return incoming;
   const mergedMeta = mergeTradeRoomContextMetaPreferLocalDetail(prev.contextMeta, incoming.contextMeta);
   const merged = { ...incoming, contextMeta: mergedMeta ?? incoming.contextMeta ?? null };
-  return mergeRoomSummaryWithConsistency(prev, merged, {
+  return coalesceRoomSummarySnapshotRow(prev, merged, {
     surface: "home_sync",
     roomId: incoming.id,
     source: "home_sync_critical_patch",

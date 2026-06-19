@@ -36,6 +36,41 @@ export type MessengerUnreadMergeInput = {
   crossTabState?: string;
 };
 
+/** snapshot fetch 가 realtime truth 보다 오래됐고 unread 를 올리려 할 때 — merge/alert 전에 prev 유지 */
+export function isStaleUnreadSnapshotRow(
+  prev: CommunityMessengerRoomSummary,
+  incoming: CommunityMessengerRoomSummary,
+  incomingSnapshotUpdatedAt?: string | null
+): boolean {
+  const incomingVersionMs = versionMsFromIso(
+    incoming.lastMessageAt,
+    incomingSnapshotUpdatedAt ?? undefined
+  );
+  const truthMs = getRoomTruthVersionMs(incoming.id);
+  return (
+    incomingVersionMs > 0 &&
+    truthMs > 0 &&
+    incomingVersionMs < truthMs &&
+    incoming.unreadCount > prev.unreadCount
+  );
+}
+
+/** bootstrap / home-sync list row — stale unread snapshot 은 prev 그대로 (regression alert 유발 없음) */
+export function coalesceRoomSummarySnapshotRow(
+  prev: CommunityMessengerRoomSummary | undefined,
+  incoming: CommunityMessengerRoomSummary,
+  args: Omit<MessengerUnreadMergeInput, "incomingUnread" | "incomingLastMessageAt" | "prevUnread">
+): CommunityMessengerRoomSummary {
+  if (!prev) return incoming;
+  if (isStaleUnreadSnapshotRow(prev, incoming, args.incomingSnapshotUpdatedAt)) {
+    return prev;
+  }
+  if (prev.unreadCount === incoming.unreadCount && prev.lastMessageAt === incoming.lastMessageAt) {
+    return incoming;
+  }
+  return mergeRoomSummaryWithConsistency(prev, incoming, args);
+}
+
 export type MessengerUnreadMergeResult = {
   unreadCount: number;
   suppressed: boolean;

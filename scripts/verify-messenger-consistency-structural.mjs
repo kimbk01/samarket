@@ -33,11 +33,19 @@ mustExist("docs/perf/messenger-realtime-consistency-lock.md");
 
 mustInclude(
   "lib/community-messenger/merge-critical-home-sync-room-summary.ts",
-  "mergeRoomSummaryWithConsistency"
+  "coalesceRoomSummarySnapshotRow"
 );
 mustInclude(
   "lib/community-messenger/home-list-patch.ts",
   "mergeRoomListsWithVersionGuard"
+);
+mustInclude(
+  "lib/community-messenger/home-list-patch.ts",
+  "mergeCallHistoryLists"
+);
+mustInclude(
+  "lib/community-messenger/home-list-patch.ts",
+  "coalesceRoomSummarySnapshotRow"
 );
 mustInclude(
   "lib/community-messenger/room/merge-community-messenger-silent-delta.ts",
@@ -45,7 +53,7 @@ mustInclude(
 );
 mustInclude(
   "lib/community-messenger/home/merge-bootstrap-room-summary-into-lists.ts",
-  "mergeRoomSummaryWithConsistency"
+  "coalesceRoomSummarySnapshotRow"
 );
 mustInclude(
   "lib/community-messenger/home/use-community-messenger-home-realtime-bootstrap-list.ts",

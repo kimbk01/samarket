@@ -15,7 +15,8 @@ import {
   patchBootstrapRoomListForSenderLocalEcho,
 } from "@/lib/community-messenger/home/patch-bootstrap-room-list-from-realtime-message";
 import { mergeMessengerRoomSummaryForHomeSyncCriticalPatch } from "@/lib/community-messenger/merge-critical-home-sync-room-summary";
-import { mergeRoomSummaryWithConsistency } from "@/lib/community-messenger/consistency/messenger-consistency-merge";
+import { coalesceRoomSummarySnapshotRow } from "@/lib/community-messenger/consistency/messenger-consistency-merge";
+import { mergeCallHistoryLists } from "@/lib/community-messenger/call-history/call-history-snapshot-merge";
 import {
   resolveMessengerHomeBootstrapSetData,
   type CmHomeSetDataSource,
@@ -244,21 +245,25 @@ function logHomeListOwner(stats: HomeListPatchStats): void {
 
 function mergeRoomListsWithVersionGuard(
   prevList: CommunityMessengerRoomSummary[],
-  nextList: CommunityMessengerRoomSummary[]
+  nextList: CommunityMessengerRoomSummary[],
+  args?: { surface?: "home_sync" | "room_list"; source?: string; eventType?: string }
 ): { list: CommunityMessengerRoomSummary[]; unreadGuardApplied: number } {
   if (!nextList.length) return { list: prevList, unreadGuardApplied: 0 };
   const prevById = new Map(prevList.map((r) => [r.id, r]));
   let unreadGuardApplied = 0;
+  const surface = args?.surface ?? "home_sync";
+  const source = args?.source ?? "home_sync_replace";
+  const eventType = args?.eventType ?? "replace";
   const out = nextList.map((inc) => {
     const old = prevById.get(inc.id);
-    if (!old || old.unreadCount === inc.unreadCount) return inc;
-    const merged = mergeRoomSummaryWithConsistency(old, inc, {
-      surface: "home_sync",
+    const merged = coalesceRoomSummarySnapshotRow(old, inc, {
+      surface,
       roomId: inc.id,
-      source: "home_sync_replace",
-      eventType: "replace",
+      source,
+      eventType,
     });
-    if (merged.unreadCount !== inc.unreadCount) unreadGuardApplied += 1;
+    if (old && merged === old && inc.unreadCount > old.unreadCount) unreadGuardApplied += 1;
+    else if (old && merged.unreadCount !== inc.unreadCount) unreadGuardApplied += 1;
     return merged;
   });
   return { list: out, unreadGuardApplied };
@@ -633,8 +638,19 @@ export function applyHomeListPatch(
           const tBuild0 = typeof performance !== "undefined" ? performance.now() : 0;
           const mergeReq = patch.mergeStaleOutgoingRequests !== false;
           const incoming = patch.next;
-          const chatMerge = mergeRoomListsPreserveRefs(base.chats ?? [], incoming.chats ?? []);
-          const groupMerge = mergeRoomListsPreserveRefs(base.groups ?? [], incoming.groups ?? []);
+          const chatVersioned = mergeRoomListsWithVersionGuard(base.chats ?? [], incoming.chats ?? [], {
+            surface: "room_list",
+            source: "bootstrap_apply_full",
+            eventType: "bootstrap_apply_full",
+          });
+          const groupVersioned = mergeRoomListsWithVersionGuard(base.groups ?? [], incoming.groups ?? [], {
+            surface: "room_list",
+            source: "bootstrap_apply_full",
+            eventType: "bootstrap_apply_full",
+          });
+          const chatMerge = mergeRoomListsPreserveRefs(base.chats ?? [], chatVersioned.list);
+          const groupMerge = mergeRoomListsPreserveRefs(base.groups ?? [], groupVersioned.list);
+          unreadGuardApplied += chatVersioned.unreadGuardApplied + groupVersioned.unreadGuardApplied;
           const patchBuildMs =
             typeof performance !== "undefined" ? Math.round(performance.now() - tBuild0) : 0;
           const requestsMerged = mergeReq
@@ -673,11 +689,11 @@ export function applyHomeListPatch(
           );
           const discoverableGroups =
             discoverableMerge.list as CommunityMessengerBootstrap["discoverableGroups"];
-          const callsMerge = mergeJsonRecordsPreserveRefs(
-            (base.calls ?? []) as Array<Record<string, unknown>>,
-            ((incoming.calls ?? base.calls) ?? []) as Array<Record<string, unknown>>
+          const callsMerged = mergeCallHistoryLists(
+            (base.calls ?? []) as import("@/lib/community-messenger/types").CommunityMessengerCallLog[],
+            ((incoming.calls ?? base.calls) ?? []) as import("@/lib/community-messenger/types").CommunityMessengerCallLog[]
           );
-          const calls = callsMerge.list as CommunityMessengerBootstrap["calls"];
+          const calls = callsMerged.list as CommunityMessengerBootstrap["calls"];
           const meIncoming = incoming.me ?? base.me;
           const me =
             meIncoming && base.me && meIncoming.id === base.me.id ? base.me : meIncoming;
@@ -704,7 +720,7 @@ export function applyHomeListPatch(
             hiddenMerge.listReferenceStable &&
             blockedMerge.listReferenceStable &&
             discoverableMerge.listReferenceStable &&
-            callsMerge.listReferenceStable &&
+            callsMerged.listReferenceStable &&
             me === base.me &&
             tabsStable &&
             incoming.deferredCallLog === base.deferredCallLog &&
