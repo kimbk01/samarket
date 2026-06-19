@@ -66,6 +66,7 @@ export function useMessengerRoomBumpBroadcastSubscription({
   roomId,
   streamRoomId,
   roomReadyForRealtime,
+  viewerUserIdHint,
   snapshot,
   initialServerSnapshot,
   snapshotRef,
@@ -79,6 +80,8 @@ export function useMessengerRoomBumpBroadcastSubscription({
   roomId: string;
   streamRoomId: string;
   roomReadyForRealtime: boolean;
+  /** placeholder/bootstrap 경합 중에도 Broadcast 구독 viewer 를 잃지 않게 하는 RSC viewer hint. */
+  viewerUserIdHint?: string | null;
   snapshot: CommunityMessengerRoomSnapshot | null;
   initialServerSnapshot: CommunityMessengerRoomSnapshot | null;
   snapshotRef: MutableRefObject<CommunityMessengerRoomSnapshot | null>;
@@ -100,8 +103,11 @@ export function useMessengerRoomBumpBroadcastSubscription({
    */
   useEffect(() => {
     const viewer =
-      snapshot?.viewerUserId?.trim() ?? initialServerSnapshot?.viewerUserId?.trim() ?? "";
-    if (!viewer || !roomReadyForRealtime) return;
+      snapshot?.viewerUserId?.trim() ||
+      initialServerSnapshot?.viewerUserId?.trim() ||
+      viewerUserIdHint?.trim() ||
+      "";
+    if (!viewer) return;
 
     const route = String(roomId ?? "").trim();
     const stream = String(streamRoomId ?? "").trim();
@@ -254,5 +260,6 @@ export function useMessengerRoomBumpBroadcastSubscription({
     snapshot?.room?.id,
     snapshot?.viewerUserId,
     streamRoomId,
+    viewerUserIdHint,
   ]);
 }

@@ -65,7 +65,7 @@ describe("shouldEagerHydrateMessengerRoomOlderHistory", () => {
     ).toBe(false);
   });
 
-  it("keeps eager hydration for delivery/store-order rooms", () => {
+  it("does not eager hydrate delivery/store-order rooms on entry", () => {
     expect(
       shouldEagerHydrateMessengerRoomOlderHistory({
         snapshot: snapshot({
@@ -73,6 +73,6 @@ describe("shouldEagerHydrateMessengerRoomOlderHistory", () => {
         }),
         roomMessageCount: 24,
       })
-    ).toBe(true);
+    ).toBe(false);
   });
 });

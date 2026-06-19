@@ -1332,6 +1332,7 @@ export function useMessengerRoomClientPhase1({
     roomId,
     streamRoomId,
     roomReadyForRealtime,
+    viewerUserIdHint: initialViewerId || undefined,
     snapshot,
     initialServerSnapshot,
     snapshotRef,

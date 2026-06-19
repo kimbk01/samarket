@@ -217,16 +217,21 @@ export function resumeActiveCallSessionFromNative(
   return session;
 }
 
-/** terminal — notification·ringtone·route·native·heartbeat 일괄 정리 */
-export async function hardClearActiveCallSession(
+/**
+ * terminal — 클라 SSOT(activeSession·tone·guard) 동기 정리.
+ * native bridge 는 `hardClearActiveCallSession` 이 이어서 처리한다.
+ */
+export function syncClearActiveCallSessionLocal(
   callId: string | null | undefined,
   reason = "terminal",
-): Promise<void> {
-  const sid = callId?.trim() ?? activeSession?.callId?.trim() ?? "";
+): boolean {
+  const sid = callId?.trim() ?? "";
   if (!sid) {
-    activeSession = null;
-    notifySync();
-    return;
+    if (activeSession !== null) {
+      activeSession = null;
+      notifySync();
+    }
+    return true;
   }
   if (!canCleanupActiveCall(reason)) {
     logDibayCall("active_call_cleanup_blocked", {
@@ -234,7 +239,16 @@ export async function hardClearActiveCallSession(
       callId: sid,
       reason,
     });
-    return;
+    return false;
+  }
+  if (activeSession && activeSession.callId !== sid) {
+    logDibayCall("active_call_cleanup_blocked", {
+      sessionId: sid,
+      callId: sid,
+      activeCallId: activeSession.callId,
+      reason: `mismatch:${reason}`,
+    });
+    return false;
   }
   logDibayCall("active_session_hard_clear", {
     sessionId: sid,
@@ -253,6 +267,26 @@ export async function hardClearActiveCallSession(
   stopCommunityMessengerCallTone();
   clearAgoraJoinGuard(sid);
   sealDibayCallTerminalSurface(sid);
+  notifySync();
+  return true;
+}
+
+/** terminal — notification·ringtone·route·native·heartbeat 일괄 정리 */
+export async function hardClearActiveCallSession(
+  callId: string | null | undefined,
+  reason = "terminal",
+): Promise<void> {
+  const sid = callId?.trim() ?? activeSession?.callId?.trim() ?? "";
+  if (!sid) {
+    activeSession = null;
+    notifySync();
+    return;
+  }
+  if (!syncClearActiveCallSessionLocal(sid, reason)) {
+    return;
+  }
+  const { releaseCallActionLockForCallId } = await import("@/lib/call/call-action-lock");
+  releaseCallActionLockForCallId(sid, reason);
   const normalizedReason = reason.trim().toLowerCase();
   const isRemoteNativeEnd =
     normalizedReason === "remote_ended" ||

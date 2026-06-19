@@ -106,10 +106,9 @@ import {
 import {
   hardClearActiveCallSession,
   patchActiveCallSessionMachinePhase,
-  patchActiveCallSessionPhase,
   setActiveCallSession,
 } from "@/lib/call/active-call-session";
-import { releaseCallActionLock } from "@/lib/call/call-action-lock";
+import { syncTerminalCallClientState } from "@/lib/call/call-terminal-sync-cleanup";
 import {
   mapSessionStatusToActiveCallPhase,
   mapSessionStatusToMachinePhase,
@@ -1761,12 +1760,24 @@ export function CommunityMessengerCallClient({
   useEffect(() => {
     const s = session;
     if (!s?.id) return;
-    if (isTerminalCallSessionStatus(s.status)) {
-      stopCallHeartbeatWatchdog(s.id);
-      void hardClearActiveCallSession(s.id, "remote_ended");
-      releaseCallActionLock("terminal");
-      return;
-    }
+    if (!isTerminalCallSessionStatus(s.status)) return;
+    syncTerminalCallClientState(s.id, "remote_ended");
+    void hardClearActiveCallSession(s.id, "remote_ended");
+  }, [session?.id, session?.status]);
+
+  useEffect(() => {
+    return () => {
+      const s = sessionRef.current;
+      if (!s?.id || !isTerminalCallSessionStatus(s.status)) return;
+      syncTerminalCallClientState(s.id, "call_client_unmount_terminal");
+      void hardClearActiveCallSession(s.id, "call_client_unmount_terminal");
+    };
+  }, [sessionId]);
+
+  useEffect(() => {
+    const s = session;
+    if (!s?.id) return;
+    if (isTerminalCallSessionStatus(s.status)) return;
     const phase = mapSessionStatusToActiveCallPhase(s, joined);
     const machinePhase = mapSessionStatusToMachinePhase(s, joined);
     if (phase === "idle") {
@@ -3436,8 +3447,6 @@ export function CommunityMessengerCallClient({
     const roomId = session.roomId;
     const sid = session.id;
     const peer = session.peerUserId?.trim();
-    patchActiveCallSessionPhase(sid, "ending", "call_client_end");
-    dibayCallSealTerminal(sid);
     const patchAction: "cancel" | "reject" | "end" =
       session.status === "ringing"
         ? session.isMineInitiator
@@ -3446,6 +3455,10 @@ export function CommunityMessengerCallClient({
         : "end";
     const hangupReason =
       patchAction === "cancel" ? "cancel" : patchAction === "reject" ? "reject" : "end";
+    const terminalCleanupReason =
+      patchAction === "cancel" ? "cancelled" : patchAction === "reject" ? "rejected" : "caller_end";
+    syncTerminalCallClientState(sid, terminalCleanupReason);
+    dibayCallSealTerminal(sid);
     const optimisticEnd: CommunityMessengerCallSession["status"] =
       patchAction === "cancel"
         ? "cancelled"

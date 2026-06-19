@@ -39,6 +39,7 @@ import {
 import { resetCommunityMessengerCallRuntimeSurface } from "@/lib/community-messenger/call-runtime-registry";
 import { notifyCommunityCallHostSync } from "@/components/layout/providers/CommunityMessengerActiveCallHost";
 import { hardClearActiveCallSession } from "@/lib/call/active-call-session";
+import { syncTerminalCallClientState } from "@/lib/call/call-terminal-sync-cleanup";
 import {
   resolveDirectCallDenyUserMessageFromApiError,
 } from "@/lib/community-messenger/direct-call-permission-messages";
@@ -240,6 +241,7 @@ export function finalizeCommunityMessengerCallTerminalExit(
   const sid = sessionId.trim();
   pinCommunityMessengerCallTerminalSurfaceDismiss(sid);
   if (sid) {
+    syncTerminalCallClientState(sid, source);
     void hardClearActiveCallSession(sid, source);
   }
   navigateToCommunityMessengerCallLogsAfterTerminal(router);

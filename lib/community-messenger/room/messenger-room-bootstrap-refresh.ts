@@ -710,6 +710,7 @@ export function createMessengerRoomBootstrapRefresh(
         return;
       }
       if (!gate.proceed) {
+        let appliedGateSnapshot = false;
         if (!silent) {
           releaseCmRoomForegroundBootstrapInflight(roomId);
         }
@@ -732,6 +733,7 @@ export function createMessengerRoomBootstrapRefresh(
               bootstrapTierHdr: stale.bootstrapTierHdr,
               tBoot: typeof performance !== "undefined" ? performance.now() : Date.now(),
             });
+            appliedGateSnapshot = true;
           }
         } else if (gate.skippedReason === "inflight_join") {
           const inflight = getSingleFlightPromise<BootstrapFlightResult>(flightKey);
@@ -748,6 +750,7 @@ export function createMessengerRoomBootstrapRefresh(
               bootstrapTierHdr: joined.roomRes.headers.get("x-samarket-bootstrap-tier") ?? tier,
               tBoot: typeof performance !== "undefined" ? performance.now() : Date.now(),
             });
+            appliedGateSnapshot = true;
           }
         } else if (gate.skippedReason === "debounced") {
           const waitMs = Math.max(
@@ -769,10 +772,11 @@ export function createMessengerRoomBootstrapRefresh(
         const peekReady = isMessengerRoomBootstrapReadySnapshot(
           peekRoomSnapshot(roomId, viewerIdForCache)
         );
+        const hasReadySeedAfterGate = appliedGateSnapshot || peekReady;
         if (
           !silent &&
           shouldBlock &&
-          !peekReady &&
+          !hasReadySeedAfterGate &&
           gate.skippedReason !== "debounced"
         ) {
           scheduleCmBootstrapDebounceRetry({
@@ -787,7 +791,13 @@ export function createMessengerRoomBootstrapRefresh(
             },
           });
         }
-        loadedRef.current = peekReady || !shouldBlock;
+        if (!silent && shouldBlock && !hasReadySeedAfterGate) {
+          loadedRef.current = false;
+          setLoading(true);
+          setRoomReadyForRealtime(true);
+          return;
+        }
+        loadedRef.current = hasReadySeedAfterGate || !shouldBlock;
         if (shouldBlock) setLoading(false);
         setRoomReadyForRealtime(true);
         return;
