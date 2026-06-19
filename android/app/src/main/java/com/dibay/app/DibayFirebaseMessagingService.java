@@ -25,7 +25,10 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class DibayFirebaseMessagingService extends FirebaseMessagingService {
   private static final String TAG = "DIBAY_FCM";
-  static final String MESSAGES_CHANNEL_ID = "dibay_messages";
+  /** v2 — 기존 `dibay_messages` 가 사용자/OS 에 의해 importance 가 낮아진 경우 마이그레이션 */
+  static final String MESSAGES_CHANNEL_ID = "dibay_messages_v2";
+  static final String LEGACY_MESSAGES_CHANNEL_ID = "dibay_messages";
+  static final String ADMIN_ADS_CHANNEL_ID = "dibay_admin_ads_v1";
   private static final long EVENT_DEDUPE_MS = 10_000L;
   private static final ConcurrentHashMap<String, Long> recentNotificationEventIds =
       new ConcurrentHashMap<>();
@@ -70,6 +73,25 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
 
     if ("incoming_call".equals(type)) {
       handleIncomingCall(message, data, title, body, appVisible);
+      return;
+    }
+
+    if (FcmPayloadResolver.isAdminNotificationType(type)) {
+      if (appVisible) {
+        Log.i(TAG, "[fcm] foreground_skip_system_notification type=" + type);
+        return;
+      }
+      String routeUrl = firstNonEmpty(data.get("routeUrl"), data.get("url"));
+      String payloadTitle = firstNonEmpty(data.get("title"), title);
+      String payloadBody = firstNonEmpty(data.get("body"), body);
+      showAdminNotification(
+          payloadTitle,
+          payloadBody,
+          routeUrl,
+          data.get("tag"),
+          firstNonEmpty(data.get("notificationEventId"), data.get("notificationId")),
+          type,
+          data);
       return;
     }
 
@@ -232,13 +254,53 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
     NotificationManager nm = context.getSystemService(NotificationManager.class);
     if (nm == null) return;
-    if (nm.getNotificationChannel(MESSAGES_CHANNEL_ID) != null) return;
-    NotificationChannel channel =
-        new NotificationChannel(MESSAGES_CHANNEL_ID, "채팅 메시지", NotificationManager.IMPORTANCE_HIGH);
-    channel.setDescription("채팅 메시지 알림");
-    channel.enableVibration(true);
-    channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
-    nm.createNotificationChannel(channel);
+
+    try {
+      nm.deleteNotificationChannel(LEGACY_MESSAGES_CHANNEL_ID);
+    } catch (RuntimeException ignored) {
+      // ignore
+    }
+
+    NotificationChannel existing = nm.getNotificationChannel(MESSAGES_CHANNEL_ID);
+    // Samsung dumpsys can report lockscreenVisibility=-1000 while channel is PUBLIC — recreate on importance only.
+    if (existing != null && existing.getImportance() < NotificationManager.IMPORTANCE_HIGH) {
+      nm.deleteNotificationChannel(MESSAGES_CHANNEL_ID);
+      existing = null;
+      Log.i(TAG, "[notify-channel] messages_channel_recreate reason=degraded_importance");
+    }
+
+    if (existing == null) {
+      NotificationChannel channel =
+          new NotificationChannel(MESSAGES_CHANNEL_ID, "채팅 메시지", NotificationManager.IMPORTANCE_HIGH);
+      channel.setDescription("채팅 메시지 알림");
+      channel.enableVibration(true);
+      channel.enableLights(true);
+      channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        channel.setAllowBubbles(false);
+      }
+      nm.createNotificationChannel(channel);
+      existing = channel;
+    }
+
+    logMessagesChannelAudit(existing);
+  }
+
+  private static void logMessagesChannelAudit(NotificationChannel channel) {
+    if (channel == null) return;
+    Log.i(
+        TAG,
+        "[notify-channel] messages_channel_audit"
+            + " id="
+            + channel.getId()
+            + " importance="
+            + channel.getImportance()
+            + " lockscreenVisibility="
+            + channel.getLockscreenVisibility()
+            + " vibration="
+            + channel.shouldVibrate()
+            + " sound="
+            + (channel.getSound() != null ? "set" : "default"));
   }
 
   private void ensureMessagesChannel() {
@@ -316,6 +378,97 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
               + (senderName != null ? senderName : "-")
               + " badge="
               + badgeCount);
+    }
+  }
+
+  static void ensureAdminAdsChannelStatic(Context context) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
+    NotificationManager nm = context.getSystemService(NotificationManager.class);
+    if (nm == null) return;
+
+    NotificationChannel existing = nm.getNotificationChannel(ADMIN_ADS_CHANNEL_ID);
+    if (existing != null && existing.getImportance() < NotificationManager.IMPORTANCE_HIGH) {
+      nm.deleteNotificationChannel(ADMIN_ADS_CHANNEL_ID);
+      existing = null;
+      Log.i(TAG, "[notify-channel] admin_ads_channel_recreate reason=degraded_importance");
+    }
+
+    if (existing == null) {
+      NotificationChannel channel =
+          new NotificationChannel(ADMIN_ADS_CHANNEL_ID, "광고·공지", NotificationManager.IMPORTANCE_HIGH);
+      channel.setDescription("광고 및 공지 알림");
+      channel.enableVibration(true);
+      channel.enableLights(true);
+      channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+      nm.createNotificationChannel(channel);
+    }
+  }
+
+  private void ensureAdminAdsChannel() {
+    ensureAdminAdsChannelStatic(this);
+  }
+
+  private void showAdminNotification(
+      String title,
+      String body,
+      String url,
+      String tag,
+      String notificationId,
+      String type,
+      Map<String, String> data) {
+    if (notificationId != null && shouldSkipEventDedupe(notificationId)) {
+      Log.i(TAG, "[notify-admin] native_notification_dedupe eventId=" + notificationId);
+      return;
+    }
+    ensureAdminAdsChannel();
+    Intent launch = new Intent(this, MainActivity.class);
+    launch.setAction(Intent.ACTION_VIEW);
+    launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+    if (url != null && !url.isEmpty()) {
+      if (url.startsWith("/")) {
+        launch.putExtra("url", url);
+      } else {
+        launch.setData(Uri.parse(url));
+      }
+    }
+    if (type != null) launch.putExtra("type", type);
+    if (notificationId != null) launch.putExtra("notificationId", notificationId);
+
+    int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+      flags |= PendingIntent.FLAG_IMMUTABLE;
+    }
+    int requestCode = tag != null ? tag.hashCode() : (int) (System.currentTimeMillis() % Integer.MAX_VALUE);
+    PendingIntent pi = PendingIntent.getActivity(this, requestCode, launch, flags);
+
+    String safeTitle = title != null && !title.isEmpty() ? title : "DIBAY";
+    String optOut = data != null ? firstNonEmpty(data.get("optOutText")) : null;
+    String baseBody = body != null ? body : "";
+    String safeBody = optOut != null && !optOut.isEmpty() ? baseBody + "\n" + optOut : baseBody;
+
+    NotificationCompat.Builder builder =
+        new NotificationCompat.Builder(this, ADMIN_ADS_CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle(safeTitle)
+            .setContentText(safeBody)
+            .setStyle(new NotificationCompat.BigTextStyle().bigText(safeBody))
+            .setAutoCancel(true)
+            .setContentIntent(pi)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setDefaults(Notification.DEFAULT_ALL);
+
+    NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+    if (nm != null) {
+      nm.notify(requestCode, builder.build());
+      Log.i(
+          TAG,
+          "[notify-admin] native_notification_posted type="
+              + type
+              + " title="
+              + safeTitle
+              + " body="
+              + safeBody);
     }
   }
 }

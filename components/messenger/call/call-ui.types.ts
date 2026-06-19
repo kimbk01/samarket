@@ -66,6 +66,8 @@ export type CallActionItem = {
   icon: CallActionIcon;
   tone?: "default" | "danger" | "accept";
   active?: boolean;
+  /** optimistic apply 중 — 아이콘 유지, 약한 pressed/disabled 느낌만 */
+  applying?: boolean;
   disabled?: boolean;
   onClick: () => void;
 };

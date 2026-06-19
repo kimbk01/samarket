@@ -39,6 +39,14 @@ function resolvePushKind(out: NotificationSideEffectPayloadOut): WebPushKind {
     return explicit as WebPushKind;
   }
   const nt = String(out.notification_type ?? "").toLowerCase();
+  if (nt === "admin_campaign") {
+    const meta =
+      out.meta && typeof out.meta === "object" ? (out.meta as Record<string, unknown>) : null;
+    const kind = typeof meta?.kind === "string" ? meta.kind : "";
+    if (kind === "admin_ad") return "marketing";
+    if (kind === "admin_notice") return "notice";
+    return "system";
+  }
   if (nt === "community_messenger_incoming_call") return "chat";
   if (nt === "community_messenger_missed_call") return "chat";
   if (nt === "chat") return "chat";

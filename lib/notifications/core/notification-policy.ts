@@ -13,6 +13,10 @@ const ADMIN_SOUND_KEY_BY_TYPE: Record<NotificationEventType, string> = {
   store_order_message: "store_order",
   missed_call: "missed_call",
   incoming_call: "incoming_call_ringtone",
+  admin_ad: "admin_ad",
+  admin_notice: "admin_notice",
+  admin_event: "admin_event",
+  admin_system: "admin_system",
 };
 
 export function categoryForEventType(type: NotificationEventType): NotificationEventCategory {
@@ -29,6 +33,14 @@ export function categoryForEventType(type: NotificationEventType): NotificationE
       return "missed_call";
     case "incoming_call":
       return "call";
+    case "admin_ad":
+      return "admin_ad";
+    case "admin_notice":
+      return "admin_notice";
+    case "admin_event":
+      return "admin_event";
+    case "admin_system":
+      return "admin_system";
     default:
       return "chat";
   }

@@ -84,7 +84,7 @@ describe("call-audio-route-controller", () => {
     expect(result.actualRoute).toBe("speaker");
   });
 
-  it("does not force speaker when wired or bluetooth is connected", async () => {
+  it("does not force speaker when wired or bluetooth is connected without apply", async () => {
     setNativeCallSpeakerphoneEnabledMock.mockResolvedValueOnce(
       routeResult({
         requestedSpeaker: true,
@@ -120,6 +120,31 @@ describe("call-audio-route-controller", () => {
     expect(setNativeCallSpeakerphoneEnabledMock).toHaveBeenCalledTimes(1);
     expect(result.externalDeviceConnected).toBe(true);
     expect(result.actualRoute).toBe("bluetooth");
+  });
+
+  it("skips verify delays on speaker_toggle fast path", async () => {
+    setNativeCallSpeakerphoneEnabledMock.mockResolvedValueOnce(
+      routeResult({ requestedSpeaker: true, actualRoute: "speaker" })
+    );
+    getNativeCallAudioRouteMock.mockResolvedValue(
+      routeResult({ requestedSpeaker: true, actualRoute: "speaker" })
+    );
+    const { applyCallAudioRoute } = await import(
+      "@/lib/community-messenger/call-audio-route-controller"
+    );
+
+    const promise = applyCallAudioRoute({
+      callId: "c-fast",
+      callType: "audio",
+      role: "caller",
+      desiredSpeaker: true,
+      reason: "speaker_toggle",
+      fastPath: true,
+    });
+    await vi.runAllTimersAsync();
+    await promise;
+
+    expect(getNativeCallAudioRouteMock).not.toHaveBeenCalled();
   });
 
   it("retries when video route falls back to earpiece after join", async () => {

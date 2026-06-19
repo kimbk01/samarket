@@ -39,7 +39,8 @@ function CameraSwitchGlyph({ className }: { className?: string }) {
 }
 
 function diskClassForAction(item: CallActionItem, theme?: "starbucks"): string {
-  const { icon, tone, active, disabled } = item;
+  const { icon, tone, active, disabled, applying } = item;
+  const visuallyDisabled = disabled && !applying;
   if (theme === "starbucks") {
     if (tone === "danger" || icon === "end" || icon === "decline") {
       return "bg-[#A9472B] text-white shadow-[0_12px_28px_rgba(88,41,26,0.28)] ring-1 ring-[#F1F8F4]/22";
@@ -47,8 +48,11 @@ function diskClassForAction(item: CallActionItem, theme?: "starbucks"): string {
     if (tone === "accept" || icon === "accept") {
       return "bg-[#00754A] text-white shadow-[0_12px_28px_rgba(0,117,74,0.34)] ring-1 ring-[#D4E9E2]/35";
     }
-    if (disabled) {
+    if (visuallyDisabled) {
       return "bg-[#003D29]/58 text-white shadow-[0_12px_28px_rgba(0,61,41,0.22)] ring-1 ring-[#D4E9E2]/24 backdrop-blur-md";
+    }
+    if (applying) {
+      return "bg-[#003D29]/72 text-white shadow-[0_12px_28px_rgba(0,61,41,0.24)] ring-2 ring-[#D4E9E2]/45 backdrop-blur-md scale-[0.97]";
     }
     if (active) {
       return "bg-[#F1F8F4] text-[#003D29] shadow-[0_12px_28px_rgba(0,61,41,0.2)] ring-1 ring-[#D4E9E2]/70";
@@ -144,7 +148,8 @@ export const CallActionButton = memo(function CallActionButton({
     <button
       type="button"
       onClick={item.onClick}
-      disabled={item.disabled}
+      disabled={item.disabled && !item.applying}
+      aria-busy={item.applying ? true : undefined}
       className={`call-btn items-center text-center disabled:opacity-40 ${
         isStarbucks ? "min-w-0 flex-1 basis-0" : ""
       }`.trim()}

@@ -636,6 +636,10 @@ export const communityMessengerUiMessages = {
       "브라우저에서는 실제 출력 전환이 제한될 수 있습니다. 기기 오디오 설정도 함께 확인해 주세요.",
     cm_ui_bluetooth_route_hint:
       "블루투스 연결은 브라우저보다 기기 오디오 출력 설정의 영향을 먼저 받습니다.",
+    cm_ui_speaker_toggle_failed: "스피커 전환에 실패했습니다",
+    cm_ui_mic_toggle_failed: "마이크 설정 변경에 실패했습니다",
+    cm_ui_camera_toggle_failed: "카메라 설정 변경에 실패했습니다",
+    cm_ui_camera_switch_failed: "카메라 전환에 실패했습니다",
     cm_ui_call_accept_bad_action: "이미 종료되었거나 수락할 수 없는 통화입니다.",
     cm_ui_call_forbidden: "권한이 없습니다.",
     cm_ui_call_session_not_found: "통화 정보를 찾을 수 없습니다.",
@@ -1603,6 +1607,10 @@ export const communityMessengerUiMessages = {
       "Browser output routing may be limited. Check your device audio settings as well.",
     cm_ui_bluetooth_route_hint:
       "Bluetooth routing is usually controlled by device audio output settings more than the browser.",
+    cm_ui_speaker_toggle_failed: "Could not switch speaker",
+    cm_ui_mic_toggle_failed: "Could not change microphone",
+    cm_ui_camera_toggle_failed: "Could not change camera",
+    cm_ui_camera_switch_failed: "Could not switch camera",
     cm_ui_call_accept_bad_action: "This call has already ended or cannot be accepted.",
     cm_ui_call_forbidden: "You do not have permission.",
     cm_ui_call_session_not_found: "Call information was not found.",

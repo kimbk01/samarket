@@ -12,6 +12,10 @@ export type FcmPushType =
   | "trade_message"
   | "delivery_order"
   | "community_comment"
+  | "admin_ad"
+  | "admin_notice"
+  | "admin_event"
+  | "admin_system"
   | "notification";
 
 function trimText(v: unknown): string {
@@ -73,6 +77,14 @@ export function resolveFcmPushType(
 
   const meta = metaObj(out);
   const metaKind = meta ? trimText(meta.kind) : "";
+
+  if (out.notification_type === "admin_campaign" || metaKind.startsWith("admin_")) {
+    if (metaKind === "admin_ad") return "admin_ad";
+    if (metaKind === "admin_notice") return "admin_notice";
+    if (metaKind === "admin_event") return "admin_event";
+    if (metaKind === "admin_system") return "admin_system";
+    return "admin_ad";
+  }
 
   if (out.notification_type === "chat") {
     if (metaKind === "group_message") return "group_message";
@@ -144,6 +156,10 @@ export function buildFcmDataFields(
   const type = resolveFcmPushType(out, opts);
   const tag = trimText(String(base.tag ?? ""));
   const url = resolveRelativeUrl(out);
+  const displayPayload =
+    meta?.display_payload && typeof meta.display_payload === "object"
+      ? (meta.display_payload as Record<string, unknown>)
+      : null;
 
   const fields: Record<string, unknown> = {
     ...base,
@@ -304,6 +320,22 @@ export function buildFcmDataFields(
       if (commentId) fields.commentId = commentId;
       break;
     }
+    case "admin_ad":
+    case "admin_notice":
+    case "admin_event":
+    case "admin_system": {
+      const routeUrl = trimText(displayPayload?.routeUrl ?? meta?.routeUrl ?? url);
+      if (routeUrl) {
+        fields.url = routeUrl.startsWith("/") ? routeUrl : routeUrl;
+        fields.routeUrl = fields.url;
+      }
+      const imageUrl = trimText(displayPayload?.imageUrl ?? meta?.imageUrl);
+      const optOutText = trimText(displayPayload?.optOutText ?? meta?.optOutText);
+      if (imageUrl) fields.imageUrl = imageUrl;
+      if (optOutText) fields.optOutText = optOutText;
+      fields.tag = `samarket-admin-${type}-${resolveNotificationId(out, tag)}`;
+      break;
+    }
     default:
       break;
   }
@@ -313,6 +345,10 @@ export function buildFcmDataFields(
     type === "group_message" ||
     type === "trade_message" ||
     type === "delivery_order" ||
+    type === "admin_ad" ||
+    type === "admin_notice" ||
+    type === "admin_event" ||
+    type === "admin_system" ||
     (type === "notification" && meta && trimText(meta.room_id ?? meta.roomId))
   ) {
     appendMessageDisplayFields(fields, meta);

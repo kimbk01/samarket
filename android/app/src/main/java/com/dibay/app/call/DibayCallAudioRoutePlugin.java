@@ -95,18 +95,33 @@ public class DibayCallAudioRoutePlugin extends Plugin {
     saveAudioStateOnce();
     audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
 
+    boolean externalConnected = hasExternalOutputDevice();
     String external = currentExternalRoute();
-    if (external != null || hasExternalOutputDevice()) {
-      String actual = external != null ? external : currentRouteName();
-      return result(enabled, false, actual, true, "noop", reason);
-    }
 
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-      AudioDeviceInfo target = findCommunicationDevice(enabled);
+      AudioDeviceInfo externalDevice = findExternalCommunicationDevice();
+      AudioDeviceInfo target =
+          enabled
+              ? findCommunicationDevice(true)
+              : (externalDevice != null ? externalDevice : findCommunicationDevice(false));
       if (target != null) {
         boolean ok = audioManager.setCommunicationDevice(target);
-        return result(enabled, ok, currentRouteName(), false, "setCommunicationDevice", reason);
+        String route = currentRouteName();
+        boolean externalRoute = isExternalRoute(route) || externalConnected;
+        return result(enabled, ok, route, externalRoute, "setCommunicationDevice", reason);
       }
+    }
+
+    if (externalConnected && !enabled) {
+      audioManager.setSpeakerphoneOn(false);
+      String route = external != null ? external : currentRouteName();
+      return result(false, true, route, true, "setSpeakerphoneOn", reason);
+    }
+
+    if (externalConnected && enabled) {
+      audioManager.setSpeakerphoneOn(true);
+      String route = currentRouteName();
+      return result(true, true, route, true, "setSpeakerphoneOn", reason);
     }
 
     audioManager.setSpeakerphoneOn(enabled);
@@ -144,6 +159,15 @@ public class DibayCallAudioRoutePlugin extends Plugin {
       int type = device.getType();
       if (speaker && type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER) return device;
       if (!speaker && type == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE) return device;
+    }
+    return null;
+  }
+
+  private AudioDeviceInfo findExternalCommunicationDevice() {
+    if (audioManager == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return null;
+    for (AudioDeviceInfo device : audioManager.getAvailableCommunicationDevices()) {
+      String route = routeName(device);
+      if ("bluetooth".equals(route) || "wired".equals(route)) return device;
     }
     return null;
   }

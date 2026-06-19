@@ -3,13 +3,23 @@
  * Notification P0 — Android APK scenarios 5~10 (lock/deeplink/read/missed).
  * Usage:
  *   node scripts/qa/notification-p0-scenario-5-10.mjs
- *   P0_SCENARIO=5|6|7|8|9|10 node scripts/qa/notification-p0-scenario-5-10.mjs
+ *   P0_SCENARIO=5|5A|5B|5C|5D|6|7|8|9|10 node scripts/qa/notification-p0-scenario-5-10.mjs
  */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
+import {
+  dumpDeviceNotificationSettings,
+  formatDeviceDumpForReport,
+  dibayNotificationChannelLines,
+  parseMessagesChannelImportance,
+} from "./notification-device-settings-dump.mjs";
+import {
+  assertApkForeground,
+  launchApkMessenger,
+} from "./notification-apk-launch.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const ADB = process.env.ADB_PATH || `${process.env.HOME}/Library/Android/sdk/platform-tools/adb`;
@@ -182,10 +192,17 @@ function analyzeFcm(text) {
 }
 
 function dibayNotifications(serial) {
-  const text = adbOut(serial, "shell", "dumpsys", "notification", "--noredact");
-  const msgs = text.split("\n").filter((l) => l.includes("com.dibay.app") && l.includes("dibay_messages"));
-  const missed = text.split("\n").filter((l) => l.includes("com.dibay.app") && /missed|dibay_missed|call-history/i.test(l));
-  return { dibayMessages: msgs.length, missedChannel: missed.length, samples: msgs.slice(-5) };
+  const lines = dibayNotificationChannelLines(serial);
+  const missed = lines.filter((l) => /missed|dibay_missed|call-history/i.test(l));
+  return { dibayMessages: lines.length, missedChannel: missed.length, samples: lines.slice(-8), lines };
+}
+
+function analyzeFcmRich(text) {
+  const base = analyzeFcm(text);
+  const titleMatch = text.match(/native_notification_posted title=([^\s]+(?:\s[^\s]+)?)/);
+  const title = titleMatch?.[1]?.trim() ?? "";
+  const richTitle = Boolean(title) && title !== "새" && !title.startsWith("새 메시지") && title !== "DIBAY";
+  return { ...base, nativeTitle: title, richNativeTitle: richTitle };
 }
 
 function isScreenOn(serial) {
@@ -203,8 +220,8 @@ function wakeScreen(serial) {
 }
 
 async function launchBMessenger() {
-  adb(SERIAL_B, "shell", "am", "start", "-n", ACT);
-  adb(SERIAL_B, "shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", `${PROD}/community-messenger`);
+  launchApkMessenger(spawnSync, ADB, SERIAL_B);
+  assertApkForeground(spawnSync, ADB, SERIAL_B);
   await sleep(4000);
 }
 
@@ -347,7 +364,34 @@ function openedNonApk(serial) {
 
 function shouldRun(id) {
   if (P0_SCENARIO === "ALL" || !P0_SCENARIO) return true;
-  return P0_SCENARIO === String(id);
+  const s = P0_SCENARIO.toUpperCase();
+  const sid = String(id).toUpperCase();
+  if (s === "5") return sid.startsWith("5");
+  return s === sid;
+}
+
+function screenOff(serial) {
+  adb(serial, "shell", "input", "keyevent", "26");
+}
+
+async function secureLock(serial) {
+  adb(serial, "shell", "cmd", "lock_settings", "lock");
+  await sleep(400);
+  if (isScreenOn(serial)) {
+    screenOff(serial);
+    await sleep(400);
+    screenOff(serial);
+  }
+}
+
+async function ensureDndOff(serial) {
+  const before = adbOut(serial, "shell", "settings", "get", "global", "zen_mode").trim();
+  if (before !== "0") {
+    adb(serial, "shell", "settings", "put", "global", "zen_mode", "0");
+  }
+  await sleep(300);
+  const after = adbOut(serial, "shell", "settings", "get", "global", "zen_mode").trim();
+  return { before, after, off: after === "0" };
 }
 
 function runApkLogin(serial, user, userId) {
@@ -394,68 +438,133 @@ async function main() {
   let lastMissedEventId = null;
   let lastMissedSessionId = null;
 
-  if (shouldRun(5)) {
-    log("=== scenario 5 lock screen ===");
-    adb(SERIAL_B, "logcat", "-c");
-    const notifBefore = dibayNotifications(SERIAL_B);
-    const _eventsBefore = await queryEvents(5, "chat_message");
-    const badgeBefore = await badgeCount(authB);
-    const _deliveriesBefore = await queryDeliveries(5);
+  if (shouldRun("5A") || shouldRun("5B") || shouldRun("5C") || shouldRun("5D")) {
+    const lockCases = [
+      {
+        id: "5A",
+        name: "lock screen-off only",
+        prepare: async () => {
+          await launchBMessenger();
+          adb(SERIAL_B, "shell", "input", "keyevent", "3");
+          await sleep(800);
+          screenOff(SERIAL_B);
+          await sleep(1500);
+          return { mode: "screen_off", screenOn: isScreenOn(SERIAL_B) };
+        },
+      },
+      {
+        id: "5B",
+        name: "lock real keyguard",
+        prepare: async () => {
+          await launchBMessenger();
+          adb(SERIAL_B, "shell", "input", "keyevent", "3");
+          await sleep(800);
+          await secureLock(SERIAL_B);
+          await sleep(1500);
+          return { mode: "secure_lock", screenOn: isScreenOn(SERIAL_B) };
+        },
+      },
+      {
+        id: "5C",
+        name: "lock after DND off",
+        prepare: async () => {
+          const dnd = await ensureDndOff(SERIAL_B);
+          await launchBMessenger();
+          adb(SERIAL_B, "shell", "input", "keyevent", "3");
+          await sleep(800);
+          await secureLock(SERIAL_B);
+          await sleep(1500);
+          return { mode: "dnd_off_lock", dnd, screenOn: isScreenOn(SERIAL_B) };
+        },
+      },
+      {
+        id: "5D",
+        name: "lock after channel HIGH audit",
+        prepare: async () => {
+          const preDump = dumpDeviceNotificationSettings(SERIAL_B, (line) => log(line));
+          const importance = preDump.channelImportance;
+          await launchBMessenger();
+          adb(SERIAL_B, "shell", "input", "keyevent", "3");
+          await sleep(800);
+          await secureLock(SERIAL_B);
+          await sleep(1500);
+          return {
+            mode: "channel_high_lock",
+            channelImportance: importance,
+            channelHigh: importance == null || importance >= 4,
+            preDump: formatDeviceDumpForReport(preDump),
+            screenOn: isScreenOn(SERIAL_B),
+          };
+        },
+      },
+    ];
 
-    await launchBMessenger();
-    adb(SERIAL_B, "shell", "input", "keyevent", "3");
-    await sleep(800);
-    lockScreen(SERIAL_B);
-    await sleep(1500);
-    const locked = !isScreenOn(SERIAL_B);
-    log(`screenLocked=${locked}`);
+    for (const lockCase of lockCases) {
+      if (!shouldRun(lockCase.id)) continue;
+      log(`=== scenario ${lockCase.id} ${lockCase.name} ===`);
+      adb(SERIAL_B, "logcat", "-c");
+      const notifBefore = dibayNotifications(SERIAL_B);
+      const badgeBefore = await badgeCount(authB);
+      const prep = await lockCase.prepare();
+      log(`prepare=${JSON.stringify(prep)}`);
 
-    const label = `P0-QA-5 lock ${Date.now()}`;
-    const msg = await sendMessage(authA, label);
-    await sleep(15000);
+      const label = `P0-QA-${lockCase.id} ${Date.now()}`;
+      const msg = await sendMessage(authA, label);
+      await sleep(15000);
 
-    const logcat = logcatDump(SERIAL_B);
-    const fcm = analyzeFcm(logcat);
-    const notifAfter = dibayNotifications(SERIAL_B);
-    const eventsAfter = await queryEvents(8, "chat_message");
-    const badgeAfter = await badgeCount(authB);
-    const deliveriesAfter = await queryDeliveries(8);
-    const sentNew = deliveriesAfter.data.filter((d) => d.status === "sent").length;
-    const latest = eventsAfter.data?.[0] ?? null;
-    if (latest?.id) lastChatEventId = latest.id;
+      const logcat = logcatDump(SERIAL_B);
+      const fcm = analyzeFcmRich(logcat);
+      const notifAfter = dibayNotifications(SERIAL_B);
+      const postDump = dumpDeviceNotificationSettings(SERIAL_B, (line) => log(line));
+      const eventsAfter = await queryEvents(8, "chat_message");
+      const badgeAfter = await badgeCount(authB);
+      const latest = eventsAfter.data?.[0] ?? null;
+      if (latest?.id) lastChatEventId = latest.id;
 
-    for (const line of fcm.fcmLines.slice(-12)) log(`logcat ${line}`);
+      for (const line of fcm.fcmLines.slice(-12)) log(`logcat ${line}`);
 
-    const pass =
-      msg.status === 200 &&
-      msg.json?.ok === true &&
-      fcm.messageReceived &&
-      fcm.dataTypeChat &&
-      fcm.nativePosted &&
-      (latest?.unread === true || latest?.read_at == null) &&
-      (badgeAfter.total ?? 0) > (badgeBefore.total ?? 0) &&
-      notifAfter.dibayMessages >= notifBefore.dibayMessages;
+      const dumpsysVisible =
+        notifAfter.dibayMessages > notifBefore.dibayMessages ||
+        notifAfter.lines.some((l) => /NotificationRecord|statusbar/i.test(l));
+      const channelOk = postDump.channelImportance == null || postDump.channelImportance >= 4;
+      const pass =
+        msg.status === 200 &&
+        msg.json?.ok === true &&
+        fcm.messageReceived &&
+        fcm.dataTypeChat &&
+        fcm.nativePosted &&
+        fcm.richNativeTitle &&
+        dumpsysVisible &&
+        channelOk &&
+        (latest?.unread === true || latest?.read_at == null) &&
+        (badgeAfter.total ?? 0) > (badgeBefore.total ?? 0);
 
-    results.push({
-      id: 5,
-      name: "lock screen",
-      pass,
-      p0Required: true,
-      msgStatus: msg.status,
-      screenLocked: locked,
-      lockNotificationVisible: notifAfter.dibayMessages > notifBefore.dibayMessages,
-      badgeBefore: badgeBefore.total,
-      badgeAfter: badgeAfter.total,
-      notifBefore: notifBefore.dibayMessages,
-      notifAfter: notifAfter.dibayMessages,
-      latestEvent: latest,
-      deliveriesSent: sentNew,
-      deliveriesRecent: deliveriesAfter.data.slice(0, 3),
-      duplicateNotification: fcm.duplicateRisk,
-      fcm,
-      verdict: pass ? "app-lock-fcm" : "app-fcm-lock",
-    });
-    log(`scenario5 PASS=${pass} badge ${badgeBefore.total}->${badgeAfter.total} notif ${notifBefore.dibayMessages}->${notifAfter.dibayMessages}`);
+      results.push({
+        id: lockCase.id,
+        name: lockCase.name,
+        pass,
+        p0Required: true,
+        p05Required: true,
+        prepare: prep,
+        msgStatus: msg.status,
+        dumpsysVisible,
+        richNativeTitle: fcm.richNativeTitle,
+        nativeTitle: fcm.nativeTitle,
+        badgeBefore: badgeBefore.total,
+        badgeAfter: badgeAfter.total,
+        notifBefore: notifBefore.dibayMessages,
+        notifAfter: notifAfter.dibayMessages,
+        deviceDump: formatDeviceDumpForReport(postDump),
+        latestEvent: latest,
+        fcm,
+        verdict: pass ? "lock-ui-pass" : dumpsysVisible ? "lock-logcat-only-fail" : "lock-ui-missing-fail",
+        manualSamsungChecklist:
+          "Samsung: 앱 알림 ON, dibay_messages_v2 ON, 잠금화면 표시, 팝업/heads-up, 배터리 최적화 제외 — 스크린샷 권장",
+      });
+      log(
+        `scenario${lockCase.id} PASS=${pass} richTitle=${fcm.richNativeTitle} dumpsysVisible=${dumpsysVisible} notif ${notifBefore.dibayMessages}->${notifAfter.dibayMessages}`
+      );
+    }
   }
 
   if (shouldRun(6)) {

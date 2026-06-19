@@ -15,6 +15,7 @@ import { resolveParticipantUnreadDeltaInAppEffects } from "@/lib/community-messe
 import { tryShowMessengerWebDesktopNotification } from "@/lib/community-messenger/notifications/messenger-web-desktop-notification";
 import { useCallStore } from "@/lib/community-messenger/stores/useCallStore";
 import { useMessengerInAppMessageBannerStore } from "@/lib/community-messenger/notifications/messenger-in-app-banner-store";
+import { resolveMessengerInAppBannerDisplay } from "@/lib/community-messenger/notifications/resolve-messenger-in-app-banner-display";
 import {
   messengerRolloutShowsInAppMessageBanner,
   messengerRolloutUsesRoomScrollHints,
@@ -110,8 +111,8 @@ export function applyCmParticipantUnreadFullEffects(args: CmParticipantUnreadFul
     }
     tryShowMessengerWebDesktopNotification({
       roomId: nextRoomId,
-      title: tRef.current("notify_messenger_banner_title"),
-      body: tRef.current("notify_messenger_new_message_arrived"),
+      title: resolveMessengerInAppBannerDisplay({ roomId: nextRoomId }).title,
+      body: resolveMessengerInAppBannerDisplay({ roomId: nextRoomId }).preview,
       nextUnread,
       prevUnread,
       activeCommunityRoomId: activeCommunityRoomIdFromPathname(pathnameRef.current),
@@ -158,18 +159,26 @@ export function applyCmParticipantUnreadFullEffects(args: CmParticipantUnreadFul
     playCoalescedChatNotificationSound(dedupeKey, "community_direct_chat");
   }
   if (messengerRolloutShowsInAppMessageBanner() && dedupeKey && showAppLevelBanner) {
+    const display = resolveMessengerInAppBannerDisplay({ roomId: nextRoomId });
     useMessengerInAppMessageBannerStore.getState().pushOrMerge({
       roomId: nextRoomId,
-      title: tRef.current("notify_messenger_banner_title"),
-      preview: tRef.current("notify_messenger_new_message_arrived"),
+      title: display.title,
+      preview: display.preview,
+      senderName: display.senderName,
+      senderAvatarUrl: display.senderAvatarUrl,
+      roomKind: display.roomKind,
+      contextLabel: display.contextLabel,
+      previewKind: display.previewKind,
+      routeUrl: display.routeUrl,
       dedupeKey,
     });
   }
+  const bannerDisplay = resolveMessengerInAppBannerDisplay({ roomId: nextRoomId });
   cmReceiveLatencyMark(key, { push_decision_ms: cmReceiveLatencyNow() });
   tryShowMessengerWebDesktopNotification({
     roomId: nextRoomId,
-    title: tRef.current("notify_messenger_banner_title"),
-    body: tRef.current("notify_messenger_new_message_arrived"),
+    title: bannerDisplay.title,
+    body: bannerDisplay.preview,
     nextUnread,
     prevUnread,
     activeCommunityRoomId: activeRoom,

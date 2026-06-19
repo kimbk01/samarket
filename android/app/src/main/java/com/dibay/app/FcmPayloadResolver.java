@@ -198,6 +198,13 @@ public final class FcmPayloadResolver {
         || "community_comment".equals(type);
   }
 
+  public static boolean isAdminNotificationType(String type) {
+    return "admin_ad".equals(type)
+        || "admin_notice".equals(type)
+        || "admin_event".equals(type)
+        || "admin_system".equals(type);
+  }
+
   private static String firstNonEmpty(String... values) {
     if (values == null) return null;
     for (String value : values) {

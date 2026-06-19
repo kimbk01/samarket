@@ -179,6 +179,7 @@ export function resolveMessengerMessageArrivalEffects(
       dedupeKey: dedupe,
       incrementRoomListUnread: true,
       incrementGlobalUnread: true,
+      showAppLevelBanner: true,
       playInAppMessageSound: soundAllowed(s),
     };
   }

@@ -160,6 +160,7 @@ import {
   type CallAudioRouteCallType,
   type CallAudioRouteRole,
 } from "@/lib/community-messenger/call-audio-route-controller";
+import { useCallControlState } from "@/lib/community-messenger/use-call-control-state";
 import { CallScreen } from "@/components/messenger/call/CallScreen";
 import type { CallActionItem, CallPhase, CallScreenViewModel } from "@/components/messenger/call/call-ui.types";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
@@ -622,19 +623,41 @@ export function CommunityMessengerCallClient({
   const [callPermissionBlocked, setCallPermissionBlocked] = useState(false);
   const [remoteVideoReady, setRemoteVideoReady] = useState(false);
   const [layoutSwapped, setLayoutSwapped] = useState(false);
-  const [camOff, setCamOff] = useState(false);
-  const [micMuted, setMicMuted] = useState(false);
-  /** 조인 직후(트랙 생성 시점)에도 최신 음소거 의도를 반영 */
-  const micMutedRef = useRef(false);
-  useEffect(() => {
-    micMutedRef.current = micMuted;
-  }, [micMuted]);
-  /** 음성: 모바일 이어피스(off)·데스크톱 스피커(on). 영상: 스피커폰(on). */
-  const [speakerEnabled, setSpeakerEnabled] = useState(() =>
-    typeof window !== "undefined" ? defaultSpeakerEnabledForCallKind("voice") : false
-  );
-  const speakerEnabledRef = useRef(false);
-  speakerEnabledRef.current = speakerEnabled;
+  const callControls = useCallControlState({
+    initial: {
+      speakerOn:
+        typeof window !== "undefined" ? defaultSpeakerEnabledForCallKind("voice") : false,
+    },
+    onToast: (toast) => {
+      const translated = t(toast.key as "cm_ui_speaker_toggle_failed");
+      showMessengerSnackbar(
+        translated === toast.key ? toast.fallbackKo : translated,
+        { variant: "error" }
+      );
+    },
+  });
+  const {
+    speakerOn: speakerEnabled,
+    micMuted,
+    cameraOff: camOff,
+    speakerOnRef: speakerEnabledRef,
+    micMutedRef,
+    cameraOffRef: camOffRef,
+    speakerApplying,
+    micApplying,
+    cameraApplying,
+    cameraSwitching: cameraSwitchApplying,
+    ending: callEnding,
+    resetControls: resetCallControls,
+    reconcileSpeakerFromRoute,
+    setSpeakerConfirmed,
+    toggleSpeaker: runCallControlSpeakerToggle,
+    toggleMic: runCallControlMicToggle,
+    toggleCamera: runCallControlCameraToggle,
+    switchCamera: runCallControlCameraSwitch,
+    beginEnd: beginCallControlEnd,
+    completeEnd: completeCallControlEnd,
+  } = callControls;
   const [callAudioRouteResult, setCallAudioRouteResult] =
     useState<CallAudioRouteApplyResult | null>(null);
   const callAudioRouteResultRef = useRef<CallAudioRouteApplyResult | null>(null);
@@ -709,18 +732,8 @@ export function CommunityMessengerCallClient({
   sessionRef.current = session;
   const syncCallAudioRouteResult = useCallback((result: CallAudioRouteApplyResult) => {
     setCallAudioRouteResult(result);
-    if (result.externalDeviceConnected) {
-      setSpeakerEnabled(false);
-      return;
-    }
-    if (result.actualRoute === "speaker") {
-      setSpeakerEnabled(true);
-      return;
-    }
-    if (result.actualRoute === "earpiece") {
-      setSpeakerEnabled(false);
-    }
-  }, []);
+    reconcileSpeakerFromRoute(result);
+  }, [reconcileSpeakerFromRoute]);
 
   const applyCallAudioRouteForSession = useCallback(
     async (
@@ -736,6 +749,7 @@ export function CommunityMessengerCallClient({
         desiredSpeaker,
         reason,
         remoteAudioTrack: opts?.remoteAudioTrack ?? remoteAudioTrackRef.current,
+        fastPath: reason.includes("speaker_toggle"),
       });
       syncCallAudioRouteResult(result);
       return result;
@@ -1142,7 +1156,7 @@ export function CommunityMessengerCallClient({
     setRemoteVideoReady(false);
     setCallAudioRouteResult(null);
     callAudioRouteSeedRef.current.clear();
-    setCamOff(false);
+    resetCallControls({ cameraOff: false, micMuted: false });
     setLayoutSwapped(false);
     cmCallVideoLogOnceRef.current = { localReady: false, remoteReady: false, pipRendered: false };
     if (!preservePreview && ringPreviewVideoRef.current) {
@@ -1209,7 +1223,7 @@ export function CommunityMessengerCallClient({
       callKindBootRef.current = { sid: session.id, kind: session.callKind };
       const nextSpeakerEnabled = defaultSpeakerEnabledForCallKind(session.callKind);
       speakerUserToggledRef.current = false;
-      setSpeakerEnabled((prev) => (prev === nextSpeakerEnabled ? prev : nextSpeakerEnabled));
+      setSpeakerConfirmed(nextSpeakerEnabled);
       setCallAudioRouteResult(null);
       return;
     }
@@ -1217,7 +1231,7 @@ export function CommunityMessengerCallClient({
       callKindBootRef.current = { sid: session.id, kind: session.callKind };
       const nextSpeakerEnabled = defaultSpeakerEnabledForCallKind(session.callKind);
       speakerUserToggledRef.current = false;
-      setSpeakerEnabled((prev) => (prev === nextSpeakerEnabled ? prev : nextSpeakerEnabled));
+      setSpeakerConfirmed(nextSpeakerEnabled);
       setCallAudioRouteResult(null);
     }
   }, [session?.id, session?.callKind]);
@@ -1242,7 +1256,7 @@ export function CommunityMessengerCallClient({
   useEffect(() => {
     if (!session) return;
     if (!isTerminalCallSessionStatus(session.status)) return;
-    setSpeakerEnabled(false);
+    setSpeakerConfirmed(false);
     setCallAudioRouteResult(null);
     void releaseNativeCallAudioRoute("terminal_session");
   }, [session?.id, session?.status]);
@@ -1610,9 +1624,7 @@ export function CommunityMessengerCallClient({
         if (largeVideoRef.current) largeVideoRef.current.innerHTML = "";
         if (smallVideoRef.current) smallVideoRef.current.innerHTML = "";
         setLayoutSwapped(false);
-        setCamOff(false);
-        setMicMuted(false);
-        micMutedRef.current = false;
+        resetCallControls({ cameraOff: false, micMuted: false });
         useRearFacingRef.current = false;
         setLastMileLine(t("cm_ui_network_quality_checking"));
         setLastMileWorst(0);
@@ -1629,7 +1641,7 @@ export function CommunityMessengerCallClient({
         afterAgora: () => {
           /** 종료·나가기 후 스피커 라우트 UI 가 ‘켜짐’으로 남는 것 방지 */
           if (ownsCurrentMedia) {
-            setSpeakerEnabled(false);
+            setSpeakerConfirmed(false);
             setCallAudioRouteResult(null);
             void releaseNativeCallAudioRoute("call_client_cleanup");
           }
@@ -2089,6 +2101,45 @@ export function CommunityMessengerCallClient({
     return ok;
   }, []);
 
+  const syncLocalVideoDomLight = useCallback((cameraOffNow: boolean) => {
+    const videoTrack = localTracksRef.current?.videoTrack ?? null;
+    const s = sessionRef.current;
+    if (!s || s.callKind !== "video") return;
+    const soloLocalFull = shouldUseSoloLocalFullVideoLayout({
+      callKind: s.callKind,
+      sessionStatus: s.status,
+      joined: joinedRef.current,
+      remoteJoined: remoteJoinedRef.current,
+      isInitiator: s.isMineInitiator,
+    });
+    const pipFirstLocalSlot = shouldUsePipFirstLocalSlot(
+      buildVideoPipFirstPolicyArgs({
+        session: s,
+        joined: joinedRef.current,
+        remoteJoined: remoteJoinedRef.current,
+      })
+    );
+    const sm = smallVideoRef.current;
+    const lg = largeVideoRef.current;
+    const localEl = getLocalVideoMountTarget({
+      pipFirstLocalSlot,
+      layoutSwapped: layoutSwappedRef.current,
+      soloLocalFull,
+      smallEl: sm,
+      largeEl: lg,
+    });
+    if (!localEl) return;
+    if (cameraOffNow || !videoTrack?.enabled) {
+      clearLocalVideoContainer(localEl);
+      setLocalVideoReady(true);
+      setLocalVideoPlayBlocked(false);
+      return;
+    }
+    reapplyAgoraVideoTrack(videoTrack, localEl, { fit: "cover", mirror: true });
+    setLocalVideoReady(true);
+    setLocalVideoPlayBlocked(false);
+  }, []);
+
   const bindRemoteVideoTrack = useCallback(
     async (track: IRemoteVideoTrack | null) => {
       remoteVideoTrackRef.current?.stop();
@@ -2289,112 +2340,128 @@ export function CommunityMessengerCallClient({
         })
       );
     if (!v && pipFirstOutgoing) {
-      setBusy("camera");
-      try {
+      await runCallControlCameraSwitch(async () => {
         useRearFacingRef.current = !useRearFacingRef.current;
         const prime = await primeOutgoingCallMediaBeforeNavigate("video");
         if (prime.ok) {
           heldPreJoinVideoPreviewRef.current =
             peekPrimedCommunityMessengerDeviceStream("video") ?? heldPreJoinVideoPreviewRef.current;
         }
-      } finally {
-        setBusy(null);
-      }
+        return prime.ok;
+      });
       return;
     }
     if (!v || !isCommunityMessengerCameraSwitchSupported(v)) return;
-    console.info("[cm-call-video] camera_switch_start", { sessionId: sessionRef.current?.id?.slice(-8) });
-    setBusy("camera");
-    try {
-      const next = await switchCommunityMessengerCameraFacing({
-        videoTrack: v,
-        useRearFacingRef,
-        client: clientRef.current,
-        onReplacedVideoTrack: (replaced) => {
-          const tracks = localTracksRef.current;
-          if (tracks) {
-            localTracksRef.current = { ...tracks, videoTrack: replaced };
-          }
-        },
-        onAfterSwitch: async () => {
-          await bindLocalVideoTrack();
-        },
+    await runCallControlCameraSwitch(async () => {
+      console.info("[cm-call-video] camera_switch_start", {
+        sessionId: sessionRef.current?.id?.slice(-8),
       });
-      const tracks = localTracksRef.current;
-      if (tracks && tracks.videoTrack !== next) {
-        localTracksRef.current = { ...tracks, videoTrack: next };
+      try {
+        const next = await switchCommunityMessengerCameraFacing({
+          videoTrack: v,
+          useRearFacingRef,
+          client: clientRef.current,
+          onReplacedVideoTrack: (replaced) => {
+            const tracks = localTracksRef.current;
+            if (tracks) {
+              localTracksRef.current = { ...tracks, videoTrack: replaced };
+            }
+          },
+          onAfterSwitch: async () => {
+            syncLocalVideoDomLight(camOffRef.current);
+          },
+        });
+        const tracks = localTracksRef.current;
+        if (tracks && tracks.videoTrack !== next) {
+          localTracksRef.current = { ...tracks, videoTrack: next };
+        }
+        setCameraSwitchSupported(isCommunityMessengerCameraSwitchSupported(next));
+        console.info("[cm-call-video] camera_switch_done", {
+          sessionId: sessionRef.current?.id?.slice(-8),
+        });
+        return true;
+      } catch {
+        return false;
       }
-      setCameraSwitchSupported(isCommunityMessengerCameraSwitchSupported(next));
-    } finally {
-      console.info("[cm-call-video] camera_switch_done", { sessionId: sessionRef.current?.id?.slice(-8) });
-      setBusy(null);
-    }
-  }, [bindLocalVideoTrack]);
+    });
+  }, [runCallControlCameraSwitch, syncLocalVideoDomLight]);
 
   const toggleCamEnabled = useCallback(async () => {
-    const v = localTracksRef.current?.videoTrack;
-    const client = clientRef.current;
-    if (!v) {
-      setCamOff((prev) => !prev);
-      return;
-    }
-    const nextOff = !camOff;
-    setCamOff(nextOff);
-    try {
-      if (nextOff) {
-        if (client) {
-          try {
-            await client.unpublish([v]);
-          } catch {
-            /* already unpublished */
+    await runCallControlCameraToggle(async (nextOff) => {
+      const v = localTracksRef.current?.videoTrack;
+      const client = clientRef.current;
+      if (!v) return true;
+      try {
+        if (nextOff) {
+          if (client) {
+            try {
+              await client.unpublish([v]);
+            } catch {
+              /* already unpublished */
+            }
+          }
+          await v.setEnabled(false);
+        } else {
+          await v.setEnabled(true);
+          if (client) {
+            try {
+              await client.publish([v]);
+            } catch {
+              return false;
+            }
           }
         }
-        await v.setEnabled(false);
-      } else {
-        await v.setEnabled(true);
-        if (client) {
-          try {
-            await client.publish([v]);
-          } catch {
-            /* retry on next tap */
-          }
-        }
+        syncLocalVideoDomLight(nextOff);
+        return true;
+      } catch {
+        return false;
       }
-      void bindLocalVideoTrack();
-    } catch {
-      setCamOff(!nextOff);
-    }
-  }, [bindLocalVideoTrack, camOff]);
+    });
+  }, [runCallControlCameraToggle, syncLocalVideoDomLight]);
 
   const toggleMicEnabled = useCallback(async () => {
-    const a = localTracksRef.current?.audioTrack;
-    const nextMuted = !micMuted;
-    micMutedRef.current = nextMuted;
-    setMicMuted(nextMuted);
-    if (!a) return;
-    try {
-      await a.setEnabled(!nextMuted);
-    } catch {
-      micMutedRef.current = !nextMuted;
-      setMicMuted(!nextMuted);
-    }
-  }, [micMuted]);
+    await runCallControlMicToggle(async (nextMuted) => {
+      const a = localTracksRef.current?.audioTrack;
+      if (!a) {
+        if (nextMuted) return true;
+        showMessengerSnackbar(t("cm_ui_mic_permission_required"), { variant: "error" });
+        return false;
+      }
+      try {
+        await a.setEnabled(!nextMuted);
+        return a.enabled === !nextMuted;
+      } catch {
+        return false;
+      }
+    });
+  }, [runCallControlMicToggle, t]);
 
   const toggleSpeakerEnabled = useCallback(() => {
     const s = sessionRef.current;
     if (!s) return;
-    const next = !speakerEnabledRef.current;
     speakerUserToggledRef.current = true;
-    void applyCallAudioRouteForSession(s, next, "speaker_toggle").then((result) => {
-      if (result.externalDeviceConnected) {
-        showMessengerSnackbar(t("cm_ui_bluetooth_route_hint"));
-        return;
-      }
-      if (result.actualRoute === "unknown" && typeof window !== "undefined" && !("setSinkId" in HTMLMediaElement.prototype)) {
+    void runCallControlSpeakerToggle(async (desiredSpeaker) => {
+      const result = await applyCallAudioRoute({
+        callId: s.id,
+        callType: callAudioRouteTypeForKind(s.callKind),
+        role: callAudioRouteRoleForSession(s),
+        desiredSpeaker,
+        reason: "speaker_toggle",
+        remoteAudioTrack: remoteAudioTrackRef.current,
+        fastPath: true,
+      });
+      setCallAudioRouteResult(result);
+      await applyAgoraRemoteSpeakerPreference(remoteAudioTrackRef.current, desiredSpeaker);
+      if (
+        result.actualRoute === "unknown" &&
+        typeof window !== "undefined" &&
+        !("setSinkId" in HTMLMediaElement.prototype)
+      ) {
         showMessengerSnackbar(t("cm_ui_speaker_route_browser_limited"));
       }
+      return result;
     });
-  }, [applyCallAudioRouteForSession, t]);
+  }, [applyCallAudioRoute, runCallControlSpeakerToggle, t]);
 
   useEffect(() => {
     if (!joined) return;
@@ -3332,6 +3399,7 @@ export function CommunityMessengerCallClient({
     if (!session) return;
     if (isTerminalCallSessionStatus(session.status)) return;
     if (directCallPatchInFlightRef.current) return;
+    if (!beginCallControlEnd()) return;
     directCallPatchInFlightRef.current = true;
     stopCommunityMessengerCallFeedback();
     stopCommunityMessengerCallTone();
@@ -3448,12 +3516,15 @@ export function CommunityMessengerCallClient({
       } finally {
         setBusy(null);
         directCallPatchInFlightRef.current = false;
+        completeCallControlEnd();
       }
     })();
   }, [
     applyTerminalSessionAfterPatch,
     appendTerminalCallHistory,
+    beginCallControlEnd,
     beginRingingCallDismiss,
+    completeCallControlEnd,
     disposeCallMedia,
     elapsedSeconds,
     router,
@@ -3608,7 +3679,7 @@ export function CommunityMessengerCallClient({
       setCameraSwitchSupported(isCommunityMessengerCameraSwitchSupported(videoTrack));
       setSession(json.session);
       speakerUserToggledRef.current = false;
-      setSpeakerEnabled(true);
+      setSpeakerConfirmed(true);
       void applyCallAudioRouteForSession(json.session, true, "upgrade_to_video");
       markCommunityMessengerMediaTrustedOnce(json.session.callKind);
       void bindLocalVideoTrack();
@@ -3756,7 +3827,7 @@ export function CommunityMessengerCallClient({
         }
         setSession(json.session);
         speakerUserToggledRef.current = false;
-        setSpeakerEnabled(true);
+        setSpeakerConfirmed(true);
         void applyCallAudioRouteForSession(json.session, true, "ringing_upgrade_to_video");
         showMessengerSnackbar(t("cm_ui_switched_to_video_snackbar"));
       } finally {
@@ -3841,12 +3912,11 @@ export function CommunityMessengerCallClient({
         return;
       }
       setSession(json.session);
-      setCamOff(false);
+      resetCallControls({ cameraOff: false, micMuted: micMutedRef.current, speakerOn: false });
       setLayoutSwapped(false);
       autoVideoPublishAttemptedRef.current = null;
       void bindLocalVideoTrack();
       speakerUserToggledRef.current = false;
-      setSpeakerEnabled(false);
       void applyCallAudioRouteForSession(json.session, false, "downgrade_to_voice");
       showMessengerSnackbar(t("cm_ui_switched_to_voice_snackbar"));
     } catch (e) {
@@ -4878,8 +4948,7 @@ export function CommunityMessengerCallClient({
   const terminalFailureRequiresUserDismiss =
     session.status === "ended" &&
     Boolean(session.endedReason && isMessengerCallClientFailureReason(session.endedReason));
-  const externalAudioDeviceConnected = callAudioRouteResult?.externalDeviceConnected === true;
-  const speakerActionDisabled = externalAudioDeviceConnected || busy === "upgrade";
+  const speakerActionDisabled = busy === "upgrade";
 
   const primaryActions: CallActionItem[] = [];
   const secondaryActions: CallActionItem[] = [];
@@ -4908,6 +4977,7 @@ export function CommunityMessengerCallClient({
         label: t("cm_ui_speaker"),
         icon: "speaker",
         active: speakerEnabled,
+        applying: speakerApplying,
         disabled: speakerActionDisabled,
         onClick: toggleSpeakerEnabled,
       },
@@ -4916,7 +4986,7 @@ export function CommunityMessengerCallClient({
         label: t("cm_ui_video_short"),
         icon: "video",
         active: session.callKind === "video",
-        disabled: busy === "upgrade" || busy === "end",
+        disabled: busy === "upgrade" || callEnding,
         onClick: () => void requestUpgradeToVideo(),
       },
       {
@@ -4924,15 +4994,16 @@ export function CommunityMessengerCallClient({
         label: micMuted ? t("cm_ui_unmute") : t("cm_ui_mute"),
         icon: "mic",
         active: !micMuted,
-        disabled: !joined || busy === "end",
+        applying: micApplying,
+        disabled: !joined || callEnding,
         onClick: () => void toggleMicEnabled(),
       },
       {
         id: "end",
-        label: busy === "end" ? t("cm_ui_cancel_call_in_progress") : t("cm_ui_end_call"),
+        label: callEnding ? t("cm_ui_cancel_call_in_progress") : t("cm_ui_end_call"),
         icon: "end",
         tone: "danger",
-        disabled: busy === "end",
+        disabled: callEnding,
         onClick: () => void endCall(),
       }
     );
@@ -4968,7 +5039,8 @@ export function CommunityMessengerCallClient({
           id: "switch-camera",
           label: t("cm_ui_switch_camera"),
           icon: "camera-switch",
-          disabled: !localVideoReady || busy === "camera",
+          disabled: !localVideoReady || cameraSwitchApplying,
+          applying: cameraSwitchApplying,
           onClick: () => void switchCameraFacing(),
         });
       }
@@ -4978,6 +5050,7 @@ export function CommunityMessengerCallClient({
           label: t("cm_ui_speaker"),
           icon: "speaker",
           active: speakerEnabled,
+          applying: speakerApplying,
           disabled: speakerActionDisabled,
           onClick: toggleSpeakerEnabled,
         },
@@ -4986,6 +5059,7 @@ export function CommunityMessengerCallClient({
           label: t("cm_ui_video_short"),
           icon: "camera",
           active: !camOff,
+          applying: cameraApplying,
           disabled: !mediaReady || busy === "join" || busy === "upgrade",
           onClick: () => void toggleCamEnabled(),
         },
@@ -4994,22 +5068,23 @@ export function CommunityMessengerCallClient({
           label: micMuted ? t("cm_ui_unmute") : t("cm_ui_mute"),
           icon: "mic",
           active: !micMuted,
+        applying: micApplying,
           disabled: busy === "join" || busy === "upgrade" || busy === "accept",
           onClick: () => void toggleMicEnabled(),
         },
         {
           id: "end",
-          label: busy === "end" ? t("cm_ui_ending_call") : t("cm_ui_end_call"),
+          label: callEnding ? t("cm_ui_ending_call") : t("cm_ui_end_call"),
           icon: "end",
           tone: "danger",
-          disabled: busy === "end",
+          disabled: callEnding,
           onClick: () => void endCall(),
         }
       );
     } else {
       const switchCameraDisabled = pipFirstOutgoing
-        ? !hasLocalPreviewOrTrack || busy === "camera"
-        : !mediaReady || !cameraSwitchSupported || busy === "camera";
+        ? !hasLocalPreviewOrTrack || cameraSwitchApplying
+        : !mediaReady || !cameraSwitchSupported || cameraSwitchApplying;
       const cameraToggleDisabled = pipFirstOutgoing
         ? !hasLocalPreviewOrTrack || busy === "join" || busy === "upgrade"
         : !mediaReady || busy === "join" || busy === "upgrade";
@@ -5019,6 +5094,7 @@ export function CommunityMessengerCallClient({
           label: t("cm_ui_speaker"),
           icon: "speaker",
           active: speakerEnabled,
+          applying: speakerApplying,
           disabled: speakerActionDisabled,
           onClick: toggleSpeakerEnabled,
         },
@@ -5026,6 +5102,7 @@ export function CommunityMessengerCallClient({
           id: "switch-camera",
           label: t("cm_ui_switch_camera"),
           icon: "camera-switch",
+          applying: cameraSwitchApplying,
           disabled: switchCameraDisabled,
           onClick: () => void switchCameraFacing(),
         },
@@ -5034,6 +5111,7 @@ export function CommunityMessengerCallClient({
           label: t("cm_ui_video_short"),
           icon: "camera",
           active: !camOff,
+          applying: cameraApplying,
           disabled: cameraToggleDisabled,
           onClick: () => void toggleCamEnabled(),
         },
@@ -5042,15 +5120,16 @@ export function CommunityMessengerCallClient({
           label: micMuted ? t("cm_ui_unmute") : t("cm_ui_mute"),
           icon: "mic",
           active: !micMuted,
+          applying: micApplying,
           disabled: busy === "join" || busy === "upgrade",
           onClick: () => void toggleMicEnabled(),
         },
         {
           id: "end",
-          label: busy === "end" ? t("cm_ui_ending_call") : t("cm_ui_end_call"),
+          label: callEnding ? t("cm_ui_ending_call") : t("cm_ui_end_call"),
           icon: "end",
           tone: "danger",
-          disabled: busy === "end",
+          disabled: callEnding,
           onClick: () => void endCall(),
         }
       );
@@ -5062,6 +5141,7 @@ export function CommunityMessengerCallClient({
         label: t("cm_ui_speaker"),
         icon: "speaker",
         active: speakerEnabled,
+        applying: speakerApplying,
         disabled: speakerActionDisabled,
         onClick: toggleSpeakerEnabled,
       },
@@ -5075,6 +5155,7 @@ export function CommunityMessengerCallClient({
           busy === "join" ||
           busy === "upgrade" ||
           busy === "end" ||
+          callEnding ||
           (session.status === "ringing" ? !session.isMineInitiator : !(joined && session.status === "active")),
         onClick: () => void requestUpgradeToVideo(),
       },
@@ -5083,15 +5164,16 @@ export function CommunityMessengerCallClient({
         label: micMuted ? t("cm_ui_unmute") : t("cm_ui_mute"),
         icon: "mic",
         active: !micMuted,
+        applying: micApplying,
         disabled: busy === "join" || busy === "upgrade",
         onClick: () => void toggleMicEnabled(),
       },
       {
         id: "end",
-        label: busy === "end" ? t("cm_ui_ending_call") : t("cm_ui_end_call"),
+        label: callEnding ? t("cm_ui_ending_call") : t("cm_ui_end_call"),
         icon: "end",
         tone: "danger",
-        disabled: busy === "end",
+        disabled: callEnding,
         onClick: () => void endCall(),
       }
     );
@@ -5390,7 +5472,7 @@ export function CommunityMessengerCallClient({
       {showCallerInsecureGateOverlay ? (
         <CallerInsecureGateOverlay
           onClose={() => void endCall()}
-          closeBusy={busy === "end"}
+          closeBusy={callEnding}
         />
       ) : null}
     </div>

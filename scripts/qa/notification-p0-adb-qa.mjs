@@ -16,6 +16,14 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
+import {
+  dumpDeviceNotificationSettings,
+  formatDeviceDumpForReport,
+} from "./notification-device-settings-dump.mjs";
+import {
+  assertApkForeground,
+  launchApkMessenger,
+} from "./notification-apk-launch.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const ADB = process.env.ADB_PATH || `${process.env.HOME}/Library/Android/sdk/platform-tools/adb`;
@@ -185,9 +193,17 @@ async function queryDeliveries(limit = 5) {
 function dibayMessageNotifications(serial) {
   const text = adb(serial, "shell", "dumpsys", "notification", "--noredact");
   const hits = text.split("\n").filter(
-    (l) => l.includes("com.dibay.app") && (l.includes("dibay_messages") || l.includes("StatusBarNotification"))
+    (l) =>
+      l.includes("com.dibay.app") &&
+      (l.includes("dibay_messages") || l.includes("StatusBarNotification"))
   );
   return { count: hits.length, samples: hits.slice(-8) };
+}
+
+function logDeviceNotificationDump(serial, label) {
+  log(`=== device notification dump (${label}) serial=${serial} ===`);
+  const dump = dumpDeviceNotificationSettings(serial, (line) => log(line));
+  return formatDeviceDumpForReport(dump);
 }
 
 function analyzeFcmLogcat(serial) {
@@ -260,8 +276,7 @@ async function runFcmKillScenario(id, name, prepKill, authA, authB) {
   const t0 = Date.now();
   adb(SERIAL_B, "logcat", "-c");
   const notifBefore = dibayMessageNotifications(SERIAL_B);
-  adb(SERIAL_B, "shell", "am", "start", "-n", ACT);
-  adb(SERIAL_B, "shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", `${PROD}/community-messenger`);
+  launchApkMessengerHome(SERIAL_B, `scenario-${id}`);
   await sleep(5000);
   const badgeBefore = await badgeCountForB(authB);
   await prepKill();
@@ -354,6 +369,17 @@ function logcatDump(serial) {
   return adb(serial, "logcat", "-d", "-s", ...TAGS.split(" "));
 }
 
+function launchApkMessengerHome(serial, label = "messenger") {
+  launchApkMessenger(spawnSync, ADB, serial);
+  try {
+    assertApkForeground(spawnSync, ADB, serial);
+    log(`launch OK (${label}): dibay://app/community-messenger → ${PKG}`);
+  } catch (e) {
+    log(`launch FAIL (${label}): ${e.message}`);
+    throw e;
+  }
+}
+
 function deviceBatteryNote(serial) {
   const dumpsys = adb(serial, "shell", "dumpsys", "deviceidle");
   const whitelist = /whitelisted=.*com\.dibay\.app/i.test(dumpsys);
@@ -364,8 +390,7 @@ function deviceBatteryNote(serial) {
 function launchAppsForRelogin() {
   log("device prep: launch app + messenger home (A/B re-login if session stale)");
   for (const serial of [SERIAL_A, SERIAL_B]) {
-    adb(serial, "shell", "am", "start", "-n", ACT);
-    adb(serial, "shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", `${PROD}/community-messenger`);
+    launchApkMessengerHome(serial, "relogin");
   }
 }
 
@@ -487,10 +512,23 @@ async function main() {
     process.exit(1);
   }
 
+  const deviceDumpB = logDeviceNotificationDump(SERIAL_B, "preflight-B");
+  const deviceDumpA = logDeviceNotificationDump(SERIAL_A, "preflight-A");
+
   if (PREFLIGHT_ONLY) {
     fs.writeFileSync(
       OUT_JSON,
-      JSON.stringify({ at: new Date().toISOString(), preflight: pre, authPreflight, preflightOnly: true }, null, 2)
+      JSON.stringify(
+        {
+          at: new Date().toISOString(),
+          preflight: pre,
+          authPreflight,
+          deviceDump: { A: deviceDumpA, B: deviceDumpB },
+          preflightOnly: true,
+        },
+        null,
+        2
+      )
     );
     log("P0_PREFLIGHT_ONLY=1 — auth preflight PASS, exiting before scenarios");
     process.exit(0);
@@ -511,9 +549,7 @@ async function main() {
   // Scenario 1 — B in app, outside room
   if (shouldRunScenario(1)) {
   log("--- scenario 1: in-app outside room ---");
-  adb(SERIAL_B, "shell", "am", "start", "-n", ACT);
-  await sleep(2000);
-  adb(SERIAL_B, "shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", `${PROD}/community-messenger`);
+  launchApkMessengerHome(SERIAL_B, "scenario-1");
   await sleep(3000);
   const beforeEvents = await queryEvents(5);
   const badge1Before = await badgeCountForB(authB);

@@ -21,6 +21,7 @@ import {
 } from "@/lib/community-messenger/realtime/messenger-realtime-client-activity-ref";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
+import { recordMessengerInAppBannerMessageHint } from "@/lib/community-messenger/notifications/messenger-in-app-banner-message-cache";
 import {
   publishMessengerHomeRealtimeMapSnapshot,
   recordMessengerHomeRealtimeReactListenerGaugeDelta,
@@ -299,6 +300,8 @@ function notifyMessengerHomeRealtimeMessageInsert(args: {
   const createdAt = typeof row.created_at === "string" ? row.created_at.trim() : "";
   const viewer = args.viewerUserId.trim();
   if (!roomNorm || !viewer) return;
+
+  recordMessengerInAppBannerMessageHint(roomRaw, row);
 
   const routeRoomId =
     typeof window !== "undefined"

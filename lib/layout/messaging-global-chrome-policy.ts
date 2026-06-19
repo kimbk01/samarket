@@ -20,7 +20,6 @@ export function resolveMessagingGlobalChromeFromPath(
   regionBarInLayout: boolean
 ): { stableKey: string; policy: MessagingGlobalChromePolicy } {
   const f = resolveConditionalAppShellFlags(pathname, regionBarInLayout);
-  const messengerSurface = f.isCommunityMessengerSurface && !f.isCommunityMessengerCallPage;
   /**
    * 상단 알림 벨 Realtime — `mountGlobalRealtimeChrome` 만 켜면 `/community`·`/market` 등에서 구독이 꺼진다.
    * 메신저 participants 는 `MainShellMessengerParticipantBridge` 가 항상 켜므로 여기서는 알림 테이블만 확장한다.
@@ -33,18 +32,19 @@ export function resolveMessagingGlobalChromeFromPath(
   const mountMainShellNotificationsRealtime = !f.isCommunityMessengerCallPage;
 
   /**
-   * 참가자 브리지(`useMessageNotificationBridge`) 재생 모드 — 경로별 분리.
-   * - 허브: `messengerSurface` 이고 `/community-messenger/rooms/[roomId]` 가 아님 → `full`(인앱 사운드·배너·데스크톱 등).
-   * - 방: `f.isCommunityMessengerRoom` → `hub_sync_only` — participants Realtime·`cm.room.bump`·배지 리싱크는 동일,
-   *   `full` 전용 분기(글로벌 사운드/배너/데스크톱 해석)만 축소 (`use-message-notification-bridge` 주석과 동일 계약).
+   * 참가자 브리지 재생 모드 — **방 내부만** `hub_sync_only`.
+   * - `/market`·`/community` 등 앱 전역: `full` (인앱 배너·사운드·rich 표시).
+   * - `/community-messenger/rooms/[roomId]`: 동일 방 suppress 는 정책 함수가 담당, 브리지는 bump·배지만.
    */
-  const isCommunityMessengerHubPlayback = messengerSurface && !f.isCommunityMessengerRoom;
+  const inCommunityMessengerRoom = f.isCommunityMessengerRoom;
   const communityMessengerParticipantPlayback: MessageNotificationBridgePlayback =
-    isCommunityMessengerHubPlayback ? "full" : "hub_sync_only";
+    inCommunityMessengerRoom ? "hub_sync_only" : "full";
 
-  /** 방 화면은 대화 UI가 주 표면 — 허브용 인앱 배너 호스트는 마운트하지 않는다. */
+  /** 방 화면은 대화 UI가 주 표면 — 인앱 top banner 호스트는 마운트하지 않는다. */
   const mountMessengerInAppBannerHost =
-    messengerRolloutShowsInAppMessageBanner() && isCommunityMessengerHubPlayback;
+    messengerRolloutShowsInAppMessageBanner() &&
+    !inCommunityMessengerRoom &&
+    !f.isCommunityMessengerCallPage;
 
   const stableKey = [
     f.mountGlobalRealtimeChrome ? "1" : "0",

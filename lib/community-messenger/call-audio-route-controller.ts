@@ -21,6 +21,8 @@ export type CallAudioRouteApplyArgs = {
   desiredSpeaker: boolean;
   reason: string;
   remoteAudioTrack?: IRemoteAudioTrack | null;
+  /** 사용자 탭 토글 — verify 지연·재시도 생략(100ms UI 반응 우선) */
+  fastPath?: boolean;
 };
 
 export type CallAudioRouteApplyResult = DibayCallAudioRouteResult;
@@ -114,7 +116,8 @@ export async function applyCallAudioRoute(
     ...nativeResult,
   });
 
-  for (const delayMs of VERIFY_DELAYS_MS) {
+  const verifyDelays = args.fastPath ? ([] as const) : VERIFY_DELAYS_MS;
+  for (const delayMs of verifyDelays) {
     await wait(delayMs);
     const current = await getNativeCallAudioRoute();
     logCallAudioRoute("verify_after_join", {

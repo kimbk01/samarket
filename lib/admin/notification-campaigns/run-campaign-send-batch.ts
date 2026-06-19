@@ -1,4 +1,8 @@
-import { appendUserNotification } from "@/lib/notifications/append-user-notification";
+import {
+  adminCampaignTypeToEventType,
+  buildAdminCampaignDedupeKey,
+} from "@/lib/notifications/display/build-admin-ad-notification-display";
+import { notifyAdminAdPipeline } from "@/lib/notifications/pipeline/notify-admin-ad-pipeline";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const NOTIFICATION_CAMPAIGN_BATCH_SIZE = 120;
@@ -241,20 +245,19 @@ export async function runNotificationCampaignSendBatch(
     }
 
     try {
-      const ok = await appendUserNotification(svc, {
-        user_id: userId,
-        notification_type: "system",
+      const eventType = adminCampaignTypeToEventType(campaign.type);
+      const result = await notifyAdminAdPipeline(svc, {
+        userId,
+        eventType,
         title: campaign.title,
         body: campaign.body,
-        link_url: campaign.target_url,
-        push_kind: pushKind,
-        image_url: campaign.image_url,
-        meta: {
-          push_kind: pushKind,
-          admin_campaign_id: campaign.id,
-        },
+        routeUrl: campaign.target_url,
+        imageUrl: campaign.image_url,
+        dedupeKey: buildAdminCampaignDedupeKey(campaign.id, userId),
+        pushKind: pushKind as "marketing" | "notice" | "system",
+        campaignId: campaign.id,
       });
-      if (!ok) {
+      if (!result.ok) {
         failed += 1;
         const reason = "append_failed";
         if (campaign.target_type === "selected_users") {

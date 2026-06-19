@@ -7,9 +7,26 @@ export const NOTIFICATION_EVENT_TYPES = [
   "store_order_message",
   "missed_call",
   "incoming_call",
+  "admin_ad",
+  "admin_notice",
+  "admin_event",
+  "admin_system",
 ] as const;
 
 export type NotificationEventType = (typeof NOTIFICATION_EVENT_TYPES)[number];
+
+export const ADMIN_NOTIFICATION_EVENT_TYPES = [
+  "admin_ad",
+  "admin_notice",
+  "admin_event",
+  "admin_system",
+] as const;
+
+export type AdminNotificationEventType = (typeof ADMIN_NOTIFICATION_EVENT_TYPES)[number];
+
+export function isAdminNotificationEventType(type: string): type is AdminNotificationEventType {
+  return (ADMIN_NOTIFICATION_EVENT_TYPES as readonly string[]).includes(type);
+}
 
 export const NOTIFICATION_EVENT_CATEGORIES = [
   "chat",
@@ -18,6 +35,10 @@ export const NOTIFICATION_EVENT_CATEGORIES = [
   "store",
   "missed_call",
   "call",
+  "admin_ad",
+  "admin_notice",
+  "admin_event",
+  "admin_system",
 ] as const;
 
 export type NotificationEventCategory = (typeof NOTIFICATION_EVENT_CATEGORIES)[number];
