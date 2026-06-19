@@ -70,7 +70,13 @@ export type MessengerHubBadgeResyncReason =
   | "trade_chat_entry_room_ready"
   | "sender_echo_room_missing"
   | "mark_all_read_cross_tab"
-  | "call_logs_viewed";
+  | "call_logs_viewed"
+  /** `POST /api/me/notifications/read` — 알림 탭·딥링크 */
+  | "notification_opened"
+  /** `POST /api/me/notifications/room-read` */
+  | "room_read"
+  /** `POST /api/me/notifications/missed-call-read` (방·세션 단위) */
+  | "missed_call_read";
 
 export type MessengerHubBadgeResyncDetail = {
   source: "community_messenger";

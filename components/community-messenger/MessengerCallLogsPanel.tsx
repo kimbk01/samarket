@@ -18,6 +18,7 @@ import {
   normalizeCommunityMessengerCallLogs,
 } from "@/lib/community-messenger/call-log-row-copy";
 import { launchOutgoingDirectCall } from "@/lib/community-messenger/call-session-navigation-seed";
+import { postNotificationCallLogsMissedCallsRead } from "@/lib/notifications/client/notification-event-read-client";
 import {
   beginCallHistoryFetchSequence,
   commitCallHistoryFetchSequence,
@@ -155,6 +156,23 @@ export function MessengerCallLogsPanel({
     viewerUserId: resolvedViewerUserId,
     onRefetch: refetchCallLogsFromServer,
   });
+
+  const missedCallReadFingerprint = useMemo(
+    () =>
+      calls
+        .filter((c) => c.status === "missed")
+        .map((c) => c.id)
+        .sort()
+        .join(","),
+    [calls]
+  );
+  const lastMissedCallReadFingerprintRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!missedCallReadFingerprint) return;
+    if (lastMissedCallReadFingerprintRef.current === missedCallReadFingerprint) return;
+    lastMissedCallReadFingerprintRef.current = missedCallReadFingerprint;
+    void postNotificationCallLogsMissedCallsRead();
+  }, [missedCallReadFingerprint]);
 
   useEffect(() => {
     if (callsHydrating) {

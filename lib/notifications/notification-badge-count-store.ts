@@ -84,6 +84,25 @@ export function requestNotificationBadgeCountResync(reason?: string): void {
   if (reason) logNotifyBadge("ui_set", { resync: reason });
 }
 
+/** 읽음 mutation 직후 서버 fetch 전 로컬 missedCall 감소 — stale fetch 가 되살리지 않게 */
+export function patchNotificationBadgeCountSnapshot(next: NotificationBadgeCount): void {
+  if (!snap) {
+    setSnap(next);
+    return;
+  }
+  if (
+    snap.total === next.total &&
+    snap.chat === next.chat &&
+    snap.group === next.group &&
+    snap.trade === next.trade &&
+    snap.store === next.store &&
+    snap.missedCall === next.missedCall
+  ) {
+    return;
+  }
+  setSnap(next);
+}
+
 export function resetNotificationBadgeCountStoreForTests(): void {
   snap = null;
   listeners.clear();

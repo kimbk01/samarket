@@ -1,10 +1,6 @@
 import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 import type { BottomNavIconKey } from "@/lib/main-menu/bottom-nav-config";
 import {
-  getNotificationBadgeCountSnapshot,
-  subscribeNotificationBadgeCount,
-} from "@/lib/notifications/notification-badge-count-store";
-import {
   OWNER_HUB_BADGE_EMPTY,
   type OwnerHubBadgeBreakdown,
 } from "@/lib/chats/owner-hub-badge-types";
@@ -13,10 +9,13 @@ import {
   getOwnerHubBadgeSnapshot,
   subscribeOwnerHubBadge,
 } from "@/lib/chats/owner-hub-badge-store";
+import {
+  resolveMessengerChatTabBadgeCount,
+  subscribeMessengerChatTabBadge,
+} from "@/lib/notifications/messenger-chat-tab-badge";
 import { resolveBottomNavTradeTabBadgeCount } from "@/lib/notifications/samarket-messenger-notification-regulations";
 import { useOwnerLiteHasPreferredStore } from "@/lib/stores/use-owner-lite-store";
 import {
-  resolveBottomNavMessengerTabBadgeForOwnerStore,
   resolveBottomNavStoresTabBadgeForOwnerStore,
 } from "@/lib/stores/owner-store-badge-display-policy";
 import { bumpMessengerRenderPerf } from "@/lib/runtime/samarket-runtime-debug";
@@ -55,16 +54,8 @@ function tabUnreadFromBreakdown(
   hasOwnerStore: boolean
 ): number {
   switch (icon) {
-    case "chat": {
-      const eventsSnap = getNotificationBadgeCountSnapshot();
-      if (eventsSnap) {
-        return resolveBottomNavMessengerTabBadgeForOwnerStore(
-          { ...s, communityMessengerUnread: eventsSnap.total },
-          hasOwnerStore
-        );
-      }
-      return resolveBottomNavMessengerTabBadgeForOwnerStore(s, hasOwnerStore);
-    }
+    case "chat":
+      return resolveMessengerChatTabBadgeCount(hasOwnerStore, s);
     case "trade":
       return resolveBottomNavTradeTabBadgeCount(s);
     case "community":
@@ -80,30 +71,22 @@ function tabUnreadFromBreakdown(
  * 하단 탭 한 칸만 구독 — 배지 API 갱신 시 해당 필드가 바뀐 탭만 리렌더.
  * 숫자 정의는 `samarket-messenger-notification-regulations.ts`.
  *
- * 메신저(`chat`) 탭은 Zustand 와 별도 소스를 쓰지 않고 **허브 스냅샷 단일 경로**만 사용한다.
- * (`applyCommunityMessengerUnreadOptimistic` 가 CM 미읽음 방 개수를 즉시 패치 — 헤더 종과 교차 일치)
+ * 메신저(`chat`) 탭: `notification_events` SSOT + owner-hub 폴백 — `subscribeMessengerChatTabBadge`.
  */
 export function useOwnerHubBadgeTabUnreadCount(icon: BottomNavIconKey): number {
   const hasOwnerStore = useOwnerLiteHasPreferredStore();
   const hasOwnerStoreRef = useRef(hasOwnerStore);
   hasOwnerStoreRef.current = hasOwnerStore;
-  const readTabUnread = useCallback(
-    () => tabUnreadFromBreakdown(icon, getOwnerHubBadgeSnapshot(), hasOwnerStoreRef.current),
+  const subscribe = useCallback(
+    (onStoreChange: () => void) =>
+      icon === "chat" ? subscribeMessengerChatTabBadge(onStoreChange) : subscribeOwnerHubBadge(onStoreChange),
     [icon]
   );
-  const fromHub = useSyncExternalStore(subscribeOwnerHubBadge, readTabUnread, () => 0);
-  const eventsTotal = useSyncExternalStore(
-    icon === "chat" ? subscribeNotificationBadgeCount : () => () => {},
-    () => (icon === "chat" ? getNotificationBadgeCountSnapshot()?.total ?? null : null),
-    () => null
-  );
-  const raw =
-    icon === "chat" && eventsTotal != null
-      ? resolveBottomNavMessengerTabBadgeForOwnerStore(
-          { ...getOwnerHubBadgeSnapshot(), communityMessengerUnread: eventsTotal },
-          hasOwnerStore
-        )
-      : fromHub;
+  const getSnapshot = useCallback(() => {
+    const hub = getOwnerHubBadgeSnapshot();
+    return tabUnreadFromBreakdown(icon, hub, hasOwnerStoreRef.current);
+  }, [icon]);
+  const raw = useSyncExternalStore(subscribe, getSnapshot, () => 0);
   const lastBumpRef = useRef<{ icon: BottomNavIconKey; n: number } | null>(null);
   const traceComponent = `useOwnerHubBadgeTabUnreadCount:${icon}`;
   useEffect(() => {
@@ -124,4 +107,3 @@ export function useOwnerHubBadgeStoreDeepLink(): string | null {
     () => null
   );
 }
-
