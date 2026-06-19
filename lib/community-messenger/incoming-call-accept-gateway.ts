@@ -28,6 +28,10 @@ import {
   type CallConsumedReason,
 } from "@/lib/community-messenger/incoming-call-state";
 import { postCommunityMessengerCallIncomingConsumedBusEvent } from "@/lib/community-messenger/multi-tab-bus";
+import {
+  markIncomingCallSurfaceConsumed,
+  releaseIncomingCallSurface,
+} from "@/lib/community-messenger/incoming-call-surface-owner";
 
 export type IncomingCallGatewayRouter = {
   replace: (href: string) => void;
@@ -48,6 +52,9 @@ export type RunIncomingCallAcceptArgs = {
   /** 기본: `/calls/:id?action=accept&nativeAccept=1` */
   hrefOverride?: string;
   /** 기본: true (call route 진입 전용) */
+  /** CallClient 등 이미 `/calls/:id` 에 있을 때 replace 생략 */
+  skipRouteReplace?: boolean;
+  /** 기본: true — native pending accept 시 false 로 gateway 가 중복 mark 방지 */
   markNativeAcceptPending?: boolean;
   source: IncomingCallAcceptSource;
 };
@@ -94,6 +101,22 @@ export function applyIncomingCallConsumedSideEffects(
   dibayIncomingLaneStopRing(`consumed_${reason}`, sid);
   dismissAllIncomingCallNotificationsFireAndForget(sid);
   markCallConsumed(sid, reason);
+  releaseIncomingCallSurface(sid, "web_foreground_overlay", `consumed_${reason}`);
+  releaseIncomingCallSurface(sid, "native_foreground_pill", `consumed_${reason}`);
+  releaseIncomingCallSurface(sid, "call_screen", `consumed_${reason}`);
+  if (reason !== "accepted") {
+    markIncomingCallSurfaceConsumed(
+      sid,
+      reason === "declined"
+        ? "declined"
+        : reason === "cancelled"
+          ? "cancelled"
+          : reason === "rejected"
+            ? "rejected"
+            : "ended",
+      source,
+    );
+  }
   postCommunityMessengerCallIncomingConsumedBusEvent(sid, reason);
   logDibayCall("ring_stop", { sessionId: sid, callId: sid, reason: `consumed_${reason}`, source });
 }
@@ -296,7 +319,9 @@ export async function runIncomingCallAccept(args: RunIncomingCallAcceptArgs): Pr
       );
     }
 
-    replaceActiveIncomingCallRoute(args.router, sid, args.hrefOverride, args.source);
+    if (!args.skipRouteReplace) {
+      replaceActiveIncomingCallRoute(args.router, sid, args.hrefOverride, args.source);
+    }
     return { ok: true, sessionId: sid };
   } catch {
     setDibayCallSessionPhase(sid, "incoming");

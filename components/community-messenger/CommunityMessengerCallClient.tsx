@@ -96,7 +96,7 @@ import {
   tryClaimIncomingCallReject,
 } from "@/lib/community-messenger/incoming-call-action-guard";
 import { runIncomingCallCleanup } from "@/lib/community-messenger/incoming-call-cleanup";
-import { applyIncomingCallConsumedSideEffects } from "@/lib/community-messenger/incoming-call-accept-gateway";
+import { applyIncomingCallConsumedSideEffects, acceptIncomingCallOnce } from "@/lib/community-messenger/incoming-call-accept-gateway";
 import { isIncomingCallPreviewRoute } from "@/lib/community-messenger/incoming-call-preview-route";
 import { isDibayCallConsumed, markCallConsumed } from "@/lib/community-messenger/incoming-call-state";
 import {
@@ -189,6 +189,11 @@ import {
   subscribeCommunityMessengerCallInviteBroadcast,
 } from "@/lib/community-messenger/call-invite-realtime-broadcast";
 import { appendLocalCallChatMessageFromTerminalSession } from "@/lib/community-messenger/call-chat-local-append";
+import {
+  claimIncomingCallSurface,
+  isIncomingCallSurfaceTerminal,
+  releaseIncomingCallSurface,
+} from "@/lib/community-messenger/incoming-call-surface-owner";
 import { matchIncomingCallSessionToTerminalQuery } from "@/lib/community-messenger/call-incoming-terminal";
 import {
   onCommunityMessengerBusEvent,
@@ -994,6 +999,23 @@ export function CommunityMessengerCallClient({
   useEffect(() => {
     cmCallLatencyInfo("call_client_mount", { sessionId });
   }, [sessionId]);
+
+  /** 수신 ringing / preview — call_screen surface 단일 소유 (Global 배너와 중복 방지) */
+  useEffect(() => {
+    const s = sessionRef.current;
+    if (!s || s.isMineInitiator) return undefined;
+    const sid = s.id.trim();
+    if (!sid) return undefined;
+    if (isIncomingCallSurfaceTerminal(sid) || isDibayCallConsumed(sid)) return undefined;
+    const isCalleeRingingUi =
+      (s.status === "ringing" && (incomingPreviewRoute || requestedAction === "accept")) ||
+      incomingPreviewRoute;
+    if (!isCalleeRingingUi) return undefined;
+    claimIncomingCallSurface(sid, "call_screen", "call_client_incoming_ui");
+    return () => {
+      releaseIncomingCallSurface(sid, "call_screen", "call_client_incoming_ui_unmount");
+    };
+  }, [incomingPreviewRoute, requestedAction, session?.id, session?.isMineInitiator, session?.status, sessionId]);
 
   useEffect(() => {
     if (!session) return;
@@ -2890,8 +2912,17 @@ export function CommunityMessengerCallClient({
           releaseIncomingCallAccept(s.id);
         }
       }
-      if (!isIncomingCallAcceptInFlight(s.id) && !tryClaimIncomingCallAccept(s.id)) {
-        return null;
+      if (isDibayCallConsumed(s.id)) {
+        dibayIncomingLaneStopRing("accept_already_consumed", s.id);
+        dismissAllIncomingCallNotificationsFireAndForget(s.id);
+        runIncomingCallCleanup({ sessionId: s.id, reason: "accept_already_consumed", stopRingtone: false });
+        if (s.status === "active") {
+          if (s.callKind === "video") {
+            void applyCallAudioRouteForSession(s, true, "accept_already_consumed_active");
+          }
+          return s;
+        }
+        return await refreshSession(true);
       }
       if (s.status === "active") {
         dibayIncomingLaneStopRing("accept_already_active", s.id);
@@ -2900,7 +2931,6 @@ export function CommunityMessengerCallClient({
         if (s.callKind === "video") {
           void applyCallAudioRouteForSession(s, true, "accept_already_active");
         }
-        releaseIncomingCallAccept(s.id);
         return s;
       }
       if (nativeAcceptRoute && s.status === "ringing") {
@@ -2924,7 +2954,6 @@ export function CommunityMessengerCallClient({
           return refreshed;
         } finally {
           setBusy(null);
-          releaseIncomingCallAccept(s.id);
         }
       }
       logCallFlow("call_accept_pressed", { sessionId: s.id, source: "call_client" });
@@ -2939,6 +2968,80 @@ export function CommunityMessengerCallClient({
           callAudioRouteSeedRef.current.add(key);
           void applyCallAudioRouteForSession(s, true, "incoming_accept_tap");
         }
+      }
+      if (directCallPatchInFlightRef.current) return null;
+      directCallPatchInFlightRef.current = true;
+      const acceptT0 = perfNow();
+      callFlowAcceptStartRef.current = acceptT0;
+      setBusy("accept");
+      setErrorMessage(null);
+      unlockCommunityMessengerCallPlaybackFromUserGesture();
+      if (s.callKind === "video") {
+        const primedPeek = peekPrimedCommunityMessengerDeviceStream("video");
+        if (primedPeek) primeVideoElementAutoplayFromUserGesture(primedPeek);
+      }
+      try {
+        const gatewayResult = await acceptIncomingCallOnce({
+          session: s,
+          router,
+          skipRouteReplace: true,
+          source: "call_client_accept",
+        });
+        if (!gatewayResult.ok) {
+          callFlowAcceptStartRef.current = null;
+          setCalleeVideoConnectingShell(false);
+          if (gatewayResult.reason === "permission_denied") {
+            setCallPermissionBlocked(true);
+            setErrorMessage(t(getCallMediaPermissionBlockedMessageKey(s.callKind)));
+          } else if (gatewayResult.reason === "patch_failed") {
+            setErrorMessage(t("cm_ui_call_accept_failed"));
+          } else if (gatewayResult.reason === "already_consumed") {
+            dibayIncomingLaneStopRing("accept_already_consumed", s.id);
+            dismissAllIncomingCallNotificationsFireAndForget(s.id);
+            runIncomingCallCleanup({ sessionId: s.id, reason: "accept_already_consumed", stopRingtone: false });
+            const refreshed = await refreshSession(true);
+            if (refreshed?.status === "active" && refreshed.callKind === "video") {
+              void applyCallAudioRouteForSession(refreshed, true, "accept_already_consumed_active");
+            }
+            return refreshed;
+          }
+          return null;
+        }
+        logCallFlow("call_accept_sent", { sessionId: s.id });
+        console.info("[call-flow] accept_patch_done", {
+          sessionId: s.id,
+          callType: s.callKind === "video" ? "video" : "audio",
+        });
+        const patchMs = Math.round(perfNow() - acceptT0);
+        messengerMonitorCallFlowPhase(s.id, "flow_call_accept_patch", patchMs, { media: s.callKind, role: "callee" });
+        logClientPerf("messenger-call.accept", {
+          phase: "patch_ok",
+          ms: patchMs,
+          sessionIdSuffix: s.id.slice(-8),
+          media: s.callKind,
+        });
+        console.info("[cm-call-state] call_accepted", {
+          sessionId: s.id.slice(-8),
+          role: "callee",
+          callKind: s.callKind,
+        });
+        const refreshed = await refreshSession(true);
+        if (refreshed) {
+          setSession(refreshed);
+          clearNativeCalleeAcceptPending(s.id);
+          runIncomingCallCleanup({ sessionId: s.id, reason: "accept_ok", stopRingtone: false });
+          if (refreshed.status === "active" && refreshed.callKind === "video") {
+            void applyCallAudioRouteForSession(refreshed, true, "accept_gateway_active");
+          }
+        }
+        return refreshed;
+      } catch (e) {
+        callFlowAcceptStartRef.current = null;
+        setCalleeVideoConnectingShell(false);
+        throw e;
+      } finally {
+        setBusy(null);
+        directCallPatchInFlightRef.current = false;
       }
     }
     const permission = await ensureCallMediaForUserGesture(s.callKind);
@@ -3025,7 +3128,7 @@ export function CommunityMessengerCallClient({
         releaseIncomingCallAccept(s.id);
       }
     }
-  }, [applyCallAudioRouteForSession, nativeAcceptRoute, refreshSession, t]);
+  }, [applyCallAudioRouteForSession, nativeAcceptRoute, refreshSession, router, t]);
 
   const applyTerminalSessionAfterPatch = useCallback(
     (
@@ -3191,7 +3294,6 @@ export function CommunityMessengerCallClient({
 
   const hydrateAcceptIncomingCall = useCallback(async () => {
     if (isCommunityMessengerTempCallSessionId(sessionId)) return;
-    if (!tryClaimIncomingCallAccept(sessionId)) return;
     logCallFlow("call_accept_pressed", { sessionId, source: "call_client_hydrate" });
     setBusy("accept");
     unlockCommunityMessengerCallPlaybackFromUserGesture();
@@ -3249,7 +3351,6 @@ export function CommunityMessengerCallClient({
       setCalleeVideoConnectingShell(false);
       setErrorMessage(t("cm_ui_call_accept_failed"));
     } finally {
-      releaseIncomingCallAccept(sessionId);
       setBusy(null);
     }
   }, [acceptIncoming, nativeAcceptRoute, refreshSession, requestedAction, sessionId, t]);
@@ -4246,9 +4347,6 @@ export function CommunityMessengerCallClient({
     const shouldAutoAccept = requestedAction === "accept" && !s.isMineInitiator && s.status === "ringing";
     if (shouldAutoAccept && !autoAcceptRef.current) {
       if (directCallPatchInFlightRef.current) return;
-      if (!isIncomingCallAcceptInFlight(s.id) && !tryClaimIncomingCallAccept(s.id)) {
-        return;
-      }
       autoAcceptRef.current = true;
       void acceptIncoming().finally(() => {
         autoAcceptRef.current = false;
@@ -4825,7 +4923,17 @@ export function CommunityMessengerCallClient({
   /** Telegram-style — active·수락 탭 직후 즉시 통화 UI (Agora join·remote는 백그라운드) */
   const instantCallActiveUi =
     !agoraReconnecting && (session.status === "active" || calleeAcceptInFlightUi);
-  const displayCallPhase: CallPhase = instantCallActiveUi ? "connected" : callScreenPhase;
+  const suppressCalleeIncomingBellUi =
+    !session.isMineInitiator &&
+    session.status === "ringing" &&
+    !calleeAcceptInFlightUi &&
+    (isIncomingCallSurfaceTerminal(session.id) || isDibayCallConsumed(session.id));
+  const displayCallPhase: CallPhase =
+    suppressCalleeIncomingBellUi && callScreenPhase === "ringing"
+      ? "connecting"
+      : instantCallActiveUi
+        ? "connected"
+        : callScreenPhase;
   /** 발신자: 상대 수락(active) 후 media ready 이면 자동 Agora 조인 — 앱 레벨 권한 오버레이 없음 */
   const acceptFromScreen = () => {
     autoJoinBlockedRef.current = false;

@@ -1,10 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, beforeEach } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 import { buildCallTombstoneContext } from "@/lib/community-messenger/call-events/fcm-call-event-normalizer";
 import { MESSENGER_FOREGROUND_INCOMING_BANNER_Z_CLASS } from "@/lib/community-messenger/incoming-call-surface";
 import { resolveForegroundIncomingPresentation } from "@/lib/community-messenger/incoming-call/foreground-incoming-presenter";
+import { resetIncomingCallSurfaceOwner } from "@/lib/community-messenger/incoming-call-surface-owner";
 
 function ringingSession(
   id: string,
@@ -40,6 +41,10 @@ function activeSession(id: string): CommunityMessengerCallSession {
 const tombstone = buildCallTombstoneContext(new Map());
 
 describe("foreground-incoming-presenter", () => {
+  beforeEach(() => {
+    resetIncomingCallSurfaceOwner();
+  });
+
   it("shows top-banner for normal foreground ringing", () => {
     const incoming = ringingSession("call-1");
     const decision = resolveForegroundIncomingPresentation({
@@ -209,8 +214,9 @@ describe("foreground-incoming-presenter", () => {
     expect(decision.reason).toBe("native_foreground_primary");
   });
 
-  it("always suppresses web banner on Android foreground (native pill is sole surface)", () => {
+  it("allows web banner on Android foreground when native pill is absent", () => {
     const incoming = ringingSession("call-1");
+    resetIncomingCallSurfaceOwner();
     const decision = resolveForegroundIncomingPresentation({
       sessions: [incoming],
       pathname: "/community-messenger",
@@ -224,8 +230,8 @@ describe("foreground-incoming-presenter", () => {
       nativeForegroundIncomingCallId: null,
     });
 
-    expect(decision.shouldRender).toBe(false);
-    expect(decision.reason).toBe("native_foreground_primary");
+    expect(decision.shouldRender).toBe(true);
+    expect(decision.reason).toBe("ok");
   });
 
   it("ForegroundIncomingCallHost uses body portal and banner z layer", () => {

@@ -22,6 +22,10 @@ import {
   logDibayCall,
 } from "@/lib/community-messenger/call-orchestrator";
 import { runNativePendingAcceptCall } from "@/lib/community-messenger/incoming-call-accept-gateway";
+import {
+  claimIncomingCallSurface,
+  isRingingOnlyIncomingCallRoute,
+} from "@/lib/community-messenger/incoming-call-surface-owner";
 
 const ROUTE_DEDUPE_MS = 2_000;
 
@@ -66,6 +70,24 @@ export function DibayFcmCallRouteHost() {
           sessionId: extractDibayCallSessionIdFromPath(path) ?? undefined,
           source: "stale_call_route_blocked",
         });
+        return;
+      }
+
+      /** Ringing pending route — Native full-screen owns UI; WebView `/calls/:id` 중복 모달 방지 */
+      if (isRingingOnlyIncomingCallRoute(path)) {
+        const ringingCallId = extractDibayCallSessionIdFromPath(path);
+        if (ringingCallId) {
+          claimIncomingCallSurface(ringingCallId, "native_fullscreen", "pending_route_blocked");
+        }
+        clearDibayCallPendingRoute();
+        void clearNativePersistedCallPendingRoute();
+        logDibayCall("stale_ringing_blocked", {
+          path,
+          sessionId: ringingCallId ?? undefined,
+          callId: ringingCallId ?? undefined,
+          source: "ringing_only_pending_route",
+        });
+        console.info("[call-route] ringing_only_route_blocked", { path, callId: ringingCallId });
         return;
       }
       if (path.includes("source=native_resume")) {

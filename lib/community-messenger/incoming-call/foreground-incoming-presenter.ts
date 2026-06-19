@@ -10,6 +10,11 @@ import {
   resolveOverlayBusyLiveSessionId,
   shouldHideGlobalIncomingOverlayForSession,
 } from "@/lib/community-messenger/incoming-call-surface";
+import {
+  canRenderIncomingCallSurface,
+  getIncomingCallSurfaceOwner,
+  isIncomingCallSurfaceTerminal,
+} from "@/lib/community-messenger/incoming-call-surface-owner";
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 
 export type ForegroundIncomingPresenterSurface = "none" | "top-banner";
@@ -197,12 +202,54 @@ export function resolveForegroundIncomingPresentation(
     };
   }
 
-  if (input.preferNativeAndroidForegroundIncoming && isAppForeground) {
+  if (
+    input.preferNativeAndroidForegroundIncoming &&
+    isAppForeground &&
+    input.nativeForegroundIncomingCallId?.trim() === session.id
+  ) {
     return {
       sessionId: session.id,
       session,
       surface: "none",
       reason: "native_foreground_primary",
+      shouldRender: false,
+      selectedRingingSessionId,
+    };
+  }
+
+  if (isIncomingCallSurfaceTerminal(session.id)) {
+    return {
+      sessionId: session.id,
+      session,
+      surface: "none",
+      reason: "surface_terminal_suppressed",
+      shouldRender: false,
+      selectedRingingSessionId,
+    };
+  }
+
+  const surfaceOwner = getIncomingCallSurfaceOwner(session.id);
+  if (
+    surfaceOwner === "native_fullscreen" ||
+    surfaceOwner === "native_foreground_pill" ||
+    surfaceOwner === "call_screen"
+  ) {
+    return {
+      sessionId: session.id,
+      session,
+      surface: "none",
+      reason: `surface_owner_${surfaceOwner}`,
+      shouldRender: false,
+      selectedRingingSessionId,
+    };
+  }
+
+  if (!canRenderIncomingCallSurface(session.id, "web_foreground_overlay")) {
+    return {
+      sessionId: session.id,
+      session,
+      surface: "none",
+      reason: "surface_owner_conflict",
       shouldRender: false,
       selectedRingingSessionId,
     };
