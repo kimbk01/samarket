@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { MYPAGE_HOME_QUICK_ITEMS } from "@/lib/mypage/mypage-home-menu-config";
+import { MYPAGE_HOME_QUICK_ITEMS } from "@/lib/mypage/mypage-home-quick-config";
 import {
   MYPAGE_HOME_CARD_CLASS,
   MYPAGE_HOME_QUICK_GRID_CLASS,

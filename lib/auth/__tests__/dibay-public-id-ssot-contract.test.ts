@@ -18,8 +18,8 @@ describe("dibay-public-id-ssot contract", () => {
     expect(src).toContain("DO NOT");
   });
 
-  it("mypage uses evaluatePublicIdProfileView only", () => {
-    const src = read("components/mypage/MyPageHomeDashboard.tsx");
+  it("mypage home model uses evaluatePublicIdProfileView only", () => {
+    const src = read("hooks/use-mypage-home-dashboard-model.ts");
     expect(src).toContain("evaluatePublicIdProfileView");
     expect(src).not.toContain("profileFieldsForDibayIdComplete");
     expect(src).not.toContain("isDibayIdComplete");

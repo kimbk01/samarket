@@ -65,7 +65,8 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
   const ensureRetriedRef = useRef(false);
 
   const membership = useClientMembershipState("mypage-root");
-  const hubEnabled = membership.status === "member";
+  const hasServerProfile = Boolean(initialMyPageData?.profile);
+  const hubEnabled = hasServerProfile || membership.status === "member";
   const { data, loading, load, overviewCounts } = useMypageHubModel(initialMyPageData ?? undefined, {
     enabled: hubEnabled,
   });
@@ -93,7 +94,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
   }, []);
 
   useEffect(() => {
-    if (membership.status !== "member") return;
+    if (!hasServerProfile && membership.status !== "member") return;
     if (loading || recoveryTriggeredRef.current) return;
     if (data?.profile) return;
     /**
@@ -115,7 +116,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
       return;
     }
     recoveryTriggeredRef.current = true;
-  }, [membership.status, loading, data, load]);
+  }, [hasServerProfile, membership.status, loading, data, load]);
 
   useEffect(() => {
     if (!infoHubOpen) return;
@@ -167,7 +168,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
     }
   }, [loading, data]);
 
-  if (membership.status === "checking") {
+  if (!hasServerProfile && membership.status === "checking") {
     return (
       <div className={`flex min-h-0 min-w-0 flex-1 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
         <MyPageHeader backFallbackHref="/philife" />
@@ -181,7 +182,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
   }
 
   /** 비회원 — 허브 레이아웃만. 진입 시 AuthModal 자동 오픈 금지(메뉴·CTA 탭 시만). */
-  if (membership.status === "guest") {
+  if (!hasServerProfile && membership.status === "guest") {
     return (
       <div className={`flex min-h-0 min-w-0 flex-1 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
         <MyPageHeader backFallbackHref="/philife" />
@@ -192,7 +193,8 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
     );
   }
 
-  if (loading) {
+  /** RSC 프로필이 있으면 백그라운드 refresh 중에도 셸 유지 */
+  if (loading && !(hasServerProfile && data?.profile)) {
     return (
       <div className={`flex min-h-0 min-w-0 flex-1 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
         <MyPageHeader backFallbackHref="/philife" />

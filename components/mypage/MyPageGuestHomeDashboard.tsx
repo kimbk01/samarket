@@ -3,7 +3,6 @@
 import { useMemo } from "react";
 import { usePathname } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { buildMypageSectionHref } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { MYPAGE_HOME_BODY_CLASS } from "@/lib/ui/mypage-home-starbucks-styles";
 import { MyInfoGuestProfileCard } from "@/components/mypage/myinfo/MyInfoGuestProfileCard";
 import { MyInfoStatGrid } from "@/components/mypage/myinfo/MyInfoStatGrid";
@@ -16,6 +15,7 @@ import {
 } from "@/components/mypage/myinfo/MyInfoHomeMenuSections";
 import { useMypageGuestMenuNav } from "@/hooks/use-mypage-guest-menu-nav";
 import { buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
+import { buildMypageHomeStatRows } from "@/lib/mypage/mypage-home-stat-config";
 
 const COLUMN_STACK_CLASS = "flex min-w-0 flex-col gap-3 md:gap-4";
 
@@ -32,13 +32,18 @@ export function MyPageGuestHomeDashboard() {
   const dash = t("mypage_comp_placeholder_dash");
 
   const statRows = useMemo(
-    () => [
-      { label: t("mypage_comp_stat_points"), value: dash, href: "/mypage/points", accent: true },
-      { label: t("mypage_comp_stat_active_trade"), value: dash, href: buildMypageSectionHref("trade") },
-      { label: t("mypage_comp_stat_orders"), value: dash, href: buildMypageSectionHref("store") },
-      { label: t("mypage_comp_stat_unread_chat"), value: dash, href: buildMypageSectionHref("messenger") },
-      { label: t("mypage_comp_stat_favorites_short"), value: dash, href: "/mypage/section/trade/favorites" },
-    ],
+    () =>
+      buildMypageHomeStatRows({
+        values: {
+          points: dash,
+          activeTrade: null,
+          orderCount: null,
+          unreadChat: null,
+          favoriteCount: null,
+        },
+        formatCount: () => dash,
+        labelForKey: (key) => t(key),
+      }),
     [t, dash],
   );
 

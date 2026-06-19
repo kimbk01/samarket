@@ -56,15 +56,46 @@ async function countCommunityPostsVisibleForUser(userId: string): Promise<number
   }
 }
 
+async function countTradeFavorites(userId: string): Promise<number | null> {
+  try {
+    const sb = getSupabaseServer();
+    const { count, error } = await sb
+      .from("favorites")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId);
+    if (error) return null;
+    return count ?? 0;
+  } catch {
+    return null;
+  }
+}
+
+async function countStoreFavorites(userId: string): Promise<number | null> {
+  const sb = tryGetSupabaseForStores();
+  if (!sb) return null;
+  try {
+    const { count, error } = await sb
+      .from("store_favorites")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId);
+    if (error) return null;
+    return count ?? 0;
+  } catch {
+    return null;
+  }
+}
+
 /** Prefetch home stats for /mypage (avoids heavy client list fetches). */
 export async function loadMypageHomeDashboardCountsServer(
   userId: string
 ): Promise<MyPageHomeDashboardCounts | null> {
   const uid = userId.trim();
   if (!uid) return null;
-  const [storeOrderCount, communityPostCount] = await Promise.all([
+  const [storeOrderCount, communityPostCount, tradeFavoriteCount, storeFavoriteCount] = await Promise.all([
     countBuyerVisibleStoreOrders(uid),
     countCommunityPostsVisibleForUser(uid),
+    countTradeFavorites(uid),
+    countStoreFavorites(uid),
   ]);
-  return { storeOrderCount, communityPostCount };
+  return { storeOrderCount, communityPostCount, tradeFavoriteCount, storeFavoriteCount };
 }

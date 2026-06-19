@@ -19,9 +19,12 @@ import { FavoritePostCard } from "./FavoritePostCard";
 export function FavoriteProductsView({
   embedded = false,
   initialTab,
+  hideOuterPadding = false,
 }: {
   embedded?: boolean;
   initialTab?: FavoriteManageTabId;
+  /** FavoritesHubView 내부 — 바깥 패딩 중복 방지 */
+  hideOuterPadding?: boolean;
 } = {}) {
   const { t } = useI18n();
   const router = useRouter();
@@ -134,7 +137,15 @@ export function FavoriteProductsView({
   );
 
   return (
-    <div className={embedded ? "flex flex-col gap-2" : "mx-auto flex max-w-lg flex-col gap-2 px-4 py-3 pb-24"}>
+    <div
+      className={
+        hideOuterPadding
+          ? "flex flex-col gap-2"
+          : embedded
+            ? "flex flex-col gap-2"
+            : "mx-auto flex max-w-lg flex-col gap-2 px-4 py-3 pb-24"
+      }
+    >
       <TradeManagementTabBar tabs={FAVORITE_MANAGE_TABS} active={tab} counts={counts} onChange={setTab} />
       {filtered.length === 0 ? (
         <p className="py-8 text-center text-[14px] text-sam-muted">{emptyTabMsg[tab]}</p>

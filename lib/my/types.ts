@@ -15,6 +15,10 @@ import type { OwnerStoreGateState } from "@/lib/stores/store-admin-access";
 export type MyPageHomeDashboardCounts = {
   storeOrderCount: number | null;
   communityPostCount: number | null;
+  /** 거래 게시글 찜 */
+  tradeFavoriteCount: number | null;
+  /** 매장 찜 */
+  storeFavoriteCount: number | null;
 };
 
 /** RSC-only: seeds `useMypageHubModel` to skip redundant client fetches on first paint. */

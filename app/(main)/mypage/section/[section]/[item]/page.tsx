@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { findMypageMobileItem } from "@/lib/mypage/mypage-mobile-nav-registry";
+import { resolveMypageSectionLegacyHubRedirect } from "@/lib/mypage/mypage-section-legacy-redirect";
 import { loadMypageServer } from "@/lib/my/load-mypage-server";
 import { MyPageItemRouteClient } from "@/components/mypage/MyPageItemRouteClient";
 
@@ -23,6 +24,10 @@ async function MypageSectionItemPageBody({
   params: Promise<{ section: string; item: string }>;
 }) {
   const { section: s, item: i } = await params;
+  const hubRedirect = resolveMypageSectionLegacyHubRedirect(s, i);
+  if (hubRedirect) {
+    redirect(hubRedirect);
+  }
   if (s === "store" && i === "manage") {
     redirect("/stores/owner/apply");
   }

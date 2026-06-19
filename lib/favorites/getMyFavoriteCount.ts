@@ -3,13 +3,18 @@
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 const TTL_MS = 12_000;
-let cached: { expiresAt: number; value: number } | null = null;
+let cached: { expiresAt: number; value: { total: number; trade: number; store: number } } | null = null;
+
+export type MyFavoriteCounts = {
+  total: number;
+  trade: number;
+  store: number;
+};
 
 /**
- * 현재 사용자의 찜(관심) 상품 개수 — 서버 API.
- * 짧은 TTL + single-flight 로 마이페이지·헤더 등 동시 호출 시 요청 합침.
+ * 거래·스토어 찜 합산 — `/api/favorites/count` (쿠키 세션, getCurrentUser 게이트 없음)
  */
-export async function getMyFavoriteCount(): Promise<number> {
+export async function getMyFavoriteCounts(): Promise<MyFavoriteCounts> {
   const now = Date.now();
   if (cached && cached.expiresAt > now) {
     return cached.value;
@@ -18,16 +23,29 @@ export async function getMyFavoriteCount(): Promise<number> {
     const res = await runSingleFlight("favorites:count", () =>
       fetch("/api/favorites/count", { credentials: "include" })
     );
-    const data = (await res.clone().json().catch(() => ({}))) as { count?: number };
-    const n = typeof data.count === "number" ? data.count : 0;
-    cached = { value: n, expiresAt: Date.now() + TTL_MS };
-    return n;
+    const data = (await res.clone().json().catch(() => ({}))) as {
+      count?: number;
+      trade_count?: number;
+      store_count?: number;
+    };
+    const trade = typeof data.trade_count === "number" ? data.trade_count : 0;
+    const store = typeof data.store_count === "number" ? data.store_count : 0;
+    const total =
+      typeof data.count === "number" ? data.count : trade + store;
+    const value = { total, trade, store };
+    cached = { value, expiresAt: Date.now() + TTL_MS };
+    return value;
   } catch {
-    return 0;
+    return { total: 0, trade: 0, store: 0 };
   }
 }
 
-/** 찜 추가/제거 직후 배지·카운트 즉시 맞출 때 */
+/** @deprecated — use getMyFavoriteCounts().total */
+export async function getMyFavoriteCount(): Promise<number> {
+  const c = await getMyFavoriteCounts();
+  return c.total;
+}
+
 export function invalidateFavoriteCountClientCache(): void {
   cached = null;
 }

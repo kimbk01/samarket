@@ -1,9 +1,8 @@
 import { MyContent } from "../my/MyContent";
+import { loadMypageServerShell } from "@/lib/my/load-mypage-server";
 
-/**
- * 하단 탭 루트: RSC await/Suspense fallback 이 탭 push 이후 카드형 로딩으로 튀지 않게,
- * 클라이언트 허브가 sessionStorage seed 후 백그라운드 fetch 로 채운다.
- */
-export default function MypagePage() {
-  return <MyContent />;
+/** RSC shell — 프로필·주소·홈 stat seed 로 첫 페인트 전체 로딩 카드 방지 */
+export default async function MypagePage() {
+  const initialMyPageData = await loadMypageServerShell();
+  return <MyContent initialMyPageData={initialMyPageData} />;
 }

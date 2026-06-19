@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { FavoriteProductsView } from "@/components/favorites/FavoriteProductsView";
+import { FavoritesHubView } from "@/components/favorites/FavoritesHubView";
 import { ChatRoomList } from "@/components/chats/ChatRoomList";
 import { PurchasesView } from "@/components/mypage/PurchasesView";
 import { TradeReviewsManagementView } from "@/components/mypage/reviews/TradeReviewsManagementView";
@@ -41,7 +41,7 @@ export function TradeTab({ section }: { section: string }) {
         title={safeT("mypage_comp_nav_sec_trade_favorites_label")}
         description={t("mypage_comp_nav_sec_trade_favorites_desc")}
       >
-        <FavoriteProductsView embedded />
+        <FavoritesHubView embedded />
       </TabShell>
     );
   }

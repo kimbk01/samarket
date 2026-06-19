@@ -2,6 +2,11 @@ export const notificationMessages = {
   ko: {
     notify_chat_new_message_title: "새 메시지",
     notify_chat_message_arrived_body: "메시지가 도착했습니다.",
+    notify_preview_new_message: "새 메시지",
+    notify_preview_sent_photo: "사진을 보냈습니다",
+    notify_preview_sent_video: "동영상을 보냈습니다",
+    notify_preview_sent_file: "파일을 보냈습니다",
+    notify_preview_shared_location: "위치를 공유했습니다",
     notify_chat_mention_title: "멘션 알림",
     notify_messenger_banner_title: "메신저",
     notify_messenger_new_message_arrived: "새 메시지가 도착했습니다",
@@ -187,6 +192,11 @@ export const notificationMessages = {
   en: {
     notify_chat_new_message_title: "New message",
     notify_chat_message_arrived_body: "You have a new message.",
+    notify_preview_new_message: "New message",
+    notify_preview_sent_photo: "Sent a photo",
+    notify_preview_sent_video: "Sent a video",
+    notify_preview_sent_file: "Sent a file",
+    notify_preview_shared_location: "Shared a location",
     notify_chat_mention_title: "Mention",
     notify_messenger_banner_title: "Messenger",
     notify_messenger_new_message_arrived: "You have a new message",
