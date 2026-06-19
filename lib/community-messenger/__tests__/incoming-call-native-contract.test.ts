@@ -159,6 +159,7 @@ describe("incoming-call native contract", () => {
     expect(global).toContain("nativeForegroundIncomingCallId");
     expect(global).toContain("onForegroundIncomingUi");
     expect(global).toContain("onNativeForegroundAccept");
+    expect(global).toContain("onNativeForegroundReject");
     const presenter = read("lib/community-messenger/incoming-call/foreground-incoming-presenter.ts");
     expect(presenter).toContain("android_native_pill_ssot");
   });
@@ -166,9 +167,17 @@ describe("incoming-call native contract", () => {
   it("native accept injects foreground_incoming_accept before route launch", () => {
     const coordinator = read("android/app/src/main/java/com/dibay/app/IncomingCallActionCoordinator.java");
     expect(coordinator).toContain("deliverForegroundIncomingAcceptEvent");
+    expect(coordinator).toContain("deliverForegroundIncomingRejectEvent");
     const activity = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
     expect(activity).toContain("foreground_incoming_accept");
-    expect(activity).toContain("injectForegroundIncomingAcceptEvent");
+    expect(activity).toContain("foreground_incoming_reject");
+    expect(activity).toContain("injectForegroundIncomingRejectEvent");
+  });
+
+  it("foreground pill swipe dismiss routes to native reject", () => {
+    const pill = read("android/app/src/main/java/com/dibay/app/ForegroundIncomingCallActivity.java");
+    expect(pill).toContain("foreground_swipe_dismiss_reject");
+    expect(pill).toContain("handleReject(getApplicationContext(), callId, \"swipe_dismiss\")");
   });
 
   it("notification posts immediately then enriches avatar async", () => {

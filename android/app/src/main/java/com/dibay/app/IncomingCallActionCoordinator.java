@@ -122,19 +122,28 @@ public final class IncomingCallActionCoordinator {
   }
 
   public static void handleReject(Context context, String callId) {
+    handleReject(context, callId, "native_reject");
+  }
+
+  public static void handleReject(Context context, String callId, String rejectSource) {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
     String sid = callId.trim();
     if (!tryBegin(sid, "reject")) return;
-    DibayCallLog.once("call_end", sid, "source=native_reject");
+    DibayCallLog.once("call_end", sid, "source=" + (rejectSource != null ? rejectSource : "native_reject"));
+    final Context app = context.getApplicationContext();
     DibayCallConsumedStore.mark(context, sid, "declined");
+    MainActivity.deliverForegroundIncomingRejectEvent(
+        context, sid, rejectSource != null ? rejectSource : "native_reject");
     IncomingCallRingOwner.stop(context, sid);
     DibayCallPushLog.info("ringtone_stop_native", sid, "reason=reject");
     CallForegroundService.stopRinging(context, sid, "reject");
+    IncomingCallWakeLock.release();
     DibayIncomingCallNativeStore.clear(context, sid, "reject");
     IncomingCallNotificationBuilder.dismissIncomingCall(context, sid);
+    MainActivity.clearPersistedCallPendingRoute(app);
+    MainActivity.clearPersistedPendingPushRoute(app);
     IncomingCallTerminalHandler.finishIncomingUiOnly(context, sid);
     Log.i("DIBAY_CALL", "[DIBAY_CALL] reject_patch_start callId=" + sid);
-    final Context app = context.getApplicationContext();
     new Thread(
             () -> {
               boolean ok = CallSessionPatchHelper.patch(app, sid, "reject");

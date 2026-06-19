@@ -96,8 +96,8 @@ describe("dibay-fcm-call-bridge terminal routing", () => {
     });
   });
 
-  it("routes foreground_incoming_accept through onNativeForegroundAccept", () => {
-    const onNativeForegroundAccept = vi.fn();
+  it("routes foreground_incoming_reject through onNativeForegroundReject", () => {
+    const onNativeForegroundReject = vi.fn();
     const listeners = new Map<string, (ev: Event) => void>();
     vi.stubGlobal("window", {
       addEventListener: (type: string, fn: (ev: Event) => void) => {
@@ -109,15 +109,18 @@ describe("dibay-fcm-call-bridge terminal routing", () => {
     installDibayFcmCallBridge({
       onIncomingWake: vi.fn(),
       onFcmTerminal: vi.fn(),
-      onNativeForegroundAccept,
+      onNativeForegroundReject,
     });
 
     const onCallEvent = listeners.get("dibay:call-event");
     onCallEvent?.(
       new CustomEvent("dibay:call-event", {
-        detail: { type: "foreground_incoming_accept", sessionId: "call-accept-1" },
+        detail: { type: "foreground_incoming_reject", sessionId: "call-reject-bridge", source: "swipe_dismiss" },
       })
     );
-    expect(onNativeForegroundAccept).toHaveBeenCalledWith({ sessionId: "call-accept-1" });
+    expect(onNativeForegroundReject).toHaveBeenCalledWith({
+      sessionId: "call-reject-bridge",
+      source: "swipe_dismiss",
+    });
   });
 });

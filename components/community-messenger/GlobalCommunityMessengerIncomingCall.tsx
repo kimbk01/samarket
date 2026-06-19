@@ -85,6 +85,8 @@ import {
 import { patchCommunityMessengerCallSession, postCommunityMessengerCallHangupSignal } from "@/lib/call/call-actions";
 import { patchCommunityMessengerCallMissedOnce } from "@/lib/community-messenger/messenger-call-missed-patch";
 import { evaluateIncomingCallBusyPolicy } from "@/lib/call/call-state";
+import { hardClearActiveCallSession } from "@/lib/call/active-call-session";
+import { releaseCallActionLock } from "@/lib/call/call-action-lock";
 import { useIncomingCallTabLeader } from "@/lib/community-messenger/incoming-call-tab-leader";
 import { DEFAULT_INCOMING_RING_TIMEOUT_SECONDS } from "@/lib/community-messenger/messenger-call-ring-timeout";
 import { showIncomingCallBrowserNotification } from "@/lib/call/call-notification";
@@ -134,6 +136,7 @@ import {
   applyIncomingCallConsumedSideEffects,
   runIncomingCallReject,
 } from "@/lib/community-messenger/incoming-call-accept-gateway";
+import { applyNativeIncomingRejectWebCleanup } from "@/lib/community-messenger/incoming-call/native-incoming-reject-web-cleanup";
 import { buildIncomingCallPreviewHref } from "@/lib/community-messenger/incoming-call-preview-route";
 import {
   canRenderIncomingCallSurface,
@@ -730,6 +733,10 @@ export function GlobalCommunityMessengerIncomingCall() {
       activeIncomingCallIdsRef.current.delete(sessionId);
       resetIncomingCallActionGuards(sessionId);
       incomingUiSurfaceLoggedRef.current.delete(sessionId);
+      releaseCallActionLock(`terminal_${sourceTag}`);
+      void hardClearActiveCallSession(sessionId, statusNorm);
+      clearDibayCallPendingRoute();
+      setNativeForegroundIncomingCallId((prev) => (prev === sessionId ? null : prev));
     }
     if (tmpSessionId) activeIncomingCallIdsRef.current.delete(tmpSessionId);
 
@@ -1387,6 +1394,19 @@ export function GlobalCommunityMessengerIncomingCall() {
           removeSessionFromIncomingList: (id) =>
             setSessions((prev) => prev.filter((item) => item.id !== id)),
         });
+      },
+      onNativeForegroundReject: ({ sessionId: sid, source }) => {
+        const rejectSource = source?.trim() || "native_pill_reject";
+        applyNativeIncomingRejectWebCleanup({
+          sessionId: sid,
+          source: rejectSource,
+          hardClearedAt: hardClearedIncomingSessionsAtRef.current,
+          activeIncomingCallIds: activeIncomingCallIdsRef.current,
+          suppressMissedSound: suppressMissedSoundRef.current,
+          removeSessionFromIncomingList: (id) =>
+            setSessions((prev) => prev.filter((item) => item.id !== id)),
+        });
+        setNativeForegroundIncomingCallId((prev) => (prev === sid ? null : prev));
       },
       onIncomingWake: (detail) => {
         void (async () => {

@@ -97,13 +97,35 @@ public class MainActivity extends BridgeActivity {
     act.mainHandler.post(() -> act.injectForegroundIncomingUiEvent(sid, visible));
   }
 
-  /** Native pill accept — Web consumed/surface release before pill finish. */
+  /** Native pill accept — Web consumed/surface release before pill finish */
   static void deliverForegroundIncomingAcceptEvent(String callId) {
     MainActivity act = activeInstance;
     if (act == null) return;
     final String sid = callId != null ? callId.trim() : "";
     if (sid.isEmpty()) return;
     act.mainHandler.post(() -> act.injectForegroundIncomingAcceptEvent(sid));
+  }
+
+  /** Native reject / swipe dismiss — Web consumed before PATCH completes. */
+  static void deliverForegroundIncomingRejectEvent(Context context, String callId, String source) {
+    final String sid = callId != null ? callId.trim() : "";
+    if (sid.isEmpty()) return;
+    final String src = source != null && !source.trim().isEmpty() ? source.trim() : "native_reject";
+    MainActivity act = activeInstance;
+    if (act == null) {
+      if (context != null) {
+        DibayCallTerminalPendingQueue.enqueue(context.getApplicationContext(), sid, "rejected");
+      }
+      return;
+    }
+    act.mainHandler.post(
+        () -> {
+          if (act.canDeliverCallEventToWebView()) {
+            act.injectForegroundIncomingRejectEvent(sid, src);
+          } else {
+            DibayCallTerminalPendingQueue.enqueue(act.getApplicationContext(), sid, "rejected");
+          }
+        });
   }
 
   /** FCM foreground — WebView legacy call bridge (incoming_call / call_canceled) */
@@ -258,6 +280,23 @@ public class MainActivity extends BridgeActivity {
             + "'}}));}catch(e){}})();";
     webView.post(() -> webView.evaluateJavascript(js, null));
     Log.i("DIBAY_CALL", "[DIBAY_CALL] foreground_incoming_accept callId=" + callId);
+  }
+
+  private void injectForegroundIncomingRejectEvent(String callId, String source) {
+    Bridge bridge = getBridge();
+    if (bridge == null) return;
+    WebView webView = bridge.getWebView();
+    if (webView == null) return;
+    final String safeCallId = safeJs(callId);
+    final String safeSource = safeJs(source);
+    final String js =
+        "(function(){try{window.dispatchEvent(new CustomEvent('dibay:call-event',{detail:{type:'foreground_incoming_reject',sessionId:'"
+            + safeCallId
+            + "',source:'"
+            + safeSource
+            + "'}}));}catch(e){}})();";
+    webView.post(() -> webView.evaluateJavascript(js, null));
+    Log.i("DIBAY_CALL", "[DIBAY_CALL] foreground_incoming_reject callId=" + callId + " source=" + source);
   }
 
   private void injectCallTerminalEvent(String callId, String status) {

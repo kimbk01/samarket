@@ -154,6 +154,12 @@ public class ForegroundIncomingCallActivity extends AppCompatActivity {
       terminalReceiver = null;
     }
     if (callId != null) {
+      if (!finished
+          && !IncomingCallActionCoordinator.isCompleted(callId)
+          && !DibayCallConsumedStore.isConsumed(this, callId)) {
+        Log.i(TAG, "[call-ui] foreground_swipe_dismiss_reject callId=" + callId);
+        IncomingCallActionCoordinator.handleReject(getApplicationContext(), callId, "swipe_dismiss");
+      }
       ForegroundIncomingCallRegistry.clear(callId);
       MainActivity.notifyForegroundIncomingUiState(callId, false);
     }
