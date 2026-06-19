@@ -191,7 +191,7 @@ export function resolveConditionalAppShellFlags(
     "flex h-[100dvh] max-h-[100dvh] min-w-0 max-w-full flex-col overflow-hidden bg-sam-app";
   const appShellRootClass = isViewportLockedChatDetail
     ? topTier1RuleSet.showRegionBar
-      ? "flex h-[calc(100dvh-3.5rem-var(--safe-top))] max-h-[calc(100dvh-3.5rem-var(--safe-top))] min-w-0 max-w-full flex-col overflow-hidden bg-sam-app"
+      ? "flex h-[calc(100dvh-3.5rem-env(safe-area-inset-top,0px))] max-h-[calc(100dvh-3.5rem-env(safe-area-inset-top,0px))] min-w-0 max-w-full flex-col overflow-hidden bg-sam-app"
       : storeCartViewportLockedShellClass
     : isMainColumnViewportLocked
       ? storeCartViewportLockedShellClass

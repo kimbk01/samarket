@@ -68,7 +68,7 @@ describe("chat-viewport-shell-platform", () => {
     expect(resolveChatShellKeyboardOverlayCssPx()).toBe(300);
   });
 
-  it("returns bottom inset when keyboard closed and vv gap exists (Android nav bar fallback)", () => {
+  it("returns bottom inset when keyboard closed and vv gap exists (Android nav bar)", () => {
     vi.stubGlobal("window", {
       innerHeight: 800,
       visualViewport: { height: 752, offsetTop: 0 },
