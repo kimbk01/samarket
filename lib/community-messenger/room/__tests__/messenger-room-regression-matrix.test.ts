@@ -188,11 +188,21 @@ describe("cm room regression matrix (pre-commit)", () => {
       ).toEqual({ scroll: true, reason: "messages_changed_auto" });
     });
 
-    it("own send — tail mine → always scroll", () => {
+    it("own tail unchanged — re-render/merge only → scroll 금지", () => {
       expect(
         resolveMessengerRoomMessagesAutoScroll({
           previousTailMessageId: "tail-99",
           currentTailMessageId: "tail-99",
+          currentTailIsMine: true,
+        })
+      ).toEqual({ scroll: false, reason: "skip_tail_unchanged" });
+    });
+
+    it("own send — tail id 변경 → own append scroll", () => {
+      expect(
+        resolveMessengerRoomMessagesAutoScroll({
+          previousTailMessageId: "tail-99",
+          currentTailMessageId: "tail-100",
           currentTailIsMine: true,
         })
       ).toEqual({ scroll: true, reason: "own_message_append" });

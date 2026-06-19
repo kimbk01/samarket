@@ -25,11 +25,11 @@ export function resolveMessengerRoomMessagesAutoScroll(input: {
   ) {
     return { scroll: false, reason: "skip_ack_id_replace" };
   }
+  if (input.currentTailMessageId === input.previousTailMessageId) {
+    return { scroll: false, reason: "skip_tail_unchanged" };
+  }
   if (input.currentTailIsMine) {
     return { scroll: true, reason: "own_message_append" };
   }
-  if (input.currentTailMessageId !== input.previousTailMessageId) {
-    return { scroll: true, reason: "messages_changed_auto" };
-  }
-  return { scroll: false, reason: "skip_tail_unchanged" };
+  return { scroll: true, reason: "messages_changed_auto" };
 }
