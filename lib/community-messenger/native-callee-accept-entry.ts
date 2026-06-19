@@ -4,6 +4,8 @@
  * nativePrep=1 — native FGS/알림 정리 완료, Web PATCH 단일 실행.
  */
 
+import { requestCallConnectingSurface } from "@/lib/community-messenger/call-connecting-surface/call-connecting-surface-store";
+
 const NATIVE_CALLEE_ACCEPT_PENDING_KEY = "cm_native_callee_accept_pending";
 const NATIVE_CALLEE_ACCEPT_PENDING_TTL_MS = 60_000;
 
@@ -48,6 +50,7 @@ export function markNativeCalleeAcceptPending(sessionId: string): void {
       NATIVE_CALLEE_ACCEPT_PENDING_KEY,
       JSON.stringify({ sessionId: sid, at: Date.now() })
     );
+    requestCallConnectingSurface(sid, "native_callee_accept_pending");
   } catch {
     /* ignore */
   }

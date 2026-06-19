@@ -185,6 +185,8 @@ import {
   clearDibayCallPendingRoute,
   installDibayFcmCallBridge,
 } from "@/lib/community-messenger/dibay-fcm-call-bridge";
+import { writeIncomingCallPeerSnapshot } from "@/lib/community-messenger/call-connecting-surface/incoming-call-peer-snapshot";
+import { requestCallConnectingSurface } from "@/lib/community-messenger/call-connecting-surface/call-connecting-surface-store";
 import { logDibayCall } from "@/lib/community-messenger/call-orchestrator";
 import { primeCommunityMessengerCallConnectionPrefetch } from "@/lib/community-messenger/call-connection-prefetch";
 import { getActiveCallSessionCallId, subscribeActiveCallSession } from "@/lib/call/active-call-session";
@@ -1286,6 +1288,13 @@ export function GlobalCommunityMessengerIncomingCall() {
               hard
             );
             if (optimistic) {
+              writeIncomingCallPeerSnapshot({
+                sessionId: sid,
+                peerLabel: optimistic.peerLabel,
+                peerAvatarUrl: optimistic.peerAvatarUrl,
+                callKind: optimistic.callKind,
+                source: "sw_incoming_wake",
+              });
               setSessions((prev) => mergeForegroundIncomingWakeSession(prev, optimistic));
             }
           }
@@ -1381,6 +1390,7 @@ export function GlobalCommunityMessengerIncomingCall() {
         }
       },
       onNativeForegroundAccept: ({ sessionId: sid }) => {
+        requestCallConnectingSurface(sid, "native_pill_accept");
         logDibayCall("accept_start", {
           sessionId: sid,
           callId: sid,
@@ -1426,6 +1436,13 @@ export function GlobalCommunityMessengerIncomingCall() {
           if (uid && sid) {
             const optimistic = buildForegroundIncomingWakeOptimisticSession(uid, detail, hard);
             if (optimistic) {
+              writeIncomingCallPeerSnapshot({
+                sessionId: sid,
+                peerLabel: optimistic.peerLabel,
+                peerAvatarUrl: optimistic.peerAvatarUrl,
+                callKind: optimistic.callKind,
+                source: "fcm_incoming_wake",
+              });
               setSessions((prev) => mergeForegroundIncomingWakeSession(prev, optimistic));
             }
           }

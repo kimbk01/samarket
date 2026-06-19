@@ -16,6 +16,7 @@ public final class DibayIncomingCallNativeStore {
   private static final String KEY_ROOM_ID = "room_id";
   private static final String KEY_CALLER_ID = "caller_id";
   private static final String KEY_CALLER_NAME = "caller_name";
+  private static final String KEY_CALLER_AVATAR_URL = "caller_avatar_url";
   private static final String KEY_MEDIA_TYPE = "media_type";
   private static final String KEY_STATE = "state";
   private static final String KEY_ROUTE = "route";
@@ -43,6 +44,7 @@ public final class DibayIncomingCallNativeStore {
         .putString(KEY_ROOM_ID, payload.roomId)
         .putString(KEY_CALLER_ID, payload.callerId)
         .putString(KEY_CALLER_NAME, payload.callerName)
+        .putString(KEY_CALLER_AVATAR_URL, payload.callerAvatarUrl)
         .putString(KEY_MEDIA_TYPE, payload.callType)
         .putString(KEY_STATE, STATE_RINGING)
         .putString(KEY_ROUTE, route != null ? route : "")
@@ -79,5 +81,32 @@ public final class DibayIncomingCallNativeStore {
   public static String getActiveCallId(Context context) {
     if (context == null) return "";
     return context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_CALL_ID, "");
+  }
+
+  /** Web `samarket.cm.incoming_call_peer_snapshot.v1` — accept 직후 발신 메타 priming */
+  public static String buildIncomingPeerSnapshotSessionJs(Context context, String callId) {
+    if (context == null || callId == null || callId.trim().isEmpty()) return "";
+    Context app = context.getApplicationContext();
+    SharedPreferences prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    String sid = callId.trim();
+    if (!sid.equals(prefs.getString(KEY_CALL_ID, ""))) return "";
+    String callerName = prefs.getString(KEY_CALLER_NAME, "");
+    String avatarUrl = prefs.getString(KEY_CALLER_AVATAR_URL, "");
+    String mediaType = prefs.getString(KEY_MEDIA_TYPE, "");
+    String callKind = "video".equalsIgnoreCase(mediaType) ? "video" : "voice";
+    String safeName = callerName != null ? callerName.replace("\\", "\\\\").replace("'", "\\'") : "";
+    String safeAvatar = avatarUrl != null ? avatarUrl.replace("\\", "\\\\").replace("'", "\\'") : "";
+    long at = System.currentTimeMillis();
+  return "try{sessionStorage.setItem('samarket.cm.incoming_call_peer_snapshot.v1',JSON.stringify({sessionId:'"
+        + sid.replace("\\", "\\\\").replace("'", "\\'")
+        + "',peerLabel:'"
+        + safeName
+        + "',peerAvatarUrl:'"
+        + safeAvatar
+        + "',callKind:'"
+        + callKind
+        + "',at:"
+        + at
+        + ",source:'native_store'}));}catch(e){}";
   }
 }
