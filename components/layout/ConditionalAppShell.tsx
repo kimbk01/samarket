@@ -185,7 +185,7 @@ export function ConditionalAppShell({
       if (base === MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS) {
         base = MAIN_SCROLL_PADDING_WITH_DESKTOP_SIDE_NAV_CLASS;
       } else if (base === MAIN_SCROLL_PADDING_HOME_WITH_FLOAT_CLASS) {
-        base = "pb-[calc(env(safe-area-inset-bottom,0px)+80px)]";
+        base = "pb-[calc(var(--safe-bottom)+80px)]";
       }
     }
     return base;

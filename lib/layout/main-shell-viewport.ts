@@ -2,9 +2,9 @@
  * 메인 앱 셸 뷰포트 — 허브·피드는 `main-hub-scroll-column.ts` (1단 고정 + `<main>` 단일 스크롤).
  */
 
-/** `MainAppProviderTree` — 앱 전체 높이를 뷰포트에 맞춤 */
+/** `MainAppProviderTree` — 앱 전체 높이를 뷰포트에 맞춤 (100dvh/svh only — 100vh 단독 금지) */
 export const MAIN_SHELL_VIEWPORT_LOCK_CLASS =
-  "flex h-[100dvh] max-h-[100dvh] min-h-0 w-full flex-col overflow-hidden supports-[height:100svh]:h-[100svh] supports-[height:100svh]:max-h-[100svh]";
+  "main-shell-viewport-root flex h-[100dvh] max-h-[100dvh] min-h-0 w-full flex-col overflow-hidden supports-[height:100svh]:h-[100svh] supports-[height:100svh]:max-h-[100svh]";
 
 export type MainShellScrollColumnFlags = {
   isChatRoomDetail: boolean;

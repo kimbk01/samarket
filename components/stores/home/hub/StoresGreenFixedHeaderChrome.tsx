@@ -83,7 +83,7 @@ export function StoresGreenFixedHeaderChrome({
   return (
     <>
       <BodyPortal>
-        <div className="pointer-events-none fixed inset-x-0 top-0 z-[55] pt-[env(safe-area-inset-top,0px)]">
+        <div className="pointer-events-none fixed inset-x-0 top-0 z-[55] pt-[var(--safe-top)]">
           <header data-stores-home-header className={`pointer-events-auto ${STORES_HOME_HEADER_SHELL_CLASS}`}>
             <div className={STORES_HOME_HEADER_INNER_CLASS}>
               <div

@@ -8,7 +8,7 @@
   --delivery-dial-nav-gap: var(--sam-space-4, 16px);
   /** 원 중심 = 탭바 상단선 + 지름×(0.5 − above-ratio) */
   --delivery-dial-pivot-bottom: calc(
-    env(safe-area-inset-bottom, 0px) + var(--app-bottom-nav-height, 60px) -
+    var(--safe-bottom) + var(--app-bottom-nav-height, 60px) -
       var(--delivery-home-orbit-size, 2.75rem) *
       (0.5 - var(--delivery-home-above-nav-ratio, 0.4)) + var(--delivery-dial-nav-gap)
   );

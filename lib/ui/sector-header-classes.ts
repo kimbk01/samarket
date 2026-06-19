@@ -19,6 +19,6 @@ export const SECTOR_HEADER_SEARCH_INPUT_CLASS = "sector-header-search-input";
 
 /** standalone fixed 헤더 아래 본문 offset */
 export const SECTOR_HEADER_MAIN_OFFSET_TOP_CLASS =
-  "pt-[calc(52px+env(safe-area-inset-top,0px))]";
+  "pt-[calc(52px+var(--safe-top))]";
 
 export const SECTOR_HEADER_CONTENT_TOP_PAD_CLASS = "pt-2";

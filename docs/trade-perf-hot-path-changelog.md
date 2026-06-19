@@ -312,3 +312,11 @@ run2: wave1/2/3 각 0–1ms, `[route-perf]` `badge_query_ms: 3`. run3 route JSON
 | 2026-06-19 | 메신저 1:1 방 | **Direct call SSOT** — `canStartDirectCallBetweenUsers`·friendships accepted 1순위·통화만 friends_only gate·스냅샷 `directCallGate`/friendship Realtime refresh·API deny codes | `direct-call-permission.ts`, `friendship-resolver.ts`, `service.ts`, `use-messenger-room-friendship-sync.ts` | vitest 30+, `tsc` | `friendshipPreload`·critical/defer tier gate 생략으로 스냅샷 중복 쿼리 금지 |
 
 ---
+
+## P0 Safe Area SSOT (2026-06-20)
+
+| 날짜 | 영역 | 변경 | 파일(대표) | 검증 | 재발 방지 |
+|------|------|------|------------|------|-----------|
+| 2026-06-20 | 전역 shell | **Safe area SSOT** — `--safe-* = max(env, --dibay-safe-*)`·Android `DibayWebSafeAreaBridge` inject·header/bottom nav/messenger hub shell·keyboard `--chat-bottom-inset` nav 분리 | `app/app-shell.css`, `DibayWebSafeAreaBridge.java`, `app-bottom-nav.css`, `conditional-app-shell-flags.ts`, `chat-viewport-shell-platform.ts` | `tsc`, `vitest chat-viewport-shell-platform`, adb probe | env-only·페이지별 padding 땜질·모델 분기 금지 |
+
+---

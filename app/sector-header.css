@@ -40,7 +40,7 @@
   min-width: 0;
   max-width: 100%;
   flex-shrink: 0;
-  padding-top: env(safe-area-inset-top, 0px);
+  padding-top: var(--safe-top);
   background: var(--sector-header-bg);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);

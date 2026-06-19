@@ -24,7 +24,7 @@ export function SubmitButton({
   const resolvedSubmittingLabel = submittingLabel ?? t("trade_write_submitting_default");
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-sam-border bg-sam-surface pb-[env(safe-area-inset-bottom,0px)] shadow-[0_-2px_8px_rgba(0,0,0,0.06)]">
+    <div className="mobile-fixed-bottom z-30 border-t border-sam-border bg-sam-surface shadow-[0_-2px_8px_rgba(0,0,0,0.06)]">
       <div className={`${APP_MYPAGE_SUBPAGE_BODY_CLASS} flex min-w-0 gap-2 py-3`}>
         {onCancel ? (
           <button

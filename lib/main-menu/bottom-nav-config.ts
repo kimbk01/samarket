@@ -178,16 +178,16 @@ export const BOTTOM_NAV_BADGE_RING_CLASS = "ring-sam-surface";
  * 탭 셸(`BOTTOM_NAV_SHELL`)과 반드시 같은 식을 쓴다.
  */
 export const BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS =
-  "bottom-[calc(60px+env(safe-area-inset-bottom,0px))]";
+  "bottom-[calc(60px+var(--safe-bottom))]";
 
 /**
  * 메인 하단 탭(z-index 1200) 위 바텀시트 — 주소 선택 등 하단이 탭에 가리지 않게.
  */
 export const MAIN_BOTTOM_NAV_SHEET_Z_CLASS = "z-[1300]";
 export const MAIN_BOTTOM_NAV_SHEET_BOTTOM_CLASS =
-  "bottom-[calc(var(--app-bottom-nav-height,60px)+env(safe-area-inset-bottom,0px))]";
+  "bottom-[calc(var(--app-bottom-nav-height,60px)+var(--safe-bottom))]";
 export const MAIN_BOTTOM_NAV_SHEET_MAX_H_CLASS =
-  "max-h-[min(calc(78dvh-var(--app-bottom-nav-height,60px)-env(safe-area-inset-bottom,0px)),520px)]";
+  "max-h-[min(calc(78dvh-var(--app-bottom-nav-height,60px)-var(--safe-bottom)),520px)]";
 
 /** 메신저 홈 오버레이 패널 — `app/messenger-home-bottom-sheet.css` (배달 overhang `:has` 반영) */
 export const MESSENGER_HOME_BOTTOM_SHEET_PANEL_CLASS = "messenger-home-bottom-sheet-panel";
@@ -204,20 +204,20 @@ export const MESSENGER_HOME_BOTTOM_SHEET_DEVICE_BOTTOM_CLASS =
  */
 export const BOTTOM_NAV_STACK_ABOVE_CLASS = BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS;
 
-/** ConditionalAppShell 등: 탭이 있을 때 본문 하단 패딩(76px + 홈 원 돌출 + safe-area) */
+/** ConditionalAppShell 등: 탭이 있을 때 본문 하단 패딩(76px + 홈 원 돌출 + safe-bottom) */
 export const MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS =
-  "pb-[calc(76px+var(--delivery-home-overhang,0px)+env(safe-area-inset-bottom,0px))]";
+  "pb-[calc(76px+var(--delivery-home-overhang,0px)+var(--safe-bottom))]";
 
 /** 거래 플로팅 다이얼(`/market/*` 등) — 탭 위 추가 여유 */
 export const MAIN_SCROLL_PADDING_HOME_WITH_FLOAT_CLASS =
-  "pb-[calc(82px+var(--delivery-home-overhang,0px)+env(safe-area-inset-bottom,0px))]";
+  "pb-[calc(82px+var(--delivery-home-overhang,0px)+var(--safe-bottom))]";
 
 /**
  * 고정 하단 탭(`BOTTOM_NAV_SHELL.heightClass`) 위까지 쓰는 전체 화면 높이.
  * 채팅방 등 `pb-0` 본문 + `100dvh` 직접 쓰면 탭에 가려지므로 이 값으로 줄인다.
  */
 export const VIEWPORT_HEIGHT_MINUS_BOTTOM_NAV_CLASS =
-  "h-[calc(100dvh-60px-env(safe-area-inset-bottom,0px))] max-h-[calc(100dvh-60px-env(safe-area-inset-bottom,0px))]";
+  "h-[calc(100dvh-60px-var(--safe-bottom))] max-h-[calc(100dvh-60px-var(--safe-bottom))]";
 
 /**
  * 하단 탭이 없는 전체 화면(채팅 상세·통화 등)용 뷰포트 높이.
@@ -249,7 +249,7 @@ export const MAIN_BOTTOM_NAV_FAB_SECTOR_Z_CLASS = "z-[1255]";
 
 /** FAB — 하단 탭(60px+safe) 바로 위 + 10px */
 export const MAIN_BOTTOM_NAV_FAB_BOTTOM_CLASS =
-  "bottom-[calc(60px+env(safe-area-inset-bottom,0px)+10px)]";
+  "bottom-[calc(60px+var(--safe-bottom)+10px)]";
 
 /** 플로팅 + 버튼이 탭바 위에 오도록 여백 (BottomNav 높이와 맞출 것) */
 export const BOTTOM_NAV_FAB_LAYOUT = {
@@ -265,7 +265,7 @@ export const BOTTOM_NAV_FAB_LAYOUT = {
  * `WriteLauncher` 를 같은 위치에 맞출 때 사용.
  */
 export const HOME_TRADE_HUB_FLOAT_BOTTOM_CLASS =
-  "bottom-[calc(60px+env(safe-area-inset-bottom,0px)+10px)]";
+  "bottom-[calc(60px+var(--safe-bottom)+10px)]";
 
 /** 다이얼 보조 버튼(로열 블루 원) — 글쓰기 행·런처 닫기 버튼 공통 */
 export const HOME_TRADE_HUB_SUB_FAB_BUTTON_CLASS =

@@ -33,13 +33,30 @@ export function resolveChatViewportShellPlatform(): ChatViewportShellPlatform {
   return "web";
 }
 
+function readCssVarPxFromRoot(name: string): number {
+  if (typeof document === "undefined") return 0;
+  const root = document.documentElement;
+  const inline = root.style.getPropertyValue(name).trim();
+  const inlinePx = parseFloat(inline);
+  if (Number.isFinite(inlinePx) && inlinePx > 0) return inlinePx;
+  const computed = getComputedStyle(root).getPropertyValue(name).trim();
+  const computedPx = parseFloat(computed);
+  return Number.isFinite(computedPx) && computedPx > 0 ? computedPx : 0;
+}
+
+function hasRootSystemSafeBottomPx(): boolean {
+  return readCssVarPxFromRoot("--dibay-safe-bottom") > 0 || readCssVarPxFromRoot("--safe-bottom") > 0;
+}
+
 /**
- * 키보드 open → keyboard overlay. closed → Android nav / gesture gap (visualViewport).
- * iOS safe-area 는 CSS env() 로 shell·timeline 에 추가.
+ * 키보드 open → `--chat-bottom-inset` (keyboard overlay only).
+ * System navigation → `--safe-bottom` on shell (native bridge + env). 이중 nav 차감 금지.
  */
 export function resolveChatBottomInsetCssPx(): number {
   const keyboard = resolveChatShellKeyboardOverlayCssPx();
   if (keyboard >= CHAT_SHELL_KEYBOARD_OVERLAY_MIN_PX) return keyboard;
+
+  if (hasRootSystemSafeBottomPx()) return 0;
 
   if (typeof window === "undefined") return 0;
   const vv = window.visualViewport;

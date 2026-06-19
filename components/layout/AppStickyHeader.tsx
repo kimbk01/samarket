@@ -52,10 +52,9 @@ export function AppStickyHeader() {
     <div
       data-app-sticky-header
       /**
-       * `pt-[env(safe-area-inset-top,0px)]`: iOS PWA / `viewport-fit=cover` 에서 노치·상태바 영역 회피.
-       * 일반 브라우저(env() = 0)에서는 영향 없음. 동일 의미를 가진 공통 토큰: `--safe-top` (`app/app-shell.css`).
+       * `pt-[var(--safe-top)]`: status bar / notch — SSOT `app/app-shell.css` `--safe-top`.
        */
-      className={`relative z-20 w-full min-w-0 max-w-full shrink-0 overflow-x-clip pt-[env(safe-area-inset-top,0px)] ${
+      className={`relative z-20 w-full min-w-0 max-w-full shrink-0 overflow-x-clip pt-[var(--safe-top)] ${
         deliveryChrome
           ? "delivery-ui bg-[color:var(--sector-header-bg,var(--delivery-header-bar-bg))]"
           : "bg-[color:var(--sector-header-bg)] backdrop-blur-[10px] border-b border-[color:var(--sector-header-border)]"

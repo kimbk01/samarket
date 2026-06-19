@@ -799,24 +799,24 @@ a,
   }
 
   .top-safe {
-    padding-top: env(safe-area-inset-top, 0px);
+    padding-top: var(--safe-top);
   }
 
   .bottom-safe {
-    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+    padding-bottom: calc(var(--safe-bottom) + 12px);
   }
 
   .screen-safe {
     box-sizing: border-box;
-    min-height: 100vh;
     min-height: 100dvh;
-    padding-left: env(safe-area-inset-left, 0px);
-    padding-right: env(safe-area-inset-right, 0px);
+    min-height: 100svh;
+    padding-left: var(--safe-left);
+    padding-right: var(--safe-right);
   }
 
-  /** `ChatInputBar`·상품 하단 등에서 사용 — 이전에 정의 누락 시 무효 클래스였음 */
+  /** `ChatInputBar`·상품 하단 등에서 사용 — SSOT `--safe-bottom` */
   .safe-area-pb {
-    padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+    padding-bottom: max(0.5rem, var(--safe-bottom));
   }
 
   @keyframes dibay-incoming-pill-enter-kf {

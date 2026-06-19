@@ -19,8 +19,8 @@
   display: flex;
   justify-content: center;
   width: 100%;
-  height: calc(60px + env(safe-area-inset-bottom, 0px));
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  height: calc(60px + var(--safe-bottom));
+  padding-bottom: var(--safe-bottom);
   background: var(--app-bottom-nav-surface);
   border-top: 1px solid var(--app-bottom-nav-border);
   box-shadow: var(--app-bottom-nav-shadow);
@@ -34,7 +34,7 @@
  */
 .app-bottom-nav-shell--delivery {
   padding-top: var(--delivery-home-overhang, 0px);
-  height: calc(60px + var(--delivery-home-overhang, 0px) + env(safe-area-inset-bottom, 0px));
+  height: calc(60px + var(--delivery-home-overhang, 0px) + var(--safe-bottom));
 }
 
 /** 스크롤 숨김 — 홈 원·safe-area·여유까지 완전 이탈 */
@@ -42,7 +42,7 @@
   pointer-events: none;
   transform: translate3d(
     0,
-    calc(100% + env(safe-area-inset-bottom, 0px) + var(--app-bottom-nav-scroll-hide-buffer, 0.5rem)),
+    calc(100% + var(--safe-bottom) + var(--app-bottom-nav-scroll-hide-buffer, 0.5rem)),
     0
   );
 }

@@ -11,10 +11,10 @@
 
 body[data-owner-compact-shell] {
   --owner-shell-toolbar-h: var(--sam-header-row-height, 3.5rem);
-  --owner-shell-safe-top: env(safe-area-inset-top, 0px);
-  --owner-shell-safe-left: env(safe-area-inset-left, 0px);
-  --owner-shell-safe-right: env(safe-area-inset-right, 0px);
-  --owner-shell-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --owner-shell-safe-top: var(--safe-top);
+  --owner-shell-safe-left: var(--safe-left);
+  --owner-shell-safe-right: var(--safe-right);
+  --owner-shell-safe-bottom: var(--safe-bottom);
   --owner-shell-pad-left: max(0.5rem, var(--owner-shell-safe-left));
   --owner-shell-pad-right: max(0.5rem, var(--owner-shell-safe-right));
   /** phone — `APP_MAIN_COLUMN` 32rem(512) 대신 읽기 폭 42rem 과 맞춤 */

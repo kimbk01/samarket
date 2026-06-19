@@ -4,9 +4,10 @@
  * 정책 (`docs/community-messenger-mobile-room-viewport.md` 와 함께 읽기):
  * - Android · iOS 분기 없이 동일 토큰을 사용한다.
  * - 동적 뷰포트는 `100dvh` 우선, 미지원 브라우저는 `100vh` fallback.
- * - safe-area 는 `env(safe-area-inset-*)` 만 사용 — `-webkit-fill-available` 도입 금지.
- * - 메신저 방은 `app/chat-viewport-shell.css` · `use-chat-viewport-shell-insets.ts` (flex 100dvh + safe-area).
- *   여기 토큰을 **읽기만** 하고 덮어쓰지 않는다.
+ * - safe-area SSOT: `--safe-*` = max(env, native `--dibay-safe-*`). Android WebView bridge:
+ *   `DibayWebSafeAreaBridge` → `MainActivity`.
+ * - 메신저 방은 `app/chat-viewport-shell.css` · `use-chat-viewport-shell-insets.ts`.
+ *   `--safe-bottom`(system nav) + `--chat-bottom-inset`(keyboard only) — 이중 nav 차감 금지.
  *
  * 기존 호환:
  * - `app/globals.css` 의 `.top-safe`·`.bottom-safe`·`.screen-safe`·`.safe-area-pb`
@@ -24,6 +25,13 @@ html.sam-main-shell-viewport-lock body {
   max-height: 100%;
 }
 
+/** 메인 셸 루트 — landscape 좌·우 safe + 100dvh (100vh 단독 금지) */
+html.sam-main-shell-viewport-lock .main-shell-viewport-root {
+  box-sizing: border-box;
+  padding-left: var(--safe-left);
+  padding-right: var(--safe-right);
+}
+
 
 :root {
   /**
@@ -37,11 +45,17 @@ html.sam-main-shell-viewport-lock body {
   /** 동적 뷰포트(채팅 방·전체화면 시트 전용 — 주소창 변동 반영) */
   --app-height-dynamic: 100dvh;
 
-  /** 안전 영역 — env() 미지원 환경에서는 0 */
-  --safe-top: env(safe-area-inset-top, 0px);
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
-  --safe-left: env(safe-area-inset-left, 0px);
-  --safe-right: env(safe-area-inset-right, 0px);
+  /** Native bridge (`DibayWebSafeAreaBridge`) — Android WebView env()=0 fallback */
+  --dibay-safe-top: 0px;
+  --dibay-safe-bottom: 0px;
+  --dibay-safe-left: 0px;
+  --dibay-safe-right: 0px;
+
+  /** SSOT — max(env, native). Shell·header·bottom nav·fixed CTA 가 이 토큰만 사용 */
+  --safe-top: max(env(safe-area-inset-top, 0px), var(--dibay-safe-top, 0px));
+  --safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--dibay-safe-bottom, 0px));
+  --safe-left: max(env(safe-area-inset-left, 0px), var(--dibay-safe-left, 0px));
+  --safe-right: max(env(safe-area-inset-right, 0px), var(--dibay-safe-right, 0px));
 
   /**
    * 셸 높이 토큰.

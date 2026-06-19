@@ -5,7 +5,7 @@ import { CommunityFeedSkeleton } from "@/components/community/CommunityFeedSkele
  * (aligned with main shell / bottom nav spacing).
  */
 export const MAIN_SHELL_BOTTOM_SAFE_PAD_CLASS =
-  "pb-[calc(76px+env(safe-area-inset-bottom,0px))]";
+  "pb-[calc(76px+var(--safe-bottom))]";
 
 /** Philife / trade-style feed routes: card skeleton list */
 export function MainFeedRouteLoading({ rows = 5 }: { rows?: number }) {

@@ -63,7 +63,7 @@ export const CM_NEIGHBOR_PROMPT_CLASS =
   "rounded-[var(--cm-radius-card)] border border-[color-mix(in_srgb,var(--cm-primary)_18%,var(--cm-border))] bg-[var(--cm-primary-soft)] px-4 py-3.5";
 
 export const CM_STICKY_HEADER_CLASS =
-  "sticky top-0 z-30 border-b border-[var(--cm-border)] bg-[var(--cm-card-bg)]/95 backdrop-blur-sm pt-[env(safe-area-inset-top,0px)]";
+  "sticky top-0 z-30 border-b border-[var(--cm-border)] bg-[var(--cm-card-bg)]/95 backdrop-blur-sm pt-[var(--safe-top)]";
 
 export const CM_CHIP_IDLE_CLASS =
   "shrink-0 rounded-full border border-[var(--cm-border)] bg-[var(--cm-card-bg)] px-3.5 py-2 text-[13px] font-semibold text-[var(--cm-text-secondary)]";
@@ -72,4 +72,4 @@ export const CM_CHIP_ACTIVE_CLASS =
   "shrink-0 rounded-full border border-[var(--cm-primary)] bg-[var(--cm-primary)] px-3.5 py-2 text-[13px] font-semibold text-white";
 
 export const CM_STICKY_CTA_CLASS =
-  "sticky bottom-0 z-20 border-t border-[var(--cm-border)] bg-[var(--cm-card-bg)] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3";
+  "sticky bottom-0 z-20 border-t border-[var(--cm-border)] bg-[var(--cm-card-bg)] px-4 pb-[max(1rem,var(--safe-bottom))] pt-3";

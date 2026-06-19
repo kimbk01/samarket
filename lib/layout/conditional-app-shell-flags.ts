@@ -191,7 +191,7 @@ export function resolveConditionalAppShellFlags(
     "flex h-[100dvh] max-h-[100dvh] min-w-0 max-w-full flex-col overflow-hidden bg-sam-app";
   const appShellRootClass = isViewportLockedChatDetail
     ? topTier1RuleSet.showRegionBar
-      ? "flex h-[calc(100dvh-3.5rem-env(safe-area-inset-top,0px))] max-h-[calc(100dvh-3.5rem-env(safe-area-inset-top,0px))] min-w-0 max-w-full flex-col overflow-hidden bg-sam-app"
+      ? "flex h-[calc(100dvh-3.5rem-var(--safe-top))] max-h-[calc(100dvh-3.5rem-var(--safe-top))] min-w-0 max-w-full flex-col overflow-hidden bg-sam-app"
       : storeCartViewportLockedShellClass
     : isMainColumnViewportLocked
       ? storeCartViewportLockedShellClass
@@ -303,17 +303,19 @@ export function resolveConditionalAppShellFlags(
     isChatRoomDetail && (!isCommunityMessengerRoom || isCommunityMessengerCallPage);
   const mainBottomClass = chatDetailUsesZeroBottomPadding
     ? "pb-0"
-    : isCommunityMessengerSurface
+    : isCommunityMessengerRoom
       ? "pb-0"
-      : isTradeMeetSpotPickRoute
-        ? "pb-0"
-      : isStoreCommerceCartCheckoutPage || isMypageAddressFlowPage || isStoreOrderReviewPage
-        ? "pb-0"
-        : showBottomNav || isPostDetail || isPhilifeNeighborhoodPostDetail
-          ? showHomeTradeHubFloatingBar
-            ? MAIN_SCROLL_PADDING_HOME_WITH_FLOAT_CLASS
-            : MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS
-          : "pb-4";
+      : isCommunityMessengerSurface
+        ? MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS
+        : isTradeMeetSpotPickRoute
+          ? "pb-0"
+          : isStoreCommerceCartCheckoutPage || isMypageAddressFlowPage || isStoreOrderReviewPage
+            ? "pb-0"
+            : showBottomNav || isPostDetail || isPhilifeNeighborhoodPostDetail
+              ? showHomeTradeHubFloatingBar
+                ? MAIN_SCROLL_PADDING_HOME_WITH_FLOAT_CLASS
+                : MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS
+              : "pb-4";
 
   return {
     isStoreOrderHeroMenuSurface,
