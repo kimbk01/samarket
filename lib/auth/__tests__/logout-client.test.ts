@@ -51,7 +51,7 @@ describe("logout-client", () => {
     vi.restoreAllMocks();
   });
 
-  it("returns immediately after guest UI apply and schedules background cleanup", async () => {
+  it("applies guest UI immediately, awaits local signOut, then schedules wipe/server in background", async () => {
     const order: string[] = [];
     applyImmediateMock.mockImplementation(() => {
       order.push("immediate");
@@ -72,13 +72,23 @@ describe("logout-client", () => {
     const result = await mod.logoutCurrentDevice();
 
     expect(result.ok).toBe(true);
-    expect(order[0]).toBe("immediate");
+    expect(order.slice(0, 2)).toEqual(["immediate", "signOut"]);
     expect(markExplicitMock).toHaveBeenCalledTimes(1);
     expect(applyImmediateMock).toHaveBeenCalledTimes(1);
 
     await vi.waitFor(() => {
       expect(order).toEqual(["immediate", "signOut", "wipe", "server"]);
     });
+  });
+
+  it("calls local signOut once (foreground await, background skip duplicate)", async () => {
+    const mod = await import("@/lib/auth/logout-client");
+    await mod.logoutCurrentDevice();
+    await vi.waitFor(() => {
+      expect(wipeMock).toHaveBeenCalledWith("user_logout");
+    });
+    expect(signOutMock).toHaveBeenCalledTimes(1);
+    expect(signOutMock).toHaveBeenCalledWith({ scope: "local" });
   });
 
   it("still schedules background cleanup when local signOut fails", async () => {
@@ -89,6 +99,7 @@ describe("logout-client", () => {
 
     expect(result.ok).toBe(true);
     expect(applyImmediateMock).toHaveBeenCalledTimes(1);
+    expect(signOutMock).toHaveBeenCalledTimes(1);
     await vi.waitFor(() => {
       expect(wipeMock).toHaveBeenCalledWith("user_logout");
     });

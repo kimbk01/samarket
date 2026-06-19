@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { DibayAuthLogo } from "@/components/auth/DibayAuthLogo";
 import { LoginProviderButtons } from "@/components/auth/LoginProviderButtons";
@@ -12,6 +12,7 @@ import {
   writeLoginBootstrapSnapshot,
 } from "@/lib/auth/login-bootstrap-cache";
 import { finishClientAuthLogin } from "@/lib/auth/finish-client-auth-login.client";
+import { shouldAutoRestoreLoginSessionOnMount } from "@/lib/auth/login-session-auto-restore-policy";
 import { sanitizeNextPath, sanitizeFreshLoginLandingPath, withNextSearchParam } from "@/lib/auth/safe-next-path";
 import { dispatchOAuthPendingClear, useOAuthLogin } from "@/lib/auth/oauth/use-oauth-login";
 import { AuthProviderEmailConflictHost } from "@/components/auth/AuthProviderEmailConflictHost";
@@ -65,6 +66,11 @@ function LoginPageContent() {
     () => sanitizeNextPath(searchParams?.get("next") ?? null),
     [searchParams]
   );
+  const loginReason = useMemo(
+    () => searchParams?.get("reason")?.trim() ?? "",
+    [searchParams]
+  );
+  const blockedFromLogoutLandingRef = useRef(loginReason === "logout");
   const postLoginDestination =
     sanitizeFreshLoginLandingPath(next) ?? POST_LOGIN_PATH;
   const [providers, setProviders] = useState<AuthProviderPublic[]>([]);
@@ -103,9 +109,7 @@ function LoginPageContent() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (window.location.search.length === 0) return;
-    const params = new URLSearchParams(window.location.search);
-    const loginReason = params.get("reason")?.trim() ?? "";
+    if (!loginReason && window.location.search.length === 0) return;
     if (loginReason === "session_expired") {
       const message = t("auth_session_expired_notice");
       setError((prev) => (prev === message ? prev : message));
@@ -118,6 +122,14 @@ function LoginPageContent() {
       router.replace(withNextSearchParam("/login", next ?? null), { scroll: false });
       return;
     }
+    if (loginReason === "logout") {
+      blockedFromLogoutLandingRef.current = true;
+      const message = t("auth_logout_success_notice");
+      setError((prev) => (prev === message ? prev : message));
+      router.replace(withNextSearchParam("/login", next ?? null), { scroll: false });
+      return;
+    }
+    const params = new URLSearchParams(window.location.search);
     const authError = params.get("auth_error")?.trim() ?? "";
     const authErrorDetail = params.get("auth_error_detail")?.trim() ?? "";
     const errorCode = params.get("error")?.trim() ?? "";
@@ -153,7 +165,7 @@ function LoginPageContent() {
     // `auth_error`/`error` 만 정리하고 `next` 는 보존해 다음 시도에도 원래 경로로 복귀하게 한다.
     const cleanHref = withNextSearchParam("/login", next ?? null);
     router.replace(cleanHref, { scroll: false });
-  }, [router, next, t]);
+  }, [router, next, t, loginReason]);
 
   useEffect(() => {
     let cancelled = false;
@@ -251,6 +263,13 @@ function LoginPageContent() {
 
   useEffect(() => {
     let cancelled = false;
+    if (
+      !shouldAutoRestoreLoginSessionOnMount(loginReason, blockedFromLogoutLandingRef.current)
+    ) {
+      return () => {
+        cancelled = true;
+      };
+    }
     void (async () => {
       const supabase = getSupabaseClient();
       if (!supabase) return;
@@ -271,7 +290,7 @@ function LoginPageContent() {
     return () => {
       cancelled = true;
     };
-  }, [next, postLoginDestination, router]);
+  }, [loginReason, next, postLoginDestination, router]);
 
   const oauthEnabled = providers.length > 0;
 

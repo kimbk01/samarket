@@ -221,6 +221,7 @@ export const authUiMessages = {
     auth_onboarding_address_done: "주소 설정이 완료되었습니다. 바로 이동합니다…",
     auth_session_expired_notice: "로그인이 만료되었습니다. 다시 로그인해 주세요.",
     auth_login_required_notice: "로그인이 필요한 화면입니다. 로그인해 주세요.",
+    auth_logout_success_notice: "로그아웃되었습니다.",
     auth_logout_err_failed: "로그아웃 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.",
     auth_logout_err_server_slow: "서버 로그아웃 응답이 지연되어 백그라운드에서 정리합니다.",
     auth_logout_err_server_unreachable:
@@ -449,6 +450,7 @@ export const authUiMessages = {
     auth_onboarding_address_done: "Address saved. Redirecting…",
     auth_session_expired_notice: "Your session has expired. Please sign in again.",
     auth_login_required_notice: "This page requires sign-in. Please log in.",
+    auth_logout_success_notice: "You have been logged out.",
     auth_logout_err_failed: "Sign-out failed. Please try again shortly.",
     auth_logout_err_server_slow: "Server sign-out is slow; cleanup continues in the background.",
     auth_logout_err_server_unreachable:

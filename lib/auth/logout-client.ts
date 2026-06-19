@@ -1,6 +1,6 @@
 /**
  * 클라이언트 로그아웃 — DIBAY 3종 정책.
- * UI·게스트 캐시는 즉시 반영하고, wipe·signOut·서버 통지는 백그라운드.
+ * UI·게스트 캐시는 즉시 반영하고, local signOut 은 navigate 전 await, wipe·서버 통지는 백그라운드.
  * @see docs/dibay-session-policy.md
  */
 
@@ -98,9 +98,16 @@ async function reportServerLogout(path: "/api/auth/logout" | "/api/auth/logout-a
 
 type LogoutBackgroundScope = "current_device" | "all_devices" | "corrupt";
 
-async function runLogoutBackgroundCleanup(scope: LogoutBackgroundScope): Promise<void> {
-  const localSignOutOk =
-    scope === "all_devices" ? await globalSupabaseSignOut() : await localSupabaseSignOut();
+async function runLogoutBackgroundCleanup(
+  scope: LogoutBackgroundScope,
+  options?: { skipLocalSignOut?: boolean; localSignOutOk?: boolean }
+): Promise<void> {
+  const skipLocalSignOut = options?.skipLocalSignOut === true;
+  let localSignOutOk = options?.localSignOutOk ?? true;
+  if (!skipLocalSignOut) {
+    localSignOutOk =
+      scope === "all_devices" ? await globalSupabaseSignOut() : await localSupabaseSignOut();
+  }
   await wipeClientSessionState("user_logout");
   const serverWarning =
     scope === "corrupt"
@@ -115,10 +122,20 @@ async function runLogoutBackgroundCleanup(scope: LogoutBackgroundScope): Promise
   });
 }
 
-function beginImmediateLogout(scope: LogoutBackgroundScope): LogoutResult {
+async function beginImmediateLogout(scope: LogoutBackgroundScope): Promise<LogoutResult> {
   markExplicitLogoutWipeDone();
   applyImmediateLogoutClientState();
-  void runLogoutBackgroundCleanup(scope).catch((err) => {
+
+  let localSignOutOk = true;
+  if (scope !== "corrupt") {
+    localSignOutOk =
+      scope === "all_devices" ? await globalSupabaseSignOut() : await localSupabaseSignOut();
+  }
+
+  void runLogoutBackgroundCleanup(scope, {
+    skipLocalSignOut: scope !== "corrupt",
+    localSignOutOk,
+  }).catch((err) => {
     if (typeof console !== "undefined") {
       console.error("[auth:logout] background cleanup failed", err);
     }
@@ -126,7 +143,7 @@ function beginImmediateLogout(scope: LogoutBackgroundScope): LogoutResult {
   return { ok: true, serverWarning: null };
 }
 
-/** 현재 기기만 — UI 즉시 guest, cleanup 은 백그라운드 */
+/** 현재 기기만 — UI 즉시 guest, local signOut 선행, wipe·서버는 백그라운드 */
 export async function logoutCurrentDevice(): Promise<LogoutResult> {
   if (typeof window === "undefined") {
     return { ok: false, message: logoutT("auth_logout_err_browser_only") };
@@ -134,7 +151,7 @@ export async function logoutCurrentDevice(): Promise<LogoutResult> {
   return beginImmediateLogout("current_device");
 }
 
-/** 모든 기기 — UI 즉시 guest, cleanup 은 백그라운드 */
+/** 모든 기기 — UI 즉시 guest, global signOut 선행, wipe·서버는 백그라운드 */
 export async function logoutAllDevices(): Promise<LogoutResult> {
   if (typeof window === "undefined") {
     return { ok: false, message: logoutT("auth_logout_err_browser_only") };
