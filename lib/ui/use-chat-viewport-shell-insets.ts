@@ -8,11 +8,6 @@ import {
 } from "@/lib/ui/chat-viewport-shell-platform";
 import { subscribeSamarketShellKeyboardInsets } from "@/lib/platform/samarket-shell-keyboard";
 import { resolveLayoutVisibleViewportCssPx } from "@/lib/ui/layout-visible-viewport-px";
-import {
-  applyChatViewportHeightToRoot,
-  CHAT_VIEWPORT_HEIGHT_CSS_VAR,
-  clearChatViewportHeightFromRoot,
-} from "@/lib/ui/chat-viewport-height-sync";
 import { MESSENGER_CHAT_SHELL_MIN_HEIGHT_PX } from "@/lib/ui/messenger-chat-viewport-tuning";
 import { logChatRoomScroll } from "@/lib/community-messenger/room/messenger-room-timeline-log";
 
@@ -42,18 +37,14 @@ function syncComposerHeightMetric(shell: HTMLElement): void {
 }
 
 /**
- * 채팅 셸 CSS 변수:
- * --chat-viewport-height (vv edge + P0.1 root chain), --chat-composer-height,
- * --chat-bottom-inset (keyboard/nav gap overlay — CSS calc with --safe-bottom)
+ * 채팅 셸 — CSS 변수 3개만 갱신:
+ * --chat-viewport-height, --chat-composer-height, --chat-bottom-inset
  */
 export function useChatViewportShellInsets(opts: Options): void {
   const { enabled, shellRef, layoutMode, observeComposerHeight = false } = opts;
 
   useEffect(() => {
-    if (!enabled) {
-      clearChatViewportHeightFromRoot();
-      return;
-    }
+    if (!enabled) return;
     const shell = shellRef.current;
     if (!shell) return;
 
@@ -65,11 +56,9 @@ export function useChatViewportShellInsets(opts: Options): void {
     const syncAll = () => {
       if (layoutMode !== "embedded") {
         const visiblePx = resolveLayoutVisibleViewportCssPx(MESSENGER_CHAT_SHELL_MIN_HEIGHT_PX);
-        applyChatViewportHeightToRoot(visiblePx);
-        shell.style.setProperty(CHAT_VIEWPORT_HEIGHT_CSS_VAR, `${visiblePx}px`);
+        shell.style.setProperty("--chat-viewport-height", `${visiblePx}px`);
       } else {
-        clearChatViewportHeightFromRoot();
-        shell.style.removeProperty(CHAT_VIEWPORT_HEIGHT_CSS_VAR);
+        shell.style.removeProperty("--chat-viewport-height");
       }
 
       const bottomInset = resolveChatBottomInsetCssPx();
@@ -118,8 +107,7 @@ export function useChatViewportShellInsets(opts: Options): void {
       window.removeEventListener("resize", onWin);
       window.removeEventListener("orientationchange", onWin);
       unsubNative();
-      clearChatViewportHeightFromRoot();
-      shell.style.removeProperty(CHAT_VIEWPORT_HEIGHT_CSS_VAR);
+      shell.style.removeProperty("--chat-viewport-height");
       shell.style.removeProperty("--chat-bottom-inset");
       shell.style.removeProperty("--chat-composer-height");
       delete shell.dataset.chatShellPlatform;

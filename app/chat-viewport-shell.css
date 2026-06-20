@@ -1,56 +1,7 @@
 /**
  * DIBAY 채팅방 헤더·composer 공통 geometry — direct / trade / delivery 단일.
- * CSS 변수: --chat-viewport-height, --chat-composer-height, --chat-bottom-inset
- *
- * Keyboard P0.1 — `useChatViewportShellInsets` 가 `:root` 에 `--chat-viewport-height` + html class
- * `sam-chat-viewport-height-active` 를 설정하면 아래 체인 전체가 vv 높이로 수렴한다.
+ * CSS 변수 3개: --chat-viewport-height, --chat-composer-height, --chat-bottom-inset
  */
-
-/** CM 방 — app shell ~ segment ~ room shell 높이를 vv edge 로 동기 (Tailwind h-[100dvh] override) */
-html.sam-chat-viewport-height-active,
-html.sam-chat-viewport-height-active body {
-  height: var(--chat-viewport-height, 100dvh);
-  max-height: var(--chat-viewport-height, 100dvh);
-  overflow: hidden;
-}
-
-html.sam-chat-viewport-height-active .main-shell-viewport-root,
-html.sam-chat-viewport-height-active [data-main-shell-root],
-html.sam-chat-viewport-height-active .app-shell,
-html.sam-chat-viewport-height-active .app-shell > main,
-html.sam-chat-viewport-height-active .main-shell-push-host,
-html.sam-chat-viewport-height-active [data-cm-room-segment-layout] {
-  height: var(--chat-viewport-height, 100dvh);
-  max-height: var(--chat-viewport-height, 100dvh);
-  min-height: 0;
-}
-
-html.sam-chat-viewport-height-active .main-shell-viewport-root > div {
-  flex: 1 1 auto;
-  min-height: 0;
-  height: 100%;
-  max-height: 100%;
-}
-
-html.sam-chat-viewport-height-active [data-cm-room].chat-viewport-shell:not(.chat-viewport-shell--embedded) {
-  flex: 1 1 auto;
-  height: var(--chat-viewport-height, 100dvh);
-  max-height: var(--chat-viewport-height, 100dvh);
-}
-
-@supports not (height: 100dvh) {
-  html.sam-chat-viewport-height-active,
-  html.sam-chat-viewport-height-active body,
-  html.sam-chat-viewport-height-active .main-shell-viewport-root,
-  html.sam-chat-viewport-height-active [data-main-shell-root],
-  html.sam-chat-viewport-height-active .app-shell,
-  html.sam-chat-viewport-height-active .app-shell > main,
-  html.sam-chat-viewport-height-active .main-shell-push-host,
-  html.sam-chat-viewport-height-active [data-cm-room-segment-layout] {
-    height: var(--chat-viewport-height, 100vh);
-    max-height: var(--chat-viewport-height, 100vh);
-  }
-}
 
 [data-cm-room].chat-viewport-shell {
   box-sizing: border-box;
