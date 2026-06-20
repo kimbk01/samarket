@@ -1,19 +1,24 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  CALL_PIP_DRAG_LOCK_MS,
   CALL_PIP_PORTRAIT_HEIGHT_RATIO,
+  CALL_PIP_SESSION_SNAP_STORAGE_PREFIX,
   CALL_PIP_SNAP_STORAGE_KEY,
   CALL_PIP_SNAP_STORAGE_KEY_LEGACY,
   CALL_PIP_SNAP_STORAGE_KEY_LEGACY_SNAP,
+  callPipSessionSnapStorageKey,
   clampCallPipDragDelta,
   computeCallPipCornerAnchors,
   computeCallPipDimensions,
   computeCallPipExpandedDimensions,
   fromSnapStorageValue,
   migrateLegacyCallPipSnapStorage,
+  readCallPipSessionSnapPosition,
   readCallPipSnapPosition,
   resolveCallPipDragSnapCenter,
   snapCallPipToNearestCorner,
   toSnapStorageValue,
+  writeCallPipSessionSnapPosition,
   writeCallPipSnapPosition,
 } from "@/lib/community-messenger/call-pip-metrics";
 
@@ -130,7 +135,35 @@ describe("resolveCallPipDragSnapCenter", () => {
 });
 
 describe("call pip snap storage", () => {
-  it("reads and writes global snap position in kebab-case", () => {
+  it("exposes drag lock duration for gesture hook", () => {
+    expect(CALL_PIP_DRAG_LOCK_MS).toBe(1500);
+  });
+
+  it("builds session-scoped storage keys", () => {
+    expect(callPipSessionSnapStorageKey("sess-1")).toBe(`${CALL_PIP_SESSION_SNAP_STORAGE_PREFIX}sess-1`);
+  });
+
+  it("isolates snap position per sessionId in sessionStorage", () => {
+    const session = new Map<string, string>();
+    vi.stubGlobal("sessionStorage", {
+      getItem: (k: string) => session.get(k) ?? null,
+      setItem: (k: string, v: string) => session.set(k, v),
+      removeItem: (k: string) => session.delete(k),
+      key: (i: number) => [...session.keys()][i] ?? null,
+      get length() {
+        return session.size;
+      },
+    });
+
+    writeCallPipSessionSnapPosition("sess-a", "topLeft");
+    expect(readCallPipSessionSnapPosition("sess-a")).toBe("topLeft");
+    expect(readCallPipSessionSnapPosition("sess-b")).toBeNull();
+    expect(session.get(callPipSessionSnapStorageKey("sess-a"))).toBe("top-left");
+
+    vi.unstubAllGlobals();
+  });
+
+  it("reads and writes deprecated global snap position in localStorage", () => {
     const store = new Map<string, string>();
     vi.stubGlobal("localStorage", {
       getItem: (k: string) => store.get(k) ?? null,
@@ -157,30 +190,15 @@ describe("call pip snap storage", () => {
     vi.unstubAllGlobals();
   });
 
-  it("migrates legacy video-call localStorage keys", () => {
-    const store = new Map<string, string>([[CALL_PIP_SNAP_STORAGE_KEY_LEGACY, "bottom-left"]]);
-    vi.stubGlobal("localStorage", {
-      getItem: (k: string) => store.get(k) ?? null,
-      setItem: (k: string, v: string) => store.set(k, v),
-      removeItem: (k: string) => store.delete(k),
-    });
-    vi.stubGlobal("sessionStorage", {
-      getItem: () => null,
-      setItem: () => {},
-      removeItem: () => {},
-      key: () => null,
-      length: 0,
-    });
-
-    expect(readCallPipSnapPosition()).toBe("bottomLeft");
-    expect(store.get(CALL_PIP_SNAP_STORAGE_KEY)).toBe("bottom-left");
-
-    vi.unstubAllGlobals();
-  });
-
-  it("migrates legacy sessionStorage corner to localStorage", () => {
-    const local = new Map<string, string>();
-    const session = new Map<string, string>([["cm_call_pip_corner:sess-1", "topRight"]]);
+  it("migrateLegacyCallPipSnapStorage clears legacy keys without seeding new sessions", () => {
+    const local = new Map<string, string>([
+      [CALL_PIP_SNAP_STORAGE_KEY_LEGACY, "bottom-left"],
+      [CALL_PIP_SNAP_STORAGE_KEY, "top-left"],
+    ]);
+    const session = new Map<string, string>([
+      ["cm_call_pip_corner:sess-1", "topRight"],
+      ["cm_call_pip_pos:sess-1", "bottom-right"],
+    ]);
     vi.stubGlobal("localStorage", {
       getItem: (k: string) => local.get(k) ?? null,
       setItem: (k: string, v: string) => local.set(k, v),
@@ -197,8 +215,9 @@ describe("call pip snap storage", () => {
     });
 
     migrateLegacyCallPipSnapStorage();
-    expect(local.get(CALL_PIP_SNAP_STORAGE_KEY)).toBe("top-right");
+    expect(local.size).toBe(0);
     expect(session.size).toBe(0);
+    expect(readCallPipSessionSnapPosition("sess-new")).toBeNull();
 
     vi.unstubAllGlobals();
   });

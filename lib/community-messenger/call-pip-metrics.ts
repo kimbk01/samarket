@@ -64,6 +64,12 @@ export const CALL_PIP_SNAP_STORAGE_KEY_LEGACY = "dibay:video-call:self-view-pip-
 /** @deprecated migrate → CALL_PIP_SNAP_STORAGE_KEY */
 export const CALL_PIP_SNAP_STORAGE_KEY_LEGACY_SNAP = "dibay:video-call:self-view-snap-position";
 
+/** 통화 sessionId 단위 PiP snap — cross-session localStorage 금지 */
+export const CALL_PIP_SESSION_SNAP_STORAGE_PREFIX = "dibay:call:pip-snap:";
+
+/** 영상 통화 시작 직후 PiP 드래그 잠금 (ms) */
+export const CALL_PIP_DRAG_LOCK_MS = 1500;
+
 export type CallPipSnapStorageValue =
   | "top-left"
   | "top-right"
@@ -292,21 +298,19 @@ function readLegacyCallPipSnapRaw(): string | null {
   );
 }
 
+/** @deprecated cross-session localStorage — 신규 통화 init 에 사용 금지 */
 export function readCallPipSnapPosition(): CallPipCorner | null {
   if (typeof localStorage === "undefined") return null;
   try {
     const raw = localStorage.getItem(CALL_PIP_SNAP_STORAGE_KEY) ?? readLegacyCallPipSnapRaw();
     if (!raw) return null;
-    const corner = fromSnapStorageValue(raw);
-    if (corner && !localStorage.getItem(CALL_PIP_SNAP_STORAGE_KEY)) {
-      writeCallPipSnapPosition(corner);
-    }
-    return corner;
+    return fromSnapStorageValue(raw);
   } catch {
     return null;
   }
 }
 
+/** @deprecated cross-session localStorage — 신규 통화 write 에 사용 금지 */
 export function writeCallPipSnapPosition(corner: CallPipCorner): void {
   if (typeof localStorage === "undefined") return;
   try {
@@ -318,64 +322,88 @@ export function writeCallPipSnapPosition(corner: CallPipCorner): void {
   }
 }
 
-/** sessionStorage legacy → localStorage 1회 마이그레이션 */
-export function migrateLegacyCallPipSnapStorage(): void {
-  if (typeof localStorage === "undefined" || typeof sessionStorage === "undefined") return;
-  try {
-    if (!localStorage.getItem(CALL_PIP_SNAP_STORAGE_KEY)) {
-      const legacyRaw = readLegacyCallPipSnapRaw();
-      const legacyCorner = legacyRaw ? fromSnapStorageValue(legacyRaw) : null;
-      if (legacyCorner) {
-        writeCallPipSnapPosition(legacyCorner);
-      }
-    }
+export function callPipSessionSnapStorageKey(sessionId: string): string {
+  return `${CALL_PIP_SESSION_SNAP_STORAGE_PREFIX}${sessionId.trim()}`;
+}
 
-    if (!readCallPipSnapPosition()) {
-      let migrated: CallPipCorner | null = null;
-      for (let i = 0; i < sessionStorage.length; i += 1) {
-        const k = sessionStorage.key(i);
-        if (!k?.startsWith(LEGACY_CORNER_STORAGE_PREFIX)) continue;
-        const raw = sessionStorage.getItem(k);
-        const corner = raw ? fromSnapStorageValue(raw) : null;
-        if (corner) migrated = corner;
-      }
-      if (!migrated) {
-        for (let i = 0; i < sessionStorage.length; i += 1) {
-          const k = sessionStorage.key(i);
-          if (!k?.startsWith(LEGACY_POS_STORAGE_PREFIX)) continue;
-          const raw = sessionStorage.getItem(k);
-          const corner = raw ? fromSnapStorageValue(raw) : null;
-          if (corner) migrated = corner;
-        }
-      }
-      if (migrated) writeCallPipSnapPosition(migrated);
-    }
-    clearLegacyCallPipSessionStorage();
+export function readCallPipSessionSnapPosition(sessionId: string): CallPipCorner | null {
+  if (typeof sessionStorage === "undefined") return null;
+  const sid = sessionId.trim();
+  if (!sid) return null;
+  try {
+    const raw = sessionStorage.getItem(callPipSessionSnapStorageKey(sid));
+    if (!raw) return null;
+    return fromSnapStorageValue(raw);
+  } catch {
+    return null;
+  }
+}
+
+export function writeCallPipSessionSnapPosition(sessionId: string, corner: CallPipCorner): void {
+  if (typeof sessionStorage === "undefined") return;
+  const sid = sessionId.trim();
+  if (!sid) return;
+  try {
+    sessionStorage.setItem(callPipSessionSnapStorageKey(sid), toSnapStorageValue(corner));
   } catch {
     /* ignore */
   }
 }
 
-/** @deprecated sessionStorage per-session — legacy 정리만 */
+export function clearCallPipSessionSnapPosition(sessionId: string): void {
+  if (typeof sessionStorage === "undefined") return;
+  const sid = sessionId.trim();
+  if (!sid) return;
+  try {
+    sessionStorage.removeItem(callPipSessionSnapStorageKey(sid));
+  } catch {
+    /* ignore */
+  }
+}
+
+function clearGlobalCallPipSnapLocalStorage(): void {
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.removeItem(CALL_PIP_SNAP_STORAGE_KEY);
+    localStorage.removeItem(CALL_PIP_SNAP_STORAGE_KEY_LEGACY);
+    localStorage.removeItem(CALL_PIP_SNAP_STORAGE_KEY_LEGACY_SNAP);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** legacy session/global snap 정리만 — 새 통화 init 에 legacy 위치 적용 금지 */
+export function migrateLegacyCallPipSnapStorage(): void {
+  if (typeof localStorage === "undefined" || typeof sessionStorage === "undefined") return;
+  try {
+    clearLegacyCallPipSessionStorage();
+    clearGlobalCallPipSnapLocalStorage();
+  } catch {
+    /* ignore */
+  }
+}
+
+/** @deprecated use callPipSessionSnapStorageKey */
 export function callPipCornerStorageKey(sessionId: string): string {
   return `${LEGACY_CORNER_STORAGE_PREFIX}${sessionId.trim()}`;
 }
 
-/** @deprecated use readCallPipSnapPosition */
+/** @deprecated use readCallPipSessionSnapPosition */
 export function readCallPipCornerStorage(sessionId: string): CallPipCorner | null {
-  void sessionId;
-  migrateLegacyCallPipSnapStorage();
-  return readCallPipSnapPosition();
+  return readCallPipSessionSnapPosition(sessionId);
 }
 
-/** @deprecated use writeCallPipSnapPosition */
-export function writeCallPipCornerStorage(_sessionId: string, corner: CallPipCorner): void {
-  writeCallPipSnapPosition(corner);
+/** @deprecated use writeCallPipSessionSnapPosition */
+export function writeCallPipCornerStorage(sessionId: string, corner: CallPipCorner): void {
+  writeCallPipSessionSnapPosition(sessionId, corner);
 }
 
-/** legacy sessionStorage 키만 제거 — global localStorage snap 은 유지 */
-export function clearCallPipCornerStorage(_sessionId?: string | null): void {
+/** legacy + session snap 제거 */
+export function clearCallPipCornerStorage(sessionId?: string | null): void {
   clearLegacyCallPipSessionStorage();
+  if (sessionId?.trim()) {
+    clearCallPipSessionSnapPosition(sessionId);
+  }
 }
 
 function clearLegacyCallPipSessionStorage(): void {
