@@ -1,12 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { philifeWriteSheetShellStyle } from "@/lib/ui/philife-write-sheet-keyboard-layout";
+import {
+  philifeWriteSheetOuterPaddingStyle,
+  philifeWriteSheetShellStyle,
+} from "@/lib/ui/philife-write-sheet-keyboard-layout";
 
-describe("philifeWriteSheetShellStyle", () => {
-  it("applies keyboard inset to shell bottom", () => {
-    expect(philifeWriteSheetShellStyle(120, 280)).toEqual({ top: 120, bottom: 280 });
+describe("philifeWriteSheetOuterPaddingStyle", () => {
+  it("applies keyboard inset as outer paddingBottom", () => {
+    expect(philifeWriteSheetOuterPaddingStyle(280)).toEqual({ paddingBottom: 280 });
   });
 
   it("clamps negative keyboard inset to zero", () => {
-    expect(philifeWriteSheetShellStyle(80, -10)).toEqual({ top: 80, bottom: 0 });
+    expect(philifeWriteSheetOuterPaddingStyle(-10)).toEqual({ paddingBottom: 0 });
+  });
+});
+
+describe("philifeWriteSheetShellStyle (legacy alias)", () => {
+  it("delegates to outer padding style", () => {
+    expect(philifeWriteSheetShellStyle(120, 280)).toEqual({ paddingBottom: 280 });
   });
 });

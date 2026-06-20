@@ -18,6 +18,8 @@ type PhilifeWriteActionFooterProps = {
    * `page`: `/philife/write` 풀페이지 — viewport 하단 고정 + keyboard inset.
    */
   layout?: PhilifeWriteActionFooterLayout;
+  /** 시트 헤더 × 로 닫을 때 하단 취소 버튼 숨김 */
+  showCancel?: boolean;
 };
 
 /**
@@ -31,6 +33,7 @@ export function PhilifeWriteActionFooter({
   onCancel,
   error,
   layout = "page",
+  showCancel = true,
 }: PhilifeWriteActionFooterProps) {
   const { t } = useI18n();
   const keyboardInset = useMobileKeyboardInset({ enabled: layout === "page" });
@@ -62,19 +65,21 @@ export function PhilifeWriteActionFooter({
         </div>
       ) : null}
       <div className={`${APP_MYPAGE_SUBPAGE_BODY_CLASS} flex min-w-0 gap-2 py-3`}>
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={busy}
-          className="min-h-[44px] shrink-0 rounded-ui-rect border border-[#ccd0d5] bg-white px-4 py-2.5 sam-text-body font-medium text-[#050505] disabled:opacity-50"
-        >
-          {t("philife_write_sheet_cancel")}
-        </button>
+        {showCancel ? (
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={busy}
+            className="min-h-[44px] shrink-0 rounded-ui-rect border border-[#ccd0d5] bg-white px-4 py-2.5 sam-text-body font-medium text-[#050505] disabled:opacity-50"
+          >
+            {t("philife_write_sheet_cancel")}
+          </button>
+        ) : null}
         <button
           type="submit"
           form={PHILIFE_WRITE_FORM_ID}
           disabled={busy || submitDisabled}
-          className="min-h-[44px] flex-1 rounded-ui-rect bg-signature py-2.5 sam-text-body font-medium text-white disabled:opacity-50"
+          className={`min-h-[44px] rounded-ui-rect bg-signature py-2.5 sam-text-body font-medium text-white disabled:opacity-50 ${showCancel ? "flex-1" : "w-full"}`}
         >
           {busy ? t("philife_write_submitting") : t("philife_write_submit")}
         </button>

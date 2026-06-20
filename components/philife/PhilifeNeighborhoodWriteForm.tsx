@@ -1289,6 +1289,7 @@ export function PhilifeNeighborhoodWriteForm({
 
       <PhilifeWriteActionFooter
         layout={suppressWriteScreenTier1 ? "sheet" : "page"}
+        showCancel={!suppressWriteScreenTier1}
         busy={busy}
         submitDisabled={submitDisabled}
         error={err}

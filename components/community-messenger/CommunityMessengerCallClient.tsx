@@ -65,6 +65,7 @@ import {
   shouldUsePipFirstLocalSlot,
   shouldUseSoloLocalFullVideoLayout,
 } from "@/lib/community-messenger/call-video-layout";
+import { resolveCallPresentationState } from "@/lib/community-messenger/call-presentation-state";
 import {
   getCommunityMessengerInsecureOriginMediaHint,
   getCommunityMessengerMediaErrorMessage,
@@ -5754,6 +5755,16 @@ export function CommunityMessengerCallClient({
     ),
     localVideoReady,
   });
+  const callPresentation = resolveCallPresentationState({
+    mode: videoCall ? "video" : "voice",
+    direction: session.isMineInitiator ? "outgoing" : "incoming",
+    phase: displayCallPhase,
+    showRemoteVideo: videoCall ? remoteJoined && remoteVideoReady : false,
+    pipShellMounted,
+    showLocalVideo: videoPipChromeActive,
+    hasMainVideoSlot: videoCall,
+    visualTheme: "starbucks",
+  });
 
   const visibleActions = fitCallActionsForMobile(primaryActions, secondaryActions);
   const callVm: CallScreenViewModel = {
@@ -5822,7 +5833,8 @@ export function CommunityMessengerCallClient({
         (!preJoinVideoPreviewStream || !preJoinVideoElementReady) &&
         !showOutgoingRingCameraPreview &&
         !permissionBlockedUi &&
-        !suppressCameraPreparingOverlay ? (
+        !suppressCameraPreparingOverlay &&
+        callPresentation.showCameraPreparingOverlay ? (
           <div
             className="absolute inset-0 z-[2] flex items-center justify-center bg-[#003D29] pointer-events-none"
             aria-hidden
@@ -5837,8 +5849,9 @@ export function CommunityMessengerCallClient({
     miniVideoSlot: miniVideoSlotEl,
     showRemoteVideo: videoCall ? remoteJoined && remoteVideoReady : false,
     pipShellMounted,
-    showLocalVideo: videoPipChromeActive,
+    showLocalVideo: videoPipChromeActive && callPresentation.showPipChrome,
     videoPipLayout: pipShellMounted ? videoPipGesture : null,
+    presentation: callPresentation,
     participantsSummary: null,
     suppressTerminalView,
     /**
