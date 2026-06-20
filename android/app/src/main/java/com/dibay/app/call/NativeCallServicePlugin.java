@@ -1,6 +1,8 @@
 package com.dibay.app.call;
 
 import android.app.Activity;
+import android.app.ActivityManager;
+import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 import com.dibay.app.DibayCallLog;
@@ -152,7 +154,10 @@ public class NativeCallServicePlugin extends Plugin {
         intent.setFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         activity.startActivity(intent);
       } else {
-        activity.moveTaskToFront(true);
+        ActivityManager manager = (ActivityManager) activity.getSystemService(Context.ACTIVITY_SERVICE);
+        if (manager != null) {
+          manager.moveTaskToFront(activity.getTaskId(), ActivityManager.MOVE_TASK_WITH_HOME);
+        }
       }
       DibayCallLog.once("active_call_pip_restore", DibayActiveCallSessionManager.getActiveCallId(), "ok=true");
       call.resolve(new JSObject().put("ok", true));
