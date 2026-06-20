@@ -83,10 +83,12 @@ import {
   computeCallDisplayConnectionState,
 } from "@/lib/community-messenger/call-network-quality-state";
 import {
-  startOutgoingRingback,
   stopAllOutgoingRingback,
-  stopOutgoingRingback,
 } from "@/lib/community-messenger/call-outgoing-ringback-controller";
+import {
+  stopOutgoingRingbackForSessionId,
+  syncOutgoingRingbackFromCallSession,
+} from "@/lib/community-messenger/call-outgoing-ringback-sync";
 import {
   consumeOutgoingRingtonePrimedSessionFlag,
   playCommunityMessengerCallSignalSound,
@@ -372,36 +374,6 @@ function callAudioRouteTypeForKind(kind: CommunityMessengerCallKind): CallAudioR
 
 function callAudioRouteRoleForSession(session: CommunityMessengerCallSession): CallAudioRouteRole {
   return session.isMineInitiator ? "caller" : "callee";
-}
-
-function stopOutgoingRingbackForSession(
-  sessionId: string | null | undefined,
-  reason: string
-): void {
-  const sid = sessionId?.trim();
-  if (sid) {
-    stopOutgoingRingback(sid, reason);
-  } else {
-    stopAllOutgoingRingback(reason);
-  }
-}
-
-function syncOutgoingRingbackFromSession(args: {
-  session: CommunityMessengerCallSession | null | undefined;
-  joined: boolean;
-  remoteJoined: boolean;
-  source: string;
-  skipStart?: boolean;
-}): void {
-  const { session, joined, remoteJoined, source, skipStart } = args;
-  if (!session?.isMineInitiator) return;
-  const sid = session.id.trim();
-  if (!sid) return;
-  if (!skipStart && session.status === "ringing" && !joined && !remoteJoined) {
-    startOutgoingRingback({ callId: sid, kind: session.callKind, source });
-    return;
-  }
-  stopOutgoingRingback(sid, source);
 }
 
 /** 종료 PATCH/Realtime 후 stale 세션 GET 이 `ringing` 으로 되돌아와 링백이 다시 도는 윈도 — 수신 전역 tombstone(120s)과 동급 */
@@ -909,16 +881,16 @@ export function CommunityMessengerCallClient({
     const st = session.status;
     if (st === "active") {
       setErrorMessage(null);
-      stopOutgoingRingbackForSession(session.id, "session_active");
+      stopOutgoingRingbackForSessionId(session.id, "session_active");
       return;
     }
     if (st === "rejected" || st === "cancelled" || st === "missed") {
       setErrorMessage(null);
-      stopOutgoingRingbackForSession(session.id, "session_terminal_pre_active");
+      stopOutgoingRingbackForSessionId(session.id, "session_terminal_pre_active");
       return;
     }
     if (st === "ended") {
-      stopOutgoingRingbackForSession(session.id, "session_ended");
+      stopOutgoingRingbackForSessionId(session.id, "session_ended");
       const er = session.endedReason;
       if (!er || !isMessengerCallClientFailureReason(er)) {
         setErrorMessage(null);
@@ -1240,7 +1212,7 @@ export function CommunityMessengerCallClient({
     }
     const ringing = session.status === "ringing";
     if (wasCallSessionRingingRef.current && !ringing) {
-      stopOutgoingRingbackForSession(session.id, "ringing_ended");
+      stopOutgoingRingbackForSessionId(session.id, "ringing_ended");
     }
     wasCallSessionRingingRef.current = ringing;
   }, [session?.id, session?.status, session]);
@@ -1373,7 +1345,7 @@ export function CommunityMessengerCallClient({
     if (prevSt === st) return;
     if (isTerminalCallSessionStatus(prevSt)) return;
     if (!isTerminalCallSessionStatus(st)) return;
-    stopOutgoingRingbackForSession(sid, "terminal_status");
+    stopOutgoingRingbackForSessionId(sid, "terminal_status");
     if (st === "missed") {
       void playCommunityMessengerCallSignalSound("missed", { dedupeSessionId: sid });
       showMessengerSnackbar(t("cm_ui_missed_call_notification"), { variant: "error" });
@@ -1386,7 +1358,7 @@ export function CommunityMessengerCallClient({
   useEffect(() => {
     if (!session) return;
     const skipStart = consumeOutgoingRingtonePrimedSessionFlag(session.id);
-    syncOutgoingRingbackFromSession({
+    syncOutgoingRingbackFromCallSession({
       session,
       joined,
       remoteJoined,
@@ -1394,7 +1366,7 @@ export function CommunityMessengerCallClient({
       skipStart,
     });
     return () => {
-      stopOutgoingRingbackForSession(session.id, "ringback_effect_cleanup");
+      stopOutgoingRingbackForSessionId(session.id, "ringback_effect_cleanup");
     };
   }, [session?.id, session?.status, session?.isMineInitiator, session?.callKind, joined, remoteJoined, session]);
 
@@ -1901,7 +1873,7 @@ export function CommunityMessengerCallClient({
       setJoined(false);
       joinedRef.current = false;
       setRemoteJoined(false);
-      stopOutgoingRingbackForSession(cur.id, "remote_terminal_feed");
+      stopOutgoingRingbackForSessionId(cur.id, "remote_terminal_feed");
       stopCommunityMessengerCallFeedback();
       void disposeCallMedia({ domAudioNuclear: true }).catch(() => {});
       const failureTerminal =
@@ -2118,7 +2090,7 @@ export function CommunityMessengerCallClient({
   useEffect(() => {
     return () => {
       cmCallAudioCleanup("call_client_route_unmount", { sessionId });
-      stopOutgoingRingbackForSession(sessionId, "call_client_unmount");
+      stopOutgoingRingbackForSessionId(sessionId, "call_client_unmount");
       joiningRef.current = false;
       if (shouldSkipCallClientUnmountDispose(sessionId)) return;
       void disposeCallMedia({ domAudioNuclear: false }).catch(() => {});
@@ -2788,7 +2760,7 @@ export function CommunityMessengerCallClient({
               mediaType,
             });
           }
-          stopOutgoingRingbackForSession(targetSession.id, "remote_published");
+          stopOutgoingRingbackForSessionId(targetSession.id, "remote_published");
           if (mediaType === "audio" && user.audioTrack) {
             remoteAudioTrackRef.current = user.audioTrack;
             if (targetSession.isMineInitiator) {
@@ -2833,7 +2805,7 @@ export function CommunityMessengerCallClient({
                 callKind: targetSession.callKind,
                 role: targetSession.isMineInitiator ? "initiator" : "recipient",
               });
-              stopOutgoingRingbackForSession(targetSession.id, "remote_audio_first_frame");
+              stopOutgoingRingbackForSessionId(targetSession.id, "remote_audio_first_frame");
             }
             clearPeerLeftEndTimer();
             if (!remoteJoinedRef.current) {
@@ -3061,7 +3033,7 @@ export function CommunityMessengerCallClient({
         }
         joinedRef.current = true;
         setJoined(true);
-        stopOutgoingRingbackForSession(targetSession.id, "local_joined");
+        stopOutgoingRingbackForSessionId(targetSession.id, "local_joined");
         logDibayCall("connected", { sessionId: targetSession.id, source: "local_join_published" });
         if (isVideoCallJoin && !localVideoBoundDuringJoin) {
           void bindLocalVideoTrack();
@@ -3816,7 +3788,7 @@ export function CommunityMessengerCallClient({
     if (directCallPatchInFlightRef.current) return;
     directCallPatchInFlightRef.current = true;
     stopCommunityMessengerCallFeedback();
-    stopOutgoingRingbackForSession(session.id, "end_call");
+    stopOutgoingRingbackForSessionId(session.id, "end_call");
     cmCallAudioCleanup("end_click_feedback_stopped_before_patch", { sessionId: session.id });
     setBusy("end");
     const roomId = session.roomId;
@@ -4472,10 +4444,10 @@ export function CommunityMessengerCallClient({
                 }
                 return merged;
               });
-            const rt = readRealtimeSessionStatus(row.status);
+              const rt = readRealtimeSessionStatus(row.status);
               if (rt === "active") {
                 setErrorMessage(null);
-                stopOutgoingRingbackForSession(sessionId, "realtime_active");
+                stopOutgoingRingbackForSessionId(sessionId, "realtime_active");
                 if (sessionRealtimeDebounceRef.current) {
                   clearTimeout(sessionRealtimeDebounceRef.current);
                   sessionRealtimeDebounceRef.current = null;
@@ -4487,9 +4459,9 @@ export function CommunityMessengerCallClient({
                 void refreshSession(true);
               } else if (rt === "rejected" || rt === "cancelled" || rt === "missed") {
                 setErrorMessage(null);
-                stopOutgoingRingbackForSession(sessionId, "realtime_terminal_pre_active");
+                stopOutgoingRingbackForSessionId(sessionId, "realtime_terminal_pre_active");
               } else if (rt === "ended") {
-                stopOutgoingRingbackForSession(sessionId, "realtime_ended");
+                stopOutgoingRingbackForSessionId(sessionId, "realtime_ended");
                 const er = (row as Record<string, unknown>).ended_reason;
                 const ers = typeof er === "string" ? er.trim() : "";
                 if (!ers || !isMessengerCallClientFailureReason(ers)) {
@@ -4502,7 +4474,7 @@ export function CommunityMessengerCallClient({
               return;
             }
             if (status && isTerminalCallSessionStatus(status)) {
-              stopOutgoingRingbackForSession(sessionId, "realtime_terminal");
+              stopOutgoingRingbackForSessionId(sessionId, "realtime_terminal");
               if (sessionRealtimeDebounceRef.current) {
                 clearTimeout(sessionRealtimeDebounceRef.current);
                 sessionRealtimeDebounceRef.current = null;
@@ -4594,7 +4566,7 @@ export function CommunityMessengerCallClient({
             setJoined(false);
             joinedRef.current = false;
             setRemoteJoined(false);
-            stopOutgoingRingbackForSession(sessionId, "realtime_session_terminal");
+            stopOutgoingRingbackForSessionId(sessionId, "realtime_session_terminal");
             void disposeCallMedia({ domAudioNuclear: true }).catch(() => {});
             scheduleSilentRefresh("terminal");
           }
@@ -4662,7 +4634,7 @@ export function CommunityMessengerCallClient({
         setJoined(false);
         joinedRef.current = false;
         setRemoteJoined(false);
-        stopOutgoingRingbackForSession(active.id, "optimistic_terminal");
+        stopOutgoingRingbackForSessionId(active.id, "optimistic_terminal");
         void disposeCallMedia({ domAudioNuclear: true }).catch(() => {});
         scheduleSilentRefresh("terminal");
       },
@@ -4693,7 +4665,7 @@ export function CommunityMessengerCallClient({
     if (!s || s.sessionMode !== "direct") return;
     if (s.status !== "active") return;
     if (isTerminalCallSessionStatus(s.status)) return;
-    stopOutgoingRingbackForSession(s.id, "active_join_effect");
+    stopOutgoingRingbackForSessionId(s.id, "active_join_effect");
     if (autoJoinBlockedRef.current) return;
     if (joiningRef.current || joinedRef.current) return;
     if (!s.isMineInitiator) {
@@ -5677,35 +5649,20 @@ export function CommunityMessengerCallClient({
     });
   }
 
-  const connectionDisplayState = useMemo(
-    () =>
-      computeCallDisplayConnectionState({
-        isTerminal:
-          isTerminalCallSessionStatus(session.status) &&
-          !(session.endedReason && isMessengerCallClientFailureReason(session.endedReason)),
-        agoraReconnecting,
-        joined,
-        remoteJoined,
-        sessionStatus: session.status,
-        direction: session.isMineInitiator ? "outgoing" : "incoming",
-        phase: displayCallPhase,
-        isVideoCall: videoCall,
-        uplinkQuality: networkUplinkQuality,
-        downlinkQuality: networkDownlinkQuality,
-      }),
-    [
-      session.status,
-      session.endedReason,
-      session.isMineInitiator,
-      agoraReconnecting,
-      joined,
-      remoteJoined,
-      displayCallPhase,
-      videoCall,
-      networkUplinkQuality,
-      networkDownlinkQuality,
-    ]
-  );
+  const connectionDisplayState = computeCallDisplayConnectionState({
+    isTerminal:
+      isTerminalCallSessionStatus(session.status) &&
+      !(session.endedReason && isMessengerCallClientFailureReason(session.endedReason)),
+    agoraReconnecting,
+    joined,
+    remoteJoined,
+    sessionStatus: session.status,
+    direction: session.isMineInitiator ? "outgoing" : "incoming",
+    phase: displayCallPhase,
+    isVideoCall: videoCall,
+    uplinkQuality: networkUplinkQuality,
+    downlinkQuality: networkDownlinkQuality,
+  });
   const connectionStatusLabel = t(connectionDisplayState.labelKey);
 
   const statusText =

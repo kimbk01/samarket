@@ -143,6 +143,19 @@ describe("incoming-call policy contracts", () => {
     expect(bridge).toContain("dispatchFcmTerminal");
   });
 
+  it("outgoing ringback sync keeps skipStart no-op contract (4cf4e23a regression guard)", () => {
+    const sync = read("lib/community-messenger/call-outgoing-ringback-sync.ts");
+    expect(sync).toContain("DO NOT: `skipStart` 일 때 stop 호출");
+    expect(sync).toContain("if (skipStart) {");
+    expect(sync).toContain("return;");
+    const client = read("components/community-messenger/CommunityMessengerCallClient.tsx");
+    expect(client).toContain("syncOutgoingRingbackFromCallSession");
+    expect(client).not.toContain("function syncOutgoingRingbackFromSession");
+    const shell = read("components/community-messenger/call-ui/CallScreenShell.tsx");
+    expect(shell).toContain("overlay/dock-top 는 `fixed` 유지");
+    expect(shell).not.toMatch(/className=\{`relative \$\{base\}/);
+  });
+
   it("outgoing bootstrap POST requests fresh dial to clear stale ringing sessions", () => {
     const nav = read("lib/community-messenger/call-session-navigation-seed.ts");
     expect(nav).toContain('dialIntent: "fresh"');
