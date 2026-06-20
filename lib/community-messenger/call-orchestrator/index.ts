@@ -88,7 +88,8 @@ export type DibayCallLogStep =
   | "foreground_service_stopped"
   | "active_call_cleanup_blocked"
   | "active_call_machine_transition_blocked"
-  | "active_call_resume_check";
+  | "active_call_resume_check"
+  | "recovery_local_session_preserved";
 
 type ActionFlight = {
   action: DibayCallOrchestratorAction;

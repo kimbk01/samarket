@@ -1,5 +1,7 @@
 "use client";
 
+import { isLiveActiveCallPhase, type ActiveCallSession } from "@/lib/call/active-call-session";
+
 /** 동일 브라우저 다중 탭에서 active 복구 라우팅 1회만 */
 export const ACTIVE_CALL_RECOVERY_LOCK_KEY = "samarket:cm-active-call-recovery";
 export const ACTIVE_CALL_RECOVERY_LOCK_TTL_MS = 120_000;
@@ -115,6 +117,20 @@ export function writeActiveCallRecoveryLock(sessionId: string): void {
   } catch {
     /* ignore */
   }
+}
+
+/**
+ * `/sessions/active` 가 ringing/dialing 을 주지 않을 때 로컬 live 세션을 hard clear 하지 않는다.
+ * (발신 bootstrap·in-place accept race — recovery_no_live_session 회귀 방지)
+ */
+export function shouldPreserveLocalActiveCallDuringRecovery(
+  existing: Pick<ActiveCallSession, "phase"> | null | undefined,
+  options?: { callActionLockHeld?: boolean }
+): boolean {
+  if (!existing) return false;
+  if (isLiveActiveCallPhase(existing.phase)) return true;
+  if (options?.callActionLockHeld) return true;
+  return false;
 }
 
 export async function fetchActiveDirectCallSessionForRecovery(): Promise<ActiveCallRecoverySession | null> {

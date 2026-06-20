@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   isTerminalCallRecoveryStatus,
   resolveActiveCallRecoveryTarget,
+  shouldPreserveLocalActiveCallDuringRecovery,
   shouldSkipActiveCallRecoveryRouting,
   writeTerminalCallRecoverySuppress,
   ACTIVE_CALL_RECOVERY_DEDUPE_MS,
@@ -32,6 +33,18 @@ describe("call-active-session-recovery", () => {
       expect(isTerminalCallRecoveryStatus(status)).toBe(true);
       expect(resolveActiveCallRecoveryTarget({ id: "s1", status }, "/")).toBeNull();
     }
+  });
+
+  it("preserves local live session during outgoing bootstrap", () => {
+    expect(shouldPreserveLocalActiveCallDuringRecovery({ phase: "dialing" })).toBe(true);
+    expect(shouldPreserveLocalActiveCallDuringRecovery({ phase: "ringing" })).toBe(true);
+    expect(shouldPreserveLocalActiveCallDuringRecovery({ phase: "connecting" })).toBe(true);
+    expect(shouldPreserveLocalActiveCallDuringRecovery({ phase: "active" })).toBe(true);
+    expect(shouldPreserveLocalActiveCallDuringRecovery({ phase: "ended" })).toBe(false);
+    expect(shouldPreserveLocalActiveCallDuringRecovery(null)).toBe(false);
+    expect(
+      shouldPreserveLocalActiveCallDuringRecovery({ phase: "idle" as never }, { callActionLockHeld: true })
+    ).toBe(true);
   });
 
   it("suppresses recovery after local terminal dismiss", () => {

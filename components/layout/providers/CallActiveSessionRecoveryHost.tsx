@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { getCurrentUser, getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
+import { isCallActionLockHeld } from "@/lib/call/call-action-lock";
 import {
   hardClearActiveCallSession,
   readActiveCallSessionSnapshot,
@@ -17,6 +18,7 @@ import {
   fetchActiveDirectCallSessionForRecovery,
   isTerminalCallRecoveryStatus,
   resolveActiveCallRecoveryTarget,
+  shouldPreserveLocalActiveCallDuringRecovery,
   shouldSkipActiveCallRecoveryRouting,
   writeActiveCallRecoveryLock,
 } from "@/lib/community-messenger/call-active-session-recovery";
@@ -198,6 +200,20 @@ export function CallActiveSessionRecoveryHost() {
         if (!targetSid) {
           const existing = readActiveCallSessionSnapshot();
           if (existing && !pathname.startsWith("/community-messenger/calls/")) {
+            if (
+              shouldPreserveLocalActiveCallDuringRecovery(existing, {
+                callActionLockHeld: isCallActionLockHeld(),
+              })
+            ) {
+              logDibayCall("recovery_local_session_preserved", {
+                sessionId: existing.callId,
+                callId: existing.callId,
+                phase: existing.phase,
+                source: "recovery_no_live_session_blocked",
+              });
+              routedRef.current = true;
+              return;
+            }
             await hardClearActiveCallSession(existing.callId, "recovery_no_live_session");
           }
           return;
