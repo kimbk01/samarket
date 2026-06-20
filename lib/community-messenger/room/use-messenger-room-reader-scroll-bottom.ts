@@ -25,6 +25,8 @@ export function useMessengerRoomReaderScrollBottom({
   timelineViewportMounted = false,
   timelineHeavyReady = false,
   loadingOlderMessages = false,
+  timelineInitialLoadComplete = false,
+  roomMessagesFingerprint = "",
 }: {
   roomId: string;
   activeSheet:
@@ -50,6 +52,8 @@ export function useMessengerRoomReaderScrollBottom({
   timelineViewportMounted?: boolean;
   timelineHeavyReady?: boolean;
   loadingOlderMessages?: boolean;
+  timelineInitialLoadComplete?: boolean;
+  roomMessagesFingerprint?: string;
 }): {
   scrollMessengerToBottom: (opts?: { reason?: string }) => void;
   updateStickToBottomFromScroll: () => void;
@@ -68,6 +72,8 @@ export function useMessengerRoomReaderScrollBottom({
     timelineViewportMounted,
     timelineHeavyReady,
     loadingOlderMessages,
+    timelineInitialLoadComplete,
+    roomMessagesFingerprint,
   });
 
   return {

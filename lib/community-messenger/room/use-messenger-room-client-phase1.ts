@@ -1638,6 +1638,10 @@ export function useMessengerRoomClientPhase1({
   if (phase1PerfTrack) endTradePhase1BreakdownSection("messages_normalize");
   const displayRoomMessages =
     timelineHeavyBundle?.displayRoomMessages ?? displayRoomMessagesBootstrap;
+  const displayRoomMessagesFingerprint = useMemo(
+    () => roomMessagesTimelineFingerprint(displayRoomMessages),
+    [displayRoomMessages]
+  );
   useEffect(() => {
     const rid = roomId.trim();
     if (!rid) return;
@@ -1692,6 +1696,8 @@ export function useMessengerRoomClientPhase1({
     timelineViewportMounted,
     timelineHeavyReady: Boolean(timelineHeavyBundle),
     loadingOlderMessages,
+    timelineInitialLoadComplete,
+    roomMessagesFingerprint: displayRoomMessagesFingerprint,
   });
   scrollMessengerToBottomRef.current = scrollMessengerToBottom;
 

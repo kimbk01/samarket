@@ -482,7 +482,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
   );
 
   const callStubEventRow = (
-    <div className={`flex w-full min-w-0 px-2 ${item.isMine ? "justify-end" : "justify-start"}`}>
+    <div className="flex w-full min-w-0 justify-center px-2">
       <div
         role="button"
         aria-label={item.content.trim() || `${item.callKind === "video" ? videoCallLabel : voiceCallLabel} · ${callStatusLabel}`}
@@ -507,7 +507,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
       data-cm-message-id={String(item.id ?? "")}
       id={`cm-room-msg-${item.id}`}
       className={`${directLayout ? "relative" : "absolute left-0 top-0"} flex w-full flex-col scroll-mt-24 ${rowPaddingTopClass} pb-1 ${
-        item.messageType === "system" ? "items-center" : ""
+        item.messageType === "system" || item.messageType === "call_stub" ? "items-center" : ""
       } ${
         timelineHighlightMessageId === item.id
           ? "relative z-[2] rounded-[16px] outline outline-2 -outline-offset-[3px] outline-[color:var(--cm-room-primary)]"
