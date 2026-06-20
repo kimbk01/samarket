@@ -9,6 +9,11 @@ import {
 } from "@/lib/ui/chat-viewport-shell-platform";
 import { subscribeSamarketShellKeyboardInsets } from "@/lib/platform/samarket-shell-keyboard";
 import { resolveLayoutVisibleViewportCssPx } from "@/lib/ui/layout-visible-viewport-px";
+import {
+  applyChatViewportHeightToRoot,
+  CHAT_VIEWPORT_HEIGHT_CSS_VAR,
+  clearChatViewportHeightFromRoot,
+} from "@/lib/ui/chat-viewport-height-sync";
 import { MESSENGER_CHAT_SHELL_MIN_HEIGHT_PX } from "@/lib/ui/messenger-chat-viewport-tuning";
 import { logChatRoomScroll } from "@/lib/community-messenger/room/messenger-room-timeline-log";
 
@@ -47,7 +52,10 @@ export function useChatViewportShellInsets(opts: Options): void {
   const { enabled, shellRef, layoutMode, observeComposerHeight = false } = opts;
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) {
+      clearChatViewportHeightFromRoot();
+      return;
+    }
     const shell = shellRef.current;
     if (!shell) return;
 
@@ -60,9 +68,11 @@ export function useChatViewportShellInsets(opts: Options): void {
       let layoutHeightPx = 0;
       if (layoutMode !== "embedded") {
         layoutHeightPx = resolveLayoutVisibleViewportCssPx(MESSENGER_CHAT_SHELL_MIN_HEIGHT_PX);
-        shell.style.setProperty("--chat-viewport-height", `${layoutHeightPx}px`);
+        applyChatViewportHeightToRoot(layoutHeightPx);
+        shell.style.setProperty(CHAT_VIEWPORT_HEIGHT_CSS_VAR, `${layoutHeightPx}px`);
       } else {
-        shell.style.removeProperty("--chat-viewport-height");
+        clearChatViewportHeightFromRoot();
+        shell.style.removeProperty(CHAT_VIEWPORT_HEIGHT_CSS_VAR);
       }
 
       const keyboardPx = resolveChatBottomInsetCssPx();
@@ -131,7 +141,8 @@ export function useChatViewportShellInsets(opts: Options): void {
       window.removeEventListener("resize", onWin);
       window.removeEventListener("orientationchange", onWin);
       unsubNative();
-      shell.style.removeProperty("--chat-viewport-height");
+      clearChatViewportHeightFromRoot();
+      shell.style.removeProperty(CHAT_VIEWPORT_HEIGHT_CSS_VAR);
       shell.style.removeProperty("--chat-keyboard-bottom");
       shell.style.removeProperty("--chat-bottom-active");
       shell.style.removeProperty("--chat-bottom-inset");

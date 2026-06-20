@@ -47,6 +47,8 @@ describe("chat chrome layout contract", () => {
     expect(css).toContain("--chat-composer-height");
     expect(css).toContain("--chat-bottom-active");
     expect(css).toContain("--chat-bottom-inset");
+    expect(css).toContain("sam-chat-viewport-height-active");
+    expect(css).toContain("[data-cm-room-segment-layout]");
     expect(css).toContain("chat-timeline-scroll");
     expect(css).toContain("chat-timeline-inner");
     expect(css).toContain("chat-message-stack");
@@ -83,6 +85,8 @@ describe("chat chrome layout contract", () => {
     expect(src).toContain("--chat-bottom-inset");
     expect(src).toContain("resolveChatBottomActiveCssPx");
     expect(src).toContain("resolveChatBottomInsetCssPx");
+    expect(src).toContain("applyChatViewportHeightToRoot");
+    expect(src).toContain("clearChatViewportHeightFromRoot");
   });
 
   it("Phase2 timeline uses flex-end timeline inner for messenger rooms", () => {
