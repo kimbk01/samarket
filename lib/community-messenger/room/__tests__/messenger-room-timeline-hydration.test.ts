@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   hasMessengerRoomTimelineLoadHint,
   hasMessengerRoomHydrationTimelineSeed,
+  isMessengerRoomLastMessageOnlyPaintHint,
   isMessengerRoomTimelineBootstrapSeedComplete,
   isMessengerRoomTimelinePaintableBootstrapSeed,
   resolveMessengerRoomPhase2HydrationPassInitial,
+  shouldShowMessengerRoomTimelineEmptyState,
   shouldShowMessengerRoomTimelineHydrationSkeleton,
 } from "@/lib/community-messenger/room/messenger-room-timeline-hydration";
 
@@ -39,6 +41,7 @@ describe("messenger-room-timeline-hydration", () => {
         loading: true,
         snapshotMessagesLength: 0,
         lastMessage: "",
+        timelineInitialLoadComplete: false,
       })
     ).toBe(false);
   });
@@ -53,6 +56,56 @@ describe("messenger-room-timeline-hydration", () => {
         loading: true,
         snapshotMessagesLength: 0,
         lastMessage: "마지막 메시지",
+        timelineInitialLoadComplete: false,
+      })
+    ).toBe(true);
+  });
+
+  it("lastMessage-only + initial load 미완 — pass2여도 skeleton", () => {
+    expect(
+      shouldShowMessengerRoomTimelineHydrationSkeleton({
+        displayRoomMessagesLength: 0,
+        roomMessagesLength: 0,
+        hydrationPass: 2,
+        clientShellPlaceholder: false,
+        loading: false,
+        snapshotMessagesLength: 0,
+        lastMessage: "hint",
+        timelineInitialLoadComplete: false,
+      })
+    ).toBe(true);
+  });
+
+  it("isMessengerRoomLastMessageOnlyPaintHint — messages[] 없으면 true", () => {
+    expect(
+      isMessengerRoomLastMessageOnlyPaintHint({
+        roomMessagesLength: 0,
+        snapshotMessagesLength: 0,
+        lastMessage: "hi",
+      })
+    ).toBe(true);
+    expect(
+      isMessengerRoomLastMessageOnlyPaintHint({
+        roomMessagesLength: 0,
+        snapshotMessagesLength: 1,
+        lastMessage: "hi",
+      })
+    ).toBe(false);
+  });
+
+  it("empty state — initial load complete 이후에만", () => {
+    expect(
+      shouldShowMessengerRoomTimelineEmptyState({
+        paintMessageCount: 0,
+        timelineInitialLoadComplete: false,
+        timelineLoadFailed: false,
+      })
+    ).toBe(false);
+    expect(
+      shouldShowMessengerRoomTimelineEmptyState({
+        paintMessageCount: 0,
+        timelineInitialLoadComplete: true,
+        timelineLoadFailed: false,
       })
     ).toBe(true);
   });
@@ -67,6 +120,7 @@ describe("messenger-room-timeline-hydration", () => {
         loading: false,
         snapshotMessagesLength: 0,
         lastMessage: "",
+        timelineInitialLoadComplete: true,
       })
     ).toBe(false);
   });

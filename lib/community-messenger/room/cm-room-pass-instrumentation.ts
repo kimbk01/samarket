@@ -122,6 +122,13 @@ export function emitCmRoomPass2ViewportLog(payload: {
   first_row_rendered: boolean;
   idle_remaining_rows: number;
   network_waited?: boolean;
+  timeline_client_height?: number;
+  timeline_scroll_height?: number;
+  timeline_row_count?: number;
+  offset_parent_null?: boolean;
+  parent_hidden?: boolean;
+  virtualizer_total_size?: number;
+  scroll_top?: number;
 }): void {
   const roomId = getActiveCmRoomEntrySessionRoomId();
   if (!roomId) return;
@@ -143,6 +150,45 @@ export function emitCmRoomPass2ViewportLog(payload: {
     first_row_rendered: payload.first_row_rendered,
     network_waited: payload.network_waited ?? false,
     idle_remaining_rows: payload.idle_remaining_rows,
+    timeline_client_height: payload.timeline_client_height ?? null,
+    timeline_scroll_height: payload.timeline_scroll_height ?? null,
+    timeline_row_count: payload.timeline_row_count ?? null,
+    offset_parent_null: payload.offset_parent_null ?? null,
+    parent_hidden: payload.parent_hidden ?? null,
+    virtualizer_total_size: payload.virtualizer_total_size ?? null,
+    scroll_top: payload.scroll_top ?? null,
+  });
+}
+
+export function emitCmRoomTimelineEntryProbeLog(
+  roomId: string,
+  reason: string,
+  probe: {
+    timelineClientHeight: number;
+    timelineScrollHeight: number;
+    timelineRowCount: number;
+    offsetParentNull: boolean;
+    parentHidden: boolean;
+    virtualizerTotalSize: number;
+    scrollTop: number;
+    composerHeightPx: string;
+    paintReady: boolean;
+  }
+): void {
+  const id = String(roomId ?? "").trim();
+  if (!id) return;
+  cmMessengerPerfVerboseLog("[cm-room-timeline-entry-probe]", {
+    roomId: id,
+    reason,
+    paint_ready: probe.paintReady,
+    timeline_client_height: probe.timelineClientHeight,
+    timeline_scroll_height: probe.timelineScrollHeight,
+    timeline_row_count: probe.timelineRowCount,
+    offset_parent_null: probe.offsetParentNull,
+    parent_hidden: probe.parentHidden,
+    virtualizer_total_size: probe.virtualizerTotalSize,
+    scroll_top: probe.scrollTop,
+    composer_height_px: probe.composerHeightPx,
   });
 }
 

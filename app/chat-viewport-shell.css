@@ -106,7 +106,7 @@
   overflow-y: auto;
   overscroll-behavior-y: contain;
   overflow-anchor: none;
-  min-height: 0;
+  min-height: 1px;
   flex: 1 1 0%;
   scroll-padding-bottom: var(--cm-timeline-scroll-padding-bottom, 12px);
 }

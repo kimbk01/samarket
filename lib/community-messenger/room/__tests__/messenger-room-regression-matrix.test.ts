@@ -39,7 +39,7 @@ function snap(partial: {
 
 describe("cm room regression matrix (pre-commit)", () => {
   describe("1. bootstrap seed paint guard", () => {
-    it("lastMessage hint only, messages[] empty → paint 금지 · load UI loading/retry", () => {
+    it("lastMessage hint only, messages[] empty → paint 금지 · load UI loading (retry는 실패만)", () => {
       const snapshot = snap({ messages: [], lastMessage: "안녕하세요" });
       expect(isMessengerRoomTimelinePaintableBootstrapSeed(snapshot)).toBe(false);
       expect(
@@ -72,7 +72,7 @@ describe("cm room regression matrix (pre-commit)", () => {
           snapshotMessagesLength: 0,
           lastMessage: "안녕하세요",
         })
-      ).toBe("retry");
+      ).toBe("loading");
     });
 
     it("call_stub preview hint only (lastMessage, messages[] empty) → paint 금지", () => {
@@ -153,7 +153,7 @@ describe("cm room regression matrix (pre-commit)", () => {
       ).toBe("ok");
     });
 
-    it("loading=false 무한 loading 회귀 없음", () => {
+    it("bootstrap 미완 + hint — loading 유지 (빈 chrome 방지)", () => {
       const ui = resolveMessengerRoomTimelineLoadUi({
         loading: false,
         displayMessageCount: 0,
@@ -163,7 +163,7 @@ describe("cm room regression matrix (pre-commit)", () => {
         snapshotMessagesLength: 0,
         lastMessage: "stub",
       });
-      expect(ui).not.toBe("loading");
+      expect(ui).toBe("loading");
     });
   });
 
@@ -268,6 +268,7 @@ describe("cm room regression matrix (pre-commit)", () => {
           loading: false,
           snapshotMessagesLength: 3,
           lastMessage: "x",
+          timelineInitialLoadComplete: true,
         })
       ).toBe(false);
     });
@@ -282,6 +283,7 @@ describe("cm room regression matrix (pre-commit)", () => {
           loading: true,
           snapshotMessagesLength: 0,
           lastMessage: "hint",
+          timelineInitialLoadComplete: false,
         })
       ).toBe(true);
     });

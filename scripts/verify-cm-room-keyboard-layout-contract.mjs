@@ -82,6 +82,8 @@ assertIncludes(shellCss, ".cm-room-shell", "chat-viewport-shell.css");
 assertIncludes(shellCss, "display: flex", "chat-viewport-shell.css shell flex");
 assertIncludes(shellCss, "flex-direction: column", "chat-viewport-shell.css shell column");
 assertIncludes(shellCss, "min-height: 0", "chat-viewport-shell.css min-h-0");
+assertIncludes(shellCss, ".chat-timeline-scroll", "chat-viewport-shell.css timeline scroll class");
+assertIncludes(shellCss, "min-height: 1px", "chat-viewport-shell.css timeline scroll min-height");
 assertIncludes(shellCss, "overflow: hidden", "chat-viewport-shell.css shell overflow");
 assertIncludes(shellCss, ".cm-room-timeline", "chat-viewport-shell.css timeline");
 assertIncludes(shellCss, "overflow-y: auto", "chat-viewport-shell.css timeline scroll");

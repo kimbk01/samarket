@@ -28,7 +28,8 @@ import { MessengerRoomMessageListHost } from "@/components/community-messenger/r
 import { MessengerTimelineVirtualRow } from "@/components/community-messenger/room/phase2/MessengerTimelineVirtualRow";
 import { MessengerRoomNewMessagesBelowChip } from "@/components/community-messenger/room/MessengerRoomNewMessagesBelowChip";
 import { StoreDeliveryBufferingSpinner } from "@/components/stores/StoreDeliveryBufferingSpinner";
-import { shouldShowMessengerRoomTimelineHydrationSkeleton } from "@/lib/community-messenger/room/messenger-room-timeline-hydration";
+import { shouldShowMessengerRoomTimelineHydrationSkeleton, shouldShowMessengerRoomTimelineEmptyState } from "@/lib/community-messenger/room/messenger-room-timeline-hydration";
+import { snapshotMessengerRoomTimelineViewportProbe } from "@/lib/community-messenger/room/messenger-room-entry-scroll-ready";
 import { resolveMessengerRoomTimelinePaintSource } from "@/lib/community-messenger/room/messenger-room-timeline-ssot";
 import {
   buildMessengerRoomFallbackVirtualRows,
@@ -661,6 +662,10 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
         hydrationPass < 3 && totalRows > CM_ROOM_ENTRY_INITIAL_VIEWPORT_ROWS
           ? CM_ROOM_ENTRY_INITIAL_VIEWPORT_ROWS
           : totalRows;
+      const viewportProbe = snapshotMessengerRoomTimelineViewportProbe(
+        vm.messagesViewportRef.current,
+        vm.chatVirtualizer
+      );
       emitCmRoomPass2ViewportLog({
         visible_rows: payload.visible_rows,
         empty_room: payload.empty_room,
@@ -668,6 +673,13 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
         first_row_rendered: payload.first_row_rendered,
         idle_remaining_rows: Math.max(0, totalRows - payload.visible_rows),
         network_waited: false,
+        timeline_client_height: viewportProbe.timelineClientHeight,
+        timeline_scroll_height: viewportProbe.timelineScrollHeight,
+        timeline_row_count: viewportProbe.timelineRowCount,
+        offset_parent_null: viewportProbe.offsetParentNull,
+        parent_hidden: viewportProbe.parentHidden,
+        virtualizer_total_size: viewportProbe.virtualizerTotalSize,
+        scroll_top: viewportProbe.scrollTop,
       });
     },
     [
@@ -804,7 +816,6 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
 
   const showTimelineHydrationSkeleton = useMemo(
     () =>
-      timelineLoadUi === "loading" &&
       shouldShowMessengerRoomTimelineHydrationSkeleton({
         displayRoomMessagesLength: vm.displayRoomMessages.length,
         roomMessagesLength: vm.roomMessages.length,
@@ -813,16 +824,17 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
         loading: vm.loading,
         snapshotMessagesLength: vm.snapshot.messages.length,
         lastMessage: vm.snapshot.room.lastMessage,
+        timelineInitialLoadComplete: vm.timelineInitialLoadComplete,
       }),
     [
       hydrationPass,
-      timelineLoadUi,
       vm.displayRoomMessages.length,
       vm.roomMessages.length,
       vm.loading,
       vm.snapshot.clientShellPlaceholder,
       vm.snapshot.messages.length,
       vm.snapshot.room.lastMessage,
+      vm.timelineInitialLoadComplete,
     ]
   );
 
@@ -1107,8 +1119,23 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
 
   const useDirectTimelineLayout = paintModel.useDirectLayout;
   const finalTimelinePaintMessages = paintModel.paintMessages;
-  const entrySliceActive = false;
   const seedRowsRenderedCount = finalTimelinePaintMessages.length;
+
+  const showTimelineEmptyState = useMemo(
+    () =>
+      shouldShowMessengerRoomTimelineEmptyState({
+        paintMessageCount: finalTimelinePaintMessages.length,
+        timelineInitialLoadComplete: vm.timelineInitialLoadComplete,
+        timelineLoadFailed: vm.timelineLoadFailed,
+      }),
+    [
+      finalTimelinePaintMessages.length,
+      vm.timelineInitialLoadComplete,
+      vm.timelineLoadFailed,
+    ]
+  );
+
+  const entrySliceActive = false;
 
   const timelineRowsStackClass =
     useDirectTimelineLayout && (hasStoreOrderDock || hasStoreOrderTimeline) ? "flex flex-col gap-3" : "";
@@ -1894,7 +1921,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                 );
               })}
             </MessengerRoomMessageListHost>
-          ) : timelineLoadUi === "loading" && showTimelineHydrationSkeleton ? (
+          ) : showTimelineHydrationSkeleton || timelineLoadUi === "loading" ? (
             <div
               className="flex min-h-[40vh] flex-col items-center justify-center py-16"
               aria-busy="true"
@@ -1915,11 +1942,19 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                 {vm.t("cm_ui_timeline_retry")}
               </button>
             </div>
-          ) : (
+          ) : showTimelineEmptyState ? (
             <div className="px-4 py-12 text-center sam-text-body-secondary text-[color:var(--cm-room-text-muted)]">
               {vm.t("cm_ui_no_messages_yet")}
               <br />
               <span className="mt-1 inline-block sam-text-helper">{vm.t("cm_ui_leave_first_greeting")}</span>
+            </div>
+          ) : (
+            <div
+              className="flex min-h-[40vh] flex-col items-center justify-center py-16"
+              aria-busy="true"
+              aria-label={vm.t("chats_spinner_loading_aria")}
+            >
+              <StoreDeliveryBufferingSpinner />
             </div>
           )}
           <div ref={vm.messageEndRef} />

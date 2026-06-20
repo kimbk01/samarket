@@ -72,7 +72,7 @@ describe("resolveMessengerRoomTimelineLoadUi", () => {
     ).toBe("retry");
   });
 
-  it("hint + bootstrap finished without paint → retry (not infinite loading)", () => {
+  it("hint + bootstrap unfinished → loading (skeleton, not retry blank chrome)", () => {
     expect(
       resolveMessengerRoomTimelineLoadUi({
         loading: false,
@@ -83,7 +83,7 @@ describe("resolveMessengerRoomTimelineLoadUi", () => {
         snapshotMessagesLength: 0,
         lastMessage: "last",
       })
-    ).toBe("retry");
+    ).toBe("loading");
   });
 
   it("initial load complete with empty timeline → ok", () => {

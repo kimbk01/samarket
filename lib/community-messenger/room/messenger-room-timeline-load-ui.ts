@@ -21,10 +21,10 @@ export function resolveMessengerRoomTimelineLoadUi(input: {
   });
 
   if (!hasHint) return "ok";
-  if (input.loading) return "loading";
   if (input.timelineLoadFailed) return "retry";
-  if (input.timelineInitialLoadComplete) return "ok";
+  /** bootstrap 미완 — skeleton 유지 (lastMessage-only 포함, retry로 빈 chrome 방지) */
+  if (!input.timelineInitialLoadComplete) return "loading";
+  if (input.loading) return "loading";
   if (input.snapshotMessagesLength > 0) return "loading";
-  /** lastMessage 힌트만 남고 fetch 종료 — 무한 스피너 대신 재시도 */
-  return "retry";
+  return "ok";
 }

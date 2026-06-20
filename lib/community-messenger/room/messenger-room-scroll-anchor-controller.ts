@@ -37,6 +37,12 @@ import {
 import { MESSENGER_VIRTUAL_FALLBACK_TAIL_ROWS } from "@/lib/community-messenger/room/messenger-room-timeline-paint-model";
 import { messengerRoomTracksScrollPosition } from "@/lib/community-messenger/notifications/messenger-notification-rollout";
 import { useMessengerRoomReaderStateStore } from "@/lib/community-messenger/notifications/messenger-room-reader-state-store";
+import {
+  isMessengerRoomEntryBottomScrollReason,
+  resolveMessengerRoomEntryScrollPaintReady,
+  snapshotMessengerRoomTimelineViewportProbe,
+} from "@/lib/community-messenger/room/messenger-room-entry-scroll-ready";
+import { emitCmRoomTimelineEntryProbeLog } from "@/lib/community-messenger/room/cm-room-pass-instrumentation";
 
 export type MessengerRoomScrollAnchorRequest = {
   reason: CmScrollOwnerReason;
@@ -133,6 +139,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
   const pendingTailSettleRef = useRef(false);
   const tailSettleDoneRef = useRef(false);
   const schedulePendingEntryTailSettleRef = useRef<() => void>(() => {});
+  const composerSyncedForEntryRef = useRef(false);
   const prevTailMessageIdRef = useRef<string | null>(null);
   const prevTailClientMessageIdRef = useRef<string | null>(null);
 
@@ -155,6 +162,34 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     saveMessengerRoomScrollPosition(rid, snap);
   }, [roomId, messagesViewportRef, stickToBottomRef]);
 
+  const logEntryScrollProbe = useCallback(
+    (reason: CmScrollOwnerReason, paintReady: boolean) => {
+      const rid = roomId.trim();
+      if (!rid) return;
+      const probe = snapshotMessengerRoomTimelineViewportProbe(
+        messagesViewportRef.current,
+        virtualizer
+      );
+      emitCmRoomTimelineEntryProbeLog(rid, reason, {
+        ...probe,
+        paintReady,
+      });
+    },
+    [messagesViewportRef, roomId, virtualizer]
+  );
+
+  const requiresEntryBottomPaintReady = useCallback(
+    (reason: CmScrollOwnerReason): boolean => {
+      return (
+        isMessengerRoomEntryBottomScrollReason(reason) ||
+        isMessengerEntryTailSettleReason(reason) ||
+        reason === "push_entry_initial_load" ||
+        reason === "initial_load"
+      );
+    },
+    []
+  );
+
   const applyScrollRequest = useCallback(
     (request: MessengerRoomScrollAnchorRequest): boolean => {
       const rid = roomId.trim();
@@ -176,6 +211,22 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
       if (reason === "room_entry_restore") {
         const persisted = consumeMessengerRoomScrollPosition(rid);
         if (persisted) {
+          const needsBottom = persisted.stickToBottom;
+          if (needsBottom) {
+            const paintReady = resolveMessengerRoomEntryScrollPaintReady({
+              viewport: vp,
+              virtualizer,
+              messageCount,
+              composerHeightSynced: true,
+            });
+            if (!paintReady) {
+              logEntryScrollProbe(reason, false);
+              return false;
+            }
+          } else if (vp.clientHeight <= 0) {
+            logEntryScrollProbe(reason, false);
+            return false;
+          }
           if (persisted.stickToBottom) {
             vp.scrollTop = vp.scrollHeight;
             stickToBottomRef.current = true;
@@ -227,6 +278,19 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
         return true;
       }
 
+      if (requiresEntryBottomPaintReady(reason)) {
+        const paintReady = resolveMessengerRoomEntryScrollPaintReady({
+          viewport: vp,
+          virtualizer,
+          messageCount,
+          composerHeightSynced: true,
+        });
+        if (!paintReady) {
+          logEntryScrollProbe(reason, false);
+          return false;
+        }
+      }
+
       if (alwaysScroll || isEntryRestoreReason(reason) || isKeepBottomChromeReason(reason)) {
         const count = messageCount;
         if (
@@ -235,8 +299,10 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
           (reason === "room_entry_initial" ||
             reason === "initial_load" ||
             reason === "push_entry_initial_load") &&
-          (virtualizer.getTotalSize?.() ?? 0) <= 0
+          (virtualizer.getTotalSize?.() ?? 0) <= 0 &&
+          vp.querySelectorAll("[data-cm-timeline-message-row]").length <= 0
         ) {
+          logEntryScrollProbe(reason, false);
           return false;
         }
         if (
@@ -296,6 +362,8 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
       stickToBottomRef,
       syncScrollGeomFromViewport,
       virtualizer,
+      logEntryScrollProbe,
+      requiresEntryBottomPaintReady,
     ]
   );
 
@@ -409,6 +477,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     entryScrollScheduledRef.current = false;
     pendingTailSettleRef.current = false;
     tailSettleDoneRef.current = false;
+    composerSyncedForEntryRef.current = false;
     prevTailMessageIdRef.current = null;
     prevTailClientMessageIdRef.current = null;
 
@@ -469,10 +538,13 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
   useEffect(() => {
     const onChromeHeightSynced = (ev: Event) => {
       const rid = roomId.trim();
-      if (!rid || !pendingTailSettleRef.current || tailSettleDoneRef.current) return;
-      if (!isMessengerRoomEntryScrollSettled(rid)) return;
+      if (!rid) return;
       const detail = (ev as CustomEvent<{ roomId?: string }>).detail;
       if (detail?.roomId && detail.roomId !== rid) return;
+      composerSyncedForEntryRef.current = true;
+
+      if (!pendingTailSettleRef.current || tailSettleDoneRef.current) return;
+      if (!isMessengerRoomEntryScrollSettled(rid)) return;
       schedulePendingEntryTailSettle();
     };
 
