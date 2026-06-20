@@ -52,6 +52,11 @@ describe("call terminal navigation policy", () => {
     expect(global).toContain("?action=accept&mode=active&source=banner");
     expect(client).toContain("primeCommunityMessengerCallConnectionPrefetch(sessionId)");
     expect(client).toContain("onAcceptEntryRoute");
+    const gateway = read("lib/community-messenger/incoming-call-accept-gateway.ts");
+    expect(gateway).toContain("prewarmInPlaceDirectVideoCallHost");
+    expect(gateway).toContain("dispatchIncomingCallAcceptActiveSession(updated)");
+    expect(client).toContain("subscribeIncomingCallAcceptActiveSession");
+    expect(client).toContain("void joinCall(patchedSession)");
   });
 
   it("native accept routes skip duplicate PATCH in CallClient", () => {

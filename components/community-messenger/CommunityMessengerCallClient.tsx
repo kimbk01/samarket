@@ -106,7 +106,11 @@ import {
   tryClaimIncomingCallReject,
 } from "@/lib/community-messenger/incoming-call-action-guard";
 import { runIncomingCallCleanup } from "@/lib/community-messenger/incoming-call-cleanup";
-import { applyIncomingCallConsumedSideEffects, acceptIncomingCallOnce } from "@/lib/community-messenger/incoming-call-accept-gateway";
+import {
+  acceptIncomingCallOnce,
+  applyIncomingCallConsumedSideEffects,
+  subscribeIncomingCallAcceptActiveSession,
+} from "@/lib/community-messenger/incoming-call-accept-gateway";
 import { shouldDeferCalleeRingingTerminalDismiss } from "@/lib/community-messenger/call-client-accept-route-surface";
 import { isIncomingCallPreviewRoute } from "@/lib/community-messenger/incoming-call-preview-route";
 import { isDibayCallConsumed, markCallConsumed } from "@/lib/community-messenger/incoming-call-state";
@@ -3293,6 +3297,26 @@ export function CommunityMessengerCallClient({
       scheduleSilentRefresh,
     ]
   );
+
+  useEffect(() => {
+    return subscribeIncomingCallAcceptActiveSession((patchedSession) => {
+      const liveId = sessionRef.current?.id?.trim();
+      if (!liveId || liveId !== patchedSession.id) return;
+      if (patchedSession.status !== "active") return;
+      setSession((prev) =>
+        sessionsMeaningfullyEqual(prev, patchedSession) ? prev : patchedSession
+      );
+      if (confirmServerActiveFromFetchedSession(patchedSession)) {
+        bumpCalleeJoinGate();
+      }
+      clearNativeCalleeAcceptPending(patchedSession.id);
+      setCalleeVideoConnectingShell(true);
+      queueMicrotask(() => {
+        if (joinedRef.current || joiningRef.current) return;
+        void joinCall(patchedSession);
+      });
+    });
+  }, [bumpCalleeJoinGate, joinCall]);
 
   const acceptIncoming = useCallback(async (): Promise<CommunityMessengerCallSession | null> => {
     const s = sessionRef.current;
