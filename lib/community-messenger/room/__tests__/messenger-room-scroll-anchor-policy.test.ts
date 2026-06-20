@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { resolveMessengerRoomMessagesAutoScroll } from "@/lib/community-messenger/room/messenger-room-messages-auto-scroll";
 import { isMessengerRoomNearBottomFromMetrics } from "@/lib/community-messenger/room/messenger-room-timeline-ssot";
+import {
+  isMessengerEntryBottomLoadReason,
+  isMessengerEntryTailSettleReason,
+  resolveMessengerRoomEntryScrollPlan,
+} from "@/lib/community-messenger/room/messenger-room-entry-intent";
 import { MESSENGER_STICK_TO_BOTTOM_THRESHOLD_PX } from "@/lib/ui/messenger-chat-viewport-tuning";
 
 describe("messenger room scroll anchor policy", () => {
@@ -60,5 +65,20 @@ describe("messenger room scroll anchor policy", () => {
     });
     expect(decision.scroll).toBe(true);
     expect(decision.reason).toBe("peer_message_append");
+  });
+
+  it("push entry scroll plan ignores persisted restore", () => {
+    expect(
+      resolveMessengerRoomEntryScrollPlan({ intent: "push", hasPersisted: true }).reason
+    ).toBe("push_entry_initial_load");
+  });
+
+  it("entry bottom load and tail settle reason helpers", () => {
+    expect(isMessengerEntryBottomLoadReason("push_entry_initial_load")).toBe(true);
+    expect(isMessengerEntryBottomLoadReason("initial_load")).toBe(true);
+    expect(isMessengerEntryBottomLoadReason("room_entry_restore")).toBe(false);
+    expect(isMessengerEntryTailSettleReason("push_entry_tail_settle")).toBe(true);
+    expect(isMessengerEntryTailSettleReason("entry_tail_settle")).toBe(true);
+    expect(isMessengerEntryTailSettleReason("composer_resize_keep_bottom")).toBe(false);
   });
 });

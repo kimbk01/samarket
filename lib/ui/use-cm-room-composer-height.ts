@@ -2,6 +2,8 @@
 
 import { useEffect, type RefObject } from "react";
 
+export const CM_ROOM_CHROME_HEIGHT_SYNC_EVENT = "cm-room-chrome-height-synced";
+
 type Options = {
   enabled: boolean;
   shellRef: RefObject<HTMLElement | null>;
@@ -37,6 +39,12 @@ export function useCmRoomComposerHeight(opts: Options): void {
       shell.style.setProperty(
         "--cm-timeline-scroll-padding-bottom",
         `${Math.max(tailGapPx, tradeDockPx + tailGapPx)}px`
+      );
+
+      shell.dispatchEvent(
+        new CustomEvent(CM_ROOM_CHROME_HEIGHT_SYNC_EVENT, {
+          detail: { roomId: shell.dataset.cmRoomId ?? "" },
+        })
       );
     };
 

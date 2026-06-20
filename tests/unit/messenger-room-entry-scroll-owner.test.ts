@@ -62,4 +62,18 @@ describe("messenger-room-entry-scroll-owner", () => {
     markMessengerRoomEntryScrollSettled(ROOM, "reentry_hydration_restored");
     expect(isMessengerRoomReadyForVirtualLayout(ROOM)).toBe(true);
   });
+
+  it("push_entry_initial_load participates in entry owner gate", () => {
+    expect(canRunMessengerRoomScrollOwner(ROOM, "push_entry_initial_load")).toBe(true);
+    markMessengerRoomScrollOwnerRun(ROOM, "push_entry_initial_load");
+    expect(canRunMessengerRoomScrollOwner(ROOM, "initial_load")).toBe(false);
+    markMessengerRoomEntryScrollSettled(ROOM, "push_entry_initial_load");
+    expect(canRunMessengerRoomScrollOwner(ROOM, "push_entry_tail_settle")).toBe(true);
+  });
+
+  it("blocks tail settle until entry scroll settled", () => {
+    expect(canRunMessengerRoomScrollOwner(ROOM, "push_entry_tail_settle")).toBe(false);
+    markMessengerRoomEntryScrollSettled(ROOM, "push_entry_initial_load");
+    expect(canRunMessengerRoomScrollOwner(ROOM, "push_entry_tail_settle")).toBe(true);
+  });
 });

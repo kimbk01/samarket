@@ -9,6 +9,10 @@ import { getMessagesFromDb } from "@/lib/chats/getMessagesFromDb";
 import { sendChatMessage } from "@/lib/chat/sendChatMessage";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import { encodeCommunityMessengerRoomCmCtx } from "@/lib/community-messenger/cm-ctx-url";
+import {
+  consumeMessengerRoomEntryIntent,
+  type MessengerRoomEntryIntent,
+} from "@/lib/community-messenger/room/messenger-room-entry-intent";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { uploadPostImages } from "@/lib/posts/uploadPostImages";
 import { markRoomAsRead } from "@/lib/chat/markRoomAsRead";
@@ -232,6 +236,8 @@ export function ChatDetailView({
     nextCursor: { before: string; beforeCreatedAt: string } | null;
   }>({ hasMore: false, nextCursor: null });
   const tradeThreadScrollRef = useRef<HTMLDivElement>(null);
+  const tradeEntryIntentRef = useRef<MessengerRoomEntryIntent>("default");
+  const tradePushEntryBottomDoneRef = useRef(false);
   const integratedHistoryLoadInFlightRef = useRef(false);
   const legacyHistoryLoadInFlightRef = useRef(false);
   const integratedHistoryScrollTsRef = useRef(0);
@@ -1223,11 +1229,38 @@ export function ChatDetailView({
     clearTradeChatEntryMark();
   }, [messages.length, messagesLoading, room.id]);
 
-  /** 하단 근처에 있을 때만 자동 스크롤 — 시스템 메시지·상대 메시지가 엔터 없이도 보이게 */
+  useLayoutEffect(() => {
+    const rid = room.id.trim();
+    if (!rid) return;
+    tradeEntryIntentRef.current = consumeMessengerRoomEntryIntent(
+      rid,
+      typeof window !== "undefined" ? window.location.search : null
+    );
+    if (tradeEntryIntentRef.current === "push") {
+      tradePushEntryBottomDoneRef.current = false;
+    }
+  }, [room.id]);
+
+  /** 하단 근처에 있을 때만 자동 스크롤 — push 진입은 1회 force bottom (double rAF) */
   useLayoutEffect(() => {
     if (isStoreOrderChat || isGeneralPurposeChat || messagesLoading) return;
     const el = tradeThreadScrollRef.current;
     if (!el) return;
+
+    if (tradeEntryIntentRef.current === "push" && !tradePushEntryBottomDoneRef.current) {
+      tradePushEntryBottomDoneRef.current = true;
+      const scrollToBottom = () => {
+        const box = tradeThreadScrollRef.current;
+        if (!box) return;
+        box.scrollTop = box.scrollHeight;
+      };
+      scrollToBottom();
+      requestAnimationFrame(() => {
+        requestAnimationFrame(scrollToBottom);
+      });
+      return;
+    }
+
     const stickPx = 168;
     if (el.scrollHeight - el.scrollTop - el.clientHeight <= stickPx) {
       el.scrollTop = el.scrollHeight;

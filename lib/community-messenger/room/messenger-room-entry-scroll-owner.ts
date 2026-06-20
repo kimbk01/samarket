@@ -6,6 +6,10 @@
 export type CmScrollOwnerReason =
   | "room_entry_initial"
   | "initial_load"
+  | "push_entry_initial_load"
+  | "push_entry_tail_settle"
+  | "entry_tail_settle"
+  | "room_entry_restore"
   | "timeline_delivery_direct_paint"
   | "schedule_after_rows_painted"
   | "own_message_append"
@@ -88,6 +92,7 @@ export function isMessengerRoomReadyForVirtualLayout(roomId: string): boolean {
 const ENTRY_SCROLL_REASONS = new Set<CmScrollOwnerReason>([
   "room_entry_initial",
   "initial_load",
+  "push_entry_initial_load",
   "room_entry_restore",
   "timeline_delivery_direct_paint",
   "schedule_after_rows_painted",
@@ -105,7 +110,9 @@ export function canRunMessengerRoomScrollOwner(
     reason === "viewport_resize_restore" ||
     reason === "viewport_resize_keep_bottom" ||
     reason === "keyboard_resize_keep_bottom" ||
-    reason === "composer_resize_keep_bottom"
+    reason === "composer_resize_keep_bottom" ||
+    reason === "push_entry_tail_settle" ||
+    reason === "entry_tail_settle"
   ) {
     if (!st.entryScrollSettled) {
       logCmRoomEntryInstrumentation(roomId, "cm_scroll_owner_skipped", {

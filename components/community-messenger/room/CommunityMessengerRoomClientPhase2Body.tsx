@@ -569,6 +569,7 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
           ref={shellRef}
           data-messenger-shell
           data-cm-room
+          data-cm-room-id={roomIdStable}
           data-cm-room-hydration-pass={hydrationPass}
           data-trade-viewer-role={tradeViewerRole ?? undefined}
           data-delivery-viewer-role={deliveryViewerRole ?? undefined}
