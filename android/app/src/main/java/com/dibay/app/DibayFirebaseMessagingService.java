@@ -25,7 +25,14 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class DibayFirebaseMessagingService extends FirebaseMessagingService {
   private static final String TAG = "DIBAY_FCM";
-  static final String MESSAGES_CHANNEL_ID = "dibay_messages";
+  static final String CHAT_MESSAGES_CHANNEL_ID = "dibay_chat_messages";
+  static final String TRADE_CHANNEL_ID = "dibay_trade";
+  static final String ORDERS_CHANNEL_ID = "dibay_orders";
+  static final String DELIVERY_CHANNEL_ID = "dibay_delivery";
+  static final String COMMUNITY_CHANNEL_ID = "dibay_community";
+  static final String MARKETING_CHANNEL_ID = "dibay_marketing";
+  static final String ADMIN_NOTICE_CHANNEL_ID = "dibay_admin_notice";
+  static final String CALLS_MISSED_CHANNEL_ID = "dibay_calls_missed";
   private static final long EVENT_DEDUPE_MS = 10_000L;
   private static final ConcurrentHashMap<String, Long> recentNotificationEventIds =
       new ConcurrentHashMap<>();
@@ -68,7 +75,7 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
       return;
     }
 
-    if ("incoming_call".equals(type)) {
+    if ("incoming_call".equals(type) || "incoming_call_signal".equals(type)) {
       handleIncomingCall(message, data, title, body, appVisible);
       return;
     }
@@ -232,10 +239,30 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
     NotificationManager nm = context.getSystemService(NotificationManager.class);
     if (nm == null) return;
-    if (nm.getNotificationChannel(MESSAGES_CHANNEL_ID) != null) return;
-    NotificationChannel channel =
-        new NotificationChannel(MESSAGES_CHANNEL_ID, "채팅 메시지", NotificationManager.IMPORTANCE_HIGH);
-    channel.setDescription("채팅 메시지 알림");
+    ensureChannel(
+        nm, CHAT_MESSAGES_CHANNEL_ID, "채팅 메시지", "채팅/그룹 메시지 알림", NotificationManager.IMPORTANCE_HIGH);
+    ensureChannel(nm, TRADE_CHANNEL_ID, "거래 알림", "거래 메시지/상태 알림", NotificationManager.IMPORTANCE_HIGH);
+    ensureChannel(nm, ORDERS_CHANNEL_ID, "주문 알림", "주문 상태 알림", NotificationManager.IMPORTANCE_HIGH);
+    ensureChannel(nm, DELIVERY_CHANNEL_ID, "배달 알림", "배달 상태 알림", NotificationManager.IMPORTANCE_HIGH);
+    ensureChannel(
+        nm, COMMUNITY_CHANNEL_ID, "커뮤니티 알림", "커뮤니티 활동 알림", NotificationManager.IMPORTANCE_DEFAULT);
+    ensureChannel(
+        nm, MARKETING_CHANNEL_ID, "광고 배너 알림", "관리자 광고 배너 알림", NotificationManager.IMPORTANCE_DEFAULT);
+    ensureChannel(
+        nm, ADMIN_NOTICE_CHANNEL_ID, "운영 공지", "관리자 공지 알림", NotificationManager.IMPORTANCE_DEFAULT);
+    ensureChannel(
+        nm, CALLS_MISSED_CHANNEL_ID, "부재중 통화", "부재중 통화 알림", NotificationManager.IMPORTANCE_HIGH);
+  }
+
+  private static void ensureChannel(
+      NotificationManager nm,
+      String channelId,
+      String name,
+      String description,
+      int importance) {
+    if (nm.getNotificationChannel(channelId) != null) return;
+    NotificationChannel channel = new NotificationChannel(channelId, name, importance);
+    channel.setDescription(description);
     channel.enableVibration(true);
     channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
     nm.createNotificationChannel(channel);
@@ -283,9 +310,10 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
 
     String safeTitle = title != null && !title.isEmpty() ? title : "DIBAY";
     String safeBody = body != null ? body : "";
+    String channelId = resolveChannelId(type);
 
     NotificationCompat.Builder builder =
-        new NotificationCompat.Builder(this, MESSAGES_CHANNEL_ID)
+        new NotificationCompat.Builder(this, channelId)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(safeTitle)
             .setContentText(safeBody)
@@ -316,6 +344,39 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
               + (senderName != null ? senderName : "-")
               + " badge="
               + badgeCount);
+    }
+  }
+
+  private static String resolveChannelId(String type) {
+    String t = type != null ? type.trim() : "";
+    switch (t) {
+      case "group_message":
+      case "mention_message":
+      case "pin_message":
+      case "chat_message":
+      case "chat":
+      case "group":
+        return CHAT_MESSAGES_CHANNEL_ID;
+      case "trade_message":
+      case "trade_status":
+      case "trade":
+        return TRADE_CHANNEL_ID;
+      case "store_order_message":
+      case "order_status":
+      case "store":
+        return ORDERS_CHANNEL_ID;
+      case "delivery_status":
+        return DELIVERY_CHANNEL_ID;
+      case "community_activity":
+        return COMMUNITY_CHANNEL_ID;
+      case "admin_marketing_banner":
+        return MARKETING_CHANNEL_ID;
+      case "admin_notice":
+        return ADMIN_NOTICE_CHANNEL_ID;
+      case "missed_call":
+        return CALLS_MISSED_CHANNEL_ID;
+      default:
+        return CHAT_MESSAGES_CHANNEL_ID;
     }
   }
 }

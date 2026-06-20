@@ -3,6 +3,8 @@ import {
   markAllMissedCallEventsRead,
   markMissedCallEventsRead,
   markNotificationEventRead,
+  markNotificationEventsReadByCategory,
+  markNotificationEventsReadByThread,
   markRoomNotificationEventsRead,
 } from "@/lib/notifications/core/notification-event-repository";
 import { logMissedCall, logNotifyBadge } from "@/lib/notifications/core/notification-logs";
@@ -52,6 +54,34 @@ export async function markMissedCallsRead(
   if (count > 0) {
     invalidateNotificationBadgeCache(userId);
     logMissedCall("read_marked", { userId, ...opts, count });
+    await fetchNotificationBadgeCount(sb, userId, { force: true });
+  }
+  return count;
+}
+
+export async function markNotificationCategoryRead(
+  sb: SupabaseClient<any>,
+  userId: string,
+  category: string
+): Promise<number> {
+  const count = await markNotificationEventsReadByCategory(sb, userId, category);
+  if (count > 0) {
+    invalidateNotificationBadgeCache(userId);
+    logNotifyBadge("read_clear", { userId, category, count });
+    await fetchNotificationBadgeCount(sb, userId, { force: true });
+  }
+  return count;
+}
+
+export async function markNotificationThreadRead(
+  sb: SupabaseClient<any>,
+  userId: string,
+  threadId: string
+): Promise<number> {
+  const count = await markNotificationEventsReadByThread(sb, userId, threadId);
+  if (count > 0) {
+    invalidateNotificationBadgeCache(userId);
+    logNotifyBadge("read_clear", { userId, threadId, count });
     await fetchNotificationBadgeCount(sb, userId, { force: true });
   }
   return count;

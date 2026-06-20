@@ -58,6 +58,21 @@ async function doFetch(force = false): Promise<void> {
     if (j?.ok) {
       const next: NotificationBadgeCount = {
         total: Math.max(0, Math.floor(Number(j.total) || 0)),
+        chatMessage: Math.max(0, Math.floor(Number(j.chatMessage ?? j.chat_message ?? j.chat) || 0)),
+        groupMessage: Math.max(0, Math.floor(Number(j.groupMessage ?? j.group_message ?? j.group) || 0)),
+        tradeMessage: Math.max(0, Math.floor(Number(j.tradeMessage ?? j.trade_message ?? j.trade) || 0)),
+        tradeStatus: Math.max(0, Math.floor(Number(j.tradeStatus ?? j.trade_status) || 0)),
+        orderStatus: Math.max(0, Math.floor(Number(j.orderStatus ?? j.order_status ?? j.store) || 0)),
+        deliveryStatus: Math.max(0, Math.floor(Number(j.deliveryStatus ?? j.delivery_status) || 0)),
+        communityActivity: Math.max(
+          0,
+          Math.floor(Number(j.communityActivity ?? j.community_activity) || 0)
+        ),
+        adminMarketingBanner: Math.max(
+          0,
+          Math.floor(Number(j.adminMarketingBanner ?? j.admin_marketing_banner) || 0)
+        ),
+        adminNotice: Math.max(0, Math.floor(Number(j.adminNotice ?? j.admin_notice) || 0)),
         chat: Math.max(0, Math.floor(Number(j.chat) || 0)),
         group: Math.max(0, Math.floor(Number(j.group) || 0)),
         trade: Math.max(0, Math.floor(Number(j.trade) || 0)),
@@ -92,6 +107,15 @@ export function patchNotificationBadgeCountSnapshot(next: NotificationBadgeCount
   }
   if (
     snap.total === next.total &&
+    snap.chatMessage === next.chatMessage &&
+    snap.groupMessage === next.groupMessage &&
+    snap.tradeMessage === next.tradeMessage &&
+    snap.tradeStatus === next.tradeStatus &&
+    snap.orderStatus === next.orderStatus &&
+    snap.deliveryStatus === next.deliveryStatus &&
+    snap.communityActivity === next.communityActivity &&
+    snap.adminMarketingBanner === next.adminMarketingBanner &&
+    snap.adminNotice === next.adminNotice &&
     snap.chat === next.chat &&
     snap.group === next.group &&
     snap.trade === next.trade &&

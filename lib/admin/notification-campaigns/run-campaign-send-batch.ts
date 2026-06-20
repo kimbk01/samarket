@@ -1,5 +1,9 @@
-import { appendUserNotification } from "@/lib/notifications/append-user-notification";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { createAndDispatchNotificationEvent } from "@/lib/notifications/pipeline/notification-event-dispatcher";
+import type {
+  NotificationEventCategory,
+  NotificationEventType,
+} from "@/lib/notifications/core/notification-event-types";
 
 export const NOTIFICATION_CAMPAIGN_BATCH_SIZE = 120;
 
@@ -17,6 +21,14 @@ type CampaignRow = {
   send_progress_offset: number | null;
   status: string;
 };
+
+function campaignEventType(campaignType: CampaignRow["type"]): NotificationEventType {
+  return campaignType === "marketing" ? "admin_marketing_banner" : "admin_notice";
+}
+
+function campaignCategory(campaignType: CampaignRow["type"]): NotificationEventCategory {
+  return campaignType === "marketing" ? "admin_marketing_banner" : "admin_notice";
+}
 
 export async function ensureCampaignTargetsForSelectedUsers(
   svc: SupabaseClient,
@@ -167,7 +179,6 @@ export async function runNotificationCampaignSendBatch(
   }
 
   const now = new Date().toISOString();
-  const pushKind = campaign.type;
 
   let scannedRaw: string[] = [];
   let nextOffset = campaign.send_progress_offset ?? 0;
@@ -241,22 +252,30 @@ export async function runNotificationCampaignSendBatch(
     }
 
     try {
-      const ok = await appendUserNotification(svc, {
-        user_id: userId,
-        notification_type: "system",
+      const eventType = campaignEventType(campaign.type);
+      const category = campaignCategory(campaign.type);
+      const routeUrl = campaign.target_url?.trim() || "/community";
+      const created = await createAndDispatchNotificationEvent(svc, {
+        userId,
+        type: eventType,
+        category,
         title: campaign.title,
         body: campaign.body,
-        link_url: campaign.target_url,
-        push_kind: pushKind,
-        image_url: campaign.image_url,
-        meta: {
-          push_kind: pushKind,
-          admin_campaign_id: campaign.id,
+        dedupeKey: `admin_campaign:${campaign.id}:${userId}`,
+        displayPayload: {
+          routeUrl,
+          imageUrl: campaign.image_url ?? null,
+          campaignId: campaign.id,
+          campaignType: campaign.type,
+          targetType: campaign.target_type,
+          previewKind: "admin_campaign",
         },
+        unread: true,
+        appState: "background",
       });
-      if (!ok) {
+      if (!created.ok && created.error !== "duplicate") {
         failed += 1;
-        const reason = "append_failed";
+        const reason = "event_insert_or_dispatch_failed";
         if (campaign.target_type === "selected_users") {
           await svc
             .from("admin_notification_campaign_targets")

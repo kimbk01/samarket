@@ -59,6 +59,26 @@ export async function postNotificationRoomRead(roomId: string): Promise<boolean>
   return result.ok;
 }
 
+export async function postNotificationCategoryRead(category: string): Promise<boolean> {
+  const cat = category.trim();
+  if (!cat) return false;
+  const result = await postJson("/api/me/notifications/read-category", { category: cat });
+  if (result.ok) {
+    afterNotificationEventsRead("notification_opened", result.cleared);
+  }
+  return result.ok;
+}
+
+export async function postNotificationThreadRead(threadId: string): Promise<boolean> {
+  const tid = threadId.trim();
+  if (!tid) return false;
+  const result = await postJson("/api/me/notifications/read-thread", { threadId: tid });
+  if (result.ok) {
+    afterNotificationEventsRead("room_read", result.cleared);
+  }
+  return result.ok;
+}
+
 export async function postNotificationMissedCallRead(opts: {
   roomId?: string;
   callSessionId?: string;

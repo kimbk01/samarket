@@ -13,6 +13,10 @@ import {
   resolveMessengerChatTabBadgeCount,
   subscribeMessengerChatTabBadge,
 } from "@/lib/notifications/messenger-chat-tab-badge";
+import {
+  getNotificationBadgeCountSnapshot,
+  subscribeNotificationBadgeCount,
+} from "@/lib/notifications/notification-badge-count-store";
 import { resolveBottomNavTradeTabBadgeCount } from "@/lib/notifications/samarket-messenger-notification-regulations";
 import { useOwnerLiteHasPreferredStore } from "@/lib/stores/use-owner-lite-store";
 import {
@@ -67,6 +71,24 @@ function tabUnreadFromBreakdown(
   }
 }
 
+function tabUnreadFromNotificationEvents(icon: BottomNavIconKey): number | null {
+  const snap = getNotificationBadgeCountSnapshot();
+  if (!snap) return null;
+  if (icon === "chat") {
+    return Math.max(0, (snap.chatMessage ?? snap.chat) + (snap.groupMessage ?? snap.group));
+  }
+  if (icon === "trade") {
+    return Math.max(0, (snap.tradeMessage ?? 0) + (snap.tradeStatus ?? snap.trade));
+  }
+  if (icon === "community") {
+    return Math.max(0, (snap.communityActivity ?? 0) + (snap.adminNotice ?? 0));
+  }
+  if (icon === "stores") {
+    return Math.max(0, (snap.orderStatus ?? snap.store) + (snap.deliveryStatus ?? 0));
+  }
+  return 0;
+}
+
 /**
  * 하단 탭 한 칸만 구독 — 배지 API 갱신 시 해당 필드가 바뀐 탭만 리렌더.
  * 숫자 정의는 `samarket-messenger-notification-regulations.ts`.
@@ -78,11 +100,23 @@ export function useOwnerHubBadgeTabUnreadCount(icon: BottomNavIconKey): number {
   const hasOwnerStoreRef = useRef(hasOwnerStore);
   hasOwnerStoreRef.current = hasOwnerStore;
   const subscribe = useCallback(
-    (onStoreChange: () => void) =>
-      icon === "chat" ? subscribeMessengerChatTabBadge(onStoreChange) : subscribeOwnerHubBadge(onStoreChange),
+    (onStoreChange: () => void) => {
+      const unsubs: Array<() => void> = [];
+      if (icon === "chat") {
+        unsubs.push(subscribeMessengerChatTabBadge(onStoreChange));
+      } else {
+        unsubs.push(subscribeOwnerHubBadge(onStoreChange));
+      }
+      unsubs.push(subscribeNotificationBadgeCount(onStoreChange));
+      return () => {
+        for (const unsub of unsubs) unsub();
+      };
+    },
     [icon]
   );
   const getSnapshot = useCallback(() => {
+    const fromEvents = tabUnreadFromNotificationEvents(icon);
+    if (fromEvents != null) return fromEvents;
     const hub = getOwnerHubBadgeSnapshot();
     return tabUnreadFromBreakdown(icon, hub, hasOwnerStoreRef.current);
   }, [icon]);

@@ -101,6 +101,26 @@ function resolveTtlMs(data: Record<string, string>): number {
   return 60_000;
 }
 
+export function resolveAndroidPriorityForData(data: Record<string, string>): "high" | "normal" {
+  const type = String(data.type ?? "").trim();
+  const category = String(data.category ?? "").trim();
+  const callKind = String(data.call_push_kind ?? "").trim();
+  if (
+    callKind === "incoming_call" ||
+    callKind === "missed_call" ||
+    callKind === "call_canceled" ||
+    callKind === "call_rejected" ||
+    callKind === "call_ended"
+  ) {
+    return "high";
+  }
+  if (category === "admin_marketing_banner") return "normal";
+  if (type === "chat_message" || type === "group_message" || type === "trade_message") return "high";
+  if (type === "order_status" || type === "delivery_order" || type === "delivery_status") return "high";
+  if (type === "trade_status") return "high";
+  return "normal";
+}
+
 export async function sendFcmMessageV1(input: {
   token: string;
   data: Record<string, unknown>;
@@ -200,16 +220,22 @@ export async function sendFcmMessageV1(input: {
       };
     }
 
+    const priority = resolveAndroidPriorityForData(dataWithCopy);
     const messageId = await messaging.send({
       token: input.token,
       data: dataWithCopy,
       android: {
-        priority: "high",
+        priority,
       },
     });
     return {
       status: "sent",
-      provider_response: { provider: "fcm", kind: "alert_data_only", message_id: messageId },
+      provider_response: {
+        provider: "fcm",
+        kind: "alert_data_only",
+        message_id: messageId,
+        priority,
+      },
     };
   } catch (e: unknown) {
     const err = e as { code?: string; message?: string };

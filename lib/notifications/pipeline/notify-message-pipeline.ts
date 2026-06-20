@@ -8,7 +8,6 @@ import {
 } from "@/lib/notifications/core/notification-policy";
 import { shouldNotifyMentionRecipient } from "@/lib/community-messenger/group/group-room-mention-policy";
 import type { NotificationMessageRoomKind } from "@/lib/notifications/core/notification-event-types";
-import { createNotificationEvent } from "@/lib/notifications/core/notification-event-repository";
 import { logNotifyMessage } from "@/lib/notifications/core/notification-logs";
 import {
   buildRecipientMessageNotificationDisplay,
@@ -21,7 +20,7 @@ import {
   resolvePresenceSuppressDecision,
 } from "@/lib/notifications/policy/notification-presence-policy";
 import { invalidateNotificationBadgeCache } from "@/lib/notifications/pipeline/notify-badge-service";
-import { dispatchNotificationPushIfAllowed } from "@/lib/notifications/pipeline/notify-push-dispatcher";
+import { createAndDispatchNotificationEvent } from "@/lib/notifications/pipeline/notification-event-dispatcher";
 import { markRoomRead } from "@/lib/notifications/pipeline/notify-read-service";
 
 export type NotifyMessagePipelineInput = {
@@ -118,7 +117,7 @@ export async function notifyMessagePipeline(
       displayShared
     );
 
-    const created = await createNotificationEvent(sb, {
+    const created = await createAndDispatchNotificationEvent(sb, {
       userId: recipientUserId,
       type: eventType,
       category,
@@ -133,6 +132,7 @@ export async function notifyMessagePipeline(
       pushSuppressedReason,
       soundSuppressedReason,
       unread: !presenceDecision.suppressBadge,
+      appState: String(presence.appVisibility ?? "").toLowerCase() === "foreground" ? "foreground" : "background",
     });
 
     if (!created.ok) {
@@ -149,6 +149,5 @@ export async function notifyMessagePipeline(
       invalidateNotificationBadgeCache(recipientUserId);
     }
 
-    await dispatchNotificationPushIfAllowed(sb, created.row);
   }
 }

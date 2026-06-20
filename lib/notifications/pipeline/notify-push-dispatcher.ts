@@ -12,6 +12,7 @@ import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publi
 import { fetchNotificationBadgeCount } from "@/lib/notifications/pipeline/notify-badge-service";
 import { dispatchPushForUser } from "@/lib/push/dispatch/dispatch-push-for-user";
 import { getSiteOrigin } from "@/lib/env/runtime";
+import { resolveNotificationSoundProfile } from "@/lib/notifications/policy/notification-sound-profiles";
 
 function absolutizeLink(link: string): string | null {
   const base = getSiteOrigin();
@@ -39,10 +40,17 @@ function buildPushPayload(row: NotificationEventRow, badgeCount: number): Notifi
         : roomId
           ? buildChatRoomWebPath(roomId)
           : "/community-messenger");
+  const soundProfile = resolveNotificationSoundProfile(row.category);
   return {
     user_id: row.user_id,
     notification_type:
-      row.type === "missed_call" ? "community_messenger_missed_call" : "chat",
+      row.type === "missed_call"
+        ? "community_messenger_missed_call"
+        : row.type === "admin_marketing_banner"
+          ? "marketing"
+          : row.type === "admin_notice"
+            ? "system"
+            : "chat",
     title: row.title,
     body: row.body,
     link_url,
@@ -50,6 +58,7 @@ function buildPushPayload(row: NotificationEventRow, badgeCount: number): Notifi
     occurred_at: row.created_at,
     meta: {
       kind: row.type,
+      category: row.category,
       room_id: roomId,
       notification_event_id: row.id,
       notification_id: row.id,
@@ -63,7 +72,9 @@ function buildPushPayload(row: NotificationEventRow, badgeCount: number): Notifi
       room_kind: display?.roomKind,
       preview_kind: display?.previewKind,
       context_label: display?.contextLabel,
+      campaign_id: display?.campaignId,
       display_payload: display,
+      android_channel_id: soundProfile.androidChannelId,
     },
   };
 }
@@ -92,7 +103,7 @@ export async function dispatchNotificationPushIfAllowed(
 
   if (opts?.callPushKind === "missed_call") {
     await dispatchPushForUser(out, {
-      event_type: "missed_call",
+      event_type: row.type,
       target_type: "call_session",
       target_id: row.call_session_id ?? undefined,
       call_push_kind: "missed_call",
@@ -101,6 +112,7 @@ export async function dispatchNotificationPushIfAllowed(
     });
   } else {
     await dispatchPushForUser(out, {
+      event_type: row.type,
       badge_count: badge.total,
       notification_event_id: row.id,
     });

@@ -30,7 +30,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ campaignId
 
   const { data: targets } = await svc
     .from("admin_notification_campaign_targets")
-    .select("status")
+    .select("user_id,status,failure_reason,sent_at,updated_at")
     .eq("campaign_id", id);
 
   const tallies = { pending: 0, sent: 0, failed: 0, skipped: 0 };
@@ -42,7 +42,32 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ campaignId
     else if (s === "skipped") tallies.skipped += 1;
   }
 
-  return NextResponse.json({ ok: true, campaign: camp, targets: tallies });
+  const targetCount = (targets ?? []).length;
+  const deliveryLog = (targets ?? [])
+    .map((r) => {
+      const row = r as {
+        user_id?: string;
+        status?: string;
+        failure_reason?: string | null;
+        sent_at?: string | null;
+        updated_at?: string | null;
+      };
+      return {
+        userId: String(row.user_id ?? ""),
+        status: String(row.status ?? ""),
+        failureReason: row.failure_reason ?? null,
+        sentAt: row.sent_at ?? null,
+        updatedAt: row.updated_at ?? null,
+      };
+    })
+    .sort((a, b) => {
+      const aa = Date.parse(a.updatedAt ?? a.sentAt ?? "") || 0;
+      const bb = Date.parse(b.updatedAt ?? b.sentAt ?? "") || 0;
+      return bb - aa;
+    })
+    .slice(0, 80);
+
+  return NextResponse.json({ ok: true, campaign: camp, targets: tallies, targetCount, deliveryLog });
 }
 
 type PatchBody = {

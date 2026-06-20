@@ -23,7 +23,16 @@ export function applyMissedCallNotificationReadOptimistic(cleared: number): void
   const next: NotificationBadgeCount = {
     ...prev,
     missedCall,
-    total: prev.chat + prev.group + prev.trade + prev.store + missedCall,
+    total:
+      (prev.chatMessage ?? prev.chat) +
+      (prev.groupMessage ?? prev.group) +
+      (prev.tradeMessage ?? 0) +
+      (prev.tradeStatus ?? prev.trade) +
+      (prev.orderStatus ?? prev.store) +
+      (prev.deliveryStatus ?? 0) +
+      (prev.communityActivity ?? 0) +
+      (prev.adminNotice ?? 0) +
+      missedCall,
   };
   if (next.missedCall === prev.missedCall && next.total === prev.total) return;
   patchNotificationBadgeCountSnapshot(next);

@@ -12,6 +12,15 @@ export async function GET(req: Request) {
     return NextResponse.json({
       ok: true,
       total: 0,
+      chatMessage: 0,
+      groupMessage: 0,
+      tradeMessage: 0,
+      tradeStatus: 0,
+      orderStatus: 0,
+      deliveryStatus: 0,
+      communityActivity: 0,
+      adminMarketingBanner: 0,
+      adminNotice: 0,
       chat: 0,
       group: 0,
       trade: 0,
@@ -32,6 +41,15 @@ export async function GET(req: Request) {
   return NextResponse.json({
     ok: true,
     ...counts,
+    chat_message: counts.chatMessage ?? 0,
+    group_message: counts.groupMessage ?? 0,
+    trade_message: counts.tradeMessage ?? 0,
+    trade_status: counts.tradeStatus ?? 0,
+    order_status: counts.orderStatus ?? 0,
+    delivery_status: counts.deliveryStatus ?? 0,
+    community_activity: counts.communityActivity ?? 0,
+    admin_marketing_banner: counts.adminMarketingBanner ?? 0,
+    admin_notice: counts.adminNotice ?? 0,
     missed_call: counts.missedCall,
   });
 }

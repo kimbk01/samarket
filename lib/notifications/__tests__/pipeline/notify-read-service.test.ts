@@ -4,6 +4,8 @@ const markNotificationEventRead = vi.fn();
 const markRoomNotificationEventsRead = vi.fn();
 const markMissedCallEventsRead = vi.fn();
 const markAllMissedCallEventsRead = vi.fn();
+const markNotificationEventsReadByCategory = vi.fn();
+const markNotificationEventsReadByThread = vi.fn();
 const fetchNotificationBadgeCount = vi.fn();
 const invalidateNotificationBadgeCache = vi.fn();
 
@@ -12,6 +14,10 @@ vi.mock("@/lib/notifications/core/notification-event-repository", () => ({
   markRoomNotificationEventsRead: (...args: unknown[]) => markRoomNotificationEventsRead(...args),
   markMissedCallEventsRead: (...args: unknown[]) => markMissedCallEventsRead(...args),
   markAllMissedCallEventsRead: (...args: unknown[]) => markAllMissedCallEventsRead(...args),
+  markNotificationEventsReadByCategory: (...args: unknown[]) =>
+    markNotificationEventsReadByCategory(...args),
+  markNotificationEventsReadByThread: (...args: unknown[]) =>
+    markNotificationEventsReadByThread(...args),
 }));
 
 vi.mock("@/lib/notifications/pipeline/notify-badge-service", () => ({
@@ -21,7 +27,9 @@ vi.mock("@/lib/notifications/pipeline/notify-badge-service", () => ({
 
 import {
   markMissedCallsRead,
+  markNotificationCategoryRead,
   markNotificationRead,
+  markNotificationThreadRead,
   markRoomRead,
 } from "@/lib/notifications/pipeline/notify-read-service";
 
@@ -34,6 +42,8 @@ describe("notify-read-service", () => {
     markRoomNotificationEventsRead.mockResolvedValue(2);
     markMissedCallEventsRead.mockResolvedValue(1);
     markAllMissedCallEventsRead.mockResolvedValue(2);
+    markNotificationEventsReadByCategory.mockResolvedValue(3);
+    markNotificationEventsReadByThread.mockResolvedValue(4);
     fetchNotificationBadgeCount.mockResolvedValue({ total: 0 });
   });
 
@@ -62,5 +72,21 @@ describe("notify-read-service", () => {
     expect(markAllMissedCallEventsRead).toHaveBeenCalledWith(sb, "user-1");
     expect(markMissedCallEventsRead).not.toHaveBeenCalled();
     expect(invalidateNotificationBadgeCache).toHaveBeenCalledWith("user-1");
+  });
+
+  it("marks category read and refreshes badge immediately", async () => {
+    const count = await markNotificationCategoryRead(sb, "user-1", "admin_notice");
+    expect(count).toBe(3);
+    expect(markNotificationEventsReadByCategory).toHaveBeenCalledWith(sb, "user-1", "admin_notice");
+    expect(invalidateNotificationBadgeCache).toHaveBeenCalledWith("user-1");
+    expect(fetchNotificationBadgeCount).toHaveBeenCalled();
+  });
+
+  it("marks thread read and refreshes badge immediately", async () => {
+    const count = await markNotificationThreadRead(sb, "user-1", "room-1");
+    expect(count).toBe(4);
+    expect(markNotificationEventsReadByThread).toHaveBeenCalledWith(sb, "user-1", "room-1");
+    expect(invalidateNotificationBadgeCache).toHaveBeenCalledWith("user-1");
+    expect(fetchNotificationBadgeCount).toHaveBeenCalled();
   });
 });

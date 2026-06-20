@@ -19,6 +19,16 @@ export function AdminNotificationCampaignDetailPage() {
   const [tallies, setTallies] = useState<{ pending: number; sent: number; failed: number; skipped: number } | null>(
     null
   );
+  const [targetCount, setTargetCount] = useState(0);
+  const [deliveryLog, setDeliveryLog] = useState<
+    Array<{
+      userId: string;
+      status: string;
+      failureReason: string | null;
+      sentAt: string | null;
+      updatedAt: string | null;
+    }>
+  >([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [log, setLog] = useState<string[]>([]);
@@ -32,10 +42,20 @@ export function AdminNotificationCampaignDetailPage() {
         ok?: boolean;
         campaign?: Record<string, unknown>;
         targets?: typeof tallies;
+        targetCount?: number;
+        deliveryLog?: Array<{
+          userId: string;
+          status: string;
+          failureReason: string | null;
+          sentAt: string | null;
+          updatedAt: string | null;
+        }>;
       };
       if (res.ok && j?.ok) {
         setCamp(j.campaign ?? null);
         setTallies(j.targets ?? null);
+        setTargetCount(Math.max(0, Number(j.targetCount) || 0));
+        setDeliveryLog(Array.isArray(j.deliveryLog) ? j.deliveryLog : []);
       }
     } finally {
       setLoading(false);
@@ -123,6 +143,25 @@ export function AdminNotificationCampaignDetailPage() {
               {notifStatusLabel(t, String(camp.status ?? ""))}
             </p>
             <p className="whitespace-pre-wrap text-sam-fg">{String(camp.body ?? "")}</p>
+            <p>
+              <span className="text-sam-muted">{t("admin_notif_detail_created_at")}</span>{" "}
+              {String(camp.created_at ?? "—")}
+            </p>
+            <p>
+              <span className="text-sam-muted">{t("admin_notif_detail_updated_at")}</span>{" "}
+              {String(camp.updated_at ?? "—")}
+            </p>
+            <p>
+              <span className="text-sam-muted">{t("admin_notif_detail_scheduled_at")}</span>{" "}
+              {String(camp.scheduled_at ?? "—")}
+            </p>
+            <p>
+              <span className="text-sam-muted">{t("admin_notif_detail_sent_at")}</span>{" "}
+              {String(camp.sent_at ?? "—")}
+            </p>
+            <p>
+              <span className="text-sam-muted">{t("admin_notif_detail_target_count")}</span> {targetCount}
+            </p>
             {camp.target_url ? (
               <p className="break-all text-signature">
                 URL: <span className="text-sam-fg">{String(camp.target_url)}</span>
@@ -157,6 +196,35 @@ export function AdminNotificationCampaignDetailPage() {
               {log.join("\n")}
             </pre>
           ) : null}
+          <div className="rounded-ui-rect border border-sam-border bg-sam-app p-3">
+            <p className="text-sm font-medium text-sam-fg">{t("admin_notif_detail_delivery_log")}</p>
+            {deliveryLog.length === 0 ? (
+              <p className="mt-2 text-xs text-sam-muted">{t("admin_notif_detail_no_delivery_log")}</p>
+            ) : (
+              <div className="mt-2 max-h-72 overflow-auto">
+                <table className="min-w-full text-left text-xs">
+                  <thead className="text-sam-muted">
+                    <tr>
+                      <th className="py-1 pr-3">userId</th>
+                      <th className="py-1 pr-3">{t("admin_notif_label_status")}</th>
+                      <th className="py-1 pr-3">time</th>
+                      <th className="py-1">reason</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {deliveryLog.map((row) => (
+                      <tr key={`${row.userId}-${row.updatedAt ?? row.sentAt ?? row.status}`} className="border-t border-sam-border-soft">
+                        <td className="py-1 pr-3 font-mono">{row.userId || "-"}</td>
+                        <td className="py-1 pr-3">{notifStatusLabel(t, row.status)}</td>
+                        <td className="py-1 pr-3">{row.updatedAt ?? row.sentAt ?? "-"}</td>
+                        <td className="py-1">{row.failureReason ?? "-"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </>
       ) : (
         <p className="text-sm text-sam-muted">{t("admin_notif_not_found")}</p>

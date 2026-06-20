@@ -14,12 +14,13 @@ export function AdminNotificationCampaignCreatePage() {
   const [targetType, setTargetType] = useState<string>("all");
   const [targetUrl, setTargetUrl] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [scheduledAt, setScheduledAt] = useState("");
   const [regionCode, setRegionCode] = useState("");
   const [selectedIds, setSelectedIds] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const submit = async (mode: "draft" | "send") => {
+  const submit = async (mode: "draft" | "send" | "schedule") => {
     setErr(null);
     setBusy(true);
     try {
@@ -43,7 +44,11 @@ export function AdminNotificationCampaignCreatePage() {
           target_url: targetUrl || null,
           image_url: imageUrl || null,
           segment_region_code: targetType === "region" ? regionCode : null,
-          status: "draft",
+          scheduled_at:
+            mode === "schedule" && scheduledAt
+              ? new Date(scheduledAt).toISOString()
+              : null,
+          status: mode === "schedule" ? "scheduled" : "draft",
           target_user_ids,
         }),
       });
@@ -154,6 +159,16 @@ export function AdminNotificationCampaignCreatePage() {
         </label>
 
         <label className="block text-sm">
+          <span className="text-sam-muted">{t("admin_notif_label_scheduled_at")}</span>
+          <input
+            type="datetime-local"
+            value={scheduledAt}
+            onChange={(e) => setScheduledAt(e.target.value)}
+            className="mt-1 w-full rounded border border-sam-border bg-sam-app px-2 py-2"
+          />
+        </label>
+
+        <label className="block text-sm">
           <span className="text-sam-muted">{t("admin_notif_label_target_url")}</span>
           <input
             value={targetUrl}
@@ -172,6 +187,16 @@ export function AdminNotificationCampaignCreatePage() {
         </label>
       </div>
 
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+        <p className="text-sm font-semibold text-sam-fg">{t("admin_notif_preview_title")}</p>
+        <p className="mt-1 text-xs text-sam-muted">{t("admin_notif_preview_subtitle")}</p>
+        <div className="mt-3 rounded-ui-rect border border-sam-border bg-sam-app p-3">
+          <p className="text-sm font-medium text-sam-fg">{title.trim() || "DIBAY"}</p>
+          <p className="mt-1 whitespace-pre-wrap text-sm text-sam-muted">{body.trim() || "-"}</p>
+          <p className="mt-2 truncate text-xs text-signature">{targetUrl.trim() || "/community"}</p>
+        </div>
+      </div>
+
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
@@ -180,6 +205,14 @@ export function AdminNotificationCampaignCreatePage() {
           className="rounded-ui-rect border border-sam-border px-4 py-2 text-sm disabled:opacity-40"
         >
           {t("admin_notif_btn_draft")}
+        </button>
+        <button
+          type="button"
+          disabled={busy || !title.trim() || !body.trim() || !scheduledAt}
+          onClick={() => void submit("schedule")}
+          className="rounded-ui-rect border border-sam-border px-4 py-2 text-sm disabled:opacity-40"
+        >
+          {t("admin_notif_btn_schedule")}
         </button>
         <button
           type="button"

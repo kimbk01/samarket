@@ -1,10 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildMissedCallDedupeKey } from "@/lib/notifications/core/notification-policy";
-import { createNotificationEvent } from "@/lib/notifications/core/notification-event-repository";
 import { logMissedCall } from "@/lib/notifications/core/notification-logs";
 import { buildMissedCallWebPath } from "@/lib/notifications/policy/notification-deeplink-policy";
 import { invalidateNotificationBadgeCache } from "@/lib/notifications/pipeline/notify-badge-service";
-import { dispatchNotificationPushIfAllowed } from "@/lib/notifications/pipeline/notify-push-dispatcher";
+import { createAndDispatchNotificationEvent } from "@/lib/notifications/pipeline/notification-event-dispatcher";
 
 export type NotifyMissedCallPipelineInput = {
   sessionId: string;
@@ -28,7 +27,7 @@ async function createMissedEventForUser(
   const title = "부재중 통화";
   const body = args.peerDisplayName ? `${args.peerDisplayName}님의 부재중 통화` : "";
   const dedupeKey = buildMissedCallDedupeKey(args.sessionId, args.userId);
-  const created = await createNotificationEvent(sb, {
+  const created = await createAndDispatchNotificationEvent(sb, {
     userId: args.userId,
     type: "missed_call",
     category: "missed_call",
@@ -39,6 +38,7 @@ async function createMissedEventForUser(
     body,
     dedupeKey,
     unread: true,
+    appState: "background",
   });
 
   if (!created.ok) {
@@ -49,7 +49,6 @@ async function createMissedEventForUser(
 
   logMissedCall("created", { userId: args.userId, eventId: created.row.id, sessionId: args.sessionId });
   invalidateNotificationBadgeCache(args.userId);
-  await dispatchNotificationPushIfAllowed(sb, created.row, { callPushKind: "missed_call" });
   logMissedCall("notified", {
     userId: args.userId,
     eventId: created.row.id,

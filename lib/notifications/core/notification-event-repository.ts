@@ -8,6 +8,15 @@ import { categoryForEventType } from "@/lib/notifications/core/notification-poli
 
 const EMPTY_BADGE: NotificationBadgeCount = {
   total: 0,
+  chatMessage: 0,
+  groupMessage: 0,
+  tradeMessage: 0,
+  tradeStatus: 0,
+  orderStatus: 0,
+  deliveryStatus: 0,
+  communityActivity: 0,
+  adminMarketingBanner: 0,
+  adminNotice: 0,
   chat: 0,
   group: 0,
   trade: 0,
@@ -17,18 +26,63 @@ const EMPTY_BADGE: NotificationBadgeCount = {
 
 function mapBadgeRpc(raw: Record<string, unknown> | null): NotificationBadgeCount {
   if (!raw) return EMPTY_BADGE;
-  const chat = Math.max(0, Math.floor(Number(raw.chat) || 0));
-  const group = Math.max(0, Math.floor(Number(raw.group) || 0));
-  const trade = Math.max(0, Math.floor(Number(raw.trade) || 0));
-  const store = Math.max(0, Math.floor(Number(raw.store) || 0));
+  const chatMessage = Math.max(
+    0,
+    Math.floor(Number(raw.chat_message ?? raw.chat) || 0)
+  );
+  const groupMessage = Math.max(
+    0,
+    Math.floor(Number(raw.group_message ?? raw.group) || 0)
+  );
+  const tradeMessage = Math.max(
+    0,
+    Math.floor(Number(raw.trade_message ?? raw.trade) || 0)
+  );
+  const tradeStatus = Math.max(0, Math.floor(Number(raw.trade_status) || 0));
+  const orderStatus = Math.max(
+    0,
+    Math.floor(Number(raw.order_status ?? raw.store) || 0)
+  );
+  const deliveryStatus = Math.max(0, Math.floor(Number(raw.delivery_status) || 0));
+  const communityActivity = Math.max(
+    0,
+    Math.floor(Number(raw.community_activity) || 0)
+  );
+  const adminMarketingBanner = Math.max(
+    0,
+    Math.floor(Number(raw.admin_marketing_banner) || 0)
+  );
+  const adminNotice = Math.max(0, Math.floor(Number(raw.admin_notice) || 0));
   const missedCall = Math.max(0, Math.floor(Number(raw.missed_call) || 0));
+  const chat = chatMessage;
+  const group = groupMessage;
+  const trade = tradeMessage + tradeStatus;
+  const store = orderStatus + deliveryStatus;
   return {
+    chatMessage,
+    groupMessage,
+    tradeMessage,
+    tradeStatus,
+    orderStatus,
+    deliveryStatus,
+    communityActivity,
+    adminMarketingBanner,
+    adminNotice,
     chat,
     group,
     trade,
     store,
     missedCall,
-    total: chat + group + trade + store + missedCall,
+    total:
+      chatMessage +
+      groupMessage +
+      tradeMessage +
+      tradeStatus +
+      orderStatus +
+      deliveryStatus +
+      communityActivity +
+      adminNotice +
+      missedCall,
   };
 }
 
@@ -75,11 +129,7 @@ export async function countNotificationEventsBadge(
 ): Promise<NotificationBadgeCount> {
   const uid = userId.trim();
   if (!uid) return EMPTY_BADGE;
-  const { data, error } = await sb.rpc("count_notification_events_badge", { p_user_id: uid });
-  if (error) {
-    return countNotificationEventsBadgeFallback(sb, uid);
-  }
-  return mapBadgeRpc(data as Record<string, unknown> | null);
+  return countNotificationEventsBadgeFallback(sb, uid);
 }
 
 async function countNotificationEventsBadgeFallback(
@@ -93,12 +143,39 @@ async function countNotificationEventsBadgeFallback(
     .eq("unread", true)
     .is("read_at", null);
   if (error || !data) return EMPTY_BADGE;
-  const counts: Record<string, number> = { chat: 0, group: 0, trade: 0, store: 0, missed_call: 0 };
+  const counts: Record<string, number> = {
+    chat_message: 0,
+    group_message: 0,
+    trade_message: 0,
+    trade_status: 0,
+    order_status: 0,
+    delivery_status: 0,
+    community_activity: 0,
+    admin_marketing_banner: 0,
+    admin_notice: 0,
+    missed_call: 0,
+    // Legacy
+    chat: 0,
+    group: 0,
+    trade: 0,
+    store: 0,
+  };
   for (const row of data as { category?: string }[]) {
     const c = String(row.category ?? "");
     if (c in counts) counts[c] += 1;
   }
-  return mapBadgeRpc(counts);
+  return mapBadgeRpc({
+    chat_message: counts.chat_message + counts.chat,
+    group_message: counts.group_message + counts.group,
+    trade_message: counts.trade_message + counts.trade,
+    trade_status: counts.trade_status,
+    order_status: counts.order_status + counts.store,
+    delivery_status: counts.delivery_status,
+    community_activity: counts.community_activity,
+    admin_marketing_banner: counts.admin_marketing_banner,
+    admin_notice: counts.admin_notice,
+    missed_call: counts.missed_call,
+  });
 }
 
 export async function markNotificationEventRead(
@@ -173,6 +250,48 @@ export async function markAllMissedCallEventsRead(
     .update({ unread: false, read_at: now, opened_at: now })
     .eq("user_id", uid)
     .eq("type", "missed_call")
+    .eq("unread", true)
+    .is("read_at", null)
+    .select("id");
+  if (error) return 0;
+  return data?.length ?? 0;
+}
+
+export async function markNotificationEventsReadByCategory(
+  sb: SupabaseClient<any>,
+  userId: string,
+  category: string
+): Promise<number> {
+  const uid = userId.trim();
+  const cat = category.trim();
+  if (!uid || !cat) return 0;
+  const now = new Date().toISOString();
+  const { data, error } = await sb
+    .from("notification_events")
+    .update({ unread: false, read_at: now, opened_at: now })
+    .eq("user_id", uid)
+    .eq("category", cat)
+    .eq("unread", true)
+    .is("read_at", null)
+    .select("id");
+  if (error) return 0;
+  return data?.length ?? 0;
+}
+
+export async function markNotificationEventsReadByThread(
+  sb: SupabaseClient<any>,
+  userId: string,
+  threadId: string
+): Promise<number> {
+  const uid = userId.trim();
+  const tid = threadId.trim();
+  if (!uid || !tid) return 0;
+  const now = new Date().toISOString();
+  const { data, error } = await sb
+    .from("notification_events")
+    .update({ unread: false, read_at: now, opened_at: now })
+    .eq("user_id", uid)
+    .or(`room_id.eq.${tid},call_session_id.eq.${tid}`)
     .eq("unread", true)
     .is("read_at", null)
     .select("id");

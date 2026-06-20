@@ -1,17 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const createNotificationEvent = vi.fn();
+const createAndDispatchNotificationEvent = vi.fn();
 const isNotificationBlockedForRecipient = vi.fn();
 const isRoomMutedForUser = vi.fn();
 const loadRecipientPresenceSnapshot = vi.fn();
 const resolvePresenceSuppressDecision = vi.fn();
-const dispatchNotificationPushIfAllowed = vi.fn();
 const markRoomRead = vi.fn();
 const invalidateNotificationBadgeCache = vi.fn();
 const loadNotificationUserLanguage = vi.fn();
 
-vi.mock("@/lib/notifications/core/notification-event-repository", () => ({
-  createNotificationEvent: (...args: unknown[]) => createNotificationEvent(...args),
+vi.mock("@/lib/notifications/pipeline/notification-event-dispatcher", () => ({
+  createAndDispatchNotificationEvent: (...args: unknown[]) =>
+    createAndDispatchNotificationEvent(...args),
 }));
 
 vi.mock("@/lib/notifications/policy/notification-block-policy", () => ({
@@ -25,10 +25,6 @@ vi.mock("@/lib/notifications/policy/notification-mute-policy", () => ({
 vi.mock("@/lib/notifications/policy/notification-presence-policy", () => ({
   loadRecipientPresenceSnapshot: (...args: unknown[]) => loadRecipientPresenceSnapshot(...args),
   resolvePresenceSuppressDecision: (...args: unknown[]) => resolvePresenceSuppressDecision(...args),
-}));
-
-vi.mock("@/lib/notifications/pipeline/notify-push-dispatcher", () => ({
-  dispatchNotificationPushIfAllowed: (...args: unknown[]) => dispatchNotificationPushIfAllowed(...args),
 }));
 
 vi.mock("@/lib/notifications/pipeline/notify-read-service", () => ({
@@ -101,11 +97,10 @@ describe("notify-message-pipeline", () => {
       title: input.roomKind === "group" ? "group-room" : "sender-a",
       body: input.roomKind === "group" ? `sender-a: ${input.preview ?? "hello"}` : input.preview ?? "hello",
     }));
-    createNotificationEvent.mockResolvedValue({
+    createAndDispatchNotificationEvent.mockResolvedValue({
       ok: true,
       row: { id: "evt-1", user_id: "user-b", push_suppressed_reason: null, display_payload: {} },
     });
-    dispatchNotificationPushIfAllowed.mockResolvedValue(undefined);
     markRoomRead.mockResolvedValue(0);
   });
 
@@ -118,8 +113,7 @@ describe("notify-message-pipeline", () => {
       preview: "hello",
       roomKind: "direct",
     });
-    expect(createNotificationEvent).toHaveBeenCalledTimes(1);
-    expect(dispatchNotificationPushIfAllowed).toHaveBeenCalledTimes(1);
+    expect(createAndDispatchNotificationEvent).toHaveBeenCalledTimes(1);
   });
 
   it("creates group_message event when roomKind is group", async () => {
@@ -131,11 +125,11 @@ describe("notify-message-pipeline", () => {
       preview: "group hello",
       roomKind: "group",
     });
-    expect(createNotificationEvent).toHaveBeenCalledWith(
+    expect(createAndDispatchNotificationEvent).toHaveBeenCalledWith(
       sb,
       expect.objectContaining({
         type: "group_message",
-        category: "group",
+        category: "group_message",
         roomId: "room-g1",
         messageId: "msg-g1",
       })
@@ -151,7 +145,7 @@ describe("notify-message-pipeline", () => {
       recipientUserIds: ["user-b"],
       preview: "hello",
     });
-    expect(createNotificationEvent).not.toHaveBeenCalled();
+    expect(createAndDispatchNotificationEvent).not.toHaveBeenCalled();
   });
 
   it("creates event with muted suppress reasons but still inserts", async () => {
@@ -163,7 +157,7 @@ describe("notify-message-pipeline", () => {
       recipientUserIds: ["user-b"],
       preview: "hello",
     });
-    expect(createNotificationEvent).toHaveBeenCalledWith(
+    expect(createAndDispatchNotificationEvent).toHaveBeenCalledWith(
       sb,
       expect.objectContaining({
         pushSuppressedReason: "muted_room",
@@ -189,7 +183,7 @@ describe("notify-message-pipeline", () => {
       recipientUserIds: ["user-b"],
       preview: "hello",
     });
-    expect(createNotificationEvent).toHaveBeenCalledWith(
+    expect(createAndDispatchNotificationEvent).toHaveBeenCalledWith(
       sb,
       expect.objectContaining({ unread: false, pushSuppressedReason: "same_room_foreground" })
     );
@@ -197,7 +191,7 @@ describe("notify-message-pipeline", () => {
   });
 
   it("creates separate events for consecutive messages", async () => {
-    createNotificationEvent
+    createAndDispatchNotificationEvent
       .mockResolvedValueOnce({ ok: true, row: { id: "evt-1", user_id: "user-b" } })
       .mockResolvedValueOnce({ ok: true, row: { id: "evt-2", user_id: "user-b" } });
     await notifyMessagePipeline(sb, {
@@ -214,6 +208,6 @@ describe("notify-message-pipeline", () => {
       recipientUserIds: ["user-b"],
       preview: "two",
     });
-    expect(createNotificationEvent).toHaveBeenCalledTimes(2);
+    expect(createAndDispatchNotificationEvent).toHaveBeenCalledTimes(2);
   });
 });

@@ -15,6 +15,7 @@ type CampaignRow = {
   type: string;
   target_type: string;
   status: string;
+  scheduled_at: string | null;
   sent_at: string | null;
   created_at: string;
   created_by: string | null;
@@ -116,7 +117,9 @@ export function AdminNotificationCampaignsPage() {
                 <th className="px-3 py-2">{t("admin_notif_th_type")}</th>
                 <th className="px-3 py-2">{t("admin_notif_th_target")}</th>
                 <th className="px-3 py-2">{t("admin_notif_th_status")}</th>
+                <th className="px-3 py-2">{t("admin_notif_detail_scheduled_at")}</th>
                 <th className="px-3 py-2">{t("admin_notif_th_sent_at")}</th>
+                <th className="px-3 py-2">{t("admin_notif_detail_created_at")}</th>
               </tr>
             </thead>
             <tbody>
@@ -130,12 +133,14 @@ export function AdminNotificationCampaignsPage() {
                   <td className="px-3 py-2">{notifTypeLabel(t, r.type)}</td>
                   <td className="px-3 py-2">{notifTargetLabel(t, r.target_type)}</td>
                   <td className="px-3 py-2">{notifStatusLabel(t, r.status)}</td>
+                  <td className="px-3 py-2 text-sam-muted">{r.scheduled_at ? r.scheduled_at.slice(0, 16) : "—"}</td>
                   <td className="px-3 py-2 text-sam-muted">{r.sent_at ? r.sent_at.slice(0, 16) : "—"}</td>
+                  <td className="px-3 py-2 text-sam-muted">{r.created_at ? r.created_at.slice(0, 16) : "—"}</td>
                 </tr>
               ))}
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-3 py-8 text-center text-sam-muted">
+                  <td colSpan={7} className="px-3 py-8 text-center text-sam-muted">
                     {t("admin_notif_empty_campaigns")}
                   </td>
                 </tr>

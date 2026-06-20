@@ -8,6 +8,15 @@ const CACHE_MS = 3_000;
 
 const EMPTY: NotificationBadgeCount = {
   total: 0,
+  chatMessage: 0,
+  groupMessage: 0,
+  tradeMessage: 0,
+  tradeStatus: 0,
+  orderStatus: 0,
+  deliveryStatus: 0,
+  communityActivity: 0,
+  adminMarketingBanner: 0,
+  adminNotice: 0,
   chat: 0,
   group: 0,
   trade: 0,
