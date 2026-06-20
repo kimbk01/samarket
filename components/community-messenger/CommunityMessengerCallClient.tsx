@@ -203,9 +203,13 @@ import {
   isIncomingCallSurfaceTerminal,
   releaseIncomingCallSurface,
 } from "@/lib/community-messenger/incoming-call-surface-owner";
+import {
+  callClientRemoteTerminalQueryFromFeed,
+  subscribeCommunityMessengerCallClientRemoteTerminalFeed,
+  type CallClientRemoteTerminalFeedEvent,
+} from "@/lib/community-messenger/call-client-remote-terminal-feed";
 import { matchIncomingCallSessionToTerminalQuery } from "@/lib/community-messenger/call-incoming-terminal";
 import {
-  onCommunityMessengerBusEvent,
   postCommunityMessengerCallSessionTerminalBusEvent,
 } from "@/lib/community-messenger/multi-tab-bus";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
@@ -843,65 +847,13 @@ export function CommunityMessengerCallClient({
     };
   }, [sessionId]);
 
-  useEffect(() => {
-    const off = onCommunityMessengerBusEvent((ev) => {
-      if (ev.type !== "cm.call.session_terminal") return;
-      const cur = sessionRef.current;
-      if (!cur) return;
-      const { match: terminalAppliesToCurrentSession } = matchIncomingCallSessionToTerminalQuery(cur, {
-        sessionId: ev.sessionId ?? null,
-        tmpSessionId: ev.tmpSessionId ?? null,
-        roomId: ev.roomId ?? null,
-        initiatorUserId: ev.initiatorUserId ?? null,
-        callKind: ev.callKind ?? null,
-        status: ev.status,
-      });
-      if (!terminalAppliesToCurrentSession) return;
-      const wasRinging = cur.status === "ringing";
-      const terminalStatus = readRealtimeSessionStatus(ev.status);
-      if (wasRinging) {
-        beginRingingCallDismiss(cur.roomId, { wasRinging: true });
-      }
-      if (terminalStatus && isTerminalCallSessionStatus(terminalStatus)) {
-        appendTerminalCallHistory(cur, terminalStatus);
-        const snapshot: CommunityMessengerCallSession = {
-          ...cur,
-          status: terminalStatus,
-          endedAt: new Date().toISOString(),
-        };
-        callTerminalLocalPinRef.current = {
-          sessionId: cur.id,
-          until: Date.now() + CALL_SESSION_TERMINAL_PIN_MS,
-          snapshot,
-        };
-        setSession(snapshot);
-        pinCommunityMessengerCallTerminalSurfaceDismiss(cur.id);
-        joiningRef.current = false;
-        setJoined(false);
-        joinedRef.current = false;
-        setRemoteJoined(false);
-        stopCommunityMessengerCallTone();
-        stopCommunityMessengerCallFeedback();
-        const failureTerminal =
-          snapshot.endedReason && isMessengerCallClientFailureReason(snapshot.endedReason);
-        if (
-          !wasRinging &&
-          !failureTerminal &&
-          terminalNavigateBackOnceRef.current !== cur.id
-        ) {
-          terminalNavigateBackOnceRef.current = cur.id;
-          finalizeCommunityMessengerCallTerminalExit(router, cur.id, "remote_terminal_bus");
-        }
-      }
-    });
-    return off;
-  }, [appendTerminalCallHistory, beginRingingCallDismiss, router]);
-
   const latencyFirstScreenLoggedRef = useRef(false);
   const remoteAudioFirstFrameLoggedRef = useRef(false);
   const remoteUserJoinedLoggedRef = useRef(false);
   const terminalImmediateCleanupOnceRef = useRef<string | null>(null);
   const terminalNavigateBackOnceRef = useRef<string | null>(null);
+  /** bus·native·realtime 중복 terminal handoff 1회만 — media dispose·history 중복 방지 */
+  const remoteTerminalHandoffOnceRef = useRef<string | null>(null);
   /** 터미널·active 전환 시 잔여 오류/톤 정리 — 터미널 카피가 active 오류에 덮이지 않게 한다 */
   useEffect(() => {
     if (!session) return;
@@ -938,6 +890,7 @@ export function CommunityMessengerCallClient({
     remoteUserJoinedLoggedRef.current = false;
     terminalImmediateCleanupOnceRef.current = null;
     terminalNavigateBackOnceRef.current = null;
+    remoteTerminalHandoffOnceRef.current = null;
     prefetchedConnectionRef.current = null;
     return () => {
       clearCommunityMessengerCallConnectionPrefetch(sessionId);
@@ -1846,6 +1799,65 @@ export function CommunityMessengerCallClient({
     },
     [cleanupClient, sessionId]
   );
+
+  const applyRemoteCallSessionTerminal = useCallback(
+    (ev: CallClientRemoteTerminalFeedEvent) => {
+      const cur = sessionRef.current;
+      if (!cur) return;
+      const { match: terminalAppliesToCurrentSession } = matchIncomingCallSessionToTerminalQuery(
+        cur,
+        callClientRemoteTerminalQueryFromFeed(ev)
+      );
+      if (!terminalAppliesToCurrentSession) return;
+      if (remoteTerminalHandoffOnceRef.current === cur.id) return;
+      const wasRinging = cur.status === "ringing";
+      const terminalStatus = readRealtimeSessionStatus(ev.status);
+      console.info("[call-flow] call_client_remote_terminal", {
+        sessionId: cur.id,
+        status: terminalStatus ?? ev.status,
+        source: ev.source,
+        wasRinging,
+      });
+      if (wasRinging) {
+        beginRingingCallDismiss(cur.roomId, { wasRinging: true });
+      }
+      if (!terminalStatus || !isTerminalCallSessionStatus(terminalStatus)) return;
+      remoteTerminalHandoffOnceRef.current = cur.id;
+      appendTerminalCallHistory(cur, terminalStatus);
+      const snapshot: CommunityMessengerCallSession = {
+        ...cur,
+        status: terminalStatus,
+        endedAt: new Date().toISOString(),
+        endedReason: null,
+      };
+      callTerminalLocalPinRef.current = {
+        sessionId: cur.id,
+        until: Date.now() + CALL_SESSION_TERMINAL_PIN_MS,
+        snapshot,
+      };
+      setSession(snapshot);
+      pinCommunityMessengerCallTerminalSurfaceDismiss(cur.id);
+      joiningRef.current = false;
+      setJoined(false);
+      joinedRef.current = false;
+      setRemoteJoined(false);
+      stopCommunityMessengerCallTone();
+      stopCommunityMessengerCallFeedback();
+      void disposeCallMedia({ domAudioNuclear: true }).catch(() => {});
+      const failureTerminal =
+        snapshot.endedReason && isMessengerCallClientFailureReason(snapshot.endedReason);
+      const exitSource = ev.source.startsWith("native_") ? "remote_terminal_native" : "remote_terminal_bus";
+      if (!wasRinging && !failureTerminal && terminalNavigateBackOnceRef.current !== cur.id) {
+        terminalNavigateBackOnceRef.current = cur.id;
+        finalizeCommunityMessengerCallTerminalExit(router, cur.id, exitSource);
+      }
+    },
+    [appendTerminalCallHistory, beginRingingCallDismiss, disposeCallMedia, router]
+  );
+
+  useEffect(() => {
+    return subscribeCommunityMessengerCallClientRemoteTerminalFeed(applyRemoteCallSessionTerminal);
+  }, [applyRemoteCallSessionTerminal]);
 
   useEffect(() => {
     return registerCommunityMessengerCallRuntime({
@@ -4431,6 +4443,11 @@ export function CommunityMessengerCallClient({
                 clearTimeout(sessionRealtimeDebounceRef.current);
                 sessionRealtimeDebounceRef.current = null;
               }
+              applyRemoteCallSessionTerminal({
+                sessionId,
+                status,
+                source: "realtime_session_row",
+              });
               scheduleSilentRefresh("terminal");
               return;
             }
@@ -4448,7 +4465,7 @@ export function CommunityMessengerCallClient({
       }
       sub.stop();
     };
-  }, [beginRingingCallDismiss, refreshSession, scheduleSilentRefresh, sessionId]);
+  }, [applyRemoteCallSessionTerminal, beginRingingCallDismiss, refreshSession, scheduleSilentRefresh, sessionId]);
 
   useEffect(() => {
     const sb = getSupabaseClient();

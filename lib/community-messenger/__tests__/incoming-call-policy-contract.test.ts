@@ -170,6 +170,8 @@ describe("incoming-call policy contracts", () => {
     const client = read("components/community-messenger/CommunityMessengerCallClient.tsx");
     expect(client).toContain("finalizeCommunityMessengerCallTerminalExit");
     expect(client).toContain("stale_ringing_blocked");
+    expect(client).toContain("subscribeCommunityMessengerCallClientRemoteTerminalFeed");
+    expect(client).toContain("remote_terminal_native");
   });
 
   it("video join defers mic, prepares media env, and plays remote audio after route", () => {

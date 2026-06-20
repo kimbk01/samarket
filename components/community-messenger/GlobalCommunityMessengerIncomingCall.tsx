@@ -159,10 +159,10 @@ import {
   subscribeCommunityMessengerCallInviteBroadcast,
 } from "@/lib/community-messenger/call-invite-realtime-broadcast";
 import { logCallLatencyCmInviteRingReceived } from "@/lib/community-messenger/call-latency-trace";
+import { dispatchRemoteCallSessionTerminalHandoff } from "@/lib/community-messenger/call-client-remote-terminal-feed";
 import {
   onCommunityMessengerBusEvent,
   postCommunityMessengerBusEvent,
-  postCommunityMessengerCallSessionTerminalBusEvent,
 } from "@/lib/community-messenger/multi-tab-bus";
 import {
   getCommunityMessengerIncomingCallBridgeStatus,
@@ -742,6 +742,19 @@ export function GlobalCommunityMessengerIncomingCall() {
     }
     if (tmpSessionId) activeIncomingCallIdsRef.current.delete(tmpSessionId);
 
+    dispatchRemoteCallSessionTerminalHandoff({
+      sessionId: sessionId || undefined,
+      tmpSessionId: tmpSessionId || undefined,
+      roomId: roomId || undefined,
+      initiatorUserId: initiatorUserId || undefined,
+      callKind: callKind ?? undefined,
+      status: statusNorm,
+      sourceTag,
+    });
+    if (sessionId) {
+      setMinimizedSessionId((m) => (m === sessionId ? null : m));
+    }
+
     setSessions((prev) => {
       const { next, removed, matchedBy } = filterRemoveIncomingSessionsMatchingTerminal(prev, q);
       if (removed.length === 0) {
@@ -795,18 +808,6 @@ export function GlobalCommunityMessengerIncomingCall() {
 
       queueMicrotask(() => {
         setMinimizedSessionId((m) => (m && removed.some((r) => r.id === m) ? null : m));
-        if (sourceTag !== "bus_session_terminal") {
-          postCommunityMessengerBusEvent({
-            type: "cm.call.session_terminal",
-            sessionId: sessionId || undefined,
-            tmpSessionId: tmpSessionId || undefined,
-            roomId: roomId || undefined,
-            initiatorUserId: initiatorUserId || undefined,
-            callKind: callKind ?? undefined,
-            status: statusNorm,
-            at: Date.now(),
-          });
-        }
         if (isDebugMessengerEnabled()) {
           console.info("[cm-call-terminal-received]", {
             sessionId,
@@ -2135,12 +2136,13 @@ export function GlobalCommunityMessengerIncomingCall() {
     const session = sessions.find((item) => item.id === sessionId) ?? null;
     setSessions((prev) => prev.filter((item) => item.id !== sessionId));
     setBusyId(`reject:${sessionId}`);
-    postCommunityMessengerCallSessionTerminalBusEvent({
+    dispatchRemoteCallSessionTerminalHandoff({
       sessionId,
       roomId: session?.roomId ?? undefined,
       initiatorUserId: session?.initiatorUserId ?? undefined,
       callKind: session?.callKind ?? undefined,
       status: "rejected",
+      sourceTag: "reject_pressed",
     });
     if (session?.sessionMode === "direct") {
       appendLocalCallChatMessageFromTerminalSession({
