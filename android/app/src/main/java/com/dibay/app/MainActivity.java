@@ -11,6 +11,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -38,6 +39,8 @@ public class MainActivity extends BridgeActivity {
   private static final String TAG = "DIBAY_OAuth";
   private static final String WEBVIEW_LOG_TAG = "DIBAY_WebView";
   private static final long WEBVIEW_LOAD_TIMEOUT_MS = 10_000L;
+  /** Max splash keep — JS dismiss 미수신 시 logged fallback (앱 진입 block 방지). */
+  private static final long SPLASH_MAX_KEEP_MS = 3_000L;
   private static final String ROUTE_PREFS = "dibay_push_route";
   private static final String CALL_ROUTE_PREFS = "dibay_call_pending_route";
   private static final String ROUTE_LOG_TAG = "DIBAY_PUSH_ROUTE";
@@ -58,8 +61,10 @@ public class MainActivity extends BridgeActivity {
   private static final int[] PENDING_TERMINAL_RETRY_DELAYS_MS = {120, 450, 900, 2_000};
   private static volatile boolean appVisible = false;
   private static volatile MainActivity activeInstance = null;
-  /** Web `markBootMetricsHomeVisible` — keep splash until shell paint. */
+  /** Web dismissSplash / native fallback — keepOnScreenCondition false when true. */
   private static volatile boolean webSplashDismissRequested = false;
+  private static volatile long splashKeepStartElapsedMs = 0L;
+  private static volatile String splashDismissSource = "none";
   /** Sam app surface — avoid pure white WebView flash before first paint. */
   private static final int WEBVIEW_BACKGROUND_COLOR = Color.parseColor("#F0F2F5");
 
@@ -505,7 +510,16 @@ public class MainActivity extends BridgeActivity {
     SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
     injectBootMetricOnCreate();
     super.onCreate(savedInstanceState);
-    splashScreen.setKeepOnScreenCondition(() -> !webSplashDismissRequested);
+    splashScreen.setKeepOnScreenCondition(
+        () -> {
+          if (webSplashDismissRequested) return false;
+          long elapsed = SystemClock.elapsedRealtime() - splashKeepStartElapsedMs;
+          if (elapsed >= SPLASH_MAX_KEEP_MS) {
+            requestWebSplashDismiss("native_fallback_elapsed_ms=" + elapsed);
+            return false;
+          }
+          return true;
+        });
     webSafeAreaBridge = new DibayWebSafeAreaBridge(this);
     webSafeAreaBridge.attach();
     Log.i(WEBVIEW_LOG_TAG, "app_start package=" + getPackageName());
@@ -667,6 +681,7 @@ public class MainActivity extends BridgeActivity {
           mainHandler.postDelayed(webViewLoadTimeoutRunnable, WEBVIEW_LOAD_TIMEOUT_MS);
           injectBootMetricField("nativeStart");
           injectBootMetricField("webviewReady");
+          Log.i(WEBVIEW_LOG_TAG, "onPageStarted url=" + (url != null ? url : ""));
         });
   }
 
@@ -678,19 +693,25 @@ public class MainActivity extends BridgeActivity {
           mainHandler.removeCallbacks(webViewLoadTimeoutRunnable);
           hideWebViewLoadErrorOverlay();
           injectBootMetricField("firstHtml");
+          Log.i(WEBVIEW_LOG_TAG, "onPageFinished url=" + (url != null ? url : ""));
           if (webSafeAreaBridge != null) {
             webSafeAreaBridge.refreshIfPossible();
           }
         });
   }
 
-  /** Called from web when home shell is visible — dismiss Android 12 splash overlay. */
-  public static void requestWebSplashDismiss() {
+  /** Web 또는 native fallback — splash overlay 해제. */
+  public static void requestWebSplashDismiss(String source) {
+    if (webSplashDismissRequested) return;
     webSplashDismissRequested = true;
+    splashDismissSource = source != null ? source : "unknown";
+    Log.i(WEBVIEW_LOG_TAG, "dismissSplash success source=" + splashDismissSource);
   }
 
   private void injectBootMetricOnCreate() {
     webSplashDismissRequested = false;
+    splashDismissSource = "none";
+    splashKeepStartElapsedMs = SystemClock.elapsedRealtime();
   }
 
   private void attachDibayBootBridge(WebView webView) {
@@ -702,7 +723,11 @@ public class MainActivity extends BridgeActivity {
   private final class DibayBootJsBridge {
     @JavascriptInterface
     public void dismissSplash() {
-      mainHandler.post(() -> webSplashDismissRequested = true);
+      mainHandler.post(
+          () -> {
+            Log.i(WEBVIEW_LOG_TAG, "dismissSplash start bridge_js");
+            requestWebSplashDismiss("DibayBootBridge");
+          });
     }
   }
 

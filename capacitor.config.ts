@@ -36,6 +36,14 @@ const config: CapacitorConfig = {
     url: normalizeCapacitorServerUrl(serverUrl),
     cleartext: serverUrl.startsWith("http://"),
   },
+  plugins: {
+    SplashScreen: {
+      launchAutoHide: false,
+      launchShowDuration: 0,
+      backgroundColor: "#F0F2F5",
+      androidSplashResourceName: "splash",
+    },
+  },
   ...(useLegacyAndroidBridge
     ? {
         android: {

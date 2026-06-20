@@ -3,7 +3,7 @@ import type { ProfileRow } from "@/lib/profile/types";
 export type AppBootProfileMode = "minimal" | "full";
 
 export type AppBootState = {
-  status: "idle" | "loading" | "ready" | "anonymous" | "error";
+  status: "idle" | "shell" | "hydrating" | "ready" | "anonymous" | "error";
   profile: ProfileRow | null;
   bootedAt: number | null;
   error: string | null;

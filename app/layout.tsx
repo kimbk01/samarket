@@ -8,7 +8,7 @@ import { SupabaseAuthSync } from "@/components/auth/SupabaseAuthSync";
 import { AppLanguageProvider } from "@/components/i18n/AppLanguageProvider";
 import { AppTitle } from "@/components/layout/AppTitle";
 import { CallIncomingChromeRoot } from "@/components/layout/providers/CallIncomingChromeRoot";
-import { MainShellMessengerParticipantBridge } from "@/components/layout/MainShellMessengerParticipantBridge";
+import { DeferredMainShellMessengerParticipantBridge } from "@/components/layout/DeferredMainShellMessengerParticipantBridge";
 import { APP_PRODUCT_DISPLAY_NAME } from "@/lib/brand/app-display-name";
 import {
   DIBAY_APP_ICON_180_PATH,
@@ -113,7 +113,7 @@ export default async function RootLayout({
             <CapacitorNativeMarkerBootstrap />
             <OAuthReturnListener />
             <CallIncomingChromeRoot />
-            <MainShellMessengerParticipantBridge regionBarInLayout={true} />
+            <DeferredMainShellMessengerParticipantBridge regionBarInLayout={true} />
             {children}
           </AppBootProvider>
         </AppLanguageProvider>

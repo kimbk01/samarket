@@ -322,3 +322,12 @@ run2: wave1/2/3 각 0–1ms, `[route-perf]` `badge_query_ms: 3`. run3 route JSON
 | 2026-06-20 | 전역 shell P1 | **env→`var(--safe-*)` 일괄** — lib·app·components 잔존 `env(safe-area-inset-*)` 제거·`safe-area-layout-classes.ts`·채팅 shell padding SSOT | `lib/ui/safe-area-layout-classes.ts`, `app/*.css`, `lib/`, `components/` | `vitest chat-chrome-layout-contract`, `tsc` | env 직접 참조·기기 분기 padding 금지 |
 
 ---
+
+## Boot P0 Fast First Paint (2026-06-20)
+
+| 날짜 | 영역 | 변경 | 파일(대표) | 검증 | 재발 방지 |
+|------|------|------|------------|------|-----------|
+| 2026-06-20 | 앱 cold start | **Boot P0** — native splash keep until homeVisible·WebView `#F0F2F5`·Philife Suspense/loading skeleton·boot Stage shell/hydrating + profile∥getUser∥membership·`(main)/layout` server await 제거·Realtime/presence idle defer·`__dibayBootMetrics` | `MainActivity.java`, `lib/app-boot/*`, `app/(main)/layout.tsx`, `philife/page.tsx`, `DeferredMainShellMessengerParticipantBridge.tsx` | `verify:app-boot-consent-contract`, `verify:trade-primary-tab-transition`, `tsc` | session/API 완료까지 splash 유지·`(main)/layout` bottomNav await 복귀·trade-primary loading overlay 금지 |
+| 2026-06-20 | 앱 cold start hotfix | **splash 회귀** — homeVisible gate 로 splash 무한 유지 → dismiss 를 reactMounted/firstPaint 로 이동, homeVisible metrics-only, native 3s logged fallback | `dibay-boot-metrics.ts`, `MainActivity.java` | `tsc` | homeVisible 을 splash hide gate 로 쓰지 않음 |
+
+---

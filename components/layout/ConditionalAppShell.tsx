@@ -3,6 +3,8 @@
 import dynamic from "next/dynamic";
 import { Suspense, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
+import { BootThumbnailObserver } from "@/components/app/BootThumbnailObserver";
+import { markBootMetricsHomeVisible } from "@/lib/app-boot/dibay-boot-metrics";
 import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 import { resolveConditionalAppShellFlags } from "@/lib/layout/conditional-app-shell-flags";
 import { usePhilifeHeaderMessengerStack } from "@/contexts/PhilifeHeaderMessengerStackContext";
@@ -113,6 +115,7 @@ export function ConditionalAppShell({
   const routeSearch = searchParams.toString();
   useLayoutEffect(() => {
     logDevSafeModeProbeOnce("client");
+    markBootMetricsHomeVisible();
   }, []);
   useLayoutEffect(() => {
     invalidateMainAppScrollRootCache();
@@ -344,6 +347,7 @@ export function ConditionalAppShell({
         <MainBottomNavFabSectorLazy />
       ) : null}
       {f.showFloat && <FloatingAddButtonLazy />}
+      <BootThumbnailObserver />
     </div>
     </BottomNavScrollChromeProvider>
   );

@@ -121,3 +121,23 @@ try {
 console.log("\n=== 클라이언트 fetch journal ===\n");
 console.table(summarizeClientJournal(journal));
 console.log("\nraw entries:", journal.entries?.length ?? 0, "firstPaintAtMs:", journal.firstPaintAtMs);
+
+const metrics = journal.metrics ?? journal.__dibayBootMetrics ?? null;
+if (metrics) {
+  console.log("\n=== __dibayBootMetrics (ms, performance.now) ===\n");
+  console.table(metrics);
+  const keys = [
+    "nativeStart",
+    "webviewReady",
+    "firstHtml",
+    "firstPaint",
+    "reactMounted",
+    "homeVisible",
+    "apiDone",
+    "thumbnailVisible",
+  ];
+  for (const k of keys) {
+    const v = metrics[k];
+    if (v != null) console.log(`${k}: ${Math.round(v)}ms`);
+  }
+}

@@ -1,5 +1,7 @@
 "use client";
 
+import type { DibayBootMetrics } from "@/lib/app-boot/dibay-boot-metrics";
+
 /** dev 검증 — `window.__dibayBootVerify` 에 부트 관련 fetch 누적 */
 export type BootJournalEntry = {
   url: string;
@@ -31,6 +33,21 @@ export function markBootVerifyFirstPaint(): void {
   if (s.firstPaintAtMs == null) {
     s.firstPaintAtMs = performance.now();
   }
+}
+
+/** DevTools: `copy(JSON.stringify(getDibayBootVerifyExport()))` */
+export function getDibayBootVerifyExport(): {
+  entries: BootJournalEntry[];
+  firstPaintAtMs: number | null;
+  metrics: DibayBootMetrics | null;
+} {
+  const s = ensureStore();
+  return {
+    entries: s.entries,
+    firstPaintAtMs: s.firstPaintAtMs,
+    metrics:
+      typeof window !== "undefined" ? window.__dibayBootMetrics ?? null : null,
+  };
 }
 
 export function recordBootVerifyFetch(url: string, clientCallSource: string | null): void {

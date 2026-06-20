@@ -5,10 +5,14 @@ import {
   cancelAppBootBackgroundHydration,
 } from "@/lib/app-boot/schedule-app-boot-background";
 import { invalidateAppBootProfileCache } from "@/lib/app-boot/fetch-app-boot-profile";
-import { resetAppBootStore, subscribeAppBoot, getAppBootSnapshot } from "@/lib/app-boot/app-boot-store";
+import { resetAppBootStore, subscribeAppBoot, getAppBootSnapshot, setAppBootShell } from "@/lib/app-boot/app-boot-store";
 import type { AppBootState } from "@/lib/app-boot/app-boot-types";
 import type { ProfileRow } from "@/lib/profile/types";
 import { markBootVerifyFirstPaint } from "@/lib/app-boot/client-boot-request-journal";
+import {
+  markBootMetricsFirstPaint,
+  markBootMetricsReactMounted,
+} from "@/lib/app-boot/dibay-boot-metrics";
 import { ensureAppBoot, invalidateAppBootFlight } from "@/lib/app-boot/run-app-boot";
 import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
 import { clearAuthSessionClientCache } from "@/lib/auth/fetch-auth-session-client";
@@ -30,6 +34,8 @@ export function AppBootProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     clearChunkReloadSessionFlag();
+    setAppBootShell();
+    markBootMetricsReactMounted();
 
     const onUnhandledRejection = (event: PromiseRejectionEvent) => {
       const reason = event.reason;
@@ -47,7 +53,10 @@ export function AppBootProvider({ children }: { children: ReactNode }) {
 
     if (typeof requestAnimationFrame === "function") {
       requestAnimationFrame(() => {
-        requestAnimationFrame(() => markBootVerifyFirstPaint());
+        requestAnimationFrame(() => {
+          markBootVerifyFirstPaint();
+          markBootMetricsFirstPaint();
+        });
       });
     }
     void ensureAppBoot();

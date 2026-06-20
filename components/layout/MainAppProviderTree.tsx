@@ -22,7 +22,7 @@ import { FavoriteProvider } from "@/contexts/FavoriteContext";
 import { RegionProvider } from "@/contexts/RegionContext";
 import { WriteCategoryProvider } from "@/contexts/WriteCategoryContext";
 import { NotificationSurfaceProvider } from "@/contexts/NotificationSurfaceContext";
-import { TradePresenceActivityProvider } from "@/components/chats/TradePresenceActivityContext";
+import { DeferredTradePresenceActivityProvider } from "@/components/layout/DeferredTradePresenceActivityProvider";
 import { MainAppHeaderStackWrap } from "@/components/layout/MainAppHeaderStackWrap";
 import { PhilifeHeaderMessengerStackProvider } from "@/contexts/PhilifeHeaderMessengerStackContext";
 import { TradeHeaderTradeHistoryStackProvider } from "@/contexts/TradeHeaderTradeHistoryStackContext";
@@ -207,7 +207,7 @@ export function MainAppProviderTree({
                                   <AuthSessionBoundary>{children}</AuthSessionBoundary>
                                 </MainAppConditionalShell>
                               ) : (
-                                <TradePresenceActivityProvider>
+                                <DeferredTradePresenceActivityProvider>
                                   <MainAppConditionalShell
                                     initialMainBottomNavItems={initialMainBottomNavItems ?? null}
                                   >
@@ -216,7 +216,7 @@ export function MainAppProviderTree({
                                   <TradeChatEntryCreatingOverlayLazy />
                                   <PhilifeWriteBottomSheetLazy />
                                   <TradeWriteBottomSheetLazy />
-                                </TradePresenceActivityProvider>
+                                </DeferredTradePresenceActivityProvider>
                               )}
                             </MainTier1ChromeProvider>
                           </TradeHeaderTradeHistoryStackProvider>

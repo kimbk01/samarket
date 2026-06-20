@@ -73,14 +73,14 @@ function scheduleMembershipRetry(source: string, delayMs: number): void {
   }, delayMs);
 }
 
-function ensureMembershipResolved(source: string): void {
+function ensureMembershipResolved(source: string): Promise<ClientMembershipState> {
   const cachedState = membershipFromCache();
   if (cachedState.status === "member") {
     if (storeSnapshot.state.status !== "member") publish(cachedState);
-    return;
+    return Promise.resolve(cachedState);
   }
 
-  if (inflight) return;
+  if (inflight) return inflight;
 
   publish({ status: "checking" });
   inflight = resolveMembershipState(source)
@@ -99,6 +99,7 @@ function ensureMembershipResolved(source: string): void {
     .finally(() => {
       inflight = null;
     });
+  return inflight;
 }
 
 function resetMembershipStoreForAuthChange(source: string): void {
@@ -112,7 +113,7 @@ function resetMembershipStoreForAuthChange(source: string): void {
     publish({ status: "member", profile: cached });
     return;
   }
-  ensureMembershipResolved(source);
+  void ensureMembershipResolved(source);
 }
 
 let authListenerBound = false;
@@ -130,8 +131,14 @@ export function useClientMembershipState(source: string): ClientMembershipState 
 
   useEffect(() => {
     bindGlobalAuthListener();
-    ensureMembershipResolved(source);
+    void ensureMembershipResolved(source);
   }, [source]);
 
   return snapshot.state;
+}
+
+/** Stage 2 — boot flight 와 membership resolve 병렬 (shell render 는 차단하지 않음). */
+export function primeMembershipOnBoot(): Promise<ClientMembershipState> {
+  bindGlobalAuthListener();
+  return ensureMembershipResolved("app_boot");
 }

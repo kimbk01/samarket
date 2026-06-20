@@ -50,9 +50,20 @@ export function resetAppBootStore(): void {
   emit();
 }
 
-export function setAppBootLoading(): void {
-  state = { ...INITIAL, status: "loading" };
+export function setAppBootShell(): void {
+  if (state.status === "ready" || state.status === "anonymous" || state.status === "hydrating") return;
+  state = { ...INITIAL, status: "shell" };
   emit();
+}
+
+export function setAppBootHydrating(): void {
+  if (state.status === "ready" || state.status === "anonymous") return;
+  state = { ...state, status: "hydrating" };
+  emit();
+}
+
+export function setAppBootLoading(): void {
+  setAppBootHydrating();
 }
 
 export function setAppBootAnonymous(): void {
@@ -115,4 +126,13 @@ export function peekAppBootProfile(): ProfileRow | null {
 
 export function isAppBootReady(): boolean {
   return state.status === "ready" || state.status === "anonymous";
+}
+
+export function isAppBootShellVisible(): boolean {
+  return (
+    state.status === "shell" ||
+    state.status === "hydrating" ||
+    state.status === "ready" ||
+    state.status === "anonymous"
+  );
 }

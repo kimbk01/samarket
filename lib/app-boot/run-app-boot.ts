@@ -15,13 +15,17 @@ import {
 import {
   isAppBootReady,
   setAppBootAnonymous,
-  setAppBootLoading,
+  setAppBootHydrating,
   setAppBootProfile,
 } from "@/lib/app-boot/app-boot-store";
 import { scheduleAppBootBackgroundHydration } from "@/lib/app-boot/schedule-app-boot-background";
+import { markBootMetricsApiDone } from "@/lib/app-boot/dibay-boot-metrics";
 import { logStartupApiPlan } from "@/lib/http/startup-api-scheduler";
 import { primeMeProfileDedupedFromBoot } from "@/lib/profile/fetch-me-profile-deduped";
 import { bumpAppWidePerf, recordAppWidePhaseLastMs } from "@/lib/runtime/samarket-runtime-debug";
+import { primeMembershipOnBoot } from "@/hooks/use-client-membership-state";
+import type { User } from "@supabase/supabase-js";
+import type { MeProfileGetResult } from "@/lib/profile/fetch-me-profile-deduped";
 
 let bootEpoch = 0;
 let bootInFlight: Promise<void> | null = null;
@@ -32,11 +36,18 @@ export function invalidateAppBootFlight(): void {
   bootInFlight = null;
 }
 
+async function resolveBootProfileMinimal(): Promise<MeProfileGetResult> {
+  const cached = peekAppBootProfileFetchCached();
+  if (cached) return cached;
+  return fetchAppBootProfileMinimal();
+}
+
 async function runAppBootOnce(startEpoch: number): Promise<void> {
   const isStale = () => startEpoch !== bootEpoch;
   logStartupApiPlan({
-    blocking: ["/api/me/profile?lite=1"],
+    blocking: [],
     deferred: [
+      "/api/me/profile?lite=1",
       "/api/me/profile?mode=full",
       "/api/me/store-owner-hub-badge",
       "/api/me/notification-settings",
@@ -46,36 +57,48 @@ async function runAppBootOnce(startEpoch: number): Promise<void> {
   });
   bumpAppWidePerf("app_bootstrap_start");
   const t0 = performance.now();
-  setAppBootLoading();
+  setAppBootHydrating();
 
   const sb = getSupabaseClient();
   if (!sb) {
     if (isStale()) return;
     setAppBootAnonymous();
+    markBootMetricsApiDone();
     recordAppWidePhaseLastMs("app_boot_layer_ms", Math.round(performance.now() - t0));
     return;
   }
 
-  const {
-    data: { user },
-    error,
-  } = await dedupeSupabaseAuthGetUser(sb);
+  const [userSettled, profileSettled] = await Promise.allSettled([
+    dedupeSupabaseAuthGetUser(sb),
+    resolveBootProfileMinimal(),
+    primeMembershipOnBoot(),
+  ]);
+
   if (isStale()) return;
-  if (!user || error) {
+
+  let user: User | null = null;
+  let userError: Error | null = null;
+  if (userSettled.status === "fulfilled") {
+    user = userSettled.value.data.user;
+    userError = userSettled.value.error;
+  }
+
+  let status: number | undefined;
+  let json: unknown;
+  if (profileSettled.status === "fulfilled") {
+    status = profileSettled.value.status;
+    json = profileSettled.value.json;
+  } else {
+    status = 500;
+    json = null;
+  }
+
+  if (!user || userError) {
     establishGuestAuthState("app_boot_no_supabase_user");
     setAppBootAnonymous();
+    markBootMetricsApiDone();
     recordAppWidePhaseLastMs("app_boot_layer_ms", Math.round(performance.now() - t0));
     return;
-  }
-
-  const cached = peekAppBootProfileFetchCached();
-  let status = cached?.status;
-  let json = cached?.json;
-
-  if (!cached) {
-    const fetched = await fetchAppBootProfileMinimal();
-    status = fetched.status;
-    json = fetched.json;
   }
 
   if (isStale()) return;
@@ -88,14 +111,17 @@ async function runAppBootOnce(startEpoch: number): Promise<void> {
       json = retry.json;
     } else if (recovery.terminal) {
       setAppBootAnonymous();
+      markBootMetricsApiDone();
       recordAppWidePhaseLastMs("app_boot_layer_ms", Math.round(performance.now() - t0));
       return;
     } else if (recovery.phase === "guest" || isGuestAuthEstablished()) {
       setAppBootAnonymous();
+      markBootMetricsApiDone();
       recordAppWidePhaseLastMs("app_boot_layer_ms", Math.round(performance.now() - t0));
       return;
     } else {
-      setAppBootLoading();
+      setAppBootHydrating();
+      markBootMetricsApiDone();
       recordAppWidePhaseLastMs("app_boot_layer_ms", Math.round(performance.now() - t0));
       return;
     }
@@ -103,6 +129,7 @@ async function runAppBootOnce(startEpoch: number): Promise<void> {
 
   if (status === 403) {
     setAppBootAnonymous();
+    markBootMetricsApiDone();
     recordAppWidePhaseLastMs("app_boot_layer_ms", Math.round(performance.now() - t0));
     return;
   }
@@ -129,6 +156,7 @@ async function runAppBootOnce(startEpoch: number): Promise<void> {
 
   if (isStale()) return;
   bumpAppWidePerf("app_bootstrap_success");
+  markBootMetricsApiDone();
   recordAppWidePhaseLastMs("app_boot_layer_ms", Math.round(performance.now() - t0));
 }
 
