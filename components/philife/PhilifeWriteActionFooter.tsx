@@ -15,7 +15,7 @@ type PhilifeWriteActionFooterProps = {
   onCancel: () => void;
   error?: string | null;
   /**
-   * `sheet`: `/philife` 시트 flex footer — viewport `fixed` 금지 (iOS `--kb-offset` on panel only).
+   * `sheet`: `/philife` 시트 flex footer — `usePhilifeWriteSheetFooterPadding` (keyboard open 시 safe-bottom 제거).
    * `page`: `/philife/write` 풀페이지 — viewport 하단 고정 + keyboard inset.
    */
   layout?: PhilifeWriteActionFooterLayout;

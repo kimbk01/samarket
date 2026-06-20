@@ -1,21 +1,24 @@
 import { describe, expect, it } from "vitest";
 import {
   PHILIFE_WRITE_SHEET_FOOTER_PB_CLASS,
+  PHILIFE_WRITE_SHEET_FOOTER_PB_VAR,
   PHILIFE_WRITE_SHEET_KEYBOARD_CONTRACT_ID,
   philifeWriteSheetOuterPaddingStyle,
   philifeWriteSheetShellStyle,
 } from "@/lib/ui/philife-write-sheet-keyboard-layout";
 
 describe("PHILIFE_WRITE_SHEET_KEYBOARD_CONTRACT_ID", () => {
-  it("is v3 (Android adjustResize + iOS kb-offset footer only)", () => {
-    expect(PHILIFE_WRITE_SHEET_KEYBOARD_CONTRACT_ID).toBe("philife-write-sheet-keyboard-v3");
+  it("is v4 (CM composer footer padding SSOT)", () => {
+    expect(PHILIFE_WRITE_SHEET_KEYBOARD_CONTRACT_ID).toBe("philife-write-sheet-keyboard-v4");
   });
 });
 
 describe("PHILIFE_WRITE_SHEET_FOOTER_PB_CLASS", () => {
-  it("combines safe-bottom and kb-offset in one place", () => {
+  it("defaults to safe-bottom when hook has not set footer pb var", () => {
+    expect(PHILIFE_WRITE_SHEET_FOOTER_PB_VAR).toBe("--philife-write-footer-pb");
+    expect(PHILIFE_WRITE_SHEET_FOOTER_PB_CLASS).toContain("--philife-write-footer-pb");
     expect(PHILIFE_WRITE_SHEET_FOOTER_PB_CLASS).toContain("--safe-bottom");
-    expect(PHILIFE_WRITE_SHEET_FOOTER_PB_CLASS).toContain("--kb-offset");
+    expect(PHILIFE_WRITE_SHEET_FOOTER_PB_CLASS).not.toContain("--kb-offset");
   });
 });
 

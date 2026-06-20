@@ -4,14 +4,14 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { PhilifeNeighborhoodWriteForm } from "@/components/philife/PhilifeNeighborhoodWriteForm";
 import { usePhilifeWriteSheet } from "@/contexts/PhilifeWriteSheetContext";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { useCmRoomKbOffset } from "@/lib/ui/use-cm-room-kb-offset";
+import { usePhilifeWriteSheetFooterPadding } from "@/lib/ui/use-philife-write-sheet-footer-padding";
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
 
 const SHEET_EXIT_MS = 520;
 
 /**
  * `/philife` + 글쓰기: **뷰포트 전체** 아래→위 슬라이드 (`TradeWriteBottomSheet` 동일).
- * 헤더 우측 × 로만 닫기(초안 있으면 확인). Android adjustResize · iOS `--kb-offset` on footer only.
+ * 헤더 우측 × 로만 닫기(초안 있으면 확인). footer padding = CM composer SSOT (keyboard open 시 safe-bottom 제거).
  */
 export function PhilifeWriteBottomSheet() {
   const { t } = useI18n();
@@ -23,7 +23,7 @@ export function PhilifeWriteBottomSheet() {
   const enterRafRef = useRef<number | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const exitInFlightRef = useRef(false);
-  useCmRoomKbOffset({ enabled: isOpen, shellRef: panelRef });
+  usePhilifeWriteSheetFooterPadding({ enabled: isOpen, shellRef: panelRef });
 
   useLayoutEffect(() => {
     if (enterRafRef.current != null) {
