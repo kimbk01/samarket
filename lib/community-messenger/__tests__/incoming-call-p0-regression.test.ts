@@ -38,6 +38,19 @@ describe("call terminal navigation policy", () => {
     expect(client).toContain("navigateBackFromCommunityMessengerCall(router, s.roomId)");
   });
 
+  it("accept route defers remote terminal ringing dismiss until server confirms", () => {
+    const client = read("components/community-messenger/CommunityMessengerCallClient.tsx");
+    const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
+    expect(client).toContain("shouldDeferCalleeRingingTerminalDismiss");
+    expect(client).toContain("call_client_remote_terminal_deferred");
+    expect(client).toContain("serverConfirmedTerminal: true");
+    const routeFirstBlock = global.slice(global.indexOf("incoming_banner_accept_route_first"));
+    const replaceIdx = routeFirstBlock.indexOf("router.replace(`/community-messenger/calls/");
+    const dismissIdx = routeFirstBlock.indexOf("dismissIncomingPresenterAfterAccept({");
+    expect(replaceIdx).toBeGreaterThan(-1);
+    expect(dismissIdx).toBeGreaterThan(replaceIdx);
+  });
+
   it("native accept routes skip duplicate PATCH in CallClient", () => {
     const client = read("components/community-messenger/CommunityMessengerCallClient.tsx");
     expect(client).toContain("nativePrepRoute && requestedActionRef.current === \"accept\"");

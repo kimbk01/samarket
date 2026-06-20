@@ -2287,6 +2287,8 @@ export function GlobalCommunityMessengerIncomingCall() {
       primeCommunityMessengerCallConnectionPrefetch(session.id);
       dibayIncomingLaneStopRing("accept_route_first", session.id);
       dismissAllIncomingCallNotificationsFireAndForget(session.id);
+      logCallFlow("call_navigate_to_call_screen", { sessionId: session.id, source: "incoming_banner_accept_route_first" });
+      router.replace(`/community-messenger/calls/${encodeURIComponent(session.id)}?action=accept&mode=active&source=banner`);
       dismissIncomingPresenterAfterAccept({
         sessionId: session.id,
         dismissedAt: dismissedIncomingSessionsAtRef.current,
@@ -2296,8 +2298,6 @@ export function GlobalCommunityMessengerIncomingCall() {
         removeSessionFromIncomingList: (sid) =>
           setSessions((prev) => prev.filter((item) => item.id !== sid)),
       });
-      logCallFlow("call_navigate_to_call_screen", { sessionId: session.id, source: "incoming_banner_accept_route_first" });
-      router.replace(`/community-messenger/calls/${encodeURIComponent(session.id)}?action=accept&mode=active&source=banner`);
     },
     [busyId, refresh, router, t]
   );

@@ -104,6 +104,7 @@ import {
 } from "@/lib/community-messenger/incoming-call-action-guard";
 import { runIncomingCallCleanup } from "@/lib/community-messenger/incoming-call-cleanup";
 import { applyIncomingCallConsumedSideEffects, acceptIncomingCallOnce } from "@/lib/community-messenger/incoming-call-accept-gateway";
+import { shouldDeferCalleeRingingTerminalDismiss } from "@/lib/community-messenger/call-client-accept-route-surface";
 import { isIncomingCallPreviewRoute } from "@/lib/community-messenger/incoming-call-preview-route";
 import { isDibayCallConsumed, markCallConsumed } from "@/lib/community-messenger/incoming-call-state";
 import {
@@ -843,12 +844,33 @@ export function CommunityMessengerCallClient({
   );
 
   const beginRingingCallDismiss = useCallback(
-    (roomId: string | null | undefined, opts?: { wasRinging?: boolean }) => {
+    (
+      roomId: string | null | undefined,
+      opts?: { wasRinging?: boolean; serverConfirmedTerminal?: boolean }
+    ) => {
       if (callDismissInFlightRef.current) return;
       const active = sessionRef.current;
       if (!active) return;
       const wasRinging = opts?.wasRinging === true || active.status === "ringing";
       if (!wasRinging) return;
+      if (
+        !opts?.serverConfirmedTerminal &&
+        shouldDeferCalleeRingingTerminalDismiss({
+          sessionId: active.id,
+          sessionStatus: active.status,
+          requestedAction: requestedActionRef.current,
+          nativeAcceptOwnedRoute: nativeAcceptOwnedRouteRef.current,
+          directPatchInFlight: directCallPatchInFlightRef.current,
+          busy: busyRef.current,
+          calleeVideoConnectingShell: calleeVideoConnectingShellRef.current,
+        })
+      ) {
+        console.info("[call-flow] call_client_ringing_dismiss_deferred", {
+          sessionId: active.id,
+          roomId: roomId ?? active.roomId ?? null,
+        });
+        return;
+      }
       console.info("[call-flow] call_client_terminal_close", {
         sessionId: active.id,
         roomId: roomId ?? active.roomId ?? null,
@@ -1139,6 +1161,8 @@ export function CommunityMessengerCallClient({
   calleeVideoConnectingShellRef.current = calleeVideoConnectingShell;
   const requestedActionRef = useRef<string | null>(requestedAction);
   requestedActionRef.current = requestedAction;
+  const nativeAcceptOwnedRouteRef = useRef(nativeAcceptOwnedRoute);
+  nativeAcceptOwnedRouteRef.current = nativeAcceptOwnedRoute;
   const busyRef = useRef<string | null>(busy);
   busyRef.current = busy;
   /** 발신: `ringing` → 그 외 로 바뀔 때(상대 거절·취소 등) 벨·연결음이 잠시 남지 않게 */
@@ -1382,16 +1406,16 @@ export function CommunityMessengerCallClient({
     if (s.status === "ringing" || s.status === "active") return;
     if (!isTerminalCallSessionStatus(s.status)) return;
     if (callDismissInFlightRef.current) return;
-    const sid = s.id.trim();
     if (
-      isIncomingCallAcceptInFlight(sid) ||
-      isIncomingCallRejectInFlight(sid) ||
-      directCallPatchInFlightRef.current ||
-      requestedActionRef.current === "accept" ||
-      busyRef.current === "accept" ||
-      busyRef.current === "join" ||
-      calleeVideoConnectingShellRef.current ||
-      isNativeCalleeAcceptPendingForSession(sid)
+      shouldDeferCalleeRingingTerminalDismiss({
+        sessionId: s.id,
+        sessionStatus: s.status,
+        requestedAction: requestedActionRef.current,
+        nativeAcceptOwnedRoute: nativeAcceptOwnedRouteRef.current,
+        directPatchInFlight: directCallPatchInFlightRef.current,
+        busy: busyRef.current,
+        calleeVideoConnectingShell: calleeVideoConnectingShellRef.current,
+      })
     ) {
       return;
     }
@@ -1835,6 +1859,25 @@ export function CommunityMessengerCallClient({
         source: ev.source,
         wasRinging,
       });
+      if (
+        wasRinging &&
+        shouldDeferCalleeRingingTerminalDismiss({
+          sessionId: cur.id,
+          sessionStatus: cur.status,
+          requestedAction: requestedActionRef.current,
+          nativeAcceptOwnedRoute: nativeAcceptOwnedRouteRef.current,
+          directPatchInFlight: directCallPatchInFlightRef.current,
+          busy: busyRef.current,
+          calleeVideoConnectingShell: calleeVideoConnectingShellRef.current,
+        })
+      ) {
+        console.info("[call-flow] call_client_remote_terminal_deferred", {
+          sessionId: cur.id,
+          status: terminalStatus ?? ev.status,
+          source: ev.source,
+        });
+        return;
+      }
       if (wasRinging) {
         beginRingingCallDismiss(cur.roomId, { wasRinging: true });
       }
@@ -4425,11 +4468,11 @@ export function CommunityMessengerCallClient({
                   merged.id === sessionId &&
                   isTerminalCallSessionStatus(merged.status)
                 ) {
-                  beginRingingCallDismiss(merged.roomId);
+                  beginRingingCallDismiss(merged.roomId, { serverConfirmedTerminal: true });
                 }
                 return merged;
               });
-              const rt = readRealtimeSessionStatus(row.status);
+            const rt = readRealtimeSessionStatus(row.status);
               if (rt === "active") {
                 setErrorMessage(null);
                 stopOutgoingRingbackForSession(sessionId, "realtime_active");
