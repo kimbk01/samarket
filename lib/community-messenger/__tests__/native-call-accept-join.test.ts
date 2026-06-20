@@ -3,9 +3,12 @@ import {
   canStartCalleeJoin,
   clearServerActiveConfirmed,
   confirmServerActiveFromFetchedSession,
+  confirmServerActiveFromPatchAccept,
+  confirmServerActiveFromRealtimeActiveTransition,
   isOptimisticActiveCallSessionSeed,
   isServerActiveConfirmed,
   markServerActiveConfirmed,
+  stripOptimisticActiveSeedFromSession,
   shouldAutoEndAfterJoinFailure,
   waitForActiveCallSessionAfterNativeAccept,
 } from "@/lib/community-messenger/native-call-accept-join";
@@ -53,6 +56,24 @@ describe("native-call-accept-join helpers", () => {
     expect(confirmServerActiveFromFetchedSession(session("active", "server_refresh"))).toBe(true);
     expect(isServerActiveConfirmed("sess-1")).toBe(true);
     expect(confirmServerActiveFromFetchedSession(session("ringing", "server_refresh"))).toBe(false);
+  });
+
+  it("confirms PATCH accept active even when local seed source remains", () => {
+    expect(confirmServerActiveFromPatchAccept(session("active", "native_accept_bootstrap"))).toBe(true);
+    expect(isServerActiveConfirmed("sess-1")).toBe(true);
+    expect(confirmServerActiveFromPatchAccept(session("ringing", "native_accept_bootstrap"))).toBe(false);
+  });
+
+  it("strips optimistic seed on Realtime active merge", () => {
+    const optimistic = session("active", "native_accept_hydrate_seed");
+    const stripped = stripOptimisticActiveSeedFromSession(optimistic);
+    expect(stripped.source).toBeUndefined();
+    expect(canStartCalleeJoin({ session: stripped, isCallee: true })).toEqual({ ok: true });
+  });
+
+  it("marks Realtime active transition as server-confirmed", () => {
+    confirmServerActiveFromRealtimeActiveTransition("sess-1");
+    expect(isServerActiveConfirmed("sess-1")).toBe(true);
   });
 
   it("defers callee join until server active is confirmed", () => {

@@ -16,6 +16,7 @@ import {
 } from "@/lib/community-messenger/call-session-navigation-seed";
 import { writeCallAcceptHydratePeerFromSession } from "@/lib/community-messenger/call-accept-hydrate-peer";
 import { primeCommunityMessengerCallConnectionPrefetch } from "@/lib/community-messenger/call-connection-prefetch";
+import { confirmServerActiveFromPatchAccept } from "@/lib/community-messenger/native-call-accept-join";
 import { unlockCommunityMessengerCallPlaybackFromUserGesture } from "@/lib/community-messenger/call-feedback-sound";
 import { getActiveCallSessionCallId, setActiveCallSession } from "@/lib/call/active-call-session";
 import { mapSessionStatusToActiveCallPhase } from "@/lib/call/map-session-to-active-call";
@@ -391,6 +392,7 @@ export async function runIncomingCallAccept(args: RunIncomingCallAcceptArgs): Pr
     logDibayCall("accept_success", { sessionId: sid, callId: sid, source: args.source });
 
     const updated = patched.session;
+    confirmServerActiveFromPatchAccept(updated);
     writeCallAcceptHydratePeerFromSession(updated, "accept_patch_ok");
     /** replace 직전 active 세션 시드 — ringing seed 로 첫 paint 가 IncomingCallView 로 튀는 것 방지 (P1-1b) */
     primeCommunityMessengerCallNavigationSeed(updated.id, updated);

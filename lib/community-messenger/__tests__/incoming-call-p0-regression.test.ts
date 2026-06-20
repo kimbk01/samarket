@@ -26,6 +26,14 @@ describe("sw.js incoming-call wake regression", () => {
 });
 
 describe("call terminal navigation policy", () => {
+  it("callee joins on Realtime active after server confirms (not optimistic seed only)", () => {
+    const client = read("components/community-messenger/CommunityMessengerCallClient.tsx");
+    expect(client).toContain("shouldJoinOnServerActive");
+    expect(client).toContain("confirmServerActiveFromRealtimeActiveTransition(merged.id)");
+    expect(client).toContain("void joinCall(merged)");
+    expect(client).toContain("confirmServerActiveFromPatchAccept(patchedSession)");
+  });
+
   it("terminal paths use call_logs; non-terminal keeps navigateBack", () => {
     const client = read("components/community-messenger/CommunityMessengerCallClient.tsx");
     // SSOT marker: ssot-source-contract-markers.test.ts (messenger-call-terminal-nav)

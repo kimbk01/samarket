@@ -284,6 +284,10 @@ import {
   canStartCalleeJoin,
   clearServerActiveConfirmed,
   confirmServerActiveFromFetchedSession,
+  confirmServerActiveFromPatchAccept,
+  confirmServerActiveFromRealtimeActiveTransition,
+  isOptimisticActiveCallSessionSeed,
+  stripOptimisticActiveSeedFromSession,
   markAcceptJoinRaceWindow,
   markNativeAcceptCompletedEntered,
   shouldAutoEndAfterJoinFailure,
@@ -526,11 +530,13 @@ function mergeRealtimeSessionRowIntoSnapshot(
     endedAt,
     endedReason,
   };
-  /** 수락 Realtime 이 얇게 와도 ringing→active 는 무조건 반영 (발신 조인·UI 지연 방지) */
-  if (merged.status === "active" && prev.status !== "active") {
-    return merged;
+  const activeMerged =
+    merged.status === "active" ? stripOptimisticActiveSeedFromSession(merged) : merged;
+  /** 수락 Realtime 이 얇게 와도 ringing→active 는 무조건 반영 (발신·수신 조인·UI 지연 방지) */
+  if (activeMerged.status === "active" && prev.status !== "active") {
+    return activeMerged;
   }
-  return sessionsMeaningfullyEqual(prev, merged) ? prev : merged;
+  return sessionsMeaningfullyEqual(prev, activeMerged) ? prev : activeMerged;
 }
 
 function mapHangupReasonToTerminalStatus(
@@ -3429,7 +3435,7 @@ export function CommunityMessengerCallClient({
         const patchedSession = gatewayResult.session;
         if (patchedSession?.status === "active") {
           setSession(patchedSession);
-          if (confirmServerActiveFromFetchedSession(patchedSession)) {
+          if (confirmServerActiveFromPatchAccept(patchedSession)) {
             bumpCalleeJoinGate();
           }
           clearNativeCalleeAcceptPending(s.id);
@@ -4537,6 +4543,24 @@ export function CommunityMessengerCallClient({
             if (row) {
               setSession((prev) => {
                 const merged = mergeRealtimeSessionRowIntoSnapshot(prev, row, sessionId);
+                const shouldJoinOnServerActive =
+                  merged &&
+                  merged.id === sessionId &&
+                  merged.status === "active" &&
+                  !joinedRef.current &&
+                  !joiningRef.current &&
+                  (prev?.status === "ringing" ||
+                    (prev?.status === "active" && isOptimisticActiveCallSessionSeed(prev)));
+                if (shouldJoinOnServerActive && merged) {
+                  confirmServerActiveFromRealtimeActiveTransition(merged.id);
+                  queueMicrotask(() => {
+                    if (joinedRef.current || joiningRef.current) return;
+                    if (!merged.isMineInitiator) {
+                      bumpCalleeJoinGate();
+                    }
+                    void joinCall(merged);
+                  });
+                }
                 if (
                   prev?.status === "ringing" &&
                   merged &&
@@ -4559,7 +4583,12 @@ export function CommunityMessengerCallClient({
                   clearTimeout(refreshScheduleTimerRef.current);
                   refreshScheduleTimerRef.current = null;
                 }
-                void refreshSession(true);
+                /** 수신: Realtime active — server-confirmed 후 세션 보강 (join 은 setSession merge microtask) */
+                if (!sessionRef.current?.isMineInitiator) {
+                  confirmServerActiveFromRealtimeActiveTransition(sessionId);
+                  bumpCalleeJoinGate();
+                  void refreshSession(true, { acceptConfirm: true });
+                }
               } else if (rt === "rejected" || rt === "cancelled" || rt === "missed") {
                 setErrorMessage(null);
                 stopOutgoingRingbackForSessionId(sessionId, "realtime_terminal_pre_active");
@@ -4604,7 +4633,7 @@ export function CommunityMessengerCallClient({
       }
       sub.stop();
     };
-  }, [applyRemoteCallSessionTerminal, beginRingingCallDismiss, refreshSession, scheduleSilentRefresh, sessionId]);
+  }, [applyRemoteCallSessionTerminal, beginRingingCallDismiss, bumpCalleeJoinGate, joinCall, refreshSession, scheduleSilentRefresh, sessionId]);
 
   useEffect(() => {
     const sb = getSupabaseClient();

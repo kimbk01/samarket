@@ -55,7 +55,7 @@ export function isWithinAcceptRaceWindow(sessionId: string, now = Date.now()): b
   return now - at <= ACCEPT_RACE_WINDOW_MS;
 }
 
-/** GET/accept PATCH 응답만 server-confirmed 로 인정 (optimistic seed 제외) */
+/** GET 응답 — optimistic local seed 제외하고 server-confirmed */
 export function confirmServerActiveFromFetchedSession(
   session: CommunityMessengerCallSession | null | undefined
 ): boolean {
@@ -63,6 +63,29 @@ export function confirmServerActiveFromFetchedSession(
   if (isOptimisticActiveCallSessionSeed(session)) return false;
   markServerActiveConfirmed(session.id);
   return true;
+}
+
+/** PATCH accept 응답 — 서버 authoritative, optimistic seed 무시 */
+export function confirmServerActiveFromPatchAccept(
+  session: CommunityMessengerCallSession | null | undefined
+): boolean {
+  if (!session || session.status !== "active") return false;
+  markServerActiveConfirmed(session.id);
+  return true;
+}
+
+/** Realtime ringing→active — DB row authoritative */
+export function confirmServerActiveFromRealtimeActiveTransition(sessionId: string): void {
+  markServerActiveConfirmed(sessionId);
+}
+
+/** Realtime active 전환 직후 optimistic seed 제거 — join defer 재발 방지 */
+export function stripOptimisticActiveSeedFromSession(
+  session: CommunityMessengerCallSession
+): CommunityMessengerCallSession {
+  if (!isOptimisticActiveCallSessionSeed(session)) return session;
+  const { source: _ignored, ...rest } = session;
+  return rest;
 }
 
 export function canStartCalleeJoin(input: {
