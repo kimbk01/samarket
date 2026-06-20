@@ -53,6 +53,7 @@ export type CallActionIcon =
   | "camera-switch"
   /** 메인 영상 ↔ PiP 교체(텔레그램 PiP 탭과 동일 동작의 명시 버튼) */
   | "pip-swap"
+  | "minimize"
   | "camera"
   | "message"
   | "close"

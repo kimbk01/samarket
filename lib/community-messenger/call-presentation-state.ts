@@ -124,6 +124,9 @@ export function resolveCallPresentationState(input: CallPresentationInput): Call
       : direction === "incoming" && isPreRemoteVideoPhase(phase)
         ? "telegramSolid"
         : "default";
+  /** PiP-first·connected local — `call-video-layout` 가 `showLocalVideo` 를 계산, 수신 벨만 PiP 금지 */
+  const showPipChrome =
+    Boolean(showLocalVideo) && !(direction === "incoming" && phase === "ringing");
 
   return {
     ...base,
@@ -131,6 +134,6 @@ export function resolveCallPresentationState(input: CallPresentationInput): Call
     shellSurface,
     showAvatarHero,
     showMainVideoLayer,
-    showPipChrome: phase === "connected" && showLocalVideo,
+    showPipChrome,
   };
 }

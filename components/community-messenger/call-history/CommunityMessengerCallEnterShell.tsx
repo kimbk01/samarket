@@ -15,6 +15,7 @@ import {
   MESSENGER_CALL_SLIDE_ENTER_MS,
 } from "@/lib/community-messenger/messenger-call-slide";
 import { navigateBackFromCommunityMessengerCall } from "@/lib/community-messenger/call-session-navigation-seed";
+import { getCommunityMessengerCallRuntimeSurface } from "@/lib/community-messenger/call-runtime-registry";
 
 type AnimPhase = "enter" | "enter-active" | "idle" | "exit" | "exit-active";
 
@@ -76,23 +77,32 @@ export function CommunityMessengerCallEnterShell({
     return () => window.clearTimeout(t);
   }, [phase, skipEnterSlide]);
 
+  const leaveCallRoute = useCallback(() => {
+    const minimize = getCommunityMessengerCallRuntimeSurface().minimizeToPip;
+    if (minimize) {
+      minimize();
+      return;
+    }
+    navigateBackFromCommunityMessengerCall({ replace: (href) => router.replace(href) }, null);
+  }, [router]);
+
   const requestAnimatedBack = useCallback(() => {
     if (exitingRef.current) return;
     exitingRef.current = true;
     if (reducedMotion) {
-      navigateBackFromCommunityMessengerCall({ replace: (href) => router.replace(href) }, null);
+      leaveCallRoute();
       return;
     }
     setPhase("exit-active");
-  }, [reducedMotion, router]);
+  }, [leaveCallRoute, reducedMotion]);
 
   const onTransitionEnd = useCallback(
     (e: ReactTransitionEvent<HTMLDivElement>) => {
       if (e.propertyName !== "transform") return;
       if (phase !== "exit-active") return;
-      navigateBackFromCommunityMessengerCall({ replace: (href) => router.replace(href) }, null);
+      leaveCallRoute();
     },
-    [phase, router]
+    [leaveCallRoute, phase]
   );
 
   const surfaceClassName = [

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { resolveCallPresentationState } from "@/lib/community-messenger/call-presentation-state";
 
 describe("resolveCallPresentationState", () => {
-  it("outgoing video ringing → videoAvatarBridge, no PiP, no overlay", () => {
+  it("outgoing video ringing → videoAvatarBridge, PiP-first local chrome when ready", () => {
     expect(
       resolveCallPresentationState({
         mode: "video",
@@ -19,7 +19,7 @@ describe("resolveCallPresentationState", () => {
       showAvatarHero: true,
       showMainVideoLayer: false,
       mountMainVideoSlot: true,
-      showPipChrome: false,
+      showPipChrome: true,
       showCameraPreparingOverlay: false,
     });
   });
