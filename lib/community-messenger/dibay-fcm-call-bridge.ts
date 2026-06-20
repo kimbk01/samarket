@@ -24,7 +24,7 @@ export type DibayFcmIncomingWakeDetail = {
   callerAvatarUrl?: string;
 };
 
-type DibayFcmCallBridgeHandlers = {
+export type DibayFcmCallBridgeHandlers = {
   onIncomingWake: (detail: DibayFcmIncomingWakeDetail) => void;
   /** FCM terminal — `call_terminal` · `call_canceled` 단일 경로 */
   onFcmTerminal: (detail: NormalizedFcmTerminalDispatch) => void;

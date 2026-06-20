@@ -22,9 +22,42 @@ vi.mock("@/lib/community-messenger/call-media-permission-preflight", () => ({
   ensureCallMediaForUserGesture: vi.fn(async () => ({ ok: true, state: { camera: "granted", microphone: "granted" } })),
 }));
 
+vi.mock("@/lib/community-messenger/call-accept-hydrate-peer", () => ({
+  writeCallAcceptHydratePeerFromSession: vi.fn(),
+}));
+
+vi.mock("@/lib/community-messenger/call-connection-prefetch", () => ({
+  primeCommunityMessengerCallConnectionPrefetch: vi.fn(),
+}));
+
 vi.mock("@/lib/community-messenger/call-session-navigation-seed", () => ({
   rememberCallNavigationReturnPath: vi.fn(),
   primeCommunityMessengerCallNavigationSeed: vi.fn(),
+}));
+
+vi.mock("@/lib/call/active-call-session", () => ({
+  getActiveCallSessionCallId: vi.fn(() => null),
+  setActiveCallSession: vi.fn(),
+}));
+
+vi.mock("@/lib/call/map-session-to-active-call", () => ({
+  mapSessionStatusToActiveCallPhase: vi.fn(() => "connecting"),
+}));
+
+vi.mock("@/lib/community-messenger/incoming-call-consumed-side-effects", () => ({
+  applyIncomingCallConsumedSideEffects: vi.fn(),
+}));
+
+vi.mock("@/lib/call-engine/flag", () => ({
+  isCallEngineV2Enabled: vi.fn(() => false),
+}));
+
+vi.mock("@/lib/call-engine/accept-call", () => ({
+  acceptCall: vi.fn(async () => ({ ok: true, sessionId: "s-v2" })),
+}));
+
+vi.mock("@/lib/call-engine/close-call-session", () => ({
+  runEngineIncomingCallReject: vi.fn(async () => ({ ok: true, sessionId: "s-reject" })),
 }));
 
 vi.mock("@/lib/community-messenger/call-feedback-sound", () => ({
@@ -69,6 +102,10 @@ import {
   runNativePendingAcceptCall,
 } from "@/lib/community-messenger/incoming-call-accept-gateway";
 import { markCallConsumed } from "@/lib/community-messenger/incoming-call-state";
+import { applyIncomingCallConsumedSideEffects } from "@/lib/community-messenger/incoming-call-consumed-side-effects";
+import { isCallEngineV2Enabled } from "@/lib/call-engine/flag";
+import { acceptCall as engineAcceptCall } from "@/lib/call-engine/accept-call";
+import { runEngineIncomingCallReject } from "@/lib/call-engine/close-call-session";
 
 describe("incoming-call-accept-gateway", () => {
   beforeEach(() => {
@@ -113,8 +150,8 @@ describe("incoming-call-accept-gateway", () => {
     );
     expect(primeCommunityMessengerCallNavigationSeed).toHaveBeenCalledTimes(2);
     expect(primeCommunityMessengerCallNavigationSeed).toHaveBeenLastCalledWith("s1", { id: "s1" });
-    expect(isDibayCallConsumed("s1")).toBe(true);
-    expect(postCommunityMessengerCallIncomingConsumedBusEvent).toHaveBeenCalledWith("s1", "accepted");
+    expect(applyIncomingCallConsumedSideEffects).toHaveBeenCalledWith("s1", "accepted", "incoming_banner_accept");
+    expect(postCommunityMessengerCallIncomingConsumedBusEvent).not.toHaveBeenCalled();
   });
 
   it("acceptIncomingCallOnce delegates to gateway", async () => {
@@ -137,7 +174,7 @@ describe("incoming-call-accept-gateway", () => {
     expect(res.ok).toBe(true);
     expect(patchCommunityMessengerCallSession).toHaveBeenCalledTimes(1);
     expect(router.replace).toHaveBeenCalledTimes(1);
-    expect(isDibayCallConsumed("s3")).toBe(true);
+    expect(applyIncomingCallConsumedSideEffects).toHaveBeenCalledWith("s3", "accepted", "native_notification_accept");
   });
 
   it("duplicate_accept_blocked returns ok=false and does not patch", async () => {
@@ -163,6 +200,34 @@ describe("incoming-call-accept-gateway", () => {
     (patchCommunityMessengerCallSession as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: false });
     const res = await runIncomingCallReject({ sessionId: "s-reject-fail", source: "incoming_banner_reject" });
     expect(res.ok).toBe(false);
-    expect(isDibayCallConsumed("s-reject-fail")).toBe(true);
+    expect(applyIncomingCallConsumedSideEffects).toHaveBeenCalledWith(
+      "s-reject-fail",
+      "declined",
+      "incoming_banner_reject",
+    );
+  });
+
+  it("acceptIncomingCallOnce delegates to call-engine when V2 enabled", async () => {
+    vi.mocked(isCallEngineV2Enabled).mockReturnValueOnce(true);
+    const router = { replace: vi.fn() };
+    const session = {
+      id: "s-v2",
+      callKind: "voice",
+      status: "ringing",
+      isMineInitiator: false,
+      endedReason: null,
+    } as any;
+    const res = await acceptIncomingCallOnce({ session, router, source: "incoming_banner_accept" });
+    expect(res.ok).toBe(true);
+    expect(engineAcceptCall).toHaveBeenCalledWith("s-v2", "incoming_banner_accept", expect.objectContaining({ router }));
+    expect(patchCommunityMessengerCallSession).not.toHaveBeenCalled();
+  });
+
+  it("runIncomingCallReject delegates to engine when V2 enabled", async () => {
+    vi.mocked(isCallEngineV2Enabled).mockReturnValueOnce(true);
+    const res = await runIncomingCallReject({ sessionId: "s-v2-reject", source: "incoming_banner_reject" });
+    expect(res.ok).toBe(true);
+    expect(runEngineIncomingCallReject).toHaveBeenCalled();
+    expect(patchCommunityMessengerCallSession).not.toHaveBeenCalled();
   });
 });

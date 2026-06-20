@@ -40,13 +40,24 @@ describe("incoming-call policy contracts", () => {
     expect(src).not.toContain("markNativeCalleeAcceptPending");
   });
 
-  it("native coordinator PATCHes accept before Web route (Web skips duplicate PATCH on nativeAccept=1)", () => {
+  it("native coordinator does not PATCH accept (Web call-engine owns PATCH)", () => {
     const native = read("android/app/src/main/java/com/dibay/app/IncomingCallActionCoordinator.java");
-    expect(native).toContain('CallSessionPatchHelper.patch(app, sid, "accept")');
+    expect(native).not.toContain('CallSessionPatchHelper.patch(app, sid, "accept")');
     expect(native).toContain("accept_route_direct");
-    const client = read("components/community-messenger/CommunityMessengerCallClient.tsx");
-    expect(client).toContain("nativeAcceptRoute && requestedActionRef.current === \"accept\"");
-    expect(client).toContain("requestedAction === \"accept\" && nativeAcceptRoute");
+    expect(native).toContain("deliverForegroundIncomingAcceptEvent");
+  });
+
+  it("call-engine V2 module and gateway delegate exist", () => {
+    const engine = read("lib/call-engine/index.ts");
+    expect(engine).toContain("acceptCall");
+    expect(engine).toContain("closeCallSession");
+    expect(engine).toContain("isCallEngineV2Enabled");
+    const gateway = read("lib/community-messenger/incoming-call-accept-gateway.ts");
+    expect(gateway).toContain("isCallEngineV2Enabled");
+    expect(gateway).toContain("engineAcceptCall");
+    const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
+    expect(global).toContain("engineAcceptCall");
+    expect(global).toContain("buildCallEngineNativeBridgeHandlers");
   });
 
   it("CallClient blocks callee ringing direct entry without action=accept", () => {

@@ -22,6 +22,7 @@ import {
   logDibayCall,
 } from "@/lib/community-messenger/call-orchestrator";
 import { runNativePendingAcceptCall } from "@/lib/community-messenger/incoming-call-accept-gateway";
+import { isCallEngineV2Enabled, registerCallEngineRouter } from "@/lib/call-engine";
 import {
   buildCalleeAcceptActiveSessionSeed,
   readCallAcceptHydratePeer,
@@ -58,7 +59,8 @@ export function DibayFcmCallRouteHost() {
   const lastRouteRef = useRef<{ path: string; at: number } | null>(null);
 
   useLayoutEffect(() => {
-    if (!isCapacitorNativePlatform()) return;
+    registerCallEngineRouter(router);
+    if (!isCapacitorNativePlatform()) return () => registerCallEngineRouter(null);
 
     let mounted = true;
 
@@ -117,6 +119,19 @@ export function DibayFcmCallRouteHost() {
         if (acceptSessionId) {
           clearDibayCallPendingRoute();
           void clearNativePersistedCallPendingRoute();
+          if (isCallEngineV2Enabled()) {
+            void runNativePendingAcceptCall(router, acceptSessionId, resolveNativeAcceptSource(path)).then(
+              (result) => {
+                console.info("[call-route] engine_accept_done", {
+                  sessionId: acceptSessionId,
+                  ok: result.ok,
+                  reason: result.reason,
+                });
+              },
+            );
+            console.info("[call-route] webview_route_delivered", { path, via: "engine_accept" });
+            return;
+          }
           if (isNativeAcceptPatchCompleteRoute(path)) {
             const hydratePeer = readCallAcceptHydratePeer(acceptSessionId);
             if (hydratePeer) {
@@ -204,6 +219,7 @@ export function DibayFcmCallRouteHost() {
     document.addEventListener("visibilitychange", maybeConsumeOnResume);
     return () => {
       mounted = false;
+      registerCallEngineRouter(null);
       offTerminal();
       window.removeEventListener("dibay:call-route", onCallRoute);
       window.removeEventListener("focus", maybeConsumeOnResume);

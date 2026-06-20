@@ -22,17 +22,11 @@ import { mapSessionStatusToActiveCallPhase } from "@/lib/call/map-session-to-act
 import { logDibayCall } from "@/lib/community-messenger/call-orchestrator";
 import { dibayIncomingLaneStopRing } from "@/lib/community-messenger/call-lifecycle";
 import { dismissAllIncomingCallNotificationsFireAndForget } from "@/lib/push/native/dismiss-native-incoming-call-notification";
-import {
-  isDibayCallConsumed,
-  markCallConsumed,
-  setDibayCallSessionPhase,
-  type CallConsumedReason,
-} from "@/lib/community-messenger/incoming-call-state";
-import { postCommunityMessengerCallIncomingConsumedBusEvent } from "@/lib/community-messenger/multi-tab-bus";
-import {
-  markIncomingCallSurfaceConsumed,
-  releaseIncomingCallSurface,
-} from "@/lib/community-messenger/incoming-call-surface-owner";
+import { isDibayCallConsumed, setDibayCallSessionPhase } from "@/lib/community-messenger/incoming-call-state";
+import { applyIncomingCallConsumedSideEffects } from "@/lib/community-messenger/incoming-call-consumed-side-effects";
+import { isCallEngineV2Enabled } from "@/lib/call-engine/flag";
+import { acceptCall as engineAcceptCall } from "@/lib/call-engine/accept-call";
+import { runEngineIncomingCallReject } from "@/lib/call-engine/close-call-session";
 
 export type IncomingCallGatewayRouter = {
   replace: (href: string) => void;
@@ -75,52 +69,7 @@ function buildActiveCallAcceptHref(sessionId: string, hrefOverride?: string | nu
   return `/community-messenger/calls/${encodeURIComponent(sessionId)}?action=accept&nativeAccept=1&mode=active`;
 }
 
-/**
- * 수락·거절·missed·ended 직후 공통 — 벨·알림·consumed·bus.
- * router.replace 는 호출하지 않는다.
- */
-export function applyIncomingCallConsumedSideEffects(
-  sessionId: string,
-  reason: CallConsumedReason,
-  source: string
-): void {
-  const sid = sessionId.trim();
-  if (!sid) return;
-  if (isDibayCallConsumed(sid)) {
-    logDibayCall("accept_skip_duplicate", {
-      sessionId: sid,
-      callId: sid,
-      reason: "already_consumed",
-      source,
-    });
-    dibayIncomingLaneStopRing("already_consumed", sid);
-    dismissAllIncomingCallNotificationsFireAndForget(sid);
-    return;
-  }
-
-  setDibayCallSessionPhase(sid, reason === "accepted" ? "accepting" : "consumed", reason);
-  dibayIncomingLaneStopRing(`consumed_${reason}`, sid);
-  dismissAllIncomingCallNotificationsFireAndForget(sid);
-  markCallConsumed(sid, reason);
-  releaseIncomingCallSurface(sid, "web_foreground_overlay", `consumed_${reason}`);
-  releaseIncomingCallSurface(sid, "native_foreground_pill", `consumed_${reason}`);
-  releaseIncomingCallSurface(sid, "call_screen", `consumed_${reason}`);
-  if (reason !== "accepted") {
-    markIncomingCallSurfaceConsumed(
-      sid,
-      reason === "declined"
-        ? "declined"
-        : reason === "cancelled"
-          ? "cancelled"
-          : reason === "rejected"
-            ? "rejected"
-            : "ended",
-      source,
-    );
-  }
-  postCommunityMessengerCallIncomingConsumedBusEvent(sid, reason);
-  logDibayCall("ring_stop", { sessionId: sid, callId: sid, reason: `consumed_${reason}`, source });
-}
+export { applyIncomingCallConsumedSideEffects } from "@/lib/community-messenger/incoming-call-consumed-side-effects";
 
 /**
  * active 통화 화면 replace — 프로젝트 내 유일한 accept-route replace 진입점.
@@ -149,10 +98,19 @@ export async function runNativePendingAcceptCall(
 ): Promise<{
   ok: boolean;
   sessionId: string;
-  reason?: "already_consumed" | "session_fetch_failed" | "duplicate_accept_blocked" | "patch_failed" | "permission_denied" | "exception";
+  reason?: "already_consumed" | "session_fetch_failed" | "duplicate_accept_blocked" | "patch_failed" | "permission_denied" | "join_failed" | "exception";
 }> {
   const sid = sessionId.trim();
   if (!sid) return { ok: false, sessionId: "", reason: "exception" };
+
+  if (isCallEngineV2Enabled()) {
+    const result = await engineAcceptCall(sid, source, { router });
+    return {
+      ok: result.ok,
+      sessionId: result.sessionId,
+      reason: result.reason as typeof result.reason | undefined,
+    };
+  }
 
   if (isDibayCallConsumed(sid)) {
     logDibayCall("accept_skip_duplicate", {
@@ -199,8 +157,21 @@ export function finalizeNativeAcceptCallRoute(
 export async function acceptIncomingCallOnce(args: RunIncomingCallAcceptArgs): Promise<{
   ok: boolean;
   sessionId: string;
-  reason?: "duplicate_accept_blocked" | "already_consumed" | "permission_denied" | "patch_failed" | "exception";
+  reason?: "duplicate_accept_blocked" | "already_consumed" | "permission_denied" | "patch_failed" | "session_fetch_failed" | "join_failed" | "exception";
 }> {
+  if (isCallEngineV2Enabled()) {
+    const result = await engineAcceptCall(args.session.id, args.source, {
+      router: args.router,
+      skipRouteReplace: args.skipRouteReplace,
+      session: args.session,
+      hrefOverride: args.hrefOverride,
+    });
+    return {
+      ok: result.ok,
+      sessionId: result.sessionId,
+      reason: result.reason as typeof result.reason | undefined,
+    };
+  }
   return runIncomingCallAccept(args);
 }
 
@@ -342,6 +313,10 @@ export async function runIncomingCallReject(args: RunIncomingCallRejectArgs): Pr
   sessionId: string;
   reason?: "duplicate_reject_blocked" | "patch_failed" | "exception";
 }> {
+  if (isCallEngineV2Enabled()) {
+    return runEngineIncomingCallReject(args);
+  }
+
   const sid = args.sessionId.trim();
   if (!sid) return { ok: false, sessionId: "", reason: "exception" };
 

@@ -136,6 +136,15 @@ import {
   applyIncomingCallConsumedSideEffects,
   runIncomingCallReject,
 } from "@/lib/community-messenger/incoming-call-accept-gateway";
+import {
+  acceptCall as engineAcceptCall,
+  buildCallEngineNativeBridgeHandlers,
+  isCallEngineV2Enabled,
+  setCallEngineCloseHardClearedMap,
+  setCallEnginePhase,
+  setCallEngineRingHardClearedMap,
+  syncCallEngineRingFromState,
+} from "@/lib/call-engine";
 import { applyNativeIncomingRejectWebCleanup } from "@/lib/community-messenger/incoming-call/native-incoming-reject-web-cleanup";
 import { buildIncomingCallPreviewHref } from "@/lib/community-messenger/incoming-call-preview-route";
 import {
@@ -184,6 +193,7 @@ import { mergeIncomingCallSessionsAfterFetch } from "@/lib/community-messenger/i
 import {
   clearDibayCallPendingRoute,
   installDibayFcmCallBridge,
+  type DibayFcmCallBridgeHandlers,
 } from "@/lib/community-messenger/dibay-fcm-call-bridge";
 import { logDibayCall } from "@/lib/community-messenger/call-orchestrator";
 import { writeCallAcceptHydratePeerFromSession } from "@/lib/community-messenger/call-accept-hydrate-peer";
@@ -291,6 +301,10 @@ export function GlobalCommunityMessengerIncomingCall() {
   const dismissedIncomingSessionsAtRef = useRef<Map<string, number>>(new Map());
   /** 원격 취소·종료·hangup 신호를 받은 세션 — stale `ringing` GET/낙관 merge 로 벨이 재시작되지 않게 함 */
   const hardClearedIncomingSessionsAtRef = useRef<Map<string, number>>(new Map());
+  useEffect(() => {
+    setCallEngineRingHardClearedMap(hardClearedIncomingSessionsAtRef.current);
+    setCallEngineCloseHardClearedMap(hardClearedIncomingSessionsAtRef.current);
+  }, []);
   /** 거절·수락·차단·메시지거절 등 사용자가 끊은 세션은 부재 톤 제외 */
   const suppressMissedSoundRef = useRef<Set<string>>(new Set());
   /** Realtime health 여부 — silent subscription 감지 포함 */
@@ -1371,7 +1385,7 @@ export function GlobalCommunityMessengerIncomingCall() {
   }, []);
 
   useEffect(() => {
-    return installDibayFcmCallBridge({
+    const bridgeHandlers: DibayFcmCallBridgeHandlers = {
       onForegroundIncomingUi: ({ sessionId, visible }) => {
         const sid = sessionId.trim();
         setNativeForegroundIncomingCallId(visible && sid ? sid : null);
@@ -1383,6 +1397,29 @@ export function GlobalCommunityMessengerIncomingCall() {
         }
       },
       onNativeForegroundAccept: ({ sessionId: sid }) => {
+        if (isCallEngineV2Enabled()) {
+          logDibayCall("accept_start", {
+            sessionId: sid,
+            callId: sid,
+            source: "native_pill_accept",
+          });
+          void engineAcceptCall(sid, "native_pill").then((result) => {
+            if (!result.ok) return;
+            setNativeForegroundIncomingCallId(null);
+            activeIncomingCallIdsRef.current.delete(sid);
+            dismissIncomingPresenterAfterAccept({
+              sessionId: sid,
+              dismissedAt: dismissedIncomingSessionsAtRef.current,
+              hardClearedAt: hardClearedIncomingSessionsAtRef.current,
+              activeIncomingCallIds: activeIncomingCallIdsRef.current,
+              suppressMissedSound: suppressMissedSoundRef.current,
+              ringStopSource: "native_pill_accept",
+              removeSessionFromIncomingList: (id) =>
+                setSessions((prev) => prev.filter((item) => item.id !== id)),
+            });
+          });
+          return;
+        }
         logDibayCall("accept_start", {
           sessionId: sid,
           callId: sid,
@@ -1485,7 +1522,8 @@ export function GlobalCommunityMessengerIncomingCall() {
         );
         void refreshRef.current(true, { incomingTerminalListSync: true });
       },
-    });
+    };
+    return installDibayFcmCallBridge(buildCallEngineNativeBridgeHandlers(bridgeHandlers));
   }, [bumpIncomingListFastSync, handleCallTerminalEvent]);
 
   useEffect(() => {
@@ -1909,6 +1947,20 @@ export function GlobalCommunityMessengerIncomingCall() {
 
   const bannerSession = foregroundPresentation.shouldRender ? foregroundPresentation.session : null;
   const bannerSessionId = bannerSession?.id ?? null;
+
+  useEffect(() => {
+    if (!isCallEngineV2Enabled() || !bannerSession) return;
+    if (bannerSession.status === "ringing" && !bannerSession.isMineInitiator) {
+      setCallEnginePhase({
+        phase: "incoming",
+        sessionId: bannerSession.id,
+        role: "callee",
+        callKind: bannerSession.callKind,
+        source: "global_banner",
+      });
+      syncCallEngineRingFromState();
+    }
+  }, [bannerSession?.id, bannerSession?.status, bannerSession?.callKind, bannerSession?.isMineInitiator]);
   const nativeIncomingSession = bannerSession;
   const incomingUiSurfaceLoggedRef = useRef<Set<string>>(new Set());
 
