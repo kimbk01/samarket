@@ -4,15 +4,14 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { PhilifeNeighborhoodWriteForm } from "@/components/philife/PhilifeNeighborhoodWriteForm";
 import { usePhilifeWriteSheet } from "@/contexts/PhilifeWriteSheetContext";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { useMobileKeyboardInset } from "@/lib/ui/use-mobile-keyboard-inset";
-import { philifeWriteSheetOuterPaddingStyle } from "@/lib/ui/philife-write-sheet-keyboard-layout";
+import { useCmRoomKbOffset } from "@/lib/ui/use-cm-room-kb-offset";
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
 
 const SHEET_EXIT_MS = 520;
 
 /**
  * `/philife` + 글쓰기: **뷰포트 전체** 아래→위 슬라이드 (`TradeWriteBottomSheet` 동일).
- * 헤더 우측 × 로만 닫기(초안 있으면 확인). 키보드는 outer `paddingBottom` + flex footer.
+ * 헤더 우측 × 로만 닫기(초안 있으면 확인). Android adjustResize · iOS `--kb-offset` on footer only.
  */
 export function PhilifeWriteBottomSheet() {
   const { t } = useI18n();
@@ -24,7 +23,7 @@ export function PhilifeWriteBottomSheet() {
   const enterRafRef = useRef<number | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const exitInFlightRef = useRef(false);
-  const keyboardInset = useMobileKeyboardInset({ enabled: isOpen });
+  useCmRoomKbOffset({ enabled: isOpen, shellRef: panelRef });
 
   useLayoutEffect(() => {
     if (enterRafRef.current != null) {
@@ -116,8 +115,6 @@ export function PhilifeWriteBottomSheet() {
     initialCategory.trim() === "meetup"
       ? t("philife_write_meetup_create_title")
       : t("community_compose_write");
-  const outerStyle = philifeWriteSheetOuterPaddingStyle(keyboardInset);
-
   return (
     <>
       <MobileConfirmBottomSheet
@@ -135,7 +132,6 @@ export function PhilifeWriteBottomSheet() {
       />
       <div
         className="pointer-events-none fixed inset-0 z-[50] flex flex-col"
-        style={outerStyle}
         role="dialog"
         aria-modal
         aria-label={sheetTitle}
@@ -159,16 +155,14 @@ export function PhilifeWriteBottomSheet() {
               </span>
             </button>
           </div>
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden pb-[var(--safe-bottom)]">
-            <PhilifeNeighborhoodWriteForm
-              key={openEpoch}
-              initialCategory={initialCategory}
-              suppressWriteScreenTier1
-              onSheetExitBeforeNavigate={exitAndClose}
-              onSheetClose={exitAndClose}
-              onSheetBlockingDraftChange={setBlockingDraft}
-            />
-          </div>
+          <PhilifeNeighborhoodWriteForm
+            key={openEpoch}
+            initialCategory={initialCategory}
+            suppressWriteScreenTier1
+            onSheetExitBeforeNavigate={exitAndClose}
+            onSheetClose={exitAndClose}
+            onSheetBlockingDraftChange={setBlockingDraft}
+          />
         </div>
       </div>
     </>

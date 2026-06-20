@@ -2,6 +2,7 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { APP_MYPAGE_SUBPAGE_BODY_CLASS } from "@/lib/ui/app-content-layout";
+import { PHILIFE_WRITE_SHEET_FOOTER_PB_CLASS } from "@/lib/ui/philife-write-sheet-keyboard-layout";
 import { useMobileKeyboardInset } from "@/lib/ui/use-mobile-keyboard-inset";
 
 export const PHILIFE_WRITE_FORM_ID = "philife-neighborhood-write-form";
@@ -14,7 +15,7 @@ type PhilifeWriteActionFooterProps = {
   onCancel: () => void;
   error?: string | null;
   /**
-   * `sheet`: `/philife` 시트 flex footer — viewport `fixed` 금지 (키보드는 시트 shell `bottom`).
+   * `sheet`: `/philife` 시트 flex footer — viewport `fixed` 금지 (iOS `--kb-offset` on panel only).
    * `page`: `/philife/write` 풀페이지 — viewport 하단 고정 + keyboard inset.
    */
   layout?: PhilifeWriteActionFooterLayout;
@@ -45,7 +46,7 @@ export function PhilifeWriteActionFooter({
       aria-label={t("philife_write_footer_aria")}
       className={
         isSheet
-          ? "shrink-0 border-t border-[#e4e6eb] bg-white pb-[var(--safe-bottom)] shadow-[0_-2px_8px_rgba(0,0,0,0.06)]"
+          ? `shrink-0 border-t border-[#e4e6eb] bg-white ${PHILIFE_WRITE_SHEET_FOOTER_PB_CLASS} shadow-[0_-2px_8px_rgba(0,0,0,0.06)]`
           : "fixed bottom-0 left-0 right-0 z-[55] border-t border-[#e4e6eb] bg-white shadow-[0_-2px_8px_rgba(0,0,0,0.06)]"
       }
       style={

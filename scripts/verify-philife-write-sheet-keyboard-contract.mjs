@@ -30,10 +30,12 @@ const layout = read("lib/ui/philife-write-sheet-keyboard-layout.ts");
 const fbUi = read("lib/ui/philife-write-fb-ui.ts");
 
 assertIncludes(sheet, "fixed inset-0", "PhilifeWriteBottomSheet");
-assertIncludes(sheet, "useMobileKeyboardInset", "PhilifeWriteBottomSheet");
-assertIncludes(sheet, "philifeWriteSheetOuterPaddingStyle", "PhilifeWriteBottomSheet");
+assertIncludes(sheet, "useCmRoomKbOffset", "PhilifeWriteBottomSheet");
 assertIncludes(sheet, "onHeaderClose", "PhilifeWriteBottomSheet");
 assertIncludes(sheet, 'aria-label={t("common_close")}', "PhilifeWriteBottomSheet");
+assertNotIncludes(sheet, "useMobileKeyboardInset", "PhilifeWriteBottomSheet");
+assertNotIncludes(sheet, "philifeWriteSheetOuterPaddingStyle", "PhilifeWriteBottomSheet");
+assertNotIncludes(sheet, "paddingBottom", "PhilifeWriteBottomSheet");
 assertNotIncludes(sheet, "data-app-sticky-header", "PhilifeWriteBottomSheet");
 assertNotIncludes(sheet, "topOffsetPx", "PhilifeWriteBottomSheet");
 assertNotIncludes(sheet, "useAppViewportSize", "PhilifeWriteBottomSheet");
@@ -42,7 +44,9 @@ assertNotIncludes(sheet, 'addEventListener("scroll"', "PhilifeWriteBottomSheet")
 assertIncludes(footer, 'layout?: PhilifeWriteActionFooterLayout', "PhilifeWriteActionFooter");
 assertIncludes(footer, 'layout === "sheet"', "PhilifeWriteActionFooter");
 assertIncludes(footer, "showCancel", "PhilifeWriteActionFooter");
+assertIncludes(footer, "PHILIFE_WRITE_SHEET_FOOTER_PB_CLASS", "PhilifeWriteActionFooter");
 assertIncludes(footer, 'enabled: layout === "page"', "PhilifeWriteActionFooter");
+assertNotIncludes(footer, "useMobileKeyboardInset({ enabled: layout === \"sheet\"", "PhilifeWriteActionFooter");
 
 assertIncludes(form, 'layout={suppressWriteScreenTier1 ? "sheet" : "page"}', "PhilifeNeighborhoodWriteForm");
 assertIncludes(form, "showCancel={!suppressWriteScreenTier1}", "PhilifeNeighborhoodWriteForm");
@@ -52,8 +56,9 @@ assertIncludes(form, "handleSheetFieldFocus", "PhilifeNeighborhoodWriteForm");
 assertIncludes(fbUi, "PHILIFE_WRITE_SCROLL_BODY_SHEET_CLASS", "philife-write-fb-ui");
 assertIncludes(fbUi, "PHILIFE_WRITE_SCROLL_BODY_PAGE_CLASS", "philife-write-fb-ui");
 
-assertIncludes(layout, "philife-write-sheet-keyboard-v2", "philife-write-sheet-keyboard-layout");
-assertIncludes(layout, "philifeWriteSheetOuterPaddingStyle", "philife-write-sheet-keyboard-layout");
+assertIncludes(layout, "philife-write-sheet-keyboard-v3", "philife-write-sheet-keyboard-layout");
+assertIncludes(layout, "PHILIFE_WRITE_SHEET_FOOTER_PB_CLASS", "philife-write-sheet-keyboard-layout");
+assertIncludes(layout, "useMobileKeyboardInset", "philife-write-sheet-keyboard-layout");
 
 if (errors.length > 0) {
   console.error("verify:philife-write-sheet-keyboard-contract FAIL\n");
