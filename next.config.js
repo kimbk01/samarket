@@ -36,18 +36,6 @@ const resolvedDistDir = resolveDistDirForNextConfig();
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   ...(resolvedDistDir ? { distDir: resolvedDistDir } : {}),
-  /**
-   * Vercel serverless — `docs/perf` QA APK·스크린샷은 런타임에 불필요.
-   * (git 에 남아 있어도 함수 번들·업로드에서 제외)
-   */
-  outputFileTracingExcludes: {
-    "*": [
-      "./docs/perf/**",
-      "./android/**",
-      "./ios/**",
-      "./benchmark-runs/**",
-    ],
-  },
   experimental: {
     /**
      * Webpack 빌드 시 메모리 피크 완화(큰 앱 dev/build 공통). 기존 experimental 과 병합 유지.

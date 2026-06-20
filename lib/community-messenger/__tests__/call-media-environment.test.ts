@@ -1,16 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const stopToneMock = vi.hoisted(() => vi.fn());
-const stopRingbackMock = vi.hoisted(() => vi.fn());
 const closePrimedMock = vi.hoisted(() => vi.fn());
 const suspendAppCtxMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/community-messenger/call-feedback-sound", () => ({
   stopCommunityMessengerCallTone: stopToneMock,
-}));
-
-vi.mock("@/lib/community-messenger/call-outgoing-ringback-controller", () => ({
-  stopAllOutgoingRingback: stopRingbackMock,
 }));
 
 vi.mock("@/lib/community-messenger/call-tone-web-audio", () => ({
@@ -24,7 +19,6 @@ vi.mock("@/lib/community-messenger/cm-app-audio-context", () => ({
 describe("call-media-environment", () => {
   beforeEach(() => {
     stopToneMock.mockClear();
-    stopRingbackMock.mockClear();
     closePrimedMock.mockClear();
     suspendAppCtxMock.mockClear();
   });
@@ -35,8 +29,6 @@ describe("call-media-environment", () => {
     );
     prepareCommunityMessengerCallMediaCapture("agora_join_start");
     expect(stopToneMock).toHaveBeenCalledTimes(1);
-    expect(stopRingbackMock).toHaveBeenCalledTimes(1);
-    expect(stopRingbackMock).toHaveBeenCalledWith("capture_prepared");
     expect(closePrimedMock).toHaveBeenCalledTimes(1);
     expect(suspendAppCtxMock).toHaveBeenCalledTimes(1);
   });

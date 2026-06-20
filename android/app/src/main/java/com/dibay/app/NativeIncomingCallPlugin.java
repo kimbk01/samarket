@@ -70,17 +70,6 @@ public class NativeIncomingCallPlugin extends Plugin {
     call.resolve();
   }
 
-  /** Realtime/direct_ringing — FCM 전에도 native OS ring 시작 (WebAudio 금지 경로 보완). */
-  @PluginMethod
-  public void startIncomingRingtone(PluginCall call) {
-    String sessionId = call.getString("sessionId", "").trim();
-    String callType = call.getString("callType", "voice");
-    if (!sessionId.isEmpty()) {
-      IncomingCallRingOwner.start(getContext(), sessionId, callType);
-    }
-    call.resolve();
-  }
-
   @PluginMethod
   public void markCallConsumed(PluginCall call) {
     String sessionId = call.getString("sessionId", "").trim();
@@ -150,24 +139,5 @@ public class NativeIncomingCallPlugin extends Plugin {
       result.put("callId", callId);
     }
     call.resolve(result);
-  }
-
-  @PluginMethod
-  public void syncCallSoundConfig(PluginCall call) {
-    boolean voiceIncomingEnabled = call.getBoolean("voiceIncomingEnabled", true);
-    String voiceIncomingSource = call.getString("voiceIncomingSource", "device_ringtone");
-    String voiceIncomingUrl = call.getString("voiceIncomingUrl", "");
-    boolean videoIncomingEnabled = call.getBoolean("videoIncomingEnabled", true);
-    String videoIncomingSource = call.getString("videoIncomingSource", "device_ringtone");
-    String videoIncomingUrl = call.getString("videoIncomingUrl", "");
-    MessengerCallSoundNativeConfig.syncFromWeb(
-        getContext(),
-        voiceIncomingEnabled,
-        voiceIncomingSource,
-        voiceIncomingUrl,
-        videoIncomingEnabled,
-        videoIncomingSource,
-        videoIncomingUrl);
-    call.resolve();
   }
 }

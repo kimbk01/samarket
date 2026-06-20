@@ -35,16 +35,12 @@ export async function GET() {
 
 type PatchBody = Partial<{
   voice_incoming_enabled: boolean;
-  voice_incoming_sound_source: string;
   voice_incoming_sound_url: string | null;
   voice_outgoing_ringback_enabled: boolean;
-  voice_outgoing_ringback_source: string;
   voice_outgoing_ringback_url: string | null;
   video_incoming_enabled: boolean;
-  video_incoming_sound_source: string;
   video_incoming_sound_url: string | null;
   video_outgoing_ringback_enabled: boolean;
-  video_outgoing_ringback_source: string;
   video_outgoing_ringback_url: string | null;
   missed_notification_enabled: boolean;
   missed_notification_sound_url: string | null;
@@ -75,16 +71,12 @@ export async function PATCH(req: NextRequest) {
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
   const keys = [
     "voice_incoming_enabled",
-    "voice_incoming_sound_source",
     "voice_incoming_sound_url",
     "voice_outgoing_ringback_enabled",
-    "voice_outgoing_ringback_source",
     "voice_outgoing_ringback_url",
     "video_incoming_enabled",
-    "video_incoming_sound_source",
     "video_incoming_sound_url",
     "video_outgoing_ringback_enabled",
-    "video_outgoing_ringback_source",
     "video_outgoing_ringback_url",
     "missed_notification_enabled",
     "missed_notification_sound_url",
@@ -124,16 +116,12 @@ export async function PATCH(req: NextRequest) {
   const baseRow = {
     id: "default" as const,
     voice_incoming_enabled: true,
-    voice_incoming_sound_source: "device_ringtone",
     voice_incoming_sound_url: null as string | null,
     voice_outgoing_ringback_enabled: true,
-    voice_outgoing_ringback_source: "device_ringtone",
     voice_outgoing_ringback_url: null as string | null,
     video_incoming_enabled: true,
-    video_incoming_sound_source: "device_ringtone",
     video_incoming_sound_url: null as string | null,
     video_outgoing_ringback_enabled: true,
-    video_outgoing_ringback_source: "device_ringtone",
     video_outgoing_ringback_url: null as string | null,
     missed_notification_enabled: true,
     missed_notification_sound_url: null as string | null,

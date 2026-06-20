@@ -10,8 +10,7 @@ import {
   getMessengerCallSoundConfigCache,
   resolveMessengerCallEndSoundUrl,
   resolveMessengerCallMissedSoundUrl,
-  resolveMessengerCallTonePlayback,
-  type MessengerCallSoundConfig,
+  resolveMessengerCallToneUrl,
 } from "@/lib/community-messenger/messenger-call-sound-config-client";
 import { cmCallAudioCleanup, cmCallLatencyInfo } from "@/lib/community-messenger/cm-call-debug";
 import { closePrimedWebAudioCallToneContext } from "@/lib/community-messenger/call-tone-web-audio";
@@ -26,149 +25,6 @@ const TONE_INTERVAL_MS: Record<CallToneMode, number> = {
   incoming: 2600,
   outgoing: 3200,
 };
-
-function resolveCallToneVolume(cfg: MessengerCallSoundConfig | null, mode: CallToneMode): number {
-  const volCfg = cfg?.incoming_ringtone_volume;
-  const vIn =
-    typeof volCfg === "number" && Number.isFinite(volCfg) ? Math.min(1, Math.max(0, volCfg)) : 0.72;
-  return mode === "incoming" ? vIn : Math.min(1, vIn * 0.625);
-}
-
-function tryStartAdminUrlLoopTone(adminUrl: string, volume: number): CallToneController | null {
-  if (typeof window === "undefined") return null;
-  for (const useCrossOrigin of [true, false] as const) {
-    let next: HTMLAudioElement | null = null;
-    try {
-      next = new Audio(adminUrl);
-      trackDetachedCommunityMessengerCallAudio(next);
-      if (useCrossOrigin) next.crossOrigin = "anonymous";
-      next.preload = "auto";
-      next.loop = true;
-      next.volume = volume;
-      void next.play();
-      return {
-        stop: () => {
-          if (next) {
-            untrackDetachedCommunityMessengerCallAudio(next);
-            next.pause();
-            next.currentTime = 0;
-          }
-        },
-      };
-    } catch {
-      if (next) untrackDetachedCommunityMessengerCallAudio(next);
-    }
-  }
-  return null;
-}
-
-async function awaitStartAdminUrlLoopTone(adminUrl: string, volume: number): Promise<CallToneController | null> {
-  if (typeof window === "undefined") return null;
-  for (const useCrossOrigin of [true, false] as const) {
-    let next: HTMLAudioElement | null = null;
-    try {
-      next = new Audio(adminUrl);
-      trackDetachedCommunityMessengerCallAudio(next);
-      if (useCrossOrigin) next.crossOrigin = "anonymous";
-      next.preload = "auto";
-      next.loop = true;
-      next.volume = volume;
-      await next.play();
-      return {
-        stop: () => {
-          if (next) {
-            untrackDetachedCommunityMessengerCallAudio(next);
-            next.pause();
-            next.currentTime = 0;
-          }
-        },
-      };
-    } catch {
-      if (next) untrackDetachedCommunityMessengerCallAudio(next);
-    }
-  }
-  return null;
-}
-
-async function startIncomingCallToneFromConfig(
-  cfg: MessengerCallSoundConfig | null,
-  callKind: CommunityMessengerCallKind
-): Promise<CallToneController | null> {
-  const playback = resolveMessengerCallTonePlayback(cfg, "incoming", callKind);
-  if (playback.kind === "disabled") return null;
-  const volIn = resolveCallToneVolume(cfg, "incoming");
-  if (playback.kind === "admin_url") {
-    let audio: HTMLAudioElement | null = null;
-    const clear = () => {
-      if (audio) {
-        untrackDetachedCommunityMessengerCallAudio(audio);
-        audio.pause();
-        audio.currentTime = 0;
-        audio = null;
-      }
-    };
-    primeNotificationSoundAudio();
-    for (const useCrossOrigin of [true, false] as const) {
-      let next: HTMLAudioElement | null = null;
-      try {
-        next = new Audio(playback.url);
-        trackDetachedCommunityMessengerCallAudio(next);
-        if (useCrossOrigin) next.crossOrigin = "anonymous";
-        next.preload = "auto";
-        next.loop = true;
-        next.volume = volIn;
-        await next.play();
-        audio = next;
-        return {
-          stop: () => {
-            clear();
-          },
-        };
-      } catch {
-        if (next) untrackDetachedCommunityMessengerCallAudio(next);
-        clear();
-      }
-    }
-  }
-  return null;
-}
-
-async function startOutgoingCallToneFromConfig(
-  cfg: MessengerCallSoundConfig | null,
-  callKind: CommunityMessengerCallKind
-): Promise<CallToneController | null> {
-  const playback = resolveMessengerCallTonePlayback(cfg, "outgoing", callKind);
-  if (playback.kind === "disabled") return null;
-  const volOut = resolveCallToneVolume(cfg, "outgoing");
-  if (playback.kind === "admin_url") {
-    primeNotificationSoundAudio();
-    return (
-      tryStartAdminUrlLoopTone(playback.url, volOut) ??
-      (await awaitStartAdminUrlLoopTone(playback.url, volOut))
-    );
-  }
-  return null;
-}
-
-function attachActiveToneStopper(tone: CallToneController): CallToneController {
-  const stop = () => {
-    tone.stop();
-    if (activeToneStopper === stop) activeToneStopper = null;
-  };
-  activeToneStopper = stop;
-  return { stop };
-}
-
-/** 발신 버튼 tap 직후 — 캐시된 관리자 URL 로 즉시 링백(합성음 폴백 전). */
-export function tryStartOutgoingRingbackFromCachedAdminConfig(
-  callKind: CommunityMessengerCallKind
-): CallToneController | null {
-  if (typeof window === "undefined") return null;
-  const cfg = getMessengerCallSoundConfigCache();
-  const playback = resolveMessengerCallTonePlayback(cfg, "outgoing", callKind);
-  if (playback.kind !== "admin_url") return null;
-  return tryStartAdminUrlLoopTone(playback.url, resolveCallToneVolume(cfg, "outgoing"));
-}
 
 let activeToneStopper: (() => void) | null = null;
 
@@ -329,44 +185,63 @@ export async function startCommunityMessengerCallTone(
   });
 
   primeNotificationSoundAudio();
-  const callKind: CommunityMessengerCallKind = options?.callKind === "video" ? "video" : "voice";
+  /**
+   * 유지 이유: 수신 벨은 사용자 제스처 없이 시작되는 경우가 많아, 설정 API(await)가 벨 첫 재생을 막으면 체감 지연이 커진다.
+   * `void fetch`로 최신 관리자 음원은 백그라운드 반영하고, 첫 틱은 캐시·합성/HTML 경로로 즉시 시작한다.
+   */
+  void fetchMessengerCallSoundConfig({ force: true });
 
-  if (mode === "incoming") {
-    /**
-     * CONTRACT — 수신 벨: 설정 API await 금지(첫 틱 지연). `void fetch` + 캐시·합성 즉시 시작.
-     */
-    void fetchMessengerCallSoundConfig({ force: true });
-    const cfg = getMessengerCallSoundConfigCache();
-    const playback = resolveMessengerCallTonePlayback(cfg, "incoming", callKind);
-    if (playback.kind === "disabled") {
-      return { stop() {} };
-    }
-    const incomingTone = await startIncomingCallToneFromConfig(cfg, callKind);
-    if (incomingTone) {
-      return attachActiveToneStopper(incomingTone);
-    }
-  } else {
-    if (getMessengerCallSoundConfigCache() == null) {
-      await fetchMessengerCallSoundConfig();
-    } else {
-      void fetchMessengerCallSoundConfig({ force: true });
-    }
-    const cfg = getMessengerCallSoundConfigCache();
-    const playback = resolveMessengerCallTonePlayback(cfg, "outgoing", callKind);
-    if (playback.kind === "disabled") {
-      return { stop() {} };
-    }
-    const outgoingTone = await startOutgoingCallToneFromConfig(cfg, callKind);
-    if (outgoingTone) {
-      return attachActiveToneStopper(outgoingTone);
+  const cfg = getMessengerCallSoundConfigCache();
+  const callKind: CommunityMessengerCallKind = options?.callKind === "video" ? "video" : "voice";
+  const volCfg = cfg?.incoming_ringtone_volume;
+  const vIn =
+    typeof volCfg === "number" && Number.isFinite(volCfg) ? Math.min(1, Math.max(0, volCfg)) : 0.72;
+  const vOut = Math.min(1, vIn * 0.625);
+  const adminUrl = resolveMessengerCallToneUrl(cfg, mode, callKind);
+  if (adminUrl) {
+    let audio: HTMLAudioElement | null = null;
+    const clear = () => {
+      if (audio) {
+        untrackDetachedCommunityMessengerCallAudio(audio);
+        audio.pause();
+        audio.currentTime = 0;
+        audio = null;
+      }
+    };
+    primeNotificationSoundAudio();
+    for (const useCrossOrigin of [true, false] as const) {
+      let next: HTMLAudioElement | null = null;
+      try {
+        next = new Audio(adminUrl);
+        trackDetachedCommunityMessengerCallAudio(next);
+        if (useCrossOrigin) next.crossOrigin = "anonymous";
+        next.preload = "auto";
+        next.loop = true;
+        next.volume = mode === "incoming" ? vIn : vOut;
+        /** 링/링백은 기본 출력 — setSinkId 가 BT·통화 오디오 모드로 끌어올리는 것을 피함 */
+        await next.play();
+        audio = next;
+        const stop = () => {
+          clear();
+          if (activeToneStopper === stop) activeToneStopper = null;
+        };
+        activeToneStopper = stop;
+        return { stop };
+      } catch {
+        if (next) untrackDetachedCommunityMessengerCallAudio(next);
+        clear();
+      }
     }
   }
 
-  const cfg = getMessengerCallSoundConfigCache();
-  const toneVolume = resolveCallToneVolume(cfg, mode);
   const web = startWebAudioCallTone(mode, callKind);
   if (web) {
-    return attachActiveToneStopper({ stop: () => web.stop() });
+    const stop = () => {
+      web.stop();
+      if (activeToneStopper === stop) activeToneStopper = null;
+    };
+    activeToneStopper = stop;
+    return { stop };
   }
 
   let stopped = false;
@@ -395,7 +270,7 @@ export async function startCommunityMessengerCallTone(
       trackDetachedCommunityMessengerCallAudio(next);
       next.preload = "auto";
       next.loop = true;
-      next.volume = toneVolume;
+      next.volume = mode === "incoming" ? vIn : vOut;
       next.playbackRate = mode === "incoming" ? 1 : 0.94;
       audio = next;
       void (async () => {

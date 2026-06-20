@@ -168,7 +168,7 @@ describe("incoming-call native contract", () => {
     expect(global).toContain("onNativeForegroundAccept");
     expect(global).toContain("onNativeForegroundReject");
     const presenter = read("lib/community-messenger/incoming-call/foreground-incoming-presenter.ts");
-    expect(presenter).toContain("native_foreground_primary");
+    expect(presenter).toContain("android_native_pill_ssot");
   });
 
   it("native accept injects foreground_incoming_accept before route launch", () => {

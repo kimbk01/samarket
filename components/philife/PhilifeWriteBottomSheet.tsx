@@ -1,29 +1,33 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useState, useCallback, useEffect, useRef } from "react";
 import { PhilifeNeighborhoodWriteForm } from "@/components/philife/PhilifeNeighborhoodWriteForm";
 import { usePhilifeWriteSheet } from "@/contexts/PhilifeWriteSheetContext";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { usePhilifeWriteSheetFooterPadding } from "@/lib/ui/use-philife-write-sheet-footer-padding";
-import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
 
 const SHEET_EXIT_MS = 520;
 
 /**
- * `/philife` + 글쓰기: **뷰포트 전체** 아래→위 슬라이드 (`TradeWriteBottomSheet` 동일).
- * 헤더 우측 × 로만 닫기(초안 있으면 확인). footer padding = CM composer SSOT (keyboard open 시 safe-bottom 제거).
+ * `/philife` 1단(+): 글쓰기 폼을 **스티키 헤더(h1 스택) 바로 아래 ~ 화면 하단**으로
+ * **아래→위**로 올리며 표시한다. 닫을 때 **아래로** 내려가며 사라진다.
  */
 export function PhilifeWriteBottomSheet() {
   const { t } = useI18n();
-  const { isOpen, openEpoch, initialCategory, close, setBlockingDraft, blockingDraft } =
-    usePhilifeWriteSheet();
+  const { isOpen, openEpoch, initialCategory, close, setBlockingDraft } = usePhilifeWriteSheet();
+  const [topOffsetPx, setTopOffsetPx] = useState(0);
   const [enterDraw, setEnterDraw] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
-  const [headerLeaveOpen, setHeaderLeaveOpen] = useState(false);
   const enterRafRef = useRef<number | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const exitInFlightRef = useRef(false);
-  usePhilifeWriteSheetFooterPadding({ enabled: isOpen, shellRef: panelRef });
+
+  const measure = useCallback(() => {
+    if (typeof document === "undefined") return;
+    const el = document.querySelector<HTMLElement>("[data-app-sticky-header]");
+    if (el) {
+      setTopOffsetPx(Math.max(0, Math.round(el.getBoundingClientRect().bottom)));
+    }
+  }, []);
 
   useLayoutEffect(() => {
     if (enterRafRef.current != null) {
@@ -33,31 +37,43 @@ export function PhilifeWriteBottomSheet() {
     if (!isOpen) {
       setEnterDraw(false);
       setIsExiting(false);
-      setHeaderLeaveOpen(false);
       return;
     }
     setIsExiting(false);
+    measure();
     setEnterDraw(false);
     enterRafRef.current = requestAnimationFrame(() => {
       enterRafRef.current = null;
       setEnterDraw(true);
+      measure();
     });
+    const onResize = () => measure();
+    const onScroll = () => measure();
+    window.addEventListener("resize", onResize);
+    window.addEventListener("scroll", onScroll, true);
+    const el = document.querySelector<HTMLElement>("[data-app-sticky-header]");
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => measure()) : null;
+    if (el && ro) ro.observe(el);
     return () => {
       if (enterRafRef.current != null) {
         cancelAnimationFrame(enterRafRef.current);
         enterRafRef.current = null;
       }
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("scroll", onScroll, true);
+      ro?.disconnect();
     };
-  }, [isOpen, openEpoch]);
+  }, [isOpen, measure, openEpoch]);
 
+  const lockBody = isOpen;
   useEffect(() => {
-    if (!isOpen) return;
+    if (!lockBody) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = prev;
     };
-  }, [isOpen]);
+  }, [lockBody]);
 
   const exitAndClose = useCallback((): Promise<void> => {
     if (exitInFlightRef.current) {
@@ -93,21 +109,6 @@ export function PhilifeWriteBottomSheet() {
     });
   }, [close]);
 
-  const onHeaderClose = useCallback(() => {
-    if (blockingDraft) {
-      setHeaderLeaveOpen(true);
-      return;
-    }
-    void exitAndClose();
-  }, [blockingDraft, exitAndClose]);
-
-  const handleHeaderLeaveConfirm = useCallback(() => {
-    setHeaderLeaveOpen(false);
-    void exitAndClose();
-  }, [exitAndClose]);
-
-  const handleHeaderLeaveCancel = useCallback(() => setHeaderLeaveOpen(false), []);
-
   if (!isOpen) return null;
 
   const panelOpen = enterDraw && !isExiting;
@@ -115,46 +116,25 @@ export function PhilifeWriteBottomSheet() {
     initialCategory.trim() === "meetup"
       ? t("philife_write_meetup_create_title")
       : t("community_compose_write");
+
   return (
-    <>
-      <MobileConfirmBottomSheet
-        open={headerLeaveOpen}
-        onCancel={handleHeaderLeaveCancel}
-        title={t("ui_write_exit_title")}
-        description={t("ui_write_exit_body")}
-        cancelLabel={t("ui_write_exit_continue")}
-        confirmLabel={t("ui_write_exit_confirm")}
-        confirmTone="primary"
-        onConfirm={handleHeaderLeaveConfirm}
-        zIndexClass="z-[65]"
-        ariaLabel={t("ui_write_exit_aria")}
-        interactionMode="blocking"
-      />
+    <div
+      className="pointer-events-none fixed left-0 right-0 z-[50] flex flex-col"
+      style={{ top: topOffsetPx, bottom: 0 }}
+      role="dialog"
+      aria-modal
+      aria-label={sheetTitle}
+    >
       <div
-        className="pointer-events-none fixed inset-0 z-[50] flex flex-col"
-        role="dialog"
-        aria-modal
-        aria-label={sheetTitle}
+        ref={panelRef}
+        className={`pointer-events-auto flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden border-t border-[#e4e6eb] bg-white text-[#050505] transition-transform duration-500 ease-[cubic-bezier(0.25,0.1,0.2,1)] ${
+          panelOpen ? "translate-y-0 shadow-[0_-1px_0_0_rgba(15,23,42,0.06)]" : "translate-y-full shadow-none"
+        }`}
       >
-        <div
-          ref={panelRef}
-          className={`pointer-events-auto flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-white pt-[var(--safe-top)] text-[#050505] transition-transform duration-500 ease-[cubic-bezier(0.25,0.1,0.2,1)] ${
-            panelOpen ? "translate-y-0 shadow-[0_-1px_0_0_rgba(15,23,42,0.06)]" : "translate-y-full shadow-none"
-          }`}
-        >
-          <div className="relative shrink-0 border-b border-[#e4e6eb] bg-white px-3 py-2.5 pr-11">
-            <h2 className="text-center text-[16px] font-bold leading-tight text-[#050505]">{sheetTitle}</h2>
-            <button
-              type="button"
-              onClick={onHeaderClose}
-              className="absolute right-2 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-ui-rect text-[#050505] transition hover:bg-[#f0f2f5] active:opacity-90"
-              aria-label={t("common_close")}
-            >
-              <span className="text-[22px] font-light leading-none" aria-hidden>
-                ×
-              </span>
-            </button>
-          </div>
+        <div className="shrink-0 border-b border-[#e4e6eb] bg-white px-3 py-2.5">
+          <h2 className="text-center text-[16px] font-bold leading-tight text-[#050505]">{sheetTitle}</h2>
+        </div>
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <PhilifeNeighborhoodWriteForm
             key={openEpoch}
             initialCategory={initialCategory}
@@ -165,6 +145,6 @@ export function PhilifeWriteBottomSheet() {
           />
         </div>
       </div>
-    </>
+    </div>
   );
 }

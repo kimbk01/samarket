@@ -205,16 +205,31 @@ export function resolveForegroundIncomingPresentation(
   }
 
   /**
-   * Android APK foreground — native pill이 실제로 떠 있을 때만 web 배너 억제.
-   * Realtime-only( FCM 지연/미도달 ) 경로에서는 web top-banner 로 수신 UI를 보장한다.
+   * Android APK foreground — Native pill SSOT.
+   * Realtime/poll may arrive before FCM `foreground_incoming_ui`; preempt web banner claim.
    */
+  if (
+    input.preferNativeAndroidForegroundIncoming &&
+    isAppForeground &&
+    visibilityState === "visible"
+  ) {
+    releaseIncomingCallSurface(session.id, "web_foreground_overlay", "android_foreground_preempt");
+    claimIncomingCallSurface(session.id, "native_foreground_pill", "android_foreground_preempt");
+    return {
+      sessionId: session.id,
+      session,
+      surface: "none",
+      reason: "android_native_pill_ssot",
+      shouldRender: false,
+      selectedRingingSessionId,
+    };
+  }
+
   if (
     input.preferNativeAndroidForegroundIncoming &&
     isAppForeground &&
     input.nativeForegroundIncomingCallId?.trim() === session.id
   ) {
-    releaseIncomingCallSurface(session.id, "web_foreground_overlay", "android_foreground_preempt");
-    claimIncomingCallSurface(session.id, "native_foreground_pill", "android_foreground_preempt");
     return {
       sessionId: session.id,
       session,

@@ -1,33 +1,19 @@
 import { resolveClientAuthenticatedUserIdForFetch } from "@/lib/auth/resolve-client-authenticated-user-id-for-fetch";
 import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
 import { DEFAULT_INCOMING_RING_TIMEOUT_SECONDS } from "@/lib/community-messenger/messenger-call-ring-timeout";
-import {
-  normalizeMessengerCallSoundSource,
-  resolveMessengerCallTonePlayback,
-  resolveMessengerCallToneUrlFromPlayback,
-  type MessengerCallSoundSource,
-} from "@/lib/community-messenger/messenger-call-sound-source";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
-import { syncMessengerCallSoundConfigToNativeFireAndForget } from "@/lib/push/native/messenger-call-sound-native-sync";
-
-export type { MessengerCallSoundSource };
-export { resolveMessengerCallTonePlayback };
 
 const AUTH_READY_WAIT_MS = 400;
 const UNAUTHORIZED_BACKOFF_MS = 30_000;
 
 export type MessengerCallSoundConfig = {
   voice_incoming_enabled: boolean;
-  voice_incoming_sound_source: MessengerCallSoundSource;
   voice_incoming_sound_url: string | null;
   voice_outgoing_ringback_enabled: boolean;
-  voice_outgoing_ringback_source: MessengerCallSoundSource;
   voice_outgoing_ringback_url: string | null;
   video_incoming_enabled: boolean;
-  video_incoming_sound_source: MessengerCallSoundSource;
   video_incoming_sound_url: string | null;
   video_outgoing_ringback_enabled: boolean;
-  video_outgoing_ringback_source: MessengerCallSoundSource;
   video_outgoing_ringback_url: string | null;
   missed_notification_enabled: boolean;
   missed_notification_sound_url: string | null;
@@ -48,16 +34,12 @@ export type MessengerCallSoundConfig = {
 export function createDefaultMessengerCallSoundConfig(): MessengerCallSoundConfig {
   return {
     voice_incoming_enabled: true,
-    voice_incoming_sound_source: "device_ringtone",
     voice_incoming_sound_url: null,
     voice_outgoing_ringback_enabled: true,
-    voice_outgoing_ringback_source: "device_ringtone",
     voice_outgoing_ringback_url: null,
     video_incoming_enabled: true,
-    video_incoming_sound_source: "device_ringtone",
     video_incoming_sound_url: null,
     video_outgoing_ringback_enabled: true,
-    video_outgoing_ringback_source: "device_ringtone",
     video_outgoing_ringback_url: null,
     missed_notification_enabled: true,
     missed_notification_sound_url: null,
@@ -131,7 +113,6 @@ export async function fetchMessengerCallSoundConfig(opts?: { force?: boolean }):
         if (genAtStart === loadGeneration) {
           loadedConfig = fallback;
         }
-        syncMessengerCallSoundConfigToNativeFireAndForget(fallback);
         return fallback;
       }
       if (isUnauthorizedBackoffActive()) {
@@ -148,7 +129,6 @@ export async function fetchMessengerCallSoundConfig(opts?: { force?: boolean }):
         if (genAtStart === loadGeneration) {
           loadedConfig = fallback;
         }
-        syncMessengerCallSoundConfigToNativeFireAndForget(fallback);
         return fallback;
       }
 
@@ -161,8 +141,6 @@ export async function fetchMessengerCallSoundConfig(opts?: { force?: boolean }):
           return loadedConfig !== undefined ? loadedConfig : null;
         }
         loadedConfig = j.config ?? null;
-        const nativeSyncConfig = loadedConfig ?? defaultMessengerCallSoundConfig();
-        syncMessengerCallSoundConfigToNativeFireAndForget(nativeSyncConfig);
         return loadedConfig;
       }
     } catch {
@@ -188,13 +166,29 @@ export function resetMessengerCallSoundConfigClientForTests(): void {
   unauthorizedUntil = 0;
 }
 
-/** admin_url 재생일 때만 URL — device/disabled 는 null (합성·OS 벨 폴백) */
+/** 관리자 커스텀 URL (없거나 비활성 시 null → 합성/기본으로 폴백) */
 export function resolveMessengerCallToneUrl(
   config: MessengerCallSoundConfig | null,
   mode: "incoming" | "outgoing",
   callKind: CommunityMessengerCallKind
 ): string | null {
-  return resolveMessengerCallToneUrlFromPlayback(resolveMessengerCallTonePlayback(config, mode, callKind));
+  const fallback = config?.default_fallback_sound_url?.trim() || null;
+  if (!config?.use_custom_sounds) return fallback;
+  const isVideo = callKind === "video";
+  if (mode === "incoming") {
+    if (isVideo) {
+      if (!config.video_incoming_enabled) return null;
+      return config.video_incoming_sound_url?.trim() || config.default_fallback_sound_url?.trim() || null;
+    }
+    if (!config.voice_incoming_enabled) return null;
+    return config.voice_incoming_sound_url?.trim() || config.default_fallback_sound_url?.trim() || null;
+  }
+  if (isVideo) {
+    if (!config.video_outgoing_ringback_enabled) return null;
+    return config.video_outgoing_ringback_url?.trim() || config.default_fallback_sound_url?.trim() || null;
+  }
+  if (!config.voice_outgoing_ringback_enabled) return null;
+  return config.voice_outgoing_ringback_url?.trim() || config.default_fallback_sound_url?.trim() || null;
 }
 
 /** 부재 알림 원샷 — 비활성·URL 없음이면 null (호출부에서 기본 알림음으로 폴백) */

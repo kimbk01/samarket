@@ -149,16 +149,13 @@ export function CallScreenShell({
         ? `fixed inset-x-0 top-0 ${CALL_OVERLAY_PORTAL_Z} flex max-h-[min(520px,92dvh)] min-h-0 flex-col overflow-hidden pt-[max(14px,calc(var(--safe-top)+8px))] ${surfaceClassName}`
         : `flex h-[var(--call-viewport-height,100dvh)] max-h-[var(--call-viewport-height,100dvh)] min-h-0 flex-col overflow-hidden ${surfaceClassName}`;
   const warningClass = networkWarningClassName?.trim() ?? "";
-  /** overlay/dock-top 는 `fixed` 유지 — `relative` 와 동시 적용 시 Tailwind position 충돌로 풀스크린 포털 깨짐 */
-  const networkWarningAnchorClass =
-    variant === "overlay" || variant === "dock-top" ? "" : "relative";
   const shell = (
     <div
       ref={shellRef}
       data-messenger-shell
       data-call-screen-shell
       data-call-network-warning={networkQualityLevel ?? undefined}
-      className={`${networkWarningAnchorClass} ${base} ${warningClass} ${className}`.trim()}
+      className={`relative ${base} ${warningClass} ${className}`.trim()}
     >
       {children}
     </div>

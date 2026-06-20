@@ -20,10 +20,6 @@ export type NativeIncomingCallPlugin = {
   }>;
   markCallConsumed(options: { sessionId: string; reason?: string }): Promise<void>;
   stopIncomingRingtone(options: { sessionId?: string }): Promise<void>;
-  startIncomingRingtone(options: {
-    sessionId: string;
-    callType?: "voice" | "video";
-  }): Promise<void>;
   isCallConsumed(options: {
     sessionId: string;
   }): Promise<{ consumed: boolean; reason?: string }>;
@@ -34,14 +30,6 @@ export type NativeIncomingCallPlugin = {
     items: Array<{ sessionId: string; status?: string; at?: number }>;
   }>;
   getForegroundIncomingCallId(): Promise<{ callId?: string | null }>;
-  syncCallSoundConfig(options: {
-    voiceIncomingEnabled: boolean;
-    voiceIncomingSource: "device_ringtone" | "admin_custom";
-    voiceIncomingUrl?: string | null;
-    videoIncomingEnabled: boolean;
-    videoIncomingSource: "device_ringtone" | "admin_custom";
-    videoIncomingUrl?: string | null;
-  }): Promise<void>;
 };
 
 let pluginPromise: Promise<NativeIncomingCallPlugin | null> | null = null;

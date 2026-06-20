@@ -214,10 +214,10 @@ describe("foreground-incoming-presenter", () => {
     });
 
     expect(decision.shouldRender).toBe(false);
-    expect(decision.reason).toBe("native_foreground_primary");
+    expect(decision.reason).toBe("android_native_pill_ssot");
   });
 
-  it("shows web banner on Android APK foreground when native pill is not visible yet", () => {
+  it("preempts web banner on Android APK foreground before native pill visible event", () => {
     const incoming = ringingSession("call-1");
     resetIncomingCallSurfaceOwner();
     const decision = resolveForegroundIncomingPresentation({
@@ -233,9 +233,9 @@ describe("foreground-incoming-presenter", () => {
       nativeForegroundIncomingCallId: null,
     });
 
-    expect(decision.shouldRender).toBe(true);
-    expect(decision.reason).toBe("ok");
-    expect(decision.surface).toBe("top-banner");
+    expect(decision.shouldRender).toBe(false);
+    expect(decision.reason).toBe("android_native_pill_ssot");
+    expect(getIncomingCallSurfaceOwner("call-1")).toBe("native_foreground_pill");
   });
 
   it("allows web banner on browser foreground when native pill is absent", () => {

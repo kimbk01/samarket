@@ -98,9 +98,6 @@
     "verify:stores-home-hub-contract": "node scripts/verify-stores-home-hub-contract.cjs",
     "verify:main-bottom-nav-fab-sector-contract": "node scripts/verify-main-bottom-nav-fab-sector-contract.mjs",
     "verify:cm-room-keyboard-layout-contract": "node scripts/verify-cm-room-keyboard-layout-contract.mjs",
-    "verify:philife-write-sheet-keyboard-contract": "node scripts/verify-philife-write-sheet-keyboard-contract.mjs",
-    "verify:vercel-deploy-excludes": "node scripts/verify-vercel-deploy-excludes.mjs",
-    "verify:cm-room-entry-scroll-contract": "node scripts/verify-cm-room-entry-scroll-contract.mjs",
     "verify:badge-target-policy": "node scripts/verify-badge-target-policy.mjs",
     "verify:bottom-nav-chat-surface": "node scripts/verify-bottom-nav-chat-surface-post-migrate.mjs",
     "verify:delivery-dial-navigation-contract": "node scripts/verify-delivery-dial-navigation-contract.cjs",
@@ -187,7 +184,6 @@
     "sql:copy:meeting-chat-rooms": "node scripts/copy-sql-clipboard.mjs supabase/migrations/20260331150000_meeting_chat_rooms.sql",
     "sql:copy:meeting-chat-rooms-rls": "node scripts/copy-sql-clipboard.mjs supabase/migrations/20260331160000_meeting_chat_private_rls.sql",
     "sql:copy:r2-d1-delivery-catchup": "node scripts/copy-sql-clipboard.mjs supabase/scripts/r2-d1-store-order-deliveries-schema-catchup.sql",
-    "sql:copy:messenger-call-sound-source": "node scripts/copy-sql-clipboard.mjs supabase/migrations/20260922120000_messenger_call_sound_source.sql",
     "apply:r2-d1-delivery-schema": "node scripts/apply-r2-d1-delivery-schema-catchup.mjs",
     "prepare": "node scripts/install-git-hooks.mjs"
   },

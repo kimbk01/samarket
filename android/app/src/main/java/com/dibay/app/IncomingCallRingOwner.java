@@ -14,10 +14,6 @@ public final class IncomingCallRingOwner {
   private IncomingCallRingOwner() {}
 
   public static boolean start(Context context, String callId) {
-    return start(context, callId, null);
-  }
-
-  public static boolean start(Context context, String callId, String callType) {
     if (context == null || callId == null || callId.trim().isEmpty()) return false;
     Context app = context.getApplicationContext();
     String sid = callId.trim();
@@ -30,7 +26,7 @@ public final class IncomingCallRingOwner {
       return false;
     }
     stop(app, null);
-    DibayForegroundRingtone.start(app, sid, callType);
+    DibayForegroundRingtone.start(app, sid);
     activeCallId = sid;
     return true;
   }

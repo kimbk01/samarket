@@ -24,9 +24,6 @@ export type CmScrollOwnerReason =
 
 type RoomEntryScrollState = {
   hydrationPass: number;
-  /** 1차 bottom scroll 완료 — tail settle 트리거 허용 */
-  entryInitialScrollDone: boolean;
-  /** tail·composer 준비 후 terminal — virtual upgrade·chrome keep-bottom 허용 */
   entryScrollSettled: boolean;
   layoutSettling: boolean;
   activeOwner: CmScrollOwnerReason | null;
@@ -41,7 +38,6 @@ function getOrCreate(roomId: string): RoomEntryScrollState {
   if (!st) {
     st = {
       hydrationPass: 0,
-      entryInitialScrollDone: false,
       entryScrollSettled: false,
       layoutSettling: true,
       activeOwner: null,
@@ -70,24 +66,6 @@ export function getMessengerRoomEntryHydrationPass(roomId: string): number {
 
 export function isMessengerRoomEntryScrollSettled(roomId: string): boolean {
   return getOrCreate(roomId).entryScrollSettled;
-}
-
-export function isMessengerRoomEntryInitialScrollDone(roomId: string): boolean {
-  return getOrCreate(roomId).entryInitialScrollDone;
-}
-
-export function markMessengerRoomEntryInitialScrollDone(
-  roomId: string,
-  reason: CmScrollOwnerReason
-): void {
-  const st = getOrCreate(roomId);
-  if (st.entryInitialScrollDone) return;
-  st.entryInitialScrollDone = true;
-  logCmRoomEntryInstrumentation(roomId, "cm_entry_initial_scroll_done", {
-    reason,
-    hydrationPass: st.hydrationPass,
-    entryScrollSettled: st.entryScrollSettled,
-  });
 }
 
 export function isMessengerRoomLayoutSettling(roomId: string): boolean {
@@ -128,31 +106,18 @@ export function canRunMessengerRoomScrollOwner(
   if (!rid) return true;
   const st = getOrCreate(rid);
   if (reason === "own_message_append" || reason === "explicit") return true;
-  if (reason === "push_entry_tail_settle" || reason === "entry_tail_settle") {
-    if (!st.entryInitialScrollDone) {
-      logCmRoomEntryInstrumentation(roomId, "cm_scroll_owner_skipped", {
-        reason,
-        hydrationPass: st.hydrationPass,
-        entryInitialScrollDone: st.entryInitialScrollDone,
-        entryScrollSettled: st.entryScrollSettled,
-        layoutSettling: st.layoutSettling,
-        activeOwner: st.activeOwner,
-      });
-      return false;
-    }
-    return true;
-  }
   if (
     reason === "viewport_resize_restore" ||
     reason === "viewport_resize_keep_bottom" ||
     reason === "keyboard_resize_keep_bottom" ||
-    reason === "composer_resize_keep_bottom"
+    reason === "composer_resize_keep_bottom" ||
+    reason === "push_entry_tail_settle" ||
+    reason === "entry_tail_settle"
   ) {
     if (!st.entryScrollSettled) {
       logCmRoomEntryInstrumentation(roomId, "cm_scroll_owner_skipped", {
         reason,
         hydrationPass: st.hydrationPass,
-        entryInitialScrollDone: st.entryInitialScrollDone,
         entryScrollSettled: st.entryScrollSettled,
         layoutSettling: st.layoutSettling,
         activeOwner: st.activeOwner,
@@ -217,7 +182,6 @@ export function markMessengerRoomScrollOwnerRun(
 
 export function markMessengerRoomEntryScrollSettled(roomId: string, reason: CmScrollOwnerReason): void {
   const st = getOrCreate(roomId);
-  st.entryInitialScrollDone = true;
   st.entryScrollSettled = true;
   st.activeOwner = null;
   logCmRoomEntryInstrumentation(roomId, "cm_scroll_owner_settled", {
