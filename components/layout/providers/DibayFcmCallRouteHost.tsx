@@ -28,6 +28,11 @@ import {
 } from "@/lib/community-messenger/call-accept-hydrate-peer";
 import { primeCommunityMessengerCallNavigationSeed } from "@/lib/community-messenger/call-session-navigation-seed";
 import {
+  isNativeCalleeAcceptCompletedRoute,
+  isNativeCalleeAcceptOwnedRoute,
+  readNativeCalleeAcceptRouteParams,
+} from "@/lib/community-messenger/native-callee-accept-entry";
+import {
   claimIncomingCallSurface,
   isRingingOnlyIncomingCallRoute,
 } from "@/lib/community-messenger/incoming-call-surface-owner";
@@ -44,12 +49,18 @@ function isCalleeAcceptCallRoute(path: string): boolean {
   return path.includes("action=accept") || path.includes("callAction=accept");
 }
 
+function readAcceptRouteParamsFromPath(path: string) {
+  const qIdx = path.indexOf("?");
+  const search = qIdx >= 0 ? path.slice(qIdx + 1) : "";
+  return readNativeCalleeAcceptRouteParams(new URLSearchParams(search));
+}
+
 function isNativeAcceptPatchCompleteRoute(path: string): boolean {
-  return path.includes("nativeAccept=1");
+  return isNativeCalleeAcceptCompletedRoute(readAcceptRouteParamsFromPath(path));
 }
 
 function isNativeAcceptOwnedRoute(path: string): boolean {
-  return path.includes("nativeAccept=1") || path.includes("nativePrep=1");
+  return isNativeCalleeAcceptOwnedRoute(readAcceptRouteParamsFromPath(path));
 }
 
 function resolveNativeAcceptSource(path: string): "native_notification_accept" | "native_activity_accept" {

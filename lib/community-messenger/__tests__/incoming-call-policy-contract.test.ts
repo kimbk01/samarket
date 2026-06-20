@@ -50,8 +50,10 @@ describe("incoming-call policy contracts", () => {
     expect(main).toContain("injectAcceptRouteViaJs");
     expect(main).toContain("webview_call_route_injected");
     const client = read("components/community-messenger/CommunityMessengerCallClient.tsx");
-    expect(client).toContain("nativeAcceptRoute && requestedActionRef.current === \"accept\"");
-    expect(client).toContain("requestedAction === \"accept\" && nativeAcceptRoute");
+    expect(client).toContain("nativePrepRoute && requestedActionRef.current === \"accept\"");
+    expect(client).toContain("nativeAcceptCompletedRoute && requestedActionRef.current === \"accept\"");
+    expect(client).toContain("requestedAction === \"accept\" && nativePrepRoute");
+    expect(client).toContain("requestedAction === \"accept\" && nativeAcceptCompletedRoute");
   });
 
   it("CallClient blocks callee ringing direct entry without action=accept", () => {
@@ -64,11 +66,15 @@ describe("incoming-call policy contracts", () => {
 
   it("CallClient does not re-run accept PATCH on native-owned accept routes", () => {
     const src = read("components/community-messenger/CommunityMessengerCallClient.tsx");
-    expect(src).toContain("nativeAcceptRoute && requestedActionRef.current === \"accept\"");
-    expect(src).toContain("requestedAction === \"accept\" && nativeAcceptRoute");
+    expect(src).toContain("nativePrepRoute && requestedActionRef.current === \"accept\"");
+    expect(src).toContain("nativeAcceptCompletedRoute && requestedActionRef.current === \"accept\"");
+    expect(src).toContain("requestedAction === \"accept\" && nativePrepRoute");
+    expect(src).toContain("requestedAction === \"accept\" && nativeAcceptCompletedRoute");
     expect(src).toContain("`nativePrep=1` 은 native PATCH 진행 중");
     expect(src).toContain("일반 `action=accept` 는 아직 PATCH 가 필요");
-    expect(src).toContain("accept_route_active_seed");
+    expect(src).toContain("accept_route_prep_enter");
+    expect(src).toContain("accept_route_completed_enter");
+    expect(src).toContain("join_deferred_until_server_active");
     expect(src).toContain("callee_accept_video_route_seed");
     expect(src).toContain("calleeAcceptBridgeLayout && effectiveDirectPhase === \"ringing\"");
     expect(src).toContain("await applyCallAudioRouteForSession");

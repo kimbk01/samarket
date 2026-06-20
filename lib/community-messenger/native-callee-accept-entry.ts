@@ -2,6 +2,7 @@
  * 수신 수락(`?action=accept`) — 벨 UI·generic auto-join 과 충돌하지 않게 하는 단일 계약.
  *
  * nativePrep=1 — native FGS/알림 정리 완료 + native PATCH 진행 중, Web 은 통화 화면만 유지.
+ * nativeAccept=1 — native PATCH 완료, Web 은 서버 confirmed active 후 join.
  */
 
 const NATIVE_CALLEE_ACCEPT_PENDING_KEY = "cm_native_callee_accept_pending";
@@ -24,14 +25,29 @@ export function readNativeCalleeAcceptRouteParams(
   };
 }
 
-/** native prep/accept route — Web 은 수신 벨 UI 를 숨기고 통화 화면을 유지 */
-export function isNativeCalleePrepRoute(params: NativeCalleeAcceptRouteParams): boolean {
-  return params.action === "accept" && (params.nativePrep === "1" || params.nativeAccept === "1");
+/** nativePrep=1 only — PATCH 진행 중, accept completed 아님 */
+export function isNativeCalleePrepOnlyRoute(params: NativeCalleeAcceptRouteParams): boolean {
+  return params.action === "accept" && params.nativePrep === "1" && params.nativeAccept !== "1";
 }
 
-/** @deprecated isNativeCalleePrepRoute */
+/** nativeAccept=1 — native PATCH 완료 */
+export function isNativeCalleeAcceptCompletedRoute(params: NativeCalleeAcceptRouteParams): boolean {
+  return params.action === "accept" && params.nativeAccept === "1";
+}
+
+/** prep 또는 completed — UI suppress / RouteHost owned route */
+export function isNativeCalleeAcceptOwnedRoute(params: NativeCalleeAcceptRouteParams): boolean {
+  return isNativeCalleePrepOnlyRoute(params) || isNativeCalleeAcceptCompletedRoute(params);
+}
+
+/** @deprecated isNativeCalleeAcceptOwnedRoute */
+export function isNativeCalleePrepRoute(params: NativeCalleeAcceptRouteParams): boolean {
+  return isNativeCalleeAcceptOwnedRoute(params);
+}
+
+/** @deprecated isNativeCalleeAcceptCompletedRoute */
 export function isNativeCalleeAcceptRoute(params: NativeCalleeAcceptRouteParams): boolean {
-  return isNativeCalleePrepRoute(params);
+  return isNativeCalleeAcceptCompletedRoute(params);
 }
 
 export function isAnyCalleeAcceptRoute(params: NativeCalleeAcceptRouteParams): boolean {
@@ -122,7 +138,13 @@ export function shouldDeferCalleeGenericAutoJoin(input: {
 export function readNativeCalleeAcceptSessionIdFromLocation(): string | null {
   if (typeof window === "undefined") return null;
   const params = new URLSearchParams(window.location.search);
-  if (!isNativeCalleePrepRoute({ action: params.get("action"), nativeAccept: params.get("nativeAccept"), nativePrep: params.get("nativePrep") })) {
+  if (
+    !isNativeCalleeAcceptOwnedRoute({
+      action: params.get("action"),
+      nativeAccept: params.get("nativeAccept"),
+      nativePrep: params.get("nativePrep"),
+    })
+  ) {
     return null;
   }
   const match = window.location.pathname.match(/^\/community-messenger\/calls\/([^/?#]+)/);

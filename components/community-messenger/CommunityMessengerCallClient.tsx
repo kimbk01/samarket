@@ -254,10 +254,22 @@ import {
 import { bestEffortKeepaliveCallSessionTeardown, shouldSkipRingingCallSessionPageLeaveTeardown } from "@/lib/community-messenger/call-page-leave-patch";
 import {
   clearNativeCalleeAcceptPending,
+  isNativeCalleeAcceptCompletedRoute,
+  isNativeCalleeAcceptOwnedRoute,
   isNativeCalleeAcceptPendingForSession,
-  isNativeCalleeAcceptRoute,
+  isNativeCalleePrepOnlyRoute,
   readNativeCalleeAcceptRouteParams,
 } from "@/lib/community-messenger/native-callee-accept-entry";
+import {
+  ACCEPT_RACE_JOIN_RETRY_MAX,
+  canStartCalleeJoin,
+  clearServerActiveConfirmed,
+  isOptimisticActiveCallSessionSeed,
+  markNativeAcceptCompletedEntered,
+  markServerActiveConfirmed,
+  shouldAutoEndAfterJoinFailure,
+  waitForActiveCallSessionAfterNativeAccept,
+} from "@/lib/community-messenger/native-call-accept-join";
 import {
   deriveDibayCallOrchestratorState,
   logDibayCall,
@@ -580,7 +592,10 @@ export function CommunityMessengerCallClient({
   const searchParams = useSearchParams();
   const requestedAction = searchParams.get("action");
   const incomingPreviewRoute = isIncomingCallPreviewRoute(searchParams);
-  const nativeAcceptRoute = isNativeCalleeAcceptRoute(readNativeCalleeAcceptRouteParams(searchParams));
+  const nativeAcceptRouteParams = readNativeCalleeAcceptRouteParams(searchParams);
+  const nativePrepRoute = isNativeCalleePrepOnlyRoute(nativeAcceptRouteParams);
+  const nativeAcceptCompletedRoute = isNativeCalleeAcceptCompletedRoute(nativeAcceptRouteParams);
+  const nativeAcceptOwnedRoute = isNativeCalleeAcceptOwnedRoute(nativeAcceptRouteParams);
   const [initialCallHydration] = useState(() => {
     if (initialSession != null) {
       return { session: initialSession, loading: false };
@@ -1106,7 +1121,14 @@ export function CommunityMessengerCallClient({
   const lastSilentRefreshAtRef = useRef<number>(0);
   const sessionSilentRefreshBackoffUntilRef = useRef<number>(0);
   const autoJoinBlockedRef = useRef(false);
+  const acceptRaceJoinRetryRef = useRef(0);
   const joinGenerationRef = useRef(0);
+  const nativePrepRouteRef = useRef(nativePrepRoute);
+  nativePrepRouteRef.current = nativePrepRoute;
+  const nativeAcceptCompletedRouteRef = useRef(nativeAcceptCompletedRoute);
+  nativeAcceptCompletedRouteRef.current = nativeAcceptCompletedRoute;
+  const prevNativeAcceptCompletedRouteRef = useRef(false);
+  const [calleeJoinGateVersion, setCalleeJoinGateVersion] = useState(0);
   /** 수락·거절·종료 PATCH 중복 클릭 방지 */
   const directCallPatchInFlightRef = useRef(false);
   /** silent 세션 GET 이 동시에 여러 번 호출될 때(폴링+Realtime) 한 번의 네트워크로 합친다 */
@@ -1185,18 +1207,18 @@ export function CommunityMessengerCallClient({
   }, [sessionId]);
 
   useLayoutEffect(() => {
-    if (requestedAction !== "accept" && !nativeAcceptRoute) return;
+    if (requestedAction !== "accept" && !nativeAcceptOwnedRoute) return;
     const s = session;
     if (!s || s.id !== sessionId || s.isMineInitiator) return;
     if (s.status === "ringing") {
       setCalleeVideoConnectingShell(true);
       return;
     }
-    if (nativeAcceptRoute && s.status === "active" && !joinedRef.current) {
+    if (nativeAcceptOwnedRoute && s.status === "active" && !joinedRef.current) {
       setCalleeVideoConnectingShell(true);
     }
   }, [
-    nativeAcceptRoute,
+    nativeAcceptOwnedRoute,
     requestedAction,
     sessionId,
     session?.id,
@@ -1227,6 +1249,8 @@ export function CommunityMessengerCallClient({
     hadRemoteVideoForLayoutRef.current = false;
     refreshSilentInFlightRef.current = null;
     refreshTerminalSilentInFlightRef.current = null;
+    clearServerActiveConfirmed(sessionId);
+    acceptRaceJoinRetryRef.current = 0;
   }, [sessionId]);
 
   useEffect(() => {
@@ -1274,7 +1298,7 @@ export function CommunityMessengerCallClient({
   useEffect(() => {
     const s = session;
     if (!s?.id || s.isMineInitiator || s.callKind !== "video") return;
-    const onAcceptPath = requestedAction === "accept" || nativeAcceptRoute;
+    const onAcceptPath = requestedAction === "accept" || nativeAcceptOwnedRoute;
     if (!onAcceptPath) return;
     if (s.status !== "active" && s.status !== "ringing") return;
     const key = `${s.id}:callee_accept_video_route_seed`;
@@ -1283,7 +1307,7 @@ export function CommunityMessengerCallClient({
     void applyCallAudioRouteForSession(s, true, "callee_accept_video_route_seed");
   }, [
     applyCallAudioRouteForSession,
-    nativeAcceptRoute,
+    nativeAcceptOwnedRoute,
     requestedAction,
     session?.callKind,
     session?.id,
@@ -1498,6 +1522,90 @@ export function CommunityMessengerCallClient({
     },
     [sessionId]
   );
+
+  const bumpCalleeJoinGate = useCallback(() => {
+    setCalleeJoinGateVersion((v) => v + 1);
+  }, []);
+
+  const maybeConfirmServerActiveFromSession = useCallback(
+    (next: CommunityMessengerCallSession | null) => {
+      if (!next || next.status !== "active") return;
+      if (isOptimisticActiveCallSessionSeed(next)) return;
+      markServerActiveConfirmed(next.id);
+      bumpCalleeJoinGate();
+    },
+    [bumpCalleeJoinGate]
+  );
+
+  const handleNativePrepEnter = useCallback(async (): Promise<CommunityMessengerCallSession | null> => {
+    const s = sessionRef.current;
+    if (!s || s.isMineInitiator) return null;
+    logDibayCall("accept_route_prep_enter", { sessionId: s.id, source: "call_client" });
+    console.info("[call-flow] accept_route_prep_enter", { sessionId: s.id });
+    setCalleeVideoConnectingShell(true);
+    if (!isDibayCallConsumed(s.id)) {
+      applyIncomingCallConsumedSideEffects(s.id, "accepted", "call_client_prep_route");
+    }
+    dibayIncomingLaneStopRing("accept_prep_route", s.id);
+    dismissAllIncomingCallNotificationsFireAndForget(s.id);
+    if (s.callKind === "video") {
+      const key = `${s.id}:native_prep_route`;
+      if (!callAudioRouteSeedRef.current.has(key)) {
+        callAudioRouteSeedRef.current.add(key);
+        void applyCallAudioRouteForSession(s, true, "native_prep_route");
+      }
+    }
+    const refreshed = await refreshSession(true);
+    if (refreshed?.status === "ringing") {
+      return refreshed;
+    }
+    if (refreshed?.status === "active") {
+      clearNativeCalleeAcceptPending(s.id);
+      runIncomingCallCleanup({ sessionId: s.id, reason: "accept_prep_refresh_active", stopRingtone: false });
+    }
+    return refreshed;
+  }, [applyCallAudioRouteForSession, refreshSession]);
+
+  const finalizeNativeAcceptCompletedSession = useCallback(async (): Promise<CommunityMessengerCallSession | null> => {
+    const s = sessionRef.current;
+    if (!s || s.isMineInitiator) return null;
+    markNativeAcceptCompletedEntered(s.id);
+    logDibayCall("accept_route_completed_enter", { sessionId: s.id, source: "call_client" });
+    console.info("[call-flow] accept_route_completed_enter", { sessionId: s.id });
+    setCalleeVideoConnectingShell(true);
+    setBusy("accept");
+    if (!isDibayCallConsumed(s.id)) {
+      applyIncomingCallConsumedSideEffects(s.id, "accepted", "call_client_completed_route");
+    }
+    logDibayCall("accept_success", { sessionId: s.id, source: "call_client_completed_route" });
+    dibayIncomingLaneStopRing("accept_completed_route", s.id);
+    dismissAllIncomingCallNotificationsFireAndForget(s.id);
+    try {
+      const active = await waitForActiveCallSessionAfterNativeAccept({
+        refreshSession,
+        readSession: () => sessionRef.current,
+        onRefreshStart: (attempt) => {
+          console.info("[call-flow] refresh_after_accept_start", { sessionId: s.id, attempt });
+        },
+        onRefreshResult: (attempt, status) => {
+          console.info("[call-flow] refresh_after_accept_result", { sessionId: s.id, attempt, status });
+        },
+      });
+      if (active) {
+        setSession(active);
+        bumpCalleeJoinGate();
+        clearNativeCalleeAcceptPending(s.id);
+        runIncomingCallCleanup({ sessionId: s.id, reason: "accept_completed_active", stopRingtone: false });
+        if (active.callKind === "video") {
+          void applyCallAudioRouteForSession(active, true, "native_accept_completed_active");
+        }
+      }
+      return active;
+    } finally {
+      setBusy(null);
+      releaseIncomingCallAccept(s.id);
+    }
+  }, [applyCallAudioRouteForSession, bumpCalleeJoinGate, refreshSession]);
 
   useEffect(() => {
     void fetchMessengerCallSoundConfig();
@@ -2490,6 +2598,26 @@ export function CommunityMessengerCallClient({
        * (링톤만 허용 — `call-feedback-sound` / 전역 벨)
        */
       if (targetSession.status !== "active") return;
+      if (!targetSession.isMineInitiator) {
+        const joinGuard = canStartCalleeJoin({
+          session: targetSession,
+          isCallee: true,
+        });
+        if (!joinGuard.ok) {
+          if (joinGuard.reason === "deferred") {
+            console.info("[call-flow] join_deferred_until_server_active", {
+              sessionId: targetSession.id,
+            });
+            logDibayCall("join_deferred_until_server_active", { sessionId: targetSession.id });
+            void refreshSession(true).then(maybeConfirmServerActiveFromSession);
+          }
+          return;
+        }
+        console.info("[call-flow] server_active_confirmed_join_start", {
+          sessionId: targetSession.id,
+        });
+        logDibayCall("server_active_confirmed_join_start", { sessionId: targetSession.id });
+      }
       /** 통화 화면은 유지(ringing) — 즉시 PATCH 종료하면 발신 진입·종료 버튼이 깨진다. 안내만 하고 Agora 조인은 생략 */
       if (isCommunityMessengerMediaBlockedByInsecureOrigin()) {
         autoJoinBlockedRef.current = true;
@@ -2912,6 +3040,50 @@ export function CommunityMessengerCallClient({
             attempts: joinErrors.length,
           });
           logDibayCall("join_fail", { sessionId: targetSession.id, reason, attempts: joinErrors.length });
+          const joinRetryable = isAgoraJoinRetryableError(error);
+          let serverStatusAfterRefresh: CommunityMessengerCallSession["status"] | null = null;
+          try {
+            const refreshed = await refreshSession(true);
+            serverStatusAfterRefresh = refreshed?.status ?? sessionRef.current?.status ?? null;
+            maybeConfirmServerActiveFromSession(refreshed);
+          } catch {
+            serverStatusAfterRefresh = sessionRef.current?.status ?? null;
+          }
+          const shouldEnd = shouldAutoEndAfterJoinFailure({
+            sessionId: targetSession.id,
+            nativePrepRoute: nativePrepRouteRef.current,
+            nativeAcceptCompletedRoute: nativeAcceptCompletedRouteRef.current,
+            acceptPatchInFlight: directCallPatchInFlightRef.current,
+            busyAccept: busyRef.current === "accept",
+            joinRetryCount: acceptRaceJoinRetryRef.current,
+            serverStatusAfterRefresh,
+            joinRetryable,
+          });
+          if (!shouldEnd) {
+            acceptRaceJoinRetryRef.current += 1;
+            if (
+              acceptRaceJoinRetryRef.current <= ACCEPT_RACE_JOIN_RETRY_MAX &&
+              joinRetryable &&
+              sessionRef.current?.status === "active" &&
+              canStartCalleeJoin({
+                session: sessionRef.current,
+                isCallee: !targetSession.isMineInitiator,
+              }).ok
+            ) {
+              window.setTimeout(() => {
+                const retrySession = sessionRef.current;
+                if (
+                  retrySession?.id === targetSession.id &&
+                  retrySession.status === "active" &&
+                  !joinedRef.current &&
+                  !joiningRef.current
+                ) {
+                  void joinCall(retrySession);
+                }
+              }, 320 * acceptRaceJoinRetryRef.current);
+            }
+            return;
+          }
           const active = sessionRef.current;
           if (
             active?.id === targetSession.id &&
@@ -2985,6 +3157,7 @@ export function CommunityMessengerCallClient({
       clearPeerLeftEndTimer,
       desiredSpeakerForSession,
       fetchConnection,
+      maybeConfirmServerActiveFromSession,
       refreshSession,
       scheduleSilentRefresh,
     ]
@@ -3001,37 +3174,11 @@ export function CommunityMessengerCallClient({
        * `nativePrep=1` 은 native PATCH 진행 중, `nativeAccept=1` 은 native PATCH 완료 상태다.
        * 일반 `action=accept` 는 아직 PATCH 가 필요할 수 있으므로 아래 gateway 경로로 계속 내려간다.
        */
-      if (nativeAcceptRoute && requestedActionRef.current === "accept") {
-        if (!isDibayCallConsumed(s.id)) {
-          applyIncomingCallConsumedSideEffects(s.id, "accepted", "call_client_accept_route");
-        }
-        logDibayCall("accept_success", { sessionId: s.id, source: "call_client_accept_route" });
-        setCalleeVideoConnectingShell(true);
-        setBusy("accept");
-        dibayIncomingLaneStopRing("accept_route_entered", s.id);
-        dismissAllIncomingCallNotificationsFireAndForget(s.id);
-        try {
-          if (s.status === "active") {
-            clearNativeCalleeAcceptPending(s.id);
-            runIncomingCallCleanup({ sessionId: s.id, reason: "accept_route_active_seed", stopRingtone: false });
-            if (s.callKind === "video") {
-              void applyCallAudioRouteForSession(s, true, "native_accept_active_seed");
-            }
-            return s;
-          }
-          const refreshed = await refreshSession(true);
-          if (refreshed?.status === "active") {
-            clearNativeCalleeAcceptPending(s.id);
-            runIncomingCallCleanup({ sessionId: s.id, reason: "accept_route_active", stopRingtone: false });
-            if (refreshed.callKind === "video") {
-              void applyCallAudioRouteForSession(refreshed, true, "native_accept_active");
-            }
-          }
-          return refreshed;
-        } finally {
-          setBusy(null);
-          releaseIncomingCallAccept(s.id);
-        }
+      if (nativePrepRoute && requestedActionRef.current === "accept") {
+        return handleNativePrepEnter();
+      }
+      if (nativeAcceptCompletedRoute && requestedActionRef.current === "accept") {
+        return finalizeNativeAcceptCompletedSession();
       }
       if (isDibayCallConsumed(s.id)) {
         dibayIncomingLaneStopRing("accept_already_consumed", s.id);
@@ -3053,29 +3200,6 @@ export function CommunityMessengerCallClient({
           void applyCallAudioRouteForSession(s, true, "accept_already_active");
         }
         return s;
-      }
-      if (nativeAcceptRoute && s.status === "ringing") {
-        if (!isDibayCallConsumed(s.id)) {
-          applyIncomingCallConsumedSideEffects(s.id, "accepted", "native_accept_route");
-        }
-        logDibayCall("accept_success", { sessionId: s.id, source: "native_accept_route" });
-        setCalleeVideoConnectingShell(true);
-        setBusy("accept");
-        dibayIncomingLaneStopRing("native_accept_route", s.id);
-        dismissAllIncomingCallNotificationsFireAndForget(s.id);
-        try {
-          const refreshed = await refreshSession(true);
-          if (refreshed?.status === "active") {
-            clearNativeCalleeAcceptPending(s.id);
-            runIncomingCallCleanup({ sessionId: s.id, reason: "native_accept_active", stopRingtone: false });
-            if (refreshed.callKind === "video") {
-              void applyCallAudioRouteForSession(refreshed, true, "native_accept_active");
-            }
-          }
-          return refreshed;
-        } finally {
-          setBusy(null);
-        }
       }
       logCallFlow("call_accept_pressed", { sessionId: s.id, source: "call_client" });
       console.info("[call-flow] incoming_accept_tap", {
@@ -3149,6 +3273,8 @@ export function CommunityMessengerCallClient({
         const refreshed = await refreshSession(true);
         if (refreshed) {
           setSession(refreshed);
+          markServerActiveConfirmed(s.id);
+          bumpCalleeJoinGate();
           clearNativeCalleeAcceptPending(s.id);
           runIncomingCallCleanup({ sessionId: s.id, reason: "accept_ok", stopRingtone: false });
           if (refreshed.status === "active" && refreshed.callKind === "video") {
@@ -3249,7 +3375,17 @@ export function CommunityMessengerCallClient({
         releaseIncomingCallAccept(s.id);
       }
     }
-  }, [applyCallAudioRouteForSession, nativeAcceptRoute, refreshSession, router, t]);
+  }, [
+    applyCallAudioRouteForSession,
+    bumpCalleeJoinGate,
+    finalizeNativeAcceptCompletedSession,
+    handleNativePrepEnter,
+    nativeAcceptCompletedRoute,
+    nativePrepRoute,
+    refreshSession,
+    router,
+    t,
+  ]);
 
   const applyTerminalSessionAfterPatch = useCallback(
     (
@@ -3443,7 +3579,7 @@ export function CommunityMessengerCallClient({
         setSession(loaded);
         sessionRef.current = loaded;
         setLoading(false);
-        if (requestedAction === "accept" || nativeAcceptRoute) {
+        if (requestedAction === "accept" || nativeAcceptOwnedRoute) {
           setCalleeVideoConnectingShell(true);
           if (loaded.callKind === "video") {
             const key = `${sessionId}:hydrate_accept_active_video_route`;
@@ -3455,6 +3591,7 @@ export function CommunityMessengerCallClient({
         }
         dibayIncomingLaneStopRing("hydrate_accept_already_active", sessionId);
         runIncomingCallCleanup({ sessionId, reason: "hydrate_accept_already_active", stopRingtone: false });
+        maybeConfirmServerActiveFromSession(loaded);
         return;
       }
       if (loaded.status !== "ringing") {
@@ -3466,15 +3603,16 @@ export function CommunityMessengerCallClient({
       setSession(loaded);
       sessionRef.current = loaded;
       setLoading(false);
-      /**
-       * `nativeAccept=1` 만 PATCH 완료 의미다.
-       * 일반 `action=accept` 는 acceptIncoming() 으로 내려가 gateway PATCH 를 1회 실행한다.
-       */
-      if (requestedAction === "accept" && nativeAcceptRoute) {
-        logDibayCall("accept_success", { sessionId, source: "call_client_hydrate_accept_route" });
-        dibayIncomingLaneStopRing("hydrate_accept_route", sessionId);
+      if (requestedAction === "accept" && nativePrepRoute) {
+        logDibayCall("accept_route_prep_enter", { sessionId, source: "call_client_hydrate_prep" });
+        console.info("[call-flow] accept_route_prep_enter", { sessionId });
+        dibayIncomingLaneStopRing("hydrate_accept_prep_route", sessionId);
         dismissAllIncomingCallNotificationsFireAndForget(sessionId);
         await refreshSession(true);
+        return;
+      }
+      if (requestedAction === "accept" && nativeAcceptCompletedRoute) {
+        await finalizeNativeAcceptCompletedSession();
         return;
       }
       await acceptIncoming();
@@ -3484,9 +3622,34 @@ export function CommunityMessengerCallClient({
     } finally {
       setBusy(null);
     }
-  }, [acceptIncoming, nativeAcceptRoute, refreshSession, requestedAction, sessionId, t]);
+  }, [
+    acceptIncoming,
+    applyCallAudioRouteForSession,
+    finalizeNativeAcceptCompletedSession,
+    maybeConfirmServerActiveFromSession,
+    nativeAcceptCompletedRoute,
+    nativeAcceptOwnedRoute,
+    nativePrepRoute,
+    refreshSession,
+    requestedAction,
+    sessionId,
+    t,
+  ]);
 
   const autoHydrateActionRef = useRef<string | null>(null);
+  const nativeAcceptCompletedHydrateRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const completed = nativeAcceptCompletedRoute;
+    const prev = prevNativeAcceptCompletedRouteRef.current;
+    prevNativeAcceptCompletedRouteRef.current = completed;
+    if (!completed || prev) return;
+    if (requestedAction !== "accept") return;
+    const key = `${sessionId}:completed`;
+    if (nativeAcceptCompletedHydrateRef.current === key) return;
+    nativeAcceptCompletedHydrateRef.current = key;
+    void finalizeNativeAcceptCompletedSession();
+  }, [finalizeNativeAcceptCompletedSession, nativeAcceptCompletedRoute, requestedAction, sessionId]);
 
   useEffect(() => {
     if (!loading || session) return;
@@ -4425,9 +4588,31 @@ export function CommunityMessengerCallClient({
     stopCommunityMessengerCallTone();
     if (autoJoinBlockedRef.current) return;
     if (joiningRef.current || joinedRef.current) return;
+    if (!s.isMineInitiator) {
+      const joinGuard = canStartCalleeJoin({
+        session: s,
+        isCallee: true,
+      });
+      if (!joinGuard.ok) {
+        if (joinGuard.reason === "deferred") {
+          console.info("[call-flow] join_deferred_until_server_active", { sessionId: s.id });
+          logDibayCall("join_deferred_until_server_active", { sessionId: s.id });
+          void refreshSession(true).then(maybeConfirmServerActiveFromSession);
+        }
+        return;
+      }
+    }
     setErrorMessage(null);
     void joinCall(s);
-  }, [joinCall, session?.id, session?.sessionMode, session?.status]);
+  }, [
+    calleeJoinGateVersion,
+    joinCall,
+    maybeConfirmServerActiveFromSession,
+    refreshSession,
+    session?.id,
+    session?.sessionMode,
+    session?.status,
+  ]);
 
   /** 설정 앱 복귀 후 granted 이면 자동 재조인(권한 재요청 없음) */
   useEffect(() => {
@@ -4910,7 +5095,7 @@ export function CommunityMessengerCallClient({
     /** 시드 없이 진입한 짧은 구간 — 발신 tmp_·kind 쿼리·수신 accept route 로딩 껍데기 */
     const dismissHydrate = () => navigateBackFromCommunityMessengerCall(router, null);
     const hydrateAcceptRoute =
-      requestedAction === "accept" || nativeAcceptRoute || searchParams.get("nativeAccept") === "1";
+      requestedAction === "accept" || nativeAcceptOwnedRoute || searchParams.get("nativeAccept") === "1";
     const hydratePeer = readCallAcceptHydratePeer(sessionId);
     const hydrateKind =
       hydratePeer?.callKind ?? (searchParams.get("kind") === "video" ? "video" : "voice");
@@ -5030,7 +5215,7 @@ export function CommunityMessengerCallClient({
     !session.isMineInitiator &&
     ((!joined &&
       session.status === "active" &&
-      (calleeVideoConnectingShell || requestedAction === "accept" || nativeAcceptRoute)) ||
+      (calleeVideoConnectingShell || requestedAction === "accept" || nativeAcceptOwnedRoute)) ||
       (session.status === "ringing" &&
         (requestedAction === "accept" ||
           busy === "accept" ||
