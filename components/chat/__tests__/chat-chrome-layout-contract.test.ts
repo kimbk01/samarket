@@ -78,7 +78,7 @@ describe("chat chrome layout contract", () => {
     expect(src).toContain("--chat-composer-height");
     expect(src).toContain("--chat-viewport-height");
     expect(src).toContain("--chat-bottom-inset");
-    expect(src).toContain("resolveChatBottomInsetCssPx");
+    expect(src).toContain("resolveChatShellPaddingBottomInsetCssPx");
     expect(src).not.toContain("applyChatViewportHeightToRoot");
     expect(src).not.toContain("chat-viewport-height-sync");
   });

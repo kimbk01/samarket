@@ -4,6 +4,7 @@ import {
   isChatViewportIosPlatform,
   resolveChatBottomInsetCssPx,
   resolveChatShellKeyboardOverlayCssPx,
+  resolveChatShellPaddingBottomInsetCssPx,
   resolveChatViewportShellClassNames,
   resolveChatViewportShellPlatform,
 } from "@/lib/ui/chat-viewport-shell-platform";
@@ -74,7 +75,27 @@ describe("chat-viewport-shell-platform", () => {
       visualViewport: { height: 752, offsetTop: 0 },
       samarketShell: undefined,
     });
+    vi.stubGlobal("document", {
+      documentElement: { style: { getPropertyValue: () => "" } },
+    });
+    vi.stubGlobal("getComputedStyle", () => ({ getPropertyValue: () => "" }));
     expect(resolveChatBottomInsetCssPx()).toBe(48);
+  });
+
+  it("returns zero nav gap when dibay-safe-bottom SSOT is active", () => {
+    vi.stubGlobal("window", {
+      innerHeight: 800,
+      visualViewport: { height: 752, offsetTop: 0 },
+      samarketShell: undefined,
+    });
+    vi.stubGlobal("document", {
+      documentElement: {
+        style: { getPropertyValue: (name: string) => (name === "--dibay-safe-bottom" ? "48px" : "") },
+      },
+    });
+    vi.stubGlobal("getComputedStyle", () => ({ getPropertyValue: () => "" }));
+    expect(resolveChatBottomInsetCssPx()).toBe(0);
+    expect(resolveChatShellPaddingBottomInsetCssPx(800)).toBe(0);
   });
 
   it("returns keyboard inset when gap exceeds threshold (keyboard open)", () => {
@@ -92,7 +113,37 @@ describe("chat-viewport-shell-platform", () => {
       visualViewport: { height: 800, offsetTop: 0 },
       samarketShell: { keyboardBottomInsetCssPx: 300 },
     });
+    vi.stubGlobal("document", {
+      documentElement: { style: { getPropertyValue: () => "" } },
+    });
+    vi.stubGlobal("getComputedStyle", () => ({ getPropertyValue: () => "" }));
     expect(resolveChatBottomInsetCssPx()).toBe(300);
+  });
+
+  it("dedupes keyboard padding when layout height already absorbed keyboard (adjustResize)", () => {
+    vi.stubGlobal("window", {
+      innerHeight: 800,
+      visualViewport: { height: 500, offsetTop: 0 },
+      samarketShell: { keyboardBottomInsetCssPx: 300 },
+    });
+    vi.stubGlobal("document", {
+      documentElement: { style: { getPropertyValue: () => "" } },
+    });
+    vi.stubGlobal("getComputedStyle", () => ({ getPropertyValue: () => "" }));
+    expect(resolveChatShellPaddingBottomInsetCssPx(500)).toBe(0);
+  });
+
+  it("keeps keyboard padding on overlay WebView when vv height is still full", () => {
+    vi.stubGlobal("window", {
+      innerHeight: 800,
+      visualViewport: { height: 800, offsetTop: 0 },
+      samarketShell: { keyboardBottomInsetCssPx: 300 },
+    });
+    vi.stubGlobal("document", {
+      documentElement: { style: { getPropertyValue: () => "" } },
+    });
+    vi.stubGlobal("getComputedStyle", () => ({ getPropertyValue: () => "" }));
+    expect(resolveChatShellPaddingBottomInsetCssPx(500)).toBe(300);
   });
 
   it("builds shell class names for embedded ios layout", () => {

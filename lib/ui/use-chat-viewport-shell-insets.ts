@@ -2,7 +2,7 @@
 
 import { useEffect, type RefObject } from "react";
 import {
-  resolveChatBottomInsetCssPx,
+  resolveChatShellPaddingBottomInsetCssPx,
   resolveChatViewportShellPlatform,
   type ChatViewportShellLayoutMode,
 } from "@/lib/ui/chat-viewport-shell-platform";
@@ -38,7 +38,7 @@ function syncComposerHeightMetric(shell: HTMLElement): void {
 
 /**
  * 채팅 셸 — CSS 변수 3개만 갱신:
- * --chat-viewport-height, --chat-composer-height, --chat-bottom-inset
+ * --chat-viewport-height, --chat-composer-height, --chat-bottom-inset (padding dedupe SSOT)
  */
 export function useChatViewportShellInsets(opts: Options): void {
   const { enabled, shellRef, layoutMode, observeComposerHeight = false } = opts;
@@ -54,14 +54,15 @@ export function useChatViewportShellInsets(opts: Options): void {
 
     let syncRaf = 0;
     const syncAll = () => {
+      let layoutHeightPx = 0;
       if (layoutMode !== "embedded") {
-        const visiblePx = resolveLayoutVisibleViewportCssPx(MESSENGER_CHAT_SHELL_MIN_HEIGHT_PX);
-        shell.style.setProperty("--chat-viewport-height", `${visiblePx}px`);
+        layoutHeightPx = resolveLayoutVisibleViewportCssPx(MESSENGER_CHAT_SHELL_MIN_HEIGHT_PX);
+        shell.style.setProperty("--chat-viewport-height", `${layoutHeightPx}px`);
       } else {
         shell.style.removeProperty("--chat-viewport-height");
       }
 
-      const bottomInset = resolveChatBottomInsetCssPx();
+      const bottomInset = resolveChatShellPaddingBottomInsetCssPx(layoutHeightPx);
       if (bottomInset > 0) {
         shell.style.setProperty("--chat-bottom-inset", `${bottomInset}px`);
       } else {

@@ -68,3 +68,6 @@ export const MESSENGER_KEYBOARD_IOS_FOCUS_REMEASURE_EXTRA_MS = [100, 260] as con
  * composer 가 아닌 [data-cm-room].chat-viewport-shell padding-bottom 에만 적용.
  */
 export const CHAT_SHELL_KEYBOARD_OVERLAY_MIN_PX = 24;
+
+/** visualViewport gap ≤ 이 값이면 nav/gesture — keyboard overlay 판정 제외 (`--safe-bottom` SSOT) */
+export const CHAT_SHELL_NAV_GAP_MAX_PX = 120;
