@@ -4655,31 +4655,9 @@ export function CommunityMessengerCallClient({
 
     if (pipFirstOutgoing) {
       detachPreJoinHtmlVideo(ringPreviewVideoRef.current);
-      if (showOutgoingRingCameraPreview) {
-        setPreJoinVideoElementReady(false);
-        detachPreJoinHtmlVideo(pipPrejoinVideoRef.current);
-        return;
-      }
-      if (!preJoinVideoPreviewStream) {
-        setPreJoinVideoElementReady(false);
-        detachPreJoinHtmlVideo(pipPrejoinVideoRef.current);
-        return;
-      }
-      const el = pipPrejoinVideoRef.current;
-      if (!el) return;
-      setPreJoinVideoElementReady(false);
-      let cancelled = false;
-      void attachPreJoinHtmlVideo(el, preJoinVideoPreviewStream).then((ok) => {
-        if (!cancelled) setPreJoinVideoElementReady(ok);
-      });
-      return () => {
-        cancelled = true;
-        if (!localVideoReady) return;
-        detachPreJoinHtmlVideo(el);
-      };
+      /** PiP 슬롯은 OutgoingRingCameraPreview 가 단일 attach 담당 */
+      return;
     }
-
-    detachPreJoinHtmlVideo(pipPrejoinVideoRef.current);
     if (showOutgoingRingCameraPreview || !preJoinVideoPreviewStream) {
       setPreJoinVideoElementReady(false);
       detachPreJoinHtmlVideo(ringPreviewVideoRef.current);
@@ -4763,44 +4741,24 @@ export function CommunityMessengerCallClient({
     remoteJoined,
   });
 
-  const pipFirstOutgoingForSlot =
-    session?.callKind === "video" &&
-    Boolean(session) &&
-    isVideoPipFirstOutgoingPhase(
-      buildVideoPipFirstPolicyArgs({ session, joined, remoteJoined })
-    );
-
   const miniVideoSlotEl = useMemo(() => {
     if (session?.callKind !== "video") return undefined;
-    const ringCameraPreviewActive =
-      session &&
-      shouldShowOutgoingRingCameraPreview({
-        callKind: session.callKind,
-        sessionStatus: session.status,
-        isInitiator: session.isMineInitiator,
-        previewStream: preJoinVideoPreviewStream,
-      });
-    const showPipPrejoin = pipFirstOutgoingForSlot && !camOff && !localVideoReady;
+    const hasPrejoinStream = hasLiveCommunityMessengerVideoPreviewStream(preJoinVideoPreviewStream);
+    /** PiP shell 마운트 구간 — Agora local ready 전까지 단일 HTML 미리보기 경로 */
+    const showPipPrejoin = pipShellMountedForSync && !camOff && !localVideoReady;
+    const showPipPreparing = showPipPrejoin && !hasPrejoinStream;
     return (
       <div className="relative h-full w-full bg-[#003D29] [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:object-cover">
         <div ref={smallVideoRef} className="h-full w-full" />
-        {showPipPrejoin ? (
-          ringCameraPreviewActive || hasLiveCommunityMessengerVideoPreviewStream(preJoinVideoPreviewStream) ? (
-            <OutgoingRingCameraPreview stream={preJoinVideoPreviewStream} />
-          ) : (
-            <video
-              ref={pipPrejoinVideoRef}
-              className={`absolute inset-0 z-[2] h-full w-full object-cover transition-opacity duration-100 ${
-                preJoinVideoElementReady ? "opacity-100" : "opacity-0"
-              }`}
-              muted
-              playsInline
-              autoPlay
-              controls={false}
-              disablePictureInPicture
-              disableRemotePlayback
-            />
-          )
+        {showPipPrejoin && hasPrejoinStream ? (
+          <OutgoingRingCameraPreview stream={preJoinVideoPreviewStream} />
+        ) : null}
+        {showPipPreparing ? (
+          <div className="pointer-events-none absolute inset-0 z-[2] flex items-center justify-center bg-[#003D29] px-2">
+            <span className="sam-text-xxs text-center text-[#D4E9E2]/70">
+              {!joined ? t("cm_ui_camera_preparing_connection") : t("cm_ui_video_preparing_display")}
+            </span>
+          </div>
         ) : null}
         {camOff ? (
           <div className="pointer-events-none absolute inset-0 z-[2] flex flex-col items-center justify-center gap-1.5 bg-[#003D29]">
@@ -4817,12 +4775,13 @@ export function CommunityMessengerCallClient({
     );
   }, [
     camOff,
+    joined,
     localVideoReady,
-    pipFirstOutgoingForSlot,
-    preJoinVideoElementReady,
+    pipShellMountedForSync,
     preJoinVideoPreviewStream,
     selfAvatarUrlForPip,
     session,
+    t,
   ]);
 
   useLayoutEffect(() => {
@@ -5407,6 +5366,8 @@ export function CommunityMessengerCallClient({
       pipShellMounted,
       preJoinReady: preJoinVideoElementReady,
       localVideoReady,
+      joined,
+      cameraOff: camOff,
     });
   const suppressCameraPreparingOverlay = shouldSuppressCameraPreparingOverlayForPipFirst({
     pipFirstOutgoing,

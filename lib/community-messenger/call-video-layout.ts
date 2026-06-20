@@ -60,10 +60,14 @@ export function shouldShowPipFirstLocalPreviewChrome(args: {
   pipShellMounted: boolean;
   preJoinReady?: boolean;
   localVideoReady?: boolean;
+  joined?: boolean;
+  cameraOff?: boolean;
 }): boolean {
-  if (!args.pipFirstOutgoing || !args.pipShellMounted) return false;
-  /** shell 마운트 즉시 PiP 타일 표시 — prejoin attach 전에도 빈 타일·곧 영상 */
-  return true;
+  if (!args.pipShellMounted) return false;
+  if (args.cameraOff) return false;
+  /** shell 마운트 즉시 PiP 타일 — 영상·준비 문구·Agora 중 하나가 반드시 보이게 */
+  if (args.pipFirstOutgoing) return true;
+  return Boolean(args.joined && !args.localVideoReady);
 }
 
 export function isLiveCommunityMessengerCallSessionStatus(

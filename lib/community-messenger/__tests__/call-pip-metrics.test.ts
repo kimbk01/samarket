@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  CALL_PIP_DEFAULT_CORNER,
   CALL_PIP_DRAG_LOCK_MS,
   CALL_PIP_PORTRAIT_HEIGHT_RATIO,
   CALL_PIP_SESSION_SNAP_STORAGE_PREFIX,
@@ -135,6 +136,10 @@ describe("resolveCallPipDragSnapCenter", () => {
 });
 
 describe("call pip snap storage", () => {
+  it("defaults new sessions to top-left", () => {
+    expect(CALL_PIP_DEFAULT_CORNER).toBe("topLeft");
+  });
+
   it("exposes drag lock duration for gesture hook", () => {
     expect(CALL_PIP_DRAG_LOCK_MS).toBe(1500);
   });

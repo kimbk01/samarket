@@ -173,9 +173,27 @@ describe("PiP-first video layout policy", () => {
     ).toBe(true);
     expect(
       shouldShowPipFirstLocalPreviewChrome({
+        pipFirstOutgoing: false,
+        pipShellMounted: true,
+        joined: true,
+        localVideoReady: false,
+        cameraOff: false,
+      })
+    ).toBe(true);
+    expect(
+      shouldShowPipFirstLocalPreviewChrome({
         pipFirstOutgoing: true,
         pipShellMounted: false,
         preJoinReady: true,
+      })
+    ).toBe(false);
+    expect(
+      shouldShowPipFirstLocalPreviewChrome({
+        pipFirstOutgoing: false,
+        pipShellMounted: true,
+        joined: true,
+        localVideoReady: false,
+        cameraOff: true,
       })
     ).toBe(false);
   });
