@@ -1,7 +1,7 @@
 /**
  * 수신 수락(`?action=accept`) — 벨 UI·generic auto-join 과 충돌하지 않게 하는 단일 계약.
  *
- * nativePrep=1 — native FGS/알림 정리 완료, Web PATCH 단일 실행.
+ * nativePrep=1 — native FGS/알림 정리 완료 + native PATCH 진행 중, Web 은 통화 화면만 유지.
  */
 
 const NATIVE_CALLEE_ACCEPT_PENDING_KEY = "cm_native_callee_accept_pending";
@@ -24,7 +24,7 @@ export function readNativeCalleeAcceptRouteParams(
   };
 }
 
-/** native prep 완료 — Web PATCH 는 call-accept-guard 단일 */
+/** native prep/accept route — Web 은 수신 벨 UI 를 숨기고 통화 화면을 유지 */
 export function isNativeCalleePrepRoute(params: NativeCalleeAcceptRouteParams): boolean {
   return params.action === "accept" && (params.nativePrep === "1" || params.nativeAccept === "1");
 }

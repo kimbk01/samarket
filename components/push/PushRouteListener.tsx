@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { getSessionPhase, subscribeSessionPhase } from "@/lib/auth/dibay-session-manager";
 import { openLoginRequiredSheet } from "@/lib/auth/require-auth-action";
 import { runNativePendingAcceptCall } from "@/lib/community-messenger/incoming-call-accept-gateway";
-import { isCallEngineV2Enabled } from "@/lib/call-engine";
 import { resolveDibayDeepLinkToAppPath } from "@/lib/platform/deep-link-routes";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 import { isAuthRequiredPushRoute } from "@/lib/push/resolve-push-route-from-fcm-data";
@@ -123,18 +122,7 @@ export function PushRouteListener() {
       if (isCallRoute(path) && isCalleeAcceptPushRoute(path)) {
         const acceptSessionId = readCalleeAcceptSessionIdFromPath(path);
         if (acceptSessionId) {
-          if (isCallEngineV2Enabled()) {
-            void runNativePendingAcceptCall(router, acceptSessionId, "native_notification_accept").then(
-              (result) => {
-                console.info("[push-route] engine_accept_done", {
-                  sessionId: acceptSessionId,
-                  ok: result.ok,
-                  reason: result.reason,
-                });
-              },
-            );
-            console.info("[push-route] webview_route_delivered", { path, via: "engine_accept" });
-          } else if (isNativeAcceptPatchCompleteRoute(path)) {
+          if (isNativeAcceptPatchCompleteRoute(path)) {
             router.replace(path);
             console.info("[push-route] webview_route_delivered", { path, via: "accept_route_active" });
           } else {
@@ -145,7 +133,7 @@ export function PushRouteListener() {
                   ok: result.ok,
                   reason: result.reason,
                 });
-              },
+              }
             );
             console.info("[push-route] webview_route_delivered", { path, via: "native_pending_accept" });
           }

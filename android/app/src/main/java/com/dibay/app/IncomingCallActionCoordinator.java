@@ -1,7 +1,6 @@
 package com.dibay.app;
 
 import android.content.Context;
-import android.content.Intent;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
@@ -100,15 +99,27 @@ public final class IncomingCallActionCoordinator {
       return;
     }
     final Context app = context.getApplicationContext();
-    new Handler(Looper.getMainLooper())
-        .post(
+    Log.i("DIBAY_CALL", "[DIBAY_CALL] accept_route_direct callId=" + sid);
+    Log.i(CALL_TAG, "[call-route] incoming_accept_pending_web callId=" + sid);
+    MainActivity.deliverCallAcceptRoute(app, sid, false);
+    new Thread(
             () -> {
-              Intent launch = IncomingCallIntentHelper.buildMainActivityCallAcceptIntent(app, sid);
-              Log.i("DIBAY_CALL", "[DIBAY_CALL] accept_route_direct callId=" + sid);
-              Log.i(CALL_TAG, "[call-route] incoming_accept_pending_web callId=" + sid);
-              app.startActivity(launch);
-              end(sid, "accept");
-            });
+              boolean ok = CallSessionPatchHelper.patch(app, sid, "accept");
+              Log.i(
+                  "DIBAY_CALL",
+                  ok
+                      ? "[DIBAY_CALL] accept_patch_done callId=" + sid
+                      : "[DIBAY_CALL] accept_patch_failed callId=" + sid);
+              new Handler(Looper.getMainLooper())
+                  .post(
+                      () -> {
+                        if (ok) {
+                          MainActivity.deliverCallAcceptRoute(app, sid, true);
+                        }
+                        end(sid, "accept");
+                      });
+            })
+        .start();
   }
 
   public static void handleReject(Context context, String callId) {

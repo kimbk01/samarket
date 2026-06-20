@@ -103,6 +103,30 @@ public class MainActivity extends BridgeActivity {
     return activeInstance;
   }
 
+  public static void deliverCallAcceptRoute(
+      android.content.Context context, String callId, boolean patchComplete) {
+    final String sid = callId != null ? callId.trim() : "";
+    if (sid.isEmpty()) return;
+    final String flag = patchComplete ? "nativeAccept=1" : "nativePrep=1";
+    final String appPath =
+        "/community-messenger/calls/"
+            + android.net.Uri.encode(sid)
+            + "?action=accept&"
+            + flag
+            + "&mode=active&source=activity";
+    MainActivity act = activeInstance;
+    if (act != null) {
+      act.mainHandler.post(() -> act.queueNavigateWebViewToAppPath(appPath, null));
+      return;
+    }
+    if (context == null) return;
+    Intent launch =
+        patchComplete
+            ? IncomingCallIntentHelper.buildMainActivityCallAcceptCompleteIntent(context.getApplicationContext(), sid)
+            : IncomingCallIntentHelper.buildMainActivityCallAcceptIntent(context.getApplicationContext(), sid);
+    context.getApplicationContext().startActivity(launch);
+  }
+
   /** Foreground native pill visibility — Web banner fallback gate. */
   public static void notifyForegroundIncomingUiState(String callId, boolean visible) {
     MainActivity act = activeInstance;
@@ -1233,9 +1257,12 @@ public class MainActivity extends BridgeActivity {
     String sid = extractCallSessionIdFromAppPath(appPath);
     if (sid == null || sid.isEmpty()) return appPath;
     String source = appPath.contains("source=activity") ? "activity" : "notification";
+    String acceptFlag = appPath.contains("nativePrep=1") ? "nativePrep=1" : "nativeAccept=1";
     return "/community-messenger/calls/"
         + android.net.Uri.encode(sid)
-        + "?action=accept&nativeAccept=1&mode=active&source="
+        + "?action=accept&"
+        + acceptFlag
+        + "&mode=active&source="
         + source;
   }
 
@@ -1342,6 +1369,11 @@ public class MainActivity extends BridgeActivity {
     final boolean callRoute = appPath.startsWith("/community-messenger/calls/");
     if (acceptRoute) {
       final String normalizedAcceptPath = normalizeCalleeAcceptAppPath(appPath);
+      if (isWebViewOnAppOrigin(webView) && injectAcceptRouteViaJs(webView, normalizedAcceptPath, notificationId)) {
+        clearPersistedPendingPushRoute(this);
+        Log.i(ROUTE_LOG_TAG, "[push-route] webview_call_route_injected path=" + normalizedAcceptPath);
+        return true;
+      }
       if (loadCallRouteDirectly(webView, normalizedAcceptPath)) {
         routeInjectedForCurrentPending = true;
         pendingAppPath = null;
@@ -1364,6 +1396,21 @@ public class MainActivity extends BridgeActivity {
       return true;
     }
     return injectWebViewRouteViaJs(webView, appPath, notificationId);
+  }
+
+  private boolean injectAcceptRouteViaJs(WebView webView, String appPath, String notificationId) {
+    if (webView == null || appPath == null || appPath.isEmpty()) return false;
+    final String acceptSessionId = extractCallSessionIdFromAppPath(appPath);
+    if (acceptSessionId == null || acceptSessionId.isEmpty()) return false;
+    final String bootstrapJs =
+        DibayIncomingCallNativeStore.buildAcceptRouteBootstrapJs(
+            this, acceptSessionId, !appPath.contains("nativePrep=1"));
+    webView.post(
+        () ->
+            webView.evaluateJavascript(
+                bootstrapJs,
+                ignored -> injectWebViewRouteViaJs(webView, appPath, notificationId)));
+    return true;
   }
 
   private boolean loadCallRouteDirectly(WebView webView, String appPath) {
@@ -1395,7 +1442,8 @@ public class MainActivity extends BridgeActivity {
       final String acceptSessionId = extractCallSessionIdFromAppPath(appPath);
       if (acceptSessionId != null) {
         final String bootstrapJs =
-            DibayIncomingCallNativeStore.buildAcceptRouteBootstrapJs(this, acceptSessionId);
+            DibayIncomingCallNativeStore.buildAcceptRouteBootstrapJs(
+                this, acceptSessionId, !appPath.contains("nativePrep=1"));
         webView.post(
             () ->
                 webView.evaluateJavascript(

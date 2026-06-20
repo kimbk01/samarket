@@ -154,7 +154,7 @@ TTL: **120 seconds** (Web consumed, `hardClearedAt`, Native `DibayCallConsumedSt
 
 ---
 
-## 9. Real-device QA matrix (A–G)
+## 9. Real-device QA matrix (A–I)
 
 Run on **2 devices** after Vercel deploy + APK reinstall.  
 Log filter: `DIBAY_CALL DIBAY_FCM DIBAY_INCOMING_CALL`
@@ -168,6 +168,8 @@ Log filter: `DIBAY_CALL DIBAY_FCM DIBAY_INCOMING_CALL`
 | **E** | Redial (new call) | New `callId` `incoming_call` OK; old `callId` → `incoming_ignored_consumed` if replayed |
 | **F** | End active call → redial | Previous `callId` recovery does not block new `callId` ringing |
 | **G** | App resume after terminal | `native_consumed_hydrate` / `terminal_drained`; no banner/bell revival |
+| **H** | Foreground Web receive → callee accept | accept tap routes to call screen `connecting` immediately; accept PATCH remains single-flight in CallClient; no same-`callId` banner revival |
+| **I** | Native fullscreen/notification accept | `accept_route_direct` opens `nativePrep=1` call screen immediately; native PATCH completes in background and confirms `nativeAccept=1`; no app-home flash |
 
 ### Fail signatures (do not ship)
 
@@ -185,7 +187,7 @@ Log filter: `DIBAY_CALL DIBAY_FCM DIBAY_INCOMING_CALL`
 | **1 (current)** | This doc + contract tests + normalizers (no Global surgery) |
 | **2** | Wire normalizers into Global/FCM/merge; shrink Global |
 | **3** | Move modules to `call-state/`, `call-ring/`, `call-events/`; delete legacy wrappers |
-| **4** | A–G PASS on 2 devices; changelog append |
+| **4** | A–I PASS on 2 devices; changelog append |
 
 ---
 
@@ -193,5 +195,6 @@ Log filter: `DIBAY_CALL DIBAY_FCM DIBAY_INCOMING_CALL`
 
 | Date | Change |
 |------|--------|
+| 2026-06-20 | Foreground Web and native accept route-first — banner accept seeds the call route immediately, native accept opens `nativePrep=1` before PATCH completes, CallClient holds `connecting`, and Android warm accept route prefers JS injection over `loadUrl` reload. |
 | 2026-06-18 | PushDelivery SSOT — ring/UI decouple, Web native blind-stop fix, `.mdc` contract + verify script |
 | 2026-06-17 | Initial SSOT — phase 1 structural contract |

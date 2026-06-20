@@ -413,6 +413,16 @@ SAMARKET_BASE_URL=https://dibaY.vercel.app SAMARKET_PROD_PERF_MEASURE=1 npm run 
 | 측정 (다음) | `scripts/verify-cm-receive-latency-coalesce.mjs` PASS · `verify:messenger-consistency-structural` PASS · 2기기 3회: 친구 요청 발송→수락/거절/취소 양방향 즉시 반영, 그룹 생성/초대 팝업이 친구 요청과 구분, 일반 voice/video 수신 수락→통화 화면 즉시 진입→원격 미디어 연결, 거래/배달/일반 voice/video 발신→거절/취소/종료, 통화 히스토리 1줄 유지, 숨긴 히스토리 refresh 재노출 없음, 권한 안내 반복 없음, iOS/Android/태블릿 리사이즈 안정 |
 | lock | `docs/messenger-realtime-policy.md` · `docs/trade-chat-room-identity.md` |
 
+## CM-CALL-FAST-ACCEPT — 수신 통화 즉시 진입 (2026-06-20)
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 상태 | **구현 중 · 자동 검증/2기기 측정 대기** |
+| 이번 원인 1개 | 수신 accept 경로가 권한 확인·accept PATCH·active seed·route replace 뒤에야 CallClient 를 마운트해, 수락 후 기존 앱 화면/로딩/카메라 준비가 순차 노출됨. |
+| 이번 조치 | foreground Web banner accept 는 hydrate peer·call route seed 후 즉시 `/calls/:id?action=accept` 로 replace 하고, CallClient 가 `connecting` 화면에서 단일 accept gateway PATCH 를 수행. Android native accept 는 `nativePrep=1` call route 를 먼저 전달하고 native PATCH 를 백그라운드에서 완료한 뒤 `nativeAccept=1` 로 확정. Warm WebView 는 `loadUrl` 풀 리로드 대신 bootstrap JS + `dibay:call-route` 주입을 우선. |
+| 측정 (다음) | foreground voice/video 수락 3회: tap→CallScreen connecting 즉시, `cm_ui_call_loading_session` 첫 노출 없음, PATCH 1회. Android warm/native 수락 3회: `accept_route_direct`→`nativePrep=1` 즉시 통화 화면, `accept_patch_done`→`nativeAccept=1`, `webview_call_route_injected` 또는 cold fallback, home/list flash 없음. |
+| 판정 | 자동 검증·실기기 3회 전까지 **보류** |
+
 | 트랙 이름 | **STAB1** Post cleanup stabilization |
 | **트랙 상태** | **▲ 진행** — automated prod observation **PASS** · manual observation **▲** |
 | 이번 조치 | push `7aa121b6` → PDS1 deploy verify → prod reconnect stress → prod messenger E2E ×4 |

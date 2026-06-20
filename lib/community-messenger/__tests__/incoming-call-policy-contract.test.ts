@@ -14,7 +14,7 @@ describe("incoming-call policy contracts", () => {
     expect(chrome).not.toContain('import("@/components/community-messenger/GlobalIncomingCallHost")');
   });
 
-  it("foreground incoming UI is banner-only (no legacy overlay, no native_auto_fullscreen)", () => {
+  it("foreground incoming UI is banner-only until accept (no legacy overlay, no native_auto_fullscreen)", () => {
     const src = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
     const host = read("components/community-messenger/ForegroundIncomingCallHost.tsx");
     expect(src).toContain("ForegroundIncomingCallHost");
@@ -22,8 +22,7 @@ describe("incoming-call policy contracts", () => {
     expect(host).toContain("IncomingCallBanner");
     expect(src).not.toContain("CommunityMessengerIncomingCallOverlay");
     expect(src).not.toContain("native_auto_fullscreen");
-    expect(src).not.toContain("router.replace(\"/community-messenger/calls/");
-    expect(src).not.toContain("router.replace(`/community-messenger/calls/");
+    expect(src).toContain("incoming_banner_accept_route_first");
   });
 
   it("accept gateway is the only accept PATCH owner", () => {
@@ -34,30 +33,25 @@ describe("incoming-call policy contracts", () => {
     expect(global).not.toContain('patchCommunityMessengerCallSession(\n              session.id,\n              "accept"');
   });
 
-  it("RouteHost delegates native pending accept to gateway PATCH owner", () => {
+  it("RouteHost keeps non-native accept fallback delegated to gateway PATCH owner", () => {
     const src = read("components/layout/providers/DibayFcmCallRouteHost.tsx");
     expect(src).toContain("runNativePendingAcceptCall");
     expect(src).not.toContain("markNativeCalleeAcceptPending");
   });
 
-  it("native coordinator does not PATCH accept (Web call-engine owns PATCH)", () => {
+  it("native coordinator routes accept before background PATCH completes", () => {
     const native = read("android/app/src/main/java/com/dibay/app/IncomingCallActionCoordinator.java");
-    expect(native).not.toContain('CallSessionPatchHelper.patch(app, sid, "accept")');
+    expect(native).toContain('CallSessionPatchHelper.patch(app, sid, "accept")');
     expect(native).toContain("accept_route_direct");
-    expect(native).toContain("deliverForegroundIncomingAcceptEvent");
-  });
-
-  it("call-engine V2 module and gateway delegate exist", () => {
-    const engine = read("lib/call-engine/index.ts");
-    expect(engine).toContain("acceptCall");
-    expect(engine).toContain("closeCallSession");
-    expect(engine).toContain("isCallEngineV2Enabled");
-    const gateway = read("lib/community-messenger/incoming-call-accept-gateway.ts");
-    expect(gateway).toContain("isCallEngineV2Enabled");
-    expect(gateway).toContain("engineAcceptCall");
-    const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
-    expect(global).toContain("engineAcceptCall");
-    expect(global).toContain("buildCallEngineNativeBridgeHandlers");
+    expect(native).toContain("deliverCallAcceptRoute(app, sid, false)");
+    expect(native).toContain("deliverCallAcceptRoute(app, sid, true)");
+    const main = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
+    expect(main).toContain("nativePrep=1");
+    expect(main).toContain("injectAcceptRouteViaJs");
+    expect(main).toContain("webview_call_route_injected");
+    const client = read("components/community-messenger/CommunityMessengerCallClient.tsx");
+    expect(client).toContain("nativeAcceptRoute && requestedActionRef.current === \"accept\"");
+    expect(client).toContain("requestedAction === \"accept\" && nativeAcceptRoute");
   });
 
   it("CallClient blocks callee ringing direct entry without action=accept", () => {
@@ -68,13 +62,15 @@ describe("incoming-call policy contracts", () => {
     expect(src).toContain("isIncomingCallPreviewRoute");
   });
 
-  it("CallClient does not re-run accept PATCH on nativeAccept=1 route", () => {
+  it("CallClient does not re-run accept PATCH on native-owned accept routes", () => {
     const src = read("components/community-messenger/CommunityMessengerCallClient.tsx");
     expect(src).toContain("nativeAcceptRoute && requestedActionRef.current === \"accept\"");
     expect(src).toContain("requestedAction === \"accept\" && nativeAcceptRoute");
+    expect(src).toContain("`nativePrep=1` 은 native PATCH 진행 중");
     expect(src).toContain("일반 `action=accept` 는 아직 PATCH 가 필요");
     expect(src).toContain("accept_route_active_seed");
     expect(src).toContain("callee_accept_video_route_seed");
+    expect(src).toContain("calleeAcceptBridgeLayout && effectiveDirectPhase === \"ringing\"");
     expect(src).toContain("await applyCallAudioRouteForSession");
     expect(src).toContain("agora_post_publish_route");
     expect(src).toContain("if (joined) {\n      setCalleeVideoConnectingShell(false);");

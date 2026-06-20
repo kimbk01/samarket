@@ -86,12 +86,17 @@ describe("incoming-call native contract", () => {
     expect(src).toContain('DibayCallConsumedStore.mark(context, sid, "missed")');
   });
 
-  it("native coordinator routes accept to web call-engine (no native PATCH accept)", () => {
+  it("native coordinator routes accept immediately and completes PATCH in background", () => {
     const src = read("android/app/src/main/java/com/dibay/app/IncomingCallActionCoordinator.java");
-    expect(src).not.toContain('CallSessionPatchHelper.patch(app, sid, "accept")');
+    expect(src).toContain('CallSessionPatchHelper.patch(app, sid, "accept")');
     expect(src).toContain("accept_route_direct");
-    expect(src).toContain("buildMainActivityCallAcceptIntent");
-    expect(src).toContain("deliverForegroundIncomingAcceptEvent");
+    expect(src).toContain("deliverCallAcceptRoute(app, sid, false)");
+    expect(src).toContain("deliverCallAcceptRoute(app, sid, true)");
+    const main = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
+    expect(main).toContain("nativePrep=1");
+    expect(main).toContain("injectAcceptRouteViaJs");
+    expect(main).toContain("isWebViewOnAppOrigin(webView)");
+    expect(main).toContain("webview_call_route_injected");
   });
 
   it("FCM foreground unlocked launches native pill instead of web-only delegate", () => {
@@ -122,11 +127,12 @@ describe("incoming-call native contract", () => {
     expect(activity).toContain("activity_finish_by_terminal");
   });
 
-  it("notification contentIntent uses preview route and accept uses nativeAccept=1", () => {
+  it("notification contentIntent uses preview route and accept uses nativePrep/nativeAccept routes", () => {
     const notification = read("android/app/src/main/java/com/dibay/app/IncomingCallNotificationBuilder.java");
     expect(notification).toContain("buildMainActivityCallPreviewIntent");
     const helper = read("android/app/src/main/java/com/dibay/app/IncomingCallIntentHelper.java");
     expect(helper).toContain("nativeAccept=1");
+    expect(helper).toContain("nativePrep=1");
     expect(helper).toContain("incomingPreview=1");
   });
 

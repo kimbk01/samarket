@@ -87,6 +87,11 @@ public final class DibayIncomingCallNativeStore {
 
   /** Web accept bootstrap — hydrate peer + navigation seed + native pending (loadUrl callback 직전) */
   public static String buildAcceptRouteBootstrapJs(Context context, String callId) {
+    return buildAcceptRouteBootstrapJs(context, callId, true);
+  }
+
+  /** Web accept bootstrap — hydrate peer + navigation seed + native pending (loadUrl callback 직전) */
+  public static String buildAcceptRouteBootstrapJs(Context context, String callId, boolean activeSeed) {
     if (context == null || callId == null || callId.trim().isEmpty()) return "(function(){})();";
     Context app = context.getApplicationContext();
     SharedPreferences prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
@@ -129,13 +134,17 @@ public final class DibayIncomingCallNativeStore {
         session.put("peerAvatarUrl", JSONObject.NULL);
       }
       session.put("callKind", callKind);
-      session.put("status", "active");
+      session.put("status", activeSeed ? "active" : "ringing");
       session.put("startedAt", nowIso);
-      session.put("answeredAt", nowIso);
+      if (activeSeed) {
+        session.put("answeredAt", nowIso);
+      } else {
+        session.put("answeredAt", JSONObject.NULL);
+      }
       session.put("endedAt", JSONObject.NULL);
       session.put("isMineInitiator", false);
       session.put("participants", new JSONArray());
-      session.put("source", "native_accept_bootstrap");
+      session.put("source", activeSeed ? "native_accept_bootstrap" : "native_accept_prep_bootstrap");
 
       JSONObject navSeed = new JSONObject();
       navSeed.put("sessionId", sid);

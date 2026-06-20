@@ -17,7 +17,7 @@ Handled by `lib/community-messenger/dibay-fcm-call-bridge.ts` → `GlobalCommuni
 ## Layers
 - Android FCM layer: `DibayFirebaseMessagingService` treats `type=incoming_call` separately from chat messages.
 - Android native UI: `IncomingCallNotificationBuilder` posts CALL-category notification. **Accept** uses an Activity trampoline to bypass Android background `startActivity` restrictions.
-- Android native action layer: `IncomingCallActionCoordinator` single-flights `accept`, `reject`, and `missed` by callId. **Accept** runs native `PATCH accept` on a background thread, then routes to `/community-messenger/calls/{callId}?action=accept&nativeAccept=1` (`accept_route_direct`). Web skips duplicate PATCH when `nativeAccept=1`.
+- Android native action layer: `IncomingCallActionCoordinator` single-flights `accept`, `reject`, and `missed` by callId. **Accept** stops ring and routes immediately to `/community-messenger/calls/{callId}?action=accept&nativePrep=1` (`accept_route_direct`), then runs native `PATCH accept` on a background thread and follows with `/community-messenger/calls/{callId}?action=accept&nativeAccept=1` after success. Warm WebView delivery uses bootstrap JS + `dibay:call-route` before falling back to `loadUrl`, so the app shell does not visibly reload. Web skips duplicate PATCH for native-owned accept routes.
 - Android terminal layer: `IncomingCallTerminalHandler` is the **single** entry for `call_canceled` / `call_ended` / `call_rejected` / `call_missed` (FCM or local). Always: dismiss notification, `DibayCallConsumedStore.mark`, ring stop, coordinator `complete`, clear pending routes, broadcast-finish `IncomingCallActivity`, inject `call_terminal` to WebView if alive.
 - Web layer: `GlobalCommunityMessengerIncomingCall` + `IncomingCallBanner` for **foreground in-app** receive only.
 - iOS layer: `VoIPPushRegistry` + `CallKitProvider` skeleton. `DibayVoipCallPlugin` exposes registration and explicit CallKit end hooks to JS.
@@ -28,7 +28,8 @@ Handled by `lib/community-messenger/dibay-fcm-call-bridge.ts` → `GlobalCommuni
 |-------|-----|------|
 | App foreground (unlocked) | **`ForegroundIncomingCallActivity`** native pill + Web session sync | `IncomingCallPushDelivery` → `IncomingCallRingOwner` (not WebAudio) |
 | Lock / screen off / app background | System call notification (silent channel) + **수락/거절**; lock also `IncomingCallActivity` via FSI/direct launch | RingOwner only (no channel sound) |
-| After accept (any entry) | `/community-messenger/calls/{callId}?action=accept&nativeAccept=1` | native `ring_stop` on accept/terminal |
+| After foreground Web accept | `/community-messenger/calls/{callId}?action=accept&mode=active&source=banner` immediately; CallClient runs the single Web accept gateway | `ring_stop` on accept press |
+| After native accept | `/community-messenger/calls/{callId}?action=accept&nativePrep=1` immediately, then `nativeAccept=1` after native PATCH; warm WebView receives JS route, cold WebView may `loadUrl` fallback | native `ring_stop` on accept/terminal |
 
 ## Push delivery SSOT (Android)
 
@@ -41,7 +42,7 @@ See `.cursor/rules/incoming-call-push-delivery-contract.mdc` for confirmed root 
 ## DO NOT (regression guards)
 
 1. **Do not** add `windowShowWhenLocked`, `showWhenLocked`, `turnScreenOn`, etc. to `styles.xml` or `AndroidManifest` — AppCompat linking fails. Use `IncomingCallActivity.applyWakeFlags()` only when Activity is explicitly launched (fallback).
-2. **Do not** set notification `contentIntent` to launcher or accept route — content tap opens **preview** only (`incomingPreview=1`). Accept must follow: native PATCH accept → `/calls/:id?action=accept&nativeAccept=1`.
+2. **Do not** set notification `contentIntent` to launcher or accept route — content tap opens **preview** only (`incomingPreview=1`). Native accept must follow: immediate `/calls/:id?action=accept&nativePrep=1` → native PATCH accept → `/calls/:id?action=accept&nativeAccept=1`; warm WebView delivery must prefer JS route injection over a visible full reload.
 3. **Do not** call `startActivity(IncomingCallActivity)` from FCM when app is **foreground+unlocked** — use `ForegroundIncomingCallActivity` pill via `IncomingCallPushDelivery`.
 4. **Do not** use React `IncomingCallBanner` as lock-screen UI — WebView is unavailable when app is background/killed.
 5. **Do not** start ring in `MainActivity`, notification channel, or `DEFAULT_ALL` — **`IncomingCallPushDelivery` + silent channel** only.
@@ -118,7 +119,7 @@ Key `[DIBAY_CALL]` tags: `incoming_received`, `incoming_ignored_consumed`, `term
 
 Web (`logDibayCall`): `stale_ringing_blocked`, `reject_patch_*`, `incoming_consumed`, `terminal_event_received` (console).
 
-Expected on accept: `accept_route_direct` → Web `active_route_replace` (no home flash).
+Expected on accept: foreground Web `incoming_banner_accept_route_first` → call screen `connecting` immediately → Web gateway PATCH once; native `accept_route_direct` → `nativePrep=1` call screen `connecting` immediately → native `accept_patch_done` → `nativeAccept=1` route confirm (warm `webview_call_route_injected` or cold fallback load, no home flash).
 
 Expected on caller cancel (lock): `call_canceled_native_handled` → `ring_stop` → `activity_finish_by_terminal`.
 

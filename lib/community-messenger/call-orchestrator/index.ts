@@ -84,18 +84,7 @@ export type DibayCallLogStep =
   | "foreground_service_stopped"
   | "active_call_cleanup_blocked"
   | "active_call_machine_transition_blocked"
-  | "active_call_resume_check"
-  | "engine_accept_start"
-  | "engine_accept_patch"
-  | "engine_accept_patch_skipped"
-  | "engine_accept_success"
-  | "engine_active_route_replace"
-  | "engine_agora_join_start"
-  | "engine_agora_join_done"
-  | "engine_agora_join_failed"
-  | "engine_join_delegate_missing"
-  | "engine_close_start"
-  | "engine_close_done";
+  | "active_call_resume_check";
 
 type ActionFlight = {
   action: DibayCallOrchestratorAction;
