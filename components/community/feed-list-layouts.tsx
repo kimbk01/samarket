@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ThumbsUp, MessageCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { COMMUNITY_FEED_THUMB_DISPLAY_PX } from "@/lib/media/feed-thumbnail-display";
 import type { FeedListThumbColumn } from "@/lib/community-feed/topic-feed-skin";
 import { beginRouteEntryPerf } from "@/lib/runtime/samarket-runtime-debug";
 import { stripMarkdownImageSyntaxForFeedPreview } from "@/lib/philife/interleaved-body-markdown";
@@ -200,6 +201,8 @@ function ListThumb({
         roundedClassName="rounded-2xl"
         className="bg-[var(--cm-page-bg)]"
         priority={priority}
+        fetchDisplayPx={COMMUNITY_FEED_THUMB_DISPLAY_PX}
+        bootMetricTrack={priority}
       />
       {showMore ? (
         <span

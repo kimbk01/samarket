@@ -2,6 +2,12 @@
 
 import type { ReactNode, Ref } from "react";
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import {
+  markBootMetricsThumbnailDecoded,
+  markBootMetricsThumbnailLoaded,
+  markBootMetricsThumbnailRequested,
+} from "@/lib/app-boot/dibay-boot-metrics";
+import { buildFeedThumbnailFetchUrl } from "@/lib/media/feed-thumbnail-transform";
 import { buildStoreProductThumbnailFetchUrl } from "@/lib/media/store-product-image-transform";
 import {
   isThumbnailUrlLoaded,
@@ -22,13 +28,15 @@ export type SamarketThumbnailProps = {
   roundedClassName?: string;
   loading?: "lazy" | "eager";
   priority?: boolean;
-  /** store-product-images Supabase transform (display px). */
+  /** Supabase transform (display px) — post-images · store-product-images. */
   fetchDisplayPx?: number;
   fallbackSrc?: string;
   fallbackNode?: ReactNode;
   imageRef?: Ref<HTMLImageElement>;
   onImageLoad?: () => void;
   onImageError?: () => void;
+  /** First feed LCP thumb boot metrics only — not a render gate. */
+  bootMetricTrack?: boolean;
 };
 
 /**
@@ -51,11 +59,16 @@ export function SamarketThumbnail({
   imageRef,
   onImageLoad,
   onImageError,
+  bootMetricTrack = false,
 }: SamarketThumbnailProps) {
   const resolvedSrc = useMemo(() => {
     const raw = src?.trim() || "";
     if (!raw || !fetchDisplayPx) return raw || fallbackSrc;
-    return buildStoreProductThumbnailFetchUrl(raw, fetchDisplayPx) ?? raw;
+    return (
+      buildFeedThumbnailFetchUrl(raw, fetchDisplayPx) ??
+      buildStoreProductThumbnailFetchUrl(raw, fetchDisplayPx) ??
+      raw
+    );
   }, [fetchDisplayPx, fallbackSrc, src]);
   const normalizedSrc = resolvedSrc || fallbackSrc;
   const [currentSrc, setCurrentSrc] = useState(normalizedSrc);
@@ -78,6 +91,30 @@ export function SamarketThumbnail({
       setLoaded(true);
     }
   }, [currentSrc, loaded]);
+
+  useLayoutEffect(() => {
+    if (!bootMetricTrack) return;
+    const u = normalizedSrc?.trim();
+    if (!u || u === fallbackSrc) return;
+    markBootMetricsThumbnailRequested();
+  }, [bootMetricTrack, fallbackSrc, normalizedSrc]);
+
+  const handleImageLoad = (el: HTMLImageElement) => {
+    markThumbnailUrlLoaded(currentSrc);
+    setLoaded(true);
+    if (bootMetricTrack) {
+      markBootMetricsThumbnailLoaded();
+      if (typeof el.decode === "function") {
+        void el.decode().then(
+          () => markBootMetricsThumbnailDecoded(),
+          () => markBootMetricsThumbnailDecoded()
+        );
+      } else {
+        markBootMetricsThumbnailDecoded();
+      }
+    }
+    onImageLoad?.();
+  };
 
   const showFallbackNode = fallbackFailed || (!currentSrc && fallbackNode);
 
@@ -106,11 +143,7 @@ export function SamarketThumbnail({
             objectFit: "cover",
             objectPosition: "center center",
           }}
-          onLoad={() => {
-            markThumbnailUrlLoaded(currentSrc);
-            setLoaded(true);
-            onImageLoad?.();
-          }}
+          onLoad={(ev) => handleImageLoad(ev.currentTarget)}
           onError={() => {
             onImageError?.();
             if (currentSrc !== fallbackSrc) {

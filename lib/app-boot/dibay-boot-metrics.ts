@@ -16,6 +16,9 @@ export type DibayBootMetrics = {
   homeVisible: number | null;
   apiDone: number | null;
   thumbnailVisible: number | null;
+  thumbnailRequested: number | null;
+  thumbnailLoaded: number | null;
+  thumbnailDecoded: number | null;
   /** Last splash dismiss signal reason (reactMounted | firstPaint | native_fallback). */
   splashDismissReason: string | null;
 };
@@ -42,6 +45,9 @@ function ensureMetrics(): DibayBootMetrics {
       homeVisible: null,
       apiDone: null,
       thumbnailVisible: null,
+      thumbnailRequested: null,
+      thumbnailLoaded: null,
+      thumbnailDecoded: null,
       splashDismissReason: null,
     };
   }
@@ -55,6 +61,9 @@ function ensureMetrics(): DibayBootMetrics {
       homeVisible: null,
       apiDone: null,
       thumbnailVisible: null,
+      thumbnailRequested: null,
+      thumbnailLoaded: null,
+      thumbnailDecoded: null,
       splashDismissReason: null,
     };
   }
@@ -79,6 +88,15 @@ export function mergeNativeBootMetrics(partial: Partial<DibayBootMetrics>): void
   if (partial.apiDone != null && m.apiDone == null) m.apiDone = partial.apiDone;
   if (partial.thumbnailVisible != null && m.thumbnailVisible == null) {
     m.thumbnailVisible = partial.thumbnailVisible;
+  }
+  if (partial.thumbnailRequested != null && m.thumbnailRequested == null) {
+    m.thumbnailRequested = partial.thumbnailRequested;
+  }
+  if (partial.thumbnailLoaded != null && m.thumbnailLoaded == null) {
+    m.thumbnailLoaded = partial.thumbnailLoaded;
+  }
+  if (partial.thumbnailDecoded != null && m.thumbnailDecoded == null) {
+    m.thumbnailDecoded = partial.thumbnailDecoded;
   }
   if (partial.splashDismissReason != null && m.splashDismissReason == null) {
     m.splashDismissReason = partial.splashDismissReason;
@@ -179,6 +197,30 @@ export function markBootMetricsApiDone(): void {
 
 export function markBootMetricsThumbnailVisible(): void {
   setMetric("thumbnailVisible", nowMs());
+}
+
+let bootThumbRequested = false;
+let bootThumbLoaded = false;
+let bootThumbDecoded = false;
+
+/** First feed LCP thumb — metrics only, not a render gate. */
+export function markBootMetricsThumbnailRequested(): void {
+  if (bootThumbRequested) return;
+  bootThumbRequested = true;
+  setMetric("thumbnailRequested", nowMs());
+}
+
+export function markBootMetricsThumbnailLoaded(): void {
+  if (bootThumbLoaded) return;
+  bootThumbLoaded = true;
+  setMetric("thumbnailLoaded", nowMs());
+  markBootMetricsThumbnailVisible();
+}
+
+export function markBootMetricsThumbnailDecoded(): void {
+  if (bootThumbDecoded) return;
+  bootThumbDecoded = true;
+  setMetric("thumbnailDecoded", nowMs());
 }
 
 export function getDibayBootMetrics(): Readonly<DibayBootMetrics> {

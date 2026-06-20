@@ -17,6 +17,7 @@ import { TradeListingStatusBadge } from "@/components/post/TradeListingStatusBad
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { buildPostListPreviewModel } from "@/lib/posts/post-list-preview-model";
 import { PHILIFE_FB_CARD_CLASS } from "@/lib/philife/philife-flat-ui-classes";
+import { TRADE_FEED_THUMB_DISPLAY_PX } from "@/lib/media/feed-thumbnail-display";
 import { TRADE_FEED_THUMB_BOX_CLASS } from "@/lib/posts/trade-feed-layout-classes";
 import { beginRouteEntryPerf } from "@/lib/runtime/samarket-runtime-debug";
 import {
@@ -177,6 +178,8 @@ export const PostCard = memo(function PostCard({
                 className="bg-sam-surface-muted"
                 fallbackSrc=""
                 priority={isFirstCard || priorityThumb}
+                fetchDisplayPx={TRADE_FEED_THUMB_DISPLAY_PX}
+                bootMetricTrack={isFirstCard || priorityThumb}
                 imageRef={isFirstCard ? imageRef : undefined}
                 onImageLoad={() => {
                   if (!isFirstCard) return;

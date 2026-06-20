@@ -19,6 +19,7 @@ import {
   type GetPostsForHomeResult,
 } from "@/lib/posts/getPostsForHome";
 import type { HomeTradeStateFilter } from "@/lib/posts/getPostsForHome";
+import { FEED_LCP_PRIORITY_COUNT } from "@/lib/media/feed-thumbnail-display";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { POST_FAVORITE_CHANGED_EVENT } from "@/lib/favorites/post-favorite-events";
@@ -476,7 +477,7 @@ export function HomeProductList({
               <PostCard
                 post={post}
                 isFirstCard={index === 0}
-                priorityThumb={index < 8}
+                priorityThumb={index < FEED_LCP_PRIORITY_COUNT}
                 isFavorite={favoriteMap[post.id]}
                 onFavoriteChange={handleFavoriteChange}
                 onMenuAction={handleMenuAction}

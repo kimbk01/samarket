@@ -135,6 +135,9 @@ if (metrics) {
     "homeVisible",
     "apiDone",
     "thumbnailVisible",
+    "thumbnailRequested",
+    "thumbnailLoaded",
+    "thumbnailDecoded",
   ];
   for (const k of keys) {
     const v = metrics[k];
