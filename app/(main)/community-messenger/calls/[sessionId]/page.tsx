@@ -1,12 +1,9 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { CommunityMessengerCallClient } from "@/components/community-messenger/CommunityMessengerCallClient";
 import { CommunityMessengerCallRouteLoading } from "@/components/community-messenger/CommunityMessengerCallRouteLoading";
 import { CommunityMessengerCallEnterShell } from "@/components/community-messenger/call-history/CommunityMessengerCallEnterShell";
-import { subscribeCommunityCallHostSync } from "@/components/layout/providers/CommunityMessengerActiveCallHost";
-import { isCallSessionHostedByActiveCallHost } from "@/lib/community-messenger/call-presentation-ownership";
 import { isCommunityMessengerTempCallSessionId } from "@/lib/community-messenger/call-session-navigation-seed";
 
 /** 수신 accept route — enter slide 생략 (P1-1b; outgoing tmp dial 과 별도) */
@@ -15,7 +12,7 @@ function isIncomingAcceptInstantEnterRoute(searchParams: URLSearchParams): boole
 }
 
 /**
- * 통화 화면 — `/calls/[sessionId]` 는 이 페이지 CallClient 가 단일 소유.
+ * 통화 화면 — `/calls/[sessionId]` 는 이 페이지 CallClient 가 항상 단일 소유.
  * PiP·dock 등 off-route retained presentation 만 ActiveCallHost 가 CallClient 를 상주한다.
  */
 export default function CommunityMessengerCallPage() {
@@ -24,22 +21,8 @@ export default function CommunityMessengerCallPage() {
   const raw = params?.sessionId;
   const sessionId = Array.isArray(raw) ? String(raw[0] ?? "").trim() : String(raw ?? "").trim();
 
-  const hostOwnsSession = useSyncExternalStore(
-    subscribeCommunityCallHostSync,
-    () => (sessionId ? isCallSessionHostedByActiveCallHost(sessionId) : false),
-    () => false
-  );
-
   if (!sessionId) {
     return <CommunityMessengerCallRouteLoading />;
-  }
-
-  if (hostOwnsSession) {
-    return (
-      <div className="fixed inset-0 z-[1280] flex min-h-0 flex-col bg-[#003D29]">
-        <CommunityMessengerCallRouteLoading />
-      </div>
-    );
   }
 
   const instantOutgoingDialEnter = isCommunityMessengerTempCallSessionId(sessionId);
