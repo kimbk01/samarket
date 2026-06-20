@@ -135,7 +135,7 @@ describe("decideCommunityCallActiveHostOwnership", () => {
     const decision = decideCommunityCallActiveHostOwnership({
       hostedSessionId: "session-1",
       isTerminalSuppressed: false,
-      isHostedActiveOnly: true,
+      isHostedActiveOnly: false,
       onCallSessionRoute: true,
       hasNavigationSeed: false,
       hasLiveActiveCallSession: true,
