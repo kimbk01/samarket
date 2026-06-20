@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { restoreMessengerRoomPrependScrollAnchor } from "@/lib/community-messenger/room/messenger-room-prepend-scroll-anchor";
+import { restoreChatThreadPrependAnchor } from "@/lib/chat-thread-scroll/prepend-anchor";
 import { MESSENGER_CALL_STUB_ROW_ESTIMATE_PX } from "@/lib/store-order-chat/messenger-timeline-row-estimate";
 
-describe("restoreMessengerRoomPrependScrollAnchor", () => {
-  it("restores scrollTop by prepended estimate when native scrollHeight lags", () => {
+describe("restoreChatThreadPrependAnchor (CM prepend)", () => {
+  it("restores scrollTop by estimated prepend px when native scrollHeight lags", () => {
     let scrollTop = 120;
     const viewport = {
       scrollHeight: 400,
@@ -15,13 +15,9 @@ describe("restoreMessengerRoomPrependScrollAnchor", () => {
       },
     } as HTMLElement;
 
-    const prepended = [
-      { messageType: "call_stub" as const, content: "영상 통화 · 취소됨", metadata: {} },
-      { messageType: "call_stub" as const, content: "음성 통화 · 부재중", metadata: {} },
-    ];
     const expectedDelta = MESSENGER_CALL_STUB_ROW_ESTIMATE_PX * 2;
 
-    const result = restoreMessengerRoomPrependScrollAnchor({
+    const result = restoreChatThreadPrependAnchor({
       viewport,
       virtualizer: {
         scrollOffset: 120,
@@ -31,7 +27,7 @@ describe("restoreMessengerRoomPrependScrollAnchor", () => {
       },
       prevScrollTop: 120,
       prevScrollHeight: 400,
-      prependedMessages: prepended,
+      estimatedPrependPx: expectedDelta,
     });
 
     expect(result.heightDelta).toBe(expectedDelta);

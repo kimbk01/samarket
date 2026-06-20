@@ -20,6 +20,9 @@ type Props = {
   storeOrderDockScrollAnchorEnabled: boolean;
   messageEndRef: RefObject<HTMLDivElement | null>;
   stickToBottomRef: MutableRefObject<boolean>;
+  scrollMessengerToBottomRef: MutableRefObject<
+    (req?: { reason?: string; force?: boolean }) => void
+  >;
   onReady: (bundle: MessengerRoomPhase1TimelineHeavyBundle) => void;
 };
 

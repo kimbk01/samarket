@@ -1,16 +1,13 @@
 "use client";
 
 import { useLayoutEffect, useRef, type MutableRefObject, type RefObject } from "react";
-import type { Virtualizer } from "@tanstack/react-virtual";
 import {
   CM_TRADE_DOCK_LAYOUT_EVENT,
   notifyCmTradeDockLayoutChange,
 } from "@/lib/community-messenger/room/cm-trade-dock-layout";
-import { runMessengerRoomScrollToBottom } from "@/lib/community-messenger/room/messenger-room-scroll-to-bottom";
 import { syncMessengerRoomStickToBottomFromViewport } from "@/lib/community-messenger/room/messenger-room-scroll-near-bottom";
 import { entryTimingT0 } from "@/lib/community-messenger/room/cm-room-entry-timing";
-
-type VirtualizerLike = Pick<Virtualizer<HTMLDivElement, Element>, "scrollToIndex">;
+import type { CmScrollOwnerReason } from "@/lib/community-messenger/room/messenger-room-entry-scroll-owner";
 
 function nowFromT0Ms(): number | null {
   const t0 = entryTimingT0();
@@ -30,32 +27,30 @@ function markCmR9ScrollAnchor(roomId: string, key: "scrollAnchorRestoreBeginMs" 
   st[key] = nowFromT0Ms();
 }
 
-/**
- * 거래 도크 높이 증가(펼침·상품 카드·비동기 로드) 시 마지막 메시지를 도크 상단에 고정한다.
- * 도크가 커질 때는 stick-to-bottom 여부와 무관하게 스크롤한다(새로 가려지는 구간 방지).
- */
 export function useMessengerRoomTradeDockScrollAnchor(opts: {
   enabled: boolean;
   roomId?: string;
   messagesViewportRef: RefObject<HTMLDivElement | null>;
   messageEndRef: RefObject<HTMLDivElement | null>;
-  virtualizer: VirtualizerLike;
   messageCount: number;
   stickToBottomRef: MutableRefObject<boolean>;
+  scrollMessengerToBottomRef: MutableRefObject<
+    (req?: { reason?: CmScrollOwnerReason; force?: boolean }) => void
+  >;
 }): void {
   const {
     enabled,
     roomId,
     messagesViewportRef,
     messageEndRef,
-    virtualizer,
-    messageCount,
     stickToBottomRef,
+    scrollMessengerToBottomRef,
   } = opts;
 
+  void messageEndRef;
+  void opts.messageCount;
+
   const lastDockHeightRef = useRef(0);
-  const messageCountRef = useRef(messageCount);
-  messageCountRef.current = messageCount;
 
   useLayoutEffect(() => {
     if (!enabled || typeof ResizeObserver === "undefined") return;
@@ -78,15 +73,7 @@ export function useMessengerRoomTradeDockScrollAnchor(opts: {
         }).__cmR9UpgradeStateByRoom;
         if (upgradeBag?.[roomId?.trim() ?? ""]?.scrollAnchorDeferred) return;
         markCmR9ScrollAnchor(roomId ?? "", "scrollAnchorRestoreBeginMs");
-        runMessengerRoomScrollToBottom({
-          roomId: roomId ?? "",
-          reason: "virtualizer_scroll_anchor",
-          messagesViewportRef,
-          messageEndRef,
-          virtualizer,
-          messageCount: messageCountRef.current,
-          stickToBottomRef,
-        });
+        scrollMessengerToBottomRef.current({ reason: "virtualizer_scroll_anchor" });
         markCmR9ScrollAnchor(roomId ?? "", "scrollAnchorRestoreEndMs");
       });
     };
@@ -94,9 +81,7 @@ export function useMessengerRoomTradeDockScrollAnchor(opts: {
     const onDockResize = (height: number) => {
       const prev = lastDockHeightRef.current;
       lastDockHeightRef.current = height;
-      if (height > prev + 4 || prev === 0) {
-        anchorTimeline();
-      }
+      if (height > prev + 4 || prev === 0) anchorTimeline();
     };
 
     const bindDock = () => {
@@ -112,8 +97,7 @@ export function useMessengerRoomTradeDockScrollAnchor(opts: {
       dockObserver = new ResizeObserver((entries) => {
         const entry = entries[0];
         if (!entry) return;
-        const h = Math.round(entry.contentRect.height);
-        onDockResize(h);
+        onDockResize(Math.round(entry.contentRect.height));
       });
       dockObserver.observe(dockEl);
       onDockResize(Math.round(dockEl.getBoundingClientRect().height));
@@ -149,14 +133,7 @@ export function useMessengerRoomTradeDockScrollAnchor(opts: {
       dockEl = null;
       lastDockHeightRef.current = 0;
     };
-  }, [
-    enabled,
-    messageEndRef,
-    messagesViewportRef,
-    stickToBottomRef,
-    virtualizer,
-    roomId,
-  ]);
+  }, [enabled, messagesViewportRef, roomId, scrollMessengerToBottomRef, stickToBottomRef]);
 }
 
 export { notifyCmTradeDockLayoutChange };

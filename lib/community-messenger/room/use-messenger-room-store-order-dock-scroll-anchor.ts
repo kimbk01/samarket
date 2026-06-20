@@ -1,12 +1,9 @@
 "use client";
 
 import { useLayoutEffect, useRef, type MutableRefObject, type RefObject } from "react";
-import type { Virtualizer } from "@tanstack/react-virtual";
-import { runMessengerRoomScrollToBottom } from "@/lib/community-messenger/room/messenger-room-scroll-to-bottom";
 import { syncMessengerRoomStickToBottomFromViewport } from "@/lib/community-messenger/room/messenger-room-scroll-near-bottom";
 import { entryTimingT0 } from "@/lib/community-messenger/room/cm-room-entry-timing";
-
-type VirtualizerLike = Pick<Virtualizer<HTMLDivElement, Element>, "scrollToIndex">;
+import type { CmScrollOwnerReason } from "@/lib/community-messenger/room/messenger-room-entry-scroll-owner";
 
 function nowFromT0Ms(): number | null {
   const t0 = entryTimingT0();
@@ -26,32 +23,30 @@ function markCmR9ScrollAnchor(roomId: string, key: "scrollAnchorRestoreBeginMs" 
   st[key] = nowFromT0Ms();
 }
 
-/**
- * 배달·매장 주문 chrome(`data-store-order-delivery-chrome`) 높이 변화·최초 부착 시
- * 타임라인을 composer 바로 위(최신 메시지)로 맞춘다. 거래 도크 앵커와 동일 패턴.
- */
 export function useMessengerRoomStoreOrderDockScrollAnchor(opts: {
   enabled: boolean;
   roomId?: string;
   messagesViewportRef: RefObject<HTMLDivElement | null>;
   messageEndRef: RefObject<HTMLDivElement | null>;
-  virtualizer: VirtualizerLike;
   messageCount: number;
   stickToBottomRef: MutableRefObject<boolean>;
+  scrollMessengerToBottomRef: MutableRefObject<
+    (req?: { reason?: CmScrollOwnerReason; force?: boolean }) => void
+  >;
 }): void {
   const {
     enabled,
     roomId,
     messagesViewportRef,
     messageEndRef,
-    virtualizer,
-    messageCount,
     stickToBottomRef,
+    scrollMessengerToBottomRef,
   } = opts;
 
+  void messageEndRef;
+  void opts.messageCount;
+
   const lastDockHeightRef = useRef(0);
-  const messageCountRef = useRef(messageCount);
-  messageCountRef.current = messageCount;
 
   useLayoutEffect(() => {
     if (!enabled || typeof ResizeObserver === "undefined") return;
@@ -74,15 +69,7 @@ export function useMessengerRoomStoreOrderDockScrollAnchor(opts: {
         }).__cmR9UpgradeStateByRoom;
         if (upgradeBag?.[roomId?.trim() ?? ""]?.scrollAnchorDeferred) return;
         markCmR9ScrollAnchor(roomId ?? "", "scrollAnchorRestoreBeginMs");
-        runMessengerRoomScrollToBottom({
-          roomId: roomId ?? "",
-          reason: "virtualizer_scroll_anchor",
-          messagesViewportRef,
-          messageEndRef,
-          virtualizer,
-          messageCount: messageCountRef.current,
-          stickToBottomRef,
-        });
+        scrollMessengerToBottomRef.current({ reason: "virtualizer_scroll_anchor" });
         markCmR9ScrollAnchor(roomId ?? "", "scrollAnchorRestoreEndMs");
       });
     };
@@ -91,9 +78,7 @@ export function useMessengerRoomStoreOrderDockScrollAnchor(opts: {
       const prev = lastDockHeightRef.current;
       lastDockHeightRef.current = height;
       if (prev === 0) return;
-      if (height > prev + 4) {
-        anchorTimeline();
-      }
+      if (height > prev + 4) anchorTimeline();
     };
 
     const bindDock = () => {
@@ -109,12 +94,10 @@ export function useMessengerRoomStoreOrderDockScrollAnchor(opts: {
       dockObserver = new ResizeObserver((entries) => {
         const entry = entries[0];
         if (!entry) return;
-        const h = Math.round(entry.contentRect.height);
-        onDockResize(h);
+        onDockResize(Math.round(entry.contentRect.height));
       });
       dockObserver.observe(dockEl);
-      const h0 = Math.round(dockEl.getBoundingClientRect().height);
-      lastDockHeightRef.current = h0;
+      lastDockHeightRef.current = Math.round(dockEl.getBoundingClientRect().height);
     };
 
     bindDock();
@@ -138,5 +121,5 @@ export function useMessengerRoomStoreOrderDockScrollAnchor(opts: {
       dockEl = null;
       lastDockHeightRef.current = 0;
     };
-  }, [enabled, messageEndRef, messagesViewportRef, roomId, stickToBottomRef, virtualizer]);
+  }, [enabled, messagesViewportRef, roomId, scrollMessengerToBottomRef, stickToBottomRef]);
 }

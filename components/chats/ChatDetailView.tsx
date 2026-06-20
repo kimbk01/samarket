@@ -118,6 +118,7 @@ import { logClientPerf, perfNow } from "@/lib/performance/samarket-perf";
 import { createCommunityMessengerDeepLinkFromProductTradeChat } from "@/lib/community-messenger/product-trade-chat-bridge";
 import { useTradePresenceActivityOptional } from "@/components/chats/TradePresenceActivityContext";
 import { useTradeChatRoomPresence } from "@/lib/chats/use-trade-chat-room-presence";
+import { useChatThreadScroll } from "@/lib/chat-thread-scroll";
 import {
   useTradeChatRoomTypingPeer,
   useTradeChatRoomTypingPublisher,
@@ -235,9 +236,7 @@ export function ChatDetailView({
     hasMore: boolean;
     nextCursor: { before: string; beforeCreatedAt: string } | null;
   }>({ hasMore: false, nextCursor: null });
-  const tradeThreadScrollRef = useRef<HTMLDivElement>(null);
   const tradeEntryIntentRef = useRef<MessengerRoomEntryIntent>("default");
-  const tradePushEntryBottomDoneRef = useRef(false);
   const integratedHistoryLoadInFlightRef = useRef(false);
   const legacyHistoryLoadInFlightRef = useRef(false);
   const integratedHistoryScrollTsRef = useRef(0);
@@ -254,6 +253,14 @@ export function ChatDetailView({
   const isStoreOrderChat =
     isGeneralPurposeChat && room.generalChat?.kind === "store_order";
   const storeOrderMessengerRoomId = room.communityMessengerRoomId?.trim() || "";
+  const tradeScrollSurfaceActive = !isStoreOrderChat && !isGeneralPurposeChat;
+  const threadScroll = useChatThreadScroll({
+    messageCount: messages.length,
+    messagesReady: tradeScrollSurfaceActive && !messagesLoading,
+    entryActive: false,
+    messageRowSelector: "",
+    prependInFlight: integratedHistoryLoading,
+  });
   useEffect(() => {
     if (!isStoreOrderChat || !storeOrderMessengerRoomId) return;
     let url = `/community-messenger/rooms/${encodeURIComponent(storeOrderMessengerRoomId)}?from=delivery&cm_list=delivery`;
@@ -1032,7 +1039,8 @@ export function ChatDetailView({
   /** 통합 거래방·레거시 product_chat: 상단 근처 스크롤 시 과거 메시지(키셋) 로드 */
   const onTradeThreadScroll = useCallback(() => {
     if (isStoreOrderChat) return;
-    const el = tradeThreadScrollRef.current;
+    threadScroll.notifyUserScroll();
+    const el = threadScroll.viewportRef.current;
     if (!el) return;
     const t = typeof performance !== "undefined" ? performance.now() : Date.now();
     if (t - integratedHistoryScrollTsRef.current < 100) return;
@@ -1046,6 +1054,7 @@ export function ChatDetailView({
       integratedHistoryScrollTsRef.current = t;
       integratedHistoryLoadInFlightRef.current = true;
       setIntegratedHistoryLoading(true);
+      threadScroll.engine.notifyPrependInFlight(true);
       const prevH = el.scrollHeight;
       const prevTop = el.scrollTop;
 
@@ -1057,13 +1066,12 @@ export function ChatDetailView({
           };
           setMessages((prev) => mergeChatMessagesById(page.messages, prev));
           requestAnimationFrame(() => {
-            const el2 = tradeThreadScrollRef.current;
-            if (!el2) return;
-            el2.scrollTop = prevTop + (el2.scrollHeight - prevH);
+            threadScroll.notifyPrependComplete({ prevScrollTop: prevTop, prevScrollHeight: prevH });
+            threadScroll.engine.notifyPrependInFlight(false);
           });
         })
         .catch(() => {
-          /* 네트워크 오류 등 — 기존 스레드 유지 */
+          threadScroll.engine.notifyPrependInFlight(false);
         })
         .finally(() => {
           integratedHistoryLoadInFlightRef.current = false;
@@ -1079,6 +1087,7 @@ export function ChatDetailView({
     integratedHistoryScrollTsRef.current = t;
     legacyHistoryLoadInFlightRef.current = true;
     setIntegratedHistoryLoading(true);
+    threadScroll.engine.notifyPrependInFlight(true);
     const prevH = el.scrollHeight;
     const prevTop = el.scrollTop;
 
@@ -1090,19 +1099,18 @@ export function ChatDetailView({
         };
         setMessages((prev) => mergeChatMessagesById(page.messages, prev));
         requestAnimationFrame(() => {
-          const el2 = tradeThreadScrollRef.current;
-          if (!el2) return;
-          el2.scrollTop = prevTop + (el2.scrollHeight - prevH);
+          threadScroll.notifyPrependComplete({ prevScrollTop: prevTop, prevScrollHeight: prevH });
+          threadScroll.engine.notifyPrependInFlight(false);
         });
       })
       .catch(() => {
-        /* ignore */
+        threadScroll.engine.notifyPrependInFlight(false);
       })
       .finally(() => {
         legacyHistoryLoadInFlightRef.current = false;
         setIntegratedHistoryLoading(false);
       });
-  }, [isChatRoom, isStoreOrderChat, room.id]);
+  }, [isChatRoom, isStoreOrderChat, room.id, threadScroll]);
 
   /** `onRoomReload` 등으로 `initialBootstrapMessages` 가 늦게/stale 로 올 때 전체 `setMessages` 치환하면 방금 반영한 시스템 메시지가 사라짐 — 병합 시 prev 가 다른 방이면 버림 */
   const messagesSnapshotForBootstrapRef = useRef<ChatMessage[]>([]);
@@ -1236,36 +1244,11 @@ export function ChatDetailView({
       rid,
       typeof window !== "undefined" ? window.location.search : null
     );
-    if (tradeEntryIntentRef.current === "push") {
-      tradePushEntryBottomDoneRef.current = false;
-    }
-  }, [room.id]);
-
-  /** 하단 근처에 있을 때만 자동 스크롤 — push 진입은 1회 force bottom (double rAF) */
-  useLayoutEffect(() => {
-    if (isStoreOrderChat || isGeneralPurposeChat || messagesLoading) return;
-    const el = tradeThreadScrollRef.current;
-    if (!el) return;
-
-    if (tradeEntryIntentRef.current === "push" && !tradePushEntryBottomDoneRef.current) {
-      tradePushEntryBottomDoneRef.current = true;
-      const scrollToBottom = () => {
-        const box = tradeThreadScrollRef.current;
-        if (!box) return;
-        box.scrollTop = box.scrollHeight;
-      };
-      scrollToBottom();
-      requestAnimationFrame(() => {
-        requestAnimationFrame(scrollToBottom);
-      });
-      return;
-    }
-
-    const stickPx = 168;
-    if (el.scrollHeight - el.scrollTop - el.clientHeight <= stickPx) {
-      el.scrollTop = el.scrollHeight;
-    }
-  }, [messages, messagesLoading, isStoreOrderChat, isGeneralPurposeChat]);
+    if (!tradeScrollSurfaceActive) return;
+    threadScroll.notifyEntry({
+      forceBottom: tradeEntryIntentRef.current === "push",
+    });
+  }, [room.id, tradeScrollSurfaceActive, threadScroll]);
 
   // 당근형: Realtime 이 주 경로 — HTTP 는 백업(간격·가시성으로 부하 제어)
   useEffect(() => {
@@ -2277,7 +2260,7 @@ export function ChatDetailView({
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <div
-          ref={tradeThreadScrollRef}
+          ref={threadScroll.viewportRef}
           onScroll={onTradeThreadScroll}
           className={`min-w-0 flex-1 overflow-y-auto overflow-x-hidden ${isStoreOrderChat ? "bg-sam-surface py-2" : "bg-sam-app py-1"}`}
         >
@@ -2297,7 +2280,7 @@ export function ChatDetailView({
                 partnerAvatar={partnerDisplayAvatar || undefined}
                 variant={isStoreOrderChat ? "instagram" : "default"}
                 /** 당근형 거래·통합 스레드: 긴 대화 시 블록 가상화(`ChatMessageList` 기본 variant 만) */
-                scrollParentRef={tradeThreadScrollRef}
+                scrollParentRef={threadScroll.viewportRef}
                 virtualize={!isStoreOrderChat}
               />
             )}

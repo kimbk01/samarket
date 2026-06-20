@@ -1675,6 +1675,10 @@ export function useMessengerRoomClientPhase1({
     return orderId.length > 0;
   }, [snapshot?.room]);
 
+  const scrollMessengerToBottomRef = useRef<
+    (req?: { reason?: string; force?: boolean }) => void
+  >(() => {});
+
   const { scrollMessengerToBottom, updateStickToBottomFromScroll } = useMessengerRoomReaderScrollBottom({
     roomId,
     activeSheet,
@@ -1687,7 +1691,9 @@ export function useMessengerRoomClientPhase1({
     deferEntryScrollToDeliveryDirectTimeline: storeOrderDockScrollAnchorEnabled,
     timelineViewportMounted,
     timelineHeavyReady: Boolean(timelineHeavyBundle),
+    loadingOlderMessages,
   });
+  scrollMessengerToBottomRef.current = scrollMessengerToBottom;
 
   useEffect(() => {
     urlDeepLinkMessageHandledRef.current = "";
@@ -1852,6 +1858,7 @@ export function useMessengerRoomClientPhase1({
     storeOrderDockScrollAnchorEnabled,
     messageEndRef,
     stickToBottomRef,
+    scrollMessengerToBottomRef,
   },
   roomId,
   streamRoomId,

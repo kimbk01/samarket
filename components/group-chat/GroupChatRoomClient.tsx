@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ChatInputBar } from "@/components/chats/ChatInputBar";
 import { ChatMessageList } from "@/components/chats/ChatMessageList";
 import { ChatMessagesLoadingSkeleton } from "@/components/chats/ChatMessagesLoadingSkeleton";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { useChatThreadScroll } from "@/lib/chat-thread-scroll";
 import { mergeChatMessagesById } from "@/lib/chats/merge-chat-messages";
 import { useChatRoomRealtime } from "@/lib/chats/use-chat-room-realtime";
 import { fetchGroupChatBootstrapDeduped } from "@/lib/group-chat/fetch-group-chat-bootstrap";
@@ -51,7 +52,14 @@ export function GroupChatRoomClient({
   const [err, setErr] = useState<string | null>(null);
   const [bootstrapReady, setBootstrapReady] = useState(() => Boolean(primed));
   const readPostedRef = useRef(false);
-  const threadScrollParentRef = useRef<HTMLDivElement>(null);
+
+  const messagesReady = bootstrapReady && !loading && messages.length > 0;
+  const threadScroll = useChatThreadScroll({
+    messageCount: messages.length,
+    messagesReady,
+    entryActive: Boolean(roomId),
+    messageRowSelector: "",
+  });
 
   useEffect(() => {
     const u = getCurrentUser();
@@ -165,12 +173,13 @@ export function GroupChatRoomClient({
               },
             ])
           );
+          threadScroll.scrollToBottomExplicit();
         }
       } catch {
         /* ignore */
       }
     },
-    [roomId, currentUserId]
+    [roomId, currentUserId, threadScroll]
   );
 
   return (
@@ -189,8 +198,9 @@ export function GroupChatRoomClient({
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <div
-          ref={threadScrollParentRef}
+          ref={threadScroll.viewportRef}
           className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden py-1"
+          onScroll={threadScroll.notifyUserScroll}
         >
           <div className={THREAD_INNER}>
             {loading ? (
@@ -203,7 +213,7 @@ export function GroupChatRoomClient({
                 currentUserId={currentUserId ?? ""}
                 variant="default"
                 virtualize
-                scrollParentRef={threadScrollParentRef as RefObject<HTMLElement | null>}
+                scrollParentRef={threadScroll.viewportRef}
               />
             )}
           </div>

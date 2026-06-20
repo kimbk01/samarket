@@ -36,6 +36,7 @@ export function useMessengerRoomPhase1TimelineHeavy({
   storeOrderDockScrollAnchorEnabled,
   messageEndRef,
   stickToBottomRef,
+  scrollMessengerToBottomRef,
 }: {
   roomId: string;
   roomMessages: RoomMsg[];
@@ -46,6 +47,9 @@ export function useMessengerRoomPhase1TimelineHeavy({
   storeOrderDockScrollAnchorEnabled: boolean;
   messageEndRef: RefObject<HTMLDivElement | null>;
   stickToBottomRef: MutableRefObject<boolean>;
+  scrollMessengerToBottomRef: MutableRefObject<
+    (req?: { reason?: string; force?: boolean }) => void
+  >;
 }): MessengerRoomPhase1TimelineHeavyBundle {
   const derived = useMessengerRoomDerivedMessageLists(roomMessages, hiddenCallStubIds, roomSearchQuery);
   const { displayRoomMessages } = derived;
@@ -64,9 +68,9 @@ export function useMessengerRoomPhase1TimelineHeavy({
     roomId,
     messagesViewportRef,
     messageEndRef,
-    virtualizer: chatVirtualizer,
     messageCount: displayRoomMessages.length,
     stickToBottomRef,
+    scrollMessengerToBottomRef,
   });
 
   useMessengerRoomStoreOrderDockScrollAnchor({
@@ -74,9 +78,9 @@ export function useMessengerRoomPhase1TimelineHeavy({
     roomId,
     messagesViewportRef,
     messageEndRef,
-    virtualizer: chatVirtualizer,
     messageCount: displayRoomMessages.length,
     stickToBottomRef,
+    scrollMessengerToBottomRef,
   });
 
   return useMemo(

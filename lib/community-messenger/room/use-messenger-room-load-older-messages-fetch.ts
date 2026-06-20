@@ -23,7 +23,8 @@ import {
   logCmScrollAnalysis,
 } from "@/lib/community-messenger/monitoring/cm-scroll-analysis";
 import { logChatRoomScroll } from "@/lib/community-messenger/room/messenger-room-timeline-log";
-import { restoreMessengerRoomPrependScrollAnchor } from "@/lib/community-messenger/room/messenger-room-prepend-scroll-anchor";
+import { restoreChatThreadPrependAnchor } from "@/lib/chat-thread-scroll/prepend-anchor";
+import { estimateMessengerRoomTimelineTotalHeight } from "@/lib/community-messenger/room/messenger-room-timeline-paint-model";
 
 type PrependVirtualizerLike = {
   scrollOffset?: number;
@@ -167,12 +168,16 @@ export function useMessengerRoomLoadOlderMessagesFetch({
           const el = messagesViewportRef.current;
           if (!el || prevScrollHeight <= 0) return;
           const t0 = performance.now();
-          const { heightDelta, anchorErrorPx } = restoreMessengerRoomPrependScrollAnchor({
+          const estimatedPrependPx =
+            prependedMessages.length > 0
+              ? estimateMessengerRoomTimelineTotalHeight(prependedMessages)
+              : 0;
+          const { heightDelta, anchorErrorPx } = restoreChatThreadPrependAnchor({
             viewport: el,
             virtualizer: chatVirtualizerRef.current,
             prevScrollTop,
             prevScrollHeight,
-            prependedMessages,
+            estimatedPrependPx,
           });
           const restoreMs = performance.now() - t0;
           if (cmScrollAnalysisEnabled()) {
