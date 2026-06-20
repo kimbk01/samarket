@@ -69,6 +69,8 @@ export function CallScreen({
     <CallScreenShell
       variant={variant === "dock-top" ? "dock-top" : variant}
       surfaceClassName={shellSurfaceClassName}
+      networkWarningClassName={vm.showNetworkWarningBorder ? vm.networkWarningClassName : null}
+      networkQualityLevel={vm.networkQualityLevel ?? null}
       className={
         variant === "dock-top"
           ? "min-h-0 overflow-hidden rounded-b-3xl shadow-2xl"

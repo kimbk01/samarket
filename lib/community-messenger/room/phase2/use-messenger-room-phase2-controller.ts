@@ -28,11 +28,13 @@ import {
   isCallMediaGrantedForKindSync,
 } from "@/lib/community-messenger/call-media-permission-preflight";
 import {
-  startCommunityMessengerCallTone,
-  type CallToneController,
-  primeOutgoingRingbackWebAudioFromUserGesture,
   unlockCommunityMessengerCallPlaybackFromUserGesture,
 } from "@/lib/community-messenger/call-feedback-sound";
+import {
+  startOutgoingRingback,
+  stopOutgoingRingback,
+} from "@/lib/community-messenger/call-outgoing-ringback-controller";
+import { stopIncomingCallRing, syncIncomingCallRing } from "@/lib/community-messenger/incoming-call/ring-owner";
 import { primeOutgoingCallMediaBeforeNavigate } from "@/lib/community-messenger/call-media-bootstrap";
 import { useCommunityMessengerRoomGroupCall } from "@/lib/community-messenger/room/community-messenger-group-call-context";
 import { useMessengerRoomClientPhase1Context } from "@/lib/community-messenger/room/messenger-room-client-phase1-context";
@@ -2290,20 +2292,26 @@ export function useMessengerRoomPhase2Controller() {
     if (!isGroupRoom || !callPanel || (callPanel.mode !== "incoming" && callPanel.mode !== "dialing")) {
       return;
     }
-    let cancelled = false;
-    let tone: CallToneController | null = null;
-    void startCommunityMessengerCallTone(callPanel.mode === "incoming" ? "incoming" : "outgoing", {
-      callKind: callPanel.kind,
-    }).then((t) => {
-      if (cancelled) {
-        t.stop();
-        return;
-      }
-      tone = t;
+    const sid = callPanel.sessionId?.trim() ?? "";
+    if (!sid) return;
+    if (callPanel.mode === "incoming") {
+      syncIncomingCallRing({
+        sessionId: sid,
+        callKind: callPanel.kind,
+        hardClearedAt: new Map(),
+        source: "phase2_group_call_panel",
+      });
+      return () => {
+        stopIncomingCallRing("phase2_panel_cleanup", sid);
+      };
+    }
+    startOutgoingRingback({
+      callId: sid,
+      kind: callPanel.kind,
+      source: "phase2_group_dialing",
     });
     return () => {
-      cancelled = true;
-      tone?.stop();
+      stopOutgoingRingback(sid, "phase2_panel_cleanup");
     };
   }, [isGroupRoom, callPanel?.sessionId, callPanel?.mode, callPanel?.kind]);
 

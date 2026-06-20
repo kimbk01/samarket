@@ -3,12 +3,12 @@
  * 링백/벨 AudioContext 가 열린 채 GUM 이 시작되면 WebView AEC 가 깨져 발신 에코가 난다.
  */
 
-import { stopCommunityMessengerCallTone } from "@/lib/community-messenger/call-feedback-sound";
+import { stopAllOutgoingRingback } from "@/lib/community-messenger/call-outgoing-ringback-controller";
 import { closePrimedWebAudioCallToneContext } from "@/lib/community-messenger/call-tone-web-audio";
 import { suspendCommunityMessengerAppAudioContextBestEffort } from "@/lib/community-messenger/cm-app-audio-context";
 
 export function prepareCommunityMessengerCallMediaCapture(reason: string): void {
-  stopCommunityMessengerCallTone();
+  stopAllOutgoingRingback("capture_prepared");
   closePrimedWebAudioCallToneContext();
   suspendCommunityMessengerAppAudioContextBestEffort();
   if (typeof console !== "undefined") {

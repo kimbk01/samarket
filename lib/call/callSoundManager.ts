@@ -8,9 +8,12 @@ import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types
 import {
   playCommunityMessengerCallSignalSound,
   startCommunityMessengerCallTone,
-  stopCommunityMessengerCallTone,
   type CallToneController,
 } from "@/lib/community-messenger/call-feedback-sound";
+import {
+  startOutgoingRingback,
+  stopAllOutgoingRingback,
+} from "@/lib/community-messenger/call-outgoing-ringback-controller";
 import { isCommunityMessengerIncomingCallSoundEnabled } from "@/lib/community-messenger/preferences";
 
 export type CallToneMode = "incoming" | "outgoing";
@@ -28,14 +31,18 @@ export async function playIncomingRingtone(callKind: CommunityMessengerCallKind)
 /** 발신 링백 */
 export async function playOutgoingRingback(callKind: CommunityMessengerCallKind): Promise<void> {
   if (typeof window === "undefined") return;
-  stopAllCallSounds();
-  activeRing = await startCommunityMessengerCallTone("outgoing", { callKind });
+  stopAllOutgoingRingback("call_sound_manager_replace");
+  startOutgoingRingback({
+    callId: "call_sound_manager",
+    kind: callKind,
+    source: "call_sound_manager",
+  });
 }
 
 export function stopAllCallSounds(): void {
   activeRing?.stop();
   activeRing = null;
-  stopCommunityMessengerCallTone();
+  stopAllOutgoingRingback("call_sound_manager_stop_all");
 }
 
 /** 부재 / 통화 종료 원샷 — `resolveMessengerCallMissedSoundUrl` 등 관리자 키 반영 */

@@ -108,4 +108,19 @@ export type CallScreenViewModel = {
   pipFirstOutgoingMainPlaceholder?: boolean;
   /** 벨 거절·취소 직후 `EndedCallView` 대신 ringing UI 유지(복귀 전 단일 화면). */
   suppressTerminalView?: boolean;
+  /** CallNetworkQualityState SSOT */
+  networkQualityLevel?: CallNetworkQualityLevel;
+  connectionStatusLabel?: string | null;
+  networkWarningClassName?: string | null;
+  showNetworkWarningBorder?: boolean;
 };
+
+export type CallNetworkQualityLevel =
+  | "unknown"
+  | "connecting"
+  | "excellent"
+  | "good"
+  | "fair"
+  | "poor"
+  | "reconnecting"
+  | "lost";

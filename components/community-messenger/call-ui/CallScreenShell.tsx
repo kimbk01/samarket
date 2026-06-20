@@ -14,6 +14,8 @@ type Props = {
   surfaceClassName?: string;
   children: ReactNode;
   className?: string;
+  networkWarningClassName?: string | null;
+  networkQualityLevel?: string | null;
 };
 
 /**
@@ -128,6 +130,8 @@ export function CallScreenShell({
     variant === "overlay" || variant === "dock-top" ? DEFAULT_OVERLAY_SURFACE : "bg-ui-page",
   children,
   className = "",
+  networkWarningClassName = null,
+  networkQualityLevel = null,
 }: Props) {
   /** `useLayoutEffect`로 첫 페인트 전에 body 포털 부착 */
   const [portalReady, setPortalReady] = useState(false);
@@ -144,8 +148,15 @@ export function CallScreenShell({
       : variant === "dock-top"
         ? `fixed inset-x-0 top-0 ${CALL_OVERLAY_PORTAL_Z} flex max-h-[min(520px,92dvh)] min-h-0 flex-col overflow-hidden pt-[max(14px,calc(var(--safe-top)+8px))] ${surfaceClassName}`
         : `flex h-[var(--call-viewport-height,100dvh)] max-h-[var(--call-viewport-height,100dvh)] min-h-0 flex-col overflow-hidden ${surfaceClassName}`;
+  const warningClass = networkWarningClassName?.trim() ?? "";
   const shell = (
-    <div ref={shellRef} data-messenger-shell data-call-screen-shell className={`${base} ${className}`.trim()}>
+    <div
+      ref={shellRef}
+      data-messenger-shell
+      data-call-screen-shell
+      data-call-network-warning={networkQualityLevel ?? undefined}
+      className={`relative ${base} ${warningClass} ${className}`.trim()}
+    >
       {children}
     </div>
   );

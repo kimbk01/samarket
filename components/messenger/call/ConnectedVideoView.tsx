@@ -423,7 +423,13 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
                 })()}
               </div>
             ) : null}
-            <CallStatusText title={vm.peerLabel} status={vm.statusText} timer={timer} detail={detailLine} />
+            <CallStatusText
+              title={vm.peerLabel}
+              status={vm.statusText}
+              timer={timer}
+              detail={detailLine}
+              connectionStatusLabel={vm.connectionStatusLabel}
+            />
           </div>
         ) : null}
         {vm.participantsSummary ? (

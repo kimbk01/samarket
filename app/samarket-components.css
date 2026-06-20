@@ -1844,4 +1844,36 @@
       opacity: 1;
     }
   }
+
+  [data-call-screen-shell].dibay-call-network-poor::after,
+  [data-call-screen-shell].dibay-call-network-reconnecting::after,
+  [data-call-screen-shell].dibay-call-network-lost::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    border: 2px solid rgba(255, 60, 60, 0.72);
+    box-shadow:
+      inset 0 0 24px rgba(255, 0, 0, 0.24),
+      0 0 18px rgba(255, 0, 0, 0.18);
+    background: linear-gradient(
+      180deg,
+      rgba(255, 0, 0, 0.16),
+      transparent 22%,
+      transparent 78%,
+      rgba(255, 0, 0, 0.14)
+    );
+    animation: dibay-call-network-warning-pulse 1.8s ease-in-out infinite;
+  }
+
+  @keyframes dibay-call-network-warning-pulse {
+    0%,
+    100% {
+      opacity: 0.62;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
 }

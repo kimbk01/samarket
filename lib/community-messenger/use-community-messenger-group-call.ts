@@ -14,8 +14,8 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
 import {
   playCommunityMessengerCallSignalSound,
-  stopCommunityMessengerCallTone,
 } from "@/lib/community-messenger/call-feedback-sound";
+import { stopAllOutgoingRingback } from "@/lib/community-messenger/call-outgoing-ringback-controller";
 import { getCommunityMessengerMediaErrorMessage } from "@/lib/community-messenger/media-errors";
 import {
   ensureCallCanUseMedia,
@@ -384,7 +384,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
 
     void (async () => {
       try {
-        stopCommunityMessengerCallTone();
+        stopAllOutgoingRingback("group_agora_join");
         const permission = await ensureCallCanUseMedia(callKind);
         if (!permission.ok) {
           setErrorMessage(cmTr(getCallMediaPermissionBlockedMessageKey(callKind)));

@@ -3,7 +3,7 @@
 import { clearAgoraJoinGuard } from "@/lib/call/actions/agora-join-guard";
 import { logDibayCall, sealDibayCallTerminalSurface } from "@/lib/community-messenger/call-orchestrator";
 import { appendDibayCallQaLog } from "@/lib/call/qa/dibay-call-qa-log";
-import { stopCommunityMessengerCallTone } from "@/lib/community-messenger/call-feedback-sound";
+import { stopAllOutgoingRingback } from "@/lib/community-messenger/call-outgoing-ringback-controller";
 import { stopCallRingtone } from "@/lib/community-messenger/call-ringtone-controller";
 import { stopCallHeartbeatWatchdog } from "@/lib/call/native/call-heartbeat-watchdog";
 import { endNativeCallService, reportNativeCallRemoteEnded } from "@/lib/call/native/native-call-service";
@@ -264,7 +264,7 @@ export function syncClearActiveCallSessionLocal(
   activeSession = null;
   stopCallHeartbeatWatchdog(sid);
   stopCallRingtone("active_session_hard_clear", sid);
-  stopCommunityMessengerCallTone();
+  stopAllOutgoingRingback("active_session_hard_clear");
   clearAgoraJoinGuard(sid);
   sealDibayCallTerminalSurface(sid);
   notifySync();
