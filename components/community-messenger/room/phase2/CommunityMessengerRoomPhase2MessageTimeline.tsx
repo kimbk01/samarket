@@ -82,6 +82,7 @@ import {
   shouldSkipCmRoomSubtreeSurfaceAttach,
 } from "@/lib/community-messenger/room/cm-room-subtree-stability";
 import { entryTimingT0 } from "@/lib/community-messenger/room/cm-room-entry-timing";
+import { resolveMessengerTimelineRowPaddingTopClass } from "@/lib/community-messenger/room/messenger-room-timeline-row-spacing";
 
 import { MESSENGER_TIMELINE_VIRTUAL_ESTIMATE_PX } from "@/lib/community-messenger/room/messenger-room-ui-constants";
 import { roomHasStoreOrderTimelineMessages } from "@/lib/store-order-chat/collapse-duplicate-order-summaries";
@@ -1841,31 +1842,13 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                   !prev ||
                   messengerTimelineCalendarDayKey(prev.createdAt) !== messengerTimelineCalendarDayKey(item.createdAt);
                 const dayDividerLabel = isDayBoundary ? messengerTimelineDayDividerLabel(item.createdAt) : null;
-                const sameSenderCluster =
-                  !!prev &&
-                  prev.messageType !== "system" &&
-                  prev.messageType !== "call_stub" &&
-                  item.messageType !== "system" &&
-                  !isCallStub &&
-                  prev.isMine === item.isMine &&
-                  (!vm.isGroupRoom || (prev.senderId ?? "") === (item.senderId ?? ""));
-                const rowPaddingTopClass = isCallStub
-                  ? isDayBoundary
-                    ? "pt-4"
-                    : prev
-                      ? prev.messageType === "call_stub"
-                        ? "pt-1"
-                        : "pt-2"
-                      : ""
-                  : isDayBoundary
-                    ? "pt-4"
-                    : showPeerName
-                      ? "pt-3.5"
-                      : prev
-                        ? sameSenderCluster
-                          ? "pt-1"
-                          : "pt-3"
-                        : "";
+                const rowPaddingTopClass = resolveMessengerTimelineRowPaddingTopClass({
+                  item,
+                  prev,
+                  isDayBoundary,
+                  showPeerName,
+                  isGroupRoom: vm.isGroupRoom,
+                });
                 const showMessageTime =
                   item.messageType !== "system" &&
                   !isCallStub &&

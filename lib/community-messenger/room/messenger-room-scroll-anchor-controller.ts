@@ -69,6 +69,10 @@ type ScrollAnchorControllerOpts = {
   timelineViewportMounted?: boolean;
   timelineHeavyReady?: boolean;
   loadingOlderMessages?: boolean;
+  /** bootstrap initial fetch 완료 — 진입 scroll 1회 게이트 (Android/iOS 동일) */
+  timelineInitialLoadComplete?: boolean;
+  /** displayRoomMessages fingerprint — bootstrap merge 후 tail re-anchor */
+  roomMessagesFingerprint?: string;
 };
 
 function isExplicitScrollReason(reason: CmScrollOwnerReason): boolean {
@@ -117,6 +121,8 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     timelineViewportMounted = false,
     timelineHeavyReady = false,
     loadingOlderMessages = false,
+    timelineInitialLoadComplete = false,
+    roomMessagesFingerprint = "",
   } = opts;
 
   void opts.messageEndRef;
@@ -143,6 +149,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
   const prevTailMessageIdRef = useRef<string | null>(null);
   const prevTailClientMessageIdRef = useRef<string | null>(null);
   const entryRetryRafRef = useRef<number | null>(null);
+  const prevRoomMessagesFingerprintRef = useRef("");
 
   const toVirtualizer = useCallback((): ChatThreadVirtualizer | null => {
     if (!virtualizer) return null;
@@ -387,6 +394,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     tailSettleDoneRef.current = false;
     prevTailMessageIdRef.current = null;
     prevTailClientMessageIdRef.current = null;
+    prevRoomMessagesFingerprintRef.current = "";
 
     const intent =
       typeof window !== "undefined"
@@ -404,6 +412,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
   useLayoutEffect(() => {
     if (deferEntryScrollToDeliveryDirectTimeline || roomMessages.length <= 0) return;
     if (!timelineViewportMounted || !timelineHeavyReady) return;
+    if (!timelineInitialLoadComplete) return;
     if (entryScrollScheduledRef.current) return;
 
     const rid = roomId.trim();
@@ -428,7 +437,35 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     roomMessages.length,
     stickToBottomRef,
     timelineHeavyReady,
+    timelineInitialLoadComplete,
     timelineViewportMounted,
+    tryCompleteEntry,
+  ]);
+
+  /** bootstrap merge — call_stub+text 한 스트림 paint 후 tail (플랫폼 공통 JS) */
+  useLayoutEffect(() => {
+    const fp = roomMessagesFingerprint;
+    const prevFp = prevRoomMessagesFingerprintRef.current;
+    prevRoomMessagesFingerprintRef.current = fp;
+    if (!prevFp || prevFp === fp) return;
+    if (deferEntryScrollToDeliveryDirectTimeline || loadingOlderMessages) return;
+    if (!stickToBottomRef.current || messageCount <= 0) return;
+
+    engine.notifyMessagesReady(true);
+    engine.notifyLayoutCommitted();
+    if (engine.getPhase() === "entryPendingLayout") {
+      tryCompleteEntry("initial_load");
+      return;
+    }
+    scrollMessengerToBottom({ reason: "entry_tail_settle", force: true });
+  }, [
+    deferEntryScrollToDeliveryDirectTimeline,
+    engine,
+    loadingOlderMessages,
+    messageCount,
+    roomMessagesFingerprint,
+    scrollMessengerToBottom,
+    stickToBottomRef,
     tryCompleteEntry,
   ]);
 
