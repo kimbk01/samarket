@@ -19,8 +19,11 @@ import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.TextView;
+import android.graphics.Color;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
+import androidx.core.splashscreen.SplashScreen;
 import com.getcapacitor.BridgeWebViewClient;
 import android.app.PictureInPictureParams;
 import android.util.Rational;
@@ -55,6 +58,10 @@ public class MainActivity extends BridgeActivity {
   private static final int[] PENDING_TERMINAL_RETRY_DELAYS_MS = {120, 450, 900, 2_000};
   private static volatile boolean appVisible = false;
   private static volatile MainActivity activeInstance = null;
+  /** Web `markBootMetricsHomeVisible` — keep splash until shell paint. */
+  private static volatile boolean webSplashDismissRequested = false;
+  /** Sam app surface — avoid pure white WebView flash before first paint. */
+  private static final int WEBVIEW_BACKGROUND_COLOR = Color.parseColor("#F0F2F5");
 
   private DibayWebSafeAreaBridge webSafeAreaBridge;
   private DibayWebViewPermissionDelegate webViewPermissionDelegate;
@@ -63,6 +70,7 @@ public class MainActivity extends BridgeActivity {
   private volatile boolean routeInjectedForCurrentPending = false;
   private volatile boolean dibayWebChromeClientAttached = false;
   private volatile boolean dibayWebViewClientAttached = false;
+  private volatile boolean dibayBootBridgeAttached = false;
   private volatile boolean callRouteLoadingVisible = false;
   private View callRouteLoadingOverlay = null;
   private View webViewLoadErrorOverlay = null;
@@ -494,7 +502,10 @@ public class MainActivity extends BridgeActivity {
     registerPlugin(com.dibay.app.call.CallPermissionPlugin.class);
     registerPlugin(com.dibay.app.call.DibayCallAudioRoutePlugin.class);
     registerPlugin(com.dibay.app.call.NativeCallServicePlugin.class);
+    SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
+    injectBootMetricOnCreate();
     super.onCreate(savedInstanceState);
+    splashScreen.setKeepOnScreenCondition(() -> !webSplashDismissRequested);
     webSafeAreaBridge = new DibayWebSafeAreaBridge(this);
     webSafeAreaBridge.attach();
     Log.i(WEBVIEW_LOG_TAG, "app_start package=" + getPackageName());
@@ -601,6 +612,7 @@ public class MainActivity extends BridgeActivity {
     } else if (dibayWebChromeClientAttached) {
       return;
     }
+    webView.setBackgroundColor(WEBVIEW_BACKGROUND_COLOR);
     webView.setWebChromeClient(new DibayDelegatingWebChromeClient(existing, webViewPermissionDelegate));
     dibayWebChromeClientAttached = true;
     Log.i("DIBAY_WebPerm", "delegating_web_chrome_client_attached");
@@ -635,6 +647,11 @@ public class MainActivity extends BridgeActivity {
               }
             });
     bridge.setWebViewClient(client);
+    WebView webView = bridge.getWebView();
+    if (webView != null) {
+      webView.setBackgroundColor(WEBVIEW_BACKGROUND_COLOR);
+      attachDibayBootBridge(webView);
+    }
     dibayWebViewClientAttached = true;
     Log.i(WEBVIEW_LOG_TAG, "dibay_bridge_webview_client_attached");
   }
@@ -648,6 +665,8 @@ public class MainActivity extends BridgeActivity {
           hideWebViewLoadErrorOverlay();
           mainHandler.removeCallbacks(webViewLoadTimeoutRunnable);
           mainHandler.postDelayed(webViewLoadTimeoutRunnable, WEBVIEW_LOAD_TIMEOUT_MS);
+          injectBootMetricField("nativeStart");
+          injectBootMetricField("webviewReady");
         });
   }
 
@@ -658,10 +677,54 @@ public class MainActivity extends BridgeActivity {
           pendingMainFrameUrl = url;
           mainHandler.removeCallbacks(webViewLoadTimeoutRunnable);
           hideWebViewLoadErrorOverlay();
+          injectBootMetricField("firstHtml");
           if (webSafeAreaBridge != null) {
             webSafeAreaBridge.refreshIfPossible();
           }
         });
+  }
+
+  /** Called from web when home shell is visible — dismiss Android 12 splash overlay. */
+  public static void requestWebSplashDismiss() {
+    webSplashDismissRequested = true;
+  }
+
+  private void injectBootMetricOnCreate() {
+    webSplashDismissRequested = false;
+  }
+
+  private void attachDibayBootBridge(WebView webView) {
+    if (dibayBootBridgeAttached) return;
+    webView.addJavascriptInterface(new DibayBootJsBridge(), "DibayBootBridge");
+    dibayBootBridgeAttached = true;
+  }
+
+  private final class DibayBootJsBridge {
+    @JavascriptInterface
+    public void dismissSplash() {
+      mainHandler.post(() -> webSplashDismissRequested = true);
+    }
+  }
+
+  private void injectBootMetricField(String field) {
+    Bridge bridge = getBridge();
+    if (bridge == null) return;
+    WebView webView = bridge.getWebView();
+    if (webView == null) return;
+    String safeField = field.replaceAll("[^a-zA-Z]", "");
+    String js =
+        "(function(){try{var n=performance.now();var m=window.__dibayBootMetrics||{};"
+            + "window.__dibayBootMetrics=m;if(m."
+            + safeField
+            + "==null)m."
+            + safeField
+            + "=n;"
+            + "window.__dibayNativeSplashDismiss=function(){"
+            + "try{if(window.DibayBootBridge&&window.DibayBootBridge.dismissSplash)"
+            + "window.DibayBootBridge.dismissSplash();}catch(e){}"
+            + "};"
+            + "}catch(e){}})();";
+    webView.evaluateJavascript(js, null);
   }
 
   private void onWebViewMainFrameFailed(String url, String reason) {
