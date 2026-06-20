@@ -4,10 +4,12 @@
  */
 
 import { stopAllOutgoingRingback } from "@/lib/community-messenger/call-outgoing-ringback-controller";
+import { stopCommunityMessengerCallTone } from "@/lib/community-messenger/call-feedback-sound";
 import { closePrimedWebAudioCallToneContext } from "@/lib/community-messenger/call-tone-web-audio";
 import { suspendCommunityMessengerAppAudioContextBestEffort } from "@/lib/community-messenger/cm-app-audio-context";
 
 export function prepareCommunityMessengerCallMediaCapture(reason: string): void {
+  stopCommunityMessengerCallTone();
   stopAllOutgoingRingback("capture_prepared");
   closePrimedWebAudioCallToneContext();
   suspendCommunityMessengerAppAudioContextBestEffort();
