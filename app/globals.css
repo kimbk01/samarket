@@ -165,7 +165,7 @@ html.sam-store-order-hero-doc-root body {
 /**
  * interactiveWidget="resizes-content"(Android Chrome) 전역 보완.
  * 키보드 등장 시 레이아웃 뷰포트가 줄어들어 fixed/absolute 요소가 위로 올라올 수 있다.
- * 채팅 방은 `app/chat-viewport-shell.css` · `use-chat-viewport-shell-insets` 가 정밀 보정하므로 별도 처리 불필요.
+ * 채팅 방은 `app/chat-viewport-shell.css` flex-only shell(composer `--safe-bottom` + iOS `--kb-offset`)이 담당.
  * 일반 페이지 fixed bottom CTA·모달은 `var(--safe-bottom)` 만 적용하면 키보드 위에 안착.
  */
 .sam-keyboard-safe-bottom {

@@ -518,8 +518,8 @@ export function readCallViewportInsetsFromDom(): CallPipInsets {
     };
   }
 
-  const composerH =
-    parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--chat-composer-height") || "0") || 0;
+  const composerEl = document.querySelector<HTMLElement>("[data-cm-composer]");
+  const composerH = composerEl?.offsetHeight ?? 0;
   const bottomNavH = 56;
   const actionBarH = readActionBarHeightFromElement(document.documentElement);
   const { safeTop, safeBottom } = readCallPipSafeAreaInsetsFromDom();

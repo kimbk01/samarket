@@ -8,8 +8,7 @@ import { useEffect, useRef, useState } from "react";
  * 정책:
  * - `resize` · `orientationchange` · `visualViewport.resize/scroll` 을 한 곳에서 듣고
  *   `requestAnimationFrame` 으로 합쳐 setState (이벤트 폭주 방지).
- * - **메신저 방** 키보드/스크롤 보정에는 사용하지 않는다 — `use-chat-viewport-shell-insets` /
- *   `useMobileKeyboardInset` / `useMessengerTradeKeyboardChrome` 의 기존 계약을 유지한다.
+ * - **메신저 방** 키보드/스크롤 보정에는 사용하지 않는다 — `use-cm-room-kb-offset`(iOS only).
  *   (이 훅은 글쓰기·일반 시트·하단 고정 CTA 등 일반 화면 전용)
  *
  * width 기준(헌장):

@@ -46,7 +46,6 @@ import {
   APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS,
 } from "@/lib/ui/app-content-layout";
 import { useMatchMaxWidthMd } from "@/lib/ui/use-match-max-width";
-import { useMessengerTradeKeyboardChrome } from "@/lib/ui/use-messenger-trade-keyboard-chrome";
 
 /** 메시지 스크롤·입력창·스티키 하단을 동일 읽기 폭으로 — 거래 허브 전체 페이지 vs 홈 시트 모달 정렬 일치 */
 const CHAT_THREAD_COLUMN_INNER_CLASS = `mx-auto w-full min-w-0 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} ${APP_MAIN_GUTTER_X_CLASS}`;
@@ -534,12 +533,9 @@ export function ChatDetailView({
 
   const isNarrowChatShell = useMatchMaxWidthMd();
   const [chatTradeComposerFocused, setChatTradeComposerFocused] = useState(false);
-  const chatTradeKeyboardChromeEnabled =
+  const chatTradeComposerFocusTracking =
     !isStoreOrderChat && !isGeneralPurposeChat && room.chatDomain === "trade" && isNarrowChatShell;
-  const { keyboardChromeOpen: chatTradeKeyboardChromeOpen } = useMessengerTradeKeyboardChrome({
-    enabled: chatTradeKeyboardChromeEnabled,
-    composerFocused: chatTradeComposerFocused,
-  });
+  const chatTradeKeyboardCompact = chatTradeComposerFocusTracking && chatTradeComposerFocused;
 
   useEffect(() => {
     didAutoOpenReviewRef.current = false;
@@ -2032,9 +2028,9 @@ export function ChatDetailView({
         onImageFilesSelected={handleImageFilesSelectedStable}
         imageSending={imageSending}
         onComposerFocusChange={
-          chatTradeKeyboardChromeEnabled ? (focused) => setChatTradeComposerFocused(focused) : undefined
+          chatTradeComposerFocusTracking ? (focused) => setChatTradeComposerFocused(focused) : undefined
         }
-        composerDense={Boolean(chatTradeKeyboardChromeOpen && !isStoreOrderChat)}
+        composerDense={Boolean(chatTradeKeyboardCompact && !isStoreOrderChat)}
       />
     </>
   );
@@ -2210,7 +2206,7 @@ export function ChatDetailView({
                   listingNotice={listingNotice}
                   productStatusOverride={displayProductStatus}
                   sellerListingControlsEnabled={sellerListingControlsEnabled}
-                  layoutVariant={chatTradeKeyboardChromeOpen ? "keyboardCompact" : "default"}
+                  layoutVariant={chatTradeKeyboardCompact ? "keyboardCompact" : "default"}
                 />
               )}
               {!isGeneralPurposeChat && adminChatSuspended ? (
@@ -2218,7 +2214,7 @@ export function ChatDetailView({
                   {ADMIN_CHAT_SUSPENDED_MESSAGE}
                 </div>
               ) : null}
-              {room.product && !chatTradeKeyboardChromeOpen ? (
+              {room.product && !chatTradeKeyboardCompact ? (
                 <div className="border-t border-sam-border-soft bg-sam-surface px-3 py-2">
                   <ChatProductSummary
                     product={room.product}

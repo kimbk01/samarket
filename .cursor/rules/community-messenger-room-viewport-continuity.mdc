@@ -3,10 +3,10 @@ description: 커뮤니티 메신저 방 모바일 뷰포트·스크롤 수정 �
 alwaysApply: false
 globs:
   - lib/ui/messenger-chat-viewport-tuning.ts
-  - lib/ui/chat-viewport-shell-platform.ts
-  - lib/ui/use-chat-viewport-shell-insets.ts
+  - lib/ui/use-cm-room-kb-offset.ts
   - app/chat-viewport-shell.css
   - lib/community-messenger/room/use-messenger-room-reader-scroll-bottom.ts
+  - components/community-messenger/room/CommunityMessengerRoomClientPhase2Body.tsx
   - components/community-messenger/room/CommunityMessengerRoomPhase2.tsx
   - components/community-messenger/room/phase2/CommunityMessengerRoomPhase2Composer.tsx
   - components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MessageTimeline.tsx
@@ -17,14 +17,17 @@ globs:
 
 ## 수정 전 (필수)
 
-1. **`docs/community-messenger-mobile-room-viewport.md`** 를 연다 — 정의·파일 표·**§4 체크리스트**·**§6 변경 이력**.
-2. 되돌리기·부분 리버트 시 **§6 최근 행**과 비교해, 의도치 않게 제거된 동작(콜백 ref, RO+vv+window, cleanup의 rAF 취소·CSS 변수 제거 등)이 없는지 확인한다.
+1. **`docs/community-messenger-mobile-room-viewport.md`** 를 연다 — flex-only 계약·파일 표·**§5 체크리스트**·**§7 변경 이력**.
+2. 되돌리기·부분 리버트 시 **§7 최근 행**과 비교해, `--chat-viewport-height` / dedupe 레이어가 다시 들어오지 않았는지 확인한다.
 
 ## 금지·주의
 
-- 셸 높이를 **`100vh` 단독**(fallback 제외) 또는 **`innerHeight` 단독**으로만 맞추지 않는다 — narrow 는 `100dvh`+safe-area.
-- **`useMessengerRoomClientPhase1`** 에서 **커스텀 훅 호출 순서**를 바꾸지 않는다 — `useVirtualizer` · `useMessengerRoomReaderScrollBottom` 순서 깨짐 시 invalid hooks.
-- 스크롤 보정을 **폴링·임시 `window.scrollTo`만**으로 대체하지 않는다 (근본 수정 규칙과 병행 시 구조적 원인을 남긴다).
+- 셸 높이를 **`--chat-viewport-height`·`100dvh` JS 주입·vv nav gap dedupe** 로 맞추지 않는다 — flex `height:100%` + `min-h-0` chain.
+- composer **`fixed`/`sticky`**·이중 safe-bottom/keyboard padding **금지**.
+- timeline을 hydration pass로 **`hidden`/`display:none`** 하지 않는다.
+- **`useMessengerRoomClientPhase1`** 에서 **커스텀 훅 호출 순서**를 바꾸지 않는다.
+- 스크롤 보정을 **폴링·임시 `window.scrollTo`만**으로 대체하지 않는다.
+- Android scroll path에 **`visualViewport` listener** 를 다시 붙이지 않는다 (iOS only).
 
 ## 변경 후
 

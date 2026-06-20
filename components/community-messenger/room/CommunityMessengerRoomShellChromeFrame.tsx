@@ -23,7 +23,7 @@ export const CommunityMessengerRoomShellChromeFrame = memo(function CommunityMes
       data-messenger-shell
       data-cm-room
       {...dataAttrs}
-      className={`chat-viewport-shell${narrowViewport ? " chat-viewport-shell--narrow" : ""} flex min-h-0 flex-1 flex-col overflow-hidden bg-[color:var(--cm-room-page-bg)] text-[color:var(--cm-room-text)] ${className ?? ""}`}
+      className={`cm-room-shell flex min-h-0 flex-1 flex-col overflow-hidden bg-[color:var(--cm-room-page-bg)] text-[color:var(--cm-room-text)] ${className ?? ""}`}
       aria-hidden={screenReaderHidden ? true : undefined}
     >
       <header className="chat-header shrink-0">
@@ -40,7 +40,7 @@ export const CommunityMessengerRoomShellChromeFrame = memo(function CommunityMes
         </div>
       </header>
 
-      <div className="min-h-0 flex-1 bg-[color:var(--cm-room-chat-bg)]" data-cm-room-viewport-placeholder />
+      <div className="cm-room-timeline min-h-0 flex-1 bg-[color:var(--cm-room-chat-bg)]" data-cm-room-viewport-placeholder />
 
       {footerSlot ?? (
         <ChatComposer>

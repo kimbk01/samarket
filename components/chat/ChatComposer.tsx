@@ -9,7 +9,7 @@ type Props = {
 
 /**
  * flex 하단 입력 섹터 — fixed/sticky/keyboard JS inset 금지.
- * safe-area-bottom은 [data-cm-room].chat-viewport-shell padding이 담당.
+ * safe-area-bottom(+ iOS --kb-offset)은 .cm-room-composer padding이 담당.
  */
 export const ChatComposer = forwardRef<HTMLElement, Props>(function ChatComposer(
   { children, className = "", style, ...rest },

@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { noteCmRoomPhase2HydratedModuleEval } from "@/lib/community-messenger/room/cm-room-phase2-entry-perf";
 
 noteCmRoomPhase2HydratedModuleEval();
@@ -8,21 +8,13 @@ import { CommunityMessengerRoomShellSkeleton } from "@/components/community-mess
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import type { MessengerRoomPhase2ViewModel } from "@/lib/community-messenger/room/phase2/messenger-room-phase2-view-model";
 import { useMatchMaxWidthMd } from "@/lib/ui/use-match-max-width";
-import { useMessengerTradeKeyboardChrome } from "@/lib/ui/use-messenger-trade-keyboard-chrome";
-import { useChatViewportShellInsets } from "@/lib/ui/use-chat-viewport-shell-insets";
-import {
-  resolveChatViewportShellClassNames,
-  resolveChatViewportShellPlatform,
-  type ChatViewportShellLayoutMode,
-} from "@/lib/ui/chat-viewport-shell-platform";
+import { useCmRoomKbOffset } from "@/lib/ui/use-cm-room-kb-offset";
 import { useOwnerOrderChatSlideHost } from "@/components/business/owner/OwnerOrderChatSlideHostContext";
 import { useBuyerOrderChatSlideHost } from "@/components/mypage/BuyerOrderChatSlideHostContext";
-import { useMessengerUIStore } from "@/lib/community-messenger/stores/useMessengerUIStore";
 import { useMessengerRoomPhase2Controller } from "@/lib/community-messenger/room/phase2";
 import { MessengerRoomPhase2ViewProvider } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
 import { MessengerRoomPhase2HeaderProvider } from "@/components/community-messenger/room/phase2/messenger-room-phase2-header-context";
 import { MessengerRoomPhase2CallProvider } from "@/components/community-messenger/room/phase2/messenger-room-phase2-call-context";
-import { MessengerRoomMobileViewportProvider } from "@/components/community-messenger/room/phase2/messenger-room-mobile-viewport-context";
 import { CommunityMessengerRoomPhase2Header } from "@/components/community-messenger/room/phase2/CommunityMessengerRoomPhase2Header";
 import { CommunityMessengerRoomPhase2PeerNotice } from "@/components/community-messenger/room/phase2/CommunityMessengerRoomPhase2PeerNotice";
 import { CommunityMessengerRoomPhase2AttachmentsAndTrade } from "@/components/community-messenger/room/phase2/CommunityMessengerRoomPhase2AttachmentsAndTrade";
@@ -148,26 +140,19 @@ type CommunityMessengerRoomClientPhase2MainProps = {
   room: MessengerRoomPhase2Controller & {
     snapshot: NonNullable<MessengerRoomPhase2Controller["snapshot"]>;
   };
-  keyboardOverlapSuppressed: boolean;
-  /** 좁�? ?�면: visualViewport 기반 CSS 변?�·셸 ?�이 */
   narrowViewport: boolean;
-  messengerKeyboardChromeOpen: boolean;
 };
 
 const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerRoomClientPhase2Main({
   room,
-  keyboardOverlapSuppressed,
   narrowViewport,
-  messengerKeyboardChromeOpen,
 }: CommunityMessengerRoomClientPhase2MainProps) {
   useCmDevRenderTrace("MessengerShell");
   useCmStrictModeEffectProbe("MessengerShell");
   const phase2RenderPassStartRef = useRef(typeof performance !== "undefined" ? performance.now() : 0);
   phase2RenderPassStartRef.current = typeof performance !== "undefined" ? performance.now() : 0;
   const phase2PrevSigRef = useRef<{ msgLen: number; unread: number; readId: string } | null>(null);
-  const rootRef = useRef<HTMLDivElement | null>(null);
-  /** ??DOM ??붙�? ?�에�?vv 변??구독 ??�??�레?�에 ref 미�?착으�??�이 빠�???경우 방�? @see docs/community-messenger-mobile-room-viewport.md */
-  const [chatShellMounted, setChatShellMounted] = useState(false);
+  const shellRef = useRef<HTMLDivElement | null>(null);
   const roomIdStable = String(room.snapshot.room.id ?? "").trim();
   const [hydrationPass, setHydrationPass] = useState<CmRoomPhase2HydrationPass>(() => {
     const persisted = getCmRoomSubtreeHydrationPass(roomIdStable);
@@ -178,10 +163,6 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
     });
     return resolveMessengerRoomPhase2HydrationPassInitial({ persistedPass: persisted, hasTimelineSeed });
   });
-  const setMessengerShellRef = useCallback((node: HTMLDivElement | null) => {
-    rootRef.current = node;
-    setChatShellMounted(Boolean(node));
-  }, []);
 
   useEffect(() => {
     if (!roomIdStable) return;
@@ -306,8 +287,6 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
       visible_message_count: msgLen,
     });
   }, [
-    keyboardOverlapSuppressed,
-    messengerKeyboardChromeOpen,
     room.displayRoomMessages.length,
     room.snapshot.room.unreadCount,
     room.snapshot.readReceipt?.lastReadMessageId,
@@ -320,7 +299,7 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
       snapshot: room.snapshot as CommunityMessengerRoomSnapshot,
     }),
     [
-      room,
+      // `room` 전체 dep 금지 — message 타이핑마다 Timeline invalidate 방지. 필드 단위만.
       room.snapshot,
       room.roomMessages,
       room.displayRoomMessages,
@@ -330,7 +309,17 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
       room.loading,
       room.timelineInitialLoadComplete,
       room.busy,
-      room.message,
+      room.activeSheet,
+      room.attachmentConfirmDraft,
+      room.messageActionItem,
+      room.messageSearchResults,
+      room.voiceRecording,
+      room.memberActionTarget,
+      room.showMessengerTradeProcessDock,
+      room.showMessengerStoreOrderDock,
+      room.callStubSheet,
+      room.leaveRoomConfirmOpen,
+      room.reportTarget,
     ]
   );
   const tradeViewerRole = useMemo(
@@ -350,22 +339,11 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
   const isDeliveryKindRoom = isCommunityMessengerStoreOrderDeliveryRoom(view.snapshot.room);
   const ownerSlideHost = useOwnerOrderChatSlideHost();
   const buyerSlideHost = useBuyerOrderChatSlideHost();
-  const shellLayoutMode: ChatViewportShellLayoutMode =
-    ownerSlideHost || buyerSlideHost ? "embedded" : narrowViewport ? "narrow" : "wide";
-  const shellGeometryClass = useMemo(
-    () =>
-      resolveChatViewportShellClassNames({
-        layoutMode: shellLayoutMode,
-        platform: resolveChatViewportShellPlatform(),
-      }),
-    [shellLayoutMode]
-  );
+  const isEmbeddedShell = Boolean(ownerSlideHost || buyerSlideHost);
 
-  useChatViewportShellInsets({
-    enabled: chatShellMounted,
-    shellRef: rootRef,
-    layoutMode: shellLayoutMode,
-    observeComposerHeight: true,
+  useCmRoomKbOffset({
+    enabled: narrowViewport && !isEmbeddedShell,
+    shellRef,
   });
 
   const storeOrderDeliveryIsOwnerApi =
@@ -572,10 +550,7 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
   }, [room.displayRoomMessages.length, room.photoMessageCount, room.snapshot.messages.length, room.snapshot.room.id]);
 
   return (
-    <MessengerRoomMobileViewportProvider
-      value={{ keyboardOverlapSuppressed, messengerKeyboardChromeOpen }}
-    >
-      <MessengerRoomPhase2ViewProvider value={view}>
+    <MessengerRoomPhase2ViewProvider value={view}>
         <StoreOrderDeliveryRoomProvider
           storeOrderId={view.storeOrderIdForDock}
           storeId={view.storeIdForDock}
@@ -584,37 +559,31 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
         >
         <CmRoomPhase2HydrationProvider pass={hydrationPass}>
         <div
-          ref={setMessengerShellRef}
+          ref={shellRef}
           data-messenger-shell
           data-cm-room
           data-cm-room-hydration-pass={hydrationPass}
           data-trade-viewer-role={tradeViewerRole ?? undefined}
           data-delivery-viewer-role={deliveryViewerRole ?? undefined}
-          className={`${shellGeometryClass} flex min-h-0 flex-1 flex-col overflow-hidden bg-[color:var(--cm-room-page-bg)] text-[color:var(--cm-room-text)]${isDeliveryKindRoom ? " delivery-ui" : ""}`}
+          className={`cm-room-shell flex min-h-0 flex-1 flex-col overflow-hidden bg-[color:var(--cm-room-page-bg)] text-[color:var(--cm-room-text)]${isEmbeddedShell ? " cm-room-shell--embedded" : ""}${isDeliveryKindRoom ? " delivery-ui" : ""}`}
         >
           <MessengerRoomPhase2HeaderProvider value={headerView}>
             <CommunityMessengerRoomPhase2Header />
             <CommunityMessengerRoomPhase2PeerNotice />
           </MessengerRoomPhase2HeaderProvider>
           <div
-            className={hydrationPass >= 2 ? "contents" : "hidden min-h-0 flex-1"}
-            aria-hidden={hydrationPass < 2}
+            className="cm-room-timeline flex min-h-0 flex-1 flex-col"
             data-cm-room-viewport-persistent=""
           >
             <CommunityMessengerRoomPhase2MessageTimeline />
             <CommunityMessengerRoomPhase2MessageOverlays />
           </div>
-          {hydrationPass < 2 ? (
-            <div
-              className="min-h-0 flex-1 bg-[color:var(--cm-room-chat-bg)]"
-              aria-hidden
-              data-cm-room-viewport-placeholder
-            />
-          ) : null}
           <CommunityMessengerRoomPhase2AttachmentsAndTrade />
-          <MessengerRoomPhase2ComposerProvider value={composerView}>
-            <CommunityMessengerRoomPhase2Composer composerEntryVisible composerSurfaceMode="phase2" />
-          </MessengerRoomPhase2ComposerProvider>
+          <div className="cm-room-composer">
+            <MessengerRoomPhase2ComposerProvider value={composerView}>
+              <CommunityMessengerRoomPhase2Composer composerEntryVisible composerSurfaceMode="phase2" />
+            </MessengerRoomPhase2ComposerProvider>
+          </div>
           <div className={hydrationPass >= 3 ? "contents" : "hidden"} aria-hidden={hydrationPass < 3} data-cm-room-pass3-persistent="">
             <CommunityMessengerRoomPhase2RoomSheets />
             <CommunityMessengerRoomPhase2MemberActionModal />
@@ -626,33 +595,15 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
         </CmRoomPhase2HydrationProvider>
         </StoreOrderDeliveryRoomProvider>
       </MessengerRoomPhase2ViewProvider>
-    </MessengerRoomMobileViewportProvider>
   );
 });
 
-function CommunityMessengerRoomClientPhase2Body({
-  keyboardOverlapSuppressed,
-  messengerKeyboardChromeOpen,
-}: {
-  keyboardOverlapSuppressed: boolean;
-  messengerKeyboardChromeOpen: boolean;
-}) {
+function CommunityMessengerRoomClientPhase2Body() {
   noteCmRoomPhase2HydratedFirstRender();
-  return (
-    <CommunityMessengerRoomClientPhase2Hydrated
-      keyboardOverlapSuppressed={keyboardOverlapSuppressed}
-      messengerKeyboardChromeOpen={messengerKeyboardChromeOpen}
-    />
-  );
+  return <CommunityMessengerRoomClientPhase2Hydrated />;
 }
 
-const CommunityMessengerRoomClientPhase2Hydrated = memo(function CommunityMessengerRoomClientPhase2Hydrated({
-  keyboardOverlapSuppressed,
-  messengerKeyboardChromeOpen,
-}: {
-  keyboardOverlapSuppressed: boolean;
-  messengerKeyboardChromeOpen: boolean;
-}) {
+const CommunityMessengerRoomClientPhase2Hydrated = memo(function CommunityMessengerRoomClientPhase2Hydrated() {
   noteCmRoomPhase2ControllerStart();
   const room = useMessengerRoomPhase2Controller();
   useLayoutEffect(() => {
@@ -699,9 +650,7 @@ const CommunityMessengerRoomClientPhase2Hydrated = memo(function CommunityMessen
   return (
     <CommunityMessengerRoomClientPhase2Main
       room={{ ...room, snapshot }}
-      keyboardOverlapSuppressed={keyboardOverlapSuppressed}
       narrowViewport={isNarrowViewport}
-      messengerKeyboardChromeOpen={messengerKeyboardChromeOpen}
     />
   );
 });

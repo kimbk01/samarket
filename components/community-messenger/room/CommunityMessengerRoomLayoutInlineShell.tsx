@@ -10,7 +10,7 @@ export function CommunityMessengerRoomLayoutInlineShell() {
       data-cm-room-route-entry-shell=""
       data-cm-room-pass1-stable-shell=""
       data-cm-room-layout-inline-shell=""
-      className="chat-viewport-shell chat-viewport-shell--narrow flex min-h-0 flex-1 flex-col overflow-hidden bg-[color:var(--cm-room-page-bg)] text-[color:var(--cm-room-text)]"
+      className="cm-room-shell flex min-h-0 flex-1 flex-col overflow-hidden bg-[color:var(--cm-room-page-bg)] text-[color:var(--cm-room-text)]"
     >
       <header className="chat-header shrink-0">
         <div className="chat-header__row">
@@ -26,7 +26,7 @@ export function CommunityMessengerRoomLayoutInlineShell() {
         </div>
       </header>
 
-      <div className="min-h-0 flex-1 bg-[color:var(--cm-room-chat-bg)]" data-cm-room-viewport-placeholder />
+      <div className="cm-room-timeline min-h-0 flex-1 bg-[color:var(--cm-room-chat-bg)]" data-cm-room-viewport-placeholder />
 
       <footer
         data-chat-composer

@@ -2,11 +2,11 @@ import { readSamarketShellKeyboardBottomInsetCssPx } from "@/lib/platform/samark
 import { isLikelyIosWebKit } from "@/lib/ui/is-likely-ios-webkit";
 
 /**
- * 모바일 셸(메신저 방·통화 오버레이) 공통 — `innerHeight`/`100dvh` 단독이 아니라
+ * 통화 오버레이 셸 전용 — `innerHeight`/`100dvh` 단독이 아니라
  * `visualViewport`(+ iOS `offsetTop`)·네이티브 shell inset 을 조합한 보이는 세로(px).
  *
  * @see docs/community-messenger-mobile-room-viewport.md
- * @see lib/ui/use-chat-viewport-shell-insets.ts
+ * @see components/community-messenger/call-ui/CallScreenShell.tsx
  */
 export function resolveLayoutVisibleViewportCssPx(minHeightPx: number): number {
   if (typeof window === "undefined") return minHeightPx;

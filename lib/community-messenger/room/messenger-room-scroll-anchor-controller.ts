@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, type MutableRefObject, type RefObject } from "react";
 import type { Virtualizer } from "@tanstack/react-virtual";
 import { MESSENGER_STICK_TO_BOTTOM_THRESHOLD_PX } from "@/lib/ui/messenger-chat-viewport-tuning";
+import { isLikelyIosWebKit } from "@/lib/ui/is-likely-ios-webkit";
 import { isMessengerRoomNearBottomFromMetrics } from "@/lib/community-messenger/room/messenger-room-timeline-ssot";
 import { resolveMessengerRoomMessagesAutoScroll } from "@/lib/community-messenger/room/messenger-room-messages-auto-scroll";
 import {
@@ -415,13 +416,15 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
 
     const ro = new ResizeObserver(() => restoreScrollAfterChromeChange());
     ro.observe(el);
-    const vv = typeof window !== "undefined" ? window.visualViewport : null;
-    const onVv = () => restoreScrollAfterChromeChange();
     const onLayoutViewport = () => restoreScrollAfterChromeChange();
-    vv?.addEventListener("resize", onVv);
-    vv?.addEventListener("scroll", onVv);
     window.addEventListener("resize", onLayoutViewport);
     window.addEventListener("orientationchange", onLayoutViewport);
+
+    const ios = isLikelyIosWebKit();
+    const vv = ios && typeof window !== "undefined" ? window.visualViewport : null;
+    const onVv = () => restoreScrollAfterChromeChange();
+    vv?.addEventListener("resize", onVv);
+    vv?.addEventListener("scroll", onVv);
 
     return () => {
       cancelAnimationFrame(rafId);

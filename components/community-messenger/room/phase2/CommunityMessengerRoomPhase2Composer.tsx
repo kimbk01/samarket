@@ -45,8 +45,6 @@ import {
 } from "@/components/community-messenger/room/community-messenger-room-phase2-lazy";
 import { useMessengerRoomPhase2ComposerView } from "@/components/community-messenger/room/phase2/messenger-room-phase2-composer-context";
 import { getMessengerRoomActionErrorMessage } from "@/lib/community-messenger/room/messenger-room-action-error-messages";
-import { useMessengerRoomMobileViewport } from "@/components/community-messenger/room/phase2/messenger-room-mobile-viewport-context";
-import { useMatchMaxWidthMd } from "@/lib/ui/use-match-max-width";
 import { useCommunityMessengerRoomTypingPublisher } from "@/lib/community-messenger/realtime/typing/use-community-messenger-room-typing";
 import { cmMessengerPerfVerboseLog } from "@/lib/community-messenger/room/cm-messenger-perf-verbose-log";
 import { cancelScheduledWhenBrowserIdle, scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
@@ -423,8 +421,6 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
     scheduleMessengerComposerFocusRetain(vm.composerTextareaRef);
   }, [draft, vm]);
 
-  const { keyboardOverlapSuppressed, messengerKeyboardChromeOpen } = useMessengerRoomMobileViewport();
-  const isNarrowViewport = useMatchMaxWidthMd();
   const composerFooterInner = (
     <>
         {editingMessage && !vm.voiceRecording ? (
@@ -532,8 +528,6 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
             useMessengerRoomUiStore.getState().setComposerFocused(true);
             const ta = e.currentTarget;
             const t0 = typeof performance !== "undefined" ? performance.now() : 0;
-            const skipScrollIntoView =
-              isNarrowViewport && messengerKeyboardChromeOpen && keyboardOverlapSuppressed;
             window.requestAnimationFrame(() => {
               window.requestAnimationFrame(() => {
                 if (cmPolishAnalysisEnabled() && typeof performance !== "undefined") {
@@ -545,7 +539,6 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
                         : String(vm.snapshot.room.id ?? ""),
                   });
                 }
-                if (skipScrollIntoView) return;
                 try {
                   ta.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "auto" });
                 } catch {

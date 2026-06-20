@@ -13,16 +13,28 @@
 3. **스크롤:** 키보드 open/close 시 **불필요한 점프**가 없다 — 과거 메시지 열람 중에는 위치 유지, 하단 근처면 최신 유지.
 4. **키보드 닫힘:** 하단에 **빈 공간이 남지 않는다** (vv·셸 변수·composer 패딩 일관).
 5. **검증 플랫폼:** **iOS Safari·PWA**, **Android Chrome·WebView** 각각에서 회귀 확인.
-6. **구현 방식:** **`visualViewport` + `safe-area` + 스크롤 앵커**; 기기별 미세 차이는 **tuning 상수**만 변경.
+6. **구현 방식:** **flex column shell** + `safe-area` + 스크롤 앵커; Android는 `adjustResize`·`interactiveWidget: resizes-content`; iOS overlay만 `--kb-offset`.
 
 ---
 
-## 2. 목표 (회귀 금지 — 구현 세부)
+## 2. 목표 (회귀 금지 — flex-only 구현)
 
 1. **키보드·도크·회전**으로 타임라인 스크롤 영역 높이만 바뀔 때, **과거 메시지를 읽는 중**이면 **화면에 보이던 대화 위치(하단까지의 거리)** 를 유지한다.
 2. **하단 근처(stick-to-bottom)** 면 **최신 메시지**가 입력창 바로 위에 오도록 맞춘다.
-3. **입력창**은 셸 높이·safe-area·키보드 크롬과 **이중 패딩**되지 않게 한다 (`keyboardOverlapSuppressed` + `useMobileKeyboardInset` 계약).
-4. **`window.innerHeight` / `100vh` 단독**으로 셸 높이를 결정하지 않는다 — **`visualViewport`** edge + native keyboard inset. padding은 **`calc(var(--safe-bottom) + var(--chat-bottom-inset))`** (height·padding 이중 차감 금지).
+3. **입력창**은 flex footer — `fixed`/`sticky`/JS keyboard padding **금지**. safe-bottom은 `.cm-room-composer` 한 곳만.
+4. **셸 높이**는 부모 flex chain(`height:100%`, `min-h-0`) — **`--chat-viewport-height`·vv nav gap dedupe·`--chat-bottom-inset` 금지**.
+5. **Android:** `adjustResize` + flex column — JS keyboard layout 개입 **금지**.
+6. **iOS overlay WebView:** `--kb-offset` 단일 변수만 (`use-cm-room-kb-offset.ts`).
+
+### DOM 계약
+
+```txt
+[data-cm-room].cm-room-shell  (padding-top: --safe-top)
+├─ header (flex-shrink-0)
+├─ .cm-room-timeline (flex-1 min-h-0 overflow-y-auto)
+├─ trade/delivery attachments (flex-shrink-0)
+└─ .cm-room-composer (flex-shrink-0; padding-bottom: calc(--safe-bottom + --kb-offset))
+```
 
 ---
 
@@ -30,36 +42,34 @@
 
 | 구성요소 | 파일 | 역할 |
 |----------|------|------|
-| 기기별 보정값 (픽셀·ms·임계) | `lib/ui/messenger-chat-viewport-tuning.ts` | 셸 최소 높이, stick 임계, composer footer, 키보드 크롬 히스테리시스 등 — **여기만 수정해 미세 튜닝** |
+| 기기별 보정값 (픽셀·ms·임계) | `lib/ui/messenger-chat-viewport-tuning.ts` | stick 임계, delivery composer UI, iOS `--kb-offset` 최소 px — **keyboard slack/hysteresis 금지** |
 | 루트 viewport 메타 | `app/layout.tsx` `export const viewport` | `interactiveWidget: "resizes-content"` — Android Chrome 키보드 시 레이아웃 뷰포트 축소 |
-| 셸 CSS·플랫폼 insets | `app/chat-viewport-shell.css`, `lib/ui/chat-viewport-shell-platform.ts`, `lib/ui/use-chat-viewport-shell-insets.ts` | flex 셸: `--chat-viewport-height`(shell inline, vv edge), `--chat-bottom-inset`(keyboard/nav gap overlay), `--chat-composer-height`; padding `calc(var(--safe-bottom) + var(--chat-bottom-inset))` |
-| Phase2 셸 마운트 | `components/community-messenger/room/CommunityMessengerRoomClientPhase2Body.tsx` | `chat-viewport-shell` narrow/embedded/wide, 콜백 ref + `chatShellMounted`, `useChatViewportShellInsets` |
-| 스크롤 앵커 | `lib/community-messenger/room/use-messenger-room-reader-scroll-bottom.ts` | `lastScrollGeomRef` + `stickToBottomRef`; **ResizeObserver** + **visualViewport** + **window resize/orientation** → 동일 `restoreScrollAfterChromeChange` (rAF 합침) |
-| 입력·키보드 크롬 UI | `CommunityMessengerRoomPhase2Composer.tsx`, `useMessengerTradeKeyboardChrome` | `ChatComposer` flex footer; 거래 도크 compact 등 — composer padding JS inset **금지** |
-| 가상 리스트 | `useMessengerRoomClientPhase1` 내부 `useVirtualizer` | **훅 순서**는 `useMessengerRoomDerivedMessageLists` → `useVirtualizer` → `useMessengerRoomReaderScrollBottom` 유지 |
-| 타임라인 스크롤 박스 | `CommunityMessengerRoomPhase2MessageTimeline.tsx` | trade dock 만 `scrollPaddingBottom`; composer 겹침 padding **금지** |
+| 셸 CSS | `app/chat-viewport-shell.css` | `cm-room-shell` / `cm-room-timeline` / `cm-room-composer` flex-only |
+| iOS keyboard offset | `lib/ui/use-cm-room-kb-offset.ts` | overlay WebView만 `--kb-offset`; Android no-op |
+| Phase2 셸 마운트 | `CommunityMessengerRoomClientPhase2Body.tsx` | flex shell; timeline 항상 mount (hydration pass로 hidden 금지) |
+| 스크롤 앵커 | `use-messenger-room-reader-scroll-bottom.ts` | scrollTop 보존/하단 고정 — layout shell과 **분리** |
+| 거래 도크 UI | `CommunityMessengerRoomPhase2AttachmentsAndTrade` | narrow + composerFocused → `keyboardCompact` — vv/layout 구독 **금지** |
+| 가상 리스트 | `useMessengerRoomClientPhase1` | **훅 순서** `useVirtualizer` → `useMessengerRoomReaderScrollBottom` 유지 |
+| 타임라인 스크롤 박스 | `CommunityMessengerRoomPhase2MessageTimeline.tsx` | `.chat-timeline-scroll`; trade dock만 `scrollPaddingBottom` |
 
 ---
 
-## 4. 이벤트가 겹쳐 보일 때 (중복이 아님)
+## 4. 레이어 분리
 
-- **`useChatViewportShellInsets`**: 셸 **keyboard overlay padding**·**composer 높이 변수** 갱신.
-- **`useMessengerRoomReaderScrollBottom`**: 타임라인 **scrollTop 보존/하단 고정**.
-- **`useMessengerTradeKeyboardChrome`**: **거래 도크 UI 밀도** 등 — 셸 레이아웃과 책임 분리.
-
-같은 `visualViewport` / `window` 이벤트를 여러 군데에서 구독하는 것은 **의도적**이며, 각 레이어에서 rAF·단일 스케줄로 **폭주만 막는다.**
+- **`useCmRoomKbOffset`**: iOS `--kb-offset` only.
+- **`useMessengerRoomReaderScrollBottom`**: 타임라인 scrollTop 보존/하단 고정 (RO + window; iOS만 vv).
+- **거래 도크 compact**: `composerFocused` + narrow viewport — 별도 keyboard chrome hook 없음.
+- **`MessengerRoomPhase2ViewProvider`**: Timeline·Sheets용 — **`room` 전체 dep 금지**; `message` 타이핑은 Composer slice context만 갱신.
 
 ---
 
 ## 5. 수정 전 체크리스트 (에이전트·인간 공통)
 
-코드 변경 전 위 표의 파일을 열고 다음을 확인한다.
-
-- [ ] `useChatViewportShellInsets` **cleanup**에서 rAF 취소·`--chat-shell-keyboard-offset`·`--chat-composer-height` removeProperty·리스너 해제가 있는가?
-- [ ] Phase2에서 **`chatShellMounted`** 일 때만 셸 insets 훅을 켜는가? (콜백 ref 미부착 시 첫 프레임 미구독 회귀)
-- [ ] 스크롤 훅에서 **RO + vv + window resize/orientation** 중 하나를 빼면 **어느 플랫폼이 깨지는지** 문서 §3 표 또는 코드 주석에 남길 것.
-- [ ] `useMessengerRoomClientPhase1` 안 **훅 순서**를 바꾸지 않는가? (`useVirtualizer` ↔ `useMessengerRoomReaderScrollBottom` 순서 깨지면 React invalid hooks)
-- [ ] **임시**로 `window.scrollTo` / body 스크롤 의존 / composer `sticky`+이중 safe-area padding 을 넣지 않는가?
+- [ ] `--chat-viewport-height` / `--chat-bottom-inset` / `useChatViewportShellInsets` / nav gap dedupe 를 **다시 도입하지 않았는가?**
+- [ ] composer에 `fixed`/`sticky`/이중 safe-bottom padding 이 **없는가?**
+- [ ] timeline wrapper가 hydration pass로 `hidden`/`display:none` 되지 **않는가?** (virtual row cap은 OK)
+- [ ] `useMessengerRoomClientPhase1` **훅 순서**를 바꾸지 않았는가?
+- [ ] 스크롤 보정을 **폴링·임시 `window.scrollTo`만**으로 대체하지 않았는가?
 
 ---
 
@@ -95,5 +105,8 @@
 | 2026-06-20 | **Keyboard revert P0.1** — `sam-chat-viewport-height-active`·`:root` height chain 제거, shell-only `--chat-viewport-height` 복원 (키보드 open composer 헤더 밑 고정 회귀) | `chat-viewport-shell.css`, `use-chat-viewport-shell-insets.ts`, `chat-viewport-height-sync.ts` 삭제 |
 | 2026-06-20 | **Safe Area × keyboard dedupe** — `--safe-bottom` bridge 시 vv nav gap 0; layout height가 keyboard 흡수 시 padding inset 0 (adjustResize·overlay 이중 차감 방지). P0.1 root chain 금지 유지 | `chat-viewport-shell-platform.ts`, `use-chat-viewport-shell-insets.ts` |
 | 2026-06-15 | 모바일 composer 체감 높이를 52px 기준으로 축소하고, `+` 첨부 메뉴를 dim 없는 80% 중앙 카드로 조정. 셸 safe-area·scroll anchor 계약은 유지 | `messenger-chat-viewport-tuning`, `chat-viewport-shell.css`, `CommunityMessengerRoomPhase2RoomSheets` |
+| 2026-06-20 | **Flex-only P0** — `--chat-viewport-height`/`--chat-bottom-inset`/vv dedupe 제거; `cm-room-shell` flex column; Android adjustResize only; iOS `--kb-offset` via `use-cm-room-kb-offset`; timeline hydration hidden 제거; `keyboardOverlapSuppressed` 삭제 | `chat-viewport-shell.css`, `use-cm-room-kb-offset.ts`, `CommunityMessengerRoomClientPhase2Body`, 삭제: `use-chat-viewport-shell-insets`, `chat-viewport-shell-platform` |
+| 2026-06-20 | **Legacy removal** — `MessengerRoomMobileViewportProvider`·`useMessengerTradeKeyboardChrome` 삭제; keyboard hysteresis/slack 상수 제거; scroll anchor `visualViewport` iOS only; trade dock compact = composer focus only; `room.message` view deps 제거 | 삭제: `messenger-room-mobile-viewport-context`, `use-messenger-trade-keyboard-chrome`; `messenger-chat-viewport-tuning`, `CommunityMessengerRoomClientPhase2Body`, `messenger-room-scroll-anchor-controller`, `ChatDetailView` |
+| 2026-06-20 | **Render boundary** — `MessengerRoomPhase2ViewProvider` whole-`room` dep 제거(타이핑→Timeline invalidate 차단); Header/Composer/Call slice context 유지; dead `_view_destructure_block.txt` 삭제 | `CommunityMessengerRoomClientPhase2Body`, `chat-detail-bottom-nav-authority.mdc` |
 
 **규칙:** 이 영역을 고치면 **반드시 한 줄이라도 §7 변경 이력 테이블에 추가**한다. 되돌리기 전에 이전 행과 diff를 비교한다. 숫자만 바꿀 때는 **`lib/ui/messenger-chat-viewport-tuning.ts`** 만 수정했는지 확인한다.

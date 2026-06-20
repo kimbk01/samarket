@@ -129,7 +129,10 @@ const METRICS_EXPR = `JSON.stringify({
   vvHeight: window.visualViewport?.height ?? null,
   clientHeight: document.documentElement.clientHeight,
   keyboard: window.samarketShell?.keyboardBottomInsetCssPx ?? null,
-  chatBottomInset: getComputedStyle(document.documentElement).getPropertyValue('--chat-bottom-inset')
+  kbOffset: (() => {
+    const room = document.querySelector('[data-cm-room]');
+    return room ? getComputedStyle(room).getPropertyValue('--kb-offset') : '';
+  })()
 })`;
 
 function setNavigationMode(mode) {

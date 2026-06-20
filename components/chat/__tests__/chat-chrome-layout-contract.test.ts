@@ -39,31 +39,35 @@ describe("chat chrome layout contract", () => {
     expect(src).not.toMatch(/sticky bottom-0/);
   });
 
-  it("shell CSS uses safe-area SSOT on viewport shell and 100dvh narrow modifier", () => {
+  it("shell CSS uses flex-only cm-room-shell contract", () => {
     const css = readSrc("app/chat-viewport-shell.css");
+    expect(css).toContain(".cm-room-shell");
+    expect(css).toContain(".cm-room-timeline");
+    expect(css).toContain(".cm-room-composer");
     expect(css).toContain("padding-top: var(--safe-top)");
-    expect(css).toContain("padding-bottom: calc(var(--safe-bottom) + var(--chat-bottom-inset, 0px))");
-    expect(css).toContain("--chat-viewport-height");
-    expect(css).toContain("--chat-composer-height");
-    expect(css).toContain("--chat-bottom-inset");
+    expect(css).toContain("padding-bottom: calc(var(--safe-bottom) + var(--kb-offset, 0px))");
+    expect(css).not.toContain("--chat-viewport-height");
+    expect(css).not.toContain("--chat-bottom-inset");
+    expect(css).not.toContain("chat-viewport-shell");
     expect(css).toContain("chat-timeline-scroll");
-    expect(css).toContain("chat-timeline-inner");
-    expect(css).toContain("chat-message-stack");
-    expect(css).toContain("chat-viewport-shell--embedded");
-    expect(css).toContain("chat-viewport-shell--narrow");
-    expect(css).toContain("chat-viewport-shell--ios");
-    expect(css).toContain("chat-viewport-shell--android");
-    expect(css).toContain("100dvh");
+    expect(css).toContain("cm-room-shell--embedded");
     expect(css).not.toMatch(/position:\s*fixed/);
+    expect(css).not.toMatch(/position:\s*sticky/);
   });
 
-  it("Phase2 body uses embedded shell and unified insets hook", () => {
+  it("Phase2 body uses flex shell and iOS kb-offset hook only", () => {
     const src = readSrc("components/community-messenger/room/CommunityMessengerRoomClientPhase2Body.tsx");
-    expect(src).toContain("useChatViewportShellInsets");
-    expect(src).toContain("observeComposerHeight: true");
-    expect(src).toContain("useOwnerOrderChatSlideHost");
-    expect(src).toContain("useBuyerOrderChatSlideHost");
-    expect(src).toContain("resolveChatViewportShellClassNames");
+    expect(src).toContain("useCmRoomKbOffset");
+    expect(src).toContain("cm-room-shell");
+    expect(src).toContain("cm-room-timeline");
+    expect(src).toContain("cm-room-composer");
+    expect(src).not.toContain("useChatViewportShellInsets");
+    expect(src).not.toContain("keyboardOverlapSuppressed");
+    expect(src).not.toContain("MessengerRoomMobileViewportProvider");
+    expect(src).not.toContain("useMessengerTradeKeyboardChrome");
+    expect(src).not.toContain("messengerKeyboardChromeOpen");
+    expect(src).not.toContain("chat-viewport-shell");
+    expect(src).not.toContain("data-cm-room-viewport-placeholder");
   });
 
   it("legacy use-chat-viewport-resize is removed from messenger room", () => {
@@ -72,15 +76,12 @@ describe("chat chrome layout contract", () => {
     expect(body).not.toContain("use-chat-viewport-resize");
   });
 
-  it("shell insets hook merges composer height observation", () => {
-    const src = readSrc("lib/ui/use-chat-viewport-shell-insets.ts");
-    expect(src).toContain("observeComposerHeight");
-    expect(src).toContain("--chat-composer-height");
-    expect(src).toContain("--chat-viewport-height");
-    expect(src).toContain("--chat-bottom-inset");
-    expect(src).toContain("resolveChatShellPaddingBottomInsetCssPx");
-    expect(src).not.toContain("applyChatViewportHeightToRoot");
-    expect(src).not.toContain("chat-viewport-height-sync");
+  it("iOS kb-offset hook is Android no-op", () => {
+    const src = readSrc("lib/ui/use-cm-room-kb-offset.ts");
+    expect(src).toContain("--kb-offset");
+    expect(src).toContain("isLikelyIosWebKit");
+    expect(src).not.toContain("--chat-viewport-height");
+    expect(src).not.toContain("--chat-bottom-inset");
   });
 
   it("Phase2 timeline uses flex-end timeline inner for messenger rooms", () => {
@@ -94,5 +95,19 @@ describe("chat chrome layout contract", () => {
     expect(src).toContain("resolveMessengerRoomTimelineLoadUi");
     expect(src).not.toContain("timelineBootstrapFailed");
     expect(src).not.toContain("shouldRecoverEmptyTimeline");
+  });
+
+  it("Phase2 body view memo excludes whole-room and message deps", () => {
+    const src = readSrc("components/community-messenger/room/CommunityMessengerRoomClientPhase2Body.tsx");
+    const viewMemo = src.slice(src.indexOf("const view = useMemo"), src.indexOf("const tradeViewerRole"));
+    expect(viewMemo).not.toContain("room.message,");
+    expect(viewMemo).toContain("room.activeSheet");
+    expect(viewMemo).not.toMatch(/\n\s+room,\s*\n/);
+  });
+
+  it("scroll anchor uses visualViewport on iOS only", () => {
+    const src = readSrc("lib/community-messenger/room/messenger-room-scroll-anchor-controller.ts");
+    expect(src).toContain("isLikelyIosWebKit");
+    expect(src).toMatch(/ios && typeof window/);
   });
 });
