@@ -1,7 +1,6 @@
 /**
  * DIBAY 채팅방 헤더·composer 공통 geometry — direct / trade / delivery 단일.
- * CSS 변수: --chat-viewport-height, --chat-composer-height,
- * --chat-keyboard-bottom, --chat-bottom-active (SSOT), --chat-bottom-inset (legacy keyboard-only)
+ * CSS 변수: --chat-viewport-height, --chat-composer-height, --chat-bottom-inset
  *
  * Keyboard P0.1 — `useChatViewportShellInsets` 가 `:root` 에 `--chat-viewport-height` + html class
  * `sam-chat-viewport-height-active` 를 설정하면 아래 체인 전체가 vv 높이로 수렴한다.
@@ -35,8 +34,8 @@ html.sam-chat-viewport-height-active .main-shell-viewport-root > div {
 
 html.sam-chat-viewport-height-active [data-cm-room].chat-viewport-shell:not(.chat-viewport-shell--embedded) {
   flex: 1 1 auto;
-  height: 100%;
-  max-height: 100%;
+  height: var(--chat-viewport-height, 100dvh);
+  max-height: var(--chat-viewport-height, 100dvh);
 }
 
 @supports not (height: 100dvh) {
@@ -65,7 +64,7 @@ html.sam-chat-viewport-height-active [data-cm-room].chat-viewport-shell:not(.cha
   height: var(--chat-viewport-height, 100dvh);
   max-height: var(--chat-viewport-height, 100dvh);
   padding-top: var(--safe-top);
-  padding-bottom: var(--chat-bottom-active, var(--safe-bottom));
+  padding-bottom: calc(var(--safe-bottom) + var(--chat-bottom-inset, 0px));
 }
 
 [data-cm-room].chat-viewport-shell.chat-viewport-shell--embedded {

@@ -34,7 +34,7 @@ describe("resolveLayoutVisibleViewportCssPx", () => {
     expect(resolveLayoutVisibleViewportCssPx(240)).toBe(240);
   });
 
-  it("does not subtract native keyboard from layout height", () => {
+  it("subtracts native keyboard inset from layout height when vv is full height", () => {
     vi.stubGlobal("window", {
       innerHeight: 800,
       visualViewport: { offsetTop: 0, height: 800 },
@@ -46,6 +46,6 @@ describe("resolveLayoutVisibleViewportCssPx", () => {
       maxTouchPoints: 0,
     });
 
-    expect(resolveLayoutVisibleViewportCssPx(240)).toBe(800);
+    expect(resolveLayoutVisibleViewportCssPx(240)).toBe(500);
   });
 });

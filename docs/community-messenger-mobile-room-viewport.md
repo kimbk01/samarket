@@ -91,6 +91,7 @@
 | 2026-06-14 | 정리: 레거시 `use-chat-viewport-resize.ts` 제거, composer 높이·keyboard insets 단일 훅 통합, ShellChromeFrame `data-cm-room` 고정, keyboard 이중 padding 가드 | `use-chat-viewport-shell-insets.ts`, `CommunityMessengerRoomShellChromeFrame.tsx` |
 | 2026-06-20 | **Keyboard P0** — `--chat-bottom-active`(keyboard OR `--safe-bottom`), closed vv nav gap 제거, shell height에서 native keyboard 차감 제거; vv 이미 keyboard 반영 시 padding dedupe | `chat-viewport-shell-platform.ts`, `use-chat-viewport-shell-insets.ts`, `layout-visible-viewport-px.ts`, `chat-viewport-shell.css` |
 | 2026-06-20 | **Keyboard P0.1** — `--chat-viewport-height` 를 `:root` + `sam-chat-viewport-height-active` 로 app shell~segment 체인에 전파; tablet keyboard open composer-키보드 gap 제거 | `chat-viewport-height-sync.ts`, `use-chat-viewport-shell-insets.ts`, `chat-viewport-shell.css` |
+| 2026-06-20 | **Keyboard hotfix** — P0 `--chat-bottom-active` dedupe·height-only 계약 롤백, de465d9d `calc(--safe-bottom + --chat-bottom-inset)`·native height 차감 복원; P0.1 shell chain 유지 | `chat-viewport-shell-platform.ts`, `use-chat-viewport-shell-insets.ts`, `layout-visible-viewport-px.ts`, `chat-viewport-shell.css` |
 | 2026-06-15 | 모바일 composer 체감 높이를 52px 기준으로 축소하고, `+` 첨부 메뉴를 dim 없는 80% 중앙 카드로 조정. 셸 safe-area·scroll anchor 계약은 유지 | `messenger-chat-viewport-tuning`, `chat-viewport-shell.css`, `CommunityMessengerRoomPhase2RoomSheets` |
 
 **규칙:** 이 영역을 고치면 **반드시 한 줄이라도 §7 변경 이력 테이블에 추가**한다. 되돌리기 전에 이전 행과 diff를 비교한다. 숫자만 바꿀 때는 **`lib/ui/messenger-chat-viewport-tuning.ts`** 만 수정했는지 확인한다.

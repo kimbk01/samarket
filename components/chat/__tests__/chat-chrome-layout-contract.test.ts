@@ -42,10 +42,9 @@ describe("chat chrome layout contract", () => {
   it("shell CSS uses safe-area SSOT on viewport shell and 100dvh narrow modifier", () => {
     const css = readSrc("app/chat-viewport-shell.css");
     expect(css).toContain("padding-top: var(--safe-top)");
-    expect(css).toContain("padding-bottom: var(--chat-bottom-active, var(--safe-bottom))");
+    expect(css).toContain("padding-bottom: calc(var(--safe-bottom) + var(--chat-bottom-inset, 0px))");
     expect(css).toContain("--chat-viewport-height");
     expect(css).toContain("--chat-composer-height");
-    expect(css).toContain("--chat-bottom-active");
     expect(css).toContain("--chat-bottom-inset");
     expect(css).toContain("sam-chat-viewport-height-active");
     expect(css).toContain("[data-cm-room-segment-layout]");
@@ -80,10 +79,7 @@ describe("chat chrome layout contract", () => {
     expect(src).toContain("observeComposerHeight");
     expect(src).toContain("--chat-composer-height");
     expect(src).toContain("--chat-viewport-height");
-    expect(src).toContain("--chat-keyboard-bottom");
-    expect(src).toContain("--chat-bottom-active");
     expect(src).toContain("--chat-bottom-inset");
-    expect(src).toContain("resolveChatBottomActiveCssPx");
     expect(src).toContain("resolveChatBottomInsetCssPx");
     expect(src).toContain("applyChatViewportHeightToRoot");
     expect(src).toContain("clearChatViewportHeightFromRoot");

@@ -2,7 +2,6 @@
 
 import { useEffect, type RefObject } from "react";
 import {
-  resolveChatBottomActiveCssPx,
   resolveChatBottomInsetCssPx,
   resolveChatViewportShellPlatform,
   type ChatViewportShellLayoutMode,
@@ -44,9 +43,8 @@ function syncComposerHeightMetric(shell: HTMLElement): void {
 
 /**
  * 채팅 셸 CSS 변수:
- * --chat-viewport-height (vv edge), --chat-composer-height,
- * --chat-keyboard-bottom (probe), --chat-bottom-active (padding SSOT),
- * --chat-bottom-inset (legacy alias, keyboard-only)
+ * --chat-viewport-height (vv edge + P0.1 root chain), --chat-composer-height,
+ * --chat-bottom-inset (keyboard/nav gap overlay — CSS calc with --safe-bottom)
  */
 export function useChatViewportShellInsets(opts: Options): void {
   const { enabled, shellRef, layoutMode, observeComposerHeight = false } = opts;
@@ -65,40 +63,19 @@ export function useChatViewportShellInsets(opts: Options): void {
 
     let syncRaf = 0;
     const syncAll = () => {
-      let layoutHeightPx = 0;
       if (layoutMode !== "embedded") {
-        layoutHeightPx = resolveLayoutVisibleViewportCssPx(MESSENGER_CHAT_SHELL_MIN_HEIGHT_PX);
-        applyChatViewportHeightToRoot(layoutHeightPx);
-        shell.style.setProperty(CHAT_VIEWPORT_HEIGHT_CSS_VAR, `${layoutHeightPx}px`);
+        const visiblePx = resolveLayoutVisibleViewportCssPx(MESSENGER_CHAT_SHELL_MIN_HEIGHT_PX);
+        applyChatViewportHeightToRoot(visiblePx);
+        shell.style.setProperty(CHAT_VIEWPORT_HEIGHT_CSS_VAR, `${visiblePx}px`);
       } else {
         clearChatViewportHeightFromRoot();
         shell.style.removeProperty(CHAT_VIEWPORT_HEIGHT_CSS_VAR);
       }
 
-      const keyboardPx = resolveChatBottomInsetCssPx();
-      const innerHeight = typeof window !== "undefined" ? window.innerHeight : 0;
-      const activeBottomPx = resolveChatBottomActiveCssPx({
-        keyboardPx,
-        layoutHeightPx,
-        innerHeight,
-      });
-      const keyboardOpen = keyboardPx > 0;
-
-      if (keyboardOpen) {
-        shell.style.setProperty("--chat-keyboard-bottom", `${keyboardPx}px`);
+      const bottomInset = resolveChatBottomInsetCssPx();
+      if (bottomInset > 0) {
+        shell.style.setProperty("--chat-bottom-inset", `${bottomInset}px`);
       } else {
-        shell.style.removeProperty("--chat-keyboard-bottom");
-      }
-
-      if (keyboardOpen) {
-        shell.style.setProperty("--chat-bottom-active", `${activeBottomPx}px`);
-        if (activeBottomPx > 0) {
-          shell.style.setProperty("--chat-bottom-inset", `${keyboardPx}px`);
-        } else {
-          shell.style.removeProperty("--chat-bottom-inset");
-        }
-      } else {
-        shell.style.removeProperty("--chat-bottom-active");
         shell.style.removeProperty("--chat-bottom-inset");
       }
 
@@ -143,8 +120,6 @@ export function useChatViewportShellInsets(opts: Options): void {
       unsubNative();
       clearChatViewportHeightFromRoot();
       shell.style.removeProperty(CHAT_VIEWPORT_HEIGHT_CSS_VAR);
-      shell.style.removeProperty("--chat-keyboard-bottom");
-      shell.style.removeProperty("--chat-bottom-active");
       shell.style.removeProperty("--chat-bottom-inset");
       shell.style.removeProperty("--chat-composer-height");
       delete shell.dataset.chatShellPlatform;
