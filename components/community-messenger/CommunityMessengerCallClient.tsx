@@ -258,15 +258,16 @@ import {
   isNativeCalleeAcceptOwnedRoute,
   isNativeCalleeAcceptPendingForSession,
   isNativeCalleePrepOnlyRoute,
+  markNativeCalleeAcceptPending,
   readNativeCalleeAcceptRouteParams,
 } from "@/lib/community-messenger/native-callee-accept-entry";
 import {
   ACCEPT_RACE_JOIN_RETRY_MAX,
   canStartCalleeJoin,
   clearServerActiveConfirmed,
-  isOptimisticActiveCallSessionSeed,
+  confirmServerActiveFromFetchedSession,
+  markAcceptJoinRaceWindow,
   markNativeAcceptCompletedEntered,
-  markServerActiveConfirmed,
   shouldAutoEndAfterJoinFailure,
   waitForActiveCallSessionAfterNativeAccept,
 } from "@/lib/community-messenger/native-call-accept-join";
@@ -1129,6 +1130,7 @@ export function CommunityMessengerCallClient({
   nativeAcceptCompletedRouteRef.current = nativeAcceptCompletedRoute;
   const prevNativeAcceptCompletedRouteRef = useRef(false);
   const [calleeJoinGateVersion, setCalleeJoinGateVersion] = useState(0);
+  const acceptConfirmRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** 수락·거절·종료 PATCH 중복 클릭 방지 */
   const directCallPatchInFlightRef = useRef(false);
   /** silent 세션 GET 이 동시에 여러 번 호출될 때(폴링+Realtime) 한 번의 네트워크로 합친다 */
@@ -1251,6 +1253,10 @@ export function CommunityMessengerCallClient({
     refreshTerminalSilentInFlightRef.current = null;
     clearServerActiveConfirmed(sessionId);
     acceptRaceJoinRetryRef.current = 0;
+    if (acceptConfirmRefreshTimerRef.current) {
+      clearTimeout(acceptConfirmRefreshTimerRef.current);
+      acceptConfirmRefreshTimerRef.current = null;
+    }
   }, [sessionId]);
 
   useEffect(() => {
@@ -1425,10 +1431,11 @@ export function CommunityMessengerCallClient({
   const refreshSession = useCallback(
     async (
       silent = false,
-      opts?: { terminal?: boolean }
+      opts?: { terminal?: boolean; acceptConfirm?: boolean }
     ): Promise<CommunityMessengerCallSession | null> => {
       const isTerminalSilent = Boolean(silent && opts?.terminal);
-      if (silent && !isTerminalSilent && refreshSilentInFlightRef.current) {
+      const acceptConfirm = Boolean(opts?.acceptConfirm);
+      if (silent && !acceptConfirm && !isTerminalSilent && refreshSilentInFlightRef.current) {
         return refreshSilentInFlightRef.current;
       }
       if (silent && isTerminalSilent && refreshTerminalSilentInFlightRef.current) {
@@ -1438,7 +1445,7 @@ export function CommunityMessengerCallClient({
         if (isCommunityMessengerTempCallSessionId(sessionId)) {
           return sessionRef.current;
         }
-        if (silent && Date.now() < sessionSilentRefreshBackoffUntilRef.current) {
+        if (silent && !acceptConfirm && Date.now() < sessionSilentRefreshBackoffUntilRef.current) {
           return sessionRef.current;
         }
         if (!silent) setLoading(true);
@@ -1468,6 +1475,7 @@ export function CommunityMessengerCallClient({
           }
           if (
             nextSession?.status === "ringing" &&
+            !acceptConfirm &&
             (isDibayCallConsumed(sessionId) || shouldSkipActiveCallRecoveryRouting(sessionId))
           ) {
             logDibayCall("stale_ringing_blocked", {
@@ -1529,13 +1537,20 @@ export function CommunityMessengerCallClient({
 
   const maybeConfirmServerActiveFromSession = useCallback(
     (next: CommunityMessengerCallSession | null) => {
-      if (!next || next.status !== "active") return;
-      if (isOptimisticActiveCallSessionSeed(next)) return;
-      markServerActiveConfirmed(next.id);
-      bumpCalleeJoinGate();
+      if (confirmServerActiveFromFetchedSession(next)) {
+        bumpCalleeJoinGate();
+      }
     },
     [bumpCalleeJoinGate]
   );
+
+  const scheduleAcceptConfirmRefresh = useCallback(() => {
+    if (acceptConfirmRefreshTimerRef.current) return;
+    acceptConfirmRefreshTimerRef.current = window.setTimeout(() => {
+      acceptConfirmRefreshTimerRef.current = null;
+      void refreshSession(true, { acceptConfirm: true }).then(maybeConfirmServerActiveFromSession);
+    }, 60) as unknown as ReturnType<typeof setTimeout>;
+  }, [maybeConfirmServerActiveFromSession, refreshSession]);
 
   const handleNativePrepEnter = useCallback(async (): Promise<CommunityMessengerCallSession | null> => {
     const s = sessionRef.current;
@@ -1543,9 +1558,7 @@ export function CommunityMessengerCallClient({
     logDibayCall("accept_route_prep_enter", { sessionId: s.id, source: "call_client" });
     console.info("[call-flow] accept_route_prep_enter", { sessionId: s.id });
     setCalleeVideoConnectingShell(true);
-    if (!isDibayCallConsumed(s.id)) {
-      applyIncomingCallConsumedSideEffects(s.id, "accepted", "call_client_prep_route");
-    }
+    markNativeCalleeAcceptPending(s.id);
     dibayIncomingLaneStopRing("accept_prep_route", s.id);
     dismissAllIncomingCallNotificationsFireAndForget(s.id);
     if (s.callKind === "video") {
@@ -1555,11 +1568,11 @@ export function CommunityMessengerCallClient({
         void applyCallAudioRouteForSession(s, true, "native_prep_route");
       }
     }
-    const refreshed = await refreshSession(true);
+    const refreshed = await refreshSession(true, { acceptConfirm: true });
     if (refreshed?.status === "ringing") {
       return refreshed;
     }
-    if (refreshed?.status === "active") {
+    if (refreshed?.status === "active" && confirmServerActiveFromFetchedSession(refreshed)) {
       clearNativeCalleeAcceptPending(s.id);
       runIncomingCallCleanup({ sessionId: s.id, reason: "accept_prep_refresh_active", stopRingtone: false });
     }
@@ -1582,8 +1595,7 @@ export function CommunityMessengerCallClient({
     dismissAllIncomingCallNotificationsFireAndForget(s.id);
     try {
       const active = await waitForActiveCallSessionAfterNativeAccept({
-        refreshSession,
-        readSession: () => sessionRef.current,
+        refreshSession: () => refreshSession(true, { acceptConfirm: true }),
         onRefreshStart: (attempt) => {
           console.info("[call-flow] refresh_after_accept_start", { sessionId: s.id, attempt });
         },
@@ -2609,7 +2621,7 @@ export function CommunityMessengerCallClient({
               sessionId: targetSession.id,
             });
             logDibayCall("join_deferred_until_server_active", { sessionId: targetSession.id });
-            void refreshSession(true).then(maybeConfirmServerActiveFromSession);
+            scheduleAcceptConfirmRefresh();
           }
           return;
         }
@@ -3043,7 +3055,7 @@ export function CommunityMessengerCallClient({
           const joinRetryable = isAgoraJoinRetryableError(error);
           let serverStatusAfterRefresh: CommunityMessengerCallSession["status"] | null = null;
           try {
-            const refreshed = await refreshSession(true);
+            const refreshed = await refreshSession(true, { acceptConfirm: true });
             serverStatusAfterRefresh = refreshed?.status ?? sessionRef.current?.status ?? null;
             maybeConfirmServerActiveFromSession(refreshed);
           } catch {
@@ -3159,6 +3171,7 @@ export function CommunityMessengerCallClient({
       fetchConnection,
       maybeConfirmServerActiveFromSession,
       refreshSession,
+      scheduleAcceptConfirmRefresh,
       scheduleSilentRefresh,
     ]
   );
@@ -3270,11 +3283,24 @@ export function CommunityMessengerCallClient({
           role: "callee",
           callKind: s.callKind,
         });
-        const refreshed = await refreshSession(true);
+        markAcceptJoinRaceWindow(s.id);
+        const patchedSession = gatewayResult.session;
+        if (patchedSession?.status === "active") {
+          setSession(patchedSession);
+          if (confirmServerActiveFromFetchedSession(patchedSession)) {
+            bumpCalleeJoinGate();
+          }
+          clearNativeCalleeAcceptPending(s.id);
+          runIncomingCallCleanup({ sessionId: s.id, reason: "accept_ok", stopRingtone: false });
+          if (patchedSession.callKind === "video") {
+            void applyCallAudioRouteForSession(patchedSession, true, "accept_gateway_active");
+          }
+          return patchedSession;
+        }
+        const refreshed = await refreshSession(true, { acceptConfirm: true });
         if (refreshed) {
           setSession(refreshed);
-          markServerActiveConfirmed(s.id);
-          bumpCalleeJoinGate();
+          maybeConfirmServerActiveFromSession(refreshed);
           clearNativeCalleeAcceptPending(s.id);
           runIncomingCallCleanup({ sessionId: s.id, reason: "accept_ok", stopRingtone: false });
           if (refreshed.status === "active" && refreshed.callKind === "video") {
@@ -3606,9 +3632,10 @@ export function CommunityMessengerCallClient({
       if (requestedAction === "accept" && nativePrepRoute) {
         logDibayCall("accept_route_prep_enter", { sessionId, source: "call_client_hydrate_prep" });
         console.info("[call-flow] accept_route_prep_enter", { sessionId });
+        markNativeCalleeAcceptPending(sessionId);
         dibayIncomingLaneStopRing("hydrate_accept_prep_route", sessionId);
         dismissAllIncomingCallNotificationsFireAndForget(sessionId);
-        await refreshSession(true);
+        await refreshSession(true, { acceptConfirm: true });
         return;
       }
       if (requestedAction === "accept" && nativeAcceptCompletedRoute) {
@@ -4597,7 +4624,7 @@ export function CommunityMessengerCallClient({
         if (joinGuard.reason === "deferred") {
           console.info("[call-flow] join_deferred_until_server_active", { sessionId: s.id });
           logDibayCall("join_deferred_until_server_active", { sessionId: s.id });
-          void refreshSession(true).then(maybeConfirmServerActiveFromSession);
+          scheduleAcceptConfirmRefresh();
         }
         return;
       }
@@ -4607,8 +4634,7 @@ export function CommunityMessengerCallClient({
   }, [
     calleeJoinGateVersion,
     joinCall,
-    maybeConfirmServerActiveFromSession,
-    refreshSession,
+    scheduleAcceptConfirmRefresh,
     session?.id,
     session?.sessionMode,
     session?.status,

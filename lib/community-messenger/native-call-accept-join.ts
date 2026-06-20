@@ -11,6 +11,8 @@ const acceptCompletedEnteredAt = new Map<string, number>();
 
 export const ACCEPT_RACE_JOIN_RETRY_MAX = 2;
 export const ACCEPT_RACE_WINDOW_MS = 15_000;
+export const ACCEPT_ACTIVE_POLL_MAX_ATTEMPTS = 6;
+export const ACCEPT_ACTIVE_POLL_DELAY_MS = 120;
 
 export function isOptimisticActiveCallSessionSeed(
   session: Pick<CommunityMessengerCallSession, "status" | "source"> | null | undefined
@@ -42,10 +44,25 @@ export function markNativeAcceptCompletedEntered(sessionId: string): void {
   acceptCompletedEnteredAt.set(sid, Date.now());
 }
 
+/** Web/native accept 완료 직후 join race 보호 — markNativeAcceptCompletedEntered 와 동일 */
+export function markAcceptJoinRaceWindow(sessionId: string): void {
+  markNativeAcceptCompletedEntered(sessionId);
+}
+
 export function isWithinAcceptRaceWindow(sessionId: string, now = Date.now()): boolean {
   const at = acceptCompletedEnteredAt.get(sessionId.trim());
   if (at == null) return false;
   return now - at <= ACCEPT_RACE_WINDOW_MS;
+}
+
+/** GET/accept PATCH 응답만 server-confirmed 로 인정 (optimistic seed 제외) */
+export function confirmServerActiveFromFetchedSession(
+  session: CommunityMessengerCallSession | null | undefined
+): boolean {
+  if (!session || session.status !== "active") return false;
+  if (isOptimisticActiveCallSessionSeed(session)) return false;
+  markServerActiveConfirmed(session.id);
+  return true;
 }
 
 export function canStartCalleeJoin(input: {
@@ -92,34 +109,28 @@ export function shouldAutoEndAfterJoinFailure(ctx: AcceptRaceJoinFailureContext)
   return true;
 }
 
-/** 네이티브 accept PATCH 후 WebView 진입 — active 세션까지 짧게 폴링 */
+/** native accept PATCH 후 — 서버 GET active 만 짧게 폴링 (로컬 seed fallback 금지) */
 export async function waitForActiveCallSessionAfterNativeAccept(input: {
   refreshSession: (silent?: boolean) => Promise<CommunityMessengerCallSession | null>;
-  readSession: () => CommunityMessengerCallSession | null;
   maxAttempts?: number;
   delayMs?: number;
   onRefreshStart?: (attempt: number) => void;
   onRefreshResult?: (attempt: number, status: CommunityMessengerCallSession["status"] | null) => void;
 }): Promise<CommunityMessengerCallSession | null> {
-  const maxAttempts = input.maxAttempts ?? 10;
-  const delayMs = input.delayMs ?? 200;
+  const maxAttempts = input.maxAttempts ?? ACCEPT_ACTIVE_POLL_MAX_ATTEMPTS;
+  const delayMs = input.delayMs ?? ACCEPT_ACTIVE_POLL_DELAY_MS;
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     input.onRefreshStart?.(attempt);
     const refreshed = await input.refreshSession(true);
-    const session = refreshed ?? input.readSession();
-    input.onRefreshResult?.(attempt, session?.status ?? null);
-    if (session?.status === "active") {
-      markServerActiveConfirmed(session.id);
-      return session;
+    input.onRefreshResult?.(attempt, refreshed?.status ?? null);
+    if (refreshed && confirmServerActiveFromFetchedSession(refreshed)) {
+      return refreshed;
     }
-    await new Promise<void>((resolve) => {
-      setTimeout(resolve, delayMs);
-    });
-  }
-  const finalSession = input.readSession();
-  if (finalSession?.status === "active") {
-    markServerActiveConfirmed(finalSession.id);
-    return finalSession;
+    if (attempt < maxAttempts - 1) {
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, delayMs);
+      });
+    }
   }
   return null;
 }

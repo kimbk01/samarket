@@ -199,6 +199,7 @@ export function finalizeNativeAcceptCallRoute(
 export async function acceptIncomingCallOnce(args: RunIncomingCallAcceptArgs): Promise<{
   ok: boolean;
   sessionId: string;
+  session?: CommunityMessengerCallSession;
   reason?: "duplicate_accept_blocked" | "already_consumed" | "permission_denied" | "patch_failed" | "exception";
 }> {
   return runIncomingCallAccept(args);
@@ -215,6 +216,7 @@ export async function acceptIncomingCallOnce(args: RunIncomingCallAcceptArgs): P
 export async function runIncomingCallAccept(args: RunIncomingCallAcceptArgs): Promise<{
   ok: boolean;
   sessionId: string;
+  session?: CommunityMessengerCallSession;
   reason?: "duplicate_accept_blocked" | "already_consumed" | "permission_denied" | "patch_failed" | "exception";
 }> {
   const s = args.session;
@@ -327,7 +329,7 @@ export async function runIncomingCallAccept(args: RunIncomingCallAcceptArgs): Pr
     if (!args.skipRouteReplace) {
       replaceActiveIncomingCallRoute(args.router, sid, args.hrefOverride, args.source);
     }
-    return { ok: true, sessionId: sid };
+    return { ok: true, sessionId: sid, session: updated };
   } catch {
     setDibayCallSessionPhase(sid, "incoming");
     logDibayCall("call_route_open_failed", { sessionId: sid, callId: sid, source: args.source });

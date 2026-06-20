@@ -27,6 +27,12 @@ describe("CallClient accept join guard contract", () => {
 
   it("does not treat seed active as completed accept or immediate join", () => {
     expect(client).not.toContain("accept_route_active_seed");
+    expect(client).toContain("markNativeCalleeAcceptPending");
+    expect(client).not.toMatch(
+      /handleNativePrepEnter[\s\S]{0,500}applyIncomingCallConsumedSideEffects\([^)]*,\s*"accepted"/
+    );
+    expect(client).toContain("acceptConfirm: true");
+    expect(client).toContain("scheduleAcceptConfirmRefresh");
     expect(client).toContain("shouldAutoEndAfterJoinFailure");
     expect(client).toContain("join_failed_stay_active");
   });

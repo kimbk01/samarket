@@ -2,7 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   canStartCalleeJoin,
   clearServerActiveConfirmed,
+  confirmServerActiveFromFetchedSession,
   isOptimisticActiveCallSessionSeed,
+  isServerActiveConfirmed,
   markServerActiveConfirmed,
   shouldAutoEndAfterJoinFailure,
   waitForActiveCallSessionAfterNativeAccept,
@@ -43,6 +45,14 @@ describe("native-call-accept-join helpers", () => {
     expect(isOptimisticActiveCallSessionSeed(session("active", "native_accept_hydrate_seed"))).toBe(true);
     expect(isOptimisticActiveCallSessionSeed(session("active", "server_refresh"))).toBe(false);
     expect(isOptimisticActiveCallSessionSeed(session("ringing", "native_accept_bootstrap"))).toBe(false);
+  });
+
+  it("confirms only non-optimistic server active sessions", () => {
+    expect(confirmServerActiveFromFetchedSession(session("active", "native_accept_bootstrap"))).toBe(false);
+    expect(isServerActiveConfirmed("sess-1")).toBe(false);
+    expect(confirmServerActiveFromFetchedSession(session("active", "server_refresh"))).toBe(true);
+    expect(isServerActiveConfirmed("sess-1")).toBe(true);
+    expect(confirmServerActiveFromFetchedSession(session("ringing", "server_refresh"))).toBe(false);
   });
 
   it("defers callee join until server active is confirmed", () => {
@@ -102,32 +112,44 @@ describe("waitForActiveCallSessionAfterNativeAccept", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    clearServerActiveConfirmed("sess-1");
   });
 
   it("returns active session after refresh catches up", async () => {
-    let current: CommunityMessengerCallSession | null = session("ringing");
+    let attempt = 0;
     const refreshSession = vi.fn(async () => {
-      current = session("active");
-      return current;
+      attempt += 1;
+      return attempt >= 2 ? session("active", "server_refresh") : session("ringing");
     });
     const promise = waitForActiveCallSessionAfterNativeAccept({
       refreshSession,
-      readSession: () => current,
       maxAttempts: 3,
       delayMs: 100,
     });
     await vi.runAllTimersAsync();
     const result = await promise;
     expect(result?.status).toBe("active");
+    expect(isServerActiveConfirmed("sess-1")).toBe(true);
     expect(refreshSession).toHaveBeenCalled();
   });
 
-  it("returns null when session never becomes active", async () => {
-    const current = session("ringing");
-    const refreshSession = vi.fn(async () => current);
+  it("does not treat optimistic local seed as confirmed active", async () => {
+    const refreshSession = vi.fn(async () => session("ringing"));
     const promise = waitForActiveCallSessionAfterNativeAccept({
       refreshSession,
-      readSession: () => current,
+      maxAttempts: 1,
+      delayMs: 50,
+    });
+    await vi.runAllTimersAsync();
+    const result = await promise;
+    expect(result).toBeNull();
+    expect(isServerActiveConfirmed("sess-1")).toBe(false);
+  });
+
+  it("returns null when session never becomes active", async () => {
+    const refreshSession = vi.fn(async () => session("ringing"));
+    const promise = waitForActiveCallSessionAfterNativeAccept({
+      refreshSession,
       maxAttempts: 2,
       delayMs: 50,
     });
