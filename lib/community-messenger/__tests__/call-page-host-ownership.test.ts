@@ -56,7 +56,7 @@ describe("decideCommunityCallPageHostOwnership", () => {
 });
 
 describe("decideCommunityCallActiveHostOwnership", () => {
-  it("mounts on call route while runtime is not registered yet (bootstrap)", () => {
+  it("does not mount on dedicated call route during bootstrap (page owns)", () => {
     const decision = decideCommunityCallActiveHostOwnership({
       hostedSessionId: "tmp_abc",
       isTerminalSuppressed: false,
@@ -67,7 +67,7 @@ describe("decideCommunityCallActiveHostOwnership", () => {
       runtimeSessionId: null,
       runtimeSessionStatus: null,
     });
-    expect(decision.shouldMountCallClient).toBe(true);
+    expect(decision.shouldMountCallClient).toBe(false);
     expect(decision.shouldClearStaleOwnership).toBe(false);
   });
 
@@ -129,5 +129,20 @@ describe("decideCommunityCallActiveHostOwnership", () => {
     });
     expect(decision.shouldMountCallClient).toBe(false);
     expect(decision.shouldClearStaleOwnership).toBe(true);
+  });
+
+  it("does not mount host CallClient on dedicated call route (page owns)", () => {
+    const decision = decideCommunityCallActiveHostOwnership({
+      hostedSessionId: "session-1",
+      isTerminalSuppressed: false,
+      isHostedActiveOnly: true,
+      onCallSessionRoute: true,
+      hasNavigationSeed: false,
+      hasLiveActiveCallSession: true,
+      runtimeSessionId: "session-1",
+      runtimeSessionStatus: "ringing",
+    });
+    expect(decision.shouldMountCallClient).toBe(false);
+    expect(decision.shouldClearStaleOwnership).toBe(false);
   });
 });

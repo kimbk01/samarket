@@ -89,6 +89,10 @@ export function decideCommunityCallActiveHostOwnership(
   if (runtimeId === sid && isTerminalStatusForCleanup(input.runtimeSessionStatus)) {
     return { shouldMountCallClient: false, shouldClearStaleOwnership: true };
   }
+  /** Dedicated call route — page CallClient owns fullscreen dial/active (이중 Agora·cancel race 방지). */
+  if (input.onCallSessionRoute && input.isHostedActiveOnly) {
+    return { shouldMountCallClient: false, shouldClearStaleOwnership: false };
+  }
   if (!runtimeId && input.isHostedActiveOnly && !input.onCallSessionRoute) {
     if (input.hasNavigationSeed || input.hasLiveActiveCallSession) {
       return { shouldMountCallClient: true, shouldClearStaleOwnership: false };
