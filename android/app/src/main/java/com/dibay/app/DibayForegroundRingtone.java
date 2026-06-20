@@ -24,11 +24,11 @@ public final class DibayForegroundRingtone {
     boolean isVideo = callType != null && "video".equalsIgnoreCase(callType.trim());
     MessengerCallSoundNativeConfig.IncomingSound cfg =
         MessengerCallSoundNativeConfig.resolveIncoming(app, isVideo);
-    if (!cfg.enabled) {
-      Log.i(TAG, "[DIBAY_CALL] ring_start_skipped_disabled callId=" + (callId != null ? callId : ""));
-      return;
-    }
-    if ("admin_custom".equals(cfg.source) && cfg.url != null && !cfg.url.isEmpty()) {
+    /** Admin custom only when explicitly enabled — device ringtone SSOT unchanged (pre sound-source). */
+    if (cfg.enabled
+        && "admin_custom".equals(cfg.source)
+        && cfg.url != null
+        && !cfg.url.isEmpty()) {
       startCustomUrl(app, callId, cfg.url);
       return;
     }
