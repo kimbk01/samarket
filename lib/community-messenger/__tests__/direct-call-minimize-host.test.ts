@@ -1,11 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  clearDockedCallSessionFlags,
+  clearHostedActiveCallSession,
+  clearPipMinimizedCallSessionFlags,
   clearAllCommunityCallLocalSessionFlags,
   isCallSessionHostedByActiveCallHost,
   isCommunityMessengerDedicatedCallSessionPath,
+  shouldSkipCallClientUnmountDispose,
   writeActiveDirectVideoCallSession,
+  writeDockedCallSession,
   writeMinimizedCommunityCallSession,
 } from "@/lib/community-messenger/direct-call-minimize";
+import { writeTerminalCallRecoverySuppress } from "@/lib/community-messenger/call-active-session-recovery";
 
 function createSessionStorageStub(): Storage {
   const store = new Map<string, string>();
@@ -64,5 +70,34 @@ describe("direct-call-minimize host ownership", () => {
     clearAllCommunityCallLocalSessionFlags();
     writeMinimizedCommunityCallSession("s3");
     expect(isCallSessionHostedByActiveCallHost("s3")).toBe(true);
+  });
+
+  it("hostedActive only should not skip unmount dispose", () => {
+    writeActiveDirectVideoCallSession("s-host");
+    expect(shouldSkipCallClientUnmountDispose("s-host")).toBe(false);
+  });
+
+  it("docked retained session should skip unmount dispose", () => {
+    writeDockedCallSession("s-dock");
+    expect(shouldSkipCallClientUnmountDispose("s-dock")).toBe(true);
+  });
+
+  it("pip retained session should skip unmount dispose", () => {
+    writeMinimizedCommunityCallSession("s-pip");
+    expect(shouldSkipCallClientUnmountDispose("s-pip")).toBe(true);
+  });
+
+  it("terminal suppressed + hostedActive should not skip unmount dispose", () => {
+    writeActiveDirectVideoCallSession("s-term");
+    writeTerminalCallRecoverySuppress("s-term");
+    expect(shouldSkipCallClientUnmountDispose("s-term")).toBe(false);
+  });
+
+  it("stale hosted only should not skip unmount dispose", () => {
+    writeActiveDirectVideoCallSession("s-stale");
+    clearDockedCallSessionFlags();
+    clearPipMinimizedCallSessionFlags();
+    expect(shouldSkipCallClientUnmountDispose("s-stale")).toBe(false);
+    clearHostedActiveCallSession();
   });
 });

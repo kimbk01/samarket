@@ -1,13 +1,15 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { CommunityMessengerCallClient } from "@/components/community-messenger/CommunityMessengerCallClient";
 import { CommunityMessengerCallRouteLoading } from "@/components/community-messenger/CommunityMessengerCallRouteLoading";
 import { CommunityMessengerCallEnterShell } from "@/components/community-messenger/call-history/CommunityMessengerCallEnterShell";
-import { subscribeCommunityCallHostSync } from "@/components/layout/providers/CommunityMessengerActiveCallHost";
-import { isCallSessionHostedByActiveCallHost } from "@/lib/community-messenger/direct-call-minimize";
+import { notifyCommunityCallHostSync, subscribeCommunityCallHostSync } from "@/components/layout/providers/CommunityMessengerActiveCallHost";
+import { clearAllCommunityCallLocalSessionFlags, isCallSessionHostedByActiveCallHost, isTerminalSuppressedPresentation } from "@/lib/community-messenger/call-presentation-ownership";
 import { isCommunityMessengerTempCallSessionId } from "@/lib/community-messenger/call-session-navigation-seed";
+import { getCommunityMessengerCallRuntime, resetCommunityMessengerCallRuntimeSurface } from "@/lib/community-messenger/call-runtime-registry";
+import { decideCommunityCallPageHostOwnership } from "@/lib/community-messenger/call-page-host-ownership";
 
 /** 수신 accept route — enter slide 생략 (P1-1b; outgoing tmp dial 과 별도) */
 function isIncomingAcceptInstantEnterRoute(searchParams: URLSearchParams): boolean {
@@ -29,12 +31,27 @@ export default function CommunityMessengerCallPage() {
     () => (sessionId ? isCallSessionHostedByActiveCallHost(sessionId) : false),
     () => false
   );
+  const runtime = getCommunityMessengerCallRuntime();
+  const ownershipDecision = decideCommunityCallPageHostOwnership({
+    hostOwnsSession,
+    isTerminalSuppressed: sessionId ? isTerminalSuppressedPresentation(sessionId) : false,
+    runtimeSessionId: runtime?.sessionId?.trim() ?? null,
+    runtimeSessionStatus: runtime?.session?.status ?? null,
+    routeSessionId: sessionId,
+  });
+
+  useEffect(() => {
+    if (!ownershipDecision.shouldClearStaleOwnership) return;
+    clearAllCommunityCallLocalSessionFlags();
+    resetCommunityMessengerCallRuntimeSurface();
+    notifyCommunityCallHostSync();
+  }, [ownershipDecision.shouldClearStaleOwnership]);
 
   if (!sessionId) {
     return <CommunityMessengerCallRouteLoading />;
   }
 
-  if (hostOwnsSession) {
+  if (ownershipDecision.allowHostLoading) {
     return (
       <div className="fixed inset-0 z-[1280] flex min-h-0 flex-col bg-[#003D29]">
         <CommunityMessengerCallRouteLoading />

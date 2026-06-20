@@ -115,11 +115,9 @@ import {
   dibayIncomingLaneStopRing,
 } from "@/lib/community-messenger/call-lifecycle";
 import {
-  hardClearActiveCallSession,
   patchActiveCallSessionMachinePhase,
   setActiveCallSession,
 } from "@/lib/call/active-call-session";
-import { syncTerminalCallClientState } from "@/lib/call/call-terminal-sync-cleanup";
 import {
   mapSessionStatusToActiveCallPhase,
   mapSessionStatusToMachinePhase,
@@ -178,7 +176,6 @@ import {
   launchOutgoingDirectCall,
   navigateBackFromCommunityMessengerCall,
   finalizeCommunityMessengerCallTerminalExit, // SSOT_CONTRACT: messenger-call-terminal-nav finalizeCommunityMessengerCallTerminalExit
-  pinCommunityMessengerCallTerminalSurfaceDismiss,
   primeCommunityMessengerCallNavigationSeed,
   wasOutgoingInviteBroadcastRecentlySent,
 } from "@/lib/community-messenger/call-session-navigation-seed";
@@ -245,6 +242,7 @@ import { incomingRingTimeoutMsFromConfig } from "@/lib/community-messenger/messe
 import { patchCommunityMessengerCallMissedOnce } from "@/lib/community-messenger/messenger-call-missed-patch";
 import { dismissAllIncomingCallNotificationsFireAndForget } from "@/lib/push/native/dismiss-native-incoming-call-notification";
 import { registerCommunityMessengerCallRuntime, resetCommunityMessengerCallRuntimeSurface, syncCommunityMessengerCallRuntimeSurface } from "@/lib/community-messenger/call-runtime-registry";
+import { cleanupCommunityCallTerminal } from "@/lib/community-messenger/call-terminal-cleanup";
 import { peekMessengerBootstrapCritical, peekMessengerBootstrapFull } from "@/lib/community-messenger/bootstrap-cache";
 import { useCallVideoPipGesture } from "@/lib/community-messenger/use-call-video-pip-gesture";
 import {
@@ -335,7 +333,15 @@ type SessionResponse = { ok?: boolean; session?: CommunityMessengerCallSession; 
 type TokenResponse = { ok?: boolean; connection?: CommunityMessengerManagedCallConnection; error?: string };
 
 function isTerminalCallSessionStatus(status: CommunityMessengerCallSession["status"]): boolean {
-  return status === "ended" || status === "cancelled" || status === "rejected" || status === "missed";
+  const normalized = String(status ?? "").trim().toLowerCase();
+  return (
+    normalized === "ended" ||
+    normalized === "cancelled" ||
+    normalized === "rejected" ||
+    normalized === "missed" ||
+    normalized === "failed" ||
+    normalized === "declined"
+  );
 }
 
 function fitCallActionsForMobile(
@@ -1864,13 +1870,17 @@ export function CommunityMessengerCallClient({
         endedAt: new Date().toISOString(),
         endedReason: null,
       };
+      void cleanupCommunityCallTerminal({
+        sessionId: cur.id,
+        reason: terminalStatus,
+        source: "remote_terminal_feed",
+      });
       callTerminalLocalPinRef.current = {
         sessionId: cur.id,
         until: Date.now() + CALL_SESSION_TERMINAL_PIN_MS,
         snapshot,
       };
       setSession(snapshot);
-      pinCommunityMessengerCallTerminalSurfaceDismiss(cur.id);
       joiningRef.current = false;
       setJoined(false);
       joinedRef.current = false;
@@ -1971,16 +1981,22 @@ export function CommunityMessengerCallClient({
     const s = session;
     if (!s?.id) return;
     if (!isTerminalCallSessionStatus(s.status)) return;
-    syncTerminalCallClientState(s.id, "remote_ended");
-    void hardClearActiveCallSession(s.id, "remote_ended");
+    void cleanupCommunityCallTerminal({
+      sessionId: s.id,
+      reason: s.status,
+      source: "terminal_session_effect",
+    });
   }, [session?.id, session?.status]);
 
   useEffect(() => {
     return () => {
       const s = sessionRef.current;
       if (!s?.id || !isTerminalCallSessionStatus(s.status)) return;
-      syncTerminalCallClientState(s.id, "call_client_unmount_terminal");
-      void hardClearActiveCallSession(s.id, "call_client_unmount_terminal");
+      void cleanupCommunityCallTerminal({
+        sessionId: s.id,
+        reason: "call_client_unmount_terminal",
+        source: "call_client_unmount",
+      });
     };
   }, [sessionId]);
 
@@ -2058,6 +2074,11 @@ export function CommunityMessengerCallClient({
     if (!session || !isTerminalCallSessionStatus(session.status)) return;
     if (terminalImmediateCleanupOnceRef.current === session.id) return;
     terminalImmediateCleanupOnceRef.current = session.id;
+    void cleanupCommunityCallTerminal({
+      sessionId: session.id,
+      reason: session.status,
+      source: "terminal_immediate_cleanup",
+    });
     dibayCallSealTerminal(session.id);
     const consumedReason =
       session.status === "rejected"
@@ -2077,11 +2098,6 @@ export function CommunityMessengerCallClient({
     setRemoteVideoReady(false);
     setLocalVideoPlayBlocked(false);
     heldPreJoinVideoPreviewRef.current = null;
-    try {
-      resetCommunityMessengerCallRuntimeSurface();
-    } catch {
-      /* ignore */
-    }
     const er = session.endedReason;
     if (!er || !isMessengerCallClientFailureReason(er)) {
       setErrorMessage(null);
@@ -3167,7 +3183,11 @@ export function CommunityMessengerCallClient({
             };
             appendTerminalCallHistory(active, "ended", { hangupReason: "end", endedReason: reason });
             setSession(snapshot);
-            pinCommunityMessengerCallTerminalSurfaceDismiss(active.id);
+            void cleanupCommunityCallTerminal({
+              sessionId: active.id,
+              reason: "ended",
+              source: "auto_end_after_join_failure",
+            });
             const peer = active.peerUserId?.trim();
             if (peer) {
               void notifyCommunityMessengerCallInviteHangupBestEffort(peer, active.id, {
@@ -3521,7 +3541,11 @@ export function CommunityMessengerCallClient({
         callTerminalLocalPinRef.current = { sessionId: sid, until: Date.now() + CALL_SESSION_TERMINAL_PIN_MS, snapshot: snap };
         appendTerminalCallHistory(prev, "rejected", { hangupReason: "reject" });
         setSession(snap);
-        pinCommunityMessengerCallTerminalSurfaceDismiss(sid);
+        void cleanupCommunityCallTerminal({
+          sessionId: sid,
+          reason: "rejected",
+          source: "reject_incoming",
+        });
       }
     }
     joiningRef.current = false;
@@ -3806,7 +3830,11 @@ export function CommunityMessengerCallClient({
       patchAction === "cancel" ? "cancel" : patchAction === "reject" ? "reject" : "end";
     const terminalCleanupReason =
       patchAction === "cancel" ? "cancelled" : patchAction === "reject" ? "rejected" : "caller_end";
-    syncTerminalCallClientState(sid, terminalCleanupReason);
+    void cleanupCommunityCallTerminal({
+      sessionId: sid,
+      reason: terminalCleanupReason,
+      source: "end_call",
+    });
     dibayCallSealTerminal(sid);
     const optimisticEnd: CommunityMessengerCallSession["status"] =
       patchAction === "cancel"
@@ -3835,7 +3863,11 @@ export function CommunityMessengerCallClient({
         };
         appendTerminalCallHistory(prev, optimisticEnd, { hangupReason });
         setSession(snap);
-        pinCommunityMessengerCallTerminalSurfaceDismiss(sid);
+        void cleanupCommunityCallTerminal({
+          sessionId: sid,
+          reason: terminalCleanupReason,
+          source: "end_call_optimistic",
+        });
       }
     }
     joiningRef.current = false;
@@ -4731,7 +4763,11 @@ export function CommunityMessengerCallClient({
       setEndedDurationSeconds(
         connectedAtTs != null ? Math.max(0, Math.floor((endedAtMs - connectedAtTs) / 1000)) : null
       );
-      pinCommunityMessengerCallTerminalSurfaceDismiss(session.id);
+      void cleanupCommunityCallTerminal({
+        sessionId: session.id,
+        reason: session.status,
+        source: "terminal_duration_seal",
+      });
     }
   }, [connectedAtTs, session?.endedAt, session?.id, session?.status, terminalClosedAt]);
 

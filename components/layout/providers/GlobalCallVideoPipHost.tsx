@@ -4,9 +4,11 @@ import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
 import { MiniLocalVideo } from "@/components/messenger/call/MiniLocalVideo";
 import {
+  getCommunityMessengerCallRuntime,
   getCommunityMessengerCallRuntimeSurface,
   subscribeCommunityMessengerCallRuntimeSurface,
 } from "@/lib/community-messenger/call-runtime-registry";
+import { cleanupCommunityCallTerminal, isTerminalStatusForCleanup } from "@/lib/community-messenger/call-terminal-cleanup";
 
 /**
  * PiP minimized 상태 — 앱 전역 fixed portal.
@@ -26,7 +28,20 @@ export function GlobalCallVideoPipHost() {
   }, []);
 
   const surface = getCommunityMessengerCallRuntimeSurface();
+  const runtime = getCommunityMessengerCallRuntime();
+  const runtimeSessionId = runtime?.sessionId?.trim() ?? "";
+  const runtimeStatus = runtime?.session?.status ?? null;
   const bindings = surface.videoPipLayout;
+
+  useEffect(() => {
+    if (surface.presentation !== "minimized") return;
+    if (!runtimeSessionId || !isTerminalStatusForCleanup(runtimeStatus)) return;
+    void cleanupCommunityCallTerminal({
+      sessionId: runtimeSessionId,
+      reason: runtimeStatus ?? "terminal",
+      source: "global_call_pip_host",
+    });
+  }, [runtimeSessionId, runtimeStatus, surface.presentation]);
 
   if (!portalReady || typeof document === "undefined") return null;
   if (surface.presentation !== "minimized" || !bindings) return null;
