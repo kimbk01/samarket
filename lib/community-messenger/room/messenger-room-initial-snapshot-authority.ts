@@ -1,6 +1,7 @@
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { peekHotRoomSnapshot, peekRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import { isMessengerRoomTimelineBootstrapSeedComplete } from "@/lib/community-messenger/room/messenger-room-timeline-hydration";
+import { isMessengerRoomLastMessageDisplayPlaceholder } from "@/lib/community-messenger/room/messenger-room-last-message-placeholder";
 
 function messageCount(snap: CommunityMessengerRoomSnapshot | null | undefined): number {
   return snap?.messages?.length ?? 0;
@@ -25,7 +26,8 @@ export function isMessengerRoomConfirmedEmptySnapshot(
     | undefined
 ): boolean {
   if (!snapshot || snapshot.clientShellPlaceholder) return false;
-  if (Boolean(snapshot.room.lastMessage?.trim())) return false;
+  const lastMessage = snapshot.room.lastMessage?.trim() ?? "";
+  if (lastMessage && !isMessengerRoomLastMessageDisplayPlaceholder(lastMessage)) return false;
   return (snapshot.messages?.length ?? 0) === 0;
 }
 

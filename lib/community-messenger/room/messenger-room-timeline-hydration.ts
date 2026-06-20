@@ -1,5 +1,6 @@
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import type { CmRoomPhase2HydrationPass } from "@/lib/community-messenger/room/cm-room-phase2-hydration-context";
+import { hasMessengerRoomRealLastMessageHint } from "@/lib/community-messenger/room/messenger-room-last-message-placeholder";
 
 /**
  * hydration pass 진입 시 paintable 메시지 시드만 인정 — lastMessage only 금지.
@@ -39,7 +40,7 @@ export function hasMessengerRoomTimelineLoadHint(input: {
   return (
     input.roomMessagesLength > 0 ||
     input.snapshotMessagesLength > 0 ||
-    Boolean(input.lastMessage?.trim())
+    hasMessengerRoomRealLastMessageHint(input.lastMessage)
   );
 }
 
@@ -57,8 +58,7 @@ export function isMessengerRoomTimelineBootstrapSeedComplete(
     | undefined
 ): boolean {
   if (!snapshot) return false;
-  const hasLastMessageHint = Boolean(snapshot.room.lastMessage?.trim());
-  if (!hasLastMessageHint) return true;
+  if (!hasMessengerRoomRealLastMessageHint(snapshot.room.lastMessage)) return true;
   return (snapshot.messages?.length ?? 0) > 0;
 }
 
@@ -89,7 +89,7 @@ export function isMessengerRoomLastMessageOnlyPaintHint(input: {
   lastMessage?: string | null;
 }): boolean {
   if (input.roomMessagesLength > 0 || input.snapshotMessagesLength > 0) return false;
-  return Boolean(input.lastMessage?.trim());
+  return hasMessengerRoomRealLastMessageHint(input.lastMessage);
 }
 
 /**

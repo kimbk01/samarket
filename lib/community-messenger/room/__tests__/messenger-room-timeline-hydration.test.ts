@@ -143,6 +143,15 @@ describe("messenger-room-timeline-hydration", () => {
     ).toBe(false);
   });
 
+  it("isMessengerRoomTimelineBootstrapSeedComplete — UI placeholder 는 빈 방과 동일", () => {
+    expect(
+      isMessengerRoomTimelineBootstrapSeedComplete({
+        messages: [],
+        room: { lastMessage: "메시지를 보내 보세요." },
+      })
+    ).toBe(true);
+  });
+
   it("isMessengerRoomTimelineBootstrapSeedComplete — lastMessage 와 messages 모두 있으면 완전", () => {
     expect(
       isMessengerRoomTimelineBootstrapSeedComplete({

@@ -163,6 +163,11 @@ import {
   countReceivedPendingMessengerFriendRequests,
 } from "@/lib/community-messenger/partition-messenger-friend-requests";
 import {
+  communityMessengerFriendRequestFailureMessage,
+  postCommunityMessengerFriendRequestApi,
+} from "@/lib/community-messenger/community-messenger-friend-request-client";
+import { canMountCommunityMessengerRoomClient } from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
+import {
   type UnifiedRoomListItem,
   useCommunityMessengerHomeState,
 } from "@/lib/community-messenger/use-community-messenger-home-state";
@@ -1055,7 +1060,10 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       if (existingRoom) {
         const revived = await reviveDirectRoomForEntry(existingRoom);
         if (!revived) return;
-        if (!peekRoomSnapshot(existingRoom.id, viewerUserId ?? undefined)) {
+        const cached = viewerUserId ? peekRoomSnapshot(existingRoom.id, viewerUserId) : null;
+        if (cached && !canMountCommunityMessengerRoomClient(cached)) {
+          invalidateRoomSnapshot(existingRoom.id);
+        } else if (!peekRoomSnapshot(existingRoom.id, viewerUserId ?? undefined)) {
           void prefetchCommunityMessengerRoomSnapshot(existingRoom.id);
         }
         navigateToCommunityRoomWithViewer(existingRoom.id, {
@@ -1307,23 +1315,27 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     async (targetUserId: string) => {
       setBusyId(`friend-add:${targetUserId}`);
       try {
-        const res = await fetch("/api/community-messenger/friend-requests", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ targetUserId }),
-        });
-        const json = (await res.json().catch(() => ({}))) as { ok?: boolean };
-        if (res.ok && json.ok) {
-          showMessengerSnackbar(t("cm_ui_sent_friend_request"), { variant: "success" });
+        const result = await postCommunityMessengerFriendRequestApi(targetUserId);
+        if (result.ok) {
+          showMessengerSnackbar(
+            t(result.mergedFromIncoming ? "cm_ui_friend_accept_success_snackbar" : "cm_ui_sent_friend_request"),
+            { variant: "success" }
+          );
           void refresh(true);
-        } else {
-          showMessengerSnackbar(t("cm_ui_friend_request_send_failed"), { variant: "error" });
+          const roomId = result.directRoomId?.trim();
+          if (roomId) {
+            invalidateRoomSnapshot(roomId);
+            navigateToCommunityRoomWithViewer(roomId);
+          }
+          return;
         }
+        const failureMessage = communityMessengerFriendRequestFailureMessage(result);
+        showMessengerSnackbar(failureMessage ?? t("cm_ui_friend_request_send_failed"), { variant: "error" });
       } finally {
         setBusyId(null);
       }
     },
-    [refresh, t]
+    [navigateToCommunityRoomWithViewer, refresh, t]
   );
 
   const respondRequest = useCallback(
@@ -1337,15 +1349,22 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action }),
         });
-        const json = (await res.json().catch(() => ({}))) as { ok?: boolean };
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; directRoomId?: string };
         if (res.ok && json.ok) {
           void refresh(true);
+          if (action === "accept") {
+            const roomId = json.directRoomId?.trim();
+            if (roomId) {
+              invalidateRoomSnapshot(roomId);
+              navigateToCommunityRoomWithViewer(roomId);
+            }
+          }
         }
       } finally {
         setBusyId(null);
       }
     },
-    [refresh]
+    [navigateToCommunityRoomWithViewer, refresh]
   );
 
   const resolvePeerBlockedState = useCallback(
