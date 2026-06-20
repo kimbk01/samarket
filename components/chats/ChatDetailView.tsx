@@ -237,6 +237,7 @@ export function ChatDetailView({
     nextCursor: { before: string; beforeCreatedAt: string } | null;
   }>({ hasMore: false, nextCursor: null });
   const tradeEntryIntentRef = useRef<MessengerRoomEntryIntent>("default");
+  const [tradeEntryForceBottom, setTradeEntryForceBottom] = useState(true);
   const integratedHistoryLoadInFlightRef = useRef(false);
   const legacyHistoryLoadInFlightRef = useRef(false);
   const integratedHistoryScrollTsRef = useRef(0);
@@ -257,7 +258,8 @@ export function ChatDetailView({
   const threadScroll = useChatThreadScroll({
     messageCount: messages.length,
     messagesReady: tradeScrollSurfaceActive && !messagesLoading,
-    entryActive: false,
+    entryActive: tradeScrollSurfaceActive && !messagesLoading,
+    entryForceBottom: tradeEntryForceBottom,
     messageRowSelector: "",
     prependInFlight: integratedHistoryLoading,
   });
@@ -1240,15 +1242,13 @@ export function ChatDetailView({
   useLayoutEffect(() => {
     const rid = room.id.trim();
     if (!rid) return;
-    tradeEntryIntentRef.current = consumeMessengerRoomEntryIntent(
+    const intent = consumeMessengerRoomEntryIntent(
       rid,
       typeof window !== "undefined" ? window.location.search : null
     );
-    if (!tradeScrollSurfaceActive) return;
-    threadScroll.notifyEntry({
-      forceBottom: tradeEntryIntentRef.current === "push",
-    });
-  }, [room.id, tradeScrollSurfaceActive, threadScroll]);
+    tradeEntryIntentRef.current = intent;
+    setTradeEntryForceBottom(intent === "push" || intent === "default");
+  }, [room.id]);
 
   // 당근형: Realtime 이 주 경로 — HTTP 는 백업(간격·가시성으로 부하 제어)
   useEffect(() => {

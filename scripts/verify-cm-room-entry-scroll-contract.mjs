@@ -42,7 +42,10 @@ assertIncludes(groupChat, "useChatThreadScroll", "GroupChatRoomClient");
 assertExcludes(groupChat, "runChatThreadEntryScrollToBottom", "GroupChatRoomClient legacy entry");
 
 assertIncludes(contractDoc, "CHAT_THREAD_STICK_THRESHOLD_PX", "contract doc");
-assertIncludes(engine, "entryPendingLayout", "chat-thread-scroll engine");
+assertIncludes(controller, "resolveMessengerRoomEntryScrollPaintReady", "scroll-anchor-controller paint gate");
+assertIncludes(controller, "schedulePendingEntryTailSettle", "scroll-anchor-controller tail settle");
+assertIncludes(controller, "pendingTailSettleRef", "scroll-anchor-controller tail settle pending");
+assertIncludes(engine, "resolveEntryPaintReady", "chat-thread-scroll engine paint hook");
 
 if (!existsSync(join(root, "lib/chat-thread-scroll/__tests__/engine.test.ts"))) {
   errors.push("missing lib/chat-thread-scroll/__tests__/engine.test.ts");

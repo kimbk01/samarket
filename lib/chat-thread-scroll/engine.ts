@@ -35,7 +35,9 @@ export type NotifyPrependCompleteInput = {
 };
 
 export class ChatThreadScrollEngine {
-  private config: Required<ChatThreadScrollEngineConfig>;
+  private config: Required<Omit<ChatThreadScrollEngineConfig, "resolveEntryPaintReady">> & {
+    resolveEntryPaintReady?: ChatThreadScrollEngineConfig["resolveEntryPaintReady"];
+  };
   state: ChatThreadScrollEngineState = {
     phase: "idle",
     stickToBottom: true,
@@ -52,6 +54,7 @@ export class ChatThreadScrollEngine {
     this.config = {
       stickThresholdPx: config.stickThresholdPx ?? CHAT_THREAD_STICK_THRESHOLD_PX,
       messageRowSelector: config.messageRowSelector ?? "[data-cm-timeline-message-row]",
+      resolveEntryPaintReady: config.resolveEntryPaintReady,
     };
   }
 
@@ -207,11 +210,17 @@ export class ChatThreadScrollEngine {
     const vp = ctx.viewport;
     if (!vp || vp.clientHeight <= 0) return false;
     if (ctx.messageCount <= 0) return true;
+
+    if (this.config.resolveEntryPaintReady) {
+      return this.config.resolveEntryPaintReady(ctx);
+    }
+
     const selector = this.config.messageRowSelector;
     const rowCount = selector ? vp.querySelectorAll(selector).length : 0;
     const totalSize = ctx.virtualizer?.getTotalSize?.() ?? 0;
     if (rowCount > 0 || totalSize > 0) return true;
-    return vp.scrollHeight > 0;
+    if (!selector) return vp.scrollHeight > 0;
+    return false;
   }
 
   private applyScrollToBottom(

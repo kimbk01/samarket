@@ -39,7 +39,10 @@
 ## CM 위임
 
 - 주문 채팅 `ChatDetailView` → `/community-messenger/rooms/...` redirect — scroll 은 CM 엔진 경로만 사용
+- CM controller는 `resolveMessengerRoomEntryScrollPaintReady(composerHeightSynced: true)` 로 entry paint gate
+- composer `--chat-composer-height` sync 후 `entry_tail_settle` 2차 force bottom (`schedulePendingEntryTailSettle`)
 
 ## 변경 이력
 
 - P3+P4: 4갈래 scroll → `lib/chat-thread-scroll/` 단일 엔진, stick 96px 통일
+- P3+P4.1: CM composer paint gate + tail settle 2단계를 엔진 config·controller에 구조 복원

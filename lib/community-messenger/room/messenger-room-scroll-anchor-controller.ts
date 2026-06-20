@@ -7,16 +7,23 @@ import { createChatThreadScrollEngine, type ChatThreadScrollEngine } from "@/lib
 import type { ChatThreadScrollRestoreSnapshot, ChatThreadVirtualizer } from "@/lib/chat-thread-scroll/types";
 import { resolveMessengerRoomMessagesAutoScroll } from "@/lib/community-messenger/room/messenger-room-messages-auto-scroll";
 import {
-  markMessengerRoomEntryScrollSettled,
-  markMessengerRoomScrollOwnerRun,
-  resetMessengerRoomEntryScrollOwner,
-  type CmScrollOwnerReason,
-} from "@/lib/community-messenger/room/messenger-room-entry-scroll-owner";
-import {
   consumeMessengerRoomEntryIntent,
+  isMessengerEntryBottomLoadReason,
+  isMessengerEntryTailSettleReason,
   resolveMessengerRoomEntryScrollPlan,
   type MessengerRoomEntryIntent,
 } from "@/lib/community-messenger/room/messenger-room-entry-intent";
+import {
+  resolveMessengerRoomEntryScrollPaintReady,
+  isMessengerRoomComposerHeightSynced,
+} from "@/lib/community-messenger/room/messenger-room-entry-scroll-ready";
+import {
+  markMessengerRoomEntryScrollSettled,
+  markMessengerRoomScrollOwnerRun,
+  resetMessengerRoomEntryScrollOwner,
+  isMessengerRoomEntryScrollSettled,
+  type CmScrollOwnerReason,
+} from "@/lib/community-messenger/room/messenger-room-entry-scroll-owner";
 import {
   clearMessengerRoomScrollPosition,
   consumeMessengerRoomScrollPosition,
@@ -115,11 +122,24 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
   void opts.messageEndRef;
 
   const engineRef = useRef<ChatThreadScrollEngine | null>(null);
-  if (!engineRef.current) engineRef.current = createChatThreadScrollEngine();
+  if (!engineRef.current) {
+    engineRef.current = createChatThreadScrollEngine({
+      messageRowSelector: "[data-cm-timeline-message-row]",
+      resolveEntryPaintReady: (ctx) =>
+        resolveMessengerRoomEntryScrollPaintReady({
+          viewport: ctx.viewport,
+          virtualizer: ctx.virtualizer ?? undefined,
+          messageCount: ctx.messageCount,
+          composerHeightSynced: true,
+        }),
+    });
+  }
   const engine = engineRef.current;
 
   const entryIntentRef = useRef<MessengerRoomEntryIntent>("default");
   const entryScrollScheduledRef = useRef(false);
+  const pendingTailSettleRef = useRef(false);
+  const tailSettleDoneRef = useRef(false);
   const prevTailMessageIdRef = useRef<string | null>(null);
   const prevTailClientMessageIdRef = useRef<string | null>(null);
   const entryRetryRafRef = useRef<number | null>(null);
@@ -182,6 +202,15 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
         stickToBottomRef.current = engine.readStickToBottom();
         markCmScrollRun(reason);
         completeEntryPhase(reason);
+        const vp = messagesViewportRef.current;
+        if (isMessengerEntryBottomLoadReason(reason) && vp) {
+          if (isMessengerRoomComposerHeightSynced(vp)) {
+            tailSettleDoneRef.current = true;
+            pendingTailSettleRef.current = false;
+          } else {
+            pendingTailSettleRef.current = true;
+          }
+        }
         return true;
       }
       if (engine.getPhase() === "entryPendingLayout" && typeof requestAnimationFrame === "function") {
@@ -195,8 +224,35 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
       }
       return false;
     },
-    [buildCtx, completeEntryPhase, engine, markCmScrollRun, stickToBottomRef]
+    [buildCtx, completeEntryPhase, engine, markCmScrollRun, messagesViewportRef, stickToBottomRef]
   );
+
+  const schedulePendingEntryTailSettle = useCallback(() => {
+    if (!pendingTailSettleRef.current || tailSettleDoneRef.current) return;
+    const rid = roomId.trim();
+    if (!rid || !isMessengerRoomEntryScrollSettled(rid)) return;
+
+    const run = () => {
+      if (!pendingTailSettleRef.current || tailSettleDoneRef.current) return;
+      tailSettleDoneRef.current = true;
+      pendingTailSettleRef.current = false;
+      const reason =
+        entryIntentRef.current === "push" ? "push_entry_tail_settle" : "entry_tail_settle";
+      scrollMessengerToBottomRef.current({ reason, force: true });
+    };
+
+    if (typeof requestAnimationFrame !== "function") {
+      run();
+      return;
+    }
+    requestAnimationFrame(() => {
+      requestAnimationFrame(run);
+    });
+  }, [roomId]);
+
+  const scrollMessengerToBottomRef = useRef<
+    (req?: { reason?: CmScrollOwnerReason; force?: boolean }) => void
+  >(() => {});
 
   const notifyEntryFromPlan = useCallback(
     (reason: CmScrollOwnerReason, forceBottom: boolean) => {
@@ -236,6 +292,15 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     (req?: { reason?: CmScrollOwnerReason; force?: boolean }) => {
       const reason = req?.reason ?? "explicit";
       const force = req?.force === true || isExplicitScrollReason(reason);
+
+      if (isMessengerEntryTailSettleReason(reason)) {
+        engine.scrollToBottomExplicit(buildCtx());
+        stickToBottomRef.current = true;
+        markCmScrollRun(reason);
+        tailSettleDoneRef.current = true;
+        pendingTailSettleRef.current = false;
+        return;
+      }
 
       if (isEntryScrollReason(reason)) {
         engine.notifyMessagesReady(messageCount > 0);
@@ -288,6 +353,10 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     ]
   );
 
+  useEffect(() => {
+    scrollMessengerToBottomRef.current = scrollMessengerToBottom;
+  }, [scrollMessengerToBottom]);
+
   const enqueueScrollAnchor = useCallback(
     (request: MessengerRoomScrollAnchorRequest) => {
       if (request.reason === "prepend_older_preserve_position") return;
@@ -314,6 +383,8 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     if (rid) resetMessengerRoomEntryScrollOwner(rid);
     engine.reset();
     entryScrollScheduledRef.current = false;
+    pendingTailSettleRef.current = false;
+    tailSettleDoneRef.current = false;
     prevTailMessageIdRef.current = null;
     prevTailClientMessageIdRef.current = null;
 
@@ -374,14 +445,28 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
       engine.notifyLayoutCommitted();
       if (engine.getPhase() === "entryPendingLayout") {
         tryCompleteEntry("entry_tail_settle");
-      } else if (engine.isSettled() && stickToBottomRef.current && !loadingOlderMessages) {
+        return;
+      }
+      if (pendingTailSettleRef.current && !tailSettleDoneRef.current) {
+        schedulePendingEntryTailSettle();
+        return;
+      }
+      if (engine.isSettled() && stickToBottomRef.current && !loadingOlderMessages) {
         engine.notifyLayoutResize(buildCtx());
       }
     };
 
     window.addEventListener(CM_ROOM_CHROME_HEIGHT_SYNC_EVENT, onChromeHeightSynced);
     return () => window.removeEventListener(CM_ROOM_CHROME_HEIGHT_SYNC_EVENT, onChromeHeightSynced);
-  }, [buildCtx, engine, loadingOlderMessages, roomId, stickToBottomRef, tryCompleteEntry]);
+  }, [
+    buildCtx,
+    engine,
+    loadingOlderMessages,
+    roomId,
+    schedulePendingEntryTailSettle,
+    stickToBottomRef,
+    tryCompleteEntry,
+  ]);
 
   useEffect(() => {
     const last = roomMessages[roomMessages.length - 1];

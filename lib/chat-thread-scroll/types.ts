@@ -17,6 +17,11 @@ export type ChatThreadScrollEngineConfig = {
   stickThresholdPx?: number;
   /** tail row selector for paint-ready gate (CM timeline rows) */
   messageRowSelector?: string;
+  /**
+   * entry terminal 전 paint 준비 판정 — CM은 composer sync 포함.
+   * 미지정 시 row/virtualizer/scrollHeight 기본 규칙.
+   */
+  resolveEntryPaintReady?: (ctx: ChatThreadScrollViewportContext) => boolean;
 };
 
 export type ChatThreadScrollViewportContext = {

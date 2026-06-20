@@ -167,6 +167,27 @@ describe("ChatThreadScrollEngine", () => {
     expect(vp.scrollTop).toBe(600);
   });
 
+  it("custom resolveEntryPaintReady blocks entry until ready", () => {
+    let ready = false;
+    const engine = createChatThreadScrollEngine({
+      messageRowSelector: "[data-cm-timeline-message-row]",
+      resolveEntryPaintReady: () => ready,
+    });
+    const vp = mockViewport({ scrollHeight: 800, clientHeight: 400, rowCount: 3 });
+    const ctx = { viewport: vp, messageCount: 3, virtualizer: null };
+
+    engine.notifyEntry({ forceBottom: true });
+    engine.notifyMessagesReady(true);
+    engine.notifyLayoutCommitted();
+    expect(engine.tryCompleteEntry(ctx)).toBe(false);
+    expect(engine.getPhase()).toBe("entryPendingLayout");
+
+    ready = true;
+    expect(engine.tryCompleteEntry(ctx)).toBe(true);
+    expect(engine.getPhase()).toBe("settled");
+    expect(vp.scrollTop).toBe(800);
+  });
+
   it("stick threshold is 96px SSOT", () => {
     expect(CHAT_THREAD_STICK_THRESHOLD_PX).toBe(96);
     expect(
