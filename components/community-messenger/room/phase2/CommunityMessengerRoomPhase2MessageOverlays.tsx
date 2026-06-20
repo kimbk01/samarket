@@ -1,6 +1,5 @@
 "use client";
 
-import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { MessageLongPressPopover } from "@/components/community-messenger/room/message/MessageLongPressPopover";
 import { CallStubActionPopover } from "@/components/community-messenger/room/message/CallStubActionPopover";
 import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
@@ -100,22 +99,6 @@ export function CommunityMessengerRoomPhase2MessageOverlays() {
           onClose={() => vm.setCallStubSheet(null)}
           onRedial={(kind) => {
             vm.openCallStubOutgoingConfirm(kind);
-          }}
-          onFocusComposer={() => {
-            window.requestAnimationFrame(() => vm.composerTextareaRef.current?.focus());
-          }}
-          onCopyText={() => {
-            void (async () => {
-              try {
-                await navigator.clipboard.writeText(callStubSheet.item.content);
-                showMessengerSnackbar(t("cm_ui_copied_success"), { variant: "success" });
-              } catch {
-                showMessengerSnackbar(t("cm_ui_copy_failed"), { variant: "error" });
-              }
-            })();
-          }}
-          onHideLocal={() => {
-            vm.hideCallStubLocally(callStubSheet.item);
           }}
         />
       ) : null}

@@ -130,59 +130,33 @@ export const TimelineViberInnerFile = memo(function TimelineViberInnerFile({
 export const TimelineViberInnerCallStub = memo(function TimelineViberInnerCallStub({
   item,
   stubBusy,
-  onOpenOutgoingConfirm,
   voiceCallLabel,
   videoCallLabel,
   callStatusLabel,
 }: {
   item: TimelineViberBubbleMessage;
   stubBusy: boolean;
-  onOpenOutgoingConfirm: (kind: "voice" | "video") => void;
   voiceCallLabel: string;
   videoCallLabel: string;
   callStatusLabel: string;
 }) {
-  const kind: "voice" | "video" = item.callKind === "video" ? "video" : "voice";
   const CallGlyph = item.callKind === "video" ? VideoCallIcon : VoiceCallIcon;
+  const fallbackLabel = `${item.callKind === "video" ? videoCallLabel : voiceCallLabel} · ${callStatusLabel}`;
+  const displayLabel = item.content.trim() || fallbackLabel;
   return (
-    <button
-      type="button"
-      disabled={stubBusy}
-      onClick={(e) => {
-        e.stopPropagation();
-        onOpenOutgoingConfirm(kind);
-      }}
-      className="flex w-full max-w-full items-center gap-2 rounded-[12px] py-0.5 text-left transition active:opacity-90 disabled:cursor-not-allowed disabled:opacity-45"
+    <div
+      className={`inline-flex min-h-[40px] max-w-[min(76vw,420px)] items-center gap-2 rounded-[18px] border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-3 py-1.5 text-left text-[color:var(--cm-room-text)] shadow-none ${
+        stubBusy ? "opacity-45" : ""
+      }`}
     >
       <span
-        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
-          item.isMine
-            ? "bg-white/20 text-[color:var(--cm-room-bubble-outgoing-fg)]"
-            : "bg-[color:var(--cm-room-primary-soft)] text-[color:var(--cm-room-primary)]"
-        }`}
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[color:var(--cm-room-primary-soft)] text-[color:var(--cm-room-primary)]"
         aria-hidden
       >
-        <CallGlyph className="h-4 w-4" />
+        <CallGlyph className="h-3.5 w-3.5" />
       </span>
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0">
-          <span
-            className={`sam-text-body font-semibold leading-snug ${
-              item.isMine ? "text-inherit" : "text-[color:var(--cm-room-text)]"
-            }`}
-          >
-            {item.callKind === "video" ? videoCallLabel : voiceCallLabel}
-          </span>
-          <span
-            className={`sam-text-xxs font-medium leading-snug ${
-              item.isMine ? "text-white/80" : "text-[color:var(--cm-room-text-muted)]"
-            }`}
-          >
-            {callStatusLabel}
-          </span>
-        </div>
-      </div>
-    </button>
+      <span className="min-w-0 truncate sam-text-helper font-semibold leading-snug">{displayLabel}</span>
+    </div>
   );
 });
 

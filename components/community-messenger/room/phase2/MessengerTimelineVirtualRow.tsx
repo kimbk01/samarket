@@ -120,7 +120,6 @@ export type MessengerTimelineVirtualRowProps = {
     pending?: boolean;
   }) | null>;
   focusTimelineMessage: (messageId: string) => void | Promise<void>;
-  openCallStubOutgoingConfirm: (kind: "voice" | "video") => void;
   tt: MessengerRoomPhase2ViewModel["tt"];
   t: (key: MessageKey, vars?: Record<string, string | number>) => string;
 };
@@ -165,7 +164,6 @@ function messengerTimelineVirtualRowPropsAreEqual(
     a.messageLongPressTimerRef === b.messageLongPressTimerRef &&
     a.messageLongPressItemRef === b.messageLongPressItemRef &&
     a.focusTimelineMessage === b.focusTimelineMessage &&
-    a.openCallStubOutgoingConfirm === b.openCallStubOutgoingConfirm &&
     a.tt === b.tt &&
     a.t === b.t
   );
@@ -208,7 +206,6 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
   messageLongPressTimerRef,
   messageLongPressItemRef,
   focusTimelineMessage,
-  openCallStubOutgoingConfirm,
   tt,
   t,
 }: MessengerTimelineVirtualRowProps) {
@@ -236,8 +233,6 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
   // 모바일 WebView 에서 스크롤 제스처가 pointercancel 을 즉시 발생시켜 520ms 타이머가 항상 취소된다.
   // touch-action:none 으로 브라우저 스크롤을 말풍선에서 막고, 이동 거리(8px) 초과 시 직접 취소한다.
   const longPressOriginRef = useRef<{ x: number; y: number } | null>(null);
-  /** 롱프레스 팝오버 직후 button click 이 재발신 확인으로 넘어가는 것 방지 */
-  const callStubSuppressTapRef = useRef(false);
   const [longPressHolding, setLongPressHolding] = useState(false);
   const cancelLongPress = () => {
     if (messageLongPressTimerRef.current) {
@@ -263,36 +258,36 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
             style: messageBubbleTouchStyle,
             onPointerDown: (e: ReactPointerEvent<HTMLDivElement>) => {
               if (!e.isPrimary) return;
-              callStubSuppressTapRef.current = false;
-              messageLongPressItemRef.current = item;
               longPressOriginRef.current = { x: e.clientX, y: e.clientY };
               setLongPressHolding(true);
-              // setPointerCapture: 손가락이 요소 밖으로 나가도 pointermove/up 이벤트 보장.
-              // DO NOT: 제거 시 살짝 이동하면 pointercancel → 타이머 취소.
+              // setPointerCapture: 탭 판정용 pointerup/move 보장. DO NOT: 제거 시 pointercancel 로 탭 유실.
               try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
-              const el = e.currentTarget;
-              messageLongPressTimerRef.current = window.setTimeout(() => {
-                messageLongPressTimerRef.current = null;
-                longPressOriginRef.current = null;
-                setLongPressHolding(false);
-                callStubSuppressTapRef.current = true;
-                setCallStubSheet({
-                  item,
-                  anchorRect: messengerMessageAnchorRectFromDomRect(el.getBoundingClientRect()),
-                });
-              }, 520);
             },
             onPointerMove: (e: ReactPointerEvent<HTMLDivElement>) => {
               if (!longPressOriginRef.current) return;
               const dx = e.clientX - longPressOriginRef.current.x;
               const dy = e.clientY - longPressOriginRef.current.y;
-              if (Math.sqrt(dx * dx + dy * dy) > 8) cancelLongPress();
+              if (Math.sqrt(dx * dx + dy * dy) > 8) {
+                longPressOriginRef.current = null;
+                setLongPressHolding(false);
+              }
             },
-            onPointerUp: cancelLongPress,
-            onPointerCancel: cancelLongPress,
+            onPointerUp: (e: ReactPointerEvent<HTMLDivElement>) => {
+              const origin = longPressOriginRef.current;
+              longPressOriginRef.current = null;
+              setLongPressHolding(false);
+              if (!origin) return;
+              setCallStubSheet({
+                item,
+                anchorRect: messengerMessageAnchorRectFromDomRect(e.currentTarget.getBoundingClientRect()),
+              });
+            },
+            onPointerCancel: () => {
+              longPressOriginRef.current = null;
+              setLongPressHolding(false);
+            },
             onContextMenu: (e: ReactMouseEvent<HTMLDivElement>) => {
               e.preventDefault();
-              callStubSuppressTapRef.current = true;
               setCallStubSheet({
                 item,
                 anchorRect: messengerMessageAnchorRectFromDomRect(e.currentTarget.getBoundingClientRect()),
@@ -458,13 +453,6 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
       <TimelineViberInnerCallStub
         item={item}
         stubBusy={stubBusy}
-        onOpenOutgoingConfirm={(kind) => {
-          if (callStubSuppressTapRef.current) {
-            callStubSuppressTapRef.current = false;
-            return;
-          }
-          openCallStubOutgoingConfirm(kind);
-        }}
         voiceCallLabel={voiceCallLabel}
         videoCallLabel={videoCallLabel}
         callStatusLabel={callStatusLabel}
@@ -491,6 +479,24 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
         )}
       </div>
     </ViberChatBubble>
+  );
+
+  const callStubEventRow = (
+    <div className={`flex w-full min-w-0 px-2 ${item.isMine ? "justify-end" : "justify-start"}`}>
+      <div
+        role="button"
+        aria-label={item.content.trim() || `${item.callKind === "video" ? videoCallLabel : voiceCallLabel} · ${callStatusLabel}`}
+        aria-disabled={stubBusy || undefined}
+        className={`inline-flex max-w-full transition-[transform,box-shadow] duration-150 ease-out ${
+          longPressVisualActive
+            ? "scale-[0.97] rounded-[18px] ring-2 ring-[color:var(--cm-room-primary)] ring-offset-1 ring-offset-[color:var(--cm-room-bg,#f0f2f5)] shadow-[0_10px_28px_rgba(0,0,0,0.16)]"
+            : ""
+        }`}
+        {...bindMessageInteraction}
+      >
+        {viberInnerBody}
+      </div>
+    </div>
   );
 
   return (
@@ -538,6 +544,8 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
             <p className="text-center sam-text-helper leading-5">{item.content}</p>
           </div>
         </div>
+      ) : item.messageType === "call_stub" ? (
+        callStubEventRow
       ) : (
         <div
           className={`flex w-full min-w-0 max-w-full gap-2 ${item.isMine ? "items-end justify-end" : "items-start justify-start"}`}

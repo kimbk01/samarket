@@ -1745,8 +1745,9 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                 const prev = index > 0 ? finalTimelinePaintMessages[index - 1] : null;
                 const next =
                   index < finalTimelinePaintMessages.length - 1 ? finalTimelinePaintMessages[index + 1] : null;
+                const isCallStub = item.messageType === "call_stub";
                 const gapMs =
-                  prev && prev.messageType !== "system" && item.messageType !== "system"
+                  prev && prev.messageType !== "system" && prev.messageType !== "call_stub" && item.messageType !== "system" && !isCallStub
                     ? Math.max(0, new Date(item.createdAt).getTime() - new Date(prev.createdAt).getTime())
                     : 0;
                 const isNewClusterFromTime = gapMs > CM_CLUSTER_GAP_MS;
@@ -1754,56 +1755,68 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                   vm.isGroupRoom &&
                   !!prev &&
                   prev.messageType !== "system" &&
+                  prev.messageType !== "call_stub" &&
+                  !isCallStub &&
                   (prev.senderId ?? "") !== (item.senderId ?? "");
                 const showPeerName =
                   !item.isMine &&
                   item.messageType !== "system" &&
+                  !isCallStub &&
                   (!prev ||
                     prev.messageType === "system" ||
+                    prev.messageType === "call_stub" ||
                     prev.isMine ||
                     peerSenderChanged ||
                     isNewClusterFromTime);
                 const nextGapMs =
-                  next && next.messageType !== "system" && item.messageType !== "system"
+                  next && next.messageType !== "system" && next.messageType !== "call_stub" && item.messageType !== "system" && !isCallStub
                     ? Math.max(0, new Date(next.createdAt).getTime() - new Date(item.createdAt).getTime())
                     : 0;
                 const isClusterEndFromTime = nextGapMs > CM_CLUSTER_GAP_MS;
                 const nextSenderChanged =
                   !!next &&
                   next.messageType !== "system" &&
+                  next.messageType !== "call_stub" &&
                   item.messageType !== "system" &&
+                  !isCallStub &&
                   (next.isMine !== item.isMine ||
                     (vm.isGroupRoom && (next.senderId ?? "") !== (item.senderId ?? "")));
                 const showPeerAvatar =
                   !item.isMine &&
                   item.messageType !== "system" &&
+                  !isCallStub &&
                   showPeerName;
                 const peerAvatar = !item.isMine ? messageRowPreamble.peerAvatarFor(item.senderId) : null;
                 const mineUnreadBadgeVisible =
                   !vm.isPrivateGroupRoom &&
                   item.isMine &&
                   item.messageType !== "system" &&
+                  !isCallStub &&
                   latestReadableMineMessageId === item.id &&
                   !peerHasReadMyLatestMessage;
                 const groupReadReceiptLabel =
                   vm.isPrivateGroupRoom &&
                   item.isMine &&
                   item.messageType !== "system" &&
+                  !isCallStub &&
                   groupReadCounts[item.id]?.label
                     ? groupReadCounts[item.id]!.label
                     : undefined;
                 const showMineClusterStart =
                   item.isMine &&
                   item.messageType !== "system" &&
+                  !isCallStub &&
                   (!prev ||
                     prev.messageType === "system" ||
+                    prev.messageType === "call_stub" ||
                     !prev.isMine ||
                     isNewClusterFromTime ||
                     (vm.isGroupRoom && (prev.senderId ?? "") !== (item.senderId ?? "")));
                 const showMineClusterEnd =
                   item.isMine &&
                   item.messageType !== "system" &&
-                  (!next || next.messageType === "system" || nextSenderChanged || isClusterEndFromTime);
+                  !isCallStub &&
+                  (!next || next.messageType === "system" || next.messageType === "call_stub" || nextSenderChanged || isClusterEndFromTime);
                 const showBubbleTail = item.isMine ? showMineClusterStart : showPeerName;
                 const isDayBoundary =
                   !prev ||
@@ -1812,22 +1825,34 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                 const sameSenderCluster =
                   !!prev &&
                   prev.messageType !== "system" &&
+                  prev.messageType !== "call_stub" &&
                   item.messageType !== "system" &&
+                  !isCallStub &&
                   prev.isMine === item.isMine &&
                   (!vm.isGroupRoom || (prev.senderId ?? "") === (item.senderId ?? ""));
-                const rowPaddingTopClass = isDayBoundary
-                  ? "pt-4"
-                  : showPeerName
-                    ? "pt-3.5"
+                const rowPaddingTopClass = isCallStub
+                  ? isDayBoundary
+                    ? "pt-4"
                     : prev
-                      ? sameSenderCluster
+                      ? prev.messageType === "call_stub"
                         ? "pt-1"
-                        : "pt-3"
-                      : "";
+                        : "pt-2"
+                      : ""
+                  : isDayBoundary
+                    ? "pt-4"
+                    : showPeerName
+                      ? "pt-3.5"
+                      : prev
+                        ? sameSenderCluster
+                          ? "pt-1"
+                          : "pt-3"
+                        : "";
                 const showMessageTime =
                   item.messageType !== "system" &&
+                  !isCallStub &&
                   (!next ||
                     next.messageType === "system" ||
+                    next.messageType === "call_stub" ||
                     next.isMine !== item.isMine ||
                     (vm.isGroupRoom && (next.senderId ?? "") !== (item.senderId ?? "")) ||
                     formatTime(next.createdAt) !== formatTime(item.createdAt));
@@ -1914,7 +1939,6 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                     messageLongPressTimerRef={vm.messageLongPressTimerRef}
                     messageLongPressItemRef={vm.messageLongPressItemRef}
                     focusTimelineMessage={vm.focusTimelineMessage}
-                    openCallStubOutgoingConfirm={vm.openCallStubOutgoingConfirm}
                     tt={vm.tt}
                     t={vm.t}
                   />
