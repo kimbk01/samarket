@@ -1,7 +1,6 @@
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { peekHotRoomSnapshot, peekRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import { isMessengerRoomTimelineBootstrapSeedComplete } from "@/lib/community-messenger/room/messenger-room-timeline-hydration";
-import { getMessengerRealtimeRoomMessages } from "@/lib/community-messenger/stores/messenger-realtime-store";
 
 function messageCount(snap: CommunityMessengerRoomSnapshot | null | undefined): number {
   return snap?.messages?.length ?? 0;
@@ -14,25 +13,56 @@ export function isMessengerRoomBootstrapReadySnapshot(
   return Boolean(snap && !snap.clientShellPlaceholder);
 }
 
-/** 메시지 시드가 가장 풍부한 스냅샷 — 동일 개수면 `server` 우선 */
-function pickRichestRoomSnapshot(
+/** lastMessage 없음 + messages[] 비어 있음 — 진짜 빈 방만 authoritative empty 로 인정 */
+export function isMessengerRoomConfirmedEmptySnapshot(
+  snapshot:
+    | {
+        messages?: CommunityMessengerRoomSnapshot["messages"];
+        room: Pick<CommunityMessengerRoomSnapshot["room"], "lastMessage">;
+        clientShellPlaceholder?: boolean;
+      }
+    | null
+    | undefined
+): boolean {
+  if (!snapshot || snapshot.clientShellPlaceholder) return false;
+  if (Boolean(snapshot.room.lastMessage?.trim())) return false;
+  return (snapshot.messages?.length ?? 0) === 0;
+}
+
+/** RoomClient 첫 mount·paint SSOT — complete bootstrap seed 또는 confirmed empty 만 */
+export function isAuthoritativeMessengerRoomEntrySnapshot(
+  snapshot: CommunityMessengerRoomSnapshot | null | undefined
+): snapshot is CommunityMessengerRoomSnapshot {
+  if (!isMessengerRoomBootstrapReadySnapshot(snapshot)) return false;
+  return (
+    isMessengerRoomTimelineBootstrapSeedComplete(snapshot) ||
+    isMessengerRoomConfirmedEmptySnapshot(snapshot)
+  );
+}
+
+function isAuthoritativeRoomSnapshotCandidate(
+  snapshot: CommunityMessengerRoomSnapshot | null | undefined
+): snapshot is CommunityMessengerRoomSnapshot {
+  return isAuthoritativeMessengerRoomEntrySnapshot(snapshot);
+}
+
+/**
+ * complete seed 또는 confirmed empty 후보만 pool — lastMessage-only incomplete 는 authoritative 금지.
+ */
+export function pickRichestAuthoritativeRoomSnapshot(
   server: CommunityMessengerRoomSnapshot | null,
   ...others: Array<CommunityMessengerRoomSnapshot | null | undefined>
 ): CommunityMessengerRoomSnapshot | null {
   const candidates: CommunityMessengerRoomSnapshot[] = [];
-  if (server && !server.clientShellPlaceholder) candidates.push(server);
+  if (server && isAuthoritativeRoomSnapshotCandidate(server)) candidates.push(server);
   for (const candidate of others) {
-    if (!candidate || candidate.clientShellPlaceholder) continue;
-    candidates.push(candidate);
+    if (isAuthoritativeRoomSnapshotCandidate(candidate)) candidates.push(candidate);
   }
   if (candidates.length === 0) return null;
 
-  const complete = candidates.filter(isMessengerRoomTimelineBootstrapSeedComplete);
-  const pool = complete.length > 0 ? complete : candidates;
-
-  let best = pool[0] ?? null;
+  let best = candidates[0] ?? null;
   let bestCount = messageCount(best);
-  for (const candidate of pool.slice(1)) {
+  for (const candidate of candidates.slice(1)) {
     const n = messageCount(candidate);
     if (n > bestCount) {
       best = candidate;
@@ -50,8 +80,8 @@ export type PickAuthoritativeMessengerRoomSnapshotInput = {
 };
 
 /**
- * 방 Client 첫 state 에 쓸 스냅샷 — **진입 게이트 시드가 peek 캐시(목록 stub·realtime 1건)보다 우선**.
- * 시드·캐시 둘 다 있을 때는 메시지 수가 더 많은 쪽을 택한다(히스토리 유실 방지).
+ * 방 Client 첫 state 에 쓸 스냅샷 — **complete seed 또는 confirmed empty 만**.
+ * lastMessage-only 목록 peek·summary cache 는 room timeline paint SSOT 가 아님.
  */
 export function pickAuthoritativeMessengerRoomSnapshot(
   input: PickAuthoritativeMessengerRoomSnapshotInput
@@ -61,24 +91,32 @@ export function pickAuthoritativeMessengerRoomSnapshot(
 
   const server = input.serverSnapshot;
   const serverUsable =
-    server && !server.clientShellPlaceholder ? server : null;
+    server && isAuthoritativeRoomSnapshotCandidate(server) ? server : null;
 
   const viewer = input.viewerUserId.trim();
   const cached = viewer ? peekRoomSnapshot(rid, viewer) : null;
   const hot = viewer ? peekHotRoomSnapshot(rid, viewer) : null;
 
-  const richest = pickRichestRoomSnapshot(serverUsable, cached, hot);
+  const richest = pickRichestAuthoritativeRoomSnapshot(serverUsable, cached, hot);
   if (richest) return richest;
 
-  if (viewer) {
-    const live = getMessengerRealtimeRoomMessages(rid);
-    if (live.length > 0) {
-      const seeded = peekRoomSnapshot(rid, viewer) ?? hot;
-      if (seeded && isMessengerRoomBootstrapReadySnapshot(seeded)) return seeded;
-    }
-  }
+  if (serverUsable) return serverUsable;
 
-  return server ?? null;
+  return null;
+}
+
+/** IndexedDB local-first — incomplete seed 로 loaded 완료 처리 금지 */
+export function shouldPromoteLocalRoomSnapshotToEntryLoaded(
+  local: CommunityMessengerRoomSnapshot | null | undefined
+): boolean {
+  return isAuthoritativeMessengerRoomEntrySnapshot(local);
+}
+
+/** BootstrapGate — RoomClient mount 허용 여부 */
+export function canMountCommunityMessengerRoomClient(
+  snapshot: CommunityMessengerRoomSnapshot | null | undefined
+): boolean {
+  return isAuthoritativeMessengerRoomEntrySnapshot(snapshot);
 }
 
 /** 진입 계약 검증 — dev·테스트·ensure+bootstrap 응답 */
@@ -92,12 +130,16 @@ export function assertStoreOrderRoomBootstrapHasTimelineSeed(
   if (!rid) return { ok: false, reason: "missing_room_id" };
   const meta = snapshot.room.contextMeta;
   if (meta?.kind !== "delivery") {
-    return { ok: true };
+    return isAuthoritativeMessengerRoomEntrySnapshot(snapshot)
+      ? { ok: true }
+      : { ok: false, reason: "incomplete_timeline_seed" };
   }
   const hasMessages = (snapshot.messages?.length ?? 0) > 0;
   const hasLastMessageHint = Boolean(snapshot.room.lastMessage?.trim());
   if (hasMessages || !hasLastMessageHint) {
-    return { ok: true };
+    return isAuthoritativeMessengerRoomEntrySnapshot(snapshot)
+      ? { ok: true }
+      : { ok: false, reason: "incomplete_timeline_seed" };
   }
   return { ok: false, reason: "delivery_room_empty_timeline" };
 }

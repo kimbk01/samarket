@@ -3,6 +3,7 @@
 import { useEffect, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { getLocalRoomSnapshot, putLocalRoomSnapshot } from "@/lib/community-messenger/local-store/roomSnapshotDb";
 import { recordRouteEntryElapsedMetric } from "@/lib/runtime/samarket-runtime-debug";
+import { shouldPromoteLocalRoomSnapshotToEntryLoaded } from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 /**
  * Local-first: 목록 프리패치/서버 시드가 없을 때 IndexedDB 스냅샷으로 first paint를 당기고,
@@ -51,6 +52,7 @@ export function useMessengerRoomLocalIndexedDbSnapshot({
       }
       if (cancelled) return;
       if (!local) return;
+      if (!shouldPromoteLocalRoomSnapshotToEntryLoaded(local)) return;
       if (snapshotRef.current && !snapshotRef.current.clientShellPlaceholder) return;
       setSnapshot(local);
       setLoading(false);

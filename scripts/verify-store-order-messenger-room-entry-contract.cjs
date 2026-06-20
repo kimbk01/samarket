@@ -39,8 +39,11 @@ if (!entry.includes("assertStoreOrderRoomBootstrapHasTimelineSeed")) {
 if (/,\s*order\?\.community_messenger_room_id/.test(ownerSlide)) {
   fail("OwnerStoreOrderChatSlidePanel must not depend on order.community_messenger_room_id in effect deps");
 }
-if (!authority.includes("pickAuthoritativeMessengerRoomSnapshot")) {
-  fail("missing pickAuthoritativeMessengerRoomSnapshot");
+if (!authority.includes("pickRichestAuthoritativeRoomSnapshot")) {
+  fail("missing pickRichestAuthoritativeRoomSnapshot (incomplete seed authoritative ban)");
+}
+if (!authority.includes("isAuthoritativeMessengerRoomEntrySnapshot")) {
+  fail("missing isAuthoritativeMessengerRoomEntrySnapshot entry contract");
 }
 if (!ensureBootstrap.includes("hydrateStoreOrderRoomFullMessageHistory")) {
   fail("ensure+bootstrap must hydrate full message history on server");
@@ -87,10 +90,15 @@ if (!read("components/community-messenger/room/phase2/CommunityMessengerRoomPhas
 )) {
   fail("delivery chrome must use resolveDeliveryChromePrimaryLabel for role-based headline");
 }
-if (!read("components/community-messenger/room/CommunityMessengerRoomBootstrapGate.tsx").includes(
-  "resolveInstantStoreOrderMessengerEntrySnapshot"
-)) {
-  fail("BootstrapGate must mount RoomClient immediately with instant shell snapshot");
+const bootstrapGate = read("components/community-messenger/room/CommunityMessengerRoomBootstrapGate.tsx");
+if (!bootstrapGate.includes("canMountCommunityMessengerRoomClient")) {
+  fail("BootstrapGate must gate RoomClient mount on authoritative bootstrap snapshot");
+}
+if (!bootstrapGate.includes("CommunityMessengerRoomStableEntryShell")) {
+  fail("BootstrapGate must show entry shell while bootstrap pending");
+}
+if (bootstrapGate.includes("resolveInstantStoreOrderMessengerEntrySnapshot")) {
+  fail("BootstrapGate must not mount RoomClient with instant incomplete shell snapshot");
 }
 if (!ownerSlide.includes("StoreDeliveryBufferingSpinner")) {
   fail("OwnerStoreOrderChatSlidePanel must use StoreDeliveryBufferingSpinner instead of connecting text");

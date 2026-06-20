@@ -3,33 +3,23 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CommunityMessengerRoomClient } from "@/components/community-messenger/CommunityMessengerRoomClient";
+import { CommunityMessengerRoomStableEntryShell } from "@/components/community-messenger/room/CommunityMessengerRoomStableEntryShell";
 import { redirectResourceAccessDenied } from "@/lib/auth/resource-access-denied-flow";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { decodeCommunityMessengerRoomCmCtx } from "@/lib/community-messenger/cm-ctx-url";
 import { useMessengerRoomUrlSearchParams } from "@/lib/community-messenger/room/use-messenger-room-url-search-params";
 import { peekMessengerRoomViewerUserIdClient } from "@/lib/community-messenger/room/peek-messenger-room-viewer-user-id-client";
-import { resolveInstantStoreOrderMessengerEntrySnapshot } from "@/lib/store-order-chat/store-order-messenger-entry-shell-snapshot";
+import {
+  canMountCommunityMessengerRoomClient,
+  pickAuthoritativeMessengerRoomSnapshot,
+} from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
+import { isRoomSnapshotFresh } from "@/lib/community-messenger/room-snapshot-cache";
 import { prepareStoreOrderMessengerRoomEntryByRoomId } from "@/lib/store-order-chat/store-order-messenger-room-entry-client";
 import { inferInstantStoreOrderMessengerMyRole } from "@/lib/store-order-chat/infer-store-order-messenger-instant-role";
-import { isMessengerRoomBootstrapReadySnapshot } from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
-
-function buildInstantEntrySnapshot(
-  roomId: string,
-  viewerUserId: string | undefined,
-  contextMeta: ReturnType<typeof decodeCommunityMessengerRoomCmCtx>,
-  searchParams: URLSearchParams
-): CommunityMessengerRoomSnapshot {
-  return resolveInstantStoreOrderMessengerEntrySnapshot({
-    roomId,
-    viewerUserId,
-    contextMeta,
-    myRole: inferInstantStoreOrderMessengerMyRole(contextMeta, searchParams),
-  });
-}
 
 /**
- * 메신저 방 URL 진입 — 셸 스냅샷으로 RoomClient 를 즉시 연고, ensure+bootstrap 으로 히스토리를 정합한다.
- * 구매자·매장이 동일 roomId·동일 bootstrap 계약으로 히스토리를 본다.
+ * CM room URL 진입 — authoritative bootstrap complete 전 RoomClient 마운트 금지.
+ * store order·배달·일반 DM·그룹(CM) 동일 계약.
  */
 export function CommunityMessengerRoomBootstrapGate({
   roomId,
@@ -54,43 +44,59 @@ export function CommunityMessengerRoomBootstrapGate({
     [cmCtx, searchParams]
   );
 
-  const [hydratedSnapshot, setHydratedSnapshot] = useState<CommunityMessengerRoomSnapshot>(() =>
-    buildInstantEntrySnapshot(roomId, viewerUserId, cmCtx, searchParams)
-  );
+  const [entrySnapshot, setEntrySnapshot] = useState<CommunityMessengerRoomSnapshot | null>(null);
+  const [bootstrapPending, setBootstrapPending] = useState(true);
   const [entryError, setEntryError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const rid = roomId.trim();
-    if (!rid) return;
-    setEntryError(null);
-    setHydratedSnapshot((prev) => {
-      if (isMessengerRoomBootstrapReadySnapshot(prev)) return prev;
-      return buildInstantEntrySnapshot(rid, viewerUserId, cmCtx, searchParams);
-    });
-  }, [roomId, viewerUserId, cmCtx, searchParams]);
 
   useEffect(() => {
     const rid = roomId.trim();
     if (!rid) {
       setEntryError("missing_room_id");
+      setBootstrapPending(false);
+      setEntrySnapshot(null);
       return;
     }
 
     let cancelled = false;
+    setBootstrapPending(true);
     setEntryError(null);
+    setEntrySnapshot(null);
+
+    const viewer = viewerUserId?.trim() ?? "";
+    if (viewer) {
+      const cached = pickAuthoritativeMessengerRoomSnapshot({
+        roomId: rid,
+        viewerUserId: viewer,
+        serverSnapshot: null,
+      });
+      if (cached && isRoomSnapshotFresh(rid, viewer) && canMountCommunityMessengerRoomClient(cached)) {
+        setEntrySnapshot(cached);
+        setBootstrapPending(false);
+        return () => {
+          cancelled = true;
+        };
+      }
+    }
 
     void (async () => {
       const result = await prepareStoreOrderMessengerRoomEntryByRoomId(rid, {
         instantContextMeta: cmCtx,
         myRole: instantMyRole,
-        viewerUserId,
+        viewerUserId: viewer || undefined,
       });
       if (cancelled) return;
       if (!result.ok) {
         setEntryError(result.error);
+        setBootstrapPending(false);
         return;
       }
-      setHydratedSnapshot(result.snapshot);
+      if (!canMountCommunityMessengerRoomClient(result.snapshot)) {
+        setEntryError("incomplete_timeline_seed");
+        setBootstrapPending(false);
+        return;
+      }
+      setEntrySnapshot(result.snapshot);
+      setBootstrapPending(false);
     })();
 
     return () => {
@@ -98,26 +104,29 @@ export function CommunityMessengerRoomBootstrapGate({
     };
   }, [roomId, viewerUserId, cmCtx, instantMyRole]);
 
-  const showFatalEntryError =
-    Boolean(entryError) && Boolean(hydratedSnapshot.clientShellPlaceholder);
-
   useEffect(() => {
-    if (!showFatalEntryError || redirectedRef.current) return;
+    if (!entryError || redirectedRef.current || bootstrapPending) return;
     redirectedRef.current = true;
     redirectResourceAccessDenied(router, "/community-messenger");
-  }, [router, showFatalEntryError]);
+  }, [entryError, bootstrapPending, router]);
 
-  if (showFatalEntryError) {
+  if (entryError) {
     return null;
   }
 
-  const viewer = viewerUserId || hydratedSnapshot.viewerUserId?.trim() || undefined;
+  if (bootstrapPending || !entrySnapshot || !canMountCommunityMessengerRoomClient(entrySnapshot)) {
+    return (
+      <CommunityMessengerRoomStableEntryShell roomId={roomId} variant="entry" recordShellPaint={false} />
+    );
+  }
+
+  const viewer = viewerUserId || entrySnapshot.viewerUserId?.trim() || undefined;
 
   return (
     <CommunityMessengerRoomClient
       key={roomId}
       roomId={roomId}
-      initialServerSnapshot={hydratedSnapshot}
+      initialServerSnapshot={entrySnapshot}
       initialViewerUserId={viewer}
     />
   );
