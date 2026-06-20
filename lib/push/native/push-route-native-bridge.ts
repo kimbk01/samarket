@@ -30,6 +30,14 @@ export type NativeIncomingCallPlugin = {
     items: Array<{ sessionId: string; status?: string; at?: number }>;
   }>;
   getForegroundIncomingCallId(): Promise<{ callId?: string | null }>;
+  syncCallSoundConfig(options: {
+    voiceIncomingEnabled: boolean;
+    voiceIncomingSource: "device_ringtone" | "admin_custom";
+    voiceIncomingUrl?: string | null;
+    videoIncomingEnabled: boolean;
+    videoIncomingSource: "device_ringtone" | "admin_custom";
+    videoIncomingUrl?: string | null;
+  }): Promise<void>;
 };
 
 let pluginPromise: Promise<NativeIncomingCallPlugin | null> | null = null;

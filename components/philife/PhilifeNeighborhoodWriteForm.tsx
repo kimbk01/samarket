@@ -43,7 +43,8 @@ import {
   PHILIFE_WRITE_FB_FIELD_LABEL,
   PHILIFE_WRITE_FB_SECTION,
   PHILIFE_WRITE_FORM_ROOT_CLASS,
-  PHILIFE_WRITE_SCROLL_BODY_CLASS,
+  PHILIFE_WRITE_SCROLL_BODY_PAGE_CLASS,
+  PHILIFE_WRITE_SCROLL_BODY_SHEET_CLASS,
   PHILIFE_WRITE_SELECT_CLASS,
 } from "@/lib/ui/philife-write-fb-ui";
 import type { AdPaymentMethod, AdProduct } from "@/lib/ads/types";
@@ -847,9 +848,20 @@ export function PhilifeNeighborhoodWriteForm({
     .filter(Boolean)
     .join(" ");
 
+  const handleSheetFieldFocus = useCallback(
+    (e: React.FocusEvent<HTMLElement>) => {
+      if (!suppressWriteScreenTier1) return;
+      const target = e.currentTarget;
+      requestAnimationFrame(() => {
+        target.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      });
+    },
+    [suppressWriteScreenTier1]
+  );
+
   const scrollWrapClass = suppressWriteScreenTier1
-    ? PHILIFE_WRITE_SCROLL_BODY_CLASS
-    : `${PHILIFE_WRITE_SCROLL_BODY_CLASS} ${APP_MAIN_COLUMN_CLASS}`;
+    ? PHILIFE_WRITE_SCROLL_BODY_SHEET_CLASS
+    : `${PHILIFE_WRITE_SCROLL_BODY_PAGE_CLASS} ${APP_MAIN_COLUMN_CLASS}`;
 
   return (
     <div className={rootClass}>
@@ -878,6 +890,7 @@ export function PhilifeNeighborhoodWriteForm({
                 <input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
+                  onFocus={handleSheetFieldFocus}
                   className={PHILIFE_WRITE_FB_CONTROL}
                   placeholder={t("philife_write_meetup_name_placeholder")}
                   autoComplete="off"
@@ -888,6 +901,7 @@ export function PhilifeNeighborhoodWriteForm({
                 <textarea
                   value={meetIntro}
                   onChange={(e) => setMeetIntro(e.target.value)}
+                  onFocus={handleSheetFieldFocus}
                   rows={4}
                   className={`${PHILIFE_WRITE_FB_CONTROL} !min-h-[7rem]`}
                   placeholder={t("philife_write_meetup_intro_placeholder")}
@@ -1072,6 +1086,7 @@ export function PhilifeNeighborhoodWriteForm({
                 <input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
+                  onFocus={handleSheetFieldFocus}
                   className={PHILIFE_WRITE_FB_CONTROL}
                   placeholder={t("philife_write_title_placeholder")}
                 />
@@ -1083,6 +1098,7 @@ export function PhilifeNeighborhoodWriteForm({
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                   onPaste={(e) => void onContentPaste(e)}
+                  onFocus={handleSheetFieldFocus}
                   rows={8}
                   className={`${PHILIFE_WRITE_FB_CONTROL} min-h-[10rem]`}
                   placeholder={t("philife_write_content_placeholder")}
@@ -1272,6 +1288,7 @@ export function PhilifeNeighborhoodWriteForm({
       </div>
 
       <PhilifeWriteActionFooter
+        layout={suppressWriteScreenTier1 ? "sheet" : "page"}
         busy={busy}
         submitDisabled={submitDisabled}
         error={err}

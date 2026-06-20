@@ -2,6 +2,7 @@ import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types
 import { logDibayCall } from "@/lib/community-messenger/call-orchestrator";
 import {
   startCommunityMessengerCallTone,
+  tryStartOutgoingRingbackFromCachedAdminConfig,
   unlockCommunityMessengerCallPlaybackFromUserGesture,
   type CallToneController,
 } from "@/lib/community-messenger/call-feedback-sound";
@@ -85,6 +86,14 @@ export function primeOutgoingRingbackFromUserGesture(args: PrimeOutgoingRingback
   stopOutgoingToneInternal("prime_replace");
   unlockCommunityMessengerCallPlaybackFromUserGesture();
   primeWebAudioCallToneContextFromUserGesture();
+  const cachedAdminTone = tryStartOutgoingRingbackFromCachedAdminConfig(args.kind);
+  if (cachedAdminTone) {
+    activeTone = cachedAdminTone;
+    activeSource = args.source;
+    startedAt = Date.now();
+    logRingbackStart("gesture-prime", args.kind, args.source);
+    return;
+  }
   const kind: "voice" | "video" = args.kind === "video" ? "video" : "voice";
   const web = startWebAudioCallTone("outgoing", kind);
   if (!web) return;

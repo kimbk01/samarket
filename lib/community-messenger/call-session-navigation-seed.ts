@@ -14,6 +14,7 @@ import {
   rememberOutgoingRingtonePrimedForSession,
   unlockCommunityMessengerCallPlaybackFromUserGesture,
 } from "@/lib/community-messenger/call-feedback-sound";
+import { fetchMessengerCallSoundConfig } from "@/lib/community-messenger/messenger-call-sound-config-client";
 import {
   primeOutgoingRingbackFromUserGesture,
   startOutgoingRingback,
@@ -780,6 +781,7 @@ export async function launchOutgoingDirectCall(
     peerUserId: input.peerUserId?.trim() || undefined,
   });
   unlockCommunityMessengerCallPlaybackFromUserGesture();
+  void fetchMessengerCallSoundConfig();
   primeOutgoingRingbackFromUserGesture({ kind: input.kind, source: "nav_seed_gesture" });
   if (typeof window !== "undefined") {
     rememberCallNavigationReturnPath();
@@ -851,6 +853,7 @@ export async function bootstrapCommunityMessengerOutgoingCallAndNavigate(
   }
   /** 첫 `await` 전에만 유효한 사용자 활성화 — 링백·GUM 프라임·자동재생 정책 대응 */
   unlockCommunityMessengerCallPlaybackFromUserGesture();
+  void fetchMessengerCallSoundConfig();
   primeOutgoingRingbackFromUserGesture({ kind: input.kind, source: "nav_seed_gesture" });
   const primeResult = await primeOutgoingCallMediaBeforeNavigate(input.kind);
   if (!primeResult.ok) {
@@ -898,6 +901,7 @@ export async function startOutgoingCallSessionAndOpen(
   router: { push: (href: string) => void }
 ): Promise<OutgoingCallSessionBootstrapResult> {
   unlockCommunityMessengerCallPlaybackFromUserGesture();
+  void fetchMessengerCallSoundConfig();
   primeOutgoingRingbackFromUserGesture({ kind: input.kind, source: "nav_seed_gesture" });
   const primeResult = await primeOutgoingCallMediaBeforeNavigate(input.kind);
   if (!primeResult.ok) {

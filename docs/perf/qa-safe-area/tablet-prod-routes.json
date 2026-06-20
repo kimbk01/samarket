@@ -1,0 +1,107 @@
+{
+  "device": {
+    "serial": "8b37179f7d94",
+    "model": "24076RP19G",
+    "sdk": "36",
+    "navigationMode": "2",
+    "origin": "https://samarket.vercel.app"
+  },
+  "results": [
+    {
+      "route": "/philife",
+      "error": "Page.navigate"
+    },
+    {
+      "route": "/community",
+      "metrics": {
+        "path": "/philife",
+        "dibayInlineTop": "27px",
+        "dibayInlineBottom": "48px",
+        "dibayComputedTop": "27px",
+        "dibayComputedBottom": "48px",
+        "safeTop": "max(28px,27px)",
+        "safeBottom": "max(16px,48px)",
+        "envTop": "28px",
+        "envBottom": "16px",
+        "innerHeight": 1006,
+        "vvHeight": 1006.5726928710938,
+        "keyboard": 0
+      },
+      "screenshot": "/Users/bkkim/projects/samarket/docs/perf/qa-safe-area/8b37179f7d94-prod-community.png",
+      "bytes": 172968,
+      "logcat": [
+        "06-20 06:42:16.500 31621 31621 I DIBAY_SafeArea: safe_area_bridge_attached",
+        "06-20 06:42:16.802 31621 31621 D DIBAY_SafeArea: insets_css top=27 bottom=48 left=0 right=0 keyboard=0"
+      ]
+    },
+    {
+      "route": "/market",
+      "metrics": {
+        "path": "/market",
+        "dibayInlineTop": "27px",
+        "dibayInlineBottom": "48px",
+        "dibayComputedTop": "27px",
+        "dibayComputedBottom": "48px",
+        "safeTop": "max(28px,27px)",
+        "safeBottom": "max(16px,48px)",
+        "envTop": "28px",
+        "envBottom": "16px",
+        "innerHeight": 1006,
+        "vvHeight": 1006.5726928710938,
+        "keyboard": 0
+      },
+      "screenshot": "/Users/bkkim/projects/samarket/docs/perf/qa-safe-area/8b37179f7d94-prod-market.png",
+      "bytes": 313482,
+      "logcat": [
+        "06-20 06:42:39.602   530   530 I DIBAY_SafeArea: safe_area_bridge_attached",
+        "06-20 06:42:39.908   530   530 D DIBAY_SafeArea: insets_css top=27 bottom=48 left=0 right=0 keyboard=0"
+      ]
+    },
+    {
+      "route": "/stores",
+      "metrics": {
+        "path": "/stores",
+        "dibayInlineTop": "27px",
+        "dibayInlineBottom": "48px",
+        "dibayComputedTop": "27px",
+        "dibayComputedBottom": "48px",
+        "safeTop": "max(28px,27px)",
+        "safeBottom": "max(16px,48px)",
+        "envTop": "28px",
+        "envBottom": "16px",
+        "innerHeight": 1006,
+        "vvHeight": 1006.5726928710938,
+        "keyboard": 0
+      },
+      "screenshot": "/Users/bkkim/projects/samarket/docs/perf/qa-safe-area/8b37179f7d94-prod-stores.png",
+      "bytes": 449932,
+      "logcat": [
+        "06-20 06:43:02.200  1682  1682 I DIBAY_SafeArea: safe_area_bridge_attached",
+        "06-20 06:43:02.553  1682  1682 D DIBAY_SafeArea: insets_css top=27 bottom=48 left=0 right=0 keyboard=0"
+      ]
+    },
+    {
+      "route": "/community-messenger?section=chats",
+      "metrics": {
+        "path": "/community-messenger?section=chats",
+        "dibayInlineTop": "27px",
+        "dibayInlineBottom": "48px",
+        "dibayComputedTop": "27px",
+        "dibayComputedBottom": "48px",
+        "safeTop": "max(28px,27px)",
+        "safeBottom": "max(16px,48px)",
+        "envTop": "28px",
+        "envBottom": "16px",
+        "innerHeight": 1006,
+        "vvHeight": 1006.5726928710938,
+        "keyboard": 0
+      },
+      "screenshot": "/Users/bkkim/projects/samarket/docs/perf/qa-safe-area/8b37179f7d94-prod-messenger.png",
+      "bytes": 37169,
+      "logcat": [
+        "06-20 06:43:25.146  2948  2948 I DIBAY_SafeArea: safe_area_bridge_attached",
+        "06-20 06:43:25.443  2948  2948 D DIBAY_SafeArea: insets_css top=27 bottom=48 left=0 right=0 keyboard=0"
+      ]
+    }
+  ]
+}

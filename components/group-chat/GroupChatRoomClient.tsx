@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { ChatInputBar } from "@/components/chats/ChatInputBar";
 import { ChatMessageList } from "@/components/chats/ChatMessageList";
 import { ChatMessagesLoadingSkeleton } from "@/components/chats/ChatMessagesLoadingSkeleton";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { runChatThreadEntryScrollToBottom } from "@/lib/chats/chat-thread-entry-scroll";
 import { mergeChatMessagesById } from "@/lib/chats/merge-chat-messages";
 import { useChatRoomRealtime } from "@/lib/chats/use-chat-room-realtime";
 import { fetchGroupChatBootstrapDeduped } from "@/lib/group-chat/fetch-group-chat-bootstrap";
@@ -114,6 +115,11 @@ export function GroupChatRoomClient({
       void postRead();
     }
   }, [bootstrapReady, loading, postRead]);
+
+  useLayoutEffect(() => {
+    if (loading || !bootstrapReady || messages.length <= 0) return;
+    runChatThreadEntryScrollToBottom(threadScrollParentRef.current);
+  }, [bootstrapReady, loading, messages.length, roomId]);
 
   const onRealtimeMessage = useCallback((msg: ChatMessage) => {
     setMessages((prev) => mergeChatMessagesById(prev, [msg]));

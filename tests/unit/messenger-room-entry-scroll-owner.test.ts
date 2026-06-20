@@ -3,6 +3,7 @@ import {
   __getMessengerRoomEntryScrollStateForTest,
   canRunMessengerRoomScrollOwner,
   isMessengerRoomReadyForVirtualLayout,
+  markMessengerRoomEntryInitialScrollDone,
   markMessengerRoomEntryScrollSettled,
   markMessengerRoomScrollOwnerRun,
   resetMessengerRoomEntryScrollOwner,
@@ -67,13 +68,29 @@ describe("messenger-room-entry-scroll-owner", () => {
     expect(canRunMessengerRoomScrollOwner(ROOM, "push_entry_initial_load")).toBe(true);
     markMessengerRoomScrollOwnerRun(ROOM, "push_entry_initial_load");
     expect(canRunMessengerRoomScrollOwner(ROOM, "initial_load")).toBe(false);
-    markMessengerRoomEntryScrollSettled(ROOM, "push_entry_initial_load");
+    markMessengerRoomEntryInitialScrollDone(ROOM, "push_entry_initial_load");
     expect(canRunMessengerRoomScrollOwner(ROOM, "push_entry_tail_settle")).toBe(true);
   });
 
-  it("blocks tail settle until entry scroll settled", () => {
+  it("blocks tail settle until initial entry scroll done", () => {
     expect(canRunMessengerRoomScrollOwner(ROOM, "push_entry_tail_settle")).toBe(false);
-    markMessengerRoomEntryScrollSettled(ROOM, "push_entry_initial_load");
+    markMessengerRoomEntryInitialScrollDone(ROOM, "push_entry_initial_load");
     expect(canRunMessengerRoomScrollOwner(ROOM, "push_entry_tail_settle")).toBe(true);
+  });
+
+  it("blocks chrome keep-bottom until entry scroll settled", () => {
+    markMessengerRoomEntryInitialScrollDone(ROOM, "initial_load");
+    expect(canRunMessengerRoomScrollOwner(ROOM, "composer_resize_keep_bottom")).toBe(false);
+    expect(canRunMessengerRoomScrollOwner(ROOM, "viewport_resize_keep_bottom")).toBe(false);
+    markMessengerRoomEntryScrollSettled(ROOM, "entry_tail_settle");
+    expect(canRunMessengerRoomScrollOwner(ROOM, "composer_resize_keep_bottom")).toBe(true);
+  });
+
+  it("blocks virtual layout until entry scroll settled after initial scroll", () => {
+    setMessengerRoomEntryHydrationPass(ROOM, 3);
+    markMessengerRoomEntryInitialScrollDone(ROOM, "initial_load");
+    expect(isMessengerRoomReadyForVirtualLayout(ROOM)).toBe(false);
+    markMessengerRoomEntryScrollSettled(ROOM, "entry_tail_settle");
+    expect(isMessengerRoomReadyForVirtualLayout(ROOM)).toBe(true);
   });
 });

@@ -6,34 +6,52 @@ import { useMobileKeyboardInset } from "@/lib/ui/use-mobile-keyboard-inset";
 
 export const PHILIFE_WRITE_FORM_ID = "philife-neighborhood-write-form";
 
+export type PhilifeWriteActionFooterLayout = "sheet" | "page";
+
 type PhilifeWriteActionFooterProps = {
   busy: boolean;
   submitDisabled: boolean;
   onCancel: () => void;
   error?: string | null;
+  /**
+   * `sheet`: `/philife` 시트 flex footer — viewport `fixed` 금지 (키보드는 시트 shell `bottom`).
+   * `page`: `/philife/write` 풀페이지 — viewport 하단 고정 + keyboard inset.
+   */
+  layout?: PhilifeWriteActionFooterLayout;
 };
 
 /**
- * 거래 `SubmitButton` 과 동일 — 뷰포트 하단 고정 + visualViewport 키보드 inset.
- * (시트·풀페이지 공통; 메인 BottomNav 는 시트 열릴 때 셸에서 숨김)
+ * Philife 글쓰기 하단 취소·등록 바.
+ * - 시트: flex `shrink-0` (폼 column 안)
+ * - 풀페이지: `fixed` + `useMobileKeyboardInset`
  */
 export function PhilifeWriteActionFooter({
   busy,
   submitDisabled,
   onCancel,
   error,
+  layout = "page",
 }: PhilifeWriteActionFooterProps) {
   const { t } = useI18n();
-  const keyboardInset = useMobileKeyboardInset();
+  const keyboardInset = useMobileKeyboardInset({ enabled: layout === "page" });
+  const isSheet = layout === "sheet";
 
   return (
     <div
       role="contentinfo"
       aria-label={t("philife_write_footer_aria")}
-      className="fixed bottom-0 left-0 right-0 z-[55] border-t border-[#e4e6eb] bg-white shadow-[0_-2px_8px_rgba(0,0,0,0.06)]"
-      style={{
-        paddingBottom: `calc(var(--safe-bottom) + ${keyboardInset}px)`,
-      }}
+      className={
+        isSheet
+          ? "shrink-0 border-t border-[#e4e6eb] bg-white pb-[var(--safe-bottom)] shadow-[0_-2px_8px_rgba(0,0,0,0.06)]"
+          : "fixed bottom-0 left-0 right-0 z-[55] border-t border-[#e4e6eb] bg-white shadow-[0_-2px_8px_rgba(0,0,0,0.06)]"
+      }
+      style={
+        isSheet
+          ? undefined
+          : {
+              paddingBottom: `calc(var(--safe-bottom) + ${keyboardInset}px)`,
+            }
+      }
     >
       {error ? (
         <div

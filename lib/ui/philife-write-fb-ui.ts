@@ -15,6 +15,13 @@ export const PHILIFE_WRITE_SELECT_CLASS =
 /** 글쓰기 폼 루트 — 섹션 자체에 구분선·패딩 */
 export const PHILIFE_WRITE_FORM_ROOT_CLASS = "min-w-0 w-full max-w-full space-y-0 py-0";
 
-/** 스크롤 본문 — 고정 하단 취소·등록 바 높이만큼 여백 */
-export const PHILIFE_WRITE_SCROLL_BODY_CLASS =
+/** 시트(`PhilifeWriteBottomSheet`) — footer 가 flex flow 안에 있을 때 */
+export const PHILIFE_WRITE_SCROLL_BODY_SHEET_CLASS =
+  "min-h-0 flex-1 overflow-y-auto overscroll-y-contain";
+
+/** 풀페이지 — viewport `fixed` footer 높이만큼 하단 여백 */
+export const PHILIFE_WRITE_SCROLL_BODY_PAGE_CLASS =
   "min-h-0 flex-1 overflow-y-auto overscroll-y-contain pb-[calc(4.75rem+var(--safe-bottom))]";
+
+/** @deprecated `PHILIFE_WRITE_SCROLL_BODY_PAGE_CLASS` 사용 */
+export const PHILIFE_WRITE_SCROLL_BODY_CLASS = PHILIFE_WRITE_SCROLL_BODY_PAGE_CLASS;

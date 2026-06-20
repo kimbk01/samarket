@@ -11,6 +11,7 @@ type Row = Record<string, unknown> | null;
 function SoundFieldRow({
   label,
   enabledKey,
+  sourceKey,
   urlKey,
   row,
   onPatch,
@@ -19,6 +20,7 @@ function SoundFieldRow({
 }: {
   label: string;
   enabledKey: string;
+  sourceKey?: string;
   urlKey: string;
   row: Row;
   onPatch: (p: Record<string, unknown>) => void;
@@ -30,6 +32,9 @@ function SoundFieldRow({
   const [uploading, setUploading] = useState(false);
   const enabled = row?.[enabledKey] !== false;
   const url = typeof row?.[urlKey] === "string" ? (row[urlKey] as string) : "";
+  const sourceRaw = sourceKey ? row?.[sourceKey] : undefined;
+  const source = sourceRaw === "admin_custom" ? "admin_custom" : "device_ringtone";
+  const useAdminCustom = !sourceKey || source === "admin_custom";
 
   const onFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -52,50 +57,79 @@ function SoundFieldRow({
           />
         </label>
       </div>
-      <input
-        type="url"
-        value={url}
-        placeholder={t("admin_settings_call_url_placeholder")}
-        className="w-full rounded-ui-rect border border-ui-border bg-ui-surface px-2 py-1.5 sam-text-body-secondary text-ui-fg"
-        onChange={(e) => onPatch({ [urlKey]: e.target.value || null })}
-      />
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          className="rounded-ui-rect border border-ui-border px-3 py-1 sam-text-helper text-ui-fg hover:bg-ui-hover active:bg-ui-hover"
-          disabled={!url.trim()}
-          onClick={() => onTest(url.trim())}
-        >
-          {t("admin_settings_call_preview")}
-        </button>
-        <button
-          type="button"
-          className="rounded-ui-rect border border-ui-border px-3 py-1 sam-text-helper text-ui-muted hover:bg-ui-hover active:bg-ui-hover"
-          onClick={() => onPatch({ [urlKey]: null, [enabledKey]: true })}
-          title={t("admin_settings_call_reset_default_title")}
-        >
-          {t("admin_settings_call_reset_default")}
-        </button>
-        {onUploadFile ? (
-          <>
+      {sourceKey ? (
+        <fieldset className="space-y-2">
+          <legend className="sam-text-body-secondary text-ui-muted">{t("admin_settings_call_source_label")}</legend>
+          <label className="flex items-center gap-2 sam-text-body-secondary text-ui-fg">
             <input
-              ref={fileRef}
-              type="file"
-              accept="audio/mpeg,audio/mp3,audio/wav,audio/ogg,audio/webm"
-              className="hidden"
-              onChange={onFileChange}
+              type="radio"
+              name={`call-sound-source-${sourceKey}`}
+              checked={source === "device_ringtone"}
+              onChange={() => onPatch({ [sourceKey]: "device_ringtone" })}
             />
+            {t("admin_settings_call_source_device")}
+          </label>
+          <label className="flex items-center gap-2 sam-text-body-secondary text-ui-fg">
+            <input
+              type="radio"
+              name={`call-sound-source-${sourceKey}`}
+              checked={source === "admin_custom"}
+              onChange={() => onPatch({ [sourceKey]: "admin_custom" })}
+            />
+            {t("admin_settings_call_source_admin")}
+          </label>
+        </fieldset>
+      ) : null}
+      {useAdminCustom ? (
+        <>
+          <input
+            type="url"
+            value={url}
+            placeholder={t("admin_settings_call_url_placeholder")}
+            className="w-full rounded-ui-rect border border-ui-border bg-ui-surface px-2 py-1.5 sam-text-body-secondary text-ui-fg"
+            onChange={(e) => onPatch({ [urlKey]: e.target.value || null })}
+          />
+          <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              className="rounded-ui-rect border border-ui-border px-3 py-1 sam-text-helper text-ui-fg hover:bg-ui-hover active:bg-ui-hover disabled:opacity-50"
-              disabled={uploading}
-              onClick={() => fileRef.current?.click()}
+              className="rounded-ui-rect border border-ui-border px-3 py-1 sam-text-helper text-ui-fg hover:bg-ui-hover active:bg-ui-hover"
+              disabled={!url.trim()}
+              onClick={() => onTest(url.trim())}
             >
-              {uploading ? t("admin_settings_notif_uploading") : t("admin_settings_call_upload")}
+              {t("admin_settings_call_preview")}
             </button>
-          </>
-        ) : null}
-      </div>
+            <button
+              type="button"
+              className="rounded-ui-rect border border-ui-border px-3 py-1 sam-text-helper text-ui-muted hover:bg-ui-hover active:bg-ui-hover"
+              onClick={() => onPatch({ [urlKey]: null, [enabledKey]: true })}
+              title={t("admin_settings_call_reset_default_title")}
+            >
+              {t("admin_settings_call_reset_default")}
+            </button>
+            {onUploadFile ? (
+              <>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="audio/mpeg,audio/mp3,audio/wav,audio/ogg,audio/webm"
+                  className="hidden"
+                  onChange={onFileChange}
+                />
+                <button
+                  type="button"
+                  className="rounded-ui-rect border border-ui-border px-3 py-1 sam-text-helper text-ui-fg hover:bg-ui-hover active:bg-ui-hover disabled:opacity-50"
+                  disabled={uploading}
+                  onClick={() => fileRef.current?.click()}
+                >
+                  {uploading ? t("admin_settings_notif_uploading") : t("admin_settings_call_upload")}
+                </button>
+              </>
+            ) : null}
+          </div>
+        </>
+      ) : (
+        <p className="sam-text-helper text-ui-muted">{t("admin_settings_call_source_device_hint")}</p>
+      )}
     </div>
   );
 }
@@ -293,6 +327,7 @@ export function AdminMessengerCallSoundsSection() {
         <SoundFieldRow
           label={t("admin_settings_call_incoming_bell")}
           enabledKey="voice_incoming_enabled"
+          sourceKey="voice_incoming_sound_source"
           urlKey="voice_incoming_sound_url"
           row={row}
           onPatch={patchLocal}
@@ -302,6 +337,7 @@ export function AdminMessengerCallSoundsSection() {
         <SoundFieldRow
           label={t("admin_settings_call_outgoing_ringback")}
           enabledKey="voice_outgoing_ringback_enabled"
+          sourceKey="voice_outgoing_ringback_source"
           urlKey="voice_outgoing_ringback_url"
           row={row}
           onPatch={patchLocal}
@@ -314,6 +350,7 @@ export function AdminMessengerCallSoundsSection() {
         <SoundFieldRow
           label={t("admin_settings_call_incoming_bell")}
           enabledKey="video_incoming_enabled"
+          sourceKey="video_incoming_sound_source"
           urlKey="video_incoming_sound_url"
           row={row}
           onPatch={patchLocal}
@@ -323,6 +360,7 @@ export function AdminMessengerCallSoundsSection() {
         <SoundFieldRow
           label={t("admin_settings_call_outgoing_ringback")}
           enabledKey="video_outgoing_ringback_enabled"
+          sourceKey="video_outgoing_ringback_source"
           urlKey="video_outgoing_ringback_url"
           row={row}
           onPatch={patchLocal}

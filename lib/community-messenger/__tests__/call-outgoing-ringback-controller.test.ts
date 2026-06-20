@@ -7,6 +7,7 @@ vi.mock("@/lib/community-messenger/call-tone-web-audio", () => ({
 
 vi.mock("@/lib/community-messenger/call-feedback-sound", () => ({
   startCommunityMessengerCallTone: vi.fn(async () => ({ stop: vi.fn() })),
+  tryStartOutgoingRingbackFromCachedAdminConfig: vi.fn(() => null),
   unlockCommunityMessengerCallPlaybackFromUserGesture: vi.fn(),
 }));
 

@@ -1,0 +1,136 @@
+{
+  "device": {
+    "serial": "RFCY40PY2CA",
+    "model": "SM-M156S",
+    "sdk": "36",
+    "wmSize": "Physical size: 1080x2340",
+    "wmDensity": "Physical density: 450\nOverride density: 540",
+    "navigationMode": "2",
+    "orientation": "portrait",
+    "origin": "http://localhost:3000"
+  },
+  "logcat": [
+    "06-20 06:21:03.407 24306 24306 I DIBAY_SafeArea: safe_area_bridge_attached",
+    "06-20 06:21:04.148 24306 24306 D DIBAY_SafeArea: insets_css top=24 bottom=48 left=0 right=0 keyboard=0"
+  ],
+  "routes": [
+    {
+      "route": "/philife",
+      "metrics": {
+        "path": "/philife",
+        "dibayInlineTop": "24px",
+        "dibayInlineBottom": "48px",
+        "dibayComputedTop": "24px",
+        "dibayComputedBottom": "48px",
+        "safeTop": "max(24px, 24px)",
+        "safeBottom": "max(0px, 48px)",
+        "envTop": "24px",
+        "envBottom": "0px",
+        "innerHeight": 693,
+        "vvHeight": 693.3333129882812,
+        "clientHeight": 693,
+        "keyboard": 0,
+        "chatBottomInset": ""
+      },
+      "screenshot": {
+        "file": "/Users/bkkim/projects/samarket/docs/perf/qa-safe-area/RFCY40PY2CA-2-port-philife.png",
+        "bytes": 1006163
+      }
+    },
+    {
+      "route": "/market",
+      "metrics": {
+        "path": "/market",
+        "dibayInlineTop": "24px",
+        "dibayInlineBottom": "48px",
+        "dibayComputedTop": "24px",
+        "dibayComputedBottom": "48px",
+        "safeTop": "max(24px, 24px)",
+        "safeBottom": "max(0px, 48px)",
+        "envTop": "24px",
+        "envBottom": "0px",
+        "innerHeight": 693,
+        "vvHeight": 693.3333129882812,
+        "clientHeight": 693,
+        "keyboard": 0,
+        "chatBottomInset": ""
+      },
+      "screenshot": {
+        "file": "/Users/bkkim/projects/samarket/docs/perf/qa-safe-area/RFCY40PY2CA-2-port-market.png",
+        "bytes": 734360
+      }
+    },
+    {
+      "route": "/stores",
+      "metrics": {
+        "path": "/stores",
+        "dibayInlineTop": "24px",
+        "dibayInlineBottom": "48px",
+        "dibayComputedTop": "24px",
+        "dibayComputedBottom": "48px",
+        "safeTop": "max(24px, 24px)",
+        "safeBottom": "max(0px, 48px)",
+        "envTop": "24px",
+        "envBottom": "0px",
+        "innerHeight": 693,
+        "vvHeight": 693.3333129882812,
+        "clientHeight": 693,
+        "keyboard": 0,
+        "chatBottomInset": ""
+      },
+      "screenshot": {
+        "file": "/Users/bkkim/projects/samarket/docs/perf/qa-safe-area/RFCY40PY2CA-2-port-stores.png",
+        "bytes": 998375
+      }
+    },
+    {
+      "route": "/community-messenger?section=chats",
+      "metrics": {
+        "path": "/community-messenger?section=chats",
+        "dibayInlineTop": "24px",
+        "dibayInlineBottom": "48px",
+        "dibayComputedTop": "24px",
+        "dibayComputedBottom": "48px",
+        "safeTop": "max(24px, 24px)",
+        "safeBottom": "max(0px, 48px)",
+        "envTop": "24px",
+        "envBottom": "0px",
+        "innerHeight": 693,
+        "vvHeight": 693.3333129882812,
+        "clientHeight": 693,
+        "keyboard": 0,
+        "chatBottomInset": ""
+      },
+      "screenshot": {
+        "file": "/Users/bkkim/projects/samarket/docs/perf/qa-safe-area/RFCY40PY2CA-2-port-messenger.png",
+        "bytes": 831882
+      }
+    },
+    {
+      "route": "/mypage",
+      "metrics": {
+        "path": "/mypage",
+        "dibayInlineTop": "24px",
+        "dibayInlineBottom": "48px",
+        "dibayComputedTop": "24px",
+        "dibayComputedBottom": "48px",
+        "safeTop": "max(24px, 24px)",
+        "safeBottom": "max(0px, 48px)",
+        "envTop": "24px",
+        "envBottom": "0px",
+        "innerHeight": 693,
+        "vvHeight": 693.3333129882812,
+        "clientHeight": 693,
+        "keyboard": 0,
+        "chatBottomInset": ""
+      },
+      "screenshot": {
+        "file": "/Users/bkkim/projects/samarket/docs/perf/qa-safe-area/RFCY40PY2CA-2-port-mypage.png",
+        "bytes": 998593
+      }
+    }
+  ],
+  "keyboard": {
+    "error": "no room link found"
+  }
+}

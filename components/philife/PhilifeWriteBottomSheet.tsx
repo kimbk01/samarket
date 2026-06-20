@@ -4,12 +4,18 @@ import { useLayoutEffect, useState, useCallback, useEffect, useRef } from "react
 import { PhilifeNeighborhoodWriteForm } from "@/components/philife/PhilifeNeighborhoodWriteForm";
 import { usePhilifeWriteSheet } from "@/contexts/PhilifeWriteSheetContext";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { useAppViewportSize } from "@/lib/ui/use-app-viewport-size";
+import { useMobileKeyboardInset } from "@/lib/ui/use-mobile-keyboard-inset";
+import { philifeWriteSheetShellStyle } from "@/lib/ui/philife-write-sheet-keyboard-layout";
 
 const SHEET_EXIT_MS = 520;
 
 /**
  * `/philife` 1단(+): 글쓰기 폼을 **스티키 헤더(h1 스택) 바로 아래 ~ 화면 하단**으로
  * **아래→위**로 올리며 표시한다. 닫을 때 **아래로** 내려가며 사라진다.
+ *
+ * 키보드: outer shell `bottom` = `useMobileKeyboardInset` + `useAppViewportSize` sticky top 재측정.
+ * 폼 footer 는 시트 flex flow (`PhilifeWriteActionFooter layout="sheet"`).
  */
 export function PhilifeWriteBottomSheet() {
   const { t } = useI18n();
@@ -20,6 +26,8 @@ export function PhilifeWriteBottomSheet() {
   const enterRafRef = useRef<number | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const exitInFlightRef = useRef(false);
+  const keyboardInset = useMobileKeyboardInset({ enabled: isOpen });
+  const appVp = useAppViewportSize();
 
   const measure = useCallback(() => {
     if (typeof document === "undefined") return;
@@ -48,9 +56,7 @@ export function PhilifeWriteBottomSheet() {
       measure();
     });
     const onResize = () => measure();
-    const onScroll = () => measure();
     window.addEventListener("resize", onResize);
-    window.addEventListener("scroll", onScroll, true);
     const el = document.querySelector<HTMLElement>("[data-app-sticky-header]");
     const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => measure()) : null;
     if (el && ro) ro.observe(el);
@@ -60,10 +66,15 @@ export function PhilifeWriteBottomSheet() {
         enterRafRef.current = null;
       }
       window.removeEventListener("resize", onResize);
-      window.removeEventListener("scroll", onScroll, true);
       ro?.disconnect();
     };
   }, [isOpen, measure, openEpoch]);
+
+  /** 키보드·주소창 — visualViewport 변화 시 sticky top 재측정 (scroll 리스너는 iOS 키보드 시 top 폭주 방지로 제외) */
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+    measure();
+  }, [isOpen, measure, appVp.width, appVp.height, appVp.visualHeight]);
 
   const lockBody = isOpen;
   useEffect(() => {
@@ -116,11 +127,12 @@ export function PhilifeWriteBottomSheet() {
     initialCategory.trim() === "meetup"
       ? t("philife_write_meetup_create_title")
       : t("community_compose_write");
+  const shellStyle = philifeWriteSheetShellStyle(topOffsetPx, keyboardInset);
 
   return (
     <div
       className="pointer-events-none fixed left-0 right-0 z-[50] flex flex-col"
-      style={{ top: topOffsetPx, bottom: 0 }}
+      style={shellStyle}
       role="dialog"
       aria-modal
       aria-label={sheetTitle}

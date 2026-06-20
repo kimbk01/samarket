@@ -1687,6 +1687,7 @@ export function useMessengerRoomClientPhase1({
     deferEntryScrollToDeliveryDirectTimeline: storeOrderDockScrollAnchorEnabled,
     timelineViewportMounted,
     timelineHeavyReady: Boolean(timelineHeavyBundle),
+    loadingOlderMessages,
   });
 
   useEffect(() => {

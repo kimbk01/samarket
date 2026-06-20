@@ -187,6 +187,10 @@ export function AdminNotificationDomainsSettings() {
         </div>
       ) : null}
 
+      <div id="messenger-call-sounds" className="border-b border-ui-border pb-8">
+        <AdminMessengerCallSoundsSection />
+      </div>
+
       <div className="grid gap-4 lg:grid-cols-2">
         {rows.map((r) => (
         <AdminCard key={r.type} titleKey={DOMAIN_TITLE_KEYS[r.type]}>
@@ -305,10 +309,6 @@ export function AdminNotificationDomainsSettings() {
       >
         {saving ? t("common_saving") : t("common_save")}
       </button>
-
-      <div className="border-t border-ui-border pt-8">
-        <AdminMessengerCallSoundsSection />
-      </div>
     </div>
   );
 }

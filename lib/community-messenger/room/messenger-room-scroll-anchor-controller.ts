@@ -8,15 +8,16 @@ import { isMessengerRoomNearBottomFromMetrics } from "@/lib/community-messenger/
 import { resolveMessengerRoomMessagesAutoScroll } from "@/lib/community-messenger/room/messenger-room-messages-auto-scroll";
 import {
   canRunMessengerRoomScrollOwner,
-  isMessengerRoomEntryScrollSettled,
+  isMessengerRoomEntryInitialScrollDone,
+  markMessengerRoomEntryInitialScrollDone,
   markMessengerRoomEntryScrollSettled,
   markMessengerRoomScrollOwnerRun,
   resetMessengerRoomEntryScrollOwner,
   type CmScrollOwnerReason,
 } from "@/lib/community-messenger/room/messenger-room-entry-scroll-owner";
+import { resolveMessengerRoomEntryScrollFinalize } from "@/lib/community-messenger/room/messenger-room-entry-scroll-settle";
 import {
   consumeMessengerRoomEntryIntent,
-  isMessengerEntryBottomLoadReason,
   isMessengerEntryTailSettleReason,
   resolveMessengerRoomEntryScrollPlan,
   type MessengerRoomEntryIntent,
@@ -82,6 +83,8 @@ type ScrollAnchorControllerOpts = {
   deferEntryScrollToDeliveryDirectTimeline?: boolean;
   timelineViewportMounted?: boolean;
   timelineHeavyReady?: boolean;
+  /** prepend fetch 중 chrome keep-bottom 이 읽기 위치를 덮어쓰지 않게 */
+  loadingOlderMessages?: boolean;
 };
 
 function isAlwaysScrollReason(reason: CmScrollOwnerReason): boolean {
@@ -128,6 +131,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     deferEntryScrollToDeliveryDirectTimeline = false,
     timelineViewportMounted = false,
     timelineHeavyReady = false,
+    loadingOlderMessages = false,
   } = opts;
 
   const lastScrollGeomRef = useRef<{ sh: number; st: number; ch: number; ready: boolean }>({
@@ -192,6 +196,42 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
       );
     },
     []
+  );
+
+  const applyEntryScrollPhaseFinalize = useCallback(
+    (reason: CmScrollOwnerReason, stickToBottom: boolean) => {
+      const rid = roomId.trim();
+      if (!rid) return;
+
+      const vp = messagesViewportRef.current;
+      const composerSynced = vp ? isMessengerRoomComposerHeightSynced(vp) : false;
+      const decision = resolveMessengerRoomEntryScrollFinalize({
+        reason,
+        stickToBottom,
+        composerHeightSynced: composerSynced,
+      });
+
+      if (decision.markInitialScrollDone) {
+        markMessengerRoomEntryInitialScrollDone(rid, reason);
+      }
+      if (decision.markEntrySettled) {
+        markMessengerRoomEntryScrollSettled(rid, reason);
+      }
+      if (decision.completeTailSettle) {
+        tailSettleDoneRef.current = true;
+        pendingTailSettleRef.current = false;
+      } else if (decision.pendingTailSettle) {
+        pendingTailSettleRef.current = true;
+        tailSettleDoneRef.current = false;
+      }
+      if (
+        decision.pendingTailSettle &&
+        (composerSynced || composerSyncedForEntryRef.current)
+      ) {
+        schedulePendingEntryTailSettleRef.current();
+      }
+    },
+    [messagesViewportRef, roomId]
   );
 
   const applyScrollRequest = useCallback(
@@ -259,7 +299,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
               scrollHeight: vp.scrollHeight,
               clientHeight: vp.clientHeight,
             });
-            markMessengerRoomEntryScrollSettled(rid, reason);
+            applyEntryScrollPhaseFinalize(reason, persisted.stickToBottom);
           }
           return true;
         }
@@ -354,22 +394,19 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
           scrollHeight: vp.scrollHeight,
           clientHeight: vp.clientHeight,
         });
-        if (isEntryRestoreReason(reason) || reason === "room_entry_restore") {
-          markMessengerRoomEntryScrollSettled(rid, reason);
-          if (isMessengerEntryBottomLoadReason(reason)) {
-            if (isMessengerRoomComposerHeightSynced(vp)) {
-              tailSettleDoneRef.current = true;
-              pendingTailSettleRef.current = false;
-            } else {
-              pendingTailSettleRef.current = true;
-            }
-          }
+        if (
+          isEntryRestoreReason(reason) ||
+          reason === "room_entry_restore" ||
+          isMessengerEntryTailSettleReason(reason)
+        ) {
+          applyEntryScrollPhaseFinalize(reason, stickToBottomRef.current);
         }
       }
       return true;
     },
     [
       activeSheet,
+      applyEntryScrollPhaseFinalize,
       messageCount,
       messagesViewportRef,
       roomId,
@@ -449,12 +486,10 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
   const schedulePendingEntryTailSettle = useCallback(() => {
     if (!pendingTailSettleRef.current || tailSettleDoneRef.current) return;
     const rid = roomId.trim();
-    if (!rid || !isMessengerRoomEntryScrollSettled(rid)) return;
+    if (!rid || !isMessengerRoomEntryInitialScrollDone(rid)) return;
 
     const run = () => {
       if (!pendingTailSettleRef.current || tailSettleDoneRef.current) return;
-      tailSettleDoneRef.current = true;
-      pendingTailSettleRef.current = false;
       const reason =
         entryIntentRef.current === "push" ? "push_entry_tail_settle" : "entry_tail_settle";
       enqueueScrollAnchor({ reason, force: true });
@@ -558,7 +593,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
       composerSyncedForEntryRef.current = true;
 
       if (!pendingTailSettleRef.current || tailSettleDoneRef.current) return;
-      if (!isMessengerRoomEntryScrollSettled(rid)) return;
+      if (!isMessengerRoomEntryInitialScrollDone(rid)) return;
       schedulePendingEntryTailSettle();
     };
 
@@ -605,6 +640,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
 
     let rafId = 0;
     const preserveOrKeepBottom = (reason: CmScrollOwnerReason) => {
+      if (loadingOlderMessages) return;
       cancelAnimationFrame(rafId);
       rafId = requestAnimationFrame(() => {
         rafId = requestAnimationFrame(() => {
@@ -669,6 +705,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     roomId,
     stickToBottomRef,
     syncScrollGeomFromViewport,
+    loadingOlderMessages,
   ]);
 
   useEffect(() => {

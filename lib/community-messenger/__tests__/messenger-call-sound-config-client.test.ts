@@ -71,17 +71,35 @@ describe("messenger-call-sound-config-client", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it("resolveMessengerCallToneUrl returns outgoing voice admin url", async () => {
+    const mod = await loadModule();
+    const cfg = mod.createDefaultMessengerCallSoundConfig();
+    cfg.voice_outgoing_ringback_source = "admin_custom";
+    cfg.voice_outgoing_ringback_url = "https://example.com/out-voice.mp3";
+    expect(mod.resolveMessengerCallToneUrl(cfg, "outgoing", "voice")).toBe(
+      "https://example.com/out-voice.mp3"
+    );
+    cfg.voice_outgoing_ringback_source = "device_ringtone";
+    expect(mod.resolveMessengerCallToneUrl(cfg, "outgoing", "voice")).toBeNull();
+    cfg.voice_outgoing_ringback_enabled = false;
+    expect(mod.resolveMessengerCallToneUrl(cfg, "outgoing", "voice")).toBeNull();
+  });
+
   it("fetches once when session exists", async () => {
     syncViewerUserId = "user-1";
     resolveClientAuthenticatedUserIdForFetch.mockResolvedValue("user-1");
     const serverConfig = {
       voice_incoming_enabled: true,
+      voice_incoming_sound_source: "device_ringtone",
       voice_incoming_sound_url: "https://example.com/in.wav",
       voice_outgoing_ringback_enabled: true,
+      voice_outgoing_ringback_source: "admin_custom",
       voice_outgoing_ringback_url: null,
       video_incoming_enabled: true,
+      video_incoming_sound_source: "device_ringtone",
       video_incoming_sound_url: null,
       video_outgoing_ringback_enabled: true,
+      video_outgoing_ringback_source: "device_ringtone",
       video_outgoing_ringback_url: null,
       missed_notification_enabled: true,
       missed_notification_sound_url: null,
@@ -120,12 +138,16 @@ describe("messenger-call-sound-config-client", () => {
             ok: true,
             config: {
               voice_incoming_enabled: true,
+              voice_incoming_sound_source: "device_ringtone",
               voice_incoming_sound_url: null,
               voice_outgoing_ringback_enabled: true,
+              voice_outgoing_ringback_source: "device_ringtone",
               voice_outgoing_ringback_url: null,
               video_incoming_enabled: true,
+              video_incoming_sound_source: "device_ringtone",
               video_incoming_sound_url: null,
               video_outgoing_ringback_enabled: true,
+              video_outgoing_ringback_source: "device_ringtone",
               video_outgoing_ringback_url: null,
               missed_notification_enabled: true,
               missed_notification_sound_url: null,

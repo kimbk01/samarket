@@ -1,0 +1,112 @@
+{
+  "entries": [
+    {
+      "url": "/api/me/profile?lite=1",
+      "atMs": 1882.2999999523163,
+      "clientCallSource": "app_boot_minimal"
+    },
+    {
+      "url": "/api/me/profile?mode=full",
+      "atMs": 4540,
+      "clientCallSource": "app_boot_background"
+    },
+    {
+      "url": "/api/me/store-owner-hub-badge",
+      "atMs": 4711.699999988079,
+      "clientCallSource": "owner_hub_badge_store"
+    }
+  ],
+  "firstPaintAtMs": 2059.599999964237,
+  "metrics": {
+    "firstPaint": 2059.599999964237,
+    "reactMounted": 1893,
+    "homeVisible": 2428.899999976158,
+    "apiDone": 4312.899999976158,
+    "thumbnailVisible": 3231.2999999523163,
+    "thumbnailRequested": 3202.099999964237,
+    "thumbnailLoaded": 3231.2999999523163,
+    "thumbnailDecoded": 3249.099999964237,
+    "firstHtml": 1830.3999999761581,
+    "splashDismissReason": "reactMounted"
+  },
+  "runs_summary": {
+    "firstPaint": {
+      "median": 2059.599999964237,
+      "p95": 2691.100000023842,
+      "values": [
+        2691.100000023842,
+        1986.5,
+        2059.599999964237
+      ]
+    },
+    "reactMounted": {
+      "median": 1893,
+      "p95": 2564.7000000476837,
+      "values": [
+        2564.7000000476837,
+        1879.699999988079,
+        1893
+      ]
+    },
+    "homeVisible": {
+      "median": 2524.399999976158,
+      "p95": 3421.300000011921,
+      "values": [
+        3421.300000011921,
+        2524.399999976158,
+        2428.899999976158
+      ]
+    },
+    "apiDone": {
+      "median": 4312.899999976158,
+      "p95": 5364.700000047684,
+      "values": [
+        5364.700000047684,
+        4203.699999988079,
+        4312.899999976158
+      ]
+    },
+    "thumbnailVisible": {
+      "median": 3231.2999999523163,
+      "p95": 4067.400000035763,
+      "values": [
+        4067.400000035763,
+        3023,
+        3231.2999999523163
+      ]
+    },
+    "thumbnailRequested": {
+      "median": 3202.099999964237,
+      "p95": 4041.300000011921,
+      "values": [
+        4041.300000011921,
+        2998.699999988079,
+        3202.099999964237
+      ]
+    },
+    "thumbnailLoaded": {
+      "median": 3231.2999999523163,
+      "p95": 4067.400000035763,
+      "values": [
+        4067.400000035763,
+        3023,
+        3231.2999999523163
+      ]
+    },
+    "thumbnailDecoded": {
+      "median": 3249.099999964237,
+      "p95": 4080,
+      "values": [
+        4080,
+        3040.800000011921,
+        3249.099999964237
+      ]
+    },
+    "native_fallback_count": 1,
+    "dismiss_reasons": [
+      "reactMounted",
+      "reactMounted",
+      "reactMounted"
+    ]
+  }
+}

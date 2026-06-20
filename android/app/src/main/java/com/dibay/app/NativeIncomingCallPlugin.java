@@ -140,4 +140,23 @@ public class NativeIncomingCallPlugin extends Plugin {
     }
     call.resolve(result);
   }
+
+  @PluginMethod
+  public void syncCallSoundConfig(PluginCall call) {
+    boolean voiceIncomingEnabled = call.getBoolean("voiceIncomingEnabled", true);
+    String voiceIncomingSource = call.getString("voiceIncomingSource", "device_ringtone");
+    String voiceIncomingUrl = call.getString("voiceIncomingUrl", "");
+    boolean videoIncomingEnabled = call.getBoolean("videoIncomingEnabled", true);
+    String videoIncomingSource = call.getString("videoIncomingSource", "device_ringtone");
+    String videoIncomingUrl = call.getString("videoIncomingUrl", "");
+    MessengerCallSoundNativeConfig.syncFromWeb(
+        getContext(),
+        voiceIncomingEnabled,
+        voiceIncomingSource,
+        voiceIncomingUrl,
+        videoIncomingEnabled,
+        videoIncomingSource,
+        videoIncomingUrl);
+    call.resolve();
+  }
 }
