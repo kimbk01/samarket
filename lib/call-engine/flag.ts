@@ -1,6 +1,6 @@
 "use client";
 
-/** Parallel rollout — set NEXT_PUBLIC_DIBAY_CALL_ENGINE_V2=1 to enable engine path */
+/** V2 default ON after accept/join fix. Set NEXT_PUBLIC_DIBAY_CALL_ENGINE_V2=0 to opt out. */
 export function isCallEngineV2Enabled(): boolean {
-  return process.env.NEXT_PUBLIC_DIBAY_CALL_ENGINE_V2 === "1";
+  return process.env.NEXT_PUBLIC_DIBAY_CALL_ENGINE_V2 !== "0";
 }
