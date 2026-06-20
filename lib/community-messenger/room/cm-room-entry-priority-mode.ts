@@ -13,6 +13,11 @@ import {
   markRoomTapAtClick,
 } from "@/lib/community-messenger/room/cm-room-entry-timing";
 import { cmMessengerPerfVerboseLog } from "@/lib/community-messenger/room/cm-messenger-perf-verbose-log";
+import {
+  clearDeepRouteNavigationLock,
+  warnCmRoomRouteGuardBlocked,
+} from "@/lib/navigation/cm-deep-route-navigation-lock";
+import { isCommunityMessengerRoomPath } from "@/lib/navigation/community-messenger-deep-route-path";
 
 export const CM_ROOM_ENTRY_PRIORITY_DURATION_MS = 1500;
 export const CM_ROOM_ENTRY_HOME_SYNC_DEFER_MS = CM_ROOM_ENTRY_PRIORITY_DURATION_MS;
@@ -114,6 +119,21 @@ export function endCmRoomEntryPriorityMode(reason: "duration" | "room_shell" | "
     duration_ms: durationMs,
     end_reason: reason,
   });
+  if (typeof window !== "undefined") {
+    const currentPath = window.location.pathname;
+    const expectedPrefix = `/community-messenger/rooms/${encodeURIComponent(roomId)}`;
+    if (!isCommunityMessengerRoomPath(currentPath) || !currentPath.startsWith(expectedPrefix)) {
+      warnCmRoomRouteGuardBlocked({
+        from: currentPath,
+        target: expectedPrefix,
+        reason: "priority_mode_end_route_mismatch",
+        activeRoomEntry: roomId,
+      });
+    }
+  }
+  if (reason === "room_shell" || reason === "room_unmount") {
+    clearDeepRouteNavigationLock(`priority_mode_${reason}`);
+  }
   const merges = deferredHomeSyncMerges.splice(0, deferredHomeSyncMerges.length);
   const fetches = deferredHomeSyncFetches.splice(0, deferredHomeSyncFetches.length);
   homeSyncMergeDeferred = false;

@@ -70,9 +70,42 @@ import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { incomingCallPeerNicknameLabel } from "@/lib/users/user-label";
+import { guardedClientNavigate } from "@/lib/navigation/guarded-client-navigation";
+import {
+  beginCallDeepRouteNavigationLock,
+} from "@/lib/navigation/cm-deep-route-navigation-lock";
+import { abortPendingMainBottomNavRouteCommits } from "@/lib/main-menu/main-bottom-nav-route-commit";
+import { clearPendingMenuNavigationBridge } from "@/lib/navigation/pending-menu-navigation-bridge";
 
 const KEY = "samarket.cm.call_session_seed.v1";
 const RETURN_PATH_KEY = "samarket.cm.call_return_path.v1";
+
+/** 통화 복귀 return path — allowlist 외·stale /mypage·/login bounce 방지 */
+export function isValidCallNavigationReturnPath(path: string): boolean {
+  const pathname = path.split("?")[0]?.trim().replace(/\/+$/, "") || "";
+  if (!pathname || pathname === "/" || pathname === "/login" || pathname === "/mypage") return false;
+  if (pathname.startsWith("/login/") || pathname.startsWith("/mypage/")) return false;
+  if (pathname.includes("/community-messenger/calls/")) return false;
+  const allowedPrefixes = [
+    "/community-messenger",
+    "/market",
+    "/trade",
+    "/store",
+    "/stores",
+    "/philife",
+    "/orders",
+  ] as const;
+  return allowedPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
+export function clearCallNavigationReturnPath(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.removeItem(RETURN_PATH_KEY);
+  } catch {
+    /* quota / private mode */
+  }
+}
 
 /** 발신 즉시 진입용 임시 세션 id (`POST /calls` 완료 전 통화 UI 페인트) */
 export const COMMUNITY_MESSENGER_TEMP_CALL_PREFIX = "tmp_" as const;
@@ -211,6 +244,7 @@ export function rememberCallNavigationReturnPath(): void {
     const p = `${window.location.pathname}${window.location.search}`;
     if (p.includes("/community-messenger/calls/")) return;
     if (!p.startsWith("/") || p.startsWith("//") || p.length > 512) return;
+    if (!isValidCallNavigationReturnPath(p)) return;
     window.sessionStorage.setItem(RETURN_PATH_KEY, p);
   } catch {
     /* quota / private mode */
@@ -225,6 +259,7 @@ export function takeCallNavigationReturnPath(): string | null {
     sessionStorage.removeItem(RETURN_PATH_KEY);
     if (!v || !v.startsWith("/") || v.startsWith("//") || v.length > 512) return null;
     if (v.includes("/community-messenger/calls/")) return null;
+    if (!isValidCallNavigationReturnPath(v)) return null;
     return v;
   } catch {
     return null;
@@ -239,6 +274,7 @@ export function pinCommunityMessengerCallTerminalSurfaceDismiss(sessionId: strin
   const sid = sessionId.trim();
   if (!sid) return;
   writeTerminalCallRecoverySuppress(sid);
+  clearCallNavigationReturnPath();
   clearAllCommunityCallLocalSessionFlags();
   notifyCommunityCallHostSync();
   try {
@@ -294,7 +330,7 @@ export function navigateBackFromCommunityMessengerCall(
       hasReturnPath: true,
       hasRoomIdFallback: Boolean(roomIdFallback?.trim()),
     });
-    router.replace(back);
+    guardedClientNavigate(router.replace, back, "call_return");
     return;
   }
   const room = roomIdFallback?.trim();
@@ -306,7 +342,7 @@ export function navigateBackFromCommunityMessengerCall(
       hasReturnPath: false,
       hasRoomIdFallback: true,
     });
-    router.replace(target);
+    guardedClientNavigate(router.replace, target, "call_return");
     return;
   }
   console.info("[call-flow] call_return_navigation_decision", {
@@ -315,7 +351,7 @@ export function navigateBackFromCommunityMessengerCall(
     hasReturnPath: false,
     hasRoomIdFallback: false,
   });
-  router.replace("/community-messenger?section=chats");
+  guardedClientNavigate(router.replace, "/community-messenger?section=chats", "call_return");
 }
 
 export type BuildCommunityMessengerOutgoingDialHrefArgs = {
@@ -790,11 +826,14 @@ export async function launchOutgoingDirectCall(
     peerUserId: input.peerUserId?.trim() || undefined,
     peerLabel: input.peerLabel?.trim() || undefined,
   });
-  const go = router.replace ?? router.push;
-  go(href);
   const tempSessionId = decodeURIComponent(
     href.split("/community-messenger/calls/")[1]?.split("?")[0] ?? ""
   );
+  abortPendingMainBottomNavRouteCommits();
+  clearPendingMenuNavigationBridge();
+  beginCallDeepRouteNavigationLock(tempSessionId, href);
+  const go = router.replace ?? router.push;
+  guardedClientNavigate(go, href, "call_launch");
   logCallLatencyRouteReplace({
     sessionId: tempSessionId,
     callKind: input.kind,

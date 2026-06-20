@@ -13,6 +13,8 @@ import {
 } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { isSamarketNavPerfConsoleEnabled } from "@/lib/debug/samarket-client-console-flags";
+import { isCommunityMessengerDeepRoutePath } from "@/lib/navigation/community-messenger-deep-route-path";
+import { registerPendingMenuNavigationClear } from "@/lib/navigation/pending-menu-navigation-bridge";
 import {
   navPerfFinalizeBottomNavNavigation,
   navPerfMarkInitialHydrated,
@@ -168,6 +170,16 @@ export function LatestMenuNavigationProvider({ children }: { children: ReactNode
     navPerfMarkInitialHydrated();
   }, []);
 
+  /** 방·통화 deep route 도착 시 stale mypage/허브 pending intent 가 UI·URL 을 덮지 않게 제거 */
+  useEffect(() => {
+    if (!pathname || !isCommunityMessengerDeepRoutePath(pathname)) return;
+    setPendingMenuIntent((prev) => {
+      if (!prev) return prev;
+      if (isMenuIntentResolvedByLocation(prev, pathname, currentSearch)) return prev;
+      return null;
+    });
+  }, [pathname, currentSearch]);
+
   const beginMenuNavigation = useCallback(
     (
       href: string,
@@ -239,6 +251,8 @@ export function LatestMenuNavigationProvider({ children }: { children: ReactNode
       return null;
     });
   }, []);
+
+  useEffect(() => registerPendingMenuNavigationClear(cancelPendingMenuNavigation), [cancelPendingMenuNavigation]);
 
   useEffect(() => {
     if (!pendingMenuIntent) return;

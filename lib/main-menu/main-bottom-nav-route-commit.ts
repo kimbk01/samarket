@@ -26,6 +26,7 @@ import {
   navPerfMarkBottomNavClickStart,
   navPerfSetOptimisticTotalMs,
 } from "@/lib/navigation/nav-perf-browser";
+import { guardedClientNavigate } from "@/lib/navigation/guarded-client-navigation";
 
 /** `/market` 에서만 push — 그 외 탭 간 이동은 replace(히스토리 누적·뒤로가기 꼬임 완화) */
 export function mainBottomNavRouteUsesReplace(pathname: string | null, targetHref: string): boolean {
@@ -92,6 +93,11 @@ export type MainBottomNavRouteCommitResult = "scroll_only" | "blocked" | "naviga
 
 /** 연속 탭 — 이전 async 커밋이 replace/push 하지 않도록 세대 카운터 */
 let mainBottomNavRouteCommitGeneration = 0;
+
+/** 방·통화 진입 직전 — 대기 중인 하단 탭 async replace/push 무효화 */
+export function abortPendingMainBottomNavRouteCommits(): void {
+  mainBottomNavRouteCommitGeneration++;
+}
 
 /**
  * CONTRACT — 하단 탭·배달 홈·다이얼 칩 **단일 이동 커밋**.
@@ -164,10 +170,12 @@ async function commitMainBottomNavRouteNavigateAsync(
     navPerfMarkBottomNavClickStart(navClickT0);
   }
 
+  const fromHref =
+    typeof window !== "undefined" ? `${window.location.pathname}${window.location.search}` : null;
   if (mainBottomNavRouteUsesReplace(args.pathname, args.href)) {
-    args.replace(args.href);
+    guardedClientNavigate(args.replace, args.href, "bottom_nav_explicit", { fromHref });
   } else {
-    args.push(args.href);
+    guardedClientNavigate(args.push, args.href, "bottom_nav_explicit", { fromHref });
   }
 
   args.onCloseOverlay?.();

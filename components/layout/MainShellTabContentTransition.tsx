@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
 
 import { AppRouteTransition } from "@/components/route-transition/AppRouteTransition";
 import { TradeMarketTabPushEnterPanel } from "@/components/market/TradeMarketTabPushEnterPanel";
@@ -9,6 +10,7 @@ import { CommunityMessengerHome } from "@/components/community-messenger/Communi
 import { StoresHub } from "@/components/stores/StoresHub";
 import { MyContent } from "@/app/(main)/my/MyContent";
 import { useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
+import { isCommunityMessengerDeepRoutePath } from "@/lib/navigation/community-messenger-deep-route-path";
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 import { DeliveryTheme } from "@/lib/design/delivery-theme";
 import { MAIN_SHELL_ROUTE_TRANSITION_MS } from "@/components/route-transition/route-transition-config";
@@ -132,17 +134,19 @@ export function MainShellTabContentTransition({
 }: Props) {
   void _initialNavItems;
 
+  const pathname = usePathname();
   const { isPendingMenuBlockingContent, pendingMenuIntent } = useLatestMenuNavigation();
 
   /** 메인 메뉴 이동 전체: RSC 대기 중 전면/push 스켈레톤 금지. */
   const pendingShell = null;
   const pendingPushNode = useMemo(() => {
+    if (isCommunityMessengerDeepRoutePath(pathname ?? "")) return null;
     if (!isPendingMenuBlockingContent || !pendingMenuIntent) return null;
     if (pendingMenuIntent.source === "trade-primary" || pendingMenuIntent.source === "bottom-nav") {
       return <MainBottomNavPendingEnterPanel href={pendingMenuIntent.href} />;
     }
     return null;
-  }, [isPendingMenuBlockingContent, pendingMenuIntent]);
+  }, [isPendingMenuBlockingContent, pathname, pendingMenuIntent]);
 
   return (
     <AppRouteTransition

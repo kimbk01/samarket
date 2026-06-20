@@ -29,6 +29,9 @@ import {
   scheduleCmPreRouteRoomNavigationFollowUp,
 } from "@/lib/community-messenger/room/begin-cm-pre-route-room-opening";
 import { noteR2M11DRouterPrefetchCalled } from "@/lib/community-messenger/room/cm-room-r2-m11d-prefetch-flight";
+import { beginRoomDeepRouteNavigationLock } from "@/lib/navigation/cm-deep-route-navigation-lock";
+import { clearPendingMenuNavigationBridge } from "@/lib/navigation/pending-menu-navigation-bridge";
+import { abortPendingMainBottomNavRouteCommits } from "@/lib/main-menu/main-bottom-nav-route-commit";
 
 /** 클릭~라우팅 사이 스냅샷 GET 상한 — 포인터다운 프리패치가 거의 끝난 경우 짧게 합류(무한 대기 금지) */
 const ROOM_NAV_SNAPSHOT_LEAD_MS_MIN = 0;
@@ -88,6 +91,9 @@ export async function runCommunityMessengerRoomForwardNavigation(
   noteR2M10RouterPushStart(id);
   noteR2M9Stage("route_push");
   recordRouteEntryMetric("messenger_room_entry", "router_push_called_ms", 0);
+  abortPendingMainBottomNavRouteCommits();
+  clearPendingMenuNavigationBridge();
+  beginRoomDeepRouteNavigationLock(id, dest);
   runMessengerViewTransition(() => {
     args.router.push(dest);
   }, "room-forward");

@@ -1,9 +1,15 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   commitMainBottomNavRoute,
+  abortPendingMainBottomNavRouteCommits,
   mainBottomNavRouteUsesReplace,
   shouldMainBottomNavRouteScrollOnly,
 } from "@/lib/main-menu/main-bottom-nav-route-commit";
+import {
+  beginRoomDeepRouteNavigationLock,
+  resetDeepRouteNavigationLockForTests,
+} from "@/lib/navigation/cm-deep-route-navigation-lock";
+import { guardedClientNavigate } from "@/lib/navigation/guarded-client-navigation";
 
 vi.mock("@/lib/navigation/main-shell-push-session", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/navigation/main-shell-push-session")>();
@@ -244,5 +250,42 @@ describe("commitMainBottomNavRoute", () => {
 describe("mainBottomNavRouteUsesReplace", () => {
   it("/market 탈출은 push", () => {
     expect(mainBottomNavRouteUsesReplace("/market", "/stores")).toBe(false);
+  });
+});
+
+describe("commitMainBottomNavRoute deep route lock", () => {
+  afterEach(() => {
+    resetDeepRouteNavigationLockForTests();
+  });
+
+  it("room entry lock 중 programmatic /mypage replace 시도는 blocked", () => {
+    beginRoomDeepRouteNavigationLock("room-1", "/community-messenger/rooms/room-1");
+    const replace = vi.fn();
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const ok = guardedClientNavigate(replace, "/mypage", "programmatic");
+    expect(ok).toBe(false);
+    expect(replace).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  it("abortPendingMainBottomNavRouteCommits — 이후 커밋만 replace 실행", async () => {
+    abortPendingMainBottomNavRouteCommits();
+    const replace = vi.fn();
+    commitMainBottomNavRoute({
+      pathname: "/community-messenger",
+      currentSearch: "",
+      href: "/mypage",
+      tabId: "mypage",
+      beginMenuNavigation: vi.fn(),
+      onNavigationIntent: vi.fn(),
+      guardBeforeNavigate: () => true,
+      push: vi.fn(),
+      replace,
+      skipPerfMark: true,
+    });
+    await Promise.resolve();
+    expect(replace).toHaveBeenCalledWith("/mypage");
   });
 });
