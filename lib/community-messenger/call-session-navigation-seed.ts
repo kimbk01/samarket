@@ -990,6 +990,26 @@ export function primeCommunityMessengerCallNavigationSeed(
   }
 }
 
+export function peekCommunityMessengerCallNavigationSeed(
+  sessionId: string
+): CommunityMessengerCallSession | null {
+  if (typeof window === "undefined") return null;
+  const sid = sessionId.trim();
+  if (!sid) return null;
+  if (lastConsumedNavigationSeed?.sessionId === sid) {
+    return lastConsumedNavigationSeed.session;
+  }
+  try {
+    const raw = window.sessionStorage.getItem(KEY);
+    if (!raw) return null;
+    const o = JSON.parse(raw) as { sessionId?: string; session?: CommunityMessengerCallSession };
+    if (!o.session || o.sessionId !== sid) return null;
+    return o.session;
+  } catch {
+    return null;
+  }
+}
+
 export function consumeCommunityMessengerCallNavigationSeed(
   sessionId: string
 ): CommunityMessengerCallSession | null {

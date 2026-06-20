@@ -1,21 +1,25 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useLayoutEffect, useSyncExternalStore } from "react";
+import { usePathname } from "next/navigation";
+import { useLayoutEffect, useSyncExternalStore } from "react";
 import { importWithChunkRetry } from "@/lib/next/import-with-chunk-retry";
 import {
   clearAllCommunityCallLocalSessionFlags,
+  isHostedActiveOnly,
   isTerminalSuppressedPresentation,
   readDockedCallSessionId,
   readHostedActiveCallSessionId,
   readPipMinimizedCallSessionId,
   resolveHostedCallPresentation,
 } from "@/lib/community-messenger/call-presentation-ownership";
+import { isLiveActiveCallPhase, readActiveCallSessionSnapshot } from "@/lib/call/active-call-session";
+import { decideCommunityCallActiveHostOwnership } from "@/lib/community-messenger/call-page-host-ownership";
+import { peekCommunityMessengerCallNavigationSeed } from "@/lib/community-messenger/call-session-navigation-seed";
 import { GlobalCallVideoPipHost } from "@/components/layout/providers/GlobalCallVideoPipHost";
 import { pushMessengerCallMainBottomNavSuppressed } from "@/lib/layout/messenger-call-main-bottom-nav-suppress";
 import { CommunityMessengerCallRouteLoading } from "@/components/community-messenger/CommunityMessengerCallRouteLoading";
 import { getCommunityMessengerCallRuntime, resetCommunityMessengerCallRuntimeSurface } from "@/lib/community-messenger/call-runtime-registry";
-import { isTerminalStatusForCleanup } from "@/lib/community-messenger/call-terminal-cleanup";
 
 /** `CallScreenShell` 포털·`CallClient` dynamic import 전에도 하단 탭(z-1200)이 통화 위로 올라오지 않게 */
 const CALL_HOST_FULLSCREEN_Z = "z-[1280]";
@@ -54,36 +58,51 @@ export function notifyCommunityCallHostSync(): void {
   window.dispatchEvent(new Event(HOST_SYNC_EVENT));
 }
 
+function isCommunityMessengerCallSessionRoutePath(pathname: string): boolean {
+  const path = pathname.split("?")[0]?.trim().replace(/\/+$/, "") || "/";
+  return /^\/community-messenger\/calls\/[^/]+/.test(path);
+}
+
 /** active direct 통화(voice/video) CallClient 단일 상주. */
 export function CommunityMessengerActiveCallHost() {
   useSyncExternalStore(subscribeCommunityCallHostSync, readHostedCallSessionId, () => null);
+  const pathname = usePathname() ?? "";
   const hostedSessionId = readHostedCallSessionId();
   const runtime = getCommunityMessengerCallRuntime();
   const hostedPresentation =
     hostedSessionId != null ? resolveHostedCallPresentation(hostedSessionId) : null;
-  const suppressBottomNavForFullscreenHost = hostedSessionId != null && hostedPresentation === "fullscreen";
+  const activeCallSnapshot = readActiveCallSessionSnapshot();
+  const ownership = hostedSessionId
+    ? decideCommunityCallActiveHostOwnership({
+        hostedSessionId,
+        isTerminalSuppressed: isTerminalSuppressedPresentation(hostedSessionId),
+        isHostedActiveOnly: isHostedActiveOnly(hostedSessionId),
+        onCallSessionRoute: isCommunityMessengerCallSessionRoutePath(pathname),
+        hasNavigationSeed: peekCommunityMessengerCallNavigationSeed(hostedSessionId) != null,
+        hasLiveActiveCallSession:
+          activeCallSnapshot?.callId === hostedSessionId.trim() &&
+          isLiveActiveCallPhase(activeCallSnapshot.phase),
+        runtimeSessionId: runtime?.sessionId?.trim() ?? null,
+        runtimeSessionStatus: runtime?.session?.status ?? null,
+      })
+    : { shouldMountCallClient: false, shouldClearStaleOwnership: false };
+  const shouldMountCallClient = ownership.shouldMountCallClient;
+  const suppressBottomNavForFullscreenHost =
+    shouldMountCallClient && hostedSessionId != null && hostedPresentation === "fullscreen";
 
-  useEffect(() => {
-    if (!hostedSessionId) return;
-    const runtimeSessionId = runtime?.sessionId?.trim() ?? "";
-    const runtimeStatus = runtime?.session?.status ?? null;
-    const shouldDropOwnership =
-      isTerminalSuppressedPresentation(hostedSessionId) ||
-      !runtimeSessionId ||
-      runtimeSessionId !== hostedSessionId ||
-      isTerminalStatusForCleanup(runtimeStatus);
-    if (!shouldDropOwnership) return;
+  useLayoutEffect(() => {
+    if (!ownership.shouldClearStaleOwnership) return;
     clearAllCommunityCallLocalSessionFlags();
     resetCommunityMessengerCallRuntimeSurface();
     notifyCommunityCallHostSync();
-  }, [hostedSessionId, runtime?.session?.status, runtime?.sessionId]);
+  }, [ownership.shouldClearStaleOwnership]);
 
   useLayoutEffect(() => {
     if (!suppressBottomNavForFullscreenHost) return;
     return pushMessengerCallMainBottomNavSuppressed();
   }, [suppressBottomNavForFullscreenHost]);
 
-  if (!hostedSessionId) {
+  if (!hostedSessionId || !shouldMountCallClient) {
     return <GlobalCallVideoPipHost />;
   }
 

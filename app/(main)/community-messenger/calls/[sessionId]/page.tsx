@@ -7,9 +7,10 @@ import { CommunityMessengerCallRouteLoading } from "@/components/community-messe
 import { CommunityMessengerCallEnterShell } from "@/components/community-messenger/call-history/CommunityMessengerCallEnterShell";
 import { notifyCommunityCallHostSync, subscribeCommunityCallHostSync } from "@/components/layout/providers/CommunityMessengerActiveCallHost";
 import { clearAllCommunityCallLocalSessionFlags, isCallSessionHostedByActiveCallHost, isTerminalSuppressedPresentation } from "@/lib/community-messenger/call-presentation-ownership";
-import { isCommunityMessengerTempCallSessionId } from "@/lib/community-messenger/call-session-navigation-seed";
+import { isCommunityMessengerTempCallSessionId, peekCommunityMessengerCallNavigationSeed } from "@/lib/community-messenger/call-session-navigation-seed";
 import { getCommunityMessengerCallRuntime, resetCommunityMessengerCallRuntimeSurface } from "@/lib/community-messenger/call-runtime-registry";
 import { decideCommunityCallPageHostOwnership } from "@/lib/community-messenger/call-page-host-ownership";
+import { isLiveActiveCallPhase, readActiveCallSessionSnapshot } from "@/lib/call/active-call-session";
 
 /** 수신 accept route — enter slide 생략 (P1-1b; outgoing tmp dial 과 별도) */
 function isIncomingAcceptInstantEnterRoute(searchParams: URLSearchParams): boolean {
@@ -32,12 +33,18 @@ export default function CommunityMessengerCallPage() {
     () => false
   );
   const runtime = getCommunityMessengerCallRuntime();
+  const activeCallSnapshot = readActiveCallSessionSnapshot();
   const ownershipDecision = decideCommunityCallPageHostOwnership({
     hostOwnsSession,
     isTerminalSuppressed: sessionId ? isTerminalSuppressedPresentation(sessionId) : false,
     runtimeSessionId: runtime?.sessionId?.trim() ?? null,
     runtimeSessionStatus: runtime?.session?.status ?? null,
     routeSessionId: sessionId,
+    isTempCallRouteSession: isCommunityMessengerTempCallSessionId(sessionId),
+    hasNavigationSeed: peekCommunityMessengerCallNavigationSeed(sessionId) != null,
+    hasLiveActiveCallSession:
+      activeCallSnapshot?.callId === sessionId.trim() &&
+      isLiveActiveCallPhase(activeCallSnapshot.phase),
   });
 
   useEffect(() => {
