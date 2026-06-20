@@ -34,15 +34,24 @@ describe("call terminal navigation policy", () => {
     expect(client).toContain("confirmServerActiveFromPatchAccept(patchedSession)");
   });
 
+  it("outgoing accept hot path avoids stale ringing GET and skips initiator refresh", () => {
+    const client = read("components/community-messenger/CommunityMessengerCallClient.tsx");
+    expect(client).toContain('prev.status === "active" && next.status === "ringing"');
+    expect(client).toContain("queueMicrotask(() => {");
+    expect(client).toContain("!sessionRef.current?.isMineInitiator");
+    expect(client).toContain("void joinCall(merged)");
+  });
+
   it("terminal paths use call_logs; non-terminal keeps navigateBack", () => {
     const client = read("components/community-messenger/CommunityMessengerCallClient.tsx");
     // SSOT marker: ssot-source-contract-markers.test.ts (messenger-call-terminal-nav)
     expect(client).toContain("exitCommunityMessengerCallRouteNow");
     expect(client).toContain("beginRingingCallDismiss");
     expect(client).toContain("closeTerminalView");
-    // loading cancel / ringing block / pip minimize still use navigateBack
+    // loading cancel / ringing block still use navigateBack
     expect(client).toContain("dismissHydrate = () => navigateBackFromCommunityMessengerCall");
     expect(client).toContain("handleMinimizeToPip");
+    expect(client).toContain("handleDockToOngoing");
   });
 
   it("accept route defers remote terminal ringing dismiss until server confirms", () => {

@@ -138,7 +138,6 @@ import {
   reportNativeCallAppState,
   startNativeCallService,
 } from "@/lib/call/native/native-call-service";
-import { installCallSystemPipBridge } from "@/lib/community-messenger/call-system-pip-bridge";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 import {
   cmCallAudioCleanup,
@@ -461,6 +460,10 @@ function pickCallSessionSnapshotAfterFetch(
   /** 상대 수락 직후 발신 탭이 오래된 ringing GET 을 들고 있어도 active 로 즉시 덮음 */
   if (prev && prev.id === next.id && prev.status === "ringing" && next.status === "active") {
     return next;
+  }
+  /** Realtime active 직후 stale GET(ringing) 이 발신 조인·UI 를 되돌리지 않게 — 단일 연결 동작 유지 */
+  if (prev && prev.id === next.id && prev.status === "active" && next.status === "ringing") {
+    return prev;
   }
   if (
     prev &&
@@ -4567,6 +4570,20 @@ export function CommunityMessengerCallClient({
                   prev?.status === "ringing" &&
                   merged &&
                   merged.id === sessionId &&
+                  merged.status === "active" &&
+                  merged.isMineInitiator &&
+                  !joinedRef.current &&
+                  !joiningRef.current
+                ) {
+                  queueMicrotask(() => {
+                    if (joinedRef.current || joiningRef.current) return;
+                    void joinCall(merged);
+                  });
+                }
+                if (
+                  prev?.status === "ringing" &&
+                  merged &&
+                  merged.id === sessionId &&
                   isTerminalCallSessionStatus(merged.status)
                 ) {
                   beginRingingCallDismiss(merged.roomId, { serverConfirmedTerminal: true });
@@ -4585,7 +4602,7 @@ export function CommunityMessengerCallClient({
                   clearTimeout(refreshScheduleTimerRef.current);
                   refreshScheduleTimerRef.current = null;
                 }
-                /** 수신: Realtime active — server-confirmed 후 세션 보강 (join 은 setSession merge microtask) */
+                /** 수신: server-confirmed 후 세션 보강 (join 은 setSession merge microtask). 발신은 GET 생략. */
                 if (!sessionRef.current?.isMineInitiator) {
                   confirmServerActiveFromRealtimeActiveTransition(sessionId);
                   bumpCalleeJoinGate();
@@ -5401,7 +5418,6 @@ export function CommunityMessengerCallClient({
     camOff,
     handleDockToOngoing,
     handleExpandToFullscreen,
-    handleMinimizeToPip,
     joined,
     miniVideoSlotEl,
     pipShellMountedForSync,

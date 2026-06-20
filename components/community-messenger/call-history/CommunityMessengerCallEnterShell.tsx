@@ -15,7 +15,6 @@ import {
   MESSENGER_CALL_SLIDE_ENTER_MS,
 } from "@/lib/community-messenger/messenger-call-slide";
 import { navigateBackFromCommunityMessengerCall } from "@/lib/community-messenger/call-session-navigation-seed";
-import { getCommunityMessengerCallRuntimeSurface } from "@/lib/community-messenger/call-runtime-registry";
 
 type AnimPhase = "enter" | "enter-active" | "idle" | "exit" | "exit-active";
 
@@ -78,11 +77,6 @@ export function CommunityMessengerCallEnterShell({
   }, [phase, skipEnterSlide]);
 
   const leaveCallRoute = useCallback(() => {
-    const minimize = getCommunityMessengerCallRuntimeSurface().minimizeToPip;
-    if (minimize) {
-      minimize();
-      return;
-    }
     navigateBackFromCommunityMessengerCall({ replace: (href) => router.replace(href) }, null);
   }, [router]);
 

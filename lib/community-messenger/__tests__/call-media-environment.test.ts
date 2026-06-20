@@ -23,13 +23,13 @@ describe("call-media-environment", () => {
     suspendAppCtxMock.mockClear();
   });
 
-  it("stops ring tone and suspends Web Audio before Agora capture", async () => {
+  it("stops outgoing ringback and suspends Web Audio before Agora capture", async () => {
     const { prepareCommunityMessengerCallMediaCapture } = await import(
       "@/lib/community-messenger/call-media-environment"
     );
     prepareCommunityMessengerCallMediaCapture("agora_join_start");
-    expect(stopRingbackMock).toHaveBeenCalledWith("capture_prepared");
     expect(stopRingbackMock).toHaveBeenCalledTimes(1);
+    expect(stopRingbackMock).toHaveBeenCalledWith("capture_prepared");
     expect(closePrimedMock).toHaveBeenCalledTimes(1);
     expect(suspendAppCtxMock).toHaveBeenCalledTimes(1);
   });
