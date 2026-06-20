@@ -33,4 +33,19 @@ describe("resolveLayoutVisibleViewportCssPx", () => {
 
     expect(resolveLayoutVisibleViewportCssPx(240)).toBe(240);
   });
+
+  it("does not subtract native keyboard from layout height", () => {
+    vi.stubGlobal("window", {
+      innerHeight: 800,
+      visualViewport: { offsetTop: 0, height: 800 },
+      samarketShell: { keyboardBottomInsetCssPx: 300 },
+    });
+    vi.stubGlobal("navigator", {
+      userAgent: "Linux",
+      platform: "Linux",
+      maxTouchPoints: 0,
+    });
+
+    expect(resolveLayoutVisibleViewportCssPx(240)).toBe(800);
+  });
 });

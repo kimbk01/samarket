@@ -9,7 +9,7 @@ import {
 } from "@/lib/platform/capacitor-native";
 import { readSamarketShellKeyboardBottomInsetCssPx } from "@/lib/platform/samarket-shell-keyboard";
 import { isLikelyIosWebKit } from "@/lib/ui/is-likely-ios-webkit";
-import { CHAT_SHELL_KEYBOARD_OVERLAY_MIN_PX } from "@/lib/ui/messenger-chat-viewport-tuning";
+import { CHAT_SHELL_KEYBOARD_OVERLAY_MIN_PX, CHAT_SHELL_NAV_GAP_MAX_PX } from "@/lib/ui/messenger-chat-viewport-tuning";
 
 export type ChatViewportShellPlatform = "ios" | "android" | "web";
 
@@ -34,27 +34,40 @@ export function resolveChatViewportShellPlatform(): ChatViewportShellPlatform {
 }
 
 /**
- * 키보드 open → keyboard overlay. closed → Android nav / gesture gap (visualViewport).
- * iOS safe-area 는 CSS `--safe-*`(env) 로 shell·timeline 에 추가. Android 는 native bridge fallback 포함.
+ * IME keyboard height only — nav/home indicator는 `--safe-bottom`(Safe Area P0) 전담.
+ * closed → 0. open → native `keyboardBottomInsetCssPx` 또는 visualViewport gap(≥ threshold).
  */
 export function resolveChatBottomInsetCssPx(): number {
-  const keyboard = resolveChatShellKeyboardOverlayCssPx();
-  if (keyboard >= CHAT_SHELL_KEYBOARD_OVERLAY_MIN_PX) return keyboard;
-
-  if (typeof window === "undefined") return 0;
-  const vv = window.visualViewport;
-  if (!vv) return 0;
-
-  const gap = window.innerHeight - (vv.offsetTop + vv.height);
-  const rounded = Math.max(0, Math.round(gap));
-  if (rounded < 8 || rounded > 120) return 0;
-  return rounded;
+  return resolveChatShellKeyboardOverlayCssPx();
 }
 
-/** @deprecated use resolveChatBottomInsetCssPx — keyboard open 시에만 non-zero */
-export function resolveChatShellNavigationInsetCssPx(keyboardOffsetPx: number): number {
-  if (keyboardOffsetPx >= CHAT_SHELL_KEYBOARD_OVERLAY_MIN_PX) return 0;
+/** @deprecated use resolveChatBottomInsetCssPx — nav gap은 `--safe-bottom` SSOT */
+export function resolveChatShellNavigationInsetCssPx(_keyboardOffsetPx: number): number {
+  return 0;
+}
+
+/** QA probe alias — `resolveChatBottomInsetCssPx` 와 동일 */
+export function resolveChatKeyboardBottomCssPx(): number {
   return resolveChatBottomInsetCssPx();
+}
+
+/**
+ * 셸 padding-bottom `--chat-bottom-active` (px).
+ * - keyboard closed → 0 (CSS `var(--safe-bottom)` fallback)
+ * - keyboard open + vv 미반영 → keyboard px
+ * - keyboard open + vv 이미 반영(resizes-content) → 0 (safe-bottom fallback 금지)
+ */
+export function resolveChatBottomActiveCssPx(opts: {
+  keyboardPx: number;
+  layoutHeightPx: number;
+  innerHeight: number;
+}): number {
+  const { keyboardPx, layoutHeightPx, innerHeight } = opts;
+  if (keyboardPx <= 0) return 0;
+  const vvAlreadyReflectsKeyboard =
+    layoutHeightPx > 0 && innerHeight - layoutHeightPx >= keyboardPx - 8;
+  if (vvAlreadyReflectsKeyboard) return 0;
+  return keyboardPx;
 }
 
 export function resolveChatShellKeyboardOverlayCssPx(): number {
@@ -73,6 +86,9 @@ export function resolveChatShellKeyboardOverlayCssPx(): number {
   const rounded = Math.max(0, Math.round(gap));
 
   if (rounded < CHAT_SHELL_KEYBOARD_OVERLAY_MIN_PX) return 0;
+
+  /** Nav/gesture gap(≤120px) — Safe Area `--safe-bottom` 전담, keyboard 아님 */
+  if (rounded <= CHAT_SHELL_NAV_GAP_MAX_PX) return 0;
 
   /**
    * iOS: 키보드 open 시 offsetTop 이 0 이 아닌 경우가 많다 — gap 만으로 판정.

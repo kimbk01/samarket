@@ -22,7 +22,7 @@
 1. **키보드·도크·회전**으로 타임라인 스크롤 영역 높이만 바뀔 때, **과거 메시지를 읽는 중**이면 **화면에 보이던 대화 위치(하단까지의 거리)** 를 유지한다.
 2. **하단 근처(stick-to-bottom)** 면 **최신 메시지**가 입력창 바로 위에 오도록 맞춘다.
 3. **입력창**은 셸 높이·safe-area·키보드 크롬과 **이중 패딩**되지 않게 한다 (`keyboardOverlapSuppressed` + `useMobileKeyboardInset` 계약).
-4. **`window.innerHeight` / `100vh` 단독**으로 셸 높이를 결정하지 않는다 — **`visualViewport`** + 필요 시 **`innerHeight` 차이** + 네이티브 `samarketShell` inset.
+4. **`window.innerHeight` / `100vh` 단독**으로 셸 높이를 결정하지 않는다 — **`visualViewport`** edge. keyboard inset은 **`--chat-bottom-active`** padding만 (height·padding 이중 차감 금지).
 
 ---
 
@@ -32,7 +32,7 @@
 |----------|------|------|
 | 기기별 보정값 (픽셀·ms·임계) | `lib/ui/messenger-chat-viewport-tuning.ts` | 셸 최소 높이, stick 임계, composer footer, 키보드 크롬 히스테리시스 등 — **여기만 수정해 미세 튜닝** |
 | 루트 viewport 메타 | `app/layout.tsx` `export const viewport` | `interactiveWidget: "resizes-content"` — Android Chrome 키보드 시 레이아웃 뷰포트 축소 |
-| 셸 CSS·플랫폼 insets | `app/chat-viewport-shell.css`, `lib/ui/chat-viewport-shell-platform.ts`, `lib/ui/use-chat-viewport-shell-insets.ts` | `100dvh`+safe-area flex 셸, keyboard overlay(`--chat-shell-keyboard-offset`), composer 높이(`--chat-composer-height`) |
+| 셸 CSS·플랫폼 insets | `app/chat-viewport-shell.css`, `lib/ui/chat-viewport-shell-platform.ts`, `lib/ui/use-chat-viewport-shell-insets.ts` | flex 셸: `--chat-viewport-height`(vv edge), `--chat-bottom-active`(keyboard **or** `--safe-bottom`), `--chat-keyboard-bottom`(probe), `--chat-composer-height` |
 | Phase2 셸 마운트 | `components/community-messenger/room/CommunityMessengerRoomClientPhase2Body.tsx` | `chat-viewport-shell` narrow/embedded/wide, 콜백 ref + `chatShellMounted`, `useChatViewportShellInsets` |
 | 스크롤 앵커 | `lib/community-messenger/room/use-messenger-room-reader-scroll-bottom.ts` | `lastScrollGeomRef` + `stickToBottomRef`; **ResizeObserver** + **visualViewport** + **window resize/orientation** → 동일 `restoreScrollAfterChromeChange` (rAF 합침) |
 | 입력·키보드 크롬 UI | `CommunityMessengerRoomPhase2Composer.tsx`, `useMessengerTradeKeyboardChrome` | `ChatComposer` flex footer; 거래 도크 compact 등 — composer padding JS inset **금지** |
@@ -89,6 +89,7 @@
 | 2026-06-14 | 채팅 헤더·composer 전용 재구성: 셸 `chat-viewport-shell` + safe-area padding + narrow `100dvh`; `useChatViewportResize` 높이 JS 제거(composer 높이 ResizeObserver만); header `sticky`·composer 이중 safe-area/keyboard padding 제거; Android `adjustResize` | `app/chat-viewport-shell.css`, `components/chat/*`, `messenger-header.tsx`, `CommunityMessengerRoomPhase2Composer`, `CommunityMessengerRoomClientPhase2Body`, `AndroidManifest.xml` |
 | 2026-06-14 | 기기별 보완: `chat-viewport-shell-platform`·`useChatViewportShellInsets`(overlay 시 셸 `--chat-shell-keyboard-offset`만); embedded 슬라이드 패널 `padding-top:0`; iOS/Android 플랫폼 클래스 | `lib/ui/chat-viewport-shell-platform.ts`, `use-chat-viewport-shell-insets.ts`, `CommunityMessengerRoomClientPhase2Body` |
 | 2026-06-14 | 정리: 레거시 `use-chat-viewport-resize.ts` 제거, composer 높이·keyboard insets 단일 훅 통합, ShellChromeFrame `data-cm-room` 고정, keyboard 이중 padding 가드 | `use-chat-viewport-shell-insets.ts`, `CommunityMessengerRoomShellChromeFrame.tsx` |
+| 2026-06-20 | **Keyboard P0** — `--chat-bottom-active`(keyboard OR `--safe-bottom`), closed vv nav gap 제거, shell height에서 native keyboard 차감 제거; vv 이미 keyboard 반영 시 padding dedupe | `chat-viewport-shell-platform.ts`, `use-chat-viewport-shell-insets.ts`, `layout-visible-viewport-px.ts`, `chat-viewport-shell.css` |
 | 2026-06-15 | 모바일 composer 체감 높이를 52px 기준으로 축소하고, `+` 첨부 메뉴를 dim 없는 80% 중앙 카드로 조정. 셸 safe-area·scroll anchor 계약은 유지 | `messenger-chat-viewport-tuning`, `chat-viewport-shell.css`, `CommunityMessengerRoomPhase2RoomSheets` |
 
 **규칙:** 이 영역을 고치면 **반드시 한 줄이라도 §7 변경 이력 테이블에 추가**한다. 되돌리기 전에 이전 행과 diff를 비교한다. 숫자만 바꿀 때는 **`lib/ui/messenger-chat-viewport-tuning.ts`** 만 수정했는지 확인한다.

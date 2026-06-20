@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import {
   isChatViewportAndroidPlatform,
   isChatViewportIosPlatform,
+  resolveChatBottomActiveCssPx,
   resolveChatBottomInsetCssPx,
   resolveChatShellKeyboardOverlayCssPx,
   resolveChatViewportShellClassNames,
@@ -68,19 +69,61 @@ describe("chat-viewport-shell-platform", () => {
     expect(resolveChatShellKeyboardOverlayCssPx()).toBe(300);
   });
 
-  it("returns bottom inset when keyboard closed and vv gap exists (Android nav bar)", () => {
+  it("returns zero bottom inset when keyboard closed and vv gap is nav bar only", () => {
     vi.stubGlobal("window", {
       innerHeight: 800,
       visualViewport: { height: 752, offsetTop: 0 },
       samarketShell: undefined,
     });
-    expect(resolveChatBottomInsetCssPx()).toBe(48);
+    expect(resolveChatBottomInsetCssPx()).toBe(0);
+  });
+
+  it("returns keyboard inset when gap exceeds threshold (keyboard open)", () => {
     vi.stubGlobal("window", {
       innerHeight: 800,
       visualViewport: { height: 500, offsetTop: 0 },
       samarketShell: undefined,
     });
     expect(resolveChatBottomInsetCssPx()).toBe(300);
+  });
+
+  it("returns native keyboard inset when samarketShell provides it", () => {
+    vi.stubGlobal("window", {
+      innerHeight: 800,
+      visualViewport: { height: 800, offsetTop: 0 },
+      samarketShell: { keyboardBottomInsetCssPx: 300 },
+    });
+    expect(resolveChatBottomInsetCssPx()).toBe(300);
+  });
+
+  it("resolveChatBottomActiveCssPx skips padding when vv already reflects keyboard", () => {
+    expect(
+      resolveChatBottomActiveCssPx({
+        keyboardPx: 300,
+        layoutHeightPx: 500,
+        innerHeight: 800,
+      })
+    ).toBe(0);
+  });
+
+  it("resolveChatBottomActiveCssPx applies keyboard padding when vv is full height", () => {
+    expect(
+      resolveChatBottomActiveCssPx({
+        keyboardPx: 300,
+        layoutHeightPx: 800,
+        innerHeight: 800,
+      })
+    ).toBe(300);
+  });
+
+  it("resolveChatBottomActiveCssPx returns zero when keyboard closed", () => {
+    expect(
+      resolveChatBottomActiveCssPx({
+        keyboardPx: 0,
+        layoutHeightPx: 800,
+        innerHeight: 800,
+      })
+    ).toBe(0);
   });
 
   it("builds shell class names for embedded ios layout", () => {

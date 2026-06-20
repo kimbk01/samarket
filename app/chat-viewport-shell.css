@@ -1,6 +1,7 @@
 /**
  * DIBAY 채팅방 헤더·composer 공통 geometry — direct / trade / delivery 단일.
- * CSS 변수 3개: --chat-viewport-height, --chat-composer-height, --chat-bottom-inset
+ * CSS 변수: --chat-viewport-height, --chat-composer-height,
+ * --chat-keyboard-bottom, --chat-bottom-active (SSOT), --chat-bottom-inset (legacy keyboard-only)
  */
 
 [data-cm-room].chat-viewport-shell {
@@ -15,7 +16,7 @@
   height: var(--chat-viewport-height, 100dvh);
   max-height: var(--chat-viewport-height, 100dvh);
   padding-top: var(--safe-top);
-  padding-bottom: calc(var(--safe-bottom) + var(--chat-bottom-inset, 0px));
+  padding-bottom: var(--chat-bottom-active, var(--safe-bottom));
 }
 
 [data-cm-room].chat-viewport-shell.chat-viewport-shell--embedded {

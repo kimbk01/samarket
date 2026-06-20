@@ -7,7 +7,7 @@
  * - iOS · Android · tablet — safe-area SSOT `--safe-*` (= max(env, native `--dibay-safe-*`)).
  * - Android WebView bridge: `DibayWebSafeAreaBridge` → `MainActivity`.
  * - 메신저 방은 `app/chat-viewport-shell.css` · `use-chat-viewport-shell-insets.ts`.
- *   `--safe-bottom`(system nav) + `--chat-bottom-inset`(keyboard only) — 이중 nav 차감 금지.
+ *   `--safe-bottom`(system nav) · `--chat-bottom-active`(keyboard OR safe-bottom) — 합산 금지.
  *
  * 기존 호환:
  * - `app/globals.css` 의 `.top-safe`·`.bottom-safe`·`.screen-safe`·`.safe-area-pb`
