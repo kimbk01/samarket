@@ -2540,16 +2540,22 @@ export function CommunityMessengerCallClient({
           playRemoteCallAudioTrack,
           publishCommunityMessengerAgoraTracks,
         } = await providerPromise;
-        const [connection, videoTrackEarly] = await Promise.all([
+        const isCallerVideoJoin = isVideoCall && targetSession.isMineInitiator;
+        const isCalleeVideoJoin = isVideoCall && !targetSession.isMineInitiator;
+        const [connection, callerVideoTracksEarly, calleeVideoTrackEarly] = await Promise.all([
           resolveCommunityMessengerCallConnection({
             sessionId: targetSession.id,
             prefetchedRef: prefetchedConnectionRef,
             fetchFresh: fetchConnection,
           }),
-          isVideoCall
+          isCallerVideoJoin
+            ? createCommunityMessengerAgoraLocalTracks("video").catch(() => null)
+            : Promise.resolve(null),
+          isCalleeVideoJoin
             ? createCommunityMessengerAgoraLocalVideoTrackForJoin().catch(() => null)
             : Promise.resolve(null),
         ]);
+        const videoTrackEarly = callerVideoTracksEarly?.videoTrack ?? calleeVideoTrackEarly;
         const client = createCommunityMessengerAgoraClient();
         mediaOwnerSessionIdRef.current = targetSession.id;
         clientRef.current = client;
@@ -2571,16 +2577,40 @@ export function CommunityMessengerCallClient({
           }
           if (mediaType === "audio" && user.audioTrack) {
             remoteAudioTrackRef.current = user.audioTrack;
-            await applyCallAudioRouteForSession(
-              targetSession,
-              desiredSpeakerForSession(targetSession),
-              "remote_audio_published",
-              { remoteAudioTrack: user.audioTrack }
-            );
-            try {
-              await playRemoteCallAudioTrack(user.audioTrack, targetSession.callKind);
-            } catch {
-              /* 자동재생 정책 등 */
+            if (targetSession.isMineInitiator) {
+              /** 발신(어제 정상) — play 먼저, 라우트는 비동기. 수신 강화 경로와 분리 */
+              try {
+                user.audioTrack.play();
+              } catch {
+                /* 자동재생 정책 등 */
+              }
+              void applyCallAudioRouteForSession(
+                targetSession,
+                desiredSpeakerForSession(targetSession),
+                "remote_audio_published",
+                { remoteAudioTrack: user.audioTrack }
+              );
+            } else {
+              /** 수신 — 라우트 확정 후 play + post-play 재라우트 */
+              await applyCallAudioRouteForSession(
+                targetSession,
+                desiredSpeakerForSession(targetSession),
+                "remote_audio_published",
+                { remoteAudioTrack: user.audioTrack }
+              );
+              try {
+                await playRemoteCallAudioTrack(user.audioTrack, targetSession.callKind);
+              } catch {
+                /* 자동재생 정책 등 */
+              }
+              if (targetSession.callKind === "video") {
+                await applyCallAudioRouteForSession(
+                  targetSession,
+                  desiredSpeakerForSession(targetSession),
+                  "remote_audio_post_play_route",
+                  { remoteAudioTrack: user.audioTrack }
+                );
+              }
             }
             if (!remoteAudioFirstFrameLoggedRef.current) {
               remoteAudioFirstFrameLoggedRef.current = true;
@@ -2706,6 +2736,9 @@ export function CommunityMessengerCallClient({
 
         const isVideoCallJoin = targetSession.callKind === "video";
         let localVideoBoundDuringJoin = false;
+        if (isVideoCallJoin && callerVideoTracksEarly) {
+          localTracksRef.current = callerVideoTracksEarly;
+        }
 
         logDibayCall("agora_join_start", { sessionId: targetSession.id, callKind: targetSession.callKind });
         const joinResult = await joinCommunityMessengerAgoraChannelOnce(
@@ -2784,11 +2817,11 @@ export function CommunityMessengerCallClient({
         if (!isVideoCallJoin) {
           const tracks = await createCommunityMessengerAgoraLocalTracks("voice");
           localTracksRef.current = tracks;
-        } else {
+        } else if (!callerVideoTracksEarly) {
           const audioTrack = await createCommunityMessengerAgoraLocalAudioTrackOnly();
           localTracksRef.current = {
             audioTrack,
-            videoTrack: videoTrackEarly,
+            videoTrack: calleeVideoTrackEarly,
           };
         }
         await publishCommunityMessengerAgoraTracks({

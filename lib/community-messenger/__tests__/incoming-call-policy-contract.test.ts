@@ -163,16 +163,17 @@ describe("incoming-call policy contracts", () => {
     const client = read("components/community-messenger/CommunityMessengerCallClient.tsx");
     expect(client).toContain('prepareCommunityMessengerCallMediaCapture("agora_join_start")');
     expect(client).toContain("createCommunityMessengerAgoraLocalVideoTrackForJoin");
-    expect(client).toContain("createCommunityMessengerAgoraLocalAudioTrackOnly");
-    expect(client).toContain("playRemoteCallAudioTrack(user.audioTrack");
+    expect(client).toContain('createCommunityMessengerAgoraLocalTracks("video")');
+    expect(client).toContain("isCallerVideoJoin");
+    expect(client).toContain("isCalleeVideoJoin");
+    expect(client).toContain("remote_audio_post_play_route");
     const userPublishedBlock = client.slice(
       client.indexOf('client.on("user-published"'),
       client.indexOf('client.on("user-unpublished"')
     );
-    const routeIdx = userPublishedBlock.indexOf("await applyCallAudioRouteForSession");
-    const playIdx = userPublishedBlock.indexOf("playRemoteCallAudioTrack(user.audioTrack");
-    expect(routeIdx).toBeGreaterThan(-1);
-    expect(playIdx).toBeGreaterThan(routeIdx);
+    expect(userPublishedBlock).toContain("targetSession.isMineInitiator");
+    expect(userPublishedBlock).toContain("user.audioTrack.play()");
+    expect(userPublishedBlock).toContain("playRemoteCallAudioTrack(user.audioTrack");
     const plugin = read("android/app/src/main/java/com/dibay/app/call/DibayCallAudioRoutePlugin.java");
     expect(plugin).toContain("ensureVideoSpeakerVoiceStreamFloor");
     expect(plugin).toContain("AUDIOFOCUS_GAIN_TRANSIENT");

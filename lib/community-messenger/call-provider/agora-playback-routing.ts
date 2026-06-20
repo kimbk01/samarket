@@ -3,8 +3,8 @@ import type { IRemoteAudioTrack } from "agora-rtc-sdk-ng";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
 import { readPreferredSpeakerSinkId } from "@/lib/permissions/speaker-output-preference";
 
-/** Agora 원격 재생 기본(100). Android 체감 볼륨은 네이티브 STREAM_VOICE_CALL 바닥이 담당. */
-export const CALL_REMOTE_AUDIO_PLAYBACK_VOLUME_VIDEO = 100;
+/** 영상 원격 — Agora 100=원본. WebView 스피커 경로 보정용 200 (0–1000 스케일). */
+export const CALL_REMOTE_AUDIO_PLAYBACK_VOLUME_VIDEO = 200;
 export const CALL_REMOTE_AUDIO_PLAYBACK_VOLUME_VOICE = 100;
 
 export function configureRemoteCallAudioPlayback(
@@ -28,6 +28,8 @@ export async function playRemoteCallAudioTrack(
 ): Promise<void> {
   configureRemoteCallAudioPlayback(track, callKind);
   await track.play();
+  /** play() 직후 일부 WebView에서 볼륨·라우트가 리셋됨 — 재적용 */
+  configureRemoteCallAudioPlayback(track, callKind);
 }
 
 /**

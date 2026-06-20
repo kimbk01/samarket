@@ -149,12 +149,18 @@ public class DibayCallAudioRoutePlugin extends Plugin {
 
   private void ensureVideoSpeakerVoiceStreamFloor() {
     if (audioManager == null) return;
-    int max = audioManager.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL);
+    ensureStreamFloor(AudioManager.STREAM_VOICE_CALL);
+    /** WebView Agora 스피커 재생이 MUSIC 스트림인 기기 — VOICE_CALL 만 올리면 수신 작게 들림 */
+    ensureStreamFloor(AudioManager.STREAM_MUSIC);
+  }
+
+  private void ensureStreamFloor(int streamType) {
+    int max = audioManager.getStreamMaxVolume(streamType);
     if (max <= 0) return;
-    int cur = audioManager.getStreamVolume(AudioManager.STREAM_VOICE_CALL);
+    int cur = audioManager.getStreamVolume(streamType);
     int floor = Math.max(1, (int) Math.round(max * 0.72));
     if (cur < floor) {
-      audioManager.setStreamVolume(AudioManager.STREAM_VOICE_CALL, floor, 0);
+      audioManager.setStreamVolume(streamType, floor, 0);
     }
   }
 
