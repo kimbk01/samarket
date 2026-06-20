@@ -10,13 +10,30 @@ export type MessengerRoomTimelineLayoutMode = "direct" | "virtual";
 export type MessengerRoomTimelinePaintModel = {
   paintMessages: MessengerRoomTimelineMessage[];
   layoutMode: MessengerRoomTimelineLayoutMode;
-  /** @deprecated use layoutMode — store-order direct only */
+  /** @deprecated use layoutMode */
   useDirectLayout: boolean;
 };
 
 /**
- * 타임라인 paint 단일 경로 — tail slice·direct→virtual upgrade 없음.
- * store-order/delivery 만 direct DOM(기존 제품 계약). 그 외 seed/cache 있으면 처음부터 virtual.
+ * Telegram-style: virtual 은 tanstack 측정 완료 + 이 임계 이상일 때만.
+ * 그 미만·측정 전은 direct(document flow). 추정 translateY absolute paint 금지.
+ */
+export const MESSENGER_TIMELINE_VIRTUAL_MIN_MESSAGES = 2501;
+
+export function resolveMessengerRoomTimelineLayoutMode(input: {
+  paintMessageCount: number;
+  /** getVirtualItems() 측정 완료 — estimate fallback 아님 */
+  virtualizerMeasuredReady?: boolean;
+}): MessengerRoomTimelineLayoutMode {
+  if (input.paintMessageCount <= 0) return "direct";
+  if (input.paintMessageCount < MESSENGER_TIMELINE_VIRTUAL_MIN_MESSAGES) return "direct";
+  if (input.virtualizerMeasuredReady === true) return "virtual";
+  return "direct";
+}
+
+/**
+ * 타임라인 paint 단일 경로 — Telegram contiguous flow 기본(direct).
+ * DO NOT: virtual + buildMessengerRoomFallbackVirtualRows 로 화면 paint (call_stub gap 회귀).
  */
 export function buildMessengerRoomTimelinePaintModel(input: {
   displayRoomMessages: MessengerRoomTimelineMessage[];
@@ -29,6 +46,7 @@ export function buildMessengerRoomTimelinePaintModel(input: {
   } | null;
   hasStoreOrderDock: boolean;
   hasStoreOrderTimeline: boolean;
+  virtualizerMeasuredReady?: boolean;
 }): MessengerRoomTimelinePaintModel {
   const paintMessages = resolveMessengerRoomTimelinePaintSource({
     displayRoomMessages: input.displayRoomMessages,
@@ -38,9 +56,12 @@ export function buildMessengerRoomTimelinePaintModel(input: {
     snapshot: input.snapshot,
   });
 
-  const storeOrderDirect = input.hasStoreOrderDock || input.hasStoreOrderTimeline;
-  const layoutMode: MessengerRoomTimelineLayoutMode =
-    storeOrderDirect && paintMessages.length > 0 ? "direct" : "virtual";
+  void input.hasStoreOrderDock;
+  void input.hasStoreOrderTimeline;
+  const layoutMode = resolveMessengerRoomTimelineLayoutMode({
+    paintMessageCount: paintMessages.length,
+    virtualizerMeasuredReady: input.virtualizerMeasuredReady,
+  });
 
   return {
     paintMessages,
@@ -54,7 +75,10 @@ export function selectMessengerRoomVirtualRows<T extends { index: number }>(item
   return items;
 }
 
-/** virtualizer 첫 측정 전 DOM fallback — tail만 paint (대형 방 O(n) 렌더 방지) */
+/**
+ * @deprecated render 금지 — estimate offset absolute 는 Telegram gap 위반.
+ * 테스트·scrollHeight hint 용도만.
+ */
 export const MESSENGER_VIRTUAL_FALLBACK_TAIL_ROWS = 24;
 
 export function estimateMessengerRoomTimelineTotalHeight(
@@ -67,6 +91,7 @@ export function estimateMessengerRoomTimelineTotalHeight(
   return total;
 }
 
+/** @deprecated UI render 에 사용 금지 — direct layout 또는 measured virtualItems 만 */
 export function buildMessengerRoomFallbackVirtualRows(
   messages: ReadonlyArray<Pick<CommunityMessengerMessage, "messageType" | "content" | "metadata">>,
   opts?: { maxRows?: number }

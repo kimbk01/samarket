@@ -30,9 +30,7 @@ import { MessengerRoomNewMessagesBelowChip } from "@/components/community-messen
 import { StoreDeliveryBufferingSpinner } from "@/components/stores/StoreDeliveryBufferingSpinner";
 import { shouldShowMessengerRoomTimelineHydrationSkeleton, shouldShowMessengerRoomTimelineEmptyState } from "@/lib/community-messenger/room/messenger-room-timeline-hydration";
 import { snapshotMessengerRoomTimelineViewportProbe } from "@/lib/community-messenger/room/messenger-room-entry-scroll-ready";
-import { resolveMessengerRoomTimelinePaintSource } from "@/lib/community-messenger/room/messenger-room-timeline-ssot";
 import {
-  buildMessengerRoomFallbackVirtualRows,
   buildMessengerRoomTimelinePaintModel,
   estimateMessengerRoomTimelineTotalHeight,
   selectMessengerRoomVirtualRows,
@@ -1095,6 +1093,10 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     [vm.setCallStubSheet]
   );
 
+  const virtualItemsForLayout = vm.chatVirtualizer.getVirtualItems();
+  const virtualizerMeasuredReadyForLayout =
+    virtualItemsForLayout.length > 0 && vm.chatVirtualizer.getTotalSize() > 0;
+
   const paintModel = useMemo(
     () =>
       buildMessengerRoomTimelinePaintModel({
@@ -1105,6 +1107,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
         snapshot: vm.snapshot,
         hasStoreOrderDock,
         hasStoreOrderTimeline,
+        virtualizerMeasuredReady: virtualizerMeasuredReadyForLayout,
       }),
     [
       vm.displayRoomMessages,
@@ -1114,10 +1117,31 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
       vm.snapshot,
       hasStoreOrderDock,
       hasStoreOrderTimeline,
+      virtualizerMeasuredReadyForLayout,
     ]
   );
 
-  const useDirectTimelineLayout = paintModel.useDirectLayout;
+  const useDirectTimelineLayout = useMemo(
+    () =>
+      resolveUseDirectMessengerTimelineLayout({
+        hydrationPass,
+        displayMessageCount: paintModel.paintMessages.length,
+        seedMessageCount: vm.roomMessages.length,
+        hasStoreOrderDock,
+        hasStoreOrderTimeline,
+        virtualizerHasMeasuredRange: virtualizerMeasuredReadyForLayout,
+        entryReadyForVirtual: paintModel.layoutMode === "virtual",
+      }),
+    [
+      hydrationPass,
+      paintModel.layoutMode,
+      paintModel.paintMessages.length,
+      vm.roomMessages.length,
+      hasStoreOrderDock,
+      hasStoreOrderTimeline,
+      virtualizerMeasuredReadyForLayout,
+    ]
+  );
   const finalTimelinePaintMessages = paintModel.paintMessages;
   const seedRowsRenderedCount = finalTimelinePaintMessages.length;
 
@@ -1141,20 +1165,15 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     useDirectTimelineLayout && (hasStoreOrderDock || hasStoreOrderTimeline) ? "flex flex-col gap-3" : "";
 
   const virtualizerUpgradeDeferHeavy = false;
-  const virtualItemsForLayout = vm.chatVirtualizer.getVirtualItems();
-  const virtualizerHasMeasuredRangeForLayout =
-    !useDirectTimelineLayout &&
-    (virtualItemsForLayout.length > 0 || vm.chatVirtualizer.getTotalSize() > 0);
 
-  /** 가상 행 — hydration cap·upgrade tail slice 없음 */
+  /** Telegram: measured virtualItems 만 — estimate fallback absolute paint 금지 */
   const cappedVirtualRows = useMemo(() => {
     if (useDirectTimelineLayout) return [];
     const virtualItems = vm.chatVirtualizer.getVirtualItems();
-    const selected = selectMessengerRoomVirtualRows(virtualItems);
-    if (selected.length > 0) return selected;
-    if (finalTimelinePaintMessages.length <= 0) return [];
-    return buildMessengerRoomFallbackVirtualRows(finalTimelinePaintMessages);
-  }, [finalTimelinePaintMessages, useDirectTimelineLayout, vm.chatVirtualizer]);
+    return selectMessengerRoomVirtualRows(virtualItems);
+  }, [useDirectTimelineLayout, vm.chatVirtualizer]);
+
+  const virtualizerHasMeasuredRangeForLayout = virtualizerMeasuredReadyForLayout && !useDirectTimelineLayout;
 
   const timelineContentHeight = useMemo(() => {
     if (useDirectTimelineLayout) return 0;

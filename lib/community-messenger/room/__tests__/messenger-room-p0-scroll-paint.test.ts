@@ -9,6 +9,7 @@ import {
   buildMessengerRoomTimelinePaintModel,
   MESSENGER_VIRTUAL_FALLBACK_TAIL_ROWS,
   roomMessagesTimelineFingerprint,
+  resolveMessengerRoomTimelineLayoutMode,
 } from "@/lib/community-messenger/room/messenger-room-timeline-paint-model";
 import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
 
@@ -42,7 +43,7 @@ describe("messenger-room-scroll-position-store", () => {
 });
 
 describe("messenger-room-timeline-paint-model", () => {
-  it("uses virtual layout for normal rooms with messages", () => {
+  it("uses direct layout for normal rooms (Telegram contiguous flow)", () => {
     const model = buildMessengerRoomTimelinePaintModel({
       displayRoomMessages: [msg("1"), msg("2")],
       roomMessages: [msg("1"), msg("2")],
@@ -52,8 +53,20 @@ describe("messenger-room-timeline-paint-model", () => {
       hasStoreOrderDock: false,
       hasStoreOrderTimeline: false,
     });
-    expect(model.layoutMode).toBe("virtual");
+    expect(model.layoutMode).toBe("direct");
+    expect(model.useDirectLayout).toBe(true);
     expect(model.paintMessages).toHaveLength(2);
+  });
+
+  it("resolveMessengerRoomTimelineLayoutMode stays direct until measured virtual threshold", () => {
+    expect(resolveMessengerRoomTimelineLayoutMode({ paintMessageCount: 0 })).toBe("direct");
+    expect(resolveMessengerRoomTimelineLayoutMode({ paintMessageCount: 50 })).toBe("direct");
+    expect(
+      resolveMessengerRoomTimelineLayoutMode({
+        paintMessageCount: 50,
+        virtualizerMeasuredReady: true,
+      })
+    ).toBe("direct");
   });
 
   it("skips identical room message fingerprints", () => {
