@@ -99,6 +99,7 @@
     "verify:main-bottom-nav-fab-sector-contract": "node scripts/verify-main-bottom-nav-fab-sector-contract.mjs",
     "verify:cm-room-keyboard-layout-contract": "node scripts/verify-cm-room-keyboard-layout-contract.mjs",
     "verify:philife-write-sheet-keyboard-contract": "node scripts/verify-philife-write-sheet-keyboard-contract.mjs",
+    "verify:vercel-deploy-excludes": "node scripts/verify-vercel-deploy-excludes.mjs",
     "verify:cm-room-entry-scroll-contract": "node scripts/verify-cm-room-entry-scroll-contract.mjs",
     "verify:badge-target-policy": "node scripts/verify-badge-target-policy.mjs",
     "verify:bottom-nav-chat-surface": "node scripts/verify-bottom-nav-chat-surface-post-migrate.mjs",
