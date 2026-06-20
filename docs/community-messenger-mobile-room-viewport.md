@@ -22,7 +22,7 @@
 1. **키보드·도크·회전**으로 타임라인 스크롤 영역 높이만 바뀔 때, **과거 메시지를 읽는 중**이면 **화면에 보이던 대화 위치(하단까지의 거리)** 를 유지한다.
 2. **하단 근처(stick-to-bottom)** 면 **최신 메시지**가 입력창 바로 위에 오도록 맞춘다.
 3. **입력창**은 셸 높이·safe-area·키보드 크롬과 **이중 패딩**되지 않게 한다 (`keyboardOverlapSuppressed` + `useMobileKeyboardInset` 계약).
-4. **`window.innerHeight` / `100vh` 단독**으로 셸 높이를 결정하지 않는다 — **`visualViewport`** edge. keyboard inset은 **`--chat-bottom-active`** padding만 (height·padding 이중 차감 금지).
+4. **`window.innerHeight` / `100vh` 단독**으로 셸 높이를 결정하지 않는다 — **`visualViewport`** edge + native keyboard inset. padding은 **`calc(var(--safe-bottom) + var(--chat-bottom-inset))`** (height·padding 이중 차감 금지).
 
 ---
 
@@ -32,7 +32,7 @@
 |----------|------|------|
 | 기기별 보정값 (픽셀·ms·임계) | `lib/ui/messenger-chat-viewport-tuning.ts` | 셸 최소 높이, stick 임계, composer footer, 키보드 크롬 히스테리시스 등 — **여기만 수정해 미세 튜닝** |
 | 루트 viewport 메타 | `app/layout.tsx` `export const viewport` | `interactiveWidget: "resizes-content"` — Android Chrome 키보드 시 레이아웃 뷰포트 축소 |
-| 셸 CSS·플랫폼 insets | `app/chat-viewport-shell.css`, `lib/ui/chat-viewport-shell-platform.ts`, `lib/ui/use-chat-viewport-shell-insets.ts` | flex 셸: `--chat-viewport-height`(vv edge), `--chat-bottom-active`(keyboard **or** `--safe-bottom`), `--chat-keyboard-bottom`(probe), `--chat-composer-height` |
+| 셸 CSS·플랫폼 insets | `app/chat-viewport-shell.css`, `lib/ui/chat-viewport-shell-platform.ts`, `lib/ui/use-chat-viewport-shell-insets.ts` | flex 셸: `--chat-viewport-height`(shell inline, vv edge), `--chat-bottom-inset`(keyboard/nav gap overlay), `--chat-composer-height`; padding `calc(var(--safe-bottom) + var(--chat-bottom-inset))` |
 | Phase2 셸 마운트 | `components/community-messenger/room/CommunityMessengerRoomClientPhase2Body.tsx` | `chat-viewport-shell` narrow/embedded/wide, 콜백 ref + `chatShellMounted`, `useChatViewportShellInsets` |
 | 스크롤 앵커 | `lib/community-messenger/room/use-messenger-room-reader-scroll-bottom.ts` | `lastScrollGeomRef` + `stickToBottomRef`; **ResizeObserver** + **visualViewport** + **window resize/orientation** → 동일 `restoreScrollAfterChromeChange` (rAF 합침) |
 | 입력·키보드 크롬 UI | `CommunityMessengerRoomPhase2Composer.tsx`, `useMessengerTradeKeyboardChrome` | `ChatComposer` flex footer; 거래 도크 compact 등 — composer padding JS inset **금지** |
