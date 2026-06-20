@@ -36,6 +36,8 @@ function assertFileMissing(rel, context) {
 const shellCss = read("app/chat-viewport-shell.css");
 const body = read("components/community-messenger/room/CommunityMessengerRoomClientPhase2Body.tsx");
 const kbOffset = read("lib/ui/use-cm-room-kb-offset.ts");
+const viewportShell = read("lib/ui/use-cm-room-visible-viewport-shell.ts");
+const viewportContract = read("lib/ui/cm-room-visible-viewport-contract.ts");
 const tuning = read("lib/ui/messenger-chat-viewport-tuning.ts");
 const scrollAnchor = read("lib/community-messenger/room/messenger-room-scroll-anchor-controller.ts");
 const chatHeader = read("components/chat/ChatHeader.tsx");
@@ -44,7 +46,18 @@ const phase2Composer = read(
   "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2Composer.tsx"
 );
 
-const cmRoomSources = [shellCss, body, kbOffset, tuning, scrollAnchor, chatHeader, chatComposer, phase2Composer];
+const cmRoomSources = [
+  shellCss,
+  body,
+  kbOffset,
+  viewportShell,
+  viewportContract,
+  tuning,
+  scrollAnchor,
+  chatHeader,
+  chatComposer,
+  phase2Composer,
+];
 
 const FORBIDDEN_STRINGS = [
   "--chat-viewport-height",
@@ -90,16 +103,19 @@ assertIncludes(shellCss, "overflow-y: auto", "chat-viewport-shell.css timeline s
 assertIncludes(shellCss, ".cm-room-composer", "chat-viewport-shell.css composer");
 assertIncludes(
   shellCss,
-  "padding-bottom: calc(var(--safe-bottom) + var(--kb-offset, 0px))",
+  "padding-bottom: var(--cm-room-composer-bottom-padding, var(--safe-bottom))",
   "chat-viewport-shell.css bottom single authority"
 );
+assertIncludes(shellCss, "--cm-room-timeline-height", "chat-viewport-shell.css timeline height");
+assertIncludes(shellCss, 'data-cm-keyboard-open="true"', "chat-viewport-shell.css keyboard open");
 assertNotMatches(shellCss, /position:\s*fixed/, "chat-viewport-shell.css");
 assertNotMatches(shellCss, /position:\s*sticky/, "chat-viewport-shell.css");
 
 // --- body shell ---
 assertIncludes(shellCss, "--cm-timeline-scroll-padding-bottom", "chat-viewport-shell.css");
-assertIncludes(body, "useCmRoomKbOffset", "Phase2Body");
-assertIncludes(body, "useCmRoomComposerHeight", "Phase2Body");
+assertIncludes(body, "useCmRoomVisibleViewportShell", "Phase2Body");
+assertNotIncludes(body, "useCmRoomKbOffset", "Phase2Body");
+assertNotIncludes(body, "useCmRoomComposerHeight", "Phase2Body");
 assertNotIncludes(body, "onKeyboardInsetChange", "Phase2Body");
 assertIncludes(body, "cm-room-shell", "Phase2Body");
 assertIncludes(body, "cm-room-timeline", "Phase2Body");
@@ -110,13 +126,20 @@ const viewMemo = body.slice(body.indexOf("const view = useMemo"), body.indexOf("
 assertNotIncludes(viewMemo, "room.message,", "Phase2Body view memo");
 assertNotMatches(viewMemo, /\n\s+room,\s*\n/, "Phase2Body view memo whole-room dep");
 
-// --- iOS kb-offset only ---
-assertIncludes(kbOffset, "isLikelyIosWebKit", "use-cm-room-kb-offset");
-assertIncludes(kbOffset, "--kb-offset", "use-cm-room-kb-offset");
+// --- visible viewport shell (vv.height SSOT) ---
+assertIncludes(viewportShell, "visualViewport", "use-cm-room-visible-viewport-shell");
+assertIncludes(viewportShell, "subscribeSamarketShellKeyboardInsets", "use-cm-room-visible-viewport-shell");
+assertIncludes(viewportContract, "resolveCmRoomVisibleViewportHeightPx", "cm-room-visible-viewport-contract");
+assertIncludes(viewportContract, "CM_ROOM_NAVIGATION_GAP_PX", "cm-room-visible-viewport-contract");
+assertIncludes(viewportShell, "--cm-room-visible-height", "use-cm-room-visible-viewport-shell");
 
-// --- scroll anchor: vv iOS only ---
-assertIncludes(scrollAnchor, "isLikelyIosWebKit", "scroll-anchor-controller");
-assertIncludes(scrollAnchor, "ios && typeof window", "scroll-anchor-controller vv gate");
+// --- iOS kb-offset helper (overlay only, consumed by viewport shell) ---
+assertIncludes(kbOffset, "resolveIosKeyboardOverlayCssPx", "use-cm-room-kb-offset");
+
+// --- scroll anchor: vv on Android + iOS for keyboard keep-bottom ---
+assertIncludes(scrollAnchor, "keyboard_resize_keep_bottom", "scroll-anchor-controller");
+assertIncludes(scrollAnchor, "window.visualViewport", "scroll-anchor-controller");
+assertNotIncludes(scrollAnchor, "ios && typeof window", "scroll-anchor-controller vv gate removed");
 
 // --- composer/header: no sticky/fixed keyboard hacks ---
 assertNotMatches(chatHeader, /sticky|fixed/, "ChatHeader");

@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, type RefObject } from "react";
+import { CM_ROOM_CHROME_HEIGHT_SYNC_EVENT } from "@/lib/ui/cm-room-visible-viewport-contract";
 
-export const CM_ROOM_CHROME_HEIGHT_SYNC_EVENT = "cm-room-chrome-height-synced";
+export { CM_ROOM_CHROME_HEIGHT_SYNC_EVENT };
 
 type Options = {
   enabled: boolean;

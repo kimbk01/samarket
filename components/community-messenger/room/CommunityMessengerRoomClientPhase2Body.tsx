@@ -8,8 +8,7 @@ import { CommunityMessengerRoomShellSkeleton } from "@/components/community-mess
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import type { MessengerRoomPhase2ViewModel } from "@/lib/community-messenger/room/phase2/messenger-room-phase2-view-model";
 import { useMatchMaxWidthMd } from "@/lib/ui/use-match-max-width";
-import { useCmRoomKbOffset } from "@/lib/ui/use-cm-room-kb-offset";
-import { useCmRoomComposerHeight } from "@/lib/ui/use-cm-room-composer-height";
+import { useCmRoomVisibleViewportShell } from "@/lib/ui/use-cm-room-visible-viewport-shell";
 import { useOwnerOrderChatSlideHost } from "@/components/business/owner/OwnerOrderChatSlideHostContext";
 import { useBuyerOrderChatSlideHost } from "@/components/mypage/BuyerOrderChatSlideHostContext";
 import { useMessengerRoomPhase2Controller } from "@/lib/community-messenger/room/phase2";
@@ -343,12 +342,7 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
   const isEmbeddedShell = Boolean(ownerSlideHost || buyerSlideHost);
   const shellLayoutEnabled = narrowViewport && !isEmbeddedShell;
 
-  useCmRoomKbOffset({
-    enabled: shellLayoutEnabled,
-    shellRef,
-  });
-
-  useCmRoomComposerHeight({
+  useCmRoomVisibleViewportShell({
     enabled: shellLayoutEnabled,
     shellRef,
   });

@@ -51,7 +51,9 @@ describe("chat chrome layout contract", () => {
     expect(css).toContain(".cm-room-timeline");
     expect(css).toContain(".cm-room-composer");
     expect(css).toContain("padding-top: var(--safe-top)");
-    expect(css).toContain("padding-bottom: calc(var(--safe-bottom) + var(--kb-offset, 0px))");
+    expect(css).toContain("padding-bottom: var(--cm-room-composer-bottom-padding, var(--safe-bottom))");
+    expect(css).toContain("--cm-room-timeline-height");
+    expect(css).toContain('data-cm-keyboard-open="true"');
     expect(css).not.toContain("--chat-viewport-height");
     expect(css).not.toContain("--chat-bottom-inset");
     expect(css).not.toContain("chat-viewport-shell");
@@ -62,10 +64,11 @@ describe("chat chrome layout contract", () => {
     expect(css).not.toMatch(/position:\s*sticky/);
   });
 
-  it("Phase2 body uses flex shell and iOS kb-offset hook only", () => {
+  it("Phase2 body uses visible viewport shell hook (vv SSOT)", () => {
     const src = readSrc("components/community-messenger/room/CommunityMessengerRoomClientPhase2Body.tsx");
-    expect(src).toContain("useCmRoomKbOffset");
-    expect(src).toContain("useCmRoomComposerHeight");
+    expect(src).toContain("useCmRoomVisibleViewportShell");
+    expect(src).not.toContain("useCmRoomKbOffset");
+    expect(src).not.toContain("useCmRoomComposerHeight");
     expect(src).toContain("cm-room-shell");
     expect(src).toContain("cm-room-timeline");
     expect(src).toContain("cm-room-composer");
@@ -113,9 +116,10 @@ describe("chat chrome layout contract", () => {
     expect(viewMemo).not.toMatch(/\n\s+room,\s*\n/);
   });
 
-  it("scroll anchor uses visualViewport on iOS only", () => {
+  it("scroll anchor listens to visualViewport on Android WebView and iOS", () => {
     const src = readSrc("lib/community-messenger/room/messenger-room-scroll-anchor-controller.ts");
-    expect(src).toContain("isLikelyIosWebKit");
-    expect(src).toMatch(/ios && typeof window/);
+    expect(src).toContain("keyboard_resize_keep_bottom");
+    expect(src).toContain("window.visualViewport");
+    expect(src).not.toMatch(/ios && typeof window[\s\S]*visualViewport/);
   });
 });

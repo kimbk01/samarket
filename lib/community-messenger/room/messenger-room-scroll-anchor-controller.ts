@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, type MutableRefObject, type RefObject } from "react";
 import type { Virtualizer } from "@tanstack/react-virtual";
 import { MESSENGER_STICK_TO_BOTTOM_THRESHOLD_PX } from "@/lib/ui/messenger-chat-viewport-tuning";
-import { CM_ROOM_CHROME_HEIGHT_SYNC_EVENT } from "@/lib/ui/use-cm-room-composer-height";
-import { isLikelyIosWebKit } from "@/lib/ui/is-likely-ios-webkit";
+import { CM_ROOM_CHROME_HEIGHT_SYNC_EVENT } from "@/lib/ui/cm-room-visible-viewport-contract";
 import { isMessengerRoomNearBottomFromMetrics } from "@/lib/community-messenger/room/messenger-room-timeline-ssot";
 import { resolveMessengerRoomMessagesAutoScroll } from "@/lib/community-messenger/room/messenger-room-messages-auto-scroll";
 import {
@@ -634,9 +633,8 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     window.addEventListener("resize", onLayoutViewport);
     window.addEventListener("orientationchange", onLayoutViewport);
 
-    const ios = isLikelyIosWebKit();
-    const vv = ios && typeof window !== "undefined" ? window.visualViewport : null;
-    const onVv = () => preserveOrKeepBottom("viewport_resize_keep_bottom");
+    const vv = typeof window !== "undefined" ? window.visualViewport : null;
+    const onVv = () => preserveOrKeepBottom("keyboard_resize_keep_bottom");
     vv?.addEventListener("resize", onVv);
     vv?.addEventListener("scroll", onVv);
 

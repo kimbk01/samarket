@@ -1,7 +1,8 @@
 /**
- * DIBAY 채팅방 flex-only layout shell — direct / trade / delivery / group 단일.
- * JS viewport height 주입 없음. Android adjustResize + flex column.
- * iOS overlay WebView만 `--kb-offset` (use-cm-room-kb-offset.ts).
+ * DIBAY CM room — Telegram/KakaoTalk-style flex shell.
+ * Height SSOT: `visualViewport.height` (use-cm-room-visible-viewport-shell.ts).
+ * keyboard closed: composer `safe-bottom` only.
+ * keyboard open: safe-bottom / nav gap 제거 — composer는 키보드 바로 위.
  */
 
 [data-cm-room].cm-room-shell {
@@ -26,7 +27,9 @@
 
 .cm-room-timeline {
   flex: 1 1 auto;
-  min-height: 0;
+  min-height: 1px;
+  height: var(--cm-room-timeline-height, auto);
+  max-height: var(--cm-room-timeline-height, none);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -34,7 +37,11 @@
 
 .cm-room-composer {
   flex: 0 0 auto;
-  padding-bottom: calc(var(--safe-bottom) + var(--kb-offset, 0px));
+  padding-bottom: var(--cm-room-composer-bottom-padding, var(--safe-bottom));
+}
+
+[data-cm-room].cm-room-shell[data-cm-keyboard-open="true"] .cm-room-composer {
+  padding-bottom: var(--cm-room-composer-bottom-padding, 0px);
 }
 
 .chat-header {
