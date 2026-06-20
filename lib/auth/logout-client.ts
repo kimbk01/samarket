@@ -126,16 +126,11 @@ async function beginImmediateLogout(scope: LogoutBackgroundScope): Promise<Logou
   markExplicitLogoutWipeDone();
   applyImmediateLogoutClientState();
 
-  let localSignOutOk = true;
-  if (scope !== "corrupt") {
-    localSignOutOk =
-      scope === "all_devices" ? await globalSupabaseSignOut() : await localSupabaseSignOut();
-  }
-
-  void runLogoutBackgroundCleanup(scope, {
-    skipLocalSignOut: scope !== "corrupt",
-    localSignOutOk,
-  }).catch((err) => {
+  /**
+   * 체감 속도 우선: local/global signOut + wipe/server 통지는 백그라운드 처리.
+   * 즉시 guest 상태 반영 후 이동을 막지 않는다.
+   */
+  void runLogoutBackgroundCleanup(scope).catch((err) => {
     if (typeof console !== "undefined") {
       console.error("[auth:logout] background cleanup failed", err);
     }
