@@ -67,9 +67,9 @@ describe("messenger-room-timeline-ssot", () => {
     expect(paint.map((m) => m.id)).toEqual(["snap-only"]);
   });
 
-  it("D/E/F — near-bottom threshold uses unified 80px constant", () => {
+  it("D/E/F — near-bottom threshold uses unified 96px constant", () => {
     const threshold = MESSENGER_STICK_TO_BOTTOM_THRESHOLD_PX;
-    expect(threshold).toBe(80);
+    expect(threshold).toBe(96);
     expect(
       isMessengerRoomNearBottomFromMetrics(
         { scrollHeight: 1000, scrollTop: 920, clientHeight: 80 },

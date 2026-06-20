@@ -86,11 +86,12 @@ describe("incoming-call native contract", () => {
     expect(src).toContain('DibayCallConsumedStore.mark(context, sid, "missed")');
   });
 
-  it("native coordinator PATCHes accept on background thread before direct route", () => {
+  it("native coordinator routes accept to web call-engine (no native PATCH accept)", () => {
     const src = read("android/app/src/main/java/com/dibay/app/IncomingCallActionCoordinator.java");
-    expect(src).toContain('CallSessionPatchHelper.patch(app, sid, "accept")');
+    expect(src).not.toContain('CallSessionPatchHelper.patch(app, sid, "accept")');
     expect(src).toContain("accept_route_direct");
     expect(src).toContain("buildMainActivityCallAcceptIntent");
+    expect(src).toContain("deliverForegroundIncomingAcceptEvent");
   });
 
   it("FCM foreground unlocked launches native pill instead of web-only delegate", () => {
