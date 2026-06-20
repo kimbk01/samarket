@@ -7,7 +7,7 @@ export const CM_ROOM_NAVIGATION_GAP_PX = 48;
 /** tail message ↔ composer top 목표 간격(px) */
 export const CM_ROOM_TAIL_COMPOSER_GAP_MIN_PX = 8;
 export const CM_ROOM_TAIL_COMPOSER_GAP_MAX_PX = 16;
-export const CM_ROOM_TAIL_COMPOSER_GAP_DEFAULT_PX = 12;
+export const CM_ROOM_TAIL_COMPOSER_GAP_DEFAULT_PX = 8;
 
 export const CM_ROOM_VISIBLE_VIEWPORT_MIN_PX = 240;
 

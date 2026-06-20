@@ -115,7 +115,7 @@
   overflow-anchor: none;
   min-height: 1px;
   flex: 1 1 0%;
-  scroll-padding-bottom: var(--cm-timeline-scroll-padding-bottom, 12px);
+  scroll-padding-bottom: var(--cm-timeline-scroll-padding-bottom, 8px);
 }
 
 [data-cm-room] .chat-timeline-sheet {
@@ -138,7 +138,7 @@
 }
 
 [data-cm-room] .chat-timeline-inner--messenger {
-  padding-bottom: 8px;
+  padding-bottom: 0;
 }
 
 [data-cm-room] .chat-timeline-inner--trade {

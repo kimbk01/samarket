@@ -38,10 +38,15 @@ import { messengerRoomTracksScrollPosition } from "@/lib/community-messenger/not
 import { useMessengerRoomReaderStateStore } from "@/lib/community-messenger/notifications/messenger-room-reader-state-store";
 import {
   isMessengerRoomEntryBottomScrollReason,
+  isMessengerRoomComposerHeightSynced,
   resolveMessengerRoomEntryScrollPaintReady,
   snapshotMessengerRoomTimelineViewportProbe,
 } from "@/lib/community-messenger/room/messenger-room-entry-scroll-ready";
 import { emitCmRoomTimelineEntryProbeLog } from "@/lib/community-messenger/room/cm-room-pass-instrumentation";
+import { messengerRoomDistanceFromBottom } from "@/lib/community-messenger/room/messenger-room-timeline-ssot";
+
+/** entry tail settle — 이미 bottom 이면 재-scroll 생략 (깜빡임 방지) */
+const MESSENGER_ENTRY_TAIL_SETTLE_SKIP_PX = 8;
 
 export type MessengerRoomScrollAnchorRequest = {
   reason: CmScrollOwnerReason;
@@ -309,13 +314,25 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
           virtualizer &&
           (alwaysScroll || !isKeepBottomChromeReason(reason))
         ) {
-          try {
-            virtualizer.scrollToIndex(count - 1, { align: "end" });
-          } catch {
-            /* virtualizer not ready */
+          const tailSettleReason = isMessengerEntryTailSettleReason(reason);
+          const distFromBottom = messengerRoomDistanceFromBottom({
+            scrollHeight: vp.scrollHeight,
+            scrollTop: vp.scrollTop,
+            clientHeight: vp.clientHeight,
+          });
+          if (!(tailSettleReason && distFromBottom <= MESSENGER_ENTRY_TAIL_SETTLE_SKIP_PX)) {
+            if (!tailSettleReason) {
+              try {
+                virtualizer.scrollToIndex(count - 1, { align: "end" });
+              } catch {
+                /* virtualizer not ready */
+              }
+            }
+            vp.scrollTop = vp.scrollHeight;
           }
+        } else {
+          vp.scrollTop = vp.scrollHeight;
         }
-        vp.scrollTop = vp.scrollHeight;
         if (rid && messengerRoomTracksScrollPosition()) {
           useMessengerRoomReaderStateStore.getState().setScrollPosition(rid, "at-bottom");
         }
@@ -340,13 +357,11 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
         if (isEntryRestoreReason(reason) || reason === "room_entry_restore") {
           markMessengerRoomEntryScrollSettled(rid, reason);
           if (isMessengerEntryBottomLoadReason(reason)) {
-            pendingTailSettleRef.current = true;
-            const shell = messagesViewportRef.current?.closest("[data-cm-room-id]") as
-              | HTMLElement
-              | null;
-            const composerHeight = shell?.style.getPropertyValue("--chat-composer-height")?.trim() ?? "";
-            if (composerHeight && composerHeight !== "0px") {
-              schedulePendingEntryTailSettleRef.current();
+            if (isMessengerRoomComposerHeightSynced(vp)) {
+              tailSettleDoneRef.current = true;
+              pendingTailSettleRef.current = false;
+            } else {
+              pendingTailSettleRef.current = true;
             }
           }
         }

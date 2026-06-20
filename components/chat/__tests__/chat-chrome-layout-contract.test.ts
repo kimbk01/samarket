@@ -57,7 +57,7 @@ describe("chat chrome layout contract", () => {
     expect(css).not.toContain("--chat-viewport-height");
     expect(css).not.toContain("--chat-bottom-inset");
     expect(css).not.toContain("chat-viewport-shell");
-    expect(css).toContain("scroll-padding-bottom: var(--cm-timeline-scroll-padding-bottom, 12px)");
+    expect(css).toContain("scroll-padding-bottom: var(--cm-timeline-scroll-padding-bottom, 8px)");
     expect(css).toMatch(/\.cm-room-timeline[\s\S]*overflow:\s*hidden/);
     expect(css).toContain("cm-room-shell--embedded");
     expect(css).not.toMatch(/position:\s*fixed/);

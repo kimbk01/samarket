@@ -8,8 +8,11 @@ export const MESSENGER_STORE_ORDER_SUMMARY_ROW_ESTIMATE_PX = 520;
 /** store_order 상태 system 한 줄 */
 export const MESSENGER_STORE_ORDER_OPS_ROW_ESTIMATE_PX = 88;
 
-/** 통화 내역(call_stub) — 일반 메시지 96px 추정 금지, 카톡/텔레그램형 compact event row */
-export const MESSENGER_CALL_STUB_ROW_ESTIMATE_PX = 56;
+/**
+ * 통화 내역(call_stub) — compact event row + row wrapper pt/pb 포함 추정.
+ * (min-h 40 pill + py-1.5 + pt-2 + pb-1 ≈ 64px)
+ */
+export const MESSENGER_CALL_STUB_ROW_ESTIMATE_PX = 64;
 
 export function estimateMessengerTimelineRowPx(
   message: Pick<CommunityMessengerMessage, "messageType" | "content" | "metadata"> | undefined

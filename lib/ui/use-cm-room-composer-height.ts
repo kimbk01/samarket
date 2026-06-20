@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, type RefObject } from "react";
-import { CM_ROOM_CHROME_HEIGHT_SYNC_EVENT } from "@/lib/ui/cm-room-visible-viewport-contract";
+import {
+  CM_ROOM_CHROME_HEIGHT_SYNC_EVENT,
+  CM_ROOM_TAIL_COMPOSER_GAP_DEFAULT_PX,
+} from "@/lib/ui/cm-room-visible-viewport-contract";
 
 export { CM_ROOM_CHROME_HEIGHT_SYNC_EVENT };
 
@@ -33,7 +36,7 @@ export function useCmRoomComposerHeight(opts: Options): void {
       const tradeDockEl = shell.querySelector<HTMLElement>("[data-cm-trade-dock]");
       const composerPx = measureBlockHeight(composerEl);
       const tradeDockPx = measureBlockHeight(tradeDockEl);
-      const tailGapPx = 12;
+      const tailGapPx = CM_ROOM_TAIL_COMPOSER_GAP_DEFAULT_PX;
 
       shell.style.setProperty("--chat-composer-height", `${composerPx}px`);
       shell.style.setProperty("--cm-trade-dock-height", `${tradeDockPx}px`);

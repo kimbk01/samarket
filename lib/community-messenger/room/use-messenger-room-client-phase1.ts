@@ -303,6 +303,10 @@ export function useMessengerRoomClientPhase1({
   const olderMessagesExhaustedRef = useRef(false);
   const topOlderSentinelRef = useRef<HTMLDivElement | null>(null);
   const loadOlderMessagesRef = useRef<() => void>(() => {});
+  const chatVirtualizerRef = useRef<{
+    scrollOffset?: number;
+    scrollToOffset?: (offset: number, options?: { align?: "start" | "center" | "end" | "auto" }) => void;
+  } | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -1478,6 +1482,7 @@ export function useMessengerRoomClientPhase1({
     roomMessagesRef,
     setRoomMessages,
     messagesViewportRef,
+    chatVirtualizerRef,
     olderMessagesExhaustedRef,
     loadOlderMessagesRef,
     hasMoreOlderMessages,
@@ -1649,6 +1654,10 @@ export function useMessengerRoomClientPhase1({
   const fileMessageCount = timelineHeavyBundle?.fileMessageCount ?? 0;
   const linkMessageCount = timelineHeavyBundle?.linkMessageCount ?? 0;
   const chatVirtualizer = timelineHeavyBundle?.chatVirtualizer ?? CM_ROOM_EMPTY_VIRTUALIZER_STUB;
+
+  useEffect(() => {
+    chatVirtualizerRef.current = (timelineHeavyBundle?.chatVirtualizer ?? null) as typeof chatVirtualizerRef.current;
+  }, [timelineHeavyBundle?.chatVirtualizer]);
 
   const tradeDockScrollAnchorEnabled = useMemo(() => {
     const room = snapshot?.room;
