@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { noteCmRoomPhase2HydratedModuleEval } from "@/lib/community-messenger/room/cm-room-phase2-entry-perf";
 
 noteCmRoomPhase2HydratedModuleEval();
@@ -343,14 +343,9 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
   const isEmbeddedShell = Boolean(ownerSlideHost || buyerSlideHost);
   const shellLayoutEnabled = narrowViewport && !isEmbeddedShell;
 
-  const keepBottomOnKeyboard = useCallback(() => {
-    room.scrollMessengerToBottom({ reason: "keyboard_resize_keep_bottom" });
-  }, [room.scrollMessengerToBottom]);
-
   useCmRoomKbOffset({
     enabled: shellLayoutEnabled,
     shellRef,
-    onKeyboardInsetChange: keepBottomOnKeyboard,
   });
 
   useCmRoomComposerHeight({

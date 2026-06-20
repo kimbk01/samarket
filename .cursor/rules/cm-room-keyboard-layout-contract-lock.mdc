@@ -1,0 +1,102 @@
+---
+description: CM Room Keyboard/Layout 계약 LOCK — P0(8a91e387) 이후 회귀 영구 금지
+alwaysApply: false
+globs:
+  - app/chat-viewport-shell.css
+  - lib/ui/use-cm-room-kb-offset.ts
+  - lib/ui/messenger-chat-viewport-tuning.ts
+  - components/community-messenger/room/CommunityMessengerRoomClientPhase2Body.tsx
+  - components/community-messenger/room/CommunityMessengerRoomPhase2.tsx
+  - components/community-messenger/room/phase2/**
+  - components/chat/ChatHeader.tsx
+  - components/chat/ChatComposer.tsx
+  - lib/community-messenger/room/messenger-room-scroll-anchor-controller.ts
+  - lib/community-messenger/room/use-messenger-room-reader-scroll-bottom.ts
+---
+
+# CM Room Keyboard Layout Contract (LOCK)
+
+**상태:** P0 완료 (`8a91e387`) — **이 구조를 SSOT로 고정한다.**
+
+**정본:** `docs/community-messenger-mobile-room-viewport.md` · 검증: `npm run verify:cm-room-keyboard-layout-contract`
+
+---
+
+## 목표
+
+카카오톡·텔레그램·당근·배민 수준의 안정적 채팅방. **Composer가 헤더 밑으로 올라가는 회귀 영구 금지.**
+
+## 구조 (변경 금지 — 레이어 추가 금지)
+
+```txt
+CommunityMessengerRoomShell
+├ ChatHeader
+├ MessageTimeline
+├ MessageScrollController
+├ ChatComposer
+└ useCmRoomKbOffset (iOS only)
+```
+
+| 플랫폼 | 허용 |
+|--------|------|
+| **Android** | OS `adjustResize` + `safe-bottom` only |
+| **iOS** | `safe-bottom` + `--kb-offset` only |
+
+## Flex 계약
+
+| 영역 | CSS |
+|------|-----|
+| `cm-room-shell` | `display:flex; flex-direction:column; min-height:0; overflow:hidden` |
+| Header | `flex-shrink:0` |
+| Timeline | `flex:1; min-height:0; overflow-y:auto` |
+| Composer | `flex-shrink:0` — **`position:fixed`/`sticky` 금지** |
+
+## 하단 영역 — 단일 권한
+
+하단 여백 권한은 **`safe-bottom` 한 곳** (composer: `calc(--safe-bottom + --kb-offset)`).
+
+**동시 사용 금지:** `safe-bottom` × nav gap × keyboard bottom × bottom inset.
+
+## 절대 재도입 금지
+
+- `--chat-viewport-height`, `--chat-bottom-inset`
+- keyboard dedupe / hysteresis / slack 값
+- `translateY`, transform keyboard patch, bottom patch
+- Android `visualViewport` layout (scroll path 포함)
+- `keyboardOverlapSuppressed`
+- `useChatViewportShellInsets`, `chat-viewport-shell-platform`, `useMessengerTradeKeyboardChrome`
+- 중복 viewport Provider
+
+**통화 전용** `CallScreenShell` / `--call-viewport-height` 는 방 셸과 **분리 유지**.
+
+## 정상 동작
+
+1. 방 진입 즉시 히스토리 표시
+2. 키보드 open → Composer는 키보드 바로 위
+3. **Composer가 헤더 밑으로 이동 = 버그**
+4. 전송 후 키보드 유지
+5. Timeline만 follow
+6. flicker·scroll jump 없음
+7. 키보드 close → 자연 복귀
+
+## 레드팀 — 문제 발생 시
+
+**추가 금지:** viewport patch · keyboard layer · Provider · transform · translateY · slack · hysteresis · if 땜빵.
+
+원인은 **기존 구조 안에서** 찾고, **제거·단순화**로 해결한다.
+
+## 향후 Epic (별도 — LOCK 위반으로 끼워 넣지 않음)
+
+| Epic | 내용 |
+|------|------|
+| P1 | dead code 제거 |
+| P2 | render boundary |
+| P3 | MessageScrollController 독립 |
+| P4 | legacy `/chats` 통합 |
+| P5 | Pass0~3 단일화 |
+
+## 최종 원칙
+
+1. 문제 해결을 위해 **레이어를 추가하지 않는다.**
+2. **구조를 단순**하게 유지한다.
+3. 카카오톡·텔레그램처럼 **제거하면서 단일 구조로 수렴**한다.

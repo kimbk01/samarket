@@ -196,7 +196,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
       }
 
       const alwaysScroll = force || isAlwaysScrollReason(reason);
-      if (!alwaysScroll && !isEntryRestoreReason(reason)) {
+      if (!alwaysScroll && !isEntryRestoreReason(reason) && !isKeepBottomChromeReason(reason)) {
         const nearBottom = resolveMessengerRoomNearBottomForAutoScroll({
           viewport: vp,
           stickToBottomRef,
@@ -205,6 +205,10 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
           lastScrollGeomRef,
         });
         if (!nearBottom) return true;
+      }
+
+      if (isKeepBottomChromeReason(reason) && !stickToBottomRef.current) {
+        return true;
       }
 
       if (alwaysScroll || isEntryRestoreReason(reason) || isKeepBottomChromeReason(reason)) {
@@ -271,7 +275,23 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     flushRafRef.current = null;
     const batch = queueRef.current.splice(0, queueRef.current.length);
     if (batch.length === 0) return;
+
+    const deduped: MessengerRoomScrollAnchorRequest[] = [];
     for (const req of batch) {
+      const prev = deduped[deduped.length - 1];
+      if (
+        prev &&
+        isKeepBottomChromeReason(prev.reason) &&
+        isKeepBottomChromeReason(req.reason) &&
+        prev.force === req.force
+      ) {
+        deduped[deduped.length - 1] = req;
+        continue;
+      }
+      deduped.push(req);
+    }
+
+    for (const req of deduped) {
       const applied = applyScrollRequest(req);
       if (!applied) {
         const retryCount = (req.retryCount ?? 0) + 1;
@@ -445,14 +465,6 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     const roTimeline = new ResizeObserver(() => preserveOrKeepBottom("viewport_resize_keep_bottom"));
     roTimeline.observe(el);
 
-    const shell = el.closest("[data-cm-room]");
-    const composerEl = shell?.querySelector(".cm-room-composer") ?? null;
-    const roComposer =
-      composerEl && typeof ResizeObserver !== "undefined"
-        ? new ResizeObserver(() => preserveOrKeepBottom("composer_resize_keep_bottom"))
-        : null;
-    if (composerEl && roComposer) roComposer.observe(composerEl);
-
     const onLayoutViewport = () => preserveOrKeepBottom("viewport_resize_keep_bottom");
     window.addEventListener("resize", onLayoutViewport);
     window.addEventListener("orientationchange", onLayoutViewport);
@@ -466,7 +478,6 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     return () => {
       cancelAnimationFrame(rafId);
       roTimeline.disconnect();
-      roComposer?.disconnect();
       vv?.removeEventListener("resize", onVv);
       vv?.removeEventListener("scroll", onVv);
       window.removeEventListener("resize", onLayoutViewport);

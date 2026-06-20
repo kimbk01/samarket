@@ -51,4 +51,14 @@ describe("messenger room scroll anchor policy", () => {
       })
     ).toEqual({ scroll: false, reason: "skip_ack_id_replace" });
   });
+
+  it("peer append candidate does not imply scroll without near-bottom gate", () => {
+    const decision = resolveMessengerRoomMessagesAutoScroll({
+      previousTailMessageId: "m1",
+      currentTailMessageId: "m2",
+      currentTailIsMine: false,
+    });
+    expect(decision.scroll).toBe(true);
+    expect(decision.reason).toBe("peer_message_append");
+  });
 });

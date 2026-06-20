@@ -53,6 +53,7 @@ alwaysApply: true
 | 거래 상세·채팅·`/post`·`trade-detail` | `verify:trade-hot-path-contract`, `verify:trade-primary-tab-transition` |
 | 거래 홈·`/market` 목록 | `verify:trade-primary-tab-transition`, `verify:bundle-budget-baseline` (번들 변경 시) |
 | 메인 하단 FAB·`MainBottomNavFabSector` | `verify:main-bottom-nav-fab-sector-contract`, `verify:delivery-dial-navigation-contract` |
+| 메신저 방 viewport·keyboard·Phase2 셸 | `verify:cm-room-keyboard-layout-contract`, `vitest run components/chat/__tests__/chat-chrome-layout-contract.test.ts` |
 | 메신저 홈·Realtime·bootstrap | `verify:messenger-home`, `verify:messenger-home-list-owner`, `verify:messenger-realtime-store-scope`, `verify:messenger-consistency-structural`, `verify:cm-bootstrap-snapshot-*` (스냅샷/RPC 변경 시) |
 | 스토어 장바구니·결제·자동영업 | `verify:store-cart-sheet-contract`, `verify:store-cart-hooks-contract`, `verify:store-payment-cod-label-contract`, `verify:store-auto-hours-contract` |
 | 스토어 홈·browse·featured 썸네일 | `verify:stores-home-hub-contract`, `verify:store-delivery-featured-thumbnails-contract`, `verify:stores-browse-snapshot-*` |

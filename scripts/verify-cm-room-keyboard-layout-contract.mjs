@@ -98,7 +98,7 @@ assertNotMatches(shellCss, /position:\s*sticky/, "chat-viewport-shell.css");
 assertIncludes(shellCss, "--cm-timeline-scroll-padding-bottom", "chat-viewport-shell.css");
 assertIncludes(body, "useCmRoomKbOffset", "Phase2Body");
 assertIncludes(body, "useCmRoomComposerHeight", "Phase2Body");
-assertIncludes(body, "keyboard_resize_keep_bottom", "Phase2Body");
+assertNotIncludes(body, "onKeyboardInsetChange", "Phase2Body");
 assertIncludes(body, "cm-room-shell", "Phase2Body");
 assertIncludes(body, "cm-room-timeline", "Phase2Body");
 assertIncludes(body, "cm-room-composer", "Phase2Body");

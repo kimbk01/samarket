@@ -43,8 +43,10 @@ export function useCmRoomComposerHeight(opts: Options): void {
     const schedule = () => {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
-        raf = 0;
-        sync();
+        raf = requestAnimationFrame(() => {
+          raf = 0;
+          sync();
+        });
       });
     };
 

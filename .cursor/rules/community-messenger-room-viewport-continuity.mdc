@@ -15,10 +15,13 @@ globs:
 
 # 메신저 방 모바일 뷰포트 연속성
 
+**LOCK:** `.cursor/rules/cm-room-keyboard-layout-contract-lock.mdc` (P0 `8a91e387`)
+
 ## 수정 전 (필수)
 
-1. **`docs/community-messenger-mobile-room-viewport.md`** 를 연다 — flex-only 계약·파일 표·**§5 체크리스트**·**§7 변경 이력**.
-2. 되돌리기·부분 리버트 시 **§7 최근 행**과 비교해, `--chat-viewport-height` / dedupe 레이어가 다시 들어오지 않았는지 확인한다.
+1. **`docs/community-messenger-mobile-room-viewport.md` §0 LOCK** · §5 체크리스트 · §7 변경 이력.
+2. **`npm run verify:cm-room-keyboard-layout-contract`** — 현재 PASS 기준 확인.
+3. 되돌리기·부분 리버트 시 **§7 최근 행**과 비교해, `--chat-viewport-height` / dedupe 레이어가 다시 들어오지 않았는지 확인한다.
 
 ## 금지·주의
 
@@ -28,6 +31,7 @@ globs:
 - **`useMessengerRoomClientPhase1`** 에서 **커스텀 훅 호출 순서**를 바꾸지 않는다.
 - 스크롤 보정을 **폴링·임시 `window.scrollTo`만**으로 대체하지 않는다.
 - Android scroll path에 **`visualViewport` listener** 를 다시 붙이지 않는다 (iOS only).
+- **레드팀:** viewport patch·keyboard layer·Provider·transform·slack·hysteresis·if 땜빵 **추가 금지** — 제거·단순화만.
 
 ## 변경 후
 
