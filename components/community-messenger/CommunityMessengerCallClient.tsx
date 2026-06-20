@@ -908,11 +908,12 @@ export function CommunityMessengerCallClient({
     }
   }, [session?.endedReason, session?.id, session?.status]);
 
+  /** Agora `joined` 전까지 수락 connecting 래치 유지 — active 직후 벨 UI 재등장 방지 (P1-2) */
   useEffect(() => {
-    if (session?.status === "active") {
+    if (joined) {
       setCalleeVideoConnectingShell(false);
     }
-  }, [session?.status]);
+  }, [joined]);
 
   useEffect(() => {
     latencyFirstScreenLoggedRef.current = false;
@@ -1183,19 +1184,25 @@ export function CommunityMessengerCallClient({
   }, [sessionId]);
 
   useLayoutEffect(() => {
-    if (requestedAction !== "accept") return;
+    if (requestedAction !== "accept" && !nativeAcceptRoute) return;
     const s = session;
-    if (s && s.id === sessionId && !s.isMineInitiator && s.status === "ringing") {
+    if (!s || s.id !== sessionId || s.isMineInitiator) return;
+    if (s.status === "ringing") {
+      setCalleeVideoConnectingShell(true);
+      return;
+    }
+    if (nativeAcceptRoute && s.status === "active" && !joinedRef.current) {
       setCalleeVideoConnectingShell(true);
     }
-  }, [requestedAction, sessionId, session?.id, session?.isMineInitiator, session?.status, session]);
-
-  useEffect(() => {
-    if (!session) return;
-    if (session.status !== "ringing") {
-      setCalleeVideoConnectingShell(false);
-    }
-  }, [session?.id, session?.status]);
+  }, [
+    nativeAcceptRoute,
+    requestedAction,
+    sessionId,
+    session?.id,
+    session?.isMineInitiator,
+    session?.status,
+    session,
+  ]);
 
   useEffect(() => {
     if (!session) {
@@ -1247,14 +1254,36 @@ export function CommunityMessengerCallClient({
 
   useEffect(() => {
     const s = session;
-    if (!s?.id || s.status !== "ringing") return;
+    if (!s?.id || s.status !== "active") return;
     if (!s.isMineInitiator || s.callKind !== "video") return;
-    const key = `${s.id}:outgoing_video_preview_seed`;
+    const key = `${s.id}:outgoing_video_active_route_seed`;
     if (callAudioRouteSeedRef.current.has(key)) return;
     callAudioRouteSeedRef.current.add(key);
-    void applyCallAudioRouteForSession(s, true, "outgoing_video_preview_seed");
+    void applyCallAudioRouteForSession(s, true, "outgoing_video_active_route_seed");
   }, [
     applyCallAudioRouteForSession,
+    session?.callKind,
+    session?.id,
+    session?.isMineInitiator,
+    session?.status,
+    session,
+  ]);
+
+  /** 수신 영상 accept 경로 — native/웹 공통 스피커 시드 (ringing·active 진입 직후) */
+  useEffect(() => {
+    const s = session;
+    if (!s?.id || s.isMineInitiator || s.callKind !== "video") return;
+    const onAcceptPath = requestedAction === "accept" || nativeAcceptRoute;
+    if (!onAcceptPath) return;
+    if (s.status !== "active" && s.status !== "ringing") return;
+    const key = `${s.id}:callee_accept_video_route_seed`;
+    if (callAudioRouteSeedRef.current.has(key)) return;
+    callAudioRouteSeedRef.current.add(key);
+    void applyCallAudioRouteForSession(s, true, "callee_accept_video_route_seed");
+  }, [
+    applyCallAudioRouteForSession,
+    nativeAcceptRoute,
+    requestedAction,
     session?.callKind,
     session?.id,
     session?.isMineInitiator,
@@ -2696,7 +2725,7 @@ export function CommunityMessengerCallClient({
           throw new Error("agora_join_blocked");
         }
         logDibayCall("agora_join_success", { sessionId: targetSession.id, callKind: targetSession.callKind });
-        void applyCallAudioRouteForSession(
+        await applyCallAudioRouteForSession(
           targetSession,
           desiredSpeakerForSession(targetSession),
           "agora_join_success"
@@ -2759,6 +2788,14 @@ export function CommunityMessengerCallClient({
           client,
           tracks: localTracksRef.current!,
         });
+        if (isVideoCallJoin) {
+          await applyCallAudioRouteForSession(
+            targetSession,
+            desiredSpeakerForSession(targetSession),
+            "agora_post_publish_route",
+            { remoteAudioTrack: remoteAudioTrackRef.current }
+          );
+        }
         const at = localTracksRef.current?.audioTrack;
         if (at) {
           try {
@@ -2934,6 +2971,14 @@ export function CommunityMessengerCallClient({
         dibayIncomingLaneStopRing("accept_route_entered", s.id);
         dismissAllIncomingCallNotificationsFireAndForget(s.id);
         try {
+          if (s.status === "active") {
+            clearNativeCalleeAcceptPending(s.id);
+            runIncomingCallCleanup({ sessionId: s.id, reason: "accept_route_active_seed", stopRingtone: false });
+            if (s.callKind === "video") {
+              void applyCallAudioRouteForSession(s, true, "native_accept_active_seed");
+            }
+            return s;
+          }
           const refreshed = await refreshSession(true);
           if (refreshed?.status === "active") {
             clearNativeCalleeAcceptPending(s.id);
@@ -3358,6 +3403,16 @@ export function CommunityMessengerCallClient({
         setSession(loaded);
         sessionRef.current = loaded;
         setLoading(false);
+        if (requestedAction === "accept" || nativeAcceptRoute) {
+          setCalleeVideoConnectingShell(true);
+          if (loaded.callKind === "video") {
+            const key = `${sessionId}:hydrate_accept_active_video_route`;
+            if (!callAudioRouteSeedRef.current.has(key)) {
+              callAudioRouteSeedRef.current.add(key);
+              void applyCallAudioRouteForSession(loaded, true, "hydrate_accept_active_video_route");
+            }
+          }
+        }
         dibayIncomingLaneStopRing("hydrate_accept_already_active", sessionId);
         runIncomingCallCleanup({ sessionId, reason: "hydrate_accept_already_active", stopRingtone: false });
         return;
@@ -4935,11 +4990,14 @@ export function CommunityMessengerCallClient({
     (requestedAction === "accept" || busy === "accept" || calleeVideoConnectingShell);
   const calleeAcceptInFlightUi =
     !session.isMineInitiator &&
-    session.status === "ringing" &&
-    (requestedAction === "accept" ||
-      busy === "accept" ||
-      busy === "join" ||
-      calleeVideoConnectingShell);
+    ((!joined &&
+      session.status === "active" &&
+      (calleeVideoConnectingShell || requestedAction === "accept" || nativeAcceptRoute)) ||
+      (session.status === "ringing" &&
+        (requestedAction === "accept" ||
+          busy === "accept" ||
+          busy === "join" ||
+          calleeVideoConnectingShell)));
   const callScreenPhase: CallPhase =
     agoraReconnecting && (effectiveDirectPhase === "connected" || effectiveDirectPhase === "connecting")
       ? "connecting"

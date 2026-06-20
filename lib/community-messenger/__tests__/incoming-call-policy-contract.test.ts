@@ -62,6 +62,13 @@ describe("incoming-call policy contracts", () => {
     expect(src).toContain("nativeAcceptRoute && requestedActionRef.current === \"accept\"");
     expect(src).toContain("requestedAction === \"accept\" && nativeAcceptRoute");
     expect(src).toContain("일반 `action=accept` 는 아직 PATCH 가 필요");
+    expect(src).toContain("accept_route_active_seed");
+    expect(src).toContain("callee_accept_video_route_seed");
+    expect(src).toContain("await applyCallAudioRouteForSession");
+    expect(src).toContain("agora_post_publish_route");
+    expect(src).toContain("if (joined) {\n      setCalleeVideoConnectingShell(false);");
+    expect(src).not.toContain("if (session?.status === \"active\") {\n      setCalleeVideoConnectingShell(false);");
+    expect(src).not.toContain("outgoing_video_preview_seed");
   });
 
   it("RouteHost consumes pending call route on resume", () => {
