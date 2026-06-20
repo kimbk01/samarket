@@ -48,6 +48,10 @@ describe("call terminal navigation policy", () => {
     const dismissIdx = routeFirstBlock.indexOf("dismissIncomingPresenterAfterAccept({");
     expect(replaceIdx).toBeGreaterThan(-1);
     expect(dismissIdx).toBeGreaterThan(replaceIdx);
+    expect(global).toContain("acceptIncomingCallOnce");
+    expect(global).toContain("?action=accept&mode=active&source=banner");
+    expect(client).toContain("primeCommunityMessengerCallConnectionPrefetch(sessionId)");
+    expect(client).toContain("onAcceptEntryRoute");
   });
 
   it("native accept routes skip duplicate PATCH in CallClient", () => {

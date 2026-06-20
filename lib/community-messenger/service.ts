@@ -18368,14 +18368,82 @@ export async function updateCommunityMessengerCallSession(input: {
           })
           .eq("session_id", sessionId)
           .eq("user_id", input.userId);
-        const mapped = await mapCallSession(
-          input.userId,
-          updated as CallSessionRow,
-          undefined,
-          undefined,
-          undefined,
-          "labels_only"
-        );
+        /**
+         * direct accept/reject/end hot path:
+         * - participants 테이블 재조회 1RTT 제거
+         * - mapCallSession 내부 peer avatar 재-hydrate 1RTT 제거
+         */
+        const initiatorId = trimText(updated.initiator_user_id);
+        const recipientId = trimText(updated.recipient_user_id);
+        const rowStartedAt = trimText(updated.started_at) || nowIso();
+        const rowAnsweredAt = trimText(updated.answered_at) || null;
+        const rowEndedAt = trimText(updated.ended_at) || null;
+        const rowStatus = (updated.status ?? next.nextStatus) as CommunityMessengerCallSessionStatus;
+        let mapped: CommunityMessengerCallSession;
+        if (initiatorId && recipientId) {
+          const directParticipantRows: CallSessionParticipantRow[] = [
+            {
+              id: `${updated.id}:${initiatorId}`,
+              session_id: updated.id,
+              room_id: updated.room_id,
+              user_id: initiatorId,
+              participation_status:
+                rowStatus === "active"
+                  ? "joined"
+                  : isTerminalCallSessionStatus(rowStatus)
+                    ? "left"
+                    : "invited",
+              joined_at: rowStatus === "active" ? rowAnsweredAt : null,
+              left_at:
+                isTerminalCallSessionStatus(rowStatus) || next.nextStatus === "rejected" ? rowEndedAt : null,
+              created_at: rowStartedAt,
+            },
+            {
+              id: `${updated.id}:${recipientId}`,
+              session_id: updated.id,
+              room_id: updated.room_id,
+              user_id: recipientId,
+              participation_status:
+                rowStatus === "active"
+                  ? "joined"
+                  : next.nextStatus === "rejected"
+                    ? "rejected"
+                    : isTerminalCallSessionStatus(rowStatus)
+                      ? "left"
+                      : "invited",
+              joined_at: rowStatus === "active" ? rowAnsweredAt : null,
+              left_at:
+                isTerminalCallSessionStatus(rowStatus) || next.nextStatus === "rejected" ? rowEndedAt : null,
+              created_at: rowStartedAt,
+            },
+          ];
+          let profileMapSeed: Map<string, CommunityMessengerProfileLite> | undefined;
+          try {
+            const profileSeedRows = await hydrateProfilesLabelsOnly(input.userId, [initiatorId, recipientId], {
+              includeSelf: true,
+            });
+            profileMapSeed = new Map(profileSeedRows.map((row) => [row.id, row]));
+          } catch {
+            profileMapSeed = undefined;
+          }
+          mapped = await mapCallSession(
+            input.userId,
+            updated as CallSessionRow,
+            directParticipantRows,
+            profileMapSeed,
+            true,
+            "labels_only"
+          );
+        } else {
+          mapped = await mapCallSession(
+            input.userId,
+            updated as CallSessionRow,
+            undefined,
+            undefined,
+            undefined,
+            "labels_only"
+          );
+        }
         invalidateActiveCallSessionByUserRoomCacheForRoom(mapped.roomId);
         if (isTerminalCallSessionStatus(next.nextStatus)) {
           const peerUserId = messengerUserIdsEqual(updated.initiator_user_id, input.userId)

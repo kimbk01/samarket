@@ -2232,6 +2232,26 @@ export function CommunityMessengerCallClient({
     return json.connection;
   }, [sessionId, t]);
 
+  /**
+   * 수신 accept 라우트는 세션 hydrate 전에 먼저 도착할 수 있다.
+   * 이 구간에서 connection prefetch 를 즉시 시작해 PATCH/active 확인과 토큰 fetch 를 병렬화한다.
+   */
+  useEffect(() => {
+    if (isCommunityMessengerTempCallSessionId(sessionId)) return;
+    if (!isCommunityMessengerAgoraAppConfigured()) return;
+    if (prefetchedConnectionRef.current) return;
+    const onAcceptEntryRoute =
+      requestedAction === "accept" || nativePrepRoute || nativeAcceptCompletedRoute || nativeAcceptOwnedRoute;
+    if (!onAcceptEntryRoute) return;
+    primeCommunityMessengerCallConnectionPrefetch(sessionId);
+  }, [
+    nativeAcceptCompletedRoute,
+    nativeAcceptOwnedRoute,
+    nativePrepRoute,
+    requestedAction,
+    sessionId,
+  ]);
+
   useEffect(() => {
     if (!session) return;
     if (isCommunityMessengerTempCallSessionId(sessionId)) return;
