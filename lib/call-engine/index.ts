@@ -13,6 +13,7 @@ export {
 } from "@/lib/call-engine/call-engine-state";
 export {
   acceptCall,
+  clearAcceptCallPatchedId,
   resetAcceptCallEngineForTests,
   type AcceptCallOptions,
   type AcceptCallResult,

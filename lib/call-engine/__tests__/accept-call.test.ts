@@ -6,6 +6,7 @@ import type { CommunityMessengerCallSession } from "@/lib/community-messenger/ty
 const patchMock = vi.fn();
 const fetchMock = vi.fn();
 const joinMock = vi.fn();
+const claimSurfaceMock = vi.fn();
 
 vi.mock("@/lib/community-messenger/call-http-actions", () => ({
   patchCommunityMessengerCallSession: (...args: unknown[]) => patchMock(...args),
@@ -64,11 +65,19 @@ vi.mock("@/lib/call-engine/call-agora-lifecycle", () => ({
   joinCallSessionOnce: (...args: unknown[]) => joinMock(...args),
 }));
 
+vi.mock("@/lib/community-messenger/incoming-call-surface-owner", () => ({
+  claimIncomingCallSurface: (...args: unknown[]) => claimSurfaceMock(...args),
+}));
+
 vi.mock("@/lib/community-messenger/call-orchestrator", () => ({
   logDibayCall: vi.fn(),
 }));
 
-import { acceptCall, resetAcceptCallEngineForTests } from "@/lib/call-engine/accept-call";
+import {
+  acceptCall,
+  clearAcceptCallPatchedId,
+  resetAcceptCallEngineForTests,
+} from "@/lib/call-engine/accept-call";
 
 const baseSession = {
   id: "sess-1",
@@ -92,11 +101,12 @@ describe("acceptCall engine", () => {
     vi.clearAllMocks();
     resetAcceptCallEngineForTests();
     joinMock.mockResolvedValue(true);
+    claimSurfaceMock.mockReturnValue({ ok: true });
     patchMock.mockResolvedValue({ ok: true, session: { ...baseSession, status: "active" } });
     fetchMock.mockResolvedValue(baseSession);
   });
 
-  it("PATCH accept exactly once per callId", async () => {
+  it("PATCH accept exactly once per callId and routes with accept query", async () => {
     const router = { replace: vi.fn() };
     const result = await acceptCall("sess-1", "incoming_banner", {
       router,
@@ -105,8 +115,11 @@ describe("acceptCall engine", () => {
     expect(result.ok).toBe(true);
     expect(patchMock).toHaveBeenCalledTimes(1);
     expect(patchMock).toHaveBeenCalledWith("sess-1", "accept", undefined, expect.any(Object));
-    expect(joinMock).toHaveBeenCalledTimes(1);
-    expect(router.replace).toHaveBeenCalledWith("/community-messenger/calls/sess-1");
+    expect(joinMock).not.toHaveBeenCalled();
+    expect(claimSurfaceMock).toHaveBeenCalledWith("sess-1", "call_screen", "engine_accept_incoming_banner");
+    expect(router.replace).toHaveBeenCalledWith(
+      "/community-messenger/calls/sess-1?action=accept&nativeAccept=1&mode=active",
+    );
   });
 
   it("skips duplicate PATCH when session already active", async () => {
@@ -117,6 +130,16 @@ describe("acceptCall engine", () => {
     });
     expect(result.ok).toBe(true);
     expect(patchMock).not.toHaveBeenCalled();
-    expect(joinMock).toHaveBeenCalledTimes(1);
+    expect(joinMock).not.toHaveBeenCalled();
+  });
+
+  it("allows PATCH again after patched id cleared on close", async () => {
+    const router = { replace: vi.fn() };
+    await acceptCall("sess-1", "incoming_banner", { router, session: baseSession });
+    clearAcceptCallPatchedId("sess-1");
+    patchMock.mockClear();
+    const result = await acceptCall("sess-1", "incoming_banner", { router, session: baseSession });
+    expect(result.ok).toBe(true);
+    expect(patchMock).toHaveBeenCalledTimes(1);
   });
 });

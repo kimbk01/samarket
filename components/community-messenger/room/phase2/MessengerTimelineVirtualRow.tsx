@@ -236,6 +236,8 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
   // 모바일 WebView 에서 스크롤 제스처가 pointercancel 을 즉시 발생시켜 520ms 타이머가 항상 취소된다.
   // touch-action:none 으로 브라우저 스크롤을 말풍선에서 막고, 이동 거리(8px) 초과 시 직접 취소한다.
   const longPressOriginRef = useRef<{ x: number; y: number } | null>(null);
+  /** 롱프레스 팝오버 직후 button click 이 재발신 확인으로 넘어가는 것 방지 */
+  const callStubSuppressTapRef = useRef(false);
   const [longPressHolding, setLongPressHolding] = useState(false);
   const cancelLongPress = () => {
     if (messageLongPressTimerRef.current) {
@@ -261,6 +263,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
             style: messageBubbleTouchStyle,
             onPointerDown: (e: ReactPointerEvent<HTMLDivElement>) => {
               if (!e.isPrimary) return;
+              callStubSuppressTapRef.current = false;
               messageLongPressItemRef.current = item;
               longPressOriginRef.current = { x: e.clientX, y: e.clientY };
               setLongPressHolding(true);
@@ -272,6 +275,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
                 messageLongPressTimerRef.current = null;
                 longPressOriginRef.current = null;
                 setLongPressHolding(false);
+                callStubSuppressTapRef.current = true;
                 setCallStubSheet({
                   item,
                   anchorRect: messengerMessageAnchorRectFromDomRect(el.getBoundingClientRect()),
@@ -288,6 +292,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
             onPointerCancel: cancelLongPress,
             onContextMenu: (e: ReactMouseEvent<HTMLDivElement>) => {
               e.preventDefault();
+              callStubSuppressTapRef.current = true;
               setCallStubSheet({
                 item,
                 anchorRect: messengerMessageAnchorRectFromDomRect(e.currentTarget.getBoundingClientRect()),
@@ -453,7 +458,13 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
       <TimelineViberInnerCallStub
         item={item}
         stubBusy={stubBusy}
-        onOpenOutgoingConfirm={openCallStubOutgoingConfirm}
+        onOpenOutgoingConfirm={(kind) => {
+          if (callStubSuppressTapRef.current) {
+            callStubSuppressTapRef.current = false;
+            return;
+          }
+          openCallStubOutgoingConfirm(kind);
+        }}
         voiceCallLabel={voiceCallLabel}
         videoCallLabel={videoCallLabel}
         callStatusLabel={callStatusLabel}

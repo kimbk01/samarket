@@ -124,6 +124,8 @@ import {
   registerAgoraJoinDelegate,
   registerCallEngineRouter,
   registerMediaDisposeDelegate,
+  setCallEnginePhase,
+  syncCallEngineRingFromState,
 } from "@/lib/call-engine";
 import { startCallHeartbeatWatchdog, stopCallHeartbeatWatchdog } from "@/lib/call/native/call-heartbeat-watchdog";
 import {
@@ -2855,6 +2857,16 @@ export function CommunityMessengerCallClient({
         joinedRef.current = true;
         setJoined(true);
         logDibayCall("connected", { sessionId: targetSession.id, source: "local_join_published" });
+        if (isCallEngineV2Enabled()) {
+          setCallEnginePhase({
+            phase: "connected",
+            sessionId: targetSession.id,
+            role: targetSession.isMineInitiator ? "caller" : "callee",
+            callKind: targetSession.callKind,
+            source: "call_client_join",
+          });
+          syncCallEngineRingFromState();
+        }
         if (isVideoCallJoin && !localVideoBoundDuringJoin) {
           void bindLocalVideoTrack();
         }
@@ -5143,12 +5155,16 @@ export function CommunityMessengerCallClient({
     !session.isMineInitiator &&
     ((!joined &&
       session.status === "active" &&
-      (calleeVideoConnectingShell || requestedAction === "accept" || nativeAcceptRoute)) ||
+      (calleeVideoConnectingShell ||
+        requestedAction === "accept" ||
+        nativeAcceptRoute ||
+        (isCallEngineV2Enabled() && isDibayCallConsumed(session.id)))) ||
       (session.status === "ringing" &&
         (requestedAction === "accept" ||
           busy === "accept" ||
           busy === "join" ||
-          calleeVideoConnectingShell)));
+          calleeVideoConnectingShell ||
+          (isCallEngineV2Enabled() && isDibayCallConsumed(session.id)))));
   const callScreenPhase: CallPhase =
     agoraReconnecting && (effectiveDirectPhase === "connected" || effectiveDirectPhase === "connecting")
       ? "connecting"

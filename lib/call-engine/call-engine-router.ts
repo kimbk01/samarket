@@ -15,5 +15,6 @@ export function getCallEngineRouter(): CallEngineRouter | null {
 }
 
 export function buildCallEngineAcceptHref(sessionId: string): string {
-  return `/community-messenger/calls/${encodeURIComponent(sessionId.trim())}`;
+  const sid = sessionId.trim();
+  return `/community-messenger/calls/${encodeURIComponent(sid)}?action=accept&nativeAccept=1&mode=active`;
 }

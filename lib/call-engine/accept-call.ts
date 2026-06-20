@@ -22,7 +22,7 @@ import { logDibayCall } from "@/lib/community-messenger/call-orchestrator";
 import { dismissAllIncomingCallNotificationsFireAndForget } from "@/lib/push/native/dismiss-native-incoming-call-notification";
 import { isDibayCallConsumed } from "@/lib/community-messenger/incoming-call-state";
 import { applyIncomingCallConsumedSideEffects } from "@/lib/community-messenger/incoming-call-consumed-side-effects";
-import { joinCallSessionOnce } from "@/lib/call-engine/call-agora-lifecycle";
+import { claimIncomingCallSurface } from "@/lib/community-messenger/incoming-call-surface-owner";
 import { setCallEnginePhase } from "@/lib/call-engine/call-engine-state";
 import {
   buildCallEngineAcceptHref,
@@ -71,6 +71,12 @@ export function resetAcceptCallEngineForTests(): void {
   patchedAcceptIds.clear();
 }
 
+export function clearAcceptCallPatchedId(sessionId: string): void {
+  const sid = sessionId.trim();
+  if (!sid) return;
+  patchedAcceptIds.delete(sid);
+}
+
 async function resolveSessionForAccept(
   sessionId: string,
   session?: CommunityMessengerCallSession,
@@ -101,7 +107,8 @@ async function navigateToCallScreen(
 }
 
 /**
- * 앱 전역 유일 accept — PATCH accept 1회, ring stop, route, Agora join 1회.
+ * 앱 전역 유일 accept — PATCH accept 1회, ring stop, route.
+ * Agora join 은 CallClient delegate + active auto-join effect 단일 경로.
  */
 export async function acceptCall(
   sessionId: string,
@@ -170,6 +177,7 @@ export async function acceptCall(
     applyIncomingCallConsumedSideEffects(sid, "accepted", source);
     writeCallAcceptHydratePeerFromSession(patchedSession, "engine_accept_patch_ok");
     primeCommunityMessengerCallNavigationSeed(patchedSession.id, patchedSession);
+    claimIncomingCallSurface(sid, "call_screen", `engine_accept_${source}`);
 
     const activePhase = mapSessionStatusToActiveCallPhase(patchedSession, false);
     if (activePhase !== "idle") {
@@ -199,22 +207,8 @@ export async function acceptCall(
       await navigateToCallScreen(sid, options.router ?? null, options.hrefOverride);
     }
 
-    const joined = await joinCallSessionOnce(patchedSession);
-    if (joined) {
-      setCallEnginePhase({
-        phase: "connected",
-        sessionId: sid,
-        role: "callee",
-        callKind: patchedSession.callKind,
-        source,
-      });
-      syncCallEngineRingFromState();
-    }
-
-    logDibayCall("engine_accept_success", { sessionId: sid, callId: sid, source, joined });
-    return joined
-      ? { ok: true, sessionId: sid }
-      : { ok: false, sessionId: sid, reason: "join_failed" };
+    logDibayCall("engine_accept_success", { sessionId: sid, callId: sid, source, joined: "call_client" });
+    return { ok: true, sessionId: sid };
   } catch {
     return { ok: false, sessionId: sid, reason: "exception" };
   } finally {

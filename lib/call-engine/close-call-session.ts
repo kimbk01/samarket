@@ -13,6 +13,7 @@ import { hardClearActiveCallSession } from "@/lib/call/active-call-session";
 import { syncTerminalCallClientState } from "@/lib/call/call-terminal-sync-cleanup";
 import { sealIncomingCallTerminal } from "@/lib/community-messenger/incoming-call/terminal";
 import { disposeCallMediaViaDelegate } from "@/lib/call-engine/call-agora-lifecycle";
+import { clearAcceptCallPatchedId } from "@/lib/call-engine/accept-call";
 import { resetCallEngineToIdle, setCallEnginePhase } from "@/lib/call-engine/call-engine-state";
 import { stopCallEngineRing, syncCallEngineRingFromState } from "@/lib/call-engine/call-ring-controller";
 import type { CallConsumedReason } from "@/lib/community-messenger/incoming-call/tombstone";
@@ -132,6 +133,7 @@ export async function closeCallSession(
   }
 
   applyIncomingCallConsumedSideEffects(sid, mapReasonToConsumed(reason), source);
+  clearAcceptCallPatchedId(sid);
   resetCallEngineToIdle(`close_${reason}`);
   syncCallEngineRingFromState();
 

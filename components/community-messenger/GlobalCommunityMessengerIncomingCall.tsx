@@ -140,6 +140,7 @@ import {
   acceptCall as engineAcceptCall,
   buildCallEngineNativeBridgeHandlers,
   isCallEngineV2Enabled,
+  readCallEngineState,
   setCallEngineCloseHardClearedMap,
   setCallEnginePhase,
   setCallEngineRingHardClearedMap,
@@ -1950,16 +1951,23 @@ export function GlobalCommunityMessengerIncomingCall() {
 
   useEffect(() => {
     if (!isCallEngineV2Enabled() || !bannerSession) return;
-    if (bannerSession.status === "ringing" && !bannerSession.isMineInitiator) {
-      setCallEnginePhase({
-        phase: "incoming",
-        sessionId: bannerSession.id,
-        role: "callee",
-        callKind: bannerSession.callKind,
-        source: "global_banner",
-      });
-      syncCallEngineRingFromState();
+    if (bannerSession.status !== "ringing" || bannerSession.isMineInitiator) return;
+    if (isDibayCallConsumed(bannerSession.id)) return;
+    const engine = readCallEngineState();
+    if (
+      engine.sessionId === bannerSession.id &&
+      (engine.phase === "connecting" || engine.phase === "connected" || engine.phase === "ended")
+    ) {
+      return;
     }
+    setCallEnginePhase({
+      phase: "incoming",
+      sessionId: bannerSession.id,
+      role: "callee",
+      callKind: bannerSession.callKind,
+      source: "global_banner",
+    });
+    syncCallEngineRingFromState();
   }, [bannerSession?.id, bannerSession?.status, bannerSession?.callKind, bannerSession?.isMineInitiator]);
   const nativeIncomingSession = bannerSession;
   const incomingUiSurfaceLoggedRef = useRef<Set<string>>(new Set());
