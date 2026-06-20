@@ -27,8 +27,8 @@ export function profileToDibaySignupInput(user: Profile): DibaySignupProfileInpu
   };
 }
 
-/** 클라이언트 프로필 캐시 기준 DIBAY signupComplete — 서버 deriveDibaySignupStatus 와 동일 */
+/** 클라이언트 접근 게이트: 로그인 + 약관 동의. @id·프로필·전화·주소는 requireAuthAction / requireProfileCompletion. */
 export function isClientSignupComplete(user: Profile | null | undefined): boolean {
   if (!user?.id) return false;
-  return deriveDibaySignupStatus(profileToDibaySignupInput(user), { hasSession: true }).signupComplete;
+  return deriveDibaySignupStatus(profileToDibaySignupInput(user), { hasSession: true }).consentComplete;
 }
