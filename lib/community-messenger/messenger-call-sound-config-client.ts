@@ -161,7 +161,8 @@ export async function fetchMessengerCallSoundConfig(opts?: { force?: boolean }):
           return loadedConfig !== undefined ? loadedConfig : null;
         }
         loadedConfig = j.config ?? null;
-        syncMessengerCallSoundConfigToNativeFireAndForget(loadedConfig);
+        const nativeSyncConfig = loadedConfig ?? defaultMessengerCallSoundConfig();
+        syncMessengerCallSoundConfigToNativeFireAndForget(nativeSyncConfig);
         return loadedConfig;
       }
     } catch {
