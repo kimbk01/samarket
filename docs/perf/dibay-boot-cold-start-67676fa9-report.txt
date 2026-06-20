@@ -1,0 +1,25 @@
+BOOT-P0 cold start 3-run measurement
+baseline: 67676fa9 | device: 8b37179f7d94 | measured: 2026-06-20
+
+=== per-run (performance.now ms) ===
+run1: fp=1456 rm=1413 hv=1914 api=3130 thumb=1980 dismiss=reactMounted fallback=false
+run2: fp=3554 rm=3526 hv=4828 api=4454 thumb=4875 dismiss=reactMounted fallback=true (elapsed_ms=3006)
+run3: fp=2190 rm=2153 hv=2840 api=3257 thumb=2898 dismiss=reactMounted fallback=false
+
+=== median / p95 ===
+firstPaint:      median=2190  p95=3554
+reactMounted:    median=2153  p95=3526
+homeVisible:     median=2840  p95=4828
+apiDone:         median=3257  p95=4454
+thumbnailVisible median=2898  p95=4875
+
+native_fallback: 1/3
+dismissSplash reason: reactMounted (3/3)
+
+=== judgment ===
+splash 정책 현재 유지 (fallback 4~5s 조정 보류)
+- median reactMounted 2.15s < 3s
+- fallback 1회 = run2 outlier (firstHtml 3420ms)
+- homeVisible/apiDone metric-only, 진입 3/3 성공
+
+build: npm run build PASS (2026-06-20)

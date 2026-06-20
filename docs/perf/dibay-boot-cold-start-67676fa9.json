@@ -1,0 +1,209 @@
+{
+  "commit": "2146059881bb2d468218d9c74c24b3fd7bfd748f",
+  "baseline_commit": "67676fa98d6c286d62e9dacc89dd8fd6ad58e814",
+  "device": "8b37179f7d94",
+  "measured_at": "2026-06-20T01:03:19.205Z",
+  "runs": [
+    {
+      "run": 1,
+      "device": "8b37179f7d94",
+      "pid": "5196",
+      "commit": "2146059881bb2d468218d9c74c24b3fd7bfd748f",
+      "baseline_commit": "67676fa98d6c286d62e9dacc89dd8fd6ad58e814",
+      "measured_at": "2026-06-20T01:02:44.368Z",
+      "metrics": {
+        "firstPaint": 1456.199999988079,
+        "reactMounted": 1413.0999999642372,
+        "homeVisible": 1914.199999988079,
+        "apiDone": 3130.099999964237,
+        "thumbnailVisible": 1979.7999999523163,
+        "firstHtml": 1445.699999988079,
+        "splashDismissReason": "reactMounted"
+      },
+      "logEvents": {
+        "app_start_ms": 1781917352814,
+        "onPageFinished_ms": 1781917354485,
+        "dismiss_js_reason": "reactMounted",
+        "dismiss_js_ms": 1781917354405,
+        "dismiss_native_source": "DibayBootBridge",
+        "dismiss_native_ms": 1781917354213,
+        "native_fallback": false,
+        "native_fallback_elapsed_ms": null,
+        "_logcat_wall_anchor": 1781917364365
+      },
+      "verify": {
+        "entries": [
+          {
+            "url": "/api/me/profile?lite=1",
+            "atMs": 1406.3999999761581,
+            "clientCallSource": "app_boot_minimal"
+          },
+          {
+            "url": "/api/me/profile?mode=full",
+            "atMs": 4722.099999964237,
+            "clientCallSource": "app_boot_background"
+          },
+          {
+            "url": "/api/me/store-owner-hub-badge",
+            "atMs": 4898.199999988079,
+            "clientCallSource": "owner_hub_badge_store"
+          }
+        ],
+        "firstPaintAtMs": 1456.199999988079
+      },
+      "verify_entry_count": 3
+    },
+    {
+      "run": 2,
+      "device": "8b37179f7d94",
+      "pid": "5464",
+      "commit": "2146059881bb2d468218d9c74c24b3fd7bfd748f",
+      "baseline_commit": "67676fa98d6c286d62e9dacc89dd8fd6ad58e814",
+      "measured_at": "2026-06-20T01:03:02.319Z",
+      "metrics": {
+        "firstPaint": 3553.899999976158,
+        "reactMounted": 3525.899999976158,
+        "homeVisible": 4827.800000011921,
+        "apiDone": 4454.099999964237,
+        "thumbnailVisible": 4874.599999964237,
+        "firstHtml": 3420.099999964237,
+        "splashDismissReason": "reactMounted"
+      },
+      "logEvents": {
+        "app_start_ms": 1781917369926,
+        "onPageFinished_ms": 1781917373409,
+        "dismiss_js_reason": "reactMounted",
+        "dismiss_js_ms": 1781917374408,
+        "dismiss_native_source": "native_fallback_elapsed_ms=3006",
+        "dismiss_native_ms": 1781917372241,
+        "native_fallback": true,
+        "native_fallback_elapsed_ms": 3006,
+        "_logcat_wall_anchor": 1781917382316
+      },
+      "verify": {
+        "entries": [
+          {
+            "url": "/api/me/profile?lite=1",
+            "atMs": 3518,
+            "clientCallSource": "app_boot_minimal"
+          },
+          {
+            "url": "/api/me/profile?mode=full",
+            "atMs": 5779.599999964237,
+            "clientCallSource": "app_boot_background"
+          },
+          {
+            "url": "/api/me/store-owner-hub-badge",
+            "atMs": 5953.599999964237,
+            "clientCallSource": "owner_hub_badge_store"
+          }
+        ],
+        "firstPaintAtMs": 3553.899999976158
+      },
+      "verify_entry_count": 3
+    },
+    {
+      "run": 3,
+      "device": "8b37179f7d94",
+      "pid": "5733",
+      "commit": "2146059881bb2d468218d9c74c24b3fd7bfd748f",
+      "baseline_commit": "67676fa98d6c286d62e9dacc89dd8fd6ad58e814",
+      "measured_at": "2026-06-20T01:03:19.205Z",
+      "metrics": {
+        "firstPaint": 2189.899999976158,
+        "reactMounted": 2153,
+        "homeVisible": 2840.300000011921,
+        "apiDone": 3257.300000011921,
+        "thumbnailVisible": 2898,
+        "firstHtml": 2135.5,
+        "splashDismissReason": "reactMounted"
+      },
+      "logEvents": {
+        "app_start_ms": 1781917387860,
+        "onPageFinished_ms": 1781917389992,
+        "dismiss_js_reason": "reactMounted",
+        "dismiss_js_ms": 1781917390387,
+        "dismiss_native_source": "DibayBootBridge",
+        "dismiss_native_ms": 1781917390010,
+        "native_fallback": false,
+        "native_fallback_elapsed_ms": null,
+        "_logcat_wall_anchor": 1781917399203
+      },
+      "verify": {
+        "entries": [
+          {
+            "url": "/api/me/profile?lite=1",
+            "atMs": 2145.899999976158,
+            "clientCallSource": "app_boot_minimal"
+          },
+          {
+            "url": "/api/me/profile?mode=full",
+            "atMs": 4458.800000011921,
+            "clientCallSource": "app_boot_background"
+          },
+          {
+            "url": "/api/me/store-owner-hub-badge",
+            "atMs": 4627.899999976158,
+            "clientCallSource": "owner_hub_badge_store"
+          }
+        ],
+        "firstPaintAtMs": 2189.899999976158
+      },
+      "verify_entry_count": 3
+    }
+  ],
+  "summary": {
+    "firstPaint": {
+      "median": 2189.899999976158,
+      "p95": 3553.899999976158,
+      "values": [
+        1456.199999988079,
+        3553.899999976158,
+        2189.899999976158
+      ]
+    },
+    "reactMounted": {
+      "median": 2153,
+      "p95": 3525.899999976158,
+      "values": [
+        1413.0999999642372,
+        3525.899999976158,
+        2153
+      ]
+    },
+    "homeVisible": {
+      "median": 2840.300000011921,
+      "p95": 4827.800000011921,
+      "values": [
+        1914.199999988079,
+        4827.800000011921,
+        2840.300000011921
+      ]
+    },
+    "apiDone": {
+      "median": 3257.300000011921,
+      "p95": 4454.099999964237,
+      "values": [
+        3130.099999964237,
+        4454.099999964237,
+        3257.300000011921
+      ]
+    },
+    "thumbnailVisible": {
+      "median": 2898,
+      "p95": 4874.599999964237,
+      "values": [
+        1979.7999999523163,
+        4874.599999964237,
+        2898
+      ]
+    },
+    "native_fallback_count": 1,
+    "dismiss_reasons": [
+      "reactMounted",
+      "reactMounted",
+      "reactMounted"
+    ]
+  },
+  "judgment": "판정: median reactMounted 2153ms (<3s) · native fallback 1/3 (run2 outlier 3526ms) → **splash 정책 현재 유지**, fallback 4~5s 조정 보류\n참고: homeVisible median=2840ms · apiDone median=3257ms — metric only, 진입 gate 아님\n참고: run2 cold network — firstHtml 3420ms → reactMounted 3526ms가 3s native keep과 레이스"
+}

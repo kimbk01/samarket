@@ -1,0 +1,82 @@
+{
+  "entries": [
+    {
+      "url": "/api/me/profile?lite=1",
+      "atMs": 2145.899999976158,
+      "clientCallSource": "app_boot_minimal"
+    },
+    {
+      "url": "/api/me/profile?mode=full",
+      "atMs": 4458.800000011921,
+      "clientCallSource": "app_boot_background"
+    },
+    {
+      "url": "/api/me/store-owner-hub-badge",
+      "atMs": 4627.899999976158,
+      "clientCallSource": "owner_hub_badge_store"
+    }
+  ],
+  "firstPaintAtMs": 2189.899999976158,
+  "metrics": {
+    "firstPaint": 2189.899999976158,
+    "reactMounted": 2153,
+    "homeVisible": 2840.300000011921,
+    "apiDone": 3257.300000011921,
+    "thumbnailVisible": 2898,
+    "firstHtml": 2135.5,
+    "splashDismissReason": "reactMounted"
+  },
+  "runs_summary": {
+    "firstPaint": {
+      "median": 2189.899999976158,
+      "p95": 3553.899999976158,
+      "values": [
+        1456.199999988079,
+        3553.899999976158,
+        2189.899999976158
+      ]
+    },
+    "reactMounted": {
+      "median": 2153,
+      "p95": 3525.899999976158,
+      "values": [
+        1413.0999999642372,
+        3525.899999976158,
+        2153
+      ]
+    },
+    "homeVisible": {
+      "median": 2840.300000011921,
+      "p95": 4827.800000011921,
+      "values": [
+        1914.199999988079,
+        4827.800000011921,
+        2840.300000011921
+      ]
+    },
+    "apiDone": {
+      "median": 3257.300000011921,
+      "p95": 4454.099999964237,
+      "values": [
+        3130.099999964237,
+        4454.099999964237,
+        3257.300000011921
+      ]
+    },
+    "thumbnailVisible": {
+      "median": 2898,
+      "p95": 4874.599999964237,
+      "values": [
+        1979.7999999523163,
+        4874.599999964237,
+        2898
+      ]
+    },
+    "native_fallback_count": 1,
+    "dismiss_reasons": [
+      "reactMounted",
+      "reactMounted",
+      "reactMounted"
+    ]
+  }
+}
