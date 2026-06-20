@@ -178,14 +178,14 @@ describe("cm room regression matrix (pre-commit)", () => {
       ).toEqual({ scroll: false, reason: "skip_tail_unchanged" });
     });
 
-    it("append — tail id 변경 → auto scroll", () => {
+    it("append — tail id 변경 → peer append candidate", () => {
       expect(
         resolveMessengerRoomMessagesAutoScroll({
           previousTailMessageId: "tail-99",
           currentTailMessageId: "tail-100",
           currentTailIsMine: false,
         })
-      ).toEqual({ scroll: true, reason: "messages_changed_auto" });
+      ).toEqual({ scroll: true, reason: "peer_message_append" });
     });
 
     it("own tail unchanged — re-render/merge only → scroll 금지", () => {
@@ -220,14 +220,14 @@ describe("cm room regression matrix (pre-commit)", () => {
       ).toEqual({ scroll: false, reason: "skip_ack_id_replace" });
     });
 
-    it("상대 append — tail 변경 → auto scroll (bottom 근처 경로)", () => {
+    it("상대 append — tail 변경 → peer append candidate (near-bottom은 controller에서 gate)", () => {
       expect(
         resolveMessengerRoomMessagesAutoScroll({
           previousTailMessageId: "m1",
           currentTailMessageId: "m2",
           currentTailIsMine: false,
         })
-      ).toEqual({ scroll: true, reason: "messages_changed_auto" });
+      ).toEqual({ scroll: true, reason: "peer_message_append" });
     });
   });
 

@@ -1,3 +1,9 @@
+/**
+ * CM Room Keyboard/Layout LOCK contract tests.
+ * @see docs/community-messenger-mobile-room-viewport.md §0
+ * @see .cursor/rules/cm-room-keyboard-layout-contract-lock.mdc
+ * Also: npm run verify:cm-room-keyboard-layout-contract
+ */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -49,7 +55,8 @@ describe("chat chrome layout contract", () => {
     expect(css).not.toContain("--chat-viewport-height");
     expect(css).not.toContain("--chat-bottom-inset");
     expect(css).not.toContain("chat-viewport-shell");
-    expect(css).toContain("chat-timeline-scroll");
+    expect(css).toContain("scroll-padding-bottom: var(--cm-timeline-scroll-padding-bottom, 12px)");
+    expect(css).toMatch(/\.cm-room-timeline[\s\S]*overflow:\s*hidden/);
     expect(css).toContain("cm-room-shell--embedded");
     expect(css).not.toMatch(/position:\s*fixed/);
     expect(css).not.toMatch(/position:\s*sticky/);
@@ -58,6 +65,7 @@ describe("chat chrome layout contract", () => {
   it("Phase2 body uses flex shell and iOS kb-offset hook only", () => {
     const src = readSrc("components/community-messenger/room/CommunityMessengerRoomClientPhase2Body.tsx");
     expect(src).toContain("useCmRoomKbOffset");
+    expect(src).toContain("useCmRoomComposerHeight");
     expect(src).toContain("cm-room-shell");
     expect(src).toContain("cm-room-timeline");
     expect(src).toContain("cm-room-composer");

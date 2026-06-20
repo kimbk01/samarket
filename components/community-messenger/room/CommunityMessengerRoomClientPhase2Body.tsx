@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { noteCmRoomPhase2HydratedModuleEval } from "@/lib/community-messenger/room/cm-room-phase2-entry-perf";
 
 noteCmRoomPhase2HydratedModuleEval();
@@ -9,6 +9,7 @@ import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/t
 import type { MessengerRoomPhase2ViewModel } from "@/lib/community-messenger/room/phase2/messenger-room-phase2-view-model";
 import { useMatchMaxWidthMd } from "@/lib/ui/use-match-max-width";
 import { useCmRoomKbOffset } from "@/lib/ui/use-cm-room-kb-offset";
+import { useCmRoomComposerHeight } from "@/lib/ui/use-cm-room-composer-height";
 import { useOwnerOrderChatSlideHost } from "@/components/business/owner/OwnerOrderChatSlideHostContext";
 import { useBuyerOrderChatSlideHost } from "@/components/mypage/BuyerOrderChatSlideHostContext";
 import { useMessengerRoomPhase2Controller } from "@/lib/community-messenger/room/phase2";
@@ -340,9 +341,20 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
   const ownerSlideHost = useOwnerOrderChatSlideHost();
   const buyerSlideHost = useBuyerOrderChatSlideHost();
   const isEmbeddedShell = Boolean(ownerSlideHost || buyerSlideHost);
+  const shellLayoutEnabled = narrowViewport && !isEmbeddedShell;
+
+  const keepBottomOnKeyboard = useCallback(() => {
+    room.scrollMessengerToBottom({ reason: "keyboard_resize_keep_bottom" });
+  }, [room.scrollMessengerToBottom]);
 
   useCmRoomKbOffset({
-    enabled: narrowViewport && !isEmbeddedShell,
+    enabled: shellLayoutEnabled,
+    shellRef,
+    onKeyboardInsetChange: keepBottomOnKeyboard,
+  });
+
+  useCmRoomComposerHeight({
+    enabled: shellLayoutEnabled,
     shellRef,
   });
 

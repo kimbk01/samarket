@@ -5,7 +5,7 @@
  */
 
 /** stick-to-bottom 판정(px) — scroll anchor controller 와 동기 */
-export const MESSENGER_STICK_TO_BOTTOM_THRESHOLD_PX = 80;
+export const MESSENGER_STICK_TO_BOTTOM_THRESHOLD_PX = 96;
 
 /** Composer footer 기본 하단 패딩(px) — legacy /chats ChatInputBar */
 export const MESSENGER_COMPOSER_FOOTER_PADDING_DEFAULT_PX = 10;

@@ -68,10 +68,20 @@ function isAlwaysScrollReason(reason: CmScrollOwnerReason): boolean {
   return reason === "own_message_append" || reason === "explicit";
 }
 
+function isKeepBottomChromeReason(reason: CmScrollOwnerReason): boolean {
+  return (
+    reason === "viewport_resize_restore" ||
+    reason === "viewport_resize_keep_bottom" ||
+    reason === "keyboard_resize_keep_bottom" ||
+    reason === "composer_resize_keep_bottom"
+  );
+}
+
 function isEntryRestoreReason(reason: CmScrollOwnerReason): boolean {
   return (
-    reason === "room_entry_restore" ||
     reason === "room_entry_initial" ||
+    reason === "initial_load" ||
+    reason === "room_entry_restore" ||
     reason === "timeline_delivery_direct_paint" ||
     reason === "schedule_after_rows_painted"
   );
@@ -197,17 +207,21 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
         if (!nearBottom) return true;
       }
 
-      if (alwaysScroll || isEntryRestoreReason(reason)) {
+      if (alwaysScroll || isEntryRestoreReason(reason) || isKeepBottomChromeReason(reason)) {
         const count = messageCount;
         if (
           count > 0 &&
           virtualizer &&
-          reason === "room_entry_initial" &&
+          (reason === "room_entry_initial" || reason === "initial_load") &&
           (virtualizer.getTotalSize?.() ?? 0) <= 0
         ) {
           return false;
         }
-        if (count > 0 && virtualizer && (alwaysScroll || reason !== "viewport_resize_restore")) {
+        if (
+          count > 0 &&
+          virtualizer &&
+          (alwaysScroll || !isKeepBottomChromeReason(reason))
+        ) {
           try {
             virtualizer.scrollToIndex(count - 1, { align: "end" });
           } catch {
@@ -344,7 +358,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     const rid = roomId.trim();
     const hasPersisted = Boolean(peekMessengerRoomScrollPosition(rid));
     enqueueScrollAnchor({
-      reason: hasPersisted ? "room_entry_restore" : "room_entry_initial",
+      reason: hasPersisted ? "room_entry_restore" : "initial_load",
     });
   }, [
     deferEntryScrollToDeliveryDirectTimeline,
@@ -365,76 +379,108 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
       currentTailClientMessageId: last?.clientMessageId ?? null,
     });
     if (decision.scroll) {
-      enqueueScrollAnchor({ reason: decision.reason });
+      if (decision.reason === "own_message_append") {
+        enqueueScrollAnchor({ reason: "own_message_append" });
+      } else {
+        const nearBottom = resolveMessengerRoomNearBottomForAutoScroll({
+          viewport: messagesViewportRef.current,
+          stickToBottomRef,
+          roomId,
+          activeSheet,
+          lastScrollGeomRef,
+        });
+        if (nearBottom) {
+          enqueueScrollAnchor({ reason: "peer_message_near_bottom" });
+        }
+      }
     }
     if (last?.id) {
       prevTailMessageIdRef.current = last.id;
       prevTailClientMessageIdRef.current = last.clientMessageId ?? null;
     }
-  }, [enqueueScrollAnchor, roomMessages]);
+  }, [activeSheet, enqueueScrollAnchor, roomId, roomMessages, stickToBottomRef]);
 
   useLayoutEffect(() => {
     const el = messagesViewportRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
 
     let rafId = 0;
-    const restoreScrollAfterChromeChange = () => {
+    const preserveOrKeepBottom = (reason: CmScrollOwnerReason) => {
       cancelAnimationFrame(rafId);
       rafId = requestAnimationFrame(() => {
-        const rid = roomId.trim();
-        if (!canRunMessengerRoomScrollOwner(rid, "viewport_resize_restore")) return;
-        const box = messagesViewportRef.current;
-        if (!box || !lastScrollGeomRef.current.ready) return;
-        const prev = lastScrollGeomRef.current;
-        const stBefore = box.scrollTop;
-        const sh = box.scrollHeight;
-        const ch = box.clientHeight;
-        const maxScroll = Math.max(0, sh - ch);
-        const liveDistFromBottom = Math.max(0, sh - stBefore - ch);
-        const viewportShrunk = ch < prev.ch - 6;
-        const wasNearBottom = isMessengerRoomNearBottomFromMetrics(
-          { scrollHeight: prev.sh, scrollTop: prev.st, clientHeight: prev.ch },
-          MESSENGER_STICK_TO_BOTTOM_THRESHOLD_PX
-        );
-        const nearBottomNow = syncMessengerRoomStickToBottomFromViewport({
-          viewport: box,
-          stickToBottomRef,
-          roomId,
-          activeSheet,
-        });
-        if (nearBottomNow || (viewportShrunk && wasNearBottom)) {
-          if (viewportShrunk && wasNearBottom) stickToBottomRef.current = true;
-          box.scrollTop = maxScroll;
-        } else {
+        rafId = requestAnimationFrame(() => {
+          const rid = roomId.trim();
+          if (rid && !canRunMessengerRoomScrollOwner(rid, reason)) return;
+          const box = messagesViewportRef.current;
+          if (!box || !lastScrollGeomRef.current.ready) return;
+          const prev = lastScrollGeomRef.current;
+          const stBefore = box.scrollTop;
+          const sh = box.scrollHeight;
+          const ch = box.clientHeight;
+          const maxScroll = Math.max(0, sh - ch);
+          const liveDistFromBottom = Math.max(0, sh - stBefore - ch);
+          const wasNearBottom = isMessengerRoomNearBottomFromMetrics(
+            { scrollHeight: prev.sh, scrollTop: prev.st, clientHeight: prev.ch },
+            MESSENGER_STICK_TO_BOTTOM_THRESHOLD_PX
+          );
+          if (wasNearBottom) {
+            stickToBottomRef.current = true;
+            enqueueScrollAnchor({ reason });
+            return;
+          }
           const target = maxScroll - liveDistFromBottom;
           box.scrollTop = Math.max(0, Math.min(maxScroll, target));
-        }
-        syncScrollGeomFromViewport();
-        persistScrollPosition();
+          syncMessengerRoomStickToBottomFromViewport({
+            viewport: box,
+            stickToBottomRef,
+            roomId,
+            activeSheet,
+          });
+          syncScrollGeomFromViewport();
+          persistScrollPosition();
+        });
       });
     };
 
-    const ro = new ResizeObserver(() => restoreScrollAfterChromeChange());
-    ro.observe(el);
-    const onLayoutViewport = () => restoreScrollAfterChromeChange();
+    const roTimeline = new ResizeObserver(() => preserveOrKeepBottom("viewport_resize_keep_bottom"));
+    roTimeline.observe(el);
+
+    const shell = el.closest("[data-cm-room]");
+    const composerEl = shell?.querySelector(".cm-room-composer") ?? null;
+    const roComposer =
+      composerEl && typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => preserveOrKeepBottom("composer_resize_keep_bottom"))
+        : null;
+    if (composerEl && roComposer) roComposer.observe(composerEl);
+
+    const onLayoutViewport = () => preserveOrKeepBottom("viewport_resize_keep_bottom");
     window.addEventListener("resize", onLayoutViewport);
     window.addEventListener("orientationchange", onLayoutViewport);
 
     const ios = isLikelyIosWebKit();
     const vv = ios && typeof window !== "undefined" ? window.visualViewport : null;
-    const onVv = () => restoreScrollAfterChromeChange();
+    const onVv = () => preserveOrKeepBottom("viewport_resize_keep_bottom");
     vv?.addEventListener("resize", onVv);
     vv?.addEventListener("scroll", onVv);
 
     return () => {
       cancelAnimationFrame(rafId);
-      ro.disconnect();
+      roTimeline.disconnect();
+      roComposer?.disconnect();
       vv?.removeEventListener("resize", onVv);
       vv?.removeEventListener("scroll", onVv);
       window.removeEventListener("resize", onLayoutViewport);
       window.removeEventListener("orientationchange", onLayoutViewport);
     };
-  }, [activeSheet, messagesViewportRef, persistScrollPosition, roomId, stickToBottomRef, syncScrollGeomFromViewport]);
+  }, [
+    activeSheet,
+    enqueueScrollAnchor,
+    messagesViewportRef,
+    persistScrollPosition,
+    roomId,
+    stickToBottomRef,
+    syncScrollGeomFromViewport,
+  ]);
 
   useEffect(() => {
     return () => {

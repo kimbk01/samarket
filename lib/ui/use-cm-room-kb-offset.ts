@@ -8,6 +8,8 @@ import { CM_ROOM_KB_OFFSET_MIN_PX } from "@/lib/ui/messenger-chat-viewport-tunin
 type Options = {
   enabled: boolean;
   shellRef: RefObject<HTMLElement | null>;
+  /** iOS keyboard inset 적용 직후 near-bottom scroll 보정 */
+  onKeyboardInsetChange?: () => void;
 };
 
 function resolveIosKeyboardOverlayCssPx(): number {
@@ -32,7 +34,7 @@ function resolveIosKeyboardOverlayCssPx(): number {
  * Android adjustResize + flex column — no-op.
  */
 export function useCmRoomKbOffset(opts: Options): void {
-  const { enabled, shellRef } = opts;
+  const { enabled, shellRef, onKeyboardInsetChange } = opts;
 
   useEffect(() => {
     if (!enabled || !isLikelyIosWebKit()) return;
@@ -52,12 +54,15 @@ export function useCmRoomKbOffset(opts: Options): void {
     const scheduleSync = () => {
       cancelAnimationFrame(syncRaf);
       syncRaf = requestAnimationFrame(() => {
-        syncRaf = 0;
-        sync();
+        syncRaf = requestAnimationFrame(() => {
+          syncRaf = 0;
+          sync();
+          onKeyboardInsetChange?.();
+        });
       });
     };
 
-    sync();
+    scheduleSync();
     const vv = window.visualViewport;
     vv?.addEventListener("resize", scheduleSync);
     vv?.addEventListener("scroll", scheduleSync);
@@ -70,7 +75,7 @@ export function useCmRoomKbOffset(opts: Options): void {
       unsubNative();
       shell.style.removeProperty("--kb-offset");
     };
-  }, [enabled, shellRef]);
+  }, [enabled, onKeyboardInsetChange, shellRef]);
 }
 
 export { resolveIosKeyboardOverlayCssPx };

@@ -27,8 +27,9 @@
 .cm-room-timeline {
   flex: 1 1 auto;
   min-height: 0;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .cm-room-composer {
@@ -107,6 +108,7 @@
   overflow-anchor: none;
   min-height: 0;
   flex: 1 1 0%;
+  scroll-padding-bottom: var(--cm-timeline-scroll-padding-bottom, 12px);
 }
 
 [data-cm-room] .chat-timeline-sheet {

@@ -1628,11 +1628,6 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
         data-cm-line-timeline
         data-cm-message-viewport=""
         className="chat-timeline-scroll relative min-h-0 flex-1 bg-[color:var(--cm-room-chat-bg)]"
-        style={
-          hasTradeDock
-            ? { scrollPaddingBottom: "var(--cm-timeline-trade-anchor-padding, 6px)" }
-            : undefined
-        }
         onScroll={scheduleScroll}
       >
         <div className="chat-timeline-sheet mx-auto w-full max-w-[760px]">

@@ -1,8 +1,56 @@
 # 커뮤니티 메신저 방 — 모바일 뷰포트·스크롤 (정의·비회귀·변경 이력)
 
-**범위:** `/community-messenger/rooms/[roomId]` Phase2 셸 — **iOS Safari/PWA/WebView·Android Chrome/WebView** 에서 키보드·주소창·세이프에리어와 맞물리는 **높이 CSS 변수**와 **메시지 리스트 스크롤 앵커**만 다룬다. (Realtime·읽음·메시지 본문 계약은 `docs/messenger-realtime-policy.md` 등 별도.)
+> **LOCK (P0 · `8a91e387`)** — CM Room Keyboard/Layout 계약 고정.  
+> Cursor: `.cursor/rules/cm-room-keyboard-layout-contract-lock.mdc`  
+> 검증: `npm run verify:cm-room-keyboard-layout-contract` · `vitest run components/chat/__tests__/chat-chrome-layout-contract.test.ts`
 
-**제품 목표:** 카카오톡/텔레그램과 **픽셀 단위 동일**이 아니라, 사용자가 보기에 **자연스럽고 안정적**인 것. 남는 차이는 **`lib/ui/messenger-chat-viewport-tuning.ts`** 한 곳의 보정값으로만 조정한다.
+**범위:** `/community-messenger/rooms/[roomId]` Phase2 셸 — **iOS Safari/PWA/WebView·Android Chrome/WebView** 에서 키보드·주소창·세이프에리어와 맞물리는 **flex shell**과 **메시지 리스트 스크롤 앵커**만 다룬다. (Realtime·읽음·메시지 본문 계약은 `docs/messenger-realtime-policy.md` 등 별도.)
+
+**제품 목표:** 카카오톡/텔레그램과 **픽셀 단위 동일**이 아니라, 사용자가 보기에 **자연스럽고 안정적**인 것. **Composer가 헤더 밑으로 올라가면 버그.**
+
+---
+
+## 0. LOCK — Keyboard/Layout SSOT (변경 시 §7 + verify 필수)
+
+### 구조
+
+```txt
+CommunityMessengerRoomShell
+├ ChatHeader
+├ MessageTimeline
+├ MessageScrollController
+├ ChatComposer
+└ useCmRoomKbOffset (iOS only)
+```
+
+| 플랫폼 | 허용 |
+|--------|------|
+| Android | `adjustResize` + `safe-bottom` |
+| iOS | `safe-bottom` + `--kb-offset` |
+
+### Flex
+
+- **Shell:** `display:flex; flex-direction:column; min-height:0; overflow:hidden`
+- **Header:** `flex-shrink:0`
+- **Timeline:** `flex:1; min-height:0; overflow-y:auto`
+- **Composer:** `flex-shrink:0` — `fixed`/`sticky` **금지**
+
+### 하단 단일 권한
+
+Composer: `padding-bottom: calc(var(--safe-bottom) + var(--kb-offset, 0px))` **한 곳만**.  
+`safe-bottom` × nav gap × keyboard bottom × bottom inset **동시 사용 금지**.
+
+### 절대 재도입 금지
+
+`--chat-viewport-height` · `--chat-bottom-inset` · dedupe · hysteresis · slack · `translateY` keyboard patch · bottom patch · Android vv layout · `keyboardOverlapSuppressed` · `useChatViewportShellInsets` · `chat-viewport-shell-platform` · `useMessengerTradeKeyboardChrome` · 중복 viewport Provider.
+
+### 레드팀
+
+문제 시 **레이어·Provider·transform·if 땜빵 추가 금지** — 기존 구조 안에서 **제거·단순화**.
+
+### 정상 동작 체크
+
+1. 진입 즉시 히스토리 2. 키보드 open → Composer 키보드 위 3. Composer 헤더 밑 = 버그 4. 전송 후 키보드 유지 5. Timeline follow 6. flicker 없음 7. scroll jump 없음 8. close 자연 복귀
 
 ---
 
@@ -70,6 +118,8 @@
 - [ ] timeline wrapper가 hydration pass로 `hidden`/`display:none` 되지 **않는가?** (virtual row cap은 OK)
 - [ ] `useMessengerRoomClientPhase1` **훅 순서**를 바꾸지 않았는가?
 - [ ] 스크롤 보정을 **폴링·임시 `window.scrollTo`만**으로 대체하지 않았는가?
+- [ ] Android scroll/layout path에 **`visualViewport` listener** 를 붙이지 않았는가?
+- [ ] **`npm run verify:cm-room-keyboard-layout-contract`** PASS 했는가?
 
 ---
 
@@ -108,5 +158,7 @@
 | 2026-06-20 | **Flex-only P0** — `--chat-viewport-height`/`--chat-bottom-inset`/vv dedupe 제거; `cm-room-shell` flex column; Android adjustResize only; iOS `--kb-offset` via `use-cm-room-kb-offset`; timeline hydration hidden 제거; `keyboardOverlapSuppressed` 삭제 | `chat-viewport-shell.css`, `use-cm-room-kb-offset.ts`, `CommunityMessengerRoomClientPhase2Body`, 삭제: `use-chat-viewport-shell-insets`, `chat-viewport-shell-platform` |
 | 2026-06-20 | **Legacy removal** — `MessengerRoomMobileViewportProvider`·`useMessengerTradeKeyboardChrome` 삭제; keyboard hysteresis/slack 상수 제거; scroll anchor `visualViewport` iOS only; trade dock compact = composer focus only; `room.message` view deps 제거 | 삭제: `messenger-room-mobile-viewport-context`, `use-messenger-trade-keyboard-chrome`; `messenger-chat-viewport-tuning`, `CommunityMessengerRoomClientPhase2Body`, `messenger-room-scroll-anchor-controller`, `ChatDetailView` |
 | 2026-06-20 | **Render boundary** — `MessengerRoomPhase2ViewProvider` whole-`room` dep 제거(타이핑→Timeline invalidate 차단); Header/Composer/Call slice context 유지; dead `_view_destructure_block.txt` 삭제 | `CommunityMessengerRoomClientPhase2Body`, `chat-detail-bottom-nav-authority.mdc` |
+| 2026-06-20 | **LOCK** — Keyboard/Layout 계약 고정(P0 `8a91e387`); `verify:cm-room-keyboard-layout-contract` · `cm-room-keyboard-layout-contract-lock.mdc` | `docs/community-messenger-mobile-room-viewport.md`, `scripts/verify-cm-room-keyboard-layout-contract.mjs` |
+| 2026-06-20 | **Tail anchor** — timeline 단일 scroll(`cm-room-timeline overflow:hidden`); `--chat-composer-height`·scroll-padding-bottom; near-bottom 96px; peer append gate; keyboard/composer resize 2×rAF keep-bottom | `messenger-room-scroll-anchor-controller`, `use-cm-room-composer-height`, `chat-viewport-shell.css` |
 
 **규칙:** 이 영역을 고치면 **반드시 한 줄이라도 §7 변경 이력 테이블에 추가**한다. 되돌리기 전에 이전 행과 diff를 비교한다. 숫자만 바꿀 때는 **`lib/ui/messenger-chat-viewport-tuning.ts`** 만 수정했는지 확인한다.
