@@ -25,6 +25,7 @@ export type NativeCallServicePlugin = {
   reportAppState(options: { callId: string; state: NativeCallAppState }): Promise<{ ok: boolean }>;
   getActiveCallSnapshot(): Promise<NativeActiveCallSnapshot>;
   reportRemoteEnded(options: { callId: string }): Promise<{ ok: boolean }>;
+  restoreFromPictureInPicture(): Promise<{ ok: boolean }>;
 };
 
 const NativeCallService = registerPlugin<NativeCallServicePlugin>(NATIVE_CALL_SERVICE_PLUGIN_ID);
@@ -147,6 +148,12 @@ export async function reportNativeCallRemoteEnded(callId: string): Promise<boole
   return result?.ok ?? false;
 }
 
+/** Android system PiP — 탭 복귀 시 전체화면 */
+export async function restoreNativeCallFromPictureInPicture(): Promise<boolean> {
+  const result = await invokeNative<{ ok: boolean }>("restoreFromPictureInPicture");
+  return result?.ok ?? false;
+}
+
 export const nativeCallService = {
   prepareAccept: prepareNativeCallAccept,
   startCall: startNativeCallService,
@@ -157,4 +164,5 @@ export const nativeCallService = {
   reportAppState: reportNativeCallAppState,
   getActiveCallSnapshot: readNativeActiveCallSnapshot,
   reportRemoteEnded: reportNativeCallRemoteEnded,
+  restoreFromPictureInPicture: restoreNativeCallFromPictureInPicture,
 };

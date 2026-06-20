@@ -83,6 +83,8 @@ import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe
 import {
   computeCallDisplayConnectionState,
 } from "@/lib/community-messenger/call-network-quality-state";
+import { installCallSystemPipBridge } from "@/lib/community-messenger/call-system-pip-bridge";
+import { restoreNativeCallFromPictureInPicture } from "@/lib/call/native/native-call-service";
 import {
   stopAllOutgoingRingback,
 } from "@/lib/community-messenger/call-outgoing-ringback-controller";
@@ -5135,6 +5137,22 @@ export function CommunityMessengerCallClient({
     });
   }, []);
 
+  const handleSystemPipRestore = useCallback(() => {
+    void restoreNativeCallFromPictureInPicture().then((ok) => {
+      if (ok) setSystemPipActive(false);
+    });
+  }, []);
+
+  useEffect(() => {
+    return installCallSystemPipBridge({
+      onPipModeChange: ({ active, sessionId }) => {
+        const liveId = sessionRef.current?.id?.trim();
+        if (!liveId || liveId !== sessionId) return;
+        setSystemPipActive(active);
+      },
+    });
+  }, []);
+
   const handlePipSingleTapSwap = useCallback(() => {
     if (!remoteJoinedRef.current || !localVideoReadyRef.current || !remoteVideoReadyRef.current) return;
     setLayoutSwapped((prev) => !prev);
@@ -6022,7 +6040,10 @@ export function CommunityMessengerCallClient({
     networkQualityLevel: connectionDisplayState.level,
     connectionStatusLabel,
     networkWarningClassName: connectionDisplayState.warningClassName,
-    showNetworkWarningBorder: connectionDisplayState.showWarningBorder,
+    showNetworkWarningBorder: systemPipActive ? false : connectionDisplayState.showWarningBorder,
+    systemPipActive,
+    onSystemPipRestore: handleSystemPipRestore,
+    videoLayoutSwapped: layoutSwapped,
     connectedAt: connectedAtTs,
     endedAt: terminalClosedAt,
     endedDurationSeconds,

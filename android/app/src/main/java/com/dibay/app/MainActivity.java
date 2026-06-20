@@ -643,6 +643,23 @@ public class MainActivity extends BridgeActivity {
     } else {
       DibayActiveCallSessionManager.onPipExited(callId);
     }
+    injectCallPipModeEvent(callId, isInPictureInPictureMode);
+  }
+
+  private void injectCallPipModeEvent(String callId, boolean active) {
+    Bridge bridge = getBridge();
+    if (bridge == null) return;
+    WebView webView = bridge.getWebView();
+    if (webView == null) return;
+    final String safeCallId = safeJs(callId);
+    final String js =
+        "(function(){try{window.dispatchEvent(new CustomEvent('dibay:call-pip',{detail:{sessionId:'"
+            + safeCallId
+            + "',active:"
+            + active
+            + "}}));}catch(e){}})();";
+    webView.post(() -> webView.evaluateJavascript(js, null));
+    Log.i("DIBAY_CALL", "[DIBAY_CALL] call_pip_mode callId=" + callId + " active=" + active);
   }
 
   /** Video active call — system PiP when home/back; failure must not end call */
@@ -654,7 +671,7 @@ public class MainActivity extends BridgeActivity {
     if (isInPictureInPictureMode()) return;
     try {
       PictureInPictureParams params =
-          new PictureInPictureParams.Builder().setAspectRatio(new Rational(9, 16)).build();
+          new PictureInPictureParams.Builder().setAspectRatio(new Rational(3, 4)).build();
       enterPictureInPictureMode(params);
     } catch (Exception e) {
       Log.w("DIBAY_CALL", "active_call_pip_enter_failed callId=" + callId, e);

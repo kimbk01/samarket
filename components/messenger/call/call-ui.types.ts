@@ -117,6 +117,11 @@ export type CallScreenViewModel = {
   showNetworkWarningBorder?: boolean;
   /** CallClient 에서 1회 계산 — UI 컴포넌트는 `useCallPresentationState` 로 읽기만 */
   presentation?: CallPresentationState;
+  /** Android system PiP — 상하 분할·크롬 없음 */
+  systemPipActive?: boolean;
+  onSystemPipRestore?: (() => void) | null;
+  /** PiP 상하 분할 — remote/local ref 슬롯 교차 */
+  videoLayoutSwapped?: boolean;
 };
 
 export type CallNetworkQualityLevel =

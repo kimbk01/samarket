@@ -1,6 +1,8 @@
 package com.dibay.app.call;
 
+import android.app.Activity;
 import android.content.Intent;
+import android.os.Build;
 import com.dibay.app.DibayCallLog;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -134,5 +136,28 @@ public class NativeCallServicePlugin extends Plugin {
     }
     DibayActiveCallSessionManager.onRemoteEnded(getContext(), callId);
     call.resolve(new JSObject().put("ok", true));
+  }
+
+  /** PiP 탭 복귀 — WebView 전체화면으로 되돌린다. */
+  @PluginMethod
+  public void restoreFromPictureInPicture(PluginCall call) {
+    Activity activity = getActivity();
+    if (activity == null) {
+      call.reject("no_activity");
+      return;
+    }
+    try {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && activity.isInPictureInPictureMode()) {
+        Intent intent = new Intent(activity, activity.getClass());
+        intent.setFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        activity.startActivity(intent);
+      } else {
+        activity.moveTaskToFront(true);
+      }
+      DibayCallLog.once("active_call_pip_restore", DibayActiveCallSessionManager.getActiveCallId(), "ok=true");
+      call.resolve(new JSObject().put("ok", true));
+    } catch (Exception e) {
+      call.reject("pip_restore_failed", e);
+    }
   }
 }

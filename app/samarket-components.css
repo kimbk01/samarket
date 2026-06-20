@@ -1876,4 +1876,16 @@
       opacity: 1;
     }
   }
+
+  @keyframes dibay-call-signal-wave {
+    0%,
+    100% {
+      transform: scaleY(0.55);
+      opacity: 0.55;
+    }
+    50% {
+      transform: scaleY(1);
+      opacity: 1;
+    }
+  }
 }

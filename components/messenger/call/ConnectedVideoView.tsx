@@ -18,6 +18,7 @@ import {
   syncCallPipActionBarHeightCssVar,
 } from "@/lib/community-messenger/call-pip-metrics";
 import { shouldAllowPipPointerInteraction } from "@/lib/community-messenger/call-video-layout";
+import { CallConnectionQualitySignal } from "./CallConnectionQualitySignal";
 import { useCallPresentationState } from "./useCallPresentationState";
 
 const IDLE_HIDE_MS = 4200;
@@ -169,6 +170,31 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
   /** PiP 영상은 항상 표시 — opacity-0 으로 전체를 숨기면 메인 검은 화면·터치 스왑에만 의존하게 됨 */
   const pipChromeHiddenClass = "";
   const pipInteractionClass = pipAllowPointer ? "pointer-events-auto touch-none" : "";
+
+  if (vm.systemPipActive) {
+    const remoteSplitSlot = vm.videoLayoutSwapped ? vm.miniVideoSlot : vm.mainVideoSlot;
+    const localSplitSlot = vm.videoLayoutSwapped ? vm.mainVideoSlot : vm.miniVideoSlot;
+    return (
+      <button
+        type="button"
+        className="relative z-[2] h-full min-h-0 w-full flex-1 basis-0 overflow-hidden bg-black"
+        aria-label={t("cm_ui_open_call_screen")}
+        onClick={() => vm.onSystemPipRestore?.()}
+      >
+        <div className="pointer-events-none absolute inset-x-0 top-[max(6px,var(--safe-top))] z-[10] flex justify-center">
+          <CallConnectionQualitySignal level={vm.networkQualityLevel} />
+        </div>
+        <div className="flex h-full min-h-0 flex-col">
+          <div className="relative min-h-0 flex-1 basis-1/2 bg-black [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:object-cover [&_[id^=agora]]:h-full [&_[id^=agora]]:w-full">
+            {remoteSplitSlot ?? null}
+          </div>
+          <div className="relative min-h-0 flex-1 basis-1/2 border-t border-[#D4E9E2]/18 bg-black [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:object-cover [&_[id^=agora]]:h-full [&_[id^=agora]]:w-full">
+            {localSplitSlot ?? null}
+          </div>
+        </div>
+      </button>
+    );
+  }
 
   const renderPip = () => {
     if (!pipChromeVisible) return null;
