@@ -23,9 +23,10 @@ import {
   writeActiveCallRecoveryLock,
 } from "@/lib/community-messenger/call-active-session-recovery";
 import {
-  readActiveDirectVideoCallSessionId,
-  readMinimizedCommunityCallSessionId,
-} from "@/lib/community-messenger/direct-call-minimize";
+  readDockedCallSessionId,
+  readHostedActiveCallSessionId,
+  readPipMinimizedCallSessionId,
+} from "@/lib/community-messenger/call-presentation-ownership";
 import { appendDibayCallQaLog } from "@/lib/call/qa/dibay-call-qa-log";
 import {
   isIncomingCallSurfaceTerminal,
@@ -128,7 +129,7 @@ export function CallActiveSessionRecoveryHost() {
     const tryRecovery = async (reason: "initial" | "auth_ready"): Promise<void> => {
       if (cancelled || routedRef.current || inFlightRef.current) return;
       if (pathname.startsWith("/community-messenger/calls/")) return;
-      if (readMinimizedCommunityCallSessionId() || readActiveDirectVideoCallSessionId()) {
+      if (readDockedCallSessionId() || readPipMinimizedCallSessionId() || readHostedActiveCallSessionId()) {
         routedRef.current = true;
         return;
       }

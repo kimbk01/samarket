@@ -34,7 +34,7 @@ export function GlobalCallVideoPipHost() {
   const bindings = surface.videoPipLayout;
 
   useEffect(() => {
-    if (surface.presentation !== "minimized") return;
+    if (surface.presentation !== "pip-minimized") return;
     if (!runtimeSessionId || !isTerminalStatusForCleanup(runtimeStatus)) return;
     void cleanupCommunityCallTerminal({
       sessionId: runtimeSessionId,
@@ -44,7 +44,7 @@ export function GlobalCallVideoPipHost() {
   }, [runtimeSessionId, runtimeStatus, surface.presentation]);
 
   if (!portalReady || typeof document === "undefined") return null;
-  if (surface.presentation !== "minimized" || !bindings) return null;
+  if (surface.presentation !== "pip-minimized" || !bindings) return null;
 
   return createPortal(
     <MiniLocalVideo

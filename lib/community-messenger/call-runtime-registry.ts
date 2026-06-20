@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import type { VideoCallPipLayoutBindings } from "@/components/messenger/call/call-ui.types";
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 
-export type CallPresentationMode = "fullscreen" | "minimized" | "idle";
+export type CallPresentationMode = "fullscreen" | "dock" | "pip-minimized" | "idle";
 
 export type CommunityMessengerCallRuntimeHandle = {
   sessionId: string;
@@ -19,7 +19,9 @@ export type CommunityMessengerCallRuntimeSurface = {
   presentation: CallPresentationMode;
   videoPipLayout: VideoCallPipLayoutBindings | null;
   miniVideoSlot: ReactNode | null;
+  dockContent: ReactNode | null;
   expandToFullscreen: (() => void) | null;
+  minimizeToDock: (() => void) | null;
   minimizeToPip: (() => void) | null;
 };
 
@@ -27,7 +29,9 @@ const IDLE_SURFACE: CommunityMessengerCallRuntimeSurface = {
   presentation: "idle",
   videoPipLayout: null,
   miniVideoSlot: null,
+  dockContent: null,
   expandToFullscreen: null,
+  minimizeToDock: null,
   minimizeToPip: null,
 };
 

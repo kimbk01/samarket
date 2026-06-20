@@ -136,7 +136,7 @@ describe("cleanupCommunityCallTerminal", () => {
     writeDockedCallSession("call-remote");
     writePipMinimizedCallSession("call-remote");
     syncCommunityMessengerCallRuntimeSurface({
-      presentation: "minimized",
+      presentation: "pip-minimized",
     });
 
     await cleanupCommunityCallTerminal({

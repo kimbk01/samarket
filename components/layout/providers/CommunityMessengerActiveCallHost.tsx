@@ -107,8 +107,12 @@ export function CommunityMessengerActiveCallHost() {
   }
 
   const presentation = hostedPresentation ?? "fullscreen";
-  const callClientPresentation: "fullscreen" | "minimized" =
-    presentation === "fullscreen" ? "fullscreen" : "minimized";
+  const callClientPresentation: "fullscreen" | "dock" | "pip-minimized" =
+    presentation === "dock"
+      ? "dock"
+      : presentation === "pip-minimized"
+        ? "pip-minimized"
+        : "fullscreen";
 
   return (
     <>

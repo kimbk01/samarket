@@ -132,6 +132,7 @@ import {
   reportNativeCallAppState,
   startNativeCallService,
 } from "@/lib/call/native/native-call-service";
+import { installCallSystemPipBridge } from "@/lib/community-messenger/call-system-pip-bridge";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 import {
   cmCallAudioCleanup,
@@ -141,14 +142,18 @@ import {
 } from "@/lib/community-messenger/cm-call-debug";
 import { runCommunityMessengerCallMediaCleanup } from "@/lib/community-messenger/community-messenger-call-media-cleanup";
 import {
-  takeDetachedCommunityCallCleanup,
+  dockCommunityCall,
+  expandCommunityCallFromDock,
+  expandCommunityCallFromPip,
+  readDockedCallSessionId,
   resumeDetachedCommunityCall,
   minimizeCommunityCallToPip,
+  takeDetachedCommunityCallCleanup,
   shouldSkipCallClientUnmountDispose,
-  clearMinimizedCommunityCallSessionFlags,
-  writeActiveDirectVideoCallSession,
+  clearPipMinimizedCallSessionFlags,
+  writeHostedActiveCallSession,
   isCommunityMessengerDedicatedCallSessionPath,
-} from "@/lib/community-messenger/direct-call-minimize";
+} from "@/lib/community-messenger/call-presentation-ownership";
 import {
   shouldSkipActiveCallRecoveryRouting,
 } from "@/lib/community-messenger/call-active-session-recovery";
@@ -610,10 +615,10 @@ export function CommunityMessengerCallClient({
   sessionId: string;
   /** RSC에서 미리 조회해 첫 페인트·클라이언트 중복 요청을 줄인다 */
   initialSession?: CommunityMessengerCallSession | null;
-  presentation?: "fullscreen" | "minimized";
+  presentation?: "fullscreen" | "dock" | "pip-minimized";
 }) {
   const { t } = useI18n();
-  useMessengerCallMainBottomNavSuppress(presentation !== "minimized");
+  useMessengerCallMainBottomNavSuppress(presentation === "fullscreen");
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -663,6 +668,7 @@ export function CommunityMessengerCallClient({
   const [callPermissionBlocked, setCallPermissionBlocked] = useState(false);
   const [remoteVideoReady, setRemoteVideoReady] = useState(false);
   const [layoutSwapped, setLayoutSwapped] = useState(false);
+  const [systemPipActive, setSystemPipActive] = useState(false);
   const [camOff, setCamOff] = useState(false);
   const [micMuted, setMicMuted] = useState(false);
   /** 조인 직후(트랙 생성 시점)에도 최신 음소거 의도를 반영 */
@@ -4892,17 +4898,41 @@ export function CommunityMessengerCallClient({
   }, [joined, remoteJoined, scheduleSilentRefresh, sessionRealtimeSubscribed, session?.id, session?.sessionMode, session?.status]);
 
   /**
-   * 전용 `/calls/:id` 라우트는 페이지 CallClient 가 단일 소유 — host `writeActive` 시 이중 마운트·Agora 충돌.
-   * 영상 통화만 PiP·다른 화면 이동 시 ActiveCallHost 상주.
+   * direct 통화(voice/video)는 ActiveCallHost 단일 소유로 유지한다.
+   * `/calls/:id` 라우트를 벗어나면 자동 dock으로 전환해 통화 UI 유실을 막는다.
    */
   useEffect(() => {
     const s = sessionRef.current;
     if (!s?.id || !joinedRef.current || s.status !== "active" || s.sessionMode !== "direct") return;
-    if (s.callKind !== "video") return;
-    if (isCommunityMessengerDedicatedCallSessionPath(pathname, s.id)) return;
-    writeActiveDirectVideoCallSession(s.id);
+    writeHostedActiveCallSession(s.id);
+    if (isCommunityMessengerDedicatedCallSessionPath(pathname, s.id)) {
+      notifyCommunityCallHostSync();
+      return;
+    }
+    if (systemPipActive) return;
+    if (presentation === "pip-minimized" || presentation === "dock") return;
+    if (readDockedCallSessionId() === s.id.trim()) {
+      notifyCommunityCallHostSync();
+      return;
+    }
+    dockCommunityCall({
+      sessionId: s.id,
+      roomId: s.roomId,
+      cleanup: async () => {
+        await disposeCallMedia({ domAudioNuclear: false });
+      },
+    });
     notifyCommunityCallHostSync();
-  }, [joined, pathname, session?.callKind, session?.id, session?.sessionMode, session?.status]);
+  }, [
+    disposeCallMedia,
+    joined,
+    pathname,
+    presentation,
+    session?.id,
+    session?.sessionMode,
+    session?.status,
+    systemPipActive,
+  ]);
 
   /** 조건부 return 위 — 훅은 여기까지 */
   const closeTerminalView = useCallback(() => {
@@ -4946,12 +4976,33 @@ export function CommunityMessengerCallClient({
   const handleExpandToFullscreen = useCallback(() => {
     const sid = sessionRef.current?.id?.trim();
     if (!sid) return;
-    clearMinimizedCommunityCallSessionFlags();
-    resumeDetachedCommunityCall(sid);
+    if (presentation === "dock") {
+      expandCommunityCallFromDock(sid);
+    } else {
+      expandCommunityCallFromPip(sid);
+    }
     notifyCommunityCallHostSync();
     syncCommunityMessengerCallRuntimeSurface({ presentation: "fullscreen" });
     router.push(`/community-messenger/calls/${encodeURIComponent(sid)}`);
-  }, [router]);
+  }, [presentation, router]);
+
+  const handleDockToOngoing = useCallback(() => {
+    const s = sessionRef.current;
+    const sid = s?.id?.trim();
+    if (!sid || !s) return;
+    dockCommunityCall({
+      sessionId: sid,
+      roomId: s.roomId,
+      cleanup: async () => {
+        await disposeCallMedia({ domAudioNuclear: false });
+      },
+    });
+    notifyCommunityCallHostSync();
+    syncCommunityMessengerCallRuntimeSurface({ presentation: "dock" });
+    if (isCommunityMessengerDedicatedCallSessionPath(pathname, sid)) {
+      navigateBackFromCommunityMessengerCall(router, s.roomId);
+    }
+  }, [disposeCallMedia, pathname, router]);
 
   const handleMinimizeToPip = useCallback(() => {
     const s = sessionRef.current;
@@ -4962,13 +5013,12 @@ export function CommunityMessengerCallClient({
       cleanup: () => disposeCallMedia(),
     });
     notifyCommunityCallHostSync();
-    syncCommunityMessengerCallRuntimeSurface({ presentation: "minimized" });
+    syncCommunityMessengerCallRuntimeSurface({ presentation: "pip-minimized" });
     navigateBackFromCommunityMessengerCall(router, s.roomId);
   }, [disposeCallMedia, router]);
 
-  /** Web/iOS — 홈·다른 앱 전환 시 통화 유지 in-app PiP (Android native system PiP 는 MainActivity) */
   useEffect(() => {
-    if (presentation === "minimized") return;
+    if (presentation === "pip-minimized" || presentation === "dock") return;
     const onHidden = () => {
       if (document.visibilityState !== "hidden") return;
       const s = sessionRef.current;
@@ -4979,6 +5029,20 @@ export function CommunityMessengerCallClient({
     document.addEventListener("visibilitychange", onHidden);
     return () => document.removeEventListener("visibilitychange", onHidden);
   }, [handleMinimizeToPip, presentation]);
+
+  useEffect(() => {
+    return installCallSystemPipBridge({
+      onPipModeChange: ({ active, sessionId: pipSessionId }) => {
+        const liveId = sessionRef.current?.id?.trim();
+        if (!liveId || liveId !== pipSessionId) return;
+        setSystemPipActive(active);
+        if (!active) {
+          clearPipMinimizedCallSessionFlags();
+          notifyCommunityCallHostSync();
+        }
+      },
+    });
+  }, []);
 
   const handlePipSingleTapSwap = useCallback(() => {
     if (!remoteJoinedRef.current || !localVideoReadyRef.current || !remoteVideoReadyRef.current) return;
@@ -4997,7 +5061,7 @@ export function CommunityMessengerCallClient({
           remoteJoined,
         })
     ),
-    positionMode: presentation === "minimized" ? "viewport-fixed" : "stage-absolute",
+    positionMode: presentation === "pip-minimized" ? "viewport-fixed" : "stage-absolute",
     stageRef: videoStageRef,
     stageBottomExtraPx: 80,
     micMuted,
@@ -5005,7 +5069,7 @@ export function CommunityMessengerCallClient({
     pipLabel: layoutSwapped ? (session?.peerLabel ?? t("common_me")) : t("common_me"),
     onSingleTap: handlePipSingleTapSwap,
     onExpandFullscreen: handleExpandToFullscreen,
-    doubleTapAction: presentation === "minimized" ? "fullscreen" : "swap",
+    doubleTapAction: presentation === "pip-minimized" ? "fullscreen" : "swap",
   });
 
   /**
@@ -5208,8 +5272,10 @@ export function CommunityMessengerCallClient({
 
   useLayoutEffect(() => {
     const livePresentation =
-      presentation === "minimized"
-        ? "minimized"
+      presentation === "dock"
+        ? "dock"
+        : presentation === "pip-minimized"
+          ? "pip-minimized"
         : joined && session?.status === "active"
           ? "fullscreen"
           : "idle";
@@ -5217,11 +5283,14 @@ export function CommunityMessengerCallClient({
       presentation: livePresentation,
       videoPipLayout: pipShellMountedForSync ? videoPipGesture : null,
       miniVideoSlot: miniVideoSlotEl ?? null,
+      dockContent: null,
       expandToFullscreen: handleExpandToFullscreen,
       minimizeToPip: handleMinimizeToPip,
+      minimizeToDock: handleDockToOngoing,
     });
   }, [
     camOff,
+    handleDockToOngoing,
     handleExpandToFullscreen,
     handleMinimizeToPip,
     joined,
@@ -5661,7 +5730,7 @@ export function CommunityMessengerCallClient({
     videoCall &&
     joined &&
     session.status === "active" &&
-    presentation !== "minimized" &&
+    presentation !== "pip-minimized" &&
     !isTerminalCallSessionStatus(session.status);
   const permissionBlockedUi =
     callPermissionBlocked || isCallMediaPermissionBlockedUiMessage(errorMessage);
@@ -5673,14 +5742,6 @@ export function CommunityMessengerCallClient({
     directPhase !== "missed" &&
     directPhase !== "failed" &&
     !joinAttemptInFlight;
-  if (canMinimizeActiveVideoCall) {
-    secondaryActions.push({
-      id: "minimize-call",
-      label: t("cm_ui_minimize_call_window"),
-      icon: "minimize",
-      onClick: () => handleMinimizeToPip(),
-    });
-  }
   if (showOpenSettingsAction) {
     secondaryActions.push({
       id: "open-permission-settings-active",
@@ -5715,6 +5776,22 @@ export function CommunityMessengerCallClient({
       label: t("nav_close"),
       icon: "close",
       onClick: closeTerminalView,
+    });
+  }
+
+  const canDockCurrentCall =
+    joined &&
+    session.status === "active" &&
+    !systemPipActive &&
+    presentation !== "dock" &&
+    presentation !== "pip-minimized" &&
+    !isTerminalCallSessionStatus(session.status);
+  if (canDockCurrentCall) {
+    secondaryActions.push({
+      id: "minimize-call-dock",
+      label: t("cm_ui_minimize_call_window"),
+      icon: "minimize",
+      onClick: handleDockToOngoing,
     });
   }
 
@@ -5864,9 +5941,11 @@ export function CommunityMessengerCallClient({
       cameraEnabled: !camOff,
       localVideoMinimized: true,
     },
-    onBack: canMinimizeActiveVideoCall
-      ? () => handleMinimizeToPip()
-      : videoCall && session.isMineInitiator && (displayCallPhase === "ringing" || displayCallPhase === "connecting")
+    onBack: canDockCurrentCall
+      ? handleDockToOngoing
+      : canMinimizeActiveVideoCall
+        ? () => handleMinimizeToPip()
+        : videoCall && session.isMineInitiator && (displayCallPhase === "ringing" || displayCallPhase === "connecting")
         ? () => void endCall()
         : null,
     hideOutgoingVideoBrandRow: Boolean(
@@ -5939,6 +6018,19 @@ export function CommunityMessengerCallClient({
             : 1000
           : null,
   };
+  const dockContent =
+    presentation === "dock" ? (
+      <div className="pointer-events-auto" data-call-dock-surface>
+        <CallScreen vm={callVm} variant="dock-top" />
+      </div>
+    ) : null;
+
+  useLayoutEffect(() => {
+    syncCommunityMessengerCallRuntimeSurface({
+      dockContent,
+      presentation: dockContent ? "dock" : undefined,
+    });
+  }, [dockContent]);
 
   const insecureOriginBlocked =
     typeof window !== "undefined" && isCommunityMessengerMediaBlockedByInsecureOrigin();
@@ -5949,11 +6041,17 @@ export function CommunityMessengerCallClient({
     !joined &&
     insecureOriginBlocked;
 
-  if (presentation === "minimized") {
+  if (presentation === "pip-minimized") {
     return (
       <div className="fixed -left-[9999px] top-0 h-px w-px overflow-hidden opacity-0 pointer-events-none" aria-hidden>
         {videoCall ? <div ref={largeVideoRef} className="h-full w-full" /> : null}
       </div>
+    );
+  }
+
+  if (presentation === "dock") {
+    return (
+      <div className="fixed -left-[9999px] top-0 h-px w-px overflow-hidden opacity-0 pointer-events-none" aria-hidden />
     );
   }
 
