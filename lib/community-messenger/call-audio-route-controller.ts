@@ -1,7 +1,7 @@
 "use client";
 
 import type { IRemoteAudioTrack } from "agora-rtc-sdk-ng";
-import { applyAgoraRemoteSpeakerPreference } from "@/lib/community-messenger/call-provider/agora-playback-routing";
+import { applyAgoraRemoteSpeakerPreference, configureRemoteCallAudioPlayback } from "@/lib/community-messenger/call-provider/agora-playback-routing";
 import {
   getNativeCallAudioRoute,
   releaseNativeCallAudioRoute,
@@ -56,6 +56,10 @@ async function applyAgoraPlaybackRoute(args: CallAudioRouteApplyArgs): Promise<v
   });
 
   if (args.remoteAudioTrack) {
+    configureRemoteCallAudioPlayback(
+      args.remoteAudioTrack,
+      args.callType === "video" ? "video" : "voice"
+    );
     await applyAgoraRemoteSpeakerPreference(args.remoteAudioTrack, args.desiredSpeaker);
   }
 
@@ -105,7 +109,11 @@ export async function applyCallAudioRoute(
     });
   });
 
-  let nativeResult = await setNativeCallSpeakerphoneEnabled(args.desiredSpeaker, args.reason);
+  let nativeResult = await setNativeCallSpeakerphoneEnabled(
+    args.desiredSpeaker,
+    args.reason,
+    args.callType
+  );
   logCallAudioRoute("native_route_result", {
     callId: args.callId,
     callType: args.callType,
@@ -140,7 +148,8 @@ export async function applyCallAudioRoute(
     });
     nativeResult = await setNativeCallSpeakerphoneEnabled(
       args.desiredSpeaker,
-      `${args.reason}:verify_${delayMs}`
+      `${args.reason}:verify_${delayMs}`,
+      args.callType
     );
   }
 

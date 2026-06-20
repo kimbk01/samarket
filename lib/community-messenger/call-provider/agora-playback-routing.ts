@@ -1,6 +1,34 @@
 import AgoraRTC from "agora-rtc-sdk-ng";
 import type { IRemoteAudioTrack } from "agora-rtc-sdk-ng";
+import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
 import { readPreferredSpeakerSinkId } from "@/lib/permissions/speaker-output-preference";
+
+/** Agora 원격 재생 기본(100). Android 체감 볼륨은 네이티브 STREAM_VOICE_CALL 바닥이 담당. */
+export const CALL_REMOTE_AUDIO_PLAYBACK_VOLUME_VIDEO = 100;
+export const CALL_REMOTE_AUDIO_PLAYBACK_VOLUME_VOICE = 100;
+
+export function configureRemoteCallAudioPlayback(
+  track: IRemoteAudioTrack,
+  callKind: CommunityMessengerCallKind
+): void {
+  try {
+    const vol =
+      callKind === "video"
+        ? CALL_REMOTE_AUDIO_PLAYBACK_VOLUME_VIDEO
+        : CALL_REMOTE_AUDIO_PLAYBACK_VOLUME_VOICE;
+    track.setVolume(vol);
+  } catch {
+    /* SDK 미지원 */
+  }
+}
+
+export async function playRemoteCallAudioTrack(
+  track: IRemoteAudioTrack,
+  callKind: CommunityMessengerCallKind
+): Promise<void> {
+  configureRemoteCallAudioPlayback(track, callKind);
+  await track.play();
+}
 
 /**
  * Chrome/Edge 데스크톱 등에서 원격 오디오 재생 장치 전환(스피커 vs 이어폰·헤드셋 우선).

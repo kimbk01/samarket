@@ -80,7 +80,7 @@ describe("call-audio-route-controller", () => {
     await vi.runAllTimersAsync();
     const result = await promise;
 
-    expect(setNativeCallSpeakerphoneEnabledMock).toHaveBeenCalledWith(true, "speaker_toggle");
+    expect(setNativeCallSpeakerphoneEnabledMock).toHaveBeenCalledWith(true, "speaker_toggle", "audio");
     expect(result.actualRoute).toBe("speaker");
   });
 
@@ -146,7 +146,8 @@ describe("call-audio-route-controller", () => {
     expect(setNativeCallSpeakerphoneEnabledMock).toHaveBeenCalledTimes(2);
     expect(setNativeCallSpeakerphoneEnabledMock).toHaveBeenLastCalledWith(
       true,
-      "agora_join_success:verify_300"
+      "agora_join_success:verify_300",
+      "video"
     );
     expect(result.actualRoute).toBe("speaker");
   });

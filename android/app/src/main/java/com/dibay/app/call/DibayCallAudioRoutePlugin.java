@@ -25,6 +25,8 @@ public class DibayCallAudioRoutePlugin extends Plugin {
   private boolean savedAudioState = false;
   private int savedMode = AudioManager.MODE_NORMAL;
   private boolean savedSpeakerphoneOn = false;
+  private AudioManager.OnAudioFocusChangeListener audioFocusListener;
+  private boolean hasAudioFocus = false;
 
   @Override
   public void load() {
@@ -48,7 +50,8 @@ public class DibayCallAudioRoutePlugin extends Plugin {
   public void setSpeakerphoneEnabled(PluginCall call) {
     boolean enabled = Boolean.TRUE.equals(call.getBoolean("enabled", false));
     String reason = call.getString("reason", "set_speakerphone");
-    call.resolve(applySpeakerphone(enabled, reason));
+    String callType = call.getString("callType", "audio");
+    call.resolve(applySpeakerphone(enabled, reason, callType));
   }
 
   @PluginMethod
@@ -87,12 +90,13 @@ public class DibayCallAudioRoutePlugin extends Plugin {
     notifyListeners("routeChanged", payload);
   }
 
-  private JSObject applySpeakerphone(boolean enabled, String reason) {
+  private JSObject applySpeakerphone(boolean enabled, String reason, String callType) {
     if (audioManager == null) {
       return result(enabled, false, "unknown", false, "noop", "audio_manager_missing");
     }
 
     saveAudioStateOnce();
+    ensureVoiceCallAudioFocus();
     audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
 
     String external = currentExternalRoute();
@@ -105,18 +109,60 @@ public class DibayCallAudioRoutePlugin extends Plugin {
       AudioDeviceInfo target = findCommunicationDevice(enabled);
       if (target != null) {
         boolean ok = audioManager.setCommunicationDevice(target);
+        if (enabled && ok && isVideoCallType(callType)) {
+          ensureVideoSpeakerVoiceStreamFloor();
+        }
         return result(enabled, ok, currentRouteName(), false, "setCommunicationDevice", reason);
       }
     }
 
     audioManager.setSpeakerphoneOn(enabled);
+    if (enabled && isVideoCallType(callType)) {
+      ensureVideoSpeakerVoiceStreamFloor();
+    }
     return result(enabled, true, currentRouteName(), false, "setSpeakerphoneOn", reason);
+  }
+
+  private boolean isVideoCallType(String callType) {
+    return "video".equals(callType);
+  }
+
+  private void ensureVoiceCallAudioFocus() {
+    if (audioManager == null || hasAudioFocus) return;
+    audioFocusListener = focusChange -> {};
+    int res =
+        audioManager.requestAudioFocus(
+            audioFocusListener,
+            AudioManager.STREAM_VOICE_CALL,
+            AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
+    hasAudioFocus = res == AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
+  }
+
+  private void releaseVoiceCallAudioFocus() {
+    if (audioManager == null || !hasAudioFocus) return;
+    if (audioFocusListener != null) {
+      audioManager.abandonAudioFocus(audioFocusListener);
+    }
+    hasAudioFocus = false;
+    audioFocusListener = null;
+  }
+
+  private void ensureVideoSpeakerVoiceStreamFloor() {
+    if (audioManager == null) return;
+    int max = audioManager.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL);
+    if (max <= 0) return;
+    int cur = audioManager.getStreamVolume(AudioManager.STREAM_VOICE_CALL);
+    int floor = Math.max(1, (int) Math.round(max * 0.72));
+    if (cur < floor) {
+      audioManager.setStreamVolume(AudioManager.STREAM_VOICE_CALL, floor, 0);
+    }
   }
 
   private JSObject releaseRoute(String reason) {
     if (audioManager == null) {
       return result(false, false, "unknown", false, "noop", "audio_manager_missing");
     }
+    releaseVoiceCallAudioFocus();
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
       audioManager.clearCommunicationDevice();
     }
