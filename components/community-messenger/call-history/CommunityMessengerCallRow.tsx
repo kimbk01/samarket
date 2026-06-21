@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { CommunityMessengerCallActionButton } from "@/components/community-messenger/call-history/CommunityMessengerCallActionButton";
 import { CommunityMessengerCallDirectionIcon } from "@/components/community-messenger/call-history/CommunityMessengerCallDirectionIcon";
 import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultAvatarFace";
 import {
@@ -22,6 +23,7 @@ const DRAG_CANCEL_Y = 14;
 type Props = {
   call: CommunityMessengerCallLog;
   onNavigate: (call: CommunityMessengerCallLog) => void;
+  onRequestOutgoingCall: (call: CommunityMessengerCallLog, kind: "voice" | "video") => void;
   onDeleteRequest: (call: CommunityMessengerCallLog) => void;
   openedSwipeItemId: string | null;
   onOpenSwipeItem: (id: string | null) => void;
@@ -31,6 +33,7 @@ type Props = {
 export function CommunityMessengerCallRow({
   call,
   onNavigate,
+  onRequestOutgoingCall,
   onDeleteRequest,
   openedSwipeItemId,
   onOpenSwipeItem,
@@ -269,11 +272,25 @@ export function CommunityMessengerCallRow({
 
         <aside className="flex shrink-0 flex-col items-end justify-center gap-1 px-2.5 py-1.5">
           {timeLabel ? <span className="sam-text-xxs tabular-nums text-sam-fg-muted">{timeLabel}</span> : null}
-          <CommunityMessengerCallDirectionIcon
-            callKind={vm.callKind}
-            displayType={vm.displayType}
-            isOutgoing={vm.isOutgoing}
-          />
+          {vm.canRedial ? (
+            <div onPointerDown={(e) => e.stopPropagation()}>
+              <CommunityMessengerCallActionButton
+                kind={vm.callKind === "video" ? "video" : "voice"}
+                ariaLabel={
+                  vm.callKind === "video" ? t("cm_ui_call_log_redial_video") : t("cm_ui_call_log_redial_voice")
+                }
+                onPress={() =>
+                  onRequestOutgoingCall(call, vm.callKind === "video" ? "video" : "voice")
+                }
+              />
+            </div>
+          ) : (
+            <CommunityMessengerCallDirectionIcon
+              callKind={vm.callKind}
+              displayType={vm.displayType}
+              isOutgoing={vm.isOutgoing}
+            />
+          )}
         </aside>
       </div>
     </li>

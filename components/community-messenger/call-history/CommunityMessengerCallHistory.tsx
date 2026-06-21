@@ -21,6 +21,7 @@ type Props = {
   loading?: boolean;
   error?: string | null;
   onNavigate: (call: CommunityMessengerCallLog) => void;
+  onRequestOutgoingCall: (call: CommunityMessengerCallLog, kind: "voice" | "video") => void;
   onDeleteRequest: (call: CommunityMessengerCallLog) => void;
   openedSwipeItemId: string | null;
   onOpenSwipeItem: (id: string | null) => void;
@@ -32,6 +33,7 @@ export function CommunityMessengerCallHistory({
   loading = false,
   error = null,
   onNavigate,
+  onRequestOutgoingCall,
   onDeleteRequest,
   openedSwipeItemId,
   onOpenSwipeItem,
@@ -75,6 +77,7 @@ export function CommunityMessengerCallHistory({
           key={call.id}
           call={call}
           onNavigate={onNavigate}
+          onRequestOutgoingCall={onRequestOutgoingCall}
           onDeleteRequest={onDeleteRequest}
           openedSwipeItemId={openedSwipeItemId}
           onOpenSwipeItem={onOpenSwipeItem}
