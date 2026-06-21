@@ -4,6 +4,8 @@ import {
   pathFromClientHref,
 } from "@/lib/navigation/community-messenger-deep-route-path";
 
+/** SSOT_CONTRACT: cm-deep-route-navigation-lock beginRoomDeepRouteNavigationLock beginCallDeepRouteNavigationLock */
+
 export const CM_DEEP_ROUTE_NAV_LOCK_TTL_MS = 2500;
 
 export type DeepRouteLockKind = "room" | "call";

@@ -46,4 +46,22 @@ export const SSOT_SOURCE_CONTRACT_REGISTRY: readonly SsotSourceContractEntry[] =
     marker: "SSOT_CONTRACT: messenger-call-init-route startCommunityMessengerCallSession",
     also: ["startCommunityMessengerCallSession"],
   },
+  {
+    id: "cm-deep-route-navigation-lock",
+    file: "lib/navigation/cm-deep-route-navigation-lock.ts",
+    marker:
+      "SSOT_CONTRACT: cm-deep-route-navigation-lock beginRoomDeepRouteNavigationLock beginCallDeepRouteNavigationLock",
+  },
+  {
+    id: "cm-call-accept-gateway-patch-owner",
+    file: "lib/community-messenger/incoming-call-accept-gateway.ts",
+    marker: "SSOT_CONTRACT: cm-call-accept-gateway-patch-owner runIncomingCallAccept acceptIncomingCallOnce",
+    also: ["buildPostAcceptActiveCallHref"],
+  },
+  {
+    id: "dibay-signup-consent-only-gate",
+    file: "lib/auth/dibay-signup-status.ts",
+    marker: "SSOT_CONTRACT: dibay-signup-consent-only-gate signupComplete consentComplete",
+    also: ["const signupComplete = consentComplete"],
+  },
 ] as const;

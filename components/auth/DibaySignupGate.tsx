@@ -51,7 +51,8 @@ export function DibaySignupGate() {
       if (!boot?.id) return;
 
       const bootSignup = deriveDibaySignupStatus(boot, { hasSession: true });
-      /** 앱 접근 게이트 = consent only. @id·프로필 미완으로 방/통화 deep route 를 /mypage 로 덮지 않는다. */
+      /** SSOT_CONTRACT: dibay-signup-consent-only-gate DibaySignupGate consentComplete
+       * 앱 접근 게이트 = consent only. @id·프로필 미완으로 방/통화 deep route 를 /mypage 로 덮지 않는다. */
       if (bootSignup.consentComplete) {
         markSignupCompleteResolvedSession();
         return;

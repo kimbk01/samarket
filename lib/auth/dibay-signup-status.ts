@@ -126,6 +126,7 @@ export function deriveDibaySignupStatus(
   const profileComplete = isDibayProfileComplete(profile);
   const legacyCompleted = Boolean(profile.onboarding_completed_at);
   /**
+   * SSOT_CONTRACT: dibay-signup-consent-only-gate signupComplete consentComplete
    * CONTRACT — signupComplete (앱 HTML gate · DibaySignupGate · proxy · mutation 약관 403)
    * = consentComplete ONLY (법적 최소).
    * DO NOT: consent && dibayId && profile — @id/프로필 미완 사용자가

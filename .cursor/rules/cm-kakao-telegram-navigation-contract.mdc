@@ -1,0 +1,40 @@
+---
+description: CM 카톡/텔레그램형 hub·stack·auth·call accept 계약 — 2026-06-21 mypage 덮임 재발 방지
+globs:
+  - "**/dibay-signup-status.ts"
+  - "**/DibaySignupGate.tsx"
+  - "**/client-signup-gate.ts"
+  - "**/main-bottom-nav-route-commit.ts"
+  - "**/cm-deep-route-navigation-lock.ts"
+  - "**/guarded-client-navigation.ts"
+  - "**/community-messenger-room-forward-navigation.ts"
+  - "**/call-session-navigation-seed.ts"
+  - "**/incoming-call-accept-gateway.ts"
+  - "**/GlobalCommunityMessengerIncomingCall.tsx"
+  - "**/call-page-host-ownership.ts"
+  - "**/CommunityMessengerActiveCallHost.tsx"
+alwaysApply: false
+---
+
+# CM 카톡/텔레그램형 네비·인증·통화 계약
+
+**전문:** `docs/community-messenger/cm-kakao-telegram-navigation-contract.md`  
+**검증:** `npm run verify:cm-kakao-telegram-navigation-contract`
+
+## 수정 전 필수
+
+1. 위 문서 §1 사고 원인·§2 4계층 읽기
+2. `git diff` 로 CONTRACT / DO NOT / SSOT_CONTRACT 주석 확인
+
+## 절대 금지
+
+- HTML gate `signupComplete` 에 @id·프로필 다시 묶기 → `/mypage` 가 방·통화 deep route 덮음
+- 하단 탭 `router.replace/push` 를 async 뒤로 미루기
+- 배너 1:1 accept 를 route-first (`action=accept` 선행) 로 되돌리기
+- `incoming-call-accept-gateway` 밖에서 accept PATCH 추가
+
+## 수정 후
+
+- auth/signup touch → `verify:auth-session-contract`
+- 본 globs touch → `verify:cm-kakao-telegram-navigation-contract`
+- `npx tsc --noEmit`
