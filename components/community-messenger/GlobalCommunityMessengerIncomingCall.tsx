@@ -1855,7 +1855,6 @@ export function GlobalCommunityMessengerIncomingCall() {
       ? foregroundPresentation.session
       : null;
   const bannerSessionId = bannerSession?.id ?? null;
-  const nativeIncomingSession = bannerSession;
   const incomingUiSurfaceLoggedRef = useRef<Set<string>>(new Set());
 
   /** 수신 오버레이·알림 딥링크 진입 시 CallClient 첫 페인트용 시드 */
@@ -2059,13 +2058,10 @@ export function GlobalCommunityMessengerIncomingCall() {
   }, [effectiveViewerLiveSessionId, pathname, refresh, sessions, userId]);
 
   useEffect(() => {
-    syncCommunityMessengerNativeIncomingCall(nativeIncomingSession);
-    return () => {
-      if (nativeIncomingSession) {
-        syncCommunityMessengerNativeIncomingCall(null);
-      }
-    };
-  }, [nativeIncomingSession]);
+    if (!bannerSession) return;
+    syncCommunityMessengerNativeIncomingCall({ ...bannerSession, status: "cancelled" });
+    requestCloseMessengerCallNotifications(bannerSession.id);
+  }, [bannerSession]);
 
   const rejectCall = useCallback(async (sessionId: string) => {
     logCallFlow("call_reject_pressed", { sessionId });

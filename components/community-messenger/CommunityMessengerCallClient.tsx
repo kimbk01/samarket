@@ -299,10 +299,6 @@ import {
   shouldPreserveHeldPreJoinVideoOnSessionRouteChange,
   shouldShowOutgoingRingCameraPreview,
 } from "@/lib/community-messenger/call-prejoin-video-preview";
-import {
-  isCommunityMessengerCameraSwitchSupported,
-  switchCommunityMessengerCameraFacing,
-} from "@/lib/community-messenger/call-camera-switch";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { VideoOff } from "lucide-react";
 import { SamarketUserAvatarThumb } from "@/components/profile/SamarketUserAvatarThumb";
@@ -687,7 +683,6 @@ export function CommunityMessengerCallClient({
     kind: null,
   });
   const [bluetoothPreferred, setBluetoothPreferred] = useState(false);
-  const [cameraSwitchSupported, setCameraSwitchSupported] = useState(false);
   /** Agora network-quality uplink/downlink (debounced into NQS) */
   const [networkUplinkQuality, setNetworkUplinkQuality] = useState(0);
   const [networkDownlinkQuality, setNetworkDownlinkQuality] = useState(0);
@@ -2523,7 +2518,6 @@ export function CommunityMessengerCallClient({
         } catch {
           /* optional */
         }
-        setCameraSwitchSupported(isCommunityMessengerCameraSwitchSupported(videoTrack));
         markCommunityMessengerMediaTrustedOnce("video");
         void bindLocalVideoTrack();
       } catch (e) {
@@ -2536,62 +2530,6 @@ export function CommunityMessengerCallClient({
       cancelled = true;
     };
   }, [camOff, session?.id, session?.callKind, session?.status, joined, bindLocalVideoTrack]);
-
-  const switchCameraFacing = useCallback(async () => {
-    const s = sessionRef.current;
-    const v = localTracksRef.current?.videoTrack;
-    const pipFirstOutgoing =
-      s?.callKind === "video" &&
-      isVideoPipFirstOutgoingPhase(
-        buildVideoPipFirstPolicyArgs({
-          session: s,
-          joined: joinedRef.current,
-          remoteJoined: remoteJoinedRef.current,
-        })
-      );
-    if (!v && pipFirstOutgoing) {
-      if (s?.status === "ringing") return;
-      setBusy("camera");
-      try {
-        useRearFacingRef.current = !useRearFacingRef.current;
-        const prime = await primeOutgoingCallMediaBeforeNavigate("video");
-        if (prime.ok) {
-          heldPreJoinVideoPreviewRef.current =
-            peekPrimedCommunityMessengerDeviceStream("video") ?? heldPreJoinVideoPreviewRef.current;
-        }
-      } finally {
-        setBusy(null);
-      }
-      return;
-    }
-    if (!v || !isCommunityMessengerCameraSwitchSupported(v)) return;
-    console.info("[cm-call-video] camera_switch_start", { sessionId: sessionRef.current?.id?.slice(-8) });
-    setBusy("camera");
-    try {
-      const next = await switchCommunityMessengerCameraFacing({
-        videoTrack: v,
-        useRearFacingRef,
-        client: clientRef.current,
-        onReplacedVideoTrack: (replaced) => {
-          const tracks = localTracksRef.current;
-          if (tracks) {
-            localTracksRef.current = { ...tracks, videoTrack: replaced };
-          }
-        },
-        onAfterSwitch: async () => {
-          await bindLocalVideoTrack();
-        },
-      });
-      const tracks = localTracksRef.current;
-      if (tracks && tracks.videoTrack !== next) {
-        localTracksRef.current = { ...tracks, videoTrack: next };
-      }
-      setCameraSwitchSupported(isCommunityMessengerCameraSwitchSupported(next));
-    } finally {
-      console.info("[cm-call-video] camera_switch_done", { sessionId: sessionRef.current?.id?.slice(-8) });
-      setBusy(null);
-    }
-  }, [bindLocalVideoTrack]);
 
   const toggleCamEnabled = useCallback(async () => {
     const v = localTracksRef.current?.videoTrack;
@@ -4105,7 +4043,6 @@ export function CommunityMessengerCallClient({
       } catch {
         /* optional */
       }
-      setCameraSwitchSupported(isCommunityMessengerCameraSwitchSupported(videoTrack));
       setSession(json.session);
       speakerUserToggledRef.current = false;
       setSpeakerEnabled(true);
@@ -4302,7 +4239,6 @@ export function CommunityMessengerCallClient({
           }
         }
         setLocalVideoReady(false);
-        setCameraSwitchSupported(false);
       }
       const json = await runCallMediaModeGuard(
         s.id,
@@ -4901,16 +4837,6 @@ export function CommunityMessengerCallClient({
       setLayoutSwapped(false);
     }
   }, [joined, remoteJoined, remoteVideoReady, session?.callKind]);
-
-  useEffect(() => {
-    if (!joined || !session || session.callKind !== "video") {
-      setCameraSwitchSupported(false);
-      return;
-    }
-    setCameraSwitchSupported(
-      isCommunityMessengerCameraSwitchSupported(localTracksRef.current?.videoTrack ?? null)
-    );
-  }, [joined, session?.callKind, session?.id, localVideoReady]);
 
   useEffect(() => {
     if (!session) return;
@@ -5680,15 +5606,6 @@ export function CommunityMessengerCallClient({
       (callScreenPhase === "connecting" || callScreenPhase === "reconnecting") &&
       !remoteJoined;
     if (incomingCalleePreRemote) {
-      if (mediaReady && cameraSwitchSupported) {
-        primaryActions.push({
-          id: "switch-camera",
-          label: t("cm_ui_switch_camera"),
-          icon: "camera-switch",
-          disabled: !localVideoReady || busy === "camera",
-          onClick: () => void switchCameraFacing(),
-        });
-      }
       primaryActions.push(
         {
           id: "speaker",
@@ -5724,9 +5641,6 @@ export function CommunityMessengerCallClient({
         }
       );
     } else {
-      const switchCameraDisabled = pipFirstOutgoing
-        ? !hasLocalPreviewOrTrack || busy === "camera"
-        : !mediaReady || !cameraSwitchSupported || busy === "camera";
       const cameraToggleDisabled = pipFirstOutgoing
         ? !hasLocalPreviewOrTrack || busy === "join" || busy === "upgrade"
         : !mediaReady || busy === "join" || busy === "upgrade";
@@ -5738,13 +5652,6 @@ export function CommunityMessengerCallClient({
           active: speakerEnabled,
           disabled: speakerActionDisabled,
           onClick: toggleSpeakerEnabled,
-        },
-        {
-          id: "switch-camera",
-          label: t("cm_ui_switch_camera"),
-          icon: "camera-switch",
-          disabled: switchCameraDisabled,
-          onClick: () => void switchCameraFacing(),
         },
         {
           id: "camera",
