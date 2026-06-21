@@ -4,41 +4,22 @@ import { memo } from "react";
 import type { CallActionItem } from "./call-ui.types";
 import {
   Headphones,
+  Mic,
   MicOff,
   Monitor,
+  Phone,
   PhoneOff,
   PictureInPicture2,
   Settings,
+  SwitchCamera,
   Video,
   VideoOff,
+  Volume2,
+  VolumeX,
+  X,
 } from "lucide-react";
-import {
-  IosFilledMicrophoneGlyph,
-  IosFilledPhoneGlyph,
-  IosFilledSpeakerWaveGlyph,
-  IosFilledSpeakerXMarkGlyph,
-  IosFilledVideoCameraGlyph,
-  IosFilledXMarkGlyph,
-} from "@/components/messenger/call/IosFilledCallControlGlyphs";
 import { CallRipple } from "@/components/messenger/call/CallRipple";
 import { triggerCallHaptic } from "@/components/messenger/call/CallHapticController";
-
-/** 앞·뒤 카메라 전환 — 허용 lucide 세트에 없어 전용 SVG 사용 */
-function CameraSwitchGlyph({ className }: { className?: string }) {
-  return (
-    <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M20 10a8 8 0 0 0-15.5-2M4 14a8 8 0 0 0 15.5 2"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path d="m4 10-2-2 2-2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="m20 14 2 2-2 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
 
 function diskClassForAction(item: CallActionItem, theme?: "starbucks"): string {
   const { icon, tone, active, disabled } = item;
@@ -98,36 +79,40 @@ function CallActionGlyph({ item, theme }: { item: CallActionItem; theme?: "starb
   const SIZE = 24;
   const controlCls = glyphClassForControl({ theme, active, disabled });
 
-  if (tone === "danger" || icon === "end") return <IosFilledXMarkGlyph className="text-white" />;
+  if (tone === "danger" || icon === "end") return <PhoneOff size={SIZE} strokeWidth={2.35} className="text-white" />;
   if (icon === "decline") return <PhoneOff size={SIZE} className="text-white" />;
-  if (tone === "accept" || icon === "accept") return <IosFilledPhoneGlyph className="text-white" />;
+  if (tone === "accept" || icon === "accept") return <Phone size={SIZE} strokeWidth={2.35} className="text-white" />;
 
   if (icon === "mic")
     return active ? (
-      <IosFilledMicrophoneGlyph className={controlCls} />
+      <Mic size={SIZE} strokeWidth={2.35} className={controlCls} />
     ) : (
       <MicOff size={SIZE} strokeWidth={2.35} className="text-white" />
     );
   /** 비활성일 때도 카메라 실루엣 유지(발신 「영상」행). */
-  if (icon === "video") return <IosFilledVideoCameraGlyph className={controlCls} />;
+  if (icon === "video") return <Video size={SIZE} strokeWidth={2.35} className={controlCls} />;
   if (icon === "video-off") return <VideoOff size={SIZE} className="text-white" />;
   if (icon === "camera") {
-    return active ? <Video size={SIZE} className={controlCls} /> : <IosFilledVideoCameraGlyph className="text-white" />;
+    return active ? (
+      <Video size={SIZE} className={controlCls} />
+    ) : (
+      <Video size={SIZE} strokeWidth={2.35} className="text-white" />
+    );
   }
 
   if (icon === "speaker")
     return active ? (
-      <IosFilledSpeakerWaveGlyph className={controlCls} />
+      <Volume2 size={SIZE} strokeWidth={2.35} className={controlCls} />
     ) : (
-      <IosFilledSpeakerXMarkGlyph className="text-white" />
+      <VolumeX size={SIZE} strokeWidth={2.35} className="text-white" />
     );
 
-  if (icon === "camera-switch") return <CameraSwitchGlyph className={controlCls} />;
+  if (icon === "camera-switch") return <SwitchCamera size={SIZE} className={controlCls} />;
   if (icon === "pip-swap" || icon === "minimize")
     return <PictureInPicture2 size={SIZE} className={controlCls} />;
-  if (icon === "retry") return <IosFilledPhoneGlyph className="text-white" />;
-  if (icon === "close") return <PhoneOff size={SIZE} className="text-white" />;
-  if (icon === "back") return <IosFilledPhoneGlyph className="text-white" />;
+  if (icon === "retry") return <Phone size={SIZE} strokeWidth={2.35} className="text-white" />;
+  if (icon === "close") return <X size={SIZE} strokeWidth={2.35} className="text-white" />;
+  if (icon === "back") return <Phone size={SIZE} strokeWidth={2.35} className="text-white" />;
   if (icon === "message") return <Monitor size={SIZE} className="text-white" />;
   if (icon === "settings") return <Settings size={SIZE} className="text-white" />;
 

@@ -2121,12 +2121,24 @@ export function GlobalCommunityMessengerIncomingCall() {
       }
       const patchResult = await runIncomingCallReject({ sessionId, source: "incoming_banner_reject" });
       if (!patchResult.ok) {
-        showMessengerSnackbar(MESSENGER_CALL_USER_MSG.sessionRejectFailed, { variant: "error" });
+        console.info("[DIBAY_CALL] terminal_patch_failed_silent", {
+          sessionId,
+          action: "reject",
+          error: patchResult.reason ?? "unknown",
+          source: "incoming_banner_reject",
+        });
         return;
       }
       logCallFlow("call_reject_sent", { sessionId });
       setMinimizedSessionId((prev) => (prev === sessionId ? null : prev));
       void refresh(true, { incomingTerminalListSync: true, bypassDevSafeIncomingThrottle: true });
+    } catch (error) {
+      console.info("[DIBAY_CALL] terminal_patch_failed_silent", {
+        sessionId,
+        action: "reject",
+        error: error instanceof Error ? error.message : String(error),
+        source: "incoming_banner_reject",
+      });
     } finally {
       setBusyId(null);
       logCallFlow("call_cleanup_done", { sessionId, reason: "reject" });

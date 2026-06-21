@@ -3595,17 +3595,25 @@ export function CommunityMessengerCallClient({
         }
         const json = await runCallEndGuard({ sessionId: sid, action: "reject", reason: "reject" });
         if (!json.ok) {
-          setErrorMessage(
-            json.error === "bad_action"
-              ? t("cm_ui_call_reject_already_handled")
-              : t("cm_ui_call_reject_failed")
-          );
-          await disposeCallMedia({ domAudioNuclear: true });
+          console.info("[DIBAY_CALL] terminal_patch_failed_silent", {
+            sessionId: sid,
+            action: "reject",
+            error: json.error ?? "unknown",
+            source: "call_client_reject",
+          });
           scheduleSilentRefresh("terminal");
           return;
         }
         logCallFlow("call_reject_sent", { sessionId: sid });
         applyTerminalSessionAfterPatch(json, roomIdR, sid, "rejected");
+      } catch (error) {
+        console.info("[DIBAY_CALL] terminal_patch_failed_silent", {
+          sessionId: sid,
+          action: "reject",
+          error: error instanceof Error ? error.message : String(error),
+          source: "call_client_reject",
+        });
+        scheduleSilentRefresh("terminal");
       } finally {
         setBusy(null);
         directCallPatchInFlightRef.current = false;
@@ -3620,7 +3628,6 @@ export function CommunityMessengerCallClient({
     disposeCallMedia,
     scheduleSilentRefresh,
     session,
-    t,
   ]);
 
   /** FCM·알림 딥링크 등 — 세션 fetch 전에도 수신 거절/수락이 동작해야 함 */
@@ -3634,10 +3641,29 @@ export function CommunityMessengerCallClient({
     try {
       const json = await runCallEndGuard({ sessionId, action: "reject", reason: "reject_hydrate" });
       if (!json.ok) {
-        setErrorMessage(t("cm_ui_call_reject_failed"));
-        return;
+        console.info("[DIBAY_CALL] terminal_patch_failed_silent", {
+          sessionId,
+          action: "reject",
+          error: json.error ?? "unknown",
+          source: "call_client_hydrate_reject",
+        });
+      } else {
+        logCallFlow("call_reject_sent", { sessionId });
       }
-      logCallFlow("call_reject_sent", { sessionId });
+      runIncomingCallCleanup({ sessionId, reason: "reject_hydrate", stopRingtone: false });
+      exitCommunityMessengerCallRouteNow({
+        router,
+        sessionId,
+        target: "back",
+        source: "reject_hydrate",
+      });
+    } catch (error) {
+      console.info("[DIBAY_CALL] terminal_patch_failed_silent", {
+        sessionId,
+        action: "reject",
+        error: error instanceof Error ? error.message : String(error),
+        source: "call_client_hydrate_reject",
+      });
       runIncomingCallCleanup({ sessionId, reason: "reject_hydrate", stopRingtone: false });
       exitCommunityMessengerCallRouteNow({
         router,
@@ -3649,7 +3675,7 @@ export function CommunityMessengerCallClient({
       releaseIncomingCallReject(sessionId);
       setBusy(null);
     }
-  }, [router, sessionId, t]);
+  }, [router, sessionId]);
 
   const hydrateAcceptIncomingCall = useCallback(async () => {
     if (isCommunityMessengerTempCallSessionId(sessionId)) return;
@@ -3908,18 +3934,26 @@ export function CommunityMessengerCallClient({
           reason: hangupReason,
         });
         if (!json.ok) {
-          setErrorMessage(
-            json.error === "bad_action"
-              ? t("cm_ui_call_end_already_ended")
-              : t("cm_ui_call_end_failed")
-          );
-          await disposeCallMedia({ domAudioNuclear: true });
+          console.info("[DIBAY_CALL] terminal_patch_failed_silent", {
+            sessionId: sid,
+            action: patchAction,
+            error: json.error ?? "unknown",
+            source: "call_client_end",
+          });
           scheduleSilentRefresh("terminal");
           return;
         }
         const serverTerminal: CommunityMessengerCallSession["status"] =
           json.session && isTerminalCallSessionStatus(json.session.status) ? json.session.status : optimisticEnd;
         applyTerminalSessionAfterPatch(json, roomId, sid, serverTerminal);
+      } catch (error) {
+        console.info("[DIBAY_CALL] terminal_patch_failed_silent", {
+          sessionId: sid,
+          action: patchAction,
+          error: error instanceof Error ? error.message : String(error),
+          source: "call_client_end",
+        });
+        scheduleSilentRefresh("terminal");
       } finally {
         setBusy(null);
         directCallPatchInFlightRef.current = false;
@@ -3934,7 +3968,6 @@ export function CommunityMessengerCallClient({
     router,
     scheduleSilentRefresh,
     session,
-    t,
   ]);
 
   endCallRef.current = endCall;

@@ -2,7 +2,6 @@
 
 import { useCallback, useRef, useState } from "react";
 import { Phone, PhoneOff } from "lucide-react";
-import { IosFilledPhoneGlyph } from "@/components/messenger/call/IosFilledCallControlGlyphs";
 import { CallRipple } from "@/components/messenger/call/CallRipple";
 import { triggerCallHaptic } from "@/components/messenger/call/CallHapticController";
 
@@ -137,9 +136,19 @@ export function IncomingCallButton({
             <Phone className="incoming-call-btn__icon text-white" strokeWidth={2.5} aria-hidden />
           )
         ) : (
-          <IosFilledPhoneGlyph
-            className={`incoming-call-btn__icon ${iconRotateClass} text-white`}
-          />
+          variant === "reject" ? (
+            <PhoneOff
+              className={`incoming-call-btn__icon ${iconRotateClass} text-white`}
+              strokeWidth={2.5}
+              aria-hidden
+            />
+          ) : (
+            <Phone
+              className={`incoming-call-btn__icon ${iconRotateClass} text-white`}
+              strokeWidth={2.5}
+              aria-hidden
+            />
+          )
         )}
       </button>
       {mode === "fullscreen" ? (
