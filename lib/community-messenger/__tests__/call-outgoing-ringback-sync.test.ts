@@ -1,12 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/community-messenger/call-outgoing-ringback-controller", () => ({
+  getOutgoingRingbackSnapshot: vi.fn(() => ({ callId: null, startedAt: 0, playing: false })),
   startOutgoingRingback: vi.fn(),
   stopOutgoingRingback: vi.fn(),
   stopAllOutgoingRingback: vi.fn(),
 }));
 
 import {
+  getOutgoingRingbackSnapshot,
   startOutgoingRingback,
   stopOutgoingRingback,
 } from "@/lib/community-messenger/call-outgoing-ringback-controller";
@@ -56,7 +58,12 @@ describe("call-outgoing-ringback-sync", () => {
     expect(stopOutgoingRingback).not.toHaveBeenCalled();
   });
 
-  it("skipStart does not start or stop (primed elsewhere)", () => {
+  it("skipStart skips duplicate start when ringback already playing", () => {
+    vi.mocked(getOutgoingRingbackSnapshot).mockReturnValue({
+      callId: "session-a",
+      startedAt: Date.now(),
+      playing: true,
+    });
     syncOutgoingRingbackFromCallSession({
       session: ringingOutgoingSession(),
       joined: false,
@@ -66,6 +73,26 @@ describe("call-outgoing-ringback-sync", () => {
     });
     expect(startOutgoingRingback).not.toHaveBeenCalled();
     expect(stopOutgoingRingback).not.toHaveBeenCalled();
+  });
+
+  it("skipStart still starts when primed flag set but ringback not playing (handoff recovery)", () => {
+    vi.mocked(getOutgoingRingbackSnapshot).mockReturnValue({
+      callId: null,
+      startedAt: 0,
+      playing: false,
+    });
+    syncOutgoingRingbackFromCallSession({
+      session: ringingOutgoingSession(),
+      joined: false,
+      remoteJoined: false,
+      source: "test",
+      skipStart: true,
+    });
+    expect(startOutgoingRingback).toHaveBeenCalledWith({
+      callId: "session-a",
+      kind: "voice",
+      source: "test",
+    });
   });
 
   it("stops ringback when no longer ringing-wait", () => {

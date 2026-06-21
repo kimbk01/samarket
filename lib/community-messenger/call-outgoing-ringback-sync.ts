@@ -1,5 +1,6 @@
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 import {
+  getOutgoingRingbackSnapshot,
   startOutgoingRingback,
   stopAllOutgoingRingback,
   stopOutgoingRingback,
@@ -29,8 +30,8 @@ export function stopOutgoingRingbackForSessionId(
 
 /**
  * CONTRACT — 발신 ringing 링백 동기화 (CallClient effect 전용)
- * DO NOT: `skipStart` 일 때 stop 호출 (primed 세션 첫 마운트에서 링백 즉시 중단)
  * DO NOT: 수신(callee) 세션에 start
+ * skipStart: nav_seed·gesture 에서 이미 재생 중이면 중복 start 만 생략 (미재생이면 handoff 복구)
  * stop: !ringing | joined | remoteJoined | terminal 경로만
  */
 export function syncOutgoingRingbackFromCallSession(args: SyncOutgoingRingbackFromSessionArgs): void {
@@ -39,11 +40,10 @@ export function syncOutgoingRingbackFromCallSession(args: SyncOutgoingRingbackFr
   const sid = session.id.trim();
   if (!sid) return;
 
-  if (skipStart) {
-    return;
-  }
-
   if (session.status === "ringing" && !joined && !remoteJoined) {
+    if (skipStart && getOutgoingRingbackSnapshot().playing) {
+      return;
+    }
     startOutgoingRingback({ callId: sid, kind: session.callKind, source });
     return;
   }

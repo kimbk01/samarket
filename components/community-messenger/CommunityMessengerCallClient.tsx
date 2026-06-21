@@ -1375,6 +1375,8 @@ export function CommunityMessengerCallClient({
       skipStart,
     });
     return () => {
+      /** tmp_* → real replace 시 cleanup 이 링백을 끊지 않게 — real id handoff 가 이어 받음 */
+      if (isCommunityMessengerTempCallSessionId(session.id)) return;
       stopOutgoingRingbackForSessionId(session.id, "ringback_effect_cleanup");
     };
   }, [session?.id, session?.status, session?.isMineInitiator, session?.callKind, joined, remoteJoined, session]);
@@ -2132,7 +2134,9 @@ export function CommunityMessengerCallClient({
   useEffect(() => {
     return () => {
       cmCallAudioCleanup("call_client_route_unmount", { sessionId });
-      stopOutgoingRingbackForSessionId(sessionId, "call_client_unmount");
+      if (!isCommunityMessengerTempCallSessionId(sessionId)) {
+        stopOutgoingRingbackForSessionId(sessionId, "call_client_unmount");
+      }
       joiningRef.current = false;
       if (shouldSkipCallClientUnmountDispose(sessionId)) return;
       void disposeCallMedia({ domAudioNuclear: false }).catch(() => {});

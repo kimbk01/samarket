@@ -872,6 +872,12 @@ export async function launchOutgoingDirectCall(
   abortPendingMainBottomNavRouteCommits();
   clearPendingMenuNavigationBridge();
   beginCallDeepRouteNavigationLock(tempSessionId, href);
+  /** 발신 탭 직후 tmp id 로 링백 — POST·tmp→real replace 전에 들리게 */
+  startOutgoingRingback({
+    callId: tempSessionId,
+    kind: input.kind,
+    source: "nav_seed_tmp_shell",
+  });
   const go = router.replace ?? router.push;
   guardedClientNavigate(go, href, "call_launch");
   logCallLatencyRouteReplace({
