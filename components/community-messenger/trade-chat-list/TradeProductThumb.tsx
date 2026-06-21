@@ -1,29 +1,29 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { TRADE_CHAT_LIST_CATEGORY_PILL_CLASS } from "@/lib/community-messenger/trade-chat-list/category-menu-chip-style";
 import { readTradePostThumbnailCache, writeTradePostThumbnailCache } from "@/lib/community-messenger/trade-chat-list/trade-post-thumbnail-cache";
 import { resolveTradeChatListThumbnailDisplayUrl } from "@/lib/community-messenger/trade-chat-list/view-model";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 
 type Props = {
   src: string | null | undefined;
-  /** 목록 메타에 썸네일이 비었을 때 서버에서 posts 행으로 공개 URL 확정 */
   postId?: string | null;
+  categoryChipLabel?: string | null;
 };
 
-/** 거래 글 이미지 없을 때만 「거래」 플레이스홀더 — `postId` 가 있으면 API 폴백 후 재시도 */
-export function TradeProductThumb({ src, postId }: Props) {
+const THUMB_SIZE = 56;
+
+export function TradeProductThumb({ src, postId, categoryChipLabel }: Props) {
   const pid = typeof postId === "string" ? postId.trim() : "";
   const directUrl = useMemo(() => resolveTradeChatListThumbnailDisplayUrl(src), [src]);
   const [failed, setFailed] = useState(false);
-  /** fetch 로 채운 URL — 렌더마다 메모리 캐시와 함께 쓴다 */
   const [fetchedUrl, setFetchedUrl] = useState<string | null>(null);
 
   const cachedUrl = pid ? readTradePostThumbnailCache(pid) : null;
-  /** 깨진 src는 무시하고 캐시·fetch 결과만 사용 */
   const displayUrl = cachedUrl ?? fetchedUrl ?? (failed ? null : directUrl);
+  const chipLabel = typeof categoryChipLabel === "string" ? categoryChipLabel.trim() : "";
 
-  /** 부트스트랩 메타의 유효 경로가 있으면 즉시 캐시에 넣어 뒤로가기 시 동일 paint 에 재사용 */
   useEffect(() => {
     if (pid && directUrl) writeTradePostThumbnailCache(pid, directUrl);
   }, [pid, directUrl]);
@@ -37,10 +37,6 @@ export function TradeProductThumb({ src, postId }: Props) {
     setFailed(false);
   }, [src]);
 
-  /**
-   * 서버 확정 URL — 캐시 미스이고 직접 경로도 없거나 깨진 경우에만 RTT.
-   * 캐시 히트 시 이 이펙트는 조기 종료.
-   */
   useEffect(() => {
     if (!pid) return;
     if (readTradePostThumbnailCache(pid)) return;
@@ -68,32 +64,36 @@ export function TradeProductThumb({ src, postId }: Props) {
     };
   }, [pid, directUrl, failed]);
 
-  if (!displayUrl) {
-    return (
-      <SamarketThumbnail
-        src={null}
-        size={56}
-        roundedClassName="rounded-[10px]"
-        className="border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)]"
-        fallbackSrc=""
-        fallbackNode={<span className="sam-text-xxs font-medium" style={{ color: "var(--messenger-text-secondary)" }}>
-          거래
-        </span>}
-      />
-    );
-  }
+  const fallbackNode = <span className="text-[10px] font-medium text-[#6B7280]">거래</span>;
+
   return (
-    <SamarketThumbnail
-      src={displayUrl}
-      size={56}
-      roundedClassName="rounded-[10px]"
-      className="border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)]"
-      priority={Boolean(displayUrl)}
-      fallbackSrc=""
-      fallbackNode={<span className="sam-text-xxs font-medium" style={{ color: "var(--messenger-text-secondary)" }}>
-        거래
-      </span>}
-      onImageError={() => setFailed(true)}
-    />
+    <div className="relative h-[56px] w-[56px] shrink-0 overflow-hidden rounded-xl">
+      {!displayUrl ? (
+        <SamarketThumbnail
+          src={null}
+          size={THUMB_SIZE}
+          roundedClassName="rounded-xl"
+          className="bg-[#EAF4EF]"
+          fallbackSrc=""
+          fallbackNode={fallbackNode}
+        />
+      ) : (
+        <SamarketThumbnail
+          src={displayUrl}
+          size={THUMB_SIZE}
+          roundedClassName="rounded-xl"
+          className="bg-[#EAF4EF] object-cover"
+          priority={Boolean(displayUrl)}
+          fallbackSrc=""
+          fallbackNode={fallbackNode}
+          onImageError={() => setFailed(true)}
+        />
+      )}
+      {chipLabel ? (
+        <span className={`absolute left-0.5 top-0.5 z-[1] ${TRADE_CHAT_LIST_CATEGORY_PILL_CLASS}`} title={chipLabel}>
+          {chipLabel}
+        </span>
+      ) : null}
+    </div>
   );
 }

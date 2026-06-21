@@ -19,11 +19,11 @@ import {
 import { useBrowseScrollChromeHidden } from "@/lib/stores/use-browse-scroll-chrome-hidden";
 import { isMessengerFromHeaderStackSurface } from "@/lib/layout/messenger-from-header-stack-surface";
 import {
-  BOTTOM_NAV_SHELL,
   MAIN_SCROLL_PADDING_HOME_WITH_FLOAT_CLASS,
   MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS,
   resolveBottomNavScrollHideOuterClass,
 } from "@/lib/main-menu/bottom-nav-config";
+import { shouldRenderMainBottomNav } from "@/lib/navigation/bottom-nav-route-policy";
 import { useIsDesktopShellViewport } from "@/hooks/use-is-desktop-shell-viewport";
 import {
   MAIN_DESKTOP_SIDE_NAV_CONTENT_INSET_CLASS,
@@ -58,6 +58,7 @@ import { MessagingGlobalChrome } from "@/components/layout/providers/MessagingGl
 import { AppStickyHeader } from "./AppStickyHeader";
 import { RegionBar } from "./RegionBar";
 import { MainShellTabContentTransition } from "./MainShellTabContentTransition";
+import { BottomNav } from "./BottomNav";
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 
 const PhilifeFeedWarmPrefetch = dynamic(
@@ -87,7 +88,6 @@ const MainBottomNavFabSectorLazy = dynamic(
   () => import("@/components/layout/MainBottomNavFabSector").then((m) => m.MainBottomNavFabSector),
   { ssr: false }
 );
-const BottomNavLazy = dynamic(() => import("./BottomNav").then((m) => m.BottomNav), { ssr: false });
 const MainDesktopSideNavLazy = dynamic(
   () => import("./MainDesktopSideNav").then((m) => m.MainDesktopSideNav),
   { ssr: false }
@@ -164,17 +164,18 @@ export function ConditionalAppShell({
       (pathNoQuery.startsWith("/market/") &&
         pathNoQuery !== "/market/trade-meet-spot" &&
         !pathNoQuery.startsWith("/market/trade-meet-spot/")));
-  const showBottomNavBase = f.showBottomNav;
   /** `/philife`·거래 글쓰기 시트 — 하단 탭 숨김 */
   const suppressBottomNavForWriteSheet =
     (isPhilifeFeedPath && philifeWriteSheetOpen) || isTradeWriteSheetSurface;
   /** 헤더 메신저 풀스택이 열리면 본문과 함께 밀리지 않도록 탭 숨김 — `/philife`·거래(`/market*`) 동일 */
-  const showBottomNavEffective =
-    showBottomNavBase &&
-    !suppressBottomNavForWriteSheet &&
-    !(isMessengerStackSurface && headerMessengerFromPhilife) &&
-    !storeOwnerFlyoutSuppressesBottomNav &&
-    !messengerCallSuppressesBottomNav;
+  const showBottomNavEffective = shouldRenderMainBottomNav({
+    pathname: pathNoQuery,
+    isWriteSheetOpen: suppressBottomNavForWriteSheet,
+    isMessengerStackSurface,
+    headerMessengerFromPhilife,
+    storeOwnerFlyoutSuppressesBottomNav,
+    messengerCallSuppressesBottomNav,
+  });
   const showDesktopSideNav =
     showBottomNavEffective && isDesktopShell && f.showMainDesktopSideNavEligible;
   const showBottomNavMounted = showBottomNavEffective && !isDesktopShell;
@@ -320,25 +321,15 @@ export function ConditionalAppShell({
         </main>
       )}
       {showBottomNavMounted ? (
-        <Suspense
-          fallback={
-            <div className={BOTTOM_NAV_SHELL.outerClassName} aria-hidden>
-              <div className={BOTTOM_NAV_SHELL.innerBarClassName}>
-                <div className={`${BOTTOM_NAV_SHELL.containerClassName} ${BOTTOM_NAV_SHELL.heightClass}`} />
-              </div>
-            </div>
+        <BottomNav
+          initialTabs={initialMainBottomNavItems}
+          bodyPortal={isMessengerStackSurface}
+          extraOuterClassName={
+            bottomNavScrollHideEnabled ?
+              resolveBottomNavScrollHideOuterClass(bottomNavHiddenByScroll)
+            : ""
           }
-        >
-          <BottomNavLazy
-            initialTabs={initialMainBottomNavItems}
-            bodyPortal={isMessengerStackSurface}
-            extraOuterClassName={
-              bottomNavScrollHideEnabled ?
-                resolveBottomNavScrollHideOuterClass(bottomNavHiddenByScroll)
-              : ""
-            }
-          />
-        </Suspense>
+        />
       ) : null}
       {showBottomNavMounted && f.showHomeTradeHubFloatingBar && !isTradeWriteSheetSurface ? (
         <HomeTradeHubFloatingBarLazy />

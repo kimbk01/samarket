@@ -1,7 +1,7 @@
 "use client";
 
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { memo, useCallback, type ReactNode } from "react";
+import { memo, useCallback, type ReactNode, type ReactElement } from "react";
 import { CommunityMessengerChatRow } from "@/components/community-messenger/chat-list/CommunityMessengerChatRow";
 import type { MessengerMenuAnchorRect, MessengerChatListVisual } from "@/components/community-messenger/MessengerChatListItem";
 import { FlatListContainer } from "@/components/community-messenger/line-ui";
@@ -40,6 +40,9 @@ type Props = {
   onCloseMenuItem: (id?: string) => void;
   onResetTransientUi: MessengerResetTransientUiFn;
   listVisual?: MessengerChatListVisual;
+  /** 문서 스크롤 + flat 렌더 — 거래 탭 페이지네이션 등 */
+  forceFlatList?: boolean;
+  listFooter?: ReactElement | null;
 };
 
 function VirtualRowShell({
@@ -67,7 +70,7 @@ function VirtualRowShell({
 
 export const CommunityMessengerChatList = memo(function CommunityMessengerChatList(props: Props) {
   useCmDevRenderTrace("CommunityMessengerChatList");
-  const useVirtual = props.items.length >= VIRTUAL_THRESHOLD;
+  const useVirtual = !props.forceFlatList && props.items.length >= VIRTUAL_THRESHOLD;
   const rowEstimatePx = props.listVisual === "trade" || props.listVisual === "delivery" ? 88 : ROW_ESTIMATE_PX;
   const getScrollElement = useCallback(
     () => (typeof document !== "undefined" ? (document.scrollingElement ?? document.documentElement) : null),
@@ -102,10 +105,11 @@ export const CommunityMessengerChatList = memo(function CommunityMessengerChatLi
   if (!useVirtual) {
     return (
       <CmReactCommitProbe id="CommunityMessengerChatList">
-        <FlatListContainer className="overflow-y-auto">
+        <FlatListContainer>
           {props.items.map((item) => (
             <CommunityMessengerChatRow key={item.room.id} item={item} {...rowProps} />
           ))}
+          {props.listFooter}
         </FlatListContainer>
       </CmReactCommitProbe>
     );
@@ -113,7 +117,7 @@ export const CommunityMessengerChatList = memo(function CommunityMessengerChatLi
 
   return (
     <CmReactCommitProbe id="CommunityMessengerChatList">
-      <FlatListContainer className="relative overflow-y-auto" role="list" style={{ height: virtualizer.getTotalSize() }}>
+      <FlatListContainer className="relative w-full" role="list" style={{ height: virtualizer.getTotalSize() }}>
         {virtualizer.getVirtualItems().map((vi) => {
           const item = props.items[vi.index]!;
           return (
@@ -123,9 +127,12 @@ export const CommunityMessengerChatList = memo(function CommunityMessengerChatLi
           );
         })}
       </FlatListContainer>
+      {props.listFooter}
     </CmReactCommitProbe>
   );
 }, (prev, next) => {
+  if (prev.forceFlatList !== next.forceFlatList) return false;
+  if (prev.listFooter !== next.listFooter) return false;
   if (prev.items.length !== next.items.length) return false;
   if (!roomListItemsDisplayEqual(prev.items, next.items)) return false;
   if (

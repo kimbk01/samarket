@@ -15,29 +15,41 @@ import {
   DEFAULT_TRADE_CHAT_CATEGORY_MENU_LABEL,
   defaultTradeChatCategoryMenuLabel,
 } from "@/lib/community-messenger/trade-chat-list/category-menu-label";
+import {
+  resolveTradeChatListListingState,
+  resolveTradeChatListViewerRole,
+  type TradeChatListTranslate,
+} from "@/lib/community-messenger/trade-chat-list/trade-chat-list-resolve";
+import { tradeChatListStatusBadgePresentation } from "@/lib/community-messenger/trade-chat-list/trade-chat-list-status-badge";
 import type {
   CommunityMessengerMessage,
   CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
-import type { MessageKey } from "@/lib/i18n/messages";
+import type { SellerListingState } from "@/lib/products/seller-listing-state";
 
 let tradeChatListDevMissingPostIdWarned = false;
 let tradeChatListDebugInfoOnce = false;
 
-export type TradeChatListTranslate = (key: MessageKey, vars?: Record<string, string | number>) => string;
+export type { TradeChatListTranslate } from "@/lib/community-messenger/trade-chat-list/trade-chat-list-resolve";
+
+export type TradeChatListStatusTone = "progress" | "reserved" | "completed";
 
 export type TradeChatListRowModel = {
-  /** 1행 칩 — 대메뉴 5분류 `categoryMenuLabel` 단일 소스(부트스트랩 enrich) */
   categoryChipLabel: string;
   productTitle: string;
   productPriceText: string | null;
   productThumbnailUrl: string | null;
   productStatusText: string | null;
   peerName: string;
-  /** 썸네일 경로가 비었을 때 `/api/community-messenger/trade-post-thumbnail` 폴백용 */
   postId: string | null;
-  /** 4행 — `contextMeta.sellerDisplayName` + 「판매자:」/「일자리」일 때 「작성자:」 */
   listingOwnerLine: string | null;
+  listingState: SellerListingState;
+  viewerRole: "seller" | "buyer" | null;
+  statusLabel: string;
+  /** 3행 — 판매/구매 접두(선택) */
+  rolePrefix: string | null;
+  statusTone: TradeChatListStatusTone;
+  statusBadgeClassName: string;
 };
 
 export function resolveTradeChatListThumbnailDisplayUrl(raw: string | null | undefined): string | null {
@@ -106,9 +118,25 @@ function tradeListParseSource(room: CommunityMessengerRoomSummary): string {
   return sum;
 }
 
+function listingStateToStatusTone(state: SellerListingState): TradeChatListStatusTone {
+  if (state === "completed") return "completed";
+  if (state === "reserved") return "reserved";
+  return "progress";
+}
+
+function buildTradeChatListRolePrefix(
+  viewerRole: "seller" | "buyer" | null,
+  t: TradeChatListTranslate
+): string | null {
+  if (viewerRole === "seller") return t("cm_trade_chat_role_sale");
+  if (viewerRole === "buyer") return t("cm_trade_chat_role_purchase");
+  return null;
+}
+
 export function buildTradeChatListRowModel(
   room: CommunityMessengerRoomSummary,
-  t: TradeChatListTranslate
+  t: TradeChatListTranslate,
+  viewerUserId?: string | null
 ): TradeChatListRowModel {
   const parseSource = tradeListParseSource(room);
   const parsedStrict = parseCommunityMessengerRoomContextMeta(parseSource);
@@ -139,10 +167,12 @@ export function buildTradeChatListRowModel(
   const productStatusText =
     ctx?.itemStateLabel?.trim() || par?.itemStateLabel?.trim() || loose.itemStateLabel?.trim() || null;
   const categoryChipLabel =
-    ctx?.productCategoryLabel?.trim() ||
     ctx?.categoryMenuLabel?.trim() ||
     par?.categoryMenuLabel?.trim() ||
     loose.categoryMenuLabel?.trim() ||
+    ctx?.productCategoryLabel?.trim() ||
+    par?.productCategoryLabel?.trim() ||
+    loose.productCategoryLabel?.trim() ||
     defaultTradeChatCategoryMenuLabel(t);
 
   const thumbCandidates = [ctx?.thumbnailUrl, par?.thumbnailUrl, loose.thumbnailCandidate];
@@ -171,8 +201,15 @@ export function buildTradeChatListRowModel(
     par?.sellerDisplayName?.trim() ||
     loose.sellerDisplayName?.trim() ||
     t("chats_trade_list_unknown_seller");
-  const jobsCategory = categoryChipLabel === "일자리";
+  const jobsCategory =
+    (ctx?.categoryMenuLabel?.trim() || par?.categoryMenuLabel?.trim() || loose.categoryMenuLabel?.trim()) ===
+    "일자리";
   const listingOwnerLine = `${jobsCategory ? t("chats_trade_list_owner_author") : t("chats_trade_list_owner_seller")}: ${sellerName}`;
+  const listingState = resolveTradeChatListListingState(room, t);
+  const viewerRole = resolveTradeChatListViewerRole(room, viewerUserId);
+  const statusBadge = tradeChatListStatusBadgePresentation(listingState, t);
+  const rolePrefix = buildTradeChatListRolePrefix(viewerRole, t);
+  const statusTone = listingStateToStatusTone(listingState);
 
   return {
     categoryChipLabel,
@@ -183,6 +220,12 @@ export function buildTradeChatListRowModel(
     peerName,
     postId,
     listingOwnerLine,
+    listingState,
+    viewerRole,
+    statusLabel: statusBadge.label,
+    rolePrefix,
+    statusTone,
+    statusBadgeClassName: statusBadge.className,
   };
 }
 

@@ -1,66 +1,62 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { MessengerListRow } from "@/components/community-messenger/line-ui";
 
 type Props = {
   rowSurfaceClass: string;
   avatar: ReactNode;
   trailing: ReactNode;
   storeName: string;
-  orderNoLine: string | null;
-  deliveryStatusLine: string | null;
-  lastMessageLine: string;
+  previewLine: string;
+  statusLabel: string;
+  statusBadgeClassName: string;
   unread: boolean;
 };
 
+const ONE_LINE = "min-w-0 truncate whitespace-nowrap overflow-hidden";
+
 /**
- * `/community-messenger/delivery-chats` — 매장 프로필 + (1)매장명 (2)주문번호 (3)배달상황 (4)마지막 메시지.
+ * `/community-messenger/delivery-chats` — 3행(매장명·마지막 메시지·상태) + 우측 시간·unread.
  */
 export function DeliveryChatListRowContent({
   rowSurfaceClass,
   avatar,
   trailing,
   storeName,
-  orderNoLine,
-  deliveryStatusLine,
-  lastMessageLine,
+  previewLine,
+  statusLabel,
+  statusBadgeClassName,
   unread,
 }: Props) {
   return (
-    <MessengerListRow
-      className={`min-h-[96px] max-h-[128px] py-1.5 ${rowSurfaceClass}`}
-      avatarSlotClassName="flex h-14 w-14 shrink-0 items-center justify-center"
-      avatar={avatar}
-      trailing={trailing}
+    <div
+      className={`flex min-h-[72px] items-center gap-3 px-4 py-3 transition-transform duration-100 active:scale-[0.985] active:bg-[#EAF4EF] ${rowSurfaceClass}`}
     >
-      <p className="min-w-0 truncate sam-text-body font-semibold leading-tight" style={{ color: "var(--messenger-text)" }}>
-        {storeName}
-      </p>
-      {orderNoLine ? (
+      <div className="shrink-0">{avatar}</div>
+      <div className="min-w-0 flex-1">
         <p
-          className="mt-0.5 min-w-0 truncate sam-text-helper font-medium leading-snug tabular-nums"
-          style={{ color: "var(--messenger-text-secondary)" }}
-        >
-          {orderNoLine}
-        </p>
-      ) : null}
-      {deliveryStatusLine ? (
-        <p
-          className="mt-0.5 min-w-0 truncate sam-text-helper font-semibold leading-snug"
+          className={`${ONE_LINE} sam-text-body font-semibold leading-tight`}
           style={{ color: "var(--messenger-text)" }}
         >
-          {deliveryStatusLine}
+          {storeName}
         </p>
-      ) : null}
-      {lastMessageLine.trim() ? (
         <p
-          className={`mt-0.5 min-w-0 truncate sam-text-body-secondary font-normal leading-snug ${unread ? "font-medium" : ""}`}
+          className={`mt-0.5 ${ONE_LINE} sam-text-body-secondary font-normal leading-snug ${
+            unread ? "font-medium" : ""
+          }`}
           style={{ color: unread ? "var(--messenger-text)" : "var(--messenger-text-secondary)" }}
         >
-          {lastMessageLine}
+          {previewLine || "\u00a0"}
         </p>
-      ) : null}
-    </MessengerListRow>
+        {statusLabel ? (
+          <p className={`mt-0.5 flex min-w-0 items-center ${ONE_LINE}`}>
+            <span className={`shrink-0 ${statusBadgeClassName}`}>{statusLabel}</span>
+          </p>
+        ) : null}
+      </div>
+      <div className="flex w-[56px] min-w-[56px] shrink-0 flex-col items-end justify-start self-stretch pt-0.5">
+        {trailing}
+      </div>
+    </div>
   );
 }

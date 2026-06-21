@@ -9,10 +9,11 @@ import {
 import { isMypageAddressEditPath, isMypageAddressFlowPath } from "@/lib/addresses/mypage-addresses-return-to";
 import { isProfileEditPath } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { isStoreCommerceCartCheckoutPath } from "@/lib/stores/store-cart-page-layout";
-import { isDeliveryConsumerBottomNavSurface, isStoreOrderReviewPath } from "@/lib/main-menu/delivery-bottom-nav-layout";
+import { isStoreOrderReviewPath } from "@/lib/main-menu/delivery-bottom-nav-layout";
 import { isMainBottomNavFabDeliverySurface } from "@/lib/main-menu/resolve-main-bottom-nav-fab";
 import { isStoresConsumerSlugMenuRoute } from "@/lib/stores/store-consumer-route";
 import { isUuidLikeString } from "@/lib/shared/uuid-string";
+import { isBottomNavEligibleRoute } from "@/lib/navigation/bottom-nav-route-policy";
 
 const PHILIFE_POST_DETAIL_EXCLUDED_SEGMENTS = new Set([
   "write",
@@ -150,12 +151,6 @@ export function resolveConditionalAppShellFlags(
   /** 매장 오너 운영 센터 — 소비자 매장 플로우와 분리해 전역 하단 탭·본문 패딩을 허브와 동일하게 둔다. */
   const isStoreOwnerAdminRoute =
     normalizedStorePath === "/stores/owner" || normalizedStorePath.startsWith("/stores/owner/");
-  /** 메인 `BottomNav` — 매장 오너 전 구간 숨김(오너 전용 하단 네비 사용) */
-  const suppressBottomNavForStoreOwnerAdminSubroutes = isStoreOwnerAdminRoute;
-  const isStoresHubBottomNavSurface = isDeliveryConsumerBottomNavSurface(normalizedStorePath);
-  /** 배달(/stores) 허브도 전역 통합 BottomNav를 쓴다. 상세·주문 플로우만 아래 별도 조건으로 숨긴다. */
-  const isStoreCheckoutOrDetailFlow =
-    isStoreSection && !isStoresHubBottomNavSurface && !isStoreOwnerAdminRoute;
   /** `/stores/[slug]/cart|checkout` — 헤더·주문 CTA 고정, `main` 하단 pb 0 */
   const isStoreCommerceCartCheckoutPage = isStoreCommerceCartCheckoutPath(normalizedStorePath);
   const isMypageAddressEditPage = isMypageAddressEditPath(pathname);
@@ -240,29 +235,8 @@ export function resolveConditionalAppShellFlags(
     !isOrdersHub &&
     !isTradeFloatingSurface &&
     !isTradeMeetSpotPickRoute;
-  /**
-   * 채팅 상세에서 메인 BottomNav 숨김 — 단일 권한 (재발 방지).
-   * - 방·통화·레거시 `/chats/:id` 등: `isChatRoomDetail`
-   * - 메신저 허브(`/community-messenger` 목록·친구·거래채팅 필터 등): 전역 통합 `BottomNav`
-   * 키보드·composer inset 과 분리. `.cursor/rules/chat-detail-bottom-nav-authority.mdc`
-   */
-  const suppressBottomNavForChatDetail = isChatRoomDetail;
-  /** 메인 하단 탭 — 5대 허브 통합, 채팅/주문/상세 플로우 제외 */
-  const showBottomNav =
-    !hideBarAndFloat &&
-    !isWritePage &&
-    !suppressBottomNavForChatDetail &&
-    !isStoreCheckoutOrDetailFlow &&
-    !isStoreOrderReviewPage &&
-    !isPostDetail &&
-    !isProductDetail &&
-    !isStoreProductDetail &&
-    /** `/products/new`, `/products/.../edit` — 폼 하단 고정 저장·취소와 z-index 충돌 방지(글쓰기와 동일) */
-    !isPersonalProductComposerPage &&
-    !isOrdersHub &&
-    !isTradeMeetSpotPickRoute &&
-    !isMypageAddressFlowPage &&
-    !suppressBottomNavForStoreOwnerAdminSubroutes;
+  /** 메인 하단 탭 route contract — 런타임 suppress는 `shouldRenderMainBottomNav` 한 경로에서만 적용. */
+  const showBottomNav = isBottomNavEligibleRoute(pathname ?? "");
   const showRegionBarComputed = !regionBarInLayout && !hideRegionBar;
   const showOwnerLiteStoreBar =
     showBottomNav &&

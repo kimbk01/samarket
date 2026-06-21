@@ -34,7 +34,7 @@ function room(overrides: Partial<CommunityMessengerRoomSummary>): CommunityMesse
 }
 
 describe("buildTradeChatListRowModel", () => {
-  it("reads categoryChipLabel from trade contextMeta (coarse menu)", () => {
+  it("reads categoryChipLabel from categoryMenuLabel first", () => {
     const m = buildTradeChatListRowModel(
       room({
         contextMeta: {
@@ -52,7 +52,7 @@ describe("buildTradeChatListRowModel", () => {
     expect(m.productPriceText).toBe("₱1");
   });
 
-  it("prefers productCategoryLabel for chip when both labels are set", () => {
+  it("prefers categoryMenuLabel over productCategoryLabel for chip", () => {
     const m = buildTradeChatListRowModel(
       room({
         contextMeta: {
@@ -65,46 +65,60 @@ describe("buildTradeChatListRowModel", () => {
       }),
       t
     );
-    expect(m.categoryChipLabel).toBe("생활가전");
+    expect(m.categoryChipLabel).toBe("중고거래");
   });
 
-  it("builds listingOwnerLine from sellerDisplayName", () => {
+  it("normalizes listingState from itemStateLabel", () => {
     const m = buildTradeChatListRowModel(
       room({
         contextMeta: {
           v: 1,
           kind: "trade",
           headline: "제목",
-          categoryMenuLabel: "중고거래",
-          sellerDisplayName: "닉네임",
+          itemStateLabel: "문의중",
         },
       }),
       t
     );
-    expect(m.listingOwnerLine).toBe(`${t("chats_trade_list_owner_seller")}: 닉네임`);
+    expect(m.listingState).toBe("negotiating");
+    expect(m.statusLabel).toBe(t("trade_listing_step_negotiating"));
+    expect(m.statusTone).toBe("progress");
   });
 
-  it("uses 작성자 prefix for 일자리", () => {
+  it("exposes rolePrefix for seller viewer", () => {
     const m = buildTradeChatListRowModel(
       room({
         contextMeta: {
           v: 1,
           kind: "trade",
-          headline: "구인",
-          categoryMenuLabel: "일자리",
-          sellerDisplayName: "회사",
+          headline: "제목",
+          roleLabel: "판매자",
+          sellerId: "user-seller",
+        },
+      }),
+      t,
+      "user-seller"
+    );
+    expect(m.viewerRole).toBe("seller");
+    expect(m.rolePrefix).toBe(t("cm_trade_chat_role_sale"));
+    expect(m.statusBadgeClassName).toContain("bg-");
+  });
+
+  it("maps completed state tone", () => {
+    const m = buildTradeChatListRowModel(
+      room({
+        isReadonly: true,
+        contextMeta: {
+          v: 1,
+          kind: "trade",
+          headline: "제목",
+          itemStateLabel: "판매완료",
+          completedAt: "2026-01-01T00:00:00.000Z",
         },
       }),
       t
     );
-    expect(m.listingOwnerLine).toBe(`${t("chats_trade_list_owner_author")}: 회사`);
-  });
-
-  it("defaults categoryChipLabel when absent", () => {
-    const m = buildTradeChatListRowModel(
-      room({ summary: JSON.stringify({ v: 1, kind: "trade", headline: "X" }) }),
-      t
-    );
-    expect(m.categoryChipLabel).toBe(t("cm_ui_trade_headline_fallback"));
+    expect(m.listingState).toBe("completed");
+    expect(m.statusTone).toBe("completed");
   });
 });

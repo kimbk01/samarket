@@ -15,8 +15,12 @@ import type {
 import type { MessengerResetTransientUiFn } from "@/lib/community-messenger/messenger-reset-transient-ui";
 import { CommunityMessengerChatList } from "@/components/community-messenger/chat-list/CommunityMessengerChatList";
 import { MessengerPillarSummaryRow } from "@/components/community-messenger/MessengerPillarSummaryRow";
+import { TradeChatListEmptyState } from "@/components/community-messenger/trade-chat-list/TradeChatListEmptyState";
+import { DeliveryChatListEmptyState } from "@/components/community-messenger/delivery-chat-list/DeliveryChatListEmptyState";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MessengerChatFilterSheet } from "@/components/community-messenger/MessengerChatFilterSheet";
+import { TradeChatListLoadMoreFooter } from "@/components/community-messenger/trade-chat-list/TradeChatListLoadMoreFooter";
+import { useTradeChatListClientPagination } from "@/lib/community-messenger/trade-chat-list/use-trade-chat-list-client-pagination";
 
 function useMessengerHomeListDocumentScroll(onScroll: () => void) {
   useEffect(() => {
@@ -103,6 +107,14 @@ export function MessengerChatsScreen({
 }: Props) {
   const { t, safeT } = useI18n();
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
+  const isTradeListVisual = chatListVisual === "trade";
+  const isDeliveryListVisual = chatListVisual === "delivery";
+  const isPillarChatListVisual = isTradeListVisual || isDeliveryListVisual;
+  const pillarPagination = useTradeChatListClientPagination({
+    items,
+    resetKey: String(items.length),
+  });
+  const renderedListItems = isPillarChatListVisual ? pillarPagination.visibleItems : items;
   const showPillarSummaryRows =
     Boolean(pillarSummaries) && chatListChip === "all" && listContext === "default";
   const onDocumentScroll = useCallback(() => {
@@ -118,7 +130,7 @@ export function MessengerChatsScreen({
 
   return (
     <section
-      className="space-y-2 pt-0"
+      className={`space-y-0 pt-0 ${isPillarChatListVisual ? "bg-[#F8FAF9]" : ""}`}
       onPointerDownCapture={(e) => {
         const target = e.target as HTMLElement | null;
         if (!target) return;
@@ -159,7 +171,7 @@ export function MessengerChatsScreen({
       ) : null}
 
       <MessengerChatFilterSheet
-        open={filterSheetOpen}
+        open={filterSheetOpen && !isPillarChatListVisual}
         value={chatListChip}
         onClose={() => closeAllTransient()}
         onSelect={(next) => {
@@ -185,7 +197,7 @@ export function MessengerChatsScreen({
 
       {items.length ? (
         <CommunityMessengerChatList
-          items={items}
+          items={renderedListItems}
           viewerUserId={viewerUserId}
           listContext={listContext}
           favoriteFriendIds={favoriteFriendIds}
@@ -202,8 +214,24 @@ export function MessengerChatsScreen({
           onCloseMenuItem={onCloseMenuItem}
           onResetTransientUi={onResetTransientUi}
           listVisual={chatListVisual}
+          forceFlatList={isPillarChatListVisual}
+          listFooter={
+            isPillarChatListVisual ? (
+              <TradeChatListLoadMoreFooter
+                hasMore={pillarPagination.hasMore}
+                loadingMore={pillarPagination.loadingMore}
+                onLoadMore={pillarPagination.loadMore}
+                visibleCount={pillarPagination.visibleCount}
+                totalCount={pillarPagination.totalCount}
+              />
+            ) : null
+          }
         />
-      ) : showPillarSummaryRows ? null : (
+      ) : showPillarSummaryRows ? null : isTradeListVisual ? (
+        <TradeChatListEmptyState filterSummary={null} />
+      ) : isDeliveryListVisual ? (
+        <DeliveryChatListEmptyState filterSummary={null} />
+      ) : (
         <div
           data-cm-home-empty-state="true"
           className={`px-3 py-8 text-center sam-text-body-secondary leading-snug whitespace-pre-line ${

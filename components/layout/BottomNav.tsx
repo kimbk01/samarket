@@ -39,7 +39,6 @@ import { prewarmBottomNavTapTargetClientCache } from "@/lib/main-menu/bottom-nav
 import { prewarmBottomNavTapHrefResolvingStoresRegion } from "@/lib/main-menu/bottom-nav-prewarm-href";
 import { commitMainBottomNavRoute, mainBottomNavRouteUsesReplace } from "@/lib/main-menu/main-bottom-nav-route-commit";
 import { openBottomNavHref } from "@/lib/main-menu/bottom-nav-link-open";
-import { isCommunityMessengerRoomPathname } from "@/lib/layout/conditional-app-shell-flags";
 import { bumpMessengerRenderPerf } from "@/lib/runtime/samarket-runtime-debug";
 import { isBottomNavTabActive } from "@/lib/main-menu/main-bottom-nav-prefetch-pick";
 import {
@@ -1178,10 +1177,6 @@ export function BottomNav({
   useEffect(() => {
     tabsRef.current = displayTabs;
   }, [displayTabs]);
-  const isChatRoomDetail =
-    (pathname?.match(/^\/community-messenger\/rooms\/[^/]+\/?$/) ?? false) ||
-    (pathname?.match(/^\/chats\/[^/]+\/?$/) ?? false) ||
-    (pathname?.match(/^\/mypage\/trade\/chat\/[^/]+\/?$/) ?? false);
 
   const clearPendingActiveReset = useCallback(() => {
     if (pendingActiveResetTimerRef.current != null) {
@@ -1314,12 +1309,6 @@ export function BottomNav({
     }
     confirmTransition();
   }, [confirmTransition]);
-
-  const hideBottomNavShell =
-    (isChatRoomDetail && !isCommunityMessengerRoomPathname(pathname ?? null)) ||
-    // 옛 `/mypage/business`·`/my/business` — 전역 하단 탭 숨김. `/stores/owner` 대시보드만 탭 표시·하위는 `resolveConditionalAppShellFlags`.
-    (pathname?.startsWith("/mypage/business") ?? false) ||
-    (pathname?.startsWith("/my/business") ?? false);
 
   const effectiveOuterExtra = extraOuterClassName;
 
@@ -1463,8 +1452,6 @@ export function BottomNav({
       />
     </>
   );
-
-  if (hideBottomNavShell) return null;
 
   if (bodyPortal && portalToBody && typeof document !== "undefined") {
     return createPortal(nav, document.body);

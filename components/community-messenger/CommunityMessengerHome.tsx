@@ -74,6 +74,7 @@ import {
 import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
 import { useCommunityMessengerHomeBootstrap } from "@/lib/community-messenger/home/use-community-messenger-home-bootstrap";
 import { useTradeChatListMetaHydration } from "@/lib/community-messenger/use-trade-chat-list-meta-hydration";
+import { TRADE_CHAT_LIST_META_HYDRATE_BATCH_SIZE } from "@/lib/community-messenger/trade-chat-list/trade-chat-list-pagination";
 import { mergeDiscoverableGroupsFromOpenGroupsClient } from "@/lib/community-messenger/merge-discoverable-open-groups-client";
 import { bumpMessengerRenderPerf } from "@/lib/runtime/samarket-runtime-debug";
 import { guardedRouterReplace } from "@/lib/dev/network-loop-guard";
@@ -616,14 +617,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       if (ev.type === "cm.home.social_sync") void refresh(true);
     });
   }, [refresh]);
-  /** 초기 부트스트랩 HTTP 는 훅 내부 `refreshRef` 로 마운트당 1회만( `refresh` 함수 참조 변경으로 재요청 없음 ). */
-  /** home-sync critical 은 trade meta 를 defer — 목록·거래 탭 모두 silent `trade-chat-list-meta` 보강 */
-  useTradeChatListMetaHydration({
-    enabled: Boolean(data?.me?.id),
-    viewerUserId: data?.me?.id ?? null,
-    chats: data?.chats,
-    setData,
-  });
   /** 발신 다이얼 `router.push` 동기 연타 방지 */
   const outgoingDialSyncGuardRef = useRef(false);
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
@@ -1773,6 +1766,21 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     roomSearchKeyword,
     openGroupSearch,
     pillar,
+  });
+
+  const tradeMetaHydrationChats = useMemo(() => {
+    if (pillar === "trade") return primaryListItems.map((item) => item.room);
+    if (pillar === "delivery") return [];
+    return data?.chats;
+  }, [pillar, primaryListItems, data?.chats]);
+
+  /** home-sync critical 은 trade meta 를 defer — 거래 탭은 보이는 pillar 목록만·배치 상한 */
+  useTradeChatListMetaHydration({
+    enabled: Boolean(data?.me?.id),
+    viewerUserId: data?.me?.id ?? null,
+    chats: tradeMetaHydrationChats,
+    maxBatchSize: pillar === "trade" ? TRADE_CHAT_LIST_META_HYDRATE_BATCH_SIZE : undefined,
+    setData,
   });
 
   const inboxPillarSummaries = useMemo(

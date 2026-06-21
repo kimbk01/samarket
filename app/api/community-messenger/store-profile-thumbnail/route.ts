@@ -63,6 +63,12 @@ export async function GET(req: NextRequest) {
   }
 
   const raw = store.profile_image_url;
-  const url = typeof raw === "string" && raw.trim() ? raw.trim() : null;
+  const trimmed = typeof raw === "string" && raw.trim() ? raw.trim() : null;
+  if (!trimmed) {
+    return NextResponse.json({ ok: true, url: null });
+  }
+
+  const { resolveStoreProductMediaUrl } = await import("@/lib/media/resolve-store-product-media-url");
+  const url = resolveStoreProductMediaUrl(trimmed) ?? trimmed;
   return NextResponse.json({ ok: true, url });
 }

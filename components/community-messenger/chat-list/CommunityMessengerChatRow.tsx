@@ -34,10 +34,13 @@ export type CommunityMessengerChatRowProps = {
 
 /** Swipe·navigation 계약은 기존 MessengerChatListItem 에 위임한다. */
 export const CommunityMessengerChatRow = memo(function CommunityMessengerChatRow(props: CommunityMessengerChatRowProps) {
+  const isTallListRow = props.listVisual === "trade" || props.listVisual === "delivery";
   return (
     <div
       data-cm-chat-row
-      className="min-h-[64px] max-h-[76px] transition-transform duration-100 active:scale-[0.98]"
+      className={`transition-transform duration-100 active:scale-[0.98] ${
+        isTallListRow ? "min-h-[72px]" : "min-h-[64px] max-h-[76px]"
+      }`}
     >
       <MessengerChatListItem {...props} />
     </div>

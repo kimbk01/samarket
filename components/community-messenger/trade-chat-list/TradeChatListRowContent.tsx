@@ -1,75 +1,77 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { MessengerListRow } from "@/components/community-messenger/line-ui";
 
 type Props = {
   rowSurfaceClass: string;
   avatar: ReactNode;
   trailing: ReactNode;
-  categoryChipLabel: string;
   productTitle: string;
-  productPriceText: string | null;
   previewLine: string;
-  /** 4행 — 판매자/작성자 표시명(서버 `sellerDisplayName` + 접두) */
-  listingOwnerLine: string | null;
+  rolePrefix: string | null;
+  productPriceText: string | null;
+  statusLabel: string;
+  statusBadgeClassName: string;
   unread: boolean;
 };
 
+const ONE_LINE = "min-w-0 truncate whitespace-nowrap overflow-hidden";
+
 /**
- * `/community-messenger/trade-chats` 전용 — 대메뉴 칩 · 제목·가격 · 미리보기 · 판매자/작성자 한 줄 + 우측 시간·상태.
- * 스와이프·탭 네비는 부모 `MessengerChatListItem` 이 유지한다.
+ * `/community-messenger/trade-chats` — 메신저 공통 타이포 + 3행 본문 + 우측 시간·unread.
  */
 export function TradeChatListRowContent({
   rowSurfaceClass,
   avatar,
   trailing,
-  categoryChipLabel,
   productTitle,
-  productPriceText,
   previewLine,
-  listingOwnerLine,
+  rolePrefix,
+  productPriceText,
+  statusLabel,
+  statusBadgeClassName,
   unread,
 }: Props) {
   return (
-    <MessengerListRow
-      className={`min-h-[96px] max-h-[120px] py-1.5 ${rowSurfaceClass}`}
-      avatarSlotClassName="flex h-14 w-14 shrink-0 items-center justify-center"
-      avatar={avatar}
-      trailing={trailing}
+    <div
+      className={`flex min-h-[72px] items-center gap-3 px-4 py-3 transition-transform duration-100 active:scale-[0.985] active:bg-[#EAF4EF] ${rowSurfaceClass}`}
     >
-      <div className="flex min-w-0 items-center">
-        <span
-          className="max-w-full truncate rounded-[6px] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-1.5 py-px sam-text-xxs font-semibold leading-none"
-          style={{ color: "var(--messenger-text-secondary)" }}
+      <div className="shrink-0">{avatar}</div>
+      <div className="min-w-0 flex-1">
+        <p
+          className={`${ONE_LINE} sam-text-body font-semibold leading-tight`}
+          style={{ color: "var(--messenger-text)" }}
         >
-          {categoryChipLabel}
-        </span>
-      </div>
-      <div className="mt-0.5 flex min-w-0 items-baseline gap-1.5">
-        <p className="min-w-0 flex-1 truncate sam-text-body font-semibold leading-tight" style={{ color: "var(--messenger-text)" }}>
           {productTitle}
         </p>
-        {productPriceText ? (
-          <span className="shrink-0 max-w-[42%] truncate sam-text-helper font-semibold leading-tight" style={{ color: "var(--messenger-text)" }}>
-            {productPriceText}
-          </span>
-        ) : null}
-      </div>
-      <p
-        className={`mt-0.5 min-w-0 truncate sam-text-body-secondary font-normal leading-snug ${unread ? "font-medium" : ""}`}
-        style={{ color: unread ? "var(--messenger-text)" : "var(--messenger-text-secondary)" }}
-      >
-        {previewLine}
-      </p>
-      {listingOwnerLine ? (
         <p
-          className="mt-0.5 min-w-0 truncate sam-text-xxs font-normal leading-tight"
+          className={`mt-0.5 ${ONE_LINE} sam-text-body-secondary font-normal leading-snug ${
+            unread ? "font-medium" : ""
+          }`}
+          style={{ color: unread ? "var(--messenger-text)" : "var(--messenger-text-secondary)" }}
+        >
+          {previewLine}
+        </p>
+        <p
+          className={`mt-0.5 flex min-w-0 items-center gap-1 ${ONE_LINE} sam-text-helper font-normal leading-snug`}
           style={{ color: "var(--messenger-text-secondary)" }}
         >
-          {listingOwnerLine}
+          {rolePrefix ? <span className="shrink-0">{rolePrefix}</span> : null}
+          {rolePrefix && (productPriceText || statusLabel) ? (
+            <span className="shrink-0 text-[color:var(--messenger-text-secondary)]"> · </span>
+          ) : null}
+          {productPriceText ? <span className="shrink-0 font-medium">{productPriceText}</span> : null}
+          {productPriceText && statusLabel ? (
+            <span className="shrink-0 text-[color:var(--messenger-text-secondary)]"> · </span>
+          ) : null}
+          {statusLabel ? (
+            <span className={`shrink-0 ${statusBadgeClassName}`}>{statusLabel}</span>
+          ) : null}
         </p>
-      ) : null}
-    </MessengerListRow>
+      </div>
+      <div className="flex w-[56px] min-w-[56px] shrink-0 flex-col items-end justify-start self-stretch pt-0.5">
+        {trailing}
+      </div>
+    </div>
   );
 }

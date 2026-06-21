@@ -144,8 +144,10 @@ export function useTradeChatListMetaHydration(args: {
   viewerUserId: string | null;
   chats: CommunityMessengerRoomSummary[] | null | undefined;
   setData: Dispatch<SetStateAction<CommunityMessengerBootstrap | null>>;
+  /** 한 번에 hydrate 할 roomId 상한 — 거래 탭 첫 페인트 우선 */
+  maxBatchSize?: number;
 }): void {
-  const { enabled, viewerUserId, chats, setData } = args;
+  const { enabled, viewerUserId, chats, setData, maxBatchSize } = args;
   const tradeMetaFetchAttemptedRef = useRef(new Set<string>());
   const [surfaceResumeTick, setSurfaceResumeTick] = useState(0);
 
@@ -167,7 +169,10 @@ export function useTradeChatListMetaHydration(args: {
   useEffect(() => {
     if (!enabled || !viewerUserId || !missingKey) return;
     if (shouldDeferTradeChatListMetaHydration()) return;
-    const roomIds = missingKey.split(",").filter(Boolean);
+    let roomIds = missingKey.split(",").filter(Boolean);
+    if (maxBatchSize != null && maxBatchSize > 0) {
+      roomIds = roomIds.slice(0, maxBatchSize);
+    }
     if (roomIds.length === 0) return;
 
     const dedupeKey = `trade-chat-list-meta:${missingKey}`;
@@ -267,5 +272,5 @@ export function useTradeChatListMetaHydration(args: {
     return () => {
       stale = true;
     };
-  }, [enabled, missingKey, setData, viewerUserId, surfaceResumeTick]);
+  }, [enabled, maxBatchSize, missingKey, setData, viewerUserId, surfaceResumeTick]);
 }

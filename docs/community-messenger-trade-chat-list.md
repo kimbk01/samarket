@@ -57,19 +57,15 @@
 
 **`listVisual === "trade"` 일 때 한 행은 다음을 만족한다.**
 
-1. **레이아웃:** 아바타 영역은 `TradeProductThumb`(상품 썸네일 또는 「거래」 플레이스홀더). 텍스트는 `TradeChatListRowContent` 의 **칩 + 본문 4줄 + 우측 열**(시간·미읽음·상태): 대메뉴 칩, 제목·가격, 미리보기, **판매자/작성자 한 줄**(서버 `sellerDisplayName` + UI 접두).
-2. **1행 칩:** **`categoryMenuLabel` 대메뉴만**(`중고거래`/`중고차`/`부동산`/`환전거래`/`일자리`). 없으면 기본 `중고거래`. (`productCategoryLabel` 은 leaf로 유지되나 **이 리스트 칩에는 쓰지 않음**.)
-3. **2행:** 제목 + 금액(같은 줄).
-4. **3행:** 마지막 메시지 미리보기.
-5. **4행:** `sellerDisplayName` 이 있으면 `categoryMenuLabel === "일자리"` 일 때 접두 **「작성자:」**, 그 외 **「판매자:」** + 표시명.
-6. **상품 텍스트:** `buildTradeChatListRowModel(room)` 파생 — `categoryChipLabel`·제목·가격·상태·`listingOwnerLine`.
-7. **썸네일 URL 결정 순서 (클라이언트):**
-   - `contextMeta` / 직렬화 파싱 결과의 `thumbnailUrl` 등 후보 → `resolveTradeChatListThumbnailDisplayUrl`.
-   - 여전히 비었거나 이미지 로드 실패 시, **`postId`가 있으면** `GET /api/community-messenger/trade-post-thumbnail?postId=` 로 서버가 **공개 URL** 을 확정 (환경변수는 서버에서만 사용).
-8. **`postId`:** `buildTradeChatListRowModel` 가 `contextMeta`·파싱 결과에서 채운다. 폴백 API의 필수 입력. 글이 없으면 preview API가 404이고 제목은 **「삭제된 거래글」**.
-9. **스와이프·롱프레스·네비:** `MessengerChatListItem` 공통. 거래 리스트만의 예외 분기를 두지 않는다.
-
-**금지:** 거래 리스트만을 위해 방 안 헤더와 다른 “네 번째” 상품 데이터 원장을 새로 두지 않는다. 부족하면 **동일 `posts` / 동일 메타 계약**으로 보강한다.
+1. **레이아웃(당근식):** 좌측 `TradeProductThumb`(56px, radius 12px, 소형 카테고리 pill) + 중앙 3행 + 우측 시간·unread(`min-w-[56px]`, `shrink-0`, 시간 truncate 금지).
+2. **본문 1행:** 상품명만(semibold, 1줄 truncate). 가격은 1행에 넣지 않음.
+3. **본문 2행:** 마지막 메시지 preview (#6B7280).
+4. **본문 3행:** `판매/구매`(선택) · 가격 · **상태 badge**(배경색 구분). 진행=녹색·예약=노랑·완료=회색. **우측 별도 상태 badge 없음.**
+5. **필터:** 상단 progress 칩 **없음**(전체 목록). 더보기 페이지네이션만 유지.
+6. **ViewModel:** `buildTradeChatListRowModel(room, t, viewerUserId?)` — `rolePrefix`, `statusTone`, `listingState` 등.
+7. **썸네일·postId·realtime unread·최신순 정렬:** 기존과 동일.
+8. **페이지(더보기):** 초기 **15건**만 렌더. 하단 「더보기」→ 시계방향 버퍼 스피너 → +15건. 필터 변경 시 visibleCount 리셋. `forceFlatList` 로 문서 스크롤 유지(가상 스크롤 비활성).
+9. **meta hydrate:** 거래 탭(`pillar=trade`)은 **pillar 목록 방만**·배치 **15건** 상한.
 
 ---
 
@@ -85,7 +81,10 @@
 
 | 역할 | 경로 |
 |------|------|
-| ViewModel·파싱·postId | `lib/community-messenger/trade-chat-list/view-model.ts` |
+| ViewModel·파싱·postId·listingState | `lib/community-messenger/trade-chat-list/view-model.ts`, `trade-chat-list-resolve.ts` |
+| 필터 | `trade-chat-list-filters.ts`, `TradeChatListFilterBar.tsx` |
+| 시간 포맷(짧은) | `trade-chat-list-timestamp.ts` |
+| 클라 페이지·더보기 | `trade-chat-list-pagination.ts`, `use-trade-chat-list-client-pagination.ts`, `TradeChatListLoadMoreFooter.tsx` |
 | 대메뉴 5분류·leaf 표시명 | `category-menu-label.ts`, `trade-post-row-fields.ts` |
 | 썸네일 UI·폴백 fetch | `components/community-messenger/trade-chat-list/TradeProductThumb.tsx` |
 | 행 본문 레이아웃 | `components/community-messenger/trade-chat-list/TradeChatListRowContent.tsx` |

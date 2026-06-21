@@ -48,12 +48,14 @@ import {
 import { messengerTradeViewerRoleFromContextMeta } from "@/lib/community-messenger/messenger-trade-viewer-role";
 import { TradeChatListRowContent } from "@/components/community-messenger/trade-chat-list/TradeChatListRowContent";
 import { TradeProductThumb } from "@/components/community-messenger/trade-chat-list/TradeProductThumb";
+import { formatTradeChatListTimestamp } from "@/lib/community-messenger/trade-chat-list/trade-chat-list-timestamp";
 import { DeliveryChatListRowContent } from "@/components/community-messenger/delivery-chat-list/DeliveryChatListRowContent";
 import { StoreProfileThumb } from "@/components/community-messenger/delivery-chat-list/StoreProfileThumb";
 import {
   buildDeliveryChatListRowModel,
-  formatDeliveryChatListTimestamp,
 } from "@/lib/community-messenger/delivery-chat-list/view-model";
+import { formatDeliveryChatListShortTimestamp } from "@/lib/community-messenger/delivery-chat-list/delivery-chat-list-timestamp";
+import { buildDeliveryChatListPreviewLine } from "@/lib/community-messenger/delivery-chat-list/delivery-chat-list-preview";
 import { prefetchStoreProfileThumbnailIfNeeded } from "@/lib/community-messenger/delivery-chat-list/store-profile-thumbnail-cache";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { SamarketUserAvatarThumb } from "@/components/profile/SamarketUserAvatarThumb";
@@ -289,12 +291,6 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   const menuItemId = messengerRoomMenuItemId(room.id, listContext);
   const tradeRoleLabel = commerceMeta?.kind === "trade" ? commerceMeta.roleLabel?.trim() || null : null;
   const tradeViewerRoleForTint = messengerTradeViewerRoleFromContextMeta(commerceMeta ?? undefined);
-  const tradeListRowBgClass =
-    commerceMeta?.kind === "trade" && tradeViewerRoleForTint === "seller"
-      ? "bg-[color:var(--messenger-trade-list-seller-bg)]"
-      : commerceMeta?.kind === "trade" && tradeViewerRoleForTint === "buyer"
-        ? "bg-[color:var(--messenger-trade-list-buyer-bg)]"
-        : "bg-[color:var(--messenger-bg)]";
   const commerceListPresentation = useMemo(
     () => resolveCommerceChatListPresentation(room),
     [room]
@@ -316,23 +312,34 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
 
   const isTradeChatListVisual = listVisual === "trade";
   const isDeliveryChatListVisual = listVisual === "delivery";
+  const isPillarChatListVisual = isTradeChatListVisual || isDeliveryChatListVisual;
+  const tradeListRowBgClass = isTradeChatListVisual
+    ? "bg-white"
+    : commerceMeta?.kind === "trade" && tradeViewerRoleForTint === "seller"
+      ? "bg-[color:var(--messenger-trade-list-seller-bg)]"
+      : commerceMeta?.kind === "trade" && tradeViewerRoleForTint === "buyer"
+        ? "bg-[color:var(--messenger-trade-list-buyer-bg)]"
+        : "bg-[color:var(--messenger-bg)]";
+  const tradeListRowShellClass = isPillarChatListVisual
+    ? "border-b border-[#E5EEE9] bg-white"
+    : `border-b border-[color:var(--messenger-divider)] ${tradeListRowBgClass}`;
   const roomStoreId = useMemo(() => normalizeMessengerRealtimeRoomId(room.id), [room.id]);
   const tradeRowModel = useMemo(
-    () => (isTradeChatListVisual ? buildTradeChatListRowModel(room, t) : null),
-    [isTradeChatListVisual, room, t]
+    () => (isTradeChatListVisual ? buildTradeChatListRowModel(room, t, viewerUserId) : null),
+    [isTradeChatListVisual, room, t, viewerUserId]
+  );
+  const tradeListTimeLabel = useMemo(
+    () => (isTradeChatListVisual ? formatTradeChatListTimestamp(item.lastEventAt) : ""),
+    [isTradeChatListVisual, item.lastEventAt]
   );
   const deliveryRowModel = useMemo(
-    () => (isDeliveryChatListVisual ? buildDeliveryChatListRowModel(room) : null),
-    [isDeliveryChatListVisual, room]
+    () => (isDeliveryChatListVisual ? buildDeliveryChatListRowModel(room, t) : null),
+    [isDeliveryChatListVisual, room, t]
   );
-  const deliveryListTimestamp = useMemo(
-    () => (isDeliveryChatListVisual ? formatDeliveryChatListTimestamp(item.lastEventAt) : null),
+  const deliveryListTimeLabel = useMemo(
+    () => (isDeliveryChatListVisual ? formatDeliveryChatListShortTimestamp(item.lastEventAt) : ""),
     [isDeliveryChatListVisual, item.lastEventAt]
   );
-  const deliveryOrderNoLine = useMemo(() => {
-    if (!deliveryRowModel?.orderNo) return null;
-    return t("store_messenger_list_order_no", { orderNo: deliveryRowModel.orderNo });
-  }, [deliveryRowModel?.orderNo, t]);
   const tradeListPreview = useTradeChatListPostPreviewFields({
     postId: tradeRowModel?.postId,
     productTitle: tradeRowModel?.productTitle ?? "",
@@ -386,7 +393,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     });
   }, [displayedUnreadCount, isTradeChatListVisual, room.id, roomStoreId, unreadDisplayTier, viewerUserId]);
   const lastClientMessage = useMessengerRealtimeStore((s) => {
-    if (!isTradeChatListVisual) return null;
+    if (!isPillarChatListVisual) return null;
     const arr = s.messagesByRoomId[roomStoreId];
     if (!arr?.length) return null;
     return arr[arr.length - 1] ?? null;
@@ -415,8 +422,21 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     if (commerceListPresentation.previewKey && isDeliveryChatListVisual) {
       return t(commerceListPresentation.previewKey);
     }
-    return item.preview;
-  }, [commerceListPresentation.previewKey, isDeliveryChatListVisual, item.preview, t]);
+    if (!isDeliveryChatListVisual || !deliveryRowModel) return item.preview;
+    return buildDeliveryChatListPreviewLine({
+      listPreview: item.preview,
+      storeName: deliveryRowModel.storeName,
+      lastClientMessage,
+      t,
+    });
+  }, [
+    commerceListPresentation.previewKey,
+    deliveryRowModel,
+    isDeliveryChatListVisual,
+    item.preview,
+    lastClientMessage,
+    t,
+  ]);
 
   useEffect(() => {
     if (!isTradeChatListVisual || process.env.NODE_ENV !== "development") return;
@@ -759,10 +779,11 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         storeName={deliveryRowModel.storeName}
       />
     ) : isTradeChatListVisual && tradeRowModel ? (
-      <div className="relative">
-        <TradeProductThumb src={tradeRowModel.productThumbnailUrl} postId={tradeRowModel.postId} />
-        {presencePeerUserId ? <MessengerChatListItemPresenceDot peerUserId={presencePeerUserId} /> : null}
-      </div>
+      <TradeProductThumb
+        src={tradeRowModel.productThumbnailUrl}
+        postId={tradeRowModel.postId}
+        categoryChipLabel={tradeRowModel.categoryChipLabel}
+      />
     ) : commerceMeta?.thumbnailUrl ? (
       <div className="relative">
         <CommerceThumb src={commerceMeta.thumbnailUrl} fallbackAvatarUrl={room.avatarUrl} fallbackLabel={room.title} />
@@ -782,44 +803,49 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     );
 
   const productStatusForTrailing =
-    isTradeChatListVisual && tradeRowModel?.productStatusText ? tradeRowModel.productStatusText : null;
+    !isTradeChatListVisual && commerceMeta?.kind === "trade" && commerceMeta.itemStateLabel?.trim()
+      ? commerceMeta.itemStateLabel.trim()
+      : null;
 
   const trailingBlock =
-    isDeliveryChatListVisual && deliveryListTimestamp ? (
-      <div className="flex flex-col items-end gap-1">
-        <div className="flex flex-col items-end leading-none tabular-nums">
-          {deliveryListTimestamp.dateLine ? (
-            <span className="sam-text-xxs font-normal" style={{ color: "var(--messenger-text-secondary)" }}>
-              {deliveryListTimestamp.dateLine}
-            </span>
-          ) : null}
-          {deliveryListTimestamp.timeLine ? (
-            <span className="sam-text-helper font-normal" style={{ color: "var(--messenger-text-secondary)" }}>
-              {deliveryListTimestamp.timeLine}
-            </span>
-          ) : null}
-        </div>
-        <div className="flex items-center gap-0.5">
-          {room.isPinned ? (
-            <span style={{ color: "var(--messenger-text-secondary)" }} aria-label={t("cm_ui_pinned")}>
-              <PinIcon />
-            </span>
-          ) : null}
-          {room.isMuted ? (
-            <span style={{ color: "var(--messenger-text-secondary)" }} aria-label={t("cm_ui_notifications_off")}>
-              <MuteIcon />
-            </span>
-          ) : null}
-          {displayedUnreadCount > 0 ? (
-            <span
-              data-cm-unread-badge="true"
-              className="min-h-[18px] min-w-[18px] rounded-full bg-[color:var(--messenger-primary)] px-1 text-center sam-text-xxs font-semibold leading-[18px] text-white"
-            >
-              {displayedUnreadCount > 999 ? "999+" : displayedUnreadCount}
-            </span>
-          ) : null}
-        </div>
-      </div>
+    isDeliveryChatListVisual && deliveryRowModel ? (
+      <>
+        <span
+          className="whitespace-nowrap text-right sam-text-helper font-normal tabular-nums leading-none"
+          style={{ color: "var(--messenger-text-secondary)" }}
+        >
+          {deliveryListTimeLabel}
+        </span>
+        {displayedUnreadCount > 0 ? (
+          <span
+            data-cm-unread-badge="true"
+            className="mt-1.5 flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#006241] px-1 text-center sam-text-xxs font-semibold leading-[18px] text-white"
+          >
+            {displayedUnreadCount > 999 ? "999+" : displayedUnreadCount}
+          </span>
+        ) : (
+          <span className="mt-1.5 block h-[18px]" aria-hidden />
+        )}
+      </>
+    ) : isTradeChatListVisual && tradeRowModel ? (
+      <>
+        <span
+          className="whitespace-nowrap text-right sam-text-helper font-normal tabular-nums leading-none"
+          style={{ color: "var(--messenger-text-secondary)" }}
+        >
+          {tradeListTimeLabel}
+        </span>
+        {displayedUnreadCount > 0 ? (
+          <span
+            data-cm-unread-badge="true"
+            className="mt-1.5 flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#006241] px-1 text-center sam-text-xxs font-semibold leading-[18px] text-white"
+          >
+            {displayedUnreadCount > 999 ? "999+" : displayedUnreadCount}
+          </span>
+        ) : (
+          <span className="mt-1.5 block h-[18px]" aria-hidden />
+        )}
+      </>
     ) : (
       <>
         <span className="sam-text-helper font-normal tabular-nums" style={{ color: "var(--messenger-text-secondary)" }}>
@@ -867,13 +893,9 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         avatar={avatarBlock}
         trailing={trailingBlock}
         storeName={deliveryRowModel.storeName}
-        orderNoLine={deliveryOrderNoLine}
-        deliveryStatusLine={
-          commerceListPresentation.statusLabelKey
-            ? t(commerceListPresentation.statusLabelKey)
-            : deliveryRowModel.orderStatusLabel
-        }
-        lastMessageLine={deliveryPreviewLine}
+        previewLine={deliveryPreviewLine}
+        statusLabel={deliveryRowModel.orderStatusLabel ?? ""}
+        statusBadgeClassName={deliveryRowModel.statusBadgeClassName}
         unread={displayedUnreadCount > 0}
       />
     ) : isTradeChatListVisual && tradeRowModel ? (
@@ -881,11 +903,12 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         rowSurfaceClass={rowSurfaceClass}
         avatar={avatarBlock}
         trailing={trailingBlock}
-        categoryChipLabel={tradeRowModel.categoryChipLabel}
         productTitle={tradeListPreview.displayTitle}
-        productPriceText={tradeListPreview.displayPriceText}
         previewLine={tradePreviewLine}
-        listingOwnerLine={tradeRowModel.listingOwnerLine}
+        rolePrefix={tradeRowModel.rolePrefix}
+        productPriceText={tradeListPreview.displayPriceText}
+        statusLabel={tradeRowModel.statusLabel}
+        statusBadgeClassName={tradeRowModel.statusBadgeClassName}
         unread={displayedUnreadCount > 0}
       />
     ) : (
@@ -984,7 +1007,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
             void navigateToCommunityRoom(room.id);
           }
         }}
-        className={`block cursor-default border-b border-[color:var(--messenger-divider)] ${tradeListRowBgClass} px-0 py-0 touch-manipulation transition-colors duration-100 ease-out active:bg-[color:var(--messenger-surface-muted)]`}
+        className={`block cursor-default px-0 py-0 touch-manipulation transition-colors duration-100 ease-out ${tradeListRowShellClass}`}
       >
         {rowContent}
       </div>
@@ -1005,7 +1028,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
           e.preventDefault();
           void navigateToCommunityRoom(room.id);
         }}
-        className={`block border-b border-[color:var(--messenger-divider)] ${tradeListRowBgClass} px-0 py-0 transition-colors duration-100 ease-out active:bg-[color:var(--messenger-surface-muted)]`}
+        className={`block px-0 py-0 transition-colors duration-100 ease-out ${tradeListRowShellClass}`}
       >
         {rowContent}
       </Link>
@@ -1015,7 +1038,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   return (
     <div
       ref={setMainRowRef}
-      className={`relative w-full min-w-0 overflow-hidden border-b border-[color:var(--messenger-divider)] ${tradeListRowBgClass}`}
+      className={`relative w-full min-w-0 overflow-hidden ${tradeListRowShellClass}`}
       data-messenger-chat-row="true"
       data-messenger-trade-row-role={tradeViewerRoleForTint ?? undefined}
     >
