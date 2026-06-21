@@ -34,6 +34,12 @@ export type NativeIncomingCallPlugin = {
     items: Array<{ sessionId: string; status?: string; at?: number }>;
   }>;
   getForegroundIncomingCallId(): Promise<{ callId?: string | null }>;
+  getNativeIncomingStoreCallId(): Promise<{ callId?: string | null }>;
+  notifyCallTerminal(options: {
+    sessionId: string;
+    terminalKind?: string;
+    source?: string;
+  }): Promise<void>;
 };
 
 let pluginPromise: Promise<NativeIncomingCallPlugin | null> | null = null;

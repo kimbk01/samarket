@@ -22,6 +22,7 @@ import {
   shouldSkipActiveCallRecoveryRouting,
   writeActiveCallRecoveryLock,
 } from "@/lib/community-messenger/call-active-session-recovery";
+import { ensureCallBootReconcile } from "@/lib/community-messenger/call-boot-reconcile";
 import { resolveCallRouteResumeDecision } from "@/lib/community-messenger/call-route-resume-guard";
 import {
   readDockedCallSessionId,
@@ -159,6 +160,8 @@ export function CallActiveSessionRecoveryHost() {
       attemptCountRef.current += 1;
       inFlightRef.current = true;
       try {
+        await ensureCallBootReconcile().catch(() => {});
+
         if (isCapacitorNativePlatform()) {
           const snapshot = await readNativeActiveCallSnapshot();
           const nativeCallId = (snapshot?.callId ?? (await readNativeActiveCallId()))?.trim();

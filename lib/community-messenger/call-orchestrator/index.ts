@@ -89,7 +89,10 @@ export type DibayCallLogStep =
   | "active_call_cleanup_blocked"
   | "active_call_machine_transition_blocked"
   | "active_call_resume_check"
-  | "recovery_local_session_preserved";
+  | "recovery_local_session_preserved"
+  | "boot_stale_outgoing_cancel"
+  | "boot_stale_incoming_missed"
+  | "boot_orphan_active_end";
 
 type ActionFlight = {
   action: DibayCallOrchestratorAction;

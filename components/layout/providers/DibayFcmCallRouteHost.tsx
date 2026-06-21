@@ -37,6 +37,7 @@ import {
   isRingingOnlyIncomingCallRoute,
 } from "@/lib/community-messenger/incoming-call-surface-owner";
 import { resolveCallRouteResumeDecision } from "@/lib/community-messenger/call-route-resume-guard";
+import { ensureCallBootReconcile } from "@/lib/community-messenger/call-boot-reconcile";
 
 const ROUTE_DEDUPE_MS = 2_000;
 
@@ -208,6 +209,7 @@ export function DibayFcmCallRouteHost() {
     };
 
     const consumePendingRoutes = async () => {
+      await ensureCallBootReconcile().catch(() => {});
       const sessionPending = readDibayCallPendingRoute();
       if (sessionPending) {
         console.info("[call-route] pending_route_replayed", { path: sessionPending, source: "session" });

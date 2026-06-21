@@ -42,6 +42,9 @@ describe("incoming-call native contract", () => {
     expect(plugin).toContain("listConsumedCallIds");
     expect(plugin).toContain("drainPendingTerminalEvents");
     expect(plugin).toContain("getForegroundIncomingCallId");
+    expect(plugin).toContain("getNativeIncomingStoreCallId");
+    expect(plugin).toContain("notifyCallTerminal");
+    expect(plugin).toContain("DibayIncomingCallNativeStore.clear");
     expect(plugin).toContain("DibayCallConsumedStore.mark");
     const store = read("android/app/src/main/java/com/dibay/app/DibayCallConsumedStore.java");
     expect(store).toContain("isConsumed");

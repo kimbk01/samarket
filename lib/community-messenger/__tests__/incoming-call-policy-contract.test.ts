@@ -174,8 +174,10 @@ describe("incoming-call policy contracts", () => {
     expect(nav).toContain("COMMUNITY_MESSENGER_CALL_LOGS_HREF");
     expect(nav).toContain("exitCommunityMessengerCallRouteNow");
     const client = read("components/community-messenger/CommunityMessengerCallClient.tsx");
+    const routeHost = read("components/layout/providers/DibayFcmCallRouteHost.tsx");
     expect(client).toContain("exitCommunityMessengerCallRouteNow");
     expect(client).toContain("stale_ringing_blocked");
+    expect(routeHost).toContain("ensureCallBootReconcile");
     expect(client).toContain("subscribeCommunityMessengerCallClientRemoteTerminalFeed");
     expect(client).toContain("remote_terminal_native");
   });
