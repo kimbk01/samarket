@@ -98,7 +98,6 @@ export type MessengerTimelineVirtualRowProps = {
   highlightMentions?: boolean;
   timelineHighlightMessageId: string | null;
   messageActionItemId: string | null;
-  callStubSheetItemId: string | null;
   linkPreviewEnabled: boolean;
   mediaAutoSaveEnabled: boolean;
   sendingLabel: string;
@@ -114,7 +113,7 @@ export type MessengerTimelineVirtualRowProps = {
     anchor: CommunityMessengerMessageActionAnchorRect;
   }) => void;
   setMessageActionItem: MessengerRoomPhase2ViewModel["setMessageActionItem"];
-  setCallStubSheet: MessengerRoomPhase2ViewModel["setCallStubSheet"];
+  onCallStubRedial: (kind: "voice" | "video") => void;
   messageLongPressTimerRef: MutableRefObject<number | null>;
   messageLongPressItemRef: MutableRefObject<(import("@/lib/community-messenger/types").CommunityMessengerMessage & {
     pending?: boolean;
@@ -148,7 +147,6 @@ function messengerTimelineVirtualRowPropsAreEqual(
     a.highlightMentions === b.highlightMentions &&
     a.timelineHighlightMessageId === b.timelineHighlightMessageId &&
     a.messageActionItemId === b.messageActionItemId &&
-    a.callStubSheetItemId === b.callStubSheetItemId &&
     a.linkPreviewEnabled === b.linkPreviewEnabled &&
     a.mediaAutoSaveEnabled === b.mediaAutoSaveEnabled &&
     a.sendingLabel === b.sendingLabel &&
@@ -160,7 +158,7 @@ function messengerTimelineVirtualRowPropsAreEqual(
     a.onOpenImageLightbox === b.onOpenImageLightbox &&
     a.onReactionRosterOpen === b.onReactionRosterOpen &&
     a.setMessageActionItem === b.setMessageActionItem &&
-    a.setCallStubSheet === b.setCallStubSheet &&
+    a.onCallStubRedial === b.onCallStubRedial &&
     a.messageLongPressTimerRef === b.messageLongPressTimerRef &&
     a.messageLongPressItemRef === b.messageLongPressItemRef &&
     a.focusTimelineMessage === b.focusTimelineMessage &&
@@ -190,7 +188,6 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
   highlightMentions = false,
   timelineHighlightMessageId,
   messageActionItemId,
-  callStubSheetItemId,
   linkPreviewEnabled,
   mediaAutoSaveEnabled,
   sendingLabel,
@@ -202,7 +199,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
   onOpenImageLightbox,
   onReactionRosterOpen,
   setMessageActionItem,
-  setCallStubSheet,
+  onCallStubRedial,
   messageLongPressTimerRef,
   messageLongPressItemRef,
   focusTimelineMessage,
@@ -258,37 +255,41 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
             style: messageBubbleTouchStyle,
             onPointerDown: (e: ReactPointerEvent<HTMLDivElement>) => {
               if (!e.isPrimary) return;
+              messageLongPressItemRef.current = item;
               longPressOriginRef.current = { x: e.clientX, y: e.clientY };
               setLongPressHolding(true);
               // setPointerCapture: 탭 판정용 pointerup/move 보장. DO NOT: 제거 시 pointercancel 로 탭 유실.
               try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
+              const el = e.currentTarget;
+              messageLongPressTimerRef.current = window.setTimeout(() => {
+                messageLongPressTimerRef.current = null;
+                longPressOriginRef.current = null;
+                setLongPressHolding(false);
+                setMessageActionItem({
+                  item,
+                  anchorRect: messengerMessageAnchorRectFromDomRect(el.getBoundingClientRect()),
+                });
+              }, 520);
             },
             onPointerMove: (e: ReactPointerEvent<HTMLDivElement>) => {
               if (!longPressOriginRef.current) return;
               const dx = e.clientX - longPressOriginRef.current.x;
               const dy = e.clientY - longPressOriginRef.current.y;
               if (Math.sqrt(dx * dx + dy * dy) > 8) {
-                longPressOriginRef.current = null;
-                setLongPressHolding(false);
+                cancelLongPress();
               }
             },
-            onPointerUp: (e: ReactPointerEvent<HTMLDivElement>) => {
+            onPointerUp: () => {
               const origin = longPressOriginRef.current;
-              longPressOriginRef.current = null;
-              setLongPressHolding(false);
-              if (!origin) return;
-              setCallStubSheet({
-                item,
-                anchorRect: messengerMessageAnchorRectFromDomRect(e.currentTarget.getBoundingClientRect()),
-              });
+              const tapReady = messageLongPressTimerRef.current != null;
+              cancelLongPress();
+              if (!origin || !tapReady || stubBusy) return;
+              onCallStubRedial(item.callKind === "video" ? "video" : "voice");
             },
-            onPointerCancel: () => {
-              longPressOriginRef.current = null;
-              setLongPressHolding(false);
-            },
+            onPointerCancel: cancelLongPress,
             onContextMenu: (e: ReactMouseEvent<HTMLDivElement>) => {
               e.preventDefault();
-              setCallStubSheet({
+              setMessageActionItem({
                 item,
                 anchorRect: messengerMessageAnchorRectFromDomRect(e.currentTarget.getBoundingClientRect()),
               });
@@ -336,8 +337,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
     item.messageType !== "system" && item.messageType !== "call_stub" ? formatReplyQuoteForMessage(item) : null;
 
   const longPressMenuOpenOnBubble =
-    (Boolean(messageActionItemId) && messageActionItemId === item.id) ||
-    (Boolean(callStubSheetItemId) && callStubSheetItemId === item.id);
+    Boolean(messageActionItemId) && messageActionItemId === item.id;
 
   const longPressVisualActive = longPressHolding || longPressMenuOpenOnBubble;
 
@@ -482,19 +482,21 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
   );
 
   const callStubEventRow = (
-    <div className="flex w-full min-w-0 justify-center px-2">
-      <div
-        role="button"
-        aria-label={item.content.trim() || `${item.callKind === "video" ? videoCallLabel : voiceCallLabel} · ${callStatusLabel}`}
-        aria-disabled={stubBusy || undefined}
-        className={`inline-flex max-w-full transition-[transform,box-shadow] duration-150 ease-out ${
-          longPressVisualActive
-            ? "scale-[0.97] rounded-[18px] ring-2 ring-[color:var(--cm-room-primary)] ring-offset-1 ring-offset-[color:var(--cm-room-bg,#f0f2f5)] shadow-[0_10px_28px_rgba(0,0,0,0.16)]"
-            : ""
-        }`}
-        {...bindMessageInteraction}
-      >
-        {viberInnerBody}
+    <div className={`flex w-full min-w-0 px-2 ${item.isMine ? "justify-end" : "justify-start"}`}>
+      <div className={`flex min-w-0 max-w-[min(76vw,520px)] flex-col ${item.isMine ? "items-end" : "items-start"}`}>
+        <div
+          role="button"
+          aria-label={item.content.trim() || `${item.callKind === "video" ? videoCallLabel : voiceCallLabel} · ${callStatusLabel}`}
+          aria-disabled={stubBusy || undefined}
+          className={`inline-flex max-w-full transition-[transform,box-shadow] duration-150 ease-out ${
+            longPressVisualActive
+              ? "scale-[0.97] rounded-[18px] ring-2 ring-[color:var(--cm-room-primary)] ring-offset-1 ring-offset-[color:var(--cm-room-bg,#f0f2f5)] shadow-[0_10px_28px_rgba(0,0,0,0.16)]"
+              : ""
+          }`}
+          {...bindMessageInteraction}
+        >
+          {viberInnerBody}
+        </div>
       </div>
     </div>
   );
@@ -507,7 +509,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
       data-cm-message-id={String(item.id ?? "")}
       id={`cm-room-msg-${item.id}`}
       className={`${directLayout ? "relative" : "absolute left-0 top-0"} flex w-full flex-col scroll-mt-24 ${rowPaddingTopClass} pb-1 ${
-        item.messageType === "system" || item.messageType === "call_stub" ? "items-center" : ""
+        item.messageType === "system" ? "items-center" : ""
       } ${
         timelineHighlightMessageId === item.id
           ? "relative z-[2] rounded-[16px] outline outline-2 -outline-offset-[3px] outline-[color:var(--cm-room-primary)]"

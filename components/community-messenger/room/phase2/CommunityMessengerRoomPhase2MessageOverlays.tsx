@@ -1,8 +1,6 @@
 "use client";
 
 import { MessageLongPressPopover } from "@/components/community-messenger/room/message/MessageLongPressPopover";
-import { CallStubActionPopover } from "@/components/community-messenger/room/message/CallStubActionPopover";
-import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -13,14 +11,6 @@ export function CommunityMessengerRoomPhase2MessageOverlays() {
   const { t } = useI18n();
   const vm = useMessengerRoomPhase2View();
   const messageActionItem = vm.messageActionItem;
-  const callStubSheet = vm.callStubSheet;
-
-  const callRedialDisabled =
-    vm.roomUnavailable ||
-    (vm.busy != null && String(vm.busy).startsWith("managed-call:")) ||
-    vm.call.busy === "call-start" ||
-    vm.call.busy === "device-prepare" ||
-    vm.call.busy === "call-accept";
 
   const leaveConfirmI18nKey = vm.snapshot
     ? getSwipeLeaveConfirmI18nKey(
@@ -88,30 +78,6 @@ export function CommunityMessengerRoomPhase2MessageOverlays() {
               pinnedId === messageActionItem.item.id ? null : messageActionItem.item.id;
             vm.setMessageActionItem(null);
             void vm.pinGroupMessage(nextId);
-          }}
-        />
-      ) : null}
-      {callStubSheet ? (
-        <CallStubActionPopover
-          open={callStubSheet}
-          roomUnavailable={vm.roomUnavailable}
-          redialDisabled={callRedialDisabled}
-          onClose={() => vm.setCallStubSheet(null)}
-          onRedial={(kind) => {
-            vm.openCallStubOutgoingConfirm(kind);
-          }}
-        />
-      ) : null}
-
-      {vm.callStubOutgoingConfirm ? (
-        <MessengerOutgoingCallConfirmDialog
-          open
-          peerLabel={vm.snapshot.room.title?.trim() || t("cm_ui_peer_fallback")}
-          kind={vm.callStubOutgoingConfirm.kind}
-          busy={vm.outgoingDialLocked}
-          onCancel={vm.cancelCallStubOutgoingConfirm}
-          onConfirm={() => {
-            void vm.confirmCallStubOutgoing();
           }}
         />
       ) : null}

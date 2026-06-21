@@ -34,6 +34,7 @@ function MenuRow({
 
 export type MessageActionMenuProps = {
   roomUnavailable: boolean;
+  showCopy?: boolean;
   copyLabel: string;
   copyDisabled: boolean;
   copyTitle?: string;
@@ -61,6 +62,7 @@ export function MessageActionMenu(props: MessageActionMenuProps) {
   const { t } = useI18n();
   const {
     roomUnavailable,
+    showCopy = true,
     copyLabel,
     copyDisabled,
     copyTitle,
@@ -84,12 +86,14 @@ export function MessageActionMenu(props: MessageActionMenuProps) {
 
   return (
     <nav className="flex flex-col bg-white dark:bg-neutral-950" aria-label={t("cm_ui_message_actions")}>
-      <MenuRow
-        label={copyLabel}
-        onClick={onCopy}
-        disabled={roomUnavailable || copyDisabled}
-        title={copyTitle}
-      />
+      {showCopy ? (
+        <MenuRow
+          label={copyLabel}
+          onClick={onCopy}
+          disabled={roomUnavailable || copyDisabled}
+          title={copyTitle}
+        />
+      ) : null}
       {edit ? (
         <MenuRow
           label={t("common_edit")}

@@ -147,6 +147,7 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
   const canEveryone = item.isMine && canDeleteMessageForEveryone(item, roomKind);
   const canEdit = canEditMessageText(item, roomKind);
   const isVoice = item.messageType === "voice";
+  const isCallStub = item.messageType === "call_stub";
 
   const shareToRoomOk = !roomUnavailable && canShareMessageToRoom(item, roomKind);
   const shareExternalOk = !roomUnavailable && canShareMessageExternally(item, roomKind);
@@ -155,7 +156,7 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
 
   const showHideForMe = !item.pending && canHide;
   const showDeleteForEveryone =
-    item.isMine && !item.pending && item.messageType !== "system" && canDeleteMessageForMe(item, roomKind);
+    item.isMine && !item.pending && item.messageType !== "system" && !isCallStub && canDeleteMessageForMe(item, roomKind);
 
   const deleteForMe = showHideForMe
     ? {
@@ -246,6 +247,7 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
         />
         <MessageActionMenu
           roomUnavailable={roomUnavailable}
+          showCopy={!isCallStub}
           copyLabel={copyLabel}
           copyDisabled={!copyAction?.enabled}
           copyTitle={copyAction?.reason}

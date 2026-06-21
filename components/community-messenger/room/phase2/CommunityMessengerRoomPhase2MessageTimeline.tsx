@@ -978,7 +978,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
   /**
    * 롱프레스 팝오버 오픈 직후 레이아웃 변화(ring-offset)가 virtualizer 스크롤 이벤트를 유발해
    * 팝오버가 즉시 닫히는 현상을 방지하기 위한 grace window.
-   * setMessageActionItem / setCallStubSheet 호출 시 이 값을 갱신한다.
+   * setMessageActionItem 호출 시 이 값을 갱신한다.
    * DO NOT: 이 ref를 제거하면 롱프레스 직후 스크롤 이벤트가 시트를 즉시 닫음.
    */
   const actionSheetOpenedAtRef = useRef<number>(0);
@@ -988,7 +988,6 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     const now = Date.now();
     if (now - actionSheetOpenedAtRef.current < gracePeriod) return;
     if (v.messageActionItem) v.setMessageActionItem(null);
-    if (v.callStubSheet) v.setCallStubSheet(null);
   }, []);
 
   const scheduleScroll = useCallback(() => {
@@ -1072,7 +1071,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
   }, [vm.streamRoomId]);
 
   /**
-   * grace window 용 래퍼: setMessageActionItem/setCallStubSheet 호출 시 타임스탬프를 기록해
+   * grace window 용 래퍼: setMessageActionItem 호출 시 타임스탬프를 기록해
    * 직후 virtualizer 레이아웃 스크롤 이벤트가 팝오버를 즉시 닫지 않도록 한다.
    * DO NOT: 이 래퍼를 제거하고 vm.setMessageActionItem 을 직접 전달하면
    *          ring-offset 레이아웃 변화로 발생하는 스크롤이 팝오버를 즉시 닫음.
@@ -1085,15 +1084,17 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [vm.setMessageActionItem]
   );
-  const setCallStubSheetWithGrace = useCallback(
-    (v: Parameters<typeof vm.setCallStubSheet>[0]) => {
-      if (v !== null) actionSheetOpenedAtRef.current = Date.now();
-      vm.setCallStubSheet(v);
+  const startCallStubRedial = useCallback(
+    (kind: "voice" | "video") => {
+      if (vm.roomUnavailable) return;
+      if (vm.isGroupRoom) {
+        void vm.startGroupCall(kind);
+        return;
+      }
+      void vm.startManagedDirectCall(kind);
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [vm.setCallStubSheet]
+    [vm.isGroupRoom, vm.roomUnavailable, vm.startGroupCall, vm.startManagedDirectCall]
   );
-
   const virtualItemsForLayout = vm.chatVirtualizer.getVirtualItems();
   const virtualizerMeasuredReadyForLayout =
     virtualItemsForLayout.length > 0 && vm.chatVirtualizer.getTotalSize() > 0;
@@ -1907,7 +1908,6 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                     highlightMentions={vm.isPrivateGroupRoom}
                     timelineHighlightMessageId={vm.timelineHighlightMessageId}
                     messageActionItemId={vm.messageActionItem?.item.id ?? null}
-                    callStubSheetItemId={vm.callStubSheet?.item.id ?? null}
                     linkPreviewEnabled={
                       entrySliceActive || virtualizerUpgradeDeferHeavy
                         ? false
@@ -1937,7 +1937,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                     onOpenImageLightbox={onOpenImageLightbox}
                     onReactionRosterOpen={onReactionRosterOpen}
                     setMessageActionItem={setMessageActionItemWithGrace}
-                    setCallStubSheet={setCallStubSheetWithGrace}
+                    onCallStubRedial={startCallStubRedial}
                     messageLongPressTimerRef={vm.messageLongPressTimerRef}
                     messageLongPressItemRef={vm.messageLongPressItemRef}
                     focusTimelineMessage={vm.focusTimelineMessage}
