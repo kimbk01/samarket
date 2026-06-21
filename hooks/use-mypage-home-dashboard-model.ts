@@ -1,9 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
 import type { AddressDefaultsSnapshot } from "@/lib/addresses/address-defaults-snapshot";
 import { isClientSignupComplete } from "@/lib/auth/client-signup-gate";
 import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
@@ -25,12 +24,22 @@ import type { MyPageOverviewCounts } from "@/components/mypage/types";
 import type { ProfileRow } from "@/lib/profile/types";
 import type { MyPageHomeDashboardCounts } from "@/lib/my/types";
 import { dibayMyInfoPerfMark, dibayMyInfoPerfMaybeLogTotal } from "@/lib/runtime/dibay-myinfo-perf";
+import {
+  deriveProfileCompletionState,
+  type ProfileCompletionState,
+} from "@/lib/profile/profile-completion-state";
+import { readMandatoryAddressGateNeedsBlock } from "@/lib/addresses/mandatory-address-gate-client";
+import { hasVerifiedPhone, hasValidDisplayName } from "@/lib/auth/post-login-profile-policy";
+import { isPublicIdSetupComplete } from "@/lib/auth/dibay-public-id-ssot";
+import { useMypageProfileSheets } from "@/components/mypage/profile-settings/mypage-profile-sheets-context";
 
 export type MypageHomeDashboardModelInput = {
   profile: ProfileRow;
   overviewCounts: MyPageOverviewCounts;
   homeDashboardCounts?: MyPageHomeDashboardCounts | null;
   addressDefaultsSnapshot?: AddressDefaultsSnapshot | null;
+  initialCompletion?: ProfileCompletionState | null;
+  onProfileRefresh?: () => void;
 };
 
 export function useMypageHomeDashboardModel({
@@ -38,10 +47,53 @@ export function useMypageHomeDashboardModel({
   overviewCounts,
   homeDashboardCounts = null,
   addressDefaultsSnapshot = null,
+  initialCompletion = null,
+  onProfileRefresh,
 }: MypageHomeDashboardModelInput) {
   const { t } = useI18n();
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const { openSheet, setOnProfileUpdated } = useMypageProfileSheets();
+
+  const [completion, setCompletion] = useState<ProfileCompletionState>(
+    () =>
+      initialCompletion ??
+      deriveProfileCompletionState(profile, { hasDefaultAddress: false }),
+  );
+
+  const refreshCompletion = useCallback(async () => {
+    const needsBlock = await readMandatoryAddressGateNeedsBlock();
+    setCompletion(
+      deriveProfileCompletionState(profile, {
+        hasDefaultAddress: !needsBlock,
+      }),
+    );
+    onProfileRefresh?.();
+  }, [profile, onProfileRefresh]);
+
+  useEffect(() => {
+    setOnProfileUpdated(() => {
+      void refreshCompletion();
+    });
+  }, [setOnProfileUpdated, refreshCompletion]);
+
+  useEffect(() => {
+    setCompletion((prev) => ({
+      hasNickname: hasValidDisplayName(profile),
+      hasDibayId: isPublicIdSetupComplete(profile),
+      hasVerifiedPhone: hasVerifiedPhone(profile),
+      hasDefaultAddress: prev.hasDefaultAddress,
+    }));
+  }, [profile]);
+
+  useEffect(() => {
+    if (initialCompletion) {
+      setCompletion(initialCompletion);
+      return;
+    }
+    void refreshCompletion();
+  }, [initialCompletion, refreshCompletion]);
 
   const formatCount = useCallback(
     (n: number | null | undefined): string => {
@@ -49,7 +101,7 @@ export function useMypageHomeDashboardModel({
       if (n > 99) return t("mypage_comp_stat_overflow_99plus");
       return String(n);
     },
-    [t]
+    [t],
   );
 
   const initialFavoriteTotal =
@@ -57,7 +109,7 @@ export function useMypageHomeDashboardModel({
     homeDashboardCounts?.storeFavoriteCount != null
       ? Math.max(
           0,
-          (homeDashboardCounts?.tradeFavoriteCount ?? 0) + (homeDashboardCounts?.storeFavoriteCount ?? 0)
+          (homeDashboardCounts?.tradeFavoriteCount ?? 0) + (homeDashboardCounts?.storeFavoriteCount ?? 0),
         )
       : null;
 
@@ -72,7 +124,7 @@ export function useMypageHomeDashboardModel({
 
   const signupComplete = useMemo(
     () => isClientSignupComplete(profileRowToClientProfile(profile)),
-    [profile]
+    [profile],
   );
 
   const representativeAddressPresentation = useRepresentativeAddressPresentation({
@@ -98,6 +150,11 @@ export function useMypageHomeDashboardModel({
   const displayName = resolveDisplayName(profile) || t("mypage_comp_display_name_empty");
   const publicIdView = evaluatePublicIdProfileView(profile);
   const atUsername = publicIdView.atDisplay;
+  const usernameSlug = (profile.username ?? profile.dibay_id ?? "").trim().toLowerCase();
+  const publicProfileHref = usernameSlug ? `/u/${encodeURIComponent(usernameSlug)}` : null;
+
+  const profileEditReturnNext = pathname + (searchParams?.toString() ? `?${searchParams.toString()}` : "");
+  const addressesMenuHref = "/mypage?sheet=address";
 
   const addressReady =
     signupComplete &&
@@ -109,12 +166,6 @@ export function useMypageHomeDashboardModel({
     representativeAddressPresentation.status === "ready" &&
     !representativeAddressPresentation.presentation &&
     !profileAddressLine;
-
-  const profileEditReturnNext = pathname + (searchParams?.toString() ? `?${searchParams.toString()}` : "");
-  const addressesMenuHref = buildMypageAddressesHrefFromPath(
-    pathname,
-    searchParams?.toString() ? `?${searchParams.toString()}` : ""
-  );
 
   const statRows: MypageHomeStatRow[] = useMemo(
     () =>
@@ -138,23 +189,71 @@ export function useMypageHomeDashboardModel({
       ownerHub,
       formatCount,
       t,
-    ]
+    ],
   );
 
-  return {
-    profileCard: {
-      avatarUrl: profile.avatar_url,
+  useEffect(() => {
+    const sheet = searchParams.get("sheet")?.trim();
+    if (!sheet) return;
+    if (sheet === "settings") openSheet("settings");
+    else if (sheet === "profile-edit") openSheet("profile-edit");
+    else if (sheet === "dibay-id") openSheet("dibay-id");
+    else if (sheet === "phone") openSheet("phone");
+    else if (sheet === "address") openSheet("address");
+    router.replace("/mypage", { scroll: false });
+  }, [searchParams, openSheet, router]);
+
+  const addressPresentation =
+    addressReady && representativeAddressPresentation.status === "ready"
+      ? representativeAddressPresentation.presentation
+      : null;
+
+  return useMemo(
+    () => ({
+      miniProfile: {
+        avatarUrl: profile.avatar_url,
+        displayName,
+        atUsername,
+        publicProfileHref,
+        onSettingsPress: () => openSheet("settings"),
+      },
+      completion,
+      statRows,
+      addressesMenuHref,
+      profileCard: {
+        avatarUrl: profile.avatar_url,
+        displayName,
+        atUsername,
+        dibayIdIncomplete: signupComplete && !publicIdView.setupComplete,
+        dibayIdSetupHref: buildDibayIdHref(profileEditReturnNext),
+        addressPresentation,
+        addressFallbackLine: addressReady ? profileAddressLine : addressFallbackLine,
+        addressEmpty,
+        addressEditHref: buildAddressEditHref(profileEditReturnNext),
+        editHref: MYPAGE_PROFILE_EDIT_HREF,
+      },
+      openDibayIdSheet: () => openSheet("dibay-id"),
+      openPhoneSheet: () => openSheet("phone"),
+      openAddress: () => openSheet("address"),
+      openProfileEditSheet: () => openSheet("profile-edit"),
+    }),
+    [
+      profile.avatar_url,
       displayName,
       atUsername,
-      dibayIdIncomplete: signupComplete && !publicIdView.setupComplete,
-      dibayIdSetupHref: buildDibayIdHref(profileEditReturnNext),
-      addressPresentation: addressReady ? representativeAddressPresentation.presentation : null,
-      addressFallbackLine: addressReady ? profileAddressLine : addressFallbackLine,
+      publicProfileHref,
+      completion,
+      statRows,
+      addressesMenuHref,
+      signupComplete,
+      publicIdView.setupComplete,
+      profileEditReturnNext,
+      addressReady,
+      addressPresentation,
+      profileAddressLine,
+      addressFallbackLine,
       addressEmpty,
-      addressEditHref: buildAddressEditHref(profileEditReturnNext),
-      editHref: MYPAGE_PROFILE_EDIT_HREF,
-    },
-    statRows,
-    addressesMenuHref,
-  };
+      openSheet,
+    ],
+  );
 }

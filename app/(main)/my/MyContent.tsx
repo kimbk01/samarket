@@ -244,12 +244,14 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
           profile={profile}
           mannerScore={mannerScore}
           overviewCounts={overviewCounts}
+          profileCompletion={data.profileCompletion ?? null}
           homeDashboardCounts={data.homeDashboardCounts ?? null}
           addressDefaultsSnapshot={data.addressDefaultsSnapshot ?? null}
           showBanner={Boolean(showBanner)}
           bannerSlot={
             showBanner ? <MyTopBanner banner={banner} onDismiss={loadBanner} /> : null
           }
+          onProfileRefresh={() => void load({ silent: true })}
         />
       </div>
     </div>

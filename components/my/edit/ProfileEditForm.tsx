@@ -87,6 +87,19 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
     );
   }, [searchParams]);
   const isRequiredSlug = useCallback((slug: string) => requiredSlugs.has(slug), [requiredSlugs]);
+
+  useEffect(() => {
+    if (setupMode) return;
+    const params = new URLSearchParams();
+    let sheet: "profile-edit" | "dibay-id" | "phone" | "address" = "profile-edit";
+    if (requiredSlugs.has("dibay_id")) sheet = "dibay-id";
+    else if (requiredSlugs.has("phone")) sheet = "phone";
+    else if (requiredSlugs.has("address")) sheet = "address";
+    params.set("sheet", sheet);
+    if (setupNext) params.set("returnTo", setupNext);
+    router.replace(`/mypage?${params.toString()}`);
+  }, [setupMode, requiredSlugs, setupNext, router]);
+
   const { t } = useI18n();
   const { refreshProfileLocation } = useRegion();
   const [profile, setProfile] = useState<ProfileRow | null>(null);

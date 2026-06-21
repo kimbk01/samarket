@@ -12,6 +12,8 @@ import { defaultMypageCmsPack, loadMypageCmsPack } from "@/lib/my/load-mypage-cm
 import { loadMypageHubExtrasServer } from "@/lib/my/load-mypage-hub-extras-server";
 import { loadMypageHomeDashboardCountsServer } from "@/lib/my/load-mypage-home-dashboard-counts-server";
 import { loadAddressDefaultsSnapshotServer } from "@/lib/addresses/load-address-defaults-snapshot-server";
+import { isMandatoryAddressGateSatisfied } from "@/lib/addresses/user-address-service";
+import { deriveProfileCompletionState } from "@/lib/profile/profile-completion-state";
 
 const MYPAGE_CMS_PACK_TIMEOUT_MS = 180;
 
@@ -25,6 +27,22 @@ type MypageCoreInternal = Omit<MyPageData, "hubServerExtras" | "homeDashboardCou
 function defaultCmsPack() {
   const pack = defaultMypageCmsPack();
   return [pack.banner, pack.services, pack.sections] as const;
+}
+
+async function resolveMypageProfileCompletion(
+  userId: string,
+  profile: MypageCoreInternal["profile"],
+): Promise<ReturnType<typeof deriveProfileCompletionState>> {
+  let hasDefaultAddress = false;
+  const sbStores = tryGetSupabaseForStores();
+  if (sbStores && userId.trim()) {
+    try {
+      hasDefaultAddress = await isMandatoryAddressGateSatisfied(sbStores, userId);
+    } catch {
+      hasDefaultAddress = false;
+    }
+  }
+  return deriveProfileCompletionState(profile, { hasDefaultAddress });
 }
 
 const loadMypageCoreCached = cache(async (): Promise<MypageCoreInternal | null> => {
@@ -112,16 +130,19 @@ export const loadMypageServerShell = cache(async (): Promise<MyPageData | null> 
   const row = await loadMypageCoreCached();
   if (!row) return null;
   const { viewerIdForHub, ...core } = row;
-  const [addressDefaultsSnapshot, homeDashboardCounts, hubServerExtras] = await Promise.all([
-    loadAddressDefaultsSnapshotServer(viewerIdForHub),
-    loadMypageHomeDashboardCountsServer(viewerIdForHub),
-    loadMypageHubExtrasServer(viewerIdForHub, row.hasOwnerStore),
-  ]);
+  const [addressDefaultsSnapshot, homeDashboardCounts, hubServerExtras, profileCompletion] =
+    await Promise.all([
+      loadAddressDefaultsSnapshotServer(viewerIdForHub),
+      loadMypageHomeDashboardCountsServer(viewerIdForHub),
+      loadMypageHubExtrasServer(viewerIdForHub, row.hasOwnerStore),
+      resolveMypageProfileCompletion(viewerIdForHub, row.profile),
+    ]);
   return {
     ...core,
     hubServerExtras,
     homeDashboardCounts,
     addressDefaultsSnapshot,
+    profileCompletion,
   };
 });
 
@@ -135,16 +156,19 @@ export const loadMypageServer = cache(async (): Promise<MyPageData | null> => {
   if (!row) return null;
   const { viewerIdForHub, ...core } = row;
 
-  const [hubServerExtras, homeDashboardCounts, addressDefaultsSnapshot] = await Promise.all([
-    loadMypageHubExtrasServer(viewerIdForHub, row.hasOwnerStore),
-    loadMypageHomeDashboardCountsServer(viewerIdForHub),
-    loadAddressDefaultsSnapshotServer(viewerIdForHub),
-  ]);
+  const [hubServerExtras, homeDashboardCounts, addressDefaultsSnapshot, profileCompletion] =
+    await Promise.all([
+      loadMypageHubExtrasServer(viewerIdForHub, row.hasOwnerStore),
+      loadMypageHomeDashboardCountsServer(viewerIdForHub),
+      loadAddressDefaultsSnapshotServer(viewerIdForHub),
+      resolveMypageProfileCompletion(viewerIdForHub, row.profile),
+    ]);
 
   return {
     ...core,
     hubServerExtras,
     homeDashboardCounts,
     addressDefaultsSnapshot,
+    profileCompletion,
   };
 });

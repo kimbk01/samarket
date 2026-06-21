@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { getMyPageData } from "@/lib/my/getMyPageData";
 import type { MyPageData } from "@/lib/my/types";
-import type { AddressDefaultsFlags } from "@/components/my/MyProfileCard";
+import type { AddressDefaultsFlags } from "@/lib/my/address-defaults-types";
 import type { LifeDefaultLocationSummary } from "@/lib/addresses/life-default-location-summary";
 import type { MyPageOverviewCounts } from "@/components/mypage/types";
 import {

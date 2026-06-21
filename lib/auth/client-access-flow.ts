@@ -38,7 +38,7 @@ export function buildLoginHref(next?: string): string {
 
 export function buildPhoneVerificationHref(next?: string): string {
   const target = next?.trim() || currentHrefFallback();
-  return `/mypage/section/account/profile/edit?required=phone&next=${encodeURIComponent(target)}`;
+  return `/mypage?sheet=phone&returnTo=${encodeURIComponent(target)}`;
 }
 
 export function buildConsentHref(next?: string): string {
@@ -48,17 +48,17 @@ export function buildConsentHref(next?: string): string {
 
 export function buildDibayIdHref(next?: string): string {
   const target = next?.trim() || currentHrefFallback();
-  return `/mypage/section/account/profile/edit?required=dibay_id&next=${encodeURIComponent(target)}`;
+  return `/mypage?sheet=dibay-id&returnTo=${encodeURIComponent(target)}`;
 }
 
 export function buildAddressEditHref(next?: string): string {
   const target = next?.trim() || currentHrefFallback();
-  return `/mypage/section/account/profile/edit?required=address&next=${encodeURIComponent(target)}`;
+  return `/mypage?sheet=address&returnTo=${encodeURIComponent(target)}`;
 }
 
 export function buildProfileSetupHrefForNext(next?: string): string {
   const target = next?.trim() || currentHrefFallback();
-  return `/mypage/section/account/profile/edit?next=${encodeURIComponent(target)}`;
+  return `/mypage?sheet=profile-edit&returnTo=${encodeURIComponent(target)}`;
 }
 
 export function resolveClientSignupGateHref(
