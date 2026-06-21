@@ -1,8 +1,8 @@
 "use client";
 
 import type { CallScreenViewModel } from "./call-ui.types";
-import { CallActionBar } from "./CallActionBar";
 import { CallAvatar } from "./CallAvatar";
+import { CallControlBar } from "./CallControlBar";
 import { CallStatusText } from "./CallStatusText";
 import { useCallTimer } from "./useCallTimer";
 
@@ -41,18 +41,17 @@ export function VoiceCallView({ vm }: { vm: CallScreenViewModel }) {
         </div>
       </div>
       <div
-        className={`rounded-t-3xl px-1 pt-12 pb-1 ${
+        className={`px-1 pt-12 pb-1 ${
           isStarbucks
             ? "bg-gradient-to-t from-[#003D29]/88 via-[#006241]/42 to-transparent"
             : "bg-gradient-to-t from-[#170d32]/82 via-[#2b1858]/38 to-transparent"
         }`}
       >
-        <CallActionBar actions={vm.primaryActions} theme={vm.visualTheme} />
-        {vm.secondaryActions?.length ? (
-          <div className="mt-4">
-            <CallActionBar actions={vm.secondaryActions} compact theme={vm.visualTheme} />
-          </div>
-        ) : null}
+        <CallControlBar
+          primaryActions={vm.primaryActions}
+          secondaryActions={vm.secondaryActions}
+          theme={vm.visualTheme}
+        />
       </div>
     </div>
   );

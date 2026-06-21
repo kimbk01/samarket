@@ -1985,40 +1985,6 @@ export function useMessengerRoomPhase2Controller() {
     [call, canStartGroupCall, dismissRoomSheet]
   );
 
-  /** 통화 로그에서 재발신 — 헤더와 동일한 확인 후 발신 */
-  const [callStubOutgoingConfirm, setCallStubOutgoingConfirm] = useState<null | { kind: "voice" | "video" }>(null);
-  const pendingStubCallKindRef = useRef<"voice" | "video" | null>(null);
-
-  const openCallStubOutgoingConfirm = useCallback(
-    (kind: "voice" | "video") => {
-      if (roomUnavailable) return;
-      pendingStubCallKindRef.current = kind;
-      setCallStubOutgoingConfirm({ kind });
-    },
-    [roomUnavailable]
-  );
-
-  const cancelCallStubOutgoingConfirm = useCallback(() => {
-    pendingStubCallKindRef.current = null;
-    setCallStubOutgoingConfirm(null);
-  }, []);
-
-  const confirmCallStubOutgoing = useCallback(async () => {
-    const kind = pendingStubCallKindRef.current;
-    if (!kind || roomUnavailable) return;
-    if (isGroupRoom) {
-      pendingStubCallKindRef.current = null;
-      setCallStubOutgoingConfirm(null);
-      await startGroupCall(kind);
-      return;
-    }
-    const ok = startManagedDirectCall(kind);
-    if (ok) {
-      pendingStubCallKindRef.current = null;
-      setCallStubOutgoingConfirm(null);
-    }
-  }, [isGroupRoom, roomUnavailable, startGroupCall, startManagedDirectCall]);
-
   useEffect(() => {
     if (!messageActionItem && !callStubSheet) return;
     const onKey = (e: KeyboardEvent) => {
@@ -2451,10 +2417,6 @@ export function useMessengerRoomPhase2Controller() {
     startDirectCallWithMember,
     removeGroupMember,
     startGroupCall,
-    callStubOutgoingConfirm,
-    openCallStubOutgoingConfirm,
-    cancelCallStubOutgoingConfirm,
-    confirmCallStubOutgoing,
     reportTarget,
     getMessageCopyText,
     copyMessageText,

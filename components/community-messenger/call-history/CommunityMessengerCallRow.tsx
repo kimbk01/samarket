@@ -23,7 +23,7 @@ const DRAG_CANCEL_Y = 14;
 type Props = {
   call: CommunityMessengerCallLog;
   onNavigate: (call: CommunityMessengerCallLog) => void;
-  onRequestOutgoingConfirm: (call: CommunityMessengerCallLog, kind: "voice" | "video") => void;
+  onRequestOutgoingCall: (call: CommunityMessengerCallLog, kind: "voice" | "video") => void;
   onDeleteRequest: (call: CommunityMessengerCallLog) => void;
   globalRedialBlocked: boolean;
   openedSwipeItemId: string | null;
@@ -34,7 +34,7 @@ type Props = {
 export function CommunityMessengerCallRow({
   call,
   onNavigate,
-  onRequestOutgoingConfirm,
+  onRequestOutgoingCall,
   onDeleteRequest,
   globalRedialBlocked,
   openedSwipeItemId,
@@ -273,15 +273,21 @@ export function CommunityMessengerCallRow({
           </div>
         </button>
 
-        <aside className="flex shrink-0 flex-col items-end justify-center gap-1.5 px-3 py-2">
+        <aside className="flex shrink-0 flex-col items-end justify-center gap-2 px-3 py-2">
           {timeLabel ? <span className="sam-text-helper tabular-nums text-sam-fg-muted">{timeLabel}</span> : null}
           {vm.canRedial ? (
-            <div onPointerDown={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3" onPointerDown={(e) => e.stopPropagation()}>
               <CommunityMessengerCallActionButton
-                kind={vm.callKind}
-                ariaLabel={vm.callKind === "video" ? t("cm_ui_call_log_redial_video") : t("cm_ui_call_log_redial_voice")}
+                kind="voice"
+                ariaLabel={t("cm_ui_call_log_redial_voice")}
                 disabled={globalRedialBlocked}
-                onPress={() => onRequestOutgoingConfirm(call, vm.callKind)}
+                onPress={() => onRequestOutgoingCall(call, "voice")}
+              />
+              <CommunityMessengerCallActionButton
+                kind="video"
+                ariaLabel={t("cm_ui_call_log_redial_video")}
+                disabled={globalRedialBlocked}
+                onPress={() => onRequestOutgoingCall(call, "video")}
               />
             </div>
           ) : null}

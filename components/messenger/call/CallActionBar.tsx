@@ -7,10 +7,12 @@ export function CallActionBar({
   actions,
   compact = false,
   theme,
+  variant = "default",
 }: {
   actions: CallActionItem[];
   compact?: boolean;
   theme?: "starbucks";
+  variant?: "default" | "control" | "list";
 }) {
   if (actions.length === 0) return null;
   const themed = theme === "starbucks";
@@ -23,7 +25,7 @@ export function CallActionBar({
       }
     >
       {actions.map((item) => (
-        <CallActionButton key={item.id} item={item} theme={theme} />
+        <CallActionButton key={item.id} item={item} theme={theme} variant={variant} />
       ))}
     </div>
   );

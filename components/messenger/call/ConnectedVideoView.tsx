@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Monitor } from "lucide-react";
 import type { CallScreenViewModel } from "./call-ui.types";
-import { CallActionBar } from "./CallActionBar";
 import { CallAvatar } from "./CallAvatar";
+import { CallControlBar } from "./CallControlBar";
 import { CallStatusText } from "./CallStatusText";
 import { IncomingCallBrandHeader } from "./IncomingCallBrandHeader";
 import { MiniLocalVideo } from "./MiniLocalVideo";
@@ -531,12 +531,11 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
                 : "bg-gradient-to-t from-black/95 via-black/55 to-transparent"
             } px-3 ${actionBarPaddingTop} ${actionBarPaddingBottom}`}
           >
-            <CallActionBar actions={vm.primaryActions} theme={vm.visualTheme} />
-            {vm.secondaryActions?.length ? (
-              <div className="mt-4">
-                <CallActionBar actions={vm.secondaryActions} compact theme={vm.visualTheme} />
-              </div>
-            ) : null}
+            <CallControlBar
+              primaryActions={vm.primaryActions}
+              secondaryActions={vm.secondaryActions}
+              theme={vm.visualTheme}
+            />
           </div>
         </div>
       </div>

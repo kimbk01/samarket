@@ -20,6 +20,8 @@ import {
   IosFilledVideoCameraGlyph,
   IosFilledXMarkGlyph,
 } from "@/components/messenger/call/IosFilledCallControlGlyphs";
+import { CallRipple } from "@/components/messenger/call/CallRipple";
+import { triggerCallHaptic } from "@/components/messenger/call/CallHapticController";
 
 /** 앞·뒤 카메라 전환 — 허용 lucide 세트에 없어 전용 SVG 사용 */
 function CameraSwitchGlyph({ className }: { className?: string }) {
@@ -42,10 +44,10 @@ function diskClassForAction(item: CallActionItem, theme?: "starbucks"): string {
   const { icon, tone, active, disabled } = item;
   if (theme === "starbucks") {
     if (tone === "danger" || icon === "end" || icon === "decline") {
-      return "bg-[#A9472B] text-white shadow-[0_12px_28px_rgba(88,41,26,0.28)] ring-1 ring-[#F1F8F4]/22";
+      return "bg-[#D93025] text-white shadow-[0_8px_24px_rgba(0,0,0,0.2)] ring-1 ring-white/18";
     }
     if (tone === "accept" || icon === "accept") {
-      return "bg-[#00754A] text-white shadow-[0_12px_28px_rgba(0,117,74,0.34)] ring-1 ring-[#D4E9E2]/35";
+      return "bg-[#00754A] text-white shadow-[0_8px_24px_rgba(0,0,0,0.2)] ring-1 ring-[#D4E9E2]/35";
     }
     if (disabled) {
       return "bg-[#003D29]/58 text-white shadow-[0_12px_28px_rgba(0,61,41,0.22)] ring-1 ring-[#D4E9E2]/24 backdrop-blur-md";
@@ -53,7 +55,7 @@ function diskClassForAction(item: CallActionItem, theme?: "starbucks"): string {
     if (active) {
       return "bg-[#F1F8F4] text-[#003D29] shadow-[0_12px_28px_rgba(0,61,41,0.2)] ring-1 ring-[#D4E9E2]/70";
     }
-    return "bg-[#003D29]/52 text-white shadow-[0_12px_28px_rgba(0,61,41,0.24)] ring-1 ring-[#D4E9E2]/30 backdrop-blur-md";
+    return "bg-[#00754A] text-white shadow-[0_8px_24px_rgba(0,0,0,0.2)] ring-1 ring-[#D4E9E2]/30";
   }
   if (tone === "danger" || icon === "end" || icon === "decline") {
     return "bg-[#FF3B30] text-white shadow-[0_12px_28px_rgba(255,59,48,0.35)]";
@@ -135,25 +137,37 @@ function CallActionGlyph({ item, theme }: { item: CallActionItem; theme?: "starb
 export const CallActionButton = memo(function CallActionButton({
   item,
   theme,
+  variant = "default",
 }: {
   item: CallActionItem;
   theme?: "starbucks";
+  variant?: "default" | "control" | "list";
 }) {
   const disk = diskClassForAction(item, theme);
   const isStarbucks = theme === "starbucks";
+  const sizeClass =
+    variant === "control"
+      ? "h-16 w-16"
+      : variant === "list"
+        ? "h-[52px] w-[52px]"
+        : isStarbucks
+          ? "h-[clamp(52px,14vw,64px)] w-[clamp(52px,14vw,64px)]"
+          : "";
 
   return (
     <button
       type="button"
       onClick={item.onClick}
+      onPointerDown={() => triggerCallHaptic("selection")}
       disabled={item.disabled}
       className={`call-btn items-center text-center disabled:opacity-40 ${
         isStarbucks ? "min-w-0 flex-1 basis-0" : ""
       }`.trim()}
     >
       <span
-        className={`call-btn__disk ${isStarbucks ? "h-[clamp(48px,14vw,58px)] w-[clamp(48px,14vw,58px)]" : ""} ${disk}`.trim()}
+        className={`call-btn__disk ${sizeClass} ${disk}`.trim()}
       >
+        <CallRipple />
         <CallActionGlyph item={item} theme={theme} />
       </span>
       <span

@@ -1,8 +1,10 @@
 "use client";
 
 import type { CallScreenViewModel } from "./call-ui.types";
-import { CallActionBar } from "./CallActionBar";
-import { CallAvatar } from "./CallAvatar";
+import { CallAvatarHeader } from "./CallAvatarHeader";
+import { CallControlBar } from "./CallControlBar";
+import { CallPulseAnimation } from "./CallPulseAnimation";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 
 /**
  * 음성 발신 벨 — 셸 전체 그라데이션(`CallScreen`) 위에 콘텐츠·하단 4버튼만 배치.
@@ -26,47 +28,35 @@ export function OutgoingCallView({ vm }: { vm: CallScreenViewModel }) {
         }`}
         aria-hidden
       />
+      {vm.peerAvatarUrl ? (
+        <div className="pointer-events-none absolute inset-0 opacity-20 blur-2xl" aria-hidden>
+          <SamarketThumbnail
+            src={vm.peerAvatarUrl}
+            fill
+            roundedClassName="rounded-none"
+            className="scale-110 object-cover"
+            fallbackSrc=""
+          />
+          <div className="absolute inset-0 bg-[#121212]/45" />
+        </div>
+      ) : null}
       <div className="relative flex min-h-0 flex-1 flex-col items-center">
         <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-2">
-          <CallAvatar
-            label={vm.peerLabel}
+          <CallAvatarHeader
+            name={peerName}
             avatarUrl={vm.peerAvatarUrl}
-            pulse
-            placeholderTone="outgoingVoice"
-            theme={vm.visualTheme}
+            status={vm.statusText}
+            detail={vm.subStatusText}
           />
-          <h1
-            className={`mt-8 text-center sam-text-hero font-bold tracking-tight ${
-              isStarbucks
-                ? "text-[#F1F8F4] drop-shadow-[0_2px_12px_rgba(0,61,41,0.25)]"
-                : "text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.25)]"
-            }`}
-          >
-            {peerName}
-          </h1>
-          <p
-            className={`mt-3 text-center sam-text-body-lg font-medium ${
-              isStarbucks
-                ? "text-[#D4E9E2]/90 drop-shadow-[0_1px_8px_rgba(0,61,41,0.2)]"
-                : "text-white/88 drop-shadow-[0_1px_8px_rgba(0,0,0,0.2)]"
-            }`}
-          >
-            {vm.statusText}
-          </p>
-          {vm.subStatusText ? (
-            <p className={`mt-2 max-w-[300px] text-center sam-text-body-secondary leading-snug ${isStarbucks ? "text-[#D4E9E2]/72" : "text-white/65"}`}>
-              {vm.subStatusText}
-            </p>
-          ) : null}
+          <CallPulseAnimation className="mt-9" />
         </div>
 
         <div className="mt-auto w-full max-w-[400px] shrink-0 pb-1 pt-6">
-          <CallActionBar actions={vm.primaryActions} theme={vm.visualTheme} />
-          {vm.secondaryActions?.length ? (
-            <div className="mt-4">
-              <CallActionBar actions={vm.secondaryActions} compact theme={vm.visualTheme} />
-            </div>
-          ) : null}
+          <CallControlBar
+            primaryActions={vm.primaryActions}
+            secondaryActions={vm.secondaryActions}
+            theme={vm.visualTheme}
+          />
         </div>
       </div>
     </div>

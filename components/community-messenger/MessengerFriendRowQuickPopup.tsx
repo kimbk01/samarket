@@ -5,6 +5,7 @@ import { useEffect, useId, useState } from "react";
 import { Bell, BellOff } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MessengerHomeBottomSheetShell } from "@/components/community-messenger/MessengerSheetUi";
+import { CallRipple } from "@/components/messenger/call/CallRipple";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 
 type Step = "main" | "call";
@@ -358,9 +359,10 @@ function ActionTile({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-[16px] border border-transparent bg-[color:var(--messenger-primary-soft)] px-2 sam-text-helper font-semibold disabled:opacity-50 active:bg-[color:var(--messenger-primary-soft-2)]"
+      className="relative flex min-h-[52px] flex-col items-center justify-center gap-1 overflow-hidden rounded-[16px] border border-transparent bg-[color:var(--messenger-primary-soft)] px-2 sam-text-helper font-semibold transition active:scale-[0.96] disabled:opacity-50 active:bg-[color:var(--messenger-primary-soft-2)]"
       style={{ color: "var(--messenger-text)" }}
     >
+      <CallRipple />
       <span className="text-[color:var(--messenger-primary)]">{icon}</span>
       <span className="sam-text-helper">{label}</span>
     </button>

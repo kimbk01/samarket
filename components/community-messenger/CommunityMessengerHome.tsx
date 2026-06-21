@@ -90,7 +90,6 @@ import {
   isOutgoingCallPhoneVerificationRequired,
   navigateBlockedOutgoingCall,
 } from "@/lib/call/outgoing-call-start-guard";
-import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 import {
   mergeCommunityMessengerProfileFromBootstrap,
   resolveMessengerFriendAddCta,
@@ -855,11 +854,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   }, [resetJoinOpenGroupDraft]);
   const [incomingCallSoundEnabled, setIncomingCallSoundEnabled] = useState(true);
   const [incomingCallBannerEnabled, setIncomingCallBannerEnabled] = useState(true);
-  const [outgoingCallConfirm, setOutgoingCallConfirm] = useState<null | {
-    peerUserId: string;
-    peerLabel: string;
-    kind: "voice" | "video";
-  }>(null);
   const [localSettings, setLocalSettings] = useState<CommunityMessengerLocalSettings>({
     phoneFriendAddEnabled: true,
     contactAutoAddEnabled: false,
@@ -1990,27 +1984,27 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     void mergeDiscoverableGroupsFromOpenGroupsClient(setData, "fill_if_empty");
   }, [publicGroupFindOpen, data?.me?.id, data?.discoverableGroups, openGroupSearch, setData]);
 
-  const openOutgoingCallConfirm = useCallback(
+  const startFriendDirectCall = useCallback(
     (peerUserId: string, kind: "voice" | "video") => {
       const fromFriend = sortedFriends.find((f) => f.id === peerUserId)?.label?.trim();
       const room = pickGeneralDirectRoomForPeer(data?.chats ?? [], peerUserId);
       const peerLabel = fromFriend || room?.title?.trim() || t("cm_ui_chat_peer_fallback");
-      setOutgoingCallConfirm({ peerUserId, peerLabel, kind });
+      startDirectCall(peerUserId, kind, peerLabel);
     },
-    [sortedFriends, data?.chats, t]
+    [data?.chats, sortedFriends, startDirectCall, t]
   );
 
   const onFriendRowVoiceCallStable = useCallback(
     (userId: string) => {
-      void openOutgoingCallConfirm(userId, "voice");
+      void startFriendDirectCall(userId, "voice");
     },
-    [openOutgoingCallConfirm]
+    [startFriendDirectCall]
   );
   const onFriendRowVideoCallStable = useCallback(
     (userId: string) => {
-      void openOutgoingCallConfirm(userId, "video");
+      void startFriendDirectCall(userId, "video");
     },
-    [openOutgoingCallConfirm]
+    [startFriendDirectCall]
   );
   const searchKeywordNormalized = roomSearchKeyword.trim().toLowerCase();
   const searchFriendMatches = useMemo(() => {
@@ -2908,20 +2902,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         showSectionTabs={!listAwaitingCritical && !authRequired && !fromPhilifeHeaderStack && pillar == null}
       />
 
-      {outgoingCallConfirm ? (
-        <MessengerOutgoingCallConfirmDialog
-          open
-          peerLabel={outgoingCallConfirm.peerLabel}
-          kind={outgoingCallConfirm.kind}
-          onCancel={() => setOutgoingCallConfirm(null)}
-          onConfirm={() => {
-            const next = outgoingCallConfirm;
-            if (!next) return;
-            if (startDirectCall(next.peerUserId, next.kind, next.peerLabel)) setOutgoingCallConfirm(null);
-          }}
-        />
-      ) : null}
-
       {friendSheet?.mode === "profile" && friendProfileForSheet ? (
         <MessengerFriendProfileSheet
           key={friendProfileForSheet.id}
@@ -2931,12 +2911,12 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           onVoiceCall={() => {
             const id = friendProfileForSheet.id;
             setFriendSheet(null);
-            void openOutgoingCallConfirm(id, "voice");
+            void startFriendDirectCall(id, "voice");
           }}
           onVideoCall={() => {
             const id = friendProfileForSheet.id;
             setFriendSheet(null);
-            void openOutgoingCallConfirm(id, "video");
+            void startFriendDirectCall(id, "video");
           }}
           onChat={() => {
             const id = friendProfileForSheet.id;

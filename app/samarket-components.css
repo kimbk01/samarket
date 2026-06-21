@@ -1490,6 +1490,15 @@
   /* 통화 UI — lucide 단일 아이콘 세트 */
   /* -------------------------------------------------------------------------- */
 
+  :root {
+    --call-primary: #00754a;
+    --call-primary-pressed: #006241;
+    --call-bg: #ffffff;
+    --call-dark-bg: #121212;
+    --call-dark-card: #1e1e1e;
+    --call-danger: #d93025;
+  }
+
   .call-btn {
     display: flex;
     flex-direction: column;
@@ -1499,6 +1508,8 @@
     color: white;
     font-size: 12px;
     line-height: 1.1;
+    min-width: 48px;
+    touch-action: manipulation;
   }
 
   .call-btn__disk {
@@ -1508,6 +1519,104 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
+    overflow: hidden;
+    transform: translateZ(0) scale(1);
+    transition:
+      background-color 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      box-shadow 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      filter 150ms ease;
+  }
+
+  .call-btn:hover .call-btn__disk {
+    background-color: var(--call-primary-pressed);
+    box-shadow: 0 8px 24px rgb(0 117 74 / 0.25);
+  }
+
+  .call-btn:active .call-btn__disk {
+    transform: translateZ(0) scale(0.92);
+    filter: brightness(0.9);
+  }
+
+  .call-ripple {
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    border-radius: inherit;
+  }
+
+  .call-ripple__ink {
+    position: absolute;
+    border-radius: 9999px;
+    background: rgb(255 255 255 / 0.25);
+    animation: call-ripple-spread 300ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+    transform: scale(0);
+  }
+
+  .call-pulse {
+    position: relative;
+    display: flex;
+    width: 112px;
+    height: 112px;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .call-pulse__ring {
+    position: absolute;
+    inset: 22px;
+    border-radius: 9999px;
+    border: 1px solid rgb(212 233 226 / 0.46);
+    animation: call-pulse-ring 1s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+  }
+
+  .call-pulse__ring--two {
+    animation-delay: 160ms;
+  }
+
+  .call-pulse__ring--three {
+    animation-delay: 320ms;
+  }
+
+  .call-pulse__core {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    width: 64px;
+    height: 64px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    background: var(--call-primary);
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.2);
+  }
+
+  .call-control-bar {
+    min-height: 88px;
+  }
+
+  @keyframes call-ripple-spread {
+    0% {
+      opacity: 0.8;
+      transform: scale(0);
+    }
+    100% {
+      opacity: 0;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes call-pulse-ring {
+    0% {
+      opacity: 0.8;
+      transform: scale(1);
+    }
+    100% {
+      opacity: 0;
+      transform: scale(1.25);
+    }
   }
 
   /* -------------------------------------------------------------------------- */
