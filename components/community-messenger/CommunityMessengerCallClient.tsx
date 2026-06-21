@@ -3543,9 +3543,12 @@ export function CommunityMessengerCallClient({
   const rejectIncoming = useCallback(async () => {
     if (!session) return;
     if (isTerminalCallSessionStatus(session.status)) return;
-    if (directCallPatchInFlightRef.current) return;
+    if (busyRef.current === "reject") return;
     logCallFlow("call_reject_pressed", { sessionId: session.id, source: "call_client" });
     if (!tryClaimIncomingCallReject(session.id)) return;
+    joinGenerationRef.current += 1;
+    joiningRef.current = false;
+    setCalleeVideoConnectingShell(false);
     directCallPatchInFlightRef.current = true;
     const sid = session.id;
     const roomIdR = session.roomId;
@@ -3809,7 +3812,14 @@ export function CommunityMessengerCallClient({
   const endCall = useCallback(async () => {
     if (!session) return;
     if (isTerminalCallSessionStatus(session.status)) return;
-    if (directCallPatchInFlightRef.current) return;
+    /** 종료·취소는 accept/join PATCH 보다 우선 — in-flight 여부로 조용히 무시하지 않는다 */
+    if (busyRef.current === "end") return;
+    joinGenerationRef.current += 1;
+    joiningRef.current = false;
+    setCalleeVideoConnectingShell(false);
+    if (!session.isMineInitiator) {
+      releaseIncomingCallAccept(session.id);
+    }
     directCallPatchInFlightRef.current = true;
     const roomId = session.roomId;
     const sid = session.id;
@@ -3911,6 +3921,10 @@ export function CommunityMessengerCallClient({
           void postCommunityMessengerCallHangupSignal({ sessionId: sid, toUserId: peer, reason: hangupReason }).catch(
             () => {}
           );
+        }
+        /** tmp_* — POST bootstrap 전 PATCH 불가; cancel guard·hangup signal 만으로 종료 */
+        if (isCommunityMessengerTempCallSessionId(sid)) {
+          return;
         }
         const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sid)}`, {
           method: "PATCH",
