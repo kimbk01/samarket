@@ -80,9 +80,9 @@ export async function fetchBlockedAuthorIdsForViewerSb(
     // remove after migration complete
     sb.from("user_relationships").select("target_user_id").eq("user_id", v).or("relation_type.eq.blocked,type.eq.blocked"),
     sb.from("user_relationships").select("user_id").eq("target_user_id", v).or("relation_type.eq.blocked,type.eq.blocked"),
-    // remove after migration complete
-    sb.from("user_blocks").select("blocked_user_id").eq("user_id", v),
-    sb.from("user_blocks").select("user_id").eq("blocked_user_id", v),
+    // remove after migration complete — released_at IS NULL 만 활성 차단
+    sb.from("user_blocks").select("blocked_user_id").eq("user_id", v).is("released_at", null),
+    sb.from("user_blocks").select("user_id").eq("blocked_user_id", v).is("released_at", null),
   ]);
 
   addIdsFromRows(socialOut, "target_user_id", out);
@@ -123,14 +123,26 @@ export async function fetchBlockedPairFromSb(
       .select("user_id")
       .or(`and(user_id.eq.${a},target_user_id.eq.${b}),and(user_id.eq.${b},target_user_id.eq.${a})`)
       .or("relation_type.eq.blocked,type.eq.blocked"),
+    // remove after migration complete — released_at IS NULL 만 활성 차단
+    (sb as any)
+      .from("user_blocks")
+      .select("id")
+      .eq("user_id", a)
+      .eq("blocked_user_id", b)
+      .is("released_at", null)
+      .maybeSingle(),
     // remove after migration complete
-    (sb as any).from("user_blocks").select("id").eq("user_id", a).eq("blocked_user_id", b).maybeSingle(),
-    // remove after migration complete
-    (sb as any).from("user_blocks").select("id").eq("user_id", b).eq("blocked_user_id", a).maybeSingle(),
+    (sb as any)
+      .from("user_blocks")
+      .select("id")
+      .eq("user_id", b)
+      .eq("blocked_user_id", a)
+      .is("released_at", null)
+      .maybeSingle(),
   ]);
 
-  let blockedByMe = Boolean(blockOut?.id);
-  let blockedByPeer = Boolean(blockIn?.id);
+  let blockedByMe = false;
+  let blockedByPeer = false;
 
   for (const row of (socialRows ?? []) as Array<{ owner_user_id?: string; is_active?: boolean | null; relation_type?: string }>) {
     if (!isActiveSocialBlockRow(row)) continue;
@@ -138,10 +150,14 @@ export async function fetchBlockedPairFromSb(
     if (owner === a) blockedByMe = true;
     if (owner === b) blockedByPeer = true;
   }
-  for (const row of (relRows ?? []) as Array<{ user_id?: string }>) {
-    const owner = trimId(row.user_id);
-    if (owner === a) blockedByMe = true;
-    if (owner === b) blockedByPeer = true;
+  if (!blockedByMe && !blockedByPeer) {
+    for (const row of (relRows ?? []) as Array<{ user_id?: string }>) {
+      const owner = trimId(row.user_id);
+      if (owner === a) blockedByMe = true;
+      if (owner === b) blockedByPeer = true;
+    }
+    if (!blockedByMe) blockedByMe = Boolean(blockOut?.id);
+    if (!blockedByPeer) blockedByPeer = Boolean(blockIn?.id);
   }
 
   return {

@@ -28,7 +28,10 @@ import {
   useCommunityCallHistoryRealtimeSync,
 } from "@/lib/community-messenger/call-history/use-community-call-history-realtime-sync";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
-import { isOutgoingCallPhoneVerificationRequired } from "@/lib/call/outgoing-call-start-guard";
+import {
+  guardInstantOutgoingCallStart,
+  isOutgoingCallPhoneVerificationRequired,
+} from "@/lib/call/outgoing-call-start-guard";
 import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
 import type { CommunityMessengerCallLog, CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 
@@ -226,8 +229,37 @@ export function MessengerCallLogsPanel({
     [calls]
   );
 
+  const launchOutgoingFallback = useCallback(
+    async (
+      peerUserId: string | null,
+      kind: "voice" | "video",
+      peerLabel: string,
+      roomId: string | null
+    ) => {
+      const guard = guardInstantOutgoingCallStart({ peerUserId, kind, roomId });
+      if (!guard.ok) {
+        if (isOutgoingCallPhoneVerificationRequired(guard)) return;
+        showMessengerSnackbar(guard.userMessage, { variant: "error" });
+        return;
+      }
+      const dialInput = roomId?.trim()
+        ? { kind, roomId: roomId.trim(), peerUserId: peerUserId?.trim() || undefined, peerLabel }
+        : peerUserId?.trim()
+          ? { kind, peerUserId: peerUserId.trim(), peerLabel }
+          : null;
+      if (!dialInput) return;
+      const result = await launchOutgoingDirectCall(dialInput, router);
+      if (!result.ok) {
+        if (isOutgoingCallPhoneVerificationRequired(result)) return;
+        showMessengerSnackbar(result.userMessage, { variant: "error" });
+      }
+    },
+    [router]
+  );
+
   const startOutgoingFromCallLog = useCallback(
     (call: CommunityMessengerCallLog, kind: "voice" | "video", peerLabelOverride?: string | null) => {
+      if (outgoingBusy) return;
       closeCallLogSwipe();
       const vm = presentCallHistoryRow(call);
       const peerUserId =
@@ -252,27 +284,34 @@ export function MessengerCallLogsPanel({
         return;
       }
 
+      setOutgoingBusy(true);
       setPeerDetailOpen(false);
 
-      void launchOutgoingDirectCall(
-        roomId
-          ? { kind, roomId, peerUserId: peerUserId ?? undefined, peerLabel }
-          : { kind, peerUserId: peerUserId!, peerLabel },
-        router
-      ).then((result) => {
-        if (!result.ok) {
-          if (isOutgoingCallPhoneVerificationRequired(result)) return;
-          showMessengerSnackbar(result.userMessage, { variant: "error" });
+      if (peerUserId && onStartDirectCall?.(peerUserId, kind, peerLabel)) {
+        setOutgoingBusy(false);
+        return;
+      }
+
+      void (async () => {
+        try {
+          await launchOutgoingFallback(peerUserId, kind, peerLabel, roomId);
+        } catch {
+          showMessengerSnackbar(t("cm_ui_network_error_could_not_start_call"), { variant: "error" });
+        } finally {
+          setOutgoingBusy(false);
         }
-      });
+      })();
     },
     [
       closeCallLogSwipe,
+      launchOutgoingFallback,
+      onStartDirectCall,
+      outgoingBusy,
       peerDetailSelection?.peerUserId,
       peerDetailSelection?.roomId,
       resolveRoomIdForPeer,
-      router,
       safeT,
+      t,
     ]
   );
 
