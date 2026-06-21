@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { releaseLocalCallSession } from "@/lib/call/active-call-session";
+import { hardClearActiveCallSession } from "@/lib/call/active-call-session";
 import {
   runIncomingCallReject,
   runNativePendingAcceptCall,
@@ -27,7 +27,7 @@ function handleVoipCallAction(
   }
 
   if (action === "reject_or_end" || action === "reject" || action === "end") {
-    void releaseLocalCallSession(sessionId, "ended");
+    void hardClearActiveCallSession(sessionId, "ended");
     void runIncomingCallReject({
       sessionId,
       source: "incoming_overlay_reject",

@@ -89,28 +89,6 @@ public class NativeIncomingCallPlugin extends Plugin {
       DibayCallConsumedStore.mark(getContext(), sessionId, reason);
       IncomingCallRingOwner.stop(getContext(), sessionId);
       IncomingCallNotificationBuilder.dismissIncomingCall(getContext(), sessionId);
-      DibayIncomingCallNativeStore.clear(getContext(), sessionId, reason);
-    }
-    call.resolve();
-  }
-
-  @PluginMethod
-  public void getNativeIncomingStoreCallId(PluginCall call) {
-    JSObject result = new JSObject();
-    String callId = DibayIncomingCallNativeStore.getActiveCallId(getContext());
-    if (callId != null && !callId.isEmpty()) {
-      result.put("callId", callId);
-    }
-    call.resolve(result);
-  }
-
-  @PluginMethod
-  public void notifyCallTerminal(PluginCall call) {
-    String sessionId = call.getString("sessionId", "").trim();
-    String terminalKind = call.getString("terminalKind", "cancelled");
-    String source = call.getString("source", "web_notify");
-    if (!sessionId.isEmpty()) {
-      IncomingCallTerminalHandler.handle(getContext(), sessionId, terminalKind, source);
     }
     call.resolve();
   }

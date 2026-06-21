@@ -9,8 +9,6 @@ import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/ty
 import { Check } from "lucide-react";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultAvatarFace";
-import { CallRipple } from "@/components/messenger/call/CallRipple";
-import { triggerCallHaptic } from "@/components/messenger/call/CallHapticController";
 import { hasCustomUserAvatar, resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
 
 type Props = {
@@ -137,24 +135,20 @@ export function MessengerFriendProfileSheet({
           <button
             type="button"
             onClick={onVoiceCall}
-            onPointerDown={() => triggerCallHaptic("selection")}
             disabled={anyBusy || !canCall}
-            className={`relative overflow-hidden rounded-[18px] bg-[#00754A] px-1 py-2.5 text-center text-white shadow-[0_4px_16px_rgba(0,0,0,0.15)] transition active:scale-[0.96] active:brightness-90 disabled:opacity-50 ${canMessage && !canCall ? "opacity-60" : ""}`}
+            className={`rounded-ui-rect bg-ui-page px-1 py-2.5 text-center active:bg-ui-hover disabled:opacity-50 ${canMessage && !canCall ? "opacity-60" : ""}`}
           >
-            <CallRipple />
-            <p className="sam-text-body-secondary font-semibold text-white">{t("nav_voice_call_label")}</p>
-            {bVoice ? <p className="mt-0.5 sam-text-xxs text-white/78">{t("cm_ui_connecting")}</p> : null}
+            <p className="sam-text-body-secondary font-semibold text-ui-fg">{t("nav_voice_call_label")}</p>
+            {bVoice ? <p className="mt-0.5 sam-text-xxs text-ui-muted">{t("cm_ui_connecting")}</p> : null}
           </button>
           <button
             type="button"
             onClick={onVideoCall}
-            onPointerDown={() => triggerCallHaptic("selection")}
             disabled={anyBusy || !canCall}
-            className={`relative overflow-hidden rounded-[18px] bg-[#006241] px-1 py-2.5 text-center text-white shadow-[0_4px_16px_rgba(0,0,0,0.15)] transition active:scale-[0.96] active:brightness-90 disabled:opacity-50 ${canMessage && !canCall ? "opacity-60" : ""}`}
+            className={`rounded-ui-rect bg-ui-page px-1 py-2.5 text-center active:bg-ui-hover disabled:opacity-50 ${canMessage && !canCall ? "opacity-60" : ""}`}
           >
-            <CallRipple />
-            <p className="sam-text-body-secondary font-semibold text-white">{t("nav_video_call_label")}</p>
-            {bVideo ? <p className="mt-0.5 sam-text-xxs text-white/78">{t("cm_ui_connecting")}</p> : null}
+            <p className="sam-text-body-secondary font-semibold text-ui-fg">{t("nav_video_call_label")}</p>
+            {bVideo ? <p className="mt-0.5 sam-text-xxs text-ui-muted">{t("cm_ui_connecting")}</p> : null}
           </button>
         </div>
         {!canMessage ? (

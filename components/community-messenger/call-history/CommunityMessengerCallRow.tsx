@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPoi
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { CommunityMessengerCallActionButton } from "@/components/community-messenger/call-history/CommunityMessengerCallActionButton";
-import { CommunityMessengerCallDirectionIcon } from "@/components/community-messenger/call-history/CommunityMessengerCallDirectionIcon";
+import { CommunityMessengerCallDirectionBadge } from "@/components/community-messenger/call-history/CommunityMessengerCallDirectionBadge";
 import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultAvatarFace";
 import {
   CALL_LOG_SWIPE_ACTION_ATTR,
@@ -23,8 +23,9 @@ const DRAG_CANCEL_Y = 14;
 type Props = {
   call: CommunityMessengerCallLog;
   onNavigate: (call: CommunityMessengerCallLog) => void;
-  onRequestOutgoingCall: (call: CommunityMessengerCallLog, kind: "voice" | "video") => void;
+  onRequestOutgoingConfirm: (call: CommunityMessengerCallLog, kind: "voice" | "video") => void;
   onDeleteRequest: (call: CommunityMessengerCallLog) => void;
+  globalRedialBlocked: boolean;
   openedSwipeItemId: string | null;
   onOpenSwipeItem: (id: string | null) => void;
   swipeSurfaceDataAttr?: "open";
@@ -33,8 +34,9 @@ type Props = {
 export function CommunityMessengerCallRow({
   call,
   onNavigate,
-  onRequestOutgoingCall,
+  onRequestOutgoingConfirm,
   onDeleteRequest,
+  globalRedialBlocked,
   openedSwipeItemId,
   onOpenSwipeItem,
   swipeSurfaceDataAttr,
@@ -177,7 +179,7 @@ export function CommunityMessengerCallRow({
   const avatarNode = (
     <SamarketThumbnail
       src={resolveUserAvatarImageSrc(vm.peerAvatarUrl)}
-      size={40}
+      size={48}
       roundedClassName="rounded-full"
       className="shrink-0 bg-sam-surface-muted ring-1 ring-sam-border"
       fallbackSrc=""
@@ -220,7 +222,7 @@ export function CommunityMessengerCallRow({
       </div>
 
       <div
-        className="relative z-[1] flex min-h-[52px] w-full touch-pan-y items-stretch bg-sam-app"
+        className="relative z-[1] flex min-h-[64px] w-full touch-pan-y items-stretch bg-sam-app"
         data-call-log-swipe-surface={swipeSurfaceDataAttr}
         style={{
           transform: `translate3d(${dragX}px,0,0)`,
@@ -239,7 +241,7 @@ export function CommunityMessengerCallRow({
             if (isDragging || swipeActionTapRef.current) return;
             handleNavigate();
           }}
-          className={`flex min-w-0 flex-1 items-center gap-2.5 px-2.5 py-1.5 text-left transition-transform duration-100 active:scale-[0.98] active:bg-sam-primary-soft ${
+          className={`flex min-w-0 flex-1 items-center gap-3 px-3 py-2 text-left transition-transform duration-100 active:scale-[0.98] active:bg-sam-primary-soft ${
             vm.canNavigate ? "cursor-pointer" : "cursor-default"
           }`}
         >
@@ -257,6 +259,7 @@ export function CommunityMessengerCallRow({
                   {t("cm_peer_badge_not_friend")}
                 </span>
               ) : null}
+              <CommunityMessengerCallDirectionBadge displayType={vm.displayType} />
               <p className="truncate sam-text-body-secondary" style={{ color: vm.subtitleColor }}>
                 {subtitleText}
                 {vm.durationLabel ? (
@@ -270,27 +273,18 @@ export function CommunityMessengerCallRow({
           </div>
         </button>
 
-        <aside className="flex shrink-0 flex-col items-end justify-center gap-1 px-2.5 py-1.5">
-          {timeLabel ? <span className="sam-text-xxs tabular-nums text-sam-fg-muted">{timeLabel}</span> : null}
+        <aside className="flex shrink-0 flex-col items-end justify-center gap-1.5 px-3 py-2">
+          {timeLabel ? <span className="sam-text-helper tabular-nums text-sam-fg-muted">{timeLabel}</span> : null}
           {vm.canRedial ? (
             <div onPointerDown={(e) => e.stopPropagation()}>
               <CommunityMessengerCallActionButton
-                kind={vm.callKind === "video" ? "video" : "voice"}
-                ariaLabel={
-                  vm.callKind === "video" ? t("cm_ui_call_log_redial_video") : t("cm_ui_call_log_redial_voice")
-                }
-                onPress={() =>
-                  onRequestOutgoingCall(call, vm.callKind === "video" ? "video" : "voice")
-                }
+                kind={vm.callKind}
+                ariaLabel={vm.callKind === "video" ? t("cm_ui_call_log_redial_video") : t("cm_ui_call_log_redial_voice")}
+                disabled={globalRedialBlocked}
+                onPress={() => onRequestOutgoingConfirm(call, vm.callKind)}
               />
             </div>
-          ) : (
-            <CommunityMessengerCallDirectionIcon
-              callKind={vm.callKind}
-              displayType={vm.displayType}
-              isOutgoing={vm.isOutgoing}
-            />
-          )}
+          ) : null}
         </aside>
       </div>
     </li>

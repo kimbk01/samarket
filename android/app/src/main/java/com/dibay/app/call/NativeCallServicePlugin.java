@@ -1,10 +1,6 @@
 package com.dibay.app.call;
 
-import android.app.Activity;
-import android.app.ActivityManager;
-import android.content.Context;
 import android.content.Intent;
-import android.os.Build;
 import com.dibay.app.DibayCallLog;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -51,11 +47,6 @@ public class NativeCallServicePlugin extends Plugin {
 
   @PluginMethod
   public void endCall(PluginCall call) {
-    endCallLocalOnly(call);
-  }
-
-  @PluginMethod
-  public void endCallLocalOnly(PluginCall call) {
     String callId = call.getString("callId", "").trim();
     String reason = call.getString("reason", "client_end");
     if (!DibayActiveCallSessionManager.canCleanup(reason)) {
@@ -65,7 +56,7 @@ public class NativeCallServicePlugin extends Plugin {
       call.resolve(blocked);
       return;
     }
-    DibayActiveCallSessionManager.requestLocalCleanup(getContext(), callId, reason);
+    DibayActiveCallSessionManager.requestCleanup(getContext(), callId, reason);
     JSObject result = new JSObject();
     result.put("ok", true);
     call.resolve(result);
@@ -143,35 +134,5 @@ public class NativeCallServicePlugin extends Plugin {
     }
     DibayActiveCallSessionManager.onRemoteEnded(getContext(), callId);
     call.resolve(new JSObject().put("ok", true));
-  }
-
-  /** PiP 탭 복귀 — WebView 전체화면으로 되돌린다. */
-  @PluginMethod
-  public void restoreFromPictureInPicture(PluginCall call) {
-    Activity activity = getActivity();
-    if (activity == null) {
-      call.reject("no_activity");
-      return;
-    }
-    try {
-      ActivityManager manager = (ActivityManager) activity.getSystemService(Context.ACTIVITY_SERVICE);
-      if (manager != null) {
-        manager.moveTaskToFront(activity.getTaskId(), ActivityManager.MOVE_TASK_WITH_HOME);
-      }
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && activity.isInPictureInPictureMode()) {
-        Intent intent = new Intent(activity, activity.getClass());
-        intent.setAction(Intent.ACTION_MAIN);
-        intent.addCategory(Intent.CATEGORY_LAUNCHER);
-        intent.setFlags(
-            Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
-                | Intent.FLAG_ACTIVITY_SINGLE_TOP
-                | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        activity.startActivity(intent);
-      }
-      DibayCallLog.once("active_call_pip_restore", DibayActiveCallSessionManager.getActiveCallId(), "ok=true");
-      call.resolve(new JSObject().put("ok", true));
-    } catch (Exception e) {
-      call.reject("pip_restore_failed", e);
-    }
   }
 }

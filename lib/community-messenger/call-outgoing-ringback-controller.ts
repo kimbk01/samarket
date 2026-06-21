@@ -7,6 +7,7 @@ import {
 } from "@/lib/community-messenger/call-feedback-sound";
 import {
   primeWebAudioCallToneContextFromUserGesture,
+  startWebAudioCallTone,
 } from "@/lib/community-messenger/call-tone-web-audio";
 
 export type OutgoingRingbackSnapshot = {
@@ -78,12 +79,19 @@ export function getOutgoingRingbackSnapshot(): OutgoingRingbackSnapshot {
   };
 }
 
-/** 발신 버튼 tap 등 사용자 제스처 tick — await 전 Web Audio priming (재생은 POST 후 startOutgoingRingback) */
+/** 발신 버튼 tap 등 사용자 제스처 tick — await 전 Web Audio priming */
 export function primeOutgoingRingbackFromUserGesture(args: PrimeOutgoingRingbackFromUserGestureArgs): void {
   if (typeof window === "undefined") return;
+  stopOutgoingToneInternal("prime_replace");
   unlockCommunityMessengerCallPlaybackFromUserGesture();
   primeWebAudioCallToneContextFromUserGesture();
-  void args;
+  const kind: "voice" | "video" = args.kind === "video" ? "video" : "voice";
+  const web = startWebAudioCallTone("outgoing", kind);
+  if (!web) return;
+  activeTone = { stop: () => web.stop() };
+  activeSource = args.source;
+  startedAt = Date.now();
+  logRingbackStart("gesture-prime", args.kind, args.source);
 }
 
 export function startOutgoingRingback(args: StartOutgoingRingbackArgs): void {

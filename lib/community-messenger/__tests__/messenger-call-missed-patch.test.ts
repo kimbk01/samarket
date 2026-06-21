@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const runCallEndGuard = vi.fn();
+const patchCommunityMessengerCallSession = vi.fn();
 
-vi.mock("@/lib/call/actions/call-end-guard", () => ({
-  runCallEndGuard: (...args: unknown[]) => runCallEndGuard(...args),
+vi.mock("@/lib/community-messenger/call-http-actions", () => ({
+  patchCommunityMessengerCallSession: (...args: unknown[]) => patchCommunityMessengerCallSession(...args),
 }));
 
 describe("patchCommunityMessengerCallMissedOnce", () => {
   beforeEach(() => {
     vi.resetModules();
-    runCallEndGuard.mockReset();
+    patchCommunityMessengerCallSession.mockReset();
   });
 
   it("single-flights concurrent missed PATCH for the same session", async () => {
@@ -17,7 +17,7 @@ describe("patchCommunityMessengerCallMissedOnce", () => {
     const pending = new Promise<{ ok: boolean }>((resolve) => {
       resolvePatch = resolve;
     });
-    runCallEndGuard.mockReturnValue(pending);
+    patchCommunityMessengerCallSession.mockReturnValue(pending);
 
     const { patchCommunityMessengerCallMissedOnce } = await import(
       "@/lib/community-messenger/messenger-call-missed-patch"
@@ -26,12 +26,7 @@ describe("patchCommunityMessengerCallMissedOnce", () => {
     const first = patchCommunityMessengerCallMissedOnce("session-1");
     const second = patchCommunityMessengerCallMissedOnce("session-1");
 
-    expect(runCallEndGuard).toHaveBeenCalledTimes(1);
-    expect(runCallEndGuard).toHaveBeenCalledWith({
-      sessionId: "session-1",
-      action: "missed",
-      reason: "missed",
-    });
+    expect(patchCommunityMessengerCallSession).toHaveBeenCalledTimes(1);
 
     resolvePatch({ ok: true });
     const [r1, r2] = await Promise.all([first, second]);
@@ -40,7 +35,7 @@ describe("patchCommunityMessengerCallMissedOnce", () => {
   });
 
   it("skips duplicate missed PATCH after success tombstone", async () => {
-    runCallEndGuard.mockResolvedValue({ ok: true, session: { id: "session-2" } });
+    patchCommunityMessengerCallSession.mockResolvedValue({ ok: true, session: { id: "session-2" } });
 
     const { patchCommunityMessengerCallMissedOnce } = await import(
       "@/lib/community-messenger/messenger-call-missed-patch"
@@ -51,6 +46,6 @@ describe("patchCommunityMessengerCallMissedOnce", () => {
 
     expect(first.ok).toBe(true);
     expect(second.skipped).toBe(true);
-    expect(runCallEndGuard).toHaveBeenCalledTimes(1);
+    expect(patchCommunityMessengerCallSession).toHaveBeenCalledTimes(1);
   });
 });

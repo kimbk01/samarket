@@ -1,8 +1,5 @@
 package com.dibay.app;
 
-import android.animation.AnimatorSet;
-import android.animation.ObjectAnimator;
-import android.animation.ValueAnimator;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -10,8 +7,6 @@ import android.content.IntentFilter;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.HapticFeedbackConstants;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.ImageButton;
@@ -37,11 +32,9 @@ public class IncomingCallActivity extends AppCompatActivity {
   public static final String ACTION_TERMINAL = "com.dibay.app.action.INCOMING_CALL_TERMINAL";
 
   private static final String TAG = "DIBAY_INCOMING_CALL";
-  private static final long FULLSCREEN_PRESS_MS = 150L;
   private String callId;
   private boolean finished;
   private BroadcastReceiver terminalReceiver;
-  private AnimatorSet[] pulseAnimators;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -54,7 +47,6 @@ public class IncomingCallActivity extends AppCompatActivity {
     LinearLayout actions = findViewById(R.id.incoming_call_actions);
     IncomingCallUiInsets.applyTopSafeArea(center, 24);
     IncomingCallUiInsets.applyBottomSafeArea(actions, 16);
-    startPulseAnimation();
 
     callId = firstNonEmpty(getIntent().getStringExtra(EXTRA_CALL_ID));
     if (callId == null) {
@@ -94,7 +86,6 @@ public class IncomingCallActivity extends AppCompatActivity {
     Log.i(TAG, "[call-ui] incoming_activity_shown callId=" + callId);
     DibayCallLog.once("incoming_activity_created", callId, "source=activity");
     DibayCallLog.once("incoming_render", callId, "source=activity");
-    MainActivity.notifyLockIncomingUiState(callId, true);
 
     bindIncomingUi(getIntent());
 
@@ -133,62 +124,12 @@ public class IncomingCallActivity extends AppCompatActivity {
     IncomingCallAvatarHelper.styleInitial(initialView);
     IncomingCallAvatarHelper.bind(avatarView, initialView, avatarUrl, displayName);
 
-    acceptBtn.setOnClickListener(null);
-    declineBtn.setOnClickListener(null);
-    bindPressReleaseButton(acceptBtn, this::handleAccept);
-    bindPressReleaseButton(declineBtn, this::handleDecline);
-  }
-
-  private void bindPressReleaseButton(ImageButton btn, Runnable action) {
-    final long[] pressStartedAt = {0L};
-    final boolean[] tracking = {false};
-    btn.setOnTouchListener(
-        (v, event) -> {
-          switch (event.getActionMasked()) {
-            case MotionEvent.ACTION_DOWN:
-              tracking[0] = true;
-              pressStartedAt[0] = System.currentTimeMillis();
-              v.setScaleX(0.92f);
-              v.setScaleY(0.92f);
-              v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
-              return true;
-            case MotionEvent.ACTION_MOVE:
-              if (!tracking[0]) return true;
-              float mx = event.getX();
-              float my = event.getY();
-              if (mx < 0 || my < 0 || mx > v.getWidth() || my > v.getHeight()) {
-                tracking[0] = false;
-                v.setScaleX(1f);
-                v.setScaleY(1f);
-              }
-              return true;
-            case MotionEvent.ACTION_UP:
-              if (!tracking[0]) return true;
-              tracking[0] = false;
-              v.setScaleX(1f);
-              v.setScaleY(1f);
-              long elapsed = System.currentTimeMillis() - pressStartedAt[0];
-              float ux = event.getX();
-              float uy = event.getY();
-              boolean inside = ux >= 0 && uy >= 0 && ux <= v.getWidth() && uy <= v.getHeight();
-              if (elapsed >= FULLSCREEN_PRESS_MS && inside) {
-                action.run();
-              }
-              return true;
-            case MotionEvent.ACTION_CANCEL:
-              tracking[0] = false;
-              v.setScaleX(1f);
-              v.setScaleY(1f);
-              return true;
-            default:
-              return false;
-          }
-        });
+    acceptBtn.setOnClickListener(v -> handleAccept());
+    declineBtn.setOnClickListener(v -> handleDecline());
   }
 
   @Override
   protected void onDestroy() {
-    stopPulseAnimation();
     if (terminalReceiver != null) {
       try {
         unregisterReceiver(terminalReceiver);
@@ -197,46 +138,6 @@ public class IncomingCallActivity extends AppCompatActivity {
       terminalReceiver = null;
     }
     super.onDestroy();
-  }
-
-  private void startPulseAnimation() {
-    View ringOne = findViewById(R.id.incoming_call_pulse_ring_one);
-    View ringTwo = findViewById(R.id.incoming_call_pulse_ring_two);
-    View ringThree = findViewById(R.id.incoming_call_pulse_ring_three);
-    pulseAnimators =
-        new AnimatorSet[] {
-          buildPulseAnimator(ringOne, 0),
-          buildPulseAnimator(ringTwo, 160),
-          buildPulseAnimator(ringThree, 320)
-        };
-    for (AnimatorSet animator : pulseAnimators) {
-      if (animator != null) animator.start();
-    }
-  }
-
-  private void stopPulseAnimation() {
-    if (pulseAnimators == null) return;
-    for (AnimatorSet animator : pulseAnimators) {
-      if (animator != null) animator.cancel();
-    }
-    pulseAnimators = null;
-  }
-
-  private AnimatorSet buildPulseAnimator(View ring, long delayMs) {
-    if (ring == null) return null;
-    ring.setAlpha(0.8f);
-    ObjectAnimator scaleX = ObjectAnimator.ofFloat(ring, View.SCALE_X, 1f, 1.25f);
-    ObjectAnimator scaleY = ObjectAnimator.ofFloat(ring, View.SCALE_Y, 1f, 1.25f);
-    ObjectAnimator alpha = ObjectAnimator.ofFloat(ring, View.ALPHA, 0.8f, 0f);
-    for (ObjectAnimator animator : new ObjectAnimator[] {scaleX, scaleY, alpha}) {
-      animator.setDuration(1000);
-      animator.setStartDelay(delayMs);
-      animator.setRepeatCount(ValueAnimator.INFINITE);
-      animator.setRepeatMode(ValueAnimator.RESTART);
-    }
-    AnimatorSet set = new AnimatorSet();
-    set.playTogether(scaleX, scaleY, alpha);
-    return set;
   }
 
   @Override
@@ -280,9 +181,6 @@ public class IncomingCallActivity extends AppCompatActivity {
   private void finishSafely() {
     if (finished) return;
     finished = true;
-    if (callId != null) {
-      MainActivity.notifyLockIncomingUiState(callId, false);
-    }
     DibayCallLog.once("activity_finish", callId);
     finish();
   }

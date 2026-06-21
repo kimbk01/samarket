@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { OutgoingCallTapButton } from "@/components/messenger/call/OutgoingCallTapButton";
 import type { CommunityMessengerPeerPresenceSnapshot } from "@/lib/community-messenger/types";
 import {
   formatMessengerTradeDockPriceLine,
@@ -328,25 +327,27 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
         )}
 
         {showVoice ? (
-          <OutgoingCallTapButton
+          <button
+            type="button"
             onClick={onVoiceCall}
             disabled={disableVoiceCall}
             className={`${listRowClass(!disableVoiceCall)} disabled:opacity-40`}
           >
             <Phone className="h-[18px] w-[18px] shrink-0 text-[color:var(--cm-room-primary)]" strokeWidth={2} aria-hidden />
             <span className="min-w-0 flex-1 font-medium">{t("cm_ui_voice_call")}</span>
-          </OutgoingCallTapButton>
+          </button>
         ) : null}
 
         {showVideo ? (
-          <OutgoingCallTapButton
+          <button
+            type="button"
             onClick={onVideoCall}
             disabled={disableVideoCall}
             className={`${listRowClass(!disableVideoCall)} disabled:opacity-40`}
           >
             <Video className="h-[18px] w-[18px] shrink-0 text-[color:var(--cm-room-primary)]" strokeWidth={2} aria-hidden />
             <span className="min-w-0 flex-1 font-medium">{t("cm_ui_video_call")}</span>
-          </OutgoingCallTapButton>
+          </button>
         ) : null}
 
         <button

@@ -5,7 +5,7 @@
     <string name="package_name">com.dibay.app</string>
     <string name="custom_url_scheme">com.dibay.app</string>
 
-    <string name="dibay_incoming_call_label">통화</string>
+    <string name="dibay_incoming_accept">수락</string>
     <string name="dibay_incoming_reject">거절</string>
     <string name="dibay_incoming_voice_brand">DiBay 음성 통화</string>
     <string name="dibay_incoming_video_brand">DiBay 영상 통화</string>

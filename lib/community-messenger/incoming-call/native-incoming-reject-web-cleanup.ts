@@ -1,6 +1,6 @@
 "use client";
 
-import { releaseLocalCallSession } from "@/lib/call/active-call-session";
+import { hardClearActiveCallSession } from "@/lib/call/active-call-session";
 import { releaseCallActionLock } from "@/lib/call/call-action-lock";
 import { dibayIncomingLaneStopRing } from "@/lib/community-messenger/call-lifecycle";
 import { applyIncomingCallConsumedSideEffects } from "@/lib/community-messenger/incoming-call-accept-gateway";
@@ -44,7 +44,7 @@ export function applyNativeIncomingRejectWebCleanup(args: NativeIncomingRejectWe
   args.suppressMissedSound.add(sid);
   resetIncomingCallActionGuards(sid);
   releaseCallActionLock(`native_reject_${args.source}`);
-  void releaseLocalCallSession(sid, "native_reject");
+  void hardClearActiveCallSession(sid, "native_reject");
   clearDibayCallPendingRoute();
   args.removeSessionFromIncomingList?.(sid);
 }

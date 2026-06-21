@@ -32,13 +32,6 @@ const MessengerInAppMessageBannerHost = dynamic(
     ),
   { ssr: false }
 );
-const DibayBottomNotificationBanner = dynamic(
-  () =>
-    import("@/components/notifications/DibayBottomNotificationBanner").then(
-      (mod) => mod.DibayBottomNotificationBanner
-    ),
-  { ssr: false }
-);
 /**
  * 알림 배지 Realtime·주문 허브 미읽음 사운드·인앱 배너·사운드 프라임.
  * 메신저 `community_messenger_participants` 구독은 `MainShellMessengerParticipantBridge`(전역 1개)가 담당.
@@ -100,7 +93,6 @@ export function MessagingGlobalChrome({ regionBarInLayout }: { regionBarInLayout
       {mountDeferredChrome && p.mountMessengerInAppBannerHost ?
         <MessengerInAppMessageBannerHost />
       : null}
-      {mountDeferredChrome ? <DibayBottomNotificationBanner /> : null}
     </>
   );
 }

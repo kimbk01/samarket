@@ -19,16 +19,16 @@ public final class FcmPayloadResolver {
     if (type != null) return type;
 
     String callPushKind = firstNonEmpty(data.get("call_push_kind"));
-    if ("incoming_call".equals(callPushKind)) return "incoming_call_signal";
+    if ("incoming_call".equals(callPushKind)) return "incoming_call";
     if ("missed_call".equals(callPushKind)) return "missed_call";
     if ("call_canceled".equals(callPushKind)) return "call_canceled";
     if ("call_ended".equals(callPushKind)) return "call_ended";
     if ("call_rejected".equals(callPushKind)) return "call_rejected";
     if ("call_missed".equals(callPushKind)) return "call_missed";
-    if ("1".equals(data.get("dibay_call"))) return "incoming_call_signal";
+    if ("1".equals(data.get("dibay_call"))) return "incoming_call";
 
     String notificationType = firstNonEmpty(data.get("notification_type"));
-    if ("community_messenger_incoming_call".equals(notificationType)) return "incoming_call_signal";
+    if ("community_messenger_incoming_call".equals(notificationType)) return "incoming_call";
     if ("community_messenger_missed_call".equals(notificationType)) return "missed_call";
     if ("community_messenger_call_canceled".equals(notificationType)) return "call_canceled";
     if ("community_messenger_message".equals(notificationType)) return "chat_message";
@@ -112,7 +112,7 @@ public final class FcmPayloadResolver {
 
   public static String resolveRouteUrl(Map<String, String> data) {
     if (data == null) return null;
-    String url = firstNonEmpty(data.get("routeUrl"), data.get("route_url"), data.get("url"));
+    String url = firstNonEmpty(data.get("url"));
     if (url != null && url.startsWith("/")) return url;
 
     String type = resolveType(data);
@@ -131,7 +131,7 @@ public final class FcmPayloadResolver {
         }
         break;
       }
-      case "incoming_call_signal": {
+      case "incoming_call": {
         String callId = resolveCallId(data);
         if (callId != null) {
           return "/community-messenger/calls/" + android.net.Uri.encode(callId);
@@ -157,14 +157,11 @@ public final class FcmPayloadResolver {
         if (roomId != null) return "/chats/" + android.net.Uri.encode(roomId);
         break;
       }
-      case "order_status":
       case "delivery_order": {
         String orderId = firstNonEmpty(data.get("orderId"), data.get("order_id"));
         if (orderId != null) return "/orders/store/" + android.net.Uri.encode(orderId);
         break;
       }
-      case "delivery_status":
-      case "community_activity":
       case "community_comment": {
         String postId = firstNonEmpty(data.get("postId"), data.get("post_id"));
         if (postId != null) return "/philife/posts/" + android.net.Uri.encode(postId);
@@ -197,12 +194,6 @@ public final class FcmPayloadResolver {
     return "chat_message".equals(type)
         || "group_message".equals(type)
         || "trade_message".equals(type)
-        || "trade_status".equals(type)
-        || "order_status".equals(type)
-        || "delivery_status".equals(type)
-        || "community_activity".equals(type)
-        || "admin_marketing_banner".equals(type)
-        || "admin_notice".equals(type)
         || "delivery_order".equals(type)
         || "community_comment".equals(type);
   }

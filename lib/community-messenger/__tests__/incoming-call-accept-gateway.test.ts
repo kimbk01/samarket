@@ -43,15 +43,6 @@ vi.mock("@/lib/community-messenger/native-callee-accept-entry", () => ({
   markNativeCalleeAcceptPending: vi.fn(),
 }));
 
-vi.mock("@/lib/community-messenger/direct-call-minimize", () => ({
-  writeActiveDirectVideoCallSession: vi.fn(),
-  clearActiveDirectVideoCallSession: vi.fn(),
-}));
-
-vi.mock("@/components/layout/providers/CommunityMessengerActiveCallHost", () => ({
-  notifyCommunityCallHostSync: vi.fn(),
-}));
-
 vi.mock("@/lib/community-messenger/multi-tab-bus", () => ({
   postCommunityMessengerCallIncomingConsumedBusEvent: vi.fn(),
 }));
@@ -71,8 +62,6 @@ import { dismissAllIncomingCallNotificationsFireAndForget } from "@/lib/push/nat
 import { postCommunityMessengerCallIncomingConsumedBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { isDibayCallConsumed, resetDibayCallSessionState } from "@/lib/community-messenger/incoming-call-state";
 import { primeCommunityMessengerCallNavigationSeed } from "@/lib/community-messenger/call-session-navigation-seed";
-import { writeActiveDirectVideoCallSession } from "@/lib/community-messenger/direct-call-minimize";
-import { notifyCommunityCallHostSync } from "@/components/layout/providers/CommunityMessengerActiveCallHost";
 import {
   acceptIncomingCallOnce,
   runIncomingCallAccept,
@@ -149,54 +138,6 @@ describe("incoming-call-accept-gateway", () => {
     expect(patchCommunityMessengerCallSession).toHaveBeenCalledTimes(1);
     expect(router.replace).toHaveBeenCalledTimes(1);
     expect(isDibayCallConsumed("s3")).toBe(true);
-  });
-
-  it("skipRouteReplace video prewarms ActiveCallHost before PATCH and keeps router.replace out", async () => {
-    (patchCommunityMessengerCallSession as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      ok: true,
-      session: {
-        id: "v1",
-        callKind: "video",
-        sessionMode: "direct",
-        status: "active",
-        isMineInitiator: false,
-        roomId: "room-1",
-        peerUserId: "peer-1",
-        endedReason: null,
-      },
-    });
-    const router = { replace: vi.fn() };
-    const session = {
-      id: "v1",
-      callKind: "video",
-      sessionMode: "direct",
-      status: "ringing",
-      isMineInitiator: false,
-      roomId: "room-1",
-      peerUserId: "peer-1",
-      endedReason: null,
-    } as any;
-    const res = await runIncomingCallAccept({
-      session,
-      router,
-      source: "incoming_banner_accept",
-      skipRouteReplace: true,
-    });
-    expect(res.ok).toBe(true);
-    expect(router.replace).not.toHaveBeenCalled();
-    expect(writeActiveDirectVideoCallSession).toHaveBeenCalledWith("v1");
-    expect(notifyCommunityCallHostSync).toHaveBeenCalled();
-    const hostOrder = vi.mocked(writeActiveDirectVideoCallSession).mock.invocationCallOrder[0] ?? 0;
-    const patchOrder = vi.mocked(patchCommunityMessengerCallSession).mock.invocationCallOrder[0] ?? 0;
-    expect(hostOrder).toBeLessThan(patchOrder);
-    expect(primeCommunityMessengerCallNavigationSeed).toHaveBeenCalledWith(
-      "v1",
-      expect.objectContaining({
-        id: "v1",
-        status: "active",
-        source: "native_accept_hydrate_seed",
-      })
-    );
   });
 
   it("duplicate_accept_blocked returns ok=false and does not patch", async () => {

@@ -1,13 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 function read(p: string): string {
   return readFileSync(join(process.cwd(), p), "utf8");
-}
-
-function exists(p: string): boolean {
-  return existsSync(join(process.cwd(), p));
 }
 
 describe("incoming-call native contract", () => {
@@ -42,9 +38,6 @@ describe("incoming-call native contract", () => {
     expect(plugin).toContain("listConsumedCallIds");
     expect(plugin).toContain("drainPendingTerminalEvents");
     expect(plugin).toContain("getForegroundIncomingCallId");
-    expect(plugin).toContain("getNativeIncomingStoreCallId");
-    expect(plugin).toContain("notifyCallTerminal");
-    expect(plugin).toContain("DibayIncomingCallNativeStore.clear");
     expect(plugin).toContain("DibayCallConsumedStore.mark");
     const store = read("android/app/src/main/java/com/dibay/app/DibayCallConsumedStore.java");
     expect(store).toContain("isConsumed");
@@ -93,11 +86,12 @@ describe("incoming-call native contract", () => {
     expect(src).toContain('DibayCallConsumedStore.mark(context, sid, "missed")');
   });
 
-  it("native coordinator routes accept immediately and delegates PATCH to JS gateway", () => {
+  it("native coordinator routes accept immediately and completes PATCH in background", () => {
     const src = read("android/app/src/main/java/com/dibay/app/IncomingCallActionCoordinator.java");
-    expect(src).not.toContain("CallSessionPatchHelper.patch");
+    expect(src).toContain('CallSessionPatchHelper.patch(app, sid, "accept")');
     expect(src).toContain("accept_route_direct");
     expect(src).toContain("deliverCallAcceptRoute(app, sid, false)");
+    expect(src).toContain("deliverCallAcceptRoute(app, sid, true)");
     const main = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
     expect(main).toContain("nativePrep=1");
     expect(main).toContain("injectAcceptRouteViaJs");
@@ -105,25 +99,15 @@ describe("incoming-call native contract", () => {
     expect(main).toContain("webview_call_route_injected");
   });
 
-  it("FCM foreground unlocked uses Web surface SSOT (no native pill)", () => {
+  it("FCM foreground unlocked launches native pill instead of web-only delegate", () => {
     const delivery = read("android/app/src/main/java/com/dibay/app/IncomingCallPushDelivery.java");
-    expect(delivery).toContain("incoming_call_foreground_web_ssot");
-    expect(delivery).not.toContain("IncomingCallForegroundUiLauncher.showUi");
+    expect(delivery).toContain("incoming_call_foreground_native_ui");
+    expect(delivery).toContain("IncomingCallForegroundUiLauncher.showUi");
     expect(delivery).toContain("isForegroundUnlockedInteractive");
     const fcm = read("android/app/src/main/java/com/dibay/app/DibayFirebaseMessagingService.java");
     expect(fcm).toContain("IncomingCallPushDelivery.deliver");
-  });
-
-  it("Global uses Web foreground surface SSOT (no native pill defer)", () => {
-    const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
-    expect(global).not.toContain("preferNativeAndroidForegroundIncoming");
-    expect(global).not.toContain("nativeForegroundIncomingCallId");
-    expect(global).not.toContain("onForegroundIncomingUi");
-    expect(global).toContain("CommunityMessengerIncomingCallUi");
-    const presenter = read("lib/community-messenger/incoming-call/foreground-incoming-presenter.ts");
-    expect(presenter).not.toContain("native_foreground_primary");
-    const ssot = read("lib/community-messenger/incoming-call/incoming-ui-ssot.ts");
-    expect(ssot).toContain("INCOMING_UI_FOREGROUND_SURFACE");
+    const manifest = read("android/app/src/main/AndroidManifest.xml");
+    expect(manifest).toContain("ForegroundIncomingCallActivity");
   });
 
   it("IncomingCallTerminalHandler centralizes terminal dismiss, consumed, ring stop, activity finish", () => {
@@ -176,13 +160,15 @@ describe("incoming-call native contract", () => {
     );
   });
 
-  it("Global defers Android foreground incoming UI to Web surface only", () => {
+  it("Global defers Android foreground banner to native pill only", () => {
     const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
-    expect(global).not.toContain("preferNativeAndroidForegroundIncoming");
-    expect(global).not.toContain("nativeForegroundIncomingCallId");
-    expect(global).not.toContain("onForegroundIncomingUi");
+    expect(global).toContain("preferNativeAndroidForegroundIncoming");
+    expect(global).toContain("nativeForegroundIncomingCallId");
+    expect(global).toContain("onForegroundIncomingUi");
+    expect(global).toContain("onNativeForegroundAccept");
+    expect(global).toContain("onNativeForegroundReject");
     const presenter = read("lib/community-messenger/incoming-call/foreground-incoming-presenter.ts");
-    expect(presenter).not.toContain("native_foreground_primary");
+    expect(presenter).toContain("native_foreground_primary");
   });
 
   it("native accept injects foreground_incoming_accept before route launch", () => {
@@ -195,14 +181,10 @@ describe("incoming-call native contract", () => {
     expect(activity).toContain("injectForegroundIncomingRejectEvent");
   });
 
-  it("legacy ForegroundIncomingCallActivity pill is removed", () => {
-    expect(exists("android/app/src/main/java/com/dibay/app/ForegroundIncomingCallActivity.java")).toBe(false);
-    expect(exists("android/app/src/main/java/com/dibay/app/IncomingCallForegroundUiLauncher.java")).toBe(false);
-    expect(exists("android/app/src/main/res/layout/activity_foreground_incoming_call.xml")).toBe(false);
-    const manifest = read("android/app/src/main/AndroidManifest.xml");
-    expect(manifest).not.toContain("ForegroundIncomingCallActivity");
-    const helper = read("android/app/src/main/java/com/dibay/app/IncomingCallIntentHelper.java");
-    expect(helper).not.toContain("buildForegroundIncomingCallActivityIntent");
+  it("foreground pill swipe dismiss routes to native reject", () => {
+    const pill = read("android/app/src/main/java/com/dibay/app/ForegroundIncomingCallActivity.java");
+    expect(pill).toContain("foreground_swipe_dismiss_reject");
+    expect(pill).toContain("handleReject(getApplicationContext(), callId, \"swipe_dismiss\")");
   });
 
   it("notification posts immediately then enriches avatar async", () => {
@@ -286,17 +268,18 @@ describe("incoming-call native contract", () => {
     expect(ackHelper).toContain("IncomingCallTerminalHandler.handle");
   });
 
-  it("notification uses DIBAY CallStyle, brand color, and lock fullscreen action icons", () => {
+  it("notification uses DIBAY CallStyle, brand color, and system action icons in layouts", () => {
     const notification = read("android/app/src/main/java/com/dibay/app/IncomingCallNotificationBuilder.java");
     expect(notification).toContain("IncomingCallUiCopy");
     expect(notification).toContain("NotificationCompat.CallStyle.forIncomingCall");
     expect(notification).toContain("dibay_incoming_primary");
     expect(read("android/app/src/main/res/values/colors.xml")).toContain("dibay_incoming_primary");
     expect(read("android/app/src/main/res/values/colors.xml")).toContain("#006241");
-    const lockLayout = read("android/app/src/main/res/layout/activity_incoming_call.xml");
-    expect(lockLayout).toContain("@drawable/ic_dibay_incoming_accept");
-    expect(lockLayout).toContain("@string/dibay_incoming_call_label");
-    expect(lockLayout).toContain("@string/dibay_incoming_reject");
+    const pill = read("android/app/src/main/res/layout/activity_foreground_incoming_call.xml");
+    expect(pill).toContain("@android:drawable/sym_action_call");
+    expect(pill).toContain("@android:drawable/ic_menu_close_clear_cancel");
+    expect(pill).not.toContain("android:text=\"@string/dibay_incoming_accept\"");
+    expect(pill).not.toContain("ic_dibay_incoming_accept");
   });
 
   it("caller display strips legacy @id suffix in IncomingCallUiCopy", () => {
@@ -313,20 +296,17 @@ describe("incoming-call native contract", () => {
     );
   });
 
-  it("lock fullscreen uses 48dp button gap, labels, and 150ms press-release", () => {
-    const dimens = read("android/app/src/main/res/values/dimens.xml");
-    expect(dimens).toContain("dibay_incoming_btn_gap_full\">48dp");
-
+  it("lock fullscreen applies bottom safe area for navigation bar", () => {
     const activity = read("android/app/src/main/java/com/dibay/app/IncomingCallActivity.java");
-    expect(activity).toContain("FULLSCREEN_PRESS_MS = 150L");
-    expect(activity).toContain("bindPressReleaseButton");
     expect(activity).toContain("IncomingCallUiInsets.applyBottomSafeArea");
-    expect(read("android/app/src/main/res/drawable/bg_dibay_incoming_btn_reject_pressed.xml")).toContain("#D93025");
-    expect(read("android/app/src/main/res/values/colors.xml")).toContain("#34C759");
-    expect(read("android/app/src/main/res/values/colors.xml")).toContain("#FF3B30");
-    const layout = read("android/app/src/main/res/layout/activity_incoming_call.xml");
-    expect(layout).toContain("incoming_call_actions");
-    expect(layout).toContain("@string/dibay_incoming_call_label");
+    expect(read("android/app/src/main/res/layout/activity_incoming_call.xml")).toContain("incoming_call_actions");
+  });
+
+  it("foreground pill uses 440ms enter animation and DIBAY layout", () => {
+    const activity = read("android/app/src/main/java/com/dibay/app/ForegroundIncomingCallActivity.java");
+    expect(activity).toContain("dibay_incoming_pill_enter");
+    expect(read("android/app/src/main/res/anim/dibay_incoming_pill_enter.xml")).toContain("440");
+    expect(read("android/app/src/main/res/layout/activity_foreground_incoming_call.xml")).toContain("bg_dibay_incoming_pill");
   });
 
   it("native plugin proxy is wrapped so Promise resolution does not call .then()", () => {
@@ -334,14 +314,6 @@ describe("incoming-call native contract", () => {
     expect(src).toContain("NativeIncomingCall.then()");
     expect(src).toContain("resolveNativePluginWithoutThenableAssimilation");
     expect(src).toContain("if (sync) return resolveNativePluginWithoutThenableAssimilation(sync)");
-  });
-
-  it("foreground web banner syncs ringing session to native bridge (not cancelled tombstone)", () => {
-    const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
-    expect(global).toContain("syncCommunityMessengerNativeIncomingCall(nativeIncomingSession)");
-    expect(global).not.toContain(
-      'syncCommunityMessengerNativeIncomingCall({ ...bannerSession, status: "cancelled" })',
-    );
   });
 });
 

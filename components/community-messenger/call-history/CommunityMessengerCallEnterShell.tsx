@@ -15,6 +15,7 @@ import {
   MESSENGER_CALL_SLIDE_ENTER_MS,
 } from "@/lib/community-messenger/messenger-call-slide";
 import { navigateBackFromCommunityMessengerCall } from "@/lib/community-messenger/call-session-navigation-seed";
+import { getCommunityMessengerCallRuntimeSurface } from "@/lib/community-messenger/call-runtime-registry";
 
 type AnimPhase = "enter" | "enter-active" | "idle" | "exit" | "exit-active";
 
@@ -77,6 +78,11 @@ export function CommunityMessengerCallEnterShell({
   }, [phase, skipEnterSlide]);
 
   const leaveCallRoute = useCallback(() => {
+    const minimize = getCommunityMessengerCallRuntimeSurface().minimizeToPip;
+    if (minimize) {
+      minimize();
+      return;
+    }
     navigateBackFromCommunityMessengerCall({ replace: (href) => router.replace(href) }, null);
   }, [router]);
 
@@ -100,7 +106,7 @@ export function CommunityMessengerCallEnterShell({
   );
 
   const surfaceClassName = [
-    "messenger-page messenger-room-page flex min-h-0 min-w-0 flex-1 flex-col bg-[#003D29]",
+    "messenger-page messenger-room-page flex min-h-0 min-w-0 flex-1 flex-col",
     phase === "enter" ? "messenger-call-enter" : "",
     phase === "enter-active" ? "messenger-call-enter-active" : "",
     phase === "idle" ? "messenger-call-exit" : "",

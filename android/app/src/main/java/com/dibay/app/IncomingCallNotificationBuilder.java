@@ -25,7 +25,7 @@ import androidx.core.graphics.drawable.IconCompat;
 /**
  * Messenger-style incoming call notification — system call category with accept/decline actions.
  *
- * <p>Foreground unlocked uses Web {@code IncomingCallSurface} popup (see PushDelivery). Lock/screen-off uses
+ * <p>Foreground unlocked uses {@link ForegroundIncomingCallActivity} pill. Lock/screen-off uses
  * notification actions plus optional full-screen intent bridge ({@link IncomingCallActivity}).
  */
 public final class IncomingCallNotificationBuilder {

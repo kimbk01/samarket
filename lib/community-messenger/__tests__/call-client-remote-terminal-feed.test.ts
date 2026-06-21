@@ -9,12 +9,9 @@ function read(p: string): string {
 describe("call-client remote terminal feed contracts", () => {
   it("dispatches terminal handoff independent of incoming list removal", () => {
     const feed = read("lib/community-messenger/call-client-remote-terminal-feed.ts");
-    const invite = read("lib/community-messenger/call-invite-realtime-broadcast.ts");
     expect(feed).toContain("dispatchRemoteCallSessionTerminalHandoff");
     expect(feed).toContain("postCommunityMessengerCallSessionTerminalBusEvent");
-    expect(invite).toContain("warmOutboundInviteByRecipient");
     expect(feed).toContain("shouldSkipDuplicateTerminalHandoff");
-    expect(feed).toContain("TERMINAL_HANDOFF_DEDUPE_MS");
     expect(feed).toContain("TERMINAL_HANDOFF_DEDUPE_MS");
 
     const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");

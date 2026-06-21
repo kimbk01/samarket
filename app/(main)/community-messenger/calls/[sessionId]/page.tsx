@@ -1,10 +1,13 @@
 "use client";
 
-import { useParams, useSearchParams, useRouter } from "next/navigation";
-import { useLayoutEffect, useRef } from "react";
+import { useSyncExternalStore } from "react";
+import { useParams, useSearchParams } from "next/navigation";
 import { CommunityMessengerCallClient } from "@/components/community-messenger/CommunityMessengerCallClient";
+import { CommunityMessengerCallRouteLoading } from "@/components/community-messenger/CommunityMessengerCallRouteLoading";
 import { CommunityMessengerCallEnterShell } from "@/components/community-messenger/call-history/CommunityMessengerCallEnterShell";
-import { isCommunityMessengerTempCallSessionId, navigateBackFromCommunityMessengerCall, shouldSkipCallRouteEnterSlide } from "@/lib/community-messenger/call-session-navigation-seed";
+import { subscribeCommunityCallHostSync } from "@/components/layout/providers/CommunityMessengerActiveCallHost";
+import { isCallSessionHostedByActiveCallHost } from "@/lib/community-messenger/direct-call-minimize";
+import { isCommunityMessengerTempCallSessionId } from "@/lib/community-messenger/call-session-navigation-seed";
 
 /** 수신 accept route — enter slide 생략 (P1-1b; outgoing tmp dial 과 별도) */
 function isIncomingAcceptInstantEnterRoute(searchParams: URLSearchParams): boolean {
@@ -12,28 +15,34 @@ function isIncomingAcceptInstantEnterRoute(searchParams: URLSearchParams): boole
 }
 
 /**
- * 통화 화면 — `/calls/[sessionId]` 는 이 페이지 CallClient 가 항상 단일 소유.
- * PiP·dock 등 off-route retained presentation 만 ActiveCallHost 가 CallClient 를 상주한다.
+ * 통화 화면 — active direct 영상통화는 `CommunityMessengerActiveCallHost` 가 CallClient 를 단일 상주.
+ * host 플래그 갱신 시 이 페이지 CallClient 는 즉시 언마운트해 이중 Agora 조인을 막는다.
  */
 export default function CommunityMessengerCallPage() {
   const params = useParams();
   const searchParams = useSearchParams();
-  const router = useRouter();
   const raw = params?.sessionId;
   const sessionId = Array.isArray(raw) ? String(raw[0] ?? "").trim() : String(raw ?? "").trim();
-  const exitOnceRef = useRef(false);
 
-  useLayoutEffect(() => {
-    if (sessionId || exitOnceRef.current) return;
-    exitOnceRef.current = true;
-    navigateBackFromCommunityMessengerCall(router, null);
-  }, [router, sessionId]);
+  const hostOwnsSession = useSyncExternalStore(
+    subscribeCommunityCallHostSync,
+    () => (sessionId ? isCallSessionHostedByActiveCallHost(sessionId) : false),
+    () => false
+  );
 
   if (!sessionId) {
-    return null;
+    return <CommunityMessengerCallRouteLoading />;
   }
 
-  const instantOutgoingDialEnter = shouldSkipCallRouteEnterSlide(sessionId, searchParams);
+  if (hostOwnsSession) {
+    return (
+      <div className="fixed inset-0 z-[1280] flex min-h-0 flex-col bg-[#003D29]">
+        <CommunityMessengerCallRouteLoading />
+      </div>
+    );
+  }
+
+  const instantOutgoingDialEnter = isCommunityMessengerTempCallSessionId(sessionId);
   const instantIncomingAcceptEnter = isIncomingAcceptInstantEnterRoute(searchParams);
 
   return (

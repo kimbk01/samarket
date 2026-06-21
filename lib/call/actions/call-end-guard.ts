@@ -2,9 +2,8 @@
 
 import { patchCommunityMessengerCallSession } from "@/lib/call/call-actions";
 import { logDibayCallFlow } from "@/lib/call/logging/call-flow-log";
-import { releaseLocalCallSession } from "@/lib/call/active-call-session";
+import { endNativeCallService } from "@/lib/call/native/native-call-service";
 import { dibayCallSealTerminal } from "@/lib/community-messenger/call-lifecycle";
-import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 
 export type CallEndGuardInput = {
   sessionId: string;
@@ -14,11 +13,7 @@ export type CallEndGuardInput = {
   notifyNative?: boolean;
 };
 
-export async function runCallEndGuard(input: CallEndGuardInput): Promise<{
-  ok: boolean;
-  session?: CommunityMessengerCallSession;
-  error?: string;
-}> {
+export async function runCallEndGuard(input: CallEndGuardInput): Promise<{ ok: boolean }> {
   const sid = input.sessionId.trim();
   if (!sid) return { ok: false };
 
@@ -36,17 +31,18 @@ export async function runCallEndGuard(input: CallEndGuardInput): Promise<{
       : undefined,
   );
 
-  dibayCallSealTerminal(sid);
   if (input.notifyNative !== false) {
-    await releaseLocalCallSession(sid, input.reason ?? action);
+    await endNativeCallService(sid, input.reason ?? action);
   }
+
+  dibayCallSealTerminal(sid);
 
   if (patched.ok) {
     logDibayCallFlow("call_end_sent_to_peer", { sessionId: sid, callId: sid, action });
     logDibayCallFlow("cleanup_done", { sessionId: sid, callId: sid, action });
   }
 
-  return patched;
+  return { ok: patched.ok };
 }
 
 /** 앱 swipe away 등 native service 콜백용 */

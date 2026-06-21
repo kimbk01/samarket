@@ -23,7 +23,6 @@ import {
   type TradeChatCallPolicy,
 } from "@/lib/trade/trade-chat-call-policy";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { OutgoingCallTapButton } from "@/components/messenger/call/OutgoingCallTapButton";
 
 type CallKind = "voice" | "video";
 
@@ -122,33 +121,35 @@ export function TradeChatCallHeaderButtons(props: {
 
   return (
     <div className="flex shrink-0 items-center gap-0.5 pr-0.5">
-      <OutgoingCallTapButton
+      <button
+        type="button"
         disabled={busy || outgoingBlocked}
-        ariaLabel={t("chats_trade_call_voice_aria")}
         onClick={() => {
           cmCallLatencyMarkClick({ surface: "trade_chat_header", callKind: "voice" });
           setCmCallLatencyContext({ role: "initiator", callKind: "voice" });
           unlockCommunityMessengerCallPlaybackFromUserGesture();
           void startCall("voice");
         }}
-        className="flex h-10 w-10 items-center justify-center rounded-ui-rect text-sam-fg hover:bg-black/10"
+        className="flex h-10 w-10 items-center justify-center rounded-ui-rect text-sam-fg hover:bg-black/10 disabled:opacity-50"
+        aria-label={t("chats_trade_call_voice_aria")}
       >
         <Phone className="h-5 w-5" strokeWidth={2} />
-      </OutgoingCallTapButton>
+      </button>
       {tradeChatCallPolicyAllowsVideo(policy) ? (
-        <OutgoingCallTapButton
+        <button
+          type="button"
           disabled={busy || outgoingBlocked}
-          ariaLabel={t("chats_trade_call_video_aria")}
           onClick={() => {
             cmCallLatencyMarkClick({ surface: "trade_chat_header", callKind: "video" });
             setCmCallLatencyContext({ role: "initiator", callKind: "video" });
             unlockCommunityMessengerCallPlaybackFromUserGesture();
             void startCall("video");
           }}
-          className="flex h-10 w-10 items-center justify-center rounded-ui-rect text-sam-fg hover:bg-black/10"
+          className="flex h-10 w-10 items-center justify-center rounded-ui-rect text-sam-fg hover:bg-black/10 disabled:opacity-50"
+          aria-label={t("chats_trade_call_video_aria")}
         >
           <Video className="h-5 w-5" strokeWidth={2} />
-        </OutgoingCallTapButton>
+        </button>
       ) : null}
     </div>
   );

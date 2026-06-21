@@ -19,14 +19,12 @@ export type NativeActiveCallSnapshot = {
 export type NativeCallServicePlugin = {
   prepareAccept(options: { callId: string; callKind?: string }): Promise<{ ok: boolean }>;
   startCall(options: { callId: string; callKind?: string; phase?: string }): Promise<{ ok: boolean }>;
-  endCallLocalOnly(options: { callId: string; reason?: string }): Promise<{ ok: boolean }>;
   endCall(options: { callId: string; reason?: string }): Promise<{ ok: boolean }>;
   getActiveCallId(): Promise<{ callId: string | null }>;
   heartbeat(options: { callId: string }): Promise<{ ok: boolean }>;
   reportAppState(options: { callId: string; state: NativeCallAppState }): Promise<{ ok: boolean }>;
   getActiveCallSnapshot(): Promise<NativeActiveCallSnapshot>;
   reportRemoteEnded(options: { callId: string }): Promise<{ ok: boolean }>;
-  restoreFromPictureInPicture(): Promise<{ ok: boolean }>;
 };
 
 const NativeCallService = registerPlugin<NativeCallServicePlugin>(NATIVE_CALL_SERVICE_PLUGIN_ID);
@@ -82,22 +80,20 @@ export async function startNativeCallService(
   return result?.ok ?? false;
 }
 
-export async function endNativeCallServiceLocalOnly(callId: string, reason = "client_end"): Promise<boolean> {
+export async function endNativeCallService(callId: string, reason = "client_end"): Promise<boolean> {
   const sid = callId.trim();
   if (!sid) return false;
   if (!canCleanupActiveCall(reason)) {
     logDibayCallFlow("active_call_cleanup_blocked", { callId: sid, reason });
     return false;
   }
-  const result = await invokeNative<{ ok: boolean }>("endCallLocalOnly", { callId: sid, reason });
+  const result = await invokeNative<{ ok: boolean }>("endCall", { callId: sid, reason });
   if (result?.ok) {
     logDibayCallFlow("call_service_stop", { callId: sid, reason });
+    logDibayCallFlow("call_end_sent_to_peer", { callId: sid, reason });
   }
   return result?.ok ?? false;
 }
-
-/** @deprecated 서버 PATCH owner 가 아니다. native local-only 종료만 수행한다. */
-export const endNativeCallService = endNativeCallServiceLocalOnly;
 
 export async function readNativeActiveCallId(): Promise<string | null> {
   const result = await invokeNative<{ callId: string | null }>("getActiveCallId");
@@ -151,21 +147,14 @@ export async function reportNativeCallRemoteEnded(callId: string): Promise<boole
   return result?.ok ?? false;
 }
 
-/** Android system PiP — 탭 복귀 시 전체화면 */
-export async function restoreNativeCallFromPictureInPicture(): Promise<boolean> {
-  const result = await invokeNative<{ ok: boolean }>("restoreFromPictureInPicture");
-  return result?.ok ?? false;
-}
-
 export const nativeCallService = {
   prepareAccept: prepareNativeCallAccept,
   startCall: startNativeCallService,
-  endCall: endNativeCallServiceLocalOnly,
+  endCall: endNativeCallService,
   getActiveCallId: readNativeActiveCallId,
   getActiveCall: readNativeActiveCallId,
   heartbeat: pingNativeCallHeartbeat,
   reportAppState: reportNativeCallAppState,
   getActiveCallSnapshot: readNativeActiveCallSnapshot,
   reportRemoteEnded: reportNativeCallRemoteEnded,
-  restoreFromPictureInPicture: restoreNativeCallFromPictureInPicture,
 };

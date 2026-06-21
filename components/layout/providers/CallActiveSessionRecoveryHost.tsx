@@ -4,9 +4,8 @@ import { useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { getCurrentUser, getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
-import { isCallActionLockHeld } from "@/lib/call/call-action-lock";
 import {
-  releaseLocalCallSession,
+  hardClearActiveCallSession,
   readActiveCallSessionSnapshot,
   resumeActiveCallSessionFromNative,
   subscribeActiveCallSession,
@@ -18,17 +17,13 @@ import {
   fetchActiveDirectCallSessionForRecovery,
   isTerminalCallRecoveryStatus,
   resolveActiveCallRecoveryTarget,
-  shouldPreserveLocalActiveCallDuringRecovery,
   shouldSkipActiveCallRecoveryRouting,
   writeActiveCallRecoveryLock,
 } from "@/lib/community-messenger/call-active-session-recovery";
-import { ensureCallBootReconcile } from "@/lib/community-messenger/call-boot-reconcile";
-import { resolveCallRouteResumeDecision } from "@/lib/community-messenger/call-route-resume-guard";
 import {
-  readDockedCallSessionId,
-  readHostedActiveCallSessionId,
-  readPipMinimizedCallSessionId,
-} from "@/lib/community-messenger/call-presentation-ownership";
+  readActiveDirectVideoCallSessionId,
+  readMinimizedCommunityCallSessionId,
+} from "@/lib/community-messenger/direct-call-minimize";
 import { appendDibayCallQaLog } from "@/lib/call/qa/dibay-call-qa-log";
 import {
   isIncomingCallSurfaceTerminal,
@@ -77,7 +72,7 @@ export function CallActiveSessionRecoveryHost() {
 
     let cancelled = false;
 
-    const routeToCall = async (targetSid: string, source: string, sessionStatus?: string | null) => {
+    const routeToCall = (targetSid: string, source: string, sessionStatus?: string | null) => {
       if (shouldSkipActiveCallRecoveryRouting(targetSid)) {
         routedRef.current = true;
         return;
@@ -101,21 +96,9 @@ export function CallActiveSessionRecoveryHost() {
         });
         return;
       }
-      const href = `/community-messenger/calls/${encodeURIComponent(targetSid)}?source=native_resume`;
-      const resumeDecision = await resolveCallRouteResumeDecision({ sessionId: targetSid, path: href });
-      if (cancelled || resumeDecision.action === "block") {
-        routedRef.current = true;
-        if (resumeDecision.action === "block") {
-          logDibayCall("stale_ringing_blocked", {
-            sessionId: targetSid,
-            callId: targetSid,
-            source: `recovery_${resumeDecision.reason}`,
-          });
-        }
-        return;
-      }
       writeActiveCallRecoveryLock(targetSid);
       routedRef.current = true;
+      const href = `/community-messenger/calls/${encodeURIComponent(targetSid)}?source=native_resume`;
       if (isRingingOnlyIncomingCallRoute(href)) {
         logDibayCall("stale_ringing_blocked", {
           sessionId: targetSid,
@@ -143,7 +126,7 @@ export function CallActiveSessionRecoveryHost() {
     const tryRecovery = async (reason: "initial" | "auth_ready"): Promise<void> => {
       if (cancelled || routedRef.current || inFlightRef.current) return;
       if (pathname.startsWith("/community-messenger/calls/")) return;
-      if (readDockedCallSessionId() || readPipMinimizedCallSessionId() || readHostedActiveCallSessionId()) {
+      if (readMinimizedCommunityCallSessionId() || readActiveDirectVideoCallSessionId()) {
         routedRef.current = true;
         return;
       }
@@ -160,8 +143,6 @@ export function CallActiveSessionRecoveryHost() {
       attemptCountRef.current += 1;
       inFlightRef.current = true;
       try {
-        await ensureCallBootReconcile().catch(() => {});
-
         if (isCapacitorNativePlatform()) {
           const snapshot = await readNativeActiveCallSnapshot();
           const nativeCallId = (snapshot?.callId ?? (await readNativeActiveCallId()))?.trim();
@@ -192,7 +173,7 @@ export function CallActiveSessionRecoveryHost() {
                   connected: true,
                 });
               }
-              void routeToCall(nativeSession.id, "native_resume", nativeSession.status);
+              routeToCall(nativeSession.id, "native_resume", nativeSession.status);
               return;
             }
             if (nativeStatus === "ringing") {
@@ -205,7 +186,7 @@ export function CallActiveSessionRecoveryHost() {
               return;
             }
             if (nativeStatus && isTerminalCallRecoveryStatus(nativeStatus)) {
-              await releaseLocalCallSession(nativeCallId, "native_stale_terminal");
+              await hardClearActiveCallSession(nativeCallId, "native_stale_terminal");
             }
           }
         }
@@ -217,21 +198,7 @@ export function CallActiveSessionRecoveryHost() {
         if (!targetSid) {
           const existing = readActiveCallSessionSnapshot();
           if (existing && !pathname.startsWith("/community-messenger/calls/")) {
-            if (
-              shouldPreserveLocalActiveCallDuringRecovery(existing, {
-                callActionLockHeld: isCallActionLockHeld(),
-              })
-            ) {
-              logDibayCall("recovery_local_session_preserved", {
-                sessionId: existing.callId,
-                callId: existing.callId,
-                phase: existing.phase,
-                source: "recovery_no_live_session_blocked",
-              });
-              routedRef.current = true;
-              return;
-            }
-            await releaseLocalCallSession(existing.callId, "recovery_no_live_session");
+            await hardClearActiveCallSession(existing.callId, "recovery_no_live_session");
           }
           return;
         }
@@ -244,7 +211,7 @@ export function CallActiveSessionRecoveryHost() {
               setActiveFromServer(full, phase);
             }
           }
-          void routeToCall(targetSid, "server_active_recovery", full?.status ?? session.status);
+          routeToCall(targetSid, "server_active_recovery", full?.status ?? session.status);
           return;
         }
       } catch {

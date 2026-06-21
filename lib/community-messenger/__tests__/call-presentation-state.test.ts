@@ -82,27 +82,11 @@ describe("resolveCallPresentationState", () => {
     });
   });
 
-  it("outgoing voice connecting keeps outgoingVoiceRing shell", () => {
+  it("voice connecting uses voiceUnified layout", () => {
     expect(
       resolveCallPresentationState({
         mode: "voice",
         direction: "outgoing",
-        phase: "connecting",
-        visualTheme: "starbucks",
-      })
-    ).toMatchObject({
-      layout: "outgoingVoiceRing",
-      shellSurface: "outgoingVoiceRing",
-      showAvatarHero: false,
-      showPipChrome: false,
-    });
-  });
-
-  it("incoming voice connecting uses voiceUnified layout", () => {
-    expect(
-      resolveCallPresentationState({
-        mode: "voice",
-        direction: "incoming",
         phase: "connecting",
         visualTheme: "starbucks",
       })

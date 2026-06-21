@@ -40,7 +40,7 @@ public class MainActivity extends BridgeActivity {
   private static final String WEBVIEW_LOG_TAG = "DIBAY_WebView";
   private static final long WEBVIEW_LOAD_TIMEOUT_MS = 10_000L;
   /** Max splash keep — JS dismiss 미수신 시 logged fallback (앱 진입 block 방지). */
-  private static final long SPLASH_MAX_KEEP_MS = 2_200L;
+  private static final long SPLASH_MAX_KEEP_MS = 3_000L;
   private static final String ROUTE_PREFS = "dibay_push_route";
   private static final String CALL_ROUTE_PREFS = "dibay_call_pending_route";
   private static final String ROUTE_LOG_TAG = "DIBAY_PUSH_ROUTE";
@@ -133,14 +133,6 @@ public class MainActivity extends BridgeActivity {
     if (act == null) return;
     final String sid = callId != null ? callId.trim() : "";
     act.mainHandler.post(() -> act.injectForegroundIncomingUiEvent(sid, visible));
-  }
-
-  /** Lock-screen IncomingCallActivity visibility — Web banner 억제. */
-  public static void notifyLockIncomingUiState(String callId, boolean visible) {
-    MainActivity act = activeInstance;
-    if (act == null) return;
-    final String sid = callId != null ? callId.trim() : "";
-    act.mainHandler.post(() -> act.injectLockIncomingUiEvent(sid, visible));
   }
 
   /** Native pill accept — Web consumed/surface release before pill finish */
@@ -312,22 +304,6 @@ public class MainActivity extends BridgeActivity {
             + "}}));}catch(e){}})();";
     webView.post(() -> webView.evaluateJavascript(js, null));
     Log.i("DIBAY_CALL", "[DIBAY_CALL] foreground_incoming_ui callId=" + callId + " visible=" + visible);
-  }
-
-  private void injectLockIncomingUiEvent(String callId, boolean visible) {
-    Bridge bridge = getBridge();
-    if (bridge == null) return;
-    WebView webView = bridge.getWebView();
-    if (webView == null) return;
-    final String safeCallId = safeJs(callId);
-    final String js =
-        "(function(){try{window.dispatchEvent(new CustomEvent('dibay:call-event',{detail:{type:'lock_incoming_ui',sessionId:'"
-            + safeCallId
-            + "',visible:"
-            + (visible ? "true" : "false")
-            + "}}));}catch(e){}})();";
-    webView.post(() -> webView.evaluateJavascript(js, null));
-    Log.i("DIBAY_CALL", "[DIBAY_CALL] lock_incoming_ui callId=" + callId + " visible=" + visible);
   }
 
   private void injectForegroundIncomingAcceptEvent(String callId) {
@@ -614,13 +590,6 @@ public class MainActivity extends BridgeActivity {
       CallScreenStateReceiver.register(this);
       DibayActiveCallSessionManager.onAppForeground(this, callId);
     }
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
-        && !isInPictureInPictureMode()
-        && callId != null
-        && !callId.isEmpty()
-        && DibayActiveCallSessionManager.isConnected()) {
-      injectCallPipModeEvent(callId, false);
-    }
   }
 
   @Override
@@ -650,23 +619,6 @@ public class MainActivity extends BridgeActivity {
     } else {
       DibayActiveCallSessionManager.onPipExited(callId);
     }
-    injectCallPipModeEvent(callId, isInPictureInPictureMode);
-  }
-
-  private void injectCallPipModeEvent(String callId, boolean active) {
-    Bridge bridge = getBridge();
-    if (bridge == null) return;
-    WebView webView = bridge.getWebView();
-    if (webView == null) return;
-    final String safeCallId = safeJs(callId);
-    final String js =
-        "(function(){try{window.dispatchEvent(new CustomEvent('dibay:call-pip',{detail:{sessionId:'"
-            + safeCallId
-            + "',active:"
-            + active
-            + "}}));}catch(e){}})();";
-    webView.post(() -> webView.evaluateJavascript(js, null));
-    Log.i("DIBAY_CALL", "[DIBAY_CALL] call_pip_mode callId=" + callId + " active=" + active);
   }
 
   /** Video active call — system PiP when home/back; failure must not end call */
@@ -678,7 +630,7 @@ public class MainActivity extends BridgeActivity {
     if (isInPictureInPictureMode()) return;
     try {
       PictureInPictureParams params =
-          new PictureInPictureParams.Builder().setAspectRatio(new Rational(3, 4)).build();
+          new PictureInPictureParams.Builder().setAspectRatio(new Rational(9, 16)).build();
       enterPictureInPictureMode(params);
     } catch (Exception e) {
       Log.w("DIBAY_CALL", "active_call_pip_enter_failed callId=" + callId, e);
@@ -765,7 +717,6 @@ public class MainActivity extends BridgeActivity {
           mainHandler.removeCallbacks(webViewLoadTimeoutRunnable);
           hideWebViewLoadErrorOverlay();
           injectBootMetricField("firstHtml");
-          requestWebSplashDismiss("first_html");
           Log.i(WEBVIEW_LOG_TAG, "onPageFinished url=" + (url != null ? url : ""));
           if (webSafeAreaBridge != null) {
             webSafeAreaBridge.refreshIfPossible();

@@ -1,7 +1,5 @@
 "use client";
 
-/** SSOT_CONTRACT: cm-call-accept-gateway-patch-owner runIncomingCallAccept acceptIncomingCallOnce */
-
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 import { ensureCallMediaForUserGesture } from "@/lib/community-messenger/call-media-permission-preflight";
 import { patchCommunityMessengerCallSession, fetchCommunityMessengerCallSessionByIdClient } from "@/lib/community-messenger/call-http-actions";
@@ -18,7 +16,6 @@ import {
 } from "@/lib/community-messenger/call-session-navigation-seed";
 import { writeCallAcceptHydratePeerFromSession } from "@/lib/community-messenger/call-accept-hydrate-peer";
 import { primeCommunityMessengerCallConnectionPrefetch } from "@/lib/community-messenger/call-connection-prefetch";
-import { confirmServerActiveFromPatchAccept } from "@/lib/community-messenger/native-call-accept-join";
 import { unlockCommunityMessengerCallPlaybackFromUserGesture } from "@/lib/community-messenger/call-feedback-sound";
 import { getActiveCallSessionCallId, setActiveCallSession } from "@/lib/call/active-call-session";
 import { mapSessionStatusToActiveCallPhase } from "@/lib/call/map-session-to-active-call";
@@ -36,13 +33,6 @@ import {
   markIncomingCallSurfaceConsumed,
   releaseIncomingCallSurface,
 } from "@/lib/community-messenger/incoming-call-surface-owner";
-import {
-  clearActiveDirectVideoCallSession,
-  writeActiveDirectVideoCallSession,
-} from "@/lib/community-messenger/direct-call-minimize";
-import { notifyCommunityCallHostSync } from "@/components/layout/providers/CommunityMessengerActiveCallHost";
-
-export const INCOMING_CALL_ACCEPT_ACTIVE_SESSION_EVENT = "samarket:cm-call-accept-active-session";
 
 export type IncomingCallGatewayRouter = {
   replace: (href: string) => void;
@@ -83,77 +73,6 @@ function buildActiveCallAcceptHref(sessionId: string, hrefOverride?: string | nu
   const override = hrefOverride?.trim();
   if (override) return override;
   return `/community-messenger/calls/${encodeURIComponent(sessionId)}?action=accept&nativeAccept=1&mode=active`;
-}
-
-/** PATCH 완료 후 음성·전용 라우트 진입 — CallClient 재-PATCH 금지(`nativeAccept=1`) */
-export function buildPostAcceptActiveCallHref(sessionId: string): string {
-  return `/community-messenger/calls/${encodeURIComponent(sessionId.trim())}?mode=active&nativeAccept=1`;
-}
-
-function isInPlaceDirectVideoAccept(args: Pick<RunIncomingCallAcceptArgs, "skipRouteReplace" | "session">): boolean {
-  return args.skipRouteReplace === true && args.session.sessionMode === "direct" && args.session.callKind === "video";
-}
-
-function buildOptimisticDirectVideoAcceptSeed(session: CommunityMessengerCallSession): CommunityMessengerCallSession {
-  const now = new Date().toISOString();
-  return {
-    ...session,
-    status: "active",
-    answeredAt: session.answeredAt ?? now,
-    source: "native_accept_hydrate_seed",
-  };
-}
-
-/** 1:1 영상 — 라우트 전환 없이 ActiveCallHost 가 CallClient 단일 상주 */
-export function commitInPlaceDirectVideoCallHost(session: CommunityMessengerCallSession): void {
-  if (session.sessionMode !== "direct" || session.callKind !== "video") return;
-  writeActiveDirectVideoCallSession(session.id);
-  notifyCommunityCallHostSync();
-  logDibayCall("call_route_open_done", {
-    sessionId: session.id,
-    callId: session.id,
-    source: "in_place_video_host",
-  });
-}
-
-/** 수락 탭 즉시 host/chunk/token warm — 실제 join 은 PATCH active 확인 이벤트 뒤에만 허용 */
-export function prewarmInPlaceDirectVideoCallHost(session: CommunityMessengerCallSession): void {
-  if (session.sessionMode !== "direct" || session.callKind !== "video") return;
-  const seed = buildOptimisticDirectVideoAcceptSeed(session);
-  primeCommunityMessengerCallNavigationSeed(session.id, seed);
-  commitInPlaceDirectVideoCallHost(seed);
-  logDibayCall("call_route_open_start", {
-    sessionId: session.id,
-    callId: session.id,
-    source: "in_place_video_accept_prewarm",
-  });
-}
-
-function clearInPlaceDirectVideoCallHost(session: CommunityMessengerCallSession): void {
-  if (session.sessionMode !== "direct" || session.callKind !== "video") return;
-  clearActiveDirectVideoCallSession();
-  notifyCommunityCallHostSync();
-}
-
-export function dispatchIncomingCallAcceptActiveSession(session: CommunityMessengerCallSession): void {
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(
-    new CustomEvent(INCOMING_CALL_ACCEPT_ACTIVE_SESSION_EVENT, {
-      detail: { session },
-    })
-  );
-}
-
-export function subscribeIncomingCallAcceptActiveSession(
-  handler: (session: CommunityMessengerCallSession) => void
-): () => void {
-  if (typeof window === "undefined") return () => {};
-  const onEvent = (event: Event) => {
-    const detail = (event as CustomEvent<{ session?: CommunityMessengerCallSession }>).detail;
-    if (detail?.session) handler(detail.session);
-  };
-  window.addEventListener(INCOMING_CALL_ACCEPT_ACTIVE_SESSION_EVENT, onEvent);
-  return () => window.removeEventListener(INCOMING_CALL_ACCEPT_ACTIVE_SESSION_EVENT, onEvent);
 }
 
 /**
@@ -337,10 +256,6 @@ export async function runIncomingCallAccept(args: RunIncomingCallAcceptArgs): Pr
   writeCallAcceptHydratePeerFromSession(s, args.source);
   primeCommunityMessengerCallNavigationSeed(sid, s);
   primeCommunityMessengerCallConnectionPrefetch(sid);
-  const inPlaceDirectVideoAccept = isInPlaceDirectVideoAccept(args);
-  if (inPlaceDirectVideoAccept) {
-    prewarmInPlaceDirectVideoCallHost(s);
-  }
 
   if (!tryClaimIncomingCallAccept(sid)) {
     logDibayCall("accept_failed", {
@@ -365,9 +280,6 @@ export async function runIncomingCallAccept(args: RunIncomingCallAcceptArgs): Pr
     const permission = await ensureCallMediaForUserGesture(s.callKind);
     if (!permission.ok) {
       setDibayCallSessionPhase(sid, "incoming");
-      if (inPlaceDirectVideoAccept) {
-        clearInPlaceDirectVideoCallHost(s);
-      }
       logDibayCall("accept_failed", { sessionId: sid, callId: sid, source: args.source, reason: "permission_denied" });
       return { ok: false, sessionId: sid, reason: "permission_denied" };
     }
@@ -384,9 +296,6 @@ export async function runIncomingCallAccept(args: RunIncomingCallAcceptArgs): Pr
     );
     if (!patched.ok || !patched.session) {
       setDibayCallSessionPhase(sid, "incoming");
-      if (inPlaceDirectVideoAccept) {
-        clearInPlaceDirectVideoCallHost(s);
-      }
       logDibayCall("accept_failed", { sessionId: sid, callId: sid, source: args.source, reason: "patch_failed" });
       return { ok: false, sessionId: sid, reason: "patch_failed" };
     }
@@ -399,13 +308,9 @@ export async function runIncomingCallAccept(args: RunIncomingCallAcceptArgs): Pr
     logDibayCall("accept_success", { sessionId: sid, callId: sid, source: args.source });
 
     const updated = patched.session;
-    confirmServerActiveFromPatchAccept(updated);
     writeCallAcceptHydratePeerFromSession(updated, "accept_patch_ok");
     /** replace 직전 active 세션 시드 — ringing seed 로 첫 paint 가 IncomingCallView 로 튀는 것 방지 (P1-1b) */
     primeCommunityMessengerCallNavigationSeed(updated.id, updated);
-    if (inPlaceDirectVideoAccept) {
-      dispatchIncomingCallAcceptActiveSession(updated);
-    }
     const phase = mapSessionStatusToActiveCallPhase(updated, false);
     if (phase !== "idle") {
       setActiveCallSession(
@@ -427,9 +332,6 @@ export async function runIncomingCallAccept(args: RunIncomingCallAcceptArgs): Pr
     return { ok: true, sessionId: sid, session: updated };
   } catch {
     setDibayCallSessionPhase(sid, "incoming");
-    if (inPlaceDirectVideoAccept) {
-      clearInPlaceDirectVideoCallHost(s);
-    }
     logDibayCall("call_route_open_failed", { sessionId: sid, callId: sid, source: args.source });
     return { ok: false, sessionId: sid, reason: "exception" };
   } finally {

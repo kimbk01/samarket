@@ -34,9 +34,11 @@ import {
   logCallLatencyDialClick,
   logCallLatencyRouteReplace,
   logCallLatencySessionCreated,
+  logCallLatencyTerminalCleanupDone,
   logCallMediaOutgoingVideoGumDeferred,
 } from "@/lib/community-messenger/call-latency-trace";
 import {
+  discardPrimedCommunityMessengerCallAudioTracksOnly,
   discardPrimedCommunityMessengerDevicePermission,
 } from "@/lib/community-messenger/call-permission";
 import { writeTerminalCallRecoverySuppress } from "@/lib/community-messenger/call-active-session-recovery";
@@ -45,7 +47,8 @@ import {
 } from "@/lib/community-messenger/direct-call-minimize";
 import { resetCommunityMessengerCallRuntimeSurface } from "@/lib/community-messenger/call-runtime-registry";
 import { notifyCommunityCallHostSync } from "@/components/layout/providers/CommunityMessengerActiveCallHost";
-import { exitCommunityMessengerCallRouteNow } from "@/lib/community-messenger/call-route-exit";
+import { hardClearActiveCallSession } from "@/lib/call/active-call-session";
+import { syncTerminalCallClientState } from "@/lib/call/call-terminal-sync-cleanup";
 import {
   resolveDirectCallDenyUserMessageFromApiError,
 } from "@/lib/community-messenger/direct-call-permission-messages";
@@ -61,53 +64,32 @@ import {
 } from "@/lib/call/active-call-session";
 import { mapSessionStatusToActiveCallPhase } from "@/lib/call/map-session-to-active-call";
 import { logDibayCall } from "@/lib/community-messenger/call-orchestrator";
-import { notifyCommunityMessengerCallInviteRingBestEffort, primeWarmCallInviteOutboundChannel } from "@/lib/community-messenger/call-invite-realtime-broadcast";
+import { notifyCommunityMessengerCallInviteRingBestEffort } from "@/lib/community-messenger/call-invite-realtime-broadcast";
 import { appendLocalCallChatMessageForPeerBusy } from "@/lib/community-messenger/call-peer-busy-local-log";
 import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
-import { guardedClientNavigate } from "@/lib/navigation/guarded-client-navigation";
-import {
-  beginCallDeepRouteNavigationLock,
-} from "@/lib/navigation/cm-deep-route-navigation-lock";
-import { abortPendingMainBottomNavRouteCommits } from "@/lib/main-menu/main-bottom-nav-route-commit";
-import { clearPendingMenuNavigationBridge } from "@/lib/navigation/pending-menu-navigation-bridge";
+import { incomingCallPeerNicknameLabel } from "@/lib/users/user-label";
 
 const KEY = "samarket.cm.call_session_seed.v1";
 const RETURN_PATH_KEY = "samarket.cm.call_return_path.v1";
-
-/** 통화 복귀 return path — allowlist 외·stale /mypage·/login bounce 방지 */
-export function isValidCallNavigationReturnPath(path: string): boolean {
-  const pathname = path.split("?")[0]?.trim().replace(/\/+$/, "") || "";
-  if (!pathname || pathname === "/" || pathname === "/login" || pathname === "/mypage") return false;
-  if (pathname.startsWith("/login/") || pathname.startsWith("/mypage/")) return false;
-  if (pathname.includes("/community-messenger/calls/")) return false;
-  const allowedPrefixes = [
-    "/community-messenger",
-    "/market",
-    "/trade",
-    "/store",
-    "/stores",
-    "/philife",
-    "/orders",
-  ] as const;
-  return allowedPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
-}
-
-export function clearCallNavigationReturnPath(): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.sessionStorage.removeItem(RETURN_PATH_KEY);
-  } catch {
-    /* quota / private mode */
-  }
-}
 
 /** 발신 즉시 진입용 임시 세션 id (`POST /calls` 완료 전 통화 UI 페인트) */
 export const COMMUNITY_MESSENGER_TEMP_CALL_PREFIX = "tmp_" as const;
 
 export function isCommunityMessengerTempCallSessionId(sessionId: string): boolean {
   return sessionId.trim().startsWith(COMMUNITY_MESSENGER_TEMP_CALL_PREFIX);
+}
+
+function readDialTmpSessionIdFromPathname(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const m = window.location.pathname.match(/\/community-messenger\/calls\/([^/]+)/);
+    const raw = m?.[1] ? decodeURIComponent(m[1]).trim() : "";
+    return isCommunityMessengerTempCallSessionId(raw) ? raw : null;
+  } catch {
+    return null;
+  }
 }
 
 const recentOutgoingInviteBroadcastSessionIds = new Set<string>();
@@ -118,17 +100,18 @@ export function wasOutgoingInviteBroadcastRecentlySent(sessionId: string): boole
 
 /**
  * POST 성공 직후 — 시드·수신 브로드캐스트를 UI effect/라우트와 분리해 항상 실행한다.
- * POST 성공 직후 시드·수신 브로드캐스트를 라우트와 분리해 항상 실행한다.
+ * (tmp effect `alive=false` 로 수신 신호가 빠지던 첫 발신 실패 방지)
  */
 export function finalizeOutgoingCallSessionBootstrap(
   session: CommunityMessengerCallSession,
-  options?: { rememberRingtonePrimed?: boolean }
+  options?: { dialTmpSessionId?: string | null; rememberRingtonePrimed?: boolean }
 ): void {
   primeCommunityMessengerCallNavigationSeed(session.id, session);
   if (options?.rememberRingtonePrimed) {
     rememberOutgoingRingtonePrimedForSession(session.id);
   }
   if (session.sessionMode === "direct") {
+    const dialTmp = options?.dialTmpSessionId?.trim() || readDialTmpSessionIdFromPathname();
     const sid = session.id.trim();
     recentOutgoingInviteBroadcastSessionIds.add(sid);
     if (typeof window !== "undefined") {
@@ -136,8 +119,48 @@ export function finalizeOutgoingCallSessionBootstrap(
         recentOutgoingInviteBroadcastSessionIds.delete(sid);
       }, 8000);
     }
-    void notifyCommunityMessengerCallInviteRingBestEffort(session);
+    void notifyCommunityMessengerCallInviteRingBestEffort(session, {
+      dialTmpSessionId: dialTmp ?? undefined,
+    });
   }
+}
+
+export function createCommunityMessengerTempCallSessionId(): string {
+  const id =
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+  return `${COMMUNITY_MESSENGER_TEMP_CALL_PREFIX}${id}`;
+}
+
+/** POST 전 통화 화면용 합성 세션 — 실제 id 로 replace 되기 전까지만 유효 */
+export function buildSyntheticTempOutgoingCallSession(input: {
+  tempSessionId: string;
+  kind: CommunityMessengerCallKind;
+  roomId: string;
+  peerUserId: string | null;
+  peerLabel: string;
+  initiatorUserId: string;
+}): CommunityMessengerCallSession {
+  const startedAt = new Date().toISOString();
+  return {
+    id: input.tempSessionId,
+    roomId: input.roomId,
+    sessionMode: "direct",
+    initiatorUserId: input.initiatorUserId,
+    recipientUserId: input.peerUserId,
+    peerUserId: input.peerUserId,
+    peerLabel: input.peerLabel.trim() || "통화",
+    peerAvatarUrl: null,
+    callKind: input.kind,
+    status: "ringing",
+    startedAt,
+    answeredAt: null,
+    endedAt: null,
+    endedReason: null,
+    isMineInitiator: true,
+    participants: [],
+  };
 }
 
 /** React Strict Mode 등으로 consume 이 두 번 호출될 때 두 번째는 storage 가 비어 있어도 동일 세션을 돌려준다. */
@@ -188,7 +211,6 @@ export function rememberCallNavigationReturnPath(): void {
     const p = `${window.location.pathname}${window.location.search}`;
     if (p.includes("/community-messenger/calls/")) return;
     if (!p.startsWith("/") || p.startsWith("//") || p.length > 512) return;
-    if (!isValidCallNavigationReturnPath(p)) return;
     window.sessionStorage.setItem(RETURN_PATH_KEY, p);
   } catch {
     /* quota / private mode */
@@ -203,7 +225,6 @@ export function takeCallNavigationReturnPath(): string | null {
     sessionStorage.removeItem(RETURN_PATH_KEY);
     if (!v || !v.startsWith("/") || v.startsWith("//") || v.length > 512) return null;
     if (v.includes("/community-messenger/calls/")) return null;
-    if (!isValidCallNavigationReturnPath(v)) return null;
     return v;
   } catch {
     return null;
@@ -218,7 +239,6 @@ export function pinCommunityMessengerCallTerminalSurfaceDismiss(sessionId: strin
   const sid = sessionId.trim();
   if (!sid) return;
   writeTerminalCallRecoverySuppress(sid);
-  clearCallNavigationReturnPath();
   clearAllCommunityCallLocalSessionFlags();
   notifyCommunityCallHostSync();
   try {
@@ -228,18 +248,20 @@ export function pinCommunityMessengerCallTerminalSurfaceDismiss(sessionId: strin
   }
 }
 
-/** 터미널 확정 — `call-route-exit.ts` SSOT 위임 */
+/** 터미널 확정 — surface 정리 + active 세션 해제 + 통화 목록으로 즉시 복귀 */
 export function finalizeCommunityMessengerCallTerminalExit(
   router: { replace: (href: string) => void },
   sessionId: string,
   source = "call_client_terminal"
 ): void {
-  exitCommunityMessengerCallRouteNow({
-    router,
-    sessionId,
-    target: "call_logs",
-    source,
-  });
+  const sid = sessionId.trim();
+  pinCommunityMessengerCallTerminalSurfaceDismiss(sid);
+  if (sid) {
+    syncTerminalCallClientState(sid, source);
+    logCallLatencyTerminalCleanupDone({ sessionId: sid, source });
+    void hardClearActiveCallSession(sid, source);
+  }
+  navigateToCommunityMessengerCallLogsAfterTerminal(router);
 }
 
 /** 종료·거절·취소·missed 직후 — return path 무시하고 통화 목록으로 */
@@ -272,7 +294,7 @@ export function navigateBackFromCommunityMessengerCall(
       hasReturnPath: true,
       hasRoomIdFallback: Boolean(roomIdFallback?.trim()),
     });
-    guardedClientNavigate(router.replace, back, "call_return");
+    router.replace(back);
     return;
   }
   const room = roomIdFallback?.trim();
@@ -284,7 +306,7 @@ export function navigateBackFromCommunityMessengerCall(
       hasReturnPath: false,
       hasRoomIdFallback: true,
     });
-    guardedClientNavigate(router.replace, target, "call_return");
+    router.replace(target);
     return;
   }
   console.info("[call-flow] call_return_navigation_decision", {
@@ -293,7 +315,40 @@ export function navigateBackFromCommunityMessengerCall(
     hasReturnPath: false,
     hasRoomIdFallback: false,
   });
-  guardedClientNavigate(router.replace, "/community-messenger?section=chats", "call_return");
+  router.replace("/community-messenger?section=chats");
+}
+
+export type BuildCommunityMessengerOutgoingDialHrefArgs = {
+  kind: CommunityMessengerCallKind;
+  /** 이미 알고 있으면 세션 생성 전에 `POST .../calls` 까지 한 단계 줄인다. */
+  roomId?: string;
+  /** 방 ID 를 아직 모를 때(홈에서 DM 방 생성 API 를 기다리지 않고 진입). */
+  peerUserId?: string;
+  /** 발신 calling UI 용(선택). */
+  peerLabel?: string;
+};
+
+/**
+ * 발신 즉시 통화 라우트 — 임시 `tmp_*` 세션으로 먼저 `/calls/:id` 에 진입하고,
+ * 백그라운드 `POST .../calls` 완료 후 실제 sessionId 로 `replace` 한다.
+ * `roomId` 또는 `peerUserId` 중 하나는 있어야 한다.
+ */
+export function buildCommunityMessengerInstantOutgoingCallHref(args: BuildCommunityMessengerOutgoingDialHrefArgs): string {
+  const tempSessionId = createCommunityMessengerTempCallSessionId();
+  const q = new URLSearchParams();
+  q.set("kind", args.kind);
+  const rid = args.roomId?.trim();
+  const pid = args.peerUserId?.trim();
+  if (rid) q.set("roomId", rid);
+  if (pid) q.set("peerUserId", pid);
+  const pl = incomingCallPeerNicknameLabel(args.peerLabel);
+  if (pl) q.set("peerLabel", pl);
+  return `/community-messenger/calls/${encodeURIComponent(tempSessionId)}?${q.toString()}`;
+}
+
+/** @alias — 기존 이름 유지(모두 즉시 통화 경로로 통일) */
+export function buildCommunityMessengerOutgoingDialHref(args: BuildCommunityMessengerOutgoingDialHrefArgs): string {
+  return buildCommunityMessengerInstantOutgoingCallHref(args);
 }
 
 export type OutgoingCallSessionBootstrapResult =
@@ -595,9 +650,116 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCoreUnlocked(arg
   return { ok: true, session: json.session, roomId, reused: json.reused === true };
 }
 
+/** tmp_* 발신 bootstrap — launch·CallClient effect 중복 실행 방지 */
+const outgoingTempCallBootstrapStarted = new Set<string>();
+
+function rememberOutgoingTempCallBootstrapStarted(tempSessionId: string): void {
+  const id = tempSessionId.trim();
+  if (!id) return;
+  outgoingTempCallBootstrapStarted.add(id);
+  if (typeof window !== "undefined") {
+    window.setTimeout(() => {
+      outgoingTempCallBootstrapStarted.delete(id);
+    }, 120_000);
+  }
+}
+
+export function wasOutgoingTempCallBootstrapStarted(tempSessionId: string): boolean {
+  return outgoingTempCallBootstrapStarted.has(tempSessionId.trim());
+}
+
+function callNavigationGo(router: { push: (href: string) => void; replace?: (href: string) => void }): (href: string) => void {
+  return router.replace ?? router.push;
+}
+
+async function applyOutgoingTempCallBootstrapResult(
+  result: OutgoingCallSessionBootstrapResult,
+  router: { push: (href: string) => void; replace?: (href: string) => void },
+  roomIdFallback: string | null,
+  kind: CommunityMessengerCallKind
+): Promise<void> {
+  if (!result.ok) {
+    stopAllOutgoingRingback("bootstrap_failed");
+    discardPrimedCommunityMessengerDevicePermission();
+    if (!isOutgoingCallPhoneVerificationRequired(result) && result.userMessage.trim()) {
+      showMessengerSnackbar(result.userMessage, { variant: "error" });
+    }
+    if (result.blockedCallId) {
+      callNavigationGo(router)(`/community-messenger/calls/${encodeURIComponent(result.blockedCallId)}`);
+      return;
+    }
+    navigateBackFromCommunityMessengerCall({ replace: callNavigationGo(router) }, roomIdFallback);
+    return;
+  }
+  startOutgoingRingback({
+    callId: result.session.id,
+    kind,
+    source: "nav_seed_session",
+  });
+  rememberOutgoingRingtonePrimedForSession(result.session.id);
+  cmCallLatencyInfo("route_replace_session_start", {
+    sessionId: result.session.id,
+    callKind: kind,
+    role: "initiator",
+    roomId: result.roomId,
+  });
+  /** tmp→real: 오디오만 정리 — PiP 비디오 미리보기는 live 트랙 유지 */
+  if (kind === "video") {
+    discardPrimedCommunityMessengerCallAudioTracksOnly();
+  } else {
+    discardPrimedCommunityMessengerDevicePermission();
+  }
+  callNavigationGo(router)(`/community-messenger/calls/${encodeURIComponent(result.session.id)}`);
+}
+
 /**
- * 발신 CTA 공통 — 세션 POST 완료 후 실제 sessionId 로 한 번만 진입한다.
- * tmp→real route handoff 금지: sessionId 변경 cleanup 이 remote end 를 유발하지 않게 한다.
+ * tmp_* 셸 진입 직후 세션 POST·수신 푸시 — CallClient 마운트를 기다리지 않는다.
+ * 북마크·딥링크 fallback 은 `CommunityMessengerCallClient` 가 동일 헬퍼를 호출한다.
+ */
+export function ensureOutgoingTempCallBootstrap(args: {
+  tempSessionId: string;
+  roomId: string | null;
+  peerUserId: string | null;
+  kind: CommunityMessengerCallKind;
+  signal?: AbortSignal;
+  router: { push: (href: string) => void; replace?: (href: string) => void };
+}): boolean {
+  const tempId = args.tempSessionId.trim();
+  if (!tempId || !isCommunityMessengerTempCallSessionId(tempId)) return false;
+  if (!args.roomId?.trim() && !args.peerUserId?.trim()) return false;
+  if (wasOutgoingTempCallBootstrapStarted(tempId)) return false;
+  rememberOutgoingTempCallBootstrapStarted(tempId);
+
+  void (async () => {
+    try {
+      const result = await bootstrapCommunityMessengerOutgoingCallSession({
+        signal: args.signal,
+        roomId: args.roomId,
+        peerUserId: args.peerUserId,
+        kind: args.kind,
+      });
+      await applyOutgoingTempCallBootstrapResult(result, args.router, args.roomId, args.kind);
+    } catch {
+      stopAllOutgoingRingback("bootstrap_failed");
+      discardPrimedCommunityMessengerDevicePermission();
+      releaseCallActionLock("bootstrap_unhandled_error");
+      showMessengerSnackbar(
+        safeTranslate(getRuntimeAppLanguage(), "common_content_unavailable", {
+          fallbackKo: "통화를 시작할 수 없습니다.",
+          fallbackEn: "Could not start the call.",
+        }),
+        { variant: "error" }
+      );
+      navigateBackFromCommunityMessengerCall({ replace: callNavigationGo(args.router) }, args.roomId);
+    }
+  })();
+
+  return true;
+}
+
+/**
+ * 발신 CTA 공통 — 즉시 `tmp_*` 통화 셸 → 동시에 세션 POST·수신 푸시(카톡/텔레그램급 체감).
+ * POST 완료 후 실제 sessionId 로 replace; 실패 시 셸 종료·안내.
  */
 export async function launchOutgoingDirectCall(
   input: {
@@ -619,12 +781,26 @@ export async function launchOutgoingDirectCall(
   });
   unlockCommunityMessengerCallPlaybackFromUserGesture();
   primeOutgoingRingbackFromUserGesture({ kind: input.kind, source: "nav_seed_gesture" });
-  const dialPeerUserId = input.peerUserId?.trim();
-  if (dialPeerUserId) primeWarmCallInviteOutboundChannel(dialPeerUserId);
   if (typeof window !== "undefined") {
     rememberCallNavigationReturnPath();
   }
-  /** POST 대기 중에는 호출 화면/버튼의 spinner 를 유지한다. video dial GUM 금지(P1-1), voice 는 권한 check-only 병렬 */
+  const href = buildCommunityMessengerInstantOutgoingCallHref({
+    kind: input.kind,
+    roomId: input.roomId?.trim() || undefined,
+    peerUserId: input.peerUserId?.trim() || undefined,
+    peerLabel: input.peerLabel?.trim() || undefined,
+  });
+  const go = router.replace ?? router.push;
+  go(href);
+  const tempSessionId = decodeURIComponent(
+    href.split("/community-messenger/calls/")[1]?.split("?")[0] ?? ""
+  );
+  logCallLatencyRouteReplace({
+    sessionId: tempSessionId,
+    callKind: input.kind,
+    roomId: input.roomId?.trim() || undefined,
+  });
+  /** Telegram-style — 셸 먼저; video dial GUM 금지(P1-1), voice 는 권한 check-only 병렬 */
   if (input.kind === "video") {
     logCallMediaOutgoingVideoGumDeferred({ phase: "launch_outgoing_direct_call" });
   } else {
@@ -635,38 +811,26 @@ export async function launchOutgoingDirectCall(
       }
     });
   }
-  const result = await bootstrapCommunityMessengerOutgoingCallSession({
-    signal: input.signal,
+  ensureOutgoingTempCallBootstrap({
+    tempSessionId,
     roomId: input.roomId?.trim() || null,
     peerUserId: input.peerUserId?.trim() || null,
     kind: input.kind,
+    signal: input.signal,
+    router,
   });
-  if (!result.ok) {
-    stopAllOutgoingRingback("bootstrap_failed");
-    discardPrimedCommunityMessengerDevicePermission();
-    if (!isOutgoingCallPhoneVerificationRequired(result) && result.userMessage.trim()) {
-      showMessengerSnackbar(result.userMessage, { variant: "error" });
-    }
-    return result;
-  }
-  startOutgoingRingback({
-    callId: result.session.id,
-    kind: input.kind,
-    source: "nav_seed_session",
-  });
-  rememberOutgoingRingtonePrimedForSession(result.session.id);
-  const href = buildCommunityMessengerCallRouteHref(result.session.id);
-  abortPendingMainBottomNavRouteCommits();
-  clearPendingMenuNavigationBridge();
-  beginCallDeepRouteNavigationLock(result.session.id, href);
-  const go = router.replace ?? router.push;
-  guardedClientNavigate(go, href, "call_launch");
-  logCallLatencyRouteReplace({
-    sessionId: result.session.id,
-    callKind: input.kind,
-    roomId: input.roomId?.trim() || undefined,
-  });
-  return result;
+  return {
+    ok: true,
+    session: buildSyntheticTempOutgoingCallSession({
+      tempSessionId,
+      kind: input.kind,
+      roomId: input.roomId?.trim() ?? "",
+      peerUserId: input.peerUserId?.trim() || null,
+      peerLabel: incomingCallPeerNicknameLabel(input.peerLabel),
+      initiatorUserId: "",
+    }),
+    roomId: input.roomId?.trim() ?? "",
+  };
 }
 
 /**
@@ -784,42 +948,6 @@ export function primeCommunityMessengerCallNavigationSeed(
     );
   } catch {
     /* quota / private mode */
-  }
-}
-
-/** 발신 POST 완료 후 real session route 로 1회 진입 */
-export function buildCommunityMessengerCallRouteHref(sessionId: string): string {
-  const sid = sessionId.trim();
-  return `/community-messenger/calls/${encodeURIComponent(sid)}`;
-}
-
-export function shouldSkipCallRouteEnterSlide(
-  sessionId: string,
-  _searchParams: { get(name: string): string | null }
-): boolean {
-  const seed = peekCommunityMessengerCallNavigationSeed(sessionId);
-  return Boolean(
-    seed?.isMineInitiator && (seed.status === "ringing" || seed.status === "active")
-  );
-}
-
-export function peekCommunityMessengerCallNavigationSeed(
-  sessionId: string
-): CommunityMessengerCallSession | null {
-  if (typeof window === "undefined") return null;
-  const sid = sessionId.trim();
-  if (!sid) return null;
-  if (lastConsumedNavigationSeed?.sessionId === sid) {
-    return lastConsumedNavigationSeed.session;
-  }
-  try {
-    const raw = window.sessionStorage.getItem(KEY);
-    if (!raw) return null;
-    const o = JSON.parse(raw) as { sessionId?: string; session?: CommunityMessengerCallSession };
-    if (!o.session || o.sessionId !== sid) return null;
-    return o.session;
-  } catch {
-    return null;
   }
 }
 

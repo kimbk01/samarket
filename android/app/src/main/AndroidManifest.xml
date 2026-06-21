@@ -111,6 +111,14 @@
             android:noHistory="true"
             android:theme="@style/AppTheme.IncomingCall" />
 
+        <activity
+            android:name=".ForegroundIncomingCallActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:noHistory="true"
+            android:theme="@style/AppTheme.ForegroundIncomingCall" />
+
         <receiver
             android:name=".IncomingCallDeclineReceiver"
             android:exported="false" />

@@ -6,7 +6,6 @@ import { importWithChunkRetry } from "@/lib/next/import-with-chunk-retry";
 import { IncomingCallOverlayChunkBoundary } from "@/components/layout/providers/IncomingCallOverlayChunkBoundary";
 import { CallActiveSessionRecoveryHost } from "@/components/layout/providers/CallActiveSessionRecoveryHost";
 import { CommunityMessengerActiveCallHost } from "@/components/layout/providers/CommunityMessengerActiveCallHost";
-import { GlobalCallDockHost } from "@/components/layout/providers/GlobalCallDockHost";
 import { DibayFcmCallRouteHost } from "@/components/layout/providers/DibayFcmCallRouteHost";
 import { DibayVoipCallBridgeHost } from "@/lib/push/native/dibay-voip-call-bridge";
 
@@ -29,7 +28,6 @@ export function CallIncomingChrome() {
       <DibayVoipCallBridgeHost />
       <CallActiveSessionRecoveryHost />
       <CommunityMessengerActiveCallHost />
-      <GlobalCallDockHost />
       {/*
        * 전역 수신 호스트는 항상 마운트 — `/calls/:id` 에서도 벨·dedup·cleanup·타임아웃만 담당하고
        * UI 는 `GlobalCommunityMessengerIncomingCall` 내부 `hideGlobalIncomingOverlay` 로 숨긴다.

@@ -92,12 +92,7 @@ export function resolveCallPresentationState(input: CallPresentationInput): Call
     };
   }
 
-  /** 발신 음성 — 벨·연결 중·재연결까지 동일 셸(카톡/텔레그램: ringing→connecting 전환 시 화면 유지) */
-  if (
-    direction === "outgoing" &&
-    mode === "voice" &&
-    (phase === "ringing" || phase === "connecting" || phase === "reconnecting")
-  ) {
+  if (direction === "outgoing" && phase === "ringing" && mode === "voice") {
     return {
       ...base,
       layout: "outgoingVoiceRing",

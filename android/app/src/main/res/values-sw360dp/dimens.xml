@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <dimen name="dibay_incoming_btn_circle_full">60dp</dimen>
-    <dimen name="dibay_incoming_btn_gap_full">24dp</dimen>
-    <dimen name="dibay_incoming_btn_icon_padding">18dp</dimen>
-    <dimen name="dibay_incoming_avatar_full">88dp</dimen>
-    <dimen name="dibay_incoming_pulse_full">116dp</dimen>
-    <dimen name="dibay_incoming_name_sp_full">24sp</dimen>
-</resources>

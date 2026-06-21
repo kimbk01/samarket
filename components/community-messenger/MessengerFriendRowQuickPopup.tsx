@@ -5,10 +5,9 @@ import { useEffect, useId, useState } from "react";
 import { Bell, BellOff } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MessengerHomeBottomSheetShell } from "@/components/community-messenger/MessengerSheetUi";
-import { CallRipple } from "@/components/messenger/call/CallRipple";
-import { triggerCallHaptic } from "@/components/messenger/call/CallHapticController";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 
+type Step = "main" | "call";
 
 type Props = {
   profile: CommunityMessengerProfileLite;
@@ -103,13 +102,16 @@ export function MessengerFriendRowQuickPopup({
   const { t } = useI18n();
   const pid = profile.id;
   const titleId = useId();
+  const [step, setStep] = useState<Step>("main");
   const [launching, setLaunching] = useState<null | "chat" | "voice" | "video">(null);
 
   useEffect(() => {
     if (!open) {
+      setStep((prev) => (prev === "main" ? prev : "main"));
       setLaunching((prev) => (prev === null ? prev : null));
       return;
     }
+    setStep((prev) => (prev === "main" ? prev : "main"));
     setLaunching((prev) => (prev === null ? prev : null));
   }, [open, pid]);
 
@@ -157,7 +159,8 @@ export function MessengerFriendRowQuickPopup({
       panelClassName="w-full max-w-[420px] overflow-hidden rounded-[24px] shadow-[0_24px_70px_rgba(15,23,42,0.34)]"
     >
       <div data-messenger-friend-quick-popup="true" data-messenger-friend-sheet="true" className="flex max-h-[min(80dvh,560px)] flex-col overflow-hidden">
-        <>
+        {step === "main" ? (
+          <>
             <div className="border-b border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-4 py-3">
               <p id={titleId} className="truncate sam-text-body-lg font-semibold" style={{ color: "var(--messenger-text)" }}>
                 {profile.label}
@@ -181,23 +184,23 @@ export function MessengerFriendRowQuickPopup({
                   label={bVoice ? t("cm_ui_connecting") : t("nav_voice_call_label")}
                   icon={<IconPhoneOutline className="h-5 w-5" />}
                   onClick={() => {
+                    haptic(14);
                     setLaunching("voice");
                     window.setTimeout(() => onVoiceCall(), 220);
                     closeAfterPress(300);
                   }}
                   disabled={anyBusy}
-                  callFeedback
                 />
                 <ActionTile
                   label={bVideo ? t("cm_ui_connecting") : t("nav_video_call_label")}
                   icon={<IconVideoOutline className="h-5 w-5" />}
                   onClick={() => {
+                    haptic(14);
                     setLaunching("video");
                     window.setTimeout(() => onVideoCall(), 220);
                     closeAfterPress(300);
                   }}
                   disabled={anyBusy}
-                  callFeedback
                 />
               </div>
             </div>
@@ -288,7 +291,52 @@ export function MessengerFriendRowQuickPopup({
             >
               {t("nav_close")}
             </button>
-        </>
+          </>
+        ) : (
+          <>
+            <div className="flex items-center gap-1 border-b border-[color:var(--messenger-divider)] px-2 py-2">
+              <button
+                type="button"
+                onClick={() => setStep("main")}
+                className="flex h-8 w-8 items-center justify-center rounded-lg sam-text-page-title active:bg-[color:var(--messenger-primary-soft)]"
+                style={{ color: "var(--messenger-text)" }}
+                aria-label={t("nav_back")}
+              >
+                ‹
+              </button>
+              <p className="flex-1 text-center sam-text-body-secondary font-semibold" style={{ color: "var(--messenger-text)" }}>
+                {t("cm_ui_make_call")}
+              </p>
+              <span className="w-8" />
+            </div>
+            <div className="px-4 py-4">
+              <div className="overflow-hidden rounded-[18px] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)]">
+                <SheetRow
+                  label={bVoice ? t("cm_ui_voice_call_connecting") : t("cm_ui_voice_call")}
+                  sub={t("cm_ui_voice_short")}
+                  icon={<IconPhoneOutline className="h-5 w-5" />}
+                  onClick={() => {
+                    haptic(14);
+                    onVoiceCall();
+                    closeAfterPress();
+                  }}
+                  disabled={anyBusy}
+                />
+                <SheetRow
+                  label={bVideo ? t("cm_ui_video_call_connecting") : t("cm_ui_video_call")}
+                  sub={t("cm_ui_video_short")}
+                  icon={<IconVideoOutline className="h-5 w-5" />}
+                  onClick={() => {
+                    haptic(14);
+                    onVideoCall();
+                    closeAfterPress();
+                  }}
+                  disabled={anyBusy}
+                />
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </MessengerHomeBottomSheetShell>
   );
@@ -299,26 +347,20 @@ function ActionTile({
   icon,
   onClick,
   disabled,
-  callFeedback = false,
 }: {
   label: string;
   icon: ReactNode;
   onClick: () => void;
   disabled?: boolean;
-  callFeedback?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      onPointerDown={() => {
-        if (callFeedback) triggerCallHaptic("selection");
-      }}
       disabled={disabled}
-      className="relative flex min-h-[52px] flex-col items-center justify-center gap-1 overflow-hidden rounded-[16px] border border-transparent bg-[color:var(--messenger-primary-soft)] px-2 sam-text-helper font-semibold transition active:scale-[0.96] disabled:opacity-50 active:bg-[color:var(--messenger-primary-soft-2)]"
+      className="flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-[16px] border border-transparent bg-[color:var(--messenger-primary-soft)] px-2 sam-text-helper font-semibold disabled:opacity-50 active:bg-[color:var(--messenger-primary-soft-2)]"
       style={{ color: "var(--messenger-text)" }}
     >
-      <CallRipple />
       <span className="text-[color:var(--messenger-primary)]">{icon}</span>
       <span className="sam-text-helper">{label}</span>
     </button>

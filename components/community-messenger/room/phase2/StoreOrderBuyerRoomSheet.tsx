@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { OutgoingCallTapButton } from "@/components/messenger/call/OutgoingCallTapButton";
 import type { MessageKey } from "@/lib/i18n/messages";
 
 type StoreOrderI18nT = (key: MessageKey, vars?: Record<string, string | number>) => string;
@@ -272,14 +271,15 @@ function BuyerOrderDrawerHeader({
       >
         {t("store_messenger_progress_drawer_title")}
       </h2>
-      <OutgoingCallTapButton
+      <button
+        type="button"
         onClick={onVoiceCall}
         disabled={voiceCallDisabled}
-        ariaLabel={t("cm_ui_voice_call")}
-        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--delivery-radius)] text-[color:var(--delivery-primary)] hover:bg-[color:var(--delivery-primary-soft)]"
+        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--delivery-radius)] text-[color:var(--delivery-primary)] transition hover:bg-[color:var(--delivery-primary-soft)] disabled:opacity-35"
+        aria-label={t("cm_ui_voice_call")}
       >
         <VoiceCallIcon className="h-5 w-5" />
-      </OutgoingCallTapButton>
+      </button>
       <button
         type="button"
         onClick={onClose}

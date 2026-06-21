@@ -163,10 +163,6 @@ public final class DibayActiveCallSessionManager {
   }
 
   public static boolean requestCleanup(Context context, String callId, String reason) {
-    return requestLocalCleanup(context, callId, reason);
-  }
-
-  public static boolean requestLocalCleanup(Context context, String callId, String reason) {
     String sid = callId != null && !callId.trim().isEmpty() ? callId.trim() : ACTIVE_CALL_ID.get();
     if (sid == null || sid.isEmpty()) return false;
     if (!canCleanup(reason)) {

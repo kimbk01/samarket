@@ -26,33 +26,16 @@ describe("sw.js incoming-call wake regression", () => {
 });
 
 describe("call terminal navigation policy", () => {
-  it("callee joins on Realtime active after server confirms (not optimistic seed only)", () => {
-    const client = read("components/community-messenger/CommunityMessengerCallClient.tsx");
-    expect(client).toContain("shouldJoinOnServerActive");
-    expect(client).toContain("confirmServerActiveFromRealtimeActiveTransition(merged.id)");
-    expect(client).toContain("void joinCall(merged)");
-    expect(client).toContain("confirmServerActiveFromPatchAccept(patchedSession)");
-  });
-
-  it("outgoing accept hot path avoids stale ringing GET and skips initiator refresh", () => {
-    const client = read("components/community-messenger/CommunityMessengerCallClient.tsx");
-    expect(client).toContain('prev.status === "active" && next.status === "ringing"');
-    expect(client).toContain("queueMicrotask(() => {");
-    expect(client).toContain("!sessionRef.current?.isMineInitiator");
-    expect(client).toContain("void joinCall(merged)");
-  });
-
   it("terminal paths use call_logs; non-terminal keeps navigateBack", () => {
     const client = read("components/community-messenger/CommunityMessengerCallClient.tsx");
     // SSOT marker: ssot-source-contract-markers.test.ts (messenger-call-terminal-nav)
-    expect(client).toContain("exitCommunityMessengerCallRouteNow");
+    expect(client).toContain("finalizeCommunityMessengerCallTerminalExit");
     expect(client).toContain("beginRingingCallDismiss");
     expect(client).toContain("closeTerminalView");
-    // loading cancel / ringing block — hydrate dismiss cleans lock + active session before navigateBack
-    expect(client).toContain("reason: \"hydrate_dismiss\"");
-    expect(client).toContain("navigateBackFromCommunityMessengerCall(router, roomId)");
+    // loading cancel / ringing block / pip minimize still use navigateBack
+    expect(client).toContain("dismissHydrate = () => navigateBackFromCommunityMessengerCall");
     expect(client).toContain("handleMinimizeToPip");
-    expect(client).toContain("handleDockToOngoing");
+    expect(client).toContain("navigateBackFromCommunityMessengerCall(router, s.roomId)");
   });
 
   it("accept route defers remote terminal ringing dismiss until server confirms", () => {
@@ -61,17 +44,11 @@ describe("call terminal navigation policy", () => {
     expect(client).toContain("shouldDeferCalleeRingingTerminalDismiss");
     expect(client).toContain("call_client_remote_terminal_deferred");
     expect(client).toContain("serverConfirmedTerminal: true");
-    expect(global).toContain("acceptIncomingCallOnce");
-    expect(global).toContain("buildPostAcceptActiveCallHref");
-    expect(global).toContain("skipRouteReplace: isVideoDirect");
-    expect(global).not.toContain("incoming_banner_accept_route_first");
-    expect(client).toContain("primeCommunityMessengerCallConnectionPrefetch(sessionId)");
-    expect(client).toContain("onAcceptEntryRoute");
-    const gateway = read("lib/community-messenger/incoming-call-accept-gateway.ts");
-    expect(gateway).toContain("prewarmInPlaceDirectVideoCallHost");
-    expect(gateway).toContain("dispatchIncomingCallAcceptActiveSession(updated)");
-    expect(client).toContain("subscribeIncomingCallAcceptActiveSession");
-    expect(client).toContain("void joinCall(patchedSession)");
+    const routeFirstBlock = global.slice(global.indexOf("incoming_banner_accept_route_first"));
+    const replaceIdx = routeFirstBlock.indexOf("router.replace(`/community-messenger/calls/");
+    const dismissIdx = routeFirstBlock.indexOf("dismissIncomingPresenterAfterAccept({");
+    expect(replaceIdx).toBeGreaterThan(-1);
+    expect(dismissIdx).toBeGreaterThan(replaceIdx);
   });
 
   it("native accept routes skip duplicate PATCH in CallClient", () => {

@@ -7,6 +7,7 @@ import { CallBackground } from "./CallBackground";
 import { CallHeader } from "./CallHeader";
 import { ConnectedVideoView } from "./ConnectedVideoView";
 import { EndedCallView } from "./EndedCallView";
+import { IncomingCallView } from "./IncomingCallView";
 import { OutgoingCallPanel } from "./OutgoingCallPanel";
 import { VoiceCallView } from "./VoiceCallView";
 import type { CallScreenViewModel } from "./call-ui.types";
@@ -57,7 +58,6 @@ export function CallScreen({
     presentation.shellSurface !== "default" || usesConnectedVideoView;
   const shellSurfaceClassName = resolveShellSurfaceClassName(presentation.shellSurface, vm.visualTheme);
   const showCallHeader =
-    !vm.systemPipActive &&
     presentation.layout !== "incomingRing" &&
     presentation.layout !== "outgoingVoiceRing" &&
     !(vm.mode === "video" && vm.direction === "outgoing");
@@ -66,7 +66,7 @@ export function CallScreen({
     <CallScreenShell
       variant={variant === "dock-top" ? "dock-top" : variant}
       surfaceClassName={shellSurfaceClassName}
-      networkWarningClassName={vm.systemPipActive ? null : vm.showNetworkWarningBorder ? vm.networkWarningClassName : null}
+      networkWarningClassName={vm.showNetworkWarningBorder ? vm.networkWarningClassName : null}
       networkQualityLevel={vm.networkQualityLevel ?? null}
       className={
         variant === "dock-top"
@@ -111,8 +111,7 @@ function renderCallView(
     return <EndedCallView vm={vm} />;
   }
   if (layout === "incomingRing") {
-    /** CM SSOT: ringing 수신 UI = Global `CommunityMessengerIncomingCallUi` 배너 only */
-    return null;
+    return <IncomingCallView vm={vm} />;
   }
   if (layout === "outgoingVoiceRing") {
     return <OutgoingCallPanel vm={vm} />;

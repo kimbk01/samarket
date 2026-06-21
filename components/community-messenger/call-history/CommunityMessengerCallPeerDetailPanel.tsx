@@ -11,8 +11,6 @@ import {
   CommunityMessengerCallPhoneOutlineIcon,
   CommunityMessengerCallVideoOutlineIcon,
 } from "@/components/community-messenger/call-history/CommunityMessengerCallOutlineIcons";
-import { CallRipple } from "@/components/messenger/call/CallRipple";
-import { triggerCallHaptic } from "@/components/messenger/call/CallHapticController";
 import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultAvatarFace";
 import {
   CALL_PEER_HISTORY_INITIAL_LIMIT,
@@ -40,7 +38,7 @@ type Props = {
   calls: CommunityMessengerCallLog[];
   entryOrigin?: string | null;
   viewerUserId?: string | null;
-  onRequestOutgoingCall: (kind: "voice" | "video") => void;
+  onRequestOutgoingConfirm: (kind: "voice" | "video") => void;
 };
 
 function CallActionTile({
@@ -61,11 +59,9 @@ function CallActionTile({
     <button
       type="button"
       disabled={disabled}
-      onPointerDown={() => triggerCallHaptic("selection")}
       onClick={onPress}
-      className="relative flex min-w-0 flex-1 flex-col items-center gap-1.5 overflow-hidden rounded-[18px] px-2 py-2 text-white transition active:scale-[0.96] active:brightness-90 disabled:opacity-50"
+      className="flex min-w-0 flex-1 flex-col items-center gap-1.5 px-2 py-1 text-white active:opacity-80 disabled:opacity-50"
     >
-      <CallRipple />
       <Icon className="h-6 w-6" aria-hidden />
       <span className="sam-text-helper font-medium text-white">{label}</span>
     </button>
@@ -77,7 +73,7 @@ export function CommunityMessengerCallPeerDetailPanel({
   calls,
   entryOrigin = null,
   viewerUserId = null,
-  onRequestOutgoingCall,
+  onRequestOutgoingConfirm,
 }: Props) {
   const { t, safeT, language } = useI18n();
   const router = useRouter();
@@ -189,12 +185,12 @@ export function CommunityMessengerCallPeerDetailPanel({
           <CallActionTile
             label={safeT("cm_ui_call_peer_detail_voice", { fallbackKo: "음성 통화", fallbackEn: "Voice call" })}
             icon="voice"
-            onPress={() => onRequestOutgoingCall("voice")}
+            onPress={() => onRequestOutgoingConfirm("voice")}
           />
           <CallActionTile
             label={safeT("cm_ui_call_peer_detail_video", { fallbackKo: "영상 통화", fallbackEn: "Video call" })}
             icon="video"
-            onPress={() => onRequestOutgoingCall("video")}
+            onPress={() => onRequestOutgoingConfirm("video")}
           />
         </div>
       </div>

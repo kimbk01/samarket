@@ -14,16 +14,15 @@ describe("incoming-call policy contracts", () => {
     expect(chrome).not.toContain('import("@/components/community-messenger/GlobalIncomingCallHost")');
   });
 
-  it("foreground incoming UI is surface-only until accept (no legacy overlay, no native_auto_fullscreen)", () => {
+  it("foreground incoming UI is banner-only until accept (no legacy overlay, no native_auto_fullscreen)", () => {
     const src = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
-    const ui = read("components/community-messenger/incoming-call/CommunityMessengerIncomingCallUi.tsx");
-    expect(src).toContain("CommunityMessengerIncomingCallUi");
+    const host = read("components/community-messenger/ForegroundIncomingCallHost.tsx");
+    expect(src).toContain("ForegroundIncomingCallHost");
     expect(src).toContain("resolveForegroundIncomingPresentation");
-    expect(ui).toContain("IncomingCallSurface");
+    expect(host).toContain("IncomingCallBanner");
     expect(src).not.toContain("CommunityMessengerIncomingCallOverlay");
     expect(src).not.toContain("native_auto_fullscreen");
-    expect(src).toContain("acceptIncomingCallOnce");
-    expect(src).toContain("skipRouteReplace: isVideoDirect");
+    expect(src).toContain("incoming_banner_accept_route_first");
   });
 
   it("accept gateway is the only accept PATCH owner", () => {
@@ -40,11 +39,12 @@ describe("incoming-call policy contracts", () => {
     expect(src).not.toContain("markNativeCalleeAcceptPending");
   });
 
-  it("native coordinator routes accept and delegates PATCH to JS gateway", () => {
+  it("native coordinator routes accept before background PATCH completes", () => {
     const native = read("android/app/src/main/java/com/dibay/app/IncomingCallActionCoordinator.java");
-    expect(native).not.toContain("CallSessionPatchHelper.patch");
+    expect(native).toContain('CallSessionPatchHelper.patch(app, sid, "accept")');
     expect(native).toContain("accept_route_direct");
     expect(native).toContain("deliverCallAcceptRoute(app, sid, false)");
+    expect(native).toContain("deliverCallAcceptRoute(app, sid, true)");
     const main = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
     expect(main).toContain("nativePrep=1");
     expect(main).toContain("injectAcceptRouteViaJs");
@@ -57,13 +57,10 @@ describe("incoming-call policy contracts", () => {
   });
 
   it("CallClient blocks callee ringing direct entry without action=accept", () => {
-    const guards = read("components/community-messenger/call/use-call-client-incoming-callee-guards.ts");
-    const boundary = read("lib/community-messenger/call-client-incoming-boundary.ts");
     const src = read("components/community-messenger/CommunityMessengerCallClient.tsx");
-    expect(boundary).toContain("shouldEjectCalleeFromRingingCallRoute");
-    expect(guards).toContain("IncomingCallView 전체화면 금지");
-    expect(guards).toContain("exitCommunityMessengerCallRouteNow");
-    expect(src).toContain("useCallClientIncomingCalleeGuards");
+    expect(src).toContain("수락 전 자동 `/calls/:id` 진입 차단");
+    expect(src).toContain("navigateBackFromCommunityMessengerCall");
+    expect(src).toContain("incomingPreviewRoute");
     expect(src).toContain("isIncomingCallPreviewRoute");
   });
 
@@ -93,15 +90,12 @@ describe("incoming-call policy contracts", () => {
     expect(src).toContain("maybeConsumeOnResume");
   });
 
-  it("foreground surface does not expand to full-screen IncomingCallView during ringing", () => {
+  it("banner expand opens preview route without accept PATCH", () => {
     const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
-    expect(global).not.toContain("expandIncomingCall");
-    expect(global).not.toContain("buildIncomingCallPreviewHref");
-    const boundary = read("lib/community-messenger/call-client-incoming-boundary.ts");
-    expect(boundary).toContain("shouldEjectCalleeFromRingingCallRoute");
-    const surface = read("components/messenger/call/incoming/IncomingCallSurface.tsx");
-    expect(surface).toContain('mode?: IncomingCallSurfaceMode');
-    expect(surface).not.toContain("onExpand");
+    expect(global).toContain("expandIncomingCall");
+    expect(global).toContain("buildIncomingCallPreviewHref");
+    expect(global).toContain("onExpand={() => expandIncomingCall(bannerSession)}");
+    expect(global).not.toMatch(/onExpand=\{[^}]*acceptCall/);
   });
 
   it("PushRouteListener delegates callee accept to runNativePendingAcceptCall", () => {
@@ -154,12 +148,12 @@ describe("incoming-call policy contracts", () => {
     expect(nav).toContain('dialIntent: "fresh"');
     expect(nav).toContain("finalizeOutgoingCallSessionBootstrap");
     expect(nav).toContain("launchOutgoingDirectCall");
-    expect(nav).toContain("buildCommunityMessengerCallRouteHref(result.session.id)");
+    expect(nav).toContain("ensureOutgoingTempCallBootstrap");
     expect(nav).toContain("discardPrimedCommunityMessengerDevicePermission");
     const agoraClient = read("lib/community-messenger/call-provider/client.ts");
     expect(agoraClient).toContain("HTML 링 미리보기용 GUM 은 Agora 마이크로 재사용하지 않는다");
-    expect(nav).not.toContain("ensureOutgoingTempCallBootstrap");
-    expect(nav).not.toContain("buildSyntheticTempOutgoingCallSession");
+    expect(nav).toContain("buildCommunityMessengerInstantOutgoingCallHref");
+    expect(nav).toContain("buildSyntheticTempOutgoingCallSession");
     const http = read("lib/community-messenger/call-http-actions.ts");
     expect(http).toContain('dialIntent: "fresh"');
   });
@@ -172,12 +166,10 @@ describe("incoming-call policy contracts", () => {
   it("terminal call end navigates to call_logs section", () => {
     const nav = read("lib/community-messenger/call-session-navigation-seed.ts");
     expect(nav).toContain("COMMUNITY_MESSENGER_CALL_LOGS_HREF");
-    expect(nav).toContain("exitCommunityMessengerCallRouteNow");
+    expect(nav).toContain("finalizeCommunityMessengerCallTerminalExit");
     const client = read("components/community-messenger/CommunityMessengerCallClient.tsx");
-    const routeHost = read("components/layout/providers/DibayFcmCallRouteHost.tsx");
-    expect(client).toContain("exitCommunityMessengerCallRouteNow");
+    expect(client).toContain("finalizeCommunityMessengerCallTerminalExit");
     expect(client).toContain("stale_ringing_blocked");
-    expect(routeHost).toContain("ensureCallBootReconcile");
     expect(client).toContain("subscribeCommunityMessengerCallClientRemoteTerminalFeed");
     expect(client).toContain("remote_terminal_native");
   });

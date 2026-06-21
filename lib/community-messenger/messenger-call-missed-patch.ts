@@ -1,7 +1,9 @@
 "use client";
 
-import { runCallEndGuard } from "@/lib/call/actions/call-end-guard";
-import type { CommunityMessengerCallSessionPatchDebugContext } from "@/lib/community-messenger/call-http-actions";
+import {
+  patchCommunityMessengerCallSession,
+  type CommunityMessengerCallSessionPatchDebugContext,
+} from "@/lib/community-messenger/call-http-actions";
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 
 const inFlightBySessionId = new Map<string, Promise<{ ok: boolean; session?: CommunityMessengerCallSession; error?: string }>>();
@@ -36,11 +38,7 @@ export async function patchCommunityMessengerCallMissedOnce(
   const existing = inFlightBySessionId.get(sid);
   if (existing) return existing.then((r) => ({ ...r, skipped: true }));
 
-  const run = runCallEndGuard({
-    sessionId: sid,
-    action: "missed",
-    reason: debugContext?.endedReason ?? "missed",
-  }).then((res) => {
+  const run = patchCommunityMessengerCallSession(sid, "missed", undefined, debugContext).then((res) => {
     if (res.ok) markMissedTombstone(sid);
     return res;
   });

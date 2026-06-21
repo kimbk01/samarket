@@ -383,6 +383,15 @@ public class CallForegroundService extends Service {
       }
       IncomingCallNotificationBuilder.dismissIncomingCall(this, sid);
       CallActivityRouter.clearRouteLatch(sid);
+      new Thread(
+              () -> {
+                boolean ok = CallSessionPatchHelper.patch(getApplicationContext(), sid, "end");
+                if (ok) {
+                  DibayCallLog.once("call_end_sent_to_peer", sid, "reason=" + reason);
+                  Log.i(TAG, "[DIBAY_CALL] call_end_sent_to_peer callId=" + sid);
+                }
+              })
+          .start();
     }
     ACTIVE_CALL_ID.set(null);
     FOREGROUND_STARTED_FOR.set(null);

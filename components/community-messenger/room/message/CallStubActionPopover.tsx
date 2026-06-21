@@ -3,7 +3,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { OutgoingCallTapButton } from "@/components/messenger/call/OutgoingCallTapButton";
 import type {
   CommunityMessengerMessage,
   CommunityMessengerMessageActionAnchorRect,
@@ -114,16 +113,17 @@ export function CallStubActionPopover(props: CallStubActionPopoverProps) {
         aria-modal="true"
         onPointerDown={(e) => e.stopPropagation()}
       >
-        <OutgoingCallTapButton
+        <button
+          type="button"
           disabled={roomUnavailable || redialDisabled}
-          className="flex min-h-[48px] w-full items-center justify-center gap-2 px-4 py-3 sam-text-body font-semibold text-[color:var(--cm-room-primary)] active:bg-neutral-100 dark:active:bg-neutral-900"
+          className="flex min-h-[48px] w-full items-center justify-center gap-2 px-4 py-3 sam-text-body font-semibold text-[color:var(--cm-room-primary)] disabled:opacity-45 active:bg-neutral-100 dark:active:bg-neutral-900"
           onClick={() => {
             onClose();
             props.onRedial(kind);
           }}
         >
           {redialLabel}
-        </OutgoingCallTapButton>
+        </button>
       </div>
     </div>
   );

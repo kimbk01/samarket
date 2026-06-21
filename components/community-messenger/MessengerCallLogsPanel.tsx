@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CommunityMessengerCallHistory } from "@/components/community-messenger/call-history/CommunityMessengerCallHistory";
 import {
@@ -9,6 +10,7 @@ import {
   type CallPeerDetailSelection,
 } from "@/components/community-messenger/call-history/CommunityMessengerCallPeerDetailPanel";
 import { CommunityMessengerCallPeerDetailShell } from "@/components/community-messenger/call-history/CommunityMessengerCallPeerDetailShell";
+import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 import { runCommunityMessengerRoomForwardNavigation } from "@/lib/community-messenger/community-messenger-room-forward-navigation";
 import { presentCallHistoryRow } from "@/lib/community-messenger/call-history/call-history-presenter";
 import {
@@ -28,10 +30,7 @@ import {
   useCommunityCallHistoryRealtimeSync,
 } from "@/lib/community-messenger/call-history/use-community-call-history-realtime-sync";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
-import {
-  guardInstantOutgoingCallStart,
-  isOutgoingCallPhoneVerificationRequired,
-} from "@/lib/call/outgoing-call-start-guard";
+import { guardInstantOutgoingCallStart, isOutgoingCallPhoneVerificationRequired } from "@/lib/call/outgoing-call-start-guard";
 import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
 import type { CommunityMessengerCallLog, CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 
@@ -72,6 +71,12 @@ type Props = {
   onBootstrapCallsChange?: (calls: CommunityMessengerCallLog[]) => void;
 };
 
+type OutgoingConfirmState = {
+  call: CommunityMessengerCallLog;
+  kind: "voice" | "video";
+  peerLabel: string;
+};
+
 /** 통화 목록 본문 — 독립 페이지·메신저 홈 탭 공용 */
 export function MessengerCallLogsPanel({
   seedCalls = [],
@@ -104,8 +109,10 @@ export function MessengerCallLogsPanel({
     },
     [controlledOnOpenSwipeItem, swipeControlled]
   );
+  const [outgoingConfirm, setOutgoingConfirm] = useState<OutgoingConfirmState | null>(null);
   const [deletingCallId, setDeletingCallId] = useState<string | null>(null);
   const [outgoingBusy, setOutgoingBusy] = useState(false);
+  const [portalReady, setPortalReady] = useState(false);
   const mountRefreshDoneRef = useRef(false);
   const skipMountRefetchOnceRef = useRef(false);
 
@@ -197,9 +204,13 @@ export function MessengerCallLogsPanel({
   }, [setOpenedSwipeItemId]);
 
   useEffect(() => {
-    if (!outgoingBusy && !peerDetailOpen) return;
+    if (!outgoingConfirm && !peerDetailOpen) return;
     closeCallLogSwipe();
-  }, [closeCallLogSwipe, outgoingBusy, peerDetailOpen]);
+  }, [closeCallLogSwipe, outgoingConfirm, peerDetailOpen]);
+
+  useEffect(() => {
+    setPortalReady(true);
+  }, []);
 
   useEffect(() => {
     if (messengerOverlayGeneration == null) return;
@@ -257,64 +268,6 @@ export function MessengerCallLogsPanel({
     [router]
   );
 
-  const startOutgoingFromCallLog = useCallback(
-    (call: CommunityMessengerCallLog, kind: "voice" | "video", peerLabelOverride?: string | null) => {
-      if (outgoingBusy) return;
-      closeCallLogSwipe();
-      const vm = presentCallHistoryRow(call);
-      const peerUserId =
-        sanitizeCallPeerUserId(call.peerUserId) ??
-        sanitizeCallPeerUserId(vm.peerUserId) ??
-        sanitizeCallPeerUserId(peerDetailSelection?.peerUserId);
-      const roomId =
-        call.roomId?.trim() ||
-        peerDetailSelection?.roomId?.trim() ||
-        resolveCallPeerRoomId(peerDetailSelection?.peerUserId ?? "", peerDetailSelection?.roomId) ||
-        (peerUserId ? resolveRoomIdForPeer(peerUserId, call.roomId) : null);
-      const peerLabel = peerLabelOverride?.trim() || vm.peerDisplayLabel;
-
-      if (!peerUserId && !roomId) {
-        showMessengerSnackbar(
-          safeT("cm_ui_call_outgoing_missing_room", {
-            fallbackKo: "통화를 시작할 수 없습니다. 상대 정보가 없습니다.",
-            fallbackEn: "Cannot start the call. Peer information is missing.",
-          }),
-          { variant: "error" }
-        );
-        return;
-      }
-
-      setOutgoingBusy(true);
-      setPeerDetailOpen(false);
-
-      if (peerUserId && onStartDirectCall?.(peerUserId, kind, peerLabel)) {
-        setOutgoingBusy(false);
-        return;
-      }
-
-      void (async () => {
-        try {
-          await launchOutgoingFallback(peerUserId, kind, peerLabel, roomId);
-        } catch {
-          showMessengerSnackbar(t("cm_ui_network_error_could_not_start_call"), { variant: "error" });
-        } finally {
-          setOutgoingBusy(false);
-        }
-      })();
-    },
-    [
-      closeCallLogSwipe,
-      launchOutgoingFallback,
-      onStartDirectCall,
-      outgoingBusy,
-      peerDetailSelection?.peerUserId,
-      peerDetailSelection?.roomId,
-      resolveRoomIdForPeer,
-      safeT,
-      t,
-    ]
-  );
-
   const onRowNavigate = useCallback(
     (call: CommunityMessengerCallLog) => {
       closeCallLogSwipe();
@@ -351,6 +304,15 @@ export function MessengerCallLogsPanel({
       }
     },
     [closeCallLogSwipe, entryOrigin, resolveRoomIdForPeer, router, viewerUserId]
+  );
+
+  const onRequestOutgoingConfirm = useCallback(
+    (call: CommunityMessengerCallLog, kind: "voice" | "video") => {
+      closeCallLogSwipe();
+      const vm = presentCallHistoryRow(call);
+      setOutgoingConfirm({ call, kind, peerLabel: vm.peerDisplayLabel });
+    },
+    [closeCallLogSwipe]
   );
 
   const performDeleteCallLog = useCallback(
@@ -403,7 +365,81 @@ export function MessengerCallLogsPanel({
     setPeerDetailSelection(null);
   }, []);
 
+  const handleOutgoingConfirm = useCallback(() => {
+    const next = outgoingConfirm;
+    if (!next || outgoingBusy) return;
+    const vm = presentCallHistoryRow(next.call);
+    const peerUserId =
+      sanitizeCallPeerUserId(next.call.peerUserId) ??
+      sanitizeCallPeerUserId(vm.peerUserId) ??
+      sanitizeCallPeerUserId(peerDetailSelection?.peerUserId);
+    const roomId =
+      next.call.roomId?.trim() ||
+      peerDetailSelection?.roomId?.trim() ||
+      resolveCallPeerRoomId(peerDetailSelection?.peerUserId ?? "", peerDetailSelection?.roomId) ||
+      (peerUserId ? resolveRoomIdForPeer(peerUserId, next.call.roomId) : null);
+
+    if (!peerUserId && !roomId) {
+      showMessengerSnackbar(
+        safeT("cm_ui_call_outgoing_missing_room", {
+          fallbackKo: "통화를 시작할 수 없습니다. 상대 정보가 없습니다.",
+          fallbackEn: "Cannot start the call. Peer information is missing.",
+        }),
+        { variant: "error" }
+      );
+      return;
+    }
+
+    setOutgoingBusy(true);
+    setOutgoingConfirm(null);
+    setPeerDetailOpen(false);
+
+    if (peerUserId && onStartDirectCall?.(peerUserId, next.kind, next.peerLabel)) {
+      setOutgoingBusy(false);
+      return;
+    }
+
+    void (async () => {
+      try {
+        await launchOutgoingFallback(peerUserId, next.kind, next.peerLabel, roomId);
+      } catch {
+        showMessengerSnackbar(t("cm_ui_network_error_could_not_start_call"), { variant: "error" });
+      } finally {
+        setOutgoingBusy(false);
+      }
+    })();
+  }, [
+    launchOutgoingFallback,
+    onStartDirectCall,
+    outgoingBusy,
+    outgoingConfirm,
+    peerDetailSelection?.peerUserId,
+    peerDetailSelection?.roomId,
+    resolveRoomIdForPeer,
+    safeT,
+    t,
+  ]);
+
   const peerDetailCalls = useMemo(() => calls, [calls]);
+
+  const overlayDialogs =
+    portalReady && outgoingConfirm
+      ? createPortal(
+          <div className="relative z-[1400]">
+            <MessengerOutgoingCallConfirmDialog
+              open
+              peerLabel={outgoingConfirm.peerLabel}
+              kind={outgoingConfirm.kind}
+              busy={outgoingBusy}
+              onCancel={() => {
+                if (!outgoingBusy) setOutgoingConfirm(null);
+              }}
+              onConfirm={handleOutgoingConfirm}
+            />
+          </div>,
+          document.body
+        )
+      : null;
 
   return (
     <>
@@ -412,7 +448,7 @@ export function MessengerCallLogsPanel({
         loading={loading}
         error={error}
         onNavigate={onRowNavigate}
-        onRequestOutgoingCall={startOutgoingFromCallLog}
+        onRequestOutgoingConfirm={onRequestOutgoingConfirm}
         onDeleteRequest={onDeleteRequest}
         openedSwipeItemId={openedSwipeItemId}
         onOpenSwipeItem={setOpenedSwipeItemId}
@@ -430,7 +466,7 @@ export function MessengerCallLogsPanel({
             calls={peerDetailCalls}
             entryOrigin={entryOrigin}
             viewerUserId={viewerUserId}
-            onRequestOutgoingCall={(kind) => {
+            onRequestOutgoingConfirm={(kind) => {
               closeCallLogSwipe();
               const peerId = sanitizeCallPeerUserId(peerDetailSelection.peerUserId);
               const roomId = resolveCallPeerRoomId(
@@ -443,8 +479,9 @@ export function MessengerCallLogsPanel({
                   : null) ??
                 (roomId ? peerDetailCalls.find((row) => row.roomId?.trim() === roomId) : null) ??
                 null;
-              startOutgoingFromCallLog(
-                latestCall ??
+              setOutgoingConfirm({
+                call:
+                  latestCall ??
                   ({
                     id: `peer:${peerId ?? roomId ?? "unknown"}`,
                     sessionId: null,
@@ -466,12 +503,14 @@ export function MessengerCallLogsPanel({
                     displayType: "outgoing",
                   } satisfies CommunityMessengerCallLog),
                 kind,
-                peerDetailSelection.peerDisplayLabel
-              );
+                peerLabel: peerDetailSelection.peerDisplayLabel,
+              });
             }}
           />
         ) : null}
       </CommunityMessengerCallPeerDetailShell>
+
+      {overlayDialogs}
     </>
   );
 }
