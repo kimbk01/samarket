@@ -27,6 +27,7 @@ import {
   navPerfSetOptimisticTotalMs,
 } from "@/lib/navigation/nav-perf-browser";
 import { guardedClientNavigate } from "@/lib/navigation/guarded-client-navigation";
+import { isDeepRouteNavigationLockActive } from "@/lib/navigation/cm-deep-route-navigation-lock";
 
 /** `/market` 에서만 push — 그 외 탭 간 이동은 replace(히스토리 누적·뒤로가기 꼬임 완화) */
 export function mainBottomNavRouteUsesReplace(pathname: string | null, targetHref: string): boolean {
@@ -91,18 +92,19 @@ export type MainBottomNavRouteCommitArgs = {
 
 export type MainBottomNavRouteCommitResult = "scroll_only" | "blocked" | "navigated";
 
-/** 연속 탭 — 이전 async 커밋이 replace/push 하지 않도록 세대 카운터 */
-let mainBottomNavRouteCommitGeneration = 0;
-
-/** 방·통화 진입 직전 — 대기 중인 하단 탭 async replace/push 무효화 */
+/**
+ * 카톡/텔레그램형 — 하단 탭은 **허브 간 동기 replace/push** 만.
+ * 방·통화(deep route)는 room_forward/call_launch 가 stack 을 소유; async tab replace 금지.
+ */
 export function abortPendingMainBottomNavRouteCommits(): void {
-  mainBottomNavRouteCommitGeneration++;
+  /* sync hub commit — stale async navigation 없음. room/call 진입 훅 호환용 no-op */
 }
 
 /**
  * CONTRACT — 하단 탭·배달 홈·다이얼 칩 **단일 이동 커밋**.
  * DO NOT: Link 기본 navigation·overlay 직접 push·tab.href 직접 push — 모두 여기 또는 resolver 경유.
  * DO NOT: `onNavigationIntent`·`beginMenuNavigation` 을 async(await) 뒤로 미루기 — push·orbit 즉시.
+ * DO NOT: router replace/push 를 microtask·setTimeout 으로 미루기 — deep route 진입과 레이스.
  * `(stores)`↔`(main)`: session enter 440ms 만(목적지 mount) — dual-panel·즉시 exit 금지(remount 시 이중 밀림).
  * same-group: `pendingMenuIntent` dual-panel + `mainShellPushAxis`.
  */
@@ -139,17 +141,11 @@ export function commitMainBottomNavRoute(args: MainBottomNavRouteCommitArgs): Ma
     ...(crossGroup ? { mainShellCrossGroupPush: true } : {}),
   });
 
-  void commitMainBottomNavRouteNavigateAsync(args, pushAxis, crossGroup);
+  commitMainBottomNavRouteNavigateSync(args);
   return "navigated";
 }
 
-async function commitMainBottomNavRouteNavigateAsync(
-  args: MainBottomNavRouteCommitArgs,
-  _pushAxis: ReturnType<typeof computeMainBottomNavPushAxis>,
-  _crossGroup: boolean
-): Promise<void> {
-  const generation = ++mainBottomNavRouteCommitGeneration;
-
+function commitMainBottomNavRouteNavigateSync(args: MainBottomNavRouteCommitArgs): void {
   if (args.persistMessengerOriginFromHref) {
     try {
       const u = new URL(args.href, "https://samarket.local");
@@ -160,10 +156,6 @@ async function commitMainBottomNavRouteNavigateAsync(
     }
   }
 
-  if (generation !== mainBottomNavRouteCommitGeneration) {
-    return;
-  }
-
   const navClickT0 = performance.now();
   if (!args.skipPerfMark) {
     markBottomNavRouteIntentForBackgroundWarm();
@@ -172,10 +164,12 @@ async function commitMainBottomNavRouteNavigateAsync(
 
   const fromHref =
     typeof window !== "undefined" ? `${window.location.pathname}${window.location.search}` : null;
+  /** deep route 진입 창 — hub 탭이 lock 을 bottom_nav_explicit 로 덮지 않게 */
+  const navSource = isDeepRouteNavigationLockActive() ? "bottom_nav_async" : "bottom_nav_explicit";
   if (mainBottomNavRouteUsesReplace(args.pathname, args.href)) {
-    guardedClientNavigate(args.replace, args.href, "bottom_nav_explicit", { fromHref });
+    guardedClientNavigate(args.replace, args.href, navSource, { fromHref });
   } else {
-    guardedClientNavigate(args.push, args.href, "bottom_nav_explicit", { fromHref });
+    guardedClientNavigate(args.push, args.href, navSource, { fromHref });
   }
 
   args.onCloseOverlay?.();

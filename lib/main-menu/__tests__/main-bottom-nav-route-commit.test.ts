@@ -270,7 +270,7 @@ describe("commitMainBottomNavRoute deep route lock", () => {
     warnSpy.mockRestore();
   });
 
-  it("abortPendingMainBottomNavRouteCommits — 이후 커밋만 replace 실행", async () => {
+  it("abortPendingMainBottomNavRouteCommits — sync commit 즉시 replace", () => {
     abortPendingMainBottomNavRouteCommits();
     const replace = vi.fn();
     commitMainBottomNavRoute({
@@ -285,7 +285,29 @@ describe("commitMainBottomNavRoute deep route lock", () => {
       replace,
       skipPerfMark: true,
     });
-    await Promise.resolve();
     expect(replace).toHaveBeenCalledWith("/mypage");
+  });
+
+  it("room lock 중 hub 탭 commit — /mypage replace blocked", () => {
+    beginRoomDeepRouteNavigationLock("room-1", "/community-messenger/rooms/room-1");
+    const replace = vi.fn();
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    commitMainBottomNavRoute({
+      pathname: "/community-messenger",
+      currentSearch: "",
+      href: "/mypage",
+      tabId: "mypage",
+      beginMenuNavigation: vi.fn(),
+      onNavigationIntent: vi.fn(),
+      guardBeforeNavigate: () => true,
+      push: vi.fn(),
+      replace,
+      skipPerfMark: true,
+    });
+
+    expect(replace).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
   });
 });
