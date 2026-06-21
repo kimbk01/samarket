@@ -40,12 +40,11 @@ describe("incoming-call policy contracts", () => {
     expect(src).not.toContain("markNativeCalleeAcceptPending");
   });
 
-  it("native coordinator routes accept before background PATCH completes", () => {
+  it("native coordinator routes accept and delegates PATCH to JS gateway", () => {
     const native = read("android/app/src/main/java/com/dibay/app/IncomingCallActionCoordinator.java");
-    expect(native).toContain('CallSessionPatchHelper.patch(app, sid, "accept")');
+    expect(native).not.toContain("CallSessionPatchHelper.patch");
     expect(native).toContain("accept_route_direct");
     expect(native).toContain("deliverCallAcceptRoute(app, sid, false)");
-    expect(native).toContain("deliverCallAcceptRoute(app, sid, true)");
     const main = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
     expect(main).toContain("nativePrep=1");
     expect(main).toContain("injectAcceptRouteViaJs");
@@ -155,12 +154,12 @@ describe("incoming-call policy contracts", () => {
     expect(nav).toContain('dialIntent: "fresh"');
     expect(nav).toContain("finalizeOutgoingCallSessionBootstrap");
     expect(nav).toContain("launchOutgoingDirectCall");
-    expect(nav).toContain("ensureOutgoingTempCallBootstrap");
+    expect(nav).toContain("buildCommunityMessengerCallRouteHref(result.session.id)");
     expect(nav).toContain("discardPrimedCommunityMessengerDevicePermission");
     const agoraClient = read("lib/community-messenger/call-provider/client.ts");
     expect(agoraClient).toContain("HTML 링 미리보기용 GUM 은 Agora 마이크로 재사용하지 않는다");
-    expect(nav).toContain("buildCommunityMessengerInstantOutgoingCallHref");
-    expect(nav).toContain("buildSyntheticTempOutgoingCallSession");
+    expect(nav).not.toContain("ensureOutgoingTempCallBootstrap");
+    expect(nav).not.toContain("buildSyntheticTempOutgoingCallSession");
     const http = read("lib/community-messenger/call-http-actions.ts");
     expect(http).toContain('dialIntent: "fresh"');
   });

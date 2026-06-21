@@ -6,7 +6,7 @@ import { appendDibayCallQaLog } from "@/lib/call/qa/dibay-call-qa-log";
 import { stopAllOutgoingRingback } from "@/lib/community-messenger/call-outgoing-ringback-controller";
 import { stopCallRingtone } from "@/lib/community-messenger/call-ringtone-controller";
 import { stopCallHeartbeatWatchdog } from "@/lib/call/native/call-heartbeat-watchdog";
-import { endNativeCallService, reportNativeCallRemoteEnded } from "@/lib/call/native/native-call-service";
+import { endNativeCallServiceLocalOnly, reportNativeCallRemoteEnded } from "@/lib/call/native/native-call-service";
 import {
   canCleanupActiveCall,
   mapLegacyPhaseToMachine,
@@ -143,7 +143,7 @@ export function patchActiveCallSessionPhase(
   const sid = callId.trim();
   if (!sid || !activeSession || activeSession.callId !== sid) return null;
   if (phase === "idle") {
-    hardClearActiveCallSession(sid, source);
+    void releaseLocalCallSession(sid, source);
     return null;
   }
   const machinePhase = transitionMachinePhase(
@@ -234,7 +234,7 @@ export function resumeActiveCallSessionFromNative(
 
 /**
  * terminal — 클라 SSOT(activeSession·tone·guard) 동기 정리.
- * native bridge 는 `hardClearActiveCallSession` 이 이어서 처리한다.
+ * 서버 PATCH 또는 native peer-end 는 절대 수행하지 않는다.
  */
 export function syncClearActiveCallSessionLocal(
   callId: string | null | undefined,
@@ -286,8 +286,9 @@ export function syncClearActiveCallSessionLocal(
   return true;
 }
 
-/** terminal — notification·ringtone·route·native·heartbeat 일괄 정리 */
-export async function hardClearActiveCallSession(
+/** SSOT_CONTRACT: cm-call-lifecycle-local-release releaseLocalCallSession peer PATCH 금지 */
+/** local-only terminal cleanup — peer PATCH 금지 */
+export async function releaseLocalCallSession(
   callId: string | null | undefined,
   reason = "terminal",
 ): Promise<void> {
@@ -314,9 +315,17 @@ export async function hardClearActiveCallSession(
   if (isRemoteNativeEnd) {
     await reportNativeCallRemoteEnded(sid);
   } else {
-    await endNativeCallService(sid, reason);
+    await endNativeCallServiceLocalOnly(sid, reason);
   }
   notifySync();
+}
+
+/** @deprecated 서버 PATCH owner 가 아니다. 로컬 정리만 수행한다. */
+export async function hardClearActiveCallSession(
+  callId: string | null | undefined,
+  reason = "terminal",
+): Promise<void> {
+  await releaseLocalCallSession(callId, reason);
 }
 
 export function resetActiveCallSessionForTests(): void {

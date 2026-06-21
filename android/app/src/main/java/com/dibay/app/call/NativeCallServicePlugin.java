@@ -51,6 +51,11 @@ public class NativeCallServicePlugin extends Plugin {
 
   @PluginMethod
   public void endCall(PluginCall call) {
+    endCallLocalOnly(call);
+  }
+
+  @PluginMethod
+  public void endCallLocalOnly(PluginCall call) {
     String callId = call.getString("callId", "").trim();
     String reason = call.getString("reason", "client_end");
     if (!DibayActiveCallSessionManager.canCleanup(reason)) {
@@ -60,7 +65,7 @@ public class NativeCallServicePlugin extends Plugin {
       call.resolve(blocked);
       return;
     }
-    DibayActiveCallSessionManager.requestCleanup(getContext(), callId, reason);
+    DibayActiveCallSessionManager.requestLocalCleanup(getContext(), callId, reason);
     JSObject result = new JSObject();
     result.put("ok", true);
     call.resolve(result);

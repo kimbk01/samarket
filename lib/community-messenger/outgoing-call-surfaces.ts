@@ -4,7 +4,7 @@
  *
  * - `friendsFavoriteQuickActions` — 친구 탭 즐겨찾기 그리드의 빠른 음성/영상 (`MessengerFriendsScreen`)
  * - `friendProfileSheet` — 친구 프로필 시트 (`MessengerFriendProfileSheet` → `CommunityMessengerHome.startDirectCall`) 즉시 발신
- * - `roomManaged` — 열린 채팅방·멤버 시트 등: `launchOutgoingDirectCall`(즉시 `tmp_*` 셸 + `ensureOutgoingTempCallBootstrap`).
+ * - `roomManaged` — 열린 채팅방·멤버 시트 등: `launchOutgoingDirectCall`(POST 완료 후 real session route 1회 진입).
  *
  * - `friendRowQuickPopup` — 친구 행 **⋮** 앵커 팝업(`MessengerFriendRowQuickPopup` → `CommunityMessengerHome.startDirectCall`) 즉시 발신
  * - `callLogsRedial` — 통화 기록 패널 (`MessengerCallLogsPanel` → `launchOutgoingDirectCall`) 즉시 발신

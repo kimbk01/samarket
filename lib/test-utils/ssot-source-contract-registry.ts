@@ -59,6 +59,12 @@ export const SSOT_SOURCE_CONTRACT_REGISTRY: readonly SsotSourceContractEntry[] =
     also: ["buildPostAcceptActiveCallHref"],
   },
   {
+    id: "cm-call-lifecycle-local-release",
+    file: "lib/call/active-call-session.ts",
+    marker: "SSOT_CONTRACT: cm-call-lifecycle-local-release releaseLocalCallSession peer PATCH 금지",
+    also: ["releaseLocalCallSession", "hardClearActiveCallSession"],
+  },
+  {
     id: "dibay-signup-consent-only-gate",
     file: "lib/auth/dibay-signup-status.ts",
     marker: "SSOT_CONTRACT: dibay-signup-consent-only-gate signupComplete consentComplete",

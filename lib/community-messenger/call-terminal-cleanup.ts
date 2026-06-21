@@ -1,7 +1,7 @@
 "use client";
 
 import { releaseCallActionLockForCallId } from "@/lib/call/call-action-lock";
-import { hardClearActiveCallSession } from "@/lib/call/active-call-session";
+import { releaseLocalCallSession } from "@/lib/call/active-call-session";
 import { syncTerminalCallClientState } from "@/lib/call/call-terminal-sync-cleanup";
 import { notifyCommunityCallHostSync } from "@/components/layout/providers/CommunityMessengerActiveCallHost";
 import { pinCommunityMessengerCallTerminalSurfaceDismiss } from "@/lib/community-messenger/call-session-navigation-seed";
@@ -114,12 +114,12 @@ export async function cleanupCommunityCallTerminal(args: CleanupArgs): Promise<v
   }
 
   try {
-    await hardClearActiveCallSession(sid, normalizedReason);
+    await releaseLocalCallSession(sid, normalizedReason);
   } catch (error) {
     logCleanupStepFailure({
       sessionId: sid,
       source,
-      step: "hard_clear_active_call",
+      step: "release_local_call_session",
       reason: normalizedReason,
       error,
     });

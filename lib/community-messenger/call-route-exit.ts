@@ -10,7 +10,7 @@
  * | `call_logs` | 통화 종료 — 통화 목록 |
  */
 
-import { hardClearActiveCallSession } from "@/lib/call/active-call-session";
+import { releaseLocalCallSession } from "@/lib/call/active-call-session";
 import { syncTerminalCallClientState } from "@/lib/call/call-terminal-sync-cleanup";
 import { logCallLatencyTerminalCleanupDone } from "@/lib/community-messenger/call-latency-trace";
 import {
@@ -57,7 +57,7 @@ export function exitCommunityMessengerCallRouteNow(args: {
   pinCommunityMessengerCallTerminalSurfaceDismiss(sid);
   syncTerminalCallClientState(sid, args.source);
   logCallLatencyTerminalCleanupDone({ sessionId: sid, source: args.source });
-  void hardClearActiveCallSession(sid, args.source);
+  void releaseLocalCallSession(sid, args.source);
 
   if (args.target === "call_logs") {
     navigateToCommunityMessengerCallLogsAfterTerminal(args.router);

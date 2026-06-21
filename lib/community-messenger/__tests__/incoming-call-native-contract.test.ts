@@ -90,12 +90,11 @@ describe("incoming-call native contract", () => {
     expect(src).toContain('DibayCallConsumedStore.mark(context, sid, "missed")');
   });
 
-  it("native coordinator routes accept immediately and completes PATCH in background", () => {
+  it("native coordinator routes accept immediately and delegates PATCH to JS gateway", () => {
     const src = read("android/app/src/main/java/com/dibay/app/IncomingCallActionCoordinator.java");
-    expect(src).toContain('CallSessionPatchHelper.patch(app, sid, "accept")');
+    expect(src).not.toContain("CallSessionPatchHelper.patch");
     expect(src).toContain("accept_route_direct");
     expect(src).toContain("deliverCallAcceptRoute(app, sid, false)");
-    expect(src).toContain("deliverCallAcceptRoute(app, sid, true)");
     const main = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
     expect(main).toContain("nativePrep=1");
     expect(main).toContain("injectAcceptRouteViaJs");

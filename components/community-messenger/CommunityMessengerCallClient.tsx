@@ -121,9 +121,7 @@ import {
   dibayIncomingLaneStopRing,
 } from "@/lib/community-messenger/call-lifecycle";
 import {
-  hardClearActiveCallSession,
   patchActiveCallSessionMachinePhase,
-  readActiveCallSessionSnapshot,
   setActiveCallSession,
 } from "@/lib/call/active-call-session";
 import {
@@ -133,6 +131,7 @@ import {
 import { patchCallSessionHeartbeat } from "@/lib/call/call-server-heartbeat-client";
 import { appendDibayCallQaLog } from "@/lib/call/qa/dibay-call-qa-log";
 import { joinCommunityMessengerAgoraChannelOnce } from "@/lib/call/actions/agora-join-guard";
+import { runCallMediaModeGuard } from "@/lib/call/actions/call-media-mode-guard";
 import { startCallHeartbeatWatchdog, stopCallHeartbeatWatchdog } from "@/lib/call/native/call-heartbeat-watchdog";
 import {
   reportNativeCallAppState,
@@ -181,15 +180,12 @@ import { CallScreen } from "@/components/messenger/call/CallScreen";
 import type { CallActionItem, CallPhase, CallScreenViewModel } from "@/components/messenger/call/call-ui.types";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import {
-  buildSyntheticTempOutgoingCallSession,
   consumeCommunityMessengerCallNavigationSeed,
   ensureCallNavigationSeedMemoryMatchesRoute,
-  ensureOutgoingTempCallBootstrap,
   hydrateCommunityMessengerCallClientSession,
   isCommunityMessengerTempCallSessionId,
   isOutgoingCallPhoneVerificationRequired,
   launchOutgoingDirectCall,
-  markOutgoingTempCallBootstrapCancelled,
   navigateBackFromCommunityMessengerCall,
   peekCommunityMessengerCallNavigationSeed,
   primeCommunityMessengerCallNavigationSeed,
@@ -231,11 +227,8 @@ import {
   postCommunityMessengerCallSessionTerminalBusEvent,
 } from "@/lib/community-messenger/multi-tab-bus";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
-import {
-  logCommunityMessengerCallSessionPatchDev,
-  patchCommunityMessengerCallSession,
-  postCommunityMessengerCallHangupSignal,
-} from "@/lib/call/call-actions";
+import { postCommunityMessengerCallHangupSignal } from "@/lib/call/call-actions";
+import { runCallEndGuard } from "@/lib/call/actions/call-end-guard";
 import {
   classifyMessengerCallJoinFailure,
   isMessengerCallClientFailureReason,
@@ -266,7 +259,6 @@ import {
   AGORA_RECONNECT_ATTEMPT_MS,
   AGORA_RECONNECT_MAX_MS,
 } from "@/lib/community-messenger/call-agora-reconnect-policy";
-import { claimCallTerminalPatch } from "@/lib/community-messenger/call-terminal-patch-dedupe";
 import {
   CM_VIDEO_UPGRADE_REQUEST,
   CM_VIDEO_UPGRADE_RESPONSE,
@@ -274,7 +266,6 @@ import {
   publishVideoUpgradeResponse,
   subscribeVideoUpgradeBroadcast,
 } from "@/lib/community-messenger/call-video-upgrade-broadcast";
-import { bestEffortKeepaliveCallSessionTeardown, shouldSkipRingingCallSessionPageLeaveTeardown } from "@/lib/community-messenger/call-page-leave-patch";
 import {
   clearNativeCalleeAcceptPending,
   isNativeCalleeAcceptCompletedRoute,
@@ -652,23 +643,6 @@ export function CommunityMessengerCallClient({
     if (initialSession != null) {
       return { session: initialSession, loading: false };
     }
-    if (typeof window !== "undefined" && isCommunityMessengerTempCallSessionId(sessionId)) {
-      const kind = searchParams.get("kind") === "video" ? "video" : "voice";
-      const roomId = searchParams.get("roomId")?.trim() ?? "";
-      const peerUserId = searchParams.get("peerUserId")?.trim() || null;
-      const peerLabel = searchParams.get("peerLabel")?.trim() ?? "";
-      return {
-        session: buildSyntheticTempOutgoingCallSession({
-          tempSessionId: sessionId,
-          kind,
-          roomId,
-          peerUserId,
-          peerLabel,
-          initiatorUserId: "",
-        }),
-        loading: false,
-      };
-    }
     return hydrateCommunityMessengerCallClientSession(sessionId, initialSession);
   });
   const [session, setSession] = useState<CommunityMessengerCallSession | null>(initialCallHydration.session);
@@ -744,7 +718,6 @@ export function CommunityMessengerCallClient({
    * `peek` 가 null 이 되어도 동일 MediaStream 트랙은 살아 있음.
    */
   const heldPreJoinVideoPreviewRef = useRef<MediaStream | null>(null);
-  const prevCallRouteSessionIdRef = useRef<string | null>(null);
   const cmCallVideoLogOnceRef = useRef({
     localReady: false,
     remoteReady: false,
@@ -891,9 +864,6 @@ export function CommunityMessengerCallClient({
         status: active.status,
         closeReason: "ringing_dismiss",
       });
-      if (isCommunityMessengerTempCallSessionId(active.id)) {
-        markOutgoingTempCallBootstrapCancelled(active.id);
-      }
       callDismissInFlightRef.current = true;
       exitCommunityMessengerCallRouteNow({
         router,
@@ -963,30 +933,6 @@ export function CommunityMessengerCallClient({
       clearCommunityMessengerCallConnectionPrefetch(sessionId);
     };
   }, [sessionId]);
-
-  /** 임시 발신 세션 — initiator UUID 를 동기 세션에서 채워 PATCH·폴링 단계 안전 */
-  useLayoutEffect(() => {
-    if (!isCommunityMessengerTempCallSessionId(sessionId)) return;
-    const sb = getSupabaseClient();
-    if (!sb) return;
-    void sb.auth.getUser().then(({ data: { user } }) => {
-      if (!user?.id) return;
-      setSession((prev) => {
-        if (!prev || prev.id !== sessionId) return prev;
-        if (prev.initiatorUserId === user.id) return prev;
-        return { ...prev, initiatorUserId: user.id };
-      });
-    });
-  }, [sessionId]);
-
-  /** 임시 세션 → 북마크·딥링크 fallback (`launchOutgoingDirectCall` 이 이미 bootstrap 을 시작했으면 skip) */
-  useEffect(() => {
-    if (!isCommunityMessengerTempCallSessionId(sessionId)) return;
-    const kind = (searchParams.get("kind") === "video" ? "video" : "voice") as CommunityMessengerCallKind;
-    const roomId = searchParams.get("roomId")?.trim() || null;
-    const peerUserId = searchParams.get("peerUserId")?.trim() || null;
-    ensureOutgoingTempCallBootstrap({ tempSessionId: sessionId, roomId, peerUserId, kind, router });
-  }, [router, searchParams, sessionId]);
 
   /** real 세션 발신 영상 — active(connecting_media) 이후만 프라임; ringing dial GUM 금지(P1-1) */
   useEffect(() => {
@@ -1174,30 +1120,17 @@ export function CommunityMessengerCallClient({
   const wasCallSessionRingingRef = useRef(false);
 
   useLayoutEffect(() => {
-    const prevSessionId = prevCallRouteSessionIdRef.current;
-    const tmpToRealHandoff =
-      prevSessionId != null &&
-      isCommunityMessengerTempCallSessionId(prevSessionId) &&
-      !isCommunityMessengerTempCallSessionId(sessionId);
-
-    prevCallRouteSessionIdRef.current = sessionId;
     const peek = peekPrimedCommunityMessengerDeviceStream("video");
     const preservePreview = shouldPreserveHeldPreJoinVideoOnSessionRouteChange({
       nextSessionId: sessionId,
-      prevSessionId,
+      prevSessionId: null,
       peekStream: peek,
       heldStream: heldPreJoinVideoPreviewRef.current,
     });
 
     setCalleeVideoConnectingShell(false);
-    if (!tmpToRealHandoff) {
-      setCallerOutgoingConnectShell(false);
-    } else if (sessionRef.current?.isMineInitiator && sessionRef.current.status === "active") {
-      setCallerOutgoingConnectShell(true);
-    }
-    if (!tmpToRealHandoff) {
-      wasCallSessionRingingRef.current = false;
-    }
+    setCallerOutgoingConnectShell(false);
+    wasCallSessionRingingRef.current = false;
     if (!preservePreview) {
       heldPreJoinVideoPreviewRef.current = null;
     } else if (peek) {
@@ -1991,12 +1924,13 @@ export function CommunityMessengerCallClient({
             : s.status === "active"
               ? "end"
               : null;
-        if (!action || !claimCallTerminalPatch(s.id, action)) return;
-        if (s.status === "ringing") {
-          await patchCommunityMessengerCallSession(s.id, s.isMineInitiator ? "cancel" : "reject");
-        } else if (s.status === "active") {
-          await patchCommunityMessengerCallSession(s.id, "end", { durationSeconds: elapsedSecondsRef.current });
-        }
+        if (!action) return;
+        await runCallEndGuard({
+          sessionId: s.id,
+          action,
+          durationSeconds: s.status === "active" ? elapsedSecondsRef.current : undefined,
+          reason: _reason,
+        });
       },
     });
   }, [disposeCallMedia, sessionId]);
@@ -2073,17 +2007,6 @@ export function CommunityMessengerCallClient({
         reason: "call_client_unmount_terminal",
         source: "call_client_unmount",
       });
-    };
-  }, [sessionId]);
-
-  /** 발신 pre-connect 이탈 — stale active session 이 새 수신 busy/벨을 막지 않게 */
-  useEffect(() => {
-    return () => {
-      const snap = readActiveCallSessionSnapshot();
-      if (!snap) return;
-      if (snap.role !== "caller") return;
-      if (snap.phase !== "dialing" && snap.phase !== "ringing") return;
-      void hardClearActiveCallSession(snap.callId, "call_client_unmount_caller_preconnect");
     };
   }, [sessionId]);
 
@@ -2206,36 +2129,11 @@ export function CommunityMessengerCallClient({
 
   useEffect(() => {
     let lastPageLeaveAt = 0;
-    const maybeRingingTeardown = (s: CommunityMessengerCallSession) => {
-      const sid = s.id.trim();
-      if (
-        shouldSkipRingingCallSessionPageLeaveTeardown({
-          sessionId: sid,
-          acceptInFlight: isIncomingCallAcceptInFlight(sid),
-          rejectInFlight: isIncomingCallRejectInFlight(sid),
-          directPatchInFlight: directCallPatchInFlightRef.current,
-          joining: joiningRef.current,
-          requestedActionAccept: requestedActionRef.current === "accept",
-          busyAcceptOrJoin: busyRef.current === "accept" || busyRef.current === "join",
-          calleeConnectingShell: calleeVideoConnectingShellRef.current,
-          nativeAcceptPending: isNativeCalleeAcceptPendingForSession(sid),
-        })
-      ) {
-        return;
-      }
-      bestEffortKeepaliveCallSessionTeardown({
-        session: s,
-        durationSeconds: elapsedSecondsRef.current,
-      });
-    };
     const runPageUnloadLeave = () => {
       const now = Date.now();
       if (now - lastPageLeaveAt < 400) return;
       lastPageLeaveAt = now;
       const s = sessionRef.current;
-      if (s?.status === "ringing") {
-        maybeRingingTeardown(s);
-      }
       stopAllOutgoingRingback("pagehide");
       stopCommunityMessengerCallFeedback();
       /** active+joined 통화는 iOS 탭 전환·주소창에도 Agora 유지 — pagehide 즉시 dispose 금지 */
@@ -3275,8 +3173,7 @@ export function CommunityMessengerCallClient({
           if (
             active?.id === targetSession.id &&
             active.status === "active" &&
-            !isTerminalCallSessionStatus(active.status) &&
-            claimCallTerminalPatch(active.id, "end")
+            !isTerminalCallSessionStatus(active.status)
           ) {
             const endedAtIso = new Date().toISOString();
             const snapshot: CommunityMessengerCallSession = {
@@ -3311,16 +3208,12 @@ export function CommunityMessengerCallClient({
                 reason: "end",
               }).catch(() => {});
             }
-            void patchCommunityMessengerCallSession(
-              active.id,
-              "end",
-              { durationSeconds: elapsedSecondsRef.current, clientEndedReason: reason },
-              {
-                sessionStatus: active.status,
-                isInitiator: active.isMineInitiator,
-                endedReason: active.endedReason ?? null,
-              }
-            ).then((patched) => {
+            void runCallEndGuard({
+              sessionId: active.id,
+              action: "end",
+              durationSeconds: elapsedSecondsRef.current,
+              reason,
+            }).then((patched) => {
               if (patched.ok && patched.session && isTerminalCallSessionStatus(patched.session.status)) {
                 callTerminalLocalPinRef.current = {
                   sessionId: active.id,
@@ -3538,23 +3431,19 @@ export function CommunityMessengerCallClient({
       if (primedPeek) primeVideoElementAutoplayFromUserGesture(primedPeek);
     }
     try {
-      dibayIncomingLaneStopRing("accept_patch_start", s.id);
-      dismissAllIncomingCallNotificationsFireAndForget(s.id);
-      const json = await patchCommunityMessengerCallSession(s.id, "accept", undefined, {
-        sessionStatus: s.status,
-        isInitiator: s.isMineInitiator,
-        endedReason: s.endedReason ?? null,
+      const gatewayResult = await acceptIncomingCallOnce({
+        session: s,
+        router,
+        skipRouteReplace: true,
+        source: "call_client_accept",
       });
-      if (!json.ok || !json.session) {
-        const code = json.error;
+      if (!gatewayResult.ok || !gatewayResult.session) {
         const msg =
-          code === "bad_action"
+          gatewayResult.reason === "already_consumed"
             ? t("cm_ui_call_accept_bad_action")
-            : code === "forbidden"
-              ? t("cm_ui_call_forbidden")
-              : code === "session_required"
-                ? t("cm_ui_call_session_not_found")
-                : t("cm_ui_call_accept_failed");
+            : gatewayResult.reason === "permission_denied"
+              ? t(getCallMediaPermissionBlockedMessageKey(s.callKind))
+              : t("cm_ui_call_accept_failed");
         setErrorMessage(msg);
         callFlowAcceptStartRef.current = null;
         if (!s.isMineInitiator) {
@@ -3581,7 +3470,7 @@ export function CommunityMessengerCallClient({
         role: "callee",
         callKind: s.callKind,
       });
-      const acceptedSession = json.session;
+      const acceptedSession = gatewayResult.session;
       setSession(acceptedSession);
       clearNativeCalleeAcceptPending(s.id);
       runIncomingCallCleanup({ sessionId: s.id, reason: "accept_ok", stopRingtone: false });
@@ -3704,24 +3593,8 @@ export function CommunityMessengerCallClient({
             () => {}
           );
         }
-        const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sid)}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "reject" }),
-        });
-        const json = (await res.json().catch(() => ({}))) as SessionResponse;
-        logCommunityMessengerCallSessionPatchDev({
-          sessionId: sid,
-          action: "reject",
-          responseStatus: res.status,
-          responseBody: json,
-          context: {
-            sessionStatus: session.status,
-            isInitiator: session.isMineInitiator,
-            endedReason: session.endedReason ?? null,
-          },
-        });
-        if (!res.ok || !json.ok) {
+        const json = await runCallEndGuard({ sessionId: sid, action: "reject", reason: "reject" });
+        if (!json.ok) {
           setErrorMessage(
             json.error === "bad_action"
               ? t("cm_ui_call_reject_already_handled")
@@ -3732,6 +3605,7 @@ export function CommunityMessengerCallClient({
           return;
         }
         logCallFlow("call_reject_sent", { sessionId: sid });
+        applyTerminalSessionAfterPatch(json, roomIdR, sid, "rejected");
       } finally {
         setBusy(null);
         directCallPatchInFlightRef.current = false;
@@ -3739,7 +3613,15 @@ export function CommunityMessengerCallClient({
         logCallFlow("call_cleanup_done", { sessionId: sid, reason: "reject" });
       }
     })();
-  }, [appendTerminalCallHistory, beginRingingCallDismiss, disposeCallMedia, scheduleSilentRefresh, session, t]);
+  }, [
+    appendTerminalCallHistory,
+    applyTerminalSessionAfterPatch,
+    beginRingingCallDismiss,
+    disposeCallMedia,
+    scheduleSilentRefresh,
+    session,
+    t,
+  ]);
 
   /** FCM·알림 딥링크 등 — 세션 fetch 전에도 수신 거절/수락이 동작해야 함 */
   const hydrateRejectIncomingCall = useCallback(async () => {
@@ -3750,13 +3632,8 @@ export function CommunityMessengerCallClient({
     dibayIncomingLaneStopRing("reject_pressed", sessionId);
     dismissAllIncomingCallNotificationsFireAndForget(sessionId);
     try {
-      const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "reject" }),
-      });
-      const json = (await res.json().catch(() => ({}))) as SessionResponse;
-      if (!res.ok || !json.ok) {
+      const json = await runCallEndGuard({ sessionId, action: "reject", reason: "reject_hydrate" });
+      if (!json.ok) {
         setErrorMessage(t("cm_ui_call_reject_failed"));
         return;
       }
@@ -3944,9 +3821,6 @@ export function CommunityMessengerCallClient({
           : "ended";
     const softExit = isSoftCallRouteExit(optimisticEnd, session.endedReason);
 
-    if (isCommunityMessengerTempCallSessionId(sid)) {
-      markOutgoingTempCallBootstrapCancelled(sid);
-    }
     if (ringingDismiss) {
       beginRingingCallDismiss(roomId);
     } else {
@@ -4027,28 +3901,13 @@ export function CommunityMessengerCallClient({
             () => {}
           );
         }
-        /** tmp_* — POST bootstrap 전 PATCH 불가; cancel guard·hangup signal 만으로 종료 */
-        if (isCommunityMessengerTempCallSessionId(sid)) {
-          return;
-        }
-        const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sid)}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: patchAction, durationSeconds: elapsedSeconds }),
-        });
-        const json = (await res.json().catch(() => ({}))) as SessionResponse;
-        logCommunityMessengerCallSessionPatchDev({
+        const json = await runCallEndGuard({
           sessionId: sid,
           action: patchAction,
-          responseStatus: res.status,
-          responseBody: json,
-          context: {
-            sessionStatus: session.status,
-            isInitiator: session.isMineInitiator,
-            endedReason: session.endedReason ?? null,
-          },
+          durationSeconds: elapsedSeconds,
+          reason: hangupReason,
         });
-        if (!res.ok || !json.ok) {
+        if (!json.ok) {
           setErrorMessage(
             json.error === "bad_action"
               ? t("cm_ui_call_end_already_ended")
@@ -4171,24 +4030,16 @@ export function CommunityMessengerCallClient({
         setErrorMessage(t(getCallMediaPermissionBlockedMessageKey("video")));
         return false;
       }
-      const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(s.id)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "upgrade_to_video" }),
-      });
-      const json = (await res.json().catch(() => ({}))) as SessionResponse;
-      logCommunityMessengerCallSessionPatchDev({
-        sessionId: s.id,
-        action: "upgrade_to_video",
-        responseStatus: res.status,
-        responseBody: json,
-        context: {
+      const json = await runCallMediaModeGuard(
+        s.id,
+        "upgrade_to_video",
+        {
           sessionStatus: s.status,
           isInitiator: s.isMineInitiator,
           endedReason: s.endedReason ?? null,
         },
-      });
-      if (!res.ok || !json.ok || !json.session) {
+      );
+      if (!json.ok || !json.session) {
         const code = json.error;
         setErrorMessage(
           code === "bad_action"
@@ -4338,24 +4189,16 @@ export function CommunityMessengerCallClient({
       setBusy("upgrade");
       setErrorMessage(null);
       try {
-        const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(s.id)}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "upgrade_to_video" }),
-        });
-        const json = (await res.json().catch(() => ({}))) as SessionResponse;
-        logCommunityMessengerCallSessionPatchDev({
-          sessionId: s.id,
-          action: "upgrade_to_video",
-          responseStatus: res.status,
-          responseBody: json,
-          context: {
+        const json = await runCallMediaModeGuard(
+          s.id,
+          "upgrade_to_video",
+          {
             sessionStatus: s.status,
             isInitiator: s.isMineInitiator,
             endedReason: s.endedReason ?? null,
           },
-        });
-        if (!res.ok || !json.ok || !json.session) {
+        );
+        if (!json.ok || !json.session) {
           const code = json.error;
           setErrorMessage(
             code === "bad_action"
@@ -4428,24 +4271,16 @@ export function CommunityMessengerCallClient({
         setLocalVideoReady(false);
         setCameraSwitchSupported(false);
       }
-      const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(s.id)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "downgrade_to_voice" }),
-      });
-      const json = (await res.json().catch(() => ({}))) as SessionResponse;
-      logCommunityMessengerCallSessionPatchDev({
-        sessionId: s.id,
-        action: "downgrade_to_voice",
-        responseStatus: res.status,
-        responseBody: json,
-        context: {
+      const json = await runCallMediaModeGuard(
+        s.id,
+        "downgrade_to_voice",
+        {
           sessionStatus: s.status,
           isInitiator: s.isMineInitiator,
           endedReason: s.endedReason ?? null,
         },
-      });
-      if (!res.ok || !json.ok || !json.session) {
+      );
+      if (!json.ok || !json.session) {
         const code = json.error;
         setErrorMessage(
           code === "bad_action"

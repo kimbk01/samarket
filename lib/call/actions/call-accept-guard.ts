@@ -2,6 +2,7 @@
 
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 import { patchCommunityMessengerCallSession } from "@/lib/call/call-actions";
+import { runCallEndGuard } from "@/lib/call/actions/call-end-guard";
 import { logDibayCallFlow } from "@/lib/call/logging/call-flow-log";
 import { prepareNativeCallAccept } from "@/lib/call/native/native-call-service";
 import { callPermissionGate } from "@/lib/call/permissions/call-permission-gate";
@@ -138,5 +139,5 @@ export async function cancelIncomingCallForPermission(
   if (!sid) return;
   dibayCallSealTerminal(sid);
   logDibayCallFlow("incoming_accept_blocked_permission", { sessionId: sid, callId: sid, reason });
-  await patchCommunityMessengerCallSession(sid, "missed", { clientEndedReason: reason });
+  await runCallEndGuard({ sessionId: sid, action: "missed", reason });
 }

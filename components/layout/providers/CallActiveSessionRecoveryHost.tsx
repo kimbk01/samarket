@@ -6,7 +6,7 @@ import { getCurrentUser, getCurrentUserIdForDb } from "@/lib/auth/get-current-us
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { isCallActionLockHeld } from "@/lib/call/call-action-lock";
 import {
-  hardClearActiveCallSession,
+  releaseLocalCallSession,
   readActiveCallSessionSnapshot,
   resumeActiveCallSessionFromNative,
   subscribeActiveCallSession,
@@ -202,7 +202,7 @@ export function CallActiveSessionRecoveryHost() {
               return;
             }
             if (nativeStatus && isTerminalCallRecoveryStatus(nativeStatus)) {
-              await hardClearActiveCallSession(nativeCallId, "native_stale_terminal");
+              await releaseLocalCallSession(nativeCallId, "native_stale_terminal");
             }
           }
         }
@@ -228,7 +228,7 @@ export function CallActiveSessionRecoveryHost() {
               routedRef.current = true;
               return;
             }
-            await hardClearActiveCallSession(existing.callId, "recovery_no_live_session");
+            await releaseLocalCallSession(existing.callId, "recovery_no_live_session");
           }
           return;
         }

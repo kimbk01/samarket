@@ -8,7 +8,7 @@ import {
   syncClearActiveCallSessionLocal,
 } from "@/lib/call/active-call-session";
 import {
-  endNativeCallService,
+  endNativeCallServiceLocalOnly,
   reportNativeCallRemoteEnded,
 } from "@/lib/call/native/native-call-service";
 import {
@@ -25,6 +25,7 @@ vi.mock("@/lib/community-messenger/call-orchestrator", () => ({
 
 vi.mock("@/lib/call/native/native-call-service", () => ({
   endNativeCallService: vi.fn(async () => true),
+  endNativeCallServiceLocalOnly: vi.fn(async () => true),
   reportNativeCallRemoteEnded: vi.fn(async () => true),
 }));
 
@@ -102,10 +103,10 @@ describe("active-call-session SSOT", () => {
     await hardClearActiveCallSession("call-2", "ended");
     expect(getActiveCallSessionCallId()).toBeNull();
     expect(vi.mocked(reportNativeCallRemoteEnded)).toHaveBeenCalledWith("call-2");
-    expect(vi.mocked(endNativeCallService)).not.toHaveBeenCalled();
+    expect(vi.mocked(endNativeCallServiceLocalOnly)).not.toHaveBeenCalled();
   });
 
-  it("hard clears local end via endNativeCallService", async () => {
+  it("hard clears local end via endNativeCallServiceLocalOnly", async () => {
     setActiveCallSession({
       callId: "call-2b",
       roomId: "room-1",
@@ -116,11 +117,11 @@ describe("active-call-session SSOT", () => {
       machinePhase: "CONNECTED",
       connected: true,
     });
-    vi.mocked(endNativeCallService).mockClear();
+    vi.mocked(endNativeCallServiceLocalOnly).mockClear();
     vi.mocked(reportNativeCallRemoteEnded).mockClear();
     await hardClearActiveCallSession("call-2b", "local_ended");
     expect(getActiveCallSessionCallId()).toBeNull();
-    expect(vi.mocked(endNativeCallService)).toHaveBeenCalledWith("call-2b", "local_ended");
+    expect(vi.mocked(endNativeCallServiceLocalOnly)).toHaveBeenCalledWith("call-2b", "local_ended");
     expect(vi.mocked(reportNativeCallRemoteEnded)).not.toHaveBeenCalled();
   });
 

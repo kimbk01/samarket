@@ -82,10 +82,10 @@ import {
   buildForegroundIncomingWakeOptimisticSession,
   mergeForegroundIncomingWakeSession,
 } from "@/lib/community-messenger/incoming-call/foreground-incoming-wake";
-import { patchCommunityMessengerCallSession, postCommunityMessengerCallHangupSignal } from "@/lib/call/call-actions";
+import { postCommunityMessengerCallHangupSignal } from "@/lib/call/call-actions";
 import { patchCommunityMessengerCallMissedOnce } from "@/lib/community-messenger/messenger-call-missed-patch";
 import { evaluateIncomingCallBusyPolicy } from "@/lib/call/call-state";
-import { hardClearActiveCallSession } from "@/lib/call/active-call-session";
+import { releaseLocalCallSession } from "@/lib/call/active-call-session";
 import { releaseCallActionLock } from "@/lib/call/call-action-lock";
 import { useIncomingCallTabLeader } from "@/lib/community-messenger/incoming-call-tab-leader";
 import { DEFAULT_INCOMING_RING_TIMEOUT_SECONDS } from "@/lib/community-messenger/messenger-call-ring-timeout";
@@ -734,7 +734,7 @@ export function GlobalCommunityMessengerIncomingCall() {
       resetIncomingCallActionGuards(sessionId);
       incomingUiSurfaceLoggedRef.current.delete(sessionId);
       releaseCallActionLock(`terminal_${sourceTag}`);
-      void hardClearActiveCallSession(sessionId, statusNorm);
+      void releaseLocalCallSession(sessionId, statusNorm);
       clearDibayCallPendingRoute();
     }
     if (tmpSessionId) activeIncomingCallIdsRef.current.delete(tmpSessionId);
@@ -2051,11 +2051,9 @@ export function GlobalCommunityMessengerIncomingCall() {
       suppressMissedSoundRef.current.add(sid);
       dismissAllIncomingCallNotificationsFireAndForget(sid);
       activeIncomingCallIdsRef.current.delete(sid);
-      void patchCommunityMessengerCallSession(sid, "reject", undefined, {
-        sessionStatus: s.status,
-        isInitiator: s.isMineInitiator,
-        endedReason: s.endedReason ?? null,
-      }).then(() => refresh(true, { incomingTerminalListSync: true }));
+      void runIncomingCallReject({ sessionId: sid, source: "incoming_overlay_reject" }).then(() =>
+        refresh(true, { incomingTerminalListSync: true })
+      );
     }
     setSessions((prev) => prev.filter((item) => !rejected.has(item.id)));
   }, [effectiveViewerLiveSessionId, pathname, refresh, sessions, userId]);

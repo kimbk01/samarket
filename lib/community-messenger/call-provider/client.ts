@@ -196,7 +196,7 @@ export async function createCommunityMessengerAgoraLocalTracks(
   if (primed && kind === "video") {
     /**
      * HTML 링 미리보기용 GUM 은 Agora 마이크로 재사용하지 않는다.
-     * tmp→real 교체·DOM 부착 후 일부 삼성에서 audio track 이 live 여도 송신 무음이 될 수 있다.
+     * HTML 미리보기 DOM 부착 후 일부 삼성에서 audio track 이 live 여도 송신 무음이 될 수 있다.
      */
     try {
       primed.getTracks().forEach((track) => {

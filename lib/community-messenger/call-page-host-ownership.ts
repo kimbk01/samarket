@@ -8,9 +8,9 @@ export type CommunityCallPageHostOwnershipInput = {
   runtimeSessionId: string | null;
   runtimeSessionStatus: string | null;
   routeSessionId: string;
-  /** tmp_* 발신 bootstrap — runtime 등록 전 call route CallClient 유지 */
+  /** legacy tmp_* route — 새 발신은 real session route 만 사용 */
   isTempCallRouteSession?: boolean;
-  /** POST 직후 navigation seed — tmp→real 교체·hydrate 구간 */
+  /** POST 직후 navigation seed — real route hydrate 구간 */
   hasNavigationSeed?: boolean;
   /** setActiveCallSession live phase 와 route sessionId 일치 */
   hasLiveActiveCallSession?: boolean;

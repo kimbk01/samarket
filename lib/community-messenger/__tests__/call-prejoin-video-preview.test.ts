@@ -109,23 +109,11 @@ describe("hasLiveCommunityMessengerVideoPreviewStream", () => {
 });
 
 describe("shouldPreserveHeldPreJoinVideoOnSessionRouteChange", () => {
-  it("preserves preview across tmp to real session replace", () => {
-    const stream = fakeStream();
-    expect(
-      shouldPreserveHeldPreJoinVideoOnSessionRouteChange({
-        nextSessionId: "real-session-id",
-        prevSessionId: "tmp_abc",
-        peekStream: stream,
-        heldStream: null,
-      })
-    ).toBe(true);
-  });
-
   it("does not preserve when stream is ended", () => {
     expect(
       shouldPreserveHeldPreJoinVideoOnSessionRouteChange({
         nextSessionId: "real-session-id",
-        prevSessionId: "tmp_abc",
+        prevSessionId: null,
         peekStream: fakeStream(false),
         heldStream: null,
       })
@@ -135,7 +123,7 @@ describe("shouldPreserveHeldPreJoinVideoOnSessionRouteChange", () => {
   it("preserves primed preview on first route mount", () => {
     expect(
       shouldPreserveHeldPreJoinVideoOnSessionRouteChange({
-        nextSessionId: "tmp_abc",
+        nextSessionId: "real-session-id",
         prevSessionId: null,
         peekStream: fakeStream(),
         heldStream: null,

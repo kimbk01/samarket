@@ -35,19 +35,15 @@ describe("call route enter slide skip", () => {
     vi.unstubAllGlobals();
   });
 
-  it("skips slide for tmp outgoing dial and outgoingDial query", () => {
-    expect(
-      shouldSkipCallRouteEnterSlide("tmp_outgoing_abc", { get: () => null })
-    ).toBe(true);
+  it("does not skip slide from tmp/outgoingDial route hacks", () => {
+    expect(shouldSkipCallRouteEnterSlide("tmp_outgoing_abc", { get: () => null })).toBe(false);
     expect(
       shouldSkipCallRouteEnterSlide("real-session-id", { get: (k) => (k === "outgoingDial" ? "1" : null) })
-    ).toBe(true);
+    ).toBe(false);
   });
 
-  it("buildCommunityMessengerCallRouteHref adds outgoingDial for tmp→real handoff", () => {
-    expect(buildCommunityMessengerCallRouteHref("sess-1", { outgoingDial: true })).toBe(
-      "/community-messenger/calls/sess-1?outgoingDial=1"
-    );
+  it("buildCommunityMessengerCallRouteHref returns real session route only", () => {
+    expect(buildCommunityMessengerCallRouteHref("sess-1")).toBe("/community-messenger/calls/sess-1");
   });
 
   it("skips slide when navigation seed is outgoing initiator", () => {

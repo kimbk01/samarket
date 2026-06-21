@@ -120,6 +120,7 @@
     "verify:ios-kakao-key-config": "node scripts/verify-ios-kakao-key-config.mjs",
     "verify:auth-session-contract": "node scripts/verify-auth-session-contract.mjs",
     "verify:cm-kakao-telegram-navigation-contract": "node scripts/verify-cm-kakao-telegram-navigation-contract.mjs",
+    "verify:cm-call-lifecycle-contract": "node scripts/verify-cm-call-lifecycle-contract.mjs",
     "verify:push-dispatch-contract": "node scripts/verify-push-dispatch-contract.mjs",
     "verify:notification-p0-contract": "vitest run lib/notifications/policy/__tests__/notification-policy-profiles.test.ts lib/notifications/core/__tests__/notification-policy-p0-mapping.test.ts",
     "verify:push-phase1-ready": "node scripts/verify-push-phase1-ready.mjs",

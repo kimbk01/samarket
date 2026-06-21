@@ -50,7 +50,7 @@ async function fetchCallSessionForResumeGuard(
   return json.session;
 }
 
-async function bestEffortCancelStaleOutgoingSession(sessionId: string, source: string): Promise<void> {
+async function suppressStaleOutgoingSession(sessionId: string, source: string): Promise<void> {
   const sid = sessionId.trim();
   if (!sid) return;
   writeTerminalCallRecoverySuppress(sid);
@@ -59,21 +59,11 @@ async function bestEffortCancelStaleOutgoingSession(sessionId: string, source: s
     callId: sid,
     source,
   });
-  try {
-    await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sid)}`, {
-      method: "PATCH",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "cancel" }),
-    });
-  } catch {
-    /* ignore */
-  }
 }
 
 /**
  * 앱 재실행·pending route replay·native resume 전에 통화 라우트 진입 허용 여부.
- * stale 발신 ringing 은 차단하고 서버 cancel 을 best-effort 로 보낸다.
+ * stale 발신 ringing 은 라우팅만 차단한다. recovery 는 remote terminal PATCH 를 보내지 않는다.
  */
 export async function resolveCallRouteResumeDecision(args: {
   sessionId: string;
@@ -102,7 +92,7 @@ export async function resolveCallRouteResumeDecision(args: {
 
   if (status === "ringing") {
     if (session.isMineInitiator) {
-      await bestEffortCancelStaleOutgoingSession(sid, "resume_guard_stale_outgoing_ringing");
+      await suppressStaleOutgoingSession(sid, "resume_guard_stale_outgoing_ringing");
       return { action: "block", reason: "stale_outgoing_ringing", sessionId: sid };
     }
     if (isNativeResumeOnlyPath(path)) {
@@ -115,7 +105,7 @@ export async function resolveCallRouteResumeDecision(args: {
 
   if (isNativeResumeOnlyPath(path) && status !== "active") {
     if (session.isMineInitiator) {
-      await bestEffortCancelStaleOutgoingSession(sid, "resume_guard_stale_outgoing_non_active");
+      await suppressStaleOutgoingSession(sid, "resume_guard_stale_outgoing_non_active");
     }
     return { action: "block", reason: "native_resume_not_active", sessionId: sid };
   }

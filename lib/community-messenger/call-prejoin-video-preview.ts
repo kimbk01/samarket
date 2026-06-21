@@ -1,5 +1,4 @@
 import type { CommunityMessengerCallKind, CommunityMessengerCallSession, CommunityMessengerCallSessionStatus } from "@/lib/community-messenger/types";
-import { isCommunityMessengerTempCallSessionId } from "@/lib/community-messenger/call-session-navigation-seed";
 import { peekPrimedCommunityMessengerDeviceStream } from "@/lib/community-messenger/call-permission";
 
 const TERMINAL: CommunityMessengerCallSessionStatus[] = ["ended", "cancelled", "rejected", "missed"];
@@ -15,7 +14,7 @@ export function hasLiveCommunityMessengerVideoPreviewStream(stream: MediaStream 
 }
 
 /**
- * tmp→real replace·첫 마운트(프라임 직후) 시 held HTML 미리보기 스트림 유지.
+ * 첫 real call route 마운트(프라임 직후) 시 held HTML 미리보기 스트림 유지.
  * 다른 통화 sessionId 로의 전환은 보존하지 않는다.
  */
 export function shouldPreserveHeldPreJoinVideoOnSessionRouteChange(args: {
@@ -28,10 +27,7 @@ export function shouldPreserveHeldPreJoinVideoOnSessionRouteChange(args: {
   if (!hasLiveCommunityMessengerVideoPreviewStream(stream)) return false;
   if (args.prevSessionId === args.nextSessionId) return false;
   if (!args.prevSessionId) return true;
-  return (
-    isCommunityMessengerTempCallSessionId(args.prevSessionId) &&
-    !isCommunityMessengerTempCallSessionId(args.nextSessionId)
-  );
+  return false;
 }
 
 /**
@@ -61,7 +57,7 @@ export function shouldShowOutgoingRingCameraPreview(args: {
   callKind: CommunityMessengerCallKind;
   sessionStatus: CommunityMessengerCallSessionStatus;
   isInitiator: boolean;
-  /** held·resolvePreJoin 경로 — peek 만으로는 tmp→real 전환 직후 false 가 될 수 있음 */
+  /** held·resolvePreJoin 경로 — 첫 route paint 직후 peek 가 비어도 live stream 을 유지할 수 있음 */
   previewStream?: MediaStream | null;
 }): boolean {
   if (args.callKind !== "video" || args.sessionStatus !== "ringing" || !args.isInitiator) {
