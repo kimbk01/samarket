@@ -184,6 +184,7 @@ public class IncomingCallActivity extends AppCompatActivity {
               return false;
           }
         });
+  }
 
   @Override
   protected void onDestroy() {

@@ -49,7 +49,7 @@ public final class IncomingCallUiCopy {
   }
 
   public static String acceptLabel(Context context) {
-    return context.getString(R.string.dibay_incoming_accept);
+    return context.getString(R.string.dibay_incoming_call_label);
   }
 
   public static String rejectLabel(Context context) {
