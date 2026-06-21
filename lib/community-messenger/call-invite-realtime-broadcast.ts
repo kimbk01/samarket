@@ -45,6 +45,51 @@ function waitForChannelSubscribed(ch: ReturnType<SupabaseClient["channel"]>, tim
   });
 }
 
+type WarmOutboundInviteChannel = {
+  channel: ReturnType<SupabaseClient["channel"]>;
+  ready: Promise<void>;
+};
+
+/** 발신 ring·terminal — 매 publish 새 subscribe(최대 800ms) 대기 제거 */
+const warmOutboundInviteByRecipient = new Map<string, WarmOutboundInviteChannel>();
+
+function warmInviteRecipientKey(userId: string): string {
+  return userId.trim().toLowerCase();
+}
+
+function acquireWarmOutboundInviteChannel(sb: SupabaseClient, recipientUserId: string): WarmOutboundInviteChannel {
+  const key = warmInviteRecipientKey(recipientUserId);
+  const existing = warmOutboundInviteByRecipient.get(key);
+  if (existing) return existing;
+  const name = communityMessengerCallInviteChannelName(recipientUserId);
+  const channel = sb.channel(name, { config: { broadcast: { ack: false } } });
+  const ready = waitForChannelSubscribed(channel, 1_800).catch(() => {
+    warmOutboundInviteByRecipient.delete(key);
+  });
+  const entry = { channel, ready };
+  warmOutboundInviteByRecipient.set(key, entry);
+  return entry;
+}
+
+/** 발신 직전/직후 recipient 채널 warm — terminal hangup 지연 제거 */
+export function primeWarmCallInviteOutboundChannel(recipientUserId: string): void {
+  const sb = getSupabaseClient();
+  const to = recipientUserId?.trim();
+  if (!sb || !to) return;
+  void acquireWarmOutboundInviteChannel(sb, to).ready.catch(() => {});
+}
+
+async function sendWarmInviteBroadcast(
+  sb: SupabaseClient,
+  recipientUserId: string,
+  event: string,
+  payload: Record<string, unknown>
+): Promise<void> {
+  const { channel, ready } = acquireWarmOutboundInviteChannel(sb, recipientUserId);
+  await ready;
+  await channel.send({ type: "broadcast", event, payload });
+}
+
 export async function publishCommunityMessengerCallInviteRing(
   sb: SupabaseClient,
   args: {
@@ -75,30 +120,15 @@ async function publishCommunityMessengerCallInviteRingInner(
     tmpSessionId?: string | null;
   }
 ): Promise<void> {
-  const name = communityMessengerCallInviteChannelName(args.recipientUserId);
-  const ch = sb.channel(name, { config: { broadcast: { ack: false } } });
-  try {
-    await waitForChannelSubscribed(ch, 1_800);
-    const tmp = typeof args.tmpSessionId === "string" ? args.tmpSessionId.trim() : "";
-    await ch.send({
-      type: "broadcast",
-      event: CM_CALL_INVITE_BROADCAST_RING,
-      payload: {
-        sessionId: args.sessionId,
-        roomId: args.roomId,
-        callKind: args.callKind,
-        startedAt: args.startedAtIso,
-        initiatorUserId: args.initiatorUserId,
-        ...(tmp ? { tmpSessionId: tmp } : {}),
-      },
-    });
-  } finally {
-    try {
-      void sb.removeChannel(ch);
-    } catch {
-      /* ignore */
-    }
-  }
+  const tmp = typeof args.tmpSessionId === "string" ? args.tmpSessionId.trim() : "";
+  await sendWarmInviteBroadcast(sb, args.recipientUserId, CM_CALL_INVITE_BROADCAST_RING, {
+    sessionId: args.sessionId,
+    roomId: args.roomId,
+    callKind: args.callKind,
+    startedAt: args.startedAtIso,
+    initiatorUserId: args.initiatorUserId,
+    ...(tmp ? { tmpSessionId: tmp } : {}),
+  });
 }
 
 export async function publishCommunityMessengerCallInviteHangup(
@@ -113,34 +143,19 @@ export async function publishCommunityMessengerCallInviteHangup(
     tmpSessionId?: string | null;
   }
 ): Promise<void> {
-  const name = communityMessengerCallInviteChannelName(args.recipientUserId);
-  const ch = sb.channel(name, { config: { broadcast: { ack: false } } });
-  try {
-    await waitForChannelSubscribed(ch, 800);
-    const roomId = typeof args.roomId === "string" ? args.roomId.trim() : "";
-    const ini = typeof args.initiatorUserId === "string" ? args.initiatorUserId.trim() : "";
-    const ck = args.callKind === "video" || args.callKind === "voice" ? args.callKind : "";
-    const st = typeof args.terminalStatus === "string" ? args.terminalStatus.trim() : "";
-    const tmp = typeof args.tmpSessionId === "string" ? args.tmpSessionId.trim() : "";
-    await ch.send({
-      type: "broadcast",
-      event: CM_CALL_INVITE_BROADCAST_HANGUP,
-      payload: {
-        sessionId: args.sessionId,
-        ...(roomId ? { roomId } : {}),
-        ...(ini ? { initiatorUserId: ini } : {}),
-        ...(ck ? { callKind: ck } : {}),
-        ...(st ? { status: st, terminalStatus: st } : {}),
-        ...(tmp ? { tmpSessionId: tmp } : {}),
-      },
-    });
-  } finally {
-    try {
-      void sb.removeChannel(ch);
-    } catch {
-      /* ignore */
-    }
-  }
+  const roomId = typeof args.roomId === "string" ? args.roomId.trim() : "";
+  const ini = typeof args.initiatorUserId === "string" ? args.initiatorUserId.trim() : "";
+  const ck = args.callKind === "video" || args.callKind === "voice" ? args.callKind : "";
+  const st = typeof args.terminalStatus === "string" ? args.terminalStatus.trim() : "";
+  const tmp = typeof args.tmpSessionId === "string" ? args.tmpSessionId.trim() : "";
+  await sendWarmInviteBroadcast(sb, args.recipientUserId, CM_CALL_INVITE_BROADCAST_HANGUP, {
+    sessionId: args.sessionId,
+    ...(roomId ? { roomId } : {}),
+    ...(ini ? { initiatorUserId: ini } : {}),
+    ...(ck ? { callKind: ck } : {}),
+    ...(st ? { status: st, terminalStatus: st } : {}),
+    ...(tmp ? { tmpSessionId: tmp } : {}),
+  });
 }
 
 export async function publishCommunityMessengerCallInviteTerminal(
@@ -155,34 +170,19 @@ export async function publishCommunityMessengerCallInviteTerminal(
     status?: string | null;
   }
 ): Promise<void> {
-  const name = communityMessengerCallInviteChannelName(args.recipientUserId);
-  const ch = sb.channel(name, { config: { broadcast: { ack: false } } });
-  try {
-    await waitForChannelSubscribed(ch, 800);
-    const roomId = typeof args.roomId === "string" ? args.roomId.trim() : "";
-    const ini = typeof args.initiatorUserId === "string" ? args.initiatorUserId.trim() : "";
-    const ck = args.callKind === "video" || args.callKind === "voice" ? args.callKind : "";
-    const tmp = typeof args.tmpSessionId === "string" ? args.tmpSessionId.trim() : "";
-    const st = typeof args.status === "string" ? args.status.trim() : "cancelled";
-    await ch.send({
-      type: "broadcast",
-      event: CM_CALL_INVITE_BROADCAST_TERMINAL,
-      payload: {
-        sessionId: args.sessionId,
-        status: st,
-        ...(roomId ? { roomId } : {}),
-        ...(ini ? { initiatorUserId: ini } : {}),
-        ...(ck ? { callKind: ck } : {}),
-        ...(tmp ? { tmpSessionId: tmp } : {}),
-      },
-    });
-  } finally {
-    try {
-      void sb.removeChannel(ch);
-    } catch {
-      /* ignore */
-    }
-  }
+  const roomId = typeof args.roomId === "string" ? args.roomId.trim() : "";
+  const ini = typeof args.initiatorUserId === "string" ? args.initiatorUserId.trim() : "";
+  const ck = args.callKind === "video" || args.callKind === "voice" ? args.callKind : "";
+  const tmp = typeof args.tmpSessionId === "string" ? args.tmpSessionId.trim() : "";
+  const st = typeof args.status === "string" ? args.status.trim() : "cancelled";
+  await sendWarmInviteBroadcast(sb, args.recipientUserId, CM_CALL_INVITE_BROADCAST_TERMINAL, {
+    sessionId: args.sessionId,
+    status: st,
+    ...(roomId ? { roomId } : {}),
+    ...(ini ? { initiatorUserId: ini } : {}),
+    ...(ck ? { callKind: ck } : {}),
+    ...(tmp ? { tmpSessionId: tmp } : {}),
+  });
 }
 
 /** 발신 직후 — 수신 탭이 DB 반영 전에도 깨울 수 있게 */
@@ -198,6 +198,7 @@ export async function notifyCommunityMessengerCallInviteRingBestEffort(
   try {
     const initiator = session.initiatorUserId?.trim();
     if (!initiator) return;
+    primeWarmCallInviteOutboundChannel(recipient);
     const dialTmp = typeof options?.dialTmpSessionId === "string" ? options.dialTmpSessionId.trim() : "";
     await publishCommunityMessengerCallInviteRing(sb, {
       recipientUserId: recipient,

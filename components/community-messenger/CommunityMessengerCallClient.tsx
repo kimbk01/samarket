@@ -226,8 +226,9 @@ import { matchIncomingCallSessionToTerminalQuery } from "@/lib/community-messeng
 import {
   postCommunityMessengerCallSessionTerminalBusEvent,
 } from "@/lib/community-messenger/multi-tab-bus";
-import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { postCommunityMessengerCallHangupSignal } from "@/lib/call/call-actions";
+import { getActiveCallSessionCallId, releaseLocalCallSession } from "@/lib/call/active-call-session";
 import { runCallEndGuard } from "@/lib/call/actions/call-end-guard";
 import {
   classifyMessengerCallJoinFailure,
@@ -1816,6 +1817,41 @@ export function CommunityMessengerCallClient({
   const applyRemoteCallSessionTerminal = useCallback(
     (ev: CallClientRemoteTerminalFeedEvent) => {
       const cur = sessionRef.current;
+      const terminalStatusFromFeed = readRealtimeSessionStatus(ev.status);
+      const routeMatchesTerminal =
+        !cur &&
+        (ev.sessionId?.trim() === sessionId ||
+          ev.tmpSessionId?.trim() === sessionId ||
+          (isCommunityMessengerTempCallSessionId(sessionId) && ev.tmpSessionId?.trim() === sessionId));
+      if (routeMatchesTerminal) {
+        const terminalStatus = terminalStatusFromFeed ?? readRealtimeSessionStatus(ev.status);
+        if (!terminalStatus) return;
+        if (remoteTerminalHandoffOnceRef.current === sessionId) return;
+        remoteTerminalHandoffOnceRef.current = sessionId;
+        console.info("[call-flow] call_client_remote_terminal_hydrate", {
+          sessionId,
+          status: terminalStatus,
+          source: ev.source,
+        });
+        stopOutgoingRingbackForSessionId(sessionId, "remote_terminal_hydrate");
+        stopCommunityMessengerCallFeedback();
+        void releaseLocalCallSession(sessionId, terminalStatus);
+        void cleanupCommunityCallTerminal({
+          sessionId,
+          reason: terminalStatus,
+          source: "remote_terminal_hydrate",
+        });
+        const seed = peekCommunityMessengerCallNavigationSeed(sessionId);
+        exitCommunityMessengerCallRouteNow({
+          router,
+          sessionId,
+          roomId: ev.roomId ?? seed?.roomId ?? searchParams.get("roomId")?.trim() ?? null,
+          target: "back",
+          source: ev.source.startsWith("native_") ? "remote_terminal_native_hydrate" : "remote_terminal_hydrate",
+          onceRef: terminalNavigateBackOnceRef,
+        });
+        return;
+      }
       if (!cur) return;
       const { match: terminalAppliesToCurrentSession } = matchIncomingCallSessionToTerminalQuery(
         cur,
@@ -1896,7 +1932,7 @@ export function CommunityMessengerCallClient({
         });
       }
     },
-    [appendTerminalCallHistory, beginRingingCallDismiss, disposeCallMedia, router]
+    [appendTerminalCallHistory, beginRingingCallDismiss, disposeCallMedia, router, searchParams, sessionId]
   );
 
   useEffect(() => {
@@ -3128,12 +3164,6 @@ export function CommunityMessengerCallClient({
               snapshot,
             };
             appendTerminalCallHistory(active, "ended", { hangupReason: "end", endedReason: reason });
-            setSession(snapshot);
-            void cleanupCommunityCallTerminal({
-              sessionId: active.id,
-              reason: "ended",
-              source: "auto_end_after_join_failure",
-            });
             const peer = active.peerUserId?.trim();
             if (peer) {
               void notifyCommunityMessengerCallInviteHangupBestEffort(peer, active.id, {
@@ -3148,6 +3178,12 @@ export function CommunityMessengerCallClient({
                 reason: "end",
               }).catch(() => {});
             }
+            setSession(snapshot);
+            void cleanupCommunityCallTerminal({
+              sessionId: active.id,
+              reason: "ended",
+              source: "auto_end_after_join_failure",
+            });
             void runCallEndGuard({
               sessionId: active.id,
               action: "end",
@@ -3510,6 +3546,17 @@ export function CommunityMessengerCallClient({
     joinedRef.current = false;
     setRemoteJoined(false);
     void disposeCallMedia({ domAudioNuclear: true }).catch(() => {});
+    if (peer) {
+      /** PATCH·로컬 bus 전 — 상대 탭 `cm_invite_terminal` 즉시 반영 */
+      void notifyCommunityMessengerCallInviteHangupBestEffort(peer, sid, {
+        roomId: roomIdR,
+        initiatorUserId: session.initiatorUserId,
+        callKind: session.callKind,
+        terminalStatus: "rejected",
+        tmpSessionId: isCommunityMessengerTempCallSessionId(sid) ? sid : undefined,
+      });
+      void postCommunityMessengerCallHangupSignal({ sessionId: sid, toUserId: peer, reason: "reject" }).catch(() => {});
+    }
     postCommunityMessengerCallSessionTerminalBusEvent({
       sessionId: sid,
       tmpSessionId: isCommunityMessengerTempCallSessionId(sid) ? sid : undefined,
@@ -3521,18 +3568,6 @@ export function CommunityMessengerCallClient({
 
     void (async () => {
       try {
-        if (peer) {
-          void notifyCommunityMessengerCallInviteHangupBestEffort(peer, sid, {
-            roomId: roomIdR,
-            initiatorUserId: session.initiatorUserId,
-            callKind: session.callKind,
-            terminalStatus: "rejected",
-            tmpSessionId: isCommunityMessengerTempCallSessionId(sid) ? sid : undefined,
-          });
-          void postCommunityMessengerCallHangupSignal({ sessionId: sid, toUserId: peer, reason: "reject" }).catch(
-            () => {}
-          );
-        }
         const json = await runCallEndGuard({ sessionId: sid, action: "reject", reason: "reject" });
         if (!json.ok) {
           console.info("[DIBAY_CALL] terminal_patch_failed_silent", {
@@ -3786,6 +3821,21 @@ export function CommunityMessengerCallClient({
           ? "rejected"
           : "ended";
     const softExit = isSoftCallRouteExit(optimisticEnd, session.endedReason);
+    const hangupReason =
+      patchAction === "cancel" ? "cancel" : patchAction === "reject" ? "reject" : "end";
+    if (peer) {
+      /** PATCH·로컬 bus 전 — 상대 탭 `cm_invite_terminal` 즉시 반영 */
+      void notifyCommunityMessengerCallInviteHangupBestEffort(peer, sid, {
+        roomId: roomId,
+        initiatorUserId: session.initiatorUserId,
+        callKind: session.callKind,
+        terminalStatus: optimisticEnd,
+        tmpSessionId: isCommunityMessengerTempCallSessionId(sid) ? sid : undefined,
+      });
+      void postCommunityMessengerCallHangupSignal({ sessionId: sid, toUserId: peer, reason: hangupReason }).catch(
+        () => {}
+      );
+    }
 
     if (ringingDismiss) {
       beginRingingCallDismiss(roomId);
@@ -3803,8 +3853,6 @@ export function CommunityMessengerCallClient({
     stopOutgoingRingbackForSessionId(sid, "end_call");
     cmCallAudioCleanup("end_click_feedback_stopped_before_patch", { sessionId: sid });
     setBusy("end");
-    const hangupReason =
-      patchAction === "cancel" ? "cancel" : patchAction === "reject" ? "reject" : "end";
     const terminalCleanupReason =
       patchAction === "cancel" ? "cancelled" : patchAction === "reject" ? "rejected" : "caller_end";
     void cleanupCommunityCallTerminal({
@@ -3855,18 +3903,6 @@ export function CommunityMessengerCallClient({
 
     void (async () => {
       try {
-        if (peer) {
-          void notifyCommunityMessengerCallInviteHangupBestEffort(peer, sid, {
-            roomId: roomId,
-            initiatorUserId: session.initiatorUserId,
-            callKind: session.callKind,
-            terminalStatus: optimisticEnd,
-            tmpSessionId: isCommunityMessengerTempCallSessionId(sid) ? sid : undefined,
-          });
-          void postCommunityMessengerCallHangupSignal({ sessionId: sid, toUserId: peer, reason: hangupReason }).catch(
-            () => {}
-          );
-        }
         const json = await runCallEndGuard({
           sessionId: sid,
           action: patchAction,
@@ -4358,6 +4394,9 @@ export function CommunityMessengerCallClient({
         });
         if (!nextSession) {
           setErrorMessage(t("cm_ui_call_session_missing"));
+          if (getActiveCallSessionCallId() === sessionId) {
+            void runCallEndGuard({ sessionId, action: "cancel", reason: "bootstrap_fetch_miss" });
+          }
         }
         /* Agora 토큰: session 상태 반영 후 prefetch effect 가 단일 요청 */
       } finally {
@@ -4594,10 +4633,12 @@ export function CommunityMessengerCallClient({
     const sb = getSupabaseClient();
     const current = sessionRef.current;
     const myUserId =
-      current?.participants.find((p) => p.isMe)?.userId?.trim() ??
-      (current?.isMineInitiator
-        ? current.initiatorUserId.trim()
-        : (current?.recipientUserId?.trim() ?? ""));
+      (current?.participants.find((p) => p.isMe)?.userId?.trim() ??
+        (current?.isMineInitiator
+          ? current.initiatorUserId.trim()
+          : current?.recipientUserId?.trim() ?? "")) ||
+      getCurrentUser()?.id?.trim() ||
+      "";
     if (!sb || !sessionId || !myUserId) return;
     let cancelled = false;
     const ch = subscribeCommunityMessengerCallInviteBroadcast(sb, myUserId, {
@@ -4609,10 +4650,38 @@ export function CommunityMessengerCallClient({
         const sid = typeof payload.sessionId === "string" ? payload.sessionId.trim() : "";
         if (!sid || sid !== sessionId) return;
         const active = sessionRef.current;
-        if (!active || active.id !== sessionId || isTerminalCallSessionStatus(active.status)) return;
+        if (!active || active.id !== sessionId || isTerminalCallSessionStatus(active.status)) {
+          if (!active || active.id !== sessionId) {
+            applyRemoteCallSessionTerminal({
+              sessionId: sid,
+              tmpSessionId:
+                typeof payload.tmpSessionId === "string" ? payload.tmpSessionId.trim() : undefined,
+              roomId: typeof payload.roomId === "string" ? payload.roomId.trim() : undefined,
+              initiatorUserId:
+                typeof payload.initiatorUserId === "string" ? payload.initiatorUserId.trim() : undefined,
+              callKind:
+                payload.callKind === "video" || payload.callKind === "voice" ? payload.callKind : undefined,
+              status:
+                typeof payload.status === "string"
+                  ? payload.status
+                  : typeof payload.terminalStatus === "string"
+                    ? payload.terminalStatus
+                    : "cancelled",
+              source: "broadcast_hangup_hydrate",
+            });
+          }
+          return;
+        }
         if (active.status === "ringing") {
           beginRingingCallDismiss(active.roomId);
         }
+        remoteTerminalHandoffOnceRef.current = sessionId;
+        const payloadTerminalRaw =
+          typeof payload.status === "string"
+            ? payload.status.trim().toLowerCase()
+            : typeof payload.terminalStatus === "string"
+              ? payload.terminalStatus.trim().toLowerCase()
+              : "";
         /**
          * 브로드캐스트에 reason 이 없음.
          * 링 중 발신자(initiator)에게 오는 hangup = 상대(수신)의 거절·종료 계열 → 서버는 보통 `rejected`.
@@ -4620,7 +4689,10 @@ export function CommunityMessengerCallClient({
          * (이전: 발신자에게 `cancelled` 를 넣어 거절인데도 취소 UI·자동 닫기 기대와 어긋남)
          */
         let optimisticStatus: CommunityMessengerCallSession["status"];
-        if (active.status === "ringing") {
+        const payloadTerminal = readRealtimeSessionStatus(payloadTerminalRaw);
+        if (payloadTerminal && isTerminalCallSessionStatus(payloadTerminal)) {
+          optimisticStatus = payloadTerminal;
+        } else if (active.status === "ringing") {
           optimisticStatus = active.isMineInitiator ? "rejected" : "cancelled";
         } else {
           optimisticStatus = "ended";
@@ -4657,6 +4729,7 @@ export function CommunityMessengerCallClient({
     };
   }, [
     appendTerminalCallHistory,
+    applyRemoteCallSessionTerminal,
     beginRingingCallDismiss,
     disposeCallMedia,
     scheduleSilentRefresh,
@@ -5322,7 +5395,6 @@ export function CommunityMessengerCallClient({
   if (loading && !session) {
     dockCallVmRef.current = null;
     /** 시드 없이 진입한 짧은 구간 — tmp 발신·accept route 는 CallScreen, 그 외는 Global 배너 SSOT */
-    const dismissHydrate = () => navigateBackFromCommunityMessengerCall(router, null);
     const hydrateAcceptRoute =
       requestedAction === "accept" || nativeAcceptOwnedRoute || searchParams.get("nativeAccept") === "1";
     const hydratePeer = readCallAcceptHydratePeer(sessionId);
@@ -5337,6 +5409,62 @@ export function CommunityMessengerCallClient({
     const seededOutgoing = outgoingRealFetchPending
       ? peekCommunityMessengerCallNavigationSeed(sessionId)
       : null;
+    const dismissHydrate = () => {
+      stopOutgoingRingbackForSessionId(sessionId, "hydrate_dismiss");
+      const roomId =
+        seededOutgoing?.roomId?.trim() ||
+        hydratePeer?.roomId?.trim() ||
+        searchParams.get("roomId")?.trim() ||
+        null;
+      const peerUserId =
+        seededOutgoing?.peerUserId?.trim() ||
+        seededOutgoing?.recipientUserId?.trim() ||
+        searchParams.get("peerUserId")?.trim() ||
+        "";
+      const terminalStatus =
+        hydrateAcceptRoute
+          ? "rejected"
+          : seededOutgoing?.status === "active"
+            ? "ended"
+            : "cancelled";
+      if (!isCommunityMessengerTempCallSessionId(sessionId) && peerUserId) {
+        void notifyCommunityMessengerCallInviteHangupBestEffort(peerUserId, sessionId, {
+          roomId,
+          initiatorUserId: seededOutgoing?.initiatorUserId ?? undefined,
+          callKind: seededOutgoing?.callKind ?? (searchParams.get("kind") === "video" ? "video" : "voice"),
+          terminalStatus,
+        });
+        void postCommunityMessengerCallHangupSignal({
+          sessionId,
+          toUserId: peerUserId,
+          reason: hydrateAcceptRoute ? "reject" : terminalStatus === "ended" ? "end" : "cancel",
+        }).catch(() => {});
+      }
+      postCommunityMessengerCallSessionTerminalBusEvent({
+        sessionId,
+        roomId: roomId ?? undefined,
+        initiatorUserId: seededOutgoing?.initiatorUserId ?? undefined,
+        callKind: seededOutgoing?.callKind ?? (searchParams.get("kind") === "video" ? "video" : "voice"),
+        status: terminalStatus,
+      });
+      if (!isCommunityMessengerTempCallSessionId(sessionId)) {
+        if (hydrateAcceptRoute) {
+          void runCallEndGuard({ sessionId, action: "reject", reason: "hydrate_dismiss" });
+        } else if (
+          seededOutgoing?.isMineInitiator &&
+          (seededOutgoing.status === "ringing" || seededOutgoing.status === "active")
+        ) {
+          void runCallEndGuard({
+            sessionId,
+            action: seededOutgoing.status === "active" ? "end" : "cancel",
+            reason: "hydrate_dismiss",
+          });
+        } else if (getActiveCallSessionCallId() === sessionId) {
+          void releaseLocalCallSession(sessionId, "hydrate_dismiss");
+        }
+      }
+      navigateBackFromCommunityMessengerCall(router, roomId);
+    };
     const hydrateKind =
       hydratePeer?.callKind ??
       seededOutgoing?.callKind ??

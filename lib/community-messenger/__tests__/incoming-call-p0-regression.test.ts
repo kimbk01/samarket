@@ -48,8 +48,9 @@ describe("call terminal navigation policy", () => {
     expect(client).toContain("exitCommunityMessengerCallRouteNow");
     expect(client).toContain("beginRingingCallDismiss");
     expect(client).toContain("closeTerminalView");
-    // loading cancel / ringing block still use navigateBack
-    expect(client).toContain("dismissHydrate = () => navigateBackFromCommunityMessengerCall");
+    // loading cancel / ringing block — hydrate dismiss cleans lock + active session before navigateBack
+    expect(client).toContain("reason: \"hydrate_dismiss\"");
+    expect(client).toContain("navigateBackFromCommunityMessengerCall(router, roomId)");
     expect(client).toContain("handleMinimizeToPip");
     expect(client).toContain("handleDockToOngoing");
   });

@@ -61,7 +61,7 @@ import {
 } from "@/lib/call/active-call-session";
 import { mapSessionStatusToActiveCallPhase } from "@/lib/call/map-session-to-active-call";
 import { logDibayCall } from "@/lib/community-messenger/call-orchestrator";
-import { notifyCommunityMessengerCallInviteRingBestEffort } from "@/lib/community-messenger/call-invite-realtime-broadcast";
+import { notifyCommunityMessengerCallInviteRingBestEffort, primeWarmCallInviteOutboundChannel } from "@/lib/community-messenger/call-invite-realtime-broadcast";
 import { appendLocalCallChatMessageForPeerBusy } from "@/lib/community-messenger/call-peer-busy-local-log";
 import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
@@ -619,6 +619,8 @@ export async function launchOutgoingDirectCall(
   });
   unlockCommunityMessengerCallPlaybackFromUserGesture();
   primeOutgoingRingbackFromUserGesture({ kind: input.kind, source: "nav_seed_gesture" });
+  const dialPeerUserId = input.peerUserId?.trim();
+  if (dialPeerUserId) primeWarmCallInviteOutboundChannel(dialPeerUserId);
   if (typeof window !== "undefined") {
     rememberCallNavigationReturnPath();
   }

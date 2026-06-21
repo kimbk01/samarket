@@ -16,7 +16,12 @@ vi.mock("@/lib/community-messenger/call-orchestrator", () => ({
 
 import { startCommunityMessengerCallTone } from "@/lib/community-messenger/call-feedback-sound";
 import {
+  primeWebAudioCallToneContextFromUserGesture,
+  startWebAudioCallTone,
+} from "@/lib/community-messenger/call-tone-web-audio";
+import {
   getOutgoingRingbackSnapshot,
+  primeOutgoingRingbackFromUserGesture,
   resetOutgoingRingbackControllerForTests,
   startOutgoingRingback,
   stopAllOutgoingRingback,
@@ -86,5 +91,13 @@ describe("call-outgoing-ringback-controller", () => {
     });
     stopOutgoingRingback("session-b", "wrong_id");
     expect(getOutgoingRingbackSnapshot().callId).toBe("session-a");
+  });
+
+  it("primeOutgoingRingbackFromUserGesture unlocks audio only — no ringback until startOutgoingRingback", () => {
+    primeOutgoingRingbackFromUserGesture({ kind: "voice", source: "gesture_test" });
+    expect(startWebAudioCallTone).not.toHaveBeenCalled();
+    expect(startCommunityMessengerCallTone).not.toHaveBeenCalled();
+    expect(getOutgoingRingbackSnapshot().playing).toBe(false);
+    expect(primeWebAudioCallToneContextFromUserGesture).toHaveBeenCalled();
   });
 });
