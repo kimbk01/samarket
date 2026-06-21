@@ -15,6 +15,7 @@ import {
 import { cmMessengerPerfVerboseLog } from "@/lib/community-messenger/room/cm-messenger-perf-verbose-log";
 import {
   clearDeepRouteNavigationLock,
+  extendRoomDeepRouteNavigationLock,
   warnCmRoomRouteGuardBlocked,
 } from "@/lib/navigation/cm-deep-route-navigation-lock";
 import { isCommunityMessengerRoomPath } from "@/lib/navigation/community-messenger-deep-route-path";
@@ -62,6 +63,11 @@ export function beginCmRoomEntryPriorityMode(roomId: string): void {
   }
   activeOpeningRoomId = id;
   priorityStartedPerf = perfNow();
+  extendRoomDeepRouteNavigationLock(
+    id,
+    `/community-messenger/rooms/${encodeURIComponent(id)}`,
+    CM_ROOM_ENTRY_PRIORITY_DURATION_MS + 1200
+  );
   pausedHomeSync = true;
   pausedPrefetch = true;
   pausedPresence = true;

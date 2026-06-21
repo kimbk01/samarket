@@ -124,7 +124,7 @@ describe("commitMainBottomNavRoute", () => {
     expect(onNavigationIntent).not.toHaveBeenCalled();
   });
 
-  it("replace 후 onCloseOverlay", () => {
+  it("replace 후 onCloseOverlay", async () => {
     const order: string[] = [];
     const replace = vi.fn(() => order.push("replace"));
     const onCloseOverlay = vi.fn(() => order.push("close"));
@@ -144,6 +144,7 @@ describe("commitMainBottomNavRoute", () => {
     });
 
     expect(result).toBe("navigated");
+    await Promise.resolve();
     expect(order).toEqual(["replace", "close"]);
   });
 
@@ -166,7 +167,7 @@ describe("commitMainBottomNavRoute", () => {
     expect(push).not.toHaveBeenCalled();
   });
 
-  it("/market 에서 다른 탭 — push", () => {
+  it("/market 에서 다른 탭 — push", async () => {
     const push = vi.fn();
     commitMainBottomNavRoute({
       pathname: "/market",
@@ -180,6 +181,7 @@ describe("commitMainBottomNavRoute", () => {
       replace: vi.fn(),
       skipPerfMark: true,
     });
+    await Promise.resolve();
     expect(push).toHaveBeenCalledWith("/stores");
   });
 
@@ -287,5 +289,48 @@ describe("commitMainBottomNavRoute deep route lock", () => {
     });
     await Promise.resolve();
     expect(replace).toHaveBeenCalledWith("/mypage");
+  });
+
+  it("room lock 중 abort 된 stale bottom nav async replace 는 실행되지 않음", async () => {
+    beginRoomDeepRouteNavigationLock("room-1", "/community-messenger/rooms/room-1");
+    const replace = vi.fn();
+    commitMainBottomNavRoute({
+      pathname: "/community-messenger",
+      currentSearch: "",
+      href: "/mypage",
+      tabId: "mypage",
+      beginMenuNavigation: vi.fn(),
+      onNavigationIntent: vi.fn(),
+      guardBeforeNavigate: () => true,
+      push: vi.fn(),
+      replace,
+      skipPerfMark: true,
+    });
+    abortPendingMainBottomNavRouteCommits();
+    await Promise.resolve();
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("room lock 중 abort 없이 stale bottom nav /mypage replace 는 bottom_nav_async 로 blocked", async () => {
+    beginRoomDeepRouteNavigationLock("room-1", "/community-messenger/rooms/room-1");
+    const replace = vi.fn();
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    commitMainBottomNavRoute({
+      pathname: "/community-messenger",
+      currentSearch: "",
+      href: "/mypage",
+      tabId: "mypage",
+      beginMenuNavigation: vi.fn(),
+      onNavigationIntent: vi.fn(),
+      guardBeforeNavigate: () => true,
+      push: vi.fn(),
+      replace,
+      skipPerfMark: true,
+    });
+    await Promise.resolve();
+    expect(replace).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
   });
 });

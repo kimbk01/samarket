@@ -19,6 +19,7 @@ import {
   mainShellPushFromClassForAxis,
 } from "@/lib/navigation/main-shell-push-session";
 import { consumeMainShellPushAxisIntent } from "@/lib/navigation/main-shell-push-axis-intent-ref";
+import { registerMainShellPushSessionAbort } from "@/lib/navigation/main-shell-push-session-bridge";
 
 type Props = {
   children: ReactNode;
@@ -121,6 +122,15 @@ export function AppRouteTransition({
     refBag.current.subtleEnterRef.current = node;
     refBag.current.pushSurfaceRef.current = node;
   };
+
+  useLayoutEffect(() => {
+    return registerMainShellPushSessionAbort(() => {
+      pushSessionActiveRef.current = false;
+      lastPushAxisRef.current = null;
+      setPushSession(null);
+      setPushHandoff(null);
+    });
+  }, []);
 
   /** `(stores)` ↔ `(main)` remount 후 sessionStorage 진입 push */
   useLayoutEffect(() => {

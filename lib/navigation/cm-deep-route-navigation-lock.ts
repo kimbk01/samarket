@@ -71,6 +71,28 @@ export function beginRoomDeepRouteNavigationLock(roomId: string, targetHref: str
   beginDeepRouteNavigationLock("room", roomId, targetHref);
 }
 
+/** priority mode 등 — room 진입 중 lock TTL 연장 */
+export function extendRoomDeepRouteNavigationLock(
+  roomId: string,
+  targetHref: string,
+  ttlMs = CM_DEEP_ROUTE_NAV_LOCK_TTL_MS
+): void {
+  const id = String(roomId ?? "").trim();
+  const targetPath = pathFromClientHref(targetHref);
+  if (!id || !targetPath) return;
+  expireLockIfNeeded();
+  const lock = activeLock;
+  if (lock?.kind === "room" && lock.targetId === id) {
+    activeLock = {
+      ...lock,
+      targetPath,
+      expiresAt: nowMs() + ttlMs,
+    };
+    return;
+  }
+  beginDeepRouteNavigationLock("room", id, targetHref, ttlMs);
+}
+
 export function beginCallDeepRouteNavigationLock(sessionId: string, targetHref: string): void {
   beginDeepRouteNavigationLock("call", sessionId, targetHref);
 }

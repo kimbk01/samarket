@@ -73,6 +73,7 @@ import {
   beginCallDeepRouteNavigationLock,
 } from "@/lib/navigation/cm-deep-route-navigation-lock";
 import { abortPendingMainBottomNavRouteCommits } from "@/lib/main-menu/main-bottom-nav-route-commit";
+import { abortMainShellPushSessionBridge } from "@/lib/navigation/main-shell-push-session-bridge";
 import { clearPendingMenuNavigationBridge } from "@/lib/navigation/pending-menu-navigation-bridge";
 
 const KEY = "samarket.cm.call_session_seed.v1";
@@ -871,6 +872,7 @@ export async function launchOutgoingDirectCall(
   );
   abortPendingMainBottomNavRouteCommits();
   clearPendingMenuNavigationBridge();
+  abortMainShellPushSessionBridge();
   beginCallDeepRouteNavigationLock(tempSessionId, href);
   /** 발신 탭 직후 tmp id 로 링백 — POST·tmp→real replace 전에 들리게 */
   startOutgoingRingback({

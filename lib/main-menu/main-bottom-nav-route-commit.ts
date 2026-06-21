@@ -139,17 +139,18 @@ export function commitMainBottomNavRoute(args: MainBottomNavRouteCommitArgs): Ma
     ...(crossGroup ? { mainShellCrossGroupPush: true } : {}),
   });
 
-  void commitMainBottomNavRouteNavigateAsync(args, pushAxis, crossGroup);
+  /** sync 세대 — async 시작 전 abort 되면 stale replace/push 가 새 세대를 받지 않게 한다 */
+  const commitGeneration = ++mainBottomNavRouteCommitGeneration;
+  void commitMainBottomNavRouteNavigateAsync(args, pushAxis, crossGroup, commitGeneration);
   return "navigated";
 }
 
 async function commitMainBottomNavRouteNavigateAsync(
   args: MainBottomNavRouteCommitArgs,
   _pushAxis: ReturnType<typeof computeMainBottomNavPushAxis>,
-  _crossGroup: boolean
+  _crossGroup: boolean,
+  generation: number
 ): Promise<void> {
-  const generation = ++mainBottomNavRouteCommitGeneration;
-
   if (args.persistMessengerOriginFromHref) {
     try {
       const u = new URL(args.href, "https://samarket.local");
@@ -159,6 +160,9 @@ async function commitMainBottomNavRouteNavigateAsync(
       /* noop */
     }
   }
+
+  /** microtask yield — 방 forward 의 abort 가 stale replace 보다 먼저 적용되게 */
+  await Promise.resolve();
 
   if (generation !== mainBottomNavRouteCommitGeneration) {
     return;
@@ -172,10 +176,16 @@ async function commitMainBottomNavRouteNavigateAsync(
 
   const fromHref =
     typeof window !== "undefined" ? `${window.location.pathname}${window.location.search}` : null;
+
+  if (generation !== mainBottomNavRouteCommitGeneration) {
+    return;
+  }
+
+  /** stale async — deep route lock 이 room/call 진입 중 /mypage replace 를 막는다 */
   if (mainBottomNavRouteUsesReplace(args.pathname, args.href)) {
-    guardedClientNavigate(args.replace, args.href, "bottom_nav_explicit", { fromHref });
+    guardedClientNavigate(args.replace, args.href, "bottom_nav_async", { fromHref });
   } else {
-    guardedClientNavigate(args.push, args.href, "bottom_nav_explicit", { fromHref });
+    guardedClientNavigate(args.push, args.href, "bottom_nav_async", { fromHref });
   }
 
   args.onCloseOverlay?.();
