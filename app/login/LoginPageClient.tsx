@@ -411,9 +411,11 @@ function LoginPageContent() {
 
       const loginUntilNavT0 = performance.now();
 
-      void supabase.auth.getSession().catch(() => {
+      try {
+        await supabase.auth.getSession();
+      } catch {
         /* ignore */
-      });
+      }
 
       /**
        * 프록시는 Supabase JWT 쿠키만으로 통과한다. `GET /api/me/profile` 은 루트
