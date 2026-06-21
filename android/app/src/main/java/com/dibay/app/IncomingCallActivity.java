@@ -86,6 +86,7 @@ public class IncomingCallActivity extends AppCompatActivity {
     Log.i(TAG, "[call-ui] incoming_activity_shown callId=" + callId);
     DibayCallLog.once("incoming_activity_created", callId, "source=activity");
     DibayCallLog.once("incoming_render", callId, "source=activity");
+    MainActivity.notifyLockIncomingUiState(callId, true);
 
     bindIncomingUi(getIntent());
 
@@ -181,6 +182,9 @@ public class IncomingCallActivity extends AppCompatActivity {
   private void finishSafely() {
     if (finished) return;
     finished = true;
+    if (callId != null) {
+      MainActivity.notifyLockIncomingUiState(callId, false);
+    }
     DibayCallLog.once("activity_finish", callId);
     finish();
   }

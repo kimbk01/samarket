@@ -68,7 +68,8 @@ describe("incoming-call ring ownership contract", () => {
     const delivery = read("android/app/src/main/java/com/dibay/app/IncomingCallPushDelivery.java");
     expect(delivery).toContain("IncomingCallRingOwner.start");
     expect(delivery).toContain("source=push_delivery");
-    expect(delivery).toContain("IncomingCallForegroundUiLauncher.showUi");
+    expect(delivery).toContain("incoming_call_foreground_web_ssot");
+    expect(delivery).not.toContain("IncomingCallForegroundUiLauncher.showUi");
     expect(delivery).toContain("presentLockIncoming");
 
     const fcm = read("android/app/src/main/java/com/dibay/app/DibayFirebaseMessagingService.java");
@@ -92,6 +93,7 @@ describe("incoming-call direct_ringing cleanup regression", () => {
   it("direct_ringing uses syncIncomingCallRing with tombstone (no cleanup restart)", () => {
     const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
     expect(global).toContain("syncIncomingCallRing");
+    expect(global).toContain("getActiveCallSessionCallIdForIncomingBusy");
     expect(global).toContain("canShowIncoming");
     expect(global).not.toContain('dibayIncomingLaneStopRing("direct_ringing_cleanup"');
     expect(global).not.toContain('dibayIncomingLaneStartRing(sid, s.callKind, "direct_ringing")');
@@ -110,5 +112,19 @@ describe("stale ringing blocked after native tombstone", () => {
   it("incoming GET refresh hydrates native consumed on Capacitor", () => {
     const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
     expect(global).toContain("hydrateDibayCallConsumedFromNative(hardClearedIncomingSessionsAtRef.current)");
+  });
+});
+
+describe("lock-screen incoming UI SSOT", () => {
+  it("Global wires lock_incoming_ui surface claim for native fullscreen", () => {
+    const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
+    expect(global).toContain("onLockIncomingUi");
+    expect(global).toContain("lock_incoming_ui");
+    const bridge = read("lib/community-messenger/dibay-fcm-call-bridge.ts");
+    expect(bridge).toContain("lock_incoming_ui");
+    const activity = read("android/app/src/main/java/com/dibay/app/IncomingCallActivity.java");
+    expect(activity).toContain("notifyLockIncomingUiState");
+    const main = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
+    expect(main).toContain("injectLockIncomingUiEvent");
   });
 });

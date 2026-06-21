@@ -23,7 +23,7 @@ export type IncomingCallBannerProps = {
   busyAccept: boolean;
   showStrangerHint?: boolean;
   busyBlock?: boolean;
-  onExpand: () => void;
+  onExpand?: () => void;
   onReject: () => void;
   onAccept: () => void;
   onBlock?: () => void;
@@ -64,6 +64,44 @@ export function IncomingCallBanner(props: IncomingCallBannerProps) {
 
   const Icon = callKind === "video" ? Video : Phone;
 
+  const callerBody = (
+    <>
+      <div className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#F1F8F4] text-[#006241] ring-1 ring-white/20">
+        <SamarketThumbnail
+          src={peerAvatarUrl}
+          fill
+          roundedClassName="rounded-full"
+          className="bg-[#F1F8F4]"
+          fallbackSrc=""
+          fallbackNode={<span className="sam-text-page-title font-semibold">{peerInitial(peerLabel)}</span>}
+        />
+        <span className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#0EA75A] text-white ring-2 ring-[#102017]">
+          <Icon size={12} strokeWidth={2.6} />
+        </span>
+      </div>
+      <div className="min-w-0">
+        <p className="truncate sam-text-body font-semibold leading-tight text-white">{peerLabel}</p>
+        {showStrangerHint ? (
+          <p className="mt-0.5 truncate sam-text-xxs font-medium text-amber-200/90">
+            {t("cm_social_stranger_incoming_call")}
+          </p>
+        ) : null}
+        <p className={`truncate sam-text-helper font-medium text-white/78 ${showStrangerHint ? "mt-0.5" : "mt-0.5"}`}>
+          {callKind === "video"
+            ? safeT("cm_ui_dibay_video_call_brand", {
+                fallbackKo: "DiBay 영상 통화",
+                fallbackEn: "DiBay video call",
+              })
+            : safeT("cm_ui_dibay_voice_call_brand", {
+                fallbackKo: "DiBay 음성 통화",
+                fallbackEn: "DiBay voice call",
+              })}
+          {remainSec != null ? ` · ${t("cm_ui_ring_remaining_seconds", { count: remainSec })}` : ""}
+        </p>
+      </div>
+    </>
+  );
+
   return (
     <div
       className={`pointer-events-auto fixed inset-x-0 top-[max(8px,var(--safe-top))] ${MESSENGER_FOREGROUND_INCOMING_BANNER_Z_CLASS} animate-dibay-incoming-pill-enter px-3 sm:left-1/2 sm:right-auto sm:w-[min(520px,calc(100vw-2rem))] sm:-translate-x-1/2`}
@@ -71,46 +109,20 @@ export function IncomingCallBanner(props: IncomingCallBannerProps) {
       aria-label={t("cm_ui_incoming_call_dialog")}
     >
       <div className="mx-auto flex h-[72px] max-w-[520px] items-center gap-2 rounded-[22px] border border-white/12 bg-[linear-gradient(135deg,rgba(16,24,39,0.96)_0%,rgba(3,77,52,0.96)_100%)] px-3 shadow-[0_14px_44px_rgba(0,0,0,0.32)] backdrop-blur-xl sm:h-[80px]">
-        <button
-          type="button"
-          onClick={onExpand}
-          className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden rounded-[18px] px-1 py-1 text-left transition active:scale-[0.99]"
-          aria-label={t("cm_ui_open_call_screen")}
-        >
-          <div className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#F1F8F4] text-[#006241] ring-1 ring-white/20">
-            <SamarketThumbnail
-              src={peerAvatarUrl}
-              fill
-              roundedClassName="rounded-full"
-              className="bg-[#F1F8F4]"
-              fallbackSrc=""
-              fallbackNode={<span className="sam-text-page-title font-semibold">{peerInitial(peerLabel)}</span>}
-            />
-            <span className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#0EA75A] text-white ring-2 ring-[#102017]">
-              <Icon size={12} strokeWidth={2.6} />
-            </span>
+        {onExpand ? (
+          <button
+            type="button"
+            onClick={onExpand}
+            className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden rounded-[18px] px-1 py-1 text-left transition active:scale-[0.99]"
+            aria-label={t("cm_ui_open_call_screen")}
+          >
+            {callerBody}
+          </button>
+        ) : (
+          <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden rounded-[18px] px-1 py-1">
+            {callerBody}
           </div>
-          <div className="min-w-0">
-            <p className="truncate sam-text-body font-semibold leading-tight text-white">{peerLabel}</p>
-            {showStrangerHint ? (
-              <p className="mt-0.5 truncate sam-text-xxs font-medium text-amber-200/90">
-                {t("cm_social_stranger_incoming_call")}
-              </p>
-            ) : null}
-            <p className={`truncate sam-text-helper font-medium text-white/78 ${showStrangerHint ? "mt-0.5" : "mt-0.5"}`}>
-              {callKind === "video"
-                ? safeT("cm_ui_dibay_video_call_brand", {
-                    fallbackKo: "DiBay 영상 통화",
-                    fallbackEn: "DiBay video call",
-                  })
-                : safeT("cm_ui_dibay_voice_call_brand", {
-                    fallbackKo: "DiBay 음성 통화",
-                    fallbackEn: "DiBay voice call",
-                  })}
-              {remainSec != null ? ` · ${t("cm_ui_ring_remaining_seconds", { count: remainSec })}` : ""}
-            </p>
-          </div>
-        </button>
+        )}
         <button
           type="button"
           disabled={busyReject || busyAccept}

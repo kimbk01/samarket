@@ -34,6 +34,8 @@ type DibayFcmCallBridgeHandlers = {
   onNativeForegroundAccept?: (detail: { sessionId: string }) => void;
   /** Native reject / swipe dismiss — Web consumed before PATCH completes */
   onNativeForegroundReject?: (detail: { sessionId: string; source?: string }) => void;
+  /** Android lock-screen IncomingCallActivity visibility */
+  onLockIncomingUi?: (detail: { sessionId: string; visible: boolean }) => void;
 };
 
 export function writeDibayCallPendingRoute(path: string): void {
@@ -102,6 +104,16 @@ export function installDibayFcmCallBridge(handlers: DibayFcmCallBridgeHandlers):
         handlers.onNativeForegroundReject?.({
           sessionId,
           source: typeof detail.source === "string" ? detail.source.trim() : undefined,
+        });
+      }
+      return;
+    }
+    if (detail.type === "lock_incoming_ui") {
+      const sessionId = detail.sessionId?.trim() ?? "";
+      if (sessionId) {
+        handlers.onLockIncomingUi?.({
+          sessionId,
+          visible: detail.visible !== false,
         });
       }
       return;

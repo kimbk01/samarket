@@ -9,7 +9,7 @@ import android.util.Log;
  * <p>Contract:
  * <ul>
  *   <li>Ring — {@link IncomingCallRingOwner} once at push boundary (Web must not blind-stop).</li>
- *   <li>Foreground unlocked — native pill + Web event (no duplicate ring in MainActivity).</li>
+ *   <li>Foreground unlocked — Web event only (compact banner SSOT; no native pill).</li>
  *   <li>Lock / sleep — FGS + wake lock + silent notification/FSI + {@link IncomingCallActivity}.</li>
  *   <li>Background home — defer UI to ringing FGS after {@code startForeground}.</li>
  * </ul>
@@ -32,9 +32,8 @@ public final class IncomingCallPushDelivery {
 
     boolean appVisible = MainActivity.isAppVisibleForIncomingCall();
     if (DibayKeyguardHelper.isForegroundUnlockedInteractive(appVisible, app)) {
-      Log.i("DIBAY_FCM", "[call-native] incoming_call_foreground_native_ui callId=" + callId);
+      Log.i("DIBAY_FCM", "[call-native] incoming_call_foreground_web_ssot callId=" + callId);
       MainActivity.deliverCallIncomingEvent(payload);
-      IncomingCallForegroundUiLauncher.showUi(context, payload);
       IncomingCallActionCoordinator.scheduleMissedTimeout(app, payload);
       return;
     }

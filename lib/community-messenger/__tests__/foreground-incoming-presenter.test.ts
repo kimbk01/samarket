@@ -8,6 +8,7 @@ import { resolveForegroundIncomingPresentation } from "@/lib/community-messenger
 import {
   getIncomingCallSurfaceOwner,
   resetIncomingCallSurfaceOwner,
+  claimIncomingCallSurface,
 } from "@/lib/community-messenger/incoming-call-surface-owner";
 
 function ringingSession(
@@ -190,7 +191,6 @@ describe("foreground-incoming-presenter", () => {
       visibilityState: "visible",
       isAppForeground: true,
       foregroundWakeSessionIds: new Set(["call-b"]),
-      preferNativeAndroidForegroundIncoming: false,
     });
 
     expect(decision.shouldRender).toBe(true);
@@ -198,8 +198,9 @@ describe("foreground-incoming-presenter", () => {
     expect(decision.reason).toBe("ok");
   });
 
-  it("suppresses web banner when native Android foreground pill is active", () => {
+  it("suppresses web banner when native lock full-screen owns surface", () => {
     const incoming = ringingSession("call-1");
+    claimIncomingCallSurface("call-1", "native_fullscreen", "test");
     const decision = resolveForegroundIncomingPresentation({
       sessions: [incoming],
       pathname: "/community-messenger",
@@ -209,15 +210,13 @@ describe("foreground-incoming-presenter", () => {
       incomingTabLeader: true,
       visibilityState: "visible",
       isAppForeground: true,
-      preferNativeAndroidForegroundIncoming: true,
-      nativeForegroundIncomingCallId: "call-1",
     });
 
     expect(decision.shouldRender).toBe(false);
-    expect(decision.reason).toBe("native_foreground_primary");
+    expect(decision.reason).toBe("surface_owner_native_fullscreen");
   });
 
-  it("shows web banner on Android APK foreground when native pill is not visible yet", () => {
+  it("shows web top-banner on Android APK foreground (Kakao/Telegram SSOT)", () => {
     const incoming = ringingSession("call-1");
     resetIncomingCallSurfaceOwner();
     const decision = resolveForegroundIncomingPresentation({
@@ -229,8 +228,6 @@ describe("foreground-incoming-presenter", () => {
       incomingTabLeader: true,
       visibilityState: "visible",
       isAppForeground: true,
-      preferNativeAndroidForegroundIncoming: true,
-      nativeForegroundIncomingCallId: null,
     });
 
     expect(decision.shouldRender).toBe(true);
@@ -238,7 +235,7 @@ describe("foreground-incoming-presenter", () => {
     expect(decision.surface).toBe("top-banner");
   });
 
-  it("allows web banner on browser foreground when native pill is absent", () => {
+  it("allows web banner on browser foreground", () => {
     const incoming = ringingSession("call-1");
     resetIncomingCallSurfaceOwner();
     const decision = resolveForegroundIncomingPresentation({
@@ -250,8 +247,6 @@ describe("foreground-incoming-presenter", () => {
       incomingTabLeader: true,
       visibilityState: "visible",
       isAppForeground: true,
-      preferNativeAndroidForegroundIncoming: false,
-      nativeForegroundIncomingCallId: null,
     });
 
     expect(decision.shouldRender).toBe(true);

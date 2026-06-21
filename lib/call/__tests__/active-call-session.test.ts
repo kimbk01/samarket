@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getActiveCallSessionCallId,
+  getActiveCallSessionCallIdForIncomingBusy,
   hardClearActiveCallSession,
   resetActiveCallSessionForTests,
   setActiveCallSession,
@@ -51,6 +52,40 @@ describe("active-call-session SSOT", () => {
       phase: "dialing",
     });
     expect(getActiveCallSessionCallId()).toBe("call-1");
+  });
+
+  it("excludes caller dialing/ringing from incoming busy live session", () => {
+    setActiveCallSession({
+      callId: "out-1",
+      roomId: "room-1",
+      peerUserId: "peer-1",
+      role: "caller",
+      mediaType: "voice",
+      phase: "dialing",
+    });
+    expect(getActiveCallSessionCallIdForIncomingBusy()).toBeNull();
+
+    setActiveCallSession({
+      callId: "out-2",
+      roomId: "room-1",
+      peerUserId: "peer-1",
+      role: "caller",
+      mediaType: "voice",
+      phase: "ringing",
+    });
+    expect(getActiveCallSessionCallIdForIncomingBusy()).toBeNull();
+
+    setActiveCallSession({
+      callId: "live-1",
+      roomId: "room-1",
+      peerUserId: "peer-1",
+      role: "caller",
+      mediaType: "voice",
+      phase: "active",
+      machinePhase: "CONNECTED",
+      connected: true,
+    });
+    expect(getActiveCallSessionCallIdForIncomingBusy()).toBe("live-1");
   });
 
   it("hard clears terminal session via remote native bridge", async () => {

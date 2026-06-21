@@ -58,7 +58,8 @@ describe("incoming-call policy contracts", () => {
 
   it("CallClient blocks callee ringing direct entry without action=accept", () => {
     const src = read("components/community-messenger/CommunityMessengerCallClient.tsx");
-    expect(src).toContain("수락 전 자동 `/calls/:id` 진입 차단");
+    expect(src).toContain("수락 전 `/calls/:id` 진입 차단");
+    expect(src).toContain("IncomingCallView 전체화면 금지");
     expect(src).toContain("navigateBackFromCommunityMessengerCall");
     expect(src).toContain("incomingPreviewRoute");
     expect(src).toContain("isIncomingCallPreviewRoute");
@@ -90,12 +91,12 @@ describe("incoming-call policy contracts", () => {
     expect(src).toContain("maybeConsumeOnResume");
   });
 
-  it("banner expand opens preview route without accept PATCH", () => {
+  it("foreground banner does not expand to full-screen IncomingCallView during ringing", () => {
     const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
-    expect(global).toContain("expandIncomingCall");
-    expect(global).toContain("buildIncomingCallPreviewHref");
-    expect(global).toContain("onExpand={() => expandIncomingCall(bannerSession)}");
-    expect(global).not.toMatch(/onExpand=\{[^}]*acceptCall/);
+    expect(global).not.toContain("expandIncomingCall");
+    expect(global).not.toContain("buildIncomingCallPreviewHref");
+    const banner = read("components/messenger/call/IncomingCallBanner.tsx");
+    expect(banner).toContain("onExpand?: () => void");
   });
 
   it("PushRouteListener delegates callee accept to runNativePendingAcceptCall", () => {

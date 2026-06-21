@@ -135,6 +135,14 @@ public class MainActivity extends BridgeActivity {
     act.mainHandler.post(() -> act.injectForegroundIncomingUiEvent(sid, visible));
   }
 
+  /** Lock-screen IncomingCallActivity visibility — Web banner 억제. */
+  public static void notifyLockIncomingUiState(String callId, boolean visible) {
+    MainActivity act = activeInstance;
+    if (act == null) return;
+    final String sid = callId != null ? callId.trim() : "";
+    act.mainHandler.post(() -> act.injectLockIncomingUiEvent(sid, visible));
+  }
+
   /** Native pill accept — Web consumed/surface release before pill finish */
   static void deliverForegroundIncomingAcceptEvent(String callId) {
     MainActivity act = activeInstance;
@@ -304,6 +312,22 @@ public class MainActivity extends BridgeActivity {
             + "}}));}catch(e){}})();";
     webView.post(() -> webView.evaluateJavascript(js, null));
     Log.i("DIBAY_CALL", "[DIBAY_CALL] foreground_incoming_ui callId=" + callId + " visible=" + visible);
+  }
+
+  private void injectLockIncomingUiEvent(String callId, boolean visible) {
+    Bridge bridge = getBridge();
+    if (bridge == null) return;
+    WebView webView = bridge.getWebView();
+    if (webView == null) return;
+    final String safeCallId = safeJs(callId);
+    final String js =
+        "(function(){try{window.dispatchEvent(new CustomEvent('dibay:call-event',{detail:{type:'lock_incoming_ui',sessionId:'"
+            + safeCallId
+            + "',visible:"
+            + (visible ? "true" : "false")
+            + "}}));}catch(e){}})();";
+    webView.post(() -> webView.evaluateJavascript(js, null));
+    Log.i("DIBAY_CALL", "[DIBAY_CALL] lock_incoming_ui callId=" + callId + " visible=" + visible);
   }
 
   private void injectForegroundIncomingAcceptEvent(String callId) {

@@ -99,15 +99,25 @@ describe("incoming-call native contract", () => {
     expect(main).toContain("webview_call_route_injected");
   });
 
-  it("FCM foreground unlocked launches native pill instead of web-only delegate", () => {
+  it("FCM foreground unlocked uses Web banner SSOT (no native pill)", () => {
     const delivery = read("android/app/src/main/java/com/dibay/app/IncomingCallPushDelivery.java");
-    expect(delivery).toContain("incoming_call_foreground_native_ui");
-    expect(delivery).toContain("IncomingCallForegroundUiLauncher.showUi");
+    expect(delivery).toContain("incoming_call_foreground_web_ssot");
+    expect(delivery).not.toContain("IncomingCallForegroundUiLauncher.showUi");
     expect(delivery).toContain("isForegroundUnlockedInteractive");
     const fcm = read("android/app/src/main/java/com/dibay/app/DibayFirebaseMessagingService.java");
     expect(fcm).toContain("IncomingCallPushDelivery.deliver");
-    const manifest = read("android/app/src/main/AndroidManifest.xml");
-    expect(manifest).toContain("ForegroundIncomingCallActivity");
+  });
+
+  it("Global uses Web foreground banner SSOT (no native pill defer)", () => {
+    const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
+    expect(global).not.toContain("preferNativeAndroidForegroundIncoming");
+    expect(global).not.toContain("nativeForegroundIncomingCallId");
+    expect(global).not.toContain("onForegroundIncomingUi");
+    expect(global).toContain("ForegroundIncomingCallHost");
+    const presenter = read("lib/community-messenger/incoming-call/foreground-incoming-presenter.ts");
+    expect(presenter).not.toContain("native_foreground_primary");
+    const ssot = read("lib/community-messenger/incoming-call/incoming-ui-ssot.ts");
+    expect(ssot).toContain("INCOMING_UI_FOREGROUND_SURFACE");
   });
 
   it("IncomingCallTerminalHandler centralizes terminal dismiss, consumed, ring stop, activity finish", () => {
@@ -160,15 +170,13 @@ describe("incoming-call native contract", () => {
     );
   });
 
-  it("Global defers Android foreground banner to native pill only", () => {
+  it("Global defers Android foreground banner to Web top-banner only", () => {
     const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
-    expect(global).toContain("preferNativeAndroidForegroundIncoming");
-    expect(global).toContain("nativeForegroundIncomingCallId");
-    expect(global).toContain("onForegroundIncomingUi");
-    expect(global).toContain("onNativeForegroundAccept");
-    expect(global).toContain("onNativeForegroundReject");
+    expect(global).not.toContain("preferNativeAndroidForegroundIncoming");
+    expect(global).not.toContain("nativeForegroundIncomingCallId");
+    expect(global).not.toContain("onForegroundIncomingUi");
     const presenter = read("lib/community-messenger/incoming-call/foreground-incoming-presenter.ts");
-    expect(presenter).toContain("native_foreground_primary");
+    expect(presenter).not.toContain("native_foreground_primary");
   });
 
   it("native accept injects foreground_incoming_accept before route launch", () => {

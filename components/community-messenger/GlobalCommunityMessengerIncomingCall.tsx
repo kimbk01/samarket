@@ -129,17 +129,13 @@ import {
   hydrateDibayCallConsumedFromNative,
   isCallConsumedIncludingNative,
 } from "@/lib/push/native/dibay-call-consumed-native-bridge";
-import { getNativeIncomingCallPlugin } from "@/lib/push/native/push-route-native-bridge";
 import { incomingRingTimeoutMsFromConfig } from "@/lib/community-messenger/messenger-call-ring-timeout";
 import {
   acceptIncomingCallOnce,
   applyIncomingCallConsumedSideEffects,
   runIncomingCallReject,
 } from "@/lib/community-messenger/incoming-call-accept-gateway";
-import { applyNativeIncomingRejectWebCleanup } from "@/lib/community-messenger/incoming-call/native-incoming-reject-web-cleanup";
-import { buildIncomingCallPreviewHref } from "@/lib/community-messenger/incoming-call-preview-route";
 import {
-  canRenderIncomingCallSurface,
   claimIncomingCallSurface,
   markIncomingCallSurfaceConsumed,
   releaseIncomingCallSurface,
@@ -188,7 +184,7 @@ import {
 import { logDibayCall } from "@/lib/community-messenger/call-orchestrator";
 import { writeCallAcceptHydratePeerFromSession } from "@/lib/community-messenger/call-accept-hydrate-peer";
 import { primeCommunityMessengerCallConnectionPrefetch } from "@/lib/community-messenger/call-connection-prefetch";
-import { getActiveCallSessionCallId, subscribeActiveCallSession } from "@/lib/call/active-call-session";
+import { getActiveCallSessionCallIdForIncomingBusy, subscribeActiveCallSession } from "@/lib/call/active-call-session";
 import {
   filterIncomingSessionsRespectingConsumed,
   filterIncomingSessionsRespectingDismissed,
@@ -263,9 +259,8 @@ export function GlobalCommunityMessengerIncomingCall() {
   const incomingCallSoundEnabledRef = useRef(true);
   incomingCallSoundEnabledRef.current = incomingCallSoundEnabled;
   const [incomingCallBannerEnabled, setIncomingCallBannerEnabled] = useState(true);
-  const [nativeForegroundIncomingCallId, setNativeForegroundIncomingCallId] = useState<string | null>(
-    null
-  );
+  /** FCM wake id ref 갱신 → foreground presenter 재계산 */
+  const [incomingWakeIdsTick, setIncomingWakeIdsTick] = useState(0);
   const [incomingRealtimeOk, setIncomingRealtimeOk] = useState(false);
   const [incomingVisibilityState, setIncomingVisibilityState] = useState<
     "visible" | "hidden" | "prerender" | "unloaded"
@@ -738,7 +733,6 @@ export function GlobalCommunityMessengerIncomingCall() {
       releaseCallActionLock(`terminal_${sourceTag}`);
       void hardClearActiveCallSession(sessionId, statusNorm);
       clearDibayCallPendingRoute();
-      setNativeForegroundIncomingCallId((prev) => (prev === sessionId ? null : prev));
     }
     if (tmpSessionId) activeIncomingCallIdsRef.current.delete(tmpSessionId);
 
@@ -1281,6 +1275,7 @@ export function GlobalCommunityMessengerIncomingCall() {
             callKindRaw === "video" ? "video" : callKindRaw === "voice" || callKindRaw === "audio" ? "voice" : undefined;
 
           if (sid) activeIncomingCallIdsRef.current.add(sid);
+          if (sid) setIncomingWakeIdsTick((t) => t + 1);
           if (uid && sid) {
             const optimistic = buildForegroundIncomingWakeOptimisticSession(
               uid,
@@ -1361,63 +1356,7 @@ export function GlobalCommunityMessengerIncomingCall() {
   }, [bumpIncomingListFastSync, handleCallTerminalEvent]);
 
   useEffect(() => {
-    if (!isCapacitorNativePlatform()) return;
-    void getNativeIncomingCallPlugin().then((plugin) => {
-      if (!plugin) return;
-      void plugin.getForegroundIncomingCallId().then((res) => {
-        const id = res.callId?.trim();
-        if (id) setNativeForegroundIncomingCallId(id);
-      });
-    });
-  }, []);
-
-  useEffect(() => {
     return installDibayFcmCallBridge({
-      onForegroundIncomingUi: ({ sessionId, visible }) => {
-        const sid = sessionId.trim();
-        setNativeForegroundIncomingCallId(visible && sid ? sid : null);
-        if (visible && sid) {
-          releaseIncomingCallSurface(sid, "web_foreground_overlay", "foreground_incoming_ui_visible");
-          claimIncomingCallSurface(sid, "native_foreground_pill", "foreground_incoming_ui");
-        } else if (sid) {
-          releaseIncomingCallSurface(sid, "native_foreground_pill", "foreground_incoming_ui_hidden");
-        }
-      },
-      onNativeForegroundAccept: ({ sessionId: sid }) => {
-        logDibayCall("accept_start", {
-          sessionId: sid,
-          callId: sid,
-          source: "native_pill_accept",
-        });
-        applyIncomingCallConsumedSideEffects(sid, "accepted", "native_pill_accept");
-        releaseIncomingCallSurface(sid, "native_foreground_pill", "native_pill_accept");
-        releaseIncomingCallSurface(sid, "web_foreground_overlay", "native_pill_accept");
-        setNativeForegroundIncomingCallId(null);
-        activeIncomingCallIdsRef.current.delete(sid);
-        dismissIncomingPresenterAfterAccept({
-          sessionId: sid,
-          dismissedAt: dismissedIncomingSessionsAtRef.current,
-          hardClearedAt: hardClearedIncomingSessionsAtRef.current,
-          activeIncomingCallIds: activeIncomingCallIdsRef.current,
-          suppressMissedSound: suppressMissedSoundRef.current,
-          ringStopSource: "native_pill_accept",
-          removeSessionFromIncomingList: (id) =>
-            setSessions((prev) => prev.filter((item) => item.id !== id)),
-        });
-      },
-      onNativeForegroundReject: ({ sessionId: sid, source }) => {
-        const rejectSource = source?.trim() || "native_pill_reject";
-        applyNativeIncomingRejectWebCleanup({
-          sessionId: sid,
-          source: rejectSource,
-          hardClearedAt: hardClearedIncomingSessionsAtRef.current,
-          activeIncomingCallIds: activeIncomingCallIdsRef.current,
-          suppressMissedSound: suppressMissedSoundRef.current,
-          removeSessionFromIncomingList: (id) =>
-            setSessions((prev) => prev.filter((item) => item.id !== id)),
-        });
-        setNativeForegroundIncomingCallId((prev) => (prev === sid ? null : prev));
-      },
       onIncomingWake: (detail) => {
         void (async () => {
           const sid = detail.sessionId?.trim() ?? "";
@@ -1426,6 +1365,7 @@ export function GlobalCommunityMessengerIncomingCall() {
           const uid = viewerUserIdRef.current?.trim();
 
           if (sid) activeIncomingCallIdsRef.current.add(sid);
+          if (sid) setIncomingWakeIdsTick((t) => t + 1);
           if (uid && sid) {
             const optimistic = buildForegroundIncomingWakeOptimisticSession(uid, detail, hard);
             if (optimistic) {
@@ -1450,8 +1390,7 @@ export function GlobalCommunityMessengerIncomingCall() {
             if (typeof document !== "undefined" && document.visibilityState !== "visible") {
               claimIncomingCallSurface(sid, "native_fullscreen", "fcm_wake_background");
             } else {
-              releaseIncomingCallSurface(sid, "web_foreground_overlay", "fcm_wake_foreground");
-              claimIncomingCallSurface(sid, "native_foreground_pill", "fcm_wake_foreground");
+              claimIncomingCallSurface(sid, "web_foreground_overlay", "fcm_wake_foreground");
             }
           }
           bumpIncomingListFastSync();
@@ -1485,6 +1424,17 @@ export function GlobalCommunityMessengerIncomingCall() {
           { skipSeal: true }
         );
         void refreshRef.current(true, { incomingTerminalListSync: true });
+      },
+      onLockIncomingUi: ({ sessionId, visible }) => {
+        const sid = sessionId.trim();
+        if (!sid) return;
+        if (visible) {
+          releaseIncomingCallSurface(sid, "web_foreground_overlay", "lock_incoming_ui_visible");
+          claimIncomingCallSurface(sid, "native_fullscreen", "lock_incoming_ui");
+        } else {
+          releaseIncomingCallSurface(sid, "native_fullscreen", "lock_incoming_ui_hidden");
+        }
+        setIncomingWakeIdsTick((t) => t + 1);
       },
     });
   }, [bumpIncomingListFastSync, handleCallTerminalEvent]);
@@ -1865,7 +1815,7 @@ export function GlobalCommunityMessengerIncomingCall() {
 
   const clientLiveCallSessionId = useSyncExternalStore(
     subscribeActiveCallSession,
-    getActiveCallSessionCallId,
+    getActiveCallSessionCallIdForIncomingBusy,
     () => null,
   );
   const effectiveViewerLiveSessionId = viewerLiveSessionId ?? clientLiveCallSessionId;
@@ -1878,7 +1828,7 @@ export function GlobalCommunityMessengerIncomingCall() {
 
   const foregroundWakeSessionIds = useMemo(
     () => new Set(activeIncomingCallIdsRef.current),
-    [sessions]
+    [sessions, incomingWakeIdsTick]
   );
 
   const foregroundPresentation = useMemo(
@@ -1893,14 +1843,11 @@ export function GlobalCommunityMessengerIncomingCall() {
         visibilityState: incomingVisibilityState,
         isAppForeground: incomingVisibilityState === "visible",
         foregroundWakeSessionIds,
-        preferNativeAndroidForegroundIncoming: isCapacitorNativePlatform(),
-        nativeForegroundIncomingCallId,
       }),
     [
       foregroundWakeSessionIds,
       incomingTabLeader,
       incomingVisibilityState,
-      nativeForegroundIncomingCallId,
       pathname,
       sessions,
       userId,
@@ -1908,7 +1855,10 @@ export function GlobalCommunityMessengerIncomingCall() {
     ]
   );
 
-  const bannerSession = foregroundPresentation.shouldRender ? foregroundPresentation.session : null;
+  const bannerSession =
+    foregroundPresentation.shouldRender && incomingCallBannerEnabled
+      ? foregroundPresentation.session
+      : null;
   const bannerSessionId = bannerSession?.id ?? null;
   const nativeIncomingSession = bannerSession;
   const incomingUiSurfaceLoggedRef = useRef<Set<string>>(new Set());
@@ -2032,6 +1982,7 @@ export function GlobalCommunityMessengerIncomingCall() {
     }
     if (!activeIncomingCallIdsRef.current.has(sid)) {
       activeIncomingCallIdsRef.current.add(sid);
+      setIncomingWakeIdsTick((t) => t + 1);
       logCallFlow("call_incoming_received", { sessionId: sid, source: "direct_ringing", callKind: s.callKind });
       logDibayCall("incoming_received", { sessionId: sid, callId: sid, source: "direct_ringing" });
     } else {
@@ -2207,26 +2158,6 @@ export function GlobalCommunityMessengerIncomingCall() {
     [busyId, rejectCall]
   );
 
-  const expandIncomingCall = useCallback(
-    (session: CommunityMessengerCallSession) => {
-      if (busyId === `accept:${session.id}` || busyId === `reject:${session.id}`) return;
-      if (!canShowIncoming(session.id, buildCallTombstoneContext(hardClearedIncomingSessionsAtRef.current))) return;
-      if (!canRenderIncomingCallSurface(session.id, "call_screen")) {
-        console.info("[call-state] call_navigate_to_call_screen_blocked", {
-          sessionId: session.id,
-          source: "surface_owner_conflict",
-        });
-        return;
-      }
-      releaseIncomingCallSurface(session.id, "web_foreground_overlay", "expand_to_call_screen");
-      logCallFlow("call_navigate_to_call_screen", { sessionId: session.id, source: "incoming_banner_expand" });
-      rememberCallNavigationReturnPath();
-      primeCommunityMessengerCallNavigationSeed(session.id, session);
-      router.push(buildIncomingCallPreviewHref(session.id));
-    },
-    [busyId, refresh, router, t]
-  );
-
   const acceptCall = useCallback(
     (session: CommunityMessengerCallSession) => {
       logCallFlow("call_accept_pressed", { sessionId: session.id });
@@ -2343,13 +2274,12 @@ export function GlobalCommunityMessengerIncomingCall() {
 
   return (
     <ForegroundIncomingCallHost
-      shouldRender={foregroundPresentation.shouldRender}
+      shouldRender={foregroundPresentation.shouldRender && incomingCallBannerEnabled}
       session={bannerSession}
       ringTimeoutSeconds={ringTimeoutSeconds}
       busyReject={busyId === `reject:${bannerSession.id}`}
       busyAccept={busyId === `accept:${bannerSession.id}`}
       busyBlock={false}
-      onExpand={() => expandIncomingCall(bannerSession)}
       onReject={() => void rejectCall(bannerSession.id)}
       onAccept={() => acceptCall(bannerSession)}
       onBlock={() => void blockIncomingCall(bannerSession)}

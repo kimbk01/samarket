@@ -115,7 +115,9 @@ import {
   dibayIncomingLaneStopRing,
 } from "@/lib/community-messenger/call-lifecycle";
 import {
+  hardClearActiveCallSession,
   patchActiveCallSessionMachinePhase,
+  readActiveCallSessionSnapshot,
   setActiveCallSession,
 } from "@/lib/call/active-call-session";
 import {
@@ -1010,22 +1012,22 @@ export function CommunityMessengerCallClient({
     cmCallLatencyInfo("call_client_mount", { sessionId });
   }, [sessionId]);
 
-  /** 수신 ringing / preview — call_screen surface 단일 소유 (Global 배너와 중복 방지) */
+  /** 수신 ringing — accept route 만 call_screen surface (배너 단독 UI 유지) */
   useEffect(() => {
     const s = sessionRef.current;
     if (!s || s.isMineInitiator) return undefined;
     const sid = s.id.trim();
     if (!sid) return undefined;
     if (isIncomingCallSurfaceTerminal(sid) || isDibayCallConsumed(sid)) return undefined;
-    const isCalleeRingingUi =
-      (s.status === "ringing" && (incomingPreviewRoute || requestedAction === "accept")) ||
-      incomingPreviewRoute;
-    if (!isCalleeRingingUi) return undefined;
+    const isCalleeAcceptUi =
+      requestedAction === "accept" &&
+      (s.status === "ringing" || s.status === "active" || calleeVideoConnectingShellRef.current);
+    if (!isCalleeAcceptUi) return undefined;
     claimIncomingCallSurface(sid, "call_screen", "call_client_incoming_ui");
     return () => {
       releaseIncomingCallSurface(sid, "call_screen", "call_client_incoming_ui_unmount");
     };
-  }, [incomingPreviewRoute, requestedAction, session?.id, session?.isMineInitiator, session?.status, sessionId]);
+  }, [requestedAction, session?.id, session?.isMineInitiator, session?.status, sessionId]);
 
   useEffect(() => {
     if (!session) return;
@@ -1997,6 +1999,17 @@ export function CommunityMessengerCallClient({
         reason: "call_client_unmount_terminal",
         source: "call_client_unmount",
       });
+    };
+  }, [sessionId]);
+
+  /** 발신 pre-connect 이탈 — stale active session 이 새 수신 busy/벨을 막지 않게 */
+  useEffect(() => {
+    return () => {
+      const snap = readActiveCallSessionSnapshot();
+      if (!snap) return;
+      if (snap.role !== "caller") return;
+      if (snap.phase !== "dialing" && snap.phase !== "ringing") return;
+      void hardClearActiveCallSession(snap.callId, "call_client_unmount_caller_preconnect");
     };
   }, [sessionId]);
 
@@ -3776,8 +3789,8 @@ export function CommunityMessengerCallClient({
   ]);
 
   /**
-   * 수락 전 자동 `/calls/:id` 진입 차단 (정책: 수신 UI는 Global 배너에서만).
-   * callee ringing 에서 `action=accept` 없이 들어오면 즉시 뒤로 돌린다.
+   * 수락 전 `/calls/:id` 진입 차단 (정책: 앱 안 수신 UI = Global 배너만).
+   * incomingPreview 포함 ringing callee 는 즉시 복귀 — IncomingCallView 전체화면 금지.
    */
   useEffect(() => {
     const s = sessionRef.current;
@@ -3785,7 +3798,6 @@ export function CommunityMessengerCallClient({
     if (s.isMineInitiator) return;
     if (s.status !== "ringing") return;
     if (requestedAction === "accept") return;
-    if (incomingPreviewRoute) return;
     if (busyRef.current === "accept" || calleeVideoConnectingShellRef.current) return;
     navigateBackFromCommunityMessengerCall(router, s.roomId);
   }, [incomingPreviewRoute, requestedAction, router, session?.id, session?.isMineInitiator, session?.roomId, session?.status]);

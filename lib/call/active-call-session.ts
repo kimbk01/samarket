@@ -89,6 +89,21 @@ export function getActiveCallSessionCallId(): string | null {
   return activeSession.callId;
 }
 
+/**
+ * Global 수신 busy·배너 억제용 live callId.
+ * 발신 중(dialing/ringing, caller)은 CallClient 이탈 후 stale 로 남아도 새 수신을 막지 않는다.
+ */
+export function getActiveCallSessionCallIdForIncomingBusy(): string | null {
+  const snap = activeSession;
+  if (!snap) return null;
+  const phase = snap.phase;
+  if (!phase || TERMINAL_PHASES.has(phase)) return null;
+  if (snap.role === "caller" && (phase === "dialing" || phase === "ringing")) {
+    return null;
+  }
+  return snap.callId;
+}
+
 export function setActiveCallSession(
   input: ActiveCallSessionInput,
   source = "client",

@@ -13,7 +13,7 @@ export type ForegroundIncomingCallHostProps = {
   busyReject: boolean;
   busyAccept: boolean;
   busyBlock?: boolean;
-  onExpand: () => void;
+  onExpand?: () => void;
   onReject: () => void;
   onAccept: () => void;
   onBlock?: () => void;

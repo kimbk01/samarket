@@ -5,7 +5,7 @@ import {
   unlockCommunityMessengerCallPlaybackFromUserGesture,
   type CallToneController,
 } from "@/lib/community-messenger/call-feedback-sound";
-import { getActiveCallSessionCallId } from "@/lib/call/active-call-session";
+import { getActiveCallSessionCallIdForIncomingBusy } from "@/lib/call/active-call-session";
 import { logCallFlow } from "@/lib/community-messenger/call-flow-log";
 import { startOutgoingRingback, stopOutgoingRingback } from "@/lib/community-messenger/call-outgoing-ringback-controller";
 import { shouldAllowIncomingRingtone } from "@/lib/community-messenger/incoming-call-state";
@@ -39,7 +39,7 @@ export function playIncomingCallRingtone(sessionId: string, callKind: CommunityM
   const sid = sessionId.trim();
   if (!sid) return;
 
-  const liveCallId = getActiveCallSessionCallId();
+  const liveCallId = getActiveCallSessionCallIdForIncomingBusy();
   if (liveCallId && liveCallId !== sid) {
     logCallFlow("call_ringtone_aborted", { sessionId: sid, kind: "active_call_ssot_other" });
     return;
