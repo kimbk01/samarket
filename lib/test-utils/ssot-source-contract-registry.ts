@@ -56,7 +56,7 @@ export const SSOT_SOURCE_CONTRACT_REGISTRY: readonly SsotSourceContractEntry[] =
     id: "cm-call-accept-gateway-patch-owner",
     file: "lib/community-messenger/incoming-call-accept-gateway.ts",
     marker: "SSOT_CONTRACT: cm-call-accept-gateway-patch-owner runIncomingCallAccept acceptIncomingCallOnce",
-    also: ["buildPostAcceptActiveCallHref"],
+    also: ["acceptIncomingCallOnce"],
   },
   {
     id: "cm-call-lifecycle-local-release",
