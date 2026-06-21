@@ -40,7 +40,7 @@ public class MainActivity extends BridgeActivity {
   private static final String WEBVIEW_LOG_TAG = "DIBAY_WebView";
   private static final long WEBVIEW_LOAD_TIMEOUT_MS = 10_000L;
   /** Max splash keep — JS dismiss 미수신 시 logged fallback (앱 진입 block 방지). */
-  private static final long SPLASH_MAX_KEEP_MS = 2_200L;
+  private static final long SPLASH_MAX_KEEP_MS = 3_000L;
   private static final String ROUTE_PREFS = "dibay_push_route";
   private static final String CALL_ROUTE_PREFS = "dibay_call_pending_route";
   private static final String ROUTE_LOG_TAG = "DIBAY_PUSH_ROUTE";
@@ -741,7 +741,6 @@ public class MainActivity extends BridgeActivity {
           mainHandler.removeCallbacks(webViewLoadTimeoutRunnable);
           hideWebViewLoadErrorOverlay();
           injectBootMetricField("firstHtml");
-          requestWebSplashDismiss("first_html");
           Log.i(WEBVIEW_LOG_TAG, "onPageFinished url=" + (url != null ? url : ""));
           if (webSafeAreaBridge != null) {
             webSafeAreaBridge.refreshIfPossible();

@@ -71,6 +71,7 @@ async function runAppBootOnce(startEpoch: number): Promise<void> {
   const [userSettled, profileSettled] = await Promise.allSettled([
     dedupeSupabaseAuthGetUser(sb),
     resolveBootProfileMinimal(),
+    primeMembershipOnBoot(),
   ]);
 
   if (isStale()) return;
@@ -157,14 +158,6 @@ async function runAppBootOnce(startEpoch: number): Promise<void> {
   bumpAppWidePerf("app_bootstrap_success");
   markBootMetricsApiDone();
   recordAppWidePhaseLastMs("app_boot_layer_ms", Math.round(performance.now() - t0));
-
-  /**
-   * Membership resolve 는 화면 보호막(AuthSessionBoundary)에서 별도로 보장된다.
-   * cold boot 첫 페인트를 막지 않도록 boot critical path 밖에서 비동기 예열만 수행한다.
-   */
-  void primeMembershipOnBoot().catch(() => {
-    /* non-blocking */
-  });
 }
 
 export function ensureAppBoot(): Promise<void> {
