@@ -1,0 +1,30 @@
+{
+  "artifact": "docs/perf/dibay-recovery-88dfab81.apk",
+  "git_commit": "88dfab81",
+  "built_at": "2026-06-21T23:48:00+09:00",
+  "capacitor_server_url": "https://samarket.vercel.app",
+  "variant": "debug",
+  "rollback_recovery": true,
+  "included_commits": [
+    "b0820eba fix(auth): restore consent-only signup gate for messenger deep routes",
+    "2f3ca122 fix(cm-call): unblock callee Agora join on accept and Realtime active",
+    "370bccc1 fix(cm-call): system PiP split layout with signal and tap restore",
+    "6d385621 fix(cm-call): use ActivityManager for PiP restore task focus",
+    "dd0ab243 fix(cm-call): tighten outgoing accept hot path and drop web minimize PiP",
+    "5a7d684e fix(boot): dismiss splash at first HTML and defer membership priming",
+    "e5dd598f fix(cm-call): banner accept via gateway PATCH with in-place video host",
+    "88dfab81 docs(cm): lock KakaoTalk/Telegram nav auth call recovery contract"
+  ],
+  "verify": [
+    "npm run verify:auth-session-contract",
+    "npm run verify:cm-kakao-telegram-navigation-contract"
+  ],
+  "install": "adb install -r docs/perf/dibay-recovery-88dfab81.apk",
+  "qa_checklist": [
+    "채팅 목록 → 방 진입 (/mypage 리다이렉트 없음)",
+    "수신 영상/음성 배너 accept",
+    "발신 ringback + 수락 연결",
+    "PiP 복원",
+    "cold start splash"
+  ]
+}
