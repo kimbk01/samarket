@@ -48,16 +48,20 @@ function afterNotificationEventsRead(reason: MessengerHubBadgeResyncReason, clea
   resyncBadgesAfterNotificationEventsRead(reason);
 }
 
-export async function postNotificationEventOpenedRead(notificationEventId: string): Promise<boolean> {
+export async function postNotificationEventOpenedRead(
+  notificationEventId: string,
+  opts?: { dismissed?: boolean }
+): Promise<boolean> {
   const id = notificationEventId.trim();
   if (!id) return false;
   logNotifyOpen("tap_received", { notificationEventId: id });
   const result = await postJson("/api/me/notifications/read", {
     notificationEventId: id,
-    opened: true,
+    opened: opts?.dismissed !== true,
+    dismissed: opts?.dismissed === true,
   });
   if (result.ok) {
-    logNotifyOpen("deeplink_consumed", { notificationEventId: id });
+    logNotifyOpen(opts?.dismissed ? "dismissed" : "deeplink_consumed", { notificationEventId: id });
     afterNotificationEventsRead("notification_opened");
   }
   return result.ok;

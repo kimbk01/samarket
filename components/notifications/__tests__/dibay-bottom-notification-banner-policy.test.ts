@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   isBottomBannerSuppressedByCallStatus,
+  markAdminBannerReadBeforeHide,
   shouldShowAdminBottomBannerCandidate,
   type BannerFeedRow,
 } from "@/components/notifications/DibayBottomNotificationBanner";
@@ -32,12 +33,31 @@ describe("dibay bottom banner dismiss policy", () => {
     createdAt: "2026-01-01T00:00:00.000Z",
   };
 
-  it("uses session dismiss as an immediate loop guard when read fails", () => {
-    expect(shouldShowAdminBottomBannerCandidate(banner, { "evt-admin-1": true }, false)).toBe(false);
+  it("shows candidate when server feed is unread and not in display cooldown", () => {
+    expect(shouldShowAdminBottomBannerCandidate(banner, false)).toBe(true);
   });
 
   it("treats local cooldown as display throttling, not read truth", () => {
-    expect(shouldShowAdminBottomBannerCandidate(banner, {}, true)).toBe(false);
-    expect(shouldShowAdminBottomBannerCandidate(banner, {}, false)).toBe(true);
+    expect(shouldShowAdminBottomBannerCandidate(banner, true)).toBe(false);
+    expect(shouldShowAdminBottomBannerCandidate(banner, false)).toBe(true);
+  });
+
+  it("keeps banner until server read succeeds (no session dismiss truth)", async () => {
+    const markRead = vi.fn().mockResolvedValue(false);
+    const ok = await markAdminBannerReadBeforeHide("evt-admin-1", { markRead });
+    expect(ok).toBe(false);
+    expect(markRead).toHaveBeenCalledWith("evt-admin-1", { dismissed: undefined });
+  });
+
+  it("allows hide only after server read succeeds", async () => {
+    const markRead = vi.fn().mockResolvedValue(true);
+    const ok = await markAdminBannerReadBeforeHide("evt-admin-1", { markRead });
+    expect(ok).toBe(true);
+  });
+
+  it("passes dismissed flag on close without navigation", async () => {
+    const markRead = vi.fn().mockResolvedValue(true);
+    await markAdminBannerReadBeforeHide("evt-admin-1", { dismissed: true, markRead });
+    expect(markRead).toHaveBeenCalledWith("evt-admin-1", { dismissed: true });
   });
 });

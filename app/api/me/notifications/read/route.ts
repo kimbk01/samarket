@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "server_misconfigured" }, { status: 503 });
   }
 
-  let body: { notificationEventId?: string; opened?: boolean } = {};
+  let body: { notificationEventId?: string; opened?: boolean; dismissed?: boolean } = {};
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -30,6 +30,11 @@ export async function POST(req: NextRequest) {
   }
 
   const ok = await markNotificationRead(sb, userId, eventId, { openedAt: body.opened === true });
-  if (ok) logNotifyOpen("read_marked", { userId, notificationEventId: eventId });
+  if (ok) {
+    logNotifyOpen(body.dismissed === true ? "dismissed" : "read_marked", {
+      userId,
+      notificationEventId: eventId,
+    });
+  }
   return NextResponse.json({ ok });
 }

@@ -32,7 +32,7 @@
   - `chat` = `chatMessage + groupMessage`
   - `trade` = `tradeMessage + tradeStatus`
   - `stores` = `orderStatus + deliveryStatus`
-  - `community` = `communityActivity + adminNotice`
+  - `community` = `communityActivity` only (P0.1 — `admin_notice` → Tier1 bell + app icon total)
 - 기존 owner-hub 배지는 fallback 으로만 사용.
 
 ## 3) Admin 사운드/배너 seam

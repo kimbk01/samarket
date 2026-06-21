@@ -91,6 +91,10 @@ import {
   type Tier1BellBadgeSurface,
 } from "@/lib/notifications/resolve-tier1-bell-surface";
 
+import { resolveTier1AdminNoticeBellSupplement } from "@/lib/notifications/tier1-admin-notice-bell-supplement";
+
+import { subscribeNotificationBadgeCount } from "@/lib/notifications/notification-badge-count-store";
+
 export type { Tier1BellBadgeSurface };
 
 import {
@@ -354,6 +358,17 @@ export function PhilifeHeaderNotificationInbox({
 
   );
 
+  const getAdminNoticeSupplementSnapshot = useCallback(
+    () => resolveTier1AdminNoticeBellSupplement(resolvedSurface),
+    [resolvedSurface]
+  );
+
+  const adminNoticeSupplement = useSyncExternalStore(
+    subscribeNotificationBadgeCount,
+    getAdminNoticeSupplementSnapshot,
+    () => 0
+  );
+
   const totalUnread = useMemo(
 
     () =>
@@ -370,9 +385,11 @@ export function PhilifeHeaderNotificationInbox({
 
         loading,
 
-      }) + Math.max(0, Math.floor(supplementalUnreadCount)),
+      }) +
+      Math.max(0, Math.floor(supplementalUnreadCount)) +
+      adminNoticeSupplement,
 
-    [listSynced, loading, open, rowUnread, storeUnread, supplementalUnreadCount]
+    [listSynced, loading, open, rowUnread, storeUnread, supplementalUnreadCount, adminNoticeSupplement]
 
   );
 

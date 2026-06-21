@@ -72,6 +72,13 @@ function tabUnreadFromBreakdown(
 }
 
 function tabUnreadFromNotificationEvents(icon: BottomNavIconKey): number | null {
+  return resolveBottomNavTabUnreadFromNotificationEvents(icon);
+}
+
+/** P0.1 — BottomNav 탭별 notification_events 슬라이스 (테스트·계약용 export) */
+export function resolveBottomNavTabUnreadFromNotificationEvents(
+  icon: BottomNavIconKey
+): number | null {
   const snap = getNotificationBadgeCountSnapshot();
   if (!snap) return null;
   if (icon === "chat") {
@@ -81,7 +88,8 @@ function tabUnreadFromNotificationEvents(icon: BottomNavIconKey): number | null 
     return Math.max(0, (snap.tradeMessage ?? 0) + (snap.tradeStatus ?? snap.trade));
   }
   if (icon === "community") {
-    return Math.max(0, (snap.communityActivity ?? 0) + (snap.adminNotice ?? 0));
+    // P0.1 — Philife(community) 탭: community_activity만. admin_notice는 Tier1 종·앱 아이콘 total.
+    return Math.max(0, snap.communityActivity ?? 0);
   }
   if (icon === "stores") {
     return Math.max(0, (snap.orderStatus ?? snap.store) + (snap.deliveryStatus ?? 0));

@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { useCallStore } from "@/lib/community-messenger/stores/useCallStore";
+import { useCallStore, type MessengerCallStatus } from "@/lib/community-messenger/stores/useCallStore";
 import { postNotificationEventOpenedRead } from "@/lib/notifications/client/notification-event-read-client";
-import type { MessengerCallStatus } from "@/lib/community-messenger/stores/useCallStore";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 
 export type BannerFeedRow = {
   id: string;
@@ -13,6 +13,7 @@ export type BannerFeedRow = {
   title: string;
   body: string;
   routeUrl: string;
+  imageUrl?: string | null;
   createdAt: string;
 };
 
@@ -73,14 +74,26 @@ export function isBottomBannerSuppressedByCallStatus(callStatus: MessengerCallSt
   );
 }
 
+/** 서버 read_at truth — 세션 dismiss 없이 feed(unread) + cooldown만 사용 */
 export function shouldShowAdminBottomBannerCandidate(
   next: BannerFeedRow | null,
-  dismissedIds: Record<string, true>,
   coolingDown: boolean
 ): next is BannerFeedRow {
   if (!next) return false;
-  if (dismissedIds[next.id]) return false;
   return !coolingDown;
+}
+
+/** P0.1 — read 성공 시에만 true. 실패 시 배너 유지(재시작 후 feed가 truth). */
+export async function markAdminBannerReadBeforeHide(
+  bannerId: string,
+  opts?: { dismissed?: boolean; markRead?: (id: string, o?: { dismissed?: boolean }) => Promise<boolean> }
+): Promise<boolean> {
+  const id = bannerId.trim();
+  if (!id) return false;
+  const markRead =
+    opts?.markRead ??
+    ((eventId: string, o?: { dismissed?: boolean }) => postNotificationEventOpenedRead(eventId, o));
+  return markRead(id, { dismissed: opts?.dismissed });
 }
 
 export function DibayBottomNotificationBanner() {
@@ -88,10 +101,28 @@ export function DibayBottomNotificationBanner() {
   const { language } = useI18n();
   const callStatus = useCallStore((s) => s.callStatus);
   const [banner, setBanner] = useState<BannerFeedRow | null>(null);
-  const [dismissedIds, setDismissedIds] = useState<Record<string, true>>({});
+  const [markingReadId, setMarkingReadId] = useState<string | null>(null);
 
   const isSuppressedByCall = isBottomBannerSuppressedByCallStatus(callStatus);
   const canPoll = !isSuppressedByCall;
+
+  const closeBannerAfterRead = useCallback(
+    async (row: BannerFeedRow, navigateAfter?: boolean, dismissed?: boolean) => {
+      if (markingReadId === row.id) return;
+      setMarkingReadId(row.id);
+      try {
+        const ok = await markAdminBannerReadBeforeHide(row.id, { dismissed });
+        if (!ok) return;
+        setBanner(null);
+        if (navigateAfter) {
+          router.push(row.routeUrl || "/notifications");
+        }
+      } finally {
+        setMarkingReadId(null);
+      }
+    },
+    [markingReadId, router]
+  );
 
   useEffect(() => {
     if (!canPoll) return;
@@ -110,7 +141,7 @@ export function DibayBottomNotificationBanner() {
         if (!j.ok || cancelled) return;
         const next = j.banner ?? null;
         const coolingDown = next ? isBannerCoolingDown(next.id, next.category) : false;
-        if (!shouldShowAdminBottomBannerCandidate(next, dismissedIds, coolingDown)) return;
+        if (!shouldShowAdminBottomBannerCandidate(next, coolingDown)) return;
         markBannerShown(next.id, next.category);
         setBanner(next);
       } catch {
@@ -126,7 +157,7 @@ export function DibayBottomNotificationBanner() {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [canPoll, dismissedIds]);
+  }, [canPoll]);
 
   const subtitle = useMemo(() => {
     if (!banner) return "";
@@ -138,17 +169,25 @@ export function DibayBottomNotificationBanner() {
 
   if (!banner || isSuppressedByCall) return null;
 
+  const readBusy = markingReadId === banner.id;
+
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[56] px-3 pb-[max(0.75rem,var(--safe-bottom))]">
       <div className="pointer-events-auto mx-auto flex max-w-xl items-start gap-3 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 shadow-sam-elevated">
+        {banner.imageUrl ? (
+          <SamarketThumbnail
+            src={banner.imageUrl}
+            alt=""
+            className="h-12 w-12 shrink-0 rounded-ui-rect object-cover"
+            size={48}
+          />
+        ) : null}
         <button
           type="button"
-          className="min-w-0 flex-1 text-left"
+          className="min-w-0 flex-1 text-left disabled:opacity-60"
+          disabled={readBusy}
           onClick={() => {
-            setDismissedIds((prev) => ({ ...prev, [banner.id]: true }));
-            setBanner(null);
-            void postNotificationEventOpenedRead(banner.id);
-            router.push(banner.routeUrl || "/community");
+            void closeBannerAfterRead(banner, true, false);
           }}
         >
           <p className="truncate text-[11px] font-semibold tracking-wide text-signature">{subtitle}</p>
@@ -157,11 +196,10 @@ export function DibayBottomNotificationBanner() {
         </button>
         <button
           type="button"
-          className="shrink-0 rounded-full px-2 py-1 text-xs font-medium text-sam-muted hover:bg-sam-app"
+          className="shrink-0 rounded-full px-2 py-1 text-xs font-medium text-sam-muted hover:bg-sam-app disabled:opacity-60"
+          disabled={readBusy}
           onClick={() => {
-            setDismissedIds((prev) => ({ ...prev, [banner.id]: true }));
-            setBanner(null);
-            void postNotificationEventOpenedRead(banner.id);
+            void closeBannerAfterRead(banner, false, true);
           }}
         >
           {language === "ko" ? "닫기" : "Close"}
