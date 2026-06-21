@@ -74,10 +74,22 @@ export function IosFilledXMarkGlyph({ className }: { className?: string }) {
   );
 }
 
-/** `PhoneIcon` solid — 권한 허용·수락 */
-export function IosFilledPhoneGlyph({ className }: { className?: string }) {
+/** `PhoneIcon` solid — 권한 허용·수락·수신 거절(회전) */
+export function IosFilledPhoneGlyph({
+  className,
+  size = 26,
+}: {
+  className?: string;
+  size?: number;
+}) {
   return (
-    <svg className={`${BOX} ${className ?? ""}`.trim()} width={26} height={26} viewBox="0 0 24 24" aria-hidden>
+    <svg
+      className={`${BOX} ${className ?? ""}`.trim()}
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      aria-hidden
+    >
       <path
         fill="currentColor"
         fillRule="evenodd"

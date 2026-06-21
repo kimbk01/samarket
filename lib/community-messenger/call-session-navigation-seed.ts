@@ -785,7 +785,7 @@ async function applyOutgoingTempCallBootstrapResult(
   } else {
     discardPrimedCommunityMessengerDevicePermission();
   }
-  callNavigationGo(router)(`/community-messenger/calls/${encodeURIComponent(result.session.id)}`);
+  callNavigationGo(router)(buildCommunityMessengerCallRouteHref(result.session.id, { outgoingDial: true }));
 }
 
 /**
@@ -1034,6 +1034,29 @@ export function primeCommunityMessengerCallNavigationSeed(
   } catch {
     /* quota / private mode */
   }
+}
+
+/** tmp→real 발신 replace — 440ms call-route slide 재생 방지 */
+export function buildCommunityMessengerCallRouteHref(
+  sessionId: string,
+  opts?: { outgoingDial?: boolean }
+): string {
+  const sid = sessionId.trim();
+  const base = `/community-messenger/calls/${encodeURIComponent(sid)}`;
+  if (opts?.outgoingDial) return `${base}?outgoingDial=1`;
+  return base;
+}
+
+export function shouldSkipCallRouteEnterSlide(
+  sessionId: string,
+  searchParams: { get(name: string): string | null }
+): boolean {
+  if (isCommunityMessengerTempCallSessionId(sessionId)) return true;
+  if (searchParams.get("outgoingDial") === "1") return true;
+  const seed = peekCommunityMessengerCallNavigationSeed(sessionId);
+  return Boolean(
+    seed?.isMineInitiator && (seed.status === "ringing" || seed.status === "active")
+  );
 }
 
 export function peekCommunityMessengerCallNavigationSeed(

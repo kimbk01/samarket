@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   isCalleeAcceptBridgeLayout,
   isCalleeAcceptInFlightUi,
+  isCallerOutgoingConnectBridgeLayout,
+  isCallerOutgoingConnectInFlightUi,
   shouldClaimCallScreenSurfaceForCalleeAccept,
   shouldEjectCalleeFromRingingCallRoute,
 } from "@/lib/community-messenger/call-client-incoming-boundary";
@@ -48,6 +50,25 @@ describe("call-client-incoming-boundary", () => {
         calleeVideoConnectingShell: false,
       })
     ).toBe(false);
+  });
+
+  it("keeps caller outgoing connecting UI until joined", () => {
+    expect(
+      isCallerOutgoingConnectInFlightUi({
+        isMineInitiator: true,
+        status: "active",
+        joined: false,
+        callerOutgoingConnectShell: false,
+      })
+    ).toBe(true);
+    expect(
+      isCallerOutgoingConnectBridgeLayout({
+        isMineInitiator: true,
+        status: "ringing",
+        joined: false,
+        callerOutgoingConnectShell: true,
+      })
+    ).toBe(true);
   });
 
   it("bridges ringing to connecting during accept in-flight", () => {

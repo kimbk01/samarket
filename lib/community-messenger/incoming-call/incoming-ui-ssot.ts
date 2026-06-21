@@ -14,8 +14,5 @@
 export const INCOMING_UI_FOREGROUND_SURFACE = "web_top_banner" as const;
 export const INCOMING_UI_LOCK_SURFACE = "native_fullscreen" as const;
 
-/** @deprecated ForegroundIncomingCallActivity pill */
-export const INCOMING_UI_DEPRECATED_FOREGROUND_NATIVE_PILL = "native_foreground_pill" as const;
-
 export type { IncomingCallLaneSurface } from "@/lib/community-messenger/incoming-call/incoming-call-lane";
 export { resolveIncomingCallLane } from "@/lib/community-messenger/incoming-call/incoming-call-lane";

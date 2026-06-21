@@ -488,6 +488,8 @@ export type CommunityMessengerCallSession = {
   peerUserId: string | null;
   peerLabel: string;
   peerAvatarUrl?: string | null;
+  /** 1:1 발신자 공개 아이디 — 수신 UI `@id` 표기 */
+  peerPublicId?: string | null;
   /** 수신 1:1 — caller relation for stranger hint */
   peerRelationLabel?: import("@/lib/community-messenger/peer-relation-label").PeerRelationLabel;
   callKind: CommunityMessengerCallKind;

@@ -19,7 +19,7 @@ export function CallControlBar({
 
   return (
     <div
-      className={`call-control-bar mx-auto w-full max-w-[430px] rounded-[28px] px-3 py-3 backdrop-blur-xl ${
+      className={`call-control-bar mx-auto w-full max-w-[min(100%,430px)] rounded-[28px] px-[clamp(0.5rem,2vw,0.75rem)] py-[clamp(0.5rem,2vw,0.75rem)] backdrop-blur-xl ${
         themed
           ? "bg-[#1E1E1E]/72 shadow-[0_8px_24px_rgba(0,0,0,0.2)] ring-1 ring-[#D4E9E2]/16"
           : "bg-black/52 shadow-[0_8px_24px_rgba(0,0,0,0.22)] ring-1 ring-white/12"

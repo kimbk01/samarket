@@ -1,7 +1,7 @@
 "use client";
 
-import { IncomingCallPopup } from "@/components/messenger/call/IncomingCallPopup";
-import { IncomingCallScreen } from "@/components/messenger/call/IncomingCallScreen";
+import { IncomingCallPopup } from "./IncomingCallPopup";
+import { IncomingCallFullScreen } from "./IncomingCallFullScreen";
 
 export type IncomingCallSurfaceMode = "popup" | "fullscreen";
 
@@ -15,6 +15,7 @@ export type IncomingCallSurfaceProps = {
   showStrangerHint?: boolean;
   busyReject: boolean;
   busyAccept: boolean;
+  exiting?: boolean;
   onReject: () => void;
   onAccept: () => void;
 };
@@ -29,12 +30,13 @@ export function IncomingCallSurface({
   showStrangerHint,
   busyReject,
   busyAccept,
+  exiting = false,
   onReject,
   onAccept,
 }: IncomingCallSurfaceProps) {
   if (mode === "fullscreen") {
     return (
-      <IncomingCallScreen
+      <IncomingCallFullScreen
         peerLabel={peerLabel}
         peerPublicId={peerPublicId}
         peerAvatarUrl={peerAvatarUrl}
@@ -56,6 +58,7 @@ export function IncomingCallSurface({
       showStrangerHint={showStrangerHint}
       busyReject={busyReject}
       busyAccept={busyAccept}
+      exiting={exiting}
       onReject={onReject}
       onAccept={onAccept}
     />

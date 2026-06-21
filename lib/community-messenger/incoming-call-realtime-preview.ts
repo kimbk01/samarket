@@ -1,6 +1,6 @@
 /**
- * Supabase Realtime `postgres_changes` 의 `new`/`old` 행 → 수신 통화 목록용 세션.
- * GET `/api/.../incoming` 전에 UI를 띄워 벨·배너 지연을 줄인다. 라벨은 이후 refresh 로 보강.
+ * Supabase Realtime / Broadcast / FCM — 수신 ringing **힌트**만 (카톡/텔레그램).
+ * 표시(닉·아바타)는 `initiatorUserId` → `useIncomingCallerDisplay` / GET 스냅샷 SSOT.
  */
 import type {
   CommunityMessengerCallKind,
@@ -9,24 +9,66 @@ import type {
   CommunityMessengerCallSessionMode,
   CommunityMessengerCallSessionStatus,
 } from "@/lib/community-messenger/types";
-import { incomingCallPeerNicknameLabel } from "@/lib/users/user-label";
 
 function trimText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
-}
-
-function peerFallbackLabel(userId: string): string {
-  const compact = userId.replace(/-/g, "");
-  return `회원 ${compact.slice(0, 6)}`;
 }
 
 function messengerUserIdsEqual(a: string, b: string): boolean {
   return a.trim().toLowerCase() === b.trim().toLowerCase();
 }
 
-/**
- * `community_messenger_call_sessions` 행 — direct · 수신자가 나 · ringing 일 때만 미리보기 세션 생성.
- */
+function buildDirectIncomingHintSession(input: {
+  id: string;
+  roomId: string;
+  initiatorUserId: string;
+  recipientUserId: string;
+  callKind: CommunityMessengerCallKind;
+  startedAt: string;
+  source: string;
+  isPreview?: boolean;
+  tmpSessionId?: string;
+}): CommunityMessengerCallSession {
+  const participants: CommunityMessengerCallParticipant[] = [
+    {
+      userId: input.initiatorUserId,
+      label: "",
+      status: "invited",
+      joinedAt: null,
+      leftAt: null,
+      isMe: false,
+    },
+    {
+      userId: input.recipientUserId,
+      label: "",
+      status: "invited",
+      joinedAt: null,
+      leftAt: null,
+      isMe: true,
+    },
+  ];
+
+  return {
+    id: input.id,
+    roomId: input.roomId,
+    sessionMode: "direct",
+    initiatorUserId: input.initiatorUserId,
+    recipientUserId: input.recipientUserId,
+    peerUserId: input.initiatorUserId,
+    peerLabel: "",
+    callKind: input.callKind,
+    status: "ringing",
+    startedAt: input.startedAt,
+    answeredAt: null,
+    endedAt: null,
+    isMineInitiator: false,
+    participants,
+    source: input.source,
+    ...(input.isPreview ? { isPreview: true } : {}),
+    ...(input.tmpSessionId ? { tmpSessionId: input.tmpSessionId } : {}),
+  };
+}
+
 export function communityMessengerIncomingSessionFromRealtimeRow(
   userId: string,
   raw: Record<string, unknown>
@@ -45,47 +87,17 @@ export function communityMessengerIncomingSessionFromRealtimeRow(
   if (status !== "ringing") return null;
   if (callKind !== "voice" && callKind !== "video") return null;
 
-  const startedAt = trimText(raw.started_at) || new Date().toISOString();
-  const answeredAt = trimText(raw.answered_at) || null;
-  const endedAt = trimText(raw.ended_at) || null;
-
-  const peerUserId = messengerUserIdsEqual(initiatorUserId, userId) ? recipientUserId : initiatorUserId;
-  const participants: CommunityMessengerCallParticipant[] = [initiatorUserId, recipientUserId]
-    .filter((v, i, a) => a.indexOf(v) === i)
-    .map((uid) => ({
-      userId: uid,
-      label: peerFallbackLabel(uid),
-      status: uid === initiatorUserId ? "invited" : "invited",
-      joinedAt: null,
-      leftAt: null,
-      isMe: messengerUserIdsEqual(uid, userId),
-    }));
-
-  const peerLabel =
-    participants.find((p) => p.userId === peerUserId)?.label ?? peerFallbackLabel(peerUserId ?? initiatorUserId);
-
-  return {
+  return buildDirectIncomingHintSession({
     id,
     roomId,
-    sessionMode: "direct",
     initiatorUserId,
     recipientUserId,
-    peerUserId,
-    peerLabel,
     callKind,
-    status,
-    startedAt,
-    answeredAt,
-    endedAt,
-    isMineInitiator: messengerUserIdsEqual(initiatorUserId, userId),
-    participants,
-  };
+    startedAt: trimText(raw.started_at) || new Date().toISOString(),
+    source: "realtime_hint",
+  });
 }
 
-/**
- * Broadcast `cm_invite_ring` 만으로 수신 벨 UI 를 열기 위한 최소 세션(GET·부트스트랩 전).
- * `initiatorUserId` 가 페이로드에 없으면 null (구 클라이언트 호환).
- */
 export function communityMessengerIncomingSessionFromInviteBroadcast(
   viewerUserId: string,
   payload: Record<string, unknown>
@@ -101,46 +113,19 @@ export function communityMessengerIncomingSessionFromInviteBroadcast(
   if (!id || !roomId || !initiatorUserId) return null;
   if (callKind !== "voice" && callKind !== "video") return null;
 
-  const recipientUserId = selfId;
-  const status = "ringing" as const;
-  const answeredAt = null;
-  const endedAt = null;
-  const peerUserId = initiatorUserId;
-  const participants: CommunityMessengerCallParticipant[] = [initiatorUserId, recipientUserId]
-    .filter((v, i, a) => a.indexOf(v) === i)
-    .map((uid) => ({
-      userId: uid,
-      label: peerFallbackLabel(uid),
-      status: "invited" as const,
-      joinedAt: null,
-      leftAt: null,
-      isMe: messengerUserIdsEqual(uid, selfId),
-    }));
-  const peerLabel =
-    participants.find((p) => p.userId === peerUserId)?.label ?? peerFallbackLabel(peerUserId);
-
-  return {
+  return buildDirectIncomingHintSession({
     id,
     roomId,
-    sessionMode: "direct",
     initiatorUserId,
-    recipientUserId,
-    peerUserId,
-    peerLabel,
+    recipientUserId: selfId,
     callKind,
-    status,
     startedAt,
-    answeredAt,
-    endedAt,
-    isMineInitiator: false,
-    participants,
     source: "invite_preview",
     isPreview: true,
-    ...(tmpAlias ? { tmpSessionId: tmpAlias } : {}),
-  };
+    tmpSessionId: tmpAlias || undefined,
+  });
 }
 
-/** FCM foreground wake — GET 전 배너 즉시 표시용 최소 ringing 세션 */
 export function communityMessengerIncomingSessionFromFcmWake(
   viewerUserId: string,
   detail: {
@@ -148,8 +133,6 @@ export function communityMessengerIncomingSessionFromFcmWake(
     roomId?: string;
     callKind?: "voice" | "video";
     callerId?: string;
-    callerName?: string;
-    callerAvatarUrl?: string;
   }
 ): CommunityMessengerCallSession | null {
   const selfId = trimText(viewerUserId);
@@ -160,53 +143,18 @@ export function communityMessengerIncomingSessionFromFcmWake(
   if (!selfId || !id || !roomId || !initiatorUserId) return null;
   if (callKind !== "voice" && callKind !== "video") return null;
 
-  const startedAt = new Date().toISOString();
-  const peerLabel =
-    incomingCallPeerNicknameLabel(trimText(detail.callerName)) || peerFallbackLabel(initiatorUserId);
-  const peerAvatarUrl = trimText(detail.callerAvatarUrl) || null;
-  const recipientUserId = selfId;
-
-  return {
+  return buildDirectIncomingHintSession({
     id,
     roomId,
-    sessionMode: "direct",
     initiatorUserId,
-    recipientUserId,
-    peerUserId: initiatorUserId,
-    peerLabel,
-    peerAvatarUrl,
+    recipientUserId: selfId,
     callKind,
-    status: "ringing",
-    startedAt,
-    answeredAt: null,
-    endedAt: null,
-    isMineInitiator: false,
-    participants: [
-      {
-        userId: initiatorUserId,
-        label: peerLabel,
-        status: "invited",
-        joinedAt: null,
-        leftAt: null,
-        isMe: false,
-      },
-      {
-        userId: recipientUserId,
-        label: peerFallbackLabel(recipientUserId),
-        status: "invited",
-        joinedAt: null,
-        leftAt: null,
-        isMe: true,
-      },
-    ],
+    startedAt: new Date().toISOString(),
     source: "fcm_wake",
     isPreview: true,
-  };
+  });
 }
 
-/**
- * Realtime 이벤트 한 건을 수신 목록 상태에 반영한다.
- */
 export function applyIncomingCallSessionsRealtimeEvent(
   prev: CommunityMessengerCallSession[],
   userId: string,

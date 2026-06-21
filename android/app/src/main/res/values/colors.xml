@@ -7,16 +7,20 @@
     <!-- DIBAY Incoming Call UI v1 (Starbucks palette) -->
     <color name="dibay_incoming_primary">#00754A</color>
     <color name="dibay_incoming_primary_pressed">#006241</color>
-    <color name="dibay_incoming_deep_green">#121212</color>
-    <color name="dibay_incoming_surface_dark">#1E1E1E</color>
+    <color name="dibay_incoming_deep_green">#003D29</color>
+    <color name="dibay_incoming_mid_green">#006241</color>
+    <color name="dibay_incoming_house_green">#1E3932</color>
+    <color name="dibay_incoming_surface_dark">#006241</color>
     <color name="dibay_incoming_surface_light">#F1F8F4</color>
-    <color name="dibay_incoming_accept">#00754A</color>
-    <color name="dibay_incoming_reject">#D93025</color>
-    <color name="dibay_incoming_text_primary">#FFFFFF</color>
-    <color name="dibay_incoming_text_muted">#C9D1D9</color>
-    <color name="dibay_incoming_pill_stroke">#33FFFFFF</color>
-    <color name="dibay_incoming_gradient_start">#FF121212</color>
-    <color name="dibay_incoming_gradient_end">#FF1E1E1E</color>
-    <color name="dibay_incoming_green_wash">#3300754A</color>
+    <color name="dibay_incoming_cream">#D4E9E2</color>
+    <color name="dibay_incoming_accept">#34C759</color>
+    <color name="dibay_incoming_reject">#FF3B30</color>
+    <color name="dibay_incoming_text_primary">#F1F8F4</color>
+    <color name="dibay_incoming_text_muted">#D4E9E2</color>
+    <color name="dibay_incoming_pill_stroke">#38D4E9E2</color>
+    <color name="dibay_incoming_gradient_start">#F5003D29</color>
+    <color name="dibay_incoming_gradient_mid">#F5006241</color>
+    <color name="dibay_incoming_gradient_end">#F51E3932</color>
+    <color name="dibay_incoming_green_wash">#6600754A</color>
     <color name="dibay_incoming_pulse_ring">#74D4E9E2</color>
 </resources>

@@ -75,6 +75,31 @@ export function shouldClaimCallScreenSurfaceForCalleeAccept(args: {
 /**
  * 수락 전 `/calls/:id` ringing callee — Global 배너만. IncomingCallView 전체화면 금지.
  */
+export type CallerOutgoingConnectUiInput = {
+  isMineInitiator: boolean;
+  status: CommunityMessengerCallSession["status"];
+  joined: boolean;
+  callerOutgoingConnectShell: boolean;
+};
+
+/** 발신 — 상대 수락(active) 후 Agora join 전까지 connecting UI 유지 */
+export function isCallerOutgoingConnectInFlightUi(input: CallerOutgoingConnectUiInput): boolean {
+  if (!input.isMineInitiator || input.joined) return false;
+  return (
+    input.callerOutgoingConnectShell ||
+    input.status === "active"
+  );
+}
+
+/** stale ringing 스냅샷 1틱 — active 수락 직후 connecting 으로 브릿지 */
+export function isCallerOutgoingConnectBridgeLayout(input: CallerOutgoingConnectUiInput): boolean {
+  if (!input.isMineInitiator || input.joined) return false;
+  return (
+    input.callerOutgoingConnectShell &&
+    input.status === "ringing"
+  );
+}
+
 export function shouldEjectCalleeFromRingingCallRoute(args: {
   isMineInitiator: boolean;
   status: CommunityMessengerCallSession["status"];

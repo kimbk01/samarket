@@ -406,7 +406,6 @@ export function MessengerCallLogsPanel({
         loading={loading}
         error={error}
         onNavigate={onRowNavigate}
-        onRequestOutgoingCall={startOutgoingFromCallLog}
         onDeleteRequest={onDeleteRequest}
         openedSwipeItemId={openedSwipeItemId}
         onOpenSwipeItem={setOpenedSwipeItemId}

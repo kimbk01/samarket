@@ -9,6 +9,8 @@
     <dimen name="dibay_incoming_safe_bottom_extra">16dp</dimen>
     <dimen name="dibay_incoming_btn_circle">48dp</dimen>
     <dimen name="dibay_incoming_btn_circle_full">72dp</dimen>
+    <dimen name="dibay_incoming_btn_gap_full">48dp</dimen>
+    <dimen name="dibay_incoming_btn_icon_padding">22dp</dimen>
     <dimen name="dibay_incoming_avatar_pill">48dp</dimen>
     <dimen name="dibay_incoming_avatar_full">96dp</dimen>
     <dimen name="dibay_incoming_pulse_full">128dp</dimen>

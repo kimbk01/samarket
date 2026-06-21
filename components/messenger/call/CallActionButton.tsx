@@ -147,12 +147,19 @@ export const CallActionButton = memo(function CallActionButton({
   const isStarbucks = theme === "starbucks";
   const sizeClass =
     variant === "control"
-      ? "h-16 w-16"
+      ? "call-btn__disk--control h-[clamp(44px,11vw,56px)] w-[clamp(44px,11vw,56px)]"
       : variant === "list"
-        ? "h-[52px] w-[52px]"
+        ? "h-[42px] w-[42px]"
         : isStarbucks
           ? "h-[clamp(52px,14vw,64px)] w-[clamp(52px,14vw,64px)]"
           : "";
+
+  const labelClass =
+    variant === "control"
+      ? "line-clamp-2 max-w-[clamp(2.25rem,14vw,3.25rem)] text-[clamp(9px,2.4vw,11px)] text-[#F1F8F4] drop-shadow-[0_1px_8px_rgba(0,61,41,0.32)]"
+      : isStarbucks
+        ? "line-clamp-2 max-w-[clamp(3rem,18vw,4.4rem)] text-[clamp(10px,2.8vw,12px)] text-[#F1F8F4] drop-shadow-[0_1px_8px_rgba(0,61,41,0.32)]"
+        : "sam-text-helper text-white/92 drop-shadow-[0_1px_8px_rgba(0,0,0,0.35)]";
 
   return (
     <button
@@ -162,7 +169,7 @@ export const CallActionButton = memo(function CallActionButton({
       disabled={item.disabled}
       className={`call-btn items-center text-center disabled:opacity-40 ${
         isStarbucks ? "min-w-0 flex-1 basis-0" : ""
-      }`.trim()}
+      } ${variant === "control" ? "call-btn--control gap-1" : ""}`.trim()}
     >
       <span
         className={`call-btn__disk ${sizeClass} ${disk}`.trim()}
@@ -170,13 +177,7 @@ export const CallActionButton = memo(function CallActionButton({
         <CallRipple />
         <CallActionGlyph item={item} theme={theme} />
       </span>
-      <span
-        className={`font-medium leading-tight ${
-          isStarbucks
-            ? "line-clamp-2 max-w-[clamp(3rem,18vw,4.4rem)] text-[clamp(10px,2.8vw,12px)] text-[#F1F8F4] drop-shadow-[0_1px_8px_rgba(0,61,41,0.32)]"
-            : "sam-text-helper text-white/92 drop-shadow-[0_1px_8px_rgba(0,0,0,0.35)]"
-        }`}
-      >
+      <span className={`font-medium leading-tight ${labelClass}`}>
         {item.label}
       </span>
     </button>

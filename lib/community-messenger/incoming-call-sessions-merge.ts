@@ -65,11 +65,10 @@ export function mergeIncomingCallSessionsAfterFetch(
       .filter((s) => !isUserDismissedIncomingSession(s.id, dismissedAtBySessionId, now))
       .filter((s) => !isHardClearedIncomingSession(s.id, hardClearedAtBySessionId, now))
   );
-  const serverIds = new Set(serverFiltered.map((s) => s.id));
   const previousFiltered = previous
     .filter((s) => !isUserDismissedIncomingSession(s.id, dismissedAtBySessionId, now))
     .filter((s) => !isHardClearedIncomingSession(s.id, hardClearedAtBySessionId, now));
-
+  const serverIds = new Set(serverFiltered.map((s) => s.id));
   const optimisticExtras = previousFiltered.filter((s) => {
     if (!canAcceptIncomingSessionId(s.id, tombstone, now)) return false;
     if (shouldSkipActiveCallRecoveryRouting(s.id)) return false;
@@ -91,4 +90,33 @@ export function mergeIncomingCallSessionsAfterFetch(
   return [...serverFiltered, ...optimisticExtras].sort(
     (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
   );
+}
+
+/** 수신 목록 GET 폴링 — 스냅샷이 UI에 의미 없으면 React state 갱신 생략(카톡/텔레그램형) */
+function incomingCallSessionStableKey(session: CommunityMessengerCallSession): string {
+  return [
+    session.id,
+    session.status,
+    session.callKind,
+    session.startedAt,
+    session.endedReason ?? "",
+    session.peerLabel ?? "",
+    session.peerAvatarUrl ?? "",
+    session.peerPublicId ?? "",
+    session.isPreview === true ? "1" : "0",
+    session.source ?? "",
+  ].join("|");
+}
+
+export function areIncomingCallSessionListsStable(
+  previous: CommunityMessengerCallSession[],
+  next: CommunityMessengerCallSession[]
+): boolean {
+  if (previous.length !== next.length) return false;
+  for (let i = 0; i < previous.length; i += 1) {
+    if (incomingCallSessionStableKey(previous[i]) !== incomingCallSessionStableKey(next[i])) {
+      return false;
+    }
+  }
+  return true;
 }

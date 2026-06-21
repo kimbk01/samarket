@@ -104,31 +104,62 @@
             android:paddingTop="8dp"
             android:paddingBottom="8dp">
 
-            <ImageButton
-                android:id="@+id/incoming_call_decline"
-                android:layout_width="@dimen/dibay_incoming_btn_circle_full"
-                android:layout_height="@dimen/dibay_incoming_btn_circle_full"
-                android:layout_marginEnd="20dp"
-                android:background="@drawable/bg_dibay_incoming_btn_reject"
-                android:contentDescription="@string/dibay_incoming_reject"
-                android:elevation="8dp"
-                android:padding="22dp"
-                android:scaleType="centerInside"
-                android:src="@drawable/ic_dibay_incoming_reject"
-                android:tint="@android:color/white" />
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="@dimen/dibay_incoming_btn_gap_full"
+                android:gravity="center_horizontal"
+                android:orientation="vertical">
 
-            <ImageButton
-                android:id="@+id/incoming_call_accept"
-                android:layout_width="@dimen/dibay_incoming_btn_circle_full"
-                android:layout_height="@dimen/dibay_incoming_btn_circle_full"
-                android:layout_marginStart="20dp"
-                android:background="@drawable/bg_dibay_incoming_btn_accept"
-                android:contentDescription="@string/dibay_incoming_accept"
-                android:elevation="8dp"
-                android:padding="22dp"
-                android:scaleType="centerInside"
-                android:src="@drawable/ic_dibay_incoming_accept"
-                android:tint="@android:color/white" />
+                <ImageButton
+                    android:id="@+id/incoming_call_decline"
+                    android:layout_width="@dimen/dibay_incoming_btn_circle_full"
+                    android:layout_height="@dimen/dibay_incoming_btn_circle_full"
+                    android:background="@drawable/bg_dibay_incoming_btn_reject"
+                    android:backgroundTint="@null"
+                    android:contentDescription="@string/dibay_incoming_reject"
+                    android:elevation="8dp"
+                    android:padding="@dimen/dibay_incoming_btn_icon_padding"
+                    android:scaleType="centerInside"
+                    android:src="@drawable/ic_dibay_incoming_reject"
+                    android:tint="@android:color/white" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/dibay_incoming_reject"
+                    android:textColor="@color/dibay_incoming_text_muted"
+                    android:textSize="@dimen/dibay_incoming_status_sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center_horizontal"
+                android:orientation="vertical">
+
+                <ImageButton
+                    android:id="@+id/incoming_call_accept"
+                    android:layout_width="@dimen/dibay_incoming_btn_circle_full"
+                    android:layout_height="@dimen/dibay_incoming_btn_circle_full"
+                    android:background="@drawable/bg_dibay_incoming_btn_accept"
+                    android:backgroundTint="@null"
+                    android:contentDescription="@string/dibay_incoming_call_label"
+                    android:elevation="8dp"
+                    android:padding="@dimen/dibay_incoming_btn_icon_padding"
+                    android:scaleType="centerInside"
+                    android:src="@drawable/ic_dibay_incoming_accept"
+                    android:tint="@android:color/white" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/dibay_incoming_call_label"
+                    android:textColor="@color/dibay_incoming_text_muted"
+                    android:textSize="@dimen/dibay_incoming_status_sp" />
+            </LinearLayout>
         </LinearLayout>
     </LinearLayout>
 </FrameLayout>

@@ -5,13 +5,23 @@
             <solid android:color="@color/dibay_incoming_deep_green" />
         </shape>
     </item>
-    <item android:top="0dp" android:bottom="0dp">
+    <item>
         <shape android:shape="rectangle">
             <gradient
-                android:angle="270"
+                android:angle="165"
+                android:startColor="@color/dibay_incoming_gradient_start"
+                android:centerColor="@color/dibay_incoming_gradient_mid"
+                android:endColor="@color/dibay_incoming_gradient_end"
+                android:type="linear" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="90"
                 android:startColor="@color/dibay_incoming_green_wash"
-                android:centerColor="@color/dibay_incoming_surface_dark"
-                android:endColor="@color/dibay_incoming_deep_green"
+                android:centerColor="#00000000"
+                android:endColor="#00000000"
                 android:type="linear" />
         </shape>
     </item>

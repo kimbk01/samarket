@@ -100,7 +100,7 @@ describe("incoming-call policy contracts", () => {
     expect(global).not.toContain("buildIncomingCallPreviewHref");
     const boundary = read("lib/community-messenger/call-client-incoming-boundary.ts");
     expect(boundary).toContain("shouldEjectCalleeFromRingingCallRoute");
-    const surface = read("components/messenger/call/IncomingCallSurface.tsx");
+    const surface = read("components/messenger/call/incoming/IncomingCallSurface.tsx");
     expect(surface).toContain('mode?: IncomingCallSurfaceMode');
     expect(surface).not.toContain("onExpand");
   });

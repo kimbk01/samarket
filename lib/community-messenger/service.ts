@@ -4464,6 +4464,7 @@ async function mapCallSession(
             : undefined
         ) || profileCallPeerLabel(null, peerUserId ?? initiatorUserId);
   let peerAvatarUrl: string | null = null;
+  let peerPublicId: string | null = null;
   if (sessionMode === "direct" && peerUserId) {
     const peerHydrated =
       profileById?.get(peerUserId) != null
@@ -4471,6 +4472,7 @@ async function mapCallSession(
         : await hydrateProfilesLabelsOnly(userId, [peerUserId], { includeSelf: true });
     const peerProfile = profileById?.get(peerUserId) ?? peerHydrated?.[0] ?? null;
     peerAvatarUrl = peerProfile?.avatarUrl ?? null;
+    peerPublicId = peerProfile?.subtitle?.trim().replace(/^@+/, "") || null;
   }
 
   const peerProfileForRelation =
@@ -4491,6 +4493,7 @@ async function mapCallSession(
     peerUserId,
     peerLabel,
     peerAvatarUrl,
+    ...(peerPublicId ? { peerPublicId } : {}),
     ...(peerRelationLabel ? { peerRelationLabel } : {}),
     callKind: (isDbSession ? session.call_kind : session.callKind) as CommunityMessengerCallKind,
     status: (isDbSession ? session.status : session.status) as CommunityMessengerCallSessionStatus,

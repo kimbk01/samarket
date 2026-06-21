@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 function read(p: string): string {
   return readFileSync(join(process.cwd(), p), "utf8");
+}
+
+function exists(p: string): boolean {
+  return existsSync(join(process.cwd(), p));
 }
 
 describe("incoming-call native contract", () => {
@@ -189,10 +193,14 @@ describe("incoming-call native contract", () => {
     expect(activity).toContain("injectForegroundIncomingRejectEvent");
   });
 
-  it("foreground pill swipe dismiss routes to native reject", () => {
-    const pill = read("android/app/src/main/java/com/dibay/app/ForegroundIncomingCallActivity.java");
-    expect(pill).toContain("foreground_swipe_dismiss_reject");
-    expect(pill).toContain("handleReject(getApplicationContext(), callId, \"swipe_dismiss\")");
+  it("legacy ForegroundIncomingCallActivity pill is removed", () => {
+    expect(exists("android/app/src/main/java/com/dibay/app/ForegroundIncomingCallActivity.java")).toBe(false);
+    expect(exists("android/app/src/main/java/com/dibay/app/IncomingCallForegroundUiLauncher.java")).toBe(false);
+    expect(exists("android/app/src/main/res/layout/activity_foreground_incoming_call.xml")).toBe(false);
+    const manifest = read("android/app/src/main/AndroidManifest.xml");
+    expect(manifest).not.toContain("ForegroundIncomingCallActivity");
+    const helper = read("android/app/src/main/java/com/dibay/app/IncomingCallIntentHelper.java");
+    expect(helper).not.toContain("buildForegroundIncomingCallActivityIntent");
   });
 
   it("notification posts immediately then enriches avatar async", () => {
@@ -276,18 +284,17 @@ describe("incoming-call native contract", () => {
     expect(ackHelper).toContain("IncomingCallTerminalHandler.handle");
   });
 
-  it("notification uses DIBAY CallStyle, brand color, and system action icons in layouts", () => {
+  it("notification uses DIBAY CallStyle, brand color, and lock fullscreen action icons", () => {
     const notification = read("android/app/src/main/java/com/dibay/app/IncomingCallNotificationBuilder.java");
     expect(notification).toContain("IncomingCallUiCopy");
     expect(notification).toContain("NotificationCompat.CallStyle.forIncomingCall");
     expect(notification).toContain("dibay_incoming_primary");
     expect(read("android/app/src/main/res/values/colors.xml")).toContain("dibay_incoming_primary");
     expect(read("android/app/src/main/res/values/colors.xml")).toContain("#006241");
-    const pill = read("android/app/src/main/res/layout/activity_foreground_incoming_call.xml");
-    expect(pill).toContain("@android:drawable/sym_action_call");
-    expect(pill).toContain("@android:drawable/ic_menu_close_clear_cancel");
-    expect(pill).not.toContain("android:text=\"@string/dibay_incoming_accept\"");
-    expect(pill).not.toContain("ic_dibay_incoming_accept");
+    const lockLayout = read("android/app/src/main/res/layout/activity_incoming_call.xml");
+    expect(lockLayout).toContain("@drawable/ic_dibay_incoming_accept");
+    expect(lockLayout).toContain("@string/dibay_incoming_call_label");
+    expect(lockLayout).toContain("@string/dibay_incoming_reject");
   });
 
   it("caller display strips legacy @id suffix in IncomingCallUiCopy", () => {
@@ -304,23 +311,20 @@ describe("incoming-call native contract", () => {
     );
   });
 
-  it("lock fullscreen applies bottom safe area for navigation bar", () => {
+  it("lock fullscreen uses 48dp button gap, labels, and 150ms press-release", () => {
+    const dimens = read("android/app/src/main/res/values/dimens.xml");
+    expect(dimens).toContain("dibay_incoming_btn_gap_full\">48dp");
+
     const activity = read("android/app/src/main/java/com/dibay/app/IncomingCallActivity.java");
+    expect(activity).toContain("FULLSCREEN_PRESS_MS = 150L");
+    expect(activity).toContain("bindPressReleaseButton");
     expect(activity).toContain("IncomingCallUiInsets.applyBottomSafeArea");
+    expect(read("android/app/src/main/res/drawable/bg_dibay_incoming_btn_reject_pressed.xml")).toContain("#D93025");
+    expect(read("android/app/src/main/res/values/colors.xml")).toContain("#34C759");
+    expect(read("android/app/src/main/res/values/colors.xml")).toContain("#FF3B30");
     const layout = read("android/app/src/main/res/layout/activity_incoming_call.xml");
     expect(layout).toContain("incoming_call_actions");
-    expect(layout).toContain("incoming_call_pulse_ring_one");
-    expect(layout).toContain("@dimen/dibay_incoming_btn_circle_full");
-    expect(layout).toContain("@drawable/ic_dibay_incoming_accept");
-    expect(activity).toContain("buildPulseAnimator");
-    expect(activity).toContain("ValueAnimator.INFINITE");
-  });
-
-  it("foreground pill uses 440ms enter animation and DIBAY layout", () => {
-    const activity = read("android/app/src/main/java/com/dibay/app/ForegroundIncomingCallActivity.java");
-    expect(activity).toContain("dibay_incoming_pill_enter");
-    expect(read("android/app/src/main/res/anim/dibay_incoming_pill_enter.xml")).toContain("440");
-    expect(read("android/app/src/main/res/layout/activity_foreground_incoming_call.xml")).toContain("bg_dibay_incoming_pill");
+    expect(layout).toContain("@string/dibay_incoming_call_label");
   });
 
   it("native plugin proxy is wrapped so Promise resolution does not call .then()", () => {

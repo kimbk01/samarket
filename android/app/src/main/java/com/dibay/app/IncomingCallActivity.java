@@ -10,6 +10,8 @@ import android.content.IntentFilter;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.HapticFeedbackConstants;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.ImageButton;
@@ -35,6 +37,7 @@ public class IncomingCallActivity extends AppCompatActivity {
   public static final String ACTION_TERMINAL = "com.dibay.app.action.INCOMING_CALL_TERMINAL";
 
   private static final String TAG = "DIBAY_INCOMING_CALL";
+  private static final long FULLSCREEN_PRESS_MS = 150L;
   private String callId;
   private boolean finished;
   private BroadcastReceiver terminalReceiver;
@@ -130,9 +133,57 @@ public class IncomingCallActivity extends AppCompatActivity {
     IncomingCallAvatarHelper.styleInitial(initialView);
     IncomingCallAvatarHelper.bind(avatarView, initialView, avatarUrl, displayName);
 
-    acceptBtn.setOnClickListener(v -> handleAccept());
-    declineBtn.setOnClickListener(v -> handleDecline());
+    acceptBtn.setOnClickListener(null);
+    declineBtn.setOnClickListener(null);
+    bindPressReleaseButton(acceptBtn, this::handleAccept);
+    bindPressReleaseButton(declineBtn, this::handleDecline);
   }
+
+  private void bindPressReleaseButton(ImageButton btn, Runnable action) {
+    final long[] pressStartedAt = {0L};
+    final boolean[] tracking = {false};
+    btn.setOnTouchListener(
+        (v, event) -> {
+          switch (event.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN:
+              tracking[0] = true;
+              pressStartedAt[0] = System.currentTimeMillis();
+              v.setScaleX(0.92f);
+              v.setScaleY(0.92f);
+              v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
+              return true;
+            case MotionEvent.ACTION_MOVE:
+              if (!tracking[0]) return true;
+              float mx = event.getX();
+              float my = event.getY();
+              if (mx < 0 || my < 0 || mx > v.getWidth() || my > v.getHeight()) {
+                tracking[0] = false;
+                v.setScaleX(1f);
+                v.setScaleY(1f);
+              }
+              return true;
+            case MotionEvent.ACTION_UP:
+              if (!tracking[0]) return true;
+              tracking[0] = false;
+              v.setScaleX(1f);
+              v.setScaleY(1f);
+              long elapsed = System.currentTimeMillis() - pressStartedAt[0];
+              float ux = event.getX();
+              float uy = event.getY();
+              boolean inside = ux >= 0 && uy >= 0 && ux <= v.getWidth() && uy <= v.getHeight();
+              if (elapsed >= FULLSCREEN_PRESS_MS && inside) {
+                action.run();
+              }
+              return true;
+            case MotionEvent.ACTION_CANCEL:
+              tracking[0] = false;
+              v.setScaleX(1f);
+              v.setScaleY(1f);
+              return true;
+            default:
+              return false;
+          }
+        });
 
   @Override
   protected void onDestroy() {

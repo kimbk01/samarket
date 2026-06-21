@@ -24,7 +24,7 @@
     <style name="AppTheme.IncomingCall" parent="Theme.AppCompat.DayNight.NoActionBar">
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
-        <item name="android:windowBackground">@color/dibay_incoming_deep_green</item>
+        <item name="android:windowBackground">@drawable/bg_dibay_incoming_fullscreen</item>
     </style>
 
     <style name="AppTheme.ForegroundIncomingCall" parent="Theme.AppCompat.DayNight.NoActionBar">

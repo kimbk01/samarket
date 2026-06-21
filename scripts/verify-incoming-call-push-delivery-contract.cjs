@@ -107,6 +107,13 @@ if (delivery.includes("IncomingCallForegroundUiLauncher.showUi")) {
   pass("PushDelivery no foreground native pill");
 }
 
+const legacyPill = path.join(root, "android/app/src/main/java/com/dibay/app/ForegroundIncomingCallActivity.java");
+if (fs.existsSync(legacyPill)) {
+  fail("ForegroundIncomingCallActivity must be removed (Web IncomingCallSurface SSOT)");
+} else {
+  pass("legacy ForegroundIncomingCallActivity removed");
+}
+
 if (failed) {
   process.exit(1);
 }

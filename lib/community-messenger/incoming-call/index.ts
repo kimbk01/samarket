@@ -8,7 +8,6 @@
  */
 
 export {
-  INCOMING_UI_DEPRECATED_FOREGROUND_NATIVE_PILL,
   INCOMING_UI_FOREGROUND_SURFACE,
   INCOMING_UI_LOCK_SURFACE,
   resolveIncomingCallLane,
@@ -22,3 +21,10 @@ export {
 } from "./foreground-incoming-presenter";
 
 export { dismissIncomingPresenterAfterAccept } from "./accept-presenter-dismiss";
+
+export {
+  isIncomingCallerDisplayFallback,
+  readIncomingCallerDisplaySeed,
+  resolveDirectIncomingCallerUserId,
+  type IncomingCallerDisplay,
+} from "./incoming-caller-ssot";

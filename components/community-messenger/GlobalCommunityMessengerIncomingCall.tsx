@@ -177,7 +177,7 @@ import {
 } from "@/lib/community-messenger/incoming-call-ui-policy";
 import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
 import { runDevSafeSingleFlight } from "@/lib/dev/dev-safe-dedupe";
-import { mergeIncomingCallSessionsAfterFetch } from "@/lib/community-messenger/incoming-call-sessions-merge";
+import { mergeIncomingCallSessionsAfterFetch, areIncomingCallSessionListsStable } from "@/lib/community-messenger/incoming-call-sessions-merge";
 import {
   clearDibayCallPendingRoute,
   installDibayFcmCallBridge,
@@ -529,8 +529,8 @@ export function GlobalCommunityMessengerIncomingCall() {
               console.info("[call-flow] incoming_poll_empty");
             }
           }
-          setSessions((prev) =>
-            filterIncomingSessionsRespectingConsumed(
+          setSessions((prev) => {
+            const next = filterIncomingSessionsRespectingConsumed(
               mergeIncomingCallSessionsAfterFetch(
                 viewerUserIdRef.current,
                 serverList,
@@ -538,8 +538,10 @@ export function GlobalCommunityMessengerIncomingCall() {
                 dismissedIncomingSessionsAtRef.current,
                 hardClearedIncomingSessionsAtRef.current
               )
-            )
-          );
+            );
+            if (areIncomingCallSessionListsStable(prev, next)) return prev;
+            return next;
+          });
           setIncomingListError(null);
           return;
         }
@@ -1262,14 +1264,6 @@ export function GlobalCommunityMessengerIncomingCall() {
             typeof (d as { callerId?: unknown }).callerId === "string"
               ? (d as { callerId: string }).callerId.trim()
               : "";
-          const callerName =
-            typeof (d as { callerName?: unknown }).callerName === "string"
-              ? (d as { callerName: string }).callerName.trim()
-              : "";
-          const callerAvatarUrl =
-            typeof (d as { callerAvatarUrl?: unknown }).callerAvatarUrl === "string"
-              ? (d as { callerAvatarUrl: string }).callerAvatarUrl.trim()
-              : undefined;
           const callKindRaw =
             typeof (d as { callKind?: unknown }).callKind === "string" ? (d as { callKind: string }).callKind : "";
           const callKind =
@@ -1280,7 +1274,7 @@ export function GlobalCommunityMessengerIncomingCall() {
           if (uid && sid) {
             const optimistic = buildForegroundIncomingWakeOptimisticSession(
               uid,
-              { sessionId: sid, roomId, callKind, callerId, callerName, callerAvatarUrl },
+              { sessionId: sid, roomId, callKind, callerId },
               hard
             );
             if (optimistic) {
@@ -2296,6 +2290,7 @@ export function GlobalCommunityMessengerIncomingCall() {
   return (
     <CommunityMessengerIncomingCallUi
       session={bannerSession}
+      viewerUserId={userId ?? ""}
       ringTimeoutSeconds={ringTimeoutSeconds}
       busyReject={busyId === `reject:${bannerSession.id}`}
       busyAccept={busyId === `accept:${bannerSession.id}`}

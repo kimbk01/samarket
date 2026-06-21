@@ -1512,6 +1512,11 @@
     touch-action: manipulation;
   }
 
+  .call-btn--control {
+    min-width: 0;
+    gap: 4px;
+  }
+
   .call-btn__disk {
     width: 56px;
     height: 56px;
@@ -1527,6 +1532,11 @@
       box-shadow 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
       transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
       filter 150ms ease;
+  }
+
+  .call-btn__disk.call-btn__disk--control {
+    width: auto;
+    height: auto;
   }
 
   .call-btn:hover .call-btn__disk {
@@ -1594,22 +1604,192 @@
   }
 
   .call-control-bar {
-    min-height: 88px;
+    min-height: 76px;
+  }
+
+  /* DIBAY incoming — Starbucks green surface (Web + native mirror reference) */
+  .incoming-call-surface-bg {
+    background:
+      radial-gradient(circle at 50% 16%, rgb(0 117 74 / 0.42), transparent 48%),
+      radial-gradient(circle at 82% 8%, rgb(212 233 226 / 0.12), transparent 32%),
+      linear-gradient(165deg, #003d29 0%, #006241 42%, #00754a 68%, #1e3932 100%);
   }
 
   .incoming-call-popup {
     backface-visibility: hidden;
-    will-change: transform, opacity;
+  }
+
+  .incoming-call-popup--enter {
     animation: incoming-call-popup-enter 370ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  .incoming-call-popup--exit {
+    animation: incoming-call-popup-exit 370ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  .incoming-call-popup__card {
+    min-height: clamp(84px, 22vw, 110px);
+    border: 1px solid rgb(212 233 226 / 0.22);
+    background:
+      linear-gradient(135deg, rgb(0 61 41 / 0.96) 0%, rgb(0 98 65 / 0.94) 52%, rgb(0 117 74 / 0.92) 100%);
+    box-shadow:
+      0 8px 24px rgb(0 0 0 / 0.22),
+      inset 0 1px 0 rgb(241 248 244 / 0.12);
+  }
+
+  .incoming-call-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .incoming-call-controls--large {
+    gap: max(48px, clamp(2rem, 10vw, 3rem));
+    max-width: min(100%, 22rem);
+    margin-inline: auto;
+  }
+
+  .incoming-call-controls--compact {
+    gap: max(20px, clamp(0.75rem, 3vw, 1rem));
+  }
+
+  /* Popup — iOS-style vivid circles on Starbucks card (banner/card stays brand green) */
+  .incoming-call-controls--compact .incoming-call-btn--accept {
+    background-color: #34c759;
+    box-shadow: 0 4px 16px rgb(0 0 0 / 0.28);
+  }
+
+  .incoming-call-controls--compact .incoming-call-btn--accept:hover {
+    background-color: #30b350;
+  }
+
+  .incoming-call-controls--compact .incoming-call-btn--reject {
+    background-color: #ff3b30;
+    box-shadow: 0 4px 16px rgb(0 0 0 / 0.28);
+  }
+
+  .incoming-call-controls--compact .incoming-call-btn--reject:hover {
+    background-color: #e6352b;
+  }
+
+  .incoming-call-controls--compact .incoming-call-btn--reject.incoming-call-btn--pressed,
+  .incoming-call-controls--compact .incoming-call-btn--reject:active:not(:disabled) {
+    background-color: #d93025;
+  }
+
+  .incoming-call-btn {
+    position: relative;
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 1 / 1;
+    overflow: hidden;
+    border: none;
+    border-radius: 9999px;
+    padding: 0;
+    color: #fff;
+    touch-action: manipulation;
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.2);
+    transition:
+      filter 150ms ease,
+      transform 150ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .incoming-call-btn--large {
+    width: 72px;
+    height: 72px;
+  }
+
+  .incoming-call-btn--compact {
+    width: clamp(56px, 14vw, 64px);
+    height: clamp(56px, 14vw, 64px);
+  }
+
+  .incoming-call-btn__icon {
+    position: relative;
+    z-index: 1;
+    width: 28px;
+    height: 28px;
+  }
+
+  .incoming-call-btn--compact .incoming-call-btn__icon {
+    width: clamp(22px, 5.5vw, 26px);
+    height: clamp(22px, 5.5vw, 26px);
+  }
+
+  .incoming-call-btn__icon--accept {
+    transform: rotate(-30deg);
+  }
+
+  .incoming-call-btn__icon--decline {
+    transform: rotate(135deg);
+  }
+
+  .incoming-call-btn:active:not(:disabled),
+  .incoming-call-btn--pressed:not(:disabled) {
+    transform: scale(0.92);
+    filter: brightness(0.9);
+  }
+
+  .incoming-call-btn:disabled {
+    opacity: 0.4;
+  }
+
+  .incoming-call-btn--accept {
+    background-color: #34c759;
+    box-shadow: 0 4px 16px rgb(0 0 0 / 0.28);
+  }
+
+  .incoming-call-btn--accept:hover {
+    background-color: #30b350;
+  }
+
+  .incoming-call-btn--accept.incoming-call-btn--pressed,
+  .incoming-call-btn--accept:active:not(:disabled) {
+    background-color: #2da84a;
+  }
+
+  .incoming-call-btn--reject {
+    background-color: #ff3b30;
+    box-shadow: 0 4px 16px rgb(0 0 0 / 0.28);
+  }
+
+  .incoming-call-btn--reject:hover {
+    background-color: #e6352b;
+  }
+
+  .incoming-call-btn--reject.incoming-call-btn--pressed,
+  .incoming-call-btn--reject:active:not(:disabled) {
+    background-color: #d93025;
+  }
+
+  .incoming-call-btn-stack {
+    flex-shrink: 0;
+  }
+
+  .incoming-call-btn-stack--inline {
+    display: contents;
+  }
+
+  .incoming-call-btn__label {
+    user-select: none;
+    color: rgb(255 255 255 / 0.88);
   }
 
   .incoming-call-pulse {
     position: relative;
     display: flex;
-    width: 128px;
-    height: 128px;
+    width: clamp(96px, 26vw, 128px);
+    height: clamp(96px, 26vw, 128px);
     align-items: center;
     justify-content: center;
+  }
+
+  .incoming-call-pulse--compact {
+    width: clamp(72px, 20vw, 96px);
+    height: clamp(72px, 20vw, 96px);
   }
 
   .incoming-call-pulse__ring {
@@ -1632,8 +1812,8 @@
     position: relative;
     z-index: 1;
     display: flex;
-    width: 64px;
-    height: 64px;
+    width: clamp(48px, 13vw, 64px);
+    height: clamp(48px, 13vw, 64px);
     align-items: center;
     justify-content: center;
     border-radius: 9999px;
@@ -1641,14 +1821,40 @@
     box-shadow: 0 8px 24px rgb(0 0 0 / 0.2);
   }
 
+  .incoming-call-pulse--compact .incoming-call-pulse__core {
+    width: clamp(36px, 10vw, 48px);
+    height: clamp(36px, 10vw, 48px);
+  }
+
+  .incoming-call-pulse__core-icon {
+    width: clamp(20px, 5.5vw, 28px);
+    height: clamp(20px, 5.5vw, 28px);
+  }
+
+  .incoming-call-pulse--compact .incoming-call-pulse__core-icon {
+    width: clamp(16px, 4.5vw, 22px);
+    height: clamp(16px, 4.5vw, 22px);
+  }
+
   @keyframes incoming-call-popup-enter {
     from {
       opacity: 0;
-      transform: translate3d(0, -100%, 0);
+      transform: translate3d(0, -120%, 0);
     }
     to {
       opacity: 1;
       transform: translate3d(0, 0, 0);
+    }
+  }
+
+  @keyframes incoming-call-popup-exit {
+    from {
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+    }
+    to {
+      opacity: 0;
+      transform: translate3d(0, -120%, 0);
     }
   }
 

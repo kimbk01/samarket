@@ -3,24 +3,25 @@
 /**
  * Community Messenger 수신 UI — **유일한** 앱 안(in-app) ringing surface.
  *
- * | 상태 | UI | 파일 |
- * |------|-----|------|
- * | Foreground unlocked | single top popup (카톡/텔레그램) | **이 파일** + `IncomingCallSurface` |
- * | Lock / background | native fullscreen | Android `IncomingCallActivity` |
- * | 수락 후 | CallClient connecting/active | `CommunityMessengerCallClient` |
- *
- * DO NOT: `IncomingCallView` 전체화면 · native foreground pill · CallClient ringing 벨 UI.
- * 정책 SSOT: `lib/community-messenger/incoming-call/`
+ * 발신자 표시 SSOT: `initiatorUserId` → `useIncomingCallerDisplay` (session.peerLabel 직접 사용 금지).
+ * DO NOT: `IncomingCallView` — 수신 ringing 은 Global 배너 only.
  */
 
-import { useLayoutEffect, useState } from "react";
+import { useLayoutEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { IncomingCallSurface } from "@/components/messenger/call/IncomingCallSurface";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { IncomingCallSurface } from "@/components/messenger/call/incoming";
+import {
+  readIncomingCallerDisplaySeed,
+  resolveDirectIncomingCallerUserId,
+} from "@/lib/community-messenger/incoming-call/incoming-caller-ssot";
 import { MESSENGER_FOREGROUND_INCOMING_BANNER_Z_CLASS } from "@/lib/community-messenger/incoming-call-surface";
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
+import { useIncomingCallerDisplay } from "@/components/community-messenger/incoming-call/useIncomingCallerDisplay";
 
 export type CommunityMessengerIncomingCallUiProps = {
   session: CommunityMessengerCallSession;
+  viewerUserId: string;
   ringTimeoutSeconds: number;
   busyReject: boolean;
   busyAccept: boolean;
@@ -33,11 +34,30 @@ export type CommunityMessengerIncomingCallUiProps = {
 export function CommunityMessengerIncomingCallUi(props: CommunityMessengerIncomingCallUiProps) {
   const {
     session,
+    viewerUserId,
     busyReject,
     busyAccept,
     onReject,
     onAccept,
   } = props;
+  const { safeT } = useI18n();
+
+  const callerUserId = useMemo(
+    () => resolveDirectIncomingCallerUserId(session, viewerUserId),
+    [session, viewerUserId]
+  );
+  const seed = useMemo(
+    () => (callerUserId ? readIncomingCallerDisplaySeed(session, callerUserId) : null),
+    [session, callerUserId]
+  );
+  const caller = useIncomingCallerDisplay(callerUserId, seed);
+
+  const peerLabel =
+    caller.label.trim() ||
+    safeT(session.callKind === "video" ? "cm_ui_incoming_video_ringing" : "cm_ui_incoming_voice_ringing", {
+      fallbackKo: session.callKind === "video" ? "영상 통화가 왔습니다" : "전화가 왔습니다",
+      fallbackEn: session.callKind === "video" ? "Incoming video call" : "Incoming call",
+    });
 
   const [portalReady, setPortalReady] = useState(false);
   useLayoutEffect(() => {
@@ -54,8 +74,9 @@ export function CommunityMessengerIncomingCallUi(props: CommunityMessengerIncomi
       <IncomingCallSurface
         mode="popup"
         sessionId={session.id}
-        peerLabel={session.peerLabel}
-        peerAvatarUrl={session.peerAvatarUrl ?? null}
+        peerLabel={peerLabel}
+        peerPublicId={caller.publicId}
+        peerAvatarUrl={caller.avatarUrl}
         callKind={session.callKind === "video" ? "video" : "voice"}
         busyReject={busyReject}
         busyAccept={busyAccept}

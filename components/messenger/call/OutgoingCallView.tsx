@@ -3,7 +3,6 @@
 import type { CallScreenViewModel } from "./call-ui.types";
 import { CallAvatarHeader } from "./CallAvatarHeader";
 import { CallControlBar } from "./CallControlBar";
-import { CallPulseAnimation } from "./CallPulseAnimation";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 
 /**
@@ -48,7 +47,6 @@ export function OutgoingCallView({ vm }: { vm: CallScreenViewModel }) {
             status={vm.statusText}
             detail={vm.subStatusText}
           />
-          <CallPulseAnimation className="mt-9" />
         </div>
 
         <div className="mt-auto w-full max-w-[400px] shrink-0 pb-1 pt-6">

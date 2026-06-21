@@ -4,7 +4,7 @@ import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { useLayoutEffect, useRef } from "react";
 import { CommunityMessengerCallClient } from "@/components/community-messenger/CommunityMessengerCallClient";
 import { CommunityMessengerCallEnterShell } from "@/components/community-messenger/call-history/CommunityMessengerCallEnterShell";
-import { isCommunityMessengerTempCallSessionId, navigateBackFromCommunityMessengerCall } from "@/lib/community-messenger/call-session-navigation-seed";
+import { isCommunityMessengerTempCallSessionId, navigateBackFromCommunityMessengerCall, shouldSkipCallRouteEnterSlide } from "@/lib/community-messenger/call-session-navigation-seed";
 
 /** 수신 accept route — enter slide 생략 (P1-1b; outgoing tmp dial 과 별도) */
 function isIncomingAcceptInstantEnterRoute(searchParams: URLSearchParams): boolean {
@@ -33,7 +33,7 @@ export default function CommunityMessengerCallPage() {
     return null;
   }
 
-  const instantOutgoingDialEnter = isCommunityMessengerTempCallSessionId(sessionId);
+  const instantOutgoingDialEnter = shouldSkipCallRouteEnterSlide(sessionId, searchParams);
   const instantIncomingAcceptEnter = isIncomingAcceptInstantEnterRoute(searchParams);
 
   return (

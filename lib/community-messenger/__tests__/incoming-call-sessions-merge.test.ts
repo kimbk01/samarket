@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   INCOMING_INVITE_PREVIEW_KEEP_MS,
+  areIncomingCallSessionListsStable,
   mergeIncomingCallSessionsAfterFetch,
 } from "@/lib/community-messenger/incoming-call-sessions-merge";
 import { markCallConsumed, resetDibayCallSessionState } from "@/lib/community-messenger/incoming-call-state";
@@ -113,5 +114,19 @@ describe("mergeIncomingCallSessionsAfterFetch", () => {
     });
     const merged = mergeIncomingCallSessionsAfterFetch("callee", [], [preview], new Map(), new Map());
     expect(merged).toHaveLength(0);
+  });
+});
+
+describe("areIncomingCallSessionListsStable", () => {
+  it("returns true when list order and stable fields match", () => {
+    const a = session({ id: "s1", status: "ringing", peerLabel: "Alice" });
+    const b = session({ id: "s1", status: "ringing", peerLabel: "Alice" });
+    expect(areIncomingCallSessionListsStable([a], [b])).toBe(true);
+  });
+
+  it("returns false when status changes", () => {
+    const a = session({ id: "s1", status: "ringing" });
+    const b = session({ id: "s1", status: "rejected" });
+    expect(areIncomingCallSessionListsStable([a], [b])).toBe(false);
   });
 });

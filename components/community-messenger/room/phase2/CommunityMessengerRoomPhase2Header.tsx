@@ -23,6 +23,7 @@ import { useMessengerRoomAnimatedBack } from "@/components/community-messenger/r
 import { noteCmRoomPass1HeaderMs } from "@/lib/community-messenger/room/cm-room-pass-instrumentation";
 import { useCmRoomPhase2HydrationPass } from "@/lib/community-messenger/room/cm-room-phase2-hydration-context";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { OutgoingCallTapButton } from "@/components/messenger/call/OutgoingCallTapButton";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultAvatarFace";
 import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
@@ -276,15 +277,14 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
             </button>
           ) : null}
           {isDeliveryBuyer ? (
-            <button
-              type="button"
+            <OutgoingCallTapButton
               onClick={() => void vm.startManagedDirectCall("voice")}
               disabled={vm.roomUnavailable || vm.outgoingDialLocked}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[color:var(--cm-room-text-muted)] transition active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-45"
-              aria-label={vm.t("cm_ui_voice_call")}
+              ariaLabel={vm.t("cm_ui_voice_call")}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[color:var(--cm-room-text-muted)] hover:text-[color:var(--cm-room-text)] active:bg-[color:var(--cm-room-primary-soft)]"
             >
               <Phone className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
-            </button>
+            </OutgoingCallTapButton>
           ) : vm.isPrivateGroupRoom || vm.isGroupRoom ? null : (
             <button
               type="button"
