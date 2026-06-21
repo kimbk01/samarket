@@ -157,9 +157,9 @@ describe("group chat P1 contracts", () => {
   });
 
   describe("notification SSOT", () => {
-    it("maps mention/pin to group category", () => {
-      expect(categoryForEventType("mention_message")).toBe("group");
-      expect(categoryForEventType("pin_message")).toBe("group");
+    it("maps mention/pin to group_message category", () => {
+      expect(categoryForEventType("mention_message")).toBe("group_message");
+      expect(categoryForEventType("pin_message")).toBe("group_message");
     });
   });
 });
