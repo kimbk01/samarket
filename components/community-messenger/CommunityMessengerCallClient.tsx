@@ -737,6 +737,8 @@ export function CommunityMessengerCallClient({
   initialSessionRef.current = initialSession;
   const sessionRef = useRef(session);
   sessionRef.current = session;
+  /** dock presentation — callVm 은 조기 return 아래에서만 구성되므로 ref 로 layout effect 에 전달 */
+  const dockCallVmRef = useRef<CallScreenViewModel | null>(null);
   const syncCallAudioRouteResult = useCallback((result: CallAudioRouteApplyResult) => {
     setCallAudioRouteResult(result);
     if (result.externalDeviceConnected) {
@@ -5281,29 +5283,44 @@ export function CommunityMessengerCallClient({
         : joined && session?.status === "active"
           ? "fullscreen"
           : "idle";
+    const dockVm = dockCallVmRef.current;
+    const dockContent =
+      presentation === "dock" && dockVm != null ? (
+        <div className="pointer-events-auto" data-call-dock-surface>
+          <CallScreen vm={dockVm} variant="dock-top" />
+        </div>
+      ) : null;
     syncCommunityMessengerCallRuntimeSurface({
       presentation: livePresentation,
       videoPipLayout: pipShellMountedForSync ? videoPipGesture : null,
       miniVideoSlot: miniVideoSlotEl ?? null,
-      dockContent: null,
+      dockContent,
       expandToFullscreen: handleExpandToFullscreen,
       minimizeToPip: handleMinimizeToPip,
       minimizeToDock: handleDockToOngoing,
     });
   }, [
     camOff,
+    busy,
+    calleeVideoConnectingShell,
+    callerOutgoingConnectShell,
     handleDockToOngoing,
     handleExpandToFullscreen,
+    handleMinimizeToPip,
     joined,
+    loading,
     miniVideoSlotEl,
     pipShellMountedForSync,
     presentation,
+    remoteJoined,
     session?.callKind,
+    session?.id,
     session?.status,
     videoPipGesture,
   ]);
 
   if (loading && !session) {
+    dockCallVmRef.current = null;
     /** 시드 없이 진입한 짧은 구간 — tmp 발신·accept route 는 CallScreen, 그 외는 Global 배너 SSOT */
     const dismissHydrate = () => navigateBackFromCommunityMessengerCall(router, null);
     const hydrateAcceptRoute =
@@ -5405,6 +5422,7 @@ export function CommunityMessengerCallClient({
   }
 
   if (!session) {
+    dockCallVmRef.current = null;
     return (
       <div className="flex min-h-[70vh] flex-col items-center justify-center gap-3 px-4 text-center">
         <p className="sam-text-page-title font-semibold text-ui-fg">{t("cm_ui_not_found_call")}</p>
@@ -6038,19 +6056,7 @@ export function CommunityMessengerCallClient({
             : 1000
           : null,
   };
-  const dockContent =
-    presentation === "dock" ? (
-      <div className="pointer-events-auto" data-call-dock-surface>
-        <CallScreen vm={callVm} variant="dock-top" />
-      </div>
-    ) : null;
-
-  useLayoutEffect(() => {
-    syncCommunityMessengerCallRuntimeSurface({
-      dockContent,
-      presentation: dockContent ? "dock" : undefined,
-    });
-  }, [dockContent]);
+  dockCallVmRef.current = callVm;
 
   const insecureOriginBlocked =
     typeof window !== "undefined" && isCommunityMessengerMediaBlockedByInsecureOrigin();
