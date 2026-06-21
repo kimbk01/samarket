@@ -22,6 +22,7 @@ import {
   shouldSkipActiveCallRecoveryRouting,
   writeActiveCallRecoveryLock,
 } from "@/lib/community-messenger/call-active-session-recovery";
+import { resolveCallRouteResumeDecision } from "@/lib/community-messenger/call-route-resume-guard";
 import {
   readDockedCallSessionId,
   readHostedActiveCallSessionId,
@@ -75,7 +76,7 @@ export function CallActiveSessionRecoveryHost() {
 
     let cancelled = false;
 
-    const routeToCall = (targetSid: string, source: string, sessionStatus?: string | null) => {
+    const routeToCall = async (targetSid: string, source: string, sessionStatus?: string | null) => {
       if (shouldSkipActiveCallRecoveryRouting(targetSid)) {
         routedRef.current = true;
         return;
@@ -99,9 +100,21 @@ export function CallActiveSessionRecoveryHost() {
         });
         return;
       }
+      const href = `/community-messenger/calls/${encodeURIComponent(targetSid)}?source=native_resume`;
+      const resumeDecision = await resolveCallRouteResumeDecision({ sessionId: targetSid, path: href });
+      if (cancelled || resumeDecision.action === "block") {
+        routedRef.current = true;
+        if (resumeDecision.action === "block") {
+          logDibayCall("stale_ringing_blocked", {
+            sessionId: targetSid,
+            callId: targetSid,
+            source: `recovery_${resumeDecision.reason}`,
+          });
+        }
+        return;
+      }
       writeActiveCallRecoveryLock(targetSid);
       routedRef.current = true;
-      const href = `/community-messenger/calls/${encodeURIComponent(targetSid)}?source=native_resume`;
       if (isRingingOnlyIncomingCallRoute(href)) {
         logDibayCall("stale_ringing_blocked", {
           sessionId: targetSid,
@@ -176,7 +189,7 @@ export function CallActiveSessionRecoveryHost() {
                   connected: true,
                 });
               }
-              routeToCall(nativeSession.id, "native_resume", nativeSession.status);
+              void routeToCall(nativeSession.id, "native_resume", nativeSession.status);
               return;
             }
             if (nativeStatus === "ringing") {
@@ -228,7 +241,7 @@ export function CallActiveSessionRecoveryHost() {
               setActiveFromServer(full, phase);
             }
           }
-          routeToCall(targetSid, "server_active_recovery", full?.status ?? session.status);
+          void routeToCall(targetSid, "server_active_recovery", full?.status ?? session.status);
           return;
         }
       } catch {

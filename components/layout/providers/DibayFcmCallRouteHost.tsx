@@ -36,6 +36,7 @@ import {
   claimIncomingCallSurface,
   isRingingOnlyIncomingCallRoute,
 } from "@/lib/community-messenger/incoming-call-surface-owner";
+import { resolveCallRouteResumeDecision } from "@/lib/community-messenger/call-route-resume-guard";
 
 const ROUTE_DEDUPE_MS = 2_000;
 
@@ -81,21 +82,46 @@ export function DibayFcmCallRouteHost() {
       const path = rawPath.trim();
       if (!path.startsWith("/community-messenger/calls/")) return;
 
+      const sessionId = extractDibayCallSessionIdFromPath(path);
       const now = Date.now();
       if (!dibayRouteLaneAllow(path)) {
         clearDibayCallPendingRoute();
         void clearNativePersistedCallPendingRoute();
         logDibayCall("state_end", {
           path,
-          sessionId: extractDibayCallSessionIdFromPath(path) ?? undefined,
+          sessionId: sessionId ?? undefined,
           source: "stale_call_route_blocked",
         });
         return;
       }
 
+      const validateAndContinue = (onAllowed: () => void) => {
+        if (!sessionId) {
+          onAllowed();
+          return;
+        }
+        void resolveCallRouteResumeDecision({ sessionId, path }).then((decision) => {
+          if (!mounted) return;
+          if (decision.action === "block") {
+            clearDibayCallPendingRoute();
+            void clearNativePersistedCallPendingRoute();
+            if (sessionId) dibayCallSealTerminal(sessionId);
+            logDibayCall("stale_ringing_blocked", {
+              path,
+              sessionId,
+              callId: sessionId,
+              source: `pending_route_${decision.reason}`,
+            });
+            console.info("[call-route] resume_guard_blocked", { path, reason: decision.reason });
+            return;
+          }
+          onAllowed();
+        });
+      };
+
       /** Ringing pending route — Native full-screen owns UI; WebView `/calls/:id` 중복 모달 방지 */
       if (isRingingOnlyIncomingCallRoute(path)) {
-        const ringingCallId = extractDibayCallSessionIdFromPath(path);
+        const ringingCallId = sessionId;
         if (ringingCallId) {
           claimIncomingCallSurface(ringingCallId, "native_fullscreen", "pending_route_blocked");
         }
@@ -110,72 +136,75 @@ export function DibayFcmCallRouteHost() {
         console.info("[call-route] ringing_only_route_blocked", { path, callId: ringingCallId });
         return;
       }
-      if (path.includes("source=native_resume")) {
-        logDibayCall("notification_resume_route", {
-          sessionId: extractDibayCallSessionIdFromPath(path) ?? undefined,
-          callId: extractDibayCallSessionIdFromPath(path) ?? undefined,
-          path,
-          source: "native_resume",
-        });
-      }
-      const last = lastRouteRef.current;
-      if (last && last.path === path && now - last.at < ROUTE_DEDUPE_MS) {
-        console.info("[call-route] duplicate_ignored", { path });
-        return;
-      }
-      lastRouteRef.current = { path, at: now };
 
-      console.info("[call-route] route_resolved", { path });
-
-      if (isCalleeAcceptCallRoute(path)) {
-        const acceptSessionId = readCalleeAcceptSessionIdFromPath(path);
-        if (acceptSessionId) {
-          clearDibayCallPendingRoute();
-          void clearNativePersistedCallPendingRoute();
-          if (isNativeAcceptOwnedRoute(path)) {
-            const hydratePeer = readCallAcceptHydratePeer(acceptSessionId);
-            if (hydratePeer && isNativeAcceptPatchCompleteRoute(path)) {
-              primeCommunityMessengerCallNavigationSeed(
-                acceptSessionId,
-                buildCalleeAcceptActiveSessionSeed(hydratePeer)
-              );
-            }
-            const currentPath =
-              typeof window !== "undefined"
-                ? `${window.location.pathname}${window.location.search}`
-                : "";
-            if (currentPath !== path) {
-              router.replace(path);
-            }
-            console.info("[call-route] webview_route_delivered", {
-              path,
-              via: "accept_route_active",
-              skippedReplace: currentPath === path,
-            });
-            return;
-          }
-          void runNativePendingAcceptCall(router, acceptSessionId, resolveNativeAcceptSource(path)).then(
-            (result) => {
-              console.info("[call-route] native_pending_accept_done", {
-                sessionId: acceptSessionId,
-                ok: result.ok,
-                reason: result.reason,
-              });
-            }
-          );
-          console.info("[call-route] webview_route_delivered", { path, via: "native_pending_accept" });
+      validateAndContinue(() => {
+        if (path.includes("source=native_resume")) {
+          logDibayCall("notification_resume_route", {
+            sessionId: sessionId ?? undefined,
+            callId: sessionId ?? undefined,
+            path,
+            source: "native_resume",
+          });
+        }
+        const last = lastRouteRef.current;
+        if (last && last.path === path && now - last.at < ROUTE_DEDUPE_MS) {
+          console.info("[call-route] duplicate_ignored", { path });
           return;
         }
-      }
+        lastRouteRef.current = { path, at: now };
 
-      clearDibayCallPendingRoute();
-      if (shouldReplaceRoute(path)) {
-        router.replace(path);
-      } else {
-        router.push(path);
-      }
-      void clearNativePersistedCallPendingRoute();
-      console.info("[call-route] webview_route_delivered", { path });
+        console.info("[call-route] route_resolved", { path });
+
+        if (isCalleeAcceptCallRoute(path)) {
+          const acceptSessionId = readCalleeAcceptSessionIdFromPath(path);
+          if (acceptSessionId) {
+            clearDibayCallPendingRoute();
+            void clearNativePersistedCallPendingRoute();
+            if (isNativeAcceptOwnedRoute(path)) {
+              const hydratePeer = readCallAcceptHydratePeer(acceptSessionId);
+              if (hydratePeer && isNativeAcceptPatchCompleteRoute(path)) {
+                primeCommunityMessengerCallNavigationSeed(
+                  acceptSessionId,
+                  buildCalleeAcceptActiveSessionSeed(hydratePeer)
+                );
+              }
+              const currentPath =
+                typeof window !== "undefined"
+                  ? `${window.location.pathname}${window.location.search}`
+                  : "";
+              if (currentPath !== path) {
+                router.replace(path);
+              }
+              console.info("[call-route] webview_route_delivered", {
+                path,
+                via: "accept_route_active",
+                skippedReplace: currentPath === path,
+              });
+              return;
+            }
+            void runNativePendingAcceptCall(router, acceptSessionId, resolveNativeAcceptSource(path)).then(
+              (result) => {
+                console.info("[call-route] native_pending_accept_done", {
+                  sessionId: acceptSessionId,
+                  ok: result.ok,
+                  reason: result.reason,
+                });
+              }
+            );
+            console.info("[call-route] webview_route_delivered", { path, via: "native_pending_accept" });
+            return;
+          }
+        }
+
+        clearDibayCallPendingRoute();
+        if (shouldReplaceRoute(path)) {
+          router.replace(path);
+        } else {
+          router.push(path);
+        }
+        void clearNativePersistedCallPendingRoute();
+        console.info("[call-route] webview_route_delivered", { path });
+      });
     };
 
     const consumePendingRoutes = async () => {
