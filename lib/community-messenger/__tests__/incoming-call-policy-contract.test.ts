@@ -16,10 +16,10 @@ describe("incoming-call policy contracts", () => {
 
   it("foreground incoming UI is banner-only until accept (no legacy overlay, no native_auto_fullscreen)", () => {
     const src = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
-    const host = read("components/community-messenger/ForegroundIncomingCallHost.tsx");
-    expect(src).toContain("ForegroundIncomingCallHost");
+    const ui = read("components/community-messenger/incoming-call/CommunityMessengerIncomingCallUi.tsx");
+    expect(src).toContain("CommunityMessengerIncomingCallUi");
     expect(src).toContain("resolveForegroundIncomingPresentation");
-    expect(host).toContain("IncomingCallBanner");
+    expect(ui).toContain("IncomingCallBanner");
     expect(src).not.toContain("CommunityMessengerIncomingCallOverlay");
     expect(src).not.toContain("native_auto_fullscreen");
     expect(src).toContain("incoming_banner_accept_route_first");
@@ -57,11 +57,13 @@ describe("incoming-call policy contracts", () => {
   });
 
   it("CallClient blocks callee ringing direct entry without action=accept", () => {
+    const guards = read("components/community-messenger/call/use-call-client-incoming-callee-guards.ts");
+    const boundary = read("lib/community-messenger/call-client-incoming-boundary.ts");
     const src = read("components/community-messenger/CommunityMessengerCallClient.tsx");
-    expect(src).toContain("수락 전 `/calls/:id` 진입 차단");
-    expect(src).toContain("IncomingCallView 전체화면 금지");
-    expect(src).toContain("navigateBackFromCommunityMessengerCall");
-    expect(src).toContain("incomingPreviewRoute");
+    expect(boundary).toContain("shouldEjectCalleeFromRingingCallRoute");
+    expect(guards).toContain("IncomingCallView 전체화면 금지");
+    expect(guards).toContain("exitCommunityMessengerCallRouteNow");
+    expect(src).toContain("useCallClientIncomingCalleeGuards");
     expect(src).toContain("isIncomingCallPreviewRoute");
   });
 
@@ -95,6 +97,8 @@ describe("incoming-call policy contracts", () => {
     const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
     expect(global).not.toContain("expandIncomingCall");
     expect(global).not.toContain("buildIncomingCallPreviewHref");
+    const boundary = read("lib/community-messenger/call-client-incoming-boundary.ts");
+    expect(boundary).toContain("shouldEjectCalleeFromRingingCallRoute");
     const banner = read("components/messenger/call/IncomingCallBanner.tsx");
     expect(banner).toContain("onExpand?: () => void");
   });
@@ -167,9 +171,9 @@ describe("incoming-call policy contracts", () => {
   it("terminal call end navigates to call_logs section", () => {
     const nav = read("lib/community-messenger/call-session-navigation-seed.ts");
     expect(nav).toContain("COMMUNITY_MESSENGER_CALL_LOGS_HREF");
-    expect(nav).toContain("finalizeCommunityMessengerCallTerminalExit");
+    expect(nav).toContain("exitCommunityMessengerCallRouteNow");
     const client = read("components/community-messenger/CommunityMessengerCallClient.tsx");
-    expect(client).toContain("finalizeCommunityMessengerCallTerminalExit");
+    expect(client).toContain("exitCommunityMessengerCallRouteNow");
     expect(client).toContain("stale_ringing_blocked");
     expect(client).toContain("subscribeCommunityMessengerCallClientRemoteTerminalFeed");
     expect(client).toContain("remote_terminal_native");

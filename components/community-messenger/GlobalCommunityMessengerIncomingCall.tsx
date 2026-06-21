@@ -76,8 +76,8 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 import { acquireIncomingCallRealtimeSubscription } from "@/lib/community-messenger/realtime/cm-incoming-call-realtime-holder";
 import { isDebugMessengerEnabled } from "@/lib/community-messenger/debug/is-debug-messenger-enabled";
 import { isCommunityMessengerRealtimeScopeHealthy } from "@/lib/community-messenger/realtime/community-messenger-realtime-health";
-import { ForegroundIncomingCallHost } from "@/components/community-messenger/ForegroundIncomingCallHost";
-import { resolveForegroundIncomingPresentation } from "@/lib/community-messenger/incoming-call/foreground-incoming-presenter";
+import { CommunityMessengerIncomingCallUi } from "@/components/community-messenger/incoming-call";
+import { resolveForegroundIncomingPresentation } from "@/lib/community-messenger/incoming-call";
 import {
   buildForegroundIncomingWakeOptimisticSession,
   mergeForegroundIncomingWakeSession,
@@ -2273,8 +2273,7 @@ export function GlobalCommunityMessengerIncomingCall() {
   }
 
   return (
-    <ForegroundIncomingCallHost
-      shouldRender={foregroundPresentation.shouldRender && incomingCallBannerEnabled}
+    <CommunityMessengerIncomingCallUi
       session={bannerSession}
       ringTimeoutSeconds={ringTimeoutSeconds}
       busyReject={busyId === `reject:${bannerSession.id}`}

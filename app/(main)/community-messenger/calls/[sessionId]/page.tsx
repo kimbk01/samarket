@@ -1,10 +1,10 @@
 "use client";
 
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams, useRouter } from "next/navigation";
+import { useLayoutEffect, useRef } from "react";
 import { CommunityMessengerCallClient } from "@/components/community-messenger/CommunityMessengerCallClient";
-import { CommunityMessengerCallRouteLoading } from "@/components/community-messenger/CommunityMessengerCallRouteLoading";
 import { CommunityMessengerCallEnterShell } from "@/components/community-messenger/call-history/CommunityMessengerCallEnterShell";
-import { isCommunityMessengerTempCallSessionId } from "@/lib/community-messenger/call-session-navigation-seed";
+import { isCommunityMessengerTempCallSessionId, navigateBackFromCommunityMessengerCall } from "@/lib/community-messenger/call-session-navigation-seed";
 
 /** 수신 accept route — enter slide 생략 (P1-1b; outgoing tmp dial 과 별도) */
 function isIncomingAcceptInstantEnterRoute(searchParams: URLSearchParams): boolean {
@@ -18,11 +18,19 @@ function isIncomingAcceptInstantEnterRoute(searchParams: URLSearchParams): boole
 export default function CommunityMessengerCallPage() {
   const params = useParams();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const raw = params?.sessionId;
   const sessionId = Array.isArray(raw) ? String(raw[0] ?? "").trim() : String(raw ?? "").trim();
+  const exitOnceRef = useRef(false);
+
+  useLayoutEffect(() => {
+    if (sessionId || exitOnceRef.current) return;
+    exitOnceRef.current = true;
+    navigateBackFromCommunityMessengerCall(router, null);
+  }, [router, sessionId]);
 
   if (!sessionId) {
-    return <CommunityMessengerCallRouteLoading />;
+    return null;
   }
 
   const instantOutgoingDialEnter = isCommunityMessengerTempCallSessionId(sessionId);

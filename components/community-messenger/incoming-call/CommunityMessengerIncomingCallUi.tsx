@@ -1,36 +1,42 @@
 "use client";
 
+/**
+ * Community Messenger 수신 UI — **유일한** 앱 안(in-app) ringing surface.
+ *
+ * | 상태 | UI | 파일 |
+ * |------|-----|------|
+ * | Foreground unlocked | compact top banner (카톡/텔레그램) | **이 파일** + `IncomingCallBanner` |
+ * | Lock / background | native fullscreen | Android `IncomingCallActivity` |
+ * | 수락 후 | CallClient connecting/active | `CommunityMessengerCallClient` |
+ *
+ * DO NOT: `IncomingCallView` 전체화면 · native foreground pill · CallClient ringing 벨 UI.
+ * 정책 SSOT: `lib/community-messenger/incoming-call/`
+ */
+
 import { useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { IncomingCallBanner } from "@/components/messenger/call/IncomingCallBanner";
 import { MESSENGER_FOREGROUND_INCOMING_BANNER_Z_CLASS } from "@/lib/community-messenger/incoming-call-surface";
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 
-export type ForegroundIncomingCallHostProps = {
-  shouldRender: boolean;
-  session: CommunityMessengerCallSession | null;
+export type CommunityMessengerIncomingCallUiProps = {
+  session: CommunityMessengerCallSession;
   ringTimeoutSeconds: number;
   busyReject: boolean;
   busyAccept: boolean;
   busyBlock?: boolean;
-  onExpand?: () => void;
   onReject: () => void;
   onAccept: () => void;
   onBlock?: () => void;
 };
 
-/**
- * Foreground 수신 배너 전용 호스트 — 정책 없음, body 포털 + z-index 고정.
- */
-export function ForegroundIncomingCallHost(props: ForegroundIncomingCallHostProps) {
+export function CommunityMessengerIncomingCallUi(props: CommunityMessengerIncomingCallUiProps) {
   const {
-    shouldRender,
     session,
     ringTimeoutSeconds,
     busyReject,
     busyAccept,
     busyBlock = false,
-    onExpand,
     onReject,
     onAccept,
     onBlock,
@@ -41,12 +47,11 @@ export function ForegroundIncomingCallHost(props: ForegroundIncomingCallHostProp
     setPortalReady(true);
   }, []);
 
-  if (!shouldRender || !session) return null;
   if (typeof document === "undefined" || !portalReady) return null;
 
-  const banner = (
+  return createPortal(
     <div
-      data-foreground-incoming-call-host
+      data-cm-incoming-call-ui
       className={`pointer-events-none fixed inset-x-0 top-0 ${MESSENGER_FOREGROUND_INCOMING_BANNER_Z_CLASS}`}
     >
       <IncomingCallBanner
@@ -60,13 +65,11 @@ export function ForegroundIncomingCallHost(props: ForegroundIncomingCallHostProp
         busyAccept={busyAccept}
         showStrangerHint={session.peerRelationLabel != null && session.peerRelationLabel !== "mutual_friend"}
         busyBlock={busyBlock}
-        onExpand={onExpand}
         onReject={onReject}
         onAccept={onAccept}
         onBlock={onBlock}
       />
-    </div>
+    </div>,
+    document.body
   );
-
-  return createPortal(banner, document.body);
 }

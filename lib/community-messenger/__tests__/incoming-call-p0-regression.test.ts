@@ -29,13 +29,12 @@ describe("call terminal navigation policy", () => {
   it("terminal paths use call_logs; non-terminal keeps navigateBack", () => {
     const client = read("components/community-messenger/CommunityMessengerCallClient.tsx");
     // SSOT marker: ssot-source-contract-markers.test.ts (messenger-call-terminal-nav)
-    expect(client).toContain("finalizeCommunityMessengerCallTerminalExit");
+    expect(client).toContain("exitCommunityMessengerCallRouteNow");
     expect(client).toContain("beginRingingCallDismiss");
     expect(client).toContain("closeTerminalView");
     // loading cancel / ringing block / pip minimize still use navigateBack
     expect(client).toContain("dismissHydrate = () => navigateBackFromCommunityMessengerCall");
     expect(client).toContain("handleMinimizeToPip");
-    expect(client).toContain("navigateBackFromCommunityMessengerCall(router, s.roomId)");
   });
 
   it("accept route defers remote terminal ringing dismiss until server confirms", () => {

@@ -253,13 +253,13 @@ describe("foreground-incoming-presenter", () => {
     expect(decision.reason).toBe("ok");
   });
 
-  it("ForegroundIncomingCallHost uses body portal and banner z layer", () => {
+  it("CommunityMessengerIncomingCallUi uses body portal and banner z layer", () => {
     const src = readFileSync(
-      join(process.cwd(), "components/community-messenger/ForegroundIncomingCallHost.tsx"),
+      join(process.cwd(), "components/community-messenger/incoming-call/CommunityMessengerIncomingCallUi.tsx"),
       "utf8"
     );
     expect(src).toContain("createPortal");
     expect(src).toContain("MESSENGER_FOREGROUND_INCOMING_BANNER_Z_CLASS");
-    expect(src).toContain("data-foreground-incoming-call-host");
+    expect(src).toContain("data-cm-incoming-call-ui");
   });
 });

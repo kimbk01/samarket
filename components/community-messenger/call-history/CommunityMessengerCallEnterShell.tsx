@@ -106,7 +106,7 @@ export function CommunityMessengerCallEnterShell({
   );
 
   const surfaceClassName = [
-    "messenger-page messenger-room-page flex min-h-0 min-w-0 flex-1 flex-col",
+    "messenger-page messenger-room-page flex min-h-0 min-w-0 flex-1 flex-col bg-[#003D29]",
     phase === "enter" ? "messenger-call-enter" : "",
     phase === "enter-active" ? "messenger-call-enter-active" : "",
     phase === "idle" ? "messenger-call-exit" : "",

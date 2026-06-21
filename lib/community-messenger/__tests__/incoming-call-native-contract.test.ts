@@ -113,7 +113,7 @@ describe("incoming-call native contract", () => {
     expect(global).not.toContain("preferNativeAndroidForegroundIncoming");
     expect(global).not.toContain("nativeForegroundIncomingCallId");
     expect(global).not.toContain("onForegroundIncomingUi");
-    expect(global).toContain("ForegroundIncomingCallHost");
+    expect(global).toContain("CommunityMessengerIncomingCallUi");
     const presenter = read("lib/community-messenger/incoming-call/foreground-incoming-presenter.ts");
     expect(presenter).not.toContain("native_foreground_primary");
     const ssot = read("lib/community-messenger/incoming-call/incoming-ui-ssot.ts");

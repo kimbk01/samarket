@@ -34,7 +34,6 @@ import {
   logCallLatencyDialClick,
   logCallLatencyRouteReplace,
   logCallLatencySessionCreated,
-  logCallLatencyTerminalCleanupDone,
   logCallMediaOutgoingVideoGumDeferred,
 } from "@/lib/community-messenger/call-latency-trace";
 import {
@@ -47,8 +46,7 @@ import {
 } from "@/lib/community-messenger/direct-call-minimize";
 import { resetCommunityMessengerCallRuntimeSurface } from "@/lib/community-messenger/call-runtime-registry";
 import { notifyCommunityCallHostSync } from "@/components/layout/providers/CommunityMessengerActiveCallHost";
-import { hardClearActiveCallSession } from "@/lib/call/active-call-session";
-import { syncTerminalCallClientState } from "@/lib/call/call-terminal-sync-cleanup";
+import { exitCommunityMessengerCallRouteNow } from "@/lib/community-messenger/call-route-exit";
 import {
   resolveDirectCallDenyUserMessageFromApiError,
 } from "@/lib/community-messenger/direct-call-permission-messages";
@@ -284,20 +282,18 @@ export function pinCommunityMessengerCallTerminalSurfaceDismiss(sessionId: strin
   }
 }
 
-/** 터미널 확정 — surface 정리 + active 세션 해제 + 통화 목록으로 즉시 복귀 */
+/** 터미널 확정 — `call-route-exit.ts` SSOT 위임 */
 export function finalizeCommunityMessengerCallTerminalExit(
   router: { replace: (href: string) => void },
   sessionId: string,
   source = "call_client_terminal"
 ): void {
-  const sid = sessionId.trim();
-  pinCommunityMessengerCallTerminalSurfaceDismiss(sid);
-  if (sid) {
-    syncTerminalCallClientState(sid, source);
-    logCallLatencyTerminalCleanupDone({ sessionId: sid, source });
-    void hardClearActiveCallSession(sid, source);
-  }
-  navigateToCommunityMessengerCallLogsAfterTerminal(router);
+  exitCommunityMessengerCallRouteNow({
+    router,
+    sessionId,
+    target: "call_logs",
+    source,
+  });
 }
 
 /** 종료·거절·취소·missed 직후 — return path 무시하고 통화 목록으로 */
@@ -704,15 +700,48 @@ export function wasOutgoingTempCallBootstrapStarted(tempSessionId: string): bool
   return outgoingTempCallBootstrapStarted.has(tempSessionId.trim());
 }
 
+/** 발신 tmp 셸 취소·거절 직후 — 늦게 끝난 POST bootstrap 이 통화 라우트를 다시 열지 않게 한다 */
+const outgoingTempCallBootstrapCancelled = new Set<string>();
+
+export function markOutgoingTempCallBootstrapCancelled(tempSessionId: string): void {
+  const id = tempSessionId.trim();
+  if (!id || !isCommunityMessengerTempCallSessionId(id)) return;
+  outgoingTempCallBootstrapCancelled.add(id);
+  if (typeof window !== "undefined") {
+    window.setTimeout(() => {
+      outgoingTempCallBootstrapCancelled.delete(id);
+    }, 120_000);
+  }
+}
+
+export function isOutgoingTempCallBootstrapCancelled(tempSessionId: string): boolean {
+  return outgoingTempCallBootstrapCancelled.has(tempSessionId.trim());
+}
+
 function callNavigationGo(router: { push: (href: string) => void; replace?: (href: string) => void }): (href: string) => void {
   return router.replace ?? router.push;
+}
+
+async function bestEffortCancelOutgoingBootstrapSession(sessionId: string): Promise<void> {
+  const sid = sessionId.trim();
+  if (!sid) return;
+  try {
+    await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sid)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "cancel" }),
+    });
+  } catch {
+    /* ignore */
+  }
 }
 
 async function applyOutgoingTempCallBootstrapResult(
   result: OutgoingCallSessionBootstrapResult,
   router: { push: (href: string) => void; replace?: (href: string) => void },
   roomIdFallback: string | null,
-  kind: CommunityMessengerCallKind
+  kind: CommunityMessengerCallKind,
+  tempSessionId: string
 ): Promise<void> {
   if (!result.ok) {
     stopAllOutgoingRingback("bootstrap_failed");
@@ -725,6 +754,17 @@ async function applyOutgoingTempCallBootstrapResult(
       return;
     }
     navigateBackFromCommunityMessengerCall({ replace: callNavigationGo(router) }, roomIdFallback);
+    return;
+  }
+  if (isOutgoingTempCallBootstrapCancelled(tempSessionId)) {
+    stopAllOutgoingRingback("bootstrap_cancelled");
+    discardPrimedCommunityMessengerDevicePermission();
+    console.info("[call-flow] outgoing_temp_bootstrap_aborted", {
+      tempSessionId: tempSessionId.trim(),
+      realSessionId: result.session.id,
+      reason: "user_cancelled_before_bootstrap_complete",
+    });
+    void bestEffortCancelOutgoingBootstrapSession(result.session.id);
     return;
   }
   startOutgoingRingback({
@@ -774,7 +814,7 @@ export function ensureOutgoingTempCallBootstrap(args: {
         peerUserId: args.peerUserId,
         kind: args.kind,
       });
-      await applyOutgoingTempCallBootstrapResult(result, args.router, args.roomId, args.kind);
+      await applyOutgoingTempCallBootstrapResult(result, args.router, args.roomId, args.kind, tempId);
     } catch {
       stopAllOutgoingRingback("bootstrap_failed");
       discardPrimedCommunityMessengerDevicePermission();

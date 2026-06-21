@@ -9,7 +9,7 @@ import { useCallTimer } from "./useCallTimer";
 /**
  * 음성 통화 전용 — ringing / connecting / connected 를 한 레이아웃에서 처리해
  * OutgoingCallView ↔ ConnectedVoiceView 전환 시 레이아웃이 깜빡이지 않게 한다.
- * (수신 ringing 은 수락·거절 레이아웃이 달라 IncomingCallView 유지)
+ * (수신 ringing 은 Global compact 배너 — `CommunityMessengerIncomingCallUi`)
  */
 export function VoiceCallView({ vm }: { vm: CallScreenViewModel }) {
   const isStarbucks = vm.visualTheme === "starbucks";

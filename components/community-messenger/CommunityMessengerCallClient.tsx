@@ -176,11 +176,12 @@ import {
   isCommunityMessengerTempCallSessionId,
   isOutgoingCallPhoneVerificationRequired,
   launchOutgoingDirectCall,
+  markOutgoingTempCallBootstrapCancelled,
   navigateBackFromCommunityMessengerCall,
-  finalizeCommunityMessengerCallTerminalExit, // SSOT_CONTRACT: messenger-call-terminal-nav finalizeCommunityMessengerCallTerminalExit
   primeCommunityMessengerCallNavigationSeed,
   wasOutgoingInviteBroadcastRecentlySent,
 } from "@/lib/community-messenger/call-session-navigation-seed";
+// SSOT_CONTRACT: messenger-call-terminal-nav exitCommunityMessengerCallRouteNow
 import {
   hasCallAcceptHydratePeerLabel,
   readCallAcceptHydratePeer,
@@ -204,9 +205,7 @@ import {
 } from "@/lib/community-messenger/call-invite-realtime-broadcast";
 import { appendLocalCallChatMessageFromTerminalSession } from "@/lib/community-messenger/call-chat-local-append";
 import {
-  claimIncomingCallSurface,
   isIncomingCallSurfaceTerminal,
-  releaseIncomingCallSurface,
 } from "@/lib/community-messenger/incoming-call-surface-owner";
 import {
   callClientRemoteTerminalQueryFromFeed,
@@ -299,7 +298,15 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { VideoOff } from "lucide-react";
 import { SamarketUserAvatarThumb } from "@/components/profile/SamarketUserAvatarThumb";
 import { OutgoingRingCameraPreview } from "@/components/community-messenger/OutgoingRingCameraPreview";
-import { CommunityMessengerCallRouteLoading } from "@/components/community-messenger/CommunityMessengerCallRouteLoading";
+import { useCallClientIncomingCalleeGuards } from "@/components/community-messenger/call/use-call-client-incoming-callee-guards";
+import {
+  exitCommunityMessengerCallRouteNow,
+  isSoftCallRouteExit,
+} from "@/lib/community-messenger/call-route-exit";
+import {
+  isCalleeAcceptBridgeLayout,
+  isCalleeAcceptInFlightUi,
+} from "@/lib/community-messenger/call-client-incoming-boundary";
 
 const CALL_CLIENT_TIER = getPublicDeployTier();
 const MAX_MOBILE_CALL_ACTIONS = 5;
@@ -800,7 +807,6 @@ export function CommunityMessengerCallClient({
   } | null>(null);
   /** 벨 거절·취소·원격 hangup 직후 `EndedCallView` 대신 ringing UI 유지 후 즉시 복귀 */
   const callDismissInFlightRef = useRef(false);
-  const [ringingDismissUiLatch, setRingingDismissUiLatch] = useState(false);
   const appendTerminalCallHistory = useCallback(
     (
       source: CommunityMessengerCallSession,
@@ -859,22 +865,26 @@ export function CommunityMessengerCallClient({
         status: active.status,
         closeReason: "ringing_dismiss",
       });
-      callDismissInFlightRef.current = true;
-      setRingingDismissUiLatch(true);
-      if (terminalNavigateBackOnceRef.current !== active.id) {
-        terminalNavigateBackOnceRef.current = active.id;
-        finalizeCommunityMessengerCallTerminalExit(router, active.id, "ringing_dismiss");
+      if (isCommunityMessengerTempCallSessionId(active.id)) {
+        markOutgoingTempCallBootstrapCancelled(active.id);
       }
+      callDismissInFlightRef.current = true;
+      exitCommunityMessengerCallRouteNow({
+        router,
+        sessionId: active.id,
+        roomId: roomId ?? active.roomId,
+        target: "back",
+        source: "ringing_dismiss",
+        onceRef: terminalNavigateBackOnceRef,
+      });
     },
     [router]
   );
 
   useEffect(() => {
     callDismissInFlightRef.current = false;
-    setRingingDismissUiLatch(false);
     return () => {
       callDismissInFlightRef.current = false;
-      setRingingDismissUiLatch(false);
     };
   }, [sessionId]);
 
@@ -1012,23 +1022,6 @@ export function CommunityMessengerCallClient({
     cmCallLatencyInfo("call_client_mount", { sessionId });
   }, [sessionId]);
 
-  /** 수신 ringing — accept route 만 call_screen surface (배너 단독 UI 유지) */
-  useEffect(() => {
-    const s = sessionRef.current;
-    if (!s || s.isMineInitiator) return undefined;
-    const sid = s.id.trim();
-    if (!sid) return undefined;
-    if (isIncomingCallSurfaceTerminal(sid) || isDibayCallConsumed(sid)) return undefined;
-    const isCalleeAcceptUi =
-      requestedAction === "accept" &&
-      (s.status === "ringing" || s.status === "active" || calleeVideoConnectingShellRef.current);
-    if (!isCalleeAcceptUi) return undefined;
-    claimIncomingCallSurface(sid, "call_screen", "call_client_incoming_ui");
-    return () => {
-      releaseIncomingCallSurface(sid, "call_screen", "call_client_incoming_ui_unmount");
-    };
-  }, [requestedAction, session?.id, session?.isMineInitiator, session?.status, sessionId]);
-
   useEffect(() => {
     if (!session) return;
     setCmCallLatencyContext({
@@ -1136,7 +1129,7 @@ export function CommunityMessengerCallClient({
   const callFlowPrevRemoteJoinedRef = useRef(false);
   /**
    * 수락 PATCH 응답 전 `finally` 에서 `setBusy(null)` 되는 한 틱에 phase 가 다시 `ringing` 으로 떨어져
-   * IncomingCallView ↔ 연결 풀스크린이 교차하는 것을 막는다(ref 만 쓰면 리렌더가 없어 동일 버그 유지).
+   * connecting 풀스크린 ↔ ringing 배너가 교차하는 것을 막는다(ref 만 쓰면 리렌더가 없어 동일 버그 유지).
    */
   const [calleeVideoConnectingShell, setCalleeVideoConnectingShell] = useState(false);
   const calleeVideoConnectingShellRef = useRef(false);
@@ -1424,7 +1417,11 @@ export function CommunityMessengerCallClient({
         if (silent && !acceptConfirm && Date.now() < sessionSilentRefreshBackoffUntilRef.current) {
           return sessionRef.current;
         }
-        if (!silent) setLoading(true);
+        const cur = sessionRef.current;
+        const terminalExitInFlight =
+          callDismissInFlightRef.current ||
+          (cur?.id === sessionId && terminalNavigateBackOnceRef.current === sessionId);
+        if (!silent && !terminalExitInFlight) setLoading(true);
         try {
           const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
             cache: "no-store",
@@ -1866,23 +1863,13 @@ export function CommunityMessengerCallClient({
       if (!terminalStatus || !isTerminalCallSessionStatus(terminalStatus)) return;
       remoteTerminalHandoffOnceRef.current = cur.id;
       appendTerminalCallHistory(cur, terminalStatus);
-      const snapshot: CommunityMessengerCallSession = {
-        ...cur,
-        status: terminalStatus,
-        endedAt: new Date().toISOString(),
-        endedReason: null,
-      };
+      const failureTerminal =
+        cur.endedReason && isMessengerCallClientFailureReason(cur.endedReason);
       void cleanupCommunityCallTerminal({
         sessionId: cur.id,
         reason: terminalStatus,
         source: "remote_terminal_feed",
       });
-      callTerminalLocalPinRef.current = {
-        sessionId: cur.id,
-        until: Date.now() + CALL_SESSION_TERMINAL_PIN_MS,
-        snapshot,
-      };
-      setSession(snapshot);
       joiningRef.current = false;
       setJoined(false);
       joinedRef.current = false;
@@ -1890,12 +1877,30 @@ export function CommunityMessengerCallClient({
       stopOutgoingRingbackForSessionId(cur.id, "remote_terminal_feed");
       stopCommunityMessengerCallFeedback();
       void disposeCallMedia({ domAudioNuclear: true }).catch(() => {});
-      const failureTerminal =
-        snapshot.endedReason && isMessengerCallClientFailureReason(snapshot.endedReason);
       const exitSource = ev.source.startsWith("native_") ? "remote_terminal_native" : "remote_terminal_bus";
-      if (!wasRinging && !failureTerminal && terminalNavigateBackOnceRef.current !== cur.id) {
-        terminalNavigateBackOnceRef.current = cur.id;
-        finalizeCommunityMessengerCallTerminalExit(router, cur.id, exitSource);
+      if (failureTerminal) {
+        const snapshot: CommunityMessengerCallSession = {
+          ...cur,
+          status: terminalStatus,
+          endedAt: new Date().toISOString(),
+          endedReason: cur.endedReason ?? null,
+        };
+        callTerminalLocalPinRef.current = {
+          sessionId: cur.id,
+          until: Date.now() + CALL_SESSION_TERMINAL_PIN_MS,
+          snapshot,
+        };
+        setSession(snapshot);
+        return;
+      }
+      if (!wasRinging) {
+        exitCommunityMessengerCallRouteNow({
+          router,
+          sessionId: cur.id,
+          target: "call_logs",
+          source: exitSource,
+          onceRef: terminalNavigateBackOnceRef,
+        });
       }
     },
     [appendTerminalCallHistory, beginRingingCallDismiss, disposeCallMedia, router]
@@ -3536,24 +3541,20 @@ export function CommunityMessengerCallClient({
     logCallFlow("call_reject_pressed", { sessionId: session.id, source: "call_client" });
     if (!tryClaimIncomingCallReject(session.id)) return;
     directCallPatchInFlightRef.current = true;
-    logCallFlow("call_cleanup_start", { sessionId: session.id, reason: "reject" });
-    stopCommunityMessengerCallFeedback();
-    dibayIncomingLaneStopRing("reject_pressed", session.id);
-    dismissAllIncomingCallNotificationsFireAndForget(session.id);
-    cmCallAudioCleanup("reject_click_feedback_stopped_before_patch", { sessionId: session.id });
-    setBusy("reject");
     const sid = session.id;
     const roomIdR = session.roomId;
-    beginRingingCallDismiss(roomIdR);
     const peer = session.peerUserId?.trim();
-    const endedAtIso = new Date().toISOString();
+    beginRingingCallDismiss(roomIdR);
+    logCallFlow("call_cleanup_start", { sessionId: sid, reason: "reject" });
+    stopCommunityMessengerCallFeedback();
+    dibayIncomingLaneStopRing("reject_pressed", sid);
+    dismissAllIncomingCallNotificationsFireAndForget(sid);
+    cmCallAudioCleanup("reject_click_feedback_stopped_before_patch", { sessionId: sid });
+    setBusy("reject");
     {
       const prev = sessionRef.current;
       if (prev?.id === sid) {
-        const snap: CommunityMessengerCallSession = { ...prev, status: "rejected", endedAt: endedAtIso };
-        callTerminalLocalPinRef.current = { sessionId: sid, until: Date.now() + CALL_SESSION_TERMINAL_PIN_MS, snapshot: snap };
         appendTerminalCallHistory(prev, "rejected", { hangupReason: "reject" });
-        setSession(snap);
         void cleanupCommunityCallTerminal({
           sessionId: sid,
           reason: "rejected",
@@ -3617,14 +3618,6 @@ export function CommunityMessengerCallClient({
           return;
         }
         logCallFlow("call_reject_sent", { sessionId: sid });
-        if (json.session && isTerminalCallSessionStatus(json.session.status)) {
-          callTerminalLocalPinRef.current = {
-            sessionId: sid,
-            until: Date.now() + CALL_SESSION_TERMINAL_PIN_MS,
-            snapshot: json.session,
-          };
-          setSession(json.session);
-        }
       } finally {
         setBusy(null);
         directCallPatchInFlightRef.current = false;
@@ -3655,7 +3648,12 @@ export function CommunityMessengerCallClient({
       }
       logCallFlow("call_reject_sent", { sessionId });
       runIncomingCallCleanup({ sessionId, reason: "reject_hydrate", stopRingtone: false });
-      finalizeCommunityMessengerCallTerminalExit(router, sessionId, "reject_hydrate");
+      exitCommunityMessengerCallRouteNow({
+        router,
+        sessionId,
+        target: "back",
+        source: "reject_hydrate",
+      });
     } finally {
       releaseIncomingCallReject(sessionId);
       setBusy(null);
@@ -3788,56 +3786,62 @@ export function CommunityMessengerCallClient({
     sessionId,
   ]);
 
-  /**
-   * 수락 전 `/calls/:id` 진입 차단 (정책: 앱 안 수신 UI = Global 배너만).
-   * incomingPreview 포함 ringing callee 는 즉시 복귀 — IncomingCallView 전체화면 금지.
-   */
-  useEffect(() => {
-    const s = sessionRef.current;
-    if (!s) return;
-    if (s.isMineInitiator) return;
-    if (s.status !== "ringing") return;
-    if (requestedAction === "accept") return;
-    if (busyRef.current === "accept" || calleeVideoConnectingShellRef.current) return;
-    navigateBackFromCommunityMessengerCall(router, s.roomId);
-  }, [incomingPreviewRoute, requestedAction, router, session?.id, session?.isMineInitiator, session?.roomId, session?.status]);
-
-  useEffect(() => {
-    if (requestedAction !== "reject") return;
-    const s = sessionRef.current;
-    if (!s || s.id !== sessionId) return;
-    if (s.isMineInitiator) return;
-    if (s.status !== "ringing") {
-      if (isTerminalCallSessionStatus(s.status)) {
-        dismissAllIncomingCallNotificationsFireAndForget(s.id);
-      }
-      return;
-    }
-    if (autoRejectRef.current) return;
-    autoRejectRef.current = true;
-    void rejectIncoming().finally(() => {
-      autoRejectRef.current = false;
-    });
-  }, [rejectIncoming, requestedAction, session?.id, session?.isMineInitiator, session?.status, sessionId]);
+  /** 수신(callee) ringing 정책 — `use-call-client-incoming-callee-guards` (Agora·Surface 와 분리) */
+  useCallClientIncomingCalleeGuards({
+    sessionRef,
+    session,
+    sessionId,
+    requestedAction,
+    incomingPreviewRoute,
+    router,
+    busyRef,
+    calleeVideoConnectingShellRef,
+    autoRejectRef,
+    rejectIncoming,
+  });
 
   const endCall = useCallback(async () => {
     if (!session) return;
     if (isTerminalCallSessionStatus(session.status)) return;
     if (directCallPatchInFlightRef.current) return;
     directCallPatchInFlightRef.current = true;
-    stopCommunityMessengerCallFeedback();
-    stopOutgoingRingbackForSessionId(session.id, "end_call");
-    cmCallAudioCleanup("end_click_feedback_stopped_before_patch", { sessionId: session.id });
-    setBusy("end");
     const roomId = session.roomId;
     const sid = session.id;
     const peer = session.peerUserId?.trim();
+    const ringingDismiss = session.status === "ringing";
     const patchAction: "cancel" | "reject" | "end" =
       session.status === "ringing"
         ? session.isMineInitiator
           ? "cancel"
           : "reject"
         : "end";
+    const optimisticEnd: CommunityMessengerCallSession["status"] =
+      patchAction === "cancel"
+        ? "cancelled"
+        : patchAction === "reject"
+          ? "rejected"
+          : "ended";
+    const softExit = isSoftCallRouteExit(optimisticEnd, session.endedReason);
+
+    if (isCommunityMessengerTempCallSessionId(sid)) {
+      markOutgoingTempCallBootstrapCancelled(sid);
+    }
+    if (ringingDismiss) {
+      beginRingingCallDismiss(roomId);
+    } else {
+      exitCommunityMessengerCallRouteNow({
+        router,
+        sessionId: sid,
+        target: "call_logs",
+        source: "caller_end",
+        onceRef: terminalNavigateBackOnceRef,
+      });
+    }
+
+    stopCommunityMessengerCallFeedback();
+    stopOutgoingRingbackForSessionId(sid, "end_call");
+    cmCallAudioCleanup("end_click_feedback_stopped_before_patch", { sessionId: sid });
+    setBusy("end");
     const hangupReason =
       patchAction === "cancel" ? "cancel" : patchAction === "reject" ? "reject" : "end";
     const terminalCleanupReason =
@@ -3848,33 +3852,25 @@ export function CommunityMessengerCallClient({
       source: "end_call",
     });
     dibayCallSealTerminal(sid);
-    const optimisticEnd: CommunityMessengerCallSession["status"] =
-      patchAction === "cancel"
-        ? "cancelled"
-        : patchAction === "reject"
-          ? "rejected"
-          : "ended";
     markCallConsumed(
       sid,
       optimisticEnd === "rejected" ? "declined" : optimisticEnd === "cancelled" ? "cancelled" : "ended"
     );
     logDibayCall("cleanup_done", { sessionId: sid, callId: sid, reason: optimisticEnd });
-    const endedAtIso = new Date().toISOString();
-    const ringingDismiss = session.status === "ringing";
-    if (ringingDismiss) {
-      beginRingingCallDismiss(roomId);
-    }
     {
       const prev = sessionRef.current;
       if (prev?.id === sid) {
-        const snap: CommunityMessengerCallSession = { ...prev, status: optimisticEnd, endedAt: endedAtIso };
-        callTerminalLocalPinRef.current = {
-          sessionId: sid,
-          until: Date.now() + CALL_SESSION_TERMINAL_PIN_MS,
-          snapshot: snap,
-        };
         appendTerminalCallHistory(prev, optimisticEnd, { hangupReason });
-        setSession(snap);
+        if (!softExit) {
+          const endedAtIso = new Date().toISOString();
+          const snap: CommunityMessengerCallSession = { ...prev, status: optimisticEnd, endedAt: endedAtIso };
+          callTerminalLocalPinRef.current = {
+            sessionId: sid,
+            until: Date.now() + CALL_SESSION_TERMINAL_PIN_MS,
+            snapshot: snap,
+          };
+          setSession(snap);
+        }
         void cleanupCommunityCallTerminal({
           sessionId: sid,
           reason: terminalCleanupReason,
@@ -3887,13 +3883,6 @@ export function CommunityMessengerCallClient({
     joinedRef.current = false;
     setRemoteJoined(false);
     void disposeCallMedia({ domAudioNuclear: true }).catch(() => {});
-    if (
-      !ringingDismiss &&
-      terminalNavigateBackOnceRef.current !== sid
-    ) {
-      terminalNavigateBackOnceRef.current = sid;
-      finalizeCommunityMessengerCallTerminalExit(router, sid, "caller_end");
-    }
     postCommunityMessengerCallSessionTerminalBusEvent({
       sessionId: sid,
       tmpSessionId: isCommunityMessengerTempCallSessionId(sid) ? sid : undefined,
@@ -4915,7 +4904,7 @@ export function CommunityMessengerCallClient({
     notifyCommunityCallHostSync();
   }, [joined, pathname, session?.callKind, session?.id, session?.sessionMode, session?.status]);
 
-  /** 조건부 return 위에 두어야 함 — 그 아래에서 훅을 호출하면 렌더마다 훅 개수가 달라져 런타임 오류가 난다. */
+  /** 조건부 return 위 — 훅은 여기까지 */
   const closeTerminalView = useCallback(() => {
     const s = sessionRef.current;
     console.info("[call-flow] call_client_terminal_close", {
@@ -4925,10 +4914,14 @@ export function CommunityMessengerCallClient({
       closeReason: "auto_close_terminal",
     });
     const sid = (s?.id ?? sessionId).trim();
-    if (sid) {
-      terminalNavigateBackOnceRef.current = sid;
-      finalizeCommunityMessengerCallTerminalExit(router, sid, "terminal_close_view");
-    }
+    if (!sid) return;
+    exitCommunityMessengerCallRouteNow({
+      router,
+      sessionId: sid,
+      target: "call_logs",
+      source: "terminal_close_view",
+      onceRef: terminalNavigateBackOnceRef,
+    });
   }, [router, sessionId]);
 
   useEffect(() => {
@@ -4936,13 +4929,19 @@ export function CommunityMessengerCallClient({
     if (session.status === "ringing") return;
     const er = session.endedReason;
     if (er && isMessengerCallClientFailureReason(er)) return;
-    if (terminalNavigateBackOnceRef.current === session.id) return;
-    terminalNavigateBackOnceRef.current = session.id;
+    if (isSoftCallRouteExit(session.status, session.endedReason)) {
+      exitCommunityMessengerCallRouteNow({
+        router,
+        sessionId: session.id,
+        target: "call_logs",
+        source: "terminal_immediate_exit",
+        onceRef: terminalNavigateBackOnceRef,
+      });
+      return;
+    }
     dibayCallSealTerminal(session.id);
     logDibayCall("cleanup_start", { sessionId: session.id, source: "terminal_immediate_exit" });
-    const timer = window.setTimeout(() => closeTerminalView(), 0);
-    return () => window.clearTimeout(timer);
-  }, [closeTerminalView, session, session?.endedReason, session?.id, session?.status]);
+  }, [router, session, session?.endedReason, session?.id, session?.status]);
 
   const handleExpandToFullscreen = useCallback(() => {
     const sid = sessionRef.current?.id?.trim();
@@ -5235,31 +5234,27 @@ export function CommunityMessengerCallClient({
   ]);
 
   if (loading && !session) {
-    /** 시드 없이 진입한 짧은 구간 — 발신 tmp_·kind 쿼리·수신 accept route 로딩 껍데기 */
+    /** 시드 없이 진입한 짧은 구간 — tmp 발신·accept route 는 CallScreen, 그 외는 Global 배너 SSOT */
     const dismissHydrate = () => navigateBackFromCommunityMessengerCall(router, null);
     const hydrateAcceptRoute =
       requestedAction === "accept" || nativeAcceptOwnedRoute || searchParams.get("nativeAccept") === "1";
     const hydratePeer = readCallAcceptHydratePeer(sessionId);
     const hydrateKind =
       hydratePeer?.callKind ?? (searchParams.get("kind") === "video" ? "video" : "voice");
+    const tmpOutgoingDial =
+      isCommunityMessengerTempCallSessionId(sessionId) &&
+      !hydrateAcceptRoute &&
+      (Boolean(searchParams.get("roomId")?.trim()) || Boolean(searchParams.get("peerUserId")?.trim()));
 
-    if (!hydrateAcceptRoute && (!hydratePeer || !hasCallAcceptHydratePeerLabel(hydratePeer))) {
-      return (
-        <div
-          className="relative flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-[#003D29]"
-          data-call-client-accept-hydrate-skeleton="1"
-          data-call-id={sessionId}
-        >
-          <div className="flex min-h-0 flex-1 flex-col items-center pt-[min(18vh,140px)]">
-            <div
-              className="h-[clamp(120px,36vw,168px)] w-[clamp(120px,36vw,168px)] animate-pulse rounded-full bg-[#D4E9E2]/22"
-              aria-hidden
-            />
-            <p className="mt-5 sam-text-section-title font-semibold text-[#F1F8F4]">{t("cm_ui_connecting")}</p>
-            <p className="mt-2 sam-text-body-secondary text-[#D4E9E2]/68">{t("cm_ui_call_loading_session")}</p>
-          </div>
-        </div>
-      );
+    if (!hydrateAcceptRoute && !tmpOutgoingDial && (!hydratePeer || !hasCallAcceptHydratePeerLabel(hydratePeer))) {
+      exitCommunityMessengerCallRouteNow({
+        router,
+        sessionId,
+        target: "back",
+        source: "call_hydrate_reject",
+        onceRef: terminalNavigateBackOnceRef,
+      });
+      return null;
     }
 
     const hydrateVm: CallScreenViewModel = {
@@ -5267,7 +5262,10 @@ export function CommunityMessengerCallClient({
       mode: hydrateKind,
       direction: hydrateAcceptRoute ? "incoming" : "outgoing",
       phase: hydrateAcceptRoute ? "connecting" : "ringing",
-      peerLabel: hydratePeer?.peerLabel || t("cm_ui_call_label"),
+      peerLabel:
+        hydratePeer?.peerLabel?.trim() ||
+        searchParams.get("peerLabel")?.trim() ||
+        t("cm_ui_call_label"),
       peerAvatarUrl: hydratePeer?.peerAvatarUrl ?? null,
       statusText: hydrateAcceptRoute
         ? t("cm_ui_connecting")
@@ -5345,25 +5343,18 @@ export function CommunityMessengerCallClient({
   const suppressTerminalView =
     isTerminalCallSessionStatus(session.status) &&
     !(session.endedReason && isMessengerCallClientFailureReason(session.endedReason));
+  const calleeAcceptInput = {
+    isMineInitiator: session.isMineInitiator,
+    status: session.status,
+    requestedAction,
+    busy,
+    calleeVideoConnectingShell,
+    nativeAcceptOwnedRoute,
+    joined,
+  };
+  const calleeAcceptBridgeLayout = isCalleeAcceptBridgeLayout(calleeAcceptInput);
+  const calleeAcceptInFlightUi = isCalleeAcceptInFlightUi(calleeAcceptInput);
   const effectiveDirectPhase: CallPhase = directPhase;
-  /**
-   * 전용 통화 페이지에서 자동/수동 수락 PATCH 직전까지 `ringing` 이면 CallScreen 이 IncomingCallView(벨 UI)를 다시 그린다.
-   * `?action=accept`·`busy==="accept"`·수락 래치(`calleeVideoConnectingShell`) 중에는 phase 만 `connecting` 으로 올린다.
-   */
-  const calleeAcceptBridgeLayout =
-    !session.isMineInitiator &&
-    session.status === "ringing" &&
-    (requestedAction === "accept" || busy === "accept" || calleeVideoConnectingShell);
-  const calleeAcceptInFlightUi =
-    !session.isMineInitiator &&
-    ((!joined &&
-      session.status === "active" &&
-      (calleeVideoConnectingShell || requestedAction === "accept" || nativeAcceptOwnedRoute)) ||
-      (session.status === "ringing" &&
-        (requestedAction === "accept" ||
-          busy === "accept" ||
-          busy === "join" ||
-          calleeVideoConnectingShell)));
   const callScreenPhase: CallPhase =
     agoraReconnecting && (effectiveDirectPhase === "connected" || effectiveDirectPhase === "connecting")
       ? "reconnecting"
@@ -5727,35 +5718,20 @@ export function CommunityMessengerCallClient({
     });
   }
 
-  const connectionDisplayState = useMemo(
-    () =>
-      computeCallDisplayConnectionState({
-        isTerminal:
-          isTerminalCallSessionStatus(session.status) &&
-          !(session.endedReason && isMessengerCallClientFailureReason(session.endedReason)),
-        agoraReconnecting,
-        joined,
-        remoteJoined,
-        sessionStatus: session.status,
-        direction: session.isMineInitiator ? "outgoing" : "incoming",
-        phase: displayCallPhase,
-        isVideoCall: videoCall,
-        uplinkQuality: networkUplinkQuality,
-        downlinkQuality: networkDownlinkQuality,
-      }),
-    [
-      session.status,
-      session.endedReason,
-      session.isMineInitiator,
-      agoraReconnecting,
-      joined,
-      remoteJoined,
-      displayCallPhase,
-      videoCall,
-      networkUplinkQuality,
-      networkDownlinkQuality,
-    ]
-  );
+  const connectionDisplayState = computeCallDisplayConnectionState({
+    isTerminal:
+      isTerminalCallSessionStatus(session.status) &&
+      !(session.endedReason && isMessengerCallClientFailureReason(session.endedReason)),
+    agoraReconnecting,
+    joined,
+    remoteJoined,
+    sessionStatus: session.status,
+    direction: session.isMineInitiator ? "outgoing" : "incoming",
+    phase: displayCallPhase,
+    isVideoCall: videoCall,
+    uplinkQuality: networkUplinkQuality,
+    downlinkQuality: networkDownlinkQuality,
+  });
   const connectionStatusLabel = t(connectionDisplayState.labelKey);
 
   const statusText =
@@ -5981,12 +5957,8 @@ export function CommunityMessengerCallClient({
     );
   }
 
-  if (suppressTerminalView && isTerminalCallSessionStatus(session.status)) {
-    return (
-      <div className="relative flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-[#003D29]">
-        <CommunityMessengerCallRouteLoading />
-      </div>
-    );
+  if (callDismissInFlightRef.current || terminalNavigateBackOnceRef.current === session.id) {
+    return null;
   }
 
   return (

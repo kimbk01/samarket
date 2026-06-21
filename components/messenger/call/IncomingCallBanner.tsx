@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Phone, PhoneOff, Video } from "lucide-react";
+import { Phone, PhoneOff, Video } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
@@ -150,7 +150,7 @@ export function IncomingCallBanner(props: IncomingCallBannerProps) {
           className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#22C55E] text-white shadow-[0_10px_22px_rgba(34,197,94,0.28)] transition active:scale-[0.96] disabled:opacity-40"
           aria-label={t("cm_ui_accept")}
         >
-          <Check size={26} strokeWidth={3} />
+          <Phone size={24} strokeWidth={2.4} />
         </button>
       </div>
     </div>

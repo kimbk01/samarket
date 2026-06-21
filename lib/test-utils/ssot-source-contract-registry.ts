@@ -37,7 +37,7 @@ export const SSOT_SOURCE_CONTRACT_REGISTRY: readonly SsotSourceContractEntry[] =
     id: "messenger-call-terminal-nav",
     file: "components/community-messenger/CommunityMessengerCallClient.tsx",
     marker:
-      "SSOT_CONTRACT: messenger-call-terminal-nav finalizeCommunityMessengerCallTerminalExit",
+      "SSOT_CONTRACT: messenger-call-terminal-nav exitCommunityMessengerCallRouteNow",
     also: ["beginRingingCallDismiss", "closeTerminalView"],
   },
   {

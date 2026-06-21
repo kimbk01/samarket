@@ -7,7 +7,6 @@ import { CallBackground } from "./CallBackground";
 import { CallHeader } from "./CallHeader";
 import { ConnectedVideoView } from "./ConnectedVideoView";
 import { EndedCallView } from "./EndedCallView";
-import { IncomingCallView } from "./IncomingCallView";
 import { OutgoingCallPanel } from "./OutgoingCallPanel";
 import { VoiceCallView } from "./VoiceCallView";
 import type { CallScreenViewModel } from "./call-ui.types";
@@ -111,7 +110,8 @@ function renderCallView(
     return <EndedCallView vm={vm} />;
   }
   if (layout === "incomingRing") {
-    return <IncomingCallView vm={vm} />;
+    /** CM SSOT: ringing 수신 UI = Global `CommunityMessengerIncomingCallUi` 배너 only */
+    return null;
   }
   if (layout === "outgoingVoiceRing") {
     return <OutgoingCallPanel vm={vm} />;
