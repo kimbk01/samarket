@@ -31,16 +31,16 @@ describe("dibay-signup-status", () => {
     expect(resolveDibaySignupRoute(status)).toBe("/auth/onboarding/terms");
   });
 
-  it("signupComplete after consent only — no dibay-id redirect", () => {
+  it("keeps signup incomplete when consent exists but id/profile are missing", () => {
     const status = deriveDibaySignupStatus({ id: "u1", ...consented }, { hasSession: true });
-    expect(status.phase).toBe("completed");
-    expect(status.signupComplete).toBe(true);
+    expect(status.phase).toBe("id_required");
+    expect(status.signupComplete).toBe(false);
     expect(status.dibayIdComplete).toBe(false);
     expect(status.profileComplete).toBe(false);
     expect(resolveDibaySignupRoute(status, "/philife")).toBe("/philife");
   });
 
-  it("completed when consent given even without dibay id or profile", () => {
+  it("onboarding_completed_at does not bypass missing id/profile", () => {
     const status = deriveDibaySignupStatus(
       {
         id: "u1",
@@ -49,11 +49,12 @@ describe("dibay-signup-status", () => {
       },
       { hasSession: true }
     );
-    expect(status.signupComplete).toBe(true);
+    expect(status.signupComplete).toBe(false);
+    expect(status.phase).toBe("id_required");
     expect(resolveDibaySignupRoute(status, "/philife")).toBe("/philife");
   });
 
-  it("tracks dibayIdComplete and profileComplete without blocking signup", () => {
+  it("tracks profile requirement after consent and id", () => {
     const status = deriveDibaySignupStatus(
       {
         id: "u1",
@@ -64,14 +65,14 @@ describe("dibay-signup-status", () => {
       },
       { hasSession: true }
     );
-    expect(status.phase).toBe("completed");
-    expect(status.signupComplete).toBe(true);
+    expect(status.phase).toBe("profile_ready");
+    expect(status.signupComplete).toBe(false);
     expect(status.dibayIdComplete).toBe(true);
     expect(status.profileComplete).toBe(false);
     expect(resolveDibaySignupRoute(status, "/philife")).toBe("/philife");
   });
 
-  it("does not complete signup without consent even with full profile", () => {
+  it("does not complete signup when consent is missing even with full profile", () => {
     const status = deriveDibaySignupStatus(
       {
         id: "u1",
@@ -89,7 +90,7 @@ describe("dibay-signup-status", () => {
     expect(status.signupComplete).toBe(false);
   });
 
-  it("legacy onboarding_completed_at does not bypass consent", () => {
+  it("legacy onboarding_completed_at when consent is missing stays incomplete", () => {
     const status = deriveDibaySignupStatus(
       {
         id: "u1",
@@ -106,7 +107,7 @@ describe("dibay-signup-status", () => {
     expect(status.signupComplete).toBe(false);
   });
 
-  it("completes signup when consent is given", () => {
+  it("completes signup only when consent + id + profile are all present", () => {
     const status = deriveDibaySignupStatus(
       {
         id: "u1",
@@ -120,6 +121,8 @@ describe("dibay-signup-status", () => {
       { hasSession: true }
     );
     expect(status.consentComplete).toBe(true);
+    expect(status.dibayIdComplete).toBe(true);
+    expect(status.profileComplete).toBe(true);
     expect(status.signupComplete).toBe(true);
   });
 
