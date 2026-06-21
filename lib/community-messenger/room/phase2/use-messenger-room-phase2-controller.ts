@@ -64,7 +64,10 @@ import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import { tryRedirectMessengerRoomAuthBlocked } from "@/lib/community-messenger/room/messenger-room-auth-blocked-redirect";
 import { useMessengerRoomVoiceRecording } from "@/lib/community-messenger/room/use-messenger-room-voice-recording";
-import { disposeDetachedCommunityCallIfStale } from "@/lib/community-messenger/direct-call-minimize";
+import {
+  clearAllCommunityCallLocalSessionFlags,
+  disposeDetachedCommunityCallIfStale,
+} from "@/lib/community-messenger/direct-call-minimize";
 import {
   launchOutgoingDirectCall,
   rememberCallNavigationReturnPath,
@@ -385,12 +388,7 @@ export function useMessengerRoomPhase2Controller() {
   /** 서버에 진행 중 통화가 없을 때 sessionStorage 잔존 제거(채팅 배너는 오직 스냅샷 activeCall 만 신뢰) */
   useEffect(() => {
     if (!snapshot || snapshot.activeCall) return;
-    try {
-      sessionStorage.removeItem("cm_minimized_call_room");
-      sessionStorage.removeItem("cm_minimized_call_session");
-    } catch {
-      /* ignore */
-    }
+    clearAllCommunityCallLocalSessionFlags();
   }, [snapshot]);
 
   const getRoomActionErrorMessage = useCallback(

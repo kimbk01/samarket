@@ -1,6 +1,7 @@
 "use client";
 
 import { readTerminalCallRecoverySuppress } from "@/lib/community-messenger/call-active-session-recovery";
+import { cmCallFlow } from "@/lib/community-messenger/cm-call-debug";
 
 /**
  * 통화 화면(`/community-messenger/calls/[sessionId]`)에서 fullscreen·dock·PiP 전환 시
@@ -15,6 +16,22 @@ const DOCKED_ROOM_KEY = "cm_docked_call_room";
 const HOSTED_ACTIVE_SESSION_KEY = "cm_active_direct_video_call_session";
 
 let detached: { sessionId: string; cleanup: DetachedCleanup } | null = null;
+
+type CallPresentationLogEvent =
+  | "call_presentation_full"
+  | "call_presentation_dock"
+  | "call_presentation_pip"
+  | "call_presentation_expand"
+  | "call_presentation_clear"
+  | "call_runtime_preserved_on_unmount"
+  | "call_runtime_disposed_on_end";
+
+export function logCommunityCallPresentationEvent(
+  event: CallPresentationLogEvent,
+  extra: Record<string, unknown> = {}
+): void {
+  cmCallFlow(event, extra);
+}
 
 function readSessionStorageValue(key: string): string | null {
   if (typeof sessionStorage === "undefined") return null;
@@ -121,6 +138,14 @@ export function resolveHostedCallPresentation(sessionId: string): "dock" | "pip-
   return null;
 }
 
+export function canRetainCommunityCallPresentation(args: {
+  status: string | null | undefined;
+  sessionMode: string | null | undefined;
+  joined: boolean;
+}): boolean {
+  return args.joined && args.status === "active" && args.sessionMode === "direct";
+}
+
 export function dockCommunityCall(args: {
   sessionId: string;
   roomId?: string | null;
@@ -132,6 +157,10 @@ export function dockCommunityCall(args: {
   writeDockedCallSession(sid, args.roomId);
   writeHostedActiveCallSession(sid);
   clearPipMinimizedCallSessionFlags();
+  logCommunityCallPresentationEvent("call_presentation_dock", {
+    sessionId: sid,
+    roomId: args.roomId ?? null,
+  });
 }
 
 export function minimizeCommunityCallToPip(args: {
@@ -145,6 +174,10 @@ export function minimizeCommunityCallToPip(args: {
   writePipMinimizedCallSession(sid, args.roomId);
   writeHostedActiveCallSession(sid);
   clearDockedCallSessionFlags();
+  logCommunityCallPresentationEvent("call_presentation_pip", {
+    sessionId: sid,
+    roomId: args.roomId ?? null,
+  });
 }
 
 export function expandCommunityCallFromDock(sessionId: string): void {
@@ -153,6 +186,13 @@ export function expandCommunityCallFromDock(sessionId: string): void {
   clearDockedCallSessionFlags();
   writeHostedActiveCallSession(sid);
   resumeDetachedCommunityCall(sid);
+  logCommunityCallPresentationEvent("call_presentation_expand", {
+    sessionId: sid,
+    from: "dock",
+  });
+  logCommunityCallPresentationEvent("call_presentation_full", {
+    sessionId: sid,
+  });
 }
 
 export function expandCommunityCallFromPip(sessionId: string): void {
@@ -161,6 +201,13 @@ export function expandCommunityCallFromPip(sessionId: string): void {
   clearPipMinimizedCallSessionFlags();
   writeHostedActiveCallSession(sid);
   resumeDetachedCommunityCall(sid);
+  logCommunityCallPresentationEvent("call_presentation_expand", {
+    sessionId: sid,
+    from: "pip-minimized",
+  });
+  logCommunityCallPresentationEvent("call_presentation_full", {
+    sessionId: sid,
+  });
 }
 
 /** 서버 스냅샷에 활성 통화가 없는데 로컬에 dock/pip 연결이 남았을 때 정리 */
@@ -170,28 +217,34 @@ export async function disposeDetachedCommunityCallIfStale(
   if (!detached) return;
   const serverSid = activeSessionIdFromServer?.trim() ?? "";
   if (!serverSid || detached.sessionId !== serverSid) {
+    const cleanup = detached.cleanup;
+    detached = null;
     clearAllCommunityCallLocalSessionFlags();
-    try {
-      await detached.cleanup();
-    } finally {
-      detached = null;
-    }
+    await cleanup();
   }
 }
 
 export async function forceDisposeDetachedCommunityCall(): Promise<void> {
   if (!detached) return;
+  const cleanup = detached.cleanup;
+  detached = null;
   clearAllCommunityCallLocalSessionFlags();
-  try {
-    await detached.cleanup();
-  } finally {
-    detached = null;
-  }
+  await cleanup();
 }
 
-export function clearCommunityCallPresentationFlags(): void {
-  clearDockedCallSessionFlags();
-  clearPipMinimizedCallSessionFlags();
+export function clearCommunityCallPresentationFlags(sessionId?: string | null): void {
+  const sid = sessionId?.trim() ?? "";
+  const clearedDock = !sid || readDockedCallSessionId() === sid;
+  const clearedPip = !sid || readPipMinimizedCallSessionId() === sid;
+  if (clearedDock) clearDockedCallSessionFlags();
+  if (clearedPip) clearPipMinimizedCallSessionFlags();
+  if (clearedDock || clearedPip) {
+    logCommunityCallPresentationEvent("call_presentation_clear", {
+      sessionId: sid || null,
+      dock: clearedDock,
+      pip: clearedPip,
+    });
+  }
 }
 
 export function isRetainedCallPresentation(sessionId: string): boolean {
@@ -229,6 +282,10 @@ export function shouldSkipCallClientUnmountDispose(sessionId: string): boolean {
   if (isTerminalSuppressedPresentation(sid)) return false;
   if (isHostedActiveOnly(sid)) return false;
   return isRetainedCallPresentation(sid);
+}
+
+export function shouldPreserveCallRuntimeSurfaceOnUnmount(sessionId: string): boolean {
+  return shouldSkipCallClientUnmountDispose(sessionId);
 }
 
 export function clearAllCommunityCallLocalSessionFlags(): void {

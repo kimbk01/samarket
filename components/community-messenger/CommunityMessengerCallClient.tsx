@@ -155,6 +155,9 @@ import {
   minimizeCommunityCallToPip,
   takeDetachedCommunityCallCleanup,
   shouldSkipCallClientUnmountDispose,
+  shouldPreserveCallRuntimeSurfaceOnUnmount,
+  logCommunityCallPresentationEvent,
+  canRetainCommunityCallPresentation,
   clearPipMinimizedCallSessionFlags,
   writeHostedActiveCallSession,
   isCommunityMessengerDedicatedCallSessionPath,
@@ -1835,6 +1838,11 @@ export function CommunityMessengerCallClient({
       }
       await cleanupClient(domAudioNuclear, sid ?? sessionId);
       logCallLatencyMediaCleanupDone({ sessionId: sid, domAudioNuclear });
+      if (domAudioNuclear) {
+        logCommunityCallPresentationEvent("call_runtime_disposed_on_end", {
+          sessionId: sid,
+        });
+      }
       console.info("[cm-call-state] call_ended_cleanup_done", {
         sessionId: sid,
         domAudioNuclear,
@@ -1963,6 +1971,12 @@ export function CommunityMessengerCallClient({
 
   useEffect(() => {
     return () => {
+      if (shouldPreserveCallRuntimeSurfaceOnUnmount(sessionId)) {
+        logCommunityCallPresentationEvent("call_runtime_preserved_on_unmount", {
+          sessionId,
+        });
+        return;
+      }
       resetCommunityMessengerCallRuntimeSurface();
     };
   }, [sessionId]);
@@ -5013,7 +5027,16 @@ export function CommunityMessengerCallClient({
    */
   useEffect(() => {
     const s = sessionRef.current;
-    if (!s?.id || !joinedRef.current || s.status !== "active" || s.sessionMode !== "direct") return;
+    if (
+      !s?.id ||
+      !canRetainCommunityCallPresentation({
+        status: s.status,
+        sessionMode: s.sessionMode,
+        joined: joinedRef.current,
+      })
+    ) {
+      return;
+    }
     writeHostedActiveCallSession(s.id);
     if (isCommunityMessengerDedicatedCallSessionPath(pathname, s.id)) {
       notifyCommunityCallHostSync();
@@ -5100,6 +5123,15 @@ export function CommunityMessengerCallClient({
     const s = sessionRef.current;
     const sid = s?.id?.trim();
     if (!sid || !s) return;
+    if (
+      !canRetainCommunityCallPresentation({
+        status: s.status,
+        sessionMode: s.sessionMode,
+        joined: joinedRef.current,
+      })
+    ) {
+      return;
+    }
     dockCommunityCall({
       sessionId: sid,
       roomId: s.roomId,
@@ -5116,7 +5148,16 @@ export function CommunityMessengerCallClient({
 
   const handleMinimizeToPip = useCallback(() => {
     const s = sessionRef.current;
-    if (!s?.id || s.callKind !== "video" || !joinedRef.current) return;
+    if (!s?.id || s.callKind !== "video") return;
+    if (
+      !canRetainCommunityCallPresentation({
+        status: s.status,
+        sessionMode: s.sessionMode,
+        joined: joinedRef.current,
+      })
+    ) {
+      return;
+    }
     minimizeCommunityCallToPip({
       sessionId: s.id,
       roomId: s.roomId,

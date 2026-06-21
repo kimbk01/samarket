@@ -47,6 +47,7 @@ import {
   VoiceMessageBubble,
 } from "@/components/community-messenger/room/community-messenger-room-phase2-lazy";
 import { useMessengerRoomPhase2CallView } from "@/components/community-messenger/room/phase2/messenger-room-phase2-call-context";
+import { clearCommunityCallPresentationFlags } from "@/lib/community-messenger/call-presentation-ownership";
 
 export function CommunityMessengerRoomPhase2CallLayer() {
   const vm = useMessengerRoomPhase2CallView();
@@ -83,12 +84,7 @@ export function CommunityMessengerRoomPhase2CallLayer() {
           <button
             type="button"
             onClick={() => {
-              try {
-                sessionStorage.removeItem("cm_minimized_call_room");
-                sessionStorage.removeItem("cm_minimized_call_session");
-              } catch {
-                /* ignore */
-              }
+              clearCommunityCallPresentationFlags(returnToCallSessionId);
               const backToCallHref = `/community-messenger/calls/${encodeURIComponent(returnToCallSessionId)}`;
               vm.router.prefetch(backToCallHref);
               vm.router.push(backToCallHref);
