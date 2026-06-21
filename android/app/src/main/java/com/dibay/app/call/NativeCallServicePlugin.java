@@ -149,15 +149,19 @@ public class NativeCallServicePlugin extends Plugin {
       return;
     }
     try {
+      ActivityManager manager = (ActivityManager) activity.getSystemService(Context.ACTIVITY_SERVICE);
+      if (manager != null) {
+        manager.moveTaskToFront(activity.getTaskId(), ActivityManager.MOVE_TASK_WITH_HOME);
+      }
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && activity.isInPictureInPictureMode()) {
         Intent intent = new Intent(activity, activity.getClass());
-        intent.setFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        intent.setAction(Intent.ACTION_MAIN);
+        intent.addCategory(Intent.CATEGORY_LAUNCHER);
+        intent.setFlags(
+            Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                | Intent.FLAG_ACTIVITY_SINGLE_TOP
+                | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         activity.startActivity(intent);
-      } else {
-        ActivityManager manager = (ActivityManager) activity.getSystemService(Context.ACTIVITY_SERVICE);
-        if (manager != null) {
-          manager.moveTaskToFront(activity.getTaskId(), ActivityManager.MOVE_TASK_WITH_HOME);
-        }
       }
       DibayCallLog.once("active_call_pip_restore", DibayActiveCallSessionManager.getActiveCallId(), "ok=true");
       call.resolve(new JSObject().put("ok", true));

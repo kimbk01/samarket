@@ -22,7 +22,8 @@ describe("incoming-call policy contracts", () => {
     expect(ui).toContain("IncomingCallBanner");
     expect(src).not.toContain("CommunityMessengerIncomingCallOverlay");
     expect(src).not.toContain("native_auto_fullscreen");
-    expect(src).toContain("incoming_banner_accept_route_first");
+    expect(src).toContain("acceptIncomingCallOnce");
+    expect(src).toContain("skipRouteReplace: isVideoDirect");
   });
 
   it("accept gateway is the only accept PATCH owner", () => {

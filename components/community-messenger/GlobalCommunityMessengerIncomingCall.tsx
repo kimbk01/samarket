@@ -133,6 +133,7 @@ import { incomingRingTimeoutMsFromConfig } from "@/lib/community-messenger/messe
 import {
   acceptIncomingCallOnce,
   applyIncomingCallConsumedSideEffects,
+  buildPostAcceptActiveCallHref,
   runIncomingCallReject,
 } from "@/lib/community-messenger/incoming-call-accept-gateway";
 import {
@@ -2209,26 +2210,46 @@ export function GlobalCommunityMessengerIncomingCall() {
       }
 
       /**
-       * 1:1 — 수락 제스처 즉시 통화 화면으로 보낸다.
-       * PATCH 는 CallClient 의 기존 `action=accept` 단일 gateway 경로가 1회 처리한다.
+       * 1:1 — gateway PATCH 1회 후 영상은 ActiveCallHost in-place, 음성은 PATCH 완료 라우트만.
        */
       setBusyId(`accept:${session.id}`);
-      writeCallAcceptHydratePeerFromSession(session, "incoming_banner_accept_route_first");
-      primeCommunityMessengerCallNavigationSeed(session.id, session);
-      primeCommunityMessengerCallConnectionPrefetch(session.id);
-      dibayIncomingLaneStopRing("accept_route_first", session.id);
-      dismissAllIncomingCallNotificationsFireAndForget(session.id);
-      logCallFlow("call_navigate_to_call_screen", { sessionId: session.id, source: "incoming_banner_accept_route_first" });
-      router.replace(`/community-messenger/calls/${encodeURIComponent(session.id)}?action=accept&mode=active&source=banner`);
-      dismissIncomingPresenterAfterAccept({
-        sessionId: session.id,
-        dismissedAt: dismissedIncomingSessionsAtRef.current,
-        hardClearedAt: hardClearedIncomingSessionsAtRef.current,
-        activeIncomingCallIds: activeIncomingCallIdsRef.current,
-        suppressMissedSound: suppressMissedSoundRef.current,
-        removeSessionFromIncomingList: (sid) =>
-          setSessions((prev) => prev.filter((item) => item.id !== sid)),
-      });
+      void (async () => {
+        try {
+          const isVideoDirect = session.sessionMode === "direct" && session.callKind === "video";
+          const result = await acceptIncomingCallOnce({
+            session,
+            router,
+            source: "incoming_banner_accept",
+            skipRouteReplace: isVideoDirect,
+            hrefOverride: isVideoDirect ? undefined : buildPostAcceptActiveCallHref(session.id),
+            markNativeAcceptPending: false,
+          });
+          if (!result.ok) {
+            if (result.reason === "permission_denied") {
+              showMessengerSnackbar(t(getCallMediaPermissionBlockedMessageKey(session.callKind)), { variant: "error" });
+            } else if (result.reason !== "already_consumed") {
+              await refresh(true, { bypassDevSafeIncomingThrottle: true });
+              showMessengerSnackbar(MESSENGER_CALL_USER_MSG.sessionActionFailed, { variant: "error" });
+            }
+            return;
+          }
+          logCallFlow("call_accept_sent", { sessionId: session.id, mode: "direct" });
+          cmCallFlow("incoming_accepted", { sessionId: session.id });
+          dismissIncomingPresenterAfterAccept({
+            sessionId: session.id,
+            dismissedAt: dismissedIncomingSessionsAtRef.current,
+            hardClearedAt: hardClearedIncomingSessionsAtRef.current,
+            activeIncomingCallIds: activeIncomingCallIdsRef.current,
+            suppressMissedSound: suppressMissedSoundRef.current,
+            ringStopSource: "banner_accept",
+            removeSessionFromIncomingList: (sid) =>
+              setSessions((prev) => prev.filter((item) => item.id !== sid)),
+          });
+          void refresh(true, { bypassDevSafeIncomingThrottle: true });
+        } finally {
+          setBusyId(null);
+        }
+      })();
     },
     [busyId, refresh, router, t]
   );

@@ -83,6 +83,11 @@ function buildActiveCallAcceptHref(sessionId: string, hrefOverride?: string | nu
   return `/community-messenger/calls/${encodeURIComponent(sessionId)}?action=accept&nativeAccept=1&mode=active`;
 }
 
+/** PATCH 완료 후 음성·전용 라우트 진입 — CallClient 재-PATCH 금지(`nativeAccept=1`) */
+export function buildPostAcceptActiveCallHref(sessionId: string): string {
+  return `/community-messenger/calls/${encodeURIComponent(sessionId.trim())}?mode=active&nativeAccept=1`;
+}
+
 function isInPlaceDirectVideoAccept(args: Pick<RunIncomingCallAcceptArgs, "skipRouteReplace" | "session">): boolean {
   return args.skipRouteReplace === true && args.session.sessionMode === "direct" && args.session.callKind === "video";
 }

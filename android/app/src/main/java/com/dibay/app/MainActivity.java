@@ -614,6 +614,13 @@ public class MainActivity extends BridgeActivity {
       CallScreenStateReceiver.register(this);
       DibayActiveCallSessionManager.onAppForeground(this, callId);
     }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
+        && !isInPictureInPictureMode()
+        && callId != null
+        && !callId.isEmpty()
+        && DibayActiveCallSessionManager.isConnected()) {
+      injectCallPipModeEvent(callId, false);
+    }
   }
 
   @Override

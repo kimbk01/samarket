@@ -60,13 +60,10 @@ describe("call terminal navigation policy", () => {
     expect(client).toContain("shouldDeferCalleeRingingTerminalDismiss");
     expect(client).toContain("call_client_remote_terminal_deferred");
     expect(client).toContain("serverConfirmedTerminal: true");
-    const routeFirstBlock = global.slice(global.indexOf("incoming_banner_accept_route_first"));
-    const replaceIdx = routeFirstBlock.indexOf("router.replace(`/community-messenger/calls/");
-    const dismissIdx = routeFirstBlock.indexOf("dismissIncomingPresenterAfterAccept({");
-    expect(replaceIdx).toBeGreaterThan(-1);
-    expect(dismissIdx).toBeGreaterThan(replaceIdx);
     expect(global).toContain("acceptIncomingCallOnce");
-    expect(global).toContain("?action=accept&mode=active&source=banner");
+    expect(global).toContain("buildPostAcceptActiveCallHref");
+    expect(global).toContain("skipRouteReplace: isVideoDirect");
+    expect(global).not.toContain("incoming_banner_accept_route_first");
     expect(client).toContain("primeCommunityMessengerCallConnectionPrefetch(sessionId)");
     expect(client).toContain("onAcceptEntryRoute");
     const gateway = read("lib/community-messenger/incoming-call-accept-gateway.ts");
