@@ -1,6 +1,6 @@
 package com.dibay.app;
 
-/** Tracks the active in-app (foreground) native incoming pill — Web banner fallback gate. */
+/** @deprecated Tracks the legacy native foreground pill; Web `IncomingCallSurface` is the active SSOT. */
 public final class ForegroundIncomingCallRegistry {
   private static volatile String activeCallId;
 

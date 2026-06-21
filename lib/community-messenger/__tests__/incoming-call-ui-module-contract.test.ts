@@ -11,12 +11,12 @@ function exists(p: string): boolean {
 }
 
 describe("incoming-call UI module (Kakao/Telegram lane)", () => {
-  it("single in-app UI host + banner; no legacy full-screen host", () => {
+  it("single in-app UI host + surface; no legacy full-screen host", () => {
     expect(exists("components/community-messenger/incoming-call/CommunityMessengerIncomingCallUi.tsx")).toBe(true);
     expect(exists("components/community-messenger/ForegroundIncomingCallHost.tsx")).toBe(false);
 
     const ui = read("components/community-messenger/incoming-call/CommunityMessengerIncomingCallUi.tsx");
-    expect(ui).toContain("IncomingCallBanner");
+    expect(ui).toContain("IncomingCallSurface");
     expect(ui).toContain("DO NOT: `IncomingCallView`");
 
     const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");

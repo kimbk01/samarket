@@ -3,7 +3,7 @@
  *
  * | 영역 | 소유 | 금지 |
  * |------|------|------|
- * | 앱 안 ringing 수신 UI | `CommunityMessengerIncomingCallUi` + `IncomingCallBanner` | CallClient 에 IncomingCallView·벨 UI 금지 |
+ * | 앱 안 ringing 수신 UI | `CommunityMessengerIncomingCallUi` + `IncomingCallSurface` | CallClient 에 IncomingCallView·벨 UI 금지 |
  * | 수락 후 통화 화면 | `CommunityMessengerCallClient` | 수신 배너·native pill 정책을 CallClient 에 섞지 않음 |
  *
  * DO NOT: 수신 UI 수정 시 Agora·join·terminal 로직을 건드리지 않는다.

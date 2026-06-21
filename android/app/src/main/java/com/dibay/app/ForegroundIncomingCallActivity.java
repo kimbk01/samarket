@@ -19,7 +19,7 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.view.WindowCompat;
 
-/** In-app foreground incoming pill — primary surface when app is unlocked and visible. */
+/** @deprecated In-app foreground incoming UI is Web `IncomingCallSurface`; kept for legacy bridge tests. */
 public class ForegroundIncomingCallActivity extends AppCompatActivity {
   private static final String TAG = "DIBAY_INCOMING_CALL";
 

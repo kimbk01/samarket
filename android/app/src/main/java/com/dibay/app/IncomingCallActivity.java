@@ -1,5 +1,8 @@
 package com.dibay.app;
 
+import android.animation.AnimatorSet;
+import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -35,6 +38,7 @@ public class IncomingCallActivity extends AppCompatActivity {
   private String callId;
   private boolean finished;
   private BroadcastReceiver terminalReceiver;
+  private AnimatorSet[] pulseAnimators;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -47,6 +51,7 @@ public class IncomingCallActivity extends AppCompatActivity {
     LinearLayout actions = findViewById(R.id.incoming_call_actions);
     IncomingCallUiInsets.applyTopSafeArea(center, 24);
     IncomingCallUiInsets.applyBottomSafeArea(actions, 16);
+    startPulseAnimation();
 
     callId = firstNonEmpty(getIntent().getStringExtra(EXTRA_CALL_ID));
     if (callId == null) {
@@ -131,6 +136,7 @@ public class IncomingCallActivity extends AppCompatActivity {
 
   @Override
   protected void onDestroy() {
+    stopPulseAnimation();
     if (terminalReceiver != null) {
       try {
         unregisterReceiver(terminalReceiver);
@@ -139,6 +145,46 @@ public class IncomingCallActivity extends AppCompatActivity {
       terminalReceiver = null;
     }
     super.onDestroy();
+  }
+
+  private void startPulseAnimation() {
+    View ringOne = findViewById(R.id.incoming_call_pulse_ring_one);
+    View ringTwo = findViewById(R.id.incoming_call_pulse_ring_two);
+    View ringThree = findViewById(R.id.incoming_call_pulse_ring_three);
+    pulseAnimators =
+        new AnimatorSet[] {
+          buildPulseAnimator(ringOne, 0),
+          buildPulseAnimator(ringTwo, 160),
+          buildPulseAnimator(ringThree, 320)
+        };
+    for (AnimatorSet animator : pulseAnimators) {
+      if (animator != null) animator.start();
+    }
+  }
+
+  private void stopPulseAnimation() {
+    if (pulseAnimators == null) return;
+    for (AnimatorSet animator : pulseAnimators) {
+      if (animator != null) animator.cancel();
+    }
+    pulseAnimators = null;
+  }
+
+  private AnimatorSet buildPulseAnimator(View ring, long delayMs) {
+    if (ring == null) return null;
+    ring.setAlpha(0.8f);
+    ObjectAnimator scaleX = ObjectAnimator.ofFloat(ring, View.SCALE_X, 1f, 1.25f);
+    ObjectAnimator scaleY = ObjectAnimator.ofFloat(ring, View.SCALE_Y, 1f, 1.25f);
+    ObjectAnimator alpha = ObjectAnimator.ofFloat(ring, View.ALPHA, 0.8f, 0f);
+    for (ObjectAnimator animator : new ObjectAnimator[] {scaleX, scaleY, alpha}) {
+      animator.setDuration(1000);
+      animator.setStartDelay(delayMs);
+      animator.setRepeatCount(ValueAnimator.INFINITE);
+      animator.setRepeatMode(ValueAnimator.RESTART);
+    }
+    AnimatorSet set = new AnimatorSet();
+    set.playTogether(scaleX, scaleY, alpha);
+    return set;
   }
 
   @Override

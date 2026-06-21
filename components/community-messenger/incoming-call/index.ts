@@ -1,4 +1,4 @@
-/** Community Messenger 수신 UI — 앱 안 compact 배너 only */
+/** Community Messenger 수신 UI — 앱 안 단일 `IncomingCallSurface` only */
 export {
   CommunityMessengerIncomingCallUi,
   type CommunityMessengerIncomingCallUiProps,

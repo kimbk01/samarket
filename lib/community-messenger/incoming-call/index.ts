@@ -2,7 +2,7 @@
  * Community Messenger 수신 통화 모듈 — public API.
  *
  * Controller/state: `GlobalCommunityMessengerIncomingCall`
- * In-app UI: `CommunityMessengerIncomingCallUi` + `IncomingCallBanner`
+ * In-app UI: `CommunityMessengerIncomingCallUi` + `IncomingCallSurface`
  * Call route guards: `call-client-incoming-boundary` + `use-call-client-incoming-callee-guards`
  * Route exit: `call-route-exit`
  */

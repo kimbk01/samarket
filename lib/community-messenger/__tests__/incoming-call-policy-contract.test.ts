@@ -14,12 +14,12 @@ describe("incoming-call policy contracts", () => {
     expect(chrome).not.toContain('import("@/components/community-messenger/GlobalIncomingCallHost")');
   });
 
-  it("foreground incoming UI is banner-only until accept (no legacy overlay, no native_auto_fullscreen)", () => {
+  it("foreground incoming UI is surface-only until accept (no legacy overlay, no native_auto_fullscreen)", () => {
     const src = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
     const ui = read("components/community-messenger/incoming-call/CommunityMessengerIncomingCallUi.tsx");
     expect(src).toContain("CommunityMessengerIncomingCallUi");
     expect(src).toContain("resolveForegroundIncomingPresentation");
-    expect(ui).toContain("IncomingCallBanner");
+    expect(ui).toContain("IncomingCallSurface");
     expect(src).not.toContain("CommunityMessengerIncomingCallOverlay");
     expect(src).not.toContain("native_auto_fullscreen");
     expect(src).toContain("acceptIncomingCallOnce");
@@ -94,14 +94,15 @@ describe("incoming-call policy contracts", () => {
     expect(src).toContain("maybeConsumeOnResume");
   });
 
-  it("foreground banner does not expand to full-screen IncomingCallView during ringing", () => {
+  it("foreground surface does not expand to full-screen IncomingCallView during ringing", () => {
     const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
     expect(global).not.toContain("expandIncomingCall");
     expect(global).not.toContain("buildIncomingCallPreviewHref");
     const boundary = read("lib/community-messenger/call-client-incoming-boundary.ts");
     expect(boundary).toContain("shouldEjectCalleeFromRingingCallRoute");
-    const banner = read("components/messenger/call/IncomingCallBanner.tsx");
-    expect(banner).toContain("onExpand?: () => void");
+    const surface = read("components/messenger/call/IncomingCallSurface.tsx");
+    expect(surface).toContain('mode?: IncomingCallSurfaceMode');
+    expect(surface).not.toContain("onExpand");
   });
 
   it("PushRouteListener delegates callee accept to runNativePendingAcceptCall", () => {

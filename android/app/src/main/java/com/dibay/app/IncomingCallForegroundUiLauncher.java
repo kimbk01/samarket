@@ -4,7 +4,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.util.Log;
 
-/** Launches the in-app native incoming pill (foreground unlocked). */
+/** @deprecated Foreground unlocked now uses the Web `IncomingCallSurface`; do not call from push delivery. */
 public final class IncomingCallForegroundUiLauncher {
   private static final String TAG = "DIBAY_INCOMING_CALL";
 

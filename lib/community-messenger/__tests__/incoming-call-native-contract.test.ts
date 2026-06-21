@@ -99,7 +99,7 @@ describe("incoming-call native contract", () => {
     expect(main).toContain("webview_call_route_injected");
   });
 
-  it("FCM foreground unlocked uses Web banner SSOT (no native pill)", () => {
+  it("FCM foreground unlocked uses Web surface SSOT (no native pill)", () => {
     const delivery = read("android/app/src/main/java/com/dibay/app/IncomingCallPushDelivery.java");
     expect(delivery).toContain("incoming_call_foreground_web_ssot");
     expect(delivery).not.toContain("IncomingCallForegroundUiLauncher.showUi");
@@ -108,7 +108,7 @@ describe("incoming-call native contract", () => {
     expect(fcm).toContain("IncomingCallPushDelivery.deliver");
   });
 
-  it("Global uses Web foreground banner SSOT (no native pill defer)", () => {
+  it("Global uses Web foreground surface SSOT (no native pill defer)", () => {
     const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
     expect(global).not.toContain("preferNativeAndroidForegroundIncoming");
     expect(global).not.toContain("nativeForegroundIncomingCallId");
@@ -170,7 +170,7 @@ describe("incoming-call native contract", () => {
     );
   });
 
-  it("Global defers Android foreground banner to Web top-banner only", () => {
+  it("Global defers Android foreground incoming UI to Web surface only", () => {
     const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
     expect(global).not.toContain("preferNativeAndroidForegroundIncoming");
     expect(global).not.toContain("nativeForegroundIncomingCallId");
@@ -307,7 +307,13 @@ describe("incoming-call native contract", () => {
   it("lock fullscreen applies bottom safe area for navigation bar", () => {
     const activity = read("android/app/src/main/java/com/dibay/app/IncomingCallActivity.java");
     expect(activity).toContain("IncomingCallUiInsets.applyBottomSafeArea");
-    expect(read("android/app/src/main/res/layout/activity_incoming_call.xml")).toContain("incoming_call_actions");
+    const layout = read("android/app/src/main/res/layout/activity_incoming_call.xml");
+    expect(layout).toContain("incoming_call_actions");
+    expect(layout).toContain("incoming_call_pulse_ring_one");
+    expect(layout).toContain("@dimen/dibay_incoming_btn_circle_full");
+    expect(layout).toContain("@drawable/ic_dibay_incoming_accept");
+    expect(activity).toContain("buildPulseAnimator");
+    expect(activity).toContain("ValueAnimator.INFINITE");
   });
 
   it("foreground pill uses 440ms enter animation and DIBAY layout", () => {

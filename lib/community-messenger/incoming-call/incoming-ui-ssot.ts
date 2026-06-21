@@ -3,7 +3,7 @@
  *
  * | 앱 상태 | UI | 담당 |
  * |---------|-----|------|
- * | 앱 안 ringing | `CommunityMessengerIncomingCallUi` + `IncomingCallBanner` | Global controller |
+ * | 앱 안 ringing | `CommunityMessengerIncomingCallUi` + `IncomingCallSurface` | Global controller |
  * | Lock / background | native fullscreen | `IncomingCallActivity` |
  * | 수락 후 | call_screen | `CommunityMessengerCallClient` |
  *
