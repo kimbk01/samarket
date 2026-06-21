@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { markRoomRead } from "@/lib/notifications/pipeline/notify-read-service";
+import { fetchNotificationBadgeCount } from "@/lib/notifications/pipeline/notify-badge-service";
 import { logNotifyOpen } from "@/lib/notifications/core/notification-logs";
 
 export const runtime = "nodejs";
@@ -17,7 +18,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "server_misconfigured" }, { status: 503 });
   }
 
-  let body: { roomId?: string } = {};
+  let body: { roomId?: string; categories?: string[]; readReason?: string } = {};
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -30,6 +31,18 @@ export async function POST(req: NextRequest) {
   }
 
   const cleared = await markRoomRead(sb, userId, roomId);
+  const badge = await fetchNotificationBadgeCount(sb, userId, { force: true });
   logNotifyOpen("room_opened", { userId, roomId, cleared });
-  return NextResponse.json({ ok: true, cleared });
+  return NextResponse.json({
+    ok: true,
+    cleared,
+    updatedNotificationEventCount: cleared,
+    updatedParticipantUnreadCount: null,
+    nextBadgeTotal: badge.total,
+    categoryCounts: badge,
+    threadUnreadAfter: null,
+    nativeBadgeTotal: badge.total,
+    affectedThreadId: roomId,
+    readReason: body.readReason ?? "chat_room_visible",
+  });
 }

@@ -24,6 +24,50 @@ const EMPTY_BADGE: NotificationBadgeCount = {
   missedCall: 0,
 };
 
+function payloadFlag(payload: unknown, keys: string[]): boolean | null {
+  if (!payload || typeof payload !== "object") return null;
+  const obj = payload as Record<string, unknown>;
+  for (const key of keys) {
+    const value = obj[key];
+    if (typeof value === "boolean") return value;
+    if (typeof value === "string") {
+      const normalized = value.trim().toLowerCase();
+      if (normalized === "true") return true;
+      if (normalized === "false") return false;
+    }
+  }
+  return null;
+}
+
+function payloadTime(payload: unknown, keys: string[]): number | null {
+  if (!payload || typeof payload !== "object") return null;
+  const obj = payload as Record<string, unknown>;
+  for (const key of keys) {
+    const value = obj[key];
+    if (typeof value !== "string" || !value.trim()) continue;
+    const parsed = Date.parse(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+function isBadgeEligibleNotificationEvent(row: {
+  display_payload?: unknown;
+  muted_snapshot?: boolean | null;
+}): boolean {
+  const payload = row.display_payload;
+  if (payloadFlag(payload, ["badge_enabled", "badgeEnabled"]) === false) return false;
+  if (payloadFlag(payload, ["exclude_from_badge", "excludeFromBadge", "mute_badge", "muteBadge"]) === true) {
+    return false;
+  }
+  if (payloadFlag(payload, ["deleted", "isDeleted"]) === true) return false;
+  if (payloadTime(payload, ["deleted_at", "deletedAt"]) != null) return false;
+  const expiredAt = payloadTime(payload, ["expired_at", "expiredAt", "expires_at", "expiresAt"]);
+  if (expiredAt != null && expiredAt <= Date.now()) return false;
+  // muted_snapshot is sound suppression only. Badge mute must be explicit.
+  return true;
+}
+
 function mapBadgeRpc(raw: Record<string, unknown> | null): NotificationBadgeCount {
   if (!raw) return EMPTY_BADGE;
   const chatMessage = Math.max(
@@ -138,7 +182,7 @@ async function countNotificationEventsBadgeFallback(
 ): Promise<NotificationBadgeCount> {
   const { data, error } = await sb
     .from("notification_events")
-    .select("category")
+    .select("category, muted_snapshot, display_payload")
     .eq("user_id", userId)
     .eq("unread", true)
     .is("read_at", null);
@@ -160,7 +204,8 @@ async function countNotificationEventsBadgeFallback(
     trade: 0,
     store: 0,
   };
-  for (const row of data as { category?: string }[]) {
+  for (const row of data as { category?: string; muted_snapshot?: boolean | null; display_payload?: unknown }[]) {
+    if (!isBadgeEligibleNotificationEvent(row)) continue;
     const c = String(row.category ?? "");
     if (c in counts) counts[c] += 1;
   }
@@ -311,20 +356,23 @@ export async function markOrderNotificationEventsRead(
 export async function markNotificationEventsReadByThread(
   sb: SupabaseClient<any>,
   userId: string,
-  threadId: string
+  threadId: string,
+  opts?: { categories?: string[] }
 ): Promise<number> {
   const uid = userId.trim();
   const tid = threadId.trim();
   if (!uid || !tid) return 0;
   const now = new Date().toISOString();
-  const { data, error } = await sb
+  let q = sb
     .from("notification_events")
     .update({ unread: false, read_at: now, opened_at: now })
     .eq("user_id", uid)
     .or(`room_id.eq.${tid},call_session_id.eq.${tid}`)
     .eq("unread", true)
-    .is("read_at", null)
-    .select("id");
+    .is("read_at", null);
+  const categories = [...new Set((opts?.categories ?? []).map((c) => c.trim()).filter(Boolean))];
+  if (categories.length > 0) q = q.in("category", categories);
+  const { data, error } = await q.select("id");
   if (error) return 0;
   return data?.length ?? 0;
 }

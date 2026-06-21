@@ -5,7 +5,6 @@ import { usePathname, useSearchParams } from "next/navigation";
 import {
   postNotificationCallLogsMissedCallsRead,
   postNotificationMissedCallRead,
-  postNotificationRoomRead,
 } from "@/lib/notifications/client/notification-event-read-client";
 import { isMessengerCallLogsSurface } from "@/lib/notifications/routing/is-messenger-call-logs-surface";
 
@@ -22,13 +21,15 @@ function parseTradeChatRoomId(pathname: string): string | null {
 }
 
 /**
- * 방·통화내역 진입 시 notification_events 읽음 처리 — badge-count SSOT 갱신.
- * 표면 이탈 시 dedupe 키를 초기화해 재진입·신규 미읽음에 다시 읽음 API 가 호출되게 한다.
+ * 통화내역 진입 시 notification_events 읽음 처리 — badge-count SSOT 갱신.
+ *
+ * CONTRACT: 채팅 room route 진입만으로는 읽음 처리하지 않는다.
+ * 채팅 알림 read 는 room bootstrap/messages/viewport ready 이후
+ * `useMessengerRoomOpenMarkReadEffect` 의 mark_read 성공 플로우에서만 수행한다.
  */
 export function NotificationRouteReadSync() {
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
-  const lastRoomKeyRef = useRef<string | null>(null);
   const lastMissedKeyRef = useRef<string | null>(null);
   const lastCallLogsKeyRef = useRef<string | null>(null);
 
@@ -37,7 +38,6 @@ export function NotificationRouteReadSync() {
     const onCallLogs = isMessengerCallLogsSurface(pathname, section);
 
     if (onCallLogs) {
-      lastRoomKeyRef.current = null;
       lastMissedKeyRef.current = null;
       const callLogsKey = `${pathname}:${section}`;
       if (lastCallLogsKeyRef.current !== callLogsKey) {
@@ -53,7 +53,6 @@ export function NotificationRouteReadSync() {
     const roomId = cmRoomId ?? tradeRoomId;
 
     if (!roomId) {
-      lastRoomKeyRef.current = null;
       lastMissedKeyRef.current = null;
       return;
     }
@@ -62,7 +61,6 @@ export function NotificationRouteReadSync() {
     const callSessionId = searchParams?.get("callId")?.trim() ?? "";
 
     if (focus === "call-history") {
-      lastRoomKeyRef.current = null;
       const missedKey = `${roomId}:${callSessionId || "*"}`;
       if (lastMissedKeyRef.current !== missedKey) {
         lastMissedKeyRef.current = missedKey;
@@ -75,11 +73,8 @@ export function NotificationRouteReadSync() {
     }
 
     lastMissedKeyRef.current = null;
-    const roomKey = `${pathname}:${roomId}`;
-    if (lastRoomKeyRef.current !== roomKey) {
-      lastRoomKeyRef.current = roomKey;
-      void postNotificationRoomRead(roomId);
-    }
+    // Chat room notification read is intentionally deferred until the room UI
+    // proves that the latest message area is actually visible/readable.
   }, [pathname, searchParams]);
 
   return null;

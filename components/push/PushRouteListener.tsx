@@ -23,6 +23,7 @@ import {
 import { shouldReplaceRoute } from "@/lib/push/push-route-policy";
 import { postNotificationEventOpenedRead } from "@/lib/notifications/client/notification-event-read-client";
 import { prepareMessengerPushRoomEntry } from "@/lib/community-messenger/room/cm-room-push-entry-warm";
+import { isNotificationReadDeferredChatRoomPath } from "@/lib/notifications/routing/chat-room-notification-read-policy";
 
 const ROUTE_DEDUPE_MS = 2_000;
 const NOTIFICATION_DEDUPE_MS = 60_000;
@@ -162,7 +163,7 @@ export function PushRouteListener() {
       } else {
         router.push(path);
       }
-      if (notificationId?.trim()) {
+      if (notificationId?.trim() && !isNotificationReadDeferredChatRoomPath(path)) {
         void postNotificationEventOpenedRead(notificationId.trim());
       }
       clearPendingPushRoute();

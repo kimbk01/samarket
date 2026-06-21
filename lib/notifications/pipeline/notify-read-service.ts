@@ -91,9 +91,10 @@ export async function markOrderNotificationsRead(
 export async function markNotificationThreadRead(
   sb: SupabaseClient<any>,
   userId: string,
-  threadId: string
+  threadId: string,
+  opts?: { categories?: string[] }
 ): Promise<number> {
-  const count = await markNotificationEventsReadByThread(sb, userId, threadId);
+  const count = await markNotificationEventsReadByThread(sb, userId, threadId, opts);
   if (count > 0) {
     invalidateNotificationBadgeCache(userId);
     logNotifyBadge("read_clear", { userId, threadId, count });

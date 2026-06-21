@@ -88,9 +88,13 @@ describe("notify-read-service", () => {
   });
 
   it("marks thread read and refreshes badge immediately", async () => {
-    const count = await markNotificationThreadRead(sb, "user-1", "room-1");
+    const count = await markNotificationThreadRead(sb, "user-1", "room-1", {
+      categories: ["chat_message"],
+    });
     expect(count).toBe(4);
-    expect(markNotificationEventsReadByThread).toHaveBeenCalledWith(sb, "user-1", "room-1");
+    expect(markNotificationEventsReadByThread).toHaveBeenCalledWith(sb, "user-1", "room-1", {
+      categories: ["chat_message"],
+    });
     expect(invalidateNotificationBadgeCache).toHaveBeenCalledWith("user-1");
     expect(fetchNotificationBadgeCount).toHaveBeenCalled();
   });

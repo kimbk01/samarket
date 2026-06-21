@@ -21,9 +21,13 @@ export function resolveMessengerChatTabBadgeCount(
   hub: OwnerHubBadgeBreakdown = getOwnerHubBadgeSnapshot()
 ): number {
   const eventsSnap = getNotificationBadgeCountSnapshot();
-  const breakdown =
+  const chatUnread =
     eventsSnap != null
-      ? { ...hub, communityMessengerUnread: eventsSnap.total }
+      ? Math.max(0, (eventsSnap.chatMessage ?? eventsSnap.chat) + (eventsSnap.groupMessage ?? eventsSnap.group))
+      : null;
+  const breakdown =
+    chatUnread != null
+      ? { ...hub, communityMessengerUnread: chatUnread }
       : hub;
   return resolveBottomNavMessengerTabBadgeForOwnerStore(breakdown, hasOwnerStore);
 }

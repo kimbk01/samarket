@@ -38,8 +38,8 @@ describe("messenger-chat-tab-badge", () => {
     eventsListeners.clear();
   });
 
-  it("prefers notification_events total over hub communityMessengerUnread", () => {
-    expect(resolveMessengerChatTabBadgeCount(false)).toBe(5);
+  it("prefers notification_events chat/group slice over hub communityMessengerUnread", () => {
+    expect(resolveMessengerChatTabBadgeCount(false)).toBe(3);
   });
 
   it("does not let owner-hub fallback override a zero notification_events snapshot", () => {

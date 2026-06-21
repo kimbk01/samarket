@@ -4,8 +4,23 @@ import {
   applyMissedCallNotificationReadOptimistic,
   resyncBadgesAfterNotificationEventsRead,
 } from "@/lib/notifications/client/notification-events-read-resync";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 type ReadMutationResult = { ok: boolean; cleared?: number };
+type ReadThreadClientOptions = {
+  threadType?: "chat_room" | "trade_room" | "order" | "community_post" | "call";
+  roomId?: string;
+  categories?: string[];
+  readReason?:
+    | "chat_room_visible"
+    | "push_tap_room_opened"
+    | "order_detail_opened"
+    | "trade_detail_opened"
+    | "community_post_opened"
+    | "call_history_opened";
+  lastVisibleMessageId?: string | null;
+  clientVisibleAt?: string;
+};
 
 let callLogsMissedReadFlight: Promise<boolean> | null = null;
 
@@ -69,14 +84,35 @@ export async function postNotificationCategoryRead(category: string): Promise<bo
   return result.ok;
 }
 
-export async function postNotificationThreadRead(threadId: string): Promise<boolean> {
+function threadReadSingleFlightKey(threadId: string, opts?: ReadThreadClientOptions): string {
+  const categories = Array.isArray(opts?.categories)
+    ? [...opts.categories].map((c) => c.trim()).filter(Boolean).sort().join(",")
+    : "";
+  return `notification-thread-read:${threadId}:${opts?.threadType ?? "chat_room"}:${categories}`;
+}
+
+/** 방·스레드 단위 notification_events 읽음 (동시·연속 중복 호출 single-flight) */
+export async function postNotificationThreadRead(
+  threadId: string,
+  opts?: ReadThreadClientOptions
+): Promise<boolean> {
   const tid = threadId.trim();
   if (!tid) return false;
-  const result = await postJson("/api/me/notifications/read-thread", { threadId: tid });
-  if (result.ok) {
-    afterNotificationEventsRead("room_read", result.cleared);
-  }
-  return result.ok;
+  const flightKey = threadReadSingleFlightKey(tid, opts);
+  return runSingleFlight(flightKey, async () => {
+    const result = await postJson("/api/me/notifications/read-thread", {
+      threadId: tid,
+      ...opts,
+      roomId: opts?.roomId?.trim() || undefined,
+      categories: Array.isArray(opts?.categories)
+        ? opts.categories.map((c) => c.trim()).filter(Boolean)
+        : undefined,
+    });
+    if (result.ok) {
+      afterNotificationEventsRead("room_read", result.cleared);
+    }
+    return result.ok;
+  });
 }
 
 export async function postNotificationMissedCallRead(opts: {
