@@ -22,6 +22,8 @@ type RouterLike = {
   replace: (href: string) => void;
 };
 
+const SIGNUP_STATUS_ROUTE_TIMEOUT_MS = 900;
+
 export type FinishClientAuthLoginInput = {
   redirectTo?: string | null;
   pendingToken?: string | null;
@@ -53,7 +55,15 @@ async function resolveLoginTarget(input: {
   const fallback = sanitizeFreshLoginLandingPath(input.next) ?? POST_LOGIN_PATH;
 
   try {
-    const { status, json } = await fetchSignupStatusDeduped(handoffNext);
+    const { status, json } = await Promise.race([
+      fetchSignupStatusDeduped(handoffNext),
+      new Promise<{
+        status: number;
+        json: null;
+      }>((resolve) =>
+        window.setTimeout(() => resolve({ status: 0, json: null }), SIGNUP_STATUS_ROUTE_TIMEOUT_MS)
+      ),
+    ]);
     if (status === 200 && json?.route?.trim()) {
       return sanitizeFreshLoginLandingPath(json.route.trim()) ?? POST_LOGIN_PATH;
     }

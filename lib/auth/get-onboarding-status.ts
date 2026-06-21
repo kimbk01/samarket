@@ -66,6 +66,8 @@ type ProfileRowSubset = {
   onboarding_status: string | null;
 };
 
+const ADDRESS_STATUS_TIMEOUT_MS = 900;
+
 function pickTrimmedString(input: unknown): string | null {
   if (typeof input !== "string") return null;
   const trimmed = input.trim();
@@ -117,7 +119,14 @@ export async function getOnboardingStatus(
   sb: SupabaseClient,
   userId: string
 ): Promise<OnboardingStatus> {
-  const profile = await loadProfileSubset(sb, userId);
+  const [profileSettled, addressSettled] = await Promise.allSettled([
+    loadProfileSubset(sb, userId),
+    Promise.race([
+      isMandatoryAddressGateSatisfied(sb, userId),
+      new Promise<boolean>((resolve) => setTimeout(() => resolve(false), ADDRESS_STATUS_TIMEOUT_MS)),
+    ]),
+  ]);
+  const profile = profileSettled.status === "fulfilled" ? profileSettled.value : null;
   const profileExists = profile?.id !== null && profile?.id !== undefined;
   const consentComplete = hasStoreTermsConsent({
     terms_accepted_at: profile?.terms_accepted_at ?? null,
@@ -141,12 +150,7 @@ export async function getOnboardingStatus(
     email: profile?.email ?? null,
   });
 
-  let addressComplete = false;
-  try {
-    addressComplete = await isMandatoryAddressGateSatisfied(sb, userId);
-  } catch {
-    addressComplete = false;
-  }
+  const addressComplete = addressSettled.status === "fulfilled" ? addressSettled.value : false;
 
   const signup = deriveDibaySignupStatus(profile ?? undefined, { hasSession: profileExists });
 
