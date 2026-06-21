@@ -332,5 +332,13 @@ describe("incoming-call native contract", () => {
     expect(src).toContain("resolveNativePluginWithoutThenableAssimilation");
     expect(src).toContain("if (sync) return resolveNativePluginWithoutThenableAssimilation(sync)");
   });
+
+  it("foreground web banner syncs ringing session to native bridge (not cancelled tombstone)", () => {
+    const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
+    expect(global).toContain("syncCommunityMessengerNativeIncomingCall(nativeIncomingSession)");
+    expect(global).not.toContain(
+      'syncCommunityMessengerNativeIncomingCall({ ...bannerSession, status: "cancelled" })',
+    );
+  });
 });
 
