@@ -51,19 +51,24 @@ export function DibaySignupGate() {
       if (!boot?.id) return;
 
       const bootSignup = deriveDibaySignupStatus(boot, { hasSession: true });
-      if (bootSignup.signupComplete) {
+      /** 앱 접근 게이트 = consent only. @id·프로필 미완으로 방/통화 deep route 를 /mypage 로 덮지 않는다. */
+      if (bootSignup.consentComplete) {
         markSignupCompleteResolvedSession();
         return;
       }
 
       try {
         const { status, json } = await fetchSignupStatusDeduped();
-        if (status === 200 && json?.signup?.signupComplete) {
+        if (status === 200 && json?.signup?.consentComplete) {
           markSignupCompleteResolvedSession();
           return;
         }
         const target = json?.route?.trim();
         if (!target || status !== 200) return;
+        if (json?.signup?.consentComplete) {
+          markSignupCompleteResolvedSession();
+          return;
+        }
 
         if (pathnameRef.current.startsWith(target.split("?")[0] ?? target)) {
           logNetworkLoopGuardReplace({

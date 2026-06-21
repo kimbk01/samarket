@@ -121,12 +121,32 @@ if (!naverStart.includes("NATIVE_OAUTH_CAPACITOR_RETURN_PATH")) {
 }
 
 const signup = read("lib/auth/dibay-signup-status.ts");
-if (!signup.includes("consentComplete && dibayIdComplete && profileComplete")) {
-  failures.push("dibay-signup-status.ts signupComplete must require consent + dibay id + profile");
+if (!signup.includes("const signupComplete = consentComplete")) {
+  failures.push("dibay-signup-status.ts signupComplete must equal consentComplete (legal minimum app access)");
+}
+if (signup.includes("consentComplete && dibayIdComplete && profileComplete")) {
+  failures.push("dibay-signup-status.ts must not tie signupComplete to dibay id + profile (breaks messenger deep routes)");
+}
+
+const signupGate = read("components/auth/DibaySignupGate.tsx");
+if (!signupGate.includes("consentComplete")) {
+  failures.push("DibaySignupGate must gate on consentComplete only — not full profile signup");
+}
+if (signupGate.includes("json?.signup?.signupComplete")) {
+  failures.push("DibaySignupGate must not pass gate on signupComplete alone — use consentComplete");
 }
 
 const signupTest = read("lib/auth/__tests__/dibay-signup-status.test.ts");
-if (!signupTest.includes("consent is missing") || !signupTest.includes("onboarding_completed_at when consent is missing")) {
+if (
+  !signupTest.includes("gate regression: consented user is not signup-incomplete") ||
+  !signupTest.includes("gate regression: resolve without next")
+) {
+  failures.push("dibay-signup-status.test.ts must cover messenger/call deep route gate regression");
+}
+if (
+  !signupTest.includes("without consent") ||
+  !signupTest.includes("legacy onboarding_completed_at does not bypass consent")
+) {
   failures.push("dibay-signup-status.test.ts must cover consent-missing signupComplete=false cases");
 }
 

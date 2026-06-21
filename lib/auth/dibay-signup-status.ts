@@ -31,7 +31,7 @@ export type DibayOnboardingStatusValue =
 
 /**
  * DIBAY 가입 phase — SNS OAuth 직후 Supabase session ≠ signupComplete.
- * signupComplete = 약관 동의 + dibay id + 기본 프로필.
+ * signupComplete = 약관 동의만 (법적 최소). @id·프로필·주소는 기능별 gate.
  * mutation API 는 requireSignupCompleteForUser 로 약관 미동의 403.
  * @see docs/auth-account-linking-policy.md
  */
@@ -125,17 +125,20 @@ export function deriveDibaySignupStatus(
   const dibayIdComplete = isDibayIdComplete(profile);
   const profileComplete = isDibayProfileComplete(profile);
   const legacyCompleted = Boolean(profile.onboarding_completed_at);
-  const signupComplete = consentComplete && dibayIdComplete && profileComplete;
+  /**
+   * CONTRACT — signupComplete (앱 HTML gate · DibaySignupGate · proxy · mutation 약관 403)
+   * = consentComplete ONLY (법적 최소).
+   * DO NOT: consent && dibayId && profile — @id/프로필 미완 사용자가
+   *         /community-messenger/rooms|calls 진입 시 POST_LOGIN(/mypage)로 덮임 (2026-06-21 회귀).
+   * @id·프로필·주소·전화: dibayIdComplete / profileComplete + requireProfileCompletion · requireAuthAction.
+   */
+  const signupComplete = consentComplete;
 
   let phase: DibaySignupPhase;
-  if (!consentComplete) {
-    phase = "terms_required";
-  } else if (!dibayIdComplete) {
-    phase = "id_required";
-  } else if (!profileComplete) {
-    phase = "profile_ready";
-  } else {
+  if (signupComplete) {
     phase = "completed";
+  } else {
+    phase = "terms_required";
   }
 
   let onboardingStatus: DibayOnboardingStatusValue = "oauth_authenticated";
