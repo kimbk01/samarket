@@ -154,4 +154,35 @@ describe("runNotificationCampaignSendBatch duplicate prevention", () => {
     expect(out.done).toBe(true);
     expect(targets[0]?.status).toBe("sent");
   });
+
+  it("sends admin marketing through notification_events dispatcher with dedupe key", async () => {
+    createAndDispatchNotificationEvent.mockResolvedValue({
+      ok: true,
+      row: { id: "evt-admin-1", user_id: "u1" },
+    });
+    const { svc, targets } = createSvcFixture();
+    const { runNotificationCampaignSendBatch } = await import(
+      "@/lib/admin/notification-campaigns/run-campaign-send-batch"
+    );
+
+    const out = await runNotificationCampaignSendBatch(svc as never, "camp-1");
+
+    expect(out.ok).toBe(true);
+    expect(out.sent).toBe(1);
+    expect(createAndDispatchNotificationEvent).toHaveBeenCalledWith(
+      svc,
+      expect.objectContaining({
+        userId: "u1",
+        type: "admin_marketing_banner",
+        category: "admin_marketing_banner",
+        dedupeKey: "admin_campaign:camp-1:u1",
+        displayPayload: expect.objectContaining({
+          campaignId: "camp-1",
+          campaignType: "marketing",
+          routeUrl: "/community",
+        }),
+      })
+    );
+    expect(targets[0]?.status).toBe("sent");
+  });
 });

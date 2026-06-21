@@ -8,8 +8,12 @@ import { resolveNotificationSoundProfile } from "@/lib/notifications/policy/noti
 describe("notification policy profiles", () => {
   it("suppresses incoming call signal from normal OS tray contract", () => {
     const profile = resolveNotificationPolicyProfile("incoming_call_signal");
+    const sound = resolveNotificationSoundProfile("incoming_call_signal");
     expect(profile.badgeEnabled).toBe(false);
+    expect(profile.foregroundBehavior).toBe("call_incoming_ui_only");
     expect(profile.backgroundBehavior).toBe("none");
+    expect(sound.enabled).toBe(false);
+    expect(sound.androidChannelId).toBe("dibay_calls_incoming");
     expect(shouldUseOsNotificationForState(profile, "background")).toBe(false);
   });
 

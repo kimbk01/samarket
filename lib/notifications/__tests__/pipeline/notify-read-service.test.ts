@@ -6,6 +6,7 @@ const markMissedCallEventsRead = vi.fn();
 const markAllMissedCallEventsRead = vi.fn();
 const markNotificationEventsReadByCategory = vi.fn();
 const markNotificationEventsReadByThread = vi.fn();
+const markOrderNotificationEventsRead = vi.fn();
 const fetchNotificationBadgeCount = vi.fn();
 const invalidateNotificationBadgeCache = vi.fn();
 
@@ -18,6 +19,8 @@ vi.mock("@/lib/notifications/core/notification-event-repository", () => ({
     markNotificationEventsReadByCategory(...args),
   markNotificationEventsReadByThread: (...args: unknown[]) =>
     markNotificationEventsReadByThread(...args),
+  markOrderNotificationEventsRead: (...args: unknown[]) =>
+    markOrderNotificationEventsRead(...args),
 }));
 
 vi.mock("@/lib/notifications/pipeline/notify-badge-service", () => ({
@@ -30,6 +33,7 @@ import {
   markNotificationCategoryRead,
   markNotificationRead,
   markNotificationThreadRead,
+  markOrderNotificationsRead,
   markRoomRead,
 } from "@/lib/notifications/pipeline/notify-read-service";
 
@@ -44,6 +48,7 @@ describe("notify-read-service", () => {
     markAllMissedCallEventsRead.mockResolvedValue(2);
     markNotificationEventsReadByCategory.mockResolvedValue(3);
     markNotificationEventsReadByThread.mockResolvedValue(4);
+    markOrderNotificationEventsRead.mockResolvedValue(1);
     fetchNotificationBadgeCount.mockResolvedValue({ total: 0 });
   });
 
@@ -86,6 +91,14 @@ describe("notify-read-service", () => {
     const count = await markNotificationThreadRead(sb, "user-1", "room-1");
     expect(count).toBe(4);
     expect(markNotificationEventsReadByThread).toHaveBeenCalledWith(sb, "user-1", "room-1");
+    expect(invalidateNotificationBadgeCache).toHaveBeenCalledWith("user-1");
+    expect(fetchNotificationBadgeCount).toHaveBeenCalled();
+  });
+
+  it("marks order notifications read and refreshes badge immediately", async () => {
+    const count = await markOrderNotificationsRead(sb, "user-1", "order-1");
+    expect(count).toBe(1);
+    expect(markOrderNotificationEventsRead).toHaveBeenCalledWith(sb, "user-1", "order-1");
     expect(invalidateNotificationBadgeCache).toHaveBeenCalledWith("user-1");
     expect(fetchNotificationBadgeCount).toHaveBeenCalled();
   });

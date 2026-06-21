@@ -77,6 +77,36 @@ async function apnsPost(path: string, body: unknown, topic: string): Promise<Sen
   });
 }
 
+function apnsBadgeCount(data: Record<string, unknown>): number | null {
+  const raw = Number(data.badgeCount ?? data.badge_count);
+  if (!Number.isFinite(raw)) return null;
+  return Math.max(0, Math.trunc(raw));
+}
+
+function apnsCategory(data: Record<string, unknown>): string | null {
+  const raw = data.category ?? data.type;
+  return typeof raw === "string" && raw.trim() ? raw.trim() : null;
+}
+
+export function buildApnsAlertBody(input: {
+  title: string;
+  body: string;
+  data: Record<string, unknown>;
+}): Record<string, unknown> {
+  const aps: Record<string, unknown> = {
+    alert: { title: input.title, body: input.body },
+    sound: "default",
+  };
+  const badge = apnsBadgeCount(input.data);
+  if (badge != null) aps.badge = badge;
+  const category = apnsCategory(input.data);
+  if (category) aps.category = category;
+  return {
+    aps,
+    ...input.data,
+  };
+}
+
 export async function sendApnsAlertImpl(input: {
   deviceToken: string;
   title: string;
@@ -92,13 +122,7 @@ export async function sendApnsAlertImpl(input: {
 
   return apnsPost(
     `/3/device/${token}`,
-    {
-      aps: {
-        alert: { title: input.title, body: input.body },
-        sound: "default",
-      },
-      ...input.data,
-    },
+    buildApnsAlertBody(input),
     topic
   );
 }

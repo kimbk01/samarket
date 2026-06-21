@@ -112,7 +112,7 @@ public final class FcmPayloadResolver {
 
   public static String resolveRouteUrl(Map<String, String> data) {
     if (data == null) return null;
-    String url = firstNonEmpty(data.get("url"));
+    String url = firstNonEmpty(data.get("routeUrl"), data.get("route_url"), data.get("url"));
     if (url != null && url.startsWith("/")) return url;
 
     String type = resolveType(data);

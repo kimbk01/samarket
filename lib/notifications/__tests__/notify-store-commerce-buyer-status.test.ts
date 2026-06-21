@@ -12,8 +12,13 @@ vi.mock("@/lib/notifications/notification-unread-count-cache", () => ({
   invalidateNotificationUnreadCountCache: vi.fn(),
 }));
 
+vi.mock("@/lib/notifications/pipeline/notify-read-service", () => ({
+  markOrderNotificationsRead: vi.fn(async () => 1),
+}));
+
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
 import { invalidateNotificationUnreadCountCache } from "@/lib/notifications/notification-unread-count-cache";
+import { markOrderNotificationsRead } from "@/lib/notifications/pipeline/notify-read-service";
 
 function makeSb(updateResult: { error: null | { message: string } } = { error: null }) {
   const updateChain = {
@@ -45,6 +50,7 @@ describe("markPriorBuyerOrderStatusNotificationsRead", () => {
   it("marks prior unread store_order_owner_status for same order", async () => {
     const sb = makeSb();
     await markPriorBuyerOrderStatusNotificationsRead(sb, "user-1", "order-abc");
+    expect(markOrderNotificationsRead).toHaveBeenCalledWith(sb, "user-1", "order-abc");
     expect(sb.from).toHaveBeenCalledWith("notifications");
     expect(invalidateNotificationUnreadCountCache).toHaveBeenCalledWith("user-1");
   });

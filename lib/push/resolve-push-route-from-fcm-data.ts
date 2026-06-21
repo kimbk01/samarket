@@ -32,7 +32,7 @@ export function resolveFcmPushTypeFromData(data: FcmRouteData): string {
 }
 
 export function resolvePushRouteFromFcmData(data: FcmRouteData): string | null {
-  const url = firstNonEmpty(data.url, data.link_url, data.link_url_absolute);
+  const url = firstNonEmpty(data.routeUrl, data.route_url, data.url, data.link_url, data.link_url_absolute);
   if (url.startsWith("/")) return url;
 
   if (url) {
@@ -46,15 +46,18 @@ export function resolvePushRouteFromFcmData(data: FcmRouteData): string | null {
 
   const type = resolveFcmPushTypeFromData(data);
   const callId = firstNonEmpty(data.callId, data.sessionId, data.session_id);
+  const roomId = firstNonEmpty(data.roomId, data.room_id);
 
   if (type === "missed_call" && callId) {
+    if (roomId) {
+      return `/community-messenger/rooms/${encodeURIComponent(roomId)}?focus=call-history&callId=${encodeURIComponent(callId)}`;
+    }
     return `/community-messenger/calls/logs?callId=${encodeURIComponent(callId)}`;
   }
   if (type === "incoming_call" && callId) {
     return `/community-messenger/calls/${encodeURIComponent(callId)}`;
   }
 
-  const roomId = firstNonEmpty(data.roomId, data.room_id);
   if (type === "chat_message" && roomId) {
     return `/community-messenger/rooms/${encodeURIComponent(roomId)}`;
   }

@@ -4,6 +4,7 @@ import { buildOwnerStoreOrderNotificationHref } from "@/lib/business/owner-store
 import { DEFAULT_APP_LANGUAGE, normalizeAppLanguage, type AppLanguageCode } from "@/lib/i18n/config";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 import { invalidateNotificationUnreadCountCache } from "@/lib/notifications/notification-unread-count-cache";
+import { markOrderNotificationsRead } from "@/lib/notifications/pipeline/notify-read-service";
 import { formatMoneyPhp } from "@/lib/utils/format";
 
 const BUYER_COMMERCE_PUSH_KIND = "delivery" as const;
@@ -19,6 +20,9 @@ export async function markPriorBuyerOrderStatusNotificationsRead(
   const oid = orderId.trim();
   if (!uid || !oid) return;
 
+  await markOrderNotificationsRead(sb, uid, oid);
+
+  // Legacy notifications 호환 보조: badge/read truth 는 notification_events 이다.
   const { error } = await sb
     .from("notifications")
     .update({ is_read: true })

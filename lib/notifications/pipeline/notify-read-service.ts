@@ -5,6 +5,7 @@ import {
   markNotificationEventRead,
   markNotificationEventsReadByCategory,
   markNotificationEventsReadByThread,
+  markOrderNotificationEventsRead,
   markRoomNotificationEventsRead,
 } from "@/lib/notifications/core/notification-event-repository";
 import { logMissedCall, logNotifyBadge } from "@/lib/notifications/core/notification-logs";
@@ -68,6 +69,20 @@ export async function markNotificationCategoryRead(
   if (count > 0) {
     invalidateNotificationBadgeCache(userId);
     logNotifyBadge("read_clear", { userId, category, count });
+    await fetchNotificationBadgeCount(sb, userId, { force: true });
+  }
+  return count;
+}
+
+export async function markOrderNotificationsRead(
+  sb: SupabaseClient<any>,
+  userId: string,
+  orderId: string
+): Promise<number> {
+  const count = await markOrderNotificationEventsRead(sb, userId, orderId);
+  if (count > 0) {
+    invalidateNotificationBadgeCache(userId);
+    logNotifyBadge("read_clear", { userId, orderId, count });
     await fetchNotificationBadgeCount(sb, userId, { force: true });
   }
   return count;

@@ -278,6 +278,36 @@ export async function markNotificationEventsReadByCategory(
   return data?.length ?? 0;
 }
 
+export async function markOrderNotificationEventsRead(
+  sb: SupabaseClient<any>,
+  userId: string,
+  orderId: string
+): Promise<number> {
+  const uid = userId.trim();
+  const oid = orderId.trim();
+  if (!uid || !oid) return 0;
+  const now = new Date().toISOString();
+  const { data, error } = await sb
+    .from("notification_events")
+    .update({ unread: false, read_at: now, opened_at: now })
+    .eq("user_id", uid)
+    .in("category", ["order_status", "delivery_status"])
+    .eq("unread", true)
+    .is("read_at", null)
+    .or(
+      [
+        `display_payload->>legacyRefId.eq.${oid}`,
+        `display_payload->legacyMeta->>order_id.eq.${oid}`,
+        `display_payload->legacyMeta->>store_order_id.eq.${oid}`,
+        `display_payload->>orderId.eq.${oid}`,
+        `display_payload->>order_id.eq.${oid}`,
+      ].join(",")
+    )
+    .select("id");
+  if (error) return 0;
+  return data?.length ?? 0;
+}
+
 export async function markNotificationEventsReadByThread(
   sb: SupabaseClient<any>,
   userId: string,

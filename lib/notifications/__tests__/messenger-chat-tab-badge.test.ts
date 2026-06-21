@@ -42,6 +42,12 @@ describe("messenger-chat-tab-badge", () => {
     expect(resolveMessengerChatTabBadgeCount(false)).toBe(5);
   });
 
+  it("does not let owner-hub fallback override a zero notification_events snapshot", () => {
+    hubSnap = { ...OWNER_HUB_BADGE_EMPTY, communityMessengerUnread: 99 };
+    eventsSnap = { total: 0, chat: 0, group: 0, trade: 0, store: 0, missedCall: 0 };
+    expect(resolveMessengerChatTabBadgeCount(false)).toBe(0);
+  });
+
   it("falls back to hub when notification_events snapshot is null", () => {
     eventsSnap = null;
     expect(resolveMessengerChatTabBadgeCount(false)).toBe(3);

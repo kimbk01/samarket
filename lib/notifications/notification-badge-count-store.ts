@@ -87,10 +87,12 @@ async function doFetch(force = false): Promise<void> {
         }, POLL_MS);
       }
     } else {
-      setSnap(null);
+      // badge truth 는 notification_events 의 마지막 정상 snapshot 이다.
+      // 일시적 실패에서 null 로 내리면 owner-hub fallback 이 primary 처럼 보일 수 있다.
+      logNotifyBadge("ui_set", { fetchFailed: true });
     }
   } catch {
-    setSnap(null);
+    logNotifyBadge("ui_set", { fetchFailed: true });
   }
 }
 

@@ -25,7 +25,7 @@ describe("notify-missed-call-pipeline", () => {
     vi.clearAllMocks();
     createNotificationEvent.mockResolvedValue({
       ok: true,
-      row: { id: "evt-missed", user_id: "user-a" },
+      row: { id: "evt-missed", user_id: "user-a", type: "missed_call", category: "missed_call" },
     });
     dispatchNotificationPushIfAllowed.mockResolvedValue(undefined);
   });
@@ -42,12 +42,22 @@ describe("notify-missed-call-pipeline", () => {
     expect(createNotificationEvent).toHaveBeenCalledTimes(2);
     expect(createNotificationEvent).toHaveBeenCalledWith(
       sb,
-      expect.objectContaining({ type: "missed_call", userId: "user-a" })
+      expect.objectContaining({
+        type: "missed_call",
+        category: "missed_call",
+        unread: true,
+        userId: "user-a",
+      })
     );
     expect(createNotificationEvent).toHaveBeenCalledWith(
       sb,
       expect.objectContaining({ type: "missed_call", userId: "user-b" })
     );
     expect(dispatchNotificationPushIfAllowed).toHaveBeenCalledTimes(2);
+    expect(dispatchNotificationPushIfAllowed).toHaveBeenCalledWith(
+      sb,
+      expect.objectContaining({ id: "evt-missed" }),
+      { callPushKind: "missed_call" }
+    );
   });
 });

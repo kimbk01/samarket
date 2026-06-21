@@ -7,7 +7,7 @@ import { useCallStore } from "@/lib/community-messenger/stores/useCallStore";
 import { postNotificationEventOpenedRead } from "@/lib/notifications/client/notification-event-read-client";
 import type { MessengerCallStatus } from "@/lib/community-messenger/stores/useCallStore";
 
-type BannerFeedRow = {
+export type BannerFeedRow = {
   id: string;
   category: string;
   title: string;
@@ -73,6 +73,16 @@ export function isBottomBannerSuppressedByCallStatus(callStatus: MessengerCallSt
   );
 }
 
+export function shouldShowAdminBottomBannerCandidate(
+  next: BannerFeedRow | null,
+  dismissedIds: Record<string, true>,
+  coolingDown: boolean
+): next is BannerFeedRow {
+  if (!next) return false;
+  if (dismissedIds[next.id]) return false;
+  return !coolingDown;
+}
+
 export function DibayBottomNotificationBanner() {
   const router = useRouter();
   const { language } = useI18n();
@@ -99,7 +109,8 @@ export function DibayBottomNotificationBanner() {
         };
         if (!j.ok || cancelled) return;
         const next = j.banner ?? null;
-        if (!next || dismissedIds[next.id] || isBannerCoolingDown(next.id, next.category)) return;
+        const coolingDown = next ? isBannerCoolingDown(next.id, next.category) : false;
+        if (!shouldShowAdminBottomBannerCandidate(next, dismissedIds, coolingDown)) return;
         markBannerShown(next.id, next.category);
         setBanner(next);
       } catch {
