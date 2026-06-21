@@ -76,6 +76,7 @@
     "verify:routes": "node scripts/verify-app-routes.cjs",
     "verify:deploy-imports": "node scripts/verify-deploy-imports.mjs",
     "verify:deploy-imports:staged": "node scripts/verify-deploy-imports.mjs --staged",
+    "verify:vercel-deploy-excludes": "node scripts/verify-vercel-deploy-excludes.mjs",
     "verify:i18n-staged-catalog:staged": "node scripts/verify-i18n-staged-catalog.mjs --staged",
     "verify:pre-commit": "node scripts/verify-pre-commit.mjs",
     "verify:app-boot-consent-contract": "node scripts/verify-app-boot-consent-contract.cjs",

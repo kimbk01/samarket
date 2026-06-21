@@ -36,6 +36,18 @@ const resolvedDistDir = resolveDistDirForNextConfig();
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   ...(resolvedDistDir ? { distDir: resolvedDistDir } : {}),
+  /**
+   * Vercel serverless 함수 번들에서 perf QA·네이티브 산출물 제외
+   * (git 에 남아 있어도 함수 번들·업로드에서 제외)
+   */
+  outputFileTracingExcludes: {
+    "*": [
+      "./docs/perf/**",
+      "./android/**",
+      "./ios/**",
+      "./benchmark-runs/**",
+    ],
+  },
   experimental: {
     /**
      * Webpack 빌드 시 메모리 피크 완화(큰 앱 dev/build 공통). 기존 experimental 과 병합 유지.

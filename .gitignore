@@ -51,6 +51,10 @@ ios/App/App/Kakao.local.xcconfig
 # Android SDK path + local secrets (never commit)
 android/local.properties
 
+# DIBAY perf QA artifacts — device/local only (Vercel serverless 한도 초과 방지)
+docs/perf/**/*.apk
+docs/perf/qa-safe-area/
+
 # vercel
 .vercel
 
