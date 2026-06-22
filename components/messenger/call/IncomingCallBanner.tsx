@@ -1,7 +1,6 @@
 "use client";
 
-import { Phone, PhoneOff, Video } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Phone, PhoneOff } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import {
@@ -11,7 +10,6 @@ import {
   INCOMING_CALL_BANNER_DECLINE_CLASS,
   triggerIncomingCallBannerHaptic,
 } from "@/lib/community-messenger/call-ui/incoming-call-banner-tokens";
-import { computeIncomingRingRemainingSeconds } from "@/lib/community-messenger/messenger-call-ring-timeout";
 import { MESSENGER_FOREGROUND_INCOMING_BANNER_Z_CLASS } from "@/lib/community-messenger/incoming-call-surface";
 
 function peerInitial(label: string): string {
@@ -36,49 +34,29 @@ export type IncomingCallBannerProps = {
   onBlock?: () => void;
 };
 
-function remainingSeconds(startedAt: string | null | undefined, timeoutSeconds: number | null | undefined): number | null {
-  return computeIncomingRingRemainingSeconds(startedAt, timeoutSeconds);
-}
-
-/** Foreground 수신 통화 — Telegram식 compact 상단 floating card (Starbucks 진녹). */
+/** Foreground 수신 — [아바타][이름+종류][거절][수락] compact top pill (앱 밖 native pill 과 동일). */
 export function IncomingCallBanner(props: IncomingCallBannerProps) {
   const { t, safeT } = useI18n();
   const {
-    sessionId,
     peerLabel,
     peerAvatarUrl,
     callKind = "voice",
-    startedAt,
-    ringTimeoutSeconds,
     busyReject,
     busyAccept,
-    showStrangerHint = false,
-    busyBlock = false,
     onExpand,
     onReject,
     onAccept,
-    onBlock,
   } = props;
-  const [remainSec, setRemainSec] = useState<number | null>(() => remainingSeconds(startedAt, ringTimeoutSeconds));
-  useEffect(() => {
-    setRemainSec(remainingSeconds(startedAt, ringTimeoutSeconds));
-    if (!startedAt || ringTimeoutSeconds == null || ringTimeoutSeconds <= 0) return;
-    const id = window.setInterval(() => {
-      setRemainSec(remainingSeconds(startedAt, ringTimeoutSeconds));
-    }, 1000);
-    return () => window.clearInterval(id);
-  }, [ringTimeoutSeconds, sessionId, startedAt]);
 
-  const KindIcon = callKind === "video" ? Video : Phone;
   const callTypeLabel =
     callKind === "video"
       ? safeT("cm_ui_incoming_video_ringing", {
           fallbackKo: "영상 통화",
-          fallbackEn: "Incoming video call",
+          fallbackEn: "Video call",
         })
       : safeT("cm_ui_incoming_voice_ringing", {
           fallbackKo: "음성 통화",
-          fallbackEn: "Incoming voice call",
+          fallbackEn: "Voice call",
         });
 
   const handleReject = () => {
@@ -107,30 +85,19 @@ export function IncomingCallBanner(props: IncomingCallBannerProps) {
           className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden rounded-[16px] px-0.5 py-1 text-left transition-transform active:scale-[0.99]"
           aria-label={t("cm_ui_open_call_screen")}
         >
-          <div className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#F1F8F4] text-[#006241] ring-1 ring-white/20">
+          <div className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#F2F2F7] ring-1 ring-white/15">
             <SamarketThumbnail
               src={peerAvatarUrl}
               fill
               roundedClassName="rounded-full"
-              className="bg-[#F1F8F4]"
+              className="bg-[#F2F2F7]"
               fallbackSrc=""
-              fallbackNode={<span className="sam-text-page-title font-semibold">{peerInitial(peerLabel)}</span>}
+              fallbackNode={<span className="sam-text-page-title font-semibold text-[#3A3A3C]">{peerInitial(peerLabel)}</span>}
             />
-            <span className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#0EA75A] text-white ring-2 ring-[#006241]">
-              <KindIcon size={12} strokeWidth={2.6} />
-            </span>
           </div>
           <div className="min-w-0">
             <p className="truncate sam-text-body font-semibold leading-tight text-white">{peerLabel}</p>
-            {showStrangerHint ? (
-              <p className="mt-0.5 truncate sam-text-xxs font-medium text-amber-200/90">
-                {t("cm_social_stranger_incoming_call")}
-              </p>
-            ) : null}
-            <p className="mt-0.5 truncate sam-text-helper font-medium text-white/72">
-              {callTypeLabel}
-              {remainSec != null ? ` · ${t("cm_ui_ring_remaining_seconds", { count: remainSec })}` : ""}
-            </p>
+            <p className="mt-0.5 truncate sam-text-helper font-medium text-white/65">{callTypeLabel}</p>
           </div>
         </button>
         <button
@@ -141,19 +108,8 @@ export function IncomingCallBanner(props: IncomingCallBannerProps) {
           aria-label={t("cm_ui_reject")}
           data-incoming-call-decline
         >
-          <PhoneOff size={24} strokeWidth={2.4} />
+          <PhoneOff size={22} strokeWidth={2.4} />
         </button>
-        {onBlock ? (
-          <button
-            type="button"
-            disabled={busyBlock || busyReject || busyAccept}
-            onClick={onBlock}
-            className="flex h-10 shrink-0 items-center justify-center rounded-full border border-white/20 px-2.5 sam-text-xxs font-semibold text-white/90 disabled:opacity-40"
-            aria-label={t("cm_social_block")}
-          >
-            {t("cm_social_block")}
-          </button>
-        ) : null}
         <button
           type="button"
           disabled={busyAccept}
@@ -162,7 +118,7 @@ export function IncomingCallBanner(props: IncomingCallBannerProps) {
           aria-label={t("cm_ui_accept")}
           data-incoming-call-accept
         >
-          <Phone size={24} strokeWidth={2.4} />
+          <Phone size={22} strokeWidth={2.4} />
         </button>
       </div>
     </div>

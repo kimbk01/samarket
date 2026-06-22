@@ -38,14 +38,16 @@ export function isVideoIncomingCalleePipPhase(args: VideoPipFirstPolicyArgs): bo
   return false;
 }
 
-/** 발신 보조 PiP 슬롯 — 상대 영상이 메인일 때만 작은 self 타일 (본 화면 solo full 과 중복 금지) */
+/** 발신 보조 PiP 슬롯 — pre-remote 는 self HTML 미리보기, remote 조인 후 Agora local */
 export function shouldShowOutgoingAuxPipPreviewSlot(args: {
   pipFirstOutgoing: boolean;
   localVideoReady: boolean;
   remoteJoined?: boolean;
+  hasPreJoinPreview?: boolean;
 }): boolean {
   if (!args.pipFirstOutgoing || args.localVideoReady) return false;
-  return Boolean(args.remoteJoined);
+  if (!args.remoteJoined) return Boolean(args.hasPreJoinPreview);
+  return true;
 }
 
 /** 수신 보조 PiP 슬롯 — ringing·pre-remote 에 self 미리보기 (메인은 peer hero) */
@@ -119,8 +121,7 @@ export function shouldShowPipFirstLocalPreviewChrome(args: {
     return Boolean(args.preJoinReady || args.localVideoReady);
   }
   if (!args.pipFirstOutgoing) return false;
-  if (!args.remoteJoined) return false;
-  return true;
+  return Boolean(args.preJoinReady || args.localVideoReady);
 }
 
 export function isLiveCommunityMessengerCallSessionStatus(
@@ -149,6 +150,17 @@ export function shouldUseSoloLocalFullVideoLayout(args: {
       callKind: args.callKind,
       sessionStatus: args.sessionStatus,
       isInitiator: Boolean(args.isInitiator),
+    })
+  ) {
+    return false;
+  }
+  if (
+    isVideoPipFirstOutgoingPhase({
+      callKind: args.callKind,
+      sessionStatus: args.sessionStatus,
+      isInitiator: Boolean(args.isInitiator),
+      joined: args.joined,
+      remoteJoined: args.remoteJoined,
     })
   ) {
     return false;

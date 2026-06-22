@@ -4,11 +4,13 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.res.Configuration;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.View;
 import android.view.WindowManager;
+import android.view.animation.Animation;
+import android.view.animation.AnimationUtils;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -16,7 +18,7 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.view.WindowCompat;
 
-/** Lock-screen incoming call UI — accept via web route, reject via native PATCH. */
+/** Lock / background incoming — compact top pill (same structure as in-app Web banner). */
 public class IncomingCallActivity extends AppCompatActivity {
   public static final String EXTRA_CALL_ID = "callId";
   public static final String EXTRA_CALLER_NAME = "callerName";
@@ -35,6 +37,7 @@ public class IncomingCallActivity extends AppCompatActivity {
   private String callId;
   private boolean finished;
   private BroadcastReceiver terminalReceiver;
+  private LinearLayout pill;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -43,10 +46,11 @@ public class IncomingCallActivity extends AppCompatActivity {
     WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
     setContentView(R.layout.activity_incoming_call);
 
-    LinearLayout center = findViewById(R.id.incoming_call_center);
-    LinearLayout actions = findViewById(R.id.incoming_call_actions);
-    IncomingCallUiInsets.applyTopSafeArea(center, 24);
-    IncomingCallUiInsets.applyBottomSafeArea(actions, 16);
+    pill = findViewById(R.id.incoming_call_pill);
+    LinearLayout pillWrap = findViewById(R.id.incoming_call_pill_wrap);
+    IncomingCallUiInsets.applyTopSafeArea(pillWrap, 8);
+    applyTabletStableWidth();
+    playPillEnterAnimation();
 
     callId = firstNonEmpty(getIntent().getStringExtra(EXTRA_CALL_ID));
     if (callId == null) {
@@ -110,7 +114,6 @@ public class IncomingCallActivity extends AppCompatActivity {
 
     String displayName = IncomingCallUiCopy.callerDisplayName(callerName, title, body);
 
-    TextView titleView = findViewById(R.id.incoming_call_title);
     TextView callerView = findViewById(R.id.incoming_call_caller_name);
     TextView kindView = findViewById(R.id.incoming_call_kind);
     TextView initialView = findViewById(R.id.incoming_call_avatar_initial);
@@ -118,7 +121,6 @@ public class IncomingCallActivity extends AppCompatActivity {
     ImageButton acceptBtn = findViewById(R.id.incoming_call_accept);
     ImageButton declineBtn = findViewById(R.id.incoming_call_decline);
 
-    titleView.setVisibility(View.GONE);
     callerView.setText(displayName);
     kindView.setText(IncomingCallUiCopy.statusBrandLabel(this, callType, title, body));
     IncomingCallAvatarHelper.styleInitial(initialView);
@@ -182,7 +184,45 @@ public class IncomingCallActivity extends AppCompatActivity {
     if (finished) return;
     finished = true;
     DibayCallLog.once("activity_finish", callId);
-    finish();
+    if (pill == null) {
+      finish();
+      overridePendingTransition(0, 0);
+      return;
+    }
+    Animation exit = AnimationUtils.loadAnimation(this, R.anim.dibay_incoming_pill_exit);
+    exit.setAnimationListener(
+        new Animation.AnimationListener() {
+          @Override
+          public void onAnimationStart(Animation animation) {}
+
+          @Override
+          public void onAnimationEnd(Animation animation) {
+            IncomingCallActivity.super.finish();
+            overridePendingTransition(0, 0);
+          }
+
+          @Override
+          public void onAnimationRepeat(Animation animation) {}
+        });
+    pill.startAnimation(exit);
+  }
+
+  private void playPillEnterAnimation() {
+    if (pill == null) return;
+    pill.clearAnimation();
+    Animation enter = AnimationUtils.loadAnimation(this, R.anim.dibay_incoming_pill_enter);
+    pill.startAnimation(enter);
+  }
+
+  private void applyTabletStableWidth() {
+    if (pill == null) return;
+    boolean tablet =
+        (getResources().getConfiguration().screenLayout & Configuration.SCREENLAYOUT_SIZE_MASK)
+            >= Configuration.SCREENLAYOUT_SIZE_LARGE;
+    if (tablet) {
+      pill.getLayoutParams().height =
+          getResources().getDimensionPixelSize(R.dimen.dibay_incoming_pill_height_tablet);
+    }
   }
 
   private void applyWakeFlags() {

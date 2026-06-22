@@ -4,7 +4,7 @@
  * 수신 벨 단일 소유 — Web 브라우저 또는 Android Native (Capacitor APK).
  * 동일 callId 재시작 금지. tombstone 이후 start 무시.
  *
- * Android APK: OS ring 은 FCM → {@link IncomingCallRingOwner} (native) only.
+ * Android APK: OS ring 은 native {@link IncomingCallRingOwner} — FCM 또는 poll sync 시 시작.
  * Web sync(null) must not blind-stop native ring before sessions hydrate.
  */
 import { logDibayCall } from "@/lib/community-messenger/call-orchestrator";
@@ -16,7 +16,10 @@ import {
   isCapacitorNativePlatform,
   resolveCapacitorShellPlatform,
 } from "@/lib/platform/capacitor-native";
-import { stopNativeIncomingRingtoneFireAndForget } from "@/lib/push/native/dibay-call-consumed-native-bridge";
+import {
+  startNativeIncomingRingtoneFireAndForget,
+  stopNativeIncomingRingtoneFireAndForget,
+} from "@/lib/push/native/dibay-call-consumed-native-bridge";
 import { canIncomingCallRing } from "@/lib/community-messenger/incoming-call/tombstone";
 
 export type IncomingRingSyncCandidate = {
@@ -96,11 +99,13 @@ export function syncIncomingCallRing(candidate: IncomingRingSyncCandidate | null
   setDibayCallSessionPhase(sid, "incoming");
 
   if (useNativeRingOwner()) {
-    logDibayCall("ring_start_skipped_native_owner", {
+    startNativeIncomingRingtoneFireAndForget(sid);
+    logDibayCall("ring_start", {
       sessionId: sid,
       callId: sid,
       callKind: candidate.callKind,
       source,
+      lane: "native_owner",
     });
     return;
   }

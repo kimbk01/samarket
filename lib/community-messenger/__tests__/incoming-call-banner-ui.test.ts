@@ -7,14 +7,15 @@ function read(path: string): string {
 }
 
 describe("incoming call compact banner UI", () => {
-  it("renders Starbucks dark green compact card with accept/decline phone buttons", () => {
+  it("renders compact gray pill with avatar, label, decline/accept phone buttons", () => {
     const banner = read("components/messenger/call/IncomingCallBanner.tsx");
     expect(banner).toContain("data-incoming-call-compact-banner");
     expect(banner).toContain("INCOMING_CALL_BANNER_BG_CLASS");
-    expect(banner).toContain("#006241");
+    expect(banner).toContain("#3A3A3C");
     expect(banner).toContain("PhoneOff");
-    expect(banner).toContain("<Phone size={24}");
+    expect(banner).toContain("<Phone size={22}");
     expect(banner).not.toContain("<Check size=");
+    expect(banner).not.toContain("cm_ui_ring_remaining_seconds");
     expect(banner).toContain("var(--safe-top");
   });
 

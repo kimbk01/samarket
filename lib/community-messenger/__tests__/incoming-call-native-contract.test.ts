@@ -266,10 +266,14 @@ describe("incoming-call native contract", () => {
     );
   });
 
-  it("lock fullscreen applies bottom safe area for navigation bar", () => {
+  it("lock/background activity uses compact top pill (same as in-app banner)", () => {
     const activity = read("android/app/src/main/java/com/dibay/app/IncomingCallActivity.java");
-    expect(activity).toContain("IncomingCallUiInsets.applyBottomSafeArea");
-    expect(read("android/app/src/main/res/layout/activity_incoming_call.xml")).toContain("incoming_call_actions");
+    expect(activity).toContain("IncomingCallUiInsets.applyTopSafeArea");
+    expect(activity).toContain("incoming_call_pill");
+    const layout = read("android/app/src/main/res/layout/activity_incoming_call.xml");
+    expect(layout).toContain("incoming_call_pill");
+    expect(layout).toContain("bg_dibay_incoming_pill");
+    expect(layout).not.toContain("incoming_call_center");
   });
 
   it("foreground pill uses 440ms enter animation and DIBAY layout", () => {

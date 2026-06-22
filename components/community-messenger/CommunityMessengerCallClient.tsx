@@ -4658,13 +4658,13 @@ export function CommunityMessengerCallClient({
     }
 
     if (pipFirstOutgoing && !remoteJoined) {
-      detachPreJoinHtmlVideo(pipPrejoinVideoRef.current);
-      if (showOutgoingRingCameraPreview || !preJoinVideoPreviewStream) {
+      detachPreJoinHtmlVideo(ringPreviewVideoRef.current);
+      if (!preJoinVideoPreviewStream) {
         setPreJoinVideoElementReady(false);
-        detachPreJoinHtmlVideo(ringPreviewVideoRef.current);
+        detachPreJoinHtmlVideo(pipPrejoinVideoRef.current);
         return;
       }
-      const el = ringPreviewVideoRef.current;
+      const el = pipPrejoinVideoRef.current;
       if (!el) return;
       setPreJoinVideoElementReady(false);
       let cancelled = false;
@@ -4680,11 +4680,7 @@ export function CommunityMessengerCallClient({
 
     if (pipFirstOutgoing) {
       detachPreJoinHtmlVideo(ringPreviewVideoRef.current);
-      /** 보조 PiP 슬롯 — OutgoingRingCameraPreview 또는 pipPrejoin video attach */
-      if (showOutgoingRingCameraPreview) {
-        detachPreJoinHtmlVideo(pipPrejoinVideoRef.current);
-        return;
-      }
+      /** 보조 PiP 슬롯 — remote 조인 후 Agora local bind */
       if (!preJoinVideoPreviewStream) {
         setPreJoinVideoElementReady(false);
         detachPreJoinHtmlVideo(pipPrejoinVideoRef.current);
@@ -4825,6 +4821,7 @@ export function CommunityMessengerCallClient({
         pipFirstOutgoing: pipFirstOutgoingForSlot,
         localVideoReady,
         remoteJoined,
+        hasPreJoinPreview: hasLiveCommunityMessengerVideoPreviewStream(preJoinVideoPreviewStream),
       }) ||
       shouldShowIncomingAuxPipPreviewSlot({
         incomingCalleePip: incomingCalleePipForSlot,
@@ -5554,7 +5551,7 @@ export function CommunityMessengerCallClient({
             : null,
     androidOsPipSafeMode,
     hideOutgoingVideoBrandRow: videoCall,
-    pipFirstOutgoingMainPlaceholder: false,
+    pipFirstOutgoingMainPlaceholder: pipFirstOutgoing && !remoteJoined,
     primaryActions: visibleActions.primaryActions,
     secondaryActions: visibleActions.secondaryActions,
     mainVideoSlot: videoCall ? (

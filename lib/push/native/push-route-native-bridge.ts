@@ -19,6 +19,7 @@ export type NativeIncomingCallPlugin = {
     at?: number;
   }>;
   markCallConsumed(options: { sessionId: string; reason?: string }): Promise<void>;
+  startIncomingRingtone(options: { sessionId: string }): Promise<void>;
   stopIncomingRingtone(options: { sessionId?: string }): Promise<void>;
   isCallConsumed(options: {
     sessionId: string;

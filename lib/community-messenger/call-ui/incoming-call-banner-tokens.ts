@@ -1,10 +1,10 @@
-/** Foreground compact incoming call banner — Android/iOS Web 동일 톤 (Starbucks 진녹). */
-export const INCOMING_CALL_BANNER_BG_CLASS = "bg-[#006241]";
-export const INCOMING_CALL_BANNER_BORDER_CLASS = "border-[#004F35]/40";
+/** Compact incoming call banner — in-app Web / native pill 동일 구조 (iOS heads-up 참조). */
+export const INCOMING_CALL_BANNER_BG_CLASS = "bg-[#3A3A3C]";
+export const INCOMING_CALL_BANNER_BORDER_CLASS = "border-white/10";
 export const INCOMING_CALL_BANNER_ACCEPT_CLASS =
-  "bg-[#22C55E] text-white shadow-[0_10px_22px_rgba(34,197,94,0.32)]";
+  "bg-[#34C759] text-white shadow-[0_8px_18px_rgba(52,199,89,0.28)]";
 export const INCOMING_CALL_BANNER_DECLINE_CLASS =
-  "bg-[#EF1035] text-white shadow-[0_10px_22px_rgba(239,16,53,0.28)]";
+  "bg-[#FF3B30] text-white shadow-[0_8px_18px_rgba(255,59,48,0.28)]";
 
 export function triggerIncomingCallBannerHaptic(ms = 12): void {
   if (typeof navigator === "undefined" || !("vibrate" in navigator)) return;
