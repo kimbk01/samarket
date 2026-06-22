@@ -140,7 +140,7 @@ import {
   hydrateDibayCallConsumedFromNative,
   isCallConsumedIncludingNative,
 } from "@/lib/push/native/dibay-call-consumed-native-bridge";
-import { getNativeIncomingCallPlugin } from "@/lib/push/native/push-route-native-bridge";
+import { getNativeIncomingCallPluginRef } from "@/lib/push/native/push-route-native-bridge";
 import { incomingRingTimeoutMsFromConfig } from "@/lib/community-messenger/messenger-call-ring-timeout";
 import { acceptIncomingCallOnce, runIncomingCallReject } from "@/lib/community-messenger/incoming-call-accept-gateway";
 import { callEngineActions } from "@/lib/community-messenger/call-engine";
@@ -1340,12 +1340,11 @@ export function GlobalCommunityMessengerIncomingCall() {
 
   useEffect(() => {
     if (!isCapacitorNativePlatform()) return;
-    void getNativeIncomingCallPlugin().then((plugin) => {
-      if (!plugin) return;
-      void plugin.getForegroundIncomingCallId().then((res) => {
-        const id = res.callId?.trim();
-        if (id) setNativeForegroundIncomingCallId(id);
-      });
+    const ref = getNativeIncomingCallPluginRef();
+    if (!ref) return;
+    void ref.plugin.getForegroundIncomingCallId().then((res) => {
+      const id = res.callId?.trim();
+      if (id) setNativeForegroundIncomingCallId(id);
     });
   }, []);
 

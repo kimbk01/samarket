@@ -32,17 +32,18 @@ export type NativeIncomingCallPlugin = {
   getForegroundIncomingCallId(): Promise<{ callId?: string | null }>;
 };
 
-let pluginPromise: Promise<NativeIncomingCallPlugin | null> | null = null;
+/** Capacitor plugin proxy exposes `then`; never return the bare plugin through Promise chains (`NativeIncomingCall.then()` UNIMPLEMENTED). */
+export type NativeIncomingCallPluginRef = {
+  readonly plugin: NativeIncomingCallPlugin;
+};
+
+let pluginPromise: Promise<NativeIncomingCallPluginRef | null> | null = null;
 let syncPlugin: NativeIncomingCallPlugin | null | undefined;
 
-/**
- * Capacitor plugin proxies trap arbitrary properties, including `then`.
- * Promise/async assimilation would call `NativeIncomingCall.then()` and throw UNIMPLEMENTED.
- */
-function resolveNativePluginWithoutThenableAssimilation(
-  plugin: NativeIncomingCallPlugin,
-): Promise<NativeIncomingCallPlugin> {
-  return Promise.resolve({ plugin }).then((wrapped) => wrapped.plugin);
+function wrapNativeIncomingCallPlugin(
+  plugin: NativeIncomingCallPlugin | null,
+): NativeIncomingCallPluginRef | null {
+  return plugin ? { plugin } : null;
 }
 
 /** User-gesture ring stop — await 없이 Capacitor plugin 호출 (accept/reject 즉시). */
@@ -57,17 +58,20 @@ export function getSyncNativeIncomingCallPlugin(): NativeIncomingCallPlugin | nu
   return syncPlugin;
 }
 
-export function getNativeIncomingCallPlugin(): Promise<NativeIncomingCallPlugin | null> {
+export function getNativeIncomingCallPluginRef(): NativeIncomingCallPluginRef | null {
+  return wrapNativeIncomingCallPlugin(getSyncNativeIncomingCallPlugin());
+}
+
+export function getNativeIncomingCallPlugin(): Promise<NativeIncomingCallPluginRef | null> {
   if (!isCapacitorNativePlatform()) return Promise.resolve(null);
-  const sync = getSyncNativeIncomingCallPlugin();
-  if (sync) return resolveNativePluginWithoutThenableAssimilation(sync);
+  const ref = getNativeIncomingCallPluginRef();
+  if (ref) return Promise.resolve(ref);
   if (!pluginPromise) {
     pluginPromise = (async () => {
       try {
         const { registerPlugin: register } = await import("@capacitor/core");
-        return await resolveNativePluginWithoutThenableAssimilation(
-          register<NativeIncomingCallPlugin>("NativeIncomingCall"),
-        );
+        syncPlugin = register<NativeIncomingCallPlugin>("NativeIncomingCall");
+        return wrapNativeIncomingCallPlugin(syncPlugin);
       } catch {
         return null;
       }
@@ -79,7 +83,8 @@ export function getNativeIncomingCallPlugin(): Promise<NativeIncomingCallPlugin 
 export async function readNativePersistedPendingPushRoute(
   now = Date.now(),
 ): Promise<PendingPushRoute | null> {
-  const plugin = await getNativeIncomingCallPlugin();
+  const ref = await getNativeIncomingCallPlugin();
+  const plugin = ref?.plugin;
   if (!plugin) return null;
   try {
     const result = await plugin.getPendingPushRoute();
@@ -101,7 +106,8 @@ export async function readNativePersistedPendingPushRoute(
 }
 
 export async function clearNativePersistedPendingPushRoute(): Promise<void> {
-  const plugin = await getNativeIncomingCallPlugin();
+  const ref = await getNativeIncomingCallPlugin();
+  const plugin = ref?.plugin;
   if (!plugin) return;
   try {
     await plugin.clearPendingPushRoute();
@@ -113,7 +119,8 @@ export async function clearNativePersistedPendingPushRoute(): Promise<void> {
 export async function readNativePersistedCallPendingRoute(
   now = Date.now(),
 ): Promise<PendingPushRoute | null> {
-  const plugin = await getNativeIncomingCallPlugin();
+  const ref = await getNativeIncomingCallPlugin();
+  const plugin = ref?.plugin;
   if (!plugin?.getPendingCallRoute) return null;
   try {
     const result = await plugin.getPendingCallRoute();
@@ -131,7 +138,8 @@ export async function readNativePersistedCallPendingRoute(
 }
 
 export async function clearNativePersistedCallPendingRoute(): Promise<void> {
-  const plugin = await getNativeIncomingCallPlugin();
+  const ref = await getNativeIncomingCallPlugin();
+  const plugin = ref?.plugin;
   if (!plugin?.clearPendingCallRoute) return;
   try {
     await plugin.clearPendingCallRoute();

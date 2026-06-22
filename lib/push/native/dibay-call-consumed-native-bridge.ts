@@ -37,7 +37,8 @@ export function syncDibayCallConsumedToNative(
   const sid = sessionId.trim();
   if (!sid) return;
   void (async () => {
-    const plugin = await getNativeIncomingCallPlugin();
+    const ref = await getNativeIncomingCallPlugin();
+    const plugin = ref?.plugin;
     if (!plugin?.markCallConsumed) return;
     try {
       await plugin.markCallConsumed({ sessionId: sid, reason });
@@ -56,7 +57,8 @@ export function stopNativeIncomingRingtoneFireAndForget(sessionId?: string | nul
     return;
   }
   void (async () => {
-    const asyncPlugin = await getNativeIncomingCallPlugin();
+    const ref = await getNativeIncomingCallPlugin();
+    const asyncPlugin = ref?.plugin;
     if (!asyncPlugin?.stopIncomingRingtone) return;
     try {
       await asyncPlugin.stopIncomingRingtone(sid ? { sessionId: sid } : {});
@@ -70,7 +72,8 @@ export function stopNativeIncomingRingtoneFireAndForget(sessionId?: string | nul
 export async function hydrateDibayCallConsumedFromNative(
   hardClearedAt?: Map<string, number>
 ): Promise<number> {
-  const plugin = await getNativeIncomingCallPlugin();
+  const ref = await getNativeIncomingCallPlugin();
+  const plugin = ref?.plugin;
   if (!plugin?.listConsumedCallIds) return 0;
   try {
     const result = await plugin.listConsumedCallIds();
@@ -101,7 +104,8 @@ export async function isCallConsumedIncludingNative(sessionId: string): Promise<
   const sid = sessionId.trim();
   if (!sid) return false;
   if (isDibayCallConsumed(sid)) return true;
-  const plugin = await getNativeIncomingCallPlugin();
+  const ref = await getNativeIncomingCallPlugin();
+  const plugin = ref?.plugin;
   if (!plugin?.isCallConsumed) return false;
   try {
     const result = await plugin.isCallConsumed({ sessionId: sid });
@@ -125,7 +129,8 @@ export type PendingTerminalEvent = { sessionId: string; status: string };
 
 /** Drain native terminal queue into Web handlers (backup when inject missed React mount). */
 export async function drainPendingTerminalEventsFromNative(): Promise<PendingTerminalEvent[]> {
-  const plugin = await getNativeIncomingCallPlugin();
+  const ref = await getNativeIncomingCallPlugin();
+  const plugin = ref?.plugin;
   if (!plugin?.drainPendingTerminalEvents) return [];
   try {
     const result = await plugin.drainPendingTerminalEvents();

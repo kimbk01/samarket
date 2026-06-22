@@ -282,8 +282,9 @@ describe("incoming-call native contract", () => {
   it("native plugin proxy is wrapped so Promise resolution does not call .then()", () => {
     const src = read("lib/push/native/push-route-native-bridge.ts");
     expect(src).toContain("NativeIncomingCall.then()");
-    expect(src).toContain("resolveNativePluginWithoutThenableAssimilation");
-    expect(src).toContain("if (sync) return resolveNativePluginWithoutThenableAssimilation(sync)");
+    expect(src).toContain("NativeIncomingCallPluginRef");
+    expect(src).toContain("wrapNativeIncomingCallPlugin");
+    expect(src).toContain("return Promise.resolve(ref)");
   });
 });
 
