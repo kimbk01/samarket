@@ -39,6 +39,19 @@ import {
   buildIncomingPresenterDecisionPayload,
   logIncomingPresenterDecision,
 } from "@/lib/community-messenger/incoming-call/incoming-presenter-decision-log";
+import { markIncomingCallNativeWake, markIncomingCallPollHit } from "@/lib/community-messenger/incoming-call-trace-bridge";
+import { releaseLocalCallLifecycleForTerminalSync } from "@/lib/call/release-local-call-lifecycle";
+import {
+  getActiveCallSessionCallId,
+  isLiveActiveCallPhase,
+  readActiveCallSessionSnapshot,
+  subscribeActiveCallSession,
+} from "@/lib/call/active-call-session";
+import {
+  readAndroidOsPipCallSessionId,
+  readDockedCallSessionId,
+  readMinimizedCommunityCallSessionId,
+} from "@/lib/community-messenger/direct-call-minimize";
 import { resetAllIncomingCallRuntime } from "@/lib/community-messenger/incoming-call-cleanup";
 import {
   clearNativeCalleeAcceptPending,
@@ -174,7 +187,6 @@ import {
 } from "@/lib/community-messenger/dibay-fcm-call-bridge";
 import { logDibayCall } from "@/lib/community-messenger/call-orchestrator";
 import { primeCommunityMessengerCallConnectionPrefetch } from "@/lib/community-messenger/call-connection-prefetch";
-import { getActiveCallSessionCallId, subscribeActiveCallSession } from "@/lib/call/active-call-session";
 import {
   filterIncomingSessionsRespectingConsumed,
   filterIncomingSessionsRespectingDismissed,
@@ -509,10 +521,13 @@ export function GlobalCommunityMessengerIncomingCall() {
                 count: serverList.length,
                 hasNew,
               });
-              if (hasNew) {
+              if (hasNew && serverList[0]?.id) {
+                markIncomingCallPollHit(serverList[0].id, serverList.length);
                 console.info("[call-flow] incoming_poll_overlay_open", {
                   sessionId: serverList[0]?.id,
                 });
+              } else if (serverList[0]?.id) {
+                markIncomingCallPollHit(serverList[0].id, serverList.length);
               }
             } else {
               prevIncomingRingingIdsRef.current = new Set();
@@ -1366,6 +1381,7 @@ export function GlobalCommunityMessengerIncomingCall() {
             return;
           }
           if (sid) {
+            markIncomingCallNativeWake(sid, "fcm_wake");
             logDibayCall("incoming_received", { sessionId: sid, callId: sid, source: "fcm_wake" });
           }
           bumpIncomingListFastSync();
@@ -1446,6 +1462,7 @@ export function GlobalCommunityMessengerIncomingCall() {
               if (p.eventType === "INSERT" && p.new && typeof p.new.id === "string") {
                 const insertSid = String(p.new.id).trim();
                 if (insertSid) {
+                  markIncomingCallNativeWake(insertSid, "realtime_insert");
                   cmCallIncomingTraceMergeFromStorage(insertSid);
                   cmCallIncomingTracePatch(
                     insertSid,
@@ -1783,6 +1800,27 @@ export function GlobalCommunityMessengerIncomingCall() {
     () => null,
   );
   const effectiveViewerLiveSessionId = viewerLiveSessionId ?? clientLiveCallSessionId;
+
+  /** 종료 PATCH 실패 등으로 client activeCallSession 만 남으면 수신 busy·연속 발신 차단 — live+dock 제외 */
+  useEffect(() => {
+    const snap = readActiveCallSessionSnapshot();
+    const orphanId = snap?.callId?.trim() ?? clientLiveCallSessionId?.trim() ?? "";
+    if (!orphanId) return;
+    const onDedicatedCallRoute =
+      typeof pathname === "string" &&
+      pathname.startsWith("/community-messenger/calls/") &&
+      pathname !== "/community-messenger/calls/outgoing";
+    if (onDedicatedCallRoute) return;
+    const retainedInPresentation =
+      readMinimizedCommunityCallSessionId() === orphanId ||
+      readDockedCallSessionId() === orphanId ||
+      readAndroidOsPipCallSessionId() === orphanId;
+    if (retainedInPresentation) return;
+    if (snap && isLiveActiveCallPhase(snap.phase)) return;
+    if (isDibayCallConsumed(orphanId) || (snap && !isLiveActiveCallPhase(snap.phase))) {
+      releaseLocalCallLifecycleForTerminalSync(orphanId, "stale_active_session_reconcile");
+    }
+  }, [clientLiveCallSessionId, pathname]);
 
   const inMessengerRoom =
     typeof pathname === "string" && pathname.startsWith("/community-messenger/rooms/");

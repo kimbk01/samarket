@@ -106,12 +106,12 @@ import {
   dibayIncomingLaneStopRing,
 } from "@/lib/community-messenger/call-lifecycle";
 import {
-  hardClearActiveCallSession,
   patchActiveCallSessionMachinePhase,
   patchActiveCallSessionPhase,
   setActiveCallSession,
+  getActiveCallSessionCallId,
 } from "@/lib/call/active-call-session";
-import { releaseCallActionLock } from "@/lib/call/call-action-lock";
+import { releaseLocalCallLifecycleForTerminalSync } from "@/lib/call/release-local-call-lifecycle";
 import {
   mapSessionStatusToActiveCallPhase,
   mapSessionStatusToMachinePhase,
@@ -1755,8 +1755,7 @@ export function CommunityMessengerCallClient({
     if (!s?.id) return;
     if (isTerminalCallSessionStatus(s.status)) {
       stopCallHeartbeatWatchdog(s.id);
-      void hardClearActiveCallSession(s.id, "remote_ended");
-      releaseCallActionLock("terminal");
+      releaseLocalCallLifecycleForTerminalSync(s.id, "call_client_terminal");
       return;
     }
     const phase = mapSessionStatusToActiveCallPhase(s, joined);
@@ -1865,6 +1864,20 @@ export function CommunityMessengerCallClient({
       cmCallAudioCleanup("call_client_route_unmount", { sessionId });
       joiningRef.current = false;
       if (shouldSkipCallClientUnmountDispose(sessionId)) return;
+      const cur = sessionRef.current;
+      const sid = sessionId.trim();
+      if (cur && isTerminalCallSessionStatus(cur.status)) {
+        releaseLocalCallLifecycleForTerminalSync(cur.id, "call_client_unmount");
+      } else if (isCommunityMessengerTempCallSessionId(sid)) {
+        releaseLocalCallLifecycleForTerminalSync(sid, "bootstrap_abandon");
+      } else if (cur?.status === "ringing" && cur.id === sid) {
+        releaseLocalCallLifecycleForTerminalSync(sid, "call_client_unmount");
+      } else {
+        const activeId = getActiveCallSessionCallId();
+        if (activeId && activeId === sid) {
+          releaseLocalCallLifecycleForTerminalSync(activeId, "call_client_unmount");
+        }
+      }
       void disposeCallMedia({ domAudioNuclear: false }).catch(() => {});
     };
   }, [disposeCallMedia, sessionId]);

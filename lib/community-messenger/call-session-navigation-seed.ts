@@ -34,7 +34,7 @@ import {
 } from "@/lib/community-messenger/direct-call-minimize";
 import { resetCommunityMessengerCallRuntimeSurface, forceResetCommunityMessengerCallRuntimeSurface } from "@/lib/community-messenger/call-runtime-registry";
 import { notifyCommunityCallHostSync } from "@/components/layout/providers/CommunityMessengerActiveCallHost";
-import { hardClearActiveCallSession } from "@/lib/call/active-call-session";
+import { releaseLocalCallLifecycleForTerminalSync } from "@/lib/call/release-local-call-lifecycle";
 import {
   resolveDirectCallDenyUserMessageFromApiError,
 } from "@/lib/community-messenger/direct-call-permission-messages";
@@ -242,7 +242,9 @@ export function finalizeCommunityMessengerCallTerminalExit(
   const sid = sessionId.trim();
   pinCommunityMessengerCallTerminalSurfaceDismiss(sid);
   if (sid) {
-    void hardClearActiveCallSession(sid, source);
+    releaseLocalCallLifecycleForTerminalSync(sid, source);
+  } else {
+    releaseLocalCallLifecycleForTerminalSync(null, source);
   }
   navigateToCommunityMessengerCallLogsAfterTerminal(router);
 }

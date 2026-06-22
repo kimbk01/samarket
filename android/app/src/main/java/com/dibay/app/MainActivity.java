@@ -217,8 +217,8 @@ public class MainActivity extends BridgeActivity {
             + callType
             + "'}}));}catch(e){}})();";
     webView.post(() -> webView.evaluateJavascript(js, null));
-    Log.i("DIBAY_CALL", "[DIBAY_CALL] incoming_received callId=" + payload.callId + " source=foreground_event");
-    Log.i(ROUTE_LOG_TAG, "[call-native] foreground_incoming_event callId=" + payload.callId);
+    Log.i("DIBAY_CALL", "[DIBAY_CALL] incoming_received callId=" + payload.callId + " source=foreground_event deliveryAt=" + System.currentTimeMillis());
+    Log.i(ROUTE_LOG_TAG, "[call-native] foreground_incoming_event callId=" + payload.callId + " deliveryAt=" + System.currentTimeMillis());
   }
 
   private void injectForegroundIncomingUiEvent(String callId, boolean visible) {

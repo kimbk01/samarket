@@ -60,6 +60,12 @@ export const SSOT_SOURCE_CONTRACT_REGISTRY: readonly SsotSourceContractEntry[] =
   },
   {
     id: "cm-call-lifecycle-local-release",
+    file: "lib/call/release-local-call-lifecycle.ts",
+    marker: "SSOT — 통화 종료·취소·언마운트 시 클라 잔류 상태 제거",
+    also: ["releaseLocalCallLifecycleForTerminal", "releaseLocalCallLifecycleForTerminalSync"],
+  },
+  {
+    id: "cm-call-lifecycle-local-release-active",
     file: "lib/call/active-call-session.ts",
     marker: "SSOT_CONTRACT: cm-call-lifecycle-local-release releaseLocalCallSession peer PATCH 금지",
     also: ["releaseLocalCallSession", "hardClearActiveCallSession"],

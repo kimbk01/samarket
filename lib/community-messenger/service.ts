@@ -17274,6 +17274,24 @@ async function forceEndLiveDirectCallSessionsInRoom(sb: SupabaseLike, roomId: st
     .in("status", ["ringing", "active"]);
 }
 
+/** fresh 발신 전 — DB zombie live(ringing|active) 세션 강제 종료 (클라 종료 PATCH 실패·앱 강종 대비) */
+async function forceEndAllLiveDirectCallSessionsForUser(sb: SupabaseLike, userId: string): Promise<void> {
+  const uid = trimText(userId);
+  if (!uid) return;
+  const now = nowIso();
+  await (sb as any)
+    .from("community_messenger_call_sessions")
+    .update({
+      status: "ended",
+      ended_at: now,
+      ended_reason: "redial_replaced",
+      updated_at: now,
+    })
+    .eq("session_mode", "direct")
+    .or(`initiator_user_id.eq.${uid},recipient_user_id.eq.${uid}`)
+    .in("status", ["ringing", "active"]);
+}
+
 function waitCommunityMessengerCallSessionStart(ms: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
@@ -17420,6 +17438,10 @@ export async function startCommunityMessengerCallSession(input: {
   const tGateStart = performance.now();
   if (!isGroupRoom && sb && dialFresh) {
     await terminateLiveDirectCallSessionsInRoom(sb, input.userId, roomId);
+    await forceEndAllLiveDirectCallSessionsForUser(sb, input.userId);
+    if (peerUserId) {
+      await forceEndAllLiveDirectCallSessionsForUser(sb, peerUserId);
+    }
     invalidateActiveCallSessionByUserRoomCacheForRoom(roomId);
     if (!(await waitLiveDirectCallSessionClearedInRoom(sb, roomId))) {
       await terminateLiveDirectCallSessionsInRoom(sb, input.userId, roomId);
@@ -17461,6 +17483,12 @@ export async function startCommunityMessengerCallSession(input: {
         }
         if (await getLiveDirectCallSessionIdInRoom(sb, roomId)) {
           return { ok: false, error: "call_session_start_failed" };
+        }
+        if (await userHasLiveDirectCallSessionOutsideRoom(sb, input.userId, roomId)) {
+          await forceEndAllLiveDirectCallSessionsForUser(sb, input.userId);
+        }
+        if (peerUserId && (await userHasLiveDirectCallSessionOutsideRoom(sb, peerUserId, roomId))) {
+          await forceEndAllLiveDirectCallSessionsForUser(sb, peerUserId);
         }
         if (await userHasLiveDirectCallSessionOutsideRoom(sb, input.userId, roomId)) {
           return { ok: false, error: "peer_busy" };

@@ -14,6 +14,7 @@ import {
   shouldHideGlobalIncomingOverlayForSession,
   type IncomingCallSurface,
 } from "@/lib/community-messenger/incoming-call-surface";
+import { readIncomingCallTraceCorrelation } from "@/lib/community-messenger/incoming-call-trace-bridge";
 import { isDibayCallConsumed } from "@/lib/community-messenger/incoming-call-state";
 
 export type IncomingPresenterDecisionInput = {
@@ -58,6 +59,9 @@ export type IncomingPresenterDecisionPayload = {
   reason: string;
   ringingSessionIds: string[];
   firstRingingSkipDetail: string | null;
+  nativeWakeMatched: boolean | null;
+  nativeWakeAgeMs: number | null;
+  pollHitAgeMs: number | null;
 };
 
 function diagnoseFirstRingingCalleeNull(
@@ -190,6 +194,20 @@ export function buildIncomingPresenterDecisionPayload(
       .filter((s) => s.status === "ringing")
       .map((s) => s.id),
     firstRingingSkipDetail,
+    ...(callId
+      ? (() => {
+          const trace = readIncomingCallTraceCorrelation(callId);
+          return {
+            nativeWakeMatched: trace.nativeWakeMatched,
+            nativeWakeAgeMs: trace.nativeWakeAgeMs,
+            pollHitAgeMs: trace.pollHitAgeMs,
+          };
+        })()
+      : {
+          nativeWakeMatched: null,
+          nativeWakeAgeMs: null,
+          pollHitAgeMs: null,
+        }),
   };
 }
 

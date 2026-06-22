@@ -26,10 +26,12 @@ describe("sw.js incoming-call wake regression", () => {
 });
 
 describe("call terminal navigation policy", () => {
-  it("terminal paths use call_logs; non-terminal keeps navigateBack", () => {
+  it("terminal paths use call_logs and release local lifecycle SSOT", () => {
     const client = read("components/community-messenger/CommunityMessengerCallClient.tsx");
-    // SSOT marker: ssot-source-contract-markers.test.ts (messenger-call-terminal-nav)
+    const seed = read("lib/community-messenger/call-session-navigation-seed.ts");
     expect(client).toContain("finalizeCommunityMessengerCallTerminalExit");
+    expect(client).toContain("releaseLocalCallLifecycleForTerminalSync");
+    expect(seed).toContain("releaseLocalCallLifecycleForTerminalSync");
     expect(client).toContain("beginRingingCallDismiss");
     expect(client).toContain("closeTerminalView");
     // loading cancel / ringing block / pip minimize still use navigateBack

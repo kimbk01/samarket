@@ -192,6 +192,7 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
     MainActivity.persistCallPendingRoute(this, pendingRoute, payload, expiry.effectiveExpiresAtMs);
 
     IncomingCallPushDelivery.deliver(this, payload);
+    Log.i(TAG, "[call-push] incoming_delivery_complete callId=" + callId + " deliveryAt=" + receivedAtMs);
   }
 
   private static String formatIsoUtc(long millis) {
