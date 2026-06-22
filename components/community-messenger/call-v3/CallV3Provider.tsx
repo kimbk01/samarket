@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import { callV3HandleRemoteTerminal, callV3IncomingDiscovered } from "@/lib/community-messenger/call-v3/call-v3-actions";
 import { callV3FetchSession } from "@/lib/community-messenger/call-v3/call-v3-api";
@@ -28,6 +29,7 @@ import {
 } from "@/lib/push/native/push-route-native-bridge";
 import {
   isCallV3NativeNotificationRoute,
+  isCallV3NotificationWakeRoute,
   resolveCallV3NativeRouteSource,
 } from "@/lib/push/native/call-v3-native-route";
 
@@ -96,6 +98,13 @@ async function consumeNativePendingCallRoutes(): Promise<void> {
   handleCallV3WindowLocationRouteWake({ source: "notification_tap" });
 }
 
+function buildCallV3RouterPath(pathname: string | null): string | null {
+  if (!pathname || !isCallV3NativeNotificationRoute(pathname)) return null;
+  const search = typeof window !== "undefined" ? window.location.search : "";
+  const path = `${pathname}${search}`;
+  return isCallV3NotificationWakeRoute(path) ? path : null;
+}
+
 type CallV3ProviderProps = {
   children?: ReactNode;
 };
@@ -106,6 +115,35 @@ type CallV3ProviderProps = {
  */
 export function CallV3Provider({ children }: CallV3ProviderProps) {
   const [userId, setUserId] = useState<string | null>(null);
+  const pathname = usePathname();
+
+  useLayoutEffect(() => {
+    if (!isDibayCallV3SafeLaneEnabled()) return;
+    const path = buildCallV3RouterPath(pathname);
+    if (!path) return;
+    handleCallV3NotificationRouteWake(path, { source: "notification_tap" });
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!isDibayCallV3SafeLaneEnabled()) return;
+
+    const syncWakeFromWindowLocation = () => {
+      handleCallV3WindowLocationRouteWake({ source: "notification_tap" });
+    };
+
+    syncWakeFromWindowLocation();
+    window.addEventListener("popstate", syncWakeFromWindowLocation);
+    const intervalId = window.setInterval(syncWakeFromWindowLocation, 500);
+    const stopPollingId = window.setTimeout(() => {
+      window.clearInterval(intervalId);
+    }, 6000);
+
+    return () => {
+      window.removeEventListener("popstate", syncWakeFromWindowLocation);
+      window.clearInterval(intervalId);
+      window.clearTimeout(stopPollingId);
+    };
+  }, []);
 
   useEffect(() => {
     if (!isDibayCallV3SafeLaneEnabled()) return;

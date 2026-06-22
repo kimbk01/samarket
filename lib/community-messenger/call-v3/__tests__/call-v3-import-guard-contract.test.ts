@@ -95,6 +95,7 @@ describe("call-v3 import isolation contract", () => {
     const provider = read("components/community-messenger/call-v3/CallV3Provider.tsx");
     expect(provider).toContain("handleCallV3NotificationRouteWake");
     expect(provider).toContain("handleCallV3WindowLocationRouteWake");
+    expect(provider).toContain("usePathname");
     expect(provider).toContain("native_notification_received");
     expect(provider).toContain("consumeNativePendingCallRoutes");
     expect(provider).toContain("dibay:push-route");
