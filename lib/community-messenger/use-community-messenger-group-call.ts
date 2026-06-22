@@ -27,6 +27,7 @@ import {
 } from "@/lib/community-messenger/messenger-call-sound-config-client";
 import { incomingRingTimeoutMsFromConfig } from "@/lib/community-messenger/messenger-call-ring-timeout";
 import { patchCommunityMessengerCallMissedOnce } from "@/lib/community-messenger/messenger-call-missed-patch";
+import { callEngineActions } from "@/lib/community-messenger/call-engine";
 import { MESSENGER_CALL_USER_MSG } from "@/lib/community-messenger/messenger-call-user-messages";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { translate, type MessageKey } from "@/lib/i18n/messages";
@@ -545,13 +546,11 @@ export function useCommunityMessengerGroupCall(args: Props) {
         setErrorMessage(cmTr(getCallMediaPermissionBlockedMessageKey(activeCall.callKind)));
         return false;
       }
-      const acceptRes = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(activeCall.id)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "accept" }),
+      const acceptJson = await callEngineActions.acceptIncoming({
+        callId: activeCall.id,
+        source: "group_call_accept",
       });
-      const acceptJson = (await acceptRes.json().catch(() => ({}))) as { ok?: boolean };
-      if (!acceptRes.ok || !acceptJson.ok) {
+      if (!acceptJson.ok) {
         setErrorMessage(cmTr("cm_ui_group_call_accept_failed"));
         return false;
       }
@@ -588,13 +587,12 @@ export function useCommunityMessengerGroupCall(args: Props) {
     await cleanupMedia();
     setPanel(null);
     try {
-      const patchRes = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(activeCall.id)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "reject" }),
+      const patchJson = await callEngineActions.patch({
+        callId: activeCall.id,
+        action: "reject",
+        source: "group_call_reject",
       });
-      const patchJson = (await patchRes.json().catch(() => ({}))) as { ok?: boolean };
-      if (!patchRes.ok || !patchJson.ok) {
+      if (!patchJson.ok) {
         setErrorMessage(MESSENGER_CALL_USER_MSG.sessionRejectFailed);
         await args.onRefresh();
         return;
@@ -611,13 +609,12 @@ export function useCommunityMessengerGroupCall(args: Props) {
     if (!args.enabled || !sessionId) return;
     setBusy("call-cancel");
     try {
-      const patchRes = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "cancel" }),
+      const patchJson = await callEngineActions.patch({
+        callId: sessionId,
+        action: "cancel",
+        source: "group_call_cancel",
       });
-      const patchJson = (await patchRes.json().catch(() => ({}))) as { ok?: boolean };
-      if (!patchRes.ok || !patchJson.ok) {
+      if (!patchJson.ok) {
         setErrorMessage(MESSENGER_CALL_USER_MSG.groupCancelFailed);
         return;
       }
@@ -636,17 +633,20 @@ export function useCommunityMessengerGroupCall(args: Props) {
     setBusy("call-end");
     try {
       const joinedOthers = joinedParticipants.length;
-      const action = joinedOthers > 0 ? "leave" : "end";
-      const patchRes = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action,
-          durationSeconds: elapsedSeconds,
-        }),
-      });
-      const patchJson = (await patchRes.json().catch(() => ({}))) as { ok?: boolean };
-      if (!patchRes.ok || !patchJson.ok) {
+      const patchJson =
+        joinedOthers > 0
+          ? await callEngineActions.leave({
+              callId: sessionId,
+              init: { durationSeconds: elapsedSeconds },
+              source: "group_call_leave",
+            })
+          : await callEngineActions.patch({
+              callId: sessionId,
+              action: "end",
+              init: { durationSeconds: elapsedSeconds },
+              source: "group_call_end",
+            });
+      if (!patchJson.ok) {
         setErrorMessage(MESSENGER_CALL_USER_MSG.groupEndFailed);
         return;
       }

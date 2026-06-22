@@ -36,7 +36,7 @@ export type ForegroundIncomingPresenterInput = {
   isAppForeground?: boolean;
   /** FCM/native foreground wake 로 등록된 callId — stale ringing 보다 우선 */
   foregroundWakeSessionIds?: ReadonlySet<string> | null;
-  /** Android Capacitor — 앱 안 foreground 수신은 Native pill 1차 */
+  /** Foreground unlocked — Web compact banner SSOT (native pill 금지). */
   preferNativeAndroidForegroundIncoming?: boolean;
   /** Native {@link ForegroundIncomingCallActivity} 가 표시 중인 callId */
   nativeForegroundIncomingCallId?: string | null;
@@ -192,17 +192,6 @@ export function resolveForegroundIncomingPresentation(
       session,
       surface: "none",
       reason: `incoming_surface_not_banner:${resolvedSurface}`,
-      shouldRender: false,
-      selectedRingingSessionId,
-    };
-  }
-
-  if (input.preferNativeAndroidForegroundIncoming && isAppForeground) {
-    return {
-      sessionId: session.id,
-      session,
-      surface: "none",
-      reason: "native_foreground_primary",
       shouldRender: false,
       selectedRingingSessionId,
     };

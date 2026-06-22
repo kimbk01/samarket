@@ -10,6 +10,19 @@ const IGNORE_DIRS = new Set([".git", "node_modules", ".next", "dist", "build", "
 
 const failures = [];
 
+const OUTGOING_CTA_FILES = [
+  "components/community-messenger/CommunityMessengerHome.tsx",
+  "components/community-messenger/MessengerCallLogsPanel.tsx",
+  "components/chats/TradeChatCallHeaderButtons.tsx",
+  "lib/community-messenger/room/phase2/use-messenger-room-phase2-controller.ts",
+  "app/(main)/community-messenger/calls/outgoing/CommunityMessengerOutgoingDialPageClient.tsx",
+];
+
+const BLOCKING_OUTGOING_HELPER_NAMES = [
+  "bootstrapCommunityMessengerOutgoingCallAndNavigate",
+  "startOutgoingCallSessionAndOpen",
+];
+
 const RULES = [
   {
     key: "accept patch direct",
@@ -59,12 +72,18 @@ const RULES = [
     key: "raw sessionStorage call key",
     pattern: /sessionStorage\.[\s\S]{0,120}call/gi,
   },
+  {
+    key: "raw lifecycle patch fetch",
+    pattern:
+      /fetch\([`'"].*\/api\/community-messenger\/calls\/sessions\/[^`'"]+[`'"][\s\S]{0,500}?method:\s*["']PATCH["'][\s\S]{0,500}?action:\s*["'](?:accept|reject|cancel|end|missed)["']/g,
+  },
 ];
 
 function isException(relPath) {
   if (relPath.startsWith("lib/community-messenger/call-engine/")) return true;
+  if (relPath.startsWith("lib/community-messenger/call-http-actions.ts")) return true;
+  if (relPath.startsWith("app/api/")) return true;
   if (relPath.startsWith("scripts/")) return true;
-  if (relPath.startsWith("scripts/verify-cm-call-engine-lockdown.mjs")) return true;
   if (relPath.includes("/__tests__/")) return true;
   if (relPath.includes(".test.")) return true;
   if (relPath.startsWith("tests/")) return true;
@@ -112,6 +131,33 @@ for (const abs of files) {
       failures.push(`${rule.key} found in ${rel}`);
     }
     rule.pattern.lastIndex = 0;
+  }
+}
+
+for (const rel of OUTGOING_CTA_FILES) {
+  const abs = path.join(ROOT, rel);
+  if (!fs.existsSync(abs)) {
+    failures.push(`outgoing CTA file missing: ${rel}`);
+    continue;
+  }
+  const src = fs.readFileSync(abs, "utf8");
+  if (!src.includes("launchOutgoingDirectCall")) {
+    failures.push(`outgoing CTA must use launchOutgoingDirectCall: ${rel}`);
+  }
+  for (const helper of BLOCKING_OUTGOING_HELPER_NAMES) {
+    if (src.includes(helper)) {
+      failures.push(`blocking outgoing helper import banned in ${rel}: ${helper}`);
+    }
+  }
+}
+
+const navSeed = path.join(ROOT, "lib/community-messenger/call-session-navigation-seed.ts");
+if (fs.existsSync(navSeed)) {
+  const navSrc = fs.readFileSync(navSeed, "utf8");
+  for (const helper of BLOCKING_OUTGOING_HELPER_NAMES) {
+    if (navSrc.includes(`export async function ${helper}`)) {
+      failures.push(`blocking outgoing helper must be removed: ${helper}`);
+    }
   }
 }
 

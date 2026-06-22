@@ -1,5 +1,6 @@
 "use client";
 
+import { logCallUxEvent } from "@/lib/community-messenger/call-engine/call-engine-debug";
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 import { ensureCallMediaForUserGesture } from "@/lib/community-messenger/call-media-permission-preflight";
 import { fetchCommunityMessengerCallSessionByIdClient } from "@/lib/community-messenger/call-http-actions";
@@ -88,6 +89,8 @@ export function applyIncomingCallConsumedSideEffects(
     });
     dibayIncomingLaneStopRing("already_consumed", sid);
     dismissAllIncomingCallNotificationsFireAndForget(sid);
+    /** call-engine 이 PATCH 성공 직후 consumed 를 먼저 표시 — 멀티탭 bus 는 gateway 가 멱등 발행 */
+    postCommunityMessengerCallIncomingConsumedBusEvent(sid, reason);
     return;
   }
 
@@ -203,6 +206,7 @@ export async function runIncomingCallAccept(args: RunIncomingCallAcceptArgs): Pr
   if (!sid) return { ok: false, sessionId: "", reason: "exception" };
 
   logDibayCall("incoming_accept_click", { sessionId: sid, callId: sid, source: args.source });
+  logCallUxEvent("call_accept_tap", { callId: sid, sessionId: sid, source: args.source });
 
   const liveCallId = getActiveCallSessionCallId();
   if (liveCallId && liveCallId !== sid) {
@@ -255,13 +259,7 @@ export async function runIncomingCallAccept(args: RunIncomingCallAcceptArgs): Pr
     logDibayCall("accept_start", { sessionId: sid, callId: sid, source: args.source });
     setDibayCallSessionPhase(sid, "accepting");
 
-    const permission = await ensureCallMediaForUserGesture(s.callKind);
-    if (!permission.ok) {
-      setDibayCallSessionPhase(sid, "incoming");
-      logDibayCall("accept_failed", { sessionId: sid, callId: sid, source: args.source, reason: "permission_denied" });
-      return { ok: false, sessionId: sid, reason: "permission_denied" };
-    }
-
+    /** PATCH accept — `call-engine-actions` → `patchCommunityMessengerCallSession` (단일 HTTP owner) */
     const patched = await callEngineActions.acceptIncoming({
       callId: sid,
       source: args.source,
@@ -301,6 +299,20 @@ export async function runIncomingCallAccept(args: RunIncomingCallAcceptArgs): Pr
     }
 
     replaceActiveIncomingCallRoute(args.router, sid, args.hrefOverride, args.source);
+
+    /** Telegram-style — accept PATCH·route 이후 media permission/preview (GUM probe 없음). */
+    void ensureCallMediaForUserGesture(s.callKind).then((permission) => {
+      if (!permission.ok) {
+        logCallUxEvent("call_media_prepare_start", {
+          callId: sid,
+          sessionId: sid,
+          source: args.source,
+          phase: "accept_deferred_denied",
+          reason: permission.reason,
+        });
+      }
+    });
+
     return { ok: true, sessionId: sid };
   } catch {
     setDibayCallSessionPhase(sid, "incoming");

@@ -1807,7 +1807,7 @@ export function GlobalCommunityMessengerIncomingCall() {
         visibilityState: incomingVisibilityState,
         isAppForeground: incomingVisibilityState === "visible",
         foregroundWakeSessionIds,
-        preferNativeAndroidForegroundIncoming: isCapacitorNativePlatform(),
+        preferNativeAndroidForegroundIncoming: false,
         nativeForegroundIncomingCallId,
       }),
     [

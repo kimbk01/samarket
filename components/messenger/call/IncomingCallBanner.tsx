@@ -1,9 +1,16 @@
 "use client";
 
-import { Check, Phone, PhoneOff, Video } from "lucide-react";
+import { Phone, PhoneOff, Video } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import {
+  INCOMING_CALL_BANNER_ACCEPT_CLASS,
+  INCOMING_CALL_BANNER_BG_CLASS,
+  INCOMING_CALL_BANNER_BORDER_CLASS,
+  INCOMING_CALL_BANNER_DECLINE_CLASS,
+  triggerIncomingCallBannerHaptic,
+} from "@/lib/community-messenger/call-ui/incoming-call-banner-tokens";
 import { computeIncomingRingRemainingSeconds } from "@/lib/community-messenger/messenger-call-ring-timeout";
 import { MESSENGER_FOREGROUND_INCOMING_BANNER_Z_CLASS } from "@/lib/community-messenger/incoming-call-surface";
 
@@ -33,7 +40,7 @@ function remainingSeconds(startedAt: string | null | undefined, timeoutSeconds: 
   return computeIncomingRingRemainingSeconds(startedAt, timeoutSeconds);
 }
 
-/** Foreground 수신 통화 — 카카오톡/텔레그램식 compact 상단 배너. */
+/** Foreground 수신 통화 — Telegram식 compact 상단 floating card (Starbucks 진녹). */
 export function IncomingCallBanner(props: IncomingCallBannerProps) {
   const { t, safeT } = useI18n();
   const {
@@ -62,19 +69,42 @@ export function IncomingCallBanner(props: IncomingCallBannerProps) {
     return () => window.clearInterval(id);
   }, [ringTimeoutSeconds, sessionId, startedAt]);
 
-  const Icon = callKind === "video" ? Video : Phone;
+  const KindIcon = callKind === "video" ? Video : Phone;
+  const callTypeLabel =
+    callKind === "video"
+      ? safeT("cm_ui_dibay_video_call_brand", {
+          fallbackKo: "영상 통화",
+          fallbackEn: "Video call",
+        })
+      : safeT("cm_ui_incoming_phone", {
+          fallbackKo: "휴대전화",
+          fallbackEn: "mobile",
+        });
+
+  const handleReject = () => {
+    triggerIncomingCallBannerHaptic(10);
+    onReject();
+  };
+
+  const handleAccept = () => {
+    triggerIncomingCallBannerHaptic(14);
+    onAccept();
+  };
 
   return (
     <div
-      className={`pointer-events-auto fixed inset-x-0 top-[max(8px,env(safe-area-inset-top))] ${MESSENGER_FOREGROUND_INCOMING_BANNER_Z_CLASS} animate-dibay-incoming-pill-enter px-3 sm:left-1/2 sm:right-auto sm:w-[min(520px,calc(100vw-2rem))] sm:-translate-x-1/2`}
+      className={`pointer-events-auto fixed inset-x-0 top-[max(8px,var(--safe-top,env(safe-area-inset-top)))] ${MESSENGER_FOREGROUND_INCOMING_BANNER_Z_CLASS} animate-dibay-incoming-pill-enter px-3 sm:left-1/2 sm:right-auto sm:w-[min(520px,calc(100vw-2rem))] sm:-translate-x-1/2`}
       role="dialog"
       aria-label={t("cm_ui_incoming_call_dialog")}
+      data-incoming-call-compact-banner
     >
-      <div className="mx-auto flex h-[72px] max-w-[520px] items-center gap-2 rounded-[22px] border border-white/12 bg-[linear-gradient(135deg,rgba(16,24,39,0.96)_0%,rgba(3,77,52,0.96)_100%)] px-3 shadow-[0_14px_44px_rgba(0,0,0,0.32)] backdrop-blur-xl sm:h-[80px]">
+      <div
+        className={`mx-auto flex h-[72px] max-w-[520px] items-center gap-2.5 rounded-[20px] border px-3 shadow-[0_14px_44px_rgba(0,0,0,0.34)] sm:h-[76px] ${INCOMING_CALL_BANNER_BG_CLASS} ${INCOMING_CALL_BANNER_BORDER_CLASS}`}
+      >
         <button
           type="button"
           onClick={onExpand}
-          className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden rounded-[18px] px-1 py-1 text-left transition active:scale-[0.99]"
+          className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden rounded-[16px] px-0.5 py-1 text-left transition-transform active:scale-[0.99]"
           aria-label={t("cm_ui_open_call_screen")}
         >
           <div className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#F1F8F4] text-[#006241] ring-1 ring-white/20">
@@ -86,8 +116,8 @@ export function IncomingCallBanner(props: IncomingCallBannerProps) {
               fallbackSrc=""
               fallbackNode={<span className="sam-text-page-title font-semibold">{peerInitial(peerLabel)}</span>}
             />
-            <span className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#0EA75A] text-white ring-2 ring-[#102017]">
-              <Icon size={12} strokeWidth={2.6} />
+            <span className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#0EA75A] text-white ring-2 ring-[#006241]">
+              <KindIcon size={12} strokeWidth={2.6} />
             </span>
           </div>
           <div className="min-w-0">
@@ -97,16 +127,8 @@ export function IncomingCallBanner(props: IncomingCallBannerProps) {
                 {t("cm_social_stranger_incoming_call")}
               </p>
             ) : null}
-            <p className={`truncate sam-text-helper font-medium text-white/78 ${showStrangerHint ? "mt-0.5" : "mt-0.5"}`}>
-              {callKind === "video"
-                ? safeT("cm_ui_dibay_video_call_brand", {
-                    fallbackKo: "DiBay 영상 통화",
-                    fallbackEn: "DiBay video call",
-                  })
-                : safeT("cm_ui_dibay_voice_call_brand", {
-                    fallbackKo: "DiBay 음성 통화",
-                    fallbackEn: "DiBay voice call",
-                  })}
+            <p className="mt-0.5 truncate sam-text-helper font-medium text-white/72">
+              {callTypeLabel}
               {remainSec != null ? ` · ${t("cm_ui_ring_remaining_seconds", { count: remainSec })}` : ""}
             </p>
           </div>
@@ -114,9 +136,10 @@ export function IncomingCallBanner(props: IncomingCallBannerProps) {
         <button
           type="button"
           disabled={busyReject || busyAccept}
-          onClick={onReject}
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#EF1035] text-white shadow-[0_10px_22px_rgba(239,16,53,0.28)] transition active:scale-[0.96] disabled:opacity-40"
+          onClick={handleReject}
+          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full transition-transform active:scale-[0.94] disabled:opacity-40 ${INCOMING_CALL_BANNER_DECLINE_CLASS}`}
           aria-label={t("cm_ui_reject")}
+          data-incoming-call-decline
         >
           <PhoneOff size={24} strokeWidth={2.4} />
         </button>
@@ -134,11 +157,12 @@ export function IncomingCallBanner(props: IncomingCallBannerProps) {
         <button
           type="button"
           disabled={busyAccept}
-          onClick={onAccept}
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#22C55E] text-white shadow-[0_10px_22px_rgba(34,197,94,0.28)] transition active:scale-[0.96] disabled:opacity-40"
+          onClick={handleAccept}
+          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full transition-transform active:scale-[0.94] disabled:opacity-40 ${INCOMING_CALL_BANNER_ACCEPT_CLASS}`}
           aria-label={t("cm_ui_accept")}
+          data-incoming-call-accept
         >
-          <Check size={26} strokeWidth={3} />
+          <Phone size={24} strokeWidth={2.4} />
         </button>
       </div>
     </div>

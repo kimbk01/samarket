@@ -190,7 +190,7 @@ describe("foreground-incoming-presenter", () => {
     expect(decision.reason).toBe("ok");
   });
 
-  it("suppresses web banner when native Android foreground pill is active", () => {
+  it("renders web banner on Android foreground (web SSOT, no native pill)", () => {
     const incoming = ringingSession("call-1");
     const decision = resolveForegroundIncomingPresentation({
       sessions: [incoming],
@@ -205,11 +205,12 @@ describe("foreground-incoming-presenter", () => {
       nativeForegroundIncomingCallId: "call-1",
     });
 
-    expect(decision.shouldRender).toBe(false);
-    expect(decision.reason).toBe("native_foreground_primary");
+    expect(decision.shouldRender).toBe(true);
+    expect(decision.surface).toBe("top-banner");
+    expect(decision.reason).toBe("ok");
   });
 
-  it("always suppresses web banner on Android foreground (native pill is sole surface)", () => {
+  it("renders web banner on Android foreground even without native pill id", () => {
     const incoming = ringingSession("call-1");
     const decision = resolveForegroundIncomingPresentation({
       sessions: [incoming],
@@ -224,8 +225,8 @@ describe("foreground-incoming-presenter", () => {
       nativeForegroundIncomingCallId: null,
     });
 
-    expect(decision.shouldRender).toBe(false);
-    expect(decision.reason).toBe("native_foreground_primary");
+    expect(decision.shouldRender).toBe(true);
+    expect(decision.reason).toBe("ok");
   });
 
   it("ForegroundIncomingCallHost uses body portal and banner z layer", () => {

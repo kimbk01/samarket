@@ -6,6 +6,7 @@ import {
   clearAgoraJoinGuard,
   joinAgoraChannelSingleFlight,
 } from "@/lib/call/actions/agora-join-guard";
+import { logCallUxEvent } from "@/lib/community-messenger/call-engine/call-engine-debug";
 import {
   isCallEngineTerminalConsumed,
   tryLockCallEngineJoinOnce,
@@ -23,6 +24,7 @@ export async function joinCallEngineAgoraOnce(args: {
   const sid = args.callId.trim();
   if (!sid || isCallEngineTerminalConsumed(sid)) return { ok: false, reason: "terminal_consumed" };
   if (!tryLockCallEngineJoinOnce(sid)) return { ok: false, reason: "join_locked" };
+  logCallUxEvent("call_agora_join_start", { callId: sid, sessionId: sid, callKind: args.callKind });
   const result = await joinAgoraChannelSingleFlight(
     sid,
     {
@@ -35,6 +37,7 @@ export async function joinCallEngineAgoraOnce(args: {
     { callKind: args.callKind },
   );
   if (!result.ok) return { ok: false, reason: result.reason };
+  logCallUxEvent("call_agora_join_success", { callId: sid, sessionId: sid, callKind: args.callKind });
   return { ok: true };
 }
 

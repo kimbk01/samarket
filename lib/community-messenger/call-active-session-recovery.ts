@@ -54,7 +54,6 @@ export function resolveActiveCallRecoveryTarget(
 }
 
 export function readActiveCallRecoveryLock(): { sessionId: string; at: number } | null {
-  if (typeof window === "undefined") return null;
   try {
     const raw = readCallEngineSessionItem(ACTIVE_CALL_RECOVERY_LOCK_KEY);
     if (!raw) return null;
@@ -71,7 +70,6 @@ export function readActiveCallRecoveryLock(): { sessionId: string; at: number } 
 }
 
 export function readTerminalCallRecoverySuppress(): { sessionId: string; until: number } | null {
-  if (typeof window === "undefined") return null;
   try {
     const raw = readCallEngineSessionItem(TERMINAL_CALL_RECOVERY_SUPPRESS_KEY);
     if (!raw) return null;
@@ -89,7 +87,6 @@ export function readTerminalCallRecoverySuppress(): { sessionId: string; until: 
 }
 
 export function writeTerminalCallRecoverySuppress(sessionId: string): void {
-  if (typeof window === "undefined") return;
   const sid = sessionId.trim();
   if (!sid) return;
   try {
@@ -112,7 +109,6 @@ export function shouldSkipActiveCallRecoveryRouting(sessionId: string): boolean 
 }
 
 export function writeActiveCallRecoveryLock(sessionId: string): void {
-  if (typeof window === "undefined") return;
   try {
     writeCallEngineSessionItem(
       ACTIVE_CALL_RECOVERY_LOCK_KEY,

@@ -3119,42 +3119,30 @@ export function CommunityMessengerCallClient({
             () => {}
           );
         }
-        const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sid)}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "reject" }),
-        });
-        const json = (await res.json().catch(() => ({}))) as SessionResponse;
-        logCommunityMessengerCallSessionPatchDev({
-          sessionId: sid,
+        await callEngineActions.patch({
+          callId: sid,
           action: "reject",
-          responseStatus: res.status,
-          responseBody: json,
-          context: {
+          source: "call_client_reject",
+          debugContext: {
             sessionStatus: session.status,
             isInitiator: session.isMineInitiator,
             endedReason: session.endedReason ?? null,
           },
-        });
-        if (!res.ok || !json.ok) {
-          setErrorMessage(
-            json.error === "bad_action"
-              ? t("cm_ui_call_reject_already_handled")
-              : t("cm_ui_call_reject_failed")
-          );
-          await disposeCallMedia({ domAudioNuclear: true });
+        }).then((json) => {
+          if (!json.ok) {
+            if (json.error !== "duplicate_action" && json.error !== "terminal_consumed") {
+              setErrorMessage(
+                json.error === "bad_action"
+                  ? t("cm_ui_call_reject_already_handled")
+                  : t("cm_ui_call_reject_failed")
+              );
+            }
+            scheduleSilentRefresh("terminal");
+            return;
+          }
+          logCallFlow("call_reject_sent", { sessionId: sid });
           scheduleSilentRefresh("terminal");
-          return;
-        }
-        logCallFlow("call_reject_sent", { sessionId: sid });
-        if (json.session && isTerminalCallSessionStatus(json.session.status)) {
-          callTerminalLocalPinRef.current = {
-            sessionId: sid,
-            until: Date.now() + CALL_SESSION_TERMINAL_PIN_MS,
-            snapshot: json.session,
-          };
-          setSession(json.session);
-        }
+        });
       } finally {
         setBusy(null);
         directCallPatchInFlightRef.current = false;
@@ -3172,20 +3160,19 @@ export function CommunityMessengerCallClient({
     setBusy("reject");
     dibayIncomingLaneStopRing("reject_pressed", sessionId);
     dismissAllIncomingCallNotificationsFireAndForget(sessionId);
+    runIncomingCallCleanup({ sessionId, reason: "reject_hydrate", stopRingtone: false });
+    finalizeCommunityMessengerCallTerminalExit(router, sessionId, "reject_hydrate");
     try {
-      const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "reject" }),
+      const json = await callEngineActions.patch({
+        callId: sessionId,
+        action: "reject",
+        source: "call_client_hydrate_reject",
       });
-      const json = (await res.json().catch(() => ({}))) as SessionResponse;
-      if (!res.ok || !json.ok) {
+      if (!json.ok && json.error !== "duplicate_action" && json.error !== "terminal_consumed") {
         setErrorMessage(t("cm_ui_call_reject_failed"));
         return;
       }
       logCallFlow("call_reject_sent", { sessionId });
-      runIncomingCallCleanup({ sessionId, reason: "reject_hydrate", stopRingtone: false });
-      finalizeCommunityMessengerCallTerminalExit(router, sessionId, "reject_hydrate");
     } finally {
       releaseIncomingCallReject(sessionId);
       setBusy(null);
@@ -3206,12 +3193,6 @@ export function CommunityMessengerCallClient({
       const loaded = res.ok && json.ok && json.session ? json.session : null;
       if (!loaded) {
         setErrorMessage(t("cm_ui_call_session_missing"));
-        return;
-      }
-      const permission = await ensureCallMediaForUserGesture(loaded.callKind);
-      if (!permission.ok) {
-        setCallPermissionBlocked(true);
-        setErrorMessage(t(getCallMediaPermissionBlockedMessageKey(loaded.callKind)));
         return;
       }
       if (loaded.isMineInitiator) {
@@ -3248,6 +3229,12 @@ export function CommunityMessengerCallClient({
         return;
       }
       await acceptIncoming();
+      void ensureCallMediaForUserGesture(loaded.callKind).then((permission) => {
+        if (!permission.ok) {
+          setCallPermissionBlocked(true);
+          setErrorMessage(t(getCallMediaPermissionBlockedMessageKey(loaded.callKind)));
+        }
+      });
     } catch {
       setCalleeVideoConnectingShell(false);
       setErrorMessage(t("cm_ui_call_accept_failed"));
@@ -3343,10 +3330,6 @@ export function CommunityMessengerCallClient({
         : patchAction === "reject"
           ? "rejected"
           : "ended";
-    markCallConsumed(
-      sid,
-      optimisticEnd === "rejected" ? "declined" : optimisticEnd === "cancelled" ? "cancelled" : "ended"
-    );
     logDibayCall("cleanup_done", { sessionId: sid, callId: sid, reason: optimisticEnd });
     const endedAtIso = new Date().toISOString();
     const ringingDismiss = session.status === "ringing";
@@ -3402,43 +3385,39 @@ export function CommunityMessengerCallClient({
             () => {}
           );
         }
-        const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sid)}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: patchAction, durationSeconds: elapsedSeconds }),
-        });
-        const json = (await res.json().catch(() => ({}))) as SessionResponse;
-        logCommunityMessengerCallSessionPatchDev({
-          sessionId: sid,
-          action: patchAction,
-          responseStatus: res.status,
-          responseBody: json,
-          context: {
-            sessionStatus: session.status,
-            isInitiator: session.isMineInitiator,
-            endedReason: session.endedReason ?? null,
-          },
-        });
-        if (!res.ok || !json.ok) {
-          setErrorMessage(
-            json.error === "bad_action"
-              ? t("cm_ui_call_end_already_ended")
-              : t("cm_ui_call_end_failed")
-          );
-          await disposeCallMedia({ domAudioNuclear: true });
-          scheduleSilentRefresh("terminal");
-          return;
-        }
-        const serverTerminal: CommunityMessengerCallSession["status"] =
-          json.session && isTerminalCallSessionStatus(json.session.status) ? json.session.status : optimisticEnd;
-        applyTerminalSessionAfterPatch(json, roomId, sid, serverTerminal);
+        await callEngineActions
+          .patch({
+            callId: sid,
+            action: patchAction,
+            init: patchAction === "end" ? { durationSeconds: elapsedSeconds } : undefined,
+            source: "call_client_end",
+            debugContext: {
+              sessionStatus: session.status,
+              isInitiator: session.isMineInitiator,
+              endedReason: session.endedReason ?? null,
+            },
+          })
+          .then((json) => {
+            if (!json.ok) {
+              if (json.error !== "duplicate_action" && json.error !== "terminal_consumed") {
+                setErrorMessage(
+                  json.error === "bad_action"
+                    ? t("cm_ui_call_end_already_ended")
+                    : t("cm_ui_call_end_failed")
+                );
+              }
+              scheduleSilentRefresh("terminal");
+              return;
+            }
+            logCallFlow("call_cleanup_done", { sessionId: sid, action: patchAction });
+            scheduleSilentRefresh("terminal");
+          });
       } finally {
         setBusy(null);
         directCallPatchInFlightRef.current = false;
       }
     })();
   }, [
-    applyTerminalSessionAfterPatch,
     appendTerminalCallHistory,
     beginRingingCallDismiss,
     disposeCallMedia,
@@ -4733,7 +4712,7 @@ export function CommunityMessengerCallClient({
       peerAvatarUrl: null,
       statusText:
         hydrateKind === "video" ? t("cm_ui_outgoing_video_dialing") : t("cm_ui_outgoing_voice_dialing"),
-      subStatusText: t("cm_ui_call_loading_session"),
+      subStatusText: null,
       topLabel: null,
       onTopLabelClick: null,
       footerNote: null,
@@ -4760,7 +4739,7 @@ export function CommunityMessengerCallClient({
       ],
       mainVideoSlot:
         hydrateKind === "video" ? (
-          <HydrateOutgoingVideoPreview loadingLabel={t("common_loading")} />
+          <HydrateOutgoingVideoPreview loadingLabel={t("cm_ui_camera_preparing_connection")} />
         ) : undefined,
       showRemoteVideo: false,
       showLocalVideo: false,

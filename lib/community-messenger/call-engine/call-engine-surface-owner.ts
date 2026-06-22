@@ -1,5 +1,6 @@
 "use client";
 
+import { logCallUxEvent } from "@/lib/community-messenger/call-engine/call-engine-debug";
 import {
   tryLockCallEngineSurfaceOwner,
   isCallEngineTerminalConsumed,
@@ -37,7 +38,16 @@ export function resolveCallEngineIncomingSurfaceOwner(args: ResolveCallEngineSur
 }
 
 export function claimCallEngineSurfaceOwner(callId: string, owner: CallEngineSurfaceOwner): boolean {
-  return tryLockCallEngineSurfaceOwner(callId, owner);
+  const ok = tryLockCallEngineSurfaceOwner(callId, owner);
+  if (
+    ok &&
+    (owner === "web_in_app_banner" ||
+      owner === "native_fullscreen_intent" ||
+      owner === "native_locked_screen")
+  ) {
+    logCallUxEvent("call_incoming_surface_show", { callId, sessionId: callId, owner });
+  }
+  return ok;
 }
 
 export function isHigherPrioritySurfaceOwner(a: CallEngineSurfaceOwner, b: CallEngineSurfaceOwner): boolean {

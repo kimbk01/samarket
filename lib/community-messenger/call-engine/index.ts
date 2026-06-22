@@ -2,6 +2,7 @@
 
 import {
   callEngineAcceptIncoming,
+  runCallEngineLeavePatchAction,
   runCallEnginePatchAction,
 } from "@/lib/community-messenger/call-engine/call-engine-actions";
 import {
@@ -70,6 +71,7 @@ import {
 export const callEngineActions = {
   acceptIncoming: callEngineAcceptIncoming,
   patch: runCallEnginePatchAction,
+  leave: runCallEngineLeavePatchAction,
   joinAgora: joinCallEngineAgoraOnce,
   clearAgoraJoin: clearCallEngineAgoraJoin,
   startIncomingRingtone: startCallEngineIncomingRingtone,

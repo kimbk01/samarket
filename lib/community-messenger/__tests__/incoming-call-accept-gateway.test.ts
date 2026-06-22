@@ -61,6 +61,8 @@ import { tryClaimIncomingCallAccept } from "@/lib/community-messenger/incoming-c
 import { dismissAllIncomingCallNotificationsFireAndForget } from "@/lib/push/native/dismiss-native-incoming-call-notification";
 import { postCommunityMessengerCallIncomingConsumedBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { isDibayCallConsumed, resetDibayCallSessionState } from "@/lib/community-messenger/incoming-call-state";
+import { resetCallEngineForTest } from "@/lib/community-messenger/call-engine";
+import { resetActiveCallSessionForTests } from "@/lib/call/active-call-session";
 import {
   acceptIncomingCallOnce,
   runIncomingCallAccept,
@@ -73,6 +75,8 @@ describe("incoming-call-accept-gateway", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resetDibayCallSessionState();
+    resetCallEngineForTest();
+    resetActiveCallSessionForTests();
   });
 
   it("stops ring immediately on accept before PATCH", async () => {
@@ -151,7 +155,7 @@ describe("incoming-call-accept-gateway", () => {
     markCallConsumed("s-reject", "declined");
     const res = await runIncomingCallReject({ sessionId: "s-reject", source: "incoming_banner_reject" });
     expect(res.ok).toBe(true);
-    expect(patchCommunityMessengerCallSession).toHaveBeenCalledWith("s-reject", "reject");
+    expect(patchCommunityMessengerCallSession).toHaveBeenCalledWith("s-reject", "reject", undefined, undefined);
     expect(isDibayCallConsumed("s-reject")).toBe(true);
   });
 

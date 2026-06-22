@@ -25,12 +25,6 @@ function isIncomingCallBackupPollSurface(pathname: string): boolean {
   if (pathname === "/chats" || pathname.startsWith("/chats/")) return true;
   if (pathname === "/mypage/trade/chat" || pathname.startsWith("/mypage/trade/chat/")) return true;
   if (pathname === "/group-chat" || pathname.startsWith("/group-chat/")) return true;
-  /** 메인 탭 — Broadcast 실패 시에도 수신 GET 백업 (GlobalIncomingCall 항상 마운트) */
-  if (pathname === "/" || pathname === "/market" || pathname.startsWith("/market/")) return true;
-  if (pathname === "/philife" || pathname.startsWith("/philife/")) return true;
-  if (pathname === "/stores" || pathname.startsWith("/stores/")) return true;
-  if (pathname === "/my" || pathname.startsWith("/my/")) return true;
-  if (pathname === "/mypage" || pathname.startsWith("/mypage/")) return true;
   return false;
 }
 

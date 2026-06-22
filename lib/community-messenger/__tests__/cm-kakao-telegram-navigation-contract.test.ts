@@ -52,6 +52,7 @@ describe("cm kakao/telegram navigation recovery contract", () => {
     const gateway = read("lib/community-messenger/incoming-call-accept-gateway.ts");
     expect(gateway).toContain("runIncomingCallAccept");
     expect(gateway).toContain("acceptIncomingCallOnce");
+    expect(gateway).toContain("callEngineActions.acceptIncoming");
     expect(gateway).toContain("patchCommunityMessengerCallSession");
   });
 

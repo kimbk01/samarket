@@ -11,6 +11,18 @@
 - terminal 이후 동일 callId 재진입/재표시 금지
 - 앱안/앱밖/잠금화면 수신 UI owner 단일화
 
+## 구조 SSOT (실제 API 이름)
+
+| 역할 | SSOT |
+|---|---|
+| 발신 CTA | `launchOutgoingDirectCall` (`call-session-navigation-seed.ts`) |
+| lifecycle PATCH | `callEngineActions.patch` / `callEngineActions.acceptIncoming` |
+| route gate | `call-engine-route-gate` (`replaceCallEngineRouteOnce` 등) |
+| Agora join | `call-engine-agora-gate` (`joinCallEngineAgoraOnce`) |
+| presentation (Full/Dock/PiP) | `call-presentation-ownership.ts` |
+
+`callEngineActions.startOutgoingCall()` 는 **존재하지 않는다.** 발신은 `launchOutgoingDirectCall` 만 사용한다.
+
 ## 구조
 
 - `lib/community-messenger/call-engine/call-engine-types.ts`
@@ -78,6 +90,7 @@
 - foreground 수신 UI owner는 Web banner only.
 - background/lockscreen 수신 UI owner는 Native notification/FSI only.
 - `accept/reject/end/join/route/ringtone`은 callId당 1회만 허용한다.
+- UI 컴포넌트에서 lifecycle PATCH raw `fetch` 금지 — `callEngineActions` only.
 - terminal 이후 동일 callId의 재표시/재수락/재조인을 금지한다.
 - 새 callId는 이전 callId의 lock 잔재 영향을 받으면 실패다.
 - 채팅 파일은 통화 lifecycle을 직접 제어하면 안 된다.

@@ -34,4 +34,12 @@ describe("call-engine lockdown contract", () => {
     expect(roomLayer).not.toContain("runCallEndGuard");
     expect(roomLayer).not.toContain("runCallAcceptGuard");
   });
+
+  it("blocks CallClient raw lifecycle PATCH fetch", () => {
+    const callClient = read("components/community-messenger/CommunityMessengerCallClient.tsx");
+    expect(callClient).not.toMatch(
+      /fetch\([`'"].*\/api\/community-messenger\/calls\/sessions\/[^`'"]+[`'"][\s\S]{0,500}?method:\s*["']PATCH["'][\s\S]{0,500}?action:\s*["'](?:accept|reject|cancel|end|missed)["']/
+    );
+    expect(callClient).toContain("callEngineActions.patch");
+  });
 });

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { dibayIncomingLaneStopRing } from "@/lib/community-messenger/call-lifecycle";
 import {
   callEngineAcceptIncoming,
   runCallEnginePatchAction,
@@ -63,5 +64,19 @@ describe("call-engine e2e scenarios", () => {
     patchCommunityMessengerCallSession.mockResolvedValue({ ok: true, session: { id: "c4" } });
     const next = await callEngineAcceptIncoming({ callId: "c4", source: "test" });
     expect(next.ok).toBe(true);
+  });
+
+  it("H: terminal reject stops ring before PATCH await", async () => {
+    const order: string[] = [];
+    vi.mocked(dibayIncomingLaneStopRing).mockImplementation((reason: string) => {
+      order.push(`ring:${reason}`);
+    });
+    patchCommunityMessengerCallSession.mockImplementation(async () => {
+      order.push("patch");
+      return { ok: true, session: { id: "c-term" } };
+    });
+    await runCallEnginePatchAction({ callId: "c-term", action: "reject", source: "test" });
+    expect(order[0]).toMatch(/^ring:engine_reject_immediate$/);
+    expect(order.indexOf("patch")).toBeGreaterThan(0);
   });
 });

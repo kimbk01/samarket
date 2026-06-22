@@ -1,3 +1,4 @@
+import { logCallUxEvent } from "@/lib/community-messenger/call-engine/call-engine-debug";
 import type { CommunityMessengerCallKind, CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 import {
   assertPhoneVerifiedForMessengerActionOrOpenSheet,
@@ -56,7 +57,6 @@ import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { incomingCallPeerNicknameLabel } from "@/lib/users/user-label";
 import {
-  callEngineActions,
   clearCallEngineNavigationSeed,
   clearCallEngineReturnPath,
   readCallEngineNavigationSeed,
@@ -222,6 +222,7 @@ export const COMMUNITY_MESSENGER_CALL_LOGS_HREF = "/community-messenger?section=
 export function pinCommunityMessengerCallTerminalSurfaceDismiss(sessionId: string): void {
   const sid = sessionId.trim();
   if (!sid) return;
+  logCallUxEvent("call_terminal_ui_closed", { callId: sid, sessionId: sid });
   writeTerminalCallRecoverySuppress(sid);
   clearAllCommunityCallLocalSessionFlags();
   notifyCommunityCallHostSync();
@@ -509,6 +510,7 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCoreUnlocked(arg
     role: "initiator",
   });
   cmCallIncomingTraceMarkCallPostStart();
+  logCallUxEvent("call_push_dispatch_start", { roomId, callKind: args.kind, role: "initiator" });
   const postT0 = typeof performance !== "undefined" ? performance.now() : 0;
   const res = await fetch(
     `/api/community-messenger/rooms/${encodeURIComponent(roomId)}/calls`,
@@ -584,6 +586,12 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCoreUnlocked(arg
       : {}),
   });
   cmCallFlow("session_created", { sessionId: json.session.id, roomId, callKind: args.kind });
+  logCallUxEvent("call_engine_create_success", {
+    callId: json.session.id,
+    sessionId: json.session.id,
+    roomId,
+    callKind: args.kind,
+  });
   cmCallLatencyAnalysis({
     totalMs: clientPostMs,
     serverMs: json._callStartTimingsMs,
@@ -698,6 +706,12 @@ export function ensureOutgoingTempCallBootstrap(args: {
   if (!args.roomId?.trim() && !args.peerUserId?.trim()) return false;
   if (wasOutgoingTempCallBootstrapStarted(tempId)) return false;
   rememberOutgoingTempCallBootstrapStarted(tempId);
+  logCallUxEvent("call_engine_create_start", {
+    callId: tempId,
+    sessionId: tempId,
+    roomId: args.roomId?.trim() || undefined,
+    callKind: args.kind,
+  });
 
   void (async () => {
     try {
@@ -727,8 +741,8 @@ export function ensureOutgoingTempCallBootstrap(args: {
 }
 
 /**
- * 발신 CTA 공통 — 즉시 `tmp_*` 통화 셸 → 동시에 세션 POST·수신 푸시(카톡/텔레그램급 체감).
- * POST 완료 후 실제 sessionId 로 replace; 실패 시 셸 종료·안내.
+ * 발신 CTA SSOT — 즉시 `tmp_*` 통화 셸 → 동시에 세션 POST·수신 푸시.
+ * lifecycle PATCH SSOT: `callEngineActions.patch` · route: `call-engine-route-gate` · Agora: `call-engine-agora-gate`.
  */
 export async function launchOutgoingDirectCall(
   input: {
@@ -745,6 +759,11 @@ export async function launchOutgoingDirectCall(
   }
   unlockCommunityMessengerCallPlaybackFromUserGesture();
   primeOutgoingRingbackWebAudioFromUserGesture(input.kind);
+  logCallUxEvent("call_outgoing_tap", {
+    callKind: input.kind,
+    roomId: input.roomId?.trim() || undefined,
+    peerUserId: input.peerUserId?.trim() || undefined,
+  });
   if (typeof window !== "undefined") {
     rememberCallNavigationReturnPath();
   }
@@ -756,11 +775,16 @@ export async function launchOutgoingDirectCall(
   });
   const go = router.replace ?? router.push;
   go(href);
+  logCallUxEvent("call_route_enter", { callKind: input.kind, href });
   const tempSessionId = decodeURIComponent(
     href.split("/community-messenger/calls/")[1]?.split("?")[0] ?? ""
   );
   /** Telegram-style — 셸 먼저, GUM·mic 프라임은 tmp 셸·bootstrap 과 병렬 */
+  logCallUxEvent("call_media_prepare_start", { callKind: input.kind, sessionId: tempSessionId });
   void primeOutgoingCallMediaBeforeNavigate(input.kind).then((prime) => {
+    if (prime.ok) {
+      logCallUxEvent("call_media_preview_ready", { callKind: input.kind, sessionId: tempSessionId });
+    }
     if (!prime.ok) {
       if (input.kind === "video") {
         stopCommunityMessengerCallTone();
@@ -788,100 +812,6 @@ export async function launchOutgoingDirectCall(
     }),
     roomId: input.roomId?.trim() ?? "",
   };
-}
-
-/**
- * 세션 POST → seed → `/community-messenger/calls/:id` 로 이동까지 한 번에 처리한다.
- * (중간 `/calls/outgoing` 전체 화면을 거치지 않는다.)
- */
-export async function bootstrapCommunityMessengerOutgoingCallAndNavigate(
-  input: {
-    signal?: AbortSignal;
-    roomId: string | null;
-    peerUserId: string | null;
-    kind: CommunityMessengerCallKind;
-  },
-  navigate: (href: string) => void
-): Promise<OutgoingCallSessionBootstrapResult> {
-  if (!assertPhoneVerifiedForMessengerActionOrOpenSheet(resolveMessengerActionReturnPath())) {
-    return { ok: false, userMessage: "", phoneVerificationRequired: true };
-  }
-  /** 첫 `await` 전에만 유효한 사용자 활성화 — 링백·GUM 프라임·자동재생 정책 대응 */
-  unlockCommunityMessengerCallPlaybackFromUserGesture();
-  primeOutgoingRingbackWebAudioFromUserGesture(input.kind);
-  const primeResult = await primeOutgoingCallMediaBeforeNavigate(input.kind);
-  if (!primeResult.ok) {
-    stopCommunityMessengerCallTone();
-    return { ok: false, userMessage: outgoingCallMediaPrimeFailureMessage(input.kind) };
-  }
-  if (typeof window !== "undefined") {
-    rememberCallNavigationReturnPath();
-  }
-  const result = await bootstrapCommunityMessengerOutgoingCallSession(input);
-  if (!result.ok) {
-    stopCommunityMessengerCallTone();
-    if (result.blockedCallId) {
-      navigate(`/community-messenger/calls/${encodeURIComponent(result.blockedCallId)}`);
-    }
-    return result;
-  }
-  rememberOutgoingRingtonePrimedForSession(result.session.id);
-  cmCallLatencyInfo("route_replace_session_start", {
-    sessionId: result.session.id,
-    callKind: input.kind,
-    role: "initiator",
-    roomId: result.roomId,
-  });
-  navigate(`/community-messenger/calls/${encodeURIComponent(result.session.id)}`);
-  return result;
-}
-
-/**
- * 레거시 헬퍼: 세션 POST 완료 후에만 `/calls/:sessionId` 로 이동한다.
- * 즉시 UI 가 필요하면 `buildCommunityMessengerOutgoingDialHref` + `router.push` 를 선호한다.
- */
-export async function startOutgoingCallSessionAndOpen(
-  input: {
-    signal?: AbortSignal;
-    roomId: string | null;
-    peerUserId: string | null;
-    kind: CommunityMessengerCallKind;
-  },
-  router: { push: (href: string) => void }
-): Promise<OutgoingCallSessionBootstrapResult> {
-  unlockCommunityMessengerCallPlaybackFromUserGesture();
-  primeOutgoingRingbackWebAudioFromUserGesture(input.kind);
-  const primeResult = await primeOutgoingCallMediaBeforeNavigate(input.kind);
-  if (!primeResult.ok) {
-    stopCommunityMessengerCallTone();
-    return { ok: false, userMessage: outgoingCallMediaPrimeFailureMessage(input.kind) };
-  }
-  if (typeof window !== "undefined") {
-    rememberCallNavigationReturnPath();
-  }
-  const result = await bootstrapCommunityMessengerOutgoingCallSession(input);
-  if (!result.ok) {
-    stopCommunityMessengerCallTone();
-    if (result.blockedCallId) {
-      const blockedHref = `/community-messenger/calls/${encodeURIComponent(result.blockedCallId)}`;
-      if (!callEngineActions.pushRouteOnce(router, result.blockedCallId, blockedHref)) {
-        router.push(blockedHref);
-      }
-    }
-    return result;
-  }
-  rememberOutgoingRingtonePrimedForSession(result.session.id);
-  cmCallLatencyInfo("route_replace_session_start", {
-    sessionId: result.session.id,
-    callKind: input.kind,
-    role: "initiator",
-    roomId: result.roomId,
-  });
-  const activeHref = `/community-messenger/calls/${encodeURIComponent(result.session.id)}`;
-  if (!callEngineActions.pushRouteOnce(router, result.session.id, activeHref)) {
-    router.push(activeHref);
-  }
-  return result;
 }
 
 /**

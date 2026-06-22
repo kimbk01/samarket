@@ -20,7 +20,7 @@ import {
   unlockCallEngineAction,
 } from "@/lib/community-messenger/call-engine/call-engine-locks";
 import type { CallEngineActionName, CallEngineTerminalState } from "@/lib/community-messenger/call-engine/call-engine-types";
-import { logCallEngineEvent } from "@/lib/community-messenger/call-engine/call-engine-debug";
+import { logCallEngineEvent, logCallUxEvent } from "@/lib/community-messenger/call-engine/call-engine-debug";
 
 const TERMINAL_REASON_BY_ACTION: Record<"reject" | "cancel" | "end" | "missed", CallConsumedReason> = {
   reject: "declined",
@@ -51,7 +51,11 @@ export async function runCallEnginePatchAction(args: {
 }): Promise<{ ok: boolean; error?: string }> {
   const sid = args.callId.trim();
   if (!sid) return { ok: false, error: "invalid_call_id" };
-  if (isCallEngineTerminalConsumed(sid) || isDibayCallConsumed(sid)) {
+  if (isCallEngineTerminalConsumed(sid)) {
+    return { ok: false, error: "terminal_consumed" };
+  }
+  /** accept 만 consumed 차단 — reject/end 는 UI optimistic consume 후에도 서버 PATCH 1회 필요 */
+  if (args.action === "accept" && isDibayCallConsumed(sid)) {
     return { ok: false, error: "terminal_consumed" };
   }
   if (!tryLockCallEngineActionOnce(sid, args.action)) {
@@ -59,6 +63,17 @@ export async function runCallEnginePatchAction(args: {
   }
 
   logCallEngineEvent("patch_start", { callId: sid, sessionId: sid, action: args.action, source: args.source });
+  if (args.action === "accept") {
+    logCallUxEvent("call_accept_patch_start", { callId: sid, sessionId: sid, source: args.source });
+    /** PATCH 완료를 기다리지 않고 벨·알림 즉시 중지 (Telegram-style). */
+    dibayIncomingLaneStopRing("engine_accept_immediate", sid);
+    dismissAllIncomingCallNotificationsFireAndForget(sid);
+  } else {
+    logCallUxEvent("call_terminal_start", { callId: sid, sessionId: sid, action: args.action, source: args.source });
+    dibayIncomingLaneStopRing(`engine_${args.action}_immediate`, sid);
+    dismissAllIncomingCallNotificationsFireAndForget(sid);
+  }
+
   let releaseLock = true;
   try {
     const patched = await patchCommunityMessengerCallSession(sid, args.action, args.init, args.debugContext);
@@ -69,8 +84,7 @@ export async function runCallEnginePatchAction(args: {
     if (args.action === "accept") {
       setCallEngineState(sid, "joining");
       markCallConsumed(sid, "accepted");
-      dibayIncomingLaneStopRing("engine_accept", sid);
-      dismissAllIncomingCallNotificationsFireAndForget(sid);
+      logCallUxEvent("call_accept_patch_success", { callId: sid, sessionId: sid, source: args.source });
       logCallEngineEvent("accept_done", { callId: sid, sessionId: sid, source: args.source });
       releaseLock = false;
       return { ok: true };
@@ -81,8 +95,6 @@ export async function runCallEnginePatchAction(args: {
     markCallEngineTerminalConsumed(sid);
     markCallConsumed(sid, TERMINAL_REASON_BY_ACTION[terminalAction]);
     setCallEngineState(sid, terminalState);
-    dibayIncomingLaneStopRing(`engine_${terminalAction}`, sid);
-    dismissAllIncomingCallNotificationsFireAndForget(sid);
     clearCallEngineLocks(sid);
     logCallEngineEvent("terminal_done", {
       callId: sid,
@@ -117,4 +129,21 @@ export async function callEngineAcceptIncoming(args: {
     debugContext: args.debugContext,
     source: args.source,
   });
+}
+
+/** 그룹 통화 leave — direct-call terminal lock 대상 아님. */
+export async function runCallEngineLeavePatchAction(args: {
+  callId: string;
+  init?: { durationSeconds?: number };
+  source: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  const sid = args.callId.trim();
+  if (!sid) return { ok: false, error: "invalid_call_id" };
+  try {
+    const patched = await patchCommunityMessengerCallSession(sid, "leave", args.init);
+    if (!patched.ok) return { ok: false, error: patched.error ?? "patch_failed" };
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "exception" };
+  }
 }
