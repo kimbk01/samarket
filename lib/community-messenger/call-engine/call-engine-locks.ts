@@ -5,9 +5,11 @@ import type { CallEngineActionName } from "@/lib/community-messenger/call-engine
 type ActionLockSet = Set<CallEngineActionName>;
 
 const actionLocks = new Map<string, ActionLockSet>();
+const completedTerminalActions = new Map<string, ActionLockSet>();
 const joinLocks = new Set<string>();
 const routeLocks = new Set<string>();
 const ringtoneLocks = new Set<string>();
+const ringbackLocks = new Set<string>();
 const terminalConsumedLocks = new Set<string>();
 const surfaceLocks = new Map<string, string>();
 
@@ -25,13 +27,32 @@ function getActionSet(callId: string): ActionLockSet {
   return set;
 }
 
+function getCompletedActionSet(callId: string): ActionLockSet {
+  const sid = normalize(callId);
+  let set = completedTerminalActions.get(sid);
+  if (!set) {
+    set = new Set<CallEngineActionName>();
+    completedTerminalActions.set(sid, set);
+  }
+  return set;
+}
+
 export function tryLockCallEngineActionOnce(callId: string, action: CallEngineActionName): boolean {
   const sid = normalize(callId);
-  if (!sid || terminalConsumedLocks.has(sid)) return false;
+  if (!sid) return false;
+  if (getCompletedActionSet(sid).has(action)) return false;
+  /** optimistic UI consume 후에도 terminal PATCH 1회 — accept 만 terminal latch 차단 */
+  if (terminalConsumedLocks.has(sid) && action === "accept") return false;
   const set = getActionSet(sid);
   if (set.has(action)) return false;
   set.add(action);
   return true;
+}
+
+export function markCallEngineTerminalActionCompleted(callId: string, action: CallEngineActionName): void {
+  const sid = normalize(callId);
+  if (!sid) return;
+  getCompletedActionSet(sid).add(action);
 }
 
 export function unlockCallEngineAction(callId: string, action: CallEngineActionName): void {
@@ -64,6 +85,24 @@ export function tryLockCallEngineRingtoneOwnerOnce(callId: string): boolean {
   return true;
 }
 
+export function tryLockCallEngineRingbackOwnerOnce(callId: string): boolean {
+  const sid = normalize(callId);
+  if (!sid || terminalConsumedLocks.has(sid) || ringbackLocks.has(sid)) return false;
+  ringbackLocks.add(sid);
+  return true;
+}
+
+export function isCallEngineRingbackOwner(callId: string): boolean {
+  const sid = normalize(callId);
+  return Boolean(sid && ringbackLocks.has(sid));
+}
+
+export function getCallEngineSurfaceOwner(callId: string): string | null {
+  const sid = normalize(callId);
+  if (!sid) return null;
+  return surfaceLocks.get(sid) ?? null;
+}
+
 export function tryLockCallEngineSurfaceOwner(callId: string, owner: string): boolean {
   const sid = normalize(callId);
   if (!sid || terminalConsumedLocks.has(sid)) return false;
@@ -92,14 +131,17 @@ export function clearCallEngineLocks(callId: string): void {
   joinLocks.delete(sid);
   routeLocks.delete(sid);
   ringtoneLocks.delete(sid);
+  ringbackLocks.delete(sid);
   surfaceLocks.delete(sid);
 }
 
 export function resetCallEngineLocksForTests(): void {
   actionLocks.clear();
+  completedTerminalActions.clear();
   joinLocks.clear();
   routeLocks.clear();
   ringtoneLocks.clear();
+  ringbackLocks.clear();
   terminalConsumedLocks.clear();
   surfaceLocks.clear();
 }

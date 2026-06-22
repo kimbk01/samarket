@@ -3,7 +3,7 @@
 import type { CommunityMessengerCallKind, CommunityMessengerCallSessionStatus } from "@/lib/community-messenger/types";
 import type { PatchCommunityCallSessionAction } from "@/lib/community-messenger/call-http-actions";
 
-export type CallEngineState =
+export type CallEnginePhase =
   | "idle"
   | "outgoing_creating"
   | "outgoing_ringing"
@@ -19,6 +19,9 @@ export type CallEngineState =
   | "cancelled"
   | "failed";
 
+/** @alias CallEnginePhase — lifecycle phase SSOT */
+export type CallEngineState = CallEnginePhase;
+
 export type CallEngineTerminalState = "ended" | "rejected" | "missed" | "cancelled" | "failed";
 
 export const CALL_ENGINE_TERMINAL_STATES: readonly CallEngineTerminalState[] = [
@@ -30,7 +33,15 @@ export const CALL_ENGINE_TERMINAL_STATES: readonly CallEngineTerminalState[] = [
 ] as const;
 
 export type CallEngineDirection = "outgoing" | "incoming";
-export type CallEngineSource = "web_in_app" | "fcm" | "native_fsi" | "deep_link" | "room_hydrate";
+export type CallEngineSource =
+  | "web_in_app"
+  | "fcm"
+  | "native_fsi"
+  | "native_notification_action"
+  | "deep_link"
+  | "room_hydrate"
+  | "call_screen"
+  | "dock_or_pip";
 export type CallEngineSurfaceOwner =
   | "native_locked_screen"
   | "native_fullscreen_intent"

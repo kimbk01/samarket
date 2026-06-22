@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { joinCallEngineAgoraOnce } from "@/lib/community-messenger/call-engine/call-engine-agora-gate";
 import { resetCallEngineLocksForTests } from "@/lib/community-messenger/call-engine/call-engine-locks";
+import { resetCallEngineStateForTests, syncCallEngineStateFromSession } from "@/lib/community-messenger/call-engine/call-engine-state";
 
 const joinAgoraChannelSingleFlight = vi.fn();
 
@@ -12,10 +13,12 @@ vi.mock("@/lib/call/actions/agora-join-guard", () => ({
 describe("call-engine agora gate", () => {
   beforeEach(() => {
     resetCallEngineLocksForTests();
+    resetCallEngineStateForTests();
     joinAgoraChannelSingleFlight.mockReset();
   });
 
   it("joins once by lock", async () => {
+    syncCallEngineStateFromSession("c1", "active", false);
     joinAgoraChannelSingleFlight.mockResolvedValue({ ok: true });
     const common = {
       client: {} as any,

@@ -1,6 +1,7 @@
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 import { logDibayCall } from "@/lib/community-messenger/call-orchestrator";
 import { syncDibayCallConsumedToNative } from "@/lib/push/native/dibay-call-consumed-native-bridge";
+import { isCallEngineTerminalConsumed, markCallEngineTerminalConsumed } from "@/lib/community-messenger/call-engine/call-engine-locks";
 
 export const INCOMING_USER_DISMISSED_KEEP_MS = 120_000;
 export const INCOMING_REMOTE_HARD_CLEAR_KEEP_MS = 120_000;
@@ -91,6 +92,9 @@ export function markCallConsumed(
 ): void {
   const sid = normalizeCallId(callId);
   if (!sid) return;
+  if (reason !== "accepted") {
+    markCallEngineTerminalConsumed(sid);
+  }
   consumedByCallId.set(sid, { reason, at: now });
   phaseByCallId.set(sid, { phase: "consumed", reason, at: now });
   logDibayCall("incoming_consumed", { sessionId: sid, callId: sid, reason, source: "mark_call_consumed" });
@@ -115,6 +119,7 @@ export function isDibayCallConsumed(callId: string | null | undefined, now = Dat
   pruneConsumedRuntime(now);
   const sid = normalizeCallId(callId);
   if (!sid) return false;
+  if (isCallEngineTerminalConsumed(sid)) return true;
   return consumedByCallId.has(sid);
 }
 

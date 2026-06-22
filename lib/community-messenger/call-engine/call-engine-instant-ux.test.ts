@@ -77,7 +77,7 @@ describe("call-engine instant telegram UX contracts", () => {
     expect(client).not.toMatch(
       /fetch\([`'"].*\/api\/community-messenger\/calls\/sessions\/[^`'"]+[`'"][\s\S]{0,500}?method:\s*["']PATCH["'][\s\S]{0,500}?action:\s*["'](?:accept|reject|cancel|end|missed)["']/
     );
-    expect(client).toContain("callEngineActions.patch");
+    expect(client).toContain("dispatchCallEngineSignal");
   });
 
   it("launchOutgoingDirectCall routes before media prepare (non-blocking)", () => {
@@ -110,14 +110,13 @@ describe("call-engine instant telegram UX contracts", () => {
     }
   });
 
-  it("accept gateway PATCH runs before media permission await", () => {
-    const gateway = read("lib/community-messenger/incoming-call-accept-gateway.ts");
-    const fn = gateway.slice(gateway.indexOf("export async function runIncomingCallAccept"));
-    expect(indexBefore(fn, 'dibayIncomingLaneStopRing("accept_pressed_immediate"', "await callEngineActions.acceptIncoming")).toBe(
+  it("accept controller PATCH runs before media permission await", () => {
+    const controller = read("lib/community-messenger/call-engine/call-engine-controller.ts");
+    const fn = controller.slice(controller.indexOf("async function handleUserAccept"));
+    expect(indexBefore(fn, 'stopCallEngineIncomingRingtone(sid, "accept_pressed_immediate")', "await callEngineAcceptIncoming")).toBe(
       true
     );
-    expect(indexBefore(fn, "await callEngineActions.acceptIncoming", "void ensureCallMediaForUserGesture")).toBe(true);
-    expect(fn).not.toMatch(/await ensureCallMediaForUserGesture[\s\S]{0,400}await callEngineActions\.acceptIncoming/);
+    expect(indexBefore(fn, "await callEngineAcceptIncoming", "void ensureCallMediaForUserGesture")).toBe(true);
   });
 
   it("call engine accept stops ringtone before PATCH await", async () => {

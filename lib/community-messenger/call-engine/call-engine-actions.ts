@@ -16,6 +16,7 @@ import {
   clearCallEngineLocks,
   isCallEngineTerminalConsumed,
   markCallEngineTerminalConsumed,
+  markCallEngineTerminalActionCompleted,
   tryLockCallEngineActionOnce,
   unlockCallEngineAction,
 } from "@/lib/community-messenger/call-engine/call-engine-locks";
@@ -51,11 +52,8 @@ export async function runCallEnginePatchAction(args: {
 }): Promise<{ ok: boolean; error?: string }> {
   const sid = args.callId.trim();
   if (!sid) return { ok: false, error: "invalid_call_id" };
-  if (isCallEngineTerminalConsumed(sid)) {
-    return { ok: false, error: "terminal_consumed" };
-  }
-  /** accept 만 consumed 차단 — reject/end 는 UI optimistic consume 후에도 서버 PATCH 1회 필요 */
-  if (args.action === "accept" && isDibayCallConsumed(sid)) {
+  /** accept 만 terminal/consumed 차단 — reject/end 는 UI optimistic consume 후에도 서버 PATCH 1회 필요 */
+  if (args.action === "accept" && (isCallEngineTerminalConsumed(sid) || isDibayCallConsumed(sid))) {
     return { ok: false, error: "terminal_consumed" };
   }
   if (!tryLockCallEngineActionOnce(sid, args.action)) {
@@ -93,6 +91,7 @@ export async function runCallEnginePatchAction(args: {
     const terminalAction = args.action as "reject" | "cancel" | "end" | "missed";
     const terminalState = toTerminalState(terminalAction);
     markCallEngineTerminalConsumed(sid);
+    markCallEngineTerminalActionCompleted(sid, terminalAction);
     markCallConsumed(sid, TERMINAL_REASON_BY_ACTION[terminalAction]);
     setCallEngineState(sid, terminalState);
     clearCallEngineLocks(sid);

@@ -2,9 +2,11 @@
 
 import { claimCallTerminalPatch } from "@/lib/community-messenger/call-terminal-patch-dedupe";
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
+import { runCallEnginePatchAction } from "@/lib/community-messenger/call-engine/call-engine-actions";
+import { postCommunityMessengerCallHangupSignal } from "@/lib/community-messenger/call-http-actions";
 
 function terminalPatchAction(
-  session: CommunityMessengerCallSession
+  session: CommunityMessengerCallSession,
 ): "cancel" | "reject" | "end" | null {
   if (session.status === "ringing") {
     return session.isMineInitiator ? "cancel" : "reject";
@@ -15,7 +17,7 @@ function terminalPatchAction(
 
 /**
  * 탭 닫기·새로고침 직전 — ringing 만 keepalive PATCH.
- * active 는 F5 복구를 깨지 않게 pagehide 에서 end 하지 않음 (상대 `user-left`·logout 이 정리).
+ * CallEngine action lock 경유 (raw fetch 금지).
  */
 export function bestEffortKeepaliveCallSessionTeardown(args: {
   session: CommunityMessengerCallSession;
@@ -29,37 +31,19 @@ export function bestEffortKeepaliveCallSessionTeardown(args: {
   if (!sid) return;
   if (!claimCallTerminalPatch(sid, action)) return;
 
-  const body = JSON.stringify({ action });
-
-  try {
-    void fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sid)}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body,
-      keepalive: true,
-      credentials: "include",
-    });
-  } catch {
-    /* unloading */
-  }
+  void runCallEnginePatchAction({
+    callId: sid,
+    action,
+    source: "page_leave_keepalive",
+  }).catch(() => {});
 
   const peer = args.session.peerUserId?.trim();
   if (!peer) return;
-  try {
-    void fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sid)}/signals`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      keepalive: true,
-      body: JSON.stringify({
-        toUserId: peer,
-        signalType: "hangup",
-        payload: { reason: action === "cancel" ? "cancel" : "reject" },
-      }),
-    });
-  } catch {
-    /* unloading */
-  }
+  void postCommunityMessengerCallHangupSignal({
+    sessionId: sid,
+    toUserId: peer,
+    reason: action === "cancel" ? "cancel" : "reject",
+  }).catch(() => {});
 }
 
 export { terminalPatchAction };

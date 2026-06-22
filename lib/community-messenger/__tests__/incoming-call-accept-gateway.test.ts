@@ -35,6 +35,11 @@ vi.mock("@/lib/community-messenger/call-lifecycle", () => ({
   dibayIncomingLaneStopRing: vi.fn(),
 }));
 
+vi.mock("@/lib/community-messenger/incoming-call/ring-owner", () => ({
+  stopIncomingCallRing: vi.fn(),
+  syncIncomingCallRing: vi.fn(),
+}));
+
 vi.mock("@/lib/push/native/dismiss-native-incoming-call-notification", () => ({
   dismissAllIncomingCallNotificationsFireAndForget: vi.fn(),
 }));
@@ -57,6 +62,7 @@ vi.mock("@/lib/community-messenger/call-orchestrator", async (importOriginal) =>
 
 import { patchCommunityMessengerCallSession } from "@/lib/community-messenger/call-http-actions";
 import { dibayIncomingLaneStopRing } from "@/lib/community-messenger/call-lifecycle";
+import { stopIncomingCallRing } from "@/lib/community-messenger/incoming-call/ring-owner";
 import { tryClaimIncomingCallAccept } from "@/lib/community-messenger/incoming-call-action-guard";
 import { dismissAllIncomingCallNotificationsFireAndForget } from "@/lib/push/native/dismiss-native-incoming-call-notification";
 import { postCommunityMessengerCallIncomingConsumedBusEvent } from "@/lib/community-messenger/multi-tab-bus";
@@ -91,9 +97,9 @@ describe("incoming-call-accept-gateway", () => {
 
     await runIncomingCallAccept({ session, router, source: "incoming_banner_accept" });
 
-    expect(dibayIncomingLaneStopRing).toHaveBeenCalledWith("accept_pressed_immediate", "s-immediate");
+    expect(stopIncomingCallRing).toHaveBeenCalledWith("accept_pressed_immediate", "s-immediate");
     expect(dismissAllIncomingCallNotificationsFireAndForget).toHaveBeenCalledWith("s-immediate");
-    const stopOrder = vi.mocked(dibayIncomingLaneStopRing).mock.invocationCallOrder[0] ?? 0;
+    const stopOrder = vi.mocked(stopIncomingCallRing).mock.invocationCallOrder[0] ?? 0;
     const patchOrder = vi.mocked(patchCommunityMessengerCallSession).mock.invocationCallOrder[0] ?? 0;
     expect(stopOrder).toBeLessThan(patchOrder);
   });

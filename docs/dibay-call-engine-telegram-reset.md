@@ -2,95 +2,113 @@
 
 ## 목적
 
-통화 lifecycle를 단일 엔진으로 강제해 다음을 보장한다.
+통화 lifecycle를 **CallEngine controller** 단일 엔진으로 강제한다.
 
-- `accept/reject/end/cancel/missed` PATCH: callId당 1회
-- Agora join: callId당 1회
-- ringtone owner: callId당 1회
-- route 이동: callId당 1회
+- `dispatchCallEngineSignal` — UI·Native·FCM·hydrate 유일 진입점
+- `call-engine-actions` — PATCH HTTP 실행 (controller 내부)
 - terminal 이후 동일 callId 재진입/재표시 금지
-- 앱안/앱밖/잠금화면 수신 UI owner 단일화
 
-## 구조 SSOT (실제 API 이름)
+## 구조 SSOT
 
 | 역할 | SSOT |
 |---|---|
+| Controller | `call-engine-controller.ts` (`dispatchCallEngineSignal`, `subscribeCallEngineSnapshot`) |
 | 발신 CTA | `launchOutgoingDirectCall` (`call-session-navigation-seed.ts`) |
-| lifecycle PATCH | `callEngineActions.patch` / `callEngineActions.acceptIncoming` |
-| route gate | `call-engine-route-gate` (`replaceCallEngineRouteOnce` 등) |
-| Agora join | `call-engine-agora-gate` (`joinCallEngineAgoraOnce`) |
-| presentation (Full/Dock/PiP) | `call-presentation-ownership.ts` |
+| lifecycle PATCH | `call-engine-actions` |
+| route gate | `call-engine-route-gate` |
+| Agora join | `call-engine-agora-gate` |
+| ringtone/ringback | `call-engine-ringtone-owner` |
+| surface | `call-engine-surface-owner` |
+| consumed | `call-engine-locks` + `incoming-call-state` thin cache |
+| presentation | `call-presentation-ownership.ts` |
 
-`callEngineActions.startOutgoingCall()` 는 **존재하지 않는다.** 발신은 `launchOutgoingDirectCall` 만 사용한다.
+## 필수 파일
 
-## 구조
-
-- `lib/community-messenger/call-engine/call-engine-types.ts`
-- `lib/community-messenger/call-engine/call-engine-state.ts`
-- `lib/community-messenger/call-engine/call-engine-store.ts`
-- `lib/community-messenger/call-engine/call-engine-locks.ts`
-- `lib/community-messenger/call-engine/call-engine-transitions.ts`
-- `lib/community-messenger/call-engine/call-engine-actions.ts`
-- `lib/community-messenger/call-engine/call-engine-surface-owner.ts`
-- `lib/community-messenger/call-engine/call-engine-ringtone-owner.ts`
-- `lib/community-messenger/call-engine/call-engine-route-gate.ts`
-- `lib/community-messenger/call-engine/call-engine-agora-gate.ts`
-- `lib/community-messenger/call-engine/call-engine-native-bridge.ts`
-- `lib/community-messenger/call-engine/call-engine-debug.ts`
+- `call-engine-types.ts` (`CallEnginePhase` alias)
+- `call-engine-state.ts`
+- `call-engine-store.ts`
+- `call-engine-locks.ts` (ringtone + ringback locks)
+- `call-engine-transitions.ts`
+- `call-engine-actions.ts`
+- `call-engine-controller.ts`
+- `call-engine-surface-owner.ts`
+- `call-engine-ringtone-owner.ts`
+- `call-engine-route-gate.ts`
+- `call-engine-agora-gate.ts`
+- `call-engine-native-bridge.ts`
+- `call-engine-debug.ts`
 
 ## 상태 전이
 
 - `idle -> outgoing_creating -> outgoing_ringing -> joining -> connected -> ending -> ended`
 - `incoming_ringing -> accepting -> joining -> connected`
+- `connected -> reconnecting -> connected | failed`
 - terminal: `ended | rejected | missed | cancelled | failed`
-- terminal 이후: accept/join/ringtone/surface/route 재시작 금지
 
-## source별 정책
+## Android
 
-### 앱 foreground
-- Web banner만 owner
-- native pill 금지
-
-### 앱 background
-- native notification/heads-up owner
-- Web banner 중복 금지
-
-### 잠금화면
-- FullScreenIntent owner
-- Web banner 중복 금지
-
-## Android 정책
-
-- Native는 signal-only
-- `CallSessionPatchHelper.patch(...)` 직접 호출 금지
-- accept/reject/end/missed는 Web CallEngine PATCH owner 단일 경로
-- terminal 시 notification clear 유지
-
-## 저장소 접근 정책
-
-- call 관련 session/local storage 직접 접근 금지
-- `call-engine-store` API를 통해서만 접근
-
-## QA 시나리오
-
-- A~H(앱안/앱밖/잠금, 거절, 취소, 부재중, 연속통화, 재접속) 시나리오를 call-engine 테스트로 검증
-
-## 재발 방지 검색어
-
-- `CallSessionPatchHelper.patch`
-- `patchCommunityMessengerCallSession(..., "accept"|"reject"|"end"|"cancel"|"missed")`
-- `joinCommunityMessengerAgoraChannelOnce(` (call-engine 외부)
-- `sessionStorage.*call`
-- `cm_minimized_call`
+- Native signal-only — PATCH는 Web CallEngine만
+- `CallSessionPatchHelper` 삭제
 
 ## LOCKED CONTRACT
 
-- 통화 lifecycle owner는 `CallEngine` only.
-- Native는 signal-only 정책을 유지하고 direct PATCH를 금지한다.
-- foreground 수신 UI owner는 Web banner only.
-- background/lockscreen 수신 UI owner는 Native notification/FSI only.
-- `accept/reject/end/join/route/ringtone`은 callId당 1회만 허용한다.
-- UI 컴포넌트에서 lifecycle PATCH raw `fetch` 금지 — `callEngineActions` only.
-- terminal 이후 동일 callId의 재표시/재수락/재조인을 금지한다.
-- 새 callId는 이전 callId의 lock 잔재 영향을 받으면 실패다.
-- 채팅 파일은 통화 lifecycle을 직접 제어하면 안 된다.
+- UI에서 `callEngineActions` 직접 호출 금지 — `dispatchCallEngineSignal` 우선
+- `incoming-call-accept-gateway`는 thin re-export
+- `notification_events`/badge는 call lifecycle 미접근
+- `accept/reject/end/join/route/ringtone/ringback` callId당 1회
+
+## 검증
+
+```bash
+npm run lint
+npx tsc --noEmit
+npx vitest run lib/community-messenger/call-engine
+npx vitest run lib/community-messenger
+cd android && ./gradlew assembleDebug
+```
+
+## 최종 판정 (2026-06-22)
+
+**CODE PASS / DEVICE QA PENDING**
+
+| 영역 | 상태 |
+|---|---|
+| CallEngine unit/e2e | PASS |
+| tsc | PASS |
+| Android `assembleDebug` | PASS (아래 APK 경로) |
+| `verify:cm-kakao-telegram-navigation-contract` | **기존 FAIL** (CallEngine 무관) |
+| 실기기 QA | **PENDING** (체크리스트 아래) |
+
+### `verify:cm-kakao-telegram-navigation-contract` 기존 FAIL 분리
+
+| 항목 | 내용 |
+|---|---|
+| 실패 파일 | `lib/community-messenger/call-page-host-ownership.ts` (ENOENT) |
+| 검사 스크립트 | `scripts/verify-cm-kakao-telegram-navigation-contract.mjs:102` |
+| 이번 CallEngine 변경 | **해당 파일 import/참조 추가 없음** — `git grep call-page-host-ownership` 결과 문서·verify 스크립트·`.mdc` 규칙만 참조 |
+| main 기준 | `git show HEAD:lib/community-messenger/call-page-host-ownership.ts` → **존재하지 않음** (기존 누락) |
+| CallEngine 관련 gateway | `incoming-call-accept-gateway.ts`는 thin re-export 유지, `SSOT_CONTRACT`·`buildPostAcceptActiveCallHref`·`patchCommunityMessengerCallSession` 주석 계약 유지 |
+
+### Android APK (debug)
+
+빌드 성공 시:
+
+`android/app/build/outputs/apk/debug/app-debug.apk`
+
+추가 변경:
+
+- `CallSessionPatchHelper.java` 삭제 (dead code)
+- `DibayServerOrigin.java` 추가 (기존 main에도 참조만 있고 파일 누락 — 빌드 unblock)
+
+### 실기기 QA 체크리스트 (APK 설치 후)
+
+- [ ] **앱안 수신**: web banner 1개만 표시
+- [ ] **앱밖 수신**: native heads-up/FSI와 web banner 중복 없음
+- [ ] **잠금화면 수신**: FSI 수락 → Web PATCH 1회
+- [ ] accept/reject/end/cancel PATCH callId당 1회
+- [ ] Agora join callId당 1회
+- [ ] 벨소리/링백 중복 없음
+- [ ] 종료 후 같은 callId 재등장 없음
+- [ ] missed_call notification이 incoming UI 재오픈 안 함
+- [ ] 종료 직후 새 통화 즉시 발신 가능
+- [ ] 발신 connecting 45초 timeout/fallback 동작

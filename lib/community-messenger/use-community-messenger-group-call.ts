@@ -27,7 +27,7 @@ import {
 } from "@/lib/community-messenger/messenger-call-sound-config-client";
 import { incomingRingTimeoutMsFromConfig } from "@/lib/community-messenger/messenger-call-ring-timeout";
 import { patchCommunityMessengerCallMissedOnce } from "@/lib/community-messenger/messenger-call-missed-patch";
-import { callEngineActions } from "@/lib/community-messenger/call-engine";
+import { callEngineActions, dispatchCallEngineSignal, joinCallEngineGroupPublishOnce } from "@/lib/community-messenger/call-engine";
 import { MESSENGER_CALL_USER_MSG } from "@/lib/community-messenger/messenger-call-user-messages";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { translate, type MessageKey } from "@/lib/i18n/messages";
@@ -398,11 +398,19 @@ export function useCommunityMessengerGroupCall(args: Props) {
           return;
         }
         const agora = ensureAgoraSession();
-        await agora.joinAndPublish({
-          viewerUserId: args.viewerUserId,
-          callKind,
-          connection,
+        const joinResult = await joinCallEngineGroupPublishOnce({
+          callId: sessionId,
+          publish: () =>
+            agora.joinAndPublish({
+              viewerUserId: args.viewerUserId,
+              callKind,
+              connection,
+            }),
         });
+        if (!joinResult.ok) {
+          setErrorMessage(cmTr("cm_ui_group_call_join_failed"));
+          return;
+        }
         if (cancelled || !mountedRef.current) return;
         setHasLocalMedia(true);
         setCameraSwitchSupported(agora.isCameraSwitchSupported());
@@ -546,9 +554,12 @@ export function useCommunityMessengerGroupCall(args: Props) {
         setErrorMessage(cmTr(getCallMediaPermissionBlockedMessageKey(activeCall.callKind)));
         return false;
       }
-      const acceptJson = await callEngineActions.acceptIncoming({
-        callId: activeCall.id,
+      const acceptJson = await dispatchCallEngineSignal({
+        type: "user_accept",
+        session: activeCall,
+        router: { replace: () => {} },
         source: "group_call_accept",
+        markNativeAcceptPending: false,
       });
       if (!acceptJson.ok) {
         setErrorMessage(cmTr("cm_ui_group_call_accept_failed"));
@@ -587,9 +598,9 @@ export function useCommunityMessengerGroupCall(args: Props) {
     await cleanupMedia();
     setPanel(null);
     try {
-      const patchJson = await callEngineActions.patch({
-        callId: activeCall.id,
-        action: "reject",
+      const patchJson = await dispatchCallEngineSignal({
+        type: "user_reject",
+        sessionId: activeCall.id,
         source: "group_call_reject",
       });
       if (!patchJson.ok) {
@@ -609,7 +620,8 @@ export function useCommunityMessengerGroupCall(args: Props) {
     if (!args.enabled || !sessionId) return;
     setBusy("call-cancel");
     try {
-      const patchJson = await callEngineActions.patch({
+      const patchJson = await dispatchCallEngineSignal({
+        type: "user_cancel",
         callId: sessionId,
         action: "cancel",
         source: "group_call_cancel",
@@ -640,7 +652,8 @@ export function useCommunityMessengerGroupCall(args: Props) {
               init: { durationSeconds: elapsedSeconds },
               source: "group_call_leave",
             })
-          : await callEngineActions.patch({
+          : await dispatchCallEngineSignal({
+              type: "user_end",
               callId: sessionId,
               action: "end",
               init: { durationSeconds: elapsedSeconds },

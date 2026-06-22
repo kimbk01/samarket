@@ -25,10 +25,13 @@ import {
   getCallEngineState,
   resetCallEngineStateForTests,
   setCallEngineState,
+  syncCallEngineStateFromSession,
+  subscribeCallEngineStateListener,
 } from "@/lib/community-messenger/call-engine/call-engine-state";
 import {
   clearCallEngineAgoraJoin,
   joinCallEngineAgoraOnce,
+  joinCallEngineGroupPublishOnce,
 } from "@/lib/community-messenger/call-engine/call-engine-agora-gate";
 import {
   startCallEngineIncomingRingtone,
@@ -73,12 +76,23 @@ import {
   dispatchCallEngineNativeEvent,
   subscribeCallEngineNativeEvent,
 } from "@/lib/community-messenger/call-engine/call-engine-native-bridge";
+import {
+  dispatchCallEngineSignal,
+  getCallEngineSnapshot,
+  scheduleCallEngineMissedTimeouts,
+  subscribeCallEngineSnapshot,
+  resetCallEngineControllerForTests,
+  type CallEngineGatewayRouter,
+  type CallEngineSignal,
+  type IncomingCallAcceptSource,
+} from "@/lib/community-messenger/call-engine/call-engine-controller";
 
 export const callEngineActions = {
   acceptIncoming: callEngineAcceptIncoming,
   patch: runCallEnginePatchAction,
   leave: runCallEngineLeavePatchAction,
   joinAgora: joinCallEngineAgoraOnce,
+  joinGroupPublish: joinCallEngineGroupPublishOnce,
   clearAgoraJoin: clearCallEngineAgoraJoin,
   startIncomingRingtone: startCallEngineIncomingRingtone,
   stopIncomingRingtone: stopCallEngineIncomingRingtone,
@@ -131,9 +145,19 @@ export {
   claimCallEngineSurfaceOwner,
   getCallEngineState,
   setCallEngineState,
+  syncCallEngineStateFromSession,
+  subscribeCallEngineStateListener,
   buildCallEngineActiveRoute,
   dispatchCallEngineNativeEvent,
   subscribeCallEngineNativeEvent,
+  dispatchCallEngineSignal,
+  getCallEngineSnapshot,
+  scheduleCallEngineMissedTimeouts,
+  subscribeCallEngineSnapshot,
+  resetCallEngineControllerForTests,
+  type CallEngineGatewayRouter,
+  type CallEngineSignal,
+  type IncomingCallAcceptSource,
   readCallEngineMinimizedSessionId,
   writeCallEngineMinimizedSession,
   clearCallEngineMinimizedSession,
@@ -168,3 +192,8 @@ export {
   writeCallEngineLocalItem,
   removeCallEngineLocalItem,
 };
+export {
+  joinCallEngineGroupPublishOnce,
+  scheduleCallEngineOutgoingConnectTimeout,
+} from "@/lib/community-messenger/call-engine/call-engine-agora-gate";
+export type { CallEnginePhase, CallEngineState } from "@/lib/community-messenger/call-engine/call-engine-types";

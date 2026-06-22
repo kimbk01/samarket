@@ -19,7 +19,7 @@ import {
   writeHostedActiveCallSession,
 } from "@/lib/community-messenger/call-presentation-ownership";
 import { pinCommunityMessengerCallTerminalSurfaceDismiss } from "@/lib/community-messenger/call-session-navigation-seed";
-import { resolveCallSurfaceOwner } from "@/lib/community-messenger/call-engine";
+import { resetCallEngineForTest, resolveCallSurfaceOwner, syncCallEngineStateFromSession } from "@/lib/community-messenger/call-engine";
 
 function createSessionStorageStub(): Storage {
   const store = new Map<string, string>();
@@ -60,6 +60,7 @@ describe("call presentation ownership (GOOD baseline)", () => {
   afterEach(async () => {
     await forceDisposeDetachedCommunityCall();
     clearAllCommunityCallLocalSessionFlags();
+    resetCallEngineForTest();
     vi.unstubAllGlobals();
   });
 
@@ -129,6 +130,7 @@ describe("call presentation ownership (GOOD baseline)", () => {
     minimizeCommunityCallToPip({ sessionId: "seq-1", roomId: "room-1", cleanup: vi.fn(async () => {}) });
     pinCommunityMessengerCallTerminalSurfaceDismiss("seq-1");
     dockCommunityCall({ sessionId: "seq-2", roomId: "room-2", cleanup: vi.fn(async () => {}) });
+    syncCallEngineStateFromSession("seq-2", "active", false);
 
     expect(resolveHostedCallPresentation("seq-2")).toBe("dock");
     const owner = resolveCallSurfaceOwner({

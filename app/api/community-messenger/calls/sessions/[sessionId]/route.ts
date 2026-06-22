@@ -9,6 +9,7 @@ import {
   updateCommunityMessengerCallSession,
   upgradeCommunityMessengerCallSessionToVideo,
 } from "@/lib/community-messenger/service";
+import { isIdempotentCallSessionPatch } from "@/lib/community-messenger/server/call-session-transitions";
 import { heartbeatCommunityMessengerCallSession } from "@/lib/community-messenger/call-session-heartbeat";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 
@@ -112,6 +113,14 @@ export async function PATCH(
     body.action !== "missed"
   ) {
     return NextResponse.json({ ok: false, error: "bad_action" }, { status: 400 });
+  }
+
+  const existing = await getCommunityMessengerCallSessionById(auth.userId, sessionId);
+  if (
+    existing &&
+    isIdempotentCallSessionPatch(existing.status, body.action as "accept" | "reject" | "cancel" | "end" | "missed" | "leave")
+  ) {
+    return NextResponse.json({ ok: true, session: existing, idempotent: true });
   }
 
   const result = await updateCommunityMessengerCallSession({

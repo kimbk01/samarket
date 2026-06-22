@@ -59,7 +59,7 @@ describe("incoming-call SSOT contract", () => {
     expect(global).toContain("sealFcmTerminalEvent");
     expect(global).toContain("skipSeal: true");
     expect(global).not.toContain("onCanceled:");
-    expect(global).not.toContain("onTerminal:");
+    expect(global).toContain("scheduleCallEngineMissedTimeouts");
   });
 
   it("Global Phase5 routes realtime terminal and SW cancel through seal", () => {

@@ -45,15 +45,17 @@ describe("cm kakao/telegram navigation recovery contract", () => {
     expect(signup).not.toContain("consentComplete && dibayIdComplete && profileComplete");
   });
 
-  it("call accept SSOT: gateway PATCH + route-first banner accept", () => {
+  it("call accept SSOT: CallEngine controller PATCH + route-first banner accept", () => {
     const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
     expect(global).toContain("acceptIncomingCallOnce");
     expect(global).toContain("incoming_banner_accept");
     const gateway = read("lib/community-messenger/incoming-call-accept-gateway.ts");
     expect(gateway).toContain("runIncomingCallAccept");
     expect(gateway).toContain("acceptIncomingCallOnce");
-    expect(gateway).toContain("callEngineActions.acceptIncoming");
-    expect(gateway).toContain("patchCommunityMessengerCallSession");
+    expect(gateway).toContain("dispatchCallEngineSignal");
+    const actions = read("lib/community-messenger/call-engine/call-engine-actions.ts");
+    expect(actions).toContain("patchCommunityMessengerCallSession");
+    expect(actions).toContain("callEngineAcceptIncoming");
   });
 
   it("SSOT contract markers for recovery modules are present", () => {

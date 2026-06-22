@@ -1,49 +1,75 @@
 # DIBAY Call Reset Audit
 
-## 결론
+## 결론 (main 기준)
 
-- 현재 구조는 `Web gateway + CallClient + Android native` 경로가 혼재되어 있어 `callId` 단위 단일 owner가 깨져 있었다.
-- 본 리셋에서 Telegram식 단일 Call Engine 구조(`lib/community-messenger/call-engine/`)를 신설하고 owner를 단일 경로로 수렴했다.
+- `lib/community-messenger/call-engine/` 인프라는 존재하나, UI·gateway·orchestrator·그룹 훅이 lifecycle를 분산 소유하고 있었다.
+- 본 리셋은 **CallEngine controller** 단일 진입점으로 PATCH/route/join/ringtone/surface를 수렴한다.
+- Android는 런타임 PATCH 없음(signal-only). `CallSessionPatchHelper`는 dead code.
 
-## 핵심 문제(감사 기준)
+## 파일별 lifecycle 소유권 (감사)
 
-### 1) PATCH owner 중복
+| 파일 | PATCH | Agora join | Ringtone | Route | Surface |
+|---|---|---|---|---|---|
+| `call-engine-controller.ts` | **SSOT** | gate 경유 | owner 경유 | gate 경유 | owner 경유 |
+| `call-engine-actions.ts` | HTTP 실행 | — | stop | — | — |
+| `incoming-call-accept-gateway.ts` | thin → controller | — | — | thin → controller | — |
+| `CommunityMessengerCallClient.tsx` | controller signal | controller | controller | controller | presentation |
+| `GlobalCommunityMessengerIncomingCall.tsx` | controller signal | — | engine ringtone | preview only | surface gate |
+| `use-community-messenger-group-call.ts` | controller signal | engine gate | engine | — | overlay UI |
+| `call-page-leave-patch.ts` | engine keepalive | — | — | — | — |
+| `messenger-call-missed-patch.ts` | engine missed | — | — | — | — |
+| `lib/call/call-actions.ts` PATCH | **삭제·흡수** | — | — | — | — |
+| `lib/call/actions/call-accept-guard.ts` | **삭제** | — | — | — | — |
+| Android `IncomingCallActionCoordinator` | signal only | — | native ring | deep link | FSI/Activity |
 
-- `accept`: `incoming-call-accept-gateway` + `CommunityMessengerCallClient` + `IncomingCallActionCoordinator`
-- `reject/missed/end`: `GlobalCommunityMessengerIncomingCall`/`CallForegroundService` 등에서 직접 PATCH 가능
+## 중복 경로 (제거/흡수 대상)
 
-### 2) foreground 수신 UI 중복 가능
+| 검색어 | 발견 위치 | 조치 |
+|---|---|---|
+| `callEngineActions.acceptIncoming` | gateway, CallClient, group hook | controller `user_accept` |
+| `callEngineActions.patch reject/end` | Global, CallClient, group | controller signals |
+| `patchCommunityMessengerCallMissedOnce` | Global, CallClient, group | controller `scheduleMissedTimeout` |
+| `runCallAcceptGuard` | tests only | 삭제 |
+| `patchCommunityMessengerCallSession` (lib/call) | call-actions duplicate | call-http-actions 단일화 |
+| raw `fetch` PATCH pagehide | call-page-leave-patch | engine keepalive |
+| `agora.joinAndPublish` | group hook | call-engine-agora-gate |
+| `startOutgoingRingback` | CallClient, ringback controller | call-engine-ringtone-owner |
+| `syncIncomingCallRing` UI 직접 | Global | `startCallEngineIncomingRingtone` |
+| `router.replace` accept route | gateway | controller 내부 route gate |
+| `cm_minimized_call` | call-engine-store | store API only |
+| `notification_events` | notifications domain | call lifecycle 미접근 (격리 테스트) |
 
-- `IncomingCallPushDelivery`가 foreground에서 native pill(`IncomingCallForegroundUiLauncher`)과 Web 경로를 동시에 열 수 있었다.
+## Android dead code
 
-### 3) surface owner 중복
+| 파일 | 상태 |
+|---|---|
+| `CallSessionPatchHelper.java` | 구현만 있고 `.patch()` 호출 0건 → 삭제 |
+| `ForegroundIncomingCallActivity.java` | delivery 미연결 → 삭제 |
+| `IncomingCallForegroundUiLauncher.java` | 호출처 없음 → 삭제 |
+| `CallForegroundService` | `CallSessionPatchHelper` import만 → 정리 |
 
-- `CallIncomingChrome` / `CommunityMessengerActiveCallHost` / call page / minimize(dock/pip) 경로가 분산되어 동시 점유 가능성이 있었다.
+## Notification 채널 drift
 
-### 4) terminal 이후 재등장 위험
+| Web 정책 ID | Android 실제 | 비고 |
+|---|---|---|
+| `dibay_calls_incoming` | `dibay_calls_incoming_v7` | sound disabled, FSI |
+| `dibay_calls_missed` | `dibay_calls_missed` | OK |
+| `dibay_marketing` | 미구현 → `dibay_messages` 폴백 | marketing 채널 추가 |
 
-- poll/realtime/hydrate 경로가 분산되어 terminal latch 이후 재표시 race가 가능했다.
+## 이번 리셋 owner 정책
 
-### 5) 연속 통화 저해
+- **Controller**: `dispatchCallEngineSignal` / `subscribeCallEngineSnapshot`
+- PATCH: `call-engine-actions`
+- Agora: `call-engine-agora-gate`
+- Ringtone/ringback: `call-engine-ringtone-owner`
+- Route: `call-engine-route-gate`
+- Surface: `call-engine-surface-owner`
+- Consumed tombstone: `call-engine-locks` + `incoming-call-state` thin cache
+- Native: signal-only
 
-- zombie ringing 및 callId 단위 정리 누락으로 새 callId 발신/수신이 막히는 케이스가 존재했다.
+## 잔여 실기기 QA
 
-## 이번 리셋에서 고정한 owner 정책
-
-- PATCH owner: `call-engine-actions`
-- Agora join owner: `call-engine-agora-gate`
-- ringtone owner: `call-engine-ringtone-owner`
-- route owner: `call-engine-route-gate`
-- incoming UI owner: `call-engine-surface-owner`
-- native 정책: **signal-only** (Android native direct PATCH 제거)
-
-## Android 감사 결과 반영
-
-- `IncomingCallActionCoordinator`의 `CallSessionPatchHelper.patch("accept"|"reject"|"missed")` 제거
-- `CallForegroundService`의 direct `"end"` PATCH 제거
-- `IncomingCallPushDelivery` foreground에서 native pill 경로 제거(웹 SSOT 로그로 전환)
-
-## 잔여 리스크/추가 확인 포인트
-
-- 실기기에서 background/lock 경로의 FSI/notification 우선순위가 의도대로 단일 owner로 동작하는지 최종 QA 필요
-- call-engine 도입 후 기존 도메인 테스트와 병행하여 regression 확인 필요
+- FSI vs Web banner 중복 없음
+- native accept → Web PATCH 1회
+- 연속 통화 (이전 callId lock 잔재 없음)
+- background/lock FSI 우선순위

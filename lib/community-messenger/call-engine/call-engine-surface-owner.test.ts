@@ -7,6 +7,7 @@ import {
   markCallEngineTerminalConsumed,
   resetCallEngineLocksForTests,
 } from "@/lib/community-messenger/call-engine/call-engine-locks";
+import { resetCallEngineStateForTests, syncCallEngineStateFromSession } from "@/lib/community-messenger/call-engine/call-engine-state";
 
 describe("call-engine surface owner", () => {
   it("uses web banner in foreground", () => {
@@ -35,7 +36,9 @@ describe("call-engine surface owner", () => {
     expect(claimCallEngineSurfaceOwner("c3", "web_in_app_banner")).toBe(false);
   });
 
-  it("allows dock_or_pip as foreground presentation owner", () => {
+  it("allows dock_or_pip only when connected", () => {
+    resetCallEngineStateForTests();
+    syncCallEngineStateFromSession("c4", "active", false);
     const owner = resolveCallEngineIncomingSurfaceOwner({
       callId: "c4",
       appVisibility: "foreground",

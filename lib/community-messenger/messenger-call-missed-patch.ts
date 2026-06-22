@@ -2,10 +2,9 @@
 
 import type { CommunityMessengerCallSessionPatchDebugContext } from "@/lib/community-messenger/call-http-actions";
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
-import { callEngineActions } from "@/lib/community-messenger/call-engine";
+import { dispatchCallEngineSignal } from "@/lib/community-messenger/call-engine/call-engine-controller";
 
 const inFlightBySessionId = new Map<string, Promise<{ ok: boolean; session?: CommunityMessengerCallSession; error?: string }>>();
-/** 터미널 missed PATCH 성공 직후 동일 세션 중복 스케줄 방지 */
 const missedTombstoneUntilMs = new Map<string, number>();
 const MISSED_TOMBSTONE_MS = 120_000;
 
@@ -22,12 +21,10 @@ function markMissedTombstone(sessionId: string): void {
   missedTombstoneUntilMs.set(sessionId, Date.now() + MISSED_TOMBSTONE_MS);
 }
 
-/**
- * 링 타임아웃 missed PATCH — Global incoming·CallClient·그룹 훅이 동일 세션에 중복 PATCH 하지 않게 한다.
- */
+/** 링 타임아웃 missed — CallEngine controller 단일 경로 */
 export async function patchCommunityMessengerCallMissedOnce(
   sessionId: string,
-  debugContext?: CommunityMessengerCallSessionPatchDebugContext
+  debugContext?: CommunityMessengerCallSessionPatchDebugContext,
 ): Promise<{ ok: boolean; session?: CommunityMessengerCallSession; error?: string; skipped?: boolean }> {
   const sid = sessionId.trim();
   if (!sid) return { ok: false, error: "session_required" };
@@ -36,11 +33,11 @@ export async function patchCommunityMessengerCallMissedOnce(
   const existing = inFlightBySessionId.get(sid);
   if (existing) return existing.then((r) => ({ ...r, skipped: true }));
 
-  const run = callEngineActions.patch({
+  const run = dispatchCallEngineSignal({
+    type: "user_missed",
     callId: sid,
-    action: "missed",
-    source: "missed_patch_once",
     debugContext,
+    source: "missed_patch_once",
   }).then((res) => {
     if (res.ok) markMissedTombstone(sid);
     return res;

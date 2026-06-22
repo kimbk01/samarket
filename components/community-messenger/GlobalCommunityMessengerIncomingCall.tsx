@@ -83,7 +83,6 @@ import {
   mergeForegroundIncomingWakeSession,
 } from "@/lib/community-messenger/incoming-call/foreground-incoming-wake";
 import { postCommunityMessengerCallHangupSignal } from "@/lib/call/call-actions";
-import { patchCommunityMessengerCallMissedOnce } from "@/lib/community-messenger/messenger-call-missed-patch";
 import { evaluateIncomingCallBusyPolicy } from "@/lib/call/call-state";
 import { useIncomingCallTabLeader } from "@/lib/community-messenger/incoming-call-tab-leader";
 import { DEFAULT_INCOMING_RING_TIMEOUT_SECONDS } from "@/lib/community-messenger/messenger-call-ring-timeout";
@@ -130,7 +129,7 @@ import {
 import { getNativeIncomingCallPlugin } from "@/lib/push/native/push-route-native-bridge";
 import { incomingRingTimeoutMsFromConfig } from "@/lib/community-messenger/messenger-call-ring-timeout";
 import { acceptIncomingCallOnce, runIncomingCallReject } from "@/lib/community-messenger/incoming-call-accept-gateway";
-import { callEngineActions } from "@/lib/community-messenger/call-engine";
+import { callEngineActions, scheduleCallEngineMissedTimeouts } from "@/lib/community-messenger/call-engine";
 import { buildIncomingCallPreviewHref } from "@/lib/community-messenger/incoming-call-preview-route";
 import {
   getIncomingCallPollIntervalMs,
@@ -835,10 +834,6 @@ export function GlobalCommunityMessengerIncomingCall() {
       typeof pathname === "string" && pathname.startsWith("/community-messenger/calls/");
     const uid = userId?.trim();
     if (!uid || onDedicatedCallRoute) {
-      for (const meta of ringMissedScheduleRef.current.values()) {
-        window.clearTimeout(meta.timerId);
-      }
-      ringMissedScheduleRef.current.clear();
       return;
     }
     const hasRingingCallee = sessions.some(
@@ -863,59 +858,18 @@ export function GlobalCommunityMessengerIncomingCall() {
         void fetchMessengerCallSoundConfig();
       }
     }
-    const timeoutMs = incomingRingTimeoutMsFromConfig(getMessengerCallSoundConfigCache());
-    const now = Date.now();
-    const wanted = new Map<string, number>();
-    for (const s of sessions) {
-      if (s.sessionMode !== "direct" || s.status !== "ringing") continue;
-      if (s.isMineInitiator) continue;
-      if (!s.recipientUserId || !messengerUserIdsEqual(s.recipientUserId, uid)) continue;
-      const startMs = s.startedAt ? new Date(s.startedAt).getTime() : NaN;
-      if (!Number.isFinite(startMs)) continue;
-      wanted.set(s.id, startMs + timeoutMs);
-    }
-    for (const [sid, meta] of [...ringMissedScheduleRef.current.entries()]) {
-      if (!wanted.has(sid)) {
-        window.clearTimeout(meta.timerId);
-        ringMissedScheduleRef.current.delete(sid);
-      }
-    }
-    for (const [sid, deadline] of wanted.entries()) {
-      const prev = ringMissedScheduleRef.current.get(sid);
-      if (prev && prev.deadline === deadline) continue;
-      if (prev) window.clearTimeout(prev.timerId);
-      const delay = Math.max(0, deadline - now);
-      const timerId = window.setTimeout(() => {
-        ringMissedScheduleRef.current.delete(sid);
-        const sess = sessions.find((x) => x.id === sid);
-        void patchCommunityMessengerCallMissedOnce(
-          sid,
-          sess
-            ? {
-                sessionStatus: sess.status,
-                isInitiator: sess.isMineInitiator,
-                endedReason: sess.endedReason ?? null,
-              }
-            : { sessionStatus: "ringing", isInitiator: false, endedReason: null }
-        ).then(() => {
-          sealIncomingCallTerminal(sid, "missed", hardClearedIncomingSessionsAtRef.current, "missed_timeout");
-          activeIncomingCallIdsRef.current.delete(sid);
-          logCallFlow("call_cleanup_done", { sessionId: sid, reason: "missed_timeout" });
-          void refresh(true, { incomingTerminalListSync: true });
-        });
-      }, delay);
-      ringMissedScheduleRef.current.set(sid, { deadline, timerId });
-    }
+    scheduleCallEngineMissedTimeouts({
+      sessions,
+      surfaceOwner: "web_in_app_banner",
+      source: "global_incoming",
+      onTerminal: (sid) => {
+        sealIncomingCallTerminal(sid, "missed", hardClearedIncomingSessionsAtRef.current, "missed_timeout");
+        activeIncomingCallIdsRef.current.delete(sid);
+        logCallFlow("call_cleanup_done", { sessionId: sid, reason: "missed_timeout" });
+        void refresh(true, { incomingTerminalListSync: true });
+      },
+    });
   }, [pathname, refresh, sessions, userId]);
-
-  useEffect(() => {
-    return () => {
-      for (const meta of ringMissedScheduleRef.current.values()) {
-        window.clearTimeout(meta.timerId);
-      }
-      ringMissedScheduleRef.current.clear();
-    };
-  }, []);
 
   /**
    * 경로가 바뀔 때마다 폴링 effect 전체를 갈아엎지 않고, 가시성 burst 꼬리만 정리 후 필요 시 1회 burst.

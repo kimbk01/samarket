@@ -213,7 +213,7 @@ import {
   logCommunityMessengerCallSessionPatchDev,
   postCommunityMessengerCallHangupSignal,
 } from "@/lib/call/call-actions";
-import { callEngineActions } from "@/lib/community-messenger/call-engine";
+import { callEngineActions, dispatchCallEngineSignal, scheduleCallEngineMissedTimeouts } from "@/lib/community-messenger/call-engine";
 import {
   classifyMessengerCallJoinFailure,
   isMessengerCallClientFailureReason,
@@ -1484,57 +1484,26 @@ export function CommunityMessengerCallClient({
     [refreshSession]
   );
 
-  /** 1:1 전용 라우트: `incoming_ring_timeout_seconds` 경과 시 `missed` — 발신/수신 어느 쪽이 열려 있어도 서버가 허용(경합은 bad_action·refresh) */
+  /** 1:1 전용 라우트: missed timeout — CallEngine controller SSOT */
   useEffect(() => {
     if (!session) return;
     if (isCommunityMessengerTempCallSessionId(session.id)) return;
     if (session.sessionMode !== "direct" || session.status !== "ringing") return;
-    const sid = session.id;
-    const startedAt = session.startedAt;
-    let cancelled = false;
-
-    /**
-     * 타이머 등록을 네트워크 왕복(`await fetchMessengerCallSoundConfig`)에 묶지 않는다.
-     * 캐시가 비면 기본 30s 와 동일한 클램프가 적용되고, 백그라운드로 설정만 채운다.
-     */
     if (!getMessengerCallSoundConfigCache()) {
       void fetchMessengerCallSoundConfig();
     }
-    const cur = sessionRef.current;
-    if (!cur || cur.id !== sid || cur.status !== "ringing") return () => {};
-    if (joinedRef.current) return () => {};
-    const startMs = startedAt ? new Date(startedAt).getTime() : NaN;
-    if (!Number.isFinite(startMs)) return () => {};
-    const timeoutMs = incomingRingTimeoutMsFromConfig(getMessengerCallSoundConfigCache());
-    const delay = Math.max(0, startMs + timeoutMs - Date.now());
-    const timer = window.setTimeout(() => {
-      if (cancelled) return;
-      const c2 = sessionRef.current;
-      if (!c2 || c2.id !== sid || c2.status !== "ringing") return;
-      if (joinedRef.current) return;
-      void patchCommunityMessengerCallMissedOnce(
-        sid,
-        (() => {
-          const c = sessionRef.current;
-          return c && c.id === sid
-            ? { sessionStatus: c.status, isInitiator: c.isMineInitiator, endedReason: c.endedReason ?? null }
-            : undefined;
-        })()
-      ).then((res) => {
-        if (res.skipped) return;
-        if (res.ok && res.session) {
-          beginRingingCallDismiss(c2.roomId);
-          setSession(res.session);
-        } else if (!res.ok) {
-          scheduleSilentRefresh("terminal");
-        }
-      });
-    }, delay);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
+    scheduleCallEngineMissedTimeouts({
+      sessions: [session],
+      surfaceOwner: "web_call_screen",
+      source: "call_client",
+      onTerminal: (sid) => {
+        const c2 = sessionRef.current;
+        if (!c2 || c2.id !== sid || c2.status !== "ringing") return;
+        if (joinedRef.current) return;
+        beginRingingCallDismiss(c2.roomId);
+        scheduleSilentRefresh("terminal");
+      },
+    });
   }, [
     beginRingingCallDismiss,
     scheduleSilentRefresh,
@@ -3401,18 +3370,22 @@ export function CommunityMessengerCallClient({
             () => {}
           );
         }
-        await callEngineActions
-          .patch({
-            callId: sid,
-            action: patchAction,
-            init: patchAction === "end" ? { durationSeconds: elapsedSeconds } : undefined,
-            source: "call_client_end",
-            debugContext: {
-              sessionStatus: session.status,
-              isInitiator: session.isMineInitiator,
-              endedReason: session.endedReason ?? null,
-            },
-          })
+        const patchSignal =
+          patchAction === "reject"
+            ? dispatchCallEngineSignal({ type: "user_reject", sessionId: sid, source: "call_client_end" })
+            : dispatchCallEngineSignal({
+                type: patchAction === "cancel" ? "user_cancel" : "user_end",
+                callId: sid,
+                action: patchAction,
+                init: patchAction === "end" ? { durationSeconds: elapsedSeconds } : undefined,
+                source: "call_client_end",
+                debugContext: {
+                  sessionStatus: session.status,
+                  isInitiator: session.isMineInitiator,
+                  endedReason: session.endedReason ?? null,
+                },
+              });
+        await patchSignal
           .then((json) => {
             if (!json.ok) {
               if (json.error !== "duplicate_action" && json.error !== "terminal_consumed") {
