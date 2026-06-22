@@ -47,17 +47,43 @@ export function clearCallV3RouteState(_callId?: string): void {
   }
 }
 
-export function routeToCallV3Screen(
-  router: { push: (href: string) => void; replace?: (href: string) => void },
-  callId: string
-): void {
+export type CallV3Router = { replace?: (href: string) => void; push?: (href: string) => void };
+
+export function isOnCallV3ScreenPath(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.location.pathname.includes("/community-messenger/calls-v3/");
+}
+
+export function routeToCallV3Screen(router: { push: (href: string) => void; replace?: (href: string) => void }, callId: string): void {
   const href = buildCallV3ScreenHref(callId);
   logCallV3("route_to_screen", { callId, href });
   const go = router.replace ?? router.push;
   go(href);
 }
 
-export function routeBackFromCallV3(router: { replace: (href: string) => void; push?: (href: string) => void }): void {
+/**
+ * Leave calls-v3 when terminal cleanup finished. Preserves return path until navigation.
+ */
+export function exitCallV3ScreenAfterCleanup(router?: CallV3Router): void {
+  const onCallScreen = typeof window === "undefined" ? Boolean(router) : isOnCallV3ScreenPath();
+  if (!onCallScreen) {
+    clearCallV3RouteState();
+    logCallV3("route_back_done", { skipped: true, reason: "not_on_call_screen" });
+    return;
+  }
+  routeBackFromCallV3(router);
+}
+
+export function routeBackFromCallV3(router?: CallV3Router): void {
+  const pathname = typeof window !== "undefined" ? window.location.pathname : null;
+  logCallV3("route_back_start", { pathname, hasRouter: Boolean(router) });
   const back = takeCallV3ReturnPath() ?? COMMUNITY_MESSENGER_CALL_LOGS_HREF;
-  router.replace(back);
+  if (router?.replace) {
+    router.replace(back);
+  } else if (router?.push) {
+    router.push(back);
+  } else if (typeof window !== "undefined") {
+    window.location.assign(back);
+  }
+  logCallV3("route_back_done", { href: back });
 }

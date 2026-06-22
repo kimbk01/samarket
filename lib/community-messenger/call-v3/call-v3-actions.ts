@@ -27,7 +27,12 @@ import {
   claimCallV3RejectPatchOnce,
   releaseCallV3EndPatchClaim,
 } from "@/lib/community-messenger/call-v3/call-v3-patch-guard";
-import { rememberCallV3ReturnPath, routeBackFromCallV3, routeToCallV3Screen } from "@/lib/community-messenger/call-v3/call-v3-route";
+import {
+  exitCallV3ScreenAfterCleanup,
+  rememberCallV3ReturnPath,
+  routeToCallV3Screen,
+  type CallV3Router,
+} from "@/lib/community-messenger/call-v3/call-v3-route";
 import { startCallV3Ringtone, stopCallV3Ringtone } from "@/lib/community-messenger/call-v3/call-v3-ringtone";
 import { readCallV3Capabilities, readCallV3Identity, readCallV3Phase, useCallV3Store } from "@/lib/community-messenger/call-v3/call-v3-store";
 import type { CallV3Identity, CallV3TerminalPhase } from "@/lib/community-messenger/call-v3/call-v3-types";
@@ -204,6 +209,15 @@ function mapRemoteTerminalReason(status: string | null | undefined): CallV3Termi
   return "cancelled";
 }
 
+async function finalizeCallV3Terminal(
+  callId: string,
+  reason: CallV3TerminalPhase | string,
+  router?: CallV3Router
+): Promise<void> {
+  await cleanupCallV3(callId, reason);
+  exitCallV3ScreenAfterCleanup(router);
+}
+
 export function callV3IncomingDiscovered(session: CommunityMessengerCallSession): void {
   const callId = session.id?.trim() ?? "";
   if (!callId || session.status !== "ringing" || session.isMineInitiator) return;
@@ -274,7 +288,7 @@ export async function callV3Reject(callId: string): Promise<void> {
   }
 
   markCallV3IncomingDismissed(sid);
-  await cleanupCallV3(sid, "rejected");
+  await finalizeCallV3Terminal(sid, "rejected");
 }
 
 export async function callV3EnsureAgoraJoined(callId: string): Promise<void> {
@@ -324,11 +338,15 @@ export async function callV3End(
     return;
   }
 
-  await cleanupCallV3(sid, "ended");
-  routeBackFromCallV3(router);
+  logCallV3("end_patch_done", { callId: sid });
+  await finalizeCallV3Terminal(sid, "ended", router);
 }
 
-export async function callV3HandleRemoteTerminal(callId: string, status?: string | null): Promise<void> {
+export async function callV3HandleRemoteTerminal(
+  callId: string,
+  status?: string | null,
+  router?: CallV3Router
+): Promise<void> {
   const sid = callId.trim();
   if (!sid) return;
 
@@ -339,7 +357,7 @@ export async function callV3HandleRemoteTerminal(callId: string, status?: string
   stopCallV3Ringtone("remote_terminal");
   stopCallV3CallerActivePoll();
   markCallV3IncomingDismissed(sid);
-  await cleanupCallV3(sid, mapRemoteTerminalReason(status));
+  await finalizeCallV3Terminal(sid, mapRemoteTerminalReason(status), router);
 }
 
 export async function callV3Cancel(
@@ -363,8 +381,8 @@ export async function callV3Cancel(
     return;
   }
 
-  await cleanupCallV3(sid, "cancelled");
-  routeBackFromCallV3(router);
+  logCallV3("cancel_patch_done", { callId: sid });
+  await finalizeCallV3Terminal(sid, "cancelled", router);
 }
 
 export { startCallV3CallerActivePoll, stopCallV3CallerActivePoll };

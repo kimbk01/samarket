@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   buildCallV3ScreenHref,
-  rememberCallV3ReturnPath,
   routeBackFromCallV3,
   routeToCallV3Screen,
   takeCallV3ReturnPath,
@@ -21,7 +20,7 @@ describe("call-v3-route", () => {
   it("returns to remembered path after cancel", () => {
     const storage = new Map<string, string>();
     vi.stubGlobal("window", {
-      location: { pathname: "/community-messenger/rooms/room-1", search: "" },
+      location: { pathname: "/community-messenger/calls-v3/call-9", search: "", assign: vi.fn() },
     });
     vi.stubGlobal("sessionStorage", {
       setItem: (k: string, v: string) => storage.set(k, v),
@@ -29,7 +28,7 @@ describe("call-v3-route", () => {
       removeItem: (k: string) => storage.delete(k),
     });
 
-    rememberCallV3ReturnPath();
+    storage.set("samarket.cm.call_v3_return_path.v1", "/community-messenger/rooms/room-1");
     const replace = vi.fn();
     routeBackFromCallV3({ replace });
     expect(replace).toHaveBeenCalledWith("/community-messenger/rooms/room-1");

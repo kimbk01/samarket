@@ -1,7 +1,6 @@
 import { stopCallV3CallerActivePoll } from "@/lib/community-messenger/call-v3/call-v3-caller-active";
 import { logCallV3 } from "@/lib/community-messenger/call-v3/call-v3-debug";
 import { clearCallV3NativePendingForCall } from "@/lib/community-messenger/call-v3/call-v3-native-bridge";
-import { clearCallV3RouteState } from "@/lib/community-messenger/call-v3/call-v3-route";
 import { stopCallV3Ringtone } from "@/lib/community-messenger/call-v3/call-v3-ringtone";
 import { markCallV3IncomingDismissed } from "@/lib/community-messenger/call-v3/call-v3-incoming-dismiss";
 import { useCallV3Store } from "@/lib/community-messenger/call-v3/call-v3-store";
@@ -34,13 +33,12 @@ export function clearCallV3Timers(callId?: string): void {
  */
 export async function cleanupCallV3(callId: string, reason: CallV3TerminalPhase | string): Promise<void> {
   const sid = callId.trim();
-  logCallV3("terminal_start", { callId: sid, reason });
+  logCallV3("cleanup_start", { callId: sid, reason });
   clearCallV3Timers(sid);
   stopCallV3CallerActivePoll();
   const { leaveCallV3Agora } = await import("@/lib/community-messenger/call-v3/call-v3-agora");
   await leaveCallV3Agora(sid);
   clearCallV3NativePendingForCall(sid);
-  clearCallV3RouteState(sid);
   stopCallV3Ringtone("cleanup");
   markCallV3IncomingDismissed(sid);
   useCallV3Store.getState().resetToIdle();
