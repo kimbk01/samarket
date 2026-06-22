@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { CallScreenShell } from "@/components/community-messenger/call-ui/CallScreenShell";
+import { AndroidOsPipSafeCallView } from "@/components/community-messenger/call-ui/AndroidOsPipSafeCallView";
 import { CallBackground } from "./CallBackground";
 import { CallHeader } from "./CallHeader";
 import { ConnectedVideoView } from "./ConnectedVideoView";
@@ -49,18 +50,23 @@ export function CallScreen({
    */
   const isIncomingVideoRinging = vm.mode === "video" && isIncomingRinging;
   const usesConnectedVideoView = vm.mode === "video" && !isIncomingVideoRinging;
-  const hideCallBackground = useTelegramSolidShell || isOutgoingVoiceRinging || usesConnectedVideoView;
-  const shellSurfaceClassName = usesConnectedVideoView
+  const androidOsPipSafeMode = Boolean(vm.androidOsPipSafeMode);
+  const hideCallBackground =
+    androidOsPipSafeMode || useTelegramSolidShell || isOutgoingVoiceRinging || usesConnectedVideoView;
+  const shellSurfaceClassName = androidOsPipSafeMode
     ? "bg-black"
-    : useStarbucksTheme
-      ? STARBUCKS_CALL_SURFACE
-      : useTelegramSolidShell
-        ? telegramCallSurface
-        : useOutgoingVoiceRingShell
-          ? OUTGOING_VOICE_RING_SURFACE
-          : undefined;
+    : usesConnectedVideoView
+      ? "bg-black"
+      : useStarbucksTheme
+        ? STARBUCKS_CALL_SURFACE
+        : useTelegramSolidShell
+          ? telegramCallSurface
+          : useOutgoingVoiceRingShell
+            ? OUTGOING_VOICE_RING_SURFACE
+            : undefined;
   /** 발신 영상·음성 벨 — 브라우저 내 `< 뒤로` 헤더 없이 safe-area 만 사용 */
   const showCallHeader =
+    !androidOsPipSafeMode &&
     !(vm.direction === "incoming" && vm.phase === "ringing") &&
     !(vm.mode === "video" && vm.direction === "outgoing") &&
     !(isOutgoingVoiceRinging);
@@ -69,6 +75,7 @@ export function CallScreen({
     <CallScreenShell
       variant={variant === "dock-top" ? "dock-top" : variant}
       surfaceClassName={shellSurfaceClassName}
+      lockViewportMetrics={androidOsPipSafeMode}
       className={
         variant === "dock-top"
           ? "min-h-0 overflow-hidden rounded-b-3xl shadow-2xl"
@@ -121,9 +128,15 @@ function renderCallView(vm: CallScreenViewModel) {
   }
   /** 영상: 벨·연결·통화 중 모두 동일 풀스크린 레이아웃(발신 시 로컬 프리뷰가 배경 전체). */
   if (vm.mode === "video") {
+    if (vm.androidOsPipSafeMode) {
+      return <AndroidOsPipSafeCallView vm={vm} />;
+    }
     return <ConnectedVideoView vm={vm} />;
   }
   if (vm.mode === "voice" && !(vm.direction === "incoming" && vm.phase === "ringing")) {
+    if (vm.androidOsPipSafeMode) {
+      return <AndroidOsPipSafeCallView vm={vm} />;
+    }
     return <VoiceCallView vm={vm} />;
   }
   return <OutgoingCallPanel vm={vm} />;

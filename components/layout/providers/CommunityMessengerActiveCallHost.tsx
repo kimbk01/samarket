@@ -7,6 +7,7 @@ import {
   readActiveDirectVideoCallSessionId,
   readDockedCallSessionId,
   readMinimizedCommunityCallSessionId,
+  readAndroidOsPipCallSessionId,
 } from "@/lib/community-messenger/direct-call-minimize";
 import {
   getCallDockPresentationState,
@@ -85,8 +86,11 @@ export function CommunityMessengerActiveCallHost() {
     hostedSessionId != null && readDockedCallSessionId() === hostedSessionId;
   const isMinimizedFlag =
     hostedSessionId != null && readMinimizedCommunityCallSessionId() === hostedSessionId;
+  const isAndroidOsPipFlag =
+    hostedSessionId != null && readAndroidOsPipCallSessionId() === hostedSessionId;
   const hideFullscreenHost = (isDockedFlag || isMinimizedFlag) && !pres.restoreInFlight;
-  const suppressBottomNavForFullscreenHost = hostedSessionId != null && !hideFullscreenHost;
+  const suppressBottomNavForFullscreenHost =
+    hostedSessionId != null && (!hideFullscreenHost || isAndroidOsPipFlag);
   const dockingCrossfade =
     Boolean(pres.pendingSessionId) || pres.visualPhase === "entering" || pres.visualPhase === "exiting";
 
@@ -112,7 +116,13 @@ export function CommunityMessengerActiveCallHost() {
     );
   }
 
-  const presentation = isDockedFlag ? "dock" : isMinimizedFlag ? "minimized" : "fullscreen";
+  const presentation = isAndroidOsPipFlag
+    ? "android-os-pip"
+    : isDockedFlag
+      ? "dock"
+      : isMinimizedFlag
+        ? "minimized"
+        : "fullscreen";
 
   return (
     <>

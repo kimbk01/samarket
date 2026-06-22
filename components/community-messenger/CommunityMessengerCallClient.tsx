@@ -144,7 +144,9 @@ import {
   isCommunityMessengerDedicatedCallSessionPath,
   canRetainCommunityCallPresentation,
   readAndroidOsPipCallSessionId,
+  expandCommunityCallFromAndroidOsPip,
 } from "@/lib/community-messenger/direct-call-minimize";
+import { shouldUseAndroidOsPipSafeLayout } from "@/lib/community-messenger/call-android-os-pip-layout";
 import {
   beginDockEnterTransition,
   commitDockEnterTransition,
@@ -568,10 +570,11 @@ export function CommunityMessengerCallClient({
   sessionId: string;
   /** RSC에서 미리 조회해 첫 페인트·클라이언트 중복 요청을 줄인다 */
   initialSession?: CommunityMessengerCallSession | null;
-  presentation?: "fullscreen" | "minimized" | "dock";
+  presentation?: "fullscreen" | "minimized" | "dock" | "android-os-pip";
 }) {
   const { t } = useI18n();
-  useMessengerCallMainBottomNavSuppress(presentation === "fullscreen");
+  const androidOsPipSafeMode = shouldUseAndroidOsPipSafeLayout(sessionId);
+  useMessengerCallMainBottomNavSuppress(presentation === "fullscreen" || presentation === "android-os-pip");
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -4418,6 +4421,16 @@ export function CommunityMessengerCallClient({
   const handleExpandToFullscreen = useCallback(() => {
     const sid = sessionRef.current?.id?.trim();
     if (!sid) return;
+    if (readAndroidOsPipCallSessionId() === sid) {
+      expandCommunityCallFromAndroidOsPip(sid);
+      notifyCommunityCallHostSync();
+      syncCommunityMessengerCallRuntimeSurface({ presentation: "fullscreen" });
+      const href = `/community-messenger/calls/${encodeURIComponent(sid)}`;
+      if (!callEngineActions.pushRouteOnce(router, sid, href)) {
+        router.push(href);
+      }
+      return;
+    }
     if (readDockedCallSessionId() === sid) {
       if (!tryBeginFullscreenRestoreFromDock()) return;
       expandCommunityCallFromDock(sid);
@@ -4690,13 +4703,15 @@ export function CommunityMessengerCallClient({
     []
   );
 
-  const pipShellMountedForSync = shouldMountLocalVideoPipShell({
-    videoCall: session?.callKind === "video",
-    sessionStatus: session?.status,
-    joined,
-    isInitiator: session?.isMineInitiator,
-    remoteJoined,
-  });
+  const pipShellMountedForSync =
+    !androidOsPipSafeMode &&
+    shouldMountLocalVideoPipShell({
+      videoCall: session?.callKind === "video",
+      sessionStatus: session?.status,
+      joined,
+      isInitiator: session?.isMineInitiator,
+      remoteJoined,
+    });
 
   const pipFirstOutgoingForSlot =
     session?.callKind === "video" &&
@@ -5355,13 +5370,15 @@ export function CommunityMessengerCallClient({
               : null);
 
   /** PiP shell — joined 직후 DOM 마운트(`localVideoReady` 와 분리) */
-  const pipShellMounted = shouldMountLocalVideoPipShell({
-    videoCall,
-    sessionStatus: session.status,
-    joined,
-    isInitiator: session.isMineInitiator,
-    remoteJoined,
-  });
+  const pipShellMounted =
+    !androidOsPipSafeMode &&
+    shouldMountLocalVideoPipShell({
+      videoCall,
+      sessionStatus: session.status,
+      joined,
+      isInitiator: session.isMineInitiator,
+      remoteJoined,
+    });
   /** PiP 크롬 — 로컬 트랙 play 완료 후 표시 */
   const videoPipChromeActive =
     shouldShowLocalVideoPipChrome({
@@ -5414,11 +5431,14 @@ export function CommunityMessengerCallClient({
       localVideoMinimized: true,
     },
     onBack:
-      joined && session.status === "active" && session.sessionMode === "direct"
-        ? () => handleMinimizeToDock()
-        : videoCall && session.isMineInitiator && (displayCallPhase === "ringing" || displayCallPhase === "connecting")
-          ? () => void endCall()
-          : null,
+      androidOsPipSafeMode && joined && session.status === "active"
+        ? () => handleExpandToFullscreen()
+        : joined && session.status === "active" && session.sessionMode === "direct"
+          ? () => handleMinimizeToDock()
+          : videoCall && session.isMineInitiator && (displayCallPhase === "ringing" || displayCallPhase === "connecting")
+            ? () => void endCall()
+            : null,
+    androidOsPipSafeMode,
     hideOutgoingVideoBrandRow: Boolean(
       videoCall &&
         (session.isMineInitiator

@@ -108,4 +108,6 @@ export type CallScreenViewModel = {
   pipFirstOutgoingMainPlaceholder?: boolean;
   /** 벨 거절·취소 직후 `EndedCallView` 대신 ringing UI 유지(복귀 전 단일 화면). */
   suppressTerminalView?: boolean;
+  /** Android OS PiP — WebView 축소 시 최소 chrome (presentation only) */
+  androidOsPipSafeMode?: boolean;
 };

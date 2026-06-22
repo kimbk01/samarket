@@ -14,6 +14,8 @@ type Props = {
   surfaceClassName?: string;
   children: ReactNode;
   className?: string;
+  /** Android OS PiP — visualViewport·keyboard 재계산 비활성(orientation 외 layout jump 방지) */
+  lockViewportMetrics?: boolean;
 };
 
 /**
@@ -128,6 +130,7 @@ export function CallScreenShell({
     variant === "overlay" || variant === "dock-top" ? DEFAULT_OVERLAY_SURFACE : "bg-ui-page",
   children,
   className = "",
+  lockViewportMetrics = false,
 }: Props) {
   /** `useLayoutEffect`로 첫 페인트 전에 body 포털 부착 */
   const [portalReady, setPortalReady] = useState(false);
@@ -135,12 +138,16 @@ export function CallScreenShell({
   useLayoutEffect(() => {
     setPortalReady(true);
   }, []);
-  const viewportResizeEnabled = variant === "overlay" || variant === "page";
+  const viewportResizeEnabled = !lockViewportMetrics && (variant === "overlay" || variant === "page");
   useCallViewportResize(viewportResizeEnabled, shellRef);
+
+  const overlayHeightClass = lockViewportMetrics
+    ? "h-full min-h-0 max-h-full"
+    : "h-[var(--call-viewport-height,100dvh)] max-h-[var(--call-viewport-height,100dvh)] min-h-0";
 
   const base =
     variant === "overlay"
-      ? `fixed inset-x-0 top-0 ${CALL_OVERLAY_PORTAL_Z} flex h-[var(--call-viewport-height,100dvh)] max-h-[var(--call-viewport-height,100dvh)] min-h-0 flex-col overflow-hidden ${surfaceClassName}`
+      ? `fixed inset-x-0 top-0 ${CALL_OVERLAY_PORTAL_Z} flex ${overlayHeightClass} flex-col overflow-hidden ${surfaceClassName}`
       : variant === "dock-top"
         ? `fixed inset-x-0 top-0 ${CALL_OVERLAY_PORTAL_Z} flex max-h-[min(520px,92dvh)] min-h-0 flex-col overflow-hidden pt-[max(14px,calc(env(safe-area-inset-top,0px)+8px))] ${surfaceClassName}`
         : `flex h-[var(--call-viewport-height,100dvh)] max-h-[var(--call-viewport-height,100dvh)] min-h-0 flex-col overflow-hidden ${surfaceClassName}`;

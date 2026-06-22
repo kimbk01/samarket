@@ -59,6 +59,7 @@ export function GlobalCallDockHost() {
 
   return createPortal(
     <div
+      data-call-dock-layer
       style={{
         ...CALL_DOCK_LAYER_STYLE,
         ...callDockLayerTransitionStyle(layerVisible),
