@@ -66,7 +66,10 @@ export async function handleCallEngineRemoteTerminal(args: {
   markCallEngineTerminalConsumed(sid);
   markCallConsumed(sid, consumedReason);
   syncCallEngineStateFromSession(sid, args.status as CommunityMessengerCallSessionStatus, false);
-  await releaseCallEngineTerminalLocalState(sid, `remote_${args.status}`);
+  await releaseCallEngineTerminalLocalState(sid, `remote_${args.status}`, {
+    sessionId: sid,
+    source: args.source,
+  });
 
   console.info("[DIBAY_CALL_ENGINE]", "remote_terminal_cleanup_done", {
     callId: sid,

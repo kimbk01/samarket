@@ -7,6 +7,7 @@ import {
   joinAgoraChannelSingleFlight,
 } from "@/lib/call/actions/agora-join-guard";
 import { logCallUxEvent } from "@/lib/community-messenger/call-engine/call-engine-debug";
+import { logAcceptPipeline } from "@/lib/community-messenger/call-engine/call-engine-accept-pipeline-log";
 import {
   isCallEngineTerminalConsumed,
   tryLockCallEngineJoinOnce,
@@ -44,9 +45,31 @@ export async function joinCallEngineAgoraOnce(args: {
   isOutgoing?: boolean;
 }): Promise<{ ok: boolean; reason?: "terminal_consumed" | "join_locked" | "duplicate" | "in_flight" | "invalid_phase" }> {
   const sid = args.callId.trim();
-  if (!sid || isCallEngineTerminalConsumed(sid)) return { ok: false, reason: "terminal_consumed" };
-  if (!canJoinForPhase(sid)) return { ok: false, reason: "invalid_phase" };
-  if (!tryLockCallEngineJoinOnce(sid)) return { ok: false, reason: "join_locked" };
+  if (!sid || isCallEngineTerminalConsumed(sid)) {
+    logAcceptPipeline("agora_join_blocked", {
+      callId: sid,
+      reason: "terminal_consumed",
+      phase: getCallEngineState(sid),
+    });
+    return { ok: false, reason: "terminal_consumed" };
+  }
+  if (!canJoinForPhase(sid)) {
+    logAcceptPipeline("agora_join_blocked", {
+      callId: sid,
+      reason: "invalid_phase",
+      phase: getCallEngineState(sid),
+    });
+    return { ok: false, reason: "invalid_phase" };
+  }
+  if (!tryLockCallEngineJoinOnce(sid)) {
+    logAcceptPipeline("agora_join_blocked", {
+      callId: sid,
+      reason: "join_locked",
+      phase: getCallEngineState(sid),
+    });
+    return { ok: false, reason: "join_locked" };
+  }
+  logAcceptPipeline("agora_join_start", { callId: sid, phase: getCallEngineState(sid) });
   logCallUxEvent("call_agora_join_start", { callId: sid, sessionId: sid, callKind: args.callKind });
   const result = await joinAgoraChannelSingleFlight(
     sid,
@@ -61,6 +84,7 @@ export async function joinCallEngineAgoraOnce(args: {
   );
   if (!result.ok) return { ok: false, reason: result.reason };
   clearOutgoingConnectTimer(sid);
+  logAcceptPipeline("agora_join_success", { callId: sid });
   logCallUxEvent("call_agora_join_success", { callId: sid, sessionId: sid, callKind: args.callKind });
   return { ok: true };
 }

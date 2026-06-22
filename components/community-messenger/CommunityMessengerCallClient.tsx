@@ -214,6 +214,8 @@ import {
   postCommunityMessengerCallHangupSignal,
 } from "@/lib/call/call-actions";
 import { callEngineActions, dispatchCallEngineSignal, scheduleCallEngineMissedTimeouts } from "@/lib/community-messenger/call-engine";
+import { logAcceptPipeline } from "@/lib/community-messenger/call-engine/call-engine-accept-pipeline-log";
+import { getCallEngineState } from "@/lib/community-messenger/call-engine/call-engine-state";
 import {
   classifyMessengerCallJoinFailure,
   isMessengerCallClientFailureReason,
@@ -1459,6 +1461,13 @@ export function CommunityMessengerCallClient({
   useEffect(() => {
     void fetchMessengerCallSoundConfig();
   }, []);
+
+  useEffect(() => {
+    logAcceptPipeline("call_screen_mounted", {
+      callId: sessionId,
+      phase: getCallEngineState(sessionId),
+    });
+  }, [sessionId]);
 
   const scheduleSilentRefresh = useCallback(
     (reason: "realtime" | "poll" | "ui" | "terminal") => {

@@ -221,33 +221,76 @@ export function resumeActiveCallSessionFromNative(
 export async function releaseLocalCallSession(
   callId: string | null | undefined,
   reason = "terminal",
+  options?: { alternateId?: string | null },
 ): Promise<void> {
-  const sid = callId?.trim() ?? activeSession?.callId?.trim() ?? "";
-  if (!sid) {
-    activeSession = null;
+  const primary = callId?.trim() ?? "";
+  const alternate = options?.alternateId?.trim() ?? "";
+  const activeId = activeSession?.callId?.trim() ?? "";
+  const sid = primary || alternate || activeId;
+
+  if (!activeSession) {
+    if (!sid) {
+      notifySync();
+      return;
+    }
+    if (!canCleanupActiveCall(reason)) {
+      logDibayCall("active_call_cleanup_blocked", {
+        sessionId: sid,
+        callId: sid,
+        reason,
+      });
+      return;
+    }
+    await runActiveCallSessionNativeTeardown(sid, reason);
     notifySync();
     return;
   }
+
+  const idMatches =
+    !primary ||
+    activeId === primary ||
+    (alternate && activeId === alternate);
+  const forceTerminalClear = canCleanupActiveCall(reason);
+
+  if (!idMatches && isLiveActiveCallPhase(activeSession.phase) && !forceTerminalClear) {
+    logDibayCall("active_call_cleanup_blocked", {
+      sessionId: activeId,
+      callId: primary || alternate,
+      reason,
+      detail: "id_mismatch",
+    });
+    return;
+  }
+
   if (!canCleanupActiveCall(reason)) {
     logDibayCall("active_call_cleanup_blocked", {
-      sessionId: sid,
-      callId: sid,
+      sessionId: activeId,
+      callId: primary || activeId,
       reason,
     });
     return;
   }
+
+  const clearId = activeId || sid;
   logDibayCall("active_session_hard_clear", {
-    sessionId: sid,
-    callId: sid,
+    sessionId: clearId,
+    callId: clearId,
     reason,
   });
   appendDibayCallQaLog({
     step: "active_call_cleanup",
-    callId: sid,
+    callId: clearId,
     cleanupReason: reason,
     reason,
   });
   activeSession = null;
+  await runActiveCallSessionNativeTeardown(clearId, reason);
+  notifySync();
+}
+
+async function runActiveCallSessionNativeTeardown(callId: string, reason: string): Promise<void> {
+  const sid = callId.trim();
+  if (!sid) return;
   stopCallHeartbeatWatchdog(sid);
   stopCallRingtone("active_session_hard_clear", sid);
   stopCommunityMessengerCallTone();
@@ -256,6 +299,9 @@ export async function releaseLocalCallSession(
   const normalizedReason = reason.trim().toLowerCase();
   const isRemoteNativeEnd =
     normalizedReason === "remote_ended" ||
+    normalizedReason === "remote_cancelled" ||
+    normalizedReason === "remote_rejected" ||
+    normalizedReason === "remote_missed" ||
     normalizedReason === "native_stale_terminal" ||
     normalizedReason === "recovery_no_live_session" ||
     normalizedReason === "ended" ||
@@ -267,15 +313,15 @@ export async function releaseLocalCallSession(
   } else {
     await endNativeCallService(sid, reason);
   }
-  notifySync();
 }
 
 /** @deprecated — releaseLocalCallSession 사용 */
 export async function hardClearActiveCallSession(
   callId: string | null | undefined,
   reason = "terminal",
+  options?: { alternateId?: string | null },
 ): Promise<void> {
-  await releaseLocalCallSession(callId, reason);
+  await releaseLocalCallSession(callId, reason, options);
 }
 
 export function resetActiveCallSessionForTests(): void {

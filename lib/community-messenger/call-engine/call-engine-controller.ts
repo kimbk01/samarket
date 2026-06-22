@@ -17,7 +17,7 @@ import {
 } from "@/lib/community-messenger/call-session-navigation-seed";
 import { primeCommunityMessengerCallConnectionPrefetch } from "@/lib/community-messenger/call-connection-prefetch";
 import { unlockCommunityMessengerCallPlaybackFromUserGesture } from "@/lib/community-messenger/call-feedback-sound";
-import { getActiveCallSessionCallId, setActiveCallSession } from "@/lib/call/active-call-session";
+import { getActiveCallSessionCallId, hardClearActiveCallSession, setActiveCallSession } from "@/lib/call/active-call-session";
 import { mapSessionStatusToActiveCallPhase } from "@/lib/call/map-session-to-active-call";
 import { logDibayCall } from "@/lib/community-messenger/call-orchestrator";
 import { dismissAllIncomingCallNotificationsFireAndForget } from "@/lib/push/native/dismiss-native-incoming-call-notification";
@@ -53,8 +53,12 @@ import { isCallEngineTerminalConsumed } from "@/lib/community-messenger/call-eng
 import {
   buildCallEngineActiveRoute,
   replaceCallEngineRouteOnce,
+  routeCallEngineForAccept,
   type CallEngineRouter,
 } from "@/lib/community-messenger/call-engine/call-engine-route-gate";
+import { logAcceptPipeline } from "@/lib/community-messenger/call-engine/call-engine-accept-pipeline-log";
+import { dismissNativeForegroundIncomingUi } from "@/lib/community-messenger/call-engine/call-engine-native-surface";
+import { getCallEngineSurfaceOwner } from "@/lib/community-messenger/call-engine/call-engine-locks";
 import {
   getCallEngineState,
   setCallEngineState,
@@ -328,9 +332,13 @@ function closeIncomingSurfaceOptimistic(callId: string, source: string): void {
   applyIncomingCallConsumedSideEffects(sid, "accepted", `${source}_optimistic`);
   if (claimCallEngineSurfaceOwner(sid, "web_call_screen")) {
     surfaceOwnerByCallId.set(sid, "web_call_screen");
+    logAcceptPipeline("call_screen_owner_acquired", { callId: sid });
   } else {
     surfaceOwnerByCallId.set(sid, "web_call_screen");
+    logAcceptPipeline("call_screen_owner_acquired", { callId: sid, reused: true });
   }
+  logAcceptPipeline("optimistic_incoming_closed", { callId: sid });
+  void dismissNativeForegroundIncomingUi(sid);
 }
 
 async function handleUserAccept(signal: Extract<CallEngineSignal, { type: "user_accept" }>): Promise<{
@@ -340,16 +348,27 @@ async function handleUserAccept(signal: Extract<CallEngineSignal, { type: "user_
 }> {
   const s = signal.session;
   const sid = s.id.trim();
+  logAcceptPipeline("accept_signal_received", { callId: sid, phase: getCallEngineState(sid) });
+
   if (!sid || isAcceptSignalBlocked(sid)) {
     return { ok: false, sessionId: sid, reason: "terminal_consumed" };
   }
 
+  logAcceptPipeline("accept_click", {
+    callId: sid,
+    phase: getCallEngineState(sid),
+    surfaceOwner: getCallEngineSurfaceOwner(sid) ?? surfaceOwnerByCallId.get(sid) ?? null,
+  });
   logDibayCall("incoming_accept_click", { sessionId: sid, callId: sid, source: signal.source });
   logCallUxEvent("call_accept_tap", { callId: sid, sessionId: sid, source: signal.source });
 
   const liveCallId = getActiveCallSessionCallId();
   if (liveCallId && liveCallId !== sid) {
-    return { ok: false, sessionId: sid, reason: "duplicate_accept_blocked" };
+    if (isCallEngineTerminalConsumed(liveCallId)) {
+      await hardClearActiveCallSession(liveCallId, "stale_before_accept");
+    } else {
+      return { ok: false, sessionId: sid, reason: "duplicate_accept_blocked" };
+    }
   }
 
   stopCallEngineIncomingRingtone(sid, "accept_pressed_immediate");
@@ -371,7 +390,9 @@ async function handleUserAccept(signal: Extract<CallEngineSignal, { type: "user_
   try {
     setCallEngineState(sid, "accepting");
     closeIncomingSurfaceOptimistic(sid, signal.source);
+    logAcceptPipeline("accept_patch_start", { callId: sid });
     const patched = await callEngineAcceptIncoming({ callId: sid, source: signal.source });
+    logAcceptPipeline("accept_patch_done", { callId: sid, status: patched.ok ? "ok" : patched.error ?? "failed" });
     if (!patched.ok) {
       syncCallEngineStateFromSession(sid, s.status, s.isMineInitiator);
       return { ok: false, sessionId: sid, reason: "patch_failed" };
@@ -400,9 +421,7 @@ async function handleUserAccept(signal: Extract<CallEngineSignal, { type: "user_
     }
 
     const href = buildActiveCallAcceptHref(sid, signal.hrefOverride);
-    if (!replaceCallEngineRouteOnce(signal.router, sid, href)) {
-      signal.router.replace(href);
-    }
+    routeCallEngineForAccept(signal.router, sid, href);
 
     void ensureCallMediaForUserGesture(s.callKind);
     notifySnapshots(sid);

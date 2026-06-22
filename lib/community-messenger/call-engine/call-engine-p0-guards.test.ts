@@ -25,9 +25,14 @@ import {
   resolveCallEngineIncomingSurfaceOwner,
 } from "@/lib/community-messenger/call-engine/call-engine-surface-owner";
 import {
+  markCallEngineTerminalConsumed,
   resetCallEngineLocksForTests,
   tryLockCallEngineSurfaceOwner,
 } from "@/lib/community-messenger/call-engine/call-engine-locks";
+import {
+  replaceCallEngineRouteOnce,
+  routeCallEngineForAccept,
+} from "@/lib/community-messenger/call-engine/call-engine-route-gate";
 import { resetCallEngineStateForTests, setCallEngineState, syncCallEngineStateFromSession } from "@/lib/community-messenger/call-engine/call-engine-state";
 import {
   dispatchCallEngineSignal,
@@ -295,6 +300,56 @@ describe("call-engine P0 guards", () => {
         requestOwner: "web_in_app_banner",
       });
       expect(owner).toBeNull();
+    });
+  });
+
+  describe("P0-4 accepted vs terminal consumed", () => {
+    it("accepted consumed allows route", () => {
+      markCallConsumed("c-acc-route", "accepted");
+      const router = { replace: vi.fn() };
+      const href = "/community-messenger/calls/c-acc-route?mode=active";
+      expect(routeCallEngineForAccept(router, "c-acc-route", href)).toBe(true);
+      expect(router.replace).toHaveBeenCalledWith(href);
+    });
+
+    it("terminal consumed blocks replaceCallEngineRouteOnce but routeCallEngineForAccept still navigates", () => {
+      markCallEngineTerminalConsumed("c-term-route");
+      const router = { replace: vi.fn() };
+      const href = "/community-messenger/calls/c-term-route?mode=active";
+      expect(replaceCallEngineRouteOnce(router, "c-term-route", href)).toBe(false);
+      expect(routeCallEngineForAccept(router, "c-term-route", href)).toBe(false);
+      expect(router.replace).toHaveBeenCalledWith(href);
+    });
+  });
+
+  describe("P0-3 activeCallSession dual id clear", () => {
+    it("clears active session when alternate sessionId matches", async () => {
+      setActiveCallSession({
+        callId: "session-abc",
+        roomId: "room-1",
+        peerUserId: "peer",
+        role: "caller",
+        mediaType: "voice",
+        phase: "ringing",
+      });
+      await hardClearActiveCallSession("call-alias", "ended", { alternateId: "session-abc" });
+      expect(getActiveCallSessionCallId()).toBeNull();
+    });
+
+    it("terminal active session does not block new outgoing after cleanup", async () => {
+      setActiveCallSession({
+        callId: "old-live",
+        roomId: "room-z",
+        peerUserId: "peer",
+        role: "caller",
+        mediaType: "voice",
+        phase: "active",
+      });
+      markCallEngineTerminalConsumed("old-live");
+      await releaseCallEngineTerminalLocalState("old-live", "ended");
+      expect(isOutgoingCallStartBlocked()).toBe(false);
+      const next = acquireCallActionLock({ roomId: "room-z", mediaType: "voice" });
+      expect(next.ok).toBe(true);
     });
   });
 });

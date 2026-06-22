@@ -71,6 +71,16 @@ export function tryLockCallEngineJoinOnce(callId: string): boolean {
   return true;
 }
 
+export function isCallEngineRouteLocked(callId: string): boolean {
+  const sid = normalize(callId);
+  return Boolean(sid && routeLocks.has(sid));
+}
+
+export function isCallEngineJoinLocked(callId: string): boolean {
+  const sid = normalize(callId);
+  return Boolean(sid && joinLocks.has(sid));
+}
+
 export function tryLockCallEngineRouteOnce(callId: string): boolean {
   const sid = normalize(callId);
   if (!sid || terminalConsumedLocks.has(sid) || routeLocks.has(sid)) return false;
@@ -122,6 +132,12 @@ export function isCallEngineTerminalConsumed(callId: string): boolean {
   const sid = normalize(callId);
   if (!sid) return false;
   return terminalConsumedLocks.has(sid);
+}
+
+export function clearCallEngineSurfaceOwner(callId: string): void {
+  const sid = normalize(callId);
+  if (!sid) return;
+  surfaceLocks.delete(sid);
 }
 
 export function clearCallEngineLocks(callId: string): void {

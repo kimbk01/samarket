@@ -8,8 +8,7 @@ import {
 import { getActiveCallSessionCallId } from "@/lib/call/active-call-session";
 import { isOutgoingCallStartBlocked } from "@/lib/call/call-action-lock";
 import { logCallButtonState } from "@/lib/community-messenger/call-engine/call-engine-audit-log";
-import { isCallEngineTerminalConsumed } from "@/lib/community-messenger/call-engine/call-engine-locks";
-import { isDibayCallConsumed } from "@/lib/community-messenger/incoming-call-state";
+import { isDibayCallTerminalConsumedLocal } from "@/lib/community-messenger/incoming-call-state";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { safeTranslate } from "@/lib/i18n/safe-translate";
 
@@ -44,7 +43,7 @@ export function guardInstantOutgoingCallStart(
     return { ok: false, blockedCallId: "", userMessage: "", phoneVerificationRequired: true };
   }
   const activeCallId = getActiveCallSessionCallId();
-  if (activeCallId && !isCallEngineTerminalConsumed(activeCallId) && !isDibayCallConsumed(activeCallId)) {
+  if (activeCallId && !isDibayCallTerminalConsumedLocal(activeCallId)) {
     logCallButtonState({
       location: "guardInstantOutgoingCallStart",
       roomId: _input?.roomId,

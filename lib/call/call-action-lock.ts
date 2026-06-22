@@ -4,8 +4,10 @@ import { logDibayCall } from "@/lib/community-messenger/call-orchestrator";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
 import { getActiveCallSessionCallId, isLiveActiveCallPhase, readActiveCallSessionSnapshot } from "@/lib/call/active-call-session";
 import { logCallButtonState } from "@/lib/community-messenger/call-engine/call-engine-audit-log";
-import { isCallEngineTerminalConsumed } from "@/lib/community-messenger/call-engine/call-engine-locks";
-import { isDibayCallConsumed } from "@/lib/community-messenger/incoming-call-state";
+import {
+  isDibayCallAcceptedConsumed,
+  isDibayCallTerminalConsumedLocal,
+} from "@/lib/community-messenger/incoming-call-state";
 
 const SYNC_EVENT = "dibay:call-action-lock-sync";
 
@@ -52,8 +54,11 @@ export function isOutgoingCallStartBlocked(): boolean {
   const session = readActiveCallSessionSnapshot();
   if (session) {
     const sid = session.callId.trim();
-    if (sid && (isCallEngineTerminalConsumed(sid) || isDibayCallConsumed(sid))) {
+    if (sid && isDibayCallTerminalConsumedLocal(sid)) {
       return currentLock != null;
+    }
+    if (sid && isDibayCallAcceptedConsumed(sid) && isLiveActiveCallPhase(session.phase)) {
+      return true;
     }
     if (isLiveActiveCallPhase(session.phase)) return true;
   }

@@ -19,7 +19,7 @@ import {
   type CallEngineGatewayRouter,
   type IncomingCallAcceptSource,
 } from "@/lib/community-messenger/call-engine/call-engine-controller";
-import { callEngineActions } from "@/lib/community-messenger/call-engine";
+import { routeCallEngineForAccept } from "@/lib/community-messenger/call-engine/call-engine-route-gate";
 
 export type IncomingCallGatewayRouter = CallEngineGatewayRouter;
 
@@ -80,9 +80,7 @@ export function replaceActiveIncomingCallRoute(
   if (!sid) return;
   const href = buildPostAcceptActiveCallHref(sid, hrefOverride);
   logDibayCall("active_route_replace", { sessionId: sid, callId: sid, href, source: source ?? "gateway" });
-  if (!callEngineActions.replaceRouteOnce(router, sid, href)) {
-    router.replace(href);
-  }
+  routeCallEngineForAccept(router, sid, href);
 }
 
 export async function runNativePendingAcceptCall(

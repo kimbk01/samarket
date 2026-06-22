@@ -115,6 +115,19 @@ export function markCallConsumedFromNativeHydrate(
   logDibayCall("incoming_consumed", { sessionId: sid, callId: sid, reason, source: "native_hydrate" });
 }
 
+export function isDibayCallAcceptedConsumed(callId: string | null | undefined, now = Date.now()): boolean {
+  return readCallConsumedReason(callId, now) === "accepted";
+}
+
+/** terminal latch 또는 accepted 이외 consumed — route/join/outgoing 차단용 */
+export function isDibayCallTerminalConsumedLocal(callId: string | null | undefined, now = Date.now()): boolean {
+  const sid = normalizeCallId(callId);
+  if (!sid) return false;
+  if (isCallEngineTerminalConsumed(sid)) return true;
+  const reason = readCallConsumedReason(sid, now);
+  return reason != null && reason !== "accepted";
+}
+
 export function isDibayCallConsumed(callId: string | null | undefined, now = Date.now()): boolean {
   pruneConsumedRuntime(now);
   const sid = normalizeCallId(callId);
