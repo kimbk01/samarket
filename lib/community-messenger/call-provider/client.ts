@@ -18,9 +18,7 @@ import {
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
 import { assertCommunityMessengerWebRtcSecureContext } from "@/lib/community-messenger/media-errors";
 import { ensureCallCanUseMedia } from "@/lib/community-messenger/call-media-permission-preflight";
-import { applyAgoraRemoteSpeakerPreference, playRemoteCallAudioTrack } from "@/lib/community-messenger/call-provider/agora-playback-routing";
-
-export { playRemoteCallAudioTrack };
+import { applyAgoraRemoteSpeakerPreference } from "@/lib/community-messenger/call-provider/agora-playback-routing";
 import {
   closePrimedWebAudioCallToneContext,
   getPrimedWebAudioCallToneContextState,
@@ -265,20 +263,6 @@ export async function createCommunityMessengerAgoraLocalTracks(
     }
     throw error;
   }
-}
-
-export async function createCommunityMessengerAgoraLocalAudioTrackOnly(): Promise<ILocalAudioTrack> {
-  assertCommunityMessengerWebRtcSecureContext();
-  const preflight = await ensureCallCanUseMedia("voice");
-  if (!preflight.ok) {
-    throw new DOMException("Microphone permission denied", "NotAllowedError");
-  }
-  return createAgoraMicWithPreferredDevice();
-}
-
-/** 조인 직전 — 카메라만 열고 마이크는 라우트 확정 후 별도 생성 (에코 방지). */
-export async function createCommunityMessengerAgoraLocalVideoTrackForJoin(): Promise<ILocalVideoTrack> {
-  return createCommunityMessengerAgoraVideoTrackOnly();
 }
 
 /** Voice call in progress: add camera track only (keep existing mic publish). */

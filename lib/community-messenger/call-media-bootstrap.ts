@@ -9,12 +9,6 @@ import {
   peekPrimedCommunityMessengerDeviceStream,
   storePrimedCommunityMessengerDeviceStream,
 } from "@/lib/community-messenger/call-permission";
-import { logCallMediaOutgoingVideoGumDeferred } from "@/lib/community-messenger/call-latency-trace";
-
-export type PrimeOutgoingCallMediaOptions = {
-  /** P1-1 — 발신 dial: video GUM 은 accept 후 connecting_media 까지 연기 */
-  deferVideoGum?: boolean;
-};
 
 export type CallMediaPrimeResult =
   | { ok: true }
@@ -60,14 +54,8 @@ export async function primeVoiceCallMediaFromUserGesture(_opts?: {
 
 /** 발신 CTA — 권한 요청(필요 시) + 영상은 사용자 제스처에서 GUM 프라임 */
 export async function primeOutgoingCallMediaBeforeNavigate(
-  kind: CommunityMessengerCallKind,
-  options?: PrimeOutgoingCallMediaOptions
+  kind: CommunityMessengerCallKind
 ): Promise<CallMediaPrimeResult> {
-  if (kind === "video" && options?.deferVideoGum) {
-    logCallMediaOutgoingVideoGumDeferred({ phase: "outgoing_dial" });
-    return { ok: true };
-  }
-
   const preflight = await ensureCallMediaForUserGesture(kind);
   if (!preflight.ok) {
     return { ok: false, code: "denied" };

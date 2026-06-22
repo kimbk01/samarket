@@ -1,15 +1,10 @@
-import { describe, expect, it, beforeEach } from "vitest";
+import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 import { buildCallTombstoneContext } from "@/lib/community-messenger/call-events/fcm-call-event-normalizer";
 import { MESSENGER_FOREGROUND_INCOMING_BANNER_Z_CLASS } from "@/lib/community-messenger/incoming-call-surface";
 import { resolveForegroundIncomingPresentation } from "@/lib/community-messenger/incoming-call/foreground-incoming-presenter";
-import {
-  getIncomingCallSurfaceOwner,
-  resetIncomingCallSurfaceOwner,
-  claimIncomingCallSurface,
-} from "@/lib/community-messenger/incoming-call-surface-owner";
 
 function ringingSession(
   id: string,
@@ -45,10 +40,6 @@ function activeSession(id: string): CommunityMessengerCallSession {
 const tombstone = buildCallTombstoneContext(new Map());
 
 describe("foreground-incoming-presenter", () => {
-  beforeEach(() => {
-    resetIncomingCallSurfaceOwner();
-  });
-
   it("shows top-banner for normal foreground ringing", () => {
     const incoming = ringingSession("call-1");
     const decision = resolveForegroundIncomingPresentation({
@@ -191,6 +182,7 @@ describe("foreground-incoming-presenter", () => {
       visibilityState: "visible",
       isAppForeground: true,
       foregroundWakeSessionIds: new Set(["call-b"]),
+      preferNativeAndroidForegroundIncoming: false,
     });
 
     expect(decision.shouldRender).toBe(true);
@@ -198,9 +190,8 @@ describe("foreground-incoming-presenter", () => {
     expect(decision.reason).toBe("ok");
   });
 
-  it("suppresses web banner when native lock full-screen owns surface", () => {
+  it("suppresses web banner when native Android foreground pill is active", () => {
     const incoming = ringingSession("call-1");
-    claimIncomingCallSurface("call-1", "native_fullscreen", "test");
     const decision = resolveForegroundIncomingPresentation({
       sessions: [incoming],
       pathname: "/community-messenger",
@@ -210,15 +201,16 @@ describe("foreground-incoming-presenter", () => {
       incomingTabLeader: true,
       visibilityState: "visible",
       isAppForeground: true,
+      preferNativeAndroidForegroundIncoming: true,
+      nativeForegroundIncomingCallId: "call-1",
     });
 
     expect(decision.shouldRender).toBe(false);
-    expect(decision.reason).toBe("surface_owner_native_fullscreen");
+    expect(decision.reason).toBe("native_foreground_primary");
   });
 
-  it("shows web top-banner on Android APK foreground (Kakao/Telegram SSOT)", () => {
+  it("always suppresses web banner on Android foreground (native pill is sole surface)", () => {
     const incoming = ringingSession("call-1");
-    resetIncomingCallSurfaceOwner();
     const decision = resolveForegroundIncomingPresentation({
       sessions: [incoming],
       pathname: "/community-messenger",
@@ -228,38 +220,21 @@ describe("foreground-incoming-presenter", () => {
       incomingTabLeader: true,
       visibilityState: "visible",
       isAppForeground: true,
+      preferNativeAndroidForegroundIncoming: true,
+      nativeForegroundIncomingCallId: null,
     });
 
-    expect(decision.shouldRender).toBe(true);
-    expect(decision.reason).toBe("ok");
-    expect(decision.surface).toBe("top-banner");
+    expect(decision.shouldRender).toBe(false);
+    expect(decision.reason).toBe("native_foreground_primary");
   });
 
-  it("allows web banner on browser foreground", () => {
-    const incoming = ringingSession("call-1");
-    resetIncomingCallSurfaceOwner();
-    const decision = resolveForegroundIncomingPresentation({
-      sessions: [incoming],
-      pathname: "/community-messenger",
-      viewerUserId: "self",
-      viewerLiveSessionId: null,
-      tombstone,
-      incomingTabLeader: true,
-      visibilityState: "visible",
-      isAppForeground: true,
-    });
-
-    expect(decision.shouldRender).toBe(true);
-    expect(decision.reason).toBe("ok");
-  });
-
-  it("CommunityMessengerIncomingCallUi uses body portal and banner z layer", () => {
+  it("ForegroundIncomingCallHost uses body portal and banner z layer", () => {
     const src = readFileSync(
-      join(process.cwd(), "components/community-messenger/incoming-call/CommunityMessengerIncomingCallUi.tsx"),
+      join(process.cwd(), "components/community-messenger/ForegroundIncomingCallHost.tsx"),
       "utf8"
     );
     expect(src).toContain("createPortal");
     expect(src).toContain("MESSENGER_FOREGROUND_INCOMING_BANNER_Z_CLASS");
-    expect(src).toContain("data-cm-incoming-call-ui");
+    expect(src).toContain("data-foreground-incoming-call-host");
   });
 });

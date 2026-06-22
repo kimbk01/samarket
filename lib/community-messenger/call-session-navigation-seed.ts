@@ -1,9 +1,5 @@
 import type { CommunityMessengerCallKind, CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 import {
-  buildCalleeAcceptActiveSessionSeed,
-  readCallAcceptHydratePeer,
-} from "@/lib/community-messenger/call-accept-hydrate-peer";
-import {
   assertPhoneVerifiedForMessengerActionOrOpenSheet,
   resolveMessengerActionReturnPath,
 } from "@/lib/auth/assert-phone-verified-for-messenger-action-client";
@@ -11,14 +7,11 @@ import { isPhoneVerificationRequiredApiPayload } from "@/lib/auth/phone-verifica
 import { openPhoneVerificationRequiredSheet } from "@/lib/auth/phone-verification-required-client";
 import { isOutgoingCallPhoneVerificationRequired } from "@/lib/call/outgoing-call-start-guard";
 import {
+  primeOutgoingRingbackWebAudioFromUserGesture,
   rememberOutgoingRingtonePrimedForSession,
+  stopCommunityMessengerCallTone,
   unlockCommunityMessengerCallPlaybackFromUserGesture,
 } from "@/lib/community-messenger/call-feedback-sound";
-import {
-  primeOutgoingRingbackFromUserGesture,
-  startOutgoingRingback,
-  stopAllOutgoingRingback,
-} from "@/lib/community-messenger/call-outgoing-ringback-controller";
 import {
   cmCallFlow,
   cmCallIncomingTraceBindSession,
@@ -31,13 +24,6 @@ import {
 } from "@/lib/community-messenger/cm-call-debug";
 import { primeOutgoingCallMediaBeforeNavigate } from "@/lib/community-messenger/call-media-bootstrap";
 import {
-  logCallLatencyDialClick,
-  logCallLatencyRouteReplace,
-  logCallLatencySessionCreated,
-  logCallLatencyTerminalCleanupDone,
-  logCallMediaOutgoingVideoGumDeferred,
-} from "@/lib/community-messenger/call-latency-trace";
-import {
   discardPrimedCommunityMessengerCallAudioTracksOnly,
   discardPrimedCommunityMessengerDevicePermission,
 } from "@/lib/community-messenger/call-permission";
@@ -48,7 +34,6 @@ import {
 import { resetCommunityMessengerCallRuntimeSurface } from "@/lib/community-messenger/call-runtime-registry";
 import { notifyCommunityCallHostSync } from "@/components/layout/providers/CommunityMessengerActiveCallHost";
 import { hardClearActiveCallSession } from "@/lib/call/active-call-session";
-import { syncTerminalCallClientState } from "@/lib/call/call-terminal-sync-cleanup";
 import {
   resolveDirectCallDenyUserMessageFromApiError,
 } from "@/lib/community-messenger/direct-call-permission-messages";
@@ -191,14 +176,7 @@ export function hydrateCommunityMessengerCallClientSession(
   }
   ensureCallNavigationSeedMemoryMatchesRoute(sessionId);
   const seeded = consumeCommunityMessengerCallNavigationSeed(sessionId);
-  if (seeded) return { session: seeded, loading: false };
-  const hydratePeer = readCallAcceptHydratePeer(sessionId);
-  if (hydratePeer) {
-    const stub = buildCalleeAcceptActiveSessionSeed(hydratePeer);
-    primeCommunityMessengerCallNavigationSeed(sessionId, stub);
-    return { session: stub, loading: false };
-  }
-  return { session: null, loading: true };
+  return seeded ? { session: seeded, loading: false } : { session: null, loading: true };
 }
 
 /**
@@ -257,8 +235,6 @@ export function finalizeCommunityMessengerCallTerminalExit(
   const sid = sessionId.trim();
   pinCommunityMessengerCallTerminalSurfaceDismiss(sid);
   if (sid) {
-    syncTerminalCallClientState(sid, source);
-    logCallLatencyTerminalCleanupDone({ sessionId: sid, source });
     void hardClearActiveCallSession(sid, source);
   }
   navigateToCommunityMessengerCallLogsAfterTerminal(router);
@@ -602,14 +578,6 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCoreUnlocked(arg
       : {}),
   });
   cmCallFlow("session_created", { sessionId: json.session.id, roomId, callKind: args.kind });
-  logCallLatencySessionCreated({
-    sessionId: json.session.id,
-    roomId,
-    callKind: args.kind,
-    role: "initiator",
-    durationMs: clientPostMs,
-    reused: json.reused === true,
-  });
   cmCallLatencyAnalysis({
     totalMs: clientPostMs,
     serverMs: json._callStartTimingsMs,
@@ -679,7 +647,7 @@ async function applyOutgoingTempCallBootstrapResult(
   kind: CommunityMessengerCallKind
 ): Promise<void> {
   if (!result.ok) {
-    stopAllOutgoingRingback("bootstrap_failed");
+    stopCommunityMessengerCallTone();
     discardPrimedCommunityMessengerDevicePermission();
     if (!isOutgoingCallPhoneVerificationRequired(result) && result.userMessage.trim()) {
       showMessengerSnackbar(result.userMessage, { variant: "error" });
@@ -691,11 +659,6 @@ async function applyOutgoingTempCallBootstrapResult(
     navigateBackFromCommunityMessengerCall({ replace: callNavigationGo(router) }, roomIdFallback);
     return;
   }
-  startOutgoingRingback({
-    callId: result.session.id,
-    kind,
-    source: "nav_seed_session",
-  });
   rememberOutgoingRingtonePrimedForSession(result.session.id);
   cmCallLatencyInfo("route_replace_session_start", {
     sessionId: result.session.id,
@@ -740,7 +703,7 @@ export function ensureOutgoingTempCallBootstrap(args: {
       });
       await applyOutgoingTempCallBootstrapResult(result, args.router, args.roomId, args.kind);
     } catch {
-      stopAllOutgoingRingback("bootstrap_failed");
+      stopCommunityMessengerCallTone();
       discardPrimedCommunityMessengerDevicePermission();
       releaseCallActionLock("bootstrap_unhandled_error");
       showMessengerSnackbar(
@@ -774,13 +737,8 @@ export async function launchOutgoingDirectCall(
   if (!assertPhoneVerifiedForMessengerActionOrOpenSheet(resolveMessengerActionReturnPath())) {
     return { ok: false, userMessage: "", phoneVerificationRequired: true };
   }
-  logCallLatencyDialClick({
-    callKind: input.kind,
-    roomId: input.roomId?.trim() || undefined,
-    peerUserId: input.peerUserId?.trim() || undefined,
-  });
   unlockCommunityMessengerCallPlaybackFromUserGesture();
-  primeOutgoingRingbackFromUserGesture({ kind: input.kind, source: "nav_seed_gesture" });
+  primeOutgoingRingbackWebAudioFromUserGesture(input.kind);
   if (typeof window !== "undefined") {
     rememberCallNavigationReturnPath();
   }
@@ -795,22 +753,15 @@ export async function launchOutgoingDirectCall(
   const tempSessionId = decodeURIComponent(
     href.split("/community-messenger/calls/")[1]?.split("?")[0] ?? ""
   );
-  logCallLatencyRouteReplace({
-    sessionId: tempSessionId,
-    callKind: input.kind,
-    roomId: input.roomId?.trim() || undefined,
-  });
-  /** Telegram-style — 셸 먼저; video dial GUM 금지(P1-1), voice 는 권한 check-only 병렬 */
-  if (input.kind === "video") {
-    logCallMediaOutgoingVideoGumDeferred({ phase: "launch_outgoing_direct_call" });
-  } else {
-    void primeOutgoingCallMediaBeforeNavigate(input.kind).then((prime) => {
-      if (!prime.ok) {
-        stopAllOutgoingRingback("bootstrap_failed");
-        showMessengerSnackbar(outgoingCallMediaPrimeFailureMessage(input.kind), { variant: "error" });
+  /** Telegram-style — 셸 먼저, GUM·mic 프라임은 tmp 셸·bootstrap 과 병렬 */
+  void primeOutgoingCallMediaBeforeNavigate(input.kind).then((prime) => {
+    if (!prime.ok) {
+      if (input.kind === "video") {
+        stopCommunityMessengerCallTone();
+        showMessengerSnackbar(outgoingCallMediaPrimeFailureMessage("video"), { variant: "error" });
       }
-    });
-  }
+    }
+  });
   ensureOutgoingTempCallBootstrap({
     tempSessionId,
     roomId: input.roomId?.trim() || null,
@@ -851,10 +802,10 @@ export async function bootstrapCommunityMessengerOutgoingCallAndNavigate(
   }
   /** 첫 `await` 전에만 유효한 사용자 활성화 — 링백·GUM 프라임·자동재생 정책 대응 */
   unlockCommunityMessengerCallPlaybackFromUserGesture();
-  primeOutgoingRingbackFromUserGesture({ kind: input.kind, source: "nav_seed_gesture" });
+  primeOutgoingRingbackWebAudioFromUserGesture(input.kind);
   const primeResult = await primeOutgoingCallMediaBeforeNavigate(input.kind);
   if (!primeResult.ok) {
-    stopAllOutgoingRingback("bootstrap_failed");
+    stopCommunityMessengerCallTone();
     return { ok: false, userMessage: outgoingCallMediaPrimeFailureMessage(input.kind) };
   }
   if (typeof window !== "undefined") {
@@ -862,17 +813,12 @@ export async function bootstrapCommunityMessengerOutgoingCallAndNavigate(
   }
   const result = await bootstrapCommunityMessengerOutgoingCallSession(input);
   if (!result.ok) {
-    stopAllOutgoingRingback("bootstrap_failed");
+    stopCommunityMessengerCallTone();
     if (result.blockedCallId) {
       navigate(`/community-messenger/calls/${encodeURIComponent(result.blockedCallId)}`);
     }
     return result;
   }
-  startOutgoingRingback({
-    callId: result.session.id,
-    kind: input.kind,
-    source: "nav_seed_session",
-  });
   rememberOutgoingRingtonePrimedForSession(result.session.id);
   cmCallLatencyInfo("route_replace_session_start", {
     sessionId: result.session.id,
@@ -898,10 +844,10 @@ export async function startOutgoingCallSessionAndOpen(
   router: { push: (href: string) => void }
 ): Promise<OutgoingCallSessionBootstrapResult> {
   unlockCommunityMessengerCallPlaybackFromUserGesture();
-  primeOutgoingRingbackFromUserGesture({ kind: input.kind, source: "nav_seed_gesture" });
+  primeOutgoingRingbackWebAudioFromUserGesture(input.kind);
   const primeResult = await primeOutgoingCallMediaBeforeNavigate(input.kind);
   if (!primeResult.ok) {
-    stopAllOutgoingRingback("bootstrap_failed");
+    stopCommunityMessengerCallTone();
     return { ok: false, userMessage: outgoingCallMediaPrimeFailureMessage(input.kind) };
   }
   if (typeof window !== "undefined") {
@@ -909,17 +855,12 @@ export async function startOutgoingCallSessionAndOpen(
   }
   const result = await bootstrapCommunityMessengerOutgoingCallSession(input);
   if (!result.ok) {
-    stopAllOutgoingRingback("bootstrap_failed");
+    stopCommunityMessengerCallTone();
     if (result.blockedCallId) {
       router.push(`/community-messenger/calls/${encodeURIComponent(result.blockedCallId)}`);
     }
     return result;
   }
-  startOutgoingRingback({
-    callId: result.session.id,
-    kind: input.kind,
-    source: "nav_seed_session",
-  });
   rememberOutgoingRingtonePrimedForSession(result.session.id);
   cmCallLatencyInfo("route_replace_session_start", {
     sessionId: result.session.id,

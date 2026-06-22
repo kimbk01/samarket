@@ -123,25 +123,23 @@ const loadMypageCoreCached = cache(async (): Promise<MypageCoreInternal | null> 
 });
 
 /**
- * `/mypage` **탭 진입** — 프로필·주소·홈 stat·거래/매장 요약 배지를 RSC 에서 한 번에 seed.
- * 클라 `useMypageHubModel` 은 백그라운드 갱신·배너 설정만 담당.
+ * `/mypage` **탭 first paint** — lite profile + ProfileCompletionState 만 RSC seed.
+ * CMS·stat·hub extras 는 클라 `useMypageHubModel` lazy.
  */
 export const loadMypageServerShell = cache(async (): Promise<MyPageData | null> => {
   const row = await loadMypageCoreCached();
   if (!row) return null;
   const { viewerIdForHub, ...core } = row;
-  const [addressDefaultsSnapshot, homeDashboardCounts, hubServerExtras, profileCompletion] =
-    await Promise.all([
-      loadAddressDefaultsSnapshotServer(viewerIdForHub),
-      loadMypageHomeDashboardCountsServer(viewerIdForHub),
-      loadMypageHubExtrasServer(viewerIdForHub, row.hasOwnerStore),
-      resolveMypageProfileCompletion(viewerIdForHub, row.profile),
-    ]);
+  const profileCompletion = await resolveMypageProfileCompletion(viewerIdForHub, row.profile);
   return {
     ...core,
-    hubServerExtras,
-    homeDashboardCounts,
-    addressDefaultsSnapshot,
+    banner: null,
+    bannerHidden: true,
+    services: [],
+    sections: [],
+    hubServerExtras: null,
+    homeDashboardCounts: null,
+    addressDefaultsSnapshot: null,
     profileCompletion,
   };
 });

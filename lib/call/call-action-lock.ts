@@ -104,31 +104,6 @@ export function releaseCallActionLock(reason = "done"): void {
   }
 }
 
-/**
- * terminal cleanup — bound callId 와 일치할 때만 release (다른 통화 lock 오염 방지).
- * bootstrap 중 callId 미바인드면 activeCallSession callId 로 판단한다.
- */
-export function releaseCallActionLockForCallId(
-  callId: string | null | undefined,
-  reason = "terminal",
-): void {
-  if (!currentLock) return;
-  const sid = callId?.trim() ?? "";
-  const bound = currentLock.callId?.trim() ?? "";
-  if (bound) {
-    if (sid && bound !== sid) return;
-    releaseCallActionLock(reason);
-    return;
-  }
-  if (!sid) {
-    releaseCallActionLock(reason);
-    return;
-  }
-  const liveCallId = getActiveCallSessionCallId();
-  if (liveCallId && liveCallId !== sid) return;
-  releaseCallActionLock(reason);
-}
-
 export function resetCallActionLockForTests(): void {
   currentLock = null;
 }

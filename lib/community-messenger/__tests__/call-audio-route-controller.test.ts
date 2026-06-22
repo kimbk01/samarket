@@ -6,7 +6,6 @@ const getNativeCallAudioRouteMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/community-messenger/call-provider/agora-playback-routing", () => ({
   applyAgoraRemoteSpeakerPreference: applyAgoraRemoteSpeakerPreferenceMock,
-  configureRemoteCallAudioPlayback: vi.fn(),
 }));
 
 vi.mock("@/lib/community-messenger/native-call-audio-route.client", () => ({
@@ -81,7 +80,7 @@ describe("call-audio-route-controller", () => {
     await vi.runAllTimersAsync();
     const result = await promise;
 
-    expect(setNativeCallSpeakerphoneEnabledMock).toHaveBeenCalledWith(true, "speaker_toggle", "audio");
+    expect(setNativeCallSpeakerphoneEnabledMock).toHaveBeenCalledWith(true, "speaker_toggle");
     expect(result.actualRoute).toBe("speaker");
   });
 
@@ -123,61 +122,6 @@ describe("call-audio-route-controller", () => {
     expect(result.actualRoute).toBe("bluetooth");
   });
 
-  it("skips verify delays for remote audio playback route", async () => {
-    setNativeCallSpeakerphoneEnabledMock.mockResolvedValueOnce(
-      routeResult({ requestedSpeaker: true, actualRoute: "speaker" })
-    );
-    getNativeCallAudioRouteMock.mockResolvedValueOnce(
-      routeResult({ requestedSpeaker: true, actualRoute: "speaker" })
-    );
-    const { applyCallAudioRoute } = await import(
-      "@/lib/community-messenger/call-audio-route-controller"
-    );
-
-    const promise = applyCallAudioRoute({
-      callId: "c4",
-      callType: "video",
-      role: "callee",
-      desiredSpeaker: true,
-      reason: "remote_audio_published",
-      remoteAudioTrack: { setVolume: vi.fn() } as never,
-    });
-    await vi.runAllTimersAsync();
-    await promise;
-
-    expect(setNativeCallSpeakerphoneEnabledMock).toHaveBeenCalledTimes(1);
-    expect(getNativeCallAudioRouteMock).toHaveBeenCalledTimes(1);
-  });
-
-  it("fast-retries remote audio when route is still earpiece", async () => {
-    setNativeCallSpeakerphoneEnabledMock
-      .mockResolvedValueOnce(routeResult({ requestedSpeaker: true, actualRoute: "earpiece" }))
-      .mockResolvedValueOnce(routeResult({ requestedSpeaker: true, actualRoute: "speaker" }));
-    getNativeCallAudioRouteMock.mockResolvedValueOnce(
-      routeResult({ requestedSpeaker: true, actualRoute: "earpiece" })
-    );
-    const { applyCallAudioRoute } = await import(
-      "@/lib/community-messenger/call-audio-route-controller"
-    );
-
-    const result = await applyCallAudioRoute({
-      callId: "c5",
-      callType: "video",
-      role: "callee",
-      desiredSpeaker: true,
-      reason: "remote_audio_published",
-      remoteAudioTrack: { setVolume: vi.fn() } as never,
-    });
-
-    expect(setNativeCallSpeakerphoneEnabledMock).toHaveBeenCalledTimes(2);
-    expect(setNativeCallSpeakerphoneEnabledMock).toHaveBeenLastCalledWith(
-      true,
-      "remote_audio_published:fast_retry",
-      "video"
-    );
-    expect(result.actualRoute).toBe("speaker");
-  });
-
   it("retries when video route falls back to earpiece after join", async () => {
     setNativeCallSpeakerphoneEnabledMock
       .mockResolvedValueOnce(routeResult({ requestedSpeaker: true, actualRoute: "earpiece" }))
@@ -202,8 +146,7 @@ describe("call-audio-route-controller", () => {
     expect(setNativeCallSpeakerphoneEnabledMock).toHaveBeenCalledTimes(2);
     expect(setNativeCallSpeakerphoneEnabledMock).toHaveBeenLastCalledWith(
       true,
-      "agora_join_success:verify_300",
-      "video"
+      "agora_join_success:verify_300"
     );
     expect(result.actualRoute).toBe("speaker");
   });

@@ -1,5 +1,4 @@
 import type { CSSProperties, PointerEventHandler, ReactNode, RefObject } from "react";
-import type { CallPresentationState } from "@/lib/community-messenger/call-presentation-state";
 import type { CallPipCorner, CallVideoPipPositionMode } from "@/lib/community-messenger/call-pip-metrics";
 
 /** 카카오톡/텔레그램/바이버식 영상통화: PiP 4모서리 스냅, 드래그, 탭 스왑·더블탭 확대 — 세로 self view (3:4) */
@@ -53,7 +52,6 @@ export type CallActionIcon =
   | "camera-switch"
   /** 메인 영상 ↔ PiP 교체(텔레그램 PiP 탭과 동일 동작의 명시 버튼) */
   | "pip-swap"
-  | "minimize"
   | "camera"
   | "message"
   | "close"
@@ -110,21 +108,4 @@ export type CallScreenViewModel = {
   pipFirstOutgoingMainPlaceholder?: boolean;
   /** 벨 거절·취소 직후 `EndedCallView` 대신 ringing UI 유지(복귀 전 단일 화면). */
   suppressTerminalView?: boolean;
-  /** CallNetworkQualityState SSOT */
-  networkQualityLevel?: CallNetworkQualityLevel;
-  connectionStatusLabel?: string | null;
-  networkWarningClassName?: string | null;
-  showNetworkWarningBorder?: boolean;
-  /** CallClient 에서 1회 계산 — UI 컴포넌트는 `useCallPresentationState` 로 읽기만 */
-  presentation?: CallPresentationState;
 };
-
-export type CallNetworkQualityLevel =
-  | "unknown"
-  | "connecting"
-  | "excellent"
-  | "good"
-  | "fair"
-  | "poor"
-  | "reconnecting"
-  | "lost";

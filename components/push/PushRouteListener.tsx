@@ -18,7 +18,6 @@ import {
 } from "@/lib/push/native/push-route-native-bridge";
 import { shouldReplaceRoute } from "@/lib/push/push-route-policy";
 import { postNotificationEventOpenedRead } from "@/lib/notifications/client/notification-event-read-client";
-import { prepareMessengerPushRoomEntry } from "@/lib/community-messenger/room/cm-room-push-entry-warm";
 
 const ROUTE_DEDUPE_MS = 2_000;
 const NOTIFICATION_DEDUPE_MS = 60_000;
@@ -100,7 +99,7 @@ export function PushRouteListener() {
     if (!isCapacitorNativePlatform()) return;
 
     const navigate = (rawPath: string, notificationId?: string) => {
-      const path = prepareMessengerPushRoomEntry(rawPath.trim());
+      const path = rawPath.trim();
       if (!path.startsWith("/")) return;
       if (shouldIgnoreNotification(notificationId)) return;
 

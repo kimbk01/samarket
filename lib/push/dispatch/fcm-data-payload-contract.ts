@@ -124,6 +124,9 @@ function appendMessageDisplayFields(
   const routeUrl = trimText(display?.routeUrl ?? meta.route_url ?? meta.routeUrl);
   const category = trimText(meta.category ?? display?.category);
   const campaignId = trimText(meta.campaign_id ?? meta.campaignId ?? display?.campaignId);
+  const pushImageUrl = trimText(
+    meta.push_image_url ?? meta.pushImageUrl ?? display?.imageUrl ?? display?.pushImageUrl
+  );
 
   if (senderName) fields.senderName = senderName;
   if (senderAvatarUrl) {
@@ -137,6 +140,10 @@ function appendMessageDisplayFields(
   if (routeUrl) fields.routeUrl = routeUrl;
   if (category) fields.category = category;
   if (campaignId) fields.campaignId = campaignId;
+  if (pushImageUrl) {
+    fields.imageUrl = pushImageUrl;
+    fields.bigPictureUrl = pushImageUrl;
+  }
 }
 
 export function buildFcmDataFields(

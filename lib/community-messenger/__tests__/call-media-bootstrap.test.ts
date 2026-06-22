@@ -85,20 +85,4 @@ describe("call-media-bootstrap", () => {
     expect(result.ok).toBe(true);
     expect(getCommunityMessengerUserMediaMock).not.toHaveBeenCalled();
   });
-
-  it("deferVideoGum skips permission and GUM for outgoing dial video", async () => {
-    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
-    const { primeOutgoingCallMediaBeforeNavigate } = await import(
-      "@/lib/community-messenger/call-media-bootstrap"
-    );
-    const result = await primeOutgoingCallMediaBeforeNavigate("video", { deferVideoGum: true });
-    expect(result.ok).toBe(true);
-    expect(ensureCallMediaForUserGestureMock).not.toHaveBeenCalled();
-    expect(getCommunityMessengerUserMediaMock).not.toHaveBeenCalled();
-    expect(infoSpy).toHaveBeenCalledWith(
-      "[call-media] outgoing_video_gum_deferred",
-      expect.objectContaining({ phase: "outgoing_dial" }),
-    );
-    infoSpy.mockRestore();
-  });
 });

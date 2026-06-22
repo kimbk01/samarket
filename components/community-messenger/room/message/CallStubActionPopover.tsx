@@ -14,7 +14,35 @@ export type CallStubActionPopoverProps = {
   redialDisabled: boolean;
   onClose: () => void;
   onRedial: (kind: "voice" | "video") => void;
+  onFocusComposer: () => void;
+  onCopyText: () => void;
+  onHideLocal: () => void;
 };
+
+function MenuRow({
+  label,
+  onClick,
+  disabled,
+  danger,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`flex min-h-[44px] w-full flex-col items-start justify-center border-b border-neutral-200 px-4 py-2.5 text-left sam-text-body font-medium text-neutral-900 last:border-b-0 disabled:opacity-45 dark:border-neutral-700 dark:text-neutral-100 ${
+        danger ? "text-red-600 dark:text-red-400" : ""
+      } active:bg-neutral-100 dark:active:bg-neutral-900`}
+    >
+      {label}
+    </button>
+  );
+}
 
 export function CallStubActionPopover(props: CallStubActionPopoverProps) {
   const { t } = useI18n();
@@ -23,9 +51,9 @@ export function CallStubActionPopover(props: CallStubActionPopoverProps) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [pos, setPos] = useState<{ top: number; left: number }>({ top: anchorRect.top, left: anchorRect.left });
   /**
-   * touch-through 방지: 탭 손가락을 뗄 때 발생하는 click 이벤트가
+   * touch-through 방지: 롱프레스 손가락을 뗄 때 발생하는 click 이벤트가
    * backdrop에 전달되어 팝오버가 즉시 닫히는 "깜빡거림"을 막는다.
-   * DO NOT: 이 guard를 제거하면 통화 탭 팝오버가 열리자마자 닫힘.
+   * DO NOT: 이 guard를 제거하면 통화 롱프레스 팝오버가 열리자마자 닫힘.
    */
   const openedAtRef = useRef<number>(Date.now());
 
@@ -69,7 +97,6 @@ export function CallStubActionPopover(props: CallStubActionPopoverProps) {
   }, [onClose]);
 
   const kind = item.callKind === "video" ? "video" : "voice";
-  const redialLabel = t("cm_ui_redial");
 
   const popoverBackdropStyle = {
     WebkitTouchCallout: "none" as const,
@@ -113,17 +140,43 @@ export function CallStubActionPopover(props: CallStubActionPopoverProps) {
         aria-modal="true"
         onPointerDown={(e) => e.stopPropagation()}
       >
-        <button
-          type="button"
-          disabled={roomUnavailable || redialDisabled}
-          className="flex min-h-[48px] w-full items-center justify-center gap-2 px-4 py-3 sam-text-body font-semibold text-[color:var(--cm-room-primary)] disabled:opacity-45 active:bg-neutral-100 dark:active:bg-neutral-900"
-          onClick={() => {
-            onClose();
-            props.onRedial(kind);
-          }}
-        >
-          {redialLabel}
-        </button>
+        <div className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-700">
+          <p className="sam-text-xxs font-semibold text-neutral-500 dark:text-neutral-400">{t("cm_ui_call_message")}</p>
+          <p className="mt-0.5 line-clamp-2 sam-text-helper text-neutral-600 dark:text-neutral-300">{item.content}</p>
+        </div>
+        <nav className="flex flex-col bg-white dark:bg-neutral-950" aria-label={t("cm_ui_call_log_actions")}>
+          <MenuRow
+            label={t("cm_ui_redial")}
+            disabled={roomUnavailable || redialDisabled}
+            onClick={() => {
+              onClose();
+              props.onRedial(kind);
+            }}
+          />
+          <MenuRow
+            label={t("cm_ui_send_message")}
+            disabled={roomUnavailable}
+            onClick={() => {
+              onClose();
+              props.onFocusComposer();
+            }}
+          />
+          <MenuRow
+            label={t("cm_ui_copy_text")}
+            disabled={roomUnavailable}
+            onClick={() => {
+              props.onCopyText();
+              onClose();
+            }}
+          />
+          <MenuRow
+            label={t("cm_ui_hide_only_on_this_device")}
+            disabled={roomUnavailable}
+            onClick={() => {
+              props.onHideLocal();
+            }}
+          />
+        </nav>
       </div>
     </div>
   );

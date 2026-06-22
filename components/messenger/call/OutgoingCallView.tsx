@@ -16,7 +16,7 @@ export function OutgoingCallView({ vm }: { vm: CallScreenViewModel }) {
   return (
     <div
       key={layoutKey}
-      className="relative z-[2] flex min-h-0 flex-1 flex-col overflow-hidden px-5 pb-[max(22px,calc(var(--safe-bottom)+10px))]"
+      className="relative z-[2] flex min-h-0 flex-1 flex-col overflow-hidden px-5 pb-[max(22px,calc(env(safe-area-inset-bottom)+10px))]"
     >
       <div
         className={`pointer-events-none absolute inset-0 ${

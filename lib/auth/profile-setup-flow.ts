@@ -1,5 +1,8 @@
 import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
-import { MYPAGE_PROFILE_EDIT_HREF, isProfileEditPath } from "@/lib/mypage/mypage-mobile-nav-registry";
+import { isProfileEditPath } from "@/lib/mypage/mypage-mobile-nav-registry";
+
+/** onboarding setup=1 — 전화·주소 포함 full ProfileEditForm */
+const MYPAGE_PROFILE_SETUP_EDIT_HREF = "/mypage/section/account/profile/edit" as const;
 import {
   isMypageAddressFlowPath,
 } from "@/lib/addresses/mypage-addresses-return-to";
@@ -22,7 +25,7 @@ export function buildProfileSetupHref(opts?: ProfileSetupHrefOptions): string {
   if (safeNext) {
     params.set("next", safeNext);
   }
-  return `${MYPAGE_PROFILE_EDIT_HREF}?${params.toString()}`;
+  return `${MYPAGE_PROFILE_SETUP_EDIT_HREF}?${params.toString()}`;
 }
 
 export function isProfileSetupMode(input: string | URLSearchParams | null | undefined): boolean {

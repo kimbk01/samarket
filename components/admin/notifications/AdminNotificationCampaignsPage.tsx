@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
+  notifChannelLabel,
   notifStatusLabel,
   notifTargetLabel,
   notifTypeLabel,
@@ -14,11 +15,16 @@ type CampaignRow = {
   title: string;
   type: string;
   target_type: string;
+  channel?: string;
   status: string;
   scheduled_at: string | null;
   sent_at: string | null;
   created_at: string;
   created_by: string | null;
+  target_count?: number;
+  sent_count?: number;
+  skipped_count?: number;
+  failed_count?: number;
 };
 
 export function AdminNotificationCampaignsPage() {
@@ -56,7 +62,7 @@ export function AdminNotificationCampaignsPage() {
   }, [load]);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-4 p-4">
+    <div className="mx-auto max-w-6xl space-y-4 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-lg font-semibold text-sam-fg">{t("admin_notif_page_list")}</h1>
         <Link
@@ -76,8 +82,11 @@ export function AdminNotificationCampaignsPage() {
           <option value="all">{t("admin_notif_filter_status_all")}</option>
           <option value="draft">{t("admin_notif_status_draft")}</option>
           <option value="scheduled">{t("admin_notif_status_scheduled")}</option>
+          <option value="sending">{t("admin_notif_status_sending")}</option>
           <option value="sent">{t("admin_notif_status_sent")}</option>
+          <option value="partially_failed">{t("admin_notif_status_partially_failed")}</option>
           <option value="failed">{t("admin_notif_status_failed")}</option>
+          <option value="cancelled">{t("admin_notif_status_cancelled")}</option>
         </select>
         <select
           value={type}
@@ -115,11 +124,14 @@ export function AdminNotificationCampaignsPage() {
               <tr>
                 <th className="px-3 py-2">{t("admin_notif_th_title")}</th>
                 <th className="px-3 py-2">{t("admin_notif_th_type")}</th>
+                <th className="px-3 py-2">{t("admin_notif_th_channel")}</th>
                 <th className="px-3 py-2">{t("admin_notif_th_target")}</th>
                 <th className="px-3 py-2">{t("admin_notif_th_status")}</th>
-                <th className="px-3 py-2">{t("admin_notif_detail_scheduled_at")}</th>
+                <th className="px-3 py-2">{t("admin_notif_th_target_count")}</th>
+                <th className="px-3 py-2">{t("admin_notif_th_sent_count")}</th>
+                <th className="px-3 py-2">{t("admin_notif_th_skipped_count")}</th>
+                <th className="px-3 py-2">{t("admin_notif_th_failed_count")}</th>
                 <th className="px-3 py-2">{t("admin_notif_th_sent_at")}</th>
-                <th className="px-3 py-2">{t("admin_notif_detail_created_at")}</th>
               </tr>
             </thead>
             <tbody>
@@ -131,16 +143,19 @@ export function AdminNotificationCampaignsPage() {
                     </Link>
                   </td>
                   <td className="px-3 py-2">{notifTypeLabel(t, r.type)}</td>
+                  <td className="px-3 py-2">{notifChannelLabel(t, r.channel ?? "push_and_in_app")}</td>
                   <td className="px-3 py-2">{notifTargetLabel(t, r.target_type)}</td>
                   <td className="px-3 py-2">{notifStatusLabel(t, r.status)}</td>
-                  <td className="px-3 py-2 text-sam-muted">{r.scheduled_at ? r.scheduled_at.slice(0, 16) : "—"}</td>
+                  <td className="px-3 py-2 tabular-nums">{r.target_count ?? 0}</td>
+                  <td className="px-3 py-2 tabular-nums text-green-700">{r.sent_count ?? 0}</td>
+                  <td className="px-3 py-2 tabular-nums text-amber-700">{r.skipped_count ?? 0}</td>
+                  <td className="px-3 py-2 tabular-nums text-red-700">{r.failed_count ?? 0}</td>
                   <td className="px-3 py-2 text-sam-muted">{r.sent_at ? r.sent_at.slice(0, 16) : "—"}</td>
-                  <td className="px-3 py-2 text-sam-muted">{r.created_at ? r.created_at.slice(0, 16) : "—"}</td>
                 </tr>
               ))}
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-3 py-8 text-center text-sam-muted">
+                  <td colSpan={10} className="px-3 py-8 text-center text-sam-muted">
                     {t("admin_notif_empty_campaigns")}
                   </td>
                 </tr>

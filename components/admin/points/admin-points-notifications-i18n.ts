@@ -92,8 +92,18 @@ export const ADMIN_POINTS_USER_TYPE_KEYS: Record<"free" | "premium", MessageKey>
 export const ADMIN_NOTIF_STATUS_KEYS: Record<string, MessageKey> = {
   draft: "admin_notif_status_draft",
   scheduled: "admin_notif_status_scheduled",
+  sending: "admin_notif_status_sending",
   sent: "admin_notif_status_sent",
+  partially_failed: "admin_notif_status_partially_failed",
   failed: "admin_notif_status_failed",
+  cancelled: "admin_notif_status_cancelled",
+};
+
+export const ADMIN_NOTIF_CHANNEL_KEYS: Record<string, MessageKey> = {
+  push_only: "admin_notif_channel_push_only",
+  in_app_only: "admin_notif_channel_in_app_only",
+  push_and_in_app: "admin_notif_channel_push_and_in_app",
+  test_only: "admin_notif_channel_test_only",
 };
 
 export const ADMIN_NOTIF_TYPE_KEYS: Record<string, MessageKey> = {
@@ -150,6 +160,11 @@ export function pointExecStatusLabel(t: TFn, status: PointRewardExecutionStatus)
 
 export function pointUserTypeLabel(t: TFn, userType: "free" | "premium"): string {
   return t(ADMIN_POINTS_USER_TYPE_KEYS[userType]);
+}
+
+export function notifChannelLabel(t: TFn, channel: string): string {
+  const key = ADMIN_NOTIF_CHANNEL_KEYS[channel];
+  return key ? t(key) : channel;
 }
 
 export function notifStatusLabel(t: TFn, status: string): string {

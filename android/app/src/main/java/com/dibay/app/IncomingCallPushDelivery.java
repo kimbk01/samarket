@@ -28,7 +28,7 @@ public final class IncomingCallPushDelivery {
     Context app = context.getApplicationContext();
     String callId = payload.callId.trim();
 
-    startRingAtPushBoundary(context, callId, payload.callType);
+    startRingAtPushBoundary(context, callId);
 
     boolean appVisible = MainActivity.isAppVisibleForIncomingCall();
     if (DibayKeyguardHelper.isForegroundUnlockedInteractive(appVisible, app)) {
@@ -73,8 +73,8 @@ public final class IncomingCallPushDelivery {
     }
   }
 
-  private static void startRingAtPushBoundary(Context context, String callId, String callType) {
-    if (IncomingCallRingOwner.start(context, callId, callType)) {
+  private static void startRingAtPushBoundary(Context context, String callId) {
+    if (IncomingCallRingOwner.start(context, callId)) {
       DibayCallPushLog.info("ringtone_start_native", callId, "source=push_delivery");
     } else {
       DibayCallPushLog.info("ringtone_skip_existing_owner", callId, "source=push_delivery");

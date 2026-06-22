@@ -28,10 +28,10 @@ export function isTerminalCallRecoveryStatus(status: string | null | undefined):
   return TERMINAL_RECOVERY_STATUSES.has(st);
 }
 
-const LIVE_RECOVERY_STATUSES = new Set(["active"]);
+const LIVE_RECOVERY_STATUSES = new Set(["ringing", "active"]);
 
 /**
- * live(active) 1:1 세션만 복구 대상 session id 반환. ringing 은 수신 surface owner 가 처리. 그 외 null.
+ * live(ringing|active) 1:1 세션만 복구 대상 session id 반환. 그 외 null.
  */
 export function resolveActiveCallRecoveryTarget(
   session: ActiveCallRecoverySession | null | undefined,

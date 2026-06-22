@@ -70,17 +70,6 @@ public class NativeIncomingCallPlugin extends Plugin {
     call.resolve();
   }
 
-  /** Realtime/direct_ringing — FCM 전에도 native OS ring 시작 (WebAudio 금지 경로 보완). */
-  @PluginMethod
-  public void startIncomingRingtone(PluginCall call) {
-    String sessionId = call.getString("sessionId", "").trim();
-    String callType = call.getString("callType", "voice");
-    if (!sessionId.isEmpty()) {
-      IncomingCallRingOwner.start(getContext(), sessionId, callType);
-    }
-    call.resolve();
-  }
-
   @PluginMethod
   public void markCallConsumed(PluginCall call) {
     String sessionId = call.getString("sessionId", "").trim();

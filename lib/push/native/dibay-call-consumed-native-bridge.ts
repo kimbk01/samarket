@@ -66,20 +66,6 @@ export function stopNativeIncomingRingtoneFireAndForget(sessionId?: string | nul
   })();
 }
 
-/** Realtime/direct_ringing — FCM ring 전 Web 세션에서 native OS ring 시작. */
-export function startNativeIncomingRingtoneFireAndForget(
-  sessionId: string,
-  callKind: "voice" | "video"
-): void {
-  const sid = sessionId.trim();
-  if (!sid) return;
-  const plugin = getSyncNativeIncomingCallPlugin();
-  if (plugin?.startIncomingRingtone) {
-    void plugin.startIncomingRingtone({ sessionId: sid, callType: callKind }).catch(() => {});
-    return;
-  }
-}
-
 /** Native tombstone → Web in-memory consumed (no native re-sync). */
 export async function hydrateDibayCallConsumedFromNative(
   hardClearedAt?: Map<string, number>

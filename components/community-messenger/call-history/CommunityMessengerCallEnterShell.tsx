@@ -15,16 +15,11 @@ import {
   MESSENGER_CALL_SLIDE_ENTER_MS,
 } from "@/lib/community-messenger/messenger-call-slide";
 import { navigateBackFromCommunityMessengerCall } from "@/lib/community-messenger/call-session-navigation-seed";
-import { getCommunityMessengerCallRuntimeSurface } from "@/lib/community-messenger/call-runtime-registry";
 
 type AnimPhase = "enter" | "enter-active" | "idle" | "exit" | "exit-active";
 
 type Props = {
   children: ReactNode;
-  /** tmp 발신 dial — 440ms 슬라이드 생략 (수신·active·일반 진입에는 미적용) */
-  instantOutgoingDialEnter?: boolean;
-  /** 수신 accept route (`action=accept` / `nativeAccept=1`) — 440ms 슬라이드 생략 (P1-1b) */
-  instantIncomingAcceptEnter?: boolean;
 };
 
 const CommunityMessengerCallAnimatedBackContext = createContext<(() => void) | null>(null);
@@ -46,20 +41,15 @@ function usePrefersReducedMotion(): boolean {
   return reduced;
 }
 
-/** 통화 라우트 진입·복귀 — 440ms 우→좌 슬라이드 (tmp 발신·수신 accept 는 instant*Enter 로 생략) */
-export function CommunityMessengerCallEnterShell({
-  children,
-  instantOutgoingDialEnter = false,
-  instantIncomingAcceptEnter = false,
-}: Props) {
+/** 통화 라우트 진입·복귀 — 440ms 우→좌 슬라이드 */
+export function CommunityMessengerCallEnterShell({ children }: Props) {
   const router = useRouter();
   const reducedMotion = usePrefersReducedMotion();
-  const skipEnterSlide = reducedMotion || instantOutgoingDialEnter || instantIncomingAcceptEnter;
-  const [phase, setPhase] = useState<AnimPhase>(skipEnterSlide ? "idle" : "enter");
+  const [phase, setPhase] = useState<AnimPhase>(reducedMotion ? "idle" : "enter");
   const exitingRef = useRef(false);
 
   useEffect(() => {
-    if (skipEnterSlide) {
+    if (reducedMotion) {
       setPhase("idle");
       return;
     }
@@ -67,42 +57,33 @@ export function CommunityMessengerCallEnterShell({
       setPhase((current) => (current === "enter" ? "enter-active" : current));
     });
     return () => window.cancelAnimationFrame(raf);
-  }, [skipEnterSlide]);
+  }, [reducedMotion]);
 
   useEffect(() => {
-    if (phase !== "enter-active" || skipEnterSlide) return;
+    if (phase !== "enter-active" || reducedMotion) return;
     const t = window.setTimeout(() => {
       setPhase((current) => (current === "enter-active" ? "idle" : current));
     }, MESSENGER_CALL_SLIDE_ENTER_MS + 80);
     return () => window.clearTimeout(t);
-  }, [phase, skipEnterSlide]);
-
-  const leaveCallRoute = useCallback(() => {
-    const minimize = getCommunityMessengerCallRuntimeSurface().minimizeToPip;
-    if (minimize) {
-      minimize();
-      return;
-    }
-    navigateBackFromCommunityMessengerCall({ replace: (href) => router.replace(href) }, null);
-  }, [router]);
+  }, [phase, reducedMotion]);
 
   const requestAnimatedBack = useCallback(() => {
     if (exitingRef.current) return;
     exitingRef.current = true;
     if (reducedMotion) {
-      leaveCallRoute();
+      navigateBackFromCommunityMessengerCall({ replace: (href) => router.replace(href) }, null);
       return;
     }
     setPhase("exit-active");
-  }, [leaveCallRoute, reducedMotion]);
+  }, [reducedMotion, router]);
 
   const onTransitionEnd = useCallback(
     (e: ReactTransitionEvent<HTMLDivElement>) => {
       if (e.propertyName !== "transform") return;
       if (phase !== "exit-active") return;
-      leaveCallRoute();
+      navigateBackFromCommunityMessengerCall({ replace: (href) => router.replace(href) }, null);
     },
-    [leaveCallRoute, phase]
+    [phase, router]
   );
 
   const surfaceClassName = [

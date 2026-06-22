@@ -22,20 +22,6 @@ import {
   logDibayCall,
 } from "@/lib/community-messenger/call-orchestrator";
 import { runNativePendingAcceptCall } from "@/lib/community-messenger/incoming-call-accept-gateway";
-import {
-  buildCalleeAcceptActiveSessionSeed,
-  readCallAcceptHydratePeer,
-} from "@/lib/community-messenger/call-accept-hydrate-peer";
-import { primeCommunityMessengerCallNavigationSeed } from "@/lib/community-messenger/call-session-navigation-seed";
-import {
-  isNativeCalleeAcceptCompletedRoute,
-  isNativeCalleeAcceptOwnedRoute,
-  readNativeCalleeAcceptRouteParams,
-} from "@/lib/community-messenger/native-callee-accept-entry";
-import {
-  claimIncomingCallSurface,
-  isRingingOnlyIncomingCallRoute,
-} from "@/lib/community-messenger/incoming-call-surface-owner";
 
 const ROUTE_DEDUPE_MS = 2_000;
 
@@ -49,18 +35,8 @@ function isCalleeAcceptCallRoute(path: string): boolean {
   return path.includes("action=accept") || path.includes("callAction=accept");
 }
 
-function readAcceptRouteParamsFromPath(path: string) {
-  const qIdx = path.indexOf("?");
-  const search = qIdx >= 0 ? path.slice(qIdx + 1) : "";
-  return readNativeCalleeAcceptRouteParams(new URLSearchParams(search));
-}
-
 function isNativeAcceptPatchCompleteRoute(path: string): boolean {
-  return isNativeCalleeAcceptCompletedRoute(readAcceptRouteParamsFromPath(path));
-}
-
-function isNativeAcceptOwnedRoute(path: string): boolean {
-  return isNativeCalleeAcceptOwnedRoute(readAcceptRouteParamsFromPath(path));
+  return path.includes("nativeAccept=1");
 }
 
 function resolveNativeAcceptSource(path: string): "native_notification_accept" | "native_activity_accept" {
@@ -92,24 +68,6 @@ export function DibayFcmCallRouteHost() {
         });
         return;
       }
-
-      /** Ringing pending route — Native full-screen owns UI; WebView `/calls/:id` 중복 모달 방지 */
-      if (isRingingOnlyIncomingCallRoute(path)) {
-        const ringingCallId = extractDibayCallSessionIdFromPath(path);
-        if (ringingCallId) {
-          claimIncomingCallSurface(ringingCallId, "native_fullscreen", "pending_route_blocked");
-        }
-        clearDibayCallPendingRoute();
-        void clearNativePersistedCallPendingRoute();
-        logDibayCall("stale_ringing_blocked", {
-          path,
-          sessionId: ringingCallId ?? undefined,
-          callId: ringingCallId ?? undefined,
-          source: "ringing_only_pending_route",
-        });
-        console.info("[call-route] ringing_only_route_blocked", { path, callId: ringingCallId });
-        return;
-      }
       if (path.includes("source=native_resume")) {
         logDibayCall("notification_resume_route", {
           sessionId: extractDibayCallSessionIdFromPath(path) ?? undefined,
@@ -132,26 +90,9 @@ export function DibayFcmCallRouteHost() {
         if (acceptSessionId) {
           clearDibayCallPendingRoute();
           void clearNativePersistedCallPendingRoute();
-          if (isNativeAcceptOwnedRoute(path)) {
-            const hydratePeer = readCallAcceptHydratePeer(acceptSessionId);
-            if (hydratePeer && isNativeAcceptPatchCompleteRoute(path)) {
-              primeCommunityMessengerCallNavigationSeed(
-                acceptSessionId,
-                buildCalleeAcceptActiveSessionSeed(hydratePeer)
-              );
-            }
-            const currentPath =
-              typeof window !== "undefined"
-                ? `${window.location.pathname}${window.location.search}`
-                : "";
-            if (currentPath !== path) {
-              router.replace(path);
-            }
-            console.info("[call-route] webview_route_delivered", {
-              path,
-              via: "accept_route_active",
-              skippedReplace: currentPath === path,
-            });
+          if (isNativeAcceptPatchCompleteRoute(path)) {
+            router.replace(path);
+            console.info("[call-route] webview_route_delivered", { path, via: "accept_route_active" });
             return;
           }
           void runNativePendingAcceptCall(router, acceptSessionId, resolveNativeAcceptSource(path)).then(

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { CAMPAIGN_CHANNELS } from "@/lib/admin/notification-campaigns/campaign-types";
 import { ensureCampaignTargetsForSelectedUsers } from "@/lib/admin/notification-campaigns/run-campaign-send-batch";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
@@ -26,7 +27,9 @@ export async function GET(req: NextRequest) {
 
   let query = svc
     .from("admin_notification_campaigns")
-    .select("id, title, body, type, target_type, status, scheduled_at, sent_at, created_by, created_at, updated_at");
+    .select(
+      "id, title, body, type, target_type, channel, status, scheduled_at, sent_at, created_by, created_at, updated_at, target_count, sent_count, skipped_count, failed_count"
+    );
 
   if (status && status !== "all") {
     query = query.eq("status", status);
@@ -55,13 +58,24 @@ type CreateBody = {
   body?: unknown;
   type?: unknown;
   target_type?: unknown;
+  channel?: unknown;
   target_url?: unknown;
+  deeplink_url?: unknown;
+  web_url?: unknown;
   image_url?: unknown;
+  push_image_url?: unknown;
+  in_app_image_url?: unknown;
   scheduled_at?: unknown;
   segment_region_code?: unknown;
   status?: unknown;
   target_user_ids?: unknown;
+  priority?: unknown;
+  visibility_policy?: unknown;
 };
+
+function optionalUrl(v: unknown, max = 2000): string | null {
+  return typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null;
+}
 
 /** POST — 생성 (임시저장 draft) */
 export async function POST(req: NextRequest) {
@@ -84,6 +98,10 @@ export async function POST(req: NextRequest) {
   const content = typeof body.body === "string" ? body.body.trim() : "";
   const typ = typeof body.type === "string" ? body.type.trim() : "";
   const targetType = typeof body.target_type === "string" ? body.target_type.trim() : "all";
+  const channelRaw = typeof body.channel === "string" ? body.channel.trim() : "push_and_in_app";
+  const channel = (CAMPAIGN_CHANNELS as readonly string[]).includes(channelRaw)
+    ? channelRaw
+    : "push_and_in_app";
 
   if (!title || !content || !TYPES.has(typ)) {
     return NextResponse.json({ ok: false, error: "invalid_fields" }, { status: 400 });
@@ -92,10 +110,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "invalid_target_type" }, { status: 400 });
   }
 
-  const target_url =
-    typeof body.target_url === "string" && body.target_url.trim() ? body.target_url.trim().slice(0, 2000) : null;
-  const image_url =
-    typeof body.image_url === "string" && body.image_url.trim() ? body.image_url.trim().slice(0, 2000) : null;
+  const deeplink_url = optionalUrl(body.deeplink_url) ?? optionalUrl(body.target_url);
+  const web_url = optionalUrl(body.web_url);
+  const push_image_url = optionalUrl(body.push_image_url) ?? optionalUrl(body.image_url);
+  const in_app_image_url = optionalUrl(body.in_app_image_url) ?? optionalUrl(body.image_url);
+  const target_url = deeplink_url;
+  const image_url = in_app_image_url ?? push_image_url;
   const scheduled_at =
     typeof body.scheduled_at === "string" && body.scheduled_at.trim() ? body.scheduled_at.trim() : null;
   const segment_region_code =
@@ -111,13 +131,20 @@ export async function POST(req: NextRequest) {
     body: content,
     type: typ,
     target_type: targetType,
+    channel,
     target_url,
     image_url,
+    deeplink_url,
+    web_url,
+    push_image_url,
+    in_app_image_url,
     scheduled_at: initialStatus === "scheduled" ? scheduled_at : null,
     segment_region_code: targetType === "region" ? segment_region_code : null,
     status: initialStatus,
     created_by: admin.userId,
     send_progress_offset: 0,
+    priority: typeof body.priority === "string" ? body.priority : "normal",
+    visibility_policy: typeof body.visibility_policy === "string" ? body.visibility_policy : "default",
     updated_at: new Date().toISOString(),
   };
 

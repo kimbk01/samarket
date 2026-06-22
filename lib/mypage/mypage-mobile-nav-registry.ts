@@ -5,12 +5,21 @@
 
 import type { MessageKey } from "@/lib/i18n/messages";
 
-/** 프로필 편집 폼 — 내 계정 → 프로필 하위 */
-export const MYPAGE_PROFILE_EDIT_HREF = "/mypage/section/account/profile/edit" as const;
+export {
+  MYPAGE_PROFILE_EDIT_HREF,
+  MYPAGE_PROFILE_HREF,
+  MYPAGE_REQUIRED_DIBAY_ID_HREF,
+  MYPAGE_REQUIRED_PHONE_HREF,
+  MYPAGE_SETTINGS_HREF,
+  MYPAGE_ADDRESSES_HREF,
+} from "@/lib/mypage/mypage-profile-routes";
+
+const MYPAGE_PROFILE_SETUP_EDIT_HREF = "/mypage/section/account/profile/edit" as const;
 
 export function isProfileEditPath(pathname: string | null | undefined): boolean {
   if (!pathname) return false;
-  if (pathname === MYPAGE_PROFILE_EDIT_HREF) return true;
+  if (pathname === MYPAGE_PROFILE_SETUP_EDIT_HREF) return true;
+  if (pathname === "/mypage/profile/edit") return true;
   return pathname === "/my/edit" || pathname === "/mypage/edit";
 }
 

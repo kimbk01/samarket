@@ -30,10 +30,6 @@ type DibayFcmCallBridgeHandlers = {
   onFcmTerminal: (detail: NormalizedFcmTerminalDispatch) => void;
   /** Android native foreground incoming pill visibility */
   onForegroundIncomingUi?: (detail: { sessionId: string; visible: boolean }) => void;
-  /** Native pill accept — Web consumed/surface release before pill finish */
-  onNativeForegroundAccept?: (detail: { sessionId: string }) => void;
-  /** Native reject / swipe dismiss — Web consumed before PATCH completes */
-  onNativeForegroundReject?: (detail: { sessionId: string; source?: string }) => void;
 };
 
 export function writeDibayCallPendingRoute(path: string): void {
@@ -79,7 +75,6 @@ export function installDibayFcmCallBridge(handlers: DibayFcmCallBridgeHandlers):
           callerAvatarUrl?: string;
           status?: string;
           visible?: boolean;
-          source?: string;
         }
       | undefined;
     if (!detail) return;
@@ -89,21 +84,6 @@ export function installDibayFcmCallBridge(handlers: DibayFcmCallBridgeHandlers):
         sessionId,
         visible: detail.visible !== false,
       });
-      return;
-    }
-    if (detail.type === "foreground_incoming_accept") {
-      const sessionId = detail.sessionId?.trim() ?? "";
-      if (sessionId) handlers.onNativeForegroundAccept?.({ sessionId });
-      return;
-    }
-    if (detail.type === "foreground_incoming_reject") {
-      const sessionId = detail.sessionId?.trim() ?? "";
-      if (sessionId) {
-        handlers.onNativeForegroundReject?.({
-          sessionId,
-          source: typeof detail.source === "string" ? detail.source.trim() : undefined,
-        });
-      }
       return;
     }
     if (detail.type === "incoming_call") {

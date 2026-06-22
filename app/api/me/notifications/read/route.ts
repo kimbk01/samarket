@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  markCampaignDeliveryDismissed,
+  markCampaignDeliveryOpened,
+} from "@/lib/admin/notification-campaigns/campaign-delivery-recorder";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { markNotificationRead } from "@/lib/notifications/pipeline/notify-read-service";
@@ -31,6 +35,11 @@ export async function POST(req: NextRequest) {
 
   const ok = await markNotificationRead(sb, userId, eventId, { openedAt: body.opened === true });
   if (ok) {
+    if (body.dismissed === true) {
+      await markCampaignDeliveryDismissed(sb, eventId);
+    } else if (body.opened === true) {
+      await markCampaignDeliveryOpened(sb, eventId);
+    }
     logNotifyOpen(body.dismissed === true ? "dismissed" : "read_marked", {
       userId,
       notificationEventId: eventId,

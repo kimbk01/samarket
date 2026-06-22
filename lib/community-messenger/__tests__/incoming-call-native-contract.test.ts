@@ -86,17 +86,11 @@ describe("incoming-call native contract", () => {
     expect(src).toContain('DibayCallConsumedStore.mark(context, sid, "missed")');
   });
 
-  it("native coordinator routes accept immediately and completes PATCH in background", () => {
+  it("native coordinator PATCHes accept on background thread before direct route", () => {
     const src = read("android/app/src/main/java/com/dibay/app/IncomingCallActionCoordinator.java");
     expect(src).toContain('CallSessionPatchHelper.patch(app, sid, "accept")');
     expect(src).toContain("accept_route_direct");
-    expect(src).toContain("deliverCallAcceptRoute(app, sid, false)");
-    expect(src).toContain("deliverCallAcceptRoute(app, sid, true)");
-    const main = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
-    expect(main).toContain("nativePrep=1");
-    expect(main).toContain("injectAcceptRouteViaJs");
-    expect(main).toContain("isWebViewOnAppOrigin(webView)");
-    expect(main).toContain("webview_call_route_injected");
+    expect(src).toContain("buildMainActivityCallAcceptIntent");
   });
 
   it("FCM foreground unlocked launches native pill instead of web-only delegate", () => {
@@ -127,12 +121,11 @@ describe("incoming-call native contract", () => {
     expect(activity).toContain("activity_finish_by_terminal");
   });
 
-  it("notification contentIntent uses preview route and accept uses nativePrep/nativeAccept routes", () => {
+  it("notification contentIntent uses preview route and accept uses nativeAccept=1", () => {
     const notification = read("android/app/src/main/java/com/dibay/app/IncomingCallNotificationBuilder.java");
     expect(notification).toContain("buildMainActivityCallPreviewIntent");
     const helper = read("android/app/src/main/java/com/dibay/app/IncomingCallIntentHelper.java");
     expect(helper).toContain("nativeAccept=1");
-    expect(helper).toContain("nativePrep=1");
     expect(helper).toContain("incomingPreview=1");
   });
 
@@ -165,26 +158,6 @@ describe("incoming-call native contract", () => {
     expect(global).toContain("preferNativeAndroidForegroundIncoming");
     expect(global).toContain("nativeForegroundIncomingCallId");
     expect(global).toContain("onForegroundIncomingUi");
-    expect(global).toContain("onNativeForegroundAccept");
-    expect(global).toContain("onNativeForegroundReject");
-    const presenter = read("lib/community-messenger/incoming-call/foreground-incoming-presenter.ts");
-    expect(presenter).toContain("native_foreground_primary");
-  });
-
-  it("native accept injects foreground_incoming_accept before route launch", () => {
-    const coordinator = read("android/app/src/main/java/com/dibay/app/IncomingCallActionCoordinator.java");
-    expect(coordinator).toContain("deliverForegroundIncomingAcceptEvent");
-    expect(coordinator).toContain("deliverForegroundIncomingRejectEvent");
-    const activity = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
-    expect(activity).toContain("foreground_incoming_accept");
-    expect(activity).toContain("foreground_incoming_reject");
-    expect(activity).toContain("injectForegroundIncomingRejectEvent");
-  });
-
-  it("foreground pill swipe dismiss routes to native reject", () => {
-    const pill = read("android/app/src/main/java/com/dibay/app/ForegroundIncomingCallActivity.java");
-    expect(pill).toContain("foreground_swipe_dismiss_reject");
-    expect(pill).toContain("handleReject(getApplicationContext(), callId, \"swipe_dismiss\")");
   });
 
   it("notification posts immediately then enriches avatar async", () => {

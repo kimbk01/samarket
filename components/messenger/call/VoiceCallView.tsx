@@ -20,7 +20,7 @@ export function VoiceCallView({ vm }: { vm: CallScreenViewModel }) {
   });
 
   return (
-    <div className="relative z-[2] flex min-h-0 flex-1 flex-col justify-end px-5 pb-[max(14px,calc(var(--safe-bottom)+8px))] pt-4">
+    <div className="relative z-[2] flex min-h-0 flex-1 flex-col justify-end px-5 pb-[max(14px,calc(env(safe-area-inset-bottom)+8px))] pt-4">
       <div className="flex flex-1 items-center justify-center">
         <div className="flex flex-col items-center">
           <CallAvatar
@@ -35,7 +35,6 @@ export function VoiceCallView({ vm }: { vm: CallScreenViewModel }) {
               status={vm.statusText}
               timer={timer}
               detail={vm.connectionLabel ?? vm.subStatusText ?? vm.footerNote ?? null}
-              connectionStatusLabel={vm.connectionStatusLabel}
             />
           </div>
         </div>

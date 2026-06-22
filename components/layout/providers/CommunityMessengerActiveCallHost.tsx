@@ -9,7 +9,6 @@ import {
 } from "@/lib/community-messenger/direct-call-minimize";
 import { GlobalCallVideoPipHost } from "@/components/layout/providers/GlobalCallVideoPipHost";
 import { pushMessengerCallMainBottomNavSuppressed } from "@/lib/layout/messenger-call-main-bottom-nav-suppress";
-import { CommunityMessengerCallRouteLoading } from "@/components/community-messenger/CommunityMessengerCallRouteLoading";
 
 /** `CallScreenShell` 포털·`CallClient` dynamic import 전에도 하단 탭(z-1200)이 통화 위로 올라오지 않게 */
 const CALL_HOST_FULLSCREEN_Z = "z-[1280]";
@@ -19,10 +18,7 @@ const CommunityMessengerCallClient = dynamic(
     importWithChunkRetry(() =>
       import("@/components/community-messenger/CommunityMessengerCallClient").then((m) => m.CommunityMessengerCallClient)
     ),
-  {
-    ssr: false,
-    loading: () => <CommunityMessengerCallRouteLoading />,
-  }
+  { ssr: false }
 );
 
 const HOST_SYNC_EVENT = "samarket:cm-call-host-sync";
@@ -77,7 +73,7 @@ export function CommunityMessengerActiveCallHost() {
         className={
           presentation === "minimized"
             ? "fixed h-0 w-0 overflow-hidden opacity-0 pointer-events-none"
-            : `fixed inset-0 ${CALL_HOST_FULLSCREEN_Z} bg-[#003D29]`
+            : `fixed inset-0 ${CALL_HOST_FULLSCREEN_Z}`
         }
         aria-hidden={presentation === "minimized" ? true : undefined}
       >

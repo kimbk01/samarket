@@ -1,7 +1,5 @@
 "use client";
 
-/** SSOT_CONTRACT: cm-call-accept-gateway-patch-owner runIncomingCallAccept acceptIncomingCallOnce */
-
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 import { ensureCallMediaForUserGesture } from "@/lib/community-messenger/call-media-permission-preflight";
 import { patchCommunityMessengerCallSession, fetchCommunityMessengerCallSessionByIdClient } from "@/lib/community-messenger/call-http-actions";
@@ -16,7 +14,6 @@ import {
   primeCommunityMessengerCallNavigationSeed,
   rememberCallNavigationReturnPath,
 } from "@/lib/community-messenger/call-session-navigation-seed";
-import { writeCallAcceptHydratePeerFromSession } from "@/lib/community-messenger/call-accept-hydrate-peer";
 import { primeCommunityMessengerCallConnectionPrefetch } from "@/lib/community-messenger/call-connection-prefetch";
 import { unlockCommunityMessengerCallPlaybackFromUserGesture } from "@/lib/community-messenger/call-feedback-sound";
 import { getActiveCallSessionCallId, setActiveCallSession } from "@/lib/call/active-call-session";
@@ -31,10 +28,6 @@ import {
   type CallConsumedReason,
 } from "@/lib/community-messenger/incoming-call-state";
 import { postCommunityMessengerCallIncomingConsumedBusEvent } from "@/lib/community-messenger/multi-tab-bus";
-import {
-  markIncomingCallSurfaceConsumed,
-  releaseIncomingCallSurface,
-} from "@/lib/community-messenger/incoming-call-surface-owner";
 
 export type IncomingCallGatewayRouter = {
   replace: (href: string) => void;
@@ -55,9 +48,6 @@ export type RunIncomingCallAcceptArgs = {
   /** 기본: `/calls/:id?action=accept&nativeAccept=1` */
   hrefOverride?: string;
   /** 기본: true (call route 진입 전용) */
-  /** CallClient 등 이미 `/calls/:id` 에 있을 때 replace 생략 */
-  skipRouteReplace?: boolean;
-  /** 기본: true — native pending accept 시 false 로 gateway 가 중복 mark 방지 */
   markNativeAcceptPending?: boolean;
   source: IncomingCallAcceptSource;
 };
@@ -104,22 +94,6 @@ export function applyIncomingCallConsumedSideEffects(
   dibayIncomingLaneStopRing(`consumed_${reason}`, sid);
   dismissAllIncomingCallNotificationsFireAndForget(sid);
   markCallConsumed(sid, reason);
-  releaseIncomingCallSurface(sid, "web_foreground_overlay", `consumed_${reason}`);
-  releaseIncomingCallSurface(sid, "native_foreground_pill", `consumed_${reason}`);
-  releaseIncomingCallSurface(sid, "call_screen", `consumed_${reason}`);
-  if (reason !== "accepted") {
-    markIncomingCallSurfaceConsumed(
-      sid,
-      reason === "declined"
-        ? "declined"
-        : reason === "cancelled"
-          ? "cancelled"
-          : reason === "rejected"
-            ? "rejected"
-            : "ended",
-      source,
-    );
-  }
   postCommunityMessengerCallIncomingConsumedBusEvent(sid, reason);
   logDibayCall("ring_stop", { sessionId: sid, callId: sid, reason: `consumed_${reason}`, source });
 }
@@ -201,7 +175,6 @@ export function finalizeNativeAcceptCallRoute(
 export async function acceptIncomingCallOnce(args: RunIncomingCallAcceptArgs): Promise<{
   ok: boolean;
   sessionId: string;
-  session?: CommunityMessengerCallSession;
   reason?: "duplicate_accept_blocked" | "already_consumed" | "permission_denied" | "patch_failed" | "exception";
 }> {
   return runIncomingCallAccept(args);
@@ -218,7 +191,6 @@ export async function acceptIncomingCallOnce(args: RunIncomingCallAcceptArgs): P
 export async function runIncomingCallAccept(args: RunIncomingCallAcceptArgs): Promise<{
   ok: boolean;
   sessionId: string;
-  session?: CommunityMessengerCallSession;
   reason?: "duplicate_accept_blocked" | "already_consumed" | "permission_denied" | "patch_failed" | "exception";
 }> {
   const s = args.session;
@@ -255,7 +227,6 @@ export async function runIncomingCallAccept(args: RunIncomingCallAcceptArgs): Pr
 
   unlockCommunityMessengerCallPlaybackFromUserGesture();
   rememberCallNavigationReturnPath();
-  writeCallAcceptHydratePeerFromSession(s, args.source);
   primeCommunityMessengerCallNavigationSeed(sid, s);
   primeCommunityMessengerCallConnectionPrefetch(sid);
 
@@ -310,9 +281,6 @@ export async function runIncomingCallAccept(args: RunIncomingCallAcceptArgs): Pr
     logDibayCall("accept_success", { sessionId: sid, callId: sid, source: args.source });
 
     const updated = patched.session;
-    writeCallAcceptHydratePeerFromSession(updated, "accept_patch_ok");
-    /** replace 직전 active 세션 시드 — ringing seed 로 첫 paint 가 IncomingCallView 로 튀는 것 방지 (P1-1b) */
-    primeCommunityMessengerCallNavigationSeed(updated.id, updated);
     const phase = mapSessionStatusToActiveCallPhase(updated, false);
     if (phase !== "idle") {
       setActiveCallSession(
@@ -328,10 +296,8 @@ export async function runIncomingCallAccept(args: RunIncomingCallAcceptArgs): Pr
       );
     }
 
-    if (!args.skipRouteReplace) {
-      replaceActiveIncomingCallRoute(args.router, sid, args.hrefOverride, args.source);
-    }
-    return { ok: true, sessionId: sid, session: updated };
+    replaceActiveIncomingCallRoute(args.router, sid, args.hrefOverride, args.source);
+    return { ok: true, sessionId: sid };
   } catch {
     setDibayCallSessionPhase(sid, "incoming");
     logDibayCall("call_route_open_failed", { sessionId: sid, callId: sid, source: args.source });

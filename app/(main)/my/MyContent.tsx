@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { MyPageData } from "@/lib/my/types";
 import { MyPageHeader } from "@/components/my/MyPageHeader";
-import { MyTopBanner } from "@/components/my/MyTopBanner";
 import { MyPageHomeDashboard } from "@/components/mypage/MyPageHomeDashboard";
 import { useMypageHubModel } from "@/hooks/use-mypage-hub-model";
 import { MYPAGE_MOBILE_NAV_QUERY, normalizeMyPageTab } from "@/components/mypage/mypage-nav";
@@ -148,10 +147,6 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
     });
   }, [router, legacyTabParam, legacyNavParam, legacySectionParam, pathname, searchQueryString]);
 
-  const loadBanner = useCallback(() => {
-    void load();
-  }, [load]);
-
   useEffect(() => {
     if (loading) {
       dibayMyInfoPerfMark("first_shell_visible_ms", { kind: "loading_shell" });
@@ -220,8 +215,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
     );
   }
 
-  const { profile, banner, bannerHidden, mannerScore } = data;
-  const showBanner = banner && !bannerHidden;
+  const { profile } = data;
 
   if (!profile) {
     return (
@@ -242,15 +236,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
       <div className={`${APP_MAIN_COLUMN_CLASS} min-h-0 min-w-0 ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
         <MyPageHomeDashboard
           profile={profile}
-          mannerScore={mannerScore}
-          overviewCounts={overviewCounts}
           profileCompletion={data.profileCompletion ?? null}
-          homeDashboardCounts={data.homeDashboardCounts ?? null}
-          addressDefaultsSnapshot={data.addressDefaultsSnapshot ?? null}
-          showBanner={Boolean(showBanner)}
-          bannerSlot={
-            showBanner ? <MyTopBanner banner={banner} onDismiss={loadBanner} /> : null
-          }
           onProfileRefresh={() => void load({ silent: true })}
         />
       </div>

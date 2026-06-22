@@ -34,7 +34,6 @@ type DibayCallAudioRoutePlugin = {
   setSpeakerphoneEnabled(options: {
     enabled: boolean;
     reason: string;
-    callType?: "audio" | "video";
   }): Promise<DibayCallAudioRouteResult>;
   release(options?: { reason?: string }): Promise<DibayCallAudioRouteResult>;
   addListener(
@@ -74,14 +73,13 @@ export async function getNativeCallAudioRoute(): Promise<DibayCallAudioRouteResu
 
 export async function setNativeCallSpeakerphoneEnabled(
   enabled: boolean,
-  reason: string,
-  callType?: "audio" | "video"
+  reason: string
 ): Promise<DibayCallAudioRouteResult> {
   if (!canUseNativeAudioRoute()) {
     return { ...FALLBACK_ROUTE_RESULT, requestedSpeaker: enabled, reason };
   }
   try {
-    return await NativeCallAudioRoute.setSpeakerphoneEnabled({ enabled, reason, callType });
+    return await NativeCallAudioRoute.setSpeakerphoneEnabled({ enabled, reason });
   } catch (error) {
     console.warn("[call-audio-route] native_set_route_failed", { enabled, reason, error });
     return {

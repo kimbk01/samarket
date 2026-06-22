@@ -65,8 +65,7 @@ function diskClassForAction(item: CallActionItem, theme?: "starbucks"): string {
   if (icon === "camera" && active) return "bg-white text-slate-900 shadow-[0_12px_30px_rgba(0,0,0,0.22)]";
   if (icon === "camera" && !active) return "bg-[rgba(90,200,250,0.42)] text-white backdrop-blur-sm";
 
-  if (icon === "camera-switch" || icon === "pip-swap" || icon === "minimize")
-    return "bg-[rgba(90,200,250,0.42)] text-white backdrop-blur-sm";
+  if (icon === "camera-switch" || icon === "pip-swap") return "bg-[rgba(90,200,250,0.42)] text-white backdrop-blur-sm";
   if (icon === "mic") return "bg-[rgba(90,200,250,0.42)] text-white backdrop-blur-sm";
   if (icon === "video-off") return "bg-[rgba(90,200,250,0.42)] text-white backdrop-blur-sm";
   if (icon === "speaker") return "bg-[rgba(90,200,250,0.42)] text-white backdrop-blur-sm";
@@ -121,8 +120,7 @@ function CallActionGlyph({ item, theme }: { item: CallActionItem; theme?: "starb
     );
 
   if (icon === "camera-switch") return <CameraSwitchGlyph className={controlCls} />;
-  if (icon === "pip-swap" || icon === "minimize")
-    return <PictureInPicture2 size={SIZE} className={controlCls} />;
+  if (icon === "pip-swap") return <PictureInPicture2 size={SIZE} className={controlCls} />;
   if (icon === "retry") return <IosFilledPhoneGlyph className="text-white" />;
   if (icon === "close") return <PhoneOff size={SIZE} className="text-white" />;
   if (icon === "back") return <IosFilledPhoneGlyph className="text-white" />;

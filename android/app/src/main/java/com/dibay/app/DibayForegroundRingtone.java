@@ -16,11 +16,6 @@ public final class DibayForegroundRingtone {
   private DibayForegroundRingtone() {}
 
   public static void start(Context context, String callId) {
-    start(context, callId, null);
-  }
-
-  /** callType reserved — device ringtone SSOT unchanged (no admin sound-source). */
-  public static void start(Context context, String callId, String callType) {
     if (context == null) return;
     stop(null);
     try {

@@ -1,7 +1,7 @@
 "use client";
 
 import type { IRemoteAudioTrack } from "agora-rtc-sdk-ng";
-import { applyAgoraRemoteSpeakerPreference, configureRemoteCallAudioPlayback } from "@/lib/community-messenger/call-provider/agora-playback-routing";
+import { applyAgoraRemoteSpeakerPreference } from "@/lib/community-messenger/call-provider/agora-playback-routing";
 import {
   getNativeCallAudioRoute,
   releaseNativeCallAudioRoute,
@@ -26,18 +26,6 @@ export type CallAudioRouteApplyArgs = {
 export type CallAudioRouteApplyResult = DibayCallAudioRouteResult;
 
 const VERIFY_DELAYS_MS = [300, 1000] as const;
-
-/** 원격 오디오 재생 경로 — verify 대기(최대 1.3s) 생략. play 전·후 즉시 라우트만. */
-const SKIP_ROUTE_VERIFY_REASON_PREFIXES = [
-  "remote_audio_published",
-  "remote_audio_post_play_route",
-] as const;
-
-function shouldSkipRouteVerify(reason: string): boolean {
-  return SKIP_ROUTE_VERIFY_REASON_PREFIXES.some(
-    (prefix) => reason === prefix || reason.startsWith(`${prefix}:`)
-  );
-}
 
 function logCallAudioRoute(event: string, payload: Record<string, unknown>): void {
   console.info(`[call-audio-route] ${event}`, payload);
@@ -68,10 +56,6 @@ async function applyAgoraPlaybackRoute(args: CallAudioRouteApplyArgs): Promise<v
   });
 
   if (args.remoteAudioTrack) {
-    configureRemoteCallAudioPlayback(
-      args.remoteAudioTrack,
-      args.callType === "video" ? "video" : "voice"
-    );
     await applyAgoraRemoteSpeakerPreference(args.remoteAudioTrack, args.desiredSpeaker);
   }
 
@@ -121,11 +105,7 @@ export async function applyCallAudioRoute(
     });
   });
 
-  let nativeResult = await setNativeCallSpeakerphoneEnabled(
-    args.desiredSpeaker,
-    args.reason,
-    args.callType
-  );
+  let nativeResult = await setNativeCallSpeakerphoneEnabled(args.desiredSpeaker, args.reason);
   logCallAudioRoute("native_route_result", {
     callId: args.callId,
     callType: args.callType,
@@ -134,56 +114,34 @@ export async function applyCallAudioRoute(
     ...nativeResult,
   });
 
-  if (shouldSkipRouteVerify(args.reason)) {
+  for (const delayMs of VERIFY_DELAYS_MS) {
+    await wait(delayMs);
     const current = await getNativeCallAudioRoute();
-    if (shouldRetryRoute(current, args.desiredSpeaker)) {
-      logCallAudioRoute("route_mismatch_fast_retry", {
-        callId: args.callId,
-        callType: args.callType,
-        role: args.role,
-        desiredSpeaker: args.desiredSpeaker,
-        actualRoute: current.actualRoute,
-        reason: args.reason,
-      });
-      nativeResult = await setNativeCallSpeakerphoneEnabled(
-        args.desiredSpeaker,
-        `${args.reason}:fast_retry`,
-        args.callType
-      );
-    } else if (current.actualRoute !== "unknown") {
-      nativeResult = current;
+    logCallAudioRoute("verify_after_join", {
+      callId: args.callId,
+      callType: args.callType,
+      role: args.role,
+      desiredSpeaker: args.desiredSpeaker,
+      delayMs,
+      ...current,
+    });
+    if (!shouldRetryRoute(current, args.desiredSpeaker)) {
+      nativeResult = current.actualRoute === "unknown" ? nativeResult : current;
+      continue;
     }
-  } else {
-    for (const delayMs of VERIFY_DELAYS_MS) {
-      await wait(delayMs);
-      const current = await getNativeCallAudioRoute();
-      logCallAudioRoute("verify_after_join", {
-        callId: args.callId,
-        callType: args.callType,
-        role: args.role,
-        desiredSpeaker: args.desiredSpeaker,
-        delayMs,
-        ...current,
-      });
-      if (!shouldRetryRoute(current, args.desiredSpeaker)) {
-        nativeResult = current.actualRoute === "unknown" ? nativeResult : current;
-        continue;
-      }
-      logCallAudioRoute("route_mismatch_retry", {
-        callId: args.callId,
-        callType: args.callType,
-        role: args.role,
-        desiredSpeaker: args.desiredSpeaker,
-        delayMs,
-        actualRoute: current.actualRoute,
-        reason: args.reason,
-      });
-      nativeResult = await setNativeCallSpeakerphoneEnabled(
-        args.desiredSpeaker,
-        `${args.reason}:verify_${delayMs}`,
-        args.callType
-      );
-    }
+    logCallAudioRoute("route_mismatch_retry", {
+      callId: args.callId,
+      callType: args.callType,
+      role: args.role,
+      desiredSpeaker: args.desiredSpeaker,
+      delayMs,
+      actualRoute: current.actualRoute,
+      reason: args.reason,
+    });
+    nativeResult = await setNativeCallSpeakerphoneEnabled(
+      args.desiredSpeaker,
+      `${args.reason}:verify_${delayMs}`
+    );
   }
 
   logCallAudioRoute("apply_done", {

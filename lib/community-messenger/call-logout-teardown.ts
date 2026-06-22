@@ -8,15 +8,14 @@ import {
 import { clearCallPipCornerStorage, clearLegacyCallPipPositionStorage } from "@/lib/community-messenger/call-pip-metrics";
 import { notifyCommunityCallHostSync } from "@/components/layout/providers/CommunityMessengerActiveCallHost";
 import { forceReleaseAllIncomingCallRealtimeSubscriptions } from "@/lib/community-messenger/realtime/cm-incoming-call-realtime-holder";
-import { stopCommunityMessengerCallFeedback } from "@/lib/community-messenger/call-feedback-sound";
-import { stopAllOutgoingRingback } from "@/lib/community-messenger/call-outgoing-ringback-controller";
+import { stopCommunityMessengerCallFeedback, stopCommunityMessengerCallTone } from "@/lib/community-messenger/call-feedback-sound";
 import { useCallStore } from "@/lib/community-messenger/stores/useCallStore";
 
 /**
  * 로그아웃·계정 전환 직전 — 진행 중 통화 미디어·Realtime·세션 PATCH 정리.
  */
 export async function teardownCommunityMessengerCallOnAuthExit(reason: "logout" | "account_switch"): Promise<void> {
-  stopAllOutgoingRingback("logout_teardown");
+  stopCommunityMessengerCallTone();
   stopCommunityMessengerCallFeedback();
 
   const handle = getCommunityMessengerCallRuntime();

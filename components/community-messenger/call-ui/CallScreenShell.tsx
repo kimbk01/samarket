@@ -14,8 +14,6 @@ type Props = {
   surfaceClassName?: string;
   children: ReactNode;
   className?: string;
-  networkWarningClassName?: string | null;
-  networkQualityLevel?: string | null;
 };
 
 /**
@@ -34,7 +32,7 @@ function readSafeAreaInsetBottomPx(): number {
   if (typeof document === "undefined") return 0;
   const el = document.createElement("div");
   el.style.cssText =
-    "position:absolute;left:-9999px;bottom:0;visibility:hidden;padding-bottom:var(--safe-bottom);";
+    "position:absolute;left:-9999px;bottom:0;visibility:hidden;padding-bottom:env(safe-area-inset-bottom,0px);";
   document.body.appendChild(el);
   const pb = parseFloat(getComputedStyle(el).paddingBottom || "0") || 0;
   document.body.removeChild(el);
@@ -130,8 +128,6 @@ export function CallScreenShell({
     variant === "overlay" || variant === "dock-top" ? DEFAULT_OVERLAY_SURFACE : "bg-ui-page",
   children,
   className = "",
-  networkWarningClassName = null,
-  networkQualityLevel = null,
 }: Props) {
   /** `useLayoutEffect`로 첫 페인트 전에 body 포털 부착 */
   const [portalReady, setPortalReady] = useState(false);
@@ -146,20 +142,10 @@ export function CallScreenShell({
     variant === "overlay"
       ? `fixed inset-x-0 top-0 ${CALL_OVERLAY_PORTAL_Z} flex h-[var(--call-viewport-height,100dvh)] max-h-[var(--call-viewport-height,100dvh)] min-h-0 flex-col overflow-hidden ${surfaceClassName}`
       : variant === "dock-top"
-        ? `fixed inset-x-0 top-0 ${CALL_OVERLAY_PORTAL_Z} flex max-h-[min(520px,92dvh)] min-h-0 flex-col overflow-hidden pt-[max(14px,calc(var(--safe-top)+8px))] ${surfaceClassName}`
+        ? `fixed inset-x-0 top-0 ${CALL_OVERLAY_PORTAL_Z} flex max-h-[min(520px,92dvh)] min-h-0 flex-col overflow-hidden pt-[max(14px,calc(env(safe-area-inset-top,0px)+8px))] ${surfaceClassName}`
         : `flex h-[var(--call-viewport-height,100dvh)] max-h-[var(--call-viewport-height,100dvh)] min-h-0 flex-col overflow-hidden ${surfaceClassName}`;
-  const warningClass = networkWarningClassName?.trim() ?? "";
-  /** overlay/dock-top 는 `fixed` 유지 — `relative` 와 동시 적용 시 Tailwind position 충돌로 풀스크린 포털 깨짐 */
-  const networkWarningAnchorClass =
-    variant === "overlay" || variant === "dock-top" ? "" : "relative";
   const shell = (
-    <div
-      ref={shellRef}
-      data-messenger-shell
-      data-call-screen-shell
-      data-call-network-warning={networkQualityLevel ?? undefined}
-      className={`${networkWarningAnchorClass} ${base} ${warningClass} ${className}`.trim()}
-    >
+    <div ref={shellRef} data-messenger-shell data-call-screen-shell className={`${base} ${className}`.trim()}>
       {children}
     </div>
   );

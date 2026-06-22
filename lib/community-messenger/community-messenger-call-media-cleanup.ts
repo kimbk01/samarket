@@ -3,8 +3,7 @@ import {
   cleanupCommunityMessengerAgoraCallResources,
   type CommunityMessengerAgoraLocalTracks,
 } from "@/lib/community-messenger/call-provider/client";
-import { stopCommunityMessengerCallFeedback } from "@/lib/community-messenger/call-feedback-sound";
-import { stopAllOutgoingRingback } from "@/lib/community-messenger/call-outgoing-ringback-controller";
+import { stopCommunityMessengerCallFeedback, stopCommunityMessengerCallTone } from "@/lib/community-messenger/call-feedback-sound";
 import { suspendSharedNotificationAudioContextBestEffort } from "@/lib/notifications/play-notification-sound";
 import { cmCallAudioCleanup } from "@/lib/community-messenger/cm-call-debug";
 import { forceKillDetachedCommunityMessengerCallHtmlAudio } from "@/lib/community-messenger/call-feedback-sound";
@@ -102,7 +101,7 @@ export async function runCommunityMessengerCallMediaCleanup(args: {
     domAudioNuclear = false,
   } = args;
 
-  stopAllOutgoingRingback("call_media_cleanup");
+  stopCommunityMessengerCallTone();
   stopCommunityMessengerCallFeedback();
 
   const stats = await cleanupCommunityMessengerAgoraCallResources({

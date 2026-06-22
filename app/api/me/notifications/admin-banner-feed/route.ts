@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { resolveCampaignRouteUrl } from "@/lib/admin/notification-campaigns/campaign-types";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
@@ -35,7 +36,23 @@ export async function GET() {
     data.display_payload && typeof data.display_payload === "object"
       ? (data.display_payload as Record<string, unknown>)
       : null;
-  const routeUrl = typeof payload?.routeUrl === "string" ? payload.routeUrl.trim() : "";
+
+  const deeplink = typeof payload?.deeplinkUrl === "string" ? payload.deeplinkUrl.trim() : "";
+  const webUrl = typeof payload?.webUrl === "string" ? payload.webUrl.trim() : "";
+  const legacyRoute = typeof payload?.routeUrl === "string" ? payload.routeUrl.trim() : "";
+  const routeUrl = resolveCampaignRouteUrl({
+    deeplink_url: deeplink || legacyRoute || null,
+    web_url: webUrl || null,
+    target_url: legacyRoute || null,
+  });
+
+  const imageUrlRaw =
+    typeof payload?.imageUrl === "string"
+      ? payload.imageUrl.trim()
+      : typeof payload?.inAppImageUrl === "string"
+        ? payload.inAppImageUrl.trim()
+        : "";
+  const imageUrl = imageUrlRaw || null;
 
   return NextResponse.json({
     ok: true,
@@ -44,7 +61,8 @@ export async function GET() {
       category: String(data.category),
       title: String(data.title ?? ""),
       body: String(data.body ?? ""),
-      routeUrl: routeUrl || "/community",
+      routeUrl,
+      imageUrl,
       createdAt: String(data.created_at ?? ""),
     },
   });

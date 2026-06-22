@@ -10,13 +10,6 @@ import {
   resolveOverlayBusyLiveSessionId,
   shouldHideGlobalIncomingOverlayForSession,
 } from "@/lib/community-messenger/incoming-call-surface";
-import {
-  canRenderIncomingCallSurface,
-  claimIncomingCallSurface,
-  getIncomingCallSurfaceOwner,
-  isIncomingCallSurfaceTerminal,
-  releaseIncomingCallSurface,
-} from "@/lib/community-messenger/incoming-call-surface-owner";
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 
 export type ForegroundIncomingPresenterSurface = "none" | "top-banner";
@@ -204,60 +197,12 @@ export function resolveForegroundIncomingPresentation(
     };
   }
 
-  /**
-   * Android APK foreground — native pill이 실제로 떠 있을 때만 web 배너 억제.
-   * Realtime-only( FCM 지연/미도달 ) 경로에서는 web top-banner 로 수신 UI를 보장한다.
-   */
-  if (
-    input.preferNativeAndroidForegroundIncoming &&
-    isAppForeground &&
-    input.nativeForegroundIncomingCallId?.trim() === session.id
-  ) {
-    releaseIncomingCallSurface(session.id, "web_foreground_overlay", "android_foreground_preempt");
-    claimIncomingCallSurface(session.id, "native_foreground_pill", "android_foreground_preempt");
+  if (input.preferNativeAndroidForegroundIncoming && isAppForeground) {
     return {
       sessionId: session.id,
       session,
       surface: "none",
       reason: "native_foreground_primary",
-      shouldRender: false,
-      selectedRingingSessionId,
-    };
-  }
-
-  if (isIncomingCallSurfaceTerminal(session.id)) {
-    return {
-      sessionId: session.id,
-      session,
-      surface: "none",
-      reason: "surface_terminal_suppressed",
-      shouldRender: false,
-      selectedRingingSessionId,
-    };
-  }
-
-  const surfaceOwner = getIncomingCallSurfaceOwner(session.id);
-  if (
-    surfaceOwner === "native_fullscreen" ||
-    surfaceOwner === "native_foreground_pill" ||
-    surfaceOwner === "call_screen"
-  ) {
-    return {
-      sessionId: session.id,
-      session,
-      surface: "none",
-      reason: `surface_owner_${surfaceOwner}`,
-      shouldRender: false,
-      selectedRingingSessionId,
-    };
-  }
-
-  if (!canRenderIncomingCallSurface(session.id, "web_foreground_overlay")) {
-    return {
-      sessionId: session.id,
-      session,
-      surface: "none",
-      reason: "surface_owner_conflict",
       shouldRender: false,
       selectedRingingSessionId,
     };

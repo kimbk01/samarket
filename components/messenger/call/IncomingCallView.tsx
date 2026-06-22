@@ -17,7 +17,7 @@ export function IncomingCallView({ vm }: { vm: CallScreenViewModel }) {
 
   return (
     <div
-      className={`relative z-[2] flex min-h-0 flex-1 flex-col overflow-hidden px-5 pb-[max(1rem,calc(var(--safe-bottom)+12px))] ${
+      className={`relative z-[2] flex min-h-0 flex-1 flex-col overflow-hidden px-5 pb-[max(1rem,calc(env(safe-area-inset-bottom,0px)+12px))] ${
         isStarbucks
           ? "bg-[radial-gradient(circle_at_50%_0%,rgba(212,233,226,0.20),transparent_34%),linear-gradient(180deg,#101827_0%,#064332_52%,#021E18_100%)]"
           : "bg-[#8B5E2E]"

@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
+  notifChannelLabel,
   notifStatusLabel,
   notifTargetLabel,
   notifTypeLabel,
@@ -29,6 +30,16 @@ export function AdminNotificationCampaignDetailPage() {
       updatedAt: string | null;
     }>
   >([]);
+  const [deviceDeliveryLog, setDeviceDeliveryLog] = useState<
+    Array<{
+      userId: string;
+      deviceId: string | null;
+      channel: string;
+      status: string;
+      skipReason: string | null;
+      sentAt: string | null;
+    }>
+  >([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [log, setLog] = useState<string[]>([]);
@@ -50,12 +61,21 @@ export function AdminNotificationCampaignDetailPage() {
           sentAt: string | null;
           updatedAt: string | null;
         }>;
+        deviceDeliveryLog?: Array<{
+          userId: string;
+          deviceId: string | null;
+          channel: string;
+          status: string;
+          skipReason: string | null;
+          sentAt: string | null;
+        }>;
       };
       if (res.ok && j?.ok) {
         setCamp(j.campaign ?? null);
         setTallies(j.targets ?? null);
         setTargetCount(Math.max(0, Number(j.targetCount) || 0));
         setDeliveryLog(Array.isArray(j.deliveryLog) ? j.deliveryLog : []);
+        setDeviceDeliveryLog(Array.isArray(j.deviceDeliveryLog) ? j.deviceDeliveryLog : []);
       }
     } finally {
       setLoading(false);
@@ -133,6 +153,10 @@ export function AdminNotificationCampaignDetailPage() {
             <p>
               <span className="text-sam-muted">{t("admin_notif_label_type")}</span>{" "}
               {notifTypeLabel(t, String(camp.type ?? ""))}
+            </p>
+            <p>
+              <span className="text-sam-muted">{t("admin_notif_label_channel")}</span>{" "}
+              {notifChannelLabel(t, String(camp.channel ?? "push_and_in_app"))}
             </p>
             <p>
               <span className="text-sam-muted">{t("admin_notif_label_target")}</span>{" "}
@@ -218,6 +242,35 @@ export function AdminNotificationCampaignDetailPage() {
                         <td className="py-1 pr-3">{notifStatusLabel(t, row.status)}</td>
                         <td className="py-1 pr-3">{row.updatedAt ?? row.sentAt ?? "-"}</td>
                         <td className="py-1">{row.failureReason ?? "-"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+          <div className="rounded-ui-rect border border-sam-border bg-sam-app p-3">
+            <p className="text-sm font-medium text-sam-fg">{t("admin_notif_detail_delivery_log")} (device)</p>
+            {deviceDeliveryLog.length === 0 ? (
+              <p className="mt-2 text-xs text-sam-muted">{t("admin_notif_detail_no_delivery_log")}</p>
+            ) : (
+              <div className="mt-2 max-h-72 overflow-auto">
+                <table className="min-w-full text-left text-xs">
+                  <thead className="text-sam-muted">
+                    <tr>
+                      <th className="py-1 pr-3">userId</th>
+                      <th className="py-1 pr-3">channel</th>
+                      <th className="py-1 pr-3">{t("admin_notif_label_status")}</th>
+                      <th className="py-1">skip</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {deviceDeliveryLog.map((row, idx) => (
+                      <tr key={`${row.userId}-${row.channel}-${idx}`} className="border-t border-sam-border-soft">
+                        <td className="py-1 pr-3 font-mono">{row.userId.slice(0, 8)}…</td>
+                        <td className="py-1 pr-3">{row.channel}</td>
+                        <td className="py-1 pr-3">{row.status}</td>
+                        <td className="py-1">{row.skipReason ?? "-"}</td>
                       </tr>
                     ))}
                   </tbody>

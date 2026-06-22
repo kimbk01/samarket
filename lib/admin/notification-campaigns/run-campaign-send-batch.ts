@@ -1,34 +1,20 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { createAndDispatchNotificationEvent } from "@/lib/notifications/pipeline/notification-event-dispatcher";
-import type {
-  NotificationEventCategory,
-  NotificationEventType,
-} from "@/lib/notifications/core/notification-event-types";
+import {
+  evaluateCampaignUserEligibility,
+  loadCampaignSettingsMaps,
+} from "@/lib/admin/notification-campaigns/campaign-eligibility";
+import {
+  recordCampaignDelivery,
+  refreshCampaignDeliveryCounts,
+} from "@/lib/admin/notification-campaigns/campaign-delivery-recorder";
+import { sendCampaignToUser } from "@/lib/admin/notification-campaigns/campaign-send-user";
+import type { AdminNotificationCampaignRow, CampaignStatus } from "@/lib/admin/notification-campaigns/campaign-types";
 
 export const NOTIFICATION_CAMPAIGN_BATCH_SIZE = 120;
 
 const ACTIVE_USER_DAYS = 30;
 
-type CampaignRow = {
-  id: string;
-  type: "notice" | "marketing" | "system";
-  target_type: string;
-  title: string;
-  body: string;
-  target_url: string | null;
-  image_url: string | null;
-  segment_region_code: string | null;
-  send_progress_offset: number | null;
-  status: string;
-};
-
-function campaignEventType(campaignType: CampaignRow["type"]): NotificationEventType {
-  return campaignType === "marketing" ? "admin_marketing_banner" : "admin_notice";
-}
-
-function campaignCategory(campaignType: CampaignRow["type"]): NotificationEventCategory {
-  return campaignType === "marketing" ? "admin_marketing_banner" : "admin_notice";
-}
+const TERMINAL_STATUSES = new Set<CampaignStatus>(["sent", "partially_failed", "failed", "cancelled"]);
 
 export async function ensureCampaignTargetsForSelectedUsers(
   svc: SupabaseClient,
@@ -49,57 +35,27 @@ export async function ensureCampaignTargetsForSelectedUsers(
   }
 }
 
-async function loadSettingsMaps(
-  svc: SupabaseClient,
-  userIds: string[]
-): Promise<{
-  notif: Map<string, { service_enabled?: boolean | null; marketing_enabled?: boolean | null }>;
-  prefs: Map<string, { marketing_push_enabled?: boolean | null }>;
-}> {
-  const notif = new Map<string, { service_enabled?: boolean | null; marketing_enabled?: boolean | null }>();
-  const prefs = new Map<string, { marketing_push_enabled?: boolean | null }>();
-  if (userIds.length === 0) return { notif, prefs };
-
-  const [{ data: nsRows }, { data: usRows }] = await Promise.all([
-    svc
-      .from("user_notification_settings")
-      .select("user_id, service_enabled, marketing_enabled")
-      .in("user_id", userIds),
-    svc.from("user_settings").select("user_id, marketing_push_enabled").in("user_id", userIds),
-  ]);
-
-  for (const r of nsRows ?? []) {
-    const id = String((r as { user_id?: string }).user_id ?? "");
-    if (id) notif.set(id, r as { service_enabled?: boolean | null; marketing_enabled?: boolean | null });
+export function assertCampaignSendAllowed(status: string): { ok: true } | { ok: false; error: string } {
+  if (status === "sending") return { ok: true };
+  if (status === "draft" || status === "scheduled") return { ok: true };
+  if (TERMINAL_STATUSES.has(status as CampaignStatus)) {
+    return { ok: false, error: "campaign_already_sent" };
   }
-  for (const r of usRows ?? []) {
-    const id = String((r as { user_id?: string }).user_id ?? "");
-    if (id) prefs.set(id, r as { marketing_push_enabled?: boolean | null });
-  }
-  return { notif, prefs };
+  return { ok: true };
 }
 
+/** @deprecated use evaluateCampaignUserEligibility */
 export function eligibleForCampaign(
-  campaignType: CampaignRow["type"],
+  campaignType: AdminNotificationCampaignRow["type"],
   userId: string,
-  maps: Awaited<ReturnType<typeof loadSettingsMaps>>
+  maps: Awaited<ReturnType<typeof loadCampaignSettingsMaps>>
 ): boolean {
-  const n = maps.notif.get(userId);
-  const u = maps.prefs.get(userId);
-  const serviceOn = n?.service_enabled !== false;
-  if (campaignType === "marketing") {
-    return n?.marketing_enabled === true && u?.marketing_push_enabled === true;
-  }
-  if (campaignType === "notice") {
-    return serviceOn;
-  }
-  return true;
+  return evaluateCampaignUserEligibility(campaignType, userId, maps).eligible;
 }
 
-/** 프로필 스캔 전용 (offset = 건너뛸 행 수). 정책 필터는 호출부에서 한다. */
 async function fetchProfileScanSlice(
   svc: SupabaseClient,
-  campaign: CampaignRow,
+  campaign: AdminNotificationCampaignRow,
   offset: number,
   limit: number
 ): Promise<string[]> {
@@ -146,8 +102,14 @@ async function fetchProfileScanSlice(
   return (data ?? []).map((r) => String((r as { id: string }).id)).filter(Boolean);
 }
 
+function resolveFinalCampaignStatus(sent: number, skipped: number, failed: number): CampaignStatus {
+  if (failed > 0 && sent > 0) return "partially_failed";
+  if (failed > 0 && sent === 0) return "failed";
+  return "sent";
+}
+
 /**
- * 한 번의 배치만 처리한다. 완료 시 `done: true`.
+ * Process one batch. Sets status=sending on first batch; terminal status when done.
  */
 export async function runNotificationCampaignSendBatch(
   svc: SupabaseClient,
@@ -164,7 +126,7 @@ export async function runNotificationCampaignSendBatch(
   const { data: camp, error: cErr } = await svc
     .from("admin_notification_campaigns")
     .select(
-      "id, type, target_type, title, body, target_url, image_url, segment_region_code, send_progress_offset, status"
+      "id, type, target_type, title, body, channel, target_url, image_url, deeplink_url, web_url, push_image_url, in_app_image_url, priority, visibility_policy, target_payload, segment_region_code, send_progress_offset, status, sent_count, skipped_count, failed_count, target_count"
     )
     .eq("id", campaignId)
     .maybeSingle();
@@ -173,12 +135,33 @@ export async function runNotificationCampaignSendBatch(
     return { ok: false, processed: 0, sent: 0, skipped: 0, failed: 0, done: false, error: cErr?.message ?? "not_found" };
   }
 
-  const campaign = camp as CampaignRow;
-  if (campaign.status === "sent") {
-    return { ok: true, processed: 0, sent: 0, skipped: 0, failed: 0, done: true };
+  const campaign = camp as AdminNotificationCampaignRow;
+
+  const allowed = assertCampaignSendAllowed(String(campaign.status));
+  if (!allowed.ok) {
+    return { ok: false, processed: 0, sent: 0, skipped: 0, failed: 0, done: true, error: allowed.error };
+  }
+
+  if (campaign.channel === "test_only") {
+    return {
+      ok: false,
+      processed: 0,
+      sent: 0,
+      skipped: 0,
+      failed: 0,
+      done: false,
+      error: "test_only_use_test_send_endpoint",
+    };
   }
 
   const now = new Date().toISOString();
+
+  if (campaign.status !== "sending") {
+    await svc
+      .from("admin_notification_campaigns")
+      .update({ status: "sending", updated_at: now })
+      .eq("id", campaignId);
+  }
 
   let scannedRaw: string[] = [];
   let nextOffset = campaign.send_progress_offset ?? 0;
@@ -211,10 +194,16 @@ export async function runNotificationCampaignSendBatch(
   } else {
     scannedRaw = await fetchProfileScanSlice(svc, campaign, nextOffset, NOTIFICATION_CAMPAIGN_BATCH_SIZE);
     if (scannedRaw.length === 0) {
+      await refreshCampaignDeliveryCounts(svc, campaignId);
+      const finalStatus = resolveFinalCampaignStatus(
+        campaign.sent_count ?? 0,
+        campaign.skipped_count ?? 0,
+        campaign.failed_count ?? 0
+      );
       await svc
         .from("admin_notification_campaigns")
         .update({
-          status: "sent",
+          status: finalStatus,
           sent_at: now,
           updated_at: now,
           send_progress_offset: nextOffset,
@@ -225,116 +214,41 @@ export async function runNotificationCampaignSendBatch(
     nextOffset += scannedRaw.length;
   }
 
-  const maps = await loadSettingsMaps(svc, scannedRaw);
+  const maps = await loadCampaignSettingsMaps(svc, scannedRaw);
 
   let sent = 0;
   let skipped = 0;
   let failed = 0;
 
   for (const userId of scannedRaw) {
-    const eligible =
-      campaign.type === "marketing"
-        ? eligibleForCampaign("marketing", userId, maps)
-        : campaign.type === "notice"
-          ? eligibleForCampaign("notice", userId, maps)
-          : eligibleForCampaign("system", userId, maps);
-
-    if (!eligible) {
+    const eligibility = evaluateCampaignUserEligibility(campaign.type, userId, maps);
+    if (!eligibility.eligible) {
       skipped += 1;
-      if (campaign.target_type === "selected_users") {
-        await svc
-          .from("admin_notification_campaign_targets")
-          .update({ status: "skipped", failure_reason: "policy_filtered" })
-          .eq("campaign_id", campaignId)
-          .eq("user_id", userId);
-      }
+      const reason = eligibility.skipReason ?? "policy_filtered";
+      await recordCampaignDelivery(svc, {
+        campaignId,
+        userId,
+        channel: "in_app",
+        status: "skipped",
+        skipReason: reason,
+      });
+      await svc.from("admin_notification_campaign_targets").upsert(
+        {
+          campaign_id: campaignId,
+          user_id: userId,
+          status: "skipped",
+          failure_reason: reason,
+          skip_reason: reason,
+        },
+        { onConflict: "campaign_id,user_id" }
+      );
       continue;
     }
 
-    try {
-      const eventType = campaignEventType(campaign.type);
-      const category = campaignCategory(campaign.type);
-      const routeUrl = campaign.target_url?.trim() || "/community";
-      const created = await createAndDispatchNotificationEvent(svc, {
-        userId,
-        type: eventType,
-        category,
-        title: campaign.title,
-        body: campaign.body,
-        dedupeKey: `admin_campaign:${campaign.id}:${userId}`,
-        displayPayload: {
-          routeUrl,
-          imageUrl: campaign.image_url ?? null,
-          campaignId: campaign.id,
-          campaignType: campaign.type,
-          targetType: campaign.target_type,
-          previewKind: "admin_campaign",
-        },
-        unread: true,
-        appState: "background",
-      });
-      if (!created.ok && created.error !== "duplicate") {
-        failed += 1;
-        const reason = "event_insert_or_dispatch_failed";
-        if (campaign.target_type === "selected_users") {
-          await svc
-            .from("admin_notification_campaign_targets")
-            .update({ status: "failed", failure_reason: reason })
-            .eq("campaign_id", campaignId)
-            .eq("user_id", userId);
-        } else {
-          await svc.from("admin_notification_campaign_targets").upsert(
-            {
-              campaign_id: campaignId,
-              user_id: userId,
-              status: "failed",
-              failure_reason: reason,
-            },
-            { onConflict: "campaign_id,user_id" }
-          );
-        }
-        continue;
-      }
-      sent += 1;
-
-      if (campaign.target_type === "selected_users") {
-        await svc
-          .from("admin_notification_campaign_targets")
-          .update({ status: "sent", sent_at: now })
-          .eq("campaign_id", campaignId)
-          .eq("user_id", userId);
-      } else {
-        await svc.from("admin_notification_campaign_targets").upsert(
-          {
-            campaign_id: campaignId,
-            user_id: userId,
-            status: "sent",
-            sent_at: now,
-          },
-          { onConflict: "campaign_id,user_id" }
-        );
-      }
-    } catch (e) {
-      failed += 1;
-      const reason = e instanceof Error ? e.message : "append_failed";
-      if (campaign.target_type === "selected_users") {
-        await svc
-          .from("admin_notification_campaign_targets")
-          .update({ status: "failed", failure_reason: reason.slice(0, 500) })
-          .eq("campaign_id", campaignId)
-          .eq("user_id", userId);
-      } else {
-        await svc.from("admin_notification_campaign_targets").upsert(
-          {
-            campaign_id: campaignId,
-            user_id: userId,
-            status: "failed",
-            failure_reason: reason.slice(0, 500),
-          },
-          { onConflict: "campaign_id,user_id" }
-        );
-      }
-    }
+    const result = await sendCampaignToUser(svc, campaign, userId, maps);
+    if (result.sent) sent += 1;
+    else if (result.skipped) skipped += 1;
+    else if (result.failed) failed += 1;
   }
 
   const processed = scannedRaw.length;
@@ -347,15 +261,24 @@ export async function runNotificationCampaignSendBatch(
       .eq("campaign_id", campaignId)
       .eq("status", "pending");
     done = (count ?? 0) === 0;
-  } else if (campaign.target_type === "marketing_opt_in") {
-    const peek = await fetchProfileScanSlice(svc, campaign, nextOffset, 1);
-    done = peek.length === 0;
   } else {
     const peek = await fetchProfileScanSlice(svc, campaign, nextOffset, 1);
     done = peek.length === 0;
   }
 
-  const statusNext = done ? "sent" : "scheduled";
+  await refreshCampaignDeliveryCounts(svc, campaignId);
+
+  const { data: refreshed } = await svc
+    .from("admin_notification_campaigns")
+    .select("sent_count, skipped_count, failed_count")
+    .eq("id", campaignId)
+    .maybeSingle();
+
+  const counts = refreshed as { sent_count?: number; skipped_count?: number; failed_count?: number } | null;
+  const statusNext: CampaignStatus = done
+    ? resolveFinalCampaignStatus(counts?.sent_count ?? sent, counts?.skipped_count ?? skipped, counts?.failed_count ?? failed)
+    : "sending";
+
   const patch: Record<string, unknown> = {
     status: statusNext,
     sent_at: done ? now : null,
@@ -368,4 +291,42 @@ export async function runNotificationCampaignSendBatch(
   await svc.from("admin_notification_campaigns").update(patch).eq("id", campaignId);
 
   return { ok: true, processed, sent, skipped, failed, done };
+}
+
+/** Test send to explicit user IDs (uses push_and_in_app behavior regardless of stored channel). */
+export async function runNotificationCampaignTestSend(
+  svc: SupabaseClient,
+  campaignId: string,
+  userIds: string[]
+): Promise<{ ok: boolean; sent: number; skipped: number; failed: number; error?: string }> {
+  const { data: camp, error: cErr } = await svc
+    .from("admin_notification_campaigns")
+    .select(
+      "id, type, target_type, title, body, channel, target_url, image_url, deeplink_url, web_url, push_image_url, in_app_image_url, priority, visibility_policy, target_payload, segment_region_code, send_progress_offset, status"
+    )
+    .eq("id", campaignId)
+    .maybeSingle();
+
+  if (cErr || !camp) {
+    return { ok: false, sent: 0, skipped: 0, failed: 0, error: cErr?.message ?? "not_found" };
+  }
+
+  const campaign = camp as AdminNotificationCampaignRow;
+  const maps = await loadCampaignSettingsMaps(svc, userIds);
+  let sent = 0;
+  let skipped = 0;
+  let failed = 0;
+
+  for (const userId of userIds) {
+    const result = await sendCampaignToUser(svc, campaign, userId, maps, {
+      forceChannel: "push_and_in_app",
+      skipDuplicateCheck: true,
+    });
+    if (result.sent) sent += 1;
+    else if (result.skipped) skipped += 1;
+    else if (result.failed) failed += 1;
+  }
+
+  await refreshCampaignDeliveryCounts(svc, campaignId);
+  return { ok: true, sent, skipped, failed };
 }

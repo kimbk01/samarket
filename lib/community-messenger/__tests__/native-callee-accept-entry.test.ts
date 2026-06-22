@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   clearNativeCalleeAcceptPending,
-  isNativeCalleeAcceptCompletedRoute,
-  isNativeCalleeAcceptOwnedRoute,
   isNativeCalleeAcceptRoute,
-  isNativeCalleePrepOnlyRoute,
   isNativeCalleePrepRoute,
   markNativeCalleeAcceptPending,
   readNativeCalleeAcceptPendingSessionId,
@@ -41,25 +38,9 @@ function installMemorySessionStorage() {
 describe("native-callee-accept-entry", () => {
   const cleanup = installMemorySessionStorage();
 
-  it("separates prep-only, completed, and owned accept routes", () => {
-    const prepOnly = { action: "accept", nativeAccept: null, nativePrep: "1" };
-    const completed = { action: "accept", nativeAccept: "1", nativePrep: null };
-    const prepThenCompleted = { action: "accept", nativeAccept: "1", nativePrep: "1" };
-
-    expect(isNativeCalleePrepOnlyRoute(prepOnly)).toBe(true);
-    expect(isNativeCalleeAcceptCompletedRoute(prepOnly)).toBe(false);
-    expect(isNativeCalleeAcceptOwnedRoute(prepOnly)).toBe(true);
-
-    expect(isNativeCalleePrepOnlyRoute(completed)).toBe(false);
-    expect(isNativeCalleeAcceptCompletedRoute(completed)).toBe(true);
-    expect(isNativeCalleeAcceptOwnedRoute(completed)).toBe(true);
-
-    expect(isNativeCalleePrepOnlyRoute(prepThenCompleted)).toBe(false);
-    expect(isNativeCalleeAcceptCompletedRoute(prepThenCompleted)).toBe(true);
-    expect(isNativeCalleeAcceptOwnedRoute(prepThenCompleted)).toBe(true);
-
-    expect(isNativeCalleeAcceptRoute(completed)).toBe(true);
-    expect(isNativeCalleePrepRoute(prepOnly)).toBe(true);
+  it("detects native accept route", () => {
+    expect(isNativeCalleeAcceptRoute({ action: "accept", nativeAccept: "1", nativePrep: null })).toBe(true);
+    expect(isNativeCalleePrepRoute({ action: "accept", nativeAccept: null, nativePrep: "1" })).toBe(true);
     expect(isNativeCalleeAcceptRoute({ action: "accept", nativeAccept: null, nativePrep: null })).toBe(false);
   });
 

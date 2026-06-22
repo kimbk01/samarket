@@ -4,7 +4,6 @@ import {
   hardClearActiveCallSession,
   resetActiveCallSessionForTests,
   setActiveCallSession,
-  syncClearActiveCallSessionLocal,
 } from "@/lib/call/active-call-session";
 import {
   endNativeCallService,
@@ -89,7 +88,7 @@ describe("active-call-session SSOT", () => {
     expect(vi.mocked(reportNativeCallRemoteEnded)).not.toHaveBeenCalled();
   });
 
-  it("blocks forbidden cleanup reason", () => {
+  it("blocks forbidden cleanup reason", async () => {
     setActiveCallSession({
       callId: "call-3",
       roomId: "room-1",
@@ -100,7 +99,7 @@ describe("active-call-session SSOT", () => {
       machinePhase: "CONNECTED",
       connected: true,
     });
-    expect(syncClearActiveCallSessionLocal("call-3", "activity_destroyed")).toBe(false);
+    await hardClearActiveCallSession("call-3", "activity_destroyed");
     expect(getActiveCallSessionCallId()).toBe("call-3");
   });
 });

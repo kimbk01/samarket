@@ -18,13 +18,6 @@ import {
   normalizeCommunityMessengerCallLogs,
 } from "@/lib/community-messenger/call-log-row-copy";
 import { launchOutgoingDirectCall } from "@/lib/community-messenger/call-session-navigation-seed";
-import { postNotificationCallLogsMissedCallsRead } from "@/lib/notifications/client/notification-event-read-client";
-import {
-  beginCallHistoryFetchSequence,
-  commitCallHistoryFetchSequence,
-  mergeCallHistoryLists,
-  shouldApplyCallHistoryFetchSequence,
-} from "@/lib/community-messenger/call-history/call-history-snapshot-merge";
 import {
   fetchCommunityMessengerCallLogsClient,
   useCommunityCallHistoryRealtimeSync,
@@ -123,26 +116,20 @@ export function MessengerCallLogsPanel({
   );
 
   const applyServerCalls = useCallback(
-    (entries: CommunityMessengerCallLog[], fetchSeq?: number) => {
-      if (fetchSeq != null) commitCallHistoryFetchSequence(fetchSeq);
-      setCalls((prev) => {
-        const merged = mergeCallHistoryLists(prev, entries);
-        const enriched = enrichCalls(merged.list);
-        onBootstrapCallsChange?.(enriched);
-        return enriched;
-      });
+    (entries: CommunityMessengerCallLog[]) => {
+      const enriched = enrichCalls(entries);
+      setCalls(enriched);
       setLoading(false);
       setError(null);
+      onBootstrapCallsChange?.(enriched);
     },
     [enrichCalls, onBootstrapCallsChange]
   );
 
   const refetchCallLogsFromServer = useCallback(async () => {
-    const fetchSeq = beginCallHistoryFetchSequence();
     const fetched = await fetchCommunityMessengerCallLogsClient();
-    if (!shouldApplyCallHistoryFetchSequence(fetchSeq)) return;
     if (fetched) {
-      applyServerCalls(fetched, fetchSeq);
+      applyServerCalls(fetched);
       return;
     }
     if (calls.length === 0) {
@@ -156,23 +143,6 @@ export function MessengerCallLogsPanel({
     viewerUserId: resolvedViewerUserId,
     onRefetch: refetchCallLogsFromServer,
   });
-
-  const missedCallReadFingerprint = useMemo(
-    () =>
-      calls
-        .filter((c) => c.status === "missed")
-        .map((c) => c.id)
-        .sort()
-        .join(","),
-    [calls]
-  );
-  const lastMissedCallReadFingerprintRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!missedCallReadFingerprint) return;
-    if (lastMissedCallReadFingerprintRef.current === missedCallReadFingerprint) return;
-    lastMissedCallReadFingerprintRef.current = missedCallReadFingerprint;
-    void postNotificationCallLogsMissedCallsRead();
-  }, [missedCallReadFingerprint]);
 
   useEffect(() => {
     if (callsHydrating) {
@@ -218,7 +188,7 @@ export function MessengerCallLogsPanel({
   }, [messengerOverlayGeneration, setOpenedSwipeItemId]);
 
   useEffect(() => {
-    setCalls((prev) => enrichCalls(mergeCallHistoryLists(prev, seedCalls).list));
+    setCalls(enrichCalls(seedCalls));
     if (!callsHydrating) {
       setLoading(false);
     }
@@ -333,9 +303,8 @@ export function MessengerCallLogsPanel({
         }
         setCalls((prev) => {
           const next = prev.filter((row) => row.id !== targetId);
-          const enriched = enrichCalls(next);
-          onBootstrapCallsChange?.(enriched);
-          return enriched;
+          onBootstrapCallsChange?.(enrichCalls(next));
+          return next;
         });
         showMessengerSnackbar(
           safeT("cm_ui_call_log_deleted", {

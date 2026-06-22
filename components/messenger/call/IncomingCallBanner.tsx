@@ -66,7 +66,7 @@ export function IncomingCallBanner(props: IncomingCallBannerProps) {
 
   return (
     <div
-      className={`pointer-events-auto fixed inset-x-0 top-[max(8px,var(--safe-top))] ${MESSENGER_FOREGROUND_INCOMING_BANNER_Z_CLASS} animate-dibay-incoming-pill-enter px-3 sm:left-1/2 sm:right-auto sm:w-[min(520px,calc(100vw-2rem))] sm:-translate-x-1/2`}
+      className={`pointer-events-auto fixed inset-x-0 top-[max(8px,env(safe-area-inset-top))] ${MESSENGER_FOREGROUND_INCOMING_BANNER_Z_CLASS} animate-dibay-incoming-pill-enter px-3 sm:left-1/2 sm:right-auto sm:w-[min(520px,calc(100vw-2rem))] sm:-translate-x-1/2`}
       role="dialog"
       aria-label={t("cm_ui_incoming_call_dialog")}
     >

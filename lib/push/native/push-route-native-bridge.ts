@@ -20,10 +20,6 @@ export type NativeIncomingCallPlugin = {
   }>;
   markCallConsumed(options: { sessionId: string; reason?: string }): Promise<void>;
   stopIncomingRingtone(options: { sessionId?: string }): Promise<void>;
-  startIncomingRingtone(options: {
-    sessionId: string;
-    callType?: "voice" | "video";
-  }): Promise<void>;
   isCallConsumed(options: {
     sessionId: string;
   }): Promise<{ consumed: boolean; reason?: string }>;
