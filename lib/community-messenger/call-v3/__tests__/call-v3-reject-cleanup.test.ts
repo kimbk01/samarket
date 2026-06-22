@@ -23,6 +23,10 @@ vi.mock("@/lib/community-messenger/multi-tab-bus", () => ({
   postCommunityMessengerCallSessionTerminalBusEvent: vi.fn(),
 }));
 
+vi.mock("@/lib/community-messenger/call-invite-realtime-broadcast", () => ({
+  notifyCommunityMessengerCallInviteHangupBestEffort: vi.fn(),
+}));
+
 import { callV3IncomingDiscovered, callV3Reject } from "@/lib/community-messenger/call-v3/call-v3-actions";
 import { isCallV3IncomingDismissed } from "@/lib/community-messenger/call-v3/call-v3-incoming-dismiss";
 import { resetCallV3PatchClaimsForTests } from "@/lib/community-messenger/call-v3/call-v3-patch-guard";

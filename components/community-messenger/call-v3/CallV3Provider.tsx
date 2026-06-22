@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import { callV3HandleRemoteTerminal, callV3IncomingDiscovered } from "@/lib/community-messenger/call-v3/call-v3-actions";
 import { callV3FetchSession } from "@/lib/community-messenger/call-v3/call-v3-api";
+import { startCallV3CallerTerminalBroadcastSubscribe } from "@/lib/community-messenger/call-v3/call-v3-caller-terminal-subscribe";
 import { logCallV3 } from "@/lib/community-messenger/call-v3/call-v3-debug";
+import { readCallV3ExitRouter } from "@/lib/community-messenger/call-v3/call-v3-route";
 import {
   installDibayFcmCallBridge,
   type DibayFcmIncomingWakeDetail,
@@ -85,6 +88,19 @@ type CallV3ProviderProps = {
  * Legacy CallEngine / GlobalIncoming hosts must stay unmounted when flag is ON.
  */
 export function CallV3Provider({ children }: CallV3ProviderProps) {
+  const [userId, setUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isDibayCallV3SafeLaneEnabled()) return;
+    let cancelled = false;
+    void getCurrentUserIdForDb().then((id) => {
+      if (!cancelled) setUserId(id);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   useEffect(() => {
     if (!isDibayCallV3SafeLaneEnabled()) return;
 
@@ -92,13 +108,20 @@ export function CallV3Provider({ children }: CallV3ProviderProps) {
     markCallV3NativeBridgeReady();
 
     const stopDiscovery = startCallV3IncomingDiscovery();
+    const stopCallerTerminalSubscribe = userId
+      ? startCallV3CallerTerminalBroadcastSubscribe(userId)
+      : () => undefined;
 
     const offBridge = installDibayFcmCallBridge({
       onIncomingWake: (detail) => {
         void hydrateIncomingWake(detail);
       },
       onFcmTerminal: (detail) => {
-        void callV3HandleRemoteTerminal(detail.callId, detail.terminalKind);
+        void callV3HandleRemoteTerminal(
+          detail.callId,
+          detail.terminalKind,
+          readCallV3ExitRouter() ?? undefined
+        );
       },
     });
 
@@ -106,7 +129,7 @@ export function CallV3Provider({ children }: CallV3ProviderProps) {
       if (ev.type !== "cm.call.session_terminal") return;
       const callId = ev.sessionId?.trim();
       if (!callId) return;
-      void callV3HandleRemoteTerminal(callId, ev.status ?? "cancelled");
+      void callV3HandleRemoteTerminal(callId, ev.status ?? "cancelled", readCallV3ExitRouter() ?? undefined);
     });
 
     const onVoipAction = (event: Event) => {
@@ -124,12 +147,13 @@ export function CallV3Provider({ children }: CallV3ProviderProps) {
 
     return () => {
       stopDiscovery();
+      stopCallerTerminalSubscribe();
       offBridge();
       offBus();
       window.removeEventListener("dibay:voip-call-action", onVoipAction);
       window.removeEventListener("dibay:call-route", onCallRoute);
     };
-  }, []);
+  }, [userId]);
 
   return <>{children}</>;
 }

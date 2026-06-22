@@ -89,6 +89,48 @@ export async function callV3FetchSession(
   return fetchCommunityMessengerCallSessionByIdClient(callId);
 }
 
+export type CallV3CallerPollFetchResult = {
+  session: CommunityMessengerCallSession | null;
+  httpStatus: number;
+  notFound: boolean;
+};
+
+/** Caller poll — cache-bust + server reconcile so WebView cannot serve stale ringing. */
+export async function callV3FetchSessionForCallerPoll(
+  callId: string
+): Promise<CallV3CallerPollFetchResult> {
+  const sid = callId.trim();
+  if (!sid) {
+    return { session: null, httpStatus: 0, notFound: false };
+  }
+  const res = await fetch(
+    `/api/community-messenger/calls/sessions/${encodeURIComponent(sid)}?ts=${Date.now()}&reconcile=1`,
+    {
+      credentials: "include",
+      cache: "no-store",
+      headers: {
+        Pragma: "no-cache",
+        "Cache-Control": "no-cache",
+      },
+    }
+  );
+  if (res.status === 404) {
+    return { session: null, httpStatus: 404, notFound: true };
+  }
+  if (!res.ok) {
+    return { session: null, httpStatus: res.status, notFound: false };
+  }
+  const json = (await res.json().catch(() => ({}))) as {
+    ok?: boolean;
+    session?: CommunityMessengerCallSession;
+  };
+  return {
+    session: json.session ?? null,
+    httpStatus: res.status,
+    notFound: false,
+  };
+}
+
 export async function callV3CreateSession(input: {
   roomId: string;
   mediaType: CallV3MediaType;

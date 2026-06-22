@@ -49,6 +49,16 @@ export function clearCallV3RouteState(_callId?: string): void {
 
 export type CallV3Router = { replace?: (href: string) => void; push?: (href: string) => void };
 
+let registeredExitRouter: CallV3Router | null = null;
+
+export function registerCallV3ExitRouter(router: CallV3Router | null): void {
+  registeredExitRouter = router;
+}
+
+export function readCallV3ExitRouter(): CallV3Router | null {
+  return registeredExitRouter;
+}
+
 export function isOnCallV3ScreenPath(): boolean {
   if (typeof window === "undefined") return false;
   return window.location.pathname.includes("/community-messenger/calls-v3/");

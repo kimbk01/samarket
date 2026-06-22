@@ -6,6 +6,7 @@ import {
 import {
   downgradeCommunityMessengerCallSessionToVoice,
   getCommunityMessengerCallSessionById,
+  reconcileUserLiveCallSessions,
   updateCommunityMessengerCallSession,
   upgradeCommunityMessengerCallSessionToVideo,
 } from "@/lib/community-messenger/service";
@@ -15,6 +16,11 @@ import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const SESSION_GET_CACHE_HEADERS = {
+  "Cache-Control": "no-store, no-cache, must-revalidate",
+  Pragma: "no-cache",
+} as const;
 
 export async function GET(
   req: NextRequest,
@@ -33,11 +39,17 @@ export async function GET(
   if (!rateLimit.ok) return rateLimit.response;
 
   const { sessionId } = await params;
+  if (req.nextUrl.searchParams.get("reconcile") === "1") {
+    await reconcileUserLiveCallSessions(auth.userId, "session_get");
+  }
   const session = await getCommunityMessengerCallSessionById(auth.userId, sessionId);
   if (!session) {
-    return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+    return NextResponse.json(
+      { ok: false, error: "not_found" },
+      { status: 404, headers: SESSION_GET_CACHE_HEADERS }
+    );
   }
-  return NextResponse.json({ ok: true, session });
+  return NextResponse.json({ ok: true, session }, { headers: SESSION_GET_CACHE_HEADERS });
 }
 
 export async function PATCH(

@@ -49,6 +49,8 @@ import {
   scheduleCallV3RejectPatchRetry,
 } from "@/lib/community-messenger/call-v3/call-v3-api";
 import { postCommunityMessengerCallSessionTerminalBusEvent } from "@/lib/community-messenger/multi-tab-bus";
+import { notifyCommunityMessengerCallInviteHangupBestEffort } from "@/lib/community-messenger/call-invite-realtime-broadcast";
+import { readCallV3ExitRouter } from "@/lib/community-messenger/call-v3/call-v3-route";
 
 export type CallV3OutgoingLaunchResult =
   | { ok: true; session: CommunityMessengerCallSession; roomId: string }
@@ -208,6 +210,7 @@ function mapRemoteTerminalReason(status: string | null | undefined): CallV3Termi
   if (normalized === "rejected") return "rejected";
   if (normalized === "missed") return "missed";
   if (normalized === "ended") return "ended";
+  if (normalized === "failed" || normalized === "failed_or_stale") return "failed";
   if (normalized === "cancelled" || normalized === "canceled") return "cancelled";
   return "cancelled";
 }
@@ -281,6 +284,16 @@ async function completeCallV3CalleeRejectTerminal(callId: string): Promise<void>
   if (!sid) return;
 
   const identity = readCallV3Identity();
+  const callerUserId = identity?.callerUserId?.trim() ?? "";
+  if (callerUserId) {
+    logCallV3("caller_terminal_notify_broadcast", { callId: sid, callerUserId, status: "rejected" });
+    void notifyCommunityMessengerCallInviteHangupBestEffort(callerUserId, sid, {
+      roomId: identity?.roomId ?? null,
+      initiatorUserId: callerUserId,
+      terminalStatus: "rejected",
+    });
+  }
+
   postCommunityMessengerCallSessionTerminalBusEvent({
     sessionId: sid,
     roomId: identity?.roomId ?? null,
@@ -387,7 +400,7 @@ export async function callV3HandleRemoteTerminal(
   stopCallV3Ringtone("remote_terminal");
   stopCallV3CallerActivePoll();
   markCallV3IncomingDismissed(sid);
-  await finalizeCallV3Terminal(sid, mapRemoteTerminalReason(status), router);
+  await finalizeCallV3Terminal(sid, mapRemoteTerminalReason(status), router ?? readCallV3ExitRouter() ?? undefined);
 }
 
 export async function callV3Cancel(

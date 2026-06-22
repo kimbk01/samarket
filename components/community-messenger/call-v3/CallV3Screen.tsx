@@ -9,7 +9,7 @@ import {
   startCallV3CallerActivePoll,
 } from "@/lib/community-messenger/call-v3/call-v3-actions";
 import { logCallV3 } from "@/lib/community-messenger/call-v3/call-v3-debug";
-import { exitCallV3ScreenAfterCleanup } from "@/lib/community-messenger/call-v3/call-v3-route";
+import { exitCallV3ScreenAfterCleanup, registerCallV3ExitRouter } from "@/lib/community-messenger/call-v3/call-v3-route";
 import { readCallV3Identity, readCallV3Phase, useCallV3Store } from "@/lib/community-messenger/call-v3/call-v3-store";
 
 type CallV3ScreenProps = {
@@ -28,6 +28,11 @@ export function CallV3Screen({ callId }: CallV3ScreenProps) {
   }, [callId]);
 
   useEffect(() => {
+    registerCallV3ExitRouter(router);
+    return () => registerCallV3ExitRouter(null);
+  }, [router]);
+
+  useEffect(() => {
     const current = readCallV3Identity();
     const currentPhase = readCallV3Phase();
     if (currentPhase === "idle" || !current || current.callId !== callId) {
@@ -36,10 +41,14 @@ export function CallV3Screen({ callId }: CallV3ScreenProps) {
   }, [callId, phase, identity, router]);
 
   useEffect(() => {
-    if (identity?.direction !== "outgoing" || phase !== "outgoing_ringing") {
+    if (identity?.direction !== "outgoing") {
+      return;
+    }
+    if (phase !== "outgoing_ringing" && phase !== "creating") {
       return;
     }
     if (identity.callId !== callId) return;
+    logCallV3("caller_poll_start", { callId, phase });
     return startCallV3CallerActivePoll(callId);
   }, [callId, identity?.callId, identity?.direction, phase]);
 

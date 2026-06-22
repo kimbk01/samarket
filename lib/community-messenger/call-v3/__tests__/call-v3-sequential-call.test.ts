@@ -52,7 +52,7 @@ vi.mock("@/lib/community-messenger/call-phase0-basics", () => ({
   isCmCallVideoEnabled: () => true,
 }));
 
-import { callV3Cancel, callV3CreateOutgoing } from "@/lib/community-messenger/call-v3/call-v3-actions";
+import { callV3Cancel, callV3CreateOutgoing, callV3HandleRemoteTerminal } from "@/lib/community-messenger/call-v3/call-v3-actions";
 import { resetCallV3PatchClaimsForTests } from "@/lib/community-messenger/call-v3/call-v3-patch-guard";
 import { resetCallV3IncomingDismissedForTests } from "@/lib/community-messenger/call-v3/call-v3-incoming-dismiss";
 import { useCallV3Store } from "@/lib/community-messenger/call-v3/call-v3-store";
@@ -100,6 +100,20 @@ describe("call-v3-sequential-call", () => {
 
     const next = await callV3CreateOutgoing({ roomId: "room-9", mediaType: "audio", router });
     expect(next.ok).toBe(true);
+    expect(useCallV3Store.getState().identity?.callId).toBe("call-second-room");
+  });
+
+  it("allows same room redial after remote rejected cleanup", async () => {
+    const router = { push: vi.fn(), replace: vi.fn() };
+
+    await callV3CreateOutgoing({ roomId: "room-1", mediaType: "audio", router });
+    await callV3HandleRemoteTerminal("call-first", "rejected", router);
+
+    expect(useCallV3Store.getState().canStartNewCall).toBe(true);
+
+    const second = await callV3CreateOutgoing({ roomId: "room-1", mediaType: "audio", router });
+    expect(second.ok).toBe(true);
+    expect(apiMocks.createSession).toHaveBeenCalledTimes(2);
     expect(useCallV3Store.getState().identity?.callId).toBe("call-second-room");
   });
 });
