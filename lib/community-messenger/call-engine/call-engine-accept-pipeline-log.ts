@@ -11,6 +11,7 @@ export function logAcceptPipeline(
     | "accept_click"
     | "accept_signal_received"
     | "optimistic_incoming_closed"
+    | "incoming_surface_dismissed"
     | "accept_patch_start"
     | "accept_patch_done"
     | "route_request"

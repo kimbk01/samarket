@@ -256,6 +256,7 @@ import {
 import { bestEffortKeepaliveCallSessionTeardown, shouldSkipRingingCallSessionPageLeaveTeardown } from "@/lib/community-messenger/call-page-leave-patch";
 import {
   clearNativeCalleeAcceptPending,
+  isAnyCalleeAcceptRoute,
   isNativeCalleeAcceptPendingForSession,
   isNativeCalleeAcceptRoute,
   readNativeCalleeAcceptRouteParams,
@@ -592,6 +593,7 @@ export function CommunityMessengerCallClient({
   const requestedAction = searchParams.get("action");
   const incomingPreviewRoute = isIncomingCallPreviewRoute(searchParams);
   const nativeAcceptRoute = isNativeCalleeAcceptRoute(readNativeCalleeAcceptRouteParams(searchParams));
+  const calleeAcceptRoute = isAnyCalleeAcceptRoute(readNativeCalleeAcceptRouteParams(searchParams));
   const [initialCallHydration] = useState(() => {
     if (initialSession != null) {
       return { session: initialSession, loading: false };
@@ -3283,11 +3285,14 @@ export function CommunityMessengerCallClient({
     if (!s) return;
     if (s.isMineInitiator) return;
     if (s.status !== "ringing") return;
-    if (requestedAction === "accept") return;
+    if (requestedAction === "accept" || calleeAcceptRoute || nativeAcceptRoute) return;
     if (incomingPreviewRoute) return;
+    if (isNativeCalleeAcceptPendingForSession(s.id)) return;
+    const enginePhase = getCallEngineState(s.id);
+    if (enginePhase === "accepting" || enginePhase === "joining" || enginePhase === "connected") return;
     if (busyRef.current === "accept" || calleeVideoConnectingShellRef.current) return;
     navigateBackFromCommunityMessengerCall(router, s.roomId);
-  }, [incomingPreviewRoute, requestedAction, router, session?.id, session?.isMineInitiator, session?.roomId, session?.status]);
+  }, [calleeAcceptRoute, incomingPreviewRoute, nativeAcceptRoute, requestedAction, router, session?.id, session?.isMineInitiator, session?.roomId, session?.status]);
 
   useEffect(() => {
     if (requestedAction !== "reject") return;

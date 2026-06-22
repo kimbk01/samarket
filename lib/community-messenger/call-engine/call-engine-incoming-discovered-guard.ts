@@ -23,11 +23,12 @@ export function shouldIgnoreIncomingDiscovered(args: {
   const sid = args.callId.trim();
   if (!sid) return { ignore: true, reason: "accepted_consumed_blocks_stale_ringing" };
 
-  if (readCallConsumedReason(sid) === "accepted") {
+  const phase = getCallEngineState(sid);
+  const consumedReason = readCallConsumedReason(sid);
+  if (consumedReason === "accepted" && POST_ACCEPT_PHASES.has(phase)) {
     return { ignore: true, reason: "accepted_consumed_blocks_stale_ringing" };
   }
 
-  const phase = getCallEngineState(sid);
   if (POST_ACCEPT_PHASES.has(phase) && args.sessionStatus === "ringing") {
     return { ignore: true, reason: "stale_ringing_after_accept" };
   }

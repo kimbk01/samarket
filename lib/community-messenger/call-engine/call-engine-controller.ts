@@ -33,6 +33,7 @@ import {
 } from "@/lib/community-messenger/call-engine/call-engine-remote-terminal";
 import { hasNativeIncomingSurfaceForCall } from "@/lib/community-messenger/call-engine/call-engine-native-surface";
 import { releaseCallEngineTerminalLocalState } from "@/lib/community-messenger/call-engine/call-engine-terminal-cleanup";
+import { prepareCallEngineForFreshIncomingRing } from "@/lib/community-messenger/call-engine/call-engine-fresh-ring-reset";
 import {
   isDibayCallConsumed,
   markCallConsumed,
@@ -53,9 +54,9 @@ import { isCallEngineTerminalConsumed } from "@/lib/community-messenger/call-eng
 import {
   buildCallEngineActiveRoute,
   replaceCallEngineRouteOnce,
-  routeCallEngineForAccept,
   type CallEngineRouter,
 } from "@/lib/community-messenger/call-engine/call-engine-route-gate";
+import { clearCallEngineRouteLock } from "@/lib/community-messenger/call-engine/call-engine-locks";
 import { logAcceptPipeline } from "@/lib/community-messenger/call-engine/call-engine-accept-pipeline-log";
 import { dismissNativeForegroundIncomingUi } from "@/lib/community-messenger/call-engine/call-engine-native-surface";
 import { getCallEngineSurfaceOwner } from "@/lib/community-messenger/call-engine/call-engine-locks";
@@ -336,18 +337,10 @@ export function resetCallEngineControllerForTests(): void {
   snapshotSubscribers.clear();
 }
 
-function closeIncomingSurfaceOptimistic(callId: string, source: string): void {
+function dismissIncomingSurfaceAfterAccept(callId: string, source: string): void {
   const sid = callId.trim();
   if (!sid) return;
-  applyIncomingCallConsumedSideEffects(sid, "accepted", `${source}_optimistic`);
-  if (claimCallEngineSurfaceOwner(sid, "web_call_screen")) {
-    surfaceOwnerByCallId.set(sid, "web_call_screen");
-    logAcceptPipeline("call_screen_owner_acquired", { callId: sid });
-  } else {
-    surfaceOwnerByCallId.set(sid, "web_call_screen");
-    logAcceptPipeline("call_screen_owner_acquired", { callId: sid, reused: true });
-  }
-  logAcceptPipeline("optimistic_incoming_closed", { callId: sid });
+  logAcceptPipeline("incoming_surface_dismissed", { callId: sid, source });
   void dismissNativeForegroundIncomingUi(sid);
 }
 
@@ -395,9 +388,11 @@ async function handleUserAccept(signal: Extract<CallEngineSignal, { type: "user_
     return { ok: false, sessionId: sid, reason: "duplicate_accept_blocked" };
   }
 
+  prepareCallEngineForFreshIncomingRing(sid);
+  clearCallEngineRouteLock(sid);
+
   try {
     setCallEngineState(sid, "accepting");
-    closeIncomingSurfaceOptimistic(sid, signal.source);
     logAcceptPipeline("accept_patch_start", { callId: sid });
     const patched = await callEngineAcceptIncoming({ callId: sid, source: signal.source });
     logAcceptPipeline("accept_patch_done", { callId: sid, status: patched.ok ? "ok" : patched.error ?? "failed" });
@@ -411,6 +406,12 @@ async function handleUserAccept(signal: Extract<CallEngineSignal, { type: "user_
     }
 
     applyIncomingCallConsumedSideEffects(sid, "accepted", signal.source);
+    dismissIncomingSurfaceAfterAccept(sid, signal.source);
+    if (claimCallEngineSurfaceOwner(sid, "web_call_screen")) {
+      surfaceOwnerByCallId.set(sid, "web_call_screen");
+    } else {
+      surfaceOwnerByCallId.set(sid, "web_call_screen");
+    }
 
     const updated = (await fetchCommunityMessengerCallSessionByIdClient(sid)) ?? s;
     const phase = mapSessionStatusToActiveCallPhase(updated, false);
@@ -429,7 +430,11 @@ async function handleUserAccept(signal: Extract<CallEngineSignal, { type: "user_
     }
 
     const href = buildActiveCallAcceptHref(sid, signal.hrefOverride);
-    routeCallEngineForAccept(signal.router, sid, href);
+    clearCallEngineRouteLock(sid);
+    if (!replaceCallEngineRouteOnce(signal.router, sid, href)) {
+      signal.router.replace?.(href);
+    }
+    logAcceptPipeline("route_allowed", { callId: sid, href });
 
     void ensureCallMediaForUserGesture(s.callKind);
     notifySnapshots(sid);
@@ -443,7 +448,13 @@ export async function dispatchCallEngineSignal(signal: CallEngineSignal): Promis
   switch (signal.type) {
     case "incoming_discovered": {
       const sid = signal.session.id.trim();
-      if (!sid || isTerminalSignalBlocked(sid)) return { ok: false, error: "terminal_consumed" };
+      if (!sid) return { ok: false, error: "terminal_consumed" };
+
+      if (signal.session.status === "ringing" && !signal.session.isMineInitiator) {
+        prepareCallEngineForFreshIncomingRing(sid);
+      }
+
+      if (isTerminalSignalBlocked(sid)) return { ok: false, error: "terminal_consumed" };
 
       const ignore = shouldIgnoreIncomingDiscovered({
         callId: sid,

@@ -130,6 +130,7 @@ import { getNativeIncomingCallPlugin } from "@/lib/push/native/push-route-native
 import { incomingRingTimeoutMsFromConfig } from "@/lib/community-messenger/messenger-call-ring-timeout";
 import { acceptIncomingCallOnce, runIncomingCallReject } from "@/lib/community-messenger/incoming-call-accept-gateway";
 import { callEngineActions, dispatchCallEngineSignal, scheduleCallEngineMissedTimeouts } from "@/lib/community-messenger/call-engine";
+import { prepareCallEngineForFreshIncomingRing } from "@/lib/community-messenger/call-engine/call-engine-fresh-ring-reset";
 import { applyNativeIncomingSurfaceSignal, dismissNativeForegroundIncomingUi, hasNativeIncomingSurfaceForCall } from "@/lib/community-messenger/call-engine/call-engine-native-surface";
 import { resolveCallEngineAppVisibility } from "@/lib/community-messenger/call-engine/call-engine-app-visibility";
 import {
@@ -2212,6 +2213,7 @@ export function GlobalCommunityMessengerIncomingCall() {
 
       /** 1:1 — 단일 accept gateway: PATCH 1회 + `?action=accept&nativeAccept=1` */
       setBusyId(`accept:${session.id}`);
+      prepareCallEngineForFreshIncomingRing(session.id);
       void (async () => {
         try {
           const result = await acceptIncomingCallOnce({

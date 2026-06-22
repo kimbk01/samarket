@@ -140,6 +140,24 @@ export function clearCallEngineSurfaceOwner(callId: string): void {
   surfaceLocks.delete(sid);
 }
 
+export function clearCallEngineRouteLock(callId: string): void {
+  const sid = normalize(callId);
+  if (!sid) return;
+  routeLocks.delete(sid);
+}
+
+export function clearCallEngineTerminalConsumed(callId: string): void {
+  const sid = normalize(callId);
+  if (!sid) return;
+  terminalConsumedLocks.delete(sid);
+}
+
+export function clearCallEngineCompletedActions(callId: string): void {
+  const sid = normalize(callId);
+  if (!sid) return;
+  completedTerminalActions.delete(sid);
+}
+
 export function clearCallEngineLocks(callId: string): void {
   const sid = normalize(callId);
   if (!sid) return;

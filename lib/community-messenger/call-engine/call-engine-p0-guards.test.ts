@@ -188,8 +188,19 @@ describe("call-engine P0 guards", () => {
   });
 
   describe("P0-2 accepted consumed blocks stale ringing", () => {
-    it("accepted consumed blocks stale ringing discovery", () => {
+    it("accepted consumed alone allows a fresh ringing discovery", () => {
       markCallConsumed("c-acc", "accepted");
+      const guard = shouldIgnoreIncomingDiscovered({
+        callId: "c-acc",
+        sessionStatus: "ringing",
+        requestWebBanner: true,
+      });
+      expect(guard.ignore).toBe(false);
+    });
+
+    it("accepted consumed while accepting still blocks stale ringing", () => {
+      markCallConsumed("c-acc", "accepted");
+      setCallEngineState("c-acc", "accepting");
       const guard = shouldIgnoreIncomingDiscovered({
         callId: "c-acc",
         sessionStatus: "ringing",
@@ -230,8 +241,21 @@ describe("call-engine P0 guards", () => {
       expect(guard.reason).toBe("web_call_screen_owner_blocks_incoming");
     });
 
-    it("incoming_discovered controller returns error for accepted consumed", async () => {
+    it("incoming_discovered clears stale accepted latch for a fresh ring", async () => {
       markCallConsumed("c-stale", "accepted");
+      const res = await dispatchCallEngineSignal({
+        type: "incoming_discovered",
+        session: ringingSession("c-stale"),
+        appVisibility: "foreground",
+        hardClearedAt: new Map(),
+        source: "test",
+      });
+      expect(res.ok).toBe(true);
+    });
+
+    it("incoming_discovered still blocks while accept is in flight", async () => {
+      markCallConsumed("c-stale", "accepted");
+      setCallEngineState("c-stale", "accepting");
       const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
       const res = await dispatchCallEngineSignal({
         type: "incoming_discovered",
@@ -242,11 +266,6 @@ describe("call-engine P0 guards", () => {
       });
       expect(res.ok).toBe(false);
       expect(res.error).toBe("accepted_consumed_blocks_stale_ringing");
-      expect(infoSpy).toHaveBeenCalledWith(
-        "[DIBAY_CALL_ENGINE]",
-        "incoming_discovered_ignored",
-        expect.objectContaining({ callId: "c-stale", reason: "accepted_consumed_blocks_stale_ringing" })
-      );
       infoSpy.mockRestore();
     });
   });
