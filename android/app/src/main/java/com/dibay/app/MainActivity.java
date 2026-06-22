@@ -110,7 +110,7 @@ public class MainActivity extends BridgeActivity {
   }
 
   /** Terminal/cancel — WebView bridge; queues when WebView unavailable. */
-  static void deliverCallTerminalEvent(android.content.Context context, String callId, String status) {
+  public static void deliverCallTerminalEvent(android.content.Context context, String callId, String status) {
     if (callId == null || callId.trim().isEmpty()) return;
     String st = status != null ? status.trim().toLowerCase() : "cancelled";
     String sid = callId.trim();
