@@ -113,12 +113,31 @@ async function reconcileActiveIncomingRinging(): Promise<void> {
   }
 }
 
+async function reconcileActiveConnectedCall(): Promise<void> {
+  const identity = readCallV3Identity();
+  const phase = readCallV3Phase();
+  const callId = identity?.callId?.trim() ?? "";
+  if (!callId) return;
+  if (phase !== "connected" && phase !== "joining") return;
+
+  const session = await callV3FetchSession(callId);
+  if (!session || isTerminalSessionStatus(session.status)) {
+    logCallV3("connected_session_terminal_reconcile", {
+      callId,
+      status: session?.status ?? "ended",
+      direction: identity?.direction ?? null,
+    });
+    callV3HandleRemoteTerminal(callId, session?.status ?? "ended");
+  }
+}
+
 export async function runCallV3IncomingDiscoveryTick(): Promise<void> {
   if (!isDibayCallV3SafeLaneEnabled()) return;
 
   logCallV3("incoming_discovery_start", {});
   await callV3ReconcileBeforeIncoming();
   await reconcileActiveIncomingRinging();
+  await reconcileActiveConnectedCall();
 
   const fetch = await callV3FetchIncomingDiscoveryFetch();
   const { candidate, filterTags } = analyzeIncomingRingingCalleePick(fetch.sessions);

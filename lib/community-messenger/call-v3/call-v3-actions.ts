@@ -215,6 +215,35 @@ function mapRemoteTerminalReason(status: string | null | undefined): CallV3Termi
   return "cancelled";
 }
 
+function resolveCallV3PeerUserId(identity: CallV3Identity): string {
+  return (identity.direction === "outgoing" ? identity.calleeUserId : identity.callerUserId).trim();
+}
+
+function notifyCallV3PeerTerminalBestEffort(
+  callId: string,
+  identity: CallV3Identity | null | undefined,
+  terminalStatus: string
+): void {
+  const sid = callId.trim();
+  if (!sid || !identity || identity.callId !== sid) return;
+
+  const peerUserId = resolveCallV3PeerUserId(identity);
+  if (peerUserId) {
+    logCallV3("peer_terminal_notify_broadcast", { callId: sid, peerUserId, status: terminalStatus });
+    void notifyCommunityMessengerCallInviteHangupBestEffort(peerUserId, sid, {
+      roomId: identity.roomId ?? null,
+      initiatorUserId: identity.callerUserId,
+      terminalStatus,
+    });
+  }
+
+  postCommunityMessengerCallSessionTerminalBusEvent({
+    sessionId: sid,
+    roomId: identity.roomId ?? null,
+    status: terminalStatus,
+  });
+}
+
 async function finalizeCallV3Terminal(
   callId: string,
   reason: CallV3TerminalPhase | string,
@@ -284,21 +313,7 @@ async function completeCallV3CalleeRejectTerminal(callId: string): Promise<void>
   if (!sid) return;
 
   const identity = readCallV3Identity();
-  const callerUserId = identity?.callerUserId?.trim() ?? "";
-  if (callerUserId) {
-    logCallV3("caller_terminal_notify_broadcast", { callId: sid, callerUserId, status: "rejected" });
-    void notifyCommunityMessengerCallInviteHangupBestEffort(callerUserId, sid, {
-      roomId: identity?.roomId ?? null,
-      initiatorUserId: callerUserId,
-      terminalStatus: "rejected",
-    });
-  }
-
-  postCommunityMessengerCallSessionTerminalBusEvent({
-    sessionId: sid,
-    roomId: identity?.roomId ?? null,
-    status: "rejected",
-  });
+  notifyCallV3PeerTerminalBestEffort(sid, identity, "rejected");
 
   markCallV3IncomingDismissed(sid);
   await finalizeCallV3Terminal(sid, "rejected");
@@ -382,6 +397,7 @@ export async function callV3End(
   }
 
   logCallV3("end_patch_done", { callId: sid });
+  notifyCallV3PeerTerminalBestEffort(sid, readCallV3Identity(), "ended");
   await finalizeCallV3Terminal(sid, "ended", router);
 }
 
@@ -426,6 +442,7 @@ export async function callV3Cancel(
   }
 
   logCallV3("cancel_patch_done", { callId: sid });
+  notifyCallV3PeerTerminalBestEffort(sid, readCallV3Identity(), "cancelled");
   await finalizeCallV3Terminal(sid, "cancelled", router);
 }
 

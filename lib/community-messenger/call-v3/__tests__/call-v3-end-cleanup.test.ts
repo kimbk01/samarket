@@ -17,7 +17,17 @@ vi.mock("@/lib/community-messenger/call-v3/call-v3-agora", () => ({
   leaveCallV3Agora: agoraMocks.leave,
 }));
 
+vi.mock("@/lib/community-messenger/multi-tab-bus", () => ({
+  postCommunityMessengerCallSessionTerminalBusEvent: vi.fn(),
+}));
+
+vi.mock("@/lib/community-messenger/call-invite-realtime-broadcast", () => ({
+  notifyCommunityMessengerCallInviteHangupBestEffort: vi.fn(),
+}));
+
 import { callV3End } from "@/lib/community-messenger/call-v3/call-v3-actions";
+import { notifyCommunityMessengerCallInviteHangupBestEffort } from "@/lib/community-messenger/call-invite-realtime-broadcast";
+import { postCommunityMessengerCallSessionTerminalBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { resetCallV3PatchClaimsForTests } from "@/lib/community-messenger/call-v3/call-v3-patch-guard";
 import { useCallV3Store } from "@/lib/community-messenger/call-v3/call-v3-store";
 
@@ -51,6 +61,14 @@ describe("call-v3-end-cleanup", () => {
     await callV3End("call-1", { replace });
 
     expect(apiMocks.patchEnd).toHaveBeenCalledTimes(1);
+    expect(notifyCommunityMessengerCallInviteHangupBestEffort).toHaveBeenCalledWith(
+      "b",
+      "call-1",
+      expect.objectContaining({ terminalStatus: "ended" })
+    );
+    expect(postCommunityMessengerCallSessionTerminalBusEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId: "call-1", status: "ended" })
+    );
     expect(agoraMocks.leave).toHaveBeenCalledWith("call-1");
     expect(replace).toHaveBeenCalled();
     expect(useCallV3Store.getState().phase).toBe("idle");

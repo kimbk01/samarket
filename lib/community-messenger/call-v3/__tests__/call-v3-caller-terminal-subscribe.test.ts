@@ -70,6 +70,32 @@ describe("call-v3-caller-terminal-subscribe", () => {
     );
   });
 
+  it("handles hangup broadcast for incoming connected callee", () => {
+    useCallV3Store.setState({
+      phase: "connected",
+      connectedAt: Date.now(),
+      identity: {
+        callId: "call-1",
+        roomId: "room-1",
+        callerUserId: "a",
+        calleeUserId: "b",
+        direction: "incoming",
+        mediaType: "audio",
+        createdAt: "2026-06-23T00:00:00.000Z",
+      },
+      canReceiveNewCall: false,
+    });
+
+    startCallV3CallerTerminalBroadcastSubscribe("user-b");
+    subscribeMocks.onHangup?.({ sessionId: "call-1", status: "ended" });
+
+    expect(actionMocks.remoteTerminal).toHaveBeenCalledWith(
+      "call-1",
+      "ended",
+      expect.objectContaining({ replace: expect.any(Function) })
+    );
+  });
+
   it("ignores hangup for unrelated call", () => {
     useCallV3Store.setState({
       phase: "outgoing_ringing",
