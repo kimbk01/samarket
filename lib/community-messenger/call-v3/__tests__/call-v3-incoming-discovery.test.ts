@@ -3,7 +3,13 @@ import type { CommunityMessengerCallSession } from "@/lib/community-messenger/ty
 
 const apiMocks = vi.hoisted(() => ({
   reconcile: vi.fn(async () => undefined),
-  fetchIncoming: vi.fn(async () => [] as CommunityMessengerCallSession[]),
+  fetchIncoming: vi.fn(async () => ({
+    sessions: [] as CommunityMessengerCallSession[],
+    httpStatus: 200,
+    ok: true,
+    count: 0,
+    sessionIds: [] as string[],
+  })),
   fetchSession: vi.fn(async () => null as CommunityMessengerCallSession | null),
 }));
 
@@ -18,7 +24,7 @@ vi.mock("@/lib/community-messenger/call-v3/call-v3-flag", () => ({
 
 vi.mock("@/lib/community-messenger/call-v3/call-v3-api", () => ({
   callV3ReconcileBeforeIncoming: apiMocks.reconcile,
-  callV3FetchIncomingSessions: apiMocks.fetchIncoming,
+  callV3FetchIncomingDiscoveryFetch: apiMocks.fetchIncoming,
   callV3FetchSession: apiMocks.fetchSession,
 }));
 
@@ -66,7 +72,13 @@ describe("call-v3-incoming-discovery", () => {
   });
 
   it("discovers ringing callee session", async () => {
-    apiMocks.fetchIncoming.mockResolvedValueOnce([ringingSession("call-in-1")]);
+    apiMocks.fetchIncoming.mockResolvedValueOnce({
+      sessions: [ringingSession("call-in-1")],
+      httpStatus: 200,
+      ok: true,
+      count: 1,
+      sessionIds: ["call-in-1"],
+    });
     await runCallV3IncomingDiscoveryTick();
     expect(apiMocks.reconcile).toHaveBeenCalledTimes(1);
     expect(actionMocks.discovered).toHaveBeenCalledTimes(1);
@@ -86,7 +98,13 @@ describe("call-v3-incoming-discovery", () => {
         createdAt: "2026-06-23T00:00:00.000Z",
       },
     });
-    apiMocks.fetchIncoming.mockResolvedValueOnce([]);
+    apiMocks.fetchIncoming.mockResolvedValueOnce({
+      sessions: [],
+      httpStatus: 200,
+      ok: true,
+      count: 0,
+      sessionIds: [],
+    });
     apiMocks.fetchSession.mockResolvedValueOnce({ ...ringingSession("call-in-1"), status: "cancelled" });
 
     await runCallV3IncomingDiscoveryTick();
@@ -106,7 +124,13 @@ describe("call-v3-incoming-discovery", () => {
         createdAt: "2026-06-23T00:00:00.000Z",
       },
     });
-    apiMocks.fetchIncoming.mockResolvedValueOnce([]);
+    apiMocks.fetchIncoming.mockResolvedValueOnce({
+      sessions: [],
+      httpStatus: 200,
+      ok: true,
+      count: 0,
+      sessionIds: [],
+    });
     apiMocks.fetchSession.mockResolvedValueOnce({ ...ringingSession("call-in-1"), status: "rejected" });
 
     await runCallV3IncomingDiscoveryTick();
@@ -115,15 +139,32 @@ describe("call-v3-incoming-discovery", () => {
 
   it("does not block new incoming after stale call dismissed", async () => {
     markCallV3IncomingDismissed("call-old");
-    apiMocks.fetchIncoming.mockResolvedValueOnce([ringingSession("call-new")]);
+    apiMocks.fetchIncoming.mockResolvedValueOnce({
+      sessions: [ringingSession("call-new")],
+      httpStatus: 200,
+      ok: true,
+      count: 1,
+      sessionIds: ["call-new"],
+    });
     await runCallV3IncomingDiscoveryTick();
     expect(actionMocks.discovered).toHaveBeenCalledWith(expect.objectContaining({ id: "call-new" }));
   });
 
   it("does not rediscover dismissed session while DB still ringing", async () => {
     markCallV3IncomingDismissed("call-in-1");
-    apiMocks.fetchIncoming.mockResolvedValueOnce([ringingSession("call-in-1")]);
+    apiMocks.fetchIncoming.mockResolvedValueOnce({
+      sessions: [ringingSession("call-in-1")],
+      httpStatus: 200,
+      ok: true,
+      count: 1,
+      sessionIds: ["call-in-1"],
+    });
     await runCallV3IncomingDiscoveryTick();
     expect(actionMocks.discovered).not.toHaveBeenCalled();
+    expect(console.info).toHaveBeenCalledWith(
+      "[DIBAY_CALL_V3]",
+      "incoming_discovery_no_candidate",
+      expect.objectContaining({ rawCount: 1, reason: "filtered", filterTags: ["dismissed"] })
+    );
   });
 });

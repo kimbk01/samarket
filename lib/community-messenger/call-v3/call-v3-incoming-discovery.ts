@@ -2,9 +2,10 @@
 
 import type { CommunityMessengerCallSession, CommunityMessengerCallSessionStatus } from "@/lib/community-messenger/types";
 import {
-  callV3FetchIncomingSessions,
+  callV3FetchIncomingDiscoveryFetch,
   callV3FetchSession,
   callV3ReconcileBeforeIncoming,
+  type CallV3IncomingDiscoveryFetch,
 } from "@/lib/community-messenger/call-v3/call-v3-api";
 import { callV3HandleRemoteTerminal, callV3IncomingDiscovered } from "@/lib/community-messenger/call-v3/call-v3-actions";
 import { logCallV3 } from "@/lib/community-messenger/call-v3/call-v3-debug";
@@ -25,16 +26,78 @@ function isTerminalSessionStatus(status: string | null | undefined): boolean {
   return TERMINAL_STATUSES.has((status ?? "").trim() as CommunityMessengerCallSessionStatus);
 }
 
-function pickIncomingRingingCalleeSession(
-  sessions: CommunityMessengerCallSession[]
-): CommunityMessengerCallSession | null {
+type IncomingDiscoveryNoCandidateReason = "auth_fail" | "empty" | "filtered" | "duplicate";
+
+type IncomingPickFilterTag = "wrong_status" | "initiator" | "dismissed" | "missing_id";
+
+function analyzeIncomingRingingCalleePick(sessions: CommunityMessengerCallSession[]): {
+  candidate: CommunityMessengerCallSession | null;
+  filterTags: IncomingPickFilterTag[];
+} {
+  const filterTags: IncomingPickFilterTag[] = [];
   for (const session of sessions) {
     const callId = session.id?.trim() ?? "";
-    if (!callId || session.status !== "ringing" || session.isMineInitiator) continue;
-    if (isCallV3IncomingDismissed(callId)) continue;
-    return session;
+    if (!callId) {
+      filterTags.push("missing_id");
+      continue;
+    }
+    if (session.status !== "ringing") {
+      filterTags.push("wrong_status");
+      continue;
+    }
+    if (session.isMineInitiator) {
+      filterTags.push("initiator");
+      continue;
+    }
+    if (isCallV3IncomingDismissed(callId)) {
+      filterTags.push("dismissed");
+      continue;
+    }
+    return { candidate: session, filterTags: [] };
   }
-  return null;
+  return { candidate: null, filterTags };
+}
+
+function isIncomingDiscoveryDuplicateSkip(callId: string): boolean {
+  const phase = readCallV3Phase();
+  const current = readCallV3Identity();
+  if (current?.callId !== callId) return false;
+  if (phase === "incoming_ringing") return true;
+  return phase !== "idle";
+}
+
+function resolveIncomingDiscoveryNoCandidateReason(input: {
+  fetch: CallV3IncomingDiscoveryFetch;
+  filterTags: IncomingPickFilterTag[];
+}): IncomingDiscoveryNoCandidateReason {
+  if (!input.fetch.ok || input.fetch.httpStatus === 401 || input.fetch.httpStatus === 403) {
+    return "auth_fail";
+  }
+  if (!input.fetch.ok || input.fetch.httpStatus >= 400) {
+    return "auth_fail";
+  }
+  if (input.fetch.count === 0) {
+    return "empty";
+  }
+  return "filtered";
+}
+
+function logIncomingDiscoveryNoCandidate(input: {
+  rawCount: number;
+  reason: IncomingDiscoveryNoCandidateReason;
+  fetch: CallV3IncomingDiscoveryFetch;
+  filterTags?: IncomingPickFilterTag[];
+  callId?: string;
+}): void {
+  logCallV3("incoming_discovery_no_candidate", {
+    rawCount: input.rawCount,
+    reason: input.reason,
+    httpStatus: input.fetch.httpStatus,
+    fetchOk: input.fetch.ok,
+    ...(input.filterTags?.length ? { filterTags: input.filterTags } : {}),
+    ...(input.callId ? { callId: input.callId } : {}),
+    ...(input.fetch.sessionIds.length ? { sessionIds: input.fetch.sessionIds } : {}),
+  });
 }
 
 async function reconcileActiveIncomingRinging(): Promise<void> {
@@ -57,11 +120,28 @@ export async function runCallV3IncomingDiscoveryTick(): Promise<void> {
   await callV3ReconcileBeforeIncoming();
   await reconcileActiveIncomingRinging();
 
-  const sessions = await callV3FetchIncomingSessions();
-  const candidate = pickIncomingRingingCalleeSession(sessions);
+  const fetch = await callV3FetchIncomingDiscoveryFetch();
+  const { candidate, filterTags } = analyzeIncomingRingingCalleePick(fetch.sessions);
   if (candidate) {
+    const callId = candidate.id?.trim() ?? "";
+    if (callId && isIncomingDiscoveryDuplicateSkip(callId)) {
+      logIncomingDiscoveryNoCandidate({
+        rawCount: fetch.count,
+        reason: "duplicate",
+        fetch,
+        callId,
+      });
+    }
     callV3IncomingDiscovered(candidate);
+    return;
   }
+
+  logIncomingDiscoveryNoCandidate({
+    rawCount: fetch.count,
+    reason: resolveIncomingDiscoveryNoCandidateReason({ fetch, filterTags }),
+    fetch,
+    ...(filterTags.length ? { filterTags } : {}),
+  });
 }
 
 export function startCallV3IncomingDiscovery(): () => void {

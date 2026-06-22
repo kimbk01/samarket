@@ -36,18 +36,51 @@ export async function callV3ReconcileBeforeIncoming(): Promise<void> {
   await callV3ReconcileBeforeCreate();
 }
 
-export async function callV3FetchIncomingSessions(): Promise<CommunityMessengerCallSession[]> {
+export type CallV3IncomingDiscoveryFetch = {
+  sessions: CommunityMessengerCallSession[];
+  httpStatus: number;
+  ok: boolean;
+  count: number;
+  sessionIds: string[];
+};
+
+/** Discovery observability — logs `incoming_discovery_fetch`; return shape unchanged for callers. */
+export async function callV3FetchIncomingDiscoveryFetch(): Promise<CallV3IncomingDiscoveryFetch> {
   const res = await fetch("/api/community-messenger/calls/sessions/incoming?directOnly=1", {
     credentials: "include",
     cache: "no-store",
   });
-  if (!res.ok) return [];
+  const httpStatus = res.status;
+  if (!res.ok) {
+    logCallV3("incoming_discovery_fetch", {
+      httpStatus,
+      ok: false,
+      count: 0,
+      sessionIds: [],
+    });
+    return { sessions: [], httpStatus, ok: false, count: 0, sessionIds: [] };
+  }
   const json = (await res.json().catch(() => ({}))) as {
     ok?: boolean;
     sessions?: CommunityMessengerCallSession[];
   };
-  if (!json.ok) return [];
-  return json.sessions ?? [];
+  const ok = json.ok === true;
+  const sessions = ok ? (json.sessions ?? []) : [];
+  const sessionIds = sessions
+    .map((session) => session.id?.trim() ?? "")
+    .filter((id): id is string => Boolean(id));
+  logCallV3("incoming_discovery_fetch", {
+    httpStatus,
+    ok,
+    count: sessions.length,
+    sessionIds,
+  });
+  return { sessions, httpStatus, ok, count: sessions.length, sessionIds };
+}
+
+export async function callV3FetchIncomingSessions(): Promise<CommunityMessengerCallSession[]> {
+  const result = await callV3FetchIncomingDiscoveryFetch();
+  return result.sessions;
 }
 
 export async function callV3ResolveOutgoingRoomId(input: {
