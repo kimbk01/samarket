@@ -67,7 +67,7 @@ export function CallV3Screen({ callId }: CallV3ScreenProps) {
   }, [callId, identity?.callId, phase]);
 
   const isOutgoing = identity?.direction === "outgoing";
-  const isIncoming = identity?.direction === "incoming";
+  const isOutgoingDialing = isOutgoing && (phase === "outgoing_ringing" || phase === "creating");
 
   const statusLabel =
     phase === "connected"
@@ -80,16 +80,11 @@ export function CallV3Screen({ callId }: CallV3ScreenProps) {
             fallbackKo: "종료 중",
             fallbackEn: "Ending…",
           })
-        : isOutgoing
-          ? phase === "outgoing_ringing"
-            ? safeT("cm_ui_call_status_outgoing_dialing", {
-                fallbackKo: "발신 중",
-                fallbackEn: "Calling",
-              })
-            : safeT("cm_ui_connecting", {
-                fallbackKo: "연결 중",
-                fallbackEn: "Connecting",
-              })
+        : isOutgoingDialing
+          ? safeT("cm_ui_call_status_outgoing_dialing", {
+              fallbackKo: "발신 중",
+              fallbackEn: "Calling",
+            })
           : safeT("cm_ui_connecting", {
               fallbackKo: "연결 중",
               fallbackEn: "Connecting",
@@ -115,23 +110,21 @@ export function CallV3Screen({ callId }: CallV3ScreenProps) {
           fallbackEn: "Incoming voice call",
         });
 
-  const showControls = phase === "connected" || (isOutgoing && (phase === "outgoing_ringing" || phase === "creating"));
+  const showControls =
+    phase === "connected" ||
+    phase === "joining" ||
+    isOutgoingDialing;
 
   return (
     <div
       data-testid="call-v3-screen"
       className="flex min-h-[100dvh] flex-col bg-sam-app text-sam-fg"
     >
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
+      <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
         <p className="text-lg font-semibold">{title}</p>
         <p className="text-sm text-sam-muted">{statusLabel}</p>
-        {phase === "joining" ? (
-          <p className="text-xs text-sam-muted">
-            {safeT("cm_ui_connection_connecting", {
-              fallbackKo: "연결 중…",
-              fallbackEn: "Connecting…",
-            })}
-          </p>
+        {identity?.peerLabel?.trim() ? (
+          <p className="truncate text-base font-medium text-sam-fg">{identity.peerLabel}</p>
         ) : null}
       </div>
       {showControls ? <CallV3Controls callId={callId} router={router} /> : null}

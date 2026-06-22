@@ -9,21 +9,29 @@ type CallV3ControlsProps = {
   router: { replace: (href: string) => void; push?: (href: string) => void };
 };
 
+/**
+ * Outgoing ringing/creating → cancel.
+ * Joining / connected → end.
+ */
 export function CallV3Controls({ callId, router }: CallV3ControlsProps) {
   const { safeT } = useI18n();
   const phase = useCallV3Store((s) => s.phase);
   const showCancel = phase === "outgoing_ringing" || phase === "creating";
-  const showEnd = phase === "connected";
+  const showEnd = phase === "joining" || phase === "connected";
 
   if (!showCancel && !showEnd) {
     return null;
   }
 
   return (
-    <div className="flex w-full justify-center px-6 pb-10">
+    <div
+      data-testid="call-v3-controls"
+      className="flex w-full justify-center px-6 pb-[max(2.5rem,env(safe-area-inset-bottom))]"
+    >
       {showCancel ? (
         <button
           type="button"
+          data-testid="call-v3-cancel-button"
           className="min-h-12 min-w-[8rem] rounded-ui-rect border border-sam-border bg-sam-surface px-6 text-sm font-semibold text-sam-fg"
           onClick={() => void callV3Cancel(callId, router)}
         >

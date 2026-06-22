@@ -10,6 +10,7 @@ import { useCallV3Store } from "@/lib/community-messenger/call-v3/call-v3-store"
 
 /**
  * Foreground incoming banner — single owner per callId when phase is incoming_ringing.
+ * Layout: peer row + full-width accept/reject row (narrow screens must show both buttons).
  */
 export function CallV3IncomingBanner() {
   const router = useRouter();
@@ -30,7 +31,7 @@ export function CallV3IncomingBanner() {
     return null;
   }
 
-  const title =
+  const mediaLabel =
     identity.mediaType === "video"
       ? safeT("cm_ui_call_log_video_incoming", {
           fallbackKo: "영상 통화 수신",
@@ -41,32 +42,38 @@ export function CallV3IncomingBanner() {
           fallbackEn: "Incoming voice call",
         });
 
+  const peerName = identity.peerLabel?.trim() || mediaLabel;
+
   return (
     <div
       data-testid="call-v3-incoming-banner"
-      className="fixed inset-x-0 top-0 z-[120] flex justify-center p-3"
+      className="fixed inset-x-0 top-0 z-[120] flex justify-center p-3 pt-[max(0.75rem,env(safe-area-inset-top))]"
     >
-      <div className="flex w-full max-w-md items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3 shadow-lg">
-        <SamarketThumbnail
-          src={identity.peerAvatarUrl}
-          alt={identity.peerLabel ?? title}
-          className="h-12 w-12 shrink-0 rounded-full"
-        />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-sam-fg">{identity.peerLabel ?? title}</p>
-          <p className="text-xs text-sam-muted">{title}</p>
+      <div className="flex w-full max-w-md flex-col gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3 shadow-lg">
+        <div className="flex min-w-0 items-center gap-3">
+          <SamarketThumbnail
+            src={identity.peerAvatarUrl}
+            alt={peerName}
+            className="h-12 w-12 shrink-0 rounded-full"
+          />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-sam-fg">{peerName}</p>
+            <p className="truncate text-xs text-sam-muted">{mediaLabel}</p>
+          </div>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="grid w-full grid-cols-2 gap-2">
           <button
             type="button"
-            className="min-h-10 rounded-ui-rect bg-sam-brand px-3 text-sm font-semibold text-white"
+            data-testid="call-v3-incoming-accept"
+            className="min-h-11 w-full rounded-ui-rect bg-sam-brand px-3 text-sm font-semibold text-white"
             onClick={() => void callV3Accept(identity.callId, router)}
           >
             {safeT("cm_ui_accept", { fallbackKo: "수락", fallbackEn: "Accept" })}
           </button>
           <button
             type="button"
-            className="min-h-10 rounded-ui-rect border border-sam-border px-3 text-sm font-semibold text-sam-fg"
+            data-testid="call-v3-incoming-reject"
+            className="min-h-11 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 text-sm font-semibold text-sam-fg"
             onClick={() => void callV3Reject(identity.callId)}
           >
             {safeT("cm_ui_reject", { fallbackKo: "거절", fallbackEn: "Decline" })}
