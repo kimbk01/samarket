@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { requirePhoneVerified } from "@/lib/auth/server-guards";
-import { startCommunityMessengerCallSession } from "@/lib/community-messenger/service";
+import { reconcileUserLiveCallSessions, startCommunityMessengerCallSession } from "@/lib/community-messenger/service";
 /** SSOT_CONTRACT: messenger-call-init-route startCommunityMessengerCallSession */
 import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
@@ -44,6 +44,7 @@ export async function POST(
   if (!canon.ok) {
     return canon.response;
   }
+  await reconcileUserLiveCallSessions(auth.userId, "room_call_route");
   const result = await startCommunityMessengerCallSession({
     userId: auth.userId,
     roomId: canon.canonicalRoomId,

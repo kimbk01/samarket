@@ -19,6 +19,12 @@ export type ActiveCallRecoverySession = {
   id?: string | null;
   status?: string | null;
   sessionMode?: string | null;
+  startedAt?: string | null;
+  answeredAt?: string | null;
+  updatedAt?: string | null;
+  initiatorUserId?: string | null;
+  recipientUserId?: string | null;
+  peerUserId?: string | null;
 };
 
 const TERMINAL_RECOVERY_STATUSES = new Set([
@@ -35,6 +41,7 @@ export function isTerminalCallRecoveryStatus(status: string | null | undefined):
 }
 
 const LIVE_RECOVERY_STATUSES = new Set(["ringing", "active"]);
+const RINGING_RECOVERY_STALE_MS = 120_000;
 
 /**
  * live(ringing|active) 1:1 세션만 복구 대상 session id 반환. 그 외 null.
@@ -51,6 +58,27 @@ export function resolveActiveCallRecoveryTarget(
   if (isTerminalCallRecoveryStatus(status)) return null;
   if (session?.sessionMode && session.sessionMode !== "direct") return null;
   return sid;
+}
+
+function toMs(iso: string | null | undefined): number | null {
+  const raw = (iso ?? "").trim();
+  if (!raw) return null;
+  const ms = new Date(raw).getTime();
+  return Number.isFinite(ms) ? ms : null;
+}
+
+export function isRecoverySessionStale(
+  session: ActiveCallRecoverySession | null | undefined,
+  nowMs = Date.now(),
+): boolean {
+  if (!session) return true;
+  const status = session.status?.trim().toLowerCase() ?? "";
+  if (!LIVE_RECOVERY_STATUSES.has(status)) return true;
+  if (isTerminalCallRecoveryStatus(status)) return true;
+  if (status !== "ringing") return false;
+  const startedAtMs = toMs(session.startedAt);
+  if (startedAtMs == null) return false;
+  return nowMs - startedAtMs > RINGING_RECOVERY_STALE_MS;
 }
 
 export function readActiveCallRecoveryLock(): { sessionId: string; at: number } | null {
@@ -86,7 +114,7 @@ export function readTerminalCallRecoverySuppress(): { sessionId: string; until: 
   }
 }
 
-export function writeTerminalCallRecoverySuppress(sessionId: string): void {
+export function writeTerminalCallRecoverySuppress(sessionId: string, _reason?: string): void {
   const sid = sessionId.trim();
   if (!sid) return;
   try {

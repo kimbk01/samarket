@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  isRecoverySessionStale,
   isTerminalCallRecoveryStatus,
   resolveActiveCallRecoveryTarget,
   shouldSkipActiveCallRecoveryRouting,
@@ -32,6 +33,23 @@ describe("call-active-session-recovery", () => {
       expect(isTerminalCallRecoveryStatus(status)).toBe(true);
       expect(resolveActiveCallRecoveryTarget({ id: "s1", status }, "/")).toBeNull();
     }
+  });
+
+  it("marks stale ringing recovery session as stale by TTL", () => {
+    const now = Date.now();
+    const staleStartedAt = new Date(now - 121_000).toISOString();
+    expect(
+      isRecoverySessionStale(
+        { id: "s-stale", status: "ringing", sessionMode: "direct", startedAt: staleStartedAt },
+        now,
+      ),
+    ).toBe(true);
+    expect(
+      isRecoverySessionStale(
+        { id: "s-fresh", status: "ringing", sessionMode: "direct", startedAt: new Date(now - 5_000).toISOString() },
+        now,
+      ),
+    ).toBe(false);
   });
 
   it("suppresses recovery after local terminal dismiss", () => {

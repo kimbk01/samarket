@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useLayoutEffect, useSyncExternalStore } from "react";
 import { importWithChunkRetry } from "@/lib/next/import-with-chunk-retry";
+import { readTerminalCallRecoverySuppress } from "@/lib/community-messenger/call-active-session-recovery";
 import {
   readActiveDirectVideoCallSessionId,
   readDockedCallSessionId,
@@ -58,11 +59,13 @@ export function subscribeCommunityCallHostSync(onStoreChange: () => void): () =>
 }
 
 function readHostedCallSessionId(): string | null {
-  return (
+  const hosted =
     readDockedCallSessionId() ??
     readMinimizedCommunityCallSessionId() ??
-    readActiveDirectVideoCallSessionId()
-  );
+    readActiveDirectVideoCallSessionId();
+  const suppress = readTerminalCallRecoverySuppress();
+  if (hosted && suppress?.sessionId === hosted) return null;
+  return hosted;
 }
 
 /** CallClient 호스트 상태 변경 — minimize·join·expand·종료 시 호출 */

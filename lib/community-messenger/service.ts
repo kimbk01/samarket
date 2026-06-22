@@ -494,6 +494,7 @@ type CallSessionRow = {
   answered_at: string | null;
   ended_at: string | null;
   ended_reason?: string | null;
+  updated_at?: string | null;
   created_at: string | null;
 };
 
@@ -728,6 +729,89 @@ async function userHasLiveDirectCallSession(sb: SupabaseLike, userId: string): P
   return Boolean(id);
 }
 
+const STALE_ACTIVE_RECONCILE_MS = 6 * 60 * 60 * 1000;
+
+type LiveReconcileRow = {
+  id: string;
+  status: CommunityMessengerCallSessionStatus | string;
+  started_at: string | null;
+  answered_at: string | null;
+  ended_at: string | null;
+  updated_at: string | null;
+  initiator_user_id: string | null;
+  recipient_user_id: string | null;
+  session_mode: CommunityMessengerCallSessionMode | null;
+};
+
+function toMs(value: string | null | undefined): number | null {
+  const raw = trimText(value ?? "");
+  if (!raw) return null;
+  const ms = new Date(raw).getTime();
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function isStaleActiveRowForReconcile(row: LiveReconcileRow, nowMs = Date.now()): boolean {
+  if (trimText(row.status) !== "active") return false;
+  if (trimText(row.ended_at ?? "")) return true;
+  if (!trimText(row.answered_at ?? "")) return true;
+  const baseMs = toMs(row.updated_at) ?? toMs(row.answered_at) ?? toMs(row.started_at);
+  if (baseMs == null) return false;
+  return nowMs - baseMs > STALE_ACTIVE_RECONCILE_MS;
+}
+
+export async function reconcileUserLiveCallSessions(
+  userId: string,
+  reason = "reconcile",
+): Promise<{ reconciled: number; liveSessionId: string | null }> {
+  const uid = trimText(userId);
+  if (!uid) return { reconciled: 0, liveSessionId: null };
+  const sb = getSupabaseOrNull();
+  if (!sb) return { reconciled: 0, liveSessionId: null };
+
+  const policy = await getMessengerCallAdminPolicyCached();
+  await terminalStaleRingingDirectSessionsForUser(sb, uid, policy).catch(() => 0);
+
+  const { data, error } = await (sb as any)
+    .from("community_messenger_call_sessions")
+    .select(
+      "id, status, started_at, answered_at, ended_at, updated_at, initiator_user_id, recipient_user_id, session_mode, created_at"
+    )
+    .eq("session_mode", "direct")
+    .or(`initiator_user_id.eq.${uid},recipient_user_id.eq.${uid}`)
+    .in("status", ["ringing", "active"])
+    .order("created_at", { ascending: false })
+    .limit(20);
+  if (error) return { reconciled: 0, liveSessionId: null };
+
+  const rows = (data ?? []) as LiveReconcileRow[];
+  let reconciled = 0;
+  for (const row of rows) {
+    const sid = trimText(row.id);
+    if (!sid) continue;
+    const status = trimText(row.status);
+    const staleRinging = isStaleRingingRow({ status, started_at: row.started_at }, policy);
+    const staleActive = isStaleActiveRowForReconcile(row);
+    if (!staleRinging && !staleActive) continue;
+
+    const action: "cancel" | "missed" | "end" =
+      status === "ringing"
+        ? messengerUserIdsEqual(row.initiator_user_id, uid)
+          ? "cancel"
+          : "missed"
+        : "end";
+    const patched = await updateCommunityMessengerCallSession({
+      userId: uid,
+      sessionId: sid,
+      action,
+      clientEndedReason: `reconcile_${reason}`,
+    }).catch(() => ({ ok: false as const }));
+    if (patched.ok) reconciled += 1;
+  }
+
+  const liveSessionId = await getUserLiveDirectCallSessionId(sb, uid, "live");
+  return { reconciled, liveSessionId };
+}
+
 async function getUserLiveDirectCallSessionId(
   sb: SupabaseLike,
   userId: string,
@@ -835,6 +919,7 @@ export async function getLiveDirectCallSessionForUser(
     );
     return row ? await mapCallSession(uid, row) : null;
   }
+  await reconcileUserLiveCallSessions(uid, "active_api");
   const sessionId = await getUserLiveDirectCallSessionId(sb, uid, "live");
   if (!sessionId) return null;
   return loadDirectCallSessionRowById(sb, uid, sessionId);
@@ -912,6 +997,7 @@ async function filterDirectIncomingRowsForPolicy(
   policy: MessengerCallAdminPolicy
 ): Promise<CallSessionRow[]> {
   if (!rows.length) return [];
+  await reconcileUserLiveCallSessions(userId, "incoming_policy");
   const viewerLiveSessionId = await getUserLiveDirectCallSessionId(sb, userId, "live");
   if (viewerLiveSessionId) {
     for (const row of rows) {
@@ -17382,6 +17468,10 @@ export async function startCommunityMessengerCallSession(input: {
   }
 
   const sb = getSupabaseOrNull();
+  await reconcileUserLiveCallSessions(input.userId, "create_guard");
+  if (peerUserId) {
+    await reconcileUserLiveCallSessions(peerUserId, "peer_create_guard");
+  }
   if (!isGroupRoom && peerUserId) {
     const callKindInput = input.callKind === "video" ? "video" : "audio";
     // SSOT_CONTRACT: messenger-direct-call-start-gate canStartDirectCallBetweenUsers (before reuse)
@@ -18769,6 +18859,7 @@ export async function listIncomingCommunityMessengerCallSessions(
   options?: { directOnly?: boolean }
 ): Promise<CommunityMessengerCallSession[]> {
   const policy = await getMessengerCallAdminPolicyCached();
+  await reconcileUserLiveCallSessions(userId, "incoming_api");
   const sb = getSupabaseOrNull();
   if (sb) {
     await terminalStaleRingingDirectSessionsForUser(sb, userId, policy).catch(() => 0);

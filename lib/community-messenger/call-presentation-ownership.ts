@@ -110,8 +110,15 @@ export function writeHostedActiveCallSession(sessionId: string): void {
   writeCallEngineActiveVideoSession(sid);
 }
 
-export function clearHostedActiveCallSession(): void {
-  clearCallEngineActiveVideoSession();
+export function clearHostedActiveCallSession(sessionId?: string | null): void {
+  const sid = sessionId?.trim() ?? "";
+  if (!sid) {
+    clearCallEngineActiveVideoSession();
+    return;
+  }
+  if (readHostedActiveCallSessionId() === sid) {
+    clearCallEngineActiveVideoSession();
+  }
 }
 
 export function resolveHostedCallPresentation(

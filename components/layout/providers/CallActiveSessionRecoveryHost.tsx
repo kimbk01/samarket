@@ -15,7 +15,9 @@ import { readNativeActiveCallId, readNativeActiveCallSnapshot } from "@/lib/call
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 import {
   fetchActiveDirectCallSessionForRecovery,
+  isRecoverySessionStale,
   isTerminalCallRecoveryStatus,
+  readTerminalCallRecoverySuppress,
   resolveActiveCallRecoveryTarget,
   shouldSkipActiveCallRecoveryRouting,
   writeActiveCallRecoveryLock,
@@ -26,6 +28,8 @@ import {
 } from "@/lib/community-messenger/direct-call-minimize";
 import { appendDibayCallQaLog } from "@/lib/call/qa/dibay-call-qa-log";
 import { logDibayCall } from "@/lib/community-messenger/call-orchestrator";
+import { readCallConsumedReason } from "@/lib/community-messenger/incoming-call-state";
+import { readCallEngineNavigationSeed } from "@/lib/community-messenger/call-engine";
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
@@ -68,9 +72,75 @@ export function CallActiveSessionRecoveryHost() {
 
     let cancelled = false;
 
-    const routeToCall = (targetSid: string, source: string) => {
-      if (shouldSkipActiveCallRecoveryRouting(targetSid)) {
-        routedRef.current = true;
+    const routeToCall = (
+      targetSid: string,
+      source: string,
+      session?: CommunityMessengerCallSession | import("@/lib/community-messenger/call-active-session-recovery").ActiveCallRecoverySession | null,
+      viewerUserId?: string | null,
+    ) => {
+      const suppress = readTerminalCallRecoverySuppress();
+      const terminalSuppressed = suppress?.sessionId === targetSid || shouldSkipActiveCallRecoveryRouting(targetSid);
+      const navigationSeed = readCallEngineNavigationSeed<{ sessionId?: string; session?: { status?: string | null } }>();
+      const navigationSeedStatus =
+        navigationSeed?.sessionId?.trim() === targetSid
+          ? (navigationSeed.session?.status?.trim().toLowerCase() ?? null)
+          : null;
+      const consumedReason = readCallConsumedReason(targetSid);
+      const stale = isRecoverySessionStale(session ?? null);
+      const validPeer = Boolean(session?.peerUserId?.trim());
+      const belongsToViewer = Boolean(
+        viewerUserId?.trim() &&
+          (session?.initiatorUserId?.trim() === viewerUserId?.trim() ||
+            session?.recipientUserId?.trim() === viewerUserId?.trim()),
+      );
+      const status = session?.status?.trim().toLowerCase() ?? "";
+      const routeAllowed = !pathname.startsWith("/community-messenger/calls/");
+      const navigationSeedTerminal =
+        navigationSeedStatus != null &&
+        ["ended", "rejected", "missed", "cancelled", "canceled"].includes(navigationSeedStatus);
+      const route = typeof window !== "undefined" ? `${window.location.pathname}${window.location.search}` : pathname;
+      const allowed =
+        !terminalSuppressed &&
+        !navigationSeedTerminal &&
+        !stale &&
+        routeAllowed &&
+        !isTerminalCallRecoveryStatus(status) &&
+        consumedReason !== "cancelled" &&
+        consumedReason !== "declined" &&
+        consumedReason !== "missed" &&
+        consumedReason !== "ended" &&
+        belongsToViewer &&
+        validPeer;
+      console.info("[DIBAY_CALL_RECOVERY]", "active_call_resume_decision", {
+        callId: targetSid,
+        status: status || null,
+        allowed,
+        reason: allowed
+          ? "route"
+          : terminalSuppressed
+            ? "terminal_suppressed"
+            : navigationSeedTerminal
+              ? "navigation_seed_terminal"
+            : stale
+              ? "stale_session"
+              : !routeAllowed
+                ? "route_not_allowed"
+                : !belongsToViewer
+                  ? "viewer_mismatch"
+              : isTerminalCallRecoveryStatus(status)
+                ? "terminal_status"
+                : consumedReason
+                  ? `consumed_${consumedReason}`
+                  : !validPeer
+                    ? "invalid_peer"
+                    : "unknown",
+        route,
+        terminalSuppressed,
+        navigationSeed: navigationSeedStatus,
+        stale,
+        activeApiSource: source,
+      });
+      if (!allowed) {
         return;
       }
       writeActiveCallRecoveryLock(targetSid);
@@ -143,7 +213,7 @@ export function CallActiveSessionRecoveryHost() {
                   connected: joined,
                 });
               }
-              routeToCall(nativeSession.id, "native_resume");
+              routeToCall(nativeSession.id, "native_resume", nativeSession, userId);
               return;
             }
             if (nativeStatus && isTerminalCallRecoveryStatus(nativeStatus)) {
@@ -164,9 +234,11 @@ export function CallActiveSessionRecoveryHost() {
           return;
         }
 
+        let fullSession: CommunityMessengerCallSession | null = null;
         if (session && !isTerminalCallRecoveryStatus(session.status ?? "")) {
           const full = await fetchCallSessionForResume(targetSid);
           if (full) {
+            fullSession = full;
             const phase = mapSessionStatusToActiveCallPhase(full, full.status === "active");
             if (phase !== "idle") {
               setActiveFromServer(full, phase);
@@ -174,7 +246,7 @@ export function CallActiveSessionRecoveryHost() {
           }
         }
 
-        routeToCall(targetSid, "server_active_recovery");
+        routeToCall(targetSid, "server_active_recovery", fullSession ?? session, userId);
       } catch {
         /* ignore */
       } finally {

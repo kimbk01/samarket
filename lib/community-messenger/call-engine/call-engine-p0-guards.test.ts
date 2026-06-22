@@ -44,6 +44,13 @@ import {
 } from "@/lib/community-messenger/incoming-call-state";
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 
+const seedNavMocks = vi.hoisted(() => ({
+  rememberCallNavigationReturnPathMock: vi.fn(),
+  primeCommunityMessengerCallNavigationSeedMock: vi.fn(),
+  clearCallNavigationSeedForCallIdMock: vi.fn(),
+  clearLastConsumedNavigationSeedMock: vi.fn(),
+}));
+
 vi.mock("@/lib/community-messenger/call-orchestrator", () => ({
   logDibayCall: vi.fn(),
   sealDibayCallTerminalSurface: vi.fn(),
@@ -84,8 +91,10 @@ vi.mock("@/lib/community-messenger/call-connection-prefetch", () => ({
 }));
 
 vi.mock("@/lib/community-messenger/call-session-navigation-seed", () => ({
-  rememberCallNavigationReturnPath: vi.fn(),
-  primeCommunityMessengerCallNavigationSeed: vi.fn(),
+  rememberCallNavigationReturnPath: seedNavMocks.rememberCallNavigationReturnPathMock,
+  primeCommunityMessengerCallNavigationSeed: seedNavMocks.primeCommunityMessengerCallNavigationSeedMock,
+  clearCallNavigationSeedForCallId: seedNavMocks.clearCallNavigationSeedForCallIdMock,
+  clearLastConsumedNavigationSeed: seedNavMocks.clearLastConsumedNavigationSeedMock,
 }));
 
 vi.mock("@/lib/community-messenger/native-callee-accept-entry", () => ({
@@ -257,6 +266,8 @@ describe("call-engine P0 guards", () => {
       await releaseCallEngineTerminalLocalState("c-term", "ended");
       expect(isOutgoingCallStartBlocked()).toBe(false);
       expect(getActiveCallSessionCallId()).toBeNull();
+      expect(seedNavMocks.clearCallNavigationSeedForCallIdMock).toHaveBeenCalledWith("c-term");
+      expect(seedNavMocks.clearLastConsumedNavigationSeedMock).toHaveBeenCalledWith("c-term");
     });
 
     it("same room sequential call allowed after terminal cleanup", async () => {

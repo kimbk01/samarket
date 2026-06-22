@@ -45,6 +45,11 @@ import {
   clearCommunityCallPresentationFlags,
   clearHostedActiveCallSession,
 } from "@/lib/community-messenger/call-presentation-ownership";
+import {
+  clearCallNavigationSeedForCallId,
+  clearLastConsumedNavigationSeed,
+} from "@/lib/community-messenger/call-session-navigation-seed";
+import { writeTerminalCallRecoverySuppress } from "@/lib/community-messenger/call-active-session-recovery";
 import { dismissAllIncomingCallNotificationsFireAndForget } from "@/lib/push/native/dismiss-native-incoming-call-notification";
 
 const HOST_SYNC_EVENT = "samarket:cm-call-host-sync";
@@ -104,9 +109,12 @@ export async function releaseCallEngineTerminalLocalState(
   runCleanupStep(sid, "clearCallEngineSurfaceOwner", () => clearCallEngineSurfaceOwner(sid));
   runCleanupStep(sid, "clearCallEngineAgoraJoin", () => clearCallEngineAgoraJoin(sid));
   runCleanupStep(sid, "clearAgoraJoinGuard", () => clearAgoraJoinGuard(sid));
+  runCleanupStep(sid, "clearCallNavigationSeedForCallId", () => clearCallNavigationSeedForCallId(sid));
+  runCleanupStep(sid, "clearLastConsumedNavigationSeed", () => clearLastConsumedNavigationSeed(sid));
+  runCleanupStep(sid, "writeTerminalCallRecoverySuppress", () => writeTerminalCallRecoverySuppress(sid, reason));
   runCleanupStep(sid, "clearCommunityCallPresentationFlags", () => clearCommunityCallPresentationFlags(sid));
   if (readCallEngineActiveVideoSession() === sid || readCallEngineActiveVideoSession() === sessionId) {
-    runCleanupStep(sid, "clearHostedActiveCallSession", () => clearHostedActiveCallSession());
+    runCleanupStep(sid, "clearHostedActiveCallSession", () => clearHostedActiveCallSession(sid));
   }
 
   const consumed = readCallConsumedReason(sid);

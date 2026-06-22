@@ -166,6 +166,17 @@ export function ensureCallNavigationSeedMemoryMatchesRoute(routedSessionId: stri
   }
 }
 
+export function clearLastConsumedNavigationSeed(sessionId?: string | null): void {
+  const sid = sessionId?.trim() ?? "";
+  if (!sid) {
+    lastConsumedNavigationSeed = null;
+    return;
+  }
+  if (lastConsumedNavigationSeed?.sessionId === sid) {
+    lastConsumedNavigationSeed = null;
+  }
+}
+
 /**
  * `/calls/:sessionId` 첫 렌더 — `initialSession` 이 없어도 네비 직전 `sessionStorage` 시드로 세션을 동기 채운다.
  * 번들 로드가 클라이언트에서만 일어나면(`dynamic` `ssr:false`) 스피너 한 틱·Permissions 대기 없이 통화 UI 로 진입한다.
@@ -849,4 +860,18 @@ export function consumeCommunityMessengerCallNavigationSeed(
   } catch {
     return null;
   }
+}
+
+export function clearCallNavigationSeedForCallId(callId: string | null | undefined): void {
+  const sid = callId?.trim() ?? "";
+  if (!sid) return;
+  try {
+    const seed = readCallEngineNavigationSeed<{ sessionId?: string }>();
+    if (seed?.sessionId?.trim() === sid) {
+      clearCallEngineNavigationSeed();
+    }
+  } catch {
+    /* ignore */
+  }
+  clearLastConsumedNavigationSeed(sid);
 }
