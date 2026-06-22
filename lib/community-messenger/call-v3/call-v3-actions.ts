@@ -11,8 +11,7 @@ import { safeTranslate } from "@/lib/i18n/safe-translate";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { cleanupCallV3 } from "@/lib/community-messenger/call-v3/call-v3-cleanup";
-import { logCallV3 } from "@/lib/community-messenger/call-v3/call-v3-debug";
-import { joinCallV3Agora } from "@/lib/community-messenger/call-v3/call-v3-agora";
+import { logCallV3, logCallV3LaunchEntry } from "@/lib/community-messenger/call-v3/call-v3-debug";
 import {
   startCallV3CallerActivePoll,
   stopCallV3CallerActivePoll,
@@ -163,6 +162,12 @@ export async function callV3LaunchOutgoingDirectCall(
     rememberCallV3ReturnPath();
   }
 
+  logCallV3LaunchEntry({
+    roomId: input.roomId,
+    peerId: input.peerUserId,
+    mediaType: callV3MediaTypeFromKind(input.kind),
+  });
+
   return callV3CreateOutgoing({
     roomId: input.roomId,
     peerUserId: input.peerUserId,
@@ -283,7 +288,9 @@ export async function callV3EnsureAgoraJoined(callId: string): Promise<void> {
   if (identity?.callId !== sid) return;
   if (identity.mediaType !== "audio") return;
 
-  const joined = await joinCallV3Agora(sid);
+  const joined = await import("@/lib/community-messenger/call-v3/call-v3-agora").then((mod) =>
+    mod.joinCallV3Agora(sid)
+  );
   if (!joined) return;
   if (readCallV3Phase() !== "joining" || readCallV3Identity()?.callId !== sid) return;
 

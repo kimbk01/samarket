@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useLayoutEffect, useMemo } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo } from "react";
 import { useMessengerRoomUrlSearchParams } from "@/lib/community-messenger/room/use-messenger-room-url-search-params";
 import { BackIcon, MoreIcon } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import { useMessengerRoomPhase2HeaderView } from "@/components/community-messenger/room/phase2/messenger-room-phase2-header-context";
@@ -32,6 +32,18 @@ import { useBuyerOrderChatSlideHost } from "@/components/mypage/BuyerOrderChatSl
 import { formatDeliveryMessengerPresenceIndustrySubtitle } from "@/lib/store-order-chat/messenger-delivery-room-header";
 import { useStoreOrderDeliveryMessengerHeader } from "@/lib/store-order-chat/use-store-order-delivery-messenger-header";
 import { StoreOrderDeliveryMessengerHeaderBlock } from "@/components/community-messenger/room/phase2/StoreOrderDeliveryMessengerHeaderBlock";
+import {
+  communityMessengerRoomIsConfirmedTrade,
+  resolveMessengerDotMenuCallKind,
+  resolveMessengerDotMenuCallVisibility,
+} from "@/lib/community-messenger/messenger-room-domain";
+import { communityMessengerRoomIsGloballyUsable } from "@/lib/community-messenger/types";
+import {
+  normalizeTradeChatCallPolicy,
+  tradeChatCallPolicyAllowsVideo,
+  tradeChatCallPolicyAllowsVoice,
+} from "@/lib/trade/trade-chat-call-policy";
+import { logCallV3ButtonClick, logCallV3ButtonRender } from "@/lib/community-messenger/call-v3/call-v3-debug";
 
 export const CommunityMessengerRoomPhase2Header = memo(function CommunityMessengerRoomPhase2Header() {
   const { t } = useI18n();
@@ -56,6 +68,71 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
   const isDeliveryRoom = deliveryMeta != null && storeOrderId.length > 0;
   const deliveryViewerRole = messengerDeliveryViewerRole(deliveryMeta, vm.snapshot.myRole);
   const isDeliveryBuyer = isDeliveryRoom && deliveryViewerRole === "buyer";
+  const isTradeRoom = communityMessengerRoomIsConfirmedTrade(vm.snapshot.room);
+  const tradeCallPolicy = useMemo(() => {
+    if (!isTradeRoom) return "none";
+    return normalizeTradeChatCallPolicy(vm.snapshot.tradeChatRoomDetail?.product?.tradeChatCallPolicy);
+  }, [isTradeRoom, vm.snapshot.tradeChatRoomDetail?.product?.tradeChatCallPolicy]);
+  const callMenuKind = resolveMessengerDotMenuCallKind(vm.snapshot.room, { isDeliveryRoom });
+  const headerCallVisibility = useMemo(
+    () =>
+      resolveMessengerDotMenuCallVisibility({
+        callKind: callMenuKind,
+        tradeAllowCall: tradeChatCallPolicyAllowsVoice(tradeCallPolicy),
+        tradeVideoCallEnabled: tradeChatCallPolicyAllowsVideo(tradeCallPolicy),
+        deliveryAllowVoiceCall: deliveryMeta?.storeVoiceCallsEnabled,
+        deliveryAllowVideoCall: deliveryMeta?.storeVideoCallsEnabled,
+      }),
+    [
+      callMenuKind,
+      deliveryMeta?.storeVideoCallsEnabled,
+      deliveryMeta?.storeVoiceCallsEnabled,
+      tradeCallPolicy,
+    ]
+  );
+  const showHeaderVoiceCall =
+    !vm.isGroupRoom &&
+    !vm.isPrivateGroupRoom &&
+    communityMessengerRoomIsGloballyUsable(vm.snapshot.room) &&
+    headerCallVisibility.showVoice &&
+    !isDeliveryBuyer;
+  const headerVoiceDisabled = vm.roomUnavailable || vm.outgoingDialLocked;
+  const roomId = vm.snapshot.room.id;
+  const peerUserId = vm.snapshot.room.peerUserId ?? "";
+
+  useEffect(() => {
+    logCallV3ButtonRender({
+      location: "room_header",
+      roomId,
+      peerId: peerUserId,
+      visible: showHeaderVoiceCall,
+      disabled: headerVoiceDisabled,
+      reason: !showHeaderVoiceCall
+        ? vm.isGroupRoom || vm.isPrivateGroupRoom
+          ? "group_room"
+          : !headerCallVisibility.showVoice
+            ? "call_gate_hidden"
+            : isDeliveryBuyer
+              ? "delivery_buyer_has_dedicated_button"
+              : "not_globally_usable"
+        : headerVoiceDisabled
+          ? vm.roomUnavailable
+            ? "room_unavailable"
+            : "outgoing_dial_locked"
+          : null,
+    });
+  }, [
+    headerCallVisibility.showVoice,
+    headerVoiceDisabled,
+    isDeliveryBuyer,
+    peerUserId,
+    roomId,
+    showHeaderVoiceCall,
+    vm.isGroupRoom,
+    vm.isPrivateGroupRoom,
+    vm.outgoingDialLocked,
+    vm.roomUnavailable,
+  ]);
 
   const deliveryHeaderModel = useStoreOrderDeliveryMessengerHeader({
     isDeliveryRoom,
@@ -278,8 +355,34 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
           {isDeliveryBuyer ? (
             <button
               type="button"
-              onClick={() => void vm.startManagedDirectCall("voice")}
-              disabled={vm.roomUnavailable || vm.outgoingDialLocked}
+              onClick={() => {
+                logCallV3ButtonClick({
+                  location: "room_header",
+                  roomId,
+                  peerId: peerUserId,
+                  mediaType: "audio",
+                });
+                void vm.startManagedDirectCall("voice");
+              }}
+              disabled={headerVoiceDisabled}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[color:var(--cm-room-text-muted)] transition active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-45"
+              aria-label={vm.t("cm_ui_voice_call")}
+            >
+              <Phone className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
+            </button>
+          ) : showHeaderVoiceCall ? (
+            <button
+              type="button"
+              onClick={() => {
+                logCallV3ButtonClick({
+                  location: "room_header",
+                  roomId,
+                  peerId: peerUserId,
+                  mediaType: "audio",
+                });
+                void vm.startManagedDirectCall("voice");
+              }}
+              disabled={headerVoiceDisabled}
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[color:var(--cm-room-text-muted)] transition active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-45"
               aria-label={vm.t("cm_ui_voice_call")}
             >

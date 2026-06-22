@@ -1,4 +1,3 @@
-import { leaveCallV3Agora } from "@/lib/community-messenger/call-v3/call-v3-agora";
 import { stopCallV3CallerActivePoll } from "@/lib/community-messenger/call-v3/call-v3-caller-active";
 import { logCallV3 } from "@/lib/community-messenger/call-v3/call-v3-debug";
 import { clearCallV3NativePendingForCall } from "@/lib/community-messenger/call-v3/call-v3-native-bridge";
@@ -38,6 +37,7 @@ export async function cleanupCallV3(callId: string, reason: CallV3TerminalPhase 
   logCallV3("terminal_start", { callId: sid, reason });
   clearCallV3Timers(sid);
   stopCallV3CallerActivePoll();
+  const { leaveCallV3Agora } = await import("@/lib/community-messenger/call-v3/call-v3-agora");
   await leaveCallV3Agora(sid);
   clearCallV3NativePendingForCall(sid);
   clearCallV3RouteState(sid);

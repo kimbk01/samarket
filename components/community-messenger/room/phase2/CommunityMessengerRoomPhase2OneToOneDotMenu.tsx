@@ -41,6 +41,7 @@ import {
   resolveMessengerDotMenuCallKind,
   resolveMessengerDotMenuCallVisibility,
 } from "@/lib/community-messenger/messenger-room-domain";
+import { logCallV3ButtonClick, logCallV3ButtonRender } from "@/lib/community-messenger/call-v3/call-v3-debug";
 
 function mapSellerListingToProductStatus(
   raw: unknown,
@@ -248,6 +249,33 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
     ]
   );
 
+  const dotMenuVoiceDisabled = vm.roomUnavailable || vm.outgoingDialLocked;
+  const roomId = vm.snapshot.room.id;
+
+  useEffect(() => {
+    logCallV3ButtonRender({
+      location: "room_dot_menu",
+      roomId,
+      peerId: peerUserId,
+      visible: dotMenuCallVisibility.showVoice,
+      disabled: dotMenuVoiceDisabled,
+      reason: !dotMenuCallVisibility.showVoice
+        ? "call_gate_hidden"
+        : dotMenuVoiceDisabled
+          ? vm.roomUnavailable
+            ? "room_unavailable"
+            : "outgoing_dial_locked"
+          : null,
+    });
+  }, [
+    dotMenuCallVisibility.showVoice,
+    dotMenuVoiceDisabled,
+    peerUserId,
+    roomId,
+    vm.outgoingDialLocked,
+    vm.roomUnavailable,
+  ]);
+
   const deliveryMenuProfile = useMemo((): ChatRoomMenuProfileOverride | undefined => {
     if (!isDeliveryRoom || deliveryHeaderModel.mode === "none" || deliveryHeaderModel.mode === "generic_delivery") {
       return undefined;
@@ -341,11 +369,23 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
       }}
       onVoiceCall={() => {
         if (!assertGeneralDirectCallAllowed("voice")) return;
+        logCallV3ButtonClick({
+          location: "room_dot_menu",
+          roomId,
+          peerId: peerUserId,
+          mediaType: "audio",
+        });
         vm.dismissRoomSheet();
         void vm.startManagedDirectCall("voice");
       }}
       onVideoCall={() => {
         if (!assertGeneralDirectCallAllowed("video")) return;
+        logCallV3ButtonClick({
+          location: "room_dot_menu",
+          roomId,
+          peerId: peerUserId,
+          mediaType: "video",
+        });
         vm.dismissRoomSheet();
         void vm.startManagedDirectCall("video");
       }}
