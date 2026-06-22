@@ -70,6 +70,14 @@ const NativeBadgeSyncLazy = dynamic(
   () => import("@/components/push/NativeBadgeSync").then((mod) => mod.NativeBadgeSync),
   { ssr: false }
 );
+/** Admin marketing/notice foreground bottom banner — top MessengerInAppMessageBannerHost 와 z/위치 분리. */
+const DibayBottomNotificationBannerLazy = dynamic(
+  () =>
+    import("@/components/notifications/DibayBottomNotificationBanner").then(
+      (mod) => mod.DibayBottomNotificationBanner
+    ),
+  { ssr: false }
+);
 
 const MAIN_SHELL_VIEWPORT_LOCK_HTML_CLASS = "sam-main-shell-viewport-lock";
 
@@ -191,6 +199,7 @@ export function MainAppProviderTree({
           <PushRouteListener />
           <NotificationRouteReadSync />
           <NativeBadgeSyncLazy />
+          <DibayBottomNotificationBannerLazy />
           <DevicePermissionUiHost />
           <FavoriteProvider>
             <NotificationSurfaceProvider>

@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   isBottomBannerSuppressedByCallStatus,
@@ -59,5 +61,16 @@ describe("dibay bottom banner dismiss policy", () => {
     const markRead = vi.fn().mockResolvedValue(true);
     await markAdminBannerReadBeforeHide("evt-admin-1", { dismissed: true, markRead });
     expect(markRead).toHaveBeenCalledWith("evt-admin-1", { dismissed: true });
+  });
+});
+
+describe("dibay bottom banner shell mount contract", () => {
+  it("mounts DibayBottomNotificationBanner in MainAppProviderTree push layer", () => {
+    const source = readFileSync(
+      join(process.cwd(), "components/layout/MainAppProviderTree.tsx"),
+      "utf8"
+    );
+    expect(source).toContain("DibayBottomNotificationBannerLazy");
+    expect(source).toContain("<DibayBottomNotificationBannerLazy />");
   });
 });

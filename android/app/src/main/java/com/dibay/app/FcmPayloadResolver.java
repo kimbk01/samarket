@@ -198,6 +198,67 @@ public final class FcmPayloadResolver {
         || "community_comment".equals(type);
   }
 
+  /** TS `notification-sound-profiles` androidChannelId 와 parity — Chat/Marketing/Orders/Calls 최소 4종+. */
+  public static String resolveNotificationChannelId(Map<String, String> data) {
+    if (data == null) return "dibay_chat_messages";
+    String category = firstNonEmpty(data.get("category"));
+    if (category != null) {
+      switch (category) {
+        case "admin_marketing_banner":
+          return "dibay_marketing";
+        case "admin_notice":
+          return "dibay_admin_notice";
+        case "order_status":
+        case "store":
+          return "dibay_orders";
+        case "delivery_status":
+          return "dibay_delivery";
+        case "trade_message":
+        case "trade_status":
+        case "trade":
+          return "dibay_trade";
+        case "community_activity":
+          return "dibay_community";
+        case "chat_message":
+        case "group_message":
+        case "chat":
+        case "group":
+          return "dibay_chat_messages";
+        case "missed_call":
+          return "dibay_calls_missed";
+        default:
+          break;
+      }
+    }
+
+    String type = resolveType(data);
+    switch (type) {
+      case "missed_call":
+        return "dibay_calls_missed";
+      case "incoming_call":
+        return "dibay_calls_incoming_v7";
+      case "trade_message":
+        return "dibay_trade";
+      case "delivery_order":
+        return "dibay_orders";
+      case "community_comment":
+        return "dibay_community";
+      case "chat_message":
+      case "group_message":
+        return "dibay_chat_messages";
+      case "notification":
+        {
+          String notificationType = firstNonEmpty(data.get("notification_type"));
+          if ("marketing".equals(notificationType)) return "dibay_marketing";
+          if ("notice".equals(notificationType)) return "dibay_admin_notice";
+          break;
+        }
+      default:
+        break;
+    }
+    return "dibay_chat_messages";
+  }
+
   private static String firstNonEmpty(String... values) {
     if (values == null) return null;
     for (String value : values) {

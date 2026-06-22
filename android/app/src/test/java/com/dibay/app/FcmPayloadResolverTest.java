@@ -51,4 +51,23 @@ public class FcmPayloadResolverTest {
     community.put("postId", "post-1");
     assertEquals("/philife/posts/post-1", FcmPayloadResolver.resolveRouteUrl(community));
   }
+
+  @Test
+  public void resolveNotificationChannelId_mapsP0CategoriesToDedicatedChannels() {
+    Map<String, String> chat = new HashMap<>();
+    chat.put("category", "chat_message");
+    assertEquals("dibay_chat_messages", FcmPayloadResolver.resolveNotificationChannelId(chat));
+
+    Map<String, String> marketing = new HashMap<>();
+    marketing.put("category", "admin_marketing_banner");
+    assertEquals("dibay_marketing", FcmPayloadResolver.resolveNotificationChannelId(marketing));
+
+    Map<String, String> order = new HashMap<>();
+    order.put("category", "order_status");
+    assertEquals("dibay_orders", FcmPayloadResolver.resolveNotificationChannelId(order));
+
+    Map<String, String> missed = new HashMap<>();
+    missed.put("type", "missed_call");
+    assertEquals("dibay_calls_missed", FcmPayloadResolver.resolveNotificationChannelId(missed));
+  }
 }
