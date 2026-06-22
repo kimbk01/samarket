@@ -129,7 +129,7 @@ import {
 import { getNativeIncomingCallPlugin } from "@/lib/push/native/push-route-native-bridge";
 import { incomingRingTimeoutMsFromConfig } from "@/lib/community-messenger/messenger-call-ring-timeout";
 import { acceptIncomingCallOnce, runIncomingCallReject } from "@/lib/community-messenger/incoming-call-accept-gateway";
-import { callEngineActions, scheduleCallEngineMissedTimeouts } from "@/lib/community-messenger/call-engine";
+import { callEngineActions, dispatchCallEngineSignal, scheduleCallEngineMissedTimeouts } from "@/lib/community-messenger/call-engine";
 import { buildIncomingCallPreviewHref } from "@/lib/community-messenger/incoming-call-preview-route";
 import {
   getIncomingCallPollIntervalMs,
@@ -1898,9 +1898,11 @@ export function GlobalCommunityMessengerIncomingCall() {
     } else {
       logCallFlow("call_incoming_deduped", { sessionId: sid, source: "direct_ringing_ring" });
     }
-    syncIncomingCallRing({
-      sessionId: sid,
-      callKind: s.callKind,
+    void dispatchCallEngineSignal({
+      type: "incoming_discovered",
+      session: s,
+      appVisibility: "foreground",
+      hasNativeFsi: false,
       hardClearedAt: hardClearedIncomingSessionsAtRef.current,
       source: "direct_ringing",
     });

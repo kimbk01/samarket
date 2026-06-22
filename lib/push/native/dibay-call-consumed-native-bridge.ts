@@ -47,6 +47,26 @@ export function syncDibayCallConsumedToNative(
   })();
 }
 
+/** Android 앱 안 direct_ringing — FCM push 없이 Web이 수신을 발견했을 때 native OS 벨 시작. */
+export function startNativeIncomingRingtoneFireAndForget(sessionId: string): void {
+  const sid = sessionId.trim();
+  if (!sid) return;
+  const plugin = getSyncNativeIncomingCallPlugin();
+  if (plugin?.startIncomingRingtone) {
+    void plugin.startIncomingRingtone({ sessionId: sid }).catch(() => {});
+    return;
+  }
+  void (async () => {
+    const asyncPlugin = await getNativeIncomingCallPlugin();
+    if (!asyncPlugin?.startIncomingRingtone) return;
+    try {
+      await asyncPlugin.startIncomingRingtone({ sessionId: sid });
+    } catch {
+      /* best-effort */
+    }
+  })();
+}
+
 /** Terminal/stop — Android native OS ringtone 즉시 중지 (Web stop 과 병행). */
 export function stopNativeIncomingRingtoneFireAndForget(sessionId?: string | null): void {
   const sid = sessionId?.trim() ?? "";

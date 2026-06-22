@@ -16,12 +16,13 @@ vi.mock("@/lib/platform/capacitor-native", () => ({
 }));
 
 vi.mock("@/lib/push/native/dibay-call-consumed-native-bridge", () => ({
+  startNativeIncomingRingtoneFireAndForget: vi.fn(),
   stopNativeIncomingRingtoneFireAndForget: vi.fn(),
 }));
 
 import { startCommunityMessengerCallTone } from "@/lib/community-messenger/call-feedback-sound";
 import { isCapacitorNativePlatform, resolveCapacitorShellPlatform } from "@/lib/platform/capacitor-native";
-import { stopNativeIncomingRingtoneFireAndForget } from "@/lib/push/native/dibay-call-consumed-native-bridge";
+import { startNativeIncomingRingtoneFireAndForget, stopNativeIncomingRingtoneFireAndForget } from "@/lib/push/native/dibay-call-consumed-native-bridge";
 import {
   resetIncomingCallRingOwner,
   syncIncomingCallRing,
@@ -83,12 +84,13 @@ describe("incoming-call ring-owner", () => {
     vi.mocked(resolveCapacitorShellPlatform).mockReturnValue(null);
   });
 
-  it("Android Capacitor ring owner does not start WebAudio", () => {
+  it("Android Capacitor ring owner starts native ring (no WebAudio)", () => {
     vi.mocked(isCapacitorNativePlatform).mockReturnValue(true);
     vi.mocked(resolveCapacitorShellPlatform).mockReturnValue("android");
     const hard = new Map<string, number>();
     syncIncomingCallRing({ sessionId: "c-android", callKind: "voice", hardClearedAt: hard, source: "test" });
     expect(startCommunityMessengerCallTone).not.toHaveBeenCalled();
+    expect(startNativeIncomingRingtoneFireAndForget).toHaveBeenCalledWith("c-android");
     vi.mocked(isCapacitorNativePlatform).mockReturnValue(false);
     vi.mocked(resolveCapacitorShellPlatform).mockReturnValue(null);
   });

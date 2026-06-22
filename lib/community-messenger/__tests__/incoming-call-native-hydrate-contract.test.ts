@@ -58,7 +58,8 @@ describe("incoming-call native hydrate contract", () => {
 describe("incoming-call ring ownership contract", () => {
   it("Android Capacitor skips WebAudio incoming ring (native owner)", () => {
     const ringOwner = read("lib/community-messenger/incoming-call/ring-owner.ts");
-    expect(ringOwner).toContain("ring_start_skipped_native_owner");
+    expect(ringOwner).toContain("ring_start_native_web_sync");
+    expect(ringOwner).toContain("startNativeIncomingRingtoneFireAndForget");
     expect(ringOwner).toContain('resolveCapacitorShellPlatform() === "android"');
     expect(ringOwner).toContain("must not blind-stop native ring");
     expect(ringOwner).toContain("stopNativeIncomingRingtoneFireAndForget");

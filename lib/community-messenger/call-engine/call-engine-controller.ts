@@ -213,6 +213,18 @@ function isTerminalSignalBlocked(callId: string): boolean {
   return isCallEngineTerminalState(phase);
 }
 
+/** 수락 — terminal latch 만 차단. optimistic terminal phase 는 PATCH 전 허용하지 않음 */
+function isAcceptSignalBlocked(callId: string): boolean {
+  const sid = callId.trim();
+  if (!sid) return true;
+  if (isCallEngineTerminalConsumed(sid)) return true;
+  const phase = getCallEngineState(sid);
+  if (phase === "idle" || phase === "incoming_ringing" || phase === "accepting" || phase === "joining") {
+    return false;
+  }
+  return isCallEngineTerminalState(phase);
+}
+
 function clearMissedTimer(callId: string): void {
   const meta = missedTimers.get(callId);
   if (!meta) return;
@@ -287,7 +299,7 @@ async function handleUserAccept(signal: Extract<CallEngineSignal, { type: "user_
 }> {
   const s = signal.session;
   const sid = s.id.trim();
-  if (!sid || isTerminalSignalBlocked(sid)) {
+  if (!sid || isAcceptSignalBlocked(sid)) {
     return { ok: false, sessionId: sid, reason: "terminal_consumed" };
   }
 
@@ -346,7 +358,9 @@ async function handleUserAccept(signal: Extract<CallEngineSignal, { type: "user_
     }
 
     const href = buildActiveCallAcceptHref(sid, signal.hrefOverride);
-    replaceCallEngineRouteOnce(signal.router, sid, href);
+    if (!replaceCallEngineRouteOnce(signal.router, sid, href)) {
+      signal.router.replace(href);
+    }
 
     void ensureCallMediaForUserGesture(s.callKind);
     notifySnapshots(sid);
@@ -369,8 +383,10 @@ export async function dispatchCallEngineSignal(signal: CallEngineSignal): Promis
         hasNativeFsi: signal.hasNativeFsi ?? false,
         requestOwner: "web_in_app_banner",
       });
-      if (owner === "web_in_app_banner" && claimCallEngineSurfaceOwner(sid, owner)) {
-        surfaceOwnerByCallId.set(sid, owner);
+      if (owner === "web_in_app_banner") {
+        if (claimCallEngineSurfaceOwner(sid, owner)) {
+          surfaceOwnerByCallId.set(sid, owner);
+        }
         startCallEngineIncomingRingtone({
           callId: sid,
           callKind: signal.session.callKind,
@@ -403,7 +419,7 @@ export async function dispatchCallEngineSignal(signal: CallEngineSignal): Promis
     case "user_end":
     case "user_cancel": {
       const sid = signal.callId.trim();
-      if (!sid || isTerminalSignalBlocked(sid)) return { ok: false, error: "terminal_consumed" };
+      if (!sid) return { ok: false, error: "invalid_call_id" };
       stopCallEngineIncomingRingtone(sid, signal.type);
       stopCallEngineOutgoingRingback(sid, signal.type);
       const patched = await runCallEnginePatchAction({
@@ -419,7 +435,7 @@ export async function dispatchCallEngineSignal(signal: CallEngineSignal): Promis
     }
     case "user_missed": {
       const sid = signal.callId.trim();
-      if (!sid || isTerminalSignalBlocked(sid)) return { ok: false, error: "terminal_consumed" };
+      if (!sid) return { ok: false, error: "invalid_call_id" };
       stopCallEngineIncomingRingtone(sid, "missed");
       const patched = await runCallEnginePatchAction({
         callId: sid,
@@ -433,7 +449,7 @@ export async function dispatchCallEngineSignal(signal: CallEngineSignal): Promis
     }
     case "native_accept": {
       const sid = signal.sessionId.trim();
-      if (!sid || isTerminalSignalBlocked(sid)) return { ok: false, error: "terminal_consumed" };
+      if (!sid || isAcceptSignalBlocked(sid)) return { ok: false, error: "terminal_consumed" };
       markNativeCalleeAcceptPending(sid);
       stopCallEngineIncomingRingtone(sid, `native_${signal.source ?? "native_notification_accept"}`);
       dismissAllIncomingCallNotificationsFireAndForget(sid);

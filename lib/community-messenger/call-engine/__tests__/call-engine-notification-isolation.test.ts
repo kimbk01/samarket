@@ -15,6 +15,8 @@ vi.mock("@/lib/community-messenger/call-engine/call-engine-actions", () => ({
   runCallEngineLeavePatchAction: vi.fn(async () => ({ ok: true })),
 }));
 
+import { runCallEnginePatchAction } from "@/lib/community-messenger/call-engine/call-engine-actions";
+
 vi.mock("@/lib/community-messenger/incoming-call/ring-owner", () => ({
   syncIncomingCallRing: vi.fn(),
   stopIncomingCallRing: vi.fn(),
@@ -63,6 +65,20 @@ describe("call-engine notification isolation", () => {
     });
     expect(res.ok).toBe(false);
     expect(isCallEngineTerminalConsumed("c-missed")).toBe(true);
+  });
+
+  it("allows cancel PATCH after optimistic terminal latch (outgoing dismiss)", async () => {
+    markCallEngineTerminalConsumed("c-cancel-opt");
+    const res = await dispatchCallEngineSignal({
+      type: "user_cancel",
+      callId: "c-cancel-opt",
+      action: "cancel",
+      source: "call_client_end",
+    });
+    expect(res.ok).toBe(true);
+    expect(runCallEnginePatchAction).toHaveBeenCalledWith(
+      expect.objectContaining({ callId: "c-cancel-opt", action: "cancel" }),
+    );
   });
 
   it("keeps ringtone and ringback owners separate per callId", () => {

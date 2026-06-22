@@ -55,6 +55,7 @@ export type DibayCallLogStep =
   | "join_fail"
   | "timeout"
   | "ring_start"
+  | "ring_start_native_web_sync"
   | "ring_start_skipped_native_owner"
   | "ring_stop"
   | "ring_timeout"

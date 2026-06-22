@@ -16,7 +16,10 @@ import {
   isCapacitorNativePlatform,
   resolveCapacitorShellPlatform,
 } from "@/lib/platform/capacitor-native";
-import { stopNativeIncomingRingtoneFireAndForget } from "@/lib/push/native/dibay-call-consumed-native-bridge";
+import {
+  startNativeIncomingRingtoneFireAndForget,
+  stopNativeIncomingRingtoneFireAndForget,
+} from "@/lib/push/native/dibay-call-consumed-native-bridge";
 import { canIncomingCallRing } from "@/lib/community-messenger/incoming-call/tombstone";
 
 export type IncomingRingSyncCandidate = {
@@ -96,7 +99,8 @@ export function syncIncomingCallRing(candidate: IncomingRingSyncCandidate | null
   setDibayCallSessionPhase(sid, "incoming");
 
   if (useNativeRingOwner()) {
-    logDibayCall("ring_start_skipped_native_owner", {
+    startNativeIncomingRingtoneFireAndForget(sid);
+    logDibayCall("ring_start_native_web_sync", {
       sessionId: sid,
       callId: sid,
       callKind: candidate.callKind,

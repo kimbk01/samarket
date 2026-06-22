@@ -70,6 +70,16 @@ public class NativeIncomingCallPlugin extends Plugin {
     call.resolve();
   }
 
+  /** Web poll/direct_ringing — FCM 없이 앱 안 수신 UI만 뜰 때 native OS 벨 보강 */
+  @PluginMethod
+  public void startIncomingRingtone(PluginCall call) {
+    String sessionId = call.getString("sessionId", "").trim();
+    if (!sessionId.isEmpty()) {
+      IncomingCallRingOwner.start(getContext(), sessionId);
+    }
+    call.resolve();
+  }
+
   @PluginMethod
   public void markCallConsumed(PluginCall call) {
     String sessionId = call.getString("sessionId", "").trim();

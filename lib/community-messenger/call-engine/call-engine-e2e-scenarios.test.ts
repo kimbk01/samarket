@@ -6,6 +6,7 @@ import {
 } from "@/lib/community-messenger/call-engine/call-engine-actions";
 import {
   isCallEngineTerminalConsumed,
+  markCallEngineTerminalConsumed,
   resetCallEngineLocksForTests,
   tryLockCallEngineActionOnce,
 } from "@/lib/community-messenger/call-engine/call-engine-locks";
@@ -64,6 +65,13 @@ describe("call-engine e2e scenarios", () => {
     patchCommunityMessengerCallSession.mockResolvedValue({ ok: true, session: { id: "c4" } });
     const next = await callEngineAcceptIncoming({ callId: "c4", source: "test" });
     expect(next.ok).toBe(true);
+  });
+
+  it("I: cancel PATCH after optimistic terminal latch", async () => {
+    patchCommunityMessengerCallSession.mockResolvedValue({ ok: true, session: { id: "c-opt" } });
+    markCallEngineTerminalConsumed("c-opt");
+    const res = await runCallEnginePatchAction({ callId: "c-opt", action: "cancel", source: "test" });
+    expect(res.ok).toBe(true);
   });
 
   it("H: terminal reject stops ring before PATCH await", async () => {
