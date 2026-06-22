@@ -70,3 +70,17 @@ export function shouldShowOutgoingRingCameraPreview(args: {
   const stream = args.previewStream ?? peekPrimedCommunityMessengerDeviceStream("video");
   return hasLiveCommunityMessengerVideoPreviewStream(stream);
 }
+
+/** 수신 ringing — 보조 PiP 에 self HTML 미리보기 */
+export function shouldShowIncomingRingCameraPreview(args: {
+  callKind: CommunityMessengerCallKind;
+  sessionStatus: CommunityMessengerCallSessionStatus;
+  isInitiator: boolean;
+  previewStream?: MediaStream | null;
+}): boolean {
+  if (args.callKind !== "video" || args.sessionStatus !== "ringing" || args.isInitiator) {
+    return false;
+  }
+  const stream = args.previewStream ?? peekPrimedCommunityMessengerDeviceStream("video");
+  return hasLiveCommunityMessengerVideoPreviewStream(stream);
+}

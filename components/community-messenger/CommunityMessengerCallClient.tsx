@@ -55,9 +55,11 @@ import {
   syncDevicePermissionState,
 } from "@/lib/permissions/dibay-device-permission-store";
 import {
+  isVideoIncomingCalleePipPhase,
   isVideoPipFirstOutgoingPhase,
   shouldMountLocalVideoPipShell,
   shouldRetainPrimedDeviceStreamForVideoPreview,
+  shouldShowIncomingAuxPipPreviewSlot,
   shouldShowLocalVideoPipChrome,
   shouldShowOutgoingAuxPipPreviewSlot,
   shouldShowPipFirstLocalPreviewChrome,
@@ -266,6 +268,7 @@ import {
   hasLiveCommunityMessengerVideoPreviewStream,
   resolvePreJoinVideoPreviewStream,
   shouldPreserveHeldPreJoinVideoOnSessionRouteChange,
+  shouldShowIncomingRingCameraPreview,
   shouldShowOutgoingRingCameraPreview,
 } from "@/lib/community-messenger/call-prejoin-video-preview";
 import {
@@ -968,6 +971,48 @@ export function CommunityMessengerCallClient({
       return;
     }
     /** Agora 조인·로컬 play 이후 재프라임 금지 — GUM 이중 획득·카메라 깜빡임 방지 */
+    if (joinedRef.current && localTracksRef.current?.videoTrack) return;
+    if (localVideoReadyRef.current) return;
+    if (peekPrimedCommunityMessengerDeviceStream("video")) {
+      const peek = peekPrimedCommunityMessengerDeviceStream("video");
+      if (hasLiveCommunityMessengerVideoPreviewStream(peek)) {
+        heldPreJoinVideoPreviewRef.current = peek;
+      }
+      return;
+    }
+    let cancelled = false;
+    void primeOutgoingCallMediaBeforeNavigate("video").then((prime) => {
+      if (cancelled) return;
+      if (prime.ok) {
+        const peek = peekPrimedCommunityMessengerDeviceStream("video");
+        if (hasLiveCommunityMessengerVideoPreviewStream(peek)) {
+          heldPreJoinVideoPreviewRef.current = peek;
+        }
+        return;
+      }
+      heldPreJoinVideoPreviewRef.current = null;
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.callKind, session?.id, session?.isMineInitiator, session?.status, sessionId]);
+
+  /** real 세션 수신 영상 — ringing·active-pre-remote 카메라 프라임 (보조 PiP self 미리보기) */
+  useEffect(() => {
+    if (isCommunityMessengerTempCallSessionId(sessionId)) return;
+    const s = session;
+    if (!s || s.isMineInitiator || s.callKind !== "video") return;
+    if (
+      !isVideoIncomingCalleePipPhase(
+        buildVideoPipFirstPolicyArgs({
+          session: s,
+          joined: joinedRef.current,
+          remoteJoined: remoteJoinedRef.current,
+        })
+      )
+    ) {
+      return;
+    }
     if (joinedRef.current && localTracksRef.current?.videoTrack) return;
     if (localVideoReadyRef.current) return;
     if (peekPrimedCommunityMessengerDeviceStream("video")) {
@@ -4554,6 +4599,15 @@ export function CommunityMessengerCallClient({
     ) {
       return held;
     }
+    if (
+      session?.callKind === "video" &&
+      !session.isMineInitiator &&
+      session.status === "ringing" &&
+      !localVideoReady &&
+      hasLiveCommunityMessengerVideoPreviewStream(held)
+    ) {
+      return held;
+    }
     if (!hasLiveCommunityMessengerVideoPreviewStream(held)) {
       heldPreJoinVideoPreviewRef.current = null;
     }
@@ -4571,6 +4625,16 @@ export function CommunityMessengerCallClient({
   const showOutgoingRingCameraPreview = useMemo(() => {
     if (!session) return false;
     return shouldShowOutgoingRingCameraPreview({
+      callKind: session.callKind,
+      sessionStatus: session.status,
+      isInitiator: session.isMineInitiator,
+      previewStream: preJoinVideoPreviewStream,
+    });
+  }, [preJoinVideoPreviewStream, session?.callKind, session?.isMineInitiator, session?.status]);
+
+  const showIncomingRingCameraPreview = useMemo(() => {
+    if (!session) return false;
+    return shouldShowIncomingRingCameraPreview({
       callKind: session.callKind,
       sessionStatus: session.status,
       isInitiator: session.isMineInitiator,
@@ -4733,21 +4797,39 @@ export function CommunityMessengerCallClient({
       buildVideoPipFirstPolicyArgs({ session, joined, remoteJoined })
     );
 
+  const incomingCalleePipForSlot =
+    session?.callKind === "video" &&
+    Boolean(session) &&
+    isVideoIncomingCalleePipPhase(
+      buildVideoPipFirstPolicyArgs({ session, joined, remoteJoined })
+    );
+
   const miniVideoSlotEl = useMemo(() => {
     if (session?.callKind !== "video") return undefined;
     const ringCameraPreviewActive =
       session &&
-      shouldShowOutgoingRingCameraPreview({
+      (shouldShowOutgoingRingCameraPreview({
         callKind: session.callKind,
         sessionStatus: session.status,
         isInitiator: session.isMineInitiator,
         previewStream: preJoinVideoPreviewStream,
+      }) ||
+        shouldShowIncomingRingCameraPreview({
+          callKind: session.callKind,
+          sessionStatus: session.status,
+          isInitiator: session.isMineInitiator,
+          previewStream: preJoinVideoPreviewStream,
+        }));
+    const showPipPrejoin =
+      shouldShowOutgoingAuxPipPreviewSlot({
+        pipFirstOutgoing: pipFirstOutgoingForSlot,
+        localVideoReady,
+        remoteJoined,
+      }) ||
+      shouldShowIncomingAuxPipPreviewSlot({
+        incomingCalleePip: incomingCalleePipForSlot,
+        localVideoReady,
       });
-    const showPipPrejoin = shouldShowOutgoingAuxPipPreviewSlot({
-      pipFirstOutgoing: pipFirstOutgoingForSlot,
-      localVideoReady,
-      remoteJoined,
-    });
     return (
       <div className="relative h-full w-full bg-[#003D29] [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:object-cover">
         <div ref={smallVideoRef} className="h-full w-full" />
@@ -4786,6 +4868,7 @@ export function CommunityMessengerCallClient({
     camOff,
     localVideoReady,
     pipFirstOutgoingForSlot,
+    incomingCalleePipForSlot,
     preJoinVideoElementReady,
     preJoinVideoPreviewStream,
     remoteJoined,
@@ -4960,6 +5043,11 @@ export function CommunityMessengerCallClient({
   const videoCall = session.callKind === "video";
   const pipFirstOutgoing = videoCall
     ? isVideoPipFirstOutgoingPhase(
+        buildVideoPipFirstPolicyArgs({ session, joined, remoteJoined })
+      )
+    : false;
+  const incomingCalleePip = videoCall
+    ? isVideoIncomingCalleePipPhase(
         buildVideoPipFirstPolicyArgs({ session, joined, remoteJoined })
       )
     : false;
@@ -5379,8 +5467,20 @@ export function CommunityMessengerCallClient({
           : displayCallPhase === "reconnecting"
             ? t("cm_ui_call_reconnecting")
             : displayCallPhase === "connected"
-              ? lastMileLine
+              ? videoCall
+                ? null
+                : lastMileLine
               : null);
+
+  const videoConnectionQualityLabel =
+    videoCall &&
+    lastMileLine &&
+    (displayCallPhase === "connected" ||
+      displayCallPhase === "connecting" ||
+      displayCallPhase === "reconnecting" ||
+      joined)
+      ? lastMileLine
+      : null;
 
   /** PiP shell — joined 직후 DOM 마운트(`localVideoReady` 와 분리) */
   const pipShellMounted =
@@ -5402,6 +5502,7 @@ export function CommunityMessengerCallClient({
     }) ||
     shouldShowPipFirstLocalPreviewChrome({
       pipFirstOutgoing,
+      incomingCalleePip,
       pipShellMounted,
       preJoinReady: preJoinVideoElementReady,
       localVideoReady,
@@ -5433,7 +5534,7 @@ export function CommunityMessengerCallClient({
       directPhase === "ringing" && ringStartAt && !instantCallActiveUi
         ? t("cm_ui_call_timer_starts_after_connect")
         : null,
-    connectionLabel: displayCallPhase === "connected" ? lastMileLine : null,
+    connectionLabel: videoConnectionQualityLabel,
     connectedAt: connectedAtTs,
     endedAt: terminalClosedAt,
     endedDurationSeconds,
@@ -5452,12 +5553,7 @@ export function CommunityMessengerCallClient({
             ? () => void endCall()
             : null,
     androidOsPipSafeMode,
-    hideOutgoingVideoBrandRow: Boolean(
-      videoCall &&
-        (session.isMineInitiator
-          ? !(remoteJoined && remoteVideoReady)
-          : displayCallPhase === "ringing" || displayCallPhase === "connecting")
-    ),
+    hideOutgoingVideoBrandRow: videoCall,
     pipFirstOutgoingMainPlaceholder: false,
     primaryActions: visibleActions.primaryActions,
     secondaryActions: visibleActions.secondaryActions,
@@ -5480,10 +5576,11 @@ export function CommunityMessengerCallClient({
             disableRemotePlayback
           />
         ) : null}
-        {(session.isMineInitiator || (calleeAcceptBridgeLayout && videoCall)) &&
+        {(session.isMineInitiator || incomingCalleePip || (calleeAcceptBridgeLayout && videoCall)) &&
         !localVideoReady &&
         (!preJoinVideoPreviewStream || !preJoinVideoElementReady) &&
         !showOutgoingRingCameraPreview &&
+        !showIncomingRingCameraPreview &&
         !permissionBlockedUi &&
         !suppressCameraPreparingOverlay ? (
           <div

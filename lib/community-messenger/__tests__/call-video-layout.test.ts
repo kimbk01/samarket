@@ -15,12 +15,24 @@ import {
 } from "@/lib/community-messenger/call-video-layout";
 
 describe("shouldUseSoloLocalFullVideoLayout", () => {
-  it("full local during callee video ringing (legacy non-pip-first)", () => {
+  it("incoming callee ringing uses peer hero — not solo local full", () => {
     expect(
       shouldUseSoloLocalFullVideoLayout({
         callKind: "video",
         sessionStatus: "ringing",
         joined: false,
+        isInitiator: false,
+      })
+    ).toBe(false);
+  });
+
+  it("outgoing ringing still uses solo local full before remote", () => {
+    expect(
+      shouldUseSoloLocalFullVideoLayout({
+        callKind: "video",
+        sessionStatus: "ringing",
+        joined: false,
+        isInitiator: true,
       })
     ).toBe(true);
   });
@@ -251,8 +263,7 @@ describe("shouldMountLocalVideoPipShell", () => {
     ).toBe(true);
   });
 
-  it("does not mount PiP shell before join on non-pip-first paths", () => {
-    expect(shouldMountLocalVideoPipShell({ videoCall: true, joined: false })).toBe(false);
+  it("mounts PiP shell for incoming callee ringing before join", () => {
     expect(
       shouldMountLocalVideoPipShell({
         videoCall: true,
@@ -261,7 +272,11 @@ describe("shouldMountLocalVideoPipShell", () => {
         isInitiator: false,
         remoteJoined: false,
       })
-    ).toBe(false);
+    ).toBe(true);
+  });
+
+  it("does not mount PiP shell before join without video session context", () => {
+    expect(shouldMountLocalVideoPipShell({ videoCall: true, joined: false })).toBe(false);
   });
 
   it("does not mount after terminal", () => {

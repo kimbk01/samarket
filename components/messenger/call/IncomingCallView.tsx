@@ -4,7 +4,6 @@ import { Check, X } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { CallScreenViewModel } from "./call-ui.types";
 import { CallAvatar } from "./CallAvatar";
-import { IncomingCallBrandHeader } from "./IncomingCallBrandHeader";
 
 /** 수신 벨 — DiBaY 1:1 전용 스타벅스 그린 톤, 중앙 아바타·큰 터치 간격. */
 export function IncomingCallView({ vm }: { vm: CallScreenViewModel }) {
@@ -24,9 +23,7 @@ export function IncomingCallView({ vm }: { vm: CallScreenViewModel }) {
       }`}
     >
       <div className="flex min-h-0 w-full max-w-md flex-1 flex-col items-center self-center">
-        <div className="flex w-full shrink-0 flex-col items-center pt-[max(42px,8dvh)]">
-          <IncomingCallBrandHeader mode={vm.mode} visualTheme={vm.visualTheme} />
-        </div>
+        <div className="flex w-full shrink-0 flex-col items-center pt-[max(42px,8dvh)]" />
 
         <div className="flex min-h-0 w-full flex-1 flex-col items-center justify-center px-2 py-4">
           <CallAvatar label={vm.peerLabel} avatarUrl={vm.peerAvatarUrl} pulse theme={vm.visualTheme} />

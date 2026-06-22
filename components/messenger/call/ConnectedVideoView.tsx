@@ -6,7 +6,6 @@ import type { CallScreenViewModel } from "./call-ui.types";
 import { CallActionBar } from "./CallActionBar";
 import { CallAvatar } from "./CallAvatar";
 import { CallStatusText } from "./CallStatusText";
-import { IncomingCallBrandHeader } from "./IncomingCallBrandHeader";
 import { MiniLocalVideo } from "./MiniLocalVideo";
 import { useCallTimer } from "./useCallTimer";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
@@ -261,26 +260,17 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
                   : "drop-shadow-[0_2px_14px_rgba(0,0,0,0.55)]"
               }`}
             >
-              {incomingVideoRingHero || !vm.hideOutgoingVideoBrandRow ? (
-                <div className={`flex items-center justify-center gap-2 ${isStarbucks ? "text-[#F1F8F4]/95" : "text-white/95"}`}>
-                  <span className="min-w-0 truncate sam-text-body font-medium tracking-tight">
-                    {t("cm_ui_samarket_video_call_brand")}…
-                  </span>
-                </div>
-              ) : null}
               {incomingVideoRingHero ? null : (
                 <div
-                  className={`sam-text-page-title font-semibold tracking-tight ${isStarbucks ? "text-[#F1F8F4]" : "text-white"} ${
-                    vm.hideOutgoingVideoBrandRow ? "" : "mt-3"
-                  }`}
+                  className={`sam-text-page-title font-semibold tracking-tight ${isStarbucks ? "text-[#F1F8F4]" : "text-white"}`}
                 >
                   {vm.peerLabel}
                 </div>
               )}
               <div
-                className={`flex items-center justify-center gap-2 sam-text-body font-medium ${
-                  incomingVideoRingHero || !vm.hideOutgoingVideoBrandRow ? "mt-1" : ""
-                } ${isStarbucks ? "text-[#D4E9E2]/95" : "text-white/90"}`}
+                className={`flex items-center justify-center gap-2 sam-text-body font-medium mt-1 ${
+                  isStarbucks ? "text-[#D4E9E2]/95" : "text-white/90"
+                }`}
               >
                 <span
                   className={
@@ -337,9 +327,6 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
         {incomingVideoRingHero ? (
           <div className="pointer-events-none absolute inset-0 z-[5] flex flex-col items-center justify-center px-6 pb-[clamp(128px,18dvh,172px)] pt-[max(72px,calc(env(safe-area-inset-top)+64px))]">
             <div className="flex w-full max-w-md flex-col items-center text-center">
-              <div className="mb-6 w-full pt-[max(8px,calc(env(safe-area-inset-top)+4px))]">
-                <IncomingCallBrandHeader mode="video" visualTheme={vm.visualTheme} />
-              </div>
               <CallAvatar label={vm.peerLabel} avatarUrl={vm.peerAvatarUrl} pulse theme={vm.visualTheme} />
               <h2
                 className={`mt-6 text-center text-[clamp(1.35rem,5.5vw,2rem)] font-bold leading-tight tracking-tight ${
