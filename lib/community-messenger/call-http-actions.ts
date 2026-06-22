@@ -106,6 +106,7 @@ export async function fetchCommunityMessengerCallSessionByIdClient(
   if (!sid) return null;
   const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sid)}`, {
     credentials: "include",
+    cache: "no-store",
   });
   if (!res.ok) return null;
   const json = (await res.json().catch(() => ({}))) as {

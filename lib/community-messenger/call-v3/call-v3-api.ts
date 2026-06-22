@@ -136,9 +136,21 @@ export async function callV3PatchAccept(
 export async function callV3PatchReject(
   callId: string
 ): Promise<{ ok: boolean; session?: CommunityMessengerCallSession; error?: string }> {
+  logCallV3("reject_patch_start", { callId });
   const result = await patchCommunityMessengerCallSession(callId, "reject");
   if (result.ok) {
-    logCallV3("reject_patch_done", { callId });
+    const session = result.session;
+    logCallV3("reject_patch_done", {
+      callId,
+      status: session?.status ?? null,
+    });
+    logCallV3("reject_patch_response", {
+      callId: session?.id ?? callId,
+      status: session?.status ?? null,
+      updated_at: session?.endedAt ?? session?.startedAt ?? null,
+    });
+  } else {
+    logCallV3("reject_patch_failed", { callId, error: result.error ?? null });
   }
   return result;
 }

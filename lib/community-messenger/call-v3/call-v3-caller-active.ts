@@ -9,7 +9,7 @@ import { stopCallV3Ringtone } from "@/lib/community-messenger/call-v3/call-v3-ri
 import { readCallV3Identity, readCallV3Phase, useCallV3Store } from "@/lib/community-messenger/call-v3/call-v3-store";
 import type { CallV3TerminalPhase } from "@/lib/community-messenger/call-v3/call-v3-types";
 
-const CALLER_ACTIVE_POLL_MS = 1_500;
+const CALLER_ACTIVE_POLL_MS = 1_000;
 
 const CALLER_TERMINAL_STATUSES = new Set(["rejected", "cancelled", "canceled", "ended", "missed"]);
 
@@ -66,19 +66,21 @@ export function startCallV3CallerActivePoll(callId: string): () => void {
       }
 
       const session = await callV3FetchSession(sid);
-      if (!session?.status) return;
+      const status = session?.status ?? null;
+      logCallV3("caller_poll_status", { callId: sid, status });
+      if (!status) return;
 
-      if (session.status === "active") {
+      if (status === "active") {
         logCallV3("caller_active_detected", { callId: sid });
         stopCallV3CallerActivePoll();
         useCallV3Store.getState().setPhase("joining");
         return;
       }
 
-      if (isCallerTerminalStatus(session.status)) {
-        logCallV3("caller_terminal_detected", { callId: sid, status: session.status });
+      if (isCallerTerminalStatus(status)) {
+        logCallV3("caller_terminal_detected", { callId: sid, status });
         stopCallV3CallerActivePoll();
-        await applyCallerRemoteTerminal(sid, session.status);
+        await applyCallerRemoteTerminal(sid, status);
       }
     })();
   };

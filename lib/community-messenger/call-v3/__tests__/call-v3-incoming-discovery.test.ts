@@ -99,4 +99,11 @@ describe("call-v3-incoming-discovery", () => {
     await runCallV3IncomingDiscoveryTick();
     expect(actionMocks.discovered).toHaveBeenCalledWith(expect.objectContaining({ id: "call-new" }));
   });
+
+  it("does not rediscover dismissed session while DB still ringing", async () => {
+    markCallV3IncomingDismissed("call-in-1");
+    apiMocks.fetchIncoming.mockResolvedValueOnce([ringingSession("call-in-1")]);
+    await runCallV3IncomingDiscoveryTick();
+    expect(actionMocks.discovered).not.toHaveBeenCalled();
+  });
 });

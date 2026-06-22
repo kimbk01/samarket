@@ -74,7 +74,7 @@ describe("call-v3-caller-active-detection", () => {
     apiMocks.fetchSession.mockResolvedValue({ id: "call-1", status: "active" });
 
     startCallV3CallerActivePoll("call-1");
-    await vi.advanceTimersByTimeAsync(1_500);
+    await vi.advanceTimersByTimeAsync(1_000);
 
     expect(apiMocks.fetchSession).not.toHaveBeenCalled();
     expect(useCallV3Store.getState().phase).toBe("idle");

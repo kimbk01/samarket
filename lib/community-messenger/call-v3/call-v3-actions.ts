@@ -19,6 +19,7 @@ import {
 import {
   markCallV3IncomingDismissed,
   isCallV3IncomingDismissed,
+  releaseCallV3IncomingDismissed,
 } from "@/lib/community-messenger/call-v3/call-v3-incoming-dismiss";
 import {
   claimCallV3AcceptPatchOnce,
@@ -229,6 +230,10 @@ export function callV3IncomingDiscovered(session: CommunityMessengerCallSession)
   const phase = readCallV3Phase();
   const current = readCallV3Identity();
 
+  if (current?.callId === callId && phase !== "idle" && phase !== "incoming_ringing") {
+    return;
+  }
+
   if (current?.callId === callId && phase === "incoming_ringing") {
     return;
   }
@@ -283,9 +288,11 @@ export async function callV3Reject(callId: string): Promise<void> {
     return;
   }
 
+  markCallV3IncomingDismissed(sid);
   useCallV3Store.getState().setPhase("ending");
   const patched = await callV3PatchReject(sid);
   if (!patched.ok) {
+    releaseCallV3IncomingDismissed(sid);
     releaseCallV3RejectPatchClaim(sid);
     useCallV3Store.getState().setPhase("incoming_ringing");
     return;
