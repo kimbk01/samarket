@@ -140,6 +140,11 @@ import {
 import { shouldIgnoreIncomingDiscovered } from "@/lib/community-messenger/call-engine/call-engine-incoming-discovered-guard";
 import { buildIncomingCallPreviewHref } from "@/lib/community-messenger/incoming-call-preview-route";
 import {
+  isCmCallPhase0BasicsOnly,
+  isCmGroupCallEnabled,
+  isCmNativeForegroundIncomingPillEnabled,
+} from "@/lib/community-messenger/call-phase0-basics";
+import {
   getIncomingCallPollIntervalMs,
   MESSENGER_INCOMING_CALL_BURST_MIN_GAP_MS,
   MESSENGER_INCOMING_CALL_POLL_DURING_RING_MS,
@@ -1313,6 +1318,7 @@ export function GlobalCommunityMessengerIncomingCall() {
     void getNativeIncomingCallPlugin().then((plugin) => {
       if (!plugin) return;
       void plugin.getForegroundIncomingCallId().then((res) => {
+        if (!isCmNativeForegroundIncomingPillEnabled()) return;
         const id = res.callId?.trim();
         if (!id) return;
         setNativeForegroundIncomingCallId(id);
@@ -1330,6 +1336,12 @@ export function GlobalCommunityMessengerIncomingCall() {
   useEffect(() => {
     return installDibayFcmCallBridge({
       onForegroundIncomingUi: ({ sessionId, visible }) => {
+        if (!isCmNativeForegroundIncomingPillEnabled()) {
+          if (visible && sessionId.trim()) {
+            void dismissNativeForegroundIncomingUi(sessionId.trim());
+          }
+          return;
+        }
         const sid = sessionId.trim();
         const appVisibility = resolveCallEngineAppVisibility();
         setNativeForegroundIncomingCallId(visible && sid ? sid : null);
@@ -1387,6 +1399,13 @@ export function GlobalCommunityMessengerIncomingCall() {
       onFcmTerminal: ({ callId, terminalKind, bridgeSource }) => {
         const sid = callId.trim();
         if (!sid) return;
+        if (terminalKind === "rejected" && bridgeSource === "call_terminal") {
+          void dispatchCallEngineSignal({
+            type: "native_reject",
+            sessionId: sid,
+            source: "native_notification_reject",
+          });
+        }
         const sourceTag = bridgeSource === "call_canceled" ? "fcm_cancel_wake" : "fcm_terminal_wake";
         sealFcmTerminalEvent(
           { action: "terminal", callId: sid, terminalKind, fcmType: bridgeSource },
@@ -1820,7 +1839,8 @@ export function GlobalCommunityMessengerIncomingCall() {
         visibilityState: incomingVisibilityState,
         isAppForeground: incomingVisibilityState === "visible",
         foregroundWakeSessionIds,
-        preferNativeAndroidForegroundIncoming: !nativeForegroundIncomingCallId,
+        preferNativeAndroidForegroundIncoming:
+          isCmCallPhase0BasicsOnly() || !nativeForegroundIncomingCallId,
         nativeForegroundIncomingCallId,
       }),
     [
@@ -2170,6 +2190,10 @@ export function GlobalCommunityMessengerIncomingCall() {
       unlockCommunityMessengerCallPlaybackFromUserGesture();
 
       if (session.sessionMode === "group") {
+        if (!isCmGroupCallEnabled()) {
+          showMessengerSnackbar("지금은 1:1 음성 통화만 사용할 수 있습니다.", { variant: "error" });
+          return;
+        }
         setBusyId(`accept:${session.id}`);
         const groupUrl = `/community-messenger/rooms/${encodeURIComponent(session.roomId)}?callAction=accept&sessionId=${encodeURIComponent(session.id)}`;
         void (async () => {
@@ -2295,7 +2319,9 @@ export function GlobalCommunityMessengerIncomingCall() {
       busyReject={busyId === `reject:${bannerSession.id}`}
       busyAccept={busyId === `accept:${bannerSession.id}`}
       busyBlock={false}
-      onExpand={() => expandIncomingCall(bannerSession)}
+      onExpand={
+        isCmCallPhase0BasicsOnly() ? () => {} : () => expandIncomingCall(bannerSession)
+      }
       onReject={() => void rejectCall(bannerSession.id)}
       onAccept={() => acceptCall(bannerSession)}
       onBlock={() => void blockIncomingCall(bannerSession)}

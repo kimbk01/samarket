@@ -7,6 +7,7 @@ import {
 import { isPhoneVerificationRequiredApiPayload } from "@/lib/auth/phone-verification-required-detect";
 import { openPhoneVerificationRequiredSheet } from "@/lib/auth/phone-verification-required-client";
 import { isOutgoingCallPhoneVerificationRequired } from "@/lib/call/outgoing-call-start-guard";
+import { isCmCallVideoEnabled } from "@/lib/community-messenger/call-phase0-basics";
 import {
   primeOutgoingRingbackWebAudioFromUserGesture,
   rememberOutgoingRingtonePrimedForSession,
@@ -70,6 +71,21 @@ export const COMMUNITY_MESSENGER_TEMP_CALL_PREFIX = "tmp_" as const;
 
 export function isCommunityMessengerTempCallSessionId(sessionId: string): boolean {
   return sessionId.trim().startsWith(COMMUNITY_MESSENGER_TEMP_CALL_PREFIX);
+}
+
+function dispatchOutgoingCallEngineSignal(
+  signal:
+    | { type: "outgoing_create"; session: CommunityMessengerCallSession; source: string }
+    | {
+        type: "outgoing_ringback_start";
+        callId: string;
+        kind: CommunityMessengerCallKind;
+        source: string;
+      }
+): void {
+  void import("@/lib/community-messenger/call-engine/call-engine-controller").then((mod) => {
+    void mod.dispatchCallEngineSignal(signal);
+  });
 }
 
 function readDialTmpSessionIdFromPathname(): string | null {
@@ -686,6 +702,11 @@ async function applyOutgoingTempCallBootstrapResult(
     return;
   }
   rememberOutgoingRingtonePrimedForSession(result.session.id);
+  void dispatchOutgoingCallEngineSignal({
+    type: "outgoing_create",
+    session: result.session,
+    source: "outgoing_bootstrap",
+  });
   cmCallLatencyInfo("route_replace_session_start", {
     sessionId: result.session.id,
     callKind: kind,
@@ -769,8 +790,17 @@ export async function launchOutgoingDirectCall(
   if (!assertPhoneVerifiedForMessengerActionOrOpenSheet(resolveMessengerActionReturnPath())) {
     return { ok: false, userMessage: "", phoneVerificationRequired: true };
   }
+  if (!isCmCallVideoEnabled() && input.kind === "video") {
+    showMessengerSnackbar(
+      safeTranslate(getRuntimeAppLanguage(), "common_content_unavailable", {
+        fallbackKo: "지금은 음성 통화만 사용할 수 있습니다.",
+        fallbackEn: "Only voice calls are available right now.",
+      }),
+      { variant: "error" }
+    );
+    return { ok: false, userMessage: "" };
+  }
   unlockCommunityMessengerCallPlaybackFromUserGesture();
-  primeOutgoingRingbackWebAudioFromUserGesture(input.kind);
   logCallUxEvent("call_outgoing_tap", {
     callKind: input.kind,
     roomId: input.roomId?.trim() || undefined,
@@ -791,6 +821,12 @@ export async function launchOutgoingDirectCall(
   const tempSessionId = decodeURIComponent(
     href.split("/community-messenger/calls/")[1]?.split("?")[0] ?? ""
   );
+  void dispatchOutgoingCallEngineSignal({
+    type: "outgoing_ringback_start",
+    callId: tempSessionId,
+    kind: input.kind,
+    source: "launch_outgoing_direct",
+  });
   /** Telegram-style — 셸 먼저, GUM·mic 프라임은 tmp 셸·bootstrap 과 병렬 */
   logCallUxEvent("call_media_prepare_start", { callKind: input.kind, sessionId: tempSessionId });
   void primeOutgoingCallMediaBeforeNavigate(input.kind).then((prime) => {

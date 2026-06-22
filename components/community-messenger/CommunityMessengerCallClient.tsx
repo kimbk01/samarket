@@ -100,6 +100,11 @@ import {
 import { runIncomingCallCleanup } from "@/lib/community-messenger/incoming-call-cleanup";
 import { applyIncomingCallConsumedSideEffects } from "@/lib/community-messenger/incoming-call-accept-gateway";
 import { isIncomingCallPreviewRoute } from "@/lib/community-messenger/incoming-call-preview-route";
+import {
+  isCmCallDockEnabled,
+  isCmCallPipEnabled,
+  isCmCallVideoUpgradeEnabled,
+} from "@/lib/community-messenger/call-phase0-basics";
 import { isDibayCallConsumed, markCallConsumed, readCallConsumedReason } from "@/lib/community-messenger/incoming-call-state";
 import {
   dibayCallSealTerminal,
@@ -3618,6 +3623,7 @@ export function CommunityMessengerCallClient({
   );
 
   useEffect(() => {
+    if (!isCmCallVideoUpgradeEnabled()) return;
     const parties = resolveDirectCallPartyIds(session);
     if (!parties?.myUserId) return;
     const myUserId = parties.myUserId;
@@ -3642,6 +3648,7 @@ export function CommunityMessengerCallClient({
   }, [session, sessionId, t]);
 
   const requestUpgradeToVideo = useCallback(async () => {
+    if (!isCmCallVideoUpgradeEnabled()) return;
     const s = sessionRef.current;
     if (!s || s.sessionMode !== "direct") {
       showMessengerSnackbar(t("cm_ui_video_upgrade_not_in_direct"));
@@ -4345,6 +4352,7 @@ export function CommunityMessengerCallClient({
    * 전용 `/calls/:id` 이탈 — active direct 통화는 CallClient 유지 + Dock 전환.
    */
   useEffect(() => {
+    if (!isCmCallDockEnabled()) return;
     const s = sessionRef.current;
     if (!s?.id || !joinedRef.current || s.status !== "active" || s.sessionMode !== "direct") return;
     if (isCommunityMessengerDedicatedCallSessionPath(pathname, s.id)) return;
@@ -4410,6 +4418,8 @@ export function CommunityMessengerCallClient({
     const sid = sessionRef.current?.id?.trim();
     if (!sid) return;
     if (readAndroidOsPipCallSessionId() === sid) {
+      if (!isCmCallPipEnabled()) return;
+      expandCommunityCallFromAndroidOsPip(sid);
       expandCommunityCallFromAndroidOsPip(sid);
       notifyCommunityCallHostSync();
       syncCommunityMessengerCallRuntimeSurface({ presentation: "fullscreen" });
@@ -4420,6 +4430,7 @@ export function CommunityMessengerCallClient({
       return;
     }
     if (readDockedCallSessionId() === sid) {
+      if (!isCmCallDockEnabled()) return;
       if (!tryBeginFullscreenRestoreFromDock()) return;
       expandCommunityCallFromDock(sid);
       notifyCommunityCallHostSync();
@@ -4442,6 +4453,7 @@ export function CommunityMessengerCallClient({
   }, [router]);
 
   const handleMinimizeToDock = useCallback(() => {
+    if (!isCmCallDockEnabled()) return;
     const s = sessionRef.current;
     if (!s?.id || !joinedRef.current || s.status !== "active" || s.sessionMode !== "direct") return;
     if (readDockedCallSessionId() === s.id) return;
@@ -4461,6 +4473,7 @@ export function CommunityMessengerCallClient({
   }, [disposeCallMedia, router]);
 
   const handleMinimizeToPip = useCallback(() => {
+    if (!isCmCallPipEnabled()) return;
     const s = sessionRef.current;
     if (!s?.id || s.callKind !== "video" || !joinedRef.current) return;
     minimizeCommunityCallToPip({

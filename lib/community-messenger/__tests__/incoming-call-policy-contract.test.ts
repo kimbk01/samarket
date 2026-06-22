@@ -70,11 +70,25 @@ describe("incoming-call policy contracts", () => {
     expect(src).toContain("maybeConsumeOnResume");
   });
 
+  it("Global patches native notification reject through CallEngine", () => {
+    const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
+    expect(global).toContain('type: "native_reject"');
+    expect(global).toContain("native_notification_reject");
+  });
+
+  it("Phase 0 basics flag disables dock pip video upgrade surfaces", () => {
+    const basics = read("lib/community-messenger/call-phase0-basics.ts");
+    expect(basics).toContain("CM_CALL_PHASE0_BASICS_ONLY");
+    const client = read("components/community-messenger/CommunityMessengerCallClient.tsx");
+    expect(client).toContain("isCmCallDockEnabled");
+    expect(client).toContain("isCmCallVideoUpgradeEnabled");
+  });
+
   it("banner expand opens preview route without accept PATCH", () => {
     const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
     expect(global).toContain("expandIncomingCall");
     expect(global).toContain("buildIncomingCallPreviewHref");
-    expect(global).toContain("onExpand={() => expandIncomingCall(bannerSession)}");
+    expect(global).toContain("expandIncomingCall(bannerSession)");
     expect(global).not.toMatch(/onExpand=\{[^}]*acceptCall/);
   });
 

@@ -239,10 +239,11 @@ describe("call-engine device audit contract", () => {
       expect(global).toContain('type: "incoming_discovered"');
     });
 
-    it("launchOutgoingDirectCall does not yet dispatch outgoing_create", () => {
+    it("launchOutgoingDirectCall dispatches outgoing_create via CallEngine", () => {
       const seed = read("lib/community-messenger/call-session-navigation-seed.ts");
-      expect(seed).toContain("launchOutgoingDirectCall");
-      expect(seed).not.toContain('type: "outgoing_create"');
+      expect(seed).toContain("dispatchOutgoingCallEngineSignal");
+      expect(seed).toContain('type: "outgoing_create"');
+      expect(seed).toContain('type: "outgoing_ringback_start"');
     });
 
     it("audit log helpers exist for device QA", () => {
