@@ -90,4 +90,20 @@ describe("call-v3 import isolation contract", () => {
     expect(chrome).toContain("LegacyCallIncomingChrome");
     expect(chrome).not.toMatch(/isDibayCallV3SafeLaneEnabled\(\)[\s\S]{0,200}IncomingCallOverlay/);
   });
+
+  it("CallV3Provider replays notification tap as wake-only (no native PATCH)", () => {
+    const provider = read("components/community-messenger/call-v3/CallV3Provider.tsx");
+    expect(provider).toContain("enqueueCallV3NativeNotificationWake");
+    expect(provider).toContain("native_notification_received");
+    expect(provider).toContain("consumeNativePendingCallRoutes");
+    expect(provider).not.toContain("native_notification_accept");
+  });
+
+  it("call-v3-native-bridge exposes E-2 replay logs", () => {
+    const bridge = read("lib/community-messenger/call-v3/call-v3-native-bridge.ts");
+    expect(bridge).toContain("native_notification_click");
+    expect(bridge).toContain("native_pending_replay");
+    expect(bridge).toContain("native_replay_done");
+    expect(bridge).toContain('action: "wake"');
+  });
 });
