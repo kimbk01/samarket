@@ -93,10 +93,20 @@ describe("call-v3 import isolation contract", () => {
 
   it("CallV3Provider replays notification tap as wake-only (no native PATCH)", () => {
     const provider = read("components/community-messenger/call-v3/CallV3Provider.tsx");
-    expect(provider).toContain("enqueueCallV3NativeNotificationWake");
+    expect(provider).toContain("handleCallV3NotificationRouteWake");
+    expect(provider).toContain("handleCallV3WindowLocationRouteWake");
     expect(provider).toContain("native_notification_received");
     expect(provider).toContain("consumeNativePendingCallRoutes");
+    expect(provider).toContain("dibay:push-route");
     expect(provider).not.toContain("native_notification_accept");
+  });
+
+  it("PushRouteListener enqueues V3 wake for call routes when flag ON", () => {
+    const listener = read("components/push/PushRouteListener.tsx");
+    expect(listener).toContain("isDibayCallV3SafeLaneEnabled");
+    expect(listener).toContain("handleCallV3NotificationRouteWake");
+    expect(listener).toContain("notification_tap");
+    expect(listener).toContain("call_v3_wake");
   });
 
   it("call-v3-native-bridge exposes E-2 replay logs", () => {

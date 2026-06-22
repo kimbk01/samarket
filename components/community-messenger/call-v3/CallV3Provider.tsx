@@ -15,7 +15,8 @@ import {
 } from "@/lib/community-messenger/dibay-fcm-call-bridge";
 import {
   enqueueCallV3NativeEvent,
-  enqueueCallV3NativeNotificationWake,
+  handleCallV3NotificationRouteWake,
+  handleCallV3WindowLocationRouteWake,
   markCallV3NativeBridgeReady,
 } from "@/lib/community-messenger/call-v3/call-v3-native-bridge";
 import { isDibayCallV3SafeLaneEnabled } from "@/lib/community-messenger/call-v3/call-v3-flag";
@@ -27,7 +28,6 @@ import {
 } from "@/lib/push/native/push-route-native-bridge";
 import {
   isCallV3NativeNotificationRoute,
-  readCallV3SessionIdFromNativeRoute,
   resolveCallV3NativeRouteSource,
 } from "@/lib/push/native/call-v3-native-route";
 
@@ -60,16 +60,8 @@ function handleVoipCallActionV3(detail: VoipCallActionDetail | undefined): void 
 }
 
 function handleCallRouteV3(path: string): void {
-  const trimmed = path.trim();
-  if (!isCallV3NativeNotificationRoute(trimmed)) return;
-  const callId = readCallV3SessionIdFromNativeRoute(trimmed);
-  if (!callId) return;
-
-  enqueueCallV3NativeNotificationWake({
-    callId,
-    source: resolveCallV3NativeRouteSource(trimmed),
-    path: trimmed,
-  });
+  if (!isCallV3NativeNotificationRoute(path)) return;
+  handleCallV3NotificationRouteWake(path, { source: resolveCallV3NativeRouteSource(path) });
 }
 
 async function hydrateIncomingWake(detail: DibayFcmIncomingWakeDetail): Promise<void> {
@@ -100,6 +92,8 @@ async function consumeNativePendingCallRoutes(): Promise<void> {
     handleCallRouteV3(nativePending.path);
     await clearNativePersistedCallPendingRoute();
   }
+
+  handleCallV3WindowLocationRouteWake({ source: "notification_tap" });
 }
 
 type CallV3ProviderProps = {
@@ -171,6 +165,12 @@ export function CallV3Provider({ children }: CallV3ProviderProps) {
       handleCallRouteV3(path);
     };
 
+    const onPushRoute = (event: Event) => {
+      const path = (event as CustomEvent<{ path?: string }>).detail?.path?.trim();
+      if (!path) return;
+      handleCallV3NotificationRouteWake(path, { source: "notification_tap" });
+    };
+
     const maybeConsumeOnResume = () => {
       if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
       void consumeNativePendingCallRoutes();
@@ -178,6 +178,7 @@ export function CallV3Provider({ children }: CallV3ProviderProps) {
 
     window.addEventListener("dibay:voip-call-action", onVoipAction);
     window.addEventListener("dibay:call-route", onCallRoute);
+    window.addEventListener("dibay:push-route", onPushRoute);
     window.addEventListener("focus", maybeConsumeOnResume);
     document.addEventListener("visibilitychange", maybeConsumeOnResume);
 
@@ -189,6 +190,7 @@ export function CallV3Provider({ children }: CallV3ProviderProps) {
       offBus();
       window.removeEventListener("dibay:voip-call-action", onVoipAction);
       window.removeEventListener("dibay:call-route", onCallRoute);
+      window.removeEventListener("dibay:push-route", onPushRoute);
       window.removeEventListener("focus", maybeConsumeOnResume);
       document.removeEventListener("visibilitychange", maybeConsumeOnResume);
     };

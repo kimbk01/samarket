@@ -22,6 +22,8 @@ import {
 import { shouldReplaceRoute } from "@/lib/push/push-route-policy";
 import { postNotificationEventOpenedRead } from "@/lib/notifications/client/notification-event-read-client";
 import { callEngineActions } from "@/lib/community-messenger/call-engine";
+import { isDibayCallV3SafeLaneEnabled } from "@/lib/community-messenger/call-v3/call-v3-flag";
+import { handleCallV3NotificationRouteWake } from "@/lib/community-messenger/call-v3/call-v3-native-bridge";
 
 const ROUTE_DEDUPE_MS = 2_000;
 const NOTIFICATION_DEDUPE_MS = 60_000;
@@ -119,6 +121,23 @@ export function PushRouteListener() {
 
       if (sessionPhaseRef.current !== "authenticated" && isAuthRequiredPushRoute(path)) {
         openLoginRequiredSheet({ actionType: "messenger_open", next: path });
+        return;
+      }
+
+      if (isDibayCallV3SafeLaneEnabled() && isCallRoute(path)) {
+        handleCallV3NotificationRouteWake(path, { source: "notification_tap" });
+
+        if (shouldReplaceRoute(path)) {
+          router.replace(path);
+        } else {
+          router.push(path);
+        }
+        if (notificationId?.trim()) {
+          void postNotificationEventOpenedRead(notificationId.trim());
+        }
+        clearPendingPushRoute();
+        void clearNativePersistedPendingPushRoute();
+        console.info("[push-route] webview_route_delivered", { path, via: "call_v3_wake" });
         return;
       }
 

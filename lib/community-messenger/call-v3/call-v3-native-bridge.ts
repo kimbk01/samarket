@@ -11,6 +11,13 @@ import {
   storeCallV3NativePendingWake,
 } from "@/lib/community-messenger/call-v3/call-v3-native-pending";
 import { readCallV3ExitRouter } from "@/lib/community-messenger/call-v3/call-v3-route";
+import {
+  normalizeCallV3AppPath,
+  readCallV3SessionIdFromRouteInput,
+  readCallV3WakePathFromWindowLocation,
+  resolveCallV3NotificationWakeSource,
+  resolveCallV3NativeRouteSource,
+} from "@/lib/push/native/call-v3-native-route";
 
 export type CallV3NativeAction = "wake" | "accept" | "reject";
 
@@ -157,6 +164,40 @@ export function enqueueCallV3NativeNotificationWake(input: {
     action: "wake",
     source: input.source,
     path: input.path ?? null,
+  });
+}
+
+/**
+ * Parse call-route URL/path and enqueue V3 wake (no PATCH).
+ * Used when native loads WebView URL directly without `dibay:call-route`.
+ */
+export function handleCallV3NotificationRouteWake(
+  rawPath: string,
+  options?: { source?: string | null },
+): boolean {
+  const path = normalizeCallV3AppPath(rawPath);
+  const callId = readCallV3SessionIdFromRouteInput(path);
+  if (!callId) return false;
+
+  const source =
+    options?.source != null
+      ? resolveCallV3NotificationWakeSource(path, options.source)
+      : resolveCallV3NativeRouteSource(path);
+
+  enqueueCallV3NativeNotificationWake({
+    callId,
+    source,
+    path,
+  });
+  return true;
+}
+
+/** Current WebView URL enter — fallback when only `webview_call_route_loaded` fired. */
+export function handleCallV3WindowLocationRouteWake(options?: { source?: string | null }): boolean {
+  const path = readCallV3WakePathFromWindowLocation();
+  if (!path) return false;
+  return handleCallV3NotificationRouteWake(path, {
+    source: options?.source ?? "notification_tap",
   });
 }
 
