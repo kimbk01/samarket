@@ -93,6 +93,26 @@ describe("call-v3-incoming-discovery", () => {
     expect(actionMocks.remoteTerminal).toHaveBeenCalledWith("call-in-1", "cancelled");
   });
 
+  it("reconciles terminal session while callee is ending", async () => {
+    useCallV3Store.setState({
+      phase: "ending",
+      identity: {
+        callId: "call-in-1",
+        roomId: "room-1",
+        callerUserId: "caller",
+        calleeUserId: "callee",
+        direction: "incoming",
+        mediaType: "audio",
+        createdAt: "2026-06-23T00:00:00.000Z",
+      },
+    });
+    apiMocks.fetchIncoming.mockResolvedValueOnce([]);
+    apiMocks.fetchSession.mockResolvedValueOnce({ ...ringingSession("call-in-1"), status: "rejected" });
+
+    await runCallV3IncomingDiscoveryTick();
+    expect(actionMocks.remoteTerminal).toHaveBeenCalledWith("call-in-1", "rejected");
+  });
+
   it("does not block new incoming after stale call dismissed", async () => {
     markCallV3IncomingDismissed("call-old");
     apiMocks.fetchIncoming.mockResolvedValueOnce([ringingSession("call-new")]);

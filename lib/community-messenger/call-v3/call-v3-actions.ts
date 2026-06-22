@@ -19,7 +19,6 @@ import {
 import {
   markCallV3IncomingDismissed,
   isCallV3IncomingDismissed,
-  releaseCallV3IncomingDismissed,
 } from "@/lib/community-messenger/call-v3/call-v3-incoming-dismiss";
 import {
   claimCallV3AcceptPatchOnce,
@@ -28,7 +27,6 @@ import {
   claimCallV3RejectPatchOnce,
   releaseCallV3CancelPatchClaim,
   releaseCallV3EndPatchClaim,
-  releaseCallV3RejectPatchClaim,
 } from "@/lib/community-messenger/call-v3/call-v3-patch-guard";
 import {
   exitCallV3ScreenAfterCleanup,
@@ -48,6 +46,7 @@ import {
   callV3PatchReject,
   callV3ReconcileBeforeCreate,
   callV3ResolveOutgoingRoomId,
+  scheduleCallV3RejectPatchRetry,
 } from "@/lib/community-messenger/call-v3/call-v3-api";
 import { postCommunityMessengerCallSessionTerminalBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 
@@ -277,26 +276,9 @@ export async function callV3Accept(
   routeToCallV3Screen(router, sid);
 }
 
-export async function callV3Reject(callId: string): Promise<void> {
+async function completeCallV3CalleeRejectTerminal(callId: string): Promise<void> {
   const sid = callId.trim();
   if (!sid) return;
-
-  logCallV3("reject_click", { callId: sid });
-  stopCallV3Ringtone("reject_click");
-
-  if (!claimCallV3RejectPatchOnce(sid)) {
-    return;
-  }
-
-  markCallV3IncomingDismissed(sid);
-  useCallV3Store.getState().setPhase("ending");
-  const patched = await callV3PatchReject(sid);
-  if (!patched.ok) {
-    releaseCallV3IncomingDismissed(sid);
-    releaseCallV3RejectPatchClaim(sid);
-    useCallV3Store.getState().setPhase("incoming_ringing");
-    return;
-  }
 
   const identity = readCallV3Identity();
   postCommunityMessengerCallSessionTerminalBusEvent({
@@ -307,6 +289,36 @@ export async function callV3Reject(callId: string): Promise<void> {
 
   markCallV3IncomingDismissed(sid);
   await finalizeCallV3Terminal(sid, "rejected");
+}
+
+export async function callV3Reject(callId: string): Promise<void> {
+  const sid = callId.trim();
+  if (!sid) return;
+
+  logCallV3("reject_click", { callId: sid });
+  stopCallV3Ringtone("reject_click");
+
+  if (!claimCallV3RejectPatchOnce(sid)) {
+    const phase = readCallV3Phase();
+    const identity = readCallV3Identity();
+    if (phase === "ending" && identity?.callId === sid) {
+      logCallV3("reject_click_in_flight", { callId: sid });
+    }
+    return;
+  }
+
+  markCallV3IncomingDismissed(sid);
+  useCallV3Store.getState().setPhase("ending");
+  const patched = await callV3PatchReject(sid);
+  if (!patched.ok) {
+    logCallV3("reject_patch_failed_terminal_cleanup", {
+      callId: sid,
+      error: patched.error ?? null,
+    });
+    scheduleCallV3RejectPatchRetry(sid);
+  }
+
+  await completeCallV3CalleeRejectTerminal(sid);
 }
 
 export async function callV3EnsureAgoraJoined(callId: string): Promise<void> {

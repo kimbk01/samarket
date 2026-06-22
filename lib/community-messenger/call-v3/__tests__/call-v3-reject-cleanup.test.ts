@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const apiMocks = vi.hoisted(() => ({
-  reject: vi.fn(async () => ({ ok: true })),
+  reject: vi.fn(async (): Promise<{ ok: boolean; error?: string }> => ({ ok: true })),
+  retry: vi.fn(),
 }));
 
 vi.mock("@/lib/community-messenger/call-v3/call-v3-api", () => ({
   callV3PatchReject: apiMocks.reject,
+  scheduleCallV3RejectPatchRetry: apiMocks.retry,
 }));
 
 vi.mock("@/lib/community-messenger/call-v3/call-v3-ringtone", () => ({
@@ -51,6 +53,7 @@ describe("call-v3-reject-cleanup", () => {
     resetCallV3PatchClaimsForTests();
     useCallV3Store.getState().resetToIdle();
     apiMocks.reject.mockClear();
+    apiMocks.retry.mockClear();
     vi.spyOn(console, "info").mockImplementation(() => {});
   });
 
@@ -110,5 +113,30 @@ describe("call-v3-reject-cleanup", () => {
 
     resolveReject({ ok: true });
     await rejectPromise;
+  });
+
+  it("cleans up locally and retries patch when reject patch fails", async () => {
+    useCallV3Store.setState({
+      phase: "incoming_ringing",
+      identity: {
+        callId: "call-1",
+        roomId: "room-1",
+        callerUserId: "a",
+        calleeUserId: "b",
+        direction: "incoming",
+        mediaType: "audio",
+        createdAt: "2026-06-23T00:00:00.000Z",
+      },
+      canReceiveNewCall: false,
+    });
+
+    apiMocks.reject.mockResolvedValueOnce({ ok: false, error: "bad_action" });
+
+    await callV3Reject("call-1");
+
+    expect(apiMocks.retry).toHaveBeenCalledWith("call-1");
+    expect(useCallV3Store.getState().phase).toBe("idle");
+    expect(useCallV3Store.getState().canReceiveNewCall).toBe(true);
+    expect(isCallV3IncomingDismissed("call-1")).toBe(true);
   });
 });

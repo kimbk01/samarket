@@ -155,6 +155,19 @@ export async function callV3PatchReject(
   return result;
 }
 
+/** PATCH 실패 후 DB rejected 전이 — 발신 측 polling/bus 해제용 best-effort 재시도 */
+export function scheduleCallV3RejectPatchRetry(callId: string): void {
+  const sid = callId.trim();
+  if (!sid) return;
+  void patchCommunityMessengerCallSession(sid, "reject").then((result) => {
+    if (result.ok) {
+      logCallV3("reject_patch_retry_ok", { callId: sid, status: result.session?.status ?? null });
+      return;
+    }
+    logCallV3("reject_patch_retry_failed", { callId: sid, error: result.error ?? null });
+  });
+}
+
 type CallV3TokenResponse = {
   ok?: boolean;
   connection?: CommunityMessengerManagedCallConnection;

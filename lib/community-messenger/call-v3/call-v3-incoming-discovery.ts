@@ -40,11 +40,13 @@ function pickIncomingRingingCalleeSession(
 async function reconcileActiveIncomingRinging(): Promise<void> {
   const identity = readCallV3Identity();
   const phase = readCallV3Phase();
-  if (phase !== "incoming_ringing" || !identity?.callId) return;
+  const callId = identity?.callId?.trim() ?? "";
+  if (!callId || identity?.direction !== "incoming") return;
+  if (phase !== "incoming_ringing" && phase !== "ending") return;
 
-  const session = await callV3FetchSession(identity.callId);
+  const session = await callV3FetchSession(callId);
   if (!session || isTerminalSessionStatus(session.status)) {
-    callV3HandleRemoteTerminal(identity.callId, session?.status ?? "cancelled");
+    callV3HandleRemoteTerminal(callId, session?.status ?? "cancelled");
   }
 }
 
