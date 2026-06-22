@@ -28,12 +28,37 @@ export function isVideoPipFirstOutgoingPhase(args: VideoPipFirstPolicyArgs): boo
   return false;
 }
 
-/** 발신 보조 PiP 슬롯 — Agora local ready 전까지 항상 마운트(카메라 off 포함). */
+/** 발신 보조 PiP 슬롯 — 상대 영상이 메인일 때만 작은 self 타일 (본 화면 solo full 과 중복 금지) */
 export function shouldShowOutgoingAuxPipPreviewSlot(args: {
   pipFirstOutgoing: boolean;
   localVideoReady: boolean;
+  remoteJoined?: boolean;
 }): boolean {
-  return args.pipFirstOutgoing && !args.localVideoReady;
+  if (!args.pipFirstOutgoing || args.localVideoReady) return false;
+  return Boolean(args.remoteJoined);
+}
+
+/** 통화 풀스크린 본 화면 — in-call 보조 PiP 와 별개. 발신 pre-remote 는 본인 영상 full (hero·반반 금지) */
+export function shouldUseInCallMainFullscreenVideo(args: {
+  callKind: CommunityMessengerCallKind;
+  sessionStatus: CommunityMessengerCallSessionStatus;
+  joined: boolean;
+  remoteJoined?: boolean;
+  isInitiator?: boolean;
+}): boolean {
+  return shouldUseSoloLocalFullVideoLayout(args);
+}
+
+/** 백그라운드·Dock·OS PiP — 상대/본인 반반 분할 미리보기 */
+export function shouldUseBackgroundCallSplitPreview(args: {
+  callKind: CommunityMessengerCallKind;
+  joined: boolean;
+  localVideoReady: boolean;
+  remoteJoined: boolean;
+  remoteVideoReady: boolean;
+}): boolean {
+  if (args.callKind !== "video" || !args.joined) return false;
+  return args.localVideoReady && args.remoteJoined && args.remoteVideoReady;
 }
 
 /** local=PiP slot — 발신 PiP-first 또는 callee active(수락·조인 포함) */
@@ -61,15 +86,16 @@ export function shouldSuppressCameraPreparingOverlayForPipFirst(args: {
   return false;
 }
 
-/** PiP-first 발신 — prejoin 또는 Agora local ready 시 PiP 크롬 표시 */
+/** PiP-first 발신 pre-remote — 본 화면 solo full 이므로 보조 PiP 크롬 숨김 */
 export function shouldShowPipFirstLocalPreviewChrome(args: {
   pipFirstOutgoing: boolean;
   pipShellMounted: boolean;
   preJoinReady?: boolean;
   localVideoReady?: boolean;
+  remoteJoined?: boolean;
 }): boolean {
   if (!args.pipFirstOutgoing || !args.pipShellMounted) return false;
-  /** shell 마운트 즉시 PiP 타일 표시 — prejoin attach 전에도 빈 타일·곧 영상 */
+  if (!args.remoteJoined) return false;
   return true;
 }
 
@@ -99,17 +125,6 @@ export function shouldUseSoloLocalFullVideoLayout(args: {
       callKind: args.callKind,
       sessionStatus: args.sessionStatus,
       isInitiator: Boolean(args.isInitiator),
-    })
-  ) {
-    return false;
-  }
-  if (
-    isVideoPipFirstOutgoingPhase({
-      callKind: args.callKind,
-      sessionStatus: args.sessionStatus,
-      isInitiator: Boolean(args.isInitiator),
-      joined: args.joined,
-      remoteJoined: args.remoteJoined,
     })
   ) {
     return false;

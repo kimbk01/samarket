@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearAllCommunityCallLocalSessionFlags,
+  dockCommunityCall,
   isCallSessionHostedByActiveCallHost,
   isCommunityMessengerDedicatedCallSessionPath,
   writeActiveDirectVideoCallSession,
@@ -64,5 +65,8 @@ describe("direct-call-minimize host ownership", () => {
     clearAllCommunityCallLocalSessionFlags();
     writeMinimizedCommunityCallSession("s3");
     expect(isCallSessionHostedByActiveCallHost("s3")).toBe(true);
+    clearAllCommunityCallLocalSessionFlags();
+    dockCommunityCall({ sessionId: "s4", roomId: "room-4", cleanup: vi.fn(async () => {}) });
+    expect(isCallSessionHostedByActiveCallHost("s4")).toBe(true);
   });
 });

@@ -166,7 +166,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
   if (!hasServerProfile && membership.status === "checking") {
     return (
       <div className={`flex min-h-0 min-w-0 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
-        <MyPageHeader backFallbackHref="/philife" />
+        <MyPageHeader />
         <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS}>
           <div className={`${PHILIFE_FB_CARD_CLASS} sam-card__body py-10 text-center sam-text-body-secondary`}>
             {t("mypage_comp_loading_hub")}
@@ -180,7 +180,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
   if (!hasServerProfile && membership.status === "guest") {
     return (
       <div className={`flex min-h-0 min-w-0 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
-        <MyPageHeader backFallbackHref="/philife" />
+        <MyPageHeader />
         <div className={`${APP_MAIN_COLUMN_CLASS} min-h-0 min-w-0 ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
           <MyPageGuestHomeDashboard />
         </div>
@@ -192,7 +192,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
   if (loading && !(hasServerProfile && data?.profile)) {
     return (
       <div className={`flex min-h-0 min-w-0 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
-        <MyPageHeader backFallbackHref="/philife" />
+        <MyPageHeader />
         <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS}>
           <div className={`${PHILIFE_FB_CARD_CLASS} sam-card__body py-10 text-center sam-text-body-secondary`}>
             {t("mypage_comp_loading_hub")}
@@ -205,7 +205,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
   if (!data) {
     return (
       <div className={`flex min-h-0 min-w-0 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
-        <MyPageHeader backFallbackHref="/philife" />
+        <MyPageHeader />
         <div className={`${PHILIFE_FEED_INSET_X_CLASS} pt-1 ${APP_MAIN_TAB_SCROLL_BODY_CLASS}`}>
           <div className={`${PHILIFE_FB_CARD_CLASS} sam-card__body py-10 text-center sam-text-body-secondary`}>
             {t("mypage_comp_profile_load_failed_short")}
@@ -220,7 +220,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
   if (!profile) {
     return (
       <div className={`flex min-h-0 min-w-0 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
-        <MyPageHeader backFallbackHref="/philife" />
+        <MyPageHeader />
         <div className={`${PHILIFE_FEED_INSET_X_CLASS} pt-1 ${APP_MAIN_TAB_SCROLL_BODY_CLASS}`}>
           <div className={`${PHILIFE_FB_CARD_CLASS} sam-card__body py-10 text-center sam-text-body-secondary`}>
             {t("mypage_comp_profile_load_failed_short")}
@@ -232,7 +232,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
 
   return (
     <div className={`flex min-h-0 min-w-0 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
-      <MyPageHeader backFallbackHref="/philife" />
+      <MyPageHeader />
       <div className={`${APP_MAIN_COLUMN_CLASS} min-h-0 min-w-0 ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
         <MyPageHomeDashboard
           profile={profile}

@@ -335,14 +335,16 @@ export function StoresBrowsePrimaryView({
   }, [activeSub, primarySlug, remoteRows]);
 
   useEffect(() => {
-    // 뒤로가기(popstate) 복귀 계측
+    // 뒤로가기(popstate) 복귀 계측 — 동기 핸들러 부담 최소화
     const onPop = () => {
-      const sp = searchParams?.get("sub");
-      const sub =
-        typeof sp === "string" && sp.trim()
-          ? storesBrowseNavSubSlug(sp.trim().toLowerCase())
-          : STORES_BROWSE_SUB_ALL;
-      lastNavPerfRef.current = { sub, t0: performance.now(), kind: "pop" };
+      queueMicrotask(() => {
+        const sp = searchParams?.get("sub");
+        const sub =
+          typeof sp === "string" && sp.trim()
+            ? storesBrowseNavSubSlug(sp.trim().toLowerCase())
+            : STORES_BROWSE_SUB_ALL;
+        lastNavPerfRef.current = { sub, t0: performance.now(), kind: "pop" };
+      });
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);

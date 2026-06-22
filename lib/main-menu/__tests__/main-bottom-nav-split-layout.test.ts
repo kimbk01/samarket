@@ -6,6 +6,8 @@ import {
 import { BOTTOM_NAV_ITEMS } from "@/lib/main-menu/bottom-nav-config";
 import {
   mypageBottomNavOriginToSecondaryRail,
+  resolveMypageBackFallbackHref,
+  writeStoredMypageBackPath,
   writeStoredMypageBottomNavOrigin,
 } from "@/lib/main-menu/mypage-bottom-nav-origin";
 
@@ -44,6 +46,16 @@ describe("resolveMainBottomNavSecondaryRailKind", () => {
     expect(mypageBottomNavOriginToSecondaryRail("trade")).toBe("trade");
     expect(mypageBottomNavOriginToSecondaryRail("community")).toBe("philife");
     expect(mypageBottomNavOriginToSecondaryRail(null)).toBe("philife");
+  });
+
+  it("resolveMypageBackFallbackHref — 직전 경로 우선", () => {
+    writeStoredMypageBottomNavOrigin("delivery");
+    writeStoredMypageBackPath("/stores/browse/restaurant?sub=all");
+    expect(resolveMypageBackFallbackHref()).toBe("/stores/browse/restaurant?sub=all");
+    writeStoredMypageBackPath("/mypage/settings");
+    expect(resolveMypageBackFallbackHref()).toBe("/stores/browse/restaurant?sub=all");
+    delete sessionMock["sam.mypage.backPath.v1"];
+    expect(resolveMypageBackFallbackHref()).toBe("/stores");
   });
 
   it("/mypage — 직전 셸 origin 으로 레일 복원", () => {

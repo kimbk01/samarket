@@ -8,6 +8,7 @@ import {
   shouldShowLocalVideoPipChrome,
   shouldShowOutgoingAuxPipPreviewSlot,
   shouldShowPipFirstLocalPreviewChrome,
+  shouldUseBackgroundCallSplitPreview,
   shouldSuppressCameraPreparingOverlayForPipFirst,
   shouldUsePipFirstLocalSlot,
   shouldUseSoloLocalFullVideoLayout,
@@ -45,7 +46,7 @@ describe("shouldUseSoloLocalFullVideoLayout", () => {
     ).toBe(true);
   });
 
-  it("PiP-first: initiator ringing uses hero main (not solo full local)", () => {
+  it("PiP-first: initiator ringing uses solo full local on main (not hero split)", () => {
     expect(
       shouldUseSoloLocalFullVideoLayout({
         callKind: "video",
@@ -53,10 +54,10 @@ describe("shouldUseSoloLocalFullVideoLayout", () => {
         joined: false,
         isInitiator: true,
       })
-    ).toBe(false);
+    ).toBe(true);
   });
 
-  it("PiP-first: initiator active pre-remote uses hero main until remote joins", () => {
+  it("PiP-first: initiator active pre-remote uses solo full local on main", () => {
     expect(
       shouldUseSoloLocalFullVideoLayout({
         callKind: "video",
@@ -65,7 +66,7 @@ describe("shouldUseSoloLocalFullVideoLayout", () => {
         remoteJoined: false,
         isInitiator: true,
       })
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("switches initiator to PiP layout after remote joined", () => {
@@ -136,17 +137,40 @@ describe("PiP-first video layout policy", () => {
     ).toBe(true);
   });
 
-  it("outgoing aux PiP slot stays until local Agora ready (camera off included)", () => {
+  it("outgoing aux PiP slot hidden until remote joins (main stays full screen)", () => {
     expect(
       shouldShowOutgoingAuxPipPreviewSlot({
         pipFirstOutgoing: true,
         localVideoReady: false,
+        remoteJoined: false,
       })
-    ).toBe(true);
+    ).toBe(false);
     expect(
       shouldShowOutgoingAuxPipPreviewSlot({
         pipFirstOutgoing: true,
+        localVideoReady: false,
+        remoteJoined: true,
+      })
+    ).toBe(true);
+  });
+
+  it("background minimized PiP uses split preview when both videos ready", () => {
+    expect(
+      shouldUseBackgroundCallSplitPreview({
+        callKind: "video",
+        joined: true,
         localVideoReady: true,
+        remoteJoined: true,
+        remoteVideoReady: true,
+      })
+    ).toBe(true);
+    expect(
+      shouldUseBackgroundCallSplitPreview({
+        callKind: "video",
+        joined: true,
+        localVideoReady: false,
+        remoteJoined: true,
+        remoteVideoReady: true,
       })
     ).toBe(false);
   });
@@ -177,22 +201,25 @@ describe("PiP-first video layout policy", () => {
     ).toBe(false);
   });
 
-  it("shows PiP preview chrome when PiP-first shell is mounted", () => {
+  it("shows PiP preview chrome only after remote joins on pip-first outgoing", () => {
     expect(
       shouldShowPipFirstLocalPreviewChrome({
         pipFirstOutgoing: true,
         pipShellMounted: true,
-        preJoinReady: false,
+        preJoinReady: true,
         localVideoReady: false,
+        remoteJoined: false,
       })
-    ).toBe(true);
+    ).toBe(false);
     expect(
       shouldShowPipFirstLocalPreviewChrome({
         pipFirstOutgoing: true,
-        pipShellMounted: false,
+        pipShellMounted: true,
         preJoinReady: true,
+        localVideoReady: false,
+        remoteJoined: true,
       })
-    ).toBe(false);
+    ).toBe(true);
   });
 });
 

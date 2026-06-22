@@ -431,6 +431,7 @@ public class MainActivity extends BridgeActivity {
     registerPlugin(com.dibay.app.call.CallPermissionPlugin.class);
     registerPlugin(com.dibay.app.call.DibayCallAudioRoutePlugin.class);
     registerPlugin(com.dibay.app.call.NativeCallServicePlugin.class);
+    registerPlugin(com.dibay.app.call.DibayCallPipPlugin.class);
     super.onCreate(savedInstanceState);
     Log.i(WEBVIEW_LOG_TAG, "app_start package=" + getPackageName());
     String serverOrigin = DibayServerOrigin.resolve(this);
@@ -502,22 +503,54 @@ public class MainActivity extends BridgeActivity {
     } else {
       DibayActiveCallSessionManager.onPipExited(callId);
     }
+    com.dibay.app.call.DibayCallPipPlugin plugin = com.dibay.app.call.DibayCallPipPlugin.getInstance();
+    if (plugin != null) {
+      plugin.emitPipModeChanged(isInPictureInPictureMode, callId);
+    }
+  }
+
+  /** Bridge entry — video active call system PiP */
+  public boolean requestVideoCallPipFromBridge() {
+    return tryEnterVideoCallPip();
   }
 
   /** Video active call — system PiP when home/back; failure must not end call */
-  private void tryEnterVideoCallPip() {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
+  private boolean tryEnterVideoCallPip() {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false;
     String callId = DibayActiveCallSessionManager.getActiveCallId();
-    if (callId == null || callId.isEmpty() || !DibayActiveCallSessionManager.isConnected()) return;
-    if (!"video".equalsIgnoreCase(DibayActiveCallSessionManager.getMediaType())) return;
-    if (isInPictureInPictureMode()) return;
+    if (callId == null || callId.isEmpty() || !DibayActiveCallSessionManager.isConnected()) return false;
+    if (!"video".equalsIgnoreCase(DibayActiveCallSessionManager.getMediaType())) return false;
+    if (isInPictureInPictureMode()) return true;
     try {
       PictureInPictureParams params =
           new PictureInPictureParams.Builder().setAspectRatio(new Rational(9, 16)).build();
-      enterPictureInPictureMode(params);
+      boolean entered = enterPictureInPictureMode(params);
+      if (!entered) {
+        notifyWebPipFallbackDock(callId);
+      }
+      return entered;
     } catch (Exception e) {
       Log.w("DIBAY_CALL", "active_call_pip_enter_failed callId=" + callId, e);
       DibayCallLog.once("active_call_pip_enter_failed", callId, "err=" + e.getClass().getSimpleName());
+      notifyWebPipFallbackDock(callId);
+      return false;
+    }
+  }
+
+  private void notifyWebPipFallbackDock(String callId) {
+    com.dibay.app.call.DibayCallPipPlugin plugin = com.dibay.app.call.DibayCallPipPlugin.getInstance();
+    if (plugin != null) {
+      plugin.emitPipFallbackDock(callId);
+    }
+    Bridge bridge = getBridge();
+    if (bridge != null && bridge.getWebView() != null) {
+      bridge
+          .getWebView()
+          .post(
+              () ->
+                  bridge.eval(
+                      "window.dispatchEvent(new CustomEvent('dibay:call-pip-fallback-dock'))",
+                      null));
     }
   }
 

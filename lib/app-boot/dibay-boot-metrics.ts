@@ -118,44 +118,50 @@ export function tryDismissNativeSplash(reason: string): void {
   splashDismissAttempted = true;
   setMetric("splashDismissReason", reason);
 
-  let bridgeOk = false;
-  try {
-    const bridge = (window as unknown as { DibayBootBridge?: { dismissSplash?: () => void } })
-      .DibayBootBridge;
-    if (bridge?.dismissSplash) {
-      bridge.dismissSplash();
-      bridgeOk = true;
-    }
-  } catch (e) {
-    logSplashDismiss(reason, false, `DibayBootBridge err=${String(e)}`);
-  }
-
-  try {
-    window.__dibayNativeSplashDismiss?.();
-  } catch {
-    /* ignore */
-  }
+  if (typeof window === "undefined") return;
 
   void (async () => {
     try {
       const { Capacitor } = await import("@capacitor/core");
       if (!Capacitor.isNativePlatform()) {
-        logSplashDismiss(reason, bridgeOk, "web-skip");
         return;
       }
-      const { SplashScreen } = await import("@capacitor/splash-screen");
-      await SplashScreen.hide();
-      logSplashDismiss(reason, true, bridgeOk ? "bridge+capacitor" : "capacitor-only");
-    } catch (e) {
-      logSplashDismiss(reason, bridgeOk, `capacitor err=${String(e)}`);
+
+      let bridgeOk = false;
+      try {
+        const bridge = (window as unknown as { DibayBootBridge?: { dismissSplash?: () => void } })
+          .DibayBootBridge;
+        if (bridge?.dismissSplash) {
+          bridge.dismissSplash();
+          bridgeOk = true;
+        }
+      } catch (e) {
+        logSplashDismiss(reason, false, `DibayBootBridge err=${String(e)}`);
+      }
+
+      try {
+        window.__dibayNativeSplashDismiss?.();
+      } catch {
+        /* ignore */
+      }
+
+      try {
+        const { SplashScreen } = await import("@capacitor/splash-screen");
+        await SplashScreen.hide();
+        logSplashDismiss(reason, true, bridgeOk ? "bridge+capacitor" : "capacitor-only");
+      } catch (e) {
+        logSplashDismiss(reason, bridgeOk, `capacitor err=${String(e)}`);
+      }
+
+      if (bridgeOk) {
+        logSplashDismiss(reason, true, "bridge");
+      } else if (!(window as unknown as { DibayBootBridge?: unknown }).DibayBootBridge) {
+        logSplashDismiss(reason, false, "DibayBootBridge missing");
+      }
+    } catch {
+      /* web / capacitor load 실패 — 스플래시 없음 */
     }
   })();
-
-  if (bridgeOk) {
-    logSplashDismiss(reason, true, "bridge");
-  } else if (typeof window !== "undefined" && !(window as unknown as { DibayBootBridge?: unknown }).DibayBootBridge) {
-    logSplashDismiss(reason, false, "DibayBootBridge missing");
-  }
 }
 
 export function markBootMetricsFirstPaint(): void {

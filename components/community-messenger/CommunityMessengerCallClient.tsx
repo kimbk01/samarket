@@ -62,6 +62,7 @@ import {
   shouldShowOutgoingAuxPipPreviewSlot,
   shouldShowPipFirstLocalPreviewChrome,
   shouldSuppressCameraPreparingOverlayForPipFirst,
+  shouldUseBackgroundCallSplitPreview,
   shouldUsePipFirstLocalSlot,
   shouldUseSoloLocalFullVideoLayout,
 } from "@/lib/community-messenger/call-video-layout";
@@ -134,11 +135,22 @@ import {
   takeDetachedCommunityCallCleanup,
   resumeDetachedCommunityCall,
   minimizeCommunityCallToPip,
+  dockCommunityCall,
+  expandCommunityCallFromDock,
+  readDockedCallSessionId,
   shouldSkipCallClientUnmountDispose,
   clearMinimizedCommunityCallSessionFlags,
   writeActiveDirectVideoCallSession,
   isCommunityMessengerDedicatedCallSessionPath,
+  canRetainCommunityCallPresentation,
+  readAndroidOsPipCallSessionId,
 } from "@/lib/community-messenger/direct-call-minimize";
+import {
+  beginDockEnterTransition,
+  commitDockEnterTransition,
+  finishFullscreenRestoreFromDock,
+  tryBeginFullscreenRestoreFromDock,
+} from "@/lib/community-messenger/call-dock-presentation";
 import {
   shouldSkipActiveCallRecoveryRouting,
 } from "@/lib/community-messenger/call-active-session-recovery";
@@ -220,7 +232,7 @@ import { fetchMessengerCallSoundConfig, getMessengerCallSoundConfigCache } from 
 import { incomingRingTimeoutMsFromConfig } from "@/lib/community-messenger/messenger-call-ring-timeout";
 import { patchCommunityMessengerCallMissedOnce } from "@/lib/community-messenger/messenger-call-missed-patch";
 import { dismissAllIncomingCallNotificationsFireAndForget } from "@/lib/push/native/dismiss-native-incoming-call-notification";
-import { registerCommunityMessengerCallRuntime, resetCommunityMessengerCallRuntimeSurface, syncCommunityMessengerCallRuntimeSurface } from "@/lib/community-messenger/call-runtime-registry";
+import { registerCommunityMessengerCallRuntime, resetCommunityMessengerCallRuntimeSurface, forceResetCommunityMessengerCallRuntimeSurface, syncCommunityMessengerCallRuntimeSurface } from "@/lib/community-messenger/call-runtime-registry";
 import { peekMessengerBootstrapCritical, peekMessengerBootstrapFull } from "@/lib/community-messenger/bootstrap-cache";
 import { useCallVideoPipGesture } from "@/lib/community-messenger/use-call-video-pip-gesture";
 import {
@@ -556,10 +568,10 @@ export function CommunityMessengerCallClient({
   sessionId: string;
   /** RSC에서 미리 조회해 첫 페인트·클라이언트 중복 요청을 줄인다 */
   initialSession?: CommunityMessengerCallSession | null;
-  presentation?: "fullscreen" | "minimized";
+  presentation?: "fullscreen" | "minimized" | "dock";
 }) {
   const { t } = useI18n();
-  useMessengerCallMainBottomNavSuppress(presentation !== "minimized");
+  useMessengerCallMainBottomNavSuppress(presentation === "fullscreen");
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -1834,7 +1846,7 @@ export function CommunityMessengerCallClient({
     setLocalVideoPlayBlocked(false);
     heldPreJoinVideoPreviewRef.current = null;
     try {
-      resetCommunityMessengerCallRuntimeSurface();
+      forceResetCommunityMessengerCallRuntimeSurface();
     } catch {
       /* ignore */
     }
@@ -4339,9 +4351,32 @@ export function CommunityMessengerCallClient({
   }, [joined, remoteJoined, scheduleSilentRefresh, sessionRealtimeSubscribed, session?.id, session?.sessionMode, session?.status]);
 
   /**
-   * 전용 `/calls/:id` 라우트는 페이지 CallClient 가 단일 소유 — host `writeActive` 시 이중 마운트·Agora 충돌.
-   * 영상 통화만 PiP·다른 화면 이동 시 ActiveCallHost 상주.
+   * 전용 `/calls/:id` 이탈 — active direct 통화는 CallClient 유지 + Dock 전환.
    */
+  useEffect(() => {
+    const s = sessionRef.current;
+    if (!s?.id || !joinedRef.current || s.status !== "active" || s.sessionMode !== "direct") return;
+    if (isCommunityMessengerDedicatedCallSessionPath(pathname, s.id)) return;
+    if (readDockedCallSessionId() === s.id) return;
+    if (
+      !canRetainCommunityCallPresentation({
+        status: s.status,
+        sessionMode: s.sessionMode,
+        joined: joinedRef.current,
+      })
+    ) {
+      return;
+    }
+    dockCommunityCall({
+      sessionId: s.id,
+      roomId: s.roomId,
+      cleanup: () => disposeCallMedia(),
+    });
+    notifyCommunityCallHostSync();
+    syncCommunityMessengerCallRuntimeSurface({ presentation: "dock" });
+  }, [disposeCallMedia, joined, pathname, session?.id, session?.sessionMode, session?.status]);
+
+  /** legacy: dedicated route 벗어난 video — ActiveCallHost 상주 플래그 (Dock 전환과 병행) */
   useEffect(() => {
     const s = sessionRef.current;
     if (!s?.id || !joinedRef.current || s.status !== "active" || s.sessionMode !== "direct") return;
@@ -4383,6 +4418,18 @@ export function CommunityMessengerCallClient({
   const handleExpandToFullscreen = useCallback(() => {
     const sid = sessionRef.current?.id?.trim();
     if (!sid) return;
+    if (readDockedCallSessionId() === sid) {
+      if (!tryBeginFullscreenRestoreFromDock()) return;
+      expandCommunityCallFromDock(sid);
+      notifyCommunityCallHostSync();
+      syncCommunityMessengerCallRuntimeSurface({ presentation: "fullscreen" });
+      const href = `/community-messenger/calls/${encodeURIComponent(sid)}`;
+      if (!callEngineActions.pushRouteOnce(router, sid, href)) {
+        router.push(href);
+      }
+      void finishFullscreenRestoreFromDock();
+      return;
+    }
     clearMinimizedCommunityCallSessionFlags();
     resumeDetachedCommunityCall(sid);
     notifyCommunityCallHostSync();
@@ -4392,6 +4439,25 @@ export function CommunityMessengerCallClient({
       router.push(href);
     }
   }, [router]);
+
+  const handleMinimizeToDock = useCallback(() => {
+    const s = sessionRef.current;
+    if (!s?.id || !joinedRef.current || s.status !== "active" || s.sessionMode !== "direct") return;
+    if (readDockedCallSessionId() === s.id) return;
+    if (readAndroidOsPipCallSessionId() === s.id) return;
+    void (async () => {
+      await beginDockEnterTransition(s.id);
+      dockCommunityCall({
+        sessionId: s.id,
+        roomId: s.roomId,
+        cleanup: () => disposeCallMedia(),
+      });
+      commitDockEnterTransition(s.id);
+      notifyCommunityCallHostSync();
+      syncCommunityMessengerCallRuntimeSurface({ presentation: "dock" });
+      navigateBackFromCommunityMessengerCall(router, s.roomId);
+    })();
+  }, [disposeCallMedia, router]);
 
   const handleMinimizeToPip = useCallback(() => {
     const s = sessionRef.current;
@@ -4499,6 +4565,27 @@ export function CommunityMessengerCallClient({
       detachPreJoinHtmlVideo(ringPreviewVideoRef.current);
       detachPreJoinHtmlVideo(pipPrejoinVideoRef.current);
       return;
+    }
+
+    if (pipFirstOutgoing && !remoteJoined) {
+      detachPreJoinHtmlVideo(pipPrejoinVideoRef.current);
+      if (showOutgoingRingCameraPreview || !preJoinVideoPreviewStream) {
+        setPreJoinVideoElementReady(false);
+        detachPreJoinHtmlVideo(ringPreviewVideoRef.current);
+        return;
+      }
+      const el = ringPreviewVideoRef.current;
+      if (!el) return;
+      setPreJoinVideoElementReady(false);
+      let cancelled = false;
+      void attachPreJoinHtmlVideo(el, preJoinVideoPreviewStream).then((ok) => {
+        if (!cancelled) setPreJoinVideoElementReady(ok);
+      });
+      return () => {
+        cancelled = true;
+        if (!localVideoReady) return;
+        detachPreJoinHtmlVideo(el);
+      };
     }
 
     if (pipFirstOutgoing) {
@@ -4631,6 +4718,7 @@ export function CommunityMessengerCallClient({
     const showPipPrejoin = shouldShowOutgoingAuxPipPreviewSlot({
       pipFirstOutgoing: pipFirstOutgoingForSlot,
       localVideoReady,
+      remoteJoined,
     });
     return (
       <div className="relative h-full w-full bg-[#003D29] [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:object-cover">
@@ -4672,7 +4760,8 @@ export function CommunityMessengerCallClient({
     pipFirstOutgoingForSlot,
     preJoinVideoElementReady,
     preJoinVideoPreviewStream,
-    selfAvatarUrlForPip,
+    remoteJoined,
+    remoteVideoReady,
     session,
   ]);
 
@@ -4680,26 +4769,93 @@ export function CommunityMessengerCallClient({
     const livePresentation =
       presentation === "minimized"
         ? "minimized"
-        : joined && session?.status === "active"
-          ? "fullscreen"
-          : "idle";
+        : presentation === "dock"
+          ? "dock"
+          : joined && session?.status === "active"
+            ? "fullscreen"
+            : "idle";
+    const dockStatusText =
+      session?.status === "active" && joined
+        ? agoraReconnecting
+          ? t("cm_ui_call_reconnecting")
+          : session.callKind === "video"
+            ? t("cm_ui_call_active_video")
+            : t("cm_ui_call_active_voice")
+        : session?.status === "ringing"
+          ? t("cm_ui_call_label")
+          : t("cm_ui_connecting");
     syncCommunityMessengerCallRuntimeSurface({
       presentation: livePresentation,
       videoPipLayout: pipShellMountedForSync ? videoPipGesture : null,
       miniVideoSlot: miniVideoSlotEl ?? null,
       expandToFullscreen: handleExpandToFullscreen,
       minimizeToPip: handleMinimizeToPip,
+      minimizeToDock: handleMinimizeToDock,
+      dockSnapshot:
+        session && joined && session.status === "active"
+          ? (() => {
+              const useSplitPreview = shouldUseBackgroundCallSplitPreview({
+                callKind: session.callKind,
+                joined,
+                localVideoReady,
+                remoteJoined,
+                remoteVideoReady,
+              });
+              return {
+                peerLabel: session.peerLabel,
+                peerAvatarUrl: session.peerAvatarUrl ?? null,
+                statusText: dockStatusText,
+                timerText: connectedAtTs != null ? null : null,
+                micMuted,
+                cameraOff: camOff,
+                isVideo: session.callKind === "video",
+                useSplitPreview,
+                videoThumbSlot:
+                  session.callKind === "video" && (localVideoReady || preJoinVideoPreviewStream)
+                    ? miniVideoSlotEl ?? null
+                    : null,
+                remoteVideoThumbSlot: useSplitPreview ? (
+                  <SamarketUserAvatarThumb
+                    avatarUrl={session.peerAvatarUrl}
+                    size={44}
+                    roundedClassName="rounded-ui-rect"
+                    className="h-full w-full object-cover"
+                  />
+                ) : null,
+              };
+            })()
+          : null,
+      onDockExpand: handleExpandToFullscreen,
+      onDockEnd: () => {
+        void endCallRef.current();
+      },
+      onDockToggleMute: () => {
+        void toggleMicEnabled();
+      },
     });
   }, [
+    agoraReconnecting,
     camOff,
+    connectedAtTs,
     handleExpandToFullscreen,
+    handleMinimizeToDock,
     handleMinimizeToPip,
     joined,
+    micMuted,
     miniVideoSlotEl,
+    localVideoReady,
     pipShellMountedForSync,
+    preJoinVideoPreviewStream,
     presentation,
+    remoteJoined,
+    remoteVideoReady,
+    session,
     session?.callKind,
+    session?.peerAvatarUrl,
+    session?.peerLabel,
     session?.status,
+    t,
+    toggleMicEnabled,
     videoPipGesture,
   ]);
 
@@ -5219,6 +5375,7 @@ export function CommunityMessengerCallClient({
       pipShellMounted,
       preJoinReady: preJoinVideoElementReady,
       localVideoReady,
+      remoteJoined,
     });
   const suppressCameraPreparingOverlay = shouldSuppressCameraPreparingOverlayForPipFirst({
     pipFirstOutgoing,
@@ -5257,24 +5414,26 @@ export function CommunityMessengerCallClient({
       localVideoMinimized: true,
     },
     onBack:
-      videoCall && session.isMineInitiator && (displayCallPhase === "ringing" || displayCallPhase === "connecting")
-        ? () => void endCall()
-        : null,
+      joined && session.status === "active" && session.sessionMode === "direct"
+        ? () => handleMinimizeToDock()
+        : videoCall && session.isMineInitiator && (displayCallPhase === "ringing" || displayCallPhase === "connecting")
+          ? () => void endCall()
+          : null,
     hideOutgoingVideoBrandRow: Boolean(
       videoCall &&
         (session.isMineInitiator
           ? !(remoteJoined && remoteVideoReady)
           : displayCallPhase === "ringing" || displayCallPhase === "connecting")
     ),
-    pipFirstOutgoingMainPlaceholder: pipFirstOutgoing && !remoteJoined,
+    pipFirstOutgoingMainPlaceholder: false,
     primaryActions: visibleActions.primaryActions,
     secondaryActions: visibleActions.secondaryActions,
     mainVideoSlot: videoCall ? (
       <div className="absolute inset-0 min-h-0 bg-[#003D29] [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:min-h-0 [&_video]:object-cover">
         <div ref={largeVideoRef} className="absolute inset-0 z-[1] h-full min-h-0 w-full" />
-        {!pipFirstOutgoing && showOutgoingRingCameraPreview ? (
+        {showOutgoingRingCameraPreview ? (
           <OutgoingRingCameraPreview stream={preJoinVideoPreviewStream} />
-        ) : !pipFirstOutgoing && preJoinVideoPreviewStream && !localVideoReady ? (
+        ) : preJoinVideoPreviewStream && !localVideoReady ? (
           <video
             ref={ringPreviewVideoRef}
             className={`absolute inset-0 z-[2] h-full w-full object-cover transition-opacity duration-100 ${
@@ -5338,7 +5497,7 @@ export function CommunityMessengerCallClient({
     !joined &&
     insecureOriginBlocked;
 
-  if (presentation === "minimized") {
+  if (presentation === "minimized" || presentation === "dock") {
     return (
       <div className="fixed -left-[9999px] top-0 h-px w-px overflow-hidden opacity-0 pointer-events-none" aria-hidden>
         {videoCall ? <div ref={largeVideoRef} className="h-full w-full" /> : null}

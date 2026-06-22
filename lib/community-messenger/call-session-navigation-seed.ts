@@ -32,7 +32,7 @@ import { writeTerminalCallRecoverySuppress } from "@/lib/community-messenger/cal
 import {
   clearAllCommunityCallLocalSessionFlags,
 } from "@/lib/community-messenger/direct-call-minimize";
-import { resetCommunityMessengerCallRuntimeSurface } from "@/lib/community-messenger/call-runtime-registry";
+import { resetCommunityMessengerCallRuntimeSurface, forceResetCommunityMessengerCallRuntimeSurface } from "@/lib/community-messenger/call-runtime-registry";
 import { notifyCommunityCallHostSync } from "@/components/layout/providers/CommunityMessengerActiveCallHost";
 import { hardClearActiveCallSession } from "@/lib/call/active-call-session";
 import {
@@ -227,7 +227,7 @@ export function pinCommunityMessengerCallTerminalSurfaceDismiss(sessionId: strin
   clearAllCommunityCallLocalSessionFlags();
   notifyCommunityCallHostSync();
   try {
-    resetCommunityMessengerCallRuntimeSurface();
+    forceResetCommunityMessengerCallRuntimeSurface();
   } catch {
     /* ignore */
   }

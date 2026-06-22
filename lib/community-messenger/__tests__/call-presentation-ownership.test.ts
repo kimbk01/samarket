@@ -2,14 +2,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearAllCommunityCallLocalSessionFlags,
   dockCommunityCall,
+  enterAndroidOsPipCommunityCall,
+  expandCommunityCallFromAndroidOsPip,
   expandCommunityCallFromDock,
   expandCommunityCallFromPip,
   forceDisposeDetachedCommunityCall,
   isTerminalSuppressedPresentation,
   minimizeCommunityCallToPip,
+  readAndroidOsPipCallSessionId,
   readDockedCallSessionId,
   readHostedActiveCallSessionId,
   readPipMinimizedCallSessionId,
+  resolveCallPresentationSurface,
   resolveHostedCallPresentation,
   shouldSkipCallClientUnmountDispose,
   writeHostedActiveCallSession,
@@ -134,5 +138,39 @@ describe("call presentation ownership (GOOD baseline)", () => {
       requestOwner: "dock_or_pip",
     });
     expect(owner).toBe("dock_or_pip");
+  });
+
+  it("J: full -> android_os_pip -> full", () => {
+    writeHostedActiveCallSession("call-j");
+    enterAndroidOsPipCommunityCall({ sessionId: "call-j", roomId: "room-j", cleanup: vi.fn(async () => {}) });
+    expect(resolveCallPresentationSurface("call-j")).toBe("ANDROID_OS_PIP");
+    expect(readAndroidOsPipCallSessionId()).toBe("call-j");
+    expandCommunityCallFromAndroidOsPip("call-j");
+    expect(readAndroidOsPipCallSessionId()).toBeNull();
+    expect(resolveCallPresentationSurface("call-j")).toBe("FULLSCREEN");
+  });
+
+  it("K: retained dock blocks runtime reset guard", async () => {
+    const { shouldBlockCallRuntimeSurfaceReset } = await import(
+      "@/lib/community-messenger/call-presentation-surface"
+    );
+    const {
+      forceResetCommunityMessengerCallRuntimeSurface,
+      getCommunityMessengerCallRuntimeSurface,
+      resetCommunityMessengerCallRuntimeSurface,
+      syncCommunityMessengerCallRuntimeSurface,
+    } = await import("@/lib/community-messenger/call-runtime-registry");
+    dockCommunityCall({ sessionId: "call-k", roomId: "room-k", cleanup: vi.fn(async () => {}) });
+    syncCommunityMessengerCallRuntimeSurface({ presentation: "dock" });
+    expect(shouldBlockCallRuntimeSurfaceReset()).toBe(true);
+    resetCommunityMessengerCallRuntimeSurface();
+    expect(getCommunityMessengerCallRuntimeSurface().presentation).toBe("dock");
+    forceResetCommunityMessengerCallRuntimeSurface();
+    expect(getCommunityMessengerCallRuntimeSurface().presentation).toBe("idle");
+  });
+
+  it("L: route unmount retain — dock keeps skip dispose", () => {
+    dockCommunityCall({ sessionId: "call-l", roomId: "room-l", cleanup: vi.fn(async () => {}) });
+    expect(shouldSkipCallClientUnmountDispose("call-l")).toBe(true);
   });
 });

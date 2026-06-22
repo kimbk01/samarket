@@ -5,6 +5,8 @@ export const CALL_ENGINE_STORE_KEYS = {
   minimizedRoom: "cm_minimized_call_room",
   dockedSession: "cm_docked_call_session",
   dockedRoom: "cm_docked_call_room",
+  androidOsPipSession: "cm_android_os_pip_call_session",
+  iosNativePipSession: "cm_ios_native_pip_call_session",
   activeVideoSession: "cm_active_direct_video_call_session",
   pendingRoute: "dibay_call_pending_route",
   navigationSeed: "samarket.cm.call_session_seed.v1",
@@ -100,6 +102,34 @@ export function writeCallEngineDockedSession(sessionId: string, roomId?: string 
 export function clearCallEngineDockedSession(): void {
   removeSessionRaw(CALL_ENGINE_STORE_KEYS.dockedSession);
   removeSessionRaw(CALL_ENGINE_STORE_KEYS.dockedRoom);
+}
+
+export function readCallEngineAndroidOsPipSessionId(): string | null {
+  return readSessionRaw(CALL_ENGINE_STORE_KEYS.androidOsPipSession)?.trim() || null;
+}
+
+export function writeCallEngineAndroidOsPipSession(sessionId: string): void {
+  const sid = sessionId.trim();
+  if (!sid) return;
+  writeSessionRaw(CALL_ENGINE_STORE_KEYS.androidOsPipSession, sid);
+}
+
+export function clearCallEngineAndroidOsPipSession(): void {
+  removeSessionRaw(CALL_ENGINE_STORE_KEYS.androidOsPipSession);
+}
+
+export function readCallEngineIosNativePipSessionId(): string | null {
+  return readSessionRaw(CALL_ENGINE_STORE_KEYS.iosNativePipSession)?.trim() || null;
+}
+
+export function writeCallEngineIosNativePipSession(sessionId: string): void {
+  const sid = sessionId.trim();
+  if (!sid) return;
+  writeSessionRaw(CALL_ENGINE_STORE_KEYS.iosNativePipSession, sid);
+}
+
+export function clearCallEngineIosNativePipSession(): void {
+  removeSessionRaw(CALL_ENGINE_STORE_KEYS.iosNativePipSession);
 }
 
 export function writeCallEnginePendingRoute(path: string, callId?: string): void {

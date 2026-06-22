@@ -1,14 +1,42 @@
 "use client";
 
+import { useEffect, useSyncExternalStore } from "react";
 import { useMessengerSnackbarStore } from "@/lib/community-messenger/stores/messenger-snackbar-store";
+import { subscribeCommunityCallHostSync } from "@/components/layout/providers/CommunityMessengerActiveCallHost";
+import {
+  shouldSuppressCallOverlayToasts,
+  subscribeCallDockPresentation,
+} from "@/lib/community-messenger/call-dock-presentation";
+
+function readCallOverlayToastSuppress(): boolean {
+  return shouldSuppressCallOverlayToasts();
+}
+
+function subscribeCallOverlayToastSuppress(onStoreChange: () => void): () => void {
+  const unsubs = [subscribeCallDockPresentation(onStoreChange), subscribeCommunityCallHostSync(onStoreChange)];
+  return () => {
+    for (const unsub of unsubs) unsub();
+  };
+}
 
 /**
  * `/community-messenger/*` 레이아웃에만 두고, API·권한·복사 등 비차단 피드백을 표시한다.
+ * Call Dock·OS PiP 활성 시 snackbar 겹침 방지.
  */
 export function MessengerSnackbarHost() {
+  const suppress = useSyncExternalStore(
+    subscribeCallOverlayToastSuppress,
+    readCallOverlayToastSuppress,
+    () => false
+  );
   const current = useMessengerSnackbarStore((s) => s.current);
   const dismiss = useMessengerSnackbarStore((s) => s.dismiss);
-  if (!current) return null;
+
+  useEffect(() => {
+    if (suppress) dismiss();
+  }, [suppress, dismiss]);
+
+  if (suppress || !current) return null;
 
   const surface =
     current.variant === "error"

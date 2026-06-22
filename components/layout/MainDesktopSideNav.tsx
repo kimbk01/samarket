@@ -17,8 +17,7 @@ import {
 import { isMainBottomNavDisplayTabActive } from "@/lib/main-menu/main-bottom-nav-tab-active";
 import { commitBottomNavTabRoute } from "@/components/layout/BottomNav";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
-import { writeStoredMypageBottomNavOrigin } from "@/lib/main-menu/mypage-bottom-nav-origin";
-import { isDeliveryConsumerBottomNavSurface } from "@/lib/main-menu/delivery-bottom-nav-layout";
+import { syncMypageBottomNavContextFromPath } from "@/lib/main-menu/mypage-bottom-nav-origin";
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 
 function DesktopSideNavItem({
@@ -112,19 +111,8 @@ export function MainDesktopSideNav() {
   );
 
   useEffect(() => {
-    const p = (pathname ?? "").split("?")[0]?.trim().replace(/\/+$/, "") || "/";
-    if (isDeliveryConsumerBottomNavSurface(p) || p === "/stores" || p.startsWith("/stores/")) {
-      writeStoredMypageBottomNavOrigin("delivery");
-      return;
-    }
-    if (p === "/market" || p.startsWith("/market/")) {
-      writeStoredMypageBottomNavOrigin("trade");
-      return;
-    }
-    if (p === "/philife" || p.startsWith("/philife/") || p === "/community" || p.startsWith("/community/")) {
-      writeStoredMypageBottomNavOrigin("community");
-    }
-  }, [pathname]);
+    syncMypageBottomNavContextFromPath(pathname, navSearch);
+  }, [pathname, navSearch]);
 
   const onNavigationIntent = useCallback((tabId: string) => {
     setPendingActiveTabId(tabId);

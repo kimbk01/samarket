@@ -2,6 +2,7 @@
 
 import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
+import { CallBackgroundSplitPreview } from "@/components/community-messenger/call-ui/CallBackgroundSplitPreview";
 import { MiniLocalVideo } from "@/components/messenger/call/MiniLocalVideo";
 import {
   getCommunityMessengerCallRuntimeSurface,
@@ -31,25 +32,50 @@ export function GlobalCallVideoPipHost() {
   if (!portalReady || typeof document === "undefined") return null;
   if (surface.presentation !== "minimized" || !bindings) return null;
 
+  const splitPreview = Boolean(surface.dockSnapshot?.useSplitPreview);
+  const remoteSlot = surface.dockSnapshot?.remoteVideoThumbSlot;
+  const localSlot = surface.miniVideoSlot;
+
   return createPortal(
-    <MiniLocalVideo
-      ref={bindings.pipRef}
-      label={bindings.pipLabel}
-      widthPx={bindings.widthPx}
-      heightPx={bindings.heightPx}
-      style={bindings.pipStyle ?? undefined}
-      useAnchoredPosition={Boolean(bindings.pipStyle)}
-      positionMode="viewport-fixed"
-      micMuted={bindings.micMuted}
-      cameraOff={bindings.cameraOff}
-      onExpand={bindings.onPipExpand ?? surface.expandToFullscreen ?? undefined}
-      onPointerDown={bindings.onPipPointerDown}
-      onPointerMove={bindings.onPipPointerMove}
-      onPointerUp={bindings.onPipPointerUp}
-      onPointerCancel={bindings.onPipPointerCancel}
-    >
-      {surface.miniVideoSlot}
-    </MiniLocalVideo>,
+    splitPreview && remoteSlot && localSlot ? (
+      <MiniLocalVideo
+        ref={bindings.pipRef}
+        label={bindings.pipLabel}
+        widthPx={bindings.widthPx ? bindings.widthPx * 1.85 : undefined}
+        heightPx={bindings.heightPx}
+        style={bindings.pipStyle ?? undefined}
+        useAnchoredPosition={Boolean(bindings.pipStyle)}
+        positionMode="viewport-fixed"
+        micMuted={bindings.micMuted}
+        cameraOff={bindings.cameraOff}
+        onExpand={bindings.onPipExpand ?? surface.expandToFullscreen ?? undefined}
+        onPointerDown={bindings.onPipPointerDown}
+        onPointerMove={bindings.onPipPointerMove}
+        onPointerUp={bindings.onPipPointerUp}
+        onPointerCancel={bindings.onPipPointerCancel}
+      >
+        <CallBackgroundSplitPreview remoteSlot={remoteSlot} localSlot={localSlot} />
+      </MiniLocalVideo>
+    ) : (
+      <MiniLocalVideo
+        ref={bindings.pipRef}
+        label={bindings.pipLabel}
+        widthPx={bindings.widthPx}
+        heightPx={bindings.heightPx}
+        style={bindings.pipStyle ?? undefined}
+        useAnchoredPosition={Boolean(bindings.pipStyle)}
+        positionMode="viewport-fixed"
+        micMuted={bindings.micMuted}
+        cameraOff={bindings.cameraOff}
+        onExpand={bindings.onPipExpand ?? surface.expandToFullscreen ?? undefined}
+        onPointerDown={bindings.onPipPointerDown}
+        onPointerMove={bindings.onPipPointerMove}
+        onPointerUp={bindings.onPipPointerUp}
+        onPointerCancel={bindings.onPipPointerCancel}
+      >
+        {localSlot}
+      </MiniLocalVideo>
+    ),
     document.body
   );
 }

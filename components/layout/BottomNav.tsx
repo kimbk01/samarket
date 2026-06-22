@@ -48,7 +48,6 @@ import {
 import {
   DELIVERY_BOTTOM_NAV_LABEL_CLASS,
   isDeliveryBottomNavTabId,
-  isDeliveryConsumerBottomNavSurface,
 } from "@/lib/main-menu/delivery-bottom-nav-layout";
 import {
   isPhilifeBottomNavTabId,
@@ -63,7 +62,7 @@ import {
   runTradeHomeHubLongPress,
   runTradeHomeHubShortTap,
 } from "@/lib/trade/trade-home-hub-navigation";
-import { writeStoredMypageBottomNavOrigin } from "@/lib/main-menu/mypage-bottom-nav-origin";
+import { syncMypageBottomNavContextFromPath } from "@/lib/main-menu/mypage-bottom-nav-origin";
 import {
   DELIVERY_HOME_HUB_LONG_PRESS_MS,
   runDeliveryHomeHubLongPress,
@@ -1124,25 +1123,14 @@ export function BottomNav({
     bumpMessengerRenderPerf("messenger_bottom_nav_render");
   }
   const pathname = usePathname();
-
-  /** `/mypage` 레일 — 직전 배달·거래·커뮤니티 셸을 sessionStorage 로 복원 */
-  useEffect(() => {
-    const p = (pathname ?? "").split("?")[0]?.trim().replace(/\/+$/, "") || "/";
-    if (isDeliveryConsumerBottomNavSurface(p) || p === "/stores" || p.startsWith("/stores/")) {
-      writeStoredMypageBottomNavOrigin("delivery");
-      return;
-    }
-    if (p === "/market" || p.startsWith("/market/")) {
-      writeStoredMypageBottomNavOrigin("trade");
-      return;
-    }
-    if (p === "/philife" || p.startsWith("/philife/") || p === "/community" || p.startsWith("/community/")) {
-      writeStoredMypageBottomNavOrigin("community");
-    }
-  }, [pathname]);
   const { primaryRegion } = useRegion();
   const searchParams = useSearchParams();
   const navSearch = searchParams.toString();
+
+  /** `/mypage` 레일 — 직전 배달·거래·커뮤니티 셸을 sessionStorage 로 복원 */
+  useEffect(() => {
+    syncMypageBottomNavContextFromPath(pathname, navSearch);
+  }, [pathname, navSearch]);
   const bottomNavPickCtxRef = useRef<{ searchParams: typeof searchParams; ownerStoreId?: string | null }>({
     searchParams,
     ownerStoreId: null,
