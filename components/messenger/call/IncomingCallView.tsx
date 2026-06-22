@@ -66,6 +66,7 @@ export function IncomingCallView({ vm }: { vm: CallScreenViewModel }) {
                 type="button"
                 disabled={decline?.disabled}
                 onClick={() => decline?.onClick()}
+                data-testid={decline?.dataTestId}
                 className={`flex h-[clamp(72px,22vw,88px)] w-[clamp(72px,22vw,88px)] shrink-0 items-center justify-center rounded-full text-white transition active:scale-[0.96] disabled:opacity-40 ${
                   isStarbucks
                     ? "bg-[#A9472B] shadow-[0_16px_34px_rgba(88,41,26,0.34)] ring-1 ring-[#F1F8F4]/18"
@@ -84,6 +85,7 @@ export function IncomingCallView({ vm }: { vm: CallScreenViewModel }) {
                 type="button"
                 disabled={accept?.disabled}
                 onClick={() => accept?.onClick()}
+                data-testid={accept?.dataTestId}
                 className={`flex h-[clamp(72px,22vw,88px)] w-[clamp(72px,22vw,88px)] shrink-0 items-center justify-center rounded-full text-white transition active:scale-[0.96] disabled:opacity-40 ${
                   isStarbucks
                     ? "bg-[#00754A] shadow-[0_16px_34px_rgba(0,61,41,0.34)] ring-1 ring-[#D4E9E2]/35"

@@ -34,6 +34,10 @@ export type IncomingCallBannerProps = {
   onReject: () => void;
   onAccept: () => void;
   onBlock?: () => void;
+  /** QA·V3 safe lane selectors */
+  acceptDataTestId?: string;
+  rejectDataTestId?: string;
+  bannerDataTestId?: string;
 };
 
 function remainingSeconds(startedAt: string | null | undefined, timeoutSeconds: number | null | undefined): number | null {
@@ -58,6 +62,9 @@ export function IncomingCallBanner(props: IncomingCallBannerProps) {
     onReject,
     onAccept,
     onBlock,
+    acceptDataTestId,
+    rejectDataTestId,
+    bannerDataTestId,
   } = props;
   const [remainSec, setRemainSec] = useState<number | null>(() => remainingSeconds(startedAt, ringTimeoutSeconds));
   useEffect(() => {
@@ -93,6 +100,7 @@ export function IncomingCallBanner(props: IncomingCallBannerProps) {
 
   return (
     <div
+      data-testid={bannerDataTestId}
       className={`pointer-events-auto fixed inset-x-0 top-[max(8px,var(--safe-top,env(safe-area-inset-top)))] ${MESSENGER_FOREGROUND_INCOMING_BANNER_Z_CLASS} animate-dibay-incoming-pill-enter px-3 sm:left-1/2 sm:right-auto sm:w-[min(520px,calc(100vw-2rem))] sm:-translate-x-1/2`}
       role="dialog"
       aria-label={t("cm_ui_incoming_call_dialog")}
@@ -140,6 +148,7 @@ export function IncomingCallBanner(props: IncomingCallBannerProps) {
           className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full transition-transform active:scale-[0.94] disabled:opacity-40 ${INCOMING_CALL_BANNER_DECLINE_CLASS}`}
           aria-label={t("cm_ui_reject")}
           data-incoming-call-decline
+          data-testid={rejectDataTestId}
         >
           <PhoneOff size={24} strokeWidth={2.4} />
         </button>
@@ -161,6 +170,7 @@ export function IncomingCallBanner(props: IncomingCallBannerProps) {
           className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full transition-transform active:scale-[0.94] disabled:opacity-40 ${INCOMING_CALL_BANNER_ACCEPT_CLASS}`}
           aria-label={t("cm_ui_accept")}
           data-incoming-call-accept
+          data-testid={acceptDataTestId}
         >
           <Phone size={24} strokeWidth={2.4} />
         </button>

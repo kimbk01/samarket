@@ -137,11 +137,16 @@ async function main() {
   const prodRoute = spawnSync("curl", ["-sI", `${VERCEL}/community-messenger/calls-v3/gate-probe`], {
     encoding: "utf8",
   }).stdout;
-  const callsV3RouteExists = !prodRoute.includes("404") && !prodRoute.includes("x-matched-path: /_not-found");
+  const routeStatus = Number(prodRoute.match(/HTTP\/\d(?:\.\d)?\s+(\d+)/)?.[1] ?? 0);
+  const callsV3RouteOnProd =
+    routeStatus > 0 &&
+    routeStatus !== 404 &&
+    prodRoute.includes("x-matched-path: /community-messenger/calls-v3/[callId]");
 
   const report = {
     vercel: VERCEL,
-    callsV3RouteOnProd: callsV3RouteExists,
+    callsV3RouteOnProd,
+    callsV3RouteStatus: routeStatus,
     loginA: { ok: loginA.ok, userId: loginA.probe?.userId, username: loginA.probe?.username },
     loginB: { ok: loginB.ok, userId: loginB.probe?.userId, username: loginB.probe?.username },
     deviceA: a,

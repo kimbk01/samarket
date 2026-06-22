@@ -24,7 +24,7 @@ describe("call-v3-accept-route", () => {
     vi.spyOn(console, "info").mockImplementation(() => {});
   });
 
-  it("accepts once and routes to calls-v3", async () => {
+  it("accepts once and routes to primary calls screen", async () => {
     useCallV3Store.setState({
       phase: "incoming_ringing",
       identity: {
@@ -43,7 +43,7 @@ describe("call-v3-accept-route", () => {
     await callV3Accept("call-1", { push });
 
     expect(apiMocks.accept).toHaveBeenCalledTimes(1);
-    expect(push).toHaveBeenCalledWith("/community-messenger/calls-v3/call-1");
+    expect(push).toHaveBeenCalledWith("/community-messenger/calls/call-1");
     expect(useCallV3Store.getState().phase).toBe("joining");
   });
 });

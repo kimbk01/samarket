@@ -66,6 +66,8 @@ export type CallActionItem = {
   tone?: "default" | "danger" | "accept";
   active?: boolean;
   disabled?: boolean;
+  /** QA·E2E selector — optional, presentation only */
+  dataTestId?: string;
   onClick: () => void;
 };
 

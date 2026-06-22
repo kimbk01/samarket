@@ -52,7 +52,7 @@ describe("call-v3-create-outgoing", () => {
     apiMocks.createSession.mockClear();
   });
 
-  it("creates outgoing once and routes to calls-v3", async () => {
+  it("creates outgoing once and routes to primary calls screen", async () => {
     const push = vi.fn();
     const result = await callV3CreateOutgoing({
       roomId: "room-1",
@@ -63,7 +63,7 @@ describe("call-v3-create-outgoing", () => {
     expect(result.ok).toBe(true);
     expect(apiMocks.reconcile).toHaveBeenCalledTimes(1);
     expect(apiMocks.createSession).toHaveBeenCalledTimes(1);
-    expect(push).toHaveBeenCalledWith("/community-messenger/calls-v3/call-1");
+    expect(push).toHaveBeenCalledWith("/community-messenger/calls/call-1");
 
     const state = useCallV3Store.getState();
     expect(state.phase).toBe("outgoing_ringing");

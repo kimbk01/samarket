@@ -67,9 +67,15 @@ describe("call-v3 import isolation contract", () => {
     }
   });
 
-  it("V3 route lives under app/(main)/community-messenger/calls-v3", () => {
+  it("V3 route lives under app/(main)/community-messenger/calls-v3 (fallback QA lane)", () => {
     const page = read("app/(main)/community-messenger/calls-v3/[callId]/page.tsx");
     expect(page).toContain("CallV3Screen");
+  });
+
+  it("primary call route uses V3 adapter when flag enabled", () => {
+    const page = read("app/(main)/community-messenger/calls/[sessionId]/page.tsx");
+    expect(page).toContain("isDibayCallV3SafeLaneEnabled");
+    expect(page).toContain("CallV3ScreenLazy");
   });
 
   it("launchOutgoingDirectCall branches to V3 when flag enabled", () => {

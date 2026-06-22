@@ -8,6 +8,12 @@ export const COMMUNITY_MESSENGER_CALL_LOGS_HREF = "/community-messenger?section=
 
 export function buildCallV3ScreenHref(callId: string): string {
   const sid = callId.trim();
+  return `/community-messenger/calls/${encodeURIComponent(sid)}`;
+}
+
+/** QA·fallback lane — primary route is `/community-messenger/calls/:id`. */
+export function buildCallV3FallbackScreenHref(callId: string): string {
+  const sid = callId.trim();
   return `/community-messenger/calls-v3/${encodeURIComponent(sid)}`;
 }
 
@@ -61,7 +67,9 @@ export function readCallV3ExitRouter(): CallV3Router | null {
 
 export function isOnCallV3ScreenPath(): boolean {
   if (typeof window === "undefined") return false;
-  return window.location.pathname.includes("/community-messenger/calls-v3/");
+  const pathname = window.location.pathname;
+  if (pathname.includes("/community-messenger/calls-v3/")) return true;
+  return /^\/community-messenger\/calls\/[^/]+/.test(pathname);
 }
 
 export function routeToCallV3Screen(router: { push: (href: string) => void; replace?: (href: string) => void }, callId: string): void {

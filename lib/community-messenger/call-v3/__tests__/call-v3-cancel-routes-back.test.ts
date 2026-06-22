@@ -35,7 +35,7 @@ describe("call-v3-cancel-routes-back", () => {
   });
 
   it("routes back to remembered room path after cancel cleanup", async () => {
-    stubCallV3ScreenWindow("/community-messenger/calls-v3/call-1");
+    stubCallV3ScreenWindow("/community-messenger/calls/call-1");
     useCallV3Store.setState({
       phase: "outgoing_ringing",
       identity: {

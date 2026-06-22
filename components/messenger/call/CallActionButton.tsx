@@ -145,6 +145,7 @@ export const CallActionButton = memo(function CallActionButton({
       type="button"
       onClick={item.onClick}
       disabled={item.disabled}
+      data-testid={item.dataTestId}
       className={`call-btn items-center text-center disabled:opacity-40 ${
         isStarbucks ? "min-w-0 flex-1 basis-0" : ""
       }`.trim()}

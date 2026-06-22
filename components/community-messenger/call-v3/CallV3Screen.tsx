@@ -1,15 +1,16 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { CallV3Controls } from "@/components/community-messenger/call-v3/CallV3Controls";
+import { CallScreen } from "@/components/messenger/call/CallScreen";
 import {
   callV3EnsureAgoraJoined,
   startCallV3CallerActivePoll,
 } from "@/lib/community-messenger/call-v3/call-v3-actions";
 import { logCallV3 } from "@/lib/community-messenger/call-v3/call-v3-debug";
 import { exitCallV3ScreenAfterCleanup, registerCallV3ExitRouter } from "@/lib/community-messenger/call-v3/call-v3-route";
+import { buildCallV3ScreenViewModel } from "@/lib/community-messenger/call-v3/call-v3-view-model";
 import { readCallV3Identity, readCallV3Phase, useCallV3Store } from "@/lib/community-messenger/call-v3/call-v3-store";
 
 type CallV3ScreenProps = {
@@ -18,9 +19,10 @@ type CallV3ScreenProps = {
 
 export function CallV3Screen({ callId }: CallV3ScreenProps) {
   const router = useRouter();
-  const { safeT } = useI18n();
+  const { safeT, t } = useI18n();
   const phase = useCallV3Store((s) => s.phase);
   const identity = useCallV3Store((s) => s.identity);
+  const connectedAt = useCallV3Store((s) => s.connectedAt);
 
   useEffect(() => {
     if (!callId) return;
@@ -66,68 +68,27 @@ export function CallV3Screen({ callId }: CallV3ScreenProps) {
     };
   }, [callId, identity?.callId, phase]);
 
-  const isOutgoing = identity?.direction === "outgoing";
-  const isOutgoingDialing = isOutgoing && (phase === "outgoing_ringing" || phase === "creating");
+  const vm = useMemo(
+    () =>
+      buildCallV3ScreenViewModel({
+        callId,
+        phase,
+        identity,
+        connectedAt,
+        safeT: (key, options) => safeT(key as Parameters<typeof safeT>[0], options),
+        t: (key, options) => t(key as Parameters<typeof t>[0], options),
+        router,
+      }),
+    [callId, phase, identity, connectedAt, safeT, t, router]
+  );
 
-  const statusLabel =
-    phase === "connected"
-      ? safeT("cm_ui_call_active_voice", {
-          fallbackKo: "통화 중",
-          fallbackEn: "On a call",
-        })
-      : phase === "ending"
-        ? safeT("cm_ui_ending_call", {
-            fallbackKo: "종료 중",
-            fallbackEn: "Ending…",
-          })
-        : isOutgoingDialing
-          ? safeT("cm_ui_call_status_outgoing_dialing", {
-              fallbackKo: "발신 중",
-              fallbackEn: "Calling",
-            })
-          : safeT("cm_ui_connecting", {
-              fallbackKo: "연결 중",
-              fallbackEn: "Connecting",
-            });
-
-  const title = isOutgoing
-    ? identity?.mediaType === "video"
-      ? safeT("cm_ui_call_log_video_outgoing", {
-          fallbackKo: "영상 통화 발신",
-          fallbackEn: "Outgoing video call",
-        })
-      : safeT("cm_ui_call_log_voice_outgoing", {
-          fallbackKo: "음성 통화 발신",
-          fallbackEn: "Outgoing voice call",
-        })
-    : identity?.mediaType === "video"
-      ? safeT("cm_ui_call_log_video_incoming", {
-          fallbackKo: "영상 통화 수신",
-          fallbackEn: "Incoming video call",
-        })
-      : safeT("cm_ui_call_log_voice_incoming", {
-          fallbackKo: "음성 통화 수신",
-          fallbackEn: "Incoming voice call",
-        });
-
-  const showControls =
-    phase === "connected" ||
-    phase === "joining" ||
-    isOutgoingDialing;
+  if (!vm) {
+    return null;
+  }
 
   return (
-    <div
-      data-testid="call-v3-screen"
-      className="flex min-h-[100dvh] flex-col bg-sam-app text-sam-fg"
-    >
-      <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
-        <p className="text-lg font-semibold">{title}</p>
-        <p className="text-sm text-sam-muted">{statusLabel}</p>
-        {identity?.peerLabel?.trim() ? (
-          <p className="truncate text-base font-medium text-sam-fg">{identity.peerLabel}</p>
-        ) : null}
-      </div>
-      {showControls ? <CallV3Controls callId={callId} router={router} /> : null}
+    <div data-testid="call-v3-screen" className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <CallScreen vm={vm} variant="page" />
     </div>
   );
 }
