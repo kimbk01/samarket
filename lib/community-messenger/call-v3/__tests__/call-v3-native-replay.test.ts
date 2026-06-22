@@ -138,6 +138,27 @@ describe("call-v3-native-replay", () => {
     expect(replayDone.length).toBeGreaterThanOrEqual(1);
   });
 
+  it("replays pending wake when bridge ready is signaled again after store", async () => {
+    enqueueCallV3NativeNotificationWake({
+      callId: "call-2",
+      source: "notification_tap",
+      path: "/community-messenger/calls/call-2?source=native_resume",
+    });
+
+    markCallV3NativeBridgeReady();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(actionMocks.incomingDiscovered).toHaveBeenCalledTimes(1);
+
+    actionMocks.incomingDiscovered.mockClear();
+    enqueueCallV3NativeNotificationWake({
+      callId: "call-3",
+      source: "notification_tap",
+    });
+    markCallV3NativeBridgeReady();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(actionMocks.incomingDiscovered).toHaveBeenCalledTimes(1);
+  });
+
   it("duplicate notification route wake enqueues replay once", async () => {
     handleCallV3NotificationRouteWake("/community-messenger/calls/call-1?source=native_resume", {
       source: "notification_tap",

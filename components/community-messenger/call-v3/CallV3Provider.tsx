@@ -122,6 +122,7 @@ export function CallV3Provider({ children }: CallV3ProviderProps) {
     const path = buildCallV3RouterPath(pathname);
     if (!path) return;
     handleCallV3NotificationRouteWake(path, { source: "notification_tap" });
+    markCallV3NativeBridgeReady();
   }, [pathname]);
 
   useEffect(() => {

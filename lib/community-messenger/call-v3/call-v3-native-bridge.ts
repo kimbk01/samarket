@@ -114,7 +114,6 @@ function flushPendingWakeStore(): void {
 }
 
 export function markCallV3NativeBridgeReady(): void {
-  if (bridgeReady) return;
   bridgeReady = true;
   flushPendingWakeStore();
   flushPendingQueue();
