@@ -1,7 +1,13 @@
-import {
-  CALL_ENGINE_TERMINAL_STATES,
-  type CallEngineState,
-} from "@/lib/community-messenger/call-engine/call-engine-types";
+import type { CallEngineState } from "@/lib/community-messenger/call-engine/call-engine-types";
+
+/** DB `community_messenger_call_sessions.status` terminal values — server route only (no client import). */
+const SERVER_CALL_SESSION_TERMINAL_STATUSES = [
+  "ended",
+  "rejected",
+  "missed",
+  "cancelled",
+  "failed",
+] as const;
 
 const ALLOWED_TRANSITIONS: Readonly<Record<CallEngineState, readonly CallEngineState[]>> = {
   idle: ["outgoing_creating", "incoming_ringing", "accepting", "rejected", "missed", "cancelled", "ended", "failed"],
@@ -21,7 +27,7 @@ const ALLOWED_TRANSITIONS: Readonly<Record<CallEngineState, readonly CallEngineS
 };
 
 export function isServerCallSessionTerminalStatus(status: string): boolean {
-  return (CALL_ENGINE_TERMINAL_STATES as readonly string[]).includes(status);
+  return (SERVER_CALL_SESSION_TERMINAL_STATUSES as readonly string[]).includes(status);
 }
 
 export function isIdempotentCallSessionPatch(
