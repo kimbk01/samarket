@@ -7,6 +7,9 @@ import {
 } from "@/lib/auth/assert-phone-verified-for-messenger-action-client";
 import { getActiveCallSessionCallId } from "@/lib/call/active-call-session";
 import { isOutgoingCallStartBlocked } from "@/lib/call/call-action-lock";
+import { logCallButtonState } from "@/lib/community-messenger/call-engine/call-engine-audit-log";
+import { isCallEngineTerminalConsumed } from "@/lib/community-messenger/call-engine/call-engine-locks";
+import { isDibayCallConsumed } from "@/lib/community-messenger/incoming-call-state";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { safeTranslate } from "@/lib/i18n/safe-translate";
 
@@ -41,10 +44,20 @@ export function guardInstantOutgoingCallStart(
     return { ok: false, blockedCallId: "", userMessage: "", phoneVerificationRequired: true };
   }
   const activeCallId = getActiveCallSessionCallId();
-  if (activeCallId) {
+  if (activeCallId && !isCallEngineTerminalConsumed(activeCallId) && !isDibayCallConsumed(activeCallId)) {
+    logCallButtonState({
+      location: "guardInstantOutgoingCallStart",
+      roomId: _input?.roomId,
+      peerId: _input?.peerUserId,
+    });
     return { ok: false, blockedCallId: activeCallId, userMessage: alreadyInProgressMessage() };
   }
   if (isOutgoingCallStartBlocked()) {
+    logCallButtonState({
+      location: "guardInstantOutgoingCallStart",
+      roomId: _input?.roomId,
+      peerId: _input?.peerUserId,
+    });
     const blockedCallId = getActiveCallSessionCallId();
     if (blockedCallId) {
       return { ok: false, blockedCallId, userMessage: alreadyInProgressMessage() };

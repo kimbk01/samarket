@@ -130,6 +130,13 @@ import { getNativeIncomingCallPlugin } from "@/lib/push/native/push-route-native
 import { incomingRingTimeoutMsFromConfig } from "@/lib/community-messenger/messenger-call-ring-timeout";
 import { acceptIncomingCallOnce, runIncomingCallReject } from "@/lib/community-messenger/incoming-call-accept-gateway";
 import { callEngineActions, dispatchCallEngineSignal, scheduleCallEngineMissedTimeouts } from "@/lib/community-messenger/call-engine";
+import { applyNativeIncomingSurfaceSignal, dismissNativeForegroundIncomingUi, hasNativeIncomingSurfaceForCall } from "@/lib/community-messenger/call-engine/call-engine-native-surface";
+import { resolveCallEngineAppVisibility } from "@/lib/community-messenger/call-engine/call-engine-app-visibility";
+import {
+  mapIncomingTerminalSourceTag,
+  type RemoteTerminalStatus,
+} from "@/lib/community-messenger/call-engine/call-engine-remote-terminal";
+import { shouldIgnoreIncomingDiscovered } from "@/lib/community-messenger/call-engine/call-engine-incoming-discovered-guard";
 import { buildIncomingCallPreviewHref } from "@/lib/community-messenger/incoming-call-preview-route";
 import {
   getIncomingCallPollIntervalMs,
@@ -628,6 +635,29 @@ export function GlobalCommunityMessengerIncomingCall() {
     }
 
     const terminalSid = sessionId || tmpSessionId || "";
+    if (terminalSid) {
+      const remoteStatus = (
+        statusNorm === "ended" ||
+        statusNorm === "cancelled" ||
+        statusNorm === "rejected" ||
+        statusNorm === "missed" ||
+        statusNorm === "failed"
+          ? statusNorm
+          : statusNorm === "timeout"
+            ? "missed"
+            : "cancelled"
+      ) as RemoteTerminalStatus;
+      syncIncomingCallRing(null);
+      dibayIncomingLaneStopRing(`terminal_${sourceTag}`, terminalSid);
+      dismissAllIncomingCallNotificationsFireAndForget(terminalSid);
+      void dispatchCallEngineSignal({
+        type: "remote_terminal",
+        callId: terminalSid,
+        status: remoteStatus,
+        source: mapIncomingTerminalSourceTag(sourceTag),
+      });
+    }
+
     if (!opts?.skipSeal && terminalSid) {
       sealIncomingCallTerminal(
         terminalSid,
@@ -1283,7 +1313,12 @@ export function GlobalCommunityMessengerIncomingCall() {
       if (!plugin) return;
       void plugin.getForegroundIncomingCallId().then((res) => {
         const id = res.callId?.trim();
-        if (id) setNativeForegroundIncomingCallId(id);
+        if (!id) return;
+        if (resolveCallEngineAppVisibility() === "foreground") {
+          void dismissNativeForegroundIncomingUi(id);
+          return;
+        }
+        setNativeForegroundIncomingCallId(id);
       });
     });
   }, []);
@@ -1291,7 +1326,23 @@ export function GlobalCommunityMessengerIncomingCall() {
   useEffect(() => {
     return installDibayFcmCallBridge({
       onForegroundIncomingUi: ({ sessionId, visible }) => {
-        setNativeForegroundIncomingCallId(visible && sessionId.trim() ? sessionId.trim() : null);
+        const sid = sessionId.trim();
+        const appVisibility = resolveCallEngineAppVisibility();
+        if (visible && sid && appVisibility === "foreground") {
+          void dismissNativeForegroundIncomingUi(sid);
+          setNativeForegroundIncomingCallId(null);
+          return;
+        }
+        setNativeForegroundIncomingCallId(visible && sid ? sid : null);
+        if (sid) {
+          applyNativeIncomingSurfaceSignal({
+            callId: sid,
+            hasNativeIncomingSurface: visible,
+            nativeSurfaceType: visible ? "foreground_pill" : undefined,
+            appVisibility,
+            source: "native_foreground_pill",
+          });
+        }
       },
       onIncomingWake: (detail) => {
         void (async () => {
@@ -1321,6 +1372,15 @@ export function GlobalCommunityMessengerIncomingCall() {
           }
           if (sid) {
             logDibayCall("incoming_received", { sessionId: sid, callId: sid, source: "fcm_wake" });
+            if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+              applyNativeIncomingSurfaceSignal({
+                callId: sid,
+                hasNativeIncomingSurface: true,
+                nativeSurfaceType: "fullscreen_intent",
+                appVisibility: "background",
+                source: "native_fsi",
+              });
+            }
           }
           bumpIncomingListFastSync();
         })();
@@ -1887,6 +1947,18 @@ export function GlobalCommunityMessengerIncomingCall() {
       return;
     }
     const sid = s.id.trim();
+    const appVisibility = resolveCallEngineAppVisibility(incomingVisibilityState);
+    if (
+      shouldIgnoreIncomingDiscovered({
+        callId: sid,
+        sessionStatus: s.status,
+        requestWebBanner: appVisibility === "foreground",
+        appVisibility,
+      }).ignore
+    ) {
+      syncIncomingCallRing(null);
+      return;
+    }
     if (!canShowIncoming(sid, buildCallTombstoneContext(hardClearedIncomingSessionsAtRef.current))) {
       syncIncomingCallRing(null);
       return;
@@ -1901,8 +1973,8 @@ export function GlobalCommunityMessengerIncomingCall() {
     void dispatchCallEngineSignal({
       type: "incoming_discovered",
       session: s,
-      appVisibility: "foreground",
-      hasNativeFsi: false,
+      appVisibility: appVisibility === "unknown" ? "foreground" : appVisibility,
+      hasNativeFsi: appVisibility !== "foreground" && hasNativeIncomingSurfaceForCall(sid),
       hardClearedAt: hardClearedIncomingSessionsAtRef.current,
       source: "direct_ringing",
     });
@@ -1912,6 +1984,8 @@ export function GlobalCommunityMessengerIncomingCall() {
     directRingingCalleeSession?.callKind,
     incomingCallSoundEnabled,
     incomingTabLeader,
+    incomingVisibilityState,
+    nativeForegroundIncomingCallId,
   ]);
 
   useEffect(() => {

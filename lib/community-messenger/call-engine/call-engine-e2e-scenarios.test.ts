@@ -19,10 +19,14 @@ vi.mock("@/lib/community-messenger/call-http-actions", () => ({
   patchCommunityMessengerCallSession: (...args: unknown[]) => patchCommunityMessengerCallSession(...args),
 }));
 
-vi.mock("@/lib/community-messenger/incoming-call-state", () => ({
-  isDibayCallConsumed: () => false,
-  markCallConsumed: (...args: unknown[]) => markCallConsumed(...args),
-}));
+vi.mock("@/lib/community-messenger/incoming-call-state", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/community-messenger/incoming-call-state")>();
+  return {
+    ...actual,
+    isDibayCallConsumed: () => false,
+    markCallConsumed: (...args: unknown[]) => markCallConsumed(...args),
+  };
+});
 
 vi.mock("@/lib/community-messenger/call-lifecycle", () => ({
   dibayIncomingLaneStopRing: vi.fn(),

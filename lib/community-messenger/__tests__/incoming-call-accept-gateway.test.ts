@@ -27,12 +27,35 @@ vi.mock("@/lib/community-messenger/call-session-navigation-seed", () => ({
   primeCommunityMessengerCallNavigationSeed: vi.fn(),
 }));
 
-vi.mock("@/lib/community-messenger/call-feedback-sound", () => ({
-  unlockCommunityMessengerCallPlaybackFromUserGesture: vi.fn(),
+vi.mock("@/lib/community-messenger/call-connection-prefetch", () => ({
+  primeCommunityMessengerCallConnectionPrefetch: vi.fn(),
 }));
 
-vi.mock("@/lib/community-messenger/call-lifecycle", () => ({
-  dibayIncomingLaneStopRing: vi.fn(),
+vi.mock("@/lib/community-messenger/call-feedback-sound", () => ({
+  unlockCommunityMessengerCallPlaybackFromUserGesture: vi.fn(),
+  stopCommunityMessengerCallTone: vi.fn(),
+}));
+
+vi.mock("@/lib/community-messenger/call-engine/call-engine-ringtone-owner", () => ({
+  startCallEngineIncomingRingtone: vi.fn(),
+  stopCallEngineIncomingRingtone: vi.fn(),
+  startCallEngineOutgoingRingback: vi.fn(),
+  stopCallEngineOutgoingRingback: vi.fn(),
+}));
+
+vi.mock("@/lib/call/native/native-call-service", () => ({
+  endNativeCallService: vi.fn(async () => true),
+  reportNativeCallRemoteEnded: vi.fn(async () => true),
+}));
+
+vi.mock("@/lib/call/native/call-heartbeat-watchdog", () => ({
+  stopCallHeartbeatWatchdog: vi.fn(),
+}));
+
+vi.mock("@/lib/community-messenger/call-outgoing-ringback-controller", () => ({
+  startOutgoingRingback: vi.fn(),
+  stopOutgoingRingback: vi.fn(),
+  stopAllOutgoingRingback: vi.fn(),
 }));
 
 vi.mock("@/lib/community-messenger/incoming-call/ring-owner", () => ({
@@ -62,7 +85,7 @@ vi.mock("@/lib/community-messenger/call-orchestrator", async (importOriginal) =>
 
 import { patchCommunityMessengerCallSession } from "@/lib/community-messenger/call-http-actions";
 import { dibayIncomingLaneStopRing } from "@/lib/community-messenger/call-lifecycle";
-import { stopIncomingCallRing } from "@/lib/community-messenger/incoming-call/ring-owner";
+import { stopCallEngineIncomingRingtone } from "@/lib/community-messenger/call-engine/call-engine-ringtone-owner";
 import { tryClaimIncomingCallAccept } from "@/lib/community-messenger/incoming-call-action-guard";
 import { dismissAllIncomingCallNotificationsFireAndForget } from "@/lib/push/native/dismiss-native-incoming-call-notification";
 import { postCommunityMessengerCallIncomingConsumedBusEvent } from "@/lib/community-messenger/multi-tab-bus";
@@ -97,9 +120,9 @@ describe("incoming-call-accept-gateway", () => {
 
     await runIncomingCallAccept({ session, router, source: "incoming_banner_accept" });
 
-    expect(stopIncomingCallRing).toHaveBeenCalledWith("accept_pressed_immediate", "s-immediate");
+    expect(stopCallEngineIncomingRingtone).toHaveBeenCalledWith("s-immediate", "accept_pressed_immediate");
     expect(dismissAllIncomingCallNotificationsFireAndForget).toHaveBeenCalledWith("s-immediate");
-    const stopOrder = vi.mocked(stopIncomingCallRing).mock.invocationCallOrder[0] ?? 0;
+    const stopOrder = vi.mocked(stopCallEngineIncomingRingtone).mock.invocationCallOrder[0] ?? 0;
     const patchOrder = vi.mocked(patchCommunityMessengerCallSession).mock.invocationCallOrder[0] ?? 0;
     expect(stopOrder).toBeLessThan(patchOrder);
   });

@@ -244,6 +244,7 @@ export function finalizeCommunityMessengerCallTerminalExit(
   if (sid) {
     void hardClearActiveCallSession(sid, source);
   }
+  releaseCallActionLock(source);
   navigateToCommunityMessengerCallLogsAfterTerminal(router);
 }
 

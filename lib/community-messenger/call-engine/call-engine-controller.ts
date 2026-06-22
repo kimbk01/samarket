@@ -22,8 +22,21 @@ import { mapSessionStatusToActiveCallPhase } from "@/lib/call/map-session-to-act
 import { logDibayCall } from "@/lib/community-messenger/call-orchestrator";
 import { dismissAllIncomingCallNotificationsFireAndForget } from "@/lib/push/native/dismiss-native-incoming-call-notification";
 import {
+  logIncomingDiscoveredIgnored,
+  shouldIgnoreIncomingDiscovered,
+} from "@/lib/community-messenger/call-engine/call-engine-incoming-discovered-guard";
+import { isTerminalIncomingCallStatus } from "@/lib/community-messenger/call-incoming-terminal";
+import {
+  handleCallEngineRemoteTerminal,
+  type RemoteTerminalSource,
+  type RemoteTerminalStatus,
+} from "@/lib/community-messenger/call-engine/call-engine-remote-terminal";
+import { hasNativeIncomingSurfaceForCall } from "@/lib/community-messenger/call-engine/call-engine-native-surface";
+import { releaseCallEngineTerminalLocalState } from "@/lib/community-messenger/call-engine/call-engine-terminal-cleanup";
+import {
   isDibayCallConsumed,
   markCallConsumed,
+  readCallConsumedReason,
   setDibayCallSessionPhase,
   type CallConsumedReason,
 } from "@/lib/community-messenger/incoming-call-state";
@@ -97,6 +110,7 @@ export type CallEngineSnapshot = {
   phase: ReturnType<typeof getCallEngineState>;
   identity: CallIdentity | null;
   surfaceOwner: CallEngineSurfaceOwner | null;
+  hasNativeIncomingSurface: boolean;
 };
 
 export type CallEngineGatewayRouter = {
@@ -134,6 +148,12 @@ export type CallEngineSignal =
   | { type: "native_accept"; sessionId: string; router: CallEngineGatewayRouter; source?: IncomingCallAcceptSource }
   | { type: "native_reject"; sessionId: string; source: string }
   | { type: "native_terminal"; callId: string; terminal: "ended" | "rejected" | "missed" | "cancelled"; source: string }
+  | {
+      type: "remote_terminal";
+      callId: string;
+      status: RemoteTerminalStatus;
+      source: RemoteTerminalSource;
+    }
   | { type: "hydrate_session"; session: CommunityMessengerCallSession; source: string }
   | { type: "outgoing_create"; session: CommunityMessengerCallSession; router?: CallEngineGatewayRouter; source: string }
   | { type: "outgoing_ringback_start"; callId: string; kind: CommunityMessengerCallSession["callKind"]; source: string }
@@ -183,6 +203,7 @@ export function getCallEngineSnapshot(callId: string): CallEngineSnapshot {
     phase: getCallEngineState(sid),
     identity: identityByCallId.get(sid) ?? null,
     surfaceOwner: surfaceOwnerByCallId.get(sid) ?? null,
+    hasNativeIncomingSurface: hasNativeIncomingSurfaceForCall(sid),
   };
 }
 
@@ -203,6 +224,15 @@ function notifySnapshots(callId: string): void {
   for (const listener of snapshotSubscribers) {
     listener(snap);
   }
+}
+
+function toRemoteTerminalStatus(status: string): RemoteTerminalStatus | null {
+  const s = status.trim().toLowerCase();
+  if (s === "ended" || s === "cancelled" || s === "rejected" || s === "missed" || s === "failed") {
+    return s as RemoteTerminalStatus;
+  }
+  if (s === "timeout") return "missed";
+  return null;
 }
 
 function isTerminalSignalBlocked(callId: string): boolean {
@@ -292,6 +322,17 @@ export function resetCallEngineControllerForTests(): void {
   snapshotSubscribers.clear();
 }
 
+function closeIncomingSurfaceOptimistic(callId: string, source: string): void {
+  const sid = callId.trim();
+  if (!sid) return;
+  applyIncomingCallConsumedSideEffects(sid, "accepted", `${source}_optimistic`);
+  if (claimCallEngineSurfaceOwner(sid, "web_call_screen")) {
+    surfaceOwnerByCallId.set(sid, "web_call_screen");
+  } else {
+    surfaceOwnerByCallId.set(sid, "web_call_screen");
+  }
+}
+
 async function handleUserAccept(signal: Extract<CallEngineSignal, { type: "user_accept" }>): Promise<{
   ok: boolean;
   sessionId: string;
@@ -329,6 +370,7 @@ async function handleUserAccept(signal: Extract<CallEngineSignal, { type: "user_
 
   try {
     setCallEngineState(sid, "accepting");
+    closeIncomingSurfaceOptimistic(sid, signal.source);
     const patched = await callEngineAcceptIncoming({ callId: sid, source: signal.source });
     if (!patched.ok) {
       syncCallEngineStateFromSession(sid, s.status, s.isMineInitiator);
@@ -375,12 +417,33 @@ export async function dispatchCallEngineSignal(signal: CallEngineSignal): Promis
     case "incoming_discovered": {
       const sid = signal.session.id.trim();
       if (!sid || isTerminalSignalBlocked(sid)) return { ok: false, error: "terminal_consumed" };
+
+      const ignore = shouldIgnoreIncomingDiscovered({
+        callId: sid,
+        sessionStatus: signal.session.status,
+        requestWebBanner: signal.appVisibility === "foreground",
+        appVisibility: signal.appVisibility,
+      });
+      if (ignore.ignore && ignore.reason) {
+        logIncomingDiscoveredIgnored({
+          callId: sid,
+          status: signal.session.status,
+          phase: getCallEngineState(sid),
+          consumedReason: readCallConsumedReason(sid),
+          reason: ignore.reason,
+        });
+        return { ok: false, error: ignore.reason };
+      }
+
       identityByCallId.set(sid, buildIdentityFromSession(signal.session, "fcm"));
       syncCallEngineStateFromSession(sid, signal.session.status, signal.session.isMineInitiator);
+      const hasNativeFsi =
+        signal.appVisibility !== "foreground" &&
+        (signal.hasNativeFsi === true || hasNativeIncomingSurfaceForCall(sid));
       const owner = resolveCallEngineIncomingSurfaceOwner({
         callId: sid,
         appVisibility: signal.appVisibility,
-        hasNativeFsi: signal.hasNativeFsi ?? false,
+        hasNativeFsi,
         requestOwner: "web_in_app_banner",
       });
       if (owner === "web_in_app_banner") {
@@ -410,6 +473,8 @@ export async function dispatchCallEngineSignal(signal: CallEngineSignal): Promis
         const patched = await runCallEnginePatchAction({ callId: sid, action: "reject", source: signal.source });
         applyIncomingCallConsumedSideEffects(sid, "declined", signal.source);
         clearMissedTimer(sid);
+        surfaceOwnerByCallId.delete(sid);
+        void releaseCallEngineTerminalLocalState(sid, "rejected");
         notifySnapshots(sid);
         return { ok: patched.ok, error: patched.error };
       } finally {
@@ -430,6 +495,10 @@ export async function dispatchCallEngineSignal(signal: CallEngineSignal): Promis
         source: signal.source,
       });
       clearMissedTimer(sid);
+      if (patched.ok) {
+        surfaceOwnerByCallId.delete(sid);
+        void releaseCallEngineTerminalLocalState(sid, signal.action);
+      }
       notifySnapshots(sid);
       return { ok: patched.ok, error: patched.error };
     }
@@ -444,6 +513,10 @@ export async function dispatchCallEngineSignal(signal: CallEngineSignal): Promis
         source: signal.source,
       });
       clearMissedTimer(sid);
+      if (patched.ok) {
+        surfaceOwnerByCallId.delete(sid);
+        void releaseCallEngineTerminalLocalState(sid, "missed");
+      }
       notifySnapshots(sid);
       return { ok: patched.ok, error: patched.error };
     }
@@ -476,9 +549,35 @@ export async function dispatchCallEngineSignal(signal: CallEngineSignal): Promis
       notifySnapshots(sid);
       return { ok: true };
     }
+    case "remote_terminal": {
+      const sid = signal.callId.trim();
+      if (!sid) return { ok: false, error: "invalid_call_id" };
+      clearMissedTimer(sid);
+      surfaceOwnerByCallId.delete(sid);
+      await handleCallEngineRemoteTerminal({
+        callId: sid,
+        status: signal.status,
+        source: signal.source,
+      });
+      notifySnapshots(sid);
+      return { ok: true };
+    }
     case "hydrate_session": {
       const sid = signal.session.id.trim();
-      if (!sid || isTerminalSignalBlocked(sid)) return { ok: false, error: "terminal_consumed" };
+      if (!sid) return { ok: false, error: "invalid_call_id" };
+      const remoteStatus = toRemoteTerminalStatus(signal.session.status);
+      if (remoteStatus) {
+        clearMissedTimer(sid);
+        surfaceOwnerByCallId.delete(sid);
+        await handleCallEngineRemoteTerminal({
+          callId: sid,
+          status: remoteStatus,
+          source: "hydrate",
+        });
+        notifySnapshots(sid);
+        return { ok: true };
+      }
+      if (isTerminalSignalBlocked(sid)) return { ok: false, error: "terminal_consumed" };
       identityByCallId.set(sid, buildIdentityFromSession(signal.session, "room_hydrate"));
       syncCallEngineStateFromSession(sid, signal.session.status, signal.session.isMineInitiator);
       notifySnapshots(sid);

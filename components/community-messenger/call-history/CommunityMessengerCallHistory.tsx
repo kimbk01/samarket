@@ -14,6 +14,7 @@ import {
   isOutgoingCallStartBlocked,
   subscribeCallActionLock,
 } from "@/lib/call/call-action-lock";
+import { logCallButtonState } from "@/lib/community-messenger/call-engine/call-engine-audit-log";
 import {
   getActiveCallSessionCallId,
   subscribeActiveCallSession,
@@ -35,7 +36,11 @@ type Props = {
 function useCallHistoryRedialBlocked(): boolean {
   useSyncExternalStore(subscribeActiveCallSession, () => isOutgoingCallStartBlocked(), () => false);
   useSyncExternalStore(subscribeCallActionLock, () => isOutgoingCallStartBlocked(), () => false);
-  return isOutgoingCallStartBlocked();
+  const blocked = isOutgoingCallStartBlocked();
+  if (blocked) {
+    logCallButtonState({ location: "call_history_redial" });
+  }
+  return blocked;
 }
 
 export function CommunityMessengerCallHistory({

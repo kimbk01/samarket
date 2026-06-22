@@ -7,6 +7,7 @@ import { PENDING_PUSH_ROUTE_TTL_MS } from "@/lib/push/pending-push-route";
 
 export type NativeIncomingCallPlugin = {
   dismissNotification(options: { sessionId: string }): Promise<void>;
+  dismissForegroundIncomingUi(options: { sessionId: string }): Promise<void>;
   clearPendingPushRoute(): Promise<void>;
   clearPendingCallRoute(): Promise<void>;
   getPendingPushRoute(): Promise<{

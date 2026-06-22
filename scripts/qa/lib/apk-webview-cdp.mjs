@@ -194,6 +194,53 @@ export async function ensureApkWebViewLogin({
   return { ok: true, probe, registerLogcat };
 }
 
+/** 기기에 이미 로그인된 WebView 세션 probe — 강제 aaaa/qqqq 주입 없음 */
+export async function probeApkDeviceSession({
+  adb,
+  chromium,
+  serial,
+  cdpPort,
+  act,
+  prod,
+  log,
+  label,
+}) {
+  launchApkMainActivity(adb, serial, act);
+  await new Promise((r) => setTimeout(r, 3000));
+  forwardCdp(adb, serial, cdpPort);
+  const { browser, page } = await connectWebView(chromium, cdpPort);
+  await navigateApkWebView(page, `${prod}/community-messenger`, 4000);
+  const probe = await probeApkUser(page);
+  log(`${label} device session probe=${JSON.stringify(probe)}`);
+  await browser.close().catch(() => {});
+  return probe;
+}
+
+/** 로그인 유지 — FCM register tail 만 확인 (force-stop 후 재시작) */
+export async function refreshApkFcmRegisterTail({
+  adb,
+  serial,
+  pkg,
+  act,
+  prod,
+  expectedUserId,
+  log,
+  label,
+}) {
+  restartApkForPushRegister(adb, serial, pkg, act, `${prod}/community-messenger`);
+  await new Promise((r) => setTimeout(r, 18000));
+  const registerLogcat =
+    adb(serial, "logcat", "-d", "-s", "DIBAY_FCM", "DIBAY_PUSH_REGISTER", "DIBAY_PUSH", "DIBAY_NOTIFY").stdout ?? "";
+  const tail = registerLogcat.split("\n").filter(Boolean).slice(-15);
+  for (const line of tail) log(`${label} logcat ${line}`);
+  const reg = [...registerLogcat.matchAll(/"user_id":"([^"]+)"/g)];
+  const uid = reg.length ? reg[reg.length - 1][1] : null;
+  if (expectedUserId && uid && uid !== expectedUserId) {
+    log(`${label} WARN FCM user_id=${uid} expected=${expectedUserId}`);
+  }
+  return { registerLogcat, fcmUserId: uid };
+}
+
 export async function openUrlInApkWebView({
   adb,
   chromium,

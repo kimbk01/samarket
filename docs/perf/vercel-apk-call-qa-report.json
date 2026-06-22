@@ -1,0 +1,62 @@
+{
+  "commit": "8df0dcd8",
+  "vercel": "https://samarket.vercel.app",
+  "devices": {
+    "caller": "8b37179f7d94",
+    "callee": "RFCY40PY2CA"
+  },
+  "results": [
+    {
+      "label": "voice_foreground",
+      "kind": "voice",
+      "bgMode": "foreground",
+      "pass": false,
+      "callId1": null,
+      "callId2": null,
+      "notes": [
+        "call1_no_db_row"
+      ]
+    },
+    {
+      "label": "voice_background",
+      "kind": "voice",
+      "bgMode": "background",
+      "pass": false,
+      "callId1": null,
+      "callId2": null,
+      "notes": [
+        "call1_no_db_row"
+      ]
+    },
+    {
+      "label": "voice_screen_off",
+      "kind": "voice",
+      "bgMode": "screen_off",
+      "pass": false,
+      "callId1": null,
+      "callId2": null,
+      "notes": [
+        "call1_no_db_row"
+      ]
+    },
+    {
+      "label": "video_foreground",
+      "kind": "video",
+      "bgMode": "foreground",
+      "pass": false,
+      "callId1": null,
+      "callId2": null,
+      "notes": [
+        "call1_no_db_row"
+      ]
+    }
+  ],
+  "markers": {
+    "lifecycle": false,
+    "nativeWake": false,
+    "pollCorrelation": false,
+    "presenterOk": false,
+    "fcmReceived": false,
+    "deliveryAt": false
+  }
+}

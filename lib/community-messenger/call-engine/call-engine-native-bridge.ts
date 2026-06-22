@@ -8,6 +8,19 @@ export type CallEngineNativeEvent = {
   source: "native_notification" | "native_fsi" | "native_service";
 };
 
+export type {
+  NativeIncomingSurfaceSignal,
+  NativeIncomingSurfaceType,
+} from "@/lib/community-messenger/call-engine/call-engine-native-surface";
+
+export {
+  applyNativeIncomingSurfaceSignal,
+  hasNativeIncomingSurfaceForCall,
+  readNativeIncomingSurface,
+  subscribeNativeIncomingSurfaceSignal,
+  clearNativeIncomingSurface,
+} from "@/lib/community-messenger/call-engine/call-engine-native-surface";
+
 const EVENT_NAME = "dibay:call-engine-native-action";
 
 function resolveEventTarget(): EventTarget | null {

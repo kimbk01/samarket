@@ -1,6 +1,13 @@
 "use client";
 
+import { logSurfaceDecision } from "@/lib/community-messenger/call-engine/call-engine-audit-log";
+import {
+  shouldPreferNativeIncomingSurface,
+  shouldUseWebIncomingBanner,
+} from "@/lib/community-messenger/call-engine/call-engine-app-visibility";
 import { logCallUxEvent } from "@/lib/community-messenger/call-engine/call-engine-debug";
+import { shouldNativeSurfaceBlockWebBanner } from "@/lib/community-messenger/call-engine/call-engine-native-surface";
+import { readCallConsumedReason } from "@/lib/community-messenger/incoming-call-state";
 import {
   tryLockCallEngineSurfaceOwner,
   isCallEngineTerminalConsumed,
@@ -31,17 +38,102 @@ export function resolveCallEngineIncomingSurfaceOwner(args: ResolveCallEngineSur
   const phase = getCallEngineState(sid);
   if (args.requestOwner === "dock_or_pip" && phase !== "connected") return null;
 
-  if (args.appVisibility === "locked") return "native_locked_screen";
-  if (args.appVisibility === "background") {
-    return args.hasNativeFsi ? "native_fullscreen_intent" : "native_fullscreen_intent";
+  if (args.appVisibility === "locked") {
+    logSurfaceDecision({
+      callId: sid,
+      requestedSurface: args.requestOwner,
+      currentOwner: getCallEngineSurfaceOwner(sid),
+      phase,
+      consumedReason: readCallConsumedReason(sid),
+      allowed: args.requestOwner !== "web_in_app_banner",
+      reason: "locked_native_owner",
+      hasNativeIncomingSurface: args.hasNativeFsi,
+      appVisibility: args.appVisibility,
+    });
+    if (args.requestOwner === "web_in_app_banner") return null;
+    return "native_locked_screen";
   }
 
-  // foreground: web banner only for incoming — native owner 있으면 web banner 금지
-  if (args.hasNativeFsi) return null;
-  if (args.requestOwner === "web_in_app_banner") return "web_in_app_banner";
-  if (args.requestOwner === "web_call_screen") return "web_call_screen";
-  if (args.requestOwner === "dock_or_pip") return phase === "connected" ? "dock_or_pip" : null;
-  return args.requestOwner;
+  if (args.appVisibility === "background") {
+    if (args.requestOwner === "web_in_app_banner") {
+      logSurfaceDecision({
+        callId: sid,
+        requestedSurface: args.requestOwner,
+        currentOwner: getCallEngineSurfaceOwner(sid),
+        phase,
+        consumedReason: readCallConsumedReason(sid),
+        allowed: false,
+        reason: "background_blocks_web_banner",
+        hasNativeIncomingSurface: args.hasNativeFsi,
+        appVisibility: args.appVisibility,
+      });
+      return null;
+    }
+    return "native_fullscreen_intent";
+  }
+
+  // foreground 앱안: web banner 우선 — native surface 는 background/locked 에서만 web 차단
+  if (
+    args.requestOwner === "web_in_app_banner" &&
+    shouldNativeSurfaceBlockWebBanner(sid, args.appVisibility)
+  ) {
+    logSurfaceDecision({
+      callId: sid,
+      requestedSurface: args.requestOwner,
+      currentOwner: getCallEngineSurfaceOwner(sid),
+      phase,
+      consumedReason: readCallConsumedReason(sid),
+      allowed: false,
+      reason: "native_surface_blocks_web_banner_outside_foreground",
+      hasNativeIncomingSurface: args.hasNativeFsi,
+      appVisibility: args.appVisibility,
+    });
+    return null;
+  }
+
+  if (
+    args.requestOwner === "web_in_app_banner" &&
+    getCallEngineSurfaceOwner(sid) === "web_call_screen"
+  ) {
+    logSurfaceDecision({
+      callId: sid,
+      requestedSurface: args.requestOwner,
+      currentOwner: getCallEngineSurfaceOwner(sid),
+      phase,
+      consumedReason: readCallConsumedReason(sid),
+      allowed: false,
+      reason: "web_call_screen_owner_blocks_incoming",
+      hasNativeIncomingSurface: args.hasNativeFsi,
+      appVisibility: args.appVisibility,
+    });
+    return null;
+  }
+
+  const resolved =
+    args.requestOwner === "web_in_app_banner" && shouldUseWebIncomingBanner(args.appVisibility)
+      ? "web_in_app_banner"
+      : args.requestOwner === "web_call_screen"
+        ? "web_call_screen"
+        : args.requestOwner === "dock_or_pip"
+          ? phase === "connected"
+            ? "dock_or_pip"
+            : null
+          : shouldPreferNativeIncomingSurface(args.appVisibility)
+            ? args.requestOwner
+            : null;
+
+  logSurfaceDecision({
+    callId: sid,
+    requestedSurface: args.requestOwner,
+    currentOwner: getCallEngineSurfaceOwner(sid),
+    phase,
+    consumedReason: readCallConsumedReason(sid),
+    allowed: resolved != null,
+    reason: resolved ? "resolved" : "phase_or_visibility_blocked",
+    hasNativeIncomingSurface: args.hasNativeFsi,
+    appVisibility: args.appVisibility,
+  });
+  return resolved;
 }
 
 export function claimCallEngineSurfaceOwner(callId: string, owner: CallEngineSurfaceOwner): boolean {

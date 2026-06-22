@@ -8,6 +8,7 @@ import { dibayIncomingLaneStopRing } from "@/lib/community-messenger/call-lifecy
 import {
   isDibayCallConsumed,
   markCallConsumed,
+  readCallConsumedReason,
   type CallConsumedReason,
 } from "@/lib/community-messenger/incoming-call-state";
 import { dismissAllIncomingCallNotificationsFireAndForget } from "@/lib/push/native/dismiss-native-incoming-call-notification";
@@ -21,6 +22,7 @@ import {
   unlockCallEngineAction,
 } from "@/lib/community-messenger/call-engine/call-engine-locks";
 import type { CallEngineActionName, CallEngineTerminalState } from "@/lib/community-messenger/call-engine/call-engine-types";
+import { releaseCallActionLock } from "@/lib/call/call-action-lock";
 import { logCallEngineEvent, logCallUxEvent } from "@/lib/community-messenger/call-engine/call-engine-debug";
 
 const TERMINAL_REASON_BY_ACTION: Record<"reject" | "cancel" | "end" | "missed", CallConsumedReason> = {
@@ -52,9 +54,16 @@ export async function runCallEnginePatchAction(args: {
 }): Promise<{ ok: boolean; error?: string }> {
   const sid = args.callId.trim();
   if (!sid) return { ok: false, error: "invalid_call_id" };
-  /** accept 만 terminal/consumed 차단 — reject/end 는 UI optimistic consume 후에도 서버 PATCH 1회 필요 */
-  if (args.action === "accept" && (isCallEngineTerminalConsumed(sid) || isDibayCallConsumed(sid))) {
-    return { ok: false, error: "terminal_consumed" };
+  /** accept: optimistic accepted consumed 는 PATCH 1회 허용 — terminal latch 만 차단 */
+  if (args.action === "accept") {
+    const consumedReason = readCallConsumedReason(sid);
+    const optimisticAcceptConsumed = consumedReason === "accepted";
+    if (
+      isCallEngineTerminalConsumed(sid) ||
+      (isDibayCallConsumed(sid) && !optimisticAcceptConsumed)
+    ) {
+      return { ok: false, error: "terminal_consumed" };
+    }
   }
   if (!tryLockCallEngineActionOnce(sid, args.action)) {
     return { ok: false, error: "duplicate_action" };
@@ -95,6 +104,7 @@ export async function runCallEnginePatchAction(args: {
     markCallConsumed(sid, TERMINAL_REASON_BY_ACTION[terminalAction]);
     setCallEngineState(sid, terminalState);
     clearCallEngineLocks(sid);
+    releaseCallActionLock(`terminal_${terminalAction}`);
     logCallEngineEvent("terminal_done", {
       callId: sid,
       sessionId: sid,

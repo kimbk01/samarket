@@ -3,6 +3,9 @@
 import { logDibayCall } from "@/lib/community-messenger/call-orchestrator";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
 import { getActiveCallSessionCallId, isLiveActiveCallPhase, readActiveCallSessionSnapshot } from "@/lib/call/active-call-session";
+import { logCallButtonState } from "@/lib/community-messenger/call-engine/call-engine-audit-log";
+import { isCallEngineTerminalConsumed } from "@/lib/community-messenger/call-engine/call-engine-locks";
+import { isDibayCallConsumed } from "@/lib/community-messenger/incoming-call-state";
 
 const SYNC_EVENT = "dibay:call-action-lock-sync";
 
@@ -47,7 +50,13 @@ export function isCallActionLockHeld(): boolean {
 
 export function isOutgoingCallStartBlocked(): boolean {
   const session = readActiveCallSessionSnapshot();
-  if (session && isLiveActiveCallPhase(session.phase)) return true;
+  if (session) {
+    const sid = session.callId.trim();
+    if (sid && (isCallEngineTerminalConsumed(sid) || isDibayCallConsumed(sid))) {
+      return currentLock != null;
+    }
+    if (isLiveActiveCallPhase(session.phase)) return true;
+  }
   return currentLock != null;
 }
 
@@ -84,6 +93,7 @@ export function acquireCallActionLock(input: {
   }
   currentLock = { key, callId: null, acquiredAt: Date.now() };
   logDibayCall("call_history_start_lock_acquired", { key });
+  logCallButtonState();
   notifySync();
   return { ok: true, reused: false, key };
 }
@@ -99,6 +109,7 @@ export function releaseCallActionLock(reason = "done"): void {
   if (!currentLock) return;
   currentLock = null;
   notifySync();
+  logCallButtonState();
   if (typeof window !== "undefined") {
     console.info("[DIBAY_CALL] call_history_start_lock_released", { reason, at: Date.now() });
   }

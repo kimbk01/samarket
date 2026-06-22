@@ -12,9 +12,12 @@ import {
 } from "@/lib/community-messenger/call-outgoing-ringback-controller";
 import {
   isCallEngineTerminalConsumed,
+  isCallEngineRingbackOwner,
   tryLockCallEngineRingbackOwnerOnce,
   tryLockCallEngineRingtoneOwnerOnce,
 } from "@/lib/community-messenger/call-engine/call-engine-locks";
+import { getCallEngineState } from "@/lib/community-messenger/call-engine/call-engine-state";
+import { logSoundState } from "@/lib/community-messenger/call-engine/call-engine-audit-log";
 
 export function startCallEngineIncomingRingtone(args: {
   callId: string;
@@ -23,13 +26,41 @@ export function startCallEngineIncomingRingtone(args: {
   source: string;
 }): boolean {
   const sid = args.callId.trim();
-  if (!sid || isCallEngineTerminalConsumed(sid)) return false;
-  if (!tryLockCallEngineRingtoneOwnerOnce(sid)) return false;
+  if (!sid || isCallEngineTerminalConsumed(sid)) {
+    logSoundState({
+      callId: sid,
+      phase: getCallEngineState(sid),
+      ringtoneOwner: false,
+      ringbackOwner: false,
+      action: "skip",
+      reason: "terminal_consumed",
+    });
+    return false;
+  }
+  if (!tryLockCallEngineRingtoneOwnerOnce(sid)) {
+    logSoundState({
+      callId: sid,
+      phase: getCallEngineState(sid),
+      ringtoneOwner: true,
+      ringbackOwner: isCallEngineRingbackOwner(sid),
+      action: "skip",
+      reason: "ringtone_owner_held",
+    });
+    return false;
+  }
   syncIncomingCallRing({
     sessionId: sid,
     callKind: args.callKind,
     hardClearedAt: args.hardClearedAt,
     source: args.source,
+  });
+  logSoundState({
+    callId: sid,
+    phase: getCallEngineState(sid),
+    ringtoneOwner: true,
+    ringbackOwner: isCallEngineRingbackOwner(sid),
+    action: "start",
+    reason: args.source,
   });
   return true;
 }
@@ -38,6 +69,14 @@ export function stopCallEngineIncomingRingtone(callId: string, reason: string): 
   const sid = callId.trim();
   if (!sid) return;
   stopIncomingCallRing(reason, sid);
+  logSoundState({
+    callId: sid,
+    phase: getCallEngineState(sid),
+    ringtoneOwner: false,
+    ringbackOwner: isCallEngineRingbackOwner(sid),
+    action: "stop",
+    reason,
+  });
 }
 
 export function startCallEngineOutgoingRingback(args: {

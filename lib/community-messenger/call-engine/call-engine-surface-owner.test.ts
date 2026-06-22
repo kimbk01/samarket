@@ -25,9 +25,19 @@ describe("call-engine surface owner", () => {
       callId: "c2",
       appVisibility: "locked",
       hasNativeFsi: true,
-      requestOwner: "web_in_app_banner",
+      requestOwner: "native_fullscreen_intent",
     });
     expect(owner).toBe("native_locked_screen");
+  });
+
+  it("blocks web banner when locked", () => {
+    const owner = resolveCallEngineIncomingSurfaceOwner({
+      callId: "c2b",
+      appVisibility: "locked",
+      hasNativeFsi: true,
+      requestOwner: "web_in_app_banner",
+    });
+    expect(owner).toBeNull();
   });
 
   it("keeps surface exclusive by callId", () => {
@@ -55,6 +65,28 @@ describe("call-engine surface owner", () => {
       appVisibility: "foreground",
       hasNativeFsi: false,
       requestOwner: "dock_or_pip",
+    });
+    expect(owner).toBeNull();
+  });
+
+  it("allows web banner in foreground even with native fsi flag", () => {
+    const owner = resolveCallEngineIncomingSurfaceOwner({
+      callId: "c-native",
+      appVisibility: "foreground",
+      hasNativeFsi: true,
+      requestOwner: "web_in_app_banner",
+    });
+    expect(owner).toBe("web_in_app_banner");
+  });
+
+  it("blocks web banner when web_call_screen already owns surface", () => {
+    resetCallEngineLocksForTests();
+    claimCallEngineSurfaceOwner("c-screen", "web_call_screen");
+    const owner = resolveCallEngineIncomingSurfaceOwner({
+      callId: "c-screen",
+      appVisibility: "foreground",
+      hasNativeFsi: false,
+      requestOwner: "web_in_app_banner",
     });
     expect(owner).toBeNull();
   });

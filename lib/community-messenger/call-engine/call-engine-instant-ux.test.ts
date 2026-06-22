@@ -28,10 +28,14 @@ vi.mock("@/lib/community-messenger/call-http-actions", () => ({
   patchCommunityMessengerCallSession: (...args: unknown[]) => patchCommunityMessengerCallSession(...args),
 }));
 
-vi.mock("@/lib/community-messenger/incoming-call-state", () => ({
-  isDibayCallConsumed: () => false,
-  markCallConsumed: vi.fn(),
-}));
+vi.mock("@/lib/community-messenger/incoming-call-state", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/community-messenger/incoming-call-state")>();
+  return {
+    ...actual,
+    isDibayCallConsumed: () => false,
+    markCallConsumed: vi.fn(),
+  };
+});
 
 vi.mock("@/lib/community-messenger/call-lifecycle", () => ({
   dibayIncomingLaneStopRing: vi.fn(),
@@ -165,7 +169,8 @@ describe("call-engine instant telegram UX contracts", () => {
 
   it("foreground incoming surface is exclusive per callId", () => {
     const surface = read("lib/community-messenger/call-engine/call-engine-surface-owner.ts");
-    expect(surface).toContain('return "web_in_app_banner"');
+    expect(surface).toContain('"web_in_app_banner"');
+    expect(surface).toContain("background_blocks_web_banner");
     expect(surface).toContain("tryLockCallEngineSurfaceOwner");
   });
 

@@ -15,6 +15,17 @@ public class NativeIncomingCallPlugin extends Plugin {
     String sessionId = call.getString("sessionId", "").trim();
     if (!sessionId.isEmpty()) {
       IncomingCallNotificationBuilder.dismissIncomingCall(getContext(), sessionId);
+      IncomingCallRingOwner.stop(getContext(), sessionId);
+    }
+    call.resolve();
+  }
+
+  @PluginMethod
+  public void dismissForegroundIncomingUi(PluginCall call) {
+    String sessionId = call.getString("sessionId", "").trim();
+    if (!sessionId.isEmpty()) {
+      IncomingCallTerminalHandler.finishIncomingUiOnly(getContext(), sessionId);
+      MainActivity.notifyForegroundIncomingUiState(sessionId, false);
     }
     call.resolve();
   }

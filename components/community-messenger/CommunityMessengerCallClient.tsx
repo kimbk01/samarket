@@ -100,7 +100,7 @@ import {
 import { runIncomingCallCleanup } from "@/lib/community-messenger/incoming-call-cleanup";
 import { applyIncomingCallConsumedSideEffects } from "@/lib/community-messenger/incoming-call-accept-gateway";
 import { isIncomingCallPreviewRoute } from "@/lib/community-messenger/incoming-call-preview-route";
-import { isDibayCallConsumed, markCallConsumed } from "@/lib/community-messenger/incoming-call-state";
+import { isDibayCallConsumed, markCallConsumed, readCallConsumedReason } from "@/lib/community-messenger/incoming-call-state";
 import {
   dibayCallSealTerminal,
   dibayIncomingLaneStopRing,
@@ -403,6 +403,15 @@ function pickCallSessionSnapshotAfterFetch(
   next: CommunityMessengerCallSession | null
 ): CommunityMessengerCallSession | null {
   if (!next) return next;
+  /** 수락 직후 stale GET 이 ringing 을 돌려주면 수락 화면이 다시 뜬다 */
+  if (
+    prev &&
+    prev.id === next.id &&
+    (prev.status === "active" || readCallConsumedReason(prev.id) === "accepted") &&
+    next.status === "ringing"
+  ) {
+    return prev.status === "active" ? prev : { ...next, status: "active" as const };
+  }
   /** 상대 수락 직후 발신 탭이 오래된 ringing GET 을 들고 있어도 active 로 즉시 덮음 */
   if (prev && prev.id === next.id && prev.status === "ringing" && next.status === "active") {
     return next;
@@ -1397,7 +1406,9 @@ export function CommunityMessengerCallClient({
               callId: sessionId,
               source: "refresh_session",
             });
-            if (pin && pin.sessionId === sessionId && isTerminalCallSessionStatus(pin.snapshot.status)) {
+            if (readCallConsumedReason(sessionId) === "accepted" && nextSession) {
+              nextSession = { ...nextSession, status: "active" };
+            } else if (pin && pin.sessionId === sessionId && isTerminalCallSessionStatus(pin.snapshot.status)) {
               nextSession = pin.snapshot;
             } else if (sessionRef.current && !isTerminalCallSessionStatus(sessionRef.current.status)) {
               nextSession = sessionRef.current;
@@ -3315,9 +3326,13 @@ export function CommunityMessengerCallClient({
         : patchAction === "reject"
           ? "rejected"
           : "ended";
+    const ringingDismiss = session.status === "ringing";
+    releaseCallActionLock("terminal");
+    if (ringingDismiss) {
+      void hardClearActiveCallSession(sid, "cancel_optimistic");
+    }
     logDibayCall("cleanup_done", { sessionId: sid, callId: sid, reason: optimisticEnd });
     const endedAtIso = new Date().toISOString();
-    const ringingDismiss = session.status === "ringing";
     if (ringingDismiss) {
       beginRingingCallDismiss(roomId);
     }
@@ -4939,14 +4954,14 @@ export function CommunityMessengerCallClient({
   const calleeAcceptBridgeLayout =
     !session.isMineInitiator &&
     session.status === "ringing" &&
+    !isDibayCallConsumed(session.id) &&
     (requestedAction === "accept" || busy === "accept" || calleeVideoConnectingShell);
   const calleeAcceptInFlightUi =
     !session.isMineInitiator &&
-    session.status === "ringing" &&
-    (requestedAction === "accept" ||
-      busy === "accept" ||
-      busy === "join" ||
-      calleeVideoConnectingShell);
+    (session.status === "active" ||
+      readCallConsumedReason(session.id) === "accepted" ||
+      (session.status === "ringing" &&
+        (requestedAction === "accept" || busy === "accept" || busy === "join" || calleeVideoConnectingShell)));
   const callScreenPhase: CallPhase =
     agoraReconnecting && (effectiveDirectPhase === "connected" || effectiveDirectPhase === "connecting")
       ? "connecting"

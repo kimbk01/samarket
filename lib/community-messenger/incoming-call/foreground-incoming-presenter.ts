@@ -4,6 +4,8 @@ import {
   type CallTerminalTombstoneContext,
 } from "@/lib/community-messenger/call-state/call-terminal-tombstone";
 import { isRingingIncomingOverlayCandidate } from "@/lib/community-messenger/call-incoming-terminal";
+import { resolveCallEngineAppVisibility } from "@/lib/community-messenger/call-engine/call-engine-app-visibility";
+import { shouldIgnoreIncomingDiscovered } from "@/lib/community-messenger/call-engine/call-engine-incoming-discovered-guard";
 import {
   extractCommunityMessengerCallRouteSessionId,
   resolveIncomingCallSurface,
@@ -152,6 +154,25 @@ export function resolveForegroundIncomingPresentation(
   if (!session) return emptyDecision("no_ringing_candidate");
 
   const selectedRingingSessionId = session.id;
+
+  const appVisibility = resolveCallEngineAppVisibility(input.visibilityState ?? undefined);
+
+  const incomingIgnore = shouldIgnoreIncomingDiscovered({
+    callId: session.id,
+    sessionStatus: session.status,
+    requestWebBanner: true,
+    appVisibility,
+  });
+  if (incomingIgnore.ignore) {
+    return {
+      sessionId: session.id,
+      session,
+      surface: "none",
+      reason: incomingIgnore.reason ?? "incoming_discovered_ignored",
+      shouldRender: false,
+      selectedRingingSessionId,
+    };
+  }
 
   if (shouldHideGlobalIncomingOverlayForSession(pathname, session.id)) {
     return {

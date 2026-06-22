@@ -11,6 +11,7 @@ import {
 } from "@/lib/call/native/native-call-service";
 import {
   acquireCallActionLock,
+  bindCallActionLockCallId,
   isOutgoingCallStartBlocked,
   releaseCallActionLock,
   resetCallActionLockForTests,
@@ -137,5 +138,27 @@ describe("call-action-lock", () => {
     acquireCallActionLock({ roomId: "room-a", mediaType: "voice" });
     releaseCallActionLock("create_failed");
     expect(isOutgoingCallStartBlocked()).toBe(false);
+  });
+
+  it("hard clear via finalize releases outgoing start lock", async () => {
+    acquireCallActionLock({ roomId: "room-a", mediaType: "voice" });
+    bindCallActionLockCallId("call-finalize");
+    setActiveCallSession({
+      callId: "call-finalize",
+      roomId: "room-a",
+      peerUserId: null,
+      role: "caller",
+      mediaType: "voice",
+      phase: "active",
+      machinePhase: "CONNECTED",
+      connected: true,
+    });
+    const { finalizeCommunityMessengerCallTerminalExit } = await import(
+      "@/lib/community-messenger/call-session-navigation-seed"
+    );
+    const router = { replace: vi.fn() };
+    finalizeCommunityMessengerCallTerminalExit(router, "call-finalize", "test_finalize");
+    expect(isOutgoingCallStartBlocked()).toBe(false);
+    expect(getActiveCallSessionCallId()).toBeNull();
   });
 });

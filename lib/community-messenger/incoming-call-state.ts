@@ -123,6 +123,16 @@ export function isDibayCallConsumed(callId: string | null | undefined, now = Dat
   return consumedByCallId.has(sid);
 }
 
+export function readCallConsumedReason(
+  callId: string | null | undefined,
+  now = Date.now(),
+): CallConsumedReason | null {
+  pruneConsumedRuntime(now);
+  const sid = normalizeCallId(callId);
+  if (!sid) return null;
+  return consumedByCallId.get(sid)?.reason ?? null;
+}
+
 /** ringtone 은 phase === incoming 일 때만 허용 */
 export function shouldAllowIncomingRingtone(callId: string | null | undefined, now = Date.now()): boolean {
   if (isDibayCallConsumed(callId, now)) return false;
