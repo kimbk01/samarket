@@ -33,6 +33,7 @@ import { readCallConsumedReason } from "@/lib/community-messenger/incoming-call-
 import { readCallEngineNavigationSeed } from "@/lib/community-messenger/call-engine";
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { isDibayCallV3SafeLaneEnabled } from "@/lib/community-messenger/call-v3/call-v3-flag";
 
 const MAX_RECOVERY_ATTEMPTS = 2;
 
@@ -55,7 +56,7 @@ async function fetchCallSessionForResume(callId: string): Promise<CommunityMesse
 /**
  * 새로고침·재실행·native active call 시 live 1:1 통화 화면 복구.
  */
-export function CallActiveSessionRecoveryHost() {
+function CallActiveSessionRecoveryHostInner() {
   const router = useRouter();
   const pathname = usePathname() ?? "";
   const attemptCountRef = useRef(0);
@@ -300,6 +301,12 @@ export function CallActiveSessionRecoveryHost() {
   }, [pathname, router]);
 
   return null;
+}
+
+/** V3 Safe Lane: no auto-resume into legacy `/calls/:id`. */
+export function CallActiveSessionRecoveryHost() {
+  if (isDibayCallV3SafeLaneEnabled()) return null;
+  return <CallActiveSessionRecoveryHostInner />;
 }
 
 function setActiveFromServer(

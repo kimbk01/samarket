@@ -7,6 +7,7 @@ import {
   runIncomingCallReject,
   runNativePendingAcceptCall,
 } from "@/lib/community-messenger/incoming-call-accept-gateway";
+import { isDibayCallV3SafeLaneEnabled } from "@/lib/community-messenger/call-v3/call-v3-flag";
 
 type VoipCallActionDetail = {
   sessionId?: string;
@@ -48,7 +49,13 @@ export function useDibayVoipCallBridge(): void {
   }, [router]);
 }
 
-export function DibayVoipCallBridgeHost() {
+function DibayVoipCallBridgeHostInner(): null {
   useDibayVoipCallBridge();
   return null;
+}
+
+/** V3 Safe Lane: iOS CallKit actions are handled by `CallV3Provider`. */
+export function DibayVoipCallBridgeHost(): null {
+  if (isDibayCallV3SafeLaneEnabled()) return null;
+  return DibayVoipCallBridgeHostInner();
 }

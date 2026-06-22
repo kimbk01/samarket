@@ -23,6 +23,7 @@ import {
 } from "@/lib/community-messenger/call-orchestrator";
 import { runNativePendingAcceptCall } from "@/lib/community-messenger/incoming-call-accept-gateway";
 import { callEngineActions } from "@/lib/community-messenger/call-engine";
+import { isDibayCallV3SafeLaneEnabled } from "@/lib/community-messenger/call-v3/call-v3-flag";
 
 const ROUTE_DEDUPE_MS = 2_000;
 
@@ -45,7 +46,7 @@ function resolveNativeAcceptSource(path: string): "native_notification_accept" |
 }
 
 /** Android native accept/route → 단일 accept gateway (replace 는 gateway 만) */
-export function DibayFcmCallRouteHost() {
+function DibayFcmCallRouteHostInner() {
   const router = useRouter();
   const lastRouteRef = useRef<{ path: string; at: number } | null>(null);
 
@@ -174,4 +175,10 @@ export function DibayFcmCallRouteHost() {
   }, [router]);
 
   return null;
+}
+
+/** V3 Safe Lane: native call routes are handled by `CallV3Provider`, not CallEngine. */
+export function DibayFcmCallRouteHost() {
+  if (isDibayCallV3SafeLaneEnabled()) return null;
+  return <DibayFcmCallRouteHostInner />;
 }

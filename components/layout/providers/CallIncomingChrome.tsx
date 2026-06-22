@@ -8,6 +8,9 @@ import { CallActiveSessionRecoveryHost } from "@/components/layout/providers/Cal
 import { CommunityMessengerActiveCallHost } from "@/components/layout/providers/CommunityMessengerActiveCallHost";
 import { DibayFcmCallRouteHost } from "@/components/layout/providers/DibayFcmCallRouteHost";
 import { DibayVoipCallBridgeHost } from "@/lib/push/native/dibay-voip-call-bridge";
+import { CallV3IncomingBanner } from "@/components/community-messenger/call-v3/CallV3IncomingBanner";
+import { CallV3Provider } from "@/components/community-messenger/call-v3/CallV3Provider";
+import { isDibayCallV3SafeLaneEnabled } from "@/lib/community-messenger/call-v3/call-v3-flag";
 
 const IncomingCallOverlay = dynamic(
   () =>
@@ -17,11 +20,7 @@ const IncomingCallOverlay = dynamic(
   { ssr: false }
 );
 
-/**
- * 수신 통화 오버레이만 `CallProvider`(CommunityCallSurface) 안에 둔다.
- * `useCommunityCallSurface` 소비처는 현재 수신 통화 UI뿐이라 전역 트리에서 분리해도 동일.
- */
-export function CallIncomingChrome() {
+function LegacyCallIncomingChrome() {
   return (
     <CallProvider>
       <DibayFcmCallRouteHost />
@@ -37,4 +36,25 @@ export function CallIncomingChrome() {
       </IncomingCallOverlayChunkBoundary>
     </CallProvider>
   );
+}
+
+function CallV3IncomingChrome() {
+  return (
+    <CallV3Provider>
+      <CallV3IncomingBanner />
+    </CallV3Provider>
+  );
+}
+
+/**
+ * 수신 통화 오버레이만 `CallProvider`(CommunityCallSurface) 안에 둔다.
+ * `useCommunityCallSurface` 소비처는 현재 수신 통화 UI뿐이라 전역 트리에서 분리해도 동일.
+ *
+ * V3 Safe Lane (`NEXT_PUBLIC_DIBAY_CALL_V3_SAFE_LANE=1`): legacy CallEngine hosts are not mounted.
+ */
+export function CallIncomingChrome() {
+  if (isDibayCallV3SafeLaneEnabled()) {
+    return <CallV3IncomingChrome />;
+  }
+  return <LegacyCallIncomingChrome />;
 }
