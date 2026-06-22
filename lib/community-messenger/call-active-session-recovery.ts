@@ -1,5 +1,11 @@
 "use client";
 
+import {
+  readCallEngineSessionItem,
+  removeCallEngineSessionItem,
+  writeCallEngineSessionItem,
+} from "@/lib/community-messenger/call-engine";
+
 /** 동일 브라우저 다중 탭에서 active 복구 라우팅 1회만 */
 export const ACTIVE_CALL_RECOVERY_LOCK_KEY = "samarket:cm-active-call-recovery";
 export const ACTIVE_CALL_RECOVERY_LOCK_TTL_MS = 120_000;
@@ -48,14 +54,14 @@ export function resolveActiveCallRecoveryTarget(
 }
 
 export function readActiveCallRecoveryLock(): { sessionId: string; at: number } | null {
-  if (typeof sessionStorage === "undefined") return null;
+  if (typeof window === "undefined") return null;
   try {
-    const raw = sessionStorage.getItem(ACTIVE_CALL_RECOVERY_LOCK_KEY);
+    const raw = readCallEngineSessionItem(ACTIVE_CALL_RECOVERY_LOCK_KEY);
     if (!raw) return null;
     const j = JSON.parse(raw) as { sessionId?: string; at?: number };
     if (!j.sessionId?.trim() || typeof j.at !== "number") return null;
     if (Date.now() - j.at > ACTIVE_CALL_RECOVERY_LOCK_TTL_MS) {
-      sessionStorage.removeItem(ACTIVE_CALL_RECOVERY_LOCK_KEY);
+      removeCallEngineSessionItem(ACTIVE_CALL_RECOVERY_LOCK_KEY);
       return null;
     }
     return { sessionId: j.sessionId.trim(), at: j.at };
@@ -65,15 +71,15 @@ export function readActiveCallRecoveryLock(): { sessionId: string; at: number } 
 }
 
 export function readTerminalCallRecoverySuppress(): { sessionId: string; until: number } | null {
-  if (typeof sessionStorage === "undefined") return null;
+  if (typeof window === "undefined") return null;
   try {
-    const raw = sessionStorage.getItem(TERMINAL_CALL_RECOVERY_SUPPRESS_KEY);
+    const raw = readCallEngineSessionItem(TERMINAL_CALL_RECOVERY_SUPPRESS_KEY);
     if (!raw) return null;
     const j = JSON.parse(raw) as { sessionId?: string; until?: number };
     const sessionId = j.sessionId?.trim();
     if (!sessionId || typeof j.until !== "number") return null;
     if (Date.now() >= j.until) {
-      sessionStorage.removeItem(TERMINAL_CALL_RECOVERY_SUPPRESS_KEY);
+      removeCallEngineSessionItem(TERMINAL_CALL_RECOVERY_SUPPRESS_KEY);
       return null;
     }
     return { sessionId, until: j.until };
@@ -83,11 +89,11 @@ export function readTerminalCallRecoverySuppress(): { sessionId: string; until: 
 }
 
 export function writeTerminalCallRecoverySuppress(sessionId: string): void {
-  if (typeof sessionStorage === "undefined") return;
+  if (typeof window === "undefined") return;
   const sid = sessionId.trim();
   if (!sid) return;
   try {
-    sessionStorage.setItem(
+    writeCallEngineSessionItem(
       TERMINAL_CALL_RECOVERY_SUPPRESS_KEY,
       JSON.stringify({ sessionId: sid, until: Date.now() + TERMINAL_CALL_RECOVERY_SUPPRESS_TTL_MS })
     );
@@ -106,9 +112,9 @@ export function shouldSkipActiveCallRecoveryRouting(sessionId: string): boolean 
 }
 
 export function writeActiveCallRecoveryLock(sessionId: string): void {
-  if (typeof sessionStorage === "undefined") return;
+  if (typeof window === "undefined") return;
   try {
-    sessionStorage.setItem(
+    writeCallEngineSessionItem(
       ACTIVE_CALL_RECOVERY_LOCK_KEY,
       JSON.stringify({ sessionId: sessionId.trim(), at: Date.now() })
     );

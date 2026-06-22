@@ -82,7 +82,7 @@ import {
   buildForegroundIncomingWakeOptimisticSession,
   mergeForegroundIncomingWakeSession,
 } from "@/lib/community-messenger/incoming-call/foreground-incoming-wake";
-import { patchCommunityMessengerCallSession, postCommunityMessengerCallHangupSignal } from "@/lib/call/call-actions";
+import { postCommunityMessengerCallHangupSignal } from "@/lib/call/call-actions";
 import { patchCommunityMessengerCallMissedOnce } from "@/lib/community-messenger/messenger-call-missed-patch";
 import { evaluateIncomingCallBusyPolicy } from "@/lib/call/call-state";
 import { useIncomingCallTabLeader } from "@/lib/community-messenger/incoming-call-tab-leader";
@@ -130,6 +130,7 @@ import {
 import { getNativeIncomingCallPlugin } from "@/lib/push/native/push-route-native-bridge";
 import { incomingRingTimeoutMsFromConfig } from "@/lib/community-messenger/messenger-call-ring-timeout";
 import { acceptIncomingCallOnce, runIncomingCallReject } from "@/lib/community-messenger/incoming-call-accept-gateway";
+import { callEngineActions } from "@/lib/community-messenger/call-engine";
 import { buildIncomingCallPreviewHref } from "@/lib/community-messenger/incoming-call-preview-route";
 import {
   getIncomingCallPollIntervalMs,
@@ -2011,10 +2012,15 @@ export function GlobalCommunityMessengerIncomingCall() {
       suppressMissedSoundRef.current.add(sid);
       dismissAllIncomingCallNotificationsFireAndForget(sid);
       activeIncomingCallIdsRef.current.delete(sid);
-      void patchCommunityMessengerCallSession(sid, "reject", undefined, {
-        sessionStatus: s.status,
-        isInitiator: s.isMineInitiator,
-        endedReason: s.endedReason ?? null,
+      void callEngineActions.patch({
+        callId: sid,
+        action: "reject",
+        source: "incoming_busy_auto_reject",
+        debugContext: {
+          sessionStatus: s.status,
+          isInitiator: s.isMineInitiator,
+          endedReason: s.endedReason ?? null,
+        },
       }).then(() => refresh(true, { incomingTerminalListSync: true }));
     }
     setSessions((prev) => prev.filter((item) => !rejected.has(item.id)));

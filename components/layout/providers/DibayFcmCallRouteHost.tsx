@@ -22,6 +22,7 @@ import {
   logDibayCall,
 } from "@/lib/community-messenger/call-orchestrator";
 import { runNativePendingAcceptCall } from "@/lib/community-messenger/incoming-call-accept-gateway";
+import { callEngineActions } from "@/lib/community-messenger/call-engine";
 
 const ROUTE_DEDUPE_MS = 2_000;
 
@@ -110,7 +111,12 @@ export function DibayFcmCallRouteHost() {
       }
 
       clearDibayCallPendingRoute();
-      if (shouldReplaceRoute(path)) {
+      const sessionId = readCalleeAcceptSessionIdFromPath(path);
+      if (sessionId && shouldReplaceRoute(path)) {
+        if (!callEngineActions.replaceRouteOnce(router, sessionId, path)) {
+          router.replace(path);
+        }
+      } else if (shouldReplaceRoute(path)) {
         router.replace(path);
       } else {
         router.push(path);

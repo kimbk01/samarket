@@ -346,6 +346,16 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
     return backMypage({ titleText: "tier1_recent_viewed", subtitle: "tier1_recent_viewed_subtitle", showHubQuickActions: true });
   }
 
+  if (p === "/terms" || starts(p, "/terms/")) {
+    return {
+      ...DEFAULT,
+      backHref: "/mypage",
+      preferHistoryBack: true,
+      titleText: "mypage_hub_terms_title",
+      showHubQuickActions: false,
+    };
+  }
+
   if (starts(p, "/my/settings") || starts(p, "/mypage/settings")) {
     return backMypage({ titleText: "tier1_app_settings", showHubQuickActions: true });
   }

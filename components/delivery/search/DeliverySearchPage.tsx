@@ -9,6 +9,7 @@ import {
 import { useDeliveryListScrollRestore } from "@/lib/dibay/use-delivery-list-scroll-restore";
 import { markStoreDetailListSeedNavigation } from "@/lib/dibay/store-detail-seed-patch-trace";
 import { buildStoreDetailHref } from "@/lib/dibay/store-detail-href";
+import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
 import { DeliverySearchHeader } from "@/components/delivery/search/DeliverySearchHeader";
 import { RecentSearchChips } from "@/components/delivery/search/RecentSearchChips";
 import { PopularSearchList } from "@/components/delivery/search/PopularSearchList";
@@ -174,9 +175,9 @@ export function DeliverySearchPage() {
   );
 
   return (
-    <div className="min-h-screen bg-sam-app">
+    <div className="min-h-0 bg-sam-app">
       <DeliverySearchHeader value={q} onChange={setQ} onSubmit={onSubmit} />
-      <main className="mx-auto max-w-lg px-4 pb-24 pt-3">
+      <main className={`mx-auto max-w-lg px-4 pt-3 ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`}>
         {!showResults ? (
           <div className="space-y-5">
             <RecentSearchChips onPick={onPickKeyword} />

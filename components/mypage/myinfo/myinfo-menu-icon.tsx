@@ -18,6 +18,7 @@ import {
   MessageCircle,
   MessageSquare,
   Package,
+  Phone,
   PlayCircle,
   ReceiptText,
   Settings,
@@ -92,6 +93,8 @@ export function renderMypageHomeMenuIcon(icon: MypageHomeMenuIconId | "languages
       return <Info className={ICON_CLASS} {...stroke} />;
     case "hand":
       return <Hand className={ICON_CLASS} {...stroke} />;
+    case "phone":
+      return <Phone className={ICON_CLASS} {...stroke} />;
     case "languages":
       return <Languages className={ICON_CLASS} {...stroke} />;
     default:

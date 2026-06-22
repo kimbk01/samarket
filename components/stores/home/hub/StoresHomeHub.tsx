@@ -28,6 +28,7 @@ import { useBrowseFeaturedItemsHydration } from "@/lib/stores/use-browse-feature
 import { markStoresHomePerf } from "@/lib/stores/stores-home-perf-marks";
 import { getMainAppScrollRootCached } from "@/lib/layout/main-app-scroll-root";
 import { STORES_HOME_RAIL_SCROLL, STORES_HOME_STACK } from "@/lib/stores/stores-home-ui";
+import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
 import { StoresHomeCategorySeedPanelClient } from "@/components/stores/home/hub/StoresHomeCategorySeedPanel.client";
 import { StoresHomeQuickCategories } from "@/components/stores/home/hub/StoresHomeQuickCategories";
 import { StoresHomePullRefreshRegister } from "@/components/stores/home/hub/StoresHomePullRefreshRegister";
@@ -257,7 +258,10 @@ export function StoresHomeHub({
   );
 
   return (
-    <div className="stores-home-hub delivery-ui flex flex-col pb-4" data-stores-perf="shell">
+    <div
+      className={`stores-home-hub delivery-ui flex flex-col ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`}
+      data-stores-perf="shell"
+    >
       <StoresHomePerfBoot />
       <StoresHomeQuickCategories />
       <StoresHomePullRefreshRegister

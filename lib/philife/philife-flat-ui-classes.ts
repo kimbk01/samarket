@@ -2,6 +2,10 @@
  * Philife/Community 레거시 export.
  * 신규 UI 규격은 전역 `Sam` 디자인 시스템(`sam-*`)만 사용한다.
  */
+import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
+
+export { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS as PHILIFE_HUB_BOTTOM_NAV_CLEARANCE_CLASS };
+
 export const COMMUNITY_FONT_CLASS = "font-sans antialiased";
 
 /** Samarket 서비스 팔레트 */
@@ -30,9 +34,10 @@ export const COMMUNITY_TYPO_TAB = "sam-tab";
 export const COMMUNITY_TYPO_MODAL_TITLE = "sam-text-page-title";
 export const COMMUNITY_TYPO_MODAL_BODY = "sam-text-body";
 
-/** 피드·작성 등 페이지 루트 */
+/** 피드·작성 등 페이지 루트 — 허브 스크롤 안에서는 `min-h-screen` 금지(빈 하단 방지) */
 export const PHILIFE_PAGE_ROOT_CLASS = [
-  "min-h-screen min-w-0 max-w-full overflow-x-hidden pb-28",
+  "min-h-0 min-w-0 max-w-full overflow-x-hidden",
+  MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS,
   COMMUNITY_FONT_CLASS,
   "bg-sam-app text-sam-fg",
 ].join(" ");
@@ -74,10 +79,9 @@ export const COMMUNITY_FEED_LIST_WRAP_CLASS =
   "m-0 list-none space-y-4 p-0 px-4 pt-2 pb-4 [&>li]:list-none";
 
 /**
- * 거래 피드 `<ul>` — **필라이프 피드와 동일** 카드 간·좌우 인셋(`PHILIFE_FEED_LIST_WRAP_CLASS` 와 동일 문자열).
- * `/market`·`/market/[slug]` 체감 정렬을 커뮤니티와 맞춘다.
+ * 거래 피드 `<ul>` — 좌우 인셋은 philife 와 동일, 하단은 탭 clearance(셸 `pb-0` 와 쌍).
  */
-export const TRADE_FEED_LIST_WRAP_CLASS = PHILIFE_FEED_LIST_WRAP_CLASS;
+export const TRADE_FEED_LIST_WRAP_CLASS = `m-0 list-none space-y-1 p-0 ${PHILIFE_FEED_INSET_X_CLASS} pt-1 ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS} [&>li]:list-none`;
 
 /** 피드/광고 카드 공통 */
 export const PHILIFE_FB_CARD_CLASS =

@@ -19,6 +19,7 @@ import {
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { PHILIFE_FEED_INSET_X_CLASS } from "@/lib/philife/philife-flat-ui-classes";
+import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
 import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 import { useRegionOptional } from "@/contexts/RegionContext";
 import { getRegionName } from "@/lib/regions/region-utils";
@@ -693,7 +694,7 @@ export function StoresBrowsePrimaryView({
 
   if (!primary) {
     return (
-      <div className="min-h-[40vh] pb-8">
+      <div className={`min-h-[40vh] ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`}>
         <div className={`${APP_MAIN_COLUMN_CLASS} ${PHILIFE_FEED_INSET_X_CLASS} pt-4`}>
           <p className="text-sm text-sam-muted">{t("store_invalid_industry")}</p>
           <Link href="/stores" className="mt-4 inline-block text-sm text-signature">
@@ -705,7 +706,7 @@ export function StoresBrowsePrimaryView({
   }
 
   return (
-    <div className="min-h-[50vh] bg-sam-app pb-8 dark:bg-[#18191A]">
+    <div className={`min-h-[50vh] bg-sam-app ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS} dark:bg-[#18191A]`}>
       <BrowseSubtopicCollapseSentinel routeKey={subtopicCollapseRouteKey} />
       <div className="pt-3">
       {browseListReady ?

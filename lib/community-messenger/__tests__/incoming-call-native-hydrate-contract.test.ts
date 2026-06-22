@@ -68,7 +68,8 @@ describe("incoming-call ring ownership contract", () => {
     const delivery = read("android/app/src/main/java/com/dibay/app/IncomingCallPushDelivery.java");
     expect(delivery).toContain("IncomingCallRingOwner.start");
     expect(delivery).toContain("source=push_delivery");
-    expect(delivery).toContain("IncomingCallForegroundUiLauncher.showUi");
+    expect(delivery).toContain("incoming_call_foreground_web_ssot");
+    expect(delivery).not.toContain("IncomingCallForegroundUiLauncher.showUi");
     expect(delivery).toContain("presentLockIncoming");
 
     const fcm = read("android/app/src/main/java/com/dibay/app/DibayFirebaseMessagingService.java");

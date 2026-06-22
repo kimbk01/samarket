@@ -6,6 +6,7 @@ import {
   ADDR_SB_MINT,
 } from "@/lib/ui/address-list-starbucks-styles";
 import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
+import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
 
 export {
   ADDR_SB_COFFEE,
@@ -18,9 +19,12 @@ export {
 /** 내정보 홈 — 프로필 편집과 동일 크림 배경 */
 export const MYPAGE_HOME_PAGE_BG_CLASS = "min-h-0 bg-[#F2F0EB]";
 
-/** 모바일·태블릿 본문 — 하단 여백은 앱 셸 `MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV` 에만 의존 */
+/** 내정보 홈 — 하단 탭 clearance(`MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS`) re-export */
+export { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS as MYPAGE_HOME_BOTTOM_NAV_CLEARANCE_CLASS };
+
+/** 모바일·태블릿 본문 — 하단 여백은 clearance + 셸 `pb-0` 로 한 번만 */
 export const MYPAGE_HOME_BODY_CLASS =
-  `mx-auto w-full min-w-0 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} px-4 pt-2 pb-0`;
+  `mx-auto w-full min-w-0 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} px-4 pt-2 ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`;
 
 export const MYPAGE_HOME_CARD_CLASS =
   "overflow-hidden rounded-ui-rect border border-[#00704A]/12 bg-white shadow-[0_1px_0_rgba(30,57,50,0.04)]";

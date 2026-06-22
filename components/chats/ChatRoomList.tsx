@@ -19,6 +19,9 @@ import {
 } from "@/lib/chats/fetch-chat-rooms-by-segment";
 import { useIntegratedChatRoomListRealtime } from "@/lib/chats/use-integrated-chat-room-list-realtime";
 import { usePostsSellerListingRealtimeBatch } from "@/lib/chats/use-post-seller-listing-realtime";
+import { useTradeChatListClientPagination } from "@/lib/community-messenger/trade-chat-list/use-trade-chat-list-client-pagination";
+import { TradeListLoadMoreFooter } from "@/components/trade/TradeListLoadMoreFooter";
+import { tradeListPaginationResetKey } from "@/lib/trade/trade-list-pagination-reset-key";
 
 /** 목록은 Realtime 미구독 구간만 갱신 — Supabase 쿼리·API 한도 완화를 위해 길게 */
 const POLL_MS = 90_000;
@@ -150,7 +153,14 @@ export function ChatRoomList({
 
   const userId = viewerId ?? "";
 
-  const useVirt = Boolean(rooms && rooms.length >= CHAT_ROOM_LIST_VIRTUAL_THRESHOLD);
+  const tradeListPagination = useTradeChatListClientPagination({
+    items: segment === "trade" ? (rooms ?? []) : [],
+    resetKey: segment === "trade" ? tradeListPaginationResetKey("trade", rooms ?? []) : "",
+  });
+  const useTradeListPagination = segment === "trade" && Boolean(rooms?.length);
+  const displayRooms = useTradeListPagination ? tradeListPagination.visibleItems : (rooms ?? []);
+  const useVirt =
+    !useTradeListPagination && Boolean(rooms && rooms.length >= CHAT_ROOM_LIST_VIRTUAL_THRESHOLD);
   const rowVirtualizer = useVirtualizer({
     count: useVirt && rooms ? rooms.length : 0,
     getScrollElement: () =>
@@ -235,13 +245,24 @@ export function ChatRoomList({
 
   if (!useVirt) {
     return (
-      <ul
-        className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} sam-card divide-y divide-sam-border`}
-      >
-        {rooms.map((room) => (
-          <li key={room.id}>{renderRoomRow(room)}</li>
-        ))}
-      </ul>
+      <>
+        <ul
+          className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} sam-card divide-y divide-sam-border`}
+        >
+          {displayRooms.map((room) => (
+            <li key={room.id}>{renderRoomRow(room)}</li>
+          ))}
+        </ul>
+        {useTradeListPagination ? (
+          <TradeListLoadMoreFooter
+            hasMore={tradeListPagination.hasMore}
+            loadingMore={tradeListPagination.loadingMore}
+            onLoadMore={tradeListPagination.loadMore}
+            visibleCount={tradeListPagination.visibleCount}
+            totalCount={tradeListPagination.totalCount}
+          />
+        ) : null}
+      </>
     );
   }
 

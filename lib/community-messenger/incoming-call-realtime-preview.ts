@@ -161,8 +161,7 @@ export function communityMessengerIncomingSessionFromFcmWake(
   if (callKind !== "voice" && callKind !== "video") return null;
 
   const startedAt = new Date().toISOString();
-  const peerLabel =
-    incomingCallPeerNicknameLabel(trimText(detail.callerName)) || peerFallbackLabel(initiatorUserId);
+  const peerLabel = incomingCallPeerNicknameLabel(trimText(detail.callerName)) || "";
   const peerAvatarUrl = trimText(detail.callerAvatarUrl) || null;
   const recipientUserId = selfId;
 

@@ -1,9 +1,9 @@
 "use client";
 
-import { patchCommunityMessengerCallSession } from "@/lib/call/call-actions";
 import { logDibayCallFlow } from "@/lib/call/logging/call-flow-log";
 import { endNativeCallService } from "@/lib/call/native/native-call-service";
 import { dibayCallSealTerminal } from "@/lib/community-messenger/call-lifecycle";
+import { callEngineActions } from "@/lib/community-messenger/call-engine";
 
 export type CallEndGuardInput = {
   sessionId: string;
@@ -20,16 +20,18 @@ export async function runCallEndGuard(input: CallEndGuardInput): Promise<{ ok: b
   const action = input.action ?? "end";
   logDibayCallFlow("call_end", { sessionId: sid, callId: sid, action, reason: input.reason });
 
-  const patched = await patchCommunityMessengerCallSession(
-    sid,
+  const patched = await callEngineActions.patch({
+    callId: sid,
     action,
-    input.durationSeconds != null || input.reason
-      ? {
-          ...(input.durationSeconds != null ? { durationSeconds: input.durationSeconds } : {}),
-          ...(input.reason ? { clientEndedReason: input.reason } : {}),
-        }
-      : undefined,
-  );
+    init:
+      input.durationSeconds != null || input.reason
+        ? {
+            ...(input.durationSeconds != null ? { durationSeconds: input.durationSeconds } : {}),
+            ...(input.reason ? { clientEndedReason: input.reason } : {}),
+          }
+        : undefined,
+    source: "call_end_guard",
+  });
 
   if (input.notifyNative !== false) {
     await endNativeCallService(sid, input.reason ?? action);

@@ -12,6 +12,7 @@ import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenge
 import { BOTTOM_NAV_STACK_ABOVE_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import { useMessengerRoomUiStore } from "@/lib/community-messenger/stores/messenger-room-ui-store";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
+import { clearMinimizedCommunityCallSessionFlags } from "@/lib/community-messenger/direct-call-minimize";
 import {
   BackIcon,
   communityMessengerMemberAvatar,
@@ -83,12 +84,7 @@ export function CommunityMessengerRoomPhase2CallLayer() {
           <button
             type="button"
             onClick={() => {
-              try {
-                sessionStorage.removeItem("cm_minimized_call_room");
-                sessionStorage.removeItem("cm_minimized_call_session");
-              } catch {
-                /* ignore */
-              }
+              clearMinimizedCommunityCallSessionFlags();
               const backToCallHref = `/community-messenger/calls/${encodeURIComponent(returnToCallSessionId)}`;
               vm.router.prefetch(backToCallHref);
               vm.router.push(backToCallHref);

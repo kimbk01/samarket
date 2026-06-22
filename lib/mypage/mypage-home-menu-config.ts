@@ -34,6 +34,11 @@ export const MYPAGE_HOME_STORE_ITEMS: MypageHomeLinkMenuItem[] = [
 
 export const MYPAGE_HOME_ACCOUNT_ITEMS: MypageHomeMenuItemConfig[] = [
   {
+    href: "/mypage/account",
+    titleKey: "mypage_settings_account",
+    icon: "user-round",
+  },
+  {
     kind: "addresses",
     titleKey: "mypage_comp_menu_account_address_title",
     icon: "address-pin",

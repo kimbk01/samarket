@@ -32,6 +32,8 @@ import { TRADE_FEED_LIST_WRAP_CLASS } from "@/lib/philife/philife-flat-ui-classe
 import { recordTradeListMetric } from "@/lib/runtime/trade-list-entry-debug";
 import { capRecordByOldestTimestamps } from "@/lib/http/memory-map-prune";
 import { TradeFeedBufferingSpinner } from "@/components/trade/TradeFeedBufferingSpinner";
+import { TradeListLoadMoreFooter } from "@/components/trade/TradeListLoadMoreFooter";
+import { awaitTradeListLoadMoreMinDelay } from "@/lib/trade/trade-list-load-more-delay";
 import { TradeMarketPullRefreshRegister } from "@/components/trade/TradeMarketPullRefreshRegister";
 import { resolveTradeMarketPullRefreshRouteKey } from "@/lib/trade/trade-market-pull-refresh-surface";
 
@@ -184,6 +186,7 @@ export function PostListByCategory({
   const [reportPostId, setReportPostId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [loading, setLoading] = useState(() => !initialCachedFeed);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(() => initialCachedFeed?.hasMore === true);
   const [page, setPage] = useState(1);
   /** `feedKey` 변경 시 늦게 도착한 목록 응답이 상태를 덮어쓰지 않게 함 (`docs/trade-market-feed-contract.md`) */
@@ -224,7 +227,7 @@ export function PostListByCategory({
   );
 
   const load = useCallback(
-    async (pageNum: number = 1) => {
+    async (pageNum: number = 1, opts?: { append?: boolean }) => {
       if (!categoryId) {
         setLoading((prev) => (prev ? false : prev));
         allowRscBootstrapFeedRef.current = true;
@@ -235,8 +238,11 @@ export function PostListByCategory({
         allowRscBootstrapFeedRef.current = true;
         return;
       }
+      const append = opts?.append === true && pageNum > 1;
       const epochAtStart = listFeedEpochRef.current;
-      setLoading((prev) => (prev ? prev : true));
+      if (!append) {
+        setLoading((prev) => (prev ? prev : true));
+      }
       try {
         const ids = tradeFeedServerResolution ? [] : effectiveIds;
         const next = await getPostsByTradeCategoryIds(ids, buildTradeFeedRequestOptions(pageNum));
@@ -259,7 +265,7 @@ export function PostListByCategory({
           resolveFavoriteMapAsync(next.posts, pageNum, epochAtStart);
         }
       } finally {
-        if (epochAtStart === listFeedEpochRef.current) {
+        if (epochAtStart === listFeedEpochRef.current && !append) {
           setLoading(false);
         }
         allowRscBootstrapFeedRef.current = true;
@@ -465,12 +471,19 @@ export function PostListByCategory({
     };
   }, []);
 
-  const loadMore = useCallback(() => {
-    if (loading || !hasMore) return;
+  const loadMore = useCallback(async () => {
+    if (loading || loadingMore || !hasMore) return;
     const next = page + 1;
     setPage(next);
-    load(next);
-  }, [loading, hasMore, page, load]);
+    setLoadingMore(true);
+    const startedAt = Date.now();
+    try {
+      await load(next, { append: true });
+    } finally {
+      await awaitTradeListLoadMoreMinDelay(startedAt);
+      setLoadingMore(false);
+    }
+  }, [hasMore, load, loading, loadingMore, page]);
 
   const handleFavoriteChange = useCallback((postId: string, isFavorite: boolean) => {
     setFavoriteMap((prev) => ({ ...prev, [postId]: isFavorite }));
@@ -571,21 +584,14 @@ export function PostListByCategory({
           )
         )}
       </ul>
-      {hasMore ? (
-        <div className="mt-3 flex w-full items-center justify-center py-3">
-          {loading ? (
-            <TradeFeedBufferingSpinner />
-          ) : (
-            <button
-              type="button"
-              onClick={loadMore}
-              className="text-[14px] text-sam-muted"
-            >
-              더보기
-            </button>
-          )}
-        </div>
-      ) : null}
+      <TradeListLoadMoreFooter
+        hasMore={hasMore}
+        loadingMore={loadingMore}
+        onLoadMore={() => void loadMore()}
+        visibleCount={posts.length}
+        totalCount={posts.length}
+        showCount={!hasMore}
+      />
 
       {toast ? (
         <div className="fixed bottom-24 left-1/2 z-20 -translate-x-1/2 rounded-full bg-sam-surface-dark px-4 py-2 text-[14px] text-white shadow-lg">

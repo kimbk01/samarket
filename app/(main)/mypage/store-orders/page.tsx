@@ -3,6 +3,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { MyStoreOrdersView } from "@/components/mypage/MyStoreOrdersView";
+import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
 import { APP_MAIN_FEED_STACK_CLASS } from "@/lib/ui/app-content-layout";
 
 export default function MypageStoreOrdersPage() {
@@ -15,7 +16,9 @@ export default function MypageStoreOrdersPage() {
         backHref="/mypage"
         hideCtaStrip
       />
-      <div className={`min-h-0 w-full min-w-0 flex-1 ${APP_MAIN_FEED_STACK_CLASS}`}>
+      <div
+        className={`min-h-0 w-full min-w-0 flex-1 ${APP_MAIN_FEED_STACK_CLASS} ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`}
+      >
         <MyStoreOrdersView suppressTier1Sync />
       </div>
     </div>

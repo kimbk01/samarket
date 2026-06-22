@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { MyPageData } from "@/lib/my/types";
 import { MyPageHeader } from "@/components/my/MyPageHeader";
@@ -17,8 +17,8 @@ import { MYPAGE_HOME_PAGE_BG_CLASS } from "@/lib/ui/mypage-home-starbucks-styles
 import {
   MYPAGE_INFO_HUB_SHEET_PARAM,
   MYPAGE_INFO_HUB_SHEET_VALUE,
-  MYPAGE_MAIN_HREF,
 } from "@/lib/my/mypage-info-hub";
+import { MYPAGE_SETTINGS_HREF } from "@/lib/mypage/mypage-profile-routes";
 import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
 import { fetchMeProfileDeduped } from "@/lib/profile/fetch-me-profile-deduped";
 import {
@@ -49,7 +49,7 @@ function resolveLegacyMyPageRedirectTarget(args: {
 }
 
 export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageData | null } = {}) {
-  const { t, language } = useI18n();
+  const { t } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname() ?? "";
@@ -66,7 +66,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
   const membership = useClientMembershipState("mypage-root");
   const hasServerProfile = Boolean(initialMyPageData?.profile);
   const hubEnabled = hasServerProfile || membership.status === "member";
-  const { data, loading, load, overviewCounts } = useMypageHubModel(initialMyPageData ?? undefined, {
+  const { data, loading, load } = useMypageHubModel(initialMyPageData ?? undefined, {
     enabled: hubEnabled,
   });
 
@@ -119,9 +119,9 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
 
   useEffect(() => {
     if (!infoHubOpen) return;
-    guardedRouterReplace(router, MYPAGE_MAIN_HREF, {
+    guardedRouterReplace(router, MYPAGE_SETTINGS_HREF, {
       source: "my-content",
-      reason: "info_hub_sheet_close",
+      reason: "legacy_info_sheet_to_settings",
     });
   }, [infoHubOpen, router]);
 
@@ -165,7 +165,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
 
   if (!hasServerProfile && membership.status === "checking") {
     return (
-      <div className={`flex min-h-0 min-w-0 flex-1 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
+      <div className={`flex min-h-0 min-w-0 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
         <MyPageHeader backFallbackHref="/philife" />
         <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS}>
           <div className={`${PHILIFE_FB_CARD_CLASS} sam-card__body py-10 text-center sam-text-body-secondary`}>
@@ -179,7 +179,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
   /** 비회원 — 허브 레이아웃만. 진입 시 AuthModal 자동 오픈 금지(메뉴·CTA 탭 시만). */
   if (!hasServerProfile && membership.status === "guest") {
     return (
-      <div className={`flex min-h-0 min-w-0 flex-1 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
+      <div className={`flex min-h-0 min-w-0 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
         <MyPageHeader backFallbackHref="/philife" />
         <div className={`${APP_MAIN_COLUMN_CLASS} min-h-0 min-w-0 ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
           <MyPageGuestHomeDashboard />
@@ -191,7 +191,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
   /** RSC 프로필이 있으면 백그라운드 refresh 중에도 셸 유지 */
   if (loading && !(hasServerProfile && data?.profile)) {
     return (
-      <div className={`flex min-h-0 min-w-0 flex-1 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
+      <div className={`flex min-h-0 min-w-0 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
         <MyPageHeader backFallbackHref="/philife" />
         <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS}>
           <div className={`${PHILIFE_FB_CARD_CLASS} sam-card__body py-10 text-center sam-text-body-secondary`}>
@@ -204,7 +204,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
 
   if (!data) {
     return (
-      <div className={`flex min-h-0 min-w-0 flex-1 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
+      <div className={`flex min-h-0 min-w-0 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
         <MyPageHeader backFallbackHref="/philife" />
         <div className={`${PHILIFE_FEED_INSET_X_CLASS} pt-1 ${APP_MAIN_TAB_SCROLL_BODY_CLASS}`}>
           <div className={`${PHILIFE_FB_CARD_CLASS} sam-card__body py-10 text-center sam-text-body-secondary`}>
@@ -219,7 +219,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
 
   if (!profile) {
     return (
-      <div className={`flex min-h-0 min-w-0 flex-1 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
+      <div className={`flex min-h-0 min-w-0 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
         <MyPageHeader backFallbackHref="/philife" />
         <div className={`${PHILIFE_FEED_INSET_X_CLASS} pt-1 ${APP_MAIN_TAB_SCROLL_BODY_CLASS}`}>
           <div className={`${PHILIFE_FB_CARD_CLASS} sam-card__body py-10 text-center sam-text-body-secondary`}>
@@ -231,7 +231,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
   }
 
   return (
-    <div className={`flex min-h-0 min-w-0 flex-1 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
+    <div className={`flex min-h-0 min-w-0 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
       <MyPageHeader backFallbackHref="/philife" />
       <div className={`${APP_MAIN_COLUMN_CLASS} min-h-0 min-w-0 ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
         <MyPageHomeDashboard

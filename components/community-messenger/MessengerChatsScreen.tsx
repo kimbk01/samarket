@@ -21,6 +21,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MessengerChatFilterSheet } from "@/components/community-messenger/MessengerChatFilterSheet";
 import { TradeChatListLoadMoreFooter } from "@/components/community-messenger/trade-chat-list/TradeChatListLoadMoreFooter";
 import { useTradeChatListClientPagination } from "@/lib/community-messenger/trade-chat-list/use-trade-chat-list-client-pagination";
+import { tradeListPaginationResetKey } from "@/lib/trade/trade-list-pagination-reset-key";
 
 function useMessengerHomeListDocumentScroll(onScroll: () => void) {
   useEffect(() => {
@@ -112,7 +113,7 @@ export function MessengerChatsScreen({
   const isPillarChatListVisual = isTradeListVisual || isDeliveryListVisual;
   const pillarPagination = useTradeChatListClientPagination({
     items,
-    resetKey: String(items.length),
+    resetKey: tradeListPaginationResetKey(chatListVisual, items.map((item) => ({ id: item.room.id }))),
   });
   const renderedListItems = isPillarChatListVisual ? pillarPagination.visibleItems : items;
   const showPillarSummaryRows =

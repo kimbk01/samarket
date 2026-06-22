@@ -1,4 +1,9 @@
 import type { CallPermissionStoreState } from "@/lib/call/permissions/call-permission-types";
+import {
+  readCallEngineLocalItem,
+  removeCallEngineLocalItem,
+  writeCallEngineLocalItem,
+} from "@/lib/community-messenger/call-engine";
 
 const STORAGE_KEY = "dibay_call_permission_store_v1";
 const ONBOARDING_SHOWN_KEY = "dibay_call_permission_onboarding_shown_v1";
@@ -12,11 +17,9 @@ let memoryStoreState: CallPermissionStoreState = "unknown";
 let memoryOnboardingShown = false;
 
 function readPersisted(): PersistedCallPermissionStore {
-  if (typeof localStorage === "undefined") {
-    return { state: memoryStoreState, updatedAt: 0 };
-  }
+  if (typeof window === "undefined") return { state: memoryStoreState, updatedAt: 0 };
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = readCallEngineLocalItem(STORAGE_KEY);
     if (!raw) return { state: "unknown", updatedAt: 0 };
     const parsed = JSON.parse(raw) as PersistedCallPermissionStore;
     const state = parsed.state ?? "unknown";
@@ -42,10 +45,10 @@ function isValidStoreState(value: string): value is CallPermissionStoreState {
 
 function writePersisted(state: CallPermissionStoreState): void {
   memoryStoreState = state;
-  if (typeof localStorage === "undefined") return;
+  if (typeof window === "undefined") return;
   try {
     const payload: PersistedCallPermissionStore = { state, updatedAt: Date.now() };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    writeCallEngineLocalItem(STORAGE_KEY, JSON.stringify(payload));
   } catch {
     /* ignore */
   }
@@ -61,18 +64,18 @@ export function writeCallPermissionStoreState(state: CallPermissionStoreState): 
 
 export function markCallPermissionOnboardingShown(): void {
   memoryOnboardingShown = true;
-  if (typeof localStorage === "undefined") return;
+  if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(ONBOARDING_SHOWN_KEY, String(Date.now()));
+    writeCallEngineLocalItem(ONBOARDING_SHOWN_KEY, String(Date.now()));
   } catch {
     /* ignore */
   }
 }
 
 export function hasCallPermissionOnboardingBeenShown(): boolean {
-  if (typeof localStorage === "undefined") return memoryOnboardingShown;
+  if (typeof window === "undefined") return memoryOnboardingShown;
   try {
-    return localStorage.getItem(ONBOARDING_SHOWN_KEY) != null;
+    return readCallEngineLocalItem(ONBOARDING_SHOWN_KEY) != null;
   } catch {
     return false;
   }
@@ -93,4 +96,6 @@ export function deriveStoreStateFromOsGrant(input: {
 export function resetCallPermissionStoreForTests(): void {
   memoryStoreState = "unknown";
   memoryOnboardingShown = false;
+  removeCallEngineLocalItem(STORAGE_KEY);
+  removeCallEngineLocalItem(ONBOARDING_SHOWN_KEY);
 }

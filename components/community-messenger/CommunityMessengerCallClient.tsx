@@ -116,7 +116,6 @@ import {
 } from "@/lib/call/map-session-to-active-call";
 import { patchCallSessionHeartbeat } from "@/lib/call/call-server-heartbeat-client";
 import { appendDibayCallQaLog } from "@/lib/call/qa/dibay-call-qa-log";
-import { joinCommunityMessengerAgoraChannelOnce } from "@/lib/call/actions/agora-join-guard";
 import { startCallHeartbeatWatchdog, stopCallHeartbeatWatchdog } from "@/lib/call/native/call-heartbeat-watchdog";
 import {
   reportNativeCallAppState,
@@ -197,9 +196,9 @@ import {
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import {
   logCommunityMessengerCallSessionPatchDev,
-  patchCommunityMessengerCallSession,
   postCommunityMessengerCallHangupSignal,
 } from "@/lib/call/call-actions";
+import { callEngineActions } from "@/lib/community-messenger/call-engine";
 import {
   classifyMessengerCallJoinFailure,
   isMessengerCallClientFailureReason,
@@ -1672,9 +1671,18 @@ export function CommunityMessengerCallClient({
               : null;
         if (!action || !claimCallTerminalPatch(s.id, action)) return;
         if (s.status === "ringing") {
-          await patchCommunityMessengerCallSession(s.id, s.isMineInitiator ? "cancel" : "reject");
+          await callEngineActions.patch({
+            callId: s.id,
+            action: s.isMineInitiator ? "cancel" : "reject",
+            source: "call_runtime_terminal_best_effort",
+          });
         } else if (s.status === "active") {
-          await patchCommunityMessengerCallSession(s.id, "end", { durationSeconds: elapsedSecondsRef.current });
+          await callEngineActions.patch({
+            callId: s.id,
+            action: "end",
+            init: { durationSeconds: elapsedSecondsRef.current },
+            source: "call_runtime_terminal_best_effort",
+          });
         }
       },
     });
@@ -2620,17 +2628,15 @@ export function CommunityMessengerCallClient({
         }
 
         logDibayCall("agora_join_start", { sessionId: targetSession.id, callKind: targetSession.callKind });
-        const joinResult = await joinCommunityMessengerAgoraChannelOnce(
-          targetSession.id,
-          {
-            client,
-            appId: connection.appId,
-            channelName: connection.channelName,
-            token: connection.token,
-            uid: connection.uid ?? "0",
-          },
-          { callKind: targetSession.callKind },
-        );
+        const joinResult = await callEngineActions.joinAgora({
+          callId: targetSession.id,
+          client,
+          appId: connection.appId,
+          channelName: connection.channelName,
+          token: connection.token,
+          uid: connection.uid ?? "0",
+          callKind: targetSession.callKind,
+        });
         if (!joinResult.ok && joinResult.reason === "in_flight") {
           throw new Error("agora_join_in_flight");
         }
@@ -2813,24 +2819,17 @@ export function CommunityMessengerCallClient({
                 reason: "end",
               }).catch(() => {});
             }
-            void patchCommunityMessengerCallSession(
-              active.id,
-              "end",
-              { durationSeconds: elapsedSecondsRef.current, clientEndedReason: reason },
-              {
+            void callEngineActions.patch({
+              callId: active.id,
+              action: "end",
+              init: { durationSeconds: elapsedSecondsRef.current, clientEndedReason: reason },
+              source: "call_client_terminal_patch",
+              debugContext: {
                 sessionStatus: active.status,
                 isInitiator: active.isMineInitiator,
                 endedReason: active.endedReason ?? null,
-              }
-            ).then((patched) => {
-              if (patched.ok && patched.session && isTerminalCallSessionStatus(patched.session.status)) {
-                callTerminalLocalPinRef.current = {
-                  sessionId: active.id,
-                  until: Date.now() + CALL_SESSION_TERMINAL_PIN_MS,
-                  snapshot: patched.session,
-                };
-                setSession(patched.session);
-              }
+              },
+            }).then(() => {
               scheduleSilentRefresh("terminal");
             });
           }
@@ -2965,12 +2964,16 @@ export function CommunityMessengerCallClient({
     try {
       dibayIncomingLaneStopRing("accept_patch_start", s.id);
       dismissAllIncomingCallNotificationsFireAndForget(s.id);
-      const json = await patchCommunityMessengerCallSession(s.id, "accept", undefined, {
-        sessionStatus: s.status,
-        isInitiator: s.isMineInitiator,
-        endedReason: s.endedReason ?? null,
+      const json = await callEngineActions.acceptIncoming({
+        callId: s.id,
+        source: "call_client_accept",
+        debugContext: {
+          sessionStatus: s.status,
+          isInitiator: s.isMineInitiator,
+          endedReason: s.endedReason ?? null,
+        },
       });
-      if (!json.ok || !json.session) {
+      if (!json.ok) {
         const code = json.error;
         const msg =
           code === "bad_action"
@@ -3006,7 +3009,7 @@ export function CommunityMessengerCallClient({
         role: "callee",
         callKind: s.callKind,
       });
-      const acceptedSession = json.session;
+      const acceptedSession = (await refreshSession(true)) ?? s;
       setSession(acceptedSession);
       clearNativeCalleeAcceptPending(s.id);
       runIncomingCallCleanup({ sessionId: s.id, reason: "accept_ok", stopRingtone: false });
@@ -3472,17 +3475,15 @@ export function CommunityMessengerCallClient({
           return;
         }
         const provider = await loadCommunityMessengerCallProvider();
-        const joinResult = await joinCommunityMessengerAgoraChannelOnce(
-          s.id,
-          {
-            client,
-            appId: connection.appId,
-            channelName: connection.channelName,
-            token: connection.token,
-            uid: connection.uid ?? "0",
-          },
-          { callKind: s.callKind },
-        );
+        const joinResult = await callEngineActions.joinAgora({
+          callId: s.id,
+          client,
+          appId: connection.appId,
+          channelName: connection.channelName,
+          token: connection.token,
+          uid: connection.uid ?? "0",
+          callKind: s.callKind,
+        });
         if (!joinResult.ok && joinResult.reason !== "duplicate") return;
         void applyCallAudioRouteForSession(
           s,
@@ -4406,7 +4407,10 @@ export function CommunityMessengerCallClient({
     resumeDetachedCommunityCall(sid);
     notifyCommunityCallHostSync();
     syncCommunityMessengerCallRuntimeSurface({ presentation: "fullscreen" });
-    router.push(`/community-messenger/calls/${encodeURIComponent(sid)}`);
+    const href = `/community-messenger/calls/${encodeURIComponent(sid)}`;
+    if (!callEngineActions.pushRouteOnce(router, sid, href)) {
+      router.push(href);
+    }
   }, [router]);
 
   const handleMinimizeToPip = useCallback(() => {

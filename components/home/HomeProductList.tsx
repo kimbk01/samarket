@@ -37,6 +37,10 @@ import {
 } from "@/lib/trade/trade-c2c-perf-metrics";
 import { TRADE_FEED_LIST_WRAP_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import { TradeFeedBufferingSpinner } from "@/components/trade/TradeFeedBufferingSpinner";
+import { TradeListLoadMoreFooter } from "@/components/trade/TradeListLoadMoreFooter";
+import { useTradeChatListClientPagination } from "@/lib/community-messenger/trade-chat-list/use-trade-chat-list-client-pagination";
+import { TRADE_CHAT_LIST_PAGE_SIZE } from "@/lib/community-messenger/trade-chat-list/trade-chat-list-pagination";
+import { tradeListPaginationResetKey } from "@/lib/trade/trade-list-pagination-reset-key";
 import { TradeMarketPullRefreshRegister } from "@/components/trade/TradeMarketPullRefreshRegister";
 import { resolveTradeMarketPullRefreshRouteKey } from "@/lib/trade/trade-market-pull-refresh-surface";
 import {
@@ -57,7 +61,7 @@ function normalizeTradeStateFromQuery(raw: string | null): HomeTradeStateFilter 
   return "latest";
 }
 
-const INITIAL_VISIBLE_CARD_COUNT = 8;
+const INITIAL_VISIBLE_CARD_COUNT = TRADE_CHAT_LIST_PAGE_SIZE;
 
 /**
  * SSR + 클라이언트 첫 렌더에서만 사용 — 메모리/sessionStorage 캐시를 읽지 않음.
@@ -124,16 +128,8 @@ export function HomeProductList({
   /** 글 등록 직후 `router.refresh()` 등으로 RSC 시드가 늦게 와도, 클라 `load()` 결과를 덮어쓰지 않게 함 */
   const allowRscHomeListSeedRef = useRef(true);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** 시드·세션·메모리 캐시 — 첫 페인트는 INITIAL_VISIBLE_CARD_COUNT 까지만, 더보기로 펼침 */
   const listMeasureRef = useRef<HTMLUListElement | null>(null);
-  /** 시드·세션·메모리 캐시 히트면 첫 페인트부터 전체 행을 그림(8장+rAF 펼침은 콜드 네트워크 경로만) */
-  const initialHasFullSeed = Boolean(initialBoot?.posts?.length);
-  const initialVisibleExpansionDoneRef = useRef(initialHasFullSeed);
-  const [visibleCount, setVisibleCount] = useState(() => {
-    const initialCount = initialBoot?.posts.length ?? 0;
-    if (initialCount <= 0) return 0;
-    if (initialHasFullSeed) return initialCount;
-    return Math.min(initialCount, INITIAL_VISIBLE_CARD_COUNT);
-  });
 
   const load = useCallback(async () => {
     const requestId = ++latestRequestIdRef.current;
@@ -225,13 +221,6 @@ export function HomeProductList({
       setFavoriteMap(merged.favoriteMap ?? {});
       setListState(merged.posts.length === 0 ? "empty" : "idle");
       lastLoadedAtRef.current = Date.now();
-
-      const seedFull = Boolean(merged.posts?.length);
-      initialVisibleExpansionDoneRef.current = seedFull;
-      const ic = merged.posts.length;
-      if (ic <= 0) setVisibleCount(0);
-      else if (seedFull) setVisibleCount(ic);
-      else setVisibleCount(Math.min(ic, INITIAL_VISIBLE_CARD_COUNT));
       return;
     }
 
@@ -266,31 +255,12 @@ export function HomeProductList({
     return () => cancelScheduledWhenBrowserIdle(idleId);
   }, [posts, router]);
 
-  useEffect(() => {
-    if (posts.length <= 0) {
-      initialVisibleExpansionDoneRef.current = false;
-      setVisibleCount(0);
-      return;
-    }
-    if (initialVisibleExpansionDoneRef.current) {
-      setVisibleCount(posts.length);
-      return;
-    }
-    const initialVisibleCount = Math.min(posts.length, INITIAL_VISIBLE_CARD_COUNT);
-    setVisibleCount(initialVisibleCount);
-    if (posts.length <= initialVisibleCount) {
-      initialVisibleExpansionDoneRef.current = true;
-      return;
-    }
-    let rafId = 0;
-    rafId = requestAnimationFrame(() => {
-      initialVisibleExpansionDoneRef.current = true;
-      setVisibleCount(posts.length);
-    });
-    return () => {
-      if (rafId) cancelAnimationFrame(rafId);
-    };
-  }, [posts.length]);
+  const listPagination = useTradeChatListClientPagination({
+    items: posts,
+    pageSize: TRADE_CHAT_LIST_PAGE_SIZE,
+    resetKey: tradeListPaginationResetKey(tradeState, posts),
+  });
+  const visiblePosts = listPagination.visibleItems;
 
   const refreshSilent = useCallback(async () => {
     if (Date.now() - lastLoadedAtRef.current < MIN_SILENT_REFRESH_GAP_MS) {
@@ -402,12 +372,13 @@ export function HomeProductList({
   const rootClass = "min-w-0 w-full max-w-full";
   /** 거래 전용 `<ul>` — 카드 간·리스트 상하 여백 최소(`TRADE_FEED_LIST_WRAP_CLASS`) */
   const listClass = TRADE_FEED_LIST_WRAP_CLASS;
-  const visiblePosts = posts.slice(0, visibleCount > 0 ? visibleCount : posts.length);
 
   useLayoutEffect(() => {
     if (showLoading || showError || showEmpty) return;
     const mapItemCount =
-      posts.length === 0 ? 0 : visibleCount > 0 ? Math.min(posts.length, visibleCount) : posts.length;
+      posts.length === 0
+        ? 0
+        : Math.min(posts.length, listPagination.visibleCount > 0 ? listPagination.visibleCount : posts.length);
     recordTradeListMetricOnce("trade_list_product_list_render_start_ms");
     recordTradeListMetricOnce("trade_list_first_render_map_item_count", mapItemCount);
     recordTradeListMetricOnce("trade_list_product_list_render_end_ms");
@@ -424,7 +395,7 @@ export function HomeProductList({
       recordTradeListMetricOnce("trade_list_initial_visible_card_count", initialVisibleCount);
     }
     recordTradeListMetricOnce("trade_list_first_render_image_component_count", root.querySelectorAll("img").length);
-  }, [showEmpty, showError, showLoading, visibleCount, posts.length]);
+  }, [showEmpty, showError, showLoading, listPagination.visibleCount, posts.length]);
 
   if (showLoading) {
     return (
@@ -486,6 +457,14 @@ export function HomeProductList({
           )
         )}
       </ul>
+
+      <TradeListLoadMoreFooter
+        hasMore={listPagination.hasMore}
+        loadingMore={listPagination.loadingMore}
+        onLoadMore={listPagination.loadMore}
+        visibleCount={listPagination.visibleCount}
+        totalCount={listPagination.totalCount}
+      />
 
       {toast && (
         <div className="fixed bottom-24 left-1/2 z-20 -translate-x-1/2 rounded-full bg-sam-surface-dark px-4 py-2 text-[14px] text-white shadow-lg">

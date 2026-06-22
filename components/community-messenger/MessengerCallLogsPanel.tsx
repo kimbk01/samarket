@@ -23,6 +23,7 @@ import {
   useCommunityCallHistoryRealtimeSync,
 } from "@/lib/community-messenger/call-history/use-community-call-history-realtime-sync";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
+import { callEngineActions } from "@/lib/community-messenger/call-engine";
 import { guardInstantOutgoingCallStart, isOutgoingCallPhoneVerificationRequired } from "@/lib/call/outgoing-call-start-guard";
 import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
 import type { CommunityMessengerCallLog, CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
@@ -270,7 +271,10 @@ export function MessengerCallLogsPanel({
       }
       const sid = call.sessionId?.trim();
       if (sid) {
-        router.push(`/community-messenger/calls/${encodeURIComponent(sid)}`);
+        const href = `/community-messenger/calls/${encodeURIComponent(sid)}`;
+        if (!callEngineActions.pushRouteOnce(router, sid, href)) {
+          router.push(href);
+        }
       }
     },
     [closeCallLogSwipe, entryOrigin, resolveRoomIdForPeer, router, viewerUserId]

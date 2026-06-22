@@ -1,25 +1,7 @@
-"use client";
+import { redirect } from "next/navigation";
+import { MYPAGE_SETTINGS_HREF } from "@/lib/mypage/mypage-profile-routes";
 
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { MypageSettingsHomeView } from "@/components/mypage/settings/MypageSettingsHomeView";
-import { MySubpageHeader } from "@/components/my/MySubpageHeader";
-import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
-
+/** 설정 홈 폐기 — 내정보(`/mypage`)로 통합. 하위 `/mypage/settings/*` 레거시는 `[section]` 리다이렉트 유지 */
 export default function MypageSettingsPage() {
-  const { safeT } = useI18n();
-  return (
-    <div className="flex min-h-screen min-w-0 flex-col bg-sam-app">
-      <MySubpageHeader
-        title={safeT("mypage_settings_sheet_title", {
-          fallbackKo: "설정",
-          fallbackEn: "Settings",
-        })}
-        backHref="/mypage"
-        hideCtaStrip
-      />
-      <div className={`${APP_MAIN_TAB_SCROLL_BODY_CLASS} px-4 py-2 sm:px-5`}>
-        <MypageSettingsHomeView />
-      </div>
-    </div>
-  );
+  redirect(MYPAGE_SETTINGS_HREF);
 }

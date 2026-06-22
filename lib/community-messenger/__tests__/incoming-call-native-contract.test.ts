@@ -86,22 +86,20 @@ describe("incoming-call native contract", () => {
     expect(src).toContain('DibayCallConsumedStore.mark(context, sid, "missed")');
   });
 
-  it("native coordinator PATCHes accept on background thread before direct route", () => {
+  it("native coordinator is signal-only and does not PATCH accept directly", () => {
     const src = read("android/app/src/main/java/com/dibay/app/IncomingCallActionCoordinator.java");
-    expect(src).toContain('CallSessionPatchHelper.patch(app, sid, "accept")');
-    expect(src).toContain("accept_route_direct");
+    expect(src).not.toContain("CallSessionPatchHelper.patch");
+    expect(src).toContain("accept_signal_sent");
     expect(src).toContain("buildMainActivityCallAcceptIntent");
   });
 
-  it("FCM foreground unlocked launches native pill instead of web-only delegate", () => {
+  it("FCM foreground unlocked uses web banner SSOT without native pill", () => {
     const delivery = read("android/app/src/main/java/com/dibay/app/IncomingCallPushDelivery.java");
-    expect(delivery).toContain("incoming_call_foreground_native_ui");
-    expect(delivery).toContain("IncomingCallForegroundUiLauncher.showUi");
+    expect(delivery).toContain("incoming_call_foreground_web_ssot");
+    expect(delivery).not.toContain("IncomingCallForegroundUiLauncher.showUi");
     expect(delivery).toContain("isForegroundUnlockedInteractive");
     const fcm = read("android/app/src/main/java/com/dibay/app/DibayFirebaseMessagingService.java");
     expect(fcm).toContain("IncomingCallPushDelivery.deliver");
-    const manifest = read("android/app/src/main/AndroidManifest.xml");
-    expect(manifest).toContain("ForegroundIncomingCallActivity");
   });
 
   it("IncomingCallTerminalHandler centralizes terminal dismiss, consumed, ring stop, activity finish", () => {
@@ -153,11 +151,10 @@ describe("incoming-call native contract", () => {
     );
   });
 
-  it("Global defers Android foreground banner to native pill only", () => {
+  it("Global keeps Android foreground path on Web banner owner", () => {
     const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
-    expect(global).toContain("preferNativeAndroidForegroundIncoming");
-    expect(global).toContain("nativeForegroundIncomingCallId");
-    expect(global).toContain("onForegroundIncomingUi");
+    expect(global).toContain("ForegroundIncomingCallHost");
+    expect(global).toContain("resolveForegroundIncomingPresentation");
   });
 
   it("notification posts immediately then enriches avatar async", () => {

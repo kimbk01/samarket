@@ -13,6 +13,7 @@ import {
   STORE_CART_PAGE_ROOT_CLASS,
   STORE_CART_SCROLL_BODY_CLASS,
   STORE_CART_SCROLL_BODY_INNER_CLASS,
+  STORE_GLOBAL_CART_SCROLL_BODY_INNER_CLASS,
   STORE_CART_SCROLL_BODY_DATA_ATTR,
 } from "@/lib/stores/store-cart-page-layout";
 
@@ -25,6 +26,7 @@ export function StoreCommerceCartPageShell({
   children,
   footer,
   hydrationMeasured,
+  scrollInnerClassName = STORE_CART_SCROLL_BODY_INNER_CLASS,
 }: {
   /** 스와이프·뒤로 폴백용 매장 slug (`/stores/[slug]/cart`) */
   storeSlug?: string;
@@ -33,6 +35,8 @@ export function StoreCommerceCartPageShell({
   footer?: ReactNode;
   /** 클라 cart shell 페인트 완료 — `measure-cart-page-phases` hydration 구간 */
   hydrationMeasured?: boolean;
+  /** 스크롤 본문 inner — `/stores/cart` 는 `STORE_GLOBAL_CART_SCROLL_BODY_INNER_CLASS` */
+  scrollInnerClassName?: string;
 }) {
   useLayoutEffect(() => {
     if (!hydrationMeasured) return;
@@ -51,7 +55,7 @@ export function StoreCommerceCartPageShell({
         data-store-cart-scroll={STORE_CART_SCROLL_BODY_DATA_ATTR}
         className={STORE_CART_SCROLL_BODY_CLASS}
       >
-        <div className={STORE_CART_SCROLL_BODY_INNER_CLASS}>{children}</div>
+        <div className={scrollInnerClassName}>{children}</div>
       </div>
       {footer ? <div className={STORE_CART_FOOTER_CHROME_CLASS}>{footer}</div> : null}
     </div>

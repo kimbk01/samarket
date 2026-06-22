@@ -11,7 +11,7 @@ type Props = {
   centerSubtitle?: string | null;
 };
 
-/** 내정보 홈 헤더 — 알림 + 설정(/mypage/settings), sheet 없음 */
+/** 내정보 홈 헤더 — 알림만(설정 홈은 내정보 메뉴에 통합), sheet 없음 */
 export function MyPageHeader({
   backFallbackHref = "/philife",
   centerTitle,

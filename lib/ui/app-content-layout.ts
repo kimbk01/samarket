@@ -3,7 +3,6 @@
  * (ConditionalAppShell·BottomNav·피드 등 본문 컬럼에서 동일 토큰 사용)
  */
 
-import { PHILIFE_FEED_INSET_X_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import {
   APP_SECTOR_HEADER_OFFSET_TOP_CLASS,
   APP_TIER1_SAFE_X_PAD_CLASS,
@@ -24,9 +23,9 @@ export const APP_MAIN_GUTTER_X_COMFY_CLASS = "px-4 md:px-6";
 export const APP_MAIN_GUTTER_NEG_X_CLASS = "-ml-[10px] -mr-2";
 
 /**
- * 내정보 하위 페이지 본문 — 메인 컬럼 폭 + **거래 홈 피드와 동일** 가로 인셋(`PHILIFE_FEED_INSET_X`).
+ * 내정보 하위 페이지 본문 — 메인 컬럼 폭 + **거래 홈 피드와 동일** 가로 인셋(`APP_MAIN_GUTTER_X`).
  */
-export const APP_MYPAGE_SUBPAGE_BODY_CLASS = `mx-auto w-full min-w-0 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} ${PHILIFE_FEED_INSET_X_CLASS}`;
+export const APP_MYPAGE_SUBPAGE_BODY_CLASS = `mx-auto w-full min-w-0 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} ${APP_MAIN_GUTTER_X_CLASS}`;
 
 /**
  * 설정·알림 등 폼형 하위 페이지 — **메인 본문과 동일** max-w·거터(좌우 여밉 통일).
@@ -36,16 +35,16 @@ export const APP_MYPAGE_SUBPAGE_NARROW_BODY_CLASS = APP_MYPAGE_SUBPAGE_BODY_CLAS
 
 /**
  * 메인 탭 앱 본문 스크롤 영역 — 거래 홈·`/mypage/trade`·내정보 홈과 동일:
- * 가로 `PHILIFE_FEED_INSET_X` + 카드 간 `gap-1` + 상단 `pt-1`.
+ * 가로 `APP_MAIN_GUTTER_X` + 카드 간 `gap-1` + 상단 `pt-1`.
  * (이미 `APP_MAIN_COLUMN` 안에 있을 때만 래핑; 컬럼 클래스는 중복하지 않는다.)
  */
-export const APP_MAIN_FEED_STACK_CLASS = `min-h-0 min-w-0 w-full max-w-full flex flex-col gap-1 pt-1 ${PHILIFE_FEED_INSET_X_CLASS}`;
+export const APP_MAIN_FEED_STACK_CLASS = `min-h-0 min-w-0 w-full max-w-full flex flex-col gap-1 pt-1 ${APP_MAIN_GUTTER_X_CLASS}`;
 
 /**
- * 거래 글쓰기·상품 등록 폼 가로 정렬 — `/market` 피드 `<ul>` 과 동일 `PHILIFE_FEED_INSET_X`.
+ * 거래 글쓰기·상품 등록 폼 가로 정렬 — `/market` 피드 `<ul>` 과 동일 `APP_MAIN_GUTTER_X`.
  * 고정 `max-w-[480px]` 를 쓰지 않아 메인 컬럼·태블릿 가로 리사이즈에 맞춰 진폭이 넓어진다.
  */
-export const APP_TRADE_WRITE_HORIZONTAL_CLASS = `min-w-0 w-full max-w-full ${PHILIFE_FEED_INSET_X_CLASS}`;
+export const APP_TRADE_WRITE_HORIZONTAL_CLASS = `min-w-0 w-full max-w-full ${APP_MAIN_GUTTER_X_CLASS}`;
 
 /** 풀페이지 거래 글쓰기 `<form>` 루트(연속 섹션형) — 가로·상하만; `space-y-*` 없음 */
 export const APP_TRADE_WRITE_FORM_ROOT_CLASS = `${APP_TRADE_WRITE_HORIZONTAL_CLASS} py-2`;

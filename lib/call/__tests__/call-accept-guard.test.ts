@@ -11,8 +11,11 @@ import type { CommunityMessengerCallSession } from "@/lib/community-messenger/ty
 const patchMock = vi.fn<(...args: unknown[]) => Promise<{ ok: boolean; session?: unknown }>>();
 const prepareAcceptMock = vi.fn(async () => true);
 
-vi.mock("@/lib/call/call-actions", () => ({
-  patchCommunityMessengerCallSession: (...args: unknown[]) => patchMock(...args),
+vi.mock("@/lib/community-messenger/call-engine", () => ({
+  callEngineActions: {
+    acceptIncoming: (...args: unknown[]) => patchMock(...args),
+    patch: vi.fn(),
+  },
 }));
 
 vi.mock("@/lib/call/native/native-call-service", () => ({
@@ -97,7 +100,7 @@ describe("call-accept-guard granted flow", () => {
     });
 
     const { runCallAcceptGuard: runGuard } = await import("@/lib/call/actions/call-accept-guard");
-    patchMock.mockResolvedValue({ ok: true, session: { ...baseSession, status: "active" } });
+    patchMock.mockResolvedValue({ ok: true });
 
     const order: string[] = [];
     prepareAcceptMock.mockImplementation(async () => {
@@ -106,7 +109,7 @@ describe("call-accept-guard granted flow", () => {
     });
     patchMock.mockImplementation(async () => {
       order.push("patch");
-      return { ok: true, session: { ...baseSession, status: "active" } };
+      return { ok: true };
     });
 
     const router = {

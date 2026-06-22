@@ -135,6 +135,7 @@ describe("desktop side nav eligibility", () => {
     const f = resolveConditionalAppShellFlags("/mypage", false);
     expect(f.showBottomNav).toBe(true);
     expect(f.showMainDesktopSideNavEligible).toBe(true);
+    expect(f.mainBottomClass).toBe("pb-0");
   });
 
   it("/mypage/trade/chat room hides desktop side nav eligibility", () => {
@@ -183,6 +184,32 @@ describe("philife neighborhood post detail shell", () => {
     const f = resolveConditionalAppShellFlags("/philife", false);
     expect(f.isPhilifeNeighborhoodPostDetail).toBe(false);
     expect(f.showBottomNav).toBe(true);
+    expect(f.mainBottomClass).toBe("pb-0");
+  });
+});
+
+describe("main tab hub shell bottom padding", () => {
+  it("/market hub uses body clearance shell pb-0", () => {
+    const f = resolveConditionalAppShellFlags("/market", false);
+    expect(f.mainBottomClass).toBe("pb-0");
+  });
+
+  it("/stores/browse uses body clearance shell pb-0", () => {
+    const f = resolveConditionalAppShellFlags("/stores/browse/food", false);
+    expect(f.showBottomNav).toBe(true);
+    expect(f.mainBottomClass).toBe("pb-0");
+  });
+
+  it("/stores/cart uses body clearance shell pb-0", () => {
+    const f = resolveConditionalAppShellFlags("/stores/cart", false);
+    expect(f.showBottomNav).toBe(true);
+    expect(f.mainBottomClass).toBe("pb-0");
+  });
+
+  it("/community-messenger room keeps shell pb-0 (chat viewport)", () => {
+    const f = resolveConditionalAppShellFlags("/community-messenger/rooms/abc", false);
+    expect(f.showBottomNav).toBe(false);
+    expect(f.mainBottomClass).toBe("pb-0");
   });
 });
 

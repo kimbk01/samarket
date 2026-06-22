@@ -3,7 +3,7 @@ export const MYPAGE_MAIN_HREF = "/mypage" as const;
 
 /**
  * 레거시 앱 설정 허브 진입 — 햄버거 패널 제거 후 내정보 홈으로 통일.
- * 예전 `?sheet=info` URL은 호환용으로만 유지합니다.
+ * 예전 `?sheet=info` URL은 `/mypage` 로 리다이렉트됩니다.
  */
 export const MYPAGE_INFO_HUB_SHEET_PARAM = "sheet";
 export const MYPAGE_INFO_HUB_SHEET_VALUE = "info";

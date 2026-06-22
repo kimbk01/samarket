@@ -4,8 +4,11 @@
  * nativePrep=1 — native FGS/알림 정리 완료, Web PATCH 단일 실행.
  */
 
-const NATIVE_CALLEE_ACCEPT_PENDING_KEY = "cm_native_callee_accept_pending";
-const NATIVE_CALLEE_ACCEPT_PENDING_TTL_MS = 60_000;
+import {
+  clearCallEngineNativeAcceptPending,
+  readCallEngineNativeAcceptPending,
+  writeCallEngineNativeAcceptPending,
+} from "@/lib/community-messenger/call-engine";
 
 export type NativeCalleeAcceptRouteParams = {
   action: string | null;
@@ -40,49 +43,19 @@ export function isAnyCalleeAcceptRoute(params: NativeCalleeAcceptRouteParams): b
 
 /** 수락 직후 IncomingCallView(벨)·수락/거절 버튼 숨김 → connecting 단일 화면 */
 export function markNativeCalleeAcceptPending(sessionId: string): void {
-  if (typeof sessionStorage === "undefined") return;
-  const sid = sessionId.trim();
-  if (!sid) return;
-  try {
-    sessionStorage.setItem(
-      NATIVE_CALLEE_ACCEPT_PENDING_KEY,
-      JSON.stringify({ sessionId: sid, at: Date.now() })
-    );
-  } catch {
-    /* ignore */
-  }
+  writeCallEngineNativeAcceptPending(sessionId);
 }
 
 export function readNativeCalleeAcceptPendingSessionId(now = Date.now()): string | null {
-  if (typeof sessionStorage === "undefined") return null;
-  try {
-    const raw = sessionStorage.getItem(NATIVE_CALLEE_ACCEPT_PENDING_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as { sessionId?: string; at?: number };
-    const sid = parsed.sessionId?.trim();
-    if (!sid) return null;
-    const at = typeof parsed.at === "number" && Number.isFinite(parsed.at) ? parsed.at : 0;
-    if (at > 0 && now - at > NATIVE_CALLEE_ACCEPT_PENDING_TTL_MS) {
-      clearNativeCalleeAcceptPending();
-      return null;
-    }
-    return sid;
-  } catch {
-    return null;
-  }
+  return readCallEngineNativeAcceptPending(now);
 }
 
 export function clearNativeCalleeAcceptPending(sessionId?: string): void {
-  if (typeof sessionStorage === "undefined") return;
-  try {
-    if (sessionId?.trim()) {
-      const pending = readNativeCalleeAcceptPendingSessionId();
-      if (pending && pending !== sessionId.trim()) return;
-    }
-    sessionStorage.removeItem(NATIVE_CALLEE_ACCEPT_PENDING_KEY);
-  } catch {
-    /* ignore */
+  if (sessionId?.trim()) {
+    const pending = readNativeCalleeAcceptPendingSessionId();
+    if (pending && pending !== sessionId.trim()) return;
   }
+  clearCallEngineNativeAcceptPending();
 }
 
 export function isNativeCalleeAcceptPendingForSession(sessionId: string): boolean {

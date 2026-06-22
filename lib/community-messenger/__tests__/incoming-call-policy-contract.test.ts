@@ -40,10 +40,10 @@ describe("incoming-call policy contracts", () => {
     expect(src).not.toContain("markNativeCalleeAcceptPending");
   });
 
-  it("native coordinator PATCHes accept before Web route (Web skips duplicate PATCH on nativeAccept=1)", () => {
+  it("native coordinator is signal-only and delegates accept PATCH to Web", () => {
     const native = read("android/app/src/main/java/com/dibay/app/IncomingCallActionCoordinator.java");
-    expect(native).toContain('CallSessionPatchHelper.patch(app, sid, "accept")');
-    expect(native).toContain("accept_route_direct");
+    expect(native).not.toContain("CallSessionPatchHelper.patch");
+    expect(native).toContain("accept_signal_sent");
     const client = read("components/community-messenger/CommunityMessengerCallClient.tsx");
     expect(client).toContain("nativeAcceptRoute && requestedActionRef.current === \"accept\"");
     expect(client).toContain("requestedAction === \"accept\" && nativeAcceptRoute");

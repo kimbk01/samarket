@@ -7,6 +7,7 @@ import {
   isTradeFloatingMenuSurface,
 } from "@/lib/layout/mobile-top-tier1-rules";
 import { isMypageAddressEditPath, isMypageAddressFlowPath } from "@/lib/addresses/mypage-addresses-return-to";
+import { isMainBottomNavHubBodyClearancePath } from "@/lib/layout/main-bottom-nav-hub-clearance";
 import { isProfileEditPath } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { isStoreCommerceCartCheckoutPath } from "@/lib/stores/store-cart-page-layout";
 import { isStoreOrderReviewPath } from "@/lib/main-menu/delivery-bottom-nav-layout";
@@ -24,6 +25,12 @@ const PHILIFE_POST_DETAIL_EXCLUDED_SEGMENTS = new Set([
   "meetings",
   "post",
 ]);
+
+/** `/terms` — 약관 전용 서브페이지(매장 1단·글로벌 + FAB 없음) */
+export function isTermsPagePathname(pathname: string | null | undefined): boolean {
+  const p = (pathname ?? "").split("?")[0]!.trim();
+  return p === "/terms" || p.startsWith("/terms/");
+}
 
 /** `/philife/{uuid}` · `/community/posts/{uuid}` — 동네 게시글 상세(스크롤 숨김·셸 플래그) */
 export function isPhilifeNeighborhoodPostDetailPathname(pathname: string | null | undefined): boolean {
@@ -192,6 +199,7 @@ export function resolveConditionalAppShellFlags(
       ? storeCartViewportLockedShellClass
       : appShellRootViewportDefaultClass;
   const isChatRoomDetail = isAnyChatRoomDetail;
+  const isTermsPage = isTermsPagePathname(pathname);
   const isSearch = pathname === "/search";
   const isServicesSection = pathname === "/services" || (pathname?.startsWith("/services/") ?? false);
   const isCommunityApp =
@@ -234,7 +242,8 @@ export function resolveConditionalAppShellFlags(
     !isCommunityMessengerSurface &&
     !isOrdersHub &&
     !isTradeFloatingSurface &&
-    !isTradeMeetSpotPickRoute;
+    !isTradeMeetSpotPickRoute &&
+    !isTermsPage;
   /** 메인 하단 탭 route contract — 런타임 suppress는 `shouldRenderMainBottomNav` 한 경로에서만 적용. */
   const showBottomNav = isBottomNavEligibleRoute(pathname ?? "");
   const showRegionBarComputed = !regionBarInLayout && !hideRegionBar;
@@ -252,7 +261,8 @@ export function resolveConditionalAppShellFlags(
     !isTradeFloatingSurface &&
     !isCommunityMessengerSurface &&
     !isCommunityApp &&
-    !isPersonalProductComposerPage;
+    !isPersonalProductComposerPage &&
+    !isTermsPage;
   const mountGlobalRealtimeChromeOnTradeOrStoreDetail =
     isPostDetail || isProductDetail || isStoreProductDetail;
   const mountGlobalRealtimeChrome =
@@ -275,21 +285,24 @@ export function resolveConditionalAppShellFlags(
     !isCommunityMessengerCallPage;
   const chatDetailUsesZeroBottomPadding =
     isChatRoomDetail && (!isCommunityMessengerRoom || isCommunityMessengerCallPage);
+  const hubBodyBottomNavClearance = isMainBottomNavHubBodyClearancePath(pathname) && showBottomNav;
   const mainBottomClass = chatDetailUsesZeroBottomPadding
     ? "pb-0"
-    : isCommunityMessengerRoom
+    : hubBodyBottomNavClearance
       ? "pb-0"
-      : isCommunityMessengerSurface
-        ? MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS
-        : isTradeMeetSpotPickRoute
-          ? "pb-0"
-          : isStoreCommerceCartCheckoutPage || isMypageAddressFlowPage || isStoreOrderReviewPage
+      : isCommunityMessengerRoom
+        ? "pb-0"
+        : isCommunityMessengerSurface
+          ? MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS
+          : isTradeMeetSpotPickRoute
             ? "pb-0"
-            : showBottomNav || isPostDetail || isPhilifeNeighborhoodPostDetail
-              ? showHomeTradeHubFloatingBar
-                ? MAIN_SCROLL_PADDING_HOME_WITH_FLOAT_CLASS
-                : MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS
-              : "pb-4";
+            : isStoreCommerceCartCheckoutPage || isMypageAddressFlowPage || isStoreOrderReviewPage
+              ? "pb-0"
+              : showBottomNav || isPostDetail || isPhilifeNeighborhoodPostDetail
+                ? showHomeTradeHubFloatingBar
+                  ? MAIN_SCROLL_PADDING_HOME_WITH_FLOAT_CLASS
+                  : MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS
+                : "pb-4";
 
   return {
     isStoreOrderHeroMenuSurface,

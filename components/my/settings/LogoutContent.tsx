@@ -11,7 +11,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MyPageMobileMenuRow } from "@/components/mypage/mobile/MyPageMobileMenuRow";
 
 type LogoutActionTriggerProps = {
-  variant?: "danger_button" | "menu_row" | "outlined_button";
+  variant?: "danger_button" | "menu_row" | "outlined_button" | "text_link";
   surface?: "card" | "grouped";
   label?: string;
   autoOpen?: boolean;
@@ -75,7 +75,9 @@ export function LogoutActionTrigger({
             setOpen((prev) => (prev ? prev : true));
           }}
           className={
-            variant === "outlined_button"
+            variant === "text_link"
+              ? "shrink-0 text-[13px] font-semibold text-red-600 underline-offset-2 hover:underline active:opacity-80"
+              : variant === "outlined_button"
               ? "w-full rounded-ui-rect border border-sam-border py-3 sam-text-body font-medium text-ui-muted transition-transform duration-100 active:scale-[0.985] active:brightness-95"
               : "w-full rounded-ui-rect border border-red-200 bg-red-50 px-4 py-3 text-center sam-text-body font-semibold text-red-600 transition-transform duration-100 active:scale-[0.985] active:brightness-95"
           }

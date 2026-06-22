@@ -1,6 +1,6 @@
 "use client";
 
-import { MyInfoProfileRow } from "@/components/mypage/myinfo/MyInfoProfileRow";
+import { MyInfoProfileSection } from "@/components/mypage/myinfo/MyInfoProfileSection";
 import { RequiredInfoList } from "@/components/mypage/myinfo/RequiredInfoList";
 import { MyPageAdminMenuEntry } from "@/components/mypage/MyPageAdminMenuEntry";
 import {
@@ -16,7 +16,7 @@ import { useMypageHomeDashboardModel } from "@/hooks/use-mypage-home-dashboard-m
 
 const COLUMN_STACK_CLASS = "flex min-w-0 flex-col gap-3 md:gap-4";
 
-/** /mypage 메인 — 프로필 row + 필수 3행 + lazy 메뉴 (sheet·stat·로그아웃 없음) */
+/** /mypage 메인 — 프로필(보기·수정) + 필수 정보 + lazy 메뉴 */
 export function MyPageHomeDashboard({
   profile,
   profileCompletion = null,
@@ -35,8 +35,12 @@ export function MyPageHomeDashboard({
   return (
     <div className={MYPAGE_HOME_BODY_CLASS}>
       <div className="flex min-h-0 min-w-0 flex-col gap-3 sm:gap-4">
-        <MyInfoProfileRow profile={profile} />
-        <RequiredInfoList completion={completion} />
+        <MyInfoProfileSection profile={profile} onProfileRefresh={onProfileRefresh} />
+        <RequiredInfoList
+          profile={profile}
+          completion={completion}
+          onProfileRefresh={onProfileRefresh}
+        />
 
         <div className="flex flex-col gap-3 md:hidden">
           <MyInfoStoreMenuSection />

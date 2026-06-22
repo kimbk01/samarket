@@ -175,7 +175,7 @@ public class MainActivity extends BridgeActivity {
     webView.post(
         () ->
             webView.evaluateJavascript(
-                "try{sessionStorage.removeItem('cm_native_callee_accept_pending');sessionStorage.removeItem('dibay_call_pending_route');}catch(e){}",
+                "window.dispatchEvent(new CustomEvent('dibay:call-native-clear-pending'));",
                 null));
   }
 
@@ -1116,31 +1116,12 @@ public class MainActivity extends BridgeActivity {
             : "";
     final long at = System.currentTimeMillis();
     final String acceptSessionId = extractCallSessionIdFromAppPath(appPath);
-    final String acceptPendingJs =
-        isCalleeAcceptCallRoute(appPath) && acceptSessionId != null
-            ? "try{sessionStorage.setItem('cm_native_callee_accept_pending',JSON.stringify({sessionId:'"
-                + acceptSessionId.replace("\\", "\\\\").replace("'", "\\'")
-                + "',at:"
-                + at
-                + "}));}catch(e){}"
-            : "";
     final boolean callRoute = appPath.startsWith("/community-messenger/calls/");
-    final String storageKey = callRoute ? "dibay_call_pending_route" : "dibay_pending_push_route";
     if (callRoute) {
       persistCallPendingRoute(appPath);
     }
     final String js =
-        "(function(){try{sessionStorage.setItem('"
-            + storageKey
-            + "',JSON.stringify({path:'"
-            + jsPath
-            + "',notificationId:'"
-            + jsNotificationId
-            + "',at:"
-            + at
-            + "}));"
-            + acceptPendingJs
-            + "}catch(e){}window.dispatchEvent(new CustomEvent('"
+        "(function(){window.dispatchEvent(new CustomEvent('"
             + (callRoute ? "dibay:call-route" : "dibay:push-route")
             + "',{detail:{path:'"
             + jsPath
@@ -1214,17 +1195,7 @@ public class MainActivity extends BridgeActivity {
     if (target == null) return false;
     final String loadTarget = target;
     if (isCalleeAcceptCallRoute(appPath)) {
-      final String acceptSessionId = extractCallSessionIdFromAppPath(appPath);
-      if (acceptSessionId != null) {
-        final long at = System.currentTimeMillis();
-        final String pendingJs =
-            "try{sessionStorage.setItem('cm_native_callee_accept_pending',JSON.stringify({sessionId:'"
-                + acceptSessionId.replace("\\", "\\\\").replace("'", "\\'")
-                + "',at:"
-                + at
-                + "}));}catch(e){}";
-        webView.post(() -> webView.evaluateJavascript(pendingJs, null));
-      }
+      Log.i(ROUTE_LOG_TAG, "[push-route] call_route_accept_direct_load");
     }
     webView.post(() -> webView.loadUrl(loadTarget));
     return true;

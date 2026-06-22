@@ -32,9 +32,8 @@ public final class IncomingCallPushDelivery {
 
     boolean appVisible = MainActivity.isAppVisibleForIncomingCall();
     if (DibayKeyguardHelper.isForegroundUnlockedInteractive(appVisible, app)) {
-      Log.i("DIBAY_FCM", "[call-native] incoming_call_foreground_native_ui callId=" + callId);
+      Log.i("DIBAY_FCM", "[call-native] incoming_call_foreground_web_ssot callId=" + callId);
       MainActivity.deliverCallIncomingEvent(payload);
-      IncomingCallForegroundUiLauncher.showUi(context, payload);
       IncomingCallActionCoordinator.scheduleMissedTimeout(app, payload);
       return;
     }

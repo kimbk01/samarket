@@ -21,6 +21,9 @@ import {
   fetchTradeHistoryPurchasesBySession,
   invalidateTradeHistoryCache,
 } from "@/lib/mypage/trade-history-client";
+import { useTradeChatListClientPagination } from "@/lib/community-messenger/trade-chat-list/use-trade-chat-list-client-pagination";
+import { TradeListLoadMoreFooter } from "@/components/trade/TradeListLoadMoreFooter";
+import { tradeListPaginationResetKey } from "@/lib/trade/trade-list-pagination-reset-key";
 
 export function PurchasesView({ initialTab }: { initialTab?: BuyerManageTabId } = {}) {
   const currency = getAppSettings().defaultCurrency ?? "KRW";
@@ -77,6 +80,12 @@ export function PurchasesView({ initialTab }: { initialTab?: BuyerManageTabId } 
     return items.filter((row) => getBuyerManageTabId(row, viewerId) === tab);
   }, [items, tab, viewerId]);
 
+  const listPagination = useTradeChatListClientPagination({
+    items: filtered,
+    resetKey: tradeListPaginationResetKey(tab, filtered.map((row) => ({ id: row.chatId }))),
+  });
+  const visibleRows = listPagination.visibleItems;
+
   useEffect(() => {
     if (initialTab) setTab(initialTab);
   }, [initialTab]);
@@ -120,17 +129,26 @@ export function PurchasesView({ initialTab }: { initialTab?: BuyerManageTabId } 
       {filtered.length === 0 ? (
         <p className="py-10 text-center sam-text-body text-sam-muted">{emptyTabMsg[tab]}</p>
       ) : (
-        <ul className="space-y-2">
-          {filtered.map((row) => (
-            <PurchaseHistoryCard
-              key={row.chatId}
-              row={row}
-              viewerId={viewerId}
-              currency={currency}
-              onReload={reload}
-            />
-          ))}
-        </ul>
+        <>
+          <ul className="space-y-2">
+            {visibleRows.map((row) => (
+              <PurchaseHistoryCard
+                key={row.chatId}
+                row={row}
+                viewerId={viewerId}
+                currency={currency}
+                onReload={reload}
+              />
+            ))}
+          </ul>
+          <TradeListLoadMoreFooter
+            hasMore={listPagination.hasMore}
+            loadingMore={listPagination.loadingMore}
+            onLoadMore={listPagination.loadMore}
+            visibleCount={listPagination.visibleCount}
+            totalCount={listPagination.totalCount}
+          />
+        </>
       )}
     </div>
   );

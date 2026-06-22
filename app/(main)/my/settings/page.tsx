@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
-import { buildMypageInfoHubHref } from "@/lib/my/mypage-info-hub";
+import { MYPAGE_SETTINGS_HREF } from "@/lib/mypage/mypage-profile-routes";
 
-/** 설정 목록은 `/mypage?sheet=info` 통합 시트로 이동 (하위 상세 경로는 유지). */
+/** 레거시 `/my/settings` → `/mypage/settings` */
 export default function MySettingsPage() {
-  redirect(buildMypageInfoHubHref());
+  redirect(MYPAGE_SETTINGS_HREF);
 }

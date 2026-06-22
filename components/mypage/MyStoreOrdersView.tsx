@@ -24,6 +24,7 @@ import { isStoreOrderChatDisabledForBuyer } from "@/lib/stores/order-status-tran
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { PHILIFE_FEED_INSET_NEG_X_CLASS, PHILIFE_FEED_INSET_X_CLASS } from "@/lib/philife/philife-flat-ui-classes";
+import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
 import type { CompletedOrderReorderPayload } from "@/lib/stores/apply-completed-order-to-commerce-cart";
 import { StoreOrderReorderAgainButton } from "@/components/mypage/StoreOrderReorderAgainButton";
 import type { BuyerStoreOrderReviewSummary } from "@/lib/stores/buyer-store-order-review-meta";
@@ -846,7 +847,7 @@ export function MyStoreOrdersView({
     <div
       className={
         isDeliveryHub
-          ? "min-h-0 min-w-0 flex-1 bg-[#f6f6f6] pb-[max(0.75rem,var(--safe-bottom))]"
+          ? `min-h-0 min-w-0 flex-1 bg-[#f6f6f6] ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`
           : embedded
             ? "min-w-0 pb-1"
             : "w-full min-h-0 bg-sam-app dark:bg-[#18191A]"

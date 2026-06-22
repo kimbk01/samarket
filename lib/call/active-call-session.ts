@@ -128,7 +128,7 @@ export function patchActiveCallSessionPhase(
   const sid = callId.trim();
   if (!sid || !activeSession || activeSession.callId !== sid) return null;
   if (phase === "idle") {
-    hardClearActiveCallSession(sid, source);
+    void releaseLocalCallSession(sid, source);
     return null;
   }
   const machinePhase = transitionMachinePhase(
@@ -217,8 +217,8 @@ export function resumeActiveCallSessionFromNative(
   return session;
 }
 
-/** terminal — notification·ringtone·route·native·heartbeat 일괄 정리 */
-export async function hardClearActiveCallSession(
+/** SSOT_CONTRACT: cm-call-lifecycle-local-release releaseLocalCallSession peer PATCH 금지 */
+export async function releaseLocalCallSession(
   callId: string | null | undefined,
   reason = "terminal",
 ): Promise<void> {
@@ -268,6 +268,14 @@ export async function hardClearActiveCallSession(
     await endNativeCallService(sid, reason);
   }
   notifySync();
+}
+
+/** @deprecated — releaseLocalCallSession 사용 */
+export async function hardClearActiveCallSession(
+  callId: string | null | undefined,
+  reason = "terminal",
+): Promise<void> {
+  await releaseLocalCallSession(callId, reason);
 }
 
 export function resetActiveCallSessionForTests(): void {

@@ -7,6 +7,7 @@
  */
 
 import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
+import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
 import {
   BAEMIN_CART_PAGE_BG,
   BAEMIN_CART_PAGE_X,
@@ -22,6 +23,9 @@ export const STORE_CART_SCROLL_BODY_CLASS = `min-h-0 flex-1 overflow-y-auto over
 /** 본문 — 좌우 16px 통일, 헤더~첫 카드 간격 최소 */
 /** 하단 고정 CTA에 가리지 않도록 스크롤 하단 여백 */
 export const STORE_CART_SCROLL_BODY_INNER_CLASS = `${APP_MAIN_COLUMN_CLASS} ${BAEMIN_CART_PAGE_X} pt-2 pb-4 ${BAEMIN_CART_STACK_CLASS}`;
+
+/** `/stores/cart` 통합 장바구니 — 하단 5탭 clearance (슬러그 cart CTA 와 별도) */
+export const STORE_GLOBAL_CART_SCROLL_BODY_INNER_CLASS = `${APP_MAIN_COLUMN_CLASS} ${BAEMIN_CART_PAGE_X} pt-2 ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS} ${BAEMIN_CART_STACK_CLASS}`;
 
 export const STORE_CART_SCROLL_BODY_DATA_ATTR = "store-cart-scroll";
 

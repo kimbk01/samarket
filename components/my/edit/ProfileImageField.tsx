@@ -100,7 +100,7 @@ export function ProfileImageField({
   };
 
   return (
-    <div className={`flex flex-col items-center ${isHero ? "gap-3" : "gap-2"}`}>
+    <div className="flex flex-col items-center gap-2">
       <button
         type="button"
         onClick={pickFile}

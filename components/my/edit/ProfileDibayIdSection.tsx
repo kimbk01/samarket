@@ -49,6 +49,7 @@ export function ProfileDibayIdSection({
   const [available, setAvailable] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
   const inFlightRef = useRef(false);
+  const userEditedRef = useRef(false);
 
   const publicIdView = useMemo(
     () =>
@@ -72,7 +73,7 @@ export function ProfileDibayIdSection({
   );
 
   useEffect(() => {
-    if (publicIdView.setupComplete) return;
+    if (publicIdView.setupComplete || userEditedRef.current) return;
     setRaw((prev) => (prev.trim().length > 0 ? prev : inputSeed));
   }, [inputSeed, publicIdView.setupComplete]);
 
@@ -116,14 +117,29 @@ export function ProfileDibayIdSection({
 
   const confirm = async () => {
     if (inFlightRef.current || submitting || !normalized) return;
-    if (available !== true) {
-      setError(t("profile_edit_dibay_id_err_check_failed"));
-      return;
-    }
     inFlightRef.current = true;
     setSubmitting(true);
     setError(null);
+    setAvailable(null);
     try {
+      const reserveRes = await fetch("/api/me/dibay-id/reserve", {
+        method: "POST",
+        credentials: "include",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ dibay_id: normalized }),
+      });
+      const reserveJson = (await reserveRes.json().catch(() => null)) as ReserveResp | null;
+      if (!reserveRes.ok || !reserveJson || reserveJson.ok !== true) {
+        setError(t("profile_edit_dibay_id_err_check_failed"));
+        return;
+      }
+      if (!reserveJson.available) {
+        setAvailable(false);
+        setError(t("profile_edit_dibay_id_err_duplicate"));
+        return;
+      }
+      setAvailable(true);
+
       const res = await fetch("/api/me/dibay-id/confirm", {
         method: "POST",
         credentials: "include",
@@ -134,6 +150,7 @@ export function ProfileDibayIdSection({
       if (!res.ok || !json || json.ok !== true) {
         const code = (json as { error?: string } | null)?.error ?? "";
         if (code === "dibay_id_taken") {
+          setAvailable(false);
           setError(t("profile_edit_dibay_id_err_duplicate"));
         } else if (code === "dibay_id_already_locked") {
           setError(t("profile_edit_dibay_id_err_locked"));
@@ -142,6 +159,7 @@ export function ProfileDibayIdSection({
         }
         return;
       }
+      userEditedRef.current = false;
       await onConfirmed(json.dibay_id);
     } catch {
       setError(t("profile_edit_dibay_id_err_confirm_network"));
@@ -183,6 +201,7 @@ export function ProfileDibayIdSection({
               spellCheck={false}
               value={raw}
               onChange={(e) => {
+                userEditedRef.current = true;
                 setRaw(e.target.value);
                 setAvailable(null);
                 setError(null);

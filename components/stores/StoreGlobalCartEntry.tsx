@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { StoreCommerceCartPageShell } from "@/components/stores/cart/StoreCommerceCartPageShell";
+import { STORE_GLOBAL_CART_SCROLL_BODY_INNER_CLASS } from "@/lib/stores/store-cart-page-layout";
 import { StoreBaeminCartTopBar } from "@/components/stores/cart/baemin/StoreBaeminCartTopBar";
 import { useStoreCartBack } from "@/components/stores/cart/use-store-cart-back";
 import { useStoreCommerceCartOptional } from "@/contexts/StoreCommerceCartContext";
@@ -44,6 +45,7 @@ export function StoreGlobalCartEntry() {
       <StoreCommerceCartPageShell
         storeSlug={cartSlug || undefined}
         header={<StoreBaeminCartTopBar onBack={goCartBack} />}
+        scrollInnerClassName={STORE_GLOBAL_CART_SCROLL_BODY_INNER_CLASS}
       >
         <div className="px-4 py-12 text-center sam-text-body text-sam-muted">{t("common_loading")}</div>
       </StoreCommerceCartPageShell>
@@ -55,6 +57,7 @@ export function StoreGlobalCartEntry() {
       <StoreCommerceCartPageShell
         storeSlug={cartSlug}
         header={<StoreBaeminCartTopBar onBack={goCartBack} />}
+        scrollInnerClassName={STORE_GLOBAL_CART_SCROLL_BODY_INNER_CLASS}
       >
         <div className="px-4 py-12 text-center sam-text-body text-sam-muted">{t("store_navigating")}</div>
       </StoreCommerceCartPageShell>
@@ -62,7 +65,10 @@ export function StoreGlobalCartEntry() {
   }
 
   return (
-    <StoreCommerceCartPageShell header={<StoreBaeminCartTopBar onBack={goCartBack} />}>
+    <StoreCommerceCartPageShell
+      header={<StoreBaeminCartTopBar onBack={goCartBack} />}
+      scrollInnerClassName={STORE_GLOBAL_CART_SCROLL_BODY_INNER_CLASS}
+    >
       <div className="px-4 py-10">
         <div className="text-center">
           <p className="sam-text-body-lg font-semibold text-sam-fg">{t("store_cart_empty")}</p>

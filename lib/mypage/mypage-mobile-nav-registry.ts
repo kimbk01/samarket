@@ -20,6 +20,7 @@ export function isProfileEditPath(pathname: string | null | undefined): boolean 
   if (!pathname) return false;
   if (pathname === MYPAGE_PROFILE_SETUP_EDIT_HREF) return true;
   if (pathname === "/mypage/profile/edit") return true;
+  if (pathname === "/mypage/profile") return true;
   return pathname === "/my/edit" || pathname === "/mypage/edit";
 }
 

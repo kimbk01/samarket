@@ -28,7 +28,8 @@ export type MypageHomeMenuIconId =
   | "ellipsis-vertical"
   | "trash-2"
   | "info"
-  | "hand";
+  | "hand"
+  | "phone";
 
 export type MypageHomeLinkMenuItem = {
   kind?: "link";

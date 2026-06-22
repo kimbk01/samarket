@@ -268,11 +268,28 @@ export function mergeRoomSummaryWithConsistency(
   incoming: CommunityMessengerRoomSummary,
   args: Omit<MessengerUnreadMergeInput, "incomingUnread" | "incomingLastMessageAt" | "prevUnread">
 ): CommunityMessengerRoomSummary {
+  const incomingLastMessageAt = String(incoming.lastMessageAt ?? "");
   const merged = resolveMessengerUnreadMerge({
     ...args,
     incomingUnread: incoming.unreadCount,
-    incomingLastMessageAt: String(incoming.lastMessageAt ?? ""),
+    incomingLastMessageAt,
     prevUnread: prev?.unreadCount,
   });
-  return { ...incoming, unreadCount: merged.unreadCount };
+  let row: CommunityMessengerRoomSummary = { ...incoming, unreadCount: merged.unreadCount };
+  if (prev && merged.resolution_path === "stale_version_discard") {
+    const incomingVersionMs = versionMsFromIso(
+      incomingLastMessageAt,
+      args.incomingSnapshotUpdatedAt ?? undefined
+    );
+    const truthMs = getRoomTruthVersionMs(args.roomId);
+    if (incomingVersionMs > 0 && truthMs > 0 && incomingVersionMs < truthMs) {
+      row = {
+        ...row,
+        lastMessageAt: prev.lastMessageAt,
+        lastMessage: prev.lastMessage,
+        lastMessageType: prev.lastMessageType,
+      };
+    }
+  }
+  return row;
 }

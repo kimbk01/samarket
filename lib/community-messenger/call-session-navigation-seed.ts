@@ -55,9 +55,15 @@ import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { incomingCallPeerNicknameLabel } from "@/lib/users/user-label";
-
-const KEY = "samarket.cm.call_session_seed.v1";
-const RETURN_PATH_KEY = "samarket.cm.call_return_path.v1";
+import {
+  callEngineActions,
+  clearCallEngineNavigationSeed,
+  clearCallEngineReturnPath,
+  readCallEngineNavigationSeed,
+  readCallEngineReturnPath,
+  writeCallEngineNavigationSeed,
+  writeCallEngineReturnPath,
+} from "@/lib/community-messenger/call-engine";
 
 /** 발신 즉시 진입용 임시 세션 id (`POST /calls` 완료 전 통화 UI 페인트) */
 export const COMMUNITY_MESSENGER_TEMP_CALL_PREFIX = "tmp_" as const;
@@ -189,7 +195,7 @@ export function rememberCallNavigationReturnPath(): void {
     const p = `${window.location.pathname}${window.location.search}`;
     if (p.includes("/community-messenger/calls/")) return;
     if (!p.startsWith("/") || p.startsWith("//") || p.length > 512) return;
-    window.sessionStorage.setItem(RETURN_PATH_KEY, p);
+    writeCallEngineReturnPath(p);
   } catch {
     /* quota / private mode */
   }
@@ -199,8 +205,8 @@ export function rememberCallNavigationReturnPath(): void {
 export function takeCallNavigationReturnPath(): string | null {
   if (typeof window === "undefined") return null;
   try {
-    const v = sessionStorage.getItem(RETURN_PATH_KEY);
-    sessionStorage.removeItem(RETURN_PATH_KEY);
+    const v = readCallEngineReturnPath();
+    clearCallEngineReturnPath();
     if (!v || !v.startsWith("/") || v.startsWith("//") || v.length > 512) return null;
     if (v.includes("/community-messenger/calls/")) return null;
     return v;
@@ -857,7 +863,10 @@ export async function startOutgoingCallSessionAndOpen(
   if (!result.ok) {
     stopCommunityMessengerCallTone();
     if (result.blockedCallId) {
-      router.push(`/community-messenger/calls/${encodeURIComponent(result.blockedCallId)}`);
+      const blockedHref = `/community-messenger/calls/${encodeURIComponent(result.blockedCallId)}`;
+      if (!callEngineActions.pushRouteOnce(router, result.blockedCallId, blockedHref)) {
+        router.push(blockedHref);
+      }
     }
     return result;
   }
@@ -868,7 +877,10 @@ export async function startOutgoingCallSessionAndOpen(
     role: "initiator",
     roomId: result.roomId,
   });
-  router.push(`/community-messenger/calls/${encodeURIComponent(result.session.id)}`);
+  const activeHref = `/community-messenger/calls/${encodeURIComponent(result.session.id)}`;
+  if (!callEngineActions.pushRouteOnce(router, result.session.id, activeHref)) {
+    router.push(activeHref);
+  }
   return result;
 }
 
@@ -883,10 +895,7 @@ export function primeCommunityMessengerCallNavigationSeed(
   if (typeof window === "undefined") return;
   lastConsumedNavigationSeed = null;
   try {
-    window.sessionStorage.setItem(
-      KEY,
-      JSON.stringify({ sessionId, session, at: Date.now() })
-    );
+    writeCallEngineNavigationSeed({ sessionId, session, at: Date.now() });
   } catch {
     /* quota / private mode */
   }
@@ -900,11 +909,10 @@ export function consumeCommunityMessengerCallNavigationSeed(
     return lastConsumedNavigationSeed.session;
   }
   try {
-    const raw = window.sessionStorage.getItem(KEY);
-    if (!raw) return null;
-    const o = JSON.parse(raw) as { sessionId?: string; session?: CommunityMessengerCallSession };
+    const o = readCallEngineNavigationSeed<{ sessionId?: string; session?: CommunityMessengerCallSession }>();
+    if (!o) return null;
     if (!o.session || o.sessionId !== sessionId) return null;
-    window.sessionStorage.removeItem(KEY);
+    clearCallEngineNavigationSeed();
     lastConsumedNavigationSeed = { sessionId, session: o.session };
     return o.session;
   } catch {

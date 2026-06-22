@@ -58,7 +58,7 @@ export function buildAddressEditHref(next?: string): string {
 
 export function buildProfileSetupHrefForNext(next?: string): string {
   const target = next?.trim() || currentHrefFallback();
-  return `/mypage/profile/edit?returnTo=${encodeURIComponent(target)}`;
+  return `/mypage?returnTo=${encodeURIComponent(target)}`;
 }
 
 export function resolveClientSignupGateHref(

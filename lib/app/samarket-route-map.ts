@@ -101,7 +101,7 @@ export const SAMARKET_ROUTES = {
     mypageNotifications: "/mypage/notifications",
     mypageOrderNotifications: "/mypage/order-notifications",
     mypagePoints: "/mypage/points",
-    mypageSettings: "/mypage/settings",
+    mypageSettings: "/mypage",
     mypageStoreOrders: "/mypage/store-orders",
     /** 레거시 /my 트리 — 신규는 /mypage 우선 */
     myRoot: "/my",

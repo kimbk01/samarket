@@ -225,6 +225,10 @@ import {
   getMessengerCallAdminPolicyCached,
   type MessengerCallAdminPolicy,
 } from "@/lib/community-messenger/messenger-call-admin-policy";
+import {
+  isStaleRingingRow,
+  terminalStaleRingingDirectSessionsForUser,
+} from "@/lib/community-messenger/call-stale-ringing-cleanup";
 import { sendWebPushForCommunityMessengerIncomingCall } from "@/lib/push/send-community-messenger-incoming-call-push";
 import { sendWebPushForCommunityMessengerCallTerminal } from "@/lib/push/send-community-messenger-call-canceled-push";
 import { loadCommunityMessengerRoomSilentDeltaSnapshot } from "@/lib/community-messenger/server/load-community-messenger-room-silent-delta";
@@ -733,7 +737,7 @@ async function getUserLiveDirectCallSessionId(
   if (!u) return null;
   let q = (sb as any)
     .from("community_messenger_call_sessions")
-    .select("id")
+    .select("id, status, started_at")
     .eq("session_mode", "direct")
     .or(`initiator_user_id.eq.${u},recipient_user_id.eq.${u}`)
     .order("created_at", { ascending: false })
@@ -744,8 +748,17 @@ async function getUserLiveDirectCallSessionId(
     q = q.in("status", ["ringing", "active"]);
   }
   const { data } = await q.maybeSingle();
-  const id = trimText((data as { id?: string } | null)?.id ?? "");
-  return id || null;
+  const row = data as { id?: string; status?: string; started_at?: string | null } | null;
+  const id = trimText(row?.id ?? "");
+  if (!id) return null;
+  if (mode === "live" && trimText(row?.status) === "ringing") {
+    const policy = await getMessengerCallAdminPolicyCached();
+    if (isStaleRingingRow({ status: "ringing", started_at: row?.started_at ?? null }, policy)) {
+      await terminalStaleRingingDirectSessionsForUser(sb, u, policy).catch(() => 0);
+      return null;
+    }
+  }
+  return id;
 }
 
 /** 방 단위 live(ringing|active) direct 세션 — fresh 발신 전 정리·검증용 */
@@ -17432,6 +17445,11 @@ export async function startCommunityMessengerCallSession(input: {
 
   const startedAt = nowIso();
   if (sb) {
+    const callPolicy = await getMessengerCallAdminPolicyCached();
+    await terminalStaleRingingDirectSessionsForUser(sb, input.userId, callPolicy).catch(() => 0);
+    if (peerUserId) {
+      await terminalStaleRingingDirectSessionsForUser(sb, peerUserId, callPolicy).catch(() => 0);
+    }
     if (!isGroupRoom) {
       if (dialFresh) {
         if (await getLiveDirectCallSessionIdInRoom(sb, roomId)) {
@@ -18753,6 +18771,7 @@ export async function listIncomingCommunityMessengerCallSessions(
   const policy = await getMessengerCallAdminPolicyCached();
   const sb = getSupabaseOrNull();
   if (sb) {
+    await terminalStaleRingingDirectSessionsForUser(sb, userId, policy).catch(() => 0);
     if (options?.directOnly) {
       const { data: directRows, error: directError } = await (sb as any)
         .from("community_messenger_call_sessions")

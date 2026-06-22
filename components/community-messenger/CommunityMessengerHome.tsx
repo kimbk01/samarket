@@ -35,6 +35,7 @@ import {
   MessengerSettingsSheet,
 } from "@/components/community-messenger/community-messenger-home-lazy-sheets";
 import { samTier1HeaderRightColumn } from "@/lib/ui/tier1-header-icon";
+import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
 import { tryRedirectMessengerHomeAuthBlocked } from "@/lib/community-messenger/home/messenger-home-auth-blocked-redirect";
 import {
   resolveImportantRoomHighlightReason,
@@ -2793,8 +2794,8 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       data-cm-messenger-home-root
       className={
         fromPhilifeHeaderStack
-          ? "min-h-0 space-y-2 bg-[color:var(--messenger-bg)] px-0 pt-0 pb-[calc(7rem+var(--safe-bottom))] text-[color:var(--messenger-text)]"
-          : "min-h-0 space-y-2 bg-[color:var(--messenger-bg)] px-0 py-2 pb-[calc(7rem+var(--safe-bottom))] text-[color:var(--messenger-text)]"
+          ? `min-h-0 space-y-2 bg-[color:var(--messenger-bg)] px-0 pt-0 ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS} text-[color:var(--messenger-text)]`
+          : `min-h-0 space-y-2 bg-[color:var(--messenger-bg)] px-0 py-2 ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS} text-[color:var(--messenger-text)]`
       }
     >
       <CommunityMessengerHomeReturnConsume />
