@@ -12,6 +12,7 @@ import {
   resolveOverlayBusyLiveSessionId,
   shouldHideGlobalIncomingOverlayForSession,
 } from "@/lib/community-messenger/incoming-call-surface";
+import { readCallConsumedReason } from "@/lib/community-messenger/incoming-call-state";
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 
 export type ForegroundIncomingPresenterSurface = "none" | "top-banner";
@@ -186,11 +187,36 @@ export function resolveForegroundIncomingPresentation(
   }
 
   if (!canShowIncoming(session.id, input.tombstone)) {
+    const consumedReason = readCallConsumedReason(session.id);
+    if (consumedReason === "accepted" && session.status === "ringing") {
+      return {
+        sessionId: session.id,
+        session,
+        surface: "none",
+        reason: "accepted_consumed_blocks_stale_ringing",
+        shouldRender: false,
+        selectedRingingSessionId,
+      };
+    }
     return {
       sessionId: session.id,
       session,
       surface: "none",
       reason: "can_show_incoming_false",
+      shouldRender: false,
+      selectedRingingSessionId,
+    };
+  }
+
+  if (
+    !input.preferNativeAndroidForegroundIncoming &&
+    input.nativeForegroundIncomingCallId?.trim() === session.id
+  ) {
+    return {
+      sessionId: session.id,
+      session,
+      surface: "none",
+      reason: "native_foreground_pill_owns_incoming",
       shouldRender: false,
       selectedRingingSessionId,
     };

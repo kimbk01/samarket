@@ -119,11 +119,11 @@ describe("incoming-call native contract", () => {
     expect(activity).toContain("activity_finish_by_terminal");
   });
 
-  it("notification contentIntent uses preview route and accept uses nativeAccept=1", () => {
+  it("notification contentIntent uses preview route and accept uses nativePrep=1", () => {
     const notification = read("android/app/src/main/java/com/dibay/app/IncomingCallNotificationBuilder.java");
     expect(notification).toContain("buildMainActivityCallPreviewIntent");
     const helper = read("android/app/src/main/java/com/dibay/app/IncomingCallIntentHelper.java");
-    expect(helper).toContain("nativeAccept=1");
+    expect(helper).toContain("nativePrep=1");
     expect(helper).toContain("incomingPreview=1");
   });
 

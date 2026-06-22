@@ -246,7 +246,7 @@ public class CallForegroundService extends Service {
         String appPath =
             "/community-messenger/calls/"
                 + android.net.Uri.encode(sid)
-                + (ringingOnly ? "?action=accept&nativeAccept=1&source=native_resume" : "?source=native_resume");
+                + (ringingOnly ? "?action=accept&nativePrep=1&mode=active&source=native_resume" : "?source=native_resume");
         MainActivity.persistCallPendingRoute(getApplicationContext(), appPath, null, 0L);
         DibayCallPushLog.info("pending_route_saved", sid, "path=" + appPath);
       }

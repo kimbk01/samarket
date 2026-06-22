@@ -38,11 +38,9 @@ describe("call terminal navigation policy", () => {
     expect(client).toContain("navigateBackFromCommunityMessengerCall(router, s.roomId)");
   });
 
-  it("nativeAccept=1 skips duplicate PATCH in CallClient", () => {
+  it("nativeAccept=1 skips duplicate PATCH only when session is already active", () => {
     const client = read("components/community-messenger/CommunityMessengerCallClient.tsx");
-    expect(client).toContain("nativeAcceptRoute && requestedActionRef.current === \"accept\"");
-    expect(client).not.toMatch(
-      /nativeAcceptRoute[\s\S]{0,400}patchCommunityMessengerCallSession\([^)]*,\s*\"accept\"/
-    );
+    expect(client).toContain('s.status === "active"');
+    expect(client).toContain("native_accept_still_ringing");
   });
 });

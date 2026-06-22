@@ -29,8 +29,13 @@ export function prepareCallEngineForFreshIncomingRing(callId: string): boolean {
   const consumed = readCallConsumedReason(sid);
   const latched = isCallEngineTerminalConsumed(sid);
   const phase = getCallEngineState(sid);
+
+  /** terminal latch 만 있고 consumed 사유 없음 — missed 알림 재오픈 등 stale ringing 차단 */
+  if (latched && consumed == null) {
+    return false;
+  }
+
   const shouldReset =
-    latched ||
     (consumed != null && TERMINAL_CONSUMED_REASONS.has(consumed)) ||
     (consumed === "accepted" && !POST_ACCEPT_PHASES.has(phase));
   if (!shouldReset) return false;

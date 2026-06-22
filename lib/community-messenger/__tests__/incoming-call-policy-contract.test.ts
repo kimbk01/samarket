@@ -45,8 +45,8 @@ describe("incoming-call policy contracts", () => {
     expect(native).not.toContain("CallSessionPatchHelper.patch");
     expect(native).toContain("accept_signal_sent");
     const client = read("components/community-messenger/CommunityMessengerCallClient.tsx");
-    expect(client).toContain("nativeAcceptRoute && requestedActionRef.current === \"accept\"");
-    expect(client).toContain("requestedAction === \"accept\" && nativeAcceptRoute");
+    expect(client).toContain("nativeAcceptPatchCompleteRoute");
+    expect(client).toContain("native_accept_still_ringing");
   });
 
   it("CallClient blocks callee ringing direct entry without action=accept", () => {
@@ -57,11 +57,11 @@ describe("incoming-call policy contracts", () => {
     expect(src).toContain("isIncomingCallPreviewRoute");
   });
 
-  it("CallClient does not re-run accept PATCH on nativeAccept=1 route", () => {
+  it("CallClient skips duplicate PATCH only when nativeAccept=1 and session active", () => {
     const src = read("components/community-messenger/CommunityMessengerCallClient.tsx");
-    expect(src).toContain("nativeAcceptRoute && requestedActionRef.current === \"accept\"");
-    expect(src).toContain("requestedAction === \"accept\" && nativeAcceptRoute");
-    expect(src).toContain("일반 `action=accept` 는 아직 PATCH 가 필요");
+    expect(src).toContain("nativeAcceptPatchCompleteRoute");
+    expect(src).toContain('s.status === "active"');
+    expect(src).toContain("nativePrep=1");
   });
 
   it("RouteHost consumes pending call route on resume", () => {

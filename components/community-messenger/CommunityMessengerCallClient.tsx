@@ -259,6 +259,7 @@ import {
   isAnyCalleeAcceptRoute,
   isNativeCalleeAcceptPendingForSession,
   isNativeCalleeAcceptRoute,
+  isNativeCalleePatchCompleteRoute,
   readNativeCalleeAcceptRouteParams,
 } from "@/lib/community-messenger/native-callee-accept-entry";
 import {
@@ -592,8 +593,10 @@ export function CommunityMessengerCallClient({
   const searchParams = useSearchParams();
   const requestedAction = searchParams.get("action");
   const incomingPreviewRoute = isIncomingCallPreviewRoute(searchParams);
-  const nativeAcceptRoute = isNativeCalleeAcceptRoute(readNativeCalleeAcceptRouteParams(searchParams));
-  const calleeAcceptRoute = isAnyCalleeAcceptRoute(readNativeCalleeAcceptRouteParams(searchParams));
+  const nativeRouteParams = readNativeCalleeAcceptRouteParams(searchParams);
+  const nativeAcceptRoute = isNativeCalleeAcceptRoute(nativeRouteParams);
+  const nativeAcceptPatchCompleteRoute = isNativeCalleePatchCompleteRoute(nativeRouteParams);
+  const calleeAcceptRoute = isAnyCalleeAcceptRoute(nativeRouteParams);
   const [initialCallHydration] = useState(() => {
     if (initialSession != null) {
       return { session: initialSession, loading: false };
@@ -2868,11 +2871,20 @@ export function CommunityMessengerCallClient({
     if (isTerminalCallSessionStatus(s.status)) return null;
     if (!s.isMineInitiator) {
       /**
-       * 단일 파이프라인 정책:
-       * `nativeAccept=1` 은 gateway PATCH 완료 후 active route 로 들어온 상태다.
-       * 일반 `action=accept` 는 아직 PATCH 가 필요할 수 있으므로 아래 gateway 경로로 계속 내려간다.
+       * `nativeAccept=1` 만 gateway PATCH 완료 의미.
+       * `nativePrep=1` 은 Web PATCH 가 아직 필요하다.
        */
-      if (nativeAcceptRoute && requestedActionRef.current === "accept") {
+      if (nativeAcceptPatchCompleteRoute && s.status === "ringing") {
+        logCallFlow("call_accept_pressed", {
+          sessionId: s.id,
+          source: "native_accept_still_ringing",
+        });
+        /* PATCH 완료 route 인데 아직 ringing — gateway 로 계속. */
+      } else if (
+        nativeAcceptPatchCompleteRoute &&
+        requestedActionRef.current === "accept" &&
+        s.status === "active"
+      ) {
         if (!isDibayCallConsumed(s.id)) {
           applyIncomingCallConsumedSideEffects(s.id, "accepted", "call_client_accept_route");
         }
@@ -2908,30 +2920,6 @@ export function CommunityMessengerCallClient({
         }
         releaseIncomingCallAccept(s.id);
         return s;
-      }
-      if (nativeAcceptRoute && s.status === "ringing") {
-        if (!isDibayCallConsumed(s.id)) {
-          applyIncomingCallConsumedSideEffects(s.id, "accepted", "native_accept_route");
-        }
-        logDibayCall("accept_success", { sessionId: s.id, source: "native_accept_route" });
-        setCalleeVideoConnectingShell(true);
-        setBusy("accept");
-        dibayIncomingLaneStopRing("native_accept_route", s.id);
-        dismissAllIncomingCallNotificationsFireAndForget(s.id);
-        try {
-          const refreshed = await refreshSession(true);
-          if (refreshed?.status === "active") {
-            clearNativeCalleeAcceptPending(s.id);
-            runIncomingCallCleanup({ sessionId: s.id, reason: "native_accept_active", stopRingtone: false });
-            if (refreshed.callKind === "video") {
-              void applyCallAudioRouteForSession(refreshed, true, "native_accept_active");
-            }
-          }
-          return refreshed;
-        } finally {
-          setBusy(null);
-          releaseIncomingCallAccept(s.id);
-        }
       }
       logCallFlow("call_accept_pressed", { sessionId: s.id, source: "call_client" });
       console.info("[call-flow] incoming_accept_tap", {
@@ -3035,7 +3023,7 @@ export function CommunityMessengerCallClient({
         releaseIncomingCallAccept(s.id);
       }
     }
-  }, [applyCallAudioRouteForSession, nativeAcceptRoute, refreshSession, t]);
+  }, [applyCallAudioRouteForSession, nativeAcceptPatchCompleteRoute, refreshSession, t]);
 
   const applyTerminalSessionAfterPatch = useCallback(
     (
@@ -3213,6 +3201,12 @@ export function CommunityMessengerCallClient({
         setLoading(false);
         dibayIncomingLaneStopRing("hydrate_accept_already_active", sessionId);
         runIncomingCallCleanup({ sessionId, reason: "hydrate_accept_already_active", stopRingtone: false });
+        if (requestedAction === "accept" && nativeAcceptPatchCompleteRoute) {
+          logDibayCall("accept_success", { sessionId, source: "call_client_hydrate_accept_route" });
+          dibayIncomingLaneStopRing("hydrate_accept_route", sessionId);
+          dismissAllIncomingCallNotificationsFireAndForget(sessionId);
+          await refreshSession(true);
+        }
         return;
       }
       if (loaded.status !== "ringing") {
@@ -3225,16 +3219,8 @@ export function CommunityMessengerCallClient({
       sessionRef.current = loaded;
       setLoading(false);
       /**
-       * `nativeAccept=1` 만 PATCH 완료 의미다.
-       * 일반 `action=accept` 는 acceptIncoming() 으로 내려가 gateway PATCH 를 1회 실행한다.
+       * ringing + action=accept — gateway PATCH 1회 (nativePrep 포함).
        */
-      if (requestedAction === "accept" && nativeAcceptRoute) {
-        logDibayCall("accept_success", { sessionId, source: "call_client_hydrate_accept_route" });
-        dibayIncomingLaneStopRing("hydrate_accept_route", sessionId);
-        dismissAllIncomingCallNotificationsFireAndForget(sessionId);
-        await refreshSession(true);
-        return;
-      }
       await acceptIncoming();
       void ensureCallMediaForUserGesture(loaded.callKind).then((permission) => {
         if (!permission.ok) {
@@ -3249,7 +3235,7 @@ export function CommunityMessengerCallClient({
       releaseIncomingCallAccept(sessionId);
       setBusy(null);
     }
-  }, [acceptIncoming, nativeAcceptRoute, refreshSession, requestedAction, sessionId, t]);
+  }, [acceptIncoming, nativeAcceptPatchCompleteRoute, refreshSession, requestedAction, sessionId, t]);
 
   const autoHydrateActionRef = useRef<string | null>(null);
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   clearNativeCalleeAcceptPending,
   isNativeCalleeAcceptRoute,
+  isNativeCalleePatchCompleteRoute,
   isNativeCalleePrepRoute,
   markNativeCalleeAcceptPending,
   readNativeCalleeAcceptPendingSessionId,
@@ -39,8 +40,11 @@ describe("native-callee-accept-entry", () => {
   const cleanup = installMemorySessionStorage();
 
   it("detects native accept route", () => {
-    expect(isNativeCalleeAcceptRoute({ action: "accept", nativeAccept: "1", nativePrep: null })).toBe(true);
+    expect(isNativeCalleePatchCompleteRoute({ action: "accept", nativeAccept: "1", nativePrep: null })).toBe(true);
     expect(isNativeCalleePrepRoute({ action: "accept", nativeAccept: null, nativePrep: "1" })).toBe(true);
+    expect(isNativeCalleePrepRoute({ action: "accept", nativeAccept: "1", nativePrep: null })).toBe(false);
+    expect(isNativeCalleeAcceptRoute({ action: "accept", nativeAccept: "1", nativePrep: null })).toBe(true);
+    expect(isNativeCalleeAcceptRoute({ action: "accept", nativeAccept: null, nativePrep: "1" })).toBe(true);
     expect(isNativeCalleeAcceptRoute({ action: "accept", nativeAccept: null, nativePrep: null })).toBe(false);
   });
 

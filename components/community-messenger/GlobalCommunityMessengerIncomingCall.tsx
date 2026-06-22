@@ -1315,11 +1315,14 @@ export function GlobalCommunityMessengerIncomingCall() {
       void plugin.getForegroundIncomingCallId().then((res) => {
         const id = res.callId?.trim();
         if (!id) return;
-        if (resolveCallEngineAppVisibility() === "foreground") {
-          void dismissNativeForegroundIncomingUi(id);
-          return;
-        }
         setNativeForegroundIncomingCallId(id);
+        applyNativeIncomingSurfaceSignal({
+          callId: id,
+          hasNativeIncomingSurface: true,
+          nativeSurfaceType: "foreground_pill",
+          appVisibility: resolveCallEngineAppVisibility(),
+          source: "native_foreground_pill",
+        });
       });
     });
   }, []);
@@ -1329,11 +1332,6 @@ export function GlobalCommunityMessengerIncomingCall() {
       onForegroundIncomingUi: ({ sessionId, visible }) => {
         const sid = sessionId.trim();
         const appVisibility = resolveCallEngineAppVisibility();
-        if (visible && sid && appVisibility === "foreground") {
-          void dismissNativeForegroundIncomingUi(sid);
-          setNativeForegroundIncomingCallId(null);
-          return;
-        }
         setNativeForegroundIncomingCallId(visible && sid ? sid : null);
         if (sid) {
           applyNativeIncomingSurfaceSignal({
@@ -1822,7 +1820,7 @@ export function GlobalCommunityMessengerIncomingCall() {
         visibilityState: incomingVisibilityState,
         isAppForeground: incomingVisibilityState === "visible",
         foregroundWakeSessionIds,
-        preferNativeAndroidForegroundIncoming: false,
+        preferNativeAndroidForegroundIncoming: !nativeForegroundIncomingCallId,
         nativeForegroundIncomingCallId,
       }),
     [
@@ -1975,7 +1973,9 @@ export function GlobalCommunityMessengerIncomingCall() {
       type: "incoming_discovered",
       session: s,
       appVisibility: appVisibility === "unknown" ? "foreground" : appVisibility,
-      hasNativeFsi: appVisibility !== "foreground" && hasNativeIncomingSurfaceForCall(sid),
+      hasNativeFsi:
+        hasNativeIncomingSurfaceForCall(sid) ||
+        nativeForegroundIncomingCallId === sid,
       hardClearedAt: hardClearedIncomingSessionsAtRef.current,
       source: "direct_ringing",
     });
@@ -2213,6 +2213,8 @@ export function GlobalCommunityMessengerIncomingCall() {
 
       /** 1:1 — 단일 accept gateway: PATCH 1회 + `?action=accept&nativeAccept=1` */
       setBusyId(`accept:${session.id}`);
+      void dismissNativeForegroundIncomingUi(session.id);
+      setNativeForegroundIncomingCallId(null);
       prepareCallEngineForFreshIncomingRing(session.id);
       void (async () => {
         try {

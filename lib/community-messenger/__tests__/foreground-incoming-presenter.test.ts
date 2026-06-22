@@ -227,6 +227,32 @@ describe("foreground-incoming-presenter", () => {
       incomingTabLeader: true,
       visibilityState: "visible",
       isAppForeground: true,
+      preferNativeAndroidForegroundIncoming: false,
+      nativeForegroundIncomingCallId: "call-1",
+    });
+
+    expect(decision.shouldRender).toBe(false);
+    expect(decision.reason).toBe("native_foreground_pill_owns_incoming");
+  });
+
+  it("shows web banner when preferNativeAndroidForegroundIncoming is true", () => {
+    const incoming = ringingSession("call-1");
+    applyNativeIncomingSurfaceSignal({
+      callId: "call-1",
+      hasNativeIncomingSurface: true,
+      nativeSurfaceType: "foreground_pill",
+      appVisibility: "foreground",
+      source: "native_foreground_pill",
+    });
+    const decision = resolveForegroundIncomingPresentation({
+      sessions: [incoming],
+      pathname: "/community-messenger",
+      viewerUserId: "self",
+      viewerLiveSessionId: null,
+      tombstone,
+      incomingTabLeader: true,
+      visibilityState: "visible",
+      isAppForeground: true,
       preferNativeAndroidForegroundIncoming: true,
       nativeForegroundIncomingCallId: "call-1",
     });

@@ -70,7 +70,7 @@ public final class IncomingCallIntentHelper {
         Uri.parse(
             "dibay://call/"
                 + Uri.encode(sessionId)
-                + "?action=accept&nativeAccept=1&source=activity"));
+                + "?action=accept&nativePrep=1&mode=active&source=activity"));
     launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
     return launch;
   }

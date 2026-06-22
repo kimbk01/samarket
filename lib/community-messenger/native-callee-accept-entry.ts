@@ -29,12 +29,17 @@ export function readNativeCalleeAcceptRouteParams(
 
 /** native prep 완료 — Web PATCH 는 call-accept-guard 단일 */
 export function isNativeCalleePrepRoute(params: NativeCalleeAcceptRouteParams): boolean {
-  return params.action === "accept" && (params.nativePrep === "1" || params.nativeAccept === "1");
+  return params.action === "accept" && params.nativePrep === "1";
 }
 
-/** @deprecated isNativeCalleePrepRoute */
+/** gateway PATCH 완료 후 active route (`nativeAccept=1`) */
+export function isNativeCalleePatchCompleteRoute(params: NativeCalleeAcceptRouteParams): boolean {
+  return params.action === "accept" && params.nativeAccept === "1";
+}
+
+/** prep 또는 PATCH 완료 accept route */
 export function isNativeCalleeAcceptRoute(params: NativeCalleeAcceptRouteParams): boolean {
-  return isNativeCalleePrepRoute(params);
+  return isNativeCalleePrepRoute(params) || isNativeCalleePatchCompleteRoute(params);
 }
 
 export function isAnyCalleeAcceptRoute(params: NativeCalleeAcceptRouteParams): boolean {

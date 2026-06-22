@@ -25,6 +25,11 @@ describe("call-engine-fresh-ring-reset", () => {
     expect(isDibayCallConsumed("call-2")).toBe(false);
   });
 
+  it("does not clear terminal latch without consumed reason (missed notification reopen)", () => {
+    markCallEngineTerminalConsumed("call-missed");
+    expect(prepareCallEngineForFreshIncomingRing("call-missed")).toBe(false);
+  });
+
   it("does not reset while accept is in flight", () => {
     markCallConsumed("call-3", "accepted");
     setCallEngineState("call-3", "accepting");
