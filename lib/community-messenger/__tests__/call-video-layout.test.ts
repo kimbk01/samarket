@@ -6,6 +6,7 @@ import {
   shouldMountPipBeforeJoin,
   shouldRetainPrimedDeviceStreamForVideoPreview,
   shouldShowLocalVideoPipChrome,
+  shouldShowOutgoingAuxPipPreviewSlot,
   shouldShowPipFirstLocalPreviewChrome,
   shouldSuppressCameraPreparingOverlayForPipFirst,
   shouldUsePipFirstLocalSlot,
@@ -44,7 +45,7 @@ describe("shouldUseSoloLocalFullVideoLayout", () => {
     ).toBe(true);
   });
 
-  it("PiP-first: initiator ringing is not solo full", () => {
+  it("PiP-first: initiator ringing uses hero main (not solo full local)", () => {
     expect(
       shouldUseSoloLocalFullVideoLayout({
         callKind: "video",
@@ -55,7 +56,7 @@ describe("shouldUseSoloLocalFullVideoLayout", () => {
     ).toBe(false);
   });
 
-  it("PiP-first: initiator active pre-remote after join is not solo full", () => {
+  it("PiP-first: initiator active pre-remote uses hero main until remote joins", () => {
     expect(
       shouldUseSoloLocalFullVideoLayout({
         callKind: "video",
@@ -103,7 +104,7 @@ describe("shouldUseSoloLocalFullVideoLayout", () => {
 });
 
 describe("PiP-first video layout policy", () => {
-  it("outgoing video ringing uses PiP-first, not soloLocalFull", () => {
+  it("outgoing video ringing uses PiP-first pre-remote tile", () => {
     const args = {
       callKind: "video" as const,
       sessionStatus: "ringing" as const,
@@ -112,11 +113,10 @@ describe("PiP-first video layout policy", () => {
       remoteJoined: false,
     };
     expect(isVideoPipFirstOutgoingPhase(args)).toBe(true);
-    expect(shouldUseSoloLocalFullVideoLayout({ ...args })).toBe(false);
     expect(shouldUsePipFirstLocalSlot(args)).toBe(true);
   });
 
-  it("outgoing video active pre-remote mounts PiP before join", () => {
+  it("outgoing video mounts PiP shell before join", () => {
     const args = {
       callKind: "video" as const,
       sessionStatus: "ringing" as const,
@@ -134,6 +134,21 @@ describe("PiP-first video layout policy", () => {
         remoteJoined: false,
       })
     ).toBe(true);
+  });
+
+  it("outgoing aux PiP slot stays until local Agora ready (camera off included)", () => {
+    expect(
+      shouldShowOutgoingAuxPipPreviewSlot({
+        pipFirstOutgoing: true,
+        localVideoReady: false,
+      })
+    ).toBe(true);
+    expect(
+      shouldShowOutgoingAuxPipPreviewSlot({
+        pipFirstOutgoing: true,
+        localVideoReady: true,
+      })
+    ).toBe(false);
   });
 
   it("callee accept uses PiP local slot; remote remains main layout path", () => {
@@ -209,20 +224,20 @@ describe("shouldMountLocalVideoPipShell", () => {
     ).toBe(true);
   });
 
-  it("mounts shell for PiP-first outgoing before join", () => {
+  it("does not mount PiP shell before join on non-pip-first paths", () => {
+    expect(shouldMountLocalVideoPipShell({ videoCall: true, joined: false })).toBe(false);
     expect(
       shouldMountLocalVideoPipShell({
         videoCall: true,
         sessionStatus: "ringing",
         joined: false,
-        isInitiator: true,
+        isInitiator: false,
         remoteJoined: false,
       })
-    ).toBe(true);
+    ).toBe(false);
   });
 
-  it("does not mount before join for non-pip-first or after terminal", () => {
-    expect(shouldMountLocalVideoPipShell({ videoCall: true, joined: false })).toBe(false);
+  it("does not mount after terminal", () => {
     expect(
       shouldMountLocalVideoPipShell({
         videoCall: true,

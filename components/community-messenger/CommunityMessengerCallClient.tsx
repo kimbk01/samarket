@@ -59,6 +59,7 @@ import {
   shouldMountLocalVideoPipShell,
   shouldRetainPrimedDeviceStreamForVideoPreview,
   shouldShowLocalVideoPipChrome,
+  shouldShowOutgoingAuxPipPreviewSlot,
   shouldShowPipFirstLocalPreviewChrome,
   shouldSuppressCameraPreparingOverlayForPipFirst,
   shouldUsePipFirstLocalSlot,
@@ -4502,8 +4503,8 @@ export function CommunityMessengerCallClient({
 
     if (pipFirstOutgoing) {
       detachPreJoinHtmlVideo(ringPreviewVideoRef.current);
+      /** 보조 PiP 슬롯 — OutgoingRingCameraPreview 또는 pipPrejoin video attach */
       if (showOutgoingRingCameraPreview) {
-        setPreJoinVideoElementReady(false);
         detachPreJoinHtmlVideo(pipPrejoinVideoRef.current);
         return;
       }
@@ -4627,7 +4628,10 @@ export function CommunityMessengerCallClient({
         isInitiator: session.isMineInitiator,
         previewStream: preJoinVideoPreviewStream,
       });
-    const showPipPrejoin = pipFirstOutgoingForSlot && !camOff && !localVideoReady;
+    const showPipPrejoin = shouldShowOutgoingAuxPipPreviewSlot({
+      pipFirstOutgoing: pipFirstOutgoingForSlot,
+      localVideoReady,
+    });
     return (
       <div className="relative h-full w-full bg-[#003D29] [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:object-cover">
         <div ref={smallVideoRef} className="h-full w-full" />

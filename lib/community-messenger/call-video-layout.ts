@@ -18,7 +18,7 @@ function isTerminalSessionStatus(status: CommunityMessengerCallSessionStatus): b
   return TERMINAL.includes(status);
 }
 
-/** 1:1 발신 영상 — ringing / active-pre-remote 구간 PiP-first */
+/** 1:1 발신 영상 — ringing / active-pre-remote 구간 보조 PiP 미리보기 항상 */
 export function isVideoPipFirstOutgoingPhase(args: VideoPipFirstPolicyArgs): boolean {
   if (args.callKind !== "video") return false;
   if (!args.isInitiator) return false;
@@ -26,6 +26,14 @@ export function isVideoPipFirstOutgoingPhase(args: VideoPipFirstPolicyArgs): boo
   if (args.sessionStatus === "ringing") return true;
   if (args.sessionStatus === "active" && !args.remoteJoined) return true;
   return false;
+}
+
+/** 발신 보조 PiP 슬롯 — Agora local ready 전까지 항상 마운트(카메라 off 포함). */
+export function shouldShowOutgoingAuxPipPreviewSlot(args: {
+  pipFirstOutgoing: boolean;
+  localVideoReady: boolean;
+}): boolean {
+  return args.pipFirstOutgoing && !args.localVideoReady;
 }
 
 /** local=PiP slot — 발신 PiP-first 또는 callee active(수락·조인 포함) */
@@ -36,10 +44,9 @@ export function shouldUsePipFirstLocalSlot(args: VideoPipFirstPolicyArgs): boole
   return Boolean(!args.isInitiator && args.sessionStatus === "active");
 }
 
-/** 발신 PiP-first — Agora join 전 PiP shell 마운트 */
+/** 발신 PiP-first — pre-remote 전체 구간 shell 마운트 (joined 후 pre-remote 포함) */
 export function shouldMountPipBeforeJoin(args: VideoPipFirstPolicyArgs): boolean {
-  if (!isVideoPipFirstOutgoingPhase(args)) return false;
-  return !args.joined;
+  return isVideoPipFirstOutgoingPhase(args);
 }
 
 export function shouldSuppressCameraPreparingOverlayForPipFirst(args: {

@@ -5,11 +5,6 @@ import {
   resolveCrossDomainConfirmCopy,
   type CrossDomainConfirmCopy,
 } from "@/lib/main-menu/main-bottom-nav-domain";
-import {
-  isMainBottomNavRiskyNavigation,
-  MAIN_BOTTOM_NAV_SAFE_RISKY_STATE,
-  type MainBottomNavRiskyNavigationState,
-} from "@/lib/navigation/main-bottom-nav-risky-navigation";
 
 export type BottomNavTransitionConfirmCopy =
   | { kind: "messenger" }
@@ -27,7 +22,6 @@ export function isMainBottomNavMessengerTabId(tabId: string): boolean {
 /**
  * 메신저 탭 — 다른 표면에서 `/community-messenger` 로 갈 때 확인 팝업.
  * 이미 메신저 셸이면 false(재탭·스크롤만).
- * Phase B: risky navigation 시에만 재활성화 후보.
  */
 export function requiresMessengerTabConfirm(
   pathname: string | null | undefined,
@@ -39,41 +33,21 @@ export function requiresMessengerTabConfirm(
   return true;
 }
 
-/** Phase B 재활성화용 — 교육용 messenger copy */
-function resolveMessengerTransitionConfirmCopy(
-  pathname: string | null | undefined,
-  targetTabId: string
-): BottomNavTransitionConfirmCopy | null {
-  if (!requiresMessengerTabConfirm(pathname, targetTabId)) return null;
-  return { kind: "messenger" };
-}
-
-/** Phase B 재활성화용 — 교육용 cross-domain copy */
-function resolveCrossDomainTransitionConfirmCopy(
-  pathname: string | null | undefined,
-  targetTabId: string
-): BottomNavTransitionConfirmCopy | null {
-  const cross = resolveCrossDomainConfirmCopy(pathname, targetTabId);
-  if (!cross) return null;
-  return { kind: "cross_domain", copy: cross };
-}
-
 /**
- * 하단 탭 확인 팝업 단일 판별.
+ * 하단 탭 확인 팝업 단일 판별 — 메신저 우선, 그다음 3대 허브 교차.
  *
- * CONTRACT — Phase A: read-only(safe) navigation 은 **항상 null** (즉시 commit).
+ * CONTRACT — hub 교차·메신저 진입 시 교육용 Confirm 노출(확인 후 commit).
  * 데이터 보호: `useInlineWriteSheetNavigationGuard`·cart/checkout Confirm 등 domain guard.
- * Phase B: `isMainBottomNavRiskyNavigation(riskyState)` 일 때만 messenger/cross-domain copy 반환.
+ * 확인 모달 노출 시점 prewarm은 `BottomNav` `commitTabRouteWithConfirm`.
  */
 export function resolveBottomNavTransitionConfirmCopy(
   pathname: string | null | undefined,
-  targetTabId: string,
-  riskyState: MainBottomNavRiskyNavigationState = MAIN_BOTTOM_NAV_SAFE_RISKY_STATE
+  targetTabId: string
 ): BottomNavTransitionConfirmCopy | null {
-  if (!isMainBottomNavRiskyNavigation(riskyState)) {
-    return null;
+  if (requiresMessengerTabConfirm(pathname, targetTabId)) {
+    return { kind: "messenger" };
   }
-  const messenger = resolveMessengerTransitionConfirmCopy(pathname, targetTabId);
-  if (messenger) return messenger;
-  return resolveCrossDomainTransitionConfirmCopy(pathname, targetTabId);
+  const cross = resolveCrossDomainConfirmCopy(pathname, targetTabId);
+  if (cross) return { kind: "cross_domain", copy: cross };
+  return null;
 }
