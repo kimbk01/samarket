@@ -11,7 +11,6 @@
  */
 
 import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
-import { hasRecentIncomingCallNativeWake } from "@/lib/community-messenger/incoming-call-trace-bridge";
 
 /** 백업 GET 을 쉬는 표면에서 타이머만 이어 갈 때의 간격(HTTP 호출 없음) */
 export const INCOMING_CALL_BACKUP_HTTP_POLL_SUPPRESSED_TAIL_MS = 60_000;
@@ -39,8 +38,6 @@ export function shouldRunIncomingCallBackupHttpPoll(
 ): boolean {
   if (isDevSafeMode()) return false;
   if (hasRingingDirectCallee) return true;
-  /** FCM/native wake 직후 — Realtime·로컬 merge 전 HTTP GET 으로 ringing 확보 */
-  if (hasRecentIncomingCallNativeWake()) return true;
   const normalized = normalizePathname(pathname);
   if (!normalized || normalized === "/login" || normalized.startsWith("/login/")) return false;
   return isIncomingCallBackupPollSurface(normalized);

@@ -62,23 +62,10 @@ sleep 3
 CALL_FG="rv-fg-$TS"
 LOG_FG="$(run_incoming "$CALL_FG")"
 echo "[A] foreground $CALL_FG"
-check_log "foreground FCM path" "incoming_call_foreground_web_ssot callId=$CALL_FG" "$LOG_FG"
-if echo "$LOG_FG" | rg -q "foreground_incoming_activity_launch callId=$CALL_FG|foreground_incoming_native_pill callId=$CALL_FG|IncomingCallForegroundUiLauncher"; then
-  echo "  FAIL foreground native pill launched (Web banner SSOT only)"
-  fail=$((fail + 1))
-else
-  echo "  PASS foreground no native pill launch"
-  pass=$((pass + 1))
-fi
-check_log "foreground web incoming event" "foreground_incoming_event callId=$CALL_FG|incoming_received callId=$CALL_FG" "$LOG_FG"
-TOP_FG="$("$ADB" shell dumpsys activity activities 2>/dev/null | tr -d '\r' || true)"
-if echo "$TOP_FG" | rg -q "IncomingCallActivity|ForegroundIncomingCallActivity"; then
-  echo "  FAIL foreground native full-screen/pill activity on screen"
-  fail=$((fail + 1))
-else
-  echo "  PASS foreground no native incoming activity on screen"
-  pass=$((pass + 1))
-fi
+check_log "foreground FCM path" "incoming_call_foreground_native_ui callId=$CALL_FG" "$LOG_FG"
+check_log "foreground native pill launch" "foreground_incoming_activity_launch callId=$CALL_FG|foreground_incoming_native_pill callId=$CALL_FG" "$LOG_FG"
+check_log "foreground UI rendered" "incoming_activity_created.*callId=$CALL_FG.*source=foreground_activity|foreground_incoming_activity_shown callId=$CALL_FG" "$LOG_FG"
+check_top_activity "foreground IncomingCallActivity on screen" "IncomingCallActivity.*$CALL_FG|ForegroundIncomingCallActivity"
 
 # B — background (home)
 "$ADB" shell am broadcast -a com.dibay.DEBUG_CALL_CANCELED --es callId "$CALL_FG" "$PKG" >/dev/null 2>&1 || true

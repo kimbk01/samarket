@@ -6,6 +6,7 @@ import type { CallScreenViewModel } from "./call-ui.types";
 import { CallActionBar } from "./CallActionBar";
 import { CallAvatar } from "./CallAvatar";
 import { CallStatusText } from "./CallStatusText";
+import { IncomingCallBrandHeader } from "./IncomingCallBrandHeader";
 import { MiniLocalVideo } from "./MiniLocalVideo";
 import { useCallTimer } from "./useCallTimer";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
@@ -17,11 +18,13 @@ import {
   syncCallPipActionBarHeightCssVar,
 } from "@/lib/community-messenger/call-pip-metrics";
 import { shouldAllowPipPointerInteraction } from "@/lib/community-messenger/call-video-layout";
+import { useCallPresentationState } from "./useCallPresentationState";
 
 const IDLE_HIDE_MS = 4200;
 
 export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
   const { t } = useI18n();
+  const presentation = useCallPresentationState(vm);
   const isStarbucks = vm.visualTheme === "starbucks";
   const timer = useCallTimer({
     connectedAt: vm.connectedAt,
@@ -67,9 +70,10 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
   }, [autoHideControlsEnabled, vm.phase, armIdleHideTimer, clearIdleHideTimer]);
 
   const pipShellMounted = Boolean(vm.pipShellMounted);
+  const pipChromeVisible = pipShellMounted && presentation.showPipChrome;
 
   useEffect(() => {
-    if (!pipShellMounted || typeof ResizeObserver === "undefined") return;
+    if (!pipChromeVisible || typeof ResizeObserver === "undefined") return;
 
     let ro: ResizeObserver | null = null;
     let cancelled = false;
@@ -104,16 +108,16 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
     };
   }, [
     controlsVisible,
-    pipShellMounted,
+    pipChromeVisible,
     vm.phase,
     vm.primaryActions.length,
     vm.secondaryActions?.length,
   ]);
 
   useEffect(() => {
-    if (pipShellMounted) return;
+    if (pipChromeVisible) return;
     clearCallPipActionBarHeightCssVar();
-  }, [pipShellMounted]);
+  }, [pipChromeVisible]);
 
   const revealControls = useCallback(() => {
     setControlsVisible(true);
@@ -121,41 +125,31 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
   }, [armIdleHideTimer]);
 
   const outgoingVideoPipFirstHero = Boolean(vm.pipFirstOutgoingMainPlaceholder);
+  const showUnifiedAvatarHero = presentation.showAvatarHero;
 
-  /**
-   * 솔로 상단 상태줄 — PiP(`showLocalVideo`) 유무와 무관해야 함.
-   * PiP-first 발신 pre-remote 는 중앙 hero 로 대체한다.
-   */
+  /** connected·pre-remote 솔로 상단 상태줄 — avatar bridge·PiP-first hero 가 아닐 때만 */
   const outgoingSoloVideoLayout =
+    !showUnifiedAvatarHero &&
     !outgoingVideoPipFirstHero &&
     vm.mode === "video" &&
     !vm.showRemoteVideo &&
-    (vm.direction === "outgoing" ||
-      (vm.direction === "incoming" &&
-        (vm.phase === "ringing" || vm.phase === "connecting" || vm.phase === "connected")));
+    vm.phase === "connected";
 
   /** 발신 영상은 `CallHeader` 없음 — 오버레이만 safe-area 에 맞춤 */
   const outgoingVideoCompactTop =
     vm.mode === "video" && vm.direction === "outgoing" && !outgoingVideoPipFirstHero;
   const topOverlayPad = outgoingVideoCompactTop
-    ? "pt-[max(8px,calc(env(safe-area-inset-top)+12px))]"
-    : "pt-[max(8px,calc(env(safe-area-inset-top)+48px))]";
+    ? "pt-[max(8px,calc(var(--safe-top)+12px))]"
+    : "pt-[max(8px,calc(var(--safe-top)+48px))]";
 
-  /** 발신 영상은 중앙 대기 카드(아바타+검은 배경) 금지 — PiP-first pre-remote 는 예외 */
+  /** legacy fallback — reconnecting 등 avatar bridge 외 rare path */
   const showAvatarCenterCard =
-    !(vm.mode === "video" && vm.direction === "outgoing" && !outgoingVideoPipFirstHero) &&
+    !showUnifiedAvatarHero &&
+    !outgoingVideoPipFirstHero &&
     !vm.showRemoteVideo &&
     !outgoingSoloVideoLayout &&
     !pipShellMounted &&
-    !vm.showLocalVideo &&
-    !outgoingVideoPipFirstHero;
-
-  /** 영상 수신 벨·연결 중 — 카톡/텔레그램식 중앙 발신자 아바타 */
-  const incomingVideoRingHero =
-    vm.mode === "video" &&
-    vm.direction === "incoming" &&
-    (vm.phase === "ringing" || vm.phase === "connecting") &&
-    !vm.showRemoteVideo;
+    !vm.showLocalVideo;
 
   const detailLine = vm.connectionLabel ?? vm.subStatusText ?? null;
 
@@ -164,8 +158,8 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
     vm.direction === "incoming" &&
     (vm.phase === "ringing" || vm.phase === "connecting");
   const actionBarPaddingBottom = liftIncomingRingingActions
-    ? "pb-[max(18px,calc(env(safe-area-inset-bottom,0px)+18px))]"
-    : "pb-[max(14px,calc(env(safe-area-inset-bottom,0px)+8px))]";
+    ? "pb-[max(18px,calc(var(--safe-bottom)+18px))]"
+    : "pb-[max(14px,calc(var(--safe-bottom)+8px))]";
   const actionBarPaddingTop = liftIncomingRingingActions ? "pt-14" : "pt-12";
 
   const pipAllowPointer = shouldAllowPipPointerInteraction({
@@ -177,7 +171,7 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
   const pipInteractionClass = pipAllowPointer ? "pointer-events-auto touch-none" : "";
 
   const renderPip = () => {
-    if (!pipShellMounted) return null;
+    if (!pipChromeVisible) return null;
     const bindings = pipBindings;
     const common = {
       label: bindings?.pipLabel ?? t("common_me"),
@@ -216,9 +210,17 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
         }}
         className="absolute inset-0 h-full min-h-0"
       >
-        <div className="absolute inset-0 z-0 h-full min-h-full bg-black [&_video]:pointer-events-none [&_video]:h-full [&_video]:min-h-full [&_video]:w-full [&_video]:object-cover [&_[id^=agora]]:h-full [&_[id^=agora]]:w-full">
-          {vm.mainVideoSlot}
-        </div>
+        {presentation.mountMainVideoSlot && vm.mainVideoSlot ? (
+          <div
+            className={`absolute inset-0 z-0 h-full min-h-full transition-opacity duration-300 [&_video]:pointer-events-none [&_video]:h-full [&_video]:min-h-full [&_video]:w-full [&_video]:object-cover [&_[id^=agora]]:h-full [&_[id^=agora]]:w-full ${
+              presentation.showMainVideoLayer
+                ? "bg-black opacity-100"
+                : "pointer-events-none bg-transparent opacity-0"
+            }`}
+          >
+            {vm.mainVideoSlot}
+          </div>
+        ) : null}
 
         {vm.showRemoteVideo ? (
           <div className={`pointer-events-none absolute inset-x-0 top-0 z-[4] flex justify-center px-4 ${topOverlayPad}`}>
@@ -260,17 +262,26 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
                   : "drop-shadow-[0_2px_14px_rgba(0,0,0,0.55)]"
               }`}
             >
-              {incomingVideoRingHero ? null : (
+              {vm.direction === "outgoing" && !vm.hideOutgoingVideoBrandRow ? (
+                <div className={`flex items-center justify-center gap-2 ${isStarbucks ? "text-[#F1F8F4]/95" : "text-white/95"}`}>
+                  <span className="min-w-0 truncate sam-text-body font-medium tracking-tight">
+                    {t("cm_ui_samarket_video_call_brand")}…
+                  </span>
+                </div>
+              ) : null}
+              {showUnifiedAvatarHero && vm.direction === "incoming" ? null : (
                 <div
-                  className={`sam-text-page-title font-semibold tracking-tight ${isStarbucks ? "text-[#F1F8F4]" : "text-white"}`}
+                  className={`sam-text-page-title font-semibold tracking-tight ${isStarbucks ? "text-[#F1F8F4]" : "text-white"} ${
+                    vm.hideOutgoingVideoBrandRow ? "" : "mt-3"
+                  }`}
                 >
                   {vm.peerLabel}
                 </div>
               )}
               <div
-                className={`flex items-center justify-center gap-2 sam-text-body font-medium mt-1 ${
-                  isStarbucks ? "text-[#D4E9E2]/95" : "text-white/90"
-                }`}
+                className={`flex items-center justify-center gap-2 sam-text-body font-medium ${
+                  showUnifiedAvatarHero || !vm.hideOutgoingVideoBrandRow ? "mt-1" : ""
+                } ${isStarbucks ? "text-[#D4E9E2]/95" : "text-white/90"}`}
               >
                 <span
                   className={
@@ -305,8 +316,8 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
           <div
             className={`absolute right-3 z-[8] ${
               outgoingVideoCompactTop
-                ? "top-[max(10px,calc(env(safe-area-inset-top)+6px))]"
-                : "top-[max(52px,calc(env(safe-area-inset-top)+40px))]"
+                ? "top-[max(10px,calc(var(--safe-top)+6px))]"
+                : "top-[max(52px,calc(var(--safe-top)+40px))]"
             }`}
           >
             <button
@@ -324,9 +335,14 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
           </div>
         ) : null}
 
-        {incomingVideoRingHero ? (
-          <div className="pointer-events-none absolute inset-0 z-[5] flex flex-col items-center justify-center px-6 pb-[clamp(128px,18dvh,172px)] pt-[max(72px,calc(env(safe-area-inset-top)+64px))]">
+        {showUnifiedAvatarHero ? (
+          <div className="pointer-events-none absolute inset-0 z-[5] flex flex-col items-center justify-center px-6 pb-[clamp(128px,18dvh,172px)] pt-[max(72px,calc(var(--safe-top)+64px))]">
             <div className="flex w-full max-w-md flex-col items-center text-center">
+              {vm.direction === "incoming" ? (
+                <div className="mb-6 w-full pt-[max(8px,calc(var(--safe-top)+4px))]">
+                  <IncomingCallBrandHeader mode="video" visualTheme={vm.visualTheme} />
+                </div>
+              ) : null}
               <CallAvatar label={vm.peerLabel} avatarUrl={vm.peerAvatarUrl} pulse theme={vm.visualTheme} />
               <h2
                 className={`mt-6 text-center text-[clamp(1.35rem,5.5vw,2rem)] font-bold leading-tight tracking-tight ${
@@ -335,12 +351,38 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
               >
                 {vm.peerLabel}
               </h2>
+              <div
+                className={`mt-3 flex items-center justify-center gap-2 sam-text-body font-medium ${
+                  isStarbucks ? "text-[#D4E9E2]/95" : "text-white/90"
+                }`}
+              >
+                <span
+                  className={
+                    isStarbucks
+                      ? "inline-flex h-2 w-2 animate-pulse rounded-full bg-[#CBA258] shadow-[0_0_0_4px_rgba(203,162,88,0.22)]"
+                      : "inline-flex h-2 w-2 animate-pulse rounded-full bg-amber-300 shadow-[0_0_0_4px_rgba(251,191,36,0.22)]"
+                  }
+                  aria-hidden
+                />
+                <span>{timer ?? vm.statusText}</span>
+              </div>
+              {detailLine ? (
+                <p
+                  className={`mt-2 sam-text-body-secondary leading-snug ${
+                    isStarbucks
+                      ? "text-[#D4E9E2]/80 drop-shadow-[0_1px_10px_rgba(0,61,41,0.48)]"
+                      : "text-white/72 drop-shadow-[0_1px_10px_rgba(0,0,0,0.5)]"
+                  }`}
+                >
+                  {detailLine}
+                </p>
+              ) : null}
             </div>
           </div>
         ) : null}
 
         {outgoingVideoPipFirstHero ? (
-          <div className="pointer-events-none absolute inset-0 z-[5] flex flex-col items-center justify-center px-6 pb-[clamp(128px,18dvh,172px)] pt-[max(72px,calc(env(safe-area-inset-top)+64px))]">
+          <div className="pointer-events-none absolute inset-0 z-[5] flex flex-col items-center justify-center px-6 pb-[clamp(128px,18dvh,172px)] pt-[max(72px,calc(var(--safe-top)+64px))]">
             <div className="flex w-full max-w-md flex-col items-center text-center">
               <CallAvatar label={vm.peerLabel} avatarUrl={vm.peerAvatarUrl} pulse theme={vm.visualTheme} />
               <h2
@@ -410,12 +452,18 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
                 })()}
               </div>
             ) : null}
-            <CallStatusText title={vm.peerLabel} status={vm.statusText} timer={timer} detail={detailLine} />
+            <CallStatusText
+              title={vm.peerLabel}
+              status={vm.statusText}
+              timer={timer}
+              detail={detailLine}
+              connectionStatusLabel={vm.connectionStatusLabel}
+            />
           </div>
         ) : null}
         {vm.participantsSummary ? (
           <div
-            className={`absolute left-4 top-[calc(env(safe-area-inset-top)+52px)] z-[3] rounded-full px-3 py-1.5 sam-text-helper font-medium backdrop-blur-sm ${
+            className={`absolute left-4 top-[calc(var(--safe-top)+52px)] z-[3] rounded-full px-3 py-1.5 sam-text-helper font-medium backdrop-blur-sm ${
               isStarbucks ? "bg-[#003D29]/45 text-[#F1F8F4] ring-1 ring-[#D4E9E2]/18" : "bg-black/30 text-white/90"
             }`}
           >
@@ -435,7 +483,7 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
       </div>
 
       {/* 보조 PiP — 하단 컨트롤(z-10) 위 터치 레이어 · stage 좌표계와 동일 inset-0 */}
-      {pipShellMounted ? (
+      {pipChromeVisible ? (
         <div className="pointer-events-none absolute inset-0 z-[15] min-h-0">{renderPip()}</div>
       ) : null}
 

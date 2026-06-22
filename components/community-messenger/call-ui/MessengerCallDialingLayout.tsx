@@ -55,8 +55,8 @@ export function MessengerCallDialingLayout({
 }: MessengerCallDialingLayoutProps) {
   const initial = peerDisplayInitial(peerLabel);
   const rootClass = embedded
-    ? "flex min-h-0 flex-1 flex-col justify-between px-2 pb-[max(16px,calc(env(safe-area-inset-bottom)+12px))] pt-1 text-center"
-    : "flex min-h-[100dvh] flex-col justify-between px-6 pb-[max(24px,calc(env(safe-area-inset-bottom)+12px))] pt-[max(24px,calc(env(safe-area-inset-top)+12px))] text-center";
+    ? "flex min-h-0 flex-1 flex-col justify-between px-2 pb-[max(16px,calc(var(--safe-bottom)+12px))] pt-1 text-center"
+    : "flex min-h-[100dvh] flex-col justify-between px-6 pb-[max(24px,calc(var(--safe-bottom)+12px))] pt-[max(24px,calc(var(--safe-top)+12px))] text-center";
 
   return (
     <div className={rootClass}>

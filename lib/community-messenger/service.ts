@@ -225,10 +225,6 @@ import {
   getMessengerCallAdminPolicyCached,
   type MessengerCallAdminPolicy,
 } from "@/lib/community-messenger/messenger-call-admin-policy";
-import {
-  isStaleRingingRow,
-  terminalStaleRingingDirectSessionsForUser,
-} from "@/lib/community-messenger/call-stale-ringing-cleanup";
 import { sendWebPushForCommunityMessengerIncomingCall } from "@/lib/push/send-community-messenger-incoming-call-push";
 import { sendWebPushForCommunityMessengerCallTerminal } from "@/lib/push/send-community-messenger-call-canceled-push";
 import { loadCommunityMessengerRoomSilentDeltaSnapshot } from "@/lib/community-messenger/server/load-community-messenger-room-silent-delta";
@@ -737,7 +733,7 @@ async function getUserLiveDirectCallSessionId(
   if (!u) return null;
   let q = (sb as any)
     .from("community_messenger_call_sessions")
-    .select("id, status, started_at")
+    .select("id")
     .eq("session_mode", "direct")
     .or(`initiator_user_id.eq.${u},recipient_user_id.eq.${u}`)
     .order("created_at", { ascending: false })
@@ -748,17 +744,8 @@ async function getUserLiveDirectCallSessionId(
     q = q.in("status", ["ringing", "active"]);
   }
   const { data } = await q.maybeSingle();
-  const row = data as { id?: string; status?: string; started_at?: string | null } | null;
-  const id = trimText(row?.id ?? "");
-  if (!id) return null;
-  if (mode === "live" && trimText(row?.status) === "ringing") {
-    const policy = await getMessengerCallAdminPolicyCached();
-    if (isStaleRingingRow({ status: "ringing", started_at: row?.started_at ?? null }, policy)) {
-      await terminalStaleRingingDirectSessionsForUser(sb, u, policy).catch(() => 0);
-      return null;
-    }
-  }
-  return id;
+  const id = trimText((data as { id?: string } | null)?.id ?? "");
+  return id || null;
 }
 
 /** 방 단위 live(ringing|active) direct 세션 — fresh 발신 전 정리·검증용 */
@@ -4477,7 +4464,6 @@ async function mapCallSession(
             : undefined
         ) || profileCallPeerLabel(null, peerUserId ?? initiatorUserId);
   let peerAvatarUrl: string | null = null;
-  let peerPublicId: string | null = null;
   if (sessionMode === "direct" && peerUserId) {
     const peerHydrated =
       profileById?.get(peerUserId) != null
@@ -4485,7 +4471,6 @@ async function mapCallSession(
         : await hydrateProfilesLabelsOnly(userId, [peerUserId], { includeSelf: true });
     const peerProfile = profileById?.get(peerUserId) ?? peerHydrated?.[0] ?? null;
     peerAvatarUrl = peerProfile?.avatarUrl ?? null;
-    peerPublicId = peerProfile?.subtitle?.trim().replace(/^@+/, "") || null;
   }
 
   const peerProfileForRelation =
@@ -4506,7 +4491,6 @@ async function mapCallSession(
     peerUserId,
     peerLabel,
     peerAvatarUrl,
-    ...(peerPublicId ? { peerPublicId } : {}),
     ...(peerRelationLabel ? { peerRelationLabel } : {}),
     callKind: (isDbSession ? session.call_kind : session.callKind) as CommunityMessengerCallKind,
     status: (isDbSession ? session.status : session.status) as CommunityMessengerCallSessionStatus,
@@ -17274,24 +17258,6 @@ async function forceEndLiveDirectCallSessionsInRoom(sb: SupabaseLike, roomId: st
     .in("status", ["ringing", "active"]);
 }
 
-/** fresh 발신 전 — DB zombie live(ringing|active) 세션 강제 종료 (클라 종료 PATCH 실패·앱 강종 대비) */
-async function forceEndAllLiveDirectCallSessionsForUser(sb: SupabaseLike, userId: string): Promise<void> {
-  const uid = trimText(userId);
-  if (!uid) return;
-  const now = nowIso();
-  await (sb as any)
-    .from("community_messenger_call_sessions")
-    .update({
-      status: "ended",
-      ended_at: now,
-      ended_reason: "redial_replaced",
-      updated_at: now,
-    })
-    .eq("session_mode", "direct")
-    .or(`initiator_user_id.eq.${uid},recipient_user_id.eq.${uid}`)
-    .in("status", ["ringing", "active"]);
-}
-
 function waitCommunityMessengerCallSessionStart(ms: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
@@ -17438,10 +17404,6 @@ export async function startCommunityMessengerCallSession(input: {
   const tGateStart = performance.now();
   if (!isGroupRoom && sb && dialFresh) {
     await terminateLiveDirectCallSessionsInRoom(sb, input.userId, roomId);
-    await forceEndAllLiveDirectCallSessionsForUser(sb, input.userId);
-    if (peerUserId) {
-      await forceEndAllLiveDirectCallSessionsForUser(sb, peerUserId);
-    }
     invalidateActiveCallSessionByUserRoomCacheForRoom(roomId);
     if (!(await waitLiveDirectCallSessionClearedInRoom(sb, roomId))) {
       await terminateLiveDirectCallSessionsInRoom(sb, input.userId, roomId);
@@ -17467,11 +17429,6 @@ export async function startCommunityMessengerCallSession(input: {
 
   const startedAt = nowIso();
   if (sb) {
-    const callPolicy = await getMessengerCallAdminPolicyCached();
-    await terminalStaleRingingDirectSessionsForUser(sb, input.userId, callPolicy).catch(() => 0);
-    if (peerUserId) {
-      await terminalStaleRingingDirectSessionsForUser(sb, peerUserId, callPolicy).catch(() => 0);
-    }
     if (!isGroupRoom) {
       if (dialFresh) {
         if (await getLiveDirectCallSessionIdInRoom(sb, roomId)) {
@@ -17483,12 +17440,6 @@ export async function startCommunityMessengerCallSession(input: {
         }
         if (await getLiveDirectCallSessionIdInRoom(sb, roomId)) {
           return { ok: false, error: "call_session_start_failed" };
-        }
-        if (await userHasLiveDirectCallSessionOutsideRoom(sb, input.userId, roomId)) {
-          await forceEndAllLiveDirectCallSessionsForUser(sb, input.userId);
-        }
-        if (peerUserId && (await userHasLiveDirectCallSessionOutsideRoom(sb, peerUserId, roomId))) {
-          await forceEndAllLiveDirectCallSessionsForUser(sb, peerUserId);
         }
         if (await userHasLiveDirectCallSessionOutsideRoom(sb, input.userId, roomId)) {
           return { ok: false, error: "peer_busy" };
@@ -18417,82 +18368,14 @@ export async function updateCommunityMessengerCallSession(input: {
           })
           .eq("session_id", sessionId)
           .eq("user_id", input.userId);
-        /**
-         * direct accept/reject/end hot path:
-         * - participants 테이블 재조회 1RTT 제거
-         * - mapCallSession 내부 peer avatar 재-hydrate 1RTT 제거
-         */
-        const initiatorId = trimText(updated.initiator_user_id);
-        const recipientId = trimText(updated.recipient_user_id);
-        const rowStartedAt = trimText(updated.started_at) || nowIso();
-        const rowAnsweredAt = trimText(updated.answered_at) || null;
-        const rowEndedAt = trimText(updated.ended_at) || null;
-        const rowStatus = (updated.status ?? next.nextStatus) as CommunityMessengerCallSessionStatus;
-        let mapped: CommunityMessengerCallSession;
-        if (initiatorId && recipientId) {
-          const directParticipantRows: CallSessionParticipantRow[] = [
-            {
-              id: `${updated.id}:${initiatorId}`,
-              session_id: updated.id,
-              room_id: updated.room_id,
-              user_id: initiatorId,
-              participation_status:
-                rowStatus === "active"
-                  ? "joined"
-                  : isTerminalCallSessionStatus(rowStatus)
-                    ? "left"
-                    : "invited",
-              joined_at: rowStatus === "active" ? rowAnsweredAt : null,
-              left_at:
-                isTerminalCallSessionStatus(rowStatus) || next.nextStatus === "rejected" ? rowEndedAt : null,
-              created_at: rowStartedAt,
-            },
-            {
-              id: `${updated.id}:${recipientId}`,
-              session_id: updated.id,
-              room_id: updated.room_id,
-              user_id: recipientId,
-              participation_status:
-                rowStatus === "active"
-                  ? "joined"
-                  : next.nextStatus === "rejected"
-                    ? "rejected"
-                    : isTerminalCallSessionStatus(rowStatus)
-                      ? "left"
-                      : "invited",
-              joined_at: rowStatus === "active" ? rowAnsweredAt : null,
-              left_at:
-                isTerminalCallSessionStatus(rowStatus) || next.nextStatus === "rejected" ? rowEndedAt : null,
-              created_at: rowStartedAt,
-            },
-          ];
-          let profileMapSeed: Map<string, CommunityMessengerProfileLite> | undefined;
-          try {
-            const profileSeedRows = await hydrateProfilesLabelsOnly(input.userId, [initiatorId, recipientId], {
-              includeSelf: true,
-            });
-            profileMapSeed = new Map(profileSeedRows.map((row) => [row.id, row]));
-          } catch {
-            profileMapSeed = undefined;
-          }
-          mapped = await mapCallSession(
-            input.userId,
-            updated as CallSessionRow,
-            directParticipantRows,
-            profileMapSeed,
-            true,
-            "labels_only"
-          );
-        } else {
-          mapped = await mapCallSession(
-            input.userId,
-            updated as CallSessionRow,
-            undefined,
-            undefined,
-            undefined,
-            "labels_only"
-          );
-        }
+        const mapped = await mapCallSession(
+          input.userId,
+          updated as CallSessionRow,
+          undefined,
+          undefined,
+          undefined,
+          "labels_only"
+        );
         invalidateActiveCallSessionByUserRoomCacheForRoom(mapped.roomId);
         if (isTerminalCallSessionStatus(next.nextStatus)) {
           const peerUserId = messengerUserIdsEqual(updated.initiator_user_id, input.userId)
@@ -18799,7 +18682,6 @@ export async function listIncomingCommunityMessengerCallSessions(
   const policy = await getMessengerCallAdminPolicyCached();
   const sb = getSupabaseOrNull();
   if (sb) {
-    await terminalStaleRingingDirectSessionsForUser(sb, userId, policy).catch(() => 0);
     if (options?.directOnly) {
       const { data: directRows, error: directError } = await (sb as any)
         .from("community_messenger_call_sessions")

@@ -8,8 +8,7 @@ export async function dismissAllIncomingCallNotifications(sessionId: string): Pr
   const sid = sessionId.trim();
   if (!sid) return;
   requestCloseMessengerCallNotifications(sid);
-  const ref = await getNativeIncomingCallPlugin();
-  const plugin = ref?.plugin;
+  const plugin = await getNativeIncomingCallPlugin();
   if (!plugin) return;
   try {
     await plugin.dismissNotification({ sessionId: sid });

@@ -4,16 +4,17 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { CSSProperties, PointerEventHandler, RefObject } from "react";
 import {
   CALL_PIP_DEFAULT_CORNER,
+  CALL_PIP_DRAG_LOCK_MS,
   clampCallPipDragDelta,
   computeCallPipCornerAnchors,
   computeCallPipDimensions,
   invalidateCallPipSafeAreaCache,
   migrateLegacyCallPipSnapStorage,
   readCallPipInsetsFromStage,
-  readCallPipSnapPosition,
+  readCallPipSessionSnapPosition,
   resolveCallPipDragSnapCenter,
   snapCallPipToNearestCorner,
-  writeCallPipSnapPosition,
+  writeCallPipSessionSnapPosition,
   type CallPipCorner,
   type CallPipDimensions,
   type CallPipInsets,
@@ -94,6 +95,7 @@ function readStageViewport(stageEl: HTMLElement): { width: number; height: numbe
 
 export function useCallVideoPipGesture(args: UseCallVideoPipGestureArgs): VideoCallPipLayoutBindings | null {
   const {
+    sessionId,
     enabled = true,
     positionMode = "stage-absolute",
     stageRef,
@@ -124,6 +126,9 @@ export function useCallVideoPipGesture(args: UseCallVideoPipGestureArgs): VideoC
 
   const [corner, setCorner] = useState<CallPipCorner>(CALL_PIP_DEFAULT_CORNER);
   const [viewportTick, setViewportTick] = useState(0);
+  const [pipDragLocked, setPipDragLocked] = useState(true);
+  const pipDragLockedRef = useRef(true);
+  pipDragLockedRef.current = pipDragLocked;
 
   const scheduleViewportBump = useCallback(() => {
     if (viewportBumpRafRef.current) return;
@@ -134,16 +139,17 @@ export function useCallVideoPipGesture(args: UseCallVideoPipGestureArgs): VideoC
   }, []);
 
   useEffect(() => {
-    migrateLegacyCallPipSnapStorage();
-    const stored = readCallPipSnapPosition();
-    setCorner(stored ?? CALL_PIP_DEFAULT_CORNER);
-  }, []);
-
-  useEffect(() => {
     if (!enabled) {
+      setPipDragLocked(true);
       pipExpandedRef.current = false;
+      return;
     }
-  }, [enabled]);
+    setPipDragLocked(true);
+    const timer = window.setTimeout(() => {
+      setPipDragLocked(false);
+    }, CALL_PIP_DRAG_LOCK_MS);
+    return () => window.clearTimeout(timer);
+  }, [enabled, sessionId]);
 
   useEffect(() => {
     if (!enabled || typeof window === "undefined") return;
@@ -292,6 +298,18 @@ export function useCallVideoPipGesture(args: UseCallVideoPipGestureArgs): VideoC
     if (el) el.style.transform = "";
   }, []);
 
+  useEffect(() => {
+    migrateLegacyCallPipSnapStorage();
+    const sid = sessionId?.trim() ?? "";
+    if (!sid) {
+      setCorner(CALL_PIP_DEFAULT_CORNER);
+    } else {
+      setCorner(readCallPipSessionSnapPosition(sid) ?? CALL_PIP_DEFAULT_CORNER);
+    }
+    pipExpandedRef.current = false;
+    resetDragTransform();
+  }, [resetDragTransform, sessionId]);
+
   const resolvePointerOrigin = useCallback(() => {
     const pipEl = pipRef.current;
     if (!pipEl) return null;
@@ -354,6 +372,7 @@ export function useCallVideoPipGesture(args: UseCallVideoPipGestureArgs): VideoC
 
   const onPipPointerMove = useCallback<PointerEventHandler<HTMLDivElement>>(
     (e) => {
+      if (pipDragLockedRef.current) return;
       const g = pipGestureRef.current;
       if (!g || e.pointerId !== g.pointerId) return;
       e.preventDefault();
@@ -399,6 +418,10 @@ export function useCallVideoPipGesture(args: UseCallVideoPipGestureArgs): VideoC
       }
 
       if (moved) {
+        if (pipDragLockedRef.current) {
+          resetDragTransform();
+          return;
+        }
         const currentLayout = layoutRef.current;
         if (!currentLayout) {
           resetDragTransform();
@@ -429,7 +452,8 @@ export function useCallVideoPipGesture(args: UseCallVideoPipGestureArgs): VideoC
           currentLayout.pipSize
         );
         setCorner(nextCorner);
-        writeCallPipSnapPosition(nextCorner);
+        const sid = sessionId?.trim();
+        if (sid) writeCallPipSessionSnapPosition(sid, nextCorner);
         return;
       }
 
@@ -468,6 +492,7 @@ export function useCallVideoPipGesture(args: UseCallVideoPipGestureArgs): VideoC
       onExpandFullscreen,
       onSingleTap,
       resetDragTransform,
+      sessionId,
       togglePipExpanded,
       unlockBodyScroll,
     ]

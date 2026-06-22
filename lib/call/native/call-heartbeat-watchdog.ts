@@ -1,10 +1,10 @@
 "use client";
 
 import { patchCallSessionHeartbeat } from "@/lib/call/call-server-heartbeat-client";
+import { runCallEndGuard } from "@/lib/call/actions/call-end-guard";
 import { logDibayCallFlow } from "@/lib/call/logging/call-flow-log";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 import { nativeCallService } from "@/lib/call/native/native-call-service";
-import { callEngineActions } from "@/lib/community-messenger/call-engine";
 
 /** force-stop 은 onTaskRemoved 미보장 — JS↔Native heartbeat 로 보완 */
 export const CALL_HEARTBEAT_INTERVAL_MS = 10_000;
@@ -68,11 +68,10 @@ function scheduleTimeout(handle: WatchdogHandle): void {
         reason: "js_watchdog",
       });
       stopCallHeartbeatWatchdog(handle.callId);
-      await callEngineActions.patch({
-        callId: handle.callId,
+      await runCallEndGuard({
+        sessionId: handle.callId,
         action: "end",
-        init: { clientEndedReason: "heartbeat_timeout" },
-        source: "heartbeat_watchdog",
+        reason: "heartbeat_timeout",
       });
     })();
   }, CALL_HEARTBEAT_TIMEOUT_MS);

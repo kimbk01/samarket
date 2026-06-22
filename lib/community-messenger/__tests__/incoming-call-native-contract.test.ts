@@ -86,20 +86,28 @@ describe("incoming-call native contract", () => {
     expect(src).toContain('DibayCallConsumedStore.mark(context, sid, "missed")');
   });
 
-  it("native coordinator is signal-only and does not PATCH accept directly", () => {
+  it("native coordinator routes accept immediately and completes PATCH in background", () => {
     const src = read("android/app/src/main/java/com/dibay/app/IncomingCallActionCoordinator.java");
-    expect(src).not.toContain("CallSessionPatchHelper.patch");
-    expect(src).toContain("accept_signal_sent");
-    expect(src).toContain("buildMainActivityCallAcceptIntent");
+    expect(src).toContain('CallSessionPatchHelper.patch(app, sid, "accept")');
+    expect(src).toContain("accept_route_direct");
+    expect(src).toContain("deliverCallAcceptRoute(app, sid, false)");
+    expect(src).toContain("deliverCallAcceptRoute(app, sid, true)");
+    const main = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
+    expect(main).toContain("nativePrep=1");
+    expect(main).toContain("injectAcceptRouteViaJs");
+    expect(main).toContain("isWebViewOnAppOrigin(webView)");
+    expect(main).toContain("webview_call_route_injected");
   });
 
-  it("FCM foreground unlocked uses web banner SSOT without native pill", () => {
+  it("FCM foreground unlocked launches native pill instead of web-only delegate", () => {
     const delivery = read("android/app/src/main/java/com/dibay/app/IncomingCallPushDelivery.java");
-    expect(delivery).toContain("incoming_call_foreground_web_ssot");
-    expect(delivery).not.toContain("IncomingCallForegroundUiLauncher.showUi");
+    expect(delivery).toContain("incoming_call_foreground_native_ui");
+    expect(delivery).toContain("IncomingCallForegroundUiLauncher.showUi");
     expect(delivery).toContain("isForegroundUnlockedInteractive");
     const fcm = read("android/app/src/main/java/com/dibay/app/DibayFirebaseMessagingService.java");
     expect(fcm).toContain("IncomingCallPushDelivery.deliver");
+    const manifest = read("android/app/src/main/AndroidManifest.xml");
+    expect(manifest).toContain("ForegroundIncomingCallActivity");
   });
 
   it("IncomingCallTerminalHandler centralizes terminal dismiss, consumed, ring stop, activity finish", () => {
@@ -119,11 +127,12 @@ describe("incoming-call native contract", () => {
     expect(activity).toContain("activity_finish_by_terminal");
   });
 
-  it("notification contentIntent uses preview route and accept uses nativeAccept=1", () => {
+  it("notification contentIntent uses preview route and accept uses nativePrep/nativeAccept routes", () => {
     const notification = read("android/app/src/main/java/com/dibay/app/IncomingCallNotificationBuilder.java");
     expect(notification).toContain("buildMainActivityCallPreviewIntent");
     const helper = read("android/app/src/main/java/com/dibay/app/IncomingCallIntentHelper.java");
     expect(helper).toContain("nativeAccept=1");
+    expect(helper).toContain("nativePrep=1");
     expect(helper).toContain("incomingPreview=1");
   });
 
@@ -151,10 +160,31 @@ describe("incoming-call native contract", () => {
     );
   });
 
-  it("Global keeps Android foreground path on Web banner owner", () => {
+  it("Global defers Android foreground banner to native pill only", () => {
     const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
-    expect(global).toContain("ForegroundIncomingCallHost");
-    expect(global).toContain("resolveForegroundIncomingPresentation");
+    expect(global).toContain("preferNativeAndroidForegroundIncoming");
+    expect(global).toContain("nativeForegroundIncomingCallId");
+    expect(global).toContain("onForegroundIncomingUi");
+    expect(global).toContain("onNativeForegroundAccept");
+    expect(global).toContain("onNativeForegroundReject");
+    const presenter = read("lib/community-messenger/incoming-call/foreground-incoming-presenter.ts");
+    expect(presenter).toContain("native_foreground_primary");
+  });
+
+  it("native accept injects foreground_incoming_accept before route launch", () => {
+    const coordinator = read("android/app/src/main/java/com/dibay/app/IncomingCallActionCoordinator.java");
+    expect(coordinator).toContain("deliverForegroundIncomingAcceptEvent");
+    expect(coordinator).toContain("deliverForegroundIncomingRejectEvent");
+    const activity = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
+    expect(activity).toContain("foreground_incoming_accept");
+    expect(activity).toContain("foreground_incoming_reject");
+    expect(activity).toContain("injectForegroundIncomingRejectEvent");
+  });
+
+  it("foreground pill swipe dismiss routes to native reject", () => {
+    const pill = read("android/app/src/main/java/com/dibay/app/ForegroundIncomingCallActivity.java");
+    expect(pill).toContain("foreground_swipe_dismiss_reject");
+    expect(pill).toContain("handleReject(getApplicationContext(), callId, \"swipe_dismiss\")");
   });
 
   it("notification posts immediately then enriches avatar async", () => {
@@ -266,14 +296,10 @@ describe("incoming-call native contract", () => {
     );
   });
 
-  it("lock/background activity uses compact top pill (same as in-app banner)", () => {
+  it("lock fullscreen applies bottom safe area for navigation bar", () => {
     const activity = read("android/app/src/main/java/com/dibay/app/IncomingCallActivity.java");
-    expect(activity).toContain("IncomingCallUiInsets.applyTopSafeArea");
-    expect(activity).toContain("incoming_call_pill");
-    const layout = read("android/app/src/main/res/layout/activity_incoming_call.xml");
-    expect(layout).toContain("incoming_call_pill");
-    expect(layout).toContain("bg_dibay_incoming_pill");
-    expect(layout).not.toContain("incoming_call_center");
+    expect(activity).toContain("IncomingCallUiInsets.applyBottomSafeArea");
+    expect(read("android/app/src/main/res/layout/activity_incoming_call.xml")).toContain("incoming_call_actions");
   });
 
   it("foreground pill uses 440ms enter animation and DIBAY layout", () => {
@@ -286,9 +312,8 @@ describe("incoming-call native contract", () => {
   it("native plugin proxy is wrapped so Promise resolution does not call .then()", () => {
     const src = read("lib/push/native/push-route-native-bridge.ts");
     expect(src).toContain("NativeIncomingCall.then()");
-    expect(src).toContain("NativeIncomingCallPluginRef");
-    expect(src).toContain("wrapNativeIncomingCallPlugin");
-    expect(src).toContain("return Promise.resolve(ref)");
+    expect(src).toContain("resolveNativePluginWithoutThenableAssimilation");
+    expect(src).toContain("if (sync) return resolveNativePluginWithoutThenableAssimilation(sync)");
   });
 });
 

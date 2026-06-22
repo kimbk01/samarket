@@ -95,4 +95,32 @@ describe("dibay-fcm-call-bridge terminal routing", () => {
       bridgeSource: "call_terminal",
     });
   });
+
+  it("routes foreground_incoming_reject through onNativeForegroundReject", () => {
+    const onNativeForegroundReject = vi.fn();
+    const listeners = new Map<string, (ev: Event) => void>();
+    vi.stubGlobal("window", {
+      addEventListener: (type: string, fn: (ev: Event) => void) => {
+        listeners.set(type, fn);
+      },
+      removeEventListener: vi.fn(),
+    } as unknown as Window & typeof globalThis);
+
+    installDibayFcmCallBridge({
+      onIncomingWake: vi.fn(),
+      onFcmTerminal: vi.fn(),
+      onNativeForegroundReject,
+    });
+
+    const onCallEvent = listeners.get("dibay:call-event");
+    onCallEvent?.(
+      new CustomEvent("dibay:call-event", {
+        detail: { type: "foreground_incoming_reject", sessionId: "call-reject-bridge", source: "swipe_dismiss" },
+      })
+    );
+    expect(onNativeForegroundReject).toHaveBeenCalledWith({
+      sessionId: "call-reject-bridge",
+      source: "swipe_dismiss",
+    });
+  });
 });

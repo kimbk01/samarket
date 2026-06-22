@@ -28,12 +28,13 @@ public final class IncomingCallPushDelivery {
     Context app = context.getApplicationContext();
     String callId = payload.callId.trim();
 
-    startRingAtPushBoundary(context, callId);
+    startRingAtPushBoundary(context, callId, payload.callType);
 
     boolean appVisible = MainActivity.isAppVisibleForIncomingCall();
     if (DibayKeyguardHelper.isForegroundUnlockedInteractive(appVisible, app)) {
-      Log.i("DIBAY_FCM", "[call-native] incoming_call_foreground_web_ssot callId=" + callId);
+      Log.i("DIBAY_FCM", "[call-native] incoming_call_foreground_native_ui callId=" + callId);
       MainActivity.deliverCallIncomingEvent(payload);
+      IncomingCallForegroundUiLauncher.showUi(context, payload);
       IncomingCallActionCoordinator.scheduleMissedTimeout(app, payload);
       return;
     }
@@ -72,8 +73,8 @@ public final class IncomingCallPushDelivery {
     }
   }
 
-  private static void startRingAtPushBoundary(Context context, String callId) {
-    if (IncomingCallRingOwner.start(context, callId)) {
+  private static void startRingAtPushBoundary(Context context, String callId, String callType) {
+    if (IncomingCallRingOwner.start(context, callId, callType)) {
       DibayCallPushLog.info("ringtone_start_native", callId, "source=push_delivery");
     } else {
       DibayCallPushLog.info("ringtone_skip_existing_owner", callId, "source=push_delivery");

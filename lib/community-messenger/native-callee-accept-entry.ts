@@ -1,14 +1,12 @@
 /**
  * 수신 수락(`?action=accept`) — 벨 UI·generic auto-join 과 충돌하지 않게 하는 단일 계약.
  *
- * nativePrep=1 — native FGS/알림 정리 완료, Web PATCH 단일 실행.
+ * nativePrep=1 — native FGS/알림 정리 완료 + native PATCH 진행 중, Web 은 통화 화면만 유지.
+ * nativeAccept=1 — native PATCH 완료, Web 은 서버 confirmed active 후 join.
  */
 
-import {
-  clearCallEngineNativeAcceptPending,
-  readCallEngineNativeAcceptPending,
-  writeCallEngineNativeAcceptPending,
-} from "@/lib/community-messenger/call-engine";
+const NATIVE_CALLEE_ACCEPT_PENDING_KEY = "cm_native_callee_accept_pending";
+const NATIVE_CALLEE_ACCEPT_PENDING_TTL_MS = 60_000;
 
 export type NativeCalleeAcceptRouteParams = {
   action: string | null;
@@ -27,14 +25,29 @@ export function readNativeCalleeAcceptRouteParams(
   };
 }
 
-/** native prep 완료 — Web PATCH 는 call-accept-guard 단일 */
-export function isNativeCalleePrepRoute(params: NativeCalleeAcceptRouteParams): boolean {
-  return params.action === "accept" && (params.nativePrep === "1" || params.nativeAccept === "1");
+/** nativePrep=1 only — PATCH 진행 중, accept completed 아님 */
+export function isNativeCalleePrepOnlyRoute(params: NativeCalleeAcceptRouteParams): boolean {
+  return params.action === "accept" && params.nativePrep === "1" && params.nativeAccept !== "1";
 }
 
-/** @deprecated isNativeCalleePrepRoute */
+/** nativeAccept=1 — native PATCH 완료 */
+export function isNativeCalleeAcceptCompletedRoute(params: NativeCalleeAcceptRouteParams): boolean {
+  return params.action === "accept" && params.nativeAccept === "1";
+}
+
+/** prep 또는 completed — UI suppress / RouteHost owned route */
+export function isNativeCalleeAcceptOwnedRoute(params: NativeCalleeAcceptRouteParams): boolean {
+  return isNativeCalleePrepOnlyRoute(params) || isNativeCalleeAcceptCompletedRoute(params);
+}
+
+/** @deprecated isNativeCalleeAcceptOwnedRoute */
+export function isNativeCalleePrepRoute(params: NativeCalleeAcceptRouteParams): boolean {
+  return isNativeCalleeAcceptOwnedRoute(params);
+}
+
+/** @deprecated isNativeCalleeAcceptCompletedRoute */
 export function isNativeCalleeAcceptRoute(params: NativeCalleeAcceptRouteParams): boolean {
-  return isNativeCalleePrepRoute(params);
+  return isNativeCalleeAcceptCompletedRoute(params);
 }
 
 export function isAnyCalleeAcceptRoute(params: NativeCalleeAcceptRouteParams): boolean {
@@ -43,19 +56,49 @@ export function isAnyCalleeAcceptRoute(params: NativeCalleeAcceptRouteParams): b
 
 /** 수락 직후 IncomingCallView(벨)·수락/거절 버튼 숨김 → connecting 단일 화면 */
 export function markNativeCalleeAcceptPending(sessionId: string): void {
-  writeCallEngineNativeAcceptPending(sessionId);
+  if (typeof sessionStorage === "undefined") return;
+  const sid = sessionId.trim();
+  if (!sid) return;
+  try {
+    sessionStorage.setItem(
+      NATIVE_CALLEE_ACCEPT_PENDING_KEY,
+      JSON.stringify({ sessionId: sid, at: Date.now() })
+    );
+  } catch {
+    /* ignore */
+  }
 }
 
 export function readNativeCalleeAcceptPendingSessionId(now = Date.now()): string | null {
-  return readCallEngineNativeAcceptPending(now);
+  if (typeof sessionStorage === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(NATIVE_CALLEE_ACCEPT_PENDING_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { sessionId?: string; at?: number };
+    const sid = parsed.sessionId?.trim();
+    if (!sid) return null;
+    const at = typeof parsed.at === "number" && Number.isFinite(parsed.at) ? parsed.at : 0;
+    if (at > 0 && now - at > NATIVE_CALLEE_ACCEPT_PENDING_TTL_MS) {
+      clearNativeCalleeAcceptPending();
+      return null;
+    }
+    return sid;
+  } catch {
+    return null;
+  }
 }
 
 export function clearNativeCalleeAcceptPending(sessionId?: string): void {
-  if (sessionId?.trim()) {
-    const pending = readNativeCalleeAcceptPendingSessionId();
-    if (pending && pending !== sessionId.trim()) return;
+  if (typeof sessionStorage === "undefined") return;
+  try {
+    if (sessionId?.trim()) {
+      const pending = readNativeCalleeAcceptPendingSessionId();
+      if (pending && pending !== sessionId.trim()) return;
+    }
+    sessionStorage.removeItem(NATIVE_CALLEE_ACCEPT_PENDING_KEY);
+  } catch {
+    /* ignore */
   }
-  clearCallEngineNativeAcceptPending();
 }
 
 export function isNativeCalleeAcceptPendingForSession(sessionId: string): boolean {
@@ -95,7 +138,13 @@ export function shouldDeferCalleeGenericAutoJoin(input: {
 export function readNativeCalleeAcceptSessionIdFromLocation(): string | null {
   if (typeof window === "undefined") return null;
   const params = new URLSearchParams(window.location.search);
-  if (!isNativeCalleePrepRoute({ action: params.get("action"), nativeAccept: params.get("nativeAccept"), nativePrep: params.get("nativePrep") })) {
+  if (
+    !isNativeCalleeAcceptOwnedRoute({
+      action: params.get("action"),
+      nativeAccept: params.get("nativeAccept"),
+      nativePrep: params.get("nativePrep"),
+    })
+  ) {
     return null;
   }
   const match = window.location.pathname.match(/^\/community-messenger\/calls\/([^/?#]+)/);

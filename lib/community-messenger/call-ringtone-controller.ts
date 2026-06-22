@@ -7,6 +7,7 @@ import {
 } from "@/lib/community-messenger/call-feedback-sound";
 import { getActiveCallSessionCallId } from "@/lib/call/active-call-session";
 import { logCallFlow } from "@/lib/community-messenger/call-flow-log";
+import { startOutgoingRingback, stopOutgoingRingback } from "@/lib/community-messenger/call-outgoing-ringback-controller";
 import { shouldAllowIncomingRingtone } from "@/lib/community-messenger/incoming-call-state";
 
 type RingtoneMode = "incoming" | "outgoing";
@@ -81,23 +82,21 @@ export function playIncomingCallRingtone(sessionId: string, callKind: CommunityM
   });
 }
 
-/** 발신 링백 — CallClient 전용. incoming 과 교체 시에만 stop 로그. */
+/** @deprecated Use `startOutgoingRingback` from `call-outgoing-ringback-controller`. */
 export async function playOutgoingCallRingtone(
   sessionId: string,
   callKind: CommunityMessengerCallKind
 ): Promise<CallToneController> {
-  const sid = sessionId.trim();
-  const liveCallId = getActiveCallSessionCallId();
-  if (liveCallId && liveCallId !== sid) {
-    logCallFlow("call_ringtone_aborted", { sessionId: sid, kind: "active_call_ssot_other" });
-    return { stop: () => {} };
-  }
-  stopCallRingtoneInternal("outgoing_replace");
-  const tone = await startCommunityMessengerCallTone("outgoing", { callKind });
-  activeSessionId = sessionId.trim() || null;
-  activeMode = "outgoing";
-  activeTone = tone;
-  return tone;
+  startOutgoingRingback({
+    callId: sessionId,
+    kind: callKind,
+    source: "deprecated_playOutgoingCallRingtone",
+  });
+  return {
+    stop: () => {
+      stopOutgoingRingback(sessionId, "deprecated_playOutgoingCallRingtone_stop");
+    },
+  };
 }
 
 export function stopCallRingtone(reason: string, sessionId?: string | null): void {

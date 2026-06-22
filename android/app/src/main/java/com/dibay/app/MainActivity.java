@@ -11,6 +11,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -19,8 +20,11 @@ import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.TextView;
+import android.graphics.Color;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
+import androidx.core.splashscreen.SplashScreen;
 import com.getcapacitor.BridgeWebViewClient;
 import android.app.PictureInPictureParams;
 import android.util.Rational;
@@ -35,6 +39,8 @@ public class MainActivity extends BridgeActivity {
   private static final String TAG = "DIBAY_OAuth";
   private static final String WEBVIEW_LOG_TAG = "DIBAY_WebView";
   private static final long WEBVIEW_LOAD_TIMEOUT_MS = 10_000L;
+  /** Max splash keep — JS dismiss 미수신 시 logged fallback (앱 진입 block 방지). */
+  private static final long SPLASH_MAX_KEEP_MS = 3_000L;
   private static final String ROUTE_PREFS = "dibay_push_route";
   private static final String CALL_ROUTE_PREFS = "dibay_call_pending_route";
   private static final String ROUTE_LOG_TAG = "DIBAY_PUSH_ROUTE";
@@ -55,13 +61,21 @@ public class MainActivity extends BridgeActivity {
   private static final int[] PENDING_TERMINAL_RETRY_DELAYS_MS = {120, 450, 900, 2_000};
   private static volatile boolean appVisible = false;
   private static volatile MainActivity activeInstance = null;
+  /** Web dismissSplash / native fallback — keepOnScreenCondition false when true. */
+  private static volatile boolean webSplashDismissRequested = false;
+  private static volatile long splashKeepStartElapsedMs = 0L;
+  private static volatile String splashDismissSource = "none";
+  /** Sam app surface — avoid pure white WebView flash before first paint. */
+  private static final int WEBVIEW_BACKGROUND_COLOR = Color.parseColor("#F0F2F5");
 
+  private DibayWebSafeAreaBridge webSafeAreaBridge;
   private DibayWebViewPermissionDelegate webViewPermissionDelegate;
   private String pendingAppPath = null;
   private String pendingNotificationId = null;
   private volatile boolean routeInjectedForCurrentPending = false;
   private volatile boolean dibayWebChromeClientAttached = false;
   private volatile boolean dibayWebViewClientAttached = false;
+  private volatile boolean dibayBootBridgeAttached = false;
   private volatile boolean callRouteLoadingVisible = false;
   private View callRouteLoadingOverlay = null;
   private View webViewLoadErrorOverlay = null;
@@ -89,12 +103,67 @@ public class MainActivity extends BridgeActivity {
     return activeInstance;
   }
 
+  public static void deliverCallAcceptRoute(
+      android.content.Context context, String callId, boolean patchComplete) {
+    final String sid = callId != null ? callId.trim() : "";
+    if (sid.isEmpty()) return;
+    final String flag = patchComplete ? "nativeAccept=1" : "nativePrep=1";
+    final String appPath =
+        "/community-messenger/calls/"
+            + android.net.Uri.encode(sid)
+            + "?action=accept&"
+            + flag
+            + "&mode=active&source=activity";
+    MainActivity act = activeInstance;
+    if (act != null) {
+      act.mainHandler.post(() -> act.queueNavigateWebViewToAppPath(appPath, null));
+      return;
+    }
+    if (context == null) return;
+    Intent launch =
+        patchComplete
+            ? IncomingCallIntentHelper.buildMainActivityCallAcceptCompleteIntent(context.getApplicationContext(), sid)
+            : IncomingCallIntentHelper.buildMainActivityCallAcceptIntent(context.getApplicationContext(), sid);
+    context.getApplicationContext().startActivity(launch);
+  }
+
   /** Foreground native pill visibility — Web banner fallback gate. */
   public static void notifyForegroundIncomingUiState(String callId, boolean visible) {
     MainActivity act = activeInstance;
     if (act == null) return;
     final String sid = callId != null ? callId.trim() : "";
     act.mainHandler.post(() -> act.injectForegroundIncomingUiEvent(sid, visible));
+  }
+
+  /** Native pill accept — Web consumed/surface release before pill finish */
+  static void deliverForegroundIncomingAcceptEvent(String callId) {
+    MainActivity act = activeInstance;
+    if (act == null) return;
+    final String sid = callId != null ? callId.trim() : "";
+    if (sid.isEmpty()) return;
+    act.mainHandler.post(() -> act.injectForegroundIncomingAcceptEvent(sid));
+  }
+
+  /** Native reject / swipe dismiss — Web consumed before PATCH completes. */
+  static void deliverForegroundIncomingRejectEvent(android.content.Context context, String callId, String source) {
+    final String sid = callId != null ? callId.trim() : "";
+    if (sid.isEmpty()) return;
+    final String src = source != null && !source.trim().isEmpty() ? source.trim() : "native_reject";
+    MainActivity act = activeInstance;
+    if (act == null) {
+      if (context != null) {
+        DibayCallTerminalPendingQueue.enqueue(context.getApplicationContext(), sid, "rejected");
+      }
+      return;
+    }
+    act.mainHandler.post(
+        () -> {
+          if (act.canDeliverCallEventToWebView()) {
+            act.injectForegroundIncomingRejectEvent(sid, src);
+          } else {
+            DibayCallTerminalPendingQueue.enqueue(act.getApplicationContext(), sid, "rejected");
+          }
+        });
   }
 
   /** FCM foreground — WebView legacy call bridge (incoming_call / call_canceled) */
@@ -110,7 +179,7 @@ public class MainActivity extends BridgeActivity {
   }
 
   /** Terminal/cancel — WebView bridge; queues when WebView unavailable. */
-  public static void deliverCallTerminalEvent(android.content.Context context, String callId, String status) {
+  static void deliverCallTerminalEvent(android.content.Context context, String callId, String status) {
     if (callId == null || callId.trim().isEmpty()) return;
     String st = status != null ? status.trim().toLowerCase() : "cancelled";
     String sid = callId.trim();
@@ -175,7 +244,7 @@ public class MainActivity extends BridgeActivity {
     webView.post(
         () ->
             webView.evaluateJavascript(
-                "window.dispatchEvent(new CustomEvent('dibay:call-native-clear-pending'));",
+                "try{sessionStorage.removeItem('cm_native_callee_accept_pending');sessionStorage.removeItem('dibay_call_pending_route');}catch(e){}",
                 null));
   }
 
@@ -217,8 +286,8 @@ public class MainActivity extends BridgeActivity {
             + callType
             + "'}}));}catch(e){}})();";
     webView.post(() -> webView.evaluateJavascript(js, null));
-    Log.i("DIBAY_CALL", "[DIBAY_CALL] incoming_received callId=" + payload.callId + " source=foreground_event deliveryAt=" + System.currentTimeMillis());
-    Log.i(ROUTE_LOG_TAG, "[call-native] foreground_incoming_event callId=" + payload.callId + " deliveryAt=" + System.currentTimeMillis());
+    Log.i("DIBAY_CALL", "[DIBAY_CALL] incoming_received callId=" + payload.callId + " source=foreground_event");
+    Log.i(ROUTE_LOG_TAG, "[call-native] foreground_incoming_event callId=" + payload.callId);
   }
 
   private void injectForegroundIncomingUiEvent(String callId, boolean visible) {
@@ -235,6 +304,37 @@ public class MainActivity extends BridgeActivity {
             + "}}));}catch(e){}})();";
     webView.post(() -> webView.evaluateJavascript(js, null));
     Log.i("DIBAY_CALL", "[DIBAY_CALL] foreground_incoming_ui callId=" + callId + " visible=" + visible);
+  }
+
+  private void injectForegroundIncomingAcceptEvent(String callId) {
+    Bridge bridge = getBridge();
+    if (bridge == null) return;
+    WebView webView = bridge.getWebView();
+    if (webView == null) return;
+    final String safeCallId = safeJs(callId);
+    final String js =
+        "(function(){try{window.dispatchEvent(new CustomEvent('dibay:call-event',{detail:{type:'foreground_incoming_accept',sessionId:'"
+            + safeCallId
+            + "'}}));}catch(e){}})();";
+    webView.post(() -> webView.evaluateJavascript(js, null));
+    Log.i("DIBAY_CALL", "[DIBAY_CALL] foreground_incoming_accept callId=" + callId);
+  }
+
+  private void injectForegroundIncomingRejectEvent(String callId, String source) {
+    Bridge bridge = getBridge();
+    if (bridge == null) return;
+    WebView webView = bridge.getWebView();
+    if (webView == null) return;
+    final String safeCallId = safeJs(callId);
+    final String safeSource = safeJs(source);
+    final String js =
+        "(function(){try{window.dispatchEvent(new CustomEvent('dibay:call-event',{detail:{type:'foreground_incoming_reject',sessionId:'"
+            + safeCallId
+            + "',source:'"
+            + safeSource
+            + "'}}));}catch(e){}})();";
+    webView.post(() -> webView.evaluateJavascript(js, null));
+    Log.i("DIBAY_CALL", "[DIBAY_CALL] foreground_incoming_reject callId=" + callId + " source=" + source);
   }
 
   private void injectCallTerminalEvent(String callId, String status) {
@@ -431,8 +531,21 @@ public class MainActivity extends BridgeActivity {
     registerPlugin(com.dibay.app.call.CallPermissionPlugin.class);
     registerPlugin(com.dibay.app.call.DibayCallAudioRoutePlugin.class);
     registerPlugin(com.dibay.app.call.NativeCallServicePlugin.class);
-    registerPlugin(com.dibay.app.call.DibayCallPipPlugin.class);
+    SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
+    injectBootMetricOnCreate();
     super.onCreate(savedInstanceState);
+    splashScreen.setKeepOnScreenCondition(
+        () -> {
+          if (webSplashDismissRequested) return false;
+          long elapsed = SystemClock.elapsedRealtime() - splashKeepStartElapsedMs;
+          if (elapsed >= SPLASH_MAX_KEEP_MS) {
+            requestWebSplashDismiss("native_fallback_elapsed_ms=" + elapsed);
+            return false;
+          }
+          return true;
+        });
+    webSafeAreaBridge = new DibayWebSafeAreaBridge(this);
+    webSafeAreaBridge.attach();
     Log.i(WEBVIEW_LOG_TAG, "app_start package=" + getPackageName());
     String serverOrigin = DibayServerOrigin.resolve(this);
     Log.i(WEBVIEW_LOG_TAG, "capacitor_server_url=" + (serverOrigin != null ? serverOrigin : "(missing)"));
@@ -467,6 +580,9 @@ public class MainActivity extends BridgeActivity {
     activeInstance = this;
     attachDibayWebChromeClient();
     attachDibayWebViewClient();
+    if (webSafeAreaBridge != null) {
+      webSafeAreaBridge.refreshIfPossible();
+    }
     flushPendingAppPathIfAny();
     scheduleFlushPendingTerminalEvents();
     String callId = DibayActiveCallSessionManager.getActiveCallId();
@@ -503,54 +619,22 @@ public class MainActivity extends BridgeActivity {
     } else {
       DibayActiveCallSessionManager.onPipExited(callId);
     }
-    com.dibay.app.call.DibayCallPipPlugin plugin = com.dibay.app.call.DibayCallPipPlugin.getInstance();
-    if (plugin != null) {
-      plugin.emitPipModeChanged(isInPictureInPictureMode, callId);
-    }
-  }
-
-  /** Bridge entry — video active call system PiP */
-  public boolean requestVideoCallPipFromBridge() {
-    return tryEnterVideoCallPip();
   }
 
   /** Video active call — system PiP when home/back; failure must not end call */
-  private boolean tryEnterVideoCallPip() {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false;
+  private void tryEnterVideoCallPip() {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
     String callId = DibayActiveCallSessionManager.getActiveCallId();
-    if (callId == null || callId.isEmpty() || !DibayActiveCallSessionManager.isConnected()) return false;
-    if (!"video".equalsIgnoreCase(DibayActiveCallSessionManager.getMediaType())) return false;
-    if (isInPictureInPictureMode()) return true;
+    if (callId == null || callId.isEmpty() || !DibayActiveCallSessionManager.isConnected()) return;
+    if (!"video".equalsIgnoreCase(DibayActiveCallSessionManager.getMediaType())) return;
+    if (isInPictureInPictureMode()) return;
     try {
       PictureInPictureParams params =
           new PictureInPictureParams.Builder().setAspectRatio(new Rational(9, 16)).build();
-      boolean entered = enterPictureInPictureMode(params);
-      if (!entered) {
-        notifyWebPipFallbackDock(callId);
-      }
-      return entered;
+      enterPictureInPictureMode(params);
     } catch (Exception e) {
       Log.w("DIBAY_CALL", "active_call_pip_enter_failed callId=" + callId, e);
       DibayCallLog.once("active_call_pip_enter_failed", callId, "err=" + e.getClass().getSimpleName());
-      notifyWebPipFallbackDock(callId);
-      return false;
-    }
-  }
-
-  private void notifyWebPipFallbackDock(String callId) {
-    com.dibay.app.call.DibayCallPipPlugin plugin = com.dibay.app.call.DibayCallPipPlugin.getInstance();
-    if (plugin != null) {
-      plugin.emitPipFallbackDock(callId);
-    }
-    Bridge bridge = getBridge();
-    if (bridge != null && bridge.getWebView() != null) {
-      bridge
-          .getWebView()
-          .post(
-              () ->
-                  bridge.eval(
-                      "window.dispatchEvent(new CustomEvent('dibay:call-pip-fallback-dock'))",
-                      null));
     }
   }
 
@@ -566,6 +650,7 @@ public class MainActivity extends BridgeActivity {
     } else if (dibayWebChromeClientAttached) {
       return;
     }
+    webView.setBackgroundColor(WEBVIEW_BACKGROUND_COLOR);
     webView.setWebChromeClient(new DibayDelegatingWebChromeClient(existing, webViewPermissionDelegate));
     dibayWebChromeClientAttached = true;
     Log.i("DIBAY_WebPerm", "delegating_web_chrome_client_attached");
@@ -600,6 +685,11 @@ public class MainActivity extends BridgeActivity {
               }
             });
     bridge.setWebViewClient(client);
+    WebView webView = bridge.getWebView();
+    if (webView != null) {
+      webView.setBackgroundColor(WEBVIEW_BACKGROUND_COLOR);
+      attachDibayBootBridge(webView);
+    }
     dibayWebViewClientAttached = true;
     Log.i(WEBVIEW_LOG_TAG, "dibay_bridge_webview_client_attached");
   }
@@ -613,6 +703,9 @@ public class MainActivity extends BridgeActivity {
           hideWebViewLoadErrorOverlay();
           mainHandler.removeCallbacks(webViewLoadTimeoutRunnable);
           mainHandler.postDelayed(webViewLoadTimeoutRunnable, WEBVIEW_LOAD_TIMEOUT_MS);
+          injectBootMetricField("nativeStart");
+          injectBootMetricField("webviewReady");
+          Log.i(WEBVIEW_LOG_TAG, "onPageStarted url=" + (url != null ? url : ""));
         });
   }
 
@@ -623,7 +716,64 @@ public class MainActivity extends BridgeActivity {
           pendingMainFrameUrl = url;
           mainHandler.removeCallbacks(webViewLoadTimeoutRunnable);
           hideWebViewLoadErrorOverlay();
+          injectBootMetricField("firstHtml");
+          Log.i(WEBVIEW_LOG_TAG, "onPageFinished url=" + (url != null ? url : ""));
+          if (webSafeAreaBridge != null) {
+            webSafeAreaBridge.refreshIfPossible();
+          }
         });
+  }
+
+  /** Web 또는 native fallback — splash overlay 해제. */
+  public static void requestWebSplashDismiss(String source) {
+    if (webSplashDismissRequested) return;
+    webSplashDismissRequested = true;
+    splashDismissSource = source != null ? source : "unknown";
+    Log.i(WEBVIEW_LOG_TAG, "dismissSplash success source=" + splashDismissSource);
+  }
+
+  private void injectBootMetricOnCreate() {
+    webSplashDismissRequested = false;
+    splashDismissSource = "none";
+    splashKeepStartElapsedMs = SystemClock.elapsedRealtime();
+  }
+
+  private void attachDibayBootBridge(WebView webView) {
+    if (dibayBootBridgeAttached) return;
+    webView.addJavascriptInterface(new DibayBootJsBridge(), "DibayBootBridge");
+    dibayBootBridgeAttached = true;
+  }
+
+  private final class DibayBootJsBridge {
+    @JavascriptInterface
+    public void dismissSplash() {
+      mainHandler.post(
+          () -> {
+            Log.i(WEBVIEW_LOG_TAG, "dismissSplash start bridge_js");
+            requestWebSplashDismiss("DibayBootBridge");
+          });
+    }
+  }
+
+  private void injectBootMetricField(String field) {
+    Bridge bridge = getBridge();
+    if (bridge == null) return;
+    WebView webView = bridge.getWebView();
+    if (webView == null) return;
+    String safeField = field.replaceAll("[^a-zA-Z]", "");
+    String js =
+        "(function(){try{var n=performance.now();var m=window.__dibayBootMetrics||{};"
+            + "window.__dibayBootMetrics=m;if(m."
+            + safeField
+            + "==null)m."
+            + safeField
+            + "=n;"
+            + "window.__dibayNativeSplashDismiss=function(){"
+            + "try{if(window.DibayBootBridge&&window.DibayBootBridge.dismissSplash)"
+            + "window.DibayBootBridge.dismissSplash();}catch(e){}"
+            + "};"
+            + "}catch(e){}})();";
+    webView.evaluateJavascript(js, null);
   }
 
   private void onWebViewMainFrameFailed(String url, String reason) {
@@ -1102,6 +1252,20 @@ public class MainActivity extends BridgeActivity {
         });
   }
 
+  private static String normalizeCalleeAcceptAppPath(String appPath) {
+    if (appPath == null || !isCalleeAcceptCallRoute(appPath)) return appPath;
+    String sid = extractCallSessionIdFromAppPath(appPath);
+    if (sid == null || sid.isEmpty()) return appPath;
+    String source = appPath.contains("source=activity") ? "activity" : "notification";
+    String acceptFlag = appPath.contains("nativePrep=1") ? "nativePrep=1" : "nativeAccept=1";
+    return "/community-messenger/calls/"
+        + android.net.Uri.encode(sid)
+        + "?action=accept&"
+        + acceptFlag
+        + "&mode=active&source="
+        + source;
+  }
+
   private static boolean isCalleeAcceptCallRoute(String appPath) {
     return appPath != null
         && appPath.startsWith("/community-messenger/calls/")
@@ -1149,12 +1313,31 @@ public class MainActivity extends BridgeActivity {
             : "";
     final long at = System.currentTimeMillis();
     final String acceptSessionId = extractCallSessionIdFromAppPath(appPath);
+    final String acceptPendingJs =
+        isCalleeAcceptCallRoute(appPath) && acceptSessionId != null
+            ? "try{sessionStorage.setItem('cm_native_callee_accept_pending',JSON.stringify({sessionId:'"
+                + acceptSessionId.replace("\\", "\\\\").replace("'", "\\'")
+                + "',at:"
+                + at
+                + "}));}catch(e){}"
+            : "";
     final boolean callRoute = appPath.startsWith("/community-messenger/calls/");
+    final String storageKey = callRoute ? "dibay_call_pending_route" : "dibay_pending_push_route";
     if (callRoute) {
       persistCallPendingRoute(appPath);
     }
     final String js =
-        "(function(){window.dispatchEvent(new CustomEvent('"
+        "(function(){try{sessionStorage.setItem('"
+            + storageKey
+            + "',JSON.stringify({path:'"
+            + jsPath
+            + "',notificationId:'"
+            + jsNotificationId
+            + "',at:"
+            + at
+            + "}));"
+            + acceptPendingJs
+            + "}catch(e){}window.dispatchEvent(new CustomEvent('"
             + (callRoute ? "dibay:call-route" : "dibay:push-route")
             + "',{detail:{path:'"
             + jsPath
@@ -1184,11 +1367,24 @@ public class MainActivity extends BridgeActivity {
     if (webView == null) return false;
     final boolean acceptRoute = isCalleeAcceptCallRoute(appPath);
     final boolean callRoute = appPath.startsWith("/community-messenger/calls/");
-    final boolean webReady = isWebViewOnAppOrigin(webView);
-    if (acceptRoute && webReady) {
-      injectWebViewRouteViaJs(webView, appPath, notificationId);
-      clearPersistedPendingPushRoute(this);
-      return true;
+    if (acceptRoute) {
+      final String normalizedAcceptPath = normalizeCalleeAcceptAppPath(appPath);
+      if (isWebViewOnAppOrigin(webView) && injectAcceptRouteViaJs(webView, normalizedAcceptPath, notificationId)) {
+        clearPersistedPendingPushRoute(this);
+        Log.i(ROUTE_LOG_TAG, "[push-route] webview_call_route_injected path=" + normalizedAcceptPath);
+        return true;
+      }
+      if (loadCallRouteDirectly(webView, normalizedAcceptPath)) {
+        routeInjectedForCurrentPending = true;
+        pendingAppPath = null;
+        pendingNotificationId = null;
+        clearPersistedPendingPushRoute(this);
+        hideCallRouteLoadingOverlay();
+        Log.i(ROUTE_LOG_TAG, "[push-route] webview_call_route_loaded path=" + normalizedAcceptPath);
+        return true;
+      }
+      Log.w(ROUTE_LOG_TAG, "[push-route] accept_loadUrl_failed path=" + normalizedAcceptPath);
+      return false;
     }
     if (callRoute && loadCallRouteDirectly(webView, appPath)) {
       routeInjectedForCurrentPending = true;
@@ -1200,6 +1396,21 @@ public class MainActivity extends BridgeActivity {
       return true;
     }
     return injectWebViewRouteViaJs(webView, appPath, notificationId);
+  }
+
+  private boolean injectAcceptRouteViaJs(WebView webView, String appPath, String notificationId) {
+    if (webView == null || appPath == null || appPath.isEmpty()) return false;
+    final String acceptSessionId = extractCallSessionIdFromAppPath(appPath);
+    if (acceptSessionId == null || acceptSessionId.isEmpty()) return false;
+    final String bootstrapJs =
+        DibayIncomingCallNativeStore.buildAcceptRouteBootstrapJs(
+            this, acceptSessionId, !appPath.contains("nativePrep=1"));
+    webView.post(
+        () ->
+            webView.evaluateJavascript(
+                bootstrapJs,
+                ignored -> injectWebViewRouteViaJs(webView, appPath, notificationId)));
+    return true;
   }
 
   private boolean loadCallRouteDirectly(WebView webView, String appPath) {
@@ -1228,7 +1439,18 @@ public class MainActivity extends BridgeActivity {
     if (target == null) return false;
     final String loadTarget = target;
     if (isCalleeAcceptCallRoute(appPath)) {
-      Log.i(ROUTE_LOG_TAG, "[push-route] call_route_accept_direct_load");
+      final String acceptSessionId = extractCallSessionIdFromAppPath(appPath);
+      if (acceptSessionId != null) {
+        final String bootstrapJs =
+            DibayIncomingCallNativeStore.buildAcceptRouteBootstrapJs(
+                this, acceptSessionId, !appPath.contains("nativePrep=1"));
+        webView.post(
+            () ->
+                webView.evaluateJavascript(
+                    bootstrapJs,
+                    ignored -> webView.loadUrl(loadTarget)));
+        return true;
+      }
     }
     webView.post(() -> webView.loadUrl(loadTarget));
     return true;

@@ -95,25 +95,6 @@ if (notifBuilder.includes("setDefaults(Notification.DEFAULT_ALL)")) {
   pass("no DEFAULT_ALL on incoming notification");
 }
 
-if (!delivery.includes("incoming_call_foreground_web_ssot")) {
-  fail("PushDelivery foreground must log incoming_call_foreground_web_ssot");
-} else {
-  pass("PushDelivery foreground web SSOT log");
-}
-
-if (delivery.includes("IncomingCallForegroundUiLauncher.showUi")) {
-  fail("PushDelivery foreground must not launch native pill (Web banner SSOT)");
-} else {
-  pass("PushDelivery no foreground native pill");
-}
-
-const legacyPill = path.join(root, "android/app/src/main/java/com/dibay/app/ForegroundIncomingCallActivity.java");
-if (fs.existsSync(legacyPill)) {
-  fail("ForegroundIncomingCallActivity must be removed (Web IncomingCallSurface SSOT)");
-} else {
-  pass("legacy ForegroundIncomingCallActivity removed");
-}
-
 if (failed) {
   process.exit(1);
 }

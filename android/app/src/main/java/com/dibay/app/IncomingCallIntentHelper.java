@@ -63,14 +63,25 @@ public final class IncomingCallIntentHelper {
   }
 
   public static Intent buildMainActivityCallAcceptIntent(Context context, String callId) {
+    return buildMainActivityCallAcceptIntent(context, callId, false);
+  }
+
+  public static Intent buildMainActivityCallAcceptCompleteIntent(Context context, String callId) {
+    return buildMainActivityCallAcceptIntent(context, callId, true);
+  }
+
+  private static Intent buildMainActivityCallAcceptIntent(Context context, String callId, boolean patchComplete) {
     String sessionId = callId != null ? callId.trim() : "";
     Intent launch = new Intent(context, MainActivity.class);
     launch.setAction(Intent.ACTION_VIEW);
+    String acceptFlag = patchComplete ? "nativeAccept=1" : "nativePrep=1";
     launch.setData(
         Uri.parse(
             "dibay://call/"
                 + Uri.encode(sessionId)
-                + "?action=accept&nativeAccept=1&source=activity"));
+                + "?action=accept&"
+                + acceptFlag
+                + "&mode=active&source=activity"));
     launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
     return launch;
   }

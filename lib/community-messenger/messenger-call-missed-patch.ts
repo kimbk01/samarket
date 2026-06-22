@@ -1,8 +1,10 @@
 "use client";
 
-import type { CommunityMessengerCallSessionPatchDebugContext } from "@/lib/community-messenger/call-http-actions";
+import {
+  patchCommunityMessengerCallSession,
+  type CommunityMessengerCallSessionPatchDebugContext,
+} from "@/lib/community-messenger/call-http-actions";
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
-import { callEngineActions } from "@/lib/community-messenger/call-engine";
 
 const inFlightBySessionId = new Map<string, Promise<{ ok: boolean; session?: CommunityMessengerCallSession; error?: string }>>();
 /** 터미널 missed PATCH 성공 직후 동일 세션 중복 스케줄 방지 */
@@ -36,12 +38,7 @@ export async function patchCommunityMessengerCallMissedOnce(
   const existing = inFlightBySessionId.get(sid);
   if (existing) return existing.then((r) => ({ ...r, skipped: true }));
 
-  const run = callEngineActions.patch({
-    callId: sid,
-    action: "missed",
-    source: "missed_patch_once",
-    debugContext,
-  }).then((res) => {
+  const run = patchCommunityMessengerCallSession(sid, "missed", undefined, debugContext).then((res) => {
     if (res.ok) markMissedTombstone(sid);
     return res;
   });

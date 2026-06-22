@@ -36,7 +36,7 @@ export function CallHeader({
   }
 
   return (
-    <div className="relative z-[2] flex items-center justify-between px-4 pt-[max(12px,env(safe-area-inset-top))]">
+    <div className="relative z-[2] flex items-center justify-between px-4 pt-[max(12px,var(--safe-top))]">
       <div className="min-w-[72px]">
         {onBack ? (
           <button

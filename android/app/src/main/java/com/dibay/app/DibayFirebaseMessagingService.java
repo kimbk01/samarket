@@ -25,7 +25,6 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class DibayFirebaseMessagingService extends FirebaseMessagingService {
   private static final String TAG = "DIBAY_FCM";
-  /** @deprecated legacy id — 신규 알림은 {@link FcmPayloadResolver#resolveNotificationChannelId} 사용 */
   static final String MESSAGES_CHANNEL_ID = "dibay_messages";
   private static final long EVENT_DEDUPE_MS = 10_000L;
   private static final ConcurrentHashMap<String, Long> recentNotificationEventIds =
@@ -193,7 +192,6 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
     MainActivity.persistCallPendingRoute(this, pendingRoute, payload, expiry.effectiveExpiresAtMs);
 
     IncomingCallPushDelivery.deliver(this, payload);
-    Log.i(TAG, "[call-push] incoming_delivery_complete callId=" + callId + " deliveryAt=" + receivedAtMs);
   }
 
   private static String formatIsoUtc(long millis) {
@@ -231,61 +229,20 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
   }
 
   static void ensureMessagesChannelStatic(Context context) {
-    ensureNotificationChannelStatic(context, "dibay_chat_messages");
-  }
-
-  static void ensureNotificationChannelStatic(Context context, String channelId) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
-    if (channelId == null || channelId.isEmpty()) return;
     NotificationManager nm = context.getSystemService(NotificationManager.class);
     if (nm == null) return;
-    if (nm.getNotificationChannel(channelId) != null) return;
-
-    String label;
-    String description;
-    int importance = NotificationManager.IMPORTANCE_HIGH;
-    switch (channelId) {
-      case "dibay_marketing":
-        label = "광고·혜택";
-        description = "마케팅 및 프로모션 알림";
-        importance = NotificationManager.IMPORTANCE_DEFAULT;
-        break;
-      case "dibay_orders":
-        label = "주문";
-        description = "주문 상태 알림";
-        break;
-      case "dibay_delivery":
-        label = "배달";
-        description = "배달 상태 알림";
-        break;
-      case "dibay_trade":
-        label = "거래";
-        description = "거래·중고 알림";
-        break;
-      case "dibay_community":
-        label = "커뮤니티";
-        description = "피드·커뮤니티 활동 알림";
-        break;
-      case "dibay_admin_notice":
-        label = "운영 공지";
-        description = "서비스 운영 공지";
-        break;
-      case "dibay_chat_messages":
-      default:
-        label = "채팅 메시지";
-        description = "채팅 메시지 알림";
-        break;
-    }
-
-    NotificationChannel channel = new NotificationChannel(channelId, label, importance);
-    channel.setDescription(description);
+    if (nm.getNotificationChannel(MESSAGES_CHANNEL_ID) != null) return;
+    NotificationChannel channel =
+        new NotificationChannel(MESSAGES_CHANNEL_ID, "채팅 메시지", NotificationManager.IMPORTANCE_HIGH);
+    channel.setDescription("채팅 메시지 알림");
     channel.enableVibration(true);
     channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
     nm.createNotificationChannel(channel);
   }
 
-  private void ensureNotificationChannel(String channelId) {
-    ensureNotificationChannelStatic(this, channelId);
+  private void ensureMessagesChannel() {
+    ensureMessagesChannelStatic(this);
   }
 
   private void showMessageNotification(
@@ -301,9 +258,7 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
       Log.i(TAG, "[notify-message] native_notification_dedupe eventId=" + notificationId);
       return;
     }
-    String channelId =
-        data != null ? FcmPayloadResolver.resolveNotificationChannelId(data) : "dibay_chat_messages";
-    ensureNotificationChannel(channelId);
+    ensureMessagesChannel();
     Intent launch = new Intent(this, MainActivity.class);
     launch.setAction(Intent.ACTION_VIEW);
     launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
@@ -330,7 +285,7 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
     String safeBody = body != null ? body : "";
 
     NotificationCompat.Builder builder =
-        new NotificationCompat.Builder(this, channelId)
+        new NotificationCompat.Builder(this, MESSAGES_CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(safeTitle)
             .setContentText(safeBody)

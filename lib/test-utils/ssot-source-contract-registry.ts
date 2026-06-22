@@ -46,34 +46,4 @@ export const SSOT_SOURCE_CONTRACT_REGISTRY: readonly SsotSourceContractEntry[] =
     marker: "SSOT_CONTRACT: messenger-call-init-route startCommunityMessengerCallSession",
     also: ["startCommunityMessengerCallSession"],
   },
-  {
-    id: "cm-deep-route-navigation-lock",
-    file: "lib/navigation/cm-deep-route-navigation-lock.ts",
-    marker:
-      "SSOT_CONTRACT: cm-deep-route-navigation-lock beginRoomDeepRouteNavigationLock beginCallDeepRouteNavigationLock",
-  },
-  {
-    id: "cm-call-accept-gateway-patch-owner",
-    file: "lib/community-messenger/incoming-call-accept-gateway.ts",
-    marker: "SSOT_CONTRACT: cm-call-accept-gateway-patch-owner runIncomingCallAccept acceptIncomingCallOnce",
-    also: ["acceptIncomingCallOnce"],
-  },
-  {
-    id: "cm-call-lifecycle-local-release",
-    file: "lib/call/release-local-call-lifecycle.ts",
-    marker: "SSOT — 통화 종료·취소·언마운트 시 클라 잔류 상태 제거",
-    also: ["releaseLocalCallLifecycleForTerminal", "releaseLocalCallLifecycleForTerminalSync"],
-  },
-  {
-    id: "cm-call-lifecycle-local-release-active",
-    file: "lib/call/active-call-session.ts",
-    marker: "SSOT_CONTRACT: cm-call-lifecycle-local-release releaseLocalCallSession peer PATCH 금지",
-    also: ["releaseLocalCallSession", "hardClearActiveCallSession"],
-  },
-  {
-    id: "dibay-signup-consent-only-gate",
-    file: "lib/auth/dibay-signup-status.ts",
-    marker: "SSOT_CONTRACT: dibay-signup-consent-only-gate signupComplete consentComplete",
-    also: ["const signupComplete = consentComplete"],
-  },
 ] as const;

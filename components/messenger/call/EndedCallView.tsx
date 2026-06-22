@@ -17,9 +17,9 @@ export function EndedCallView({ vm }: { vm: CallScreenViewModel }) {
   const close = vm.secondaryActions?.find((item) => item.icon === "close") ?? null;
 
   return (
-    <div className="relative z-[2] flex min-h-0 flex-1 flex-col justify-between px-6 pb-[max(22px,calc(env(safe-area-inset-bottom)+12px))] pt-6">
+    <div className="relative z-[2] flex min-h-0 flex-1 flex-col justify-between px-6 pb-[max(22px,calc(var(--safe-bottom)+12px))] pt-6">
       {close ? (
-        <div className="absolute right-5 top-[max(14px,calc(env(safe-area-inset-top)+6px))] z-[3]">
+        <div className="absolute right-5 top-[max(14px,calc(var(--safe-top)+6px))] z-[3]">
           <button
             type="button"
             onClick={close.onClick}

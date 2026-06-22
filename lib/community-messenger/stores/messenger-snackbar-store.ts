@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { shouldSuppressCallOverlayToasts } from "@/lib/community-messenger/call-dock-presentation";
 
 export type MessengerSnackbarVariant = "default" | "success" | "error";
 
@@ -27,7 +26,6 @@ export const useMessengerSnackbarStore = create<MessengerSnackbarState>((set, ge
     set({ current: null, hideTimer: null });
   },
   show: (message, opts) => {
-    if (shouldSuppressCallOverlayToasts()) return;
     const trimmed = String(message ?? "").trim();
     if (!trimmed) return;
     const variant = opts?.variant ?? "default";

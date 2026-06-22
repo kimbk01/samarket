@@ -26,12 +26,10 @@ describe("sw.js incoming-call wake regression", () => {
 });
 
 describe("call terminal navigation policy", () => {
-  it("terminal paths use call_logs and release local lifecycle SSOT", () => {
+  it("terminal paths use call_logs; non-terminal keeps navigateBack", () => {
     const client = read("components/community-messenger/CommunityMessengerCallClient.tsx");
-    const seed = read("lib/community-messenger/call-session-navigation-seed.ts");
+    // SSOT marker: ssot-source-contract-markers.test.ts (messenger-call-terminal-nav)
     expect(client).toContain("finalizeCommunityMessengerCallTerminalExit");
-    expect(client).toContain("releaseLocalCallLifecycleForTerminalSync");
-    expect(seed).toContain("releaseLocalCallLifecycleForTerminalSync");
     expect(client).toContain("beginRingingCallDismiss");
     expect(client).toContain("closeTerminalView");
     // loading cancel / ringing block / pip minimize still use navigateBack
@@ -40,11 +38,29 @@ describe("call terminal navigation policy", () => {
     expect(client).toContain("navigateBackFromCommunityMessengerCall(router, s.roomId)");
   });
 
-  it("nativeAccept=1 skips duplicate PATCH in CallClient", () => {
+  it("accept route defers remote terminal ringing dismiss until server confirms", () => {
     const client = read("components/community-messenger/CommunityMessengerCallClient.tsx");
-    expect(client).toContain("nativeAcceptRoute && requestedActionRef.current === \"accept\"");
+    const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
+    expect(client).toContain("shouldDeferCalleeRingingTerminalDismiss");
+    expect(client).toContain("call_client_remote_terminal_deferred");
+    expect(client).toContain("serverConfirmedTerminal: true");
+    const routeFirstBlock = global.slice(global.indexOf("incoming_banner_accept_route_first"));
+    const replaceIdx = routeFirstBlock.indexOf("router.replace(`/community-messenger/calls/");
+    const dismissIdx = routeFirstBlock.indexOf("dismissIncomingPresenterAfterAccept({");
+    expect(replaceIdx).toBeGreaterThan(-1);
+    expect(dismissIdx).toBeGreaterThan(replaceIdx);
+  });
+
+  it("native accept routes skip duplicate PATCH in CallClient", () => {
+    const client = read("components/community-messenger/CommunityMessengerCallClient.tsx");
+    expect(client).toContain("nativePrepRoute && requestedActionRef.current === \"accept\"");
+    expect(client).toContain("nativeAcceptCompletedRoute && requestedActionRef.current === \"accept\"");
+    expect(client).toContain("accept_route_prep_enter");
     expect(client).not.toMatch(
-      /nativeAcceptRoute[\s\S]{0,400}patchCommunityMessengerCallSession\([^)]*,\s*\"accept\"/
+      /nativeAcceptCompletedRoute[\s\S]{0,400}patchCommunityMessengerCallSession\([^)]*,\s*\"accept\"/
+    );
+    expect(client).not.toMatch(
+      /nativePrepRoute[\s\S]{0,400}patchCommunityMessengerCallSession\([^)]*,\s*\"accept\"/
     );
   });
 });

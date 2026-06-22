@@ -3,7 +3,7 @@
 import { clearAgoraJoinGuard } from "@/lib/call/actions/agora-join-guard";
 import { logDibayCall, sealDibayCallTerminalSurface } from "@/lib/community-messenger/call-orchestrator";
 import { appendDibayCallQaLog } from "@/lib/call/qa/dibay-call-qa-log";
-import { stopCommunityMessengerCallTone } from "@/lib/community-messenger/call-feedback-sound";
+import { stopAllOutgoingRingback } from "@/lib/community-messenger/call-outgoing-ringback-controller";
 import { stopCallRingtone } from "@/lib/community-messenger/call-ringtone-controller";
 import { stopCallHeartbeatWatchdog } from "@/lib/call/native/call-heartbeat-watchdog";
 import { endNativeCallService, reportNativeCallRemoteEnded } from "@/lib/call/native/native-call-service";
@@ -128,7 +128,7 @@ export function patchActiveCallSessionPhase(
   const sid = callId.trim();
   if (!sid || !activeSession || activeSession.callId !== sid) return null;
   if (phase === "idle") {
-    void releaseLocalCallSession(sid, source);
+    hardClearActiveCallSession(sid, source);
     return null;
   }
   const machinePhase = transitionMachinePhase(
@@ -217,16 +217,21 @@ export function resumeActiveCallSessionFromNative(
   return session;
 }
 
-/** SSOT_CONTRACT: cm-call-lifecycle-local-release releaseLocalCallSession peer PATCH 금지 */
-export async function releaseLocalCallSession(
+/**
+ * terminal — 클라 SSOT(activeSession·tone·guard) 동기 정리.
+ * native bridge 는 `hardClearActiveCallSession` 이 이어서 처리한다.
+ */
+export function syncClearActiveCallSessionLocal(
   callId: string | null | undefined,
   reason = "terminal",
-): Promise<void> {
-  const sid = callId?.trim() ?? activeSession?.callId?.trim() ?? "";
+): boolean {
+  const sid = callId?.trim() ?? "";
   if (!sid) {
-    activeSession = null;
-    notifySync();
-    return;
+    if (activeSession !== null) {
+      activeSession = null;
+      notifySync();
+    }
+    return true;
   }
   if (!canCleanupActiveCall(reason)) {
     logDibayCall("active_call_cleanup_blocked", {
@@ -234,7 +239,16 @@ export async function releaseLocalCallSession(
       callId: sid,
       reason,
     });
-    return;
+    return false;
+  }
+  if (activeSession && activeSession.callId !== sid) {
+    logDibayCall("active_call_cleanup_blocked", {
+      sessionId: sid,
+      callId: sid,
+      activeCallId: activeSession.callId,
+      reason: `mismatch:${reason}`,
+    });
+    return false;
   }
   logDibayCall("active_session_hard_clear", {
     sessionId: sid,
@@ -250,9 +264,29 @@ export async function releaseLocalCallSession(
   activeSession = null;
   stopCallHeartbeatWatchdog(sid);
   stopCallRingtone("active_session_hard_clear", sid);
-  stopCommunityMessengerCallTone();
+  stopAllOutgoingRingback("active_session_hard_clear");
   clearAgoraJoinGuard(sid);
   sealDibayCallTerminalSurface(sid);
+  notifySync();
+  return true;
+}
+
+/** terminal — notification·ringtone·route·native·heartbeat 일괄 정리 */
+export async function hardClearActiveCallSession(
+  callId: string | null | undefined,
+  reason = "terminal",
+): Promise<void> {
+  const sid = callId?.trim() ?? activeSession?.callId?.trim() ?? "";
+  if (!sid) {
+    activeSession = null;
+    notifySync();
+    return;
+  }
+  if (!syncClearActiveCallSessionLocal(sid, reason)) {
+    return;
+  }
+  const { releaseCallActionLockForCallId } = await import("@/lib/call/call-action-lock");
+  releaseCallActionLockForCallId(sid, reason);
   const normalizedReason = reason.trim().toLowerCase();
   const isRemoteNativeEnd =
     normalizedReason === "remote_ended" ||
@@ -268,14 +302,6 @@ export async function releaseLocalCallSession(
     await endNativeCallService(sid, reason);
   }
   notifySync();
-}
-
-/** @deprecated — releaseLocalCallSession 사용 */
-export async function hardClearActiveCallSession(
-  callId: string | null | undefined,
-  reason = "terminal",
-): Promise<void> {
-  await releaseLocalCallSession(callId, reason);
 }
 
 export function resetActiveCallSessionForTests(): void {

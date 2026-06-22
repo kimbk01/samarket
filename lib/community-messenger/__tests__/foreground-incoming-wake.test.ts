@@ -5,7 +5,7 @@ import {
 } from "@/lib/community-messenger/incoming-call/foreground-incoming-wake";
 
 describe("foreground-incoming-wake", () => {
-  it("builds optimistic ringing row with initiator as peerUserId hint", () => {
+  it("builds optimistic ringing row with caller avatar", () => {
     const optimistic = buildForegroundIncomingWakeOptimisticSession(
       "self",
       {
@@ -13,6 +13,8 @@ describe("foreground-incoming-wake", () => {
         roomId: "room-1",
         callKind: "voice",
         callerId: "caller",
+        callerName: "Caller",
+        callerAvatarUrl: "/avatars/caller.jpg",
       },
       new Map()
     );
@@ -20,9 +22,7 @@ describe("foreground-incoming-wake", () => {
     expect(optimistic?.id).toBe("call-b");
     expect(optimistic?.status).toBe("ringing");
     expect(optimistic?.source).toBe("fcm_wake");
-    expect(optimistic?.initiatorUserId).toBe("caller");
-    expect(optimistic?.peerUserId).toBe("caller");
-    expect(optimistic?.peerLabel).toBe("");
+    expect(optimistic?.peerAvatarUrl).toBe("/avatars/caller.jpg");
   });
 
   it("builds optimistic ringing row before async native consumed check", () => {
@@ -33,6 +33,7 @@ describe("foreground-incoming-wake", () => {
         roomId: "room-1",
         callKind: "voice",
         callerId: "caller",
+        callerName: "Caller",
       },
       new Map()
     );

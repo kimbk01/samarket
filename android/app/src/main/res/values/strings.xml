@@ -7,8 +7,8 @@
 
     <string name="dibay_incoming_accept">수락</string>
     <string name="dibay_incoming_reject">거절</string>
-    <string name="dibay_incoming_voice_brand">음성 통화</string>
-    <string name="dibay_incoming_video_brand">영상 통화</string>
+    <string name="dibay_incoming_voice_brand">DiBay 음성 통화</string>
+    <string name="dibay_incoming_video_brand">DiBay 영상 통화</string>
     <string name="dibay_incoming_default_caller">DIBAY</string>
 
     <string name="dibay_webview_error_title">서버에 연결할 수 없습니다</string>

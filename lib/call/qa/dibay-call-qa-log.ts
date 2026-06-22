@@ -1,11 +1,6 @@
 "use client";
 
 /** P4 APK-distributed QA — ring buffer + localStorage for Device B (no USB logcat). */
-import {
-  readCallEngineLocalItem,
-  removeCallEngineLocalItem,
-  writeCallEngineLocalItem,
-} from "@/lib/community-messenger/call-engine";
 
 export type DibayCallQaLogEntry = {
   at: number;
@@ -26,7 +21,7 @@ let memoryEntries: DibayCallQaLogEntry[] = [];
 function readStored(): DibayCallQaLogEntry[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = readCallEngineLocalItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as DibayCallQaLogEntry[];
     return Array.isArray(parsed) ? parsed : [];
@@ -38,7 +33,7 @@ function readStored(): DibayCallQaLogEntry[] {
 function persist(entries: DibayCallQaLogEntry[]): void {
   if (typeof window === "undefined") return;
   try {
-    writeCallEngineLocalItem(STORAGE_KEY, JSON.stringify(entries.slice(-MAX_ENTRIES)));
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(entries.slice(-MAX_ENTRIES)));
   } catch {
     /* quota */
   }
@@ -86,7 +81,7 @@ export function clearDibayCallQaLogs(): void {
   memoryEntries = [];
   if (typeof window === "undefined") return;
   try {
-    removeCallEngineLocalItem(STORAGE_KEY);
+    window.localStorage.removeItem(STORAGE_KEY);
   } catch {
     /* ignore */
   }

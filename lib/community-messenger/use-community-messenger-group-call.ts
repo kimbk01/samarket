@@ -14,8 +14,8 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
 import {
   playCommunityMessengerCallSignalSound,
-  stopCommunityMessengerCallTone,
 } from "@/lib/community-messenger/call-feedback-sound";
+import { stopAllOutgoingRingback } from "@/lib/community-messenger/call-outgoing-ringback-controller";
 import { getCommunityMessengerMediaErrorMessage } from "@/lib/community-messenger/media-errors";
 import {
   ensureCallCanUseMedia,
@@ -27,7 +27,6 @@ import {
 } from "@/lib/community-messenger/messenger-call-sound-config-client";
 import { incomingRingTimeoutMsFromConfig } from "@/lib/community-messenger/messenger-call-ring-timeout";
 import { patchCommunityMessengerCallMissedOnce } from "@/lib/community-messenger/messenger-call-missed-patch";
-import { callEngineActions } from "@/lib/community-messenger/call-engine";
 import { MESSENGER_CALL_USER_MSG } from "@/lib/community-messenger/messenger-call-user-messages";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { translate, type MessageKey } from "@/lib/i18n/messages";
@@ -385,7 +384,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
 
     void (async () => {
       try {
-        stopCommunityMessengerCallTone();
+        stopAllOutgoingRingback("group_agora_join");
         const permission = await ensureCallCanUseMedia(callKind);
         if (!permission.ok) {
           setErrorMessage(cmTr(getCallMediaPermissionBlockedMessageKey(callKind)));
@@ -546,11 +545,13 @@ export function useCommunityMessengerGroupCall(args: Props) {
         setErrorMessage(cmTr(getCallMediaPermissionBlockedMessageKey(activeCall.callKind)));
         return false;
       }
-      const acceptJson = await callEngineActions.acceptIncoming({
-        callId: activeCall.id,
-        source: "group_call_accept",
+      const acceptRes = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(activeCall.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "accept" }),
       });
-      if (!acceptJson.ok) {
+      const acceptJson = (await acceptRes.json().catch(() => ({}))) as { ok?: boolean };
+      if (!acceptRes.ok || !acceptJson.ok) {
         setErrorMessage(cmTr("cm_ui_group_call_accept_failed"));
         return false;
       }
@@ -587,12 +588,13 @@ export function useCommunityMessengerGroupCall(args: Props) {
     await cleanupMedia();
     setPanel(null);
     try {
-      const patchJson = await callEngineActions.patch({
-        callId: activeCall.id,
-        action: "reject",
-        source: "group_call_reject",
+      const patchRes = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(activeCall.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reject" }),
       });
-      if (!patchJson.ok) {
+      const patchJson = (await patchRes.json().catch(() => ({}))) as { ok?: boolean };
+      if (!patchRes.ok || !patchJson.ok) {
         setErrorMessage(MESSENGER_CALL_USER_MSG.sessionRejectFailed);
         await args.onRefresh();
         return;
@@ -609,12 +611,13 @@ export function useCommunityMessengerGroupCall(args: Props) {
     if (!args.enabled || !sessionId) return;
     setBusy("call-cancel");
     try {
-      const patchJson = await callEngineActions.patch({
-        callId: sessionId,
-        action: "cancel",
-        source: "group_call_cancel",
+      const patchRes = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "cancel" }),
       });
-      if (!patchJson.ok) {
+      const patchJson = (await patchRes.json().catch(() => ({}))) as { ok?: boolean };
+      if (!patchRes.ok || !patchJson.ok) {
         setErrorMessage(MESSENGER_CALL_USER_MSG.groupCancelFailed);
         return;
       }
@@ -633,20 +636,17 @@ export function useCommunityMessengerGroupCall(args: Props) {
     setBusy("call-end");
     try {
       const joinedOthers = joinedParticipants.length;
-      const patchJson =
-        joinedOthers > 0
-          ? await callEngineActions.leave({
-              callId: sessionId,
-              init: { durationSeconds: elapsedSeconds },
-              source: "group_call_leave",
-            })
-          : await callEngineActions.patch({
-              callId: sessionId,
-              action: "end",
-              init: { durationSeconds: elapsedSeconds },
-              source: "group_call_end",
-            });
-      if (!patchJson.ok) {
+      const action = joinedOthers > 0 ? "leave" : "end";
+      const patchRes = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action,
+          durationSeconds: elapsedSeconds,
+        }),
+      });
+      const patchJson = (await patchRes.json().catch(() => ({}))) as { ok?: boolean };
+      if (!patchRes.ok || !patchJson.ok) {
         setErrorMessage(MESSENGER_CALL_USER_MSG.groupEndFailed);
         return;
       }

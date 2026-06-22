@@ -133,7 +133,7 @@ export function CommunityMessengerCallPeerDetailPanel({
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col">
-      <header className="flex shrink-0 items-center justify-between px-2 pb-2 pt-[max(8px,env(safe-area-inset-top))]">
+      <header className="flex shrink-0 items-center justify-between px-2 pb-2 pt-[max(8px,var(--safe-top))]">
         <button
           type="button"
           aria-label={t("nav_back")}
@@ -214,7 +214,7 @@ export function CommunityMessengerCallPeerDetailPanel({
       </div>
 
       {hasMore ? (
-        <div className="shrink-0 border-t border-sam-border px-4 py-3 pb-[max(12px,env(safe-area-inset-bottom))]">
+        <div className="shrink-0 border-t border-sam-border px-4 py-3 pb-[max(12px,var(--safe-bottom))]">
           <button
             type="button"
             onClick={() => setShowAllHistory(true)}
@@ -228,7 +228,7 @@ export function CommunityMessengerCallPeerDetailPanel({
           </button>
         </div>
       ) : (
-        <div className="shrink-0 pb-[max(12px,env(safe-area-inset-bottom))]" />
+        <div className="shrink-0 pb-[max(12px,var(--safe-bottom))]" />
       )}
     </div>
   );

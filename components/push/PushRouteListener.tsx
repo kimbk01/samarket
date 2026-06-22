@@ -7,10 +7,7 @@ import { openLoginRequiredSheet } from "@/lib/auth/require-auth-action";
 import { runNativePendingAcceptCall } from "@/lib/community-messenger/incoming-call-accept-gateway";
 import { resolveDibayDeepLinkToAppPath } from "@/lib/platform/deep-link-routes";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
-import {
-  isAuthRequiredPushRoute,
-  resolvePushRouteFromFcmData,
-} from "@/lib/push/resolve-push-route-from-fcm-data";
+import { isAuthRequiredPushRoute } from "@/lib/push/resolve-push-route-from-fcm-data";
 import {
   clearPendingPushRoute,
   readPendingPushRoute,
@@ -21,7 +18,7 @@ import {
 } from "@/lib/push/native/push-route-native-bridge";
 import { shouldReplaceRoute } from "@/lib/push/push-route-policy";
 import { postNotificationEventOpenedRead } from "@/lib/notifications/client/notification-event-read-client";
-import { callEngineActions } from "@/lib/community-messenger/call-engine";
+import { prepareMessengerPushRoomEntry } from "@/lib/community-messenger/room/cm-room-push-entry-warm";
 
 const ROUTE_DEDUPE_MS = 2_000;
 const NOTIFICATION_DEDUPE_MS = 60_000;
@@ -103,7 +100,7 @@ export function PushRouteListener() {
     if (!isCapacitorNativePlatform()) return;
 
     const navigate = (rawPath: string, notificationId?: string) => {
-      const path = rawPath.trim();
+      const path = prepareMessengerPushRoomEntry(rawPath.trim());
       if (!path.startsWith("/")) return;
       if (shouldIgnoreNotification(notificationId)) return;
 
@@ -146,16 +143,7 @@ export function PushRouteListener() {
         }
       }
 
-      if (isCallRoute(path) && shouldReplaceRoute(path)) {
-        const sid = readCalleeAcceptSessionIdFromPath(path);
-        if (sid) {
-          if (!callEngineActions.replaceRouteOnce(router, sid, path)) {
-            router.replace(path);
-          }
-        } else {
-          router.replace(path);
-        }
-      } else if (shouldReplaceRoute(path)) {
+      if (shouldReplaceRoute(path)) {
         router.replace(path);
       } else {
         router.push(path);
@@ -198,7 +186,6 @@ export function PushRouteListener() {
     window.addEventListener("dibay:push-route", onPushRoute);
 
     let removeAppUrlOpen: (() => void) | undefined;
-    let removePushTap: (() => void) | undefined;
     void (async () => {
       try {
         const { App } = await import("@capacitor/app");
@@ -218,34 +205,9 @@ export function PushRouteListener() {
       }
     })();
 
-    void (async () => {
-      try {
-        const { PushNotifications } = await import("@capacitor/push-notifications");
-        const sub = await PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
-          const data = action.notification?.data as Record<string, string | undefined> | undefined;
-          const notificationId = action.notification?.id?.trim() || undefined;
-          if (!data) return;
-          const path = resolvePushRouteFromFcmData(data);
-          if (!path) return;
-          console.info("[push-route] notification_tap_received", {
-            path,
-            notificationId: notificationId ?? null,
-            via: "capacitor_push_action",
-          });
-          navigate(path, notificationId);
-        });
-        removePushTap = () => {
-          void sub.remove();
-        };
-      } catch {
-        /* Capacitor PushNotifications plugin unavailable */
-      }
-    })();
-
     return () => {
       window.removeEventListener("dibay:push-route", onPushRoute);
       removeAppUrlOpen?.();
-      removePushTap?.();
     };
   }, [router]);
 

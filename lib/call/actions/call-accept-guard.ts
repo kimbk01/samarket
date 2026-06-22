@@ -1,6 +1,7 @@
 "use client";
 
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
+import { patchCommunityMessengerCallSession } from "@/lib/call/call-actions";
 import { logDibayCallFlow } from "@/lib/call/logging/call-flow-log";
 import { prepareNativeCallAccept } from "@/lib/call/native/native-call-service";
 import { callPermissionGate } from "@/lib/call/permissions/call-permission-gate";
@@ -12,7 +13,6 @@ import {
 } from "@/lib/community-messenger/incoming-call-action-guard";
 import { setDibayCallSessionPhase } from "@/lib/community-messenger/incoming-call-state";
 import { dibayCallSealTerminal } from "@/lib/community-messenger/call-lifecycle";
-import { callEngineActions } from "@/lib/community-messenger/call-engine";
 
 export type CallAcceptGuardRouter = {
   replace: (href: string) => void;
@@ -99,16 +99,12 @@ export async function runCallAcceptGuard(input: CallAcceptGuardInput): Promise<C
 
     logDibayCallFlow("web_accept_start", { sessionId: sid, callId: sid, source: input.source });
     patchAcceptInvocationCount += 1;
-    const patched = await callEngineActions.acceptIncoming({
-      callId: sid,
-      source: input.source,
-      debugContext: {
-        sessionStatus: s.status,
-        isInitiator: s.isMineInitiator,
-        endedReason: s.endedReason ?? null,
-      },
+    const patched = await patchCommunityMessengerCallSession(sid, "accept", undefined, {
+      sessionStatus: s.status,
+      isInitiator: s.isMineInitiator,
+      endedReason: s.endedReason ?? null,
     });
-    if (!patched.ok) {
+    if (!patched.ok || !patched.session) {
       setDibayCallSessionPhase(sid, "incoming");
       return { ok: false, sessionId: sid, reason: "patch_failed", permission };
     }
@@ -124,7 +120,7 @@ export async function runCallAcceptGuard(input: CallAcceptGuardInput): Promise<C
       input.router.replace(href);
     }
 
-    return { ok: true, sessionId: sid, session: s, permission };
+    return { ok: true, sessionId: sid, session: patched.session, permission };
   } catch {
     setDibayCallSessionPhase(sid, "incoming");
     return { ok: false, sessionId: sid, reason: "exception" };
@@ -142,10 +138,5 @@ export async function cancelIncomingCallForPermission(
   if (!sid) return;
   dibayCallSealTerminal(sid);
   logDibayCallFlow("incoming_accept_blocked_permission", { sessionId: sid, callId: sid, reason });
-  await callEngineActions.patch({
-    callId: sid,
-    action: "missed",
-    init: { clientEndedReason: reason },
-    source: "call_accept_guard_permission",
-  });
+  await patchCommunityMessengerCallSession(sid, "missed", { clientEndedReason: reason });
 }

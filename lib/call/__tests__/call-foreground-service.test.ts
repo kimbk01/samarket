@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { endNativeCallService } from "@/lib/call/native/native-call-service";
 import { runCallEndGuardFromAppSwipe } from "@/lib/call/actions/call-end-guard";
 
-vi.mock("@/lib/community-messenger/call-http-actions", () => ({
+vi.mock("@/lib/call/call-actions", () => ({
   patchCommunityMessengerCallSession: vi.fn(async () => ({ ok: true })),
 }));
 
@@ -15,25 +15,20 @@ vi.mock("@/lib/call/native/native-call-service", () => ({
 
 vi.mock("@/lib/community-messenger/call-lifecycle", () => ({
   dibayCallSealTerminal: vi.fn(),
-  dibayIncomingLaneStopRing: vi.fn(),
 }));
-
-import { resetCallEngineForTest } from "@/lib/community-messenger/call-engine";
-import { patchCommunityMessengerCallSession } from "@/lib/community-messenger/call-http-actions";
 
 describe("call-end-guard swipe", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    resetCallEngineForTest();
   });
 
   it("still supports explicit swipe end patch when invoked", async () => {
+    const { patchCommunityMessengerCallSession } = await import("@/lib/call/call-actions");
     await runCallEndGuardFromAppSwipe("call-swipe-1", "app_swipe");
     expect(patchCommunityMessengerCallSession).toHaveBeenCalledWith(
       "call-swipe-1",
       "end",
       expect.objectContaining({ clientEndedReason: "app_swipe" }),
-      undefined,
     );
     expect(endNativeCallService).not.toHaveBeenCalled();
   });

@@ -37,32 +37,10 @@ export function syncDibayCallConsumedToNative(
   const sid = sessionId.trim();
   if (!sid) return;
   void (async () => {
-    const ref = await getNativeIncomingCallPlugin();
-    const plugin = ref?.plugin;
+    const plugin = await getNativeIncomingCallPlugin();
     if (!plugin?.markCallConsumed) return;
     try {
       await plugin.markCallConsumed({ sessionId: sid, reason });
-    } catch {
-      /* best-effort */
-    }
-  })();
-}
-
-/** Poll·hydrate 수신 — FCM 없이 Web 이 ringing 을 먼저 알아도 native OS 벨 시작. */
-export function startNativeIncomingRingtoneFireAndForget(sessionId: string): void {
-  const sid = sessionId.trim();
-  if (!sid) return;
-  const plugin = getSyncNativeIncomingCallPlugin();
-  if (plugin?.startIncomingRingtone) {
-    void plugin.startIncomingRingtone({ sessionId: sid }).catch(() => {});
-    return;
-  }
-  void (async () => {
-    const ref = await getNativeIncomingCallPlugin();
-    const asyncPlugin = ref?.plugin;
-    if (!asyncPlugin?.startIncomingRingtone) return;
-    try {
-      await asyncPlugin.startIncomingRingtone({ sessionId: sid });
     } catch {
       /* best-effort */
     }
@@ -78,8 +56,7 @@ export function stopNativeIncomingRingtoneFireAndForget(sessionId?: string | nul
     return;
   }
   void (async () => {
-    const ref = await getNativeIncomingCallPlugin();
-    const asyncPlugin = ref?.plugin;
+    const asyncPlugin = await getNativeIncomingCallPlugin();
     if (!asyncPlugin?.stopIncomingRingtone) return;
     try {
       await asyncPlugin.stopIncomingRingtone(sid ? { sessionId: sid } : {});
@@ -89,12 +66,25 @@ export function stopNativeIncomingRingtoneFireAndForget(sessionId?: string | nul
   })();
 }
 
+/** Realtime/direct_ringing — FCM ring 전 Web 세션에서 native OS ring 시작. */
+export function startNativeIncomingRingtoneFireAndForget(
+  sessionId: string,
+  callKind: "voice" | "video"
+): void {
+  const sid = sessionId.trim();
+  if (!sid) return;
+  const plugin = getSyncNativeIncomingCallPlugin();
+  if (plugin?.startIncomingRingtone) {
+    void plugin.startIncomingRingtone({ sessionId: sid, callType: callKind }).catch(() => {});
+    return;
+  }
+}
+
 /** Native tombstone → Web in-memory consumed (no native re-sync). */
 export async function hydrateDibayCallConsumedFromNative(
   hardClearedAt?: Map<string, number>
 ): Promise<number> {
-  const ref = await getNativeIncomingCallPlugin();
-  const plugin = ref?.plugin;
+  const plugin = await getNativeIncomingCallPlugin();
   if (!plugin?.listConsumedCallIds) return 0;
   try {
     const result = await plugin.listConsumedCallIds();
@@ -125,8 +115,7 @@ export async function isCallConsumedIncludingNative(sessionId: string): Promise<
   const sid = sessionId.trim();
   if (!sid) return false;
   if (isDibayCallConsumed(sid)) return true;
-  const ref = await getNativeIncomingCallPlugin();
-  const plugin = ref?.plugin;
+  const plugin = await getNativeIncomingCallPlugin();
   if (!plugin?.isCallConsumed) return false;
   try {
     const result = await plugin.isCallConsumed({ sessionId: sid });
@@ -150,8 +139,7 @@ export type PendingTerminalEvent = { sessionId: string; status: string };
 
 /** Drain native terminal queue into Web handlers (backup when inject missed React mount). */
 export async function drainPendingTerminalEventsFromNative(): Promise<PendingTerminalEvent[]> {
-  const ref = await getNativeIncomingCallPlugin();
-  const plugin = ref?.plugin;
+  const plugin = await getNativeIncomingCallPlugin();
   if (!plugin?.drainPendingTerminalEvents) return [];
   try {
     const result = await plugin.drainPendingTerminalEvents();

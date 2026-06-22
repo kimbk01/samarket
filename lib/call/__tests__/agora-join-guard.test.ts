@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearAgoraJoinGuard,
   hasAgoraJoinCompleted,
-  joinAgoraChannelSingleFlight,
+  joinCommunityMessengerAgoraChannelOnce,
   resetAgoraJoinGuardForTests,
 } from "@/lib/call/actions/agora-join-guard";
 
@@ -20,7 +20,7 @@ describe("agora join guard", () => {
   });
 
   it("joins once per callId", async () => {
-    const first = await joinAgoraChannelSingleFlight("call-1", {
+    const first = await joinCommunityMessengerAgoraChannelOnce("call-1", {
       client: {} as never,
       appId: "app",
       channelName: "ch",
@@ -30,7 +30,7 @@ describe("agora join guard", () => {
     expect(first).toEqual({ ok: true });
     expect(hasAgoraJoinCompleted("call-1")).toBe(true);
 
-    const second = await joinAgoraChannelSingleFlight("call-1", {
+    const second = await joinCommunityMessengerAgoraChannelOnce("call-1", {
       client: {} as never,
       appId: "app",
       channelName: "ch",
@@ -41,7 +41,7 @@ describe("agora join guard", () => {
   });
 
   it("clearAgoraJoinGuard allows rejoin", async () => {
-    await joinAgoraChannelSingleFlight("call-2", {
+    await joinCommunityMessengerAgoraChannelOnce("call-2", {
       client: {} as never,
       appId: "app",
       channelName: "ch",

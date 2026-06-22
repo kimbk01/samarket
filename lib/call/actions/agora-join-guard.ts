@@ -34,7 +34,7 @@ export function hasAgoraJoinCompleted(callId: string): boolean {
 /**
  * callId 기준 joinChannel 단일 비행 — 중복 시 agora_join_duplicate_blocked.
  */
-export async function joinAgoraChannelSingleFlight(
+export async function joinCommunityMessengerAgoraChannelOnce(
   callId: string,
   args: JoinArgs,
   meta?: { callKind?: CommunityMessengerCallKind },

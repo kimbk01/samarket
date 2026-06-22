@@ -56,7 +56,7 @@ export function resolvePreJoinVideoPreviewStream(args: {
   return held;
 }
 
-/** 발신 ringing — PiP-first: self 는 보조 PiP, 메인은 peer hero (main full 금지) */
+/** 발신 ringing — Agora 대신 HTML 카메라 미리보기만 쓴다 */
 export function shouldShowOutgoingRingCameraPreview(args: {
   callKind: CommunityMessengerCallKind;
   sessionStatus: CommunityMessengerCallSessionStatus;
@@ -65,19 +65,6 @@ export function shouldShowOutgoingRingCameraPreview(args: {
   previewStream?: MediaStream | null;
 }): boolean {
   if (args.callKind !== "video" || args.sessionStatus !== "ringing" || !args.isInitiator) {
-    return false;
-  }
-  return false;
-}
-
-/** 수신 ringing — 보조 PiP 에 self HTML 미리보기 */
-export function shouldShowIncomingRingCameraPreview(args: {
-  callKind: CommunityMessengerCallKind;
-  sessionStatus: CommunityMessengerCallSessionStatus;
-  isInitiator: boolean;
-  previewStream?: MediaStream | null;
-}): boolean {
-  if (args.callKind !== "video" || args.sessionStatus !== "ringing" || args.isInitiator) {
     return false;
   }
   const stream = args.previewStream ?? peekPrimedCommunityMessengerDeviceStream("video");
