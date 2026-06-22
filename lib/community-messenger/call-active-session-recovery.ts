@@ -40,11 +40,11 @@ export function isTerminalCallRecoveryStatus(status: string | null | undefined):
   return TERMINAL_RECOVERY_STATUSES.has(st);
 }
 
-const LIVE_RECOVERY_STATUSES = new Set(["ringing", "active"]);
-const RINGING_RECOVERY_STALE_MS = 120_000;
+/** 앱 부팅·새로고침 복구는 연결된 `active` 통화만 — `ringing` 은 수신 배너·발신 다이얼이 담당 */
+const RECOVERABLE_CALL_STATUSES = new Set(["active"]);
 
 /**
- * live(ringing|active) 1:1 세션만 복구 대상 session id 반환. 그 외 null.
+ * 복구 라우팅 대상 `active` 1:1 direct 세션 id. `ringing`·종료 상태는 null.
  */
 export function resolveActiveCallRecoveryTarget(
   session: ActiveCallRecoverySession | null | undefined,
@@ -54,31 +54,28 @@ export function resolveActiveCallRecoveryTarget(
   const sid = session?.id?.trim();
   if (!sid) return null;
   const status = session?.status?.trim().toLowerCase() ?? "";
-  if (!LIVE_RECOVERY_STATUSES.has(status)) return null;
+  if (!RECOVERABLE_CALL_STATUSES.has(status)) return null;
   if (isTerminalCallRecoveryStatus(status)) return null;
   if (session?.sessionMode && session.sessionMode !== "direct") return null;
   return sid;
 }
 
-function toMs(iso: string | null | undefined): number | null {
-  const raw = (iso ?? "").trim();
-  if (!raw) return null;
-  const ms = new Date(raw).getTime();
-  return Number.isFinite(ms) ? ms : null;
+export function isRingingRecoveryBlocked(
+  session: ActiveCallRecoverySession | null | undefined,
+): boolean {
+  return session?.status?.trim().toLowerCase() === "ringing";
 }
 
 export function isRecoverySessionStale(
   session: ActiveCallRecoverySession | null | undefined,
-  nowMs = Date.now(),
+  _nowMs = Date.now(),
 ): boolean {
   if (!session) return true;
   const status = session.status?.trim().toLowerCase() ?? "";
-  if (!LIVE_RECOVERY_STATUSES.has(status)) return true;
+  if (isRingingRecoveryBlocked(session)) return true;
+  if (!RECOVERABLE_CALL_STATUSES.has(status)) return true;
   if (isTerminalCallRecoveryStatus(status)) return true;
-  if (status !== "ringing") return false;
-  const startedAtMs = toMs(session.startedAt);
-  if (startedAtMs == null) return false;
-  return nowMs - startedAtMs > RINGING_RECOVERY_STALE_MS;
+  return false;
 }
 
 export function readActiveCallRecoveryLock(): { sessionId: string; at: number } | null {

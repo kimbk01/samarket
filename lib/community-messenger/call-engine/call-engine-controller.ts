@@ -247,6 +247,16 @@ function isTerminalSignalBlocked(callId: string): boolean {
   return isCallEngineTerminalState(phase);
 }
 
+/** 링 타임아웃 `missed` — 수락·조인·연결 중에는 절대 발화하지 않음 */
+function isMissedTimeoutBlocked(callId: string): boolean {
+  const sid = callId.trim();
+  if (!sid) return true;
+  if (isCallEngineTerminalConsumed(sid)) return true;
+  const phase = getCallEngineState(sid);
+  if (isCallEngineTerminalState(phase)) return true;
+  return phase === "accepting" || phase === "joining" || phase === "connected";
+}
+
 /** 수락 — terminal latch 만 차단. optimistic terminal phase 는 PATCH 전 허용하지 않음 */
 function isAcceptSignalBlocked(callId: string): boolean {
   const sid = callId.trim();
@@ -288,7 +298,7 @@ export function scheduleCallEngineMissedTimeouts(args: {
     if (s.sessionMode !== "direct" || s.status !== "ringing" || s.isMineInitiator) continue;
     const startMs = s.startedAt ? new Date(s.startedAt).getTime() : NaN;
     if (!Number.isFinite(startMs)) continue;
-    if (isTerminalSignalBlocked(s.id)) continue;
+    if (isMissedTimeoutBlocked(s.id)) continue;
     wanted.set(s.id, startMs + timeoutMs);
   }
 
@@ -306,7 +316,7 @@ export function scheduleCallEngineMissedTimeouts(args: {
     const delay = Math.max(0, deadline - now);
     const timerId = window.setTimeout(() => {
       missedTimers.delete(sid);
-      if (isTerminalSignalBlocked(sid)) return;
+      if (isMissedTimeoutBlocked(sid)) return;
       void dispatchCallEngineSignal({
         type: "user_missed",
         callId: sid,
@@ -354,6 +364,8 @@ async function handleUserAccept(signal: Extract<CallEngineSignal, { type: "user_
     return { ok: false, sessionId: sid, reason: "terminal_consumed" };
   }
 
+  clearMissedTimer(sid);
+
   logAcceptPipeline("accept_click", {
     callId: sid,
     phase: getCallEngineState(sid),
@@ -364,11 +376,7 @@ async function handleUserAccept(signal: Extract<CallEngineSignal, { type: "user_
 
   const liveCallId = getActiveCallSessionCallId();
   if (liveCallId && liveCallId !== sid) {
-    if (isCallEngineTerminalConsumed(liveCallId)) {
-      await hardClearActiveCallSession(liveCallId, "stale_before_accept");
-    } else {
-      return { ok: false, sessionId: sid, reason: "duplicate_accept_blocked" };
-    }
+    await hardClearActiveCallSession(liveCallId, "stale_before_accept");
   }
 
   stopCallEngineIncomingRingtone(sid, "accept_pressed_immediate");

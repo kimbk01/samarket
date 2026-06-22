@@ -845,6 +845,49 @@ async function getUserLiveDirectCallSessionId(
   return id;
 }
 
+type LiveSessionParticipantRow = {
+  id?: string;
+  status?: string;
+  started_at?: string | null;
+  initiator_user_id?: string | null;
+  recipient_user_id?: string | null;
+};
+
+/**
+ * 수신 목록·busy 자동거절에 쓸 live 세션 — 본인 발신 `ringing` 은 수신 차단에 포함하지 않는다.
+ */
+async function getViewerIncomingBlockingLiveSessionId(
+  sb: SupabaseLike,
+  userId: string,
+): Promise<string | null> {
+  const u = trimText(userId);
+  if (!u) return null;
+  const { data } = await (sb as any)
+    .from("community_messenger_call_sessions")
+    .select("id, status, started_at, initiator_user_id, recipient_user_id")
+    .eq("session_mode", "direct")
+    .or(`initiator_user_id.eq.${u},recipient_user_id.eq.${u}`)
+    .in("status", ["ringing", "active"])
+    .order("created_at", { ascending: false })
+    .limit(10);
+  const rows = (data ?? []) as LiveSessionParticipantRow[];
+  const policy = await getMessengerCallAdminPolicyCached();
+  for (const row of rows) {
+    const id = trimText(row.id ?? "");
+    if (!id) continue;
+    const status = trimText(row.status);
+    if (status === "active") return id;
+    if (status !== "ringing") continue;
+    if (isStaleRingingRow({ status: "ringing", started_at: row.started_at ?? null }, policy)) {
+      await terminalStaleRingingDirectSessionsForUser(sb, u, policy).catch(() => 0);
+      continue;
+    }
+    if (messengerUserIdsEqual(row.initiator_user_id, u)) continue;
+    if (messengerUserIdsEqual(row.recipient_user_id, u)) return id;
+  }
+  return null;
+}
+
 /** 방 단위 live(ringing|active) direct 세션 — fresh 발신 전 정리·검증용 */
 async function getLiveDirectCallSessionIdInRoom(sb: SupabaseLike, roomId: string): Promise<string | null> {
   const rid = trimText(roomId);
@@ -998,7 +1041,27 @@ async function filterDirectIncomingRowsForPolicy(
 ): Promise<CallSessionRow[]> {
   if (!rows.length) return [];
   await reconcileUserLiveCallSessions(userId, "incoming_policy");
-  const viewerLiveSessionId = await getUserLiveDirectCallSessionId(sb, userId, "live");
+  let viewerLiveSessionId = await getViewerIncomingBlockingLiveSessionId(sb, userId);
+  if (viewerLiveSessionId && rows.some((row) => row.id !== viewerLiveSessionId)) {
+    const { data: blockingRow } = await (sb as any)
+      .from("community_messenger_call_sessions")
+      .select("id, status, initiator_user_id, recipient_user_id")
+      .eq("id", viewerLiveSessionId)
+      .maybeSingle();
+    const blocking = (blockingRow ?? null) as CallSessionRow | null;
+    if (blocking && trimText(blocking.status) === "ringing") {
+      const action: "cancel" | "missed" = messengerUserIdsEqual(blocking.initiator_user_id, userId)
+        ? "cancel"
+        : "missed";
+      await updateCommunityMessengerCallSession({
+        userId,
+        sessionId: viewerLiveSessionId,
+        action,
+        clientEndedReason: "incoming_policy_superseded",
+      }).catch(() => {});
+      viewerLiveSessionId = await getViewerIncomingBlockingLiveSessionId(sb, userId);
+    }
+  }
   if (viewerLiveSessionId) {
     for (const row of rows) {
       if (row.id === viewerLiveSessionId) continue;
@@ -18450,16 +18513,49 @@ export async function updateCommunityMessengerCallSession(input: {
           updatePayload.caller_last_heartbeat_at = hbSeed;
           updatePayload.callee_last_heartbeat_at = hbSeed;
         }
-        const result = await (sb as any)
+        const currentStatus = trimText(session.status);
+        let updateBuilder = (sb as any)
           .from("community_messenger_call_sessions")
           .update(updatePayload)
-          .eq("id", sessionId)
+          .eq("id", sessionId);
+        if (
+          (input.action === "accept" || input.action === "reject" || input.action === "missed") &&
+          currentStatus === "ringing"
+        ) {
+          updateBuilder = updateBuilder.eq("status", "ringing");
+        }
+        const result = await updateBuilder
           .select(
             "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
           )
-          .single();
+          .maybeSingle();
         updated = (result.data as CallSessionRow | null) ?? null;
         error = result.error;
+        if (!error && !updated) {
+          const { data: freshRow } = await (sb as any)
+            .from("community_messenger_call_sessions")
+            .select(
+              "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
+            )
+            .eq("id", sessionId)
+            .maybeSingle();
+          const fresh = (freshRow ?? null) as CallSessionRow | null;
+          if (fresh) {
+            const freshStatus = trimText(fresh.status);
+            if (
+              input.action === "accept" &&
+              freshStatus === "active" &&
+              messengerUserIdsEqual(fresh.recipient_user_id, input.userId)
+            ) {
+              updated = fresh;
+            } else if (
+              (input.action === "missed" && freshStatus === "missed") ||
+              (input.action === "reject" && freshStatus === "rejected")
+            ) {
+              updated = fresh;
+            }
+          }
+        }
       }
       if (!error && updated) {
         const participantStatus =

@@ -10,7 +10,7 @@ import {
 } from "@/lib/community-messenger/call-active-session-recovery";
 
 describe("call-active-session-recovery", () => {
-  it("recovers live direct sessions (ringing|active)", () => {
+  it("recovers active direct sessions only (not ringing)", () => {
     expect(
       resolveActiveCallRecoveryTarget(
         { id: "s1", status: "active", sessionMode: "direct" },
@@ -22,7 +22,7 @@ describe("call-active-session-recovery", () => {
         { id: "s1", status: "ringing", sessionMode: "direct" },
         "/market"
       )
-    ).toBe("s1");
+    ).toBeNull();
     expect(resolveActiveCallRecoveryTarget({ id: "s1", status: "ringing", sessionMode: "group" }, "/")).toBeNull();
     expect(resolveActiveCallRecoveryTarget({ id: "s1", status: "active", sessionMode: "group" }, "/")).toBeNull();
     expect(resolveActiveCallRecoveryTarget({ id: "s1", status: "active" }, "/community-messenger/calls/s1")).toBeNull();
@@ -35,7 +35,7 @@ describe("call-active-session-recovery", () => {
     }
   });
 
-  it("marks stale ringing recovery session as stale by TTL", () => {
+  it("treats ringing sessions as non-recoverable", () => {
     const now = Date.now();
     const staleStartedAt = new Date(now - 121_000).toISOString();
     expect(
@@ -47,6 +47,12 @@ describe("call-active-session-recovery", () => {
     expect(
       isRecoverySessionStale(
         { id: "s-fresh", status: "ringing", sessionMode: "direct", startedAt: new Date(now - 5_000).toISOString() },
+        now,
+      ),
+    ).toBe(true);
+    expect(
+      isRecoverySessionStale(
+        { id: "s-active", status: "active", sessionMode: "direct", startedAt: new Date(now - 5_000).toISOString() },
         now,
       ),
     ).toBe(false);

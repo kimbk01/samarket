@@ -16,6 +16,7 @@ import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 import {
   fetchActiveDirectCallSessionForRecovery,
   isRecoverySessionStale,
+  isRingingRecoveryBlocked,
   isTerminalCallRecoveryStatus,
   readTerminalCallRecoverySuppress,
   resolveActiveCallRecoveryTarget,
@@ -86,6 +87,7 @@ export function CallActiveSessionRecoveryHost() {
           ? (navigationSeed.session?.status?.trim().toLowerCase() ?? null)
           : null;
       const consumedReason = readCallConsumedReason(targetSid);
+      const ringingBlocked = isRingingRecoveryBlocked(session ?? null);
       const stale = isRecoverySessionStale(session ?? null);
       const validPeer = Boolean(session?.peerUserId?.trim());
       const belongsToViewer = Boolean(
@@ -102,6 +104,7 @@ export function CallActiveSessionRecoveryHost() {
       const allowed =
         !terminalSuppressed &&
         !navigationSeedTerminal &&
+        !ringingBlocked &&
         !stale &&
         routeAllowed &&
         !isTerminalCallRecoveryStatus(status) &&
@@ -117,6 +120,8 @@ export function CallActiveSessionRecoveryHost() {
         allowed,
         reason: allowed
           ? "route"
+          : ringingBlocked
+            ? "ringing_not_recoverable"
           : terminalSuppressed
             ? "terminal_suppressed"
             : navigationSeedTerminal
@@ -193,7 +198,7 @@ export function CallActiveSessionRecoveryHost() {
             });
             const nativeSession = await fetchCallSessionForResume(nativeCallId);
             const nativeStatus = nativeSession?.status?.trim().toLowerCase() ?? "";
-            if (nativeSession && !isTerminalCallRecoveryStatus(nativeStatus)) {
+            if (nativeSession && nativeStatus === "active" && !isTerminalCallRecoveryStatus(nativeStatus)) {
               appendDibayCallQaLog({
                 step: "active_call_resume_found",
                 callId: nativeCallId,
@@ -218,6 +223,8 @@ export function CallActiveSessionRecoveryHost() {
             }
             if (nativeStatus && isTerminalCallRecoveryStatus(nativeStatus)) {
               await hardClearActiveCallSession(nativeCallId, "native_stale_terminal");
+            } else if (nativeStatus === "ringing") {
+              await hardClearActiveCallSession(nativeCallId, "native_ringing_not_recoverable");
             }
           }
         }
