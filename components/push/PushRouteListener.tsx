@@ -7,7 +7,7 @@ import { openLoginRequiredSheet } from "@/lib/auth/require-auth-action";
 import { runNativePendingAcceptCall } from "@/lib/community-messenger/incoming-call-accept-gateway";
 import { resolveDibayDeepLinkToAppPath } from "@/lib/platform/deep-link-routes";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
-import { isAuthRequiredPushRoute } from "@/lib/push/resolve-push-route-from-fcm-data";
+import { isAuthRequiredPushRoute, resolvePushRouteFromFcmData, type FcmRouteData } from "@/lib/push/resolve-push-route-from-fcm-data";
 import {
   clearPendingPushRoute,
   readPendingPushRoute,
@@ -46,6 +46,16 @@ type PushRouteDetail = {
   path?: string;
   notificationId?: string;
 };
+
+function normalizePushData(data: unknown): FcmRouteData {
+  if (!data || typeof data !== "object") return {};
+  const out: FcmRouteData = {};
+  for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+    if (typeof value === "string") out[key] = value;
+    else if (value != null) out[key] = String(value);
+  }
+  return out;
+}
 
 function readNotificationDedupe(): Map<string, number> {
   if (typeof window === "undefined") return new Map();
@@ -186,6 +196,7 @@ export function PushRouteListener() {
     window.addEventListener("dibay:push-route", onPushRoute);
 
     let removeAppUrlOpen: (() => void) | undefined;
+    let removePushAction: (() => void) | undefined;
     void (async () => {
       try {
         const { App } = await import("@capacitor/app");
@@ -205,9 +216,29 @@ export function PushRouteListener() {
       }
     })();
 
+    void (async () => {
+      try {
+        const { PushNotifications } = await import("@capacitor/push-notifications");
+        const sub = await PushNotifications.addListener("pushNotificationActionPerformed", (event) => {
+          const data = normalizePushData(event.notification?.data);
+          const path = resolvePushRouteFromFcmData(data);
+          if (!path) return;
+          const notificationId =
+            data.notificationEventId ?? data.notificationId ?? event.notification?.id ?? undefined;
+          navigate(path, notificationId);
+        });
+        removePushAction = () => {
+          void sub.remove();
+        };
+      } catch {
+        /* Capacitor PushNotifications plugin unavailable */
+      }
+    })();
+
     return () => {
       window.removeEventListener("dibay:push-route", onPushRoute);
       removeAppUrlOpen?.();
+      removePushAction?.();
     };
   }, [router]);
 

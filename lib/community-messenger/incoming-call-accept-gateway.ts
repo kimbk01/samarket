@@ -17,6 +17,7 @@ import {
 import { writeCallAcceptHydratePeerFromSession } from "@/lib/community-messenger/call-accept-hydrate-peer";
 import { primeCommunityMessengerCallConnectionPrefetch } from "@/lib/community-messenger/call-connection-prefetch";
 import { unlockCommunityMessengerCallPlaybackFromUserGesture } from "@/lib/community-messenger/call-feedback-sound";
+import { callEngineActions } from "@/lib/community-messenger/call-engine";
 import { getActiveCallSessionCallId, setActiveCallSession } from "@/lib/call/active-call-session";
 import { mapSessionStatusToActiveCallPhase } from "@/lib/call/map-session-to-active-call";
 import { logDibayCall } from "@/lib/community-messenger/call-orchestrator";
@@ -73,6 +74,10 @@ function buildActiveCallAcceptHref(sessionId: string, hrefOverride?: string | nu
   const override = hrefOverride?.trim();
   if (override) return override;
   return `/community-messenger/calls/${encodeURIComponent(sessionId)}?action=accept&nativeAccept=1&mode=active`;
+}
+
+export function buildPostAcceptActiveCallHref(sessionId: string): string {
+  return `/community-messenger/calls/${encodeURIComponent(sessionId.trim())}?mode=active&nativeAccept=1`;
 }
 
 /**
@@ -135,10 +140,14 @@ export function replaceActiveIncomingCallRoute(
   if (!sid) return;
   const href = buildActiveCallAcceptHref(sid, hrefOverride);
   logDibayCall("active_route_replace", { sessionId: sid, callId: sid, href, source: source ?? "gateway" });
-  router.replace(href);
+  if (!callEngineActions.replaceRouteOnce(router, sid, href)) {
+    router.replace(href);
+  }
 }
 
 /**
+ * SSOT_CONTRACT: cm-call-accept-gateway-patch-owner runIncomingCallAccept acceptIncomingCallOnce
+ *
  * 네이티브 수락(잠금·알림) — PATCH 없이 pending 만 WebView 로 전달된 뒤 단일 gateway 가 처리.
  * native accept → pending route → acceptIncomingCallOnce → PATCH 1회 → consumed → replace 1회
  */
@@ -284,17 +293,16 @@ export async function runIncomingCallAccept(args: RunIncomingCallAcceptArgs): Pr
       return { ok: false, sessionId: sid, reason: "permission_denied" };
     }
 
-    const patched = await patchCommunityMessengerCallSession(
-      sid,
-      "accept",
-      undefined,
-      {
+    const patched = await callEngineActions.acceptIncoming({
+      callId: sid,
+      source: args.source,
+      debugContext: {
         sessionStatus: s.status,
         isInitiator: s.isMineInitiator,
         endedReason: s.endedReason ?? null,
-      }
-    );
-    if (!patched.ok || !patched.session) {
+      },
+    });
+    if (!patched.ok) {
       setDibayCallSessionPhase(sid, "incoming");
       logDibayCall("accept_failed", { sessionId: sid, callId: sid, source: args.source, reason: "patch_failed" });
       return { ok: false, sessionId: sid, reason: "patch_failed" };
@@ -307,7 +315,7 @@ export async function runIncomingCallAccept(args: RunIncomingCallAcceptArgs): Pr
     applyIncomingCallConsumedSideEffects(sid, "accepted", args.source);
     logDibayCall("accept_success", { sessionId: sid, callId: sid, source: args.source });
 
-    const updated = patched.session;
+    const updated = (await fetchCommunityMessengerCallSessionByIdClient(sid)) ?? s;
     writeCallAcceptHydratePeerFromSession(updated, "accept_patch_ok");
     /** replace 직전 active 세션 시드 — ringing seed 로 첫 paint 가 IncomingCallView 로 튀는 것 방지 (P1-1b) */
     primeCommunityMessengerCallNavigationSeed(updated.id, updated);
@@ -356,7 +364,11 @@ export async function runIncomingCallReject(args: RunIncomingCallRejectArgs): Pr
     logDibayCall("reject_patch_start", { sessionId: sid, callId: sid, source: args.source });
     dibayIncomingLaneStopRing("reject_gateway_start", sid);
     dismissAllIncomingCallNotificationsFireAndForget(sid);
-    const patched = await patchCommunityMessengerCallSession(sid, "reject");
+    const patched = await callEngineActions.patch({
+      callId: sid,
+      action: "reject",
+      source: args.source,
+    });
     if (!patched.ok) {
       logDibayCall("reject_patch_failed", { sessionId: sid, callId: sid, source: args.source });
       applyIncomingCallConsumedSideEffects(sid, "declined", args.source);

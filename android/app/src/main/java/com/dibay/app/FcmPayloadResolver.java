@@ -198,6 +198,67 @@ public final class FcmPayloadResolver {
         || "community_comment".equals(type);
   }
 
+  /** TS `notification-sound-profiles` androidChannelId 와 parity — Chat/Marketing/Orders/Calls 최소 4종+. */
+  public static String resolveNotificationChannelId(Map<String, String> data) {
+    if (data == null) return "dibay_chat_messages";
+    String category = firstNonEmpty(data.get("category"));
+    if (category != null) {
+      switch (category) {
+        case "admin_marketing_banner":
+          return "dibay_marketing";
+        case "admin_notice":
+          return "dibay_admin_notice";
+        case "order_status":
+        case "store":
+          return "dibay_orders";
+        case "delivery_status":
+          return "dibay_delivery";
+        case "trade_message":
+        case "trade_status":
+        case "trade":
+          return "dibay_trade";
+        case "community_activity":
+          return "dibay_community";
+        case "chat_message":
+        case "group_message":
+        case "chat":
+        case "group":
+          return "dibay_chat_messages";
+        case "missed_call":
+          return "dibay_calls_missed";
+        default:
+          break;
+      }
+    }
+
+    String type = resolveType(data);
+    switch (type) {
+      case "missed_call":
+        return "dibay_calls_missed";
+      case "incoming_call":
+        return "dibay_calls_incoming_v7";
+      case "trade_message":
+        return "dibay_trade";
+      case "delivery_order":
+        return "dibay_orders";
+      case "community_comment":
+        return "dibay_community";
+      case "chat_message":
+      case "group_message":
+        return "dibay_chat_messages";
+      case "notification":
+        {
+          String notificationType = firstNonEmpty(data.get("notification_type"));
+          if ("marketing".equals(notificationType)) return "dibay_marketing";
+          if ("notice".equals(notificationType)) return "dibay_admin_notice";
+          break;
+        }
+      default:
+        break;
+    }
+    return "dibay_chat_messages";
+  }
+
   private static String firstNonEmpty(String... values) {
     if (values == null) return null;
     for (String value : values) {
@@ -211,5 +272,63 @@ public final class FcmPayloadResolver {
     if ("video".equals(v)) return "video";
     if ("audio".equals(v) || "voice".equals(v)) return "audio";
     return null;
+  }
+}
+
+final class IncomingCallPayload {
+  final String callId;
+  final String roomId;
+  final String callerId;
+  final String callerName;
+  final String callerAvatarUrl;
+  final String callType;
+  final String expiresAt;
+  final String title;
+  final String body;
+  final String invalidReason;
+
+  IncomingCallPayload(
+      String callId,
+      String roomId,
+      String callerId,
+      String callerName,
+      String callerAvatarUrl,
+      String callType,
+      String expiresAt,
+      String title,
+      String body,
+      String invalidReason) {
+    this.callId = callId;
+    this.roomId = roomId;
+    this.callerId = callerId;
+    this.callerName = callerName;
+    this.callerAvatarUrl = callerAvatarUrl;
+    this.callType = callType;
+    this.expiresAt = expiresAt;
+    this.title = title;
+    this.body = body;
+    this.invalidReason = invalidReason;
+  }
+
+  static IncomingCallPayload invalid(String reason) {
+    return new IncomingCallPayload(null, null, null, null, null, null, null, null, null, reason);
+  }
+
+  boolean isValid() {
+    return invalidReason == null && callId != null && roomId != null && callerId != null && callType != null;
+  }
+
+  IncomingCallPayload withExpiresAt(String nextExpiresAt) {
+    return new IncomingCallPayload(
+        callId,
+        roomId,
+        callerId,
+        callerName,
+        callerAvatarUrl,
+        callType,
+        nextExpiresAt != null ? nextExpiresAt : expiresAt,
+        title,
+        body,
+        invalidReason);
   }
 }
