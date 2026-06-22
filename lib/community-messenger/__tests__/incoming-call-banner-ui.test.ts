@@ -20,19 +20,22 @@ describe("incoming call compact banner UI", () => {
 
   it("Global incoming host renders ForegroundIncomingCallHost with web banner SSOT", () => {
     const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
+    const basics = read("lib/community-messenger/call-phase0-basics.ts");
     expect(global).toContain("ForegroundIncomingCallHost");
-    expect(global).toContain("preferNativeAndroidForegroundIncoming: false");
+    expect(basics).toContain("CM_CALL_PHASE0_BASICS_ONLY");
+    expect(global).toContain("isCmCallPhase0BasicsOnly()");
+    expect(global).toContain("preferNativeAndroidForegroundIncoming");
+    expect(global).toContain("isCmNativeForegroundIncomingPillEnabled");
     expect(global).toContain("acceptIncomingCallOnce");
     expect(global).toContain("runIncomingCallReject");
     expect(global).not.toContain("patchCommunityMessengerCallSession");
   });
 
-  it("foreground presenter never suppresses banner for native Android foreground", () => {
-    const presenter = read("lib/community-messenger/incoming-call/foreground-incoming-presenter.ts");
-    expect(presenter).not.toContain("native_foreground_primary");
-  });
-
-  it("Android push delivery uses foreground web SSOT without native pill launcher", () => {
+  it("Phase 0 foreground uses web banner only (native pill disabled at bridge)", () => {
+    const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
+    expect(global).toContain("onForegroundIncomingUi");
+    expect(global).toContain("isCmNativeForegroundIncomingPillEnabled");
+    expect(global).toContain("dismissNativeForegroundIncomingUi");
     const delivery = read("android/app/src/main/java/com/dibay/app/IncomingCallPushDelivery.java");
     expect(delivery).toContain("incoming_call_foreground_web_ssot");
     expect(delivery).not.toContain("IncomingCallForegroundUiLauncher.showUi");
