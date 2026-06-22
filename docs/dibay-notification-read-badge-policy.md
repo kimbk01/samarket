@@ -2,7 +2,7 @@
 
 ## 1. 읽음 정의
 
-읽음의 기준은 사용자가 해당 내용을 실제로 볼 수 있는 화면에 진입했고, 최신 콘텐츠 영역이 로드되어 가려지지 않은 상태가 되었는가이다. 채팅은 route 진입만으로 읽음 처리하지 않는다.
+읽음의 기준은 사용자가 해당 내용을 실제로 볼 수 있는 화면에 진입했고, 최신 콘텐츠 영역이 로드되어 가려지지 않은 상태가 되었는가이다. 채팅은 route 진입만으로 읽음 처리하지 않는다. 커뮤니티 메신저(`/community-messenger/rooms/...`)와 거래 채팅(`/chats/...`) 모두 동일한 room visible 조건을 따른다.
 
 채팅 room read 완료 조건:
 
@@ -89,6 +89,8 @@ Telegram식으로 소리와 badge를 분리한다.
 
 `mark_read` 실패 시 `notification_events`만 먼저 read 처리하지 않는다.
 
+`notification_targets`는 Tier1 admin notice bell 보조용이며 BottomNav·app icon badge truth가 아니다.
+
 ## 6. Foreground, Background, Killed
 
 - 같은 room foreground 수신: 일반 OS 알림, 알림음, badge 증가 없음. 최신 메시지가 보이면 read cursor를 진행한다.
@@ -113,6 +115,7 @@ Incoming call ringing은 일반 badge에 포함하지 않는다. `missed_call`�
 - B가 채팅방 진입하고 최신 메시지 표시: room badge, BottomNav chat badge, app icon badge 감소
 - B가 같은 방을 열어둔 상태에서 메시지 수신: OS 알림, 소리, badge 증가 없음
 - B가 다른 방을 보고 있을 때 메시지 수신: 해당 room unread 및 badge 증가
+- B가 홈 목록에서 수동 "읽음" 처리: participant unread와 `notification_events`가 동시에 감소해야 함 (`mark_read` 성공 후 `read-thread`)
 
 거래:
 

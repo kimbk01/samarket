@@ -38,10 +38,21 @@ describe("notification badge admin policy", () => {
       { category: "chat_message", display_payload: { expired_at: "2000-01-01T00:00:00.000Z" } },
       { category: "chat_message", display_payload: { deleted_at: "2026-01-01T00:00:00.000Z" } },
       { category: "chat_message", display_payload: { mute_badge: true } },
+      { category: "chat_message", display_payload: { exclude_from_badge: true } },
+    ]);
+    const out = await countNotificationEventsBadge(sb as never, "u1");
+    expect(out.chatMessage).toBe(0);
+    expect(out.total).toBe(0);
+  });
+
+  it("includes mute_sound-only events in badge total", async () => {
+    const sb = fakeBadgeSb([
       { category: "chat_message", display_payload: { mute_sound: true } },
+      { category: "group_message", muted_snapshot: true },
     ]);
     const out = await countNotificationEventsBadge(sb as never, "u1");
     expect(out.chatMessage).toBe(1);
-    expect(out.total).toBe(1);
+    expect(out.groupMessage).toBe(1);
+    expect(out.total).toBe(2);
   });
 });

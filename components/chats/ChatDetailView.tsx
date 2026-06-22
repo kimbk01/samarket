@@ -16,6 +16,7 @@ import {
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { uploadPostImages } from "@/lib/posts/uploadPostImages";
 import { markRoomAsRead } from "@/lib/chat/markRoomAsRead";
+import { postNotificationThreadRead } from "@/lib/notifications/client/notification-event-read-client";
 import { getAppSettings } from "@/lib/app-settings";
 import { ChatProductSummary } from "./ChatProductSummary";
 import { ChatMessageList } from "./ChatMessageList";
@@ -195,6 +196,29 @@ function reconcileOptimisticMessages(prev: ChatMessage[], confirmed: ChatMessage
   return prev.filter((message) => !consumedOptimisticIds.has(message.id));
 }
 
+function tradeChatRouteMatchesRoom(pathname: string, roomId: string): boolean {
+  const rid = roomId.trim();
+  if (!rid || !pathname) return false;
+  const segments = pathname.split("/").filter(Boolean);
+  const chatsIdx = segments.indexOf("chats");
+  if (chatsIdx >= 0 && segments[chatsIdx + 1]) {
+    try {
+      return decodeURIComponent(segments[chatsIdx + 1]) === rid;
+    } catch {
+      return segments[chatsIdx + 1] === rid;
+    }
+  }
+  const chatIdx = segments.indexOf("chat");
+  if (chatIdx >= 0 && segments[chatIdx - 1] === "trade" && segments[chatIdx + 1]) {
+    try {
+      return decodeURIComponent(segments[chatIdx + 1]) === rid;
+    } catch {
+      return segments[chatIdx + 1] === rid;
+    }
+  }
+  return false;
+}
+
 export function ChatDetailView({
   room,
   currentUserId,
@@ -236,6 +260,7 @@ export function ChatDetailView({
     hasMore: boolean;
     nextCursor: { before: string; beforeCreatedAt: string } | null;
   }>({ hasMore: false, nextCursor: null });
+  const tradeRoomReadDoneRef = useRef<string | null>(null);
   const tradeEntryIntentRef = useRef<MessengerRoomEntryIntent>("default");
   const [tradeEntryForceBottom, setTradeEntryForceBottom] = useState(true);
   const integratedHistoryLoadInFlightRef = useRef(false);
@@ -1385,42 +1410,83 @@ export function ChatDetailView({
     room.chatDomain,
   ]);
 
-  // 읽음 처리: API 호출(테스트 로그인 포함) 후 상단 편지 숫자 갱신 이벤트
+  /** P0 — route 진입만으로 read 금지: bootstrap ready + 메시지 로드 + visible/active room 후 1회 */
   useEffect(() => {
+    const rid = room.id?.trim();
+    if (!rid || !currentUserId?.trim()) return;
+    if (tradeRoomReadDoneRef.current === rid) return;
+    if (!tradeChatBootstrapReady || messagesLoading) return;
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+    if (!embedded && !tradeChatRouteMatchesRoom(pathname ?? "", rid)) return;
+
+    tradeRoomReadDoneRef.current = rid;
+
     if (isChatRoom) {
-      fetch(`/api/chat/rooms/${room.id}/read`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      })
-        .then((r) => r.ok && r.json())
-        .then((data) => {
-          if (data?.ok) {
-            dispatchTradeChatUnreadUpdated({
-              source: "chat-detail-read",
-              key: `trade-room:${room.id}`,
-            });
+      void (async () => {
+        try {
+          const res = await fetch(`/api/chat/rooms/${encodeURIComponent(rid)}/read`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({}),
+          });
+          const data = res.ok ? ((await res.json()) as { ok?: boolean }) : null;
+          if (!data?.ok) {
+            tradeRoomReadDoneRef.current = null;
+            return;
           }
-        });
+          dispatchTradeChatUnreadUpdated({
+            source: "chat-detail-read",
+            key: `trade-room:${rid}`,
+          });
+          const threadOk = await postNotificationThreadRead(rid, {
+            threadType: "trade_room",
+            roomId: rid,
+            categories: ["trade_message"],
+            readReason: "chat_room_visible",
+          });
+          if (!threadOk) tradeRoomReadDoneRef.current = null;
+        } catch {
+          tradeRoomReadDoneRef.current = null;
+        }
+      })();
       return;
     }
-    markRoomAsRead(room.id).then(async (res) => {
-      /** 클라이언트 읽음 성공만으로는 통합 chat_rooms 미읽음이 남을 수 있어, 서비스 롤 API로 동기화 */
-      const data = await fetch(`/api/chat/room/${room.id}/read`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      })
-        .then((r) => r.ok && r.json())
-        .catch(() => null);
-      if (data?.ok || res.ok) {
-        dispatchTradeChatUnreadUpdated({
-          source: "chat-detail-read",
-          key: `legacy-room:${room.id}`,
-        });
+
+    void (async () => {
+      try {
+        const res = await markRoomAsRead(rid);
+        const data = await fetch(`/api/chat/room/${encodeURIComponent(rid)}/read`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        })
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null);
+        if (data?.ok || res.ok) {
+          dispatchTradeChatUnreadUpdated({
+            source: "chat-detail-read",
+            key: `legacy-room:${rid}`,
+          });
+        } else {
+          tradeRoomReadDoneRef.current = null;
+        }
+      } catch {
+        tradeRoomReadDoneRef.current = null;
       }
-    });
-  }, [room.id, currentUserId, isChatRoom]);
+    })();
+  }, [
+    room.id,
+    currentUserId,
+    isChatRoom,
+    tradeChatBootstrapReady,
+    messagesLoading,
+    pathname,
+    embedded,
+  ]);
+
+  useEffect(() => {
+    tradeRoomReadDoneRef.current = null;
+  }, [room.id]);
 
   useEffect(() => {
     if (!menuOpen) return;

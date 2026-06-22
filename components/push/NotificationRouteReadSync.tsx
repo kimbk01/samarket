@@ -7,6 +7,7 @@ import {
   postNotificationMissedCallRead,
 } from "@/lib/notifications/client/notification-event-read-client";
 import { isMessengerCallLogsSurface } from "@/lib/notifications/routing/is-messenger-call-logs-surface";
+import { isNotificationReadDeferredChatRoomPath } from "@/lib/notifications/routing/chat-room-notification-read-policy";
 
 function parseCommunityMessengerRoomId(pathname: string): string | null {
   const m = /^\/community-messenger\/rooms\/([^/?#]+)/.exec(pathname);
@@ -73,8 +74,11 @@ export function NotificationRouteReadSync() {
     }
 
     lastMissedKeyRef.current = null;
-    // Chat room notification read is intentionally deferred until the room UI
-    // proves that the latest message area is actually visible/readable.
+    if (isNotificationReadDeferredChatRoomPath(pathname)) {
+      // Chat room notification read is deferred until room UI proves visibility
+      // (`useMessengerRoomOpenMarkReadEffect` / trade ChatDetailView bootstrap-ready gate).
+      return;
+    }
   }, [pathname, searchParams]);
 
   return null;

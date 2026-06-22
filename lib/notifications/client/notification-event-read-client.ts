@@ -67,6 +67,7 @@ export async function postNotificationEventOpenedRead(
   return result.ok;
 }
 
+/** @deprecated Use postNotificationThreadRead after room mark_read succeeds. No active callers — do not reintroduce. */
 export async function postNotificationRoomRead(roomId: string): Promise<boolean> {
   const rid = roomId.trim();
   if (!rid) return false;

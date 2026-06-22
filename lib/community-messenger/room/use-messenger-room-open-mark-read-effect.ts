@@ -362,10 +362,10 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
       return typeof performance !== "undefined" ? Math.round(performance.now() - tAlign0) : 0;
     };
 
-    const readRoomNotificationEventsAfterServerRead = (
+    const readRoomNotificationEventsAfterServerRead = async (
       snap: CommunityMessengerRoomSnapshot,
       lastVisibleMessageId: string | null
-    ): boolean => {
+    ): Promise<boolean> => {
       if (notificationThreadReadDoneRef.current) return true;
       const readable = isRoomActuallyReadableState({
         roomId: id,
@@ -378,8 +378,7 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
       const visibleMessageId = lastVisibleMessageId ?? lastMarkableMessageId(roomMessagesRef.current, snap.messages);
       if (!readable.readable || !viewport || !visibleMessageId) return false;
       if (!isNearBottom(viewport) && !isLatestMessageVisibleEnoughInViewport(viewport, visibleMessageId)) return false;
-      notificationThreadReadDoneRef.current = true;
-      void postNotificationThreadRead(id, {
+      const ok = await postNotificationThreadRead(id, {
         threadType: snap.room.contextMeta?.kind === "trade" ? "trade_room" : "chat_room",
         roomId: id,
         categories: roomNotificationReadCategories(snap),
@@ -387,7 +386,8 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
         lastVisibleMessageId,
         clientVisibleAt: new Date().toISOString(),
       });
-      return true;
+      if (ok) notificationThreadReadDoneRef.current = true;
+      return ok;
     };
 
     const runImmediateOpenFlushOnce = () => {
@@ -430,7 +430,7 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
                 reason: "immediate_open_patch",
               });
             }
-            readRoomNotificationEventsAfterServerRead(snap, tailId);
+            void readRoomNotificationEventsAfterServerRead(snap, tailId);
             cmReadBadgeLog("mark_read_patch_done", { roomId: id, path: "immediate_open" });
           } else {
             cmReadBadgeLog("mark_read_patch_fail", {
@@ -626,7 +626,7 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
                 reason: "scroll_ack_patch",
               });
             }
-            const notificationReadDone = readRoomNotificationEventsAfterServerRead(
+            const notificationReadDone = await readRoomNotificationEventsAfterServerRead(
               snap,
               serverLastId ?? lastReadMessageId
             );

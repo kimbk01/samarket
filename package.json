@@ -123,6 +123,7 @@
     "verify:cm-kakao-telegram-navigation-contract": "node scripts/verify-cm-kakao-telegram-navigation-contract.mjs",
     "verify:push-dispatch-contract": "node scripts/verify-push-dispatch-contract.mjs",
     "verify:notification-p0-contract": "vitest run lib/notifications/policy/__tests__/notification-policy-profiles.test.ts lib/notifications/core/__tests__/notification-policy-p0-mapping.test.ts",
+    "verify:notification-read-badge-contract": "node scripts/verify-notification-read-badge-contract.mjs",
     "verify:push-phase1-ready": "node scripts/verify-push-phase1-ready.mjs",
     "qa:native-oauth-device": "node scripts/print-native-oauth-device-qa.mjs",
     "check": "npm run verify:bundle-budget-baseline && npm run verify:routes && npm run verify:app-boot-consent-contract && npm run verify:trade-hot-path-contract && npm run verify:store-cart-sheet-contract && npm run verify:store-payment-cod-label-contract && npm run verify:store-cart-hooks-contract && npm run verify:thumbnail-contract && npm run verify:stores-home-hub-contract && npm run verify:deploy-imports && npx tsc --noEmit && npm run lint && npm run test && npm run build && npm run check:bundle",

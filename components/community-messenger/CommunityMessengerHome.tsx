@@ -73,6 +73,7 @@ import {
   postCommunityMessengerBusEvent,
 } from "@/lib/community-messenger/multi-tab-bus";
 import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
+import { postNotificationThreadRead } from "@/lib/notifications/client/notification-event-read-client";
 import { useCommunityMessengerHomeBootstrap } from "@/lib/community-messenger/home/use-community-messenger-home-bootstrap";
 import { useTradeChatListMetaHydration } from "@/lib/community-messenger/use-trade-chat-list-meta-hydration";
 import { TRADE_CHAT_LIST_META_HYDRATE_BATCH_SIZE } from "@/lib/community-messenger/trade-chat-list/trade-chat-list-pagination";
@@ -2372,6 +2373,12 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           beforeUnread: preUnread,
           postId: tradePostId,
           productChatId: tradeProductChatId,
+        });
+        void postNotificationThreadRead(roomId, {
+          threadType: tradeMeta ? "trade_room" : "chat_room",
+          roomId,
+          categories: tradeMeta ? ["trade_message"] : ["chat_message", "group_message"],
+          readReason: "chat_room_visible",
         });
         queueMicrotask(() => requestMessengerHubBadgeResync("room_open_mark_read", { roomId }));
       } catch (err) {
