@@ -11,25 +11,6 @@ import {
 import { logCallV3 } from "@/lib/community-messenger/call-v3/call-v3-debug";
 import { exitCallV3ScreenAfterCleanup } from "@/lib/community-messenger/call-v3/call-v3-route";
 import { readCallV3Identity, readCallV3Phase, useCallV3Store } from "@/lib/community-messenger/call-v3/call-v3-store";
-import type { CallV3Direction, CallV3Phase } from "@/lib/community-messenger/call-v3/call-v3-types";
-
-const OUTGOING_SCREEN_PHASES = new Set<CallV3Phase>([
-  "creating",
-  "outgoing_ringing",
-  "joining",
-  "connected",
-]);
-const INCOMING_SCREEN_PHASES = new Set<CallV3Phase>(["accepting", "joining", "connected"]);
-
-function shouldStayOnCallV3Screen(callId: string, phase: CallV3Phase, direction: CallV3Direction | undefined): boolean {
-  if (direction === "outgoing") {
-    return OUTGOING_SCREEN_PHASES.has(phase);
-  }
-  if (direction === "incoming") {
-    return INCOMING_SCREEN_PHASES.has(phase);
-  }
-  return false;
-}
 
 type CallV3ScreenProps = {
   callId: string;
@@ -50,10 +31,6 @@ export function CallV3Screen({ callId }: CallV3ScreenProps) {
     const current = readCallV3Identity();
     const currentPhase = readCallV3Phase();
     if (currentPhase === "idle" || !current || current.callId !== callId) {
-      exitCallV3ScreenAfterCleanup(router);
-      return;
-    }
-    if (!shouldStayOnCallV3Screen(callId, currentPhase, current.direction)) {
       exitCallV3ScreenAfterCleanup(router);
     }
   }, [callId, phase, identity, router]);

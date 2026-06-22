@@ -1,10 +1,17 @@
 "use client";
 
 import { callV3FetchSession } from "@/lib/community-messenger/call-v3/call-v3-api";
+import { cleanupCallV3 } from "@/lib/community-messenger/call-v3/call-v3-cleanup";
 import { logCallV3 } from "@/lib/community-messenger/call-v3/call-v3-debug";
+import { markCallV3IncomingDismissed } from "@/lib/community-messenger/call-v3/call-v3-incoming-dismiss";
+import { exitCallV3ScreenAfterCleanup } from "@/lib/community-messenger/call-v3/call-v3-route";
+import { stopCallV3Ringtone } from "@/lib/community-messenger/call-v3/call-v3-ringtone";
 import { readCallV3Identity, readCallV3Phase, useCallV3Store } from "@/lib/community-messenger/call-v3/call-v3-store";
+import type { CallV3TerminalPhase } from "@/lib/community-messenger/call-v3/call-v3-types";
 
 const CALLER_ACTIVE_POLL_MS = 1_500;
+
+const CALLER_TERMINAL_STATUSES = new Set(["rejected", "cancelled", "canceled", "ended", "missed"]);
 
 let callerActivePollTimer: ReturnType<typeof setInterval> | null = null;
 let callerActivePollCallId: string | null = null;
@@ -17,7 +24,30 @@ export function stopCallV3CallerActivePoll(): void {
   callerActivePollCallId = null;
 }
 
-/** Outgoing caller: detect callee accept (session active) and move to joining. */
+function isCallerTerminalStatus(status: string | null | undefined): boolean {
+  return CALLER_TERMINAL_STATUSES.has((status ?? "").trim().toLowerCase());
+}
+
+function mapCallerTerminalStatus(status: string): CallV3TerminalPhase {
+  const normalized = status.trim().toLowerCase();
+  if (normalized === "rejected") return "rejected";
+  if (normalized === "missed") return "missed";
+  if (normalized === "ended") return "ended";
+  return "cancelled";
+}
+
+async function applyCallerRemoteTerminal(callId: string, status: string): Promise<void> {
+  const sid = callId.trim();
+  if (!sid || readCallV3Identity()?.callId !== sid) return;
+
+  logCallV3("remote_terminal_received", { callId: sid, status });
+  stopCallV3Ringtone("remote_terminal");
+  markCallV3IncomingDismissed(sid);
+  await cleanupCallV3(sid, mapCallerTerminalStatus(status));
+  exitCallV3ScreenAfterCleanup();
+}
+
+/** Outgoing caller: detect callee accept (active) or remote terminal (reject/cancel/end). */
 export function startCallV3CallerActivePoll(callId: string): () => void {
   const sid = callId.trim();
   if (!sid) {
@@ -36,10 +66,19 @@ export function startCallV3CallerActivePoll(callId: string): () => void {
       }
 
       const session = await callV3FetchSession(sid);
-      if (session?.status === "active") {
+      if (!session?.status) return;
+
+      if (session.status === "active") {
         logCallV3("caller_active_detected", { callId: sid });
         stopCallV3CallerActivePoll();
         useCallV3Store.getState().setPhase("joining");
+        return;
+      }
+
+      if (isCallerTerminalStatus(session.status)) {
+        logCallV3("caller_terminal_detected", { callId: sid, status: session.status });
+        stopCallV3CallerActivePoll();
+        await applyCallerRemoteTerminal(sid, session.status);
       }
     })();
   };

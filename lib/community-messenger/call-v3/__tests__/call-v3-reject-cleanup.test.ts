@@ -12,6 +12,15 @@ vi.mock("@/lib/community-messenger/call-v3/call-v3-ringtone", () => ({
   stopCallV3Ringtone: vi.fn(),
 }));
 
+vi.mock("@/lib/community-messenger/call-v3/call-v3-agora", () => ({
+  joinCallV3Agora: vi.fn(),
+  leaveCallV3Agora: vi.fn(async () => undefined),
+}));
+
+vi.mock("@/lib/community-messenger/multi-tab-bus", () => ({
+  postCommunityMessengerCallSessionTerminalBusEvent: vi.fn(),
+}));
+
 import { callV3Reject } from "@/lib/community-messenger/call-v3/call-v3-actions";
 import { resetCallV3PatchClaimsForTests } from "@/lib/community-messenger/call-v3/call-v3-patch-guard";
 import { useCallV3Store } from "@/lib/community-messenger/call-v3/call-v3-store";

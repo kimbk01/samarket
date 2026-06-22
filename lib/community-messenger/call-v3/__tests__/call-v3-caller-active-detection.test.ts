@@ -8,6 +8,16 @@ vi.mock("@/lib/community-messenger/call-v3/call-v3-api", () => ({
   callV3FetchSession: apiMocks.fetchSession,
 }));
 
+vi.mock("@/lib/community-messenger/call-v3/call-v3-agora", () => ({
+  joinCallV3Agora: vi.fn(),
+  leaveCallV3Agora: vi.fn(async () => undefined),
+}));
+
+vi.mock("@/lib/community-messenger/call-v3/call-v3-ringtone", () => ({
+  stopCallV3Ringtone: vi.fn(),
+  startCallV3Ringtone: vi.fn(),
+}));
+
 import {
   readCallV3CallerActivePollCallIdForTests,
   resetCallV3CallerActivePollForTests,
@@ -68,5 +78,38 @@ describe("call-v3-caller-active-detection", () => {
 
     expect(apiMocks.fetchSession).not.toHaveBeenCalled();
     expect(useCallV3Store.getState().phase).toBe("idle");
+  });
+
+  it("caller detects remote reject and cleans up outgoing screen", async () => {
+    useCallV3Store.setState({
+      phase: "outgoing_ringing",
+      identity: {
+        callId: "call-2",
+        roomId: "room-1",
+        callerUserId: "a",
+        calleeUserId: "b",
+        direction: "outgoing",
+        mediaType: "audio",
+        createdAt: "2026-06-23T00:00:00.000Z",
+      },
+      canStartNewCall: false,
+    });
+
+    apiMocks.fetchSession.mockResolvedValue({
+      id: "call-2",
+      status: "rejected",
+      roomId: "room-1",
+      initiatorUserId: "a",
+      isMineInitiator: true,
+    });
+
+    startCallV3CallerActivePoll("call-2");
+    await vi.advanceTimersByTimeAsync(0);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(useCallV3Store.getState().phase).toBe("idle");
+    expect(useCallV3Store.getState().canStartNewCall).toBe(true);
+    expect(readCallV3CallerActivePollCallIdForTests()).toBeNull();
   });
 });

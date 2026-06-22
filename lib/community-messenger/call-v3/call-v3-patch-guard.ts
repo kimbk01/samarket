@@ -38,6 +38,12 @@ export function releaseCallV3CancelPatchClaim(callId: string): void {
   cancelPatchClaimed.delete(sid);
 }
 
+export function releaseCallV3RejectPatchClaim(callId: string): void {
+  const sid = callId.trim();
+  if (!sid) return;
+  rejectPatchClaimed.delete(sid);
+}
+
 export function resetCallV3PatchClaimsForTests(): void {
   cancelPatchClaimed.clear();
   acceptPatchClaimed.clear();

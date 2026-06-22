@@ -25,7 +25,9 @@ import {
   claimCallV3CancelPatchOnce,
   claimCallV3EndPatchOnce,
   claimCallV3RejectPatchOnce,
+  releaseCallV3CancelPatchClaim,
   releaseCallV3EndPatchClaim,
+  releaseCallV3RejectPatchClaim,
 } from "@/lib/community-messenger/call-v3/call-v3-patch-guard";
 import {
   exitCallV3ScreenAfterCleanup,
@@ -46,6 +48,7 @@ import {
   callV3ReconcileBeforeCreate,
   callV3ResolveOutgoingRoomId,
 } from "@/lib/community-messenger/call-v3/call-v3-api";
+import { postCommunityMessengerCallSessionTerminalBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 
 export type CallV3OutgoingLaunchResult =
   | { ok: true; session: CommunityMessengerCallSession; roomId: string }
@@ -283,9 +286,17 @@ export async function callV3Reject(callId: string): Promise<void> {
   useCallV3Store.getState().setPhase("ending");
   const patched = await callV3PatchReject(sid);
   if (!patched.ok) {
+    releaseCallV3RejectPatchClaim(sid);
     useCallV3Store.getState().setPhase("incoming_ringing");
     return;
   }
+
+  const identity = readCallV3Identity();
+  postCommunityMessengerCallSessionTerminalBusEvent({
+    sessionId: sid,
+    roomId: identity?.roomId ?? null,
+    status: "rejected",
+  });
 
   markCallV3IncomingDismissed(sid);
   await finalizeCallV3Terminal(sid, "rejected");
@@ -377,6 +388,7 @@ export async function callV3Cancel(
 
   const patched = await callV3PatchCancel(sid);
   if (!patched.ok) {
+    releaseCallV3CancelPatchClaim(sid);
     useCallV3Store.getState().setPhase("outgoing_ringing");
     return;
   }
