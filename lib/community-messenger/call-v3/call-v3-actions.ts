@@ -299,6 +299,27 @@ export function callV3IncomingDiscovered(session: CommunityMessengerCallSession)
   startCallV3IncomingMissedTimer(callId, session.startedAt);
 }
 
+async function ensureCallV3CalleeIdentityForAccept(callId: string): Promise<CallV3Identity | null> {
+  const sid = callId.trim();
+  if (!sid) return null;
+
+  const current = readCallV3Identity();
+  if (current?.callId === sid && current.direction === "incoming") {
+    return current;
+  }
+
+  const session = await callV3FetchSession(sid);
+  if (!session || session.isMineInitiator) {
+    return null;
+  }
+
+  const identity = buildIncomingIdentity(session);
+  useCallV3Store.getState().setIdentity(identity);
+  useCallV3Store.setState({ canReceiveNewCall: false });
+  logCallV3("accept_identity_hydrated", { callId: sid, hadStoreIdentity: Boolean(current?.callId) });
+  return identity;
+}
+
 export async function callV3Accept(
   callId: string,
   router: { push: (href: string) => void; replace?: (href: string) => void }
@@ -310,20 +331,30 @@ export async function callV3Accept(
   clearCallV3MissedTimer(sid);
   stopCallV3Ringtone("accept_click");
 
+  const identity = await ensureCallV3CalleeIdentityForAccept(sid);
+  if (!identity) {
+    logCallV3("accept_identity_missing", { callId: sid });
+    return;
+  }
+
   if (!claimCallV3AcceptPatchOnce(sid)) {
     return;
   }
 
+  rememberCallV3ReturnPath();
   useCallV3Store.getState().setPhase("accepting");
+  routeToCallV3Screen(router, sid);
+
   const patched = await callV3PatchAccept(sid);
   if (!patched.ok) {
-    useCallV3Store.getState().setPhase("incoming_ringing");
+    logCallV3("accept_patch_failed_after_route", { callId: sid, error: patched.error ?? null });
+    useCallV3Store.getState().setPhase("ending");
+    await finalizeCallV3Terminal(sid, "failed", router);
     return;
   }
 
-  rememberCallV3ReturnPath();
   useCallV3Store.getState().setPhase("joining");
-  routeToCallV3Screen(router, sid);
+  await callV3EnsureAgoraJoined(sid);
 }
 
 async function completeCallV3CalleeRejectTerminal(callId: string): Promise<void> {

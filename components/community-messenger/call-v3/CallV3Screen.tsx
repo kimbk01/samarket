@@ -38,6 +38,16 @@ export function CallV3Screen({ callId }: CallV3ScreenProps) {
   useEffect(() => {
     const current = readCallV3Identity();
     const currentPhase = readCallV3Phase();
+    const keepsCallScreenMounted =
+      current?.callId === callId &&
+      (currentPhase === "accepting" ||
+        currentPhase === "joining" ||
+        currentPhase === "connected" ||
+        currentPhase === "ending" ||
+        currentPhase === "incoming_ringing");
+    if (keepsCallScreenMounted) {
+      return;
+    }
     if (currentPhase === "idle" || !current || current.callId !== callId) {
       exitCallV3ScreenAfterCleanup(router);
     }

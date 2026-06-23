@@ -106,8 +106,9 @@ describe("call-v3-view-model", () => {
 describe("call-v3-incoming-banner", () => {
   it("renders only for incoming_ringing incoming direction", () => {
     const banner = read("components/community-messenger/call-v3/CallV3IncomingBanner.tsx");
-    expect(banner).toContain('phase !== "incoming_ringing"');
-    expect(banner).toContain('identity.direction !== "incoming"');
+    expect(banner).toContain('phase === "incoming_ringing"');
+    expect(banner).toContain('identity?.direction === "incoming"');
+    expect(banner).toContain("shouldSuppressCallV3WebIncomingBanner");
     expect(banner).toContain("call-v3-incoming-banner");
     expect(banner).toContain("callV3Accept");
     expect(banner).toContain("callV3Reject");
