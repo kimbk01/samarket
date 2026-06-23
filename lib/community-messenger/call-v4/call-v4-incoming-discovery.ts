@@ -8,8 +8,10 @@ import { isCallV4TelegramLaneEnabled } from "@/lib/community-messenger/call-v4/c
 import {
   isCallV4NativeAcceptingSurface,
   shouldSuppressCallV4IncomingDiscoveredForSheet,
+  shouldSuppressCallV4WebIncomingDiscoveryForNativeForeground,
   syncCallV4NativeAcceptingSurfaceFromWindowLocation,
 } from "@/lib/community-messenger/call-v4/call-v4-incoming-surface";
+import { primeCallV4ConnectionWarm } from "@/lib/community-messenger/call-v4/call-v4-connection-warm";
 import {
   isCallV4CalleeAcceptRoute,
   readCallV4SessionIdFromNativeRoute,
@@ -55,6 +57,11 @@ export function startCallV4IncomingDiscovery(userId: string | null): () => void 
     if (!candidate?.id) return;
     const callId = candidate.id.trim();
     if (isIncomingDiscoveryDuplicateSkip(callId)) return;
+    if (shouldSuppressCallV4WebIncomingDiscoveryForNativeForeground()) {
+      primeCallV4ConnectionWarm(callId);
+      logCallV4("incoming_discovery_suppressed", { callId, reason: "native_foreground_owner" });
+      return;
+    }
     if (isCallV4NativeAcceptingSurface(callId)) {
       logCallV4("incoming_sheet_suppressed_native_accepting", { callId });
       return;

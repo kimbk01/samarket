@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CallScreen } from "@/components/messenger/call/CallScreen";
@@ -8,17 +8,29 @@ import {
   callV4Accept,
   callV4EnsureAgoraJoined,
   callV4HandleRejectRoute,
+  hydrateCallV4CalleeScreen,
   startCallV4CallerActivePoll,
 } from "@/lib/community-messenger/call-v4/call-v4-actions";
 import { callV4FetchSession } from "@/lib/community-messenger/call-v4/call-v4-api";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import { exitCallV4ScreenAfterCleanup, registerCallV4ExitRouter } from "@/lib/community-messenger/call-v4/call-v4-route";
+import type { CallV4Phase } from "@/lib/community-messenger/call-v4/call-v4-types";
 import { buildCallV4ScreenViewModel } from "@/lib/community-messenger/call-v4/call-v4-view-model";
 import { readCallV4Identity, readCallV4Phase, useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
 
 type CallV4ScreenProps = {
   callId: string;
 };
+
+const CALL_V4_SCREEN_ACTIVE_PHASES = new Set<CallV4Phase>([
+  "creating",
+  "outgoing_ringing",
+  "incoming_ringing",
+  "accepting",
+  "joining",
+  "connected",
+  "ending",
+]);
 
 export function CallV4Screen({ callId }: CallV4ScreenProps) {
   const router = useRouter();
@@ -29,6 +41,7 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
   const connectedAt = useCallV4Store((s) => s.connectedAt);
   const action = searchParams?.get("action")?.trim() ?? null;
   const source = searchParams?.get("source")?.trim() ?? null;
+  const exitGuardRef = useRef(false);
 
   useEffect(() => {
     if (!callId) return;
@@ -50,6 +63,24 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
     if (!callId || action !== "reject") return;
     void callV4HandleRejectRoute(callId, router);
   }, [action, callId, router]);
+
+  useEffect(() => {
+    if (!callId || source === "outgoing") return;
+    const current = readCallV4Identity();
+    if (current?.callId === callId) return;
+    let cancelled = false;
+    void (async () => {
+      const hydrated = await hydrateCallV4CalleeScreen(callId);
+      if (cancelled || hydrated) return;
+      const session = await callV4FetchSession(callId);
+      if (cancelled || !session?.id || session.isMineInitiator) return;
+      logCallV4("callee_screen_hydrate_retry", { callId });
+      await hydrateCallV4CalleeScreen(callId);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [callId, source]);
 
   useEffect(() => {
     if (!callId || source !== "outgoing") return;
@@ -79,23 +110,47 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
   }, [callId, source]);
 
   useEffect(() => {
+    if (!callId) return;
+    if (action === "accept") return;
+    if (source === "sheet") return;
+
     const current = readCallV4Identity();
     const currentPhase = readCallV4Phase();
-    const keepsCallScreenMounted =
-      current?.callId === callId &&
-      (currentPhase === "accepting" ||
-        currentPhase === "joining" ||
-        currentPhase === "connected" ||
-        currentPhase === "ending" ||
-        currentPhase === "incoming_ringing" ||
-        currentPhase === "outgoing_ringing" ||
-        currentPhase === "creating");
-    if (keepsCallScreenMounted) return;
-    if (action === "accept" && (currentPhase === "accepting" || currentPhase === "joining")) return;
-    if (currentPhase === "idle" || !current || current.callId !== callId) {
-      exitCallV4ScreenAfterCleanup(router);
+    const identityMatches = current?.callId === callId;
+    const activeOnRoute = identityMatches && CALL_V4_SCREEN_ACTIVE_PHASES.has(currentPhase);
+
+    if (activeOnRoute) {
+      exitGuardRef.current = false;
+      return;
     }
-  }, [action, callId, phase, identity, router]);
+
+    if (currentPhase === "joining" || currentPhase === "connected" || currentPhase === "accepting") {
+      return;
+    }
+
+    if (exitGuardRef.current) return;
+    exitGuardRef.current = true;
+
+    let cancelled = false;
+    void (async () => {
+      const hydrated = await hydrateCallV4CalleeScreen(callId);
+      if (cancelled) return;
+      const after = readCallV4Identity();
+      const afterPhase = readCallV4Phase();
+      if (after?.callId === callId && CALL_V4_SCREEN_ACTIVE_PHASES.has(afterPhase)) {
+        exitGuardRef.current = false;
+        return;
+      }
+      if (afterPhase === "idle" || !after || after.callId !== callId) {
+        logCallV4("screen_exit_stale_route", { callId, phase: afterPhase });
+        exitCallV4ScreenAfterCleanup(router);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [action, callId, phase, identity, router, source]);
 
   useEffect(() => {
     if (identity?.direction !== "outgoing") return;
@@ -144,7 +199,7 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
   }
 
   return (
-    <div data-testid="call-v4-screen" className="flex min-h-0 min-w-0 flex-1 flex-col">
+    <div data-testid="call-v4-screen" className="flex min-h-dvh flex-col bg-sam-app">
       <CallScreen vm={vm} variant="page" />
     </div>
   );

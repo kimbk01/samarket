@@ -21,6 +21,7 @@ import {
   resolveCallV4NativeAcceptingSurfaceType,
   shouldRegisterCallV4NativeAcceptingFromRoute,
   shouldSuppressCallV4IncomingDiscoveredForSheet,
+  shouldSuppressCallV4WebIncomingDiscoveryForNativeForeground,
   syncCallV4NativeAcceptingSurfaceFromWindowLocation,
 } from "@/lib/community-messenger/call-v4/call-v4-incoming-surface";
 import {
@@ -70,6 +71,11 @@ async function hydrateCallV4IncomingWake(detail: DibayFcmIncomingWakeDetail): Pr
   if (session?.status !== "ringing" || session.isMineInitiator) return;
 
   primeCallV4ConnectionWarm(callId);
+
+  if (shouldSuppressCallV4WebIncomingDiscoveryForNativeForeground()) {
+    logCallV4("incoming_wake_native_foreground_warm_only", { callId });
+    return;
+  }
 
   syncCallV4NativeAcceptingSurfaceFromWindowLocation();
   if (isCallV4NativeAcceptingSurface(callId)) {
@@ -139,8 +145,12 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
       if (callId) void callV4HandleRejectRoute(callId, router);
       return;
     }
-    if (isCallV4CalleeAcceptRoute(path) && shouldRegisterCallV4NativeAcceptingFromRoute(path)) {
-      registerCallV4NativeAcceptingFromAppPath(path);
+    if (isCallV4CalleeAcceptRoute(path)) {
+      const acceptCallId = readCallV4SessionIdFromNativeRoute(path);
+      logCallV4("route_accept_seen", { callId: acceptCallId, path });
+      if (shouldRegisterCallV4NativeAcceptingFromRoute(path)) {
+        registerCallV4NativeAcceptingFromAppPath(path);
+      }
     }
   }, [pathname, router]);
 
@@ -150,6 +160,13 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
     const onNativeRoute = (event: Event) => {
       const path = (event as CustomEvent<{ path?: string }>).detail?.path?.trim();
       if (!path) return;
+      if (isCallV4CalleeAcceptRoute(path)) {
+        logCallV4("route_accept_seen", {
+          callId: readCallV4SessionIdFromNativeRoute(path),
+          path,
+          source: "native_route_event",
+        });
+      }
       registerCallV4NativeAcceptingFromAppPath(path);
     };
 

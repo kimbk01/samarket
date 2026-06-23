@@ -96,6 +96,23 @@ async function ensureCallV4CalleeIdentity(callId: string): Promise<CallV4Identit
   return identity;
 }
 
+/** Callee call screen — hydrate store when route lands before discovery. */
+export async function hydrateCallV4CalleeScreen(callId: string): Promise<boolean> {
+  const sid = callId.trim();
+  if (!sid) return false;
+  if (readCallV4Identity()?.callId === sid) return true;
+  const session = await callV4FetchSession(sid);
+  if (!session?.id || session.isMineInitiator) return false;
+  useCallV4Store.getState().setIdentity(buildIncomingIdentity(session));
+  if (session.status === "active") {
+    useCallV4Store.getState().setPhase("joining");
+  } else if (session.status === "ringing") {
+    useCallV4Store.getState().setPhase("incoming_ringing");
+  }
+  logCallV4("callee_screen_hydrated", { callId: sid, status: session.status });
+  return true;
+}
+
 function outgoingMissingRoomMessage(): string {
   return safeTranslate(getRuntimeAppLanguage(), "cm_ui_call_outgoing_missing_room", {
     fallbackKo: "방 정보가 없어 통화를 시작할 수 없습니다.",
@@ -304,16 +321,11 @@ export async function callV4Accept(
   if (!sid) return;
   logCallV4("accept_click", { callId: sid, source: options?.source ?? null });
 
-  const { unlockCommunityMessengerCallPlaybackFromUserGesture } = await import(
-    "@/lib/community-messenger/call-feedback-sound"
-  );
-  unlockCommunityMessengerCallPlaybackFromUserGesture();
-  primeCallV4ConnectionWarm(sid);
-
   const existingIdentity = readCallV4Identity();
   const hasStoreIdentity = existingIdentity?.callId === sid;
 
   rememberCallV4ReturnPath();
+  primeCallV4ConnectionWarm(sid);
   useCallV4Store.getState().setPhase("joining");
 
   if (!options?.skipRoute) {
@@ -321,6 +333,11 @@ export async function callV4Accept(
     logCallV4("route_to_screen", { callId: sid, href });
     (router.replace ?? router.push)(href);
   }
+
+  const { unlockCommunityMessengerCallPlaybackFromUserGesture } = await import(
+    "@/lib/community-messenger/call-feedback-sound"
+  );
+  unlockCommunityMessengerCallPlaybackFromUserGesture();
 
   const identity = hasStoreIdentity ? existingIdentity! : await ensureCallV4CalleeIdentity(sid);
   if (!identity) {

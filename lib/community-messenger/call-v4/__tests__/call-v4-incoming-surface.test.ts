@@ -1,4 +1,10 @@
-import { describe, expect, it, beforeEach } from "vitest";
+import { describe, expect, it, beforeEach, vi } from "vitest";
+
+vi.mock("@/lib/platform/capacitor-native", () => ({
+  isCapacitorNativePlatform: vi.fn(() => false),
+}));
+
+import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 import {
   applyCallV4NativeIncomingSurfaceSignal,
   clearAllCallV4NativeAcceptingSurfaces,
@@ -7,6 +13,7 @@ import {
   registerCallV4NativeAcceptingSurface,
   resolveCallV4NativeAcceptingSurfaceType,
   shouldRegisterCallV4NativeAcceptingFromRoute,
+  shouldSuppressCallV4WebIncomingDiscoveryForNativeForeground,
   shouldSuppressCallV4WebIncomingSheet,
   shouldUseCallV4WebIncomingSheet,
 } from "@/lib/community-messenger/call-v4/call-v4-incoming-surface";
@@ -77,5 +84,12 @@ describe("call-v4 incoming surface", () => {
     expect(shouldRegisterCallV4NativeAcceptingFromRoute(sheetPath)).toBe(false);
     expect(resolveCallV4NativeAcceptingSurfaceType("native_accept")).toBe("native_fullscreen_accept");
     expect(resolveCallV4NativeAcceptingSurfaceType("lock_fsi")).toBe("native_locked_accept");
+  });
+
+  it("suppresses web incoming discovery on native foreground", () => {
+    vi.mocked(isCapacitorNativePlatform).mockReturnValue(false);
+    expect(shouldSuppressCallV4WebIncomingDiscoveryForNativeForeground()).toBe(false);
+    vi.mocked(isCapacitorNativePlatform).mockReturnValue(true);
+    expect(shouldSuppressCallV4WebIncomingDiscoveryForNativeForeground()).toBe(true);
   });
 });

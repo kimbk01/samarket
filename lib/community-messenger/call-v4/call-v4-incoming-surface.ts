@@ -5,6 +5,7 @@ import {
   isCallV4CalleeAcceptRoute,
   readCallV4SessionIdFromNativeRoute,
 } from "@/lib/community-messenger/call-v4/call-v4-native-route";
+import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 
 export type CallV4AppVisibility = "foreground" | "background" | "locked" | "unknown";
 
@@ -232,4 +233,11 @@ export function shouldSuppressCallV4IncomingDiscoveredForSheet(args: {
   visibilityState?: DocumentVisibilityState | string | null;
 }): { suppress: boolean; reason: CallV4IncomingSurfaceSuppressReason | null } {
   return resolveSuppressReason(args);
+}
+
+/** APK foreground — native incoming pill/activity owns UI; Web sheet must not duplicate. */
+export function shouldSuppressCallV4WebIncomingDiscoveryForNativeForeground(): boolean {
+  if (!isCapacitorNativePlatform()) return false;
+  const visibility = resolveCallV4AppVisibility();
+  return visibility !== "background" && visibility !== "locked";
 }
