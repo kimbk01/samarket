@@ -23,6 +23,13 @@ import {
 } from "@/lib/community-messenger/call-v3/call-v3-native-bridge";
 import { isDibayCallV3SafeLaneEnabled } from "@/lib/community-messenger/call-v3/call-v3-flag";
 import { startCallV3IncomingDiscovery } from "@/lib/community-messenger/call-v3/call-v3-incoming-discovery";
+import {
+  applyCallV3NativeIncomingSurfaceSignal,
+  resolveCallV3AppVisibility,
+  shouldSuppressCallV3IncomingDiscoveredForBanner,
+} from "@/lib/community-messenger/call-v3/call-v3-incoming-surface";
+import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
+import { getNativeIncomingCallPlugin } from "@/lib/push/native/push-route-native-bridge";
 import { onCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import {
   clearNativePersistedCallPendingRoute,
@@ -80,6 +87,14 @@ async function hydrateIncomingWake(detail: DibayFcmIncomingWakeDetail): Promise<
 
   const session = await callV3FetchSession(callId);
   if (session?.status === "ringing" && !session.isMineInitiator) {
+    const bannerSuppress = shouldSuppressCallV3IncomingDiscoveredForBanner({ callId });
+    if (bannerSuppress.suppress) {
+      logCallV3("incoming_wake_banner_suppressed", {
+        callId,
+        reason: bannerSuppress.reason,
+      });
+      return;
+    }
     callV3IncomingDiscovered(session);
   }
 }
@@ -161,6 +176,25 @@ export function CallV3Provider({ children }: CallV3ProviderProps) {
   }, []);
 
   useEffect(() => {
+    if (!isDibayCallV3SafeLaneEnabled() || !isCapacitorNativePlatform()) return;
+
+    void getNativeIncomingCallPlugin().then((plugin) => {
+      if (!plugin) return;
+      void plugin.getForegroundIncomingCallId().then((res) => {
+        const callId = res.callId?.trim() ?? "";
+        if (!callId) return;
+        applyCallV3NativeIncomingSurfaceSignal({
+          callId,
+          hasNativeIncomingSurface: true,
+          nativeSurfaceType: "foreground_pill",
+          appVisibility: resolveCallV3AppVisibility(),
+          source: "native_foreground_pill_boot",
+        });
+      });
+    });
+  }, []);
+
+  useEffect(() => {
     if (!isDibayCallV3SafeLaneEnabled()) return;
 
     let cancelled = false;
@@ -179,7 +213,31 @@ export function CallV3Provider({ children }: CallV3ProviderProps) {
 
     const offBridge = installDibayFcmCallBridge({
       onIncomingWake: (detail) => {
+        const callId = detail.sessionId?.trim() ?? "";
+        if (callId) {
+          const appVisibility = resolveCallV3AppVisibility();
+          if (appVisibility !== "foreground") {
+            applyCallV3NativeIncomingSurfaceSignal({
+              callId,
+              hasNativeIncomingSurface: true,
+              nativeSurfaceType: "fullscreen_intent",
+              appVisibility,
+              source: "fcm_wake_background",
+            });
+          }
+        }
         void hydrateIncomingWake(detail);
+      },
+      onForegroundIncomingUi: ({ sessionId, visible }) => {
+        const callId = sessionId.trim();
+        if (!callId) return;
+        applyCallV3NativeIncomingSurfaceSignal({
+          callId,
+          hasNativeIncomingSurface: visible,
+          nativeSurfaceType: visible ? "foreground_pill" : undefined,
+          appVisibility: resolveCallV3AppVisibility(),
+          source: "native_foreground_pill",
+        });
       },
       onFcmTerminal: (detail) => {
         void callV3HandleRemoteTerminal(

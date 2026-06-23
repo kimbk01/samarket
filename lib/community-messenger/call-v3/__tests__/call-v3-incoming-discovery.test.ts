@@ -167,4 +167,23 @@ describe("call-v3-incoming-discovery", () => {
       expect.objectContaining({ rawCount: 1, reason: "filtered", filterTags: ["dismissed"] })
     );
   });
+
+  it("suppresses discovery banner when document is hidden (background/lock)", async () => {
+    vi.stubGlobal("document", { visibilityState: "hidden" });
+    apiMocks.fetchIncoming.mockResolvedValueOnce({
+      sessions: [ringingSession("call-bg-1")],
+      httpStatus: 200,
+      ok: true,
+      count: 1,
+      sessionIds: ["call-bg-1"],
+    });
+    await runCallV3IncomingDiscoveryTick();
+    expect(actionMocks.discovered).not.toHaveBeenCalled();
+    expect(console.info).toHaveBeenCalledWith(
+      "[DIBAY_CALL_V3]",
+      "incoming_discovery_banner_suppressed",
+      expect.objectContaining({ callId: "call-bg-1", reason: "background_native_owner" })
+    );
+    vi.unstubAllGlobals();
+  });
 });

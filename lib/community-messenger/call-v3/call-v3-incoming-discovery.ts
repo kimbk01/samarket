@@ -10,6 +10,7 @@ import {
 import { callV3HandleRemoteTerminal, callV3IncomingDiscovered } from "@/lib/community-messenger/call-v3/call-v3-actions";
 import { logCallV3 } from "@/lib/community-messenger/call-v3/call-v3-debug";
 import { isCallV3IncomingDismissed } from "@/lib/community-messenger/call-v3/call-v3-incoming-dismiss";
+import { shouldSuppressCallV3IncomingDiscoveredForBanner } from "@/lib/community-messenger/call-v3/call-v3-incoming-surface";
 import { isDibayCallV3SafeLaneEnabled } from "@/lib/community-messenger/call-v3/call-v3-flag";
 import { readCallV3Identity, readCallV3Phase } from "@/lib/community-messenger/call-v3/call-v3-store";
 
@@ -150,6 +151,15 @@ export async function runCallV3IncomingDiscoveryTick(): Promise<void> {
         fetch,
         callId,
       });
+      return;
+    }
+    const bannerSuppress = shouldSuppressCallV3IncomingDiscoveredForBanner({ callId });
+    if (bannerSuppress.suppress) {
+      logCallV3("incoming_discovery_banner_suppressed", {
+        callId,
+        reason: bannerSuppress.reason,
+      });
+      return;
     }
     callV3IncomingDiscovered(candidate);
     return;

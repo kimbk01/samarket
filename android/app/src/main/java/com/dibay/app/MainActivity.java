@@ -1106,7 +1106,9 @@ public class MainActivity extends BridgeActivity {
     final String appPath = pendingAppPath;
     final String notificationId = pendingNotificationId;
     final int[] retryDelays =
-        isCalleeAcceptCallRoute(appPath) ? ACCEPT_ROUTE_RETRY_DELAYS_MS : PENDING_ROUTE_RETRY_DELAYS_MS;
+        isCalleeAcceptCallRoute(appPath) || isCalleeRejectCallRoute(appPath)
+            ? ACCEPT_ROUTE_RETRY_DELAYS_MS
+            : PENDING_ROUTE_RETRY_DELAYS_MS;
     mainHandler.post(
         () -> {
           if (routeInjectedForCurrentPending) return;
@@ -1128,6 +1130,12 @@ public class MainActivity extends BridgeActivity {
     return appPath != null
         && appPath.startsWith("/community-messenger/calls/")
         && appPath.contains("action=accept");
+  }
+
+  private static boolean isCalleeRejectCallRoute(String appPath) {
+    return appPath != null
+        && appPath.startsWith("/community-messenger/calls/")
+        && appPath.contains("action=reject");
   }
 
   private static String extractCallSessionIdFromAppPath(String appPath) {
@@ -1205,9 +1213,15 @@ public class MainActivity extends BridgeActivity {
     WebView webView = bridge.getWebView();
     if (webView == null) return false;
     final boolean acceptRoute = isCalleeAcceptCallRoute(appPath);
+    final boolean rejectRoute = isCalleeRejectCallRoute(appPath);
     final boolean callRoute = appPath.startsWith("/community-messenger/calls/");
     final boolean webReady = isWebViewOnAppOrigin(webView);
-    if (acceptRoute && webReady) {
+    if ((acceptRoute || rejectRoute) && webReady) {
+      if (rejectRoute) {
+        Log.i(ROUTE_LOG_TAG, "[call-route] call_route_reject_inject_preferred path=" + appPath);
+      } else {
+        Log.i(ROUTE_LOG_TAG, "[call-route] call_route_inject_preferred path=" + appPath);
+      }
       injectWebViewRouteViaJs(webView, appPath, notificationId);
       clearPersistedPendingPushRoute(this);
       return true;
