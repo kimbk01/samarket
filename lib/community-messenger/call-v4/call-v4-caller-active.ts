@@ -10,7 +10,7 @@ import { exitCallV4ScreenAfterCleanup, readCallV4ExitRouter } from "@/lib/commun
 import { readCallV4Identity, readCallV4Phase, useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
 import type { CallV4Phase, CallV4TerminalPhase } from "@/lib/community-messenger/call-v4/call-v4-types";
 
-const CALLER_ACTIVE_POLL_MS = 1_000;
+const CALLER_ACTIVE_POLL_MS = 500;
 
 const CALLER_POLL_OUTGOING_PHASES = new Set<CallV4Phase>(["creating", "outgoing_ringing"]);
 
@@ -79,6 +79,9 @@ async function handleCallerPollFetchResult(callId: string, fetchResult: CallV4Ca
     logCallV4("caller_active_detected", { callId: sid });
     stopCallV4CallerActivePoll();
     useCallV4Store.getState().setPhase("joining");
+    void import("@/lib/community-messenger/call-v4/call-v4-actions").then((mod) =>
+      mod.callV4EnsureAgoraJoined(sid),
+    );
     return true;
   }
 

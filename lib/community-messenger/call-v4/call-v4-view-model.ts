@@ -100,11 +100,29 @@ export function buildCallV4ScreenViewModel(input: BuildCallV4ScreenViewModelInpu
   const statusText =
     callPhase === "connected"
       ? safeT("cm_ui_call_active_voice", { fallbackKo: "통화 중", fallbackEn: "On a call" })
-      : isOutgoingDialing
-        ? safeT("cm_ui_connecting", { fallbackKo: "연결 중", fallbackEn: "Calling…" })
-        : phase === "ending"
-          ? safeT("cm_ui_ending_call", { fallbackKo: "종료 중", fallbackEn: "Ending…" })
-          : safeT("cm_ui_connecting", { fallbackKo: "연결 중", fallbackEn: "Connecting" });
+      : phase === "ending"
+        ? safeT("cm_ui_ending_call", { fallbackKo: "종료 중", fallbackEn: "Ending…" })
+        : isOutgoingDialing
+          ? safeT("cm_ui_call_status_outgoing_dialing", { fallbackKo: "발신 중", fallbackEn: "Calling" })
+          : phase === "incoming_ringing"
+            ? safeT("cm_ui_incoming_phone", { fallbackKo: "휴대전화", fallbackEn: "mobile" })
+            : safeT("cm_ui_connecting", { fallbackKo: "연결 중", fallbackEn: "Connecting" });
+
+  const subStatusText = isOutgoingDialing
+    ? safeT("cm_ui_waiting_for_peer_answer", {
+        fallbackKo: "상대방의 응답을 기다리는 중",
+        fallbackEn: "Waiting for the other person to answer",
+      })
+    : phase === "incoming_ringing"
+      ? safeT("cm_ui_choose_accept_or_reject", {
+          fallbackKo: "수락 또는 거절을 선택하세요",
+          fallbackEn: "Choose accept or decline",
+        })
+      : callPhase === "connected"
+        ? null
+        : phase === "joining" || phase === "accepting"
+          ? safeT("cm_ui_connecting", { fallbackKo: "연결 중", fallbackEn: "Connecting" })
+          : null;
 
   return {
     visualTheme: "starbucks",
@@ -114,7 +132,7 @@ export function buildCallV4ScreenViewModel(input: BuildCallV4ScreenViewModelInpu
     peerLabel,
     peerAvatarUrl: identity.peerAvatarUrl ?? null,
     statusText,
-    subStatusText: statusText,
+    subStatusText,
     topLabel: null,
     onTopLabelClick: null,
     footerNote: null,

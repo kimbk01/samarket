@@ -26,6 +26,7 @@ import { joinCallV4Agora } from "@/lib/community-messenger/call-v4/call-v4-agora
 import { stopCallV4CallerActivePoll, startCallV4CallerActivePoll } from "@/lib/community-messenger/call-v4/call-v4-caller-active";
 import { cleanupCallV4 } from "@/lib/community-messenger/call-v4/call-v4-cleanup";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
+import { markCallV4MediaConnected } from "@/lib/community-messenger/call-v4/call-v4-phase-bridge";
 import {
   claimCallV4AcceptPatchOnce,
   claimCallV4CancelPatchOnce,
@@ -326,13 +327,24 @@ export async function callV4Accept(
 export async function callV4EnsureAgoraJoined(callId: string): Promise<void> {
   const sid = callId.trim();
   if (!sid) return;
-  if (readCallV4Phase() !== "joining") return;
+
   const identity = readCallV4Identity();
   if (identity?.callId !== sid || identity.mediaType !== "audio") return;
+
+  let phase = readCallV4Phase();
+  if (phase === "outgoing_ringing" || phase === "creating") {
+    useCallV4Store.getState().setPhase("joining");
+    phase = "joining";
+  }
+  if (phase !== "joining" && phase !== "accepting") return;
+
   const joined = await joinCallV4Agora(sid);
-  if (!joined) return;
-  if (readCallV4Phase() !== "joining" || readCallV4Identity()?.callId !== sid) return;
-  useCallV4Store.setState({ phase: "connected", connectedAt: Date.now() });
+  if (!joined) {
+    logCallV4("agora_join_not_ready", { callId: sid, phase: readCallV4Phase() });
+    return;
+  }
+
+  markCallV4MediaConnected(sid, "ensure_agora_joined");
 }
 
 export async function callV4Reject(callId: string, router?: CallV4Router): Promise<void> {

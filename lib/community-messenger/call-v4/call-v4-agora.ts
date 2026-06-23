@@ -5,6 +5,7 @@ import type { CommunityMessengerAgoraLocalTracks } from "@/lib/community-messeng
 import { isCommunityMessengerAgoraAppConfigured } from "@/lib/community-messenger/call-provider/client-runtime";
 import { callV4FetchAgoraToken } from "@/lib/community-messenger/call-v4/call-v4-api";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
+import { markCallV4MediaConnected } from "@/lib/community-messenger/call-v4/call-v4-phase-bridge";
 import type { CommunityMessengerManagedCallConnection } from "@/lib/community-messenger/types";
 
 type CallV4AgoraSession = {
@@ -26,11 +27,12 @@ async function loadCommunityMessengerCallProviderClient() {
   return import("@/lib/community-messenger/call-provider/client");
 }
 
-function maybeLogConnected(callId: string): void {
+function maybeLogConnected(callId: string, source: string): void {
   const session = activeSession;
   if (!session || session.callId !== callId || session.connectedLogged) return;
   session.connectedLogged = true;
-  logCallV4("connected", { callId });
+  logCallV4("connected", { callId, source });
+  markCallV4MediaConnected(callId, source);
 }
 
 async function subscribeRemoteAudio(callId: string, client: IAgoraRTCClient, user: IAgoraRTCRemoteUser): Promise<void> {
@@ -48,7 +50,7 @@ async function subscribeRemoteAudio(callId: string, client: IAgoraRTCClient, use
     /* autoplay policy */
   }
   logCallV4("remote_audio_subscribe", { callId, uid: user.uid });
-  maybeLogConnected(callId);
+  maybeLogConnected(callId, "remote_audio");
 }
 
 function attachRemoteHandlers(callId: string, client: IAgoraRTCClient): void {
@@ -81,58 +83,59 @@ export async function joinCallV4Agora(callId: string): Promise<boolean> {
   if (activeSession?.callId === sid) return true;
   if (joinInFlight && joinInFlightCallId === sid) return joinInFlight;
 
-  const flight = (async (): Promise<boolean> => {
-    if (!isCommunityMessengerAgoraAppConfigured()) return false;
-    if (joinClaimed.has(sid)) return activeSession?.callId === sid;
+  if (!joinClaimed.has(sid)) {
     joinClaimed.add(sid);
-    try {
-      const connection = await resolveCallV4AgoraConnection(sid);
-      if (!connection) {
+    joinInFlightCallId = sid;
+    joinInFlight = (async (): Promise<boolean> => {
+      if (!isCommunityMessengerAgoraAppConfigured()) {
         joinClaimed.delete(sid);
         return false;
       }
-      logCallV4("agora_join_start", { callId: sid });
-      const provider = await loadCommunityMessengerCallProviderClient();
-      const client = provider.createCommunityMessengerAgoraClient();
-      attachRemoteHandlers(sid, client);
-      await provider.joinCommunityMessengerAgoraChannel({
-        client,
-        appId: connection.appId,
-        channelName: connection.channelName,
-        token: connection.token,
-        uid: connection.uid,
-      });
-      logCallV4("agora_join_success", { callId: sid });
-      const tracks = await provider.createCommunityMessengerAgoraLocalTracks("voice");
-      await provider.publishCommunityMessengerAgoraTracks({ client, tracks });
-      activeSession = {
-        callId: sid,
-        client,
-        localTracks: tracks,
-        remoteAudioTrack: null,
-        connectedLogged: false,
-      };
-      for (const user of client.remoteUsers) {
-        await subscribeRemoteAudio(sid, client, user);
+      try {
+        const connection = await resolveCallV4AgoraConnection(sid);
+        if (!connection) {
+          joinClaimed.delete(sid);
+          return false;
+        }
+        logCallV4("agora_join_start", { callId: sid });
+        const provider = await loadCommunityMessengerCallProviderClient();
+        const client = provider.createCommunityMessengerAgoraClient();
+        attachRemoteHandlers(sid, client);
+        await provider.joinCommunityMessengerAgoraChannel({
+          client,
+          appId: connection.appId,
+          channelName: connection.channelName,
+          token: connection.token,
+          uid: connection.uid,
+        });
+        logCallV4("agora_join_success", { callId: sid });
+        const tracks = await provider.createCommunityMessengerAgoraLocalTracks("voice");
+        await provider.publishCommunityMessengerAgoraTracks({ client, tracks });
+        activeSession = {
+          callId: sid,
+          client,
+          localTracks: tracks,
+          remoteAudioTrack: null,
+          connectedLogged: false,
+        };
+        for (const user of client.remoteUsers) {
+          await subscribeRemoteAudio(sid, client, user);
+        }
+        maybeLogConnected(sid, "agora_join");
+        return true;
+      } catch {
+        joinClaimed.delete(sid);
+        return false;
+      } finally {
+        if (joinInFlightCallId === sid) {
+          joinInFlight = null;
+          joinInFlightCallId = null;
+        }
       }
-      maybeLogConnected(sid);
-      return true;
-    } catch {
-      joinClaimed.delete(sid);
-      return false;
-    }
-  })();
-
-  joinInFlight = flight;
-  joinInFlightCallId = sid;
-  try {
-    return await flight;
-  } finally {
-    if (joinInFlightCallId === sid) {
-      joinInFlight = null;
-      joinInFlightCallId = null;
-    }
+    })();
   }
+
+  return joinInFlight ?? activeSession?.callId === sid;
 }
 
 export async function leaveCallV4Agora(callId?: string): Promise<void> {
