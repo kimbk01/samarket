@@ -51,6 +51,18 @@ describe("call-v4 import isolation", () => {
     expect(fgs).toContain("v3_task_removed_pending_suppressed");
   });
 
+  it("V4 lock incoming uses CallStyle FSI primary before action-only", () => {
+    const notifier = read("android/app/src/main/java/com/dibay/app/IncomingCallBackgroundNotifier.java");
+    const lockMethod =
+      notifier.match(/private static void presentV4LockedIncoming[\s\S]*?^  \}/m)?.[0] ?? "";
+    expect(notifier).toContain("presentV4LockedIncoming");
+    expect(notifier).toContain("lock_incoming_fsi_primary");
+    expect(notifier).toContain("lock_fsi_primary");
+    expect(lockMethod).toContain("showIncomingCall(context, payload, fgsDelivery)");
+    expect(lockMethod).not.toContain("showIncomingCallActionOnly");
+    expect(notifier).toContain("lock_presentation_deferred_to_fgs");
+  });
+
   it("V4 ringing FGS notification is carrier-only when native/fallback surface owns visible UI", () => {
     const fgs = read("android/app/src/main/java/com/dibay/app/call/CallForegroundService.java");
     const notifier = read("android/app/src/main/java/com/dibay/app/IncomingCallBackgroundNotifier.java");

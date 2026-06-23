@@ -80,6 +80,78 @@ public final class IncomingCallBackgroundNotifier {
     Context app = context.getApplicationContext();
     String visibility = IncomingCallSurfaceOwner.resolveVisibility(app);
 
+    if ("locked".equals(visibility)) {
+      presentV4LockedIncoming(context, payload, source, fgsDelivery, visibility);
+      return;
+    }
+
+    presentV4BackgroundIncoming(context, payload, source, fgsDelivery, visibility);
+  }
+
+  /**
+   * Lock/sleep — CallStyle + fullScreenIntent is the primary visible surface (Telegram-style).
+   * Direct Activity launch from FGS is unreliable on keyguard; action-only alone shows no UI.
+   */
+  private static void presentV4LockedIncoming(
+      Context context,
+      IncomingCallPayload payload,
+      String source,
+      boolean fgsDelivery,
+      String visibility) {
+    String callId = payload.callId.trim();
+    Context app = context.getApplicationContext();
+    boolean fsiAllowed = IncomingCallNotificationBuilder.canPostFullScreenIntent(app);
+    String reason = !fsiAllowed ? "os_restricted" : "lock_fsi_primary";
+
+    Log.i(
+        CallV4Lane.TAG,
+        "[DIBAY_CALL_V4] lock_incoming_fsi_primary callId="
+            + callId
+            + " source="
+            + source
+            + " fsiAllowed="
+            + fsiAllowed);
+
+    if (!IncomingCallSurfaceOwner.tryClaimVisibleOwner(
+        callId, IncomingCallSurfaceOwner.VisibleOwner.NOTIFICATION_FALLBACK)) {
+      if (!IncomingCallSurfaceOwner.isNativeFsiOwner(callId)) {
+        Log.i(
+            CallV4Lane.TAG,
+            "[DIBAY_CALL_V4] lock_incoming_owner_blocked callId=" + callId + " source=" + source);
+        return;
+      }
+    }
+    IncomingCallSurfaceOwner.logOwnerDecided(callId, "notification_fallback", visibility, reason);
+    CallForegroundService.refreshRingingNotification(context, callId, payload.callType, "lock_fsi_primary");
+    IncomingCallNotificationBuilder.showIncomingCall(context, payload, fgsDelivery);
+
+    // Best-effort boost — must not replace FSI with action-only on lock.
+    boolean activityLaunched = launchIncomingActivity(context, payload, source + "_boost");
+    Log.i(
+        CallV4Lane.TAG,
+        "[DIBAY_CALL_V4] lock_incoming_activity_boost callId="
+            + callId
+            + " success="
+            + activityLaunched);
+    if (activityLaunched) {
+      IncomingCallSurfaceOwner.tryClaimVisibleOwner(
+          callId, IncomingCallSurfaceOwner.VisibleOwner.NATIVE_FSI);
+      IncomingCallSurfaceOwner.logOwnerDecided(callId, "native_fsi", visibility, "lock_activity_boost");
+      CallForegroundService.refreshRingingNotification(
+          context, callId, payload.callType, "native_fsi_claimed");
+    }
+  }
+
+  /** Unlocked background — Activity primary; notification action-only when Activity launches. */
+  private static void presentV4BackgroundIncoming(
+      Context context,
+      IncomingCallPayload payload,
+      String source,
+      boolean fgsDelivery,
+      String visibility) {
+    String callId = payload.callId.trim();
+    Context app = context.getApplicationContext();
+
     Log.i(
         CallV4Lane.TAG,
         "[DIBAY_CALL_V4] incoming_activity_launch_start callId=" + callId + " source=" + source);
