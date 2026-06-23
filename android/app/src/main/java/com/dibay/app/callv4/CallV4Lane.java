@@ -25,6 +25,18 @@ public final class CallV4Lane {
     return path.startsWith("/community-messenger/calls/");
   }
 
+  public static boolean isV4CallPath(String appPath) {
+    return appPath != null && appPath.trim().startsWith("/community-messenger/calls-v4/");
+  }
+
+  public static boolean isV4CalleeAcceptCallRoute(String appPath) {
+    return isV4CallPath(appPath) && appPath.contains("action=accept");
+  }
+
+  public static boolean isV4CalleeRejectCallRoute(String appPath) {
+    return isV4CallPath(appPath) && appPath.contains("action=reject");
+  }
+
   /** V4 ON — block MainActivity V3 wake / persist / inject / replay. */
   public static boolean shouldSuppressV3CallReplay(Context context, String appPath) {
     return isTelegramLaneEnabled(context) && isV3CallReplayPath(appPath);

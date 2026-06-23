@@ -3,7 +3,7 @@ package com.dibay.app.callv4;
 import android.content.Context;
 import android.util.Log;
 
-/** In-memory V4 call session — Phase 1 payload for CallScreenActivity. */
+/** In-memory V4 call session — payload for MainActivity WebView route. */
 public final class CallRuntimeV4 {
   public static final class Session {
     public final String callId;

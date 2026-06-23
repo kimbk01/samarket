@@ -850,7 +850,7 @@ public class MainActivity extends BridgeActivity {
         Log.i(TAG, "intent_received path=" + data.getPath() + " hasCode=" + (data.getQueryParameter("code") != null));
         return;
       }
-      appPath = mapDibayDeepLinkToAppPath(data);
+      appPath = mapDibayDeepLinkToAppPath(getApplicationContext(), data);
       if (appPath != null && !appPath.isEmpty()) {
         if ("call".equals(data.getHost()) && "accept".equals(data.getQueryParameter("action"))) {
           java.util.List<String> segments = data.getPathSegments();
@@ -877,7 +877,11 @@ public class MainActivity extends BridgeActivity {
 
   private void applyIncomingCallWakeFlags(Intent intent) {
     Uri data = intent.getData();
-    if (data == null || !"dibay".equals(data.getScheme()) || !"call".equals(data.getHost())) {
+    if (data == null || !"dibay".equals(data.getScheme())) {
+      return;
+    }
+    String host = data.getHost();
+    if (!"call".equals(host) && !"call-v4".equals(host)) {
       return;
     }
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
@@ -894,7 +898,11 @@ public class MainActivity extends BridgeActivity {
 
   private void requestDismissKeyguardForCallIntent(Intent intent) {
     Uri data = intent != null ? intent.getData() : null;
-    if (data == null || !"dibay".equals(data.getScheme()) || !"call".equals(data.getHost())) {
+    if (data == null || !"dibay".equals(data.getScheme())) {
+      return;
+    }
+    String host = data.getHost();
+    if (!"call".equals(host) && !"call-v4".equals(host)) {
       return;
     }
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
@@ -912,7 +920,11 @@ public class MainActivity extends BridgeActivity {
 
   private void dismissIncomingCallNotificationFromIntent(Intent intent) {
     Uri data = intent.getData();
-    if (data == null || !"dibay".equals(data.getScheme()) || !"call".equals(data.getHost())) {
+    if (data == null || !"dibay".equals(data.getScheme())) {
+      return;
+    }
+    String host = data.getHost();
+    if (!"call".equals(host) && !"call-v4".equals(host)) {
       return;
     }
     java.util.List<String> segments = data.getPathSegments();
@@ -1079,7 +1091,8 @@ public class MainActivity extends BridgeActivity {
     pendingAppPath = appPath;
     pendingNotificationId = notificationId;
     persistPendingRoute(appPath, notificationId);
-    if (isCalleeAcceptCallRoute(appPath) || isCallPreviewRoute(appPath)) {
+    if (isCalleeAcceptCallRoute(appPath) || isCallPreviewRoute(appPath)
+        || CallV4Lane.isV4CalleeAcceptCallRoute(appPath)) {
       showCallRouteLoadingOverlay();
     }
     Log.i(ROUTE_LOG_TAG, "[push-route] pending_route_saved path=" + appPath);
@@ -1144,7 +1157,10 @@ public class MainActivity extends BridgeActivity {
     final String appPath = pendingAppPath;
     final String notificationId = pendingNotificationId;
     final int[] retryDelays =
-        isCalleeAcceptCallRoute(appPath) || isCalleeRejectCallRoute(appPath)
+        isCalleeAcceptCallRoute(appPath)
+            || isCalleeRejectCallRoute(appPath)
+            || CallV4Lane.isV4CalleeAcceptCallRoute(appPath)
+            || CallV4Lane.isV4CalleeRejectCallRoute(appPath)
             ? ACCEPT_ROUTE_RETRY_DELAYS_MS
             : PENDING_ROUTE_RETRY_DELAYS_MS;
     mainHandler.post(
@@ -1167,19 +1183,21 @@ public class MainActivity extends BridgeActivity {
   private static boolean isCalleeAcceptCallRoute(String appPath) {
     return appPath != null
         && appPath.startsWith("/community-messenger/calls/")
+        && !appPath.startsWith("/community-messenger/calls-v4/")
         && appPath.contains("action=accept");
   }
 
   private static boolean isCalleeRejectCallRoute(String appPath) {
     return appPath != null
         && appPath.startsWith("/community-messenger/calls/")
+        && !appPath.startsWith("/community-messenger/calls-v4/")
         && appPath.contains("action=reject");
   }
 
   private static String extractCallSessionIdFromAppPath(String appPath) {
     if (appPath == null || appPath.isEmpty()) return null;
     java.util.regex.Matcher matcher =
-        java.util.regex.Pattern.compile("^/community-messenger/calls/([^/?#]+)").matcher(appPath);
+        java.util.regex.Pattern.compile("^/community-messenger/calls(?:-v4)?/([^/?#]+)").matcher(appPath);
     if (!matcher.find()) return null;
     try {
       String raw = matcher.group(1);
@@ -1217,8 +1235,11 @@ public class MainActivity extends BridgeActivity {
             : "";
     final long at = System.currentTimeMillis();
     final String acceptSessionId = extractCallSessionIdFromAppPath(appPath);
-    final boolean callRoute = appPath.startsWith("/community-messenger/calls/");
-    if (callRoute) {
+    final boolean callRoute =
+        CallV4Lane.isV4CallPath(appPath)
+            || (appPath.startsWith("/community-messenger/calls/")
+                && !CallV4Lane.isV4CallPath(appPath));
+    if (callRoute && !CallV4Lane.shouldSuppressV3CallReplay(this, appPath)) {
       persistCallPendingRoute(appPath);
     }
     final String js =
@@ -1250,10 +1271,16 @@ public class MainActivity extends BridgeActivity {
     if (bridge == null) return false;
     WebView webView = bridge.getWebView();
     if (webView == null) return false;
-    final boolean acceptRoute = isCalleeAcceptCallRoute(appPath);
-    final boolean rejectRoute = isCalleeRejectCallRoute(appPath);
-    final boolean callRoute = appPath.startsWith("/community-messenger/calls/");
+    final boolean acceptRoute = isCalleeAcceptCallRoute(appPath) || CallV4Lane.isV4CalleeAcceptCallRoute(appPath);
+    final boolean rejectRoute = isCalleeRejectCallRoute(appPath) || CallV4Lane.isV4CalleeRejectCallRoute(appPath);
+    final boolean callRoute =
+        appPath.startsWith("/community-messenger/calls/")
+            || CallV4Lane.isV4CallPath(appPath);
     final boolean webReady = isWebViewOnAppOrigin(webView);
+    if (CallV4Lane.isTelegramLaneEnabled(this) && CallV4Lane.shouldSuppressV3CallReplay(this, appPath)) {
+      Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] v3_route_nav_blocked path=" + appPath);
+      return false;
+    }
     if ((acceptRoute || rejectRoute) && webReady) {
       if (rejectRoute) {
         Log.i(ROUTE_LOG_TAG, "[call-route] call_route_reject_inject_preferred path=" + appPath);
@@ -1301,14 +1328,14 @@ public class MainActivity extends BridgeActivity {
     }
     if (target == null) return false;
     final String loadTarget = target;
-    if (isCalleeAcceptCallRoute(appPath)) {
+    if (isCalleeAcceptCallRoute(appPath) || CallV4Lane.isV4CalleeAcceptCallRoute(appPath)) {
       Log.i(ROUTE_LOG_TAG, "[push-route] call_route_accept_direct_load");
     }
     webView.post(() -> webView.loadUrl(loadTarget));
     return true;
   }
 
-  private static String mapDibayDeepLinkToAppPath(Uri data) {
+  private static String mapDibayDeepLinkToAppPath(android.content.Context context, Uri data) {
     String host = data.getHost();
     if (host == null) return null;
     java.util.List<String> segments = data.getPathSegments();
@@ -1336,7 +1363,17 @@ public class MainActivity extends BridgeActivity {
         return null;
       case "call":
         if (!segments.isEmpty()) {
+          if (context != null && CallV4Lane.isTelegramLaneEnabled(context)) {
+            Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] v3_deep_link_suppressed host=call");
+            return null;
+          }
           String path = "/community-messenger/calls/" + android.net.Uri.encode(segments.get(0));
+          return appendEncodedQuery(path, data.getEncodedQuery());
+        }
+        return null;
+      case "call-v4":
+        if (!segments.isEmpty()) {
+          String path = "/community-messenger/calls-v4/" + android.net.Uri.encode(segments.get(0));
           return appendEncodedQuery(path, data.getEncodedQuery());
         }
         return null;

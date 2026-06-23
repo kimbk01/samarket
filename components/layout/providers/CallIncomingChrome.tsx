@@ -12,6 +12,7 @@ import { CallV3IncomingBanner } from "@/components/community-messenger/call-v3/C
 import { CallV3Provider } from "@/components/community-messenger/call-v3/CallV3Provider";
 import { isDibayCallV3SafeLaneEnabled } from "@/lib/community-messenger/call-v3/call-v3-flag";
 import { isCallV4TelegramLaneEnabled } from "@/lib/community-messenger/call-v4/call-v4-flag";
+import { CallV4IncomingChrome } from "@/components/community-messenger/call-v4/CallV4Provider";
 
 const IncomingCallOverlay = dynamic(
   () =>
@@ -51,12 +52,12 @@ function CallV3IncomingChrome() {
  * 수신 통화 오버레이만 `CallProvider`(CommunityCallSurface) 안에 둔다.
  * `useCommunityCallSurface` 소비처는 현재 수신 통화 UI뿐이라 전역 트리에서 분리해도 동일.
  *
- * V4 Telegram Lane (`NEXT_PUBLIC_DIBAY_CALL_V4_TELEGRAM_LANE=1`): Phase 1 native incoming only.
+ * V4 Telegram Lane (`NEXT_PUBLIC_DIBAY_CALL_V4_TELEGRAM_LANE=1`): MainActivity single WebView + CallV4IncomingSheet.
  * V3 Safe Lane (`NEXT_PUBLIC_DIBAY_CALL_V3_SAFE_LANE=1`): legacy CallEngine hosts are not mounted.
  */
 export function CallIncomingChrome() {
   if (isCallV4TelegramLaneEnabled()) {
-    return null;
+    return <CallV4IncomingChrome />;
   }
   if (isDibayCallV3SafeLaneEnabled()) {
     return <CallV3IncomingChrome />;

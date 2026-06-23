@@ -24,6 +24,11 @@ import { postNotificationEventOpenedRead } from "@/lib/notifications/client/noti
 import { callEngineActions } from "@/lib/community-messenger/call-engine";
 import { isDibayCallV3SafeLaneEnabled } from "@/lib/community-messenger/call-v3/call-v3-flag";
 import { isCallV4TelegramLaneEnabled } from "@/lib/community-messenger/call-v4/call-v4-flag";
+import {
+  isCallV4CallRoute,
+  isCallV4CalleeAcceptRoute,
+  isCallV4CalleeRejectRoute,
+} from "@/lib/community-messenger/call-v4/call-v4-native-route";
 import { handleCallV3NativeCallRoute } from "@/lib/community-messenger/call-v3/call-v3-native-bridge";
 import { isCallV3CalleeAcceptRoute, isCallV3CalleeRejectRoute } from "@/lib/push/native/call-v3-native-route";
 
@@ -130,6 +135,18 @@ export function PushRouteListener() {
         clearPendingPushRoute();
         void clearNativePersistedPendingPushRoute();
         console.info("[DIBAY_CALL_V4] v3_call_route_suppressed", { path });
+        return;
+      }
+
+      if (isCallV4TelegramLaneEnabled() && isCallV4CallRoute(path)) {
+        if (shouldReplaceRoute(path) || isCallV4CalleeAcceptRoute(path) || isCallV4CalleeRejectRoute(path)) {
+          router.replace(path);
+        } else {
+          router.push(path);
+        }
+        clearPendingPushRoute();
+        void clearNativePersistedPendingPushRoute();
+        console.info("[DIBAY_CALL_V4] v4_route_delivered", { path });
         return;
       }
 

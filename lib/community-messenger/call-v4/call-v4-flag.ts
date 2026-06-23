@@ -1,6 +1,6 @@
 /**
  * DIBAY Call V4 Telegram Lane — feature flag.
- * ON: native accept → CallScreenActivity; Web V4 screen only (no V3 replay).
+ * ON: native accept → MainActivity single WebView `/calls-v4`; Web V4 screen only (no V3 replay).
  * Mutually exclusive with V3 Safe Lane.
  */
 export function isCallV4TelegramLaneEnabled(): boolean {

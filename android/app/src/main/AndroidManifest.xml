@@ -119,14 +119,6 @@
             android:noHistory="true"
             android:theme="@style/AppTheme.ForegroundIncomingCall" />
 
-        <activity
-            android:name=".callv4.CallScreenActivity"
-            android:exported="false"
-            android:launchMode="singleTask"
-            android:showWhenLocked="true"
-            android:turnScreenOn="true"
-            android:theme="@style/AppTheme.NoActionBarLaunch" />
-
         <receiver
             android:name=".IncomingCallDeclineReceiver"
             android:exported="false" />

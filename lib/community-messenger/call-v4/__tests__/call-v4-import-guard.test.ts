@@ -24,18 +24,16 @@ describe("call-v4 import isolation", () => {
   it("CallIncomingChrome gates V4 before V3", () => {
     const chrome = read("components/layout/providers/CallIncomingChrome.tsx");
     expect(chrome).toContain("isCallV4TelegramLaneEnabled()");
+    expect(chrome).toContain("CallV4IncomingChrome");
     expect(chrome).toMatch(
       /if \(isCallV4TelegramLaneEnabled\(\)\)[\s\S]*?if \(isDibayCallV3SafeLaneEnabled\(\)\)/
     );
   });
 
-  it("PushRouteListener suppresses V3 call routes when V4 lane ON", () => {
+  it("PushRouteListener delivers V4 call routes when lane ON", () => {
     const listener = read("components/push/PushRouteListener.tsx");
-    expect(listener).toContain("isCallV4TelegramLaneEnabled()");
-    expect(listener).toContain("v3_call_route_suppressed");
-    expect(listener).toMatch(
-      /if \(isCallV4TelegramLaneEnabled\(\) && isCallRoute\(path\)\)[\s\S]*?return;/
-    );
+    expect(listener).toContain("v4_route_delivered");
+    expect(listener).toContain("isCallV4CallRoute");
   });
 
   it("MainActivity suppresses V3 wake/persist when V4 lane ON", () => {
@@ -53,9 +51,16 @@ describe("call-v4 import isolation", () => {
     expect(fgs).toContain("v3_task_removed_pending_suppressed");
   });
 
-  it("IncomingCallActionCoordinator uses V4 logs without accept_pending_web on V4 path", () => {
+  it("IncomingCallActionCoordinator uses MainActivity V4 accept not CallScreenActivity", () => {
     const coord = read("android/app/src/main/java/com/dibay/app/IncomingCallActionCoordinator.java");
-    expect(coord).toContain("[DIBAY_CALL_V4] accept_start");
-    expect(coord).toMatch(/if \(v4Lane\)[\s\S]*?accept_start[\s\S]*?else[\s\S]*?accept_pending_web/);
+    expect(coord).toContain("buildMainActivityV4AcceptIntent");
+    expect(coord).not.toContain("buildCallScreenActivityIntent");
+    expect(coord).not.toContain("call_screen_activity_start");
+    expect(coord).toContain("main_activity_v4_accept_start");
+  });
+
+  it("CallScreenActivity removed from manifest", () => {
+    const manifest = read("android/app/src/main/AndroidManifest.xml");
+    expect(manifest).not.toContain("CallScreenActivity");
   });
 });

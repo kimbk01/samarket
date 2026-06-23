@@ -3,9 +3,10 @@ package com.dibay.app.callv4;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
-import com.dibay.app.DibayServerOrigin;
 import com.dibay.app.IncomingCallActivity;
+import com.dibay.app.MainActivity;
 
+/** V4 Telegram Lane intents — MainActivity single WebView SSOT only. */
 public final class CallV4IntentHelper {
   public static final String EXTRA_CALL_ID = "callId";
   public static final String EXTRA_SOURCE = "source";
@@ -14,7 +15,7 @@ public final class CallV4IntentHelper {
 
   /**
    * FGS / notification accept — {@link IncomingCallActivity} ACTION_ACCEPT so
-   * {@link com.dibay.app.IncomingCallActionCoordinator} runs before CallScreenActivity.
+   * {@link com.dibay.app.IncomingCallActionCoordinator} runs before MainActivity route.
    */
   public static Intent buildCoordinatorAcceptIntent(Context context, String callId) {
     Context app = context.getApplicationContext();
@@ -26,26 +27,44 @@ public final class CallV4IntentHelper {
     return intent;
   }
 
-  public static Intent buildCallScreenActivityIntent(Context context, String callId, String source) {
-    Context app = context.getApplicationContext();
-    Intent intent = new Intent(app, CallScreenActivity.class);
-    intent.putExtra(EXTRA_CALL_ID, callId != null ? callId.trim() : "");
-    intent.putExtra(EXTRA_SOURCE, source != null ? source : "native_accept");
-    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-    return intent;
+  /** V4 accept — bring MainActivity to front with calls-v4 accept deep link. */
+  public static Intent buildMainActivityV4AcceptIntent(Context context, String callId, String source) {
+    String sid = callId != null ? callId.trim() : "";
+    String src = source != null && !source.trim().isEmpty() ? source.trim() : "native_accept";
+    Intent launch = new Intent(context, MainActivity.class);
+    launch.setAction(Intent.ACTION_VIEW);
+    launch.setData(
+        Uri.parse(
+            "dibay://call-v4/"
+                + Uri.encode(sid)
+                + "?action=accept&source="
+                + Uri.encode(src)));
+    launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+    return launch;
   }
 
-  public static String buildCallScreenUrl(Context context, String callId, String source) {
-    String origin = DibayServerOrigin.resolve(context);
-    if (origin == null || origin.trim().isEmpty()) {
-      origin = "https://samarket.vercel.app";
-    }
+  /** V4 reject — Web PATCH owner via MainActivity reject route (no bring-up required). */
+  public static Intent buildMainActivityV4RejectIntent(Context context, String callId, String source) {
     String sid = callId != null ? callId.trim() : "";
-    String src = source != null ? source.trim() : "native_accept";
-    return origin
-        + "/community-messenger/calls-v4/"
+    String src = source != null && !source.trim().isEmpty() ? source.trim() : "native_reject";
+    Intent launch = new Intent(context, MainActivity.class);
+    launch.setAction(Intent.ACTION_VIEW);
+    launch.setData(
+        Uri.parse(
+            "dibay://call-v4/"
+                + Uri.encode(sid)
+                + "?action=reject&source="
+                + Uri.encode(src)));
+    launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+    return launch;
+  }
+
+  public static String buildV4AcceptAppPath(String callId, String source) {
+    String sid = callId != null ? callId.trim() : "";
+    String src = source != null && !source.trim().isEmpty() ? source.trim() : "native_accept";
+    return "/community-messenger/calls-v4/"
         + Uri.encode(sid)
-        + "?source="
+        + "?action=accept&source="
         + Uri.encode(src);
   }
 }
