@@ -4,6 +4,10 @@ import type { IAgoraRTCClient, IAgoraRTCRemoteUser, IRemoteAudioTrack } from "ag
 import type { CommunityMessengerAgoraLocalTracks } from "@/lib/community-messenger/call-provider/client";
 import { isCommunityMessengerAgoraAppConfigured } from "@/lib/community-messenger/call-provider/client-runtime";
 import { callV4FetchAgoraToken } from "@/lib/community-messenger/call-v4/call-v4-api";
+import {
+  clearCallV4ConnectionWarm,
+  resolveCallV4WarmConnection,
+} from "@/lib/community-messenger/call-v4/call-v4-connection-warm";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import { markCallV4MediaConnected } from "@/lib/community-messenger/call-v4/call-v4-phase-bridge";
 import type { CommunityMessengerManagedCallConnection } from "@/lib/community-messenger/types";
@@ -69,11 +73,10 @@ async function resolveCallV4AgoraConnection(callId: string): Promise<CommunityMe
   if (cached) return cached;
   if (tokenFetched.has(callId)) return null;
   logCallV4("token_fetch_start", { callId });
-  const connection = await callV4FetchAgoraToken(callId);
+  const connection = await resolveCallV4WarmConnection(callId, () => callV4FetchAgoraToken(callId));
   if (!connection) return null;
   tokenFetched.add(callId);
   connectionByCallId.set(callId, connection);
-  logCallV4("token_fetch_done", { callId });
   return connection;
 }
 
@@ -145,6 +148,7 @@ export async function leaveCallV4Agora(callId?: string): Promise<void> {
   activeSession = null;
   joinClaimed.delete(sid);
   connectionByCallId.delete(sid);
+  clearCallV4ConnectionWarm(sid);
   const provider = await loadCommunityMessengerCallProviderClient();
   await provider.cleanupCommunityMessengerAgoraCallResources({
     client,

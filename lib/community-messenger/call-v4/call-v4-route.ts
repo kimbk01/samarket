@@ -59,7 +59,7 @@ export function readCallV4ExitRouter(): CallV4Router | null {
 }
 
 export function routeToCallV4Screen(router: { push: (href: string) => void; replace?: (href: string) => void }, callId: string, source = "sheet"): void {
-  const href = source === "sheet" ? buildCallV4AcceptHref(callId, source) : buildCallV4ScreenHref(callId, source);
+  const href = buildCallV4ScreenHref(callId, source);
   logCallV4("route_to_screen", { callId, href });
   const go = router.replace ?? router.push;
   go(href);

@@ -22,9 +22,10 @@ import {
   callV4ReconcileBeforeCreate,
   callV4ResolveOutgoingRoomId,
 } from "@/lib/community-messenger/call-v4/call-v4-api";
-import { joinCallV4Agora } from "@/lib/community-messenger/call-v4/call-v4-agora";
+import { joinCallV4Agora, leaveCallV4Agora } from "@/lib/community-messenger/call-v4/call-v4-agora";
 import { stopCallV4CallerActivePoll, startCallV4CallerActivePoll } from "@/lib/community-messenger/call-v4/call-v4-caller-active";
 import { cleanupCallV4 } from "@/lib/community-messenger/call-v4/call-v4-cleanup";
+import { primeCallV4ConnectionWarm } from "@/lib/community-messenger/call-v4/call-v4-connection-warm";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import { markCallV4MediaConnected } from "@/lib/community-messenger/call-v4/call-v4-phase-bridge";
 import {
@@ -39,6 +40,7 @@ import {
   rememberCallV4ReturnPath,
   readCallV4ExitRouter,
   routeToCallV4Screen,
+  buildCallV4ScreenHref,
   type CallV4Router,
 } from "@/lib/community-messenger/call-v4/call-v4-route";
 import { readCallV4Capabilities, readCallV4Identity, readCallV4Phase, useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
@@ -288,6 +290,7 @@ export function callV4IncomingDiscovered(session: CommunityMessengerCallSession)
   const current = readCallV4Identity();
   if (current?.callId === callId && phase !== "idle") return;
   logCallV4("incoming_discovered", { callId, roomId: session.roomId });
+  primeCallV4ConnectionWarm(callId);
   useCallV4Store.getState().setIdentity(buildIncomingIdentity(session));
   useCallV4Store.getState().setPhase("incoming_ringing");
 }
@@ -300,28 +303,44 @@ export async function callV4Accept(
   const sid = callId.trim();
   if (!sid) return;
   logCallV4("accept_click", { callId: sid, source: options?.source ?? null });
-  useCallV4Store.getState().setPhase("accepting");
+
+  const { unlockCommunityMessengerCallPlaybackFromUserGesture } = await import(
+    "@/lib/community-messenger/call-feedback-sound"
+  );
+  unlockCommunityMessengerCallPlaybackFromUserGesture();
+  primeCallV4ConnectionWarm(sid);
+
+  const existingIdentity = readCallV4Identity();
+  const hasStoreIdentity = existingIdentity?.callId === sid;
+
   rememberCallV4ReturnPath();
+  useCallV4Store.getState().setPhase("joining");
+
   if (!options?.skipRoute) {
-    routeToCallV4Screen(router, sid, options?.source ?? "sheet");
+    const href = buildCallV4ScreenHref(sid, options?.source ?? "sheet");
+    logCallV4("route_to_screen", { callId: sid, href });
+    (router.replace ?? router.push)(href);
   }
-  const identity = await ensureCallV4CalleeIdentity(sid);
+
+  const identity = hasStoreIdentity ? existingIdentity! : await ensureCallV4CalleeIdentity(sid);
   if (!identity) {
     logCallV4("accept_identity_missing", { callId: sid });
     useCallV4Store.getState().setPhase("failed");
     await finalizeCallV4Terminal(sid, "failed", router);
     return;
   }
+
   if (!claimCallV4AcceptPatchOnce(sid)) return;
-  const patched = await callV4PatchAccept(sid);
+
+  logCallV4("accept_parallel_start", { callId: sid });
+  const [patched] = await Promise.all([callV4PatchAccept(sid), callV4EnsureAgoraJoined(sid)]);
+
   if (!patched.ok) {
     logCallV4("accept_patch_failed", { callId: sid, error: patched.error ?? null });
+    await leaveCallV4Agora(sid);
     useCallV4Store.getState().setPhase("failed");
     await finalizeCallV4Terminal(sid, "failed", router);
-    return;
   }
-  useCallV4Store.getState().setPhase("joining");
-  await callV4EnsureAgoraJoined(sid);
 }
 
 export async function callV4EnsureAgoraJoined(callId: string): Promise<void> {

@@ -10,6 +10,7 @@ import {
 } from "@/lib/community-messenger/call-v4/call-v4-actions";
 import { callV4FetchSession } from "@/lib/community-messenger/call-v4/call-v4-api";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
+import { primeCallV4ConnectionWarm } from "@/lib/community-messenger/call-v4/call-v4-connection-warm";
 import { isCallV4TelegramLaneEnabled } from "@/lib/community-messenger/call-v4/call-v4-flag";
 import { startCallV4IncomingDiscovery } from "@/lib/community-messenger/call-v4/call-v4-incoming-discovery";
 import {
@@ -67,6 +68,8 @@ async function hydrateCallV4IncomingWake(detail: DibayFcmIncomingWakeDetail): Pr
 
   const session = await callV4FetchSession(callId);
   if (session?.status !== "ringing" || session.isMineInitiator) return;
+
+  primeCallV4ConnectionWarm(callId);
 
   syncCallV4NativeAcceptingSurfaceFromWindowLocation();
   if (isCallV4NativeAcceptingSurface(callId)) {
