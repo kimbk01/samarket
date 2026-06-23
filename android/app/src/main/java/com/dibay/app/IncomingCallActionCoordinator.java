@@ -88,8 +88,14 @@ public final class IncomingCallActionCoordinator {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
     String sid = callId.trim();
     if (!tryBegin(sid, "accept")) return;
-    DibayCallLog.once("accept_start", sid, "source=native_pending_web");
-    Log.i(CALL_TAG, "[call-state] accept_pending_web callId=" + sid);
+    final Context app = context.getApplicationContext();
+    final boolean v4Lane = CallV4Lane.isTelegramLaneEnabled(app);
+    if (v4Lane) {
+      Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] accept_start callId=" + sid);
+    } else {
+      DibayCallLog.once("accept_start", sid, "source=native_pending_web");
+      Log.i(CALL_TAG, "[call-state] accept_pending_web callId=" + sid);
+    }
     DibayCallConsumedStore.mark(context, sid, "accepted");
     IncomingCallRingOwner.stop(context, sid);
     DibayCallPushLog.info("ringtone_stop_native", sid, "reason=accept");
@@ -101,7 +107,6 @@ public final class IncomingCallActionCoordinator {
       end(sid, "accept");
       return;
     }
-    final Context app = context.getApplicationContext();
     new Handler(Looper.getMainLooper())
         .post(
             () -> {

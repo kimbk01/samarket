@@ -242,13 +242,17 @@ public class CallForegroundService extends Service {
               : resolveActiveForegroundServiceType();
       if (!promoteToForeground(sid, notification, type)) {
         Log.w(TAG, "[DIBAY_CALL] task_removed_keep_foreground_failed callId=" + sid);
-      } else {
+      } else if (!com.dibay.app.callv4.CallV4Lane.isTelegramLaneEnabled(getApplicationContext())) {
         String appPath =
             "/community-messenger/calls/"
                 + android.net.Uri.encode(sid)
                 + (ringingOnly ? "?action=accept&nativePrep=1&mode=active&source=native_resume" : "?source=native_resume");
         MainActivity.persistCallPendingRoute(getApplicationContext(), appPath, null, 0L);
         DibayCallPushLog.info("pending_route_saved", sid, "path=" + appPath);
+      } else {
+        Log.i(
+            com.dibay.app.callv4.CallV4Lane.TAG,
+            "[DIBAY_CALL_V4] v3_task_removed_pending_suppressed callId=" + sid);
       }
     }
     super.onTaskRemoved(rootIntent);
@@ -280,7 +284,7 @@ public class CallForegroundService extends Service {
         PendingIntent.getActivity(
             this,
             NOTIFICATION_ID + 2,
-            IncomingCallIntentHelper.buildMainActivityCallAcceptIntent(this, sid),
+            resolveRingingNotificationAcceptIntent(sid),
             pendingFlags);
     PendingIntent endIntent =
         PendingIntent.getService(
@@ -299,6 +303,13 @@ public class CallForegroundService extends Service {
         .addAction(android.R.drawable.ic_menu_call, "수락", contentIntent)
         .addAction(android.R.drawable.ic_menu_close_clear_cancel, "거절", endIntent)
         .build();
+  }
+
+  private Intent resolveRingingNotificationAcceptIntent(String callId) {
+    if (com.dibay.app.callv4.CallV4Lane.isTelegramLaneEnabled(this)) {
+      return com.dibay.app.callv4.CallV4IntentHelper.buildCoordinatorAcceptIntent(this, callId);
+    }
+    return IncomingCallIntentHelper.buildMainActivityCallAcceptIntent(this, callId);
   }
 
   private Notification buildOngoingCallNotification(String callId, String kind) {

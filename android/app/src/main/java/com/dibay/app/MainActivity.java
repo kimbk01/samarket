@@ -26,6 +26,7 @@ import android.app.PictureInPictureParams;
 import android.util.Rational;
 import com.dibay.app.call.CallScreenStateReceiver;
 import com.dibay.app.call.DibayActiveCallSessionManager;
+import com.dibay.app.callv4.CallV4Lane;
 import com.capacitorjs.plugins.browser.BrowserPlugin;
 import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeActivity;
@@ -101,6 +102,12 @@ public class MainActivity extends BridgeActivity {
   static void deliverCallIncomingEvent(IncomingCallPayload payload) {
     MainActivity act = activeInstance;
     if (act == null || payload == null || !payload.isValid()) return;
+    if (CallV4Lane.isTelegramLaneEnabled(act)) {
+      Log.i(
+          CallV4Lane.TAG,
+          "[DIBAY_CALL_V4] v3_incoming_web_suppressed callId=" + payload.callId);
+      return;
+    }
     act.mainHandler.post(() -> act.injectCallIncomingEvent(payload));
   }
 
@@ -132,6 +139,10 @@ public class MainActivity extends BridgeActivity {
     if (appPath == null || appPath.trim().isEmpty()) return;
     if (!appPath.startsWith("/community-messenger/calls/")) return;
     if (appPath.contains("action=accept") || appPath.contains("action=reject")) return;
+    if (CallV4Lane.shouldSuppressV3CallReplay(context, appPath)) {
+      Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] v3_wake_route_suppressed path=" + appPath.trim());
+      return;
+    }
     MainActivity act = activeInstance;
     if (act == null) return;
     final String path = appPath.trim();
@@ -381,6 +392,10 @@ public class MainActivity extends BridgeActivity {
   public static void persistCallPendingRoute(
       android.content.Context context, String appPath, IncomingCallPayload payload, long effectiveExpiresAtMs) {
     if (context == null || appPath == null || appPath.trim().isEmpty()) return;
+    if (CallV4Lane.shouldSuppressV3CallReplay(context, appPath)) {
+      Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] v3_pending_route_suppressed path=" + appPath.trim());
+      return;
+    }
     SharedPreferences.Editor editor =
         context
             .getApplicationContext()
@@ -1055,6 +1070,11 @@ public class MainActivity extends BridgeActivity {
 
   private void queueNavigateWebViewToAppPath(String appPath, String notificationId) {
     if (appPath == null || appPath.isEmpty()) return;
+    if (CallV4Lane.shouldSuppressV3CallReplay(this, appPath)) {
+      Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] v3_route_nav_suppressed path=" + appPath);
+      hideCallRouteLoadingOverlay();
+      return;
+    }
     routeInjectedForCurrentPending = false;
     pendingAppPath = appPath;
     pendingNotificationId = notificationId;
@@ -1103,6 +1123,24 @@ public class MainActivity extends BridgeActivity {
     if (routeInjectedForCurrentPending) return;
     restorePendingRouteFromPrefsIfNeeded();
     if (pendingAppPath == null || pendingAppPath.isEmpty()) return;
+    if (CallV4Lane.shouldSuppressV3CallReplay(getApplicationContext(), pendingAppPath)) {
+      Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] v3_pending_flush_suppressed path=" + pendingAppPath);
+      pendingAppPath = null;
+      pendingNotificationId = null;
+      hideCallRouteLoadingOverlay();
+      getSharedPreferences(CALL_ROUTE_PREFS, android.content.Context.MODE_PRIVATE)
+          .edit()
+          .remove(PENDING_PATH_KEY)
+          .remove(PENDING_AT_KEY)
+          .remove(PENDING_CALL_ID_KEY)
+          .remove(PENDING_ROOM_ID_KEY)
+          .remove(PENDING_MEDIA_TYPE_KEY)
+          .remove(PENDING_CALLER_NAME_KEY)
+          .remove(PENDING_EXPIRES_AT_KEY)
+          .apply();
+      clearPersistedPendingPushRoute(this);
+      return;
+    }
     final String appPath = pendingAppPath;
     final String notificationId = pendingNotificationId;
     final int[] retryDelays =

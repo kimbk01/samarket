@@ -17,6 +17,19 @@ public final class CallV4Lane {
 
   private CallV4Lane() {}
 
+  /** Legacy V3 web replay path (`/calls/:id`), not V4 (`/calls-v4/:id`). */
+  public static boolean isV3CallReplayPath(String appPath) {
+    if (appPath == null || appPath.trim().isEmpty()) return false;
+    String path = appPath.trim();
+    if (path.startsWith("/community-messenger/calls-v4/")) return false;
+    return path.startsWith("/community-messenger/calls/");
+  }
+
+  /** V4 ON — block MainActivity V3 wake / persist / inject / replay. */
+  public static boolean shouldSuppressV3CallReplay(Context context, String appPath) {
+    return isTelegramLaneEnabled(context) && isV3CallReplayPath(appPath);
+  }
+
   public static boolean isTelegramLaneEnabled(Context context) {
     if (context == null) return false;
     Context app = context.getApplicationContext();

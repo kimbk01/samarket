@@ -23,6 +23,7 @@ import { shouldReplaceRoute } from "@/lib/push/push-route-policy";
 import { postNotificationEventOpenedRead } from "@/lib/notifications/client/notification-event-read-client";
 import { callEngineActions } from "@/lib/community-messenger/call-engine";
 import { isDibayCallV3SafeLaneEnabled } from "@/lib/community-messenger/call-v3/call-v3-flag";
+import { isCallV4TelegramLaneEnabled } from "@/lib/community-messenger/call-v4/call-v4-flag";
 import { handleCallV3NativeCallRoute } from "@/lib/community-messenger/call-v3/call-v3-native-bridge";
 import { isCallV3CalleeAcceptRoute, isCallV3CalleeRejectRoute } from "@/lib/push/native/call-v3-native-route";
 
@@ -122,6 +123,13 @@ export function PushRouteListener() {
 
       if (sessionPhaseRef.current !== "authenticated" && isAuthRequiredPushRoute(path)) {
         openLoginRequiredSheet({ actionType: "messenger_open", next: path });
+        return;
+      }
+
+      if (isCallV4TelegramLaneEnabled() && isCallRoute(path)) {
+        clearPendingPushRoute();
+        void clearNativePersistedPendingPushRoute();
+        console.info("[DIBAY_CALL_V4] v3_call_route_suppressed", { path });
         return;
       }
 
