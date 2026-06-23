@@ -10,7 +10,8 @@ public final class IncomingCallSurfaceOwner {
   public enum VisibleOwner {
     NATIVE_FSI,
     NOTIFICATION_FALLBACK,
-    NOTIFICATION_ACTION_ONLY
+    NOTIFICATION_ACTION_ONLY,
+    FGS_NOTIFICATION
   }
 
   private static final ConcurrentHashMap<String, VisibleOwner> ACTIVE_BY_CALL_ID = new ConcurrentHashMap<>();
@@ -43,8 +44,23 @@ public final class IncomingCallSurfaceOwner {
     ACTIVE_BY_CALL_ID.remove(callId.trim());
   }
 
+  public static VisibleOwner getVisibleOwner(String callId) {
+    if (callId == null || callId.trim().isEmpty()) return null;
+    return ACTIVE_BY_CALL_ID.get(callId.trim());
+  }
+
+  public static boolean isNativeFsiOwner(String callId) {
+    return getVisibleOwner(callId) == VisibleOwner.NATIVE_FSI;
+  }
+
+  public static boolean isNotificationFallbackOwner(String callId) {
+    return getVisibleOwner(callId) == VisibleOwner.NOTIFICATION_FALLBACK;
+  }
+
   static boolean isFullVisualOwner(VisibleOwner owner) {
-    return owner == VisibleOwner.NATIVE_FSI || owner == VisibleOwner.NOTIFICATION_FALLBACK;
+    return owner == VisibleOwner.NATIVE_FSI
+        || owner == VisibleOwner.NOTIFICATION_FALLBACK
+        || owner == VisibleOwner.FGS_NOTIFICATION;
   }
 
   static void logOwnerDecided(String callId, String owner, String visibility, String reason) {

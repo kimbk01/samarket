@@ -29,6 +29,7 @@ import { primeCallV4ConnectionWarm } from "@/lib/community-messenger/call-v4/cal
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import { isCallV4BlockingNativeIncomingSurface } from "@/lib/community-messenger/call-v4/call-v4-incoming-surface";
 import { isNativeAcceptInflight } from "@/lib/community-messenger/call-v4/call-v4-native-accept-flight";
+import { readCallV4SessionIdFromNativeRoute } from "@/lib/community-messenger/call-v4/call-v4-native-route";
 import {
   syncCallV4NativeOnWebAccept,
   syncCallV4NativeOnWebReject,
@@ -53,6 +54,9 @@ import { readCallV4Capabilities, readCallV4Identity, readCallV4Phase, useCallV4S
 import type { CallV4Identity, CallV4Phase, CallV4TerminalPhase } from "@/lib/community-messenger/call-v4/call-v4-types";
 
 const HYDRATE_PROTECTED_PHASES = new Set<CallV4Phase>(["accepting", "joining", "connected"]);
+const REMOTE_TERMINAL_ALLOWED_PHASES = new Set<CallV4Phase>(["joining", "connected"]);
+
+const remoteTerminalFinalized = new Set<string>();
 
 /** Ringing session must not downgrade accept-in-progress phases during callee hydrate. */
 export function shouldHydrateOverwriteCallV4Phase(
@@ -208,6 +212,20 @@ function mapCallV4RemoteTerminalReason(status: string | null | undefined): CallV
   if (normalized === "cancelled" || normalized === "canceled") return "cancelled";
   if (normalized === "failed" || normalized === "failed_or_stale") return "failed";
   return "rejected";
+}
+
+function readCurrentCallV4RouteCallId(): string | null {
+  if (typeof window === "undefined") return null;
+  return readCallV4SessionIdFromNativeRoute(`${window.location.pathname}${window.location.search}`);
+}
+
+function canHandleCallV4RemoteTerminal(callId: string): boolean {
+  const sid = callId.trim();
+  if (!sid) return false;
+  const identity = readCallV4Identity();
+  if (identity?.callId === sid) return true;
+  const phase = readCallV4Phase();
+  return readCurrentCallV4RouteCallId() === sid && REMOTE_TERMINAL_ALLOWED_PHASES.has(phase);
 }
 
 export async function callV4CreateOutgoing(input: {
@@ -460,15 +478,28 @@ export async function callV4HandleRejectRoute(callId: string, router?: CallV4Rou
 export async function callV4HandleRemoteTerminal(
   callId: string,
   status?: string | null,
-  router?: CallV4Router
+  router?: CallV4Router,
+  source = "unknown"
 ): Promise<void> {
   const sid = callId.trim();
   if (!sid) return;
-  const identity = readCallV4Identity();
-  if (identity?.callId !== sid) return;
-  logCallV4("remote_terminal_received", { callId: sid, status: status ?? null });
+  if (!canHandleCallV4RemoteTerminal(sid)) {
+    logCallV4("remote_terminal_ignored", { callId: sid, status: status ?? null, source, reason: "not_current_call" });
+    return;
+  }
+  if (remoteTerminalFinalized.has(sid)) {
+    logCallV4("remote_terminal_ignored", { callId: sid, status: status ?? null, source, reason: "duplicate" });
+    return;
+  }
+  remoteTerminalFinalized.add(sid);
+  logCallV4("remote_terminal_received", { callId: sid, status: status ?? null, source });
+  logCallV4("remote_terminal_finalize", { callId: sid, source });
   stopCallV4CallerActivePoll();
   await finalizeCallV4Terminal(sid, mapCallV4RemoteTerminalReason(status), router ?? readCallV4ExitRouter() ?? undefined);
+}
+
+export function resetCallV4RemoteTerminalClaimsForTests(): void {
+  remoteTerminalFinalized.clear();
 }
 
 export async function callV4End(callId: string, router?: CallV4Router): Promise<void> {

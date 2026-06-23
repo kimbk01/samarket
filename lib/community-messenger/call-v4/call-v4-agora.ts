@@ -8,6 +8,7 @@ import {
   clearCallV4ConnectionWarm,
   resolveCallV4WarmConnection,
 } from "@/lib/community-messenger/call-v4/call-v4-connection-warm";
+import { triggerCallV4RemoteTerminalCheckFromAgora } from "@/lib/community-messenger/call-v4/call-v4-connected-terminal-watch";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import { markCallV4MediaConnected } from "@/lib/community-messenger/call-v4/call-v4-phase-bridge";
 import type { CommunityMessengerManagedCallConnection } from "@/lib/community-messenger/types";
@@ -65,6 +66,12 @@ function attachRemoteHandlers(callId: string, client: IAgoraRTCClient): void {
   client.on("user-unpublished", (_user, mediaType) => {
     if (mediaType !== "audio" || activeSession?.callId !== callId) return;
     activeSession.remoteAudioTrack = null;
+    triggerCallV4RemoteTerminalCheckFromAgora(callId, _user.uid);
+  });
+  client.on("user-left", (user: IAgoraRTCRemoteUser) => {
+    if (activeSession?.callId !== callId) return;
+    activeSession.remoteAudioTrack = null;
+    triggerCallV4RemoteTerminalCheckFromAgora(callId, user.uid);
   });
 }
 
