@@ -10,7 +10,7 @@ import android.util.Log;
  * <ul>
  *   <li>Ring — {@link IncomingCallRingOwner} once at push boundary (Web must not blind-stop).</li>
  *   <li>Foreground unlocked — native pill + Web event (no duplicate ring in MainActivity).</li>
- *   <li>Lock / sleep — FGS + wake lock + silent notification/FSI + {@link IncomingCallActivity}.</li>
+ *   <li>Lock / sleep — wake lock + defer UI to ringing FGS after {@code startForeground}.</li>
  *   <li>Background home — defer UI to ringing FGS after {@code startForeground}.</li>
  * </ul>
  */

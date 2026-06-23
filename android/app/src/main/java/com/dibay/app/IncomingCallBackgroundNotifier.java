@@ -13,7 +13,7 @@ import com.dibay.app.callv4.CallV4Lane;
  * <p>Contract:
  * <ul>
  *   <li>Ring — {@link IncomingCallPushDelivery} → {@link IncomingCallRingOwner} (notification channel silent).</li>
- *   <li>V4 background/lock — Activity (FSI) primary; notification action-only when Activity launches.</li>
+ *   <li>V4 lock/background — defer to ringing FGS; Activity primary; notification action-only or fallback.</li>
  *   <li>V4 fallback — full visual notification only when Activity launch fails or FSI OS-restricted.</li>
  *   <li>Legacy — prior Activity + CallStyle notification path when V4 lane OFF.</li>
  * </ul>
@@ -23,11 +23,12 @@ public final class IncomingCallBackgroundNotifier {
 
   private IncomingCallBackgroundNotifier() {}
 
-  /** Lock / sleep — FGS first (cold process), then presentation. Ring at push delivery. */
+  /** Lock / sleep — wake lock + defer UI to ringing FGS (same contract as background home). */
   public static void presentLockIncoming(Context context, IncomingCallPayload payload) {
     if (context == null || payload == null || !payload.isValid()) return;
     String callId = payload.callId.trim();
     IncomingCallWakeLock.acquireForLockScreen(context.getApplicationContext(), callId);
+    PendingIncomingPresentation.put(payload);
     try {
       CallForegroundService.startRinging(context, callId, payload.callType);
     } catch (Exception error) {
@@ -35,14 +36,9 @@ public final class IncomingCallBackgroundNotifier {
           "foreground_service_started_ringing",
           callId,
           "ok=false err=" + error.getClass().getSimpleName());
+      deliverPendingPresentation(context.getApplicationContext(), callId, "fgs_start_failed");
     }
-    Log.i(TAG, "[call-ui] lock_presentation_immediate callId=" + callId);
-    if (CallV4Lane.isTelegramLaneEnabled(context)) {
-      presentV4NonForegroundIncoming(context, payload, "lock_fcm_immediate", false);
-      return;
-    }
-    IncomingCallNotificationBuilder.showIncomingCall(context, payload, false);
-    launchIncomingActivity(context, payload, "lock_fcm_immediate");
+    Log.i(TAG, "[call-ui] lock_presentation_deferred_to_fgs callId=" + callId);
   }
 
   /** Home / unlocked background — queue UI until ringing FGS is foreground (CallStyle API 34+). */
