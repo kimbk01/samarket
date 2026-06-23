@@ -6,6 +6,9 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 import com.dibay.app.call.CallForegroundService;
+import com.dibay.app.callv4.CallRuntimeV4;
+import com.dibay.app.callv4.CallV4IntentHelper;
+import com.dibay.app.callv4.CallV4Lane;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -102,6 +105,15 @@ public final class IncomingCallActionCoordinator {
     new Handler(Looper.getMainLooper())
         .post(
             () -> {
+              if (CallV4Lane.isTelegramLaneEnabled(app)) {
+                Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] accept_intercepted callId=" + sid);
+                CallRuntimeV4.openFromNativeStore(app, sid, "native_accept");
+                Intent launch = CallV4IntentHelper.buildCallScreenActivityIntent(app, sid, "native_accept");
+                Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] call_screen_activity_start callId=" + sid);
+                app.startActivity(launch);
+                end(sid, "accept");
+                return;
+              }
               Intent launch = IncomingCallIntentHelper.buildMainActivityCallAcceptIntent(app, sid);
               Log.i("DIBAY_CALL", "[DIBAY_CALL] accept_signal_sent callId=" + sid);
               Log.i(CALL_TAG, "[call-route] incoming_accept_pending_web callId=" + sid);
