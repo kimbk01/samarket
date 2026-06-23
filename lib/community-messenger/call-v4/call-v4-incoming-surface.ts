@@ -1,6 +1,10 @@
 "use client";
 
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
+import {
+  isCallV4CalleeAcceptRoute,
+  readCallV4SessionIdFromNativeRoute,
+} from "@/lib/community-messenger/call-v4/call-v4-native-route";
 
 export type CallV4AppVisibility = "foreground" | "background" | "locked" | "unknown";
 
@@ -9,6 +13,12 @@ export type CallV4NativeSurfaceType =
   | "fullscreen_intent"
   | "heads_up"
   | "locked_screen";
+
+/** Native V4 accept in flight — Web incoming sheet must not mount. */
+export type CallV4NativeAcceptingSurfaceType =
+  | "native_accepting"
+  | "native_fullscreen_accept"
+  | "native_locked_accept";
 
 export type CallV4NativeIncomingSurfaceSignal = {
   callId: string;
@@ -22,15 +32,107 @@ export type CallV4IncomingSurfaceSuppressReason =
   | "background_native_owner"
   | "locked_native_owner"
   | "native_surface_active"
-  | "native_foreground_pill";
+  | "native_foreground_pill"
+  | "native_accepting";
 
 const NATIVE_SURFACE_EVENT = "dibay:call-v4-native-surface";
+const NATIVE_ACCEPTING_EVENT = "dibay:call-v4-native-accepting-surface";
 
 const nativeSurfaceByCallId = new Map<string, CallV4NativeIncomingSurfaceSignal>();
+const nativeAcceptingByCallId = new Map<
+  string,
+  { surfaceType: CallV4NativeAcceptingSurfaceType; source: string }
+>();
 let nativeForegroundIncomingCallId: string | null = null;
 
 function normalizeCallId(callId: string): string {
   return callId.trim();
+}
+
+function readRouteSourceFromPath(path: string): string {
+  const query = path.includes("?") ? path.slice(path.indexOf("?") + 1) : "";
+  return new URLSearchParams(query).get("source")?.trim() ?? "";
+}
+
+export function resolveCallV4NativeAcceptingSurfaceType(
+  source: string,
+): CallV4NativeAcceptingSurfaceType {
+  const normalized = source.trim().toLowerCase();
+  if (normalized.includes("lock")) return "native_locked_accept";
+  if (
+    normalized.includes("fsi") ||
+    normalized.includes("fullscreen") ||
+    normalized.includes("native")
+  ) {
+    return "native_fullscreen_accept";
+  }
+  return "native_accepting";
+}
+
+export function shouldRegisterCallV4NativeAcceptingFromRoute(path: string): boolean {
+  if (!isCallV4CalleeAcceptRoute(path)) return false;
+  const source = readRouteSourceFromPath(path);
+  return source !== "sheet";
+}
+
+export function registerCallV4NativeAcceptingSurface(
+  callId: string,
+  surfaceType: CallV4NativeAcceptingSurfaceType,
+  source: string,
+): void {
+  const sid = normalizeCallId(callId);
+  if (!sid) return;
+  nativeAcceptingByCallId.set(sid, { surfaceType, source: source.trim() || "native" });
+  logCallV4("native_accepting_surface_registered", {
+    callId: sid,
+    surfaceType,
+    source: source.trim() || "native",
+  });
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent(NATIVE_ACCEPTING_EVENT, { detail: { callId: sid, surfaceType, source } }),
+    );
+  }
+}
+
+export function clearCallV4NativeAcceptingSurface(callId: string): void {
+  const sid = normalizeCallId(callId);
+  if (!sid || !nativeAcceptingByCallId.delete(sid)) return;
+  logCallV4("native_accepting_surface_cleared", { callId: sid });
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(NATIVE_ACCEPTING_EVENT, { detail: { callId: sid, cleared: true } }));
+  }
+}
+
+export function clearAllCallV4NativeAcceptingSurfaces(): void {
+  nativeAcceptingByCallId.clear();
+}
+
+export function isCallV4NativeAcceptingSurface(callId: string): boolean {
+  const sid = normalizeCallId(callId);
+  return sid ? nativeAcceptingByCallId.has(sid) : false;
+}
+
+export function syncCallV4NativeAcceptingSurfaceFromWindowLocation(): string | null {
+  if (typeof window === "undefined") return null;
+  const path = `${window.location.pathname}${window.location.search}`;
+  if (!shouldRegisterCallV4NativeAcceptingFromRoute(path)) return null;
+  const callId = readCallV4SessionIdFromNativeRoute(path);
+  if (!callId) return null;
+  const source = readRouteSourceFromPath(path);
+  registerCallV4NativeAcceptingSurface(
+    callId,
+    resolveCallV4NativeAcceptingSurfaceType(source),
+    source || "native",
+  );
+  return callId;
+}
+
+export function subscribeCallV4NativeAcceptingSurfaceSignal(listener: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  const onEvent = () => listener();
+  window.addEventListener(NATIVE_ACCEPTING_EVENT, onEvent);
+  return () => window.removeEventListener(NATIVE_ACCEPTING_EVENT, onEvent);
 }
 
 export function resolveCallV4AppVisibility(
@@ -101,6 +203,9 @@ function resolveSuppressReason(args: {
 }): { suppress: boolean; reason: CallV4IncomingSurfaceSuppressReason | null } {
   const sid = normalizeCallId(args.callId);
   if (!sid) return { suppress: true, reason: "background_native_owner" };
+  if (isCallV4NativeAcceptingSurface(sid)) {
+    return { suppress: true, reason: "native_accepting" };
+  }
   const appVisibility = resolveCallV4AppVisibility(args.visibilityState);
   if (appVisibility === "locked") return { suppress: true, reason: "locked_native_owner" };
   if (!shouldUseCallV4WebIncomingSheet(appVisibility)) {

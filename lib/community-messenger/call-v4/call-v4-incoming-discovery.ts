@@ -5,7 +5,15 @@ import { callV4IncomingDiscovered } from "@/lib/community-messenger/call-v4/call
 import { callV4FetchIncomingSessions } from "@/lib/community-messenger/call-v4/call-v4-api";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import { isCallV4TelegramLaneEnabled } from "@/lib/community-messenger/call-v4/call-v4-flag";
-import { shouldSuppressCallV4IncomingDiscoveredForSheet } from "@/lib/community-messenger/call-v4/call-v4-incoming-surface";
+import {
+  isCallV4NativeAcceptingSurface,
+  shouldSuppressCallV4IncomingDiscoveredForSheet,
+  syncCallV4NativeAcceptingSurfaceFromWindowLocation,
+} from "@/lib/community-messenger/call-v4/call-v4-incoming-surface";
+import {
+  isCallV4CalleeAcceptRoute,
+  readCallV4SessionIdFromNativeRoute,
+} from "@/lib/community-messenger/call-v4/call-v4-native-route";
 import { readCallV4Identity, readCallV4Phase } from "@/lib/community-messenger/call-v4/call-v4-store";
 
 const INCOMING_POLL_MS = 2_000;
@@ -20,6 +28,16 @@ function pickIncomingRingingCallee(sessions: CommunityMessengerCallSession[]): C
 }
 
 function isIncomingDiscoveryDuplicateSkip(callId: string): boolean {
+  if (isCallV4NativeAcceptingSurface(callId)) return true;
+  if (typeof window !== "undefined") {
+    const path = `${window.location.pathname}${window.location.search}`;
+    if (
+      isCallV4CalleeAcceptRoute(path) &&
+      readCallV4SessionIdFromNativeRoute(path) === callId
+    ) {
+      return true;
+    }
+  }
   const phase = readCallV4Phase();
   const current = readCallV4Identity();
   if (current?.callId !== callId) return false;
@@ -31,11 +49,16 @@ export function startCallV4IncomingDiscovery(userId: string | null): () => void 
   let cancelled = false;
   const tick = async () => {
     if (cancelled) return;
+    syncCallV4NativeAcceptingSurfaceFromWindowLocation();
     const sessions = await callV4FetchIncomingSessions();
     const candidate = pickIncomingRingingCallee(sessions);
     if (!candidate?.id) return;
     const callId = candidate.id.trim();
     if (isIncomingDiscoveryDuplicateSkip(callId)) return;
+    if (isCallV4NativeAcceptingSurface(callId)) {
+      logCallV4("incoming_sheet_suppressed_native_accepting", { callId });
+      return;
+    }
     const suppress = shouldSuppressCallV4IncomingDiscoveredForSheet({
       callId,
       visibilityState: typeof document !== "undefined" ? document.visibilityState : "visible",

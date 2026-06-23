@@ -14,12 +14,18 @@ import { isCallV4TelegramLaneEnabled } from "@/lib/community-messenger/call-v4/c
 import { startCallV4IncomingDiscovery } from "@/lib/community-messenger/call-v4/call-v4-incoming-discovery";
 import {
   applyCallV4NativeIncomingSurfaceSignal,
+  isCallV4NativeAcceptingSurface,
+  registerCallV4NativeAcceptingSurface,
   resolveCallV4AppVisibility,
+  resolveCallV4NativeAcceptingSurfaceType,
+  shouldRegisterCallV4NativeAcceptingFromRoute,
   shouldSuppressCallV4IncomingDiscoveredForSheet,
+  syncCallV4NativeAcceptingSurfaceFromWindowLocation,
 } from "@/lib/community-messenger/call-v4/call-v4-incoming-surface";
 import {
   isCallV4CalleeAcceptRoute,
   isCallV4CalleeRejectRoute,
+  readCallV4SessionIdFromNativeRoute,
 } from "@/lib/community-messenger/call-v4/call-v4-native-route";
 import { readCallV4ExitRouter } from "@/lib/community-messenger/call-v4/call-v4-route";
 import {
@@ -35,6 +41,20 @@ type CallV4ProviderProps = {
   children?: ReactNode;
 };
 
+function registerCallV4NativeAcceptingFromAppPath(path: string): void {
+  if (!shouldRegisterCallV4NativeAcceptingFromRoute(path)) return;
+  const callId = readCallV4SessionIdFromNativeRoute(path);
+  if (!callId) return;
+  const source = new URLSearchParams(path.includes("?") ? path.slice(path.indexOf("?") + 1) : "").get(
+    "source",
+  )?.trim() ?? "native";
+  registerCallV4NativeAcceptingSurface(
+    callId,
+    resolveCallV4NativeAcceptingSurfaceType(source),
+    source,
+  );
+}
+
 async function hydrateCallV4IncomingWake(detail: DibayFcmIncomingWakeDetail): Promise<void> {
   const callId = detail.sessionId?.trim() ?? "";
   if (!callId) return;
@@ -47,6 +67,12 @@ async function hydrateCallV4IncomingWake(detail: DibayFcmIncomingWakeDetail): Pr
 
   const session = await callV4FetchSession(callId);
   if (session?.status !== "ringing" || session.isMineInitiator) return;
+
+  syncCallV4NativeAcceptingSurfaceFromWindowLocation();
+  if (isCallV4NativeAcceptingSurface(callId)) {
+    logCallV4("incoming_sheet_suppressed_native_accepting", { callId });
+    return;
+  }
 
   const suppress = shouldSuppressCallV4IncomingDiscoveredForSheet({
     callId,
@@ -102,16 +128,35 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
 
   useLayoutEffect(() => {
     if (!isCallV4TelegramLaneEnabled()) return;
+    syncCallV4NativeAcceptingSurfaceFromWindowLocation();
     const path = `${pathname ?? ""}${typeof window !== "undefined" ? window.location.search : ""}`;
     if (!path.includes("/community-messenger/calls-v4/")) return;
     if (isCallV4CalleeRejectRoute(path)) {
-      const match = path.match(/\/calls-v4\/([^/?#]+)/);
-      const callId = match?.[1] ? decodeURIComponent(match[1]) : "";
+      const callId = readCallV4SessionIdFromNativeRoute(path);
       if (callId) void callV4HandleRejectRoute(callId, router);
       return;
     }
-    if (isCallV4CalleeAcceptRoute(path)) return;
+    if (isCallV4CalleeAcceptRoute(path) && shouldRegisterCallV4NativeAcceptingFromRoute(path)) {
+      registerCallV4NativeAcceptingFromAppPath(path);
+    }
   }, [pathname, router]);
+
+  useEffect(() => {
+    if (!isCallV4TelegramLaneEnabled()) return;
+
+    const onNativeRoute = (event: Event) => {
+      const path = (event as CustomEvent<{ path?: string }>).detail?.path?.trim();
+      if (!path) return;
+      registerCallV4NativeAcceptingFromAppPath(path);
+    };
+
+    window.addEventListener("dibay:call-route", onNativeRoute);
+    window.addEventListener("dibay:push-route", onNativeRoute);
+    return () => {
+      window.removeEventListener("dibay:call-route", onNativeRoute);
+      window.removeEventListener("dibay:push-route", onNativeRoute);
+    };
+  }, []);
 
   useEffect(() => {
     if (!isCallV4TelegramLaneEnabled()) return;

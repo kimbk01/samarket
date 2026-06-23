@@ -8,7 +8,9 @@ import { IncomingCallBanner } from "@/components/messenger/call/IncomingCallBann
 import { callV4Accept, callV4Reject } from "@/lib/community-messenger/call-v4/call-v4-actions";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import {
+  isCallV4NativeAcceptingSurface,
   shouldSuppressCallV4WebIncomingSheet,
+  subscribeCallV4NativeAcceptingSurfaceSignal,
   subscribeCallV4NativeIncomingSurfaceSignal,
 } from "@/lib/community-messenger/call-v4/call-v4-incoming-surface";
 import { useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
@@ -28,6 +30,7 @@ export function CallV4IncomingSheet() {
     typeof document !== "undefined" ? document.visibilityState : "visible",
   );
   const [nativeSurfaceTick, setNativeSurfaceTick] = useState(0);
+  const [nativeAcceptingTick, setNativeAcceptingTick] = useState(0);
 
   useLayoutEffect(() => {
     setPortalReady(true);
@@ -46,14 +49,29 @@ export function CallV4IncomingSheet() {
     });
   }, []);
 
+  useEffect(() => {
+    return subscribeCallV4NativeAcceptingSurfaceSignal(() => {
+      setNativeAcceptingTick((value) => value + 1);
+    });
+  }, []);
+
   const callId = identity?.callId?.trim() ?? "";
   const isIncomingRinging =
     phase === "incoming_ringing" && Boolean(callId) && identity?.direction === "incoming";
+  const nativeAccepting = isCallV4NativeAcceptingSurface(callId);
   const sheetSuppress = shouldSuppressCallV4WebIncomingSheet({ callId, visibilityState });
   void nativeSurfaceTick;
+  void nativeAcceptingTick;
 
   useEffect(() => {
     if (!isIncomingRinging) return;
+    if (nativeAccepting) {
+      if (shownCallIdRef.current !== callId) {
+        logCallV4("incoming_sheet_suppressed_native_accepting", { callId });
+        shownCallIdRef.current = callId;
+      }
+      return;
+    }
     if (sheetSuppress.suppress) {
       if (shownCallIdRef.current !== callId) {
         logCallV4("incoming_sheet_suppressed", { callId, reason: sheetSuppress.reason });
@@ -64,9 +82,10 @@ export function CallV4IncomingSheet() {
     if (shownCallIdRef.current === callId) return;
     shownCallIdRef.current = callId;
     logCallV4("incoming_sheet_show", { callId });
-  }, [callId, isIncomingRinging, sheetSuppress.reason, sheetSuppress.suppress]);
+  }, [callId, isIncomingRinging, nativeAccepting, sheetSuppress.reason, sheetSuppress.suppress]);
 
   if (!isIncomingRinging || !identity) return null;
+  if (nativeAccepting) return null;
   if (typeof document === "undefined" || !portalReady || sheetSuppress.suppress) return null;
 
   const peerLabel =
