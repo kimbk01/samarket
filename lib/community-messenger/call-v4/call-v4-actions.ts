@@ -45,7 +45,40 @@ import {
   type CallV4Router,
 } from "@/lib/community-messenger/call-v4/call-v4-route";
 import { readCallV4Capabilities, readCallV4Identity, readCallV4Phase, useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
-import type { CallV4Identity, CallV4TerminalPhase } from "@/lib/community-messenger/call-v4/call-v4-types";
+import type { CallV4Identity, CallV4Phase, CallV4TerminalPhase } from "@/lib/community-messenger/call-v4/call-v4-types";
+
+const HYDRATE_PROTECTED_PHASES = new Set<CallV4Phase>(["accepting", "joining", "connected"]);
+
+/** Ringing session must not downgrade accept-in-progress phases during callee hydrate. */
+export function shouldHydrateOverwriteCallV4Phase(
+  currentPhase: CallV4Phase,
+  sessionStatus: string,
+): boolean {
+  if (sessionStatus !== "ringing") return false;
+  return !HYDRATE_PROTECTED_PHASES.has(currentPhase);
+}
+
+function applyCalleeHydratePhase(callId: string, session: CommunityMessengerCallSession, inflight: boolean): void {
+  const currentPhase = readCallV4Phase();
+  if (inflight) {
+    useCallV4Store.getState().setPhase(session.status === "active" ? "joining" : "accepting");
+    return;
+  }
+  if (session.status === "active") {
+    useCallV4Store.getState().setPhase("joining");
+    return;
+  }
+  if (session.status !== "ringing") return;
+  if (shouldHydrateOverwriteCallV4Phase(currentPhase, session.status)) {
+    useCallV4Store.getState().setPhase("incoming_ringing");
+    return;
+  }
+  logCallV4("hydrate_phase_preserved", {
+    callId,
+    sessionStatus: session.status,
+    currentPhase,
+  });
+}
 
 export type CallV4OutgoingLaunchResult =
   | { ok: true; session: CommunityMessengerCallSession; roomId: string }
@@ -112,13 +145,7 @@ export async function hydrateCallV4CalleeScreen(callId: string): Promise<boolean
   const session = await callV4FetchSession(sid);
   if (!session?.id || session.isMineInitiator) return false;
   useCallV4Store.getState().setIdentity(buildIncomingIdentity(session));
-  if (inflight) {
-    useCallV4Store.getState().setPhase(session.status === "active" ? "joining" : "accepting");
-  } else if (session.status === "active") {
-    useCallV4Store.getState().setPhase("joining");
-  } else if (session.status === "ringing") {
-    useCallV4Store.getState().setPhase("incoming_ringing");
-  }
+  applyCalleeHydratePhase(sid, session, inflight);
   logCallV4("callee_screen_hydrated", { callId: sid, status: session.status, inflight });
   return true;
 }
