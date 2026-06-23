@@ -1,5 +1,7 @@
 import type { CallActionItem, CallPhase, CallScreenViewModel } from "@/components/messenger/call/call-ui.types";
 import { callV4Accept, callV4Cancel, callV4End, callV4Reject } from "@/lib/community-messenger/call-v4/call-v4-actions";
+import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
+import { isNativeAcceptInflight } from "@/lib/community-messenger/call-v4/call-v4-native-accept-flight";
 import type { CallV4Identity, CallV4Phase } from "@/lib/community-messenger/call-v4/call-v4-types";
 
 type SafeTranslate = (
@@ -50,15 +52,21 @@ export function buildCallV4ScreenViewModel(input: BuildCallV4ScreenViewModelInpu
     return null;
   }
 
-  const callPhase = mapCallV4PhaseToCallPhase(phase);
-  const isOutgoing = identity.direction === "outgoing";
-  const isOutgoingDialing = isOutgoing && (phase === "outgoing_ringing" || phase === "creating");
+  const nativeAcceptInflight = isNativeAcceptInflight(callId);
+  const suppressIncomingActions =
+    nativeAcceptInflight || phase === "accepting" || phase === "joining";
   const peerLabel =
     identity.peerLabel?.trim() ||
     safeT("cm_ui_call_active_voice", { fallbackKo: "통화 중", fallbackEn: "On a call" });
 
+  const displayPhase: CallV4Phase =
+    nativeAcceptInflight && phase === "incoming_ringing" ? "accepting" : phase;
+  const callPhase = mapCallV4PhaseToCallPhase(displayPhase);
+  const isOutgoing = identity.direction === "outgoing";
+  const isOutgoingDialing = isOutgoing && (phase === "outgoing_ringing" || phase === "creating");
+
   const primaryActions: CallActionItem[] = [];
-  if (!isOutgoing && phase === "incoming_ringing") {
+  if (!isOutgoing && phase === "incoming_ringing" && !suppressIncomingActions) {
     primaryActions.push(
       {
         id: "reject",
@@ -77,6 +85,8 @@ export function buildCallV4ScreenViewModel(input: BuildCallV4ScreenViewModelInpu
         onClick: () => void callV4Accept(callId, router, { source: "sheet" }),
       }
     );
+  } else if (nativeAcceptInflight && phase === "incoming_ringing") {
+    logCallV4("incoming_actions_suppressed_native_accept", { callId });
   } else if (isOutgoingDialing) {
     primaryActions.push({
       id: "end",
@@ -104,7 +114,7 @@ export function buildCallV4ScreenViewModel(input: BuildCallV4ScreenViewModelInpu
         ? safeT("cm_ui_ending_call", { fallbackKo: "종료 중", fallbackEn: "Ending…" })
         : isOutgoingDialing
           ? safeT("cm_ui_call_status_outgoing_dialing", { fallbackKo: "발신 중", fallbackEn: "Calling" })
-          : phase === "incoming_ringing"
+          : phase === "incoming_ringing" && !suppressIncomingActions
             ? safeT("cm_ui_incoming_phone", { fallbackKo: "휴대전화", fallbackEn: "mobile" })
             : safeT("cm_ui_connecting", { fallbackKo: "연결 중", fallbackEn: "Connecting" });
 
@@ -113,14 +123,14 @@ export function buildCallV4ScreenViewModel(input: BuildCallV4ScreenViewModelInpu
         fallbackKo: "상대방의 응답을 기다리는 중",
         fallbackEn: "Waiting for the other person to answer",
       })
-    : phase === "incoming_ringing"
+    : phase === "incoming_ringing" && !suppressIncomingActions
       ? safeT("cm_ui_choose_accept_or_reject", {
           fallbackKo: "수락 또는 거절을 선택하세요",
           fallbackEn: "Choose accept or decline",
         })
       : callPhase === "connected"
         ? null
-        : phase === "joining" || phase === "accepting"
+        : suppressIncomingActions
           ? safeT("cm_ui_connecting", { fallbackKo: "연결 중", fallbackEn: "Connecting" })
           : null;
 

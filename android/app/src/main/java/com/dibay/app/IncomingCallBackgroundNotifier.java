@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.util.Log;
 import com.dibay.app.call.CallActivityRouter;
 import com.dibay.app.call.CallForegroundService;
+import com.dibay.app.callv4.CallV4Lane;
 
 /**
  * Non-foreground incoming presentation SSOT.
@@ -12,9 +13,9 @@ import com.dibay.app.call.CallForegroundService;
  * <p>Contract:
  * <ul>
  *   <li>Ring — {@link IncomingCallPushDelivery} → {@link IncomingCallRingOwner} (notification channel silent).</li>
- *   <li>Background (home) — FGS {@code startForeground} then Activity launch (BAL exempt) + silent
- *       CallStyle/FSI heads-up.</li>
- *   <li>Lock — immediate FCM notification (FSI) + Activity; FGS keeps process alive.</li>
+ *   <li>V4 background/lock — Activity (FSI) primary; notification action-only when Activity launches.</li>
+ *   <li>V4 fallback — full visual notification only when Activity launch fails or FSI OS-restricted.</li>
+ *   <li>Legacy — prior Activity + CallStyle notification path when V4 lane OFF.</li>
  * </ul>
  */
 public final class IncomingCallBackgroundNotifier {
@@ -22,7 +23,7 @@ public final class IncomingCallBackgroundNotifier {
 
   private IncomingCallBackgroundNotifier() {}
 
-  /** Lock / sleep — FGS first (cold process), then silent notification/FSI + Activity. Ring at push delivery. */
+  /** Lock / sleep — FGS first (cold process), then presentation. Ring at push delivery. */
   public static void presentLockIncoming(Context context, IncomingCallPayload payload) {
     if (context == null || payload == null || !payload.isValid()) return;
     String callId = payload.callId.trim();
@@ -36,6 +37,10 @@ public final class IncomingCallBackgroundNotifier {
           "ok=false err=" + error.getClass().getSimpleName());
     }
     Log.i(TAG, "[call-ui] lock_presentation_immediate callId=" + callId);
+    if (CallV4Lane.isTelegramLaneEnabled(context)) {
+      presentV4NonForegroundIncoming(context, payload, "lock_fcm_immediate", false);
+      return;
+    }
     IncomingCallNotificationBuilder.showIncomingCall(context, payload, false);
     launchIncomingActivity(context, payload, "lock_fcm_immediate");
   }
@@ -58,28 +63,73 @@ public final class IncomingCallBackgroundNotifier {
     Log.i(TAG, "[call-ui] background_ui_deferred_to_fgs callId=" + callId);
   }
 
-  /** After FGS {@code startForeground} — UI first, silent notification second. */
+  /** After FGS {@code startForeground} — V4: Activity primary, notification action-only or fallback. */
   public static void deliverPendingPresentation(Context context, String callId, String source) {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
     IncomingCallPayload payload = PendingIncomingPresentation.take(callId.trim());
     if (payload == null) return;
     Log.i(TAG, "[call-ui] background_presentation_deliver callId=" + callId + " source=" + source);
+    if (CallV4Lane.isTelegramLaneEnabled(context)) {
+      presentV4NonForegroundIncoming(context, payload, source, true);
+      return;
+    }
     launchIncomingActivity(context, payload, "fgs_fullscreen");
     IncomingCallNotificationBuilder.showIncomingCall(context, payload, true);
   }
 
-  static void launchIncomingActivity(Context context, IncomingCallPayload payload, String source) {
+  private static void presentV4NonForegroundIncoming(
+      Context context, IncomingCallPayload payload, String source, boolean fgsDelivery) {
     if (context == null || payload == null || !payload.isValid()) return;
+    String callId = payload.callId.trim();
+    Context app = context.getApplicationContext();
+    String visibility = IncomingCallSurfaceOwner.resolveVisibility(app);
+
+    Log.i(
+        CallV4Lane.TAG,
+        "[DIBAY_CALL_V4] incoming_activity_launch_start callId=" + callId + " source=" + source);
+    boolean activityLaunched = launchIncomingActivity(context, payload, source);
+    Log.i(
+        CallV4Lane.TAG,
+        "[DIBAY_CALL_V4] incoming_activity_launch_result callId="
+            + callId
+            + " success="
+            + activityLaunched);
+
+    if (activityLaunched) {
+      IncomingCallSurfaceOwner.tryClaimVisibleOwner(
+          callId, IncomingCallSurfaceOwner.VisibleOwner.NATIVE_FSI);
+      IncomingCallSurfaceOwner.logOwnerDecided(callId, "native_fsi", visibility, null);
+      IncomingCallNotificationBuilder.showIncomingCallActionOnly(context, payload, fgsDelivery);
+      return;
+    }
+
+    String fallbackReason =
+        !IncomingCallNotificationBuilder.canPostFullScreenIntent(app)
+            ? "os_restricted"
+            : "activity_launch_failed";
+    if (!IncomingCallSurfaceOwner.tryClaimVisibleOwner(
+        callId, IncomingCallSurfaceOwner.VisibleOwner.NOTIFICATION_FALLBACK)) {
+      return;
+    }
+    IncomingCallSurfaceOwner.logOwnerDecided(
+        callId, "notification_fallback", visibility, fallbackReason);
+    IncomingCallNotificationBuilder.showIncomingCall(context, payload, fgsDelivery);
+  }
+
+  static boolean launchIncomingActivity(Context context, IncomingCallPayload payload, String source) {
+    if (context == null || payload == null || !payload.isValid()) return false;
     String sid = payload.callId.trim();
     if (DibayCallConsumedStore.isConsumed(context, sid)) {
       Log.i(TAG, "[call-ui] incoming_activity_skipped_consumed callId=" + sid);
-      return;
+      return false;
     }
-    if (!CallActivityRouter.shouldLaunchIncomingActivity(sid)) return;
+    if (!CallActivityRouter.shouldLaunchIncomingActivity(sid)) {
+      return true;
+    }
     Intent incomingUi = IncomingCallIntentHelper.buildIncomingCallActivityIntent(context, payload);
     if (incomingUi == null) {
       DibayCallPushLog.warn("incoming_activity_launch_blocked", sid, "reason=invalid_intent source=" + source);
-      return;
+      return false;
     }
     incomingUi.addFlags(
         Intent.FLAG_ACTIVITY_NEW_TASK
@@ -94,12 +144,13 @@ public final class IncomingCallBackgroundNotifier {
       }
       DibayCallLog.once("incoming_render", sid, "source=" + source);
       Log.i(TAG, "[call-ui] outside_app_incoming_activity_launch callId=" + sid + " source=" + source);
+      return true;
     } catch (Exception error) {
       DibayCallPushLog.warn(
           "outside_app_incoming_activity_blocked",
           sid,
           "source=" + source + " err=" + error.getClass().getSimpleName());
+      return false;
     }
   }
-
 }

@@ -41,7 +41,7 @@ describe("call-v4 import isolation", () => {
     expect(main).toContain("CallV4Lane.shouldSuppressV3CallReplay");
     expect(main).toContain("v3_wake_route_suppressed");
     expect(main).toContain("v3_pending_route_suppressed");
-    expect(main).toContain("v3_incoming_web_suppressed");
+    expect(main).toContain("v4_foreground_incoming_web_delivered");
   });
 
   it("CallForegroundService routes FGS accept through coordinator when V4 ON", () => {

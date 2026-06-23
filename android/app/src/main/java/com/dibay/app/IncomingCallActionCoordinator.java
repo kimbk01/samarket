@@ -87,6 +87,10 @@ public final class IncomingCallActionCoordinator {
   public static void handleAccept(Context context, String callId) {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
     String sid = callId.trim();
+    if (CallV4Lane.isTelegramLaneEnabled(context)) {
+      Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] coordinator_accept_enter callId=" + sid);
+      Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] coordinator_accept_call_id callId=" + sid);
+    }
     if (!tryBegin(sid, "accept")) return;
     final Context app = context.getApplicationContext();
     final boolean v4Lane = CallV4Lane.isTelegramLaneEnabled(app);

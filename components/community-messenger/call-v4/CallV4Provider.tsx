@@ -16,12 +16,12 @@ import { startCallV4IncomingDiscovery } from "@/lib/community-messenger/call-v4/
 import {
   applyCallV4NativeIncomingSurfaceSignal,
   isCallV4NativeAcceptingSurface,
+  logCallV4IncomingOwnerDecided,
   registerCallV4NativeAcceptingSurface,
   resolveCallV4AppVisibility,
   resolveCallV4NativeAcceptingSurfaceType,
   shouldRegisterCallV4NativeAcceptingFromRoute,
   shouldSuppressCallV4IncomingDiscoveredForSheet,
-  shouldSuppressCallV4WebIncomingDiscoveryForNativeForeground,
   syncCallV4NativeAcceptingSurfaceFromWindowLocation,
 } from "@/lib/community-messenger/call-v4/call-v4-incoming-surface";
 import {
@@ -29,14 +29,18 @@ import {
   isCallV4CalleeRejectRoute,
   readCallV4SessionIdFromNativeRoute,
 } from "@/lib/community-messenger/call-v4/call-v4-native-route";
+import {
+  isNativeAcceptInflight,
+  seedCallV4NativeAcceptInflightFromRoute,
+  syncCallV4NativeAcceptInflightFromWindowLocation,
+} from "@/lib/community-messenger/call-v4/call-v4-native-accept-flight";
 import { readCallV4ExitRouter } from "@/lib/community-messenger/call-v4/call-v4-route";
+import { readCallV4Phase, useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
 import {
   installDibayFcmCallBridge,
   type DibayFcmIncomingWakeDetail,
 } from "@/lib/community-messenger/dibay-fcm-call-bridge";
 import { onCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
-import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
-import { getNativeIncomingCallPlugin } from "@/lib/push/native/push-route-native-bridge";
 import { CallV4IncomingSheet } from "@/components/community-messenger/call-v4/CallV4IncomingSheet";
 
 type CallV4ProviderProps = {
@@ -57,6 +61,15 @@ function registerCallV4NativeAcceptingFromAppPath(path: string): void {
   );
 }
 
+function seedCallV4NativeAcceptRouteState(path: string): void {
+  const callId = seedCallV4NativeAcceptInflightFromRoute(path);
+  if (!callId) return;
+  const phase = readCallV4Phase();
+  if (phase === "idle" || phase === "incoming_ringing") {
+    useCallV4Store.getState().setPhase("accepting");
+  }
+}
+
 async function hydrateCallV4IncomingWake(detail: DibayFcmIncomingWakeDetail): Promise<void> {
   const callId = detail.sessionId?.trim() ?? "";
   if (!callId) return;
@@ -72,10 +85,7 @@ async function hydrateCallV4IncomingWake(detail: DibayFcmIncomingWakeDetail): Pr
 
   primeCallV4ConnectionWarm(callId);
 
-  if (shouldSuppressCallV4WebIncomingDiscoveryForNativeForeground()) {
-    logCallV4("incoming_wake_native_foreground_warm_only", { callId });
-    return;
-  }
+  if (isNativeAcceptInflight(callId)) return;
 
   syncCallV4NativeAcceptingSurfaceFromWindowLocation();
   if (isCallV4NativeAcceptingSurface(callId)) {
@@ -90,6 +100,10 @@ async function hydrateCallV4IncomingWake(detail: DibayFcmIncomingWakeDetail): Pr
   if (suppress.suppress) {
     logCallV4("incoming_wake_sheet_suppressed", { callId, reason: suppress.reason });
     return;
+  }
+  const appVisibility = resolveCallV4AppVisibility();
+  if (appVisibility === "foreground" || appVisibility === "unknown") {
+    logCallV4IncomingOwnerDecided({ callId, owner: "web_foreground", visibility: appVisibility });
   }
   callV4IncomingDiscovered(session);
 }
@@ -116,27 +130,9 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
     return startCallV4IncomingDiscovery(userId);
   }, [userId]);
 
-  useEffect(() => {
-    if (!isCallV4TelegramLaneEnabled() || !isCapacitorNativePlatform()) return;
-
-    void getNativeIncomingCallPlugin().then((plugin) => {
-      if (!plugin) return;
-      void plugin.getForegroundIncomingCallId().then((res) => {
-        const callId = res.callId?.trim() ?? "";
-        if (!callId) return;
-        applyCallV4NativeIncomingSurfaceSignal({
-          callId,
-          hasNativeIncomingSurface: true,
-          nativeSurfaceType: "foreground_pill",
-          appVisibility: resolveCallV4AppVisibility(),
-          source: "native_foreground_pill_boot",
-        });
-      });
-    });
-  }, []);
-
   useLayoutEffect(() => {
     if (!isCallV4TelegramLaneEnabled()) return;
+    syncCallV4NativeAcceptInflightFromWindowLocation();
     syncCallV4NativeAcceptingSurfaceFromWindowLocation();
     const path = `${pathname ?? ""}${typeof window !== "undefined" ? window.location.search : ""}`;
     if (!path.includes("/community-messenger/calls-v4/")) return;
@@ -148,6 +144,7 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
     if (isCallV4CalleeAcceptRoute(path)) {
       const acceptCallId = readCallV4SessionIdFromNativeRoute(path);
       logCallV4("route_accept_seen", { callId: acceptCallId, path });
+      seedCallV4NativeAcceptRouteState(path);
       if (shouldRegisterCallV4NativeAcceptingFromRoute(path)) {
         registerCallV4NativeAcceptingFromAppPath(path);
       }
@@ -166,6 +163,7 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
           path,
           source: "native_route_event",
         });
+        seedCallV4NativeAcceptRouteState(path);
       }
       registerCallV4NativeAcceptingFromAppPath(path);
     };
@@ -203,11 +201,24 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
       onForegroundIncomingUi: ({ sessionId, visible }) => {
         const callId = sessionId.trim();
         if (!callId) return;
+        const appVisibility = resolveCallV4AppVisibility();
+        // V4 foreground — Web CallV4IncomingSheet is sole owner; ignore native pill show.
+        if (appVisibility === "foreground" || appVisibility === "unknown") {
+          if (!visible) {
+            applyCallV4NativeIncomingSurfaceSignal({
+              callId,
+              hasNativeIncomingSurface: false,
+              appVisibility,
+              source: "native_foreground_pill_cleared",
+            });
+          }
+          return;
+        }
         applyCallV4NativeIncomingSurfaceSignal({
           callId,
           hasNativeIncomingSurface: visible,
           nativeSurfaceType: visible ? "foreground_pill" : undefined,
-          appVisibility: resolveCallV4AppVisibility(),
+          appVisibility,
           source: "native_foreground_pill",
         });
       },

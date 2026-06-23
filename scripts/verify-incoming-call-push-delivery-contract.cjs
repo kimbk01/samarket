@@ -107,6 +107,30 @@ if (delivery.includes("IncomingCallForegroundUiLauncher.showUi")) {
   pass("PushDelivery no foreground native pill");
 }
 
+if (!notifier.includes("presentV4NonForegroundIncoming")) {
+  fail("BackgroundNotifier must use V4 owner presentation helper");
+} else {
+  pass("BackgroundNotifier V4 owner presentation");
+}
+
+if (!notifier.includes("showIncomingCallActionOnly")) {
+  fail("BackgroundNotifier must post action-only notification when Activity is primary");
+} else {
+  pass("BackgroundNotifier action-only notification path");
+}
+
+if (!notifBuilder.includes("showIncomingCallActionOnly")) {
+  fail("NotificationBuilder must support action-only incoming mode");
+} else {
+  pass("NotificationBuilder action-only mode");
+}
+
+if (!fs.existsSync(path.join(root, "android/app/src/main/java/com/dibay/app/IncomingCallSurfaceOwner.java"))) {
+  fail("IncomingCallSurfaceOwner must exist for V4 visible owner SSOT");
+} else {
+  pass("IncomingCallSurfaceOwner present");
+}
+
 const legacyPill = path.join(root, "android/app/src/main/java/com/dibay/app/ForegroundIncomingCallActivity.java");
 if (fs.existsSync(legacyPill)) {
   fail("ForegroundIncomingCallActivity must be removed (Web IncomingCallSurface SSOT)");

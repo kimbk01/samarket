@@ -98,15 +98,14 @@ public class MainActivity extends BridgeActivity {
     act.mainHandler.post(() -> act.injectForegroundIncomingUiEvent(sid, visible));
   }
 
-  /** FCM foreground — WebView legacy call bridge (incoming_call / call_canceled) */
+  /** FCM foreground — WebView call bridge (V4: CallV4Provider incoming wake; V3: legacy banner). */
   static void deliverCallIncomingEvent(IncomingCallPayload payload) {
     MainActivity act = activeInstance;
     if (act == null || payload == null || !payload.isValid()) return;
     if (CallV4Lane.isTelegramLaneEnabled(act)) {
       Log.i(
           CallV4Lane.TAG,
-          "[DIBAY_CALL_V4] v3_incoming_web_suppressed callId=" + payload.callId);
-      return;
+          "[DIBAY_CALL_V4] v4_foreground_incoming_web_delivered callId=" + payload.callId);
     }
     act.mainHandler.post(() -> act.injectCallIncomingEvent(payload));
   }

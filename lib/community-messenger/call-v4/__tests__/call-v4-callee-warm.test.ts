@@ -58,4 +58,14 @@ describe("call-v4 callee telegram warm path", () => {
     primeCallV4ConnectionWarm("call-1");
     expect(warmMocks.prime).toHaveBeenCalledWith("call-1");
   });
+
+  it("blocks duplicate incoming sheet for the same callId while incoming_ringing", () => {
+    const info = vi.spyOn(console, "info");
+    const session = ringingSession("call-dup");
+    callV4IncomingDiscovered(session);
+    callV4IncomingDiscovered(session);
+    const duplicateLog = info.mock.calls.find((call) => call[1] === "incoming_surface_duplicate_blocked");
+    expect(duplicateLog).toBeDefined();
+    expect(useCallV4Store.getState().phase).toBe("incoming_ringing");
+  });
 });

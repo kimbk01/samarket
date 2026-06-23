@@ -4,9 +4,11 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.graphics.Rect;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.ImageButton;
@@ -15,6 +17,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.view.WindowCompat;
+import com.dibay.app.callv4.CallV4Lane;
 
 /** Lock-screen incoming call UI — accept/reject via web call-route (V3 PATCH owner). */
 public class IncomingCallActivity extends AppCompatActivity {
@@ -124,8 +127,57 @@ public class IncomingCallActivity extends AppCompatActivity {
     IncomingCallAvatarHelper.styleInitial(initialView);
     IncomingCallAvatarHelper.bind(avatarView, initialView, avatarUrl, displayName);
 
-    acceptBtn.setOnClickListener(v -> handleAccept());
+    acceptBtn.setOnClickListener(
+        v -> {
+          if (CallV4Lane.isTelegramLaneEnabled(getApplicationContext())) {
+            Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] accept_button_perform_click callId=" + callId);
+          }
+          handleAccept();
+        });
+    acceptBtn.setOnTouchListener(
+        (v, event) -> {
+          if (!CallV4Lane.isTelegramLaneEnabled(getApplicationContext())) return false;
+          int action = event.getActionMasked();
+          if (action == MotionEvent.ACTION_DOWN) {
+            Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] accept_button_touch_down callId=" + callId);
+          } else if (action == MotionEvent.ACTION_UP) {
+            Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] accept_button_touch_up callId=" + callId);
+          }
+          return false;
+        });
     declineBtn.setOnClickListener(v -> handleDecline());
+
+    acceptBtn.post(() -> traceAcceptButtonState(acceptBtn));
+  }
+
+  private void traceAcceptButtonState(ImageButton acceptBtn) {
+    if (acceptBtn == null || callId == null) return;
+    if (!CallV4Lane.isTelegramLaneEnabled(getApplicationContext())) return;
+    Rect rect = new Rect();
+    acceptBtn.getGlobalVisibleRect(rect);
+    Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] accept_button_rendered callId=" + callId);
+    Log.i(
+        CallV4Lane.TAG,
+        "[DIBAY_CALL_V4] accept_button_bounds callId="
+            + callId
+            + " left="
+            + rect.left
+            + " top="
+            + rect.top
+            + " right="
+            + rect.right
+            + " bottom="
+            + rect.bottom);
+    Log.i(
+        CallV4Lane.TAG,
+        "[DIBAY_CALL_V4] accept_button_enabled callId="
+            + callId
+            + " enabled="
+            + acceptBtn.isEnabled()
+            + " clickable="
+            + acceptBtn.isClickable()
+            + " visible="
+            + (acceptBtn.getVisibility() == View.VISIBLE));
   }
 
   @Override
@@ -154,6 +206,9 @@ public class IncomingCallActivity extends AppCompatActivity {
 
   private void handleAccept() {
     if (finished) return;
+    if (CallV4Lane.isTelegramLaneEnabled(getApplicationContext())) {
+      Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] fsi_accept_tap callId=" + callId);
+    }
     DibayCallLog.once("accept_click", callId, "source=activity");
     Log.i(TAG, "[call-ui] answer_clicked callId=" + callId + " source=activity");
     IncomingCallActionCoordinator.handleAccept(getApplicationContext(), callId);

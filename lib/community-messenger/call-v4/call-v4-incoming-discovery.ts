@@ -7,11 +7,12 @@ import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import { isCallV4TelegramLaneEnabled } from "@/lib/community-messenger/call-v4/call-v4-flag";
 import {
   isCallV4NativeAcceptingSurface,
+  logCallV4IncomingOwnerDecided,
+  resolveCallV4AppVisibility,
   shouldSuppressCallV4IncomingDiscoveredForSheet,
-  shouldSuppressCallV4WebIncomingDiscoveryForNativeForeground,
   syncCallV4NativeAcceptingSurfaceFromWindowLocation,
 } from "@/lib/community-messenger/call-v4/call-v4-incoming-surface";
-import { primeCallV4ConnectionWarm } from "@/lib/community-messenger/call-v4/call-v4-connection-warm";
+import { isNativeAcceptInflight } from "@/lib/community-messenger/call-v4/call-v4-native-accept-flight";
 import {
   isCallV4CalleeAcceptRoute,
   readCallV4SessionIdFromNativeRoute,
@@ -31,6 +32,7 @@ function pickIncomingRingingCallee(sessions: CommunityMessengerCallSession[]): C
 
 function isIncomingDiscoveryDuplicateSkip(callId: string): boolean {
   if (isCallV4NativeAcceptingSurface(callId)) return true;
+  if (isNativeAcceptInflight(callId)) return true;
   if (typeof window !== "undefined") {
     const path = `${window.location.pathname}${window.location.search}`;
     if (
@@ -57,11 +59,6 @@ export function startCallV4IncomingDiscovery(userId: string | null): () => void 
     if (!candidate?.id) return;
     const callId = candidate.id.trim();
     if (isIncomingDiscoveryDuplicateSkip(callId)) return;
-    if (shouldSuppressCallV4WebIncomingDiscoveryForNativeForeground()) {
-      primeCallV4ConnectionWarm(callId);
-      logCallV4("incoming_discovery_suppressed", { callId, reason: "native_foreground_owner" });
-      return;
-    }
     if (isCallV4NativeAcceptingSurface(callId)) {
       logCallV4("incoming_sheet_suppressed_native_accepting", { callId });
       return;
@@ -73,6 +70,10 @@ export function startCallV4IncomingDiscovery(userId: string | null): () => void 
     if (suppress.suppress) {
       logCallV4("incoming_discovery_suppressed", { callId, reason: suppress.reason });
       return;
+    }
+    const appVisibility = resolveCallV4AppVisibility();
+    if (appVisibility === "foreground" || appVisibility === "unknown") {
+      logCallV4IncomingOwnerDecided({ callId, owner: "web_foreground", visibility: appVisibility });
     }
     callV4IncomingDiscovered(candidate);
   };

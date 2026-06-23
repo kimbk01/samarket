@@ -116,7 +116,7 @@ public final class IncomingCallNotificationBuilder {
       String callType,
       String expiresAt) {
     showIncomingCallInternal(
-        context, sessionId, title, body, deepLinkUrl, callType, expiresAt, null, null, null, null, false);
+        context, sessionId, title, body, deepLinkUrl, callType, expiresAt, null, null, null, null, false, false);
   }
 
   public static void showIncomingCall(Context context, IncomingCallPayload payload) {
@@ -137,7 +137,35 @@ public final class IncomingCallNotificationBuilder {
         payload.callerId,
         payload.callerName,
         payload.callerAvatarUrl,
-        fgsDelivery);
+        fgsDelivery,
+        false);
+  }
+
+  /**
+   * V4 non-foreground — accept/decline action carrier only (no CallStyle heads-up, no FSI).
+   * Used when {@link IncomingCallActivity} is the primary visible incoming surface.
+   */
+  public static void showIncomingCallActionOnly(
+      Context context, IncomingCallPayload payload, boolean fgsDelivery) {
+    if (payload == null || !payload.isValid()) return;
+    String sid = payload.callId.trim();
+    Log.i(
+        com.dibay.app.callv4.CallV4Lane.TAG,
+        "[DIBAY_CALL_V4] incoming_notification_action_only callId=" + sid);
+    showIncomingCallInternal(
+        context,
+        payload.callId,
+        payload.title,
+        payload.body,
+        null,
+        payload.callType,
+        payload.expiresAt,
+        payload.roomId,
+        payload.callerId,
+        payload.callerName,
+        payload.callerAvatarUrl,
+        fgsDelivery,
+        true);
   }
 
   private static void showIncomingCallInternal(
@@ -152,11 +180,12 @@ public final class IncomingCallNotificationBuilder {
       String callerId,
       String callerNameFromPayload,
       String callerAvatarUrl,
-      boolean fgsDelivery) {
+      boolean fgsDelivery,
+      boolean actionOnly) {
     ensureChannel(context);
     if (sessionId == null || sessionId.trim().isEmpty()) return;
     String sid = sessionId.trim();
-    if (!fgsDelivery && !IncomingCallActionCoordinator.registerIncoming(context, sid)) {
+    if (!fgsDelivery && !actionOnly && !IncomingCallActionCoordinator.registerIncoming(context, sid)) {
       Log.w(TAG, "[call-notification] incoming_ui_duplicate_blocked callId=" + sid);
       return;
     }
@@ -177,7 +206,7 @@ public final class IncomingCallNotificationBuilder {
     DibayCallPushLog.info(
         fsiAllowed ? "full_screen_intent_allowed" : "full_screen_intent_blocked",
         sid,
-        "lockScreenBridge=" + lockScreenBridge + " fgsDelivery=" + fgsDelivery);
+        "lockScreenBridge=" + lockScreenBridge + " fgsDelivery=" + fgsDelivery + " actionOnly=" + actionOnly);
     Log.i(
         TAG,
         "[call-push] lock_bridge="
@@ -186,11 +215,29 @@ public final class IncomingCallNotificationBuilder {
             + fsiAllowed
             + " fgsDelivery="
             + fgsDelivery
+            + " actionOnly="
+            + actionOnly
             + " callId="
             + sid);
 
     final Context app = context.getApplicationContext();
     final int notificationId = INCOMING_CALL_NOTIFICATION_BASE_ID + Math.abs(sid.hashCode() % 1000);
+
+    if (actionOnly) {
+      IncomingCallSurfaceOwner.tryClaimVisibleOwner(
+          sid, IncomingCallSurfaceOwner.VisibleOwner.NOTIFICATION_ACTION_ONLY);
+      Notification actionOnlyNotification =
+          buildActionOnlyIncomingNotification(
+              app, sid, title, body, callType, expiresAt, roomId, callerId, callerNameFromPayload, callerAvatarUrl);
+      boolean posted =
+          postNotificationWithFallback(
+              app, notificationId, sid, actionOnlyNotification, actionOnlyNotification, diagnostics);
+      if (!posted && !fgsDelivery) {
+        launchActivityFallback(
+            app, sid, roomId, callerId, callerNameFromPayload, callerAvatarUrl, callType, expiresAt, title, body);
+      }
+      return;
+    }
 
     Notification callStyle =
         buildIncomingNotification(
@@ -210,7 +257,8 @@ public final class IncomingCallNotificationBuilder {
             fsiAllowed,
             firstIncoming,
             fgsDelivery,
-            true);
+            true,
+            false);
     Notification legacy =
         buildIncomingNotification(
             app,
@@ -229,6 +277,7 @@ public final class IncomingCallNotificationBuilder {
             fsiAllowed,
             firstIncoming,
             fgsDelivery,
+            false,
             false);
 
     boolean posted = postNotificationWithFallback(app, notificationId, sid, callStyle, legacy, diagnostics);
@@ -262,7 +311,8 @@ public final class IncomingCallNotificationBuilder {
                       fsiAllowed,
                       firstIncoming,
                       fgsDelivery,
-                      true);
+                      true,
+                      false);
               MAIN.post(
                   () -> {
                     NotificationManager enrichNm =
@@ -307,7 +357,40 @@ public final class IncomingCallNotificationBuilder {
         callerId,
         callerNameFromPayload,
         callerAvatarUrl,
+        false,
         false);
+  }
+
+  private static Notification buildActionOnlyIncomingNotification(
+      Context context,
+      String sid,
+      String title,
+      String body,
+      String callType,
+      String expiresAt,
+      String roomId,
+      String callerId,
+      String callerNameFromPayload,
+      String callerAvatarUrl) {
+    return buildIncomingNotification(
+        context,
+        sid,
+        title,
+        body,
+        callType,
+        expiresAt,
+        roomId,
+        callerId,
+        callerNameFromPayload,
+        callerAvatarUrl,
+        null,
+        null,
+        false,
+        false,
+        true,
+        false,
+        false,
+        true);
   }
 
   private static boolean postNotificationWithFallback(
@@ -369,7 +452,8 @@ public final class IncomingCallNotificationBuilder {
       boolean fsiAllowed,
       boolean firstIncoming,
       boolean fgsDelivery,
-      boolean useCallStyle) {
+      boolean useCallStyle,
+      boolean actionOnly) {
     String callerName = IncomingCallUiCopy.callerDisplayName(callerNameFromPayload, title, body);
     String callKindLabel = IncomingCallUiCopy.statusBrandLabel(context, callType, title, body);
     String rejectLabel = IncomingCallUiCopy.rejectLabel(context);
@@ -423,7 +507,8 @@ public final class IncomingCallNotificationBuilder {
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(callerName)
             .setContentText(callKindLabel)
-            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setPriority(
+                actionOnly ? NotificationCompat.PRIORITY_LOW : NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true)
@@ -436,9 +521,13 @@ public final class IncomingCallNotificationBuilder {
     }
 
     boolean attachFsi =
-        firstIncoming && fsiAllowed && fullScreenPi != null && (lockScreenBridge || fgsDelivery);
+        !actionOnly
+            && firstIncoming
+            && fsiAllowed
+            && fullScreenPi != null
+            && (lockScreenBridge || fgsDelivery);
 
-    boolean applyCallStyle = useCallStyle;
+    boolean applyCallStyle = useCallStyle && !actionOnly;
 
     if (applyCallStyle && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
       Person.Builder personBuilder = new Person.Builder().setName(callerName).setImportant(true);
@@ -492,6 +581,7 @@ public final class IncomingCallNotificationBuilder {
     String sid = sessionId.trim();
     if (sid.isEmpty()) return;
     nm.cancel(INCOMING_CALL_NOTIFICATION_BASE_ID + Math.abs(sid.hashCode() % 1000));
+    IncomingCallSurfaceOwner.clear(sid);
     DibayCallLog.once("notification_cancel", sid);
   }
 

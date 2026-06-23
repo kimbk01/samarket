@@ -13,6 +13,7 @@ import {
 } from "@/lib/community-messenger/call-v4/call-v4-actions";
 import { callV4FetchSession } from "@/lib/community-messenger/call-v4/call-v4-api";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
+import { tryStartCallV4NativeAcceptAutostart } from "@/lib/community-messenger/call-v4/call-v4-native-accept-flight";
 import { exitCallV4ScreenAfterCleanup, registerCallV4ExitRouter } from "@/lib/community-messenger/call-v4/call-v4-route";
 import type { CallV4Phase } from "@/lib/community-messenger/call-v4/call-v4-types";
 import { buildCallV4ScreenViewModel } from "@/lib/community-messenger/call-v4/call-v4-view-model";
@@ -56,6 +57,7 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
 
   useEffect(() => {
     if (!callId || action !== "accept") return;
+    if (!tryStartCallV4NativeAcceptAutostart(callId)) return;
     void callV4Accept(callId, router, { skipRoute: true, source: source ?? "native" });
   }, [action, callId, router, source]);
 

@@ -2,6 +2,7 @@ import { stopCallV4CallerActivePoll } from "@/lib/community-messenger/call-v4/ca
 import { clearCallV4ConnectionWarm } from "@/lib/community-messenger/call-v4/call-v4-connection-warm";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import { clearCallV4NativeAcceptingSurface } from "@/lib/community-messenger/call-v4/call-v4-incoming-surface";
+import { clearNativeAcceptInflight } from "@/lib/community-messenger/call-v4/call-v4-native-accept-flight";
 import { useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
 import type { CallV4TerminalPhase } from "@/lib/community-messenger/call-v4/call-v4-types";
 
@@ -13,6 +14,7 @@ export async function cleanupCallV4(callId: string, reason: CallV4TerminalPhase 
   await leaveCallV4Agora(sid);
   clearCallV4ConnectionWarm(sid);
   clearCallV4NativeAcceptingSurface(sid);
+  clearNativeAcceptInflight(sid, String(reason));
   useCallV4Store.getState().resetToIdle();
   logCallV4("cleanup_done", { callId: sid, reason });
 }

@@ -4,16 +4,15 @@ vi.mock("@/lib/platform/capacitor-native", () => ({
   isCapacitorNativePlatform: vi.fn(() => false),
 }));
 
-import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 import {
   applyCallV4NativeIncomingSurfaceSignal,
   clearAllCallV4NativeAcceptingSurfaces,
   clearCallV4NativeAcceptingSurface,
   isCallV4NativeAcceptingSurface,
+  logCallV4IncomingOwnerDecided,
   registerCallV4NativeAcceptingSurface,
   resolveCallV4NativeAcceptingSurfaceType,
   shouldRegisterCallV4NativeAcceptingFromRoute,
-  shouldSuppressCallV4WebIncomingDiscoveryForNativeForeground,
   shouldSuppressCallV4WebIncomingSheet,
   shouldUseCallV4WebIncomingSheet,
 } from "@/lib/community-messenger/call-v4/call-v4-incoming-surface";
@@ -59,6 +58,22 @@ describe("call-v4 incoming surface", () => {
     expect(result.reason).toBe("background_native_owner");
   });
 
+  it("does not suppress web sheet when native foreground pill signal is present", () => {
+    applyCallV4NativeIncomingSurfaceSignal({
+      callId: "call-pill",
+      hasNativeIncomingSurface: true,
+      nativeSurfaceType: "foreground_pill",
+      appVisibility: "foreground",
+      source: "test",
+    });
+    const result = shouldSuppressCallV4WebIncomingSheet({
+      callId: "call-pill",
+      visibilityState: "visible",
+    });
+    expect(result.suppress).toBe(false);
+    expect(result.reason).toBeNull();
+  });
+
   it("suppresses web sheet when native accept is in flight", () => {
     registerCallV4NativeAcceptingSurface("call-3", "native_fullscreen_accept", "native_accept");
     expect(isCallV4NativeAcceptingSurface("call-3")).toBe(true);
@@ -86,10 +101,18 @@ describe("call-v4 incoming surface", () => {
     expect(resolveCallV4NativeAcceptingSurfaceType("lock_fsi")).toBe("native_locked_accept");
   });
 
-  it("suppresses web incoming discovery on native foreground", () => {
-    vi.mocked(isCapacitorNativePlatform).mockReturnValue(false);
-    expect(shouldSuppressCallV4WebIncomingDiscoveryForNativeForeground()).toBe(false);
-    vi.mocked(isCapacitorNativePlatform).mockReturnValue(true);
-    expect(shouldSuppressCallV4WebIncomingDiscoveryForNativeForeground()).toBe(true);
+  it("logs incoming_owner_decided with web_foreground owner", () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    logCallV4IncomingOwnerDecided({ callId: "call-owner", owner: "web_foreground", visibility: "foreground" });
+    expect(info).toHaveBeenCalledWith(
+      "[DIBAY_CALL_V4]",
+      "incoming_owner_decided",
+      expect.objectContaining({
+        callId: "call-owner",
+        owner: "web_foreground",
+        visibility: "foreground",
+      }),
+    );
+    info.mockRestore();
   });
 });

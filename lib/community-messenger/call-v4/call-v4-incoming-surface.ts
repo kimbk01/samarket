@@ -5,9 +5,9 @@ import {
   isCallV4CalleeAcceptRoute,
   readCallV4SessionIdFromNativeRoute,
 } from "@/lib/community-messenger/call-v4/call-v4-native-route";
-import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
-
 export type CallV4AppVisibility = "foreground" | "background" | "locked" | "unknown";
+
+export type CallV4IncomingSurfaceOwner = "web_foreground" | "native_fsi" | "notification_fallback";
 
 export type CallV4NativeSurfaceType =
   | "foreground_pill"
@@ -212,9 +212,6 @@ function resolveSuppressReason(args: {
   if (!shouldUseCallV4WebIncomingSheet(appVisibility)) {
     return { suppress: true, reason: "background_native_owner" };
   }
-  if (nativeForegroundIncomingCallId === sid && hasCallV4NativeIncomingSurfaceForCall(sid)) {
-    return { suppress: true, reason: "native_foreground_pill" };
-  }
   if (shouldPreferCallV4NativeIncomingSurface(appVisibility) && hasCallV4NativeIncomingSurfaceForCall(sid)) {
     return { suppress: true, reason: "native_surface_active" };
   }
@@ -235,9 +232,18 @@ export function shouldSuppressCallV4IncomingDiscoveredForSheet(args: {
   return resolveSuppressReason(args);
 }
 
-/** APK foreground — native incoming pill/activity owns UI; Web sheet must not duplicate. */
-export function shouldSuppressCallV4WebIncomingDiscoveryForNativeForeground(): boolean {
-  if (!isCapacitorNativePlatform()) return false;
-  const visibility = resolveCallV4AppVisibility();
-  return visibility !== "background" && visibility !== "locked";
+/** Foreground — Web CallV4IncomingSheet is the sole incoming UI owner. */
+export function logCallV4IncomingOwnerDecided(args: {
+  callId: string;
+  owner: CallV4IncomingSurfaceOwner;
+  visibility?: CallV4AppVisibility;
+}): void {
+  const sid = normalizeCallId(args.callId);
+  if (!sid) return;
+  const visibility = args.visibility ?? resolveCallV4AppVisibility();
+  logCallV4("incoming_owner_decided", {
+    callId: sid,
+    owner: args.owner,
+    visibility,
+  });
 }

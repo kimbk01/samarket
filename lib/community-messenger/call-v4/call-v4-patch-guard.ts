@@ -1,3 +1,5 @@
+import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
+
 const acceptPatchClaimed = new Set<string>();
 const rejectPatchClaimed = new Set<string>();
 const endPatchClaimed = new Set<string>();
@@ -11,7 +13,13 @@ function claimOnce(store: Set<string>, callId: string): boolean {
 }
 
 export function claimCallV4AcceptPatchOnce(callId: string): boolean {
-  return claimOnce(acceptPatchClaimed, callId);
+  const sid = callId.trim();
+  if (!sid || acceptPatchClaimed.has(sid)) {
+    if (sid) logCallV4("accept_once_skip_duplicate", { callId: sid });
+    return false;
+  }
+  acceptPatchClaimed.add(sid);
+  return true;
 }
 
 export function claimCallV4RejectPatchOnce(callId: string): boolean {

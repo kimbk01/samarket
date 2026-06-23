@@ -3,6 +3,7 @@ package com.dibay.app.callv4;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
+import android.util.Log;
 import com.dibay.app.IncomingCallActivity;
 import com.dibay.app.MainActivity;
 
@@ -40,6 +41,7 @@ public final class CallV4IntentHelper {
                 + "?action=accept&source="
                 + Uri.encode(src)));
     launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+    Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] main_activity_v4_accept_intent_built callId=" + sid);
     return launch;
   }
 

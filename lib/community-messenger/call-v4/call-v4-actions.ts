@@ -27,6 +27,7 @@ import { stopCallV4CallerActivePoll, startCallV4CallerActivePoll } from "@/lib/c
 import { cleanupCallV4 } from "@/lib/community-messenger/call-v4/call-v4-cleanup";
 import { primeCallV4ConnectionWarm } from "@/lib/community-messenger/call-v4/call-v4-connection-warm";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
+import { isNativeAcceptInflight } from "@/lib/community-messenger/call-v4/call-v4-native-accept-flight";
 import { markCallV4MediaConnected } from "@/lib/community-messenger/call-v4/call-v4-phase-bridge";
 import {
   claimCallV4AcceptPatchOnce,
@@ -100,16 +101,25 @@ async function ensureCallV4CalleeIdentity(callId: string): Promise<CallV4Identit
 export async function hydrateCallV4CalleeScreen(callId: string): Promise<boolean> {
   const sid = callId.trim();
   if (!sid) return false;
-  if (readCallV4Identity()?.callId === sid) return true;
+  const inflight = isNativeAcceptInflight(sid);
+  const existingIdentity = readCallV4Identity();
+  if (existingIdentity?.callId === sid) {
+    if (inflight && readCallV4Phase() === "incoming_ringing") {
+      useCallV4Store.getState().setPhase("accepting");
+    }
+    return true;
+  }
   const session = await callV4FetchSession(sid);
   if (!session?.id || session.isMineInitiator) return false;
   useCallV4Store.getState().setIdentity(buildIncomingIdentity(session));
-  if (session.status === "active") {
+  if (inflight) {
+    useCallV4Store.getState().setPhase(session.status === "active" ? "joining" : "accepting");
+  } else if (session.status === "active") {
     useCallV4Store.getState().setPhase("joining");
   } else if (session.status === "ringing") {
     useCallV4Store.getState().setPhase("incoming_ringing");
   }
-  logCallV4("callee_screen_hydrated", { callId: sid, status: session.status });
+  logCallV4("callee_screen_hydrated", { callId: sid, status: session.status, inflight });
   return true;
 }
 
@@ -303,9 +313,15 @@ export { startCallV4CallerActivePoll, stopCallV4CallerActivePoll };
 export function callV4IncomingDiscovered(session: CommunityMessengerCallSession): void {
   const callId = session.id?.trim() ?? "";
   if (!callId || session.status !== "ringing" || session.isMineInitiator) return;
+  if (isNativeAcceptInflight(callId)) return;
   const phase = readCallV4Phase();
   const current = readCallV4Identity();
-  if (current?.callId === callId && phase !== "idle") return;
+  if (current?.callId === callId && phase !== "idle") {
+    if (phase === "incoming_ringing") {
+      logCallV4("incoming_surface_duplicate_blocked", { callId });
+    }
+    return;
+  }
   logCallV4("incoming_discovered", { callId, roomId: session.roomId });
   primeCallV4ConnectionWarm(callId);
   useCallV4Store.getState().setIdentity(buildIncomingIdentity(session));
