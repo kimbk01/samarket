@@ -91,30 +91,36 @@ describe("call-v3 import isolation contract", () => {
     expect(chrome).not.toMatch(/isDibayCallV3SafeLaneEnabled\(\)[\s\S]{0,200}IncomingCallOverlay/);
   });
 
-  it("CallV3Provider replays notification tap as wake-only (no native PATCH)", () => {
+  it("CallV3Provider routes FSI accept/reject via native call-route (Web PATCH owner)", () => {
     const provider = read("components/community-messenger/call-v3/CallV3Provider.tsx");
-    expect(provider).toContain("handleCallV3NotificationRouteWake");
+    expect(provider).toContain("handleCallV3NativeCallRoute");
     expect(provider).toContain("handleCallV3WindowLocationRouteWake");
     expect(provider).toContain("usePathname");
     expect(provider).toContain("native_notification_received");
     expect(provider).toContain("consumeNativePendingCallRoutes");
     expect(provider).toContain("dibay:push-route");
-    expect(provider).not.toContain("native_notification_accept");
+    expect(provider).toContain("isCallV3CalleeAcceptRoute");
+    expect(provider).toContain("isCallV3CalleeRejectRoute");
   });
 
-  it("PushRouteListener enqueues V3 wake for call routes when flag ON", () => {
+  it("PushRouteListener enqueues V3 call routes when flag ON", () => {
     const listener = read("components/push/PushRouteListener.tsx");
     expect(listener).toContain("isDibayCallV3SafeLaneEnabled");
-    expect(listener).toContain("handleCallV3NotificationRouteWake");
+    expect(listener).toContain("handleCallV3NativeCallRoute");
     expect(listener).toContain("notification_tap");
     expect(listener).toContain("call_v3_wake");
   });
 
-  it("call-v3-native-bridge exposes E-2 replay logs", () => {
+  it("call-v3-native-bridge exposes E-2/E-3 replay logs", () => {
     const bridge = read("lib/community-messenger/call-v3/call-v3-native-bridge.ts");
     expect(bridge).toContain("native_notification_click");
+    expect(bridge).toContain("native_notification_accept");
+    expect(bridge).toContain("native_notification_reject");
     expect(bridge).toContain("native_pending_replay");
     expect(bridge).toContain("native_replay_done");
     expect(bridge).toContain('action: "wake"');
+    expect(bridge).toContain('action: "accept"');
+    expect(bridge).toContain('action: "reject"');
+    expect(bridge).toContain("handleCallV3NativeCallRoute");
   });
 });

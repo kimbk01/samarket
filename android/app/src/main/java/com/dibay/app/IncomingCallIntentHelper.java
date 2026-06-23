@@ -75,6 +75,16 @@ public final class IncomingCallIntentHelper {
     return launch;
   }
 
+  /** Lock-screen / notification reject — Web V3 PATCH owner (signal only). */
+  public static Intent buildMainActivityCallRejectIntent(Context context, String callId) {
+    String sessionId = callId != null ? callId.trim() : "";
+    Intent launch = new Intent(context, MainActivity.class);
+    launch.setAction(Intent.ACTION_VIEW);
+    launch.setData(Uri.parse("dibay://call/" + Uri.encode(sessionId) + "?action=reject&source=activity"));
+    launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+    return launch;
+  }
+
   /** Ongoing call notification tap — same callId 화면 복구 */
   public static Intent buildMainActivityCallResumeIntent(Context context, String callId) {
     String sessionId = callId != null ? callId.trim() : "";

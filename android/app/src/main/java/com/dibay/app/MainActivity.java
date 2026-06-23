@@ -124,6 +124,28 @@ public class MainActivity extends BridgeActivity {
     act.mainHandler.post(() -> act.deliverCallTerminalEventToWebView(sid, st));
   }
 
+  /**
+   * Lock/background FCM — silently inject wake call-route when WebView is already on app origin
+   * so V3 can discover incoming and run missed timer (no UI bring-up).
+   */
+  public static void tryInjectCallWakeRoute(android.content.Context context, String appPath) {
+    if (appPath == null || appPath.trim().isEmpty()) return;
+    if (!appPath.startsWith("/community-messenger/calls/")) return;
+    if (appPath.contains("action=accept") || appPath.contains("action=reject")) return;
+    MainActivity act = activeInstance;
+    if (act == null) return;
+    final String path = appPath.trim();
+    act.mainHandler.post(
+        () -> {
+          Bridge bridge = act.getBridge();
+          if (bridge == null) return;
+          WebView webView = bridge.getWebView();
+          if (webView == null || !act.isWebViewOnAppOrigin(webView)) return;
+          act.injectWebViewRouteViaJs(webView, path, null);
+          Log.i(ROUTE_LOG_TAG, "[call-route] lock_wake_route_injected path=" + path);
+        });
+  }
+
   private boolean canDeliverCallEventToWebView() {
     Bridge bridge = getBridge();
     return bridge != null && bridge.getWebView() != null;

@@ -50,6 +50,23 @@ export function isCallV3CalleeAcceptRoute(path: string): boolean {
   return trimmed.includes("action=accept") || trimmed.includes("callAction=accept");
 }
 
+export function isCallV3CalleeRejectRoute(path: string): boolean {
+  const trimmed = normalizeCallV3AppPath(path);
+  return trimmed.includes("action=reject") || trimmed.includes("callAction=reject");
+}
+
+export function resolveCallV3NativeAcceptSource(path: string): string {
+  const trimmed = normalizeCallV3AppPath(path);
+  if (trimmed.includes("source=activity")) return "native_activity_accept";
+  return "native_notification_accept";
+}
+
+export function resolveCallV3NativeRejectSource(path: string): string {
+  const trimmed = normalizeCallV3AppPath(path);
+  if (trimmed.includes("source=activity")) return "native_activity_reject";
+  return "native_notification_reject";
+}
+
 export function isCallV3IncomingCallRouteSignal(path: string): boolean {
   const trimmed = normalizeCallV3AppPath(path);
   if (isCallV3NativeNotificationRoute(trimmed)) return true;

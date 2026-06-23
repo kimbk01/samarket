@@ -5,7 +5,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.util.Log;
 
-/** Notification decline action — native PATCH reject without opening IncomingCallActivity. */
+/** Notification decline action — web call-route reject signal (V3 PATCH owner). */
 public class IncomingCallDeclineReceiver extends BroadcastReceiver {
   private static final String TAG = "DIBAY_INCOMING_CALL";
   public static final String ACTION_DECLINE = "com.dibay.app.action.INCOMING_CALL_NOTIFICATION_DECLINE";

@@ -190,6 +190,7 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
         "/community-messenger/calls/" + Uri.encode(callId) + "?source=native_push";
     DibayIncomingCallNativeStore.setRinging(this, payload, pendingRoute, expiry.effectiveExpiresAtMs);
     MainActivity.persistCallPendingRoute(this, pendingRoute, payload, expiry.effectiveExpiresAtMs);
+    MainActivity.tryInjectCallWakeRoute(this, pendingRoute);
 
     IncomingCallPushDelivery.deliver(this, payload);
   }

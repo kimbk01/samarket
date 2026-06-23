@@ -16,6 +16,7 @@ import {
 } from "@/lib/community-messenger/dibay-fcm-call-bridge";
 import {
   enqueueCallV3NativeEvent,
+  handleCallV3NativeCallRoute,
   handleCallV3NotificationRouteWake,
   handleCallV3WindowLocationRouteWake,
   markCallV3NativeBridgeReady,
@@ -28,9 +29,10 @@ import {
   readNativePersistedCallPendingRoute,
 } from "@/lib/push/native/push-route-native-bridge";
 import {
+  isCallV3CalleeAcceptRoute,
+  isCallV3CalleeRejectRoute,
   isCallV3NativeNotificationRoute,
   isCallV3NotificationWakeRoute,
-  resolveCallV3NativeRouteSource,
 } from "@/lib/push/native/call-v3-native-route";
 
 type VoipCallActionDetail = {
@@ -63,7 +65,7 @@ function handleVoipCallActionV3(detail: VoipCallActionDetail | undefined): void 
 
 function handleCallRouteV3(path: string): void {
   if (!isCallV3NativeNotificationRoute(path)) return;
-  handleCallV3NotificationRouteWake(path, { source: resolveCallV3NativeRouteSource(path) });
+  handleCallV3NativeCallRoute(path);
 }
 
 async function hydrateIncomingWake(detail: DibayFcmIncomingWakeDetail): Promise<void> {
@@ -102,6 +104,7 @@ function buildCallV3RouterPath(pathname: string | null): string | null {
   if (!pathname || !isCallV3NativeNotificationRoute(pathname)) return null;
   const search = typeof window !== "undefined" ? window.location.search : "";
   const path = `${pathname}${search}`;
+  if (isCallV3CalleeAcceptRoute(path) || isCallV3CalleeRejectRoute(path)) return path;
   return isCallV3NotificationWakeRoute(path) ? path : null;
 }
 
@@ -121,7 +124,7 @@ export function CallV3Provider({ children }: CallV3ProviderProps) {
     if (!isDibayCallV3SafeLaneEnabled()) return;
     const path = buildCallV3RouterPath(pathname);
     if (!path) return;
-    handleCallV3NotificationRouteWake(path, { source: "notification_tap" });
+    handleCallV3NativeCallRoute(path, { source: "notification_tap" });
     markCallV3NativeBridgeReady();
   }, [pathname]);
 

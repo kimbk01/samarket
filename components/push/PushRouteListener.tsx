@@ -23,7 +23,8 @@ import { shouldReplaceRoute } from "@/lib/push/push-route-policy";
 import { postNotificationEventOpenedRead } from "@/lib/notifications/client/notification-event-read-client";
 import { callEngineActions } from "@/lib/community-messenger/call-engine";
 import { isDibayCallV3SafeLaneEnabled } from "@/lib/community-messenger/call-v3/call-v3-flag";
-import { handleCallV3NotificationRouteWake } from "@/lib/community-messenger/call-v3/call-v3-native-bridge";
+import { handleCallV3NativeCallRoute } from "@/lib/community-messenger/call-v3/call-v3-native-bridge";
+import { isCallV3CalleeAcceptRoute, isCallV3CalleeRejectRoute } from "@/lib/push/native/call-v3-native-route";
 
 const ROUTE_DEDUPE_MS = 2_000;
 const NOTIFICATION_DEDUPE_MS = 60_000;
@@ -125,12 +126,16 @@ export function PushRouteListener() {
       }
 
       if (isDibayCallV3SafeLaneEnabled() && isCallRoute(path)) {
-        handleCallV3NotificationRouteWake(path, { source: "notification_tap" });
+        handleCallV3NativeCallRoute(path, { source: "notification_tap" });
 
-        if (shouldReplaceRoute(path)) {
+        if (isCallV3CalleeAcceptRoute(path) && shouldReplaceRoute(path)) {
           router.replace(path);
-        } else {
-          router.push(path);
+        } else if (!isCallV3CalleeAcceptRoute(path) && !isCallV3CalleeRejectRoute(path)) {
+          if (shouldReplaceRoute(path)) {
+            router.replace(path);
+          } else {
+            router.push(path);
+          }
         }
         if (notificationId?.trim()) {
           void postNotificationEventOpenedRead(notificationId.trim());

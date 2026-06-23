@@ -14,7 +14,7 @@ public final class IncomingCallActionCoordinator {
   private static final String TAG = "DIBAY_CALL_FLOW";
   private static final String CALL_TAG = "DIBAY_INCOMING_CALL";
   private static final long TTL_MS = 60_000L;
-  private static final long DEFAULT_RING_TIMEOUT_MS = 45_000L;
+  private static final long DEFAULT_RING_TIMEOUT_MS = 30_000L;
   private static final ConcurrentHashMap<String, Long> IN_FLIGHT = new ConcurrentHashMap<>();
   private static final ConcurrentHashMap<String, Long> ACTIVE_INCOMING = new ConcurrentHashMap<>();
   private static final ConcurrentHashMap<String, String> COMPLETED_ACTIONS = new ConcurrentHashMap<>();
@@ -125,7 +125,14 @@ public final class IncomingCallActionCoordinator {
     final Context app = context.getApplicationContext();
     Log.i("DIBAY_CALL", "[DIBAY_CALL] reject_signal_sent callId=" + sid);
     complete(sid, "reject");
-    new Handler(Looper.getMainLooper()).post(() -> MainActivity.deliverCallTerminalEvent(app, sid, "rejected"));
+    new Handler(Looper.getMainLooper())
+        .post(
+            () -> {
+              Intent launch = IncomingCallIntentHelper.buildMainActivityCallRejectIntent(app, sid);
+              Log.i(CALL_TAG, "[call-route] incoming_reject_pending_web callId=" + sid);
+              app.startActivity(launch);
+              end(sid, "reject");
+            });
   }
 
   public static void scheduleMissedTimeout(Context context, IncomingCallPayload payload) {

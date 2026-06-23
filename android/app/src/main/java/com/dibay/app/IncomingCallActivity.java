@@ -16,7 +16,7 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.view.WindowCompat;
 
-/** Lock-screen incoming call UI — accept via web route, reject via native PATCH. */
+/** Lock-screen incoming call UI — accept/reject via web call-route (V3 PATCH owner). */
 public class IncomingCallActivity extends AppCompatActivity {
   public static final String EXTRA_CALL_ID = "callId";
   public static final String EXTRA_CALLER_NAME = "callerName";

@@ -12,9 +12,13 @@ import {
 } from "@/lib/community-messenger/call-v3/call-v3-native-pending";
 import { readCallV3ExitRouter } from "@/lib/community-messenger/call-v3/call-v3-route";
 import {
+  isCallV3CalleeAcceptRoute,
+  isCallV3CalleeRejectRoute,
   normalizeCallV3AppPath,
   readCallV3SessionIdFromRouteInput,
   readCallV3WakePathFromWindowLocation,
+  resolveCallV3NativeAcceptSource,
+  resolveCallV3NativeRejectSource,
   resolveCallV3NotificationWakeSource,
   resolveCallV3NativeRouteSource,
 } from "@/lib/push/native/call-v3-native-route";
@@ -163,6 +167,75 @@ export function enqueueCallV3NativeNotificationWake(input: {
     action: "wake",
     source: input.source,
     path: input.path ?? null,
+  });
+}
+
+/** FSI / notification accept — Web V3 PATCH owner (signal only from native). */
+export function enqueueCallV3NativeNotificationAccept(input: {
+  callId: string;
+  source: string;
+  path?: string | null;
+}): void {
+  const callId = input.callId.trim();
+  if (!callId) return;
+  logCallV3("native_notification_accept", { callId, source: input.source, path: input.path ?? null });
+  enqueueCallV3NativeEvent({
+    callId,
+    action: "accept",
+    source: input.source,
+    path: input.path ?? null,
+  });
+}
+
+/** FSI / notification reject — Web V3 PATCH owner (signal only from native). */
+export function enqueueCallV3NativeNotificationReject(input: {
+  callId: string;
+  source: string;
+  path?: string | null;
+}): void {
+  const callId = input.callId.trim();
+  if (!callId) return;
+  logCallV3("native_notification_reject", { callId, source: input.source, path: input.path ?? null });
+  enqueueCallV3NativeEvent({
+    callId,
+    action: "reject",
+    source: input.source,
+    path: input.path ?? null,
+  });
+}
+
+/**
+ * Parse call-route URL and enqueue wake / accept / reject (native signal only).
+ * Returns false when the path is not a V3 call route.
+ */
+export function handleCallV3NativeCallRoute(
+  rawPath: string,
+  options?: { source?: string | null },
+): boolean {
+  const path = normalizeCallV3AppPath(rawPath);
+  const callId = readCallV3SessionIdFromRouteInput(path);
+  if (!callId) return false;
+
+  if (isCallV3CalleeAcceptRoute(path)) {
+    enqueueCallV3NativeNotificationAccept({
+      callId,
+      source: options?.source ?? resolveCallV3NativeAcceptSource(path),
+      path,
+    });
+    return true;
+  }
+
+  if (isCallV3CalleeRejectRoute(path)) {
+    enqueueCallV3NativeNotificationReject({
+      callId,
+      source: options?.source ?? resolveCallV3NativeRejectSource(path),
+      path,
+    });
+    return true;
+  }
+
+  return handleCallV3NotificationRouteWake(path, {
+    source: options?.source ?? resolveCallV3NativeRouteSource(path),
   });
 }
 
