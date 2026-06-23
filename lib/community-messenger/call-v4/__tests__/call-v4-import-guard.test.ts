@@ -51,20 +51,6 @@ describe("call-v4 import isolation", () => {
     expect(fgs).toContain("v3_task_removed_pending_suppressed");
   });
 
-  it("V4 ringing FGS notification is carrier-only when native/fallback surface owns visible UI", () => {
-    const fgs = read("android/app/src/main/java/com/dibay/app/call/CallForegroundService.java");
-    const notifier = read("android/app/src/main/java/com/dibay/app/IncomingCallBackgroundNotifier.java");
-    expect(fgs).toContain("shouldUseCarrierOnlyRingingNotification");
-    expect(fgs).toContain("fgs_ring_notification_mode");
-    expect(fgs).toContain("fgs_ring_actions_suppressed");
-    expect(fgs).toContain("owner=fgs_notification existing=native_fsi");
-    expect(fgs).toContain("NotificationCompat.CATEGORY_SERVICE");
-    expect(fgs).toContain("NotificationCompat.PRIORITY_LOW");
-    expect(fgs).toMatch(/if \(carrierOnly\) \{[\s\S]*?return builder\.build\(\);[\s\S]*?\.addAction/);
-    expect(notifier).toContain("refreshRingingNotification(context, callId, payload.callType, \"native_fsi_claimed\")");
-    expect(notifier).toContain("refreshRingingNotification(context, callId, payload.callType, \"notification_fallback\")");
-  });
-
   it("IncomingCallActionCoordinator uses MainActivity V4 accept not CallScreenActivity", () => {
     const coord = read("android/app/src/main/java/com/dibay/app/IncomingCallActionCoordinator.java");
     expect(coord).toContain("buildMainActivityV4AcceptIntent");

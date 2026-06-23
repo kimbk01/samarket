@@ -22,10 +22,8 @@ import com.dibay.app.DibayIncomingCallNativeStore;
 import com.dibay.app.IncomingCallBackgroundNotifier;
 import com.dibay.app.IncomingCallIntentHelper;
 import com.dibay.app.IncomingCallNotificationBuilder;
-import com.dibay.app.IncomingCallSurfaceOwner;
 import com.dibay.app.MainActivity;
 import com.dibay.app.R;
-import com.dibay.app.callv4.CallV4Lane;
 import java.util.concurrent.atomic.AtomicReference;
 
 /** callId 단일 소유 — WebView 생명주기와 무관하게 통화 생존/종료 */
@@ -35,7 +33,6 @@ public class CallForegroundService extends Service {
   public static final String ACTION_HEARTBEAT = "com.dibay.app.call.ACTION_HEARTBEAT";
   public static final String ACTION_START_RINGING = "com.dibay.app.call.ACTION_START_RINGING";
   public static final String ACTION_STOP_RINGING = "com.dibay.app.call.ACTION_STOP_RINGING";
-  public static final String ACTION_REFRESH_RINGING = "com.dibay.app.call.ACTION_REFRESH_RINGING";
   public static final String EXTRA_CALL_ID = "callId";
   public static final String EXTRA_CALL_KIND = "callKind";
   public static final String EXTRA_PHASE = "phase";
@@ -114,17 +111,6 @@ public class CallForegroundService extends Service {
     context.startService(intent);
   }
 
-  public static void refreshRingingNotification(
-      Context context, String callId, String callKind, String reason) {
-    if (context == null || callId == null || callId.trim().isEmpty()) return;
-    Intent intent = new Intent(context, CallForegroundService.class);
-    intent.setAction(ACTION_REFRESH_RINGING);
-    intent.putExtra(EXTRA_CALL_ID, callId.trim());
-    intent.putExtra(EXTRA_CALL_KIND, callKind != null ? callKind : "voice");
-    intent.putExtra("reason", reason != null ? reason : "owner_changed");
-    context.startService(intent);
-  }
-
   public static void heartbeat(Context context, String callId) {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
     Intent intent = new Intent(context, CallForegroundService.class);
@@ -200,11 +186,6 @@ public class CallForegroundService extends Service {
       return START_NOT_STICKY;
     }
 
-    if (ACTION_REFRESH_RINGING.equals(action)) {
-      refreshRingingForeground(callId, intent.getStringExtra(EXTRA_CALL_KIND), intent.getStringExtra("reason"));
-      return START_STICKY;
-    }
-
     if (ACTION_END.equals(action)) {
       endCallAndStop(callId, intent.getStringExtra("reason"));
       return START_NOT_STICKY;
@@ -254,9 +235,7 @@ public class CallForegroundService extends Service {
       String kind = ACTIVE_CALL_KIND.get();
       boolean ringingOnly = sid.equals(RINGING_FOREGROUND_FOR.get()) && !sid.equals(FOREGROUND_STARTED_FOR.get());
       Notification notification =
-          ringingOnly
-              ? buildRingingCallNotification(sid, kind, "task_removed")
-              : buildOngoingCallNotification(sid, kind);
+          ringingOnly ? buildRingingCallNotification(sid, kind) : buildOngoingCallNotification(sid, kind);
       int type =
           ringingOnly
               ? android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL
@@ -294,11 +273,9 @@ public class CallForegroundService extends Service {
     super.onDestroy();
   }
 
-  private Notification buildRingingCallNotification(String callId, String kind, String reason) {
+  private Notification buildRingingCallNotification(String callId, String kind) {
     String sid = callId != null ? callId.trim() : "";
     String label = "video".equalsIgnoreCase(kind) ? "영상 통화 수신 중" : "음성 통화 수신 중";
-    boolean carrierOnly = shouldUseCarrierOnlyRingingNotification(sid);
-    logRingingNotificationMode(sid, carrierOnly, reason);
     int pendingFlags =
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
             ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
@@ -307,9 +284,7 @@ public class CallForegroundService extends Service {
         PendingIntent.getActivity(
             this,
             NOTIFICATION_ID + 2,
-            carrierOnly
-                ? IncomingCallIntentHelper.buildMainActivityCallResumeIntent(this, sid)
-                : resolveRingingNotificationAcceptIntent(sid),
+            resolveRingingNotificationAcceptIntent(sid),
             pendingFlags);
     PendingIntent endIntent =
         PendingIntent.getService(
@@ -317,60 +292,17 @@ public class CallForegroundService extends Service {
             NOTIFICATION_ID + 3,
             IncomingCallIntentHelper.buildCallForegroundEndIntent(this, sid, "notification_reject"),
             pendingFlags);
-    NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
+    return new NotificationCompat.Builder(this, CHANNEL_ID)
         .setSmallIcon(R.mipmap.ic_launcher)
         .setContentTitle("DIBAY 통화")
-        .setContentText(carrierOnly ? label + " · 통화 서비스 유지 중" : label)
+        .setContentText(label)
         .setOngoing(true)
-        .setCategory(carrierOnly ? NotificationCompat.CATEGORY_SERVICE : NotificationCompat.CATEGORY_CALL)
-        .setPriority(carrierOnly ? NotificationCompat.PRIORITY_LOW : NotificationCompat.PRIORITY_HIGH)
-        .setContentIntent(contentIntent);
-    if (carrierOnly) {
-      logFgsActionsSuppressed(sid);
-      return builder.build();
-    }
-    return builder
+        .setCategory(NotificationCompat.CATEGORY_CALL)
+        .setPriority(NotificationCompat.PRIORITY_HIGH)
+        .setContentIntent(contentIntent)
         .addAction(android.R.drawable.ic_menu_call, "수락", contentIntent)
         .addAction(android.R.drawable.ic_menu_close_clear_cancel, "거절", endIntent)
         .build();
-  }
-
-  private boolean shouldUseCarrierOnlyRingingNotification(String callId) {
-    if (!CallV4Lane.isTelegramLaneEnabled(this)) return false;
-    if (IncomingCallSurfaceOwner.isNotificationFallbackOwner(callId)) return true;
-    if (IncomingCallSurfaceOwner.isNativeFsiOwner(callId)) {
-      Log.i(
-          CallV4Lane.TAG,
-          "[DIBAY_CALL_V4] incoming_surface_duplicate_blocked callId="
-              + callId
-              + " owner=fgs_notification existing=native_fsi");
-      return true;
-    }
-    return true;
-  }
-
-  private void logRingingNotificationMode(String callId, boolean carrierOnly, String reason) {
-    String owner = String.valueOf(IncomingCallSurfaceOwner.getVisibleOwner(callId));
-    Log.i(
-        CallV4Lane.TAG,
-        "[DIBAY_CALL_V4] fgs_ring_notification_mode callId="
-            + callId
-            + " mode="
-            + (carrierOnly ? "carrier_only" : "interactive")
-            + " reason="
-            + (reason != null ? reason : "ring_start")
-            + " owner="
-            + owner.toLowerCase());
-  }
-
-  private void logFgsActionsSuppressed(String callId) {
-    String owner =
-        IncomingCallSurfaceOwner.isNativeFsiOwner(callId)
-            ? "native_fsi"
-            : String.valueOf(IncomingCallSurfaceOwner.getVisibleOwner(callId)).toLowerCase();
-    Log.i(
-        CallV4Lane.TAG,
-        "[DIBAY_CALL_V4] fgs_ring_actions_suppressed callId=" + callId + " owner=" + owner);
   }
 
   private Intent resolveRingingNotificationAcceptIntent(String callId) {
@@ -490,7 +422,7 @@ public class CallForegroundService extends Service {
     ACTIVE_CALL_ID.set(sid);
     ACTIVE_CALL_KIND.set(kind != null ? kind : "voice");
     ensureChannel();
-    Notification notification = buildRingingCallNotification(sid, kind, "ring_start");
+    Notification notification = buildRingingCallNotification(sid, kind);
     if (!promoteToForeground(
         sid,
         notification,
@@ -503,17 +435,6 @@ public class CallForegroundService extends Service {
     DibayCallPushLog.info("foreground_service_started_ringing", sid, "ok=true phase=ringing");
     DibayCallLog.once("foreground_service_started", sid, "phase=ringing");
     IncomingCallBackgroundNotifier.deliverPendingPresentation(this, sid, "fgs_ringing");
-  }
-
-  private void refreshRingingForeground(String callId, String kind, String reason) {
-    String sid = callId != null && !callId.trim().isEmpty() ? callId.trim() : RINGING_FOREGROUND_FOR.get();
-    if (sid == null || sid.isEmpty()) return;
-    if (!sid.equals(RINGING_FOREGROUND_FOR.get())) return;
-    Notification notification = buildRingingCallNotification(sid, kind, reason);
-    promoteToForeground(
-        sid,
-        notification,
-        android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL);
   }
 
   private void stopRingingForeground(String callId, String reason) {

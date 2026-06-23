@@ -99,7 +99,6 @@ public final class IncomingCallBackgroundNotifier {
       IncomingCallSurfaceOwner.tryClaimVisibleOwner(
           callId, IncomingCallSurfaceOwner.VisibleOwner.NATIVE_FSI);
       IncomingCallSurfaceOwner.logOwnerDecided(callId, "native_fsi", visibility, null);
-      CallForegroundService.refreshRingingNotification(context, callId, payload.callType, "native_fsi_claimed");
       IncomingCallNotificationBuilder.showIncomingCallActionOnly(context, payload, fgsDelivery);
       return;
     }
@@ -114,7 +113,6 @@ public final class IncomingCallBackgroundNotifier {
     }
     IncomingCallSurfaceOwner.logOwnerDecided(
         callId, "notification_fallback", visibility, fallbackReason);
-    CallForegroundService.refreshRingingNotification(context, callId, payload.callType, "notification_fallback");
     IncomingCallNotificationBuilder.showIncomingCall(context, payload, fgsDelivery);
   }
 

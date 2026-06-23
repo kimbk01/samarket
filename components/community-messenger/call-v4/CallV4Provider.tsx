@@ -10,10 +10,6 @@ import {
 } from "@/lib/community-messenger/call-v4/call-v4-actions";
 import { callV4FetchSession } from "@/lib/community-messenger/call-v4/call-v4-api";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
-import {
-  registerCallV4ConnectedTerminalHandler,
-  startCallV4TerminalRealtimeWatch,
-} from "@/lib/community-messenger/call-v4/call-v4-connected-terminal-watch";
 import { primeCallV4ConnectionWarm } from "@/lib/community-messenger/call-v4/call-v4-connection-warm";
 import { isCallV4TelegramLaneEnabled } from "@/lib/community-messenger/call-v4/call-v4-flag";
 import { startCallV4IncomingDiscovery } from "@/lib/community-messenger/call-v4/call-v4-incoming-discovery";
@@ -139,18 +135,6 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
     return startCallV4IncomingDiscovery(userId);
   }, [userId]);
 
-  useEffect(() => {
-    if (!isCallV4TelegramLaneEnabled()) return;
-    return registerCallV4ConnectedTerminalHandler((callId, status, source) =>
-      callV4HandleRemoteTerminal(callId, status, readCallV4ExitRouter() ?? router, source),
-    );
-  }, [router]);
-
-  useEffect(() => {
-    if (!isCallV4TelegramLaneEnabled() || !userId) return;
-    return startCallV4TerminalRealtimeWatch(userId);
-  }, [userId]);
-
   useLayoutEffect(() => {
     if (!isCallV4TelegramLaneEnabled()) return;
     syncCallV4NativeAcceptInflightFromWindowLocation();
@@ -267,8 +251,7 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
         void callV4HandleRemoteTerminal(
           detail.callId,
           detail.terminalKind,
-          readCallV4ExitRouter() ?? router,
-          "fcm"
+          readCallV4ExitRouter() ?? router
         );
       },
     });
@@ -277,7 +260,7 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
       if (ev.type !== "cm.call.session_terminal") return;
       const callId = ev.sessionId?.trim();
       if (!callId) return;
-      void callV4HandleRemoteTerminal(callId, ev.status ?? "cancelled", readCallV4ExitRouter() ?? router, "bus");
+      void callV4HandleRemoteTerminal(callId, ev.status ?? "cancelled", readCallV4ExitRouter() ?? router);
     });
 
     return () => {

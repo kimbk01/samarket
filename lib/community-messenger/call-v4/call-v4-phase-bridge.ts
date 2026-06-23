@@ -1,7 +1,6 @@
 "use client";
 
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
-import { startCallV4ConnectedTerminalWatch } from "@/lib/community-messenger/call-v4/call-v4-connected-terminal-watch";
 import { readCallV4Identity, readCallV4Phase, useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
 import type { CallV4Phase } from "@/lib/community-messenger/call-v4/call-v4-types";
 
@@ -28,6 +27,5 @@ export function markCallV4MediaConnected(callId: string, source: string): boolea
 
   useCallV4Store.setState({ phase: "connected", connectedAt: Date.now() });
   logCallV4("media_connected_phase", { callId: sid, fromPhase: phase, source });
-  startCallV4ConnectedTerminalWatch(sid);
   return true;
 }

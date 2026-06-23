@@ -1,5 +1,4 @@
 import { stopCallV4CallerActivePoll } from "@/lib/community-messenger/call-v4/call-v4-caller-active";
-import { stopCallV4ConnectedTerminalWatch } from "@/lib/community-messenger/call-v4/call-v4-connected-terminal-watch";
 import { clearCallV4ConnectionWarm } from "@/lib/community-messenger/call-v4/call-v4-connection-warm";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import { clearCallV4NativeAcceptingSurface, clearCallV4NativeIncomingSurface } from "@/lib/community-messenger/call-v4/call-v4-incoming-surface";
@@ -12,7 +11,6 @@ export async function cleanupCallV4(callId: string, reason: CallV4TerminalPhase 
   const sid = callId.trim();
   logCallV4("cleanup_start", { callId: sid, reason });
   stopCallV4CallerActivePoll();
-  stopCallV4ConnectedTerminalWatch(sid);
   const { leaveCallV4Agora } = await import("@/lib/community-messenger/call-v4/call-v4-agora");
   await leaveCallV4Agora(sid);
   clearCallV4ConnectionWarm(sid);
