@@ -35,6 +35,15 @@ describe("deep-link-routes", () => {
     );
   });
 
+  it("maps call-v4 deep link to calls-v4 accept route", () => {
+    expect(resolveDibayDeepLinkToAppPath("dibay://call-v4/sess-1")).toBe(
+      "/community-messenger/calls-v4/sess-1"
+    );
+    expect(
+      resolveDibayDeepLinkToAppPath("dibay://call-v4/sess-1?action=accept&source=native_accept")
+    ).toBe("/community-messenger/calls-v4/sess-1?action=accept&source=native_accept");
+  });
+
   it("round-trips app path to deep link", () => {
     const path = "/community-messenger/rooms/r1";
     expect(resolveAppPathToDibayDeepLink(path)).toBe(buildDibayDeepLink("chat", "r1"));

@@ -8,6 +8,7 @@ export type DibayDeepLinkKind =
   | "order"
   | "community_post"
   | "call"
+  | "call_v4"
   | "auth";
 
 const SCHEME = "dibay://";
@@ -25,6 +26,8 @@ export function buildDibayDeepLink(kind: DibayDeepLinkKind, id: string): string 
       return `${SCHEME}community/post/${encodeURIComponent(raw)}`;
     case "call":
       return `${SCHEME}call/${encodeURIComponent(raw)}`;
+    case "call_v4":
+      return `${SCHEME}call-v4/${encodeURIComponent(raw)}`;
     case "auth":
       return `${SCHEME}auth/callback`;
     default:
@@ -62,6 +65,10 @@ export function resolveDibayDeepLinkToAppPath(deepLink: string): string | null {
       const sessionId = tailParts[0] ? decodeURIComponent(tailParts[0]) : "";
       return sessionId ? `/community-messenger/calls/${encodeURIComponent(sessionId)}${query}` : null;
     }
+    case "call-v4": {
+      const sessionId = tailParts[0] ? decodeURIComponent(tailParts[0]) : "";
+      return sessionId ? `/community-messenger/calls-v4/${encodeURIComponent(sessionId)}${query}` : null;
+    }
     case "auth":
       return "/auth/callback";
     default:
@@ -85,6 +92,9 @@ export function resolveAppPathToDibayDeepLink(appPath: string): string | null {
 
   const call = /^\/community-messenger\/calls\/([^/?#]+)/.exec(path);
   if (call?.[1]) return buildDibayDeepLink("call", decodeURIComponent(call[1]));
+
+  const callV4 = /^\/community-messenger\/calls-v4\/([^/?#]+)/.exec(path);
+  if (callV4?.[1]) return buildDibayDeepLink("call_v4", decodeURIComponent(callV4[1]));
 
   return null;
 }

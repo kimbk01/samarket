@@ -38,7 +38,6 @@ export function buildWebOAuthCallbackUrlFromNativeReturn(nativeUrl: string): str
 async function handleAppUrlOpen(url: string, markHandled: (key: string) => boolean): Promise<void> {
   const payload = parseOAuthNativeCallbackLogPayload(url);
   if (!url.startsWith(NATIVE_CALLBACK_ORIGIN)) {
-    logOAuthNativeEvent("callback_ignored", { reason: "non_dibay_scheme", urlPrefix: url.slice(0, 32) });
     return;
   }
 
