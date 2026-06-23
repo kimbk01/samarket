@@ -27,7 +27,12 @@ import { stopCallV4CallerActivePoll, startCallV4CallerActivePoll } from "@/lib/c
 import { cleanupCallV4 } from "@/lib/community-messenger/call-v4/call-v4-cleanup";
 import { primeCallV4ConnectionWarm } from "@/lib/community-messenger/call-v4/call-v4-connection-warm";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
+import { isCallV4BlockingNativeIncomingSurface } from "@/lib/community-messenger/call-v4/call-v4-incoming-surface";
 import { isNativeAcceptInflight } from "@/lib/community-messenger/call-v4/call-v4-native-accept-flight";
+import {
+  syncCallV4NativeOnWebAccept,
+  syncCallV4NativeOnWebReject,
+} from "@/lib/community-messenger/call-v4/call-v4-native-lifecycle";
 import { markCallV4MediaConnected } from "@/lib/community-messenger/call-v4/call-v4-phase-bridge";
 import {
   claimCallV4AcceptPatchOnce,
@@ -341,6 +346,10 @@ export function callV4IncomingDiscovered(session: CommunityMessengerCallSession)
   const callId = session.id?.trim() ?? "";
   if (!callId || session.status !== "ringing" || session.isMineInitiator) return;
   if (isNativeAcceptInflight(callId)) return;
+  if (isCallV4BlockingNativeIncomingSurface(callId)) {
+    logCallV4("incoming_owner_conflict_blocked", { callId, native: true, web_sheet: false });
+    return;
+  }
   const phase = readCallV4Phase();
   const current = readCallV4Identity();
   if (current?.callId === callId && phase !== "idle") {
@@ -363,6 +372,8 @@ export async function callV4Accept(
   const sid = callId.trim();
   if (!sid) return;
   logCallV4("accept_click", { callId: sid, source: options?.source ?? null });
+
+  syncCallV4NativeOnWebAccept(sid);
 
   const existingIdentity = readCallV4Identity();
   const hasStoreIdentity = existingIdentity?.callId === sid;
@@ -430,6 +441,7 @@ export async function callV4Reject(callId: string, router?: CallV4Router): Promi
   const sid = callId.trim();
     if (!sid) return;
   logCallV4("reject_start", { callId: sid });
+  syncCallV4NativeOnWebReject(sid);
   if (!claimCallV4RejectPatchOnce(sid)) return;
   useCallV4Store.getState().setPhase("ending");
   const identity = readCallV4Identity();

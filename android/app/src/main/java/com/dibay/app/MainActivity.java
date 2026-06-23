@@ -57,6 +57,21 @@ public class MainActivity extends BridgeActivity {
   private static volatile boolean appVisible = false;
   private static volatile MainActivity activeInstance = null;
 
+  private static final java.util.concurrent.ConcurrentHashMap<String, PendingCallV4NativeSurface>
+      PENDING_CALL_V4_NATIVE_SURFACE = new java.util.concurrent.ConcurrentHashMap<>();
+
+  private static final class PendingCallV4NativeSurface {
+    final boolean visible;
+    final String source;
+    final String appVisibility;
+
+    PendingCallV4NativeSurface(boolean visible, String source, String appVisibility) {
+      this.visible = visible;
+      this.source = source != null ? source : "";
+      this.appVisibility = appVisibility != null ? appVisibility : "unknown";
+    }
+  }
+
   private DibayWebViewPermissionDelegate webViewPermissionDelegate;
   private String pendingAppPath = null;
   private String pendingNotificationId = null;
@@ -108,6 +123,38 @@ public class MainActivity extends BridgeActivity {
           "[DIBAY_CALL_V4] v4_foreground_incoming_web_delivered callId=" + payload.callId);
     }
     act.mainHandler.post(() -> act.injectCallIncomingEvent(payload));
+  }
+
+  /** V4 — IncomingCallActivity visible surface → WebView bridge (dibay:call-v4-native-surface). */
+  public static void deliverCallV4NativeIncomingSurface(
+      android.content.Context context, String callId, boolean visible, String source) {
+    if (context == null || callId == null || callId.trim().isEmpty()) return;
+    if (!CallV4Lane.isTelegramLaneEnabled(context)) return;
+    String sid = callId.trim();
+    String appVisibility = resolveCallV4BridgeAppVisibility(context);
+    String src = source != null ? source.trim() : "native";
+    MainActivity act = activeInstance;
+    if (act == null) {
+      PENDING_CALL_V4_NATIVE_SURFACE.put(
+          sid, new PendingCallV4NativeSurface(visible, src, appVisibility));
+      Log.i(
+          CallV4Lane.TAG,
+          "[DIBAY_CALL_V4] native_surface_bridge_queued callId="
+              + sid
+              + " visible="
+              + visible
+              + " source="
+              + src);
+      return;
+    }
+    act.mainHandler.post(() -> act.injectCallV4NativeSurfaceEvent(sid, visible, src, appVisibility));
+  }
+
+  static String resolveCallV4BridgeAppVisibility(android.content.Context context) {
+    android.content.Context app = context.getApplicationContext();
+    if (DibayKeyguardHelper.isKeyguardLocked(app)) return "locked";
+    if (isAppVisibleForIncomingCall()) return "foreground";
+    return "background";
   }
 
   /** FCM foreground — 발신 취소를 WebView legacy call bridge 에 전달 */
@@ -267,6 +314,54 @@ public class MainActivity extends BridgeActivity {
             + "}}));}catch(e){}})();";
     webView.post(() -> webView.evaluateJavascript(js, null));
     Log.i("DIBAY_CALL", "[DIBAY_CALL] foreground_incoming_ui callId=" + callId + " visible=" + visible);
+  }
+
+  private void injectCallV4NativeSurfaceEvent(
+      String callId, boolean visible, String source, String appVisibility) {
+    Bridge bridge = getBridge();
+    if (bridge == null || bridge.getWebView() == null) {
+      PENDING_CALL_V4_NATIVE_SURFACE.put(
+          callId, new PendingCallV4NativeSurface(visible, source, appVisibility));
+      return;
+    }
+    WebView webView = bridge.getWebView();
+    final String safeCallId = safeJs(callId);
+    final String safeSource = safeJs(source);
+    final String safeVisibility = safeJs(appVisibility);
+    final String surfaceType = visible ? "fullscreen_intent" : "";
+    final String js =
+        "(function(){try{window.dispatchEvent(new CustomEvent('dibay:call-v4-native-surface',{detail:{callId:'"
+            + safeCallId
+            + "',hasNativeIncomingSurface:"
+            + (visible ? "true" : "false")
+            + (visible ? ",nativeSurfaceType:'fullscreen_intent'" : "")
+            + ",appVisibility:'"
+            + safeVisibility
+            + "',source:'"
+            + safeSource
+            + "'}}));}catch(e){}})();";
+    webView.post(() -> webView.evaluateJavascript(js, null));
+    Log.i(
+        CallV4Lane.TAG,
+        "[DIBAY_CALL_V4] native_surface_bridge_injected callId="
+            + callId
+            + " visible="
+            + visible
+            + " source="
+            + source);
+  }
+
+  private void flushPendingCallV4NativeSurfaceEvents() {
+    if (PENDING_CALL_V4_NATIVE_SURFACE.isEmpty()) return;
+    Bridge bridge = getBridge();
+    if (bridge == null || bridge.getWebView() == null) return;
+    for (java.util.Map.Entry<String, PendingCallV4NativeSurface> entry :
+        PENDING_CALL_V4_NATIVE_SURFACE.entrySet()) {
+      PendingCallV4NativeSurface pending = entry.getValue();
+      injectCallV4NativeSurfaceEvent(
+          entry.getKey(), pending.visible, pending.source, pending.appVisibility);
+    }
+    PENDING_CALL_V4_NATIVE_SURFACE.clear();
   }
 
   private void injectCallTerminalEvent(String callId, String status) {
@@ -505,6 +600,7 @@ public class MainActivity extends BridgeActivity {
     attachDibayWebViewClient();
     flushPendingAppPathIfAny();
     scheduleFlushPendingTerminalEvents();
+    flushPendingCallV4NativeSurfaceEvents();
     String callId = DibayActiveCallSessionManager.getActiveCallId();
     if (callId != null && !callId.isEmpty()) {
       CallScreenStateReceiver.register(this);

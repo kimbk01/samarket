@@ -8,6 +8,7 @@ import {
   applyCallV4NativeIncomingSurfaceSignal,
   clearAllCallV4NativeAcceptingSurfaces,
   clearCallV4NativeAcceptingSurface,
+  ingestCallV4NativeIncomingSurfaceSignal,
   isCallV4NativeAcceptingSurface,
   logCallV4IncomingOwnerDecided,
   registerCallV4NativeAcceptingSurface,
@@ -55,7 +56,38 @@ describe("call-v4 incoming surface", () => {
       visibilityState: "hidden",
     });
     expect(result.suppress).toBe(true);
-    expect(result.reason).toBe("background_native_owner");
+    expect(result.reason).toBe("native_surface_active");
+  });
+
+  it("suppresses web sheet in foreground when fullscreen native surface is active", () => {
+    applyCallV4NativeIncomingSurfaceSignal({
+      callId: "call-fg-fsi",
+      hasNativeIncomingSurface: true,
+      nativeSurfaceType: "fullscreen_intent",
+      appVisibility: "background",
+      source: "incoming_activity_visible",
+    });
+    const result = shouldSuppressCallV4WebIncomingSheet({
+      callId: "call-fg-fsi",
+      visibilityState: "visible",
+    });
+    expect(result.suppress).toBe(true);
+    expect(result.reason).toBe("native_surface_active");
+  });
+
+  it("ingest updates surface without requiring apply dispatch", () => {
+    ingestCallV4NativeIncomingSurfaceSignal({
+      callId: "call-ingest",
+      hasNativeIncomingSurface: true,
+      nativeSurfaceType: "fullscreen_intent",
+      source: "incoming_activity_visible",
+    });
+    const result = shouldSuppressCallV4WebIncomingSheet({
+      callId: "call-ingest",
+      visibilityState: "visible",
+    });
+    expect(result.suppress).toBe(true);
+    expect(result.reason).toBe("native_surface_active");
   });
 
   it("does not suppress web sheet when native foreground pill signal is present", () => {
@@ -99,6 +131,27 @@ describe("call-v4 incoming surface", () => {
     expect(shouldRegisterCallV4NativeAcceptingFromRoute(sheetPath)).toBe(false);
     expect(resolveCallV4NativeAcceptingSurfaceType("native_accept")).toBe("native_fullscreen_accept");
     expect(resolveCallV4NativeAcceptingSurfaceType("lock_fsi")).toBe("native_locked_accept");
+  });
+
+  it("logs incoming_owner_conflict_blocked when web_foreground conflicts with native fsi", () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    applyCallV4NativeIncomingSurfaceSignal({
+      callId: "call-conflict",
+      hasNativeIncomingSurface: true,
+      nativeSurfaceType: "fullscreen_intent",
+      source: "incoming_activity_visible",
+    });
+    logCallV4IncomingOwnerDecided({ callId: "call-conflict", owner: "web_foreground", visibility: "foreground" });
+    expect(info).toHaveBeenCalledWith(
+      "[DIBAY_CALL_V4]",
+      "incoming_owner_conflict_blocked",
+      expect.objectContaining({
+        callId: "call-conflict",
+        native: true,
+        web_sheet: false,
+      }),
+    );
+    info.mockRestore();
   });
 
   it("logs incoming_owner_decided with web_foreground owner", () => {

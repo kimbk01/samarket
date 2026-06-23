@@ -50,6 +50,21 @@ function normalizeCallId(callId: string): string {
   return callId.trim();
 }
 
+/** Full-screen native incoming surfaces block Web sheet even in document foreground. */
+function isCallV4BlockingNativeIncomingSurface(callId: string): boolean {
+  const sid = normalizeCallId(callId);
+  if (!sid) return false;
+  const signal = nativeSurfaceByCallId.get(sid);
+  if (signal?.hasNativeIncomingSurface !== true) return false;
+  const type = signal.nativeSurfaceType;
+  if (type === "foreground_pill") return false;
+  return true;
+}
+
+function readNativeSurfaceType(callId: string): CallV4NativeSurfaceType | undefined {
+  return nativeSurfaceByCallId.get(normalizeCallId(callId))?.nativeSurfaceType;
+}
+
 function readRouteSourceFromPath(path: string): string {
   const query = path.includes("?") ? path.slice(path.indexOf("?") + 1) : "";
   return new URLSearchParams(query).get("source")?.trim() ?? "";
@@ -158,6 +173,14 @@ export function shouldPreferCallV4NativeIncomingSurface(appVisibility: CallV4App
 }
 
 export function applyCallV4NativeIncomingSurfaceSignal(signal: CallV4NativeIncomingSurfaceSignal): void {
+  ingestCallV4NativeIncomingSurfaceSignal(signal);
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(NATIVE_SURFACE_EVENT, { detail: { ...signal, callId: normalizeCallId(signal.callId) } }));
+  }
+}
+
+/** Update native surface SSOT without re-dispatching (native bridge inject handler). */
+export function ingestCallV4NativeIncomingSurfaceSignal(signal: CallV4NativeIncomingSurfaceSignal): void {
   const sid = normalizeCallId(signal.callId);
   if (!sid) return;
   if (!signal.hasNativeIncomingSurface) {
@@ -175,15 +198,24 @@ export function applyCallV4NativeIncomingSurfaceSignal(signal: CallV4NativeIncom
     nativeSurfaceType: signal.nativeSurfaceType ?? null,
     source: signal.source,
   });
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent(NATIVE_SURFACE_EVENT, { detail: { ...signal, callId: sid } }));
-  }
+}
+
+export function clearCallV4NativeIncomingSurface(callId: string, source = "web_cleanup"): void {
+  const sid = normalizeCallId(callId);
+  if (!sid || !hasCallV4NativeIncomingSurfaceForCall(sid)) return;
+  applyCallV4NativeIncomingSurfaceSignal({
+    callId: sid,
+    hasNativeIncomingSurface: false,
+    source,
+  });
 }
 
 export function hasCallV4NativeIncomingSurfaceForCall(callId: string): boolean {
   const sid = normalizeCallId(callId);
   return nativeSurfaceByCallId.get(sid)?.hasNativeIncomingSurface === true;
 }
+
+export { isCallV4BlockingNativeIncomingSurface, readNativeSurfaceType };
 
 export function subscribeCallV4NativeIncomingSurfaceSignal(
   listener: (signal: CallV4NativeIncomingSurfaceSignal) => void,
@@ -208,11 +240,19 @@ function resolveSuppressReason(args: {
     return { suppress: true, reason: "native_accepting" };
   }
   const appVisibility = resolveCallV4AppVisibility(args.visibilityState);
+  if (isCallV4BlockingNativeIncomingSurface(sid)) {
+    return { suppress: true, reason: "native_surface_active" };
+  }
   if (appVisibility === "locked") return { suppress: true, reason: "locked_native_owner" };
   if (!shouldUseCallV4WebIncomingSheet(appVisibility)) {
     return { suppress: true, reason: "background_native_owner" };
   }
-  if (shouldPreferCallV4NativeIncomingSurface(appVisibility) && hasCallV4NativeIncomingSurfaceForCall(sid)) {
+  const surfaceType = readNativeSurfaceType(sid);
+  if (
+    surfaceType === "foreground_pill" &&
+    shouldPreferCallV4NativeIncomingSurface(appVisibility) &&
+    hasCallV4NativeIncomingSurfaceForCall(sid)
+  ) {
     return { suppress: true, reason: "native_surface_active" };
   }
   return { suppress: false, reason: null };
@@ -232,7 +272,7 @@ export function shouldSuppressCallV4IncomingDiscoveredForSheet(args: {
   return resolveSuppressReason(args);
 }
 
-/** Foreground — Web CallV4IncomingSheet is the sole incoming UI owner. */
+/** Foreground — Web CallV4IncomingSheet is the sole incoming UI owner (no blocking native surface). */
 export function logCallV4IncomingOwnerDecided(args: {
   callId: string;
   owner: CallV4IncomingSurfaceOwner;
@@ -240,6 +280,14 @@ export function logCallV4IncomingOwnerDecided(args: {
 }): void {
   const sid = normalizeCallId(args.callId);
   if (!sid) return;
+  if (args.owner === "web_foreground" && isCallV4BlockingNativeIncomingSurface(sid)) {
+    logCallV4("incoming_owner_conflict_blocked", {
+      callId: sid,
+      native: true,
+      web_sheet: false,
+    });
+    return;
+  }
   const visibility = args.visibility ?? resolveCallV4AppVisibility();
   logCallV4("incoming_owner_decided", {
     callId: sid,

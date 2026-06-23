@@ -15,6 +15,7 @@ import { isCallV4TelegramLaneEnabled } from "@/lib/community-messenger/call-v4/c
 import { startCallV4IncomingDiscovery } from "@/lib/community-messenger/call-v4/call-v4-incoming-discovery";
 import {
   applyCallV4NativeIncomingSurfaceSignal,
+  ingestCallV4NativeIncomingSurfaceSignal,
   isCallV4NativeAcceptingSurface,
   logCallV4IncomingOwnerDecided,
   registerCallV4NativeAcceptingSurface,
@@ -23,6 +24,7 @@ import {
   shouldRegisterCallV4NativeAcceptingFromRoute,
   shouldSuppressCallV4IncomingDiscoveredForSheet,
   syncCallV4NativeAcceptingSurfaceFromWindowLocation,
+  type CallV4NativeIncomingSurfaceSignal,
 } from "@/lib/community-messenger/call-v4/call-v4-incoming-surface";
 import {
   isCallV4CalleeAcceptRoute,
@@ -98,6 +100,9 @@ async function hydrateCallV4IncomingWake(detail: DibayFcmIncomingWakeDetail): Pr
     visibilityState: typeof document !== "undefined" ? document.visibilityState : "visible",
   });
   if (suppress.suppress) {
+    if (suppress.reason === "native_surface_active") {
+      logCallV4("incoming_discovery_suppressed", { callId, reason: suppress.reason });
+    }
     logCallV4("incoming_wake_sheet_suppressed", { callId, reason: suppress.reason });
     return;
   }
@@ -173,6 +178,26 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
     return () => {
       window.removeEventListener("dibay:call-route", onNativeRoute);
       window.removeEventListener("dibay:push-route", onNativeRoute);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isCallV4TelegramLaneEnabled()) return;
+
+    const onNativeSurfaceBridge = (event: Event) => {
+      const detail = (event as CustomEvent<CallV4NativeIncomingSurfaceSignal>).detail;
+      if (!detail?.callId) return;
+      logCallV4("native_surface_bridge_received", {
+        callId: detail.callId.trim(),
+        visible: detail.hasNativeIncomingSurface,
+        source: detail.source,
+      });
+      ingestCallV4NativeIncomingSurfaceSignal(detail);
+    };
+
+    window.addEventListener("dibay:call-v4-native-surface", onNativeSurfaceBridge);
+    return () => {
+      window.removeEventListener("dibay:call-v4-native-surface", onNativeSurfaceBridge);
     };
   }, []);
 

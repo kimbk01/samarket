@@ -37,6 +37,7 @@ public class IncomingCallActivity extends AppCompatActivity {
   private static final String TAG = "DIBAY_INCOMING_CALL";
   private String callId;
   private boolean finished;
+  private boolean nativeSurfaceHiddenEmitted;
   private BroadcastReceiver terminalReceiver;
 
   @Override
@@ -87,10 +88,14 @@ public class IncomingCallActivity extends AppCompatActivity {
     }
 
     Log.i(TAG, "[call-ui] incoming_activity_shown callId=" + callId);
+    if (CallV4Lane.isTelegramLaneEnabled(getApplicationContext())) {
+      Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] incoming_activity_shown callId=" + callId);
+    }
     DibayCallLog.once("incoming_activity_created", callId, "source=activity");
     DibayCallLog.once("incoming_render", callId, "source=activity");
 
     bindIncomingUi(getIntent());
+    notifyNativeSurfaceVisible();
 
     String action = getIntent().getAction();
     if (ACTION_ACCEPT.equals(action)) {
@@ -181,6 +186,19 @@ public class IncomingCallActivity extends AppCompatActivity {
   }
 
   @Override
+  protected void onResume() {
+    super.onResume();
+    nativeSurfaceHiddenEmitted = false;
+    notifyNativeSurfaceVisible();
+  }
+
+  @Override
+  protected void onStop() {
+    notifyNativeSurfaceHidden("hidden");
+    super.onStop();
+  }
+
+  @Override
   protected void onDestroy() {
     if (terminalReceiver != null) {
       try {
@@ -202,6 +220,25 @@ public class IncomingCallActivity extends AppCompatActivity {
     } else if (ACTION_DECLINE.equals(action)) {
       handleDecline();
     }
+  }
+
+  private void notifyNativeSurfaceVisible() {
+    if (callId == null || callId.trim().isEmpty()) return;
+    if (!CallV4Lane.isTelegramLaneEnabled(getApplicationContext())) return;
+    MainActivity.deliverCallV4NativeIncomingSurface(
+        this, callId, true, "incoming_activity_visible");
+  }
+
+  private void notifyNativeSurfaceHidden(String reason) {
+    if (callId == null || callId.trim().isEmpty()) return;
+    if (!CallV4Lane.isTelegramLaneEnabled(getApplicationContext())) return;
+    if (nativeSurfaceHiddenEmitted) return;
+    nativeSurfaceHiddenEmitted = true;
+    Log.i(
+        CallV4Lane.TAG,
+        "[DIBAY_CALL_V4] incoming_activity_hidden callId=" + callId + " reason=" + reason);
+    MainActivity.deliverCallV4NativeIncomingSurface(
+        this, callId, false, "incoming_activity_" + reason);
   }
 
   private void handleAccept() {
@@ -235,6 +272,7 @@ public class IncomingCallActivity extends AppCompatActivity {
 
   private void finishSafely() {
     if (finished) return;
+    notifyNativeSurfaceHidden("destroyed");
     finished = true;
     DibayCallLog.once("activity_finish", callId);
     finish();
