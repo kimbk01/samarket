@@ -1,6 +1,7 @@
 const acceptPatchClaimed = new Set<string>();
 const rejectPatchClaimed = new Set<string>();
 const endPatchClaimed = new Set<string>();
+const cancelPatchClaimed = new Set<string>();
 
 function claimOnce(store: Set<string>, callId: string): boolean {
   const sid = callId.trim();
@@ -21,8 +22,19 @@ export function claimCallV4EndPatchOnce(callId: string): boolean {
   return claimOnce(endPatchClaimed, callId);
 }
 
+export function claimCallV4CancelPatchOnce(callId: string): boolean {
+  return claimOnce(cancelPatchClaimed, callId);
+}
+
+export function releaseCallV4CancelPatchClaim(callId: string): void {
+  const sid = callId.trim();
+  if (!sid) return;
+  cancelPatchClaimed.delete(sid);
+}
+
 export function resetCallV4PatchClaimsForTests(): void {
   acceptPatchClaimed.clear();
   rejectPatchClaimed.clear();
   endPatchClaimed.clear();
+  cancelPatchClaimed.clear();
 }

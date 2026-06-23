@@ -1,5 +1,5 @@
 import type { CallActionItem, CallPhase, CallScreenViewModel } from "@/components/messenger/call/call-ui.types";
-import { callV4Accept, callV4End, callV4Reject } from "@/lib/community-messenger/call-v4/call-v4-actions";
+import { callV4Accept, callV4Cancel, callV4End, callV4Reject } from "@/lib/community-messenger/call-v4/call-v4-actions";
 import type { CallV4Identity, CallV4Phase } from "@/lib/community-messenger/call-v4/call-v4-types";
 
 type SafeTranslate = (
@@ -9,6 +9,8 @@ type SafeTranslate = (
 
 export function mapCallV4PhaseToCallPhase(phase: CallV4Phase): CallPhase {
   switch (phase) {
+    case "creating":
+    case "outgoing_ringing":
     case "incoming_ringing":
       return "ringing";
     case "accepting":
@@ -20,6 +22,7 @@ export function mapCallV4PhaseToCallPhase(phase: CallV4Phase): CallPhase {
     case "ended":
       return "ended";
     case "rejected":
+    case "cancelled":
       return "declined";
     case "missed":
       return "missed";
@@ -41,18 +44,21 @@ export type BuildCallV4ScreenViewModelInput = {
 
 export function buildCallV4ScreenViewModel(input: BuildCallV4ScreenViewModelInput): CallScreenViewModel | null {
   const { callId, phase, identity, connectedAt, safeT, router } = input;
-  const activePhases: CallV4Phase[] = ["accepting", "joining", "connected", "ending", "incoming_ringing"];
   if (!identity || identity.callId !== callId) {
+    const activePhases: CallV4Phase[] = ["accepting", "joining", "connected", "ending", "incoming_ringing", "outgoing_ringing", "creating"];
     if (!activePhases.includes(phase)) return null;
+    return null;
   }
 
   const callPhase = mapCallV4PhaseToCallPhase(phase);
+  const isOutgoing = identity.direction === "outgoing";
+  const isOutgoingDialing = isOutgoing && (phase === "outgoing_ringing" || phase === "creating");
   const peerLabel =
-    identity?.peerLabel?.trim() ||
+    identity.peerLabel?.trim() ||
     safeT("cm_ui_call_active_voice", { fallbackKo: "통화 중", fallbackEn: "On a call" });
 
   const primaryActions: CallActionItem[] = [];
-  if (phase === "incoming_ringing" && identity) {
+  if (!isOutgoing && phase === "incoming_ringing") {
     primaryActions.push(
       {
         id: "reject",
@@ -71,6 +77,15 @@ export function buildCallV4ScreenViewModel(input: BuildCallV4ScreenViewModelInpu
         onClick: () => void callV4Accept(callId, router, { source: "sheet" }),
       }
     );
+  } else if (isOutgoingDialing) {
+    primaryActions.push({
+      id: "end",
+      label: safeT("cm_ui_end_call", { fallbackKo: "통화 종료", fallbackEn: "End call" }),
+      icon: "end",
+      tone: "danger",
+      dataTestId: "call-v4-cancel-button",
+      onClick: () => void callV4Cancel(callId, router),
+    });
   } else if (phase === "joining" || phase === "connected" || phase === "accepting") {
     primaryActions.push({
       id: "end",
@@ -85,17 +100,19 @@ export function buildCallV4ScreenViewModel(input: BuildCallV4ScreenViewModelInpu
   const statusText =
     callPhase === "connected"
       ? safeT("cm_ui_call_active_voice", { fallbackKo: "통화 중", fallbackEn: "On a call" })
-      : phase === "ending"
-        ? safeT("cm_ui_ending_call", { fallbackKo: "종료 중", fallbackEn: "Ending…" })
-        : safeT("cm_ui_connecting", { fallbackKo: "연결 중", fallbackEn: "Connecting" });
+      : isOutgoingDialing
+        ? safeT("cm_ui_connecting", { fallbackKo: "연결 중", fallbackEn: "Calling…" })
+        : phase === "ending"
+          ? safeT("cm_ui_ending_call", { fallbackKo: "종료 중", fallbackEn: "Ending…" })
+          : safeT("cm_ui_connecting", { fallbackKo: "연결 중", fallbackEn: "Connecting" });
 
   return {
     visualTheme: "starbucks",
-    mode: identity?.mediaType === "video" ? "video" : "voice",
-    direction: identity?.direction ?? "incoming",
+    mode: identity.mediaType === "video" ? "video" : "voice",
+    direction: identity.direction,
     phase: callPhase,
     peerLabel,
-    peerAvatarUrl: identity?.peerAvatarUrl ?? null,
+    peerAvatarUrl: identity.peerAvatarUrl ?? null,
     statusText,
     subStatusText: statusText,
     topLabel: null,

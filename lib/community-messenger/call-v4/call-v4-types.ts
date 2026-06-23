@@ -1,17 +1,21 @@
 export type CallV4Phase =
   | "idle"
+  | "creating"
+  | "outgoing_ringing"
   | "incoming_ringing"
   | "accepting"
   | "joining"
   | "connected"
   | "ending"
   | "ended"
+  | "cancelled"
   | "rejected"
   | "missed"
   | "failed";
 
 export const CALL_V4_TERMINAL_PHASES = [
   "ended",
+  "cancelled",
   "rejected",
   "missed",
   "failed",
@@ -23,7 +27,7 @@ export function isCallV4TerminalPhase(phase: CallV4Phase): phase is CallV4Termin
   return (CALL_V4_TERMINAL_PHASES as readonly CallV4Phase[]).includes(phase);
 }
 
-export type CallV4Direction = "incoming";
+export type CallV4Direction = "incoming" | "outgoing";
 
 export type CallV4MediaType = "audio" | "video";
 

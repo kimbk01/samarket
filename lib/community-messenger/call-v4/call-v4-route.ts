@@ -6,8 +6,14 @@ const CALL_V4_RETURN_PATH_KEY = "samarket.cm.call_v4_return_path.v1";
 
 export const COMMUNITY_MESSENGER_CALL_LOGS_HREF = "/community-messenger?section=call_logs";
 
-export function buildCallV4ScreenHref(callId: string): string {
-  return `/community-messenger/calls-v4/${encodeURIComponent(callId.trim())}`;
+export function buildCallV4ScreenHref(callId: string, source = "sheet"): string {
+  const sid = callId.trim();
+  const src = source.trim() || "sheet";
+  return `/community-messenger/calls-v4/${encodeURIComponent(sid)}?source=${encodeURIComponent(src)}`;
+}
+
+export function buildCallV4OutgoingHref(callId: string): string {
+  return buildCallV4ScreenHref(callId, "outgoing");
 }
 
 export function buildCallV4AcceptHref(callId: string, source: string): string {
@@ -53,7 +59,7 @@ export function readCallV4ExitRouter(): CallV4Router | null {
 }
 
 export function routeToCallV4Screen(router: { push: (href: string) => void; replace?: (href: string) => void }, callId: string, source = "sheet"): void {
-  const href = buildCallV4AcceptHref(callId, source);
+  const href = source === "sheet" ? buildCallV4AcceptHref(callId, source) : buildCallV4ScreenHref(callId, source);
   logCallV4("route_to_screen", { callId, href });
   const go = router.replace ?? router.push;
   go(href);

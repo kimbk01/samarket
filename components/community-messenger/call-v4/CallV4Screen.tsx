@@ -8,7 +8,9 @@ import {
   callV4Accept,
   callV4EnsureAgoraJoined,
   callV4HandleRejectRoute,
+  startCallV4CallerActivePoll,
 } from "@/lib/community-messenger/call-v4/call-v4-actions";
+import { callV4FetchSession } from "@/lib/community-messenger/call-v4/call-v4-api";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import { exitCallV4ScreenAfterCleanup, registerCallV4ExitRouter } from "@/lib/community-messenger/call-v4/call-v4-route";
 import { buildCallV4ScreenViewModel } from "@/lib/community-messenger/call-v4/call-v4-view-model";
@@ -50,6 +52,33 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
   }, [action, callId, router]);
 
   useEffect(() => {
+    if (!callId || source !== "outgoing") return;
+    const current = readCallV4Identity();
+    if (current?.callId === callId) return;
+    let cancelled = false;
+    void (async () => {
+      const session = await callV4FetchSession(callId);
+      if (cancelled || !session?.id || !session.isMineInitiator || session.status !== "ringing") return;
+      useCallV4Store.getState().setIdentity({
+        callId: session.id,
+        roomId: session.roomId,
+        callerUserId: session.initiatorUserId,
+        calleeUserId: session.recipientUserId ?? session.peerUserId ?? "",
+        direction: "outgoing",
+        mediaType: session.callKind === "video" ? "video" : "audio",
+        createdAt: session.startedAt,
+        peerLabel: session.peerLabel,
+        peerAvatarUrl: session.peerAvatarUrl ?? null,
+      });
+      useCallV4Store.getState().setPhase("outgoing_ringing");
+      logCallV4("outgoing_identity_hydrated", { callId });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [callId, source]);
+
+  useEffect(() => {
     const current = readCallV4Identity();
     const currentPhase = readCallV4Phase();
     const keepsCallScreenMounted =
@@ -58,13 +87,23 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
         currentPhase === "joining" ||
         currentPhase === "connected" ||
         currentPhase === "ending" ||
-        currentPhase === "incoming_ringing");
+        currentPhase === "incoming_ringing" ||
+        currentPhase === "outgoing_ringing" ||
+        currentPhase === "creating");
     if (keepsCallScreenMounted) return;
     if (action === "accept" && (currentPhase === "accepting" || currentPhase === "joining")) return;
     if (currentPhase === "idle" || !current || current.callId !== callId) {
       exitCallV4ScreenAfterCleanup(router);
     }
   }, [action, callId, phase, identity, router]);
+
+  useEffect(() => {
+    if (identity?.direction !== "outgoing") return;
+    if (phase !== "outgoing_ringing" && phase !== "creating") return;
+    if (identity.callId !== callId) return;
+    logCallV4("caller_poll_start", { callId, phase });
+    return startCallV4CallerActivePoll(callId);
+  }, [callId, identity?.callId, identity?.direction, phase]);
 
   useEffect(() => {
     if (phase !== "joining" || identity?.callId !== callId) return;

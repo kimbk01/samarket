@@ -1,5 +1,7 @@
 import { isDibayCallV3SafeLaneEnabled } from "@/lib/community-messenger/call-v3/call-v3-flag";
 import { callV3LaunchOutgoingDirectCall } from "@/lib/community-messenger/call-v3/call-v3-actions";
+import { isCallV4TelegramLaneEnabled } from "@/lib/community-messenger/call-v4/call-v4-flag";
+import { callV4LaunchOutgoingDirectCall } from "@/lib/community-messenger/call-v4/call-v4-actions";
 import { logCallUxEvent } from "@/lib/community-messenger/call-engine/call-engine-debug";
 import type { CommunityMessengerCallKind, CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 import {
@@ -801,6 +803,9 @@ export async function launchOutgoingDirectCall(
       { variant: "error" }
     );
     return { ok: false, userMessage: "" };
+  }
+  if (isCallV4TelegramLaneEnabled()) {
+    return callV4LaunchOutgoingDirectCall(input, router);
   }
   if (isDibayCallV3SafeLaneEnabled()) {
     return callV3LaunchOutgoingDirectCall(input, router);
