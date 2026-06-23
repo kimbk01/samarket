@@ -24,9 +24,11 @@ import {
   claimCallV3AcceptPatchOnce,
   claimCallV3CancelPatchOnce,
   claimCallV3EndPatchOnce,
+  claimCallV3MissedPatchOnce,
   claimCallV3RejectPatchOnce,
   releaseCallV3CancelPatchClaim,
   releaseCallV3EndPatchClaim,
+  releaseCallV3MissedPatchClaim,
 } from "@/lib/community-messenger/call-v3/call-v3-patch-guard";
 import {
   exitCallV3ScreenAfterCleanup,
@@ -39,10 +41,12 @@ import { readCallV3Capabilities, readCallV3Identity, readCallV3Phase, useCallV3S
 import type { CallV3Identity, CallV3TerminalPhase } from "@/lib/community-messenger/call-v3/call-v3-types";
 import {
   callV3CreateSession,
+  callV3FetchSession,
   callV3MediaTypeFromKind,
   callV3PatchAccept,
   callV3PatchCancel,
   callV3PatchEnd,
+  callV3PatchMissed,
   callV3PatchReject,
   callV3ReconcileBeforeCreate,
   callV3ResolveOutgoingRoomId,
@@ -51,6 +55,11 @@ import {
 import { postCommunityMessengerCallSessionTerminalBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { notifyCommunityMessengerCallInviteHangupBestEffort } from "@/lib/community-messenger/call-invite-realtime-broadcast";
 import { readCallV3ExitRouter } from "@/lib/community-messenger/call-v3/call-v3-route";
+import {
+  clearCallV3MissedTimer,
+  startCallV3IncomingMissedTimer,
+  startCallV3OutgoingMissedTimer,
+} from "@/lib/community-messenger/call-v3/call-v3-missed-timeout";
 
 export type CallV3OutgoingLaunchResult =
   | { ok: true; session: CommunityMessengerCallSession; roomId: string }
@@ -131,6 +140,7 @@ export async function callV3CreateOutgoing(input: {
     useCallV3Store.getState().setIdentity(identity);
     useCallV3Store.getState().setPhase("outgoing_ringing");
     routeToCallV3Screen(input.router, created.session.id);
+    startCallV3OutgoingMissedTimer(created.session.id, created.session.startedAt, input.router);
 
     return { ok: true as const, session: created.session, roomId: roomResolved.roomId };
   })();
@@ -203,6 +213,12 @@ function buildIncomingIdentity(session: CommunityMessengerCallSession, viewerUse
     peerLabel: session.peerLabel,
     peerAvatarUrl: session.peerAvatarUrl ?? null,
   };
+}
+
+const TERMINAL_SESSION_STATUSES = new Set(["ended", "rejected", "missed", "cancelled", "canceled", "failed"]);
+
+function isTerminalSessionStatus(status: string | null | undefined): boolean {
+  return TERMINAL_SESSION_STATUSES.has((status ?? "").trim().toLowerCase());
 }
 
 function mapRemoteTerminalReason(status: string | null | undefined): CallV3TerminalPhase {
@@ -280,6 +296,7 @@ export function callV3IncomingDiscovered(session: CommunityMessengerCallSession)
   useCallV3Store.getState().setPhase("incoming_ringing");
   useCallV3Store.setState({ canReceiveNewCall: false });
   startCallV3Ringtone(callId, session.callKind);
+  startCallV3IncomingMissedTimer(callId, session.startedAt);
 }
 
 export async function callV3Accept(
@@ -290,6 +307,7 @@ export async function callV3Accept(
   if (!sid) return;
 
   logCallV3("accept_click", { callId: sid });
+  clearCallV3MissedTimer(sid);
   stopCallV3Ringtone("accept_click");
 
   if (!claimCallV3AcceptPatchOnce(sid)) {
@@ -324,6 +342,7 @@ export async function callV3Reject(callId: string): Promise<void> {
   if (!sid) return;
 
   logCallV3("reject_click", { callId: sid });
+  clearCallV3MissedTimer(sid);
   stopCallV3Ringtone("reject_click");
 
   if (!claimCallV3RejectPatchOnce(sid)) {
@@ -366,7 +385,61 @@ export async function callV3EnsureAgoraJoined(callId: string): Promise<void> {
   if (!joined) return;
   if (readCallV3Phase() !== "joining" || readCallV3Identity()?.callId !== sid) return;
 
+  clearCallV3MissedTimer(sid);
   useCallV3Store.setState({ phase: "connected", connectedAt: Date.now() });
+}
+
+export async function callV3HandleMissedTimeout(
+  callId: string,
+  source: string,
+  router?: CallV3Router
+): Promise<void> {
+  const sid = callId.trim();
+  if (!sid) return;
+
+  const identity = readCallV3Identity();
+  if (identity?.callId !== sid) return;
+
+  const phase = readCallV3Phase();
+  if (phase !== "outgoing_ringing" && phase !== "incoming_ringing" && phase !== "creating") {
+    return;
+  }
+
+  const session = await callV3FetchSession(sid);
+  if (session && isTerminalSessionStatus(session.status)) {
+    await callV3HandleRemoteTerminal(sid, session.status, router);
+    return;
+  }
+
+  if (!claimCallV3MissedPatchOnce(sid)) {
+    const retrySession = await callV3FetchSession(sid);
+    if (retrySession && isTerminalSessionStatus(retrySession.status)) {
+      await callV3HandleRemoteTerminal(sid, retrySession.status, router);
+    }
+    return;
+  }
+
+  stopCallV3Ringtone("missed_timeout");
+  stopCallV3CallerActivePoll();
+  clearCallV3MissedTimer(sid);
+
+  const patched = await callV3PatchMissed(sid);
+  if (!patched.ok) {
+    const afterPatchSession = await callV3FetchSession(sid);
+    if (afterPatchSession && isTerminalSessionStatus(afterPatchSession.status)) {
+      notifyCallV3PeerTerminalBestEffort(sid, identity, afterPatchSession.status);
+      markCallV3IncomingDismissed(sid);
+      await finalizeCallV3Terminal(sid, mapRemoteTerminalReason(afterPatchSession.status), router);
+      return;
+    }
+    releaseCallV3MissedPatchClaim(sid);
+    logCallV3("missed_patch_failed", { callId: sid, source, error: patched.error ?? null });
+    return;
+  }
+
+  notifyCallV3PeerTerminalBestEffort(sid, identity, "missed");
+  markCallV3IncomingDismissed(sid);
+  await finalizeCallV3Terminal(sid, "missed", router ?? readCallV3ExitRouter() ?? undefined);
 }
 
 export async function callV3End(
@@ -377,6 +450,7 @@ export async function callV3End(
   if (!sid) return;
 
   logCallV3("end_click", { callId: sid });
+  clearCallV3MissedTimer(sid);
   stopCallV3CallerActivePoll();
 
   if (!claimCallV3EndPatchOnce(sid)) {
@@ -413,6 +487,7 @@ export async function callV3HandleRemoteTerminal(
   if (identity?.callId !== sid) return;
 
   logCallV3("remote_terminal_received", { callId: sid, status: status ?? null });
+  clearCallV3MissedTimer(sid);
   stopCallV3Ringtone("remote_terminal");
   stopCallV3CallerActivePoll();
   markCallV3IncomingDismissed(sid);
@@ -427,6 +502,7 @@ export async function callV3Cancel(
   if (!sid) return;
 
   logCallV3("cancel_click", { callId: sid });
+  clearCallV3MissedTimer(sid);
 
   if (!claimCallV3CancelPatchOnce(sid)) {
     return;

@@ -9,6 +9,7 @@ import {
   startCallV3CallerActivePoll,
 } from "@/lib/community-messenger/call-v3/call-v3-actions";
 import { logCallV3 } from "@/lib/community-messenger/call-v3/call-v3-debug";
+import { startCallV3OutgoingMissedTimer } from "@/lib/community-messenger/call-v3/call-v3-missed-timeout";
 import { exitCallV3ScreenAfterCleanup, registerCallV3ExitRouter } from "@/lib/community-messenger/call-v3/call-v3-route";
 import { buildCallV3ScreenViewModel } from "@/lib/community-messenger/call-v3/call-v3-view-model";
 import { readCallV3Identity, readCallV3Phase, useCallV3Store } from "@/lib/community-messenger/call-v3/call-v3-store";
@@ -51,8 +52,9 @@ export function CallV3Screen({ callId }: CallV3ScreenProps) {
     }
     if (identity.callId !== callId) return;
     logCallV3("caller_poll_start", { callId, phase });
+    startCallV3OutgoingMissedTimer(callId, identity.createdAt, router);
     return startCallV3CallerActivePoll(callId);
-  }, [callId, identity?.callId, identity?.direction, phase]);
+  }, [callId, identity?.callId, identity?.createdAt, identity?.direction, phase, router]);
 
   useEffect(() => {
     if (phase !== "joining" || identity?.callId !== callId) {

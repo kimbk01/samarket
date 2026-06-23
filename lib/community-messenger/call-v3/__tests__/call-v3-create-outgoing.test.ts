@@ -16,7 +16,7 @@ const apiMocks = vi.hoisted(() => ({
       peerLabel: "Peer",
       callKind: "voice",
       status: "ringing",
-      startedAt: "2026-06-23T00:00:00.000Z",
+      startedAt: new Date().toISOString(),
       answeredAt: null,
       endedAt: null,
       isMineInitiator: true,
@@ -42,10 +42,12 @@ vi.mock("@/lib/community-messenger/call-phase0-basics", () => ({
 }));
 
 import { callV3CreateOutgoing } from "@/lib/community-messenger/call-v3/call-v3-actions";
+import { resetCallV3MissedTimersForTests } from "@/lib/community-messenger/call-v3/call-v3-missed-timeout";
 import { useCallV3Store } from "@/lib/community-messenger/call-v3/call-v3-store";
 
 describe("call-v3-create-outgoing", () => {
   beforeEach(() => {
+    resetCallV3MissedTimersForTests();
     useCallV3Store.getState().resetToIdle();
     apiMocks.reconcile.mockClear();
     apiMocks.resolveRoom.mockClear();

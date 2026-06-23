@@ -25,7 +25,6 @@ vi.mock("@/lib/community-messenger/call-v3/call-v3-ringtone", () => ({
 
 import {
   readCallV3CallerActivePollCallIdForTests,
-  readCallV3CallerStaleOutgoingMsForTests,
   resetCallV3CallerActivePollForTests,
   startCallV3CallerActivePoll,
 } from "@/lib/community-messenger/call-v3/call-v3-caller-active";
@@ -196,7 +195,7 @@ describe("call-v3-caller-active-detection", () => {
     expect(useCallV3Store.getState().canStartNewCall).toBe(true);
   });
 
-  it("caller stale timeout triggers cleanup after 45s", async () => {
+  it("caller polling keeps ringing until remote terminal or missed timer", async () => {
     const startedAt = new Date("2026-06-23T00:00:00.000Z").toISOString();
     vi.setSystemTime(new Date("2026-06-23T00:00:46.000Z"));
 
@@ -206,14 +205,15 @@ describe("call-v3-caller-active-detection", () => {
       canStartNewCall: false,
     });
 
+    apiMocks.fetchSession.mockResolvedValue(pollResult({ id: "call-age", status: "ringing" }));
+
     startCallV3CallerActivePoll("call-age");
     await vi.advanceTimersByTimeAsync(0);
-    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(1_000);
     await Promise.resolve();
 
-    expect(readCallV3CallerStaleOutgoingMsForTests()).toBe(45_000);
-    expect(apiMocks.fetchSession).not.toHaveBeenCalled();
-    expect(useCallV3Store.getState().phase).toBe("idle");
+    expect(apiMocks.fetchSession).toHaveBeenCalled();
+    expect(useCallV3Store.getState().phase).toBe("outgoing_ringing");
   });
 
   it("ignores active detection for unrelated phase", async () => {

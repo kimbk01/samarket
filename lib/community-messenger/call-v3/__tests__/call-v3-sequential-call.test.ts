@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 
 let createCount = 0;
@@ -24,7 +24,7 @@ const apiMocks = vi.hoisted(() => ({
         peerLabel: "Peer",
         callKind: "voice",
         status: "ringing",
-        startedAt: "2026-06-23T00:00:00.000Z",
+        startedAt: new Date().toISOString(),
         answeredAt: null,
         endedAt: null,
         isMineInitiator: true,
@@ -53,6 +53,7 @@ vi.mock("@/lib/community-messenger/call-phase0-basics", () => ({
 }));
 
 import { callV3Cancel, callV3CreateOutgoing, callV3HandleRemoteTerminal } from "@/lib/community-messenger/call-v3/call-v3-actions";
+import { resetCallV3MissedTimersForTests } from "@/lib/community-messenger/call-v3/call-v3-missed-timeout";
 import { resetCallV3PatchClaimsForTests } from "@/lib/community-messenger/call-v3/call-v3-patch-guard";
 import { resetCallV3IncomingDismissedForTests } from "@/lib/community-messenger/call-v3/call-v3-incoming-dismiss";
 import { useCallV3Store } from "@/lib/community-messenger/call-v3/call-v3-store";
@@ -60,11 +61,16 @@ import { useCallV3Store } from "@/lib/community-messenger/call-v3/call-v3-store"
 describe("call-v3-sequential-call", () => {
   beforeEach(() => {
     createCount = 0;
+    resetCallV3MissedTimersForTests();
     resetCallV3PatchClaimsForTests();
     resetCallV3IncomingDismissedForTests();
     useCallV3Store.getState().resetToIdle();
     apiMocks.createSession.mockClear();
     apiMocks.patchCancel.mockClear();
+  });
+
+  afterEach(() => {
+    resetCallV3MissedTimersForTests();
   });
 
   it("allows same room redial after cancel cleanup", async () => {

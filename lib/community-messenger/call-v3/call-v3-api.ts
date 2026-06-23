@@ -278,3 +278,17 @@ export async function callV3PatchEnd(
   }
   return result;
 }
+
+export async function callV3PatchMissed(
+  callId: string
+): Promise<{ ok: boolean; session?: CommunityMessengerCallSession; error?: string }> {
+  logCallV3("missed_patch_start", { callId });
+  const result = await patchCommunityMessengerCallSession(callId, "missed");
+  if (result.ok) {
+    logCallV3("missed_patch_done", {
+      callId,
+      status: result.session?.status ?? "missed",
+    });
+  }
+  return result;
+}

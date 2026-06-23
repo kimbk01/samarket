@@ -6,6 +6,7 @@ import {
 } from "@/lib/community-messenger/call-v3/call-v3-api";
 import { cleanupCallV3 } from "@/lib/community-messenger/call-v3/call-v3-cleanup";
 import { logCallV3 } from "@/lib/community-messenger/call-v3/call-v3-debug";
+import { clearCallV3MissedTimer } from "@/lib/community-messenger/call-v3/call-v3-missed-timeout";
 import { markCallV3IncomingDismissed } from "@/lib/community-messenger/call-v3/call-v3-incoming-dismiss";
 import { exitCallV3ScreenAfterCleanup, readCallV3ExitRouter } from "@/lib/community-messenger/call-v3/call-v3-route";
 import { stopCallV3Ringtone } from "@/lib/community-messenger/call-v3/call-v3-ringtone";
@@ -13,8 +14,6 @@ import { readCallV3Identity, readCallV3Phase, useCallV3Store } from "@/lib/commu
 import type { CallV3Phase, CallV3TerminalPhase } from "@/lib/community-messenger/call-v3/call-v3-types";
 
 const CALLER_ACTIVE_POLL_MS = 1_000;
-/** Missed-call policy aligned — normal ringing must not be cut early. */
-const CALLER_STALE_OUTGOING_MS = 45_000;
 
 const CALLER_POLL_OUTGOING_PHASES = new Set<CallV3Phase>(["creating", "outgoing_ringing"]);
 
@@ -67,12 +66,6 @@ function logCallerPollStatus(input: {
   });
 }
 
-function readOutgoingCallAgeMs(createdAt: string | undefined): number {
-  const startedMs = Date.parse(createdAt ?? "");
-  if (!Number.isFinite(startedMs)) return 0;
-  return Math.max(0, Date.now() - startedMs);
-}
-
 function mapCallerTerminalStatus(status: string): CallV3TerminalPhase {
   const normalized = status.trim().toLowerCase();
   if (normalized === "rejected") return "rejected";
@@ -111,6 +104,7 @@ async function handleCallerPollFetchResult(callId: string, fetchResult: CallV3Ca
   if (status === "active") {
     logCallV3("caller_active_detected", { callId: sid });
     stopCallV3CallerActivePoll();
+    clearCallV3MissedTimer(sid);
     useCallV3Store.getState().setPhase("joining");
     return true;
   }
@@ -146,14 +140,6 @@ export function startCallV3CallerActivePoll(callId: string): () => void {
         return;
       }
 
-      const ageMs = readOutgoingCallAgeMs(identity.createdAt);
-      if (ageMs > CALLER_STALE_OUTGOING_MS) {
-        logCallV3("caller_poll_stale_timeout", { callId: sid, ageMs, phase, route });
-        stopCallV3CallerActivePoll();
-        await applyCallerRemoteTerminal(sid, "failed_or_stale");
-        return;
-      }
-
       const fetchResult = await callV3FetchSessionForCallerPoll(sid);
       logCallerPollStatus({
         callId: sid,
@@ -178,8 +164,4 @@ export function readCallV3CallerActivePollCallIdForTests(): string | null {
 
 export function resetCallV3CallerActivePollForTests(): void {
   stopCallV3CallerActivePoll();
-}
-
-export function readCallV3CallerStaleOutgoingMsForTests(): number {
-  return CALLER_STALE_OUTGOING_MS;
 }
