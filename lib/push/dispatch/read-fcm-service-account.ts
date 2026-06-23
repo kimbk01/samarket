@@ -1,4 +1,4 @@
-import type { ServiceAccount } from "firebase-admin/app";
+import type { FcmServiceAccountCredential } from "@/lib/push/dispatch/fcm-service-account-types";
 
 export type FcmConfigSource = "split_env" | "json_env" | "base64_env" | "none";
 
@@ -10,14 +10,14 @@ export type FcmEnvDiagnostics = {
   configured: boolean;
 };
 
-let cachedServiceAccount: ServiceAccount | null | undefined;
+let cachedServiceAccount: FcmServiceAccountCredential | null | undefined;
 
 /** vitest — env stub 전후 캐시 초기화 */
 export function resetFcmServiceAccountCacheForTests(): void {
   cachedServiceAccount = undefined;
 }
 
-function readSplitEnvServiceAccount(): ServiceAccount | null {
+function readSplitEnvServiceAccount(): FcmServiceAccountCredential | null {
   const projectId = process.env.FCM_PROJECT_ID?.trim() ?? "";
   const clientEmail = process.env.FCM_CLIENT_EMAIL?.trim() ?? "";
   const privateKeyRaw = process.env.FCM_PRIVATE_KEY?.trim() ?? "";
@@ -27,7 +27,7 @@ function readSplitEnvServiceAccount(): ServiceAccount | null {
   return { projectId, clientEmail, privateKey };
 }
 
-function normalizeServiceAccountJson(parsed: Record<string, unknown>): ServiceAccount | null {
+function normalizeServiceAccountJson(parsed: Record<string, unknown>): FcmServiceAccountCredential | null {
   const projectId =
     typeof parsed.project_id === "string"
       ? parsed.project_id
@@ -53,17 +53,15 @@ function normalizeServiceAccountJson(parsed: Record<string, unknown>): ServiceAc
 
 /** Vercel runtime — secret 값 없이 env 존재·길이만 노출 */
 export function getFcmEnvDiagnostics(): FcmEnvDiagnostics {
-  const projectId = process.env.FCM_PROJECT_ID?.trim() ?? "";
-  const clientEmail = process.env.FCM_CLIENT_EMAIL?.trim() ?? "";
-  const privateKey = (process.env.FCM_PRIVATE_KEY?.trim() ?? "").replace(/\\n/g, "\n");
+  const parsed = parseFcmServiceAccount();
   const source = fcmConfigSource();
-  const configured = source === "none" ? false : parseFcmServiceAccount() !== null;
+  const splitPrivateKey = (process.env.FCM_PRIVATE_KEY?.trim() ?? "").replace(/\\n/g, "\n");
   return {
     source,
-    has_project_id: Boolean(projectId),
-    has_client_email: Boolean(clientEmail),
-    private_key_length: privateKey.length,
-    configured,
+    has_project_id: Boolean(parsed?.projectId ?? process.env.FCM_PROJECT_ID?.trim()),
+    has_client_email: Boolean(parsed?.clientEmail ?? process.env.FCM_CLIENT_EMAIL?.trim()),
+    private_key_length: parsed?.privateKey?.length ?? splitPrivateKey.length,
+    configured: parsed !== null,
   };
 }
 
@@ -122,7 +120,7 @@ export function readFcmServiceAccountJsonRaw(): string | null {
   }
 }
 
-export function parseFcmServiceAccount(): ServiceAccount | null {
+export function parseFcmServiceAccount(): FcmServiceAccountCredential | null {
   if (cachedServiceAccount !== undefined) return cachedServiceAccount;
 
   const splitEnv = readSplitEnvServiceAccount();

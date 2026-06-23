@@ -15,7 +15,7 @@ export {
 
 /**
  * FCM HTTP v1 send — requires FCM_SERVICE_ACCOUNT_JSON or FCM_SERVICE_ACCOUNT_JSON_BASE64.
- * fcm_not_configured 는 sendFcmMessageV1 → getFirebaseApp() 경로에서만 반환 (early gate 없음).
+ * fcm_not_configured 는 sendFcmMessageV1 → warmFcmHttpClient() 경로에서만 반환 (early gate 없음).
  */
 export async function sendFcmToTarget(
   target: PushTarget,

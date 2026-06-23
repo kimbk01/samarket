@@ -68,10 +68,10 @@ export async function POST(req: NextRequest) {
   });
 
   logFcmEnvDiagnostics("admin/push/test");
-  const firebaseApp = await ensureFirebaseAdminApp();
-  console.info("[admin/push/test] firebase-admin warm-up", {
-    ready: firebaseApp !== null,
-    app_name: firebaseApp?.name ?? null,
+  const fcmHandle = await ensureFirebaseAdminApp();
+  console.info("[admin/push/test] fcm-http-v1 warm-up", {
+    ready: fcmHandle !== null,
+    project_id: fcmHandle?.projectId ?? null,
   });
 
   const dispatchResult = await dispatchPushForUser(
