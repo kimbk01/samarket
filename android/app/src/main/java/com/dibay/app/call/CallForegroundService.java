@@ -346,7 +346,7 @@ public class CallForegroundService extends Service {
               + " owner=fgs_notification existing=native_fsi");
       return true;
     }
-    return true;
+    return false;
   }
 
   private void logRingingNotificationMode(String callId, boolean carrierOnly, String reason) {

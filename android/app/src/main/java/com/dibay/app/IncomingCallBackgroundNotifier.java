@@ -126,7 +126,12 @@ public final class IncomingCallBackgroundNotifier {
       return false;
     }
     if (!CallActivityRouter.shouldLaunchIncomingActivity(sid)) {
-      return true;
+      if (IncomingCallSurfaceOwner.isNativeFsiOwner(sid)) {
+        Log.i(TAG, "[call-ui] incoming_activity_dedup_reuse callId=" + sid + " source=" + source);
+        return true;
+      }
+      Log.i(TAG, "[call-ui] incoming_activity_dedup_blocked callId=" + sid + " source=" + source);
+      return false;
     }
     Intent incomingUi = IncomingCallIntentHelper.buildIncomingCallActivityIntent(context, payload);
     if (incomingUi == null) {
