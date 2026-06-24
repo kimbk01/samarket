@@ -51,14 +51,18 @@ describe("call-v4 import isolation", () => {
     expect(fgs).toContain("v3_task_removed_pending_suppressed");
   });
 
-  it("V4 lock incoming delivers Activity-first from FGS after startForeground", () => {
+  it("V4 lock incoming delivers FSI-only from FGS after startForeground (Policy A)", () => {
     const notifier = read("android/app/src/main/java/com/dibay/app/IncomingCallBackgroundNotifier.java");
-    expect(notifier).toContain("presentV4ActivityFirstIncoming");
+    const lockFsiMethod =
+      notifier.match(/private static void presentV4LockFsiOnlyIncoming[\s\S]*?^  \}/m)?.[0] ?? "";
+    expect(notifier).toContain("presentV4LockFsiOnlyIncoming");
+    expect(notifier).toContain("lock_incoming_fsi_only");
     expect(notifier).toContain("lock_presentation_queued");
     expect(notifier).toContain("background_presentation_deliver");
     expect(notifier).toContain("native_notification_fallback");
+    expect(lockFsiMethod).toContain("showIncomingCall");
+    expect(lockFsiMethod).not.toContain("launchIncomingActivity");
     expect(notifier).not.toContain("lock_presentation_immediate");
-    expect(notifier).not.toContain("lock_incoming_fsi_only");
     expect(notifier).not.toContain("_boost");
     expect(notifier).not.toContain("lock_incoming_activity_boost");
   });
@@ -89,7 +93,7 @@ describe("call-v4 import isolation", () => {
     expect(fgs).toContain("NotificationCompat.CATEGORY_SERVICE");
     expect(fgs).toContain("NotificationCompat.PRIORITY_LOW");
     expect(fgs).toMatch(/if \(carrierOnly\) \{[\s\S]*?return builder\.build\(\);[\s\S]*?\.addAction/);
-    expect(notifier).toContain("presentV4ActivityFirstIncoming");
+    expect(notifier).toContain("presentV4BackgroundActivityFirstIncoming");
     expect(notifier).toContain("background_presentation_deliver");
     expect(notifier).toContain("native_notification_fallback");
     expect(notifier).not.toContain("showIncomingCallActionOnly(context, payload");
@@ -150,6 +154,8 @@ describe("call-v4 import isolation", () => {
     expect(script).toContain("buildIncomingCallPreviewHref");
     expect(script).toContain("resolveSuppressReasonLegacy");
     expect(script).toContain("cancelMissedTimeout");
-    expect(script).toContain("Activity-first single surface presentation");
+    expect(script).toContain("presentV4LockFsiOnlyIncoming");
+    expect(script).toContain("presentV4BackgroundActivityFirstIncoming");
+    expect(script).toContain("Policy A lock FSI-only entry");
   });
 });

@@ -1,5 +1,6 @@
 package com.dibay.app;
 
+import android.app.ActivityManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -23,6 +24,10 @@ import java.util.concurrent.ConcurrentHashMap;
 /** Lock-screen incoming call UI — accept/reject via web call-route (V3 PATCH owner). */
 public class IncomingCallActivity extends AppCompatActivity {
   private static final ConcurrentHashMap<String, Long> VISIBLE_CALL_IDS = new ConcurrentHashMap<>();
+  private static final ConcurrentHashMap<Integer, java.lang.ref.WeakReference<IncomingCallActivity>>
+      LIVE_INSTANCES = new ConcurrentHashMap<>();
+  private static volatile java.lang.ref.WeakReference<IncomingCallActivity> activeInstance;
+
   public static final String EXTRA_CALL_ID = "callId";
   public static final String EXTRA_CALLER_NAME = "callerName";
   public static final String EXTRA_TITLE = "title";
@@ -44,6 +49,189 @@ public class IncomingCallActivity extends AppCompatActivity {
     return shownAt != null && System.currentTimeMillis() - shownAt < 60_000L;
   }
 
+  static void clearVisibleFlag(String callId) {
+    if (callId == null || callId.trim().isEmpty()) return;
+    VISIBLE_CALL_IDS.remove(callId.trim());
+  }
+
+  static java.util.Set<String> visibleCallIdsSnapshot() {
+    return new java.util.HashSet<>(VISIBLE_CALL_IDS.keySet());
+  }
+
+  private static int finishLiveInstancesForCallId(String callId, String reason) {
+    if (callId == null || callId.trim().isEmpty()) return 0;
+    String sid = callId.trim();
+    int finishedCount = 0;
+    java.util.ArrayList<Integer> staleKeys = new java.util.ArrayList<>();
+    for (java.util.Map.Entry<Integer, java.lang.ref.WeakReference<IncomingCallActivity>> entry :
+        LIVE_INSTANCES.entrySet()) {
+      IncomingCallActivity instance = entry.getValue() != null ? entry.getValue().get() : null;
+      if (instance == null) {
+        staleKeys.add(entry.getKey());
+        continue;
+      }
+      if (instance.finished || instance.callId == null) continue;
+      if (!sid.equals(instance.callId.trim())) continue;
+      Log.i(TAG, "[call-ui] incoming_activity_finish_live callId=" + sid + " reason=" + reason);
+      instance.cleanupAndFinish();
+      finishedCount++;
+    }
+    for (Integer key : staleKeys) {
+      LIVE_INSTANCES.remove(key);
+    }
+    return finishedCount;
+  }
+
+  private static int finishAllLiveInstances(String reason) {
+    int finishedCount = 0;
+    java.util.ArrayList<Integer> staleKeys = new java.util.ArrayList<>();
+    for (java.util.Map.Entry<Integer, java.lang.ref.WeakReference<IncomingCallActivity>> entry :
+        LIVE_INSTANCES.entrySet()) {
+      IncomingCallActivity instance = entry.getValue() != null ? entry.getValue().get() : null;
+      if (instance == null) {
+        staleKeys.add(entry.getKey());
+        continue;
+      }
+      if (instance.finished) continue;
+      Log.i(
+          TAG,
+          "[call-ui] incoming_activity_finish_live_any callId="
+              + instance.callId
+              + " reason="
+              + reason);
+      instance.cleanupAndFinish();
+      finishedCount++;
+    }
+    for (Integer key : staleKeys) {
+      LIVE_INSTANCES.remove(key);
+    }
+    return finishedCount;
+  }
+
+  private static boolean isIncomingComponent(android.content.ComponentName component) {
+    return component != null && IncomingCallActivity.class.getName().equals(component.getClassName());
+  }
+
+  private static boolean taskReferencesIncoming(ActivityManager.RecentTaskInfo info) {
+    if (info == null) return false;
+    if (isIncomingComponent(info.baseActivity)) return true;
+    if (isIncomingComponent(info.topActivity)) return true;
+    if (isIncomingComponent(info.origActivity)) return true;
+    if (info.baseIntent != null && isIncomingComponent(info.baseIntent.getComponent())) return true;
+    return false;
+  }
+
+  private static String taskSummary(ActivityManager.RecentTaskInfo info) {
+    if (info == null) return "taskInfo=null";
+    String base = info.baseActivity != null ? info.baseActivity.flattenToShortString() : "null";
+    String top = info.topActivity != null ? info.topActivity.flattenToShortString() : "null";
+    String orig = info.origActivity != null ? info.origActivity.flattenToShortString() : "null";
+    return "taskId="
+        + info.taskId
+        + " base="
+        + base
+        + " top="
+        + top
+        + " orig="
+        + orig
+        + " numActivities="
+        + info.numActivities;
+  }
+
+  static void finishActiveForCallId(Context context, String callId, String reason) {
+    if (callId == null || callId.trim().isEmpty()) return;
+    String sid = callId.trim();
+    IncomingCallActivity active = activeInstance != null ? activeInstance.get() : null;
+    if (active != null
+        && !active.finished
+        && active.callId != null
+        && sid.equals(active.callId.trim())) {
+      Log.i(TAG, "[call-ui] incoming_activity_finish_active callId=" + sid + " reason=" + reason);
+      active.cleanupAndFinish();
+      return;
+    }
+    if (finishLiveInstancesForCallId(sid, reason) > 0) {
+      return;
+    }
+    if (context != null) {
+      IncomingCallTerminalHandler.broadcastFinishIncomingActivity(
+          context.getApplicationContext(), sid);
+    }
+  }
+
+  /** @return true when an instance was asked to finish */
+  static boolean finishAnyActiveInstance(String reason) {
+    IncomingCallActivity active = activeInstance != null ? activeInstance.get() : null;
+    if (active == null || active.finished) return false;
+    Log.i(
+        TAG,
+        "[call-ui] incoming_activity_finish_any_active callId="
+            + active.callId
+            + " reason="
+            + reason);
+    active.cleanupAndFinish();
+    return true;
+  }
+
+  /** Shared-task leaks are detected via live instances and task top/base/orig/real components. */
+  static boolean hasIncomingTask(Context context) {
+    for (java.util.Map.Entry<Integer, java.lang.ref.WeakReference<IncomingCallActivity>> entry :
+        LIVE_INSTANCES.entrySet()) {
+      IncomingCallActivity instance = entry.getValue() != null ? entry.getValue().get() : null;
+      if (instance != null && !instance.finished) {
+        return true;
+      }
+    }
+    if (context == null) return false;
+    ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+    if (am == null) return false;
+    try {
+      for (ActivityManager.AppTask task : am.getAppTasks()) {
+        if (task == null) continue;
+        ActivityManager.RecentTaskInfo info = task.getTaskInfo();
+        if (taskReferencesIncoming(info)) {
+          return true;
+        }
+      }
+    } catch (Exception ignored) {
+    }
+    return false;
+  }
+
+  /** @return true when any incoming instance/task was finished */
+  static boolean finishAllIncomingTasks(Context context, String reason) {
+    boolean removed = finishAllLiveInstances(reason) > 0;
+    if (context == null) return removed;
+    ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+    if (am == null) return removed;
+    try {
+      for (ActivityManager.AppTask task : am.getAppTasks()) {
+        if (task == null) continue;
+        ActivityManager.RecentTaskInfo info = task.getTaskInfo();
+        if (taskReferencesIncoming(info)) {
+          Log.i(
+              TAG,
+              "[call-ui] incoming_task_finish_and_remove taskId="
+                  + info.taskId
+                  + " reason="
+                  + (reason != null ? reason : "purge")
+                  + " summary="
+                  + taskSummary(info));
+          task.finishAndRemoveTask();
+          removed = true;
+        }
+      }
+    } catch (Exception error) {
+      Log.w(
+          TAG,
+          "[call-ui] incoming_task_finish_failed reason="
+              + (reason != null ? reason : "purge")
+              + " err="
+              + error.getClass().getSimpleName());
+    }
+    return removed;
+  }
+
   private String callId;
   private boolean finished;
   private boolean nativeSurfaceHiddenEmitted;
@@ -63,6 +251,18 @@ public class IncomingCallActivity extends AppCompatActivity {
 
     callId = firstNonEmpty(getIntent().getStringExtra(EXTRA_CALL_ID));
     if (callId == null) {
+      finishSafely();
+      return;
+    }
+    LIVE_INSTANCES.put(
+        System.identityHashCode(this), new java.lang.ref.WeakReference<>(this));
+    activeInstance = new java.lang.ref.WeakReference<>(this);
+
+    if (CallV4Lane.isTelegramLaneEnabled(getApplicationContext())
+        && IncomingCallSurfaceOwner.isWebInAppOwner(callId)) {
+      Log.i(
+          CallV4Lane.TAG,
+          "[DIBAY_CALL_V4] incoming_activity_blocked callId=" + callId + " reason=foreground_web_ssot");
       finishSafely();
       return;
     }
@@ -96,41 +296,18 @@ public class IncomingCallActivity extends AppCompatActivity {
       }
     }
 
-    Log.i(TAG, "[call-ui] incoming_activity_shown callId=" + callId);
-    VISIBLE_CALL_IDS.put(callId.trim(), System.currentTimeMillis());
-    if (CallV4Lane.isTelegramLaneEnabled(getApplicationContext())) {
-      Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] incoming_activity_shown callId=" + callId);
-      IncomingCallSurfaceOwner.SurfaceOwner owner =
-          DibayKeyguardHelper.isKeyguardLocked(getApplicationContext())
-              ? IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_FSI
-              : IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_ACTIVITY;
-      IncomingCallSurfaceOwner.transitionIncomingOwner(
-          getApplicationContext(), callId, owner, "incoming_activity_visible");
-      IncomingCallPayload payload =
-          new IncomingCallPayload(
-              callId,
-              firstNonEmpty(getIntent().getStringExtra(EXTRA_ROOM_ID)),
-              firstNonEmpty(getIntent().getStringExtra(EXTRA_CALLER_ID)),
-              firstNonEmpty(getIntent().getStringExtra(EXTRA_CALLER_NAME)),
-              firstNonEmpty(getIntent().getStringExtra(EXTRA_CALLER_AVATAR_URL)),
-              firstNonEmpty(getIntent().getStringExtra(EXTRA_CALL_TYPE)),
-              expiresAt,
-              firstNonEmpty(getIntent().getStringExtra(EXTRA_TITLE)),
-              firstNonEmpty(getIntent().getStringExtra(EXTRA_BODY)),
-              null);
-      if (payload.isValid()) {
-        IncomingCallNotificationBuilder.showIncomingCallActionOnly(
-            getApplicationContext(), payload, true);
-      }
-    }
-    DibayCallLog.once("incoming_activity_created", callId, "source=activity");
-    DibayCallLog.once("incoming_render", callId, "source=activity");
+    emitIncomingActivityShown(getIntent(), expiresAt);
 
     bindIncomingUi(getIntent());
     notifyNativeSurfaceVisible();
 
     String action = getIntent().getAction();
     if (ACTION_ACCEPT.equals(action)) {
+      Log.i(
+          TAG,
+          "[call-ui] incoming_activity_action_accept_received callId="
+              + callId
+              + " source=onCreate");
       Log.i(TAG, "[call-ui] notification_accept_activity_open callId=" + callId);
       handleAccept();
       return;
@@ -221,6 +398,10 @@ public class IncomingCallActivity extends AppCompatActivity {
   protected void onResume() {
     super.onResume();
     nativeSurfaceHiddenEmitted = false;
+    if (!finished && callId != null && !callId.trim().isEmpty()) {
+      emitIncomingActivityShown(
+          getIntent(), firstNonEmpty(getIntent().getStringExtra(EXTRA_EXPIRES_AT)));
+    }
     notifyNativeSurfaceVisible();
   }
 
@@ -232,6 +413,10 @@ public class IncomingCallActivity extends AppCompatActivity {
 
   @Override
   protected void onDestroy() {
+    LIVE_INSTANCES.remove(System.identityHashCode(this));
+    if (activeInstance != null && activeInstance.get() == this) {
+      activeInstance = null;
+    }
     if (callId != null && !callId.trim().isEmpty()) {
       VISIBLE_CALL_IDS.remove(callId.trim());
     }
@@ -250,18 +435,76 @@ public class IncomingCallActivity extends AppCompatActivity {
     super.onNewIntent(intent);
     setIntent(intent);
     String nextCallId = firstNonEmpty(intent.getStringExtra(EXTRA_CALL_ID));
-    if (nextCallId != null && !nextCallId.equals(callId)) {
-      callId = nextCallId;
-      finished = false;
+    if (nextCallId != null) {
+      boolean callIdChanged = callId == null || !nextCallId.equals(callId);
+      if (callIdChanged) {
+        callId = nextCallId;
+        finished = false;
+      }
+      if (callIdChanged || !isCallVisible(callId)) {
+        String expiresAt = firstNonEmpty(intent.getStringExtra(EXTRA_EXPIRES_AT));
+        emitIncomingActivityShown(intent, expiresAt);
+      }
       bindIncomingUi(intent);
       notifyNativeSurfaceVisible();
     }
     String action = intent.getAction();
     if (ACTION_ACCEPT.equals(action)) {
+      Log.i(
+          TAG,
+          "[call-ui] incoming_activity_action_accept_received callId="
+              + callId
+              + " source=onNewIntent");
       handleAccept();
     } else if (ACTION_DECLINE.equals(action)) {
       handleDecline();
     }
+  }
+
+  /** Policy B: SINGLE_TOP reuse must still cancel launch_visibility verify. */
+  private void emitIncomingActivityShown(Intent intent, String expiresAt) {
+    if (callId == null || callId.trim().isEmpty()) return;
+    if (expiresAt != null) {
+      java.util.HashMap<String, String> probe = new java.util.HashMap<>();
+      probe.put("expiresAt", expiresAt);
+      if (FcmPayloadResolver.isExpired(probe)) {
+        Log.i(TAG, "[incoming-call-native] expired_ignored callId=" + callId);
+        cleanupAndFinish();
+        return;
+      }
+    }
+    Log.i(TAG, "[call-ui] incoming_activity_shown callId=" + callId);
+    VISIBLE_CALL_IDS.put(callId.trim(), System.currentTimeMillis());
+    String callTypeForVerify = firstNonEmpty(intent.getStringExtra(EXTRA_CALL_TYPE));
+    IncomingCallBackgroundNotifier.onIncomingActivityShown(
+        getApplicationContext(), callId, callTypeForVerify);
+    if (CallV4Lane.isTelegramLaneEnabled(getApplicationContext())) {
+      Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] incoming_activity_shown callId=" + callId);
+      IncomingCallSurfaceOwner.SurfaceOwner owner =
+          DibayKeyguardHelper.isKeyguardLocked(getApplicationContext())
+              ? IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_FSI
+              : IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_ACTIVITY;
+      IncomingCallSurfaceOwner.transitionIncomingOwner(
+          getApplicationContext(), callId, owner, "incoming_activity_visible");
+      IncomingCallPayload payload =
+          new IncomingCallPayload(
+              callId,
+              firstNonEmpty(intent.getStringExtra(EXTRA_ROOM_ID)),
+              firstNonEmpty(intent.getStringExtra(EXTRA_CALLER_ID)),
+              firstNonEmpty(intent.getStringExtra(EXTRA_CALLER_NAME)),
+              firstNonEmpty(intent.getStringExtra(EXTRA_CALLER_AVATAR_URL)),
+              firstNonEmpty(intent.getStringExtra(EXTRA_CALL_TYPE)),
+              expiresAt,
+              firstNonEmpty(intent.getStringExtra(EXTRA_TITLE)),
+              firstNonEmpty(intent.getStringExtra(EXTRA_BODY)),
+              null);
+      if (payload.isValid()) {
+        IncomingCallNotificationBuilder.showIncomingCallActionOnly(
+            getApplicationContext(), payload, true);
+      }
+    }
+    DibayCallLog.once("incoming_activity_created", callId, "source=activity");
+    DibayCallLog.once("incoming_render", callId, "source=activity");
   }
 
   private void notifyNativeSurfaceVisible() {
@@ -285,6 +528,7 @@ public class IncomingCallActivity extends AppCompatActivity {
 
   private void handleAccept() {
     if (finished) return;
+    Log.i(TAG, "[call-ui] incoming_activity_action_accept_before_coordinator callId=" + callId);
     if (CallV4Lane.isTelegramLaneEnabled(getApplicationContext())) {
       Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] fsi_accept_tap callId=" + callId);
     }
@@ -323,16 +567,27 @@ public class IncomingCallActivity extends AppCompatActivity {
   }
 
   private void cleanupAndFinish() {
+    if (callId != null && !callId.trim().isEmpty()) {
+      clearVisibleFlag(callId);
+      IncomingCallBackgroundNotifier.cancelLaunchVisibilityVerify(callId);
+      PendingIncomingPresentation.remove(callId);
+    }
     cleanupNotification();
     finishSafely();
   }
 
   private void finishSafely() {
     if (finished) return;
+    if (callId != null && !callId.trim().isEmpty()) {
+      clearVisibleFlag(callId);
+      if (activeInstance != null && activeInstance.get() == this) {
+        activeInstance = null;
+      }
+    }
     notifyNativeSurfaceHidden("destroyed");
     finished = true;
     DibayCallLog.once("activity_finish", callId);
-    finish();
+    finishAndRemoveTask();
   }
 
   private void applyWakeFlags() {

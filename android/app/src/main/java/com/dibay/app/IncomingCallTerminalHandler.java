@@ -23,14 +23,9 @@ public final class IncomingCallTerminalHandler {
 
     Log.i(TAG, "[DIBAY_CALL] terminal_received callId=" + sid + " kind=" + kind + " source=" + source);
 
-    IncomingCallNotificationBuilder.dismissIncomingCall(app, sid);
+    IncomingCallSessionCleanup.purgeCallPresentation(app, sid, consumedReason);
     DibayCallConsumedStore.mark(app, sid, consumedReason);
     Log.i(TAG, "[DIBAY_CALL] terminal_tombstone_mark callId=" + sid + " reason=" + consumedReason);
-    IncomingCallRingOwner.stop(app, sid);
-    Log.i(TAG, "[DIBAY_CALL] ring_stop callId=" + sid + " source=terminal_handler");
-    DibayCallPushLog.info("ringtone_stop_native", sid, "reason=" + consumedReason + " source=terminal_handler");
-    CallForegroundService.stopRinging(app, sid, consumedReason);
-    DibayIncomingCallNativeStore.clear(app, sid, consumedReason);
 
     IncomingCallActionCoordinator.complete(sid, kind);
 
@@ -39,7 +34,6 @@ public final class IncomingCallTerminalHandler {
     DibayCallPushLog.info("pending_route_discarded_terminal", sid, "kind=" + kind);
     MainActivity.clearNativeCalleeAcceptPending(app);
 
-    broadcastFinishIncomingActivity(app, sid);
     ForegroundIncomingCallRegistry.clear(sid);
 
     String webStatus = mapWebTerminalStatus(kind);
@@ -84,18 +78,18 @@ public final class IncomingCallTerminalHandler {
     }
   }
 
-  private static void broadcastFinishIncomingActivity(Context context, String callId) {
-    Intent intent = new Intent(IncomingCallActivity.ACTION_TERMINAL);
-    intent.setPackage(context.getPackageName());
-    intent.putExtra(IncomingCallActivity.EXTRA_CALL_ID, callId);
-    context.sendBroadcast(intent);
-  }
-
   /** Dismiss lock-screen and in-app foreground incoming UI for callId. */
   public static void finishIncomingUiOnly(Context context, String callId) {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
-    broadcastFinishIncomingActivity(context, callId.trim());
-    ForegroundIncomingCallRegistry.clear(callId.trim());
+    IncomingCallSessionCleanup.purgeCallPresentation(context, callId.trim(), "finish_ui_only");
+  }
+
+  static void broadcastFinishIncomingActivity(Context context, String callId) {
+    if (context == null || callId == null || callId.trim().isEmpty()) return;
+    Intent intent = new Intent(IncomingCallActivity.ACTION_TERMINAL);
+    intent.setPackage(context.getPackageName());
+    intent.putExtra(IncomingCallActivity.EXTRA_CALL_ID, callId.trim());
+    context.sendBroadcast(intent);
   }
 
   private static String mapConsumedReason(String kind) {

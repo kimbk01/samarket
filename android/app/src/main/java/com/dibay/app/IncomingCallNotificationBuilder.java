@@ -21,6 +21,7 @@ import androidx.core.app.NotificationManagerCompat;
 import androidx.core.app.Person;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.drawable.IconCompat;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Messenger-style incoming call notification — system call category with accept/decline actions.
@@ -36,8 +37,16 @@ public final class IncomingCallNotificationBuilder {
   public static final int INCOMING_CALL_NOTIFICATION_BASE_ID = 91001;
   private static final String TAG = "DIBAY_INCOMING_CALL";
   private static final Handler MAIN = new Handler(Looper.getMainLooper());
+  /** One full-screen intent attach per callId per incoming presentation wave. */
+  private static final ConcurrentHashMap<String, Boolean> FSI_ATTACHED_BY_CALL_ID =
+      new ConcurrentHashMap<>();
 
   private IncomingCallNotificationBuilder() {}
+
+  static void clearFsiAttachGate(String callId) {
+    if (callId == null || callId.trim().isEmpty()) return;
+    FSI_ATTACHED_BY_CALL_ID.remove(callId.trim());
+  }
 
   public static void ensureChannel(Context context) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
@@ -229,7 +238,12 @@ public final class IncomingCallNotificationBuilder {
               app, sid, title, body, callType, expiresAt, roomId, callerId, callerNameFromPayload, callerAvatarUrl);
       boolean posted =
           postNotificationWithFallback(
-              app, notificationId, sid, actionOnlyNotification, actionOnlyNotification, diagnostics);
+              app,
+              notificationId,
+              sid,
+              actionOnlyNotification,
+              diagnostics,
+              () -> actionOnlyNotification);
       if (!posted && !fgsDelivery) {
         launchActivityFallback(
             app, sid, roomId, callerId, callerNameFromPayload, callerAvatarUrl, callType, expiresAt, title, body);
@@ -237,6 +251,7 @@ public final class IncomingCallNotificationBuilder {
       return;
     }
 
+    FSI_ATTACHED_BY_CALL_ID.remove(sid);
     Notification callStyle =
         buildIncomingNotification(
             app,
@@ -257,28 +272,34 @@ public final class IncomingCallNotificationBuilder {
             fgsDelivery,
             true,
             false);
-    Notification legacy =
-        buildIncomingNotification(
-            app,
-            sid,
-            title,
-            body,
-            callType,
-            expiresAt,
-            roomId,
-            callerId,
-            callerNameFromPayload,
-            callerAvatarUrl,
-            null,
-            null,
-            lockScreenBridge,
-            fsiAllowed,
-            firstIncoming,
-            fgsDelivery,
-            false,
-            false);
 
-    boolean posted = postNotificationWithFallback(app, notificationId, sid, callStyle, legacy, diagnostics);
+    boolean posted =
+        postNotificationWithFallback(
+            app,
+            notificationId,
+            sid,
+            callStyle,
+            diagnostics,
+            () ->
+                buildIncomingNotification(
+                    app,
+                    sid,
+                    title,
+                    body,
+                    callType,
+                    expiresAt,
+                    roomId,
+                    callerId,
+                    callerNameFromPayload,
+                    callerAvatarUrl,
+                    null,
+                    null,
+                    lockScreenBridge,
+                    fsiAllowed,
+                    firstIncoming,
+                    fgsDelivery,
+                    false,
+                    false));
     if (!posted && !fgsDelivery) {
       launchActivityFallback(app, sid, roomId, callerId, callerNameFromPayload, callerAvatarUrl, callType, expiresAt, title, body);
     }
@@ -391,13 +412,17 @@ public final class IncomingCallNotificationBuilder {
         true);
   }
 
+  private interface NotificationSupplier {
+    Notification get();
+  }
+
   private static boolean postNotificationWithFallback(
       Context app,
       int notificationId,
       String sid,
       Notification primary,
-      Notification legacy,
-      ChannelDiagnostics diagnostics) {
+      ChannelDiagnostics diagnostics,
+      NotificationSupplier legacySupplier) {
     NotificationManager nm = (NotificationManager) app.getSystemService(Context.NOTIFICATION_SERVICE);
     if (nm == null) {
       DibayCallPushLog.warn("incoming_notification_post_failed", sid, "notificationManager=null");
@@ -419,6 +444,8 @@ public final class IncomingCallNotificationBuilder {
               + " retry=legacy_silent");
     }
     try {
+      Notification legacy = legacySupplier != null ? legacySupplier.get() : null;
+      if (legacy == null) return false;
       nm.notify(notificationId, legacy);
       DibayCallLog.once("notification_created", sid, "source=notification style=legacy_silent");
       DibayCallPushLog.info("incoming_notification_posted", sid, diagnostics.toLogString() + " style=legacy_silent");
@@ -475,6 +502,7 @@ public final class IncomingCallNotificationBuilder {
             body,
             null);
 
+    int acceptRequestCode = sid.hashCode() + 2;
     Intent accept = IncomingCallIntentHelper.buildIncomingCallActivityIntent(context, fsiPayload);
     if (accept != null) {
       accept.setAction(IncomingCallActivity.ACTION_ACCEPT);
@@ -484,7 +512,35 @@ public final class IncomingCallNotificationBuilder {
       accept.putExtra(IncomingCallActivity.EXTRA_CALL_ID, sid);
       accept.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
     }
-    PendingIntent acceptPi = PendingIntent.getActivity(context, sid.hashCode() + 2, accept, flags);
+    PendingIntent acceptPi = null;
+    try {
+      acceptPi = PendingIntent.getActivity(context, acceptRequestCode, accept, flags);
+    } catch (Exception error) {
+      Log.w(
+          TAG,
+          "[call-notification] fallback_accept_pi_failed callId="
+              + sid
+              + " action="
+              + accept.getAction()
+              + " target="
+              + (accept.getComponent() != null ? accept.getComponent().getClassName() : "null")
+              + " requestCode="
+              + acceptRequestCode
+              + " err="
+              + error.getClass().getSimpleName());
+    }
+    Log.i(
+        TAG,
+        "[call-notification] fallback_accept_pi_created callId="
+            + sid
+            + " action="
+            + accept.getAction()
+            + " target="
+            + (accept.getComponent() != null ? accept.getComponent().getClassName() : "null")
+            + " requestCode="
+            + acceptRequestCode
+            + " acceptPiNull="
+            + (acceptPi == null));
     Intent content = IncomingCallIntentHelper.buildMainActivityCallPreviewIntent(context, sid);
     PendingIntent contentPi = PendingIntent.getActivity(context, sid.hashCode() + 1, content, flags);
 
@@ -552,17 +608,33 @@ public final class IncomingCallNotificationBuilder {
           .addAction(new NotificationCompat.Action.Builder(0, acceptLabel, acceptPi).build());
     }
     if (attachFsi) {
-      builder.setFullScreenIntent(fullScreenPi, true);
-      DibayCallPushLog.info(
-          "full_screen_intent_attached", sid, "api=" + (applyCallStyle ? "call_style" : "legacy") + " fgsDelivery=" + fgsDelivery);
-      Log.i(
-          TAG,
-          "[call-notification] fsi_attached callId="
-              + sid
-              + " fgsDelivery="
-              + fgsDelivery
-              + " style="
-              + (applyCallStyle ? "callstyle" : "legacy"));
+      if (FSI_ATTACHED_BY_CALL_ID.putIfAbsent(sid, Boolean.TRUE) != null) {
+        builder.setFullScreenIntent(null, false);
+        DibayCallPushLog.info(
+            "full_screen_intent_skipped_duplicate",
+            sid,
+            "api=" + (applyCallStyle ? "call_style" : "legacy") + " fgsDelivery=" + fgsDelivery);
+        Log.i(
+            TAG,
+            "[call-notification] fsi_attach_skipped_duplicate callId="
+                + sid
+                + " style="
+                + (applyCallStyle ? "callstyle" : "legacy"));
+      } else {
+        builder.setFullScreenIntent(fullScreenPi, true);
+        DibayCallPushLog.info(
+            "full_screen_intent_attached",
+            sid,
+            "api=" + (applyCallStyle ? "call_style" : "legacy") + " fgsDelivery=" + fgsDelivery);
+        Log.i(
+            TAG,
+            "[call-notification] fsi_attached callId="
+                + sid
+                + " fgsDelivery="
+                + fgsDelivery
+                + " style="
+                + (applyCallStyle ? "callstyle" : "legacy"));
+      }
     } else {
       builder.setFullScreenIntent(null, false);
       if (lockScreenBridge && !fsiAllowed) {
@@ -579,6 +651,7 @@ public final class IncomingCallNotificationBuilder {
     String sid = sessionId.trim();
     if (sid.isEmpty()) return;
     nm.cancel(INCOMING_CALL_NOTIFICATION_BASE_ID + Math.abs(sid.hashCode() % 1000));
+    clearFsiAttachGate(sid);
     IncomingCallSurfaceOwner.clear(sid);
     DibayCallLog.once("notification_cancel", sid);
   }

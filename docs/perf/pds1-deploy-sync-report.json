@@ -1,8 +1,8 @@
 {
-  "at": "2026-06-22T08:24:56.706Z",
+  "at": "2026-06-24T00:21:30.023Z",
   "git": {
-    "head": "d67ccae05caa664ba975c64918fdda3363b6d5b3 refactor(cm-call): complete CallEngine SSOT lifecycle reset",
-    "origin": "d67ccae05caa664ba975c64918fdda3363b6d5b3 refactor(cm-call): complete CallEngine SSOT lifecycle reset",
+    "head": "a6b2bdeb47a37135816b6751fa2ca0f66a7f851b fix(cm-call-v4): enforce single incoming surface owner and accept fast path",
+    "origin": "a6b2bdeb47a37135816b6751fa2ca0f66a7f851b fix(cm-call-v4): enforce single incoming surface owner and accept fast path",
     "untracked_snapshot_files": 0,
     "modified_api_routes": 0,
     "dirty": true
@@ -78,79 +78,79 @@
     {
       "rpc": "get_owner_hub_badge_snapshot",
       "deployed": 1,
-      "ms": 668,
+      "ms": 568,
       "error": null
     },
     {
       "rpc": "get_community_messenger_home_sync_snapshot",
       "deployed": 1,
-      "ms": 349,
+      "ms": 216,
       "error": null
     },
     {
       "rpc": "get_community_messenger_room_bootstrap_snapshot",
       "deployed": 1,
-      "ms": 169,
+      "ms": 304,
       "error": null
     },
     {
       "rpc": "get_store_menus_snapshot",
       "deployed": 1,
-      "ms": 181,
+      "ms": 277,
       "error": null
     },
     {
       "rpc": "get_owner_dashboard_notifications_snapshot",
       "deployed": 1,
-      "ms": 160,
+      "ms": 270,
       "error": null
     },
     {
       "rpc": "get_delivery_summary_snapshot",
       "deployed": 1,
-      "ms": 160,
+      "ms": 218,
       "error": null
     },
     {
       "rpc": "get_owner_store_orders_list_snapshot",
       "deployed": 1,
-      "ms": 172,
+      "ms": 286,
       "error": null
     },
     {
       "rpc": "get_cm_bootstrap_critical_snapshot",
       "deployed": 1,
-      "ms": 165,
+      "ms": 212,
       "error": null
     },
     {
       "rpc": "get_chat_rooms_snapshot",
       "deployed": 1,
-      "ms": 176,
+      "ms": 310,
       "error": null
     },
     {
       "rpc": "get_store_order_detail_snapshot",
       "deployed": 1,
-      "ms": 166,
+      "ms": 228,
       "error": null
     },
     {
       "rpc": "get_buyer_store_orders_list_snapshot",
       "deployed": 1,
-      "ms": 179,
+      "ms": 297,
       "error": null
     },
     {
       "rpc": "get_stores_browse_snapshot",
       "deployed": 1,
-      "ms": 165,
+      "ms": 208,
       "error": null
     },
     {
       "rpc": "get_cm_bootstrap_full_snapshot",
       "deployed": 1,
-      "ms": 190,
+      "ms": 227,
       "error": null
     }
   ],
@@ -268,8 +268,8 @@
   ],
   "summary": {
     "base_url": "https://samarket.vercel.app",
-    "git_head": "d67ccae05caa664ba975c64918fdda3363b6d5b3 refactor(cm-call): complete CallEngine SSOT lifecycle reset",
-    "git_origin_main": "d67ccae05caa664ba975c64918fdda3363b6d5b3 refactor(cm-call): complete CallEngine SSOT lifecycle reset",
+    "git_head": "a6b2bdeb47a37135816b6751fa2ca0f66a7f851b fix(cm-call-v4): enforce single incoming surface owner and accept fast path",
+    "git_origin_main": "a6b2bdeb47a37135816b6751fa2ca0f66a7f851b fix(cm-call-v4): enforce single incoming surface owner and accept fast path",
     "code_committed_and_pushed": 0,
     "code_sync_blocker": "uncommitted_snapshot_code_and_routes",
     "rpc_deployed": "13/13",

@@ -17,4 +17,9 @@ public final class PendingIncomingPresentation {
     if (callId == null || callId.trim().isEmpty()) return null;
     return PENDING.remove(callId.trim());
   }
+
+  public static void remove(String callId) {
+    if (callId == null || callId.trim().isEmpty()) return;
+    PENDING.remove(callId.trim());
+  }
 }

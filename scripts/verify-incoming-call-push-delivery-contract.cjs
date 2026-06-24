@@ -56,8 +56,15 @@ if (!debug.includes("IncomingCallPushDelivery.deliver")) {
   pass("Debug receiver delegates to PushDelivery");
 }
 
-if (notifier.includes("startNativeRingOnce") || notifier.includes("IncomingCallRingOwner.start")) {
-  fail("IncomingCallBackgroundNotifier must not start ring (PushDelivery SSOT)");
+const notifierParallelRing =
+  notifier.includes("IncomingCallRingOwner.start") &&
+  notifier.includes("source=push_ui_parallel");
+if (notifier.includes("startNativeRingOnce")) {
+  fail("IncomingCallBackgroundNotifier must not start ring via legacy startNativeRingOnce");
+} else if (notifier.includes("IncomingCallRingOwner.start") && !notifierParallelRing) {
+  fail("IncomingCallBackgroundNotifier ring must be push_ui_parallel only (PushDelivery SSOT elsewhere)");
+} else if (notifierParallelRing) {
+  pass("BackgroundNotifier parallel ring via push_ui_parallel");
 } else {
   pass("BackgroundNotifier has no ring start");
 }
@@ -113,10 +120,11 @@ if (!notifier.includes("presentV4NonForegroundIncoming")) {
   pass("BackgroundNotifier V4 owner presentation");
 }
 
-if (!notifier.includes("presentV4ActivityFirstIncoming")) {
-  fail("BackgroundNotifier must deliver lock UI Activity-first from FGS");
+if (!notifier.includes("presentV4LockFsiOnlyIncoming")
+    || !notifier.includes("presentV4BackgroundActivityFirstIncoming")) {
+  fail("BackgroundNotifier must use A/B split (lock FSI-only + background Activity-first)");
 } else {
-  pass("BackgroundNotifier FGS Activity-first path");
+  pass("BackgroundNotifier A/B policy paths");
 }
 
 if (notifier.includes("showIncomingCallActionOnly(context, payload")) {

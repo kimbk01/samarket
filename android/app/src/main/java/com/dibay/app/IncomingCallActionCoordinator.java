@@ -141,20 +141,13 @@ public final class IncomingCallActionCoordinator {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
     String sid = callId.trim();
     if (!tryBegin(sid, "reject")) return;
-    cancelMissedTimeout(sid);
     DibayCallLog.once("call_end", sid, "source=native_reject");
     DibayCallConsumedStore.mark(context, sid, "declined");
-    IncomingCallRingOwner.stop(context, sid);
-    DibayCallPushLog.info("ringtone_stop_native", sid, "reason=reject");
-    CallForegroundService.stopRinging(context, sid, "reject");
-    DibayIncomingCallNativeStore.clear(context, sid, "reject");
-    IncomingCallNotificationBuilder.dismissIncomingCall(context, sid);
     final Context app = context.getApplicationContext();
+    IncomingCallSessionCleanup.purgeCallPresentation(app, sid, "reject");
     if (CallV4Lane.isTelegramLaneEnabled(app)) {
-      IncomingCallSurfaceOwner.clearOwner(app, sid, "reject");
       MainActivity.deliverCallTerminalEvent(app, sid, "rejected");
     }
-    IncomingCallTerminalHandler.finishIncomingUiOnly(context, sid);
     Log.i("DIBAY_CALL", "[DIBAY_CALL] reject_signal_sent callId=" + sid);
     complete(sid, "reject");
     if (CallV4Lane.isTelegramLaneEnabled(app)) {
@@ -205,13 +198,10 @@ public final class IncomingCallActionCoordinator {
     DibayCallLog.once("ring_timeout", sid);
     Log.i(CALL_TAG, "[call-state] missed_timeout callId=" + sid);
     DibayCallConsumedStore.mark(context, sid, "missed");
-    IncomingCallRingOwner.stop(context, sid);
-    DibayCallPushLog.info("ringtone_stop_native", sid, "reason=missed");
-    CallForegroundService.stopRinging(context, sid, "missed");
-    DibayIncomingCallNativeStore.clear(context, sid, "missed");
-    IncomingCallNotificationBuilder.dismissIncomingCall(context, sid);
+    final Context app = context.getApplicationContext();
+    IncomingCallSessionCleanup.purgeCallPresentation(app, sid, "missed");
     complete(sid, "missed");
-    MainActivity.deliverCallTerminalEvent(context.getApplicationContext(), sid, "missed");
+    MainActivity.deliverCallTerminalEvent(app, sid, "missed");
     MissedCallNotificationHelper.show(
         context.getApplicationContext(),
         "부재중 통화",

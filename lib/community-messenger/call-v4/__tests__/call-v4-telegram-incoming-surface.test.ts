@@ -22,26 +22,37 @@ describe("call-v4 Telegram incoming surface contract", () => {
     expect(banner).toContain("data-incoming-call-compact-banner");
   });
 
-  it("Android non-foreground delivers Activity-first with notification fallback only", () => {
+  it("Android A/B/C policy: lock FSI-only, background Activity+verify, foreground Web block", () => {
     const notifier = read("android/app/src/main/java/com/dibay/app/IncomingCallBackgroundNotifier.java");
     const activity = read("android/app/src/main/java/com/dibay/app/IncomingCallActivity.java");
-    const activityFirstMethod =
-      notifier.match(/private static void presentV4ActivityFirstIncoming[\s\S]*?^  \}/m)?.[0] ?? "";
+    const lockFsiMethod =
+      notifier.match(/private static void presentV4LockFsiOnlyIncoming[\s\S]*?^  \}/m)?.[0] ?? "";
+    const backgroundMethod =
+      notifier.match(/private static void presentV4BackgroundActivityFirstIncoming[\s\S]*?^  \}/m)?.[0] ?? "";
 
-    expect(notifier).toContain("presentV4ActivityFirstIncoming");
-    expect(notifier).toContain("native_activity_launch_start");
-    expect(notifier).toContain("native_notification_fallback");
-    expect(notifier).not.toContain("presentV4LockedIncoming");
-    expect(notifier).not.toContain("lock_incoming_fsi_only");
+    expect(notifier).toContain("presentV4LockFsiOnlyIncoming");
+    expect(notifier).toContain("lock_incoming_fsi_only");
+    expect(notifier).toContain("presentV4BackgroundActivityFirstIncoming");
+    expect(notifier).toContain("scheduleLaunchVisibilityVerify");
+    expect(notifier).toContain("launch_unverified_fallback");
+    expect(notifier).toContain("foreground_web_ssot");
+    expect(notifier).not.toContain("presentV4ActivityFirstIncoming");
     expect(notifier).not.toContain("_boost");
-    expect(notifier).not.toContain("showIncomingCallActionOnly(context, payload");
 
-    expect(activityFirstMethod).toContain("launchIncomingActivity");
-    expect(activityFirstMethod).toMatch(/activityLaunched[\s\S]*refreshRingingNotification/);
-    expect(activityFirstMethod).toContain("presentV4NotificationFallback");
-    expect(activityFirstMethod).not.toContain("showIncomingCall");
+    expect(lockFsiMethod).toContain("showIncomingCall");
+    expect(lockFsiMethod).not.toContain("launchIncomingActivity");
+
+    expect(backgroundMethod).toContain("launchIncomingActivity");
+    expect(backgroundMethod).toContain("scheduleLaunchVisibilityVerify");
+    expect(backgroundMethod).toContain("awaiting=incoming_activity_shown");
+    expect(backgroundMethod).not.toContain("showIncomingCall");
+    expect(backgroundMethod).not.toMatch(
+      /launchAttempted[\s\S]*transitionIncomingOwner[\s\S]*refreshRingingNotification/
+    );
 
     expect(activity).toContain("showIncomingCallActionOnly");
+    expect(activity).toContain("onIncomingActivityShown");
+    expect(activity).toContain("isWebInAppOwner");
   });
 
   it("documents shared surface owner kinds", () => {

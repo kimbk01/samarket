@@ -29,8 +29,6 @@ public final class IncomingCallPushDelivery {
     Context app = context.getApplicationContext();
     String callId = payload.callId.trim();
 
-    startRingAtPushBoundary(context, callId);
-
     boolean appVisible = MainActivity.isAppVisibleForIncomingCall();
     boolean foregroundUnlocked = DibayKeyguardHelper.isForegroundUnlockedInteractive(appVisible, app);
 
@@ -50,6 +48,7 @@ public final class IncomingCallPushDelivery {
     }
 
     if (foregroundUnlocked) {
+      startRingAtPushBoundary(context, callId);
       Log.i("DIBAY_FCM", "[call-native] incoming_call_foreground_web_ssot callId=" + callId);
       MainActivity.deliverCallIncomingEvent(payload);
       IncomingCallActionCoordinator.scheduleMissedTimeout(app, payload);
@@ -73,9 +72,10 @@ public final class IncomingCallPushDelivery {
             + interactive);
 
     if (lockBridge) {
+      startRingAtPushBoundary(context, callId);
       IncomingCallBackgroundNotifier.presentLockIncoming(context, payload);
     } else {
-      IncomingCallBackgroundNotifier.startRingingDeferUiToFgs(context, payload);
+      IncomingCallBackgroundNotifier.startRingingWithImmediateUi(context, payload);
     }
     IncomingCallActionCoordinator.scheduleMissedTimeout(app, payload);
 
