@@ -22,20 +22,30 @@ describe("call-v4 Telegram incoming surface contract", () => {
     expect(banner).toContain("data-incoming-call-compact-banner");
   });
 
-  it("Android non-foreground uses telegram fullscreen activity only (no lock CallStyle primary)", () => {
+  it("Android non-foreground delivers FGS-first FSI then fullscreen activity", () => {
     const notifier = read("android/app/src/main/java/com/dibay/app/IncomingCallBackgroundNotifier.java");
-    const telegramMethod =
-      notifier.match(/private static void presentV4TelegramFullscreenIncoming[\s\S]*?^  \}/m)?.[0] ?? "";
-    expect(notifier).toContain("presentV4TelegramFullscreenIncoming");
-    expect(notifier).toContain("telegram_fullscreen_launch_start");
-    expect(notifier).toContain("showIncomingCallActionOnly");
+    const activity = read("android/app/src/main/java/com/dibay/app/IncomingCallActivity.java");
+    const lockedMethod =
+      notifier.match(/private static void presentV4LockedIncoming[\s\S]*?^  \}/m)?.[0] ?? "";
+    const backgroundMethod =
+      notifier.match(/private static void presentV4BackgroundIncoming[\s\S]*?^  \}/m)?.[0] ?? "";
+
+    expect(notifier).toContain("presentV4LockedIncoming");
+    expect(notifier).toContain("presentV4BackgroundIncoming");
+    expect(notifier).toContain("lock_presentation_queued");
+    expect(notifier).toContain("background_ui_queued_for_fgs");
+    expect(notifier).toContain("background_presentation_deliver");
+    expect(notifier).not.toContain("presentV4TelegramFullscreenIncoming");
     expect(notifier).not.toContain("lock_incoming_fsi_only");
     expect(notifier).not.toContain("_boost");
-    expect(telegramMethod).toContain("launchIncomingActivity");
-    expect(telegramMethod).toContain("showIncomingCallActionOnly");
-    expect(telegramMethod).toMatch(
-      /activityLaunched[\s\S]*showIncomingCallActionOnly[\s\S]*telegram_fullscreen_notification_fallback[\s\S]*showIncomingCall/,
-    );
+    expect(notifier).not.toContain("showIncomingCallActionOnly(context, payload");
+
+    expect(lockedMethod).toContain("showIncomingCall(context, payload, fgsDelivery)");
+    expect(lockedMethod).toContain("launchIncomingActivity");
+    expect(backgroundMethod).toContain("showIncomingCall(context, payload, fgsDelivery)");
+    expect(backgroundMethod).toContain("launchIncomingActivity");
+
+    expect(activity).toContain("showIncomingCallActionOnly");
   });
 
   it("documents shared surface owner kinds", () => {
