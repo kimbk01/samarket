@@ -16,6 +16,7 @@ public class DibayVoipCallPlugin: CAPPlugin, CAPBridgedPlugin {
   public let pluginMethods: [CAPPluginMethod] = [
     CAPPluginMethod(name: "startVoipRegistration", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "reportCallEnded", returnType: CAPPluginReturnPromise),
+    CAPPluginMethod(name: "claimForegroundWebIncomingOwner", returnType: CAPPluginReturnPromise),
   ]
 
   @objc func startVoipRegistration(_ call: CAPPluginCall) {
@@ -32,5 +33,17 @@ public class DibayVoipCallPlugin: CAPPlugin, CAPBridgedPlugin {
     }
     CallKitProvider.shared.reportCallEnded(uuidString: sessionId)
     call.resolve(["ok": true])
+  }
+
+  @objc func claimForegroundWebIncomingOwner(_ call: CAPPluginCall) {
+    guard let sessionId = call.getString("sessionId")?.trimmingCharacters(in: .whitespacesAndNewlines),
+      !sessionId.isEmpty
+    else {
+      call.reject("session_required", "sessionId is required")
+      return
+    }
+    let reason = call.getString("reason")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "ios_foreground_fcm_wake"
+    let claimed = CallV4SurfaceOwnerBridge.claimForegroundWebInAppIfActive(callId: sessionId, reason: reason)
+    call.resolve(["claimed": claimed])
   }
 }

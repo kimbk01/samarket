@@ -8,11 +8,10 @@ import { IncomingCallBanner } from "@/components/messenger/call/IncomingCallBann
 import { callV4Accept, callV4Reject } from "@/lib/community-messenger/call-v4/call-v4-actions";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import {
-  canRenderCallV4WebIncomingSheet,
+  canRenderWebIncomingSheet,
   isCallV4AcceptedTransitionOwner,
   isCallV4NativeAcceptingSurface,
   subscribeCallV4NativeAcceptingSurfaceSignal,
-  subscribeCallV4NativeIncomingSurfaceSignal,
   subscribeCallV4SurfaceOwnerSignal,
 } from "@/lib/community-messenger/call-v4/call-v4-incoming-surface";
 import { useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
@@ -27,36 +26,17 @@ export function CallV4IncomingSheet() {
   const phase = useCallV4Store((s) => s.phase);
   const identity = useCallV4Store((s) => s.identity);
   const shownCallIdRef = useRef<string | null>(null);
-  const discoveredAtRef = useRef<number>(0);
   const [portalReady, setPortalReady] = useState(false);
-  const [visibilityState, setVisibilityState] = useState<DocumentVisibilityState>(() =>
-    typeof document !== "undefined" ? document.visibilityState : "visible",
-  );
-  const [nativeSurfaceTick, setNativeSurfaceTick] = useState(0);
-  const [nativeAcceptingTick, setNativeAcceptingTick] = useState(0);
   const [ownerTick, setOwnerTick] = useState(0);
-  const [deferTick, setDeferTick] = useState(0);
+  const [acceptingTick, setAcceptingTick] = useState(0);
 
   useLayoutEffect(() => {
     setPortalReady(true);
   }, []);
 
   useEffect(() => {
-    if (typeof document === "undefined") return;
-    const onVisibilityChange = () => setVisibilityState(document.visibilityState);
-    document.addEventListener("visibilitychange", onVisibilityChange);
-    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
-  }, []);
-
-  useEffect(() => {
-    return subscribeCallV4NativeIncomingSurfaceSignal(() => {
-      setNativeSurfaceTick((value) => value + 1);
-    });
-  }, []);
-
-  useEffect(() => {
     return subscribeCallV4NativeAcceptingSurfaceSignal(() => {
-      setNativeAcceptingTick((value) => value + 1);
+      setAcceptingTick((value) => value + 1);
     });
   }, []);
 
@@ -70,26 +50,12 @@ export function CallV4IncomingSheet() {
   const isIncomingRinging =
     phase === "incoming_ringing" && Boolean(callId) && identity?.direction === "incoming";
 
-  useEffect(() => {
-    if (!isIncomingRinging || !callId) return;
-    if (discoveredAtRef.current === 0 || shownCallIdRef.current !== callId) {
-      discoveredAtRef.current = Date.now();
-    }
-    const timer = window.setTimeout(() => setDeferTick((value) => value + 1), 240);
-    return () => window.clearTimeout(timer);
-  }, [callId, isIncomingRinging]);
+  void ownerTick;
+  void acceptingTick;
 
   const nativeAccepting = isCallV4NativeAcceptingSurface(callId);
   const acceptedTransition = isCallV4AcceptedTransitionOwner(callId);
-  const renderDecision = canRenderCallV4WebIncomingSheet({
-    callId,
-    visibilityState,
-    discoveredAtMs: discoveredAtRef.current || Date.now(),
-  });
-  void nativeSurfaceTick;
-  void nativeAcceptingTick;
-  void ownerTick;
-  void deferTick;
+  const renderDecision = canRenderWebIncomingSheet({ callId, phase });
 
   useEffect(() => {
     if (!isIncomingRinging) return;
@@ -100,7 +66,7 @@ export function CallV4IncomingSheet() {
       }
       return;
     }
-    if (!renderDecision.render) {
+    if (!renderDecision.canRender) {
       if (shownCallIdRef.current !== callId) {
         logCallV4("incoming_sheet_suppressed", { callId, reason: renderDecision.reason });
         shownCallIdRef.current = callId;
@@ -115,13 +81,13 @@ export function CallV4IncomingSheet() {
     callId,
     isIncomingRinging,
     nativeAccepting,
+    renderDecision.canRender,
     renderDecision.reason,
-    renderDecision.render,
   ]);
 
   if (!isIncomingRinging || !identity) return null;
   if (nativeAccepting || acceptedTransition) return null;
-  if (typeof document === "undefined" || !portalReady || !renderDecision.render) return null;
+  if (typeof document === "undefined" || !portalReady || !renderDecision.canRender) return null;
 
   const peerLabel =
     identity.peerLabel?.trim() ||

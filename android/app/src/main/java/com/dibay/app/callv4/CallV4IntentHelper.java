@@ -45,7 +45,7 @@ public final class CallV4IntentHelper {
     return launch;
   }
 
-  /** V4 reject — Web PATCH owner via MainActivity reject route (no bring-up required). */
+  /** V4 reject deep link — legacy; native decline uses {@link IncomingCallRejectPatchHelper} instead. */
   public static Intent buildMainActivityV4RejectIntent(Context context, String callId, String source) {
     String sid = callId != null ? callId.trim() : "";
     String src = source != null && !source.trim().isEmpty() ? source.trim() : "native_reject";

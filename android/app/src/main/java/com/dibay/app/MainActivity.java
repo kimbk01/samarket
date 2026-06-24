@@ -192,6 +192,7 @@ public class MainActivity extends BridgeActivity {
   static String resolveCallV4BridgeAppVisibility(android.content.Context context) {
     android.content.Context app = context.getApplicationContext();
     if (DibayKeyguardHelper.isKeyguardLocked(app)) return "locked";
+    if (!DibayKeyguardHelper.isInteractive(app)) return "background";
     if (isAppVisibleForIncomingCall()) return "foreground";
     return "background";
   }

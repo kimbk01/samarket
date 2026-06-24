@@ -86,11 +86,13 @@ describe("incoming-call native contract", () => {
     expect(src).toContain('DibayCallConsumedStore.mark(context, sid, "missed")');
   });
 
-  it("native coordinator is signal-only and does not PATCH accept directly", () => {
+  it("native coordinator is signal-only for accept and uses native reject PATCH for V4 decline", () => {
     const src = read("android/app/src/main/java/com/dibay/app/IncomingCallActionCoordinator.java");
     expect(src).not.toContain("CallSessionPatchHelper.patch");
     expect(src).toContain("accept_signal_sent");
     expect(src).toContain("buildMainActivityCallAcceptIntent");
+    expect(src).toContain("IncomingCallRejectPatchHelper.sendAsync");
+    expect(src).not.toContain("buildMainActivityV4RejectIntent");
   });
 
   it("FCM foreground unlocked uses web banner SSOT without native pill", () => {

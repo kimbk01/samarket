@@ -44,7 +44,9 @@ public final class IncomingCallSurfaceOwner {
   }
 
   static String resolveVisibility(Context context) {
+    if (context == null) return "background";
     if (DibayKeyguardHelper.isKeyguardLocked(context)) return "locked";
+    if (!DibayKeyguardHelper.isInteractive(context)) return "background";
     if (MainActivity.isAppVisibleForIncomingCall()) return "foreground";
     return "background";
   }

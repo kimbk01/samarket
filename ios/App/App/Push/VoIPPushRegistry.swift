@@ -42,12 +42,22 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
     let sessionId = (data["sessionId"] as? String) ?? (data["session_id"] as? String) ?? UUID().uuidString
     let kind = data["call_push_kind"] as? String
     if kind == "call_canceled" || kind == "call_rejected" || kind == "call_ended" {
+      CallV4SurfaceOwnerBridge.deliver(
+        callId: sessionId,
+        owner: "terminal",
+        reason: "ios_voip_terminal_\(kind ?? "unknown")"
+      )
       callProvider.reportCallEnded(uuidString: sessionId)
       completion()
       return
     }
     let caller = (data["title"] as? String) ?? "수신 통화"
     let hasVideo = (data["kind"] as? String) == "video"
+    CallV4SurfaceOwnerBridge.deliver(
+      callId: sessionId,
+      owner: "native_fsi",
+      reason: "ios_callkit_incoming"
+    )
     callProvider.reportIncomingCall(uuidString: sessionId, handle: caller, hasVideo: hasVideo) { _ in
       completion()
     }

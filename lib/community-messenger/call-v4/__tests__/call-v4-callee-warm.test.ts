@@ -13,8 +13,9 @@ vi.mock("@/lib/community-messenger/call-connection-prefetch", () => ({
 }));
 
 import { callV4IncomingDiscovered } from "@/lib/community-messenger/call-v4/call-v4-actions";
-import { buildCallV4ScreenHref } from "@/lib/community-messenger/call-v4/call-v4-route";
 import { primeCallV4ConnectionWarm } from "@/lib/community-messenger/call-v4/call-v4-connection-warm";
+import { applyCallV4SurfaceOwnerSignal } from "@/lib/community-messenger/call-v4/call-v4-incoming-surface";
+import { buildCallV4ScreenHref } from "@/lib/community-messenger/call-v4/call-v4-route";
 import { useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 
@@ -33,6 +34,15 @@ function ringingSession(callId: string): CommunityMessengerCallSession {
   } as CommunityMessengerCallSession;
 }
 
+function seedWebInAppOwner(callId: string): void {
+  applyCallV4SurfaceOwnerSignal({
+    callId,
+    owner: "web_in_app",
+    reason: "test_web_in_app",
+    ts: Date.now(),
+  });
+}
+
 describe("call-v4 callee telegram warm path", () => {
   beforeEach(() => {
     useCallV4Store.getState().resetToIdle();
@@ -43,6 +53,7 @@ describe("call-v4 callee telegram warm path", () => {
   });
 
   it("warms connection when incoming session is discovered", () => {
+    seedWebInAppOwner("call-warm");
     callV4IncomingDiscovered(ringingSession("call-warm"));
     expect(warmMocks.prime).toHaveBeenCalledWith("call-warm");
     expect(useCallV4Store.getState().phase).toBe("incoming_ringing");
@@ -62,6 +73,7 @@ describe("call-v4 callee telegram warm path", () => {
   it("blocks duplicate incoming sheet for the same callId while incoming_ringing", () => {
     const info = vi.spyOn(console, "info");
     const session = ringingSession("call-dup");
+    seedWebInAppOwner("call-dup");
     callV4IncomingDiscovered(session);
     callV4IncomingDiscovered(session);
     const duplicateLog = info.mock.calls.find((call) => call[1] === "incoming_surface_duplicate_blocked");

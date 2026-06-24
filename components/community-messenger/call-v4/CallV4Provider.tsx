@@ -6,7 +6,6 @@ import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import {
   callV4HandleRemoteTerminal,
   callV4HandleRejectRoute,
-  callV4IncomingDiscovered,
 } from "@/lib/community-messenger/call-v4/call-v4-actions";
 import { callV4FetchSession } from "@/lib/community-messenger/call-v4/call-v4-api";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
@@ -16,18 +15,20 @@ import {
 } from "@/lib/community-messenger/call-v4/call-v4-connected-terminal-watch";
 import { primeCallV4ConnectionWarm } from "@/lib/community-messenger/call-v4/call-v4-connection-warm";
 import { isCallV4TelegramLaneEnabled } from "@/lib/community-messenger/call-v4/call-v4-flag";
-import { startCallV4IncomingDiscovery } from "@/lib/community-messenger/call-v4/call-v4-incoming-discovery";
+import { tryPrimeCallV4WebIncomingOwner } from "@/lib/community-messenger/call-v4/call-v4-platform-owner-claim";
 import {
-  applyCallV4NativeIncomingSurfaceSignal,
+  discoverCallV4IncomingSessionIfWebOwner,
+  startCallV4IncomingDiscovery,
+  tryHydrateCallV4IncomingForWebOwner,
+} from "@/lib/community-messenger/call-v4/call-v4-incoming-discovery";
+import {
+  getCallV4PersistedSurfaceOwner,
   ingestCallV4NativeIncomingSurfaceSignal,
   ingestCallV4SurfaceOwnerSignal,
   isCallV4NativeAcceptingSurface,
-  logCallV4IncomingOwnerDecided,
   registerCallV4NativeAcceptingSurface,
-  resolveCallV4AppVisibility,
   resolveCallV4NativeAcceptingSurfaceType,
   shouldRegisterCallV4NativeAcceptingFromRoute,
-  shouldSuppressCallV4IncomingDiscoveredForSheet,
   syncCallV4NativeAcceptingSurfaceFromWindowLocation,
   type CallV4NativeIncomingSurfaceSignal,
   type CallV4SurfaceOwnerSignal,
@@ -101,22 +102,8 @@ async function hydrateCallV4IncomingWake(detail: DibayFcmIncomingWakeDetail): Pr
     return;
   }
 
-  const suppress = shouldSuppressCallV4IncomingDiscoveredForSheet({
-    callId,
-    visibilityState: typeof document !== "undefined" ? document.visibilityState : "visible",
-  });
-  if (suppress.suppress) {
-    if (suppress.reason === "native_surface_active") {
-      logCallV4("incoming_discovery_suppressed", { callId, reason: suppress.reason });
-    }
-    logCallV4("incoming_wake_sheet_suppressed", { callId, reason: suppress.reason });
-    return;
-  }
-  const appVisibility = resolveCallV4AppVisibility();
-  if (appVisibility === "foreground" || appVisibility === "unknown") {
-    logCallV4IncomingOwnerDecided({ callId, owner: "web_foreground", visibility: appVisibility });
-  }
-  callV4IncomingDiscovered(session);
+  await tryPrimeCallV4WebIncomingOwner(callId, "fcm_wake");
+  discoverCallV4IncomingSessionIfWebOwner(session);
 }
 
 /** V4 lane — foreground discovery + incoming sheet only (no V3 replay). */
@@ -222,6 +209,10 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
         reason: detail.reason,
       });
       ingestCallV4SurfaceOwnerSignal(detail);
+      const owner = getCallV4PersistedSurfaceOwner(detail.callId.trim());
+      if (owner === "web_in_app") {
+        void tryHydrateCallV4IncomingForWebOwner(detail.callId.trim());
+      }
     };
 
     window.addEventListener("dibay:call-v4-native-surface", onNativeSurfaceBridge);
@@ -239,44 +230,13 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
 
     const offBridge = installDibayFcmCallBridge({
       onIncomingWake: (detail) => {
-        const callId = detail.sessionId?.trim() ?? "";
-        if (callId) {
-          const appVisibility = resolveCallV4AppVisibility();
-          if (appVisibility !== "foreground") {
-            applyCallV4NativeIncomingSurfaceSignal({
-              callId,
-              hasNativeIncomingSurface: true,
-              nativeSurfaceType: "fullscreen_intent",
-              appVisibility,
-              source: "fcm_wake_background",
-            });
-          }
-        }
+        /* @legacy Phase1-5 — Web must not self-register native surface on fcm_wake (Phase 6A). */
         void hydrateCallV4IncomingWake(detail);
       },
       onForegroundIncomingUi: ({ sessionId, visible }) => {
-        const callId = sessionId.trim();
-        if (!callId) return;
-        const appVisibility = resolveCallV4AppVisibility();
-        // V4 foreground — Web CallV4IncomingSheet is sole owner; ignore native pill show.
-        if (appVisibility === "foreground" || appVisibility === "unknown") {
-          if (!visible) {
-            applyCallV4NativeIncomingSurfaceSignal({
-              callId,
-              hasNativeIncomingSurface: false,
-              appVisibility,
-              source: "native_foreground_pill_cleared",
-            });
-          }
-          return;
-        }
-        applyCallV4NativeIncomingSurfaceSignal({
-          callId,
-          hasNativeIncomingSurface: visible,
-          nativeSurfaceType: visible ? "foreground_pill" : undefined,
-          appVisibility,
-          source: "native_foreground_pill",
-        });
+        /* @legacy Phase1-5 — foreground_pill path; Phase 6A owner/sheet uses Android bridge only. */
+        void sessionId;
+        void visible;
       },
       onFcmTerminal: (detail) => {
         void callV4HandleRemoteTerminal(

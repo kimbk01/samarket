@@ -100,8 +100,48 @@ describe("call-v4 import isolation", () => {
     expect(coord).toContain("main_activity_v4_accept_start");
   });
 
+  it("V4 native decline PATCH runs without MainActivity reject route", () => {
+    const coord = read("android/app/src/main/java/com/dibay/app/IncomingCallActionCoordinator.java");
+    const helper = read("android/app/src/main/java/com/dibay/app/IncomingCallRejectPatchHelper.java");
+    expect(coord).toContain("IncomingCallRejectPatchHelper.sendAsync");
+    expect(coord).not.toContain("buildMainActivityV4RejectIntent");
+    expect(helper).toContain("reject_patch_start");
+    expect(helper).toContain("reject_patch_done");
+    expect(helper).toContain("action\\\":\\\"reject");
+  });
+
+  it("incoming visibility treats screen-off app process as background", () => {
+    const owner = read("android/app/src/main/java/com/dibay/app/IncomingCallSurfaceOwner.java");
+    const main = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
+    expect(owner).toContain("isInteractive(context)");
+    expect(main).toContain("isInteractive(app)");
+  });
+
   it("CallScreenActivity removed from manifest", () => {
     const manifest = read("android/app/src/main/AndroidManifest.xml");
     expect(manifest).not.toContain("CallScreenActivity");
+  });
+
+  it("iOS V4 surface owner bridge injects dibay:call-surface-owner", () => {
+    const bridge = read("ios/App/App/Push/CallV4SurfaceOwnerBridge.swift");
+    const voip = read("ios/App/App/Push/VoIPPushRegistry.swift");
+    const callkit = read("ios/App/App/Push/CallKitProvider.swift");
+    const plugin = read("ios/App/App/Plugins/DibayVoipCallPlugin.swift");
+    expect(bridge).toContain("dibay:call-surface-owner");
+    expect(bridge).toContain("surface_owner_bridge_injected");
+    expect(voip).toContain('owner: "native_fsi"');
+    expect(voip).toContain('owner: "terminal"');
+    expect(callkit).toContain('owner: "accepted_transition"');
+    expect(callkit).toContain('owner: "terminal"');
+    expect(plugin).toContain("claimForegroundWebIncomingOwner");
+  });
+
+  it("pure web owner module is isolated from Capacitor shell", () => {
+    const pure = read("lib/community-messenger/call-v4/call-v4-pure-web-owner.ts");
+    const claim = read("lib/community-messenger/call-v4/call-v4-platform-owner-claim.ts");
+    expect(pure).toContain("!isCapacitorNativePlatform()");
+    expect(pure).not.toContain("canRenderWebIncomingSheet");
+    expect(claim).toContain("tryClaimCallV4PureWebIncomingOwner");
+    expect(claim).toContain("tryClaimIosCapacitorWebIncomingOwner");
   });
 });

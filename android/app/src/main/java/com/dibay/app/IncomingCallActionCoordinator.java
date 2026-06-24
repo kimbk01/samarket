@@ -151,18 +151,18 @@ public final class IncomingCallActionCoordinator {
     IncomingCallTerminalHandler.finishIncomingUiOnly(context, sid);
     Log.i("DIBAY_CALL", "[DIBAY_CALL] reject_signal_sent callId=" + sid);
     complete(sid, "reject");
+    if (CallV4Lane.isTelegramLaneEnabled(app)) {
+      Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] reject_start callId=" + sid);
+      Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] reject_native_patch callId=" + sid);
+      IncomingCallRejectPatchHelper.sendAsync(app, sid, "native_reject");
+      end(sid, "reject");
+      return;
+    }
     new Handler(Looper.getMainLooper())
         .post(
             () -> {
-              Intent launch;
-              if (CallV4Lane.isTelegramLaneEnabled(app)) {
-                Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] reject_start callId=" + sid);
-                Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] reject_route callId=" + sid);
-                launch = CallV4IntentHelper.buildMainActivityV4RejectIntent(app, sid, "native_reject");
-              } else {
-                launch = IncomingCallIntentHelper.buildMainActivityCallRejectIntent(app, sid);
-                Log.i(CALL_TAG, "[call-route] incoming_reject_pending_web callId=" + sid);
-              }
+              Intent launch = IncomingCallIntentHelper.buildMainActivityCallRejectIntent(app, sid);
+              Log.i(CALL_TAG, "[call-route] incoming_reject_pending_web callId=" + sid);
               app.startActivity(launch);
               end(sid, "reject");
             });

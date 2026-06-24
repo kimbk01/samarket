@@ -17,7 +17,11 @@ vi.mock("@/lib/community-messenger/call-v4/call-v4-actions", () => ({
 import { callV4IncomingDiscovered } from "@/lib/community-messenger/call-v4/call-v4-actions";
 import { callV4FetchIncomingSessions } from "@/lib/community-messenger/call-v4/call-v4-api";
 import { startCallV4IncomingDiscovery } from "@/lib/community-messenger/call-v4/call-v4-incoming-discovery";
-import { clearAllCallV4NativeAcceptingSurfaces } from "@/lib/community-messenger/call-v4/call-v4-incoming-surface";
+import {
+  applyCallV4SurfaceOwnerSignal,
+  clearAllCallV4NativeAcceptingSurfaces,
+  clearCallV4SurfaceOwner,
+} from "@/lib/community-messenger/call-v4/call-v4-incoming-surface";
 import { useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
 
 const ringingSession: CommunityMessengerCallSession = {
@@ -33,10 +37,11 @@ const ringingSession: CommunityMessengerCallSession = {
   startedAt: new Date().toISOString(),
 } as CommunityMessengerCallSession;
 
-describe("call-v4 incoming discovery", () => {
+describe("call-v4 incoming discovery Phase6A", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     clearAllCallV4NativeAcceptingSurfaces();
+    clearCallV4SurfaceOwner("call-in-1", "test_reset");
     useCallV4Store.getState().resetToIdle();
     vi.mocked(callV4FetchIncomingSessions).mockResolvedValue([ringingSession]);
     Object.defineProperty(document, "visibilityState", {
@@ -45,23 +50,25 @@ describe("call-v4 incoming discovery", () => {
     });
   });
 
-  it("discovers foreground incoming and logs web_foreground owner without native_foreground_owner suppress", async () => {
-    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+  it("does not discover without web_in_app owner bridge", async () => {
+    startCallV4IncomingDiscovery("user-b");
+    await vi.waitFor(() => {
+      expect(callV4FetchIncomingSessions).toHaveBeenCalled();
+    });
+    expect(callV4IncomingDiscovered).not.toHaveBeenCalled();
+  });
+
+  it("discovers when web_in_app owner is set", async () => {
+    applyCallV4SurfaceOwnerSignal({
+      callId: "call-in-1",
+      owner: "web_in_app",
+      reason: "fcm_push_delivery",
+      ts: Date.now(),
+    });
     startCallV4IncomingDiscovery("user-b");
     await vi.waitFor(() => {
       expect(callV4IncomingDiscovered).toHaveBeenCalledTimes(1);
     });
     expect(callV4IncomingDiscovered).toHaveBeenCalledWith(ringingSession);
-    const ownerLog = info.mock.calls.find(
-      (call) => call[1] === "incoming_owner_decided" && (call[2] as { owner?: string })?.owner === "web_foreground",
-    );
-    expect(ownerLog).toBeDefined();
-    const suppressed = info.mock.calls.find(
-      (call) =>
-        call[1] === "incoming_discovery_suppressed" &&
-        (call[2] as { reason?: string })?.reason === "native_foreground_owner",
-    );
-    expect(suppressed).toBeUndefined();
-    info.mockRestore();
   });
 });

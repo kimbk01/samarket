@@ -40,10 +40,12 @@ describe("incoming-call policy contracts", () => {
     expect(src).not.toContain("markNativeCalleeAcceptPending");
   });
 
-  it("native coordinator is signal-only and delegates accept PATCH to Web", () => {
+  it("native coordinator is signal-only for accept and uses native reject PATCH for V4 decline", () => {
     const native = read("android/app/src/main/java/com/dibay/app/IncomingCallActionCoordinator.java");
     expect(native).not.toContain("CallSessionPatchHelper.patch");
     expect(native).toContain("accept_signal_sent");
+    expect(native).toContain("IncomingCallRejectPatchHelper.sendAsync");
+    expect(native).not.toContain("buildMainActivityV4RejectIntent");
     const client = read("components/community-messenger/CommunityMessengerCallClient.tsx");
     expect(client).toContain("nativeAcceptPatchCompleteRoute");
     expect(client).toContain("native_accept_still_ringing");

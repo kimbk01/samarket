@@ -1,6 +1,9 @@
 "use client";
 
-import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
+import { logCallV4, logCallV4OwnerSheetEval } from "@/lib/community-messenger/call-v4/call-v4-debug";
+import { isNativeAcceptInflight } from "@/lib/community-messenger/call-v4/call-v4-native-accept-flight";
+import type { CallV4Phase } from "@/lib/community-messenger/call-v4/call-v4-types";
+import { isCallV4TerminalPhase } from "@/lib/community-messenger/call-v4/call-v4-types";
 import {
   isCallV4CalleeAcceptRoute,
   readCallV4SessionIdFromNativeRoute,
@@ -61,6 +64,27 @@ export type CallV4IncomingSurfaceSuppressReason =
   | "accepted_transition"
   | "owner_not_web_in_app"
   | "owner_pending";
+
+/** Phase 6A — single Web incoming sheet render decision reason. */
+export type CallV4WebIncomingSheetRenderReason =
+  | "allow_web_in_app"
+  | "owner_not_web_in_app"
+  | "owner_pending"
+  | "native_accept_inflight"
+  | "terminal"
+  | "phase_not_ringing"
+  | "invalid_call_id";
+
+export type CanRenderWebIncomingSheetInput = {
+  callId: string;
+  phase: CallV4Phase;
+  nativeAcceptInflight?: boolean;
+};
+
+export type CanRenderWebIncomingSheetResult = {
+  canRender: boolean;
+  reason: CallV4WebIncomingSheetRenderReason;
+};
 
 const NATIVE_SURFACE_EVENT = "dibay:call-v4-native-surface";
 const NATIVE_ACCEPTING_EVENT = "dibay:call-v4-native-accepting-surface";
@@ -396,7 +420,65 @@ export function subscribeCallV4NativeIncomingSurfaceSignal(
   return () => window.removeEventListener(NATIVE_SURFACE_EVENT, onEvent);
 }
 
-function resolveSuppressReason(args: {
+/** Phase 6A SSOT — Web sheet renders only when Android owner is web_in_app. */
+export function canRenderWebIncomingSheet(
+  input: CanRenderWebIncomingSheetInput,
+): CanRenderWebIncomingSheetResult {
+  const sid = normalizeCallId(input.callId);
+  if (!sid) {
+    const result: CanRenderWebIncomingSheetResult = {
+      canRender: false,
+      reason: "invalid_call_id",
+    };
+    logCallV4OwnerSheetEval({
+      callId: input.callId,
+      owner: "none",
+      phase: input.phase,
+      nativeAcceptInflight: false,
+      terminal: false,
+      canRender: false,
+      reason: result.reason,
+    });
+    return result;
+  }
+
+  const owner = getCallV4PersistedSurfaceOwner(sid);
+  const nativeAcceptInflight =
+    input.nativeAcceptInflight ?? (isNativeAcceptInflight(sid) || isCallV4NativeAcceptingSurface(sid));
+  const terminalOwner = owner === "terminal" || owner === "connected";
+  const terminalPhase = isCallV4TerminalPhase(input.phase);
+
+  let result: CanRenderWebIncomingSheetResult;
+
+  if (nativeAcceptInflight) {
+    result = { canRender: false, reason: "native_accept_inflight" };
+  } else if (terminalOwner || terminalPhase) {
+    result = { canRender: false, reason: "terminal" };
+  } else if (input.phase !== "incoming_ringing") {
+    result = { canRender: false, reason: "phase_not_ringing" };
+  } else if (owner === "none") {
+    result = { canRender: false, reason: "owner_pending" };
+  } else if (owner !== "web_in_app") {
+    result = { canRender: false, reason: "owner_not_web_in_app" };
+  } else {
+    result = { canRender: true, reason: "allow_web_in_app" };
+  }
+
+  logCallV4OwnerSheetEval({
+    callId: sid,
+    owner,
+    phase: input.phase,
+    nativeAcceptInflight,
+    terminal: terminalOwner || terminalPhase,
+    canRender: result.canRender,
+    reason: result.reason,
+  });
+
+  return result;
+}
+
+/* @legacy Phase1-5 — retained for reference; Phase6A uses canRenderWebIncomingSheet. */
+function resolveSuppressReasonLegacy(args: {
   callId: string;
   visibilityState?: DocumentVisibilityState | string | null;
 }): { suppress: boolean; reason: CallV4IncomingSurfaceSuppressReason | null } {
@@ -416,6 +498,14 @@ function resolveSuppressReason(args: {
     return { suppress: true, reason: "persisted_native_owner" };
   }
   if (isCallV4BlockingNativeIncomingSurface(sid)) {
+    return { suppress: true, reason: "native_surface_active" };
+  }
+
+  const nativeSignal = nativeSurfaceByCallId.get(sid);
+  if (
+    nativeSignal?.hasNativeIncomingSurface &&
+    (nativeSignal.appVisibility === "background" || nativeSignal.appVisibility === "locked")
+  ) {
     return { suppress: true, reason: "native_surface_active" };
   }
 
@@ -441,55 +531,82 @@ function resolveSuppressReason(args: {
   return { suppress: false, reason: null };
 }
 
+void resolveSuppressReasonLegacy;
+
+function mapWebSheetReasonToLegacySuppress(
+  reason: CallV4WebIncomingSheetRenderReason,
+): CallV4IncomingSurfaceSuppressReason {
+  switch (reason) {
+    case "native_accept_inflight":
+      return "native_accepting";
+    case "terminal":
+      return "accepted_transition";
+    case "owner_pending":
+      return "owner_pending";
+    case "owner_not_web_in_app":
+      return "owner_not_web_in_app";
+    case "phase_not_ringing":
+    case "invalid_call_id":
+    case "allow_web_in_app":
+    default:
+      return "owner_not_web_in_app";
+  }
+}
+
+/** @deprecated Phase6A — use canRenderWebIncomingSheet. visibilityState ignored. */
 export function shouldSuppressCallV4WebIncomingSheet(args: {
   callId: string;
   visibilityState?: DocumentVisibilityState | string | null;
 }): { suppress: boolean; reason: CallV4IncomingSurfaceSuppressReason | null } {
-  return resolveSuppressReason(args);
+  void args.visibilityState;
+  const result = canRenderWebIncomingSheet({ callId: args.callId, phase: "incoming_ringing" });
+  if (result.canRender) return { suppress: false, reason: null };
+  return { suppress: true, reason: mapWebSheetReasonToLegacySuppress(result.reason) };
 }
 
+/** @deprecated Phase6A — use canRenderWebIncomingSheet. */
 export function shouldSuppressCallV4IncomingDiscoveredForSheet(args: {
   callId: string;
   visibilityState?: DocumentVisibilityState | string | null;
 }): { suppress: boolean; reason: CallV4IncomingSurfaceSuppressReason | null } {
-  return resolveSuppressReason(args);
+  return shouldSuppressCallV4WebIncomingSheet(args);
 }
 
-/** Defer web sheet until native owner is resolved — avoids warm-process race. */
+/** Phase 6A — defer until Android owner bridge resolves; never opens sheet on timeout alone. */
 export function shouldDeferCallV4WebIncomingSheet(args: {
   callId: string;
   discoveredAtMs: number;
   nowMs?: number;
 }): { defer: boolean; reason: CallV4IncomingSurfaceSuppressReason | null } {
+  void args.discoveredAtMs;
+  void args.nowMs;
   const sid = normalizeCallId(args.callId);
   if (!sid) return { defer: true, reason: "owner_pending" };
   const owner = getCallV4PersistedSurfaceOwner(sid);
+  if (owner === "none") return { defer: true, reason: "owner_pending" };
   if (owner === "web_in_app") return { defer: false, reason: null };
-  if (isCallV4NativePersistedSurfaceOwner(sid) || isCallV4AcceptedTransitionOwner(sid)) {
-    return { defer: true, reason: "persisted_native_owner" };
-  }
-  const elapsed = (args.nowMs ?? Date.now()) - args.discoveredAtMs;
-  if (elapsed < CALL_V4_WEB_INCOMING_OWNER_DEFER_MS) {
-    return { defer: true, reason: "owner_pending" };
-  }
-  return { defer: false, reason: null };
+  return { defer: true, reason: "owner_not_web_in_app" };
 }
 
+/** @deprecated Phase6A — use canRenderWebIncomingSheet({ callId, phase }). */
 export function canRenderCallV4WebIncomingSheet(args: {
   callId: string;
   visibilityState?: DocumentVisibilityState | string | null;
   discoveredAtMs: number;
   nowMs?: number;
-}): { render: boolean; reason: CallV4IncomingSurfaceSuppressReason | null } {
-  const suppress = shouldSuppressCallV4WebIncomingSheet(args);
-  if (suppress.suppress) return { render: false, reason: suppress.reason };
-  const defer = shouldDeferCallV4WebIncomingSheet(args);
-  if (defer.defer) return { render: false, reason: defer.reason };
-  const owner = getCallV4PersistedSurfaceOwner(args.callId);
-  if (owner !== "none" && owner !== "web_in_app") {
-    return { render: false, reason: "owner_not_web_in_app" };
-  }
-  return { render: true, reason: null };
+  phase?: CallV4Phase;
+}): {
+  render: boolean;
+  reason: CallV4IncomingSurfaceSuppressReason | CallV4WebIncomingSheetRenderReason | null;
+} {
+  void args.visibilityState;
+  void args.discoveredAtMs;
+  void args.nowMs;
+  const result = canRenderWebIncomingSheet({
+    callId: args.callId,
+    phase: args.phase ?? "incoming_ringing",
+  });
+  return { render: result.canRender, reason: result.canRender ? null : result.reason };
 }
 
 /** Foreground — Web CallV4IncomingSheet is the sole incoming UI owner (no blocking native surface). */

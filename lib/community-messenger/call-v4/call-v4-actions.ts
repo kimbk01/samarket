@@ -28,8 +28,7 @@ import { cleanupCallV4 } from "@/lib/community-messenger/call-v4/call-v4-cleanup
 import { primeCallV4ConnectionWarm } from "@/lib/community-messenger/call-v4/call-v4-connection-warm";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import {
-  isCallV4BlockingNativeIncomingSurface,
-  isCallV4NativePersistedSurfaceOwner,
+  canRenderWebIncomingSheet,
 } from "@/lib/community-messenger/call-v4/call-v4-incoming-surface";
 import { isNativeAcceptInflight } from "@/lib/community-messenger/call-v4/call-v4-native-accept-flight";
 import { readCallV4SessionIdFromNativeRoute } from "@/lib/community-messenger/call-v4/call-v4-native-route";
@@ -366,15 +365,13 @@ export { startCallV4CallerActivePoll, stopCallV4CallerActivePoll };
 export function callV4IncomingDiscovered(session: CommunityMessengerCallSession): void {
   const callId = session.id?.trim() ?? "";
   if (!callId || session.status !== "ringing" || session.isMineInitiator) return;
-  if (isNativeAcceptInflight(callId)) return;
-  if (isCallV4NativePersistedSurfaceOwner(callId)) {
-    logCallV4("incoming_owner_conflict_blocked", { callId, native: true, web_sheet: false });
+
+  const sheetEval = canRenderWebIncomingSheet({ callId, phase: "incoming_ringing" });
+  if (!sheetEval.canRender) {
+    logCallV4("incoming_discovered_blocked", { callId, reason: sheetEval.reason });
     return;
   }
-  if (isCallV4BlockingNativeIncomingSurface(callId)) {
-    logCallV4("incoming_owner_conflict_blocked", { callId, native: true, web_sheet: false });
-    return;
-  }
+
   const phase = readCallV4Phase();
   const current = readCallV4Identity();
   if (current?.callId === callId && phase !== "idle") {

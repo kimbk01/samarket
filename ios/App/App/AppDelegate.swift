@@ -35,6 +35,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func applicationDidBecomeActive(_ application: UIApplication) {
         DibayActiveCallSessionManager.shared.onAppForeground()
+        CallV4SurfaceOwnerBridge.flushPending()
     }
 
     func applicationWillTerminate(_ application: UIApplication) {

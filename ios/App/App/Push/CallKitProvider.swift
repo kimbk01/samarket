@@ -68,6 +68,13 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
   }
 
   func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
+    if let sessionId = callUuidBySessionId.first(where: { $0.value == action.callUUID })?.key {
+      CallV4SurfaceOwnerBridge.deliver(
+        callId: sessionId,
+        owner: "accepted_transition",
+        reason: "ios_callkit_answer"
+      )
+    }
     action.fulfill()
     if let sessionId = callUuidBySessionId.first(where: { $0.value == action.callUUID })?.key {
       DibayPushTokenBridge.openCallDeepLink(sessionId: sessionId)
@@ -75,6 +82,13 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
   }
 
   func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
+    if let sessionId = callUuidBySessionId.first(where: { $0.value == action.callUUID })?.key {
+      CallV4SurfaceOwnerBridge.deliver(
+        callId: sessionId,
+        owner: "terminal",
+        reason: "ios_callkit_end"
+      )
+    }
     action.fulfill()
     if let sessionId = callUuidBySessionId.first(where: { $0.value == action.callUUID })?.key {
       DibayPushTokenBridge.postCallAction(sessionId: sessionId, action: "reject_or_end")

@@ -10,6 +10,7 @@
 		C7PUSH0022FED79650016851F /* VoIPPushRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7PUSH0012FED79650016851F /* VoIPPushRegistry.swift */; };
 		C7PUSH0122FED79650016851F /* CallKitProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7PUSH0112FED79650016851F /* CallKitProvider.swift */; };
 		C7PUSH0222FED79650016851F /* DibayPushTokenBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7PUSH0212FED79650016851F /* DibayPushTokenBridge.swift */; };
+		C7OWN0022FED79650016851F /* CallV4SurfaceOwnerBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7OWN0012FED79650016851F /* CallV4SurfaceOwnerBridge.swift */; };
 		C7KAK0022FED79650016851F /* NativeKakaoAuthPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7KAK0012FED79650016851F /* NativeKakaoAuthPlugin.swift */; };
 		C7KAK0122AF431CB00220026 /* KakaoSDK in Frameworks */ = {isa = PBXBuildFile; productRef = C7KAK0112AF431CB00220026 /* KakaoSDK */; };
 		C7A1B0022FED79650016851F /* NativeAppleAuthPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7A1B0012FED79650016851F /* NativeAppleAuthPlugin.swift */; };
@@ -31,6 +32,7 @@
 		C7PUSH0012FED79650016851F /* VoIPPushRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoIPPushRegistry.swift; sourceTree = "<group>"; };
 		C7PUSH0112FED79650016851F /* CallKitProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallKitProvider.swift; sourceTree = "<group>"; };
 		C7PUSH0212FED79650016851F /* DibayPushTokenBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayPushTokenBridge.swift; sourceTree = "<group>"; };
+		C7OWN0012FED79650016851F /* CallV4SurfaceOwnerBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallV4SurfaceOwnerBridge.swift; sourceTree = "<group>"; };
 		C7KAK0012FED79650016851F /* NativeKakaoAuthPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeKakaoAuthPlugin.swift; sourceTree = "<group>"; };
 		C7A1B0012FED79650016851F /* NativeAppleAuthPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeAppleAuthPlugin.swift; sourceTree = "<group>"; };
 		C7VOIP0012FED79650016851F /* DibayVoipCallPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayVoipCallPlugin.swift; sourceTree = "<group>"; };
@@ -117,6 +119,7 @@
 				C7PUSH0012FED79650016851F /* VoIPPushRegistry.swift */,
 				C7PUSH0112FED79650016851F /* CallKitProvider.swift */,
 				C7PUSH0212FED79650016851F /* DibayPushTokenBridge.swift */,
+				C7OWN0012FED79650016851F /* CallV4SurfaceOwnerBridge.swift */,
 			);
 			path = Push;
 			sourceTree = "<group>";
@@ -217,6 +220,7 @@
 				C7PUSH0022FED79650016851F /* VoIPPushRegistry.swift in Sources */,
 				C7PUSH0122FED79650016851F /* CallKitProvider.swift in Sources */,
 				C7PUSH0222FED79650016851F /* DibayPushTokenBridge.swift in Sources */,
+				C7OWN0022FED79650016851F /* CallV4SurfaceOwnerBridge.swift in Sources */,
 				C7A1B0022FED79650016851F /* NativeAppleAuthPlugin.swift in Sources */,
 				C7VOIP0022FED79650016851F /* DibayVoipCallPlugin.swift in Sources */,
 				C7NCS0022FED79650016851F /* NativeCallServicePlugin.swift in Sources */,
