@@ -2,9 +2,9 @@
 docs/perf/**/*.apk
 docs/perf/qa-safe-area/
 
-# Native Android/iOS — Web 배포에 불필요
-android/
-ios/
+# Native Android/iOS — Web 배포에 불필요 (repo root only; not lib/.../presentation/android)
+/android/
+/ios/
 
 # Local QA scripts output (large logs)
 docs/perf/**/*.log
