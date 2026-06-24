@@ -2,51 +2,31 @@ package com.dibay.app;
 
 import android.content.Context;
 import android.content.Intent;
-import android.os.Handler;
-import android.os.Looper;
 import android.util.Log;
-import com.dibay.app.call.CallActivityRouter;
 import com.dibay.app.call.CallForegroundService;
 import com.dibay.app.callv4.CallV4Lane;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Non-foreground incoming presentation SSOT — Telegram parity.
  *
- * <p>Visible UI: {@link IncomingCallActivity} fullscreen only (one per callId).
- * Notification: action-only carrier while Activity is visible; CallStyle+FSI only when Activity
- * launch fails. FGS is ring/process carrier, not a visible owner.
- *
- * <p>Owner is claimed at {@link IncomingCallPushDelivery} before surfaces start.
+ * <p>Contract: FCM only queues {@link PendingIncomingPresentation} and starts FGS ring.
+ * Visible UI is delivered from {@link CallForegroundService} after {@code startForeground}
+ * (BAL/lock-screen safe). Lock uses CallStyle + FSI; background uses CallStyle heads-up +
+ * {@link IncomingCallActivity}.
  */
 public final class IncomingCallBackgroundNotifier {
   private static final String TAG = "DIBAY_INCOMING_CALL";
-  private static final long LAUNCH_VISIBILITY_VERIFY_MS = 2_500L;
-  private static final Handler MAIN = new Handler(Looper.getMainLooper());
-  private static final ConcurrentHashMap<String, Runnable> LAUNCH_VERIFY_RUNNABLES =
-      new ConcurrentHashMap<>();
 
   private IncomingCallBackgroundNotifier() {}
 
-  /** Lock / sleep — V4 presents one visible surface immediately; FGS is carrier-only. */
+  /** Lock / sleep — queue UI for FGS delivery (FSI + Activity from foreground service). */
   public static void presentLockIncoming(Context context, IncomingCallPayload payload) {
     if (context == null || payload == null || !payload.isValid()) return;
     String callId = payload.callId.trim();
     Context app = context.getApplicationContext();
     IncomingCallWakeLock.acquireForLockScreen(app, callId);
-    if (CallV4Lane.isTelegramLaneEnabled(app)) {
-      PendingIncomingPresentation.put(payload);
-      boolean presented = presentV4NonForegroundIncoming(context, payload, "lock_immediate", false);
-      if (presented) {
-        PendingIncomingPresentation.take(callId);
-        Log.i(TAG, "[call-ui] lock_presentation_immediate callId=" + callId);
-      } else {
-        Log.i(TAG, "[call-ui] lock_presentation_deferred callId=" + callId);
-      }
-    } else {
-      PendingIncomingPresentation.put(payload);
-      Log.i(TAG, "[call-ui] lock_presentation_deferred_to_fgs callId=" + callId);
-    }
+    PendingIncomingPresentation.put(payload);
+    Log.i(TAG, "[call-ui] lock_presentation_queued callId=" + callId);
     try {
       CallForegroundService.startRinging(context, callId, payload.callType);
     } catch (Exception error) {
@@ -58,25 +38,14 @@ public final class IncomingCallBackgroundNotifier {
     }
   }
 
-  /** Home / unlocked background — V4 presents immediately; legacy defers to FGS. */
+  /** Home / unlocked background — queue UI for FGS delivery. */
   public static void startRingingDeferUiToFgs(Context context, IncomingCallPayload payload) {
     if (context == null || payload == null || !payload.isValid()) return;
     String callId = payload.callId.trim();
     Context app = context.getApplicationContext();
     IncomingCallWakeLock.acquire(app, callId);
-    if (CallV4Lane.isTelegramLaneEnabled(app)) {
-      PendingIncomingPresentation.put(payload);
-      boolean presented = presentV4NonForegroundIncoming(context, payload, "background_immediate", false);
-      if (presented) {
-        PendingIncomingPresentation.take(callId);
-        Log.i(TAG, "[call-ui] background_presentation_immediate callId=" + callId);
-      } else {
-        Log.i(TAG, "[call-ui] background_presentation_deferred callId=" + callId);
-      }
-    } else {
-      PendingIncomingPresentation.put(payload);
-      Log.i(TAG, "[call-ui] background_ui_deferred_to_fgs callId=" + callId);
-    }
+    PendingIncomingPresentation.put(payload);
+    Log.i(TAG, "[call-ui] background_ui_queued_for_fgs callId=" + callId);
     try {
       CallForegroundService.startRinging(context, callId, payload.callType);
     } catch (Exception error) {
@@ -88,7 +57,7 @@ public final class IncomingCallBackgroundNotifier {
     }
   }
 
-  /** After FGS {@code startForeground} — V4 lock FSI or background Activity primary. */
+  /** After FGS {@code startForeground} — primary visible UI entry (BAL-safe context). */
   public static void deliverPendingPresentation(Context context, String callId, String source) {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
     IncomingCallPayload payload = PendingIncomingPresentation.take(callId.trim());
@@ -110,9 +79,9 @@ public final class IncomingCallBackgroundNotifier {
     IncomingCallNotificationBuilder.showIncomingCall(context, payload, true);
   }
 
-  private static boolean presentV4NonForegroundIncoming(
+  private static void presentV4NonForegroundIncoming(
       Context context, IncomingCallPayload payload, String source, boolean fgsDelivery) {
-    if (context == null || payload == null || !payload.isValid()) return false;
+    if (context == null || payload == null || !payload.isValid()) return;
     String callId = payload.callId.trim();
     Context app = context.getApplicationContext();
     String visibility = IncomingCallSurfaceOwner.resolveVisibility(app);
@@ -123,144 +92,86 @@ public final class IncomingCallBackgroundNotifier {
           "[DIBAY_CALL_V4] incoming_presentation_blocked callId="
               + callId
               + " reason=accepted_transition");
-      return false;
+      return;
     }
 
     if ("locked".equals(visibility)) {
-      return presentV4TelegramFullscreenIncoming(context, payload, source, fgsDelivery, "locked");
+      presentV4LockedIncoming(context, payload, source, fgsDelivery);
+      return;
     }
-
-    return presentV4TelegramFullscreenIncoming(context, payload, source, fgsDelivery, "background");
+    presentV4BackgroundIncoming(context, payload, source, fgsDelivery);
   }
 
-  /**
-   * Telegram — non-foreground: fullscreen {@link IncomingCallActivity} is the sole visible UI.
-   * No CallStyle heads-up parallel surface; notification is action-only when Activity shows.
-   */
-  private static boolean presentV4TelegramFullscreenIncoming(
-      Context context,
-      IncomingCallPayload payload,
-      String source,
-      boolean fgsDelivery,
-      String visibilityTag) {
+  /** Lock / screen-off — FSI notification is primary bridge; Activity launch from FGS. */
+  private static void presentV4LockedIncoming(
+      Context context, IncomingCallPayload payload, String source, boolean fgsDelivery) {
     String callId = payload.callId.trim();
     Context app = context.getApplicationContext();
-    IncomingCallSurfaceOwner.SurfaceOwner activityOwner = resolveActivityOwner(visibilityTag);
+    IncomingCallSurfaceOwner.SurfaceOwner owner = IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_FSI;
 
-    if (IncomingCallSurfaceOwner.shouldBlockVisibleIncomingStart(callId, activityOwner)) {
-      IncomingCallSurfaceOwner.SurfaceOwner current = IncomingCallSurfaceOwner.getSurfaceOwner(callId);
-      if (current == IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_FSI
-          && activityOwner == IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_ACTIVITY) {
-        activityOwner = IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_FSI;
-      } else {
-        Log.i(
-            CallV4Lane.TAG,
-            "[DIBAY_CALL_V4] telegram_fullscreen_owner_blocked callId="
-                + callId
-                + " visibility="
-                + visibilityTag
-                + " source="
-                + source);
-        return presentNotificationFallback(context, payload, fgsDelivery, "owner_blocked");
-      }
+    if (IncomingCallSurfaceOwner.shouldBlockVisibleIncomingStart(callId, owner)) {
+      Log.i(
+          CallV4Lane.TAG,
+          "[DIBAY_CALL_V4] locked_incoming_owner_blocked callId=" + callId + " source=" + source);
+      IncomingCallNotificationBuilder.showIncomingCall(context, payload, fgsDelivery);
+      return;
     }
 
     Log.i(
         CallV4Lane.TAG,
-        "[DIBAY_CALL_V4] telegram_fullscreen_launch_start callId="
-            + callId
-            + " visibility="
-            + visibilityTag
-            + " source="
-            + source);
-    boolean activityLaunched =
-        launchIncomingActivity(context, payload, source + "_telegram_" + visibilityTag);
+        "[DIBAY_CALL_V4] locked_incoming_present callId=" + callId + " source=" + source);
+    IncomingCallNotificationBuilder.showIncomingCall(context, payload, fgsDelivery);
+    boolean activityLaunched = launchIncomingActivity(context, payload, source + "_locked");
     Log.i(
         CallV4Lane.TAG,
-        "[DIBAY_CALL_V4] telegram_fullscreen_launch_result callId="
+        "[DIBAY_CALL_V4] locked_activity_launch callId="
             + callId
             + " success="
             + activityLaunched
-            + " visibility="
-            + visibilityTag);
-
-    if (activityLaunched) {
-      IncomingCallSurfaceOwner.transitionIncomingOwner(
-          app, callId, activityOwner, "telegram_fullscreen_" + visibilityTag);
-      CallForegroundService.refreshRingingNotification(
-          context, callId, payload.callType, "telegram_fullscreen_" + visibilityTag);
-      IncomingCallNotificationBuilder.showIncomingCallActionOnly(context, payload, fgsDelivery);
-      scheduleLaunchVisibilityVerify(context, payload, fgsDelivery, visibilityTag);
-      return true;
-    }
-
-    return presentNotificationFallback(context, payload, fgsDelivery, "activity_launch_failed");
+            + " source="
+            + source);
+    IncomingCallSurfaceOwner.transitionIncomingOwner(app, callId, owner, "locked_incoming_" + source);
+    CallForegroundService.refreshRingingNotification(context, callId, payload.callType, "locked_" + source);
   }
 
-  private static IncomingCallSurfaceOwner.SurfaceOwner resolveActivityOwner(String visibilityTag) {
-    return "locked".equals(visibilityTag)
-        ? IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_FSI
-        : IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_ACTIVITY;
-  }
-
-  private static boolean presentNotificationFallback(
-      Context context, IncomingCallPayload payload, boolean fgsDelivery, String reason) {
-    if (context == null || payload == null || !payload.isValid()) return false;
+  /** Unlocked background — CallStyle heads-up + Activity from FGS. */
+  private static void presentV4BackgroundIncoming(
+      Context context, IncomingCallPayload payload, String source, boolean fgsDelivery) {
     String callId = payload.callId.trim();
     Context app = context.getApplicationContext();
-    IncomingCallSurfaceOwner.SurfaceOwner fallback =
-        IncomingCallSurfaceOwner.SurfaceOwner.NOTIFICATION_FALLBACK;
-    if (IncomingCallSurfaceOwner.shouldBlockVisibleIncomingStart(callId, fallback)) {
-      return false;
+    IncomingCallSurfaceOwner.SurfaceOwner owner = IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_ACTIVITY;
+
+    if (IncomingCallSurfaceOwner.shouldBlockVisibleIncomingStart(callId, owner)) {
+      Log.i(
+          CallV4Lane.TAG,
+          "[DIBAY_CALL_V4] background_incoming_owner_blocked callId="
+              + callId
+              + " source="
+              + source);
+      IncomingCallNotificationBuilder.showIncomingCall(context, payload, fgsDelivery);
+      return;
     }
-    String fallbackReason =
-        !IncomingCallNotificationBuilder.canPostFullScreenIntent(app)
-            ? "os_restricted"
-            : reason;
+
     Log.i(
         CallV4Lane.TAG,
-        "[DIBAY_CALL_V4] telegram_fullscreen_notification_fallback callId="
-            + callId
-            + " reason="
-            + fallbackReason);
-    IncomingCallSurfaceOwner.transitionIncomingOwner(app, callId, fallback, fallbackReason);
-    CallForegroundService.refreshRingingNotification(
-        context, callId, payload.callType, "notification_fallback");
+        "[DIBAY_CALL_V4] background_incoming_present callId=" + callId + " source=" + source);
     IncomingCallNotificationBuilder.showIncomingCall(context, payload, fgsDelivery);
-    return true;
-  }
-
-  private static void scheduleLaunchVisibilityVerify(
-      Context context,
-      IncomingCallPayload payload,
-      boolean fgsDelivery,
-      String visibilityTag) {
-    if (context == null || payload == null || !payload.isValid()) return;
-    String callId = payload.callId.trim();
-    cancelLaunchVisibilityVerify(callId);
-    Runnable verify =
-        () -> {
-          LAUNCH_VERIFY_RUNNABLES.remove(callId);
-          if (IncomingCallActivity.isCallVisible(callId)) return;
-          Log.i(
-              CallV4Lane.TAG,
-              "[DIBAY_CALL_V4] telegram_fullscreen_launch_unverified callId="
-                  + callId
-                  + " visibility="
-                  + visibilityTag);
-          presentNotificationFallback(context, payload, fgsDelivery, "launch_unverified");
-        };
-    LAUNCH_VERIFY_RUNNABLES.put(callId, verify);
-    MAIN.postDelayed(verify, LAUNCH_VISIBILITY_VERIFY_MS);
+    boolean activityLaunched = launchIncomingActivity(context, payload, source + "_background");
+    Log.i(
+        CallV4Lane.TAG,
+        "[DIBAY_CALL_V4] background_activity_launch callId="
+            + callId
+            + " success="
+            + activityLaunched
+            + " source="
+            + source);
+    IncomingCallSurfaceOwner.transitionIncomingOwner(app, callId, owner, "background_incoming_" + source);
+    CallForegroundService.refreshRingingNotification(
+        context, callId, payload.callType, "background_" + source);
   }
 
   static void cancelLaunchVisibilityVerify(String callId) {
-    if (callId == null || callId.trim().isEmpty()) return;
-    String sid = callId.trim();
-    Runnable verify = LAUNCH_VERIFY_RUNNABLES.remove(sid);
-    if (verify != null) {
-      MAIN.removeCallbacks(verify);
-    }
+    // no-op — launch verify removed; FSI + FGS delivery is SSOT
   }
 
   static boolean launchIncomingActivity(Context context, IncomingCallPayload payload, String source) {
@@ -274,7 +185,7 @@ public final class IncomingCallBackgroundNotifier {
       Log.i(TAG, "[call-ui] incoming_activity_skipped_accepted callId=" + sid);
       return false;
     }
-    if (!CallActivityRouter.shouldLaunchIncomingActivity(sid)) {
+    if (!com.dibay.app.call.CallActivityRouter.shouldLaunchIncomingActivity(sid)) {
       if (IncomingCallSurfaceOwner.isNativeIncomingOwner(sid)) {
         Log.i(TAG, "[call-ui] incoming_activity_dedup_reuse callId=" + sid + " source=" + source);
         return true;
@@ -293,11 +204,7 @@ public final class IncomingCallBackgroundNotifier {
             | Intent.FLAG_ACTIVITY_SINGLE_TOP
             | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
     try {
-      if (context instanceof CallForegroundService || context instanceof DibayFirebaseMessagingService) {
-        context.startActivity(incomingUi);
-      } else {
-        context.getApplicationContext().startActivity(incomingUi);
-      }
+      context.startActivity(incomingUi);
       DibayCallLog.once("incoming_render", sid, "source=" + source);
       Log.i(TAG, "[call-ui] outside_app_incoming_activity_launch callId=" + sid + " source=" + source);
       return true;

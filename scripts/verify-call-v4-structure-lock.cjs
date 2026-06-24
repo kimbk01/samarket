@@ -64,10 +64,15 @@ if (notifier.includes('fgsDelivery, "lock"') || notifier.includes(', "lock")')) 
 } else {
   pass("lock visibility tag uses locked");
 }
-if (!notifier.includes("isCallVisible") || !notifier.includes("launch_unverified")) {
-  fail("IncomingCallBackgroundNotifier must verify Activity visibility after launch");
+if (!notifier.includes("presentV4LockedIncoming") || !notifier.includes("showIncomingCall(context, payload, fgsDelivery)")) {
+  fail("IncomingCallBackgroundNotifier must present lock/background via FGS + full incoming notification (FSI/CallStyle)");
 } else {
-  pass("launch visibility verify present");
+  pass("FGS-first full notification presentation");
+}
+if (notifier.includes("scheduleLaunchVisibilityVerify") || notifier.includes("launch_unverified")) {
+  fail("launch visibility verify band-aid must not remain in BackgroundNotifier");
+} else {
+  pass("no launch verify band-aid");
 }
 
 const coordinator = read("android/app/src/main/java/com/dibay/app/IncomingCallActionCoordinator.java");

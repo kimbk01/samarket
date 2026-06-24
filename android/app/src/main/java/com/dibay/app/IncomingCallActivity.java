@@ -98,7 +98,6 @@ public class IncomingCallActivity extends AppCompatActivity {
 
     Log.i(TAG, "[call-ui] incoming_activity_shown callId=" + callId);
     VISIBLE_CALL_IDS.put(callId.trim(), System.currentTimeMillis());
-    IncomingCallBackgroundNotifier.cancelLaunchVisibilityVerify(callId);
     if (CallV4Lane.isTelegramLaneEnabled(getApplicationContext())) {
       Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] incoming_activity_shown callId=" + callId);
       IncomingCallSurfaceOwner.SurfaceOwner owner =
@@ -107,6 +106,22 @@ public class IncomingCallActivity extends AppCompatActivity {
               : IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_ACTIVITY;
       IncomingCallSurfaceOwner.transitionIncomingOwner(
           getApplicationContext(), callId, owner, "incoming_activity_visible");
+      IncomingCallPayload payload =
+          new IncomingCallPayload(
+              callId,
+              firstNonEmpty(getIntent().getStringExtra(EXTRA_ROOM_ID)),
+              firstNonEmpty(getIntent().getStringExtra(EXTRA_CALLER_ID)),
+              firstNonEmpty(getIntent().getStringExtra(EXTRA_CALLER_NAME)),
+              firstNonEmpty(getIntent().getStringExtra(EXTRA_CALLER_AVATAR_URL)),
+              firstNonEmpty(getIntent().getStringExtra(EXTRA_CALL_TYPE)),
+              expiresAt,
+              firstNonEmpty(getIntent().getStringExtra(EXTRA_TITLE)),
+              firstNonEmpty(getIntent().getStringExtra(EXTRA_BODY)),
+              null);
+      if (payload.isValid()) {
+        IncomingCallNotificationBuilder.showIncomingCallActionOnly(
+            getApplicationContext(), payload, true);
+      }
     }
     DibayCallLog.once("incoming_activity_created", callId, "source=activity");
     DibayCallLog.once("incoming_render", callId, "source=activity");

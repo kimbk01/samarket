@@ -113,10 +113,16 @@ if (!notifier.includes("presentV4NonForegroundIncoming")) {
   pass("BackgroundNotifier V4 owner presentation");
 }
 
-if (!notifier.includes("showIncomingCallActionOnly")) {
-  fail("BackgroundNotifier must post action-only notification when Activity is primary");
+if (!notifier.includes("presentV4LockedIncoming")) {
+  fail("BackgroundNotifier must deliver lock UI from FGS with FSI path");
 } else {
-  pass("BackgroundNotifier action-only notification path");
+  pass("BackgroundNotifier FGS lock FSI path");
+}
+
+if (notifier.includes("showIncomingCallActionOnly(context, payload")) {
+  fail("BackgroundNotifier must not post action-only before Activity is visible");
+} else {
+  pass("BackgroundNotifier no premature action-only");
 }
 
 if (!notifBuilder.includes("showIncomingCallActionOnly")) {

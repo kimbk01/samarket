@@ -51,11 +51,13 @@ describe("call-v4 import isolation", () => {
     expect(fgs).toContain("v3_task_removed_pending_suppressed");
   });
 
-  it("V4 lock incoming uses Telegram fullscreen activity (single visible surface)", () => {
+  it("V4 lock incoming delivers FSI from FGS after startForeground", () => {
     const notifier = read("android/app/src/main/java/com/dibay/app/IncomingCallBackgroundNotifier.java");
-    expect(notifier).toContain("presentV4TelegramFullscreenIncoming");
-    expect(notifier).toContain("telegram_fullscreen_launch_start");
-    expect(notifier).toContain("lock_presentation_immediate");
+    expect(notifier).toContain("presentV4LockedIncoming");
+    expect(notifier).toContain("lock_presentation_queued");
+    expect(notifier).toContain("background_presentation_deliver");
+    expect(notifier).toContain("showIncomingCall(context, payload, fgsDelivery)");
+    expect(notifier).not.toContain("lock_presentation_immediate");
     expect(notifier).not.toContain("lock_incoming_fsi_only");
     expect(notifier).not.toContain("_boost");
     expect(notifier).not.toContain("lock_incoming_activity_boost");
@@ -87,8 +89,10 @@ describe("call-v4 import isolation", () => {
     expect(fgs).toContain("NotificationCompat.CATEGORY_SERVICE");
     expect(fgs).toContain("NotificationCompat.PRIORITY_LOW");
     expect(fgs).toMatch(/if \(carrierOnly\) \{[\s\S]*?return builder\.build\(\);[\s\S]*?\.addAction/);
-    expect(notifier).toContain("telegram_fullscreen_launch_start");
-    expect(notifier).toContain("notification_fallback");
+    expect(notifier).toContain("presentV4LockedIncoming");
+    expect(notifier).toContain("background_presentation_deliver");
+    expect(notifier).toContain("showIncomingCall(context, payload, fgsDelivery)");
+    expect(notifier).not.toContain("showIncomingCallActionOnly(context, payload");
   });
 
   it("IncomingCallActionCoordinator uses MainActivity V4 accept not CallScreenActivity", () => {
@@ -146,6 +150,6 @@ describe("call-v4 import isolation", () => {
     expect(script).toContain("buildIncomingCallPreviewHref");
     expect(script).toContain("resolveSuppressReasonLegacy");
     expect(script).toContain("cancelMissedTimeout");
-    expect(script).toContain('"locked" not "lock"');
+    expect(script).toContain("FGS-first full notification presentation");
   });
 });
