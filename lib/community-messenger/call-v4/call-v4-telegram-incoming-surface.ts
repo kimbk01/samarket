@@ -4,11 +4,10 @@
  * | App state              | Visible UI (exactly 1)              | Owner            |
  * |------------------------|-------------------------------------|------------------|
  * | Foreground unlocked    | Web top banner (`IncomingCallBanner`) | web_in_app       |
- * | Background / lock/sleep| FGS → CallStyle+FSI notification + `IncomingCallActivity` | native_activity / native_fsi |
+ * | Background / lock/sleep| FGS → `IncomingCallActivity` primary; CallStyle+FSI fallback only | native_activity / native_fsi |
  *
  * FGS ringing notification is carrier-only (no second heads-up UI).
- * Full incoming notification (CallStyle+FSI) posts from FGS after startForeground.
- * actionOnly downgrade runs in `IncomingCallActivity` after the activity is visible.
+ * Full CallStyle+FSI posts only when Activity launch fails. actionOnly after Activity shown.
  */
 
 export const CALL_V4_SURFACE_OWNER_KINDS = [

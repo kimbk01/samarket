@@ -22,28 +22,24 @@ describe("call-v4 Telegram incoming surface contract", () => {
     expect(banner).toContain("data-incoming-call-compact-banner");
   });
 
-  it("Android non-foreground delivers FGS-first FSI then fullscreen activity", () => {
+  it("Android non-foreground delivers Activity-first with notification fallback only", () => {
     const notifier = read("android/app/src/main/java/com/dibay/app/IncomingCallBackgroundNotifier.java");
     const activity = read("android/app/src/main/java/com/dibay/app/IncomingCallActivity.java");
-    const lockedMethod =
-      notifier.match(/private static void presentV4LockedIncoming[\s\S]*?^  \}/m)?.[0] ?? "";
-    const backgroundMethod =
-      notifier.match(/private static void presentV4BackgroundIncoming[\s\S]*?^  \}/m)?.[0] ?? "";
+    const activityFirstMethod =
+      notifier.match(/private static void presentV4ActivityFirstIncoming[\s\S]*?^  \}/m)?.[0] ?? "";
 
-    expect(notifier).toContain("presentV4LockedIncoming");
-    expect(notifier).toContain("presentV4BackgroundIncoming");
-    expect(notifier).toContain("lock_presentation_queued");
-    expect(notifier).toContain("background_ui_queued_for_fgs");
-    expect(notifier).toContain("background_presentation_deliver");
-    expect(notifier).not.toContain("presentV4TelegramFullscreenIncoming");
+    expect(notifier).toContain("presentV4ActivityFirstIncoming");
+    expect(notifier).toContain("native_activity_launch_start");
+    expect(notifier).toContain("native_notification_fallback");
+    expect(notifier).not.toContain("presentV4LockedIncoming");
     expect(notifier).not.toContain("lock_incoming_fsi_only");
     expect(notifier).not.toContain("_boost");
     expect(notifier).not.toContain("showIncomingCallActionOnly(context, payload");
 
-    expect(lockedMethod).toContain("showIncomingCall(context, payload, fgsDelivery)");
-    expect(lockedMethod).toContain("launchIncomingActivity");
-    expect(backgroundMethod).toContain("showIncomingCall(context, payload, fgsDelivery)");
-    expect(backgroundMethod).toContain("launchIncomingActivity");
+    expect(activityFirstMethod).toContain("launchIncomingActivity");
+    expect(activityFirstMethod).toMatch(/activityLaunched[\s\S]*refreshRingingNotification/);
+    expect(activityFirstMethod).toContain("presentV4NotificationFallback");
+    expect(activityFirstMethod).not.toContain("showIncomingCall");
 
     expect(activity).toContain("showIncomingCallActionOnly");
   });

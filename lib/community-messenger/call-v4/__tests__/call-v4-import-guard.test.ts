@@ -51,12 +51,12 @@ describe("call-v4 import isolation", () => {
     expect(fgs).toContain("v3_task_removed_pending_suppressed");
   });
 
-  it("V4 lock incoming delivers FSI from FGS after startForeground", () => {
+  it("V4 lock incoming delivers Activity-first from FGS after startForeground", () => {
     const notifier = read("android/app/src/main/java/com/dibay/app/IncomingCallBackgroundNotifier.java");
-    expect(notifier).toContain("presentV4LockedIncoming");
+    expect(notifier).toContain("presentV4ActivityFirstIncoming");
     expect(notifier).toContain("lock_presentation_queued");
     expect(notifier).toContain("background_presentation_deliver");
-    expect(notifier).toContain("showIncomingCall(context, payload, fgsDelivery)");
+    expect(notifier).toContain("native_notification_fallback");
     expect(notifier).not.toContain("lock_presentation_immediate");
     expect(notifier).not.toContain("lock_incoming_fsi_only");
     expect(notifier).not.toContain("_boost");
@@ -89,9 +89,9 @@ describe("call-v4 import isolation", () => {
     expect(fgs).toContain("NotificationCompat.CATEGORY_SERVICE");
     expect(fgs).toContain("NotificationCompat.PRIORITY_LOW");
     expect(fgs).toMatch(/if \(carrierOnly\) \{[\s\S]*?return builder\.build\(\);[\s\S]*?\.addAction/);
-    expect(notifier).toContain("presentV4LockedIncoming");
+    expect(notifier).toContain("presentV4ActivityFirstIncoming");
     expect(notifier).toContain("background_presentation_deliver");
-    expect(notifier).toContain("showIncomingCall(context, payload, fgsDelivery)");
+    expect(notifier).toContain("native_notification_fallback");
     expect(notifier).not.toContain("showIncomingCallActionOnly(context, payload");
   });
 
@@ -150,6 +150,6 @@ describe("call-v4 import isolation", () => {
     expect(script).toContain("buildIncomingCallPreviewHref");
     expect(script).toContain("resolveSuppressReasonLegacy");
     expect(script).toContain("cancelMissedTimeout");
-    expect(script).toContain("FGS-first full notification presentation");
+    expect(script).toContain("Activity-first single surface presentation");
   });
 });

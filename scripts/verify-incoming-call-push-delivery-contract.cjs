@@ -113,10 +113,10 @@ if (!notifier.includes("presentV4NonForegroundIncoming")) {
   pass("BackgroundNotifier V4 owner presentation");
 }
 
-if (!notifier.includes("presentV4LockedIncoming")) {
-  fail("BackgroundNotifier must deliver lock UI from FGS with FSI path");
+if (!notifier.includes("presentV4ActivityFirstIncoming")) {
+  fail("BackgroundNotifier must deliver lock UI Activity-first from FGS");
 } else {
-  pass("BackgroundNotifier FGS lock FSI path");
+  pass("BackgroundNotifier FGS Activity-first path");
 }
 
 if (notifier.includes("showIncomingCallActionOnly(context, payload")) {

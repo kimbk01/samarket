@@ -64,10 +64,17 @@ if (notifier.includes('fgsDelivery, "lock"') || notifier.includes(', "lock")')) 
 } else {
   pass("lock visibility tag uses locked");
 }
-if (!notifier.includes("presentV4LockedIncoming") || !notifier.includes("showIncomingCall(context, payload, fgsDelivery)")) {
-  fail("IncomingCallBackgroundNotifier must present lock/background via FGS + full incoming notification (FSI/CallStyle)");
+const activityFirstMethod =
+  notifier.match(/private static void presentV4ActivityFirstIncoming[\s\S]*?^  \}/m)?.[0] ?? "";
+if (!notifier.includes("presentV4ActivityFirstIncoming") || !notifier.includes("native_notification_fallback")) {
+  fail("IncomingCallBackgroundNotifier must use Activity-first with notification fallback only");
 } else {
-  pass("FGS-first full notification presentation");
+  pass("Activity-first single surface presentation");
+}
+if (activityFirstMethod.includes("showIncomingCall")) {
+  fail("BackgroundNotifier must not post CallStyle+FSI in Activity-first path (duplicate UI)");
+} else {
+  pass("no parallel CallStyle before Activity");
 }
 if (notifier.includes("scheduleLaunchVisibilityVerify") || notifier.includes("launch_unverified")) {
   fail("launch visibility verify band-aid must not remain in BackgroundNotifier");
