@@ -157,6 +157,24 @@ if (!coordinator.includes("cancelMissedTimeout")) {
 } else {
   pass("missed timeout cancellable");
 }
+
+const connecting = read("android/app/src/main/java/com/dibay/app/IncomingCallConnectingSurface.java");
+if (!activity.includes("native_connecting_surface_shown") || !activity.includes("enterV4ConnectingMode")) {
+  fail("V4 accept must show native connecting surface before web handoff");
+} else {
+  pass("V4 native connecting surface on accept");
+}
+if (!connecting.includes("native_connecting_surface_handoff")) {
+  fail("IncomingCallConnectingSurface must hand off to web");
+} else {
+  pass("V4 connecting surface web handoff");
+}
+if (!coordinator.includes("main_activity_calls_v4_direct_start")) {
+  fail("V4 accept must log main_activity_calls_v4_direct_start");
+} else {
+  pass("V4 direct calls-v4 route attach");
+}
+
 if (
   !coordinator.includes('purgeCallPresentation(app, sid, "missed")') &&
   !coordinator.includes('clearOwner(app, sid, "missed")')

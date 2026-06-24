@@ -1,0 +1,56 @@
+---
+description: Call V4 Android FSI/BAL fallback + session cleanup + 5-gate QA — 단일 번들, 타 도메인 혼합 금지
+globs:
+  - "**/IncomingCallActionCoordinator.java"
+  - "**/IncomingCallActivity.java"
+  - "**/IncomingCallBackgroundNotifier.java"
+  - "**/IncomingCallNotificationBuilder.java"
+  - "**/IncomingCallPushDelivery.java"
+  - "**/IncomingCallTerminalHandler.java"
+  - "**/IncomingCallSessionCleanup.java"
+  - "**/PendingIncomingPresentation.java"
+  - "**/call-v4-telegram-incoming-surface.ts"
+  - "**/v4-abc-policy-5gate.mjs"
+  - "**/call-v4-incoming-fsi-fallback-manifest.json"
+  - "**/verify-call-v4-incoming-fsi-fallback-boundary.cjs"
+alwaysApply: false
+---
+
+# Call V4 incoming FSI/fallback — 격리 번들
+
+**권위 manifest:** `scripts/call-v4-incoming-fsi-fallback-manifest.json`
+
+## 번들 소유 (이 목록만)
+
+- Android: `IncomingCallActionCoordinator` · `IncomingCallActivity` · `IncomingCallBackgroundNotifier` · `IncomingCallNotificationBuilder` · `IncomingCallPushDelivery` · `IncomingCallTerminalHandler` · `IncomingCallSessionCleanup` · `PendingIncomingPresentation`
+- Web: `lib/community-messenger/call-v4/call-v4-telegram-incoming-surface.ts`
+- QA: `.qa-logs/v4-abc-policy-5gate.mjs` (다른 QA harness에 gate 로직 복제 금지)
+
+## 소유권 (혼합 금지)
+
+| 책임 | SSOT | 금지 |
+|------|------|------|
+| Policy A/B presentation | `IncomingCallBackgroundNotifier` (`presentV4LockFsiOnlyIncoming`, `presentV4BackgroundActivityFirstIncoming`) | `PushDelivery`·trade·store에서 동일 정책 분기 |
+| Session purge / redial gate | `IncomingCallSessionCleanup` | trade/store/order-chat에서 import·호출 |
+| Fallback accept QA 탭 | `v4-abc-policy-5gate.mjs` only | phase-cd·v4-fsi-lock 등 다른 스크립트에 accept 체인 판정 복제 |
+| Ring (parallel) | `push_ui_parallel` in Notifier only | legacy `startNativeRingOnce` |
+
+## 수정 후 필수
+
+```bash
+npm run verify:call-v4-incoming-fsi-fallback-boundary
+vitest run lib/community-messenger/call-v4/__tests__/call-v4-import-guard.test.ts
+```
+
+실기 회귀 (기기 연결 시):
+
+```bash
+npm run qa:call-v4-5gate
+```
+
+## DO NOT
+
+1. manifest 밖 파일에서 `IncomingCallSessionCleanup` 호출
+2. `presentV4*` 메서드를 Notifier 밖으로 이동
+3. 5-gate QA 로직을 제품 Java/Web에 역주입
+4. 거래·스토어·배달 핫패스 PR에 incoming bundle 파일 무단 포함

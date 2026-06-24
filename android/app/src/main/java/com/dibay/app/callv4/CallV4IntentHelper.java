@@ -40,7 +40,11 @@ public final class CallV4IntentHelper {
                 + Uri.encode(sid)
                 + "?action=accept&source="
                 + Uri.encode(src)));
-    launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+    launch.addFlags(
+        Intent.FLAG_ACTIVITY_NEW_TASK
+            | Intent.FLAG_ACTIVITY_CLEAR_TOP
+            | Intent.FLAG_ACTIVITY_SINGLE_TOP
+            | Intent.FLAG_ACTIVITY_NO_ANIMATION);
     Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] main_activity_v4_accept_intent_built callId=" + sid);
     return launch;
   }

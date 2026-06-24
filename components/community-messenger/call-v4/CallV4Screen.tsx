@@ -14,6 +14,7 @@ import {
 import { callV4FetchSession } from "@/lib/community-messenger/call-v4/call-v4-api";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import { tryStartCallV4NativeAcceptAutostart } from "@/lib/community-messenger/call-v4/call-v4-native-accept-flight";
+import { notifyCallV4WebCallScreenReady } from "@/lib/community-messenger/call-v4/call-v4-native-connecting-handoff";
 import { exitCallV4ScreenAfterCleanup, registerCallV4ExitRouter } from "@/lib/community-messenger/call-v4/call-v4-route";
 import type { CallV4Phase } from "@/lib/community-messenger/call-v4/call-v4-types";
 import { buildCallV4ScreenViewModel } from "@/lib/community-messenger/call-v4/call-v4-view-model";
@@ -49,7 +50,10 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
     if (!callId) return;
     logCallV4("screen_mounted", { callId, source });
     logCallV4("connecting_visible", { callId, source });
-  }, [callId, source]);
+    if (action === "accept" || source === "native_accept") {
+      void notifyCallV4WebCallScreenReady(callId, phase === "connected" ? "connected" : "connecting");
+    }
+  }, [action, callId, phase, source]);
 
   useEffect(() => {
     registerCallV4ExitRouter(router);

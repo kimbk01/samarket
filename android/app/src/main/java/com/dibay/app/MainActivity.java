@@ -94,6 +94,8 @@ public class MainActivity extends BridgeActivity {
   private volatile boolean dibayWebViewClientAttached = false;
   private volatile boolean callRouteLoadingVisible = false;
   private View callRouteLoadingOverlay = null;
+  private String v4AcceptDirectCallId = null;
+  private Float v4AcceptWebViewAlphaBackup = null;
   private View webViewLoadErrorOverlay = null;
   private TextView webViewLoadErrorDetail = null;
   private volatile boolean mainFrameLoadFinished = false;
@@ -162,6 +164,24 @@ public class MainActivity extends BridgeActivity {
       return;
     }
     act.mainHandler.post(() -> act.injectCallV4NativeSurfaceEvent(sid, visible, src, appVisibility));
+  }
+
+  /** V4 accept — Web call screen ready → hide native connecting surface and reveal WebView. */
+  public static void onWebCallScreenReady(android.content.Context context, String callId, String phase) {
+    if (callId == null || callId.trim().isEmpty()) return;
+    String sid = callId.trim();
+    String ph = phase != null && !phase.trim().isEmpty() ? phase.trim() : "connecting";
+    Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] web_call_screen_ready callId=" + sid + " phase=" + ph);
+    MainActivity act = activeInstance;
+    if (act != null) {
+      act.mainHandler.post(
+          () -> {
+            act.completeV4AcceptDirectHandoff(sid, ph);
+            IncomingCallConnectingSurface.handoffToWeb(context, sid, ph);
+          });
+      return;
+    }
+    IncomingCallConnectingSurface.handoffToWeb(context, sid, ph);
   }
 
   /** V4 — atomic surface owner SSOT bridge (dibay:call-surface-owner). */
@@ -998,6 +1018,7 @@ public class MainActivity extends BridgeActivity {
     dismissIncomingCallNotificationFromIntent(intent);
     applyIncomingCallWakeFlags(intent);
     requestDismissKeyguardForCallIntent(intent);
+    noteV4AcceptDirectAttachFromIntent(intent);
 
     String notificationId = intent.getExtras() != null ? intent.getExtras().getString("notificationId") : null;
     Log.i("DIBAY_NOTIFY", "[notify-open] tap_received notificationId=" + notificationId);
@@ -1272,8 +1293,12 @@ public class MainActivity extends BridgeActivity {
     pendingAppPath = appPath;
     pendingNotificationId = notificationId;
     persistPendingRoute(appPath, notificationId);
-    if (isCalleeAcceptCallRoute(appPath) || isCallPreviewRoute(appPath)
-        || CallV4Lane.isV4CalleeAcceptCallRoute(appPath)) {
+    if (CallV4Lane.isV4CalleeAcceptCallRoute(appPath)) {
+      String callId = extractCallSessionIdFromAppPath(appPath);
+      if (callId != null && !callId.isEmpty()) {
+        beginV4AcceptDirectAttach(callId);
+      }
+    } else if (isCalleeAcceptCallRoute(appPath) || isCallPreviewRoute(appPath)) {
       showCallRouteLoadingOverlay();
     }
     Log.i(ROUTE_LOG_TAG, "[push-route] pending_route_saved path=" + appPath);
@@ -1311,6 +1336,59 @@ public class MainActivity extends BridgeActivity {
           }
           callRouteLoadingVisible = false;
         });
+  }
+
+  private void noteV4AcceptDirectAttachFromIntent(Intent intent) {
+    if (intent == null) return;
+    Uri data = intent.getData();
+    if (data == null || !"dibay".equals(data.getScheme()) || !"call-v4".equals(data.getHost())) return;
+    if (!"accept".equals(data.getQueryParameter("action"))) return;
+    java.util.List<String> segments = data.getPathSegments();
+    if (segments.isEmpty()) return;
+    String callId = segments.get(0);
+    if (callId == null || callId.trim().isEmpty()) return;
+    beginV4AcceptDirectAttach(callId.trim());
+  }
+
+  private void beginV4AcceptDirectAttach(String callId) {
+    if (callId == null || callId.trim().isEmpty()) return;
+    String sid = callId.trim();
+    if (!sid.equals(v4AcceptDirectCallId)) {
+      v4AcceptDirectCallId = sid;
+      Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] main_activity_calls_v4_direct_start callId=" + sid);
+    }
+    hideWebViewForV4AcceptHandoff();
+  }
+
+  private void hideWebViewForV4AcceptHandoff() {
+    mainHandler.post(
+        () -> {
+          Bridge bridge = getBridge();
+          if (bridge == null) return;
+          WebView webView = bridge.getWebView();
+          if (webView == null) return;
+          if (v4AcceptWebViewAlphaBackup == null) {
+            v4AcceptWebViewAlphaBackup = webView.getAlpha();
+          }
+          webView.setAlpha(0f);
+        });
+  }
+
+  private void completeV4AcceptDirectHandoff(String callId, String phase) {
+    if (callId == null || v4AcceptDirectCallId == null || !callId.equals(v4AcceptDirectCallId)) return;
+    restoreWebViewAfterV4AcceptHandoff();
+    v4AcceptDirectCallId = null;
+    hideCallRouteLoadingOverlay();
+  }
+
+  private void restoreWebViewAfterV4AcceptHandoff() {
+    Bridge bridge = getBridge();
+    if (bridge == null) return;
+    WebView webView = bridge.getWebView();
+    if (webView == null) return;
+    float alpha = v4AcceptWebViewAlphaBackup != null ? v4AcceptWebViewAlphaBackup : 1f;
+    webView.setAlpha(alpha);
+    v4AcceptWebViewAlphaBackup = null;
   }
 
   private void flushPendingAppPathIfAny() {

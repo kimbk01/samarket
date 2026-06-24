@@ -1,7 +1,14 @@
 #!/usr/bin/env node
 /**
+ * BUNDLE: call-v4-incoming-fsi-fallback
+ * Manifest: scripts/call-v4-incoming-fsi-fallback-manifest.json
+ * DO NOT merge gates into other QA harnesses or product Java/Web outside the manifest.
+ *
  * Call V4 A/B/C policy — real FCM 5-gate device QA.
  * G1 lock/sleep UI1 · G2 background UI1+accept · G3 lock+launcher stack · G4 accept/missed · G5 redial owner cleanup
+ *
+ * Run: npm run qa:call-v4-5gate
+ * Verify: npm run verify:call-v4-incoming-fsi-fallback-boundary
  */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -79,7 +86,7 @@ function logcatFiltered(serial) {
   return raw
     .split("\n")
     .filter((l) =>
-      /DIBAY_CALL_V4|DIBAY_INCOMING_CALL|DIBAY_FCM|DIBAY_CALL_FLOW|DIBAY_CALL_PUSH|full_screen_intent|fsi_attached|ringtone_|missed_timeout|incoming_owner|coordinator_accept|accept_start|main_activity_v4_accept|incoming_activity_action_accept|BAL_BLOCK|Background activity launch blocked/.test(
+      /DIBAY_CALL_V4|DIBAY_INCOMING_CALL|DIBAY_FCM|DIBAY_CALL_FLOW|DIBAY_CALL_PUSH|full_screen_intent|fsi_attached|ringtone_|missed_timeout|incoming_owner|coordinator_accept|accept_start|native_accept_start|main_activity_v4_accept|main_activity_calls_v4_direct|native_connecting_surface|incoming_activity_action_accept|BAL_BLOCK|Background activity launch blocked/.test(
         l,
       ),
     )
@@ -132,8 +139,13 @@ function extractMarkers(logText, callId) {
     ring_stop_count: ringStops,
     missed_timeout: hasScoped("missed_timeout"),
     foreground_web_ssot: has("incoming_call_foreground_web_ssot"),
-    accept_start: hasScoped("accept_start") || hasScoped("coordinator_accept_enter"),
-    main_activity_v4_accept: hasScoped("main_activity_v4_accept_start"),
+    accept_start:
+      hasScoped("native_accept_start") ||
+      hasScoped("accept_start") ||
+      hasScoped("coordinator_accept_enter"),
+    main_activity_v4_accept:
+      hasScoped("main_activity_calls_v4_direct_start") ||
+      hasScoped("main_activity_v4_accept_start"),
     screen_mounted: hasScoped("screen_mounted"),
     callIdPresent: callId ? has(callId) : false,
     keyguard_locked_in_fcm: /keyguardLocked=true/.test(logText),
@@ -240,8 +252,9 @@ function extractAcceptChain(logText, callId) {
     incoming_activity_action_accept_received: has("incoming_activity_action_accept_received"),
     incoming_activity_action_accept_before_coordinator: has("incoming_activity_action_accept_before_coordinator"),
     coordinator_accept_enter: has("coordinator_accept_enter"),
-    accept_start: has("accept_start"),
-    main_activity_v4_accept_start: has("main_activity_v4_accept_start"),
+    accept_start: has("native_accept_start") || has("accept_start"),
+    main_activity_v4_accept_start:
+      has("main_activity_calls_v4_direct_start") || has("main_activity_v4_accept_start"),
     missed_timeout: has("missed_timeout"),
     fallback_accept_pi_created: has("fallback_accept_pi_created"),
   };

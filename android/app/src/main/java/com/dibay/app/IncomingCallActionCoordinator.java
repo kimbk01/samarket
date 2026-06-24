@@ -99,9 +99,10 @@ public final class IncomingCallActionCoordinator {
     final Context app = context.getApplicationContext();
     final boolean v4Lane = CallV4Lane.isTelegramLaneEnabled(app);
     if (v4Lane) {
-      Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] accept_start callId=" + sid);
+      Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] native_accept_start callId=" + sid);
       IncomingCallSurfaceOwner.transitionIncomingOwner(
           app, sid, IncomingCallSurfaceOwner.SurfaceOwner.ACCEPTED_TRANSITION, "native_accept");
+      Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] accepted_transition callId=" + sid);
     } else {
       DibayCallLog.once("accept_start", sid, "source=native_pending_web");
       Log.i(CALL_TAG, "[call-state] accept_pending_web callId=" + sid);
@@ -124,8 +125,12 @@ public final class IncomingCallActionCoordinator {
                 Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] accept_intercepted callId=" + sid);
                 CallRuntimeV4.openFromNativeStore(app, sid, "native_accept");
                 Intent launch = CallV4IntentHelper.buildMainActivityV4AcceptIntent(app, sid, "native_accept");
-                Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] main_activity_v4_accept_start callId=" + sid);
+                Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] main_activity_calls_v4_direct_start callId=" + sid);
                 app.startActivity(launch);
+                IncomingCallActivity active = IncomingCallActivity.peekActiveInstance();
+                if (active != null && !active.isFinished()) {
+                  IncomingCallConnectingSurface.scheduleKeepOnTop(active);
+                }
                 complete(sid, "accept");
                 return;
               }

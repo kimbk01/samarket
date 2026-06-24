@@ -29,6 +29,11 @@ const steps = [
   ["npx", ["tsc", "--noEmit"], "TypeScript"],
   ["npm", ["run", "lint"], "ESLint"],
   ["npm", ["run", "verify:i18n-key-exposure"], "i18n key exposure"],
+  [
+    "node",
+    ["scripts/verify-staged-call-v4-incoming-boundary.mjs"],
+    "staged call-v4 incoming FSI/fallback bundle",
+  ],
 ];
 
 console.log("[verify:pre-commit] starting…");

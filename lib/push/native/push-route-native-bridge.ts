@@ -32,6 +32,10 @@ export type NativeIncomingCallPlugin = {
     items: Array<{ sessionId: string; status?: string; at?: number }>;
   }>;
   getForegroundIncomingCallId(): Promise<{ callId?: string | null }>;
+  notifyWebCallScreenReady(options: {
+    callId: string;
+    phase?: "connecting" | "connected";
+  }): Promise<void>;
 };
 
 let pluginPromise: Promise<NativeIncomingCallPlugin | null> | null = null;

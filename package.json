@@ -146,6 +146,8 @@
     "verify:messenger-hot-path-contract": "node scripts/verify-messenger-hot-path-contract.cjs",
     "verify:incoming-call-push-delivery-contract": "node scripts/verify-incoming-call-push-delivery-contract.cjs",
     "verify:call-v4-structure-lock": "node scripts/verify-call-v4-structure-lock.cjs",
+    "verify:call-v4-incoming-fsi-fallback-boundary": "node scripts/verify-call-v4-incoming-fsi-fallback-boundary.cjs",
+    "qa:call-v4-5gate": "node .qa-logs/v4-abc-policy-5gate.mjs",
     "verify:active-call-lifecycle-contract": "node scripts/verify-active-call-lifecycle-contract.mjs",
     "verify:agora-ssr-isolation-contract": "node scripts/verify-agora-ssr-isolation-contract.mjs",
     "verify:root-rsc-smoke": "node scripts/verify-root-rsc-smoke.mjs",

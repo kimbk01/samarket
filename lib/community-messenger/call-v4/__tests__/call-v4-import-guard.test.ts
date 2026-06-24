@@ -15,10 +15,11 @@ describe("call-v4 import isolation", () => {
     expect(screen).not.toContain("exitCallV3ScreenAfterCleanup");
   });
 
-  it("CallV4Screen logs required Phase 1 markers", () => {
+  it("CallV4Screen logs required Phase 1 markers and native accept handoff", () => {
     const screen = read("components/community-messenger/call-v4/CallV4Screen.tsx");
     expect(screen).toContain("screen_mounted");
     expect(screen).toContain("connecting_visible");
+    expect(screen).toContain("notifyCallV4WebCallScreenReady");
   });
 
   it("CallIncomingChrome gates V4 before V3", () => {
@@ -80,7 +81,8 @@ describe("call-v4 import isolation", () => {
     expect(coord).toContain("ACCEPTED_TRANSITION");
     const activity = read("android/app/src/main/java/com/dibay/app/IncomingCallActivity.java");
     expect(activity).toContain("finishSafely");
-    expect(activity).not.toContain("native_connecting_surface");
+    expect(activity).toContain("native_connecting_surface_shown");
+    expect(activity).toContain("enterV4ConnectingMode");
   });
 
   it("V4 ringing FGS notification is carrier-only when native/fallback surface owns visible UI", () => {
@@ -104,7 +106,9 @@ describe("call-v4 import isolation", () => {
     expect(coord).toContain("buildMainActivityV4AcceptIntent");
     expect(coord).not.toContain("buildCallScreenActivityIntent");
     expect(coord).not.toContain("call_screen_activity_start");
-    expect(coord).toContain("main_activity_v4_accept_start");
+    expect(coord).toContain("main_activity_calls_v4_direct_start");
+    expect(coord).toContain("native_accept_start");
+    expect(coord).toContain("accepted_transition");
   });
 
   it("V4 native decline PATCH runs without MainActivity reject route", () => {
@@ -149,6 +153,17 @@ describe("call-v4 import isolation", () => {
     expect(contract).not.toContain("IncomingCallSurfaceOwner");
   });
 
+  it("V4 native accept keeps connecting surface until web handoff", () => {
+    const handoff = read("lib/community-messenger/call-v4/call-v4-native-connecting-handoff.ts");
+    const plugin = read("android/app/src/main/java/com/dibay/app/NativeIncomingCallPlugin.java");
+    const main = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
+    expect(handoff).toContain("web_call_screen_ready");
+    expect(handoff).toContain("dibay:call-v4-web-call-screen-ready");
+    expect(plugin).toContain("notifyWebCallScreenReady");
+    expect(main).toContain("onWebCallScreenReady");
+    expect(main).toContain("main_activity_calls_v4_direct_start");
+  });
+
   it("structure lock script exists", () => {
     const script = read("scripts/verify-call-v4-structure-lock.cjs");
     expect(script).toContain("buildIncomingCallPreviewHref");
@@ -157,5 +172,31 @@ describe("call-v4 import isolation", () => {
     expect(script).toContain("presentV4LockFsiOnlyIncoming");
     expect(script).toContain("presentV4BackgroundActivityFirstIncoming");
     expect(script).toContain("Policy A lock FSI-only entry");
+  });
+
+  it("incoming FSI/fallback manifest bundles Android + QA without cross-domain leak", () => {
+    const manifest = JSON.parse(
+      read("scripts/call-v4-incoming-fsi-fallback-manifest.json"),
+    ) as {
+      androidIncoming: string[];
+      qaScript: string;
+      sessionCleanupCallers: string[];
+      policyPresentationOwner: string;
+    };
+    expect(manifest.androidIncoming).toContain(
+      "android/app/src/main/java/com/dibay/app/IncomingCallSessionCleanup.java",
+    );
+    expect(manifest.sessionCleanupCallers).toEqual(
+      expect.arrayContaining([
+        "IncomingCallActionCoordinator.java",
+        "IncomingCallTerminalHandler.java",
+        "IncomingCallBackgroundNotifier.java",
+      ]),
+    );
+    expect(manifest.policyPresentationOwner).toBe("IncomingCallBackgroundNotifier.java");
+    const qa = read(manifest.qaScript);
+    expect(qa).toContain("BUNDLE: call-v4-incoming-fsi-fallback");
+    const boundary = read("scripts/verify-call-v4-incoming-fsi-fallback-boundary.cjs");
+    expect(boundary).toContain("call-v4-incoming-fsi-fallback-manifest.json");
   });
 });

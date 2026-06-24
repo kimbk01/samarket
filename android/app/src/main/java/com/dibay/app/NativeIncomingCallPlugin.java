@@ -153,6 +153,16 @@ public class NativeIncomingCallPlugin extends Plugin {
   }
 
   @PluginMethod
+  public void notifyWebCallScreenReady(PluginCall call) {
+    String callId = call.getString("callId", "").trim();
+    String phase = call.getString("phase", "connecting").trim();
+    if (!callId.isEmpty()) {
+      MainActivity.onWebCallScreenReady(getContext(), callId, phase);
+    }
+    call.resolve();
+  }
+
+  @PluginMethod
   public void getForegroundIncomingCallId(PluginCall call) {
     JSObject result = new JSObject();
     String callId = ForegroundIncomingCallRegistry.getActiveCallId();

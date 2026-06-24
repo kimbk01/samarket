@@ -8,6 +8,9 @@ import com.dibay.app.callv4.CallV4Lane;
 /**
  * callId-scoped incoming session purge — terminal, reject, missed, stale-before-next-call.
  *
+ * <p>BUNDLE: call-v4-incoming-fsi-fallback — see scripts/call-v4-incoming-fsi-fallback-manifest.json.
+ * Callers outside manifest sessionCleanupCallers are forbidden (verify boundary).
+ *
  * <p>Contract: terminal/cancel/decline/missed must clear visible flag, owner, pending presentation,
  * notification, ring, launch verify, and finish {@link IncomingCallActivity} so the next callId
  * never reuses a stale singleTask instance via {@code onNewIntent} alone.

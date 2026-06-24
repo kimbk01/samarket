@@ -28,6 +28,10 @@ public class IncomingCallActivity extends AppCompatActivity {
       LIVE_INSTANCES = new ConcurrentHashMap<>();
   private static volatile java.lang.ref.WeakReference<IncomingCallActivity> activeInstance;
 
+  static IncomingCallActivity peekActiveInstance() {
+    return activeInstance != null ? activeInstance.get() : null;
+  }
+
   public static final String EXTRA_CALL_ID = "callId";
   public static final String EXTRA_CALLER_NAME = "callerName";
   public static final String EXTRA_TITLE = "title";
@@ -234,8 +238,17 @@ public class IncomingCallActivity extends AppCompatActivity {
 
   private String callId;
   private boolean finished;
+  private boolean connectingMode;
   private boolean nativeSurfaceHiddenEmitted;
   private BroadcastReceiver terminalReceiver;
+
+  boolean isFinished() {
+    return finished;
+  }
+
+  boolean isConnectingMode() {
+    return connectingMode;
+  }
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -536,21 +549,76 @@ public class IncomingCallActivity extends AppCompatActivity {
     Log.i(TAG, "[call-ui] answer_clicked callId=" + callId + " source=activity");
     IncomingCallActionCoordinator.handleAccept(getApplicationContext(), callId);
     if (CallV4Lane.isTelegramLaneEnabled(getApplicationContext())) {
-      finishSafely();
+      enterV4ConnectingMode();
       return;
     }
     showConnectingState();
   }
 
+  private void enterV4ConnectingMode() {
+    if (finished || connectingMode) return;
+    connectingMode = true;
+    showConnectingState(true);
+    Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] native_connecting_surface_shown callId=" + callId);
+    IncomingCallConnectingSurface.scheduleKeepOnTop(this);
+  }
+
+  static void finishConnectingSurfaceForCall(String callId, String reason) {
+    if (callId == null || callId.trim().isEmpty()) return;
+    String sid = callId.trim();
+    IncomingCallActivity active = activeInstance != null ? activeInstance.get() : null;
+    if (active != null
+        && !active.finished
+        && active.connectingMode
+        && active.callId != null
+        && sid.equals(active.callId.trim())) {
+      Log.i(
+          CallV4Lane.TAG,
+          "[DIBAY_CALL_V4] connecting_surface_finish_active callId="
+              + sid
+              + " reason="
+              + reason);
+      active.finishSafely();
+      return;
+    }
+    finishLiveInstancesForCallId(sid, "connecting_handoff:" + reason);
+  }
+
   private void showConnectingState() {
+    showConnectingState(false);
+  }
+
+  private void showConnectingState(boolean v4Connecting) {
     LinearLayout actions = findViewById(R.id.incoming_call_actions);
     TextView kindView = findViewById(R.id.incoming_call_kind);
-    if (actions != null) {
-      actions.setVisibility(View.GONE);
-    }
+    ImageButton acceptBtn = findViewById(R.id.incoming_call_accept);
+    ImageButton declineBtn = findViewById(R.id.incoming_call_decline);
     if (kindView != null) {
       kindView.setText(getString(R.string.incoming_call_connecting));
     }
+    if (v4Connecting) {
+      if (acceptBtn != null) {
+        acceptBtn.setVisibility(View.GONE);
+      }
+      if (declineBtn != null) {
+        declineBtn.setVisibility(View.VISIBLE);
+        declineBtn.setOnClickListener(v -> handleConnectingEndPressed());
+      }
+      if (actions != null) {
+        actions.setVisibility(View.VISIBLE);
+      }
+      return;
+    }
+    if (actions != null) {
+      actions.setVisibility(View.GONE);
+    }
+  }
+
+  private void handleConnectingEndPressed() {
+    if (finished) return;
+    Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] native_connecting_surface_end_pressed callId=" + callId);
+    IncomingCallActionCoordinator.handleReject(getApplicationContext(), callId);
+    finishSafely();
   }
 
   private void handleDecline() {

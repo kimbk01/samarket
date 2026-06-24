@@ -1,0 +1,56 @@
+{
+  "bundleId": "call-v4-incoming-fsi-fallback",
+  "description": "Android FSI / BAL fallback / session cleanup + Web telegram surface + 5-gate QA. Other domains must not import or patch these paths.",
+  "androidIncoming": [
+    "android/app/src/main/java/com/dibay/app/IncomingCallActionCoordinator.java",
+    "android/app/src/main/java/com/dibay/app/IncomingCallActivity.java",
+    "android/app/src/main/java/com/dibay/app/IncomingCallConnectingSurface.java",
+    "android/app/src/main/java/com/dibay/app/IncomingCallBackgroundNotifier.java",
+    "android/app/src/main/java/com/dibay/app/IncomingCallNotificationBuilder.java",
+    "android/app/src/main/java/com/dibay/app/IncomingCallPushDelivery.java",
+    "android/app/src/main/java/com/dibay/app/IncomingCallTerminalHandler.java",
+    "android/app/src/main/java/com/dibay/app/IncomingCallSessionCleanup.java",
+    "android/app/src/main/java/com/dibay/app/PendingIncomingPresentation.java"
+  ],
+  "webIncoming": [
+    "lib/community-messenger/call-v4/call-v4-telegram-incoming-surface.ts"
+  ],
+  "verifyScripts": [
+    "scripts/verify-call-v4-structure-lock.cjs",
+    "scripts/verify-incoming-call-push-delivery-contract.cjs",
+    "scripts/verify-call-v4-incoming-fsi-fallback-boundary.cjs"
+  ],
+  "importGuardTest": "lib/community-messenger/call-v4/__tests__/call-v4-import-guard.test.ts",
+  "qaScript": ".qa-logs/v4-abc-policy-5gate.mjs",
+  "sessionCleanupCallers": [
+    "IncomingCallActionCoordinator.java",
+    "IncomingCallTerminalHandler.java",
+    "IncomingCallBackgroundNotifier.java",
+    "IncomingCallSessionCleanup.java"
+  ],
+  "policyPresentationOwner": "IncomingCallBackgroundNotifier.java",
+  "policyPresentationMethods": [
+    "presentV4LockFsiOnlyIncoming",
+    "presentV4BackgroundActivityFirstIncoming"
+  ],
+  "forbiddenSessionCleanupOutsideBundle": [
+    "lib/trade/",
+    "lib/stores/",
+    "lib/order-chat/",
+    "app/(main)/market/",
+    "app/(main)/stores/"
+  ],
+  "qaRequiredAnchors": [
+    "BUNDLE: call-v4-incoming-fsi-fallback",
+    "FALLBACK_ACCEPT_LABELS",
+    "tapFallbackNotificationAccept",
+    "extractAcceptChain",
+    "fallbackAcceptChainComplete",
+    "HEADS_UP_OFFSCREEN_Y",
+    "fallbackSeen"
+  ],
+  "packageScripts": {
+    "verify": "verify:call-v4-incoming-fsi-fallback-boundary",
+    "qa": "qa:call-v4-5gate"
+  }
+}
