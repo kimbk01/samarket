@@ -51,16 +51,14 @@ describe("call-v4 import isolation", () => {
     expect(fgs).toContain("v3_task_removed_pending_suppressed");
   });
 
-  it("V4 lock incoming uses CallStyle FSI primary before action-only", () => {
+  it("V4 lock incoming uses Telegram fullscreen activity (single visible surface)", () => {
     const notifier = read("android/app/src/main/java/com/dibay/app/IncomingCallBackgroundNotifier.java");
-    const lockMethod =
-      notifier.match(/private static void presentV4LockedIncoming[\s\S]*?^  \}/m)?.[0] ?? "";
-    expect(notifier).toContain("presentV4LockedIncoming");
-    expect(notifier).toContain("lock_incoming_fsi_primary");
-    expect(notifier).toContain("lock_fsi_primary");
-    expect(lockMethod).toContain("showIncomingCall(context, payload, fgsDelivery)");
-    expect(lockMethod).not.toContain("showIncomingCallActionOnly");
-    expect(notifier).toContain("lock_presentation_deferred_to_fgs");
+    expect(notifier).toContain("presentV4TelegramFullscreenIncoming");
+    expect(notifier).toContain("telegram_fullscreen_launch_start");
+    expect(notifier).toContain("lock_presentation_immediate");
+    expect(notifier).not.toContain("lock_incoming_fsi_only");
+    expect(notifier).not.toContain("_boost");
+    expect(notifier).not.toContain("lock_incoming_activity_boost");
   });
 
   it("V4 ringing FGS notification is always carrier-only in telegram lane", () => {
@@ -88,7 +86,7 @@ describe("call-v4 import isolation", () => {
     expect(fgs).toContain("NotificationCompat.CATEGORY_SERVICE");
     expect(fgs).toContain("NotificationCompat.PRIORITY_LOW");
     expect(fgs).toMatch(/if \(carrierOnly\) \{[\s\S]*?return builder\.build\(\);[\s\S]*?\.addAction/);
-    expect(notifier).toContain("native_activity_claimed");
+    expect(notifier).toContain("telegram_fullscreen_launch_start");
     expect(notifier).toContain("notification_fallback");
   });
 

@@ -11,9 +11,8 @@ import com.dibay.app.callv4.CallV4Lane;
  * <ul>
  *   <li>Ring — {@link IncomingCallRingOwner} once at push boundary (Web must not blind-stop).</li>
  *   <li>Owner claim — {@link IncomingCallSurfaceOwner} before any visible surface (V4).</li>
- *   <li>Foreground unlocked — native pill + Web event (no duplicate ring in MainActivity).</li>
- *   <li>Lock / sleep — wake lock + defer UI to ringing FGS after {@code startForeground}.</li>
- *   <li>Background home — defer UI to ringing FGS after {@code startForeground}.</li>
+ *   <li>Foreground unlocked — Web top banner (owner web_in_app) via dibay:call-event.</li>
+ *   <li>Lock / sleep / background — Telegram fullscreen {@code IncomingCallActivity} + action-only notify.</li>
  * </ul>
  */
 public final class IncomingCallPushDelivery {
