@@ -44,10 +44,44 @@ export type BuildCallV4ScreenViewModelInput = {
   router: { replace: (href: string) => void; push: (href: string) => void };
 };
 
+function buildCallV4ConnectingViewModel(callId: string, safeT: SafeTranslate): CallScreenViewModel {
+  const statusText = safeT("cm_ui_connecting", { fallbackKo: "연결 중", fallbackEn: "Connecting" });
+  return {
+    visualTheme: "starbucks",
+    mode: "voice",
+    direction: "incoming",
+    phase: "connecting",
+    peerLabel: statusText,
+    peerAvatarUrl: null,
+    statusText,
+    subStatusText: statusText,
+    topLabel: null,
+    onTopLabelClick: null,
+    footerNote: null,
+    connectionLabel: null,
+    connectedAt: null,
+    endedAt: null,
+    endedDurationSeconds: null,
+    mediaState: {
+      micEnabled: true,
+      speakerEnabled: true,
+      cameraEnabled: false,
+      localVideoMinimized: true,
+    },
+    onBack: null,
+    primaryActions: [],
+    secondaryActions: [],
+    suppressTerminalView: false,
+  };
+}
+
 export function buildCallV4ScreenViewModel(input: BuildCallV4ScreenViewModelInput): CallScreenViewModel | null {
   const { callId, phase, identity, connectedAt, safeT, router } = input;
   if (!identity || identity.callId !== callId) {
-    const activePhases: CallV4Phase[] = ["accepting", "joining", "connected", "ending", "incoming_ringing", "outgoing_ringing", "creating"];
+    if (phase === "accepting" || phase === "joining") {
+      return buildCallV4ConnectingViewModel(callId, safeT);
+    }
+    const activePhases: CallV4Phase[] = ["connected", "ending", "incoming_ringing", "outgoing_ringing", "creating"];
     if (!activePhases.includes(phase)) return null;
     return null;
   }

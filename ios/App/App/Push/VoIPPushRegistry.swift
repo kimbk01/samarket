@@ -58,7 +58,19 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
       owner: "native_fsi",
       reason: "ios_callkit_incoming"
     )
-    callProvider.reportIncomingCall(uuidString: sessionId, handle: caller, hasVideo: hasVideo) { _ in
+    callProvider.reportIncomingCall(uuidString: sessionId, handle: caller, hasVideo: hasVideo) { error in
+      if let error = error {
+        NSLog(
+          "[DIBAY_CALL_V4] ios_callkit_incoming_failed callId=%@ err=%@",
+          sessionId,
+          error.localizedDescription
+        )
+        CallV4SurfaceOwnerBridge.deliver(
+          callId: sessionId,
+          owner: "notification_fallback",
+          reason: "ios_callkit_incoming_failed"
+        )
+      }
       completion()
     }
   }

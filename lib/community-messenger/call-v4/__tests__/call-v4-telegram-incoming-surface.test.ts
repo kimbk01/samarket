@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { CALL_V4_TELEGRAM_INCOMING_SURFACE_CONTRACT } from "@/lib/community-messenger/call-v4/call-v4-telegram-incoming-surface";
+import { CALL_V4_SURFACE_OWNER_KINDS, CALL_V4_TELEGRAM_INCOMING_SURFACE_CONTRACT } from "@/lib/community-messenger/call-v4/call-v4-telegram-incoming-surface";
 
 function read(path: string): string {
   return readFileSync(join(process.cwd(), path), "utf8");
@@ -36,6 +36,19 @@ describe("call-v4 Telegram incoming surface contract", () => {
     expect(telegramMethod).toMatch(
       /activityLaunched[\s\S]*showIncomingCallActionOnly[\s\S]*telegram_fullscreen_notification_fallback[\s\S]*showIncomingCall/,
     );
+  });
+
+  it("documents shared surface owner kinds", () => {
+    expect(CALL_V4_TELEGRAM_INCOMING_SURFACE_CONTRACT.foreground).toBe("web_top_banner");
+    expect(CALL_V4_SURFACE_OWNER_KINDS).toContain("unknown_pending");
+  });
+
+  it("CallV4IncomingSheet expand uses V4 preview route not V3", () => {
+    const sheet = read("components/community-messenger/call-v4/CallV4IncomingSheet.tsx");
+    const route = read("lib/community-messenger/call-v4/call-v4-route.ts");
+    expect(sheet).toContain("buildCallV4IncomingPreviewHref");
+    expect(sheet).not.toContain("buildIncomingCallPreviewHref");
+    expect(route).toContain("/community-messenger/calls-v4/");
   });
 
   it("foreground push routes to Web only (no native foreground activity launcher in delivery)", () => {

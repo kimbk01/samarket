@@ -147,6 +147,7 @@ public final class IncomingCallActionCoordinator {
     final Context app = context.getApplicationContext();
     if (CallV4Lane.isTelegramLaneEnabled(app)) {
       IncomingCallSurfaceOwner.clearOwner(app, sid, "reject");
+      MainActivity.deliverCallTerminalEvent(app, sid, "rejected");
     }
     IncomingCallTerminalHandler.finishIncomingUiOnly(context, sid);
     Log.i("DIBAY_CALL", "[DIBAY_CALL] reject_signal_sent callId=" + sid);

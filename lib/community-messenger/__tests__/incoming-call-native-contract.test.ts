@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
 function read(p: string): string {
@@ -247,11 +247,9 @@ describe("incoming-call native contract", () => {
     expect(notification).toContain("dibay_incoming_primary");
     expect(read("android/app/src/main/res/values/colors.xml")).toContain("dibay_incoming_primary");
     expect(read("android/app/src/main/res/values/colors.xml")).toContain("#006241");
-    const pill = read("android/app/src/main/res/layout/activity_foreground_incoming_call.xml");
-    expect(pill).toContain("@android:drawable/sym_action_call");
-    expect(pill).toContain("@android:drawable/ic_menu_close_clear_cancel");
-    expect(pill).not.toContain("android:text=\"@string/dibay_incoming_accept\"");
-    expect(pill).not.toContain("ic_dibay_incoming_accept");
+    const incoming = read("android/app/src/main/res/layout/activity_incoming_call.xml");
+    expect(incoming).toContain("incoming_call_accept");
+    expect(incoming).toContain("incoming_call_decline");
   });
 
   it("caller display strips legacy @id suffix in IncomingCallUiCopy", () => {
@@ -274,11 +272,12 @@ describe("incoming-call native contract", () => {
     expect(read("android/app/src/main/res/layout/activity_incoming_call.xml")).toContain("incoming_call_actions");
   });
 
-  it("foreground pill uses 440ms enter animation and DIBAY layout", () => {
-    const activity = read("android/app/src/main/java/com/dibay/app/ForegroundIncomingCallActivity.java");
-    expect(activity).toContain("dibay_incoming_pill_enter");
-    expect(read("android/app/src/main/res/anim/dibay_incoming_pill_enter.xml")).toContain("440");
-    expect(read("android/app/src/main/res/layout/activity_foreground_incoming_call.xml")).toContain("bg_dibay_incoming_pill");
+  it("legacy foreground pill activity removed (V4 web sheet SSOT)", () => {
+    const pill = join(
+      process.cwd(),
+      "android/app/src/main/java/com/dibay/app/ForegroundIncomingCallActivity.java",
+    );
+    expect(existsSync(pill)).toBe(false);
   });
 
   it("native plugin proxy is wrapped so Promise resolution does not call .then()", () => {

@@ -46,6 +46,23 @@ describe("buildCallV4ScreenViewModel native accept inflight", () => {
     info.mockRestore();
   });
 
+  it("builds connecting view model when identity is missing during joining", () => {
+    vi.mocked(isNativeAcceptInflight).mockReturnValue(false);
+
+    const vm = buildCallV4ScreenViewModel({
+      callId: "call-vm",
+      phase: "joining",
+      identity: null,
+      connectedAt: null,
+      safeT,
+      router,
+    });
+
+    expect(vm?.phase).toBe("connecting");
+    expect(vm?.statusText).toBe("연결 중");
+    expect(vm?.primaryActions).toHaveLength(0);
+  });
+
   it("does not create accept/reject actions when phase is accepting", () => {
     vi.mocked(isNativeAcceptInflight).mockReturnValue(false);
 

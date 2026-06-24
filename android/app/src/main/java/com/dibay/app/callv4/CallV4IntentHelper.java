@@ -45,22 +45,6 @@ public final class CallV4IntentHelper {
     return launch;
   }
 
-  /** V4 reject deep link — legacy; native decline uses {@link IncomingCallRejectPatchHelper} instead. */
-  public static Intent buildMainActivityV4RejectIntent(Context context, String callId, String source) {
-    String sid = callId != null ? callId.trim() : "";
-    String src = source != null && !source.trim().isEmpty() ? source.trim() : "native_reject";
-    Intent launch = new Intent(context, MainActivity.class);
-    launch.setAction(Intent.ACTION_VIEW);
-    launch.setData(
-        Uri.parse(
-            "dibay://call-v4/"
-                + Uri.encode(sid)
-                + "?action=reject&source="
-                + Uri.encode(src)));
-    launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-    return launch;
-  }
-
   public static String buildV4AcceptAppPath(String callId, String source) {
     String sid = callId != null ? callId.trim() : "";
     String src = source != null && !source.trim().isEmpty() ? source.trim() : "native_accept";

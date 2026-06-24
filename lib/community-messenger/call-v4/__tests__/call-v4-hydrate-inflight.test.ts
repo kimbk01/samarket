@@ -40,7 +40,7 @@ describe("hydrateCallV4CalleeScreen native accept inflight", () => {
 
     const hydrated = await hydrateCallV4CalleeScreen("call-hydrate");
     expect(hydrated).toBe(true);
-    expect(useCallV4Store.getState().phase).toBe("accepting");
+    expect(useCallV4Store.getState().phase).toBe("joining");
     expect(useCallV4Store.getState().phase).not.toBe("incoming_ringing");
   });
 });

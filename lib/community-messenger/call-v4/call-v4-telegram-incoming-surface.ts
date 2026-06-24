@@ -10,6 +10,16 @@
  * CallStyle+FSI is fallback only when Activity launch fails.
  */
 
+export const CALL_V4_SURFACE_OWNER_KINDS = [
+  "web_in_app",
+  "native_activity",
+  "native_fsi",
+  "notification_fallback",
+  "accepted_transition",
+  "terminal",
+  "unknown_pending",
+] as const;
+
 export const CALL_V4_TELEGRAM_INCOMING_SURFACE_CONTRACT = {
   foreground: "web_top_banner",
   nonForeground: "native_fullscreen_activity",

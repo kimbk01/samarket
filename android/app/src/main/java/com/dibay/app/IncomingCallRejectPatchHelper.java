@@ -59,7 +59,6 @@ public final class IncomingCallRejectPatchHelper {
       int status = conn.getResponseCode();
       if (status >= 200 && status < 300) {
         Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] reject_patch_done callId=" + callId + " status=" + status);
-        MainActivity.deliverCallTerminalEvent(context, callId, "rejected");
         return;
       }
       Log.w(

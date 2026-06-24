@@ -26,7 +26,7 @@ Handled by `lib/community-messenger/dibay-fcm-call-bridge.ts` → `GlobalCommuni
 
 | State | UI | Ring |
 |-------|-----|------|
-| App foreground (unlocked) | **`ForegroundIncomingCallActivity`** native pill + Web session sync | `IncomingCallPushDelivery` → `IncomingCallRingOwner` (not WebAudio) |
+| App foreground (unlocked) | Web owner `web_in_app` — `CallV4IncomingSheet` + session sync via `dibay:call-event` (native pill Activity removed) | `IncomingCallPushDelivery` → `IncomingCallRingOwner` (not WebAudio) |
 | Lock / screen off / app background | System call notification (silent channel) + **수락/거절**; lock also `IncomingCallActivity` via FSI/direct launch | RingOwner only (no channel sound) |
 | After foreground Web accept | `/community-messenger/calls/{callId}?action=accept&mode=active&source=banner` immediately; CallClient runs the single Web accept gateway | `ring_stop` on accept press |
 | After native accept | `/community-messenger/calls/{callId}?action=accept&nativePrep=1` immediately, then `nativeAccept=1` after native PATCH; warm WebView receives JS route, cold WebView may `loadUrl` fallback | native `ring_stop` on accept/terminal |
@@ -43,7 +43,7 @@ See `.cursor/rules/incoming-call-push-delivery-contract.mdc` for confirmed root 
 
 1. **Do not** add `windowShowWhenLocked`, `showWhenLocked`, `turnScreenOn`, etc. to `styles.xml` or `AndroidManifest` — AppCompat linking fails. Use `IncomingCallActivity.applyWakeFlags()` only when Activity is explicitly launched (fallback).
 2. **Do not** set notification `contentIntent` to launcher or accept route — content tap opens **preview** only (`incomingPreview=1`). Native accept must follow: immediate `/calls/:id?action=accept&nativePrep=1` → native PATCH accept → `/calls/:id?action=accept&nativeAccept=1`; warm WebView delivery must prefer JS route injection over a visible full reload.
-3. **Do not** call `startActivity(IncomingCallActivity)` from FCM when app is **foreground+unlocked** — use `ForegroundIncomingCallActivity` pill via `IncomingCallPushDelivery`.
+3. **Do not** call `startActivity(IncomingCallActivity)` or any native incoming Activity from FCM when app is **foreground+unlocked** — `IncomingCallPushDelivery` must inject Web event only (`web_in_app` owner).
 4. **Do not** use React `IncomingCallBanner` as lock-screen UI — WebView is unavailable when app is background/killed.
 5. **Do not** start ring in `MainActivity`, notification channel, or `DEFAULT_ALL` — **`IncomingCallPushDelivery` + silent channel** only.
 6. **Do not** Web `syncIncomingCallRing(null)` blind-stop native on Android before sessions hydrate.

@@ -43,9 +43,7 @@ public final class IncomingCallBackgroundNotifier {
           "foreground_service_started_ringing",
           callId,
           "ok=false err=" + error.getClass().getSimpleName());
-      if (!CallV4Lane.isTelegramLaneEnabled(app)) {
-        deliverPendingPresentation(app, callId, "fgs_start_failed");
-      }
+      deliverPendingPresentation(app, callId, "fgs_start_failed");
     }
   }
 
@@ -71,9 +69,7 @@ public final class IncomingCallBackgroundNotifier {
           "foreground_service_started_ringing",
           callId,
           "ok=false err=" + error.getClass().getSimpleName() + " msg=" + error.getMessage());
-      if (!CallV4Lane.isTelegramLaneEnabled(app)) {
-        deliverPendingPresentation(app, callId, "fgs_start_failed");
-      }
+      deliverPendingPresentation(app, callId, "fgs_start_failed");
     }
   }
 
@@ -136,7 +132,9 @@ public final class IncomingCallBackgroundNotifier {
     String callId = payload.callId.trim();
     Context app = context.getApplicationContext();
     IncomingCallSurfaceOwner.SurfaceOwner activityOwner =
-        IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_ACTIVITY;
+        "locked".equals(visibilityTag)
+            ? IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_FSI
+            : IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_ACTIVITY;
 
     if (IncomingCallSurfaceOwner.shouldBlockVisibleIncomingStart(callId, activityOwner)) {
       Log.i(

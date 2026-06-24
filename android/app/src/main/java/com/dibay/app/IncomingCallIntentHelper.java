@@ -9,24 +9,6 @@ import com.dibay.app.call.CallForegroundService;
 public final class IncomingCallIntentHelper {
   private IncomingCallIntentHelper() {}
 
-  public static Intent buildForegroundIncomingCallActivityIntent(Context context, IncomingCallPayload payload) {
-    if (context == null || payload == null || !payload.isValid()) {
-      return null;
-    }
-    Intent intent = new Intent(context, ForegroundIncomingCallActivity.class);
-    intent.putExtra(IncomingCallActivity.EXTRA_CALL_ID, payload.callId);
-    intent.putExtra(IncomingCallActivity.EXTRA_CALLER_NAME, payload.callerName);
-    intent.putExtra(IncomingCallActivity.EXTRA_TITLE, payload.title);
-    intent.putExtra(IncomingCallActivity.EXTRA_BODY, payload.body);
-    intent.putExtra(IncomingCallActivity.EXTRA_CALL_TYPE, payload.callType);
-    intent.putExtra(IncomingCallActivity.EXTRA_EXPIRES_AT, payload.expiresAt);
-    intent.putExtra(IncomingCallActivity.EXTRA_ROOM_ID, payload.roomId);
-    intent.putExtra(IncomingCallActivity.EXTRA_CALLER_ID, payload.callerId);
-    intent.putExtra(IncomingCallActivity.EXTRA_CALLER_AVATAR_URL, payload.callerAvatarUrl);
-    intent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-    return intent;
-  }
-
   public static Intent buildIncomingCallActivityIntent(Context context, IncomingCallPayload payload) {
     if (context == null || payload == null || !payload.isValid()) {
       return null;

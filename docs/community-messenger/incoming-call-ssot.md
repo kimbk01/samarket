@@ -123,7 +123,7 @@ TTL: **120 seconds** (Web consumed, `hardClearedAt`, Native `DibayCallConsumedSt
 
 | Surface | Detection | UI | Ring |
 |---------|-----------|-----|------|
-| Foreground unlocked | `isForegroundUnlockedInteractive` | `ForegroundIncomingCallActivity` + Web `dibay:call-event` | PushDelivery (not MainActivity) |
+| Foreground unlocked | `isForegroundUnlockedInteractive` | Web owner `web_in_app` — `dibay:call-event` → `CallV4IncomingSheet` (native Activity 금지) | PushDelivery (not MainActivity) |
 | Lock / sleep | keyguard locked or not interactive | FGS → silent CallStyle/FSI → `IncomingCallActivity` | PushDelivery |
 | Background home | app not visible, unlocked | FGS `startForeground` → Activity → silent notify | PushDelivery |
 

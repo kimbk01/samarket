@@ -1,13 +1,14 @@
 "use client";
 
 import { useSyncExternalStore, useEffect, useState, type ComponentType } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { CommunityMessengerCallClient } from "@/components/community-messenger/CommunityMessengerCallClient";
 import { CommunityMessengerCallRouteLoading } from "@/components/community-messenger/CommunityMessengerCallRouteLoading";
 import { CommunityMessengerCallEnterShell } from "@/components/community-messenger/call-history/CommunityMessengerCallEnterShell";
 import { subscribeCommunityCallHostSync } from "@/components/layout/providers/CommunityMessengerActiveCallHost";
 import { isCallSessionHostedByActiveCallHost } from "@/lib/community-messenger/direct-call-minimize";
 import { isDibayCallV3SafeLaneEnabled } from "@/lib/community-messenger/call-v3/call-v3-flag";
+import { isCallV4TelegramLaneEnabled } from "@/lib/community-messenger/call-v4/call-v4-flag";
 
 type CallV3ScreenProps = {
   callId: string;
@@ -42,9 +43,17 @@ function CallV3ScreenLazy({ callId }: CallV3ScreenProps) {
  */
 export default function CommunityMessengerCallPage() {
   const params = useParams();
+  const router = useRouter();
   const raw = params?.sessionId;
   const sessionId = Array.isArray(raw) ? String(raw[0] ?? "").trim() : String(raw ?? "").trim();
   const v3SafeLane = isDibayCallV3SafeLaneEnabled();
+  const v4Lane = isCallV4TelegramLaneEnabled();
+
+  useEffect(() => {
+    if (!sessionId || !v4Lane) return;
+    const qs = typeof window !== "undefined" ? window.location.search : "";
+    router.replace(`/community-messenger/calls-v4/${encodeURIComponent(sessionId)}${qs}`);
+  }, [router, sessionId, v4Lane]);
 
   const hostOwnsSession = useSyncExternalStore(
     subscribeCommunityCallHostSync,
@@ -53,6 +62,10 @@ export default function CommunityMessengerCallPage() {
   );
 
   if (!sessionId) {
+    return <CommunityMessengerCallRouteLoading />;
+  }
+
+  if (v4Lane) {
     return <CommunityMessengerCallRouteLoading />;
   }
 

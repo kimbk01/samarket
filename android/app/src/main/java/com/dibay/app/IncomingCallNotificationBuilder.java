@@ -25,7 +25,7 @@ import androidx.core.graphics.drawable.IconCompat;
 /**
  * Messenger-style incoming call notification — system call category with accept/decline actions.
  *
- * <p>Foreground unlocked uses {@link ForegroundIncomingCallActivity} pill. Lock/screen-off uses
+ * <p>Foreground unlocked uses Web CallV4IncomingSheet (owner web_in_app). Lock/screen-off uses
  * notification actions plus optional full-screen intent bridge ({@link IncomingCallActivity}).
  */
 public final class IncomingCallNotificationBuilder {
@@ -224,8 +224,6 @@ public final class IncomingCallNotificationBuilder {
     final int notificationId = INCOMING_CALL_NOTIFICATION_BASE_ID + Math.abs(sid.hashCode() % 1000);
 
     if (actionOnly) {
-      IncomingCallSurfaceOwner.tryClaimVisibleOwner(
-          sid, IncomingCallSurfaceOwner.VisibleOwner.NOTIFICATION_ACTION_ONLY);
       Notification actionOnlyNotification =
           buildActionOnlyIncomingNotification(
               app, sid, title, body, callType, expiresAt, roomId, callerId, callerNameFromPayload, callerAvatarUrl);

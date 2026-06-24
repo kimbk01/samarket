@@ -20,7 +20,8 @@ export type CallV4SurfaceOwnerKind =
   | "notification_action_only"
   | "accepted_transition"
   | "connected"
-  | "terminal";
+  | "terminal"
+  | "unknown_pending";
 
 export type CallV4IncomingSurfaceOwner =
   | "web_foreground"
@@ -476,62 +477,6 @@ export function canRenderWebIncomingSheet(
 
   return result;
 }
-
-/* @legacy Phase1-5 — retained for reference; Phase6A uses canRenderWebIncomingSheet. */
-function resolveSuppressReasonLegacy(args: {
-  callId: string;
-  visibilityState?: DocumentVisibilityState | string | null;
-}): { suppress: boolean; reason: CallV4IncomingSurfaceSuppressReason | null } {
-  const sid = normalizeCallId(args.callId);
-  if (!sid) return { suppress: true, reason: "background_native_owner" };
-
-  if (isCallV4AcceptedTransitionOwner(sid)) {
-    return { suppress: true, reason: "accepted_transition" };
-  }
-  if (isCallV4TerminalSurfaceOwner(sid)) {
-    return { suppress: true, reason: "accepted_transition" };
-  }
-  if (isCallV4NativeAcceptingSurface(sid)) {
-    return { suppress: true, reason: "native_accepting" };
-  }
-  if (isCallV4NativePersistedSurfaceOwner(sid)) {
-    return { suppress: true, reason: "persisted_native_owner" };
-  }
-  if (isCallV4BlockingNativeIncomingSurface(sid)) {
-    return { suppress: true, reason: "native_surface_active" };
-  }
-
-  const nativeSignal = nativeSurfaceByCallId.get(sid);
-  if (
-    nativeSignal?.hasNativeIncomingSurface &&
-    (nativeSignal.appVisibility === "background" || nativeSignal.appVisibility === "locked")
-  ) {
-    return { suppress: true, reason: "native_surface_active" };
-  }
-
-  const appVisibility = resolveCallV4AppVisibility(args.visibilityState);
-  if (appVisibility === "locked") return { suppress: true, reason: "locked_native_owner" };
-  if (!shouldUseCallV4WebIncomingSheet(appVisibility)) {
-    return { suppress: true, reason: "background_native_owner" };
-  }
-
-  const persistedOwner = getCallV4PersistedSurfaceOwner(sid);
-  if (persistedOwner !== "none" && persistedOwner !== "web_in_app") {
-    return { suppress: true, reason: "owner_not_web_in_app" };
-  }
-
-  const surfaceType = readNativeSurfaceType(sid);
-  if (
-    surfaceType === "foreground_pill" &&
-    shouldPreferCallV4NativeIncomingSurface(appVisibility) &&
-    hasCallV4NativeIncomingSurfaceForCall(sid)
-  ) {
-    return { suppress: true, reason: "native_surface_active" };
-  }
-  return { suppress: false, reason: null };
-}
-
-void resolveSuppressReasonLegacy;
 
 function mapWebSheetReasonToLegacySuppress(
   reason: CallV4WebIncomingSheetRenderReason,

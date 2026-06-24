@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.util.Log;
+import com.dibay.app.callv4.CallV4Lane;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -59,7 +60,10 @@ public final class DibayCallDebugCommandReceiver extends BroadcastReceiver {
     DibayCallLog.once("push_received", callId, "roomId=" + payload.roomId + " source=debug_adb");
     Log.i("DIBAY_FCM", "[call-push] incoming_call_received callId=" + callId + " roomId=" + payload.roomId);
 
-    String pendingRoute = "/community-messenger/calls/" + Uri.encode(callId) + "?source=native_push";
+    String pendingRoute =
+        CallV4Lane.isTelegramLaneEnabled(app)
+            ? "/community-messenger/calls-v4/" + Uri.encode(callId) + "?source=native_push"
+            : "/community-messenger/calls/" + Uri.encode(callId) + "?source=native_push";
     DibayIncomingCallNativeStore.setRinging(app, payload, pendingRoute, 0L);
     MainActivity.persistCallPendingRoute(app, pendingRoute, payload, 0L);
 

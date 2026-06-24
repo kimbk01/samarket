@@ -25,11 +25,6 @@ export function tryClaimCallV4PureWebIncomingOwner(callId: string, reason: strin
     return false;
   }
 
-  if (typeof document !== "undefined" && document.visibilityState !== "visible") {
-    logCallV4("pure_web_owner_deferred_hidden", { callId: sid, reason });
-    return false;
-  }
-
   applyCallV4SurfaceOwnerSignal({
     callId: sid,
     owner: "web_in_app",

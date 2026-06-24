@@ -73,7 +73,8 @@ describe("call-v4 import isolation", () => {
     expect(main).toContain("dibay:call-surface-owner");
     expect(coord).toContain("ACCEPTED_TRANSITION");
     const activity = read("android/app/src/main/java/com/dibay/app/IncomingCallActivity.java");
-    expect(activity).toContain("native_connecting_surface");
+    expect(activity).toContain("finishSafely");
+    expect(activity).not.toContain("native_connecting_surface");
   });
 
   it("V4 ringing FGS notification is carrier-only when native/fallback surface owns visible UI", () => {
@@ -134,12 +135,15 @@ describe("call-v4 import isolation", () => {
     expect(plugin).toContain("claimForegroundWebIncomingOwner");
   });
 
-  it("pure web owner module is isolated from Capacitor shell", () => {
-    const pure = read("lib/community-messenger/call-v4/call-v4-pure-web-owner.ts");
-    const claim = read("lib/community-messenger/call-v4/call-v4-platform-owner-claim.ts");
-    expect(pure).toContain("!isCapacitorNativePlatform()");
-    expect(pure).not.toContain("canRenderWebIncomingSheet");
-    expect(claim).toContain("tryClaimCallV4PureWebIncomingOwner");
-    expect(claim).toContain("tryClaimIosCapacitorWebIncomingOwner");
+  it("pure web incoming contract is isolated from native shell", () => {
+    const contract = read("lib/community-messenger/call-v4/call-v4-pure-web-incoming-contract.ts");
+    expect(contract).toContain("tryClaimCallV4PureWebIncomingOwner");
+    expect(contract).not.toContain("IncomingCallSurfaceOwner");
+  });
+
+  it("structure lock script exists", () => {
+    const script = read("scripts/verify-call-v4-structure-lock.cjs");
+    expect(script).toContain("buildIncomingCallPreviewHref");
+    expect(script).toContain("resolveSuppressReasonLegacy");
   });
 });

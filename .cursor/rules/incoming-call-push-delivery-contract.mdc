@@ -10,7 +10,6 @@ globs:
   - "**/IncomingCallWakeLock.java"
   - "**/PendingIncomingPresentation.java"
   - "**/call/CallForegroundService.java"
-  - "**/ForegroundIncomingCallActivity.java"
   - "**/incoming-call/ring-owner.ts"
   - "**/GlobalCommunityMessengerIncomingCall.tsx"
   - "**/foreground-incoming-presenter.ts"
@@ -39,9 +38,10 @@ alwaysApply: false
 ```
 FCM/debug → IncomingCallPushDelivery.deliver()
               ├─ Ring: IncomingCallRingOwner (1회, source=push_delivery)
-              ├─ Foreground unlocked: ForegroundIncomingCallActivity + Web event (ring 재시작 금지)
-              ├─ Lock/sleep: WakeLock(lock) → FGS → silent notify/FSI → IncomingCallActivity
-              └─ Background home: PendingPresentation → FGS startForeground → Activity → silent notify
+              ├─ V4: IncomingCallSurfaceOwner claim (web_in_app | native_fsi | native_activity)
+              ├─ Foreground unlocked: Web owner only — dibay:call-event → CallV4IncomingSheet (native pill 금지)
+              ├─ Lock/sleep: WakeLock(lock) → FGS → silent notify/FSI → IncomingCallActivity (owner native_fsi)
+              └─ Background home: PendingPresentation → FGS startForeground → Activity (owner native_activity)
 Web Android: syncIncomingCallRing — WebAudio 금지, native blind-stop 금지
 Terminal: IncomingCallTerminalHandler — ring stop + consumed + UI dismiss
 ```
@@ -52,7 +52,7 @@ Terminal: IncomingCallTerminalHandler — ring stop + consumed + UI dismiss
 2. **`IncomingCallBackgroundNotifier`에서 ring start** — PushDelivery가 이미 시작함.
 3. **notification channel에 ring sound / `DEFAULT_ALL`** — `dibay_calls_incoming_v7` silent.
 4. **Web `sync(null)` → `stopNativeIncomingRingtone()` without sessionId** — tombstone/terminal/sync_clear(sessionId)만.
-5. **foreground unlocked에서 `IncomingCallActivity`(full-screen lock UI)** — `ForegroundIncomingCallActivity` pill.
+5. **foreground unlocked에서 `IncomingCallActivity`(full-screen lock UI) 또는 native pill Activity** — Web `web_in_app` owner + `CallV4IncomingSheet` only.
 6. **DibayFirebaseMessagingService / debug receiver에 분기 로직 복제** — `IncomingCallPushDelivery`만.
 
 ## 수정 후 필수

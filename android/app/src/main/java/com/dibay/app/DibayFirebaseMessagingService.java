@@ -12,6 +12,7 @@ import android.util.Log;
 import androidx.core.app.NotificationCompat;
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
+import com.dibay.app.callv4.CallV4Lane;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
@@ -187,7 +188,9 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
     }
 
     String pendingRoute =
-        "/community-messenger/calls/" + Uri.encode(callId) + "?source=native_push";
+        CallV4Lane.isTelegramLaneEnabled(this)
+            ? "/community-messenger/calls-v4/" + Uri.encode(callId) + "?source=native_push"
+            : "/community-messenger/calls/" + Uri.encode(callId) + "?source=native_push";
     DibayIncomingCallNativeStore.setRinging(this, payload, pendingRoute, expiry.effectiveExpiresAtMs);
     MainActivity.persistCallPendingRoute(this, pendingRoute, payload, expiry.effectiveExpiresAtMs);
     MainActivity.tryInjectCallWakeRoute(this, pendingRoute);

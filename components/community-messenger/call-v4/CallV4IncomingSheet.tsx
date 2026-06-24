@@ -15,7 +15,7 @@ import {
   subscribeCallV4SurfaceOwnerSignal,
 } from "@/lib/community-messenger/call-v4/call-v4-incoming-surface";
 import { useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
-import { buildIncomingCallPreviewHref } from "@/lib/community-messenger/incoming-call-preview-route";
+import { buildCallV4IncomingPreviewHref } from "@/lib/community-messenger/call-v4/call-v4-route";
 import { DEFAULT_INCOMING_RING_TIMEOUT_SECONDS } from "@/lib/community-messenger/messenger-call-ring-timeout";
 import { MESSENGER_FOREGROUND_INCOMING_BANNER_Z_CLASS } from "@/lib/community-messenger/incoming-call-surface";
 
@@ -110,7 +110,7 @@ export function CallV4IncomingSheet() {
         startedAt={identity.createdAt ?? null}
         busyReject={false}
         busyAccept={false}
-        onExpand={() => router.push(buildIncomingCallPreviewHref(callId))}
+        onExpand={() => router.push(buildCallV4IncomingPreviewHref(callId))}
         onReject={() => void callV4Reject(callId, router)}
         onAccept={() => void callV4Accept(callId, router, { source: "sheet" })}
         bannerDataTestId="call-v4-incoming-sheet"

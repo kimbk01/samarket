@@ -233,11 +233,6 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
         /* @legacy Phase1-5 — Web must not self-register native surface on fcm_wake (Phase 6A). */
         void hydrateCallV4IncomingWake(detail);
       },
-      onForegroundIncomingUi: ({ sessionId, visible }) => {
-        /* @legacy Phase1-5 — foreground_pill path; Phase 6A owner/sheet uses Android bridge only. */
-        void sessionId;
-        void visible;
-      },
       onFcmTerminal: (detail) => {
         void callV4HandleRemoteTerminal(
           detail.callId,

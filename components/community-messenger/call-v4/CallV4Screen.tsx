@@ -42,6 +42,7 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
   const connectedAt = useCallV4Store((s) => s.connectedAt);
   const action = searchParams?.get("action")?.trim() ?? null;
   const source = searchParams?.get("source")?.trim() ?? null;
+  const incomingPreview = searchParams?.get("incomingPreview") === "1";
   const exitGuardRef = useRef(false);
 
   useEffect(() => {
@@ -82,7 +83,7 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
     return () => {
       cancelled = true;
     };
-  }, [callId, source]);
+  }, [callId, incomingPreview, source]);
 
   useEffect(() => {
     if (!callId || source !== "outgoing") return;
@@ -115,6 +116,7 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
     if (!callId) return;
     if (action === "accept") return;
     if (source === "sheet") return;
+    if (incomingPreview) return;
 
     const current = readCallV4Identity();
     const currentPhase = readCallV4Phase();
@@ -152,7 +154,7 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
     return () => {
       cancelled = true;
     };
-  }, [action, callId, phase, identity, router, source]);
+  }, [action, callId, incomingPreview, phase, identity, router, source]);
 
   useEffect(() => {
     if (identity?.direction !== "outgoing") return;
@@ -178,7 +180,7 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
     () =>
       buildCallV4ScreenViewModel({
         callId,
-        phase: phase === "idle" && action === "accept" ? "accepting" : phase,
+        phase: phase === "idle" && action === "accept" ? "joining" : phase,
         identity,
         connectedAt,
         safeT: (key, options) => safeT(key as Parameters<typeof safeT>[0], options),
@@ -188,16 +190,7 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
   );
 
   if (!vm) {
-    return (
-      <div
-        data-testid="call-v4-screen"
-        className="flex min-h-dvh flex-col items-center justify-center bg-sam-app px-6 text-sam-fg"
-      >
-        <p className="text-lg font-semibold">
-          {safeT("cm_ui_connecting", { fallbackKo: "연결 중", fallbackEn: "Connecting" })}
-        </p>
-      </div>
-    );
+    return null;
   }
 
   return (

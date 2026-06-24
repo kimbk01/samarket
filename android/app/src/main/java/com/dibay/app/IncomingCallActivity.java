@@ -220,6 +220,13 @@ public class IncomingCallActivity extends AppCompatActivity {
   protected void onNewIntent(Intent intent) {
     super.onNewIntent(intent);
     setIntent(intent);
+    String nextCallId = firstNonEmpty(intent.getStringExtra(EXTRA_CALL_ID));
+    if (nextCallId != null && !nextCallId.equals(callId)) {
+      callId = nextCallId;
+      finished = false;
+      bindIncomingUi(intent);
+      notifyNativeSurfaceVisible();
+    }
     String action = intent.getAction();
     if (ACTION_ACCEPT.equals(action)) {
       handleAccept();
@@ -254,8 +261,12 @@ public class IncomingCallActivity extends AppCompatActivity {
     }
     DibayCallLog.once("accept_click", callId, "source=activity");
     Log.i(TAG, "[call-ui] answer_clicked callId=" + callId + " source=activity");
-    showConnectingState();
     IncomingCallActionCoordinator.handleAccept(getApplicationContext(), callId);
+    if (CallV4Lane.isTelegramLaneEnabled(getApplicationContext())) {
+      finishSafely();
+      return;
+    }
+    showConnectingState();
   }
 
   private void showConnectingState() {
@@ -266,9 +277,6 @@ public class IncomingCallActivity extends AppCompatActivity {
     }
     if (kindView != null) {
       kindView.setText(getString(R.string.incoming_call_connecting));
-    }
-    if (CallV4Lane.isTelegramLaneEnabled(getApplicationContext())) {
-      Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] native_connecting_surface callId=" + callId);
     }
   }
 

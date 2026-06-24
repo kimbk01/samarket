@@ -32,31 +32,13 @@ describe("call-v4 pure web owner (Windows/browser)", () => {
     expect(isCallV4PureWebOwnerEligible()).toBe(false);
   });
 
-  it("claims web_in_app when document is visible", () => {
-    Object.defineProperty(document, "visibilityState", {
-      configurable: true,
-      value: "visible",
-    });
+  it("claims web_in_app on pure web without document visibility gate", () => {
     const claimed = tryClaimCallV4PureWebIncomingOwner("call-pw-1", "pure_web_poll");
     expect(claimed).toBe(true);
     expect(getCallV4PersistedSurfaceOwner("call-pw-1")).toBe("web_in_app");
   });
 
-  it("does not claim when document is hidden", () => {
-    Object.defineProperty(document, "visibilityState", {
-      configurable: true,
-      value: "hidden",
-    });
-    const claimed = tryClaimCallV4PureWebIncomingOwner("call-pw-2", "pure_web_poll");
-    expect(claimed).toBe(false);
-    expect(getCallV4PersistedSurfaceOwner("call-pw-2")).toBe("none");
-  });
-
   it("does not override native_fsi owner", () => {
-    Object.defineProperty(document, "visibilityState", {
-      configurable: true,
-      value: "visible",
-    });
     applyCallV4SurfaceOwnerSignal({
       callId: "call-pw-3",
       owner: "native_fsi",

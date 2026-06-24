@@ -12,6 +12,11 @@ export function buildCallV4ScreenHref(callId: string, source = "sheet"): string 
   return `/community-messenger/calls-v4/${encodeURIComponent(sid)}?source=${encodeURIComponent(src)}`;
 }
 
+export function buildCallV4IncomingPreviewHref(callId: string): string {
+  const sid = callId.trim();
+  return `/community-messenger/calls-v4/${encodeURIComponent(sid)}?incomingPreview=1&source=banner_expand`;
+}
+
 export function buildCallV4OutgoingHref(callId: string): string {
   return buildCallV4ScreenHref(callId, "outgoing");
 }

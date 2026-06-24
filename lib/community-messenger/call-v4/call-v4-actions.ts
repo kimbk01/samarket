@@ -72,7 +72,7 @@ export function shouldHydrateOverwriteCallV4Phase(
 function applyCalleeHydratePhase(callId: string, session: CommunityMessengerCallSession, inflight: boolean): void {
   const currentPhase = readCallV4Phase();
   if (inflight) {
-    useCallV4Store.getState().setPhase(session.status === "active" ? "joining" : "accepting");
+    useCallV4Store.getState().setPhase("joining");
     return;
   }
   if (session.status === "active") {
@@ -149,7 +149,7 @@ export async function hydrateCallV4CalleeScreen(callId: string): Promise<boolean
   const existingIdentity = readCallV4Identity();
   if (existingIdentity?.callId === sid) {
     if (inflight && readCallV4Phase() === "incoming_ringing") {
-      useCallV4Store.getState().setPhase("accepting");
+      useCallV4Store.getState().setPhase("joining");
     }
     return true;
   }
