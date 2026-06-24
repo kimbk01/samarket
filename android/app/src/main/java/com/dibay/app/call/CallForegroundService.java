@@ -336,7 +336,7 @@ public class CallForegroundService extends Service {
   }
 
   private boolean shouldUseCarrierOnlyRingingNotification(String callId) {
-    if (!CallV4Lane.isTelegramLaneEnabled(this)) return false;
+    if (CallV4Lane.isTelegramLaneEnabled(this)) return true;
     if (IncomingCallSurfaceOwner.isNotificationFallbackOwner(callId)) return true;
     if (IncomingCallSurfaceOwner.isNativeFsiOwner(callId)) {
       Log.i(

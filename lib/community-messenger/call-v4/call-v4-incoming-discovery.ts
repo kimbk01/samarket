@@ -7,6 +7,7 @@ import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import { isCallV4TelegramLaneEnabled } from "@/lib/community-messenger/call-v4/call-v4-flag";
 import {
   isCallV4NativeAcceptingSurface,
+  isCallV4NativePersistedSurfaceOwner,
   logCallV4IncomingOwnerDecided,
   resolveCallV4AppVisibility,
   shouldSuppressCallV4IncomingDiscoveredForSheet,
@@ -59,6 +60,10 @@ export function startCallV4IncomingDiscovery(userId: string | null): () => void 
     if (!candidate?.id) return;
     const callId = candidate.id.trim();
     if (isIncomingDiscoveryDuplicateSkip(callId)) return;
+    if (isCallV4NativePersistedSurfaceOwner(callId)) {
+      logCallV4("incoming_discovery_suppressed", { callId, reason: "persisted_native_owner" });
+      return;
+    }
     if (isCallV4NativeAcceptingSurface(callId)) {
       logCallV4("incoming_sheet_suppressed_native_accepting", { callId });
       return;

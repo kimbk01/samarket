@@ -63,6 +63,21 @@ describe("call-v4 import isolation", () => {
     expect(notifier).toContain("lock_presentation_deferred_to_fgs");
   });
 
+  it("V4 ringing FGS notification is always carrier-only in telegram lane", () => {
+    const fgs = read("android/app/src/main/java/com/dibay/app/call/CallForegroundService.java");
+    const push = read("android/app/src/main/java/com/dibay/app/IncomingCallPushDelivery.java");
+    const owner = read("android/app/src/main/java/com/dibay/app/IncomingCallSurfaceOwner.java");
+    const main = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
+    const coord = read("android/app/src/main/java/com/dibay/app/IncomingCallActionCoordinator.java");
+    expect(fgs).toContain("if (CallV4Lane.isTelegramLaneEnabled(this)) return true;");
+    expect(push).toContain("tryClaimIncomingOwner(app, callId, initialOwner, \"fcm_push_delivery\")");
+    expect(owner).toContain("deliverCallSurfaceOwnerEvent");
+    expect(main).toContain("dibay:call-surface-owner");
+    expect(coord).toContain("ACCEPTED_TRANSITION");
+    const activity = read("android/app/src/main/java/com/dibay/app/IncomingCallActivity.java");
+    expect(activity).toContain("native_connecting_surface");
+  });
+
   it("V4 ringing FGS notification is carrier-only when native/fallback surface owns visible UI", () => {
     const fgs = read("android/app/src/main/java/com/dibay/app/call/CallForegroundService.java");
     const notifier = read("android/app/src/main/java/com/dibay/app/IncomingCallBackgroundNotifier.java");
@@ -73,8 +88,8 @@ describe("call-v4 import isolation", () => {
     expect(fgs).toContain("NotificationCompat.CATEGORY_SERVICE");
     expect(fgs).toContain("NotificationCompat.PRIORITY_LOW");
     expect(fgs).toMatch(/if \(carrierOnly\) \{[\s\S]*?return builder\.build\(\);[\s\S]*?\.addAction/);
-    expect(notifier).toContain("refreshRingingNotification(context, callId, payload.callType, \"native_fsi_claimed\")");
-    expect(notifier).toContain("refreshRingingNotification(context, callId, payload.callType, \"notification_fallback\")");
+    expect(notifier).toContain("native_activity_claimed");
+    expect(notifier).toContain("notification_fallback");
   });
 
   it("IncomingCallActionCoordinator uses MainActivity V4 accept not CallScreenActivity", () => {

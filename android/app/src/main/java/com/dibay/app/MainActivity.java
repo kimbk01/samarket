@@ -59,6 +59,20 @@ public class MainActivity extends BridgeActivity {
 
   private static final java.util.concurrent.ConcurrentHashMap<String, PendingCallV4NativeSurface>
       PENDING_CALL_V4_NATIVE_SURFACE = new java.util.concurrent.ConcurrentHashMap<>();
+  private static final java.util.concurrent.ConcurrentHashMap<String, PendingCallSurfaceOwner>
+      PENDING_CALL_SURFACE_OWNER = new java.util.concurrent.ConcurrentHashMap<>();
+
+  private static final class PendingCallSurfaceOwner {
+    final String owner;
+    final String reason;
+    final long tsMs;
+
+    PendingCallSurfaceOwner(String owner, String reason, long tsMs) {
+      this.owner = owner != null ? owner : "";
+      this.reason = reason != null ? reason : "";
+      this.tsMs = tsMs;
+    }
+  }
 
   private static final class PendingCallV4NativeSurface {
     final boolean visible;
@@ -148,6 +162,31 @@ public class MainActivity extends BridgeActivity {
       return;
     }
     act.mainHandler.post(() -> act.injectCallV4NativeSurfaceEvent(sid, visible, src, appVisibility));
+  }
+
+  /** V4 — atomic surface owner SSOT bridge (dibay:call-surface-owner). */
+  public static void deliverCallSurfaceOwnerEvent(
+      android.content.Context context, String callId, String owner, String reason) {
+    if (context == null || callId == null || callId.trim().isEmpty()) return;
+    if (!CallV4Lane.isTelegramLaneEnabled(context)) return;
+    String sid = callId.trim();
+    String ownerNorm = owner != null ? owner.trim().toLowerCase() : "none";
+    String src = reason != null ? reason.trim() : "native";
+    long tsMs = System.currentTimeMillis();
+    MainActivity act = activeInstance;
+    if (act == null) {
+      PENDING_CALL_SURFACE_OWNER.put(sid, new PendingCallSurfaceOwner(ownerNorm, src, tsMs));
+      Log.i(
+          CallV4Lane.TAG,
+          "[DIBAY_CALL_V4] surface_owner_bridge_queued callId="
+              + sid
+              + " owner="
+              + ownerNorm
+              + " reason="
+              + src);
+      return;
+    }
+    act.mainHandler.post(() -> act.injectCallSurfaceOwnerEvent(sid, ownerNorm, src, tsMs));
   }
 
   static String resolveCallV4BridgeAppVisibility(android.content.Context context) {
@@ -351,6 +390,38 @@ public class MainActivity extends BridgeActivity {
             + source);
   }
 
+  private void injectCallSurfaceOwnerEvent(String callId, String owner, String reason, long tsMs) {
+    Bridge bridge = getBridge();
+    if (bridge == null || bridge.getWebView() == null) {
+      PENDING_CALL_SURFACE_OWNER.put(
+          callId, new PendingCallSurfaceOwner(owner, reason, tsMs));
+      return;
+    }
+    WebView webView = bridge.getWebView();
+    final String safeCallId = safeJs(callId);
+    final String safeOwner = safeJs(owner);
+    final String safeReason = safeJs(reason);
+    final String js =
+        "(function(){try{window.dispatchEvent(new CustomEvent('dibay:call-surface-owner',{detail:{callId:'"
+            + safeCallId
+            + "',owner:'"
+            + safeOwner
+            + "',reason:'"
+            + safeReason
+            + "',ts:"
+            + tsMs
+            + "}}));}catch(e){}})();";
+    webView.post(() -> webView.evaluateJavascript(js, null));
+    Log.i(
+        CallV4Lane.TAG,
+        "[DIBAY_CALL_V4] surface_owner_bridge_injected callId="
+            + callId
+            + " owner="
+            + owner
+            + " reason="
+            + reason);
+  }
+
   private void flushPendingCallV4NativeSurfaceEvents() {
     if (PENDING_CALL_V4_NATIVE_SURFACE.isEmpty()) return;
     Bridge bridge = getBridge();
@@ -362,6 +433,19 @@ public class MainActivity extends BridgeActivity {
           entry.getKey(), pending.visible, pending.source, pending.appVisibility);
     }
     PENDING_CALL_V4_NATIVE_SURFACE.clear();
+  }
+
+  private void flushPendingCallSurfaceOwnerEvents() {
+    if (PENDING_CALL_SURFACE_OWNER.isEmpty()) return;
+    Bridge bridge = getBridge();
+    if (bridge == null || bridge.getWebView() == null) return;
+    for (java.util.Map.Entry<String, PendingCallSurfaceOwner> entry :
+        PENDING_CALL_SURFACE_OWNER.entrySet()) {
+      PendingCallSurfaceOwner pending = entry.getValue();
+      injectCallSurfaceOwnerEvent(
+          entry.getKey(), pending.owner, pending.reason, pending.tsMs);
+    }
+    PENDING_CALL_SURFACE_OWNER.clear();
   }
 
   private void injectCallTerminalEvent(String callId, String status) {
@@ -601,6 +685,7 @@ public class MainActivity extends BridgeActivity {
     flushPendingAppPathIfAny();
     scheduleFlushPendingTerminalEvents();
     flushPendingCallV4NativeSurfaceEvents();
+    flushPendingCallSurfaceOwnerEvents();
     String callId = DibayActiveCallSessionManager.getActiveCallId();
     if (callId != null && !callId.isEmpty()) {
       CallScreenStateReceiver.register(this);

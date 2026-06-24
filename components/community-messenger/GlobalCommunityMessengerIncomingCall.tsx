@@ -139,6 +139,7 @@ import {
 } from "@/lib/community-messenger/call-engine/call-engine-remote-terminal";
 import { shouldIgnoreIncomingDiscovered } from "@/lib/community-messenger/call-engine/call-engine-incoming-discovered-guard";
 import { buildIncomingCallPreviewHref } from "@/lib/community-messenger/incoming-call-preview-route";
+import { isCallV4TelegramLaneEnabled } from "@/lib/community-messenger/call-v4/call-v4-flag";
 import {
   isCmCallPhase0BasicsOnly,
   isCmGroupCallEnabled,
@@ -242,6 +243,7 @@ function clearIncomingMissedTimer(
 }
 
 export function GlobalCommunityMessengerIncomingCall() {
+  if (isCallV4TelegramLaneEnabled()) return null;
   const { t } = useI18n();
   const pathname = usePathname();
   const router = useRouter();

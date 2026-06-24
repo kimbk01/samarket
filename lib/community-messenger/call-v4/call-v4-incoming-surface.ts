@@ -5,9 +5,24 @@ import {
   isCallV4CalleeAcceptRoute,
   readCallV4SessionIdFromNativeRoute,
 } from "@/lib/community-messenger/call-v4/call-v4-native-route";
+
 export type CallV4AppVisibility = "foreground" | "background" | "locked" | "unknown";
 
-export type CallV4IncomingSurfaceOwner = "web_foreground" | "native_fsi" | "notification_fallback";
+export type CallV4SurfaceOwnerKind =
+  | "none"
+  | "native_fsi"
+  | "native_activity"
+  | "web_in_app"
+  | "notification_fallback"
+  | "notification_action_only"
+  | "accepted_transition"
+  | "connected"
+  | "terminal";
+
+export type CallV4IncomingSurfaceOwner =
+  | "web_foreground"
+  | "native_fsi"
+  | "notification_fallback";
 
 export type CallV4NativeSurfaceType =
   | "foreground_pill"
@@ -29,17 +44,32 @@ export type CallV4NativeIncomingSurfaceSignal = {
   source: string;
 };
 
+export type CallV4SurfaceOwnerSignal = {
+  callId: string;
+  owner: CallV4SurfaceOwnerKind;
+  reason: string;
+  ts: number;
+};
+
 export type CallV4IncomingSurfaceSuppressReason =
   | "background_native_owner"
   | "locked_native_owner"
   | "native_surface_active"
   | "native_foreground_pill"
-  | "native_accepting";
+  | "native_accepting"
+  | "persisted_native_owner"
+  | "accepted_transition"
+  | "owner_not_web_in_app"
+  | "owner_pending";
 
 const NATIVE_SURFACE_EVENT = "dibay:call-v4-native-surface";
 const NATIVE_ACCEPTING_EVENT = "dibay:call-v4-native-accepting-surface";
+const SURFACE_OWNER_EVENT = "dibay:call-surface-owner";
+const OWNER_STORAGE_KEY = "dibay:call-v4:surface-owner";
+export const CALL_V4_WEB_INCOMING_OWNER_DEFER_MS = 220;
 
 const nativeSurfaceByCallId = new Map<string, CallV4NativeIncomingSurfaceSignal>();
+const surfaceOwnerByCallId = new Map<string, CallV4SurfaceOwnerSignal>();
 const nativeAcceptingByCallId = new Map<
   string,
   { surfaceType: CallV4NativeAcceptingSurfaceType; source: string }
@@ -50,10 +80,146 @@ function normalizeCallId(callId: string): string {
   return callId.trim();
 }
 
+function normalizeOwner(owner: string | null | undefined): CallV4SurfaceOwnerKind {
+  const value = owner?.trim().toLowerCase() ?? "none";
+  switch (value) {
+    case "native_fsi":
+    case "native_activity":
+    case "web_in_app":
+    case "notification_fallback":
+    case "notification_action_only":
+    case "accepted_transition":
+    case "connected":
+    case "terminal":
+      return value;
+    default:
+      return "none";
+  }
+}
+
+function readOwnerStore(): Record<string, CallV4SurfaceOwnerSignal> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.sessionStorage.getItem(OWNER_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, CallV4SurfaceOwnerSignal>;
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeOwnerStore(store: Record<string, CallV4SurfaceOwnerSignal>): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (Object.keys(store).length === 0) {
+      window.sessionStorage.removeItem(OWNER_STORAGE_KEY);
+      return;
+    }
+    window.sessionStorage.setItem(OWNER_STORAGE_KEY, JSON.stringify(store));
+  } catch {
+    // sessionStorage unavailable — in-memory only
+  }
+}
+
+function persistSurfaceOwner(signal: CallV4SurfaceOwnerSignal): void {
+  const sid = normalizeCallId(signal.callId);
+  if (!sid) return;
+  surfaceOwnerByCallId.set(sid, signal);
+  const store = readOwnerStore();
+  store[sid] = signal;
+  writeOwnerStore(store);
+}
+
+export function getCallV4PersistedSurfaceOwner(callId: string): CallV4SurfaceOwnerKind {
+  const sid = normalizeCallId(callId);
+  if (!sid) return "none";
+  const memory = surfaceOwnerByCallId.get(sid);
+  if (memory?.owner) return memory.owner;
+  const stored = readOwnerStore()[sid];
+  if (stored?.owner) {
+    surfaceOwnerByCallId.set(sid, stored);
+    return stored.owner;
+  }
+  return "none";
+}
+
+export function isCallV4NativePersistedSurfaceOwner(callId: string): boolean {
+  const owner = getCallV4PersistedSurfaceOwner(callId);
+  return (
+    owner === "native_fsi" ||
+    owner === "native_activity" ||
+    owner === "notification_fallback"
+  );
+}
+
+export function isCallV4AcceptedTransitionOwner(callId: string): boolean {
+  return getCallV4PersistedSurfaceOwner(callId) === "accepted_transition";
+}
+
+export function isCallV4TerminalSurfaceOwner(callId: string): boolean {
+  const owner = getCallV4PersistedSurfaceOwner(callId);
+  return owner === "terminal" || owner === "connected";
+}
+
+export function ingestCallV4SurfaceOwnerSignal(signal: CallV4SurfaceOwnerSignal): void {
+  const sid = normalizeCallId(signal.callId);
+  if (!sid) return;
+  const normalized: CallV4SurfaceOwnerSignal = {
+    callId: sid,
+    owner: normalizeOwner(signal.owner),
+    reason: signal.reason?.trim() || "native",
+    ts: Number.isFinite(signal.ts) ? signal.ts : Date.now(),
+  };
+  persistSurfaceOwner(normalized);
+  logCallV4("surface_owner_signal", {
+    callId: sid,
+    owner: normalized.owner,
+    reason: normalized.reason,
+  });
+}
+
+export function applyCallV4SurfaceOwnerSignal(signal: CallV4SurfaceOwnerSignal): void {
+  ingestCallV4SurfaceOwnerSignal(signal);
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(SURFACE_OWNER_EVENT, { detail: { ...signal, callId: normalizeCallId(signal.callId) } }));
+  }
+}
+
+export function clearCallV4SurfaceOwner(callId: string, reason = "web_cleanup"): void {
+  const sid = normalizeCallId(callId);
+  if (!sid) return;
+  surfaceOwnerByCallId.delete(sid);
+  const store = readOwnerStore();
+  if (store[sid]) {
+    delete store[sid];
+    writeOwnerStore(store);
+  }
+  applyCallV4SurfaceOwnerSignal({
+    callId: sid,
+    owner: "terminal",
+    reason,
+    ts: Date.now(),
+  });
+}
+
+export function subscribeCallV4SurfaceOwnerSignal(listener: (signal: CallV4SurfaceOwnerSignal) => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  const onEvent = (ev: Event) => {
+    const detail = (ev as CustomEvent<CallV4SurfaceOwnerSignal>).detail;
+    if (!detail?.callId) return;
+    listener({ ...detail, callId: normalizeCallId(detail.callId), owner: normalizeOwner(detail.owner) });
+  };
+  window.addEventListener(SURFACE_OWNER_EVENT, onEvent);
+  return () => window.removeEventListener(SURFACE_OWNER_EVENT, onEvent);
+}
+
 /** Full-screen native incoming surfaces block Web sheet even in document foreground. */
 function isCallV4BlockingNativeIncomingSurface(callId: string): boolean {
   const sid = normalizeCallId(callId);
   if (!sid) return false;
+  if (isCallV4NativePersistedSurfaceOwner(sid)) return true;
+  if (isCallV4AcceptedTransitionOwner(sid)) return true;
   const signal = nativeSurfaceByCallId.get(sid);
   if (signal?.hasNativeIncomingSurface !== true) return false;
   const type = signal.nativeSurfaceType;
@@ -236,17 +402,34 @@ function resolveSuppressReason(args: {
 }): { suppress: boolean; reason: CallV4IncomingSurfaceSuppressReason | null } {
   const sid = normalizeCallId(args.callId);
   if (!sid) return { suppress: true, reason: "background_native_owner" };
+
+  if (isCallV4AcceptedTransitionOwner(sid)) {
+    return { suppress: true, reason: "accepted_transition" };
+  }
+  if (isCallV4TerminalSurfaceOwner(sid)) {
+    return { suppress: true, reason: "accepted_transition" };
+  }
   if (isCallV4NativeAcceptingSurface(sid)) {
     return { suppress: true, reason: "native_accepting" };
   }
-  const appVisibility = resolveCallV4AppVisibility(args.visibilityState);
+  if (isCallV4NativePersistedSurfaceOwner(sid)) {
+    return { suppress: true, reason: "persisted_native_owner" };
+  }
   if (isCallV4BlockingNativeIncomingSurface(sid)) {
     return { suppress: true, reason: "native_surface_active" };
   }
+
+  const appVisibility = resolveCallV4AppVisibility(args.visibilityState);
   if (appVisibility === "locked") return { suppress: true, reason: "locked_native_owner" };
   if (!shouldUseCallV4WebIncomingSheet(appVisibility)) {
     return { suppress: true, reason: "background_native_owner" };
   }
+
+  const persistedOwner = getCallV4PersistedSurfaceOwner(sid);
+  if (persistedOwner !== "none" && persistedOwner !== "web_in_app") {
+    return { suppress: true, reason: "owner_not_web_in_app" };
+  }
+
   const surfaceType = readNativeSurfaceType(sid);
   if (
     surfaceType === "foreground_pill" &&
@@ -272,6 +455,43 @@ export function shouldSuppressCallV4IncomingDiscoveredForSheet(args: {
   return resolveSuppressReason(args);
 }
 
+/** Defer web sheet until native owner is resolved — avoids warm-process race. */
+export function shouldDeferCallV4WebIncomingSheet(args: {
+  callId: string;
+  discoveredAtMs: number;
+  nowMs?: number;
+}): { defer: boolean; reason: CallV4IncomingSurfaceSuppressReason | null } {
+  const sid = normalizeCallId(args.callId);
+  if (!sid) return { defer: true, reason: "owner_pending" };
+  const owner = getCallV4PersistedSurfaceOwner(sid);
+  if (owner === "web_in_app") return { defer: false, reason: null };
+  if (isCallV4NativePersistedSurfaceOwner(sid) || isCallV4AcceptedTransitionOwner(sid)) {
+    return { defer: true, reason: "persisted_native_owner" };
+  }
+  const elapsed = (args.nowMs ?? Date.now()) - args.discoveredAtMs;
+  if (elapsed < CALL_V4_WEB_INCOMING_OWNER_DEFER_MS) {
+    return { defer: true, reason: "owner_pending" };
+  }
+  return { defer: false, reason: null };
+}
+
+export function canRenderCallV4WebIncomingSheet(args: {
+  callId: string;
+  visibilityState?: DocumentVisibilityState | string | null;
+  discoveredAtMs: number;
+  nowMs?: number;
+}): { render: boolean; reason: CallV4IncomingSurfaceSuppressReason | null } {
+  const suppress = shouldSuppressCallV4WebIncomingSheet(args);
+  if (suppress.suppress) return { render: false, reason: suppress.reason };
+  const defer = shouldDeferCallV4WebIncomingSheet(args);
+  if (defer.defer) return { render: false, reason: defer.reason };
+  const owner = getCallV4PersistedSurfaceOwner(args.callId);
+  if (owner !== "none" && owner !== "web_in_app") {
+    return { render: false, reason: "owner_not_web_in_app" };
+  }
+  return { render: true, reason: null };
+}
+
 /** Foreground — Web CallV4IncomingSheet is the sole incoming UI owner (no blocking native surface). */
 export function logCallV4IncomingOwnerDecided(args: {
   callId: string;
@@ -294,4 +514,12 @@ export function logCallV4IncomingOwnerDecided(args: {
     owner: args.owner,
     visibility,
   });
+  if (args.owner === "web_foreground") {
+    applyCallV4SurfaceOwnerSignal({
+      callId: sid,
+      owner: "web_in_app",
+      reason: "web_foreground",
+      ts: Date.now(),
+    });
+  }
 }

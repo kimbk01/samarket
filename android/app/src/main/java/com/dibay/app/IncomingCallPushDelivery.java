@@ -2,6 +2,7 @@ package com.dibay.app;
 
 import android.content.Context;
 import android.util.Log;
+import com.dibay.app.callv4.CallV4Lane;
 
 /**
  * Push incoming delivery SSOT — FCM {@link DibayFirebaseMessagingService} and debug adb share one path.
@@ -9,6 +10,7 @@ import android.util.Log;
  * <p>Contract:
  * <ul>
  *   <li>Ring — {@link IncomingCallRingOwner} once at push boundary (Web must not blind-stop).</li>
+ *   <li>Owner claim — {@link IncomingCallSurfaceOwner} before any visible surface (V4).</li>
  *   <li>Foreground unlocked — native pill + Web event (no duplicate ring in MainActivity).</li>
  *   <li>Lock / sleep — wake lock + defer UI to ringing FGS after {@code startForeground}.</li>
  *   <li>Background home — defer UI to ringing FGS after {@code startForeground}.</li>
@@ -31,7 +33,24 @@ public final class IncomingCallPushDelivery {
     startRingAtPushBoundary(context, callId);
 
     boolean appVisible = MainActivity.isAppVisibleForIncomingCall();
-    if (DibayKeyguardHelper.isForegroundUnlockedInteractive(appVisible, app)) {
+    boolean foregroundUnlocked = DibayKeyguardHelper.isForegroundUnlockedInteractive(appVisible, app);
+
+    if (CallV4Lane.isTelegramLaneEnabled(app)) {
+      IncomingCallSurfaceOwner.SurfaceOwner initialOwner =
+          IncomingCallSurfaceOwner.resolveInitialOwner(app, foregroundUnlocked);
+      if (!IncomingCallSurfaceOwner.tryClaimIncomingOwner(app, callId, initialOwner, "fcm_push_delivery")) {
+        Log.i(
+            CallV4Lane.TAG,
+            "[DIBAY_CALL_V4] fcm_duplicate_incoming_blocked callId="
+                + callId
+                + " owner="
+                + initialOwner.name().toLowerCase());
+        IncomingCallActionCoordinator.scheduleMissedTimeout(app, payload);
+        return;
+      }
+    }
+
+    if (foregroundUnlocked) {
       Log.i("DIBAY_FCM", "[call-native] incoming_call_foreground_web_ssot callId=" + callId);
       MainActivity.deliverCallIncomingEvent(payload);
       IncomingCallActionCoordinator.scheduleMissedTimeout(app, payload);

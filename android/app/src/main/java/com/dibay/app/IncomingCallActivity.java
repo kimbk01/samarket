@@ -90,6 +90,12 @@ public class IncomingCallActivity extends AppCompatActivity {
     Log.i(TAG, "[call-ui] incoming_activity_shown callId=" + callId);
     if (CallV4Lane.isTelegramLaneEnabled(getApplicationContext())) {
       Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] incoming_activity_shown callId=" + callId);
+      IncomingCallSurfaceOwner.SurfaceOwner owner =
+          DibayKeyguardHelper.isKeyguardLocked(getApplicationContext())
+              ? IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_FSI
+              : IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_ACTIVITY;
+      IncomingCallSurfaceOwner.transitionIncomingOwner(
+          getApplicationContext(), callId, owner, "incoming_activity_visible");
     }
     DibayCallLog.once("incoming_activity_created", callId, "source=activity");
     DibayCallLog.once("incoming_render", callId, "source=activity");
@@ -248,8 +254,22 @@ public class IncomingCallActivity extends AppCompatActivity {
     }
     DibayCallLog.once("accept_click", callId, "source=activity");
     Log.i(TAG, "[call-ui] answer_clicked callId=" + callId + " source=activity");
+    showConnectingState();
     IncomingCallActionCoordinator.handleAccept(getApplicationContext(), callId);
-    finishSafely();
+  }
+
+  private void showConnectingState() {
+    LinearLayout actions = findViewById(R.id.incoming_call_actions);
+    TextView kindView = findViewById(R.id.incoming_call_kind);
+    if (actions != null) {
+      actions.setVisibility(View.GONE);
+    }
+    if (kindView != null) {
+      kindView.setText(getString(R.string.incoming_call_connecting));
+    }
+    if (CallV4Lane.isTelegramLaneEnabled(getApplicationContext())) {
+      Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] native_connecting_surface callId=" + callId);
+    }
   }
 
   private void handleDecline() {

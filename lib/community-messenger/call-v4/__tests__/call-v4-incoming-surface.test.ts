@@ -6,10 +6,16 @@ vi.mock("@/lib/platform/capacitor-native", () => ({
 
 import {
   applyCallV4NativeIncomingSurfaceSignal,
+  applyCallV4SurfaceOwnerSignal,
+  canRenderCallV4WebIncomingSheet,
   clearAllCallV4NativeAcceptingSurfaces,
   clearCallV4NativeAcceptingSurface,
+  clearCallV4SurfaceOwner,
+  getCallV4PersistedSurfaceOwner,
   ingestCallV4NativeIncomingSurfaceSignal,
+  isCallV4AcceptedTransitionOwner,
   isCallV4NativeAcceptingSurface,
+  isCallV4NativePersistedSurfaceOwner,
   logCallV4IncomingOwnerDecided,
   registerCallV4NativeAcceptingSurface,
   resolveCallV4NativeAcceptingSurfaceType,
@@ -21,11 +27,71 @@ import {
 describe("call-v4 incoming surface", () => {
   beforeEach(() => {
     clearAllCallV4NativeAcceptingSurfaces();
+    clearCallV4SurfaceOwner("call-reset", "test_reset");
     applyCallV4NativeIncomingSurfaceSignal({
       callId: "call-reset",
       hasNativeIncomingSurface: false,
       source: "test_reset",
     });
+  });
+
+  it("suppresses web sheet when persisted native_activity owner is set", () => {
+    applyCallV4SurfaceOwnerSignal({
+      callId: "call-warm",
+      owner: "native_activity",
+      reason: "fcm_push_delivery",
+      ts: Date.now(),
+    });
+    expect(isCallV4NativePersistedSurfaceOwner("call-warm")).toBe(true);
+    const result = shouldSuppressCallV4WebIncomingSheet({
+      callId: "call-warm",
+      visibilityState: "visible",
+    });
+    expect(result.suppress).toBe(true);
+    expect(result.reason).toBe("persisted_native_owner");
+  });
+
+  it("defers web sheet until owner confirmed or timeout", () => {
+    const discoveredAt = Date.now();
+    const pending = canRenderCallV4WebIncomingSheet({
+      callId: "call-defer",
+      visibilityState: "visible",
+      discoveredAtMs: discoveredAt,
+      nowMs: discoveredAt + 50,
+    });
+    expect(pending.render).toBe(false);
+    expect(pending.reason).toBe("owner_pending");
+
+    applyCallV4SurfaceOwnerSignal({
+      callId: "call-defer",
+      owner: "web_in_app",
+      reason: "fcm_foreground",
+      ts: Date.now(),
+    });
+    const ready = canRenderCallV4WebIncomingSheet({
+      callId: "call-defer",
+      visibilityState: "visible",
+      discoveredAtMs: discoveredAt,
+      nowMs: discoveredAt + 50,
+    });
+    expect(ready.render).toBe(true);
+    expect(getCallV4PersistedSurfaceOwner("call-defer")).toBe("web_in_app");
+  });
+
+  it("blocks web sheet during accepted_transition owner", () => {
+    applyCallV4SurfaceOwnerSignal({
+      callId: "call-accept",
+      owner: "accepted_transition",
+      reason: "native_accept",
+      ts: Date.now(),
+    });
+    expect(isCallV4AcceptedTransitionOwner("call-accept")).toBe(true);
+    const result = shouldSuppressCallV4WebIncomingSheet({
+      callId: "call-accept",
+      visibilityState: "visible",
+    });
+    expect(result.suppress).toBe(true);
+    expect(result.reason).toBe("accepted_transition");
   });
 
   it("uses web sheet only in foreground", () => {

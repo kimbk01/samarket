@@ -10,13 +10,8 @@ import com.dibay.app.callv4.CallV4Lane;
 /**
  * Non-foreground incoming presentation SSOT.
  *
- * <p>Contract:
- * <ul>
- *   <li>Ring — {@link IncomingCallPushDelivery} → {@link IncomingCallRingOwner} (notification channel silent).</li>
- *   <li>V4 lock/background — defer to ringing FGS; Activity primary; notification action-only or fallback.</li>
- *   <li>V4 fallback — full visual notification only when Activity launch fails or FSI OS-restricted.</li>
- *   <li>Legacy — prior Activity + CallStyle notification path when V4 lane OFF.</li>
- * </ul>
+ * <p>Owner is claimed at {@link IncomingCallPushDelivery} before surfaces start.
+ * FGS is carrier-only; one visible incoming UI per callId.
  */
 public final class IncomingCallBackgroundNotifier {
   private static final String TAG = "DIBAY_INCOMING_CALL";
@@ -59,7 +54,7 @@ public final class IncomingCallBackgroundNotifier {
     Log.i(TAG, "[call-ui] background_ui_deferred_to_fgs callId=" + callId);
   }
 
-  /** After FGS {@code startForeground} — V4: Activity primary, notification action-only or fallback. */
+  /** After FGS {@code startForeground} — V4 lock FSI or background Activity primary. */
   public static void deliverPendingPresentation(Context context, String callId, String source) {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
     IncomingCallPayload payload = PendingIncomingPresentation.take(callId.trim());
@@ -80,6 +75,15 @@ public final class IncomingCallBackgroundNotifier {
     Context app = context.getApplicationContext();
     String visibility = IncomingCallSurfaceOwner.resolveVisibility(app);
 
+    if (IncomingCallSurfaceOwner.isAcceptedTransitionOwner(callId)) {
+      Log.i(
+          CallV4Lane.TAG,
+          "[DIBAY_CALL_V4] incoming_presentation_blocked callId="
+              + callId
+              + " reason=accepted_transition");
+      return;
+    }
+
     if ("locked".equals(visibility)) {
       presentV4LockedIncoming(context, payload, source, fgsDelivery, visibility);
       return;
@@ -88,10 +92,7 @@ public final class IncomingCallBackgroundNotifier {
     presentV4BackgroundIncoming(context, payload, source, fgsDelivery, visibility);
   }
 
-  /**
-   * Lock/sleep — CallStyle + fullScreenIntent is the primary visible surface (Telegram-style).
-   * Direct Activity launch from FGS is unreliable on keyguard; action-only alone shows no UI.
-   */
+  /** Lock — CallStyle + FSI primary; Activity is optional boost only. */
   private static void presentV4LockedIncoming(
       Context context,
       IncomingCallPayload payload,
@@ -100,6 +101,15 @@ public final class IncomingCallBackgroundNotifier {
       String visibility) {
     String callId = payload.callId.trim();
     Context app = context.getApplicationContext();
+    IncomingCallSurfaceOwner.SurfaceOwner target = IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_FSI;
+
+    if (IncomingCallSurfaceOwner.shouldBlockVisibleIncomingStart(callId, target)) {
+      Log.i(
+          CallV4Lane.TAG,
+          "[DIBAY_CALL_V4] lock_incoming_owner_blocked callId=" + callId + " source=" + source);
+      return;
+    }
+
     boolean fsiAllowed = IncomingCallNotificationBuilder.canPostFullScreenIntent(app);
     String reason = !fsiAllowed ? "os_restricted" : "lock_fsi_primary";
 
@@ -112,20 +122,10 @@ public final class IncomingCallBackgroundNotifier {
             + " fsiAllowed="
             + fsiAllowed);
 
-    if (!IncomingCallSurfaceOwner.tryClaimVisibleOwner(
-        callId, IncomingCallSurfaceOwner.VisibleOwner.NOTIFICATION_FALLBACK)) {
-      if (!IncomingCallSurfaceOwner.isNativeFsiOwner(callId)) {
-        Log.i(
-            CallV4Lane.TAG,
-            "[DIBAY_CALL_V4] lock_incoming_owner_blocked callId=" + callId + " source=" + source);
-        return;
-      }
-    }
-    IncomingCallSurfaceOwner.logOwnerDecided(callId, "notification_fallback", visibility, reason);
+    IncomingCallSurfaceOwner.transitionIncomingOwner(app, callId, target, reason);
     CallForegroundService.refreshRingingNotification(context, callId, payload.callType, "lock_fsi_primary");
     IncomingCallNotificationBuilder.showIncomingCall(context, payload, fgsDelivery);
 
-    // Best-effort boost — must not replace FSI with action-only on lock.
     boolean activityLaunched = launchIncomingActivity(context, payload, source + "_boost");
     Log.i(
         CallV4Lane.TAG,
@@ -133,16 +133,9 @@ public final class IncomingCallBackgroundNotifier {
             + callId
             + " success="
             + activityLaunched);
-    if (activityLaunched) {
-      IncomingCallSurfaceOwner.tryClaimVisibleOwner(
-          callId, IncomingCallSurfaceOwner.VisibleOwner.NATIVE_FSI);
-      IncomingCallSurfaceOwner.logOwnerDecided(callId, "native_fsi", visibility, "lock_activity_boost");
-      CallForegroundService.refreshRingingNotification(
-          context, callId, payload.callType, "native_fsi_claimed");
-    }
   }
 
-  /** Unlocked background — Activity primary; notification action-only when Activity launches. */
+  /** Warm background — native Activity sole full visual; notification action-only when Activity shows. */
   private static void presentV4BackgroundIncoming(
       Context context,
       IncomingCallPayload payload,
@@ -151,6 +144,15 @@ public final class IncomingCallBackgroundNotifier {
       String visibility) {
     String callId = payload.callId.trim();
     Context app = context.getApplicationContext();
+    IncomingCallSurfaceOwner.SurfaceOwner activityOwner =
+        IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_ACTIVITY;
+
+    if (IncomingCallSurfaceOwner.shouldBlockVisibleIncomingStart(callId, activityOwner)) {
+      Log.i(
+          CallV4Lane.TAG,
+          "[DIBAY_CALL_V4] background_incoming_owner_blocked callId=" + callId + " source=" + source);
+      return;
+    }
 
     Log.i(
         CallV4Lane.TAG,
@@ -164,25 +166,25 @@ public final class IncomingCallBackgroundNotifier {
             + activityLaunched);
 
     if (activityLaunched) {
-      IncomingCallSurfaceOwner.tryClaimVisibleOwner(
-          callId, IncomingCallSurfaceOwner.VisibleOwner.NATIVE_FSI);
-      IncomingCallSurfaceOwner.logOwnerDecided(callId, "native_fsi", visibility, null);
-      CallForegroundService.refreshRingingNotification(context, callId, payload.callType, "native_fsi_claimed");
+      IncomingCallSurfaceOwner.transitionIncomingOwner(app, callId, activityOwner, "native_activity_primary");
+      CallForegroundService.refreshRingingNotification(
+          context, callId, payload.callType, "native_activity_claimed");
       IncomingCallNotificationBuilder.showIncomingCallActionOnly(context, payload, fgsDelivery);
       return;
     }
 
+    IncomingCallSurfaceOwner.SurfaceOwner fallback =
+        IncomingCallSurfaceOwner.SurfaceOwner.NOTIFICATION_FALLBACK;
+    if (IncomingCallSurfaceOwner.shouldBlockVisibleIncomingStart(callId, fallback)) {
+      return;
+    }
     String fallbackReason =
         !IncomingCallNotificationBuilder.canPostFullScreenIntent(app)
             ? "os_restricted"
             : "activity_launch_failed";
-    if (!IncomingCallSurfaceOwner.tryClaimVisibleOwner(
-        callId, IncomingCallSurfaceOwner.VisibleOwner.NOTIFICATION_FALLBACK)) {
-      return;
-    }
-    IncomingCallSurfaceOwner.logOwnerDecided(
-        callId, "notification_fallback", visibility, fallbackReason);
-    CallForegroundService.refreshRingingNotification(context, callId, payload.callType, "notification_fallback");
+    IncomingCallSurfaceOwner.transitionIncomingOwner(app, callId, fallback, fallbackReason);
+    CallForegroundService.refreshRingingNotification(
+        context, callId, payload.callType, "notification_fallback");
     IncomingCallNotificationBuilder.showIncomingCall(context, payload, fgsDelivery);
   }
 
@@ -193,8 +195,12 @@ public final class IncomingCallBackgroundNotifier {
       Log.i(TAG, "[call-ui] incoming_activity_skipped_consumed callId=" + sid);
       return false;
     }
+    if (IncomingCallSurfaceOwner.isAcceptedTransitionOwner(sid)) {
+      Log.i(TAG, "[call-ui] incoming_activity_skipped_accepted callId=" + sid);
+      return false;
+    }
     if (!CallActivityRouter.shouldLaunchIncomingActivity(sid)) {
-      if (IncomingCallSurfaceOwner.isNativeFsiOwner(sid)) {
+      if (IncomingCallSurfaceOwner.isNativeIncomingOwner(sid)) {
         Log.i(TAG, "[call-ui] incoming_activity_dedup_reuse callId=" + sid + " source=" + source);
         return true;
       }

@@ -20,6 +20,7 @@ import { startCallV4IncomingDiscovery } from "@/lib/community-messenger/call-v4/
 import {
   applyCallV4NativeIncomingSurfaceSignal,
   ingestCallV4NativeIncomingSurfaceSignal,
+  ingestCallV4SurfaceOwnerSignal,
   isCallV4NativeAcceptingSurface,
   logCallV4IncomingOwnerDecided,
   registerCallV4NativeAcceptingSurface,
@@ -29,6 +30,7 @@ import {
   shouldSuppressCallV4IncomingDiscoveredForSheet,
   syncCallV4NativeAcceptingSurfaceFromWindowLocation,
   type CallV4NativeIncomingSurfaceSignal,
+  type CallV4SurfaceOwnerSignal,
 } from "@/lib/community-messenger/call-v4/call-v4-incoming-surface";
 import {
   isCallV4CalleeAcceptRoute,
@@ -211,9 +213,22 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
       ingestCallV4NativeIncomingSurfaceSignal(detail);
     };
 
+    const onSurfaceOwnerBridge = (event: Event) => {
+      const detail = (event as CustomEvent<CallV4SurfaceOwnerSignal>).detail;
+      if (!detail?.callId) return;
+      logCallV4("surface_owner_bridge_received", {
+        callId: detail.callId.trim(),
+        owner: detail.owner,
+        reason: detail.reason,
+      });
+      ingestCallV4SurfaceOwnerSignal(detail);
+    };
+
     window.addEventListener("dibay:call-v4-native-surface", onNativeSurfaceBridge);
+    window.addEventListener("dibay:call-surface-owner", onSurfaceOwnerBridge);
     return () => {
       window.removeEventListener("dibay:call-v4-native-surface", onNativeSurfaceBridge);
+      window.removeEventListener("dibay:call-surface-owner", onSurfaceOwnerBridge);
     };
   }, []);
 
