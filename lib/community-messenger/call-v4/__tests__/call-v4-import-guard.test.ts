@@ -145,5 +145,7 @@ describe("call-v4 import isolation", () => {
     const script = read("scripts/verify-call-v4-structure-lock.cjs");
     expect(script).toContain("buildIncomingCallPreviewHref");
     expect(script).toContain("resolveSuppressReasonLegacy");
+    expect(script).toContain("cancelMissedTimeout");
+    expect(script).toContain('"locked" not "lock"');
   });
 });

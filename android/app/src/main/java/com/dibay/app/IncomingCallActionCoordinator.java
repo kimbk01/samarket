@@ -21,6 +21,9 @@ public final class IncomingCallActionCoordinator {
   private static final ConcurrentHashMap<String, Long> IN_FLIGHT = new ConcurrentHashMap<>();
   private static final ConcurrentHashMap<String, Long> ACTIVE_INCOMING = new ConcurrentHashMap<>();
   private static final ConcurrentHashMap<String, String> COMPLETED_ACTIONS = new ConcurrentHashMap<>();
+  private static final ConcurrentHashMap<String, Runnable> MISSED_TIMEOUT_RUNNABLES =
+      new ConcurrentHashMap<>();
+  private static final Handler MAIN_HANDLER = new Handler(Looper.getMainLooper());
 
   private static final long ACCEPT_LAUNCH_DEDUP_MS = 8_000L;
   private static volatile String lastAcceptLaunchCallId = null;
@@ -92,6 +95,7 @@ public final class IncomingCallActionCoordinator {
       Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] coordinator_accept_call_id callId=" + sid);
     }
     if (!tryBegin(sid, "accept")) return;
+    cancelMissedTimeout(sid);
     final Context app = context.getApplicationContext();
     final boolean v4Lane = CallV4Lane.isTelegramLaneEnabled(app);
     if (v4Lane) {
@@ -110,7 +114,7 @@ public final class IncomingCallActionCoordinator {
     IncomingCallNotificationBuilder.dismissIncomingCall(context, sid);
     if (!shouldLaunchAcceptRoute(sid)) {
       Log.i(CALL_TAG, "[call-route] incoming_accept_launch_deduped callId=" + sid);
-      end(sid, "accept");
+      complete(sid, "accept");
       return;
     }
     new Handler(Looper.getMainLooper())
@@ -122,14 +126,14 @@ public final class IncomingCallActionCoordinator {
                 Intent launch = CallV4IntentHelper.buildMainActivityV4AcceptIntent(app, sid, "native_accept");
                 Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] main_activity_v4_accept_start callId=" + sid);
                 app.startActivity(launch);
-                end(sid, "accept");
+                complete(sid, "accept");
                 return;
               }
               Intent launch = IncomingCallIntentHelper.buildMainActivityCallAcceptIntent(app, sid);
               Log.i("DIBAY_CALL", "[DIBAY_CALL] accept_signal_sent callId=" + sid);
               Log.i(CALL_TAG, "[call-route] incoming_accept_pending_web callId=" + sid);
               app.startActivity(launch);
-              end(sid, "accept");
+              complete(sid, "accept");
             });
   }
 
@@ -137,6 +141,7 @@ public final class IncomingCallActionCoordinator {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
     String sid = callId.trim();
     if (!tryBegin(sid, "reject")) return;
+    cancelMissedTimeout(sid);
     DibayCallLog.once("call_end", sid, "source=native_reject");
     DibayCallConsumedStore.mark(context, sid, "declined");
     IncomingCallRingOwner.stop(context, sid);
@@ -169,11 +174,27 @@ public final class IncomingCallActionCoordinator {
             });
   }
 
+  public static void cancelMissedTimeout(String callId) {
+    if (callId == null || callId.trim().isEmpty()) return;
+    String sid = callId.trim();
+    Runnable runnable = MISSED_TIMEOUT_RUNNABLES.remove(sid);
+    if (runnable != null) {
+      MAIN_HANDLER.removeCallbacks(runnable);
+    }
+  }
+
   public static void scheduleMissedTimeout(Context context, IncomingCallPayload payload) {
     if (context == null || payload == null || !payload.isValid()) return;
+    String sid = payload.callId.trim();
+    cancelMissedTimeout(sid);
     long delayMs = resolveTimeoutDelayMs(payload.expiresAt);
-    new Handler(Looper.getMainLooper())
-        .postDelayed(() -> handleMissedTimeout(context.getApplicationContext(), payload), delayMs);
+    Runnable runnable =
+        () -> {
+          MISSED_TIMEOUT_RUNNABLES.remove(sid);
+          handleMissedTimeout(context.getApplicationContext(), payload);
+        };
+    MISSED_TIMEOUT_RUNNABLES.put(sid, runnable);
+    MAIN_HANDLER.postDelayed(runnable, delayMs);
   }
 
   public static void handleMissedTimeout(Context context, IncomingCallPayload payload) {

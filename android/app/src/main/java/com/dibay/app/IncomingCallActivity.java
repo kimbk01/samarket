@@ -18,9 +18,11 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.view.WindowCompat;
 import com.dibay.app.callv4.CallV4Lane;
+import java.util.concurrent.ConcurrentHashMap;
 
 /** Lock-screen incoming call UI — accept/reject via web call-route (V3 PATCH owner). */
 public class IncomingCallActivity extends AppCompatActivity {
+  private static final ConcurrentHashMap<String, Long> VISIBLE_CALL_IDS = new ConcurrentHashMap<>();
   public static final String EXTRA_CALL_ID = "callId";
   public static final String EXTRA_CALLER_NAME = "callerName";
   public static final String EXTRA_TITLE = "title";
@@ -35,6 +37,13 @@ public class IncomingCallActivity extends AppCompatActivity {
   public static final String ACTION_TERMINAL = "com.dibay.app.action.INCOMING_CALL_TERMINAL";
 
   private static final String TAG = "DIBAY_INCOMING_CALL";
+
+  static boolean isCallVisible(String callId) {
+    if (callId == null || callId.trim().isEmpty()) return false;
+    Long shownAt = VISIBLE_CALL_IDS.get(callId.trim());
+    return shownAt != null && System.currentTimeMillis() - shownAt < 60_000L;
+  }
+
   private String callId;
   private boolean finished;
   private boolean nativeSurfaceHiddenEmitted;
@@ -88,6 +97,8 @@ public class IncomingCallActivity extends AppCompatActivity {
     }
 
     Log.i(TAG, "[call-ui] incoming_activity_shown callId=" + callId);
+    VISIBLE_CALL_IDS.put(callId.trim(), System.currentTimeMillis());
+    IncomingCallBackgroundNotifier.cancelLaunchVisibilityVerify(callId);
     if (CallV4Lane.isTelegramLaneEnabled(getApplicationContext())) {
       Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] incoming_activity_shown callId=" + callId);
       IncomingCallSurfaceOwner.SurfaceOwner owner =
@@ -206,6 +217,9 @@ public class IncomingCallActivity extends AppCompatActivity {
 
   @Override
   protected void onDestroy() {
+    if (callId != null && !callId.trim().isEmpty()) {
+      VISIBLE_CALL_IDS.remove(callId.trim());
+    }
     if (terminalReceiver != null) {
       try {
         unregisterReceiver(terminalReceiver);

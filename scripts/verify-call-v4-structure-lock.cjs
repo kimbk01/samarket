@@ -58,6 +58,30 @@ if (!telegram.includes("unknown_pending")) {
   pass("unknown_pending in contract");
 }
 
+const notifier = read("android/app/src/main/java/com/dibay/app/IncomingCallBackgroundNotifier.java");
+if (notifier.includes('fgsDelivery, "lock"') || notifier.includes(', "lock")')) {
+  fail('IncomingCallBackgroundNotifier visibility tag must be "locked" not "lock"');
+} else {
+  pass("lock visibility tag uses locked");
+}
+if (!notifier.includes("isCallVisible") || !notifier.includes("launch_unverified")) {
+  fail("IncomingCallBackgroundNotifier must verify Activity visibility after launch");
+} else {
+  pass("launch visibility verify present");
+}
+
+const coordinator = read("android/app/src/main/java/com/dibay/app/IncomingCallActionCoordinator.java");
+if (!coordinator.includes('complete(sid, "accept")')) {
+  fail("accept must complete terminal to block missed_timeout");
+} else {
+  pass("accept completes terminal");
+}
+if (!coordinator.includes("cancelMissedTimeout")) {
+  fail("missed timeout must be cancellable on accept/reject");
+} else {
+  pass("missed timeout cancellable");
+}
+
 if (failed) {
   process.exit(1);
 }
