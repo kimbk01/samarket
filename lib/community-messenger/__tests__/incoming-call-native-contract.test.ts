@@ -106,11 +106,16 @@ describe("incoming-call native contract", () => {
 
   it("IncomingCallTerminalHandler centralizes terminal dismiss, consumed, ring stop, activity finish", () => {
     const handler = read("android/app/src/main/java/com/dibay/app/IncomingCallTerminalHandler.java");
-    expect(handler).toContain("dismissIncomingCall");
+    expect(handler).toContain("IncomingCallSessionCleanup.purgeCallPresentation");
     expect(handler).toContain("DibayCallConsumedStore.mark");
-    expect(handler).toContain("IncomingCallRingOwner.stop");
     expect(handler).toContain("broadcastFinishIncomingActivity");
-    expect(handler).toContain("deliverCallTerminalEvent");
+    expect(handler).toContain("MainActivity.deliverCallTerminalEvent");
+
+    const cleanup = read("android/app/src/main/java/com/dibay/app/IncomingCallSessionCleanup.java");
+    expect(cleanup).toContain("IncomingCallNotificationBuilder.dismissIncomingCall");
+    expect(cleanup).toContain("IncomingCallRingOwner.stop");
+    expect(cleanup).toContain("CallForegroundService.stopRinging");
+    expect(cleanup).toContain("IncomingCallActivity.finishActiveForCallId");
 
     const fcm = read("android/app/src/main/java/com/dibay/app/DibayFirebaseMessagingService.java");
     expect(fcm).toContain("IncomingCallTerminalHandler.handle");
@@ -211,8 +216,11 @@ describe("incoming-call native contract", () => {
     expect(store).toContain("active_incoming_store_clear");
 
     const terminal = read("android/app/src/main/java/com/dibay/app/IncomingCallTerminalHandler.java");
-    expect(terminal).toContain("CallForegroundService.stopRinging");
+    expect(terminal).toContain("IncomingCallSessionCleanup.purgeCallPresentation");
     expect(terminal).toContain("pending_route_discarded_terminal");
+
+    const cleanup = read("android/app/src/main/java/com/dibay/app/IncomingCallSessionCleanup.java");
+    expect(cleanup).toContain("CallForegroundService.stopRinging");
   });
 
   it("P0 server dispatch carries high-priority incoming call audit and native ack route", () => {
