@@ -5,6 +5,9 @@ import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import { clearCallV4NativeAcceptingSurface, clearCallV4NativeIncomingSurface, clearCallV4SurfaceOwner } from "@/lib/community-messenger/call-v4/call-v4-incoming-surface";
 import { clearNativeAcceptInflight } from "@/lib/community-messenger/call-v4/call-v4-native-accept-flight";
 import { syncCallV4NativeTerminalCleanup } from "@/lib/community-messenger/call-v4/call-v4-native-lifecycle";
+import { useCallV4MediaStore } from "@/lib/community-messenger/call-v4/call-v4-media-state";
+import { stopCallV4NativeActiveSession } from "@/lib/community-messenger/call-v4/call-v4-native-active-session";
+import { forceResetCommunityMessengerCallRuntimeSurface } from "@/lib/community-messenger/call-runtime-registry";
 import { useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
 import type { CallV4TerminalPhase } from "@/lib/community-messenger/call-v4/call-v4-types";
 
@@ -21,6 +24,9 @@ export async function cleanupCallV4(callId: string, reason: CallV4TerminalPhase 
   syncCallV4NativeTerminalCleanup(sid, reason);
   clearCallV4NativeIncomingSurface(sid, "cleanup");
   clearCallV4SurfaceOwner(sid, "cleanup");
+  useCallV4MediaStore.getState().reset();
+  forceResetCommunityMessengerCallRuntimeSurface();
+  await stopCallV4NativeActiveSession(sid, String(reason));
   useCallV4Store.getState().resetToIdle();
   logCallV4("cleanup_done", { callId: sid, reason });
 }

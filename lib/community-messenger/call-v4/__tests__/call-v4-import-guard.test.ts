@@ -164,6 +164,33 @@ describe("call-v4 import isolation", () => {
     expect(main).toContain("main_activity_calls_v4_direct_start");
   });
 
+  it("Phase 6A architecture — presentation SSOT + platform adapters (flags OFF by default)", () => {
+    expect(read("lib/community-messenger/call-v4/call-v4-phase6-flags.ts")).toContain(
+      'process.env.NEXT_PUBLIC_DIBAY_CALL_V4_VIDEO === "1"',
+    );
+    expect(read("lib/community-messenger/call-v4/call-v4-connected-media-policy.ts")).toContain(
+      "canAttachCallV4VideoMedia",
+    );
+    expect(read("lib/community-messenger/call-v4/presentation/call-v4-presentation-capability.ts")).toContain(
+      "android_os_pip",
+    );
+    expect(read("lib/community-messenger/call-v4/presentation/ios/call-v4-presentation-ios.adapter.ts")).toContain(
+      "ios_dock_fallback",
+    );
+    expect(read("lib/community-messenger/call-v4/presentation/web/call-v4-presentation-web.adapter.ts")).toContain(
+      "web_floating_dock",
+    );
+    expect(read("lib/community-messenger/call-v4/presentation/use-call-v4-presentation-platform.ts")).toContain(
+      "useCallV4PresentationPlatform",
+    );
+    const provider = read("components/community-messenger/call-v4/CallV4Provider.tsx");
+    expect(provider).toContain("CallV4ActiveCallHost");
+    expect(provider).toContain("useCallV4PresentationPlatform");
+    expect(provider).not.toContain("CommunityMessengerCallClient");
+    const host = read("components/community-messenger/call-v4/CallV4ActiveCallHost.tsx");
+    expect(host).toContain("supportsCallV4AndroidOsPipBridge");
+  });
+
   it("structure lock script exists", () => {
     const script = read("scripts/verify-call-v4-structure-lock.cjs");
     expect(script).toContain("buildIncomingCallPreviewHref");

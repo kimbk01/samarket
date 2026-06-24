@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
+import { useCallV4PresentationPlatform } from "@/lib/community-messenger/call-v4/presentation/use-call-v4-presentation-platform";
 import {
   callV4HandleRemoteTerminal,
   callV4HandleRejectRoute,
@@ -51,6 +52,7 @@ import {
 } from "@/lib/community-messenger/dibay-fcm-call-bridge";
 import { onCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { CallV4IncomingSheet } from "@/components/community-messenger/call-v4/CallV4IncomingSheet";
+import { CallV4ActiveCallHost } from "@/components/community-messenger/call-v4/CallV4ActiveCallHost";
 
 type CallV4ProviderProps = {
   children?: ReactNode;
@@ -111,6 +113,15 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
   const [userId, setUserId] = useState<string | null>(null);
   const pathname = usePathname();
   const router = useRouter();
+  const phase = useCallV4Store((s) => s.phase);
+  const identity = useCallV4Store((s) => s.identity);
+
+  useCallV4PresentationPlatform({
+    callId: identity?.callId ?? null,
+    phase,
+    mediaType: identity?.mediaType ?? null,
+    roomId: identity?.roomId ?? null,
+  });
 
   useEffect(() => {
     if (!isCallV4TelegramLaneEnabled()) return;
@@ -261,6 +272,7 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
   return (
     <>
       <CallV4IncomingSheet />
+      <CallV4ActiveCallHost />
       {children}
     </>
   );

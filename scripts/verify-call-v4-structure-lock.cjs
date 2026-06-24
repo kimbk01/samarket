@@ -175,6 +175,13 @@ if (!coordinator.includes("main_activity_calls_v4_direct_start")) {
   pass("V4 direct calls-v4 route attach");
 }
 
+const capability = read("lib/community-messenger/call-v4/presentation/call-v4-presentation-capability.ts");
+if (!capability.includes("ios_dock_fallback") || !capability.includes("web_floating_dock")) {
+  fail("Phase 6: presentation capability must define ios_dock_fallback and web_floating_dock");
+} else {
+  pass("Phase 6 cross-platform presentation capability SSOT");
+}
+
 if (
   !coordinator.includes('purgeCallPresentation(app, sid, "missed")') &&
   !coordinator.includes('clearOwner(app, sid, "missed")')
