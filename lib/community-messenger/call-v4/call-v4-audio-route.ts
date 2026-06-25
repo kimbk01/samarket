@@ -1,8 +1,8 @@
 "use client";
 
-import { applyCallAudioRoute, desiredSpeakerForCallType, releaseNativeCallAudioRoute, subscribeNativeCallAudioRouteChanged, type CallAudioRouteApplyResult } from "@/lib/community-messenger/call-audio-route-controller";
 import type { CallV4Direction, CallV4MediaType } from "@/lib/community-messenger/call-v4/call-v4-types";
 import { useCallV4MediaStore } from "@/lib/community-messenger/call-v4/call-v4-media-state";
+import type { DibayCallAudioRouteResult } from "@/lib/community-messenger/native-call-audio-route.client";
 
 type CallV4AudioRouteSession = {
   callId: string;
@@ -15,6 +15,12 @@ type CallV4AudioRouteSession = {
 let activeSession: CallV4AudioRouteSession | null = null;
 let unsubscribeRouteChanged: (() => void) | null = null;
 
+type CallAudioRouteControllerModule = typeof import("@/lib/community-messenger/call-audio-route-controller");
+
+async function loadCallAudioRouteController(): Promise<CallAudioRouteControllerModule> {
+  return import("@/lib/community-messenger/call-audio-route-controller");
+}
+
 function toCallType(mediaType: CallV4MediaType): "audio" | "video" {
   return mediaType === "video" ? "video" : "audio";
 }
@@ -24,10 +30,10 @@ function toCallRole(direction: CallV4Direction): "caller" | "callee" {
 }
 
 function defaultSpeakerFor(mediaType: CallV4MediaType): boolean {
-  return desiredSpeakerForCallType(toCallType(mediaType));
+  return mediaType === "video";
 }
 
-function syncSpeakerUi(result: CallAudioRouteApplyResult, fallbackSpeaker: boolean): void {
+function syncSpeakerUi(result: DibayCallAudioRouteResult, fallbackSpeaker: boolean): void {
   if (result.externalDeviceConnected) {
     useCallV4MediaStore.getState().setSpeakerEnabled(false);
     return;
@@ -43,10 +49,11 @@ function syncSpeakerUi(result: CallAudioRouteApplyResult, fallbackSpeaker: boole
   useCallV4MediaStore.getState().setSpeakerEnabled(fallbackSpeaker);
 }
 
-async function applyRoute(reason: string, desiredSpeaker: boolean): Promise<CallAudioRouteApplyResult | null> {
+async function applyRoute(reason: string, desiredSpeaker: boolean): Promise<DibayCallAudioRouteResult | null> {
   const session = activeSession;
   if (!session) return null;
-  const result = await applyCallAudioRoute({
+  const controller = await loadCallAudioRouteController();
+  const result = await controller.applyCallAudioRoute({
     callId: session.callId,
     callType: toCallType(session.mediaType),
     role: session.role,
@@ -60,16 +67,18 @@ async function applyRoute(reason: string, desiredSpeaker: boolean): Promise<Call
 
 function attachRouteChangedListener(): void {
   unsubscribeRouteChanged?.();
-  unsubscribeRouteChanged = subscribeNativeCallAudioRouteChanged((result) => {
-    const session = activeSession;
-    if (!session) return;
-    const hadExternal = session.lastExternalConnected;
-    session.lastExternalConnected = result.externalDeviceConnected;
-    syncSpeakerUi(result, defaultSpeakerFor(session.mediaType));
-    if (hadExternal && !result.externalDeviceConnected) {
-      session.userPreferredSpeaker = null;
-      void applyRoute("v4_external_removed_fallback", defaultSpeakerFor(session.mediaType));
-    }
+  void loadCallAudioRouteController().then((controller) => {
+    unsubscribeRouteChanged = controller.subscribeNativeCallAudioRouteChanged((result) => {
+      const session = activeSession;
+      if (!session) return;
+      const hadExternal = session.lastExternalConnected;
+      session.lastExternalConnected = result.externalDeviceConnected;
+      syncSpeakerUi(result, defaultSpeakerFor(session.mediaType));
+      if (hadExternal && !result.externalDeviceConnected) {
+        session.userPreferredSpeaker = null;
+        void applyRoute("v4_external_removed_fallback", defaultSpeakerFor(session.mediaType));
+      }
+    });
   });
 }
 
@@ -118,7 +127,8 @@ export async function releaseCallV4AudioRoute(callId: string, reason = "v4_clean
     unsubscribeRouteChanged?.();
     unsubscribeRouteChanged = null;
   }
-  await releaseNativeCallAudioRoute(reason);
+  const controller = await loadCallAudioRouteController();
+  await controller.releaseNativeCallAudioRoute(reason);
 }
 
 export function resetCallV4AudioRouteLifecycleForTests(): void {
