@@ -1,8 +1,15 @@
 import type { CallActionItem, CallPhase, CallScreenViewModel } from "@/components/messenger/call/call-ui.types";
 import { callV4Accept, callV4Cancel, callV4End, callV4Reject } from "@/lib/community-messenger/call-v4/call-v4-actions";
+import {
+  publishCallV4LocalVideo,
+  setCallV4MicEnabled,
+  unpublishCallV4LocalVideo,
+} from "@/lib/community-messenger/call-v4/call-v4-agora-media";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
+import type { CallV4MediaSnapshot } from "@/lib/community-messenger/call-v4/call-v4-media-state";
 import { isNativeAcceptInflight } from "@/lib/community-messenger/call-v4/call-v4-native-accept-flight";
 import type { CallV4Identity, CallV4Phase } from "@/lib/community-messenger/call-v4/call-v4-types";
+import type { CallV4VideoPresenterState } from "@/lib/community-messenger/call-v4/call-v4-video-presenter";
 
 type SafeTranslate = (
   key: string,
@@ -42,6 +49,8 @@ export type BuildCallV4ScreenViewModelInput = {
   connectedAt: number | null;
   safeT: SafeTranslate;
   router: { replace: (href: string) => void; push: (href: string) => void };
+  presenter?: CallV4VideoPresenterState | null;
+  mediaState?: CallV4MediaSnapshot;
 };
 
 function buildCallV4ConnectingViewModel(callId: string, safeT: SafeTranslate): CallScreenViewModel {
@@ -76,7 +85,7 @@ function buildCallV4ConnectingViewModel(callId: string, safeT: SafeTranslate): C
 }
 
 export function buildCallV4ScreenViewModel(input: BuildCallV4ScreenViewModelInput): CallScreenViewModel | null {
-  const { callId, phase, identity, connectedAt, safeT, router } = input;
+  const { callId, phase, identity, connectedAt, safeT, router, presenter, mediaState } = input;
   if (!identity || identity.callId !== callId) {
     if (phase === "accepting" || phase === "joining") {
       return buildCallV4ConnectingViewModel(callId, safeT);
@@ -141,6 +150,51 @@ export function buildCallV4ScreenViewModel(input: BuildCallV4ScreenViewModelInpu
     });
   }
 
+  const ms = mediaState ?? {
+    micEnabled: true,
+    speakerEnabled: true,
+    cameraEnabled: false,
+    localVideoMinimized: true,
+    localVideoReady: false,
+    remoteVideoReady: false,
+    incomingVideoUpgradeRequest: false,
+    pendingVideoUpgradeRequest: false,
+  };
+
+  const secondaryActions: CallActionItem[] = [];
+  const isVideoCall = identity.mediaType === "video";
+  const isVideoUiMode = Boolean(presenter?.isVideoUiMode && phase === "connected");
+  const useConnectedVideoSurface = isVideoCall && callPhase === "connected";
+
+  if (phase === "connected" && isVideoCall) {
+    secondaryActions.push(
+      {
+        id: "mute",
+        label: ms.micEnabled
+          ? safeT("cm_ui_mute", { fallbackKo: "음소거", fallbackEn: "Mute" })
+          : safeT("cm_ui_unmute", { fallbackKo: "음소거 해제", fallbackEn: "Unmute" }),
+        icon: "mic",
+        active: !ms.micEnabled,
+        onClick: () => void setCallV4MicEnabled(callId, !ms.micEnabled),
+      },
+      {
+        id: "camera",
+        label: ms.cameraEnabled
+          ? safeT("cm_ui_camera_off", { fallbackKo: "카메라 끄기", fallbackEn: "Turn camera off" })
+          : safeT("cm_ui_switch_to_video", { fallbackKo: "카메라 켜기", fallbackEn: "Turn camera on" }),
+        icon: "video",
+        active: ms.cameraEnabled,
+        onClick: () => {
+          if (ms.cameraEnabled) {
+            void unpublishCallV4LocalVideo(callId, presenter?.localVideoRef.current ?? null);
+          } else {
+            void publishCallV4LocalVideo(callId, presenter?.localVideoRef.current ?? null);
+          }
+        },
+      },
+    );
+  }
+
   const statusText =
     callPhase === "connected"
       ? safeT("cm_ui_call_active_voice", { fallbackKo: "통화 중", fallbackEn: "On a call" })
@@ -170,7 +224,7 @@ export function buildCallV4ScreenViewModel(input: BuildCallV4ScreenViewModelInpu
 
   return {
     visualTheme: "starbucks",
-    mode: identity.mediaType === "video" ? "video" : "voice",
+    mode: useConnectedVideoSurface || isVideoUiMode ? "video" : "voice",
     direction: identity.direction,
     phase: callPhase,
     peerLabel,
@@ -185,14 +239,21 @@ export function buildCallV4ScreenViewModel(input: BuildCallV4ScreenViewModelInpu
     endedAt: null,
     endedDurationSeconds: null,
     mediaState: {
-      micEnabled: true,
-      speakerEnabled: true,
-      cameraEnabled: false,
-      localVideoMinimized: true,
+      micEnabled: ms.micEnabled,
+      speakerEnabled: ms.speakerEnabled,
+      cameraEnabled: ms.cameraEnabled,
+      localVideoMinimized: ms.localVideoMinimized,
     },
     onBack: null,
     primaryActions,
-    secondaryActions: [],
+    secondaryActions,
+    mainVideoSlot: presenter?.mainVideoSlot,
+    miniVideoSlot: presenter?.miniVideoSlot,
+    showRemoteVideo: presenter?.showRemoteVideo,
+    showLocalVideo: presenter?.showLocalVideo,
+    pipShellMounted: presenter?.pipShellMounted,
+    videoPipLayout: presenter?.videoPipLayout ?? null,
+    androidOsPipSafeMode: presenter?.androidOsPipSafeMode,
     suppressTerminalView: phase === "ending",
   };
 }

@@ -1,6 +1,11 @@
 "use client";
 
-import type { IAgoraRTCClient, IAgoraRTCRemoteUser, IRemoteAudioTrack } from "agora-rtc-sdk-ng";
+import type {
+  IAgoraRTCClient,
+  IAgoraRTCRemoteUser,
+  IRemoteAudioTrack,
+  IRemoteVideoTrack,
+} from "agora-rtc-sdk-ng";
 import type { CommunityMessengerAgoraLocalTracks } from "@/lib/community-messenger/call-provider/client";
 import { isCommunityMessengerAgoraAppConfigured } from "@/lib/community-messenger/call-provider/client-runtime";
 import { callV4FetchAgoraToken } from "@/lib/community-messenger/call-v4/call-v4-api";
@@ -10,6 +15,8 @@ import {
 } from "@/lib/community-messenger/call-v4/call-v4-connection-warm";
 import { triggerCallV4RemoteTerminalCheckFromAgora } from "@/lib/community-messenger/call-v4/call-v4-connected-terminal-watch";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
+import { useCallV4MediaStore } from "@/lib/community-messenger/call-v4/call-v4-media-state";
+import { readCallV4Identity } from "@/lib/community-messenger/call-v4/call-v4-store";
 import { markCallV4MediaConnected } from "@/lib/community-messenger/call-v4/call-v4-phase-bridge";
 import type { CommunityMessengerManagedCallConnection } from "@/lib/community-messenger/types";
 
@@ -22,14 +29,27 @@ type CallV4AgoraSession = {
 };
 
 let activeSession: CallV4AgoraSession | null = null;
+const remoteVideoByCallId = new Map<string, IRemoteVideoTrack>();
 const joinClaimed = new Set<string>();
-const tokenFetched = new Set<string>();
+const joinStartLogged = new Set<string>();
+const joinSucceeded = new Set<string>();
 const connectionByCallId = new Map<string, CommunityMessengerManagedCallConnection>();
 let joinInFlight: Promise<boolean> | null = null;
 let joinInFlightCallId: string | null = null;
 
 async function loadCommunityMessengerCallProviderClient() {
   return import("@/lib/community-messenger/call-provider/client");
+}
+
+function formatAgoraError(error: unknown): { message: string; code: string | null } {
+  if (error instanceof Error) {
+    const code =
+      "code" in error && typeof (error as { code?: unknown }).code === "string"
+        ? (error as { code: string }).code
+        : error.name || null;
+    return { message: error.message, code };
+  }
+  return { message: String(error), code: null };
 }
 
 function maybeLogConnected(callId: string, source: string): void {
@@ -58,15 +78,41 @@ async function subscribeRemoteAudio(callId: string, client: IAgoraRTCClient, use
   maybeLogConnected(callId, "remote_audio");
 }
 
+async function subscribeRemoteVideo(callId: string, client: IAgoraRTCClient, user: IAgoraRTCRemoteUser): Promise<void> {
+  if (!user.hasVideo) return;
+  try {
+    await client.subscribe(user, "video");
+  } catch {
+    return;
+  }
+  const track = user.videoTrack;
+  if (!track || activeSession?.callId !== callId) return;
+  remoteVideoByCallId.set(callId, track);
+  useCallV4MediaStore.getState().setRemoteVideoReady(true);
+  logCallV4("remote_video_track_ready", { callId, uid: user.uid });
+}
+
 function attachRemoteHandlers(callId: string, client: IAgoraRTCClient): void {
   client.on("user-published", async (user: IAgoraRTCRemoteUser, mediaType) => {
-    if (mediaType !== "audio") return;
-    await subscribeRemoteAudio(callId, client, user);
+    if (mediaType === "audio") {
+      await subscribeRemoteAudio(callId, client, user);
+      return;
+    }
+    if (mediaType === "video") {
+      await subscribeRemoteVideo(callId, client, user);
+    }
   });
   client.on("user-unpublished", (_user, mediaType) => {
-    if (mediaType !== "audio" || activeSession?.callId !== callId) return;
-    activeSession.remoteAudioTrack = null;
-    triggerCallV4RemoteTerminalCheckFromAgora(callId, _user.uid);
+    if (activeSession?.callId !== callId) return;
+    if (mediaType === "audio") {
+      activeSession.remoteAudioTrack = null;
+      triggerCallV4RemoteTerminalCheckFromAgora(callId, _user.uid);
+      return;
+    }
+    if (mediaType === "video") {
+      remoteVideoByCallId.delete(callId);
+      useCallV4MediaStore.getState().setRemoteVideoReady(false);
+    }
   });
   client.on("user-left", (user: IAgoraRTCRemoteUser) => {
     if (activeSession?.callId !== callId) return;
@@ -76,21 +122,57 @@ function attachRemoteHandlers(callId: string, client: IAgoraRTCClient): void {
 }
 
 async function resolveCallV4AgoraConnection(callId: string): Promise<CommunityMessengerManagedCallConnection | null> {
-  const cached = connectionByCallId.get(callId);
+  const sid = callId.trim();
+  const cached = connectionByCallId.get(sid);
   if (cached) return cached;
-  if (tokenFetched.has(callId)) return null;
-  logCallV4("token_fetch_start", { callId });
-  const connection = await resolveCallV4WarmConnection(callId, () => callV4FetchAgoraToken(callId));
-  if (!connection) return null;
-  tokenFetched.add(callId);
-  connectionByCallId.set(callId, connection);
+  logCallV4("token_fetch_start", { callId: sid });
+  const connection = await resolveCallV4WarmConnection(sid, () => callV4FetchAgoraToken(sid));
+  if (!connection) {
+    return null;
+  }
+  if (!connection.appId?.trim()) {
+    logCallV4("agora_app_id_missing", { callId: sid });
+    return null;
+  }
+  if (!connection.token?.trim()) {
+    logCallV4("agora_token_missing", { callId: sid, channelName: connection.channelName ?? null });
+    return null;
+  }
+  connectionByCallId.set(sid, connection);
+  logCallV4("token_fetch_done", { callId: sid, channelName: connection.channelName ?? null, uid: connection.uid ?? null });
   return connection;
+}
+
+export function hasCallV4AgoraJoinSucceeded(callId: string): boolean {
+  const sid = callId.trim();
+  return Boolean(sid && (joinSucceeded.has(sid) || activeSession?.callId === sid));
+}
+
+export function resetCallV4AgoraJoinStateForCallId(callId: string): void {
+  const sid = callId.trim();
+  if (!sid) return;
+  joinClaimed.delete(sid);
+  joinStartLogged.delete(sid);
+  joinSucceeded.delete(sid);
+  connectionByCallId.delete(sid);
+  if (joinInFlightCallId === sid) {
+    joinInFlight = null;
+    joinInFlightCallId = null;
+  }
 }
 
 export async function joinCallV4Agora(callId: string): Promise<boolean> {
   const sid = callId.trim();
   if (!sid) return false;
-  if (activeSession?.callId === sid) return true;
+  if (activeSession?.callId === sid || joinSucceeded.has(sid)) return true;
+  if (joinStartLogged.has(sid) && !joinInFlight) {
+    logCallV4("call_v4_join_guard_check", {
+      callId: sid,
+      blocked: true,
+      reason: "join_already_attempted",
+    });
+    return false;
+  }
   if (joinInFlight && joinInFlightCallId === sid) return joinInFlight;
 
   if (!joinClaimed.has(sid)) {
@@ -98,29 +180,71 @@ export async function joinCallV4Agora(callId: string): Promise<boolean> {
     joinInFlightCallId = sid;
     joinInFlight = (async (): Promise<boolean> => {
       if (!isCommunityMessengerAgoraAppConfigured()) {
-        joinClaimed.delete(sid);
+        logCallV4("agora_app_id_missing", { callId: sid, source: "client_runtime" });
         return false;
       }
       try {
         const connection = await resolveCallV4AgoraConnection(sid);
         if (!connection) {
-          joinClaimed.delete(sid);
+          logCallV4("agora_join_not_ready", { callId: sid, reason: "connection_unavailable" });
           return false;
         }
-        logCallV4("agora_join_start", { callId: sid });
+        if (!joinStartLogged.has(sid)) {
+          joinStartLogged.add(sid);
+          logCallV4("agora_join_start", { callId: sid });
+        }
         const provider = await loadCommunityMessengerCallProviderClient();
         const client = provider.createCommunityMessengerAgoraClient();
         attachRemoteHandlers(sid, client);
-        await provider.joinCommunityMessengerAgoraChannel({
-          client,
-          appId: connection.appId,
+        logCallV4("client_join_start", {
+          callId: sid,
           channelName: connection.channelName,
-          token: connection.token,
           uid: connection.uid,
         });
+        try {
+          await provider.joinCommunityMessengerAgoraChannel({
+            client,
+            appId: connection.appId,
+            channelName: connection.channelName,
+            token: connection.token,
+            uid: connection.uid,
+          });
+          logCallV4("client_join_done", { callId: sid, channelName: connection.channelName });
+        } catch (error) {
+          const formatted = formatAgoraError(error);
+          logCallV4("client_join_fail", {
+            callId: sid,
+            code: formatted.code,
+            message: formatted.message,
+          });
+          throw error;
+        }
         logCallV4("agora_join_success", { callId: sid });
-        const tracks = await provider.createCommunityMessengerAgoraLocalTracks("voice");
+        joinSucceeded.add(sid);
+        const trackKind = readCallV4Identity()?.mediaType === "video" ? "video" : "voice";
+        logCallV4("local_audio_track_create_start", { callId: sid, trackKind });
+        let tracks: CommunityMessengerAgoraLocalTracks;
+        try {
+          tracks = await provider.createCommunityMessengerAgoraLocalTracks(trackKind);
+          logCallV4("local_audio_track_create_done", { callId: sid, trackKind });
+        } catch (error) {
+          const formatted = formatAgoraError(error);
+          logCallV4("local_audio_track_create_fail", {
+            callId: sid,
+            code: formatted.code,
+            message: formatted.message,
+          });
+          throw error;
+        }
+        if (trackKind === "video" && tracks.videoTrack) {
+          logCallV4("local_video_publish_start", { callId: sid });
+        }
         await provider.publishCommunityMessengerAgoraTracks({ client, tracks });
+        if (trackKind === "video" && tracks.videoTrack) {
+          useCallV4MediaStore.getState().setCameraEnabled(true);
+          useCallV4MediaStore.getState().setLocalVideoReady(true);
+          logCallV4("local_video_publish_done", { callId: sid });
+        }
         activeSession = {
           callId: sid,
           client,
@@ -130,11 +254,25 @@ export async function joinCallV4Agora(callId: string): Promise<boolean> {
         };
         for (const user of client.remoteUsers) {
           await subscribeRemoteAudio(sid, client, user);
+          if (user.hasVideo) {
+            await subscribeRemoteVideo(sid, client, user);
+          }
         }
         maybeLogConnected(sid, "agora_join");
         return true;
-      } catch {
-        joinClaimed.delete(sid);
+      } catch (error) {
+        const formatted = formatAgoraError(error);
+        logCallV4("agora_join_error", {
+          callId: sid,
+          code: formatted.code,
+          message: formatted.message,
+        });
+        logCallV4("agora_join_not_ready", {
+          callId: sid,
+          reason: "join_failed",
+          error: formatted.message,
+          code: formatted.code,
+        });
         return false;
       } finally {
         if (joinInFlightCallId === sid) {
@@ -145,22 +283,53 @@ export async function joinCallV4Agora(callId: string): Promise<boolean> {
     })();
   }
 
-  return joinInFlight ?? activeSession?.callId === sid;
+  return joinInFlight ?? joinSucceeded.has(sid);
+}
+
+export function getCallV4AgoraClient(callId: string): IAgoraRTCClient | null {
+  const sid = callId.trim();
+  if (!sid || activeSession?.callId !== sid) return null;
+  return activeSession.client;
+}
+
+export function getCallV4AgoraLocalTracks(callId: string): CommunityMessengerAgoraLocalTracks | null {
+  const sid = callId.trim();
+  if (!sid || activeSession?.callId !== sid) return null;
+  return activeSession.localTracks;
+}
+
+export function setCallV4AgoraLocalTracks(callId: string, tracks: CommunityMessengerAgoraLocalTracks): void {
+  const sid = callId.trim();
+  if (!sid || activeSession?.callId !== sid) return;
+  activeSession.localTracks = tracks;
+}
+
+export function getCallV4AgoraRemoteVideoTrack(callId: string): IRemoteVideoTrack | null {
+  return remoteVideoByCallId.get(callId.trim()) ?? null;
+}
+
+export function setCallV4AgoraRemoteVideoTrack(callId: string, track: IRemoteVideoTrack | null): void {
+  const sid = callId.trim();
+  if (!sid) return;
+  if (track) remoteVideoByCallId.set(sid, track);
+  else remoteVideoByCallId.delete(sid);
 }
 
 export async function leaveCallV4Agora(callId?: string): Promise<void> {
   const sid = callId?.trim() || activeSession?.callId;
   if (!sid || !activeSession || activeSession.callId !== sid) return;
   const { client, localTracks, remoteAudioTrack } = activeSession;
+  const remoteVideoTrack = remoteVideoByCallId.get(sid) ?? null;
   activeSession = null;
-  joinClaimed.delete(sid);
-  connectionByCallId.delete(sid);
+  remoteVideoByCallId.delete(sid);
+  resetCallV4AgoraJoinStateForCallId(sid);
   clearCallV4ConnectionWarm(sid);
   const provider = await loadCommunityMessengerCallProviderClient();
   await provider.cleanupCommunityMessengerAgoraCallResources({
     client,
     tracks: localTracks,
     remoteAudioTrack,
+    remoteVideoTrack,
   });
   logCallV4("agora_leave_done", { callId: sid });
 }

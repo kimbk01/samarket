@@ -1,0 +1,135 @@
+"use client";
+
+import type { IAgoraRTCClient, IAgoraRTCRemoteUser, ILocalVideoTrack, IRemoteVideoTrack } from "agora-rtc-sdk-ng";
+import {
+  bindAgoraLocalVideoTrack,
+  bindAgoraRemoteVideoTrack,
+  clearLocalVideoContainer,
+} from "@/lib/community-messenger/call-local-video-pipeline";
+import { canAttachCallV4VideoMedia } from "@/lib/community-messenger/call-v4/call-v4-connected-media-policy";
+import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
+import { readCallV4MediaState, useCallV4MediaStore } from "@/lib/community-messenger/call-v4/call-v4-media-state";
+import { readCallV4Phase } from "@/lib/community-messenger/call-v4/call-v4-store";
+import {
+  getCallV4AgoraClient,
+  getCallV4AgoraLocalTracks,
+  getCallV4AgoraRemoteVideoTrack,
+  setCallV4AgoraLocalTracks,
+  setCallV4AgoraRemoteVideoTrack,
+} from "@/lib/community-messenger/call-v4/call-v4-agora";
+
+async function loadProvider() {
+  return import("@/lib/community-messenger/call-provider/client");
+}
+
+export async function subscribeCallV4RemoteVideo(
+  callId: string,
+  client: IAgoraRTCClient,
+  user: IAgoraRTCRemoteUser,
+  container: HTMLElement | null,
+): Promise<boolean> {
+  if (!canAttachCallV4VideoMedia(readCallV4Phase())) return false;
+  if (!user.hasVideo) return false;
+  try {
+    await client.subscribe(user, "video");
+  } catch {
+    return false;
+  }
+  const track = user.videoTrack;
+  if (!track) return false;
+  setCallV4AgoraRemoteVideoTrack(callId, track);
+  if (!container) return false;
+  const ok = await bindAgoraRemoteVideoTrack(track, container, { fit: "cover", mirror: false });
+  if (ok) {
+    useCallV4MediaStore.getState().setRemoteVideoReady(true);
+    logCallV4("remote_video_subscribe", { callId, uid: user.uid });
+  }
+  return ok;
+}
+
+export async function publishCallV4LocalVideo(callId: string, container: HTMLElement | null): Promise<boolean> {
+  const sid = callId.trim();
+  if (!sid || !canAttachCallV4VideoMedia(readCallV4Phase())) return false;
+  const client = getCallV4AgoraClient(sid);
+  const tracks = getCallV4AgoraLocalTracks(sid);
+  if (!client || !tracks) return false;
+  if (tracks.videoTrack) {
+    if (container && tracks.videoTrack.enabled) {
+      return bindAgoraLocalVideoTrack(tracks.videoTrack, container, { fit: "cover", mirror: true });
+    }
+    return true;
+  }
+  try {
+    logCallV4("local_video_publish_start", { callId: sid });
+    const provider = await loadProvider();
+    const videoTrack = await provider.createCommunityMessengerAgoraVideoTrackOnly();
+    const next = { ...tracks, videoTrack };
+    await client.publish([videoTrack]);
+    setCallV4AgoraLocalTracks(sid, next);
+    useCallV4MediaStore.getState().setCameraEnabled(true);
+    logCallV4("local_video_publish", { callId: sid });
+    logCallV4("local_video_publish_done", { callId: sid });
+    if (!container) return true;
+    const ok = await bindAgoraLocalVideoTrack(videoTrack, container, { fit: "cover", mirror: true });
+    if (ok) useCallV4MediaStore.getState().setLocalVideoReady(true);
+    return ok;
+  } catch {
+    logCallV4("local_video_publish_failed", { callId: sid });
+    return false;
+  }
+}
+
+export async function unpublishCallV4LocalVideo(callId: string, container: HTMLElement | null): Promise<void> {
+  const sid = callId.trim();
+  const client = getCallV4AgoraClient(sid);
+  const tracks = getCallV4AgoraLocalTracks(sid);
+  const videoTrack = tracks?.videoTrack;
+  if (!client || !videoTrack) {
+    if (container) clearLocalVideoContainer(container);
+    useCallV4MediaStore.getState().setLocalVideoReady(false);
+    useCallV4MediaStore.getState().setCameraEnabled(false);
+    return;
+  }
+  try {
+    videoTrack.setEnabled(false);
+    await client.unpublish([videoTrack]);
+  } catch {
+    /* best-effort */
+  }
+  if (container) clearLocalVideoContainer(container);
+  useCallV4MediaStore.getState().setLocalVideoReady(false);
+  useCallV4MediaStore.getState().setCameraEnabled(false);
+  logCallV4("local_video_unpublish", { callId: sid });
+}
+
+export async function setCallV4MicEnabled(callId: string, enabled: boolean): Promise<void> {
+  const tracks = getCallV4AgoraLocalTracks(callId.trim());
+  const audio = tracks?.audioTrack;
+  if (!audio) return;
+  try {
+    await audio.setEnabled(enabled);
+    useCallV4MediaStore.getState().setMicEnabled(enabled);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function readCallV4LocalVideoTrack(callId: string): ILocalVideoTrack | null {
+  return getCallV4AgoraLocalTracks(callId.trim())?.videoTrack ?? null;
+}
+
+export function readCallV4RemoteVideoTrack(callId: string): IRemoteVideoTrack | null {
+  return getCallV4AgoraRemoteVideoTrack(callId.trim());
+}
+
+export function isCallV4VideoActive(callId: string): boolean {
+  const sid = callId.trim();
+  const identity = readCallV4MediaState();
+  return Boolean(
+    readCallV4LocalVideoTrack(sid) ||
+      readCallV4RemoteVideoTrack(sid) ||
+      identity.cameraEnabled ||
+      identity.localVideoReady ||
+      identity.remoteVideoReady,
+  );
+}

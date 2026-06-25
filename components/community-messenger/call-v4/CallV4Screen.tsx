@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CallScreen } from "@/components/messenger/call/CallScreen";
+import { ConnectedVideoView } from "@/components/messenger/call/ConnectedVideoView";
 import {
   callV4Accept,
   callV4EnsureAgoraJoined,
@@ -13,11 +14,13 @@ import {
 } from "@/lib/community-messenger/call-v4/call-v4-actions";
 import { callV4FetchSession } from "@/lib/community-messenger/call-v4/call-v4-api";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
+import { useCallV4MediaStore } from "@/lib/community-messenger/call-v4/call-v4-media-state";
 import { tryStartCallV4NativeAcceptAutostart } from "@/lib/community-messenger/call-v4/call-v4-native-accept-flight";
 import { notifyCallV4WebCallScreenReady } from "@/lib/community-messenger/call-v4/call-v4-native-connecting-handoff";
 import { exitCallV4ScreenAfterCleanup, registerCallV4ExitRouter } from "@/lib/community-messenger/call-v4/call-v4-route";
 import type { CallV4Phase } from "@/lib/community-messenger/call-v4/call-v4-types";
 import { buildCallV4ScreenViewModel } from "@/lib/community-messenger/call-v4/call-v4-view-model";
+import { useCallV4VideoPresenter } from "@/lib/community-messenger/call-v4/call-v4-video-presenter";
 import { readCallV4Identity, readCallV4Phase, useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
 
 type CallV4ScreenProps = {
@@ -41,6 +44,8 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
   const phase = useCallV4Store((s) => s.phase);
   const identity = useCallV4Store((s) => s.identity);
   const connectedAt = useCallV4Store((s) => s.connectedAt);
+  const mediaState = useCallV4MediaStore();
+  const presenter = useCallV4VideoPresenter(callId, false);
   const action = searchParams?.get("action")?.trim() ?? null;
   const source = searchParams?.get("source")?.trim() ?? null;
   const incomingPreview = searchParams?.get("incomingPreview") === "1";
@@ -189,12 +194,22 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
         connectedAt,
         safeT: (key, options) => safeT(key as Parameters<typeof safeT>[0], options),
         router,
+        presenter,
+        mediaState,
       }),
-    [action, callId, phase, identity, connectedAt, safeT, router]
+    [action, callId, phase, identity, connectedAt, safeT, router, presenter, mediaState]
   );
 
   if (!vm) {
     return null;
+  }
+
+  if (vm.mode === "video" && vm.phase === "connected") {
+    return (
+      <div data-testid="call-v4-screen" className="flex min-h-dvh flex-col bg-sam-app">
+        <ConnectedVideoView vm={vm} />
+      </div>
+    );
   }
 
   return (

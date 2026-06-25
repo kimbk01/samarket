@@ -491,7 +491,8 @@ export async function callV4EnsureAgoraJoined(callId: string): Promise<void> {
   if (!sid) return;
 
   const identity = readCallV4Identity();
-  if (identity?.callId !== sid || identity.mediaType !== "audio") return;
+  if (!identity || identity.callId !== sid) return;
+  if (identity.mediaType !== "audio" && identity.mediaType !== "video") return;
 
   let phase = readCallV4Phase();
   if (phase === "outgoing_ringing" || phase === "creating") {
