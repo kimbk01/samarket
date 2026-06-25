@@ -18,6 +18,8 @@ import {
   setCallV4AgoraRemoteVideoTrack,
 } from "@/lib/community-messenger/call-v4/call-v4-agora";
 
+const unpublishedLocalVideoByCallId = new Set<string>();
+
 async function loadProvider() {
   return import("@/lib/community-messenger/call-provider/client");
 }
@@ -53,25 +55,47 @@ export async function publishCallV4LocalVideo(callId: string, container: HTMLEle
   const client = getCallV4AgoraClient(sid);
   const tracks = getCallV4AgoraLocalTracks(sid);
   if (!client || !tracks) return false;
+  logCallV4("local_video_publish_start", { callId: sid });
   if (tracks.videoTrack) {
-    if (container && tracks.videoTrack.enabled) {
-      return bindAgoraLocalVideoTrack(tracks.videoTrack, container, { fit: "cover", mirror: true });
+    try {
+      const track = tracks.videoTrack;
+      const wasEnabled = track.enabled;
+      if (!wasEnabled) {
+        await track.setEnabled(true);
+      }
+      if (unpublishedLocalVideoByCallId.has(sid) || !wasEnabled) {
+        await client.publish([track]);
+        logCallV4("local_video_republish_existing_track", { callId: sid });
+      }
+      unpublishedLocalVideoByCallId.delete(sid);
+      useCallV4MediaStore.getState().setCameraEnabled(true);
+      useCallV4MediaStore.getState().setLocalVideoReady(true);
+      logCallV4("local_video_publish_done", { callId: sid });
+      if (!container) return true;
+      const ok = await bindAgoraLocalVideoTrack(track, container, { fit: "cover", mirror: true });
+      if (!ok) {
+        useCallV4MediaStore.getState().setLocalVideoReady(false);
+      }
+      return ok;
+    } catch {
+      logCallV4("local_video_publish_failed", { callId: sid });
+      return false;
     }
-    return true;
   }
   try {
-    logCallV4("local_video_publish_start", { callId: sid });
     const provider = await loadProvider();
     const videoTrack = await provider.createCommunityMessengerAgoraVideoTrackOnly();
     const next = { ...tracks, videoTrack };
     await client.publish([videoTrack]);
     setCallV4AgoraLocalTracks(sid, next);
+    unpublishedLocalVideoByCallId.delete(sid);
     useCallV4MediaStore.getState().setCameraEnabled(true);
+    useCallV4MediaStore.getState().setLocalVideoReady(true);
     logCallV4("local_video_publish", { callId: sid });
     logCallV4("local_video_publish_done", { callId: sid });
     if (!container) return true;
     const ok = await bindAgoraLocalVideoTrack(videoTrack, container, { fit: "cover", mirror: true });
-    if (ok) useCallV4MediaStore.getState().setLocalVideoReady(true);
+    if (!ok) useCallV4MediaStore.getState().setLocalVideoReady(false);
     return ok;
   } catch {
     logCallV4("local_video_publish_failed", { callId: sid });
@@ -96,6 +120,7 @@ export async function unpublishCallV4LocalVideo(callId: string, container: HTMLE
   } catch {
     /* best-effort */
   }
+  unpublishedLocalVideoByCallId.add(sid);
   if (container) clearLocalVideoContainer(container);
   useCallV4MediaStore.getState().setLocalVideoReady(false);
   useCallV4MediaStore.getState().setCameraEnabled(false);
