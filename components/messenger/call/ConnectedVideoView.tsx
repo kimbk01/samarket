@@ -10,6 +10,7 @@ import { IncomingCallBrandHeader } from "./IncomingCallBrandHeader";
 import { MiniLocalVideo } from "./MiniLocalVideo";
 import { useCallTimer } from "./useCallTimer";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -66,6 +67,32 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
     armIdleHideTimer();
     return clearIdleHideTimer;
   }, [autoHideControlsEnabled, vm.phase, armIdleHideTimer, clearIdleHideTimer]);
+
+  const telemetryCallId = vm.callTelemetryId?.trim() ?? "";
+
+  useEffect(() => {
+    if (!telemetryCallId) return;
+    logCallV4("ConnectedVideoView_render", {
+      callId: telemetryCallId,
+      phase: vm.phase,
+      mode: vm.mode,
+      showRemoteVideo: Boolean(vm.showRemoteVideo),
+      showLocalVideo: Boolean(vm.showLocalVideo),
+      pipShellMounted: Boolean(vm.pipShellMounted),
+    });
+  }, [
+    telemetryCallId,
+    vm.phase,
+    vm.mode,
+    vm.showRemoteVideo,
+    vm.showLocalVideo,
+    vm.pipShellMounted,
+  ]);
+
+  useEffect(() => {
+    if (!telemetryCallId || !vm.pipShellMounted || !vm.showLocalVideo) return;
+    logCallV4("self_video_overlay_rendered", { callId: telemetryCallId });
+  }, [telemetryCallId, vm.pipShellMounted, vm.showLocalVideo]);
 
   const pipShellMounted = Boolean(vm.pipShellMounted);
 

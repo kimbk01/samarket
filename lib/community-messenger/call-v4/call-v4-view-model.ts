@@ -223,6 +223,7 @@ export function buildCallV4ScreenViewModel(input: BuildCallV4ScreenViewModelInpu
           : null;
 
   return {
+    callTelemetryId: callId,
     visualTheme: "starbucks",
     mode: useConnectedVideoSurface || isVideoUiMode ? "video" : "voice",
     direction: identity.direction,

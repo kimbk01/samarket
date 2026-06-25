@@ -9,6 +9,7 @@ import {
 } from "@/lib/community-messenger/call-v4/call-v4-agora-media";
 import { getCallV4AgoraRemoteVideoTrack } from "@/lib/community-messenger/call-v4/call-v4-agora";
 import { canAttachCallV4VideoMedia } from "@/lib/community-messenger/call-v4/call-v4-connected-media-policy";
+import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import { useCallV4MediaStore } from "@/lib/community-messenger/call-v4/call-v4-media-state";
 import { isCallV4VideoEnabled } from "@/lib/community-messenger/call-v4/call-v4-phase6-flags";
 import { readCallV4Identity, useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
@@ -52,7 +53,13 @@ export function useCallV4VideoPresenter(callId: string, androidOsPipSafeMode = f
       }
       const remote = getCallV4AgoraRemoteVideoTrack(callId) ?? readCallV4RemoteVideoTrack(callId);
       if (!cancelled && remote && largeVideoRef.current) {
-        await bindAgoraRemoteVideoTrack(remote, largeVideoRef.current, { fit: "cover", mirror: false });
+        const attached = await bindAgoraRemoteVideoTrack(remote, largeVideoRef.current, {
+          fit: "cover",
+          mirror: false,
+        });
+        if (!cancelled && attached) {
+          logCallV4("remote_video_element_attached", { callId, target: "remote_main" });
+        }
       }
     })();
     return () => {

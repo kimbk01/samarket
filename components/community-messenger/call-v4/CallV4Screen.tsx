@@ -230,6 +230,20 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
     [action, callId, phase, identity, connectedAt, safeT, router, presenter, mediaState]
   );
 
+  useEffect(() => {
+    if (!callId || !vm) return;
+    const branch = vm.mode === "video" && vm.phase === "connected" ? "connected_video_view" : "call_screen";
+    logCallV4("video_connected_branch_selected", {
+      callId,
+      branch,
+      vmMode: vm.mode,
+      vmPhase: vm.phase,
+      storePhase: phase,
+      showRemoteVideo: Boolean(vm.showRemoteVideo),
+      pipShellMounted: Boolean(vm.pipShellMounted),
+    });
+  }, [callId, phase, vm?.mode, vm?.phase, vm?.showRemoteVideo, vm?.pipShellMounted]);
+
   if (!vm) {
     return null;
   }

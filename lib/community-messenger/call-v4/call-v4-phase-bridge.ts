@@ -28,6 +28,7 @@ export function markCallV4MediaConnected(callId: string, source: string): boolea
 
   useCallV4Store.setState({ phase: "connected", connectedAt: Date.now() });
   logCallV4("media_connected_phase", { callId: sid, fromPhase: phase, source });
+  logCallV4("active_call_connected", { callId: sid, source, fromPhase: phase });
   startCallV4ConnectedTerminalWatch(sid);
   return true;
 }

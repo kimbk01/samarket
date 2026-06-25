@@ -112,4 +112,6 @@ export type CallScreenViewModel = {
   suppressTerminalView?: boolean;
   /** Android OS PiP — WebView 축소 시 최소 chrome (presentation only) */
   androidOsPipSafeMode?: boolean;
+  /** Call V4 QA telemetry — legacy CallScreen 경로에는 미설정 */
+  callTelemetryId?: string;
 };
