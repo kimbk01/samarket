@@ -38,6 +38,7 @@ import {
 import {
   isCallV4CalleeAcceptRoute,
   isCallV4CalleeRejectRoute,
+  normalizeCallV4AppPath,
   readCallV4SessionIdFromNativeRoute,
 } from "@/lib/community-messenger/call-v4/call-v4-native-route";
 import {
@@ -97,6 +98,65 @@ function seedCallV4NativeAcceptRouteState(path: string): void {
     useCallV4Store.getState().setPhase("accepting");
   }
   void hydrateCallV4CalleeScreen(callId);
+}
+
+const replacedV4AcceptCallIds = new Set<string>();
+
+function isAlreadyOnCallV4AcceptRoute(currentPath: string, targetPath: string): boolean {
+  const current = normalizeCallV4AppPath(currentPath);
+  const target = normalizeCallV4AppPath(targetPath);
+  if (!isCallV4CalleeAcceptRoute(current)) return false;
+  const currentCallId = readCallV4SessionIdFromNativeRoute(current);
+  const targetCallId = readCallV4SessionIdFromNativeRoute(target);
+  return Boolean(currentCallId && targetCallId && currentCallId === targetCallId);
+}
+
+/** Native `dibay:call-route` accept — seed inflight then ensure calls-v4 screen navigation. */
+export function handleCallV4NativeRouteEvent(
+  path: string,
+  router: { replace: (href: string) => void },
+  currentPath: string,
+): void {
+  const normalizedPath = normalizeCallV4AppPath(path);
+  if (!normalizedPath) return;
+
+  logCallV4("call_v4_route_event_received", { path: normalizedPath });
+
+  if (isCallV4CalleeAcceptRoute(normalizedPath)) {
+    logCallV4RouteAcceptDetected(normalizedPath, "native_route_event");
+    seedCallV4NativeAcceptRouteState(normalizedPath);
+    const callId = readCallV4SessionIdFromNativeRoute(normalizedPath);
+    logCallV4("call_v4_route_accept_seeded", {
+      callId: callId ?? null,
+      path: normalizedPath,
+    });
+
+    if (callId) {
+      if (isAlreadyOnCallV4AcceptRoute(currentPath, normalizedPath)) {
+        logCallV4("router_replace_calls_v4_accept_skipped_duplicate", {
+          callId,
+          path: normalizedPath,
+          reason: "already_on_route",
+        });
+      } else if (replacedV4AcceptCallIds.has(callId)) {
+        logCallV4("router_replace_calls_v4_accept_skipped_duplicate", {
+          callId,
+          path: normalizedPath,
+          reason: "already_replaced",
+        });
+      } else {
+        replacedV4AcceptCallIds.add(callId);
+        logCallV4("router_replace_calls_v4_accept", { callId, path: normalizedPath });
+        router.replace(normalizedPath);
+      }
+    }
+  }
+
+  registerCallV4NativeAcceptingFromAppPath(normalizedPath);
+}
+
+export function resetCallV4AcceptRouteReplaceForTests(): void {
+  replacedV4AcceptCallIds.clear();
 }
 
 async function hydrateCallV4IncomingWake(detail: DibayFcmIncomingWakeDetail): Promise<void> {
@@ -195,11 +255,8 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
     const onNativeRoute = (event: Event) => {
       const path = (event as CustomEvent<{ path?: string }>).detail?.path?.trim();
       if (!path) return;
-      if (isCallV4CalleeAcceptRoute(path)) {
-        logCallV4RouteAcceptDetected(path, "native_route_event");
-        seedCallV4NativeAcceptRouteState(path);
-      }
-      registerCallV4NativeAcceptingFromAppPath(path);
+      const currentPath = `${pathname ?? ""}${typeof window !== "undefined" ? window.location.search : ""}`;
+      handleCallV4NativeRouteEvent(path, router, currentPath);
     };
 
     window.addEventListener("dibay:call-route", onNativeRoute);
@@ -208,7 +265,7 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
       window.removeEventListener("dibay:call-route", onNativeRoute);
       window.removeEventListener("dibay:push-route", onNativeRoute);
     };
-  }, [router]);
+  }, [pathname, router]);
 
   useEffect(() => {
     if (!isCallV4TelegramLaneEnabled()) return;
