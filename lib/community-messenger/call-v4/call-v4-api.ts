@@ -154,17 +154,27 @@ export async function callV4PatchAccept(
   logCallV4("call_v4_accept_patch_attempt", { callId: sid });
   logCallV4("accept_patch_http_start", { callId: sid });
 
-  const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sid)}`, {
+  const patchUrl = `/api/community-messenger/calls/sessions/${encodeURIComponent(sid)}`;
+  const patchInit: RequestInit = {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
     body: JSON.stringify({ action: "accept" }),
-  });
+  };
+  logCallV4("fetch_request_created", { callId: sid, method: patchInit.method ?? "PATCH" });
+  logCallV4("fetch_request_sent", { callId: sid });
+  const res = await fetch(patchUrl, patchInit);
+  logCallV4("fetch_response_received", { callId: sid, httpStatus: res.status, ok: res.ok });
   const json = (await res.json().catch(() => ({}))) as {
     ok?: boolean;
     session?: CommunityMessengerCallSession;
     error?: string;
   };
+  logCallV4("fetch_body_read", {
+    callId: sid,
+    httpStatus: res.status,
+    payloadOk: Boolean(json.ok),
+  });
   const result = { ...json, ok: Boolean(res.ok && json.ok) };
   const sessionStatus = result.session?.status ?? null;
   const callKind = result.session?.callKind ?? null;
