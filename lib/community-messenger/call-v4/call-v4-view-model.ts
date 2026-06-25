@@ -5,7 +5,6 @@ import {
   setCallV4MicEnabled,
   unpublishCallV4LocalVideo,
 } from "@/lib/community-messenger/call-v4/call-v4-agora-media";
-import { toggleCallV4SpeakerRoute } from "@/lib/community-messenger/call-v4/call-v4-audio-route";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import type { CallV4MediaSnapshot } from "@/lib/community-messenger/call-v4/call-v4-media-state";
 import { isNativeAcceptInflight } from "@/lib/community-messenger/call-v4/call-v4-native-accept-flight";
@@ -169,13 +168,6 @@ export function buildCallV4ScreenViewModel(input: BuildCallV4ScreenViewModelInpu
 
   if (phase === "connected" && isVideoCall) {
     secondaryActions.push(
-      {
-        id: "speaker",
-        label: safeT("cm_ui_speaker", { fallbackKo: "스피커", fallbackEn: "Speaker" }),
-        icon: "speaker",
-        active: ms.speakerEnabled,
-        onClick: () => void toggleCallV4SpeakerRoute(callId),
-      },
       {
         id: "mute",
         label: ms.micEnabled

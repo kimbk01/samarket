@@ -6,12 +6,6 @@ vi.mock("@/lib/community-messenger/call-v4/call-v4-native-accept-flight", () => 
   isNativeAcceptInflight: vi.fn(),
 }));
 
-const toggleSpeakerMock = vi.hoisted(() => vi.fn(() => Promise.resolve()));
-
-vi.mock("@/lib/community-messenger/call-v4/call-v4-audio-route", () => ({
-  toggleCallV4SpeakerRoute: toggleSpeakerMock,
-}));
-
 import { isNativeAcceptInflight } from "@/lib/community-messenger/call-v4/call-v4-native-accept-flight";
 
 const identity: CallV4Identity = {
@@ -32,29 +26,6 @@ const safeT = (key: string, options?: { fallbackKo?: string; fallbackEn?: string
 const router = { replace: vi.fn(), push: vi.fn() };
 
 describe("buildCallV4ScreenViewModel native accept inflight", () => {
-  it("adds speaker action for connected video", () => {
-    vi.mocked(isNativeAcceptInflight).mockReturnValue(false);
-    const vm = buildCallV4ScreenViewModel({
-      callId: "call-vm",
-      phase: "connected",
-      identity: { ...identity, mediaType: "video", direction: "outgoing" },
-      connectedAt: Date.now(),
-      safeT,
-      router,
-      mediaState: {
-        micEnabled: true,
-        speakerEnabled: true,
-        cameraEnabled: true,
-        localVideoMinimized: false,
-        localVideoReady: true,
-        remoteVideoReady: true,
-        incomingVideoUpgradeRequest: false,
-        pendingVideoUpgradeRequest: false,
-      },
-    });
-    expect(vm?.secondaryActions?.some((action) => action.id === "speaker")).toBe(true);
-  });
-
   it("does not create accept/reject actions when inflight is true", () => {
     vi.mocked(isNativeAcceptInflight).mockReturnValue(true);
     const info = vi.spyOn(console, "info").mockImplementation(() => {});
