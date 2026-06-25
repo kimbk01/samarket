@@ -7,8 +7,9 @@ import {
   patchCommunityMessengerCallSession,
   startCommunityMessengerRoomCall,
 } from "@/lib/community-messenger/call-http-actions";
-import type { CommunityMessengerCallKind, CommunityMessengerCallSession, CommunityMessengerManagedCallConnection } from "@/lib/community-messenger/types";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
+import { readCallV4Identity } from "@/lib/community-messenger/call-v4/call-v4-store";
+import type { CommunityMessengerCallKind, CommunityMessengerCallSession, CommunityMessengerManagedCallConnection } from "@/lib/community-messenger/types";
 
 export type CallV4MediaType = "audio" | "video";
 
@@ -140,14 +141,81 @@ export async function callV4FetchIncomingSessions(): Promise<CommunityMessengerC
   return json.ok ? (json.sessions ?? []) : [];
 }
 
+export function isCallV4AcceptPatchJoinableStatus(status: string | null | undefined): boolean {
+  const normalized = (status ?? "").trim();
+  return normalized === "ringing" || normalized === "active";
+}
+
 export async function callV4PatchAccept(
   callId: string
 ): Promise<{ ok: boolean; session?: CommunityMessengerCallSession; error?: string }> {
-  logCallV4("accept_patch_start", { callId });
-  const result = await patchCommunityMessengerCallSession(callId, "accept");
-  if (result.ok) {
-    logCallV4("accept_patch_done", { callId });
+  const sid = callId.trim();
+  logCallV4("accept_patch_start", { callId: sid });
+  logCallV4("call_v4_accept_patch_attempt", { callId: sid });
+  logCallV4("accept_patch_http_start", { callId: sid });
+
+  const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sid)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ action: "accept" }),
+  });
+  const json = (await res.json().catch(() => ({}))) as {
+    ok?: boolean;
+    session?: CommunityMessengerCallSession;
+    error?: string;
+  };
+  const result = { ...json, ok: Boolean(res.ok && json.ok) };
+  const sessionStatus = result.session?.status ?? null;
+  const callKind = result.session?.callKind ?? null;
+  const httpStatus = res.status;
+
+  if (!result.ok) {
+    const reason = result.error ?? "patch_accept_http_failed";
+    logCallV4("accept_patch_http_fail", {
+      callId: sid,
+      httpStatus,
+      bodyStatus: sessionStatus,
+      error: reason,
+      callKind,
+    });
+    if (reason === "session_terminal" || reason === "bad_action") {
+      logCallV4("accept_patch_terminal", { callId: sid, sessionStatus, callKind, reason });
+    }
+    logCallV4("call_v4_accept_patch_blocked", {
+      callId: sid,
+      reason,
+      sessionStatus,
+      callKind,
+    });
+    return { ok: false, session: result.session, error: reason };
   }
+
+  logCallV4("accept_patch_http_done", {
+    callId: sid,
+    httpStatus,
+    bodyStatus: sessionStatus,
+    callKind,
+  });
+
+  if (!isCallV4AcceptPatchJoinableStatus(sessionStatus)) {
+    logCallV4("accept_patch_terminal", {
+      callId: sid,
+      sessionStatus,
+      callKind,
+      reason: "session_not_joinable_after_patch",
+    });
+    logCallV4("call_v4_accept_patch_blocked", {
+      callId: sid,
+      reason: "accept_patch_terminal",
+      sessionStatus,
+      callKind,
+    });
+    return { ok: false, session: result.session, error: "accept_patch_terminal" };
+  }
+
+  logCallV4("accept_patch_done", { callId: sid, status: sessionStatus, callKind });
+  logCallV4("call_v4_accept_patch_done", { callId: sid, status: sessionStatus, callKind });
   return result;
 }
 
@@ -181,6 +249,7 @@ export async function callV4FetchAgoraToken(
 ): Promise<CommunityMessengerManagedCallConnection | null> {
   const sid = callId.trim();
   if (!sid) return null;
+  const identity = readCallV4Identity();
   const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sid)}/token`, {
     credentials: "include",
     cache: "no-store",
@@ -188,7 +257,40 @@ export async function callV4FetchAgoraToken(
   const json = (await res.json().catch(() => ({}))) as {
     ok?: boolean;
     connection?: CommunityMessengerManagedCallConnection;
+    error?: string;
+    reason?: string;
+    sessionStatus?: string;
+    callKind?: CommunityMessengerCallKind;
+    role?: string;
   };
-  if (!res.ok || !json.ok || !json.connection) return null;
+  if (!res.ok || !json.ok || !json.connection) {
+    const role =
+      json.role ??
+      (identity?.direction === "incoming"
+        ? "callee"
+        : identity?.direction === "outgoing"
+          ? "caller"
+          : null);
+    const callKind =
+      json.callKind ??
+      (identity?.mediaType === "video" ? "video" : identity?.mediaType === "audio" ? "voice" : null);
+    logCallV4("token_fetch_fail", {
+      callId: sid,
+      httpStatus: res.status,
+      reason: json.reason ?? json.error ?? "token_http_or_payload_failed",
+      sessionStatus: json.sessionStatus ?? null,
+      callKind,
+      role,
+    });
+    return null;
+  }
+  if (!json.connection.appId?.trim()) {
+    logCallV4("agora_app_id_missing", { callId: sid, source: "token_api" });
+    return null;
+  }
+  if (!json.connection.token?.trim()) {
+    logCallV4("agora_token_missing", { callId: sid, source: "token_api" });
+    return null;
+  }
   return json.connection;
 }

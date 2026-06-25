@@ -121,11 +121,14 @@ function attachRemoteHandlers(callId: string, client: IAgoraRTCClient): void {
   });
 }
 
-async function resolveCallV4AgoraConnection(callId: string): Promise<CommunityMessengerManagedCallConnection | null> {
+async function resolveCallV4AgoraConnection(
+  callId: string,
+  afterPatch = false,
+): Promise<CommunityMessengerManagedCallConnection | null> {
   const sid = callId.trim();
   const cached = connectionByCallId.get(sid);
   if (cached) return cached;
-  logCallV4("token_fetch_start", { callId: sid });
+  logCallV4("token_fetch_start", { callId: sid, afterPatch });
   const connection = await resolveCallV4WarmConnection(sid, () => callV4FetchAgoraToken(sid));
   if (!connection) {
     return null;
@@ -161,7 +164,10 @@ export function resetCallV4AgoraJoinStateForCallId(callId: string): void {
   }
 }
 
-export async function joinCallV4Agora(callId: string): Promise<boolean> {
+export async function joinCallV4Agora(
+  callId: string,
+  options?: { afterPatch?: boolean },
+): Promise<boolean> {
   const sid = callId.trim();
   if (!sid) return false;
   if (activeSession?.callId === sid || joinSucceeded.has(sid)) return true;
@@ -184,7 +190,7 @@ export async function joinCallV4Agora(callId: string): Promise<boolean> {
         return false;
       }
       try {
-        const connection = await resolveCallV4AgoraConnection(sid);
+        const connection = await resolveCallV4AgoraConnection(sid, options?.afterPatch ?? false);
         if (!connection) {
           logCallV4("agora_join_not_ready", { callId: sid, reason: "connection_unavailable" });
           return false;

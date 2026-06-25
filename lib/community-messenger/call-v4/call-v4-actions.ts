@@ -478,22 +478,30 @@ export async function callV4Accept(
   if (!claimCallV4AcceptPatchOnce(sid)) return;
 
   useCallV4Store.getState().setPhase("joining");
-  logCallV4("accept_parallel_start", {
-    callId: sid,
-    kind: identity.mediaType,
-    source: options?.source ?? null,
-  });
-  const [patched] = await Promise.all([callV4PatchAccept(sid), callV4EnsureAgoraJoined(sid)]);
+
+  const patched = await callV4PatchAccept(sid);
 
   if (!patched.ok) {
     logCallV4("accept_patch_failed", { callId: sid, error: patched.error ?? null });
     await leaveCallV4Agora(sid);
     useCallV4Store.getState().setPhase("failed");
     await finalizeCallV4Terminal(sid, "failed", router);
+    return;
   }
+
+  logCallV4("callee_join_sequence_start", {
+    callId: sid,
+    kind: identity.mediaType,
+    source: options?.source ?? null,
+    sessionStatus: patched.session?.status ?? null,
+  });
+  await callV4EnsureAgoraJoined(sid, { afterPatch: true });
 }
 
-export async function callV4EnsureAgoraJoined(callId: string): Promise<void> {
+export async function callV4EnsureAgoraJoined(
+  callId: string,
+  options?: { afterPatch?: boolean },
+): Promise<void> {
   const sid = callId.trim();
   if (!sid) return;
 
@@ -508,7 +516,7 @@ export async function callV4EnsureAgoraJoined(callId: string): Promise<void> {
   }
   if (phase !== "joining" && phase !== "accepting") return;
 
-  const joined = await joinCallV4Agora(sid);
+  const joined = await joinCallV4Agora(sid, { afterPatch: options?.afterPatch ?? false });
   if (!joined) {
     logCallV4("agora_join_not_ready", { callId: sid, phase: readCallV4Phase() });
     return;

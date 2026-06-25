@@ -12,7 +12,7 @@ vi.mock("@/lib/community-messenger/call-v4/call-v4-native-lifecycle", () => ({
 }));
 
 vi.mock("@/lib/community-messenger/call-v4/call-v4-api", () => ({
-  callV4PatchAccept: vi.fn(async () => ({ ok: true })),
+  callV4PatchAccept: vi.fn(async () => ({ ok: true, session: { status: "active" } })),
   callV4PatchReject: vi.fn(async () => ({ ok: true })),
   callV4FetchSession: vi.fn(),
 }));
@@ -21,6 +21,9 @@ vi.mock("@/lib/community-messenger/call-v4/call-v4-agora", () => ({
   joinCallV4Agora: vi.fn(async () => true),
   leaveCallV4Agora: vi.fn(async () => {}),
 }));
+
+import { callV4PatchAccept } from "@/lib/community-messenger/call-v4/call-v4-api";
+import { joinCallV4Agora } from "@/lib/community-messenger/call-v4/call-v4-agora";
 
 vi.mock("@/lib/community-messenger/call-v4/call-v4-cleanup", () => ({
   cleanupCallV4: (...args: unknown[]) => lifecycleMocks.cleanup(...args),
@@ -39,6 +42,11 @@ vi.mock("@/lib/community-messenger/call-v4/call-v4-patch-guard", () => ({
   claimCallV4EndPatchOnce: vi.fn(() => true),
   claimCallV4CancelPatchOnce: vi.fn(() => true),
   releaseCallV4CancelPatchClaim: vi.fn(),
+  hasCallV4AcceptPatchDone: vi.fn(() => false),
+  markCallV4AcceptPatchDone: vi.fn(),
+  releaseCallV4AcceptPatchClaim: vi.fn(),
+  tryClaimCallV4AcceptFlight: vi.fn(() => true),
+  releaseCallV4AcceptFlightClaim: vi.fn(),
 }));
 
 import {
@@ -74,6 +82,24 @@ describe("call-v4 actions native lifecycle hooks", () => {
     await callV4Accept("call-hook", router, { skipRoute: true, source: "sheet" });
     expect(lifecycleMocks.onAccept).toHaveBeenCalledTimes(1);
     expect(lifecycleMocks.onAccept).toHaveBeenCalledWith("call-hook");
+  });
+
+  it("callV4Accept awaits patch before agora join", async () => {
+    const order: string[] = [];
+    vi.mocked(callV4PatchAccept).mockImplementation(async () => {
+      order.push("patch");
+      return { ok: true, session: { status: "active" } as never };
+    });
+    vi.mocked(joinCallV4Agora).mockImplementation(async () => {
+      order.push("join");
+      return true;
+    });
+
+    const router = { push: vi.fn(), replace: vi.fn() };
+    await callV4Accept("call-hook", router, { skipRoute: true, source: "native_accept" });
+
+    expect(order).toEqual(["patch", "join"]);
+    expect(joinCallV4Agora).toHaveBeenCalledWith("call-hook", { afterPatch: true });
   });
 
   it("callV4Reject invokes native sync at start", async () => {
