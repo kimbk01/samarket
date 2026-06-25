@@ -16,8 +16,13 @@ import {
 import { triggerCallV4RemoteTerminalCheckFromAgora } from "@/lib/community-messenger/call-v4/call-v4-connected-terminal-watch";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import { useCallV4MediaStore } from "@/lib/community-messenger/call-v4/call-v4-media-state";
-import { readCallV4Identity } from "@/lib/community-messenger/call-v4/call-v4-store";
 import { markCallV4MediaConnected } from "@/lib/community-messenger/call-v4/call-v4-phase-bridge";
+import {
+  markCallV4AcceptPatchJoinableInflight,
+  writeCallV4ConnectedGateAgoraSignals,
+  clearCallV4ConnectedGateAgoraSignals,
+} from "@/lib/community-messenger/call-v4/call-v4-connected-gate";
+import { readCallV4Identity } from "@/lib/community-messenger/call-v4/call-v4-store";
 import type { CommunityMessengerManagedCallConnection } from "@/lib/community-messenger/types";
 
 type CallV4AgoraSession = {
@@ -75,6 +80,7 @@ async function subscribeRemoteAudio(callId: string, client: IAgoraRTCClient, use
     /* autoplay policy */
   }
   logCallV4("remote_audio_subscribe", { callId, uid: user.uid });
+  writeCallV4ConnectedGateAgoraSignals(callId, { remoteAudioSubscribed: true });
   maybeLogConnected(callId, "remote_audio");
 }
 
@@ -158,6 +164,7 @@ export function resetCallV4AgoraJoinStateForCallId(callId: string): void {
   joinStartLogged.delete(sid);
   joinSucceeded.delete(sid);
   connectionByCallId.delete(sid);
+  clearCallV4ConnectedGateAgoraSignals(sid);
   if (joinInFlightCallId === sid) {
     joinInFlight = null;
     joinInFlightCallId = null;
@@ -184,6 +191,10 @@ export async function joinCallV4Agora(
   if (!joinClaimed.has(sid)) {
     joinClaimed.add(sid);
     joinInFlightCallId = sid;
+    if (options?.afterPatch) {
+      markCallV4AcceptPatchJoinableInflight(sid);
+      writeCallV4ConnectedGateAgoraSignals(sid, { sessionStatus: "ringing" });
+    }
     joinInFlight = (async (): Promise<boolean> => {
       if (!isCommunityMessengerAgoraAppConfigured()) {
         logCallV4("agora_app_id_missing", { callId: sid, source: "client_runtime" });
@@ -227,6 +238,7 @@ export async function joinCallV4Agora(
         }
         logCallV4("agora_join_success", { callId: sid });
         joinSucceeded.add(sid);
+        writeCallV4ConnectedGateAgoraSignals(sid, { agoraJoinSuccess: true });
         const trackKind = readCallV4Identity()?.mediaType === "video" ? "video" : "voice";
         logCallV4("local_audio_track_create_start", { callId: sid, trackKind });
         let tracks: CommunityMessengerAgoraLocalTracks;
@@ -250,6 +262,7 @@ export async function joinCallV4Agora(
           useCallV4MediaStore.getState().setCameraEnabled(true);
           useCallV4MediaStore.getState().setLocalVideoReady(true);
           logCallV4("local_video_publish_done", { callId: sid });
+          writeCallV4ConnectedGateAgoraSignals(sid, { localVideoPublishDone: true });
         }
         activeSession = {
           callId: sid,

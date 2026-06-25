@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { markCallV4MediaConnected } from "@/lib/community-messenger/call-v4/call-v4-phase-bridge";
+import { markCallV4MediaConnected, resetCallV4ConnectedSideEffectsForTests } from "@/lib/community-messenger/call-v4/call-v4-phase-bridge";
+import { writeCallV4ConnectedGateAgoraSignals, resetCallV4ConnectedGateForTests } from "@/lib/community-messenger/call-v4/call-v4-connected-gate";
 import { useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
 
 const heartbeatMocks = vi.hoisted(() => ({
@@ -19,10 +20,21 @@ vi.mock("@/lib/community-messenger/call-v4/call-v4-connected-terminal-watch", ()
 describe("call-v4-phase-bridge", () => {
   beforeEach(() => {
     useCallV4Store.getState().resetToIdle();
+    resetCallV4ConnectedGateForTests();
+    resetCallV4ConnectedSideEffectsForTests();
     heartbeatMocks.start.mockClear();
     heartbeatMocks.stop.mockClear();
     vi.spyOn(console, "info").mockImplementation(() => {});
   });
+
+  function seedAudioGateReady(callId: string): void {
+    writeCallV4ConnectedGateAgoraSignals(callId, {
+      sessionStatus: "active",
+      agoraJoinSuccess: true,
+      remoteAudioSubscribed: false,
+      localVideoPublishDone: false,
+    });
+  }
 
   it("promotes joining caller to connected when media is ready", () => {
     useCallV4Store.setState({
@@ -37,6 +49,8 @@ describe("call-v4-phase-bridge", () => {
         createdAt: new Date().toISOString(),
       },
     });
+
+    seedAudioGateReady("call-1");
 
     expect(markCallV4MediaConnected("call-1", "test")).toBe(true);
     expect(useCallV4Store.getState().phase).toBe("connected");
@@ -59,6 +73,8 @@ describe("call-v4-phase-bridge", () => {
       },
     });
 
+    seedAudioGateReady("call-1");
+
     expect(markCallV4MediaConnected("call-2", "test")).toBe(false);
     expect(useCallV4Store.getState().phase).toBe("joining");
     expect(heartbeatMocks.start).not.toHaveBeenCalled();
@@ -79,7 +95,28 @@ describe("call-v4-phase-bridge", () => {
       },
     });
 
+    seedAudioGateReady("call-1");
+
     expect(markCallV4MediaConnected("call-1", "test")).toBe(true);
+    expect(heartbeatMocks.start).not.toHaveBeenCalled();
+  });
+
+  it("blocks promotion when gate prerequisites are missing", () => {
+    useCallV4Store.setState({
+      phase: "joining",
+      identity: {
+        callId: "call-1",
+        roomId: "room-1",
+        callerUserId: "a",
+        calleeUserId: "b",
+        direction: "outgoing",
+        mediaType: "audio",
+        createdAt: new Date().toISOString(),
+      },
+    });
+
+    expect(markCallV4MediaConnected("call-1", "test")).toBe(false);
+    expect(useCallV4Store.getState().phase).toBe("joining");
     expect(heartbeatMocks.start).not.toHaveBeenCalled();
   });
 });

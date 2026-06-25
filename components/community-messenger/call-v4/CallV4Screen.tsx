@@ -18,10 +18,16 @@ import { useCallV4MediaStore } from "@/lib/community-messenger/call-v4/call-v4-m
 import { tryStartCallV4NativeAcceptAutostart } from "@/lib/community-messenger/call-v4/call-v4-native-accept-flight";
 import { notifyCallV4WebCallScreenReady } from "@/lib/community-messenger/call-v4/call-v4-native-connecting-handoff";
 import { exitCallV4ScreenAfterCleanup, registerCallV4ExitRouter } from "@/lib/community-messenger/call-v4/call-v4-route";
-import type { CallV4Phase } from "@/lib/community-messenger/call-v4/call-v4-types";
-import { buildCallV4ScreenViewModel } from "@/lib/community-messenger/call-v4/call-v4-view-model";
 import { useCallV4VideoPresenter } from "@/lib/community-messenger/call-v4/call-v4-video-presenter";
+import { buildCallV4ScreenViewModel } from "@/lib/community-messenger/call-v4/call-v4-view-model";
 import { readCallV4Identity, readCallV4Phase, useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
+import {
+  beginCallV4CalleeScreenHydrate,
+  endCallV4CalleeScreenHydrate,
+  isCallV4CalleeScreenHydrateInflight,
+  shouldSuppressCallV4StaleRouteExit,
+} from "@/lib/community-messenger/call-v4/call-v4-connected-gate";
+import type { CallV4Phase } from "@/lib/community-messenger/call-v4/call-v4-types";
 
 type CallV4ScreenProps = {
   callId: string;
@@ -169,22 +175,39 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
       return;
     }
 
+    if (isCallV4CalleeScreenHydrateInflight(callId)) {
+      return;
+    }
+
     if (exitGuardRef.current) return;
     exitGuardRef.current = true;
 
     let cancelled = false;
     void (async () => {
-      const hydrated = await hydrateCallV4CalleeScreen(callId);
-      if (cancelled) return;
-      const after = readCallV4Identity();
-      const afterPhase = readCallV4Phase();
-      if (after?.callId === callId && CALL_V4_SCREEN_ACTIVE_PHASES.has(afterPhase)) {
-        exitGuardRef.current = false;
-        return;
-      }
-      if (afterPhase === "idle" || !after || after.callId !== callId) {
-        logCallV4("screen_exit_stale_route", { callId, phase: afterPhase });
-        exitCallV4ScreenAfterCleanup(router);
+      beginCallV4CalleeScreenHydrate(callId);
+      try {
+        await hydrateCallV4CalleeScreen(callId);
+        if (cancelled) return;
+        const after = readCallV4Identity();
+        const afterPhase = readCallV4Phase();
+        if (
+          shouldSuppressCallV4StaleRouteExit({
+            routeCallId: callId,
+            hydrateInflight: false,
+            afterIdentityCallId: after?.callId ?? null,
+            afterPhase,
+            activePhases: CALL_V4_SCREEN_ACTIVE_PHASES,
+          })
+        ) {
+          exitGuardRef.current = false;
+          return;
+        }
+        if (afterPhase === "idle" || !after || after.callId !== callId) {
+          logCallV4("screen_exit_stale_route", { callId, phase: afterPhase });
+          exitCallV4ScreenAfterCleanup(router);
+        }
+      } finally {
+        endCallV4CalleeScreenHydrate(callId);
       }
     })();
 
