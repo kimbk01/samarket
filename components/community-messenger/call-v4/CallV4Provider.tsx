@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
+import { useCallV4ForegroundResume } from "@/lib/community-messenger/call-v4/use-call-v4-foreground-resume";
 import { useCallV4PresentationPlatform } from "@/lib/community-messenger/call-v4/presentation/use-call-v4-presentation-platform";
 import {
   callV4HandleRejectRoute,
@@ -200,6 +201,8 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
     mediaType: identity?.mediaType ?? null,
     roomId: identity?.roomId ?? null,
   });
+
+  useCallV4ForegroundResume();
 
   useEffect(() => {
     if (!isCallV4TelegramLaneEnabled()) return;

@@ -186,6 +186,7 @@ describe("call-v4 import isolation", () => {
     const provider = read("components/community-messenger/call-v4/CallV4Provider.tsx");
     expect(provider).toContain("CallV4ActiveCallHost");
     expect(provider).toContain("useCallV4PresentationPlatform");
+    expect(provider).toContain("useCallV4ForegroundResume");
     expect(provider).not.toContain("CommunityMessengerCallClient");
     const host = read("components/community-messenger/call-v4/CallV4ActiveCallHost.tsx");
     expect(host).toContain("supportsCallV4AndroidOsPipBridge");
