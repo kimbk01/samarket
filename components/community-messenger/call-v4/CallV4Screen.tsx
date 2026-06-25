@@ -13,6 +13,7 @@ import {
   startCallV4CallerActivePoll,
 } from "@/lib/community-messenger/call-v4/call-v4-actions";
 import { callV4FetchSession } from "@/lib/community-messenger/call-v4/call-v4-api";
+import { ensureCallV4AudioRouteAfterConnectedGate } from "@/lib/community-messenger/call-v4/call-v4-audio-route";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import { useCallV4MediaStore } from "@/lib/community-messenger/call-v4/call-v4-media-state";
 import { tryStartCallV4NativeAcceptAutostart } from "@/lib/community-messenger/call-v4/call-v4-native-accept-flight";
@@ -252,6 +253,17 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
       }),
     [action, callId, phase, identity, connectedAt, safeT, router, presenter, mediaState]
   );
+
+  useEffect(() => {
+    if (!identity || identity.callId !== callId) return;
+    if (phase !== "connected" || connectedAt == null) return;
+    ensureCallV4AudioRouteAfterConnectedGate({
+      callId,
+      mediaType: identity.mediaType,
+      direction: identity.direction,
+      connectedAt,
+    });
+  }, [callId, connectedAt, identity, phase]);
 
   useEffect(() => {
     if (!callId || !vm) return;
