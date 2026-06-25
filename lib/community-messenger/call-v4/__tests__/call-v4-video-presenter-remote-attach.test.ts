@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   classifyCallV4RemoteAttachSkip,
+  shouldAutoPublishCallV4LocalPreview,
   shouldRenderCallV4SelfPreview,
 } from "@/lib/community-messenger/call-v4/call-v4-video-presenter";
 
@@ -102,6 +103,28 @@ describe("shouldRenderCallV4SelfPreview", () => {
       shouldRenderCallV4SelfPreview({
         cameraEnabled: true,
         localVideoReady: true,
+      }),
+    ).toBe(true);
+  });
+});
+
+describe("shouldAutoPublishCallV4LocalPreview", () => {
+  it("returns false when camera is disabled", () => {
+    expect(
+      shouldAutoPublishCallV4LocalPreview({
+        canAttach: true,
+        wantsVideo: true,
+        cameraEnabled: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("returns true only when attach/video/camera are all true", () => {
+    expect(
+      shouldAutoPublishCallV4LocalPreview({
+        canAttach: true,
+        wantsVideo: true,
+        cameraEnabled: true,
       }),
     ).toBe(true);
   });

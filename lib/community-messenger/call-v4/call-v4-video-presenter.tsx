@@ -71,6 +71,14 @@ export function shouldRenderCallV4SelfPreview(input: {
   return Boolean(input.cameraEnabled && input.localVideoReady);
 }
 
+export function shouldAutoPublishCallV4LocalPreview(input: {
+  canAttach: boolean;
+  wantsVideo: boolean;
+  cameraEnabled: boolean;
+}): boolean {
+  return Boolean(input.canAttach && input.wantsVideo && input.cameraEnabled);
+}
+
 export function useCallV4VideoPresenter(callId: string, androidOsPipSafeMode = false): CallV4VideoPresenterState {
   const phase = useCallV4Store((s) => s.phase);
   const identity = useCallV4Store((s) => s.identity) ?? readCallV4Identity();
@@ -117,13 +125,34 @@ export function useCallV4VideoPresenter(callId: string, androidOsPipSafeMode = f
   }, [callId]);
 
   useEffect(() => {
-    if (!canAttach || !wantsVideo) return;
+    const allowAutoPublish = shouldAutoPublishCallV4LocalPreview({
+      canAttach,
+      wantsVideo,
+      cameraEnabled: media.cameraEnabled,
+    });
+    logCallV4("local_video_autopublish_gate", {
+      callId,
+      allow: allowAutoPublish,
+      canAttach,
+      wantsVideo,
+      cameraEnabled: media.cameraEnabled,
+      localVideoReady: media.localVideoReady,
+      identityMediaType: identity?.mediaType ?? null,
+      reason: "presenter_effect",
+    });
+    if (!allowAutoPublish) return;
     void (async () => {
-      if (identity?.mediaType === "video" || media.cameraEnabled) {
-        await publishCallV4LocalVideo(callId, smallVideoRef.current);
-      }
+      logCallV4("local_video_autopublish_invoke", {
+        callId,
+        cameraEnabled: media.cameraEnabled,
+        localVideoReady: media.localVideoReady,
+        wantsVideo,
+        identityMediaType: identity?.mediaType ?? null,
+        reason: "presenter_effect",
+      });
+      await publishCallV4LocalVideo(callId, smallVideoRef.current);
     })();
-  }, [callId, canAttach, wantsVideo, identity?.mediaType, media.cameraEnabled]);
+  }, [callId, canAttach, identity?.mediaType, media.cameraEnabled, media.localVideoReady, wantsVideo]);
 
   useEffect(() => {
     const remote = getCallV4AgoraRemoteVideoTrack(callId) ?? readCallV4RemoteVideoTrack(callId);
@@ -200,8 +229,15 @@ export function useCallV4VideoPresenter(callId: string, androidOsPipSafeMode = f
 
   useEffect(() => {
     if (showLocalPreview) return;
+    logCallV4("self_video_container_clear_requested", {
+      callId,
+      hasContainer: Boolean(localVideoContainer),
+      reason: "self_preview_hidden",
+      cameraEnabled: media.cameraEnabled,
+      localVideoReady: media.localVideoReady,
+    });
     clearLocalVideoContainer(localVideoContainer);
-  }, [localVideoContainer, showLocalPreview]);
+  }, [callId, localVideoContainer, media.cameraEnabled, media.localVideoReady, showLocalPreview]);
 
   useLayoutEffect(() => {
     if (typeof window === "undefined") return;
