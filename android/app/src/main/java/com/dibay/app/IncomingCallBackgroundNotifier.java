@@ -198,9 +198,12 @@ public final class IncomingCallBackgroundNotifier {
             + source
             + " manual_start_activity=false");
     IncomingCallSurfaceOwner.transitionIncomingOwner(app, callId, owner, "locked_fsi_" + source);
-    IncomingCallNotificationBuilder.showIncomingCall(context, payload, fgsDelivery);
+    Log.i(
+        CallV4Lane.TAG,
+        "[DIBAY_CALL_V4] lock_incoming_native_fsi_activity_only callId=" + callId + " source=" + source);
+    IncomingCallNotificationBuilder.showIncomingCallFsiBridge(context, payload, fgsDelivery);
     CallForegroundService.refreshRingingNotification(
-        context, callId, payload.callType, "locked_fsi");
+        context, callId, payload.callType, "incoming_fgs_carrier_only");
   }
 
   /**
@@ -309,6 +312,9 @@ public final class IncomingCallBackgroundNotifier {
             + " source="
             + source);
     IncomingCallSurfaceOwner.transitionIncomingOwner(app, callId, fallback, reason);
+    Log.i(
+        CallV4Lane.TAG,
+        "[DIBAY_CALL_V4] incoming_notification_fallback_visible callId=" + callId + " reason=" + reason);
     IncomingCallNotificationBuilder.showIncomingCall(context, payload, fgsDelivery);
     CallForegroundService.refreshRingingNotification(
         context, callId, payload.callType, "notification_fallback");

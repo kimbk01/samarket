@@ -52,6 +52,9 @@ const androidMgr = read("android/app/src/main/java/com/dibay/app/call/DibayActiv
 if (!androidMgr.includes("active_call_cleanup_blocked") || !androidMgr.includes("FORBIDDEN_CLEANUP")) {
   fail("Android DibayActiveCallSessionManager missing cleanup guard");
 }
+if (!androidMgr.includes('"missed"') || !androidMgr.includes("CONNECTED.get()")) {
+  fail("Android DibayActiveCallSessionManager must block missed cleanup while connected");
+}
 
 const fgs = read("android/app/src/main/java/com/dibay/app/call/CallForegroundService.java");
 if (!fgs.includes("onTaskRemoved") || !fgs.includes("task_removed_keep_foreground_service")) {

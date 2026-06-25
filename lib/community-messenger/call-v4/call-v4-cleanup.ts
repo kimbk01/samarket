@@ -3,6 +3,7 @@ import { stopCallV4CallerActivePoll } from "@/lib/community-messenger/call-v4/ca
 import { stopCallV4ConnectedTerminalWatch } from "@/lib/community-messenger/call-v4/call-v4-connected-terminal-watch";
 import { clearCallV4ConnectionWarm } from "@/lib/community-messenger/call-v4/call-v4-connection-warm";
 import { releaseCallV4AudioRoute } from "@/lib/community-messenger/call-v4/call-v4-audio-route";
+import { clearCallV4WebCallScreenReady } from "@/lib/community-messenger/call-v4/call-v4-exit-guard";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import { clearCallV4NativeAcceptingSurface, clearCallV4NativeIncomingSurface, clearCallV4SurfaceOwner } from "@/lib/community-messenger/call-v4/call-v4-incoming-surface";
 import { clearNativeAcceptInflight } from "@/lib/community-messenger/call-v4/call-v4-native-accept-flight";
@@ -17,6 +18,7 @@ import type { CallV4TerminalPhase } from "@/lib/community-messenger/call-v4/call
 export async function cleanupCallV4(callId: string, reason: CallV4TerminalPhase | string): Promise<void> {
   const sid = callId.trim();
   logCallV4("cleanup_start", { callId: sid, reason });
+  clearCallV4WebCallScreenReady(sid);
   stopCallHeartbeatWatchdog(sid);
   logCallV4("call_heartbeat_watchdog_stop", { callId: sid, reason });
   stopCallV4CallerActivePoll();

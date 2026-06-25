@@ -3,6 +3,7 @@ package com.dibay.app.call;
 import android.content.Context;
 import android.util.Log;
 import com.dibay.app.DibayCallLog;
+import com.dibay.app.IncomingCallActionCoordinator;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -77,6 +78,7 @@ public final class DibayActiveCallSessionManager {
     transitionPhase(phase != null ? phase : PHASE_CONNECTED, "bind_active");
     if (PHASE_CONNECTED.equals(PHASE.get())) {
       CONNECTED.set(true);
+      IncomingCallActionCoordinator.cancelMissedTimeout(sid);
       DibayCallLog.once("active_call_connected", sid, "media=" + MEDIA_TYPE.get());
     }
   }
@@ -90,6 +92,7 @@ public final class DibayActiveCallSessionManager {
       CONNECTED.set(true);
       String sid = ACTIVE_CALL_ID.get();
       if (sid != null) {
+        IncomingCallActionCoordinator.cancelMissedTimeout(sid);
         DibayCallLog.once("active_call_connected", sid, "source=" + source);
       }
     }
@@ -165,6 +168,12 @@ public final class DibayActiveCallSessionManager {
   public static boolean requestCleanup(Context context, String callId, String reason) {
     String sid = callId != null && !callId.trim().isEmpty() ? callId.trim() : ACTIVE_CALL_ID.get();
     if (sid == null || sid.isEmpty()) return false;
+    String r = reason != null ? reason.trim().toLowerCase() : "";
+    if ("missed".equals(r) && CONNECTED.get() && sid.equals(ACTIVE_CALL_ID.get())) {
+      DibayCallLog.once("active_call_cleanup_blocked", sid, "reason=" + reason);
+      Log.i(TAG, "[DIBAY_CALL] active_call_cleanup_blocked callId=" + sid + " reason=" + reason);
+      return false;
+    }
     if (!canCleanup(reason)) {
       DibayCallLog.once("active_call_cleanup_blocked", sid, "reason=" + reason);
       Log.i(TAG, "[DIBAY_CALL] active_call_cleanup_blocked callId=" + sid + " reason=" + reason);

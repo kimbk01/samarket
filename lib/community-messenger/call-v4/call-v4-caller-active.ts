@@ -6,7 +6,8 @@ import {
 } from "@/lib/community-messenger/call-v4/call-v4-api";
 import { cleanupCallV4 } from "@/lib/community-messenger/call-v4/call-v4-cleanup";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
-import { exitCallV4ScreenAfterCleanup, readCallV4ExitRouter } from "@/lib/community-messenger/call-v4/call-v4-route";
+import { maybeExitCallV4ScreenAfterCleanup } from "@/lib/community-messenger/call-v4/call-v4-exit-guard";
+import { readCallV4ExitRouter } from "@/lib/community-messenger/call-v4/call-v4-route";
 import { readCallV4Identity, readCallV4Phase, useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
 import type { CallV4Phase, CallV4TerminalPhase } from "@/lib/community-messenger/call-v4/call-v4-types";
 
@@ -58,7 +59,7 @@ async function applyCallerRemoteTerminal(callId: string, status: string): Promis
   logCallV4("remote_terminal_received", { callId: sid, status });
   stopCallV4CallerActivePoll();
   await cleanupCallV4(sid, mapCallerTerminalStatus(status));
-  exitCallV4ScreenAfterCleanup(readCallV4ExitRouter() ?? undefined);
+  maybeExitCallV4ScreenAfterCleanup(sid, status, readCallV4ExitRouter() ?? undefined);
 }
 
 async function handleCallerPollFetchResult(callId: string, fetchResult: CallV4CallerPollFetchResult): Promise<boolean> {

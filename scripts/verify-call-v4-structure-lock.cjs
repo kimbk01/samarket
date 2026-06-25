@@ -82,10 +82,54 @@ if (lockFsiMethod.includes("launchIncomingActivity")) {
   pass("Policy A no manual startActivity on lock path");
 }
 
-if (lockFsiMethod.includes("showIncomingCall")) {
-  pass("Policy A posts CallStyle+FSI on lock path");
+if (lockFsiMethod.includes("showIncomingCallFsiBridge") && !lockFsiMethod.match(/showIncomingCall\(context,\s*payload,\s*fgsDelivery\)/)) {
+  pass("Policy A FSI bridge without visible CallStyle notification");
 } else {
-  fail("Policy A lock path must post CallStyle+FSI via showIncomingCall");
+  fail("Policy A lock path must use showIncomingCallFsiBridge (not full CallStyle showIncomingCall)");
+}
+
+if (!lockFsiMethod.includes("lock_incoming_native_fsi_activity_only")) {
+  fail("Policy A lock path must log lock_incoming_native_fsi_activity_only");
+} else {
+  pass("Policy A native FSI activity-only marker");
+}
+
+if (!notifier.includes("incoming_notification_fallback_visible")) {
+  fail("Policy A fallback must log incoming_notification_fallback_visible");
+} else {
+  pass("fallback visible notification marker");
+}
+
+const notificationBuilder = read("android/app/src/main/java/com/dibay/app/IncomingCallNotificationBuilder.java");
+const activity = read("android/app/src/main/java/com/dibay/app/IncomingCallActivity.java");
+if (!notificationBuilder.includes("showIncomingCallFsiBridge")) {
+  fail("IncomingCallNotificationBuilder must expose showIncomingCallFsiBridge");
+} else {
+  pass("FSI bridge notification entry");
+}
+
+if (!notificationBuilder.includes("incoming_callstyle_suppressed_native_fsi")) {
+  fail("IncomingCallNotificationBuilder must suppress CallStyle for native_fsi owner");
+} else {
+  pass("native_fsi CallStyle suppression guard");
+}
+
+if (!activity.includes("incoming_activity_shown_emit")) {
+  fail("IncomingCallActivity must log incoming_activity_shown_emit");
+} else {
+  pass("incoming_activity_shown emit marker");
+}
+
+if (!activity.includes("incoming_activity_shown_skip_duplicate")) {
+  fail("IncomingCallActivity must skip duplicate incoming_activity_shown");
+} else {
+  pass("incoming_activity_shown dedup marker");
+}
+
+if (!read("android/app/src/main/AndroidManifest.xml").includes("android.permission.REORDER_TASKS")) {
+  fail("AndroidManifest must declare REORDER_TASKS for accept handoff");
+} else {
+  pass("REORDER_TASKS permission declared");
 }
 
 if (!notifier.includes("presentV4BackgroundActivityFirstIncoming")) {
@@ -133,7 +177,6 @@ if (!notifier.includes("foreground_web_ssot")) {
   pass("Policy C foreground web SSOT block in notifier");
 }
 
-const activity = read("android/app/src/main/java/com/dibay/app/IncomingCallActivity.java");
 if (!activity.includes("isWebInAppOwner") || !activity.includes("foreground_web_ssot")) {
   fail("Policy C: IncomingCallActivity must finish when web_in_app owner");
 } else {
@@ -147,6 +190,7 @@ if (!activity.includes("onIncomingActivityShown")) {
 }
 
 const coordinator = read("android/app/src/main/java/com/dibay/app/IncomingCallActionCoordinator.java");
+const sessionCleanup = read("android/app/src/main/java/com/dibay/app/IncomingCallSessionCleanup.java");
 if (!coordinator.includes('complete(sid, "accept")')) {
   fail("accept must complete terminal to block missed_timeout");
 } else {
@@ -156,6 +200,16 @@ if (!coordinator.includes("cancelMissedTimeout")) {
   fail("missed timeout must be cancellable on accept/reject");
 } else {
   pass("missed timeout cancellable");
+}
+if (!coordinator.includes("shouldSuppressMissedTimeout")) {
+  fail("missed timeout must suppress when active/connecting/consumed");
+} else {
+  pass("missed timeout active guard");
+}
+if (!sessionCleanup.includes("incoming_session_purge_blocked")) {
+  fail("missed purge must be blocked when active");
+} else {
+  pass("missed purge active guard");
 }
 
 const connecting = read("android/app/src/main/java/com/dibay/app/IncomingCallConnectingSurface.java");
@@ -189,6 +243,28 @@ if (
   fail("missed must clear surface owner for redial gate");
 } else {
   pass("missed clears surface owner");
+}
+
+const mainActivity = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
+const exitGuard = read("lib/community-messenger/call-v4/call-v4-exit-guard.ts");
+const presentationDock = read("lib/community-messenger/call-v4/presentation/call-v4-presentation-dock.ts");
+if (!mainActivity.includes("accept_route_restore_start") || !mainActivity.includes("accept_handoff_deferred")) {
+  fail("V4 accept must restore call route before web handoff");
+} else {
+  pass("V4 accept route restore on handoff");
+}
+if (
+  !exitGuard.includes("maybeExitCallV4ScreenAfterCleanup") ||
+  !exitGuard.includes("cleanup_skipped_until_call_screen_ready")
+) {
+  fail("call-v4-exit-guard must defer premature exit until screen ready");
+} else {
+  pass("V4 exit guard SSOT");
+}
+if (presentationDock.includes("exitCallV4ScreenAfterCleanup(")) {
+  fail("presentation dock must route exit through call-v4-exit-guard");
+} else {
+  pass("V4 exit guard covers presentation dock");
 }
 
 if (failed) {

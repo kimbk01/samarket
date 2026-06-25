@@ -39,7 +39,9 @@ describe("call-v4 Telegram incoming surface contract", () => {
     expect(notifier).not.toContain("presentV4ActivityFirstIncoming");
     expect(notifier).not.toContain("_boost");
 
-    expect(lockFsiMethod).toContain("showIncomingCall");
+    expect(lockFsiMethod).toContain("showIncomingCallFsiBridge");
+    expect(lockFsiMethod).toContain("lock_incoming_native_fsi_activity_only");
+    expect(lockFsiMethod).not.toMatch(/showIncomingCall\(context,\s*payload,\s*fgsDelivery\)/);
     expect(lockFsiMethod).not.toContain("launchIncomingActivity");
 
     expect(backgroundMethod).toContain("launchIncomingActivity");

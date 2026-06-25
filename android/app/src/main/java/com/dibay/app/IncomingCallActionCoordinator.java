@@ -6,6 +6,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 import com.dibay.app.call.CallForegroundService;
+import com.dibay.app.call.DibayActiveCallSessionManager;
 import com.dibay.app.callv4.CallRuntimeV4;
 import com.dibay.app.callv4.CallV4IntentHelper;
 import com.dibay.app.callv4.CallV4Lane;
@@ -182,6 +183,32 @@ public final class IncomingCallActionCoordinator {
     }
   }
 
+  /**
+   * Ring missed_timeout must not run after accept/connect/active — including web_in_app where native
+   * {@link #handleAccept} is skipped but {@link DibayCallConsumedStore} / active session is set.
+   */
+  public static boolean shouldSuppressMissedTimeout(Context context, String callId) {
+    if (callId == null || callId.trim().isEmpty()) return false;
+    String sid = callId.trim();
+    if (COMPLETED_ACTIONS.containsKey(sid)) return true;
+    if (context != null && DibayCallConsumedStore.isConsumed(context, sid)) return true;
+    if (sid.equals(DibayActiveCallSessionManager.getActiveCallId())
+        && DibayActiveCallSessionManager.isConnected()) {
+      return true;
+    }
+    if (context != null) {
+      String activeId = DibayIncomingCallNativeStore.getActiveCallId(context);
+      if (sid.equals(activeId)) {
+        String state = DibayIncomingCallNativeStore.getState(context, sid);
+        if (DibayIncomingCallNativeStore.STATE_CONNECTING.equals(state)
+            || DibayIncomingCallNativeStore.STATE_ACTIVE.equals(state)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   public static void scheduleMissedTimeout(Context context, IncomingCallPayload payload) {
     if (context == null || payload == null || !payload.isValid()) return;
     String sid = payload.callId.trim();
@@ -199,7 +226,11 @@ public final class IncomingCallActionCoordinator {
   public static void handleMissedTimeout(Context context, IncomingCallPayload payload) {
     if (context == null || payload == null || !payload.isValid()) return;
     String sid = payload.callId.trim();
-    if (COMPLETED_ACTIONS.containsKey(sid)) return;
+    if (shouldSuppressMissedTimeout(context, sid)) {
+      Log.i(CALL_TAG, "[call-state] missed_timeout_suppressed callId=" + sid);
+      cancelMissedTimeout(sid);
+      return;
+    }
     if (!tryBegin(sid, "missed")) return;
     DibayCallLog.once("ring_timeout", sid);
     Log.i(CALL_TAG, "[call-state] missed_timeout callId=" + sid);

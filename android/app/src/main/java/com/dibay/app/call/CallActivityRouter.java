@@ -4,6 +4,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.util.Log;
 import com.dibay.app.DibayCallLog;
+import com.dibay.app.DibayIncomingCallNativeStore;
+import com.dibay.app.IncomingCallActionCoordinator;
 import com.dibay.app.IncomingCallIntentHelper;
 import com.dibay.app.IncomingCallNotificationBuilder;
 import com.dibay.app.MainActivity;
@@ -56,6 +58,8 @@ public final class CallActivityRouter {
   public static void onNativeAcceptPrep(Context context, String callId, String callKind) {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
     String sid = callId.trim();
+    IncomingCallActionCoordinator.cancelMissedTimeout(sid);
+    DibayIncomingCallNativeStore.markState(context, sid, DibayIncomingCallNativeStore.STATE_CONNECTING);
     DibayCallLog.once("native_accept_start", sid, "source=router");
     IncomingCallNotificationBuilder.dismissIncomingCall(context, sid);
     CallForegroundService.start(context.getApplicationContext(), sid, callKind, "ringing");

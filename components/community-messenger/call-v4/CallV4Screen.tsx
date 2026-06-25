@@ -18,7 +18,8 @@ import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import { useCallV4MediaStore } from "@/lib/community-messenger/call-v4/call-v4-media-state";
 import { tryStartCallV4NativeAcceptAutostart } from "@/lib/community-messenger/call-v4/call-v4-native-accept-flight";
 import { notifyCallV4WebCallScreenReady } from "@/lib/community-messenger/call-v4/call-v4-native-connecting-handoff";
-import { exitCallV4ScreenAfterCleanup, registerCallV4ExitRouter } from "@/lib/community-messenger/call-v4/call-v4-route";
+import { maybeExitCallV4ScreenAfterCleanup } from "@/lib/community-messenger/call-v4/call-v4-exit-guard";
+import { registerCallV4ExitRouter } from "@/lib/community-messenger/call-v4/call-v4-route";
 import { useCallV4VideoPresenter } from "@/lib/community-messenger/call-v4/call-v4-video-presenter";
 import { buildCallV4ScreenViewModel } from "@/lib/community-messenger/call-v4/call-v4-view-model";
 import { readCallV4Identity, readCallV4Phase, useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
@@ -57,14 +58,28 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
   const source = searchParams?.get("source")?.trim() ?? null;
   const incomingPreview = searchParams?.get("incomingPreview") === "1";
   const exitGuardRef = useRef(false);
+  const nativeHandoffPhaseRef = useRef<"connecting" | "connected" | null>(null);
+
+  useEffect(() => {
+    nativeHandoffPhaseRef.current = null;
+  }, [callId]);
 
   useEffect(() => {
     if (!callId) return;
     logCallV4("screen_mounted", { callId, source });
     logCallV4("connecting_visible", { callId, source });
-    if (action === "accept" || source === "native_accept") {
-      void notifyCallV4WebCallScreenReady(callId, phase === "connected" ? "connected" : "connecting");
-    }
+    if (action !== "accept" && source !== "native_accept") return;
+    if (nativeHandoffPhaseRef.current !== null) return;
+    nativeHandoffPhaseRef.current = "connecting";
+    void notifyCallV4WebCallScreenReady(callId, "connecting");
+  }, [action, callId, source]);
+
+  useEffect(() => {
+    if (!callId || phase !== "connected") return;
+    if (action !== "accept" && source !== "native_accept") return;
+    if (nativeHandoffPhaseRef.current === "connected") return;
+    nativeHandoffPhaseRef.current = "connected";
+    void notifyCallV4WebCallScreenReady(callId, "connected");
   }, [action, callId, phase, source]);
 
   useEffect(() => {
@@ -205,7 +220,7 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
         }
         if (afterPhase === "idle" || !after || after.callId !== callId) {
           logCallV4("screen_exit_stale_route", { callId, phase: afterPhase });
-          exitCallV4ScreenAfterCleanup(router);
+          maybeExitCallV4ScreenAfterCleanup(callId, "stale_route", router);
         }
       } finally {
         endCallV4CalleeScreenHydrate(callId);

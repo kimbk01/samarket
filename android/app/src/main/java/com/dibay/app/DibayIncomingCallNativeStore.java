@@ -80,4 +80,12 @@ public final class DibayIncomingCallNativeStore {
     if (context == null) return "";
     return context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_CALL_ID, "");
   }
+
+  public static String getState(Context context, String callId) {
+    if (context == null || callId == null || callId.trim().isEmpty()) return "";
+    SharedPreferences prefs = context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    String sid = callId.trim();
+    if (!sid.equals(prefs.getString(KEY_CALL_ID, ""))) return "";
+    return prefs.getString(KEY_STATE, "");
+  }
 }

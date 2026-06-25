@@ -125,7 +125,7 @@ public final class IncomingCallNotificationBuilder {
       String callType,
       String expiresAt) {
     showIncomingCallInternal(
-        context, sessionId, title, body, deepLinkUrl, callType, expiresAt, null, null, null, null, false, false);
+        context, sessionId, title, body, deepLinkUrl, callType, expiresAt, null, null, null, null, false, false, false);
   }
 
   public static void showIncomingCall(Context context, IncomingCallPayload payload) {
@@ -134,6 +134,20 @@ public final class IncomingCallNotificationBuilder {
 
   public static void showIncomingCall(Context context, IncomingCallPayload payload, boolean fgsDelivery) {
     if (payload == null || !payload.isValid()) return;
+    String sid = payload.callId.trim();
+    if (shouldBlockVisibleCallStyleForNativeFsiOwner(context, sid, false, false)) {
+      Log.i(
+          com.dibay.app.callv4.CallV4Lane.TAG,
+          "[DIBAY_CALL_V4] incoming_callstyle_suppressed_native_fsi callId=" + sid + " source=showIncomingCall");
+      showIncomingCallFsiBridge(context, payload, fgsDelivery);
+      return;
+    }
+    if (com.dibay.app.callv4.CallV4Lane.isTelegramLaneEnabled(context)
+        && IncomingCallSurfaceOwner.isNotificationFallbackOwner(sid)) {
+      Log.i(
+          com.dibay.app.callv4.CallV4Lane.TAG,
+          "[DIBAY_CALL_V4] incoming_notification_fallback_visible callId=" + sid);
+    }
     showIncomingCallInternal(
         context,
         payload.callId,
@@ -147,7 +161,52 @@ public final class IncomingCallNotificationBuilder {
         payload.callerName,
         payload.callerAvatarUrl,
         fgsDelivery,
+        false,
         false);
+  }
+
+  /**
+   * V4 Policy A — FSI bridge launches {@link IncomingCallActivity} without visible CallStyle UI.
+   * Ring/audio remains FGS carrier-only + {@link IncomingCallRingOwner}.
+   */
+  public static void showIncomingCallFsiBridge(Context context, IncomingCallPayload payload, boolean fgsDelivery) {
+    if (payload == null || !payload.isValid()) return;
+    String sid = payload.callId.trim();
+    Log.i(
+        com.dibay.app.callv4.CallV4Lane.TAG,
+        "[DIBAY_CALL_V4] lock_incoming_native_fsi_activity_only callId=" + sid);
+    showIncomingCallInternal(
+        context,
+        payload.callId,
+        payload.title,
+        payload.body,
+        null,
+        payload.callType,
+        payload.expiresAt,
+        payload.roomId,
+        payload.callerId,
+        payload.callerName,
+        payload.callerAvatarUrl,
+        fgsDelivery,
+        false,
+        true);
+  }
+
+  /** After {@link IncomingCallActivity} is visible — drop visible incoming notification; keep FGS carrier. */
+  public static void cancelVisibleIncomingNotificationAfterActivity(Context context, String sessionId) {
+    if (context == null || sessionId == null || sessionId.trim().isEmpty()) return;
+    String sid = sessionId.trim();
+    NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+    if (nm == null) return;
+    int notificationId = INCOMING_CALL_NOTIFICATION_BASE_ID + Math.abs(sid.hashCode() % 1000);
+    nm.cancel(notificationId);
+    clearFsiAttachGate(sid);
+    Log.i(
+        com.dibay.app.callv4.CallV4Lane.TAG,
+        "[DIBAY_CALL_V4] incoming_visible_notification_cancelled_after_activity callId=" + sid);
+    Log.i(
+        com.dibay.app.callv4.CallV4Lane.TAG,
+        "[DIBAY_CALL_V4] incoming_fgs_notification_kept callId=" + sid);
   }
 
   /**
@@ -174,7 +233,43 @@ public final class IncomingCallNotificationBuilder {
         payload.callerName,
         payload.callerAvatarUrl,
         fgsDelivery,
-        true);
+        true,
+        false);
+  }
+
+  /** @visibleForTesting */
+  static boolean shouldBlockVisibleCallStyleForNativeFsiOwner(
+      Context context, String callId, boolean actionOnly, boolean fsiBridgeOnly) {
+    if (actionOnly || fsiBridgeOnly) return false;
+    if (context == null || callId == null || callId.trim().isEmpty()) return false;
+    return com.dibay.app.callv4.CallV4Lane.isTelegramLaneEnabled(context)
+        && IncomingCallSurfaceOwner.isNativeFsiOwner(callId.trim());
+  }
+
+  /** @visibleForTesting */
+  static boolean shouldApplyIncomingCallStyle(
+      Context context, String callId, boolean actionOnly, boolean fsiBridgeOnly, boolean useCallStyle) {
+    if (!useCallStyle || actionOnly || fsiBridgeOnly) return false;
+    return !shouldBlockVisibleCallStyleForNativeFsiOwner(context, callId, actionOnly, fsiBridgeOnly);
+  }
+
+  /** @visibleForTesting */
+  static boolean shouldAttachIncomingFullScreenIntent(
+      Context context,
+      String callId,
+      boolean actionOnly,
+      boolean fsiBridgeOnly,
+      boolean lockScreenBridge,
+      boolean fsiAllowed,
+      boolean fgsDelivery) {
+    if (actionOnly) return false;
+    if (fsiBridgeOnly) {
+      return fsiAllowed && (lockScreenBridge || fgsDelivery);
+    }
+    if (shouldBlockVisibleCallStyleForNativeFsiOwner(context, callId, actionOnly, fsiBridgeOnly)) {
+      return false;
+    }
+    return fsiAllowed && (lockScreenBridge || fgsDelivery);
   }
 
   private static void showIncomingCallInternal(
@@ -190,11 +285,12 @@ public final class IncomingCallNotificationBuilder {
       String callerNameFromPayload,
       String callerAvatarUrl,
       boolean fgsDelivery,
-      boolean actionOnly) {
+      boolean actionOnly,
+      boolean fsiBridgeOnly) {
     ensureChannel(context);
     if (sessionId == null || sessionId.trim().isEmpty()) return;
     String sid = sessionId.trim();
-    if (!fgsDelivery && !actionOnly && !IncomingCallActionCoordinator.registerIncoming(context, sid)) {
+    if (!fgsDelivery && !actionOnly && !fsiBridgeOnly && !IncomingCallActionCoordinator.registerIncoming(context, sid)) {
       Log.w(TAG, "[call-notification] incoming_ui_duplicate_blocked callId=" + sid);
       return;
     }
@@ -215,7 +311,14 @@ public final class IncomingCallNotificationBuilder {
     DibayCallPushLog.info(
         fsiAllowed ? "full_screen_intent_allowed" : "full_screen_intent_blocked",
         sid,
-        "lockScreenBridge=" + lockScreenBridge + " fgsDelivery=" + fgsDelivery + " actionOnly=" + actionOnly);
+        "lockScreenBridge="
+            + lockScreenBridge
+            + " fgsDelivery="
+            + fgsDelivery
+            + " actionOnly="
+            + actionOnly
+            + " fsiBridgeOnly="
+            + fsiBridgeOnly);
     Log.i(
         TAG,
         "[call-push] lock_bridge="
@@ -226,6 +329,8 @@ public final class IncomingCallNotificationBuilder {
             + fgsDelivery
             + " actionOnly="
             + actionOnly
+            + " fsiBridgeOnly="
+            + fsiBridgeOnly
             + " callId="
             + sid);
 
@@ -243,6 +348,7 @@ public final class IncomingCallNotificationBuilder {
               sid,
               actionOnlyNotification,
               diagnostics,
+              "action_only",
               () -> actionOnlyNotification);
       if (!posted && !fgsDelivery) {
         launchActivityFallback(
@@ -251,8 +357,15 @@ public final class IncomingCallNotificationBuilder {
       return;
     }
 
+    if (shouldBlockVisibleCallStyleForNativeFsiOwner(context, sid, actionOnly, fsiBridgeOnly)) {
+      Log.i(
+          com.dibay.app.callv4.CallV4Lane.TAG,
+          "[DIBAY_CALL_V4] incoming_callstyle_suppressed_native_fsi callId=" + sid);
+    }
+
     FSI_ATTACHED_BY_CALL_ID.remove(sid);
-    Notification callStyle =
+    final String notificationStyle = fsiBridgeOnly ? "fsi_bridge" : "callstyle";
+    Notification incomingNotification =
         buildIncomingNotification(
             app,
             sid,
@@ -271,15 +384,17 @@ public final class IncomingCallNotificationBuilder {
             firstIncoming,
             fgsDelivery,
             true,
-            false);
+            false,
+            fsiBridgeOnly);
 
     boolean posted =
         postNotificationWithFallback(
             app,
             notificationId,
             sid,
-            callStyle,
+            incomingNotification,
             diagnostics,
+            notificationStyle,
             () ->
                 buildIncomingNotification(
                     app,
@@ -299,10 +414,13 @@ public final class IncomingCallNotificationBuilder {
                     firstIncoming,
                     fgsDelivery,
                     false,
-                    false));
+                    false,
+                    fsiBridgeOnly));
     if (!posted && !fgsDelivery) {
       launchActivityFallback(app, sid, roomId, callerId, callerNameFromPayload, callerAvatarUrl, callType, expiresAt, title, body);
     }
+
+    if (fsiBridgeOnly) return;
 
     String avatarUrl = callerAvatarUrl != null ? callerAvatarUrl.trim() : "";
     if (avatarUrl.isEmpty()) return;
@@ -331,6 +449,7 @@ public final class IncomingCallNotificationBuilder {
                       firstIncoming,
                       fgsDelivery,
                       true,
+                      false,
                       false);
               MAIN.post(
                   () -> {
@@ -377,6 +496,7 @@ public final class IncomingCallNotificationBuilder {
         callerNameFromPayload,
         callerAvatarUrl,
         false,
+        false,
         false);
   }
 
@@ -409,7 +529,8 @@ public final class IncomingCallNotificationBuilder {
         true,
         false,
         false,
-        true);
+        true,
+        false);
   }
 
   private interface NotificationSupplier {
@@ -422,7 +543,9 @@ public final class IncomingCallNotificationBuilder {
       String sid,
       Notification primary,
       ChannelDiagnostics diagnostics,
+      String style,
       NotificationSupplier legacySupplier) {
+    String styleLabel = style != null && !style.isEmpty() ? style : "callstyle";
     NotificationManager nm = (NotificationManager) app.getSystemService(Context.NOTIFICATION_SERVICE);
     if (nm == null) {
       DibayCallPushLog.warn("incoming_notification_post_failed", sid, "notificationManager=null");
@@ -430,9 +553,9 @@ public final class IncomingCallNotificationBuilder {
     }
     try {
       nm.notify(notificationId, primary);
-      DibayCallLog.once("notification_created", sid, "source=notification style=callstyle");
-      DibayCallPushLog.info("incoming_notification_posted", sid, diagnostics.toLogString() + " style=callstyle");
-      Log.i(TAG, "[call-notification] incoming_posted_immediate callId=" + sid + " style=callstyle");
+      DibayCallLog.once("notification_created", sid, "source=notification style=" + styleLabel);
+      DibayCallPushLog.info("incoming_notification_posted", sid, diagnostics.toLogString() + " style=" + styleLabel);
+      Log.i(TAG, "[call-notification] incoming_posted_immediate callId=" + sid + " style=" + styleLabel);
       return true;
     } catch (Exception primaryError) {
       DibayCallPushLog.warn(
@@ -460,6 +583,16 @@ public final class IncomingCallNotificationBuilder {
     }
   }
 
+  private static boolean postNotificationWithFallback(
+      Context app,
+      int notificationId,
+      String sid,
+      Notification primary,
+      ChannelDiagnostics diagnostics,
+      NotificationSupplier legacySupplier) {
+    return postNotificationWithFallback(app, notificationId, sid, primary, diagnostics, "callstyle", legacySupplier);
+  }
+
   private static Notification buildIncomingNotification(
       Context context,
       String sid,
@@ -478,7 +611,8 @@ public final class IncomingCallNotificationBuilder {
       boolean firstIncoming,
       boolean fgsDelivery,
       boolean useCallStyle,
-      boolean actionOnly) {
+      boolean actionOnly,
+      boolean fsiBridgeOnly) {
     String callerName = IncomingCallUiCopy.callerDisplayName(callerNameFromPayload, title, body);
     String callKindLabel = IncomingCallUiCopy.statusBrandLabel(context, callType, title, body);
     String rejectLabel = IncomingCallUiCopy.rejectLabel(context);
@@ -529,18 +663,20 @@ public final class IncomingCallNotificationBuilder {
               + " err="
               + error.getClass().getSimpleName());
     }
-    Log.i(
-        TAG,
-        "[call-notification] fallback_accept_pi_created callId="
-            + sid
-            + " action="
-            + accept.getAction()
-            + " target="
-            + (accept.getComponent() != null ? accept.getComponent().getClassName() : "null")
-            + " requestCode="
-            + acceptRequestCode
-            + " acceptPiNull="
-            + (acceptPi == null));
+    if (!fsiBridgeOnly) {
+      Log.i(
+          TAG,
+          "[call-notification] fallback_accept_pi_created callId="
+              + sid
+              + " action="
+              + accept.getAction()
+              + " target="
+              + (accept.getComponent() != null ? accept.getComponent().getClassName() : "null")
+              + " requestCode="
+              + acceptRequestCode
+              + " acceptPiNull="
+              + (acceptPi == null));
+    }
     Intent content = IncomingCallIntentHelper.buildMainActivityCallPreviewIntent(context, sid);
     PendingIntent contentPi = PendingIntent.getActivity(context, sid.hashCode() + 1, content, flags);
 
@@ -556,32 +692,36 @@ public final class IncomingCallNotificationBuilder {
     PendingIntent declinePi =
         PendingIntent.getBroadcast(context, sid.hashCode() + 3, decline, flags);
 
+    int notificationPriority =
+        actionOnly || fsiBridgeOnly
+            ? NotificationCompat.PRIORITY_LOW
+            : NotificationCompat.PRIORITY_MAX;
     NotificationCompat.Builder builder =
         new NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle(callerName)
-            .setContentText(callKindLabel)
-            .setPriority(
-                actionOnly ? NotificationCompat.PRIORITY_LOW : NotificationCompat.PRIORITY_MAX)
-            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setContentTitle(fsiBridgeOnly ? "DIBAY 통화" : callerName)
+            .setContentText(fsiBridgeOnly ? callKindLabel : callKindLabel)
+            .setPriority(notificationPriority)
+            .setCategory(
+                fsiBridgeOnly ? NotificationCompat.CATEGORY_SERVICE : NotificationCompat.CATEGORY_CALL)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true)
             .setAutoCancel(false)
             .setContentIntent(contentPi)
-            .setDefaults(Notification.DEFAULT_VIBRATE);
+            .setDefaults(fsiBridgeOnly ? 0 : Notification.DEFAULT_VIBRATE);
 
-    if (callerBitmap != null) {
+    if (callerBitmap != null && !fsiBridgeOnly) {
       builder.setLargeIcon(callerBitmap);
     }
 
     boolean attachFsi =
-        !actionOnly
+        shouldAttachIncomingFullScreenIntent(
+            context, sid, actionOnly, fsiBridgeOnly, lockScreenBridge, fsiAllowed, fgsDelivery)
             && firstIncoming
-            && fsiAllowed
-            && fullScreenPi != null
-            && (lockScreenBridge || fgsDelivery);
+            && fullScreenPi != null;
 
-    boolean applyCallStyle = useCallStyle && !actionOnly;
+    boolean applyCallStyle =
+        shouldApplyIncomingCallStyle(context, sid, actionOnly, fsiBridgeOnly, useCallStyle);
 
     if (applyCallStyle && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
       Person.Builder personBuilder = new Person.Builder().setName(callerName).setImportant(true);
@@ -600,12 +740,14 @@ public final class IncomingCallNotificationBuilder {
       }
     }
     if (!applyCallStyle || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-      builder
-          .setColor(ContextCompat.getColor(context, R.color.dibay_incoming_primary))
-          .setColorized(true)
-          .setStyle(new NotificationCompat.BigTextStyle().bigText(callKindLabel))
-          .addAction(new NotificationCompat.Action.Builder(0, rejectLabel, declinePi).build())
-          .addAction(new NotificationCompat.Action.Builder(0, acceptLabel, acceptPi).build());
+      if (!fsiBridgeOnly) {
+        builder
+            .setColor(ContextCompat.getColor(context, R.color.dibay_incoming_primary))
+            .setColorized(true)
+            .setStyle(new NotificationCompat.BigTextStyle().bigText(callKindLabel))
+            .addAction(new NotificationCompat.Action.Builder(0, rejectLabel, declinePi).build())
+            .addAction(new NotificationCompat.Action.Builder(0, acceptLabel, acceptPi).build());
+      }
     }
     if (attachFsi) {
       if (FSI_ATTACHED_BY_CALL_ID.putIfAbsent(sid, Boolean.TRUE) != null) {

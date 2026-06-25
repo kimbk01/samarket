@@ -46,12 +46,12 @@ import {
   claimCallV4RejectPatchOnce,
   releaseCallV4CancelPatchClaim,
 } from "@/lib/community-messenger/call-v4/call-v4-patch-guard";
+import { maybeExitCallV4ScreenAfterCleanup } from "@/lib/community-messenger/call-v4/call-v4-exit-guard";
 import {
-  exitCallV4ScreenAfterCleanup,
+  buildCallV4ScreenHref,
   rememberCallV4ReturnPath,
   readCallV4ExitRouter,
   routeToCallV4Screen,
-  buildCallV4ScreenHref,
   type CallV4Router,
 } from "@/lib/community-messenger/call-v4/call-v4-route";
 import { readCallV4Capabilities, readCallV4Identity, readCallV4Phase, useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
@@ -205,7 +205,7 @@ async function finalizeCallV4Terminal(
   router?: CallV4Router
 ): Promise<void> {
   await cleanupCallV4(callId, reason);
-  exitCallV4ScreenAfterCleanup(router);
+  maybeExitCallV4ScreenAfterCleanup(callId, String(reason), router);
 }
 
 function mapCallV4RemoteTerminalReason(status: string | null | undefined): CallV4TerminalPhase {

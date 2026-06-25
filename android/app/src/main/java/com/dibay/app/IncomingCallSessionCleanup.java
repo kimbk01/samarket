@@ -28,6 +28,12 @@ public final class IncomingCallSessionCleanup {
     Context app = context.getApplicationContext();
     String r = reason != null ? reason.trim() : "purge";
 
+    if ("missed".equals(r) && IncomingCallActionCoordinator.shouldSuppressMissedTimeout(app, sid)) {
+      Log.i(TAG, "[call-ui] incoming_session_purge_blocked callId=" + sid + " reason=missed");
+      IncomingCallActionCoordinator.cancelMissedTimeout(sid);
+      return;
+    }
+
     IncomingCallActionCoordinator.cancelMissedTimeout(sid);
     IncomingCallBackgroundNotifier.cancelLaunchVisibilityVerify(sid);
     PendingIncomingPresentation.remove(sid);

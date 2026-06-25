@@ -12,7 +12,8 @@ import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import { isCallV4DockEnabled } from "@/lib/community-messenger/call-v4/call-v4-phase6-flags";
 import { shouldSuppressCallV4FloatingDock } from "@/lib/community-messenger/call-v4/presentation/call-v4-presentation-compact";
 import { supportsCallV4FloatingDock } from "@/lib/community-messenger/call-v4/presentation/call-v4-presentation-capability";
-import { exitCallV4ScreenAfterCleanup, type CallV4Router } from "@/lib/community-messenger/call-v4/call-v4-route";
+import { maybeExitCallV4ScreenAfterCleanup } from "@/lib/community-messenger/call-v4/call-v4-exit-guard";
+import { type CallV4Router } from "@/lib/community-messenger/call-v4/call-v4-route";
 import { readCallV4Phase } from "@/lib/community-messenger/call-v4/call-v4-store";
 
 export type CallV4MinimizeToDockInput = {
@@ -46,7 +47,7 @@ export async function callV4MinimizeConnectedCallToDock(input: CallV4MinimizeToD
     platform: "shared",
   });
   if (input.navigateAway !== false) {
-    exitCallV4ScreenAfterCleanup(input.router);
+    maybeExitCallV4ScreenAfterCleanup(sid, input.reason || "dock_minimize", input.router);
   }
   return true;
 }

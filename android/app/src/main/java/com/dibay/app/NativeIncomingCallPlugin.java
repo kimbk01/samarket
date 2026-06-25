@@ -96,6 +96,7 @@ public class NativeIncomingCallPlugin extends Plugin {
     String sessionId = call.getString("sessionId", "").trim();
     String reason = call.getString("reason", "consumed");
     if (!sessionId.isEmpty()) {
+      IncomingCallActionCoordinator.cancelMissedTimeout(sessionId);
       DibayCallConsumedStore.mark(getContext(), sessionId, reason);
       IncomingCallRingOwner.stop(getContext(), sessionId);
       IncomingCallNotificationBuilder.dismissIncomingCall(getContext(), sessionId);

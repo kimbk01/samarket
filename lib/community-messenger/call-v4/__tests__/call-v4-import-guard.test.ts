@@ -61,11 +61,32 @@ describe("call-v4 import isolation", () => {
     expect(notifier).toContain("lock_presentation_queued");
     expect(notifier).toContain("background_presentation_deliver");
     expect(notifier).toContain("native_notification_fallback");
-    expect(lockFsiMethod).toContain("showIncomingCall");
+    expect(lockFsiMethod).toContain("showIncomingCallFsiBridge");
+    expect(lockFsiMethod).toContain("lock_incoming_native_fsi_activity_only");
+    expect(lockFsiMethod).not.toMatch(/showIncomingCall\(context,\s*payload,\s*fgsDelivery\)/);
     expect(lockFsiMethod).not.toContain("launchIncomingActivity");
     expect(notifier).not.toContain("lock_presentation_immediate");
     expect(notifier).not.toContain("_boost");
     expect(notifier).not.toContain("lock_incoming_activity_boost");
+  });
+
+  it("V4 native_fsi owner suppresses visible CallStyle; fallback owner allows it", () => {
+    const builder = read("android/app/src/main/java/com/dibay/app/IncomingCallNotificationBuilder.java");
+    const activity = read("android/app/src/main/java/com/dibay/app/IncomingCallActivity.java");
+    expect(builder).toContain("showIncomingCallFsiBridge");
+    expect(builder).toContain("shouldBlockVisibleCallStyleForNativeFsiOwner");
+    expect(builder).toContain("shouldApplyIncomingCallStyle");
+    expect(builder).toContain("shouldAttachIncomingFullScreenIntent");
+    expect(builder).toContain("incoming_callstyle_suppressed_native_fsi");
+    expect(builder).toContain("cancelVisibleIncomingNotificationAfterActivity");
+    expect(builder).toContain("incoming_visible_notification_cancelled_after_activity");
+    expect(builder).toContain("incoming_fgs_notification_kept");
+    expect(activity).toContain("incoming_activity_shown_emit");
+    expect(activity).toContain("incoming_activity_shown_skip_duplicate");
+    expect(activity).toContain("ACTIVITY_SHOWN_EMITTED");
+    expect(read("android/app/src/main/AndroidManifest.xml")).toContain(
+      "android.permission.REORDER_TASKS",
+    );
   });
 
   it("V4 ringing FGS notification is always carrier-only in telegram lane", () => {
@@ -157,11 +178,25 @@ describe("call-v4 import isolation", () => {
     const handoff = read("lib/community-messenger/call-v4/call-v4-native-connecting-handoff.ts");
     const plugin = read("android/app/src/main/java/com/dibay/app/NativeIncomingCallPlugin.java");
     const main = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
+    const exitGuard = read("lib/community-messenger/call-v4/call-v4-exit-guard.ts");
+    const screen = read("components/community-messenger/call-v4/CallV4Screen.tsx");
     expect(handoff).toContain("web_call_screen_ready");
     expect(handoff).toContain("dibay:call-v4-web-call-screen-ready");
+    expect(handoff).toContain("markCallV4WebCallScreenReady");
     expect(plugin).toContain("notifyWebCallScreenReady");
     expect(main).toContain("onWebCallScreenReady");
     expect(main).toContain("main_activity_calls_v4_direct_start");
+    expect(main).toContain("accept_route_restore_start");
+    expect(main).toContain("accept_route_restore_done");
+    expect(main).toContain("accept_route_restore_failed");
+    expect(main).toContain("accept_handoff_deferred");
+    expect(exitGuard).toContain("cleanup_skipped_until_call_screen_ready");
+    expect(exitGuard).toContain("call_screen_ready_before_cleanup");
+    expect(exitGuard).toContain("maybeExitCallV4ScreenAfterCleanup");
+    expect(screen).toContain("nativeHandoffPhaseRef");
+    expect(screen).not.toMatch(
+      /notifyCallV4WebCallScreenReady\(callId,\s*phase === "connected"/,
+    );
   });
 
   it("Phase 6A architecture — presentation SSOT + platform adapters (flags OFF by default)", () => {
@@ -197,6 +232,8 @@ describe("call-v4 import isolation", () => {
     expect(script).toContain("buildIncomingCallPreviewHref");
     expect(script).toContain("resolveSuppressReasonLegacy");
     expect(script).toContain("cancelMissedTimeout");
+    expect(script).toContain("shouldSuppressMissedTimeout");
+    expect(script).toContain("incoming_session_purge_blocked");
     expect(script).toContain("presentV4LockFsiOnlyIncoming");
     expect(script).toContain("presentV4BackgroundActivityFirstIncoming");
     expect(script).toContain("Policy A lock FSI-only entry");

@@ -24,6 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
 /** Lock-screen incoming call UI — accept/reject via web call-route (V3 PATCH owner). */
 public class IncomingCallActivity extends AppCompatActivity {
   private static final ConcurrentHashMap<String, Long> VISIBLE_CALL_IDS = new ConcurrentHashMap<>();
+  private static final java.util.Set<String> ACTIVITY_SHOWN_EMITTED = ConcurrentHashMap.newKeySet();
   private static final ConcurrentHashMap<Integer, java.lang.ref.WeakReference<IncomingCallActivity>>
       LIVE_INSTANCES = new ConcurrentHashMap<>();
   private static volatile java.lang.ref.WeakReference<IncomingCallActivity> activeInstance;
@@ -474,9 +475,33 @@ public class IncomingCallActivity extends AppCompatActivity {
     }
   }
 
+  /** @visibleForTesting */
+  static void clearActivityShownEmittedForTests() {
+    ACTIVITY_SHOWN_EMITTED.clear();
+  }
+
+  /** @visibleForTesting */
+  static boolean wasActivityShownEmittedForTests(String callId) {
+    if (callId == null || callId.trim().isEmpty()) return false;
+    return ACTIVITY_SHOWN_EMITTED.contains(callId.trim());
+  }
+
+  /** @visibleForTesting */
+  static void markActivityShownEmittedForTests(String callId) {
+    if (callId == null || callId.trim().isEmpty()) return;
+    ACTIVITY_SHOWN_EMITTED.add(callId.trim());
+  }
+
   /** Policy B: SINGLE_TOP reuse must still cancel launch_visibility verify. */
   private void emitIncomingActivityShown(Intent intent, String expiresAt) {
     if (callId == null || callId.trim().isEmpty()) return;
+    String sid = callId.trim();
+    if (ACTIVITY_SHOWN_EMITTED.contains(sid)) {
+      Log.i(
+          CallV4Lane.TAG,
+          "[DIBAY_CALL_V4] incoming_activity_shown_skip_duplicate callId=" + sid);
+      return;
+    }
     if (expiresAt != null) {
       java.util.HashMap<String, String> probe = new java.util.HashMap<>();
       probe.put("expiresAt", expiresAt);
@@ -486,6 +511,8 @@ public class IncomingCallActivity extends AppCompatActivity {
         return;
       }
     }
+    ACTIVITY_SHOWN_EMITTED.add(sid);
+    Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] incoming_activity_shown_emit callId=" + sid);
     Log.i(TAG, "[call-ui] incoming_activity_shown callId=" + callId);
     VISIBLE_CALL_IDS.put(callId.trim(), System.currentTimeMillis());
     String callTypeForVerify = firstNonEmpty(intent.getStringExtra(EXTRA_CALL_TYPE));
@@ -512,8 +539,15 @@ public class IncomingCallActivity extends AppCompatActivity {
               firstNonEmpty(intent.getStringExtra(EXTRA_BODY)),
               null);
       if (payload.isValid()) {
-        IncomingCallNotificationBuilder.showIncomingCallActionOnly(
-            getApplicationContext(), payload, true);
+        IncomingCallSurfaceOwner.SurfaceOwner surfaceOwner =
+            IncomingCallSurfaceOwner.getSurfaceOwner(callId);
+        if (surfaceOwner == IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_FSI) {
+          IncomingCallNotificationBuilder.cancelVisibleIncomingNotificationAfterActivity(
+              getApplicationContext(), callId);
+        } else {
+          IncomingCallNotificationBuilder.showIncomingCallActionOnly(
+              getApplicationContext(), payload, true);
+        }
       }
     }
     DibayCallLog.once("incoming_activity_created", callId, "source=activity");
@@ -636,9 +670,11 @@ public class IncomingCallActivity extends AppCompatActivity {
 
   private void cleanupAndFinish() {
     if (callId != null && !callId.trim().isEmpty()) {
-      clearVisibleFlag(callId);
-      IncomingCallBackgroundNotifier.cancelLaunchVisibilityVerify(callId);
-      PendingIncomingPresentation.remove(callId);
+      String sid = callId.trim();
+      clearVisibleFlag(sid);
+      ACTIVITY_SHOWN_EMITTED.remove(sid);
+      IncomingCallBackgroundNotifier.cancelLaunchVisibilityVerify(sid);
+      PendingIncomingPresentation.remove(sid);
     }
     cleanupNotification();
     finishSafely();
@@ -647,7 +683,9 @@ public class IncomingCallActivity extends AppCompatActivity {
   private void finishSafely() {
     if (finished) return;
     if (callId != null && !callId.trim().isEmpty()) {
-      clearVisibleFlag(callId);
+      String sid = callId.trim();
+      clearVisibleFlag(sid);
+      ACTIVITY_SHOWN_EMITTED.remove(sid);
       if (activeInstance != null && activeInstance.get() == this) {
         activeInstance = null;
       }
