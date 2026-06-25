@@ -794,6 +794,9 @@ export async function launchOutgoingDirectCall(
   if (!assertPhoneVerifiedForMessengerActionOrOpenSheet(resolveMessengerActionReturnPath())) {
     return { ok: false, userMessage: "", phoneVerificationRequired: true };
   }
+  if (isCallV4TelegramLaneEnabled()) {
+    return callV4LaunchOutgoingDirectCall(input, router);
+  }
   if (!isCmCallVideoEnabled() && input.kind === "video") {
     showMessengerSnackbar(
       safeTranslate(getRuntimeAppLanguage(), "common_content_unavailable", {
@@ -803,9 +806,6 @@ export async function launchOutgoingDirectCall(
       { variant: "error" }
     );
     return { ok: false, userMessage: "" };
-  }
-  if (isCallV4TelegramLaneEnabled()) {
-    return callV4LaunchOutgoingDirectCall(input, router);
   }
   if (isDibayCallV3SafeLaneEnabled()) {
     return callV3LaunchOutgoingDirectCall(input, router);
