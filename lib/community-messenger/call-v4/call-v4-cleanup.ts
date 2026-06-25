@@ -1,3 +1,4 @@
+import { stopCallHeartbeatWatchdog } from "@/lib/call/native/call-heartbeat-watchdog";
 import { stopCallV4CallerActivePoll } from "@/lib/community-messenger/call-v4/call-v4-caller-active";
 import { stopCallV4ConnectedTerminalWatch } from "@/lib/community-messenger/call-v4/call-v4-connected-terminal-watch";
 import { clearCallV4ConnectionWarm } from "@/lib/community-messenger/call-v4/call-v4-connection-warm";
@@ -7,6 +8,7 @@ import { clearNativeAcceptInflight } from "@/lib/community-messenger/call-v4/cal
 import { syncCallV4NativeTerminalCleanup } from "@/lib/community-messenger/call-v4/call-v4-native-lifecycle";
 import { useCallV4MediaStore } from "@/lib/community-messenger/call-v4/call-v4-media-state";
 import { stopCallV4NativeActiveSession } from "@/lib/community-messenger/call-v4/call-v4-native-active-session";
+import { resetCallV4AcceptPatchStateForCallId } from "@/lib/community-messenger/call-v4/call-v4-patch-guard";
 import { forceResetCommunityMessengerCallRuntimeSurface } from "@/lib/community-messenger/call-runtime-registry";
 import { useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
 import type { CallV4TerminalPhase } from "@/lib/community-messenger/call-v4/call-v4-types";
@@ -14,11 +16,14 @@ import type { CallV4TerminalPhase } from "@/lib/community-messenger/call-v4/call
 export async function cleanupCallV4(callId: string, reason: CallV4TerminalPhase | string): Promise<void> {
   const sid = callId.trim();
   logCallV4("cleanup_start", { callId: sid, reason });
+  stopCallHeartbeatWatchdog(sid);
+  logCallV4("call_heartbeat_watchdog_stop", { callId: sid, reason });
   stopCallV4CallerActivePoll();
   stopCallV4ConnectedTerminalWatch(sid);
   const { leaveCallV4Agora } = await import("@/lib/community-messenger/call-v4/call-v4-agora");
   await leaveCallV4Agora(sid);
   clearCallV4ConnectionWarm(sid);
+  resetCallV4AcceptPatchStateForCallId(sid);
   clearCallV4NativeAcceptingSurface(sid);
   clearNativeAcceptInflight(sid, String(reason));
   syncCallV4NativeTerminalCleanup(sid, reason);

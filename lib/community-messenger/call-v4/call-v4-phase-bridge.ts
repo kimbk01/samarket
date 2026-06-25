@@ -1,5 +1,6 @@
 "use client";
 
+import { startCallHeartbeatWatchdog } from "@/lib/call/native/call-heartbeat-watchdog";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import { startCallV4ConnectedTerminalWatch } from "@/lib/community-messenger/call-v4/call-v4-connected-terminal-watch";
 import { readCallV4Identity, readCallV4Phase, useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
@@ -30,5 +31,7 @@ export function markCallV4MediaConnected(callId: string, source: string): boolea
   logCallV4("media_connected_phase", { callId: sid, fromPhase: phase, source });
   logCallV4("active_call_connected", { callId: sid, source, fromPhase: phase });
   startCallV4ConnectedTerminalWatch(sid);
+  startCallHeartbeatWatchdog(sid);
+  logCallV4("call_heartbeat_watchdog_start", { callId: sid, source });
   return true;
 }

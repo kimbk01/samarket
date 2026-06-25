@@ -2,9 +2,25 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { markCallV4MediaConnected } from "@/lib/community-messenger/call-v4/call-v4-phase-bridge";
 import { useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
 
+const heartbeatMocks = vi.hoisted(() => ({
+  start: vi.fn(),
+  stop: vi.fn(),
+}));
+
+vi.mock("@/lib/call/native/call-heartbeat-watchdog", () => ({
+  startCallHeartbeatWatchdog: (...args: unknown[]) => heartbeatMocks.start(...args),
+  stopCallHeartbeatWatchdog: (...args: unknown[]) => heartbeatMocks.stop(...args),
+}));
+
+vi.mock("@/lib/community-messenger/call-v4/call-v4-connected-terminal-watch", () => ({
+  startCallV4ConnectedTerminalWatch: vi.fn(),
+}));
+
 describe("call-v4-phase-bridge", () => {
   beforeEach(() => {
     useCallV4Store.getState().resetToIdle();
+    heartbeatMocks.start.mockClear();
+    heartbeatMocks.stop.mockClear();
     vi.spyOn(console, "info").mockImplementation(() => {});
   });
 
@@ -25,6 +41,8 @@ describe("call-v4-phase-bridge", () => {
     expect(markCallV4MediaConnected("call-1", "test")).toBe(true);
     expect(useCallV4Store.getState().phase).toBe("connected");
     expect(useCallV4Store.getState().connectedAt).not.toBeNull();
+    expect(heartbeatMocks.start).toHaveBeenCalledWith("call-1");
+    expect(heartbeatMocks.start).toHaveBeenCalledTimes(1);
   });
 
   it("ignores mismatched callId", () => {
@@ -43,5 +61,25 @@ describe("call-v4-phase-bridge", () => {
 
     expect(markCallV4MediaConnected("call-2", "test")).toBe(false);
     expect(useCallV4Store.getState().phase).toBe("joining");
+    expect(heartbeatMocks.start).not.toHaveBeenCalled();
+  });
+
+  it("does not restart heartbeat when already connected", () => {
+    useCallV4Store.setState({
+      phase: "connected",
+      connectedAt: Date.now(),
+      identity: {
+        callId: "call-1",
+        roomId: "room-1",
+        callerUserId: "a",
+        calleeUserId: "b",
+        direction: "outgoing",
+        mediaType: "audio",
+        createdAt: new Date().toISOString(),
+      },
+    });
+
+    expect(markCallV4MediaConnected("call-1", "test")).toBe(true);
+    expect(heartbeatMocks.start).not.toHaveBeenCalled();
   });
 });

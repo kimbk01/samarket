@@ -41,7 +41,10 @@ async function pingNativeHeartbeat(callId: string): Promise<void> {
 
 async function pingServerHeartbeat(callId: string, reconnecting: boolean): Promise<void> {
   try {
-    await patchCallSessionHeartbeat(callId, { reconnecting });
+    const result = await patchCallSessionHeartbeat(callId, { reconnecting });
+    if (result.ok) {
+      console.info("[DIBAY_CALL] heartbeat_patch_ok", { callId, at: Date.now(), reconnecting });
+    }
   } catch {
     /* best-effort */
   }

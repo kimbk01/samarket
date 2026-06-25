@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   claimCallV4AcceptPatchOnce,
+  hasCallV4AcceptPatchDone,
+  markCallV4AcceptPatchDone,
+  releaseCallV4AcceptPatchClaim,
   resetCallV4PatchClaimsForTests,
 } from "@/lib/community-messenger/call-v4/call-v4-patch-guard";
 
@@ -15,5 +18,17 @@ describe("call-v4 accept patch guard", () => {
     expect(claimCallV4AcceptPatchOnce("call-patch")).toBe(true);
     expect(claimCallV4AcceptPatchOnce("call-patch")).toBe(false);
     expect(info.mock.calls.some((call) => call[1] === "accept_once_skip_duplicate")).toBe(true);
+  });
+
+  it("blocks duplicate claim after patch done and allows release on failure", () => {
+    expect(claimCallV4AcceptPatchOnce("call-patch")).toBe(true);
+    markCallV4AcceptPatchDone("call-patch");
+    expect(hasCallV4AcceptPatchDone("call-patch")).toBe(true);
+    expect(claimCallV4AcceptPatchOnce("call-patch")).toBe(false);
+
+    resetCallV4PatchClaimsForTests();
+    expect(claimCallV4AcceptPatchOnce("call-retry")).toBe(true);
+    releaseCallV4AcceptPatchClaim("call-retry", "accept_patch_failed");
+    expect(claimCallV4AcceptPatchOnce("call-retry")).toBe(true);
   });
 });
