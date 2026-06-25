@@ -14,6 +14,7 @@ export function notifyCallV4WebCallScreenReady(
 ): void {
   const sid = callId.trim();
   if (!sid) return;
+  logCallV4("web_call_screen_ready_emit", { callId: sid, phase });
   logCallV4("web_call_screen_ready", { callId: sid, phase });
   markCallV4WebCallScreenReady(sid, phase);
   if (typeof window !== "undefined") {

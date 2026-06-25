@@ -61,6 +61,14 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
   const nativeHandoffPhaseRef = useRef<"connecting" | "connected" | null>(null);
 
   useEffect(() => {
+    logCallV4("call_v4_screen_component_mount_start", { callId });
+  }, [callId]);
+
+  useEffect(() => {
+    logCallV4("call_v4_screen_component_mount_done", { callId, action, source });
+  }, [action, callId, source]);
+
+  useEffect(() => {
     nativeHandoffPhaseRef.current = null;
   }, [callId]);
 
