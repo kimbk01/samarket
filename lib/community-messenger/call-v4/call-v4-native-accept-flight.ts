@@ -65,13 +65,21 @@ export function setNativeAcceptInflight(callId: string, source: string): void {
   const sid = normalizeCallId(callId);
   if (!sid) return;
   const store = readStore();
+  const previous = store[sid];
+  const normalizedSource = source.trim() || "native";
+  if (previous?.autostartConsumed) {
+    store[sid] = { ...previous, source: normalizedSource, setAt: Date.now() };
+    writeStore(store);
+    logCallV4("native_accept_inflight_refresh", { callId: sid, source: normalizedSource });
+    return;
+  }
   store[sid] = {
-    source: source.trim() || "native",
+    source: normalizedSource,
     autostartConsumed: false,
     setAt: Date.now(),
   };
   writeStore(store);
-  logCallV4("native_accept_inflight_set", { callId: sid, source: source.trim() || "native" });
+  logCallV4("native_accept_inflight_set", { callId: sid, source: normalizedSource });
 }
 
 export function isNativeAcceptInflight(callId: string): boolean {

@@ -7,10 +7,10 @@ export const CALL_V4_WEB_CALL_SCREEN_READY_EVENT = "dibay:call-v4-web-call-scree
 
 export type CallV4WebCallScreenReadyPhase = "connecting" | "connected";
 
-export async function notifyCallV4WebCallScreenReady(
+export function notifyCallV4WebCallScreenReady(
   callId: string,
   phase: CallV4WebCallScreenReadyPhase,
-): Promise<void> {
+): void {
   const sid = callId.trim();
   if (!sid) return;
   logCallV4("web_call_screen_ready", { callId: sid, phase });
@@ -23,9 +23,7 @@ export async function notifyCallV4WebCallScreenReady(
   }
   const plugin = getSyncNativeIncomingCallPlugin();
   if (!plugin?.notifyWebCallScreenReady) return;
-  try {
-    await plugin.notifyWebCallScreenReady({ callId: sid, phase });
-  } catch {
+  void plugin.notifyWebCallScreenReady({ callId: sid, phase }).catch(() => {
     /* best-effort native handoff */
-  }
+  });
 }

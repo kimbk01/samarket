@@ -67,8 +67,33 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
 
   useEffect(() => {
     if (!callId || action !== "accept") return;
-    if (!tryStartCallV4NativeAcceptAutostart(callId)) return;
-    void callV4Accept(callId, router, { skipRoute: true, source: source ?? "native" });
+    let cancelled = false;
+    void (async () => {
+      const existing = readCallV4Identity();
+      const kind =
+        existing?.callId === callId
+          ? existing.mediaType
+          : null;
+      logCallV4("call_v4_accept_effect_enter", {
+        callId,
+        kind: kind ?? "pending",
+        source: source ?? null,
+      });
+      if (!tryStartCallV4NativeAcceptAutostart(callId)) return;
+      if (!existing || existing.callId !== callId) {
+        await hydrateCallV4CalleeScreen(callId);
+      }
+      if (cancelled) return;
+      const hydrated = readCallV4Identity();
+      logCallV4("call_v4_accept_effect_ready", {
+        callId,
+        kind: hydrated?.callId === callId ? hydrated.mediaType : null,
+      });
+      await callV4Accept(callId, router, { skipRoute: true, source: source ?? "native" });
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [action, callId, router, source]);
 
   useEffect(() => {
@@ -175,6 +200,8 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
 
   useEffect(() => {
     if (phase !== "joining" || identity?.callId !== callId) return;
+    // Callee join is owned by callV4Accept (PATCH + Agora parallel). Outgoing uses caller poll.
+    if (identity.direction === "incoming") return;
     let cancelled = false;
     void (async () => {
       await callV4EnsureAgoraJoined(callId);
@@ -183,7 +210,7 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
     return () => {
       cancelled = true;
     };
-  }, [callId, identity?.callId, phase]);
+  }, [callId, identity?.callId, identity?.direction, phase]);
 
   const vm = useMemo(
     () =>

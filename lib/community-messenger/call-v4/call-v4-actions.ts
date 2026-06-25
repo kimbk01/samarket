@@ -5,6 +5,7 @@ import {
   resolveMessengerActionReturnPath,
 } from "@/lib/auth/assert-phone-verified-for-messenger-action-client";
 import { ensureCallMediaForUserGesture } from "@/lib/community-messenger/call-media-permission-preflight";
+import { unlockCommunityMessengerCallPlaybackFromUserGesture } from "@/lib/community-messenger/call-feedback-sound";
 import type { CommunityMessengerCallKind, CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 import { safeTranslate } from "@/lib/i18n/safe-translate";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
@@ -452,7 +453,10 @@ export async function callV4Accept(
 
   rememberCallV4ReturnPath();
   primeCallV4ConnectionWarm(sid);
-  useCallV4Store.getState().setPhase("joining");
+  const acceptPhase = readCallV4Phase();
+  if (acceptPhase === "idle" || acceptPhase === "incoming_ringing" || acceptPhase === "accepting") {
+    useCallV4Store.getState().setPhase("accepting");
+  }
 
   if (!options?.skipRoute) {
     const href = buildCallV4ScreenHref(sid, options?.source ?? "sheet");
@@ -460,11 +464,9 @@ export async function callV4Accept(
     (router.replace ?? router.push)(href);
   }
 
-  const { unlockCommunityMessengerCallPlaybackFromUserGesture } = await import(
-    "@/lib/community-messenger/call-feedback-sound"
-  );
   unlockCommunityMessengerCallPlaybackFromUserGesture();
 
+  logCallV4("accept_identity_resolve_start", { callId: sid, hasStoreIdentity });
   const identity = hasStoreIdentity ? existingIdentity! : await ensureCallV4CalleeIdentity(sid);
   if (!identity) {
     logCallV4("accept_identity_missing", { callId: sid });
@@ -475,7 +477,12 @@ export async function callV4Accept(
 
   if (!claimCallV4AcceptPatchOnce(sid)) return;
 
-  logCallV4("accept_parallel_start", { callId: sid });
+  useCallV4Store.getState().setPhase("joining");
+  logCallV4("accept_parallel_start", {
+    callId: sid,
+    kind: identity.mediaType,
+    source: options?.source ?? null,
+  });
   const [patched] = await Promise.all([callV4PatchAccept(sid), callV4EnsureAgoraJoined(sid)]);
 
   if (!patched.ok) {

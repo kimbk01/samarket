@@ -5,8 +5,9 @@ import { usePathname, useRouter } from "next/navigation";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import { useCallV4PresentationPlatform } from "@/lib/community-messenger/call-v4/presentation/use-call-v4-presentation-platform";
 import {
-  callV4HandleRemoteTerminal,
   callV4HandleRejectRoute,
+  callV4HandleRemoteTerminal,
+  hydrateCallV4CalleeScreen,
 } from "@/lib/community-messenger/call-v4/call-v4-actions";
 import { callV4FetchSession } from "@/lib/community-messenger/call-v4/call-v4-api";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
@@ -72,13 +73,30 @@ function registerCallV4NativeAcceptingFromAppPath(path: string): void {
   );
 }
 
+function logCallV4RouteAcceptDetected(path: string, source?: string): void {
+  const acceptCallId = readCallV4SessionIdFromNativeRoute(path);
+  if (!acceptCallId) return;
+  logCallV4("route_accept_seen", { callId: acceptCallId, path, source: source ?? null });
+  void callV4FetchSession(acceptCallId).then((session) => {
+    const kind =
+      session?.callKind === "video" ? "video" : session?.callKind === "voice" ? "audio" : "unknown";
+    logCallV4("call_v4_route_accept_detected", {
+      callId: acceptCallId,
+      kind,
+      path,
+      source: source ?? null,
+    });
+  });
+}
+
 function seedCallV4NativeAcceptRouteState(path: string): void {
   const callId = seedCallV4NativeAcceptInflightFromRoute(path);
   if (!callId) return;
   const phase = readCallV4Phase();
-  if (phase === "idle" || phase === "incoming_ringing") {
+  if (phase === "idle" || phase === "incoming_ringing" || phase === "accepting") {
     useCallV4Store.getState().setPhase("accepting");
   }
+  void hydrateCallV4CalleeScreen(callId);
 }
 
 async function hydrateCallV4IncomingWake(detail: DibayFcmIncomingWakeDetail): Promise<void> {
@@ -163,8 +181,7 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
       return;
     }
     if (isCallV4CalleeAcceptRoute(path)) {
-      const acceptCallId = readCallV4SessionIdFromNativeRoute(path);
-      logCallV4("route_accept_seen", { callId: acceptCallId, path });
+      logCallV4RouteAcceptDetected(path);
       seedCallV4NativeAcceptRouteState(path);
       if (shouldRegisterCallV4NativeAcceptingFromRoute(path)) {
         registerCallV4NativeAcceptingFromAppPath(path);
@@ -179,11 +196,7 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
       const path = (event as CustomEvent<{ path?: string }>).detail?.path?.trim();
       if (!path) return;
       if (isCallV4CalleeAcceptRoute(path)) {
-        logCallV4("route_accept_seen", {
-          callId: readCallV4SessionIdFromNativeRoute(path),
-          path,
-          source: "native_route_event",
-        });
+        logCallV4RouteAcceptDetected(path, "native_route_event");
         seedCallV4NativeAcceptRouteState(path);
       }
       registerCallV4NativeAcceptingFromAppPath(path);
@@ -195,7 +208,7 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
       window.removeEventListener("dibay:call-route", onNativeRoute);
       window.removeEventListener("dibay:push-route", onNativeRoute);
     };
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     if (!isCallV4TelegramLaneEnabled()) return;

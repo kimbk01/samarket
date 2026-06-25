@@ -47,6 +47,13 @@ describe("call-v4 native accept inflight", () => {
     expect(tryStartCallV4NativeAcceptAutostart("call-4")).toBe(false);
   });
 
+  it("preserves autostart consumption when accept route reinflights", () => {
+    setNativeAcceptInflight("call-6", "native_accept");
+    expect(tryStartCallV4NativeAcceptAutostart("call-6")).toBe(true);
+    setNativeAcceptInflight("call-6", "native_accept");
+    expect(tryStartCallV4NativeAcceptAutostart("call-6")).toBe(false);
+  });
+
   it("emits required inflight lifecycle logs", () => {
     const info = vi.spyOn(console, "info");
     setNativeAcceptInflight("call-5", "native_accept");
