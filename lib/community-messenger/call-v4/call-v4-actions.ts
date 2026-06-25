@@ -444,6 +444,7 @@ export async function callV4Accept(
 ): Promise<void> {
   const sid = callId.trim();
   if (!sid) return;
+  logCallV4("call_v4_accept_enter", { callId: sid, source: options?.source ?? null });
   logCallV4("accept_click", { callId: sid, source: options?.source ?? null });
 
   syncCallV4NativeOnWebAccept(sid);

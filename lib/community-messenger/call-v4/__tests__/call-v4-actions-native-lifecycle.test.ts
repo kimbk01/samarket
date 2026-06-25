@@ -84,6 +84,24 @@ describe("call-v4 actions native lifecycle hooks", () => {
     expect(lifecycleMocks.onAccept).toHaveBeenCalledWith("call-hook");
   });
 
+  it("callV4Accept logs call_v4_accept_enter before accept_click", async () => {
+    const logs: string[] = [];
+    const originalInfo = console.info;
+    console.info = (...args: unknown[]) => {
+      if (args[0] === "[DIBAY_CALL_V4]" && typeof args[1] === "string") {
+        logs.push(args[1]);
+      }
+      originalInfo(...args);
+    };
+    try {
+      const router = { push: vi.fn(), replace: vi.fn() };
+      await callV4Accept("call-hook", router, { skipRoute: true, source: "native_accept" });
+      expect(logs.indexOf("call_v4_accept_enter")).toBeLessThan(logs.indexOf("accept_click"));
+    } finally {
+      console.info = originalInfo;
+    }
+  });
+
   it("callV4Accept awaits patch before agora join", async () => {
     const order: string[] = [];
     vi.mocked(callV4PatchAccept).mockImplementation(async () => {

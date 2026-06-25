@@ -122,6 +122,7 @@ public final class IncomingCallActionCoordinator {
         .post(
             () -> {
               if (CallV4Lane.isTelegramLaneEnabled(app)) {
+                Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] native_handoff callId=" + sid + " target=main_activity");
                 Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] accept_intercepted callId=" + sid);
                 CallRuntimeV4.openFromNativeStore(app, sid, "native_accept");
                 Intent launch = CallV4IntentHelper.buildMainActivityV4AcceptIntent(app, sid, "native_accept");

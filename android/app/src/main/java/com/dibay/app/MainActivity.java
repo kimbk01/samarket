@@ -703,6 +703,8 @@ public class MainActivity extends BridgeActivity {
     activeInstance = this;
     attachDibayWebChromeClient();
     attachDibayWebViewClient();
+    traceV4AcceptHandoffResume();
+    traceWebViewAttachedForAcceptHandoff();
     flushPendingAppPathIfAny();
     scheduleFlushPendingTerminalEvents();
     flushPendingCallV4NativeSurfaceEvents();
@@ -757,11 +759,17 @@ public class MainActivity extends BridgeActivity {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false;
     String callId = DibayActiveCallSessionManager.getActiveCallId();
     if (callId == null || callId.isEmpty() || !DibayActiveCallSessionManager.isConnected()) return false;
-    if (!"video".equalsIgnoreCase(DibayActiveCallSessionManager.getMediaType())) return false;
+    String mediaType = DibayActiveCallSessionManager.getMediaType();
+    boolean isVideo = "video".equalsIgnoreCase(mediaType);
+    boolean isVoice =
+        "voice".equalsIgnoreCase(mediaType)
+            || "audio".equalsIgnoreCase(mediaType);
+    if (!isVideo && !isVoice) return false;
     if (isInPictureInPictureMode()) return true;
     try {
+      Rational aspect = isVideo ? new Rational(9, 16) : new Rational(16, 9);
       PictureInPictureParams params =
-          new PictureInPictureParams.Builder().setAspectRatio(new Rational(9, 16)).build();
+          new PictureInPictureParams.Builder().setAspectRatio(aspect).build();
       boolean entered = enterPictureInPictureMode(params);
       if (!entered) {
         notifyWebPipFallbackDock(callId);
@@ -840,6 +848,43 @@ public class MainActivity extends BridgeActivity {
     bridge.setWebViewClient(client);
     dibayWebViewClientAttached = true;
     Log.i(WEBVIEW_LOG_TAG, "dibay_bridge_webview_client_attached");
+  }
+
+  private void traceV4AcceptHandoffResume() {
+    if (!CallV4Lane.isTelegramLaneEnabled(this)) return;
+    String callId = v4AcceptDirectCallId;
+    if ((callId == null || callId.isEmpty()) && pendingAppPath != null) {
+      if (CallV4Lane.isV4CalleeAcceptCallRoute(pendingAppPath)) {
+        callId = extractCallSessionIdFromAppPath(pendingAppPath);
+      }
+    }
+    Log.i(
+        CallV4Lane.TAG,
+        "[DIBAY_CALL_V4] main_activity_resume callId="
+            + (callId != null && !callId.isEmpty() ? callId : "none")
+            + " pendingPath="
+            + (pendingAppPath != null ? pendingAppPath : "none"));
+  }
+
+  private void traceWebViewAttachedForAcceptHandoff() {
+    if (!CallV4Lane.isTelegramLaneEnabled(this)) return;
+    Bridge bridge = getBridge();
+    if (bridge == null) return;
+    WebView webView = bridge.getWebView();
+    if (webView == null) return;
+    String callId = v4AcceptDirectCallId;
+    if ((callId == null || callId.isEmpty()) && pendingAppPath != null) {
+      if (CallV4Lane.isV4CalleeAcceptCallRoute(pendingAppPath)) {
+        callId = extractCallSessionIdFromAppPath(pendingAppPath);
+      }
+    }
+    String url = webView.getUrl();
+    Log.i(
+        CallV4Lane.TAG,
+        "[DIBAY_CALL_V4] webview_attached callId="
+            + (callId != null && !callId.isEmpty() ? callId : "none")
+            + " url="
+            + (url != null ? url : "null"));
   }
 
   private void onWebViewMainFrameStarted(String url) {

@@ -79,7 +79,10 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
         kind: kind ?? "pending",
         source: source ?? null,
       });
-      if (!tryStartCallV4NativeAcceptAutostart(callId)) return;
+      if (!tryStartCallV4NativeAcceptAutostart(callId)) {
+        logCallV4("call_v4_accept_autostart_blocked", { callId, source: source ?? null });
+        return;
+      }
       if (!existing || existing.callId !== callId) {
         await hydrateCallV4CalleeScreen(callId);
       }
