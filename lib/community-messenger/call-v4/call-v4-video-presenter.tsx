@@ -11,7 +11,10 @@ import {
   type ReactNode,
 } from "react";
 import { MiniLocalVideo } from "@/components/messenger/call/MiniLocalVideo";
-import { bindAgoraRemoteVideoTrack } from "@/lib/community-messenger/call-local-video-pipeline";
+import {
+  bindAgoraRemoteVideoTrack,
+  clearLocalVideoContainer,
+} from "@/lib/community-messenger/call-local-video-pipeline";
 import {
   publishCallV4LocalVideo,
   readCallV4RemoteVideoTrack,
@@ -61,6 +64,13 @@ export type CallV4VideoPresenterState = {
   localVideoRef: React.RefObject<HTMLDivElement | null>;
 };
 
+export function shouldRenderCallV4SelfPreview(input: {
+  cameraEnabled: boolean;
+  localVideoReady: boolean;
+}): boolean {
+  return Boolean(input.cameraEnabled && input.localVideoReady);
+}
+
 export function useCallV4VideoPresenter(callId: string, androidOsPipSafeMode = false): CallV4VideoPresenterState {
   const phase = useCallV4Store((s) => s.phase);
   const identity = useCallV4Store((s) => s.identity) ?? readCallV4Identity();
@@ -70,7 +80,9 @@ export function useCallV4VideoPresenter(callId: string, androidOsPipSafeMode = f
   const videoStageRef = useRef<HTMLDivElement | null>(null);
   const attachedRemoteTrackRef = useRef<IRemoteVideoTrack | null>(null);
   const remoteVideoRefReadyLoggedRef = useRef(false);
+  const localVideoRefReadyLoggedRef = useRef(false);
   const [remoteVideoContainer, setRemoteVideoContainer] = useState<HTMLDivElement | null>(null);
+  const [localVideoContainer, setLocalVideoContainer] = useState<HTMLDivElement | null>(null);
   const [pipExpanded, setPipExpanded] = useState(false);
   const [viewportWidth, setViewportWidth] = useState(390);
 
@@ -89,6 +101,18 @@ export function useCallV4VideoPresenter(callId: string, androidOsPipSafeMode = f
     }
     if (!node) {
       remoteVideoRefReadyLoggedRef.current = false;
+    }
+  }, [callId]);
+
+  const onLocalVideoRef = useCallback((node: HTMLDivElement | null) => {
+    smallVideoRef.current = node;
+    setLocalVideoContainer(node);
+    if (node && !localVideoRefReadyLoggedRef.current) {
+      localVideoRefReadyLoggedRef.current = true;
+      logCallV4("self_video_ref_ready", { callId, target: "self_pip" });
+    }
+    if (!node) {
+      localVideoRefReadyLoggedRef.current = false;
     }
   }, [callId]);
 
@@ -169,6 +193,16 @@ export function useCallV4VideoPresenter(callId: string, androidOsPipSafeMode = f
     phase,
   ]);
 
+  const showLocalPreview = shouldRenderCallV4SelfPreview({
+    cameraEnabled: media.cameraEnabled,
+    localVideoReady: media.localVideoReady,
+  });
+
+  useEffect(() => {
+    if (showLocalPreview) return;
+    clearLocalVideoContainer(localVideoContainer);
+  }, [localVideoContainer, showLocalPreview]);
+
   useLayoutEffect(() => {
     if (typeof window === "undefined") return;
     const sync = () => setViewportWidth(window.innerWidth);
@@ -204,7 +238,7 @@ export function useCallV4VideoPresenter(callId: string, androidOsPipSafeMode = f
   }, [pipGesture, selfDims.height, selfDims.width]);
 
   const showRemoteVideo = wantsVideo && media.remoteVideoReady;
-  const showLocalVideo = wantsVideo && media.localVideoReady && media.cameraEnabled;
+  const showLocalVideo = wantsVideo && showLocalPreview;
   const isVideoUiMode = wantsVideo && (showRemoteVideo || showLocalVideo);
 
   const mainVideoSlot = wantsVideo ? (
@@ -216,9 +250,9 @@ export function useCallV4VideoPresenter(callId: string, androidOsPipSafeMode = f
     </div>
   ) : null;
 
-  const miniVideoSlot = wantsVideo ? (
+  const miniVideoSlot = wantsVideo && showLocalPreview ? (
     <MiniLocalVideo
-      ref={smallVideoRef}
+      ref={onLocalVideoRef}
       widthPx={videoPipLayout?.widthPx}
       heightPx={videoPipLayout?.heightPx}
       useAnchoredPosition={Boolean(videoPipLayout?.pipStyle)}

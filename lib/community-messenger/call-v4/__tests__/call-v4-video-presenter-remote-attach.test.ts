@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { classifyCallV4RemoteAttachSkip } from "@/lib/community-messenger/call-v4/call-v4-video-presenter";
+import {
+  classifyCallV4RemoteAttachSkip,
+  shouldRenderCallV4SelfPreview,
+} from "@/lib/community-messenger/call-v4/call-v4-video-presenter";
 
 describe("classifyCallV4RemoteAttachSkip", () => {
   it("returns phase_not_connected when canAttach is false", () => {
@@ -72,5 +75,34 @@ describe("classifyCallV4RemoteAttachSkip", () => {
         alreadyAttached: false,
       }),
     ).toBeNull();
+  });
+});
+
+describe("shouldRenderCallV4SelfPreview", () => {
+  it("returns false when camera is off", () => {
+    expect(
+      shouldRenderCallV4SelfPreview({
+        cameraEnabled: false,
+        localVideoReady: true,
+      }),
+    ).toBe(false);
+  });
+
+  it("returns false when local video is not ready", () => {
+    expect(
+      shouldRenderCallV4SelfPreview({
+        cameraEnabled: true,
+        localVideoReady: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("returns true only when camera enabled and local video ready", () => {
+    expect(
+      shouldRenderCallV4SelfPreview({
+        cameraEnabled: true,
+        localVideoReady: true,
+      }),
+    ).toBe(true);
   });
 });
