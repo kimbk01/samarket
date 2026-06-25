@@ -14,6 +14,7 @@ import {
 } from "@/lib/community-messenger/call-v4/call-v4-actions";
 import { callV4FetchSession } from "@/lib/community-messenger/call-v4/call-v4-api";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
+import { ensureCallV4AudioRouteLifecycle } from "@/lib/community-messenger/call-v4/call-v4-audio-route";
 import { useCallV4MediaStore } from "@/lib/community-messenger/call-v4/call-v4-media-state";
 import { tryStartCallV4NativeAcceptAutostart } from "@/lib/community-messenger/call-v4/call-v4-native-accept-flight";
 import { notifyCallV4WebCallScreenReady } from "@/lib/community-messenger/call-v4/call-v4-native-connecting-handoff";
@@ -243,6 +244,16 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
       pipShellMounted: Boolean(vm.pipShellMounted),
     });
   }, [callId, phase, vm?.mode, vm?.phase, vm?.showRemoteVideo, vm?.pipShellMounted]);
+
+  useEffect(() => {
+    if (!identity || identity.callId !== callId) return;
+    if (phase === "idle") return;
+    ensureCallV4AudioRouteLifecycle({
+      callId,
+      mediaType: identity.mediaType,
+      direction: identity.direction,
+    });
+  }, [callId, identity, phase]);
 
   if (!vm) {
     return null;

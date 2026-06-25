@@ -42,6 +42,12 @@ vi.mock("@/lib/community-messenger/call-v4/call-v4-native-lifecycle", () => ({
   syncCallV4NativeTerminalCleanup: vi.fn(),
 }));
 
+const releaseAudioRouteMock = vi.hoisted(() => vi.fn(async () => {}));
+
+vi.mock("@/lib/community-messenger/call-v4/call-v4-audio-route", () => ({
+  releaseCallV4AudioRoute: releaseAudioRouteMock,
+}));
+
 vi.mock("@/lib/community-messenger/call-v4/call-v4-media-state", () => ({
   useCallV4MediaStore: {
     getState: () => ({ reset: vi.fn() }),
@@ -62,6 +68,7 @@ import { useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store"
 describe("cleanupCallV4 heartbeat", () => {
   beforeEach(() => {
     heartbeatMocks.stop.mockClear();
+    releaseAudioRouteMock.mockClear();
     useCallV4Store.getState().resetToIdle();
     vi.spyOn(console, "info").mockImplementation(() => {});
   });
@@ -70,5 +77,6 @@ describe("cleanupCallV4 heartbeat", () => {
     await cleanupCallV4("call-hb", "ended");
     expect(heartbeatMocks.stop).toHaveBeenCalledWith("call-hb");
     expect(heartbeatMocks.stop).toHaveBeenCalledTimes(1);
+    expect(releaseAudioRouteMock).toHaveBeenCalledWith("call-hb", "v4_cleanup");
   });
 });

@@ -3,6 +3,7 @@ import { stopCallV4CallerActivePoll } from "@/lib/community-messenger/call-v4/ca
 import { stopCallV4ConnectedTerminalWatch } from "@/lib/community-messenger/call-v4/call-v4-connected-terminal-watch";
 import { clearCallV4ConnectionWarm } from "@/lib/community-messenger/call-v4/call-v4-connection-warm";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
+import { releaseCallV4AudioRoute } from "@/lib/community-messenger/call-v4/call-v4-audio-route";
 import { clearCallV4NativeAcceptingSurface, clearCallV4NativeIncomingSurface, clearCallV4SurfaceOwner } from "@/lib/community-messenger/call-v4/call-v4-incoming-surface";
 import { clearNativeAcceptInflight } from "@/lib/community-messenger/call-v4/call-v4-native-accept-flight";
 import { syncCallV4NativeTerminalCleanup } from "@/lib/community-messenger/call-v4/call-v4-native-lifecycle";
@@ -22,6 +23,7 @@ export async function cleanupCallV4(callId: string, reason: CallV4TerminalPhase 
   stopCallV4ConnectedTerminalWatch(sid);
   const { leaveCallV4Agora } = await import("@/lib/community-messenger/call-v4/call-v4-agora");
   await leaveCallV4Agora(sid);
+  await releaseCallV4AudioRoute(sid, "v4_cleanup");
   clearCallV4ConnectionWarm(sid);
   resetCallV4AcceptPatchStateForCallId(sid);
   clearCallV4NativeAcceptingSurface(sid);
