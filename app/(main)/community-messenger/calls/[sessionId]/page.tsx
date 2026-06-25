@@ -1,14 +1,22 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useSyncExternalStore, useEffect, useState, type ComponentType } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { CommunityMessengerCallClient } from "@/components/community-messenger/CommunityMessengerCallClient";
 import { CommunityMessengerCallRouteLoading } from "@/components/community-messenger/CommunityMessengerCallRouteLoading";
 import { CommunityMessengerCallEnterShell } from "@/components/community-messenger/call-history/CommunityMessengerCallEnterShell";
 import { subscribeCommunityCallHostSync } from "@/components/layout/providers/CommunityMessengerActiveCallHost";
 import { isCallSessionHostedByActiveCallHost } from "@/lib/community-messenger/direct-call-minimize";
 import { isDibayCallV3SafeLaneEnabled } from "@/lib/community-messenger/call-v3/call-v3-flag";
 import { isCallV4TelegramLaneEnabled } from "@/lib/community-messenger/call-v4/call-v4-flag";
+
+const CommunityMessengerCallClient = dynamic(
+  () =>
+    import("@/components/community-messenger/CommunityMessengerCallClient").then(
+      (m) => m.CommunityMessengerCallClient
+    ),
+  { ssr: false, loading: () => null }
+);
 
 type CallV3ScreenProps = {
   callId: string;

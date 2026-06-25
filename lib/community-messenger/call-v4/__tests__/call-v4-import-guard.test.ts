@@ -264,4 +264,23 @@ describe("call-v4 import isolation", () => {
     const boundary = read("scripts/verify-call-v4-incoming-fsi-fallback-boundary.cjs");
     expect(boundary).toContain("call-v4-incoming-fsi-fallback-manifest.json");
   });
+
+  it("call-session-navigation-seed does not statically import call-v4-actions (SSR shell)", () => {
+    const nav = read("lib/community-messenger/call-session-navigation-seed.ts");
+    expect(nav).not.toMatch(
+      /^\s*import\s+\{[^}]*callV4LaunchOutgoingDirectCall[^}]*\}\s+from\s+["']@\/lib\/community-messenger\/call-v4\/call-v4-actions["']/m,
+    );
+    expect(nav).toContain("@/lib/community-messenger/call-v4/call-v4-actions");
+  });
+
+  it("CallIncomingChrome lazy-loads V4 provider and active call host", () => {
+    const chrome = read("components/layout/providers/CallIncomingChrome.tsx");
+    expect(chrome).not.toMatch(
+      /^\s*import\s+\{[^}]*CallV4IncomingChrome[^}]*\}\s+from\s+["']@\/components\/community-messenger\/call-v4\/CallV4Provider["']/m,
+    );
+    expect(chrome).not.toMatch(
+      /^\s*import\s+\{[^}]*CommunityMessengerActiveCallHost[^}]*\}\s+from\s+["']@\/components\/layout\/providers\/CommunityMessengerActiveCallHost["']/m,
+    );
+    expect(chrome).toContain('ssr: false');
+  });
 });

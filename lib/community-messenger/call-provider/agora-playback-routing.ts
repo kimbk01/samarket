@@ -1,6 +1,12 @@
-import AgoraRTC from "agora-rtc-sdk-ng";
+"use client";
+
 import type { IRemoteAudioTrack } from "agora-rtc-sdk-ng";
 import { readPreferredSpeakerSinkId } from "@/lib/permissions/speaker-output-preference";
+
+async function getAgoraRtc() {
+  const mod = await import("agora-rtc-sdk-ng");
+  return mod.default;
+}
 
 /**
  * Chrome/Edge 데스크톱 등에서 원격 오디오 재생 장치 전환(스피커 vs 이어폰·헤드셋 우선).
@@ -12,6 +18,7 @@ export async function applyAgoraRemoteSpeakerPreference(
 ): Promise<void> {
   if (!track || typeof track.setPlaybackDevice !== "function") return;
   try {
+    const AgoraRTC = await getAgoraRtc();
     const devices = (await AgoraRTC.getPlaybackDevices()).filter((d) => d.deviceId);
     if (!devices.length) return;
     const lb = (d: { label?: string }) => (d.label ?? "").toLowerCase();

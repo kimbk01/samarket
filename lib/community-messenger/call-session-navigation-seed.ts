@@ -1,7 +1,5 @@
 import { isDibayCallV3SafeLaneEnabled } from "@/lib/community-messenger/call-v3/call-v3-flag";
-import { callV3LaunchOutgoingDirectCall } from "@/lib/community-messenger/call-v3/call-v3-actions";
 import { isCallV4TelegramLaneEnabled } from "@/lib/community-messenger/call-v4/call-v4-flag";
-import { callV4LaunchOutgoingDirectCall } from "@/lib/community-messenger/call-v4/call-v4-actions";
 import { logCallUxEvent } from "@/lib/community-messenger/call-engine/call-engine-debug";
 import type { CommunityMessengerCallKind, CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 import {
@@ -795,6 +793,9 @@ export async function launchOutgoingDirectCall(
     return { ok: false, userMessage: "", phoneVerificationRequired: true };
   }
   if (isCallV4TelegramLaneEnabled()) {
+    const { callV4LaunchOutgoingDirectCall } = await import(
+      "@/lib/community-messenger/call-v4/call-v4-actions"
+    );
     return callV4LaunchOutgoingDirectCall(input, router);
   }
   if (!isCmCallVideoEnabled() && input.kind === "video") {
@@ -808,6 +809,9 @@ export async function launchOutgoingDirectCall(
     return { ok: false, userMessage: "" };
   }
   if (isDibayCallV3SafeLaneEnabled()) {
+    const { callV3LaunchOutgoingDirectCall } = await import(
+      "@/lib/community-messenger/call-v3/call-v3-actions"
+    );
     return callV3LaunchOutgoingDirectCall(input, router);
   }
   unlockCommunityMessengerCallPlaybackFromUserGesture();

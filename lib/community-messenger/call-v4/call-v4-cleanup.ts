@@ -2,7 +2,6 @@ import { stopCallHeartbeatWatchdog } from "@/lib/call/native/call-heartbeat-watc
 import { stopCallV4CallerActivePoll } from "@/lib/community-messenger/call-v4/call-v4-caller-active";
 import { stopCallV4ConnectedTerminalWatch } from "@/lib/community-messenger/call-v4/call-v4-connected-terminal-watch";
 import { clearCallV4ConnectionWarm } from "@/lib/community-messenger/call-v4/call-v4-connection-warm";
-import { releaseCallV4AudioRoute } from "@/lib/community-messenger/call-v4/call-v4-audio-route";
 import { clearCallV4WebCallScreenReady } from "@/lib/community-messenger/call-v4/call-v4-exit-guard";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import { clearCallV4NativeAcceptingSurface, clearCallV4NativeIncomingSurface, clearCallV4SurfaceOwner } from "@/lib/community-messenger/call-v4/call-v4-incoming-surface";
@@ -25,6 +24,7 @@ export async function cleanupCallV4(callId: string, reason: CallV4TerminalPhase 
   stopCallV4ConnectedTerminalWatch(sid);
   const { leaveCallV4Agora } = await import("@/lib/community-messenger/call-v4/call-v4-agora");
   await leaveCallV4Agora(sid);
+  const { releaseCallV4AudioRoute } = await import("@/lib/community-messenger/call-v4/call-v4-audio-route");
   await releaseCallV4AudioRoute(sid, "v4_cleanup");
   clearCallV4ConnectionWarm(sid);
   resetCallV4AcceptPatchStateForCallId(sid);

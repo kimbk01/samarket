@@ -5,14 +5,35 @@ import { CallProvider } from "@/app/_providers/CallProvider";
 import { importWithChunkRetry } from "@/lib/next/import-with-chunk-retry";
 import { IncomingCallOverlayChunkBoundary } from "@/components/layout/providers/IncomingCallOverlayChunkBoundary";
 import { CallActiveSessionRecoveryHost } from "@/components/layout/providers/CallActiveSessionRecoveryHost";
-import { CommunityMessengerActiveCallHost } from "@/components/layout/providers/CommunityMessengerActiveCallHost";
 import { DibayFcmCallRouteHost } from "@/components/layout/providers/DibayFcmCallRouteHost";
 import { DibayVoipCallBridgeHost } from "@/lib/push/native/dibay-voip-call-bridge";
-import { CallV3IncomingBanner } from "@/components/community-messenger/call-v3/CallV3IncomingBanner";
-import { CallV3Provider } from "@/components/community-messenger/call-v3/CallV3Provider";
 import { isDibayCallV3SafeLaneEnabled } from "@/lib/community-messenger/call-v3/call-v3-flag";
 import { isCallV4TelegramLaneEnabled } from "@/lib/community-messenger/call-v4/call-v4-flag";
-import { CallV4IncomingChrome } from "@/components/community-messenger/call-v4/CallV4Provider";
+
+const CommunityMessengerActiveCallHost = dynamic(
+  () =>
+    import("@/components/layout/providers/CommunityMessengerActiveCallHost").then(
+      (m) => m.CommunityMessengerActiveCallHost
+    ),
+  { ssr: false }
+);
+
+const CallV4IncomingChrome = dynamic(
+  () =>
+    import("@/components/community-messenger/call-v4/CallV4Provider").then((m) => m.CallV4IncomingChrome),
+  { ssr: false }
+);
+
+const CallV3IncomingBanner = dynamic(
+  () =>
+    import("@/components/community-messenger/call-v3/CallV3IncomingBanner").then((m) => m.CallV3IncomingBanner),
+  { ssr: false }
+);
+
+const CallV3Provider = dynamic(
+  () => import("@/components/community-messenger/call-v3/CallV3Provider").then((m) => m.CallV3Provider),
+  { ssr: false }
+);
 
 const IncomingCallOverlay = dynamic(
   () =>
