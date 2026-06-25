@@ -264,6 +264,12 @@ export async function callV4CreateOutgoing(input: {
       return { ok: false as const, userMessage: outgoingMissingRoomMessage() };
     }
 
+    logCallV4("outgoing_create_session_attempt", {
+      mediaType: input.mediaType,
+      roomId: roomResolved.roomId,
+      peerUserId: input.peerUserId?.trim() || undefined,
+    });
+
     const created = await callV4CreateSession({
       roomId: roomResolved.roomId,
       mediaType: input.mediaType,
@@ -272,8 +278,20 @@ export async function callV4CreateOutgoing(input: {
     if (!created.ok || !created.session?.id) {
       useCallV4Store.getState().resetToIdle();
       const err = String(created.error ?? "").trim();
+      logCallV4("outgoing_create_session_failed", {
+        mediaType: input.mediaType,
+        roomId: roomResolved.roomId,
+        error: err || "unknown",
+      });
       return { ok: false as const, userMessage: err || outgoingGenericErrorMessage() };
     }
+
+    logCallV4("outgoing_create_session_done", {
+      callId: created.session.id,
+      mediaType: input.mediaType,
+      callKind: created.session.callKind,
+      roomId: roomResolved.roomId,
+    });
 
     const identity = buildOutgoingIdentity(created.session, input.peerLabel);
     useCallV4Store.getState().setIdentity(identity);
@@ -303,10 +321,18 @@ export async function callV4LaunchOutgoingDirectCall(
   },
   router: { push: (href: string) => void; replace?: (href: string) => void }
 ): Promise<CallV4OutgoingLaunchResult> {
+  logCallV4("call_v4_launch_direct_enter", {
+    kind: input.kind,
+    roomId: input.roomId?.trim() || undefined,
+    peerUserId: input.peerUserId?.trim() || undefined,
+  });
+
   if (!assertPhoneVerifiedForMessengerActionOrOpenSheet(resolveMessengerActionReturnPath())) {
+    logCallV4("call_v4_launch_direct_blocked", { reason: "phone_verification_required", kind: input.kind });
     return { ok: false, userMessage: "", phoneVerificationRequired: true };
   }
   if (!isCallV4VideoEnabled() && input.kind === "video") {
+    logCallV4("call_v4_video_preflight_failed", { reason: "video_flag_disabled" });
     showMessengerSnackbar(
       safeTranslate(getRuntimeAppLanguage(), "common_content_unavailable", {
         fallbackKo: "지금은 음성 통화만 사용할 수 있습니다.",
@@ -317,8 +343,14 @@ export async function callV4LaunchOutgoingDirectCall(
     return { ok: false, userMessage: "" };
   }
   if (input.kind === "video") {
+    logCallV4("call_v4_video_preflight_start", {});
     const perm = await ensureCallMediaForUserGesture("video");
     if (!perm.ok) {
+      logCallV4("call_v4_video_preflight_failed", {
+        reason: perm.reason,
+        microphone: perm.state.microphone,
+        camera: perm.state.camera,
+      });
       showMessengerSnackbar(
         safeTranslate(getRuntimeAppLanguage(), "common_content_unavailable", {
           fallbackKo: "카메라·마이크 권한이 필요합니다.",
@@ -328,6 +360,10 @@ export async function callV4LaunchOutgoingDirectCall(
       );
       return { ok: false, userMessage: "" };
     }
+    logCallV4("call_v4_video_preflight_done", {
+      microphone: perm.state.microphone,
+      camera: perm.state.camera,
+    });
   }
 
   if (typeof window !== "undefined") {

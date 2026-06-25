@@ -18,6 +18,7 @@ import {
   normalizeCommunityMessengerCallLogs,
 } from "@/lib/community-messenger/call-log-row-copy";
 import { launchOutgoingDirectCall } from "@/lib/community-messenger/call-session-navigation-seed";
+import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import {
   fetchCommunityMessengerCallLogsClient,
   useCommunityCallHistoryRealtimeSync,
@@ -367,10 +368,27 @@ export function MessengerCallLogsPanel({
     setOutgoingConfirm(null);
     setPeerDetailOpen(false);
 
+    logCallV4("video_confirm_clicked", {
+      kind: next.kind,
+      peerUserId: peerUserId || undefined,
+      roomId: roomId || undefined,
+      hasOnStartDirectCall: Boolean(onStartDirectCall),
+    });
+
     if (peerUserId && onStartDirectCall?.(peerUserId, next.kind, next.peerLabel)) {
+      logCallV4("video_confirm_start_direct_call", {
+        kind: next.kind,
+        peerUserId,
+      });
       setOutgoingBusy(false);
       return;
     }
+
+    logCallV4("video_confirm_launch_fallback", {
+      kind: next.kind,
+      peerUserId: peerUserId || undefined,
+      roomId: roomId || undefined,
+    });
 
     void (async () => {
       try {

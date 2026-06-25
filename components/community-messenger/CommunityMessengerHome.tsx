@@ -87,6 +87,7 @@ import {
 import {
   launchOutgoingDirectCall,
 } from "@/lib/community-messenger/call-session-navigation-seed";
+import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import {
   guardInstantOutgoingCallStart,
   isOutgoingCallPhoneVerificationRequired,
@@ -1155,6 +1156,11 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
 
       const roomId = existingRoom?.id?.trim() ? existingRoom.id.trim() : null;
       const peer = peerUserId.trim();
+      logCallV4("call_v4_start_direct_call", {
+        kind,
+        peerUserId: peer,
+        roomId: roomId ?? undefined,
+      });
       setCmCallLatencyContext({
         role: "initiator",
         callKind: kind,
@@ -1182,6 +1188,13 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
             : { kind, peerUserId: peer, peerLabel: peerLabelForDial?.trim() || undefined },
           router
         );
+        logCallV4("call_v4_start_direct_call_result", {
+          kind,
+          peerUserId: peer,
+          ok: result.ok,
+          phoneVerificationRequired:
+            "phoneVerificationRequired" in result && result.phoneVerificationRequired === true,
+        });
         releaseDialGuard();
         if (!result.ok) {
           if (isOutgoingCallPhoneVerificationRequired(result)) return;
