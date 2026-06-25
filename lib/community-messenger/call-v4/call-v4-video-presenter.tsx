@@ -1,6 +1,15 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import type { IRemoteVideoTrack } from "agora-rtc-sdk-ng";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { MiniLocalVideo } from "@/components/messenger/call/MiniLocalVideo";
 import { bindAgoraRemoteVideoTrack } from "@/lib/community-messenger/call-local-video-pipeline";
 import {
@@ -15,6 +24,30 @@ import { isCallV4VideoEnabled } from "@/lib/community-messenger/call-v4/call-v4-
 import { readCallV4Identity, useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
 import { computeCallV4SelfViewDimensions } from "@/lib/community-messenger/call-v4/call-v4-video-layout";
 import { useCallVideoPipGesture } from "@/lib/community-messenger/use-call-video-pip-gesture";
+
+export type CallV4RemoteAttachSkipReason =
+  | "phase_not_connected"
+  | "wants_video_false"
+  | "remote_track_missing"
+  | "video_ref_null"
+  | "already_attached"
+  | "presenter_unmounted"
+  | "bind_failed";
+
+export function classifyCallV4RemoteAttachSkip(input: {
+  canAttach: boolean;
+  wantsVideo: boolean;
+  hasRemoteTrack: boolean;
+  hasContainer: boolean;
+  alreadyAttached: boolean;
+}): CallV4RemoteAttachSkipReason | null {
+  if (!input.canAttach) return "phase_not_connected";
+  if (!input.wantsVideo) return "wants_video_false";
+  if (!input.hasRemoteTrack) return "remote_track_missing";
+  if (!input.hasContainer) return "video_ref_null";
+  if (input.alreadyAttached) return "already_attached";
+  return null;
+}
 
 export type CallV4VideoPresenterState = {
   mainVideoSlot: ReactNode;
@@ -35,6 +68,9 @@ export function useCallV4VideoPresenter(callId: string, androidOsPipSafeMode = f
   const largeVideoRef = useRef<HTMLDivElement | null>(null);
   const smallVideoRef = useRef<HTMLDivElement | null>(null);
   const videoStageRef = useRef<HTMLDivElement | null>(null);
+  const attachedRemoteTrackRef = useRef<IRemoteVideoTrack | null>(null);
+  const remoteVideoRefReadyLoggedRef = useRef(false);
+  const [remoteVideoContainer, setRemoteVideoContainer] = useState<HTMLDivElement | null>(null);
   const [pipExpanded, setPipExpanded] = useState(false);
   const [viewportWidth, setViewportWidth] = useState(390);
 
@@ -44,28 +80,94 @@ export function useCallV4VideoPresenter(callId: string, androidOsPipSafeMode = f
     canAttach &&
     Boolean(identity?.callId === callId && (identity.mediaType === "video" || media.remoteVideoReady || media.localVideoReady));
 
+  const onLargeVideoRef = useCallback((node: HTMLDivElement | null) => {
+    largeVideoRef.current = node;
+    setRemoteVideoContainer(node);
+    if (node && !remoteVideoRefReadyLoggedRef.current) {
+      remoteVideoRefReadyLoggedRef.current = true;
+      logCallV4("remote_video_ref_ready", { callId, target: "remote_main" });
+    }
+    if (!node) {
+      remoteVideoRefReadyLoggedRef.current = false;
+    }
+  }, [callId]);
+
   useEffect(() => {
     if (!canAttach || !wantsVideo) return;
-    let cancelled = false;
     void (async () => {
       if (identity?.mediaType === "video" || media.cameraEnabled) {
         await publishCallV4LocalVideo(callId, smallVideoRef.current);
       }
-      const remote = getCallV4AgoraRemoteVideoTrack(callId) ?? readCallV4RemoteVideoTrack(callId);
-      if (!cancelled && remote && largeVideoRef.current) {
-        const attached = await bindAgoraRemoteVideoTrack(remote, largeVideoRef.current, {
-          fit: "cover",
-          mirror: false,
-        });
-        if (!cancelled && attached) {
-          logCallV4("remote_video_element_attached", { callId, target: "remote_main" });
-        }
-      }
     })();
+  }, [callId, canAttach, wantsVideo, identity?.mediaType, media.cameraEnabled]);
+
+  useEffect(() => {
+    const remote = getCallV4AgoraRemoteVideoTrack(callId) ?? readCallV4RemoteVideoTrack(callId);
+    const hasRemoteTrack = Boolean(remote);
+    const hasContainer = Boolean(remoteVideoContainer);
+    const alreadyAttached = Boolean(remote && attachedRemoteTrackRef.current === remote);
+
+    if (hasRemoteTrack && remote) {
+      logCallV4("remote_track_exists", {
+        callId,
+        uid: "uid" in remote ? remote.uid : null,
+        remoteVideoReady: media.remoteVideoReady,
+      });
+    }
+
+    const skipReason = classifyCallV4RemoteAttachSkip({
+      canAttach,
+      wantsVideo,
+      hasRemoteTrack,
+      hasContainer,
+      alreadyAttached,
+    });
+
+    if (skipReason) {
+      logCallV4("attach_remote_video_skipped", {
+        callId,
+        reason: skipReason,
+        remoteVideoReady: media.remoteVideoReady,
+        phase,
+        hasContainer,
+        hasRemoteTrack,
+      });
+      return;
+    }
+
+    if (!remote || !remoteVideoContainer) return;
+
+    let cancelled = false;
+    void (async () => {
+      logCallV4("attach_remote_video_begin", { callId, target: "remote_main" });
+      const attached = await bindAgoraRemoteVideoTrack(remote, remoteVideoContainer, {
+        fit: "cover",
+        mirror: false,
+      });
+      if (cancelled) {
+        logCallV4("attach_remote_video_skipped", { callId, reason: "presenter_unmounted" });
+        return;
+      }
+      if (!attached) {
+        logCallV4("attach_remote_video_skipped", { callId, reason: "bind_failed" });
+        return;
+      }
+      attachedRemoteTrackRef.current = remote;
+      logCallV4("attach_remote_video_success", { callId, target: "remote_main" });
+      logCallV4("remote_video_element_attached", { callId, target: "remote_main" });
+    })();
+
     return () => {
       cancelled = true;
     };
-  }, [callId, canAttach, wantsVideo, identity?.mediaType, media.cameraEnabled]);
+  }, [
+    callId,
+    canAttach,
+    wantsVideo,
+    media.remoteVideoReady,
+    remoteVideoContainer,
+    phase,
+  ]);
 
   useLayoutEffect(() => {
     if (typeof window === "undefined") return;
@@ -108,7 +210,7 @@ export function useCallV4VideoPresenter(callId: string, androidOsPipSafeMode = f
   const mainVideoSlot = wantsVideo ? (
     <div ref={videoStageRef} className="absolute inset-0 min-h-0 bg-[#003D29]">
       <div
-        ref={largeVideoRef}
+        ref={onLargeVideoRef}
         className="absolute inset-0 z-[1] h-full min-h-0 w-full [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:object-cover"
       />
     </div>

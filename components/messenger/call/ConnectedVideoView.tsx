@@ -94,6 +94,18 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
     logCallV4("self_video_overlay_rendered", { callId: telemetryCallId });
   }, [telemetryCallId, vm.pipShellMounted, vm.showLocalVideo]);
 
+  useEffect(() => {
+    if (!telemetryCallId || vm.phase !== "connected") return;
+    if (!vm.mainVideoSlot) {
+      logCallV4("attach_remote_video_skipped", {
+        callId: telemetryCallId,
+        reason: "main_video_slot_missing",
+        source: "connected_video_view",
+        showRemoteVideo: Boolean(vm.showRemoteVideo),
+      });
+    }
+  }, [telemetryCallId, vm.phase, vm.mainVideoSlot, vm.showRemoteVideo]);
+
   const pipShellMounted = Boolean(vm.pipShellMounted);
 
   useEffect(() => {
