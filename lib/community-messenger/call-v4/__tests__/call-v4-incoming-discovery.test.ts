@@ -37,6 +37,10 @@ const ringingSession: CommunityMessengerCallSession = {
   startedAt: new Date().toISOString(),
 } as CommunityMessengerCallSession;
 
+function setDiscoveryPathname(pathname: string): void {
+  window.history.pushState({}, "", pathname);
+}
+
 describe("call-v4 incoming discovery Phase6A", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -44,6 +48,7 @@ describe("call-v4 incoming discovery Phase6A", () => {
     clearCallV4SurfaceOwner("call-in-1", "test_reset");
     useCallV4Store.getState().resetToIdle();
     vi.mocked(callV4FetchIncomingSessions).mockResolvedValue([ringingSession]);
+    setDiscoveryPathname("/community-messenger");
     Object.defineProperty(document, "visibilityState", {
       configurable: true,
       value: "visible",
@@ -70,5 +75,12 @@ describe("call-v4 incoming discovery Phase6A", () => {
       expect(callV4IncomingDiscovered).toHaveBeenCalledTimes(1);
     });
     expect(callV4IncomingDiscovered).toHaveBeenCalledWith(ringingSession);
+  });
+
+  it("skips HTTP poll on /philife when not ringing", async () => {
+    setDiscoveryPathname("/philife");
+    startCallV4IncomingDiscovery("user-b");
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(callV4FetchIncomingSessions).not.toHaveBeenCalled();
   });
 });

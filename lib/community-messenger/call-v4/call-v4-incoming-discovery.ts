@@ -17,8 +17,14 @@ import {
 } from "@/lib/community-messenger/call-v4/call-v4-native-route";
 import { tryPrimeCallV4WebIncomingOwner } from "@/lib/community-messenger/call-v4/call-v4-platform-owner-claim";
 import { readCallV4Identity, readCallV4Phase } from "@/lib/community-messenger/call-v4/call-v4-store";
+import {
+  INCOMING_CALL_BACKUP_HTTP_POLL_SUPPRESSED_TAIL_MS,
+  shouldRunIncomingCallBackupHttpPoll,
+} from "@/lib/layout/incoming-call-backup-poll-policy";
 
 const INCOMING_POLL_MS = 2_000;
+const INCOMING_POLL_MAX_BACKOFF_MS = 30_000;
+const INCOMING_POLL_MAX_BACKOFF_STEPS = 4;
 
 function pickIncomingRingingCallee(sessions: CommunityMessengerCallSession[]): CommunityMessengerCallSession | null {
   for (const session of sessions) {
@@ -45,6 +51,31 @@ function isIncomingDiscoveryDuplicateSkip(callId: string): boolean {
   const current = readCallV4Identity();
   if (current?.callId !== callId) return false;
   return phase !== "idle";
+}
+
+function readCallV4IncomingDiscoveryPathname(): string | null {
+  if (typeof window === "undefined") return null;
+  return window.location.pathname;
+}
+
+function hasCallV4IncomingDiscoveryRingingCallee(): boolean {
+  const phase = readCallV4Phase();
+  return phase === "incoming_ringing" || phase === "accepting";
+}
+
+/** Legacy incoming HTTP 백업 폴링 표면 정책과 동일 — 홈·커뮤니티 표면에서는 GET 생략. */
+export function shouldRunCallV4IncomingDiscoveryHttpPoll(): boolean {
+  return shouldRunIncomingCallBackupHttpPoll(
+    readCallV4IncomingDiscoveryPathname(),
+    hasCallV4IncomingDiscoveryRingingCallee(),
+  );
+}
+
+function resolveCallV4IncomingDiscoveryPollDelayMs(allowHttp: boolean, consecutiveNetworkFailures: number): number {
+  if (!allowHttp) return INCOMING_CALL_BACKUP_HTTP_POLL_SUPPRESSED_TAIL_MS;
+  if (consecutiveNetworkFailures <= 0) return INCOMING_POLL_MS;
+  const steps = Math.min(consecutiveNetworkFailures, INCOMING_POLL_MAX_BACKOFF_STEPS);
+  return Math.min(INCOMING_POLL_MS * 2 ** steps, INCOMING_POLL_MAX_BACKOFF_MS);
 }
 
 /** Phase 6A — only discover when Android owner bridge says web_in_app. */
@@ -83,33 +114,63 @@ export async function tryHydrateCallV4IncomingForWebOwner(callId: string): Promi
 export function startCallV4IncomingDiscovery(userId: string | null): () => void {
   if (!isCallV4TelegramLaneEnabled() || !userId) return () => {};
   let cancelled = false;
-  const tick = async () => {
+  let inFlight = false;
+  let consecutiveNetworkFailures = 0;
+  let pollTimer: number | null = null;
+
+  const scheduleNextPoll = () => {
     if (cancelled) return;
-    syncCallV4NativeAcceptingSurfaceFromWindowLocation();
-    const sessions = await callV4FetchIncomingSessions();
-    const candidate = pickIncomingRingingCallee(sessions);
-    if (!candidate?.id) return;
-    const callId = candidate.id.trim();
-    if (isIncomingDiscoveryDuplicateSkip(callId)) return;
-    if (isCallV4NativeAcceptingSurface(callId)) {
-      logCallV4("incoming_sheet_suppressed_native_accepting", { callId });
-      return;
-    }
-    const gate = shouldDiscoverCallV4IncomingForWebSheet(callId);
-    if (gate.discover) {
-      discoverCallV4IncomingSessionIfWebOwner(candidate);
-      return;
-    }
-    void tryPrimeCallV4WebIncomingOwner(callId, "poll_discovery").then(() => {
-      if (cancelled) return;
-      const after = shouldDiscoverCallV4IncomingForWebSheet(callId);
-      if (after.discover) discoverCallV4IncomingSessionIfWebOwner(candidate);
-    });
+    const allowHttp = shouldRunCallV4IncomingDiscoveryHttpPoll();
+    const delayMs = resolveCallV4IncomingDiscoveryPollDelayMs(allowHttp, consecutiveNetworkFailures);
+    pollTimer = window.setTimeout(() => {
+      pollTimer = null;
+      void tick().finally(scheduleNextPoll);
+    }, delayMs);
   };
-  void tick();
-  const id = window.setInterval(() => void tick(), INCOMING_POLL_MS);
+
+  const tick = async () => {
+    if (cancelled || inFlight) return;
+    syncCallV4NativeAcceptingSurfaceFromWindowLocation();
+    if (!shouldRunCallV4IncomingDiscoveryHttpPoll()) return;
+
+    inFlight = true;
+    try {
+      const sessions = await callV4FetchIncomingSessions();
+      consecutiveNetworkFailures = 0;
+      const candidate = pickIncomingRingingCallee(sessions);
+      if (!candidate?.id) return;
+      const callId = candidate.id.trim();
+      if (isIncomingDiscoveryDuplicateSkip(callId)) return;
+      if (isCallV4NativeAcceptingSurface(callId)) {
+        logCallV4("incoming_sheet_suppressed_native_accepting", { callId });
+        return;
+      }
+      const gate = shouldDiscoverCallV4IncomingForWebSheet(callId);
+      if (gate.discover) {
+        discoverCallV4IncomingSessionIfWebOwner(candidate);
+        return;
+      }
+      void tryPrimeCallV4WebIncomingOwner(callId, "poll_discovery").then(() => {
+        if (cancelled) return;
+        const after = shouldDiscoverCallV4IncomingForWebSheet(callId);
+        if (after.discover) discoverCallV4IncomingSessionIfWebOwner(candidate);
+      });
+    } catch {
+      consecutiveNetworkFailures = Math.min(
+        consecutiveNetworkFailures + 1,
+        INCOMING_POLL_MAX_BACKOFF_STEPS,
+      );
+    } finally {
+      inFlight = false;
+    }
+  };
+
+  void tick().finally(scheduleNextPoll);
   return () => {
     cancelled = true;
-    window.clearInterval(id);
+    if (pollTimer != null) {
+      window.clearTimeout(pollTimer);
+      pollTimer = null;
+    }
   };
 }
