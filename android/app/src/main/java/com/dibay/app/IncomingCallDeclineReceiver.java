@@ -19,6 +19,15 @@ public class IncomingCallDeclineReceiver extends BroadcastReceiver {
     String sessionId = callId.trim();
     if (ACTION_DECLINE.equals(intent.getAction())) {
       Log.i(TAG, "[call-ui] reject_clicked callId=" + sessionId + " source=notification");
+      if (IncomingCallSurfaceOwner.isNotificationFallbackOwner(sessionId)) {
+        IncomingCallBackgroundNotifier.logLockscreenEvent(
+            context,
+            sessionId,
+            "fallback_reject_action",
+            IncomingCallSurfaceOwner.SurfaceOwner.NOTIFICATION_FALLBACK,
+            IncomingCallNotificationBuilder.canPostFullScreenIntent(context),
+            "source=notification");
+      }
       IncomingCallActionCoordinator.handleReject(context.getApplicationContext(), sessionId);
     }
   }

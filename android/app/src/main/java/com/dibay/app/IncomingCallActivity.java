@@ -283,6 +283,15 @@ public class IncomingCallActivity extends AppCompatActivity {
       finishSafely();
       return;
     }
+    if (CallV4Lane.isTelegramLaneEnabled(getApplicationContext())) {
+      IncomingCallBackgroundNotifier.logLockscreenEvent(
+          getApplicationContext(),
+          callId,
+          "incoming_activity_on_create",
+          IncomingCallSurfaceOwner.getSurfaceOwner(callId),
+          IncomingCallNotificationBuilder.canPostFullScreenIntent(getApplicationContext()),
+          "action=" + String.valueOf(getIntent().getAction()));
+    }
     LIVE_INSTANCES.put(
         System.identityHashCode(this), new java.lang.ref.WeakReference<>(this));
     activeInstance = new java.lang.ref.WeakReference<>(this);
@@ -343,6 +352,15 @@ public class IncomingCallActivity extends AppCompatActivity {
               + callId
               + " source=onCreate");
       Log.i(TAG, "[call-ui] notification_accept_activity_open callId=" + callId);
+      if (IncomingCallSurfaceOwner.isNotificationFallbackOwner(callId)) {
+        IncomingCallBackgroundNotifier.logLockscreenEvent(
+            getApplicationContext(),
+            callId,
+            "fallback_accept_action",
+            IncomingCallSurfaceOwner.SurfaceOwner.NOTIFICATION_FALLBACK,
+            IncomingCallNotificationBuilder.canPostFullScreenIntent(getApplicationContext()),
+            "source=onCreate");
+      }
       handleAccept();
       return;
     }
@@ -433,6 +451,15 @@ public class IncomingCallActivity extends AppCompatActivity {
     super.onResume();
     nativeSurfaceHiddenEmitted = false;
     if (!finished && callId != null && !callId.trim().isEmpty()) {
+      if (CallV4Lane.isTelegramLaneEnabled(getApplicationContext())) {
+        IncomingCallBackgroundNotifier.logLockscreenEvent(
+            getApplicationContext(),
+            callId,
+            "incoming_activity_on_resume",
+            IncomingCallSurfaceOwner.getSurfaceOwner(callId),
+            IncomingCallNotificationBuilder.canPostFullScreenIntent(getApplicationContext()),
+            null);
+      }
       emitIncomingActivityShown(
           getIntent(), firstNonEmpty(getIntent().getStringExtra(EXTRA_EXPIRES_AT)));
     }
@@ -475,6 +502,15 @@ public class IncomingCallActivity extends AppCompatActivity {
         callId = nextCallId;
         finished = false;
       }
+      if (CallV4Lane.isTelegramLaneEnabled(getApplicationContext())) {
+        IncomingCallBackgroundNotifier.logLockscreenEvent(
+            getApplicationContext(),
+            callId,
+            "incoming_activity_on_new_intent",
+            IncomingCallSurfaceOwner.getSurfaceOwner(callId),
+            IncomingCallNotificationBuilder.canPostFullScreenIntent(getApplicationContext()),
+            "action=" + String.valueOf(intent.getAction()));
+      }
       if (callIdChanged || !isCallVisible(callId)) {
         String expiresAt = firstNonEmpty(intent.getStringExtra(EXTRA_EXPIRES_AT));
         emitIncomingActivityShown(intent, expiresAt);
@@ -494,6 +530,15 @@ public class IncomingCallActivity extends AppCompatActivity {
           "[DIBAY_CALL_V4] notification_accept_action_received callId="
               + callId
               + " source=onNewIntent");
+      if (IncomingCallSurfaceOwner.isNotificationFallbackOwner(callId)) {
+        IncomingCallBackgroundNotifier.logLockscreenEvent(
+            getApplicationContext(),
+            callId,
+            "fallback_accept_action",
+            IncomingCallSurfaceOwner.SurfaceOwner.NOTIFICATION_FALLBACK,
+            IncomingCallNotificationBuilder.canPostFullScreenIntent(getApplicationContext()),
+            "source=onNewIntent");
+      }
       handleAccept();
     } else if (ACTION_DECLINE.equals(action)) {
       handleDecline();
@@ -541,6 +586,14 @@ public class IncomingCallActivity extends AppCompatActivity {
     Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] incoming_activity_shown_emit callId=" + sid);
     Log.i(TAG, "[call-ui] incoming_activity_shown callId=" + callId);
     VISIBLE_CALL_IDS.put(callId.trim(), System.currentTimeMillis());
+    IncomingCallBackgroundNotifier.logLockscreenEvent(
+        getApplicationContext(),
+        sid,
+        "incoming_activity_visible_ack",
+        IncomingCallSurfaceOwner.getSurfaceOwner(sid),
+        IncomingCallNotificationBuilder.canPostFullScreenIntent(getApplicationContext()),
+        "source=activity");
+    requestDismissKeyguardAfterVisibleAck();
     String callTypeForVerify = firstNonEmpty(intent.getStringExtra(EXTRA_CALL_TYPE));
     IncomingCallBackgroundNotifier.onIncomingActivityShown(
         getApplicationContext(), callId, callTypeForVerify);
@@ -680,6 +733,15 @@ public class IncomingCallActivity extends AppCompatActivity {
 
   private void handleDecline() {
     if (finished) return;
+    if (IncomingCallSurfaceOwner.isNotificationFallbackOwner(callId)) {
+      IncomingCallBackgroundNotifier.logLockscreenEvent(
+          getApplicationContext(),
+          callId,
+          "fallback_reject_action",
+          IncomingCallSurfaceOwner.SurfaceOwner.NOTIFICATION_FALLBACK,
+          IncomingCallNotificationBuilder.canPostFullScreenIntent(getApplicationContext()),
+          "source=activity");
+    }
     DibayCallLog.once("call_end", callId, "source=activity_reject");
     Log.i(TAG, "[call-ui] reject_clicked callId=" + callId + " source=activity");
     IncomingCallActionCoordinator.handleReject(getApplicationContext(), callId);
@@ -731,6 +793,19 @@ public class IncomingCallActivity extends AppCompatActivity {
                   | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     }
     getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+  }
+
+  private void requestDismissKeyguardAfterVisibleAck() {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
+    if (!DibayKeyguardHelper.isKeyguardLocked(getApplicationContext())) return;
+    try {
+      android.app.KeyguardManager km = getSystemService(android.app.KeyguardManager.class);
+      if (km != null) {
+        km.requestDismissKeyguard(this, null);
+      }
+    } catch (Exception error) {
+      Log.w(TAG, "[call-ui] request_dismiss_keyguard_failed callId=" + callId + " err=" + error.getClass().getSimpleName());
+    }
   }
 
   private static String firstNonEmpty(String value) {

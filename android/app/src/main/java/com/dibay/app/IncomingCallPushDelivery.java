@@ -35,6 +35,13 @@ public final class IncomingCallPushDelivery {
     if (CallV4Lane.isTelegramLaneEnabled(app)) {
       IncomingCallSurfaceOwner.SurfaceOwner initialOwner =
           IncomingCallSurfaceOwner.resolveInitialOwner(app, foregroundUnlocked);
+      IncomingCallBackgroundNotifier.logLockscreenEvent(
+          app,
+          callId,
+          "fcm_received",
+          initialOwner,
+          IncomingCallNotificationBuilder.canPostFullScreenIntent(app),
+          "appVisible=" + appVisible + " foregroundUnlocked=" + foregroundUnlocked);
       if (!IncomingCallSurfaceOwner.tryClaimIncomingOwner(app, callId, initialOwner, "fcm_push_delivery")) {
         Log.i(
             CallV4Lane.TAG,
@@ -44,6 +51,15 @@ public final class IncomingCallPushDelivery {
                 + initialOwner.name().toLowerCase());
         IncomingCallActionCoordinator.scheduleMissedTimeout(app, payload);
         return;
+      }
+      if (initialOwner != IncomingCallSurfaceOwner.SurfaceOwner.WEB_IN_APP) {
+        IncomingCallBackgroundNotifier.logLockscreenEvent(
+            app,
+            callId,
+            "web_sheet_suppressed_by_native_owner",
+            initialOwner,
+            IncomingCallNotificationBuilder.canPostFullScreenIntent(app),
+            "reason=fcm_push_delivery");
       }
     }
 

@@ -30,9 +30,13 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class IncomingCallBackgroundNotifier {
   private static final String TAG = "DIBAY_INCOMING_CALL";
+  private static final String LOCKSCREEN_TAG = "DIBAY_CALL_V4_LOCKSCREEN";
+  private static final long LOCK_FSI_VISIBILITY_WATCHDOG_MS = 1_500L;
   private static final long LAUNCH_VISIBILITY_VERIFY_MS = 2_500L;
   private static final long BAL_GUARD_FALLBACK_MS = 900L;
   private static final Handler MAIN_HANDLER = new Handler(Looper.getMainLooper());
+  private static final ConcurrentHashMap<String, Runnable> LOCK_FSI_WATCHDOG_RUNNABLES =
+      new ConcurrentHashMap<>();
   private static final ConcurrentHashMap<String, Runnable> LAUNCH_VERIFY_RUNNABLES =
       new ConcurrentHashMap<>();
   private static final ConcurrentHashMap<String, Runnable> BAL_GUARD_RUNNABLES =
@@ -42,6 +46,71 @@ public final class IncomingCallBackgroundNotifier {
 
   private IncomingCallBackgroundNotifier() {}
 
+  public static void logLockscreenEvent(
+      Context context,
+      String callId,
+      String marker,
+      IncomingCallSurfaceOwner.SurfaceOwner owner,
+      Boolean fsiAllowed,
+      String extra) {
+    Context app = context != null ? context.getApplicationContext() : null;
+    boolean interactive = DibayKeyguardHelper.isInteractive(app);
+    boolean keyguardLocked = DibayKeyguardHelper.isKeyguardLocked(app);
+    boolean deviceLocked = isDeviceLocked(app);
+    boolean notificationsEnabled = app != null && IncomingCallNotificationBuilder.canPostNotifications(app);
+    boolean batteryOptimizationIgnored = isBatteryOptimizationIgnored(app);
+    String sid = callId != null ? callId.trim() : "";
+    StringBuilder message =
+        new StringBuilder("[DIBAY_CALL_V4_LOCKSCREEN] ")
+            .append(marker != null ? marker : "event")
+            .append(" callId=")
+            .append(sid)
+            .append(" owner=")
+            .append(owner != null ? owner.name().toLowerCase() : "unknown")
+            .append(" isInteractive=")
+            .append(interactive)
+            .append(" isKeyguardLocked=")
+            .append(keyguardLocked)
+            .append(" isDeviceLocked=")
+            .append(deviceLocked)
+            .append(" manufacturer=")
+            .append(Build.MANUFACTURER != null ? Build.MANUFACTURER : "unknown")
+            .append(" model=")
+            .append(Build.MODEL != null ? Build.MODEL : "unknown")
+            .append(" sdkInt=")
+            .append(Build.VERSION.SDK_INT)
+            .append(" notificationEnabled=")
+            .append(notificationsEnabled)
+            .append(" fsiAllowed=")
+            .append(fsiAllowed != null ? fsiAllowed : "unknown")
+            .append(" batteryOptimizationIgnored=")
+            .append(batteryOptimizationIgnored);
+    if (extra != null && !extra.trim().isEmpty()) {
+      message.append(" ").append(extra.trim());
+    }
+    Log.i(LOCKSCREEN_TAG, message.toString());
+  }
+
+  private static boolean isDeviceLocked(Context context) {
+    if (context == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return false;
+    try {
+      android.app.KeyguardManager km = context.getSystemService(android.app.KeyguardManager.class);
+      return km != null && km.isDeviceLocked();
+    } catch (Exception ignored) {
+      return false;
+    }
+  }
+
+  private static boolean isBatteryOptimizationIgnored(Context context) {
+    if (context == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return true;
+    try {
+      android.os.PowerManager pm = context.getSystemService(android.os.PowerManager.class);
+      return pm == null || pm.isIgnoringBatteryOptimizations(context.getPackageName());
+    } catch (Exception ignored) {
+      return false;
+    }
+  }
+
   /** Lock / sleep — queue UI for FGS delivery. */
   public static void presentLockIncoming(Context context, IncomingCallPayload payload) {
     if (context == null || payload == null || !payload.isValid()) return;
@@ -50,6 +119,13 @@ public final class IncomingCallBackgroundNotifier {
     IncomingCallWakeLock.acquireForLockScreen(app, callId);
     PendingIncomingPresentation.put(payload);
     Log.i(TAG, "[call-ui] lock_presentation_queued callId=" + callId);
+    logLockscreenEvent(
+        app,
+        callId,
+        "fgs_start_requested",
+        IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_FSI,
+        IncomingCallNotificationBuilder.canPostFullScreenIntent(app),
+        "source=present_lock_incoming");
     try {
       CallForegroundService.startRinging(context, callId, payload.callType);
     } catch (Exception error) {
@@ -166,10 +242,7 @@ public final class IncomingCallBackgroundNotifier {
     }
   }
 
-  /**
-   * Policy A — lock/sleep: CallStyle+FSI only. Activity may appear only when FSI launches it.
-   * Manual {@code startActivity} is forbidden on this path.
-   */
+  /** Policy A — lock/sleep: FSI Activity first; visible CallStyle fallback if FSI is denied or late. */
   private static void presentV4LockFsiOnlyIncoming(
       Context context,
       IncomingCallPayload payload,
@@ -191,6 +264,21 @@ public final class IncomingCallBackgroundNotifier {
       return;
     }
 
+    boolean fsiAllowed = IncomingCallNotificationBuilder.canPostFullScreenIntent(app);
+    logLockscreenEvent(
+        app,
+        callId,
+        "lock_sleep_policy_enter",
+        owner,
+        fsiAllowed,
+        "source=" + source);
+    logLockscreenEvent(
+        app,
+        callId,
+        "fsi_permission_checked",
+        owner,
+        fsiAllowed,
+        "source=" + source);
     Log.i(
         CallV4Lane.TAG,
         "[DIBAY_CALL_V4] lock_incoming_fsi_only callId="
@@ -199,10 +287,26 @@ public final class IncomingCallBackgroundNotifier {
             + source
             + " manual_start_activity=false");
     IncomingCallSurfaceOwner.transitionIncomingOwner(app, callId, owner, "locked_fsi_" + source);
+    logLockscreenEvent(app, callId, "owner_claimed", owner, fsiAllowed, "reason=locked_fsi_" + source);
+
+    if (!fsiAllowed) {
+      logLockscreenEvent(
+          app,
+          callId,
+          "fsi_denied_fallback",
+          IncomingCallSurfaceOwner.SurfaceOwner.NOTIFICATION_FALLBACK,
+          false,
+          "source=" + source);
+      presentV4NotificationFallback(context, payload, fgsDelivery, source, "fsi_denied");
+      return;
+    }
+
     Log.i(
         CallV4Lane.TAG,
         "[DIBAY_CALL_V4] lock_incoming_native_fsi_activity_only callId=" + callId + " source=" + source);
     IncomingCallNotificationBuilder.showIncomingCallFsiBridge(context, payload, fgsDelivery);
+    logLockscreenEvent(app, callId, "fsi_launch_requested", owner, true, "source=" + source);
+    scheduleLockFsiVisibilityWatchdog(context, payload, source, fgsDelivery);
     CallForegroundService.refreshRingingNotification(
         context, callId, payload.callType, "incoming_fgs_carrier_only");
   }
@@ -289,7 +393,9 @@ public final class IncomingCallBackgroundNotifier {
     boolean allowDespiteOwnerBlock =
         "activity_not_shown".equals(reason)
             || "activity_launch_failed".equals(reason)
-            || "bal_guard_not_shown".equals(reason);
+            || "bal_guard_not_shown".equals(reason)
+            || "fsi_denied".equals(reason)
+            || "fsi_watchdog_timeout".equals(reason);
     if (!allowDespiteOwnerBlock
         && IncomingCallSurfaceOwner.shouldBlockVisibleIncomingStart(callId, fallback)) {
       return;
@@ -313,12 +419,43 @@ public final class IncomingCallBackgroundNotifier {
             + " source="
             + source);
     IncomingCallSurfaceOwner.transitionIncomingOwner(app, callId, fallback, reason);
+    logLockscreenEvent(app, callId, "owner_replaced", fallback, IncomingCallNotificationBuilder.canPostFullScreenIntent(app), "reason=" + reason);
     Log.i(
         CallV4Lane.TAG,
         "[DIBAY_CALL_V4] incoming_notification_fallback_visible callId=" + callId + " reason=" + reason);
     IncomingCallNotificationBuilder.showIncomingCall(context, payload, fgsDelivery);
+    logLockscreenEvent(app, callId, "fallback_notification_posted", fallback, IncomingCallNotificationBuilder.canPostFullScreenIntent(app), "reason=" + reason);
     CallForegroundService.refreshRingingNotification(
         context, callId, payload.callType, "notification_fallback");
+  }
+
+  private static void scheduleLockFsiVisibilityWatchdog(
+      Context context, IncomingCallPayload payload, String source, boolean fgsDelivery) {
+    if (context == null || payload == null || !payload.isValid()) return;
+    String callId = payload.callId.trim();
+    Runnable existing = LOCK_FSI_WATCHDOG_RUNNABLES.remove(callId);
+    if (existing != null) {
+      MAIN_HANDLER.removeCallbacks(existing);
+    }
+    Runnable runnable =
+        () -> {
+          LOCK_FSI_WATCHDOG_RUNNABLES.remove(callId);
+          if (FALLBACK_POSTED_AT.containsKey(callId)) return;
+          if (IncomingCallActivity.isCallVisible(callId)) return;
+          if (IncomingCallSurfaceOwner.isAcceptedTransitionOwner(callId)) return;
+          if (IncomingCallActionCoordinator.isCompleted(callId)) return;
+          logLockscreenEvent(
+              context,
+              callId,
+              "fsi_watchdog_timeout",
+              IncomingCallSurfaceOwner.SurfaceOwner.NOTIFICATION_FALLBACK,
+              IncomingCallNotificationBuilder.canPostFullScreenIntent(context),
+              "waited_ms=" + LOCK_FSI_VISIBILITY_WATCHDOG_MS + " source=" + source);
+          presentV4NotificationFallback(
+              context, payload, fgsDelivery, source, "fsi_watchdog_timeout");
+        };
+    LOCK_FSI_WATCHDOG_RUNNABLES.put(callId, runnable);
+    MAIN_HANDLER.postDelayed(runnable, LOCK_FSI_VISIBILITY_WATCHDOG_MS);
   }
 
   private static void scheduleLaunchVisibilityVerify(
@@ -384,6 +521,10 @@ public final class IncomingCallBackgroundNotifier {
   static void cancelLaunchVisibilityVerify(String callId) {
     if (callId == null || callId.trim().isEmpty()) return;
     String sid = callId.trim();
+    Runnable lockFsiRunnable = LOCK_FSI_WATCHDOG_RUNNABLES.remove(sid);
+    if (lockFsiRunnable != null) {
+      MAIN_HANDLER.removeCallbacks(lockFsiRunnable);
+    }
     Runnable runnable = LAUNCH_VERIFY_RUNNABLES.remove(sid);
     if (runnable != null) {
       MAIN_HANDLER.removeCallbacks(runnable);
@@ -402,6 +543,13 @@ public final class IncomingCallBackgroundNotifier {
     cancelLaunchVisibilityVerify(sid);
     if (context == null || !CallV4Lane.isTelegramLaneEnabled(context)) return;
     Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] launch_visibility_verified callId=" + sid);
+    logLockscreenEvent(
+        context,
+        sid,
+        "incoming_activity_visible_ack",
+        IncomingCallSurfaceOwner.getSurfaceOwner(sid),
+        IncomingCallNotificationBuilder.canPostFullScreenIntent(context),
+        "callType=" + (callType != null ? callType : ""));
     CallForegroundService.refreshRingingNotification(
         context, sid, callType != null ? callType : "", "incoming_activity_shown");
   }

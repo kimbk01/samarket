@@ -52,7 +52,7 @@ describe("call-v4 import isolation", () => {
     expect(fgs).toContain("v3_task_removed_pending_suppressed");
   });
 
-  it("V4 lock incoming delivers FSI-only from FGS after startForeground (Policy A)", () => {
+  it("V4 lock incoming delivers FSI first, then visible fallback if FSI is denied or late", () => {
     const notifier = read("android/app/src/main/java/com/dibay/app/IncomingCallBackgroundNotifier.java");
     const lockFsiMethod =
       notifier.match(/private static void presentV4LockFsiOnlyIncoming[\s\S]*?^  \}/m)?.[0] ?? "";
@@ -61,9 +61,13 @@ describe("call-v4 import isolation", () => {
     expect(notifier).toContain("lock_presentation_queued");
     expect(notifier).toContain("background_presentation_deliver");
     expect(notifier).toContain("native_notification_fallback");
+    expect(notifier).toContain("LOCK_FSI_VISIBILITY_WATCHDOG_MS");
+    expect(notifier).toContain("scheduleLockFsiVisibilityWatchdog");
+    expect(notifier).toContain("fsi_denied");
+    expect(notifier).toContain("fsi_watchdog_timeout");
+    expect(notifier).toContain("fallback_notification_posted");
     expect(lockFsiMethod).toContain("showIncomingCallFsiBridge");
     expect(lockFsiMethod).toContain("lock_incoming_native_fsi_activity_only");
-    expect(lockFsiMethod).not.toMatch(/showIncomingCall\(context,\s*payload,\s*fgsDelivery\)/);
     expect(lockFsiMethod).not.toContain("launchIncomingActivity");
     expect(notifier).not.toContain("lock_presentation_immediate");
     expect(notifier).not.toContain("_boost");
@@ -84,11 +88,16 @@ describe("call-v4 import isolation", () => {
     expect(builder).not.toContain("shouldPostActionOnlyCarrierAfterActivityShown");
     expect(builder).toContain("incoming_visible_notification_cancelled_after_activity");
     expect(builder).toContain("incoming_fgs_notification_kept");
+    expect(builder).toContain("fallback_accept_pi_created");
     expect(activity).toContain("incoming_activity_shown_emit");
     expect(activity).toContain("cancelVisibleIncomingNotificationAfterActivity");
     expect(activity).not.toContain("showIncomingCallActionOnly");
     expect(activity).toContain("incoming_activity_shown_skip_duplicate");
     expect(activity).toContain("ACTIVITY_SHOWN_EMITTED");
+    expect(activity).toContain("fallback_accept_action");
+    expect(read("android/app/src/main/java/com/dibay/app/IncomingCallDeclineReceiver.java")).toContain(
+      "fallback_reject_action",
+    );
     expect(read("android/app/src/main/AndroidManifest.xml")).toContain(
       "android.permission.REORDER_TASKS",
     );
@@ -232,6 +241,22 @@ describe("call-v4 import isolation", () => {
     expect(host).toContain("supportsCallV4AndroidOsPipBridge");
   });
 
+  it("V4 presentation does not directly access legacy minimized storage keys", () => {
+    const presentationFiles = [
+      "components/community-messenger/call-v4/CallV4Screen.tsx",
+      "lib/community-messenger/call-v4/call-v4-video-presenter.tsx",
+      "lib/community-messenger/call-v4/presentation/call-v4-presentation-dock.ts",
+      "lib/community-messenger/call-v4/presentation/use-call-v4-runtime-surface.ts",
+      "lib/community-messenger/call-v4/presentation/use-call-v4-presentation-platform.ts",
+    ];
+    for (const file of presentationFiles) {
+      const source = read(file);
+      expect(source).not.toContain("cm_minimized_call_");
+      expect(source).not.toContain("readMinimizedCommunityCallSessionId");
+      expect(source).not.toContain("writeMinimizedCommunityCallSession");
+    }
+  });
+
   it("structure lock script exists", () => {
     const script = read("scripts/verify-call-v4-structure-lock.cjs");
     expect(script).toContain("buildIncomingCallPreviewHref");
@@ -241,7 +266,8 @@ describe("call-v4 import isolation", () => {
     expect(script).toContain("incoming_session_purge_blocked");
     expect(script).toContain("presentV4LockFsiOnlyIncoming");
     expect(script).toContain("presentV4BackgroundActivityFirstIncoming");
-    expect(script).toContain("Policy A lock FSI-only entry");
+    expect(script).toContain("Policy A lock FSI entry");
+    expect(script).toContain("Policy A FSI denied/watchdog fallback");
   });
 
   it("incoming FSI/fallback manifest bundles Android + QA without cross-domain leak", () => {

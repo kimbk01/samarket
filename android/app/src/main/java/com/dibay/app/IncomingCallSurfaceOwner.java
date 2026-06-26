@@ -78,6 +78,14 @@ public final class IncomingCallSurfaceOwner {
     }
     ACTIVE_BY_CALL_ID.put(sid, owner);
     logOwnerDecided(sid, owner, resolveVisibility(context != null ? context : null), reason);
+    IncomingCallBackgroundNotifier.logLockscreenEvent(
+        context,
+        sid,
+        "owner_replaced",
+        owner,
+        context != null ? IncomingCallNotificationBuilder.canPostFullScreenIntent(context) : null,
+        "from=" + (prev != null ? prev.name().toLowerCase() : "none")
+            + " reason=" + (reason != null ? reason : "transition"));
     notifyWebSurfaceOwner(context, sid, owner, reason);
     return true;
   }
@@ -133,6 +141,13 @@ public final class IncomingCallSurfaceOwner {
             + prev.name().toLowerCase()
             + " reason="
             + (reason != null ? reason : "clear"));
+    IncomingCallBackgroundNotifier.logLockscreenEvent(
+        context,
+        sid,
+        "owner_released",
+        SurfaceOwner.TERMINAL,
+        context != null ? IncomingCallNotificationBuilder.canPostFullScreenIntent(context) : null,
+        "prev=" + prev.name().toLowerCase() + " reason=" + (reason != null ? reason : "clear"));
     notifyWebSurfaceOwner(context, sid, SurfaceOwner.TERMINAL, reason != null ? reason : "clear");
   }
 

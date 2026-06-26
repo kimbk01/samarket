@@ -747,6 +747,13 @@ public final class IncomingCallNotificationBuilder {
                 + fgsDelivery
                 + " style="
                 + (applyCallStyle ? "callstyle" : "legacy"));
+        IncomingCallBackgroundNotifier.logLockscreenEvent(
+            context,
+            sid,
+            "fsi_attached",
+            IncomingCallSurfaceOwner.getSurfaceOwner(sid),
+            fsiAllowed,
+            "style=" + (applyCallStyle ? "callstyle" : "legacy") + " fgsDelivery=" + fgsDelivery);
       }
     } else {
       builder.setFullScreenIntent(null, false);
@@ -767,6 +774,13 @@ public final class IncomingCallNotificationBuilder {
     clearFsiAttachGate(sid);
     IncomingCallSurfaceOwner.clear(sid);
     DibayCallLog.once("notification_cancel", sid);
+    IncomingCallBackgroundNotifier.logLockscreenEvent(
+        context,
+        sid,
+        "cleanup_done",
+        IncomingCallSurfaceOwner.SurfaceOwner.TERMINAL,
+        canPostFullScreenIntent(context),
+        "source=dismiss_incoming_call");
   }
 
   public static void clearActiveIncomingCallId(String sessionId) {

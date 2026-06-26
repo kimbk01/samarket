@@ -502,6 +502,13 @@ public class CallForegroundService extends Service {
     RINGING_FOREGROUND_FOR.set(sid);
     DibayCallPushLog.info("foreground_service_started_ringing", sid, "ok=true phase=ringing");
     DibayCallLog.once("foreground_service_started", sid, "phase=ringing");
+    IncomingCallBackgroundNotifier.logLockscreenEvent(
+        this,
+        sid,
+        "fgs_start_foreground_done",
+        IncomingCallSurfaceOwner.getSurfaceOwner(sid),
+        IncomingCallNotificationBuilder.canPostFullScreenIntent(this),
+        "phase=ringing");
     IncomingCallBackgroundNotifier.deliverPendingPresentation(this, sid, "fgs_ringing");
   }
 

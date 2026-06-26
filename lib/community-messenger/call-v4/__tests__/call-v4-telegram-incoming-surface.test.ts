@@ -10,7 +10,7 @@ function read(path: string): string {
 describe("call-v4 Telegram incoming surface contract", () => {
   it("documents foreground banner vs native fullscreen split", () => {
     expect(CALL_V4_TELEGRAM_INCOMING_SURFACE_CONTRACT.foreground).toBe("web_top_banner");
-    expect(CALL_V4_TELEGRAM_INCOMING_SURFACE_CONTRACT.nonForeground).toBe("native_fullscreen_activity");
+    expect(CALL_V4_TELEGRAM_INCOMING_SURFACE_CONTRACT.nonForeground).toBe("native_activity_or_callstyle_fallback");
     expect(CALL_V4_TELEGRAM_INCOMING_SURFACE_CONTRACT.fgsNotification).toBe("carrier_only");
   });
 
@@ -22,7 +22,7 @@ describe("call-v4 Telegram incoming surface contract", () => {
     expect(banner).toContain("data-incoming-call-compact-banner");
   });
 
-  it("Android A/B/C policy: lock FSI-only, background Activity+verify, foreground Web block", () => {
+  it("Android A/B/C policy: lock FSI+fallback, background Activity+verify, foreground Web block", () => {
     const notifier = read("android/app/src/main/java/com/dibay/app/IncomingCallBackgroundNotifier.java");
     const activity = read("android/app/src/main/java/com/dibay/app/IncomingCallActivity.java");
     const lockFsiMethod =
@@ -32,6 +32,9 @@ describe("call-v4 Telegram incoming surface contract", () => {
 
     expect(notifier).toContain("presentV4LockFsiOnlyIncoming");
     expect(notifier).toContain("lock_incoming_fsi_only");
+    expect(notifier).toContain("scheduleLockFsiVisibilityWatchdog");
+    expect(notifier).toContain("fsi_denied");
+    expect(notifier).toContain("fsi_watchdog_timeout");
     expect(notifier).toContain("presentV4BackgroundActivityFirstIncoming");
     expect(notifier).toContain("scheduleLaunchVisibilityVerify");
     expect(notifier).toContain("launch_unverified_fallback");
@@ -41,7 +44,6 @@ describe("call-v4 Telegram incoming surface contract", () => {
 
     expect(lockFsiMethod).toContain("showIncomingCallFsiBridge");
     expect(lockFsiMethod).toContain("lock_incoming_native_fsi_activity_only");
-    expect(lockFsiMethod).not.toMatch(/showIncomingCall\(context,\s*payload,\s*fgsDelivery\)/);
     expect(lockFsiMethod).not.toContain("launchIncomingActivity");
 
     expect(backgroundMethod).toContain("launchIncomingActivity");

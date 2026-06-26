@@ -73,7 +73,7 @@ const backgroundMethod =
 if (!notifier.includes("presentV4LockFsiOnlyIncoming") || !notifier.includes("lock_incoming_fsi_only")) {
   fail("Policy A: lock/sleep must use presentV4LockFsiOnlyIncoming");
 } else {
-  pass("Policy A lock FSI-only entry");
+  pass("Policy A lock FSI entry");
 }
 
 if (lockFsiMethod.includes("launchIncomingActivity")) {
@@ -82,10 +82,10 @@ if (lockFsiMethod.includes("launchIncomingActivity")) {
   pass("Policy A no manual startActivity on lock path");
 }
 
-if (lockFsiMethod.includes("showIncomingCallFsiBridge") && !lockFsiMethod.match(/showIncomingCall\(context,\s*payload,\s*fgsDelivery\)/)) {
-  pass("Policy A FSI bridge without visible CallStyle notification");
+if (lockFsiMethod.includes("showIncomingCallFsiBridge") && notifier.includes("scheduleLockFsiVisibilityWatchdog")) {
+  pass("Policy A FSI bridge with visible fallback watchdog");
 } else {
-  fail("Policy A lock path must use showIncomingCallFsiBridge (not full CallStyle showIncomingCall)");
+  fail("Policy A lock path must use showIncomingCallFsiBridge and fallback watchdog");
 }
 
 if (!lockFsiMethod.includes("lock_incoming_native_fsi_activity_only")) {
@@ -98,6 +98,12 @@ if (!notifier.includes("incoming_notification_fallback_visible")) {
   fail("Policy A fallback must log incoming_notification_fallback_visible");
 } else {
   pass("fallback visible notification marker");
+}
+
+if (!notifier.includes("fsi_denied") || !notifier.includes("fsi_watchdog_timeout")) {
+  fail("Policy A fallback must cover FSI denied and missing activity ack");
+} else {
+  pass("Policy A FSI denied/watchdog fallback");
 }
 
 const notificationBuilder = read("android/app/src/main/java/com/dibay/app/IncomingCallNotificationBuilder.java");
