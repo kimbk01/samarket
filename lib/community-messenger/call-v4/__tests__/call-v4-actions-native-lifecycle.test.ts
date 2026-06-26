@@ -59,6 +59,9 @@ import { useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store"
 
 describe("call-v4 actions native lifecycle hooks", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(callV4PatchAccept).mockResolvedValue({ ok: true, session: { status: "active" } as never });
+    vi.mocked(joinCallV4Agora).mockResolvedValue(true);
     lifecycleMocks.onAccept.mockReset();
     lifecycleMocks.onReject.mockReset();
     lifecycleMocks.cleanup.mockReset();
@@ -95,7 +98,7 @@ describe("call-v4 actions native lifecycle hooks", () => {
     };
     try {
       const router = { push: vi.fn(), replace: vi.fn() };
-      await callV4Accept("call-hook", router, { skipRoute: true, source: "native_accept" });
+      await callV4Accept("call-hook", router, { skipRoute: true, source: "sheet" });
       expect(logs.indexOf("call_v4_accept_enter")).toBeLessThan(logs.indexOf("accept_click"));
     } finally {
       console.info = originalInfo;
@@ -114,9 +117,17 @@ describe("call-v4 actions native lifecycle hooks", () => {
     });
 
     const router = { push: vi.fn(), replace: vi.fn() };
-    await callV4Accept("call-hook", router, { skipRoute: true, source: "native_accept" });
+    await callV4Accept("call-hook", router, { skipRoute: true, source: "sheet" });
 
     expect(order).toEqual(["patch", "join"]);
+    expect(joinCallV4Agora).toHaveBeenCalledWith("call-hook", { afterPatch: true });
+  });
+
+  it("native accept handoff skips web patch and joins agora", async () => {
+    const router = { push: vi.fn(), replace: vi.fn() };
+    await callV4Accept("call-hook", router, { skipRoute: true, source: "native_accept" });
+
+    expect(callV4PatchAccept).not.toHaveBeenCalled();
     expect(joinCallV4Agora).toHaveBeenCalledWith("call-hook", { afterPatch: true });
   });
 

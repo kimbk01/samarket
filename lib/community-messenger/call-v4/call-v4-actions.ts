@@ -30,6 +30,7 @@ import { primeCallV4ConnectionWarm } from "@/lib/community-messenger/call-v4/cal
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import {
   canRenderWebIncomingSheet,
+  isCallV4NativeAcceptHandoffSource,
 } from "@/lib/community-messenger/call-v4/call-v4-incoming-surface";
 import { isNativeAcceptInflight } from "@/lib/community-messenger/call-v4/call-v4-native-accept-flight";
 import { readCallV4SessionIdFromNativeRoute } from "@/lib/community-messenger/call-v4/call-v4-native-route";
@@ -44,7 +45,9 @@ import {
   claimCallV4CancelPatchOnce,
   claimCallV4EndPatchOnce,
   claimCallV4RejectPatchOnce,
+  markCallV4AcceptPatchDone,
   releaseCallV4CancelPatchClaim,
+  tryClaimCallV4AcceptFlight,
 } from "@/lib/community-messenger/call-v4/call-v4-patch-guard";
 import { maybeExitCallV4ScreenAfterCleanup } from "@/lib/community-messenger/call-v4/call-v4-exit-guard";
 import {
@@ -473,6 +476,22 @@ export async function callV4Accept(
     logCallV4("accept_identity_missing", { callId: sid });
     useCallV4Store.getState().setPhase("failed");
     await finalizeCallV4Terminal(sid, "failed", router);
+    return;
+  }
+
+  const nativeAcceptSource = (options?.source ?? "").trim();
+  const nativeAcceptPatched = isCallV4NativeAcceptHandoffSource(nativeAcceptSource);
+  if (nativeAcceptPatched) {
+    if (!tryClaimCallV4AcceptFlight(sid)) return;
+    markCallV4AcceptPatchDone(sid);
+    useCallV4Store.getState().setPhase("joining");
+    logCallV4("callee_join_sequence_start", {
+      callId: sid,
+      kind: identity.mediaType,
+      source: options?.source ?? null,
+      sessionStatus: "native_lock_accept_patch",
+    });
+    await callV4EnsureAgoraJoined(sid, { afterPatch: true });
     return;
   }
 
