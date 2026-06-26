@@ -1,11 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { buildPostImageTransformUrl } from "@/lib/media/post-image-transform";
 import {
   imageResolveTradePostDetailDisplayUrl,
   imageResolveTradePostDetailImageUrls,
+  TRADE_POST_DETAIL_TIER_FETCH_PX,
 } from "@/lib/image";
 
 const FULL_OBJECT =
   "https://abc.supabase.co/storage/v1/object/public/post-images/user1/trade/hero.jpg";
+const EXTERNAL_RAW = "https://cdn.example.com/photo.jpg";
 
 function legacyResolveTradePostDetailImageUrls(post: {
   images?: unknown;
@@ -19,12 +22,17 @@ function legacyResolveTradePostDetailImageUrls(post: {
   return typeof t === "string" && t.trim() ? [t.trim()] : [];
 }
 
-function legacyDisplayUrl(raw: string): string {
-  return raw;
-}
-
 describe("trade detail image migration (ProductImageGallery SSOT)", () => {
-  it("image list — multi images byte-identical", () => {
+  beforeEach(() => {
+    vi.unstubAllEnvs();
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://abc.supabase.co");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("image list — still raw storage URLs (unchanged collection)", () => {
     const post = {
       images: [FULL_OBJECT, `${FULL_OBJECT}?v=2`],
       thumbnail_url: "https://ignored.example/thumb.jpg",
@@ -46,16 +54,24 @@ describe("trade detail image migration (ProductImageGallery SSOT)", () => {
     expect(imageResolveTradePostDetailImageUrls(post)).toEqual([]);
   });
 
-  it("display URL — full object passthrough (no transform in Phase 1)", () => {
-    const legacy = legacyDisplayUrl(FULL_OBJECT);
+  it("display URL — post-images full object → 1280 transform", () => {
+    const expected = buildPostImageTransformUrl(FULL_OBJECT, {
+      width: TRADE_POST_DETAIL_TIER_FETCH_PX,
+      height: TRADE_POST_DETAIL_TIER_FETCH_PX,
+    });
     const adapter = imageResolveTradePostDetailDisplayUrl(FULL_OBJECT);
-    expect(adapter).toBe(legacy);
-    expect(adapter).toContain("/object/public/post-images/");
-    expect(adapter).not.toContain("/render/image/");
+    expect(adapter).toBe(expected);
+    expect(adapter).toContain("width=1280");
+    expect(adapter).toContain("height=1280");
+    expect(adapter).toContain("/render/image/public/post-images/");
+    expect(adapter).not.toContain("/object/public/post-images/");
   });
 
-  it("display URL — preserves query string byte-identical", () => {
-    const url = `${FULL_OBJECT}?token=abc`;
-    expect(imageResolveTradePostDetailDisplayUrl(url)).toBe(url);
+  it("display URL — external URL pass-through", () => {
+    expect(imageResolveTradePostDetailDisplayUrl(EXTERNAL_RAW)).toBe(EXTERNAL_RAW);
+  });
+
+  it("tier fetch px constant is 1280 only", () => {
+    expect(TRADE_POST_DETAIL_TIER_FETCH_PX).toBe(1280);
   });
 });
