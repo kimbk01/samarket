@@ -137,50 +137,87 @@
       "route": "/post/{id}",
       "final_url": "/post/{id}",
       "status": "ok",
-      "note": null,
-      "dwell_ms": 5722,
-      "dom_inspection": null,
-      "image_request_count": 17,
-      "transform_url_count": 0,
-      "object_full_url_count": 16,
-      "transferred_bytes": 8120977,
-      "transferred_kb": 7931,
-      "transferred_mb": 7.74,
-      "by_kind": {
-        "other": 1,
-        "supabase_object_full": 16
+      "note": "Image V2 remeasured 2026-06-26 — Gallery 1280 + Related 240 tier LOCK. Methodology: market-first post, scroll after 4s wait (full detail egress incl. related).",
+      "dwell_ms": 17040,
+      "dom_inspection": {
+        "raw_img_count": 9,
+        "broken_images": 0,
+        "src_kinds_in_dom": {
+          "transform": 8,
+          "object_full": 0,
+          "other": 1
+        },
+        "transform_widths_in_dom": {
+          "240": 7,
+          "1280": 1
+        },
+        "zones": {
+          "gallery": {
+            "transform": 1,
+            "object_full": 0,
+            "other": 0
+          },
+          "related": {
+            "transform": 7,
+            "object_full": 0,
+            "other": 0
+          },
+          "other": {
+            "transform": 0,
+            "object_full": 0,
+            "other": 1
+          }
+        }
       },
-      "transform_width_histogram": [],
+      "image_request_count": 8,
+      "transform_url_count": 8,
+      "object_full_url_count": 0,
+      "transferred_bytes": 230418,
+      "transferred_kb": 225,
+      "transferred_mb": 0.22,
+      "by_kind": {
+        "supabase_transform": 8
+      },
+      "transform_width_histogram": [
+        {
+          "width": 240,
+          "count": 7
+        },
+        {
+          "width": 1280,
+          "count": 1
+        }
+      ],
       "sample_urls": [
         {
-          "kind": "other",
-          "width": null,
-          "transfer_kb": 0,
-          "url_pattern": "googleusercontent://avatar/…"
+          "kind": "supabase_transform",
+          "width": 1280,
+          "transfer_kb": 169,
+          "url_pattern": "supabase://render/post-images/…?width=1280&height=1280&quality=78"
         },
         {
-          "kind": "supabase_object_full",
-          "width": null,
-          "transfer_kb": 1,
-          "url_pattern": "supabase://object/post-images/…"
+          "kind": "supabase_transform",
+          "width": 240,
+          "transfer_kb": 8,
+          "url_pattern": "supabase://render/post-images/…?width=240&height=240&quality=78"
         },
         {
-          "kind": "supabase_object_full",
-          "width": null,
-          "transfer_kb": 340,
-          "url_pattern": "supabase://object/post-images/…"
+          "kind": "supabase_transform",
+          "width": 240,
+          "transfer_kb": 7,
+          "url_pattern": "supabase://render/post-images/…?width=240&height=240&quality=78"
         },
         {
-          "kind": "supabase_object_full",
-          "width": null,
-          "transfer_kb": 1,
-          "url_pattern": "supabase://object/post-images/…"
+          "kind": "supabase_transform",
+          "width": 240,
+          "transfer_kb": 6,
+          "url_pattern": "supabase://render/post-images/…?width=240&height=240&quality=78"
         },
         {
-          "kind": "supabase_object_full",
-          "width": null,
-          "transfer_kb": 10,
-          "url_pattern": "supabase://object/post-images/…"
+          "kind": "supabase_transform",
+          "width": 240,
+          "transfer_kb": 5,
+          "url_pattern": "supabase://render/post-images/…?width=240&height=240&quality=78"
         }
       ]
     },
@@ -523,7 +560,7 @@
       "primary_concern": "low_cache_hit_high_origin_egress",
       "cached_to_total_egress_ratio": 0.069,
       "cached_to_storage_egress_ratio": 0.074,
-      "interpretation": "Cached egress 0.448 GB vs Storage egress 6.052 GB — cache hit share ~6.9% of total egress (0.448 / 6.500). Aligns with runtime baseline finding: trade detail and messenger paths use full object URLs without transform."
+      "interpretation": "Cached egress 0.448 GB vs Storage egress 6.052 GB — cache hit share ~6.9% of total egress (0.448 / 6.500). Pre–Image V2: trade detail used full object URLs (16 object_full, ~7.74 MB). Post–Image V2 (2026-06-26 remeasure): trade detail object_full 0, ~0.22 MB — messenger room remains primary full-object surface in baseline."
     }
   },
   "phase2_kpi": {
@@ -753,7 +790,66 @@
   },
   "tier_signoff": {
     "approved": true,
-    "phase2_implementation": false,
-    "next_step_after_baseline": "adapter_gap + trade_feed surface migration (1 at a time)"
+    "phase2_implementation": true,
+    "next_step_after_baseline": "community_feed adapter phase 1 (byte-identical passthrough only)"
+  },
+  "image_v2_product_detail_remeasurement": {
+    "recorded_at": "2026-06-26T03:54:01.283Z",
+    "lock_status": "product_detail_egress_improvement_lock",
+    "methodology": "market_first_post_scroll_after_4000ms",
+    "environment": {
+      "base_url_host": "127.0.0.1",
+      "build_id": "cIi5pfPkyFaxoHjjAgvlH",
+      "playwright": "desktop_chrome_channel"
+    },
+    "tiers_applied": {
+      "gallery": "TRADE_POST_DETAIL_TIER_1280_ENABLED — width=1280",
+      "related": "TRADE_POST_DETAIL_RELATED_TIER_240_ENABLED — width=240 (trade feed contract)"
+    },
+    "before": {
+      "source": "trade_detail surface in this file (2026-06-26T00:41:48.755Z pre-tier)",
+      "image_request_count": 17,
+      "transform_url_count": 0,
+      "object_full_url_count": 16,
+      "transferred_bytes": 8120977,
+      "transferred_mb": 7.74,
+      "transform_width_histogram": []
+    },
+    "after": {
+      "image_request_count": 8,
+      "transform_url_count": 8,
+      "object_full_url_count": 0,
+      "transferred_bytes": 230418,
+      "transferred_mb": 0.22,
+      "transform_width_histogram": [
+        { "width": 240, "count": 7 },
+        { "width": 1280, "count": 1 }
+      ],
+      "broken_images": 0
+    },
+    "delta": {
+      "object_full_reduction": 16,
+      "bytes_saved": 7890559,
+      "bytes_saved_pct": 97.2,
+      "transferred_mb_before": 7.74,
+      "transferred_mb_after": 0.22
+    },
+    "remaining_object_full_on_surface": "none (avatar googleusercontent excluded from supabase object_full count)",
+    "android_cumulative_smoke": {
+      "status": "pass",
+      "recorded_at": "2026-06-26T03:55:44.632Z",
+      "platform": "android_chrome_cdp",
+      "serial": "redacted",
+      "routes": {
+        "/market": { "broken_images": 0, "pass": true },
+        "/post/{id}": {
+          "broken_images": 0,
+          "object_full": 0,
+          "transform_widths": { "240": 7, "1280": 1 },
+          "pass": true
+        }
+      },
+      "note": "Cumulative regression check before Community Feed adapter. /post scroll smoke PASS."
+    }
   }
 }
