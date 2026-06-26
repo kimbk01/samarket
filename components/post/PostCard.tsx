@@ -1,7 +1,7 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { memo, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { PostWithMeta } from "@/lib/posts/schema";
@@ -17,7 +17,10 @@ import { TradeListingStatusBadge } from "@/components/post/TradeListingStatusBad
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { buildPostListPreviewModel } from "@/lib/posts/post-list-preview-model";
 import { PHILIFE_FB_CARD_CLASS } from "@/lib/philife/philife-flat-ui-classes";
-import { TRADE_FEED_THUMB_DISPLAY_PX } from "@/lib/media/feed-thumbnail-display";
+import {
+  imageSanitizeViewerMediaUrl,
+  loadTradeFeedThumbnailFetchUrl,
+} from "@/lib/image";
 import { TRADE_FEED_THUMB_BOX_CLASS } from "@/lib/posts/trade-feed-layout-classes";
 import { beginRouteEntryPerf } from "@/lib/runtime/samarket-runtime-debug";
 import {
@@ -36,7 +39,6 @@ import {
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { resolveTradePostListingLocationLine } from "@/lib/posts/post-listing-location-label";
 import { formatTimeAgo } from "@/lib/utils/format";
-import { sanitizeViewerMediaUrl } from "@/lib/media/sanitize-viewer-media-url";
 
 interface PostCardProps {
   post: PostWithMeta;
@@ -89,10 +91,14 @@ export const PostCard = memo(function PostCard({
     locale: getAppSettings().defaultLocale || "ko-KR",
     skinKey,
   });
-  const thumbnailUrl = sanitizeViewerMediaUrl(
+  const thumbnailUrl = imageSanitizeViewerMediaUrl(
     post.thumbnail_url ||
       (Array.isArray(post.images) && post.images.length > 0 ? post.images[0] : null)
   );
+  const thumbnailFetchUrl = useMemo(() => {
+    if (!thumbnailUrl) return null;
+    return loadTradeFeedThumbnailFetchUrl(thumbnailUrl) ?? thumbnailUrl;
+  }, [thumbnailUrl]);
 
   const authorDisplay = (post.author_nickname ?? "").trim() || "판매자";
   const metaRecord =
@@ -128,7 +134,9 @@ export const PostCard = memo(function PostCard({
   useEffect(() => {
     if (!isFirstCard) return;
     const capture = () =>
-      recordTradeListImageRequestRangeFromResources(imageRef.current?.currentSrc || thumbnailUrl || null);
+      recordTradeListImageRequestRangeFromResources(
+        imageRef.current?.currentSrc || thumbnailFetchUrl || null
+      );
     if (capture()) return;
     let rafId = 0;
     let tries = 0;
@@ -141,7 +149,7 @@ export const PostCard = memo(function PostCard({
     return () => {
       if (rafId) cancelAnimationFrame(rafId);
     };
-  }, [isFirstCard, thumbnailUrl]);
+  }, [isFirstCard, thumbnailFetchUrl]);
 
   return (
     <div
@@ -172,19 +180,18 @@ export const PostCard = memo(function PostCard({
           >
             {hasUsableThumbnail ? (
               <SamarketThumbnail
-                src={thumbnailUrl}
+                src={thumbnailFetchUrl}
                 fill
                 roundedClassName="rounded-none"
                 className="bg-sam-surface-muted"
                 fallbackSrc=""
                 priority={isFirstCard || priorityThumb}
-                fetchDisplayPx={TRADE_FEED_THUMB_DISPLAY_PX}
                 bootMetricTrack={isFirstCard || priorityThumb}
                 imageRef={isFirstCard ? imageRef : undefined}
                 onImageLoad={() => {
                   if (!isFirstCard) return;
                   recordTradeListImageRequestRangeFromResources(
-                    imageRef.current?.currentSrc || thumbnailUrl || null
+                    imageRef.current?.currentSrc || thumbnailFetchUrl || null
                   );
                 }}
                 onImageError={() => setThumbnailFailed(true)}
