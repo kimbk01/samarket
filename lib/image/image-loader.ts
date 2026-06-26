@@ -17,7 +17,7 @@ import {
   type ImageTransformOpts,
 } from "@/lib/image/image-transform";
 import { imageResolveDeliveryMediaFetchSrc } from "@/lib/image/image-url";
-import { TRADE_FEED_THUMB_DISPLAY_PX, type DeliveryImageFetchPreset } from "@/lib/image/image-size";
+import { TRADE_FEED_THUMB_DISPLAY_PX, COMMUNITY_FEED_THUMB_DISPLAY_PX, type DeliveryImageFetchPreset } from "@/lib/image/image-size";
 
 export type ImageLoaderFeedInput = {
   kind: "feed";
@@ -82,6 +82,14 @@ export type ImageLoaderInput =
  */
 export function loadTradeFeedThumbnailFetchUrl(raw: string | null | undefined): string | null {
   return loadImageFetchUrl({ kind: "feed", raw, displayPx: TRADE_FEED_THUMB_DISPLAY_PX });
+}
+
+/**
+ * Community feed list thumb (`ListThumb` on /philife) — SSOT for width=176 transform via feed kind.
+ * @see buildFeedThumbnailFetchUrl with COMMUNITY_FEED_THUMB_DISPLAY_PX (88 → fetch 176)
+ */
+export function loadCommunityFeedThumbnailFetchUrl(raw: string | null | undefined): string | null {
+  return loadImageFetchUrl({ kind: "feed", raw, displayPx: COMMUNITY_FEED_THUMB_DISPLAY_PX });
 }
 
 /**

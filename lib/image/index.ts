@@ -57,6 +57,7 @@ export {
 } from "@/lib/image/image-cache";
 
 export {
+  loadCommunityFeedThumbnailFetchUrl,
   loadImageFetchUrl,
   loadTradeFeedThumbnailFetchUrl,
   type ImageLoaderDeliverySurfaceInput,
