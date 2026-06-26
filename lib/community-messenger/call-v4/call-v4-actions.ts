@@ -30,7 +30,6 @@ import { primeCallV4ConnectionWarm } from "@/lib/community-messenger/call-v4/cal
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import {
   canRenderWebIncomingSheet,
-  isCallV4NativeAcceptHandoffSource,
 } from "@/lib/community-messenger/call-v4/call-v4-incoming-surface";
 import { isNativeAcceptInflight } from "@/lib/community-messenger/call-v4/call-v4-native-accept-flight";
 import { readCallV4SessionIdFromNativeRoute } from "@/lib/community-messenger/call-v4/call-v4-native-route";
@@ -64,6 +63,12 @@ const HYDRATE_PROTECTED_PHASES = new Set<CallV4Phase>(["accepting", "joining", "
 const REMOTE_TERMINAL_ALLOWED_PHASES = new Set<CallV4Phase>(["joining", "connected"]);
 
 const remoteTerminalFinalized = new Set<string>();
+
+function isCallV4NativeAcceptHandoffSource(source: string | null | undefined): boolean {
+  if (!source?.trim()) return false;
+  const normalized = source.trim().toLowerCase();
+  return normalized === "native_accept" || normalized === "native_lock_accept" || normalized.includes("lock");
+}
 
 /** Ringing session must not downgrade accept-in-progress phases during callee hydrate. */
 export function shouldHydrateOverwriteCallV4Phase(
