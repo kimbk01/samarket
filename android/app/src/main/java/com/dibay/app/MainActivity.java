@@ -26,6 +26,7 @@ import android.app.PictureInPictureParams;
 import android.util.Rational;
 import com.dibay.app.call.CallScreenStateReceiver;
 import com.dibay.app.call.DibayActiveCallSessionManager;
+import com.dibay.app.callv4.CallV4IntentHelper;
 import com.dibay.app.callv4.CallV4Lane;
 import com.capacitorjs.plugins.browser.BrowserPlugin;
 import com.getcapacitor.Bridge;
@@ -113,6 +114,7 @@ public class MainActivity extends BridgeActivity {
   private Float v4AcceptWebViewAlphaBackup = null;
   private volatile boolean v4AcceptScreenReadyReceived = false;
   private volatile boolean v4AcceptHandoffFallbackUsed = false;
+  private volatile boolean v4LockBackgroundHydration = false;
   private Runnable v4AcceptScreenReadyWatchdogRunnable = null;
   private View webViewLoadErrorOverlay = null;
   private TextView webViewLoadErrorDetail = null;
@@ -282,6 +284,78 @@ public class MainActivity extends BridgeActivity {
           if (webView == null || !act.isWebViewOnAppOrigin(webView)) return;
           act.injectWebViewRouteViaJs(webView, path, null);
           Log.i(ROUTE_LOG_TAG, "[call-route] lock_wake_route_injected path=" + path);
+        });
+  }
+
+  /**
+   * Lock accept — hydrate WebView route without bringing MainActivity above keyguard.
+   * IncomingCallActivity keeps native connecting/call surface until unlock or handoff gates pass.
+   */
+  public static void tryBeginLockV4AcceptHydration(
+      android.content.Context context, String callId, String acceptPath) {
+    if (context == null || callId == null || callId.trim().isEmpty()) return;
+    final String sid = callId.trim();
+    final String path =
+        acceptPath != null && !acceptPath.trim().isEmpty()
+            ? acceptPath.trim()
+            : CallV4IntentHelper.buildV4AcceptAppPath(sid, "native_lock_accept");
+    Log.i(
+        CallV4Lane.TAG,
+        "[DIBAY_CALL_V4] main_activity_v4_accept_delivery_start callId=" + sid + " path=" + path);
+    MainActivity act = activeInstance;
+    if (act != null) {
+      Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] lock_accept_hydration_warm callId=" + sid);
+      act.mainHandler.post(() -> act.beginLockV4AcceptBackgroundHydration(sid, path));
+      return;
+    }
+    Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] lock_accept_hydration_cold callId=" + sid);
+    Intent launch = CallV4IntentHelper.buildMainActivityV4AcceptIntent(context, sid, "native_lock_accept");
+    IncomingCallActivity active = IncomingCallActivity.peekActiveInstance();
+    if (active != null && !active.isFinished()) {
+      Log.i(
+          CallV4Lane.TAG,
+          "[DIBAY_CALL_V4] main_activity_v4_accept_delivery_pending_kept callId="
+              + sid
+              + " reason=activity_context_launch");
+      active.startActivity(launch);
+      return;
+    }
+    Log.i(
+        CallV4Lane.TAG,
+        "[DIBAY_CALL_V4] main_activity_v4_accept_delivery_pending_kept callId="
+            + sid
+            + " reason=application_context_launch");
+    context.getApplicationContext().startActivity(launch);
+  }
+
+  private void beginLockV4AcceptBackgroundHydration(String callId, String acceptPath) {
+    if (callId == null || callId.trim().isEmpty()) return;
+    String sid = callId.trim();
+    v4LockBackgroundHydration = true;
+    routeInjectedForCurrentPending = false;
+    pendingAppPath = acceptPath;
+    persistCallPendingRoute(getApplicationContext(), acceptPath, null, 0L);
+    beginV4AcceptColdLegacyAttach(sid);
+    scheduleMoveTaskToBackForLockHydration();
+  }
+
+  private void scheduleMoveTaskToBackForLockHydration() {
+    mainHandler.post(
+        () -> {
+          if (!v4LockBackgroundHydration) return;
+          if (!DibayKeyguardHelper.isKeyguardLocked(getApplicationContext())) {
+            v4LockBackgroundHydration = false;
+            return;
+          }
+          moveTaskToBack(false);
+          Log.i(
+              CallV4Lane.TAG,
+              "[DIBAY_CALL_V4] lock_accept_hydration_task_to_back callId="
+                  + (v4AcceptDirectCallId != null ? v4AcceptDirectCallId : "unknown"));
+          IncomingCallActivity active = IncomingCallActivity.peekActiveInstance();
+          if (active != null) {
+            IncomingCallConnectingSurface.scheduleKeepOnTop(active);
+          }
         });
   }
 
@@ -706,7 +780,23 @@ public class MainActivity extends BridgeActivity {
     attachDibayWebViewClient();
     ensureWebViewLoadErrorOverlay();
     logNativeAuthBootState();
-    handleNotificationLaunchIntent(getIntent());
+    Intent launchIntent = getIntent();
+    if (launchIntent != null
+        && launchIntent.getBooleanExtra(CallV4IntentHelper.EXTRA_V4_LOCK_BACKGROUND_HYDRATION, false)) {
+      Uri data = launchIntent.getData();
+      String hydrationCallId = null;
+      if (data != null
+          && "dibay".equals(data.getScheme())
+          && "call-v4".equals(data.getHost())
+          && !data.getPathSegments().isEmpty()) {
+        hydrationCallId = data.getPathSegments().get(0);
+      }
+      Log.i(
+          CallV4Lane.TAG,
+          "[DIBAY_CALL_V4] main_activity_on_create_lock_hydration callId="
+              + (hydrationCallId != null ? hydrationCallId : "unknown"));
+    }
+    handleNotificationLaunchIntent(launchIntent);
   }
 
   @Override
@@ -931,7 +1021,44 @@ public class MainActivity extends BridgeActivity {
           pendingMainFrameUrl = url;
           mainHandler.removeCallbacks(webViewLoadTimeoutRunnable);
           hideWebViewLoadErrorOverlay();
+          maybeReplayPendingV4AcceptRouteAfterWebHydration(url);
         });
+  }
+
+  private void maybeReplayPendingV4AcceptRouteAfterWebHydration(String finishedUrl) {
+    if (routeInjectedForCurrentPending) return;
+    restorePendingRouteFromPrefsIfNeeded();
+    if (pendingAppPath == null || pendingAppPath.isEmpty()) return;
+    if (!CallV4Lane.isV4CalleeAcceptCallRoute(pendingAppPath)) return;
+    Bridge bridge = getBridge();
+    WebView webView = bridge != null ? bridge.getWebView() : null;
+    if (webView == null) return;
+    if (!isWebViewOnAppOrigin(webView) && (finishedUrl == null || !isWebViewOnAppOriginUrl(finishedUrl))) {
+      return;
+    }
+    Log.i(
+        CallV4Lane.TAG,
+        "[DIBAY_CALL_V4] lock_accept_hydration_replay path="
+            + pendingAppPath
+            + " finishedUrl="
+            + (finishedUrl != null ? finishedUrl : "null"));
+    flushPendingAppPathIfAny();
+  }
+
+  private boolean isWebViewOnAppOriginUrl(String url) {
+    if (url == null || url.trim().isEmpty() || url.startsWith("about:")) return false;
+    try {
+      Uri current = Uri.parse(url);
+      String host = current.getHost();
+      if (host == null || host.isEmpty()) return false;
+      String origin = DibayServerOrigin.resolve(this);
+      if (origin == null || origin.isEmpty()) return true;
+      Uri originUri = Uri.parse(origin);
+      String originHost = originUri.getHost();
+      return originHost != null && originHost.equalsIgnoreCase(host);
+    } catch (Exception error) {
+      return false;
+    }
   }
 
   private void onWebViewMainFrameFailed(String url, String reason) {
@@ -1085,10 +1212,12 @@ public class MainActivity extends BridgeActivity {
   /** FCM 알림 탭(extras·https) + dibay:// 딥링크 → WebView 라우팅 */
   private void handleNotificationLaunchIntent(Intent intent) {
     if (intent == null) return;
+    if (intent.getBooleanExtra(CallV4IntentHelper.EXTRA_V4_LOCK_BACKGROUND_HYDRATION, false)) {
+      v4LockBackgroundHydration = true;
+    }
     dismissIncomingCallNotificationFromIntent(intent);
     applyIncomingCallWakeFlags(intent);
     requestDismissKeyguardForCallIntent(intent);
-    noteV4AcceptDirectAttachFromIntent(intent);
 
     String notificationId = intent.getExtras() != null ? intent.getExtras().getString("notificationId") : null;
     Log.i("DIBAY_NOTIFY", "[notify-open] tap_received notificationId=" + notificationId);
@@ -1178,6 +1307,13 @@ public class MainActivity extends BridgeActivity {
       return;
     }
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
+    String source = data.getQueryParameter("source");
+    if ("native_lock_accept".equals(source)) {
+      Log.i(
+          CallV4Lane.TAG,
+          "[DIBAY_CALL_V4] keyguard_dismiss_skipped source=native_lock_accept");
+      return;
+    }
     KeyguardManager keyguardManager = getSystemService(KeyguardManager.class);
     if (keyguardManager == null || !keyguardManager.isKeyguardLocked()) return;
     keyguardManager.requestDismissKeyguard(
@@ -1413,6 +1549,10 @@ public class MainActivity extends BridgeActivity {
     Uri data = intent.getData();
     if (data == null || !"dibay".equals(data.getScheme()) || !"call-v4".equals(data.getHost())) return;
     if (!"accept".equals(data.getQueryParameter("action"))) return;
+    if (CallV4IntentHelper.isLockNativeAcceptSource(data.getQueryParameter("source"))
+        || intent.getBooleanExtra(CallV4IntentHelper.EXTRA_V4_LOCK_BACKGROUND_HYDRATION, false)) {
+      v4LockBackgroundHydration = true;
+    }
     java.util.List<String> segments = data.getPathSegments();
     if (segments.isEmpty()) return;
     String callId = segments.get(0);
@@ -1422,6 +1562,10 @@ public class MainActivity extends BridgeActivity {
 
   private void beginV4AcceptDirectAttach(String callId) {
     if (callId == null || callId.trim().isEmpty()) return;
+    if (v4LockBackgroundHydration) {
+      beginV4AcceptColdLegacyAttach(callId.trim());
+      return;
+    }
     if (IncomingCallActivity.isConnectingHandoffActive(callId)) {
       beginV4AcceptWarmHandoffAttach(callId.trim());
     } else {
@@ -1437,12 +1581,20 @@ public class MainActivity extends BridgeActivity {
       pendingAppPath = acceptPath;
       persistPendingRoute(acceptPath, null);
     }
-    Log.i(
-        CallV4Lane.TAG,
-        "[DIBAY_CALL_V4] main_activity_calls_v4_cold_legacy_start callId=" + callId);
-    // Backward-compatible marker kept for import-guard contract; cold path no longer uses warm handoff.
-    Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] main_activity_calls_v4_direct_start callId=" + callId);
-    showCallRouteLoadingOverlay();
+    if (v4LockBackgroundHydration) {
+      Log.i(
+          CallV4Lane.TAG,
+          "[DIBAY_CALL_V4] main_activity_call_v4_lock_hydration_start callId=" + callId);
+    } else {
+      Log.i(
+          CallV4Lane.TAG,
+          "[DIBAY_CALL_V4] main_activity_calls_v4_cold_legacy_start callId=" + callId);
+      // Backward-compatible marker kept for import-guard contract; cold path no longer uses warm handoff.
+      Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] main_activity_calls_v4_direct_start callId=" + callId);
+    }
+    if (!v4LockBackgroundHydration) {
+      showCallRouteLoadingOverlay();
+    }
     flushPendingAppPathIfAny();
   }
 
@@ -1483,9 +1635,31 @@ public class MainActivity extends BridgeActivity {
 
   private String buildV4AcceptHandoffPath(String callId) {
     if (callId == null || callId.trim().isEmpty()) return null;
-    return "/community-messenger/calls-v4/"
-        + callId.trim()
-        + "?action=accept&source=native_accept";
+    if (pendingAppPath != null && CallV4Lane.isV4CalleeAcceptCallRoute(pendingAppPath)) {
+      String pendingCallId = extractCallSessionIdFromAppPath(pendingAppPath);
+      if (pendingCallId != null && pendingCallId.equals(callId.trim())) {
+        return pendingAppPath;
+      }
+    }
+    if (v4LockBackgroundHydration) {
+      return CallV4IntentHelper.buildV4AcceptAppPath(callId.trim(), "native_lock_accept");
+    }
+    return CallV4IntentHelper.buildV4AcceptAppPath(callId.trim(), "native_accept");
+  }
+
+  private void logMainActivityCallV4RouteOpened(String appPath, String delivery) {
+    if (!CallV4Lane.isV4CalleeAcceptCallRoute(appPath)) return;
+    String callId = extractCallSessionIdFromAppPath(appPath);
+    Log.i(
+        CallV4Lane.TAG,
+        "[DIBAY_CALL_V4] main_activity_call_v4_route_opened callId="
+            + (callId != null ? callId : "unknown")
+            + " path="
+            + appPath
+            + " delivery="
+            + delivery
+            + " lockHydration="
+            + v4LockBackgroundHydration);
   }
 
   private void onV4AcceptScreenReadyWatchdog(String callId) {
@@ -1506,7 +1680,7 @@ public class MainActivity extends BridgeActivity {
       String acceptPath = buildV4AcceptHandoffPath(callId);
       Bridge bridge = getBridge();
       WebView webView = bridge != null ? bridge.getWebView() : null;
-      if (acceptPath != null && webView != null && loadCallRouteDirectly(webView, acceptPath)) {
+      if (acceptPath != null && webView != null && loadCallRouteDirectly(webView, acceptPath, "watchdog_fallback")) {
         v4AcceptHandoffFallbackUsed = true;
         routeInjectedForCurrentPending = true;
         pendingAppPath = null;
@@ -1659,6 +1833,7 @@ public class MainActivity extends BridgeActivity {
     v4AcceptDirectCallId = null;
     v4AcceptScreenReadyReceived = false;
     v4AcceptHandoffFallbackUsed = false;
+    v4LockBackgroundHydration = false;
     hideCallRouteLoadingOverlay();
   }
 
@@ -1848,6 +2023,14 @@ public class MainActivity extends BridgeActivity {
       DibayCallPushLog.info("pending_route_consumed", acceptSessionId, "path=" + appPath);
     }
     Log.i(ROUTE_LOG_TAG, "[push-route] webview_route_delivered path=" + appPath);
+    if (CallV4Lane.isV4CalleeAcceptCallRoute(appPath)) {
+      logMainActivityCallV4RouteOpened(appPath, "inject_js_event");
+      Log.i(
+          CallV4Lane.TAG,
+          "[DIBAY_CALL_V4] main_activity_v4_accept_delivery_consumed_once callId="
+              + (acceptSessionId != null ? acceptSessionId : "unknown")
+              + " delivery=inject_js_event");
+    }
     return true;
   }
 
@@ -1885,6 +2068,12 @@ public class MainActivity extends BridgeActivity {
                 + v4AcceptDirectCallId
                 + " path="
                 + appPath);
+        Log.i(
+            CallV4Lane.TAG,
+            "[DIBAY_CALL_V4] main_activity_v4_accept_delivery_warm_inject callId="
+                + v4AcceptDirectCallId
+                + " path="
+                + appPath);
       }
       injectWebViewRouteViaJs(webView, appPath, notificationId);
       if (v4AcceptHandoff && acceptRoute) {
@@ -1892,10 +2081,28 @@ public class MainActivity extends BridgeActivity {
             CallV4Lane.TAG,
             "[DIBAY_CALL_V4] accept_route_event_delivered callId=" + v4AcceptDirectCallId);
       }
+      if (acceptRoute && CallV4Lane.isV4CalleeAcceptCallRoute(appPath)) {
+        logMainActivityCallV4RouteOpened(appPath, "inject_js");
+      }
       clearPersistedPendingPushRoute(this);
       return true;
     }
-    if (v4AcceptHandoff && acceptRoute) {
+    if (v4AcceptHandoff && acceptRoute && !webReady) {
+      Log.i(
+          CallV4Lane.TAG,
+          "[DIBAY_CALL_V4] accept_route_direct_load_attempt callId="
+              + v4AcceptDirectCallId
+              + " reason=webview_not_on_app_origin");
+      if (callRoute && loadCallRouteDirectly(webView, appPath, "direct_load_handoff_cold")) {
+        routeInjectedForCurrentPending = true;
+        pendingAppPath = null;
+        pendingNotificationId = null;
+        clearPersistedPendingPushRoute(this);
+        if (!v4LockBackgroundHydration) {
+          hideCallRouteLoadingOverlay();
+        }
+        return true;
+      }
       Log.i(
           CallV4Lane.TAG,
           "[DIBAY_CALL_V4] accept_route_inject_primary_deferred callId="
@@ -1903,7 +2110,7 @@ public class MainActivity extends BridgeActivity {
               + " reason=webview_not_on_app_origin");
       return false;
     }
-    if (callRoute && loadCallRouteDirectly(webView, appPath)) {
+    if (callRoute && loadCallRouteDirectly(webView, appPath, "direct_load")) {
       routeInjectedForCurrentPending = true;
       pendingAppPath = null;
       pendingNotificationId = null;
@@ -1916,6 +2123,10 @@ public class MainActivity extends BridgeActivity {
   }
 
   private boolean loadCallRouteDirectly(WebView webView, String appPath) {
+    return loadCallRouteDirectly(webView, appPath, "direct_load");
+  }
+
+  private boolean loadCallRouteDirectly(WebView webView, String appPath, String delivery) {
     if (appPath == null || appPath.isEmpty()) return false;
     String target = null;
     String currentUrl = webView.getUrl();
@@ -1942,6 +2153,9 @@ public class MainActivity extends BridgeActivity {
     final String loadTarget = target;
     if (isCalleeAcceptCallRoute(appPath) || CallV4Lane.isV4CalleeAcceptCallRoute(appPath)) {
       Log.i(ROUTE_LOG_TAG, "[push-route] call_route_accept_direct_load");
+      if (CallV4Lane.isV4CalleeAcceptCallRoute(appPath)) {
+        logMainActivityCallV4RouteOpened(appPath, delivery);
+      }
     }
     webView.post(() -> webView.loadUrl(loadTarget));
     return true;

@@ -11,6 +11,7 @@ import com.dibay.app.MainActivity;
 public final class CallV4IntentHelper {
   public static final String EXTRA_CALL_ID = "callId";
   public static final String EXTRA_SOURCE = "source";
+  public static final String EXTRA_V4_LOCK_BACKGROUND_HYDRATION = "v4LockBackgroundHydration";
 
   private CallV4IntentHelper() {}
 
@@ -28,6 +29,11 @@ public final class CallV4IntentHelper {
     return intent;
   }
 
+  /** Lock/sleep incoming accept — Web hydrates in background; do not dismiss keyguard. */
+  public static boolean isLockNativeAcceptSource(String source) {
+    return source != null && "native_lock_accept".equals(source.trim());
+  }
+
   /** V4 accept — bring MainActivity to front with calls-v4 accept deep link. */
   public static Intent buildMainActivityV4AcceptIntent(Context context, String callId, String source) {
     String sid = callId != null ? callId.trim() : "";
@@ -40,6 +46,7 @@ public final class CallV4IntentHelper {
                 + Uri.encode(sid)
                 + "?action=accept&source="
                 + Uri.encode(src)));
+    launch.putExtra(EXTRA_V4_LOCK_BACKGROUND_HYDRATION, CallV4IntentHelper.isLockNativeAcceptSource(src));
     launch.addFlags(
         Intent.FLAG_ACTIVITY_NEW_TASK
             | Intent.FLAG_ACTIVITY_CLEAR_TOP
