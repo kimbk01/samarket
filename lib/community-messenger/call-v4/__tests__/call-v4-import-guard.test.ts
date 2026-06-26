@@ -79,9 +79,14 @@ describe("call-v4 import isolation", () => {
     expect(builder).toContain("shouldAttachIncomingFullScreenIntent");
     expect(builder).toContain("incoming_callstyle_suppressed_native_fsi");
     expect(builder).toContain("cancelVisibleIncomingNotificationAfterActivity");
+    expect(builder).not.toContain("showIncomingCallActionOnly");
+    expect(builder).not.toContain("applyIncomingNotificationAfterActivityShown");
+    expect(builder).not.toContain("shouldPostActionOnlyCarrierAfterActivityShown");
     expect(builder).toContain("incoming_visible_notification_cancelled_after_activity");
     expect(builder).toContain("incoming_fgs_notification_kept");
     expect(activity).toContain("incoming_activity_shown_emit");
+    expect(activity).toContain("cancelVisibleIncomingNotificationAfterActivity");
+    expect(activity).not.toContain("showIncomingCallActionOnly");
     expect(activity).toContain("incoming_activity_shown_skip_duplicate");
     expect(activity).toContain("ACTIVITY_SHOWN_EMITTED");
     expect(read("android/app/src/main/AndroidManifest.xml")).toContain(

@@ -52,7 +52,8 @@ describe("call-v4 Telegram incoming surface contract", () => {
       /launchAttempted[\s\S]*transitionIncomingOwner[\s\S]*refreshRingingNotification/
     );
 
-    expect(activity).toContain("showIncomingCallActionOnly");
+    expect(activity).toContain("cancelVisibleIncomingNotificationAfterActivity");
+    expect(activity).not.toContain("showIncomingCallActionOnly");
     expect(activity).toContain("onIncomingActivityShown");
     expect(activity).toContain("isWebInAppOwner");
   });

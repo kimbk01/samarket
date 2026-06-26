@@ -192,7 +192,7 @@ public final class IncomingCallNotificationBuilder {
         true);
   }
 
-  /** After {@link IncomingCallActivity} is visible — drop visible incoming notification; keep FGS carrier. */
+  /** After {@link IncomingCallActivity} is visible — cancel incoming notification slot; FGS carrier kept. */
   public static void cancelVisibleIncomingNotificationAfterActivity(Context context, String sessionId) {
     if (context == null || sessionId == null || sessionId.trim().isEmpty()) return;
     String sid = sessionId.trim();
@@ -207,34 +207,6 @@ public final class IncomingCallNotificationBuilder {
     Log.i(
         com.dibay.app.callv4.CallV4Lane.TAG,
         "[DIBAY_CALL_V4] incoming_fgs_notification_kept callId=" + sid);
-  }
-
-  /**
-   * V4 non-foreground — accept/decline action carrier only (no CallStyle heads-up, no FSI).
-   * Used when {@link IncomingCallActivity} is the primary visible incoming surface.
-   */
-  public static void showIncomingCallActionOnly(
-      Context context, IncomingCallPayload payload, boolean fgsDelivery) {
-    if (payload == null || !payload.isValid()) return;
-    String sid = payload.callId.trim();
-    Log.i(
-        com.dibay.app.callv4.CallV4Lane.TAG,
-        "[DIBAY_CALL_V4] incoming_notification_action_only callId=" + sid);
-    showIncomingCallInternal(
-        context,
-        payload.callId,
-        payload.title,
-        payload.body,
-        null,
-        payload.callType,
-        payload.expiresAt,
-        payload.roomId,
-        payload.callerId,
-        payload.callerName,
-        payload.callerAvatarUrl,
-        fgsDelivery,
-        true,
-        false);
   }
 
   /** @visibleForTesting */
@@ -419,7 +391,6 @@ public final class IncomingCallNotificationBuilder {
     if (!posted && !fgsDelivery) {
       launchActivityFallback(app, sid, roomId, callerId, callerNameFromPayload, callerAvatarUrl, callType, expiresAt, title, body);
     }
-
     if (fsiBridgeOnly) return;
 
     String avatarUrl = callerAvatarUrl != null ? callerAvatarUrl.trim() : "";

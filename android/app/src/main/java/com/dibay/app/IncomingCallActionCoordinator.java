@@ -128,6 +128,7 @@ public final class IncomingCallActionCoordinator {
                 CallRuntimeV4.openFromNativeStore(app, sid, "native_accept");
                 Intent launch = CallV4IntentHelper.buildMainActivityV4AcceptIntent(app, sid, "native_accept");
                 Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] main_activity_calls_v4_direct_start callId=" + sid);
+                Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] main_activity_v4_accept_start callId=" + sid);
                 app.startActivity(launch);
                 IncomingCallActivity active = IncomingCallActivity.peekActiveInstance();
                 if (active != null && !active.isFinished()) {
@@ -234,9 +235,10 @@ public final class IncomingCallActionCoordinator {
     if (!tryBegin(sid, "missed")) return;
     DibayCallLog.once("ring_timeout", sid);
     Log.i(CALL_TAG, "[call-state] missed_timeout callId=" + sid);
-    DibayCallConsumedStore.mark(context, sid, "missed");
     final Context app = context.getApplicationContext();
+    // Purge presentation before consumed mark — purgeCallPresentation blocks when already consumed.
     IncomingCallSessionCleanup.purgeCallPresentation(app, sid, "missed");
+    DibayCallConsumedStore.mark(context, sid, "missed");
     complete(sid, "missed");
     MainActivity.deliverCallTerminalEvent(app, sid, "missed");
     MissedCallNotificationHelper.show(

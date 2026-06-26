@@ -64,6 +64,18 @@ public class MainActivity extends BridgeActivity {
       PENDING_CALL_V4_NATIVE_SURFACE = new java.util.concurrent.ConcurrentHashMap<>();
   private static final java.util.concurrent.ConcurrentHashMap<String, PendingCallSurfaceOwner>
       PENDING_CALL_SURFACE_OWNER = new java.util.concurrent.ConcurrentHashMap<>();
+  private static final java.util.concurrent.ConcurrentHashMap<String, PendingWebCallScreenReady>
+      PENDING_WEB_CALL_SCREEN_READY = new java.util.concurrent.ConcurrentHashMap<>();
+
+  private static final class PendingWebCallScreenReady {
+    final String phase;
+    final long tsMs;
+
+    PendingWebCallScreenReady(String phase, long tsMs) {
+      this.phase = phase != null ? phase : "connecting";
+      this.tsMs = tsMs;
+    }
+  }
 
   private static final class PendingCallSurfaceOwner {
     final String owner;
@@ -180,23 +192,18 @@ public class MainActivity extends BridgeActivity {
     Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] web_call_screen_ready callId=" + sid + " phase=" + ph);
     MainActivity act = activeInstance;
     if (act != null) {
-      act.mainHandler.post(
-          () -> {
-            act.v4AcceptScreenReadyReceived = true;
-            act.cancelV4AcceptScreenReadyWatchdog();
-            if ("connecting".equals(ph) && !act.isWebViewOnCallV4Route(sid)) {
-              Log.i(
-                  CallV4Lane.TAG,
-                  "[DIBAY_CALL_V4] accept_handoff_deferred callId=" + sid + " reason=route_not_ready");
-              act.restoreAcceptCallRouteIfNeeded();
-              return;
-            }
-            act.completeV4AcceptDirectHandoff(sid, ph);
-            IncomingCallConnectingSurface.handoffToWeb(context, sid, ph);
-          });
+      Log.i(
+          CallV4Lane.TAG,
+          "[DIBAY_CALL_V4] main_activity_active_instance=present callId=" + sid);
+      act.mainHandler.post(() -> act.processWebCallScreenReady(context, sid, ph));
       return;
     }
-    IncomingCallConnectingSurface.handoffToWeb(context, sid, ph);
+    PENDING_WEB_CALL_SCREEN_READY.put(sid, new PendingWebCallScreenReady(ph, System.currentTimeMillis()));
+    Log.i(
+        CallV4Lane.TAG,
+        "[DIBAY_CALL_V4] web_call_screen_ready_queued_no_main_activity callId="
+            + sid
+            + " activeInstance=absent");
   }
 
   /** V4 — atomic surface owner SSOT bridge (dibay:call-surface-owner). */
@@ -709,6 +716,7 @@ public class MainActivity extends BridgeActivity {
     activeInstance = this;
     attachDibayWebChromeClient();
     attachDibayWebViewClient();
+    flushPendingWebCallScreenReady();
   }
 
   @Override
@@ -725,6 +733,7 @@ public class MainActivity extends BridgeActivity {
     scheduleFlushPendingTerminalEvents();
     flushPendingCallV4NativeSurfaceEvents();
     flushPendingCallSurfaceOwnerEvents();
+    flushPendingWebCallScreenReady();
     String callId = DibayActiveCallSessionManager.getActiveCallId();
     if (callId != null && !callId.isEmpty()) {
       CallScreenStateReceiver.register(this);
@@ -1413,14 +1422,41 @@ public class MainActivity extends BridgeActivity {
 
   private void beginV4AcceptDirectAttach(String callId) {
     if (callId == null || callId.trim().isEmpty()) return;
-    String sid = callId.trim();
-    if (!sid.equals(v4AcceptDirectCallId)) {
-      v4AcceptDirectCallId = sid;
+    if (IncomingCallActivity.isConnectingHandoffActive(callId)) {
+      beginV4AcceptWarmHandoffAttach(callId.trim());
+    } else {
+      beginV4AcceptColdLegacyAttach(callId.trim());
+    }
+  }
+
+  /** Pre-66d9e12b cold path — single MainActivity surface + loading overlay (no alpha hide / handoff). */
+  private void beginV4AcceptColdLegacyAttach(String callId) {
+    String acceptPath = buildV4AcceptHandoffPath(callId);
+    if (acceptPath != null) {
+      routeInjectedForCurrentPending = false;
+      pendingAppPath = acceptPath;
+      persistPendingRoute(acceptPath, null);
+    }
+    Log.i(
+        CallV4Lane.TAG,
+        "[DIBAY_CALL_V4] main_activity_calls_v4_cold_legacy_start callId=" + callId);
+    // Backward-compatible marker kept for import-guard contract; cold path no longer uses warm handoff.
+    Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] main_activity_calls_v4_direct_start callId=" + callId);
+    showCallRouteLoadingOverlay();
+    flushPendingAppPathIfAny();
+  }
+
+  /** Warm only — hide WebView until web_call_screen_ready, then hand off from Connecting surface. */
+  private void beginV4AcceptWarmHandoffAttach(String callId) {
+    if (!callId.equals(v4AcceptDirectCallId)) {
+      v4AcceptDirectCallId = callId;
       v4AcceptScreenReadyReceived = false;
       v4AcceptHandoffFallbackUsed = false;
-      Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] main_activity_calls_v4_direct_start callId=" + sid);
+      Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] main_activity_calls_v4_warm_handoff_start callId=" + callId);
     }
     hideWebViewForV4AcceptHandoff();
+    scheduleV4AcceptScreenReadyWatchdog(callId);
+    flushPendingAppPathIfAny();
   }
 
   private void scheduleV4AcceptScreenReadyWatchdog(String callId) {
@@ -1430,6 +1466,9 @@ public class MainActivity extends BridgeActivity {
     final String sid = callId.trim();
     v4AcceptScreenReadyWatchdogRunnable = () -> onV4AcceptScreenReadyWatchdog(sid);
     mainHandler.postDelayed(v4AcceptScreenReadyWatchdogRunnable, V4_ACCEPT_SCREEN_READY_WATCHDOG_MS);
+    Log.i(
+        CallV4Lane.TAG,
+        "[DIBAY_CALL_V4] accept_handoff_watchdog_start callId=" + sid);
     Log.i(
         CallV4Lane.TAG,
         "[DIBAY_CALL_V4] accept_screen_ready_watchdog_scheduled callId=" + sid);
@@ -1469,6 +1508,14 @@ public class MainActivity extends BridgeActivity {
       WebView webView = bridge != null ? bridge.getWebView() : null;
       if (acceptPath != null && webView != null && loadCallRouteDirectly(webView, acceptPath)) {
         v4AcceptHandoffFallbackUsed = true;
+        routeInjectedForCurrentPending = true;
+        pendingAppPath = null;
+        pendingNotificationId = null;
+        clearPersistedPendingPushRoute(this);
+        hideCallRouteLoadingOverlay();
+        Log.i(
+            CallV4Lane.TAG,
+            "[DIBAY_CALL_V4] accept_route_fallback_direct_load callId=" + callId);
         Log.i(
             CallV4Lane.TAG,
             "[DIBAY_CALL_V4] accept_handoff_fallback_direct_load callId=" + callId);
@@ -1489,18 +1536,24 @@ public class MainActivity extends BridgeActivity {
   }
 
   private void failV4AcceptHandoffNoScreenReady(String callId) {
+    if (!IncomingCallActivity.isConnectingHandoffActive(callId)) {
+      hideCallRouteLoadingOverlay();
+      return;
+    }
     cancelV4AcceptScreenReadyWatchdog();
     Log.e(
         CallV4Lane.TAG,
         "[DIBAY_CALL_V4] accept_handoff_failed_no_screen_ready callId=" + callId);
-    restoreWebViewAfterV4AcceptHandoff();
-    v4AcceptDirectCallId = null;
-    v4AcceptScreenReadyReceived = false;
-    v4AcceptHandoffFallbackUsed = false;
-    IncomingCallConnectingSurface.handoffToWeb(getApplicationContext(), callId, "connecting");
+    Log.i(
+        CallV4Lane.TAG,
+        "[DIBAY_CALL_V4] accept_handoff_connecting_surface_retained callId="
+            + callId
+            + " reason=awaiting_screen_ready");
+    restoreAcceptCallRouteIfNeeded();
   }
 
   private void hideWebViewForV4AcceptHandoff() {
+    final String callId = v4AcceptDirectCallId;
     mainHandler.post(
         () -> {
           Bridge bridge = getBridge();
@@ -1511,19 +1564,97 @@ public class MainActivity extends BridgeActivity {
             v4AcceptWebViewAlphaBackup = webView.getAlpha();
           }
           webView.setAlpha(0f);
+          Log.i(
+              CallV4Lane.TAG,
+              "[DIBAY_CALL_V4] hideWebViewForV4AcceptHandoff callId="
+                  + (callId != null ? callId : "unknown"));
         });
   }
 
-  private void completeV4AcceptDirectHandoff(String callId, String phase) {
-    if (callId == null || v4AcceptDirectCallId == null || !callId.equals(v4AcceptDirectCallId)) return;
-    if ("connecting".equals(phase) && !isWebViewOnCallV4Route(callId)) {
+  private void processWebCallScreenReady(android.content.Context context, String callId, String phase) {
+    if (callId == null || callId.trim().isEmpty()) return;
+    String sid = callId.trim();
+    if (!IncomingCallActivity.isConnectingHandoffActive(sid)) {
       Log.i(
           CallV4Lane.TAG,
-          "[DIBAY_CALL_V4] accept_handoff_deferred callId=" + callId + " reason=route_not_ready");
+          "[DIBAY_CALL_V4] web_call_screen_ready_cold_legacy callId=" + sid + " phase=" + phase);
+      hideCallRouteLoadingOverlay();
+      return;
+    }
+    v4AcceptScreenReadyReceived = true;
+    boolean watchdogWasActive = v4AcceptScreenReadyWatchdogRunnable != null;
+    cancelV4AcceptScreenReadyWatchdog();
+    if (watchdogWasActive) {
+      Log.i(
+          CallV4Lane.TAG,
+          "[DIBAY_CALL_V4] accept_handoff_watchdog_cancelled_ready callId=" + sid);
+    }
+    if ("connecting".equals(phase) && !isWebViewOnCallV4Route(sid)) {
+      Log.i(
+          CallV4Lane.TAG,
+          "[DIBAY_CALL_V4] accept_handoff_deferred callId=" + sid + " reason=route_not_ready");
       restoreAcceptCallRouteIfNeeded();
       return;
     }
+    if (activeInstance != this || !v4AcceptScreenReadyReceived) {
+      Log.i(
+          CallV4Lane.TAG,
+          "[DIBAY_CALL_V4] accept_handoff_deferred callId=" + sid + " reason=handoff_preconditions");
+      return;
+    }
+    if (v4AcceptDirectCallId == null || !sid.equals(v4AcceptDirectCallId)) {
+      Log.i(
+          CallV4Lane.TAG,
+          "[DIBAY_CALL_V4] accept_handoff_deferred callId=" + sid + " reason=call_id_mismatch");
+      return;
+    }
     restoreWebViewAfterV4AcceptHandoff();
+    if (IncomingCallConnectingSurface.handoffToWeb(context, sid, phase)) {
+      clearV4AcceptHandoffStateAfterSurfaceFinish();
+    } else {
+      Log.i(
+          CallV4Lane.TAG,
+          "[DIBAY_CALL_V4] accept_handoff_handoff_deferred callId="
+              + sid
+              + " reason=connecting_handoff_gate");
+    }
+  }
+
+  private void flushPendingWebCallScreenReady() {
+    if (PENDING_WEB_CALL_SCREEN_READY.isEmpty()) return;
+    long now = System.currentTimeMillis();
+    java.util.Iterator<java.util.Map.Entry<String, PendingWebCallScreenReady>> iterator =
+        PENDING_WEB_CALL_SCREEN_READY.entrySet().iterator();
+    while (iterator.hasNext()) {
+      java.util.Map.Entry<String, PendingWebCallScreenReady> entry = iterator.next();
+      PendingWebCallScreenReady pending = entry.getValue();
+      if (pending == null || now - pending.tsMs > PENDING_ROUTE_TTL_MS) {
+        iterator.remove();
+        Log.w(
+            CallV4Lane.TAG,
+            "[DIBAY_CALL_V4] web_call_screen_ready_pending_expired callId=" + entry.getKey());
+        continue;
+      }
+      String callId = entry.getKey();
+      String phase = pending.phase;
+      iterator.remove();
+      Log.i(
+          CallV4Lane.TAG,
+          "[DIBAY_CALL_V4] web_call_screen_ready_pending_flush callId=" + callId);
+      processWebCallScreenReady(getApplicationContext(), callId, phase);
+    }
+  }
+
+  String resolveConnectingHandoffBlockReason(String callId) {
+    if (callId == null || callId.trim().isEmpty()) return "empty_call_id";
+    if (activeInstance != this) return "no_main_activity";
+    if (!v4AcceptScreenReadyReceived) return "screen_not_ready";
+    if (v4AcceptDirectCallId == null || !callId.equals(v4AcceptDirectCallId)) return "call_id_mismatch";
+    if (v4AcceptWebViewAlphaBackup != null) return "webview_alpha_not_restored";
+    return null;
+  }
+
+  private void clearV4AcceptHandoffStateAfterSurfaceFinish() {
     cancelV4AcceptScreenReadyWatchdog();
     v4AcceptDirectCallId = null;
     v4AcceptScreenReadyReceived = false;
@@ -1556,20 +1687,7 @@ public class MainActivity extends BridgeActivity {
     }
     Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] accept_route_restore_start callId=" + callId);
     boolean restored = navigateWebViewToAppPathNow(acceptPath, null);
-    if (!restored) {
-      Bridge bridge = getBridge();
-      WebView webView = bridge != null ? bridge.getWebView() : null;
-      if (webView != null && loadCallRouteDirectly(webView, acceptPath)) {
-        restored = true;
-        routeInjectedForCurrentPending = true;
-        Log.i(
-            CallV4Lane.TAG,
-            "[DIBAY_CALL_V4] accept_route_restore_done callId="
-                + callId
-                + " mode=direct_load_retry");
-        scheduleV4AcceptScreenReadyWatchdog(callId);
-      }
-    } else {
+    if (restored) {
       Log.i(
           CallV4Lane.TAG,
           "[DIBAY_CALL_V4] accept_route_restore_done callId=" + callId + " mode=event_delivered");
@@ -1754,44 +1872,36 @@ public class MainActivity extends BridgeActivity {
         v4AcceptDirectCallId != null
             && !v4AcceptDirectCallId.isEmpty()
             && CallV4Lane.isV4CalleeAcceptCallRoute(appPath);
-    if (v4AcceptHandoff && acceptRoute && webReady) {
-      if (loadCallRouteDirectly(webView, appPath)) {
-        routeInjectedForCurrentPending = true;
-        pendingAppPath = null;
-        pendingNotificationId = null;
-        clearPersistedPendingPushRoute(this);
-        hideCallRouteLoadingOverlay();
-        Log.i(
-            CallV4Lane.TAG,
-            "[DIBAY_CALL_V4] accept_route_direct_load callId="
-                + v4AcceptDirectCallId
-                + " path="
-                + appPath);
-        Log.i(ROUTE_LOG_TAG, "[push-route] webview_call_route_loaded path=" + appPath);
-        scheduleV4AcceptScreenReadyWatchdog(v4AcceptDirectCallId);
-        return true;
-      }
-      Log.w(
-          CallV4Lane.TAG,
-          "[DIBAY_CALL_V4] accept_route_direct_load_failed callId="
-              + v4AcceptDirectCallId
-              + " fallback=event_inject");
-    }
     if ((acceptRoute || rejectRoute) && webReady) {
       if (rejectRoute) {
         Log.i(ROUTE_LOG_TAG, "[call-route] call_route_reject_inject_preferred path=" + appPath);
       } else {
         Log.i(ROUTE_LOG_TAG, "[call-route] call_route_inject_preferred path=" + appPath);
       }
+      if (v4AcceptHandoff && acceptRoute) {
+        Log.i(
+            CallV4Lane.TAG,
+            "[DIBAY_CALL_V4] accept_route_inject_primary callId="
+                + v4AcceptDirectCallId
+                + " path="
+                + appPath);
+      }
       injectWebViewRouteViaJs(webView, appPath, notificationId);
       if (v4AcceptHandoff && acceptRoute) {
         Log.i(
             CallV4Lane.TAG,
             "[DIBAY_CALL_V4] accept_route_event_delivered callId=" + v4AcceptDirectCallId);
-        scheduleV4AcceptScreenReadyWatchdog(v4AcceptDirectCallId);
       }
       clearPersistedPendingPushRoute(this);
       return true;
+    }
+    if (v4AcceptHandoff && acceptRoute) {
+      Log.i(
+          CallV4Lane.TAG,
+          "[DIBAY_CALL_V4] accept_route_inject_primary_deferred callId="
+              + v4AcceptDirectCallId
+              + " reason=webview_not_on_app_origin");
+      return false;
     }
     if (callRoute && loadCallRouteDirectly(webView, appPath)) {
       routeInjectedForCurrentPending = true;
@@ -1800,9 +1910,6 @@ public class MainActivity extends BridgeActivity {
       clearPersistedPendingPushRoute(this);
       hideCallRouteLoadingOverlay();
       Log.i(ROUTE_LOG_TAG, "[push-route] webview_call_route_loaded path=" + appPath);
-      if (v4AcceptHandoff && acceptRoute) {
-        scheduleV4AcceptScreenReadyWatchdog(v4AcceptDirectCallId);
-      }
       return true;
     }
     return injectWebViewRouteViaJs(webView, appPath, notificationId);

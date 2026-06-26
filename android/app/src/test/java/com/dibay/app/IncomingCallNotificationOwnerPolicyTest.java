@@ -88,6 +88,19 @@ public class IncomingCallNotificationOwnerPolicyTest {
   }
 
   @Test
+  public void actionOnly_neverAppliesCallStyle() {
+    String callId = "owner-action-only-style-1";
+    IncomingCallSurfaceOwner.tryClaimIncomingOwner(
+        context, callId, IncomingCallSurfaceOwner.SurfaceOwner.NOTIFICATION_FALLBACK, "test");
+
+    assertFalse(
+        IncomingCallNotificationBuilder.shouldApplyIncomingCallStyle(context, callId, true, false, true));
+    assertFalse(
+        IncomingCallNotificationBuilder.shouldAttachIncomingFullScreenIntent(
+            context, callId, true, false, true, true, true));
+  }
+
+  @Test
   public void nullContext_neverBlocksCallStylePolicy() {
     assertFalse(
         IncomingCallNotificationBuilder.shouldBlockVisibleCallStyleForNativeFsiOwner(

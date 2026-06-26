@@ -33,6 +33,21 @@ public class IncomingCallActivity extends AppCompatActivity {
     return activeInstance != null ? activeInstance.get() : null;
   }
 
+  /** Warm-only — native Connecting surface stays until web handoff. Cold uses legacy finish + loading. */
+  static boolean isConnectingHandoffActive(String callId) {
+    if (callId == null || callId.trim().isEmpty()) return false;
+    IncomingCallActivity active = peekActiveInstance();
+    return active != null
+        && !active.finished
+        && active.connectingMode
+        && active.callId != null
+        && callId.trim().equals(active.callId.trim());
+  }
+
+  private static boolean isWarmConnectingHandoffEligible() {
+    return MainActivity.getActiveInstance() != null && MainActivity.isAppVisibleForIncomingCall();
+  }
+
   public static final String EXTRA_CALL_ID = "callId";
   public static final String EXTRA_CALLER_NAME = "callerName";
   public static final String EXTRA_TITLE = "title";
@@ -322,6 +337,11 @@ public class IncomingCallActivity extends AppCompatActivity {
           "[call-ui] incoming_activity_action_accept_received callId="
               + callId
               + " source=onCreate");
+      Log.i(
+          CallV4Lane.TAG,
+          "[DIBAY_CALL_V4] notification_accept_action_received callId="
+              + callId
+              + " source=onCreate");
       Log.i(TAG, "[call-ui] notification_accept_activity_open callId=" + callId);
       handleAccept();
       return;
@@ -469,6 +489,11 @@ public class IncomingCallActivity extends AppCompatActivity {
           "[call-ui] incoming_activity_action_accept_received callId="
               + callId
               + " source=onNewIntent");
+      Log.i(
+          CallV4Lane.TAG,
+          "[DIBAY_CALL_V4] notification_accept_action_received callId="
+              + callId
+              + " source=onNewIntent");
       handleAccept();
     } else if (ACTION_DECLINE.equals(action)) {
       handleDecline();
@@ -478,6 +503,7 @@ public class IncomingCallActivity extends AppCompatActivity {
   /** @visibleForTesting */
   static void clearActivityShownEmittedForTests() {
     ACTIVITY_SHOWN_EMITTED.clear();
+    VISIBLE_CALL_IDS.clear();
   }
 
   /** @visibleForTesting */
@@ -520,35 +546,22 @@ public class IncomingCallActivity extends AppCompatActivity {
         getApplicationContext(), callId, callTypeForVerify);
     if (CallV4Lane.isTelegramLaneEnabled(getApplicationContext())) {
       Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] incoming_activity_shown callId=" + callId);
-      IncomingCallSurfaceOwner.SurfaceOwner owner =
-          DibayKeyguardHelper.isKeyguardLocked(getApplicationContext())
-              ? IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_FSI
-              : IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_ACTIVITY;
+      IncomingCallSurfaceOwner.SurfaceOwner currentOwner =
+          IncomingCallSurfaceOwner.getSurfaceOwner(callId);
+      IncomingCallSurfaceOwner.SurfaceOwner owner;
+      if (currentOwner == IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_FSI) {
+        // Lock/sleep FSI path — do not rewrite to native_activity when keyguard flickers at wake.
+        owner = IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_FSI;
+      } else {
+        owner =
+            DibayKeyguardHelper.isKeyguardLocked(getApplicationContext())
+                ? IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_FSI
+                : IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_ACTIVITY;
+      }
       IncomingCallSurfaceOwner.transitionIncomingOwner(
           getApplicationContext(), callId, owner, "incoming_activity_visible");
-      IncomingCallPayload payload =
-          new IncomingCallPayload(
-              callId,
-              firstNonEmpty(intent.getStringExtra(EXTRA_ROOM_ID)),
-              firstNonEmpty(intent.getStringExtra(EXTRA_CALLER_ID)),
-              firstNonEmpty(intent.getStringExtra(EXTRA_CALLER_NAME)),
-              firstNonEmpty(intent.getStringExtra(EXTRA_CALLER_AVATAR_URL)),
-              firstNonEmpty(intent.getStringExtra(EXTRA_CALL_TYPE)),
-              expiresAt,
-              firstNonEmpty(intent.getStringExtra(EXTRA_TITLE)),
-              firstNonEmpty(intent.getStringExtra(EXTRA_BODY)),
-              null);
-      if (payload.isValid()) {
-        IncomingCallSurfaceOwner.SurfaceOwner surfaceOwner =
-            IncomingCallSurfaceOwner.getSurfaceOwner(callId);
-        if (surfaceOwner == IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_FSI) {
-          IncomingCallNotificationBuilder.cancelVisibleIncomingNotificationAfterActivity(
-              getApplicationContext(), callId);
-        } else {
-          IncomingCallNotificationBuilder.showIncomingCallActionOnly(
-              getApplicationContext(), payload, true);
-        }
-      }
+      IncomingCallNotificationBuilder.cancelVisibleIncomingNotificationAfterActivity(
+          getApplicationContext(), callId);
     }
     DibayCallLog.once("incoming_activity_created", callId, "source=activity");
     DibayCallLog.once("incoming_render", callId, "source=activity");
@@ -583,7 +596,17 @@ public class IncomingCallActivity extends AppCompatActivity {
     Log.i(TAG, "[call-ui] answer_clicked callId=" + callId + " source=activity");
     IncomingCallActionCoordinator.handleAccept(getApplicationContext(), callId);
     if (CallV4Lane.isTelegramLaneEnabled(getApplicationContext())) {
-      enterV4ConnectingMode();
+      if (isWarmConnectingHandoffEligible()) {
+        Log.i(
+            CallV4Lane.TAG,
+            "[DIBAY_CALL_V4] accept_path_warm_connecting_handoff callId=" + callId);
+        enterV4ConnectingMode();
+      } else {
+        Log.i(
+            CallV4Lane.TAG,
+            "[DIBAY_CALL_V4] accept_path_cold_legacy_finish callId=" + callId);
+        finishSafely();
+      }
       return;
     }
     showConnectingState();

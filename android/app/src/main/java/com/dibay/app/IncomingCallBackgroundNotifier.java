@@ -25,7 +25,8 @@ import java.util.concurrent.ConcurrentHashMap;
  *       2.5s fallback notification if not shown</li>
  *   <li>C — foreground: Web sheet only (blocked here)</li>
  * </ul>
- * actionOnly notification is posted from Activity after {@code incoming_activity_shown}.
+ * Activity visible → {@link IncomingCallNotificationBuilder#cancelVisibleIncomingNotificationAfterActivity}
+ * only (no notification repost). Notification fallback uses {@code showIncomingCall} when Activity never shown.
  */
 public final class IncomingCallBackgroundNotifier {
   private static final String TAG = "DIBAY_INCOMING_CALL";

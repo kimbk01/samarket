@@ -127,16 +127,30 @@ if (!notifier.includes("presentV4LockFsiOnlyIncoming")
   pass("BackgroundNotifier A/B policy paths");
 }
 
+const activity = read("android/app/src/main/java/com/dibay/app/IncomingCallActivity.java");
+
 if (notifier.includes("showIncomingCallActionOnly(context, payload")) {
   fail("BackgroundNotifier must not post action-only before Activity is visible");
 } else {
   pass("BackgroundNotifier no premature action-only");
 }
 
-if (!notifBuilder.includes("showIncomingCallActionOnly")) {
-  fail("NotificationBuilder must support action-only incoming mode");
+if (activity.includes("showIncomingCallActionOnly")) {
+  fail("IncomingCallActivity must not repost action-only after incoming_activity_shown");
 } else {
-  pass("NotificationBuilder action-only mode");
+  pass("Activity shown cancels notification only");
+}
+
+if (!activity.includes("cancelVisibleIncomingNotificationAfterActivity")) {
+  fail("IncomingCallActivity must cancel visible notification when shown");
+} else {
+  pass("Activity shown cancel hook");
+}
+
+if (notifBuilder.includes("showIncomingCallActionOnly")) {
+  fail("NotificationBuilder must not expose action-only repost after Activity visible");
+} else {
+  pass("NotificationBuilder no action-only repost API");
 }
 
 if (!fs.existsSync(path.join(root, "android/app/src/main/java/com/dibay/app/IncomingCallSurfaceOwner.java"))) {
