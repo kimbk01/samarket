@@ -69,3 +69,8 @@ export {
   type ImageLoaderStoreThumbInput,
   type ImageLoaderStoreTransformInput,
 } from "@/lib/image/image-loader";
+
+export {
+  imageResolveTradePostDetailDisplayUrl,
+  imageResolveTradePostDetailImageUrls,
+} from "@/lib/image/image-trade-detail";

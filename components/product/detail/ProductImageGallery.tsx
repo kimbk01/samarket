@@ -1,5 +1,6 @@
 "use client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { imageResolveTradePostDetailDisplayUrl } from "@/lib/image";
 
 import { useState, useRef, useCallback } from "react";
 
@@ -53,7 +54,7 @@ export function ProductImageGallery({ images, title }: ProductImageGalleryProps)
           >
             {src ? (
               <img
-                src={src}
+                src={imageResolveTradePostDetailDisplayUrl(src)}
                 alt={title ? `${title} - ${i + 1}` : ""}
                 className="block h-auto w-full max-h-[420px] object-contain object-center"
                 draggable={false}

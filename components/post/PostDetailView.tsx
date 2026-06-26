@@ -33,6 +33,9 @@ import { useWriteCategory } from "@/contexts/WriteCategoryContext";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { ProductImageGallery } from "@/components/product/detail/ProductImageGallery";
 import {
+  imageResolveTradePostDetailImageUrls,
+} from "@/lib/image";
+import {
   TRADE_POST_DETAIL_BOTTOM_ACTIONS_INNER,
   TRADE_POST_DETAIL_BOTTOM_ACTIONS_WRAP,
   TRADE_POST_DETAIL_BOTTOM_FAVORITE_BTN,
@@ -135,15 +138,6 @@ const TRADE_DETAIL_STATUS_BADGE_CLASS =
   "!inline-flex !h-6 !items-center !rounded-[4px] !border-0 !bg-[#f1f3f5] !px-2 !py-0 !text-[12px] !font-medium !leading-none !text-[#555555]";
 /** 댓글·오버플로 잠금 해제 — `sam-card` 단일 규격 */
 const POST_DETAIL_COMMUNITY_CARD_CLASS = "sam-card !overflow-visible";
-
-function resolveTradePostDetailImageUrls(post: PostWithMeta): string[] {
-  const imgArr = Array.isArray(post.images)
-    ? post.images.filter((s): s is string => typeof s === "string")
-    : [];
-  if (imgArr.length > 0) return imgArr;
-  const t = post.thumbnail_url;
-  return typeof t === "string" && t.trim() ? [t.trim()] : [];
-}
 
 /** 하단 구분 뱃지와 중복되지 않게 헤더 제목에서만 제거 */
 function stripUsedCarTradeDirectionFromDetailTitle(title: string): string {
@@ -1362,7 +1356,7 @@ export function PostDetailView({
         setChatError(t("trade_detail_chat_error_reserved_buyer"));
         return;
       }
-      const thumbs = resolveTradePostDetailImageUrls(post);
+      const thumbs = imageResolveTradePostDetailImageUrls(post);
       const productThumbnail = thumbs[0] ?? "";
       const productTitle = (post.title ?? t("trade_detail_product_fallback")).trim();
       const priceText = post.is_free_share
@@ -1945,7 +1939,7 @@ export function PostDetailView({
   );
 
   if (isRealEstateDetail) {
-    const imgList = resolveTradePostDetailImageUrls(post);
+    const imgList = imageResolveTradePostDetailImageUrls(post);
     const reHeroBuilding = String(reMeta.building_name ?? "").trim();
     const reHeroTitle = reHeroBuilding || post.title || "";
     const reHeroSubtitle = [
@@ -2105,7 +2099,7 @@ export function PostDetailView({
     tradeDetailFavoritesLine(t, favoriteCount),
   ].filter(Boolean) as string[];
 
-  const detailImageUrls = resolveTradePostDetailImageUrls(post);
+  const detailImageUrls = imageResolveTradePostDetailImageUrls(post);
   const isUsedCarDetailUi = category?.icon_key === "used-car" || hasUsedCarMetaEarly;
   const usedCarBuyNoImages =
     isUsedCarDetailUi && (reMeta.car_trade as string | undefined) === "buy" && detailImageUrls.length === 0;
