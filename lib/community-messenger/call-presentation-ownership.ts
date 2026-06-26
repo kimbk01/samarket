@@ -25,6 +25,7 @@ import { cmCallFlow } from "@/lib/community-messenger/cm-call-debug";
 type DetachedCleanup = () => Promise<void>;
 
 let detached: { sessionId: string; cleanup: DetachedCleanup } | null = null;
+const presentationOwnershipListeners = new Set<() => void>();
 
 type CallPresentationLogEvent =
   | "call_presentation_full"
@@ -39,6 +40,19 @@ type CallPresentationLogEvent =
 
 export type { CallPresentationSurface };
 export { resolveCallPresentationSurface };
+
+function notifyCallPresentationOwnershipListeners(): void {
+  for (const listener of presentationOwnershipListeners) {
+    listener();
+  }
+}
+
+export function subscribeCallPresentationOwnership(listener: () => void): () => void {
+  presentationOwnershipListeners.add(listener);
+  return () => {
+    presentationOwnershipListeners.delete(listener);
+  };
+}
 
 export function logCommunityCallPresentationEvent(
   event: CallPresentationLogEvent,
@@ -159,6 +173,7 @@ export function dockCommunityCall(args: {
     sessionId: sid,
     roomId: args.roomId ?? null,
   });
+  notifyCallPresentationOwnershipListeners();
 }
 
 export function minimizeCommunityCallToPip(args: {
@@ -178,6 +193,7 @@ export function minimizeCommunityCallToPip(args: {
     sessionId: sid,
     roomId: args.roomId ?? null,
   });
+  notifyCallPresentationOwnershipListeners();
 }
 
 export function enterAndroidOsPipCommunityCall(args: {
@@ -194,6 +210,7 @@ export function enterAndroidOsPipCommunityCall(args: {
   clearPipMinimizedCallSessionFlags();
   clearIosNativePipCallSessionFlags();
   logCommunityCallPresentationEvent("call_presentation_android_os_pip", { sessionId: sid });
+  notifyCallPresentationOwnershipListeners();
 }
 
 export function exitAndroidOsPipCommunityCall(sessionId: string): void {
@@ -204,6 +221,7 @@ export function exitAndroidOsPipCommunityCall(sessionId: string): void {
   writeHostedActiveCallSession(sid);
   resumeDetachedCommunityCall(sid);
   logCommunityCallPresentationEvent("call_presentation_full", { sessionId: sid, from: "android-os-pip" });
+  notifyCallPresentationOwnershipListeners();
 }
 
 export function readAndroidOsPipCallSessionId(): string | null {
@@ -236,6 +254,7 @@ export function expandCommunityCallFromDock(sessionId: string): void {
     from: "dock",
   });
   logCommunityCallPresentationEvent("call_presentation_full", { sessionId: sid });
+  notifyCallPresentationOwnershipListeners();
 }
 
 export function expandCommunityCallFromPip(sessionId: string): void {
@@ -252,6 +271,7 @@ export function expandCommunityCallFromPip(sessionId: string): void {
     from: "pip-minimized",
   });
   logCommunityCallPresentationEvent("call_presentation_full", { sessionId: sid });
+  notifyCallPresentationOwnershipListeners();
 }
 
 export function expandCommunityCallFromAndroidOsPip(sessionId: string): void {
@@ -301,6 +321,7 @@ export function clearCommunityCallPresentationFlags(sessionId?: string | null): 
       androidOsPip: clearAndroidPip,
       iosNativePip: clearIosPip,
     });
+    notifyCallPresentationOwnershipListeners();
   }
 }
 

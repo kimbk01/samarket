@@ -86,6 +86,8 @@ export type CallScreenViewModel = {
   onTopLabelClick?: (() => void) | null;
   footerNote?: string | null;
   connectionLabel?: string | null;
+  /** 연결 품질 시각 표시(좋음/보통/나쁨) — `connectionLabel` 과 함께 사용 */
+  connectionSignalTier?: "good" | "fair" | "poor" | null;
   connectedAt?: number | null;
   endedAt?: number | null;
   endedDurationSeconds?: number | null;

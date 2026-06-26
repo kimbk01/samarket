@@ -6,7 +6,6 @@ import {
 } from "@/lib/community-messenger/call-dock-presentation";
 import { dockCommunityCall, readDockedCallSessionId } from "@/lib/community-messenger/call-presentation-ownership";
 import { syncCommunityMessengerCallRuntimeSurface } from "@/lib/community-messenger/call-runtime-registry";
-import { leaveCallV4Agora } from "@/lib/community-messenger/call-v4/call-v4-agora";
 import { canEnterCallV4PipOrDock } from "@/lib/community-messenger/call-v4/call-v4-connected-media-policy";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import { isCallV4DockEnabled } from "@/lib/community-messenger/call-v4/call-v4-phase6-flags";
@@ -35,9 +34,7 @@ export async function callV4MinimizeConnectedCallToDock(input: CallV4MinimizeToD
   dockCommunityCall({
     sessionId: sid,
     roomId: input.roomId ?? null,
-    cleanup: async () => {
-      await leaveCallV4Agora(sid);
-    },
+    cleanup: async () => {},
   });
   commitDockEnterTransition(sid);
   syncCommunityMessengerCallRuntimeSurface({ presentation: "dock" });

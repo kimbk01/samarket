@@ -15,6 +15,10 @@ import {
 } from "@/lib/community-messenger/call-v4/call-v4-connection-warm";
 import { triggerCallV4RemoteTerminalCheckFromAgora } from "@/lib/community-messenger/call-v4/call-v4-connected-terminal-watch";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
+import {
+  attachCallV4NetworkQualityListener,
+  detachCallV4NetworkQualityListener,
+} from "@/lib/community-messenger/call-v4/call-v4-network-quality";
 import { useCallV4MediaStore } from "@/lib/community-messenger/call-v4/call-v4-media-state";
 import { markCallV4MediaConnected } from "@/lib/community-messenger/call-v4/call-v4-phase-bridge";
 import {
@@ -125,6 +129,7 @@ function attachRemoteHandlers(callId: string, client: IAgoraRTCClient): void {
     activeSession.remoteAudioTrack = null;
     triggerCallV4RemoteTerminalCheckFromAgora(callId, user.uid);
   });
+  attachCallV4NetworkQualityListener(callId, client);
 }
 
 async function resolveCallV4AgoraConnection(
@@ -339,6 +344,7 @@ export async function leaveCallV4Agora(callId?: string): Promise<void> {
   if (!sid || !activeSession || activeSession.callId !== sid) return;
   const { client, localTracks, remoteAudioTrack } = activeSession;
   const remoteVideoTrack = remoteVideoByCallId.get(sid) ?? null;
+  detachCallV4NetworkQualityListener(sid);
   activeSession = null;
   remoteVideoByCallId.delete(sid);
   resetCallV4AgoraJoinStateForCallId(sid);

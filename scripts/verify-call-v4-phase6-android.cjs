@@ -34,8 +34,8 @@ if (!agoraMedia.includes("publishCallV4LocalVideo")) {
 }
 
 const screen = read("components/community-messenger/call-v4/CallV4Screen.tsx");
-if (!screen.includes("ConnectedVideoView") || !screen.includes("useCallV4VideoPresenter")) {
-  fail("CallV4Screen must wire video presenter + ConnectedVideoView");
+if (!screen.includes("useCallV4VideoPresenter") || !screen.includes('variant="overlay"')) {
+  fail("CallV4Screen must wire video presenter + fullscreen CallScreen overlay");
 } else {
   pass("CallV4Screen video surface");
 }

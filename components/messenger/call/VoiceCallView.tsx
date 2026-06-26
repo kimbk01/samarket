@@ -35,6 +35,7 @@ export function VoiceCallView({ vm }: { vm: CallScreenViewModel }) {
               status={vm.statusText}
               timer={timer}
               detail={vm.connectionLabel ?? vm.subStatusText ?? vm.footerNote ?? null}
+              signalTier={vm.connectionSignalTier ?? null}
             />
           </div>
         </div>

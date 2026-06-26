@@ -8,6 +8,10 @@ import {
 import { toggleCallV4SpeakerRoute } from "@/lib/community-messenger/call-v4/call-v4-audio-route";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import type { CallV4MediaSnapshot } from "@/lib/community-messenger/call-v4/call-v4-media-state";
+import {
+  callV4ConnectionSignalTierMessageKey,
+} from "@/lib/community-messenger/call-v4/call-v4-network-quality";
+import type { CallV4ConnectionSignalTier } from "@/lib/community-messenger/call-v4/call-v4-types";
 import { isNativeAcceptInflight } from "@/lib/community-messenger/call-v4/call-v4-native-accept-flight";
 import type { CallV4Identity, CallV4Phase } from "@/lib/community-messenger/call-v4/call-v4-types";
 import type { CallV4VideoPresenterState } from "@/lib/community-messenger/call-v4/call-v4-video-presenter";
@@ -68,13 +72,14 @@ function buildCallV4ConnectingViewModel(callId: string, safeT: SafeTranslate): C
     topLabel: null,
     onTopLabelClick: null,
     footerNote: null,
-    connectionLabel: null,
+    connectionLabel: statusText,
+    connectionSignalTier: null,
     connectedAt: null,
     endedAt: null,
     endedDurationSeconds: null,
     mediaState: {
       micEnabled: true,
-      speakerEnabled: true,
+      speakerEnabled: false,
       cameraEnabled: false,
       localVideoMinimized: true,
     },
@@ -83,6 +88,39 @@ function buildCallV4ConnectingViewModel(callId: string, safeT: SafeTranslate): C
     secondaryActions: [],
     suppressTerminalView: false,
   };
+}
+
+const CONNECTION_SIGNAL_FALLBACKS: Record<
+  CallV4ConnectionSignalTier,
+  { fallbackKo: string; fallbackEn: string }
+> = {
+  good: { fallbackKo: "통신 상태 좋음", fallbackEn: "Connection quality · good" },
+  fair: { fallbackKo: "통신 상태 보통", fallbackEn: "Connection quality · fair" },
+  poor: { fallbackKo: "통신 상태 나쁨", fallbackEn: "Connection quality · poor" },
+  checking: { fallbackKo: "통신 상태 확인 중", fallbackEn: "Checking connection…" },
+};
+
+function buildCallV4ConnectionPresentation(
+  callPhase: CallPhase,
+  phase: CallV4Phase,
+  tier: CallV4ConnectionSignalTier | null | undefined,
+  safeT: SafeTranslate,
+): { connectionLabel: string | null; connectionSignalTier: "good" | "fair" | "poor" | null } {
+  if (callPhase === "connected") {
+    const resolvedTier: CallV4ConnectionSignalTier = tier ?? "checking";
+    const key = callV4ConnectionSignalTierMessageKey(resolvedTier);
+    return {
+      connectionLabel: safeT(key, CONNECTION_SIGNAL_FALLBACKS[resolvedTier]),
+      connectionSignalTier: resolvedTier === "checking" ? null : resolvedTier,
+    };
+  }
+  if (callPhase === "connecting" || phase === "joining" || phase === "accepting") {
+    return {
+      connectionLabel: safeT("cm_ui_connecting", { fallbackKo: "연결 중", fallbackEn: "Connecting" }),
+      connectionSignalTier: null,
+    };
+  }
+  return { connectionLabel: null, connectionSignalTier: null };
 }
 
 export function buildCallV4ScreenViewModel(input: BuildCallV4ScreenViewModelInput): CallScreenViewModel | null {
@@ -153,13 +191,14 @@ export function buildCallV4ScreenViewModel(input: BuildCallV4ScreenViewModelInpu
 
   const ms = mediaState ?? {
     micEnabled: true,
-    speakerEnabled: true,
+    speakerEnabled: identity.mediaType === "video",
     cameraEnabled: false,
     localVideoMinimized: true,
     localVideoReady: false,
     remoteVideoReady: false,
     incomingVideoUpgradeRequest: false,
     pendingVideoUpgradeRequest: false,
+    connectionSignalTier: null,
   };
 
   const secondaryActions: CallActionItem[] = [];
@@ -233,6 +272,13 @@ export function buildCallV4ScreenViewModel(input: BuildCallV4ScreenViewModelInpu
           ? safeT("cm_ui_connecting", { fallbackKo: "연결 중", fallbackEn: "Connecting" })
           : null;
 
+  const connectionPresentation = buildCallV4ConnectionPresentation(
+    callPhase,
+    displayPhase,
+    ms.connectionSignalTier,
+    safeT,
+  );
+
   return {
     callTelemetryId: callId,
     visualTheme: "starbucks",
@@ -246,7 +292,8 @@ export function buildCallV4ScreenViewModel(input: BuildCallV4ScreenViewModelInpu
     topLabel: null,
     onTopLabelClick: null,
     footerNote: null,
-    connectionLabel: callPhase === "connected" ? statusText : null,
+    connectionLabel: connectionPresentation.connectionLabel,
+    connectionSignalTier: connectionPresentation.connectionSignalTier,
     connectedAt: callPhase === "connected" ? connectedAt : null,
     endedAt: null,
     endedDurationSeconds: null,

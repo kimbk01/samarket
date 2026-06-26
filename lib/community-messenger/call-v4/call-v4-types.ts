@@ -31,6 +31,9 @@ export type CallV4Direction = "incoming" | "outgoing";
 
 export type CallV4MediaType = "audio" | "video";
 
+/** Agora last-mile 3단계: 좋음 / 보통 / 나쁨 (+ 연결 전 확인 중) */
+export type CallV4ConnectionSignalTier = "checking" | "good" | "fair" | "poor";
+
 export type CallV4Identity = {
   callId: string;
   roomId: string;

@@ -60,7 +60,37 @@ describe("buildCallV4ScreenViewModel native accept inflight", () => {
 
     expect(vm?.phase).toBe("connecting");
     expect(vm?.statusText).toBe("연결 중");
+    expect(vm?.connectionLabel).toBe("연결 중");
+    expect(vm?.mediaState.speakerEnabled).toBe(false);
     expect(vm?.primaryActions).toHaveLength(0);
+  });
+
+  it("shows 3-tier connection signal when connected", () => {
+    vi.mocked(isNativeAcceptInflight).mockReturnValue(false);
+
+    const vm = buildCallV4ScreenViewModel({
+      callId: "call-vm",
+      phase: "connected",
+      identity,
+      connectedAt: Date.now(),
+      safeT,
+      router,
+      mediaState: {
+        micEnabled: true,
+        speakerEnabled: false,
+        cameraEnabled: false,
+        localVideoMinimized: true,
+        localVideoReady: false,
+        remoteVideoReady: false,
+        incomingVideoUpgradeRequest: false,
+        pendingVideoUpgradeRequest: false,
+        connectionSignalTier: "fair",
+      },
+    });
+
+    expect(vm?.connectionLabel).toBe("통신 상태 보통");
+    expect(vm?.connectionSignalTier).toBe("fair");
+    expect(vm?.statusText).toBe("통화 중");
   });
 
   it("does not create accept/reject actions when phase is accepting", () => {

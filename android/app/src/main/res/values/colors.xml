@@ -6,7 +6,7 @@
 
     <!-- DIBAY Incoming Call UI v1 (Starbucks palette) -->
     <color name="dibay_incoming_primary">#006241</color>
-    <color name="dibay_incoming_deep_green">#1E3932</color>
+    <color name="dibay_incoming_deep_green">#006241</color>
     <color name="dibay_incoming_surface_light">#F6F6F6</color>
     <color name="dibay_incoming_accept">#22C55E</color>
     <color name="dibay_incoming_reject">#EF1035</color>

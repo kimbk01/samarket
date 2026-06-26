@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   classifyCallV4RemoteAttachSkip,
   shouldAutoPublishCallV4LocalPreview,
+  shouldMountCallV4SelfPip,
   shouldRenderCallV4SelfPreview,
 } from "@/lib/community-messenger/call-v4/call-v4-video-presenter";
 
@@ -127,5 +128,40 @@ describe("shouldAutoPublishCallV4LocalPreview", () => {
         cameraEnabled: true,
       }),
     ).toBe(true);
+  });
+});
+
+describe("shouldMountCallV4SelfPip", () => {
+  it("mounts only for active video with camera on and local video ready", () => {
+    expect(
+      shouldMountCallV4SelfPip({
+        wantsVideo: true,
+        cameraEnabled: true,
+        localVideoReady: true,
+        androidOsPipSafeMode: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("hides immediately when camera is off", () => {
+    expect(
+      shouldMountCallV4SelfPip({
+        wantsVideo: true,
+        cameraEnabled: false,
+        localVideoReady: true,
+        androidOsPipSafeMode: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("does not mount the secondary PiP inside Android OS PiP safe mode", () => {
+    expect(
+      shouldMountCallV4SelfPip({
+        wantsVideo: true,
+        cameraEnabled: true,
+        localVideoReady: true,
+        androidOsPipSafeMode: true,
+      }),
+    ).toBe(false);
   });
 });

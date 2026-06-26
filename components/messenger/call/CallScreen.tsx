@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { CallScreenShell } from "@/components/community-messenger/call-ui/CallScreenShell";
+import { INCOMING_CALL_FULLSCREEN_SURFACE_CLASS } from "@/lib/community-messenger/call-ui/incoming-call-banner-tokens";
 import { AndroidOsPipSafeCallView } from "@/components/community-messenger/call-ui/AndroidOsPipSafeCallView";
 import { CallBackground } from "./CallBackground";
 import { CallHeader } from "./CallHeader";
@@ -15,8 +16,7 @@ import type { CallScreenViewModel } from "./call-ui.types";
 /** 음성 발신 벨 — `OutgoingCallView` 와 동일, 셸 전체 배경용 */
 const OUTGOING_VOICE_RING_SURFACE =
   "bg-[linear-gradient(180deg,#6b3df1_0%,#5a35d8_28%,#3d2699_55%,#2a1a6e_100%)]";
-const STARBUCKS_CALL_SURFACE =
-  "bg-[radial-gradient(circle_at_50%_0%,rgba(212,233,226,0.24),transparent_34%),linear-gradient(180deg,#00754A_0%,#006241_44%,#003D29_100%)]";
+const STARBUCKS_CALL_SURFACE = INCOMING_CALL_FULLSCREEN_SURFACE_CLASS;
 
 export function CallScreen({
   vm,
@@ -41,8 +41,6 @@ export function CallScreen({
   const isIncomingRinging = vm.direction === "incoming" && vm.phase === "ringing";
   const isOutgoingVoiceRinging = vm.direction === "outgoing" && vm.phase === "ringing" && vm.mode === "voice";
   const useStarbucksTheme = vm.visualTheme === "starbucks";
-  const telegramCallSurface = "bg-[#8B5E2E]";
-  const useTelegramSolidShell = isIncomingRinging;
   const useOutgoingVoiceRingShell = isOutgoingVoiceRinging;
   /**
    * `ConnectedVideoView` 구간(수신 벨 제외)은 `mainVideoSlot`·`largeVideoRef` 단일 마운트.
@@ -52,15 +50,15 @@ export function CallScreen({
   const usesConnectedVideoView = vm.mode === "video" && !isIncomingVideoRinging;
   const androidOsPipSafeMode = Boolean(vm.androidOsPipSafeMode);
   const hideCallBackground =
-    androidOsPipSafeMode || useTelegramSolidShell || isOutgoingVoiceRinging || usesConnectedVideoView;
+    androidOsPipSafeMode || isIncomingRinging || isOutgoingVoiceRinging || usesConnectedVideoView;
   const shellSurfaceClassName = androidOsPipSafeMode
     ? "bg-black"
     : usesConnectedVideoView
       ? "bg-black"
-      : useStarbucksTheme
-        ? STARBUCKS_CALL_SURFACE
-        : useTelegramSolidShell
-          ? telegramCallSurface
+      : isIncomingRinging
+        ? INCOMING_CALL_FULLSCREEN_SURFACE_CLASS
+        : useStarbucksTheme
+          ? STARBUCKS_CALL_SURFACE
           : useOutgoingVoiceRingShell
             ? OUTGOING_VOICE_RING_SURFACE
             : undefined;

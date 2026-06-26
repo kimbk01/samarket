@@ -10,7 +10,6 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { MiniLocalVideo } from "@/components/messenger/call/MiniLocalVideo";
 import {
   bindAgoraRemoteVideoTrack,
   clearLocalVideoContainer,
@@ -77,6 +76,22 @@ export function shouldAutoPublishCallV4LocalPreview(input: {
   cameraEnabled: boolean;
 }): boolean {
   return Boolean(input.canAttach && input.wantsVideo && input.cameraEnabled);
+}
+
+export function shouldMountCallV4SelfPip(input: {
+  wantsVideo: boolean;
+  cameraEnabled: boolean;
+  localVideoReady: boolean;
+  androidOsPipSafeMode: boolean;
+}): boolean {
+  return Boolean(
+    input.wantsVideo &&
+      !input.androidOsPipSafeMode &&
+      shouldRenderCallV4SelfPreview({
+        cameraEnabled: input.cameraEnabled,
+        localVideoReady: input.localVideoReady,
+      }),
+  );
 }
 
 export function useCallV4VideoPresenter(callId: string, androidOsPipSafeMode = false): CallV4VideoPresenterState {
@@ -222,13 +237,15 @@ export function useCallV4VideoPresenter(callId: string, androidOsPipSafeMode = f
     phase,
   ]);
 
-  const showLocalPreview = shouldRenderCallV4SelfPreview({
+  const selfPipMounted = shouldMountCallV4SelfPip({
+    wantsVideo,
     cameraEnabled: media.cameraEnabled,
     localVideoReady: media.localVideoReady,
+    androidOsPipSafeMode,
   });
 
   useEffect(() => {
-    if (showLocalPreview) return;
+    if (selfPipMounted) return;
     logCallV4("self_video_container_clear_requested", {
       callId,
       hasContainer: Boolean(localVideoContainer),
@@ -237,7 +254,7 @@ export function useCallV4VideoPresenter(callId: string, androidOsPipSafeMode = f
       localVideoReady: media.localVideoReady,
     });
     clearLocalVideoContainer(localVideoContainer);
-  }, [callId, localVideoContainer, media.cameraEnabled, media.localVideoReady, showLocalPreview]);
+  }, [callId, localVideoContainer, media.cameraEnabled, media.localVideoReady, selfPipMounted]);
 
   useLayoutEffect(() => {
     if (typeof window === "undefined") return;
@@ -254,7 +271,7 @@ export function useCallV4VideoPresenter(callId: string, androidOsPipSafeMode = f
 
   const pipGesture = useCallVideoPipGesture({
     sessionId: callId,
-    enabled: wantsVideo && !androidOsPipSafeMode,
+    enabled: selfPipMounted,
     stageRef: videoStageRef,
     stageBottomExtraPx: 80,
     micMuted: !media.micEnabled,
@@ -274,7 +291,7 @@ export function useCallV4VideoPresenter(callId: string, androidOsPipSafeMode = f
   }, [pipGesture, selfDims.height, selfDims.width]);
 
   const showRemoteVideo = wantsVideo && media.remoteVideoReady;
-  const showLocalVideo = wantsVideo && showLocalPreview;
+  const showLocalVideo = selfPipMounted;
   const isVideoUiMode = wantsVideo && (showRemoteVideo || showLocalVideo);
 
   const mainVideoSlot = wantsVideo ? (
@@ -286,21 +303,10 @@ export function useCallV4VideoPresenter(callId: string, androidOsPipSafeMode = f
     </div>
   ) : null;
 
-  const miniVideoSlot = wantsVideo && showLocalPreview ? (
-    <MiniLocalVideo
+  const miniVideoSlot = selfPipMounted ? (
+    <div
       ref={onLocalVideoRef}
-      widthPx={videoPipLayout?.widthPx}
-      heightPx={videoPipLayout?.heightPx}
-      useAnchoredPosition={Boolean(videoPipLayout?.pipStyle)}
-      positionMode={videoPipLayout?.positionMode}
-      style={videoPipLayout?.pipStyle ?? undefined}
-      micMuted={!media.micEnabled}
-      cameraOff={!media.cameraEnabled}
-      label={videoPipLayout?.pipLabel}
-      onPointerDown={videoPipLayout?.onPipPointerDown}
-      onPointerMove={videoPipLayout?.onPipPointerMove}
-      onPointerUp={videoPipLayout?.onPipPointerUp}
-      onPointerCancel={videoPipLayout?.onPipPointerCancel}
+      className="absolute inset-0 h-full w-full [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:object-cover"
     />
   ) : null;
 
@@ -309,7 +315,7 @@ export function useCallV4VideoPresenter(callId: string, androidOsPipSafeMode = f
     miniVideoSlot,
     showRemoteVideo,
     showLocalVideo,
-    pipShellMounted: wantsVideo,
+    pipShellMounted: selfPipMounted,
     videoPipLayout,
     androidOsPipSafeMode,
     isVideoUiMode,

@@ -2,6 +2,10 @@
 
 import { Check, X } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  INCOMING_CALL_FULLSCREEN_ACCEPT_BTN_CLASS,
+  INCOMING_CALL_FULLSCREEN_DECLINE_BTN_CLASS,
+} from "@/lib/community-messenger/call-ui/incoming-call-banner-tokens";
 import type { CallScreenViewModel } from "./call-ui.types";
 import { CallAvatar } from "./CallAvatar";
 import { IncomingCallBrandHeader } from "./IncomingCallBrandHeader";
@@ -16,13 +20,7 @@ export function IncomingCallView({ vm }: { vm: CallScreenViewModel }) {
   const peerName = vm.peerLabel.trim() || "?";
 
   return (
-    <div
-      className={`relative z-[2] flex min-h-0 flex-1 flex-col overflow-hidden px-5 pb-[max(1rem,calc(env(safe-area-inset-bottom,0px)+12px))] ${
-        isStarbucks
-          ? "bg-[radial-gradient(circle_at_50%_0%,rgba(212,233,226,0.20),transparent_34%),linear-gradient(180deg,#101827_0%,#064332_52%,#021E18_100%)]"
-          : "bg-[#8B5E2E]"
-      }`}
-    >
+    <div className="relative z-[2] flex min-h-0 flex-1 flex-col overflow-hidden bg-transparent px-5 pb-[max(1rem,calc(env(safe-area-inset-bottom,0px)+12px))]">
       <div className="flex min-h-0 w-full max-w-md flex-1 flex-col items-center self-center">
         <div className="flex w-full shrink-0 flex-col items-center pt-[max(42px,8dvh)]">
           <IncomingCallBrandHeader mode={vm.mode} visualTheme={vm.visualTheme} />
@@ -67,10 +65,8 @@ export function IncomingCallView({ vm }: { vm: CallScreenViewModel }) {
                 disabled={decline?.disabled}
                 onClick={() => decline?.onClick()}
                 data-testid={decline?.dataTestId}
-                className={`flex h-[clamp(72px,22vw,88px)] w-[clamp(72px,22vw,88px)] shrink-0 items-center justify-center rounded-full text-white transition active:scale-[0.96] disabled:opacity-40 ${
-                  isStarbucks
-                    ? "bg-[#A9472B] shadow-[0_16px_34px_rgba(88,41,26,0.34)] ring-1 ring-[#F1F8F4]/18"
-                    : "bg-[#FF3B30]"
+                className={`flex h-[clamp(72px,22vw,88px)] w-[clamp(72px,22vw,88px)] shrink-0 items-center justify-center rounded-full transition active:scale-[0.96] disabled:opacity-40 ${
+                  isStarbucks ? INCOMING_CALL_FULLSCREEN_DECLINE_BTN_CLASS : "bg-[#FF3B30]"
                 }`}
                 aria-label={t("cm_ui_reject")}
               >
@@ -86,10 +82,8 @@ export function IncomingCallView({ vm }: { vm: CallScreenViewModel }) {
                 disabled={accept?.disabled}
                 onClick={() => accept?.onClick()}
                 data-testid={accept?.dataTestId}
-                className={`flex h-[clamp(72px,22vw,88px)] w-[clamp(72px,22vw,88px)] shrink-0 items-center justify-center rounded-full text-white transition active:scale-[0.96] disabled:opacity-40 ${
-                  isStarbucks
-                    ? "bg-[#00754A] shadow-[0_16px_34px_rgba(0,61,41,0.34)] ring-1 ring-[#D4E9E2]/35"
-                    : "bg-[#007AFF]"
+                className={`flex h-[clamp(72px,22vw,88px)] w-[clamp(72px,22vw,88px)] shrink-0 items-center justify-center rounded-full transition active:scale-[0.96] disabled:opacity-40 ${
+                  isStarbucks ? INCOMING_CALL_FULLSCREEN_ACCEPT_BTN_CLASS : "bg-[#007AFF]"
                 }`}
                 aria-label={t("cm_ui_call_answer")}
               >

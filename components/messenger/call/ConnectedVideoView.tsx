@@ -106,7 +106,7 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
     }
   }, [telemetryCallId, vm.phase, vm.mainVideoSlot, vm.showRemoteVideo]);
 
-  const pipShellMounted = Boolean(vm.pipShellMounted);
+  const pipShellMounted = Boolean(vm.pipShellMounted && vm.showLocalVideo && vm.miniVideoSlot);
 
   useEffect(() => {
     if (!pipShellMounted || typeof ResizeObserver === "undefined") return;
@@ -462,7 +462,13 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
                 })()}
               </div>
             ) : null}
-            <CallStatusText title={vm.peerLabel} status={vm.statusText} timer={timer} detail={detailLine} />
+            <CallStatusText
+              title={vm.peerLabel}
+              status={vm.statusText}
+              timer={timer}
+              detail={detailLine}
+              signalTier={vm.connectionSignalTier ?? null}
+            />
           </div>
         ) : null}
         {vm.participantsSummary ? (

@@ -16,6 +16,7 @@ import {
   resolveCallPresentationSurface,
   resolveHostedCallPresentation,
   shouldSkipCallClientUnmountDispose,
+  subscribeCallPresentationOwnership,
   writeHostedActiveCallSession,
 } from "@/lib/community-messenger/call-presentation-ownership";
 import { pinCommunityMessengerCallTerminalSurfaceDismiss } from "@/lib/community-messenger/call-session-navigation-seed";
@@ -174,5 +175,17 @@ describe("call presentation ownership (GOOD baseline)", () => {
   it("L: route unmount retain — dock keeps skip dispose", () => {
     dockCommunityCall({ sessionId: "call-l", roomId: "room-l", cleanup: vi.fn(async () => {}) });
     expect(shouldSkipCallClientUnmountDispose("call-l")).toBe(true);
+  });
+
+  it("M: presentation ownership subscribers are notified for OS PiP enter and restore", () => {
+    const listener = vi.fn();
+    const unsubscribe = subscribeCallPresentationOwnership(listener);
+    enterAndroidOsPipCommunityCall({ sessionId: "call-m", roomId: "room-m", cleanup: vi.fn(async () => {}) });
+    expandCommunityCallFromAndroidOsPip("call-m");
+    unsubscribe();
+
+    expect(listener).toHaveBeenCalledTimes(2);
+    expect(readAndroidOsPipCallSessionId()).toBeNull();
+    expect(resolveCallPresentationSurface("call-m")).toBe("FULLSCREEN");
   });
 });

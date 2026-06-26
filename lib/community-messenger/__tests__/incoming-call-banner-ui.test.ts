@@ -18,6 +18,32 @@ describe("incoming call compact banner UI", () => {
     expect(banner).toContain("var(--safe-top");
   });
 
+  it("fullscreen incoming uses same Starbucks green surface SSOT as compact banner", () => {
+    const tokens = read("lib/community-messenger/call-ui/incoming-call-banner-tokens.ts");
+    const incomingView = read("components/messenger/call/IncomingCallView.tsx");
+    const callScreen = read("components/messenger/call/CallScreen.tsx");
+    expect(tokens).toContain('INCOMING_CALL_PRIMARY_HEX = "#006241"');
+    expect(tokens).toContain("INCOMING_CALL_FULLSCREEN_SURFACE_CLASS");
+    expect(incomingView).toContain("INCOMING_CALL_FULLSCREEN_ACCEPT_BTN_CLASS");
+    expect(incomingView).toContain("INCOMING_CALL_FULLSCREEN_DECLINE_BTN_CLASS");
+    expect(incomingView).toContain("bg-transparent");
+    expect(incomingView).not.toContain("#8B5E2E");
+    expect(incomingView).not.toContain("#101827");
+    expect(callScreen).toContain("INCOMING_CALL_FULLSCREEN_SURFACE_CLASS");
+    expect(callScreen).not.toContain("#8B5E2E");
+  });
+
+  it("Android incoming fullscreen and pill use dibay_incoming_primary #006241", () => {
+    const colors = read("android/app/src/main/res/values/colors.xml");
+    const fullscreen = read("android/app/src/main/res/drawable/bg_dibay_incoming_fullscreen.xml");
+    const pill = read("android/app/src/main/res/drawable/bg_dibay_incoming_pill.xml");
+    expect(colors).toContain('name="dibay_incoming_primary">#006241');
+    expect(colors).toContain('name="dibay_incoming_deep_green">#006241');
+    expect(fullscreen).toContain("@color/dibay_incoming_primary");
+    expect(pill).toContain("@color/dibay_incoming_primary");
+    expect(pill).not.toContain("dibay_incoming_gradient_start");
+  });
+
   it("Global incoming host renders ForegroundIncomingCallHost with web banner SSOT", () => {
     const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
     const basics = read("lib/community-messenger/call-phase0-basics.ts");

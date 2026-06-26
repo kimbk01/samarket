@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CallScreen } from "@/components/messenger/call/CallScreen";
-import { ConnectedVideoView } from "@/components/messenger/call/ConnectedVideoView";
+import { shouldUseAndroidOsPipSafeLayout } from "@/lib/community-messenger/call-android-os-pip-layout";
+import { subscribeCallPresentationOwnership } from "@/lib/community-messenger/call-presentation-ownership";
 import {
   callV4Accept,
   callV4EnsureAgoraJoined,
@@ -15,7 +16,7 @@ import {
 import { callV4FetchSession } from "@/lib/community-messenger/call-v4/call-v4-api";
 import { ensureCallV4AudioRouteAfterConnectedGate } from "@/lib/community-messenger/call-v4/call-v4-audio-route";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
-import { useCallV4MediaStore } from "@/lib/community-messenger/call-v4/call-v4-media-state";
+import { useCallV4MediaStore, seedCallV4MediaPresentationForCall } from "@/lib/community-messenger/call-v4/call-v4-media-state";
 import { tryStartCallV4NativeAcceptAutostart } from "@/lib/community-messenger/call-v4/call-v4-native-accept-flight";
 import { notifyCallV4WebCallScreenReady } from "@/lib/community-messenger/call-v4/call-v4-native-connecting-handoff";
 import { maybeExitCallV4ScreenAfterCleanup } from "@/lib/community-messenger/call-v4/call-v4-exit-guard";
@@ -30,6 +31,7 @@ import {
   shouldSuppressCallV4StaleRouteExit,
 } from "@/lib/community-messenger/call-v4/call-v4-connected-gate";
 import type { CallV4Phase } from "@/lib/community-messenger/call-v4/call-v4-types";
+import { useCallV4RuntimeSurface } from "@/lib/community-messenger/call-v4/presentation/use-call-v4-runtime-surface";
 
 type CallV4ScreenProps = {
   callId: string;
@@ -53,7 +55,12 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
   const identity = useCallV4Store((s) => s.identity);
   const connectedAt = useCallV4Store((s) => s.connectedAt);
   const mediaState = useCallV4MediaStore();
-  const presenter = useCallV4VideoPresenter(callId, false);
+  const androidOsPipSafeMode = useSyncExternalStore(
+    subscribeCallPresentationOwnership,
+    () => shouldUseAndroidOsPipSafeLayout(callId),
+    () => false,
+  );
+  const presenter = useCallV4VideoPresenter(callId, androidOsPipSafeMode);
   const action = searchParams?.get("action")?.trim() ?? null;
   const source = searchParams?.get("source")?.trim() ?? null;
   const incomingPreview = searchParams?.get("incomingPreview") === "1";
@@ -277,6 +284,20 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
     [action, callId, phase, identity, connectedAt, safeT, router, presenter, mediaState]
   );
 
+  useCallV4RuntimeSurface({
+    callId,
+    phase,
+    identity,
+    vm,
+    router,
+  });
+
+  useEffect(() => {
+    if (!identity || identity.callId !== callId) return;
+    if (phase === "connected" || phase === "ending") return;
+    seedCallV4MediaPresentationForCall(identity.mediaType);
+  }, [callId, identity, phase]);
+
   useEffect(() => {
     if (!identity || identity.callId !== callId) return;
     if (phase !== "connected" || connectedAt == null) return;
@@ -290,7 +311,7 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
 
   useEffect(() => {
     if (!callId || !vm) return;
-    const branch = vm.mode === "video" && vm.phase === "connected" ? "connected_video_view" : "call_screen";
+    const branch = vm.mode === "video" && vm.phase === "connected" ? "connected_video_shell" : "call_screen";
     logCallV4("video_connected_branch_selected", {
       callId,
       branch,
@@ -306,17 +327,9 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
     return null;
   }
 
-  if (vm.mode === "video" && vm.phase === "connected") {
-    return (
-      <div data-testid="call-v4-screen" className="flex min-h-dvh flex-col bg-sam-app">
-        <ConnectedVideoView vm={vm} />
-      </div>
-    );
-  }
-
   return (
-    <div data-testid="call-v4-screen" className="flex min-h-dvh flex-col bg-sam-app">
-      <CallScreen vm={vm} variant="page" />
+    <div data-testid="call-v4-screen">
+      <CallScreen vm={vm} variant="overlay" />
     </div>
   );
 }
