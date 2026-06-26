@@ -1,0 +1,617 @@
+{
+  "measured_at": "2026-06-26T00:41:48.755Z",
+  "baseline_gate": "partial_pass",
+  "environment": {
+    "base_url_host": "127.0.0.1",
+    "build_id": "93YA9f9UltUJ93JN2glkS",
+    "node": "v26.0.0",
+    "playwright": "chromium headless",
+    "auth": "supabase_cookie_injected"
+  },
+  "fixtures": {
+    "trade_post_discovered": true,
+    "store_discovered": true,
+    "product_discovered": true,
+    "messenger_room_with_images": true
+  },
+  "static_code_baseline": {
+    "trade_feed_display_px": 120,
+    "community_feed_display_px": 88,
+    "trade_feed_fetch_px_formula": "clamp(96, displayPx×2, 384)",
+    "delivery_thumb_fetch_px_formula": "clamp(96, displayPx×2, 384)",
+    "delivery_presets_px": {
+      "upsell": 112,
+      "cart": 144,
+      "cartLine": 144,
+      "menu": 184,
+      "menuPublic": 176,
+      "list": 192,
+      "recommended": 224,
+      "rowFeatured": 232,
+      "hubFood": 240,
+      "stickyProfile": 80,
+      "galleryStrip": 96,
+      "discoveryProfile": 296,
+      "heroTransition": 960,
+      "detailHero": 960
+    },
+    "distinct_delivery_preset_widths": [
+      80,
+      96,
+      112,
+      144,
+      176,
+      184,
+      192,
+      224,
+      232,
+      240,
+      296,
+      960
+    ],
+    "adapter_consumer_imports": 0,
+    "legacy_media_direct_imports": 10,
+    "approved_tier_policy": {
+      "avatar": [
+        48,
+        96,
+        192
+      ],
+      "product_delivery_community": [
+        320,
+        640,
+        1280
+      ],
+      "messenger": [
+        640,
+        1280,
+        "original"
+      ],
+      "signoff_status": "approved_2026-06-26",
+      "phase2_implementation": "not_approved"
+    }
+  },
+  "surfaces": [
+    {
+      "id": "trade_feed",
+      "label": "거래 Feed (/market)",
+      "route": "/market",
+      "final_url": "/market",
+      "status": "ok",
+      "note": null,
+      "dwell_ms": 4032,
+      "dom_inspection": null,
+      "image_request_count": 30,
+      "transform_url_count": 30,
+      "object_full_url_count": 0,
+      "transferred_bytes": 283861,
+      "transferred_kb": 277,
+      "transferred_mb": 0.27,
+      "by_kind": {
+        "supabase_transform": 30
+      },
+      "transform_width_histogram": [
+        {
+          "width": 240,
+          "count": 30
+        }
+      ],
+      "sample_urls": [
+        {
+          "kind": "supabase_transform",
+          "width": 240,
+          "transfer_kb": 16,
+          "url_pattern": "supabase://render/post-images/…?width=240&height=240&quality=78"
+        },
+        {
+          "kind": "supabase_transform",
+          "width": 240,
+          "transfer_kb": 11,
+          "url_pattern": "supabase://render/post-images/…?width=240&height=240&quality=78"
+        },
+        {
+          "kind": "supabase_transform",
+          "width": 240,
+          "transfer_kb": 8,
+          "url_pattern": "supabase://render/post-images/…?width=240&height=240&quality=78"
+        },
+        {
+          "kind": "supabase_transform",
+          "width": 240,
+          "transfer_kb": 7,
+          "url_pattern": "supabase://render/post-images/…?width=240&height=240&quality=78"
+        },
+        {
+          "kind": "supabase_transform",
+          "width": 240,
+          "transfer_kb": 12,
+          "url_pattern": "supabase://render/post-images/…?width=240&height=240&quality=78"
+        }
+      ]
+    },
+    {
+      "id": "trade_detail",
+      "label": "거래 상세 (/post/[id])",
+      "route": "/post/{id}",
+      "final_url": "/post/{id}",
+      "status": "ok",
+      "note": null,
+      "dwell_ms": 5722,
+      "dom_inspection": null,
+      "image_request_count": 17,
+      "transform_url_count": 0,
+      "object_full_url_count": 16,
+      "transferred_bytes": 8120977,
+      "transferred_kb": 7931,
+      "transferred_mb": 7.74,
+      "by_kind": {
+        "other": 1,
+        "supabase_object_full": 16
+      },
+      "transform_width_histogram": [],
+      "sample_urls": [
+        {
+          "kind": "other",
+          "width": null,
+          "transfer_kb": 0,
+          "url_pattern": "googleusercontent://avatar/…"
+        },
+        {
+          "kind": "supabase_object_full",
+          "width": null,
+          "transfer_kb": 1,
+          "url_pattern": "supabase://object/post-images/…"
+        },
+        {
+          "kind": "supabase_object_full",
+          "width": null,
+          "transfer_kb": 340,
+          "url_pattern": "supabase://object/post-images/…"
+        },
+        {
+          "kind": "supabase_object_full",
+          "width": null,
+          "transfer_kb": 1,
+          "url_pattern": "supabase://object/post-images/…"
+        },
+        {
+          "kind": "supabase_object_full",
+          "width": null,
+          "transfer_kb": 10,
+          "url_pattern": "supabase://object/post-images/…"
+        }
+      ]
+    },
+    {
+      "id": "community_feed",
+      "label": "커뮤니티 Feed (/philife)",
+      "route": "/philife",
+      "final_url": "/philife",
+      "status": "ok",
+      "note": null,
+      "dwell_ms": 5571,
+      "dom_inspection": null,
+      "image_request_count": 28,
+      "transform_url_count": 12,
+      "object_full_url_count": 0,
+      "transferred_bytes": 1019133,
+      "transferred_kb": 995,
+      "transferred_mb": 0.97,
+      "by_kind": {
+        "direct": 16,
+        "supabase_transform": 12
+      },
+      "transform_width_histogram": [
+        {
+          "width": 176,
+          "count": 12
+        }
+      ],
+      "sample_urls": [
+        {
+          "kind": "direct",
+          "width": null,
+          "transfer_kb": 0,
+          "url_pattern": "imgnews.pstatic.net/…"
+        },
+        {
+          "kind": "direct",
+          "width": null,
+          "transfer_kb": 0,
+          "url_pattern": "cdn.imweb.me/…"
+        },
+        {
+          "kind": "direct",
+          "width": null,
+          "transfer_kb": 56,
+          "url_pattern": "cdn.imweb.me/…"
+        },
+        {
+          "kind": "direct",
+          "width": null,
+          "transfer_kb": 0,
+          "url_pattern": "cdn.imweb.me/…"
+        },
+        {
+          "kind": "direct",
+          "width": null,
+          "transfer_kb": 107,
+          "url_pattern": "cdn.imweb.me/…"
+        }
+      ]
+    },
+    {
+      "id": "delivery_menu",
+      "label": "배달 Menu (/stores/[slug])",
+      "route": "/stores/{slug}",
+      "final_url": "/stores/{slug}",
+      "status": "ok",
+      "note": null,
+      "dwell_ms": 4043,
+      "dom_inspection": null,
+      "image_request_count": 100,
+      "transform_url_count": 92,
+      "object_full_url_count": 8,
+      "transferred_bytes": 421505,
+      "transferred_kb": 412,
+      "transferred_mb": 0.4,
+      "by_kind": {
+        "supabase_transform": 92,
+        "supabase_object_full": 8
+      },
+      "transform_width_histogram": [
+        {
+          "width": 184,
+          "count": 82
+        },
+        {
+          "width": 232,
+          "count": 10
+        }
+      ],
+      "sample_urls": [
+        {
+          "kind": "supabase_transform",
+          "width": 232,
+          "transfer_kb": 0,
+          "url_pattern": "supabase://render/store-product-images/…?width=232&height=232&quality=78"
+        },
+        {
+          "kind": "supabase_transform",
+          "width": 232,
+          "transfer_kb": 6,
+          "url_pattern": "supabase://render/store-product-images/…?width=232&height=232&quality=78"
+        },
+        {
+          "kind": "supabase_transform",
+          "width": 232,
+          "transfer_kb": 1,
+          "url_pattern": "supabase://render/store-product-images/…?width=232&height=232&quality=78"
+        },
+        {
+          "kind": "supabase_transform",
+          "width": 232,
+          "transfer_kb": 6,
+          "url_pattern": "supabase://render/store-product-images/…?width=232&height=232&quality=78"
+        },
+        {
+          "kind": "supabase_transform",
+          "width": 184,
+          "transfer_kb": 1,
+          "url_pattern": "supabase://render/store-product-images/…?width=184&height=184&quality=78"
+        }
+      ]
+    },
+    {
+      "id": "delivery_hero",
+      "label": "배달 Detail Hero (/stores/[slug]/p/[id])",
+      "route": "/stores/{slug}/p/{productId}",
+      "final_url": "/stores/{slug}/p/{productId}",
+      "status": "ok",
+      "note": null,
+      "dwell_ms": 5382,
+      "dom_inspection": null,
+      "image_request_count": 2,
+      "transform_url_count": 2,
+      "object_full_url_count": 0,
+      "transferred_bytes": 7036,
+      "transferred_kb": 7,
+      "transferred_mb": 0.01,
+      "by_kind": {
+        "supabase_transform": 2
+      },
+      "transform_width_histogram": [
+        {
+          "width": 960,
+          "count": 2
+        }
+      ],
+      "sample_urls": [
+        {
+          "kind": "supabase_transform",
+          "width": 960,
+          "transfer_kb": 1,
+          "url_pattern": "supabase://render/store-product-images/…?width=960&height=720&quality=80"
+        },
+        {
+          "kind": "supabase_transform",
+          "width": 960,
+          "transfer_kb": 6,
+          "url_pattern": "supabase://render/store-product-images/…?width=960&height=720&quality=80"
+        }
+      ]
+    },
+    {
+      "id": "messenger_room",
+      "label": "메신저 방 (image messages)",
+      "route": "/community-messenger/rooms/{roomId}",
+      "final_url": "/community-messenger/rooms/{roomId}",
+      "status": "ok",
+      "note": null,
+      "dwell_ms": 12275,
+      "dom_inspection": {
+        "raw_img_count": 11,
+        "avatar_img_count": 0,
+        "bubble_img_count": 10,
+        "src_kinds_in_dom": {
+          "transform": 0,
+          "object_full": 11,
+          "other": 0
+        },
+        "uses_next_image": 0
+      },
+      "image_request_count": 10,
+      "transform_url_count": 0,
+      "object_full_url_count": 10,
+      "transferred_bytes": 519952,
+      "transferred_kb": 508,
+      "transferred_mb": 0.5,
+      "by_kind": {
+        "supabase_object_full": 10
+      },
+      "transform_width_histogram": [],
+      "sample_urls": [
+        {
+          "kind": "supabase_object_full",
+          "width": null,
+          "transfer_kb": 1,
+          "url_pattern": "supabase://object/post-images/…"
+        },
+        {
+          "kind": "supabase_object_full",
+          "width": null,
+          "transfer_kb": 49,
+          "url_pattern": "supabase://object/post-images/…"
+        },
+        {
+          "kind": "supabase_object_full",
+          "width": null,
+          "transfer_kb": 1,
+          "url_pattern": "supabase://object/post-images/…"
+        },
+        {
+          "kind": "supabase_object_full",
+          "width": null,
+          "transfer_kb": 228,
+          "url_pattern": "supabase://object/post-images/…"
+        },
+        {
+          "kind": "supabase_object_full",
+          "width": null,
+          "transfer_kb": 1,
+          "url_pattern": "supabase://object/post-images/…"
+        }
+      ]
+    },
+    {
+      "id": "mypage_profile",
+      "label": "마이페이지 프로필",
+      "route": "/mypage",
+      "final_url": "/mypage",
+      "status": "ok",
+      "note": null,
+      "dwell_ms": 4202,
+      "dom_inspection": null,
+      "image_request_count": 0,
+      "transform_url_count": 0,
+      "object_full_url_count": 0,
+      "transferred_bytes": 0,
+      "transferred_kb": 0,
+      "transferred_mb": 0,
+      "by_kind": {},
+      "transform_width_histogram": [],
+      "sample_urls": []
+    },
+    {
+      "id": "admin_image_preview",
+      "label": "관리자 이미지 preview (/admin/banners)",
+      "route": "/admin/banners",
+      "final_url": "/admin/banners",
+      "status": "http_error",
+      "note": "HTTP 500",
+      "dwell_ms": 4478,
+      "dom_inspection": {
+        "raw_img_count": 0,
+        "preview_img_count": 0,
+        "uses_next_image": 0,
+        "src_kinds": {
+          "transform": 0,
+          "object_full": 0,
+          "direct": 0
+        }
+      },
+      "image_request_count": 0,
+      "transform_url_count": 0,
+      "object_full_url_count": 0,
+      "transferred_bytes": 0,
+      "transferred_kb": 0,
+      "transferred_mb": 0,
+      "by_kind": {},
+      "transform_width_histogram": [],
+      "sample_urls": []
+    },
+    {
+      "id": "admin_store_taxonomy_preview",
+      "label": "관리자 store taxonomy image (/admin/stores)",
+      "route": "/admin/stores",
+      "final_url": "/admin/stores",
+      "status": "ok",
+      "note": null,
+      "dwell_ms": 4513,
+      "dom_inspection": {
+        "raw_img_count": 0,
+        "preview_img_count": 0,
+        "uses_next_image": 0,
+        "src_kinds": {
+          "transform": 0,
+          "object_full": 0,
+          "direct": 0
+        }
+      },
+      "image_request_count": 0,
+      "transform_url_count": 0,
+      "object_full_url_count": 0,
+      "transferred_bytes": 0,
+      "transferred_kb": 0,
+      "transferred_mb": 0,
+      "by_kind": {},
+      "transform_width_histogram": [],
+      "sample_urls": []
+    }
+  ],
+  "supabase_dashboard": {
+    "period": "last_7_days",
+    "recorded_at": "2026-06-26",
+    "status": "pending_dashboard_export",
+    "source": "Supabase Dashboard → Organization → Usage → Storage (Image Transformations, egress). Set IMAGE_BASELINE_SUPABASE_* env to inject without committing secrets.",
+    "image_transformations_origin_count": null,
+    "storage_egress_gb": null,
+    "cached_egress_gb": null,
+    "transformation_related_cost_usd": null
+  },
+  "device_qa": {
+    "method": "playwright_emulated_smoke",
+    "real_device_required": true,
+    "recorded_at": "2026-06-26T00:41:48.754Z",
+    "platforms": [
+      {
+        "platform": "desktop",
+        "label": "Desktop Chrome",
+        "routes": {
+          "/market": {
+            "status": "ok",
+            "broken_images": 0,
+            "lazy_still_loading": false,
+            "checks": {
+              "no_broken_images": true,
+              "lazy_load_present": true,
+              "note": "Playwright emulation smoke — real device QA still required"
+            }
+          },
+          "/philife": {
+            "status": "ok",
+            "broken_images": 0,
+            "lazy_still_loading": false,
+            "checks": {
+              "no_broken_images": true,
+              "lazy_load_present": true,
+              "note": "Playwright emulation smoke — real device QA still required"
+            }
+          }
+        },
+        "pass": true
+      },
+      {
+        "platform": "android",
+        "label": "Android (Pixel 5 emulation)",
+        "routes": {
+          "/market": {
+            "status": "ok",
+            "broken_images": 0,
+            "lazy_still_loading": false,
+            "checks": {
+              "no_broken_images": true,
+              "lazy_load_present": true,
+              "note": "Playwright emulation smoke — real device QA still required"
+            }
+          },
+          "/philife": {
+            "status": "ok",
+            "broken_images": 0,
+            "lazy_still_loading": false,
+            "checks": {
+              "no_broken_images": true,
+              "lazy_load_present": true,
+              "note": "Playwright emulation smoke — real device QA still required"
+            }
+          }
+        },
+        "pass": true
+      },
+      {
+        "platform": "ios",
+        "label": "iOS (iPhone 13 emulation)",
+        "routes": {
+          "/market": {
+            "status": "ok",
+            "broken_images": 0,
+            "lazy_still_loading": false,
+            "checks": {
+              "no_broken_images": true,
+              "lazy_load_present": true,
+              "note": "Playwright emulation smoke — real device QA still required"
+            }
+          },
+          "/philife": {
+            "status": "ok",
+            "broken_images": 0,
+            "lazy_still_loading": false,
+            "checks": {
+              "no_broken_images": true,
+              "lazy_load_present": true,
+              "note": "Playwright emulation smoke — real device QA still required"
+            }
+          }
+        },
+        "pass": true
+      }
+    ],
+    "overall_pass": true
+  },
+  "delivery_bandwidth_scenario": {
+    "scenario": "/stores → browse → detail → back (Slow 4G)",
+    "image_count": 93,
+    "transform_url_count": 78,
+    "full_object_thumb_count": 0,
+    "image_transferred_mb": 0.14,
+    "pass": true,
+    "last_run_pass": true,
+    "measured_at": "2026-06-26T00:32:00.000Z"
+  },
+  "admin_preview_code_contract": {
+    "component": "components/admin/banners/AdminBannerPreview.tsx",
+    "uses_raw_img": true,
+    "uses_next_image": false,
+    "uses_supabase_transform": false,
+    "image_src_source": "banner.mobileImageUrl || banner.imageUrl (direct URL)"
+  },
+  "baseline_completion": {
+    "gate": "partial_pass",
+    "completed": [
+      "playwright_8_surface_network",
+      "messenger_room_with_images",
+      "delivery_bandwidth_scenario",
+      "device_qa_playwright_emulated_smoke"
+    ],
+    "pending": [
+      "supabase_dashboard_7d_usage",
+      "admin_banners_runtime_preview (local prod HTTP 500 — code contract recorded)",
+      "real_device_android_ios_desktop_smoke"
+    ]
+  },
+  "tier_signoff": {
+    "approved": true,
+    "phase2_implementation": false,
+    "next_step_after_baseline": "adapter_gap + trade_feed surface migration (1 at a time)"
+  }
+}
