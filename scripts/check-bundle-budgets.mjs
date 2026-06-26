@@ -73,7 +73,16 @@ if (failures.length) {
   for (const f of failures) {
     console.error(`  - ${f.message}`);
   }
-  console.error(`[bundle-budget] If the increase is intentional: npm run build && npm run check:bundle:update-baseline`);
+  const hasShrink = failures.some((f) => f.direction === "under_min");
+  const hasGrowth = failures.some((f) => f.direction === "over_max");
+  if (hasShrink) {
+    console.error(
+      `[bundle-budget] Bundle shrank (baseline stale): npm run build && npm run check:bundle:update-baseline -- --allow-regression`
+    );
+  }
+  if (hasGrowth) {
+    console.error(`[bundle-budget] Bundle grew: npm run build && npm run check:bundle:update-baseline`);
+  }
   console.error(`[bundle-budget] Then commit ${BASELINE_REL} with a short note in the PR.`);
   process.exit(2);
 }

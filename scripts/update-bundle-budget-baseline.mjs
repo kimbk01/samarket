@@ -4,6 +4,7 @@ import { fileURLToPath } from "url";
 import {
   BASELINE_REL,
   buildBaselineProvenanceFromRoot,
+  evaluateBundleBudgetLock,
   loadBaseline,
   measureBundleMetrics,
   metricsToBaselinePayload,
@@ -40,20 +41,29 @@ if (fs.existsSync(baselinePath)) {
 }
 
 if (prev && !force) {
-  const prevTotal = prev.metrics?.total_client_js_kb ?? 0;
-  const nextTotal = nextMetrics.total_client_js_kb;
-  const slack = prev.growth_slack_kb?.total_client_js ?? 500;
-  const maxAllowed = prevTotal + slack;
-  if (nextTotal <= maxAllowed) {
-    console.log(
-      `[bundle-budget:update] No update needed: ${nextTotal} KB <= baseline ${prevTotal} + slack ${slack} (= ${maxAllowed} KB)`
-    );
+  const { failures } = evaluateBundleBudgetLock(prev, measured);
+  if (failures.length === 0) {
+    console.log(`[bundle-budget:update] No update needed: within baseline ± growth slack`);
     console.log(`[bundle-budget:update] Use --force to rewrite baseline anyway.`);
     process.exit(0);
   }
+
+  const shrinkFailures = failures.filter((f) => f.direction === "under_min");
+  if (shrinkFailures.length > 0 && !allowRegression) {
+    console.error(
+      `[bundle-budget:update] Bundle shrank below baseline − slack (${shrinkFailures.length} metric(s)); CI will fail until baseline is refreshed.`
+    );
+    for (const f of shrinkFailures) {
+      console.error(`  - ${f.message}`);
+    }
+    console.error(
+      `[bundle-budget:update] Pass --allow-regression if shrink is intentional (e.g. dynamic import / SSR isolation).`
+    );
+    process.exit(1);
+  }
 }
 
-if (prev?.metrics && nextMetrics.total_client_js_kb < (prev.metrics.total_client_js_kb ?? 0) && !allowRegression) {
+if (prev?.metrics && nextMetrics.total_client_js_kb < (prev.metrics.total_client_js_kb ?? 0) && !allowRegression && !force) {
   console.error(
     `[bundle-budget:update] Refusing to lower total_client_js_kb (${prev.metrics.total_client_js_kb} → ${nextMetrics.total_client_js_kb}).`
   );
