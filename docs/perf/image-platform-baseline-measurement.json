@@ -1,6 +1,8 @@
 {
   "measured_at": "2026-06-26T00:41:48.755Z",
-  "baseline_gate": "partial_pass",
+  "baseline_gate": "full_pass",
+  "baseline_gate_note": "Required real-device smoke PASS (Desktop Chrome + Android adb/CDP). iOS Safari deferred — not a Phase 2 entry blocker.",
+  "real_device_smoke_at": "2026-06-26T01:21:21.576Z",
   "environment": {
     "base_url_host": "127.0.0.1",
     "build_id": "93YA9f9UltUJ93JN2glkS",
@@ -428,7 +430,7 @@
       "route": "/admin/banners",
       "final_url": "/admin/banners",
       "status": "http_error",
-      "note": "HTTP 500",
+      "note": "HTTP 500 — see admin_banners_500_audit (not Image V2)",
       "dwell_ms": 4478,
       "dom_inspection": {
         "raw_img_count": 0,
@@ -479,21 +481,72 @@
       "sample_urls": []
     }
   ],
+  "admin_banners_500_audit": {
+    "audited_at": "2026-06-26",
+    "route": "/admin/banners",
+    "environment": "local prod (next start, build_id 93YA9f9UltUJ93JN2glkS)",
+    "image_v2_related": false,
+    "classification": "runtime_bug",
+    "not_causes": ["env_misconfiguration", "supabase_outage", "image_v2_migration"],
+    "trigger": "server admin gate denies access (getOptionalAdminUserId returns null)",
+    "root_cause": "AdminAccessDeniedPanel uses useI18n() without 'use client' but is rendered from Server Component app/admin/layout.tsx when admin auth fails",
+    "server_log_digest": "836022513",
+    "server_log_message": "Attempted to call useI18n() from the server but useI18n is on the client",
+    "evidence": {
+      "api_admin_banners_with_playwright_cookie": "401 (session not accepted as admin on route handler)",
+      "page_ssr_with_same_cookie": "500 (crashes on AdminAccessDeniedPanel instead of showing denial UI)",
+      "page_ssr_when_admin_auth_succeeds": "200 observed in separate probe (empty banner list, 0 preview imgs)",
+      "my_page_banners_row_count": 0
+    },
+    "baseline_impact": "Runtime image preview network baseline blocked on denial path; code contract for AdminBannerPreview still valid when page loads",
+    "fix_scope": "Out of Image V2 baseline — do not patch in baseline PR",
+    "tracking_issue": "docs/perf/p1-admin-access-denied-panel-ssr-crash.md",
+    "severity": "P1",
+    "image_v2_blocker": false
+  },
   "supabase_dashboard": {
     "period": "last_7_days",
     "recorded_at": "2026-06-26",
-    "status": "pending_dashboard_export",
-    "source": "Supabase Dashboard → Organization → Usage → Storage (Image Transformations, egress). Set IMAGE_BASELINE_SUPABASE_* env to inject without committing secrets.",
-    "image_transformations_origin_count": null,
-    "storage_egress_gb": null,
-    "cached_egress_gb": null,
-    "transformation_related_cost_usd": null
+    "status": "recorded",
+    "source": "Supabase Dashboard → Organization → Usage (user confirmed 2026-06-26)",
+    "storage_image_transformations_origin_count": 283,
+    "storage_egress_gb": 6.052,
+    "cached_egress_gb": 0.448,
+    "storage_size_gb": 0.243,
+    "realtime_peak_connections": 17,
+    "realtime_messages": 12074,
+    "mau": 35,
+    "transformation_related_cost_usd": null,
+    "assessment": {
+      "transform_count_severity": "not_explosive",
+      "transform_count_note": "283 origin transforms / 7d — elevated but not runaway; not the primary optimization target alone",
+      "primary_concern": "low_cache_hit_high_origin_egress",
+      "cached_to_total_egress_ratio": 0.069,
+      "cached_to_storage_egress_ratio": 0.074,
+      "interpretation": "Cached egress 0.448 GB vs Storage egress 6.052 GB — cache hit share ~6.9% of total egress (0.448 / 6.500). Aligns with runtime baseline finding: trade detail and messenger paths use full object URLs without transform."
+    }
+  },
+  "phase2_kpi": {
+    "approved": false,
+    "implementation": "blocked_until_user_approves_phase2",
+    "primary_targets_not_transform_count_alone": [
+      "reduce_full_object_access",
+      "unify_tier_urls",
+      "increase_cache_hit",
+      "reduce_origin_egress",
+      "reduce_image_request_count_and_transfer_bytes"
+    ],
+    "baseline_supabase_anchor": {
+      "storage_egress_gb": 6.052,
+      "cached_egress_gb": 0.448,
+      "storage_image_transformations_origin_count": 283
+    }
   },
   "device_qa": {
-    "method": "playwright_emulated_smoke",
-    "real_device_required": true,
-    "recorded_at": "2026-06-26T00:41:48.754Z",
-    "platforms": [
+    "emulated": {
+      "method": "playwright_emulated_smoke",
+      "recorded_at": "2026-06-26T00:41:48.754Z",
+      "platforms": [
       {
         "platform": "desktop",
         "label": "Desktop Chrome",
@@ -575,8 +628,90 @@
         },
         "pass": true
       }
-    ],
-    "overall_pass": true
+      ],
+      "overall_pass": true
+    },
+    "real_device": {
+      "status": "pass",
+      "required_platforms": ["Desktop Chrome", "Android (adb/CDP)"],
+      "deferred_platforms": [
+        {
+          "platform": "iOS Safari",
+          "status": "pending_environment",
+          "blocker_for_baseline_full_pass": false,
+          "note": "Xcode/Safari Web Inspector not configured — track as separate QA item after env setup"
+        }
+      ],
+      "checklist_per_platform": [
+        "no_broken_images",
+        "crop_preserved",
+        "no_blur_regression",
+        "lazy_load_ok",
+        "no_scroll_flicker",
+        "no_ui_regression"
+      ],
+      "surfaces_minimum": [
+        "/market",
+        "/philife",
+        "/stores/{slug}",
+        "/stores/{slug}/p/{productId}",
+        "/community-messenger/rooms/{roomId}",
+        "/mypage"
+      ],
+      "visual_checks_note": "crop/blur/flicker/ui_regression require human confirmation; automated checks cover broken images + network image failures + scroll",
+      "desktop_chrome": {
+        "status": "pass",
+        "recorded_at": "2026-06-26T01:17:37.667Z",
+        "pass": true,
+        "method": "playwright_chrome_channel_network",
+        "channel": "chrome",
+        "base_url": "http://127.0.0.1:3002",
+        "auth": "supabase_cookie_injected",
+        "surfaces_tested": 6,
+        "broken_images_total": 0,
+        "failed_image_requests_total": 0,
+        "routes": {
+          "/market": { "pass": true, "broken_images": 0, "image_requests": 15 },
+          "/philife": { "pass": true, "broken_images": 0, "image_requests": 14 },
+          "/stores/{slug}": { "pass": true, "broken_images": 0, "image_requests": 42 },
+          "/stores/{slug}/p/{productId}": { "pass": true, "broken_images": 0, "image_requests": 1 },
+          "/community-messenger/rooms/{roomId}": { "pass": true, "broken_images": 0, "image_requests": 5 },
+          "/mypage": { "pass": true, "broken_images": 0, "image_requests": 0 }
+        }
+      },
+      "android": {
+        "status": "pass",
+        "recorded_at": "2026-06-26T01:21:21.576Z",
+        "pass": true,
+        "method": "android_chrome_cdp_over_adb",
+        "device_model": "24076RP19G",
+        "serial": "redacted",
+        "adb_reverse": "tcp:3002",
+        "cdp_forward": "tcp:9222",
+        "base_url": "http://127.0.0.1:3002",
+        "auth": "supabase_cookie_injected_via_cdp",
+        "surfaces_tested": 6,
+        "broken_images_total": 0,
+        "failed_image_requests_total": 0,
+        "routes": {
+          "/market": { "pass": true, "broken_images": 0, "image_requests": 0 },
+          "/philife": { "pass": true, "broken_images": 0, "image_requests": 14 },
+          "/stores/{slug}": { "pass": true, "broken_images": 0, "image_requests": 33 },
+          "/stores/{slug}/p/{productId}": { "pass": true, "broken_images": 0, "image_requests": 1 },
+          "/community-messenger/rooms/{roomId}": { "pass": true, "broken_images": 0, "image_requests": 5 },
+          "/mypage": { "pass": true, "broken_images": 0, "image_requests": 0 }
+        }
+      },
+      "ios": {
+        "status": "pending_environment",
+        "recorded_at": null,
+        "pass": null,
+        "blocker_for_baseline_full_pass": false,
+        "note": "iOS dev/QA env not configured — deferred to post-baseline QA track"
+      },
+      "overall_pass": true
+    },
+    "gate_note": "Emulated smoke PASS; required real-device smoke PASS (Desktop Chrome + Android). iOS pending — not blocking FULL PASS."
   },
   "delivery_bandwidth_scenario": {
     "scenario": "/stores → browse → detail → back (Slow 4G)",
@@ -596,17 +731,24 @@
     "image_src_source": "banner.mobileImageUrl || banner.imageUrl (direct URL)"
   },
   "baseline_completion": {
-    "gate": "partial_pass",
+    "gate": "full_pass",
+    "push_status": "awaiting_user_decision",
     "completed": [
+      "baseline_json_and_script_committed_local",
       "playwright_8_surface_network",
       "messenger_room_with_images",
       "delivery_bandwidth_scenario",
-      "device_qa_playwright_emulated_smoke"
+      "device_qa_playwright_emulated_smoke",
+      "admin_banners_500_root_cause_audit",
+      "supabase_dashboard_7d_usage",
+      "real_device_desktop_chrome_smoke_6_surfaces",
+      "real_device_android_adb_cdp_smoke_6_surfaces"
     ],
     "pending": [
-      "supabase_dashboard_7d_usage",
-      "admin_banners_runtime_preview (local prod HTTP 500 — code contract recorded)",
-      "real_device_android_ios_desktop_smoke"
+      "ios_safari_smoke_deferred_separate_qa_track"
+    ],
+    "out_of_scope_tracked_separately": [
+      "P1 AdminAccessDeniedPanel SSR crash — docs/perf/p1-admin-access-denied-panel-ssr-crash.md"
     ]
   },
   "tier_signoff": {
