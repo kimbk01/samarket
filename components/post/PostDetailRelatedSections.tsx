@@ -11,6 +11,10 @@ import { PostListPreviewColumn } from "@/components/post/PostListPreviewColumn";
 import { formatPrice } from "@/lib/utils/format";
 import { beginRouteEntryPerf } from "@/lib/runtime/samarket-runtime-debug";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import {
+  imageResolveTradePostDetailRelatedDisplayUrl,
+  imageResolveTradePostDetailRelatedThumbRaw,
+} from "@/lib/image";
 
 type RelatedProps = {
   sellerItems: PostWithMeta[];
@@ -18,20 +22,18 @@ type RelatedProps = {
   ads: PostWithMeta[];
 };
 
-function itemThumb(item: PostWithMeta): string | null {
-  if (typeof item.thumbnail_url === "string" && item.thumbnail_url.trim()) {
-    return item.thumbnail_url.trim();
-  }
-  const firstImage = Array.isArray(item.images)
-    ? item.images.find((u): u is string => typeof u === "string" && u.trim().length > 0)
-    : null;
-  return firstImage ?? null;
+function useRelatedItemThumbSrc(item: PostWithMeta): string | null {
+  const thumbRaw = imageResolveTradePostDetailRelatedThumbRaw(item);
+  return useMemo(() => {
+    if (!thumbRaw) return null;
+    return imageResolveTradePostDetailRelatedDisplayUrl(thumbRaw);
+  }, [thumbRaw]);
 }
 
 function PostMiniCard({ item }: { item: PostWithMeta }) {
   const { t } = useI18n();
   const router = useRouter();
-  const thumb = itemThumb(item);
+  const thumb = useRelatedItemThumbSrc(item);
   const app = getAppSettings();
   const preview = buildPostListPreviewModel(item as unknown as Record<string, unknown>, {
     currency: app.defaultCurrency || "KRW",
@@ -83,7 +85,7 @@ function chunkPosts(rows: PostWithMeta[], size: number): PostWithMeta[][] {
 function PostAdCompactCard({ item }: { item: PostWithMeta }) {
   const { t } = useI18n();
   const router = useRouter();
-  const thumb = itemThumb(item);
+  const thumb = useRelatedItemThumbSrc(item);
   const currency = getAppSettings().defaultCurrency || "KRW";
   const priceText =
     item.is_free_share === true

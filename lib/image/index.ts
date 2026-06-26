@@ -76,3 +76,8 @@ export {
   TRADE_POST_DETAIL_TIER_1280_ENABLED,
   TRADE_POST_DETAIL_TIER_FETCH_PX,
 } from "@/lib/image/image-trade-detail";
+
+export {
+  imageResolveTradePostDetailRelatedDisplayUrl,
+  imageResolveTradePostDetailRelatedThumbRaw,
+} from "@/lib/image/image-trade-detail-related";
