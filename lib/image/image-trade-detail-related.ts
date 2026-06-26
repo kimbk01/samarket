@@ -2,13 +2,25 @@
  * DIBAY Image V2 — trade post detail related sections (`PostDetailRelatedSections`).
  *
  * Phase 1: full-object passthrough — legacy path used `SamarketThumbnail` without
- * `fetchDisplayPx`, so img `src` stays the raw storage / external URL (byte-identical).
- * Phase 2 (future): tier transform applies in `imageResolveTradePostDetailRelatedDisplayUrl` only.
+ * `fetchDisplayPx`, so img `src` stayed the raw storage / external URL.
+ * Phase 2b: `imageResolveTradePostDetailRelatedDisplayUrl` applies trade-feed-equivalent
+ * width=240 transform (displayPx 120 → fetch 240).
  */
+import { loadTradeFeedThumbnailFetchUrl } from "@/lib/image/image-loader";
+import { TRADE_FEED_THUMB_DISPLAY_PX } from "@/lib/image/image-size";
+
 type TradePostDetailRelatedThumbSource = {
   thumbnail_url?: string | null;
   images?: unknown;
 };
+
+/**
+ * Rollback: set to `false` to restore Phase 1 full-object passthrough in display URL only.
+ */
+export const TRADE_POST_DETAIL_RELATED_TIER_240_ENABLED = true;
+
+/** Reuses trade feed thumb contract — display 120px slot → Supabase fetch width=240. */
+export const TRADE_POST_DETAIL_RELATED_DISPLAY_PX = TRADE_FEED_THUMB_DISPLAY_PX;
 
 /**
  * Raw thumb URL from related post payload.
@@ -28,8 +40,11 @@ export function imageResolveTradePostDetailRelatedThumbRaw(
 
 /**
  * Per-card display URL for related `SamarketThumbnail` (no `fetchDisplayPx`).
- * Phase 1: passthrough — byte-identical to legacy full-object / external URL.
+ * Phase 2b: post-images full object → trade-feed-equivalent transform width=240.
  */
 export function imageResolveTradePostDetailRelatedDisplayUrl(raw: string): string {
-  return raw;
+  if (!TRADE_POST_DETAIL_RELATED_TIER_240_ENABLED) {
+    return raw;
+  }
+  return loadTradeFeedThumbnailFetchUrl(raw) ?? raw;
 }

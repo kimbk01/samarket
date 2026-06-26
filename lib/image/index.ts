@@ -80,4 +80,6 @@ export {
 export {
   imageResolveTradePostDetailRelatedDisplayUrl,
   imageResolveTradePostDetailRelatedThumbRaw,
+  TRADE_POST_DETAIL_RELATED_DISPLAY_PX,
+  TRADE_POST_DETAIL_RELATED_TIER_240_ENABLED,
 } from "@/lib/image/image-trade-detail-related";
