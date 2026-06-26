@@ -3,10 +3,10 @@
 import { useMemo } from "react";
 import { SamarketThumbnail, SAMARKET_THUMBNAIL_FALLBACK_SRC } from "@/components/common/SamarketThumbnail";
 import {
-  buildStoreProductThumbnailFetchUrl,
-  buildStoreProductThumbnailFetchUrlFromPreset,
+  loadStoreProductThumbnailFetchUrl,
+  loadStoreProductThumbnailFetchUrlFromPreset,
   type DeliveryImageFetchPreset,
-} from "@/lib/media/store-product-image-transform";
+} from "@/lib/image";
 
 export const STORE_PRODUCT_THUMBNAIL_FALLBACK_SRC =
   SAMARKET_THUMBNAIL_FALLBACK_SRC;
@@ -44,10 +44,10 @@ export function StoreProductThumbnail({
   const fetchSrc = useMemo(() => {
     if (!src?.trim()) return src;
     if (fetchPreset) {
-      return buildStoreProductThumbnailFetchUrlFromPreset(src, fetchPreset) ?? src;
+      return loadStoreProductThumbnailFetchUrlFromPreset(src, fetchPreset) ?? src;
     }
     const displayPx = fill ? 116 : size;
-    return buildStoreProductThumbnailFetchUrl(src, displayPx) ?? src;
+    return loadStoreProductThumbnailFetchUrl(src, displayPx) ?? src;
   }, [fetchPreset, fill, size, src]);
 
   return (

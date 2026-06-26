@@ -93,6 +93,28 @@ export function loadCommunityFeedThumbnailFetchUrl(raw: string | null | undefine
 }
 
 /**
+ * Store product thumb (`StoreProductThumbnail`) — displayPx → `deliveryThumbFetchPx` transform.
+ * Delivery Menu rows (e.g. size 88 → width 176) and other store-thumb surfaces share this SSOT.
+ */
+export function loadStoreProductThumbnailFetchUrl(
+  raw: string | null | undefined,
+  displayPx: number
+): string | null {
+  return loadImageFetchUrl({ kind: "store-thumb", raw, displayPx });
+}
+
+/**
+ * Store product thumb by delivery preset (`fetchPreset` on `StoreProductThumbnail`).
+ * @see buildStoreProductThumbnailFetchUrlFromPreset — menu=184, rowFeatured=232, etc.
+ */
+export function loadStoreProductThumbnailFetchUrlFromPreset(
+  raw: string | null | undefined,
+  preset: DeliveryImageFetchPreset
+): string | null {
+  return loadImageFetchUrl({ kind: "store-preset", raw, preset });
+}
+
+/**
  * Single entry for fetch URLs. Phase 1: policy is passthrough — output equals legacy.
  */
 export function loadImageFetchUrl(input: ImageLoaderInput): string | null {

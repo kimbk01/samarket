@@ -59,6 +59,8 @@ export {
 export {
   loadCommunityFeedThumbnailFetchUrl,
   loadImageFetchUrl,
+  loadStoreProductThumbnailFetchUrl,
+  loadStoreProductThumbnailFetchUrlFromPreset,
   loadTradeFeedThumbnailFetchUrl,
   type ImageLoaderDeliverySurfaceInput,
   type ImageLoaderFeedInput,
