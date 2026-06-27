@@ -41,7 +41,33 @@ const FCM_SETTLE_MS = Number(process.env.RUNTIME_QA_FCM_SETTLE_MS?.trim() || "45
 const USE_PM_CLEAR = process.env.RUNTIME_QA_PM_CLEAR?.trim() !== "0";
 const ONLY_LOCK_UNLOCK = process.env.RUNTIME_QA_ONLY_LOCK_UNLOCK?.trim() === "1";
 const ONLY_CAMERA = process.env.RUNTIME_QA_ONLY_CAMERA?.trim() === "1";
+const NATIVE_VIDEO_MINIMAL = process.env.RUNTIME_QA_NATIVE_VIDEO_MINIMAL?.trim() === "1";
 const ONLY_PROBE = ONLY_LOCK_UNLOCK || ONLY_CAMERA;
+
+const NATIVE_VIDEO_MINIMAL_MARKERS = [
+  "incoming_activity_shown",
+  "accept_tapped",
+  "accept_patch_done",
+  "token_fetch_done",
+  "agora_native_video_join_start",
+  "agora_native_video_join_success",
+  "local_camera_publish_success",
+  "remote_video_rendered",
+  "state_connected",
+  "end_patch_done",
+  "cleanup_done",
+];
+
+const NATIVE_VIDEO_CONNECTED_MARKERS = [
+  "accept_tapped",
+  "accept_patch_done",
+  "token_fetch_done",
+  "agora_native_video_join_start",
+  "agora_native_video_join_success",
+  "local_camera_publish_success",
+  "remote_video_rendered",
+  "state_connected",
+];
 
 const CALLEE_VIDEO_CONNECTED_CHAIN = [
   "remote_video_track_ready",
@@ -70,6 +96,7 @@ const LOGCAT_STREAM_FILTER = [
   "DIBAY_WebView:I",
   "DIBAY_CALL:I",
   "DIBAY_INCOMING_CALL:I",
+  "DIBAY_NATIVE_VIDEO:I",
   "DIBAY_CALL_PUSH:I",
   "Capacitor/Console:I",
   "DIBAY_NOTIFY:I",
@@ -183,6 +210,27 @@ function analyzeMarkerChain(logText, callId, chain) {
     if (observed[marker]) lastMarker = marker;
   }
   return { observed, lastMarker, pass: chain.every((m) => observed[m]) };
+}
+
+function analyzeNativeVideoMinimalMarkers(logText, callId) {
+  const observed = Object.fromEntries(
+    NATIVE_VIDEO_MINIMAL_MARKERS.map((marker) => [marker, hasMarker(logText, marker, callId)]),
+  );
+  const firstMissing = NATIVE_VIDEO_MINIMAL_MARKERS.find((marker) => !observed[marker]) ?? null;
+  return { observed, firstMissing, pass: firstMissing == null };
+}
+
+async function waitNativeVideoMarkers(callId, getLogs, markers, timeoutMs = 90_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const logs = getLogs();
+    const chain = analyzeMarkerChain(logs, callId, markers);
+    if (chain.pass) return { ok: true, chain };
+    await sleep(1000);
+  }
+  const logs = getLogs();
+  const chain = analyzeMarkerChain(logs, callId, markers);
+  return { ok: false, chain, firstMissing: markers.find((marker) => !chain.observed[marker]) ?? null };
 }
 
 function lineMatchesCallV4Marker(line, marker, callId) {
@@ -1191,6 +1239,7 @@ async function waitAcceptButton(callId, getLogsB, timeoutMs = 55_000) {
   while (Date.now() < deadline) {
     const logs = getLogsB();
     if (logs.includes("accept_button_rendered") && lineHasCallId(logs, callId)) return true;
+    if (NATIVE_VIDEO_MINIMAL && incomingUiVisible(SERIAL_B)) return true;
     await sleep(400);
   }
   return false;
@@ -1198,6 +1247,9 @@ async function waitAcceptButton(callId, getLogsB, timeoutMs = 55_000) {
 
 async function waitVideoConnected(callId, getLogsB, timeoutMs = 90_000) {
   const deadline = Date.now() + timeoutMs;
+  if (NATIVE_VIDEO_MINIMAL) {
+    return waitNativeVideoMarkers(callId, getLogsB, NATIVE_VIDEO_CONNECTED_MARKERS, timeoutMs);
+  }
   while (Date.now() < deadline) {
     const logs = getLogsB();
     const chain = analyzeMarkerChain(logs, callId, CALLEE_VIDEO_CONNECTED_CHAIN);
@@ -1208,6 +1260,24 @@ async function waitVideoConnected(callId, getLogsB, timeoutMs = 90_000) {
   }
   const logs = getLogsB();
   return { ok: false, chain: analyzeMarkerChain(logs, callId, CALLEE_VIDEO_CONNECTED_CHAIN) };
+}
+
+function tapEnd(serial) {
+  adbObj(serial, "shell", "uiautomator", "dump", "/sdcard/uidump.xml");
+  const xml = adb(serial, "shell", "cat", "/sdcard/uidump.xml");
+  const patterns = [
+    /content-desc="[^"]*(?:종료|End|Hang up)[^"]*"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/i,
+    /text="[^"]*(?:종료|End|Hang up)[^"]*"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"/i,
+  ];
+  for (const re of patterns) {
+    const m = xml.match(re);
+    if (!m) continue;
+    const x = Math.floor((Number(m[1]) + Number(m[3])) / 2);
+    const y = Math.floor((Number(m[2]) + Number(m[4])) / 2);
+    adb(serial, "shell", "input", "tap", String(x), String(y));
+    return { tapped: true, x, y };
+  }
+  return { tapped: false };
 }
 
 /** Browser-side: role/testid/aria/state button discovery */
@@ -1448,6 +1518,40 @@ async function main() {
 
   results.video_connected = session.connected.ok ? "PASS" : "FAIL";
   evidence.establish = session;
+
+  if (NATIVE_VIDEO_MINIMAL) {
+    const endTap = tapEnd(SERIAL_B);
+    evidence.endTap = endTap;
+    console.log(`[v4-runtime-ro] native_video_minimal_end_tap=`, JSON.stringify(endTap));
+    const deadline = Date.now() + 45_000;
+    let nativeMarkers = analyzeNativeVideoMinimalMarkers(getLogsMerged(), callId);
+    while (Date.now() < deadline && !nativeMarkers.pass) {
+      await sleep(1000);
+      nativeMarkers = analyzeNativeVideoMinimalMarkers(getLogsMerged(), callId);
+    }
+    await stopStreamingLogcat(SERIAL_A);
+    await stopStreamingLogcat(SERIAL_B);
+    const logsAFinal = readMergedLogcat(SERIAL_A, "A", callId);
+    const logsBFinal = readMergedLogcat(SERIAL_B, "B", callId);
+    nativeMarkers = analyzeNativeVideoMinimalMarkers(`${logsAFinal}\n${logsBFinal}`, callId);
+    results.native_video_minimal_markers = nativeMarkers.pass ? "PASS" : "FAIL";
+    const report = {
+      at: new Date().toISOString(),
+      phase: "native-video-minimal",
+      webTarget: WEB,
+      callId,
+      callLogDir: activeCallOut,
+      dial: session.dial,
+      results,
+      evidence,
+      nativeMarkers,
+      verdict: nativeMarkers.pass ? "PASS" : "FAIL",
+    };
+    fs.writeFileSync(callLogPath(callId, "report.json"), JSON.stringify(report, null, 2));
+    fs.writeFileSync(path.join(OUT_ROOT, "report-latest.json"), JSON.stringify(report, null, 2));
+    console.log(JSON.stringify({ callId, verdict: report.verdict, nativeMarkers }, null, 2));
+    process.exit(nativeMarkers.pass ? 0 : 1);
+  }
 
   const uiGateA = await cdpPage(SERIAL_A, CDP_A, (page) => revealAndSnapshot(page));
   const uiGateB = await cdpPage(SERIAL_B, CDP_B, (page) => revealAndSnapshot(page));
