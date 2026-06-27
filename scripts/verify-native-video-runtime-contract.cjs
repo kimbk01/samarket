@@ -322,6 +322,16 @@ if (exists(nativeVideoDir)) {
   if (!agoraJoin.includes("no_ui_preview_skipped")) {
     fail("NativeVideoCallAgoraEngine must log no_ui_preview_skipped when Activity is absent");
   }
+  if (!agoraJoin.includes("peekOccupantCallId")) {
+    fail("NativeVideoCallAgoraEngine must expose peekOccupantCallId for engine guard");
+  } else if (!agoraJoin.includes("releaseZombieEngine")) {
+    fail("NativeVideoCallAgoraEngine must expose releaseZombieEngine for stale reclaim");
+  }
+  if (!runtime.includes("prepareJoinGuard")) {
+    fail("NativeVideoCallRuntime must run prepareJoinGuard before Agora join");
+  } else if (runtime.indexOf("prepareJoinGuard") > runtime.indexOf("NativeVideoCallAgoraEngine.joinCaller")) {
+    fail("prepareJoinGuard must run before joinCaller in NativeVideoCallRuntime");
+  }
   if (!failed) pass("native video runtime implementation is present");
 } else {
   fail("nativevideo runtime directory must exist");
@@ -342,6 +352,58 @@ if (bridgeSyncCount < 2) {
   fail("NativeVideoCallRuntime must call NativeVideoCallBridge.syncConnected on both connected hooks");
 } else {
   pass("native video runtime connected hooks call O3 bridge");
+}
+
+const endDispatcher = read("android/app/src/main/java/com/dibay/app/nativecall/NativeCallRuntimeEndDispatcher.java");
+if (!endDispatcher.includes("native_end_dispatch")) {
+  fail("NativeCallRuntimeEndDispatcher must log native_end_dispatch");
+}
+if (!endDispatcher.includes("NativeVideoCallRuntime.onRemoteTerminal")) {
+  fail("NativeCallRuntimeEndDispatcher must route video terminal events to NativeVideoCallRuntime.onRemoteTerminal");
+}
+for (const banned of [
+  "cleanup(",
+  "AgoraEngine.leave",
+  "CallService.stop",
+  "NativeVoiceCallService.stop",
+  "NativeVideoCallService.stop",
+]) {
+  if (endDispatcher.includes(banned)) {
+    fail(`NativeCallRuntimeEndDispatcher must be a thin router and not call ${banned}`);
+  }
+}
+if (!nativeVideoRuntime.includes("onRemoteTerminal")) {
+  fail("NativeVideoCallRuntime must own O4 terminal cleanup via onRemoteTerminal");
+}
+for (const marker of ["runtime_cleanup_start", "NativeVideoCallAgoraEngine.leave", "native_call_service_stop", "cleanup_done"]) {
+  if (!nativeVideoRuntime.includes(marker)) {
+    fail(`NativeVideoCallRuntime missing O4 cleanup chain marker: ${marker}`);
+  }
+}
+const terminalHandler = read("android/app/src/main/java/com/dibay/app/IncomingCallTerminalHandler.java");
+if (!terminalHandler.includes("NativeCallRuntimeEndDispatcher.dispatch")) {
+  fail("IncomingCallTerminalHandler must dispatch terminal events to Native Runtime before legacy presentation cleanup");
+}
+if (!failed) pass("native video O4 end ownership contract is present");
+
+const engineOwnership = read("android/app/src/main/java/com/dibay/app/nativecall/NativeCallEngineOwnership.java");
+for (const marker of [
+  "native_engine_guard_start",
+  "native_engine_guard_proceed",
+  "native_engine_busy",
+  "native_stale_engine_detected",
+  "native_stale_engine_cleanup_start",
+  "native_stale_engine_cleanup_done",
+  "native_join_idempotent_skip",
+]) {
+  if (!engineOwnership.includes(marker)) {
+    fail(`NativeCallEngineOwnership missing guard marker: ${marker}`);
+  }
+}
+if (engineOwnership.includes("DibayCallConsumedStore") || engineOwnership.includes("STATE_TERMINAL")) {
+  fail("NativeCallEngineOwnership must not use consumed/tombstone stale signals in v1");
+} else {
+  pass("native engine ownership guard SSOT is present");
 }
 
 if (failed) process.exit(1);

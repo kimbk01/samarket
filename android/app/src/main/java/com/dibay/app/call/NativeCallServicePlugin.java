@@ -6,6 +6,7 @@ import com.dibay.app.nativevideo.NativeVideoCallApi;
 import com.dibay.app.nativevideo.NativeVideoCallLane;
 import com.dibay.app.nativevideo.NativeVideoCallOwner;
 import com.dibay.app.nativevideo.NativeVideoCallRuntime;
+import com.dibay.app.nativecall.NativeCallRuntimeEndDispatcher;
 import com.dibay.app.nativevoice.NativeVoiceCallApi;
 import com.dibay.app.nativevoice.NativeVoiceCallLane;
 import com.dibay.app.nativevoice.NativeVoiceCallOwner;
@@ -190,6 +191,12 @@ public class NativeCallServicePlugin extends Plugin {
       call.resolve(blocked);
       return;
     }
+    if (NativeCallRuntimeEndDispatcher.dispatch(getContext(), callId, reason, "plugin_end_call")) {
+      JSObject result = new JSObject();
+      result.put("ok", true);
+      call.resolve(result);
+      return;
+    }
     DibayActiveCallSessionManager.requestCleanup(getContext(), callId, reason);
     JSObject result = new JSObject();
     result.put("ok", true);
@@ -258,6 +265,10 @@ public class NativeCallServicePlugin extends Plugin {
     String callId = call.getString("callId", "").trim();
     if (callId.isEmpty()) {
       call.reject("invalid_call_id");
+      return;
+    }
+    if (NativeCallRuntimeEndDispatcher.dispatch(getContext(), callId, "ended", "plugin_remote_ended")) {
+      call.resolve(new JSObject().put("ok", true));
       return;
     }
     DibayActiveCallSessionManager.onRemoteEnded(getContext(), callId);

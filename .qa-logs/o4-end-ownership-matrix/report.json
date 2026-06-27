@@ -1,0 +1,59 @@
+{
+  "at": "2026-06-28T04:40:00.000Z",
+  "serialA": "8b37179f7d94",
+  "serialB": "RRGL4046NTW",
+  "note": "Consolidated O4 End Ownership matrix — product end paths only; end-all excluded from proof",
+  "results": [
+    {
+      "scenario": "voice_local_end",
+      "pass": true,
+      "callId": "e1f1908b-688e-4a37-9e0d-36160c5ca65e",
+      "entryMarker": "NativeCallService.endCall",
+      "chain": {
+        "NativeCallService.endCall": true,
+        "native_end_dispatch": true,
+        "runtime_cleanup_start": true,
+        "agora_native_disconnected": true,
+        "native_call_service_stop": true,
+        "cleanup_done": true
+      },
+      "logPath": ".qa-logs/o4-end-ownership-matrix/logcat-voice_local_end-e1f1908b-688e-4a37-9e0d-36160c5ca65e.txt"
+    },
+    {
+      "scenario": "voice_remote_end",
+      "pass": true,
+      "callId": "be1cb22e-e699-4d81-8e83-ba35f408420e",
+      "entryMarker": "terminal_received",
+      "terminalSource": "fcm:call_ended",
+      "heartbeatTimeoutLed": false,
+      "peerEndTap": true,
+      "chain": {
+        "terminal_received": true,
+        "native_end_dispatch": true,
+        "runtime_cleanup_start": true,
+        "agora_native_disconnected": true,
+        "native_call_service_stop": true,
+        "cleanup_done": true
+      },
+      "logPath": ".qa-logs/o4-end-ownership-matrix/logcat-voice_remote_end-be1cb22e-e699-4d81-8e83-ba35f408420e.txt"
+    },
+    {
+      "scenario": "video_local_end",
+      "pass": true,
+      "callId": "2c78c263-a30c-4b5f-9314-7266f654b3d3",
+      "entryMarker": "NativeCallService.endCall",
+      "runtimeVideo": true,
+      "chain": {
+        "NativeCallService.endCall": true,
+        "native_end_dispatch": true,
+        "runtime_cleanup_start": true,
+        "agora_native_disconnected": true,
+        "native_call_service_stop": true,
+        "cleanup_done": true
+      },
+      "logPath": ".qa-logs/o4-end-ownership-matrix/logcat-video_local_end-2c78c263-a30c-4b5f-9314-7266f654b3d3.txt"
+    }
+  ],
+  "overallPass": true,
+  "hardLockCandidate": true
+}

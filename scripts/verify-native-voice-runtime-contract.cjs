@@ -281,5 +281,74 @@ if (!voiceBridge.includes("native_connected_emit")) {
   pass("native voice connected bridge publishes O3 native_connected_emit");
 }
 
+const endDispatcher = read("android/app/src/main/java/com/dibay/app/nativecall/NativeCallRuntimeEndDispatcher.java");
+if (!endDispatcher.includes("native_end_dispatch")) {
+  fail("NativeCallRuntimeEndDispatcher must log native_end_dispatch");
+}
+if (!endDispatcher.includes("NativeVoiceCallRuntime.onRemoteTerminal")) {
+  fail("NativeCallRuntimeEndDispatcher must route voice terminal events to NativeVoiceCallRuntime.onRemoteTerminal");
+}
+for (const banned of [
+  "cleanup(",
+  "AgoraEngine.leave",
+  "CallService.stop",
+  "NativeVoiceCallService.stop",
+  "NativeVideoCallService.stop",
+]) {
+  if (endDispatcher.includes(banned)) {
+    fail(`NativeCallRuntimeEndDispatcher must be a thin router and not call ${banned}`);
+  }
+}
+if (!voiceRuntime.includes("onRemoteTerminal")) {
+  fail("NativeVoiceCallRuntime must own O4 terminal cleanup via onRemoteTerminal");
+}
+for (const marker of ["runtime_cleanup_start", "NativeVoiceCallAgoraEngine.leave", "native_call_service_stop", "cleanup_done"]) {
+  if (!voiceRuntime.includes(marker)) {
+    fail(`NativeVoiceCallRuntime missing O4 cleanup chain marker: ${marker}`);
+  }
+}
+const terminalHandler = read("android/app/src/main/java/com/dibay/app/IncomingCallTerminalHandler.java");
+if (!terminalHandler.includes("NativeCallRuntimeEndDispatcher.dispatch")) {
+  fail("IncomingCallTerminalHandler must dispatch terminal events to Native Runtime before legacy presentation cleanup");
+}
+if (!failed) pass("native voice O4 end ownership contract is present");
+
+const engineOwnership = read("android/app/src/main/java/com/dibay/app/nativecall/NativeCallEngineOwnership.java");
+for (const marker of [
+  "native_engine_guard_start",
+  "native_engine_guard_proceed",
+  "native_engine_busy",
+  "native_stale_engine_detected",
+  "native_stale_engine_cleanup_start",
+  "native_stale_engine_cleanup_done",
+  "native_join_idempotent_skip",
+  "releaseZombieEngine",
+  "findStaleSessionCallId",
+  "findOtherLiveSessionCallId",
+]) {
+  if (!engineOwnership.includes(marker)) {
+    fail(`NativeCallEngineOwnership missing guard marker: ${marker}`);
+  }
+}
+if (engineOwnership.includes("DibayCallConsumedStore") || engineOwnership.includes("STATE_TERMINAL")) {
+  fail("NativeCallEngineOwnership must not use consumed/tombstone stale signals in v1");
+}
+if (!voiceAgora.includes("peekOccupantCallId")) {
+  fail("NativeVoiceCallAgoraEngine must expose peekOccupantCallId for engine guard");
+} else if (!voiceAgora.includes("releaseZombieEngine")) {
+  fail("NativeVoiceCallAgoraEngine must expose releaseZombieEngine for stale reclaim");
+} else {
+  pass("native voice Agora engine guard helpers are present");
+}
+if (!voiceRuntime.includes("prepareJoinGuard")) {
+  fail("NativeVoiceCallRuntime must run prepareJoinGuard before Agora join");
+} else if (
+  voiceRuntime.indexOf("prepareJoinGuard") > voiceRuntime.indexOf("NativeVoiceCallAgoraEngine.joinCaller")
+) {
+  fail("prepareJoinGuard must run before joinCaller in NativeVoiceCallRuntime");
+} else {
+  pass("native voice join runs engine ownership guard before RtcEngine.create");
+}
+
 if (failed) process.exit(1);
 console.log("verify:native-voice-runtime-contract PASS");

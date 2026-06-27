@@ -13,6 +13,8 @@ import com.dibay.app.DibayKeyguardHelper;
 import com.dibay.app.IncomingCallActionCoordinator;
 import com.dibay.app.IncomingCallNotificationBuilder;
 import com.dibay.app.IncomingCallRingOwner;
+import com.dibay.app.call.DibayActiveCallSessionManager;
+import com.dibay.app.nativecall.NativeCallEngineOwnership;
 import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -112,6 +114,34 @@ public final class NativeVideoCallRuntime {
     return SESSIONS.get(callId.trim());
   }
 
+  /** Guard-only: another callId with live session state. */
+  public static String findOtherLiveSessionCallId(String incomingCallId) {
+    if (incomingCallId == null || incomingCallId.trim().isEmpty()) return null;
+    String incoming = incomingCallId.trim();
+    for (Session session : SESSIONS.values()) {
+      if (incoming.equals(session.callId)) continue;
+      if (session.state == State.ACCEPTING
+          || session.state == State.CONNECTING
+          || session.state == State.CONNECTED) {
+        return session.callId;
+      }
+    }
+    return null;
+  }
+
+  /** Guard-only: stale session eligible for reclaim cleanup. */
+  public static String findStaleSessionCallId(String incomingCallId) {
+    if (incomingCallId == null || incomingCallId.trim().isEmpty()) return null;
+    String incoming = incomingCallId.trim();
+    for (Session session : SESSIONS.values()) {
+      if (incoming.equals(session.callId)) continue;
+      if (session.state == State.ENDING || session.state == State.ENDED || session.state == State.FAILED) {
+        return session.callId;
+      }
+    }
+    return null;
+  }
+
   /** Outgoing caller path — token fetch and Agora join without WebView establishment. */
   public static void handleOutgoing(
       Context context,
@@ -161,6 +191,7 @@ public final class NativeVideoCallRuntime {
             fail(app, sid, "token_fetch_failed " + safe(tokenError));
             return;
           }
+          if (!prepareJoinGuard(app, sid)) return;
           NativeVideoCallAgoraEngine.joinCaller(
               app,
               sid,
@@ -227,6 +258,7 @@ public final class NativeVideoCallRuntime {
                   fail(app, sid, "token_fetch_failed " + safe(tokenError));
                   return;
                 }
+                if (!prepareJoinGuard(app, sid)) return;
                 NativeVideoCallAgoraEngine.join(
                     app,
                     sid,
@@ -273,18 +305,45 @@ public final class NativeVideoCallRuntime {
     terminalPatch(context, callId, "missed");
   }
 
+  public static void onRemoteTerminal(Context context, String callId, String terminalKind, String source) {
+    if (context == null || callId == null || callId.trim().isEmpty()) return;
+    Context app = context.getApplicationContext();
+    String sid = callId.trim();
+    String reason = normalizeTerminalReason(terminalKind);
+    Session session = SESSIONS.get(sid);
+    if (session != null && "missed".equals(reason) && session.state == State.CONNECTED) {
+      NativeVideoCallLog.info(
+          "native_terminal_suppressed", sid, "kind=missed source=" + safe(source) + " state=connected");
+      cancelMissed(sid);
+      return;
+    }
+    if (session != null
+        && (session.state == State.ENDING || session.state == State.ENDED || session.state == State.FAILED)) {
+      NativeVideoCallLog.info(
+          "native_terminal_skip",
+          sid,
+          "kind=" + reason + " source=" + safe(source) + " state=" + session.state.name().toLowerCase());
+      return;
+    }
+    if (session != null) setState(app, session, State.ENDING);
+    cleanup(app, sid, reason);
+  }
+
   public static void cleanup(Context context, String callId, String reason) {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
     Context app = context.getApplicationContext();
     String sid = callId.trim();
+    NativeVideoCallLog.info("runtime_cleanup_start", sid, "reason=" + safe(reason));
     cancelMissed(sid);
     NativeVideoCallAgoraEngine.leave(reason);
     NativeVideoCallNotification.dismiss(app, sid);
+    NativeVideoCallLog.info("native_call_service_stop", sid, "reason=" + safe(reason));
     NativeVideoCallService.stop(app, sid, reason);
     IncomingCallRingOwner.stop(app, sid);
     DibayIncomingCallNativeStore.markState(app, sid, DibayIncomingCallNativeStore.STATE_TERMINAL);
     SESSIONS.remove(sid);
     IncomingCallActionCoordinator.complete(sid, reason);
+    DibayActiveCallSessionManager.clearSession();
     NativeVideoCallLog.info("cleanup_done", sid, "reason=" + safe(reason));
     NativeVideoCallOwner.release(sid, reason);
     NativeCallVisibleSurfaceOwner.release(sid, reason);
@@ -334,6 +393,31 @@ public final class NativeVideoCallRuntime {
       DibayIncomingCallNativeStore.markState(context, session.callId, DibayIncomingCallNativeStore.STATE_ACTIVE);
     }
     NativeVideoCallActivity.renderState(session.callId, state);
+  }
+
+  private static boolean prepareJoinGuard(Context app, String sid) {
+    NativeCallEngineOwnership.GuardOutcome outcome =
+        NativeCallEngineOwnership.prepareJoin(app, sid, NativeCallEngineOwnership.JoinLane.VIDEO);
+    if (outcome == NativeCallEngineOwnership.GuardOutcome.IDEMPOTENT_SKIP) return false;
+    if (outcome == NativeCallEngineOwnership.GuardOutcome.BUSY) {
+      fail(app, sid, "native_engine_busy");
+      return false;
+    }
+    return true;
+  }
+
+  private static String normalizeTerminalReason(String terminalKind) {
+    if (terminalKind == null) return "ended";
+    String kind = terminalKind.trim().toLowerCase();
+    if (kind.isEmpty()) return "ended";
+    if ("call_ended".equals(kind) || "ended".equals(kind) || "remote_ended".equals(kind)) return "ended";
+    if ("end".equals(kind) || "client_end".equals(kind) || "local_ended".equals(kind)) return "end";
+    if ("call_rejected".equals(kind) || "rejected".equals(kind) || "reject".equals(kind)) return "rejected";
+    if ("call_missed".equals(kind) || "missed_call".equals(kind) || "missed".equals(kind)) return "missed";
+    if ("call_canceled".equals(kind) || "call_cancelled".equals(kind) || "cancelled".equals(kind) || "canceled".equals(kind)) {
+      return "cancelled";
+    }
+    return kind;
   }
 
   private static void fail(Context context, String callId, String reason) {

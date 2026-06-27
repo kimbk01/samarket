@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.util.Log;
 import com.dibay.app.call.CallForegroundService;
+import com.dibay.app.nativecall.NativeCallRuntimeEndDispatcher;
 
 /**
  * Single entry for remote/local call terminal — cancel, reject, missed, ended.
@@ -22,6 +23,7 @@ public final class IncomingCallTerminalHandler {
     String consumedReason = mapConsumedReason(kind);
 
     Log.i(TAG, "[DIBAY_CALL] terminal_received callId=" + sid + " kind=" + kind + " source=" + source);
+    NativeCallRuntimeEndDispatcher.dispatch(app, sid, kind, "terminal_handler:" + source);
 
     IncomingCallSessionCleanup.purgeCallPresentation(app, sid, consumedReason);
     DibayCallConsumedStore.mark(app, sid, consumedReason);

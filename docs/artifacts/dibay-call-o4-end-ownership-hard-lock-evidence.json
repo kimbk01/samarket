@@ -1,0 +1,89 @@
+{
+  "at": "2026-06-28T04:40:00.000Z",
+  "hardLock": true,
+  "o4HardLock": true,
+  "lockStatement": "O4 End Ownership HARD LOCK. Native-owned call terminal events are routed through a thin dispatcher into NativeVoiceCallRuntime / NativeVideoCallRuntime, and Runtime is the sole cleanup owner. Dispatcher does not own session, state, Agora, FGS, or cleanup. Voice local end, voice remote end, and video local end all reach runtime_cleanup_start → agora_native_disconnected → native_call_service_stop → cleanup_done.",
+  "vercelOrigin": "https://samarket.vercel.app",
+  "devices": {
+    "serialA": "8b37179f7d94",
+    "serialB": "RRGL4046NTW"
+  },
+  "commitAtLock": "6ef7cfaf",
+  "qaHarness": ".qa-logs/o4-end-ownership-matrix.mjs",
+  "qaReport": ".qa-logs/o4-end-ownership-matrix/report.json",
+  "note": "Product end paths only. end-all is scenario cleanup only — not O4 product proof.",
+  "requiredChainTail": [
+    "native_end_dispatch",
+    "runtime_cleanup_start",
+    "agora_native_disconnected",
+    "native_call_service_stop",
+    "cleanup_done"
+  ],
+  "runs": [
+    {
+      "scenario": "voice_local_end",
+      "callId": "e1f1908b-688e-4a37-9e0d-36160c5ca65e",
+      "entryMarker": "NativeCallService.endCall",
+      "dispatchSource": "plugin_end_call",
+      "runtimeLane": "voice",
+      "logPath": ".qa-logs/o4-end-ownership-matrix/logcat-voice_local_end-e1f1908b-688e-4a37-9e0d-36160c5ca65e.txt",
+      "chain": {
+        "NativeCallService.endCall": true,
+        "native_end_dispatch": true,
+        "runtime_cleanup_start": true,
+        "agora_native_disconnected": true,
+        "native_call_service_stop": true,
+        "cleanup_done": true
+      },
+      "qaPass": true
+    },
+    {
+      "scenario": "voice_remote_end",
+      "callId": "be1cb22e-e699-4d81-8e83-ba35f408420e",
+      "entryMarker": "terminal_received",
+      "terminalSource": "fcm:call_ended",
+      "dispatchSource": "terminal_handler:fcm:call_ended",
+      "runtimeLane": "voice",
+      "peerEndTap": true,
+      "heartbeatTimeoutLed": false,
+      "logPath": ".qa-logs/o4-end-ownership-matrix/logcat-voice_remote_end-be1cb22e-e699-4d81-8e83-ba35f408420e.txt",
+      "chain": {
+        "terminal_received": true,
+        "native_end_dispatch": true,
+        "runtime_cleanup_start": true,
+        "agora_native_disconnected": true,
+        "native_call_service_stop": true,
+        "cleanup_done": true
+      },
+      "qaPass": true
+    },
+    {
+      "scenario": "video_local_end",
+      "callId": "2c78c263-a30c-4b5f-9314-7266f654b3d3",
+      "entryMarker": "NativeCallService.endCall",
+      "dispatchSource": "plugin_end_call",
+      "runtimeLane": "video",
+      "logPath": ".qa-logs/o4-end-ownership-matrix/logcat-video_local_end-2c78c263-a30c-4b5f-9314-7266f654b3d3.txt",
+      "chain": {
+        "NativeCallService.endCall": true,
+        "native_end_dispatch": true,
+        "runtime_cleanup_start": true,
+        "agora_native_disconnected": true,
+        "native_call_service_stop": true,
+        "cleanup_done": true
+      },
+      "qaPass": true
+    }
+  ],
+  "overallQaPass": true,
+  "forbiddenAfterLock": [
+    "O4 dispatcher re-modification",
+    "Runtime cleanup path re-modification",
+    "O2 establishment changes",
+    "O3 connected sync changes",
+    "Guard changes",
+    "Web/JS Agora fallback",
+    "CallV4Screen restore",
+    "UI mixed into Runtime cleanup ownership"
+  ]
+}
