@@ -13,6 +13,7 @@ import com.dibay.app.DibayKeyguardHelper;
 import com.dibay.app.IncomingCallActionCoordinator;
 import com.dibay.app.IncomingCallNotificationBuilder;
 import com.dibay.app.IncomingCallRingOwner;
+import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
 import java.util.concurrent.ConcurrentHashMap;
 
 /** Video-only call runtime. It must not route through MainActivity or WebView before connected. */
@@ -75,6 +76,7 @@ public final class NativeVideoCallRuntime {
         sid,
         "roomId=" + safe(roomId) + " mediaType=" + safe(mediaType));
     if (!NativeVideoCallOwner.claimNative(sid, "incoming_fcm")) return false;
+    NativeCallVisibleSurfaceOwner.logCallOwnerClaimed(sid, "video", "incoming_fcm");
     NativeVideoCallLog.info("legacy_web_handoff_blocked", sid, "reason=native_video_runtime");
 
     Session session =
@@ -89,10 +91,11 @@ public final class NativeVideoCallRuntime {
     DibayIncomingCallNativeStore.markState(app, sid, DibayIncomingCallNativeStore.STATE_RINGING);
     IncomingCallRingOwner.start(app, sid);
     if (shouldStartForegroundVisibleActivity(app)) {
-      startForegroundVisibleActivity(app, sid);
+      startForegroundVisibleActivity(app, session);
     } else {
       NativeVideoCallLog.info("foreground_visible_activity_start_skipped", sid, "reason=not_foreground_unlocked");
       PendingIntent fullScreenIntent = NativeVideoCallNotification.showIncoming(app, session);
+      scheduleSuppressNotificationWhenActivityShown(app, sid);
       if (shouldStartBackgroundUnlockedActivity(app)) {
         startBackgroundUnlockedActivity(sid, fullScreenIntent);
       } else {
@@ -232,6 +235,7 @@ public final class NativeVideoCallRuntime {
                       public void onConnected() {
                         setState(app, session, State.CONNECTED);
                         NativeVideoCallLog.info("state_connected", sid);
+                        closeIncomingVisualsOnConnected(app, sid);
                         NativeVideoCallService.startConnected(app, sid);
                       }
 
@@ -281,6 +285,7 @@ public final class NativeVideoCallRuntime {
     IncomingCallActionCoordinator.complete(sid, reason);
     NativeVideoCallLog.info("cleanup_done", sid, "reason=" + safe(reason));
     NativeVideoCallOwner.release(sid, reason);
+    NativeCallVisibleSurfaceOwner.release(sid, reason);
     NativeVideoCallActivity.finishIfActive(sid);
   }
 
@@ -358,7 +363,8 @@ public final class NativeVideoCallRuntime {
     }
   }
 
-  private static void startForegroundVisibleActivity(Context context, String callId) {
+  private static void startForegroundVisibleActivity(Context context, Session session) {
+    String callId = session.callId;
     if (NativeVideoCallActivity.isShowing(callId)) {
       NativeVideoCallLog.info("foreground_visible_activity_start_done", callId, "mode=already_showing");
       return;
@@ -373,6 +379,17 @@ public final class NativeVideoCallRuntime {
     intent.putExtra("source", "foreground_visible");
     context.startActivity(intent);
     NativeVideoCallLog.info("foreground_visible_activity_start_done", callId);
+    MAIN.postDelayed(
+        () -> {
+          if (NativeVideoCallActivity.isShowing(callId)) return;
+          NativeVideoCallLog.warn(
+              "foreground_visible_activity_start_postcheck_failed", callId, "reason=activity_not_shown");
+          PendingIntent fallback = NativeVideoCallNotification.showIncoming(context, session);
+          NativeVideoCallLog.info("foreground_visible_activity_fallback_to_fsi", callId);
+          scheduleSuppressNotificationWhenActivityShown(context, callId);
+          startBackgroundUnlockedActivity(callId, fallback);
+        },
+        1_200L);
   }
 
   private static void startBackgroundUnlockedActivity(String callId, PendingIntent fullScreenIntent) {
@@ -415,5 +432,29 @@ public final class NativeVideoCallRuntime {
 
   private static String safe(String value) {
     return value != null && !value.trim().isEmpty() ? value.trim() : "unknown";
+  }
+
+  private static void closeIncomingVisualsOnConnected(Context app, String callId) {
+    NativeVideoCallNotification.suppressVisualOnConnected(app, callId);
+    IncomingCallNotificationBuilder.dismissIncomingCall(app, callId);
+    NativeCallVisibleSurfaceOwner.markConnected(callId, "video");
+  }
+
+  private static void scheduleSuppressNotificationWhenActivityShown(Context context, String callId) {
+    Context app = context.getApplicationContext();
+    final int[] attempts = {0};
+    Runnable poll =
+        new Runnable() {
+          @Override
+          public void run() {
+            if (NativeVideoCallActivity.isShowing(callId)) {
+              NativeVideoCallNotification.suppressVisualAfterActivityShown(app, callId);
+              return;
+            }
+            attempts[0] += 1;
+            if (attempts[0] < 24) MAIN.postDelayed(this, 125L);
+          }
+        };
+    MAIN.postDelayed(poll, 125L);
   }
 }

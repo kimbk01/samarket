@@ -9,15 +9,22 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
+import android.service.notification.StatusBarNotification;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.ContextCompat;
 import com.dibay.app.R;
+import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
 
 /** Native Video Runtime incoming notification. FSI/PendingIntent is the only Activity launch path. */
 public final class NativeVideoCallNotification {
   public static final String CHANNEL_ID = "dibay_native_video_incoming";
   private static final int NOTIFICATION_BASE_ID = 95001;
+  private static final int SUPPRESS_CANCEL_MAX_ATTEMPTS = 8;
+  private static final long SUPPRESS_CANCEL_RETRY_MS = 100L;
+  private static final Handler MAIN = new Handler(Looper.getMainLooper());
 
   private NativeVideoCallNotification() {}
 
@@ -58,9 +65,132 @@ public final class NativeVideoCallNotification {
   }
 
   public static void dismiss(Context context, String callId) {
-    if (context == null || callId == null || callId.trim().isEmpty()) return;
-    NotificationManager nm = context.getSystemService(NotificationManager.class);
-    if (nm != null) nm.cancel(notificationId(callId.trim()));
+    cancelVisualNotification(context, callId);
+  }
+
+  public static void suppressVisualOnConnected(Context context, String callId) {
+    scheduleVerifiedVisualSuppress(context, callId, true);
+  }
+
+  public static void suppressVisualAfterActivityShown(Context context, String callId) {
+    scheduleVerifiedVisualSuppress(context, callId, false);
+  }
+
+  /** Cancel incoming visual and verify StatusBarNotification removal before suppress markers. */
+  private static boolean cancelVisualNotification(Context context, String callId) {
+    if (context == null || callId == null || callId.trim().isEmpty()) return false;
+    Context app = context.getApplicationContext();
+    String sid = callId.trim();
+    int id = notificationId(sid);
+    NativeVideoCallLog.info("incoming_notification_cancel_start", sid, "notificationId=" + id);
+
+    NotificationManagerCompat compat = NotificationManagerCompat.from(app);
+    NotificationManager nm = app.getSystemService(NotificationManager.class);
+    logActiveNotificationState(nm, sid, id, "before_cancel");
+
+    // Overwrite ONGOING/FSI call notification, then cancel (Samsung keeps stale entry if cancel-first).
+    compat.notify(id, buildCancelReplacement(app));
+    logActiveNotificationState(nm, sid, id, "after_replacement_notify");
+    compat.cancel(id);
+    if (nm != null) nm.cancel(id);
+    logActiveNotificationState(nm, sid, id, "after_cancel");
+
+    if (isNotificationActive(nm, app.getPackageName(), id)) {
+      NativeVideoCallLog.warn("incoming_notification_cancel_failed", sid, "notificationId=" + id);
+      return false;
+    }
+
+    NativeVideoCallLog.info("incoming_notification_cancel_done", sid, "notificationId=" + id);
+    return true;
+  }
+
+  private static void scheduleVerifiedVisualSuppress(Context context, String callId, boolean connected) {
+    Context app = context.getApplicationContext();
+    final int[] attempts = {0};
+    final Runnable[] taskRef = new Runnable[1];
+    taskRef[0] =
+        new Runnable() {
+          @Override
+          public void run() {
+            attempts[0] += 1;
+            if (cancelVisualNotification(app, callId)) {
+              MAIN.postDelayed(
+                  () -> {
+                    NotificationManager nm = app.getSystemService(NotificationManager.class);
+                    int nid = notificationId(callId.trim());
+                    logActiveNotificationState(nm, callId.trim(), nid, "delayed_verify");
+                    if (isNotificationActive(nm, app.getPackageName(), nid)) {
+                      NativeVideoCallLog.warn(
+                          "incoming_notification_cancel_failed", callId, "notificationId=" + nid + " phase=delayed_verify");
+                      if (attempts[0] < SUPPRESS_CANCEL_MAX_ATTEMPTS) {
+                        attempts[0] += 1;
+                        MAIN.post(taskRef[0]);
+                      }
+                      return;
+                    }
+                    if (connected) {
+                      NativeCallVisibleSurfaceOwner.logNotificationVisualSuppressedConnected(callId, "video");
+                    } else {
+                      NativeCallVisibleSurfaceOwner.logNotificationVisualSuppressed(callId, "video");
+                    }
+                  },
+                  300L);
+              return;
+            }
+            if (attempts[0] < SUPPRESS_CANCEL_MAX_ATTEMPTS) {
+              MAIN.postDelayed(taskRef[0], SUPPRESS_CANCEL_RETRY_MS);
+            }
+          }
+        };
+    if (Looper.myLooper() == Looper.getMainLooper()) taskRef[0].run();
+    else MAIN.post(taskRef[0]);
+  }
+
+  private static Notification buildCancelReplacement(Context app) {
+    return new NotificationCompat.Builder(app, CHANNEL_ID)
+        .setSmallIcon(R.mipmap.ic_launcher)
+        .setContentTitle("")
+        .setContentText("")
+        .setOngoing(false)
+        .setAutoCancel(true)
+        .setSilent(true)
+        .setPriority(NotificationCompat.PRIORITY_MIN)
+        .build();
+  }
+
+  private static boolean isNotificationActive(NotificationManager nm, String pkg, int id) {
+    if (nm == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return false;
+    for (StatusBarNotification sbn : nm.getActiveNotifications()) {
+      if (pkg.equals(sbn.getPackageName()) && sbn.getId() == id) return true;
+    }
+    return false;
+  }
+
+  private static void logActiveNotificationState(NotificationManager nm, String callId, int id, String phase) {
+    if (nm == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+      NativeVideoCallLog.info(
+          "incoming_notification_active_state", callId, "phase=" + phase + " notificationId=" + id + " active=unknown");
+      return;
+    }
+    int matched = 0;
+    StringBuilder details = new StringBuilder();
+    for (StatusBarNotification sbn : nm.getActiveNotifications()) {
+      if (!sbn.getPackageName().equals("com.dibay.app") || sbn.getId() != id) continue;
+      matched += 1;
+      Notification notification = sbn.getNotification();
+      if (details.length() > 0) details.append(";");
+      details
+          .append("tag=")
+          .append(sbn.getTag())
+          .append(",flags=")
+          .append(notification != null ? notification.flags : 0)
+          .append(",channel=")
+          .append(notification != null ? notification.getChannelId() : "unknown");
+    }
+    NativeVideoCallLog.info(
+        "incoming_notification_active_state",
+        callId,
+        "phase=" + phase + " notificationId=" + id + " matched=" + matched + " details=" + details);
   }
 
   private static PendingIntent activityIntent(Context context, NativeVideoCallRuntime.Session session) {

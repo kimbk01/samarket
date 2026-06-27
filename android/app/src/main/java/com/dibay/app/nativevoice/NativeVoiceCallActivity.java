@@ -9,6 +9,7 @@ import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
 import java.lang.ref.WeakReference;
 
 /** Native-only voice call UI. Never hosts WebView. */
@@ -52,6 +53,10 @@ public class NativeVoiceCallActivity extends Activity {
       return;
     }
     callId = callId.trim();
+    if (!NativeCallVisibleSurfaceOwner.claim(callId, "voice", "incoming")) {
+      finish();
+      return;
+    }
     activeRef = new WeakReference<>(this);
     applyWakeFlags();
     buildUi();

@@ -13,6 +13,7 @@ import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
 import java.lang.ref.WeakReference;
 
 /** Native-only video call UI. Never hosts WebView. */
@@ -98,6 +99,10 @@ public class NativeVideoCallActivity extends Activity {
       return;
     }
     callId = callId.trim();
+    if (!NativeCallVisibleSurfaceOwner.claim(callId, "video", "incoming")) {
+      finish();
+      return;
+    }
     activeRef = new WeakReference<>(this);
     applyWakeFlags();
     buildUi();
