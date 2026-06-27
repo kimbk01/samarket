@@ -14,6 +14,7 @@ import { readCallV4Identity, readCallV4Phase, useCallV4Store } from "@/lib/commu
 import type { CallV4Phase } from "@/lib/community-messenger/call-v4/call-v4-types";
 
 const connectedSideEffectsEntered = new Set<string>();
+const nativeConnectedOpsEntered = new Set<string>();
 
 export type CallV4ConnectedGateSignals = CallV4ConnectedGateAgoraSignals;
 
@@ -87,6 +88,24 @@ export function markCallV4MediaConnected(
   return true;
 }
 
+/** O3 — Native Runtime connected ops only. Does not use JS Agora Connected Gate. */
+export function markCallV4NativeConnectedOps(callId: string, source: string): boolean {
+  const sid = callId.trim();
+  if (!sid) return false;
+  if (nativeConnectedOpsEntered.has(sid)) {
+    logCallV4("native_connected_ops_done", { callId: sid, source, mode: "duplicate" });
+    return true;
+  }
+  nativeConnectedOpsEntered.add(sid);
+  logCallV4("native_connected_ops_start", { callId: sid, source });
+  startCallV4ConnectedTerminalWatch(sid);
+  startCallHeartbeatWatchdog(sid);
+  logCallV4("call_heartbeat_watchdog_start", { callId: sid, source: "native_connected" });
+  logCallV4("native_connected_ops_done", { callId: sid, source });
+  return true;
+}
+
 export function resetCallV4ConnectedSideEffectsForTests(): void {
   connectedSideEffectsEntered.clear();
+  nativeConnectedOpsEntered.clear();
 }

@@ -1,27 +1,27 @@
-package com.dibay.app.nativevoice;
+package com.dibay.app.nativevideo;
 
 import android.content.Context;
 import com.dibay.app.call.NativeCallServicePlugin;
 
 /** Post-connected Web sync only. Never used to establish the call. */
-public final class NativeVoiceCallBridge {
-  private NativeVoiceCallBridge() {}
+public final class NativeVideoCallBridge {
+  private NativeVideoCallBridge() {}
 
   public static void syncConnected(Context context, String callId) {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
     String sid = callId.trim();
-    NativeVoiceCallRuntime.Session session = NativeVoiceCallRuntime.getSession(sid);
-    if (session == null || session.state != NativeVoiceCallRuntime.State.CONNECTED) return;
+    NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(sid);
+    if (session == null || session.state != NativeVideoCallRuntime.State.CONNECTED) return;
     String direction = session.initiator ? "outgoing" : "incoming";
-    NativeVoiceCallLog.info("native_connected_emit", sid, "runtime=native_voice direction=" + direction);
+    NativeVideoCallLog.info("native_connected_emit", sid, "runtime=native_video direction=" + direction);
     NativeCallServicePlugin.publishNativeConnected(
         sid,
         session.roomId,
-        "voice",
+        "video",
         direction,
         session.callerId,
         session.callerName,
-        "native_voice",
-        "NativeVoiceCallService");
+        "native_video",
+        "NativeVideoCallService");
   }
 }

@@ -270,5 +270,16 @@ function scanQa(dir) {
 scanQa(qaDir);
 if (!failed) pass("native voice QA logs have no banned handoff markers");
 
+const voiceBridge = read("android/app/src/main/java/com/dibay/app/nativevoice/NativeVoiceCallBridge.java");
+if (!voiceBridge.includes("native_connected_emit")) {
+  fail("NativeVoiceCallBridge must emit native_connected_emit on connected sync");
+} else if (!voiceBridge.includes("NativeCallServicePlugin.publishNativeConnected")) {
+  fail("NativeVoiceCallBridge must publish native connected payload via NativeCallServicePlugin");
+} else if (voiceBridge.includes("mode=deferred")) {
+  fail("NativeVoiceCallBridge must not keep deferred web_sync_connected stub");
+} else {
+  pass("native voice connected bridge publishes O3 native_connected_emit");
+}
+
 if (failed) process.exit(1);
 console.log("verify:native-voice-runtime-contract PASS");

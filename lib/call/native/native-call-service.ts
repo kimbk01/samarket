@@ -14,7 +14,24 @@ export type NativeActiveCallSnapshot = {
   phase: string | null;
   mediaType: string | null;
   connected: boolean;
+  fgsOwner?: string | null;
 };
+
+export type NativeCallConnectedPayload = {
+  callId: string;
+  roomId: string;
+  mediaType: "voice" | "video";
+  direction: "incoming" | "outgoing";
+  peerUserId: string;
+  peerName: string;
+  connectedAtMs: number;
+  nativeOwned: true;
+  runtime: "native_voice" | "native_video";
+  fgsOwner: "NativeVoiceCallService" | "NativeVideoCallService" | string;
+  source: "native_connected_bridge";
+};
+
+export const NATIVE_CALL_CONNECTED_EVENT = "nativeCallConnected";
 
 export type NativeCallServicePlugin = {
   prepareAccept(options: { callId: string; callKind?: string }): Promise<{ ok: boolean }>;

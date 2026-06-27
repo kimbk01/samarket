@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { startNativeConnectedSync } from "@/lib/call/native/native-connected-sync";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import { useCallV4ForegroundResume } from "@/lib/community-messenger/call-v4/use-call-v4-foreground-resume";
 import { useCallV4PresentationPlatform } from "@/lib/community-messenger/call-v4/presentation/use-call-v4-presentation-platform";
@@ -228,6 +229,11 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
     if (!isCallV4TelegramLaneEnabled() || !userId) return;
     return startCallV4IncomingDiscovery(userId);
   }, [userId]);
+
+  useEffect(() => {
+    if (!isCallV4TelegramLaneEnabled()) return;
+    return startNativeConnectedSync();
+  }, []);
 
   useEffect(() => {
     if (!isCallV4TelegramLaneEnabled()) return;

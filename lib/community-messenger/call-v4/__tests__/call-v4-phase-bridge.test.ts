@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { markCallV4MediaConnected, resetCallV4ConnectedSideEffectsForTests } from "@/lib/community-messenger/call-v4/call-v4-phase-bridge";
+import { markCallV4MediaConnected, markCallV4NativeConnectedOps, resetCallV4ConnectedSideEffectsForTests } from "@/lib/community-messenger/call-v4/call-v4-phase-bridge";
 import { writeCallV4ConnectedGateAgoraSignals, resetCallV4ConnectedGateForTests } from "@/lib/community-messenger/call-v4/call-v4-connected-gate";
 import { useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
 
@@ -118,5 +118,17 @@ describe("call-v4-phase-bridge", () => {
     expect(markCallV4MediaConnected("call-1", "test")).toBe(false);
     expect(useCallV4Store.getState().phase).toBe("joining");
     expect(heartbeatMocks.start).not.toHaveBeenCalled();
+  });
+
+  it("starts ops via native connected path without connected gate", () => {
+    useCallV4Store.getState().resetToIdle();
+    resetCallV4ConnectedSideEffectsForTests();
+    heartbeatMocks.start.mockClear();
+
+    expect(markCallV4NativeConnectedOps("call-native-1", "native_connected")).toBe(true);
+    expect(useCallV4Store.getState().phase).toBe("idle");
+    expect(heartbeatMocks.start).toHaveBeenCalledWith("call-native-1");
+    expect(markCallV4NativeConnectedOps("call-native-1", "native_connected")).toBe(true);
+    expect(heartbeatMocks.start).toHaveBeenCalledTimes(1);
   });
 });

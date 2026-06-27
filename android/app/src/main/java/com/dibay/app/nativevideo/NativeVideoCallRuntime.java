@@ -171,6 +171,7 @@ public final class NativeVideoCallRuntime {
                   setState(app, session, State.CONNECTED);
                   NativeVideoCallLog.info("state_connected", sid);
                   NativeVideoCallService.startConnected(app, sid);
+                  NativeVideoCallBridge.syncConnected(app, sid);
                 }
 
                 @Override
@@ -237,6 +238,7 @@ public final class NativeVideoCallRuntime {
                         NativeVideoCallLog.info("state_connected", sid);
                         closeIncomingVisualsOnConnected(app, sid);
                         NativeVideoCallService.startConnected(app, sid);
+                        NativeVideoCallBridge.syncConnected(app, sid);
                       }
 
                       @Override

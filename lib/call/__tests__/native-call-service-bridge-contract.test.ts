@@ -46,4 +46,23 @@ describe("NativeCallService bridge contract", () => {
       expect(swift).toContain(`CAPPluginMethod(name: "${method}"`);
     }
   });
+
+  it("Android plugin publishes O3 native connected event and snapshot fgsOwner", () => {
+    const java = read("android/app/src/main/java/com/dibay/app/call/NativeCallServicePlugin.java");
+    expect(java).toContain('EVENT_NATIVE_CALL_CONNECTED = "nativeCallConnected"');
+    expect(java).toContain("publishNativeConnected");
+    expect(java).toContain("fgsOwner");
+    expect(java).toContain("isNativeRuntimeConnected");
+  });
+
+  it("TS exposes native connected payload and event name", () => {
+    const ts = read("lib/call/native/native-call-service.ts");
+    expect(ts).toContain("NATIVE_CALL_CONNECTED_EVENT");
+    expect(ts).toContain("NativeCallConnectedPayload");
+    expect(ts).toContain("fgsOwner");
+    const sync = read("lib/call/native/native-connected-sync.ts");
+    expect(sync).toContain("native_connected_received");
+    expect(sync).toContain("native_connected_store_hydrate");
+    expect(sync).toContain("startNativeConnectedSync");
+  });
 });

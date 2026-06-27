@@ -1,23 +1,150 @@
 package com.dibay.app.call;
 
 import android.content.Context;
-import android.content.Intent;
 import com.dibay.app.DibayCallLog;
 import com.dibay.app.nativevideo.NativeVideoCallApi;
 import com.dibay.app.nativevideo.NativeVideoCallLane;
 import com.dibay.app.nativevideo.NativeVideoCallOwner;
+import com.dibay.app.nativevideo.NativeVideoCallRuntime;
 import com.dibay.app.nativevoice.NativeVoiceCallApi;
 import com.dibay.app.nativevoice.NativeVoiceCallLane;
 import com.dibay.app.nativevoice.NativeVoiceCallOwner;
+import com.dibay.app.nativevoice.NativeVoiceCallRuntime;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /** JS bridge — lib/call/native/native-call-service.ts */
 @CapacitorPlugin(name = "NativeCallService")
 public class NativeCallServicePlugin extends Plugin {
+  public static final String EVENT_NATIVE_CALL_CONNECTED = "nativeCallConnected";
+
+  private static final Set<String> CONNECTED_EMITTED = ConcurrentHashMap.newKeySet();
+  private static volatile NativeCallServicePlugin instance;
+
+  @Override
+  public void load() {
+    instance = this;
+  }
+
+  /** O3 — idempotent native connected publish (metadata bind + Capacitor event, no legacy FGS). */
+  public static void publishNativeConnected(
+      String callId,
+      String roomId,
+      String mediaType,
+      String direction,
+      String peerUserId,
+      String peerName,
+      String runtime,
+      String fgsOwner) {
+    if (callId == null || callId.trim().isEmpty()) return;
+    String sid = callId.trim();
+    if (!CONNECTED_EMITTED.add(sid)) return;
+
+    String managerMedia = "video".equalsIgnoreCase(mediaType) ? "video" : "voice";
+    DibayActiveCallSessionManager.bindActiveCall(
+        sid, managerMedia, DibayActiveCallSessionManager.PHASE_CONNECTED);
+
+    JSObject payload = new JSObject();
+    payload.put("callId", sid);
+    payload.put("roomId", roomId != null ? roomId : "");
+    payload.put("mediaType", managerMedia);
+    payload.put("direction", direction != null ? direction : "incoming");
+    payload.put("peerUserId", peerUserId != null ? peerUserId : "");
+    payload.put("peerName", peerName != null ? peerName : "");
+    payload.put("connectedAtMs", System.currentTimeMillis());
+    payload.put("nativeOwned", true);
+    payload.put("runtime", runtime != null ? runtime : "native_voice");
+    payload.put("fgsOwner", fgsOwner != null ? fgsOwner : "none");
+    payload.put("source", "native_connected_bridge");
+
+    emitNativeCallConnected(payload);
+  }
+
+  static void emitNativeCallConnected(JSObject payload) {
+    NativeCallServicePlugin plugin = instance;
+    if (plugin == null) return;
+    plugin.notifyListeners(EVENT_NATIVE_CALL_CONNECTED, payload);
+  }
+
+  static void clearNativeConnectedEmitForTests() {
+    CONNECTED_EMITTED.clear();
+  }
+
+  private static String resolveActiveCallIdWithPriority() {
+    String managerId = DibayActiveCallSessionManager.getActiveCallId();
+    if (!managerId.isEmpty()) return managerId;
+    String legacyFgsId = CallForegroundService.getActiveCallId();
+    if (!legacyFgsId.isEmpty()) return legacyFgsId;
+    return "";
+  }
+
+  private static String resolveFgsOwner(String callId) {
+    if (callId == null || callId.trim().isEmpty()) return "none";
+    String sid = callId.trim();
+    NativeVoiceCallRuntime.Session voiceSession = NativeVoiceCallRuntime.getSession(sid);
+    if (voiceSession != null
+        && voiceSession.state == NativeVoiceCallRuntime.State.CONNECTED
+        && NativeVoiceCallOwner.isNativeOwned(sid)) {
+      return "NativeVoiceCallService";
+    }
+    NativeVideoCallRuntime.Session videoSession = NativeVideoCallRuntime.getSession(sid);
+    if (videoSession != null
+        && videoSession.state == NativeVideoCallRuntime.State.CONNECTED
+        && NativeVideoCallOwner.isNativeOwned(sid)) {
+      return "NativeVideoCallService";
+    }
+    if (!CallForegroundService.getActiveCallId().isEmpty()) {
+      return "CallForegroundService";
+    }
+    return "none";
+  }
+
+  private static boolean isNativeRuntimeConnected(String callId) {
+    if (callId == null || callId.trim().isEmpty()) return false;
+    String sid = callId.trim();
+    NativeVoiceCallRuntime.Session voiceSession = NativeVoiceCallRuntime.getSession(sid);
+    if (voiceSession != null
+        && voiceSession.state == NativeVoiceCallRuntime.State.CONNECTED
+        && NativeVoiceCallOwner.isNativeOwned(sid)) {
+      return true;
+    }
+    NativeVideoCallRuntime.Session videoSession = NativeVideoCallRuntime.getSession(sid);
+    return videoSession != null
+        && videoSession.state == NativeVideoCallRuntime.State.CONNECTED
+        && NativeVideoCallOwner.isNativeOwned(sid);
+  }
+
+  private static JSObject buildActiveCallSnapshot() {
+    JSObject result = new JSObject();
+    String active = resolveActiveCallIdWithPriority();
+    boolean nativeConnected = isNativeRuntimeConnected(active);
+    boolean managerConnected = DibayActiveCallSessionManager.isConnected();
+    boolean connected = nativeConnected || managerConnected;
+    String phase =
+        connected
+            ? DibayActiveCallSessionManager.PHASE_CONNECTED
+            : DibayActiveCallSessionManager.getPhase();
+    String mediaType = DibayActiveCallSessionManager.getMediaType();
+    if (nativeConnected) {
+      NativeVoiceCallRuntime.Session voiceSession = NativeVoiceCallRuntime.getSession(active);
+      if (voiceSession != null && voiceSession.state == NativeVoiceCallRuntime.State.CONNECTED) {
+        mediaType = "voice";
+      } else {
+        mediaType = "video";
+      }
+    }
+    result.put("callId", active.isEmpty() ? null : active);
+    result.put("phase", phase);
+    result.put("mediaType", mediaType);
+    result.put("connected", connected);
+    result.put("fgsOwner", resolveFgsOwner(active));
+    return result;
+  }
 
   @PluginMethod
   public void prepareAccept(PluginCall call) {
@@ -72,10 +199,7 @@ public class NativeCallServicePlugin extends Plugin {
   @PluginMethod
   public void getActiveCallId(PluginCall call) {
     JSObject result = new JSObject();
-    String active = DibayActiveCallSessionManager.getActiveCallId();
-    if (active.isEmpty()) {
-      active = CallForegroundService.getActiveCallId();
-    }
+    String active = resolveActiveCallIdWithPriority();
     result.put("callId", active.isEmpty() ? null : active);
     call.resolve(result);
   }
@@ -85,6 +209,12 @@ public class NativeCallServicePlugin extends Plugin {
     String callId = call.getString("callId", "").trim();
     if (callId.isEmpty()) {
       call.reject("invalid_call_id");
+      return;
+    }
+    if (isNativeRuntimeConnected(callId)) {
+      JSObject result = new JSObject();
+      result.put("ok", true);
+      call.resolve(result);
       return;
     }
     CallForegroundService.heartbeat(getContext(), callId);
@@ -120,16 +250,7 @@ public class NativeCallServicePlugin extends Plugin {
 
   @PluginMethod
   public void getActiveCallSnapshot(PluginCall call) {
-    JSObject result = new JSObject();
-    String active = DibayActiveCallSessionManager.getActiveCallId();
-    if (active.isEmpty()) {
-      active = CallForegroundService.getActiveCallId();
-    }
-    result.put("callId", active.isEmpty() ? null : active);
-    result.put("phase", DibayActiveCallSessionManager.getPhase());
-    result.put("mediaType", DibayActiveCallSessionManager.getMediaType());
-    result.put("connected", DibayActiveCallSessionManager.isConnected());
-    call.resolve(result);
+    call.resolve(buildActiveCallSnapshot());
   }
 
   @PluginMethod

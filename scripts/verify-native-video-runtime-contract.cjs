@@ -327,5 +327,22 @@ if (exists(nativeVideoDir)) {
   fail("nativevideo runtime directory must exist");
 }
 
+const videoBridge = read("android/app/src/main/java/com/dibay/app/nativevideo/NativeVideoCallBridge.java");
+if (!videoBridge.includes("native_connected_emit")) {
+  fail("NativeVideoCallBridge must emit native_connected_emit on connected sync");
+} else if (!videoBridge.includes("NativeCallServicePlugin.publishNativeConnected")) {
+  fail("NativeVideoCallBridge must publish native connected payload via NativeCallServicePlugin");
+} else {
+  pass("native video connected bridge publishes O3 native_connected_emit");
+}
+
+const videoRuntimeO3 = read("android/app/src/main/java/com/dibay/app/nativevideo/NativeVideoCallRuntime.java");
+const bridgeSyncCount = (videoRuntimeO3.match(/NativeVideoCallBridge\.syncConnected/g) || []).length;
+if (bridgeSyncCount < 2) {
+  fail("NativeVideoCallRuntime must call NativeVideoCallBridge.syncConnected on both connected hooks");
+} else {
+  pass("native video runtime connected hooks call O3 bridge");
+}
+
 if (failed) process.exit(1);
 console.log("verify:native-video-runtime-contract PASS");
