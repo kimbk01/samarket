@@ -49,6 +49,15 @@ android/app/src/main/res/values/strings.xml  (dibay_video_* keys)
 
 Machine-readable bundle: `docs/artifacts/dibay-call-video-ui-hard-lock-evidence.json`
 
+## Deploy Baseline at Lock
+
+| Item | Value |
+|---|---|
+| Git commit | `37fbf017` (`feat(call): Native Video UI HARD LOCK with render-only Activity`) |
+| Remote | `origin/main` (push pending approval) |
+| Vercel | `https://samarket.vercel.app` |
+| APK | rebuild + A/B reinstall after push |
+
 ### Video UI scenarios (Fast QA only)
 
 | Scenario | callId | Key proof |

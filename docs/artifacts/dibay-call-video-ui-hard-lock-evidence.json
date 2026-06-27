@@ -8,7 +8,8 @@
     "serialA": "8b37179f7d94",
     "serialB": "RRGL4046NTW"
   },
-  "postCommitFullDeviceQaRepeat": false,
+  "commitAtLock": "37fbf01724821dce4a382d12258451c8adf7f872",
+  "commitMessage": "feat(call): Native Video UI HARD LOCK with render-only Activity",
   "qaPolicy": {
     "fastQa": "Video UI scope only — 5 scenarios max",
     "regressionQa": "O3 once at track completion — done",
