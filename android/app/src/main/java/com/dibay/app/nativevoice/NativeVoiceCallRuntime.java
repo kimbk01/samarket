@@ -172,6 +172,7 @@ public final class NativeVoiceCallRuntime {
     SESSIONS.put(sid, session);
     DibayIncomingCallNativeStore.markState(app, sid, DibayIncomingCallNativeStore.STATE_CONNECTING);
     NativeVoiceCallService.startConnecting(app, sid);
+    startOutgoingDialingActivity(app, session);
     startCallerAgoraJoin(app, session);
   }
 
@@ -372,9 +373,45 @@ public final class NativeVoiceCallRuntime {
     } else if (state == State.CONNECTED) {
       DibayIncomingCallNativeStore.markState(context, session.callId, DibayIncomingCallNativeStore.STATE_ACTIVE);
     }
-    if (!session.initiator) {
-      NativeVoiceCallActivity.renderState(session.callId, state);
+    ensureVoiceUiVisible(context, session, state);
+    NativeVoiceCallActivity.renderState(session.callId, state);
+  }
+
+  private static void ensureVoiceUiVisible(Context context, Session session, State state) {
+    if (context == null || session == null) return;
+    Context app = context.getApplicationContext();
+    if (session.initiator) {
+      if (state == State.CONNECTING || state == State.CONNECTED) {
+        startOutgoingDialingActivity(app, session);
+      }
+      return;
     }
+    if (NativeVoiceCallActivity.isShowing(session.callId)) return;
+    if (state == State.RINGING || state == State.ACCEPTING || state == State.CONNECTING) {
+      startForegroundVisibleActivity(app, session);
+    }
+  }
+
+  private static void startOutgoingDialingActivity(Context context, Session session) {
+    if (context == null || session == null) return;
+    String callId = session.callId;
+    if (NativeVoiceCallActivity.isShowing(callId)) {
+      NativeVoiceCallActivity.renderState(callId, session.state);
+      return;
+    }
+    if (!NativeCallVisibleSurfaceOwner.isClaimed(callId)) {
+      NativeCallVisibleSurfaceOwner.claim(callId, "voice", "dialing");
+    }
+    NativeVoiceCallLog.info("native_dialing_surface_start", callId);
+    android.content.Intent intent = new android.content.Intent(context, NativeVoiceCallActivity.class);
+    intent.addFlags(
+        android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+            | android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP
+            | android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP);
+    intent.putExtra(NativeVoiceCallActivity.EXTRA_CALL_ID, callId);
+    intent.putExtra(NativeVoiceCallActivity.EXTRA_UI_MODE, NativeVoiceCallActivity.UI_MODE_OUTGOING);
+    context.startActivity(intent);
+    NativeVoiceCallLog.info("native_dialing_surface_shown", callId);
   }
 
   private static boolean prepareJoinGuard(Context app, String sid) {

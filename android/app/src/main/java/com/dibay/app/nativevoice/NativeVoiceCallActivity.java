@@ -1,31 +1,56 @@
 package com.dibay.app.nativevoice;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
-import android.view.Gravity;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.SystemClock;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import com.dibay.app.R;
 import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
 import java.lang.ref.WeakReference;
+import java.util.Locale;
 
-/** Native-only voice call UI. Never hosts WebView. */
+/** Native-only voice call UI. Never hosts WebView. Render-only over NativeVoiceCallRuntime state. */
 public class NativeVoiceCallActivity extends Activity {
   public static final String EXTRA_CALL_ID = "callId";
+  public static final String EXTRA_UI_MODE = "uiMode";
+  public static final String UI_MODE_INCOMING = "incoming";
+  public static final String UI_MODE_OUTGOING = "outgoing";
 
   private static WeakReference<NativeVoiceCallActivity> activeRef = new WeakReference<>(null);
 
   private String callId;
-  private TextView title;
-  private TextView subtitle;
-  private Button accept;
-  private Button decline;
-  private Button speaker;
-  private Button end;
+  private String uiMode = UI_MODE_INCOMING;
+  private TextView peerNameView;
+  private TextView statusView;
+  private TextView durationView;
+  private TextView avatarInitialView;
+  private LinearLayout incomingActions;
+  private LinearLayout activeActions;
+  private LinearLayout connectedControls;
+  private ImageButton acceptButton;
+  private ImageButton declineButton;
+  private Button endButton;
+  private Button speakerButton;
   private boolean speakerEnabled;
+  private final Handler mainHandler = new Handler(Looper.getMainLooper());
+  private long connectedAtElapsedMs = 0L;
+  private final Runnable durationTick =
+      new Runnable() {
+        @Override
+        public void run() {
+          updateDurationLabel();
+          mainHandler.postDelayed(this, 1000L);
+        }
+      };
 
   public static void renderState(String callId, NativeVoiceCallRuntime.State state) {
     NativeVoiceCallActivity activity = activeRef.get();
@@ -47,33 +72,78 @@ public class NativeVoiceCallActivity extends Activity {
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
-    callId = getIntent() != null ? getIntent().getStringExtra(EXTRA_CALL_ID) : null;
-    if (callId == null || callId.trim().isEmpty()) {
+    if (!bindIntent(getIntent())) {
       finish();
       return;
     }
-    callId = callId.trim();
-    if (!NativeCallVisibleSurfaceOwner.claim(callId, "voice", "incoming")) {
+    if (!claimVisibleSurface()) {
       finish();
       return;
     }
     activeRef = new WeakReference<>(this);
-    applyWakeFlags();
-    buildUi();
-    NativeVoiceCallLog.info("incoming_activity_shown", callId);
-    NativeVoiceCallLog.info("lock_screen_visible", callId);
+    if (UI_MODE_INCOMING.equals(uiMode)) {
+      applyIncomingWakeFlags();
+    } else {
+      getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+    }
+    setContentView(R.layout.activity_native_voice_call);
+    bindViews();
+    bindActions();
+    logSurfaceShown();
     NativeVoiceCallRuntime.Session session = NativeVoiceCallRuntime.getSession(callId);
-    applyState(session != null ? session.state : NativeVoiceCallRuntime.State.RINGING);
+    applyState(session != null ? session.state : defaultStateForMode());
+  }
+
+  @Override
+  protected void onNewIntent(Intent intent) {
+    super.onNewIntent(intent);
+    setIntent(intent);
+    if (!bindIntent(intent)) return;
+    NativeVoiceCallRuntime.Session session = NativeVoiceCallRuntime.getSession(callId);
+    applyState(session != null ? session.state : defaultStateForMode());
   }
 
   @Override
   protected void onDestroy() {
-    super.onDestroy();
+    stopDurationTimer();
     NativeVoiceCallActivity current = activeRef.get();
     if (current == this) activeRef = new WeakReference<>(null);
+    super.onDestroy();
   }
 
-  private void applyWakeFlags() {
+  private boolean bindIntent(Intent intent) {
+    callId = intent != null ? intent.getStringExtra(EXTRA_CALL_ID) : null;
+    if (callId == null || callId.trim().isEmpty()) return false;
+    callId = callId.trim();
+    String mode = intent != null ? intent.getStringExtra(EXTRA_UI_MODE) : null;
+    uiMode = UI_MODE_OUTGOING.equals(mode) ? UI_MODE_OUTGOING : UI_MODE_INCOMING;
+    return true;
+  }
+
+  private boolean claimVisibleSurface() {
+    if (NativeCallVisibleSurfaceOwner.isClaimed(callId)) return true;
+    if (UI_MODE_OUTGOING.equals(uiMode)) {
+      return NativeCallVisibleSurfaceOwner.claim(callId, "voice", "dialing");
+    }
+    return NativeCallVisibleSurfaceOwner.claim(callId, "voice", "incoming");
+  }
+
+  private NativeVoiceCallRuntime.State defaultStateForMode() {
+    return UI_MODE_OUTGOING.equals(uiMode)
+        ? NativeVoiceCallRuntime.State.CONNECTING
+        : NativeVoiceCallRuntime.State.RINGING;
+  }
+
+  private void logSurfaceShown() {
+    if (UI_MODE_OUTGOING.equals(uiMode)) {
+      NativeVoiceCallLog.info("native_dialing_surface_shown", callId);
+      return;
+    }
+    NativeVoiceCallLog.info("incoming_activity_shown", callId);
+    NativeVoiceCallLog.info("lock_screen_visible", callId);
+  }
+
+  private void applyIncomingWakeFlags() {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
       setShowWhenLocked(true);
       setTurnScreenOn(true);
@@ -86,96 +156,70 @@ public class NativeVoiceCallActivity extends Activity {
     }
   }
 
-  private void buildUi() {
-    LinearLayout root = new LinearLayout(this);
-    root.setOrientation(LinearLayout.VERTICAL);
-    root.setGravity(Gravity.CENTER);
-    root.setPadding(48, 48, 48, 48);
+  private void bindViews() {
+    peerNameView = findViewById(R.id.native_voice_call_peer_name);
+    statusView = findViewById(R.id.native_voice_call_status);
+    durationView = findViewById(R.id.native_voice_call_duration);
+    avatarInitialView = findViewById(R.id.native_voice_call_avatar_initial);
+    incomingActions = findViewById(R.id.native_voice_call_incoming_actions);
+    activeActions = findViewById(R.id.native_voice_call_active_actions);
+    connectedControls = findViewById(R.id.native_voice_call_connected_controls);
+    acceptButton = findViewById(R.id.native_voice_call_accept);
+    declineButton = findViewById(R.id.native_voice_call_decline);
+    endButton = findViewById(R.id.native_voice_call_end);
+    speakerButton = findViewById(R.id.native_voice_call_speaker);
+  }
 
-    title = new TextView(this);
-    title.setTextSize(26f);
-    title.setGravity(Gravity.CENTER);
-    root.addView(title);
-
-    subtitle = new TextView(this);
-    subtitle.setTextSize(16f);
-    subtitle.setGravity(Gravity.CENTER);
-    root.addView(subtitle);
-
-    LinearLayout actions = new LinearLayout(this);
-    actions.setOrientation(LinearLayout.HORIZONTAL);
-    actions.setGravity(Gravity.CENTER);
-    actions.setPadding(0, 40, 0, 0);
-
-    decline = new Button(this);
-    decline.setText("Decline");
-    decline.setOnClickListener(v -> NativeVoiceCallRuntime.reject(this, callId));
-    actions.addView(decline);
-
-    accept = new Button(this);
-    accept.setText("Accept");
-    accept.setOnClickListener(v -> NativeVoiceCallRuntime.accept(this, callId));
-    actions.addView(accept);
-
-    speaker = new Button(this);
-    speaker.setText("Speaker off");
-    speaker.setOnClickListener(
+  private void bindActions() {
+    acceptButton.setOnClickListener(v -> NativeVoiceCallRuntime.accept(this, callId));
+    declineButton.setOnClickListener(v -> NativeVoiceCallRuntime.reject(this, callId));
+    endButton.setOnClickListener(v -> NativeVoiceCallRuntime.end(this, callId));
+    speakerButton.setOnClickListener(
         v -> {
           speakerEnabled = !speakerEnabled;
-          speaker.setText(speakerEnabled ? "Speaker on" : "Speaker off");
+          speakerButton.setText(
+              getString(speakerEnabled ? R.string.dibay_voice_speaker_on : R.string.dibay_voice_speaker_off));
           NativeVoiceCallAgoraEngine.setSpeakerEnabled(speakerEnabled);
         });
-    actions.addView(speaker);
-
-    end = new Button(this);
-    end.setText("End");
-    end.setOnClickListener(v -> NativeVoiceCallRuntime.end(this, callId));
-    actions.addView(end);
-
-    root.addView(actions);
-    setContentView(root);
   }
 
   private void applyState(NativeVoiceCallRuntime.State state) {
     NativeVoiceCallRuntime.Session session = NativeVoiceCallRuntime.getSession(callId);
-    String caller = session != null && !session.callerName.isEmpty() ? session.callerName : "DIBAY call";
-    switch (state) {
-      case RINGING:
-        title.setText(caller);
-        subtitle.setText("Incoming voice call");
-        accept.setVisibility(View.VISIBLE);
-        decline.setVisibility(View.VISIBLE);
-        speaker.setVisibility(View.GONE);
-        end.setVisibility(View.GONE);
-        break;
-      case ACCEPTING:
-      case CONNECTING:
-        title.setText("Connecting");
-        subtitle.setText("Native voice runtime");
-        accept.setVisibility(View.GONE);
-        decline.setVisibility(View.GONE);
-        speaker.setVisibility(View.GONE);
-        end.setVisibility(View.VISIBLE);
-        break;
-      case CONNECTED:
-        title.setText("Connected");
-        subtitle.setText("Native voice call");
-        accept.setVisibility(View.GONE);
-        decline.setVisibility(View.GONE);
-        speaker.setVisibility(View.VISIBLE);
-        end.setVisibility(View.VISIBLE);
-        break;
-      case FAILED:
-      case ENDING:
-      case ENDED:
-      default:
-        title.setText("Ending");
-        subtitle.setText("Cleaning up");
-        accept.setVisibility(View.GONE);
-        decline.setVisibility(View.GONE);
-        speaker.setVisibility(View.GONE);
-        end.setVisibility(View.GONE);
-        break;
+    NativeVoiceCallUiPresenter.Model model = NativeVoiceCallUiPresenter.build(this, session, state);
+    peerNameView.setText(model.peerName);
+    statusView.setText(model.statusText);
+    avatarInitialView.setText(model.avatarInitial);
+    incomingActions.setVisibility(model.showIncomingActions ? View.VISIBLE : View.GONE);
+    activeActions.setVisibility(model.showActiveActions ? View.VISIBLE : View.GONE);
+    connectedControls.setVisibility(model.showConnectedControls ? View.VISIBLE : View.GONE);
+    endButton.setText(model.endButtonLabel);
+    speakerButton.setText(model.speakerLabel);
+    if (model.showDuration) {
+      if (connectedAtElapsedMs <= 0L) connectedAtElapsedMs = SystemClock.elapsedRealtime();
+      durationView.setVisibility(View.VISIBLE);
+      startDurationTimer();
+    } else {
+      stopDurationTimer();
+      connectedAtElapsedMs = 0L;
+      durationView.setVisibility(View.GONE);
     }
+  }
+
+  private void startDurationTimer() {
+    mainHandler.removeCallbacks(durationTick);
+    updateDurationLabel();
+    mainHandler.postDelayed(durationTick, 1000L);
+  }
+
+  private void stopDurationTimer() {
+    mainHandler.removeCallbacks(durationTick);
+  }
+
+  private void updateDurationLabel() {
+    if (connectedAtElapsedMs <= 0L || durationView == null) return;
+    long elapsedSec = Math.max(0L, (SystemClock.elapsedRealtime() - connectedAtElapsedMs) / 1000L);
+    long minutes = elapsedSec / 60L;
+    long seconds = elapsedSec % 60L;
+    durationView.setText(String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds));
   }
 }
