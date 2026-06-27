@@ -10,6 +10,8 @@ import com.dibay.app.call.DibayActiveCallSessionManager;
 import com.dibay.app.callv4.CallRuntimeV4;
 import com.dibay.app.callv4.CallV4IntentHelper;
 import com.dibay.app.callv4.CallV4Lane;
+import com.dibay.app.nativevoice.NativeVoiceCallOwner;
+import com.dibay.app.nativevoice.NativeVoiceCallRuntime;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -91,6 +93,10 @@ public final class IncomingCallActionCoordinator {
   public static void handleAccept(Context context, String callId) {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
     String sid = callId.trim();
+    if (NativeVoiceCallOwner.isNativeOwned(sid)) {
+      NativeVoiceCallRuntime.accept(context, sid);
+      return;
+    }
     if (CallV4Lane.isTelegramLaneEnabled(context)) {
       Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] coordinator_accept_enter callId=" + sid);
       Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] coordinator_accept_call_id callId=" + sid);
@@ -100,9 +106,13 @@ public final class IncomingCallActionCoordinator {
     final Context app = context.getApplicationContext();
     final boolean v4Lane = CallV4Lane.isTelegramLaneEnabled(app);
     if (v4Lane) {
+      boolean foregroundUnlocked =
+          DibayKeyguardHelper.isForegroundUnlockedInteractive(
+              MainActivity.isAppVisibleForIncomingCall(), app);
+      String acceptSource = !foregroundUnlocked ? "native_lock_accept" : "native_accept";
       Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] native_accept_start callId=" + sid);
       IncomingCallSurfaceOwner.transitionIncomingOwner(
-          app, sid, IncomingCallSurfaceOwner.SurfaceOwner.ACCEPTED_TRANSITION, "native_accept");
+          app, sid, IncomingCallSurfaceOwner.SurfaceOwner.ACCEPTED_TRANSITION, acceptSource);
       Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] accepted_transition callId=" + sid);
     } else {
       DibayCallLog.once("accept_start", sid, "source=native_pending_web");
@@ -123,12 +133,32 @@ public final class IncomingCallActionCoordinator {
         .post(
             () -> {
               if (CallV4Lane.isTelegramLaneEnabled(app)) {
+                boolean foregroundUnlocked =
+                    DibayKeyguardHelper.isForegroundUnlockedInteractive(
+                        MainActivity.isAppVisibleForIncomingCall(), app);
+                boolean lockNativeAccept = !foregroundUnlocked;
+                String acceptSource = lockNativeAccept ? "native_lock_accept" : "native_accept";
                 Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] native_handoff callId=" + sid + " target=main_activity");
                 Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] accept_intercepted callId=" + sid);
-                CallRuntimeV4.openFromNativeStore(app, sid, "native_accept");
-                Intent launch = CallV4IntentHelper.buildMainActivityV4AcceptIntent(app, sid, "native_accept");
+                CallRuntimeV4.openFromNativeStore(app, sid, acceptSource);
+                IncomingCallAcceptPatchHelper.sendAsync(app, sid, acceptSource);
+                String acceptPath = CallV4IntentHelper.buildV4AcceptAppPath(sid, acceptSource);
+                MainActivity.persistCallPendingRoute(app, acceptPath, null, 0L);
+                if (lockNativeAccept) {
+                  Log.i(
+                      CallV4Lane.TAG,
+                      "[DIBAY_CALL_V4] accept_path_lock_native_deferred_keyguard callId=" + sid);
+                  MainActivity.tryBeginLockV4AcceptHydration(app, sid, acceptPath);
+                  IncomingCallActivity active = IncomingCallActivity.peekActiveInstance();
+                  if (active != null && !active.isFinished() && active.isConnectingMode()) {
+                    IncomingCallConnectingSurface.scheduleKeepOnTop(active);
+                  }
+                  complete(sid, "accept");
+                  return;
+                }
                 Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] main_activity_calls_v4_direct_start callId=" + sid);
                 Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] main_activity_v4_accept_start callId=" + sid);
+                Intent launch = CallV4IntentHelper.buildMainActivityV4AcceptIntent(app, sid, acceptSource);
                 app.startActivity(launch);
                 IncomingCallActivity active = IncomingCallActivity.peekActiveInstance();
                 if (active != null && !active.isFinished()) {
@@ -148,6 +178,10 @@ public final class IncomingCallActionCoordinator {
   public static void handleReject(Context context, String callId) {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
     String sid = callId.trim();
+    if (NativeVoiceCallOwner.isNativeOwned(sid)) {
+      NativeVoiceCallRuntime.reject(context, sid);
+      return;
+    }
     if (!tryBegin(sid, "reject")) return;
     DibayCallLog.once("call_end", sid, "source=native_reject");
     DibayCallConsumedStore.mark(context, sid, "declined");

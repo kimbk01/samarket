@@ -18,9 +18,11 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <p>Contract: FCM starts FGS ring; Policy B also launches UI on the main thread in parallel
  * (Telegram parity — ring and surface together, not ring then wait for FGS {@code startForeground}).
- * Lock/sleep still delivers UI after FGS. One visible UI per callId (A/B/C policy):
+ * Lock/sleep launches {@link IncomingCallActivity} immediately on FCM (Telegram parity). One visible
+ * UI per callId (A/B/C policy):
  * <ul>
- *   <li>A — lock/sleep: CallStyle+FSI only; no manual {@code startActivity}</li>
+ *   <li>A — lock/sleep FCM: Activity-first via {@code lock_fcm_immediate}; FSI bridge+watchdog only
+ *       for rare FGS-deferred paths</li>
  *   <li>B — background unlocked: Activity-first; success = {@code incoming_activity_shown};
  *       2.5s fallback notification if not shown</li>
  *   <li>C — foreground: Web sheet only (blocked here)</li>
@@ -33,6 +35,7 @@ public final class IncomingCallBackgroundNotifier {
   private static final String LOCKSCREEN_TAG = "DIBAY_CALL_V4_LOCKSCREEN";
   private static final long LOCK_FSI_VISIBILITY_WATCHDOG_MS = 1_500L;
   private static final long LAUNCH_VISIBILITY_VERIFY_MS = 2_500L;
+  private static final long LOCK_LAUNCH_VISIBILITY_VERIFY_MS = 4_000L;
   private static final long BAL_GUARD_FALLBACK_MS = 900L;
   private static final Handler MAIN_HANDLER = new Handler(Looper.getMainLooper());
   private static final ConcurrentHashMap<String, Runnable> LOCK_FSI_WATCHDOG_RUNNABLES =
@@ -111,19 +114,18 @@ public final class IncomingCallBackgroundNotifier {
     }
   }
 
-  /** Lock / sleep — queue UI for FGS delivery. */
+  /** Lock / sleep — FGS best-effort, then immediate Activity (Telegram parity; pre-6/24 contract). */
   public static void presentLockIncoming(Context context, IncomingCallPayload payload) {
     if (context == null || payload == null || !payload.isValid()) return;
     String callId = payload.callId.trim();
     Context app = context.getApplicationContext();
     IncomingCallWakeLock.acquireForLockScreen(app, callId);
-    PendingIncomingPresentation.put(payload);
-    Log.i(TAG, "[call-ui] lock_presentation_queued callId=" + callId);
+    Log.i(TAG, "[call-ui] lock_presentation_immediate callId=" + callId);
     logLockscreenEvent(
         app,
         callId,
-        "fgs_start_requested",
-        IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_FSI,
+        "lock_presentation_immediate",
+        IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_ACTIVITY,
         IncomingCallNotificationBuilder.canPostFullScreenIntent(app),
         "source=present_lock_incoming");
     try {
@@ -133,8 +135,56 @@ public final class IncomingCallBackgroundNotifier {
           "foreground_service_started_ringing",
           callId,
           "ok=false err=" + error.getClass().getSimpleName());
-      deliverPendingPresentation(app, callId, "fgs_start_failed");
     }
+    presentLockIncomingUiImmediate(context, payload);
+  }
+
+  private static void presentLockIncomingUiImmediate(Context context, IncomingCallPayload payload) {
+    if (context == null || payload == null || !payload.isValid()) return;
+    Runnable presentUi =
+        () -> {
+          if (DibayCallConsumedStore.isConsumed(
+              context.getApplicationContext(), payload.callId.trim())) {
+            return;
+          }
+          if (CallV4Lane.isTelegramLaneEnabled(context)) {
+            presentV4LockActivityFirstIncoming(context, payload, "lock_fcm_immediate", false);
+            return;
+          }
+          IncomingCallNotificationBuilder.showIncomingCall(context, payload, false);
+          launchIncomingActivity(context, payload, "lock_fcm_immediate", null);
+          IncomingCallBackgroundNotifier.onLockIncomingSurfaceInteractive(
+              context, payload.callId.trim());
+        };
+    if (Looper.myLooper() == Looper.getMainLooper()) {
+      presentUi.run();
+    } else {
+      MAIN_HANDLER.post(presentUi);
+    }
+  }
+
+  /**
+   * Lock ring SSOT — start only after {@link IncomingCallActivity} surface is interactive (accept
+   * button laid out). Never ring before visible incoming UI on keyguard.
+   */
+  public static void onLockIncomingSurfaceInteractive(Context context, String callId) {
+    if (context == null || callId == null || callId.trim().isEmpty()) return;
+    String sid = callId.trim();
+    Context app = context.getApplicationContext();
+    if (!DibayKeyguardHelper.isKeyguardLocked(app) && DibayKeyguardHelper.isInteractive(app)) {
+      return;
+    }
+    if (IncomingCallRingOwner.getActiveCallId() != null && sid.equals(IncomingCallRingOwner.getActiveCallId())) {
+      return;
+    }
+    if (IncomingCallRingOwner.start(app, sid)) {
+      DibayCallPushLog.info("ringtone_start_native", sid, "source=lock_surface_interactive");
+      Log.i(TAG, "[call-ui] lock_incoming_ring_on_surface callId=" + sid);
+    }
+  }
+
+  private static boolean isLockImmediateSource(String source) {
+    return source != null && source.contains("lock_fcm_immediate");
   }
 
   /**
@@ -235,14 +285,87 @@ public final class IncomingCallBackgroundNotifier {
     boolean interactive = DibayKeyguardHelper.isInteractive(app);
     boolean lockOrSleep = keyguardLocked || !interactive;
 
-    if (lockOrSleep) {
+    boolean lockImmediate = source != null && source.contains("lock_fcm_immediate");
+    if (lockOrSleep && lockImmediate) {
+      presentV4LockActivityFirstIncoming(context, payload, source, fgsDelivery);
+    } else if (lockOrSleep) {
       presentV4LockFsiOnlyIncoming(context, payload, source, fgsDelivery);
     } else {
       presentV4BackgroundActivityFirstIncoming(context, payload, source, fgsDelivery);
     }
   }
 
-  /** Policy A — lock/sleep: FSI Activity first; visible CallStyle fallback if FSI is denied or late. */
+  /**
+   * Policy A (FCM lock immediate) — Activity-first on keyguard. Notification fallback only if launch
+   * fails or {@code incoming_activity_shown} missing after verify window.
+   */
+  private static void presentV4LockActivityFirstIncoming(
+      Context context,
+      IncomingCallPayload payload,
+      String source,
+      boolean fgsDelivery) {
+    String callId = payload.callId.trim();
+    Context app = context != null ? context.getApplicationContext() : null;
+    if (app != null) {
+      IncomingCallSurfaceOwner.transitionIncomingOwner(
+          app, callId, IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_ACTIVITY, "lock_immediate");
+    }
+
+    if (IncomingCallSurfaceOwner.shouldBlockVisibleIncomingStart(
+        callId, IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_ACTIVITY)) {
+      Log.i(
+          CallV4Lane.TAG,
+          "[DIBAY_CALL_V4] incoming_owner_blocked callId="
+              + callId
+              + " visibility=locked source="
+              + source);
+      presentV4NotificationFallback(context, payload, fgsDelivery, source, "owner_blocked");
+      return;
+    }
+
+    Log.i(
+        CallV4Lane.TAG,
+        "[DIBAY_CALL_V4] native_activity_launch_start callId="
+            + callId
+            + " visibility=locked source="
+            + source);
+    // FSI + CallStyle wakes device while Activity task starts (Android lock incoming contract).
+    IncomingCallNotificationBuilder.showIncomingCall(context, payload, fgsDelivery);
+    logLockscreenEvent(
+        app,
+        callId,
+        "lock_incoming_notify_fsi_attached",
+        IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_ACTIVITY,
+        IncomingCallNotificationBuilder.canPostFullScreenIntent(app),
+        "source=" + source);
+    boolean launchAttempted =
+        launchIncomingActivity(
+            context,
+            payload,
+            source,
+            () ->
+                scheduleLaunchVisibilityVerify(
+                    context, payload, source, fgsDelivery, false, LOCK_LAUNCH_VISIBILITY_VERIFY_MS));
+    Log.i(
+        CallV4Lane.TAG,
+        "[DIBAY_CALL_V4] native_activity_launch_result callId="
+            + callId
+            + " launch_attempted="
+            + launchAttempted
+            + " awaiting=incoming_activity_shown");
+
+    if (IncomingCallActivity.isCallVisible(callId)) {
+      onIncomingActivityShown(context, callId, payload.callType);
+      return;
+    }
+
+    if (!launchAttempted) {
+      presentV4NotificationFallback(
+          context, payload, fgsDelivery, source, "activity_launch_failed");
+    }
+  }
+
+  /** Policy A (FGS-deferred) — FSI bridge; visible CallStyle fallback if FSI denied or late. */
   private static void presentV4LockFsiOnlyIncoming(
       Context context,
       IncomingCallPayload payload,
@@ -464,6 +587,17 @@ public final class IncomingCallBackgroundNotifier {
       String source,
       boolean fgsDelivery,
       boolean balGuardEnabled) {
+    scheduleLaunchVisibilityVerify(
+        context, payload, source, fgsDelivery, balGuardEnabled, LAUNCH_VISIBILITY_VERIFY_MS);
+  }
+
+  private static void scheduleLaunchVisibilityVerify(
+      Context context,
+      IncomingCallPayload payload,
+      String source,
+      boolean fgsDelivery,
+      boolean balGuardEnabled,
+      long verifyDelayMs) {
     if (payload == null || !payload.isValid()) return;
     String callId = payload.callId.trim();
     cancelLaunchVisibilityVerify(callId);
@@ -515,7 +649,7 @@ public final class IncomingCallBackgroundNotifier {
               context, payload, fgsDelivery, source, "activity_not_shown");
         };
     LAUNCH_VERIFY_RUNNABLES.put(callId, runnable);
-    MAIN_HANDLER.postDelayed(runnable, LAUNCH_VISIBILITY_VERIFY_MS);
+    MAIN_HANDLER.postDelayed(runnable, verifyDelayMs);
   }
 
   static void cancelLaunchVisibilityVerify(String callId) {
@@ -592,26 +726,38 @@ public final class IncomingCallBackgroundNotifier {
       DibayCallPushLog.warn("incoming_activity_launch_blocked", sid, "reason=invalid_intent source=" + source);
       return false;
     }
-    // Reuse app task stack (API 35+ BAL blocks new background task affinity); purge clears stale instance.
-    incomingUi.setFlags(
-        Intent.FLAG_ACTIVITY_NEW_TASK
-            | Intent.FLAG_ACTIVITY_CLEAR_TOP
-            | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-    boolean needsDelay =
-        IncomingCallSessionCleanup.prepareFreshActivityLaunch(
-            context.getApplicationContext(), sid);
+    boolean lockFast = isLockImmediateSource(source);
+    // Lock immediate: dedicated incoming task — never stack on MainActivity WebView task (warm lock black/white flash).
+    if (lockFast) {
+      incomingUi.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+    } else {
+      incomingUi.setFlags(
+          Intent.FLAG_ACTIVITY_NEW_TASK
+              | Intent.FLAG_ACTIVITY_CLEAR_TOP
+              | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+    }
+    boolean needsDelay = false;
+    if (!lockFast) {
+      needsDelay =
+          IncomingCallSessionCleanup.prepareFreshActivityLaunch(
+              context.getApplicationContext(), sid);
+    } else {
+      IncomingCallActivity.clearVisibleFlag(sid);
+    }
     Runnable launch =
         () -> {
-          Context app = context.getApplicationContext();
-          if (IncomingCallActivity.hasIncomingTask(app)) {
-            IncomingCallActivity.finishAllIncomingTasks(app, "pre_launch_final_sweep:" + sid);
-            IncomingCallTerminalHandler.broadcastFinishIncomingActivity(app, sid);
-            Log.i(
-                TAG,
-                "[call-ui] incoming_activity_pre_launch_sweep callId="
-                    + sid
-                    + " has_task_after="
-                    + IncomingCallActivity.hasIncomingTask(app));
+          if (!lockFast) {
+            Context app = context.getApplicationContext();
+            if (IncomingCallActivity.hasIncomingTask(app)) {
+              IncomingCallActivity.finishAllIncomingTasks(app, "pre_launch_final_sweep:" + sid);
+              IncomingCallTerminalHandler.broadcastFinishIncomingActivity(app, sid);
+              Log.i(
+                  TAG,
+                  "[call-ui] incoming_activity_pre_launch_sweep callId="
+                      + sid
+                      + " has_task_after="
+                      + IncomingCallActivity.hasIncomingTask(app));
+            }
           }
           startIncomingActivityBalSafe(context, incomingUi, sid, source);
           if (afterDispatch != null) {
@@ -648,8 +794,46 @@ public final class IncomingCallBackgroundNotifier {
     return null;
   }
 
+  private static boolean shouldUseDirectLockLaunch(Context context, String source) {
+    if (source == null || !source.contains("lock_fcm_immediate")) return false;
+    Context app = context != null ? context.getApplicationContext() : null;
+    if (app == null) return false;
+    return DibayKeyguardHelper.isKeyguardLocked(app) || !DibayKeyguardHelper.isInteractive(app);
+  }
+
+  private static boolean tryDirectLockActivityLaunch(
+      Context context, Intent incomingUi, String sid, String source) {
+    try {
+      Bundle opts = buildBalSendOptionsBundle();
+      if (opts != null) {
+        context.startActivity(incomingUi, opts);
+      } else {
+        context.startActivity(incomingUi);
+      }
+      DibayCallLog.once("incoming_render", sid, "source=" + source + " via=direct_lock");
+      Log.i(
+          TAG,
+          "[call-ui] outside_app_incoming_activity_launch callId="
+              + sid
+              + " source="
+              + source
+              + " via=direct_lock");
+      return true;
+    } catch (Exception error) {
+      DibayCallPushLog.warn(
+          "direct_lock_launch_failed",
+          sid,
+          "source=" + source + " err=" + error.getClass().getSimpleName());
+      return false;
+    }
+  }
+
   private static void startIncomingActivityBalSafe(
       Context context, Intent incomingUi, String sid, String source) {
+    if (shouldUseDirectLockLaunch(context, source)
+        && tryDirectLockActivityLaunch(context, incomingUi, sid, source)) {
+      return;
+    }
     int piFlags = PendingIntent.FLAG_UPDATE_CURRENT;
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
       piFlags |= PendingIntent.FLAG_IMMUTABLE;

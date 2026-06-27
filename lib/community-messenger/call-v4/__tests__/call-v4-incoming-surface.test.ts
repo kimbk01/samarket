@@ -13,6 +13,7 @@ import {
   clearCallV4NativeAcceptingSurface,
   clearCallV4SurfaceOwner,
   registerCallV4NativeAcceptingSurface,
+  isCallV4NativeAcceptHandoffSource,
   resolveCallV4NativeAcceptingSurfaceType,
   shouldDeferCallV4WebIncomingSheet,
   shouldRegisterCallV4NativeAcceptingFromRoute,
@@ -199,6 +200,9 @@ describe("call-v4 Phase6A canRenderWebIncomingSheet", () => {
     expect(shouldRegisterCallV4NativeAcceptingFromRoute(sheetPath)).toBe(false);
     expect(resolveCallV4NativeAcceptingSurfaceType("native_accept")).toBe("native_fullscreen_accept");
     expect(resolveCallV4NativeAcceptingSurfaceType("lock_fsi")).toBe("native_locked_accept");
+    expect(isCallV4NativeAcceptHandoffSource("native_lock_accept")).toBe(true);
+    expect(isCallV4NativeAcceptHandoffSource("native_accept")).toBe(true);
+    expect(isCallV4NativeAcceptHandoffSource("sheet")).toBe(false);
   });
 
   it("clears native accepting surface", () => {

@@ -3,6 +3,10 @@ package com.dibay.app;
 import android.content.Context;
 import android.util.Log;
 import com.dibay.app.callv4.CallV4Lane;
+import com.dibay.app.nativevideo.NativeVideoCallLane;
+import com.dibay.app.nativevideo.NativeVideoCallRuntime;
+import com.dibay.app.nativevoice.NativeVoiceCallLane;
+import com.dibay.app.nativevoice.NativeVoiceCallRuntime;
 
 /**
  * Push incoming delivery SSOT — FCM {@link DibayFirebaseMessagingService} and debug adb share one path.
@@ -28,6 +32,28 @@ public final class IncomingCallPushDelivery {
     if (context == null || payload == null || !payload.isValid()) return;
     Context app = context.getApplicationContext();
     String callId = payload.callId.trim();
+
+    if (NativeVoiceCallLane.shouldHandleIncoming(app, payload.callType)) {
+      NativeVoiceCallRuntime.handleIncoming(
+          app,
+          callId,
+          payload.roomId,
+          payload.callerId,
+          payload.callerName,
+          payload.callType);
+      return;
+    }
+
+    if (NativeVideoCallLane.shouldHandleIncoming(app, payload.callType)) {
+      NativeVideoCallRuntime.handleIncoming(
+          app,
+          callId,
+          payload.roomId,
+          payload.callerId,
+          payload.callerName,
+          payload.callType);
+      return;
+    }
 
     boolean appVisible = MainActivity.isAppVisibleForIncomingCall();
     boolean foregroundUnlocked = DibayKeyguardHelper.isForegroundUnlockedInteractive(appVisible, app);
@@ -88,7 +114,6 @@ public final class IncomingCallPushDelivery {
             + interactive);
 
     if (lockBridge) {
-      startRingAtPushBoundary(context, callId);
       IncomingCallBackgroundNotifier.presentLockIncoming(context, payload);
     } else {
       IncomingCallBackgroundNotifier.startRingingWithImmediateUi(context, payload);

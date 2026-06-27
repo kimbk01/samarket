@@ -45,10 +45,23 @@ let syncPlugin: NativeIncomingCallPlugin | null | undefined;
  * Capacitor plugin proxies trap arbitrary properties, including `then`.
  * Promise/async assimilation would call `NativeIncomingCall.then()` and throw UNIMPLEMENTED.
  */
+function stripCapacitorPluginThenTrap<T extends object>(plugin: T): T {
+  if (!plugin || typeof plugin !== "object") return plugin;
+  if (!("then" in plugin)) return plugin;
+  return new Proxy(plugin, {
+    get(target, prop, receiver) {
+      if (prop === "then") return undefined;
+      return Reflect.get(target, prop, receiver);
+    },
+  });
+}
+
 function resolveNativePluginWithoutThenableAssimilation(
   plugin: NativeIncomingCallPlugin,
 ): Promise<NativeIncomingCallPlugin> {
-  return Promise.resolve({ plugin }).then((wrapped) => wrapped.plugin);
+  return Promise.resolve({ plugin: stripCapacitorPluginThenTrap(plugin) }).then(
+    (wrapped) => wrapped.plugin,
+  );
 }
 
 /** User-gesture ring stop — await 없이 Capacitor plugin 호출 (accept/reject 즉시). */
@@ -56,7 +69,9 @@ export function getSyncNativeIncomingCallPlugin(): NativeIncomingCallPlugin | nu
   if (!isCapacitorNativePlatform()) return null;
   if (syncPlugin !== undefined) return syncPlugin;
   try {
-    syncPlugin = registerPlugin<NativeIncomingCallPlugin>("NativeIncomingCall");
+    syncPlugin = stripCapacitorPluginThenTrap(
+      registerPlugin<NativeIncomingCallPlugin>("NativeIncomingCall"),
+    );
   } catch {
     syncPlugin = null;
   }

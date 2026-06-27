@@ -67,19 +67,65 @@ if (notifier.includes('fgsDelivery, "lock"') || notifier.includes(', "lock")')) 
 
 const lockFsiMethod =
   notifier.match(/private static void presentV4LockFsiOnlyIncoming[\s\S]*?^  \}/m)?.[0] ?? "";
+const lockImmediateMethod =
+  notifier.match(/private static void presentV4LockActivityFirstIncoming[\s\S]*?^  \}/m)?.[0] ?? "";
+const presentLockMethod =
+  notifier.match(/public static void presentLockIncoming[\s\S]*?^  \}/m)?.[0] ?? "";
 const backgroundMethod =
   notifier.match(/private static void presentV4BackgroundActivityFirstIncoming[\s\S]*?^  \}/m)?.[0] ?? "";
 
-if (!notifier.includes("presentV4LockFsiOnlyIncoming") || !notifier.includes("lock_incoming_fsi_only")) {
-  fail("Policy A: lock/sleep must use presentV4LockFsiOnlyIncoming");
+if (!notifier.includes("presentV4LockActivityFirstIncoming") || !notifier.includes("lock_presentation_immediate")) {
+  fail("Policy A: lock FCM must use presentV4LockActivityFirstIncoming + lock_presentation_immediate");
 } else {
-  pass("Policy A lock FSI entry");
+  pass("Policy A lock immediate Activity entry");
+}
+
+if (presentLockMethod.includes("PendingIncomingPresentation.put")) {
+  fail("Policy A: lock FCM must not defer UI to FGS queue");
+} else {
+  pass("Policy A lock FCM not queued to FGS");
+}
+
+if (!lockImmediateMethod.includes("launchIncomingActivity")) {
+  fail("Policy A: lock immediate must call launchIncomingActivity");
+} else {
+  pass("Policy A lock immediate launches Activity");
+}
+
+if (!notifier.includes("via=direct_lock") || !notifier.includes("tryDirectLockActivityLaunch")) {
+  fail("Policy A: lock FCM must try direct startActivity on keyguard (direct_lock)");
+} else {
+  pass("Policy A lock direct startActivity path");
+}
+
+if (!lockImmediateMethod.includes("showIncomingCall")) {
+  fail("Policy A: lock immediate must post CallStyle+FSI while Activity launches");
+} else {
+  pass("Policy A lock FSI+CallStyle parallel with Activity");
+}
+
+if (!notifier.includes("onLockIncomingSurfaceInteractive") || !notifier.includes("lock_surface_interactive")) {
+  fail("Policy A: lock ring must start on surface interactive only");
+} else {
+  pass("Policy A lock ring gated on surface interactive");
+}
+
+if (notifier.includes("lock_ui_parallel")) {
+  fail("Policy A: lock must not use lock_ui_parallel ring-before-UI");
+} else {
+  pass("Policy A no lock_ui_parallel early ring");
+}
+
+if (!notifier.includes("presentV4LockFsiOnlyIncoming") || !notifier.includes("lock_incoming_fsi_only")) {
+  fail("Policy A: FGS-deferred lock must retain presentV4LockFsiOnlyIncoming");
+} else {
+  pass("Policy A FGS-deferred FSI entry");
 }
 
 if (lockFsiMethod.includes("launchIncomingActivity")) {
-  fail("Policy A: lock path must not call launchIncomingActivity (manual startActivity forbidden)");
+  fail("Policy A: FGS-deferred FSI path must not call launchIncomingActivity");
 } else {
-  pass("Policy A no manual startActivity on lock path");
+  pass("Policy A FSI-deferred path no manual startActivity");
 }
 
 if (lockFsiMethod.includes("showIncomingCallFsiBridge") && notifier.includes("scheduleLockFsiVisibilityWatchdog")) {
@@ -229,6 +275,27 @@ if (!connecting.includes("native_connecting_surface_handoff")) {
 } else {
   pass("V4 connecting surface web handoff");
 }
+const acceptPatch = read("android/app/src/main/java/com/dibay/app/IncomingCallAcceptPatchHelper.java");
+if (!acceptPatch.includes("accept_patch_start") || !acceptPatch.includes("action") || !acceptPatch.includes("accept")) {
+  fail("IncomingCallAcceptPatchHelper must PATCH accept from native lock path");
+} else {
+  pass("V4 native lock accept PATCH helper");
+}
+if (!activity.includes("accept_skip_keyguard_dismiss")) {
+  fail("IncomingCallActivity must skip keyguard dismiss on lock accept");
+} else {
+  pass("V4 lock accept skips keyguard dismiss");
+}
+if (!coordinator.includes("accept_path_lock_native_deferred_keyguard")) {
+  fail("Coordinator must defer MainActivity foreground on lock accept");
+} else {
+  pass("V4 lock accept defers foreground route");
+}
+if (!connecting.includes("keyguard_locked")) {
+  fail("Connecting handoff must defer while keyguard locked");
+} else {
+  pass("V4 handoff deferred while keyguard locked");
+}
 if (!coordinator.includes("main_activity_calls_v4_direct_start")) {
   fail("V4 accept must log main_activity_calls_v4_direct_start");
 } else {
@@ -254,6 +321,11 @@ if (
 const mainActivity = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
 const exitGuard = read("lib/community-messenger/call-v4/call-v4-exit-guard.ts");
 const presentationDock = read("lib/community-messenger/call-v4/presentation/call-v4-presentation-dock.ts");
+if (!mainActivity.includes("tryBeginLockV4AcceptHydration")) {
+  fail("MainActivity must hydrate Web route in background on lock accept");
+} else {
+  pass("V4 lock accept background hydration");
+}
 if (!mainActivity.includes("accept_route_restore_start") || !mainActivity.includes("accept_handoff_deferred")) {
   fail("V4 accept must restore call route before web handoff");
 } else {

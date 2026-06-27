@@ -20,6 +20,14 @@ public final class IncomingCallConnectingSurface {
    */
   public static boolean handoffToWeb(Context context, String callId, String phase) {
     if (callId == null || callId.trim().isEmpty()) return false;
+    if (context != null && DibayKeyguardHelper.isKeyguardLocked(context)) {
+      Log.i(
+          CallV4Lane.TAG,
+          "[DIBAY_CALL_V4] native_connecting_surface_handoff_deferred callId="
+              + callId.trim()
+              + " reason=keyguard_locked");
+      return false;
+    }
     if (!IncomingCallActivity.isConnectingHandoffActive(callId)) {
       Log.i(
           CallV4Lane.TAG,

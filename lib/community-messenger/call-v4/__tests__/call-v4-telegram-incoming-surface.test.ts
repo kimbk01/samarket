@@ -22,14 +22,18 @@ describe("call-v4 Telegram incoming surface contract", () => {
     expect(banner).toContain("data-incoming-call-compact-banner");
   });
 
-  it("Android A/B/C policy: lock FSI+fallback, background Activity+verify, foreground Web block", () => {
+  it("Android A/B/C policy: lock Activity immediate, background Activity+verify, foreground Web block", () => {
     const notifier = read("android/app/src/main/java/com/dibay/app/IncomingCallBackgroundNotifier.java");
     const activity = read("android/app/src/main/java/com/dibay/app/IncomingCallActivity.java");
     const lockFsiMethod =
       notifier.match(/private static void presentV4LockFsiOnlyIncoming[\s\S]*?^  \}/m)?.[0] ?? "";
+    const lockImmediateMethod =
+      notifier.match(/private static void presentV4LockActivityFirstIncoming[\s\S]*?^  \}/m)?.[0] ?? "";
     const backgroundMethod =
       notifier.match(/private static void presentV4BackgroundActivityFirstIncoming[\s\S]*?^  \}/m)?.[0] ?? "";
 
+    expect(notifier).toContain("presentV4LockActivityFirstIncoming");
+    expect(notifier).toContain("lock_presentation_immediate");
     expect(notifier).toContain("presentV4LockFsiOnlyIncoming");
     expect(notifier).toContain("lock_incoming_fsi_only");
     expect(notifier).toContain("scheduleLockFsiVisibilityWatchdog");
@@ -42,6 +46,7 @@ describe("call-v4 Telegram incoming surface contract", () => {
     expect(notifier).not.toContain("presentV4ActivityFirstIncoming");
     expect(notifier).not.toContain("_boost");
 
+    expect(lockImmediateMethod).toContain("launchIncomingActivity");
     expect(lockFsiMethod).toContain("showIncomingCallFsiBridge");
     expect(lockFsiMethod).toContain("lock_incoming_native_fsi_activity_only");
     expect(lockFsiMethod).not.toContain("launchIncomingActivity");

@@ -109,16 +109,57 @@
             android:excludeFromRecents="true"
             android:exported="false"
             android:launchMode="singleTask"
+            android:showWhenLocked="true"
+            android:taskAffinity="com.dibay.app.incoming.call"
+            android:turnScreenOn="true"
+            android:theme="@style/AppTheme.IncomingCall" />
+
+        <activity
+            android:name=".nativevoice.NativeVoiceCallActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:showWhenLocked="true"
+            android:taskAffinity="com.dibay.app.native.voice"
+            android:turnScreenOn="true"
+            android:theme="@style/AppTheme.IncomingCall" />
+
+        <activity
+            android:name=".nativevideo.NativeVideoCallActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:showWhenLocked="true"
+            android:taskAffinity="com.dibay.app.native.video"
+            android:turnScreenOn="true"
             android:theme="@style/AppTheme.IncomingCall" />
 
         <receiver
             android:name=".IncomingCallDeclineReceiver"
             android:exported="false" />
 
+        <receiver
+            android:name=".nativevoice.NativeVoiceCallActionReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name=".nativevideo.NativeVideoCallActionReceiver"
+            android:exported="false" />
+
         <service
             android:name=".call.CallForegroundService"
             android:exported="false"
             android:foregroundServiceType="phoneCall|microphone|camera|shortService" />
+
+        <service
+            android:name=".nativevoice.NativeVoiceCallService"
+            android:exported="false"
+            android:foregroundServiceType="phoneCall|microphone" />
+
+        <service
+            android:name=".nativevideo.NativeVideoCallService"
+            android:exported="false"
+            android:foregroundServiceType="phoneCall|microphone|camera" />
 
         <activity
             android:name="com.kakao.sdk.auth.AuthCodeHandlerActivity"

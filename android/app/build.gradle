@@ -69,6 +69,7 @@ dependencies {
     implementation "com.kakao.sdk:v2-user:2.20.1"
     implementation "com.google.android.gms:play-services-auth:21.3.0"
     implementation "com.google.firebase:firebase-messaging:24.1.0"
+    implementation "io.agora.rtc:full-sdk:4.6.3"
     implementation project(':capacitor-android')
     testImplementation "junit:junit:$junitVersion"
     testImplementation "org.robolectric:robolectric:4.14.1"

@@ -52,13 +52,20 @@ describe("call-v4 import isolation", () => {
     expect(fgs).toContain("v3_task_removed_pending_suppressed");
   });
 
-  it("V4 lock incoming delivers FSI first, then visible fallback if FSI is denied or late", () => {
+  it("V4 lock incoming launches Activity immediately on FCM (Telegram parity)", () => {
     const notifier = read("android/app/src/main/java/com/dibay/app/IncomingCallBackgroundNotifier.java");
     const lockFsiMethod =
       notifier.match(/private static void presentV4LockFsiOnlyIncoming[\s\S]*?^  \}/m)?.[0] ?? "";
+    const lockImmediateMethod =
+      notifier.match(/private static void presentV4LockActivityFirstIncoming[\s\S]*?^  \}/m)?.[0] ?? "";
+    const presentLockMethod =
+      notifier.match(/public static void presentLockIncoming[\s\S]*?^  \}/m)?.[0] ?? "";
+    const presentLockUiMethod =
+      notifier.match(/private static void presentLockIncomingUiImmediate[\s\S]*?^  \}/m)?.[0] ?? "";
+    expect(notifier).toContain("presentV4LockActivityFirstIncoming");
+    expect(notifier).toContain("lock_presentation_immediate");
     expect(notifier).toContain("presentV4LockFsiOnlyIncoming");
     expect(notifier).toContain("lock_incoming_fsi_only");
-    expect(notifier).toContain("lock_presentation_queued");
     expect(notifier).toContain("background_presentation_deliver");
     expect(notifier).toContain("native_notification_fallback");
     expect(notifier).toContain("LOCK_FSI_VISIBILITY_WATCHDOG_MS");
@@ -66,10 +73,17 @@ describe("call-v4 import isolation", () => {
     expect(notifier).toContain("fsi_denied");
     expect(notifier).toContain("fsi_watchdog_timeout");
     expect(notifier).toContain("fallback_notification_posted");
+    expect(lockImmediateMethod).toContain("launchIncomingActivity");
+    expect(presentLockUiMethod).toContain("lock_fcm_immediate");
+    expect(notifier).toContain("onLockIncomingSurfaceInteractive");
+    expect(notifier).toContain("lock_surface_interactive");
+    expect(notifier).toContain("lock_incoming_notify_fsi_attached");
+    expect(notifier).not.toContain("lock_ui_parallel");
+    expect(presentLockMethod).not.toContain("PendingIncomingPresentation.put");
     expect(lockFsiMethod).toContain("showIncomingCallFsiBridge");
     expect(lockFsiMethod).toContain("lock_incoming_native_fsi_activity_only");
     expect(lockFsiMethod).not.toContain("launchIncomingActivity");
-    expect(notifier).not.toContain("lock_presentation_immediate");
+    expect(notifier).not.toContain("lock_presentation_queued");
     expect(notifier).not.toContain("_boost");
     expect(notifier).not.toContain("lock_incoming_activity_boost");
   });
@@ -116,6 +130,9 @@ describe("call-v4 import isolation", () => {
     expect(coord).toContain("ACCEPTED_TRANSITION");
     const activity = read("android/app/src/main/java/com/dibay/app/IncomingCallActivity.java");
     expect(activity).toContain("finishSafely");
+    expect(activity).toContain("accept_path_lock_connecting_handoff");
+    expect(activity).toContain("notifyLockSurfaceInteractive");
+    expect(activity).toContain("onWindowFocusChanged");
     expect(activity).toContain("native_connecting_surface_shown");
     expect(activity).toContain("enterV4ConnectingMode");
   });
@@ -265,8 +282,9 @@ describe("call-v4 import isolation", () => {
     expect(script).toContain("shouldSuppressMissedTimeout");
     expect(script).toContain("incoming_session_purge_blocked");
     expect(script).toContain("presentV4LockFsiOnlyIncoming");
+    expect(script).toContain("presentV4LockActivityFirstIncoming");
     expect(script).toContain("presentV4BackgroundActivityFirstIncoming");
-    expect(script).toContain("Policy A lock FSI entry");
+    expect(script).toContain("Policy A lock immediate Activity entry");
     expect(script).toContain("Policy A FSI denied/watchdog fallback");
   });
 

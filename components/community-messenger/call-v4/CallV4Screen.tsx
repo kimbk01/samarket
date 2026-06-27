@@ -20,10 +20,12 @@ import { useCallV4MediaStore, seedCallV4MediaPresentationForCall } from "@/lib/c
 import { tryStartCallV4NativeAcceptAutostart } from "@/lib/community-messenger/call-v4/call-v4-native-accept-flight";
 import { notifyCallV4WebCallScreenReady } from "@/lib/community-messenger/call-v4/call-v4-native-connecting-handoff";
 import { maybeExitCallV4ScreenAfterCleanup } from "@/lib/community-messenger/call-v4/call-v4-exit-guard";
+import { isCallV4NativeAcceptHandoffSource } from "@/lib/community-messenger/call-v4/call-v4-incoming-surface";
 import { registerCallV4ExitRouter } from "@/lib/community-messenger/call-v4/call-v4-route";
 import { useCallV4VideoPresenter } from "@/lib/community-messenger/call-v4/call-v4-video-presenter";
 import { buildCallV4ScreenViewModel } from "@/lib/community-messenger/call-v4/call-v4-view-model";
 import { readCallV4Identity, readCallV4Phase, useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
+import { isNativeVoiceRuntimeEnabled } from "@/lib/community-messenger/native-voice/native-voice-runtime-flag";
 import {
   beginCallV4CalleeScreenHydrate,
   endCallV4CalleeScreenHydrate,
@@ -83,7 +85,7 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
     if (!callId) return;
     logCallV4("screen_mounted", { callId, source });
     logCallV4("connecting_visible", { callId, source });
-    if (action !== "accept" && source !== "native_accept") return;
+    if (action !== "accept" && !isCallV4NativeAcceptHandoffSource(source)) return;
     if (nativeHandoffPhaseRef.current !== null) return;
     nativeHandoffPhaseRef.current = "connecting";
     void notifyCallV4WebCallScreenReady(callId, "connecting");
@@ -91,7 +93,7 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
 
   useEffect(() => {
     if (!callId || phase !== "connected") return;
-    if (action !== "accept" && source !== "native_accept") return;
+    if (action !== "accept" && !isCallV4NativeAcceptHandoffSource(source)) return;
     if (nativeHandoffPhaseRef.current === "connected") return;
     nativeHandoffPhaseRef.current = "connected";
     void notifyCallV4WebCallScreenReady(callId, "connected");
@@ -116,6 +118,33 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
         kind: kind ?? "pending",
         source: source ?? null,
       });
+      if (isNativeVoiceRuntimeEnabled()) {
+        const session =
+          existing?.callId === callId
+            ? null
+            : await callV4FetchSession(callId);
+        const resolvedKind =
+          session?.callKind ??
+          (existing?.callId === callId && existing.mediaType === "audio" ? "voice" : null);
+        if (resolvedKind === "voice") {
+          logCallV4("native_voice_web_accept_autostart_blocked", {
+            callId,
+            source: source ?? null,
+          });
+          return;
+        }
+      }
+      if (
+        source === "native_lock_accept" ||
+        source === "native_accept" ||
+        (source ?? "").includes("native")
+      ) {
+        logCallV4("web_call_v4_native_accept_received", {
+          callId,
+          source: source ?? null,
+          surface: "call_v4_screen",
+        });
+      }
       if (!tryStartCallV4NativeAcceptAutostart(callId)) {
         logCallV4("call_v4_accept_autostart_blocked", { callId, source: source ?? null });
         return;

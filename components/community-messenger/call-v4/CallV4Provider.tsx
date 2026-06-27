@@ -3,7 +3,6 @@
 import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
-import { peekPrefetchedCommunityMessengerCallConnection } from "@/lib/community-messenger/call-connection-prefetch";
 import { useCallV4ForegroundResume } from "@/lib/community-messenger/call-v4/use-call-v4-foreground-resume";
 import { useCallV4PresentationPlatform } from "@/lib/community-messenger/call-v4/presentation/use-call-v4-presentation-platform";
 import {
@@ -55,7 +54,6 @@ import {
   type DibayFcmIncomingWakeDetail,
 } from "@/lib/community-messenger/dibay-fcm-call-bridge";
 import { onCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
-import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 import { CallV4IncomingSheet } from "@/components/community-messenger/call-v4/CallV4IncomingSheet";
 import { CallV4ActiveCallHost } from "@/components/community-messenger/call-v4/CallV4ActiveCallHost";
 
@@ -104,87 +102,6 @@ function seedCallV4NativeAcceptRouteState(path: string): void {
 }
 
 const replacedV4AcceptCallIds = new Set<string>();
-const videoTokenPrefetchStartedCallIds = new Set<string>();
-const videoTokenPrefetchSettledCallIds = new Set<string>();
-const VIDEO_TOKEN_PREFETCH_CHECK_DELAYS_MS = [250, 500, 900, 1400, 2200, 3500];
-
-function readNativeRouteSource(path: string): string | null {
-  return (
-    new URLSearchParams(path.includes("?") ? path.slice(path.indexOf("?") + 1) : "").get("source")?.trim() ??
-    null
-  );
-}
-
-function scheduleVideoTokenPrefetchResultLog(callId: string): void {
-  for (const delayMs of VIDEO_TOKEN_PREFETCH_CHECK_DELAYS_MS) {
-    window.setTimeout(() => {
-      if (videoTokenPrefetchSettledCallIds.has(callId)) return;
-      if (!videoTokenPrefetchStartedCallIds.has(callId)) return;
-      const warmed = peekPrefetchedCommunityMessengerCallConnection(callId);
-      if (!warmed) {
-        if (delayMs === VIDEO_TOKEN_PREFETCH_CHECK_DELAYS_MS[VIDEO_TOKEN_PREFETCH_CHECK_DELAYS_MS.length - 1]) {
-          videoTokenPrefetchSettledCallIds.add(callId);
-          logCallV4("video_token_prefetch_failed_soft", {
-            callId,
-            reason: "prefetch_not_ready_before_timeout",
-          });
-        }
-        return;
-      }
-      videoTokenPrefetchSettledCallIds.add(callId);
-      logCallV4("video_token_prefetch_done", { callId });
-    }, delayMs);
-  }
-}
-
-async function primeCallV4VideoTokenPrefetch(
-  callId: string,
-  source: string,
-  session?: CommunityMessengerCallSession | null,
-): Promise<void> {
-  const sid = callId.trim();
-  if (!sid) return;
-  logCallV4("video_token_prefetch_discovered", { callId: sid, source });
-
-  const resolvedSession = session ?? (await callV4FetchSession(sid).catch(() => null));
-  if (
-    !resolvedSession ||
-    resolvedSession.isMineInitiator ||
-    (resolvedSession.status !== "ringing" && resolvedSession.status !== "active")
-  ) {
-    logCallV4("video_token_prefetch_skipped_no_session", {
-      callId: sid,
-      source,
-      status: resolvedSession?.status ?? null,
-      isMineInitiator: resolvedSession?.isMineInitiator ?? null,
-    });
-    return;
-  }
-
-  if (resolvedSession.callKind !== "video") {
-    logCallV4("video_token_prefetch_skipped_non_video", {
-      callId: sid,
-      source,
-      callKind: resolvedSession.callKind ?? null,
-    });
-    return;
-  }
-
-  if (videoTokenPrefetchStartedCallIds.has(sid)) {
-    logCallV4("video_token_prefetch_deduped", { callId: sid, source });
-    return;
-  }
-
-  videoTokenPrefetchStartedCallIds.add(sid);
-  logCallV4("video_token_prefetch_start", { callId: sid, source });
-  try {
-    primeCallV4ConnectionWarm(sid);
-    scheduleVideoTokenPrefetchResultLog(sid);
-  } catch {
-    videoTokenPrefetchSettledCallIds.add(sid);
-    logCallV4("video_token_prefetch_failed_soft", { callId: sid, source, reason: "warm_throw" });
-  }
-}
 
 function isAlreadyOnCallV4AcceptRoute(currentPath: string, targetPath: string): boolean {
   const current = normalizeCallV4AppPath(currentPath);
@@ -207,6 +124,15 @@ export function handleCallV4NativeRouteEvent(
   logCallV4("call_v4_route_event_received", { path: normalizedPath });
 
   if (isCallV4CalleeAcceptRoute(normalizedPath)) {
+    const source =
+      new URLSearchParams(
+        normalizedPath.includes("?") ? normalizedPath.slice(normalizedPath.indexOf("?") + 1) : "",
+      ).get("source")?.trim() ?? null;
+    logCallV4("web_call_v4_native_accept_received", {
+      callId: readCallV4SessionIdFromNativeRoute(normalizedPath),
+      path: normalizedPath,
+      source,
+    });
     logCallV4RouteAcceptDetected(normalizedPath, "native_route_event");
     seedCallV4NativeAcceptRouteState(normalizedPath);
     const callId = readCallV4SessionIdFromNativeRoute(normalizedPath);
@@ -234,12 +160,6 @@ export function handleCallV4NativeRouteEvent(
         router.replace(normalizedPath);
       }
     }
-  } else {
-    const callId = readCallV4SessionIdFromNativeRoute(normalizedPath);
-    const source = readNativeRouteSource(normalizedPath);
-    if (callId && source === "native_push") {
-      void primeCallV4VideoTokenPrefetch(callId, "native_push_route");
-    }
   }
 
   registerCallV4NativeAcceptingFromAppPath(normalizedPath);
@@ -262,7 +182,7 @@ async function hydrateCallV4IncomingWake(detail: DibayFcmIncomingWakeDetail): Pr
   const session = await callV4FetchSession(callId);
   if (session?.status !== "ringing" || session.isMineInitiator) return;
 
-  void primeCallV4VideoTokenPrefetch(callId, "fcm_wake", session);
+  primeCallV4ConnectionWarm(callId);
 
   if (isNativeAcceptInflight(callId)) return;
 

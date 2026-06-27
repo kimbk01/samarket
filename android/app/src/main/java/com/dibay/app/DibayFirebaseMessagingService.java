@@ -10,9 +10,11 @@ import android.net.Uri;
 import android.os.Build;
 import android.util.Log;
 import androidx.core.app.NotificationCompat;
+import com.dibay.app.callv4.CallV4Lane;
+import com.dibay.app.nativevideo.NativeVideoCallLane;
+import com.dibay.app.nativevoice.NativeVoiceCallLane;
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
-import com.dibay.app.callv4.CallV4Lane;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
@@ -185,6 +187,20 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
     }
     if (expiry.effectiveExpiresAtMs > 0L) {
       payload = payload.withExpiresAt(formatIsoUtc(expiry.effectiveExpiresAtMs));
+    }
+
+    if (NativeVoiceCallLane.shouldHandleIncoming(this, payload.callType)) {
+      DibayIncomingCallNativeStore.setRinging(this, payload, null, expiry.effectiveExpiresAtMs);
+      DibayCallPushLog.info("native_voice_pending_route_skipped", callId, "reason=native_voice_runtime");
+      IncomingCallPushDelivery.deliver(this, payload);
+      return;
+    }
+
+    if (NativeVideoCallLane.shouldHandleIncoming(this, payload.callType)) {
+      DibayIncomingCallNativeStore.setRinging(this, payload, null, expiry.effectiveExpiresAtMs);
+      DibayCallPushLog.info("native_video_pending_route_skipped", callId, "reason=native_video_runtime");
+      IncomingCallPushDelivery.deliver(this, payload);
+      return;
     }
 
     String pendingRoute =

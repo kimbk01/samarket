@@ -1,0 +1,52 @@
+---
+description: DIBAY Call Native Runtime top-level SSOT
+alwaysApply: true
+---
+
+# DIBAY Call Native Runtime SSOT
+
+This rule overrides older DIBAY Call implementation directions.
+
+## Fixed Goal
+
+Calls must not depend on the DIBAY WebView for establishment.
+
+Voice and Video both use:
+
+`FCM -> Native Runtime -> Accept -> Native Token -> Native Agora SDK -> Connected -> End -> Cleanup`
+
+`WebView`, `CallV4Screen`, Agora JS, and `/calls-v4` are not call-establishment requirements.
+
+## Runtime Order
+
+Build in this order only:
+
+1. Native Voice Runtime
+2. Native Video Runtime
+3. Android COMPLETE
+4. iOS
+5. Windows
+
+## Legacy V4/Web Quarantine
+
+Do not use, import, call, restore, or extend these without explicit user approval:
+
+- `CallV4Provider`, `CallV4Screen`, `/calls-v4`
+- JS Agora, `call-v4-agora*`, `call-v4-video*`, `call-v4-presenter*`
+- Web token prefetch, MainActivity Web handoff, pending route replay
+- Web accept hydration, remote attach pipeline
+
+Legacy V4/Web is rollback reference only until Native Runtime PASS + QA PASS + LOCK.
+
+## Native Runtime Import Ban
+
+Native Runtime code must not import or depend on:
+
+- `call-v4*`
+- `CallV4*`
+- `community-messenger/call-v4/*`
+- Agora JS
+
+## LOCK Protection
+
+Without explicit user approval, do not modify Native Voice Runtime, existing Voice LOCK, Native Voice docs, existing QA docs, or existing LOCK logs.

@@ -30,6 +30,22 @@ public class IncomingCallNotificationOwnerPolicyTest {
   }
 
   @Test
+  public void nativeActivityOwner_allowsVisibleCallStyle() {
+    String callId = "owner-native-activity-1";
+    IncomingCallSurfaceOwner.tryClaimIncomingOwner(
+        context, callId, IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_ACTIVITY, "test");
+
+    assertFalse(
+        IncomingCallNotificationBuilder.shouldBlockVisibleCallStyleForNativeFsiOwner(
+            context, callId, false, false));
+    assertTrue(
+        IncomingCallNotificationBuilder.shouldApplyIncomingCallStyle(context, callId, false, false, true));
+    assertTrue(
+        IncomingCallNotificationBuilder.shouldAttachIncomingFullScreenIntent(
+            context, callId, false, false, true, true, true));
+  }
+
+  @Test
   public void nativeFsiOwner_blocksVisibleCallStyle() {
     String callId = "owner-native-fsi-1";
     IncomingCallSurfaceOwner.tryClaimIncomingOwner(

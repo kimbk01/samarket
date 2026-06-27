@@ -256,6 +256,7 @@ public class IncomingCallActivity extends AppCompatActivity {
   private boolean finished;
   private boolean connectingMode;
   private boolean nativeSurfaceHiddenEmitted;
+  private boolean visibleIncomingNotificationCancelled;
   private BroadcastReceiver terminalReceiver;
 
   boolean isFinished() {
@@ -416,6 +417,38 @@ public class IncomingCallActivity extends AppCompatActivity {
     acceptBtn.post(() -> traceAcceptButtonState(acceptBtn));
   }
 
+  private void notifyLockSurfaceInteractive() {
+    if (callId == null || callId.trim().isEmpty()) return;
+    IncomingCallBackgroundNotifier.onLockIncomingSurfaceInteractive(
+        getApplicationContext(), callId);
+    cancelVisibleIncomingNotificationOnce();
+  }
+
+  private boolean shouldDeferVisibleNotificationCancelOnLock() {
+    Context app = getApplicationContext();
+    return DibayKeyguardHelper.isKeyguardLocked(app) || !DibayKeyguardHelper.isInteractive(app);
+  }
+
+  private void cancelVisibleIncomingNotificationOnce() {
+    if (visibleIncomingNotificationCancelled || callId == null || callId.trim().isEmpty()) return;
+    if (!CallV4Lane.isTelegramLaneEnabled(getApplicationContext())) return;
+    visibleIncomingNotificationCancelled = true;
+    IncomingCallNotificationBuilder.cancelVisibleIncomingNotificationAfterActivity(
+        getApplicationContext(), callId);
+  }
+
+  @Override
+  public void onWindowFocusChanged(boolean hasFocus) {
+    super.onWindowFocusChanged(hasFocus);
+    if (hasFocus && !finished && callId != null) {
+      applyWakeFlags();
+      if (getIntent() != null) {
+        bindIncomingUi(getIntent());
+      }
+      notifyLockSurfaceInteractive();
+    }
+  }
+
   private void traceAcceptButtonState(ImageButton acceptBtn) {
     if (acceptBtn == null || callId == null) return;
     if (!CallV4Lane.isTelegramLaneEnabled(getApplicationContext())) return;
@@ -444,11 +477,13 @@ public class IncomingCallActivity extends AppCompatActivity {
             + acceptBtn.isClickable()
             + " visible="
             + (acceptBtn.getVisibility() == View.VISIBLE));
+    notifyLockSurfaceInteractive();
   }
 
   @Override
   protected void onResume() {
     super.onResume();
+    applyWakeFlags();
     nativeSurfaceHiddenEmitted = false;
     if (!finished && callId != null && !callId.trim().isEmpty()) {
       if (CallV4Lane.isTelegramLaneEnabled(getApplicationContext())) {
@@ -462,6 +497,9 @@ public class IncomingCallActivity extends AppCompatActivity {
       }
       emitIncomingActivityShown(
           getIntent(), firstNonEmpty(getIntent().getStringExtra(EXTRA_EXPIRES_AT)));
+      if (getIntent() != null) {
+        bindIncomingUi(getIntent());
+      }
     }
     notifyNativeSurfaceVisible();
   }
@@ -593,28 +631,19 @@ public class IncomingCallActivity extends AppCompatActivity {
         IncomingCallSurfaceOwner.getSurfaceOwner(sid),
         IncomingCallNotificationBuilder.canPostFullScreenIntent(getApplicationContext()),
         "source=activity");
-    requestDismissKeyguardAfterVisibleAck();
     String callTypeForVerify = firstNonEmpty(intent.getStringExtra(EXTRA_CALL_TYPE));
     IncomingCallBackgroundNotifier.onIncomingActivityShown(
         getApplicationContext(), callId, callTypeForVerify);
     if (CallV4Lane.isTelegramLaneEnabled(getApplicationContext())) {
       Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] incoming_activity_shown callId=" + callId);
-      IncomingCallSurfaceOwner.SurfaceOwner currentOwner =
-          IncomingCallSurfaceOwner.getSurfaceOwner(callId);
-      IncomingCallSurfaceOwner.SurfaceOwner owner;
-      if (currentOwner == IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_FSI) {
-        // Lock/sleep FSI path — do not rewrite to native_activity when keyguard flickers at wake.
-        owner = IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_FSI;
-      } else {
-        owner =
-            DibayKeyguardHelper.isKeyguardLocked(getApplicationContext())
-                ? IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_FSI
-                : IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_ACTIVITY;
-      }
       IncomingCallSurfaceOwner.transitionIncomingOwner(
-          getApplicationContext(), callId, owner, "incoming_activity_visible");
-      IncomingCallNotificationBuilder.cancelVisibleIncomingNotificationAfterActivity(
-          getApplicationContext(), callId);
+          getApplicationContext(),
+          callId,
+          IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_ACTIVITY,
+          "incoming_activity_visible");
+      if (!shouldDeferVisibleNotificationCancelOnLock()) {
+        cancelVisibleIncomingNotificationOnce();
+      }
     }
     DibayCallLog.once("incoming_activity_created", callId, "source=activity");
     DibayCallLog.once("incoming_render", callId, "source=activity");
@@ -647,12 +676,34 @@ public class IncomingCallActivity extends AppCompatActivity {
     }
     DibayCallLog.once("accept_click", callId, "source=activity");
     Log.i(TAG, "[call-ui] answer_clicked callId=" + callId + " source=activity");
+    boolean lockAccept =
+        DibayKeyguardHelper.isKeyguardLocked(getApplicationContext())
+            || !DibayKeyguardHelper.isInteractive(getApplicationContext());
+    if (lockAccept) {
+      Log.i(
+          CallV4Lane.TAG,
+          "[DIBAY_CALL_V4] accept_skip_keyguard_dismiss callId=" + callId + " reason=lock_native");
+      proceedHandleAcceptAfterKeyguard();
+      return;
+    }
+    requestDismissKeyguard(() -> proceedHandleAcceptAfterKeyguard());
+  }
+
+  private void proceedHandleAcceptAfterKeyguard() {
+    if (finished) return;
     IncomingCallActionCoordinator.handleAccept(getApplicationContext(), callId);
     if (CallV4Lane.isTelegramLaneEnabled(getApplicationContext())) {
-      if (isWarmConnectingHandoffEligible()) {
-        Log.i(
-            CallV4Lane.TAG,
-            "[DIBAY_CALL_V4] accept_path_warm_connecting_handoff callId=" + callId);
+      boolean lockAccept = DibayKeyguardHelper.isKeyguardLocked(getApplicationContext());
+      if (isWarmConnectingHandoffEligible() || lockAccept) {
+        if (lockAccept) {
+          Log.i(
+              CallV4Lane.TAG,
+              "[DIBAY_CALL_V4] accept_path_lock_connecting_handoff callId=" + callId);
+        } else {
+          Log.i(
+              CallV4Lane.TAG,
+              "[DIBAY_CALL_V4] accept_path_warm_connecting_handoff callId=" + callId);
+        }
         enterV4ConnectingMode();
       } else {
         Log.i(
@@ -724,6 +775,23 @@ public class IncomingCallActivity extends AppCompatActivity {
     }
   }
 
+  static void onNativeAcceptPatchResult(Context context, String callId, boolean ok) {
+    if (callId == null || callId.trim().isEmpty()) return;
+    String sid = callId.trim();
+    IncomingCallActivity active = peekActiveInstance();
+    if (active == null || active.finished || active.callId == null || !sid.equals(active.callId.trim())) {
+      return;
+    }
+    if (!active.connectingMode) return;
+    if (ok) {
+      Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] lock_accept_patch_ok callId=" + sid);
+      IncomingCallConnectingSurface.scheduleKeepOnTop(active);
+      return;
+    }
+    Log.w(CallV4Lane.TAG, "[DIBAY_CALL_V4] lock_accept_patch_failed callId=" + sid);
+    active.handleConnectingEndPressed();
+  }
+
   private void handleConnectingEndPressed() {
     if (finished) return;
     Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] native_connecting_surface_end_pressed callId=" + callId);
@@ -792,19 +860,64 @@ public class IncomingCallActivity extends AppCompatActivity {
                   | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
                   | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     }
-    getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+    getWindow()
+        .addFlags(
+            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                | WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
+                | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
   }
 
   private void requestDismissKeyguardAfterVisibleAck() {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
-    if (!DibayKeyguardHelper.isKeyguardLocked(getApplicationContext())) return;
+    requestDismissKeyguard(null);
+  }
+
+  private void requestDismissKeyguard(Runnable onComplete) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+      if (onComplete != null) onComplete.run();
+      return;
+    }
+    if (!DibayKeyguardHelper.isKeyguardLocked(getApplicationContext())) {
+      if (onComplete != null) onComplete.run();
+      return;
+    }
     try {
       android.app.KeyguardManager km = getSystemService(android.app.KeyguardManager.class);
-      if (km != null) {
-        km.requestDismissKeyguard(this, null);
+      if (km == null) {
+        if (onComplete != null) onComplete.run();
+        return;
       }
+      km.requestDismissKeyguard(
+          this,
+          new android.app.KeyguardManager.KeyguardDismissCallback() {
+            private void done() {
+              if (onComplete != null) {
+                runOnUiThread(onComplete);
+              }
+            }
+
+            @Override
+            public void onDismissSucceeded() {
+              done();
+            }
+
+            @Override
+            public void onDismissCancelled() {
+              done();
+            }
+
+            @Override
+            public void onDismissError() {
+              done();
+            }
+          });
     } catch (Exception error) {
-      Log.w(TAG, "[call-ui] request_dismiss_keyguard_failed callId=" + callId + " err=" + error.getClass().getSimpleName());
+      Log.w(
+          TAG,
+          "[call-ui] request_dismiss_keyguard_failed callId="
+              + callId
+              + " err="
+              + error.getClass().getSimpleName());
+      if (onComplete != null) onComplete.run();
     }
   }
 

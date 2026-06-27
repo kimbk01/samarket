@@ -200,6 +200,11 @@ public final class IncomingCallSurfaceOwner {
     return owner == SurfaceOwner.NATIVE_FSI || owner == SurfaceOwner.NATIVE_ACTIVITY;
   }
 
+  /** True only when FSI notification bridge owns visible UI — not Activity-first lock. */
+  public static boolean isStrictNativeFsiOwner(String callId) {
+    return getSurfaceOwner(callId) == SurfaceOwner.NATIVE_FSI;
+  }
+
   public static boolean isNativeIncomingOwner(String callId) {
     SurfaceOwner owner = getSurfaceOwner(callId);
     return owner == SurfaceOwner.NATIVE_FSI

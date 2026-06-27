@@ -276,6 +276,13 @@ export function resolveCallV4NativeAcceptingSurfaceType(
   return "native_accepting";
 }
 
+/** Native accept route sources that participate in connecting-surface handoff (incl. lock FSI). */
+export function isCallV4NativeAcceptHandoffSource(source: string | null | undefined): boolean {
+  if (!source?.trim()) return false;
+  const normalized = source.trim().toLowerCase();
+  return normalized === "native_accept" || normalized === "native_lock_accept" || normalized.includes("lock");
+}
+
 export function shouldRegisterCallV4NativeAcceptingFromRoute(path: string): boolean {
   if (!isCallV4CalleeAcceptRoute(path)) return false;
   const source = readRouteSourceFromPath(path);

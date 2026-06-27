@@ -215,7 +215,7 @@ public final class IncomingCallNotificationBuilder {
     if (actionOnly || fsiBridgeOnly) return false;
     if (context == null || callId == null || callId.trim().isEmpty()) return false;
     return com.dibay.app.callv4.CallV4Lane.isTelegramLaneEnabled(context)
-        && IncomingCallSurfaceOwner.isNativeFsiOwner(callId.trim());
+        && IncomingCallSurfaceOwner.isStrictNativeFsiOwner(callId.trim());
   }
 
   /** @visibleForTesting */
