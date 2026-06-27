@@ -9,6 +9,8 @@
     "serialA": "8b37179f7d94",
     "serialB": "RRGL4046NTW"
   },
+  "commitAtLock": "3a53b57a5917d77c976990c08e69dc5b50955536",
+  "commitMessage": "feat(call): add Video Activity-bound Dock HARD LOCK",
   "qaPolicy": {
     "fastQaHarness": ".qa-logs/native-call-dock-qa.mjs",
     "fastQaReport": ".qa-logs/native-call-dock-qa/report.json",

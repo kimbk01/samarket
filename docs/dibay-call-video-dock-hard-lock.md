@@ -47,6 +47,15 @@ android/app/src/main/res/values/strings.xml  (dibay_call_dock_resume)
 
 Machine-readable: `docs/artifacts/dibay-call-video-dock-hard-lock-evidence.json`
 
+## Deploy Baseline at Lock
+
+| Item | Value |
+|---|---|
+| Git commit | `3a53b57a` (`feat(call): add Video Activity-bound Dock HARD LOCK`) |
+| Remote | `origin/main` |
+| Vercel | `https://samarket.vercel.app` |
+| APK | rebuild + A/B reinstall after push |
+
 ### Pass run (2026-06-28)
 
 | Field | Value |
