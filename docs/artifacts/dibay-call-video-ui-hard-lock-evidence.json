@@ -1,0 +1,133 @@
+{
+  "at": "2026-06-28T06:45:00.000Z",
+  "hardLock": true,
+  "videoUiHardLock": true,
+  "lockStatement": "Video Native UI HARD LOCK. NativeVideoCallActivity + NativeVideoCallUiPresenter render Runtime state only. UI intent APIs only. No Web CallV4Screen. O2/O3/O4/Guard/Agora unchanged in this track.",
+  "vercelOrigin": "https://samarket.vercel.app",
+  "devices": {
+    "serialA": "8b37179f7d94",
+    "serialB": "RRGL4046NTW"
+  },
+  "postCommitFullDeviceQaRepeat": false,
+  "qaPolicy": {
+    "fastQa": "Video UI scope only — 5 scenarios max",
+    "regressionQa": "O3 once at track completion — done",
+    "forbiddenWithoutNewEvidence": [
+      "O2/O3/O4 re-audit",
+      "Full matrix repeat",
+      "Voice UI re-check",
+      "Guard re-check",
+      "Native Runtime re-check"
+    ]
+  },
+  "uiInvariants": [
+    {
+      "id": 1,
+      "label": "Outgoing single Native Activity",
+      "proof": "native_dialing_surface_shown + native_video_call_root"
+    },
+    {
+      "id": 2,
+      "label": "Incoming single Native Activity",
+      "proof": "incoming_activity_shown on NativeVideoCallActivity"
+    },
+    {
+      "id": 3,
+      "label": "Web CallV4Screen zero",
+      "proof": "forbidden markers all 0"
+    },
+    {
+      "id": 4,
+      "label": "SurfaceView does not block controls",
+      "proof": "end_tapped via native_video_call_end after connected"
+    }
+  ],
+  "lockedFiles": [
+    "android/app/src/main/java/com/dibay/app/nativevideo/NativeVideoCallActivity.java",
+    "android/app/src/main/java/com/dibay/app/nativevideo/NativeVideoCallUiPresenter.java",
+    "android/app/src/main/java/com/dibay/app/nativevideo/NativeVideoCallRuntime.java",
+    "android/app/src/main/res/layout/activity_native_video_call.xml",
+    "android/app/src/main/res/values/strings.xml"
+  ],
+  "qaReports": {
+    "videoUiFast": {
+      "harness": ".qa-logs/video-ui-device-qa.mjs",
+      "report": ".qa-logs/video-ui-device-qa/report.json",
+      "overallPass": true,
+      "at": "2026-06-27T22:40:17.752Z"
+    },
+    "o3RegressionOnce": {
+      "harness": ".qa-logs/o3-connected-device-qa.mjs",
+      "report": ".qa-logs/o3-connected-device-qa/report.json",
+      "overallPass": true,
+      "note": "once after Video UI Fast QA PASS — no repeat"
+    }
+  },
+  "videoUiScenarios": [
+    {
+      "scenario": "video_outgoing_dialing",
+      "callId": "4352433d-6d26-4219-8606-d2b7423a51b0",
+      "pass": true,
+      "dialingShown": true,
+      "uiRoot": true,
+      "singleSurface": true,
+      "forbidden": {
+        "route_to_screen": 0,
+        "screen_mounted": 0,
+        "agora_join_success": 0,
+        "CallV4Screen": 0
+      },
+      "logPath": ".qa-logs/video-ui-device-qa/logcat-video_outgoing_dialing-4352433d-6d26-4219-8606-d2b7423a51b0.txt"
+    },
+    {
+      "scenario": "video_incoming",
+      "callId": "0b0e7e32-ca4c-46a3-bfca-ac0dcc2b61f1",
+      "pass": true,
+      "incoming": true,
+      "acceptUi": true,
+      "forbidden": {
+        "route_to_screen": 0,
+        "screen_mounted": 0,
+        "agora_join_success": 0,
+        "CallV4Screen": 0
+      },
+      "logPath": ".qa-logs/video-ui-device-qa/logcat-video_incoming-0b0e7e32-ca4c-46a3-bfca-ac0dcc2b61f1.txt"
+    },
+    {
+      "scenario": "video_connecting",
+      "callId": "0b0e7e32-ca4c-46a3-bfca-ac0dcc2b61f1",
+      "pass": true,
+      "connectingSeen": true
+    },
+    {
+      "scenario": "video_connected",
+      "callId": "0b0e7e32-ca4c-46a3-bfca-ac0dcc2b61f1",
+      "pass": true,
+      "connectedB": true
+    },
+    {
+      "scenario": "video_end",
+      "callId": "0b0e7e32-ca4c-46a3-bfca-ac0dcc2b61f1",
+      "pass": true,
+      "endTapped": true,
+      "endTapVia": "native_video_call_end resource-id",
+      "o4": {
+        "runtime_cleanup_start": true,
+        "agora_native_disconnected": true,
+        "native_call_service_stop": true,
+        "cleanup_done": true
+      },
+      "logPath": ".qa-logs/video-ui-device-qa/logcat-video_end-0b0e7e32-ca4c-46a3-bfca-ac0dcc2b61f1.txt"
+    }
+  ],
+  "singleSurface": "NativeCallVisibleSurfaceOwner + NativeVideoCallActivity (singleTask)",
+  "forbiddenAfterLock": [
+    "Video UI locked file changes without explicit approval",
+    "PiP/Dock mixed into Video LOCK before PiP track",
+    "O2/O3/O4/Guard/Agora/Web changes under Video UI rationale",
+    "CallV4Screen or JS Agora restore for native video",
+    "Voice UI LOCK reopen",
+    "Identical full device QA repeat for same commit/APK"
+  ],
+  "nextTrack": "PiP — after commit, push, Vercel, APK A/B install"
+}

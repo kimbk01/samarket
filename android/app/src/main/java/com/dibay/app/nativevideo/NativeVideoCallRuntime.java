@@ -178,6 +178,7 @@ public final class NativeVideoCallRuntime {
     SESSIONS.put(sid, session);
     DibayIncomingCallNativeStore.markState(app, sid, DibayIncomingCallNativeStore.STATE_CONNECTING);
     NativeVideoCallService.startConnecting(app, sid);
+    startOutgoingDialingActivity(app, session);
     startCallerAgoraJoin(app, session);
   }
 
@@ -392,7 +393,45 @@ public final class NativeVideoCallRuntime {
     } else if (state == State.CONNECTED) {
       DibayIncomingCallNativeStore.markState(context, session.callId, DibayIncomingCallNativeStore.STATE_ACTIVE);
     }
+    ensureVideoUiVisible(context, session, state);
     NativeVideoCallActivity.renderState(session.callId, state);
+  }
+
+  private static void ensureVideoUiVisible(Context context, Session session, State state) {
+    if (context == null || session == null) return;
+    Context app = context.getApplicationContext();
+    if (session.initiator) {
+      if (state == State.CONNECTING || state == State.CONNECTED) {
+        startOutgoingDialingActivity(app, session);
+      }
+      return;
+    }
+    if (NativeVideoCallActivity.isShowing(session.callId)) return;
+    if (state == State.RINGING || state == State.ACCEPTING || state == State.CONNECTING) {
+      startForegroundVisibleActivity(app, session);
+    }
+  }
+
+  private static void startOutgoingDialingActivity(Context context, Session session) {
+    if (context == null || session == null) return;
+    String callId = session.callId;
+    if (NativeVideoCallActivity.isShowing(callId)) {
+      NativeVideoCallActivity.renderState(callId, session.state);
+      return;
+    }
+    if (!NativeCallVisibleSurfaceOwner.isClaimed(callId)) {
+      NativeCallVisibleSurfaceOwner.claim(callId, "video", "dialing");
+    }
+    NativeVideoCallLog.info("native_dialing_surface_start", callId);
+    android.content.Intent intent = new android.content.Intent(context, NativeVideoCallActivity.class);
+    intent.addFlags(
+        android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+            | android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP
+            | android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP);
+    intent.putExtra(NativeVideoCallActivity.EXTRA_CALL_ID, callId);
+    intent.putExtra(NativeVideoCallActivity.EXTRA_UI_MODE, NativeVideoCallActivity.UI_MODE_OUTGOING);
+    context.startActivity(intent);
+    NativeVideoCallLog.info("native_dialing_surface_shown", callId);
   }
 
   private static boolean prepareJoinGuard(Context app, String sid) {
@@ -462,6 +501,7 @@ public final class NativeVideoCallRuntime {
             | android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP
             | android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP);
     intent.putExtra(NativeVideoCallActivity.EXTRA_CALL_ID, callId);
+    intent.putExtra(NativeVideoCallActivity.EXTRA_UI_MODE, NativeVideoCallActivity.UI_MODE_INCOMING);
     intent.putExtra("source", "foreground_visible");
     context.startActivity(intent);
     NativeVideoCallLog.info("foreground_visible_activity_start_done", callId);
