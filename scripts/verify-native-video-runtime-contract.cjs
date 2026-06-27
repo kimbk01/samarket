@@ -180,6 +180,7 @@ if (exists(nativeVideoDir)) {
     }
   }
   const agora = read("android/app/src/main/java/com/dibay/app/nativevideo/NativeVideoCallAgoraEngine.java");
+  const log = read("android/app/src/main/java/com/dibay/app/nativevideo/NativeVideoCallLog.java");
   for (const marker of [
     "enableVideo()",
     "setupLocalVideo",
@@ -189,6 +190,14 @@ if (exists(nativeVideoDir)) {
     "remote_video_render_ready",
   ]) {
     if (!agora.includes(marker)) fail(`NativeVideoCallAgoraEngine missing marker: ${marker}`);
+  }
+  for (const marker of [
+    "agora_native_video_join_start",
+    "agora_native_video_join_success",
+    "local_camera_publish_success",
+    "remote_video_rendered",
+  ]) {
+    if (!log.includes(marker)) fail(`NativeVideoCallLog missing QA alias marker: ${marker}`);
   }
   if (!failed) pass("native video runtime implementation is present");
 } else {

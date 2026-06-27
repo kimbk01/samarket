@@ -15,6 +15,10 @@ public final class NativeVideoCallLog {
 
   public static void info(String marker, String callId, String details) {
     Log.i(TAG, format(marker, callId, details));
+    String alias = qaAlias(marker);
+    if (alias != null) {
+      Log.i(TAG, format(alias, callId, details));
+    }
   }
 
   public static void warn(String marker, String callId, String details) {
@@ -25,5 +29,13 @@ public final class NativeVideoCallLog {
     String sid = callId != null && !callId.trim().isEmpty() ? callId.trim() : "unknown";
     String extra = details != null && !details.trim().isEmpty() ? " " + details.trim() : "";
     return PREFIX + marker + " callId=" + sid + extra;
+  }
+
+  private static String qaAlias(String marker) {
+    if ("agora_native_join_start".equals(marker)) return "agora_native_video_join_start";
+    if ("agora_native_join_success".equals(marker)) return "agora_native_video_join_success";
+    if ("local_camera_preview_started".equals(marker)) return "local_camera_publish_success";
+    if ("remote_video_render_ready".equals(marker)) return "remote_video_rendered";
+    return null;
   }
 }
