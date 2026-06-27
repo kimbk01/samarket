@@ -84,18 +84,26 @@ public final class NativeVideoCallAgoraEngine {
                 MAIN.post(
                     () -> {
                       try {
-                        SurfaceView local = new SurfaceView(app);
-                        local.setZOrderMediaOverlay(true);
-                        rtc.setupLocalVideo(new VideoCanvas(local, VideoCanvas.RENDER_MODE_HIDDEN, 0));
-                        NativeVideoCallActivity.attachLocalView(sid, local);
-                        rtc.startPreview();
-                        if (callerJoin) {
-                          NativeVideoCallLog.info("caller_local_camera_preview_started", sid);
-                        } else {
-                          NativeVideoCallLog.info("local_camera_preview_started", sid);
+                        if (NativeVideoCallActivity.isShowing(sid)) {
+                          SurfaceView local = new SurfaceView(app);
+                          local.setZOrderMediaOverlay(true);
+                          rtc.setupLocalVideo(new VideoCanvas(local, VideoCanvas.RENDER_MODE_HIDDEN, 0));
+                          NativeVideoCallActivity.attachLocalView(sid, local);
+                          rtc.startPreview();
+                          if (callerJoin) {
+                            NativeVideoCallLog.info("caller_local_camera_preview_started", sid);
+                          } else {
+                            NativeVideoCallLog.info("local_camera_preview_started", sid);
+                          }
+                        } else if (callerJoin) {
+                          NativeVideoCallLog.info("no_ui_preview_skipped", sid);
                         }
                       } catch (RuntimeException error) {
-                        fail(sid, "local_preview=" + error.getClass().getSimpleName());
+                        if (callerJoin && !NativeVideoCallActivity.isShowing(sid)) {
+                          NativeVideoCallLog.info("no_ui_preview_skipped", sid);
+                        } else {
+                          fail(sid, "local_preview=" + error.getClass().getSimpleName());
+                        }
                       }
                     });
 
@@ -106,6 +114,9 @@ public final class NativeVideoCallAgoraEngine {
                 options.autoSubscribeVideo = true;
                 options.publishMicrophoneTrack = true;
                 options.publishCameraTrack = true;
+                if (callerJoin) {
+                  NativeVideoCallLog.info("local_camera_publish_success", sid);
+                }
                 int result =
                     rtc.joinChannelWithUserAccount(
                         token.token != null ? token.token : "",

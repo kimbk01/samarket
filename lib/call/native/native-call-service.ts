@@ -25,6 +25,14 @@ export type NativeCallServicePlugin = {
   reportAppState(options: { callId: string; state: NativeCallAppState }): Promise<{ ok: boolean }>;
   getActiveCallSnapshot(): Promise<NativeActiveCallSnapshot>;
   reportRemoteEnded(options: { callId: string }): Promise<{ ok: boolean }>;
+  startNativeOutgoingEstablishment(options: {
+    callId: string;
+    roomId: string;
+    mediaType: string;
+    peerUserId?: string;
+    peerName?: string;
+  }): Promise<{ ok: boolean; nativeOwned: boolean }>;
+  isNativeEstablishmentOwned(options: { callId: string }): Promise<{ owned: boolean }>;
 };
 
 const NativeCallService = registerPlugin<NativeCallServicePlugin>(NATIVE_CALL_SERVICE_PLUGIN_ID);

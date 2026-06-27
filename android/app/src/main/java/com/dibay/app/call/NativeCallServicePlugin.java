@@ -1,7 +1,14 @@
 package com.dibay.app.call;
 
+import android.content.Context;
 import android.content.Intent;
 import com.dibay.app.DibayCallLog;
+import com.dibay.app.nativevideo.NativeVideoCallApi;
+import com.dibay.app.nativevideo.NativeVideoCallLane;
+import com.dibay.app.nativevideo.NativeVideoCallOwner;
+import com.dibay.app.nativevoice.NativeVoiceCallApi;
+import com.dibay.app.nativevoice.NativeVoiceCallLane;
+import com.dibay.app.nativevoice.NativeVoiceCallOwner;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -134,5 +141,44 @@ public class NativeCallServicePlugin extends Plugin {
     }
     DibayActiveCallSessionManager.onRemoteEnded(getContext(), callId);
     call.resolve(new JSObject().put("ok", true));
+  }
+
+  /** O2 — outgoing establishment handoff only (no FGS / Connected bind). */
+  @PluginMethod
+  public void startNativeOutgoingEstablishment(PluginCall call) {
+    String callId = call.getString("callId", "").trim();
+    String roomId = call.getString("roomId", "");
+    String mediaType = call.getString("mediaType", "voice");
+    String peerUserId = call.getString("peerUserId", "");
+    String peerName = call.getString("peerName", "");
+    if (callId.isEmpty()) {
+      call.reject("invalid_call_id");
+      return;
+    }
+    Context app = getContext().getApplicationContext();
+    boolean nativeOwned = false;
+    if (NativeVoiceCallLane.isEnabled(app) && NativeVoiceCallLane.isVoiceMediaType(mediaType)) {
+      NativeVoiceCallApi.startCallerJoinAsync(app, callId, roomId, peerUserId, peerName, mediaType);
+      nativeOwned = NativeVoiceCallOwner.isNativeOwned(callId);
+    } else if (NativeVideoCallLane.isEnabled(app) && NativeVideoCallLane.isVideoMediaType(mediaType)) {
+      NativeVideoCallApi.startCallerJoinAsync(app, callId, roomId, peerUserId, peerName, mediaType);
+      nativeOwned = NativeVideoCallOwner.isNativeOwned(callId);
+    }
+    JSObject result = new JSObject();
+    result.put("ok", nativeOwned);
+    result.put("nativeOwned", nativeOwned);
+    call.resolve(result);
+  }
+
+  @PluginMethod
+  public void isNativeEstablishmentOwned(PluginCall call) {
+    String callId = call.getString("callId", "").trim();
+    if (callId.isEmpty()) {
+      call.reject("invalid_call_id");
+      return;
+    }
+    boolean owned =
+        NativeVoiceCallOwner.isNativeOwned(callId) || NativeVideoCallOwner.isNativeOwned(callId);
+    call.resolve(new JSObject().put("owned", owned));
   }
 }

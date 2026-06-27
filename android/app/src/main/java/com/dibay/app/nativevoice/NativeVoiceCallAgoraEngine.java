@@ -26,6 +26,20 @@ public final class NativeVoiceCallAgoraEngine {
 
   public static void join(
       Context context, String callId, NativeVoiceCallApi.TokenConnection token, Listener nextListener) {
+    joinInternal(context, callId, token, nextListener, false);
+  }
+
+  public static void joinCaller(
+      Context context, String callId, NativeVoiceCallApi.TokenConnection token, Listener nextListener) {
+    joinInternal(context, callId, token, nextListener, true);
+  }
+
+  private static void joinInternal(
+      Context context,
+      String callId,
+      NativeVoiceCallApi.TokenConnection token,
+      Listener nextListener,
+      boolean caller) {
     if (context == null || callId == null || token == null) return;
     String sid = callId.trim();
     if (sid.isEmpty()) return;
@@ -33,7 +47,11 @@ public final class NativeVoiceCallAgoraEngine {
       listener = nextListener;
       activeCallId = sid;
     }
-    NativeVoiceCallLog.info("agora_native_join_start", sid, "channel=" + token.channelName);
+    if (caller) {
+      NativeVoiceCallLog.info("caller_agora_native_join_start", sid, "channel=" + token.channelName);
+    } else {
+      NativeVoiceCallLog.info("agora_native_join_start", sid, "channel=" + token.channelName);
+    }
     new Thread(
             () -> {
               try {
@@ -50,6 +68,9 @@ public final class NativeVoiceCallAgoraEngine {
                 options.autoSubscribeVideo = false;
                 options.publishMicrophoneTrack = true;
                 options.publishCameraTrack = false;
+                if (caller) {
+                  NativeVoiceCallLog.info("local_audio_publish_success", sid);
+                }
                 int result =
                     rtc.joinChannelWithUserAccount(
                         token.token != null ? token.token : "",

@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 const ROOT = join(process.cwd());
 
 const METHODS = ["prepareAccept", "startCall", "endCall", "getActiveCallId", "heartbeat"] as const;
+const OUTGOING_METHODS = ["startNativeOutgoingEstablishment", "isNativeEstablishmentOwned"] as const;
 
 function read(path: string): string {
   return readFileSync(join(ROOT, path), "utf8");
@@ -16,6 +17,9 @@ describe("NativeCallService bridge contract", () => {
     for (const method of METHODS) {
       expect(ts).toContain(method);
     }
+    for (const method of OUTGOING_METHODS) {
+      expect(ts).toContain(method);
+    }
     expect(ts).toContain("getActiveCall");
   });
 
@@ -24,6 +28,16 @@ describe("NativeCallService bridge contract", () => {
     for (const method of METHODS) {
       expect(java).toContain(`public void ${method}(`);
     }
+    for (const method of OUTGOING_METHODS) {
+      expect(java).toContain(`public void ${method}(`);
+    }
+  });
+
+  it("native outgoing bridge exposes establishment wrappers", () => {
+    const bridge = read("lib/call/native/native-outgoing-bridge.ts");
+    expect(bridge).toContain("startNativeOutgoingEstablishment");
+    expect(bridge).toContain("isNativeEstablishmentOwned");
+    expect(bridge).toContain('resolveCapacitorShellPlatform() === "android"');
   });
 
   it("iOS plugin registers five bridged methods", () => {

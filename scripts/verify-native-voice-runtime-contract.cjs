@@ -114,6 +114,64 @@ if (!owner.includes("reason=already_owned_native_voice")) {
   pass("native owner duplicate claims are blocked");
 }
 
+const visibleOwner = read("android/app/src/main/java/com/dibay/app/nativecall/NativeCallVisibleSurfaceOwner.java");
+for (const marker of [
+  "owner_claimed_native_call",
+  "visible_surface_owner_claimed",
+  "visible_surface_duplicate_blocked",
+  "visible_surface_released",
+  "notification_visual_suppressed",
+  "incoming_surface_closed_on_connected",
+  "connected_surface_shown",
+  "notification_visual_suppressed_connected",
+]) {
+  if (!visibleOwner.includes(marker)) {
+    fail(`NativeCallVisibleSurfaceOwner missing marker: ${marker}`);
+  }
+}
+
+const voiceRuntime = read("android/app/src/main/java/com/dibay/app/nativevoice/NativeVoiceCallRuntime.java");
+for (const marker of [
+  "NativeCallVisibleSurfaceOwner.logCallOwnerClaimed",
+  "foreground_visible_activity_start_postcheck_failed",
+  "foreground_visible_activity_fallback_to_fsi",
+  "scheduleSuppressNotificationWhenActivityShown",
+  "closeIncomingVisualsOnConnected",
+  "NativeCallVisibleSurfaceOwner.markConnected",
+  "NativeCallVisibleSurfaceOwner.release",
+]) {
+  if (!voiceRuntime.includes(marker)) {
+    fail(`NativeVoiceCallRuntime missing visible-surface contract marker: ${marker}`);
+  }
+}
+
+const voiceActivity = read("android/app/src/main/java/com/dibay/app/nativevoice/NativeVoiceCallActivity.java");
+if (!voiceActivity.includes("NativeCallVisibleSurfaceOwner.claim(callId, \"voice\", \"incoming\")")) {
+  fail("NativeVoiceCallActivity must claim common visible surface before showing");
+}
+
+const voiceNotification = read("android/app/src/main/java/com/dibay/app/nativevoice/NativeVoiceCallNotification.java");
+if (!voiceNotification.includes("suppressVisualOnConnected")) {
+  fail("NativeVoiceCallNotification must suppress connected visual notification");
+}
+if (!voiceNotification.includes("suppressVisualAfterActivityShown")) {
+  fail("NativeVoiceCallNotification must suppress visual notification once Activity is shown");
+}
+for (const marker of [
+  "cancelVisualNotification",
+  "incoming_notification_cancel_start",
+  "incoming_notification_cancel_done",
+  "incoming_notification_cancel_failed",
+  "compat.cancel(id)",
+  "getActiveNotifications()",
+  "scheduleVerifiedVisualSuppress",
+]) {
+  if (!voiceNotification.includes(marker)) {
+    fail(`NativeVoiceCallNotification missing verified cancel marker: ${marker}`);
+  }
+}
+if (!failed) pass("native voice visible surface contract is present");
+
 const callV4Screen = read("components/community-messenger/call-v4/CallV4Screen.tsx");
 if (!callV4Screen.includes("isNativeVoiceRuntimeEnabled")) {
   fail("CallV4Screen must check native voice runtime before accept autostart");
@@ -133,6 +191,54 @@ if (!nativeVoiceWebFlag.includes('resolveCapacitorShellPlatform() === "android"'
   fail("Web native voice guard must default on inside Android Capacitor");
 } else {
   pass("Web native voice guard defaults on for Android Capacitor");
+}
+
+const voiceApi = read("android/app/src/main/java/com/dibay/app/nativevoice/NativeVoiceCallApi.java");
+const voiceAgora = read("android/app/src/main/java/com/dibay/app/nativevoice/NativeVoiceCallAgoraEngine.java");
+if (!voiceRuntime.includes("handleOutgoing")) {
+  fail("NativeVoiceCallRuntime must define handleOutgoing caller path");
+} else if (!voiceApi.includes("startCallerJoinAsync")) {
+  fail("NativeVoiceCallApi must define startCallerJoinAsync");
+} else if (!voiceRuntime.includes("caller_outgoing_start")) {
+  fail("NativeVoiceCallRuntime must log caller_outgoing_start");
+} else if (!voiceAgora.includes("local_audio_publish_success")) {
+  fail("NativeVoiceCallAgoraEngine must log local_audio_publish_success for caller join");
+} else {
+  pass("native voice outgoing establishment contract is present");
+}
+
+const outgoingBridge = read("lib/call/native/native-outgoing-bridge.ts");
+if (!outgoingBridge.includes("startNativeOutgoingEstablishment")) {
+  fail("native-outgoing-bridge must expose startNativeOutgoingEstablishment");
+} else if (!outgoingBridge.includes("isNativeEstablishmentOwned")) {
+  fail("native-outgoing-bridge must expose isNativeEstablishmentOwned");
+} else {
+  pass("Web native outgoing bridge is present");
+}
+
+const callPlugin = read("android/app/src/main/java/com/dibay/app/call/NativeCallServicePlugin.java");
+if (!callPlugin.includes("startNativeOutgoingEstablishment")) {
+  fail("NativeCallServicePlugin must expose startNativeOutgoingEstablishment");
+} else if (!callPlugin.includes("isNativeEstablishmentOwned")) {
+  fail("NativeCallServicePlugin must expose isNativeEstablishmentOwned");
+} else {
+  pass("Android outgoing establishment plugin methods are present");
+}
+
+const callV4Actions = read("lib/community-messenger/call-v4/call-v4-actions.ts");
+if (!callV4Actions.includes("native_outgoing_handoff_start")) {
+  fail("callV4CreateOutgoing must log native_outgoing_handoff_start");
+} else if (!callV4Actions.includes("native_outgoing_handoff_done")) {
+  fail("callV4CreateOutgoing must log native_outgoing_handoff_done on native handoff");
+} else {
+  pass("Web outgoing native handoff hook is present");
+}
+
+const callV4Agora = read("lib/community-messenger/call-v4/call-v4-agora.ts");
+if (!callV4Agora.includes("web_agora_establishment_quarantined")) {
+  fail("joinCallV4Agora must quarantine JS Agora when native establishment owns call");
+} else {
+  pass("JS Agora establishment quarantine guard is present");
 }
 
 const qaDir = path.join(root, ".qa-logs");

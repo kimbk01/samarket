@@ -74,6 +74,7 @@ if (!exists(ssotRule)) {
 }
 
 const nativeRuntimeFiles = [
+  ...listJavaFiles("android/app/src/main/java/com/dibay/app/nativecall"),
   ...listJavaFiles("android/app/src/main/java/com/dibay/app/nativevoice"),
   ...listJavaFiles("android/app/src/main/java/com/dibay/app/nativevideo"),
 ];
@@ -169,9 +170,16 @@ if (nativeVideoRuntime.includes("NativeVideoCallService.startRinging")) {
 for (const marker of [
   "shouldStartForegroundVisibleActivity",
   "startForegroundVisibleActivity",
+  "foreground_visible_activity_start_postcheck_failed",
+  "foreground_visible_activity_fallback_to_fsi",
+  "scheduleSuppressNotificationWhenActivityShown",
   "NativeVideoCallNotification.showIncoming",
   "shouldStartBackgroundUnlockedActivity",
   "startBackgroundUnlockedActivity",
+  "NativeCallVisibleSurfaceOwner.logCallOwnerClaimed",
+  "closeIncomingVisualsOnConnected",
+  "NativeCallVisibleSurfaceOwner.markConnected",
+  "NativeCallVisibleSurfaceOwner.release",
 ]) {
   if (!nativeVideoRuntime.includes(marker)) {
     fail(`NativeVideoCallRuntime missing Voice-parity incoming marker: ${marker}`);
@@ -191,6 +199,29 @@ for (const marker of [
     fail(`NativeVideoCallNotification missing Voice-parity marker: ${marker}`);
   }
 }
+if (!nativeVideoNotification.includes("suppressVisualOnConnected")) {
+  fail("NativeVideoCallNotification must suppress connected visual notification");
+}
+if (!nativeVideoNotification.includes("suppressVisualAfterActivityShown")) {
+  fail("NativeVideoCallNotification must suppress visual notification once Activity is shown");
+}
+for (const marker of [
+  "cancelVisualNotification",
+  "incoming_notification_cancel_start",
+  "incoming_notification_cancel_done",
+  "incoming_notification_cancel_failed",
+  "incoming_notification_active_state",
+  "buildCancelReplacement",
+  "compat.notify(id, buildCancelReplacement(app))",
+  "compat.cancel(id)",
+  "getActiveNotifications()",
+  "scheduleVerifiedVisualSuppress",
+  "delayed_verify",
+]) {
+  if (!nativeVideoNotification.includes(marker)) {
+    fail(`NativeVideoCallNotification missing verified cancel marker: ${marker}`);
+  }
+}
 
 const nativeVideoActivity = read(
   "android/app/src/main/java/com/dibay/app/nativevideo/NativeVideoCallActivity.java",
@@ -202,6 +233,7 @@ for (const marker of [
   "lock_screen_visible",
   "video_activity_config_changed",
   "onConfigurationChanged",
+  "NativeCallVisibleSurfaceOwner.claim(callId, \"video\", \"incoming\")",
   "NativeVideoCallRuntime.accept(this, callId)",
 ]) {
   if (!nativeVideoActivity.includes(marker)) {
@@ -209,6 +241,25 @@ for (const marker of [
   }
 }
 if (!failed) pass("native video incoming surface matches Voice contract markers");
+
+const nativeCallVisibleOwner = read(
+  "android/app/src/main/java/com/dibay/app/nativecall/NativeCallVisibleSurfaceOwner.java",
+);
+for (const marker of [
+  "owner_claimed_native_call",
+  "visible_surface_owner_claimed",
+  "visible_surface_duplicate_blocked",
+  "visible_surface_released",
+  "notification_visual_suppressed",
+  "incoming_surface_closed_on_connected",
+  "connected_surface_shown",
+  "notification_visual_suppressed_connected",
+]) {
+  if (!nativeCallVisibleOwner.includes(marker)) {
+    fail(`NativeCallVisibleSurfaceOwner missing marker: ${marker}`);
+  }
+}
+if (!failed) pass("common native call visible surface owner is present");
 
 const nativeVideoDir = "android/app/src/main/java/com/dibay/app/nativevideo";
 if (exists(nativeVideoDir)) {
@@ -267,6 +318,9 @@ if (exists(nativeVideoDir)) {
   }
   if (!agoraJoin.includes("caller_local_camera_preview_started")) {
     fail("NativeVideoCallAgoraEngine must log caller_local_camera_preview_started");
+  }
+  if (!agoraJoin.includes("no_ui_preview_skipped")) {
+    fail("NativeVideoCallAgoraEngine must log no_ui_preview_skipped when Activity is absent");
   }
   if (!failed) pass("native video runtime implementation is present");
 } else {

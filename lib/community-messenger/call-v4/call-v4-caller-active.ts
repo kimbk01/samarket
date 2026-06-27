@@ -10,6 +10,7 @@ import { maybeExitCallV4ScreenAfterCleanup } from "@/lib/community-messenger/cal
 import { readCallV4ExitRouter } from "@/lib/community-messenger/call-v4/call-v4-route";
 import { readCallV4Identity, readCallV4Phase, useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
 import type { CallV4Phase, CallV4TerminalPhase } from "@/lib/community-messenger/call-v4/call-v4-types";
+import { isNativeEstablishmentOwned } from "@/lib/call/native/native-outgoing-bridge";
 
 const CALLER_ACTIVE_POLL_MS = 500;
 
@@ -112,6 +113,12 @@ export function startCallV4CallerActivePoll(callId: string): () => void {
       const identity = readCallV4Identity();
 
       if (!isCallerPollOutgoingPhase(phase) || identity?.callId !== sid || identity.direction !== "outgoing") {
+        return;
+      }
+
+      if (await isNativeEstablishmentOwned(sid)) {
+        logCallV4("web_agora_establishment_quarantined", { callId: sid, source: "caller_poll" });
+        stopCallV4CallerActivePoll();
         return;
       }
 

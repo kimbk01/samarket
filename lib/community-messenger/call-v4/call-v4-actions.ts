@@ -48,6 +48,7 @@ import {
   releaseCallV4CancelPatchClaim,
   tryClaimCallV4AcceptFlight,
 } from "@/lib/community-messenger/call-v4/call-v4-patch-guard";
+import { startNativeOutgoingEstablishment } from "@/lib/call/native/native-outgoing-bridge";
 import { maybeExitCallV4ScreenAfterCleanup } from "@/lib/community-messenger/call-v4/call-v4-exit-guard";
 import {
   buildCallV4ScreenHref,
@@ -301,6 +302,28 @@ export async function callV4CreateOutgoing(input: {
       callKind: created.session.callKind,
       roomId: roomResolved.roomId,
     });
+
+    logCallV4("native_outgoing_handoff_start", {
+      callId: created.session.id,
+      mediaType: input.mediaType,
+      roomId: roomResolved.roomId,
+    });
+    const nativeHandoff = await startNativeOutgoingEstablishment({
+      callId: created.session.id,
+      roomId: roomResolved.roomId,
+      mediaType: input.mediaType,
+      peerUserId: input.peerUserId,
+      peerName: input.peerLabel,
+    });
+    if (nativeHandoff.ok && nativeHandoff.nativeOwned) {
+      logCallV4("native_outgoing_handoff_done", {
+        callId: created.session.id,
+        mediaType: input.mediaType,
+        roomId: roomResolved.roomId,
+      });
+      useCallV4Store.getState().resetToIdle();
+      return { ok: true as const, session: created.session, roomId: roomResolved.roomId };
+    }
 
     const identity = buildOutgoingIdentity(created.session, input.peerLabel);
     useCallV4Store.getState().setIdentity(identity);

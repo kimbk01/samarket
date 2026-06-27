@@ -10,6 +10,7 @@ import com.dibay.app.DibayKeyguardHelper;
 import com.dibay.app.IncomingCallActionCoordinator;
 import com.dibay.app.IncomingCallNotificationBuilder;
 import com.dibay.app.IncomingCallRingOwner;
+import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
 import java.util.concurrent.ConcurrentHashMap;
 
 /** Voice-only call runtime. It must not route through MainActivity or WebView before connected. */
@@ -30,15 +31,23 @@ public final class NativeVoiceCallRuntime {
     public final String callerId;
     public final String callerName;
     public final String mediaType;
+    public final boolean initiator;
     public volatile State state;
 
-    Session(String callId, String roomId, String callerId, String callerName, String mediaType) {
+    Session(
+        String callId,
+        String roomId,
+        String callerId,
+        String callerName,
+        String mediaType,
+        boolean initiator) {
       this.callId = callId;
       this.roomId = roomId;
       this.callerId = callerId;
       this.callerName = callerName;
       this.mediaType = mediaType;
-      this.state = State.RINGING;
+      this.initiator = initiator;
+      this.state = initiator ? State.CONNECTING : State.RINGING;
     }
   }
 
@@ -64,6 +73,7 @@ public final class NativeVoiceCallRuntime {
         sid,
         "roomId=" + safe(roomId) + " mediaType=" + safe(mediaType));
     if (!NativeVoiceCallOwner.claimNative(sid, "incoming_fcm")) return false;
+    NativeCallVisibleSurfaceOwner.logCallOwnerClaimed(sid, "voice", "incoming_fcm");
     NativeVoiceCallLog.info("legacy_web_handoff_blocked", sid, "reason=native_voice_runtime");
 
     Session session =
@@ -72,15 +82,17 @@ public final class NativeVoiceCallRuntime {
             safe(roomId),
             safe(callerId),
             safe(callerName),
-            NativeVoiceCallLane.isVoiceMediaType(mediaType) ? "voice" : safe(mediaType));
+            NativeVoiceCallLane.isVoiceMediaType(mediaType) ? "voice" : safe(mediaType),
+            false);
     SESSIONS.put(sid, session);
     DibayIncomingCallNativeStore.markState(app, sid, DibayIncomingCallNativeStore.STATE_RINGING);
     IncomingCallRingOwner.start(app, sid);
     if (shouldStartForegroundVisibleActivity(app)) {
-      startForegroundVisibleActivity(app, sid);
+      startForegroundVisibleActivity(app, session);
     } else {
       NativeVoiceCallLog.info("foreground_visible_activity_start_skipped", sid, "reason=not_foreground_unlocked");
       PendingIntent fullScreenIntent = NativeVoiceCallNotification.showIncoming(app, session);
+      scheduleSuppressNotificationWhenActivityShown(app, sid);
       if (shouldStartBackgroundUnlockedActivity(app)) {
         startBackgroundUnlockedActivity(sid, fullScreenIntent);
       } else {
@@ -95,6 +107,78 @@ public final class NativeVoiceCallRuntime {
   public static Session getSession(String callId) {
     if (callId == null) return null;
     return SESSIONS.get(callId.trim());
+  }
+
+  /** Outgoing caller path — token fetch and Agora join without WebView establishment. */
+  public static void handleOutgoing(
+      Context context,
+      String callId,
+      String roomId,
+      String peerUserId,
+      String peerName,
+      String mediaType) {
+    if (context == null || callId == null || callId.trim().isEmpty()) return;
+    Context app = context.getApplicationContext();
+    String sid = callId.trim();
+    NativeVoiceCallLog.info(
+        "caller_outgoing_start",
+        sid,
+        "roomId=" + safe(roomId) + " mediaType=" + safe(mediaType));
+    if (!NativeVoiceCallOwner.claimNative(sid, "outgoing_start")) return;
+    NativeVoiceCallLog.info("legacy_web_handoff_blocked", sid, "reason=native_voice_runtime");
+    if (!NativeVoiceCallLane.isVoiceMediaType(mediaType)) {
+      fail(app, sid, "unsupported_media_type");
+      return;
+    }
+    NativeVoiceCallLog.info("session_created", sid, "roomId=" + safe(roomId));
+    Session session =
+        new Session(
+            sid,
+            safe(roomId),
+            safe(peerUserId),
+            safe(peerName),
+            "voice",
+            true);
+    SESSIONS.put(sid, session);
+    DibayIncomingCallNativeStore.markState(app, sid, DibayIncomingCallNativeStore.STATE_CONNECTING);
+    NativeVoiceCallService.startConnecting(app, sid);
+    startCallerAgoraJoin(app, session);
+  }
+
+  private static void startCallerAgoraJoin(Context app, Session session) {
+    String sid = session.callId;
+    NativeVoiceCallApi.fetchTokenAsync(
+        app,
+        sid,
+        (connection, tokenError) -> {
+          if (connection == null) {
+            fail(app, sid, "token_fetch_failed " + safe(tokenError));
+            return;
+          }
+          NativeVoiceCallAgoraEngine.joinCaller(
+              app,
+              sid,
+              connection,
+              new NativeVoiceCallAgoraEngine.Listener() {
+                @Override
+                public void onConnected() {
+                  setState(app, session, State.CONNECTED);
+                  NativeVoiceCallLog.info("state_connected", sid);
+                  NativeVoiceCallService.startConnected(app, sid);
+                  NativeVoiceCallBridge.syncConnected(app, sid);
+                }
+
+                @Override
+                public void onDisconnected(String reason) {
+                  NativeVoiceCallLog.info("agora_native_disconnected", sid, "reason=" + safe(reason));
+                }
+
+                @Override
+                public void onError(String reason) {
+                  fail(app, sid, "agora " + safe(reason));
+                }
+              });
+        });
   }
 
   public static void accept(Context context, String callId) {
@@ -137,6 +221,7 @@ public final class NativeVoiceCallRuntime {
                       public void onConnected() {
                         setState(app, session, State.CONNECTED);
                         NativeVoiceCallLog.info("state_connected", sid);
+                        closeIncomingVisualsOnConnected(app, sid);
                         NativeVoiceCallService.startConnected(app, sid);
                         NativeVoiceCallBridge.syncConnected(app, sid);
                       }
@@ -182,6 +267,7 @@ public final class NativeVoiceCallRuntime {
     IncomingCallActionCoordinator.complete(sid, reason);
     NativeVoiceCallLog.info("cleanup_done", sid, "reason=" + safe(reason));
     NativeVoiceCallOwner.release(sid, reason);
+    NativeCallVisibleSurfaceOwner.release(sid, reason);
     NativeVoiceCallActivity.finishIfActive(sid);
   }
 
@@ -227,7 +313,9 @@ public final class NativeVoiceCallRuntime {
     } else if (state == State.CONNECTED) {
       DibayIncomingCallNativeStore.markState(context, session.callId, DibayIncomingCallNativeStore.STATE_ACTIVE);
     }
-    NativeVoiceCallActivity.renderState(session.callId, state);
+    if (!session.initiator) {
+      NativeVoiceCallActivity.renderState(session.callId, state);
+    }
   }
 
   private static void fail(Context context, String callId, String reason) {
@@ -259,7 +347,8 @@ public final class NativeVoiceCallRuntime {
     }
   }
 
-  private static void startForegroundVisibleActivity(Context context, String callId) {
+  private static void startForegroundVisibleActivity(Context context, Session session) {
+    String callId = session.callId;
     if (NativeVoiceCallActivity.isShowing(callId)) {
       NativeVoiceCallLog.info("foreground_visible_activity_start_done", callId, "mode=already_showing");
       return;
@@ -274,6 +363,17 @@ public final class NativeVoiceCallRuntime {
     intent.putExtra("source", "foreground_visible");
     context.startActivity(intent);
     NativeVoiceCallLog.info("foreground_visible_activity_start_done", callId);
+    MAIN.postDelayed(
+        () -> {
+          if (NativeVoiceCallActivity.isShowing(callId)) return;
+          NativeVoiceCallLog.warn(
+              "foreground_visible_activity_start_postcheck_failed", callId, "reason=activity_not_shown");
+          PendingIntent fallback = NativeVoiceCallNotification.showIncoming(context, session);
+          NativeVoiceCallLog.info("foreground_visible_activity_fallback_to_fsi", callId);
+          scheduleSuppressNotificationWhenActivityShown(context, callId);
+          startBackgroundUnlockedActivity(callId, fallback);
+        },
+        1_200L);
   }
 
   private static void startBackgroundUnlockedActivity(String callId, PendingIntent fullScreenIntent) {
@@ -310,5 +410,29 @@ public final class NativeVoiceCallRuntime {
 
   private static String safe(String value) {
     return value != null && !value.trim().isEmpty() ? value.trim() : "unknown";
+  }
+
+  private static void closeIncomingVisualsOnConnected(Context app, String callId) {
+    NativeVoiceCallNotification.suppressVisualOnConnected(app, callId);
+    IncomingCallNotificationBuilder.dismissIncomingCall(app, callId);
+    NativeCallVisibleSurfaceOwner.markConnected(callId, "voice");
+  }
+
+  private static void scheduleSuppressNotificationWhenActivityShown(Context context, String callId) {
+    Context app = context.getApplicationContext();
+    final int[] attempts = {0};
+    Runnable poll =
+        new Runnable() {
+          @Override
+          public void run() {
+            if (NativeVoiceCallActivity.isShowing(callId)) {
+              NativeVoiceCallNotification.suppressVisualAfterActivityShown(app, callId);
+              return;
+            }
+            attempts[0] += 1;
+            if (attempts[0] < 24) MAIN.postDelayed(this, 125L);
+          }
+        };
+    MAIN.postDelayed(poll, 125L);
   }
 }
