@@ -28,6 +28,7 @@ import java.util.Locale;
 public class NativeVideoCallActivity extends Activity {
   public static final String EXTRA_CALL_ID = "callId";
   public static final String EXTRA_UI_MODE = "uiMode";
+  public static final String EXTRA_SHOW_DOCK = "showDock";
   public static final String UI_MODE_INCOMING = "incoming";
   public static final String UI_MODE_OUTGOING = "outgoing";
 
@@ -51,8 +52,11 @@ public class NativeVideoCallActivity extends Activity {
   private ImageButton declineButton;
   private Button endButton;
   private Button cameraButton;
+  private View dockRoot;
+  private ImageButton dockMinimizeButton;
   private boolean cameraEnabled = true;
   private boolean inPipMode = false;
+  private boolean dockMode = false;
   private NativeVideoCallRuntime.State currentState = NativeVideoCallRuntime.State.RINGING;
   private final Handler mainHandler = new Handler(Looper.getMainLooper());
   private long connectedAtElapsedMs = 0L;
@@ -180,6 +184,8 @@ public class NativeVideoCallActivity extends Activity {
   @Override
   protected void onDestroy() {
     stopDurationTimer();
+    hideDock("destroy");
+    detachDockView();
     NativeVideoCallActivity current = activeRef.get();
     if (current == this) activeRef = new WeakReference<>(null);
     super.onDestroy();
@@ -247,6 +253,7 @@ public class NativeVideoCallActivity extends Activity {
     declineButton = findViewById(R.id.native_video_call_decline);
     endButton = findViewById(R.id.native_video_call_end);
     cameraButton = findViewById(R.id.native_video_call_camera);
+    attachDockView();
     applyLocalPreviewLayout();
   }
 
@@ -265,6 +272,18 @@ public class NativeVideoCallActivity extends Activity {
 
   private void applyState(NativeVideoCallRuntime.State state) {
     currentState = state;
+    if (state != NativeVideoCallRuntime.State.CONNECTED && dockMode) {
+      hideDock("state_change");
+    }
+    if (state == NativeVideoCallRuntime.State.ENDING
+        || state == NativeVideoCallRuntime.State.ENDED
+        || state == NativeVideoCallRuntime.State.FAILED) {
+      detachDockView();
+    }
+    if (dockMode && state == NativeVideoCallRuntime.State.CONNECTED) {
+      applyDockPresentation();
+      return;
+    }
     NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(callId);
     NativeVideoCallUiPresenter.Model model = NativeVideoCallUiPresenter.build(this, session, state);
     peerNameView.setText(model.peerName);
@@ -303,6 +322,15 @@ public class NativeVideoCallActivity extends Activity {
       NativeVideoCallAgoraEngine.onRemoteRenderSurfaceReady(callId);
     }
     if (inPipMode) applyPipUiMode(true);
+    if (model.showConnectedControls) {
+      ensureDockMinimizeButton();
+    }
+    if (state == NativeVideoCallRuntime.State.CONNECTED
+        && getIntent() != null
+        && getIntent().getBooleanExtra(EXTRA_SHOW_DOCK, false)) {
+      getIntent().removeExtra(EXTRA_SHOW_DOCK);
+      showDock("intent_extra");
+    }
   }
 
   private boolean tryEnterPip(String source) {
@@ -333,12 +361,112 @@ public class NativeVideoCallActivity extends Activity {
   }
 
   private void applyPipUiMode(boolean enabled) {
+    if (enabled && dockMode) hideDock("pip_enter");
     if (overlayRoot != null) overlayRoot.setVisibility(enabled ? View.GONE : View.VISIBLE);
     if (activeActions != null) activeActions.setVisibility(enabled ? View.GONE : View.VISIBLE);
     if (localContainer != null) localContainer.setVisibility(enabled ? View.GONE : View.VISIBLE);
+    if (dockRoot != null) dockRoot.setVisibility(enabled || !dockMode ? View.GONE : View.VISIBLE);
     if (!enabled && currentState != null) {
       applyState(currentState);
     }
+  }
+
+  private void attachDockView() {
+    if (dockRoot != null || videoRoot == null) return;
+    FrameLayout root = findViewById(R.id.native_video_call_root);
+    if (root == null) return;
+    dockRoot = getLayoutInflater().inflate(R.layout.layout_native_call_dock, root, false);
+    FrameLayout.LayoutParams params =
+        new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT);
+    params.gravity = Gravity.TOP;
+    params.setMargins(dp(12), dp(12), dp(12), 0);
+    dockRoot.setVisibility(View.GONE);
+    root.addView(dockRoot, params);
+  }
+
+  private void ensureDockMinimizeButton() {
+    if (dockMinimizeButton != null || connectedControls == null) return;
+    dockMinimizeButton = new ImageButton(this);
+    dockMinimizeButton.setImageResource(android.R.drawable.ic_menu_agenda);
+    dockMinimizeButton.setContentDescription("dock_minimize");
+    dockMinimizeButton.setBackgroundResource(R.drawable.bg_dibay_incoming_btn_accept);
+    dockMinimizeButton.setPadding(dp(12), dp(12), dp(12), dp(12));
+    dockMinimizeButton.setScaleType(android.widget.ImageView.ScaleType.CENTER_INSIDE);
+    LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(48), dp(48));
+    params.setMarginEnd(dp(12));
+    connectedControls.addView(dockMinimizeButton, 0, params);
+    dockMinimizeButton.setOnClickListener(v -> showDock("minimize_button"));
+  }
+
+  private boolean isDockEligible() {
+    return callId != null
+        && !callId.isEmpty()
+        && currentState == NativeVideoCallRuntime.State.CONNECTED
+        && !inPipMode
+        && !isFinishing();
+  }
+
+  private void showDock(String source) {
+    if (!isDockEligible()) {
+      NativeVideoCallLog.info(
+          "native_video_dock_blocked", callId, "source=" + source + " state=" + currentState);
+      return;
+    }
+    if (dockMode) return;
+    dockMode = true;
+    applyDockPresentation();
+    NativeVideoCallLog.info("native_video_dock_shown", callId, "source=" + source);
+  }
+
+  private void hideDock(String source) {
+    if (!dockMode) return;
+    dockMode = false;
+    if (dockRoot != null) dockRoot.setVisibility(View.GONE);
+    NativeVideoCallLog.info("native_video_dock_hidden", callId, "source=" + source);
+    if (currentState != null && currentState != NativeVideoCallRuntime.State.CONNECTED) {
+      return;
+    }
+    if (currentState != null) applyState(currentState);
+  }
+
+  private void detachDockView() {
+    if (dockRoot == null) return;
+    if (dockRoot.getParent() instanceof FrameLayout) {
+      ((FrameLayout) dockRoot.getParent()).removeView(dockRoot);
+    }
+    dockRoot = null;
+    dockMode = false;
+  }
+
+  private void applyDockPresentation() {
+    if (!dockMode || !isDockEligible() || dockRoot == null) return;
+    NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(callId);
+    String durationText =
+        connectedAtElapsedMs > 0L
+            ? NativeVideoCallDockPresenter.formatDuration(connectedAtElapsedMs)
+            : durationView != null ? String.valueOf(durationView.getText()) : "00:00";
+    NativeVideoCallDockPresenter.Model model =
+        NativeVideoCallDockPresenter.build(this, session, durationText);
+    NativeVideoCallDockPresenter.bind(
+        dockRoot,
+        model,
+        v -> {
+          NativeVideoCallLog.info("native_video_dock_resume", callId);
+          hideDock("resume_button");
+        },
+        v -> {
+          NativeVideoCallLog.info("end_tapped", callId, "source=dock");
+          NativeVideoCallRuntime.end(NativeVideoCallActivity.this, callId);
+        });
+    if (videoRoot != null) videoRoot.setVisibility(View.GONE);
+    if (overlayRoot != null) overlayRoot.setVisibility(View.GONE);
+    if (activeActions != null) activeActions.setVisibility(View.GONE);
+    dockRoot.setVisibility(View.VISIBLE);
+    dockRoot.bringToFront();
+    dockRoot.setTranslationZ(32f);
+    if (connectedAtElapsedMs <= 0L) connectedAtElapsedMs = SystemClock.elapsedRealtime();
+    startDurationTimer();
   }
 
   private boolean ensureVideoRootForRemoteRender() {
@@ -378,7 +506,11 @@ public class NativeVideoCallActivity extends Activity {
     long elapsedSec = Math.max(0L, (SystemClock.elapsedRealtime() - connectedAtElapsedMs) / 1000L);
     long minutes = elapsedSec / 60L;
     long seconds = elapsedSec % 60L;
-    durationView.setText(String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds));
+    String label = String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds);
+    durationView.setText(label);
+    if (dockMode && dockRoot != null) {
+      NativeVideoCallDockPresenter.updateDuration(dockRoot, label);
+    }
   }
 
   private void applyLocalPreviewLayout() {

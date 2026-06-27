@@ -28,6 +28,7 @@
     <string name="dibay_video_call_cancel">취소</string>
     <string name="dibay_video_camera_on">카메라 켬</string>
     <string name="dibay_video_camera_off">카메라 끔</string>
+    <string name="dibay_call_dock_resume">통화로 돌아가기</string>
     <string name="incoming_call_connecting">연결 중…</string>
 
     <string name="dibay_webview_error_title">서버에 연결할 수 없습니다</string>

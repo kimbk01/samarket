@@ -1,0 +1,77 @@
+{
+  "at": "2026-06-28T06:41:59.735Z",
+  "hardLock": true,
+  "videoDockHardLock": true,
+  "dockKind": "activity_bound",
+  "lockStatement": "Video Activity-bound Dock HARD LOCK. NativeVideoCallDockPresenter + NativeVideoCallActivity dock glue. Resume/End intents only. No SYSTEM_ALERT_WINDOW. No Runtime/O2/O3/O4/Guard/PiP/MainActivity changes.",
+  "vercelOrigin": "https://samarket.vercel.app",
+  "devices": {
+    "serialA": "8b37179f7d94",
+    "serialB": "RRGL4046NTW"
+  },
+  "qaPolicy": {
+    "fastQaHarness": ".qa-logs/native-call-dock-qa.mjs",
+    "fastQaReport": ".qa-logs/native-call-dock-qa/report.json",
+    "forbiddenWithoutNewEvidence": [
+      "O2/O3/O4 re-audit",
+      "Full matrix repeat",
+      "Voice UI re-check",
+      "Guard re-check",
+      "Native Runtime re-check",
+      "PiP re-check"
+    ]
+  },
+  "dockInvariants": [
+    { "id": 1, "label": "connectedToDock", "proof": "native_video_dock_shown + native_call_dock_root" },
+    { "id": 2, "label": "dockResume", "proof": "native_video_dock_resume + native_video_dock_hidden + full UI" },
+    { "id": 3, "label": "dockEnd", "proof": "end_tapped source=dock + O4 chain" },
+    { "id": 4, "label": "dockRemoved", "proof": "detachDockView + no dock hierarchy after end" },
+    { "id": 5, "label": "forbiddenZero", "proof": "forbidden markers all 0" }
+  ],
+  "lockedFiles": [
+    "android/app/src/main/java/com/dibay/app/nativevideo/NativeVideoCallDockPresenter.java",
+    "android/app/src/main/java/com/dibay/app/nativevideo/NativeVideoCallActivity.java",
+    "android/app/src/main/res/layout/layout_native_call_dock.xml",
+    "android/app/src/main/res/values/strings.xml"
+  ],
+  "excludedFromTrack": [
+    "SYSTEM_ALERT_WINDOW",
+    "WindowManager system overlay",
+    "NativeVideoCallRuntime logic",
+    "NativeVideoCallAgoraEngine",
+    "NativeCallEngineOwnership",
+    "MainActivity",
+    "Voice Dock"
+  ],
+  "fastQaRun": {
+    "at": "2026-06-27T23:41:59.735Z",
+    "callId": "beddd6cf-a6dc-4ac1-8741-6c0081f3d469",
+    "overallPass": true,
+    "checks": {
+      "connectedToDock": true,
+      "dockResume": true,
+      "dockEnd": true,
+      "dockRemoved": true,
+      "forbiddenOk": true,
+      "joinNoReentry": true,
+      "cleanupNotDup": true,
+      "singleActivity": true,
+      "singleSurface": true
+    },
+    "forbidden": {
+      "route_to_screen": 0,
+      "CallV4Screen": 0,
+      "screen_mounted": 0,
+      "agora_join_success": 0,
+      "visible_surface_owner_claimed": 0
+    },
+    "o4": {
+      "runtime_cleanup_start": true,
+      "agora_native_disconnected": true,
+      "native_call_service_stop": true,
+      "cleanup_done": true
+    },
+    "cleanupCount": 1
+  },
+  "logArtifact": ".qa-logs/native-call-dock-qa/logcat-dock-beddd6cf-a6dc-4ac1-8741-6c0081f3d469.txt"
+}
