@@ -1,0 +1,64 @@
+{
+  "at": "2026-06-27T12:26:00.000Z",
+  "hardLock": true,
+  "lockStatement": "O2 Outgoing Ownership HARD LOCK. Voice/Video outgoing establishment ownership is Native Runtime only. Web CallV4Screen/JS Agora establishment markers are 0 for the locked callIds. O3/Connected/UI/End/Cleanup remain out of scope and require separate approval.",
+  "vercelOrigin": "https://samarket.vercel.app",
+  "deviceSerial": "8b37179f7d94",
+  "commits": {
+    "o2Establishment": "38ec2bea",
+    "videoHeadlessPreviewJoinFix": "206f1141"
+  },
+  "runs": [
+    {
+      "media": "voice",
+      "callId": "9dfc4910-eacc-45cc-83c4-5bc2bbabe1b4",
+      "roomId": "b19e2672-f26f-4a2e-8125-52575da4a62a",
+      "commit": "38ec2bea",
+      "logPath": ".qa-logs/o2-outgoing-runtime-proof/logcat-o2-voice-42c216d9-93b7-4254-85ad-70355f6bfc12.txt",
+      "pass": {
+        "caller_outgoing_start": 1,
+        "token_fetch_done": 1,
+        "agora_native_join_success": 1,
+        "state_connected": 1
+      },
+      "forbidden": {
+        "route_to_screen": 0,
+        "outgoing_ringing": 0,
+        "screen_mounted": 0,
+        "caller_poll_start": 0,
+        "agora_join_success": 0
+      },
+      "qaPass": true
+    },
+    {
+      "media": "video",
+      "callId": "93714824-f375-4dce-947b-8afa11c25156",
+      "roomId": "b19e2672-f26f-4a2e-8125-52575da4a62a",
+      "commit": "206f1141",
+      "fix": "headless_startPreview_before_join",
+      "logPath": ".qa-logs/o2-outgoing-runtime-proof/logcat-o2-video-headless-fix-93714824-f375-4dce-947b-8afa11c25156.txt",
+      "reportPath": ".qa-logs/o2-outgoing-runtime-proof/o2-video-headless-fix-report.json",
+      "pass": {
+        "caller_outgoing_start": 1,
+        "token_fetch_done": 1,
+        "agora_native_join_success": 1,
+        "state_connected": 1
+      },
+      "forbidden": {
+        "route_to_screen": 0,
+        "outgoing_ringing": 0,
+        "screen_mounted": 0,
+        "caller_poll_start": 0,
+        "agora_join_success": 0
+      },
+      "diagnostics": {
+        "join_return_minus_17": 0,
+        "no_ui_preview_skipped": 1,
+        "preview_ready_timeout": 0
+      },
+      "qaPass": true
+    }
+  ],
+  "overallQaPass": true,
+  "o2HardLock": true
+}
