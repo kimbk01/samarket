@@ -33,15 +33,23 @@ public final class NativeVideoCallRuntime {
     public final String callerId;
     public final String callerName;
     public final String mediaType;
+    public final boolean initiator;
     public volatile State state;
 
-    Session(String callId, String roomId, String callerId, String callerName, String mediaType) {
+    Session(
+        String callId,
+        String roomId,
+        String callerId,
+        String callerName,
+        String mediaType,
+        boolean initiator) {
       this.callId = callId;
       this.roomId = roomId;
       this.callerId = callerId;
       this.callerName = callerName;
       this.mediaType = mediaType;
-      this.state = State.RINGING;
+      this.initiator = initiator;
+      this.state = initiator ? State.CONNECTING : State.RINGING;
     }
   }
 
@@ -75,11 +83,11 @@ public final class NativeVideoCallRuntime {
             safe(roomId),
             safe(callerId),
             safe(callerName),
-            NativeVideoCallLane.isVideoMediaType(mediaType) ? "video" : safe(mediaType));
+            NativeVideoCallLane.isVideoMediaType(mediaType) ? "video" : safe(mediaType),
+            false);
     SESSIONS.put(sid, session);
     DibayIncomingCallNativeStore.markState(app, sid, DibayIncomingCallNativeStore.STATE_RINGING);
     IncomingCallRingOwner.start(app, sid);
-    NativeVideoCallService.startRinging(app, sid);
     if (shouldStartForegroundVisibleActivity(app)) {
       startForegroundVisibleActivity(app, sid);
     } else {
@@ -101,19 +109,98 @@ public final class NativeVideoCallRuntime {
     return SESSIONS.get(callId.trim());
   }
 
+  /** Outgoing caller path — token fetch and Agora join without WebView establishment. */
+  public static void handleOutgoing(
+      Context context,
+      String callId,
+      String roomId,
+      String peerUserId,
+      String peerName,
+      String mediaType) {
+    if (context == null || callId == null || callId.trim().isEmpty()) return;
+    Context app = context.getApplicationContext();
+    String sid = callId.trim();
+    NativeVideoCallLog.info(
+        "caller_outgoing_start",
+        sid,
+        "roomId=" + safe(roomId) + " mediaType=" + safe(mediaType));
+    if (!NativeVideoCallOwner.claimNative(sid, "outgoing_start")) return;
+    NativeVideoCallLog.info("legacy_web_handoff_blocked", sid, "reason=native_video_runtime");
+    if (!NativeVideoCallLane.isVideoMediaType(mediaType)) {
+      fail(app, sid, "unsupported_media_type");
+      return;
+    }
+    if (!hasMediaPermissions(app)) {
+      fail(app, sid, "missing_camera_or_microphone_permission");
+      return;
+    }
+    Session session =
+        new Session(
+            sid,
+            safe(roomId),
+            safe(peerUserId),
+            safe(peerName),
+            "video",
+            true);
+    SESSIONS.put(sid, session);
+    DibayIncomingCallNativeStore.markState(app, sid, DibayIncomingCallNativeStore.STATE_CONNECTING);
+    NativeVideoCallService.startConnecting(app, sid);
+    startCallerAgoraJoin(app, session);
+  }
+
+  private static void startCallerAgoraJoin(Context app, Session session) {
+    String sid = session.callId;
+    NativeVideoCallApi.fetchTokenAsync(
+        app,
+        sid,
+        (connection, tokenError) -> {
+          if (connection == null) {
+            fail(app, sid, "token_fetch_failed " + safe(tokenError));
+            return;
+          }
+          NativeVideoCallAgoraEngine.joinCaller(
+              app,
+              sid,
+              connection,
+              new NativeVideoCallAgoraEngine.Listener() {
+                @Override
+                public void onConnected() {
+                  setState(app, session, State.CONNECTED);
+                  NativeVideoCallLog.info("state_connected", sid);
+                  NativeVideoCallService.startConnected(app, sid);
+                }
+
+                @Override
+                public void onRemoteVideoReady() {
+                  NativeVideoCallLog.info("remote_render_connected", sid);
+                }
+
+                @Override
+                public void onDisconnected(String reason) {
+                  NativeVideoCallLog.info("agora_native_disconnected", sid, "reason=" + safe(reason));
+                }
+
+                @Override
+                public void onError(String reason) {
+                  fail(app, sid, "agora " + safe(reason));
+                }
+              });
+        });
+  }
+
   public static void accept(Context context, String callId) {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
     Context app = context.getApplicationContext();
     String sid = callId.trim();
     Session session = SESSIONS.get(sid);
     if (session == null) return;
+    cancelMissed(sid);
+    setState(app, session, State.ACCEPTING);
+    NativeVideoCallLog.info("accept_tapped", sid);
     if (!hasMediaPermissions(app)) {
       fail(app, sid, "missing_camera_or_microphone_permission");
       return;
     }
-    cancelMissed(sid);
-    setState(app, session, State.ACCEPTING);
-    NativeVideoCallLog.info("accept_tapped", sid);
     DibayCallConsumedStore.mark(app, sid, "accepted");
     IncomingCallRingOwner.stop(app, sid);
     NativeVideoCallNotification.dismiss(app, sid);

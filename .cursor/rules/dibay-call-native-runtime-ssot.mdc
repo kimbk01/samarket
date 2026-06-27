@@ -49,4 +49,4 @@ Native Runtime code must not import or depend on:
 
 ## LOCK Protection
 
-Without explicit user approval, do not modify Native Voice Runtime, existing Voice LOCK, Native Voice docs, existing QA docs, or existing LOCK logs.
+Without explicit user approval, do not modify Native Voice Runtime, existing Voice LOCK, Native Voice docs, Native Video Runtime (lifecycle LOCK 2026-06-27), Native Video lifecycle LOCK docs, existing QA docs, or existing LOCK logs.

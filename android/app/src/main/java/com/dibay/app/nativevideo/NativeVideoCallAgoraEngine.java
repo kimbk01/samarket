@@ -4,12 +4,16 @@ import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.SurfaceView;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import io.agora.rtc2.ChannelMediaOptions;
 import io.agora.rtc2.Constants;
 import io.agora.rtc2.IRtcEngineEventHandler;
 import io.agora.rtc2.RtcEngine;
 import io.agora.rtc2.RtcEngineConfig;
 import io.agora.rtc2.video.VideoCanvas;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /** Agora Android SDK wrapper for video Native Runtime. */
 public final class NativeVideoCallAgoraEngine {
@@ -25,15 +29,32 @@ public final class NativeVideoCallAgoraEngine {
 
   private static final Object LOCK = new Object();
   private static final Handler MAIN = new Handler(Looper.getMainLooper());
+  private static final Set<Integer> REMOTE_SETUP_UIDS = ConcurrentHashMap.newKeySet();
+  private static final Set<Integer> PENDING_REMOTE_UIDS = ConcurrentHashMap.newKeySet();
   private static RtcEngine engine;
   private static String activeCallId;
   private static Listener listener;
   private static Context renderContext;
+  private static volatile boolean remoteVideoRendered;
 
   private NativeVideoCallAgoraEngine() {}
 
   public static void join(
       Context context, String callId, NativeVideoCallApi.TokenConnection token, Listener nextListener) {
+    joinInternal(context, callId, token, nextListener, false);
+  }
+
+  public static void joinCaller(
+      Context context, String callId, NativeVideoCallApi.TokenConnection token, Listener nextListener) {
+    joinInternal(context, callId, token, nextListener, true);
+  }
+
+  private static void joinInternal(
+      Context context,
+      String callId,
+      NativeVideoCallApi.TokenConnection token,
+      Listener nextListener,
+      boolean caller) {
     if (context == null || callId == null || token == null) return;
     String sid = callId.trim();
     if (sid.isEmpty()) return;
@@ -41,8 +62,16 @@ public final class NativeVideoCallAgoraEngine {
       listener = nextListener;
       activeCallId = sid;
       renderContext = context.getApplicationContext();
+      REMOTE_SETUP_UIDS.clear();
+      PENDING_REMOTE_UIDS.clear();
+      remoteVideoRendered = false;
     }
-    NativeVideoCallLog.info("agora_native_join_start", sid, "channel=" + token.channelName);
+    if (caller) {
+      NativeVideoCallLog.info("caller_agora_native_join_start", sid, "channel=" + token.channelName);
+    } else {
+      NativeVideoCallLog.info("agora_native_join_start", sid, "channel=" + token.channelName);
+    }
+    final boolean callerJoin = caller;
     new Thread(
             () -> {
               try {
@@ -60,7 +89,11 @@ public final class NativeVideoCallAgoraEngine {
                         rtc.setupLocalVideo(new VideoCanvas(local, VideoCanvas.RENDER_MODE_HIDDEN, 0));
                         NativeVideoCallActivity.attachLocalView(sid, local);
                         rtc.startPreview();
-                        NativeVideoCallLog.info("local_camera_preview_started", sid);
+                        if (callerJoin) {
+                          NativeVideoCallLog.info("caller_local_camera_preview_started", sid);
+                        } else {
+                          NativeVideoCallLog.info("local_camera_preview_started", sid);
+                        }
                       } catch (RuntimeException error) {
                         fail(sid, "local_preview=" + error.getClass().getSimpleName());
                       }
@@ -87,6 +120,17 @@ public final class NativeVideoCallAgoraEngine {
         .start();
   }
 
+  public static void onRemoteRenderSurfaceReady(String callId) {
+    if (callId == null || callId.trim().isEmpty()) return;
+    String sid = callId.trim();
+    synchronized (LOCK) {
+      if (!sid.equals(activeCallId) || PENDING_REMOTE_UIDS.isEmpty()) return;
+      for (Integer uid : PENDING_REMOTE_UIDS.toArray(new Integer[0])) {
+        if (uid != null) scheduleRemoteVideoSetup(uid, sid);
+      }
+    }
+  }
+
   public static void setCameraEnabled(boolean enabled) {
     synchronized (LOCK) {
       if (engine == null || activeCallId == null) return;
@@ -98,21 +142,60 @@ public final class NativeVideoCallAgoraEngine {
   public static void leave(String reason) {
     Listener currentListener;
     String sid;
+    RtcEngine engineToDestroy;
     synchronized (LOCK) {
       currentListener = listener;
       sid = activeCallId;
       listener = null;
       activeCallId = null;
       renderContext = null;
-      if (engine != null) {
-        engine.stopPreview();
-        engine.leaveChannel();
-        RtcEngine.destroy();
-        engine = null;
-      }
+      REMOTE_SETUP_UIDS.clear();
+      PENDING_REMOTE_UIDS.clear();
+      remoteVideoRendered = false;
+      engineToDestroy = engine;
+      engine = null;
+    }
+    if (engineToDestroy != null) {
+      tearDownEngine(engineToDestroy, sid);
     }
     if (currentListener != null && sid != null) {
       currentListener.onDisconnected(reason != null ? reason : "leave");
+    }
+  }
+
+  /** Preview/surfaces are on the main thread; do not hold LOCK during Agora destroy. */
+  private static void tearDownEngine(RtcEngine engineToDestroy, String sid) {
+    Runnable teardown =
+        () -> {
+          try {
+            NativeVideoCallActivity.clearVideoSurfaces(sid);
+            engineToDestroy.stopPreview();
+            engineToDestroy.leaveChannel();
+            RtcEngine.destroy();
+          } catch (RuntimeException error) {
+            if (sid != null) {
+              NativeVideoCallLog.warn(
+                  "error_terminal", sid, "agora_leave=" + error.getClass().getSimpleName());
+            }
+          }
+        };
+    if (Looper.myLooper() == Looper.getMainLooper()) {
+      teardown.run();
+      return;
+    }
+    CountDownLatch latch = new CountDownLatch(1);
+    MAIN.post(
+        () -> {
+          try {
+            teardown.run();
+          } finally {
+            latch.countDown();
+          }
+        });
+    try {
+      latch.await(8, TimeUnit.SECONDS);
+    } catch (InterruptedException error) {
+      Thread.currentThread().interrupt();
     }
   }
 
@@ -127,6 +210,50 @@ public final class NativeVideoCallAgoraEngine {
       engine.setChannelProfile(Constants.CHANNEL_PROFILE_COMMUNICATION);
       return engine;
     }
+  }
+
+  private static void scheduleRemoteVideoSetup(int uid, String sid) {
+    MAIN.post(() -> setupRemoteVideo(uid, sid));
+  }
+
+  private static void setupRemoteVideo(int uid, String sid) {
+    RtcEngine rtc;
+    Context context;
+    synchronized (LOCK) {
+      rtc = engine;
+      context = renderContext;
+      if (!sid.equals(activeCallId)) return;
+    }
+    if (rtc == null || context == null || uid == 0) return;
+    if (!REMOTE_SETUP_UIDS.add(uid)) return;
+
+    if (!NativeVideoCallActivity.ensureVideoRootForRemoteRender(sid)) {
+      PENDING_REMOTE_UIDS.add(uid);
+      REMOTE_SETUP_UIDS.remove(uid);
+      return;
+    }
+    PENDING_REMOTE_UIDS.remove(uid);
+
+    try {
+      NativeVideoCallLog.info("setup_remote_video", sid, "uid=" + uid);
+      SurfaceView remote = new SurfaceView(context);
+      rtc.setupRemoteVideo(new VideoCanvas(remote, VideoCanvas.RENDER_MODE_FIT, uid));
+      NativeVideoCallActivity.attachRemoteView(sid, remote);
+    } catch (RuntimeException error) {
+      REMOTE_SETUP_UIDS.remove(uid);
+      fail(sid, "setup_remote_video=" + error.getClass().getSimpleName());
+    }
+  }
+
+  private static void markRemoteVideoRendered(int uid, String sid, String details) {
+    Listener currentListener;
+    synchronized (LOCK) {
+      if (!sid.equals(activeCallId) || remoteVideoRendered) return;
+      remoteVideoRendered = true;
+      currentListener = listener;
+    }
+    NativeVideoCallLog.info("remote_video_render_ready", sid, "uid=" + uid + details);
+    if (currentListener != null) currentListener.onRemoteVideoReady();
   }
 
   private static final IRtcEngineEventHandler EVENT_HANDLER =
@@ -148,38 +275,46 @@ public final class NativeVideoCallAgoraEngine {
 
         @Override
         public void onUserJoined(int uid, int elapsed) {
-          RtcEngine rtc;
           String sid;
-          Context context;
           synchronized (LOCK) {
-            rtc = engine;
             sid = activeCallId;
-            context = renderContext;
           }
-          if (rtc == null || sid == null || context == null) return;
+          if (sid == null || uid == 0) return;
           NativeVideoCallLog.info("remote_user_joined", sid, "uid=" + uid);
-          Context app = context;
-          MAIN.post(
-              () -> {
-                SurfaceView remote = new SurfaceView(app);
-                rtc.setupRemoteVideo(new VideoCanvas(remote, VideoCanvas.RENDER_MODE_HIDDEN, uid));
-                NativeVideoCallActivity.attachRemoteView(sid, remote);
-              });
+          scheduleRemoteVideoSetup(uid, sid);
+        }
+
+        @Override
+        public void onRemoteVideoStateChanged(int uid, int state, int reason, int elapsed) {
+          String sid;
+          synchronized (LOCK) {
+            sid = activeCallId;
+          }
+          if (sid == null || uid == 0) return;
+          if (state == Constants.REMOTE_VIDEO_STATE_STARTING
+              || state == Constants.REMOTE_VIDEO_STATE_DECODING) {
+            scheduleRemoteVideoSetup(uid, sid);
+          }
         }
 
         @Override
         public void onFirstRemoteVideoDecoded(int uid, int width, int height, int elapsed) {
-          Listener currentListener;
           String sid;
           synchronized (LOCK) {
-            currentListener = listener;
             sid = activeCallId;
           }
-          if (sid != null) {
-            NativeVideoCallLog.info(
-                "remote_video_render_ready", sid, "uid=" + uid + " width=" + width + " height=" + height);
+          if (sid == null || uid == 0) return;
+          markRemoteVideoRendered(uid, sid, " width=" + width + " height=" + height);
+        }
+
+        @Override
+        public void onFirstRemoteVideoFrame(int uid, int width, int height, int elapsed) {
+          String sid;
+          synchronized (LOCK) {
+            sid = activeCallId;
           }
-          if (currentListener != null) currentListener.onRemoteVideoReady();
+          if (sid == null || uid == 0) return;
+          markRemoteVideoRendered(uid, sid, " width=" + width + " height=" + height);
         }
 
         @Override

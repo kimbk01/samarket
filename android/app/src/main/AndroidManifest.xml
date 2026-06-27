@@ -126,6 +126,7 @@
 
         <activity
             android:name=".nativevideo.NativeVideoCallActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize|uiMode"
             android:excludeFromRecents="true"
             android:exported="false"
             android:launchMode="singleTask"
@@ -145,6 +146,14 @@
         <receiver
             android:name=".nativevideo.NativeVideoCallActionReceiver"
             android:exported="false" />
+
+        <receiver
+            android:name=".nativevideo.NativeVideoCallOutgoingEntry"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.dibay.app.nativevideo.START_CALLER_JOIN" />
+            </intent-filter>
+        </receiver>
 
         <service
             android:name=".call.CallForegroundService"

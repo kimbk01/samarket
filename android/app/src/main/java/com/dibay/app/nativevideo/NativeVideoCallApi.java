@@ -55,6 +55,24 @@ public final class NativeVideoCallApi {
     patchAsync(context, callId, "missed", "missed_patch_start", "missed_patch_done", callback);
   }
 
+  /** Caller-side join entry — uses the same token contract as callee accept. */
+  public static void startCallerJoinAsync(
+      Context context,
+      String callId,
+      String roomId,
+      String peerUserId,
+      String peerName,
+      String mediaType) {
+    if (context == null || callId == null || callId.trim().isEmpty()) return;
+    NativeVideoCallRuntime.handleOutgoing(
+        context.getApplicationContext(),
+        callId.trim(),
+        roomId,
+        peerUserId,
+        peerName,
+        mediaType);
+  }
+
   public static void fetchTokenAsync(Context context, String callId, TokenCallback callback) {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
     Context app = context.getApplicationContext();

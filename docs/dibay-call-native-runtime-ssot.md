@@ -57,6 +57,8 @@ Native Runtime에서 아래 import/참조는 금지한다.
 - Native Voice Runtime
 - 기존 Voice LOCK
 - Native Voice 문서
+- Native Video Runtime (lifecycle LOCK 2026-06-27)
+- Native Video lifecycle LOCK 문서 (`docs/dibay-call-native-video-runtime-qa.md`)
 - 기존 QA 문서
 - 기존 LOCK 로그
 

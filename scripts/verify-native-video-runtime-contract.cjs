@@ -160,6 +160,56 @@ for (const marker of [
 }
 if (!failed) pass("native video Android manifest entries are present");
 
+const nativeVideoRuntime = read("android/app/src/main/java/com/dibay/app/nativevideo/NativeVideoCallRuntime.java");
+if (nativeVideoRuntime.includes("NativeVideoCallService.startRinging")) {
+  fail("NativeVideoCallRuntime must not start FGS during handleIncoming (Voice SSOT parity)");
+} else {
+  pass("native video handleIncoming skips premature FGS (Voice parity)");
+}
+for (const marker of [
+  "shouldStartForegroundVisibleActivity",
+  "startForegroundVisibleActivity",
+  "NativeVideoCallNotification.showIncoming",
+  "shouldStartBackgroundUnlockedActivity",
+  "startBackgroundUnlockedActivity",
+]) {
+  if (!nativeVideoRuntime.includes(marker)) {
+    fail(`NativeVideoCallRuntime missing Voice-parity incoming marker: ${marker}`);
+  }
+}
+
+const nativeVideoNotification = read(
+  "android/app/src/main/java/com/dibay/app/nativevideo/NativeVideoCallNotification.java",
+);
+for (const marker of [
+  "setFullScreenIntent(fullScreen, true)",
+  "PendingIntent.getActivity",
+  "FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE",
+  "NativeVideoCallActivity.class",
+]) {
+  if (!nativeVideoNotification.includes(marker)) {
+    fail(`NativeVideoCallNotification missing Voice-parity marker: ${marker}`);
+  }
+}
+
+const nativeVideoActivity = read(
+  "android/app/src/main/java/com/dibay/app/nativevideo/NativeVideoCallActivity.java",
+);
+for (const marker of [
+  "setShowWhenLocked(true)",
+  "setTurnScreenOn(true)",
+  "incoming_activity_shown",
+  "lock_screen_visible",
+  "video_activity_config_changed",
+  "onConfigurationChanged",
+  "NativeVideoCallRuntime.accept(this, callId)",
+]) {
+  if (!nativeVideoActivity.includes(marker)) {
+    fail(`NativeVideoCallActivity missing Voice-parity incoming marker: ${marker}`);
+  }
+}
+if (!failed) pass("native video incoming surface matches Voice contract markers");
+
 const nativeVideoDir = "android/app/src/main/java/com/dibay/app/nativevideo";
 if (exists(nativeVideoDir)) {
   const files = listJavaFiles(nativeVideoDir);
@@ -196,8 +246,27 @@ if (exists(nativeVideoDir)) {
     "agora_native_video_join_success",
     "local_camera_publish_success",
     "remote_video_rendered",
+    "caller_native_video_join_start",
+    "caller_local_camera_publish_success",
   ]) {
     if (!log.includes(marker)) fail(`NativeVideoCallLog missing QA alias marker: ${marker}`);
+  }
+  const runtime = read("android/app/src/main/java/com/dibay/app/nativevideo/NativeVideoCallRuntime.java");
+  if (!runtime.includes("handleOutgoing")) {
+    fail("NativeVideoCallRuntime must define handleOutgoing caller path");
+  }
+  if (!runtime.includes("joinCaller")) {
+    fail("NativeVideoCallRuntime must join Agora via joinCaller for outgoing path");
+  }
+  const agoraJoin = read("android/app/src/main/java/com/dibay/app/nativevideo/NativeVideoCallAgoraEngine.java");
+  if (!agoraJoin.includes("joinCaller")) {
+    fail("NativeVideoCallAgoraEngine must define joinCaller");
+  }
+  if (!agoraJoin.includes("caller_agora_native_join_start")) {
+    fail("NativeVideoCallAgoraEngine must log caller_agora_native_join_start");
+  }
+  if (!agoraJoin.includes("caller_local_camera_preview_started")) {
+    fail("NativeVideoCallAgoraEngine must log caller_local_camera_preview_started");
   }
   if (!failed) pass("native video runtime implementation is present");
 } else {

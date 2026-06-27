@@ -36,6 +36,8 @@ public final class NativeVideoCallLog {
     if ("agora_native_join_success".equals(marker)) return "agora_native_video_join_success";
     if ("local_camera_preview_started".equals(marker)) return "local_camera_publish_success";
     if ("remote_video_render_ready".equals(marker)) return "remote_video_rendered";
+    if ("caller_agora_native_join_start".equals(marker)) return "caller_native_video_join_start";
+    if ("caller_local_camera_preview_started".equals(marker)) return "caller_local_camera_publish_success";
     return null;
   }
 }
