@@ -81,6 +81,8 @@ public final class NativeVideoCallAgoraEngine {
                 rtc.enableVideo();
                 rtc.setDefaultAudioRoutetoSpeakerphone(true);
                 NativeVideoCallLog.info("audio_route_applied", sid, "speaker=true");
+                CountDownLatch previewReady = new CountDownLatch(1);
+                final String[] previewError = {null};
                 MAIN.post(
                     () -> {
                       try {
@@ -97,15 +99,22 @@ public final class NativeVideoCallAgoraEngine {
                           }
                         } else if (callerJoin) {
                           NativeVideoCallLog.info("no_ui_preview_skipped", sid);
+                          rtc.startPreview();
                         }
                       } catch (RuntimeException error) {
-                        if (callerJoin && !NativeVideoCallActivity.isShowing(sid)) {
-                          NativeVideoCallLog.info("no_ui_preview_skipped", sid);
-                        } else {
-                          fail(sid, "local_preview=" + error.getClass().getSimpleName());
-                        }
+                        previewError[0] = "local_preview=" + error.getClass().getSimpleName();
+                      } finally {
+                        previewReady.countDown();
                       }
                     });
+                if (!previewReady.await(8, TimeUnit.SECONDS)) {
+                  fail(sid, "preview_ready_timeout");
+                  return;
+                }
+                if (previewError[0] != null) {
+                  fail(sid, previewError[0]);
+                  return;
+                }
 
                 ChannelMediaOptions options = new ChannelMediaOptions();
                 options.channelProfile = Constants.CHANNEL_PROFILE_COMMUNICATION;
