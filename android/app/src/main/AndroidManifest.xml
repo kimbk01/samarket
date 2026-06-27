@@ -131,6 +131,7 @@
             android:exported="false"
             android:launchMode="singleTask"
             android:showWhenLocked="true"
+            android:supportsPictureInPicture="true"
             android:taskAffinity="com.dibay.app.native.video"
             android:turnScreenOn="true"
             android:theme="@style/AppTheme.IncomingCall" />

@@ -1,6 +1,7 @@
 package com.dibay.app.nativevideo;
 
 import android.app.Activity;
+import android.app.PictureInPictureParams;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Color;
@@ -51,6 +52,8 @@ public class NativeVideoCallActivity extends Activity {
   private Button endButton;
   private Button cameraButton;
   private boolean cameraEnabled = true;
+  private boolean inPipMode = false;
+  private NativeVideoCallRuntime.State currentState = NativeVideoCallRuntime.State.RINGING;
   private final Handler mainHandler = new Handler(Looper.getMainLooper());
   private long connectedAtElapsedMs = 0L;
   private final Runnable durationTick =
@@ -160,6 +163,21 @@ public class NativeVideoCallActivity extends Activity {
   }
 
   @Override
+  public void onUserLeaveHint() {
+    super.onUserLeaveHint();
+    tryEnterPip("user_leave");
+  }
+
+  @Override
+  public void onPictureInPictureModeChanged(boolean isInPictureInPictureMode) {
+    super.onPictureInPictureModeChanged(isInPictureInPictureMode);
+    inPipMode = isInPictureInPictureMode;
+    applyPipUiMode(isInPictureInPictureMode);
+    NativeVideoCallLog.info(
+        isInPictureInPictureMode ? "native_video_pip_entered" : "native_video_pip_exited", callId);
+  }
+
+  @Override
   protected void onDestroy() {
     stopDurationTimer();
     NativeVideoCallActivity current = activeRef.get();
@@ -246,6 +264,7 @@ public class NativeVideoCallActivity extends Activity {
   }
 
   private void applyState(NativeVideoCallRuntime.State state) {
+    currentState = state;
     NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(callId);
     NativeVideoCallUiPresenter.Model model = NativeVideoCallUiPresenter.build(this, session, state);
     peerNameView.setText(model.peerName);
@@ -282,6 +301,43 @@ public class NativeVideoCallActivity extends Activity {
       activeActions.setTranslationZ(24f);
       ensureVideoRootForRemoteRender();
       NativeVideoCallAgoraEngine.onRemoteRenderSurfaceReady(callId);
+    }
+    if (inPipMode) applyPipUiMode(true);
+  }
+
+  private boolean tryEnterPip(String source) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false;
+    if (inPipMode || isInPictureInPictureMode()) return true;
+    if (!isPipEligible()) {
+      NativeVideoCallLog.info("native_video_pip_blocked", callId, "source=" + source + " state=" + currentState);
+      return false;
+    }
+    PictureInPictureParams params = NativeVideoCallPipPresenter.buildParams(this, callId);
+    if (params == null) return false;
+    try {
+      boolean entered = enterPictureInPictureMode(params);
+      NativeVideoCallLog.info(
+          entered ? "native_video_pip_enter_requested" : "native_video_pip_enter_rejected",
+          callId,
+          "source=" + source);
+      return entered;
+    } catch (RuntimeException error) {
+      NativeVideoCallLog.warn(
+          "native_video_pip_enter_failed", callId, "err=" + error.getClass().getSimpleName());
+      return false;
+    }
+  }
+
+  private boolean isPipEligible() {
+    return callId != null && !callId.isEmpty() && currentState == NativeVideoCallRuntime.State.CONNECTED;
+  }
+
+  private void applyPipUiMode(boolean enabled) {
+    if (overlayRoot != null) overlayRoot.setVisibility(enabled ? View.GONE : View.VISIBLE);
+    if (activeActions != null) activeActions.setVisibility(enabled ? View.GONE : View.VISIBLE);
+    if (localContainer != null) localContainer.setVisibility(enabled ? View.GONE : View.VISIBLE);
+    if (!enabled && currentState != null) {
+      applyState(currentState);
     }
   }
 
