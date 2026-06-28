@@ -61,7 +61,9 @@ Incoming accept chain (B, per locked voice/video incoming callIds):
 | Track | Document |
 |---|---|
 | O2 Outgoing | `docs/dibay-call-o2-outgoing-hard-lock.md` |
+| O3 Connected | `docs/dibay-call-o3-connected-ownership-hard-lock.md` |
 | O4 End / Cleanup | `docs/dibay-call-o4-end-ownership-hard-lock.md` |
+| Legacy Web Shutdown (Track ①) | `docs/dibay-call-legacy-web-shutdown-lock.md` |
 | Voice UI | `docs/dibay-call-voice-ui-hard-lock.md` |
 | Video UI | `docs/dibay-call-video-ui-hard-lock.md` |
 | Video PiP | (lifecycle LOCK 2026-06-27 — `docs/dibay-call-native-video-runtime-qa.md`) |
