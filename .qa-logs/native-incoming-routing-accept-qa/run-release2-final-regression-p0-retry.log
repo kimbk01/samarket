@@ -1,3 +1,30 @@
+[routing-qa] A=8b37179f7d94 B=RRGL4046NTW
+[routing-qa] gateMode=p0 scenarios=voice_fsi_button_accept,voice_foreground_button_accept,video_fsi_button_accept,video_foreground_button_accept
+
+[routing-qa] === voice_fsi_button_accept ===
+[routing-qa] A A before login probe={"ok":true,"userId":"11111111-1111-1111-1111-111111111111","username":"aaaa"}
+[routing-qa] B B before login probe={"ok":true,"userId":"9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8","username":"qqqq"}
+[routing-qa] dial callId=72602426-e442-4b9b-8ad1-0173bfcc567c
+[routing-qa] [P0] voice_fsi_button_accept => PASS 
+
+[routing-qa] === voice_foreground_button_accept ===
+[routing-qa] A A before login probe={"ok":true,"userId":"11111111-1111-1111-1111-111111111111","username":"aaaa"}
+[routing-qa] B B before login probe={"ok":true,"userId":"9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8","username":"qqqq"}
+[routing-qa] dial callId=d5eb63f0-eca7-41f0-90f2-03f2bf921ced
+[routing-qa] [P0] voice_foreground_button_accept => PASS 
+
+[routing-qa] === video_fsi_button_accept ===
+[routing-qa] A A before login probe={"ok":true,"userId":"11111111-1111-1111-1111-111111111111","username":"aaaa"}
+[routing-qa] B B before login probe={"ok":true,"userId":"9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8","username":"qqqq"}
+[routing-qa] dial callId=17137e16-0d9a-47a3-a41b-a58e5bd65b44
+[routing-qa] [P0] video_fsi_button_accept => PASS 
+
+[routing-qa] === video_foreground_button_accept ===
+[routing-qa] A A before login probe={"ok":true,"userId":"11111111-1111-1111-1111-111111111111","username":"aaaa"}
+[routing-qa] B B before login probe={"ok":true,"userId":"9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8","username":"qqqq"}
+[routing-qa] dial callId=6df9f0d1-52b5-4683-ba20-e6a4205fdc3c
+[routing-qa] [P0] video_foreground_button_accept => PASS 
+[routing-qa] gatePass=true p0=4/4 reference=0/0
 {
   "at": "2026-06-28T08:19:17.414Z",
   "gate": "release2_final_native_incoming_accept",
