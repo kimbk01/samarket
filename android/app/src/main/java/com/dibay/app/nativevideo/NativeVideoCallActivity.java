@@ -139,16 +139,21 @@ public class NativeVideoCallActivity extends Activity {
     activeRef = new WeakReference<>(this);
     if (UI_MODE_INCOMING.equals(uiMode)) {
       applyIncomingWakeFlags();
-    } else {
-      getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     }
     setContentView(R.layout.activity_native_video_call);
     bindViews();
     bindActions();
+    syncKeepScreenOnForState(defaultStateForMode(), "on_create");
     logSurfaceShown();
     NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(callId);
     applyState(session != null ? session.state : defaultStateForMode());
     maybeHandleNotificationAccept(getIntent());
+  }
+
+  @Override
+  protected void onResume() {
+    super.onResume();
+    syncKeepScreenOnForState(currentState, "on_resume");
   }
 
   @Override
@@ -190,10 +195,12 @@ public class NativeVideoCallActivity extends Activity {
     applyPipUiMode(isInPictureInPictureMode);
     NativeVideoCallLog.info(
         isInPictureInPictureMode ? "native_video_pip_entered" : "native_video_pip_exited", callId);
+    syncKeepScreenOnForState(currentState, isInPictureInPictureMode ? "pip_enter" : "pip_exit");
   }
 
   @Override
   protected void onDestroy() {
+    releaseKeepScreenOff("destroy");
     stopDurationTimer();
     hideDock("destroy");
     detachDockView();
@@ -272,14 +279,44 @@ public class NativeVideoCallActivity extends Activity {
       getWindow()
           .addFlags(
               WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
-                  | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
-                  | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                  | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
     }
     getWindow()
         .addFlags(
-            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
-                | WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
+            WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
                 | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
+  }
+
+  private boolean shouldKeepScreenOnForState(NativeVideoCallRuntime.State state) {
+    return state == NativeVideoCallRuntime.State.RINGING
+        || state == NativeVideoCallRuntime.State.ACCEPTING
+        || state == NativeVideoCallRuntime.State.CONNECTING
+        || state == NativeVideoCallRuntime.State.CONNECTED;
+  }
+
+  private void syncKeepScreenOnForState(NativeVideoCallRuntime.State state, String source) {
+    if (callId == null || callId.isEmpty()) return;
+    if (shouldKeepScreenOnForState(state)) {
+      applyKeepScreenOn(source + ":" + state.name().toLowerCase());
+      return;
+    }
+    releaseKeepScreenOff(source + ":" + (state != null ? state.name().toLowerCase() : "unknown"));
+  }
+
+  private void applyKeepScreenOn(String source) {
+    getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+    View root = findViewById(R.id.native_video_call_root);
+    if (root != null) root.setKeepScreenOn(true);
+    if (videoRoot != null) videoRoot.setKeepScreenOn(true);
+    NativeVideoCallLog.info("native_video_keep_screen_on", callId, "source=" + source);
+  }
+
+  private void releaseKeepScreenOff(String source) {
+    getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+    View root = findViewById(R.id.native_video_call_root);
+    if (root != null) root.setKeepScreenOn(false);
+    if (videoRoot != null) videoRoot.setKeepScreenOn(false);
+    NativeVideoCallLog.info("native_video_keep_screen_off", callId, "source=" + source);
   }
 
   private void bindViews() {
@@ -318,6 +355,7 @@ public class NativeVideoCallActivity extends Activity {
 
   private void applyState(NativeVideoCallRuntime.State state) {
     currentState = state;
+    syncKeepScreenOnForState(state, "apply_state");
     if (state != NativeVideoCallRuntime.State.CONNECTED && dockMode) {
       hideDock("state_change");
     }
