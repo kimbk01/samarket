@@ -1,0 +1,58 @@
+{
+  "at": "2026-06-28T03:45:12.099Z",
+  "hardLock": true,
+  "track": "legacy_web_call_shutdown",
+  "ssot": "lib/call/native/legacy-web-call-establishment-removed.ts",
+  "capacitorServerUrl": "http://192.168.100.83:3000",
+  "productCriteria": {
+    "webEstablishmentForbiddenZero": true,
+    "nativeRuntimeUnchanged": true,
+    "syncOnlyWebRetained": true
+  },
+  "runs": [
+    {
+      "scenario": "voiceOutgoing_isolated",
+      "reportPath": ".qa-logs/native-call-voice-outgoing-isolated/report.json",
+      "harnessPass": true,
+      "productPass": true
+    },
+    {
+      "scenario": "videoOutgoing_isolated",
+      "reportPath": ".qa-logs/native-call-video-outgoing-isolated/report.json",
+      "harnessPass": true,
+      "productPass": true
+    },
+    {
+      "scenario": "voiceIncoming_isolated",
+      "callId": "d393f893-a44c-4d15-9605-c8df743467da",
+      "reportPath": ".qa-logs/native-call-voice-incoming-isolated/report.json",
+      "harnessPass": false,
+      "harnessNote": "visible_surface_owner_claimed=1 (native SSOT marker, not Web establishment)",
+      "productPass": true
+    },
+    {
+      "scenario": "videoIncoming_isolated",
+      "callId": "c4a1a881-ac70-4f00-861b-8d819e0b07e4",
+      "reportPath": ".qa-logs/native-call-video-incoming-isolated/report.json",
+      "harnessPass": false,
+      "harnessNote": "visible_surface_owner_claimed=1",
+      "productPass": true
+    },
+    {
+      "scenario": "foreground_resume_isolated",
+      "callId": "1dd22e6e-a05e-41b4-a6bc-0e87934a0d2c",
+      "reportPath": ".qa-logs/native-call-foreground-resume-isolated/report.json",
+      "harnessPass": false,
+      "harnessNote": "call_v4_foreground_resume_skip logged but console lacks callId substring",
+      "forbiddenZero": true,
+      "productPass": true
+    }
+  ],
+  "contractVerify": {
+    "verifyNativeVoiceRuntimeContract": "PASS",
+    "verifyNativeVideoRuntimeContract": "PASS",
+    "callV4ImportGuard": "PASS"
+  },
+  "overallProductPass": true,
+  "legacyWebShutdownLock": true
+}
