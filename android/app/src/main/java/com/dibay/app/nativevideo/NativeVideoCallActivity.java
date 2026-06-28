@@ -20,6 +20,7 @@ import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import com.dibay.app.R;
+import com.dibay.app.call.ScreenAwakeController;
 import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
 import java.lang.ref.WeakReference;
 import java.util.Locale;
@@ -125,6 +126,24 @@ public class NativeVideoCallActivity extends Activity {
     return activity != null && callId != null && callId.equals(activity.callId);
   }
 
+  public String getBoundCallId() {
+    return callId != null ? callId : "";
+  }
+
+  public void applyScreenAwakeHold() {
+    getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+    View root = findViewById(R.id.native_video_call_root);
+    if (root != null) root.setKeepScreenOn(true);
+    if (videoRoot != null) videoRoot.setKeepScreenOn(true);
+  }
+
+  public void releaseScreenAwakeHold() {
+    getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+    View root = findViewById(R.id.native_video_call_root);
+    if (root != null) root.setKeepScreenOn(false);
+    if (videoRoot != null) videoRoot.setKeepScreenOn(false);
+  }
+
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
@@ -143,7 +162,7 @@ public class NativeVideoCallActivity extends Activity {
     setContentView(R.layout.activity_native_video_call);
     bindViews();
     bindActions();
-    syncKeepScreenOnForState(defaultStateForMode(), "on_create");
+    ScreenAwakeController.onNativeVideoResumed(this);
     logSurfaceShown();
     NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(callId);
     applyState(session != null ? session.state : defaultStateForMode());
@@ -153,7 +172,13 @@ public class NativeVideoCallActivity extends Activity {
   @Override
   protected void onResume() {
     super.onResume();
-    syncKeepScreenOnForState(currentState, "on_resume");
+    ScreenAwakeController.onNativeVideoResumed(this);
+  }
+
+  @Override
+  protected void onPause() {
+    ScreenAwakeController.onNativeVideoPaused(this);
+    super.onPause();
   }
 
   @Override
@@ -195,12 +220,12 @@ public class NativeVideoCallActivity extends Activity {
     applyPipUiMode(isInPictureInPictureMode);
     NativeVideoCallLog.info(
         isInPictureInPictureMode ? "native_video_pip_entered" : "native_video_pip_exited", callId);
-    syncKeepScreenOnForState(currentState, isInPictureInPictureMode ? "pip_enter" : "pip_exit");
+    ScreenAwakeController.onNativeVideoPipChanged(this, isInPictureInPictureMode);
   }
 
   @Override
   protected void onDestroy() {
-    releaseKeepScreenOff("destroy");
+    ScreenAwakeController.onNativeVideoDestroyed(this);
     stopDurationTimer();
     hideDock("destroy");
     detachDockView();
@@ -287,38 +312,6 @@ public class NativeVideoCallActivity extends Activity {
                 | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
   }
 
-  private boolean shouldKeepScreenOnForState(NativeVideoCallRuntime.State state) {
-    return state == NativeVideoCallRuntime.State.RINGING
-        || state == NativeVideoCallRuntime.State.ACCEPTING
-        || state == NativeVideoCallRuntime.State.CONNECTING
-        || state == NativeVideoCallRuntime.State.CONNECTED;
-  }
-
-  private void syncKeepScreenOnForState(NativeVideoCallRuntime.State state, String source) {
-    if (callId == null || callId.isEmpty()) return;
-    if (shouldKeepScreenOnForState(state)) {
-      applyKeepScreenOn(source + ":" + state.name().toLowerCase());
-      return;
-    }
-    releaseKeepScreenOff(source + ":" + (state != null ? state.name().toLowerCase() : "unknown"));
-  }
-
-  private void applyKeepScreenOn(String source) {
-    getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-    View root = findViewById(R.id.native_video_call_root);
-    if (root != null) root.setKeepScreenOn(true);
-    if (videoRoot != null) videoRoot.setKeepScreenOn(true);
-    NativeVideoCallLog.info("native_video_keep_screen_on", callId, "source=" + source);
-  }
-
-  private void releaseKeepScreenOff(String source) {
-    getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-    View root = findViewById(R.id.native_video_call_root);
-    if (root != null) root.setKeepScreenOn(false);
-    if (videoRoot != null) videoRoot.setKeepScreenOn(false);
-    NativeVideoCallLog.info("native_video_keep_screen_off", callId, "source=" + source);
-  }
-
   private void bindViews() {
     videoRoot = findViewById(R.id.native_video_call_video_root);
     remoteContainer = findViewById(R.id.native_video_call_remote);
@@ -355,7 +348,7 @@ public class NativeVideoCallActivity extends Activity {
 
   private void applyState(NativeVideoCallRuntime.State state) {
     currentState = state;
-    syncKeepScreenOnForState(state, "apply_state");
+    ScreenAwakeController.sync("native_video_apply_state:" + state.name().toLowerCase());
     if (state != NativeVideoCallRuntime.State.CONNECTED && dockMode) {
       hideDock("state_change");
     }

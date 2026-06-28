@@ -210,6 +210,10 @@ public final class DibayActiveCallSessionManager {
   }
 
   public static void clearSession() {
+    String sid = ACTIVE_CALL_ID.get();
+    if (sid != null && !sid.isEmpty()) {
+      ScreenAwakeController.releaseAll(sid, "session_clear");
+    }
     ACTIVE_CALL_ID.set(null);
     PHASE.set(PHASE_CLEANED);
     MEDIA_TYPE.set("voice");
@@ -225,5 +229,8 @@ public final class DibayActiveCallSessionManager {
     if (callId == null || callId.trim().isEmpty()) return;
     bindActiveCall(callId, kind, PHASE_CONNECTED);
     DibayCallLog.once("active_call_foreground_service_started", callId.trim(), "media=" + kind);
+    if ("video".equalsIgnoreCase(kind)) {
+      ScreenAwakeController.sync("foreground_service_connected");
+    }
   }
 }

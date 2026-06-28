@@ -14,6 +14,7 @@ import com.dibay.app.IncomingCallActionCoordinator;
 import com.dibay.app.IncomingCallNotificationBuilder;
 import com.dibay.app.IncomingCallRingOwner;
 import com.dibay.app.call.DibayActiveCallSessionManager;
+import com.dibay.app.call.ScreenAwakeController;
 import com.dibay.app.nativecall.NativeCallEngineOwnership;
 import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
 import java.util.concurrent.ConcurrentHashMap;
@@ -395,6 +396,10 @@ public final class NativeVideoCallRuntime {
     }
     ensureVideoUiVisible(context, session, state);
     NativeVideoCallActivity.renderState(session.callId, state);
+    ScreenAwakeController.sync("video_runtime_state:" + state.name().toLowerCase());
+    if (state == State.ENDING || state == State.ENDED || state == State.FAILED) {
+      ScreenAwakeController.releaseAll(session.callId, "video_runtime_state:" + state.name().toLowerCase());
+    }
   }
 
   private static void ensureVideoUiVisible(Context context, Session session, State state) {
