@@ -17,14 +17,19 @@ import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.ContextCompat;
 import com.dibay.app.R;
 import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
-/** Native Voice Runtime incoming notification. FSI/PendingIntent is the only Activity launch path. */
+/** Native Voice Runtime incoming notification. Accept/FSI/content use Activity PendingIntent only. */
 public final class NativeVoiceCallNotification {
   public static final String CHANNEL_ID = "dibay_native_voice_incoming";
   private static final int NOTIFICATION_BASE_ID = 94001;
   private static final int SUPPRESS_CANCEL_MAX_ATTEMPTS = 8;
   private static final long SUPPRESS_CANCEL_RETRY_MS = 100L;
+  /** RINGING-only: keep Accept action PI reachable briefly after FSI Activity shown. */
+  private static final long ACTIVITY_SHOWN_RINGING_SUPPRESS_GRACE_MS = 1_000L;
   private static final Handler MAIN = new Handler(Looper.getMainLooper());
+  private static final Map<String, Runnable> pendingGraceSuppress = new ConcurrentHashMap<>();
 
   private NativeVoiceCallNotification() {}
 
@@ -54,8 +59,8 @@ public final class NativeVoiceCallNotification {
             .setAutoCancel(false)
             .setContentIntent(fullScreen)
             .setFullScreenIntent(fullScreen, true)
-            .addAction(0, "Accept", actionIntent(app, session, NativeVoiceCallActionReceiver.ACTION_ACCEPT))
-            .addAction(0, "Decline", actionIntent(app, session, NativeVoiceCallActionReceiver.ACTION_REJECT))
+            .addAction(0, "Accept", acceptActivityIntent(app, session))
+            .addAction(0, "Decline", declineIntent(app, session))
             .build();
 
     NotificationManagerCompat.from(app).notify(notificationId(sid), notification);
@@ -65,15 +70,58 @@ public final class NativeVoiceCallNotification {
   }
 
   public static void dismiss(Context context, String callId) {
+    cancelPendingGraceSuppress(callId);
     cancelVisualNotification(context, callId);
   }
 
   public static void suppressVisualOnConnected(Context context, String callId) {
+    cancelPendingGraceSuppress(callId);
     scheduleVerifiedVisualSuppress(context, callId, true);
   }
 
   public static void suppressVisualAfterActivityShown(Context context, String callId) {
-    scheduleVerifiedVisualSuppress(context, callId, false);
+    if (context == null || callId == null || callId.trim().isEmpty()) return;
+    Context app = context.getApplicationContext();
+    String sid = callId.trim();
+    NativeVoiceCallRuntime.Session session = NativeVoiceCallRuntime.getSession(sid);
+    if (session != null && session.state == NativeVoiceCallRuntime.State.RINGING) {
+      scheduleRingingGraceSuppress(app, sid);
+      return;
+    }
+    scheduleVerifiedVisualSuppress(app, sid, false);
+  }
+
+  private static void scheduleRingingGraceSuppress(Context app, String callId) {
+    Runnable graceTask =
+        () -> {
+          pendingGraceSuppress.remove(callId);
+          NativeVoiceCallRuntime.Session current = NativeVoiceCallRuntime.getSession(callId);
+          if (current != null && current.state != NativeVoiceCallRuntime.State.RINGING) {
+            NativeVoiceCallLog.info(
+                "incoming_notification_suppress_grace_skipped",
+                callId,
+                "reason=state_" + current.state.name().toLowerCase());
+            return;
+          }
+          NativeVoiceCallLog.info(
+              "incoming_notification_suppress_grace_elapsed",
+              callId,
+              "graceMs=" + ACTIVITY_SHOWN_RINGING_SUPPRESS_GRACE_MS);
+          scheduleVerifiedVisualSuppress(app, callId, false);
+        };
+    Runnable previous = pendingGraceSuppress.put(callId, graceTask);
+    if (previous != null) MAIN.removeCallbacks(previous);
+    NativeVoiceCallLog.info(
+        "incoming_notification_suppress_grace_scheduled",
+        callId,
+        "graceMs=" + ACTIVITY_SHOWN_RINGING_SUPPRESS_GRACE_MS);
+    MAIN.postDelayed(graceTask, ACTIVITY_SHOWN_RINGING_SUPPRESS_GRACE_MS);
+  }
+
+  private static void cancelPendingGraceSuppress(String callId) {
+    if (callId == null || callId.trim().isEmpty()) return;
+    Runnable pending = pendingGraceSuppress.remove(callId.trim());
+    if (pending != null) MAIN.removeCallbacks(pending);
   }
 
   /** Cancel incoming visual and verify StatusBarNotification removal before suppress markers. */
@@ -171,14 +219,26 @@ public final class NativeVoiceCallNotification {
         PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
   }
 
-  private static PendingIntent actionIntent(
-      Context context, NativeVoiceCallRuntime.Session session, String action) {
+  private static PendingIntent acceptActivityIntent(Context context, NativeVoiceCallRuntime.Session session) {
+    Intent intent = new Intent(context, NativeVoiceCallActivity.class);
+    intent.setAction(NativeVoiceCallActivity.ACTION_NOTIFICATION_ACCEPT);
+    intent.putExtra(NativeVoiceCallActivity.EXTRA_NOTIFICATION_ACCEPT, true);
+    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+    putSessionExtras(intent, session);
+    return PendingIntent.getActivity(
+        context,
+        requestCode(session.callId, 2),
+        intent,
+        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+  }
+
+  private static PendingIntent declineIntent(Context context, NativeVoiceCallRuntime.Session session) {
     Intent intent = new Intent(context, NativeVoiceCallActionReceiver.class);
-    intent.setAction(action);
+    intent.setAction(NativeVoiceCallActionReceiver.ACTION_REJECT);
     putSessionExtras(intent, session);
     return PendingIntent.getBroadcast(
         context,
-        requestCode(session.callId, action.hashCode()),
+        requestCode(session.callId, NativeVoiceCallActionReceiver.ACTION_REJECT.hashCode()),
         intent,
         PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
   }

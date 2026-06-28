@@ -1,0 +1,450 @@
+{
+  "at": "2026-06-28T08:03:19.650Z",
+  "gate": "release2_final_native_incoming_accept",
+  "qaStandard": "telegram_aligned_activity_accept",
+  "serialA": "8b37179f7d94",
+  "serialB": "RRGL4046NTW",
+  "runtimeDiffZero": true,
+  "gateMode": "p0",
+  "p0AllPass": true,
+  "gatePass": true,
+  "referenceAllPass": null,
+  "allScenariosPass": true,
+  "p0Results": [
+    {
+      "scenario": "voice_fsi_button_accept",
+      "tier": "p0",
+      "label": "Voice FSI → Activity Accept → Connected",
+      "blocksGate": true,
+      "media": "voice",
+      "path": "fsi_button",
+      "callId": "9e6465b2-ab46-4c90-a324-2b37e893f74e",
+      "dial": {
+        "ok": true,
+        "callId": "9e6465b2-ab46-4c90-a324-2b37e893f74e",
+        "status": 200
+      },
+      "acceptAction": {
+        "ok": true,
+        "x": 698,
+        "y": 2182
+      },
+      "connected": true,
+      "pass": true,
+      "firstFail": null,
+      "counts": {
+        "incoming_activity_shown": 1,
+        "activity_notification_accept": 0,
+        "accept_tapped": 1,
+        "state_connected": 1
+      },
+      "order": [
+        {
+          "marker": "incoming_activity_shown",
+          "idx": 14
+        },
+        {
+          "marker": "activity_notification_accept",
+          "idx": -1
+        },
+        {
+          "marker": "accept_tapped",
+          "idx": 27
+        },
+        {
+          "marker": "state_connected",
+          "idx": 44
+        }
+      ],
+      "grace": {
+        "pass": true,
+        "firstFail": null,
+        "graceScheduled": 1,
+        "graceElapsed": 1,
+        "graceSkipped": 0,
+        "suppressGapMs": 1670
+      }
+    },
+    {
+      "scenario": "voice_foreground_button_accept",
+      "tier": "p0",
+      "label": "Voice Foreground → Activity Accept → Connected",
+      "blocksGate": true,
+      "media": "voice",
+      "path": "foreground_button",
+      "callId": "196259c2-997f-4623-a71a-3f2c5a93e038",
+      "dial": {
+        "ok": true,
+        "callId": "196259c2-997f-4623-a71a-3f2c5a93e038",
+        "status": 200
+      },
+      "acceptAction": {
+        "ok": true,
+        "x": 698,
+        "y": 2182
+      },
+      "connected": true,
+      "pass": true,
+      "firstFail": null,
+      "counts": {
+        "incoming_activity_shown": 1,
+        "activity_notification_accept": 0,
+        "accept_tapped": 1,
+        "state_connected": 1
+      },
+      "order": [
+        {
+          "marker": "incoming_activity_shown",
+          "idx": 14
+        },
+        {
+          "marker": "activity_notification_accept",
+          "idx": -1
+        },
+        {
+          "marker": "accept_tapped",
+          "idx": 23
+        },
+        {
+          "marker": "state_connected",
+          "idx": 40
+        }
+      ],
+      "grace": {
+        "pass": true,
+        "firstFail": null,
+        "graceScheduled": 1,
+        "graceElapsed": 1,
+        "graceSkipped": 0,
+        "suppressGapMs": 1508
+      }
+    },
+    {
+      "scenario": "video_fsi_button_accept",
+      "tier": "p0",
+      "label": "Video FSI → Activity Accept → Connected",
+      "blocksGate": true,
+      "media": "video",
+      "path": "fsi_button",
+      "callId": "74c5b4d2-a683-4050-98ca-c491e026279e",
+      "dial": {
+        "ok": true,
+        "callId": "74c5b4d2-a683-4050-98ca-c491e026279e",
+        "status": 200
+      },
+      "acceptAction": {
+        "ok": true,
+        "x": 698,
+        "y": 2182
+      },
+      "connected": true,
+      "pass": true,
+      "firstFail": null,
+      "counts": {
+        "incoming_activity_shown": 1,
+        "activity_notification_accept": 0,
+        "accept_tapped": 1,
+        "state_connected": 1
+      },
+      "order": [
+        {
+          "marker": "incoming_activity_shown",
+          "idx": 14
+        },
+        {
+          "marker": "activity_notification_accept",
+          "idx": -1
+        },
+        {
+          "marker": "accept_tapped",
+          "idx": 30
+        },
+        {
+          "marker": "state_connected",
+          "idx": 54
+        }
+      ],
+      "grace": {
+        "pass": true,
+        "firstFail": null,
+        "graceScheduled": 1,
+        "graceElapsed": 1,
+        "graceSkipped": 0,
+        "suppressGapMs": 1510
+      }
+    },
+    {
+      "scenario": "video_foreground_button_accept",
+      "tier": "p0",
+      "label": "Video Foreground → Activity Accept → Connected",
+      "blocksGate": true,
+      "media": "video",
+      "path": "foreground_button",
+      "callId": "ba2f1385-9447-4175-b379-d999538c1291",
+      "dial": {
+        "ok": true,
+        "callId": "ba2f1385-9447-4175-b379-d999538c1291",
+        "status": 200
+      },
+      "acceptAction": {
+        "ok": true,
+        "x": 698,
+        "y": 2182
+      },
+      "connected": true,
+      "pass": true,
+      "firstFail": null,
+      "counts": {
+        "incoming_activity_shown": 1,
+        "activity_notification_accept": 0,
+        "accept_tapped": 1,
+        "state_connected": 1
+      },
+      "order": [
+        {
+          "marker": "incoming_activity_shown",
+          "idx": 14
+        },
+        {
+          "marker": "activity_notification_accept",
+          "idx": -1
+        },
+        {
+          "marker": "accept_tapped",
+          "idx": 25
+        },
+        {
+          "marker": "state_connected",
+          "idx": 49
+        }
+      ],
+      "grace": {
+        "pass": true,
+        "firstFail": null,
+        "graceScheduled": 1,
+        "graceElapsed": 1,
+        "graceSkipped": 0,
+        "suppressGapMs": 1389
+      }
+    }
+  ],
+  "referenceResults": [],
+  "results": [
+    {
+      "scenario": "voice_fsi_button_accept",
+      "tier": "p0",
+      "label": "Voice FSI → Activity Accept → Connected",
+      "blocksGate": true,
+      "media": "voice",
+      "path": "fsi_button",
+      "callId": "9e6465b2-ab46-4c90-a324-2b37e893f74e",
+      "dial": {
+        "ok": true,
+        "callId": "9e6465b2-ab46-4c90-a324-2b37e893f74e",
+        "status": 200
+      },
+      "acceptAction": {
+        "ok": true,
+        "x": 698,
+        "y": 2182
+      },
+      "connected": true,
+      "pass": true,
+      "firstFail": null,
+      "counts": {
+        "incoming_activity_shown": 1,
+        "activity_notification_accept": 0,
+        "accept_tapped": 1,
+        "state_connected": 1
+      },
+      "order": [
+        {
+          "marker": "incoming_activity_shown",
+          "idx": 14
+        },
+        {
+          "marker": "activity_notification_accept",
+          "idx": -1
+        },
+        {
+          "marker": "accept_tapped",
+          "idx": 27
+        },
+        {
+          "marker": "state_connected",
+          "idx": 44
+        }
+      ],
+      "grace": {
+        "pass": true,
+        "firstFail": null,
+        "graceScheduled": 1,
+        "graceElapsed": 1,
+        "graceSkipped": 0,
+        "suppressGapMs": 1670
+      }
+    },
+    {
+      "scenario": "voice_foreground_button_accept",
+      "tier": "p0",
+      "label": "Voice Foreground → Activity Accept → Connected",
+      "blocksGate": true,
+      "media": "voice",
+      "path": "foreground_button",
+      "callId": "196259c2-997f-4623-a71a-3f2c5a93e038",
+      "dial": {
+        "ok": true,
+        "callId": "196259c2-997f-4623-a71a-3f2c5a93e038",
+        "status": 200
+      },
+      "acceptAction": {
+        "ok": true,
+        "x": 698,
+        "y": 2182
+      },
+      "connected": true,
+      "pass": true,
+      "firstFail": null,
+      "counts": {
+        "incoming_activity_shown": 1,
+        "activity_notification_accept": 0,
+        "accept_tapped": 1,
+        "state_connected": 1
+      },
+      "order": [
+        {
+          "marker": "incoming_activity_shown",
+          "idx": 14
+        },
+        {
+          "marker": "activity_notification_accept",
+          "idx": -1
+        },
+        {
+          "marker": "accept_tapped",
+          "idx": 23
+        },
+        {
+          "marker": "state_connected",
+          "idx": 40
+        }
+      ],
+      "grace": {
+        "pass": true,
+        "firstFail": null,
+        "graceScheduled": 1,
+        "graceElapsed": 1,
+        "graceSkipped": 0,
+        "suppressGapMs": 1508
+      }
+    },
+    {
+      "scenario": "video_fsi_button_accept",
+      "tier": "p0",
+      "label": "Video FSI → Activity Accept → Connected",
+      "blocksGate": true,
+      "media": "video",
+      "path": "fsi_button",
+      "callId": "74c5b4d2-a683-4050-98ca-c491e026279e",
+      "dial": {
+        "ok": true,
+        "callId": "74c5b4d2-a683-4050-98ca-c491e026279e",
+        "status": 200
+      },
+      "acceptAction": {
+        "ok": true,
+        "x": 698,
+        "y": 2182
+      },
+      "connected": true,
+      "pass": true,
+      "firstFail": null,
+      "counts": {
+        "incoming_activity_shown": 1,
+        "activity_notification_accept": 0,
+        "accept_tapped": 1,
+        "state_connected": 1
+      },
+      "order": [
+        {
+          "marker": "incoming_activity_shown",
+          "idx": 14
+        },
+        {
+          "marker": "activity_notification_accept",
+          "idx": -1
+        },
+        {
+          "marker": "accept_tapped",
+          "idx": 30
+        },
+        {
+          "marker": "state_connected",
+          "idx": 54
+        }
+      ],
+      "grace": {
+        "pass": true,
+        "firstFail": null,
+        "graceScheduled": 1,
+        "graceElapsed": 1,
+        "graceSkipped": 0,
+        "suppressGapMs": 1510
+      }
+    },
+    {
+      "scenario": "video_foreground_button_accept",
+      "tier": "p0",
+      "label": "Video Foreground → Activity Accept → Connected",
+      "blocksGate": true,
+      "media": "video",
+      "path": "foreground_button",
+      "callId": "ba2f1385-9447-4175-b379-d999538c1291",
+      "dial": {
+        "ok": true,
+        "callId": "ba2f1385-9447-4175-b379-d999538c1291",
+        "status": 200
+      },
+      "acceptAction": {
+        "ok": true,
+        "x": 698,
+        "y": 2182
+      },
+      "connected": true,
+      "pass": true,
+      "firstFail": null,
+      "counts": {
+        "incoming_activity_shown": 1,
+        "activity_notification_accept": 0,
+        "accept_tapped": 1,
+        "state_connected": 1
+      },
+      "order": [
+        {
+          "marker": "incoming_activity_shown",
+          "idx": 14
+        },
+        {
+          "marker": "activity_notification_accept",
+          "idx": -1
+        },
+        {
+          "marker": "accept_tapped",
+          "idx": 25
+        },
+        {
+          "marker": "state_connected",
+          "idx": 49
+        }
+      ],
+      "grace": {
+        "pass": true,
+        "firstFail": null,
+        "graceScheduled": 1,
+        "graceElapsed": 1,
+        "graceSkipped": 0,
+        "suppressGapMs": 1389
+      }
+    }
+  ]
+}

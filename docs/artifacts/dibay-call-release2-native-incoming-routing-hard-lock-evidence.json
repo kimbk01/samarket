@@ -1,0 +1,67 @@
+{
+  "at": "2026-06-28T08:03:19.650Z",
+  "release": 2,
+  "hardLockKind": "native_incoming_accept_activity_routing",
+  "hardLockComplete": false,
+  "nativeRuntimeLockMaintained": true,
+  "acceptActivityRoutingLock": true,
+  "lockStatement": "Release 2 Accept Activity Routing — Activity PendingIntent Accept, Telegram-aligned P0 QA (FSI/Foreground in-app Accept). Runtime/Agora/Owner/PushDelivery/Cleanup unchanged. CallStyle/ConnectionService/Notification Template out of scope. Banner shade Accept is Reference (non-blocking).",
+  "ssot": "docs/dibay-call-native-runtime-ssot.md",
+  "parentLock": "docs/dibay-call-native-runtime-hard-lock.md",
+  "qaStandard": "telegram_aligned_activity_accept",
+  "qaTiers": {
+    "p0": [
+      "voice_fsi_button_accept",
+      "voice_foreground_button_accept",
+      "video_fsi_button_accept",
+      "video_foreground_button_accept"
+    ],
+    "reference": [
+      "voice_banner_accept",
+      "video_banner_accept"
+    ]
+  },
+  "outOfScope": [
+    "Runtime",
+    "Agora",
+    "Owner",
+    "PushDelivery",
+    "Cleanup",
+    "Notification Template",
+    "CallStyle",
+    "ConnectionService"
+  ],
+  "harness": ".qa-logs/native-incoming-routing-accept-qa.mjs",
+  "harnessDoc": ".qa-logs/native-incoming-routing-accept-qa/README.md",
+  "release2FinalGateP0": {
+    "gatePass": true,
+    "p0AllPass": true,
+    "at": "2026-06-28T08:03:19.650Z",
+    "report": ".qa-logs/native-incoming-routing-accept-qa/report.json",
+    "runLog": ".qa-logs/native-incoming-routing-accept-qa/run-release2-gate-p0-retry.log",
+    "devices": {
+      "serialA": "8b37179f7d94",
+      "serialB": "RRGL4046NTW"
+    },
+    "p0CallIds": [
+      "9e6465b2-ab46-4c90-a324-2b37e893f74e",
+      "196259c2-997f-4623-a71a-3f2c5a93e038",
+      "74c5b4d2-a683-4050-98ca-c491e026279e",
+      "ba2f1385-9447-4175-b379-d999538c1291"
+    ]
+  },
+  "postDeployFinalRegressionP0": {
+    "status": "pending",
+    "vercelOrigin": "https://samarket.vercel.app"
+  },
+  "runtimeDiffZero": {
+    "NativeVoiceCallRuntime.java": true,
+    "NativeVideoCallRuntime.java": true
+  },
+  "changedProductFiles": [
+    "android/app/src/main/java/com/dibay/app/nativevoice/NativeVoiceCallActivity.java",
+    "android/app/src/main/java/com/dibay/app/nativevoice/NativeVoiceCallNotification.java",
+    "android/app/src/main/java/com/dibay/app/nativevideo/NativeVideoCallActivity.java",
+    "android/app/src/main/java/com/dibay/app/nativevideo/NativeVideoCallNotification.java"
+  ]
+}

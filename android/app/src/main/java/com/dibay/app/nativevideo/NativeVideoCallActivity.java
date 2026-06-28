@@ -29,6 +29,8 @@ public class NativeVideoCallActivity extends Activity {
   public static final String EXTRA_CALL_ID = "callId";
   public static final String EXTRA_UI_MODE = "uiMode";
   public static final String EXTRA_SHOW_DOCK = "showDock";
+  public static final String EXTRA_NOTIFICATION_ACCEPT = "notificationAccept";
+  public static final String ACTION_NOTIFICATION_ACCEPT = "com.dibay.app.nativevideo.NOTIFICATION_ACCEPT";
   public static final String UI_MODE_INCOMING = "incoming";
   public static final String UI_MODE_OUTGOING = "outgoing";
 
@@ -57,6 +59,7 @@ public class NativeVideoCallActivity extends Activity {
   private boolean cameraEnabled = true;
   private boolean inPipMode = false;
   private boolean dockMode = false;
+  private boolean acceptStarted = false;
   private NativeVideoCallRuntime.State currentState = NativeVideoCallRuntime.State.RINGING;
   private final Handler mainHandler = new Handler(Looper.getMainLooper());
   private long connectedAtElapsedMs = 0L;
@@ -145,6 +148,7 @@ public class NativeVideoCallActivity extends Activity {
     logSurfaceShown();
     NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(callId);
     applyState(session != null ? session.state : defaultStateForMode());
+    maybeHandleNotificationAccept(getIntent());
   }
 
   @Override
@@ -154,6 +158,7 @@ public class NativeVideoCallActivity extends Activity {
     if (!bindIntent(intent)) return;
     NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(callId);
     applyState(session != null ? session.state : defaultStateForMode());
+    maybeHandleNotificationAccept(intent);
   }
 
   @Override
@@ -229,6 +234,36 @@ public class NativeVideoCallActivity extends Activity {
     NativeVideoCallLog.info("lock_screen_visible", callId);
   }
 
+  private boolean isNotificationAcceptIntent(Intent intent) {
+    if (intent == null) return false;
+    return intent.getBooleanExtra(EXTRA_NOTIFICATION_ACCEPT, false)
+        || ACTION_NOTIFICATION_ACCEPT.equals(intent.getAction());
+  }
+
+  private void maybeHandleNotificationAccept(Intent intent) {
+    if (!isNotificationAcceptIntent(intent) || !UI_MODE_INCOMING.equals(uiMode)) return;
+    performAccept("notification");
+  }
+
+  private void performAccept(String source) {
+    NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(callId);
+    if (session == null || session.state != NativeVideoCallRuntime.State.RINGING) {
+      NativeVideoCallLog.info(
+          "accept_duplicate_blocked", callId, "source=" + source + " state=" + (session != null ? session.state : "missing"));
+      return;
+    }
+    if (acceptStarted) {
+      NativeVideoCallLog.info("accept_duplicate_blocked", callId, "source=" + source + " reason=in_flight");
+      return;
+    }
+    acceptStarted = true;
+    if ("notification".equals(source)) {
+      NativeVideoCallLog.info("activity_notification_accept", callId);
+      NativeVideoCallLog.info("state_accepting", callId);
+    }
+    NativeVideoCallRuntime.accept(this, callId);
+  }
+
   private void applyIncomingWakeFlags() {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
       setShowWhenLocked(true);
@@ -264,7 +299,7 @@ public class NativeVideoCallActivity extends Activity {
   }
 
   private void bindActions() {
-    acceptButton.setOnClickListener(v -> NativeVideoCallRuntime.accept(this, callId));
+    acceptButton.setOnClickListener(v -> performAccept("button"));
     declineButton.setOnClickListener(v -> NativeVideoCallRuntime.reject(this, callId));
     endButton.setOnClickListener(v -> NativeVideoCallRuntime.end(this, callId));
     cameraButton.setOnClickListener(

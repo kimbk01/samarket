@@ -73,6 +73,7 @@ Incoming accept chain (B, per locked voice/video incoming callIds):
 | Video UI | `docs/dibay-call-video-ui-hard-lock.md` |
 | Video PiP | (lifecycle LOCK 2026-06-27 — `docs/dibay-call-native-video-runtime-qa.md`) |
 | Video Dock | `docs/dibay-call-video-dock-hard-lock.md` |
+| Release 2 Accept Activity Routing | `docs/dibay-call-release2-native-incoming-routing-hard-lock.md` |
 
 ## Deploy Baseline at Lock
 
