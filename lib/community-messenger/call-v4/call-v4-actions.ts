@@ -219,6 +219,14 @@ async function finalizeCallV4Terminal(
   router?: CallV4Router
 ): Promise<void> {
   await cleanupCallV4(callId, reason);
+  if (isLegacyWebCallEstablishmentRemoved()) {
+    logCallV4("legacy_web_establishment_removed", {
+      callId: callId.trim(),
+      trigger: "exit_screen_after_cleanup",
+      reason: String(reason),
+    });
+    return;
+  }
   maybeExitCallV4ScreenAfterCleanup(callId, String(reason), router);
 }
 
@@ -469,6 +477,13 @@ export async function callV4Cancel(callId: string, router: CallV4Router): Promis
 export { startCallV4CallerActivePoll, stopCallV4CallerActivePoll };
 
 export function callV4IncomingDiscovered(session: CommunityMessengerCallSession): void {
+  if (isLegacyWebCallEstablishmentRemoved()) {
+    logCallV4("legacy_web_establishment_removed", {
+      callId: session.id?.trim() ?? "",
+      trigger: "incoming_discovered",
+    });
+    return;
+  }
   const callId = session.id?.trim() ?? "";
   if (!callId || session.status !== "ringing" || session.isMineInitiator) return;
 
@@ -499,6 +514,10 @@ export async function callV4Accept(
 ): Promise<void> {
   const sid = callId.trim();
   if (!sid) return;
+  if (isLegacyWebCallEstablishmentRemoved()) {
+    logCallV4("legacy_web_establishment_removed", { callId: sid, trigger: "call_v4_accept" });
+    return;
+  }
   logCallV4("call_v4_accept_enter", { callId: sid, source: options?.source ?? null });
   logCallV4("accept_click", { callId: sid, source: options?.source ?? null });
 
@@ -576,6 +595,10 @@ export async function callV4EnsureAgoraJoined(
 ): Promise<void> {
   const sid = callId.trim();
   if (!sid) return;
+  if (isLegacyWebCallEstablishmentRemoved()) {
+    logCallV4("legacy_web_establishment_removed", { callId: sid, trigger: "ensure_agora_joined" });
+    return;
+  }
 
   const identity = readCallV4Identity();
   if (!identity || identity.callId !== sid) return;

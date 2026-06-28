@@ -12,6 +12,18 @@ function read(rel) {
   return fs.readFileSync(path.join(root, rel), "utf8");
 }
 
+function exists(rel) {
+  return fs.existsSync(path.join(root, rel));
+}
+
+function mustNotExist(rel, label) {
+  if (exists(rel)) {
+    fail(`Track ③ dead file must be removed: ${rel} (${label})`);
+  } else {
+    pass(`Track ③ dead file removed: ${rel}`);
+  }
+}
+
 function fail(message) {
   console.error(`verify:native-voice-runtime-contract FAIL - ${message}`);
   failed = true;
@@ -425,6 +437,34 @@ if (!mainActivity.includes("native_owned_pending_replay_suppressed")) {
   fail("MainActivity must gate injectWebViewRouteViaJs before pending_route_consumed (P2-4)");
 } else {
   pass("MainActivity native-owned pending Web replay suppression is present (P2-4)");
+}
+
+const track3DeadFiles = [
+  ["lib/call/native/native-owned-web-v4-ui-guard.ts", "P2-3 guard SSOT"],
+  ["lib/call/__tests__/native-owned-web-v4-ui-guard.test.ts", "P2-3 guard unit test"],
+  ["lib/community-messenger/call-v4/call-v4-pure-web-incoming-contract.ts", "orphan re-export"],
+  ["lib/community-messenger/call-v4/call-v4-route-leave-dock.ts", "orphan re-export"],
+  ["lib/community-messenger/call-v4/call-v4-pip-presentation.ts", "orphan re-export"],
+  ["scripts/verify-call-v4-phase6-android.cjs", "unused verify script"],
+];
+for (const [rel, label] of track3DeadFiles) {
+  mustNotExist(rel, label);
+}
+const callV4Provider = read("components/community-messenger/call-v4/CallV4Provider.tsx");
+if (callV4Provider.includes("resolveNativeOwnedWebV4UiBlock")) {
+  fail("CallV4Provider must not import P2-3 native-owned Web V4 UI guard (Track ③ removed)");
+} else if (callV4Provider.includes("native-owned-web-v4-ui-guard")) {
+  fail("CallV4Provider must not reference native-owned-web-v4-ui-guard (Track ③ removed)");
+} else if (!callV4Provider.includes("isLegacyWebCallEstablishmentRemoved")) {
+  fail("CallV4Provider must retain Android sync-only legacy_web_establishment_removed gate");
+} else {
+  pass("Track ③ CallV4Provider has no P2-3 guard; sync-only gate retained");
+}
+const track3LockDoc = "docs/dibay-call-track3-dead-code-cleanup-lock.md";
+if (!exists(track3LockDoc)) {
+  fail("Track ③ HARD LOCK doc must exist: docs/dibay-call-track3-dead-code-cleanup-lock.md");
+} else {
+  pass("Track ③ dead code cleanup HARD LOCK doc is present");
 }
 
 if (failed) process.exit(1);

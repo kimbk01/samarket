@@ -16,6 +16,7 @@ Legacy Web Call establishment is **removed** on Android Capacitor. Native Runtim
 | PiP / Dock | LOCK |
 | O2 Outgoing Establishment | LOCK |
 | P2 Legacy Web Detach | LOCK |
+| Track ③ Dead Code Cleanup | LOCK |
 
 ## Removed on Android Capacitor
 
@@ -45,6 +46,8 @@ Harness `pass:false` on incoming (`visible_surface_owner_claimed`) and foregroun
 
 Evidence: `docs/artifacts/dibay-call-legacy-web-shutdown-evidence.json`
 
+Track ③ (dead file delete): `docs/dibay-call-track3-dead-code-cleanup-lock.md` · `docs/artifacts/dibay-call-track3-dead-code-cleanup-evidence.json`
+
 ## Verification
 
 ```bash
@@ -55,4 +58,4 @@ vitest run lib/community-messenger/call-v4/__tests__/call-v4-import-guard.test.t
 
 ## Out of scope (Track ②+)
 
-Connected Ownership, Runtime, Native UI, Final Regression (once after Track ① commit).
+Connected Ownership (Track ② LOCK), Runtime, Native UI. Track ③ dead file cleanup **LOCK**. Track ④ Final Regression once after Track ③ commit.

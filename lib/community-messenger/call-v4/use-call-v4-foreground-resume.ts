@@ -8,7 +8,6 @@ import {
   readNativeActiveCallSnapshot,
 } from "@/lib/call/native/native-call-service";
 import { isLegacyWebCallEstablishmentRemoved } from "@/lib/call/native/legacy-web-call-establishment-removed";
-import { resolveNativeOwnedWebV4UiBlock } from "@/lib/call/native/native-owned-web-v4-ui-guard";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 import {
   applyCallV4ForegroundResumeRestore,
@@ -87,16 +86,6 @@ export function useCallV4ForegroundResume(): void {
           logCallV4ForegroundResumeSkip({
             callId: decision.callId ?? callIdHint,
             reason: decision.reason,
-            trigger,
-            pathname,
-          });
-          return;
-        }
-
-        if (await resolveNativeOwnedWebV4UiBlock(decision.callId, "foreground_resume")) {
-          logCallV4ForegroundResumeSkip({
-            callId: decision.callId,
-            reason: "native_owned_ui_forbidden",
             trigger,
             pathname,
           });

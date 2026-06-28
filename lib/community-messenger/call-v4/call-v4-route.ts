@@ -77,6 +77,10 @@ export function routeToCallV4Screen(router: { push: (href: string) => void; repl
 }
 
 export function exitCallV4ScreenAfterCleanup(router?: CallV4Router): void {
+  if (isLegacyWebCallEstablishmentRemoved()) {
+    logCallV4("legacy_web_establishment_removed", { trigger: "exit_screen" });
+    return;
+  }
   const exit = takeCallV4ReturnPath() ?? COMMUNITY_MESSENGER_CALL_LOGS_HREF;
   logCallV4("exit_screen", { exit });
   const go = router?.replace ?? router?.push ?? registeredExitRouter?.replace ?? registeredExitRouter?.push;

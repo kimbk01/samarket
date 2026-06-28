@@ -64,6 +64,7 @@ Incoming accept chain (B, per locked voice/video incoming callIds):
 | O3 Connected | `docs/dibay-call-o3-connected-ownership-hard-lock.md` |
 | O4 End / Cleanup | `docs/dibay-call-o4-end-ownership-hard-lock.md` |
 | Legacy Web Shutdown (Track ①) | `docs/dibay-call-legacy-web-shutdown-lock.md` |
+| Track ③ Dead Code Cleanup | `docs/dibay-call-track3-dead-code-cleanup-lock.md` |
 | Voice UI | `docs/dibay-call-voice-ui-hard-lock.md` |
 | Video UI | `docs/dibay-call-video-ui-hard-lock.md` |
 | Video PiP | (lifecycle LOCK 2026-06-27 — `docs/dibay-call-native-video-runtime-qa.md`) |
@@ -112,42 +113,20 @@ Without explicit red-team approval:
 - Change Final Regression scoring to hide product regressions
 - Repeat full device matrix without new evidence
 
-## Legacy Web Call Removal Plan (next track — no implementation in LOCK commit)
+## Legacy Web Call — Removed on Android (Track ① + Track ③)
 
-Prerequisite (met): Native Runtime PASS + Final Regression PASS + sub-track LOCKs + forbidden markers 0.
+**Status: REMOVED on Android Capacitor** (establishment). Desktop Web establishment retained.
 
-### Phase 0 — Quarantine enforcement (keep)
+| Track | Action | Status |
+|---|---|---|
+| Track ① | Android establishment shutdown — sync-only provider, `legacy_web_establishment_removed` | **LOCK** |
+| Track ③ | Dead file physical delete — P2-3 guard, orphan barrels, unused verify | **LOCK** |
+| Track ④ | Final Regression once post-commit → full project HARD LOCK end | **Next** |
 
-- Native Runtime import ban (`call-v4*`, Agora JS) — already in SSOT
-- `legacy_web_handoff_blocked` markers remain until deletion
+Android removed: `/calls-v4` establishment mount, JS Agora establishment, Web handoff, P2-3 UI guard, foreground resume Web restore.
 
-### Phase 1 — Read-only audit (approval required before delete)
+Desktop preserved: `CallV4Screen`, JS Agora, presentation stack, `/calls-v4` route.
 
-1. Inventory all Web call establishment entry points: `CallV4Provider`, `CallV4Screen`, `/calls-v4`, `call-v4-agora*`, MainActivity Web handoff, pending route replay
-2. Confirm zero production dial/accept path outside Native plugins (`NativeCallService`, native voice/video activities)
-3. Grep + `verify:call-v4-incoming-fsi-fallback-boundary` + import guard tests
+Docs: `docs/dibay-call-legacy-web-shutdown-lock.md` · `docs/dibay-call-track3-dead-code-cleanup-lock.md` · evidence in `docs/artifacts/dibay-call-track3-dead-code-cleanup-evidence.json`
 
-### Phase 2 — Detach (feature-flagged, one PR)
-
-1. Remove Web route replay / accept hydration from **incoming** FCM path (already blocked natively — delete dead Web branches)
-2. Disable Web outgoing handoff in Capacitor dial path (keep API session create only)
-3. Keep Legacy files behind `LEGACY_CALL_V4_QUARANTINE` or move to `legacy/` folder — **no user-facing route**
-
-### Phase 3 — Delete (separate PR after 30-day zero-marker prod logs)
-
-Delete order (SSOT):
-
-1. JS Agora + `call-v4-video*` / `call-v4-agora*`
-2. `CallV4Screen` + presenter stack
-3. `CallV4Provider` + `/calls-v4` route
-4. Web token prefetch + MainActivity pending route replay
-5. Quarantine tests/docs updated → remove rollback references
-
-### Phase 4 — Verify
-
-- Final Regression re-run **once** post-deletion
-- Isolated incoming/outgoing harness PASS
-- Forbidden markers remain 0
-- Update SSOT: Legacy section → “removed”
-
-**Do not start Phase 2–3 without explicit product approval.** LOCK protects Native Runtime; Legacy removal is a separate approved track.
+**Do not restore Android Legacy Web establishment without explicit red-team approval.**

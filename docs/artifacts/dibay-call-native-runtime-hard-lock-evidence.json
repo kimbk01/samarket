@@ -136,6 +136,9 @@
   },
   "subTrackHardLocks": [
     "docs/dibay-call-o2-outgoing-hard-lock.md",
+    "docs/dibay-call-o3-connected-ownership-hard-lock.md",
+    "docs/dibay-call-legacy-web-shutdown-lock.md",
+    "docs/dibay-call-track3-dead-code-cleanup-lock.md",
     "docs/dibay-call-o4-end-ownership-hard-lock.md",
     "docs/dibay-call-voice-ui-hard-lock.md",
     "docs/dibay-call-video-ui-hard-lock.md",
@@ -150,15 +153,12 @@
     "productRuntimeFail": "First product gate failure — audit before LOCK reopen"
   },
   "legacyWebRemovalPlan": {
-    "status": "planned_not_started",
-    "docSection": "docs/dibay-call-native-runtime-hard-lock.md#legacy-web-call-removal-plan-next-track--no-implementation-in-lock-commit",
-    "phases": [
-      "Phase 0: quarantine enforcement (current)",
-      "Phase 1: read-only audit + import/verify guards",
-      "Phase 2: detach dead Web handoff (separate PR)",
-      "Phase 3: delete Legacy V4 stack (separate PR after prod zero-marker window)",
-      "Phase 4: single Final Regression re-run post-deletion"
-    ]
+    "status": "android_removed_track1_track3_lock",
+    "track1Lock": "docs/dibay-call-legacy-web-shutdown-lock.md",
+    "track3Lock": "docs/dibay-call-track3-dead-code-cleanup-lock.md",
+    "track3Evidence": "docs/artifacts/dibay-call-track3-dead-code-cleanup-evidence.json",
+    "desktopEstablishment": "preserved",
+    "nextTrack": "track4_final_regression_once"
   },
   "recommendedCommitBundle": [
     "8b81b44dd891f7c30a7b2734151f8240b818c2eb",

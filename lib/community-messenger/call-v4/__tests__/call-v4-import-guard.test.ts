@@ -215,7 +215,7 @@ describe("call-v4 import isolation", () => {
   });
 
   it("pure web incoming contract is isolated from native shell", () => {
-    const contract = read("lib/community-messenger/call-v4/call-v4-pure-web-incoming-contract.ts");
+    const contract = read("lib/community-messenger/call-v4/call-v4-pure-web-owner.ts");
     expect(contract).toContain("tryClaimCallV4PureWebIncomingOwner");
     expect(contract).not.toContain("IncomingCallSurfaceOwner");
   });
@@ -378,26 +378,41 @@ describe("call-v4 import isolation", () => {
     expect(androidBlock).not.toContain("callV4PatchCancel");
   });
 
-  it("P2-3 native-owned Web V4 UI guard blocks navigation and screen mount on Android", () => {
-    const guard = read("lib/call/native/native-owned-web-v4-ui-guard.ts");
-    expect(guard).toContain("isNativeEstablishmentOwned");
-    expect(guard).toContain("readNativeActiveCallSnapshot");
-    expect(guard).toContain("web_v4_ui_mount_blocked");
-    expect(guard).toContain("isAndroidNativeOwnedWebV4UiShell");
+  it("Track ③ — Android Legacy dead files removed (HARD LOCK)", () => {
+    const deletedFiles = [
+      "lib/call/native/native-owned-web-v4-ui-guard.ts",
+      "lib/call/__tests__/native-owned-web-v4-ui-guard.test.ts",
+      "lib/community-messenger/call-v4/call-v4-pure-web-incoming-contract.ts",
+      "lib/community-messenger/call-v4/call-v4-route-leave-dock.ts",
+      "lib/community-messenger/call-v4/call-v4-pip-presentation.ts",
+      "scripts/verify-call-v4-phase6-android.cjs",
+    ];
+    for (const file of deletedFiles) {
+      expect(() => read(file)).toThrow();
+    }
 
     const provider = read("components/community-messenger/call-v4/CallV4Provider.tsx");
-    expect(provider).toContain("resolveNativeOwnedWebV4UiBlock");
-    expect(provider).toContain("router_replace_calls_v4_accept_skipped_native_owned");
+    expect(provider).not.toContain("resolveNativeOwnedWebV4UiBlock");
+    expect(provider).not.toContain("native-owned-web-v4-ui-guard");
+    expect(provider).not.toContain("router_replace_calls_v4_accept_skipped_native_owned");
+    expect(provider).toContain("isLegacyWebCallEstablishmentRemoved");
+    expect(provider).toContain("syncOnly");
 
     const route = read("lib/community-messenger/call-v4/call-v4-route.ts");
     expect(route).toContain("legacy_web_establishment_removed");
     expect(route).toContain("isLegacyWebCallEstablishmentRemoved");
 
-    const page = read("app/(main)/community-messenger/calls-v4/[callId]/page.tsx");
-    expect(page).toContain("legacy_web_establishment_removed");
-
     const resume = read("lib/community-messenger/call-v4/call-v4-foreground-resume.ts");
-    expect(resume).toContain("native_owned_ui_forbidden");
+    expect(resume).not.toContain("native_owned_ui_forbidden");
+    expect(resume).not.toContain("peekNativeOwnedWebV4UiBlockSync");
+
+    const screen = read("components/community-messenger/call-v4/CallV4Screen.tsx");
+    expect(screen).not.toContain("resolveNativeOwnedWebV4UiBlock");
+    expect(screen).not.toContain("webUiAllowed");
+
+    const lockDoc = read("docs/dibay-call-track3-dead-code-cleanup-lock.md");
+    expect(lockDoc).toContain("HARD LOCK");
+    expect(lockDoc).toContain("Track ③");
   });
 
   it("P2-4 MainActivity suppresses native-owned Web pending route replay (DEAD paths gated)", () => {

@@ -22,24 +22,21 @@ FCM -> Native Runtime -> Accept -> Native Token -> Native Agora SDK -> Connected
 4. iOS
 5. Windows
 
-## Legacy V4/Web Quarantine
+## Legacy V4/Web — Android Removed / Desktop Quarantine
 
-기존 V4/Web Runtime은 지금 삭제하지 않는다. 다만 Native Runtime 구현 중에는 승인 없이 사용, 참조, import, 호출, 복구하지 않는다.
+**Android Capacitor:** Legacy Web call **establishment is removed** (Track ① shutdown + Track ③ dead code delete). `CallV4Provider` is sync-only on Android. Marker: `legacy_web_establishment_removed`.
 
-Quarantine 대상:
+**Desktop / non-Android:** V4/Web establishment files remain for Desktop path only. Native Runtime must not import or depend on them.
 
-- `CallV4Provider`
-- `CallV4Screen`
-- `/calls-v4`
-- JS Agora
-- `call-v4-agora*`
-- `call-v4-video*`
-- `call-v4-presenter*`
-- Web token prefetch
-- `MainActivity` Web handoff
-- pending route replay
-- Web accept hydration
-- remote attach pipeline
+Quarantine targets (Desktop-only — do not use on Android Capacitor establishment):
+
+- `CallV4Screen` (Desktop establishment UI)
+- `/calls-v4` (Desktop route)
+- JS Agora (`call-v4-agora*`)
+- `call-v4-video*` / `call-v4-presenter*` (Desktop presentation)
+- Web token prefetch, MainActivity Web handoff (Android: suppressed / removed for establishment)
+
+**Removed on Android (Track ③):** `native-owned-web-v4-ui-guard.ts` and orphan re-export barrels — see `docs/dibay-call-track3-dead-code-cleanup-lock.md`.
 
 ## Native Runtime Import 금지
 

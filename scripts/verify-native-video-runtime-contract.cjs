@@ -51,7 +51,8 @@ if (!exists(ssotDoc)) {
   const source = read(ssotDoc);
   const required = [
     "FCM -> Native Runtime -> Accept -> Native Token -> Native Agora SDK -> Connected -> End -> Cleanup",
-    "Legacy V4/Web Quarantine",
+    "Legacy V4/Web — Android Removed / Desktop Quarantine",
+    "Track ③",
     "Native Runtime Import 금지",
   ];
   for (const marker of required) {
@@ -66,8 +67,11 @@ if (!exists(ssotRule)) {
   const source = read(ssotRule);
   if (!source.includes("alwaysApply: true")) {
     fail(`${ssotRule} must always apply`);
-  } else if (!source.includes("Legacy V4/Web Quarantine")) {
-    fail(`${ssotRule} must declare Legacy V4/Web quarantine`);
+  } else if (
+    !source.includes("Legacy V4/Web — Android Removed") &&
+    !source.includes("Legacy V4/Web Quarantine")
+  ) {
+    fail(`${ssotRule} must declare Legacy V4/Web Android-removed / Desktop quarantine`);
   } else {
     pass("native runtime SSOT rule is always applied");
   }
@@ -449,6 +453,31 @@ if (!callV4Agora.includes("legacy_web_establishment_removed")) {
   fail("joinCallV4Agora must remove Legacy Web establishment on Android Capacitor");
 } else {
   pass("Legacy Web JS Agora establishment removed guard is present");
+}
+
+function mustNotExist(rel, label) {
+  if (exists(rel)) {
+    fail(`Track ③ dead file must be removed: ${rel} (${label})`);
+  } else {
+    pass(`Track ③ dead file removed: ${rel}`);
+  }
+}
+
+const track3DeadFiles = [
+  ["lib/call/native/native-owned-web-v4-ui-guard.ts", "P2-3 guard SSOT"],
+  ["lib/call/__tests__/native-owned-web-v4-ui-guard.test.ts", "P2-3 guard unit test"],
+  ["lib/community-messenger/call-v4/call-v4-pure-web-incoming-contract.ts", "orphan re-export"],
+  ["lib/community-messenger/call-v4/call-v4-route-leave-dock.ts", "orphan re-export"],
+  ["lib/community-messenger/call-v4/call-v4-pip-presentation.ts", "orphan re-export"],
+  ["scripts/verify-call-v4-phase6-android.cjs", "unused verify script"],
+];
+for (const [rel, label] of track3DeadFiles) {
+  mustNotExist(rel, label);
+}
+if (!exists("docs/dibay-call-track3-dead-code-cleanup-lock.md")) {
+  fail("Track ③ HARD LOCK doc must exist: docs/dibay-call-track3-dead-code-cleanup-lock.md");
+} else {
+  pass("Track ③ dead code cleanup HARD LOCK doc is present");
 }
 
 if (failed) process.exit(1);

@@ -1,7 +1,6 @@
 "use client";
 
 import type { NativeActiveCallSnapshot } from "@/lib/call/native/native-call-service";
-import { peekNativeOwnedWebV4UiBlockSync } from "@/lib/call/native/native-owned-web-v4-ui-guard";
 import { readTerminalCallRecoverySuppress } from "@/lib/community-messenger/call-active-session-recovery";
 import { expandCommunityCallFromDock } from "@/lib/community-messenger/call-presentation-ownership";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
@@ -19,7 +18,6 @@ export type CallV4ForegroundResumeSkipReason =
   | "already_on_call_screen"
   | "terminal_status"
   | "duplicate_restore"
-  | "native_owned_ui_forbidden"
   | "legacy_web_establishment_removed";
 
 export type CallV4ForegroundResumeDecision =
@@ -60,10 +58,6 @@ export function evaluateCallV4ForegroundResume(input: {
   }
 
   const sid = storeCallId || nativeCallId;
-
-  if (peekNativeOwnedWebV4UiBlockSync(sid, "foreground_resume")) {
-    return { action: "skip", reason: "native_owned_ui_forbidden", callId: sid };
-  }
 
   if (isCallV4DedicatedSessionPath(input.pathname, sid)) {
     return { action: "skip", reason: "already_on_call_screen", callId: sid };

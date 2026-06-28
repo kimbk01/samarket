@@ -1,9 +1,9 @@
 # DIBAY Call — Legacy Web Phase 2 Detach Evidence
 
-Status: **P2-1 + P2-5 complete**, **P2-2 complete (QA PASS)**, **P2-3 complete (QA PASS)**, **P2-4 implemented (QA pending)** — 2026-06-28  
+Status: **P2-1 + P2-5 complete**, **P2-2 complete (QA PASS)**, **P2-3 Removed (Track ③ LOCK)**, **P2-4 complete (QA PASS)** — 2026-06-28  
 Prerequisite: Phase 1 inventory (`60f4d17e`), Native Runtime HARD LOCK (`008b235d`)
 
-**Scope:** Partial Phase 2. **P2-4 complete (3-case isolated QA PASS)** — ready for LOCK / O2 Ownership handoff pending red-team commit.
+**Scope:** Partial Phase 2 complete. P2-3 guard **physically deleted** in Track ③ — superseded by Track ① sync-only + Track ③ dead code cleanup LOCK.
 
 ---
 
@@ -20,7 +20,7 @@ Prerequisite: Phase 1 inventory (`60f4d17e`), Native Runtime HARD LOCK (`008b235
 
 **Suppress marker:** `native_owned_pending_replay_suppressed`
 
-**Not modified:** `IncomingCallActionCoordinator.java`, Runtime, Plugin, P2-3 Guard, O2/O3/O4.
+**Not modified:** `IncomingCallActionCoordinator.java`, Runtime, Plugin, O2/O3/O4. (P2-3 guard **removed** in Track ③ — was quarantine-only, not Runtime.)
 
 ### P2-4 verify (unit + contract)
 
@@ -119,32 +119,31 @@ Reports: `.qa-logs/native-call-voice-outgoing-isolated/report.json`, `.qa-logs/n
 
 ---
 
-## P2-3 — Android native-owned Web V4 UI quarantine (sync-only)
+## P2-3 — Android native-owned Web V4 UI quarantine — **Removed (Track ③)**
 
-**Goal:** On Android Capacitor shell, when Native owns the call, block Web V4 UI mount / navigation / `/calls-v4` screen entry. Web sync-only (`native_connected_received`, store hydrate, terminal watch) **unchanged**.
+**Historical goal (P2-3):** On Android Capacitor shell, when Native owns the call, block Web V4 UI mount / navigation / `/calls-v4` screen entry.
 
-| File | Action |
+**Current status:** **Removed.** Track ① sync-only shutdown + Track ③ dead file delete removed the guard and all references. SSOT is now `isLegacyWebCallEstablishmentRemoved()` (Track ①) — not a separate P2-3 guard file.
+
+| File | Track ③ action |
 |---|---|
-| `lib/call/native/native-owned-web-v4-ui-guard.ts` | Block SSOT + `web_v4_ui_mount_blocked` (peek/sync included) |
-| `CallV4Provider.tsx` | Skip `router.replace` on native accept when blocked |
-| `call-v4-route.ts` | `routeToCallV4Screen` Android guard |
-| `call-v4-foreground-resume.ts` + `use-call-v4-foreground-resume.ts` | Foreground resume skip + async block |
-| `CallV4Screen.tsx` + `calls-v4/[callId]/page.tsx` | Mount / page entry guard |
-| Tests + import-guard + this doc | Regression guards |
+| `lib/call/native/native-owned-web-v4-ui-guard.ts` | **Deleted** |
+| `lib/call/__tests__/native-owned-web-v4-ui-guard.test.ts` | **Deleted** |
+| `CallV4Provider.tsx`, `CallV4Screen.tsx`, foreground-resume | Guard imports/refs **removed** — sync-only gate retained |
 
-### P2-3 verify (unit + contract)
+LOCK: `docs/dibay-call-track3-dead-code-cleanup-lock.md`
+
+### P2-3 verify (historical — do not run deleted test path)
 
 ```bash
-npm run verify:native-voice-runtime-contract
+npm run verify:native-voice-runtime-contract   # includes Track ③ dead-file asserts
 npm run verify:native-video-runtime-contract
-npm run verify:call-v4-incoming-fsi-fallback-boundary
-vitest run lib/call/__tests__/native-owned-web-v4-ui-guard.test.ts
-vitest run components/community-messenger/call-v4/__tests__/call-v4-provider-native-route.test.ts
-vitest run lib/community-messenger/call-v4/__tests__/call-v4-foreground-resume.test.ts
 vitest run lib/community-messenger/call-v4/__tests__/call-v4-import-guard.test.ts
 ```
 
-### P2-3 device QA (isolated 3 cases only — no Final Regression)
+~~`vitest run lib/call/__tests__/native-owned-web-v4-ui-guard.test.ts`~~ — file **removed**.
+
+### P2-3 device QA (historical evidence — 2026-06-28)
 
 **Incoming isolated PASS (Voice / Video):** Native chain PASS · Web sync PASS · Forbidden 0 · `CallV4Screen` 0 · Web `route_to_screen` 0 · Web `agora_join_*` 0.  
 `web_v4_ui_mount_blocked = 0` **allowed** when no Web route/mount/resume attempt (Native `pending_route_skipped` + `legacy_web_handoff_blocked`).

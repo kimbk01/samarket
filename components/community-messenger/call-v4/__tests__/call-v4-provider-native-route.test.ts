@@ -10,15 +10,15 @@ vi.mock("@/lib/community-messenger/call-v4/call-v4-api", () => ({
   callV4FetchSession: vi.fn(async () => ({ callKind: "video", status: "ringing" })),
 }));
 
-vi.mock("@/lib/call/native/native-owned-web-v4-ui-guard", () => ({
-  resolveNativeOwnedWebV4UiBlock: vi.fn(async () => false),
+vi.mock("@/lib/call/native/legacy-web-call-establishment-removed", () => ({
+  isLegacyWebCallEstablishmentRemoved: vi.fn(() => false),
 }));
 
 import {
   handleCallV4NativeRouteEvent,
   resetCallV4AcceptRouteReplaceForTests,
 } from "@/components/community-messenger/call-v4/CallV4Provider";
-import { resolveNativeOwnedWebV4UiBlock } from "@/lib/call/native/native-owned-web-v4-ui-guard";
+import { isLegacyWebCallEstablishmentRemoved } from "@/lib/call/native/legacy-web-call-establishment-removed";
 import { resetNativeAcceptInflightForTests } from "@/lib/community-messenger/call-v4/call-v4-native-accept-flight";
 import { useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
 
@@ -28,8 +28,7 @@ const ACCEPT_PATH =
 describe("handleCallV4NativeRouteEvent", () => {
   beforeEach(() => {
     vi.spyOn(console, "info").mockImplementation(() => {});
-    vi.mocked(resolveNativeOwnedWebV4UiBlock).mockReset();
-    vi.mocked(resolveNativeOwnedWebV4UiBlock).mockResolvedValue(false);
+    vi.mocked(isLegacyWebCallEstablishmentRemoved).mockReturnValue(false);
     resetCallV4AcceptRouteReplaceForTests();
     resetNativeAcceptInflightForTests();
     useCallV4Store.getState().resetToIdle();
@@ -73,14 +72,22 @@ describe("handleCallV4NativeRouteEvent", () => {
     expect(replace).toHaveBeenCalledTimes(1);
   });
 
-  it("skips replace when native-owned Web V4 UI is blocked", async () => {
-    vi.mocked(resolveNativeOwnedWebV4UiBlock).mockResolvedValue(true);
+  it("returns early when Legacy Web establishment is removed on Android", () => {
+    vi.mocked(isLegacyWebCallEstablishmentRemoved).mockReturnValue(true);
     const replace = vi.fn();
-    handleCallV4NativeRouteEvent(ACCEPT_PATH, { replace }, "/philife");
-    await vi.waitFor(() => {
-      expect(resolveNativeOwnedWebV4UiBlock).toHaveBeenCalledWith("call-route-1", "native_accept_route");
-    });
-    expect(replace).not.toHaveBeenCalled();
+    const logs: string[] = [];
+    const originalInfo = console.info;
+    console.info = (...args: unknown[]) => {
+      if (args[0] === "[DIBAY_CALL_V4]" && typeof args[1] === "string") logs.push(args[1]);
+      originalInfo(...args);
+    };
+    try {
+      handleCallV4NativeRouteEvent(ACCEPT_PATH, { replace }, "/philife");
+      expect(replace).not.toHaveBeenCalled();
+      expect(logs).toContain("legacy_web_establishment_removed");
+    } finally {
+      console.info = originalInfo;
+    }
   });
 
   it("logs skipped duplicate reason for second accept event", () => {

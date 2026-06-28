@@ -27,16 +27,18 @@ Build in this order only:
 4. iOS
 5. Windows
 
-## Legacy V4/Web Quarantine
+## Legacy V4/Web — Android Removed / Desktop Quarantine
 
-Do not use, import, call, restore, or extend these without explicit user approval:
+**Android Capacitor:** establishment **removed** (Track ① + Track ③ LOCK). `CallV4Provider` sync-only.
+
+**Desktop:** do not use, import, call, restore, or extend without explicit user approval:
 
 - `CallV4Provider`, `CallV4Screen`, `/calls-v4`
 - JS Agora, `call-v4-agora*`, `call-v4-video*`, `call-v4-presenter*`
 - Web token prefetch, MainActivity Web handoff, pending route replay
 - Web accept hydration, remote attach pipeline
 
-Legacy V4/Web is rollback reference only until Native Runtime PASS + QA PASS + LOCK.
+Track ③ removed P2-3 guard and orphan barrels — `docs/dibay-call-track3-dead-code-cleanup-lock.md`.
 
 ## Native Runtime Import Ban
 

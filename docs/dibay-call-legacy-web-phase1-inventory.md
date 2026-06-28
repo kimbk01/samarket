@@ -103,7 +103,7 @@ Final Regression forbidden markers (all **0** at LOCK): `route_to_screen`, `Call
 |---|---|---|---|
 | P2-1 | `IncomingCallPushDelivery` | Delete unreachable Web pending-route branch after Native flag (keep logs) | Low — Native FCM PASS |
 | P2-2 | Web dial bridge | Remove JS Agora fallback in outgoing hook; keep `startNativeOutgoingEstablishment` only | Medium — retest O2 |
-| P2-3 | `CallV4Provider` incoming | Hard-disable mount when `NativeCallService` reports active native call | Low — quarantine already |
+| P2-3 | `CallV4Provider` incoming | ~~Hard-disable mount when native active~~ | **Removed** — Track ① sync-only + Track ③ guard delete |
 | P2-4 | MainActivity pending replay | Remove V4 route replay for call push types owned by Native | Medium — needs lane audit |
 | P2-5 | Docs/tests | Update import-guard tests to assert DEAD paths removed | Low |
 

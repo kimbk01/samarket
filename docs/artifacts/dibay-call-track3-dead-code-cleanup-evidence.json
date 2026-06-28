@@ -1,0 +1,95 @@
+{
+  "at": "2026-06-28T12:50:00.000Z",
+  "hardLock": true,
+  "track3HardLock": true,
+  "track": "dead_code_cleanup",
+  "lockStatement": "Track ③ Dead Code Cleanup HARD LOCK. Android sync-only dead Legacy Web establishment files physically removed. Desktop Web establishment preserved. Runtime/O2/O3/O4/Native UI/PiP/Dock unchanged.",
+  "lockDoc": "docs/dibay-call-track3-dead-code-cleanup-lock.md",
+  "prerequisiteTracks": {
+    "track1LegacyWebShutdown": "docs/dibay-call-legacy-web-shutdown-lock.md",
+    "track2O3ConnectedOwnership": "docs/dibay-call-o3-connected-ownership-hard-lock.md"
+  },
+  "prBundle": {
+    "pr1": {
+      "scope": "Slim 4 core V4 files — Android sync-only dead-branch removal",
+      "files": [
+        "components/community-messenger/call-v4/CallV4Provider.tsx",
+        "lib/community-messenger/call-v4/call-v4-actions.ts",
+        "lib/community-messenger/call-v4/call-v4-route.ts",
+        "lib/community-messenger/call-v4/call-v4-phase-bridge.ts"
+      ]
+    },
+    "pr2": {
+      "scope": "Physical delete dead files + minimal import/test cleanup",
+      "deletedFiles": [
+        "lib/call/native/native-owned-web-v4-ui-guard.ts",
+        "lib/call/__tests__/native-owned-web-v4-ui-guard.test.ts",
+        "lib/community-messenger/call-v4/call-v4-pure-web-incoming-contract.ts",
+        "lib/community-messenger/call-v4/call-v4-route-leave-dock.ts",
+        "lib/community-messenger/call-v4/call-v4-pip-presentation.ts",
+        "scripts/verify-call-v4-phase6-android.cjs"
+      ],
+      "importCleanupFiles": [
+        "components/community-messenger/call-v4/CallV4Provider.tsx",
+        "components/community-messenger/call-v4/CallV4Screen.tsx",
+        "lib/community-messenger/call-v4/call-v4-foreground-resume.ts",
+        "lib/community-messenger/call-v4/use-call-v4-foreground-resume.ts"
+      ]
+    },
+    "pr3": {
+      "scope": "Verify scripts, import-guard, LOCK doc, evidence, doc sync — no product code",
+      "files": [
+        "scripts/verify-native-voice-runtime-contract.cjs",
+        "scripts/verify-native-video-runtime-contract.cjs",
+        "lib/community-messenger/call-v4/__tests__/call-v4-import-guard.test.ts",
+        "docs/dibay-call-track3-dead-code-cleanup-lock.md",
+        "docs/artifacts/dibay-call-track3-dead-code-cleanup-evidence.json"
+      ]
+    }
+  },
+  "removedMarkers": [
+    "resolveNativeOwnedWebV4UiBlock",
+    "peekNativeOwnedWebV4UiBlockSync",
+    "web_v4_ui_mount_blocked",
+    "webUiAllowed",
+    "native_owned_ui_forbidden",
+    "router_replace_calls_v4_accept_skipped_native_owned"
+  ],
+  "preservedDesktopEstablishment": [
+    "components/community-messenger/call-v4/CallV4Screen.tsx",
+    "lib/community-messenger/call-v4/call-v4-agora.ts",
+    "lib/community-messenger/call-v4/presentation/",
+    "app/(main)/community-messenger/calls-v4/[callId]/page.tsx"
+  ],
+  "unchangedLayers": [
+    "Native Voice/Video Runtime (Java)",
+    "O2 Outgoing",
+    "O3 Connected Ownership",
+    "O4 End / Cleanup",
+    "Native Voice/Video UI",
+    "PiP",
+    "Dock"
+  ],
+  "contractVerify": {
+    "tscNoEmit": "PASS",
+    "vitestImportGuardAndRelated": "PASS",
+    "verifyNativeVoiceRuntimeContract": "PASS",
+    "verifyNativeVideoRuntimeContract": "PASS"
+  },
+  "deviceQa": {
+    "requiredForTrack3": false,
+    "note": "Static dead-file removal only. Track ④ Final Regression is the single device proof after commit."
+  },
+  "nextTrack": {
+    "id": "track4_final_regression",
+    "harness": ".qa-logs/native-call-final-regression.mjs",
+    "runs": 1,
+    "then": "Native Telegram Runtime full HARD LOCK end"
+  },
+  "forbiddenAfterLock": [
+    "Restore P2-3 guard or deleted orphan barrels",
+    "Android Web V4 UI mount / foreground resume restore",
+    "Expand deletion to Desktop establishment",
+    "Modify Runtime/O2/O3/O4/UI/PiP/Dock under Track ③ excuse"
+  ]
+}

@@ -1,5 +1,6 @@
 "use client";
 
+import { isLegacyWebCallEstablishmentRemoved } from "@/lib/call/native/legacy-web-call-establishment-removed";
 import { startCallHeartbeatWatchdog } from "@/lib/call/native/call-heartbeat-watchdog";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import {
@@ -54,6 +55,10 @@ export function markCallV4MediaConnected(
 ): boolean {
   const sid = callId.trim();
   if (!sid) return false;
+  if (isLegacyWebCallEstablishmentRemoved()) {
+    logCallV4("legacy_web_establishment_removed", { callId: sid, source, trigger: "mark_media_connected" });
+    return false;
+  }
 
   const phase = readCallV4Phase();
   if (phase === "connected") return true;
