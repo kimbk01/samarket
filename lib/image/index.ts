@@ -64,6 +64,12 @@ export {
 } from "@/lib/image/image-store-banner-hero";
 
 export {
+  STORE_REVIEW_RAIL_THUMB_DISPLAY_PX,
+  loadStoreReviewRailMenuThumbFetchUrl,
+  loadStoreReviewRailReviewPhotoFetchUrl,
+} from "@/lib/image/image-store-review-rail";
+
+export {
   loadCommunityFeedThumbnailFetchUrl,
   loadImageFetchUrl,
   loadStoreProductThumbnailFetchUrl,

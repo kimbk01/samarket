@@ -1,3 +1,7 @@
+import {
+  loadStoreReviewRailMenuThumbFetchUrl,
+  loadStoreReviewRailReviewPhotoFetchUrl,
+} from "@/lib/image/image-store-review-rail";
 import type { StoreMenuReviewRailProduct } from "@/lib/stores/build-store-menu-review-rail-products";
 
 export const STORE_REVIEW_PREVIEW_CAROUSEL_MS = 360;
@@ -54,7 +58,9 @@ export function buildStoreReviewPreviewSlides(
     const productId = String(r.product_id ?? "").trim() || null;
     const reviewPhoto = firstReviewImage(r.image_urls);
     const menuThumb = menuThumbForProduct(productId, menuById);
-    const thumbUrl = reviewPhoto || menuThumb;
+    const thumbUrl = reviewPhoto
+      ? loadStoreReviewRailReviewPhotoFetchUrl(reviewPhoto) ?? reviewPhoto
+      : loadStoreReviewRailMenuThumbFetchUrl(menuThumb) ?? menuThumb;
     const rating = Math.min(5, Math.max(1, Math.floor(Number(r.rating) || 5)));
     out.push({
       reviewId,
