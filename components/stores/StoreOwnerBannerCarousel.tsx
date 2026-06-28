@@ -2,7 +2,8 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { loadStoreBannerHeroFetchUrl } from "@/lib/image";
 import type { StoreBannerPublicRow } from "@/lib/stores/store-banners-notices-public";
 
 /** 히어로 배너 레이어마다 동일해야 당김 스케일·클립이 어긋나지 않음 */
@@ -21,13 +22,17 @@ function bannerHref(slug: string, b: StoreBannerPublicRow): string | null {
 
 function HeroSlideCover({ imageUrl }: { imageUrl: string }) {
   const u = imageUrl.trim();
+  const fetchUrl = useMemo(
+    () => (u ? loadStoreBannerHeroFetchUrl(u) ?? u : ""),
+    [u]
+  );
   if (!u) {
     return <div className={`${STORE_HERO_BANNER_MEDIA_CLASS} opacity-95`} aria-hidden />;
   }
   return (
     <div
       className={`${STORE_HERO_BANNER_MEDIA_CLASS}`}
-      style={{ backgroundImage: `url(${JSON.stringify(u)})` }}
+      style={{ backgroundImage: `url(${JSON.stringify(fetchUrl)})` }}
       aria-hidden
     />
   );

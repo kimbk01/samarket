@@ -57,6 +57,13 @@ export {
 } from "@/lib/image/image-cache";
 
 export {
+  STORE_BANNER_HERO_FETCH_WIDTH_PX,
+  STORE_BANNER_HERO_MEASUREMENT,
+  imageBuildStoreBannerHeroFetchUrl,
+  loadStoreBannerHeroFetchUrl,
+} from "@/lib/image/image-store-banner-hero";
+
+export {
   loadCommunityFeedThumbnailFetchUrl,
   loadImageFetchUrl,
   loadStoreProductThumbnailFetchUrl,
