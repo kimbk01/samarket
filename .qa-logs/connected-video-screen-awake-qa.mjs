@@ -43,6 +43,13 @@ const REQUIRED_MARKERS = [
   "screen_awake_release",
 ];
 
+const RETRY_MARKERS = [
+  "screen_awake_apply_missing_activity",
+  "screen_awake_apply_retry_scheduled",
+  "screen_awake_apply_retry_success",
+  "screen_awake_apply_retry_giveup",
+];
+
 fs.mkdirSync(OUT, { recursive: true });
 
 function adbObj(serial, ...args) {
@@ -287,7 +294,20 @@ async function expandFromDock(serial) {
 }
 
 function judgeMarkers(logs, callId) {
-  return Object.fromEntries(REQUIRED_MARKERS.map((m) => [m, countMarker(logs, m, callId) > 0]));
+  const base = Object.fromEntries(REQUIRED_MARKERS.map((m) => [m, countMarker(logs, m, callId) > 0]));
+  const retry = Object.fromEntries(RETRY_MARKERS.map((m) => [m, countMarker(logs, m, callId) > 0]));
+  return { ...base, ...retry };
+}
+
+function hasApplySuccess(markers) {
+  return markers.screen_awake_apply_current_activity || markers.screen_awake_apply_retry_success;
+}
+
+function readDeviceProfile(serial) {
+  const size = adb(serial, "shell", "wm", "size");
+  const density = adb(serial, "shell", "wm", "density");
+  const sw = adb(serial, "shell", "cmd", "window", "size");
+  return { size: size.trim(), density: density.trim(), windowSize: sw.trim() };
 }
 
 async function runScenarioA() {
@@ -324,7 +344,7 @@ async function runScenarioA() {
       holdMid !== "missing" &&
       holdEnd === "null" &&
       judgeMarkers(logs, callId).screen_awake_acquire &&
-      judgeMarkers(logs, callId).screen_awake_apply_current_activity &&
+      hasApplySuccess(judgeMarkers(logs, callId)) &&
       judgeMarkers(logs, callId).screen_awake_release,
   };
 }
@@ -365,7 +385,7 @@ async function runScenarioB() {
       holdMid !== "missing" &&
       holdEnd === "null" &&
       judgeMarkers(logs, callId).screen_awake_acquire &&
-      judgeMarkers(logs, callId).screen_awake_apply_current_activity,
+      hasApplySuccess(judgeMarkers(logs, callId)),
   };
 }
 
@@ -408,7 +428,7 @@ async function runScenarioC() {
       holdMid !== "missing" &&
       holdEnd === "null" &&
       markers.screen_awake_acquire &&
-      markers.screen_awake_apply_current_activity,
+      hasApplySuccess(markers),
   };
 }
 
@@ -450,7 +470,7 @@ async function runScenarioD() {
       holdMid !== "null" &&
       holdEnd === "null" &&
       markers.screen_awake_acquire &&
-      markers.screen_awake_apply_current_activity,
+      hasApplySuccess(markers),
   };
 }
 
@@ -502,6 +522,8 @@ async function main() {
     holdMs: HOLD_MS,
     serialA: SERIAL_A,
     serialB: SERIAL_B,
+    deviceProfileA: readDeviceProfile(SERIAL_A),
+    deviceProfileB: readDeviceProfile(SERIAL_B),
     results,
     overallPass: results.every((r) => r.pass === true),
   };

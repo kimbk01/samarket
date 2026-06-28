@@ -31,6 +31,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func applicationWillEnterForeground(_ application: UIApplication) {
         DibayActiveCallSessionManager.shared.onAppForeground()
+        ScreenAwakeBridge.shared.reapplyOnEnterForeground()
     }
 
     func applicationDidBecomeActive(_ application: UIApplication) {

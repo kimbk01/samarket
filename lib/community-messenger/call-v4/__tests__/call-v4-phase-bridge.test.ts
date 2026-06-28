@@ -17,6 +17,10 @@ vi.mock("@/lib/community-messenger/call-v4/call-v4-connected-terminal-watch", ()
   startCallV4ConnectedTerminalWatch: vi.fn(),
 }));
 
+vi.mock("@/lib/call/native/screen-awake-bridge", () => ({
+  acquireConnectedVideoScreenAwake: vi.fn(),
+}));
+
 describe("call-v4-phase-bridge", () => {
   beforeEach(() => {
     useCallV4Store.getState().resetToIdle();

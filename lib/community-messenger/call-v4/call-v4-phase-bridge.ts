@@ -111,6 +111,10 @@ export function markCallV4NativeConnectedOps(callId: string, source: string): bo
   startCallHeartbeatWatchdog(sid);
   logCallV4("call_heartbeat_watchdog_start", { callId: sid, source: "native_connected" });
   logCallV4("native_connected_ops_done", { callId: sid, source });
+  const identity = readCallV4Identity();
+  if (identity?.mediaType === "video" && identity.callId === sid) {
+    acquireConnectedVideoScreenAwake(sid, source);
+  }
   return true;
 }
 
