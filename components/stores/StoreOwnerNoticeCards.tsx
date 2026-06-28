@@ -4,6 +4,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useState } from "react";
 import type { StoreNoticePublicRow } from "@/lib/stores/store-banners-notices-public";
 import { parseNoticeImages } from "@/lib/stores/store-banners-notices-public";
+import { loadStoreNoticeCardImageFetchUrl } from "@/lib/image/image-store-notice-cards";
 
 function previewOneLine(body: string): string {
   const t = body.replace(/\s+/g, " ").trim();
@@ -54,15 +55,18 @@ export function StoreOwnerNoticeCards({
               <div className="mt-2 border-t border-neutral-100 pt-2">
                 {imgs.length ? (
                   <div className="mb-2 flex gap-2 overflow-x-auto">
-                    {imgs.map((u) => (
+                    {imgs.map((raw) => {
+                      const src = loadStoreNoticeCardImageFetchUrl(raw) ?? raw;
+                      return (
                       <img
-                        key={u}
-                        src={u}
+                        key={raw}
+                        src={src}
                         alt=""
                         className="h-20 w-28 shrink-0 rounded-[10px] object-cover"
                         loading="lazy"
                       />
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : null}
                 <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-neutral-800">{n.body}</p>

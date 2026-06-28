@@ -79,6 +79,14 @@ export {
 } from "@/lib/image/image-store-reviews-section";
 
 export {
+  STORE_NOTICE_CARD_DISPLAY_HEIGHT_PX,
+  STORE_NOTICE_CARD_DISPLAY_WIDTH_PX,
+  loadStoreNoticeCardImageFetchUrl,
+  storeNoticeCardFetchHeightPx,
+  storeNoticeCardFetchWidthPx,
+} from "@/lib/image/image-store-notice-cards";
+
+export {
   loadCommunityFeedThumbnailFetchUrl,
   loadImageFetchUrl,
   loadStoreProductThumbnailFetchUrl,
