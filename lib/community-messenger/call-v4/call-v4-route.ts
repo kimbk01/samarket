@@ -1,10 +1,5 @@
 "use client";
 
-import {
-  isAndroidNativeOwnedWebV4UiShell,
-  peekNativeOwnedWebV4UiBlockSync,
-  resolveNativeOwnedWebV4UiBlock,
-} from "@/lib/call/native/native-owned-web-v4-ui-guard";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 
 const CALL_V4_RETURN_PATH_KEY = "samarket.cm.call_v4_return_path.v1";
@@ -69,27 +64,9 @@ export function readCallV4ExitRouter(): CallV4Router | null {
 }
 
 export function routeToCallV4Screen(router: { push: (href: string) => void; replace?: (href: string) => void }, callId: string, source = "sheet"): void {
-  const sid = callId.trim();
-  const href = buildCallV4ScreenHref(sid, source);
+  const href = buildCallV4ScreenHref(callId, source);
+  logCallV4("route_to_screen", { callId, href });
   const go = router.replace ?? router.push;
-
-  if (isAndroidNativeOwnedWebV4UiShell()) {
-    if (peekNativeOwnedWebV4UiBlockSync(sid)) {
-      logCallV4("web_v4_route_navigation_blocked", { callId: sid, source, href, trigger: "route_to_screen_sync" });
-      return;
-    }
-    void resolveNativeOwnedWebV4UiBlock(sid, `route_to_screen:${source}`).then((block) => {
-      if (block) {
-        logCallV4("web_v4_route_navigation_blocked", { callId: sid, source, href, trigger: "route_to_screen_async" });
-        return;
-      }
-      logCallV4("route_to_screen", { callId: sid, href });
-      go(href);
-    });
-    return;
-  }
-
-  logCallV4("route_to_screen", { callId: sid, href });
   go(href);
 }
 

@@ -365,27 +365,4 @@ describe("call-v4 import isolation", () => {
     expect(androidBlock).not.toContain("outgoing_ringing");
     expect(androidBlock).not.toContain("callV4PatchCancel");
   });
-
-  it("P2-3 native-owned Web V4 UI guard blocks navigation and screen mount on Android", () => {
-    const guard = read("lib/call/native/native-owned-web-v4-ui-guard.ts");
-    expect(guard).toContain("isNativeEstablishmentOwned");
-    expect(guard).toContain("readNativeActiveCallSnapshot");
-    expect(guard).toContain("web_v4_ui_mount_blocked");
-    expect(guard).toContain("isAndroidNativeOwnedWebV4UiShell");
-
-    const provider = read("components/community-messenger/call-v4/CallV4Provider.tsx");
-    expect(provider).toContain("resolveNativeOwnedWebV4UiBlock");
-    expect(provider).toContain("router_replace_calls_v4_accept_skipped_native_owned");
-
-    const route = read("lib/community-messenger/call-v4/call-v4-route.ts");
-    expect(route).toContain("web_v4_route_navigation_blocked");
-    expect(route).toContain("isAndroidNativeOwnedWebV4UiShell");
-
-    const screen = read("components/community-messenger/call-v4/CallV4Screen.tsx");
-    expect(screen).toContain("web_v4_screen_mount_blocked");
-    expect(screen).toContain("webUiAllowed");
-
-    const resume = read("lib/community-messenger/call-v4/call-v4-foreground-resume.ts");
-    expect(resume).toContain("native_owned_ui_forbidden");
-  });
 });
