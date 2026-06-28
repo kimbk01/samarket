@@ -48,7 +48,7 @@ import {
   releaseCallV4CancelPatchClaim,
   tryClaimCallV4AcceptFlight,
 } from "@/lib/community-messenger/call-v4/call-v4-patch-guard";
-import { startNativeOutgoingEstablishment } from "@/lib/call/native/native-outgoing-bridge";
+import { isAndroidNativeOutgoingShell, startNativeOutgoingEstablishment } from "@/lib/call/native/native-outgoing-bridge";
 import { maybeExitCallV4ScreenAfterCleanup } from "@/lib/community-messenger/call-v4/call-v4-exit-guard";
 import {
   buildCallV4ScreenHref,
@@ -323,6 +323,25 @@ export async function callV4CreateOutgoing(input: {
       });
       useCallV4Store.getState().resetToIdle();
       return { ok: true as const, session: created.session, roomId: roomResolved.roomId };
+    }
+
+    if (isAndroidNativeOutgoingShell()) {
+      if (!nativeHandoff.ok && !nativeHandoff.nativeOwned) {
+        logCallV4("native_establishment_unavailable", {
+          callId: created.session.id,
+          mediaType: input.mediaType,
+          roomId: roomResolved.roomId,
+        });
+      }
+      logCallV4("native_outgoing_failed", {
+        callId: created.session.id,
+        mediaType: input.mediaType,
+        roomId: roomResolved.roomId,
+        ok: nativeHandoff.ok,
+        nativeOwned: nativeHandoff.nativeOwned,
+      });
+      useCallV4Store.getState().resetToIdle();
+      return { ok: false as const, userMessage: outgoingGenericErrorMessage() };
     }
 
     const identity = buildOutgoingIdentity(created.session, input.peerLabel);

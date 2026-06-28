@@ -65,13 +65,15 @@ describe("incoming-call ring ownership contract", () => {
     expect(ringOwner).toContain("stopNativeIncomingRingtoneFireAndForget");
   });
 
-  it("IncomingCallPushDelivery centralizes push ring + surface routing", () => {
+  it("IncomingCallPushDelivery delegates to Native Runtime (P2-1 ring/web path detached)", () => {
     const delivery = read("android/app/src/main/java/com/dibay/app/IncomingCallPushDelivery.java");
-    expect(delivery).toContain("IncomingCallRingOwner.start");
-    expect(delivery).toContain("source=push_delivery");
-    expect(delivery).toContain("incoming_call_foreground_web_ssot");
+    expect(delivery).toContain("NativeVoiceCallRuntime.handleIncoming");
+    expect(delivery).toContain("NativeVideoCallRuntime.handleIncoming");
+    expect(delivery).toContain("legacy_web_pending_route_detached");
+    expect(delivery).not.toContain("IncomingCallRingOwner.start");
+    expect(delivery).not.toContain("incoming_call_foreground_web_ssot");
     expect(delivery).not.toContain("IncomingCallForegroundUiLauncher.showUi");
-    expect(delivery).toContain("presentLockIncoming");
+    expect(delivery).not.toContain("presentLockIncoming");
 
     const fcm = read("android/app/src/main/java/com/dibay/app/DibayFirebaseMessagingService.java");
     expect(fcm).toContain("IncomingCallPushDelivery.deliver");

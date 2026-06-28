@@ -30,6 +30,11 @@ function isAndroidNativeShell(): boolean {
   return isCapacitorNativePlatform() && resolveCapacitorShellPlatform() === "android";
 }
 
+/** True when outgoing must use Native Runtime only (Android Capacitor shell). */
+export function isAndroidNativeOutgoingShell(): boolean {
+  return isAndroidNativeShell();
+}
+
 async function invokeNative<T>(method: keyof NativeOutgoingBridgePlugin, options: Record<string, unknown>): Promise<T | null> {
   if (!isAndroidNativeShell()) return null;
   const cap = (typeof window !== "undefined" ? window : undefined) as Window & {

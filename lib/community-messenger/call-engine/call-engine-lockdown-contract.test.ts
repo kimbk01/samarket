@@ -23,8 +23,9 @@ describe("call-engine lockdown contract", () => {
 
   it("removes foreground native pill owner", () => {
     const delivery = read("android/app/src/main/java/com/dibay/app/IncomingCallPushDelivery.java");
-    expect(delivery).toContain("incoming_call_foreground_web_ssot");
+    expect(delivery).toContain("NativeVoiceCallRuntime.handleIncoming");
     expect(delivery).not.toContain("IncomingCallForegroundUiLauncher.showUi");
+    expect(delivery).not.toContain("incoming_call_foreground_web_ssot");
   });
 
   it("keeps chat room layer free from lifecycle patch", () => {

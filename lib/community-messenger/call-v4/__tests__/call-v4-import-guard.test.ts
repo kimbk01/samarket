@@ -353,4 +353,16 @@ describe("call-v4 import isolation", () => {
       expect(push).not.toContain(token);
     }
   });
+
+  it("P2-2 callV4CreateOutgoing Android fail-fast has no JS Agora Web fallback", () => {
+    const actions = read("lib/community-messenger/call-v4/call-v4-actions.ts");
+    expect(actions).toContain("isAndroidNativeOutgoingShell");
+    expect(actions).toContain("native_outgoing_failed");
+    expect(actions).toContain("native_establishment_unavailable");
+    const androidBlock = actions.match(/if \(isAndroidNativeOutgoingShell\(\)\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
+    expect(androidBlock).toContain("native_outgoing_failed");
+    expect(androidBlock).not.toContain("routeToCallV4Screen");
+    expect(androidBlock).not.toContain("outgoing_ringing");
+    expect(androidBlock).not.toContain("callV4PatchCancel");
+  });
 });

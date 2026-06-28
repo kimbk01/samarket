@@ -95,11 +95,11 @@ describe("incoming-call native contract", () => {
     expect(src).not.toContain("buildMainActivityV4RejectIntent");
   });
 
-  it("FCM foreground unlocked uses web banner SSOT without native pill", () => {
+  it("FCM foreground unlocked delivers via Native Runtime PushDelivery without native pill", () => {
     const delivery = read("android/app/src/main/java/com/dibay/app/IncomingCallPushDelivery.java");
-    expect(delivery).toContain("incoming_call_foreground_web_ssot");
+    expect(delivery).toContain("NativeVoiceCallRuntime.handleIncoming");
     expect(delivery).not.toContain("IncomingCallForegroundUiLauncher.showUi");
-    expect(delivery).toContain("isForegroundUnlockedInteractive");
+    expect(delivery).not.toContain("incoming_call_foreground_web_ssot");
     const fcm = read("android/app/src/main/java/com/dibay/app/DibayFirebaseMessagingService.java");
     expect(fcm).toContain("IncomingCallPushDelivery.deliver");
   });
@@ -185,8 +185,9 @@ describe("incoming-call native contract", () => {
     expect(fcm).toContain("MainActivity.persistCallPendingRoute");
 
     const delivery = read("android/app/src/main/java/com/dibay/app/IncomingCallPushDelivery.java");
-    expect(delivery).toContain("IncomingCallRingOwner.start");
-    expect(delivery).toContain("source=push_delivery");
+    expect(delivery).toContain("NativeVoiceCallRuntime.handleIncoming");
+    expect(delivery).toContain("NativeVideoCallRuntime.handleIncoming");
+    expect(delivery).not.toContain("IncomingCallRingOwner.start");
 
     const log = read("android/app/src/main/java/com/dibay/app/DibayCallPushLog.java");
     expect(log).toContain("[DIBAY_CALL_PUSH]");

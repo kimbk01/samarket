@@ -25,6 +25,12 @@ const apiMocks = vi.hoisted(() => ({
   })),
 }));
 
+vi.mock("@/lib/call/native/native-outgoing-bridge", () => ({
+  isAndroidNativeOutgoingShell: vi.fn(() => false),
+  startNativeOutgoingEstablishment: vi.fn(async () => ({ ok: false, nativeOwned: false })),
+  isNativeEstablishmentOwned: vi.fn(async () => false),
+}));
+
 vi.mock("@/lib/community-messenger/call-v4/call-v4-api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/community-messenger/call-v4/call-v4-api")>();
   return {
@@ -46,7 +52,7 @@ describe("call-v4-create-outgoing", () => {
     apiMocks.createSession.mockClear();
   });
 
-  it("creates outgoing once and routes to calls-v4 screen", async () => {
+  it("creates outgoing once and routes to calls-v4 screen on non-Android fallback", async () => {
     const replace = vi.fn();
     const result = await callV4CreateOutgoing({
       roomId: "room-1",

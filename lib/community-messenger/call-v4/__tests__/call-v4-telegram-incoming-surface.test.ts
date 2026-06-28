@@ -78,10 +78,13 @@ describe("call-v4 Telegram incoming surface contract", () => {
     expect(route).toContain("/community-messenger/calls-v4/");
   });
 
-  it("foreground push routes to Web only (no native foreground activity launcher in delivery)", () => {
+  it("PushDelivery delegates incoming to Native Runtime (P2-1 legacy web path detached from delivery)", () => {
     const delivery = read("android/app/src/main/java/com/dibay/app/IncomingCallPushDelivery.java");
-    expect(delivery).toContain("incoming_call_foreground_web_ssot");
-    expect(delivery).toContain("deliverCallIncomingEvent");
+    expect(delivery).toContain("NativeVoiceCallRuntime.handleIncoming");
+    expect(delivery).toContain("NativeVideoCallRuntime.handleIncoming");
+    expect(delivery).toContain("legacy_web_pending_route_detached");
+    expect(delivery).not.toContain("incoming_call_foreground_web_ssot");
+    expect(delivery).not.toContain("MainActivity.deliverCallIncomingEvent");
     expect(delivery).not.toContain("IncomingCallForegroundUiLauncher");
     expect(delivery).not.toContain("ForegroundIncomingCallActivity");
   });

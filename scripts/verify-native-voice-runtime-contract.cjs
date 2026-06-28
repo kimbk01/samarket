@@ -242,6 +242,30 @@ if (!callV4Actions.includes("native_outgoing_handoff_start")) {
   pass("Web outgoing native handoff hook is present");
 }
 
+if (!callV4Actions.includes("native_outgoing_failed")) {
+  fail("callV4CreateOutgoing must log native_outgoing_failed on Android native handoff failure (P2-2)");
+} else if (!callV4Actions.includes("native_establishment_unavailable")) {
+  fail("callV4CreateOutgoing must log native_establishment_unavailable when establishment unavailable (P2-2)");
+} else if (!callV4Actions.includes("isAndroidNativeOutgoingShell")) {
+  fail("callV4CreateOutgoing must gate JS Agora fallback with isAndroidNativeOutgoingShell (P2-2)");
+} else {
+  pass("Android native outgoing fail-fast markers present (P2-2)");
+}
+
+const androidOutgoingFailBlock =
+  callV4Actions.match(/if \(isAndroidNativeOutgoingShell\(\)\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
+if (!androidOutgoingFailBlock.includes("native_outgoing_failed")) {
+  fail("Android native outgoing fail-fast block must log native_outgoing_failed (P2-2)");
+} else if (androidOutgoingFailBlock.includes("routeToCallV4Screen")) {
+  fail("Android native outgoing fail-fast block must not call routeToCallV4Screen (P2-2)");
+} else if (androidOutgoingFailBlock.includes("outgoing_ringing")) {
+  fail("Android native outgoing fail-fast block must not set outgoing_ringing (P2-2)");
+} else if (androidOutgoingFailBlock.includes("callV4PatchCancel")) {
+  fail("Android native outgoing fail-fast must not PATCH cancel (P2-2 hold)");
+} else {
+  pass("Android native outgoing fail-fast has no JS Agora Web fallback (P2-2)");
+}
+
 const callV4Agora = read("lib/community-messenger/call-v4/call-v4-agora.ts");
 if (!callV4Agora.includes("web_agora_establishment_quarantined")) {
   fail("joinCallV4Agora must quarantine JS Agora when native establishment owns call");

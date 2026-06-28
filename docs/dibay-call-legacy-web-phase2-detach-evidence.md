@@ -1,72 +1,82 @@
-# DIBAY Call — Legacy Web Phase 2 Detach Evidence (P2-1 + P2-5)
+# DIBAY Call — Legacy Web Phase 2 Detach Evidence
 
-Status: **P2-1 + P2-5 complete** — 2026-06-28  
-Prerequisite: Phase 1 inventory pushed (`60f4d17e`), Native Runtime HARD LOCK closed (`008b235d`)
+Status: **P2-1 + P2-5 complete**, **P2-2 complete (QA PASS)** — 2026-06-28  
+Prerequisite: Phase 1 inventory (`60f4d17e`), Native Runtime HARD LOCK (`008b235d`)
 
-**Scope:** Partial Phase 2 only. P2-2, P2-3, P2-4 **not implemented** (red-team hold).
+**Scope:** Partial Phase 2. P2-3, P2-4 **not implemented** (red-team hold).
 
-## What changed
+---
+
+## P2-1 + P2-5 (complete — `5fe759a6`)
 
 | Step | File | Action |
 |---|---|---|
-| P2-1 | `android/app/src/main/java/com/dibay/app/IncomingCallPushDelivery.java` | Removed unreachable Legacy Web pending-route / V4 owner handoff after Native voice/video early returns |
-| P2-5 | `scripts/verify-*-runtime-contract.cjs`, `verify-incoming-call-push-delivery-contract.cjs`, `verify-call-v4-structure-lock.cjs` | DEAD path asserts + native SSOT asserts |
-| P2-5 | `lib/community-messenger/call-v4/__tests__/call-v4-import-guard.test.ts` | PushDelivery DEAD path regression test |
-| P2-5 | This document | Phase 2 detach evidence |
+| P2-1 | `IncomingCallPushDelivery.java` | Unreachable Legacy Web pending-route detached |
+| P2-5 | verify scripts + import-guard + this doc | DEAD path asserts |
 
-## Removed from PushDelivery (DEAD — P2-1)
+Device QA: **skipped** (Native Runtime unchanged).
 
-Production Native FCM always enters `NativeVoiceCallRuntime.handleIncoming` or `NativeVideoCallRuntime.handleIncoming` first (flags on). The following Legacy Web branches were **unreachable** and detached:
+---
 
-- `CallV4Lane.isTelegramLaneEnabled` owner claim (`tryClaimIncomingOwner`)
-- Foreground Web SSOT: `MainActivity.deliverCallIncomingEvent`, `incoming_call_foreground_web_ssot`
-- Background/lock V4 presentation: `IncomingCallBackgroundNotifier.presentLockIncoming`, `presentV4NonForegroundIncoming`
-- Legacy ring at push boundary: `IncomingCallRingOwner.start` (Native Runtime owns ring)
+## P2-2 — Android native outgoing JS Agora fallback detach
 
-Non-native fall-through now logs only:
+**Goal:** On Android native shell only, native handoff failure must not fall through to Web `/calls-v4` + JS Agora.
 
-- `legacy_web_pending_route_detached` (Log + `DibayCallPushLog`)
-
-## Native path unaffected (rationale)
-
-| Layer | Unchanged |
+| File | Action |
 |---|---|
-| FCM | `DibayFirebaseMessagingService` still delegates to `IncomingCallPushDelivery.deliver`; native paths still skip Web pending-route persistence (`native_*_pending_route_skipped`) |
-| Voice/Video Runtime | `NativeVoiceCallRuntime.handleIncoming` / `NativeVideoCallRuntime.handleIncoming` unchanged — first branches in PushDelivery |
-| Guard / O2 / O3 / O4 | No edits |
-| BackgroundNotifier bundle | Still present for V4 FSI/fallback boundary (P2-4 hold — MainActivity replay untouched) |
+| `lib/community-messenger/call-v4/call-v4-actions.ts` | `isAndroidNativeOutgoingShell()` fail-fast after handoff failure |
+| `lib/call/native/native-outgoing-bridge.ts` | Export `isAndroidNativeOutgoingShell` |
+| Tests + verify + this doc | Regression guards |
 
-## Verify gate (P2-1 + P2-5 — device QA skipped)
+### Android fail-fast (P2-2)
 
-Run after implementation:
+After `startNativeOutgoingEstablishment` fails on Android:
+
+- `native_establishment_unavailable` (when ok/nativeOwned both false)
+- `native_outgoing_failed`
+- `resetToIdle`, `{ ok: false, userMessage }`
+- **No** `routeToCallV4Screen`, **no** `outgoing_ringing`, **no** `callV4PatchCancel`
+
+### Non-Android / Desktop
+
+Legacy Web outgoing route **unchanged** (out of P2-2 scope).
+
+### O2 LOCK
+
+No Android Runtime / plugin / token / join changes — Web TS dial bridge only.
+
+### P2-2 verify (unit + contract)
 
 ```bash
 npm run verify:native-voice-runtime-contract
 npm run verify:native-video-runtime-contract
-npm run verify:call-v4-incoming-fsi-fallback-boundary
-npm run verify:call-v4-structure-lock
+vitest run lib/community-messenger/call-v4/__tests__/call-v4-outgoing-native-fallback.test.ts
+vitest run lib/community-messenger/call-v4/__tests__/call-v4-create-outgoing.test.ts
 vitest run lib/community-messenger/call-v4/__tests__/call-v4-import-guard.test.ts
 ```
 
-Results recorded in commit message / CI.
+### P2-2 device QA (O2 outgoing isolated only)
 
-| # | Command | Result (2026-06-28) |
+| Case | callId | Result (2026-06-28) |
 |---|---|---|
-| 1 | `npm run verify:native-voice-runtime-contract` | PASS |
-| 2 | `npm run verify:native-video-runtime-contract` | PASS |
-| 3 | `npm run verify:call-v4-incoming-fsi-fallback-boundary` | PASS |
-| 4 | `npm run verify:call-v4-structure-lock` | PASS |
-| 5 | `vitest run lib/community-messenger/call-v4/__tests__/call-v4-import-guard.test.ts` | PASS (24 tests) |
+| Voice outgoing isolated | `887be882-b352-40b7-8cca-51b1f81cf7a6` | **PASS** |
+| Video outgoing isolated | `98ae60fd-32a4-4132-9088-33f2c38250f6` | **PASS** |
 
-Device QA: **skipped** (Native Runtime behavior unchanged).
+**PASS markers (both):** `caller_outgoing_start`, `token_fetch_done`, `agora_native_join_success`, `state_connected` — all 1  
+**Forbidden (both):** `route_to_screen`, `outgoing_ringing`, `CallV4Screen`, Web `agora_join_start`, Web `agora_join_success` — all 0
 
-## Hold (not in this PR)
+Reports: `.qa-logs/native-call-voice-outgoing-isolated/report.json`, `.qa-logs/native-call-video-outgoing-isolated/report.json`
+
+---
+
+## Hold (not in scope)
 
 | Step | Reason |
 |---|---|
-| P2-2 Web outgoing dial bridge | O2 establishment — separate approval after P2-1 validation |
-| P2-3 CallV4Provider incoming hard-disable | Web mount / foreground state — isolated verification needed |
-| P2-4 MainActivity pending replay | Route replay / lock / notification intent regression risk |
+| P2-3 CallV4Provider incoming hard-disable | Isolated verification needed |
+| P2-4 MainActivity pending replay | Route replay regression risk |
+| Desktop web outgoing policy | Separate product decision |
+| Orphan session cancel on handoff fail | O4/terminal boundary — not P2-2 |
 
 ## References
 

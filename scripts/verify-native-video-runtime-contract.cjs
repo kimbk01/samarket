@@ -158,6 +158,25 @@ if (delivery.includes("MainActivity.deliverCallIncomingEvent")) {
   pass("PushDelivery legacy Web pending-route path detached (P2-1)");
 }
 
+const callV4Actions = read("lib/community-messenger/call-v4/call-v4-actions.ts");
+if (!callV4Actions.includes("isAndroidNativeOutgoingShell")) {
+  fail("callV4CreateOutgoing must gate JS Agora fallback with isAndroidNativeOutgoingShell (P2-2)");
+} else if (!callV4Actions.includes("native_outgoing_failed")) {
+  fail("callV4CreateOutgoing must log native_outgoing_failed on Android native handoff failure (P2-2)");
+} else {
+  pass("Android native outgoing fail-fast markers present (P2-2)");
+}
+
+const androidOutgoingFailBlock =
+  callV4Actions.match(/if \(isAndroidNativeOutgoingShell\(\)\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
+if (androidOutgoingFailBlock.includes("routeToCallV4Screen")) {
+  fail("Android native outgoing fail-fast block must not call routeToCallV4Screen (P2-2)");
+} else if (androidOutgoingFailBlock.includes("callV4PatchCancel")) {
+  fail("Android native outgoing fail-fast must not PATCH cancel (P2-2 hold)");
+} else {
+  pass("Android native outgoing fail-fast has no JS Agora Web fallback (P2-2)");
+}
+
 const manifest = read("android/app/src/main/AndroidManifest.xml");
 for (const marker of [
   ".nativevideo.NativeVideoCallActivity",

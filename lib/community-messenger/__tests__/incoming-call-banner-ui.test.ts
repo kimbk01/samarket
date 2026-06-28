@@ -63,8 +63,9 @@ describe("incoming call compact banner UI", () => {
     expect(global).toContain("isCmNativeForegroundIncomingPillEnabled");
     expect(global).toContain("dismissNativeForegroundIncomingUi");
     const delivery = read("android/app/src/main/java/com/dibay/app/IncomingCallPushDelivery.java");
-    expect(delivery).toContain("incoming_call_foreground_web_ssot");
+    expect(delivery).toContain("NativeVoiceCallRuntime.handleIncoming");
     expect(delivery).not.toContain("IncomingCallForegroundUiLauncher.showUi");
+    expect(delivery).not.toContain("incoming_call_foreground_web_ssot");
   });
 
   it("outgoing hydrate shell does not block on full-page loading copy", () => {
