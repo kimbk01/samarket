@@ -1,0 +1,372 @@
+{
+  "at": "2026-06-28T00:49:10.259Z",
+  "serialA": "8b37179f7d94",
+  "serialB": "RRGL4046NTW",
+  "harness": ".qa-logs/native-call-final-regression.mjs",
+  "gates": {
+    "voiceOutgoing": true,
+    "voiceIncoming": true,
+    "videoOutgoing": true,
+    "videoIncoming": true,
+    "pip": true,
+    "dock": true,
+    "endCleanup": true,
+    "forbiddenZero": true,
+    "callV4ScreenZero": true,
+    "singleNativeSurface": true
+  },
+  "gateSnapshots": {
+    "voiceOutgoing": {
+      "callId": "d8046ddf-7e65-45f1-a7aa-ac955f82d753",
+      "logcatA": "logcat-voiceOutgoing-d8046ddf-7e65-45f1-a7aa-ac955f82d753-a.txt",
+      "logcatB": "logcat-voiceOutgoing-d8046ddf-7e65-45f1-a7aa-ac955f82d753-b.txt"
+    },
+    "voiceIncoming": {
+      "callId": "03a1b0b1-c06a-4968-a8e4-71a51d84ec7a",
+      "logcatA": "logcat-voiceIncoming-03a1b0b1-c06a-4968-a8e4-71a51d84ec7a-a.txt",
+      "logcatB": "logcat-voiceIncoming-03a1b0b1-c06a-4968-a8e4-71a51d84ec7a-b.txt"
+    },
+    "videoOutgoing": {
+      "callId": "d3f9bc67-d43c-46a6-b993-ab201eb83798",
+      "logcatA": "logcat-videoOutgoing-d3f9bc67-d43c-46a6-b993-ab201eb83798-a.txt",
+      "logcatB": "logcat-videoOutgoing-d3f9bc67-d43c-46a6-b993-ab201eb83798-b.txt"
+    },
+    "videoIncoming": {
+      "callId": "3b693a5f-4ff6-4812-b4aa-ea2230c225d3",
+      "logcatA": "logcat-videoIncoming-3b693a5f-4ff6-4812-b4aa-ea2230c225d3-a.txt",
+      "logcatB": "logcat-videoIncoming-3b693a5f-4ff6-4812-b4aa-ea2230c225d3-b.txt"
+    },
+    "pip": {
+      "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
+      "logcatA": "logcat-pip-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
+      "logcatB": "logcat-pip-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+    },
+    "dock": {
+      "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
+      "logcatA": "logcat-dock-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
+      "logcatB": "logcat-dock-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+    },
+    "endCleanup": {
+      "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
+      "logcatA": "logcat-endCleanup-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
+      "logcatB": "logcat-endCleanup-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+    },
+    "forbiddenZero": {
+      "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
+      "logcatA": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
+      "logcatB": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+    },
+    "callV4ScreenZero": {
+      "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
+      "logcatA": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
+      "logcatB": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt",
+      "callIds": {
+        "voiceOutId": "d8046ddf-7e65-45f1-a7aa-ac955f82d753",
+        "voiceInId": "03a1b0b1-c06a-4968-a8e4-71a51d84ec7a",
+        "videoOutId": "d3f9bc67-d43c-46a6-b993-ab201eb83798",
+        "videoInId": "3b693a5f-4ff6-4812-b4aa-ea2230c225d3",
+        "pipCallId": "abf2f26f-d75a-4522-873c-9b1c892d9e08"
+      }
+    },
+    "singleNativeSurface": {
+      "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
+      "logcatA": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
+      "logcatB": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt",
+      "callIds": {
+        "voiceOutId": "d8046ddf-7e65-45f1-a7aa-ac955f82d753",
+        "voiceInId": "03a1b0b1-c06a-4968-a8e4-71a51d84ec7a",
+        "videoOutId": "d3f9bc67-d43c-46a6-b993-ab201eb83798",
+        "videoInId": "3b693a5f-4ff6-4812-b4aa-ea2230c225d3",
+        "pipCallId": "abf2f26f-d75a-4522-873c-9b1c892d9e08"
+      }
+    }
+  },
+  "gateTelemetry": {
+    "voiceOutgoing": {
+      "callId": "d8046ddf-7e65-45f1-a7aa-ac955f82d753",
+      "logcatA": "logcat-voiceOutgoing-d8046ddf-7e65-45f1-a7aa-ac955f82d753-a.txt",
+      "logcatB": "logcat-voiceOutgoing-d8046ddf-7e65-45f1-a7aa-ac955f82d753-b.txt"
+    },
+    "voiceIncomingFcmReady": {
+      "ok": true,
+      "ready": true,
+      "hasTimeout": false,
+      "hasToken": true,
+      "hasSuccess": true,
+      "fcmUserId": "9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8",
+      "elapsedMs": 2110
+    },
+    "voiceIncoming": {
+      "callId": "03a1b0b1-c06a-4968-a8e4-71a51d84ec7a",
+      "logcatA": "logcat-voiceIncoming-03a1b0b1-c06a-4968-a8e4-71a51d84ec7a-a.txt",
+      "logcatB": "logcat-voiceIncoming-03a1b0b1-c06a-4968-a8e4-71a51d84ec7a-b.txt",
+      "waitConnectedOk": true,
+      "waitConnectedElapsedMs": 2002,
+      "acceptChainMarkerCounts": {
+        "accept_tapped": 1,
+        "accept_patch_start": 1,
+        "accept_patch_done": 1,
+        "token_fetch_start": 1,
+        "token_fetch_done": 1,
+        "agora_native_join_start": 1,
+        "agora_native_join_success": 1,
+        "state_connected": 1,
+        "native_connected_emit": 1
+      }
+    },
+    "videoOutgoing": {
+      "callId": "d3f9bc67-d43c-46a6-b993-ab201eb83798",
+      "logcatA": "logcat-videoOutgoing-d3f9bc67-d43c-46a6-b993-ab201eb83798-a.txt",
+      "logcatB": "logcat-videoOutgoing-d3f9bc67-d43c-46a6-b993-ab201eb83798-b.txt"
+    },
+    "videoIncoming": {
+      "callId": "3b693a5f-4ff6-4812-b4aa-ea2230c225d3",
+      "logcatA": "logcat-videoIncoming-3b693a5f-4ff6-4812-b4aa-ea2230c225d3-a.txt",
+      "logcatB": "logcat-videoIncoming-3b693a5f-4ff6-4812-b4aa-ea2230c225d3-b.txt",
+      "waitConnectedOk": true,
+      "waitConnectedElapsedMs": 2208,
+      "acceptChainMarkerCounts": {
+        "accept_tapped": 1,
+        "accept_patch_start": 1,
+        "accept_patch_done": 1,
+        "token_fetch_start": 1,
+        "token_fetch_done": 1,
+        "agora_native_join_start": 2,
+        "agora_native_join_success": 2,
+        "state_connected": 1,
+        "native_connected_emit": 1
+      }
+    },
+    "pip": {
+      "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
+      "logcatA": "logcat-pip-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
+      "logcatB": "logcat-pip-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+    },
+    "dock": {
+      "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
+      "logcatA": "logcat-dock-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
+      "logcatB": "logcat-dock-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+    },
+    "endCleanup": {
+      "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
+      "logcatA": "logcat-endCleanup-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
+      "logcatB": "logcat-endCleanup-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+    },
+    "forbiddenZero": {
+      "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
+      "logcatA": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
+      "logcatB": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+    },
+    "callV4ScreenZero": {
+      "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
+      "logcatA": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
+      "logcatB": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+    },
+    "singleNativeSurface": {
+      "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
+      "logcatA": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
+      "logcatB": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+    }
+  },
+  "harnessFcmReadyFail": false,
+  "productRuntimeFail": false,
+  "result": {
+    "pass": true,
+    "callIds": {
+      "voiceOutId": "d8046ddf-7e65-45f1-a7aa-ac955f82d753",
+      "voiceInId": "03a1b0b1-c06a-4968-a8e4-71a51d84ec7a",
+      "videoOutId": "d3f9bc67-d43c-46a6-b993-ab201eb83798",
+      "videoInId": "3b693a5f-4ff6-4812-b4aa-ea2230c225d3",
+      "pipCallId": "abf2f26f-d75a-4522-873c-9b1c892d9e08"
+    },
+    "gates": {
+      "voiceOutgoing": true,
+      "voiceIncoming": true,
+      "videoOutgoing": true,
+      "videoIncoming": true,
+      "pip": true,
+      "dock": true,
+      "endCleanup": true,
+      "forbiddenZero": true,
+      "callV4ScreenZero": true,
+      "singleNativeSurface": true
+    },
+    "forbidden": {
+      "route_to_screen": 0,
+      "CallV4Screen": 0,
+      "screen_mounted": 0,
+      "agora_join_success": 0,
+      "visible_surface_owner_claimed": 0
+    },
+    "pip": {
+      "ok": true,
+      "entered": true,
+      "exited": true
+    },
+    "dockMin": {
+      "ok": true,
+      "x": 312,
+      "y": 1265
+    },
+    "dockShown": true,
+    "dockResume": true,
+    "endTapped": true,
+    "o4": {
+      "ok": true
+    },
+    "gateSnapshots": {
+      "voiceOutgoing": {
+        "callId": "d8046ddf-7e65-45f1-a7aa-ac955f82d753",
+        "logcatA": "logcat-voiceOutgoing-d8046ddf-7e65-45f1-a7aa-ac955f82d753-a.txt",
+        "logcatB": "logcat-voiceOutgoing-d8046ddf-7e65-45f1-a7aa-ac955f82d753-b.txt"
+      },
+      "voiceIncoming": {
+        "callId": "03a1b0b1-c06a-4968-a8e4-71a51d84ec7a",
+        "logcatA": "logcat-voiceIncoming-03a1b0b1-c06a-4968-a8e4-71a51d84ec7a-a.txt",
+        "logcatB": "logcat-voiceIncoming-03a1b0b1-c06a-4968-a8e4-71a51d84ec7a-b.txt"
+      },
+      "videoOutgoing": {
+        "callId": "d3f9bc67-d43c-46a6-b993-ab201eb83798",
+        "logcatA": "logcat-videoOutgoing-d3f9bc67-d43c-46a6-b993-ab201eb83798-a.txt",
+        "logcatB": "logcat-videoOutgoing-d3f9bc67-d43c-46a6-b993-ab201eb83798-b.txt"
+      },
+      "videoIncoming": {
+        "callId": "3b693a5f-4ff6-4812-b4aa-ea2230c225d3",
+        "logcatA": "logcat-videoIncoming-3b693a5f-4ff6-4812-b4aa-ea2230c225d3-a.txt",
+        "logcatB": "logcat-videoIncoming-3b693a5f-4ff6-4812-b4aa-ea2230c225d3-b.txt"
+      },
+      "pip": {
+        "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
+        "logcatA": "logcat-pip-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
+        "logcatB": "logcat-pip-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+      },
+      "dock": {
+        "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
+        "logcatA": "logcat-dock-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
+        "logcatB": "logcat-dock-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+      },
+      "endCleanup": {
+        "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
+        "logcatA": "logcat-endCleanup-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
+        "logcatB": "logcat-endCleanup-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+      },
+      "forbiddenZero": {
+        "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
+        "logcatA": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
+        "logcatB": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+      },
+      "callV4ScreenZero": {
+        "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
+        "logcatA": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
+        "logcatB": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt",
+        "callIds": {
+          "voiceOutId": "d8046ddf-7e65-45f1-a7aa-ac955f82d753",
+          "voiceInId": "03a1b0b1-c06a-4968-a8e4-71a51d84ec7a",
+          "videoOutId": "d3f9bc67-d43c-46a6-b993-ab201eb83798",
+          "videoInId": "3b693a5f-4ff6-4812-b4aa-ea2230c225d3",
+          "pipCallId": "abf2f26f-d75a-4522-873c-9b1c892d9e08"
+        }
+      },
+      "singleNativeSurface": {
+        "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
+        "logcatA": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
+        "logcatB": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt",
+        "callIds": {
+          "voiceOutId": "d8046ddf-7e65-45f1-a7aa-ac955f82d753",
+          "voiceInId": "03a1b0b1-c06a-4968-a8e4-71a51d84ec7a",
+          "videoOutId": "d3f9bc67-d43c-46a6-b993-ab201eb83798",
+          "videoInId": "3b693a5f-4ff6-4812-b4aa-ea2230c225d3",
+          "pipCallId": "abf2f26f-d75a-4522-873c-9b1c892d9e08"
+        }
+      }
+    },
+    "gateTelemetry": {
+      "voiceOutgoing": {
+        "callId": "d8046ddf-7e65-45f1-a7aa-ac955f82d753",
+        "logcatA": "logcat-voiceOutgoing-d8046ddf-7e65-45f1-a7aa-ac955f82d753-a.txt",
+        "logcatB": "logcat-voiceOutgoing-d8046ddf-7e65-45f1-a7aa-ac955f82d753-b.txt"
+      },
+      "voiceIncomingFcmReady": {
+        "ok": true,
+        "ready": true,
+        "hasTimeout": false,
+        "hasToken": true,
+        "hasSuccess": true,
+        "fcmUserId": "9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8",
+        "elapsedMs": 2110
+      },
+      "voiceIncoming": {
+        "callId": "03a1b0b1-c06a-4968-a8e4-71a51d84ec7a",
+        "logcatA": "logcat-voiceIncoming-03a1b0b1-c06a-4968-a8e4-71a51d84ec7a-a.txt",
+        "logcatB": "logcat-voiceIncoming-03a1b0b1-c06a-4968-a8e4-71a51d84ec7a-b.txt",
+        "waitConnectedOk": true,
+        "waitConnectedElapsedMs": 2002,
+        "acceptChainMarkerCounts": {
+          "accept_tapped": 1,
+          "accept_patch_start": 1,
+          "accept_patch_done": 1,
+          "token_fetch_start": 1,
+          "token_fetch_done": 1,
+          "agora_native_join_start": 1,
+          "agora_native_join_success": 1,
+          "state_connected": 1,
+          "native_connected_emit": 1
+        }
+      },
+      "videoOutgoing": {
+        "callId": "d3f9bc67-d43c-46a6-b993-ab201eb83798",
+        "logcatA": "logcat-videoOutgoing-d3f9bc67-d43c-46a6-b993-ab201eb83798-a.txt",
+        "logcatB": "logcat-videoOutgoing-d3f9bc67-d43c-46a6-b993-ab201eb83798-b.txt"
+      },
+      "videoIncoming": {
+        "callId": "3b693a5f-4ff6-4812-b4aa-ea2230c225d3",
+        "logcatA": "logcat-videoIncoming-3b693a5f-4ff6-4812-b4aa-ea2230c225d3-a.txt",
+        "logcatB": "logcat-videoIncoming-3b693a5f-4ff6-4812-b4aa-ea2230c225d3-b.txt",
+        "waitConnectedOk": true,
+        "waitConnectedElapsedMs": 2208,
+        "acceptChainMarkerCounts": {
+          "accept_tapped": 1,
+          "accept_patch_start": 1,
+          "accept_patch_done": 1,
+          "token_fetch_start": 1,
+          "token_fetch_done": 1,
+          "agora_native_join_start": 2,
+          "agora_native_join_success": 2,
+          "state_connected": 1,
+          "native_connected_emit": 1
+        }
+      },
+      "pip": {
+        "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
+        "logcatA": "logcat-pip-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
+        "logcatB": "logcat-pip-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+      },
+      "dock": {
+        "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
+        "logcatA": "logcat-dock-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
+        "logcatB": "logcat-dock-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+      },
+      "endCleanup": {
+        "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
+        "logcatA": "logcat-endCleanup-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
+        "logcatB": "logcat-endCleanup-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+      },
+      "forbiddenZero": {
+        "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
+        "logcatA": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
+        "logcatB": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+      },
+      "callV4ScreenZero": {
+        "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
+        "logcatA": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
+        "logcatB": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+      },
+      "singleNativeSurface": {
+        "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
+        "logcatA": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
+        "logcatB": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+      }
+    }
+  },
+  "overallPass": true
+}

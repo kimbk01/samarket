@@ -1,0 +1,167 @@
+{
+  "at": "2026-06-28T00:49:10.259Z",
+  "hardLock": true,
+  "nativeRuntimeAndroidComplete": true,
+  "lockStatement": "Native Call Runtime Android COMPLETE HARD LOCK. FCM -> Native Runtime -> Accept -> Native Token -> Native Agora -> Connected -> End -> Cleanup. Final Regression all gates PASS. Web CallV4Screen/JS Agora establishment forbidden markers 0.",
+  "ssot": "docs/dibay-call-native-runtime-ssot.md",
+  "vercelOrigin": "https://samarket.vercel.app",
+  "devices": {
+    "serialA": "8b37179f7d94",
+    "serialB": "RRGL4046NTW"
+  },
+  "roomId": "b19e2672-f26f-4a2e-8125-52575da4a62a",
+  "commits": {
+    "guardCompletion": "8b81b44dd891f7c30a7b2734151f8240b818c2eb",
+    "guardCompletionMessage": "feat(call): complete native engine ownership guard for voice/video Agora",
+    "lockBundle": "99659d4e0b79549b6465b0885bbb10b53345e2ef",
+    "lockBundleVerify": "git log -1 --format=%H -- docs/artifacts/dibay-call-native-runtime-hard-lock-evidence.json"
+  },
+  "branch": "main",
+  "apkBaseline": {
+    "versionName": "1.0",
+    "versionCode": 1,
+    "artifact": "android/app/build/outputs/apk/debug/app-debug.apk",
+    "builtFromCommit": "8b81b44dd891f7c30a7b2734151f8240b818c2eb",
+    "reinstalledDevices": ["8b37179f7d94", "RRGL4046NTW"],
+    "reinstalledAt": "2026-06-28T01:00:00.000Z",
+    "note": "Clean-tree rebuild after Guard commit; Final Regression PASS callIds from prior run (2026-06-28T00:49:10Z)"
+  },
+  "harness": ".qa-logs/native-call-final-regression.mjs",
+  "finalRegressionReport": ".qa-logs/native-call-final-regression/report.json",
+  "overallPass": true,
+  "harnessFcmReadyFail": false,
+  "productRuntimeFail": false,
+  "gates": {
+    "voiceOutgoing": true,
+    "voiceIncoming": true,
+    "videoOutgoing": true,
+    "videoIncoming": true,
+    "pip": true,
+    "dock": true,
+    "endCleanup": true,
+    "forbiddenZero": true,
+    "callV4ScreenZero": true,
+    "singleNativeSurface": true
+  },
+  "callIds": {
+    "voiceOutId": "d8046ddf-7e65-45f1-a7aa-ac955f82d753",
+    "voiceInId": "03a1b0b1-c06a-4968-a8e4-71a51d84ec7a",
+    "videoOutId": "d3f9bc67-d43c-46a6-b993-ab201eb83798",
+    "videoInId": "3b693a5f-4ff6-4812-b4aa-ea2230c225d3",
+    "pipCallId": "abf2f26f-d75a-4522-873c-9b1c892d9e08"
+  },
+  "gateTelemetry": {
+    "voiceIncomingFcmReady": {
+      "ok": true,
+      "ready": true,
+      "hasTimeout": false,
+      "hasToken": true,
+      "hasSuccess": true,
+      "fcmUserId": "9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8",
+      "elapsedMs": 2110
+    },
+    "voiceIncoming": {
+      "waitConnectedOk": true,
+      "waitConnectedElapsedMs": 2002,
+      "acceptChainMarkerCounts": {
+        "accept_tapped": 1,
+        "accept_patch_start": 1,
+        "accept_patch_done": 1,
+        "token_fetch_start": 1,
+        "token_fetch_done": 1,
+        "agora_native_join_start": 1,
+        "agora_native_join_success": 1,
+        "state_connected": 1,
+        "native_connected_emit": 1
+      }
+    },
+    "videoIncoming": {
+      "waitConnectedOk": true,
+      "waitConnectedElapsedMs": 2208,
+      "acceptChainMarkerCounts": {
+        "accept_tapped": 1,
+        "accept_patch_start": 1,
+        "accept_patch_done": 1,
+        "token_fetch_start": 1,
+        "token_fetch_done": 1,
+        "agora_native_join_start": 2,
+        "agora_native_join_success": 2,
+        "state_connected": 1,
+        "native_connected_emit": 1
+      }
+    }
+  },
+  "forbidden": {
+    "route_to_screen": 0,
+    "CallV4Screen": 0,
+    "screen_mounted": 0,
+    "agora_join_success": 0,
+    "visible_surface_owner_claimed": 0
+  },
+  "o4": {
+    "endTapped": true,
+    "ok": true
+  },
+  "pip": {
+    "ok": true,
+    "entered": true,
+    "exited": true
+  },
+  "dock": {
+    "dockMinOk": true,
+    "dockShown": true,
+    "dockResume": true
+  },
+  "gateSnapshots": {
+    "voiceOutgoing": {
+      "logcatA": ".qa-logs/native-call-final-regression/logcat-voiceOutgoing-d8046ddf-7e65-45f1-a7aa-ac955f82d753-a.txt",
+      "logcatB": ".qa-logs/native-call-final-regression/logcat-voiceOutgoing-d8046ddf-7e65-45f1-a7aa-ac955f82d753-b.txt"
+    },
+    "voiceIncoming": {
+      "logcatA": ".qa-logs/native-call-final-regression/logcat-voiceIncoming-03a1b0b1-c06a-4968-a8e4-71a51d84ec7a-a.txt",
+      "logcatB": ".qa-logs/native-call-final-regression/logcat-voiceIncoming-03a1b0b1-c06a-4968-a8e4-71a51d84ec7a-b.txt"
+    },
+    "videoOutgoing": {
+      "logcatA": ".qa-logs/native-call-final-regression/logcat-videoOutgoing-d3f9bc67-d43c-46a6-b993-ab201eb83798-a.txt",
+      "logcatB": ".qa-logs/native-call-final-regression/logcat-videoOutgoing-d3f9bc67-d43c-46a6-b993-ab201eb83798-b.txt"
+    },
+    "videoIncoming": {
+      "logcatA": ".qa-logs/native-call-final-regression/logcat-videoIncoming-3b693a5f-4ff6-4812-b4aa-ea2230c225d3-a.txt",
+      "logcatB": ".qa-logs/native-call-final-regression/logcat-videoIncoming-3b693a5f-4ff6-4812-b4aa-ea2230c225d3-b.txt"
+    },
+    "pipDockEnd": {
+      "logcatA": ".qa-logs/native-call-final-regression/logcat-pip-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
+      "logcatB": ".qa-logs/native-call-final-regression/logcat-pip-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+    }
+  },
+  "subTrackHardLocks": [
+    "docs/dibay-call-o2-outgoing-hard-lock.md",
+    "docs/dibay-call-o4-end-ownership-hard-lock.md",
+    "docs/dibay-call-voice-ui-hard-lock.md",
+    "docs/dibay-call-video-ui-hard-lock.md",
+    "docs/dibay-call-video-dock-hard-lock.md"
+  ],
+  "priorIsolatedPasses": {
+    "voiceIncoming": ".qa-logs/native-call-voice-incoming-isolated/",
+    "videoIncoming": ".qa-logs/native-call-video-incoming-isolated/"
+  },
+  "harnessFailClassification": {
+    "harness_fcm_ready_fail": "QA environment only — not productRuntimeFail",
+    "productRuntimeFail": "First product gate failure — audit before LOCK reopen"
+  },
+  "legacyWebRemovalPlan": {
+    "status": "planned_not_started",
+    "docSection": "docs/dibay-call-native-runtime-hard-lock.md#legacy-web-call-removal-plan-next-track--no-implementation-in-lock-commit",
+    "phases": [
+      "Phase 0: quarantine enforcement (current)",
+      "Phase 1: read-only audit + import/verify guards",
+      "Phase 2: detach dead Web handoff (separate PR)",
+      "Phase 3: delete Legacy V4 stack (separate PR after prod zero-marker window)",
+      "Phase 4: single Final Regression re-run post-deletion"
+    ]
+  },
+  "recommendedCommitBundle": [
+    "8b81b44dd891f7c30a7b2734151f8240b818c2eb",
+    "99659d4e0b79549b6465b0885bbb10b53345e2ef"
+  ]
+}
