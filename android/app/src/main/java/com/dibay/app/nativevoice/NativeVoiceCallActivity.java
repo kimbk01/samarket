@@ -7,9 +7,11 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.view.Gravity;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -40,7 +42,10 @@ public class NativeVoiceCallActivity extends Activity {
   private ImageButton declineButton;
   private Button endButton;
   private Button speakerButton;
+  private View dockRoot;
   private boolean speakerEnabled;
+  private boolean dockMode = false;
+  private NativeVoiceCallRuntime.State currentState = NativeVoiceCallRuntime.State.RINGING;
   private final Handler mainHandler = new Handler(Looper.getMainLooper());
   private long connectedAtElapsedMs = 0L;
   private final Runnable durationTick =
@@ -106,9 +111,23 @@ public class NativeVoiceCallActivity extends Activity {
   @Override
   protected void onDestroy() {
     stopDurationTimer();
+    hideDock("destroy");
+    detachDockView();
     NativeVoiceCallActivity current = activeRef.get();
     if (current == this) activeRef = new WeakReference<>(null);
     super.onDestroy();
+  }
+
+  @Override
+  public void onUserLeaveHint() {
+    super.onUserLeaveHint();
+    minimizeConnectedCall("user_leave");
+  }
+
+  @Override
+  public void onBackPressed() {
+    if (minimizeConnectedCall("back")) return;
+    NativeVoiceCallLog.info("native_voice_back_blocked", callId, "state=" + currentState);
   }
 
   private boolean bindIntent(Intent intent) {
@@ -168,6 +187,7 @@ public class NativeVoiceCallActivity extends Activity {
     declineButton = findViewById(R.id.native_voice_call_decline);
     endButton = findViewById(R.id.native_voice_call_end);
     speakerButton = findViewById(R.id.native_voice_call_speaker);
+    attachDockView();
   }
 
   private void bindActions() {
@@ -184,6 +204,19 @@ public class NativeVoiceCallActivity extends Activity {
   }
 
   private void applyState(NativeVoiceCallRuntime.State state) {
+    currentState = state;
+    if (state != NativeVoiceCallRuntime.State.CONNECTED && dockMode) {
+      hideDock("state_change");
+    }
+    if (state == NativeVoiceCallRuntime.State.ENDING
+        || state == NativeVoiceCallRuntime.State.ENDED
+        || state == NativeVoiceCallRuntime.State.FAILED) {
+      detachDockView();
+    }
+    if (dockMode && state == NativeVoiceCallRuntime.State.CONNECTED) {
+      applyDockPresentation();
+      return;
+    }
     NativeVoiceCallRuntime.Session session = NativeVoiceCallRuntime.getSession(callId);
     NativeVoiceCallUiPresenter.Model model = NativeVoiceCallUiPresenter.build(this, session, state);
     peerNameView.setText(model.peerName);
@@ -205,6 +238,101 @@ public class NativeVoiceCallActivity extends Activity {
     }
   }
 
+  private boolean minimizeConnectedCall(String source) {
+    if (!isDockEligible()) {
+      NativeVoiceCallLog.info("native_voice_minimize_blocked", callId, "source=" + source + " state=" + currentState);
+      return false;
+    }
+    showDock(source);
+    boolean minimized = dockMode;
+    NativeVoiceCallLog.info(
+        minimized ? "native_voice_minimize_dock" : "native_voice_minimize_failed",
+        callId,
+        "source=" + source);
+    return minimized;
+  }
+
+  private void attachDockView() {
+    if (dockRoot != null) return;
+    FrameLayout root = findViewById(R.id.native_voice_call_root);
+    if (root == null) return;
+    dockRoot = getLayoutInflater().inflate(R.layout.layout_native_call_dock, root, false);
+    FrameLayout.LayoutParams params =
+        new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT);
+    params.gravity = Gravity.TOP;
+    params.setMargins(dp(12), dp(12), dp(12), 0);
+    dockRoot.setVisibility(View.GONE);
+    root.addView(dockRoot, params);
+  }
+
+  private boolean isDockEligible() {
+    return callId != null
+        && !callId.isEmpty()
+        && currentState == NativeVoiceCallRuntime.State.CONNECTED
+        && !isFinishing();
+  }
+
+  private void showDock(String source) {
+    if (!isDockEligible()) {
+      NativeVoiceCallLog.info(
+          "native_voice_dock_blocked", callId, "source=" + source + " state=" + currentState);
+      return;
+    }
+    if (dockMode) return;
+    dockMode = true;
+    applyDockPresentation();
+    NativeVoiceCallLog.info("native_voice_dock_shown", callId, "source=" + source);
+  }
+
+  private void hideDock(String source) {
+    if (!dockMode) return;
+    dockMode = false;
+    if (dockRoot != null) dockRoot.setVisibility(View.GONE);
+    NativeVoiceCallLog.info("native_voice_dock_hidden", callId, "source=" + source);
+    if (currentState != null && currentState != NativeVoiceCallRuntime.State.CONNECTED) {
+      return;
+    }
+    if (currentState != null) applyState(currentState);
+  }
+
+  private void detachDockView() {
+    if (dockRoot == null) return;
+    if (dockRoot.getParent() instanceof FrameLayout) {
+      ((FrameLayout) dockRoot.getParent()).removeView(dockRoot);
+    }
+    dockRoot = null;
+    dockMode = false;
+  }
+
+  private void applyDockPresentation() {
+    if (!dockMode || !isDockEligible() || dockRoot == null) return;
+    NativeVoiceCallRuntime.Session session = NativeVoiceCallRuntime.getSession(callId);
+    String durationText =
+        connectedAtElapsedMs > 0L
+            ? NativeVoiceCallDockPresenter.formatDuration(connectedAtElapsedMs)
+            : durationView != null ? String.valueOf(durationView.getText()) : "00:00";
+    NativeVoiceCallDockPresenter.Model model =
+        NativeVoiceCallDockPresenter.build(this, session, durationText);
+    NativeVoiceCallDockPresenter.bind(
+        dockRoot,
+        model,
+        v -> {
+          NativeVoiceCallLog.info("native_voice_dock_resume", callId);
+          hideDock("resume_button");
+        },
+        v -> {
+          NativeVoiceCallLog.info("end_tapped", callId, "source=dock");
+          NativeVoiceCallRuntime.end(NativeVoiceCallActivity.this, callId);
+        });
+    if (activeActions != null) activeActions.setVisibility(View.GONE);
+    dockRoot.setVisibility(View.VISIBLE);
+    dockRoot.bringToFront();
+    dockRoot.setTranslationZ(32f);
+    if (connectedAtElapsedMs <= 0L) connectedAtElapsedMs = SystemClock.elapsedRealtime();
+    startDurationTimer();
+  }
+
   private void startDurationTimer() {
     mainHandler.removeCallbacks(durationTick);
     updateDurationLabel();
@@ -220,6 +348,14 @@ public class NativeVoiceCallActivity extends Activity {
     long elapsedSec = Math.max(0L, (SystemClock.elapsedRealtime() - connectedAtElapsedMs) / 1000L);
     long minutes = elapsedSec / 60L;
     long seconds = elapsedSec % 60L;
-    durationView.setText(String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds));
+    String label = String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds);
+    durationView.setText(label);
+    if (dockMode && dockRoot != null) {
+      NativeVoiceCallDockPresenter.updateDuration(dockRoot, label);
+    }
+  }
+
+  private int dp(int value) {
+    return (int) (value * getResources().getDisplayMetrics().density + 0.5f);
   }
 }

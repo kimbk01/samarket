@@ -169,7 +169,13 @@ public class NativeVideoCallActivity extends Activity {
   @Override
   public void onUserLeaveHint() {
     super.onUserLeaveHint();
-    tryEnterPip("user_leave");
+    minimizeConnectedCall("user_leave");
+  }
+
+  @Override
+  public void onBackPressed() {
+    if (minimizeConnectedCall("back")) return;
+    NativeVideoCallLog.info("native_video_back_blocked", callId, "state=" + currentState);
   }
 
   @Override
@@ -325,12 +331,24 @@ public class NativeVideoCallActivity extends Activity {
     if (model.showConnectedControls) {
       ensureDockMinimizeButton();
     }
-    if (state == NativeVideoCallRuntime.State.CONNECTED
-        && getIntent() != null
-        && getIntent().getBooleanExtra(EXTRA_SHOW_DOCK, false)) {
-      getIntent().removeExtra(EXTRA_SHOW_DOCK);
-      showDock("intent_extra");
+  }
+
+  private boolean minimizeConnectedCall(String source) {
+    if (!isDockEligible() && !isPipEligible()) {
+      NativeVideoCallLog.info("native_video_minimize_blocked", callId, "source=" + source + " state=" + currentState);
+      return false;
     }
+    if (tryEnterPip(source)) {
+      NativeVideoCallLog.info("native_video_minimize_pip", callId, "source=" + source);
+      return true;
+    }
+    showDock(source + "_pip_fallback");
+    boolean minimized = dockMode;
+    NativeVideoCallLog.info(
+        minimized ? "native_video_minimize_dock" : "native_video_minimize_failed",
+        callId,
+        "source=" + source);
+    return minimized;
   }
 
   private boolean tryEnterPip(String source) {
