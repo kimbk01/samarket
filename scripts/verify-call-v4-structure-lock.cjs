@@ -52,6 +52,25 @@ if (delivery.includes("ForegroundIncomingCallActivity") || delivery.includes("In
   pass("PushDelivery has no foreground pill");
 }
 
+const pushDeliveryDeadPaths = [
+  "CallV4Lane.isTelegramLaneEnabled",
+  "MainActivity.deliverCallIncomingEvent",
+  "IncomingCallBackgroundNotifier.presentLockIncoming",
+  "tryClaimIncomingOwner",
+  "incoming_call_foreground_web_ssot",
+  "IncomingCallRingOwner.start",
+];
+for (const dead of pushDeliveryDeadPaths) {
+  if (delivery.includes(dead)) {
+    fail(`PushDelivery must not contain legacy Web path token (P2-1): ${dead}`);
+  }
+}
+if (!delivery.includes("legacy_web_pending_route_detached")) {
+  fail("PushDelivery must log legacy_web_pending_route_detached (P2-1 fall-through)");
+} else {
+  pass("P2-1 PushDelivery legacy Web pending-route paths detached");
+}
+
 if (!telegram.includes("unknown_pending")) {
   fail("telegram incoming surface contract must document unknown_pending owner");
 } else {

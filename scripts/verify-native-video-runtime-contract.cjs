@@ -142,12 +142,20 @@ if (!fcm.includes("native_video_pending_route_skipped")) {
 const delivery = read("android/app/src/main/java/com/dibay/app/IncomingCallPushDelivery.java");
 if (!delivery.includes("NativeVideoCallRuntime.handleIncoming")) {
   fail("IncomingCallPushDelivery must route video to NativeVideoCallRuntime");
-} else if (
-  delivery.indexOf("NativeVideoCallLane.shouldHandleIncoming") > delivery.indexOf("CallV4Lane.isTelegramLaneEnabled")
-) {
-  fail("native video branch must run before V4 lane owner claim");
+} else if (delivery.includes("CallV4Lane.isTelegramLaneEnabled")) {
+  fail("IncomingCallPushDelivery must not run V4 lane owner claim (P2-1 detached)");
 } else {
   pass("incoming delivery prioritizes native video runtime");
+}
+
+if (delivery.includes("MainActivity.deliverCallIncomingEvent")) {
+  fail("IncomingCallPushDelivery must not deliver Web pending-route foreground SSOT (P2-1 detached)");
+} else if (delivery.includes("IncomingCallBackgroundNotifier.presentLockIncoming")) {
+  fail("IncomingCallPushDelivery must not invoke legacy lock presentation (P2-1 detached)");
+} else if (!delivery.includes("legacy_web_pending_route_detached")) {
+  fail("IncomingCallPushDelivery must log legacy_web_pending_route_detached for non-native fall-through");
+} else {
+  pass("PushDelivery legacy Web pending-route path detached (P2-1)");
 }
 
 const manifest = read("android/app/src/main/AndroidManifest.xml");

@@ -124,7 +124,10 @@ describe("call-v4 import isolation", () => {
     const main = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
     const coord = read("android/app/src/main/java/com/dibay/app/IncomingCallActionCoordinator.java");
     expect(fgs).toContain("if (CallV4Lane.isTelegramLaneEnabled(this)) return true;");
-    expect(push).toContain("tryClaimIncomingOwner(app, callId, initialOwner, \"fcm_push_delivery\")");
+    expect(push).toContain("legacy_web_pending_route_detached");
+    expect(push).not.toContain("tryClaimIncomingOwner(app, callId, initialOwner, \"fcm_push_delivery\")");
+    expect(push).not.toContain("MainActivity.deliverCallIncomingEvent");
+    expect(push).not.toContain("incoming_call_foreground_web_ssot");
     expect(owner).toContain("deliverCallSurfaceOwnerEvent");
     expect(main).toContain("dibay:call-surface-owner");
     expect(coord).toContain("ACCEPTED_TRANSITION");
@@ -331,5 +334,23 @@ describe("call-v4 import isolation", () => {
       /^\s*import\s+\{[^}]*CommunityMessengerActiveCallHost[^}]*\}\s+from\s+["']@\/components\/layout\/providers\/CommunityMessengerActiveCallHost["']/m,
     );
     expect(chrome).toContain('ssr: false');
+  });
+
+  it("P2-1 PushDelivery legacy Web pending-route paths are detached (DEAD)", () => {
+    const push = read("android/app/src/main/java/com/dibay/app/IncomingCallPushDelivery.java");
+    expect(push).toContain("NativeVoiceCallRuntime.handleIncoming");
+    expect(push).toContain("NativeVideoCallRuntime.handleIncoming");
+    expect(push).toContain("legacy_web_pending_route_detached");
+    const deadTokens = [
+      "CallV4Lane.isTelegramLaneEnabled",
+      "MainActivity.deliverCallIncomingEvent",
+      "IncomingCallBackgroundNotifier.presentLockIncoming",
+      "tryClaimIncomingOwner",
+      "incoming_call_foreground_web_ssot",
+      "IncomingCallRingOwner.start",
+    ];
+    for (const token of deadTokens) {
+      expect(push).not.toContain(token);
+    }
   });
 });

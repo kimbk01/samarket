@@ -32,16 +32,26 @@ const main = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
 const ringOwnerTs = read("lib/community-messenger/incoming-call/ring-owner.ts");
 const notifBuilder = read("android/app/src/main/java/com/dibay/app/IncomingCallNotificationBuilder.java");
 
-if (!delivery.includes("IncomingCallRingOwner.start")) {
-  fail("IncomingCallPushDelivery must start ring at push boundary");
+if (!delivery.includes("NativeVoiceCallRuntime.handleIncoming")) {
+  fail("PushDelivery must delegate voice to NativeVoiceCallRuntime");
+} else if (!delivery.includes("NativeVideoCallRuntime.handleIncoming")) {
+  fail("PushDelivery must delegate video to NativeVideoCallRuntime");
 } else {
-  pass("PushDelivery starts IncomingCallRingOwner");
+  pass("PushDelivery native voice/video SSOT");
 }
 
-if (!delivery.includes("source=push_delivery")) {
-  fail("PushDelivery must log source=push_delivery");
+if (delivery.includes("IncomingCallRingOwner.start")) {
+  fail("PushDelivery must not start ring on legacy Web path (P2-1 detached; native runtime owns ring)");
 } else {
-  pass("PushDelivery ring log source");
+  pass("PushDelivery no legacy Web ring start");
+}
+
+if (delivery.includes("incoming_call_foreground_web_ssot")) {
+  fail("PushDelivery must not log legacy Web foreground SSOT (P2-1 detached)");
+} else if (!delivery.includes("legacy_web_pending_route_detached")) {
+  fail("PushDelivery must log legacy_web_pending_route_detached");
+} else {
+  pass("PushDelivery legacy Web foreground SSOT detached (P2-1)");
 }
 
 if (!fcm.includes("IncomingCallPushDelivery.deliver")) {
@@ -102,16 +112,16 @@ if (notifBuilder.includes("setDefaults(Notification.DEFAULT_ALL)")) {
   pass("no DEFAULT_ALL on incoming notification");
 }
 
-if (!delivery.includes("incoming_call_foreground_web_ssot")) {
-  fail("PushDelivery foreground must log incoming_call_foreground_web_ssot");
-} else {
-  pass("PushDelivery foreground web SSOT log");
-}
-
 if (delivery.includes("IncomingCallForegroundUiLauncher.showUi")) {
   fail("PushDelivery foreground must not launch native pill (Web banner SSOT)");
 } else {
   pass("PushDelivery no foreground native pill");
+}
+
+if (delivery.includes("MainActivity.deliverCallIncomingEvent")) {
+  fail("PushDelivery must not call MainActivity.deliverCallIncomingEvent (P2-1 detached)");
+} else {
+  pass("PushDelivery no Web pending-route foreground delivery");
 }
 
 if (!notifier.includes("presentV4NonForegroundIncoming")) {
