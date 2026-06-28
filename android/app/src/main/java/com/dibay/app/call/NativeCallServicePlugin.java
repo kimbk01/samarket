@@ -50,8 +50,6 @@ public class NativeCallServicePlugin extends Plugin {
     DibayActiveCallSessionManager.bindActiveCall(
         sid, managerMedia, DibayActiveCallSessionManager.PHASE_CONNECTED);
 
-    ScreenAwakeController.sync("native_connected_bridge");
-
     JSObject payload = new JSObject();
     payload.put("callId", sid);
     payload.put("roomId", roomId != null ? roomId : "");

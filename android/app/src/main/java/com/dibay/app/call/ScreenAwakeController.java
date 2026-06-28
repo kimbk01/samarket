@@ -1,10 +1,13 @@
 package com.dibay.app.call;
 
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.view.View;
 import android.view.WindowManager;
 import com.dibay.app.MainActivity;
+import com.dibay.app.R;
 import com.dibay.app.nativevideo.NativeVideoCallActivity;
 import com.dibay.app.nativevideo.NativeVideoCallRuntime;
 import com.getcapacitor.Bridge;
@@ -25,6 +28,7 @@ public final class ScreenAwakeController {
     NATIVE_VIDEO
   }
 
+  private static final Handler MAIN = new Handler(Looper.getMainLooper());
   private static final Object LOCK = new Object();
   private static WeakReference<MainActivity> mainRef = new WeakReference<>(null);
   private static WeakReference<NativeVideoCallActivity> nativeRef = new WeakReference<>(null);
@@ -38,22 +42,28 @@ public final class ScreenAwakeController {
 
   public static void onMainResumed(MainActivity activity) {
     if (activity == null) return;
-    synchronized (LOCK) {
-      mainRef = new WeakReference<>(activity);
-      mainResumed = true;
-    }
-    sync("main_resume");
+    runOnMain(
+        () -> {
+          synchronized (LOCK) {
+            mainRef = new WeakReference<>(activity);
+            mainResumed = true;
+          }
+          syncOnMain("main_resume");
+        });
   }
 
   public static void onMainPaused(MainActivity activity) {
     if (activity == null) return;
-    synchronized (LOCK) {
-      MainActivity current = mainRef.get();
-      if (current == activity) {
-        mainResumed = false;
-      }
-    }
-    sync("main_pause");
+    runOnMain(
+        () -> {
+          synchronized (LOCK) {
+            MainActivity current = mainRef.get();
+            if (current == activity) {
+              mainResumed = false;
+            }
+          }
+          syncOnMain("main_pause");
+        });
   }
 
   public static void onMainPipChanged(MainActivity activity, boolean inPip) {
@@ -63,22 +73,28 @@ public final class ScreenAwakeController {
 
   public static void onNativeVideoResumed(NativeVideoCallActivity activity) {
     if (activity == null) return;
-    synchronized (LOCK) {
-      nativeRef = new WeakReference<>(activity);
-      nativeResumed = true;
-    }
-    sync("native_video_resume");
+    runOnMain(
+        () -> {
+          synchronized (LOCK) {
+            nativeRef = new WeakReference<>(activity);
+            nativeResumed = true;
+          }
+          syncOnMain("native_video_resume");
+        });
   }
 
   public static void onNativeVideoPaused(NativeVideoCallActivity activity) {
     if (activity == null) return;
-    synchronized (LOCK) {
-      NativeVideoCallActivity current = nativeRef.get();
-      if (current == activity) {
-        nativeResumed = false;
-      }
-    }
-    sync("native_video_pause");
+    runOnMain(
+        () -> {
+          synchronized (LOCK) {
+            NativeVideoCallActivity current = nativeRef.get();
+            if (current == activity) {
+              nativeResumed = false;
+            }
+          }
+          syncOnMain("native_video_pause");
+        });
   }
 
   public static void onNativeVideoPipChanged(NativeVideoCallActivity activity, boolean inPip) {
@@ -88,26 +104,41 @@ public final class ScreenAwakeController {
 
   public static void onNativeVideoDestroyed(NativeVideoCallActivity activity) {
     if (activity == null) return;
-    synchronized (LOCK) {
-      NativeVideoCallActivity current = nativeRef.get();
-      if (current == activity) {
-        nativeRef = new WeakReference<>(null);
-        nativeResumed = false;
-      }
-    }
-    sync("native_video_destroy");
+    runOnMain(
+        () -> {
+          synchronized (LOCK) {
+            NativeVideoCallActivity current = nativeRef.get();
+            if (current == activity) {
+              nativeRef = new WeakReference<>(null);
+              nativeResumed = false;
+            }
+          }
+          syncOnMain("native_video_destroy");
+        });
   }
 
   public static void sync(String source) {
+    runOnMain(() -> syncOnMain(source));
+  }
+
+  public static void releaseAll(String callId, String source) {
+    runOnMain(() -> releaseAllOnMain(callId, source));
+  }
+
+  private static void syncOnMain(String source) {
     synchronized (LOCK) {
       String callId = resolveActiveVideoCallId();
       if (callId.isEmpty() || !shouldHoldForCall(callId)) {
-        releaseLease(source + ":no_active_video");
+        releaseLeaseInternal(source + ":no_active_video");
         return;
       }
       Owner nextOwner = resolveVisibleOwner(callId);
       if (nextOwner == Owner.NONE) {
-        releaseLease(source + ":no_visible_owner");
+        if (shouldHoldForCall(callId) && leasedOwner != Owner.NONE && callId.equals(leasedCallId)) {
+          reapplyLease(callId, leasedOwner, source + ":hold_transient");
+          return;
+        }
+        releaseLeaseInternal(source + ":no_visible_owner");
         return;
       }
       if (callId.equals(leasedCallId) && nextOwner == leasedOwner) {
@@ -142,16 +173,10 @@ public final class ScreenAwakeController {
     }
   }
 
-  public static void releaseAll(String callId, String source) {
+  private static void releaseAllOnMain(String callId, String source) {
     synchronized (LOCK) {
       if (leasedOwner == Owner.NONE) return;
       if (callId != null && !callId.trim().isEmpty() && !callId.trim().equals(leasedCallId)) return;
-      releaseLeaseInternal(source);
-    }
-  }
-
-  private static void releaseLease(String source) {
-    synchronized (LOCK) {
       releaseLeaseInternal(source);
     }
   }
@@ -225,6 +250,10 @@ public final class ScreenAwakeController {
         && isHoldPhase(managerId)) {
       return managerId;
     }
+    String runtimeCallId = NativeVideoCallRuntime.peekHoldPhaseCallId();
+    if (!runtimeCallId.isEmpty()) {
+      return runtimeCallId;
+    }
     NativeVideoCallActivity nativeActivity = nativeRef.get();
     if (nativeActivity != null) {
       String nativeCallId = nativeActivity.getBoundCallId();
@@ -278,7 +307,17 @@ public final class ScreenAwakeController {
             && (nativeResumed
                 || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
                     && nativeActivity.isInPictureInPictureMode()));
-    boolean mainLive = mainActivity != null && mainResumed;
+    boolean mainLive = false;
+    if (mainActivity != null) {
+      if (mainResumed) {
+        mainLive = true;
+      } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
+          && mainActivity.isInPictureInPictureMode()) {
+        mainLive = true;
+      } else if (MainActivity.isAppVisibleForIncomingCall()) {
+        mainLive = true;
+      }
+    }
 
     if (nativeLive) {
       return Owner.NATIVE_VIDEO;
@@ -313,12 +352,32 @@ public final class ScreenAwakeController {
 
   private static void applyNative(NativeVideoCallActivity activity) {
     if (activity == null) return;
-    activity.applyScreenAwakeHold();
+    activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+    View decor = activity.getWindow().getDecorView();
+    if (decor != null) decor.setKeepScreenOn(true);
+    View root = activity.findViewById(R.id.native_video_call_root);
+    if (root != null) root.setKeepScreenOn(true);
+    View videoRoot = activity.findViewById(R.id.native_video_call_video_root);
+    if (videoRoot != null) videoRoot.setKeepScreenOn(true);
   }
 
   private static void releaseNative(NativeVideoCallActivity activity) {
     if (activity == null) return;
-    activity.releaseScreenAwakeHold();
+    activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+    View decor = activity.getWindow().getDecorView();
+    if (decor != null) decor.setKeepScreenOn(false);
+    View root = activity.findViewById(R.id.native_video_call_root);
+    if (root != null) root.setKeepScreenOn(false);
+    View videoRoot = activity.findViewById(R.id.native_video_call_video_root);
+    if (videoRoot != null) videoRoot.setKeepScreenOn(false);
+  }
+
+  private static void runOnMain(Runnable runnable) {
+    if (Looper.myLooper() == Looper.getMainLooper()) {
+      runnable.run();
+    } else {
+      MAIN.post(runnable);
+    }
   }
 
   private static String ownerLabel(Owner owner) {

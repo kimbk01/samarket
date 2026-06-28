@@ -35,6 +35,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func applicationDidBecomeActive(_ application: UIApplication) {
         DibayActiveCallSessionManager.shared.onAppForeground()
+        ScreenAwakeController.shared.sync(source: "app_did_become_active")
         CallV4SurfaceOwnerBridge.flushPending()
     }
 

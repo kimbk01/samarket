@@ -115,6 +115,20 @@ public final class NativeVideoCallRuntime {
     return SESSIONS.get(callId.trim());
   }
 
+  /** ScreenAwake SSOT — first live video session in ringing..connected hold window. */
+  public static String peekHoldPhaseCallId() {
+    for (Session session : SESSIONS.values()) {
+      if (session == null || session.callId == null || session.callId.isEmpty()) continue;
+      if (session.state == State.RINGING
+          || session.state == State.ACCEPTING
+          || session.state == State.CONNECTING
+          || session.state == State.CONNECTED) {
+        return session.callId;
+      }
+    }
+    return "";
+  }
+
   /** Guard-only: another callId with live session state. */
   public static String findOtherLiveSessionCallId(String incomingCallId) {
     if (incomingCallId == null || incomingCallId.trim().isEmpty()) return null;
@@ -396,10 +410,13 @@ public final class NativeVideoCallRuntime {
     }
     ensureVideoUiVisible(context, session, state);
     NativeVideoCallActivity.renderState(session.callId, state);
-    ScreenAwakeController.sync("video_runtime_state:" + state.name().toLowerCase());
+    final String sid = session.callId;
+    final String source = "video_runtime_state:" + state.name().toLowerCase();
     if (state == State.ENDING || state == State.ENDED || state == State.FAILED) {
-      ScreenAwakeController.releaseAll(session.callId, "video_runtime_state:" + state.name().toLowerCase());
+      MAIN.post(() -> ScreenAwakeController.releaseAll(sid, source));
+      return;
     }
+    MAIN.post(() -> ScreenAwakeController.sync(source));
   }
 
   private static void ensureVideoUiVisible(Context context, Session session, State state) {
