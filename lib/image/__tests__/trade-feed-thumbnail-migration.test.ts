@@ -14,18 +14,6 @@ const STORE_RAW =
   "https://abc.supabase.co/storage/v1/object/public/store-product-images/s1/p1.webp";
 const EXTERNAL_RAW = "https://cdn.example.com/photo.jpg";
 
-function legacyTradeFeedThumbnailFetchUrl(raw: string | null | undefined): string | null {
-  const sanitized = sanitizeViewerMediaUrl(raw);
-  if (!sanitized) return null;
-  return buildFeedThumbnailFetchUrl(sanitized, TRADE_FEED_THUMB_DISPLAY_PX) ?? sanitized;
-}
-
-function adapterTradeFeedThumbnailFetchUrl(raw: string | null | undefined): string | null {
-  const sanitized = imageSanitizeViewerMediaUrl(raw);
-  if (!sanitized) return null;
-  return loadTradeFeedThumbnailFetchUrl(sanitized) ?? sanitized;
-}
-
 describe("trade feed thumbnail migration (PostCard SSOT)", () => {
   beforeEach(() => {
     vi.unstubAllEnvs();
@@ -46,29 +34,26 @@ describe("trade feed thumbnail migration (PostCard SSOT)", () => {
     expect(imageSanitizeViewerMediaUrl("  ")).toBe(sanitizeViewerMediaUrl("  "));
   });
 
-  it("post-images — legacy URL equals adapter URL (width=240)", () => {
-    const legacy = legacyTradeFeedThumbnailFetchUrl(POST_RAW);
-    const adapter = adapterTradeFeedThumbnailFetchUrl(POST_RAW);
-    expect(adapter).toBe(legacy);
-    expect(adapter).toContain("width=240");
-    expect(adapter).toContain("height=240");
+  it("post-images — Phase 2A tier 320 transform", () => {
+    const adapter = loadTradeFeedThumbnailFetchUrl(POST_RAW);
+    const feed = buildFeedThumbnailFetchUrl(POST_RAW, TRADE_FEED_THUMB_DISPLAY_PX);
+    expect(adapter).toBe(feed);
+    expect(adapter).toContain("width=320");
+    expect(adapter).toContain("height=320");
+    expect(adapter).toContain("/render/image/public/post-images/");
   });
 
-  it("store-product-images — legacy URL equals adapter URL", () => {
-    const legacy = legacyTradeFeedThumbnailFetchUrl(STORE_RAW);
-    const adapter = adapterTradeFeedThumbnailFetchUrl(STORE_RAW);
-    expect(adapter).toBe(legacy);
+  it("store-product-images — Phase 2A object/public", () => {
+    const adapter = loadTradeFeedThumbnailFetchUrl(STORE_RAW);
+    expect(adapter).toBe(STORE_RAW);
+    expect(adapter).not.toContain("/render/image/");
   });
 
-  it("external URL — pass-through byte-identical", () => {
-    const legacy = legacyTradeFeedThumbnailFetchUrl(EXTERNAL_RAW);
-    const adapter = adapterTradeFeedThumbnailFetchUrl(EXTERNAL_RAW);
-    expect(adapter).toBe(legacy);
-    expect(adapter).toBe(EXTERNAL_RAW);
+  it("external URL — pass-through", () => {
+    expect(loadTradeFeedThumbnailFetchUrl(EXTERNAL_RAW)).toBe(EXTERNAL_RAW);
   });
 
   it("empty input — null", () => {
-    expect(adapterTradeFeedThumbnailFetchUrl(null)).toBe(null);
-    expect(legacyTradeFeedThumbnailFetchUrl(null)).toBe(null);
+    expect(loadTradeFeedThumbnailFetchUrl(null)).toBe(null);
   });
 });

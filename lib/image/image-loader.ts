@@ -1,9 +1,7 @@
 /**
- * DIBAY Image V2 — unified fetch-URL loader (Phase 1 adapter).
+ * DIBAY Image V2 — unified fetch-URL loader (Phase 2A: tier snap + object/public list thumbs).
  *
- * Pipeline: ImageLoader → ImagePolicy (passthrough) → legacy transform → URL
- *
- * Phase 1 does not change routing logic — each entry point mirrors one legacy function.
+ * Pipeline: ImageLoader → ImagePolicy (tier) → media transform → URL
  */
 import { currentImagePolicyMode } from "@/lib/image/image-policy";
 import {
@@ -77,24 +75,23 @@ export type ImageLoaderInput =
   | ImageLoaderStoreTransformInput;
 
 /**
- * Trade feed list thumb (`PostCard`) — SSOT for width=240 transform path via feed kind.
- * @see buildFeedThumbnailFetchUrl with TRADE_FEED_THUMB_DISPLAY_PX (120 → fetch 240)
+ * Trade feed list thumb (`PostCard`) — SSOT via feed kind (Phase 2A tier 320).
+ * @see buildFeedThumbnailFetchUrl with TRADE_FEED_THUMB_DISPLAY_PX (120 → tier 320)
  */
 export function loadTradeFeedThumbnailFetchUrl(raw: string | null | undefined): string | null {
   return loadImageFetchUrl({ kind: "feed", raw, displayPx: TRADE_FEED_THUMB_DISPLAY_PX });
 }
 
 /**
- * Community feed list thumb (`ListThumb` on /philife) — SSOT for width=176 transform via feed kind.
- * @see buildFeedThumbnailFetchUrl with COMMUNITY_FEED_THUMB_DISPLAY_PX (88 → fetch 176)
+ * Community feed list thumb (`ListThumb` on /philife) — SSOT via feed kind (Phase 2A tier 320).
+ * @see buildFeedThumbnailFetchUrl with COMMUNITY_FEED_THUMB_DISPLAY_PX (88 → tier 320)
  */
 export function loadCommunityFeedThumbnailFetchUrl(raw: string | null | undefined): string | null {
   return loadImageFetchUrl({ kind: "feed", raw, displayPx: COMMUNITY_FEED_THUMB_DISPLAY_PX });
 }
 
 /**
- * Store product thumb (`StoreProductThumbnail`) — displayPx → `deliveryThumbFetchPx` transform.
- * Delivery Menu rows (e.g. size 88 → width 176) and other store-thumb surfaces share this SSOT.
+ * Store product thumb (`StoreProductThumbnail`) — Phase 2A object/public for list/card.
  */
 export function loadStoreProductThumbnailFetchUrl(
   raw: string | null | undefined,
@@ -115,10 +112,9 @@ export function loadStoreProductThumbnailFetchUrlFromPreset(
 }
 
 /**
- * Single entry for fetch URLs. Phase 1: policy is passthrough — output equals legacy.
+ * Single entry for fetch URLs. Phase 2A: tier snap + store list object/public.
  */
 export function loadImageFetchUrl(input: ImageLoaderInput): string | null {
-  // Phase 2 will branch on currentImagePolicyMode() === "tier" here.
   void currentImagePolicyMode();
 
   switch (input.kind) {

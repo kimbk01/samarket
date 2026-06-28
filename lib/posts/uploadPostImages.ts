@@ -27,7 +27,7 @@ export async function uploadPostImages(
       try {
         const { error } = await supabase.storage
           .from(BUCKET)
-          .upload(path, file, { cacheControl: "3600", upsert: false });
+          .upload(path, file, { cacheControl: "31536000", upsert: false });
         if (error) return null;
         const {
           data: { publicUrl },

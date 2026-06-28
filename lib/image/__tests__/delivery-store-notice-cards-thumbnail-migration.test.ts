@@ -1,9 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { buildPostImageTransformUrl } from "@/lib/media/post-image-transform";
-import {
-  buildStoreProductImageTransformUrl,
-  deliveryThumbFetchPx,
-} from "@/lib/media/store-product-image-transform";
 import {
   STORE_NOTICE_CARD_DISPLAY_HEIGHT_PX,
   STORE_NOTICE_CARD_DISPLAY_WIDTH_PX,
@@ -28,36 +23,24 @@ describe("delivery store notice card thumbnail migration (StoreOwnerNoticeCards 
     vi.unstubAllEnvs();
   });
 
-  it("fetch px — display 112×80 → width=224 height=160", () => {
-    expect(storeNoticeCardFetchWidthPx()).toBe(
-      deliveryThumbFetchPx(STORE_NOTICE_CARD_DISPLAY_WIDTH_PX)
-    );
-    expect(storeNoticeCardFetchHeightPx()).toBe(
-      deliveryThumbFetchPx(STORE_NOTICE_CARD_DISPLAY_HEIGHT_PX)
-    );
-    expect(storeNoticeCardFetchWidthPx()).toBe(224);
-    expect(storeNoticeCardFetchHeightPx()).toBe(160);
+  it("fetch px — Phase 2A tier snap (112×80 display → 320)", () => {
+    expect(storeNoticeCardFetchWidthPx()).toBe(320);
+    expect(storeNoticeCardFetchHeightPx()).toBe(320);
   });
 
-  it("store-product notice — byte-identical to legacy transform", () => {
-    const opts = { width: 224, height: 160 };
-    const legacy = buildStoreProductImageTransformUrl(STORE_RAW, opts);
+  it("store-product notice — object/public", () => {
     const adapter = loadStoreNoticeCardImageFetchUrl(STORE_RAW);
-    expect(adapter).toBe(legacy);
-    expect(adapter).toContain("width=224");
-    expect(adapter).toContain("height=160");
-    expect(adapter).toContain("/render/image/public/store-product-images/");
+    expect(adapter).toBe(STORE_RAW);
+    expect(adapter).not.toContain("/render/image/");
   });
 
-  it("post-images notice — byte-identical to legacy transform", () => {
-    const opts = { width: 224, height: 160 };
-    const legacy = buildPostImageTransformUrl(POST_RAW, opts);
+  it("post-images notice — tier 320 transform", () => {
     const adapter = loadStoreNoticeCardImageFetchUrl(POST_RAW);
-    expect(adapter).toBe(legacy);
+    expect(adapter).toContain("width=320");
     expect(adapter).toContain("/render/image/public/post-images/");
   });
 
-  it("external URL — pass-through byte-identical", () => {
+  it("external URL — pass-through", () => {
     expect(loadStoreNoticeCardImageFetchUrl(EXTERNAL_RAW)).toBe(EXTERNAL_RAW);
   });
 

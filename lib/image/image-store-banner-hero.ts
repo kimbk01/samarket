@@ -8,9 +8,8 @@
  * | iPhone 13      | 390×664  | 3   | 390      | 288      | ~2633            | ~1944|
  * | desktop_1280   | col~430  | 2   | ≤430     | 288      | ≤1935            | ≤1296|
  *
- * Fixed preset (no runtime calc): width 960 × height 720 × q80 — same fetch box as
- * `buildStoreProductHeroFetchUrl` / `#store-hero-media` LCP hero; covers 2× DPR at
- * max clamp height without changing `DeliveryMediaImage` detail-hero policy.
+ * Fixed preset (no runtime calc): width 1280 × height 720 × q80 — Phase 2A product tier;
+ * same fetch box as `buildStoreProductHeroFetchUrl` / `#store-hero-media` LCP hero.
  */
 import {
   DELIVERY_DETAIL_HERO_FETCH_HEIGHT_PX,
@@ -18,7 +17,7 @@ import {
 } from "@/lib/image/image-size";
 import { imageBuildStoreProductTransformUrl } from "@/lib/image/image-transform";
 
-export const STORE_BANNER_HERO_FETCH_WIDTH_PX = 960;
+export const STORE_BANNER_HERO_FETCH_WIDTH_PX = 1280;
 
 export const STORE_BANNER_HERO_MEASUREMENT = {
   displayWidthPx: 430,

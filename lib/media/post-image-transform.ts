@@ -1,3 +1,8 @@
+import {
+  normalizeTierTransformDimensions,
+  snapDisplayPxToProductTier,
+} from "@/lib/image/image-tier";
+
 const POST_IMAGES_BUCKET = "post-images";
 const OBJECT_PUBLIC = `/storage/v1/object/public/${POST_IMAGES_BUCKET}/`;
 const RENDER_PUBLIC = `/storage/v1/render/image/public/${POST_IMAGES_BUCKET}/`;
@@ -8,14 +13,46 @@ function isTransformablePostImageUrl(url: string): boolean {
   return url.includes(OBJECT_PUBLIC) || url.includes(`/object/public/${POST_IMAGES_BUCKET}/`);
 }
 
-/** CSS display px × 2 (retina), clamped for feed list thumbs. */
+/** Phase 2A — tier snap (320 / 640 / 1280). */
 export function postImageThumbFetchPx(displayPx: number): number {
-  const d = Math.max(1, Math.round(displayPx));
-  return Math.min(384, Math.max(96, d * 2));
+  return snapDisplayPxToProductTier(displayPx);
+}
+
+/** Stable object/public URL when available (Phase 2B will add dedicated thumb paths). */
+export function resolvePostImageObjectPublicUrl(raw: string | null | undefined): string | null {
+  const resolved = typeof raw === "string" ? raw.trim() : "";
+  if (!resolved || !/^https?:\/\//i.test(resolved)) return resolved || null;
+  if (!resolved.includes(POST_IMAGES_BUCKET)) return null;
+
+  let normalized = resolved;
+  if (normalized.includes(RENDER_PUBLIC)) {
+    normalized = normalized.replace(RENDER_PUBLIC, OBJECT_PUBLIC);
+  } else if (normalized.includes("/storage/v1/render/image/")) {
+    normalized = normalized.replace(
+      new RegExp(`/render/image/public/${POST_IMAGES_BUCKET}/`, "i"),
+      `/object/public/${POST_IMAGES_BUCKET}/`
+    );
+  }
+
+  if (
+    !normalized.includes(OBJECT_PUBLIC) &&
+    !normalized.includes(`/object/public/${POST_IMAGES_BUCKET}/`)
+  ) {
+    return null;
+  }
+
+  try {
+    const u = new URL(normalized);
+    u.search = "";
+    return u.toString();
+  } catch {
+    return normalized.split("?")[0] ?? normalized;
+  }
 }
 
 /**
  * Supabase Storage Image Transform — post-images (Philife·Trade feed).
+ * Phase 2A: tier-snapped dimensions only (320 / 640 / 1280).
  * External URLs pass through unchanged.
  */
 export function buildPostImageTransformUrl(
@@ -26,9 +63,7 @@ export function buildPostImageTransformUrl(
   if (!resolved || !/^https?:\/\//i.test(resolved)) return resolved || null;
   if (!isTransformablePostImageUrl(resolved)) return resolved;
 
-  const w = Math.max(32, Math.round(opts.width));
-  const h = Math.max(32, Math.round(opts.height ?? w));
-  const quality = Math.min(100, Math.max(40, Math.round(opts.quality ?? 78)));
+  const { width: w, height: h, quality } = normalizeTierTransformDimensions(opts);
 
   const renderBase = resolved.includes(OBJECT_PUBLIC)
     ? resolved.replace(OBJECT_PUBLIC, RENDER_PUBLIC)
@@ -45,10 +80,14 @@ export function buildPostImageTransformUrl(
   return url.toString();
 }
 
+/**
+ * Feed/card thumb — Phase 2A: tier transform (upload thumbs deferred to Phase 2B).
+ * object/public is source; output is tier-snapped render URL.
+ */
 export function buildPostImageThumbnailFetchUrl(
   raw: string | null | undefined,
   displayPx: number
 ): string | null {
-  const fetchPx = postImageThumbFetchPx(displayPx);
-  return buildPostImageTransformUrl(raw, { width: fetchPx, height: fetchPx });
+  const tier = snapDisplayPxToProductTier(displayPx);
+  return buildPostImageTransformUrl(raw, { width: tier, height: tier });
 }

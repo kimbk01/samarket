@@ -1,6 +1,5 @@
 /**
- * DIBAY Image V2 — transform URL builders (Phase 1 adapter).
- * Thin wrappers around legacy `lib/media/*` — output must stay identical.
+ * DIBAY Image V2 — transform URL builders (Phase 2A adapter).
  */
 import { buildFeedThumbnailFetchUrl } from "@/lib/media/feed-thumbnail-transform";
 import {

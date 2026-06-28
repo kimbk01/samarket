@@ -26,30 +26,24 @@ describe("delivery store reviews section thumbnail migration (StoreReviewsSectio
     vi.unstubAllEnvs();
   });
 
-  it("menu filter — display 52 → width=104 byte-identical", () => {
-    const legacy = buildStoreProductThumbnailFetchUrl(STORE_RAW, STORE_REVIEWS_MENU_FILTER_DISPLAY_PX);
+  it("menu filter — Phase 2A object/public", () => {
     const adapter = loadStoreReviewsMenuFilterThumbFetchUrl(STORE_RAW);
-    expect(adapter).toBe(legacy);
-    expect(adapter).toContain("width=104");
-    expect(adapter).toContain("/render/image/public/store-product-images/");
+    expect(adapter).toBe(STORE_RAW);
+    expect(adapter).not.toContain("/render/image/");
   });
 
-  it("summary photo strip — display 68 → width=136 byte-identical", () => {
-    const legacy = buildPostImageThumbnailFetchUrl(POST_RAW, STORE_REVIEWS_SUMMARY_PHOTO_DISPLAY_PX);
+  it("summary photo strip — Phase 2A tier 320 transform", () => {
     const adapter = loadStoreReviewsSummaryReviewPhotoFetchUrl(POST_RAW);
-    expect(adapter).toBe(legacy);
-    expect(adapter).toContain("width=136");
+    expect(adapter).toContain("width=320");
     expect(adapter).toContain("/render/image/public/post-images/");
   });
 
-  it("per-review photo strip — display 80 → width=160 byte-identical", () => {
-    const legacy = buildPostImageThumbnailFetchUrl(POST_RAW, STORE_REVIEWS_PER_REVIEW_PHOTO_DISPLAY_PX);
+  it("per-review photo strip — tier 320", () => {
     const adapter = loadStoreReviewsPerReviewPhotoFetchUrl(POST_RAW);
-    expect(adapter).toBe(legacy);
-    expect(adapter).toContain("width=160");
+    expect(adapter).toContain("width=320");
   });
 
-  it("external URL — pass-through byte-identical", () => {
+  it("external URL — pass-through", () => {
     expect(loadStoreReviewsMenuFilterThumbFetchUrl(EXTERNAL_RAW)).toBe(EXTERNAL_RAW);
     expect(loadStoreReviewsSummaryReviewPhotoFetchUrl(EXTERNAL_RAW)).toBe(EXTERNAL_RAW);
     expect(loadStoreReviewsPerReviewPhotoFetchUrl(EXTERNAL_RAW)).toBe(EXTERNAL_RAW);

@@ -1,5 +1,5 @@
 /**
- * DIBAY Image V2 — public adapter surface (Phase 1).
+ * DIBAY Image V2 — public adapter surface (Phase 2A).
  *
  * Consumers may import from `@/lib/image` in Phase 2+.
  * Phase 1: existing components keep using `lib/media/*` directly; this layer is additive.
@@ -13,6 +13,16 @@ export {
 } from "@/lib/image/image-policy";
 
 export {
+  IMAGE_PRODUCT_TIERS,
+  IMAGE_AVATAR_TIERS,
+  IMAGE_MESSENGER_TIERS,
+  snapToProductTier,
+  snapDisplayPxToProductTier,
+  type ImageProductTier,
+  type ImageAvatarTier,
+} from "@/lib/image/image-tier";
+
+export {
   COMMUNITY_FEED_THUMB_DISPLAY_PX,
   DELIVERY_DETAIL_HERO_FETCH_HEIGHT_PX,
   DELIVERY_DETAIL_HERO_QUALITY,
@@ -24,6 +34,13 @@ export {
   imagePostThumbFetchPx,
   type DeliveryImageFetchPreset,
 } from "@/lib/image/image-size";
+
+export {
+  shouldStoreProductThumbUseObjectPublic,
+  isStoreProductHeroPreset,
+  IMAGE_POLICY_TIERS,
+  type ImagePolicyDomain,
+} from "@/lib/image/image-policy";
 
 export {
   imageBuildFeedThumbnailFetchUrl,

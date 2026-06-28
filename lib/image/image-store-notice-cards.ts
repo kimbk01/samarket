@@ -1,13 +1,11 @@
 /**
- * Store owner notice card images — `StoreOwnerNoticeCards` SSOT (Phase 1 adapter).
+ * Store owner notice card images — `StoreOwnerNoticeCards` SSOT (Phase 2A).
  *
  * CSS frame: `h-20 w-28` → display 80×112 px.
- * Fetch: each axis ×2 (retina), legacy clamp → 160×224 cover.
- *
- * Bucket: store-product-images (owner upload-image); post-images pass-through fallback.
+ * Phase 2A: store-product → object/public; post-images → 320 tier transform.
  */
 import { loadImageFetchUrl } from "@/lib/image/image-loader";
-import { deliveryThumbFetchPx } from "@/lib/media/store-product-image-transform";
+import { snapToProductTier } from "@/lib/image/image-tier";
 
 /** Tailwind `w-28` at 16px root. */
 export const STORE_NOTICE_CARD_DISPLAY_WIDTH_PX = 112;
@@ -16,24 +14,29 @@ export const STORE_NOTICE_CARD_DISPLAY_WIDTH_PX = 112;
 export const STORE_NOTICE_CARD_DISPLAY_HEIGHT_PX = 80;
 
 export function storeNoticeCardFetchWidthPx(): number {
-  return deliveryThumbFetchPx(STORE_NOTICE_CARD_DISPLAY_WIDTH_PX);
+  return snapToProductTier(STORE_NOTICE_CARD_DISPLAY_WIDTH_PX * 2);
 }
 
 export function storeNoticeCardFetchHeightPx(): number {
-  return deliveryThumbFetchPx(STORE_NOTICE_CARD_DISPLAY_HEIGHT_PX);
+  return snapToProductTier(STORE_NOTICE_CARD_DISPLAY_HEIGHT_PX * 2);
 }
 
 export function loadStoreNoticeCardImageFetchUrl(
   raw: string | null | undefined
 ): string | null {
   if (!raw?.trim()) return null;
-  const opts = {
-    width: storeNoticeCardFetchWidthPx(),
-    height: storeNoticeCardFetchHeightPx(),
-  };
   const trimmed = raw.trim();
-  if (trimmed.includes("post-images")) {
-    return loadImageFetchUrl({ kind: "post-transform", raw, opts }) ?? trimmed;
+  if (trimmed.includes("store-product-images")) {
+    return (
+      loadImageFetchUrl({
+        kind: "store-thumb",
+        raw,
+        displayPx: STORE_NOTICE_CARD_DISPLAY_WIDTH_PX,
+      }) ?? trimmed
+    );
   }
-  return loadImageFetchUrl({ kind: "store-transform", raw, opts }) ?? trimmed;
+  const tier = snapToProductTier(
+    Math.max(storeNoticeCardFetchWidthPx(), storeNoticeCardFetchHeightPx())
+  );
+  return loadImageFetchUrl({ kind: "post-transform", raw, opts: { width: tier, height: tier } }) ?? trimmed;
 }

@@ -4,6 +4,7 @@ import {
   buildStoreProductThumbnailFetchUrl,
   buildStoreProductHeroFetchUrl,
   deliveryThumbFetchPx,
+  resolveStoreProductObjectPublicUrl,
 } from "@/lib/media/store-product-image-transform";
 
 describe("store-product-image-transform", () => {
@@ -16,19 +17,19 @@ describe("store-product-image-transform", () => {
     vi.unstubAllEnvs();
   });
 
-  it("deliveryThumbFetchPx — retina clamp", () => {
-    expect(deliveryThumbFetchPx(56)).toBe(112);
-    expect(deliveryThumbFetchPx(116)).toBe(232);
-    expect(deliveryThumbFetchPx(300)).toBe(384);
+  it("deliveryThumbFetchPx — Phase 2A tier snap", () => {
+    expect(deliveryThumbFetchPx(56)).toBe(320);
+    expect(deliveryThumbFetchPx(116)).toBe(320);
+    expect(deliveryThumbFetchPx(300)).toBe(640);
   });
 
-  it("buildStoreProductImageTransformUrl — object/public → render/image", () => {
+  it("buildStoreProductImageTransformUrl — tier-snapped render/image", () => {
     const raw =
       "https://abc.supabase.co/storage/v1/object/public/store-product-images/s1/p1.webp";
     const out = buildStoreProductImageTransformUrl(raw, { width: 232, height: 232 });
     expect(out).toContain("/storage/v1/render/image/public/store-product-images/s1/p1.webp");
-    expect(out).toContain("width=232");
-    expect(out).toContain("height=232");
+    expect(out).toContain("width=320");
+    expect(out).toContain("height=320");
     expect(out).toContain("resize=cover");
   });
 
@@ -43,18 +44,27 @@ describe("store-product-image-transform", () => {
     expect(buildStoreProductImageTransformUrl(render, { width: 96 })).toBe(render);
   });
 
-  it("buildStoreProductThumbnailFetchUrl from display px", () => {
-    const out = buildStoreProductThumbnailFetchUrl("s1/p1.webp", 92);
-    expect(out).toContain("width=184");
+  it("buildStoreProductThumbnailFetchUrl — object/public for list", () => {
+    const raw =
+      "https://abc.supabase.co/storage/v1/object/public/store-product-images/s1/p1.webp";
+    const out = buildStoreProductThumbnailFetchUrl(raw, 92);
+    expect(out).toBe(raw);
+    expect(out).not.toContain("/render/image/");
   });
 
-  it("buildStoreProductHeroFetchUrl — LCP preset 960×720 q80", () => {
+  it("buildStoreProductHeroFetchUrl — LCP preset 1280×720 q80", () => {
     const raw =
       "https://abc.supabase.co/storage/v1/object/public/store-product-images/s1/hero.webp";
     const out = buildStoreProductHeroFetchUrl(raw);
     expect(out).toContain("/render/image/public/");
-    expect(out).toContain("width=960");
+    expect(out).toContain("width=1280");
     expect(out).toContain("height=720");
     expect(out).toContain("quality=80");
+  });
+
+  it("resolveStoreProductObjectPublicUrl — stable object path", () => {
+    const raw =
+      "https://abc.supabase.co/storage/v1/object/public/store-product-images/s1/p1.webp";
+    expect(resolveStoreProductObjectPublicUrl(raw)).toBe(raw);
   });
 });
