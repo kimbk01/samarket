@@ -21,6 +21,7 @@ import { setCallV4MicEnabled } from "@/lib/community-messenger/call-v4/call-v4-a
 import { canEnterCallV4PipOrDock } from "@/lib/community-messenger/call-v4/call-v4-connected-media-policy";
 import { callV4MinimizeConnectedCallToDock } from "@/lib/community-messenger/call-v4/presentation/call-v4-presentation-dock";
 import { buildCallV4ScreenHref, type CallV4Router } from "@/lib/community-messenger/call-v4/call-v4-route";
+import { registerCallV4ConnectedBackMinimize } from "@/lib/community-messenger/call-v4/call-v4-store";
 import type { CallV4Identity, CallV4Phase } from "@/lib/community-messenger/call-v4/call-v4-types";
 import { formatCommunityMessengerCallDurationLabel } from "@/lib/community-messenger/call-duration-label";
 
@@ -122,6 +123,17 @@ export function useCallV4RuntimeSurface({
       router,
     });
   }, [roomId, router, sid]);
+
+  useEffect(() => {
+    if (!sid || phase !== "connected" || !canEnterCallV4PipOrDock(phase)) {
+      registerCallV4ConnectedBackMinimize(null);
+      return;
+    }
+    registerCallV4ConnectedBackMinimize(handleMinimizeToDock);
+    return () => {
+      registerCallV4ConnectedBackMinimize(null);
+    };
+  }, [handleMinimizeToDock, phase, sid]);
 
   useEffect(() => {
     if (!sid || !identity || !canEnterCallV4PipOrDock(phase)) return;

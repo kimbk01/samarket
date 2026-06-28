@@ -109,4 +109,58 @@ describe("buildCallV4ScreenViewModel native accept inflight", () => {
     expect(vm?.primaryActions.some((action) => action.id === "reject")).toBe(false);
     expect(vm?.subStatusText).toBe("연결 중");
   });
+
+  it("hides outgoing video brand row and wires connected onBack for outgoing video", () => {
+    vi.mocked(isNativeAcceptInflight).mockReturnValue(false);
+
+    const vm = buildCallV4ScreenViewModel({
+      callId: "call-out-video",
+      phase: "connected",
+      identity: {
+        ...identity,
+        callId: "call-out-video",
+        direction: "outgoing",
+        mediaType: "video",
+      },
+      connectedAt: Date.now(),
+      safeT,
+      router,
+      mediaState: {
+        micEnabled: true,
+        speakerEnabled: true,
+        cameraEnabled: true,
+        localVideoMinimized: true,
+        localVideoReady: true,
+        remoteVideoReady: false,
+        incomingVideoUpgradeRequest: false,
+        pendingVideoUpgradeRequest: false,
+        connectionSignalTier: null,
+      },
+    });
+
+    expect(vm?.hideOutgoingVideoBrandRow).toBe(true);
+    expect(vm?.phase).toBe("connected");
+    expect(typeof vm?.onBack).toBe("function");
+    expect(vm?.mediaState.speakerEnabled).toBe(true);
+  });
+
+  it("defaults speaker off for outgoing voice", () => {
+    vi.mocked(isNativeAcceptInflight).mockReturnValue(false);
+
+    const vm = buildCallV4ScreenViewModel({
+      callId: "call-out-voice",
+      phase: "connected",
+      identity: {
+        ...identity,
+        callId: "call-out-voice",
+        direction: "outgoing",
+        mediaType: "audio",
+      },
+      connectedAt: Date.now(),
+      safeT,
+      router,
+    });
+
+    expect(vm?.mediaState.speakerEnabled).toBe(false);
+  });
 });

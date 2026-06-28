@@ -12,7 +12,11 @@ import {
   callV4ConnectionSignalTierMessageKey,
 } from "@/lib/community-messenger/call-v4/call-v4-network-quality";
 import type { CallV4ConnectionSignalTier } from "@/lib/community-messenger/call-v4/call-v4-types";
+import { canEnterCallV4PipOrDock } from "@/lib/community-messenger/call-v4/call-v4-connected-media-policy";
 import { isNativeAcceptInflight } from "@/lib/community-messenger/call-v4/call-v4-native-accept-flight";
+import {
+  invokeCallV4ConnectedBackMinimize,
+} from "@/lib/community-messenger/call-v4/call-v4-store";
 import type { CallV4Identity, CallV4Phase } from "@/lib/community-messenger/call-v4/call-v4-types";
 import type { CallV4VideoPresenterState } from "@/lib/community-messenger/call-v4/call-v4-video-presenter";
 
@@ -110,6 +114,7 @@ function buildCallV4ConnectionPresentation(
     const resolvedTier: CallV4ConnectionSignalTier = tier ?? "checking";
     const key = callV4ConnectionSignalTierMessageKey(resolvedTier);
     return {
+      /** Dock·상태 pill 용 — 풀스크린 상단 대형 패널에는 노출하지 않는다. */
       connectionLabel: safeT(key, CONNECTION_SIGNAL_FALLBACKS[resolvedTier]),
       connectionSignalTier: resolvedTier === "checking" ? null : resolvedTier,
     };
@@ -279,6 +284,8 @@ export function buildCallV4ScreenViewModel(input: BuildCallV4ScreenViewModelInpu
     safeT,
   );
 
+  const canMinimizeConnectedToDock = phase === "connected" && canEnterCallV4PipOrDock(phase);
+
   return {
     callTelemetryId: callId,
     visualTheme: "starbucks",
@@ -303,7 +310,8 @@ export function buildCallV4ScreenViewModel(input: BuildCallV4ScreenViewModelInpu
       cameraEnabled: ms.cameraEnabled,
       localVideoMinimized: ms.localVideoMinimized,
     },
-    onBack: null,
+    onBack: canMinimizeConnectedToDock ? () => invokeCallV4ConnectedBackMinimize() : null,
+    hideOutgoingVideoBrandRow: isOutgoing && isVideoCall ? true : undefined,
     primaryActions,
     secondaryActions,
     mainVideoSlot: presenter?.mainVideoSlot,

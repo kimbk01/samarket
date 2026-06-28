@@ -163,16 +163,25 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
   const outgoingVideoPipFirstHero = Boolean(vm.pipFirstOutgoingMainPlaceholder);
 
   /**
-   * 솔로 상단 상태줄 — PiP(`showLocalVideo`) 유무와 무관해야 함.
-   * PiP-first 발신 pre-remote 는 중앙 hero 로 대체한다.
+   * 솔로 상단 상태줄 — ringing/connecting pre-remote 만. connected 에서 발신 solo 금지.
    */
-  const outgoingSoloVideoLayout =
+  const preRemoteDialingLayout =
     !outgoingVideoPipFirstHero &&
     vm.mode === "video" &&
     !vm.showRemoteVideo &&
+    (vm.phase === "ringing" || vm.phase === "connecting") &&
     (vm.direction === "outgoing" ||
-      (vm.direction === "incoming" &&
-        (vm.phase === "ringing" || vm.phase === "connecting" || vm.phase === "connected")));
+      (vm.direction === "incoming" && (vm.phase === "ringing" || vm.phase === "connecting")));
+
+  /** connected · remote 아직 없음 — compact peer+timer 만 (발신 hero 재등장 금지). */
+  const compactConnectedOverlay =
+    vm.mode === "video" &&
+    vm.phase === "connected" &&
+    !vm.showRemoteVideo &&
+    !outgoingVideoPipFirstHero;
+
+  const showTopStatusDetail = vm.phase !== "connected";
+  const detailLine = showTopStatusDetail ? (vm.connectionLabel ?? vm.subStatusText ?? null) : null;
 
   /** 발신 영상은 `CallHeader` 없음 — 오버레이만 safe-area 에 맞춤 */
   const outgoingVideoCompactTop =
@@ -185,7 +194,8 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
   const showAvatarCenterCard =
     !(vm.mode === "video" && vm.direction === "outgoing" && !outgoingVideoPipFirstHero) &&
     !vm.showRemoteVideo &&
-    !outgoingSoloVideoLayout &&
+    !preRemoteDialingLayout &&
+    !compactConnectedOverlay &&
     !pipShellMounted &&
     !vm.showLocalVideo &&
     !outgoingVideoPipFirstHero;
@@ -196,8 +206,6 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
     vm.direction === "incoming" &&
     (vm.phase === "ringing" || vm.phase === "connecting") &&
     !vm.showRemoteVideo;
-
-  const detailLine = vm.connectionLabel ?? vm.subStatusText ?? null;
 
   const liftIncomingRingingActions =
     vm.mode === "video" &&
@@ -260,7 +268,7 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
           {vm.mainVideoSlot}
         </div>
 
-        {vm.showRemoteVideo ? (
+        {(vm.showRemoteVideo || compactConnectedOverlay) ? (
           <div className={`pointer-events-none absolute inset-x-0 top-0 z-[4] flex justify-center px-4 ${topOverlayPad}`}>
             <div
               className={`max-w-[92vw] text-center ${
@@ -287,11 +295,22 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
                 />
                 <span>{timer ?? vm.statusText}</span>
               </div>
+              {compactConnectedOverlay && vm.connectionLabel ? (
+                <p
+                  className={`mt-1.5 inline-flex max-w-full items-center rounded-full px-2.5 py-0.5 sam-text-helper font-medium ${
+                    isStarbucks
+                      ? "bg-[#003D29]/52 text-[#D4E9E2]/88 ring-1 ring-[#D4E9E2]/16"
+                      : "bg-black/35 text-white/72 ring-1 ring-white/12"
+                  }`}
+                >
+                  {vm.connectionLabel}
+                </p>
+              ) : null}
             </div>
           </div>
         ) : null}
 
-        {outgoingSoloVideoLayout ? (
+        {preRemoteDialingLayout ? (
           <div className={`pointer-events-none absolute inset-x-0 top-0 z-[4] flex justify-center px-4 ${topOverlayPad}`}>
             <div
               className={`max-w-[92vw] text-center ${
@@ -300,36 +319,23 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
                   : "drop-shadow-[0_2px_14px_rgba(0,0,0,0.55)]"
               }`}
             >
-              {incomingVideoRingHero || !vm.hideOutgoingVideoBrandRow ? (
-                <div className={`flex items-center justify-center gap-2 ${isStarbucks ? "text-[#F1F8F4]/95" : "text-white/95"}`}>
-                  <span className="min-w-0 truncate sam-text-body font-medium tracking-tight">
-                    {t("cm_ui_samarket_video_call_brand")}…
-                  </span>
-                </div>
-              ) : null}
               {incomingVideoRingHero ? null : (
                 <div
-                  className={`sam-text-page-title font-semibold tracking-tight ${isStarbucks ? "text-[#F1F8F4]" : "text-white"} ${
-                    vm.hideOutgoingVideoBrandRow ? "" : "mt-3"
-                  }`}
+                  className={`sam-text-page-title font-semibold tracking-tight ${isStarbucks ? "text-[#F1F8F4]" : "text-white"}`}
                 >
                   {vm.peerLabel}
                 </div>
               )}
               <div
                 className={`flex items-center justify-center gap-2 sam-text-body font-medium ${
-                  incomingVideoRingHero || !vm.hideOutgoingVideoBrandRow ? "mt-1" : ""
+                  incomingVideoRingHero ? "" : "mt-1"
                 } ${isStarbucks ? "text-[#D4E9E2]/95" : "text-white/90"}`}
               >
                 <span
                   className={
-                    vm.phase === "connected"
-                      ? isStarbucks
-                        ? "inline-flex h-2 w-2 rounded-full bg-[#D4E9E2] shadow-[0_0_0_4px_rgba(212,233,226,0.22)]"
-                        : "inline-flex h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_0_4px_rgba(16,185,129,0.22)]"
-                      : isStarbucks
-                        ? "inline-flex h-2 w-2 animate-pulse rounded-full bg-[#CBA258] shadow-[0_0_0_4px_rgba(203,162,88,0.22)]"
-                        : "inline-flex h-2 w-2 animate-pulse rounded-full bg-amber-300 shadow-[0_0_0_4px_rgba(251,191,36,0.22)]"
+                    isStarbucks
+                      ? "inline-flex h-2 w-2 animate-pulse rounded-full bg-[#CBA258] shadow-[0_0_0_4px_rgba(203,162,88,0.22)]"
+                      : "inline-flex h-2 w-2 animate-pulse rounded-full bg-amber-300 shadow-[0_0_0_4px_rgba(251,191,36,0.22)]"
                   }
                   aria-hidden
                 />
@@ -417,7 +423,7 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
                 />
                 <span>{timer ?? vm.statusText}</span>
               </div>
-              {detailLine ? (
+              {detailLine && vm.phase !== "connected" ? (
                 <p
                   className={`mt-2 sam-text-body-secondary leading-snug ${
                     isStarbucks

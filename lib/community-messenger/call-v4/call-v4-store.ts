@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import type { CallV4Identity, CallV4Phase } from "@/lib/community-messenger/call-v4/call-v4-types";
 
 type CallV4StoreState = {
@@ -17,12 +18,42 @@ const idleCapabilities = {
   canStartNewCall: true,
 } as const;
 
-export const useCallV4Store = create<CallV4StoreState>((set) => ({
+/** connected 이후 ringing/dialing phase 로 되돌리지 않는다. */
+const CONNECTED_PHASE_DOWNGRADE_BLOCKED = new Set<CallV4Phase>([
+  "creating",
+  "outgoing_ringing",
+  "incoming_ringing",
+  "accepting",
+  "joining",
+]);
+
+let connectedBackMinimizeHandler: (() => void) | null = null;
+
+export function registerCallV4ConnectedBackMinimize(handler: (() => void) | null): void {
+  connectedBackMinimizeHandler = handler;
+}
+
+export function invokeCallV4ConnectedBackMinimize(): void {
+  connectedBackMinimizeHandler?.();
+}
+
+export function resetCallV4ConnectedBackMinimizeForTests(): void {
+  connectedBackMinimizeHandler = null;
+}
+
+export const useCallV4Store = create<CallV4StoreState>((set, get) => ({
   phase: "idle",
   identity: null,
   connectedAt: null,
   ...idleCapabilities,
-  setPhase: (phase) => set({ phase }),
+  setPhase: (phase) => {
+    const current = get().phase;
+    if (current === "connected" && CONNECTED_PHASE_DOWNGRADE_BLOCKED.has(phase)) {
+      logCallV4("phase_downgrade_blocked", { fromPhase: current, toPhase: phase });
+      return;
+    }
+    set({ phase });
+  },
   setIdentity: (identity) => set({ identity }),
   resetToIdle: () =>
     set({

@@ -4898,7 +4898,7 @@ export function CommunityMessengerCallClient({
       endedDurationSeconds: null,
       mediaState: {
         micEnabled: true,
-        speakerEnabled: true,
+        speakerEnabled: hydrateKind === "video",
         cameraEnabled: hydrateKind === "video",
         localVideoMinimized: true,
       },
