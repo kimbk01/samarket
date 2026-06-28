@@ -8,6 +8,17 @@ import { logPushRegister, logPushRegisterFail } from "@/lib/push/native/native-p
 
 type RegisterResult = { ok: true } | { ok: false; error: string };
 
+type ApiPostInstrumentation = {
+  fetchResolved: boolean;
+  jsonParsed: boolean;
+};
+
+type PostDeviceRegistrationOpts = {
+  instrumentation?: ApiPostInstrumentation;
+  /** Orchestration Promise already settled (timeout/error) — late success is logged, not returned. */
+  isOrchestrationSettled?: () => boolean;
+};
+
 async function getAppVersion(): Promise<string | undefined> {
   if (!isCapacitorNativePlatform()) return undefined;
   try {
@@ -19,14 +30,20 @@ async function getAppVersion(): Promise<string | undefined> {
   }
 }
 
-async function postDeviceRegistration(body: Record<string, unknown>): Promise<RegisterResult> {
-  logPushRegister("api_post", {
+async function postDeviceRegistration(
+  body: Record<string, unknown>,
+  opts?: PostDeviceRegistrationOpts,
+): Promise<RegisterResult> {
+  const baseDetail = {
     platform: body.platform,
     push_provider: body.push_provider,
     device_id: body.device_id,
     user_id: body.user_id,
     push_token_len: typeof body.push_token === "string" ? body.push_token.length : 0,
-  });
+  };
+
+  logPushRegister("api_post_started", baseDetail);
+  logPushRegister("api_post", baseDetail);
 
   const res = await fetch("/api/me/devices/register", {
     method: "POST",
@@ -34,13 +51,36 @@ async function postDeviceRegistration(body: Record<string, unknown>): Promise<Re
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
+  if (opts?.instrumentation) opts.instrumentation.fetchResolved = true;
+  logPushRegister("api_fetch_resolved", {
+    ...baseDetail,
+    http_status: res.status,
+    ok: res.ok,
+  });
+
   const j = (await res.json().catch(() => ({}))) as {
     ok?: boolean;
     error?: string;
     device_row_id?: string | null;
   };
+  if (opts?.instrumentation) opts.instrumentation.jsonParsed = true;
+  logPushRegister("api_json_parsed", {
+    ...baseDetail,
+    http_status: res.status,
+    response_ok: j.ok ?? null,
+  });
+
+  const orchestrationSettled = opts?.isOrchestrationSettled?.() ?? false;
+
   if (!res.ok || !j.ok) {
     const error = typeof j.error === "string" ? j.error : "register_failed";
+    logPushRegister("api_post_done", {
+      ...baseDetail,
+      ok: false,
+      http_status: res.status,
+      error,
+      orchestration_settled: orchestrationSettled,
+    });
     logPushRegisterFail("api_post_failed", {
       http_status: res.status,
       error,
@@ -48,11 +88,26 @@ async function postDeviceRegistration(body: Record<string, unknown>): Promise<Re
     });
     return { ok: false, error };
   }
+
   logPushRegister("success", {
     http_status: res.status,
     device_row_id: j.device_row_id ?? null,
     user_id: body.user_id,
   });
+  logPushRegister("api_post_done", {
+    ...baseDetail,
+    ok: true,
+    http_status: res.status,
+    device_row_id: j.device_row_id ?? null,
+    orchestration_settled: orchestrationSettled,
+  });
+  if (orchestrationSettled) {
+    logPushRegister("api_post_late_after_timeout", {
+      ...baseDetail,
+      http_status: res.status,
+      device_row_id: j.device_row_id ?? null,
+    });
+  }
   return { ok: true };
 }
 
@@ -105,6 +160,12 @@ export async function registerNativePushFromClient(userId?: string): Promise<Reg
 
     return await new Promise<RegisterResult>((resolve) => {
       let settled = false;
+      let registrationListenerInvocations = 0;
+      const apiInstrumentation: ApiPostInstrumentation = {
+        fetchResolved: false,
+        jsonParsed: false,
+      };
+
       const finish = (result: RegisterResult) => {
         if (settled) return;
         settled = true;
@@ -123,25 +184,36 @@ export async function registerNativePushFromClient(userId?: string): Promise<Reg
       };
 
       const regHandle = PushNotifications.addListener("registration", (token) => {
+        registrationListenerInvocations += 1;
         const value = token.value?.trim();
         logPushRegister("registration_event", {
           platform,
           push_provider: pushProvider,
           token_len: value?.length ?? 0,
           user_id: resolvedUserId || null,
+          listener_invocation: registrationListenerInvocations,
         });
         if (!value) {
           finish({ ok: false, error: "empty_token" });
           return;
         }
-        void postDeviceRegistration({
-          user_id: resolvedUserId || undefined,
-          platform,
-          device_id: deviceId,
-          push_token: value,
-          push_provider: pushProvider,
-          app_version: appVersion,
-        }).then(finish);
+        void postDeviceRegistration(
+          {
+            user_id: resolvedUserId || undefined,
+            platform,
+            device_id: deviceId,
+            push_token: value,
+            push_provider: pushProvider,
+            app_version: appVersion,
+          },
+          {
+            instrumentation: apiInstrumentation,
+            isOrchestrationSettled: () => settled,
+          },
+        ).then((result) => {
+          if (settled) return;
+          finish(result);
+        });
       });
 
       const errHandle = PushNotifications.addListener("registrationError", (err) => {
@@ -149,6 +221,16 @@ export async function registerNativePushFromClient(userId?: string): Promise<Reg
       });
 
       const timer = window.setTimeout(() => {
+        if (!apiInstrumentation.fetchResolved) {
+          logPushRegister("registration_timeout_before_api_response", {
+            platform,
+            push_provider: pushProvider,
+            user_id: resolvedUserId || null,
+            device_id: deviceId,
+            json_parsed: apiInstrumentation.jsonParsed,
+            listener_invocations: registrationListenerInvocations,
+          });
+        }
         finish({ ok: false, error: "registration_timeout" });
       }, 15_000);
 
