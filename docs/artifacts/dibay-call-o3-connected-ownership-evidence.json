@@ -1,0 +1,162 @@
+{
+  "at": "2026-06-28T04:40:00.000Z",
+  "hardLock": true,
+  "o3HardLock": true,
+  "lockStatement": "O3 Connected Ownership HARD LOCK. Native connected emit + Web sync-only hydrate/ops/heartbeat/terminal-watch. Web establishment markers 0. 4/4 mandatory scenarios PASS.",
+  "vercelOrigin": "https://samarket.vercel.app",
+  "localQaOrigin": "http://192.168.100.83:3000",
+  "devices": {
+    "serialA": "8b37179f7d94",
+    "serialB": "RRGL4046NTW"
+  },
+  "roomId": "b19e2672-f26f-4a2e-8125-52575da4a62a",
+  "commitAtLock": "52d76d9b",
+  "qaHarness": ".qa-logs/o3-connected-device-qa.mjs",
+  "fullMatrixReport": ".qa-logs/o3-connected-device-qa/report.json",
+  "videoStandaloneReport": ".qa-logs/o3-connected-device-qa/report-video-outgoing-only.json",
+  "harnessNote": "Full matrix overallPass=false due to voice_product_cleanup_prereq before o2_video_outgoing (harness handoff, not O3 product). Red-team accepted 3 matrix PASS + video standalone PASS as 4/4.",
+  "requiredNativeChain": [
+    "state_connected",
+    "native_connected_emit",
+    "active_call_connected"
+  ],
+  "requiredWebChain": [
+    "native_connected_received",
+    "native_connected_store_hydrate",
+    "native_connected_ops_start",
+    "call_heartbeat_watchdog_start",
+    "remote_terminal_watch_start",
+    "native_connected_ops_done"
+  ],
+  "forbiddenMarkers": [
+    "route_to_screen",
+    "outgoing_ringing",
+    "screen_mounted",
+    "agora_join_success",
+    "markCallV4MediaConnected",
+    "CallForegroundService_start"
+  ],
+  "runs": [
+    {
+      "scenario": "o2_voice_outgoing",
+      "callId": "cead29d3-6589-40e4-bd9f-4b67e8f14e40",
+      "sourceReport": "full_matrix",
+      "logPath": ".qa-logs/o3-connected-device-qa/logcat-o2_voice_outgoing-cead29d3-6589-40e4-bd9f-4b67e8f14e40.txt",
+      "nativePass": {
+        "state_connected": 1,
+        "native_connected_emit": 1,
+        "active_call_connected": 1
+      },
+      "webPass": {
+        "native_connected_received": 1,
+        "native_connected_store_hydrate": 1,
+        "native_connected_ops_start": 1,
+        "call_heartbeat_watchdog_start": 1,
+        "remote_terminal_watch_start": 1,
+        "native_connected_ops_done": 1
+      },
+      "forbidden": {
+        "route_to_screen": 0,
+        "outgoing_ringing": 0,
+        "screen_mounted": 0,
+        "agora_join_success": 0,
+        "markCallV4MediaConnected": 0,
+        "CallForegroundService_start": 0
+      },
+      "qaPass": true
+    },
+    {
+      "scenario": "o2_video_outgoing",
+      "callId": "4cbaa669-92a4-468e-98d4-620355c77224",
+      "sourceReport": "video_standalone",
+      "mode": "O3_VIDEO_OUTGOING_ONLY=1",
+      "logPath": ".qa-logs/o3-connected-device-qa/logcat-o2_video_outgoing-4cbaa669-92a4-468e-98d4-620355c77224.txt",
+      "nativePass": {
+        "state_connected": 1,
+        "native_connected_emit": 1,
+        "active_call_connected": 1
+      },
+      "webPass": {
+        "native_connected_received": 1,
+        "native_connected_store_hydrate": 1,
+        "native_connected_ops_start": 1,
+        "call_heartbeat_watchdog_start": 1,
+        "remote_terminal_watch_start": 1,
+        "native_connected_ops_done": 1
+      },
+      "forbidden": {
+        "route_to_screen": 0,
+        "outgoing_ringing": 0,
+        "screen_mounted": 0,
+        "agora_join_success": 0,
+        "markCallV4MediaConnected": 0,
+        "CallForegroundService_start": 0
+      },
+      "qaPass": true
+    },
+    {
+      "scenario": "native_voice_incoming",
+      "callId": "52913eb8-7bc2-4228-9613-870b80fe00d2",
+      "sourceReport": "full_matrix",
+      "logPath": ".qa-logs/o3-connected-device-qa/logcat-native_voice_incoming-52913eb8-7bc2-4228-9613-870b80fe00d2.txt",
+      "nativePass": {
+        "state_connected": 1,
+        "native_connected_emit": 1,
+        "active_call_connected": 1
+      },
+      "webPass": {
+        "native_connected_received": 1,
+        "native_connected_store_hydrate": 1,
+        "native_connected_ops_start": 1,
+        "call_heartbeat_watchdog_start": 1,
+        "remote_terminal_watch_start": 1,
+        "native_connected_ops_done": 1
+      },
+      "forbidden": {
+        "route_to_screen": 0,
+        "outgoing_ringing": 0,
+        "screen_mounted": 0,
+        "agora_join_success": 0,
+        "markCallV4MediaConnected": 0,
+        "CallForegroundService_start": 0
+      },
+      "qaPass": true
+    },
+    {
+      "scenario": "native_video_incoming",
+      "callId": "98d6aa99-8996-4484-a5cb-a27fdbb70cac",
+      "sourceReport": "full_matrix",
+      "logPath": ".qa-logs/o3-connected-device-qa/logcat-native_video_incoming-98d6aa99-8996-4484-a5cb-a27fdbb70cac.txt",
+      "nativePass": {
+        "state_connected": 1,
+        "native_connected_emit": 1,
+        "active_call_connected": 1
+      },
+      "webPass": {
+        "native_connected_received": 1,
+        "native_connected_store_hydrate": 1,
+        "native_connected_ops_start": 1,
+        "call_heartbeat_watchdog_start": 1,
+        "remote_terminal_watch_start": 1,
+        "native_connected_ops_done": 1
+      },
+      "forbidden": {
+        "route_to_screen": 0,
+        "outgoing_ringing": 0,
+        "screen_mounted": 0,
+        "agora_join_success": 0,
+        "markCallV4MediaConnected": 0,
+        "CallForegroundService_start": 0
+      },
+      "qaPass": true
+    }
+  ],
+  "overallQaPass": true,
+  "scenarioCount": 4,
+  "forbiddenAfterLock": [
+    "O3 connected sync re-modification",
+    "Web media establishment restore on connected path",
+    "CallV4Screen / JS Agora on connected",
+    "Repeat full O3 matrix without red-team approval"
+  ]
+}
