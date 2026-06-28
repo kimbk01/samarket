@@ -433,5 +433,16 @@ if (engineOwnership.includes("DibayCallConsumedStore") || engineOwnership.includ
   pass("native engine ownership guard SSOT is present");
 }
 
+const mainActivity = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
+if (!mainActivity.includes("native_owned_pending_replay_suppressed")) {
+  fail("MainActivity must log native_owned_pending_replay_suppressed for native-owned Web replay (P2-4)");
+} else if (!mainActivity.includes("NativeVideoCallOwner.isNativeOwned")) {
+  fail("MainActivity must read NativeVideoCallOwner.isNativeOwned for P2-4 replay gate");
+} else if (!mainActivity.includes("suppressNativeOwnedCallRouteReplayStatic")) {
+  fail("MainActivity must suppress native-owned pending route persistence at static entry (P2-4)");
+} else {
+  pass("MainActivity native-owned pending Web replay suppression is present (P2-4)");
+}
+
 if (failed) process.exit(1);
 console.log("verify:native-video-runtime-contract PASS");

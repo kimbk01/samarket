@@ -388,4 +388,18 @@ describe("call-v4 import isolation", () => {
     const resume = read("lib/community-messenger/call-v4/call-v4-foreground-resume.ts");
     expect(resume).toContain("native_owned_ui_forbidden");
   });
+
+  it("P2-4 MainActivity suppresses native-owned Web pending route replay (DEAD paths gated)", () => {
+    const main = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
+    expect(main).toContain("native_owned_pending_replay_suppressed");
+    expect(main).toContain("shouldSuppressNativeOwnedCallRouteReplay");
+    expect(main).toContain("NativeVoiceCallOwner.isNativeOwned");
+    expect(main).toContain("NativeVideoCallOwner.isNativeOwned");
+    expect(main).toContain("suppressNativeOwnedCallRouteReplayIfNeeded");
+    expect(main).toContain("persist_call_pending_route");
+    expect(main).toContain("flush_pending_app_path");
+    expect(main).toContain("inject_webview_route_js");
+    expect(main).not.toMatch(/NativeVoiceCallOwner\.claimNative/);
+    expect(main).not.toMatch(/NativeVideoCallOwner\.claimNative/);
+  });
 });

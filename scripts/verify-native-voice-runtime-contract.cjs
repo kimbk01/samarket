@@ -382,5 +382,23 @@ if (!voiceRuntime.includes("prepareJoinGuard")) {
   pass("native voice join runs engine ownership guard before RtcEngine.create");
 }
 
+const mainActivity = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
+if (!mainActivity.includes("native_owned_pending_replay_suppressed")) {
+  fail("MainActivity must log native_owned_pending_replay_suppressed for native-owned Web replay (P2-4)");
+} else if (!mainActivity.includes("NativeVoiceCallOwner.isNativeOwned")) {
+  fail("MainActivity must read NativeVoiceCallOwner.isNativeOwned for P2-4 replay gate");
+} else if (!mainActivity.includes("NativeVideoCallOwner.isNativeOwned")) {
+  fail("MainActivity must read NativeVideoCallOwner.isNativeOwned for P2-4 replay gate");
+} else if (!mainActivity.includes("shouldSuppressNativeOwnedCallRouteReplay")) {
+  fail("MainActivity must centralize native-owned pending replay suppression (P2-4)");
+} else if (
+  mainActivity.indexOf("suppressNativeOwnedCallRouteReplayIfNeeded") >
+  mainActivity.indexOf("pending_route_consumed")
+) {
+  fail("MainActivity must gate injectWebViewRouteViaJs before pending_route_consumed (P2-4)");
+} else {
+  pass("MainActivity native-owned pending Web replay suppression is present (P2-4)");
+}
+
 if (failed) process.exit(1);
 console.log("verify:native-voice-runtime-contract PASS");

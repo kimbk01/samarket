@@ -28,6 +28,8 @@ import com.dibay.app.call.CallScreenStateReceiver;
 import com.dibay.app.call.DibayActiveCallSessionManager;
 import com.dibay.app.callv4.CallV4IntentHelper;
 import com.dibay.app.callv4.CallV4Lane;
+import com.dibay.app.nativevideo.NativeVideoCallOwner;
+import com.dibay.app.nativevoice.NativeVoiceCallOwner;
 import com.capacitorjs.plugins.browser.BrowserPlugin;
 import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeActivity;
@@ -273,6 +275,10 @@ public class MainActivity extends BridgeActivity {
       Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] v3_wake_route_suppressed path=" + appPath.trim());
       return;
     }
+    if (shouldSuppressNativeOwnedCallRouteReplay(appPath)) {
+      suppressNativeOwnedCallRouteReplayStatic(context, appPath.trim(), "inject_call_wake_route");
+      return;
+    }
     MainActivity act = activeInstance;
     if (act == null) return;
     final String path = appPath.trim();
@@ -302,6 +308,10 @@ public class MainActivity extends BridgeActivity {
     Log.i(
         CallV4Lane.TAG,
         "[DIBAY_CALL_V4] main_activity_v4_accept_delivery_start callId=" + sid + " path=" + path);
+    if (isNativeOwnedCallId(sid)) {
+      suppressNativeOwnedCallRouteReplayByCallIdStatic(context, sid, path, "lock_v4_accept_hydration");
+      return;
+    }
     MainActivity act = activeInstance;
     if (act != null) {
       Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] lock_accept_hydration_warm callId=" + sid);
@@ -331,6 +341,9 @@ public class MainActivity extends BridgeActivity {
   private void beginLockV4AcceptBackgroundHydration(String callId, String acceptPath) {
     if (callId == null || callId.trim().isEmpty()) return;
     String sid = callId.trim();
+    if (suppressNativeOwnedCallRouteReplayByCallIdIfNeeded(sid, acceptPath, "lock_accept_background_hydration")) {
+      return;
+    }
     v4LockBackgroundHydration = true;
     routeInjectedForCurrentPending = false;
     pendingAppPath = acceptPath;
@@ -669,6 +682,10 @@ public class MainActivity extends BridgeActivity {
     }
     String path = prefs.getString(PENDING_PATH_KEY, null);
     if (path == null || path.trim().isEmpty()) return out;
+    if (shouldSuppressNativeOwnedCallRouteReplay(path.trim())) {
+      suppressNativeOwnedCallRouteReplayStatic(context, path.trim(), "read_persisted_call_pending_route");
+      return out;
+    }
     out.putString(PENDING_PATH_KEY, path.trim());
     out.putLong(PENDING_AT_KEY, at);
     copyStringPref(out, prefs, PENDING_CALL_ID_KEY);
@@ -689,6 +706,10 @@ public class MainActivity extends BridgeActivity {
     if (context == null || appPath == null || appPath.trim().isEmpty()) return;
     if (CallV4Lane.shouldSuppressV3CallReplay(context, appPath)) {
       Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] v3_pending_route_suppressed path=" + appPath.trim());
+      return;
+    }
+    if (shouldSuppressNativeOwnedCallRouteReplay(appPath)) {
+      suppressNativeOwnedCallRouteReplayStatic(context, appPath.trim(), "persist_call_pending_route");
       return;
     }
     SharedPreferences.Editor editor =
@@ -718,6 +739,99 @@ public class MainActivity extends BridgeActivity {
     if (value != null && !value.trim().isEmpty()) out.putString(key, value.trim());
   }
 
+  private static boolean isCallRouteAppPath(String appPath) {
+    if (appPath == null || appPath.trim().isEmpty()) return false;
+    return appPath.trim().startsWith("/community-messenger/calls/");
+  }
+
+  private static boolean isNativeOwnedCallId(String callId) {
+    if (callId == null || callId.trim().isEmpty()) return false;
+    String sid = callId.trim();
+    return NativeVoiceCallOwner.isNativeOwned(sid) || NativeVideoCallOwner.isNativeOwned(sid);
+  }
+
+  private static boolean shouldSuppressNativeOwnedCallRouteReplay(String appPath) {
+    if (!isCallRouteAppPath(appPath)) return false;
+    return isNativeOwnedCallId(extractCallSessionIdFromAppPath(appPath));
+  }
+
+  private static void logNativeOwnedPendingReplaySuppressed(
+      String callId, String appPath, String reason) {
+    Log.i(
+        ROUTE_LOG_TAG,
+        "[call-native] native_owned_pending_replay_suppressed callId="
+            + (callId != null && !callId.isEmpty() ? callId : "unknown")
+            + " path="
+            + (appPath != null ? appPath : "none")
+            + " reason="
+            + reason);
+    if (callId != null && !callId.trim().isEmpty()) {
+      DibayCallPushLog.info(
+          "native_owned_pending_replay_suppressed",
+          callId.trim(),
+          "path=" + (appPath != null ? appPath : "") + " reason=" + reason);
+    }
+  }
+
+  private static void clearNativeOwnedCallRoutePersistence(android.content.Context context) {
+    if (context == null) return;
+    clearPersistedCallPendingRoute(context);
+    clearPersistedPendingPushRoute(context);
+  }
+
+  private void clearInMemoryPendingRouteState() {
+    pendingAppPath = null;
+    pendingNotificationId = null;
+    routeInjectedForCurrentPending = false;
+    hideCallRouteLoadingOverlay();
+  }
+
+  private void suppressNativeOwnedCallRouteReplay(String appPath, String reason) {
+    if (!shouldSuppressNativeOwnedCallRouteReplay(appPath)) return;
+    String callId = extractCallSessionIdFromAppPath(appPath);
+    logNativeOwnedPendingReplaySuppressed(callId, appPath, reason);
+    clearNativeOwnedCallRoutePersistence(getApplicationContext());
+    clearInMemoryPendingRouteState();
+  }
+
+  private boolean suppressNativeOwnedCallRouteReplayIfNeeded(String appPath, String reason) {
+    if (!shouldSuppressNativeOwnedCallRouteReplay(appPath)) return false;
+    suppressNativeOwnedCallRouteReplay(appPath, reason);
+    return true;
+  }
+
+  private boolean suppressNativeOwnedCallRouteReplayByCallIdIfNeeded(
+      String callId, String appPath, String reason) {
+    if (!isNativeOwnedCallId(callId)) return false;
+    logNativeOwnedPendingReplaySuppressed(callId, appPath, reason);
+    clearNativeOwnedCallRoutePersistence(getApplicationContext());
+    clearInMemoryPendingRouteState();
+    return true;
+  }
+
+  private static void suppressNativeOwnedCallRouteReplayStatic(
+      android.content.Context context, String appPath, String reason) {
+    if (!shouldSuppressNativeOwnedCallRouteReplay(appPath)) return;
+    String callId = extractCallSessionIdFromAppPath(appPath);
+    logNativeOwnedPendingReplaySuppressed(callId, appPath, reason);
+    clearNativeOwnedCallRoutePersistence(context);
+    MainActivity act = activeInstance;
+    if (act != null) {
+      act.mainHandler.post(act::clearInMemoryPendingRouteState);
+    }
+  }
+
+  private static void suppressNativeOwnedCallRouteReplayByCallIdStatic(
+      android.content.Context context, String callId, String appPath, String reason) {
+    if (!isNativeOwnedCallId(callId)) return;
+    logNativeOwnedPendingReplaySuppressed(callId, appPath, reason);
+    clearNativeOwnedCallRoutePersistence(context);
+    MainActivity act = activeInstance;
+    if (act != null) {
+      act.mainHandler.post(act::clearInMemoryPendingRouteState);
+    }
+  }
+
   /** PushRouteListener consumed the persisted route — drop native backup. */
   public static void clearPersistedPendingPushRoute(android.content.Context context) {
     if (context == null) return;
@@ -742,6 +856,10 @@ public class MainActivity extends BridgeActivity {
     }
     String path = prefs.getString(PENDING_PATH_KEY, null);
     if (path == null || path.trim().isEmpty()) return out;
+    if (shouldSuppressNativeOwnedCallRouteReplay(path.trim())) {
+      suppressNativeOwnedCallRouteReplayStatic(context, path.trim(), "read_persisted_pending_push_route");
+      return out;
+    }
     out.putString(PENDING_PATH_KEY, path.trim());
     String notificationId = prefs.getString(PENDING_NOTIFICATION_ID_KEY, null);
     if (notificationId != null && !notificationId.isEmpty()) {
@@ -1030,6 +1148,7 @@ public class MainActivity extends BridgeActivity {
     restorePendingRouteFromPrefsIfNeeded();
     if (pendingAppPath == null || pendingAppPath.isEmpty()) return;
     if (!CallV4Lane.isV4CalleeAcceptCallRoute(pendingAppPath)) return;
+    if (suppressNativeOwnedCallRouteReplayIfNeeded(pendingAppPath, "lock_accept_hydration_replay")) return;
     Bridge bridge = getBridge();
     WebView webView = bridge != null ? bridge.getWebView() : null;
     if (webView == null) return;
@@ -1483,6 +1602,7 @@ public class MainActivity extends BridgeActivity {
     }
     String path = prefs.getString(PENDING_PATH_KEY, null);
     if (path == null || path.trim().isEmpty()) return;
+    if (suppressNativeOwnedCallRouteReplayIfNeeded(path.trim(), "restore_pending_push_route")) return;
     pendingAppPath = path.trim();
     String notificationId = prefs.getString(PENDING_NOTIFICATION_ID_KEY, null);
     pendingNotificationId = notificationId != null && !notificationId.isEmpty() ? notificationId : null;
@@ -1490,6 +1610,7 @@ public class MainActivity extends BridgeActivity {
 
   private void queueNavigateWebViewToAppPath(String appPath, String notificationId) {
     if (appPath == null || appPath.isEmpty()) return;
+    if (suppressNativeOwnedCallRouteReplayIfNeeded(appPath, "queue_navigate_webview")) return;
     if (CallV4Lane.shouldSuppressV3CallReplay(this, appPath)) {
       Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] v3_route_nav_suppressed path=" + appPath);
       hideCallRouteLoadingOverlay();
@@ -1557,11 +1678,17 @@ public class MainActivity extends BridgeActivity {
     if (segments.isEmpty()) return;
     String callId = segments.get(0);
     if (callId == null || callId.trim().isEmpty()) return;
+    if (suppressNativeOwnedCallRouteReplayByCallIdIfNeeded(callId.trim(), null, "v4_accept_intent_direct_attach")) {
+      return;
+    }
     beginV4AcceptDirectAttach(callId.trim());
   }
 
   private void beginV4AcceptDirectAttach(String callId) {
     if (callId == null || callId.trim().isEmpty()) return;
+    if (suppressNativeOwnedCallRouteReplayByCallIdIfNeeded(callId.trim(), null, "v4_accept_direct_attach")) {
+      return;
+    }
     if (v4LockBackgroundHydration) {
       beginV4AcceptColdLegacyAttach(callId.trim());
       return;
@@ -1575,6 +1702,9 @@ public class MainActivity extends BridgeActivity {
 
   /** Pre-66d9e12b cold path — single MainActivity surface + loading overlay (no alpha hide / handoff). */
   private void beginV4AcceptColdLegacyAttach(String callId) {
+    if (suppressNativeOwnedCallRouteReplayByCallIdIfNeeded(callId, null, "v4_accept_cold_legacy_attach")) {
+      return;
+    }
     String acceptPath = buildV4AcceptHandoffPath(callId);
     if (acceptPath != null) {
       routeInjectedForCurrentPending = false;
@@ -1600,6 +1730,9 @@ public class MainActivity extends BridgeActivity {
 
   /** Warm only — hide WebView until web_call_screen_ready, then hand off from Connecting surface. */
   private void beginV4AcceptWarmHandoffAttach(String callId) {
+    if (suppressNativeOwnedCallRouteReplayByCallIdIfNeeded(callId, null, "v4_accept_warm_handoff_attach")) {
+      return;
+    }
     if (!callId.equals(v4AcceptDirectCallId)) {
       v4AcceptDirectCallId = callId;
       v4AcceptScreenReadyReceived = false;
@@ -1898,6 +2031,7 @@ public class MainActivity extends BridgeActivity {
     if (routeInjectedForCurrentPending) return;
     restorePendingRouteFromPrefsIfNeeded();
     if (pendingAppPath == null || pendingAppPath.isEmpty()) return;
+    if (suppressNativeOwnedCallRouteReplayIfNeeded(pendingAppPath, "flush_pending_app_path")) return;
     if (CallV4Lane.shouldSuppressV3CallReplay(getApplicationContext(), pendingAppPath)) {
       Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] v3_pending_flush_suppressed path=" + pendingAppPath);
       pendingAppPath = null;
@@ -1990,6 +2124,7 @@ public class MainActivity extends BridgeActivity {
 
   private boolean injectWebViewRouteViaJs(WebView webView, String appPath, String notificationId) {
     if (webView == null || appPath == null || appPath.isEmpty()) return false;
+    if (suppressNativeOwnedCallRouteReplayIfNeeded(appPath, "inject_webview_route_js")) return false;
     final String jsPath = appPath.replace("\\", "\\\\").replace("'", "\\'");
     final String jsNotificationId =
         notificationId != null
@@ -2037,6 +2172,7 @@ public class MainActivity extends BridgeActivity {
   private boolean navigateWebViewToAppPathNow(String appPath, String notificationId) {
     if (routeInjectedForCurrentPending) return true;
     if (appPath == null || appPath.isEmpty()) return false;
+    if (suppressNativeOwnedCallRouteReplayIfNeeded(appPath, "navigate_webview_now")) return false;
     Bridge bridge = getBridge();
     if (bridge == null) return false;
     WebView webView = bridge.getWebView();
@@ -2128,6 +2264,7 @@ public class MainActivity extends BridgeActivity {
 
   private boolean loadCallRouteDirectly(WebView webView, String appPath, String delivery) {
     if (appPath == null || appPath.isEmpty()) return false;
+    if (suppressNativeOwnedCallRouteReplayIfNeeded(appPath, "load_call_route_directly")) return false;
     String target = null;
     String currentUrl = webView.getUrl();
     if (currentUrl != null && !currentUrl.trim().isEmpty()) {

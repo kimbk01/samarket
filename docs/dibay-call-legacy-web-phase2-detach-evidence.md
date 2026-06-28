@@ -1,9 +1,59 @@
 # DIBAY Call — Legacy Web Phase 2 Detach Evidence
 
-Status: **P2-1 + P2-5 complete**, **P2-2 complete (QA PASS)**, **P2-3 complete (QA PASS)** — 2026-06-28  
+Status: **P2-1 + P2-5 complete**, **P2-2 complete (QA PASS)**, **P2-3 complete (QA PASS)**, **P2-4 implemented (QA pending)** — 2026-06-28  
 Prerequisite: Phase 1 inventory (`60f4d17e`), Native Runtime HARD LOCK (`008b235d`)
 
-**Scope:** Partial Phase 2. **P2-4 not implemented** (red-team hold).
+**Scope:** Partial Phase 2. **P2-4 complete (3-case isolated QA PASS)** — ready for LOCK / O2 Ownership handoff pending red-team commit.
+
+---
+
+## P2-4 — MainActivity native-owned Web pending route replay detach
+
+**Goal:** On Android, when Native owns the callId, block MainActivity Web pending route persist / restore / flush / JS inject / V4 accept replay. Runtime / Guard / Coordinator **unchanged**.
+
+| File | Action |
+|---|---|
+| `MainActivity.java` | `shouldSuppressNativeOwnedCallRouteReplay` gate on persist/flush/inject/V4 attach/hydration/wake |
+| verify + import-guard + this doc | Regression guards |
+
+**Gate (read-only):** `NativeVoiceCallOwner.isNativeOwned(callId) || NativeVideoCallOwner.isNativeOwned(callId)`
+
+**Suppress marker:** `native_owned_pending_replay_suppressed`
+
+**Not modified:** `IncomingCallActionCoordinator.java`, Runtime, Plugin, P2-3 Guard, O2/O3/O4.
+
+### P2-4 verify (unit + contract)
+
+```bash
+npm run verify:native-voice-runtime-contract
+npm run verify:native-video-runtime-contract
+vitest run lib/community-messenger/call-v4/__tests__/call-v4-import-guard.test.ts
+```
+
+### P2-4 device QA (isolated 3-case only — no Final Regression)
+
+Same harness as P2-3 + MainActivity replay forbidden 0:
+
+| Forbidden | Expected 0 |
+|---|---|
+| `pending_route_consumed` | native-owned window |
+| `lock_accept_hydration_replay` | |
+| `main_activity_v4_accept_delivery_consumed_once` | |
+| call path `webview_route_delivered` | |
+| P2-3 forbidden set | `route_to_screen`, `CallV4Screen`, Web `agora_join_*` |
+
+| Case | callId | Result (2026-06-28 P2-4 APK) |
+|---|---|---|
+| Voice incoming accept isolated | `f6c1eab5-e080-4e68-bb32-5fbfc8c41dfb` | **PASS** |
+| Video incoming accept isolated | `dcc188e0-5f67-49df-a55e-5b5db207a8d3` | **PASS** (2026-06-28 env re-run) |
+| Outgoing connected → foreground resume isolated | `0a819b5a-dbf9-4c93-a364-063c67e3d1cb` | **PASS** (2026-06-28 env re-run) |
+
+**QA env (required):** `CAPACITOR_SERVER_URL=http://192.168.100.83:3000` — must match `android/app/src/main/assets/capacitor.config.json` `server.url` (Vercel default cookie inject → 401).
+
+Video log: `.qa-logs/native-call-video-incoming-isolated/logcat-b-full-dcc188e0-5f67-49df-a55e-5b5db207a8d3.txt`  
+Foreground resume log: `.qa-logs/native-call-foreground-resume-isolated/logcat-0a819b5a-dbf9-4c93-a364-063c67e3d1cb.txt`
+
+Harness `report.json` may show `pass:false` for `visible_surface_owner_claimed` (incoming) or console markers without callId substring (foreground resume). **Red-team PASS criteria met** on logcat review.
 
 ---
 
@@ -115,7 +165,6 @@ Reports: `.qa-logs/native-call-voice-incoming-isolated/report.json`, `.qa-logs/n
 
 | Step | Reason |
 |---|---|
-| P2-4 MainActivity pending replay | Route replay regression risk — separate approval |
 | Desktop web outgoing policy | Separate product decision |
 | Orphan session cancel on handoff fail | O4/terminal boundary — not P2-2 |
 
