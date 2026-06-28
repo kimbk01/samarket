@@ -316,52 +316,48 @@ export async function callV4CreateOutgoing(input: {
       roomId: roomResolved.roomId,
     });
 
-    logCallV4("native_outgoing_handoff_start", {
-      callId: created.session.id,
-      mediaType: input.mediaType,
-      roomId: roomResolved.roomId,
-    });
-    const nativeHandoff = await startNativeOutgoingEstablishment({
-      callId: created.session.id,
-      roomId: roomResolved.roomId,
-      mediaType: input.mediaType,
-      peerUserId: input.peerUserId,
-      peerName: input.peerLabel,
-    });
-    if (nativeHandoff.ok && nativeHandoff.nativeOwned) {
-      logCallV4("native_outgoing_handoff_done", {
-        callId: created.session.id,
-        mediaType: input.mediaType,
-        roomId: roomResolved.roomId,
-      });
-      useCallV4Store.getState().resetToIdle();
-      return { ok: true as const, session: created.session, roomId: roomResolved.roomId };
-    }
-
-    if (isAndroidNativeOutgoingShell()) {
-      if (!nativeHandoff.ok && !nativeHandoff.nativeOwned) {
-        logCallV4("native_establishment_unavailable", {
-          callId: created.session.id,
-          mediaType: input.mediaType,
-          roomId: roomResolved.roomId,
-        });
-      }
-      logCallV4("native_outgoing_failed", {
-        callId: created.session.id,
-        mediaType: input.mediaType,
-        roomId: roomResolved.roomId,
-        ok: nativeHandoff.ok,
-        nativeOwned: nativeHandoff.nativeOwned,
-      });
-      useCallV4Store.getState().resetToIdle();
-      return { ok: false as const, userMessage: outgoingGenericErrorMessage() };
-    }
-
     const identity = buildOutgoingIdentity(created.session, input.peerLabel);
     useCallV4Store.getState().setIdentity(identity);
     useCallV4Store.getState().setPhase("outgoing_ringing");
     routeToCallV4Screen(input.router, created.session.id, "outgoing");
     logCallV4("outgoing_ringing", { callId: created.session.id, roomId: roomResolved.roomId });
+
+    if (isAndroidNativeOutgoingShell()) {
+      logCallV4("native_outgoing_handoff_start", {
+        callId: created.session.id,
+        mediaType: input.mediaType,
+        roomId: roomResolved.roomId,
+      });
+      const nativeHandoff = await startNativeOutgoingEstablishment({
+        callId: created.session.id,
+        roomId: roomResolved.roomId,
+        mediaType: input.mediaType,
+        peerUserId: input.peerUserId,
+        peerName: input.peerLabel,
+      });
+      if (nativeHandoff.ok && nativeHandoff.nativeOwned) {
+        logCallV4("native_outgoing_handoff_done", {
+          callId: created.session.id,
+          mediaType: input.mediaType,
+          roomId: roomResolved.roomId,
+        });
+      } else {
+        if (!nativeHandoff.ok && !nativeHandoff.nativeOwned) {
+          logCallV4("native_establishment_unavailable", {
+            callId: created.session.id,
+            mediaType: input.mediaType,
+            roomId: roomResolved.roomId,
+          });
+        }
+        logCallV4("native_outgoing_failed", {
+          callId: created.session.id,
+          mediaType: input.mediaType,
+          roomId: roomResolved.roomId,
+          ok: nativeHandoff.ok,
+          nativeOwned: nativeHandoff.nativeOwned,
+        });
+      }
+    }
 
     return { ok: true as const, session: created.session, roomId: roomResolved.roomId };
   })();

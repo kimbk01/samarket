@@ -366,16 +366,17 @@ describe("call-v4 import isolation", () => {
     }
   });
 
-  it("P2-2 callV4CreateOutgoing Android fail-fast has no JS Agora Web fallback", () => {
+  it("P2-2 callV4CreateOutgoing Android keeps outgoing presentation while native handoff runs", () => {
     const actions = read("lib/community-messenger/call-v4/call-v4-actions.ts");
     expect(actions).toContain("isAndroidNativeOutgoingShell");
     expect(actions).toContain("native_outgoing_failed");
     expect(actions).toContain("native_establishment_unavailable");
+    expect(actions).toContain('routeToCallV4Screen(input.router, created.session.id, "outgoing")');
+    expect(actions).toContain('useCallV4Store.getState().setPhase("outgoing_ringing")');
     const androidBlock = actions.match(/if \(isAndroidNativeOutgoingShell\(\)\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
     expect(androidBlock).toContain("native_outgoing_failed");
-    expect(androidBlock).not.toContain("routeToCallV4Screen");
-    expect(androidBlock).not.toContain("outgoing_ringing");
-    expect(androidBlock).not.toContain("callV4PatchCancel");
+    expect(androidBlock).not.toContain("resetToIdle");
+    expect(androidBlock).not.toContain("outgoingGenericErrorMessage");
   });
 
   it("Track ③ — Android Legacy dead files removed (HARD LOCK)", () => {

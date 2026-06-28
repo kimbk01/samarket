@@ -64,25 +64,27 @@ export function readCallV4ExitRouter(): CallV4Router | null {
   return registeredExitRouter;
 }
 
+/** Android sync-only에서도 발신 링 UI(`/calls-v4?source=outgoing`)는 허용한다 — establishment 는 Native SSOT. */
+export function isCallV4OutgoingPresentationSource(source: string | null | undefined): boolean {
+  return source?.trim() === "outgoing";
+}
+
 export function routeToCallV4Screen(router: { push: (href: string) => void; replace?: (href: string) => void }, callId: string, source = "sheet"): void {
   const sid = callId.trim();
   const href = buildCallV4ScreenHref(sid, source);
-  if (isLegacyWebCallEstablishmentRemoved()) {
+  const outgoingPresentation = isCallV4OutgoingPresentationSource(source);
+  if (isLegacyWebCallEstablishmentRemoved() && !outgoingPresentation) {
     logCallV4("legacy_web_establishment_removed", { callId: sid, href, source, trigger: "route_to_screen" });
     return;
   }
   const go = router.replace ?? router.push;
-  logCallV4("route_to_screen", { callId: sid, href });
+  logCallV4("route_to_screen", { callId: sid, href, outgoingPresentation });
   go(href);
 }
 
 export function exitCallV4ScreenAfterCleanup(router?: CallV4Router): void {
-  if (isLegacyWebCallEstablishmentRemoved()) {
-    logCallV4("legacy_web_establishment_removed", { trigger: "exit_screen" });
-    return;
-  }
   const exit = takeCallV4ReturnPath() ?? COMMUNITY_MESSENGER_CALL_LOGS_HREF;
-  logCallV4("exit_screen", { exit });
+  logCallV4("exit_screen", { exit, establishmentRemoved: isLegacyWebCallEstablishmentRemoved() });
   const go = router?.replace ?? router?.push ?? registeredExitRouter?.replace ?? registeredExitRouter?.push;
   go?.(exit);
 }
