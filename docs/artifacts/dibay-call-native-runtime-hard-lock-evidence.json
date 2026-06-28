@@ -1,33 +1,35 @@
 {
-  "at": "2026-06-28T00:49:10.259Z",
+  "at": "2026-06-28T05:04:08.344Z",
   "hardLock": true,
   "nativeRuntimeAndroidComplete": true,
-  "lockStatement": "Native Call Runtime Android COMPLETE HARD LOCK. FCM -> Native Runtime -> Accept -> Native Token -> Native Agora -> Connected -> End -> Cleanup. Final Regression all gates PASS. Web CallV4Screen/JS Agora establishment forbidden markers 0.",
+  "projectClosed": true,
+  "track4FinalRegression": true,
+  "lockStatement": "Native Call Runtime Android COMPLETE HARD LOCK — PROJECT CLOSED. Track ④ Final Regression all gates PASS post Track ③ (561a98e1). FCM -> Native Runtime -> Accept -> Native Token -> Native Agora -> Connected -> End -> Cleanup. Web CallV4Screen/JS Agora establishment forbidden markers 0.",
   "ssot": "docs/dibay-call-native-runtime-ssot.md",
   "vercelOrigin": "https://samarket.vercel.app",
+  "localQaOrigin": "http://192.168.100.83:3000",
   "devices": {
     "serialA": "8b37179f7d94",
     "serialB": "RRGL4046NTW"
   },
   "roomId": "b19e2672-f26f-4a2e-8125-52575da4a62a",
   "commits": {
-    "guardCompletion": "8b81b44dd891f7c30a7b2734151f8240b818c2eb",
-    "guardCompletionMessage": "feat(call): complete native engine ownership guard for voice/video Agora",
-    "lockBundle": "99659d4e0b79549b6465b0885bbb10b53345e2ef",
-    "lockBundleVerify": "git log -1 --format=%H -- docs/artifacts/dibay-call-native-runtime-hard-lock-evidence.json"
+    "track3DeadCodeCleanup": "561a98e1",
+    "track3Message": "fix(call): Track ③ dead code cleanup — sync-only slim, guard delete, LOCK",
+    "priorGuardCompletion": "8b81b44dd891f7c30a7b2734151f8240b818c2eb",
+    "priorLockBundle": "99659d4e0b79549b6465b0885bbb10b53345e2ef"
   },
   "branch": "main",
   "apkBaseline": {
-    "versionName": "1.0",
-    "versionCode": 1,
     "artifact": "android/app/build/outputs/apk/debug/app-debug.apk",
-    "builtFromCommit": "8b81b44dd891f7c30a7b2734151f8240b818c2eb",
+    "builtFromCommit": "561a98e1",
     "reinstalledDevices": ["8b37179f7d94", "RRGL4046NTW"],
-    "reinstalledAt": "2026-06-28T01:00:00.000Z",
-    "note": "Clean-tree rebuild after Guard commit; Final Regression PASS callIds from prior run (2026-06-28T00:49:10Z)"
+    "reinstalledAt": "2026-06-28T04:59:00.000Z",
+    "capSyncOrigin": "http://192.168.100.83:3000"
   },
   "harness": ".qa-logs/native-call-final-regression.mjs",
   "finalRegressionReport": ".qa-logs/native-call-final-regression/report.json",
+  "finalRegressionRunLog": ".qa-logs/native-call-final-regression/run-track4-20260628-125907.log",
   "overallPass": true,
   "harnessFcmReadyFail": false,
   "productRuntimeFail": false,
@@ -44,11 +46,11 @@
     "singleNativeSurface": true
   },
   "callIds": {
-    "voiceOutId": "d8046ddf-7e65-45f1-a7aa-ac955f82d753",
-    "voiceInId": "03a1b0b1-c06a-4968-a8e4-71a51d84ec7a",
-    "videoOutId": "d3f9bc67-d43c-46a6-b993-ab201eb83798",
-    "videoInId": "3b693a5f-4ff6-4812-b4aa-ea2230c225d3",
-    "pipCallId": "abf2f26f-d75a-4522-873c-9b1c892d9e08"
+    "voiceOutId": "33ab1ba1-5897-43a6-97f6-acc643566027",
+    "voiceInId": "7e10d1bb-b884-437a-a1cb-5f5452ca50f6",
+    "videoOutId": "d2004e24-8188-459e-827c-ec59a9c58bdf",
+    "videoInId": "4ddc6e16-905f-45a6-9d20-059345f89c58",
+    "pipCallId": "41223460-2878-4c27-b445-531ae2991908"
   },
   "gateTelemetry": {
     "voiceIncomingFcmReady": {
@@ -58,11 +60,11 @@
       "hasToken": true,
       "hasSuccess": true,
       "fcmUserId": "9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8",
-      "elapsedMs": 2110
+      "elapsedMs": 2101
     },
     "voiceIncoming": {
       "waitConnectedOk": true,
-      "waitConnectedElapsedMs": 2002,
+      "waitConnectedElapsedMs": 2793,
       "acceptChainMarkerCounts": {
         "accept_tapped": 1,
         "accept_patch_start": 1,
@@ -77,7 +79,7 @@
     },
     "videoIncoming": {
       "waitConnectedOk": true,
-      "waitConnectedElapsedMs": 2208,
+      "waitConnectedElapsedMs": 2845,
       "acceptChainMarkerCounts": {
         "accept_tapped": 1,
         "accept_patch_start": 1,
@@ -91,47 +93,26 @@
       }
     }
   },
-  "forbidden": {
-    "route_to_screen": 0,
-    "CallV4Screen": 0,
-    "screen_mounted": 0,
-    "agora_join_success": 0,
-    "visible_surface_owner_claimed": 0
-  },
-  "o4": {
-    "endTapped": true,
-    "ok": true
-  },
-  "pip": {
-    "ok": true,
-    "entered": true,
-    "exited": true
-  },
-  "dock": {
-    "dockMinOk": true,
-    "dockShown": true,
-    "dockResume": true
-  },
   "gateSnapshots": {
     "voiceOutgoing": {
-      "logcatA": ".qa-logs/native-call-final-regression/logcat-voiceOutgoing-d8046ddf-7e65-45f1-a7aa-ac955f82d753-a.txt",
-      "logcatB": ".qa-logs/native-call-final-regression/logcat-voiceOutgoing-d8046ddf-7e65-45f1-a7aa-ac955f82d753-b.txt"
+      "logcatA": ".qa-logs/native-call-final-regression/logcat-voiceOutgoing-33ab1ba1-5897-43a6-97f6-acc643566027-a.txt",
+      "logcatB": ".qa-logs/native-call-final-regression/logcat-voiceOutgoing-33ab1ba1-5897-43a6-97f6-acc643566027-b.txt"
     },
     "voiceIncoming": {
-      "logcatA": ".qa-logs/native-call-final-regression/logcat-voiceIncoming-03a1b0b1-c06a-4968-a8e4-71a51d84ec7a-a.txt",
-      "logcatB": ".qa-logs/native-call-final-regression/logcat-voiceIncoming-03a1b0b1-c06a-4968-a8e4-71a51d84ec7a-b.txt"
+      "logcatA": ".qa-logs/native-call-final-regression/logcat-voiceIncoming-7e10d1bb-b884-437a-a1cb-5f5452ca50f6-a.txt",
+      "logcatB": ".qa-logs/native-call-final-regression/logcat-voiceIncoming-7e10d1bb-b884-437a-a1cb-5f5452ca50f6-b.txt"
     },
     "videoOutgoing": {
-      "logcatA": ".qa-logs/native-call-final-regression/logcat-videoOutgoing-d3f9bc67-d43c-46a6-b993-ab201eb83798-a.txt",
-      "logcatB": ".qa-logs/native-call-final-regression/logcat-videoOutgoing-d3f9bc67-d43c-46a6-b993-ab201eb83798-b.txt"
+      "logcatA": ".qa-logs/native-call-final-regression/logcat-videoOutgoing-d2004e24-8188-459e-827c-ec59a9c58bdf-a.txt",
+      "logcatB": ".qa-logs/native-call-final-regression/logcat-videoOutgoing-d2004e24-8188-459e-827c-ec59a9c58bdf-b.txt"
     },
     "videoIncoming": {
-      "logcatA": ".qa-logs/native-call-final-regression/logcat-videoIncoming-3b693a5f-4ff6-4812-b4aa-ea2230c225d3-a.txt",
-      "logcatB": ".qa-logs/native-call-final-regression/logcat-videoIncoming-3b693a5f-4ff6-4812-b4aa-ea2230c225d3-b.txt"
+      "logcatA": ".qa-logs/native-call-final-regression/logcat-videoIncoming-4ddc6e16-905f-45a6-9d20-059345f89c58-a.txt",
+      "logcatB": ".qa-logs/native-call-final-regression/logcat-videoIncoming-4ddc6e16-905f-45a6-9d20-059345f89c58-b.txt"
     },
     "pipDockEnd": {
-      "logcatA": ".qa-logs/native-call-final-regression/logcat-pip-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
-      "logcatB": ".qa-logs/native-call-final-regression/logcat-pip-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+      "logcatA": ".qa-logs/native-call-final-regression/logcat-pip-41223460-2878-4c27-b445-531ae2991908-a.txt",
+      "logcatB": ".qa-logs/native-call-final-regression/logcat-pip-41223460-2878-4c27-b445-531ae2991908-b.txt"
     }
   },
   "subTrackHardLocks": [
@@ -144,24 +125,26 @@
     "docs/dibay-call-video-ui-hard-lock.md",
     "docs/dibay-call-video-dock-hard-lock.md"
   ],
-  "priorIsolatedPasses": {
-    "voiceIncoming": ".qa-logs/native-call-voice-incoming-isolated/",
-    "videoIncoming": ".qa-logs/native-call-video-incoming-isolated/"
+  "trackSequence": {
+    "track1LegacyWebShutdown": "LOCK",
+    "track2O3ConnectedOwnership": "LOCK",
+    "track3DeadCodeCleanup": "LOCK",
+    "track4FinalRegression": "PASS_CLOSED"
+  },
+  "legacyWebRemovalPlan": {
+    "status": "android_removed_track1_track3_lock",
+    "track4FinalRegression": "PASS",
+    "desktopEstablishment": "preserved",
+    "projectClosed": true
   },
   "harnessFailClassification": {
     "harness_fcm_ready_fail": "QA environment only — not productRuntimeFail",
     "productRuntimeFail": "First product gate failure — audit before LOCK reopen"
   },
-  "legacyWebRemovalPlan": {
-    "status": "android_removed_track1_track3_lock",
-    "track1Lock": "docs/dibay-call-legacy-web-shutdown-lock.md",
-    "track3Lock": "docs/dibay-call-track3-dead-code-cleanup-lock.md",
-    "track3Evidence": "docs/artifacts/dibay-call-track3-dead-code-cleanup-evidence.json",
-    "desktopEstablishment": "preserved",
-    "nextTrack": "track4_final_regression_once"
-  },
-  "recommendedCommitBundle": [
-    "8b81b44dd891f7c30a7b2734151f8240b818c2eb",
-    "99659d4e0b79549b6465b0885bbb10b53345e2ef"
+  "forbiddenAfterProjectClose": [
+    "Reopen tracks without red-team approval",
+    "Restore Android Legacy Web establishment",
+    "Repeat Final Regression without cause",
+    "Modify Runtime/O2/O3/O4/UI/PiP/Dock under regression excuse"
   ]
 }

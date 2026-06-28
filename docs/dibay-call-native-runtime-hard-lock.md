@@ -1,10 +1,10 @@
 # DIBAY Call Native Runtime — Android COMPLETE HARD LOCK
 
-Status: **HARD LOCK** (2026-06-28)
+Status: **HARD LOCK — PROJECT CLOSED** (2026-06-28, Track ④ Final Regression PASS)
 
 ## Lock Statement
 
-**Native Call Runtime Android COMPLETE HARD LOCK.** Voice and Video calls establish, connect, present UI, PiP, Dock, and end cleanup through **Native Runtime only**. WebView / CallV4Screen / JS Agora are not establishment requirements. Final Regression PASS (sequential gates + FCM-ready precondition) is the umbrella proof for this lock.
+**Native Call Runtime Android COMPLETE HARD LOCK.** Voice and Video calls establish, connect, present UI, PiP, Dock, and end cleanup through **Native Runtime only**. WebView / CallV4Screen / JS Agora are not establishment requirements. **Track ④ Final Regression PASS** (post Track ③ commit `561a98e1`) is the closing umbrella proof. **Native Telegram Runtime project is CLOSED.**
 
 SSOT: `docs/dibay-call-native-runtime-ssot.md` · Cursor rule: `.cursor/rules/dibay-call-native-runtime-ssot.mdc`
 
@@ -27,17 +27,21 @@ Harness: `.qa-logs/native-call-final-regression.mjs`
 Report: `.qa-logs/native-call-final-regression/report.json`  
 Machine-readable: `docs/artifacts/dibay-call-native-runtime-hard-lock-evidence.json`
 
-## Locked CallIds (Final Regression PASS — 2026-06-28)
+## Locked CallIds (Track ④ Final Regression PASS — 2026-06-28T05:04:08Z)
+
+QA: `CAPACITOR_SERVER_URL=http://192.168.100.83:3000` · APK post Track ③ commit `561a98e1` · A=`8b37179f7d94` B=`RRGL4046NTW`
 
 | Gate | callId | waitConnected (B) |
 |---|---|---|
-| voiceOutgoing | `d8046ddf-7e65-45f1-a7aa-ac955f82d753` | — |
-| voiceIncoming | `03a1b0b1-c06a-4968-a8e4-71a51d84ec7a` | 2002 ms |
-| videoOutgoing | `d3f9bc67-d43c-46a6-b993-ab201eb83798` | — |
-| videoIncoming | `3b693a5f-4ff6-4812-b4aa-ea2230c225d3` | 2208 ms |
-| pip / dock / endCleanup | `abf2f26f-d75a-4522-873c-9b1c892d9e08` | A+B connected |
+| voiceOutgoing | `33ab1ba1-5897-43a6-97f6-acc643566027` | — |
+| voiceIncoming | `7e10d1bb-b884-437a-a1cb-5f5452ca50f6` | 2793 ms |
+| videoOutgoing | `d2004e24-8188-459e-827c-ec59a9c58bdf` | — |
+| videoIncoming | `4ddc6e16-905f-45a6-9d20-059345f89c58` | 2845 ms |
+| pip / dock / endCleanup | `41223460-2878-4c27-b445-531ae2991908` | A+B connected |
 
-Gate 2 FCM-ready precondition: `voiceIncomingFcmReady` PASS in 2110 ms (`hasSuccess: true`, `hasTimeout: false`).
+Gate 2 FCM-ready precondition: `voiceIncomingFcmReady` PASS in 2101 ms (`hasSuccess: true`, `hasTimeout: false`).
+
+Prior Final Regression (pre–Track ③): callIds in git history at `99659d4e` evidence bundle — superseded by Track ④ run above.
 
 ## Required Runtime Path
 
@@ -74,15 +78,16 @@ Incoming accept chain (B, per locked voice/video incoming callIds):
 
 | Item | Value |
 |---|---|
-| Guard completion commit | `8b81b44dd891f7c30a7b2734151f8240b818c2eb` |
-| LOCK bundle commit | `99659d4e0b79549b6465b0885bbb10b53345e2ef` |
+| Track ③ commit | `561a98e1` |
+| Track ④ Final Regression | `2026-06-28T05:04:08Z` · `overallPass: true` |
 | Branch | `main` |
+| Local QA origin | `http://192.168.100.83:3000` |
 | Vercel | `https://samarket.vercel.app` |
 | Devices | A=`8b37179f7d94` B=`RRGL4046NTW` |
 | Room | `b19e2672-f26f-4a2e-8125-52575da4a62a` |
-| APK | `android/app/build/outputs/apk/debug/app-debug.apk` rebuilt from Guard commit + A/B reinstall (2026-06-28) |
+| APK | `android/app/build/outputs/apk/debug/app-debug.apk` rebuilt post Track ③ + A/B reinstall (2026-06-28) |
 
-Final Regression PASS evidence predates Guard commit; runtime proof callIds unchanged. Deploy baseline for production alignment is **Guard commit APK**, not dirty-tree build.
+Track ④ run log: `.qa-logs/native-call-final-regression/run-track4-*.log`
 
 ## Harness QA Policy
 
@@ -121,7 +126,7 @@ Without explicit red-team approval:
 |---|---|---|
 | Track ① | Android establishment shutdown — sync-only provider, `legacy_web_establishment_removed` | **LOCK** |
 | Track ③ | Dead file physical delete — P2-3 guard, orphan barrels, unused verify | **LOCK** |
-| Track ④ | Final Regression once post-commit → full project HARD LOCK end | **Next** |
+| Track ④ Final Regression | **COMPLETE — project CLOSED** |
 
 Android removed: `/calls-v4` establishment mount, JS Agora establishment, Web handoff, P2-3 UI guard, foreground resume Web restore.
 
@@ -130,3 +135,7 @@ Desktop preserved: `CallV4Screen`, JS Agora, presentation stack, `/calls-v4` rou
 Docs: `docs/dibay-call-legacy-web-shutdown-lock.md` · `docs/dibay-call-track3-dead-code-cleanup-lock.md` · evidence in `docs/artifacts/dibay-call-track3-dead-code-cleanup-evidence.json`
 
 **Do not restore Android Legacy Web establishment without explicit red-team approval.**
+
+## Next Track
+
+**None.** Native Telegram Runtime Android project is **CLOSED** at HARD LOCK. Reopen only with explicit red-team approval and new Final Regression evidence.

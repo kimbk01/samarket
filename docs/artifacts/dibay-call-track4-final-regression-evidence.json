@@ -1,0 +1,40 @@
+{
+  "at": "2026-06-28T05:04:08.344Z",
+  "track": "track4_final_regression",
+  "hardLockClose": true,
+  "overallPass": true,
+  "productRuntimeFail": false,
+  "harnessFcmReadyFail": false,
+  "prerequisiteCommit": "561a98e1",
+  "capacitorServerUrl": "http://192.168.100.83:3000",
+  "devices": {
+    "serialA": "8b37179f7d94",
+    "serialB": "RRGL4046NTW"
+  },
+  "harness": ".qa-logs/native-call-final-regression.mjs",
+  "reportPath": ".qa-logs/native-call-final-regression/report.json",
+  "gates": {
+    "voiceOutgoing": true,
+    "voiceIncoming": true,
+    "videoOutgoing": true,
+    "videoIncoming": true,
+    "pip": true,
+    "dock": true,
+    "endCleanup": true,
+    "forbiddenZero": true,
+    "callV4ScreenZero": true,
+    "singleNativeSurface": true
+  },
+  "callIds": {
+    "voiceOutId": "33ab1ba1-5897-43a6-97f6-acc643566027",
+    "voiceInId": "7e10d1bb-b884-437a-a1cb-5f5452ca50f6",
+    "videoOutId": "d2004e24-8188-459e-827c-ec59a9c58bdf",
+    "videoInId": "4ddc6e16-905f-45a6-9d20-059345f89c58",
+    "pipCallId": "41223460-2878-4c27-b445-531ae2991908"
+  },
+  "voiceIncomingFcmReadyMs": 2101,
+  "voiceIncomingWaitConnectedMs": 2793,
+  "videoIncomingWaitConnectedMs": 2845,
+  "umbrellaLockDoc": "docs/dibay-call-native-runtime-hard-lock.md",
+  "umbrellaEvidence": "docs/artifacts/dibay-call-native-runtime-hard-lock-evidence.json"
+}

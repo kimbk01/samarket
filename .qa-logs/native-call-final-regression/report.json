@@ -1,5 +1,5 @@
 {
-  "at": "2026-06-28T00:49:10.259Z",
+  "at": "2026-06-28T05:04:08.344Z",
   "serialA": "8b37179f7d94",
   "serialB": "RRGL4046NTW",
   "harness": ".qa-logs/native-call-final-regression.mjs",
@@ -17,75 +17,75 @@
   },
   "gateSnapshots": {
     "voiceOutgoing": {
-      "callId": "d8046ddf-7e65-45f1-a7aa-ac955f82d753",
-      "logcatA": "logcat-voiceOutgoing-d8046ddf-7e65-45f1-a7aa-ac955f82d753-a.txt",
-      "logcatB": "logcat-voiceOutgoing-d8046ddf-7e65-45f1-a7aa-ac955f82d753-b.txt"
+      "callId": "33ab1ba1-5897-43a6-97f6-acc643566027",
+      "logcatA": "logcat-voiceOutgoing-33ab1ba1-5897-43a6-97f6-acc643566027-a.txt",
+      "logcatB": "logcat-voiceOutgoing-33ab1ba1-5897-43a6-97f6-acc643566027-b.txt"
     },
     "voiceIncoming": {
-      "callId": "03a1b0b1-c06a-4968-a8e4-71a51d84ec7a",
-      "logcatA": "logcat-voiceIncoming-03a1b0b1-c06a-4968-a8e4-71a51d84ec7a-a.txt",
-      "logcatB": "logcat-voiceIncoming-03a1b0b1-c06a-4968-a8e4-71a51d84ec7a-b.txt"
+      "callId": "7e10d1bb-b884-437a-a1cb-5f5452ca50f6",
+      "logcatA": "logcat-voiceIncoming-7e10d1bb-b884-437a-a1cb-5f5452ca50f6-a.txt",
+      "logcatB": "logcat-voiceIncoming-7e10d1bb-b884-437a-a1cb-5f5452ca50f6-b.txt"
     },
     "videoOutgoing": {
-      "callId": "d3f9bc67-d43c-46a6-b993-ab201eb83798",
-      "logcatA": "logcat-videoOutgoing-d3f9bc67-d43c-46a6-b993-ab201eb83798-a.txt",
-      "logcatB": "logcat-videoOutgoing-d3f9bc67-d43c-46a6-b993-ab201eb83798-b.txt"
+      "callId": "d2004e24-8188-459e-827c-ec59a9c58bdf",
+      "logcatA": "logcat-videoOutgoing-d2004e24-8188-459e-827c-ec59a9c58bdf-a.txt",
+      "logcatB": "logcat-videoOutgoing-d2004e24-8188-459e-827c-ec59a9c58bdf-b.txt"
     },
     "videoIncoming": {
-      "callId": "3b693a5f-4ff6-4812-b4aa-ea2230c225d3",
-      "logcatA": "logcat-videoIncoming-3b693a5f-4ff6-4812-b4aa-ea2230c225d3-a.txt",
-      "logcatB": "logcat-videoIncoming-3b693a5f-4ff6-4812-b4aa-ea2230c225d3-b.txt"
+      "callId": "4ddc6e16-905f-45a6-9d20-059345f89c58",
+      "logcatA": "logcat-videoIncoming-4ddc6e16-905f-45a6-9d20-059345f89c58-a.txt",
+      "logcatB": "logcat-videoIncoming-4ddc6e16-905f-45a6-9d20-059345f89c58-b.txt"
     },
     "pip": {
-      "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
-      "logcatA": "logcat-pip-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
-      "logcatB": "logcat-pip-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+      "callId": "41223460-2878-4c27-b445-531ae2991908",
+      "logcatA": "logcat-pip-41223460-2878-4c27-b445-531ae2991908-a.txt",
+      "logcatB": "logcat-pip-41223460-2878-4c27-b445-531ae2991908-b.txt"
     },
     "dock": {
-      "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
-      "logcatA": "logcat-dock-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
-      "logcatB": "logcat-dock-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+      "callId": "41223460-2878-4c27-b445-531ae2991908",
+      "logcatA": "logcat-dock-41223460-2878-4c27-b445-531ae2991908-a.txt",
+      "logcatB": "logcat-dock-41223460-2878-4c27-b445-531ae2991908-b.txt"
     },
     "endCleanup": {
-      "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
-      "logcatA": "logcat-endCleanup-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
-      "logcatB": "logcat-endCleanup-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+      "callId": "41223460-2878-4c27-b445-531ae2991908",
+      "logcatA": "logcat-endCleanup-41223460-2878-4c27-b445-531ae2991908-a.txt",
+      "logcatB": "logcat-endCleanup-41223460-2878-4c27-b445-531ae2991908-b.txt"
     },
     "forbiddenZero": {
-      "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
-      "logcatA": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
-      "logcatB": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+      "callId": "41223460-2878-4c27-b445-531ae2991908",
+      "logcatA": "logcat-forbiddenZero-41223460-2878-4c27-b445-531ae2991908-a.txt",
+      "logcatB": "logcat-forbiddenZero-41223460-2878-4c27-b445-531ae2991908-b.txt"
     },
     "callV4ScreenZero": {
-      "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
-      "logcatA": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
-      "logcatB": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt",
+      "callId": "41223460-2878-4c27-b445-531ae2991908",
+      "logcatA": "logcat-forbiddenZero-41223460-2878-4c27-b445-531ae2991908-a.txt",
+      "logcatB": "logcat-forbiddenZero-41223460-2878-4c27-b445-531ae2991908-b.txt",
       "callIds": {
-        "voiceOutId": "d8046ddf-7e65-45f1-a7aa-ac955f82d753",
-        "voiceInId": "03a1b0b1-c06a-4968-a8e4-71a51d84ec7a",
-        "videoOutId": "d3f9bc67-d43c-46a6-b993-ab201eb83798",
-        "videoInId": "3b693a5f-4ff6-4812-b4aa-ea2230c225d3",
-        "pipCallId": "abf2f26f-d75a-4522-873c-9b1c892d9e08"
+        "voiceOutId": "33ab1ba1-5897-43a6-97f6-acc643566027",
+        "voiceInId": "7e10d1bb-b884-437a-a1cb-5f5452ca50f6",
+        "videoOutId": "d2004e24-8188-459e-827c-ec59a9c58bdf",
+        "videoInId": "4ddc6e16-905f-45a6-9d20-059345f89c58",
+        "pipCallId": "41223460-2878-4c27-b445-531ae2991908"
       }
     },
     "singleNativeSurface": {
-      "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
-      "logcatA": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
-      "logcatB": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt",
+      "callId": "41223460-2878-4c27-b445-531ae2991908",
+      "logcatA": "logcat-forbiddenZero-41223460-2878-4c27-b445-531ae2991908-a.txt",
+      "logcatB": "logcat-forbiddenZero-41223460-2878-4c27-b445-531ae2991908-b.txt",
       "callIds": {
-        "voiceOutId": "d8046ddf-7e65-45f1-a7aa-ac955f82d753",
-        "voiceInId": "03a1b0b1-c06a-4968-a8e4-71a51d84ec7a",
-        "videoOutId": "d3f9bc67-d43c-46a6-b993-ab201eb83798",
-        "videoInId": "3b693a5f-4ff6-4812-b4aa-ea2230c225d3",
-        "pipCallId": "abf2f26f-d75a-4522-873c-9b1c892d9e08"
+        "voiceOutId": "33ab1ba1-5897-43a6-97f6-acc643566027",
+        "voiceInId": "7e10d1bb-b884-437a-a1cb-5f5452ca50f6",
+        "videoOutId": "d2004e24-8188-459e-827c-ec59a9c58bdf",
+        "videoInId": "4ddc6e16-905f-45a6-9d20-059345f89c58",
+        "pipCallId": "41223460-2878-4c27-b445-531ae2991908"
       }
     }
   },
   "gateTelemetry": {
     "voiceOutgoing": {
-      "callId": "d8046ddf-7e65-45f1-a7aa-ac955f82d753",
-      "logcatA": "logcat-voiceOutgoing-d8046ddf-7e65-45f1-a7aa-ac955f82d753-a.txt",
-      "logcatB": "logcat-voiceOutgoing-d8046ddf-7e65-45f1-a7aa-ac955f82d753-b.txt"
+      "callId": "33ab1ba1-5897-43a6-97f6-acc643566027",
+      "logcatA": "logcat-voiceOutgoing-33ab1ba1-5897-43a6-97f6-acc643566027-a.txt",
+      "logcatB": "logcat-voiceOutgoing-33ab1ba1-5897-43a6-97f6-acc643566027-b.txt"
     },
     "voiceIncomingFcmReady": {
       "ok": true,
@@ -94,14 +94,14 @@
       "hasToken": true,
       "hasSuccess": true,
       "fcmUserId": "9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8",
-      "elapsedMs": 2110
+      "elapsedMs": 2101
     },
     "voiceIncoming": {
-      "callId": "03a1b0b1-c06a-4968-a8e4-71a51d84ec7a",
-      "logcatA": "logcat-voiceIncoming-03a1b0b1-c06a-4968-a8e4-71a51d84ec7a-a.txt",
-      "logcatB": "logcat-voiceIncoming-03a1b0b1-c06a-4968-a8e4-71a51d84ec7a-b.txt",
+      "callId": "7e10d1bb-b884-437a-a1cb-5f5452ca50f6",
+      "logcatA": "logcat-voiceIncoming-7e10d1bb-b884-437a-a1cb-5f5452ca50f6-a.txt",
+      "logcatB": "logcat-voiceIncoming-7e10d1bb-b884-437a-a1cb-5f5452ca50f6-b.txt",
       "waitConnectedOk": true,
-      "waitConnectedElapsedMs": 2002,
+      "waitConnectedElapsedMs": 2793,
       "acceptChainMarkerCounts": {
         "accept_tapped": 1,
         "accept_patch_start": 1,
@@ -115,16 +115,16 @@
       }
     },
     "videoOutgoing": {
-      "callId": "d3f9bc67-d43c-46a6-b993-ab201eb83798",
-      "logcatA": "logcat-videoOutgoing-d3f9bc67-d43c-46a6-b993-ab201eb83798-a.txt",
-      "logcatB": "logcat-videoOutgoing-d3f9bc67-d43c-46a6-b993-ab201eb83798-b.txt"
+      "callId": "d2004e24-8188-459e-827c-ec59a9c58bdf",
+      "logcatA": "logcat-videoOutgoing-d2004e24-8188-459e-827c-ec59a9c58bdf-a.txt",
+      "logcatB": "logcat-videoOutgoing-d2004e24-8188-459e-827c-ec59a9c58bdf-b.txt"
     },
     "videoIncoming": {
-      "callId": "3b693a5f-4ff6-4812-b4aa-ea2230c225d3",
-      "logcatA": "logcat-videoIncoming-3b693a5f-4ff6-4812-b4aa-ea2230c225d3-a.txt",
-      "logcatB": "logcat-videoIncoming-3b693a5f-4ff6-4812-b4aa-ea2230c225d3-b.txt",
+      "callId": "4ddc6e16-905f-45a6-9d20-059345f89c58",
+      "logcatA": "logcat-videoIncoming-4ddc6e16-905f-45a6-9d20-059345f89c58-a.txt",
+      "logcatB": "logcat-videoIncoming-4ddc6e16-905f-45a6-9d20-059345f89c58-b.txt",
       "waitConnectedOk": true,
-      "waitConnectedElapsedMs": 2208,
+      "waitConnectedElapsedMs": 2845,
       "acceptChainMarkerCounts": {
         "accept_tapped": 1,
         "accept_patch_start": 1,
@@ -138,34 +138,34 @@
       }
     },
     "pip": {
-      "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
-      "logcatA": "logcat-pip-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
-      "logcatB": "logcat-pip-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+      "callId": "41223460-2878-4c27-b445-531ae2991908",
+      "logcatA": "logcat-pip-41223460-2878-4c27-b445-531ae2991908-a.txt",
+      "logcatB": "logcat-pip-41223460-2878-4c27-b445-531ae2991908-b.txt"
     },
     "dock": {
-      "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
-      "logcatA": "logcat-dock-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
-      "logcatB": "logcat-dock-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+      "callId": "41223460-2878-4c27-b445-531ae2991908",
+      "logcatA": "logcat-dock-41223460-2878-4c27-b445-531ae2991908-a.txt",
+      "logcatB": "logcat-dock-41223460-2878-4c27-b445-531ae2991908-b.txt"
     },
     "endCleanup": {
-      "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
-      "logcatA": "logcat-endCleanup-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
-      "logcatB": "logcat-endCleanup-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+      "callId": "41223460-2878-4c27-b445-531ae2991908",
+      "logcatA": "logcat-endCleanup-41223460-2878-4c27-b445-531ae2991908-a.txt",
+      "logcatB": "logcat-endCleanup-41223460-2878-4c27-b445-531ae2991908-b.txt"
     },
     "forbiddenZero": {
-      "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
-      "logcatA": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
-      "logcatB": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+      "callId": "41223460-2878-4c27-b445-531ae2991908",
+      "logcatA": "logcat-forbiddenZero-41223460-2878-4c27-b445-531ae2991908-a.txt",
+      "logcatB": "logcat-forbiddenZero-41223460-2878-4c27-b445-531ae2991908-b.txt"
     },
     "callV4ScreenZero": {
-      "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
-      "logcatA": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
-      "logcatB": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+      "callId": "41223460-2878-4c27-b445-531ae2991908",
+      "logcatA": "logcat-forbiddenZero-41223460-2878-4c27-b445-531ae2991908-a.txt",
+      "logcatB": "logcat-forbiddenZero-41223460-2878-4c27-b445-531ae2991908-b.txt"
     },
     "singleNativeSurface": {
-      "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
-      "logcatA": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
-      "logcatB": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+      "callId": "41223460-2878-4c27-b445-531ae2991908",
+      "logcatA": "logcat-forbiddenZero-41223460-2878-4c27-b445-531ae2991908-a.txt",
+      "logcatB": "logcat-forbiddenZero-41223460-2878-4c27-b445-531ae2991908-b.txt"
     }
   },
   "harnessFcmReadyFail": false,
@@ -173,11 +173,11 @@
   "result": {
     "pass": true,
     "callIds": {
-      "voiceOutId": "d8046ddf-7e65-45f1-a7aa-ac955f82d753",
-      "voiceInId": "03a1b0b1-c06a-4968-a8e4-71a51d84ec7a",
-      "videoOutId": "d3f9bc67-d43c-46a6-b993-ab201eb83798",
-      "videoInId": "3b693a5f-4ff6-4812-b4aa-ea2230c225d3",
-      "pipCallId": "abf2f26f-d75a-4522-873c-9b1c892d9e08"
+      "voiceOutId": "33ab1ba1-5897-43a6-97f6-acc643566027",
+      "voiceInId": "7e10d1bb-b884-437a-a1cb-5f5452ca50f6",
+      "videoOutId": "d2004e24-8188-459e-827c-ec59a9c58bdf",
+      "videoInId": "4ddc6e16-905f-45a6-9d20-059345f89c58",
+      "pipCallId": "41223460-2878-4c27-b445-531ae2991908"
     },
     "gates": {
       "voiceOutgoing": true,
@@ -216,75 +216,75 @@
     },
     "gateSnapshots": {
       "voiceOutgoing": {
-        "callId": "d8046ddf-7e65-45f1-a7aa-ac955f82d753",
-        "logcatA": "logcat-voiceOutgoing-d8046ddf-7e65-45f1-a7aa-ac955f82d753-a.txt",
-        "logcatB": "logcat-voiceOutgoing-d8046ddf-7e65-45f1-a7aa-ac955f82d753-b.txt"
+        "callId": "33ab1ba1-5897-43a6-97f6-acc643566027",
+        "logcatA": "logcat-voiceOutgoing-33ab1ba1-5897-43a6-97f6-acc643566027-a.txt",
+        "logcatB": "logcat-voiceOutgoing-33ab1ba1-5897-43a6-97f6-acc643566027-b.txt"
       },
       "voiceIncoming": {
-        "callId": "03a1b0b1-c06a-4968-a8e4-71a51d84ec7a",
-        "logcatA": "logcat-voiceIncoming-03a1b0b1-c06a-4968-a8e4-71a51d84ec7a-a.txt",
-        "logcatB": "logcat-voiceIncoming-03a1b0b1-c06a-4968-a8e4-71a51d84ec7a-b.txt"
+        "callId": "7e10d1bb-b884-437a-a1cb-5f5452ca50f6",
+        "logcatA": "logcat-voiceIncoming-7e10d1bb-b884-437a-a1cb-5f5452ca50f6-a.txt",
+        "logcatB": "logcat-voiceIncoming-7e10d1bb-b884-437a-a1cb-5f5452ca50f6-b.txt"
       },
       "videoOutgoing": {
-        "callId": "d3f9bc67-d43c-46a6-b993-ab201eb83798",
-        "logcatA": "logcat-videoOutgoing-d3f9bc67-d43c-46a6-b993-ab201eb83798-a.txt",
-        "logcatB": "logcat-videoOutgoing-d3f9bc67-d43c-46a6-b993-ab201eb83798-b.txt"
+        "callId": "d2004e24-8188-459e-827c-ec59a9c58bdf",
+        "logcatA": "logcat-videoOutgoing-d2004e24-8188-459e-827c-ec59a9c58bdf-a.txt",
+        "logcatB": "logcat-videoOutgoing-d2004e24-8188-459e-827c-ec59a9c58bdf-b.txt"
       },
       "videoIncoming": {
-        "callId": "3b693a5f-4ff6-4812-b4aa-ea2230c225d3",
-        "logcatA": "logcat-videoIncoming-3b693a5f-4ff6-4812-b4aa-ea2230c225d3-a.txt",
-        "logcatB": "logcat-videoIncoming-3b693a5f-4ff6-4812-b4aa-ea2230c225d3-b.txt"
+        "callId": "4ddc6e16-905f-45a6-9d20-059345f89c58",
+        "logcatA": "logcat-videoIncoming-4ddc6e16-905f-45a6-9d20-059345f89c58-a.txt",
+        "logcatB": "logcat-videoIncoming-4ddc6e16-905f-45a6-9d20-059345f89c58-b.txt"
       },
       "pip": {
-        "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
-        "logcatA": "logcat-pip-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
-        "logcatB": "logcat-pip-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+        "callId": "41223460-2878-4c27-b445-531ae2991908",
+        "logcatA": "logcat-pip-41223460-2878-4c27-b445-531ae2991908-a.txt",
+        "logcatB": "logcat-pip-41223460-2878-4c27-b445-531ae2991908-b.txt"
       },
       "dock": {
-        "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
-        "logcatA": "logcat-dock-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
-        "logcatB": "logcat-dock-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+        "callId": "41223460-2878-4c27-b445-531ae2991908",
+        "logcatA": "logcat-dock-41223460-2878-4c27-b445-531ae2991908-a.txt",
+        "logcatB": "logcat-dock-41223460-2878-4c27-b445-531ae2991908-b.txt"
       },
       "endCleanup": {
-        "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
-        "logcatA": "logcat-endCleanup-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
-        "logcatB": "logcat-endCleanup-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+        "callId": "41223460-2878-4c27-b445-531ae2991908",
+        "logcatA": "logcat-endCleanup-41223460-2878-4c27-b445-531ae2991908-a.txt",
+        "logcatB": "logcat-endCleanup-41223460-2878-4c27-b445-531ae2991908-b.txt"
       },
       "forbiddenZero": {
-        "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
-        "logcatA": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
-        "logcatB": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+        "callId": "41223460-2878-4c27-b445-531ae2991908",
+        "logcatA": "logcat-forbiddenZero-41223460-2878-4c27-b445-531ae2991908-a.txt",
+        "logcatB": "logcat-forbiddenZero-41223460-2878-4c27-b445-531ae2991908-b.txt"
       },
       "callV4ScreenZero": {
-        "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
-        "logcatA": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
-        "logcatB": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt",
+        "callId": "41223460-2878-4c27-b445-531ae2991908",
+        "logcatA": "logcat-forbiddenZero-41223460-2878-4c27-b445-531ae2991908-a.txt",
+        "logcatB": "logcat-forbiddenZero-41223460-2878-4c27-b445-531ae2991908-b.txt",
         "callIds": {
-          "voiceOutId": "d8046ddf-7e65-45f1-a7aa-ac955f82d753",
-          "voiceInId": "03a1b0b1-c06a-4968-a8e4-71a51d84ec7a",
-          "videoOutId": "d3f9bc67-d43c-46a6-b993-ab201eb83798",
-          "videoInId": "3b693a5f-4ff6-4812-b4aa-ea2230c225d3",
-          "pipCallId": "abf2f26f-d75a-4522-873c-9b1c892d9e08"
+          "voiceOutId": "33ab1ba1-5897-43a6-97f6-acc643566027",
+          "voiceInId": "7e10d1bb-b884-437a-a1cb-5f5452ca50f6",
+          "videoOutId": "d2004e24-8188-459e-827c-ec59a9c58bdf",
+          "videoInId": "4ddc6e16-905f-45a6-9d20-059345f89c58",
+          "pipCallId": "41223460-2878-4c27-b445-531ae2991908"
         }
       },
       "singleNativeSurface": {
-        "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
-        "logcatA": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
-        "logcatB": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt",
+        "callId": "41223460-2878-4c27-b445-531ae2991908",
+        "logcatA": "logcat-forbiddenZero-41223460-2878-4c27-b445-531ae2991908-a.txt",
+        "logcatB": "logcat-forbiddenZero-41223460-2878-4c27-b445-531ae2991908-b.txt",
         "callIds": {
-          "voiceOutId": "d8046ddf-7e65-45f1-a7aa-ac955f82d753",
-          "voiceInId": "03a1b0b1-c06a-4968-a8e4-71a51d84ec7a",
-          "videoOutId": "d3f9bc67-d43c-46a6-b993-ab201eb83798",
-          "videoInId": "3b693a5f-4ff6-4812-b4aa-ea2230c225d3",
-          "pipCallId": "abf2f26f-d75a-4522-873c-9b1c892d9e08"
+          "voiceOutId": "33ab1ba1-5897-43a6-97f6-acc643566027",
+          "voiceInId": "7e10d1bb-b884-437a-a1cb-5f5452ca50f6",
+          "videoOutId": "d2004e24-8188-459e-827c-ec59a9c58bdf",
+          "videoInId": "4ddc6e16-905f-45a6-9d20-059345f89c58",
+          "pipCallId": "41223460-2878-4c27-b445-531ae2991908"
         }
       }
     },
     "gateTelemetry": {
       "voiceOutgoing": {
-        "callId": "d8046ddf-7e65-45f1-a7aa-ac955f82d753",
-        "logcatA": "logcat-voiceOutgoing-d8046ddf-7e65-45f1-a7aa-ac955f82d753-a.txt",
-        "logcatB": "logcat-voiceOutgoing-d8046ddf-7e65-45f1-a7aa-ac955f82d753-b.txt"
+        "callId": "33ab1ba1-5897-43a6-97f6-acc643566027",
+        "logcatA": "logcat-voiceOutgoing-33ab1ba1-5897-43a6-97f6-acc643566027-a.txt",
+        "logcatB": "logcat-voiceOutgoing-33ab1ba1-5897-43a6-97f6-acc643566027-b.txt"
       },
       "voiceIncomingFcmReady": {
         "ok": true,
@@ -293,14 +293,14 @@
         "hasToken": true,
         "hasSuccess": true,
         "fcmUserId": "9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8",
-        "elapsedMs": 2110
+        "elapsedMs": 2101
       },
       "voiceIncoming": {
-        "callId": "03a1b0b1-c06a-4968-a8e4-71a51d84ec7a",
-        "logcatA": "logcat-voiceIncoming-03a1b0b1-c06a-4968-a8e4-71a51d84ec7a-a.txt",
-        "logcatB": "logcat-voiceIncoming-03a1b0b1-c06a-4968-a8e4-71a51d84ec7a-b.txt",
+        "callId": "7e10d1bb-b884-437a-a1cb-5f5452ca50f6",
+        "logcatA": "logcat-voiceIncoming-7e10d1bb-b884-437a-a1cb-5f5452ca50f6-a.txt",
+        "logcatB": "logcat-voiceIncoming-7e10d1bb-b884-437a-a1cb-5f5452ca50f6-b.txt",
         "waitConnectedOk": true,
-        "waitConnectedElapsedMs": 2002,
+        "waitConnectedElapsedMs": 2793,
         "acceptChainMarkerCounts": {
           "accept_tapped": 1,
           "accept_patch_start": 1,
@@ -314,16 +314,16 @@
         }
       },
       "videoOutgoing": {
-        "callId": "d3f9bc67-d43c-46a6-b993-ab201eb83798",
-        "logcatA": "logcat-videoOutgoing-d3f9bc67-d43c-46a6-b993-ab201eb83798-a.txt",
-        "logcatB": "logcat-videoOutgoing-d3f9bc67-d43c-46a6-b993-ab201eb83798-b.txt"
+        "callId": "d2004e24-8188-459e-827c-ec59a9c58bdf",
+        "logcatA": "logcat-videoOutgoing-d2004e24-8188-459e-827c-ec59a9c58bdf-a.txt",
+        "logcatB": "logcat-videoOutgoing-d2004e24-8188-459e-827c-ec59a9c58bdf-b.txt"
       },
       "videoIncoming": {
-        "callId": "3b693a5f-4ff6-4812-b4aa-ea2230c225d3",
-        "logcatA": "logcat-videoIncoming-3b693a5f-4ff6-4812-b4aa-ea2230c225d3-a.txt",
-        "logcatB": "logcat-videoIncoming-3b693a5f-4ff6-4812-b4aa-ea2230c225d3-b.txt",
+        "callId": "4ddc6e16-905f-45a6-9d20-059345f89c58",
+        "logcatA": "logcat-videoIncoming-4ddc6e16-905f-45a6-9d20-059345f89c58-a.txt",
+        "logcatB": "logcat-videoIncoming-4ddc6e16-905f-45a6-9d20-059345f89c58-b.txt",
         "waitConnectedOk": true,
-        "waitConnectedElapsedMs": 2208,
+        "waitConnectedElapsedMs": 2845,
         "acceptChainMarkerCounts": {
           "accept_tapped": 1,
           "accept_patch_start": 1,
@@ -337,34 +337,34 @@
         }
       },
       "pip": {
-        "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
-        "logcatA": "logcat-pip-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
-        "logcatB": "logcat-pip-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+        "callId": "41223460-2878-4c27-b445-531ae2991908",
+        "logcatA": "logcat-pip-41223460-2878-4c27-b445-531ae2991908-a.txt",
+        "logcatB": "logcat-pip-41223460-2878-4c27-b445-531ae2991908-b.txt"
       },
       "dock": {
-        "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
-        "logcatA": "logcat-dock-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
-        "logcatB": "logcat-dock-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+        "callId": "41223460-2878-4c27-b445-531ae2991908",
+        "logcatA": "logcat-dock-41223460-2878-4c27-b445-531ae2991908-a.txt",
+        "logcatB": "logcat-dock-41223460-2878-4c27-b445-531ae2991908-b.txt"
       },
       "endCleanup": {
-        "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
-        "logcatA": "logcat-endCleanup-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
-        "logcatB": "logcat-endCleanup-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+        "callId": "41223460-2878-4c27-b445-531ae2991908",
+        "logcatA": "logcat-endCleanup-41223460-2878-4c27-b445-531ae2991908-a.txt",
+        "logcatB": "logcat-endCleanup-41223460-2878-4c27-b445-531ae2991908-b.txt"
       },
       "forbiddenZero": {
-        "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
-        "logcatA": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
-        "logcatB": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+        "callId": "41223460-2878-4c27-b445-531ae2991908",
+        "logcatA": "logcat-forbiddenZero-41223460-2878-4c27-b445-531ae2991908-a.txt",
+        "logcatB": "logcat-forbiddenZero-41223460-2878-4c27-b445-531ae2991908-b.txt"
       },
       "callV4ScreenZero": {
-        "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
-        "logcatA": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
-        "logcatB": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+        "callId": "41223460-2878-4c27-b445-531ae2991908",
+        "logcatA": "logcat-forbiddenZero-41223460-2878-4c27-b445-531ae2991908-a.txt",
+        "logcatB": "logcat-forbiddenZero-41223460-2878-4c27-b445-531ae2991908-b.txt"
       },
       "singleNativeSurface": {
-        "callId": "abf2f26f-d75a-4522-873c-9b1c892d9e08",
-        "logcatA": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-a.txt",
-        "logcatB": "logcat-forbiddenZero-abf2f26f-d75a-4522-873c-9b1c892d9e08-b.txt"
+        "callId": "41223460-2878-4c27-b445-531ae2991908",
+        "logcatA": "logcat-forbiddenZero-41223460-2878-4c27-b445-531ae2991908-a.txt",
+        "logcatB": "logcat-forbiddenZero-41223460-2878-4c27-b445-531ae2991908-b.txt"
       }
     }
   },

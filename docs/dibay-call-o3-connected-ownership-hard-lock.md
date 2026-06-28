@@ -100,6 +100,4 @@ O3_VIDEO_OUTGOING_ONLY=1 CAPACITOR_SERVER_URL=http://192.168.100.83:3000 node .q
 
 ## Next Track
 
-**Track ④ Final Regression** — run `.qa-logs/native-call-final-regression.mjs` once after Track ③ commit bundle → Native Call full HARD LOCK end.
-
-Track ③ Dead code cleanup: **LOCK** — `docs/dibay-call-track3-dead-code-cleanup-lock.md`
+**None.** Track ④ Final Regression PASS — Native Call project **CLOSED** at HARD LOCK.

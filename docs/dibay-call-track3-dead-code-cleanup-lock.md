@@ -68,4 +68,4 @@ Without explicit red-team approval:
 
 ## Next Track
 
-**Track ④ Final Regression** — run `.qa-logs/native-call-final-regression.mjs` **once** after Track ③ commit bundle, then Native Telegram Runtime project **full HARD LOCK** end.
+**None — project CLOSED.** Track ④ Final Regression PASS (`2026-06-28T05:04:08Z`) closed the Native Telegram Runtime Android project at HARD LOCK.

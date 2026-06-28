@@ -58,4 +58,4 @@ vitest run lib/community-messenger/call-v4/__tests__/call-v4-import-guard.test.t
 
 ## Out of scope (Track ②+)
 
-Connected Ownership (Track ② LOCK), Runtime, Native UI. Track ③ dead file cleanup **LOCK**. Track ④ Final Regression once after Track ③ commit.
+Connected Ownership (Track ② LOCK), Runtime, Native UI. Track ③ dead file cleanup **LOCK**. Track ④ Final Regression **PASS — project CLOSED**.
