@@ -275,6 +275,11 @@ public class NativeVideoCallActivity extends Activity {
                   | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
                   | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     }
+    getWindow()
+        .addFlags(
+            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                | WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
+                | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
   }
 
   private void bindViews() {
