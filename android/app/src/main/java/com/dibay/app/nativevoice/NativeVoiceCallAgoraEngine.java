@@ -96,6 +96,35 @@ public final class NativeVoiceCallAgoraEngine {
     }
   }
 
+  /** Guard-only: current Agora occupant callId, or null when unset. */
+  public static String peekOccupantCallId() {
+    synchronized (LOCK) {
+      return activeCallId != null && !activeCallId.isEmpty() ? activeCallId : null;
+    }
+  }
+
+  /**
+   * Reclaim engine with no occupant (zombie). Does not touch engines bound to an active callId.
+   *
+   * @return true when a zombie engine was released
+   */
+  public static boolean releaseZombieEngine(String reason) {
+    synchronized (LOCK) {
+      if (engine == null) return false;
+      if (activeCallId != null && !activeCallId.isEmpty()) return false;
+      listener = null;
+      try {
+        engine.leaveChannel();
+      } catch (RuntimeException error) {
+        NativeVoiceCallLog.warn(
+            "error_terminal", "unknown", "agora_zombie_leave=" + error.getClass().getSimpleName());
+      }
+      RtcEngine.destroy();
+      engine = null;
+      return true;
+    }
+  }
+
   public static void leave(String reason) {
     Listener currentListener;
     String sid;
