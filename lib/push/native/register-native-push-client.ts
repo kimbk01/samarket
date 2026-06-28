@@ -5,6 +5,7 @@ import { resolveDibayDeepLinkToAppPath } from "@/lib/platform/deep-link-routes";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 import { requestNativeNotificationPermissionIfNeeded } from "@/lib/push/native/check-native-notification-permission";
 import { logPushRegister, logPushRegisterFail } from "@/lib/push/native/native-push-register-log";
+import { registerPushDeviceViaNative } from "@/lib/push/native/native-push-register-bridge";
 
 type RegisterResult = { ok: true } | { ok: false; error: string };
 
@@ -111,6 +112,70 @@ async function postDeviceRegistration(
   return { ok: true };
 }
 
+async function postDeviceRegistrationWithNativeFirst(
+  body: Record<string, unknown>,
+  opts?: PostDeviceRegistrationOpts,
+): Promise<RegisterResult> {
+  const platform = typeof body.platform === "string" ? body.platform.trim() : "";
+  const baseDetail = {
+    platform: body.platform,
+    push_provider: body.push_provider,
+    device_id: body.device_id,
+    user_id: body.user_id,
+    push_token_len: typeof body.push_token === "string" ? body.push_token.length : 0,
+  };
+
+  if (platform === "android") {
+    const pushToken = typeof body.push_token === "string" ? body.push_token.trim() : "";
+    const deviceId = typeof body.device_id === "string" ? body.device_id.trim() : "";
+    const pushProvider = typeof body.push_provider === "string" ? body.push_provider.trim() : "fcm";
+    const appVersion = typeof body.app_version === "string" ? body.app_version.trim() : undefined;
+    const userId = typeof body.user_id === "string" ? body.user_id.trim() : undefined;
+
+    logPushRegister("native_register_start", baseDetail);
+
+    const nativeResult = await registerPushDeviceViaNative({
+      platform,
+      device_id: deviceId,
+      push_token: pushToken,
+      push_provider: pushProvider,
+      app_version: appVersion,
+      user_id: userId,
+    });
+
+    logPushRegister("native_register_post_done", {
+      ...baseDetail,
+      ok: nativeResult.ok,
+      http_status: nativeResult.http_status ?? null,
+      error: nativeResult.error ?? null,
+      device_row_id: nativeResult.device_row_id ?? null,
+    });
+
+    if (nativeResult.ok) {
+      if (opts?.instrumentation) {
+        opts.instrumentation.fetchResolved = true;
+        opts.instrumentation.jsonParsed = true;
+      }
+      logPushRegister("success", {
+        http_status: nativeResult.http_status ?? 200,
+        device_row_id: nativeResult.device_row_id ?? null,
+        user_id: body.user_id,
+        via: "native_http",
+      });
+      return { ok: true };
+    }
+
+    logPushRegisterFail("native_register_failed", {
+      ...baseDetail,
+      http_status: nativeResult.http_status ?? null,
+      error: nativeResult.error ?? "native_register_failed",
+    });
+    logPushRegister("native_register_fetch_fallback", baseDetail);
+  }
+
+  return postDeviceRegistration(body, opts);
+}
+
 async function deactivateNativePushForPermissionDenied(deviceId: string): Promise<void> {
   await fetch("/api/me/devices/deactivate", {
     method: "POST",
@@ -197,7 +262,7 @@ export async function registerNativePushFromClient(userId?: string): Promise<Reg
           finish({ ok: false, error: "empty_token" });
           return;
         }
-        void postDeviceRegistration(
+        void postDeviceRegistrationWithNativeFirst(
           {
             user_id: resolvedUserId || undefined,
             platform,

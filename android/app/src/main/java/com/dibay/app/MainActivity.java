@@ -913,6 +913,7 @@ public class MainActivity extends BridgeActivity {
     registerPlugin(NativeKakaoAuthPlugin.class);
     registerPlugin(NativeGoogleAuthPlugin.class);
     registerPlugin(NativeDevicePermissionsPlugin.class);
+    registerPlugin(com.dibay.app.nativepush.NativePushRegisterPlugin.class);
     registerPlugin(NativeIncomingCallPlugin.class);
     registerPlugin(com.dibay.app.call.CallPermissionPlugin.class);
     registerPlugin(com.dibay.app.call.DibayCallAudioRoutePlugin.class);
