@@ -21,6 +21,11 @@ function createStorage(): Storage {
 const fetchAuthSessionNoStore = vi.fn();
 const wipeClientSessionState = vi.fn();
 const signOut = vi.fn();
+const disconnectNativeDevicesForLogout = vi.fn();
+
+vi.mock("@/lib/push/disconnect-native-devices-for-logout-client", () => ({
+  disconnectNativeDevicesForLogout: (...args: unknown[]) => disconnectNativeDevicesForLogout(...args),
+}));
 const getSession = vi.fn();
 const refreshSession = vi.fn();
 const getUser = vi.fn();
@@ -63,6 +68,7 @@ describe("ensureSessionHealthy registry validation", () => {
     fetchAuthSessionNoStore.mockReset();
     wipeClientSessionState.mockReset();
     signOut.mockReset();
+    disconnectNativeDevicesForLogout.mockReset();
     getSession.mockReset();
     wipeClientSessionState.mockResolvedValue(undefined);
     signOut.mockResolvedValue({ error: null });
@@ -91,6 +97,7 @@ describe("ensureSessionHealthy registry validation", () => {
     expect(result.phase).toBe("guest");
     expect(mod.getSessionPhase()).toBe("guest");
     expect(wipeClientSessionState).toHaveBeenCalledWith("user_logout", { setPostLogoutGuard: false });
+    expect(disconnectNativeDevicesForLogout).toHaveBeenCalled();
     expect(signOut).toHaveBeenCalledWith({ scope: "local" });
   });
 });

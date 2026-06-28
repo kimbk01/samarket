@@ -3,7 +3,7 @@
 import type { Profile } from "@/lib/types/profile";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { fetchAuthSessionNoStore } from "@/lib/auth/fetch-auth-session-client";
-import { isGuestAuthEstablished, logGuestFetchSkipped } from "@/lib/auth/guest-auth-state";
+import { isGuestAuthEstablished, isRecoverableGuestAuthEstablished, logGuestFetchSkipped } from "@/lib/auth/guest-auth-state";
 import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
 import { setSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
 import { getMyProfile } from "@/lib/profile/getMyProfile";
@@ -22,7 +22,7 @@ export async function resolveClientProfileFromSession(
   const cached = getCurrentUser();
   if (cached?.id) return cached;
 
-  if (isGuestAuthEstablished()) {
+  if (isGuestAuthEstablished() && !isRecoverableGuestAuthEstablished()) {
     logGuestFetchSkipped("resolveClientProfileFromSession", source);
     return null;
   }
@@ -52,7 +52,7 @@ export async function resolveClientMembership(
   const cached = getCurrentUser();
   if (cached?.id) return { status: "member", profile: cached };
 
-  if (isGuestAuthEstablished()) {
+  if (isGuestAuthEstablished() && !isRecoverableGuestAuthEstablished()) {
     logGuestFetchSkipped("resolveClientMembership", source);
     return { status: "guest" };
   }

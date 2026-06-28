@@ -120,9 +120,29 @@ export function SupabaseAuthSync() {
       if (event === "INITIAL_SESSION") {
         if (!session?.user?.id) {
           if (lastKnownAuthUserId) {
+            if (typeof console !== "undefined" && typeof console.info === "function") {
+              console.info(
+                "[dibay_auth_initial_session_wipe]",
+                JSON.stringify({
+                  at: Date.now(),
+                  hadLastKnownUserId: true,
+                  reason: "initial_session_empty_with_prior_user",
+                }),
+              );
+            }
             lastKnownAuthUserId = null;
             void wipeClientSessionState("user_logout", { setPostLogoutGuard: false });
           } else {
+            if (typeof console !== "undefined" && typeof console.info === "function") {
+              console.info(
+                "[dibay_auth_initial_session_cold_start]",
+                JSON.stringify({
+                  at: Date.now(),
+                  hadLastKnownUserId: false,
+                  wipe: false,
+                }),
+              );
+            }
             syncSignedOutClientCaches();
           }
         } else {

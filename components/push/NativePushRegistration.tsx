@@ -31,6 +31,12 @@ export function NativePushRegistration() {
   useEffect(() => subscribeSessionPhase(setPhase), []);
 
   useEffect(() => {
+    if (phase === "authenticated") {
+      logPushRegister("session_authenticated", { phase: "authenticated" });
+    }
+  }, [phase]);
+
+  useEffect(() => {
     if (!isCapacitorNativePlatform()) return;
     const detachVoip = attachVoipPushTokenListener();
     return () => {

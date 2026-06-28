@@ -2,8 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearGuestAuthState,
   establishGuestAuthState,
+  establishRecoverableGuestAuthState,
   isAuthMissing,
   isGuestAuthEstablished,
+  isRecoverableGuestAuthEstablished,
   noteGuest401,
   resetGuestAuthStateForTests,
 } from "@/lib/auth/guest-auth-state";
@@ -40,5 +42,13 @@ describe("guest-auth-state", () => {
     establishGuestAuthState("guest");
     clearGuestAuthState();
     expect(isAuthMissing()).toBe(false);
+  });
+
+  it("marks recoverable guest without blocking terminal upgrade", () => {
+    establishRecoverableGuestAuthState("app_boot_auth_pending_recoverable");
+    expect(isGuestAuthEstablished()).toBe(true);
+    expect(isRecoverableGuestAuthEstablished()).toBe(true);
+    establishGuestAuthState("app_boot_unauthenticated_confirmed");
+    expect(isRecoverableGuestAuthEstablished()).toBe(false);
   });
 });

@@ -2,7 +2,16 @@
 
 import { dedupeSupabaseAuthGetUser } from "@/lib/auth/dedupe-supabase-get-user-client";
 import { recoverFrom401Once } from "@/lib/auth/api-auth-recovery";
-import { establishGuestAuthState, isGuestAuthEstablished, clearGuestAuthState } from "@/lib/auth/guest-auth-state";
+import { awaitClientSupabaseSessionReady } from "@/lib/auth/await-client-supabase-session-ready";
+import {
+  establishGuestAuthState,
+  establishRecoverableGuestAuthState,
+  isGuestAuthEstablished,
+  clearGuestAuthState,
+} from "@/lib/auth/guest-auth-state";
+import { logGuestAuthBootMarker } from "@/lib/auth/guest-auth-boot-markers";
+import { runRecoverableGuestRecovery } from "@/lib/auth/guest-auth-recovery";
+import { fetchAuthSessionNoStore } from "@/lib/auth/fetch-auth-session-client";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
 import { setSupabaseProfileCache, userToProfile } from "@/lib/auth/supabase-profile-cache";
@@ -40,6 +49,108 @@ async function resolveBootProfileMinimal(): Promise<MeProfileGetResult> {
   const cached = peekAppBootProfileFetchCached();
   if (cached) return cached;
   return fetchAppBootProfileMinimal();
+}
+
+function bootProfileIsAuthenticated(status: number | undefined, json: unknown): json is { ok: true; profile: ProfileRow } {
+  const data = json as { ok?: boolean; profile?: ProfileRow } | null;
+  return status === 200 && !!data?.ok && !!data.profile;
+}
+
+function applyBootProfileEvidence(
+  status: number | undefined,
+  json: unknown,
+  user: User | null,
+): boolean {
+  if (!bootProfileIsAuthenticated(status, json)) return false;
+  const data = json as { ok: true; profile: ProfileRow };
+  primeMeProfileDedupedFromBoot({ status: status as number, json });
+  setAppBootProfile(data.profile);
+  const clientProfile = profileRowToClientProfile(data.profile);
+  const base = user ? userToProfile(user) : clientProfile;
+  setSupabaseProfileCache({
+    ...base,
+    ...clientProfile,
+    avatar_url: clientProfile.avatar_url ?? base?.avatar_url ?? null,
+    temperature: clientProfile.temperature ?? base?.temperature ?? 50,
+  });
+  dispatchTestAuthChanged();
+  return true;
+}
+
+async function deferBootGuestForRecovery(
+  reason: string,
+  startEpoch: number,
+  t0: number,
+  profileStatus?: number,
+  profileJson?: unknown,
+  user?: User | null,
+): Promise<boolean> {
+  if (startEpoch !== bootEpoch) return true;
+  logGuestAuthBootMarker("app_boot_guest_deferred", { reason });
+  establishRecoverableGuestAuthState("app_boot_auth_pending_recoverable");
+  setAppBootHydrating();
+  if (profileStatus !== undefined && applyBootProfileEvidence(profileStatus, profileJson, user ?? null)) {
+    /* profile cache primed while Supabase user catches up */
+  }
+  void runRecoverableGuestRecovery(`app_boot:${reason}`);
+  markBootMetricsApiDone();
+  recordAppWidePhaseLastMs("app_boot_layer_ms", Math.round(performance.now() - t0));
+  return true;
+}
+
+async function resolveBootWhenGetUserEmpty(
+  sb: NonNullable<ReturnType<typeof getSupabaseClient>>,
+  startEpoch: number,
+  t0: number,
+  profileStatus: number | undefined,
+  profileJson: unknown,
+  userError: Error | null,
+): Promise<boolean> {
+  logGuestAuthBootMarker("app_boot_get_user_empty", {
+    hasError: !!userError,
+    profileStatus: profileStatus ?? null,
+  });
+
+  if (bootProfileIsAuthenticated(profileStatus, profileJson)) {
+    logGuestAuthBootMarker("app_boot_profile_authenticated_while_get_user_empty", {
+      profileStatus,
+    });
+    return deferBootGuestForRecovery(
+      "profile_authenticated_get_user_empty",
+      startEpoch,
+      t0,
+      profileStatus,
+      profileJson,
+      null,
+    );
+  }
+
+  const sessionRes = await fetchAuthSessionNoStore("app_boot_session_registry");
+  if (sessionRes.ok) {
+    return deferBootGuestForRecovery("session_registry_authenticated", startEpoch, t0, profileStatus, profileJson);
+  }
+
+  await awaitClientSupabaseSessionReady(1_500);
+  const retried = await dedupeSupabaseAuthGetUser(sb);
+  const retriedUser = retried.data.user;
+  if (retriedUser?.id) {
+    clearGuestAuthState();
+    return false;
+  }
+
+  if (bootProfileIsAuthenticated(profileStatus, profileJson)) {
+    return deferBootGuestForRecovery("profile_authenticated_after_retry", startEpoch, t0, profileStatus, profileJson);
+  }
+
+  if (sessionRes.status >= 500 || sessionRes.status === 429) {
+    return deferBootGuestForRecovery("session_registry_transient", startEpoch, t0, profileStatus, profileJson);
+  }
+
+  establishGuestAuthState("app_boot_unauthenticated_confirmed");
+  setAppBootAnonymous();
+  markBootMetricsApiDone();
+  recordAppWidePhaseLastMs("app_boot_layer_ms", Math.round(performance.now() - t0));
+  return true;
 }
 
 async function runAppBootOnce(startEpoch: number): Promise<void> {
@@ -93,11 +204,10 @@ async function runAppBootOnce(startEpoch: number): Promise<void> {
   }
 
   if (!user || userError) {
-    establishGuestAuthState("app_boot_no_supabase_user");
-    setAppBootAnonymous();
-    markBootMetricsApiDone();
-    recordAppWidePhaseLastMs("app_boot_layer_ms", Math.round(performance.now() - t0));
-    return;
+    const handled = await resolveBootWhenGetUserEmpty(sb, startEpoch, t0, status, json, userError);
+    if (handled) return;
+    user = (await dedupeSupabaseAuthGetUser(sb)).data.user;
+    if (!user?.id) return;
   }
 
   if (isStale()) return;

@@ -10,7 +10,6 @@ import {
   setSupabaseProfileCache,
 } from "@/lib/auth/supabase-profile-cache";
 import { awaitClientSupabaseSessionReady } from "@/lib/auth/await-client-supabase-session-ready";
-import { clearGuestAuthState } from "@/lib/auth/guest-auth-state";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
 const PRIME_SESSION_READY_MS = 1_500;
@@ -21,7 +20,6 @@ const PRIME_SESSION_READY_MS = 1_500;
  */
 export async function primeClientAuthSessionFromSupabase(): Promise<boolean> {
   if (typeof window === "undefined") return false;
-  clearGuestAuthState();
   const sb = getSupabaseClient();
   if (!sb) return false;
 
@@ -39,6 +37,8 @@ export async function primeClientAuthSessionFromSupabase(): Promise<boolean> {
   const profile = sessionToProfile(session);
   if (!profile?.id) return false;
 
+  const { markSessionAuthenticatedFromClient } = await import("@/lib/auth/dibay-session-manager");
+  markSessionAuthenticatedFromClient("prime_supabase");
   bindAuthUserId(profile.id);
   setSupabaseProfileCache(profile);
   setAppBootLoading();

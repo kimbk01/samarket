@@ -6,11 +6,23 @@
  */
 
 let authMissing = false;
+let guestRecoverable = false;
+let guestSource: string | null = null;
 let guestEstablishedAt = 0;
 
 function logGuest(tag: string, payload: Record<string, unknown>): void {
   if (typeof console === "undefined" || typeof console.info !== "function") return;
-  console.info(tag, JSON.stringify({ at: Date.now(), authMissing, sessionState: authMissing ? "guest" : "loading", ...payload }));
+  console.info(
+    tag,
+    JSON.stringify({
+      at: Date.now(),
+      authMissing,
+      guestRecoverable,
+      guestSource,
+      sessionState: authMissing ? "guest" : "loading",
+      ...payload,
+    }),
+  );
 }
 
 /** 전역 authMissing — guest 확정 후 true */
@@ -33,12 +45,28 @@ export function noteGuest401(source: string, detail?: Record<string, unknown>): 
   establishGuestAuthState(source);
 }
 
-/** guest 세션 확정 — refresh·인증 fetch 중단 */
-export function establishGuestAuthState(source: string): void {
-  if (authMissing) return;
+/** Boot race — session/profile evidence may still recover; fetch gate bypass until terminal guest. */
+export function establishRecoverableGuestAuthState(source: string): void {
+  if (authMissing && !guestRecoverable) return;
   authMissing = true;
+  guestRecoverable = true;
+  guestSource = source;
+  if (guestEstablishedAt <= 0) guestEstablishedAt = Date.now();
+  logGuest("[guest_state_established]", { source, recoverable: true });
+}
+
+export function isRecoverableGuestAuthEstablished(): boolean {
+  return authMissing && guestRecoverable;
+}
+
+/** guest 세션 확정 (terminal) — refresh·인증 fetch 중단 */
+export function establishGuestAuthState(source: string): void {
+  if (authMissing && !guestRecoverable) return;
+  authMissing = true;
+  guestRecoverable = false;
+  guestSource = source;
   guestEstablishedAt = Date.now();
-  logGuest("[guest_state_established]", { source });
+  logGuest("[guest_state_established]", { source, recoverable: false });
 }
 
 /** guest 확정 후 스킵된 fetch — 브라우저 콘솔 측정용 */
@@ -49,7 +77,13 @@ export function logGuestFetchSkipped(fetch: string, source: string): void {
 /** 로그인·세션 복구 성공 시 guest 게이트 해제 */
 export function clearGuestAuthState(): void {
   authMissing = false;
+  guestRecoverable = false;
+  guestSource = null;
   guestEstablishedAt = 0;
+}
+
+export function getGuestAuthSource(): string | null {
+  return guestSource;
 }
 
 /** vitest reset */
@@ -66,6 +100,8 @@ export function exposeGuestAuthStateProbeForDev(): void {
     }
   ).__dibayGuestAuthProbe = () => ({
     authMissing: isAuthMissing(),
+    guestRecoverable,
+    guestSource,
     guestEstablishedAt: getGuestEstablishedAt(),
   });
 }
