@@ -4,6 +4,11 @@ import { formatAppDate, formatAppNumber } from "@/lib/i18n/locale-for-app-langua
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import {
+  loadStoreReviewsMenuFilterThumbFetchUrl,
+  loadStoreReviewsPerReviewPhotoFetchUrl,
+  loadStoreReviewsSummaryReviewPhotoFetchUrl,
+} from "@/lib/image/image-store-reviews-section";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import {
   attachReviewCountsToRailProducts,
@@ -259,7 +264,7 @@ export function StoreReviewsSection({
         const u = String(raw).trim();
         if (!u || seen.has(u)) continue;
         seen.add(u);
-        out.push(u);
+        out.push(loadStoreReviewsSummaryReviewPhotoFetchUrl(u) ?? u);
         if (out.length >= 24) return out;
       }
     }
@@ -390,7 +395,10 @@ export function StoreReviewsSection({
                 </span>
               </button>
               {menuReviewFilterItems.map((item) => {
-                const thumb = item.thumbnail_url?.trim() || "";
+                const thumbRaw = item.thumbnail_url?.trim() || "";
+                const thumb = thumbRaw
+                  ? loadStoreReviewsMenuFilterThumbFetchUrl(thumbRaw) ?? thumbRaw
+                  : "";
                 const active = selectedProductId === item.id;
                 return (
                   <button
@@ -522,7 +530,9 @@ export function StoreReviewsSection({
               </div>
               {r.image_urls && r.image_urls.length > 0 ? (
                 <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1">
-                  {r.image_urls.slice(0, 5).map((src) => (
+                  {r.image_urls.slice(0, 5).map((raw) => {
+                    const src = loadStoreReviewsPerReviewPhotoFetchUrl(raw) ?? raw;
+                    return (
                     <div
                       key={src}
                       className="h-20 w-20 shrink-0 overflow-hidden rounded-[12px] ring-1 ring-neutral-100/90"
@@ -530,7 +540,8 @@ export function StoreReviewsSection({
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={src} alt="" className="h-full w-full object-cover" />
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : null}
               <p
@@ -709,7 +720,9 @@ export function StoreReviewsSection({
             {/* 이미지 가로 스크롤 */}
             {r.image_urls && r.image_urls.length > 0 ? (
               <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1">
-                {r.image_urls.slice(0, 5).map((src) => (
+                {r.image_urls.slice(0, 5).map((raw) => {
+                  const src = loadStoreReviewsPerReviewPhotoFetchUrl(raw) ?? raw;
+                  return (
                   <div
                     key={src}
                     className="h-20 w-20 shrink-0 overflow-hidden rounded-ui-rect border border-sam-border-soft bg-sam-surface-muted"
@@ -717,7 +730,8 @@ export function StoreReviewsSection({
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={src} alt="" className="h-full w-full object-cover" />
                   </div>
-                ))}
+                  );
+                })}
               </div>
             ) : null}
 

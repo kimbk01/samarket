@@ -70,6 +70,15 @@ export {
 } from "@/lib/image/image-store-review-rail";
 
 export {
+  STORE_REVIEWS_MENU_FILTER_DISPLAY_PX,
+  STORE_REVIEWS_PER_REVIEW_PHOTO_DISPLAY_PX,
+  STORE_REVIEWS_SUMMARY_PHOTO_DISPLAY_PX,
+  loadStoreReviewsMenuFilterThumbFetchUrl,
+  loadStoreReviewsPerReviewPhotoFetchUrl,
+  loadStoreReviewsSummaryReviewPhotoFetchUrl,
+} from "@/lib/image/image-store-reviews-section";
+
+export {
   loadCommunityFeedThumbnailFetchUrl,
   loadImageFetchUrl,
   loadStoreProductThumbnailFetchUrl,
