@@ -21,10 +21,11 @@ describe("guest-auth-state", () => {
     vi.restoreAllMocks();
   });
 
-  it("establishes guest once and logs measurement tags", () => {
+  it("establishes recoverable guest on 401 and logs measurement tags", () => {
     noteGuest401("test_source", { url: "/api/me/profile" });
     expect(isAuthMissing()).toBe(true);
     expect(isGuestAuthEstablished()).toBe(true);
+    expect(isRecoverableGuestAuthEstablished()).toBe(true);
 
     const calls = vi.mocked(console.info).mock.calls.map(([tag]) => String(tag));
     expect(calls).toContain("[guest_401_detected]");

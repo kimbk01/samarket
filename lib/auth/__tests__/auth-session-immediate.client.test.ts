@@ -11,8 +11,20 @@ vi.mock("@/lib/app-boot/app-boot-store", () => ({
   setAppBootLoading,
 }));
 
-vi.mock("@/lib/auth/client-instance-id", () => ({
-  bindAuthUserId,
+vi.mock("@/lib/auth/client-instance-id", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/auth/client-instance-id")>();
+  return {
+    ...actual,
+    bindAuthUserId,
+  };
+});
+
+vi.mock("@/lib/auth/dibay-session-manager", () => ({
+  markSessionAuthenticatedFromClient: vi.fn(),
+}));
+
+vi.mock("@/lib/auth/guest-auth-boot-markers", () => ({
+  logGuestAuthBootMarker: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/fetch-auth-session-client", () => ({

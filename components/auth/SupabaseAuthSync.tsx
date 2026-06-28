@@ -23,6 +23,7 @@ import { shouldClearProfileCacheOnGetUserFailure } from "@/lib/auth/supabase-get
 import { bindAuthUserId, detectAuthUserMismatch } from "@/lib/auth/client-instance-id";
 import { isAccountDependentPath } from "@/lib/auth/auth-route-classification";
 import { runAuthAccountSwitchExit } from "@/lib/auth/auth-exit-coordinator";
+import { logGuestAuthBootMarker } from "@/lib/auth/guest-auth-boot-markers";
 import { bindDibaySessionManagerAuthListener, subscribeDibayAuthStateChange } from "@/lib/auth/dibay-session-manager";
 import { dispatchOAuthPendingClear } from "@/lib/auth/oauth/use-oauth-login";
 import { logOAuthNativeEvent } from "@/lib/auth/oauth/oauth-native-callback-log";
@@ -119,33 +120,19 @@ export function SupabaseAuthSync() {
 
       if (event === "INITIAL_SESSION") {
         if (!session?.user?.id) {
-          if (lastKnownAuthUserId) {
-            if (typeof console !== "undefined" && typeof console.info === "function") {
-              console.info(
-                "[dibay_auth_initial_session_wipe]",
-                JSON.stringify({
-                  at: Date.now(),
-                  hadLastKnownUserId: true,
-                  reason: "initial_session_empty_with_prior_user",
-                }),
-              );
-            }
-            lastKnownAuthUserId = null;
-            void wipeClientSessionState("user_logout", { setPostLogoutGuard: false });
-          } else {
-            if (typeof console !== "undefined" && typeof console.info === "function") {
-              console.info(
-                "[dibay_auth_initial_session_cold_start]",
-                JSON.stringify({
-                  at: Date.now(),
-                  hadLastKnownUserId: false,
-                  wipe: false,
-                }),
-              );
-            }
-            syncSignedOutClientCaches();
-          }
+          logGuestAuthBootMarker("initial_session_empty_recovering", {
+            hadLastKnownUserId: !!lastKnownAuthUserId,
+          });
+          logGuestAuthBootMarker("initial_session_empty_no_wipe", {
+            hadLastKnownUserId: !!lastKnownAuthUserId,
+          });
+          syncSignedOutClientCaches();
         } else {
+          if (lastKnownAuthUserId && lastKnownAuthUserId === session.user.id) {
+            logGuestAuthBootMarker("initial_session_recovered_authenticated", {
+              userId: session.user.id,
+            });
+          }
           handleAuthenticatedSession(sb, event, session.user.id);
         }
         return;

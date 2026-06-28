@@ -99,7 +99,7 @@ describe("run-app-boot recoverable guest", () => {
     const { ensureAppBoot } = await import("@/lib/app-boot/run-app-boot");
     await ensureAppBoot();
 
-    expect(establishGuestAuthState).toHaveBeenCalledWith("app_boot_unauthenticated_confirmed");
+    expect(establishGuestAuthState).toHaveBeenCalledWith("app_boot_terminal_guest_confirmed");
     expect(establishRecoverableGuestAuthState).not.toHaveBeenCalled();
   });
 });

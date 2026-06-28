@@ -15,12 +15,14 @@ export async function runRecoverableGuestRecovery(source: string): Promise<boole
   const primed = await primeClientAuthSessionFromSupabase().catch(() => false);
   if (primed) {
     logGuestAuthBootMarker("guest_recovery_success", { source, path: "prime_supabase" });
+    logGuestAuthBootMarker("app_boot_recovery_authenticated", { source, path: "prime_supabase" });
     return true;
   }
   const { attemptRecoverableGuestSession } = await import("@/lib/auth/dibay-session-manager");
   const result = await attemptRecoverableGuestSession(source);
   if (result.ok) {
     logGuestAuthBootMarker("guest_recovery_success", { source, path: "ensure_session" });
+    logGuestAuthBootMarker("app_boot_recovery_authenticated", { source, path: "ensure_session" });
     return true;
   }
   if (result.terminal) {

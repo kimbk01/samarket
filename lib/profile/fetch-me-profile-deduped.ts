@@ -138,7 +138,9 @@ async function fetchMeProfileWith401Recovery(clientCallSource?: string): Promise
     const recovery = await recoverFrom401Once("me_profile_full");
     if (recovery.recovered) {
       res = await fetchMeProfileNetwork(clientCallSource);
-    } else if (recovery.phase === "guest" || isGuestAuthEstablished()) {
+    } else if (recovery.phase === "recovering" || recovery.phase === "loading") {
+      return parseMeProfileResponse(res);
+    } else if (recovery.phase === "terminal_guest" || isGuestAuthEstablished()) {
       const result = await parseMeProfileResponse(res);
       cachedFull = { value: result, expiresAt: Date.now() + TTL_MS };
       return result;
@@ -150,7 +152,10 @@ async function fetchMeProfileWith401Recovery(clientCallSource?: string): Promise
   const result = await parseMeProfileResponse(res);
   if (res.ok || res.status === 401 || res.status === 403) {
     if (res.status === 401) {
-      noteGuest401(clientCallSource ?? "me_profile_full", { url: "/api/me/profile?mode=full" });
+      noteGuest401(clientCallSource ?? "me_profile_full", {
+        url: "/api/me/profile?mode=full",
+        recovering: true,
+      });
     }
     cachedFull = { value: result, expiresAt: Date.now() + TTL_MS };
   }

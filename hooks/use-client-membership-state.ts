@@ -53,10 +53,13 @@ async function resolveMembershipState(source: string): Promise<ClientMembershipS
   if (cached?.id) return { status: "member", profile: cached };
 
   const health = await ensureSessionHealthy(`membership:${source}`);
-  if (health.phase === "loading") {
+  if (health.phase === "loading" || health.phase === "recovering") {
     return { status: "checking" };
   }
   if (health.ok === false && health.terminal) {
+    return { status: "guest" };
+  }
+  if (health.phase === "terminal_guest") {
     return { status: "guest" };
   }
 

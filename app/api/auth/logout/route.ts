@@ -4,12 +4,18 @@ import { clearActiveSessionCookie, readActiveSessionIdCookie } from "@/lib/auth/
 import { cookieSecureFromNextRequest } from "@/lib/auth/cookie-secure-flag";
 import { requireAuth } from "@/lib/auth/server-guards";
 import { invalidateUserSessionRegistry } from "@/lib/auth/user-session-registry";
+import { parseJsonBody } from "@/lib/http/api-route";
+import { deactivateAllUserDevicesForLogout } from "@/lib/push/dispatch/deactivate-failed-token";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type CookieToSet = { name: string; value: string; options: CookieOptions };
+
+type LogoutBody = {
+  device_id?: unknown;
+};
 
 function requestSupabaseAuthCookieNames(request: NextRequest): string[] {
   return request.cookies
@@ -159,6 +165,25 @@ export async function POST(request: NextRequest) {
   const sb = tryCreateSupabaseServiceClient();
   const currentSessionId = await readActiveSessionIdCookie();
   let registryError: string | null = null;
+  let deviceDeactivateError: string | null = null;
+
+  const parsed = await parseJsonBody<LogoutBody>(request);
+  const deviceId =
+    parsed.ok && typeof parsed.value.device_id === "string" ? parsed.value.device_id.trim() : "";
+
+  if (sb && auth.userId) {
+    try {
+      await deactivateAllUserDevicesForLogout(sb, auth.userId, deviceId || null);
+    } catch (error) {
+      deviceDeactivateError =
+        error instanceof Error ? error.message : "logout_device_deactivate_failed";
+      console.warn("[auth/logout] device_deactivate_failed", {
+        userId: auth.userId,
+        deviceId: deviceId || null,
+        error: deviceDeactivateError,
+      });
+    }
+  }
 
   if (sb && currentSessionId) {
     try {
@@ -178,5 +203,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  return buildLogoutClearCookieResponse(request, { ok: true }, 200, cookieSecure);
+  return buildLogoutClearCookieResponse(
+    request,
+    { ok: true, device_deactivate_warning: deviceDeactivateError },
+    200,
+    cookieSecure,
+  );
 }

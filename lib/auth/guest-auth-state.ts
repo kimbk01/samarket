@@ -39,10 +39,10 @@ export function getGuestEstablishedAt(): number {
   return guestEstablishedAt;
 }
 
-/** API 401 수신 — guest 확정·측정 로그 */
+/** API 401 수신 — recovering 확정 (terminal guest 금지) */
 export function noteGuest401(source: string, detail?: Record<string, unknown>): void {
   logGuest("[guest_401_detected]", { source, ...detail });
-  establishGuestAuthState(source);
+  establishRecoverableGuestAuthState(`401:${source}`);
 }
 
 /** Boot race — session/profile evidence may still recover; fetch gate bypass until terminal guest. */
@@ -57,6 +57,11 @@ export function establishRecoverableGuestAuthState(source: string): void {
 
 export function isRecoverableGuestAuthEstablished(): boolean {
   return authMissing && guestRecoverable;
+}
+
+/** terminal guest 확정 — 명시 로그아웃·확정 미로그인만 */
+export function isTerminalGuestAuthEstablished(): boolean {
+  return authMissing && !guestRecoverable;
 }
 
 /** guest 세션 확정 (terminal) — refresh·인증 fetch 중단 */

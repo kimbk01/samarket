@@ -34,7 +34,36 @@ export const DIBAY_DEVICE_PERSISTENT_STORAGE_KEYS = new Set<string>([
 
 export const DIBAY_STORAGE_USER_PREFIX = "dibay:";
 
-export type DibaySessionPhase = "loading" | "authenticated" | "guest" | "corrupt";
+/**
+ * Session phase SSOT — Telegram/Kakao-style persistence.
+ *
+ * - authenticated: Supabase session + app profile confirmed; FCM register allowed.
+ * - recovering: boot/cold start/cookie race/network delay; never wipe/deactivate.
+ * - terminal_guest: explicit logout, account switch, or confirmed fresh install only.
+ * - corrupt: terminal refresh-token invalidation only (recover first when possible).
+ * - loading: initial unknown before first resolution.
+ */
+export type DibaySessionPhase =
+  | "loading"
+  | "authenticated"
+  | "recovering"
+  | "terminal_guest"
+  | "corrupt";
+
+/** @deprecated use terminal_guest — alias for migration reads */
+export type DibaySessionPhaseLegacyGuest = "guest";
+
+export function isTerminalGuestPhase(phase: DibaySessionPhase): boolean {
+  return phase === "terminal_guest";
+}
+
+export function isRecoveringPhase(phase: DibaySessionPhase): boolean {
+  return phase === "recovering" || phase === "loading";
+}
+
+export function allowsPushRegistration(phase: DibaySessionPhase): boolean {
+  return phase === "authenticated";
+}
 
 export type SessionEnforcementMode = "multi_device_allow" | "single_device_latest";
 

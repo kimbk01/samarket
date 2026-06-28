@@ -27,7 +27,6 @@ vi.mock("@/lib/push/disconnect-native-devices-for-logout-client", () => ({
   disconnectNativeDevicesForLogout: (...args: unknown[]) => disconnectNativeDevicesForLogout(...args),
 }));
 const getSession = vi.fn();
-const refreshSession = vi.fn();
 const getUser = vi.fn();
 
 vi.mock("@/lib/auth/fetch-auth-session-client", () => ({
@@ -54,7 +53,7 @@ vi.mock("@/lib/supabase/client", () => ({
       getSession,
       signOut,
       getUser,
-      refreshSession,
+      refreshSession: vi.fn(),
       onAuthStateChange: () => ({ data: { subscription: { unsubscribe: vi.fn() } } }),
     },
   }),
@@ -80,13 +79,13 @@ describe("ensureSessionHealthy registry validation", () => {
     mod.resetDibaySessionManagerForTests();
   });
 
-  it("treats Supabase session with invalid registry as signed-out and wipes", async () => {
+  it("registry 401 with Supabase session enters recovering — no wipe or device deactivate", async () => {
     getSession.mockResolvedValue({
       data: { session: { user: { id: "u1" } } },
       error: null,
     });
     fetchAuthSessionNoStore.mockResolvedValue(
-      new Response(JSON.stringify({ authenticated: false }), { status: 401 })
+      new Response(JSON.stringify({ authenticated: false }), { status: 401 }),
     );
 
     const mod = await import("@/lib/auth/dibay-session-manager");
@@ -94,10 +93,10 @@ describe("ensureSessionHealthy registry validation", () => {
     const result = await mod.ensureSessionHealthy("ghost-test");
 
     expect(result.ok).toBe(false);
-    expect(result.phase).toBe("guest");
-    expect(mod.getSessionPhase()).toBe("guest");
-    expect(wipeClientSessionState).toHaveBeenCalledWith("user_logout", { setPostLogoutGuard: false });
-    expect(disconnectNativeDevicesForLogout).toHaveBeenCalled();
-    expect(signOut).toHaveBeenCalledWith({ scope: "local" });
+    expect(result.phase).toBe("recovering");
+    expect(mod.getSessionPhase()).toBe("recovering");
+    expect(wipeClientSessionState).not.toHaveBeenCalled();
+    expect(disconnectNativeDevicesForLogout).not.toHaveBeenCalled();
+    expect(signOut).not.toHaveBeenCalled();
   });
 });

@@ -7,9 +7,14 @@ import {
   establishGuestAuthState,
   establishRecoverableGuestAuthState,
   isGuestAuthEstablished,
+  isRecoverableGuestAuthEstablished,
   clearGuestAuthState,
 } from "@/lib/auth/guest-auth-state";
 import { logGuestAuthBootMarker } from "@/lib/auth/guest-auth-boot-markers";
+import {
+  markSessionRecoveringFromClient,
+  markSessionTerminalGuestFromClient,
+} from "@/lib/auth/dibay-session-manager";
 import { runRecoverableGuestRecovery } from "@/lib/auth/guest-auth-recovery";
 import { fetchAuthSessionNoStore } from "@/lib/auth/fetch-auth-session-client";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -86,8 +91,10 @@ async function deferBootGuestForRecovery(
   user?: User | null,
 ): Promise<boolean> {
   if (startEpoch !== bootEpoch) return true;
+  logGuestAuthBootMarker("app_boot_recovering_no_supabase_user", { reason });
   logGuestAuthBootMarker("app_boot_guest_deferred", { reason });
   establishRecoverableGuestAuthState("app_boot_auth_pending_recoverable");
+  markSessionRecoveringFromClient(`app_boot:${reason}`);
   setAppBootHydrating();
   if (profileStatus !== undefined && applyBootProfileEvidence(profileStatus, profileJson, user ?? null)) {
     /* profile cache primed while Supabase user catches up */
@@ -146,7 +153,9 @@ async function resolveBootWhenGetUserEmpty(
     return deferBootGuestForRecovery("session_registry_transient", startEpoch, t0, profileStatus, profileJson);
   }
 
-  establishGuestAuthState("app_boot_unauthenticated_confirmed");
+  establishGuestAuthState("app_boot_terminal_guest_confirmed");
+  logGuestAuthBootMarker("app_boot_terminal_guest_confirmed", { reason: "unauthenticated_confirmed" });
+  markSessionTerminalGuestFromClient("app_boot_unauthenticated_confirmed");
   setAppBootAnonymous();
   markBootMetricsApiDone();
   recordAppWidePhaseLastMs("app_boot_layer_ms", Math.round(performance.now() - t0));
@@ -223,8 +232,9 @@ async function runAppBootOnce(startEpoch: number): Promise<void> {
       markBootMetricsApiDone();
       recordAppWidePhaseLastMs("app_boot_layer_ms", Math.round(performance.now() - t0));
       return;
-    } else if (recovery.phase === "guest" || isGuestAuthEstablished()) {
+    } else if (recovery.phase === "terminal_guest" || (isGuestAuthEstablished() && !isRecoverableGuestAuthEstablished())) {
       setAppBootAnonymous();
+      markSessionTerminalGuestFromClient("app_boot_profile_terminal");
       markBootMetricsApiDone();
       recordAppWidePhaseLastMs("app_boot_layer_ms", Math.round(performance.now() - t0));
       return;

@@ -1,4 +1,5 @@
 import { awaitClientSupabaseSessionReady } from "@/lib/auth/await-client-supabase-session-ready";
+import { logGuestAuthBootMarker } from "@/lib/auth/guest-auth-boot-markers";
 import {
   isGuestAuthEstablished,
   isRecoverableGuestAuthEstablished,
@@ -40,7 +41,17 @@ export function clearAuthSessionClientCache(): void {
  * (레이아웃·게이트·리다이렉트·로그인 직후 동기화 등이 같은 틱에 겹칠 때 대기 시간·부하 감소)
  */
 export function fetchAuthSessionNoStore(clientCallSource?: string): Promise<Response> {
+  if (isRecoverableGuestAuthEstablished()) {
+    logGuestAuthBootMarker("guest_fetch_allowed_recovering", {
+      fetch: "GET:/api/auth/session",
+      source: clientCallSource ?? "fetchAuthSessionNoStore",
+    });
+  }
   if (isGuestAuthEstablished() && !isRecoverableGuestAuthEstablished()) {
+    logGuestAuthBootMarker("guest_fetch_skipped_terminal_guest", {
+      fetch: "GET:/api/auth/session",
+      source: clientCallSource ?? "fetchAuthSessionNoStore",
+    });
     logGuestFetchSkipped("GET:/api/auth/session", clientCallSource ?? "fetchAuthSessionNoStore");
     return Promise.resolve(
       new Response(JSON.stringify({ ok: false, authenticated: false }), {

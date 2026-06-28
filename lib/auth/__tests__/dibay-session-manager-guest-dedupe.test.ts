@@ -4,7 +4,6 @@ const fetchAuthSessionNoStore = vi.fn();
 const wipeClientSessionState = vi.fn();
 const signOut = vi.fn();
 const getSession = vi.fn();
-const refreshSession = vi.fn();
 const getUser = vi.fn();
 const runBrowserAuthRefreshDeduped = vi.fn();
 
@@ -31,7 +30,7 @@ vi.mock("@/lib/supabase/client", () => ({
       getSession,
       signOut,
       getUser,
-      refreshSession,
+      refreshSession: vi.fn(),
       onAuthStateChange: () => ({ data: { subscription: { unsubscribe: vi.fn() } } }),
     },
   }),
@@ -54,7 +53,7 @@ describe("ensureSessionHealthy guest dedupe", () => {
     getUser.mockResolvedValue({ data: { user: null }, error: null });
     runBrowserAuthRefreshDeduped.mockResolvedValue({ data: { session: null }, error: null });
     fetchAuthSessionNoStore.mockResolvedValue(
-      new Response(JSON.stringify({ authenticated: false }), { status: 401 })
+      new Response(JSON.stringify({ authenticated: false }), { status: 401 }),
     );
   });
 
@@ -74,22 +73,24 @@ describe("ensureSessionHealthy guest dedupe", () => {
       mod.ensureSessionHealthy("caller_b"),
     ]);
 
-    expect(a.phase).toBe("guest");
-    expect(b.phase).toBe("guest");
-    expect(mod.getSessionPhase()).toBe("guest");
+    expect(a.phase).toBe("recovering");
+    expect(b.phase).toBe("recovering");
+    expect(mod.getSessionPhase()).toBe("recovering");
     expect(runBrowserAuthRefreshDeduped).toHaveBeenCalledTimes(1);
+    expect(wipeClientSessionState).not.toHaveBeenCalled();
   });
 
-  it("skips refresh after guest is established", async () => {
+  it("skips refresh after terminal guest is established", async () => {
     const mod = await import("@/lib/auth/dibay-session-manager");
+    const { establishGuestAuthState } = await import("@/lib/auth/guest-auth-state");
     mod.resetDibaySessionManagerForTests();
+    establishGuestAuthState("explicit_logout");
 
-    await mod.ensureSessionHealthy("first");
     runBrowserAuthRefreshDeduped.mockClear();
     fetchAuthSessionNoStore.mockClear();
 
     const second = await mod.ensureSessionHealthy("second");
-    expect(second.phase).toBe("guest");
+    expect(second.phase).toBe("terminal_guest");
     expect(runBrowserAuthRefreshDeduped).not.toHaveBeenCalled();
     expect(fetchAuthSessionNoStore).not.toHaveBeenCalled();
   });

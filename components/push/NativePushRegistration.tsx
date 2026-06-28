@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { registerNativePushFromClient, attachVoipPushTokenListener } from "@/lib/push/native/register-native-push-client";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 import { getSessionPhase, subscribeSessionPhase } from "@/lib/auth/dibay-session-manager";
-import type { DibaySessionPhase } from "@/lib/auth/dibay-session-policy";
+import { allowsPushRegistration, isTerminalGuestPhase, type DibaySessionPhase } from "@/lib/auth/dibay-session-policy";
 import { getCurrentUser, getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
+import { logGuestAuthBootMarker } from "@/lib/auth/guest-auth-boot-markers";
 import {
   logPushRegister,
   logPushRegisterFail,
@@ -16,7 +17,9 @@ const MAX_USER_ID_WAIT_ATTEMPTS = 8;
 const MAX_REGISTER_ATTEMPTS = 3;
 
 /**
- * 로그인 후 native FCM/APNS token 등록 (authenticated 세션·userId당 성공 1회).
+ * Native FCM/APNS — authenticated phase only.
+ * recovering: defer register, keep existing device active.
+ * terminal_guest/corrupt: skip register.
  */
 export function NativePushRegistration() {
   const [phase, setPhase] = useState<DibaySessionPhase>(() => getSessionPhase());
@@ -46,8 +49,15 @@ export function NativePushRegistration() {
 
   useEffect(() => {
     if (!isCapacitorNativePlatform()) return;
-    if (phase !== "authenticated") {
-      if (phase === "guest" || phase === "corrupt") {
+
+    if (phase === "recovering") {
+      logGuestAuthBootMarker("push_register_deferred_recovering", { phase });
+      return;
+    }
+
+    if (!allowsPushRegistration(phase)) {
+      if (isTerminalGuestPhase(phase) || phase === "corrupt") {
+        logGuestAuthBootMarker("push_register_skipped_terminal_guest", { phase });
         attemptedUserIdRef.current = null;
       }
       return;
@@ -76,12 +86,15 @@ export function NativePushRegistration() {
 
       if (attemptedUserIdRef.current === userId) return;
 
+      logGuestAuthBootMarker("push_register_start_authenticated", { user_id: userId, registerAttempt });
       logPushRegister("session_authenticated", { user_id: userId, registerAttempt });
       const result = await registerNativePushFromClient(userId);
       if (cancelled || runId !== registerRunIdRef.current) return;
 
       if (result.ok) {
         attemptedUserIdRef.current = userId;
+        logGuestAuthBootMarker("push_register_success_authenticated", { user_id: userId });
+        logGuestAuthBootMarker("user_device_active_after_login", { user_id: userId });
         return;
       }
 

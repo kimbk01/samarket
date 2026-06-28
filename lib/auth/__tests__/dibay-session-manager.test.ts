@@ -30,13 +30,13 @@ describe("dibay-session-manager", () => {
     mod.resetDibaySessionManagerForTests();
   });
 
-  it("returns guest when supabase client missing", async () => {
+  it("returns recovering when supabase client missing", async () => {
     const mod = await import("@/lib/auth/dibay-session-manager");
     mod.resetDibaySessionManagerForTests();
     const result = await mod.ensureSessionHealthy("test");
     expect(result.ok).toBe(false);
-    expect(result.phase).toBe("guest");
-    expect(mod.getSessionPhase()).toBe("guest");
+    expect(result.phase).toBe("recovering");
+    expect(mod.getSessionPhase()).toBe("recovering");
   });
 });
 

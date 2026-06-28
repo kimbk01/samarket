@@ -6,27 +6,25 @@
  */
 
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
-import { wipeClientSessionState } from "@/lib/auth/client-session-wipe";
 import { shouldClearProfileCacheOnGetUserFailure } from "@/lib/auth/supabase-get-user-cache-policy";
 import { isTerminalAuthCode, type DibaySessionPhase } from "@/lib/auth/dibay-session-policy";
 import { dedupeSupabaseAuthGetUser } from "@/lib/auth/dedupe-supabase-get-user-client";
-import { clearAuthSessionClientCache, fetchAuthSessionNoStore } from "@/lib/auth/fetch-auth-session-client";
+import { fetchAuthSessionNoStore } from "@/lib/auth/fetch-auth-session-client";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { runBrowserAuthRefreshDeduped } from "@/lib/supabase/auth-refresh-telemetry";
 import {
   clearGuestAuthState,
   establishGuestAuthState,
+  establishRecoverableGuestAuthState,
   exposeGuestAuthStateProbeForDev,
   isGuestAuthEstablished,
   isRecoverableGuestAuthEstablished,
   logGuestFetchSkipped,
-  noteGuest401,
   resetGuestAuthStateForTests,
 } from "@/lib/auth/guest-auth-state";
 import { logGuestAuthBootMarker } from "@/lib/auth/guest-auth-boot-markers";
 import { registerRecoverableGuestRecoveryBootstrap } from "@/lib/auth/guest-auth-recovery";
-import { disconnectNativeDevicesForLogout } from "@/lib/push/disconnect-native-devices-for-logout-client";
 import { exposeResetAuthStateForDev } from "@/lib/auth/reset-auth-state";
 
 const AUTH_BC_NAME = "dibay:auth";
@@ -55,8 +53,8 @@ function setSessionPhase(next: DibaySessionPhase): void {
   phaseListeners.forEach((l) => l(next));
 }
 
-function shouldSkipEnsureHealthyForGuestGate(): boolean {
-  return isGuestAuthEstablished() && sessionPhase === "guest" && !isRecoverableGuestAuthEstablished();
+function shouldSkipEnsureHealthyForTerminalGuestGate(): boolean {
+  return isGuestAuthEstablished() && !isRecoverableGuestAuthEstablished();
 }
 
 export function getSessionPhase(): DibaySessionPhase {
@@ -68,6 +66,18 @@ export function markSessionAuthenticatedFromClient(source: string): void {
   clearGuestAuthState();
   setSessionPhase("authenticated");
   logGuestAuthBootMarker("session_authenticated", { source });
+}
+
+/** Explicit logout / confirmed terminal guest — never auto-called from boot races. */
+export function markSessionTerminalGuestFromClient(source: string): void {
+  void source;
+  setSessionPhase("terminal_guest");
+}
+
+/** Boot/cookie race — recovering without wipe/deactivate. */
+export function markSessionRecoveringFromClient(source: string): void {
+  setSessionPhase("recovering");
+  logGuestAuthBootMarker("session_recovering", { source });
 }
 
 export function subscribeSessionPhase(listener: (phase: DibaySessionPhase) => void): () => void {
@@ -108,8 +118,8 @@ function getAuthBroadcastChannel(): BroadcastChannel | null {
       if (msg.type === "refresh_lock") remoteRefreshLock = true;
       if (msg.type === "refresh_done") remoteRefreshLock = false;
       if (msg.type === "signed_out") {
-        setSessionPhase("guest");
         establishGuestAuthState("auth_bc:signed_out");
+        setSessionPhase("terminal_guest");
       }
     };
     return authBc;
@@ -135,33 +145,20 @@ function terminalFromAuthError(error: { code?: string; message?: string; status?
 
 type RegistryValidationResult =
   | { ok: true }
-  | { ok: false; ghost: true }
-  | { ok: false; ghost: false; phase: "loading" };
+  | { ok: false; ghost: false; phase: "recovering" | "loading" };
 
 async function validateRegistryMatchesSupabaseSession(source: string): Promise<RegistryValidationResult> {
   try {
     const res = await fetchAuthSessionNoStore(`ensureHealthy:${source}`);
     if (res.ok) return { ok: true };
-    if (res.status === 401) return { ok: false, ghost: true };
+    if (res.status === 401) return { ok: false, ghost: false, phase: "recovering" };
     if (res.status >= 500 || res.status === 429) {
       return { ok: false, ghost: false, phase: "loading" };
     }
-    return { ok: false, ghost: true };
+    return { ok: false, ghost: false, phase: "recovering" };
   } catch {
     return { ok: false, ghost: false, phase: "loading" };
   }
-}
-
-async function reconcileGhostSupabaseSession(source: string): Promise<void> {
-  clearAuthSessionClientCache();
-  const sb = getSupabaseClient();
-  if (sb) {
-    await sb.auth.signOut({ scope: "local" }).catch(() => undefined);
-  }
-  void disconnectNativeDevicesForLogout();
-  await wipeClientSessionState("user_logout", { setPostLogoutGuard: false });
-  postAuthBc({ type: "signed_out" });
-  void source;
 }
 
 async function confirmAuthenticatedWithRegistry(
@@ -177,11 +174,8 @@ async function confirmAuthenticatedWithRegistry(
     logGuestAuthBootMarker("session_authenticated", { source });
     return { ok: true, phase: "authenticated" };
   }
-  if (registry.ghost) {
-    await reconcileGhostSupabaseSession(source);
-    noteGuest401(`ensureHealthy:ghost:${source}`);
-    setSessionPhase("guest");
-    return { ok: false, phase: "guest", terminal: false };
+  if (registry.phase === "recovering") {
+    return markRecoveringFromSessionCheck(source, "registry_mismatch");
   }
   setSessionPhase("loading");
   return { ok: false, phase: "loading", terminal: false };
@@ -193,28 +187,23 @@ export type EnsureSessionHealthyResult =
 
 /**
  * refreshSession 1회 → getUser 1회 → /api/auth/session 확인.
- * terminal 확인 전 hard logout 금지.
+ * terminal auth code 확인 전 hard logout/wipe/deactivate 금지.
  */
-function markGuestFromSessionCheck(source: string, from401: boolean): EnsureSessionHealthyResult {
-  if (from401) {
-    noteGuest401(`ensureHealthy:${source}`);
-  } else {
-    establishGuestAuthState(`ensureHealthy:${source}`);
-  }
-  setSessionPhase("guest");
-  return { ok: false, phase: "guest", terminal: false };
+function markRecoveringFromSessionCheck(source: string, reason: string): EnsureSessionHealthyResult {
+  establishRecoverableGuestAuthState(`recovering:${source}:${reason}`);
+  setSessionPhase("recovering");
+  logGuestAuthBootMarker("session_recovering", { source, reason });
+  return { ok: false, phase: "recovering", terminal: false };
 }
 
 export async function ensureSessionHealthy(source: string): Promise<EnsureSessionHealthyResult> {
   if (typeof window === "undefined") {
-    establishGuestAuthState("ensureHealthy:ssr");
-    setSessionPhase("guest");
-    return { ok: false, phase: "guest", terminal: false };
+    return markRecoveringFromSessionCheck("ensureHealthy:ssr", "ssr");
   }
 
-  if (shouldSkipEnsureHealthyForGuestGate()) {
+  if (shouldSkipEnsureHealthyForTerminalGuestGate()) {
     logGuestFetchSkipped("ensureSessionHealthy", source);
-    return { ok: false, phase: "guest", terminal: false };
+    return { ok: false, phase: "terminal_guest", terminal: false };
   }
 
   return runEnsureSessionHealthyInternal(source);
@@ -222,21 +211,28 @@ export async function ensureSessionHealthy(source: string): Promise<EnsureSessio
 
 async function runEnsureSessionHealthyInternal(source: string): Promise<EnsureSessionHealthyResult> {
   return runSingleFlight(ENSURE_HEALTH_FLIGHT, async () => {
-    if (shouldSkipEnsureHealthyForGuestGate()) {
+    logGuestAuthBootMarker("recovery_session_check_start", { source });
+    if (shouldSkipEnsureHealthyForTerminalGuestGate()) {
       logGuestFetchSkipped("ensureSessionHealthy", source);
-      return { ok: false, phase: "guest", terminal: false };
+      const result = { ok: false as const, phase: "terminal_guest" as const, terminal: false };
+      logGuestAuthBootMarker("recovery_session_check_done", { source, ...result });
+      return result;
     }
 
     const sb = getSupabaseClient();
     if (!sb) {
-      return markGuestFromSessionCheck(source, false);
+      const result = markRecoveringFromSessionCheck(source, "no_supabase_client");
+      logGuestAuthBootMarker("recovery_session_check_done", { source, ...result });
+      return result;
     }
 
     setSessionPhase("loading");
 
     const { data: sessionData } = await sb.auth.getSession();
     if (sessionData.session?.user?.id) {
-      return confirmAuthenticatedWithRegistry(source);
+      const result = await confirmAuthenticatedWithRegistry(source);
+      logGuestAuthBootMarker("recovery_session_check_done", { source, ...result });
+      return result;
     }
 
     if (!remoteRefreshLock) {
@@ -246,10 +242,14 @@ async function runEnsureSessionHealthyInternal(source: string): Promise<EnsureSe
         const refreshErr = refreshed.error as { code?: string; message?: string } | null;
         if (refreshErr && terminalFromAuthError(refreshErr)) {
           setSessionPhase("corrupt");
-          return { ok: false, phase: "corrupt", terminal: true };
+          const result = { ok: false as const, phase: "corrupt" as const, terminal: true };
+          logGuestAuthBootMarker("recovery_session_check_done", { source, ...result });
+          return result;
         }
         if (refreshed.data.session?.user?.id) {
-          return confirmAuthenticatedWithRegistry(source);
+          const result = await confirmAuthenticatedWithRegistry(source);
+          logGuestAuthBootMarker("recovery_session_check_done", { source, ...result });
+          return result;
         }
       } finally {
         postAuthBc({ type: "refresh_done" });
@@ -258,11 +258,15 @@ async function runEnsureSessionHealthyInternal(source: string): Promise<EnsureSe
 
     const { data: { user }, error: userErr } = await dedupeSupabaseAuthGetUser(sb);
     if (user?.id) {
-      return confirmAuthenticatedWithRegistry(source);
+      const result = await confirmAuthenticatedWithRegistry(source);
+      logGuestAuthBootMarker("recovery_session_check_done", { source, ...result });
+      return result;
     }
     if (terminalFromAuthError(userErr)) {
       setSessionPhase("corrupt");
-      return { ok: false, phase: "corrupt", terminal: true };
+      const result = { ok: false as const, phase: "corrupt" as const, terminal: true };
+      logGuestAuthBootMarker("recovery_session_check_done", { source, ...result });
+      return result;
     }
 
     try {
@@ -271,11 +275,15 @@ async function runEnsureSessionHealthyInternal(source: string): Promise<EnsureSe
         clearGuestAuthState();
         setSessionPhase("authenticated");
         logGuestAuthBootMarker("session_authenticated", { source });
-        return { ok: true, phase: "authenticated" };
+        const result = { ok: true as const, phase: "authenticated" as const };
+        logGuestAuthBootMarker("recovery_session_check_done", { source, ...result });
+        return result;
       }
       if (res.status >= 500 || res.status === 429) {
         setSessionPhase("loading");
-        return { ok: false, phase: "loading", terminal: false };
+        const result = { ok: false as const, phase: "loading" as const, terminal: false };
+        logGuestAuthBootMarker("recovery_session_check_done", { source, ...result });
+        return result;
       }
       if (res.status === 401) {
         let code = "";
@@ -287,16 +295,24 @@ async function runEnsureSessionHealthyInternal(source: string): Promise<EnsureSe
         }
         if (isTerminalAuthCode(code) || terminalFromAuthError({ code, status: 401 })) {
           setSessionPhase("corrupt");
-          return { ok: false, phase: "corrupt", terminal: true };
+          const result = { ok: false as const, phase: "corrupt" as const, terminal: true };
+          logGuestAuthBootMarker("recovery_session_check_done", { source, ...result });
+          return result;
         }
-        return markGuestFromSessionCheck(source, true);
+        const result = markRecoveringFromSessionCheck(source, "session_registry_401");
+        logGuestAuthBootMarker("recovery_session_check_done", { source, ...result });
+        return result;
       }
     } catch {
       setSessionPhase("loading");
-      return { ok: false, phase: "loading", terminal: false };
+      const result = { ok: false as const, phase: "loading" as const, terminal: false };
+      logGuestAuthBootMarker("recovery_session_check_done", { source, ...result });
+      return result;
     }
 
-    return markGuestFromSessionCheck(source, false);
+    const result = markRecoveringFromSessionCheck(source, "session_unresolved");
+    logGuestAuthBootMarker("recovery_session_check_done", { source, ...result });
+    return result;
   });
 }
 
@@ -316,19 +332,15 @@ export async function handleApi401(source: string): Promise<EnsureSessionHealthy
 
 function handleAuthStateChange(event: AuthChangeEvent, session: Session | null): void {
   if (event === "SIGNED_OUT") {
-    setSessionPhase("guest");
     establishGuestAuthState(`auth_event:${event}`);
+    setSessionPhase("terminal_guest");
     postAuthBc({ type: "signed_out" });
     return;
   }
   if (!session?.user?.id && event === "INITIAL_SESSION") {
-    if (isRecoverableGuestAuthEstablished()) {
-      setSessionPhase("loading");
-      return;
-    }
-    setSessionPhase("guest");
-    establishGuestAuthState(`auth_event:${event}`);
-    postAuthBc({ type: "signed_out" });
+    establishRecoverableGuestAuthState(`auth_event:${event}`);
+    setSessionPhase("recovering");
+    logGuestAuthBootMarker("session_recovering", { source: `auth_event:${event}` });
     return;
   }
   if (session?.user?.id) {
@@ -352,8 +364,8 @@ export function bindDibaySessionManagerAuthListener(): () => void {
   exposeResetAuthStateForDev();
   const sb = getSupabaseClient();
   if (!sb) {
-    establishGuestAuthState("bindAuthListener:no_client");
-    setSessionPhase("guest");
+    establishRecoverableGuestAuthState("bindAuthListener:no_client");
+    setSessionPhase("recovering");
     return () => {};
   }
 

@@ -22,7 +22,7 @@ export type ApiAuthRecoveryResult =
 export async function recoverFrom401Once(source: string): Promise<ApiAuthRecoveryResult> {
   if (isGuestAuthEstablished() && !isRecoverableGuestAuthEstablished()) {
     logGuestFetchSkipped("recoverFrom401Once", source);
-    return { recovered: false, terminal: false, phase: "guest" };
+    return { recovered: false, terminal: false, phase: "terminal_guest" };
   }
   const result = await handleApi401(source);
   if (result.ok) return { recovered: true };

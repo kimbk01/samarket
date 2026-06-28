@@ -5,9 +5,6 @@
  * @see docs/dibay-session-policy.md
  */
 
-import { disconnectWebPushSubscriptionsForLogout } from "@/lib/push/disconnect-web-push-for-logout-client";
-import { disconnectNativeDevicesForLogout } from "@/lib/push/disconnect-native-devices-for-logout-client";
-import { clearNativeBadgeCount } from "@/lib/push/native/sync-native-badge-count";
 import {
   logoutCurrentDevice,
   logoutAllDevices,
@@ -18,16 +15,10 @@ import {
 export type { LogoutResult } from "@/lib/auth/logout-client";
 
 export async function logoutDiBaYAppSession(): Promise<LogoutResult> {
-  void disconnectWebPushSubscriptionsForLogout();
-  void disconnectNativeDevicesForLogout();
-  void clearNativeBadgeCount();
   return logoutCurrentDevice();
 }
 
 export async function logoutDiBaYAllDevices(): Promise<LogoutResult> {
-  void disconnectWebPushSubscriptionsForLogout();
-  void disconnectNativeDevicesForLogout();
-  void clearNativeBadgeCount();
   return logoutAllDevices();
 }
 
