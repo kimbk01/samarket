@@ -23,9 +23,17 @@ vi.mock("@/lib/community-messenger/incoming-call-state", () => ({
   readCallConsumedReason: () => null,
 }));
 
+vi.mock("@/lib/call/native/native-owned-web-v4-ui-guard", () => ({
+  peekNativeOwnedWebV4UiBlockSync: vi.fn(() => false),
+}));
+
+import { peekNativeOwnedWebV4UiBlockSync } from "@/lib/call/native/native-owned-web-v4-ui-guard";
+
 describe("call-v4-foreground-resume", () => {
   beforeEach(() => {
     expandDock.mockClear();
+    vi.mocked(peekNativeOwnedWebV4UiBlockSync).mockReset();
+    vi.mocked(peekNativeOwnedWebV4UiBlockSync).mockReturnValue(false);
     vi.spyOn(console, "info").mockImplementation(() => {});
   });
 
@@ -45,6 +53,20 @@ describe("call-v4-foreground-resume", () => {
       expect(decision.href).toContain("/community-messenger/calls-v4/call-abc");
       expect(decision.href).toContain("foreground_resume");
     }
+  });
+
+  it("skips when native-owned Web V4 UI is forbidden", () => {
+    vi.mocked(peekNativeOwnedWebV4UiBlockSync).mockReturnValue(true);
+    const decision = evaluateCallV4ForegroundResume({
+      phase: "connected",
+      pathname: "/community-messenger",
+      storeCallId: "call-abc",
+      nativeCallId: "call-abc",
+      nativeSnapshot: { callId: "call-abc", phase: "CONNECTED", mediaType: "video", connected: true },
+      dedupeKey: null,
+      lastRestoreKey: null,
+    });
+    expect(decision).toEqual({ action: "skip", reason: "native_owned_ui_forbidden", callId: "call-abc" });
   });
 
   it("skips when already on dedicated calls-v4 path", () => {

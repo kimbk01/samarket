@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CallScreen } from "@/components/messenger/call/CallScreen";
+import {
+  peekNativeOwnedWebV4UiBlockSync,
+  resolveNativeOwnedWebV4UiBlock,
+} from "@/lib/call/native/native-owned-web-v4-ui-guard";
 import { shouldUseAndroidOsPipSafeLayout } from "@/lib/community-messenger/call-android-os-pip-layout";
 import { subscribeCallPresentationOwnership } from "@/lib/community-messenger/call-presentation-ownership";
 import {
@@ -68,36 +72,63 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
   const incomingPreview = searchParams?.get("incomingPreview") === "1";
   const exitGuardRef = useRef(false);
   const nativeHandoffPhaseRef = useRef<"connecting" | "connected" | null>(null);
+  const [webUiAllowed, setWebUiAllowed] = useState<boolean | null>(null);
 
   useEffect(() => {
-    logCallV4("call_v4_screen_component_mount_start", { callId });
+    let cancelled = false;
+    const sid = callId.trim();
+    if (!sid) {
+      setWebUiAllowed(true);
+      return;
+    }
+    if (peekNativeOwnedWebV4UiBlockSync(sid)) {
+      logCallV4("web_v4_screen_mount_blocked", { callId: sid, trigger: "call_v4_screen_sync" });
+      setWebUiAllowed(false);
+      return;
+    }
+    void resolveNativeOwnedWebV4UiBlock(sid, "call_v4_screen").then((block) => {
+      if (cancelled) return;
+      if (block) {
+        logCallV4("web_v4_screen_mount_blocked", { callId: sid, trigger: "call_v4_screen_async" });
+      }
+      setWebUiAllowed(!block);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [callId]);
 
   useEffect(() => {
+    if (webUiAllowed !== true) return;
+    logCallV4("call_v4_screen_component_mount_start", { callId });
+  }, [callId, webUiAllowed]);
+
+  useEffect(() => {
+    if (webUiAllowed !== true) return;
     logCallV4("call_v4_screen_component_mount_done", { callId, action, source });
-  }, [action, callId, source]);
+  }, [action, callId, source, webUiAllowed]);
 
   useEffect(() => {
     nativeHandoffPhaseRef.current = null;
   }, [callId]);
 
   useEffect(() => {
-    if (!callId) return;
+    if (webUiAllowed !== true || !callId) return;
     logCallV4("screen_mounted", { callId, source });
     logCallV4("connecting_visible", { callId, source });
     if (action !== "accept" && !isCallV4NativeAcceptHandoffSource(source)) return;
     if (nativeHandoffPhaseRef.current !== null) return;
     nativeHandoffPhaseRef.current = "connecting";
     void notifyCallV4WebCallScreenReady(callId, "connecting");
-  }, [action, callId, source]);
+  }, [action, callId, source, webUiAllowed]);
 
   useEffect(() => {
-    if (!callId || phase !== "connected") return;
+    if (webUiAllowed !== true || !callId || phase !== "connected") return;
     if (action !== "accept" && !isCallV4NativeAcceptHandoffSource(source)) return;
     if (nativeHandoffPhaseRef.current === "connected") return;
     nativeHandoffPhaseRef.current = "connected";
     void notifyCallV4WebCallScreenReady(callId, "connected");
-  }, [action, callId, phase, source]);
+  }, [action, callId, phase, source, webUiAllowed]);
 
   useEffect(() => {
     registerCallV4ExitRouter(router);
@@ -105,7 +136,7 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
   }, [router]);
 
   useEffect(() => {
-    if (!callId || action !== "accept") return;
+    if (webUiAllowed !== true || !callId || action !== "accept") return;
     let cancelled = false;
     void (async () => {
       const existing = readCallV4Identity();
@@ -163,7 +194,7 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
     return () => {
       cancelled = true;
     };
-  }, [action, callId, router, source]);
+  }, [action, callId, router, source, webUiAllowed]);
 
   useEffect(() => {
     if (!callId || action !== "reject") return;
@@ -351,6 +382,10 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
       pipShellMounted: Boolean(vm.pipShellMounted),
     });
   }, [callId, phase, vm?.mode, vm?.phase, vm?.showRemoteVideo, vm?.pipShellMounted]);
+
+  if (webUiAllowed !== true) {
+    return null;
+  }
 
   if (!vm) {
     return null;

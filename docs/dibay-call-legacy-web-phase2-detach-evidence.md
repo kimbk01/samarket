@@ -1,9 +1,9 @@
 # DIBAY Call — Legacy Web Phase 2 Detach Evidence
 
-Status: **P2-1 + P2-5 complete**, **P2-2 complete (QA PASS)** — 2026-06-28  
+Status: **P2-1 + P2-5 complete**, **P2-2 complete (QA PASS)**, **P2-3 complete (QA PASS)** — 2026-06-28  
 Prerequisite: Phase 1 inventory (`60f4d17e`), Native Runtime HARD LOCK (`008b235d`)
 
-**Scope:** Partial Phase 2. P2-3, P2-4 **not implemented** (red-team hold).
+**Scope:** Partial Phase 2. **P2-4 not implemented** (red-team hold).
 
 ---
 
@@ -69,12 +69,53 @@ Reports: `.qa-logs/native-call-voice-outgoing-isolated/report.json`, `.qa-logs/n
 
 ---
 
+## P2-3 — Android native-owned Web V4 UI quarantine (sync-only)
+
+**Goal:** On Android Capacitor shell, when Native owns the call, block Web V4 UI mount / navigation / `/calls-v4` screen entry. Web sync-only (`native_connected_received`, store hydrate, terminal watch) **unchanged**.
+
+| File | Action |
+|---|---|
+| `lib/call/native/native-owned-web-v4-ui-guard.ts` | Block SSOT + `web_v4_ui_mount_blocked` (peek/sync included) |
+| `CallV4Provider.tsx` | Skip `router.replace` on native accept when blocked |
+| `call-v4-route.ts` | `routeToCallV4Screen` Android guard |
+| `call-v4-foreground-resume.ts` + `use-call-v4-foreground-resume.ts` | Foreground resume skip + async block |
+| `CallV4Screen.tsx` + `calls-v4/[callId]/page.tsx` | Mount / page entry guard |
+| Tests + import-guard + this doc | Regression guards |
+
+### P2-3 verify (unit + contract)
+
+```bash
+npm run verify:native-voice-runtime-contract
+npm run verify:native-video-runtime-contract
+npm run verify:call-v4-incoming-fsi-fallback-boundary
+vitest run lib/call/__tests__/native-owned-web-v4-ui-guard.test.ts
+vitest run components/community-messenger/call-v4/__tests__/call-v4-provider-native-route.test.ts
+vitest run lib/community-messenger/call-v4/__tests__/call-v4-foreground-resume.test.ts
+vitest run lib/community-messenger/call-v4/__tests__/call-v4-import-guard.test.ts
+```
+
+### P2-3 device QA (isolated 3 cases only — no Final Regression)
+
+**Incoming isolated PASS (Voice / Video):** Native chain PASS · Web sync PASS · Forbidden 0 · `CallV4Screen` 0 · Web `route_to_screen` 0 · Web `agora_join_*` 0.  
+`web_v4_ui_mount_blocked = 0` **allowed** when no Web route/mount/resume attempt (Native `pending_route_skipped` + `legacy_web_handoff_blocked`).
+
+**Foreground resume isolated PASS:** resume attempt confirmed · `web_v4_ui_mount_blocked` or `call_v4_foreground_resume_skip` ≥ 1 · `route_to_screen` 0 · `CallV4Screen` 0 · Web agora 0.
+
+| Case | callId | Result (2026-06-28) |
+|---|---|---|
+| Voice incoming accept isolated | `f6c1eab5-e080-4e68-bb32-5fbfc8c41dfb` | **PASS** |
+| Video incoming accept isolated | `8beb9399-b2db-49e5-a125-7b57b8842f5d` | **PASS** (block marker 0 — no Web UI attempt; normal) |
+| Outgoing connected → foreground resume isolated | `e3e57d52-c603-41d8-82cd-599df95b6e2e` | **PASS** |
+
+Reports: `.qa-logs/native-call-voice-incoming-isolated/report.json`, `.qa-logs/native-call-video-incoming-isolated/report.json`, `.qa-logs/native-call-foreground-resume-isolated/report.json`
+
+---
+
 ## Hold (not in scope)
 
 | Step | Reason |
 |---|---|
-| P2-3 CallV4Provider incoming hard-disable | Isolated verification needed |
-| P2-4 MainActivity pending replay | Route replay regression risk |
+| P2-4 MainActivity pending replay | Route replay regression risk — separate approval |
 | Desktop web outgoing policy | Separate product decision |
 | Orphan session cancel on handoff fail | O4/terminal boundary — not P2-2 |
 
