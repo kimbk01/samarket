@@ -15,6 +15,9 @@ public class NativeCallServicePlugin: CAPPlugin, CAPBridgedPlugin {
     CAPPluginMethod(name: "reportAppState", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "getActiveCallSnapshot", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "reportRemoteEnded", returnType: CAPPluginReturnPromise),
+    CAPPluginMethod(name: "acquireScreenAwake", returnType: CAPPluginReturnPromise),
+    CAPPluginMethod(name: "releaseScreenAwake", returnType: CAPPluginReturnPromise),
+    CAPPluginMethod(name: "notifyScreenAwakePresentation", returnType: CAPPluginReturnPromise),
   ]
 
   @objc func prepareAccept(_ call: CAPPluginCall) {
@@ -109,6 +112,42 @@ public class NativeCallServicePlugin: CAPPlugin, CAPBridgedPlugin {
     }
     DibayActiveCallSessionManager.shared.onRemoteEnded(callId: callId)
     DibayCallAudioSessionController.shared.deactivate()
+    call.resolve(["ok": true])
+  }
+
+  @objc func acquireScreenAwake(_ call: CAPPluginCall) {
+    guard let callId = call.getString("callId")?.trimmingCharacters(in: .whitespacesAndNewlines),
+      !callId.isEmpty
+    else {
+      call.reject("invalid_call_id")
+      return
+    }
+    let reason = call.getString("reason") ?? "connected_video"
+    ScreenAwakeBridge.shared.acquire(callId: callId, reason: reason)
+    call.resolve(["ok": true])
+  }
+
+  @objc func releaseScreenAwake(_ call: CAPPluginCall) {
+    guard let callId = call.getString("callId")?.trimmingCharacters(in: .whitespacesAndNewlines),
+      !callId.isEmpty
+    else {
+      call.reject("invalid_call_id")
+      return
+    }
+    let reason = call.getString("reason") ?? "cleanup"
+    ScreenAwakeBridge.shared.release(callId: callId, reason: reason)
+    call.resolve(["ok": true])
+  }
+
+  @objc func notifyScreenAwakePresentation(_ call: CAPPluginCall) {
+    guard let callId = call.getString("callId")?.trimmingCharacters(in: .whitespacesAndNewlines),
+      !callId.isEmpty
+    else {
+      call.reject("invalid_call_id")
+      return
+    }
+    let presentation = call.getString("presentation") ?? "unknown"
+    ScreenAwakeBridge.shared.notifyPresentationChanged(callId: callId, presentation: presentation)
     call.resolve(["ok": true])
   }
 }

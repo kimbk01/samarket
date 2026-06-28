@@ -313,4 +313,40 @@ public class NativeCallServicePlugin extends Plugin {
         NativeVoiceCallOwner.isNativeOwned(callId) || NativeVideoCallOwner.isNativeOwned(callId);
     call.resolve(new JSObject().put("owned", owned));
   }
+
+  @PluginMethod
+  public void acquireScreenAwake(PluginCall call) {
+    String callId = call.getString("callId", "").trim();
+    String reason = call.getString("reason", "connected_video");
+    if (callId.isEmpty()) {
+      call.reject("invalid_call_id");
+      return;
+    }
+    ScreenAwakeBridge.acquire(callId, reason);
+    call.resolve(new JSObject().put("ok", true));
+  }
+
+  @PluginMethod
+  public void releaseScreenAwake(PluginCall call) {
+    String callId = call.getString("callId", "").trim();
+    String reason = call.getString("reason", "cleanup");
+    if (callId.isEmpty()) {
+      call.reject("invalid_call_id");
+      return;
+    }
+    ScreenAwakeBridge.release(callId, reason);
+    call.resolve(new JSObject().put("ok", true));
+  }
+
+  @PluginMethod
+  public void notifyScreenAwakePresentation(PluginCall call) {
+    String callId = call.getString("callId", "").trim();
+    String presentation = call.getString("presentation", "unknown");
+    if (callId.isEmpty()) {
+      call.reject("invalid_call_id");
+      return;
+    }
+    ScreenAwakeBridge.notifyPresentationChanged(callId, presentation);
+    call.resolve(new JSObject().put("ok", true));
+  }
 }

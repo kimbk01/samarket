@@ -2,6 +2,7 @@ package com.dibay.app;
 
 import android.app.Application;
 import android.util.Log;
+import com.dibay.app.call.ResumedActivityTracker;
 import com.kakao.sdk.common.KakaoSdk;
 
 public class DibayApplication extends Application {
@@ -10,6 +11,7 @@ public class DibayApplication extends Application {
   @Override
   public void onCreate() {
     super.onCreate();
+    ResumedActivityTracker.register(this);
     String appKey = getString(R.string.kakao_native_app_key).trim();
     if (appKey.isEmpty()) {
       Log.w(TAG, "kakao_native_app_key_missing");

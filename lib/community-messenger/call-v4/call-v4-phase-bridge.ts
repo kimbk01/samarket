@@ -13,6 +13,7 @@ import {
 import { startCallV4ConnectedTerminalWatch } from "@/lib/community-messenger/call-v4/call-v4-connected-terminal-watch";
 import { readCallV4Identity, readCallV4Phase, useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
 import type { CallV4Phase } from "@/lib/community-messenger/call-v4/call-v4-types";
+import { acquireConnectedVideoScreenAwake } from "@/lib/call/native/screen-awake-bridge";
 
 const connectedSideEffectsEntered = new Set<string>();
 const nativeConnectedOpsEntered = new Set<string>();
@@ -90,6 +91,9 @@ export function markCallV4MediaConnected(
   logCallV4("media_connected_phase", { callId: sid, fromPhase, source });
   logCallV4("active_call_connected", { callId: sid, source, fromPhase });
   runConnectedSideEffectsOnce(sid, source, fromPhase);
+  if (gateInput.mediaType === "video") {
+    acquireConnectedVideoScreenAwake(sid, source);
+  }
   return true;
 }
 

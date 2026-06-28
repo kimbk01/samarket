@@ -20,7 +20,6 @@ import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import com.dibay.app.R;
-import com.dibay.app.call.ScreenAwakeController;
 import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
 import java.lang.ref.WeakReference;
 import java.util.Locale;
@@ -157,12 +156,10 @@ public class NativeVideoCallActivity extends Activity {
   @Override
   protected void onResume() {
     super.onResume();
-    ScreenAwakeController.onNativeVideoResumed(this);
   }
 
   @Override
   protected void onPause() {
-    ScreenAwakeController.onNativeVideoPaused(this);
     super.onPause();
   }
 
@@ -205,12 +202,10 @@ public class NativeVideoCallActivity extends Activity {
     applyPipUiMode(isInPictureInPictureMode);
     NativeVideoCallLog.info(
         isInPictureInPictureMode ? "native_video_pip_entered" : "native_video_pip_exited", callId);
-    ScreenAwakeController.onNativeVideoPipChanged(this, isInPictureInPictureMode);
   }
 
   @Override
   protected void onDestroy() {
-    ScreenAwakeController.onNativeVideoDestroyed(this);
     stopDurationTimer();
     hideDock("destroy");
     detachDockView();

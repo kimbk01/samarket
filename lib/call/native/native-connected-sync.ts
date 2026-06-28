@@ -10,6 +10,7 @@ import {
   NATIVE_CALL_SERVICE_PLUGIN_ID,
   type NativeCallConnectedPayload,
 } from "@/lib/call/native/native-call-service";
+import { acquireConnectedVideoScreenAwake } from "@/lib/call/native/screen-awake-bridge";
 import { isCapacitorNativePlatform, resolveCapacitorShellPlatform } from "@/lib/platform/capacitor-native";
 
 const TERMINAL_OR_BLOCKING_PHASES = new Set<CallV4Phase>([
@@ -77,6 +78,9 @@ export async function onNativeCallConnected(payload: NativeCallConnectedPayload)
   }
 
   markCallV4NativeConnectedOps(sid, "native_connected");
+  if (payload.mediaType === "video") {
+    acquireConnectedVideoScreenAwake(sid, "native_connected");
+  }
 }
 
 /** O3 — subscribe to Native Runtime connected events (Android sync-only). */

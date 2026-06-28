@@ -26,7 +26,6 @@ import android.app.PictureInPictureParams;
 import android.util.Rational;
 import com.dibay.app.call.CallScreenStateReceiver;
 import com.dibay.app.call.DibayActiveCallSessionManager;
-import com.dibay.app.call.ScreenAwakeController;
 import com.dibay.app.callv4.CallV4IntentHelper;
 import com.dibay.app.callv4.CallV4Lane;
 import com.dibay.app.nativevideo.NativeVideoCallOwner;
@@ -979,7 +978,6 @@ public class MainActivity extends BridgeActivity {
     flushPendingCallV4NativeSurfaceEvents();
     flushPendingCallSurfaceOwnerEvents();
     flushPendingWebCallScreenReady();
-    ScreenAwakeController.onMainResumed(this);
     String callId = DibayActiveCallSessionManager.getActiveCallId();
     if (callId != null && !callId.isEmpty()) {
       CallScreenStateReceiver.register(this);
@@ -989,7 +987,6 @@ public class MainActivity extends BridgeActivity {
 
   @Override
   public void onPause() {
-    ScreenAwakeController.onMainPaused(this);
     super.onPause();
   }
 
@@ -1013,7 +1010,6 @@ public class MainActivity extends BridgeActivity {
   @Override
   public void onPictureInPictureModeChanged(boolean isInPictureInPictureMode) {
     super.onPictureInPictureModeChanged(isInPictureInPictureMode);
-    ScreenAwakeController.onMainPipChanged(this, isInPictureInPictureMode);
     String callId = DibayActiveCallSessionManager.getActiveCallId();
     if (callId == null || callId.isEmpty()) return;
     if (isInPictureInPictureMode) {

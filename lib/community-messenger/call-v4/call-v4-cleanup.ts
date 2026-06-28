@@ -13,10 +13,12 @@ import { resetCallV4AcceptPatchStateForCallId } from "@/lib/community-messenger/
 import { forceResetCommunityMessengerCallRuntimeSurface } from "@/lib/community-messenger/call-runtime-registry";
 import { useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
 import type { CallV4TerminalPhase } from "@/lib/community-messenger/call-v4/call-v4-types";
+import { releaseConnectedVideoScreenAwake } from "@/lib/call/native/screen-awake-bridge";
 
 export async function cleanupCallV4(callId: string, reason: CallV4TerminalPhase | string): Promise<void> {
   const sid = callId.trim();
   logCallV4("cleanup_start", { callId: sid, reason });
+  releaseConnectedVideoScreenAwake(sid, String(reason));
   clearCallV4WebCallScreenReady(sid);
   stopCallHeartbeatWatchdog(sid);
   logCallV4("call_heartbeat_watchdog_stop", { callId: sid, reason });

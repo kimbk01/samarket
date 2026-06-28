@@ -14,6 +14,7 @@ import { supportsCallV4FloatingDock } from "@/lib/community-messenger/call-v4/pr
 import { maybeExitCallV4ScreenAfterCleanup } from "@/lib/community-messenger/call-v4/call-v4-exit-guard";
 import { type CallV4Router } from "@/lib/community-messenger/call-v4/call-v4-route";
 import { readCallV4Phase } from "@/lib/community-messenger/call-v4/call-v4-store";
+import { notifyConnectedVideoScreenAwakePresentation } from "@/lib/call/native/screen-awake-bridge";
 
 export type CallV4MinimizeToDockInput = {
   callId: string;
@@ -43,6 +44,7 @@ export async function callV4MinimizeConnectedCallToDock(input: CallV4MinimizeToD
     reason: input.reason,
     platform: "shared",
   });
+  notifyConnectedVideoScreenAwakePresentation(sid, "dock");
   if (input.navigateAway !== false) {
     maybeExitCallV4ScreenAfterCleanup(sid, input.reason || "dock_minimize", input.router);
   }

@@ -24,6 +24,7 @@ import { buildCallV4ScreenHref, type CallV4Router } from "@/lib/community-messen
 import { registerCallV4ConnectedBackMinimize } from "@/lib/community-messenger/call-v4/call-v4-store";
 import type { CallV4Identity, CallV4Phase } from "@/lib/community-messenger/call-v4/call-v4-types";
 import { formatCommunityMessengerCallDurationLabel } from "@/lib/community-messenger/call-duration-label";
+import { notifyConnectedVideoScreenAwakePresentation } from "@/lib/call/native/screen-awake-bridge";
 
 type UseCallV4RuntimeSurfaceInput = {
   callId: string;
@@ -170,6 +171,10 @@ export function useCallV4RuntimeSurface({
       onDockEnd: handleEnd,
       onDockToggleMute: handleToggleMute,
     });
+
+    if (phase === "connected" && identity.mediaType === "video" && (presentation === "dock" || presentation === "fullscreen")) {
+      notifyConnectedVideoScreenAwakePresentation(sid, presentation);
+    }
 
     return () => {
       resetCommunityMessengerCallRuntimeSurface();

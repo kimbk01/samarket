@@ -32,9 +32,6 @@ final class DibayActiveCallSessionManager {
     if connected {
       NSLog("[DIBAY_CALL] active_call_connected callId=%@ media=%@", callId, mediaType)
     }
-    if mediaType.lowercased() == "video" {
-      ScreenAwakeController.shared.sync(source: "bind_active_call")
-    }
   }
 
   func transitionPhase(_ next: String, source: String) {
@@ -43,9 +40,6 @@ final class DibayActiveCallSessionManager {
     if next == "CONNECTED" { connected = true }
     persist()
     NSLog("[DIBAY_CALL] active_call_phase %@ source=%@", next, source)
-    if mediaType.lowercased() == "video" {
-      ScreenAwakeController.shared.sync(source: "phase_\(next.lowercased())")
-    }
   }
 
   func canCleanup(_ reason: String) -> Bool {
@@ -120,7 +114,7 @@ final class DibayActiveCallSessionManager {
   func clearSession() {
     let sid = callId
     if let sid, !sid.isEmpty {
-      ScreenAwakeController.shared.releaseAll(callId: sid, source: "session_clear")
+      ScreenAwakeBridge.shared.release(callId: sid, reason: "session_clear")
     }
     callId = nil
     phase = "CLEANED"

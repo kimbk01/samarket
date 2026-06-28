@@ -81,20 +81,6 @@ public final class DibayActiveCallSessionManager {
       IncomingCallActionCoordinator.cancelMissedTimeout(sid);
       DibayCallLog.once("active_call_connected", sid, "media=" + MEDIA_TYPE.get());
     }
-    if ("video".equalsIgnoreCase(MEDIA_TYPE.get()) && isVideoHoldPhase(PHASE.get())) {
-      ScreenAwakeController.sync("bind_active_call");
-    }
-  }
-
-  private static boolean isVideoHoldPhase(String phase) {
-    return PHASE_ACCEPTED.equals(phase)
-        || PHASE_JOINING_MEDIA.equals(phase)
-        || PHASE_CONNECTED.equals(phase)
-        || PHASE_BACKGROUNDED.equals(phase)
-        || PHASE_SCREEN_OFF.equals(phase)
-        || PHASE_PIP.equals(phase)
-        || PHASE_REENTERING.equals(phase)
-        || PHASE_RECONNECTING.equals(phase);
   }
 
   public static void transitionPhase(String nextPhase, String source) {
@@ -226,7 +212,7 @@ public final class DibayActiveCallSessionManager {
   public static void clearSession() {
     String sid = ACTIVE_CALL_ID.get();
     if (sid != null && !sid.isEmpty()) {
-      ScreenAwakeController.releaseAll(sid, "session_clear");
+      ScreenAwakeBridge.release(sid, "session_clear");
     }
     ACTIVE_CALL_ID.set(null);
     PHASE.set(PHASE_CLEANED);

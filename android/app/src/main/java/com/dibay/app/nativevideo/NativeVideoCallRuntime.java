@@ -14,7 +14,7 @@ import com.dibay.app.IncomingCallActionCoordinator;
 import com.dibay.app.IncomingCallNotificationBuilder;
 import com.dibay.app.IncomingCallRingOwner;
 import com.dibay.app.call.DibayActiveCallSessionManager;
-import com.dibay.app.call.ScreenAwakeController;
+import com.dibay.app.call.ScreenAwakeBridge;
 import com.dibay.app.nativecall.NativeCallEngineOwnership;
 import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
 import java.util.concurrent.ConcurrentHashMap;
@@ -113,20 +113,6 @@ public final class NativeVideoCallRuntime {
   public static Session getSession(String callId) {
     if (callId == null) return null;
     return SESSIONS.get(callId.trim());
-  }
-
-  /** ScreenAwake SSOT — first live video session in ringing..connected hold window. */
-  public static String peekHoldPhaseCallId() {
-    for (Session session : SESSIONS.values()) {
-      if (session == null || session.callId == null || session.callId.isEmpty()) continue;
-      if (session.state == State.RINGING
-          || session.state == State.ACCEPTING
-          || session.state == State.CONNECTING
-          || session.state == State.CONNECTED) {
-        return session.callId;
-      }
-    }
-    return "";
   }
 
   /** Guard-only: another callId with live session state. */
@@ -412,11 +398,13 @@ public final class NativeVideoCallRuntime {
     NativeVideoCallActivity.renderState(session.callId, state);
     final String sid = session.callId;
     final String source = "video_runtime_state:" + state.name().toLowerCase();
-    if (state == State.ENDING || state == State.ENDED || state == State.FAILED) {
-      MAIN.post(() -> ScreenAwakeController.releaseAll(sid, source));
+    if (state == State.CONNECTED) {
+      MAIN.post(() -> ScreenAwakeBridge.acquire(sid, "connected_video"));
       return;
     }
-    MAIN.post(() -> ScreenAwakeController.sync(source));
+    if (state == State.ENDING || state == State.ENDED || state == State.FAILED) {
+      MAIN.post(() -> ScreenAwakeBridge.release(sid, source));
+    }
   }
 
   private static void ensureVideoUiVisible(Context context, Session session, State state) {
