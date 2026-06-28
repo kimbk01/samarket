@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { startNativeConnectedSync } from "@/lib/call/native/native-connected-sync";
+import { isLegacyWebCallEstablishmentRemoved } from "@/lib/call/native/legacy-web-call-establishment-removed";
 import { resolveNativeOwnedWebV4UiBlock } from "@/lib/call/native/native-owned-web-v4-ui-guard";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import { useCallV4ForegroundResume } from "@/lib/community-messenger/call-v4/use-call-v4-foreground-resume";
@@ -135,6 +136,15 @@ export function handleCallV4NativeRouteEvent(
       path: normalizedPath,
       source,
     });
+    if (isLegacyWebCallEstablishmentRemoved()) {
+      logCallV4("legacy_web_establishment_removed", {
+        callId: readCallV4SessionIdFromNativeRoute(normalizedPath),
+        path: normalizedPath,
+        trigger: "native_accept_route",
+      });
+      registerCallV4NativeAcceptingFromAppPath(normalizedPath);
+      return;
+    }
     logCallV4RouteAcceptDetected(normalizedPath, "native_route_event");
     seedCallV4NativeAcceptRouteState(normalizedPath);
     const callId = readCallV4SessionIdFromNativeRoute(normalizedPath);
@@ -214,12 +224,13 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
   const router = useRouter();
   const phase = useCallV4Store((s) => s.phase);
   const identity = useCallV4Store((s) => s.identity);
+  const syncOnly = isLegacyWebCallEstablishmentRemoved();
 
   useCallV4PresentationPlatform({
-    callId: identity?.callId ?? null,
-    phase,
-    mediaType: identity?.mediaType ?? null,
-    roomId: identity?.roomId ?? null,
+    callId: syncOnly ? null : identity?.callId ?? null,
+    phase: syncOnly ? "idle" : phase,
+    mediaType: syncOnly ? null : identity?.mediaType ?? null,
+    roomId: syncOnly ? null : identity?.roomId ?? null,
   });
 
   useCallV4ForegroundResume();
@@ -236,9 +247,9 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
   }, []);
 
   useEffect(() => {
-    if (!isCallV4TelegramLaneEnabled() || !userId) return;
+    if (!isCallV4TelegramLaneEnabled() || syncOnly || !userId) return;
     return startCallV4IncomingDiscovery(userId);
-  }, [userId]);
+  }, [syncOnly, userId]);
 
   useEffect(() => {
     if (!isCallV4TelegramLaneEnabled()) return;
@@ -258,7 +269,7 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
   }, [userId]);
 
   useLayoutEffect(() => {
-    if (!isCallV4TelegramLaneEnabled()) return;
+    if (!isCallV4TelegramLaneEnabled() || syncOnly) return;
     syncCallV4NativeAcceptInflightFromWindowLocation();
     syncCallV4NativeAcceptingSurfaceFromWindowLocation();
     const path = `${pathname ?? ""}${typeof window !== "undefined" ? window.location.search : ""}`;
@@ -275,10 +286,10 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
         registerCallV4NativeAcceptingFromAppPath(path);
       }
     }
-  }, [pathname, router]);
+  }, [pathname, router, syncOnly]);
 
   useEffect(() => {
-    if (!isCallV4TelegramLaneEnabled()) return;
+    if (!isCallV4TelegramLaneEnabled() || syncOnly) return;
 
     const onNativeRoute = (event: Event) => {
       const path = (event as CustomEvent<{ path?: string }>).detail?.path?.trim();
@@ -293,10 +304,10 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
       window.removeEventListener("dibay:call-route", onNativeRoute);
       window.removeEventListener("dibay:push-route", onNativeRoute);
     };
-  }, [pathname, router]);
+  }, [pathname, router, syncOnly]);
 
   useEffect(() => {
-    if (!isCallV4TelegramLaneEnabled()) return;
+    if (!isCallV4TelegramLaneEnabled() || syncOnly) return;
 
     const onNativeSurfaceBridge = (event: Event) => {
       const detail = (event as CustomEvent<CallV4NativeIncomingSurfaceSignal>).detail;
@@ -330,7 +341,7 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
       window.removeEventListener("dibay:call-v4-native-surface", onNativeSurfaceBridge);
       window.removeEventListener("dibay:call-surface-owner", onSurfaceOwnerBridge);
     };
-  }, []);
+  }, [syncOnly]);
 
   useEffect(() => {
     if (!isCallV4TelegramLaneEnabled()) return;
@@ -339,7 +350,7 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
 
     const offBridge = installDibayFcmCallBridge({
       onIncomingWake: (detail) => {
-        /* @legacy Phase1-5 — Web must not self-register native surface on fcm_wake (Phase 6A). */
+        if (syncOnly) return;
         void hydrateCallV4IncomingWake(detail);
       },
       onFcmTerminal: (detail) => {
@@ -363,9 +374,13 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
       offBridge();
       offBus();
     };
-  }, [router]);
+  }, [router, syncOnly]);
 
   if (!isCallV4TelegramLaneEnabled()) return children ?? null;
+
+  if (syncOnly) {
+    return <>{children}</>;
+  }
 
   return (
     <>

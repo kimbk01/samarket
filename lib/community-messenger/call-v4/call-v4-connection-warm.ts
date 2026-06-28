@@ -5,6 +5,7 @@ import {
   primeCommunityMessengerCallConnectionPrefetch,
   resolveCommunityMessengerCallConnection,
 } from "@/lib/community-messenger/call-connection-prefetch";
+import { isLegacyWebCallEstablishmentRemoved } from "@/lib/call/native/legacy-web-call-establishment-removed";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import type { CommunityMessengerManagedCallConnection } from "@/lib/community-messenger/types";
 
@@ -12,6 +13,10 @@ import type { CommunityMessengerManagedCallConnection } from "@/lib/community-me
 export function primeCallV4ConnectionWarm(callId: string): void {
   const sid = callId.trim();
   if (!sid) return;
+  if (isLegacyWebCallEstablishmentRemoved()) {
+    logCallV4("legacy_web_establishment_removed", { callId: sid, source: "connection_warm" });
+    return;
+  }
   logCallV4("connection_warm_start", { callId: sid });
   primeCommunityMessengerCallConnectionPrefetch(sid);
 }

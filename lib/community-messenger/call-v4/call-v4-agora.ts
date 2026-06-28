@@ -28,6 +28,7 @@ import {
 } from "@/lib/community-messenger/call-v4/call-v4-connected-gate";
 import { readCallV4Identity } from "@/lib/community-messenger/call-v4/call-v4-store";
 import type { CommunityMessengerManagedCallConnection } from "@/lib/community-messenger/types";
+import { isLegacyWebCallEstablishmentRemoved } from "@/lib/call/native/legacy-web-call-establishment-removed";
 import { isNativeEstablishmentOwned } from "@/lib/call/native/native-outgoing-bridge";
 
 type CallV4AgoraSession = {
@@ -183,6 +184,10 @@ export async function joinCallV4Agora(
 ): Promise<boolean> {
   const sid = callId.trim();
   if (!sid) return false;
+  if (isLegacyWebCallEstablishmentRemoved()) {
+    logCallV4("legacy_web_establishment_removed", { callId: sid, source: "joinCallV4Agora" });
+    return false;
+  }
   if (await isNativeEstablishmentOwned(sid)) {
     logCallV4("web_agora_establishment_quarantined", { callId: sid });
     return false;

@@ -10,6 +10,7 @@ import { maybeExitCallV4ScreenAfterCleanup } from "@/lib/community-messenger/cal
 import { readCallV4ExitRouter } from "@/lib/community-messenger/call-v4/call-v4-route";
 import { readCallV4Identity, readCallV4Phase, useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
 import type { CallV4Phase, CallV4TerminalPhase } from "@/lib/community-messenger/call-v4/call-v4-types";
+import { isLegacyWebCallEstablishmentRemoved } from "@/lib/call/native/legacy-web-call-establishment-removed";
 import { isNativeEstablishmentOwned } from "@/lib/call/native/native-outgoing-bridge";
 
 const CALLER_ACTIVE_POLL_MS = 500;
@@ -101,6 +102,10 @@ async function handleCallerPollFetchResult(callId: string, fetchResult: CallV4Ca
 export function startCallV4CallerActivePoll(callId: string): () => void {
   const sid = callId.trim();
   if (!sid) {
+    return () => undefined;
+  }
+  if (isLegacyWebCallEstablishmentRemoved()) {
+    logCallV4("legacy_web_establishment_removed", { callId: sid, source: "caller_poll" });
     return () => undefined;
   }
 

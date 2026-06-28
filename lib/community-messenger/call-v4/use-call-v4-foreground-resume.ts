@@ -7,6 +7,7 @@ import {
   readNativeActiveCallId,
   readNativeActiveCallSnapshot,
 } from "@/lib/call/native/native-call-service";
+import { isLegacyWebCallEstablishmentRemoved } from "@/lib/call/native/legacy-web-call-establishment-removed";
 import { resolveNativeOwnedWebV4UiBlock } from "@/lib/call/native/native-owned-web-v4-ui-guard";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 import {
@@ -34,6 +35,18 @@ export function useCallV4ForegroundResume(): void {
       if (!isCallV4TelegramLaneEnabled() || inFlightRef.current) return;
 
       const callIdHint = storeCallId?.trim() ?? null;
+      if (isLegacyWebCallEstablishmentRemoved()) {
+        const snapshot = await readNativeActiveCallSnapshot();
+        const nativeCallId = snapshot?.callId?.trim() || callIdHint;
+        logCallV4ForegroundResumeSkip({
+          callId: nativeCallId || null,
+          reason: "legacy_web_establishment_removed",
+          trigger,
+          pathname,
+        });
+        return;
+      }
+
       logCallV4ForegroundResumeDetected({
         callId: callIdHint,
         trigger,

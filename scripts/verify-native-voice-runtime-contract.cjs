@@ -273,6 +273,33 @@ if (!callV4Agora.includes("web_agora_establishment_quarantined")) {
   pass("JS Agora establishment quarantine guard is present");
 }
 
+if (!callV4Agora.includes("legacy_web_establishment_removed")) {
+  fail("joinCallV4Agora must remove Legacy Web establishment on Android Capacitor");
+} else {
+  pass("Legacy Web JS Agora establishment removed guard is present");
+}
+
+const legacyRemoved = read("lib/call/native/legacy-web-call-establishment-removed.ts");
+if (!legacyRemoved.includes("isLegacyWebCallEstablishmentRemoved")) {
+  fail("legacy-web-call-establishment-removed SSOT must export isLegacyWebCallEstablishmentRemoved");
+} else {
+  pass("Legacy Web establishment removed SSOT is present");
+}
+
+const callV4Route = read("lib/community-messenger/call-v4/call-v4-route.ts");
+if (!callV4Route.includes("legacy_web_establishment_removed")) {
+  fail("routeToCallV4Screen must remove Legacy Web establishment on Android Capacitor");
+} else {
+  pass("Legacy Web route establishment removed guard is present");
+}
+
+const mainActivityLegacyWeb = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
+if (!mainActivityLegacyWeb.includes("legacy_web_replay_removed")) {
+  fail("MainActivity must remove Legacy Web pending replay routes");
+} else {
+  pass("MainActivity Legacy Web replay removal is present");
+}
+
 const qaDir = path.join(root, ".qa-logs");
 const bannedQaMarkers = [
   "native_handoff target=main_activity",

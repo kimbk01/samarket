@@ -271,6 +271,10 @@ public class MainActivity extends BridgeActivity {
     if (appPath == null || appPath.trim().isEmpty()) return;
     if (!appPath.startsWith("/community-messenger/calls/")) return;
     if (appPath.contains("action=accept") || appPath.contains("action=reject")) return;
+    if (isLegacyWebCallEstablishmentRoute(appPath)) {
+      logLegacyWebReplayRemoved(appPath, "inject_call_wake_route");
+      return;
+    }
     if (CallV4Lane.shouldSuppressV3CallReplay(context, appPath)) {
       Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] v3_wake_route_suppressed path=" + appPath.trim());
       return;
@@ -300,6 +304,10 @@ public class MainActivity extends BridgeActivity {
   public static void tryBeginLockV4AcceptHydration(
       android.content.Context context, String callId, String acceptPath) {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
+    if (isLegacyWebCallEstablishmentRoute(acceptPath)) {
+      logLegacyWebReplayRemoved(acceptPath, "lock_v4_accept_hydration");
+      return;
+    }
     final String sid = callId.trim();
     final String path =
         acceptPath != null && !acceptPath.trim().isEmpty()
@@ -682,6 +690,11 @@ public class MainActivity extends BridgeActivity {
     }
     String path = prefs.getString(PENDING_PATH_KEY, null);
     if (path == null || path.trim().isEmpty()) return out;
+    if (isLegacyWebCallEstablishmentRoute(path)) {
+      logLegacyWebReplayRemoved(path, "read_persisted_call_pending_route");
+      clearPersistedCallPendingRoute(context);
+      return out;
+    }
     if (shouldSuppressNativeOwnedCallRouteReplay(path.trim())) {
       suppressNativeOwnedCallRouteReplayStatic(context, path.trim(), "read_persisted_call_pending_route");
       return out;
@@ -704,6 +717,10 @@ public class MainActivity extends BridgeActivity {
   public static void persistCallPendingRoute(
       android.content.Context context, String appPath, IncomingCallPayload payload, long effectiveExpiresAtMs) {
     if (context == null || appPath == null || appPath.trim().isEmpty()) return;
+    if (isLegacyWebCallEstablishmentRoute(appPath)) {
+      logLegacyWebReplayRemoved(appPath, "persist_call_pending_route");
+      return;
+    }
     if (CallV4Lane.shouldSuppressV3CallReplay(context, appPath)) {
       Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] v3_pending_route_suppressed path=" + appPath.trim());
       return;
@@ -742,6 +759,24 @@ public class MainActivity extends BridgeActivity {
   private static boolean isCallRouteAppPath(String appPath) {
     if (appPath == null || appPath.trim().isEmpty()) return false;
     return appPath.trim().startsWith("/community-messenger/calls/");
+  }
+
+  /** Track ① — Legacy Web Call establishment routes are not persisted or replayed. */
+  private static boolean isLegacyWebCallEstablishmentRoute(String appPath) {
+    if (appPath == null || appPath.trim().isEmpty()) return false;
+    String path = appPath.trim();
+    if (path.contains("/community-messenger/calls-v4/")) return true;
+    return path.startsWith("/community-messenger/calls/")
+        && (path.contains("action=accept") || path.contains("callAction=accept"));
+  }
+
+  private static void logLegacyWebReplayRemoved(String appPath, String reason) {
+    Log.i(
+        CallV4Lane.TAG,
+        "[DIBAY_CALL_V4] legacy_web_replay_removed path="
+            + (appPath != null ? appPath.trim() : "none")
+            + " reason="
+            + reason);
   }
 
   private static boolean isNativeOwnedCallId(String callId) {
@@ -1148,6 +1183,12 @@ public class MainActivity extends BridgeActivity {
     restorePendingRouteFromPrefsIfNeeded();
     if (pendingAppPath == null || pendingAppPath.isEmpty()) return;
     if (!CallV4Lane.isV4CalleeAcceptCallRoute(pendingAppPath)) return;
+    if (isLegacyWebCallEstablishmentRoute(pendingAppPath)) {
+      logLegacyWebReplayRemoved(pendingAppPath, "lock_accept_hydration_replay");
+      clearPersistedCallPendingRoute(getApplicationContext());
+      clearInMemoryPendingRouteState();
+      return;
+    }
     if (suppressNativeOwnedCallRouteReplayIfNeeded(pendingAppPath, "lock_accept_hydration_replay")) return;
     Bridge bridge = getBridge();
     WebView webView = bridge != null ? bridge.getWebView() : null;

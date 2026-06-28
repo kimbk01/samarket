@@ -202,6 +202,18 @@ describe("call-v4 import isolation", () => {
     expect(plugin).toContain("claimForegroundWebIncomingOwner");
   });
 
+  it("Legacy Web Call establishment removed on Android Capacitor (Track ①)", () => {
+    const ssot = read("lib/call/native/legacy-web-call-establishment-removed.ts");
+    const provider = read("components/community-messenger/call-v4/CallV4Provider.tsx");
+    const page = read("app/(main)/community-messenger/calls-v4/[callId]/page.tsx");
+    const main = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
+    expect(ssot).toContain("isLegacyWebCallEstablishmentRemoved");
+    expect(provider).toContain("syncOnly");
+    expect(provider).toContain("isLegacyWebCallEstablishmentRemoved");
+    expect(page).toContain("legacy_web_establishment_removed");
+    expect(main).toContain("legacy_web_replay_removed");
+  });
+
   it("pure web incoming contract is isolated from native shell", () => {
     const contract = read("lib/community-messenger/call-v4/call-v4-pure-web-incoming-contract.ts");
     expect(contract).toContain("tryClaimCallV4PureWebIncomingOwner");
@@ -378,12 +390,11 @@ describe("call-v4 import isolation", () => {
     expect(provider).toContain("router_replace_calls_v4_accept_skipped_native_owned");
 
     const route = read("lib/community-messenger/call-v4/call-v4-route.ts");
-    expect(route).toContain("web_v4_route_navigation_blocked");
-    expect(route).toContain("isAndroidNativeOwnedWebV4UiShell");
+    expect(route).toContain("legacy_web_establishment_removed");
+    expect(route).toContain("isLegacyWebCallEstablishmentRemoved");
 
-    const screen = read("components/community-messenger/call-v4/CallV4Screen.tsx");
-    expect(screen).toContain("web_v4_screen_mount_blocked");
-    expect(screen).toContain("webUiAllowed");
+    const page = read("app/(main)/community-messenger/calls-v4/[callId]/page.tsx");
+    expect(page).toContain("legacy_web_establishment_removed");
 
     const resume = read("lib/community-messenger/call-v4/call-v4-foreground-resume.ts");
     expect(resume).toContain("native_owned_ui_forbidden");

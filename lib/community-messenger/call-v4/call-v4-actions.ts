@@ -48,6 +48,7 @@ import {
   releaseCallV4CancelPatchClaim,
   tryClaimCallV4AcceptFlight,
 } from "@/lib/community-messenger/call-v4/call-v4-patch-guard";
+import { isLegacyWebCallEstablishmentRemoved } from "@/lib/call/native/legacy-web-call-establishment-removed";
 import { isAndroidNativeOutgoingShell, startNativeOutgoingEstablishment } from "@/lib/call/native/native-outgoing-bridge";
 import { maybeExitCallV4ScreenAfterCleanup } from "@/lib/community-messenger/call-v4/call-v4-exit-guard";
 import {
@@ -156,6 +157,10 @@ async function ensureCallV4CalleeIdentity(callId: string): Promise<CallV4Identit
 export async function hydrateCallV4CalleeScreen(callId: string): Promise<boolean> {
   const sid = callId.trim();
   if (!sid) return false;
+  if (isLegacyWebCallEstablishmentRemoved()) {
+    logCallV4("legacy_web_establishment_removed", { callId: sid, source: "hydrate_callee_screen" });
+    return false;
+  }
   const inflight = isNativeAcceptInflight(sid);
   const existingIdentity = readCallV4Identity();
   if (existingIdentity?.callId === sid) {

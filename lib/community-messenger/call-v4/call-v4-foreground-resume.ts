@@ -19,7 +19,8 @@ export type CallV4ForegroundResumeSkipReason =
   | "already_on_call_screen"
   | "terminal_status"
   | "duplicate_restore"
-  | "native_owned_ui_forbidden";
+  | "native_owned_ui_forbidden"
+  | "legacy_web_establishment_removed";
 
 export type CallV4ForegroundResumeDecision =
   | { action: "restore"; callId: string; href: string }

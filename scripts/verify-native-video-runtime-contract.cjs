@@ -444,5 +444,12 @@ if (!mainActivity.includes("native_owned_pending_replay_suppressed")) {
   pass("MainActivity native-owned pending Web replay suppression is present (P2-4)");
 }
 
+const callV4Agora = read("lib/community-messenger/call-v4/call-v4-agora.ts");
+if (!callV4Agora.includes("legacy_web_establishment_removed")) {
+  fail("joinCallV4Agora must remove Legacy Web establishment on Android Capacitor");
+} else {
+  pass("Legacy Web JS Agora establishment removed guard is present");
+}
+
 if (failed) process.exit(1);
 console.log("verify:native-video-runtime-contract PASS");
