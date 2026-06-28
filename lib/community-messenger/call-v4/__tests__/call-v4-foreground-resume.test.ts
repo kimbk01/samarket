@@ -23,9 +23,17 @@ vi.mock("@/lib/community-messenger/incoming-call-state", () => ({
   readCallConsumedReason: () => null,
 }));
 
+const peekBlock = vi.hoisted(() => vi.fn(() => false));
+
+vi.mock("@/lib/call/native/native-owned-web-v4-ui-guard", () => ({
+  peekNativeOwnedWebV4UiBlockSync: peekBlock,
+}));
+
 describe("call-v4-foreground-resume", () => {
   beforeEach(() => {
     expandDock.mockClear();
+    peekBlock.mockReset();
+    peekBlock.mockReturnValue(false);
     vi.spyOn(console, "info").mockImplementation(() => {});
   });
 
@@ -98,6 +106,24 @@ describe("call-v4-foreground-resume", () => {
       lastRestoreKey: key,
     });
     expect(decision).toEqual({ action: "skip", reason: "duplicate_restore", callId: "call-abc" });
+  });
+
+  it("skips restore when native-owned Web V4 UI is forbidden", () => {
+    peekBlock.mockReturnValue(true);
+    const decision = evaluateCallV4ForegroundResume({
+      phase: "connected",
+      pathname: "/community-messenger",
+      storeCallId: "call-abc",
+      nativeCallId: "call-abc",
+      nativeSnapshot: { callId: "call-abc", phase: "CONNECTED", mediaType: "video", connected: true },
+      dedupeKey: "call-abc:/community-messenger",
+      lastRestoreKey: null,
+    });
+    expect(decision).toEqual({
+      action: "skip",
+      reason: "native_owned_ui_forbidden",
+      callId: "call-abc",
+    });
   });
 
   it("applyCallV4ForegroundResumeRestore expands dock before route", () => {

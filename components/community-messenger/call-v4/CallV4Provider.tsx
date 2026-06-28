@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { startNativeConnectedSync } from "@/lib/call/native/native-connected-sync";
+import { resolveNativeOwnedWebV4UiBlock } from "@/lib/call/native/native-owned-web-v4-ui-guard";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import { useCallV4ForegroundResume } from "@/lib/community-messenger/call-v4/use-call-v4-foreground-resume";
 import { useCallV4PresentationPlatform } from "@/lib/community-messenger/call-v4/presentation/use-call-v4-presentation-platform";
@@ -157,8 +158,17 @@ export function handleCallV4NativeRouteEvent(
         });
       } else {
         replacedV4AcceptCallIds.add(callId);
-        logCallV4("router_replace_calls_v4_accept", { callId, path: normalizedPath });
-        router.replace(normalizedPath);
+        void resolveNativeOwnedWebV4UiBlock(callId, "native_accept_route").then((block) => {
+          if (block) {
+            logCallV4("router_replace_calls_v4_accept_skipped_native_owned", {
+              callId,
+              path: normalizedPath,
+            });
+            return;
+          }
+          logCallV4("router_replace_calls_v4_accept", { callId, path: normalizedPath });
+          router.replace(normalizedPath);
+        });
       }
     }
   }
