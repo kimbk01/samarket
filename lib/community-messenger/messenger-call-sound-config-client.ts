@@ -2,6 +2,8 @@ import { resolveClientAuthenticatedUserIdForFetch } from "@/lib/auth/resolve-cli
 import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
 import { DEFAULT_INCOMING_RING_TIMEOUT_SECONDS } from "@/lib/community-messenger/messenger-call-ring-timeout";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
+import { eventKeyForCallKind } from "@/lib/notifications/notification-sound-event-map";
+import { resolveNotificationSound } from "@/lib/notifications/notification-sound-resolver";
 
 const AUTH_READY_WAIT_MS = 400;
 const UNAUTHORIZED_BACKOFF_MS = 30_000;
@@ -172,6 +174,12 @@ export function resolveMessengerCallToneUrl(
   mode: "incoming" | "outgoing",
   callKind: CommunityMessengerCallKind
 ): string | null {
+  const ssotKey = eventKeyForCallKind(callKind === "video" ? "video" : "voice", mode);
+  const ssot = resolveNotificationSound(ssotKey, { platform: "web" });
+  if (ssot.webUrl && ssot.enabled && ssot.kind !== "silent") {
+    return ssot.webUrl;
+  }
+
   const fallback = config?.default_fallback_sound_url?.trim() || null;
   if (!config?.use_custom_sounds) return fallback;
   const isVideo = callKind === "video";
@@ -193,6 +201,9 @@ export function resolveMessengerCallToneUrl(
 
 /** 부재 알림 원샷 — 비활성·URL 없음이면 null (호출부에서 기본 알림음으로 폴백) */
 export function resolveMessengerCallMissedSoundUrl(config: MessengerCallSoundConfig | null): string | null {
+  const ssot = resolveNotificationSound("call_missed", { platform: "web" });
+  if (ssot.webUrl && ssot.enabled) return ssot.webUrl;
+
   const fallback = config?.default_fallback_sound_url?.trim() || null;
   if (!config?.use_custom_sounds) return fallback;
   if (config.missed_notification_enabled === false) return null;
@@ -201,6 +212,9 @@ export function resolveMessengerCallMissedSoundUrl(config: MessengerCallSoundCon
 
 /** 통화 종료 원샷 — 비활성·URL 없음이면 null */
 export function resolveMessengerCallEndSoundUrl(config: MessengerCallSoundConfig | null): string | null {
+  const ssot = resolveNotificationSound("call_ended", { platform: "web" });
+  if (ssot.webUrl && ssot.enabled) return ssot.webUrl;
+
   const fallback = config?.default_fallback_sound_url?.trim() || null;
   if (!config?.use_custom_sounds) return fallback;
   if (config.call_end_enabled === false) return null;

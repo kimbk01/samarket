@@ -329,6 +329,15 @@ export function buildFcmDataFields(
     appendMessageDisplayFields(fields, meta);
   }
 
+  const eventKey = meta ? trimText(meta.event_key ?? meta.eventKey) : "";
+  const androidChannelId = meta ? trimText(meta.android_channel_id ?? meta.androidChannelId) : "";
+  const iosSoundName = meta ? trimText(meta.ios_sound_name ?? meta.iosSoundName) : "";
+  const soundAssetId = meta ? trimText(meta.sound_asset_id ?? meta.soundAssetId) : "";
+  if (eventKey) fields.eventKey = eventKey;
+  if (androidChannelId) fields.androidChannelId = androidChannelId;
+  if (iosSoundName) fields.sound = iosSoundName;
+  if (soundAssetId) fields.soundAssetId = soundAssetId;
+
   return fields;
 }
 

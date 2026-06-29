@@ -12,7 +12,8 @@ import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publi
 import { fetchNotificationBadgeCount } from "@/lib/notifications/pipeline/notify-badge-service";
 import { dispatchPushForUser } from "@/lib/push/dispatch/dispatch-push-for-user";
 import { getSiteOrigin } from "@/lib/env/runtime";
-import { resolveNotificationSoundProfile } from "@/lib/notifications/policy/notification-sound-profiles";
+import { eventKeyForNotificationEventType } from "@/lib/notifications/notification-sound-event-map";
+import { resolveNotificationSoundForEvent } from "@/lib/notifications/notification-sound-resolver";
 
 function absolutizeLink(link: string): string | null {
   const base = getSiteOrigin();
@@ -40,7 +41,8 @@ function buildPushPayload(row: NotificationEventRow, badgeCount: number): Notifi
         : roomId
           ? buildChatRoomWebPath(roomId)
           : "/community-messenger");
-  const soundProfile = resolveNotificationSoundProfile(row.category);
+  const eventKey = eventKeyForNotificationEventType(row.type);
+  const soundResolved = resolveNotificationSoundForEvent(eventKey, { platform: "android" });
   return {
     user_id: row.user_id,
     notification_type:
@@ -74,7 +76,10 @@ function buildPushPayload(row: NotificationEventRow, badgeCount: number): Notifi
       context_label: display?.contextLabel,
       campaign_id: display?.campaignId,
       display_payload: display,
-      android_channel_id: soundProfile.androidChannelId,
+      event_key: eventKey,
+      sound_asset_id: soundResolved.assetId,
+      android_channel_id: soundResolved.androidChannelId,
+      ios_sound_name: soundResolved.iosSoundName,
     },
   };
 }

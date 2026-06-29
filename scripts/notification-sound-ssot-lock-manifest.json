@@ -1,0 +1,22 @@
+{
+  "bundleId": "notification-sound-ssot-native-call-lock",
+  "description": "Native Call LOCK files — SSOT work must not modify these paths.",
+  "forbiddenModifyPaths": [
+    "android/app/src/main/java/com/dibay/app/IncomingCallRingOwner.java",
+    "android/app/src/main/java/com/dibay/app/DibayForegroundRingtone.java",
+    "android/app/src/main/java/com/dibay/app/IncomingCallNotificationBuilder.java",
+    "android/app/src/main/java/com/dibay/app/IncomingCallPushDelivery.java",
+    "android/app/src/main/java/com/dibay/app/IncomingCallBackgroundNotifier.java",
+    "android/app/src/main/java/com/dibay/app/IncomingCallSessionCleanup.java",
+    "android/app/src/main/java/com/dibay/app/IncomingCallActionCoordinator.java",
+    "android/app/src/main/java/com/dibay/app/IncomingCallActivity.java",
+    "android/app/src/main/java/com/dibay/app/PendingIncomingPresentation.java"
+  ],
+  "allowedAdapterPaths": [
+    "lib/push/native/notification-sound-native-bridge.ts",
+    "lib/notifications/notification-sound-resolver.ts",
+    "lib/notifications/notification-sound-legacy-mirror.ts",
+    "lib/notifications/notification-sound-event-map.ts"
+  ],
+  "adminSsotWriteApi": "app/api/admin/notification-sound-ssot"
+}

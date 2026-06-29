@@ -1665,6 +1665,7 @@ export const adminMessages = {
     admin_stores_app_rider_on: "ON (위치 업데이트 적용)",
     admin_stores_app_rider_off: "OFF (위치 업데이트 미적용)",
     admin_stores_app_alert_delivery_title: "매장 알림음 (배달 신규 주문)",
+    admin_stores_app_alert_ssot_hint: "통합 알림음·벨소리는 알림 설정에서 관리합니다.",
     admin_stores_app_alert_delivery_desc:
       '아래에서 프리셋을 고르거나, 내 PC에서 오디오 파일을 업로드하면 전역 기본 알림으로 저장됩니다. (매장별로는 "매장 설정" 프로필에서 따로 지정 가능)',
     admin_stores_app_alert_match_title: "배달채팅 알림음 (일치 확인)",
@@ -3452,6 +3453,7 @@ export const adminMessages = {
     admin_stores_app_rider_on: "ON (apply location updates)",
     admin_stores_app_rider_off: "OFF (skip location updates)",
     admin_stores_app_alert_delivery_title: "Store alert (new delivery order)",
+    admin_stores_app_alert_ssot_hint: "Unified notification sounds are managed in notification settings.",
     admin_stores_app_alert_delivery_desc: "Pick a preset or upload audio from your PC as the global default. Per-store overrides are in store profile settings.",
     admin_stores_app_alert_match_title: "Delivery chat alert (match confirm)",
     admin_stores_app_alert_match_desc: "Sound when the buyer sends order match confirmation in delivery chat. Same preset/upload/preview as delivery alert above.",

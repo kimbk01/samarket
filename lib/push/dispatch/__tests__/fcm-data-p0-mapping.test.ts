@@ -32,15 +32,16 @@ describe("fcm data p0 mapping", () => {
     expect(fields.routeUrl).toBe("/community?from=campaign");
   });
 
-  it("maps p0 categories to dedicated android channels", () => {
-    expect(resolveNotificationSoundProfile("chat_message").androidChannelId).toBe("dibay_chat_messages");
-    expect(resolveNotificationSoundProfile("trade_status").androidChannelId).toBe("dibay_trade");
-    expect(resolveNotificationSoundProfile("order_status").androidChannelId).toBe("dibay_orders");
-    expect(resolveNotificationSoundProfile("delivery_status").androidChannelId).toBe("dibay_delivery");
-    expect(resolveNotificationSoundProfile("community_activity").androidChannelId).toBe("dibay_community");
-    expect(resolveNotificationSoundProfile("admin_marketing_banner").androidChannelId).toBe("dibay_marketing");
-    expect(resolveNotificationSoundProfile("admin_notice").androidChannelId).toBe("dibay_admin_notice");
-    expect(resolveNotificationSoundProfile("incoming_call_signal").androidChannelId).toBe("dibay_calls_incoming");
-    expect(resolveNotificationSoundProfile("missed_call").androidChannelId).toBe("dibay_calls_missed");
+  it("maps p0 categories to SSOT android channels", () => {
+    expect(resolveNotificationSoundProfile("chat_message").androidChannelId).toBe("dibay_chat_messages_v1");
+    expect(resolveNotificationSoundProfile("trade_status").androidChannelId).toBe("dibay_trade_v1");
+    expect(resolveNotificationSoundProfile("order_status").androidChannelId).toBe("dibay_orders_v1");
+    expect(resolveNotificationSoundProfile("delivery_status").androidChannelId).toBe("dibay_orders_v1");
+    expect(resolveNotificationSoundProfile("community_activity").androidChannelId).toBe("dibay_community_v1");
+    expect(resolveNotificationSoundProfile("admin_marketing_banner").androidChannelId).toBe("dibay_admin_notice_v1");
+    expect(resolveNotificationSoundProfile("admin_notice").androidChannelId).toBe("dibay_admin_notice_v1");
+    expect(resolveNotificationSoundProfile("incoming_call_signal").androidChannelId).toBe("dibay_calls_incoming_v7");
+    expect(resolveNotificationSoundProfile("missed_call").androidChannelId).toBe("dibay_calls_missed_v1");
+    expect(resolveNotificationSoundProfile("chat_message").eventKey).toBe("messenger_direct_message_received");
   });
 });

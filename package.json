@@ -118,6 +118,7 @@
     "verify:auth-provider-linking-contract": "node scripts/verify-auth-provider-linking-contract.mjs",
     "verify:android-device-permissions-contract": "node scripts/verify-android-device-permissions-contract.mjs",
     "verify:notification-permission-ssot-contract": "node scripts/verify-notification-permission-ssot-contract.mjs",
+    "verify:notification-sound-ssot-contract": "node scripts/verify-notification-sound-ssot-contract.mjs",
     "verify:android-vercel-capacitor-contract": "node scripts/verify-android-vercel-capacitor-contract.mjs",
     "verify:ios-kakao-key-config": "node scripts/verify-ios-kakao-key-config.mjs",
     "verify:auth-session-contract": "node scripts/verify-auth-session-contract.mjs",

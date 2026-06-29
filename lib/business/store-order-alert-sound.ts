@@ -4,6 +4,7 @@
  */
 
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { playEventNotificationSound } from "@/lib/notifications/notification-sound-engine";
 
 const RESOLVE_TTL_MS = 60_000;
 const APP_SOUND_URL = "/api/app/store-delivery-alert-sound";
@@ -100,7 +101,7 @@ export function primeStoreOrderAlertAudio(): void {
   })();
 }
 
-/** 관리자 전역 알림음 또는 기본 비프 */
+/** 관리자 전역 알림음 또는 기본 비프 — SSOT eventKey + legacy URL fallback */
 export async function playStoreOrderDeliveryAlertSound(): Promise<void> {
   const url = await resolveGlobalCustomSoundUrl();
   if (url) {
@@ -108,12 +109,12 @@ export async function playStoreOrderDeliveryAlertSound(): Promise<void> {
       const audio = new Audio(url);
       audio.volume = 0.55;
       await audio.play().catch(() => {
-        playBuiltinBeeps();
+        void playEventNotificationSound("delivery_order_created_owner");
       });
       return;
     } catch {
       /* fall through */
     }
   }
-  playBuiltinBeeps();
+  await playEventNotificationSound("delivery_order_created_owner");
 }

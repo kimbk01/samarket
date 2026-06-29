@@ -1,4 +1,4 @@
-import { playNotificationSound } from "@/lib/notifications/play-notification-sound";
+import { playEventNotificationSound } from "@/lib/notifications/notification-sound-engine";
 
 let cachedUrl: string | null | undefined;
 let cachedAt = 0;
@@ -27,20 +27,19 @@ export function bustOrderMatchAlertSoundCache(): void {
   cachedAt = 0;
 }
 
-/** 어드민에 등록한 MP3가 있으면 재생, 없으면 기본 알림음 */
+/** SSOT eventKey adapter — legacy `/api/app/order-match-alert-sound` fetch retained in resolveSoundUrl for mirror */
 export async function playOrderMatchChatAlert(): Promise<void> {
   if (typeof window === "undefined") return;
-  const url = await resolveSoundUrl();
-  if (url) {
+  const legacyUrl = await resolveSoundUrl();
+  if (legacyUrl) {
     try {
-      const audio = new Audio(url);
+      const audio = new Audio(legacyUrl);
       audio.volume = 0.55;
-      void audio.play().catch(() => playNotificationSound());
+      void audio.play().catch(() => void playEventNotificationSound("delivery_order_match_chat"));
       return;
     } catch {
-      playNotificationSound();
-      return;
+      /* fall through */
     }
   }
-  playNotificationSound();
+  await playEventNotificationSound("delivery_order_match_chat");
 }

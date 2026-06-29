@@ -6,6 +6,7 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminGlobalAlertSoundSection } from "@/components/admin/stores/AdminGlobalAlertSoundSection";
 import type { NotificationDomain } from "@/lib/notifications/notification-domains";
 import { invalidateNotificationSoundConfigCache } from "@/lib/notifications/notification-sound-engine";
+import { AdminNotificationSoundSsotTable } from "@/components/admin/settings/AdminNotificationSoundSsotTable";
 import { AdminNotificationSoundPreview } from "@/components/admin/settings/AdminNotificationSoundPreview";
 import { AdminMessengerCallSoundsSection } from "@/components/admin/settings/AdminMessengerCallSoundsSection";
 import { invalidateStoreDeliveryAlertSoundCache } from "@/lib/business/store-order-alert-sound";
@@ -187,6 +188,13 @@ export function AdminNotificationDomainsSettings() {
         </div>
       ) : null}
 
+      <AdminNotificationSoundSsotTable />
+
+      <details className="rounded-ui-rect border border-ui-border bg-ui-surface/50 p-3">
+        <summary className="cursor-pointer sam-text-body-secondary text-ui-muted">
+          {t("admin_notif_sound_legacy_sections")}
+        </summary>
+        <div className="mt-4 space-y-4">
       <div className="grid gap-4 lg:grid-cols-2">
         {rows.map((r) => (
         <AdminCard key={r.type} titleKey={DOMAIN_TITLE_KEYS[r.type]}>
@@ -309,6 +317,8 @@ export function AdminNotificationDomainsSettings() {
       <div className="border-t border-ui-border pt-8">
         <AdminMessengerCallSoundsSection />
       </div>
+        </div>
+      </details>
     </div>
   );
 }

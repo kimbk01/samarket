@@ -222,6 +222,13 @@ export function AdminStoreApplicationSettingsPage() {
             </div>
           </section>
 
+          <p className="sam-text-body-secondary text-sam-muted">
+            {t("admin_stores_app_alert_ssot_hint")}{" "}
+            <Link href="/admin/settings/notifications" className="text-sam-primary underline">
+              {t("admin_settings_notifications_open")}
+            </Link>
+          </p>
+
           <AdminGlobalAlertSoundSection
             titleKey="admin_stores_app_alert_delivery_title"
             descriptionKey="admin_stores_app_alert_delivery_desc"

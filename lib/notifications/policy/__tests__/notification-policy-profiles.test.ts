@@ -13,7 +13,7 @@ describe("notification policy profiles", () => {
     expect(profile.foregroundBehavior).toBe("call_incoming_ui_only");
     expect(profile.backgroundBehavior).toBe("none");
     expect(sound.enabled).toBe(false);
-    expect(sound.androidChannelId).toBe("dibay_calls_incoming");
+    expect(sound.androidChannelId).toBe("dibay_calls_incoming_v7");
     expect(shouldUseOsNotificationForState(profile, "background")).toBe(false);
   });
 
@@ -21,7 +21,7 @@ describe("notification policy profiles", () => {
     const profile = resolveNotificationPolicyProfile("admin_marketing_banner");
     const sound = resolveNotificationSoundProfile("admin_marketing_banner");
     expect(profile.foregroundBehavior).toBe("in_app_bottom_banner");
-    expect(sound.androidChannelId).toBe("dibay_marketing");
+    expect(sound.androidChannelId).toBe("dibay_admin_notice_v1");
   });
 
   it("keeps chat_message as badge-enabled background notification", () => {

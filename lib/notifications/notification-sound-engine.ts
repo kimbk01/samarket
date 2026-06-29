@@ -4,6 +4,8 @@
  */
 import { NOTIFICATION_SOUND_ASSET_PATH } from "@/lib/notifications/play-notification-sound";
 import type { NotificationDomain } from "@/lib/notifications/notification-domains";
+import { eventKeyForNotificationDomain } from "@/lib/notifications/notification-sound-event-map";
+import { resolveNotificationSound } from "@/lib/notifications/notification-sound-resolver";
 import { UNIFIED_IN_APP_CHAT_SOUND_MIN_GAP_MS } from "@/lib/notifications/unified-messenger-trade-alert-contract";
 
 export type AdminSoundConfigRow = {
@@ -74,10 +76,6 @@ function playOneShot(url: string, volume: number): void {
   }
 }
 
-function fallbackBeep(): void {
-  playOneShot(NOTIFICATION_SOUND_ASSET_PATH, 0.55);
-}
-
 function resolveConfigRow(items: AdminSoundConfigRow[], domain: NotificationDomain): AdminSoundConfigRow | undefined {
   const exact = items.find((x) => x.type === domain);
   if (exact) return exact;
@@ -88,6 +86,32 @@ function resolveConfigRow(items: AdminSoundConfigRow[], domain: NotificationDoma
     return items.find((x) => x.type === "community_direct_chat");
   }
   return undefined;
+}
+
+/**
+ * eventKey SSOT 알림음 (브라우저). domain 경로는 adapter.
+ */
+export async function playEventNotificationSound(
+  eventKey: string,
+  context?: { roomMuted?: boolean; userSoundEnabled?: boolean; userDomainEnabled?: boolean }
+): Promise<void> {
+  if (typeof window === "undefined") return;
+  const resolved = resolveNotificationSound(eventKey, { ...context, platform: "web" });
+  if (!resolved.enabled || resolved.kind === "silent") return;
+
+  stopNotificationPlayback();
+
+  const url = resolved.webUrl || NOTIFICATION_SOUND_ASSET_PATH;
+  const vol = resolved.volume;
+  const repeats = Math.max(1, Math.min(5, resolved.repeatCount));
+
+  for (let i = 0; i < repeats; i++) {
+    const t = window.setTimeout(() => {
+      playOneShot(url, vol);
+    }, i * REPEAT_GAP_MS);
+    repeatTimers.push(t);
+  }
+  scheduleAutoStop();
 }
 
 /**
@@ -102,26 +126,16 @@ export async function playDomainNotificationSound(domain: NotificationDomain): P
   }
   lastDomainPlayAt.set(domain, nowDedupe);
 
-  stopNotificationPlayback();
+  const eventKey = eventKeyForNotificationDomain(domain);
 
+  // Legacy enabled gate via admin_notification_settings mirror
   const items = await loadConfig();
   const row = resolveConfigRow(items, domain);
-  /** 관리자에서 해당 타입 알림음을 끈 경우 — §5 무음 (비프·대체음 없음) */
   if (row && row.enabled === false) {
     return;
   }
 
-  const url = (row?.sound_url && String(row.sound_url).trim()) || NOTIFICATION_SOUND_ASSET_PATH;
-  const vol = Number.isFinite(Number(row?.volume)) ? Number(row!.volume) : 0.7;
-  const repeats = Math.max(1, Math.min(5, Math.round(Number(row?.repeat_count) || 1)));
-
-  for (let i = 0; i < repeats; i++) {
-    const t = window.setTimeout(() => {
-      playOneShot(url, vol);
-    }, i * REPEAT_GAP_MS);
-    repeatTimers.push(t);
-  }
-  scheduleAutoStop();
+  await playEventNotificationSound(eventKey, { userDomainEnabled: true, userSoundEnabled: true });
 }
 
 function scheduleAutoStop(): void {
