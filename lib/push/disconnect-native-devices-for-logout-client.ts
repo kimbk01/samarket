@@ -1,6 +1,7 @@
 "use client";
 
 import { ensureClientInstanceId } from "@/lib/auth/client-instance-id";
+import { clearDeviceRegisterGateForUser } from "@/lib/push/device-register/register-device-once";
 
 /**
  * 로그아웃 시 native device token 비활성화 (web push unsubscribe 와 병행).
@@ -9,6 +10,7 @@ export async function disconnectNativeDevicesForLogout(): Promise<void> {
   if (typeof window === "undefined") return;
   try {
     const deviceId = ensureClientInstanceId();
+    clearDeviceRegisterGateForUser();
     await fetch("/api/me/devices/deactivate", {
       method: "POST",
       credentials: "include",
@@ -25,6 +27,7 @@ export async function disconnectNativeDevicesOnAccountSwitch(): Promise<void> {
   if (typeof window === "undefined") return;
   try {
     const deviceId = ensureClientInstanceId();
+    clearDeviceRegisterGateForUser();
     await fetch("/api/me/devices/deactivate", {
       method: "POST",
       credentials: "include",

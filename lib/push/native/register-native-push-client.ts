@@ -3,7 +3,16 @@
 import { ensureClientInstanceId } from "@/lib/auth/client-instance-id";
 import { resolveDibayDeepLinkToAppPath } from "@/lib/platform/deep-link-routes";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
-import { ensureNotificationForPushRegister } from "@/lib/permissions/permission-manager/notification-permission-manager";
+import {
+  ensureNotificationForPushRegister,
+  getCachedNotificationReceiveSnapshot,
+} from "@/lib/permissions/permission-manager/notification-permission-manager";
+import type { DeviceRegisterIdentity } from "@/lib/push/device-register/device-register-identity";
+import {
+  markDeviceRegisterNativeSuccess,
+  registerDeviceOnce,
+  shouldSkipDeviceRegisterPost,
+} from "@/lib/push/device-register/register-device-once";
 import { logPushRegister, logPushRegisterFail } from "@/lib/push/native/native-push-register-log";
 import { registerPushDeviceViaNative } from "@/lib/push/native/native-push-register-bridge";
 
@@ -18,7 +27,21 @@ type PostDeviceRegistrationOpts = {
   instrumentation?: ApiPostInstrumentation;
   /** Orchestration Promise already settled (timeout/error) — late success is logged, not returned. */
   isOrchestrationSettled?: () => boolean;
+  callsite?: string;
 };
+
+function bodyToDeviceRegisterIdentity(body: Record<string, unknown>): DeviceRegisterIdentity | null {
+  const userId = typeof body.user_id === "string" ? body.user_id.trim() : "";
+  const deviceId = typeof body.device_id === "string" ? body.device_id.trim() : "";
+  const pushToken = typeof body.push_token === "string" ? body.push_token.trim() : "";
+  const platform = typeof body.platform === "string" ? body.platform.trim().toLowerCase() : "";
+  const pushProvider = typeof body.push_provider === "string" ? body.push_provider.trim().toLowerCase() : "fcm";
+  if (!deviceId || !pushToken || !platform) return null;
+  return { userId, deviceId, pushToken, platform, pushProvider };
+}
+
+let nativePushOrchestrationInflight: Promise<RegisterResult> | null = null;
+let nativePushOrchestrationKey = "";
 
 async function getAppVersion(): Promise<string | undefined> {
   if (!isCapacitorNativePlatform()) return undefined;
@@ -116,64 +139,76 @@ async function postDeviceRegistrationWithNativeFirst(
   body: Record<string, unknown>,
   opts?: PostDeviceRegistrationOpts,
 ): Promise<RegisterResult> {
-  const platform = typeof body.platform === "string" ? body.platform.trim() : "";
-  const baseDetail = {
-    platform: body.platform,
-    push_provider: body.push_provider,
-    device_id: body.device_id,
-    user_id: body.user_id,
-    push_token_len: typeof body.push_token === "string" ? body.push_token.length : 0,
-  };
-
-  if (platform === "android") {
-    const pushToken = typeof body.push_token === "string" ? body.push_token.trim() : "";
-    const deviceId = typeof body.device_id === "string" ? body.device_id.trim() : "";
-    const pushProvider = typeof body.push_provider === "string" ? body.push_provider.trim() : "fcm";
-    const appVersion = typeof body.app_version === "string" ? body.app_version.trim() : undefined;
-    const userId = typeof body.user_id === "string" ? body.user_id.trim() : undefined;
-
-    logPushRegister("native_register_start", baseDetail);
-
-    const nativeResult = await registerPushDeviceViaNative({
-      platform,
-      device_id: deviceId,
-      push_token: pushToken,
-      push_provider: pushProvider,
-      app_version: appVersion,
-      user_id: userId,
-    });
-
-    logPushRegister("native_register_post_done", {
-      ...baseDetail,
-      ok: nativeResult.ok,
-      http_status: nativeResult.http_status ?? null,
-      error: nativeResult.error ?? null,
-      device_row_id: nativeResult.device_row_id ?? null,
-    });
-
-    if (nativeResult.ok) {
-      if (opts?.instrumentation) {
-        opts.instrumentation.fetchResolved = true;
-        opts.instrumentation.jsonParsed = true;
-      }
-      logPushRegister("success", {
-        http_status: nativeResult.http_status ?? 200,
-        device_row_id: nativeResult.device_row_id ?? null,
-        user_id: body.user_id,
-        via: "native_http",
-      });
-      return { ok: true };
-    }
-
-    logPushRegisterFail("native_register_failed", {
-      ...baseDetail,
-      http_status: nativeResult.http_status ?? null,
-      error: nativeResult.error ?? "native_register_failed",
-    });
-    logPushRegister("native_register_fetch_fallback", baseDetail);
+  const identity = bodyToDeviceRegisterIdentity(body);
+  const callsite = opts?.callsite ?? "postDeviceRegistrationWithNativeFirst";
+  if (!identity) {
+    return { ok: false, error: "invalid_device" };
   }
 
-  return postDeviceRegistration(body, opts);
+  return registerDeviceOnce(identity, callsite, async (id) => {
+    const platform = id.platform;
+    const baseDetail = {
+      platform: id.platform,
+      push_provider: id.pushProvider,
+      device_id: id.deviceId,
+      user_id: id.userId || undefined,
+      push_token_len: id.pushToken.length,
+    };
+    const appVersion = typeof body.app_version === "string" ? body.app_version.trim() : undefined;
+
+    if (platform === "android") {
+      if (shouldSkipDeviceRegisterPost(id, `${callsite}:native_precheck`)) {
+        if (opts?.instrumentation) {
+          opts.instrumentation.fetchResolved = true;
+          opts.instrumentation.jsonParsed = true;
+        }
+        return { ok: true };
+      }
+
+      logPushRegister("native_register_start", baseDetail);
+
+      const nativeResult = await registerPushDeviceViaNative({
+        platform,
+        device_id: id.deviceId,
+        push_token: id.pushToken,
+        push_provider: id.pushProvider,
+        app_version: appVersion,
+        user_id: id.userId || undefined,
+      });
+
+      logPushRegister("native_register_post_done", {
+        ...baseDetail,
+        ok: nativeResult.ok,
+        http_status: nativeResult.http_status ?? null,
+        error: nativeResult.error ?? null,
+        device_row_id: nativeResult.device_row_id ?? null,
+      });
+
+      if (nativeResult.ok) {
+        if (opts?.instrumentation) {
+          opts.instrumentation.fetchResolved = true;
+          opts.instrumentation.jsonParsed = true;
+        }
+        markDeviceRegisterNativeSuccess(id, callsite);
+        logPushRegister("success", {
+          http_status: nativeResult.http_status ?? 200,
+          device_row_id: nativeResult.device_row_id ?? null,
+          user_id: id.userId || undefined,
+          via: "native_http",
+        });
+        return { ok: true };
+      }
+
+      logPushRegisterFail("native_register_failed", {
+        ...baseDetail,
+        http_status: nativeResult.http_status ?? null,
+        error: nativeResult.error ?? "native_register_failed",
+      });
+      logPushRegister("native_register_fetch_fallback", baseDetail);
+    }
+
+    return postDeviceRegistration(body, opts);
+  });
 }
 
 async function deactivateNativePushForPermissionDenied(deviceId: string): Promise<void> {
@@ -189,7 +224,10 @@ async function deactivateNativePushForPermissionDenied(deviceId: string): Promis
  * Capacitor native — FCM/APNS token을 user_devices에 등록.
  * @param userId — 세션 UUID (API body 검증·Logcat 추적용; 서버는 cookie 세션 user_id 를 authoritative 로 쓴다)
  */
-export async function registerNativePushFromClient(userId?: string): Promise<RegisterResult> {
+export async function registerNativePushFromClient(
+  userId?: string,
+  callsite = "registerNativePushFromClient",
+): Promise<RegisterResult> {
   if (!isCapacitorNativePlatform()) {
     logPushRegisterFail("not_native");
     return { ok: false, error: "not_native" };
@@ -206,13 +244,54 @@ export async function registerNativePushFromClient(userId?: string): Promise<Reg
 
     const resolvedUserId = userId?.trim() ?? "";
     const deviceId = ensureClientInstanceId();
+    const orchestrationKey = `${resolvedUserId}|${deviceId}|${platform}`;
+    if (nativePushOrchestrationInflight && nativePushOrchestrationKey === orchestrationKey) {
+      return nativePushOrchestrationInflight;
+    }
+
+    const run = runRegisterNativePushOrchestration({
+      resolvedUserId,
+      deviceId,
+      platform,
+      callsite,
+    }).finally(() => {
+      if (nativePushOrchestrationKey === orchestrationKey) {
+        nativePushOrchestrationInflight = null;
+        nativePushOrchestrationKey = "";
+      }
+    });
+    nativePushOrchestrationKey = orchestrationKey;
+    nativePushOrchestrationInflight = run;
+    return run;
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "unknown";
+    logPushRegisterFail(message);
+    return { ok: false, error: message };
+  }
+}
+
+async function runRegisterNativePushOrchestration(args: {
+  resolvedUserId: string;
+  deviceId: string;
+  platform: "android" | "ios";
+  callsite: string;
+}): Promise<RegisterResult> {
+  const { resolvedUserId, deviceId, platform, callsite } = args;
+
+  try {
+    const { PushNotifications } = await import("@capacitor/push-notifications");
+
     logPushRegister("session_authenticated", {
       platform,
       user_id: resolvedUserId || null,
       device_id: deviceId,
     });
 
-    const pushCheck = await ensureNotificationForPushRegister();
+    const cached = getCachedNotificationReceiveSnapshot();
+    const pushCheck =
+      cached?.receiveReady === true
+        ? { ok: true as const, snapshot: cached }
+        : await ensureNotificationForPushRegister();
     if (!pushCheck.ok) {
       logPushRegisterFail("permission_not_granted", {
         perm: pushCheck.snapshot.effectiveState,
@@ -282,6 +361,7 @@ export async function registerNativePushFromClient(userId?: string): Promise<Reg
           {
             instrumentation: apiInstrumentation,
             isOrchestrationSettled: () => settled,
+            callsite: `${callsite}:registration_event`,
           },
         ).then((result) => {
           if (settled) return;
@@ -319,6 +399,11 @@ export async function registerNativePushFromClient(userId?: string): Promise<Reg
   }
 }
 
+export function resetNativePushOrchestrationForTests(): void {
+  nativePushOrchestrationInflight = null;
+  nativePushOrchestrationKey = "";
+}
+
 export function navigateFromDibayDeepLink(deepLink: string): boolean {
   const path = resolveDibayDeepLinkToAppPath(deepLink);
   if (!path || typeof window === "undefined") return false;
@@ -329,13 +414,22 @@ export function navigateFromDibayDeepLink(deepLink: string): boolean {
 async function registerVoipToken(token: string): Promise<RegisterResult> {
   const deviceId = ensureClientInstanceId();
   const appVersion = await getAppVersion();
-  return postDeviceRegistration({
+  const identity: DeviceRegisterIdentity = {
+    userId: "",
+    deviceId,
+    pushToken: token,
     platform: "ios",
-    device_id: deviceId,
-    push_token: token,
-    push_provider: "voip_apns",
-    app_version: appVersion,
-  });
+    pushProvider: "voip_apns",
+  };
+  return registerDeviceOnce(identity, "registerVoipToken", async () =>
+    postDeviceRegistration({
+      platform: "ios",
+      device_id: deviceId,
+      push_token: token,
+      push_provider: "voip_apns",
+      app_version: appVersion,
+    }),
+  );
 }
 
 let voipListenerAttached = false;

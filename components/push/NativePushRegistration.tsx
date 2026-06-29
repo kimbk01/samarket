@@ -17,6 +17,7 @@ import {
 } from "@/components/permissions/DiBaYDevicePermissionOnboardingGate";
 import {
   ensureNotificationForPushRegister,
+  getCachedNotificationReceiveSnapshot,
   subscribeNotificationPermissionSnapshot,
 } from "@/lib/permissions/permission-manager/notification-permission-manager";
 
@@ -30,6 +31,7 @@ const MAX_REGISTER_ATTEMPTS = 3;
 export function NativePushRegistration() {
   const [phase, setPhase] = useState<DibaySessionPhase>(() => getSessionPhase());
   const attemptedUserIdRef = useRef<string | null>(null);
+  const registerInFlightRef = useRef(false);
   const registerRunIdRef = useRef(0);
   const registerFnRef = useRef<(() => void) | null>(null);
 
@@ -80,10 +82,14 @@ export function NativePushRegistration() {
     };
 
     const attemptRegister = async (userAttempt: number, registerAttempt: number) => {
-      if (cancelled || runId !== registerRunIdRef.current) return;
+      if (cancelled || runId !== registerRunIdRef.current || registerInFlightRef.current) return;
 
       await waitForNotificationOnboardingSettled();
-      const pushCheck = await ensureNotificationForPushRegister();
+      const cached = getCachedNotificationReceiveSnapshot();
+      const pushCheck =
+        cached?.receiveReady === true
+          ? { ok: true as const, snapshot: cached }
+          : await ensureNotificationForPushRegister();
       if (!pushCheck.ok) {
         logPushRegisterFail("permission_not_granted", {
           perm: pushCheck.snapshot.effectiveState,
@@ -103,9 +109,11 @@ export function NativePushRegistration() {
 
       if (attemptedUserIdRef.current === userId) return;
 
+      registerInFlightRef.current = true;
       logGuestAuthBootMarker("push_register_start_authenticated", { user_id: userId, registerAttempt });
       logPushRegister("session_authenticated", { user_id: userId, registerAttempt });
-      const result = await registerNativePushFromClient(userId);
+      const result = await registerNativePushFromClient(userId, "NativePushRegistration");
+      registerInFlightRef.current = false;
       if (cancelled || runId !== registerRunIdRef.current) return;
 
       if (result.ok) {
@@ -133,7 +141,11 @@ export function NativePushRegistration() {
     void attemptRegister(0, 0);
 
     const unsubSnapshot = subscribeNotificationPermissionSnapshot((snapshot) => {
-      if (snapshot.receiveReady && attemptedUserIdRef.current == null) {
+      if (
+        snapshot.receiveReady &&
+        attemptedUserIdRef.current == null &&
+        !registerInFlightRef.current
+      ) {
         registerFnRef.current?.();
       }
     });

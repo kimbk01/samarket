@@ -26,7 +26,7 @@ export type NotificationGuideFlowResult = "granted" | "declined" | "browser_deni
 async function schedulePushRegistration(): Promise<void> {
   if (isCapacitorNativePlatform()) {
     const userId = (await getCurrentUserIdForDb())?.trim() ?? "";
-    void registerNativePushFromClient(userId);
+    void registerNativePushFromClient(userId, "notificationOnboardingFlow");
     return;
   }
   void registerWebPushSubscriptionFromClient();
