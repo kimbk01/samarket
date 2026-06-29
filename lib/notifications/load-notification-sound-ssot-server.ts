@@ -18,19 +18,35 @@ export async function loadNotificationSoundSsotFromDb(
     sb.from("notification_sound_mappings").select("*"),
   ]);
 
-  const tableMissing =
-    assetsRes.error?.message?.includes("does not exist") ||
-    eventsRes.error?.message?.includes("does not exist") ||
-    assetsRes.error?.code === "PGRST205" ||
-    eventsRes.error?.code === "PGRST205" ||
-    mappingsRes.error?.code === "PGRST205";
+  const errors = [assetsRes.error, eventsRes.error, mappingsRes.error].filter(Boolean);
+  const tableMissing = errors.some(
+    (err) =>
+      err?.code === "PGRST205" ||
+      err?.message?.includes("does not exist") ||
+      err?.message?.includes("schema cache")
+  );
 
-  if (tableMissing || (assetsRes.error && eventsRes.error)) {
+  if (tableMissing || errors.length >= 2) {
     const fallback = buildRegistrySnapshot();
     return {
       assets: [...fallback.assets.values()],
       events: [...fallback.events.values()],
       mappings: [...fallback.mappings.values()],
+    };
+  }
+
+  if (errors.length === 1 && (assetsRes.data ?? eventsRes.data ?? mappingsRes.data)) {
+    const fallback = buildRegistrySnapshot();
+    return {
+      assets: assetsRes.data?.length
+        ? ((assetsRes.data ?? []) as NotificationSoundAssetRow[])
+        : [...fallback.assets.values()],
+      events: eventsRes.data?.length
+        ? ((eventsRes.data ?? []) as NotificationSoundEventRow[])
+        : [...fallback.events.values()],
+      mappings: mappingsRes.data?.length
+        ? ((mappingsRes.data ?? []) as NotificationSoundMappingRow[])
+        : [...fallback.mappings.values()],
     };
   }
 
