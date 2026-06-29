@@ -1,0 +1,107 @@
+{
+  "startedAt": "2026-06-29T23:31:24.349Z",
+  "commit": "df060f28",
+  "prod": "https://samarket.vercel.app",
+  "device": "RRGL4046NTW",
+  "apk": "dist/apk/DIBAY-install-20260630-0704-notification-sound-ssot-6aa68cc9.apk",
+  "vercel": {
+    "statusLine": "HTTP/2 307",
+    "server": "Vercel"
+  },
+  "install": {
+    "ok": true,
+    "stderr": ""
+  },
+  "login": {
+    "ok": true,
+    "probe": {
+      "ok": true,
+      "userId": "11111111-1111-1111-1111-111111111111",
+      "username": "aaaa"
+    }
+  },
+  "checks": [
+    {
+      "id": "ssot_table_visible",
+      "pass": true,
+      "detail": "table found"
+    },
+    {
+      "id": "ssot_intro_visible",
+      "pass": true,
+      "detail": "dibaY Admin\nDashboard\nCOMMON\n▼\nCOMMUNITY\n▼\nTRADE\n▼\nDELIVERY\n▼\nMESSENGER\n▼\nOPERATIONS SETTINGS\n▲\nService management\nSetti"
+    },
+    {
+      "id": "ssot_api_get",
+      "pass": true,
+      "detail": "status=200 events=36"
+    },
+    {
+      "id": "ssot_patch_preview",
+      "pass": true,
+      "detail": "status=200 diff=36"
+    },
+    {
+      "id": "ssot_patch_commit",
+      "pass": false,
+      "detail": "status=500 err=Could not find the table 'public.notification_sound_mappings' in the schema cache"
+    },
+    {
+      "id": "ssot_preview_resolver",
+      "pass": true,
+      "detail": "status=200 n=2"
+    }
+  ],
+  "pass": true,
+  "previewResolver": {
+    "ok": true,
+    "results": [
+      {
+        "event_key": "messenger_direct_message_received",
+        "resolved": {
+          "eventKey": "messenger_direct_message_received",
+          "assetId": "DIBAY-SND-011",
+          "kind": "dibay_custom",
+          "webUrl": "/sounds/notification.wav",
+          "iosSoundName": "default",
+          "androidChannelId": "dibay_chat_messages_v1",
+          "vibration": true,
+          "volume": 0.7,
+          "repeatCount": 1,
+          "cooldownSeconds": 0,
+          "priority": "default",
+          "enabled": true,
+          "resolvedFrom": "admin_mapping",
+          "legacySource": {
+            "table": "admin_notification_settings",
+            "key": "community_direct_chat",
+            "column": "sound_url"
+          }
+        }
+      },
+      {
+        "event_key": "delivery_order_created_owner",
+        "resolved": {
+          "eventKey": "delivery_order_created_owner",
+          "assetId": "DIBAY-SND-030",
+          "kind": "dibay_custom",
+          "webUrl": "/sounds/notification.wav",
+          "iosSoundName": "default",
+          "androidChannelId": "dibay_delivery_v1",
+          "vibration": true,
+          "volume": 0.7,
+          "repeatCount": 1,
+          "cooldownSeconds": 0,
+          "priority": "default",
+          "enabled": true,
+          "resolvedFrom": "admin_mapping",
+          "legacySource": {
+            "table": "admin_settings",
+            "key": "store_delivery_alert_sound",
+            "column": "value_json.url"
+          }
+        }
+      }
+    ]
+  }
+}

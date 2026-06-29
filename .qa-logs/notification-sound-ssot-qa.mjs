@@ -153,7 +153,7 @@ async function runAdminSsotChecks(page) {
       );
     }
 
-    return { checks, preview: previewResolver, commit: COMMIT };
+    return { checks, preview: previewResolver };
   });
 }
 
