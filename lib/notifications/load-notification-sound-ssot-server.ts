@@ -20,9 +20,12 @@ export async function loadNotificationSoundSsotFromDb(
 
   const tableMissing =
     assetsRes.error?.message?.includes("does not exist") ||
-    eventsRes.error?.message?.includes("does not exist");
+    eventsRes.error?.message?.includes("does not exist") ||
+    assetsRes.error?.code === "PGRST205" ||
+    eventsRes.error?.code === "PGRST205" ||
+    mappingsRes.error?.code === "PGRST205";
 
-  if (tableMissing) {
+  if (tableMissing || (assetsRes.error && eventsRes.error)) {
     const fallback = buildRegistrySnapshot();
     return {
       assets: [...fallback.assets.values()],
