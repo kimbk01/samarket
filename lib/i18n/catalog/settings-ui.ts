@@ -103,6 +103,19 @@ export const settingsUiMessages = {
     settings_native_push_perm_prompt: "미결정",
     settings_native_push_perm_unknown: "확인 불가",
     settings_native_push_open_settings: "OS 설정 열기",
+    dibay_notification_guide_first_login_title: "알림을 켜 주세요",
+    dibay_notification_guide_first_login_body:
+      "채팅·통화·주문 알림과 수신 전화를 받으려면 알림 허용이 필요합니다.",
+    dibay_notification_guide_disabled_title: "알림이 꺼져 있습니다",
+    dibay_notification_guide_disabled_body:
+      "앱 알림 또는 수신 통화 채널이 꺼져 있어 전화·푸시를 받을 수 없습니다. 설정에서 다시 켜 주세요.",
+    dibay_notification_guide_samsung_hint:
+      "삼성 기기에서는 설정 > 알림에서 앱 알림·수신 통화·배터리 사용 제한도 확인해 주세요.",
+    dibay_notification_guide_allow: "알림 허용",
+    dibay_notification_guide_later: "나중에",
+    dibay_notification_guide_open_settings: "알림 설정 열기",
+    dibay_notification_guide_open_fsi: "전체 화면 알림 설정",
+    dibay_notification_guide_open_battery: "배터리 설정 열기",
     settings_device_intro:
       "위치·마이크·카메라·알림은 브라우저와 기기 권한에 연결됩니다. 같은 계정과 같은 기기에서는 허용 상태와 안내 상태를 재사용합니다.",
     settings_device_location: "위치",
@@ -461,6 +474,19 @@ export const settingsUiMessages = {
     settings_native_push_perm_prompt: "Not decided",
     settings_native_push_perm_unknown: "Unknown",
     settings_native_push_open_settings: "Open OS settings",
+    dibay_notification_guide_first_login_title: "Turn on notifications",
+    dibay_notification_guide_first_login_body:
+      "Allow notifications to receive chats, calls, orders, and incoming calls.",
+    dibay_notification_guide_disabled_title: "Notifications are off",
+    dibay_notification_guide_disabled_body:
+      "App notifications or the incoming call channel is off, so calls and push alerts cannot arrive. Turn them on in Settings.",
+    dibay_notification_guide_samsung_hint:
+      "On Samsung devices, also check app notifications, incoming call channel, and battery restrictions in Settings.",
+    dibay_notification_guide_allow: "Allow notifications",
+    dibay_notification_guide_later: "Not now",
+    dibay_notification_guide_open_settings: "Open notification settings",
+    dibay_notification_guide_open_fsi: "Full-screen alert settings",
+    dibay_notification_guide_open_battery: "Open battery settings",
     settings_device_intro:
       "Location, microphone, camera, and notifications use browser and device permissions. Guidance and allowed states are reused on the same account and device.",
     settings_device_location: "Location",

@@ -1,16 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mediaPermissionState = vi.hoisted(() => ({
-  camera: "unknown" as PermissionState | null,
-  microphone: "unknown" as PermissionState | null,
-}));
-
 vi.mock("@/lib/auth/get-current-user", () => ({
   getSyncViewerUserIdForClient: vi.fn(() => "user-1"),
 }));
 
-vi.mock("@/lib/notifications/dibay-notification-prompt-storage", () => ({
-  shouldOfferDiBaYNotificationPrePrompt: vi.fn(() => true),
+vi.mock("@/lib/permissions/permission-manager/notification-permission-manager", () => ({
+  syncNotificationState: vi.fn(),
 }));
 
 vi.mock("@/lib/permissions/device-permission-manager", () => ({
@@ -27,12 +22,25 @@ vi.mock("@/lib/permissions/dibay-device-permission-onboarding", () => ({
 describe("dibay-unified-device-onboarding", () => {
   beforeEach(() => {
     vi.resetModules();
-    vi.stubGlobal("window", {
-      Notification: { permission: "default" as NotificationPermission },
-    });
   });
 
   it("orders notification before camera and microphone", async () => {
+    const { syncNotificationState } = await import(
+      "@/lib/permissions/permission-manager/notification-permission-manager"
+    );
+    vi.mocked(syncNotificationState).mockResolvedValue({
+      effectiveState: "UNKNOWN",
+      notificationRuntimePermission: false,
+      appNotificationsEnabled: true,
+      incomingCallChannelEnabled: true,
+      fullScreenIntentEnabled: true,
+      batteryUnrestrictedOrUnknown: "unknown",
+      samsungSleepRisk: "unknown",
+      receiveReady: false,
+      lockScreenIncomingReady: false,
+      syncedAt: Date.now(),
+    });
+
     const { resolveDibayDevicePermissionOnboarding } = await import(
       "@/lib/permissions/dibay-device-permission-onboarding"
     );
@@ -52,10 +60,23 @@ describe("dibay-unified-device-onboarding", () => {
     expect(plan.steps).toEqual(["notification", "camera", "microphone"]);
   });
 
-  it("skips notification when browser permission is already decided", async () => {
-    vi.stubGlobal("window", {
-      Notification: { permission: "granted" },
+  it("skips notification when receiveReady is true", async () => {
+    const { syncNotificationState } = await import(
+      "@/lib/permissions/permission-manager/notification-permission-manager"
+    );
+    vi.mocked(syncNotificationState).mockResolvedValue({
+      effectiveState: "GRANTED",
+      notificationRuntimePermission: true,
+      appNotificationsEnabled: true,
+      incomingCallChannelEnabled: true,
+      fullScreenIntentEnabled: true,
+      batteryUnrestrictedOrUnknown: "unknown",
+      samsungSleepRisk: "unknown",
+      receiveReady: true,
+      lockScreenIncomingReady: true,
+      syncedAt: Date.now(),
     });
+
     const { resolveDibayDevicePermissionOnboarding } = await import(
       "@/lib/permissions/dibay-device-permission-onboarding"
     );

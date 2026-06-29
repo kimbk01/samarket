@@ -1,0 +1,24 @@
+{
+  "allowedOsRequestFiles": [
+    "lib/permissions/permission-manager/adapters/android-native.adapter.ts",
+    "lib/permissions/permission-manager/adapters/ios-capacitor.adapter.ts",
+    "lib/permissions/permission-manager/adapters/web-notification.adapter.ts",
+    "lib/permissions/permission-manager/notification-permission-manager.ts"
+  ],
+  "deprecatedRequestShim": [
+    "lib/push/native/check-native-notification-permission.ts"
+  ],
+  "incomingGateFiles": [
+    "android/app/src/main/java/com/dibay/app/IncomingCallPushDelivery.java",
+    "android/app/src/main/java/com/dibay/app/NotificationReceiveGate.java",
+    "android/app/src/main/java/com/dibay/app/IncomingCallNotificationBuilder.java"
+  ],
+  "pushRegisterCheckOnlyFiles": [
+    "lib/push/native/register-native-push-client.ts",
+    "components/push/NativePushRegistration.tsx"
+  ],
+  "forbiddenRuntimeFiles": [
+    "android/app/src/main/java/com/dibay/app/nativevoice/NativeVoiceCallRuntime.java",
+    "android/app/src/main/java/com/dibay/app/nativevideo/NativeVideoCallRuntime.java"
+  ]
+}

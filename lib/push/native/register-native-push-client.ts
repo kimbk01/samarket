@@ -3,7 +3,7 @@
 import { ensureClientInstanceId } from "@/lib/auth/client-instance-id";
 import { resolveDibayDeepLinkToAppPath } from "@/lib/platform/deep-link-routes";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
-import { requestNativeNotificationPermissionIfNeeded } from "@/lib/push/native/check-native-notification-permission";
+import { ensureNotificationForPushRegister } from "@/lib/permissions/permission-manager/notification-permission-manager";
 import { logPushRegister, logPushRegisterFail } from "@/lib/push/native/native-push-register-log";
 import { registerPushDeviceViaNative } from "@/lib/push/native/native-push-register-bridge";
 
@@ -212,10 +212,18 @@ export async function registerNativePushFromClient(userId?: string): Promise<Reg
       device_id: deviceId,
     });
 
-    const perm = await requestNativeNotificationPermissionIfNeeded();
-    if (perm !== "granted") {
-      logPushRegisterFail("permission_not_granted", { perm, user_id: resolvedUserId || null });
-      if (perm === "denied") {
+    const pushCheck = await ensureNotificationForPushRegister();
+    if (!pushCheck.ok) {
+      logPushRegisterFail("permission_not_granted", {
+        perm: pushCheck.snapshot.effectiveState,
+        receiveReady: pushCheck.snapshot.receiveReady,
+        user_id: resolvedUserId || null,
+      });
+      if (
+        pushCheck.snapshot.effectiveState === "DENIED" ||
+        pushCheck.snapshot.effectiveState === "PERMANENT_DENIED" ||
+        pushCheck.snapshot.effectiveState === "SYSTEM_DISABLED"
+      ) {
         void deactivateNativePushForPermissionDenied(deviceId);
       }
       return { ok: false, error: "permission_not_granted" };

@@ -1,0 +1,69 @@
+---
+description: DIBAY Notification Permission SSOT — Guide-first, single request path, Incoming/Push gate
+globs:
+  - lib/permissions/permission-manager/**
+  - lib/push/native/**
+  - components/permissions/**
+  - components/push/**
+  - android/app/src/main/java/com/dibay/app/IncomingCallPushDelivery.java
+  - android/app/src/main/java/com/dibay/app/NotificationReceiveGate.java
+  - android/app/src/main/java/com/dibay/app/IncomingCallNotificationBuilder.java
+  - android/app/src/main/java/com/dibay/app/NativeDevicePermissionsPlugin.java
+alwaysApply: false
+---
+
+# DIBAY Notification Permission SSOT LOCK
+
+Full doc: `docs/permissions/dibay-notification-permission-ssot.lock.md`
+
+## Single request path
+
+OS notification request (`POST_NOTIFICATIONS`, `PushNotifications.requestPermissions`, `Notification.requestPermission`) **only** inside:
+
+- `lib/permissions/permission-manager/adapters/*.ts` via `requestNotificationFromGuide()`
+
+## Guide-first
+
+- First login: Notification Guide Modal **before** any OS popup.
+- `PERMANENT_DENIED` / `SYSTEM_DISABLED`: Settings CTA only — **no** OS popup repeat.
+
+## Composite tiers (LOCK)
+
+### receiveReady (Push + FCM Runtime)
+
+- POST_NOTIFICATIONS granted
+- app notifications enabled
+- incoming channel enabled (v7 OR native_voice OR native_video)
+- NOT appBlocked (JS flag)
+
+**FSI and battery are NOT in receiveReady.**
+
+### lockScreenIncomingReady (lock FSI / Activity / fallback)
+
+- receiveReady AND fullScreenIntentAllowed AND battery not restricted
+
+FSI OFF: Push/FCM **not** blocked when receiveReady=true. Lock-screen FSI, Activity fallback **blocked**.
+
+## Gates
+
+| Path | Gate |
+|------|------|
+| Push Register | `ensureNotificationForPushRegister()` — check only |
+| FCM Runtime | `NotificationReceiveGate.receiveReady` before `handleIncoming` |
+| Lock FSI / Activity fallback | `NotificationReceiveGate.lockScreenIncomingReady` in `IncomingCallNotificationBuilder` |
+
+## DO NOT
+
+1. Modify `NativeVoiceCallRuntime` / `NativeVideoCallRuntime` for notification gate
+2. Add notification OS request outside PermissionManager adapters
+3. Register push token when `!receiveReady`
+4. Call Runtime when `!receiveReady`
+5. Call `launchActivityFallback` or attach FSI when `!lockScreenIncomingReady`
+6. Put FSI or battery into `receiveReady` formula
+
+## After change
+
+```bash
+npm run verify:notification-permission-ssot-contract
+node scripts/qa/notification-receive-gate-adb-qa.mjs
+```

@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
-import { registerNativePushFromClient } from "@/lib/push/native/register-native-push-client";
 import {
   checkNativeNotificationPermission,
   type NativeNotificationPermissionState,
 } from "@/lib/push/native/check-native-notification-permission";
 import { openNativeAppSettings } from "@/lib/push/native/open-native-settings";
+import { runNotificationGuideFlow } from "@/lib/permissions/permission-manager/notification-onboarding-flow";
+import { syncNotificationState } from "@/lib/permissions/permission-manager/notification-permission-manager";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 type DeviceStatusRes = {
@@ -107,13 +108,10 @@ export function NativePushSettingsRow({ pushEnabled }: { pushEnabled: boolean })
               setBusy(true);
               setHint(null);
               void (async () => {
-                const result = await registerNativePushFromClient();
-                if (!result.ok) {
-                  setHint(
-                    result.error === "permission_not_granted"
-                      ? t("settings_native_push_err_permission")
-                      : t("settings_native_push_err_register")
-                  );
+                const guideResult = await runNotificationGuideFlow("settings_retry");
+                await syncNotificationState();
+                if (guideResult !== "granted") {
+                  setHint(t("settings_native_push_err_permission"));
                 }
                 refresh();
                 setBusy(false);

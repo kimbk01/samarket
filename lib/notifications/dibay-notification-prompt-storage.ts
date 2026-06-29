@@ -15,7 +15,7 @@ export function writeDiBaYNotificationPromptState(state: DiBaYNotifPromptState):
   writeDiBaYOnboardingPromptState("notification", state);
 }
 
-/** 최초 한 번만 프리프롬프트 후보 (거부·브라우저 거부 시 재노출 안 함) */
+/** @deprecated Use PermissionManager syncNotificationState receiveReady — kept for legacy callers. */
 export function shouldOfferDiBaYNotificationPrePrompt(): boolean {
   return shouldOfferDiBaYOnboardingPrePrompt("notification");
 }

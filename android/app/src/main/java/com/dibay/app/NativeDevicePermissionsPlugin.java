@@ -193,28 +193,35 @@ public class NativeDevicePermissionsPlugin extends Plugin {
 
   @PluginMethod
   public void checkCallReceiveSettings(PluginCall call) {
-    JSObject result = new JSObject();
-    boolean notificationRuntimeGranted =
-        Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-        ContextCompat.checkSelfPermission(getContext(), Manifest.permission.POST_NOTIFICATIONS) ==
-        android.content.pm.PackageManager.PERMISSION_GRANTED;
-    boolean notificationsEnabled = NotificationManagerCompat.from(getContext()).areNotificationsEnabled();
-    int channelImportance = IncomingCallNotificationBuilder.incomingChannelImportance(getContext());
-    boolean channelBlocked = IncomingCallNotificationBuilder.isIncomingChannelBlocked(getContext());
-    boolean fsiAllowed = IncomingCallNotificationBuilder.canPostFullScreenIntent(getContext());
+    NotificationReceiveGate.Snapshot gate = NotificationReceiveGate.snapshot(getContext());
     boolean idle = false;
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
       PowerManager pm = getContext().getSystemService(PowerManager.class);
       idle = pm != null && pm.isDeviceIdleMode();
     }
-    result.put("notificationRuntimeGranted", notificationRuntimeGranted);
-    result.put("notificationsEnabled", notificationsEnabled);
+    String manufacturer = Build.MANUFACTURER != null ? Build.MANUFACTURER : "unknown";
+    boolean samsungDevice = manufacturer.trim().toLowerCase().contains("samsung");
+
+    JSObject result = new JSObject();
+    result.put("notificationRuntimeGranted", gate.notificationRuntimeGranted);
+    result.put("notificationsEnabled", gate.notificationsEnabled);
     result.put("incomingChannelId", IncomingCallNotificationBuilder.CHANNEL_ID);
-    result.put("incomingChannelImportance", channelImportance);
-    result.put("incomingChannelBlocked", channelBlocked);
-    result.put("fullScreenIntentAllowed", fsiAllowed);
+    result.put("incomingChannelImportance", IncomingCallNotificationBuilder.incomingChannelImportance(getContext()));
+    result.put("incomingChannelBlocked", gate.legacyIncomingChannelBlocked);
+    result.put("nativeVoiceChannelBlocked", gate.nativeVoiceChannelBlocked);
+    result.put("nativeVideoChannelBlocked", gate.nativeVideoChannelBlocked);
+    result.put("incomingCallChannelEnabled", gate.incomingCallChannelEnabled);
+    result.put("fullScreenIntentAllowed", gate.fullScreenIntentAllowed);
+    result.put("batteryOptimizationIgnored", gate.batteryOptimizationIgnored);
+    result.put("manufacturer", manufacturer);
+    result.put("samsungDevice", samsungDevice);
     result.put("deviceIdleMode", idle);
-    result.put("shouldShowCallReceiveGuide", !notificationRuntimeGranted || !notificationsEnabled || channelBlocked || !fsiAllowed);
+    result.put("receiveReady", gate.receiveReady);
+    result.put("lockScreenIncomingReady", gate.lockScreenIncomingReady);
+    result.put("lockScreenBlockReason", gate.lockScreenBlockReason != null ? gate.lockScreenBlockReason : "");
+    result.put(
+        "shouldShowCallReceiveGuide",
+        !gate.receiveReady || !gate.lockScreenIncomingReady);
     call.resolve(result);
   }
 

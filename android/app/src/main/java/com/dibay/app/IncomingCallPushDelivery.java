@@ -25,6 +25,37 @@ public final class IncomingCallPushDelivery {
     Context app = context.getApplicationContext();
     String callId = payload.callId.trim();
 
+    NotificationReceiveGate.Snapshot notifGate = NotificationReceiveGate.snapshot(app);
+    if (!notifGate.receiveReady) {
+      android.util.Log.w(
+          "DIBAY_FCM",
+          "[call-push] incoming_blocked_notification_permission callId="
+              + callId
+              + " reason="
+              + (notifGate.blockReason != null ? notifGate.blockReason : "unknown"));
+      DibayCallPushLog.warn(
+          "incoming_blocked_notification_permission",
+          callId,
+          "reason="
+              + (notifGate.blockReason != null ? notifGate.blockReason : "unknown")
+              + " runtimeGranted="
+              + notifGate.notificationRuntimeGranted
+              + " appEnabled="
+              + notifGate.notificationsEnabled
+              + " incomingChannelEnabled="
+              + notifGate.incomingCallChannelEnabled);
+      return;
+    }
+
+    if (!notifGate.lockScreenIncomingReady) {
+      DibayCallPushLog.info(
+          "incoming_push_lock_screen_tier_blocked",
+          callId,
+          "reason="
+              + (notifGate.lockScreenBlockReason != null ? notifGate.lockScreenBlockReason : "unknown")
+              + " receiveReady=true runtimeAllowed=true");
+    }
+
     if (NativeVoiceCallLane.shouldHandleIncoming(app, payload.callType)) {
       NativeVoiceCallRuntime.handleIncoming(
           app,

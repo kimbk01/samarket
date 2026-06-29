@@ -11,7 +11,6 @@ import {
   writeCallPermissionStoreState,
 } from "@/lib/call/permissions/call-permission-store";
 import { openNativeCallPermissionSettings } from "@/lib/call/native/native-call-permissions";
-import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 import {
   canAttemptPostLoginOnboardingGate,
   isPostLoginOnboardingBlockedByAddressGate,
@@ -27,67 +26,40 @@ import {
   type DibayDevicePermissionSource,
 } from "@/lib/permissions/dibay-device-permission-store";
 import { recordDiBaYOnboardingDecision } from "@/lib/permissions/device-permission-manager";
-import { requestNativeNotificationPermissionIfNeeded } from "@/lib/push/native/check-native-notification-permission";
-import { promptAndroidFullScreenIntentSettingsIfNeeded } from "@/lib/push/native/check-android-full-screen-intent";
-import { registerWebPushSubscriptionFromClient } from "@/lib/push/register-web-push-subscription-client";
+import { runNotificationGuideFlow } from "@/lib/permissions/permission-manager/notification-onboarding-flow";
+import { syncNotificationState } from "@/lib/permissions/permission-manager/notification-permission-manager";
 import { useStoresHomeOverlayDeferUntilInput } from "@/lib/stores/use-stores-home-overlay-defer-until-input";
 
-function schedulePushRegistration(): void {
-  void registerWebPushSubscriptionFromClient().then((reg) => {
-    if (!reg.ok && process.env.NODE_ENV === "development") {
-      console.info("[DiBaYDevicePermissionOnboarding] push register", reg);
+/** 로그인 후 notification guide 완료 전 NativePushRegistration 대기용 */
+let notificationOnboardingSettled = false;
+let notificationOnboardingWaiters: Array<() => void> = [];
+
+export function markNotificationOnboardingSettled(): void {
+  notificationOnboardingSettled = true;
+  const waiters = notificationOnboardingWaiters;
+  notificationOnboardingWaiters = [];
+  for (const fn of waiters) {
+    try {
+      fn();
+    } catch {
+      /* ignore */
     }
+  }
+}
+
+export function isNotificationOnboardingSettled(): boolean {
+  return notificationOnboardingSettled;
+}
+
+export function waitForNotificationOnboardingSettled(): Promise<void> {
+  if (notificationOnboardingSettled) return Promise.resolve();
+  return new Promise((resolve) => {
+    notificationOnboardingWaiters.push(resolve);
   });
 }
 
-async function runNotificationOsPermissionStep(): Promise<void> {
-  if (typeof window === "undefined") {
-    recordDiBaYOnboardingDecision("notification", "declined");
-    return;
-  }
-
-  if (isCapacitorNativePlatform()) {
-    const permission = await requestNativeNotificationPermissionIfNeeded();
-    const state =
-      permission === "granted" ? "accepted" : permission === "denied" ? "browser_denied" : "declined";
-    recordDiBaYOnboardingDecision("notification", state);
-    if (permission === "granted") {
-      schedulePushRegistration();
-    }
-    return;
-  }
-
-  if (!("Notification" in window)) {
-    recordDiBaYOnboardingDecision("notification", "declined");
-    return;
-  }
-
-  const existing = Notification.permission;
-  if (existing === "granted") {
-    recordDiBaYOnboardingDecision("notification", "accepted");
-    schedulePushRegistration();
-    return;
-  }
-  if (existing === "denied") {
-    recordDiBaYOnboardingDecision("notification", "browser_denied");
-    return;
-  }
-
-  try {
-    const permission = await Notification.requestPermission();
-    const state =
-      permission === "granted" ? "accepted" : permission === "denied" ? "browser_denied" : "declined";
-    recordDiBaYOnboardingDecision("notification", state);
-    if (permission === "granted") {
-      schedulePushRegistration();
-    }
-  } catch {
-    recordDiBaYOnboardingDecision("notification", "declined");
-  }
-}
-
 /**
- * 로그인 후 1회 — 알림 OS 권한 후 CallPermissionModal 로 통화 권한 안내 (강제 차단 없음).
+ * 로그인 후 1회 — Notification Guide → OS 허용 → Push Register, 이후 CallPermissionModal.
  */
 export function DiBaYDevicePermissionOnboardingGate() {
   const pathname = usePathname() ?? "";
@@ -155,6 +127,7 @@ export function DiBaYDevicePermissionOnboardingGate() {
     } finally {
       pendingMediaSourceRef.current = null;
       runningRef.current = false;
+      markNotificationOnboardingSettled();
     }
   }, [finishCallMediaFlow]);
 
@@ -166,6 +139,7 @@ export function DiBaYDevicePermissionOnboardingGate() {
     finishCallMediaFlow("declined");
     pendingMediaSourceRef.current = null;
     runningRef.current = false;
+    markNotificationOnboardingSettled();
   }, [finishCallMediaFlow]);
 
   const runOsPermissionSequence = useCallback(
@@ -180,13 +154,14 @@ export function DiBaYDevicePermissionOnboardingGate() {
       });
 
       try {
+        await syncNotificationState();
+
         for (let stepIndex = 0; stepIndex < steps.length; stepIndex += 1) {
           if (!mountedRef.current) return;
 
           const step = steps[stepIndex];
           if (step === "notification") {
-            await runNotificationOsPermissionStep();
-            void promptAndroidFullScreenIntentSettingsIfNeeded();
+            await runNotificationGuideFlow("first_login");
             continue;
           }
 
@@ -202,6 +177,7 @@ export function DiBaYDevicePermissionOnboardingGate() {
       } finally {
         if (!pendingMediaSourceRef.current) {
           runningRef.current = false;
+          markNotificationOnboardingSettled();
         }
       }
     },
@@ -215,18 +191,28 @@ export function DiBaYDevicePermissionOnboardingGate() {
     const run = () => {
       void isPostLoginOnboardingBlockedByAddressGate()
         .then((needsBlock) => {
-          if (needsBlock) return;
+          if (needsBlock) {
+            markNotificationOnboardingSettled();
+            return null;
+          }
           return resolveDibayUnifiedOnboardingPlan();
         })
         .then((plan) => {
-          if (!plan || !mountedRef.current) return;
+          if (!plan || !mountedRef.current) {
+            markNotificationOnboardingSettled();
+            return;
+          }
           callMediaGrantedAtOpenRef.current = plan.callMediaAlreadyGranted;
 
           if (plan.callMediaAlreadyGranted && plan.steps.length === 0) {
             recordDiBaYOnboardingDecision("call_media", "accepted");
+            markNotificationOnboardingSettled();
             return;
           }
-          if (plan.steps.length === 0) return;
+          if (plan.steps.length === 0) {
+            markNotificationOnboardingSettled();
+            return;
+          }
 
           shownRef.current = true;
           return runOsPermissionSequence(plan);
@@ -234,6 +220,7 @@ export function DiBaYDevicePermissionOnboardingGate() {
         .catch((error) => {
           shownRef.current = false;
           runningRef.current = false;
+          markNotificationOnboardingSettled();
           if (process.env.NODE_ENV === "development") {
             console.warn("[DiBaYDevicePermissionOnboarding] plan failed", error);
           }

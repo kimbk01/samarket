@@ -172,6 +172,35 @@ public final class IncomingCallNotificationBuilder {
   public static void showIncomingCallFsiBridge(Context context, IncomingCallPayload payload, boolean fgsDelivery) {
     if (payload == null || !payload.isValid()) return;
     String sid = payload.callId.trim();
+    NotificationReceiveGate.Snapshot gate = NotificationReceiveGate.snapshot(context);
+    if (!gate.lockScreenIncomingReady) {
+      DibayCallPushLog.warn(
+          "lock_screen_incoming_blocked",
+          sid,
+          "reason="
+              + (gate.lockScreenBlockReason != null ? gate.lockScreenBlockReason : "lock_screen_not_ready")
+              + " fsiAllowed="
+              + gate.fullScreenIntentAllowed
+              + " batteryIgnored="
+              + gate.batteryOptimizationIgnored
+              + " path=fsi_bridge_notification_only");
+      showIncomingCallInternal(
+          context,
+          payload.callId,
+          payload.title,
+          payload.body,
+          null,
+          payload.callType,
+          payload.expiresAt,
+          payload.roomId,
+          payload.callerId,
+          payload.callerName,
+          payload.callerAvatarUrl,
+          fgsDelivery,
+          false,
+          false);
+      return;
+    }
     Log.i(
         com.dibay.app.callv4.CallV4Lane.TAG,
         "[DIBAY_CALL_V4] lock_incoming_native_fsi_activity_only callId=" + sid);
@@ -235,6 +264,11 @@ public final class IncomingCallNotificationBuilder {
       boolean fsiAllowed,
       boolean fgsDelivery) {
     if (actionOnly) return false;
+    NotificationReceiveGate.Snapshot gate =
+        context != null ? NotificationReceiveGate.snapshot(context) : null;
+    if (gate != null && !gate.lockScreenIncomingReady) {
+      return false;
+    }
     if (fsiBridgeOnly) {
       return fsiAllowed && (lockScreenBridge || fgsDelivery);
     }
@@ -280,6 +314,21 @@ public final class IncomingCallNotificationBuilder {
     boolean lockScreenBridge =
         DibayKeyguardHelper.isKeyguardLocked(context) || !DibayKeyguardHelper.isInteractive(context);
     boolean fsiAllowed = canPostFullScreenIntent(context);
+    NotificationReceiveGate.Snapshot notifGate = NotificationReceiveGate.snapshot(context);
+    if (lockScreenBridge && !notifGate.lockScreenIncomingReady) {
+      DibayCallPushLog.warn(
+          "lock_screen_incoming_blocked",
+          sid,
+          "reason="
+              + (notifGate.lockScreenBlockReason != null
+                  ? notifGate.lockScreenBlockReason
+                  : "lock_screen_not_ready")
+              + " fsiAllowed="
+              + notifGate.fullScreenIntentAllowed
+              + " batteryIgnored="
+              + notifGate.batteryOptimizationIgnored
+              + " path=notification_only");
+    }
     DibayCallPushLog.info(
         fsiAllowed ? "full_screen_intent_allowed" : "full_screen_intent_blocked",
         sid,
@@ -811,6 +860,19 @@ public final class IncomingCallNotificationBuilder {
       String expiresAt,
       String title,
       String body) {
+    NotificationReceiveGate.Snapshot gate = NotificationReceiveGate.snapshot(context);
+    if (!gate.lockScreenIncomingReady) {
+      DibayCallPushLog.warn(
+          "incoming_activity_fallback_blocked",
+          sid,
+          "reason="
+              + (gate.lockScreenBlockReason != null ? gate.lockScreenBlockReason : "lock_screen_not_ready")
+              + " fsiAllowed="
+              + gate.fullScreenIntentAllowed
+              + " batteryIgnored="
+              + gate.batteryOptimizationIgnored);
+      return;
+    }
     DibayCallPushLog.info("incoming_activity_fallback_attempt", sid, "reason=notification_unavailable");
     try {
       IncomingCallPayload payload =

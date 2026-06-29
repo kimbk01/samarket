@@ -20,8 +20,17 @@ export type AndroidCallReceiveSettings = {
   incomingChannelId: string;
   incomingChannelImportance: number;
   incomingChannelBlocked: boolean;
+  nativeVoiceChannelBlocked?: boolean;
+  nativeVideoChannelBlocked?: boolean;
+  incomingCallChannelEnabled?: boolean;
   fullScreenIntentAllowed: boolean;
+  batteryOptimizationIgnored?: boolean;
+  manufacturer?: string;
+  samsungDevice?: boolean;
   deviceIdleMode: boolean;
+  receiveReady?: boolean;
+  lockScreenIncomingReady?: boolean;
+  lockScreenBlockReason?: string;
   shouldShowCallReceiveGuide: boolean;
 };
 

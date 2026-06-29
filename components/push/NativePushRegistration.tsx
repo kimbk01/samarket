@@ -12,19 +12,26 @@ import {
   logPushRegisterFail,
   logPushRegisterMountContext,
 } from "@/lib/push/native/native-push-register-log";
+import {
+  waitForNotificationOnboardingSettled,
+} from "@/components/permissions/DiBaYDevicePermissionOnboardingGate";
+import {
+  ensureNotificationForPushRegister,
+  subscribeNotificationPermissionSnapshot,
+} from "@/lib/permissions/permission-manager/notification-permission-manager";
 
 const MAX_USER_ID_WAIT_ATTEMPTS = 8;
 const MAX_REGISTER_ATTEMPTS = 3;
 
 /**
  * Native FCM/APNS — authenticated phase only.
- * recovering: defer register, keep existing device active.
- * terminal_guest/corrupt: skip register.
+ * Waits for first-login notification guide before register; check-only (no OS request).
  */
 export function NativePushRegistration() {
   const [phase, setPhase] = useState<DibaySessionPhase>(() => getSessionPhase());
   const attemptedUserIdRef = useRef<string | null>(null);
   const registerRunIdRef = useRef(0);
+  const registerFnRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (!isCapacitorNativePlatform()) return;
@@ -75,6 +82,16 @@ export function NativePushRegistration() {
     const attemptRegister = async (userAttempt: number, registerAttempt: number) => {
       if (cancelled || runId !== registerRunIdRef.current) return;
 
+      await waitForNotificationOnboardingSettled();
+      const pushCheck = await ensureNotificationForPushRegister();
+      if (!pushCheck.ok) {
+        logPushRegisterFail("permission_not_granted", {
+          perm: pushCheck.snapshot.effectiveState,
+          receiveReady: pushCheck.snapshot.receiveReady,
+        });
+        return;
+      }
+
       const userId = await resolveUserId();
       if (!userId) {
         logPushRegisterFail("no_user_id", { userAttempt, phase });
@@ -110,10 +127,20 @@ export function NativePushRegistration() {
       }
     };
 
+    registerFnRef.current = () => {
+      void attemptRegister(0, 0);
+    };
     void attemptRegister(0, 0);
+
+    const unsubSnapshot = subscribeNotificationPermissionSnapshot((snapshot) => {
+      if (snapshot.receiveReady && attemptedUserIdRef.current == null) {
+        registerFnRef.current?.();
+      }
+    });
 
     return () => {
       cancelled = true;
+      unsubSnapshot();
     };
   }, [phase]);
 

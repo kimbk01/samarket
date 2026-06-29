@@ -639,39 +639,42 @@ export async function requestNotificationWithDiBaYGate(options?: {
   explicitRetry?: boolean;
   featureKey?: DevicePermissionFeatureKey;
 }): Promise<NotificationPermissionRequestResult> {
-  if (typeof window === "undefined" || !("Notification" in window)) {
-    return { ok: false, reason: "no_api" };
-  }
-  const gate = await ensureDevicePermissionsWithDiBaYGate(["notification"], {
-    explicitRetry: options?.explicitRetry === true,
-    featureKey: options?.featureKey,
-    guideKind: "notification",
-  });
-  if (!gate.ok) {
-    return {
-      ok: false,
-      reason: gate.reason === "insecure" ? "no_api" : gate.reason,
-      permission: Notification.permission,
-    };
-  }
-  if (Notification.permission === "granted") {
+  const { runNotificationGuideFlow } = await import(
+    "@/lib/permissions/permission-manager/notification-onboarding-flow"
+  );
+  const { syncNotificationState, getCachedNotificationReceiveSnapshot } = await import(
+    "@/lib/permissions/permission-manager/notification-permission-manager"
+  );
+
+  await syncNotificationState();
+  const before = getCachedNotificationReceiveSnapshot();
+  if (before?.receiveReady) {
     setCachedPermissionState("notification", "granted");
     return { ok: true, permission: "granted" };
   }
-  if (Notification.permission === "denied") {
-    setCachedPermissionState("notification", "denied");
-    return { ok: false, reason: "denied", permission: "denied" };
-  }
-  const permission = await Notification.requestPermission();
-  setCachedPermissionState("notification", permission === "default" ? "prompt" : permission);
-  if (permission === "granted") {
+
+  const result = await runNotificationGuideFlow(options?.explicitRetry ? "settings_retry" : "first_login");
+  await syncNotificationState();
+  const after = getCachedNotificationReceiveSnapshot();
+
+  if (result === "granted" && after?.receiveReady) {
     if (options?.featureKey) markPermissionFeatureCompleted(options.featureKey);
-    return { ok: true, permission };
+    setCachedPermissionState("notification", "granted");
+    return { ok: true, permission: "granted" };
   }
+
+  if (typeof window !== "undefined" && "Notification" in window) {
+    const permission = Notification.permission;
+    setCachedPermissionState("notification", permission === "default" ? "prompt" : permission);
+    if (result === "browser_denied" || permission === "denied") {
+      return { ok: false, reason: "denied", permission: "denied" };
+    }
+  }
+
   return {
     ok: false,
-    reason: permission === "denied" ? "denied" : "deferred",
-    permission,
+    reason: result === "declined" ? "deferred" : "denied",
+    permission: typeof window !== "undefined" && "Notification" in window ? Notification.permission : undefined,
   };
 }
 
