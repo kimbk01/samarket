@@ -17,7 +17,6 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import com.dibay.app.R;
 import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
-import com.dibay.app.nativecall.NativeLockIncomingDelivery;
 import java.lang.ref.WeakReference;
 import java.util.Locale;
 
@@ -166,12 +165,6 @@ public class NativeVoiceCallActivity extends Activity {
     }
     NativeVoiceCallLog.info("incoming_activity_shown", callId);
     NativeVoiceCallLog.info("lock_screen_visible", callId);
-    Intent intent = getIntent();
-    if (intent != null
-        && NativeLockIncomingDelivery.SOURCE_NATIVE_LOCK_INCOMING.equals(intent.getStringExtra("source"))) {
-      NativeLockIncomingDelivery.onLockSurfaceInteractive(
-          getApplicationContext(), callId, NativeLockIncomingDelivery.CallType.VOICE);
-    }
   }
 
   private boolean isNotificationAcceptIntent(Intent intent) {

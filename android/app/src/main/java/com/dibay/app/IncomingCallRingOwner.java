@@ -49,40 +49,7 @@ public final class IncomingCallRingOwner {
     stop(context, null);
   }
 
-  /** Lock surface reinforce — stop then restart with lock-screen audio routing. */
-  public static boolean reinforceForLockScreen(Context context, String callId) {
-    if (context == null || callId == null || callId.trim().isEmpty()) return false;
-    Context app = context.getApplicationContext();
-    String sid = callId.trim();
-    if (DibayCallConsumedStore.isConsumed(app, sid)) {
-      Log.i(TAG, "[DIBAY_CALL] incoming_ignored_consumed callId=" + sid + " source=lock_reinforce");
-      return false;
-    }
-    stop(app, sid);
-    DibayForegroundRingtone.startForLockScreen(app, sid);
-    activeCallId = sid;
-    return true;
-  }
-
   public static String getActiveCallId() {
     return activeCallId;
-  }
-
-  /** Robolectric unit tests — reset in-memory ring owner between cases. */
-  static void clearForTests() {
-    activeCallId = null;
-  }
-
-  /** Robolectric unit tests — mirrors {@link #start} block reasons without side effects. */
-  static String describeStartBlockReason(Context context, String callId) {
-    if (context == null || callId == null || callId.trim().isEmpty()) return "invalid";
-    String sid = callId.trim();
-    if (DibayCallConsumedStore.isConsumed(context.getApplicationContext(), sid)) {
-      return "consumed";
-    }
-    if (sid.equals(activeCallId)) {
-      return "deduped";
-    }
-    return "";
   }
 }

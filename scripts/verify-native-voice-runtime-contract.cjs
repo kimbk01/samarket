@@ -151,32 +151,6 @@ for (const marker of [
 }
 
 const voiceRuntime = read("android/app/src/main/java/com/dibay/app/nativevoice/NativeVoiceCallRuntime.java");
-if (!voiceRuntime.includes("NativeLockIncomingDelivery.isLockIncoming")) {
-  fail("NativeVoiceCallRuntime handleIncoming must branch to NativeLockIncomingDelivery on lock");
-} else if (!voiceRuntime.includes("NativeLockIncomingDelivery.present")) {
-  fail("NativeVoiceCallRuntime must present lock incoming via NativeLockIncomingDelivery");
-} else if (voiceRuntime.includes("NativeVoiceCallService.startRinging")) {
-  fail("NativeVoiceCallRuntime must not start FGS ringing directly in handleIncoming (use lock helper)");
-} else if (!voiceRuntime.includes("IncomingCallWakeLock.release")) {
-  fail("NativeVoiceCallRuntime cleanup must release IncomingCallWakeLock");
-} else {
-  pass("native voice lock incoming delivery wired via NativeLockIncomingDelivery");
-}
-const lockDelivery = read("android/app/src/main/java/com/dibay/app/nativecall/NativeLockIncomingDelivery.java");
-for (const marker of [
-  "native_lock_incoming_present",
-  "native_lock_incoming_activity_launch_attempt",
-  "native_lock_incoming_activity_launch_success",
-  "native_lock_incoming_activity_launch_failure",
-  "native_lock_incoming_ring_reinforced",
-  "IncomingCallWakeLock.acquireForLockScreen",
-  "NativeVoiceCallService.startRinging",
-  "SOURCE_NATIVE_LOCK_INCOMING",
-]) {
-  if (!lockDelivery.includes(marker)) {
-    fail(`NativeLockIncomingDelivery missing lock contract marker: ${marker}`);
-  }
-}
 for (const marker of [
   "NativeCallVisibleSurfaceOwner.logCallOwnerClaimed",
   "foreground_visible_activity_start_postcheck_failed",
@@ -194,9 +168,6 @@ for (const marker of [
 const voiceActivity = read("android/app/src/main/java/com/dibay/app/nativevoice/NativeVoiceCallActivity.java");
 if (!voiceActivity.includes("NativeCallVisibleSurfaceOwner.claim(callId, \"voice\", \"incoming\")")) {
   fail("NativeVoiceCallActivity must claim common visible surface before showing");
-}
-if (!voiceActivity.includes("NativeLockIncomingDelivery.onLockSurfaceInteractive")) {
-  fail("NativeVoiceCallActivity must reinforce lock ring on native_lock_incoming surface");
 }
 
 const voiceNotification = read("android/app/src/main/java/com/dibay/app/nativevoice/NativeVoiceCallNotification.java");

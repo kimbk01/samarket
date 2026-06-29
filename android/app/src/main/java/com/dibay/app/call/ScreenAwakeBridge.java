@@ -19,12 +19,9 @@ public final class ScreenAwakeBridge {
   public static final String TAG = "DIBAY_SCREEN_AWAKE";
 
   private static final Handler MAIN = new Handler(Looper.getMainLooper());
-  private static final long[] APPLY_RETRY_DELAYS_MS = {100L, 300L, 700L};
   private static final Object LOCK = new Object();
   private static String leasedCallId = "";
   private static WeakReference<Activity> appliedActivityRef = new WeakReference<>(null);
-  private static Runnable pendingApplyRetryRunnable;
-  private static int pendingApplyRetryIndex;
 
   private ScreenAwakeBridge() {}
 
@@ -56,7 +53,6 @@ public final class ScreenAwakeBridge {
 
   private static void acquireOnMain(String callId, String reason) {
     synchronized (LOCK) {
-      cancelPendingApplyRetriesLocked();
       boolean firstLease = leasedCallId.isEmpty();
       boolean sameCall = callId.equals(leasedCallId);
       leasedCallId = callId;
@@ -72,7 +68,6 @@ public final class ScreenAwakeBridge {
       if (leasedCallId.isEmpty()) return;
       if (!callId.isEmpty() && !callId.equals(leasedCallId)) return;
       String releasedCallId = leasedCallId;
-      cancelPendingApplyRetriesLocked();
       clearAppliedActivity();
       leasedCallId = "";
       logInfo(
@@ -93,45 +88,22 @@ public final class ScreenAwakeBridge {
   private static void onActivityResumedOnMain(Activity activity) {
     synchronized (LOCK) {
       if (leasedCallId.isEmpty()) return;
-      if (applyToActivity(activity, "reapply_on_resume")) {
-        cancelPendingApplyRetriesLocked();
-        return;
-      }
-      applyToCurrentActivity("reapply_on_resume_fallback");
+      applyToActivity(activity, "reapply_on_resume");
     }
   }
 
   private static void applyToCurrentActivity(String marker) {
-    Activity activity = resolveApplyTargetActivity();
-    if (applyToActivity(activity, marker)) {
-      cancelPendingApplyRetriesLocked();
-      return;
+    Activity activity = ResumedActivityTracker.peekResumedActivity();
+    if (activity == null) {
+      activity = appliedActivityRef.get();
     }
-    logInfo(
-        "screen_awake_apply_missing_activity callId="
-            + leasedCallId
-            + " marker="
-            + marker);
-    scheduleApplyRetry(marker);
+    applyToActivity(activity, marker);
   }
 
-  /** Resumed Activity wins over last-applied ref (taskAffinity / dock transitions). */
-  private static Activity resolveApplyTargetActivity() {
-    Activity resumed = ResumedActivityTracker.peekResumedActivity();
-    if (resumed != null && !resumed.isFinishing()) {
-      return resumed;
-    }
+  private static void applyToActivity(Activity activity, String marker) {
+    if (activity == null || activity.isFinishing()) return;
     Activity previous = appliedActivityRef.get();
-    if (previous != null && !previous.isFinishing()) {
-      return previous;
-    }
-    return null;
-  }
-
-  private static boolean applyToActivity(Activity activity, String marker) {
-    if (activity == null || activity.isFinishing()) return false;
-    Activity previous = appliedActivityRef.get();
-    if (previous != null && previous != activity && !previous.isFinishing()) {
+    if (previous != null && previous != activity) {
       clearActivityHold(previous);
     }
     activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
@@ -151,79 +123,13 @@ public final class ScreenAwakeBridge {
             + activity.getClass().getSimpleName()
             + " marker="
             + marker);
-    if ("reapply_on_resume".equals(marker) || marker.startsWith("presentation_")) {
+    if ("reapply_on_resume".equals(marker)) {
       logInfo(
           "screen_awake_reapply_on_resume callId="
               + leasedCallId
               + " activity="
-              + activity.getClass().getSimpleName()
-              + " marker="
-              + marker);
+              + activity.getClass().getSimpleName());
     }
-    return true;
-  }
-
-  private static void scheduleApplyRetry(String marker) {
-    if (leasedCallId.isEmpty()) return;
-    cancelPendingApplyRetriesLocked();
-    pendingApplyRetryIndex = 0;
-    postApplyRetryAttempt(marker);
-  }
-
-  private static void postApplyRetryAttempt(String marker) {
-    if (leasedCallId.isEmpty()) return;
-    if (pendingApplyRetryIndex >= APPLY_RETRY_DELAYS_MS.length) {
-      logInfo(
-          "screen_awake_apply_retry_giveup callId="
-              + leasedCallId
-              + " marker="
-              + marker
-              + " attempts="
-              + APPLY_RETRY_DELAYS_MS.length);
-      return;
-    }
-    final long delayMs = APPLY_RETRY_DELAYS_MS[pendingApplyRetryIndex];
-    final int attempt = pendingApplyRetryIndex + 1;
-    logInfo(
-        "screen_awake_apply_retry_scheduled callId="
-            + leasedCallId
-            + " marker="
-            + marker
-            + " attempt="
-            + attempt
-            + " delayMs="
-            + delayMs);
-    pendingApplyRetryRunnable =
-        () -> {
-          synchronized (LOCK) {
-            if (leasedCallId.isEmpty()) return;
-            Activity activity = resolveApplyTargetActivity();
-            if (applyToActivity(activity, "apply_retry_" + attempt)) {
-              logInfo(
-                  "screen_awake_apply_retry_success callId="
-                      + leasedCallId
-                      + " marker="
-                      + marker
-                      + " attempt="
-                      + attempt
-                      + " activity="
-                      + (activity != null ? activity.getClass().getSimpleName() : "null"));
-              cancelPendingApplyRetriesLocked();
-              return;
-            }
-            pendingApplyRetryIndex++;
-            postApplyRetryAttempt(marker);
-          }
-        };
-    MAIN.postDelayed(pendingApplyRetryRunnable, delayMs);
-  }
-
-  private static void cancelPendingApplyRetriesLocked() {
-    if (pendingApplyRetryRunnable != null) {
-      MAIN.removeCallbacks(pendingApplyRetryRunnable);
-      pendingApplyRetryRunnable = null;
-    }
-    pendingApplyRetryIndex = 0;
   }
 
   private static void clearAppliedActivity() {

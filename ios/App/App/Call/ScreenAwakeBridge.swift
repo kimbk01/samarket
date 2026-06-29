@@ -47,23 +47,15 @@ final class ScreenAwakeBridge {
   }
 
   func reapplyOnBecomeActive() {
-    reapplyOnForeground(source: "reapply_on_resume")
-  }
-
-  func reapplyOnEnterForeground() {
-    reapplyOnForeground(source: "reapply_on_foreground")
-  }
-
-  private func reapplyOnForeground(source: String) {
     lock.lock()
     let active = leasedCallId
     lock.unlock()
     guard let active, !active.isEmpty else { return }
     if Thread.isMainThread {
-      reapplyOnMain(callId: active, reason: source)
+      reapplyOnMain(callId: active, reason: "reapply_on_resume")
     } else {
       DispatchQueue.main.async { [weak self] in
-        self?.reapplyOnMain(callId: active, reason: source)
+        self?.reapplyOnMain(callId: active, reason: "reapply_on_resume")
       }
     }
   }
@@ -115,18 +107,14 @@ final class ScreenAwakeBridge {
   private func applyIdleTimerDisabled(callId: String, marker: String) {
     UIApplication.shared.isIdleTimerDisabled = true
     NSLog(
-      "[DIBAY_SCREEN_AWAKE] screen_awake_apply_current_activity callId=%@ activity=ios_app marker=%@",
+      "[DIBAY_SCREEN_AWAKE] screen_awake_apply_current_activity callId=%@ marker=%@",
       callId,
       marker
     )
-    if marker == "reapply_on_resume"
-      || marker == "reapply_on_foreground"
-      || marker.hasPrefix("presentation_")
-    {
+    if marker == "reapply_on_resume" {
       NSLog(
-        "[DIBAY_SCREEN_AWAKE] screen_awake_reapply_on_resume callId=%@ marker=%@",
-        callId,
-        marker
+        "[DIBAY_SCREEN_AWAKE] screen_awake_reapply_on_resume callId=%@",
+        callId
       )
     }
   }

@@ -13,11 +13,9 @@ import com.dibay.app.DibayKeyguardHelper;
 import com.dibay.app.IncomingCallActionCoordinator;
 import com.dibay.app.IncomingCallNotificationBuilder;
 import com.dibay.app.IncomingCallRingOwner;
-import com.dibay.app.IncomingCallWakeLock;
 import com.dibay.app.call.DibayActiveCallSessionManager;
 import com.dibay.app.call.ScreenAwakeBridge;
 import com.dibay.app.nativecall.NativeCallEngineOwnership;
-import com.dibay.app.nativecall.NativeLockIncomingDelivery;
 import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -97,12 +95,6 @@ public final class NativeVideoCallRuntime {
     IncomingCallRingOwner.start(app, sid);
     if (shouldStartForegroundVisibleActivity(app)) {
       startForegroundVisibleActivity(app, session);
-    } else if (NativeLockIncomingDelivery.isLockIncoming(app)) {
-      NativeLockIncomingDelivery.present(
-          app,
-          NativeLockIncomingDelivery.CallType.VIDEO,
-          session,
-          IncomingCallNotificationBuilder.canPostFullScreenIntent(app));
     } else {
       NativeVideoCallLog.info("foreground_visible_activity_start_skipped", sid, "reason=not_foreground_unlocked");
       PendingIntent fullScreenIntent = NativeVideoCallNotification.showIncoming(app, session);
@@ -350,7 +342,6 @@ public final class NativeVideoCallRuntime {
     NativeVideoCallLog.info("native_call_service_stop", sid, "reason=" + safe(reason));
     NativeVideoCallService.stop(app, sid, reason);
     IncomingCallRingOwner.stop(app, sid);
-    IncomingCallWakeLock.release();
     DibayIncomingCallNativeStore.markState(app, sid, DibayIncomingCallNativeStore.STATE_TERMINAL);
     SESSIONS.remove(sid);
     IncomingCallActionCoordinator.complete(sid, reason);

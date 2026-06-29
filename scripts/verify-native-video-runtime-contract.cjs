@@ -193,25 +193,10 @@ for (const marker of [
 if (!failed) pass("native video Android manifest entries are present");
 
 const nativeVideoRuntime = read("android/app/src/main/java/com/dibay/app/nativevideo/NativeVideoCallRuntime.java");
-if (!nativeVideoRuntime.includes("NativeLockIncomingDelivery.isLockIncoming")) {
-  fail("NativeVideoCallRuntime handleIncoming must branch to NativeLockIncomingDelivery on lock");
-} else if (!nativeVideoRuntime.includes("NativeLockIncomingDelivery.present")) {
-  fail("NativeVideoCallRuntime must present lock incoming via NativeLockIncomingDelivery");
-} else if (nativeVideoRuntime.includes("NativeVideoCallService.startRinging")) {
-  fail("NativeVideoCallRuntime must not start FGS ringing directly in handleIncoming (use lock helper)");
-} else if (!nativeVideoRuntime.includes("IncomingCallWakeLock.release")) {
-  fail("NativeVideoCallRuntime cleanup must release IncomingCallWakeLock");
+if (nativeVideoRuntime.includes("NativeVideoCallService.startRinging")) {
+  fail("NativeVideoCallRuntime must not start FGS during handleIncoming (Voice SSOT parity)");
 } else {
-  pass("native video lock incoming delivery wired via NativeLockIncomingDelivery");
-}
-const lockDelivery = read("android/app/src/main/java/com/dibay/app/nativecall/NativeLockIncomingDelivery.java");
-for (const marker of [
-  "NativeVideoCallService.startRinging",
-  "native_lock_incoming_activity_launch_attempt",
-]) {
-  if (!lockDelivery.includes(marker)) {
-    fail(`NativeLockIncomingDelivery missing video lock marker: ${marker}`);
-  }
+  pass("native video handleIncoming skips premature FGS (Voice parity)");
 }
 for (const marker of [
   "shouldStartForegroundVisibleActivity",
@@ -285,9 +270,6 @@ for (const marker of [
   if (!nativeVideoActivity.includes(marker)) {
     fail(`NativeVideoCallActivity missing Voice-parity incoming marker: ${marker}`);
   }
-}
-if (!nativeVideoActivity.includes("NativeLockIncomingDelivery.onLockSurfaceInteractive")) {
-  fail("NativeVideoCallActivity must reinforce lock ring on native_lock_incoming surface");
 }
 if (!failed) pass("native video incoming surface matches Voice contract markers");
 

@@ -47,3 +47,10 @@ export function notifyConnectedVideoScreenAwakePresentation(callId: string, pres
     presentation: presentation.trim() || "unknown",
   });
 }
+
+export function shouldHoldConnectedVideoScreenAwake(
+  mediaType: string | null | undefined,
+  phase: string | null | undefined,
+): boolean {
+  return mediaType === "video" && phase === "connected";
+}

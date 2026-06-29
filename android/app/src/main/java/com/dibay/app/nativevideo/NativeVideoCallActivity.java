@@ -20,9 +20,7 @@ import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import com.dibay.app.R;
-import com.dibay.app.call.ScreenAwakeBridge;
 import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
-import com.dibay.app.nativecall.NativeLockIncomingDelivery;
 import java.lang.ref.WeakReference;
 import java.util.Locale;
 
@@ -158,7 +156,6 @@ public class NativeVideoCallActivity extends Activity {
   @Override
   protected void onResume() {
     super.onResume();
-    notifyConnectedVideoScreenAwake("native_video_resume");
   }
 
   @Override
@@ -184,7 +181,6 @@ public class NativeVideoCallActivity extends Activity {
     applyLocalPreviewLayout();
     NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(callId);
     if (session != null) applyState(session.state);
-    notifyConnectedVideoScreenAwake("rotation");
   }
 
   @Override
@@ -206,7 +202,6 @@ public class NativeVideoCallActivity extends Activity {
     applyPipUiMode(isInPictureInPictureMode);
     NativeVideoCallLog.info(
         isInPictureInPictureMode ? "native_video_pip_entered" : "native_video_pip_exited", callId);
-    notifyConnectedVideoScreenAwake(isInPictureInPictureMode ? "pip" : "pip_exit");
   }
 
   @Override
@@ -249,12 +244,6 @@ public class NativeVideoCallActivity extends Activity {
     }
     NativeVideoCallLog.info("incoming_activity_shown", callId);
     NativeVideoCallLog.info("lock_screen_visible", callId);
-    Intent intent = getIntent();
-    if (intent != null
-        && NativeLockIncomingDelivery.SOURCE_NATIVE_LOCK_INCOMING.equals(intent.getStringExtra("source"))) {
-      NativeLockIncomingDelivery.onLockSurfaceInteractive(
-          getApplicationContext(), callId, NativeLockIncomingDelivery.CallType.VIDEO);
-    }
   }
 
   private boolean isNotificationAcceptIntent(Intent intent) {
@@ -496,7 +485,6 @@ public class NativeVideoCallActivity extends Activity {
     dockMode = true;
     applyDockPresentation();
     NativeVideoCallLog.info("native_video_dock_shown", callId, "source=" + source);
-    notifyConnectedVideoScreenAwake("native_dock");
   }
 
   private void hideDock(String source) {
@@ -508,13 +496,6 @@ public class NativeVideoCallActivity extends Activity {
       return;
     }
     if (currentState != null) applyState(currentState);
-    notifyConnectedVideoScreenAwake("native_dock_exit");
-  }
-
-  private void notifyConnectedVideoScreenAwake(String presentation) {
-    if (callId == null || callId.isEmpty()) return;
-    if (currentState != NativeVideoCallRuntime.State.CONNECTED) return;
-    ScreenAwakeBridge.notifyPresentationChanged(callId, presentation);
   }
 
   private void detachDockView() {
