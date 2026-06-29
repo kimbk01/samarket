@@ -20,7 +20,8 @@ export function NotificationPermissionSyncHost() {
     let cancelled = false;
 
     const runSync = async (source: "mount" | "visibility" | "app_state") => {
-      const snapshot = await syncNotificationState();
+      /** cold start — TTL·single-flight; 복귀·visibility — OS 설정 변경 반영 */
+      const snapshot = await syncNotificationState(source === "mount" ? undefined : { force: true });
       if (cancelled) return;
 
       const prev = lastReceiveReadyRef.current;

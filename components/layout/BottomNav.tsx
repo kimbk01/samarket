@@ -39,6 +39,10 @@ import { prewarmBottomNavTapTargetClientCache } from "@/lib/main-menu/bottom-nav
 import { prewarmBottomNavTapHrefResolvingStoresRegion } from "@/lib/main-menu/bottom-nav-prewarm-href";
 import { commitMainBottomNavRoute, mainBottomNavRouteUsesReplace } from "@/lib/main-menu/main-bottom-nav-route-commit";
 import { openBottomNavHref } from "@/lib/main-menu/bottom-nav-link-open";
+import {
+  maybeApkPrefetchBottomNavRoute,
+  shouldRunApkBottomNavRoutePrefetch,
+} from "@/lib/platform/apk-remote-webview-perf";
 import { bumpMessengerRenderPerf } from "@/lib/runtime/samarket-runtime-debug";
 import { isBottomNavTabActive } from "@/lib/main-menu/main-bottom-nav-prefetch-pick";
 import {
@@ -115,6 +119,26 @@ const BottomNavHubBadgeDot = memo(function BottomNavHubBadgeDot({ count }: { cou
 
 type BottomNavActivateEvent = Pick<MouseEvent<HTMLAnchorElement>, "preventDefault">;
 
+function warmBottomNavTabIntent(
+  href: string,
+  opts: { router?: Pick<ReturnType<typeof useRouter>, "prefetch">; isActive?: boolean } = {},
+): void {
+  try {
+    prewarmBottomNavTapTargetClientCache(href);
+  } catch {
+    /* noop */
+  }
+  if (opts.router) {
+    maybeApkPrefetchBottomNavRoute(
+      (h) => {
+        void opts.router!.prefetch(h);
+      },
+      href,
+      opts.isActive ?? false,
+    );
+  }
+}
+
 export type BottomNavTabCommitOpts = {
   pathname: string | null;
   navSearch: string;
@@ -148,9 +172,11 @@ export function commitBottomNavTabRoute(opts: BottomNavTabCommitOpts): void {
     guardBeforeNavigate: opts.guardBeforeNavigate,
     push: (href) => opts.router.push(href),
     replace: (href) => opts.router.replace(href),
-    prefetch: () => {
-      /* RSC prefetch 금지 — 클라 prewarm 만 `onPrewarm` 경로 */
-    },
+    prefetch: shouldRunApkBottomNavRoutePrefetch()
+      ? (href) => {
+          void opts.router.prefetch(href);
+        }
+      : undefined,
     onPrewarm: opts.onPrewarm,
     skipPostCommitPrewarm: opts.prewarmedBeforeCommit === true,
     onCloseDomainSwitcher: opts.onCloseDomainSwitcher,
@@ -343,42 +369,20 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
       aria-label={ariaLbl}
       aria-current={isActive ? "page" : undefined}
       onPointerEnter={() => {
-        if (!isActive) {
-          try {
-            prewarmBottomNavTapTargetClientCache(effectiveHref);
-          } catch {
-            /* noop */
-          }
-        }
+        if (!isActive) warmBottomNavTabIntent(effectiveHref, { router, isActive });
       }}
       onFocus={() => {
-        if (!isActive) {
-          try {
-            prewarmBottomNavTapTargetClientCache(effectiveHref);
-          } catch {
-            /* noop */
-          }
-        }
+        if (!isActive) warmBottomNavTabIntent(effectiveHref, { router, isActive });
       }}
       onTouchStart={() => {
-        if (!isActive) {
-          try {
-            prewarmBottomNavTapTargetClientCache(effectiveHref);
-          } catch {
-            /* noop */
-          }
-        }
+        if (!isActive) warmBottomNavTabIntent(effectiveHref, { router, isActive });
       }}
       onPointerDown={(e) => {
         triggerLightTapFeedback(e);
         /** `beginMenuNavigation` 은 click 한 번만 — pointerDown+click 이중 호출 방지 */
         if (!isActive) {
           markBottomNavRouteIntentForBackgroundWarm();
-          try {
-            prewarmBottomNavTapTargetClientCache(effectiveHref);
-          } catch {
-            /* noop */
-          }
+          warmBottomNavTabIntent(effectiveHref, { router, isActive });
         }
       }}
       onKeyDown={(e: KeyboardEvent<HTMLAnchorElement>) => {
@@ -748,12 +752,12 @@ const BottomNavTabTradeHomeHub = memo(function BottomNavTabTradeHomeHub({
         runLongPressHome();
       }, TRADE_HOME_HUB_LONG_PRESS_MS);
       try {
-        prewarmBottomNavTapTargetClientCache(tab.href);
+        warmBottomNavTabIntent(tab.href, { router });
       } catch {
         /* noop */
       }
     },
-    [clearLongPressTimer, runLongPressHome, tab.href]
+    [clearLongPressTimer, runLongPressHome, tab.href, router]
   );
 
   const onHubKeyDown = useCallback(

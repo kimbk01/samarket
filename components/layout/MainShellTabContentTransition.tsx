@@ -13,7 +13,14 @@ import { useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext"
 import { isCommunityMessengerDeepRoutePath } from "@/lib/navigation/community-messenger-deep-route-path";
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 import { DeliveryTheme } from "@/lib/design/delivery-theme";
-import { MAIN_SHELL_ROUTE_TRANSITION_MS } from "@/components/route-transition/route-transition-config";
+import {
+  APK_MAIN_TAB_ENTER_DEFER_PERF_MARK_END,
+  APK_MAIN_TAB_ENTER_DEFER_PERF_MARK_START,
+  APK_MAIN_TAB_ENTER_DEFER_PERF_MS_KEY,
+  isApkRemoteWebViewShell,
+  resolveMainTabEnterPanelDeferMs,
+} from "@/lib/platform/apk-remote-webview-perf";
+import { recordAppWidePhaseLastMs } from "@/lib/runtime/samarket-runtime-debug";
 
 type Props = {
   children: React.ReactNode;
@@ -48,7 +55,25 @@ function DeferredMainTabEnterPanel({ href }: { href: string }) {
 
   useEffect(() => {
     setReady(false);
-    const timer = window.setTimeout(() => setReady(true), MAIN_SHELL_ROUTE_TRANSITION_MS + 80);
+    const deferMs = resolveMainTabEnterPanelDeferMs();
+    if (isApkRemoteWebViewShell()) {
+      try {
+        performance.mark(APK_MAIN_TAB_ENTER_DEFER_PERF_MARK_START);
+      } catch {
+        /* ignore */
+      }
+    }
+    const timer = window.setTimeout(() => {
+      if (isApkRemoteWebViewShell()) {
+        recordAppWidePhaseLastMs(APK_MAIN_TAB_ENTER_DEFER_PERF_MS_KEY, deferMs);
+        try {
+          performance.mark(APK_MAIN_TAB_ENTER_DEFER_PERF_MARK_END);
+        } catch {
+          /* ignore */
+        }
+      }
+      setReady(true);
+    }, deferMs);
     return () => window.clearTimeout(timer);
   }, [href]);
 

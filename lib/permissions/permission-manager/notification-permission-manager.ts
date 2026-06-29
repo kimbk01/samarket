@@ -30,6 +30,24 @@ let cachedSnapshot: NotificationReceiveSnapshot | null = null;
 let lastReceiveReady = false;
 const listeners = new Set<(snapshot: NotificationReceiveSnapshot) => void>();
 
+/** Native bridge read dedupe — cold start·복귀 중복 IPC 완화 (push register LOCK 외부) */
+const NATIVE_SYNC_TTL_MS = 8_000;
+let lastNativeSyncAt = 0;
+let syncInflight: Promise<NotificationReceiveSnapshot> | null = null;
+
+export type SyncNotificationStateOptions = {
+  /** OS prompt 직후 등 — TTL·inflight 합류 무시 */
+  force?: boolean;
+};
+
+export function resetNotificationPermissionSyncForTests(): void {
+  cachedSnapshot = null;
+  lastReceiveReady = false;
+  lastNativeSyncAt = 0;
+  syncInflight = null;
+  listeners.clear();
+}
+
 function notify(snapshot: NotificationReceiveSnapshot): void {
   for (const fn of listeners) {
     try {
@@ -75,9 +93,9 @@ async function readPlatformSnapshot(appBlocked: boolean): Promise<NotificationRe
   return readWebNotificationReceiveSnapshot(appBlocked);
 }
 
-/** Read-only OS/settings aggregate — single truth refresh. */
-export async function syncNotificationState(): Promise<NotificationReceiveSnapshot> {
-  const appBlocked = readNotificationRequiredBlocked();
+async function runSyncNotificationStateInternal(
+  appBlocked: boolean,
+): Promise<NotificationReceiveSnapshot> {
   const snapshot = await readPlatformSnapshot(appBlocked);
 
   if (snapshot.receiveReady && appBlocked) {
@@ -88,6 +106,7 @@ export async function syncNotificationState(): Promise<NotificationReceiveSnapsh
   const prevReady = lastReceiveReady;
   cachedSnapshot = snapshot;
   lastReceiveReady = snapshot.receiveReady;
+  lastNativeSyncAt = Date.now();
   notify(snapshot);
 
   if (snapshot.receiveReady && !prevReady) {
@@ -95,6 +114,37 @@ export async function syncNotificationState(): Promise<NotificationReceiveSnapsh
   }
 
   return snapshot;
+}
+
+/** Read-only OS/settings aggregate — single truth refresh. */
+export async function syncNotificationState(
+  opts?: SyncNotificationStateOptions,
+): Promise<NotificationReceiveSnapshot> {
+  const appBlocked = readNotificationRequiredBlocked();
+  const now = Date.now();
+
+  if (
+    !opts?.force &&
+    cachedSnapshot &&
+    isCapacitorNativePlatform() &&
+    now - lastNativeSyncAt < NATIVE_SYNC_TTL_MS
+  ) {
+    return cachedSnapshot;
+  }
+
+  if (!opts?.force && syncInflight) {
+    return syncInflight;
+  }
+
+  const flight = runSyncNotificationStateInternal(appBlocked);
+  syncInflight = flight;
+  try {
+    return await flight;
+  } finally {
+    if (syncInflight === flight) {
+      syncInflight = null;
+    }
+  }
 }
 
 export function shouldShowNotificationGuide(snapshot: NotificationReceiveSnapshot): boolean {
@@ -159,7 +209,7 @@ export async function requestNotificationFromGuide(): Promise<NotificationOsRequ
     osResult = await requestWebNotificationRuntimePermission();
   }
 
-  snapshot = await syncNotificationState();
+  snapshot = await syncNotificationState({ force: true });
 
   if (osResult === "granted" && snapshot.receiveReady) {
     clearNotificationRequiredBlocked();

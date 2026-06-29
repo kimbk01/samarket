@@ -164,6 +164,14 @@ function commitMainBottomNavRouteNavigateSync(args: MainBottomNavRouteCommitArgs
 
   const fromHref =
     typeof window !== "undefined" ? `${window.location.pathname}${window.location.search}` : null;
+  /** APK — 탭 commit 직전 RSC warmup (웹은 prefetch 미전달) */
+  if (args.prefetch) {
+    try {
+      args.prefetch(args.href);
+    } catch {
+      /* noop */
+    }
+  }
   /** deep route 진입 창 — hub 탭이 lock 을 bottom_nav_explicit 로 덮지 않게 */
   const navSource = isDeepRouteNavigationLockActive() ? "bottom_nav_async" : "bottom_nav_explicit";
   if (mainBottomNavRouteUsesReplace(args.pathname, args.href)) {

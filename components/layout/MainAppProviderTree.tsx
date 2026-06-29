@@ -41,6 +41,7 @@ import { PushRouteListener } from "@/components/push/PushRouteListener";
 import { NotificationRouteReadSync } from "@/components/push/NotificationRouteReadSync";
 import { registerGoogleNativeRecoverBootstrap } from "@/lib/auth/native/google-native-recover-bootstrap.client";
 import { MAIN_SHELL_VIEWPORT_LOCK_CLASS } from "@/lib/layout/main-shell-viewport";
+import { BottomNavBootIdlePrewarmHost } from "@/components/layout/BottomNavBootIdlePrewarmHost";
 
 /** Provider 트리·순서 불변 — Philife 글쓰기 시트 UI만 별도 청크로 분리 (giant graph 완화). */
 const PhilifeWriteBottomSheetLazy = dynamic(
@@ -181,6 +182,7 @@ export function MainAppProviderTree({
             <TradeTabCategoriesServerPrime initialCategories={initialTradeTabCategories ?? null} />
           ) : null}
           <AppWideRuntimePerfHooks />
+          <BottomNavBootIdlePrewarmHost />
           <SessionLostRedirect />
           <PostLogoutBfcacheGuard />
           <DibaySignupGate />
