@@ -16,6 +16,15 @@ public final class DibayForegroundRingtone {
   private DibayForegroundRingtone() {}
 
   public static void start(Context context, String callId) {
+    startInternal(context, callId, false, "native_foreground");
+  }
+
+  /** Lock surface reinforce — always NOTIFICATION_RINGTONE so keyguard routing is audible. */
+  public static void startForLockScreen(Context context, String callId) {
+    startInternal(context, callId, true, "lock_surface_reinforce");
+  }
+
+  private static void startInternal(Context context, String callId, boolean lockScreen, String source) {
     if (context == null) return;
     stop(null);
     try {
@@ -25,9 +34,11 @@ public final class DibayForegroundRingtone {
       if (ringtone == null) return;
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
         int usage =
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
-                ? AudioAttributes.USAGE_VOICE_COMMUNICATION_SIGNALLING
-                : AudioAttributes.USAGE_NOTIFICATION_RINGTONE;
+            lockScreen
+                ? AudioAttributes.USAGE_NOTIFICATION_RINGTONE
+                : Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
+                    ? AudioAttributes.USAGE_VOICE_COMMUNICATION_SIGNALLING
+                    : AudioAttributes.USAGE_NOTIFICATION_RINGTONE;
         ringtone.setAudioAttributes(
             new AudioAttributes.Builder()
                 .setUsage(usage)
@@ -40,7 +51,7 @@ public final class DibayForegroundRingtone {
       ringtone.play();
       active = ringtone;
       String sid = callId != null ? callId.trim() : "";
-      DibayCallLog.once("ring_start", sid, "source=native_foreground");
+      DibayCallLog.once("ring_start", sid, "source=" + source);
     } catch (Exception e) {
       Log.w(TAG, "[DIBAY_CALL] ring_start_failed err=" + e.getMessage());
     }
