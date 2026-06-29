@@ -1,6 +1,6 @@
 {
-  "startedAt": "2026-06-29T23:31:24.349Z",
-  "commit": "df060f28",
+  "startedAt": "2026-06-29T23:45:45.687Z",
+  "commit": "bd231dce",
   "prod": "https://samarket.vercel.app",
   "device": "RRGL4046NTW",
   "apk": "dist/apk/DIBAY-install-20260630-0704-notification-sound-ssot-6aa68cc9.apk",
@@ -39,12 +39,12 @@
     {
       "id": "ssot_patch_preview",
       "pass": true,
-      "detail": "status=200 diff=36"
+      "detail": "status=200 diff=1"
     },
     {
       "id": "ssot_patch_commit",
-      "pass": false,
-      "detail": "status=500 err=Could not find the table 'public.notification_sound_mappings' in the schema cache"
+      "pass": true,
+      "detail": "status=200"
     },
     {
       "id": "ssot_preview_resolver",
@@ -62,7 +62,7 @@
           "eventKey": "messenger_direct_message_received",
           "assetId": "DIBAY-SND-011",
           "kind": "dibay_custom",
-          "webUrl": "/sounds/notification.wav",
+          "webUrl": "https://ckdosyydvgzqwpbwuhon.supabase.co/storage/v1/object/public/store-order-sounds/_admin/notification-domains/community_direct_chat/0aa93e58-2f9c-45f8-9e17-86ff09925adc.mp3",
           "iosSoundName": "default",
           "androidChannelId": "dibay_chat_messages_v1",
           "vibration": true,
@@ -73,9 +73,13 @@
           "enabled": true,
           "resolvedFrom": "admin_mapping",
           "legacySource": {
-            "table": "admin_notification_settings",
             "key": "community_direct_chat",
-            "column": "sound_url"
+            "table": "admin_notification_settings",
+            "column": "sound_url",
+            "checksum": "5a6dd473e3731dad",
+            "seeded_at": "2026-06-29T23:36:17.063Z",
+            "url_at_seed": "https://ckdosyydvgzqwpbwuhon.supabase.co/storage/v1/object/public/store-order-sounds/_admin/notification-domains/community_direct_chat/0aa93e58-2f9c-45f8-9e17-86ff09925adc.mp3",
+            "null_at_seed": false
           }
         }
       },
@@ -96,9 +100,13 @@
           "enabled": true,
           "resolvedFrom": "admin_mapping",
           "legacySource": {
-            "table": "admin_settings",
             "key": "store_delivery_alert_sound",
-            "column": "value_json.url"
+            "table": "admin_settings",
+            "column": "value_json.url",
+            "checksum": "e3b0c44298fc1c14",
+            "seeded_at": "2026-06-29T23:36:18.292Z",
+            "url_at_seed": null,
+            "null_at_seed": true
           }
         }
       }

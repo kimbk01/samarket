@@ -1,6 +1,16 @@
 {
-  "bundleId": "notification-sound-ssot-native-call-lock",
-  "description": "Native Call LOCK files — SSOT work must not modify these paths.",
+  "bundleId": "notification-sound-ssot",
+  "phase1Status": "LOCK",
+  "phase1LockedAt": "2026-06-30",
+  "phase1LockDoc": "docs/notifications/notification-sound-ssot-phase1-lock.md",
+  "phase1QaLog": ".qa-logs/notification-sound-ssot-qa.md",
+  "phase2Backlog": [
+    "Android custom URI ring playback (NotificationSoundBridgePlugin)",
+    "FCM Java android_channel_id ensure wiring",
+    "Room custom sound upload",
+    "User per-event sound picker"
+  ],
+  "description": "Native Call LOCK files — SSOT Phase 1 must not modify these paths.",
   "forbiddenModifyPaths": [
     "android/app/src/main/java/com/dibay/app/IncomingCallRingOwner.java",
     "android/app/src/main/java/com/dibay/app/DibayForegroundRingtone.java",
@@ -12,11 +22,24 @@
     "android/app/src/main/java/com/dibay/app/IncomingCallActivity.java",
     "android/app/src/main/java/com/dibay/app/PendingIncomingPresentation.java"
   ],
+  "phase1ProtectedPaths": [
+    "lib/notifications/notification-sound-types.ts",
+    "lib/notifications/notification-sound-registry.ts",
+    "lib/notifications/notification-sound-resolver.ts",
+    "lib/notifications/notification-sound-event-map.ts",
+    "lib/notifications/notification-sound-legacy-mirror.ts",
+    "lib/notifications/load-notification-sound-ssot-server.ts",
+    "app/api/admin/notification-sound-ssot/route.ts",
+    "supabase/migrations/20260930120000_notification_sound_ssot.sql"
+  ],
   "allowedAdapterPaths": [
     "lib/push/native/notification-sound-native-bridge.ts",
+    "lib/push/native/ensure-notification-channel.ts",
     "lib/notifications/notification-sound-resolver.ts",
     "lib/notifications/notification-sound-legacy-mirror.ts",
-    "lib/notifications/notification-sound-event-map.ts"
+    "lib/notifications/notification-sound-event-map.ts",
+    "lib/notifications/notification-sound-engine.ts",
+    "lib/community-messenger/messenger-call-sound-config-client.ts"
   ],
   "adminSsotWriteApi": "app/api/admin/notification-sound-ssot"
 }

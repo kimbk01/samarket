@@ -44,6 +44,12 @@ function extractAssetIdsFromRegistry(src) {
 }
 
 const manifest = JSON.parse(read("scripts/notification-sound-ssot-lock-manifest.json"));
+if (manifest.phase1Status !== "LOCK") {
+  fail("notification-sound-ssot-lock-manifest phase1Status must be LOCK");
+}
+if (!read(manifest.phase1LockDoc).includes("Phase 1 LOCK")) {
+  fail("phase1 lock doc missing or invalid");
+}
 const registrySrc = read("lib/notifications/notification-sound-registry.ts");
 const eventKeys = extractEventKeysFromRegistry(registrySrc);
 const assetIds = extractAssetIdsFromRegistry(registrySrc);
@@ -89,6 +95,8 @@ const requiredFiles = [
   "scripts/seed-notification-sound-ssot-from-legacy.mjs",
   "components/admin/settings/AdminNotificationSoundSsotTable.tsx",
   "lib/push/native/notification-sound-native-bridge.ts",
+  "docs/notifications/notification-sound-ssot-phase1-lock.md",
+  ".cursor/rules/notification-sound-ssot-phase1-lock.mdc",
 ];
 for (const f of requiredFiles) {
   if (!fs.existsSync(path.join(ROOT, f))) {

@@ -1,0 +1,45 @@
+---
+description: Notification Sound SSOT Phase 1 LOCK — legacy mirror, resolver, admin single write (2026-06-30)
+globs:
+  - lib/notifications/notification-sound-*.ts
+  - lib/notifications/load-notification-sound-ssot-server.ts
+  - app/api/admin/notification-sound-ssot/**
+  - app/api/app/notification-sound-resolve/**
+  - components/admin/settings/AdminNotificationSoundSsotTable.tsx
+  - components/admin/settings/AdminNotificationDomainsSettings.tsx
+  - supabase/migrations/*notification_sound_ssot*
+  - scripts/notification-sound-ssot-lock-manifest.json
+  - scripts/verify-notification-sound-ssot-contract.mjs
+  - scripts/seed-notification-sound-ssot-from-legacy.mjs
+  - .qa-logs/notification-sound-ssot-qa.md
+alwaysApply: false
+---
+
+# Notification Sound SSOT Phase 1 LOCK
+
+Full doc: `docs/notifications/notification-sound-ssot-phase1-lock.md`  
+QA PASS: `.qa-logs/notification-sound-ssot-qa.md` (Admin commit 포함, 2026-06-30)
+
+## Without explicit user approval — DO NOT
+
+1. Modify Phase 1 SSOT core (registry, resolver priority, legacy mirror, admin PATCH diff/confirm flow).
+2. Drop legacy tables/APIs or add non-admin writes to SSOT mappings.
+3. Modify Native Call LOCK paths in `scripts/notification-sound-ssot-lock-manifest.json` `forbiddenModifyPaths`.
+4. Implement **Phase 2** in Phase 1 files: Android custom URI playback, FCM Java channel ensure, room custom sound UI, user per-event picker.
+
+## Phase 2 = separate PR
+
+Android URI bridge · FCM channel ensure · room custom sound · per-event picker — see lock doc backlog.
+
+## Regression gate
+
+```bash
+npm run verify:notification-sound-ssot-contract
+vitest run lib/notifications/__tests__/notification-sound-*.test.ts
+```
+
+Native Call bundle untouched:
+
+```bash
+npm run verify:call-v4-incoming-fsi-fallback-boundary
+```
