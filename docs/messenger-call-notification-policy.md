@@ -47,7 +47,7 @@
 - FCM payload contract: `lib/push/dispatch/fcm-data-payload-contract.ts`
 - 푸시 페이로드 조립: `lib/push/dispatch/build-web-push-json-payload.ts`
 - 수신 통화 발송: `lib/push/send-community-messenger-incoming-call-push.ts`
-- 부재중 발송: `lib/push/send-community-messenger-missed-call-push.ts`
+- 부재중 발송: `lib/notifications/pipeline/notify-missed-call-pipeline.ts` → `dispatchPushForUser`
 - Android 수신: `DibayFirebaseMessagingService`, `IncomingCallNotificationBuilder`, `IncomingCallActivity`, `IncomingCallDeclineReceiver`, `IncomingCallActionCoordinator`
 - 라우팅: `MainActivity` → `dibay:push-route` → `PushRouteListener`
 - SW (웹/PWA): `public/sw.js` — 네이티브 Android 경로와 별도, 변경 최소화
