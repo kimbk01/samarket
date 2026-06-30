@@ -1,13 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { filterUserDevicePushTargets } from "@/lib/push/dispatch/filter-user-device-push-targets";
 import type { DeliveryStatus, PushTarget } from "@/lib/push/dispatch/push-payload-types";
-
-type UserDeviceRow = {
-  id: string;
-  platform: string;
-  device_id: string;
-  push_token: string;
-  push_provider: string;
-};
 
 type WebPushRow = {
   id: string;
@@ -26,12 +19,6 @@ function normalizePlatform(raw: string | null | undefined): PushTarget["platform
   return "web";
 }
 
-function normalizeProvider(raw: string): PushTarget["push_provider"] | null {
-  const p = raw.trim().toLowerCase();
-  if (p === "fcm" || p === "apns" || p === "voip_apns" || p === "web_push") return p;
-  return null;
-}
-
 /**
  * Active push targets for a user — `user_devices` + legacy `web_push_subscriptions`.
  */
@@ -43,31 +30,14 @@ export async function loadActivePushTargets(svc: SupabaseClient, userId: string)
 
   const { data: deviceRows, error: deviceErr } = await svc
     .from("user_devices")
-    .select("id, platform, device_id, push_token, push_provider")
+    .select("id, platform, device_id, push_token, push_provider, last_seen_at, updated_at")
     .eq("user_id", uid)
     .eq("is_active", true)
+    .order("last_seen_at", { ascending: false })
     .order("updated_at", { ascending: false });
 
   if (!deviceErr && deviceRows?.length) {
-    const seenDeviceIds = new Set<string>();
-    for (const row of deviceRows as UserDeviceRow[]) {
-      const provider = normalizeProvider(row.push_provider);
-      const token = String(row.push_token ?? "").trim();
-      if (!provider || !token) continue;
-      const deviceKey = String(row.device_id ?? "").trim();
-      if (deviceKey) {
-        if (seenDeviceIds.has(deviceKey)) continue;
-        seenDeviceIds.add(deviceKey);
-      }
-      targets.push({
-        id: row.id,
-        source: "user_devices",
-        push_provider: provider,
-        push_token: token,
-        platform: normalizePlatform(row.platform),
-        device_id: row.device_id,
-      });
-    }
+    targets.push(...filterUserDevicePushTargets(deviceRows));
   }
 
   const { data: webRows, error: webErr } = await svc

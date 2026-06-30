@@ -149,5 +149,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "save_failed" }, { status: 500 });
   }
 
+  if (pushProvider === "fcm" && upserted?.id) {
+    const { error: deactivateErr } = await svc
+      .from("user_devices")
+      .update({ is_active: false, updated_at: now })
+      .eq("user_id", auth.userId)
+      .eq("push_provider", "fcm")
+      .eq("is_active", true)
+      .neq("id", upserted.id);
+    if (deactivateErr && !deactivateErr.message?.includes("does not exist")) {
+      console.error("[devices/register] deactivate_stale_fcm", deactivateErr.message);
+    }
+  }
+
   return NextResponse.json({ ok: true, device_row_id: upserted?.id ?? null });
 }
