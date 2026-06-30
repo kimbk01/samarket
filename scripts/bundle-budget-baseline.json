@@ -1,11 +1,11 @@
 {
-  "recordedAt": "2026-06-26",
+  "recordedAt": "2026-06-30",
   "recordedFrom": "npm run check:bundle:update-baseline",
   "metrics": {
-    "total_client_js_kb": 16051,
-    "messenger_home_js_kb": 3955,
-    "messenger_room_js_kb": 4089,
-    "messenger_call_js_kb": 3967
+    "total_client_js_kb": 16593,
+    "messenger_home_js_kb": 4021,
+    "messenger_room_js_kb": 4155,
+    "messenger_call_js_kb": 4033
   },
   "growth_slack_kb": {
     "total_client_js": 500,
@@ -15,36 +15,36 @@
   },
   "top_chunks": [
     {
-      "path": ".next/static/chunks/10960b2ac1af5cb5.js",
-      "kb": 1551
+      "path": ".next/static/chunks/4f4e489620614fa2.js",
+      "kb": 1556
     },
     {
       "path": ".next/static/chunks/c0ca526563b0f454.js",
       "kb": 1462
     },
     {
-      "path": ".next/static/chunks/6d4c5a05a4083a93.js",
-      "kb": 350
+      "path": ".next/static/chunks/360a91418141a488.js",
+      "kb": 355
     },
     {
-      "path": ".next/static/chunks/c79be602942436ea.js",
-      "kb": 220
+      "path": ".next/static/chunks/4da5a91988e5a3ca.js",
+      "kb": 225
     },
     {
       "path": ".next/static/chunks/00a68db08414d08c.js",
       "kb": 219
     },
     {
-      "path": ".next/static/chunks/1feeb4a07ac179fd.js",
-      "kb": 215
+      "path": ".next/static/chunks/a2688ea8c7784765.js",
+      "kb": 190
     },
     {
-      "path": ".next/static/chunks/987aa7bcf2a8fe52.js",
-      "kb": 189
+      "path": ".next/static/chunks/43033059c4bc31dd.js",
+      "kb": 184
     },
     {
-      "path": ".next/static/chunks/9f5ce8b8f91b3575.js",
-      "kb": 167
+      "path": ".next/static/chunks/df9837aa53cb48a7.js",
+      "kb": 168
     },
     {
       "path": ".next/static/chunks/738f9efac561fcf6.js",
@@ -55,7 +55,7 @@
       "kb": 160
     },
     {
-      "path": ".next/static/chunks/0f8b42b0bedf0dc0.js",
+      "path": ".next/static/chunks/702c1385abacf1ff.js",
       "kb": 159
     },
     {
@@ -65,19 +65,19 @@
   ],
   "provenance": {
     "measurement_version": 1,
-    "recorded_at_iso": "2026-06-26T00:08:45.413Z",
-    "build_id": "93YA9f9UltUJ93JN2glkS",
-    "chunk_file_count": 538,
+    "recorded_at_iso": "2026-06-30T08:24:06.733Z",
+    "build_id": "HOEfHDgXOZIwYka3qj6SX",
+    "chunk_file_count": 552,
     "bytes": {
-      "total_client_js": 16436297,
-      "messenger_home_js": 4050213,
-      "messenger_room_js": 4186711,
-      "messenger_call_js": 4062155
+      "total_client_js": 16991377,
+      "messenger_home_js": 4117967,
+      "messenger_room_js": 4254465,
+      "messenger_call_js": 4129909
     },
     "messenger_refs": {
-      "home": 54,
-      "room": 57,
-      "call": 55
+      "home": 56,
+      "room": 59,
+      "call": 57
     }
   }
 }
