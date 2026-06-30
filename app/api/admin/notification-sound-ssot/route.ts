@@ -43,11 +43,21 @@ function sbOr503() {
   }
 }
 
-function validatePatch(p: MappingPatch): string | null {
+async function loadValidAssetIds(sb: NonNullable<ReturnType<typeof sbOr503>>): Promise<Set<string>> {
+  const ids = new Set<string>(NOTIFICATION_SOUND_ASSET_IDS);
+  const { data } = await sb.from("notification_sound_assets").select("id");
+  for (const row of data ?? []) {
+    const id = typeof row.id === "string" ? row.id : "";
+    if (id) ids.add(id);
+  }
+  return ids;
+}
+
+function validatePatch(p: MappingPatch, validAssetIds: Set<string>): string | null {
   if (!p.event_key || !NOTIFICATION_SOUND_EVENT_KEYS.includes(p.event_key)) {
     return `unregistered event_key: ${p.event_key}`;
   }
-  if (!p.asset_id || !NOTIFICATION_SOUND_ASSET_IDS.includes(p.asset_id)) {
+  if (!p.asset_id || !validAssetIds.has(p.asset_id)) {
     return `invalid asset_id: ${p.asset_id}`;
   }
   if (typeof p.volume === "number" && (p.volume < 0 || p.volume > 1)) return "invalid volume";
@@ -91,8 +101,9 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "invalid_or_expired_confirm_token" }, { status: 400 });
     }
     const mappings = patches as MappingPatch[];
+    const validAssetIds = await loadValidAssetIds(sb);
     for (const p of mappings) {
-      const err = validatePatch(p);
+      const err = validatePatch(p, validAssetIds);
       if (err) return NextResponse.json({ ok: false, error: err }, { status: 400 });
       const { error } = await sb.from("notification_sound_mappings").upsert(
         {
@@ -129,8 +140,9 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "mappings_required" }, { status: 400 });
   }
 
+  const validAssetIds = await loadValidAssetIds(sb);
   for (const p of mappings) {
-    const err = validatePatch(p);
+    const err = validatePatch(p, validAssetIds);
     if (err) return NextResponse.json({ ok: false, error: err }, { status: 400 });
   }
 

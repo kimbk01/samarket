@@ -18,6 +18,9 @@ public final class DibayCallDebugCommandReceiver extends BroadcastReceiver {
   public static final String ACTION_DEBUG_CANCELED = "com.dibay.DEBUG_CALL_CANCELED";
   public static final String EXTRA_CALL_ID = "callId";
   public static final String EXTRA_CALL_TYPE = "callType";
+  public static final String EXTRA_RINGTONE_URL = "ringtoneUrl";
+  public static final String EXTRA_CALL_SOUND_EVENT_KEY = "callSoundEventKey";
+  public static final String EXTRA_SOUND_ASSET_ID = "soundAssetId";
   private static final String TAG = "DIBAY_CALL";
 
   @Override
@@ -40,6 +43,18 @@ public final class DibayCallDebugCommandReceiver extends BroadcastReceiver {
       data.put("callerId", "debug-caller");
       data.put("callerName", "Debug Caller");
       data.put("callType", callType);
+      String ringtoneUrl = intent.getStringExtra(EXTRA_RINGTONE_URL);
+      if (ringtoneUrl != null && !ringtoneUrl.trim().isEmpty()) {
+        data.put("ringtoneUrl", ringtoneUrl.trim());
+      }
+      String callSoundEventKey = intent.getStringExtra(EXTRA_CALL_SOUND_EVENT_KEY);
+      if (callSoundEventKey != null && !callSoundEventKey.trim().isEmpty()) {
+        data.put("callSoundEventKey", callSoundEventKey.trim());
+      }
+      String soundAssetId = intent.getStringExtra(EXTRA_SOUND_ASSET_ID);
+      if (soundAssetId != null && !soundAssetId.trim().isEmpty()) {
+        data.put("soundAssetId", soundAssetId.trim());
+      }
       IncomingCallPayload payload = FcmPayloadResolver.resolveIncomingCallPayload(data, "음성 통화", "Debug");
       if (!payload.isValid()) {
         Log.w(TAG, "[DIBAY_CALL] debug_incoming_invalid callId=" + sid);
@@ -66,6 +81,7 @@ public final class DibayCallDebugCommandReceiver extends BroadcastReceiver {
             : "/community-messenger/calls/" + Uri.encode(callId) + "?source=native_push";
     DibayIncomingCallNativeStore.setRinging(app, payload, pendingRoute, 0L);
     MainActivity.persistCallPendingRoute(app, pendingRoute, payload, 0L);
+    IncomingCallRingtoneSsotCache.putFromPayload(payload);
 
     IncomingCallPushDelivery.deliver(context, payload);
   }

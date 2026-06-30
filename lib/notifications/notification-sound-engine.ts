@@ -23,7 +23,9 @@ type TimerHandle = number | ReturnType<typeof globalThis.setTimeout>;
 let maxDurationTimer: TimerHandle | null = null;
 const repeatTimers: TimerHandle[] = [];
 
-const MAX_PLAY_MS = 10_000;
+export const NOTIFICATION_SOUND_MAX_PLAY_MS = 10_000;
+const MAX_PLAY_MS = NOTIFICATION_SOUND_MAX_PLAY_MS;
+export const NOTIFICATION_SOUND_MAX_PLAY_SEC = NOTIFICATION_SOUND_MAX_PLAY_MS / 1000;
 const REPEAT_GAP_MS = 800;
 
 /** Runtime Link P1 — prod WebView logcat/CDP 계측 (로직 무관) */
