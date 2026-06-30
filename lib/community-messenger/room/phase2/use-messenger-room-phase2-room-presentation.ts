@@ -6,6 +6,7 @@ import {
   parseCommunityMessengerRoomContextMeta,
   resolveCommunityMessengerDeliveryContextMeta,
 } from "@/lib/community-messenger/room-context-meta";
+import { isGeneralFriendDirectRoom } from "@/lib/community-messenger/messenger-room-domain";
 import {
   communityMessengerCallSessionIsActiveConnected,
   communityMessengerCallStubStatusIsTerminal,
@@ -35,27 +36,35 @@ export function useMessengerRoomPhase2RoomPresentation({
   t,
   callPanel,
 }: MessengerRoomPhase2RoomPresentationArgs) {
-  const tradeSendBlocked = Boolean(snapshot?.tradeMessaging && snapshot.tradeMessaging.canSendMessage === false);
+  const isGeneralFriendDirect = Boolean(snapshot?.room && isGeneralFriendDirectRoom(snapshot.room));
+  const tradeSendBlocked =
+    !isGeneralFriendDirect &&
+    Boolean(snapshot?.tradeMessaging && snapshot.tradeMessaging.canSendMessage === false);
   const roomGloballyBlocked = snapshot ? !communityMessengerRoomIsGloballyUsable(snapshot.room) : true;
   const roomUnavailable = roomGloballyBlocked || tradeSendBlocked;
   const isGroupRoom = snapshot ? snapshot.room.roomType !== "direct" : false;
   /** `summary` 컬럼에 거래/배달 v1 JSON만 들어간 경우 — 공지·소개에 원문 JSON 을 노출하지 않음 */
   const roomSummaryHoldsOnlyTradeOrDeliveryMeta = useMemo(() => {
+    if (isGeneralFriendDirect) return false;
     const raw = snapshot?.room.summary?.trim();
     if (!raw) return false;
     const k = snapshot?.room.contextMeta?.kind;
     if (k === "trade" || k === "delivery") return true;
     return parseCommunityMessengerRoomContextMeta(raw) != null;
-  }, [snapshot?.room.summary, snapshot?.room.contextMeta]);
+  }, [isGeneralFriendDirect, snapshot?.room.summary, snapshot?.room.contextMeta]);
   const tradeProductChatIdForDock = useMemo(() => {
+    if (isGeneralFriendDirect) return "";
     const m = snapshot?.room.contextMeta;
     if (!m || m.kind !== "trade") return "";
     return typeof m.productChatId === "string" ? m.productChatId.trim() : "";
-  }, [snapshot?.room.contextMeta]);
+  }, [isGeneralFriendDirect, snapshot?.room.contextMeta]);
   const showMessengerTradeProcessDock = !isGroupRoom && tradeProductChatIdForDock.length > 0;
   const deliveryContextMeta = useMemo(
-    () => (snapshot?.room ? resolveCommunityMessengerDeliveryContextMeta(snapshot.room) : null),
-    [snapshot?.room.contextMeta, snapshot?.room.messengerDirectKey, snapshot?.room.summary]
+    () =>
+      isGeneralFriendDirect || !snapshot?.room
+        ? null
+        : resolveCommunityMessengerDeliveryContextMeta(snapshot.room),
+    [isGeneralFriendDirect, snapshot?.room.contextMeta, snapshot?.room.messengerDirectKey, snapshot?.room.summary]
   );
   const storeOrderIdForDock = useMemo(() => {
     const id = deliveryContextMeta?.storeOrderId;

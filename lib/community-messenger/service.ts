@@ -14651,7 +14651,8 @@ async function loadCommunityMessengerRoomSnapshotUncached(
 
   /** `critical` 티어: trade exit·상세·normalize·enrich 없음 — silent full 부트스트랩에서만 채운다 */
   let tradeMessagingForSnapshot: CommunityMessengerTradeMessagingSnapshot | undefined;
-  if (sb && !isCriticalTier) {
+  const isGeneralFriendPairDirectKey = isMessengerGeneralFriendDirectKey(summary.messengerDirectKey);
+  if (sb && !isCriticalTier && !isGeneralFriendPairDirectKey) {
     let tradePc = tradeProductChatExitForSnapshot;
     if (!tradePc && summary.contextMeta?.kind === "trade") {
       tradePc = await loadTradeProductChatExitSnapshotForMessengerRoom(sb, id, summary.contextMeta, {
@@ -14703,12 +14704,10 @@ async function loadCommunityMessengerRoomSnapshotUncached(
   let directCallGate: CommunityMessengerRoomSnapshot["directCallGate"];
   let peerRelationLabel: CommunityMessengerRoomSnapshot["peerRelationLabel"];
   let membersForSnapshot = members;
-  const snapContextKind = summary.contextMeta?.kind;
   const isGeneralDirectRoom =
     summary.roomType === "direct" &&
-    peerUserId &&
-    snapContextKind !== "trade" &&
-    snapContextKind !== "delivery";
+    Boolean(peerUserId) &&
+    isMessengerGeneralFriendDirectKey(summary.messengerDirectKey);
   if (isGeneralDirectRoom && sb) {
     const friendshipResolution = await getFriendshipPairState(sb, userId, peerUserId);
     peerFriendshipState = peerFriendshipStateFromResolution(friendshipResolution);
@@ -14724,6 +14723,13 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     });
     directCallGate = directCallGateFromPermissionResult(gateResult);
     peerRelationLabel = gateResult.relationLabel;
+    if (
+      friendshipResolution.state === "pending" &&
+      friendshipResolution.row &&
+      trimText(friendshipResolution.row.requester_user_id) === userId
+    ) {
+      peerRelationLabel = "saved_by_me";
+    }
     if (friendshipResolution.state === "accepted") {
       membersForSnapshot = members.map((member) =>
         member.id === peerUserId ? { ...member, isFriend: true } : member

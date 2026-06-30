@@ -108,11 +108,14 @@ export function messengerDirectThreadListCollapseKey(room: CommunityMessengerRoo
   return `direct:${peer}`;
 }
 
-/** 친구 1:1 DM — trade/delivery 맥락 방 제외. 친구 목록·메시지 버튼·뮤트 SSOT. */
+/**
+ * 친구 general_friend_dm — SSOT는 sorted-pair `direct_key` (basePairKey).
+ * legacy `summary`/contextMeta.trade 잔재로 commerce 오판 금지 (trade_pc:/store_order: 키는 제외).
+ */
 export function isGeneralFriendDirectRoom(room: CommunityMessengerRoomSummary): boolean {
   if (room.roomType !== "direct") return false;
   if (!room.peerUserId?.trim()) return false;
-  return communityMessengerRoomInboxGroupKind(room) === "general";
+  return isMessengerGeneralFriendDirectKey(room.messengerDirectKey);
 }
 
 /** peer 기준 general friend direct room 1개 — lastMessageAt 최신 우선. */

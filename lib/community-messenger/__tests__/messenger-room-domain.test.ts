@@ -42,6 +42,9 @@ function roomSummary(partial: Partial<CommunityMessengerRoomSummary>): Community
   };
 }
 
+const TEST_GENERAL_PAIR_KEY =
+  "aaaaaaaa-bbbb-bbbb-bbbb-bbbbbbbbbbbb:cccccccc-dddd-dddd-dddd-dddddddddddd";
+
 describe("isMessengerGeneralFriendDirectKey", () => {
   const pairKey =
     "aaaaaaaa-bbbb-bbbb-bbbb-bbbbbbbbbbbb:cccccccc-dddd-dddd-dddd-dddddddddddd";
@@ -264,10 +267,25 @@ describe("isGeneralFriendDirectRoom", () => {
     ).toBe(false);
   });
 
-  it("rejects trade room by contextMeta.kind", () => {
+  it("accepts general pair key despite legacy trade contextMeta on summary", () => {
     expect(
       isGeneralFriendDirectRoom(
-        roomSummary({ contextMeta: { v: 1, kind: "trade", postId: "p1" } })
+        roomSummary({
+          messengerDirectKey:
+            "aaaaaaaa-bbbb-bbbb-bbbb-bbbbbbbbbbbb:cccccccc-dddd-dddd-dddd-dddddddddddd",
+          contextMeta: { v: 1, kind: "trade", postId: "p1" },
+        })
+      )
+    ).toBe(true);
+  });
+
+  it("rejects trade room when direct_key is commerce", () => {
+    expect(
+      isGeneralFriendDirectRoom(
+        roomSummary({
+          messengerDirectKey: "trade_pc:pc-1",
+          contextMeta: { v: 1, kind: "trade", productChatId: "pc-1" },
+        })
       )
     ).toBe(false);
   });
@@ -324,7 +342,7 @@ describe("pickGeneralDirectRoomForPeer", () => {
 describe("buildGeneralDirectRoomByPeerMap", () => {
   it("excludes trade rooms from peer map", () => {
     const peer = "peer-b";
-    const general = roomSummary({ id: "g1", peerUserId: peer });
+    const general = roomSummary({ id: "g1", peerUserId: peer, messengerDirectKey: TEST_GENERAL_PAIR_KEY });
     const trade = roomSummary({
       id: "t1",
       peerUserId: peer,
