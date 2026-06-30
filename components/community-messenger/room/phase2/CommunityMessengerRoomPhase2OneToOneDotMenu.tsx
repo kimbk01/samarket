@@ -37,7 +37,8 @@ import { useStoreOrderDeliveryMessengerHeader } from "@/lib/store-order-chat/use
 import { useStoreOrderDeliveryRoomOptional } from "@/components/community-messenger/room/phase2/store-order-delivery-room-context";
 import { formatStoreOrderDeliveryAddressPlain } from "@/lib/addresses/store-order-delivery-address-display";
 import {
-  communityMessengerRoomIsConfirmedTrade,
+  messengerRoomShowsConfirmedDeliveryPresentation,
+  messengerRoomShowsConfirmedTradePresentation,
   resolveMessengerDotMenuCallKind,
   resolveMessengerDotMenuCallVisibility,
 } from "@/lib/community-messenger/messenger-room-domain";
@@ -119,8 +120,11 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
   );
 
   const deliveryMeta = useMemo(
-    () => resolveCommunityMessengerDeliveryContextMeta(vm.snapshot.room),
-    [vm.snapshot.room.contextMeta, vm.snapshot.room.messengerDirectKey, vm.snapshot.room.summary]
+    () =>
+      messengerRoomShowsConfirmedDeliveryPresentation(vm.snapshot.room, vm.snapshot.viewerUserId)
+        ? resolveCommunityMessengerDeliveryContextMeta(vm.snapshot.room)
+        : null,
+    [vm.snapshot.room, vm.snapshot.viewerUserId]
   );
   const storeOrderId =
     typeof deliveryMeta?.storeOrderId === "string" ? deliveryMeta.storeOrderId.trim() : "";
@@ -141,7 +145,10 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
     thumbnailUrl: deliveryMeta?.thumbnailUrl ?? null,
   });
 
-  const isTradeRoom = communityMessengerRoomIsConfirmedTrade(vm.snapshot.room);
+  const isTradeRoom = messengerRoomShowsConfirmedTradePresentation(
+    vm.snapshot.room,
+    vm.snapshot.viewerUserId
+  );
   const callMenuKind = resolveMessengerDotMenuCallKind(vm.snapshot.room, { isDeliveryRoom });
   const roomType: RoomType = isTradeRoom ? "trade" : "direct";
 

@@ -1,5 +1,6 @@
 import type { ChatRoom } from "@/lib/types/chat";
 import type { DirectCallDenyCode } from "@/lib/community-messenger/direct-call-permission";
+import type { FriendshipDirection } from "@/lib/community-messenger/friendship/resolve-friendship-pair";
 
 export type CommunityMessengerTab = "friends" | "chats" | "groups" | "calls";
 
@@ -419,6 +420,10 @@ export type CommunityMessengerRoomSnapshot = {
   unknownPeerNoticeDismissed?: boolean;
   /** 1:1 general direct — peer 와의 friendship SSOT 상태(스냅샷·통화 UI) */
   peerFriendshipState?: "accepted" | "pending" | "none" | "blocked";
+  /** 1:1 general direct — SSOT resolver direction (PeerNotice pending 판단 SSOT) */
+  friendshipDirection?: FriendshipDirection;
+  /** 1:1 general direct — SSOT row id when pending (accept/reject CTA read-only) */
+  pendingFriendshipRequestId?: string;
   /** viewer → peer 발신 통화 gate — hidden room 과 무관 */
   directCallGate?: {
     canStartVoice: boolean;

@@ -5,6 +5,7 @@ import { logCallPermission } from "@/lib/community-messenger/direct-call-permiss
 import {
   communityMessengerRoomIsConfirmedDelivery,
   communityMessengerRoomIsConfirmedTrade,
+  generalFriendDirectRoomGate,
 } from "@/lib/community-messenger/messenger-room-domain";
 import { onCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import {
@@ -13,6 +14,19 @@ import {
 } from "@/lib/community-messenger/room/messenger-room-friendship-sync";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
+
+/** general pair direct_key — legacy contextMeta.trade 잔재여도 friendship RT·refresh 유지 */
+export function shouldRunMessengerRoomFriendshipSync(
+  room: Pick<CommunityMessengerRoomSummary, "roomType" | "contextMeta" | "messengerDirectKey" | "peerUserId">,
+  viewerUserId?: string | null
+): boolean {
+  if (room.roomType !== "direct") return false;
+  if (generalFriendDirectRoomGate(room, viewerUserId)) return true;
+  if (communityMessengerRoomIsConfirmedTrade(room as CommunityMessengerRoomSummary)) return false;
+  if (communityMessengerRoomIsConfirmedDelivery(room as CommunityMessengerRoomSummary)) return false;
+  return true;
+}
 
 type RefreshFn = (
   silent?: boolean,
@@ -38,8 +52,7 @@ export function useMessengerRoomFriendshipSync({
     const rid = String(roomId ?? "").trim();
     if (!viewerId || !peerUserId || !rid || !roomReadyForRealtime) return;
     if (snapshot?.room?.roomType !== "direct") return;
-    if (communityMessengerRoomIsConfirmedTrade(snapshot.room)) return;
-    if (communityMessengerRoomIsConfirmedDelivery(snapshot.room)) return;
+    if (!shouldRunMessengerRoomFriendshipSync(snapshot.room, snapshot?.viewerUserId)) return;
 
     const sb = getSupabaseClient();
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;

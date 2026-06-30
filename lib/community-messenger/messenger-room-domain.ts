@@ -118,6 +118,43 @@ export function isGeneralFriendDirectRoom(room: CommunityMessengerRoomSummary): 
   return isMessengerGeneralFriendDirectKey(room.messengerDirectKey);
 }
 
+/**
+ * PeerNotice·friendship sync·presentation — `messengerDirectKey` 누락 시 viewer+peer pair fallback.
+ * commerce direct_key(`trade_pc:`/`store_order:` 등) 만 제외 — `isGeneralFriendDirectRoom` 의미는 유지.
+ */
+export function generalFriendDirectRoomGate(
+  room: Pick<CommunityMessengerRoomSummary, "roomType" | "contextMeta" | "messengerDirectKey" | "peerUserId">,
+  viewerUserId?: string | null
+): boolean {
+  if (isGeneralFriendDirectRoom(room as CommunityMessengerRoomSummary)) return true;
+  if (room.roomType !== "direct") return false;
+  const peer = room.peerUserId?.trim() ?? "";
+  if (!peer) return false;
+  if (isMessengerCommerceDirectKey(room.messengerDirectKey)) return false;
+  if (communityMessengerRoomIsConfirmedDelivery(room as CommunityMessengerRoomSummary)) return false;
+  const viewer = viewerUserId?.trim() ?? "";
+  if (!viewer) return false;
+  return isMessengerGeneralFriendDirectKey(messengerDirectKeyForUserPair(viewer, peer));
+}
+
+/** basePairKey general DM — legacy `contextMeta.kind=trade` 거래 UI·dock 억제 */
+export function messengerRoomShowsConfirmedTradePresentation(
+  room: CommunityMessengerRoomSummary,
+  viewerUserId?: string | null
+): boolean {
+  if (generalFriendDirectRoomGate(room, viewerUserId)) return false;
+  return communityMessengerRoomIsConfirmedTrade(room);
+}
+
+/** basePairKey general DM — 배달 dock 억제 */
+export function messengerRoomShowsConfirmedDeliveryPresentation(
+  room: CommunityMessengerRoomSummary,
+  viewerUserId?: string | null
+): boolean {
+  if (generalFriendDirectRoomGate(room, viewerUserId)) return false;
+  return communityMessengerRoomIsConfirmedDelivery(room);
+}
+
 /** peer 기준 general friend direct room 1개 — lastMessageAt 최신 우선. */
 export function pickGeneralDirectRoomForPeer(
   chats: readonly CommunityMessengerRoomSummary[],

@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   buildGeneralDirectRoomByPeerMap,
   communityMessengerSummaryEligibleForPhaseDTradeEnrich,
+  messengerRoomShowsConfirmedDeliveryPresentation,
+  messengerRoomShowsConfirmedTradePresentation,
+  generalFriendDirectRoomGate,
   isGeneralFriendDirectRoom,
   isMessengerCommerceDirectKey,
   isMessengerGeneralFriendDirectKey,
@@ -306,6 +311,85 @@ describe("isGeneralFriendDirectRoom", () => {
 
   it("rejects group room", () => {
     expect(isGeneralFriendDirectRoom(roomSummary({ roomType: "private_group" }))).toBe(false);
+  });
+});
+
+describe("generalFriendDirectRoomGate", () => {
+  const viewer = "aaaaaaaa-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
+  const peer = "cccccccc-dddd-dddd-dddd-dddddddddddd";
+  const pairKey = `${viewer}:${peer}`;
+
+  it("falls back to viewer+peer when messengerDirectKey is omitted from bootstrap", () => {
+    expect(
+      generalFriendDirectRoomGate(
+        roomSummary({
+          messengerDirectKey: null,
+          peerUserId: peer,
+          contextMeta: { v: 1, kind: "trade", headline: "legacy" },
+        }),
+        viewer
+      )
+    ).toBe(true);
+  });
+
+  it("legacy trade meta on general pair still passes gate via viewer+peer fallback", () => {
+    expect(
+      generalFriendDirectRoomGate(
+        roomSummary({
+          messengerDirectKey: null,
+          peerUserId: peer,
+          contextMeta: { v: 1, kind: "trade", productChatId: "pc-1" },
+        }),
+        viewer
+      )
+    ).toBe(true);
+  });
+
+  it("rejects trade_pc direct_key", () => {
+    expect(
+      generalFriendDirectRoomGate(
+        roomSummary({ messengerDirectKey: "trade_pc:abc:peer-b", contextMeta: { v: 1, kind: "trade" } }),
+        viewer
+      )
+    ).toBe(false);
+  });
+
+  it("matches isGeneralFriendDirectRoom when direct_key is present", () => {
+    expect(
+      generalFriendDirectRoomGate(roomSummary({ messengerDirectKey: pairKey, peerUserId: peer }), viewer)
+    ).toBe(true);
+  });
+});
+
+describe("messengerRoomShowsConfirmedTradePresentation", () => {
+  const viewer = "aaaaaaaa-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
+  const peer = "cccccccc-dddd-dddd-dddd-dddddddddddd";
+  const pairKey = `${viewer}:${peer}`;
+
+  it("suppresses trade UI for legacy trade meta on general pair key", () => {
+    const room = roomSummary({
+      messengerDirectKey: pairKey,
+      peerUserId: peer,
+      contextMeta: { v: 1, kind: "trade", headline: "legacy" },
+    });
+    expect(messengerRoomShowsConfirmedTradePresentation(room, viewer)).toBe(false);
+  });
+
+  it("shows trade UI for trade_pc direct key", () => {
+    const room = roomSummary({
+      messengerDirectKey: "trade_pc:pc-1",
+      peerUserId: peer,
+      contextMeta: { v: 1, kind: "trade", productChatId: "pc-1" },
+    });
+    expect(messengerRoomShowsConfirmedTradePresentation(room, viewer)).toBe(true);
+  });
+});
+
+describe("room bootstrap SELECT includes direct_key", () => {
+  it("room bootstrap column lists include direct_key for PeerNotice snapshot", () => {
+    const src = readFileSync(join(process.cwd(), "lib/community-messenger/service.ts"), "utf8");
+    expect(src).toMatch(/roomSelectColsDeferSeedNoNoticeBody[\s\S]*direct_key/);
+    expect(src).toMatch(/roomSelectColsFull[\s\S]*direct_key/);
   });
 });
 

@@ -102,7 +102,6 @@ import { allowCommunityMessengerFriendInMemoryDevFallback } from "@/lib/communit
 import {
   addFriendSaved,
   blockUserSocial,
-  fetchFriendSavedAtByPeerId,
   fetchFriendSavedAcceptedRowsForViewer,
   isBlockedEitherWay,
   isFriendSavedByMe,
@@ -122,13 +121,21 @@ import {
   mapDenyCodeToApiError,
 } from "@/lib/community-messenger/direct-call-permission";
 import { assertDirectRoomCommunicationNotBlocked } from "@/lib/community-messenger/direct-room-communication-gate";
+import { resolveFriendshipPair } from "@/lib/community-messenger/friendship/resolve-friendship-pair";
 import {
-  getFriendshipPairState,
-  peerFriendshipStateFromResolution,
-} from "@/lib/community-messenger/friendship-resolver";
+  friendshipPairResolutionFromResolved,
+  projectRoomSnapshotFriendshipFromResolution,
+} from "@/lib/community-messenger/friendship/room-snapshot-friendship-projection";
+import {
+  mergeCommunityFriendAcceptedRowsFromSources,
+  type CommunityFriendRequestAcceptedRow,
+} from "@/lib/community-messenger/friendship/community-messenger-friend-accepted-list";
+import { listBootstrapAcceptedFriendRowsFromSsot } from "@/lib/community-messenger/friendship/bootstrap-accepted-friend-rows-from-ssot";
+import { listFriendshipSsotRowsForViewer } from "@/lib/community-messenger/friendship/community-messenger-friendships-ssot";
 import {
   communityMessengerSummaryEligibleForPhaseDTradeEnrich,
   isMessengerGeneralFriendDirectKey,
+  messengerDirectKeyForUserPair,
 } from "@/lib/community-messenger/messenger-room-domain";
 import { isUnknownPeerNoticeDismissed } from "@/lib/community-messenger/peer-notices";
 import { participantViewerBlockedHidden } from "@/lib/community-messenger/participant-block-hide";
@@ -1826,25 +1833,7 @@ async function getViewerRelationSets(
       const target = trimText(row.target_user_id);
       const relationType = trimText(row.relation_type);
       if (!target) continue;
-      if (relationType === "friend") friendIds.add(target);
       if (relationType === "blocked" && row.is_active !== false) blocked.add(target);
-    }
-
-    if (friendIds.size) {
-      const { data: reverseFriendRows } = await (sb as any)
-        .from("user_social_relations")
-        .select("owner_user_id")
-        .eq("relation_type", "friend")
-        .eq("target_user_id", userId)
-        .in("owner_user_id", [...friendIds]);
-      const reverseSet = new Set(
-        ((reverseFriendRows ?? []) as Array<{ owner_user_id?: string }>).map((row) =>
-          trimText(row.owner_user_id)
-        ).filter(Boolean)
-      );
-      for (const peerId of [...friendIds]) {
-        if (!reverseSet.has(peerId)) friendIds.delete(peerId);
-      }
     }
 
     for (const row of (favoriteRows ?? []) as Array<{ target_user_id?: string }>) {
@@ -1863,13 +1852,14 @@ async function getViewerRelationSets(
     }
   }
 
-  if (!friendIds.size || !favoriteFriendIds.size || !hiddenFriendIds.size) {
+  const acceptedRows = await fetchCommunityFriendAcceptedRowsForViewer(userId);
+  const acceptedPeerSet = new Set(acceptedPeerIdsFromCommunityFriendRows(userId, acceptedRows));
+  for (const target of uniqueTargets) {
+    if (acceptedPeerSet.has(target)) friendIds.add(target);
+  }
+
+  if (!favoriteFriendIds.size || !hiddenFriendIds.size) {
     const dev = getDevState();
-    for (const row of dev.friendRequests) {
-      if (row.status !== "accepted") continue;
-      const peerId = row.requester_id === userId ? row.addressee_id : row.requester_id;
-      if (uniqueTargets.includes(peerId)) friendIds.add(peerId);
-    }
     const favorites = dev.favoriteFriends.get(userId);
     if (favorites) {
       for (const target of favorites) favoriteFriendIds.add(target);
@@ -2141,16 +2131,8 @@ export async function listCommunityMessengerFriendRequests(
   return buildCommunityMessengerFriendRequestsFromProfileMap(userId, rows, profileMap);
 }
 
-type CommunityFriendRequestAcceptedRow = {
-  requester_id?: string;
-  addressee_id?: string;
-  status?: string;
-  responded_at?: string | null;
-  created_at?: string;
-};
-
-/** mutual friend rows only — 단방향 저장은 친구 목록·isFriend 에 포함하지 않음 */
-async function fetchCommunityFriendAcceptedRowsForViewer(
+/** legacy mutual user_social_relations — SSOT merge fallback input. */
+async function fetchLegacyMutualFriendAcceptedRowsForViewer(
   userId: string
 ): Promise<CommunityFriendRequestAcceptedRow[]> {
   const saved = await fetchFriendSavedAcceptedRowsForViewer(userId);
@@ -2161,13 +2143,38 @@ async function fetchCommunityFriendAcceptedRowsForViewer(
       mutualSaved.push(row);
     }
   }
-  if (mutualSaved.length) return mutualSaved;
+  return mutualSaved;
+}
 
-  const acceptedRequests = await fetchCommunityFriendRequestsAcceptedRowsForViewer(userId);
-  if (acceptedRequests.length) return acceptedRequests;
+/** accepted 친구 rows — friendships SSOT 1순위, legacy mutual save / requests fallback. */
+async function fetchCommunityFriendAcceptedRowsForViewer(
+  userId: string
+): Promise<CommunityFriendRequestAcceptedRow[]> {
+  const viewer = trimText(userId);
+  if (!viewer) return [];
 
-  if (!allowCommunityMessengerFriendInMemoryDevFallback()) return mutualSaved;
-  return fetchCommunityFriendRequestsAcceptedRowsForViewer(userId);
+  let ssotRows: Awaited<ReturnType<typeof listFriendshipSsotRowsForViewer>> = [];
+  const sb = getSupabaseOrNull();
+  if (sb) {
+    try {
+      ssotRows = await listFriendshipSsotRowsForViewer(sb, viewer);
+    } catch {
+      ssotRows = [];
+    }
+  }
+
+  const legacyMutualRows = await fetchLegacyMutualFriendAcceptedRowsForViewer(viewer);
+  let legacyRequestRows = await fetchCommunityFriendRequestsAcceptedRowsForViewer(viewer);
+  if (!legacyRequestRows.length && !allowCommunityMessengerFriendInMemoryDevFallback()) {
+    legacyRequestRows = [];
+  }
+
+  return mergeCommunityFriendAcceptedRowsFromSources({
+    userId: viewer,
+    ssotRows,
+    legacyMutualRows,
+    legacyRequestRows,
+  });
 }
 
 /** @deprecated legacy community_friend_requests — dev fallback only */
@@ -2367,12 +2374,20 @@ function buildRoomSummaryFromHydratedMembers(
       : roomType === "open_group"
         ? cmOpenGroupRoomSubtitle(effectiveMemberCount)
         : cmGroupRoomSubtitle(effectiveMemberCount);
-  const messengerDirectKey =
+  const messengerDirectKeyRaw =
     roomType === "direct"
       ? isDbRoom
         ? trimText((room as RoomRow).direct_key ?? "") || null
         : trimText((room as DevRoom).directKey ?? "") || null
       : null;
+  let messengerDirectKey = messengerDirectKeyRaw;
+  if (roomType === "direct" && !messengerDirectKey) {
+    const solePeer = peers.length === 1 ? peers[0] : peerProfilesBase[0]?.id?.trim();
+    if (solePeer) {
+      const derived = messengerDirectKeyForUserPair(userId, solePeer);
+      if (isMessengerGeneralFriendDirectKey(derived)) messengerDirectKey = derived;
+    }
+  }
   let unreadCountVal: number;
   if (unreadPerf) {
     const tu = performance.now();
@@ -5034,7 +5049,7 @@ export async function fetchBootstrapLiteSocialGraphSnapshot(
     blockedIds,
     requestRows,
   ] = await Promise.all([
-    fetchCommunityFriendAcceptedRowsForViewer(userId),
+    listBootstrapAcceptedFriendRowsFromSsot(userId),
     listFavoriteFriendIds(userId),
     listFollowingIds(userId, "neighbor_follow"),
     listFollowingIds(userId, "hidden"),
@@ -5340,7 +5355,7 @@ export async function getCommunityMessengerBootstrap(
   } else {
     const acceptedFriendRowsPromise = (async () => {
       const t = performance.now();
-      const rows = await fetchCommunityFriendAcceptedRowsForViewer(userId);
+      const rows = await listBootstrapAcceptedFriendRowsFromSsot(userId);
       diagnostics && (diagnostics.parallelAcceptedFriendsBundleMs = Math.round(performance.now() - t));
       return rows;
     })();
@@ -8881,16 +8896,12 @@ async function enrichTradeRoomContextMetaForBootstrap(
 }
 
 export async function listCommunityMessengerFriends(userId: string): Promise<CommunityMessengerProfileLite[]> {
-  const [friendIds, hiddenIds, friendshipAcceptedAtByPeer] = await Promise.all([
-    listFriendSavedIds(userId).then(async (saved) => {
-      if (saved.length) return saved;
-      if (!allowCommunityMessengerFriendInMemoryDevFallback()) return saved;
-      const rows = await fetchCommunityFriendAcceptedRowsForViewer(userId);
-      return acceptedPeerIdsFromCommunityFriendRows(userId, rows);
-    }),
+  const [acceptedRows, hiddenIds] = await Promise.all([
+    fetchCommunityFriendAcceptedRowsForViewer(userId),
     listFollowingIds(userId, "hidden"),
-    fetchFriendSavedAtByPeerId(userId),
   ]);
+  const friendIds = acceptedPeerIdsFromCommunityFriendRows(userId, acceptedRows);
+  const friendshipAcceptedAtByPeer = friendshipAcceptedAtByPeerFromRows(userId, acceptedRows);
   const hiddenIdSet = new Set(hiddenIds);
   const profiles = await hydrateProfiles(
     userId,
@@ -9301,7 +9312,7 @@ export async function respondCommunityMessengerFriendRequest(
   userId: string,
   requestId: string,
   action: "accept" | "reject" | "cancel"
-): Promise<{ ok: boolean; error?: string; directRoomId?: string }> {
+): Promise<{ ok: boolean; error?: string; directRoomId?: string; acceptedPeerUserId?: string }> {
   const id = trimText(requestId);
   if (!id) return { ok: false, error: "bad_request_id" };
   const nextStatus: CommunityMessengerFriendRequestStatus =
@@ -9317,11 +9328,16 @@ export async function respondCommunityMessengerFriendRequest(
         if (!actionResult.ok) return actionResult;
         const request = ssot.friendshipRowToRequestRow(actionResult.row);
         let directRoomId: string | undefined;
+        let acceptedPeerUserId: string | undefined;
         if (action === "accept") {
           const requesterId = trimText(request.requester_id);
           const addresseeId = trimText(request.addressee_id);
           if (requesterId && addresseeId) {
             await syncMutualFriendSavedAfterAccept(requesterId, addresseeId);
+            const { primeMessengerFriendshipSocialGraphAfterAccept } = await import(
+              "@/lib/community-messenger/friendship/prime-messenger-friendship-social-graph-after-accept"
+            );
+            await primeMessengerFriendshipSocialGraphAfterAccept([requesterId, addresseeId]);
             const roomOut = await ensureGeneralFriendDirectRoom(addresseeId, requesterId);
             if (!roomOut.ok) {
               console.warn("[community-messenger] accept friend: direct room ensure failed", roomOut.error);
@@ -9335,6 +9351,7 @@ export async function respondCommunityMessengerFriendRequest(
               addresseeUserId: addresseeId,
               addresseeLabel: profileLabel(profileMap.get(addresseeId), addresseeId),
             });
+            acceptedPeerUserId = userId === requesterId ? addresseeId : requesterId;
           }
         } else if (action === "reject") {
           const requesterId = trimText(request.requester_id);
@@ -9348,6 +9365,11 @@ export async function respondCommunityMessengerFriendRequest(
               addresseeLabel: profileLabel(profileMap.get(addresseeId), addresseeId),
             });
           }
+        }
+        if (acceptedPeerUserId) {
+          return directRoomId
+            ? { ok: true, directRoomId, acceptedPeerUserId }
+            : { ok: true, acceptedPeerUserId };
         }
         return directRoomId ? { ok: true, directRoomId } : { ok: true };
       }
@@ -9372,11 +9394,16 @@ export async function respondCommunityMessengerFriendRequest(
         .eq("id", id);
       if (!error) {
         let directRoomId: string | undefined;
+        let acceptedPeerUserId: string | undefined;
         if (action === "accept") {
           const requesterId = trimText(request.requester_id);
           const addresseeId = trimText(request.addressee_id);
           if (requesterId && addresseeId) {
             await syncMutualFriendSavedAfterAccept(requesterId, addresseeId);
+            const { primeMessengerFriendshipSocialGraphAfterAccept } = await import(
+              "@/lib/community-messenger/friendship/prime-messenger-friendship-social-graph-after-accept"
+            );
+            await primeMessengerFriendshipSocialGraphAfterAccept([requesterId, addresseeId]);
             const roomOut = await ensureGeneralFriendDirectRoom(addresseeId, requesterId);
             if (!roomOut.ok) {
               console.warn("[community-messenger] accept friend: direct room ensure failed", roomOut.error);
@@ -9390,6 +9417,7 @@ export async function respondCommunityMessengerFriendRequest(
               addresseeUserId: addresseeId,
               addresseeLabel: profileLabel(profileMap.get(addresseeId), addresseeId),
             });
+            acceptedPeerUserId = userId === requesterId ? addresseeId : requesterId;
           }
         } else if (action === "reject") {
           const requesterId = trimText(request.requester_id);
@@ -9403,6 +9431,11 @@ export async function respondCommunityMessengerFriendRequest(
               addresseeLabel: profileLabel(profileMap.get(addresseeId), addresseeId),
             });
           }
+        }
+        if (acceptedPeerUserId) {
+          return directRoomId
+            ? { ok: true, directRoomId, acceptedPeerUserId }
+            : { ok: true, acceptedPeerUserId };
         }
         return directRoomId ? { ok: true, directRoomId } : { ok: true };
       }
@@ -9444,6 +9477,52 @@ export async function respondCommunityMessengerFriendRequest(
  * 낙관적 `local:friend_request:…` 구간에서도 취소할 수 있도록,
  * `requester_id + addressee_id` 로 pending 행을 찾아 취소한다(행이 없으면 성공·`didCancel: false`).
  */
+/**
+ * `requestId` 없이도 room snapshot pending incoming CTA 가 동작하도록,
+ * `requester_id + addressee_id(viewer)` 로 pending incoming 행을 찾아 accept/reject 한다.
+ */
+export async function respondIncomingCommunityMessengerFriendRequestByRequester(
+  userId: string,
+  requesterId: string,
+  action: "accept" | "reject"
+): Promise<{ ok: boolean; error?: string; directRoomId?: string; acceptedPeerUserId?: string }> {
+  const viewer = trimText(userId);
+  const requester = trimText(requesterId);
+  if (!viewer || !requester || viewer === requester) return { ok: false, error: "bad_target" };
+  const sb = getSupabaseOrNull();
+  if (sb) {
+    const ssot = await import("@/lib/community-messenger/friendship/community-messenger-friendships-ssot");
+    try {
+      const pendingRow = await ssot.findPendingIncomingFriendshipRow(sb, viewer, requester);
+      if (pendingRow) {
+        return respondCommunityMessengerFriendRequest(viewer, pendingRow.id, action);
+      }
+    } catch (err) {
+      if (!isMissingTableError(err)) throw err;
+    }
+
+    const { data: row, error: selErr } = await (sb as any)
+      .from("community_friend_requests")
+      .select("id, requester_id, addressee_id, status")
+      .eq("requester_id", requester)
+      .eq("addressee_id", viewer)
+      .eq("status", "pending")
+      .maybeSingle();
+    if (selErr && !isMissingTableError(selErr)) {
+      return { ok: false, error: String(selErr.message ?? "select_failed") };
+    }
+    if (!row) return { ok: false, error: "not_pending" };
+    return respondCommunityMessengerFriendRequest(viewer, String((row as RequestRow).id), action);
+  }
+
+  const dev = getDevState();
+  const hit = dev.friendRequests.find(
+    (r) => r.requester_id === requester && r.addressee_id === viewer && r.status === "pending"
+  );
+  if (!hit) return { ok: false, error: "not_pending" };
+  return respondCommunityMessengerFriendRequest(viewer, hit.id, action);
+}
+
 export async function cancelOutgoingCommunityMessengerFriendRequestByAddressee(
   userId: string,
   addresseeId: string
@@ -13899,9 +13978,9 @@ async function loadCommunityMessengerRoomSnapshotUncached(
 
     /** defer seed: `notice_text` 만 제외 — 첫 페인트·textarea 전 공지 본문은 불필요, `bootstrapEnrichmentPending` 경로로 후속 보강 가능. */
     const roomSelectColsDeferSeedNoNoticeBody =
-      "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type";
+      "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, direct_key, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type";
     const roomSelectColsFull =
-      "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, pinned_message_id, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type";
+      "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, direct_key, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, pinned_message_id, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type";
     const roomSelectForBootstrap =
       deferSecondaryRequested || isCriticalTier ? roomSelectColsDeferSeedNoNoticeBody : roomSelectColsFull;
     const roomQuery = (sb as any)
@@ -14701,6 +14780,8 @@ async function loadCommunityMessengerRoomSnapshotUncached(
   }
 
   let peerFriendshipState: CommunityMessengerRoomSnapshot["peerFriendshipState"];
+  let friendshipDirection: CommunityMessengerRoomSnapshot["friendshipDirection"];
+  let pendingFriendshipRequestId: CommunityMessengerRoomSnapshot["pendingFriendshipRequestId"];
   let directCallGate: CommunityMessengerRoomSnapshot["directCallGate"];
   let peerRelationLabel: CommunityMessengerRoomSnapshot["peerRelationLabel"];
   let membersForSnapshot = members;
@@ -14709,28 +14790,24 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     Boolean(peerUserId) &&
     isMessengerGeneralFriendDirectKey(summary.messengerDirectKey);
   if (isGeneralDirectRoom && sb) {
-    const friendshipResolution = await getFriendshipPairState(sb, userId, peerUserId);
-    peerFriendshipState = peerFriendshipStateFromResolution(friendshipResolution);
+    const friendshipResolved = await resolveFriendshipPair(sb, userId, peerUserId);
+    const friendshipProjection = projectRoomSnapshotFriendshipFromResolution(friendshipResolved);
+    peerFriendshipState = friendshipProjection.peerFriendshipState;
+    friendshipDirection = friendshipProjection.friendshipDirection;
+    pendingFriendshipRequestId = friendshipProjection.pendingFriendshipRequestId;
     const gateResult = await canStartDirectCallBetweenUsers({
       callerUserId: userId,
       calleeUserId: peerUserId,
       roomId: id,
       callKind: "audio",
       supabase: sb,
-      friendshipPreload: friendshipResolution,
+      friendshipPreload: friendshipPairResolutionFromResolved(friendshipResolved),
       /** critical/defer 첫 페인트 — participant room 쿼리는 API gate 에 위임 */
       skipRoomCheck: isCriticalTier || deferSecondary,
     });
     directCallGate = directCallGateFromPermissionResult(gateResult);
     peerRelationLabel = gateResult.relationLabel;
-    if (
-      friendshipResolution.state === "pending" &&
-      friendshipResolution.row &&
-      trimText(friendshipResolution.row.requester_user_id) === userId
-    ) {
-      peerRelationLabel = "saved_by_me";
-    }
-    if (friendshipResolution.state === "accepted") {
+    if (friendshipResolved.state === "accepted") {
       membersForSnapshot = members.map((member) =>
         member.id === peerUserId ? { ...member, isFriend: true } : member
       );
@@ -14762,6 +14839,8 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     ...(tradeMessagingForSnapshot ? { tradeMessaging: tradeMessagingForSnapshot } : {}),
     ...(unknownPeerNoticeDismissed !== undefined ? { unknownPeerNoticeDismissed } : {}),
     ...(peerFriendshipState ? { peerFriendshipState } : {}),
+    ...(friendshipDirection ? { friendshipDirection } : {}),
+    ...(pendingFriendshipRequestId ? { pendingFriendshipRequestId } : {}),
     ...(directCallGate ? { directCallGate } : {}),
     ...(peerRelationLabel ? { peerRelationLabel } : {}),
   };

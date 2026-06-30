@@ -204,6 +204,27 @@ export async function applyFriendshipRequestAction(
   return { ok: true, row: data as FriendshipSsotRow };
 }
 
+/** viewer 가 참여한 friendships 전체 — accepted·pending·blocked·removed (친구 목록 merge SSOT). */
+export async function listFriendshipSsotRowsForViewer(
+  sb: { from: (table: string) => unknown },
+  userId: string
+): Promise<FriendshipSsotRow[]> {
+  const viewer = trimText(userId);
+  if (!viewer) return [];
+  const { data, error } = await (sb as any)
+    .from("community_messenger_friendships")
+    .select(
+      "id, requester_user_id, addressee_user_id, status, blocked_by_user_id, blocked_at, readd_blocked_until, created_at, accepted_at, removed_at, updated_at"
+    )
+    .or(`requester_user_id.eq.${viewer},addressee_user_id.eq.${viewer}`)
+    .order("updated_at", { ascending: false });
+  if (error) {
+    if (isMissingTableError(error)) return [];
+    throw error;
+  }
+  return (data ?? []) as FriendshipSsotRow[];
+}
+
 export async function findPendingOutgoingFriendshipRow(
   sb: { from: (table: string) => unknown },
   requesterId: string,
@@ -223,4 +244,13 @@ export async function findPendingOutgoingFriendshipRow(
     throw error;
   }
   return (data as FriendshipSsotRow | null) ?? null;
+}
+
+/** addressee(viewer) 기준 requester 가 보낸 pending incoming */
+export async function findPendingIncomingFriendshipRow(
+  sb: { from: (table: string) => unknown },
+  addresseeId: string,
+  requesterId: string
+): Promise<FriendshipSsotRow | null> {
+  return findPendingOutgoingFriendshipRow(sb, requesterId, addresseeId);
 }

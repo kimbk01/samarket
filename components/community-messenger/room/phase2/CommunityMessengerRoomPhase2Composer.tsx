@@ -92,7 +92,8 @@ import { MessengerComposerSector } from "@/components/community-messenger/line-u
 import { ChatComposer } from "@/components/chat/ChatComposer";
 import { resolveCommunityMessengerDeliveryContextMeta } from "@/lib/community-messenger/room-context-meta";
 import {
-  communityMessengerRoomIsConfirmedTrade,
+  messengerRoomShowsConfirmedDeliveryPresentation,
+  messengerRoomShowsConfirmedTradePresentation,
   resolveMessengerDotMenuCallKind,
   resolveMessengerRoomFeatureGate,
 } from "@/lib/community-messenger/messenger-room-domain";
@@ -326,11 +327,17 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
     );
   }, [vm.snapshot?.tradeMessaging, t]);
   const deliveryCtx = useMemo(
-    () => resolveCommunityMessengerDeliveryContextMeta(vm.snapshot.room),
-    [vm.snapshot.room.contextMeta, vm.snapshot.room.messengerDirectKey, vm.snapshot.room.summary]
+    () =>
+      messengerRoomShowsConfirmedDeliveryPresentation(vm.snapshot.room, vm.snapshot.viewerUserId)
+        ? resolveCommunityMessengerDeliveryContextMeta(vm.snapshot.room)
+        : null,
+    [vm.snapshot.room, vm.snapshot.viewerUserId]
   );
   const isDeliveryRoom = deliveryCtx != null;
-  const isTradeRoom = communityMessengerRoomIsConfirmedTrade(vm.snapshot.room);
+  const isTradeRoom = messengerRoomShowsConfirmedTradePresentation(
+    vm.snapshot.room,
+    vm.snapshot.viewerUserId
+  );
   const tradeCallPolicy = useMemo(() => {
     if (!isTradeRoom) return "none";
     return normalizeTradeChatCallPolicy(vm.snapshot.tradeChatRoomDetail?.product?.tradeChatCallPolicy);

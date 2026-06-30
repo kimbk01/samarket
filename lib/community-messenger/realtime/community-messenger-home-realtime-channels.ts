@@ -143,30 +143,6 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
             {
               event: "*",
               schema: "public",
-              table: "community_friend_requests",
-              filter: `addressee_id=eq.${args.userId}`,
-            },
-            () => {
-              if (!cancelled()) refreshScheduler.schedule();
-            }
-          )
-          .on(
-            "postgres_changes",
-            {
-              event: "*",
-              schema: "public",
-              table: "community_friend_requests",
-              filter: `requester_id=eq.${args.userId}`,
-            },
-            () => {
-              if (!cancelled()) refreshScheduler.schedule();
-            }
-          )
-          .on(
-            "postgres_changes",
-            {
-              event: "*",
-              schema: "public",
               table: "community_messenger_friendships",
               filter: `requester_user_id=eq.${args.userId}`,
             },
@@ -181,6 +157,30 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
               schema: "public",
               table: "community_messenger_friendships",
               filter: `addressee_user_id=eq.${args.userId}`,
+            },
+            () => {
+              if (!cancelled()) refreshScheduler.schedule();
+            }
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "community_friend_requests",
+              filter: `addressee_id=eq.${args.userId}`,
+            },
+            () => {
+              if (!cancelled()) refreshScheduler.schedule();
+            }
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "community_friend_requests",
+              filter: `requester_id=eq.${args.userId}`,
             },
             () => {
               if (!cancelled()) refreshScheduler.schedule();

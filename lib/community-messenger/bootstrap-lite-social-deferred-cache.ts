@@ -78,6 +78,13 @@ export function storeBootstrapLiteSocialDeferred(
   cache.set(userId, { snapshot, expiresAt: now + TTL_MS });
 }
 
+/** 친구 수락/거절 등 social graph 변경 — stale accepted rows 방지 */
+export function invalidateBootstrapLiteSocialDeferred(userId: string): void {
+  const key = userId.trim();
+  if (!key) return;
+  cache.delete(key);
+}
+
 export function scheduleBootstrapLiteSocialGraphBackgroundHydration(
   userId: string,
   loader: () => Promise<BootstrapLiteSocialDeferredSnapshot>

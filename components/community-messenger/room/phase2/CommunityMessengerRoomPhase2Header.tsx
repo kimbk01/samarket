@@ -33,7 +33,9 @@ import { formatDeliveryMessengerPresenceIndustrySubtitle } from "@/lib/store-ord
 import { useStoreOrderDeliveryMessengerHeader } from "@/lib/store-order-chat/use-store-order-delivery-messenger-header";
 import { StoreOrderDeliveryMessengerHeaderBlock } from "@/components/community-messenger/room/phase2/StoreOrderDeliveryMessengerHeaderBlock";
 import {
-  communityMessengerRoomIsConfirmedTrade,
+  generalFriendDirectRoomGate,
+  messengerRoomShowsConfirmedDeliveryPresentation,
+  messengerRoomShowsConfirmedTradePresentation,
   resolveMessengerDotMenuCallKind,
   resolveMessengerDotMenuCallVisibility,
 } from "@/lib/community-messenger/messenger-room-domain";
@@ -59,8 +61,11 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
   const bindPresenceAndTyping = hydrationPass >= 2;
 
   const deliveryMeta = useMemo(
-    () => resolveCommunityMessengerDeliveryContextMeta(vm.snapshot.room),
-    [vm.snapshot.room.contextMeta, vm.snapshot.room.messengerDirectKey, vm.snapshot.room.summary]
+    () =>
+      messengerRoomShowsConfirmedDeliveryPresentation(vm.snapshot.room, vm.snapshot.viewerUserId)
+        ? resolveCommunityMessengerDeliveryContextMeta(vm.snapshot.room)
+        : null,
+    [vm.snapshot.room, vm.snapshot.viewerUserId]
   );
   const storeOrderId =
     typeof deliveryMeta?.storeOrderId === "string" ? deliveryMeta.storeOrderId.trim() : "";
@@ -68,7 +73,10 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
   const isDeliveryRoom = deliveryMeta != null && storeOrderId.length > 0;
   const deliveryViewerRole = messengerDeliveryViewerRole(deliveryMeta, vm.snapshot.myRole);
   const isDeliveryBuyer = isDeliveryRoom && deliveryViewerRole === "buyer";
-  const isTradeRoom = communityMessengerRoomIsConfirmedTrade(vm.snapshot.room);
+  const isTradeRoom = messengerRoomShowsConfirmedTradePresentation(
+    vm.snapshot.room,
+    vm.snapshot.viewerUserId
+  );
   const tradeCallPolicy = useMemo(() => {
     if (!isTradeRoom) return "none";
     return normalizeTradeChatCallPolicy(vm.snapshot.tradeChatRoomDetail?.product?.tradeChatCallPolicy);

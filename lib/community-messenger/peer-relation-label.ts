@@ -41,3 +41,17 @@ export function isMutualFriendRelationLabel(label: PeerRelationLabel): boolean {
 export function shouldShowStrangerPeerWarning(label: PeerRelationLabel): boolean {
   return label !== "mutual_friend" && label !== "saved_by_me" && label !== "blocked";
 }
+
+/** pending friendship row — viewer가 requester/addressee 중 누구인지로 gate·save 오판정을 덮어쓴다 */
+export function peerRelationLabelFromPendingFriendshipRow(
+  viewerUserId: string,
+  row: { requester_user_id: string; addressee_user_id: string }
+): PeerRelationLabel | null {
+  const viewer = viewerUserId.trim();
+  const requester = row.requester_user_id.trim();
+  const addressee = row.addressee_user_id.trim();
+  if (!viewer || !requester || !addressee) return null;
+  if (viewer === requester) return "saved_by_me";
+  if (viewer === addressee) return "saved_by_peer";
+  return null;
+}

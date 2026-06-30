@@ -6,7 +6,7 @@ import {
   parseCommunityMessengerRoomContextMeta,
   resolveCommunityMessengerDeliveryContextMeta,
 } from "@/lib/community-messenger/room-context-meta";
-import { isGeneralFriendDirectRoom } from "@/lib/community-messenger/messenger-room-domain";
+import { generalFriendDirectRoomGate } from "@/lib/community-messenger/messenger-room-domain";
 import {
   communityMessengerCallSessionIsActiveConnected,
   communityMessengerCallStubStatusIsTerminal,
@@ -36,7 +36,9 @@ export function useMessengerRoomPhase2RoomPresentation({
   t,
   callPanel,
 }: MessengerRoomPhase2RoomPresentationArgs) {
-  const isGeneralFriendDirect = Boolean(snapshot?.room && isGeneralFriendDirectRoom(snapshot.room));
+  const isGeneralFriendDirect = Boolean(
+    snapshot?.room && generalFriendDirectRoomGate(snapshot.room, snapshot.viewerUserId)
+  );
   const tradeSendBlocked =
     !isGeneralFriendDirect &&
     Boolean(snapshot?.tradeMessaging && snapshot.tradeMessaging.canSendMessage === false);

@@ -7,9 +7,9 @@ import {
   COMMUNITY_MESSENGER_HOME_SYNC_CRITICAL_ROOM_CAP,
   COMMUNITY_MESSENGER_HOME_SYNC_FULL_ROOM_CAP,
 } from "@/lib/community-messenger/home-sync-room-caps";
+import { listCommunityMessengerFriendsFromSsot } from "@/lib/community-messenger/friendship/list-community-messenger-friends-ssot";
 import {
   listCommunityMessengerFriendRequests,
-  listCommunityMessengerFriends,
   listCommunityMessengerMyChatsAndGroups,
 } from "@/lib/community-messenger/service";
 import { homeSyncBreakdownEnabled, logHomeSyncBreakdown } from "@/lib/community-messenger/home-sync-breakdown-log";
@@ -85,7 +85,7 @@ export async function getCommunityMessengerHomeSyncBundle(
     })(),
     (async () => {
       const tFr = performance.now();
-      const rows = await listCommunityMessengerFriends(userId);
+      const rows = await listCommunityMessengerFriendsFromSsot(userId);
       friendsFetchMs = performance.now() - tFr;
       return rows;
     })(),

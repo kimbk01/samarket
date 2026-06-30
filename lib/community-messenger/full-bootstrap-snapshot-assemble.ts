@@ -35,6 +35,7 @@ import {
   FBT1_CRITICAL_DEFAULT_LIMIT,
   FBT1_FULL_DEFAULT_LIMIT,
 } from "@/lib/community-messenger/full-bootstrap-snapshot-counter";
+import { listBootstrapAcceptedFriendRowsFromSsot } from "@/lib/community-messenger/friendship/bootstrap-accepted-friend-rows-from-ssot";
 
 export type FullBootstrapSnapshotPayloadJson = {
   ok?: boolean;
@@ -336,7 +337,7 @@ export async function assembleFullBootstrapFromSnapshotPayload(
   if (!parsed) return null;
 
   const social = payload.social_graph ?? {};
-  const acceptedFriendRows = Array.isArray(social.accepted_friends) ? social.accepted_friends : [];
+  const acceptedFriendRows = await listBootstrapAcceptedFriendRowsFromSsot(userId);
   const favoriteFriendIds = (Array.isArray(social.favorite_friend_ids) ? social.favorite_friend_ids : []).map(String);
   const followingIds = (Array.isArray(social.following_neighbor) ? social.following_neighbor : []).map(String);
   const hiddenIds = (Array.isArray(social.following_hidden) ? social.following_hidden : []).map(String);

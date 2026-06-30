@@ -11,12 +11,13 @@ import {
   jsonOkWithRequest,
   parseJsonBody,
 } from "@/lib/http/api-route";
+import { isGeneralFriendDirectRoom } from "@/lib/community-messenger/messenger-room-domain";
 import {
   createOpenGroupRoom,
   createPrivateGroupRoom,
-  ensureCommunityMessengerDirectRoom,
   ensureCommunityMessengerDirectRoomFromProductChat,
   ensureCommunityMessengerDirectRoomFromStoreOrderChat,
+  ensureGeneralFriendDirectRoom,
   getCommunityMessengerRoomSnapshot,
   listCommunityMessengerMyChatsAndGroups,
   syncStoreOrderCommunityMessengerRoomId,
@@ -139,17 +140,22 @@ export async function POST(req: NextRequest) {
   const productChatRoomId = typeof body.productChatRoomId === "string" ? body.productChatRoomId.trim() : "";
 
   let result: { ok: boolean; roomId?: string; error?: string };
+  const isPeerOnlyDirect = !storeOrderId && !productChatRoomId;
   if (storeOrderId) {
     result = await ensureCommunityMessengerDirectRoomFromStoreOrderChat(auth.userId, storeOrderId);
   } else if (productChatRoomId) {
     result = await ensureCommunityMessengerDirectRoomFromProductChat(auth.userId, productChatRoomId);
   } else {
-    result = await ensureCommunityMessengerDirectRoom(auth.userId, String(body.peerUserId ?? ""));
+    result = await ensureGeneralFriendDirectRoom(auth.userId, String(body.peerUserId ?? ""));
   }
   if (!result.ok || !result.roomId) {
     const err = result.error ?? "room_failed";
     const status =
-      err === "not_participant" ? 403 : err === "product_chat_not_found" || err === "order_chat_not_found" ? 404 : 400;
+      err === "not_participant" || err === "blocked_target" || err === "cannot_start_chat"
+        ? 403
+        : err === "product_chat_not_found" || err === "order_chat_not_found"
+          ? 404
+          : 400;
     return jsonError(result.error ?? "대화방 준비에 실패했습니다.", status, result);
   }
   if (storeOrderId) {
@@ -160,5 +166,8 @@ export async function POST(req: NextRequest) {
     });
   }
   const snapshot = await getCommunityMessengerRoomSnapshot(auth.userId, result.roomId);
+  if (isPeerOnlyDirect && snapshot?.room && !isGeneralFriendDirectRoom(snapshot.room)) {
+    return jsonError("cannot_start_chat", 403, { error: "cannot_start_chat" });
+  }
   return jsonOkWithRequest(req, { ...result, snapshot });
 }

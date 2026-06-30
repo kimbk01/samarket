@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
-import { listCommunityMessengerFriends } from "@/lib/community-messenger/service";
+import { listCommunityMessengerFriendsFromSsot } from "@/lib/community-messenger/friendship/list-community-messenger-friends-ssot";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,6 +19,6 @@ export async function GET(req: NextRequest) {
   });
   if (!rateLimit.ok) return rateLimit.response;
 
-  const friends = await listCommunityMessengerFriends(auth.userId);
+  const friends = await listCommunityMessengerFriendsFromSsot(auth.userId);
   return NextResponse.json({ ok: true, friends });
 }

@@ -37,6 +37,7 @@ export type HomeListPatchSource =
   | "optimistic-read"
   | "trade-meta"
   | "multi-tab"
+  | "room_friend_request_outcome"
   | "dev-only";
 
 export type HomeListPatch =
