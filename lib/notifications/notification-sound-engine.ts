@@ -26,6 +26,9 @@ const repeatTimers: TimerHandle[] = [];
 const MAX_PLAY_MS = 10_000;
 const REPEAT_GAP_MS = 800;
 
+/** Runtime Link P1 — prod WebView logcat/CDP 계측 (로직 무관) */
+const RUNTIME_LINK_P1_LOG = "[runtime-link-p1]";
+
 export function stopNotificationPlayback(): void {
   if (maxDurationTimer) {
     clearTimeout(maxDurationTimer);
@@ -55,8 +58,13 @@ export async function playEventNotificationSound(
   context?: { roomMuted?: boolean; userSoundEnabled?: boolean; userDomainEnabled?: boolean }
 ): Promise<void> {
   if (typeof window === "undefined") return;
+  console.info(RUNTIME_LINK_P1_LOG, "playEventNotificationSound:enter", { eventKey });
   await ensureNotificationSoundSsotHydratedForClient();
   const resolved = resolveNotificationSound(eventKey, { ...context, platform: "web" });
+  console.info(RUNTIME_LINK_P1_LOG, "playEventNotificationSound:resolved", {
+    eventKey: resolved.eventKey,
+    fileUrl: resolved.webUrl ?? null,
+  });
   if (!resolved.enabled || resolved.kind === "silent") return;
   if (!resolved.webUrl) return;
 
@@ -66,6 +74,10 @@ export async function playEventNotificationSound(
   const vol = resolved.volume;
   const repeats = Math.max(1, Math.min(5, resolved.repeatCount));
 
+  console.info(RUNTIME_LINK_P1_LOG, "playEventNotificationSound:before-audio", {
+    eventKey: resolved.eventKey,
+    fileUrl: url,
+  });
   for (let i = 0; i < repeats; i++) {
     const t = window.setTimeout(() => {
       playOneShot(url, vol);
