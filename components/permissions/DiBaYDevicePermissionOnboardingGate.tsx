@@ -13,7 +13,11 @@ import {
 import { openNativeCallPermissionSettings } from "@/lib/call/native/native-call-permissions";
 import {
   canAttemptPostLoginOnboardingGate,
+  DIBAY_POST_LOGIN_ONBOARDING_PROFILE_RETRY_EVENT,
   isPostLoginOnboardingBlockedByAddressGate,
+  isPostLoginOnboardingPathEligible,
+  notifyPostLoginOnboardingProfileRetry,
+  resolvePostLoginOnboardingUserId,
   schedulePostLoginOnboardingOpen,
 } from "@/lib/permissions/dibay-post-login-onboarding-gate";
 import {
@@ -28,6 +32,7 @@ import {
 import { recordDiBaYOnboardingDecision } from "@/lib/permissions/device-permission-manager";
 import { runNotificationGuideFlow } from "@/lib/permissions/permission-manager/notification-onboarding-flow";
 import { syncNotificationState } from "@/lib/permissions/permission-manager/notification-permission-manager";
+import { subscribeDibayAuthStateChange } from "@/lib/auth/dibay-session-manager";
 import { useStoresHomeOverlayDeferUntilInput } from "@/lib/stores/use-stores-home-overlay-defer-until-input";
 
 /** 로그인 후 notification guide 완료 전 NativePushRegistration 대기용 */
@@ -185,6 +190,7 @@ export function DiBaYDevicePermissionOnboardingGate() {
   );
 
   const tryOpen = useCallback(() => {
+    if (!isPostLoginOnboardingPathEligible(pathname, deferStoresHomeLcp)) return;
     if (!canAttemptPostLoginOnboardingGate(pathname, deferStoresHomeLcp)) return;
     if (shownRef.current || runningRef.current) return;
 
@@ -232,6 +238,23 @@ export function DiBaYDevicePermissionOnboardingGate() {
   useEffect(() => {
     const timer = window.setTimeout(() => tryOpen(), 300);
     return () => window.clearTimeout(timer);
+  }, [tryOpen]);
+
+  useEffect(() => {
+    return subscribeDibayAuthStateChange((event, session) => {
+      if (!session?.user?.id) return;
+      if (event !== "SIGNED_IN" && event !== "INITIAL_SESSION") return;
+      notifyPostLoginOnboardingProfileRetry();
+      tryOpen();
+    });
+  }, [tryOpen]);
+
+  useEffect(() => {
+    const onProfileRetry = () => {
+      tryOpen();
+    };
+    window.addEventListener(DIBAY_POST_LOGIN_ONBOARDING_PROFILE_RETRY_EVENT, onProfileRetry);
+    return () => window.removeEventListener(DIBAY_POST_LOGIN_ONBOARDING_PROFILE_RETRY_EVENT, onProfileRetry);
   }, [tryOpen]);
 
   useEffect(() => {

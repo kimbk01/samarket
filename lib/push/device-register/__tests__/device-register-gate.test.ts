@@ -9,7 +9,12 @@ import {
   recordDeviceRegisterProceedAttempt,
   resetDeviceRegisterGateForTests,
 } from "@/lib/push/device-register/device-register-gate";
-import { registerDeviceOnce, resetDeviceRegisterGateForTests as resetOnce } from "@/lib/push/device-register/register-device-once";
+import {
+  prepareDeviceRegisterAfterLogin,
+  registerDeviceOnce,
+  resetDeviceRegisterGateForTests as resetOnce,
+  resetDeviceRegisterLoginForceForTests,
+} from "@/lib/push/device-register/register-device-once";
 
 const identity: DeviceRegisterIdentity = {
   userId: "user-abc-123",
@@ -23,6 +28,7 @@ describe("device-register SSOT gate", () => {
   beforeEach(() => {
     resetDeviceRegisterGateForTests();
     resetOnce();
+    resetDeviceRegisterLoginForceForTests();
   });
 
   it("dedupes same identity to one POST", async () => {
@@ -71,6 +77,14 @@ describe("device-register SSOT gate", () => {
     await registerDeviceOnce(identity, "test", postFn);
     await registerDeviceOnce(identity, "test", postFn);
     expect(postFn).toHaveBeenCalledTimes(1);
+  });
+
+  it("bypasses success TTL once after prepareDeviceRegisterAfterLogin", async () => {
+    const postFn = vi.fn(async () => ({ ok: true as const }));
+    await registerDeviceOnce(identity, "test", postFn);
+    prepareDeviceRegisterAfterLogin(identity.userId);
+    await registerDeviceOnce(identity, "test", postFn);
+    expect(postFn).toHaveBeenCalledTimes(2);
   });
 
   it("applies failure backoff", async () => {

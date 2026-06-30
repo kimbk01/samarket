@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { registerNativePushFromClient, attachVoipPushTokenListener } from "@/lib/push/native/register-native-push-client";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
-import { getSessionPhase, subscribeSessionPhase } from "@/lib/auth/dibay-session-manager";
+import { getSessionPhase, subscribeDibayAuthStateChange, subscribeSessionPhase } from "@/lib/auth/dibay-session-manager";
 import { allowsPushRegistration, isTerminalGuestPhase, type DibaySessionPhase } from "@/lib/auth/dibay-session-policy";
 import { getCurrentUser, getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import { logGuestAuthBootMarker } from "@/lib/auth/guest-auth-boot-markers";
@@ -12,25 +12,25 @@ import {
   logPushRegisterFail,
   logPushRegisterMountContext,
 } from "@/lib/push/native/native-push-register-log";
-import {
-  waitForNotificationOnboardingSettled,
-} from "@/components/permissions/DiBaYDevicePermissionOnboardingGate";
+import { prepareDeviceRegisterAfterLogin } from "@/lib/push/device-register/register-device-once";
 import {
   ensureNotificationForPushRegister,
   getCachedNotificationReceiveSnapshot,
   subscribeNotificationPermissionSnapshot,
 } from "@/lib/permissions/permission-manager/notification-permission-manager";
+import { DIBAY_POST_LOGIN_ONBOARDING_PROFILE_RETRY_EVENT } from "@/lib/permissions/dibay-post-login-onboarding-gate";
 
 const MAX_USER_ID_WAIT_ATTEMPTS = 8;
 const MAX_REGISTER_ATTEMPTS = 3;
 
 /**
  * Native FCM/APNS — authenticated phase only.
- * Waits for first-login notification guide before register; check-only (no OS request).
+ * Push register is independent of UI onboarding; check-only permission (no OS request).
  */
 export function NativePushRegistration() {
   const [phase, setPhase] = useState<DibaySessionPhase>(() => getSessionPhase());
   const attemptedUserIdRef = useRef<string | null>(null);
+  const sessionUserIdRef = useRef<string | null>(null);
   const registerInFlightRef = useRef(false);
   const registerRunIdRef = useRef(0);
   const registerFnRef = useRef<(() => void) | null>(null);
@@ -68,6 +68,7 @@ export function NativePushRegistration() {
       if (isTerminalGuestPhase(phase) || phase === "corrupt") {
         logGuestAuthBootMarker("push_register_skipped_terminal_guest", { phase });
         attemptedUserIdRef.current = null;
+        sessionUserIdRef.current = null;
       }
       return;
     }
@@ -81,10 +82,22 @@ export function NativePushRegistration() {
       return (await getCurrentUserIdForDb())?.trim() ?? "";
     };
 
+    const resetForUserId = (userId: string, reason: string) => {
+      const uid = userId.trim();
+      if (!uid) return;
+      const prev = sessionUserIdRef.current;
+      if (prev === uid && attemptedUserIdRef.current === uid) return;
+      if (prev !== uid) {
+        sessionUserIdRef.current = uid;
+        attemptedUserIdRef.current = null;
+        prepareDeviceRegisterAfterLogin(uid);
+        logPushRegister("session_authenticated", { user_id: uid, register_reset: reason });
+      }
+    };
+
     const attemptRegister = async (userAttempt: number, registerAttempt: number) => {
       if (cancelled || runId !== registerRunIdRef.current || registerInFlightRef.current) return;
 
-      await waitForNotificationOnboardingSettled();
       const cached = getCachedNotificationReceiveSnapshot();
       const pushCheck =
         cached?.receiveReady === true
@@ -106,6 +119,8 @@ export function NativePushRegistration() {
         }
         return;
       }
+
+      resetForUserId(userId, "resolved");
 
       if (attemptedUserIdRef.current === userId) return;
 
@@ -141,18 +156,29 @@ export function NativePushRegistration() {
     void attemptRegister(0, 0);
 
     const unsubSnapshot = subscribeNotificationPermissionSnapshot((snapshot) => {
-      if (
-        snapshot.receiveReady &&
-        attemptedUserIdRef.current == null &&
-        !registerInFlightRef.current
-      ) {
-        registerFnRef.current?.();
-      }
+      if (!snapshot.receiveReady || registerInFlightRef.current) return;
+      if (attemptedUserIdRef.current != null) return;
+      registerFnRef.current?.();
     });
+
+    const unsubAuth = subscribeDibayAuthStateChange((event, session) => {
+      const uid = session?.user?.id?.trim() ?? "";
+      if (!uid) return;
+      if (event !== "SIGNED_IN" && event !== "INITIAL_SESSION") return;
+      resetForUserId(uid, `auth:${event}`);
+      registerFnRef.current?.();
+    });
+
+    const onProfileRetry = () => {
+      registerFnRef.current?.();
+    };
+    window.addEventListener(DIBAY_POST_LOGIN_ONBOARDING_PROFILE_RETRY_EVENT, onProfileRetry);
 
     return () => {
       cancelled = true;
       unsubSnapshot();
+      unsubAuth();
+      window.removeEventListener(DIBAY_POST_LOGIN_ONBOARDING_PROFILE_RETRY_EVENT, onProfileRetry);
     };
   }, [phase]);
 

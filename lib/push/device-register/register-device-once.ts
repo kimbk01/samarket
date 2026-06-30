@@ -2,6 +2,7 @@
 
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import {
+  clearDeviceRegisterGateForUser,
   evaluateDeviceRegisterGate,
   markDeviceRegisterFailure,
   markDeviceRegisterSuccess,
@@ -20,6 +21,28 @@ export type DeviceRegisterPostResult = { ok: true } | { ok: false; error: string
 export type DeviceRegisterPostFn = (identity: DeviceRegisterIdentity) => Promise<DeviceRegisterPostResult>;
 
 const DEFAULT_SUCCESS_TTL_MS = 24 * 60 * 60 * 1000;
+
+/** login/account-switch 직후 1회 — 24h TTL·native skip 우회 */
+let forceRegisterUserId: string | null = null;
+
+function consumeForceRegisterIfMatches(userId: string): boolean {
+  const uid = userId.trim();
+  if (!uid || forceRegisterUserId !== uid) return false;
+  forceRegisterUserId = null;
+  return true;
+}
+
+/** 로그인·계정 전환 직후 register 가 TTL/skip 에 막히지 않게 gate 초기화 */
+export function prepareDeviceRegisterAfterLogin(userId: string): void {
+  const uid = userId.trim();
+  if (!uid) return;
+  clearDeviceRegisterGateForUser();
+  forceRegisterUserId = uid;
+}
+
+export function resetDeviceRegisterLoginForceForTests(): void {
+  forceRegisterUserId = null;
+}
 
 function logCallsites(callsite: string, identity: DeviceRegisterIdentity, extra?: Record<string, unknown>): void {
   if (typeof console === "undefined") return;
@@ -43,7 +66,10 @@ export async function registerDeviceOnce(
 ): Promise<DeviceRegisterPostResult> {
   logCallsites(callsite, identity, { phase: "enter" });
 
-  if (!opts?.force) {
+  const forceFromLogin = consumeForceRegisterIfMatches(identity.userId);
+  const force = opts?.force === true || forceFromLogin;
+
+  if (!force) {
     const gate = evaluateDeviceRegisterGate<DeviceRegisterPostResult>(identity, callsite, {
       successTtlMs: opts?.successTtlMs ?? DEFAULT_SUCCESS_TTL_MS,
     });
@@ -60,7 +86,7 @@ export async function registerDeviceOnce(
 
   const flightKey = `device-register:${deviceRegisterIdentityKey(identity)}`;
   return runSingleFlight(flightKey, async () => {
-    if (!opts?.force) {
+    if (!force) {
       const recheck = evaluateDeviceRegisterGate<DeviceRegisterPostResult>(identity, callsite, {
         successTtlMs: opts?.successTtlMs ?? DEFAULT_SUCCESS_TTL_MS,
       });
@@ -97,6 +123,9 @@ export function shouldSkipDeviceRegisterPost(
   callsite: string,
   opts?: { successTtlMs?: number },
 ): boolean {
+  if (forceRegisterUserId && identity.userId.trim() === forceRegisterUserId) {
+    return false;
+  }
   const age = peekDeviceRegisterSuccessAgeMs(identity);
   if (age == null) return false;
   const ttl = opts?.successTtlMs ?? DEFAULT_SUCCESS_TTL_MS;
