@@ -1,7 +1,7 @@
 /**
  * DIBAY Notification Sound SSOT — static catalog (DB seed source of truth).
  */
-import { NOTIFICATION_SOUND_ASSET_PATH } from "@/lib/notifications/play-notification-sound";
+import { NOTIFICATION_SOUND_ASSET_PATH } from "@/lib/notifications/notification-sound-asset-path";
 import type {
   NotificationSoundAssetRow,
   NotificationSoundEventRow,

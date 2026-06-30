@@ -3,10 +3,11 @@
  * `NOTIFICATION_SOUND_ASSET_PATH` 는 registry 자산 경로 상수로만 유지.
  */
 
+import { NOTIFICATION_SOUND_ASSET_PATH } from "@/lib/notifications/notification-sound-asset-path";
 import { applyPreferredSinkToHtmlAudioElement } from "@/lib/permissions/speaker-output-preference";
 import { resolveNotificationSound } from "@/lib/notifications/notification-sound-resolver";
 
-export const NOTIFICATION_SOUND_ASSET_PATH = "/sounds/notification.wav";
+export { NOTIFICATION_SOUND_ASSET_PATH };
 
 /** @deprecated 같은 파일 경로; 호환용. */
 export const NOTIFICATION_SOUND_MP3_PATH = NOTIFICATION_SOUND_ASSET_PATH;
