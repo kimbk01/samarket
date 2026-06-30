@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { enforceRateLimit, getRateLimitKey, parseJsonBody } from "@/lib/http/api-route";
+import { shouldActivateFcmDeviceRegister } from "@/lib/push/device-register/should-activate-fcm-device-register";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export const runtime = "nodejs";
@@ -122,6 +123,17 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  const { data: fcmPeers } =
+    pushProvider === "fcm"
+      ? await svc
+          .from("user_devices")
+          .select("device_id, last_seen_at")
+          .eq("user_id", auth.userId)
+          .eq("push_provider", "fcm")
+      : { data: [] as { device_id: string; last_seen_at: string }[] };
+
+  const activateRow = shouldActivateFcmDeviceRegister(deviceId, pushProvider, fcmPeers ?? []);
+
   const { data: upserted, error: upsertErr } = await svc
     .from("user_devices")
     .upsert(
@@ -132,7 +144,7 @@ export async function POST(req: NextRequest) {
         push_token: pushToken,
         push_provider: pushProvider,
         app_version: appVersion,
-        is_active: true,
+        is_active: activateRow,
         last_seen_at: now,
         updated_at: now,
       },
@@ -149,7 +161,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "save_failed" }, { status: 500 });
   }
 
-  if (pushProvider === "fcm" && upserted?.id) {
+  if (pushProvider === "fcm" && upserted?.id && activateRow) {
     const { error: deactivateErr } = await svc
       .from("user_devices")
       .update({ is_active: false, updated_at: now })
