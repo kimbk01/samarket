@@ -1,7 +1,6 @@
 package com.dibay.app;
 
 import android.app.Notification;
-import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
@@ -28,7 +27,8 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class DibayFirebaseMessagingService extends FirebaseMessagingService {
   private static final String TAG = "DIBAY_FCM";
-  static final String MESSAGES_CHANNEL_ID = "dibay_messages";
+  /** @deprecated use {@link DibayNotificationChannelRegistry#DEFAULT_MESSAGE_CHANNEL_ID} */
+  static final String MESSAGES_CHANNEL_ID = DibayNotificationChannelRegistry.DEFAULT_MESSAGE_CHANNEL_ID;
   private static final long EVENT_DEDUPE_MS = 10_000L;
   private static final ConcurrentHashMap<String, Long> recentNotificationEventIds =
       new ConcurrentHashMap<>();
@@ -249,20 +249,12 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
   }
 
   static void ensureMessagesChannelStatic(Context context) {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
-    NotificationManager nm = context.getSystemService(NotificationManager.class);
-    if (nm == null) return;
-    if (nm.getNotificationChannel(MESSAGES_CHANNEL_ID) != null) return;
-    NotificationChannel channel =
-        new NotificationChannel(MESSAGES_CHANNEL_ID, "채팅 메시지", NotificationManager.IMPORTANCE_HIGH);
-    channel.setDescription("채팅 메시지 알림");
-    channel.enableVibration(true);
-    channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
-    nm.createNotificationChannel(channel);
+    DibayNotificationChannelRegistry.ensureMessageChannel(
+        context, DibayNotificationChannelRegistry.DEFAULT_MESSAGE_CHANNEL_ID);
   }
 
-  private void ensureMessagesChannel() {
-    ensureMessagesChannelStatic(this);
+  private void ensureMessagesChannel(String channelId) {
+    DibayNotificationChannelRegistry.ensureMessageChannel(this, channelId);
   }
 
   private void showMessageNotification(
@@ -278,7 +270,8 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
       Log.i(TAG, "[notify-message] native_notification_dedupe eventId=" + notificationId);
       return;
     }
-    ensureMessagesChannel();
+    String channelId = DibayNotificationChannelRegistry.resolveMessageChannelIdFromFcmData(data);
+    ensureMessagesChannel(channelId);
     Intent launch = new Intent(this, MainActivity.class);
     launch.setAction(Intent.ACTION_VIEW);
     launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
@@ -305,7 +298,7 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
     String safeBody = body != null ? body : "";
 
     NotificationCompat.Builder builder =
-        new NotificationCompat.Builder(this, MESSAGES_CHANNEL_ID)
+        new NotificationCompat.Builder(this, channelId)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(safeTitle)
             .setContentText(safeBody)
@@ -326,7 +319,9 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
       String senderName = data != null ? firstNonEmpty(data.get("senderName")) : null;
       Log.i(
           TAG,
-          "[notify-message] native_notification_posted title="
+          "[notify-message] native_notification_posted channelId="
+              + channelId
+              + " title="
               + safeTitle
               + " body="
               + safeBody

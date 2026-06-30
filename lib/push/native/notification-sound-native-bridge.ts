@@ -1,33 +1,15 @@
 /**
- * Native notification sound bridge — LOCK files untouched.
- * Android ring URI resolve stub; Web no-op.
+ * Native message notification channel bridge — LOCK call paths untouched.
  */
-import { isCapacitorNativePlatform, resolveCapacitorShellPlatform } from "@/lib/platform/capacitor-native";
-import { resolveNotificationSound } from "@/lib/notifications/notification-sound-resolver";
+import {
+  ensureNotificationChannel,
+  SSOT_DEFAULT_MESSAGE_ANDROID_CHANNEL_ID,
+} from "@/lib/push/native/ensure-notification-channel";
 
-export type NativeRingtoneResolveResult = {
-  eventKey: string;
-  uri: string | null;
-  assetId: string;
-  useDeviceDefault: boolean;
-};
+export { SSOT_DEFAULT_MESSAGE_ANDROID_CHANNEL_ID };
 
-export function resolveIncomingRingtoneUri(eventKey: string): NativeRingtoneResolveResult {
-  const resolved = resolveNotificationSound(eventKey, { platform: "android" });
-  return {
-    eventKey,
-    uri: resolved.kind === "device_default" ? null : resolved.webUrl,
-    assetId: resolved.assetId,
-    useDeviceDefault: resolved.kind === "device_default" || resolved.resolvedFrom === "device_default",
-  };
-}
-
-/** Fire-and-forget — native plugin optional (PR-6 stub) */
-export function applyNativeIncomingRingtoneUriBestEffort(eventKey: string): void {
-  if (!isCapacitorNativePlatform() || resolveCapacitorShellPlatform() !== "android") return;
-  const payload = resolveIncomingRingtoneUri(eventKey);
-  const w = window as Window & {
-    DibayNotificationSoundBridge?: { setPendingRingtoneUri?: (uri: string | null) => void };
-  };
-  w.DibayNotificationSoundBridge?.setPendingRingtoneUri?.(payload.uri);
+/** Fire-and-forget — ensures SSOT message channel on Android WebView shell. */
+export function ensureMessageNotificationChannelBestEffort(channelId?: string | null): void {
+  const id = channelId?.trim() || SSOT_DEFAULT_MESSAGE_ANDROID_CHANNEL_ID;
+  void ensureNotificationChannel(id);
 }

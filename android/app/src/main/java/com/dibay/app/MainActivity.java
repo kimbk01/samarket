@@ -918,6 +918,7 @@ public class MainActivity extends BridgeActivity {
     registerPlugin(com.dibay.app.call.DibayCallAudioRoutePlugin.class);
     registerPlugin(com.dibay.app.call.NativeCallServicePlugin.class);
     registerPlugin(com.dibay.app.call.DibayCallPipPlugin.class);
+    registerPlugin(NotificationSoundBridgePlugin.class);
     super.onCreate(savedInstanceState);
     Log.i(WEBVIEW_LOG_TAG, "app_start package=" + getPackageName());
     String serverOrigin = DibayServerOrigin.resolve(this);
