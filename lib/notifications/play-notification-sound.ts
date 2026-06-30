@@ -1,10 +1,10 @@
 /**
- * 인앱 알림용 짧은 소리.
- * public/sounds/notification.wav — 플레이스홀더(향후 교체 예정).
- * HTMLAudioElement 재생 실패 시 Web Audio 비프(단일 AudioContext, suspend 시 resume).
+ * 인앱 알림용 짧은 소리 — SSOT resolver 경유.
+ * `NOTIFICATION_SOUND_ASSET_PATH` 는 registry 자산 경로 상수로만 유지.
  */
 
 import { applyPreferredSinkToHtmlAudioElement } from "@/lib/permissions/speaker-output-preference";
+import { resolveNotificationSound } from "@/lib/notifications/notification-sound-resolver";
 
 export const NOTIFICATION_SOUND_ASSET_PATH = "/sounds/notification.wav";
 
@@ -61,14 +61,32 @@ function playSoftBeepFallback(): void {
   }
 }
 
+function resolveSsotPrimingUrl(): string | null {
+  return resolveNotificationSound("system_default", { platform: "web" }).webUrl ?? null;
+}
+
+async function playSsotOneShot(eventKey: string): Promise<void> {
+  const resolved = resolveNotificationSound(eventKey, { platform: "web" });
+  if (!resolved.enabled || resolved.kind === "silent" || !resolved.webUrl) return;
+  try {
+    const audio = new Audio(resolved.webUrl);
+    audio.volume = Math.max(0, Math.min(1, resolved.volume));
+    await applyPreferredSinkToHtmlAudioElement(audio);
+    void audio.play().catch(() => playSoftBeepFallback());
+  } catch {
+    playSoftBeepFallback();
+  }
+}
+
 /** 첫 탭/클릭 후 호출: 프리로드 + WebKit/iOS 자동재생 잠금 해제 */
 export function primeNotificationSoundAudio(): void {
   if (typeof window === "undefined" || primed) return;
   primed = true;
   try {
-    /* 제스처 없이 AudioContext.resume() 하면 크롬이 경고를 띄운다. 비프는 재생 시점에만 컨텍스트 생성. */
+    const primingUrl = resolveSsotPrimingUrl();
+    if (!primingUrl) return;
 
-    const a = new Audio(NOTIFICATION_SOUND_ASSET_PATH);
+    const a = new Audio(primingUrl);
     a.preload = "auto";
     void a.load();
 
@@ -108,16 +126,11 @@ export function suspendSharedNotificationAudioContextBestEffort(): void {
   }
 }
 
+/**
+ * @deprecated Phase 2-1 — `playEventNotificationSound(eventKey)` 사용.
+ * 호환 shim: `system_default` SSOT eventKey.
+ */
 export function playNotificationSound(): void {
   if (typeof window === "undefined") return;
-  void (async () => {
-    try {
-      const audio = new Audio(NOTIFICATION_SOUND_ASSET_PATH);
-      audio.volume = 0.55;
-      await applyPreferredSinkToHtmlAudioElement(audio);
-      void audio.play().catch(() => playSoftBeepFallback());
-    } catch {
-      playSoftBeepFallback();
-    }
-  })();
+  void playSsotOneShot("system_default");
 }

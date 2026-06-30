@@ -1,17 +1,17 @@
 /**
- * 매장 주문 알림음 (동네배달 신규 접수 등).
- * `/admin/stores/application-settings` 에서 설정한 admin_settings `store_delivery_alert_sound` URL이 있으면 재생, 없으면 비프.
+ * 매장 주문 알림음 (동네배달 신규 접수 등) — SSOT `delivery_order_created_owner`.
+ * Legacy `/api/app/store-delivery-alert-sound` URL-first 재생 없음 (mirror/read-only).
  */
 
-import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { playEventNotificationSound } from "@/lib/notifications/notification-sound-engine";
+import {
+  invalidateNotificationSoundSsotCache,
+  resolveNotificationSound,
+} from "@/lib/notifications/notification-sound-resolver";
 
-const RESOLVE_TTL_MS = 60_000;
-const APP_SOUND_URL = "/api/app/store-delivery-alert-sound";
-const SOUND_RESOLVE_FLIGHT_KEY = "app:store-delivery-alert-sound";
+const STORE_DELIVERY_OWNER_EVENT_KEY = "delivery_order_created_owner";
 
 let sharedCtx: AudioContext | null = null;
-let resolvedCache: { url: string | null; at: number } | null = null;
 
 function getAudioContext(): AudioContext | null {
   if (typeof window === "undefined") return null;
@@ -25,30 +25,7 @@ function getAudioContext(): AudioContext | null {
 }
 
 export function invalidateStoreDeliveryAlertSoundCache(): void {
-  resolvedCache = null;
-}
-
-async function resolveGlobalCustomSoundUrl(): Promise<string | null> {
-  const n = Date.now();
-  if (resolvedCache && n - resolvedCache.at < RESOLVE_TTL_MS) {
-    return resolvedCache.url;
-  }
-  return runSingleFlight(SOUND_RESOLVE_FLIGHT_KEY, async () => {
-    const n2 = Date.now();
-    if (resolvedCache && n2 - resolvedCache.at < RESOLVE_TTL_MS) {
-      return resolvedCache.url;
-    }
-    try {
-      const res = await fetch(APP_SOUND_URL, { credentials: "same-origin", cache: "no-store" });
-      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; url?: unknown };
-      const u = typeof j.url === "string" ? j.url.trim() : "";
-      resolvedCache = { url: u || null, at: n2 };
-      return resolvedCache.url;
-    } catch {
-      resolvedCache = { url: null, at: n2 };
-      return null;
-    }
-  });
+  invalidateNotificationSoundSsotCache();
 }
 
 function playBuiltinBeeps(): void {
@@ -79,42 +56,27 @@ function playBuiltinBeeps(): void {
   }
 }
 
-/** 관리자 미리듣기·프리셋「기본 비프」용 */
+/** 관리자 미리듣기·프리셋「기본 비프」용 (알림 재생 경로와 분리) */
 export function previewStoreDeliveryBuiltinSound(): void {
   playBuiltinBeeps();
 }
 
-/** 첫 클릭·탭 시 호출해 두면 이후 알림음 재생 가능성이 높아집니다. */
+/** 첫 클릭·탭 시 호출해 두면 이후 SSOT 알림음 재생 가능성이 높아집니다. */
 export function primeStoreOrderAlertAudio(): void {
   const ctx = getAudioContext();
   if (ctx?.state === "suspended") void ctx.resume();
-  void (async () => {
-    const url = await resolveGlobalCustomSoundUrl();
-    if (!url) return;
-    try {
-      const a = new Audio(url);
-      a.preload = "auto";
-      void a.load();
-    } catch {
-      /* ignore */
-    }
-  })();
+  const url = resolveNotificationSound(STORE_DELIVERY_OWNER_EVENT_KEY, { platform: "web" }).webUrl;
+  if (!url) return;
+  try {
+    const a = new Audio(url);
+    a.preload = "auto";
+    void a.load();
+  } catch {
+    /* ignore */
+  }
 }
 
-/** 관리자 전역 알림음 또는 기본 비프 — SSOT eventKey + legacy URL fallback */
+/** Owner 신규 주문 알림 — SSOT resolver only */
 export async function playStoreOrderDeliveryAlertSound(): Promise<void> {
-  const url = await resolveGlobalCustomSoundUrl();
-  if (url) {
-    try {
-      const audio = new Audio(url);
-      audio.volume = 0.55;
-      await audio.play().catch(() => {
-        void playEventNotificationSound("delivery_order_created_owner");
-      });
-      return;
-    } catch {
-      /* fall through */
-    }
-  }
-  await playEventNotificationSound("delivery_order_created_owner");
+  await playEventNotificationSound(STORE_DELIVERY_OWNER_EVENT_KEY);
 }

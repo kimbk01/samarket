@@ -1,8 +1,10 @@
 import { MESSENGER_CHAT_ALERT_MIN_GAP_MS } from "@/lib/community-messenger/notifications/messenger-notification-contract";
-import type { NotificationDomain } from "@/lib/notifications/notification-domains";
 import { shouldSkipPushForEventDedupe } from "@/lib/notifications/core/notification-dedupe";
-import { playDomainNotificationSound } from "@/lib/notifications/notification-sound-engine";
-import { playNotificationSound } from "@/lib/notifications/play-notification-sound";
+import type { NotificationDomain } from "@/lib/notifications/notification-domains";
+import {
+  playDomainNotificationSound,
+  playEventNotificationSound,
+} from "@/lib/notifications/notification-sound-engine";
 import { playOrderMatchChatAlert } from "@/lib/notifications/play-order-match-alert";
 
 const seenDedupeKeys = new Set<string>();
@@ -35,8 +37,8 @@ function tryConsumeChatAlertSlot(dedupeKey: string): boolean {
 }
 
 /**
- * @param domain — `community_*`·`trade_chat` 는 `/api/app/notification-sound-config`(어드민 `admin_notification_settings`) 경로.
- * 생략 시 기존 `/sounds/notification.wav` 단일 재생(일반 푸시 실시간 등).
+ * @param domain — `community_*`·`trade_chat` 는 domain adapter → SSOT eventKey.
+ * 생략 시 `system_default` SSOT eventKey.
  */
 export function playCoalescedChatNotificationSound(
   dedupeKey: string,
@@ -51,7 +53,7 @@ export function playCoalescedChatNotificationSound(
     void playDomainNotificationSound(domain);
     return;
   }
-  playNotificationSound();
+  void playEventNotificationSound("system_default");
 }
 
 export async function playCoalescedOrderMatchChatAlert(dedupeKey: string): Promise<void> {

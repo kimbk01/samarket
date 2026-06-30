@@ -16,6 +16,7 @@ import {
   type PushTarget,
   type SendPushResult,
 } from "@/lib/push/dispatch/push-payload-types";
+import { enrichPushPayloadWithSoundSsotMeta } from "@/lib/push/dispatch/push-sound-ssot-enrichment";
 import { isWebPushConfigured, sendWebPushToTarget } from "@/lib/push/dispatch/web-push-sender";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
@@ -198,14 +199,15 @@ export async function dispatchPushForUser(
     return { ok: false, targets_found: 0, deliveries: audits, skipped_reason: "server_misconfigured" };
   }
 
-  const callPush = isCallPush(out, opts);
+  const enrichedOut = enrichPushPayloadWithSoundSsotMeta(out, opts);
+  const callPush = isCallPush(enrichedOut, opts);
   const terminalDismiss =
     opts?.call_push_kind === "call_canceled" ||
     opts?.call_push_kind === "call_rejected" ||
     opts?.call_push_kind === "call_ended";
 
   if (!opts?.skip_settings_gate && !terminalDismiss) {
-    const allowed = await shouldSendWebPushForUser(svc, out.user_id, out).catch(() => true);
+    const allowed = await shouldSendWebPushForUser(svc, enrichedOut.user_id, enrichedOut).catch(() => true);
     if (!allowed) {
       await auditDelivery(svc, audits, {
         user_id: out.user_id,
@@ -265,13 +267,13 @@ export async function dispatchPushForUser(
       target_type: opts?.target_type ?? null,
       target_id: opts?.target_id ?? null,
       status: "pending",
-      provider_response: baseDeliveryDiagnostics(target, out, opts),
+      provider_response: baseDeliveryDiagnostics(target, enrichedOut, opts),
     });
 
-    const result = await sendToTarget(target, out, opts);
+    const result = await sendToTarget(target, enrichedOut, opts);
 
     const providerResponse = {
-      ...baseDeliveryDiagnostics(target, out, opts),
+      ...baseDeliveryDiagnostics(target, enrichedOut, opts),
       ...(result.provider_response ?? {}),
       ...(result.error_message ? { error: result.error_message } : {}),
     };
@@ -314,7 +316,8 @@ export async function dispatchPushForUser(
       provider_response: providerResponse,
     });
 
-    const responseCallId = typeof providerResponse.callId === "string" ? providerResponse.callId : callIdFromOutput(out);
+    const responseCallId =
+      typeof providerResponse.callId === "string" ? providerResponse.callId : callIdFromOutput(enrichedOut);
     if (
       result.status === "sent" &&
       target.push_provider === "fcm" &&

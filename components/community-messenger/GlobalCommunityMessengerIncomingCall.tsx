@@ -71,7 +71,8 @@ import {
 import { getCurrentUser, getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import type { CommunityMessengerCallKind, CommunityMessengerCallSession } from "@/lib/community-messenger/types";
-import { playNotificationSound } from "@/lib/notifications/play-notification-sound";
+import { eventKeyForCallKind } from "@/lib/notifications/notification-sound-event-map";
+import { playEventNotificationSound } from "@/lib/notifications/notification-sound-engine";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { acquireIncomingCallRealtimeSubscription } from "@/lib/community-messenger/realtime/cm-incoming-call-realtime-holder";
 import { isDebugMessengerEnabled } from "@/lib/community-messenger/debug/is-debug-messenger-enabled";
@@ -1701,7 +1702,8 @@ export function GlobalCommunityMessengerIncomingCall() {
     for (const session of sessions) {
       nextIds.add(session.id);
       if (!seenIdsRef.current.has(session.id) && incomingCallSoundEnabled && !incomingCallBannerEnabled) {
-        playNotificationSound();
+        const kind: CommunityMessengerCallKind = session.callKind === "video" ? "video" : "voice";
+        void playEventNotificationSound(eventKeyForCallKind(kind, "incoming"));
       }
     }
     seenIdsRef.current = nextIds;

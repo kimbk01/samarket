@@ -1,4 +1,4 @@
-import { NOTIFICATION_SOUND_ASSET_PATH, playNotificationSound, primeNotificationSoundAudio } from "@/lib/notifications/play-notification-sound";
+import { primeNotificationSoundAudio } from "@/lib/notifications/play-notification-sound";
 import { applyPreferredSinkToHtmlAudioElement } from "@/lib/permissions/speaker-output-preference";
 import {
   primeWebAudioCallToneContextFromUserGesture,
@@ -14,16 +14,14 @@ import {
 } from "@/lib/community-messenger/messenger-call-sound-config-client";
 import { cmCallAudioCleanup, cmCallLatencyInfo } from "@/lib/community-messenger/cm-call-debug";
 import { closePrimedWebAudioCallToneContext } from "@/lib/community-messenger/call-tone-web-audio";
+import { eventKeyForCallKind } from "@/lib/notifications/notification-sound-event-map";
+import { playEventNotificationSound } from "@/lib/notifications/notification-sound-engine";
+import { resolveNotificationSound } from "@/lib/notifications/notification-sound-resolver";
 
 type CallToneMode = "incoming" | "outgoing";
 
 export type CallToneController = {
   stop: () => void;
-};
-
-const TONE_INTERVAL_MS: Record<CallToneMode, number> = {
-  incoming: 2600,
-  outgoing: 3200,
 };
 
 let activeToneStopper: (() => void) | null = null;
@@ -125,6 +123,14 @@ export function consumeOutgoingRingtonePrimedSessionFlag(sessionId: string): boo
   }
 }
 
+function resolveAutoplayPrimingUrl(): string | null {
+  const incoming =
+    resolveNotificationSound(eventKeyForCallKind("voice", "incoming"), { platform: "web" }).webUrl ??
+    null;
+  if (incoming) return incoming;
+  return resolveNotificationSound("system_default", { platform: "web" }).webUrl ?? null;
+}
+
 /**
  * 통화 발신 직전(세션 POST·라우팅 `await` 전) **동기 제스처**에서 호출한다.
  * 이후 통화 화면 effect 에서 `HTMLAudioElement.play()`·Web Audio 가 막히지 않게 한다.
@@ -133,28 +139,31 @@ export function unlockCommunityMessengerCallPlaybackFromUserGesture(): void {
   if (typeof window === "undefined") return;
   cmCallLatencyInfo("audio_unlock_start", {});
   primeWebAudioCallToneContextFromUserGesture();
-  try {
-    const a = new Audio(NOTIFICATION_SOUND_ASSET_PATH);
-    trackDetachedCommunityMessengerCallAudio(a);
-    a.preload = "auto";
-    a.muted = true;
-    a.volume = 0;
-    void a.play().then(
-      () => {
-        a.pause();
-        a.currentTime = 0;
-        untrackDetachedCommunityMessengerCallAudio(a);
-      },
-      () => {
-        untrackDetachedCommunityMessengerCallAudio(a);
-        if (typeof process !== "undefined" && process.env.NODE_ENV === "development") {
-          console.warn("[community-messenger-call] muted HTMLAudio priming play rejected (autoplay policy)");
+  const primingUrl = resolveAutoplayPrimingUrl();
+  if (primingUrl) {
+    try {
+      const a = new Audio(primingUrl);
+      trackDetachedCommunityMessengerCallAudio(a);
+      a.preload = "auto";
+      a.muted = true;
+      a.volume = 0;
+      void a.play().then(
+        () => {
+          a.pause();
+          a.currentTime = 0;
+          untrackDetachedCommunityMessengerCallAudio(a);
+        },
+        () => {
+          untrackDetachedCommunityMessengerCallAudio(a);
+          if (typeof process !== "undefined" && process.env.NODE_ENV === "development") {
+            console.warn("[community-messenger-call] muted HTMLAudio priming play rejected (autoplay policy)");
+          }
         }
+      );
+    } catch {
+      if (typeof process !== "undefined" && process.env.NODE_ENV === "development") {
+        console.warn("[community-messenger-call] HTMLAudio priming threw");
       }
-    );
-  } catch {
-    if (typeof process !== "undefined" && process.env.NODE_ENV === "development") {
-      console.warn("[community-messenger-call] HTMLAudio priming threw");
     }
   }
   cmCallLatencyInfo("audio_unlock_done", {});
@@ -165,8 +174,16 @@ export type StartCallToneOptions = {
   callKind?: CommunityMessengerCallKind;
 };
 
+function noopCallToneController(): CallToneController {
+  const stop = () => {
+    if (activeToneStopper === stop) activeToneStopper = null;
+  };
+  activeToneStopper = stop;
+  return { stop };
+}
+
 /**
- * 수신/발신 통화 톤. Web Audio 합성을 우선 사용하고, 실패 시 기존 알림 루프로 폴백.
+ * 수신/발신 통화 톤. SSOT URL → Web Audio 합성 순. legacy wav 루프 폴백 없음.
  * 관리자 설정 URL은 fetch 완료 후 적용되도록 비동기로 로드한다.
  */
 export async function startCommunityMessengerCallTone(
@@ -244,92 +261,7 @@ export async function startCommunityMessengerCallTone(
     return { stop };
   }
 
-  let stopped = false;
-  let intervalId: number | null = null;
-  let audio: HTMLAudioElement | null = null;
-
-  const clearLoopAudio = () => {
-    if (intervalId) {
-      window.clearInterval(intervalId);
-      intervalId = null;
-    }
-    if (audio) {
-      untrackDetachedCommunityMessengerCallAudio(audio);
-      audio.pause();
-      audio.currentTime = 0;
-      audio = null;
-    }
-  };
-
-  const tryStart = () => {
-    if (stopped) return;
-    clearLoopAudio();
-    primeNotificationSoundAudio();
-    try {
-      const next = new Audio(NOTIFICATION_SOUND_ASSET_PATH);
-      trackDetachedCommunityMessengerCallAudio(next);
-      next.preload = "auto";
-      next.loop = true;
-      next.volume = mode === "incoming" ? vIn : vOut;
-      next.playbackRate = mode === "incoming" ? 1 : 0.94;
-      audio = next;
-      void (async () => {
-        const result = next.play();
-        if (result && typeof result.catch === "function") {
-          void result.catch(() => {
-            if (stopped) return;
-            if (audio) untrackDetachedCommunityMessengerCallAudio(audio);
-            audio = null;
-            playNotificationSound();
-            intervalId = window.setInterval(() => {
-              if (stopped) {
-                if (intervalId != null) window.clearInterval(intervalId);
-                intervalId = null;
-                return;
-              }
-              playNotificationSound();
-            }, TONE_INTERVAL_MS[mode]);
-          });
-        }
-      })();
-    } catch {
-      playNotificationSound();
-      intervalId = window.setInterval(() => {
-        if (stopped) {
-          if (intervalId != null) window.clearInterval(intervalId);
-          intervalId = null;
-          return;
-        }
-        playNotificationSound();
-      }, TONE_INTERVAL_MS[mode]);
-    }
-  };
-
-  const onFirstGesture = () => {
-    window.removeEventListener("pointerdown", onFirstGesture);
-    window.removeEventListener("touchstart", onFirstGesture);
-    if (stopped) return;
-    tryStart();
-  };
-
-  window.addEventListener("pointerdown", onFirstGesture, { passive: true });
-  window.addEventListener("touchstart", onFirstGesture, { passive: true });
-
-  tryStart();
-
-  const stop = () => {
-    stopped = true;
-    window.removeEventListener("pointerdown", onFirstGesture);
-    window.removeEventListener("touchstart", onFirstGesture);
-    clearLoopAudio();
-    if (activeToneStopper === stop) {
-      activeToneStopper = null;
-    }
-  };
-
-  activeToneStopper = stop;
-
-  return { stop };
+  return noopCallToneController();
 }
 
 export type CallSignalSoundKind = "missed" | "call_end";
@@ -342,7 +274,15 @@ export type PlayCallSignalSoundOptions = {
   dedupeSessionId?: string;
 };
 
-/** 부재·통화 종료 등 짧은 원샷(루프 아님). URL 없거나 재생 실패 시 짧은 기본 알림음으로 폴백. */
+function callSignalEventKey(kind: CallSignalSoundKind): "call_missed" | "call_ended" {
+  return kind === "missed" ? "call_missed" : "call_ended";
+}
+
+function playCallSignalSsotFallback(kind: CallSignalSoundKind): void {
+  void playEventNotificationSound(callSignalEventKey(kind));
+}
+
+/** 부재·통화 종료 등 짧은 원샷(루프 아님). URL 없거나 재생 실패 시 SSOT eventKey 원샷. */
 export async function playCommunityMessengerCallSignalSound(
   kind: CallSignalSoundKind,
   options?: PlayCallSignalSoundOptions
@@ -387,13 +327,13 @@ export async function playCommunityMessengerCallSignalSound(
           await audio.play();
         } catch {
           done();
-          playNotificationSound();
+          playCallSignalSsotFallback(kind);
         }
       })();
     } catch {
-      playNotificationSound();
+      playCallSignalSsotFallback(kind);
     }
     return;
   }
-  playNotificationSound();
+  playCallSignalSsotFallback(kind);
 }

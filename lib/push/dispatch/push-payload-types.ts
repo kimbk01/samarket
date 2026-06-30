@@ -24,6 +24,8 @@ export type PushTarget = {
 
 export type DispatchPushOptions = {
   event_type?: string;
+  /** Explicit SSOT eventKey when event_type alone is insufficient */
+  event_key?: string;
   target_type?: string | null;
   target_id?: string | null;
   /** Call-specific: incoming_call | missed_call | terminal dismiss signals. */

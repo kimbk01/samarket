@@ -4,8 +4,10 @@ import { useEffect, useRef } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
 import { playCoalescedChatNotificationSound } from "@/lib/notifications/coalesced-chat-alert-sound";
-import { playNotificationSound } from "@/lib/notifications/play-notification-sound";
-import { playDomainNotificationSound } from "@/lib/notifications/notification-sound-engine";
+import {
+  playDomainNotificationSound,
+  playEventNotificationSound,
+} from "@/lib/notifications/notification-sound-engine";
 import { isNotificationDomain, type NotificationDomain } from "@/lib/notifications/notification-domains";
 import { upsertIncomingFriendRequestPopupFromNotificationInsertRow } from "@/lib/community-messenger/incoming-friend-request-popup-from-notification-row";
 
@@ -131,7 +133,7 @@ export function useSupabaseNotificationsRealtime(
                   if (isChat && nid) {
                     playCoalescedChatNotificationSound(`notif:${nid}`);
                   } else {
-                    playNotificationSound();
+                    void playEventNotificationSound("system_default");
                   }
                 }
               }

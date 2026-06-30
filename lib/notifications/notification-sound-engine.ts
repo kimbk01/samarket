@@ -1,24 +1,14 @@
 /**
- * 도메인별 알림음 — 관리자 설정·반복·타임아웃·중단(stopNotificationPlayback).
+ * 도메인별 알림음 — SSOT resolver · 반복·타임아웃·중단(stopNotificationPlayback).
  * 브라우저 전용.
  */
-import { NOTIFICATION_SOUND_ASSET_PATH } from "@/lib/notifications/play-notification-sound";
 import type { NotificationDomain } from "@/lib/notifications/notification-domains";
 import { eventKeyForNotificationDomain } from "@/lib/notifications/notification-sound-event-map";
-import { resolveNotificationSound } from "@/lib/notifications/notification-sound-resolver";
+import {
+  invalidateNotificationSoundSsotCache,
+  resolveNotificationSound,
+} from "@/lib/notifications/notification-sound-resolver";
 import { UNIFIED_IN_APP_CHAT_SOUND_MIN_GAP_MS } from "@/lib/notifications/unified-messenger-trade-alert-contract";
-
-export type AdminSoundConfigRow = {
-  type: string;
-  sound_url: string | null;
-  volume: number;
-  repeat_count: number;
-  cooldown_seconds?: number;
-  enabled: boolean | null;
-};
-
-let adminCache: { items: AdminSoundConfigRow[]; fetchedAt: number } | null = null;
-const CACHE_MS = 60_000;
 
 /** Realtime INSERT + 미읽음 배지 폴링이 같은 수신을 거의 동시에 재생할 때 1회로 줄임 */
 const lastDomainPlayAt = new Map<NotificationDomain, number>();
@@ -43,29 +33,6 @@ export function stopNotificationPlayback(): void {
   repeatTimers.length = 0;
 }
 
-async function loadConfig(): Promise<AdminSoundConfigRow[]> {
-  if (typeof window === "undefined") return [];
-  const now = Date.now();
-  if (adminCache && now - adminCache.fetchedAt < CACHE_MS) {
-    return adminCache.items;
-  }
-  try {
-    const res = await fetch("/api/app/notification-sound-config", {
-      credentials: "include",
-      cache: "no-store",
-    });
-    const j = (await res.json().catch(() => ({}))) as {
-      ok?: boolean;
-      items?: AdminSoundConfigRow[];
-    };
-    const items = Array.isArray(j.items) ? j.items : [];
-    adminCache = { items, fetchedAt: now };
-    return items;
-  } catch {
-    return [];
-  }
-}
-
 function playOneShot(url: string, volume: number): void {
   try {
     const a = new Audio(url);
@@ -74,18 +41,6 @@ function playOneShot(url: string, volume: number): void {
   } catch {
     /* ignore */
   }
-}
-
-function resolveConfigRow(items: AdminSoundConfigRow[], domain: NotificationDomain): AdminSoundConfigRow | undefined {
-  const exact = items.find((x) => x.type === domain);
-  if (exact) return exact;
-  if (domain === "community_direct_chat" || domain === "community_group_chat") {
-    return items.find((x) => x.type === "community_chat");
-  }
-  if (domain === "community_chat") {
-    return items.find((x) => x.type === "community_direct_chat");
-  }
-  return undefined;
 }
 
 /**
@@ -98,10 +53,11 @@ export async function playEventNotificationSound(
   if (typeof window === "undefined") return;
   const resolved = resolveNotificationSound(eventKey, { ...context, platform: "web" });
   if (!resolved.enabled || resolved.kind === "silent") return;
+  if (!resolved.webUrl) return;
 
   stopNotificationPlayback();
 
-  const url = resolved.webUrl || NOTIFICATION_SOUND_ASSET_PATH;
+  const url = resolved.webUrl;
   const vol = resolved.volume;
   const repeats = Math.max(1, Math.min(5, resolved.repeatCount));
 
@@ -116,6 +72,7 @@ export async function playEventNotificationSound(
 
 /**
  * 도메인별 알림음. 반복·최대 재생 시간 후 자동 stop.
+ * enabled·asset 은 SSOT resolver 단일 소스.
  */
 export async function playDomainNotificationSound(domain: NotificationDomain): Promise<void> {
   if (typeof window === "undefined") return;
@@ -127,15 +84,7 @@ export async function playDomainNotificationSound(domain: NotificationDomain): P
   lastDomainPlayAt.set(domain, nowDedupe);
 
   const eventKey = eventKeyForNotificationDomain(domain);
-
-  // Legacy enabled gate via admin_notification_settings mirror
-  const items = await loadConfig();
-  const row = resolveConfigRow(items, domain);
-  if (row && row.enabled === false) {
-    return;
-  }
-
-  await playEventNotificationSound(eventKey, { userDomainEnabled: true, userSoundEnabled: true });
+  await playEventNotificationSound(eventKey);
 }
 
 function scheduleAutoStop(): void {
@@ -144,6 +93,7 @@ function scheduleAutoStop(): void {
   }, MAX_PLAY_MS);
 }
 
+/** Admin SSOT PATCH·legacy UI mutation 후 클라 resolver snapshot 무효화 */
 export function invalidateNotificationSoundConfigCache(): void {
-  adminCache = null;
+  invalidateNotificationSoundSsotCache();
 }
