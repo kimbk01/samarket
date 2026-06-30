@@ -201,7 +201,7 @@ async function runWipeClientSessionState(
     await revokeNativeGoogleSessionIfAvailable();
   }
   if (reason === "account_switched") {
-    void disconnectNativeDevicesOnAccountSwitch();
+    await disconnectNativeDevicesOnAccountSwitch().catch(() => undefined);
   }
   if (reason === "user_logout" || reason === "account_switched") {
     void clearNativeBadgeCount();

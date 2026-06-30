@@ -3,6 +3,7 @@ import { clearActiveSessionCookie, readActiveSessionIdCookie } from "@/lib/auth/
 import { cookieSecureFromNextRequest } from "@/lib/auth/cookie-secure-flag";
 import { getCurrentProfile, requireAuth } from "@/lib/auth/server-guards";
 import { invalidateAllUserSessionRegistry } from "@/lib/auth/user-session-registry";
+import { deactivateAllUserDevicesForLogout } from "@/lib/push/dispatch/deactivate-failed-token";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
@@ -32,6 +33,7 @@ export async function POST(request: NextRequest) {
   if (sb) {
     try {
       await invalidateAllUserSessionRegistry(sb, auth.userId, "global_signout");
+      await deactivateAllUserDevicesForLogout(sb, auth.userId, null);
       const profile = await getCurrentProfile(auth.userId);
       const activeSessionId = (profile?.active_session_id ?? "").trim();
       if (activeSessionId) {

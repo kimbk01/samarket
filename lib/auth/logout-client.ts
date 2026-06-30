@@ -7,6 +7,8 @@
 import { runExplicitLogoutFlow } from "@/lib/auth/explicit-logout-flow";
 import { translate, type MessageKey } from "@/lib/i18n/messages";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
+import { disconnectNativeDevicesForLogout } from "@/lib/push/disconnect-native-devices-for-logout-client";
+import { disconnectWebPushSubscriptionsForLogout } from "@/lib/push/disconnect-web-push-for-logout-client";
 
 export type LogoutResult =
   | { ok: true; serverWarning?: string | null }
@@ -40,7 +42,7 @@ export async function logoutAllDevices(): Promise<LogoutResult> {
   return { ok: true, serverWarning: serverWarning ?? null };
 }
 
-/** refresh token 무효·corrupt — local wipe only (서버·deactivate 없음) */
+/** refresh token 무효·corrupt — best-effort disconnect 후 local wipe */
 export async function forceClearCorruptSession(): Promise<LogoutResult> {
   if (typeof window === "undefined") {
     return { ok: false, message: logoutT("auth_logout_err_browser_only") };
@@ -53,6 +55,8 @@ export async function forceClearCorruptSession(): Promise<LogoutResult> {
 
   markExplicitLogoutWipeDone();
   const sb = getSupabaseClient();
+  await disconnectWebPushSubscriptionsForLogout().catch(() => undefined);
+  await disconnectNativeDevicesForLogout().catch(() => undefined);
   await sb?.auth.signOut({ scope: "local" }).catch(() => undefined);
   await wipeClientSessionState("user_logout");
   establishGuestAuthState("corrupt_session_clear");
