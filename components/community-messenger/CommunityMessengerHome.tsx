@@ -3205,7 +3205,10 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           viewerUserId={data.me?.id ?? null}
           busyId={busyId}
           onPrefetchDirectRoom={(userId) => maybePrefetchDirectRoom(userId)}
-          onStartDirectChat={(userId) => void startDirectRoom(userId)}
+          onStartDirectChat={(userId) => {
+            setFriendManagerOpen(false);
+            void startDirectRoom(userId);
+          }}
           inviteUrl={messengerInviteUrl}
         />
       ) : null}
