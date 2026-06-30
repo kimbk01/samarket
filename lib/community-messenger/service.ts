@@ -126,6 +126,10 @@ import {
   getFriendshipPairState,
   peerFriendshipStateFromResolution,
 } from "@/lib/community-messenger/friendship-resolver";
+import {
+  communityMessengerSummaryEligibleForPhaseDTradeEnrich,
+  isMessengerGeneralFriendDirectKey,
+} from "@/lib/community-messenger/messenger-room-domain";
 import { isUnknownPeerNoticeDismissed } from "@/lib/community-messenger/peer-notices";
 import { participantViewerBlockedHidden } from "@/lib/community-messenger/participant-block-hide";
 import { extractHs5TradeHintsFromRoomsPayload } from "@/lib/community-messenger/home-sync-hs5-trade-hints";
@@ -8347,10 +8351,8 @@ async function enrichTradeRoomContextMetaForBootstrap(
   const tPrepPhaseD = deepSteps ? performance.now() : 0;
   const stillAfterC = summaries.filter(
     (s) =>
-      s.roomType === "direct" &&
-      s.contextMeta?.kind !== "delivery" &&
-      tradeMessengerListThumbnailMissing(s) &&
-      !isMessengerAuthoritativeTradeDirectKey(s.messengerDirectKey)
+      communityMessengerSummaryEligibleForPhaseDTradeEnrich(s) &&
+      tradeMessengerListThumbnailMissing(s)
   );
   const peersForPair = dedupeIds(
     stillAfterC.map((s) => (typeof s.peerUserId === "string" ? s.peerUserId.trim() : "")).filter(Boolean)
@@ -8990,7 +8992,7 @@ export async function startCommunityMessengerDirectChat(
     if (existing?.id) created = false;
   }
 
-  const roomOut = await ensureCommunityMessengerDirectRoom(userId, targetId);
+  const roomOut = await ensureGeneralFriendDirectRoom(userId, targetId);
   if (!roomOut.ok || !roomOut.roomId) {
     logSocialRelationEvent("direct_room_start_blocked", { reason: roomOut.error ?? "room_failed" });
     return { ok: false, error: roomOut.error ?? "cannot_start_chat" };
@@ -9320,7 +9322,7 @@ export async function respondCommunityMessengerFriendRequest(
           const addresseeId = trimText(request.addressee_id);
           if (requesterId && addresseeId) {
             await syncMutualFriendSavedAfterAccept(requesterId, addresseeId);
-            const roomOut = await ensureCommunityMessengerDirectRoom(addresseeId, requesterId);
+            const roomOut = await ensureGeneralFriendDirectRoom(addresseeId, requesterId);
             if (!roomOut.ok) {
               console.warn("[community-messenger] accept friend: direct room ensure failed", roomOut.error);
             } else if (roomOut.roomId) {
@@ -9375,7 +9377,7 @@ export async function respondCommunityMessengerFriendRequest(
           const addresseeId = trimText(request.addressee_id);
           if (requesterId && addresseeId) {
             await syncMutualFriendSavedAfterAccept(requesterId, addresseeId);
-            const roomOut = await ensureCommunityMessengerDirectRoom(addresseeId, requesterId);
+            const roomOut = await ensureGeneralFriendDirectRoom(addresseeId, requesterId);
             if (!roomOut.ok) {
               console.warn("[community-messenger] accept friend: direct room ensure failed", roomOut.error);
             } else if (roomOut.roomId) {
@@ -9427,7 +9429,7 @@ export async function respondCommunityMessengerFriendRequest(
     const addresseeId = trimText(request.addressee_id);
     if (requesterId && addresseeId) {
       await syncMutualFriendSavedAfterAccept(requesterId, addresseeId);
-      const roomOut = await ensureCommunityMessengerDirectRoom(addresseeId, requesterId);
+      const roomOut = await ensureGeneralFriendDirectRoom(addresseeId, requesterId);
       if (!roomOut.ok) {
         console.warn("[community-messenger] accept friend (dev): direct room ensure failed", roomOut.error);
       } else if (roomOut.roomId) {
@@ -9806,6 +9808,153 @@ async function ensureDirectMessengerRoomParticipantsForPair(
   if (insErr && !isUniqueViolationError(insErr)) {
     /* 로그 없이 무시 — 운영은 재시도·다음 ensure 에서 보정 */
   }
+}
+
+/** Telegram-style general friend DM — sorted-pair `direct_key` only; trade/store_order 와 분리. */
+export async function ensureGeneralFriendDirectRoom(
+  userId: string,
+  peerUserId: string
+): Promise<{ ok: boolean; roomId?: string; error?: string }> {
+  const peerId = trimText(peerUserId);
+  if (!peerId || peerId === userId) return { ok: false, error: "bad_peer" };
+  if (!(await ensureNoBlockedEitherWay(userId, peerId))) {
+    return { ok: false, error: "blocked_target" };
+  }
+  const guard = await resolveDirectInteractionGuard(userId, peerId);
+  if (!guard.canMessage) {
+    return { ok: false, error: guard.reason === "blocked" ? "blocked_target" : "cannot_start_chat" };
+  }
+
+  const basePairKey = directKeyFor(userId, peerId);
+  const sb = getSupabaseOrNull();
+  if (sb) {
+    const loadExistingGeneralRoomId = async (): Promise<string | null> => {
+      const { data, error } = await (sb as any)
+        .from("community_messenger_rooms")
+        .select("id, direct_key")
+        .eq("room_type", "direct")
+        .eq("direct_key", basePairKey)
+        .maybeSingle();
+      if (error && !isMissingTableError(error)) return null;
+      const row = data as { id?: string; direct_key?: string } | null;
+      const id = trimText(row?.id);
+      const dk = trimText(row?.direct_key);
+      if (!id || !isMessengerGeneralFriendDirectKey(dk)) return null;
+      return id;
+    };
+
+    let existingId = await loadExistingGeneralRoomId();
+    if (existingId) {
+      await ensureDirectMessengerRoomParticipantsForPair(sb, existingId, userId, peerId);
+      return { ok: true, roomId: existingId };
+    }
+
+    const { data: room, error: roomError } = await (sb as any)
+      .from("community_messenger_rooms")
+      .insert({
+        room_type: "direct",
+        room_status: "active",
+        is_readonly: false,
+        created_by: userId,
+        direct_key: basePairKey,
+        title: "",
+        last_message: "",
+        last_message_type: "system",
+      })
+      .select("id")
+      .single();
+
+    if (!roomError && room?.id) {
+      const roomId = room.id as string;
+      const { error: participantError } = await (sb as any).from("community_messenger_participants").insert([
+        { room_id: roomId, user_id: userId, role: "owner" },
+        { room_id: roomId, user_id: peerId, role: "member" },
+      ]);
+      if (!participantError) {
+        return { ok: true, roomId };
+      }
+      await (sb as any).from("community_messenger_rooms").delete().eq("id", roomId);
+      return { ok: false, error: String(participantError.message ?? "room_participant_create_failed") };
+    }
+
+    if (isUniqueViolationError(roomError)) {
+      existingId = await loadExistingGeneralRoomId();
+      if (existingId) {
+        await ensureDirectMessengerRoomParticipantsForPair(sb, existingId, userId, peerId);
+        return { ok: true, roomId: existingId };
+      }
+    }
+    if (roomError && !isMissingTableError(roomError)) {
+      return { ok: false, error: String(roomError.message ?? "room_create_failed") };
+    }
+  }
+
+  const fallback = ensureCommunityMessengerDevFallbackAllowed();
+  if (!fallback.ok) return fallback;
+
+  const dev = getDevState();
+  const existing = dev.rooms.find(
+    (room) => room.roomType === "direct" && room.directKey === basePairKey
+  );
+  if (existing) return { ok: true, roomId: existing.id };
+
+  const roomId = randomUUID();
+  const createdAt = nowIso();
+  dev.rooms.unshift({
+    id: roomId,
+    roomType: "direct",
+    roomStatus: "active",
+    visibility: "private",
+    joinPolicy: "invite_only",
+    identityPolicy: "real_name",
+    isReadonly: false,
+    title: "",
+    summary: "",
+    avatarUrl: null,
+    createdBy: userId,
+    ownerUserId: userId,
+    memberLimit: 2,
+    isDiscoverable: false,
+    allowMemberInvite: false,
+    noticeText: "",
+    noticeUpdatedAt: null,
+    noticeUpdatedBy: null,
+    allowAdminInvite: false,
+    allowAdminKick: false,
+    allowAdminEditNotice: false,
+    allowMemberUpload: true,
+    allowMemberCall: true,
+    passwordHash: null,
+    directKey: basePairKey,
+    lastMessage: "",
+    lastMessageAt: createdAt,
+    lastMessageType: "system",
+  });
+  dev.participants.push(
+    {
+      id: randomUUID(),
+      roomId,
+      userId,
+      role: "owner",
+      unreadCount: 0,
+      isMuted: false,
+      isPinned: false,
+      isArchived: false,
+      joinedAt: createdAt,
+    },
+    {
+      id: randomUUID(),
+      roomId,
+      userId: peerId,
+      role: "member",
+      unreadCount: 0,
+      isMuted: false,
+      isPinned: false,
+      isArchived: false,
+      joinedAt: createdAt,
+    }
+  );
+  return { ok: true, roomId };
 }
 
 export async function ensureCommunityMessengerDirectRoom(

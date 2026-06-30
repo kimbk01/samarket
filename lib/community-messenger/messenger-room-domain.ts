@@ -13,6 +13,40 @@ export function messengerDirectKeyForUserPair(userA: string, userB: string): str
   return [userA.trim(), userB.trim()].filter(Boolean).sort().join(":");
 }
 
+/** 거래·배달 commerce direct_key — general friend DM 과 혼동 금지. */
+export function isMessengerCommerceDirectKey(directKey: string | null | undefined): boolean {
+  const dk = directKey?.trim() ?? "";
+  if (!dk) return false;
+  return (
+    dk.startsWith("trade_pc:") ||
+    dk.startsWith("trade_item:") ||
+    dk.startsWith("store_order:") ||
+    dk.startsWith("trade_order:")
+  );
+}
+
+/**
+ * general_friend_dm SSOT direct_key — sorted user pair only.
+ * Phase D trade enrich·친구 메시지 ensure 가 commerce 키가 아닌 pair row 만 대상으로 삼는다.
+ */
+export function isMessengerGeneralFriendDirectKey(directKey: string | null | undefined): boolean {
+  const dk = directKey?.trim() ?? "";
+  if (!dk || isMessengerCommerceDirectKey(dk)) return false;
+  const parts = dk.split(":");
+  return parts.length === 2 && parts.every((part) => part.length > 0);
+}
+
+/** Phase D peer-pair trade enrich 대상에서 general friend DM row 제외. */
+export function communityMessengerSummaryEligibleForPhaseDTradeEnrich(
+  room: Pick<CommunityMessengerRoomSummary, "roomType" | "contextMeta" | "messengerDirectKey">
+): boolean {
+  if (room.roomType !== "direct") return false;
+  if (room.contextMeta?.kind === "delivery") return false;
+  if (isMessengerCommerceDirectKey(room.messengerDirectKey)) return false;
+  if (isMessengerGeneralFriendDirectKey(room.messengerDirectKey)) return false;
+  return true;
+}
+
 export function communityMessengerRoomIsConfirmedTrade(room: CommunityMessengerRoomSummary): boolean {
   if (room.contextMeta?.kind === "trade") return true;
   const dk = room.messengerDirectKey?.trim() ?? "";

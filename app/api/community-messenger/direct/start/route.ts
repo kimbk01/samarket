@@ -11,6 +11,7 @@ import {
   parseJsonBody,
 } from "@/lib/http/api-route";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { isGeneralFriendDirectRoom } from "@/lib/community-messenger/messenger-room-domain";
 import {
   getCommunityMessengerRoomSnapshot,
   startCommunityMessengerDirectChat,
@@ -58,6 +59,9 @@ export async function POST(req: NextRequest) {
   }
 
   const snapshot = await getCommunityMessengerRoomSnapshot(auth.userId, result.roomId);
+  if (snapshot?.room && !isGeneralFriendDirectRoom(snapshot.room)) {
+    return jsonError("cannot_start_chat", 403, { error: "cannot_start_chat" });
+  }
   return jsonOkWithRequest(req, {
     roomId: result.roomId,
     created: result.created ?? false,

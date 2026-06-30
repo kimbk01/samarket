@@ -144,6 +144,7 @@ import {
   buildGeneralDirectRoomByPeerMap,
   communityMessengerRoomIsDelivery,
   communityMessengerRoomIsTrade,
+  isGeneralFriendDirectRoom,
   pickGeneralDirectRoomForPeer,
 } from "@/lib/community-messenger/messenger-room-domain";
 import {
@@ -1041,6 +1042,37 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     [data?.chats]
   );
 
+  const navigateGeneralFriendRoom = useCallback(
+    async (
+      roomId: string,
+      options?: {
+        roomForPrime?: CommunityMessengerRoomSummary | null;
+        snapshot?: CommunityMessengerRoomSnapshot | null;
+      }
+    ): Promise<boolean> => {
+      const viewerUserId = data?.me?.id?.trim() || null;
+      const roomHint = options?.roomForPrime ?? options?.snapshot?.room ?? null;
+      if (roomHint && !isGeneralFriendDirectRoom(roomHint)) {
+        setActionError(getMessengerActionErrorMessage("cannot_start_chat"));
+        return false;
+      }
+      if (!roomHint) {
+        invalidateRoomSnapshot(roomId);
+        await prefetchCommunityMessengerRoomSnapshot(roomId, { force: true });
+        const snap = peekRoomSnapshot(roomId, viewerUserId ?? undefined);
+        if (!snap?.room || !isGeneralFriendDirectRoom(snap.room)) {
+          setActionError(getMessengerActionErrorMessage("cannot_start_chat"));
+          return false;
+        }
+        navigateToCommunityRoomWithViewer(roomId, { roomForPrime: snap.room });
+        return true;
+      }
+      navigateToCommunityRoomWithViewer(roomId, { roomForPrime: roomHint });
+      return true;
+    },
+    [data?.me?.id, getMessengerActionErrorMessage, navigateToCommunityRoomWithViewer]
+  );
+
   const startDirectRoom = useCallback(
     async (peerUserId: string) => {
       setActionError(null);
@@ -1055,9 +1087,11 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         } else if (!peekRoomSnapshot(existingRoom.id, viewerUserId ?? undefined)) {
           void prefetchCommunityMessengerRoomSnapshot(existingRoom.id);
         }
-        navigateToCommunityRoomWithViewer(existingRoom.id, {
-          roomForPrime: existingRoom,
-        });
+        if (!isGeneralFriendDirectRoom(existingRoom)) {
+          setActionError(getMessengerActionErrorMessage("cannot_start_chat"));
+          return;
+        }
+        void navigateGeneralFriendRoom(existingRoom.id, { roomForPrime: existingRoom });
         return;
       }
       setBusyId(`room:${peerUserId}`);
@@ -1094,10 +1128,11 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
             }
             requestMessengerHubBadgeResync("direct_room_created");
           }
-          navigateToCommunityRoomWithViewer(json.roomId, {
-            roomForPrime: json.snapshot?.room,
+          const navigated = await navigateGeneralFriendRoom(json.roomId, {
+            roomForPrime: json.snapshot?.room ?? null,
+            snapshot: json.snapshot ?? null,
           });
-          return;
+          if (navigated) return;
         }
         if (
           tryRedirectMessengerHomeAuthBlocked(router, res, json, {
@@ -1121,7 +1156,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       data?.chats,
       data?.me?.id,
       getMessengerActionErrorMessage,
-      navigateToCommunityRoomWithViewer,
+      navigateGeneralFriendRoom,
       messengerListPathname,
       reviveDirectRoomForEntry,
       router,
@@ -1325,8 +1360,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           void refresh(true);
           const roomId = result.directRoomId?.trim();
           if (roomId) {
-            invalidateRoomSnapshot(roomId);
-            navigateToCommunityRoomWithViewer(roomId);
+            void navigateGeneralFriendRoom(roomId);
           }
           return;
         }
@@ -1336,7 +1370,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         setBusyId(null);
       }
     },
-    [navigateToCommunityRoomWithViewer, refresh, t]
+    [navigateGeneralFriendRoom, refresh, t]
   );
 
   const respondRequest = useCallback(
@@ -1356,8 +1390,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           if (action === "accept") {
             const roomId = json.directRoomId?.trim();
             if (roomId) {
-              invalidateRoomSnapshot(roomId);
-              navigateToCommunityRoomWithViewer(roomId);
+              void navigateGeneralFriendRoom(roomId);
             }
           }
         }
@@ -1365,7 +1398,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         setBusyId(null);
       }
     },
-    [navigateToCommunityRoomWithViewer, refresh]
+    [navigateGeneralFriendRoom, refresh]
   );
 
   const resolvePeerBlockedState = useCallback(

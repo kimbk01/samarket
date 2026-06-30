@@ -1,13 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
   buildGeneralDirectRoomByPeerMap,
+  communityMessengerSummaryEligibleForPhaseDTradeEnrich,
   isGeneralFriendDirectRoom,
+  isMessengerCommerceDirectKey,
+  isMessengerGeneralFriendDirectKey,
   pickGeneralDirectRoomForPeer,
   resolveMessengerDotMenuCallKind,
   resolveMessengerDotMenuCallVisibility,
   resolveMessengerRoomFeatureGate,
 } from "@/lib/community-messenger/messenger-room-domain";
-import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
+import { buildMessengerFriendStateModel } from "@/lib/community-messenger/messenger-friend-model";
+import type { CommunityMessengerBootstrap, CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 
 function roomSummary(partial: Partial<CommunityMessengerRoomSummary>): CommunityMessengerRoomSummary {
   return {
@@ -37,6 +41,211 @@ function roomSummary(partial: Partial<CommunityMessengerRoomSummary>): Community
     contextMeta: partial.contextMeta ?? null,
   };
 }
+
+describe("isMessengerGeneralFriendDirectKey", () => {
+  const pairKey =
+    "aaaaaaaa-bbbb-bbbb-bbbb-bbbbbbbbbbbb:cccccccc-dddd-dddd-dddd-dddddddddddd";
+
+  it("accepts sorted user pair keys", () => {
+    expect(isMessengerGeneralFriendDirectKey(pairKey)).toBe(true);
+  });
+
+  it("rejects commerce direct keys", () => {
+    expect(isMessengerGeneralFriendDirectKey("trade_pc:pc-1")).toBe(false);
+    expect(isMessengerGeneralFriendDirectKey("trade_item:ledger-1")).toBe(false);
+    expect(isMessengerGeneralFriendDirectKey("store_order:order-1")).toBe(false);
+    expect(isMessengerGeneralFriendDirectKey("trade_order:order-1")).toBe(false);
+  });
+});
+
+describe("communityMessengerSummaryEligibleForPhaseDTradeEnrich", () => {
+  const peer = "peer-b";
+  const pairKey =
+    "aaaaaaaa-bbbb-bbbb-bbbb-bbbbbbbbbbbb:cccccccc-dddd-dddd-dddd-dddddddddddd";
+
+  it("excludes general friend DM even when trade history exists for the peer", () => {
+    const general = roomSummary({
+      peerUserId: peer,
+      messengerDirectKey: pairKey,
+    });
+    expect(communityMessengerSummaryEligibleForPhaseDTradeEnrich(general)).toBe(false);
+  });
+
+  it("still allows non-pair direct rows without commerce key", () => {
+    const orphan = roomSummary({
+      peerUserId: peer,
+      messengerDirectKey: null,
+    });
+    expect(communityMessengerSummaryEligibleForPhaseDTradeEnrich(orphan)).toBe(true);
+  });
+
+  it("excludes confirmed trade and delivery rows", () => {
+    expect(
+      communityMessengerSummaryEligibleForPhaseDTradeEnrich(
+        roomSummary({ messengerDirectKey: "trade_pc:pc-1" })
+      )
+    ).toBe(false);
+    expect(
+      communityMessengerSummaryEligibleForPhaseDTradeEnrich(
+        roomSummary({
+          messengerDirectKey: "store_order:o1",
+          contextMeta: { v: 1, kind: "delivery", storeOrderId: "o1" },
+        })
+      )
+    ).toBe(false);
+  });
+});
+
+describe("friend message routing with trade peer history", () => {
+  const peer = "peer-b";
+  const pairKey =
+    "aaaaaaaa-bbbb-bbbb-bbbb-bbbbbbbbbbbb:cccccccc-dddd-dddd-dddd-dddddddddddd";
+
+  it("picks general room when trade room is newer for the same peer", () => {
+    const general = roomSummary({
+      id: "general-room",
+      peerUserId: peer,
+      lastMessageAt: "2026-01-01T00:00:00.000Z",
+      messengerDirectKey: pairKey,
+    });
+    const trade = roomSummary({
+      id: "trade-room",
+      peerUserId: peer,
+      lastMessageAt: "2026-06-01T00:00:00.000Z",
+      messengerDirectKey: "trade_pc:pc-1",
+      contextMeta: { v: 1, kind: "trade", productChatId: "pc-1" },
+    });
+    const picked = pickGeneralDirectRoomForPeer([trade, general], peer);
+    expect(picked?.id).toBe("general-room");
+    expect(isGeneralFriendDirectRoom(picked!)).toBe(true);
+    expect(isMessengerCommerceDirectKey(trade.messengerDirectKey)).toBe(true);
+  });
+});
+
+function bootstrapFixture(
+  partial: Partial<CommunityMessengerBootstrap>
+): CommunityMessengerBootstrap {
+  return {
+    me: {
+      id: "me-1",
+      label: "Me",
+      avatarUrl: null,
+      following: false,
+      blocked: false,
+      isFriend: false,
+      isFavoriteFriend: false,
+    },
+    tabs: { friends: 0, chats: 0, groups: 0, calls: 0 },
+    friends: [],
+    following: [],
+    hidden: [],
+    blocked: [],
+    requests: [],
+    chats: [],
+    groups: [],
+    discoverableGroups: [],
+    calls: [],
+    ...partial,
+  };
+}
+
+describe("friend list vs chat list separation", () => {
+  const peer = "peer-b";
+  const pairKey =
+    "aaaaaaaa-bbbb-bbbb-bbbb-bbbbbbbbbbbb:cccccccc-dddd-dddd-dddd-dddddddddddd";
+
+  it("pending: not in friend list, general chat visible", () => {
+    const generalChat = roomSummary({
+      id: "general-room",
+      peerUserId: peer,
+      messengerDirectKey: pairKey,
+    });
+    const data = bootstrapFixture({
+      requests: [
+        {
+          id: "req-1",
+          requesterId: "me-1",
+          requesterLabel: "Me",
+          addresseeId: peer,
+          addresseeLabel: "Peer",
+          status: "pending",
+          direction: "outgoing",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+      ],
+      chats: [generalChat],
+    });
+    const model = buildMessengerFriendStateModel(data, buildGeneralDirectRoomByPeerMap(data.chats));
+    expect(model.friends).toHaveLength(0);
+    expect(isGeneralFriendDirectRoom(generalChat)).toBe(true);
+  });
+
+  it("accepted: friend list and general chat both visible", () => {
+    const generalChat = roomSummary({
+      id: "general-room",
+      peerUserId: peer,
+      messengerDirectKey: pairKey,
+    });
+    const data = bootstrapFixture({
+      friends: [
+        {
+          id: peer,
+          label: "Peer",
+          avatarUrl: null,
+          following: false,
+          blocked: false,
+          isFriend: true,
+          isFavoriteFriend: false,
+        },
+      ],
+      chats: [generalChat],
+    });
+    const model = buildMessengerFriendStateModel(data, buildGeneralDirectRoomByPeerMap(data.chats));
+    expect(model.friends).toHaveLength(1);
+    expect(model.friends[0]?.profile.id).toBe(peer);
+    expect(isGeneralFriendDirectRoom(generalChat)).toBe(true);
+  });
+
+  it("blocked: not in friend list and general chat hidden from main inbox helper", () => {
+    const hiddenGeneral = roomSummary({
+      id: "general-room",
+      peerUserId: peer,
+      messengerDirectKey: pairKey,
+      isBlockedHiddenByViewer: true,
+    });
+    const data = bootstrapFixture({
+      blocked: [
+        {
+          id: peer,
+          label: "Peer",
+          avatarUrl: null,
+          following: false,
+          blocked: true,
+          isFriend: false,
+          isFavoriteFriend: false,
+        },
+      ],
+      chats: [hiddenGeneral],
+    });
+    const model = buildMessengerFriendStateModel(data, buildGeneralDirectRoomByPeerMap(data.chats));
+    expect(model.friends).toHaveLength(0);
+    expect(model.blocked).toHaveLength(1);
+  });
+
+  it("trade counterpart without friendship stays out of friend list", () => {
+    const tradeChat = roomSummary({
+      id: "trade-room",
+      peerUserId: peer,
+      messengerDirectKey: "trade_pc:pc-1",
+      contextMeta: { v: 1, kind: "trade", productChatId: "pc-1" },
+    });
+    const data = bootstrapFixture({ chats: [tradeChat] });
+    const model = buildMessengerFriendStateModel(data, buildGeneralDirectRoomByPeerMap(data.chats));
+    expect(model.friends).toHaveLength(0);
+    expect(isGeneralFriendDirectRoom(tradeChat)).toBe(false);
+    expect(isMessengerCommerceDirectKey(tradeChat.messengerDirectKey)).toBe(true);
+  });
+});
 
 describe("isGeneralFriendDirectRoom", () => {
   it("accepts sorted-pair friend direct room", () => {
