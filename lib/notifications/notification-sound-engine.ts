@@ -8,6 +8,10 @@ import {
   invalidateNotificationSoundSsotCache,
   resolveNotificationSound,
 } from "@/lib/notifications/notification-sound-resolver";
+import {
+  ensureNotificationSoundSsotHydratedForClient,
+  invalidateNotificationSoundSsotClientHydrate,
+} from "@/lib/notifications/notification-sound-ssot-client-hydrate";
 import { UNIFIED_IN_APP_CHAT_SOUND_MIN_GAP_MS } from "@/lib/notifications/unified-messenger-trade-alert-contract";
 
 /** Realtime INSERT + 미읽음 배지 폴링이 같은 수신을 거의 동시에 재생할 때 1회로 줄임 */
@@ -51,6 +55,7 @@ export async function playEventNotificationSound(
   context?: { roomMuted?: boolean; userSoundEnabled?: boolean; userDomainEnabled?: boolean }
 ): Promise<void> {
   if (typeof window === "undefined") return;
+  await ensureNotificationSoundSsotHydratedForClient();
   const resolved = resolveNotificationSound(eventKey, { ...context, platform: "web" });
   if (!resolved.enabled || resolved.kind === "silent") return;
   if (!resolved.webUrl) return;
@@ -96,4 +101,5 @@ function scheduleAutoStop(): void {
 /** Admin SSOT PATCH·legacy UI mutation 후 클라 resolver snapshot 무효화 */
 export function invalidateNotificationSoundConfigCache(): void {
   invalidateNotificationSoundSsotCache();
+  invalidateNotificationSoundSsotClientHydrate();
 }
