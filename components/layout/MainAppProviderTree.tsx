@@ -38,6 +38,7 @@ import { DevicePermissionUiHost } from "@/components/permissions/DevicePermissio
 import { PermissionEducationHost } from "@/components/permissions/education/PermissionEducationHost";
 import { NotificationGuideModalHost } from "@/lib/permissions/permission-manager/notification-guide-modal";
 import { NotificationPermissionSyncHost } from "@/lib/permissions/permission-manager/notification-permission-sync-host";
+import { FullScreenIntentGuideHost } from "@/components/permissions/FullScreenIntentGuideHost";
 import { PushRouteListener } from "@/components/push/PushRouteListener";
 import { NotificationRouteReadSync } from "@/components/push/NotificationRouteReadSync";
 import { registerGoogleNativeRecoverBootstrap } from "@/lib/auth/native/google-native-recover-bootstrap.client";
@@ -194,6 +195,7 @@ export function MainAppProviderTree({
           <DiBaYDevicePermissionOnboardingGate />
           <NotificationGuideModalHost />
           <NotificationPermissionSyncHost />
+          <FullScreenIntentGuideHost />
           <NativePushRegistrationLazy />
           <PushRouteListener />
           <NotificationRouteReadSync />

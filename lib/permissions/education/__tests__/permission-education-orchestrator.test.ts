@@ -140,14 +140,22 @@ describe("runCallMediaEducationBeforeGesture", () => {
   });
 });
 
+vi.mock("@/lib/permissions/permission-manager/full-screen-intent-guide-flow", () => ({
+  runFullScreenIntentEducationBeforeCall: vi.fn(async () => {}),
+}));
+
 describe("runLockScreenEducationIfNeeded", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resetPermissionEducationOrchestratorForTests();
   });
 
-  it("is a no-op and does not open education sheet", async () => {
+  it("delegates to Android FSI education flow", async () => {
+    const { runFullScreenIntentEducationBeforeCall } = await import(
+      "@/lib/permissions/permission-manager/full-screen-intent-guide-flow"
+    );
     await runLockScreenEducationIfNeeded();
+    expect(runFullScreenIntentEducationBeforeCall).toHaveBeenCalledTimes(1);
     expect(openPermissionEducationSheet).not.toHaveBeenCalled();
   });
 });

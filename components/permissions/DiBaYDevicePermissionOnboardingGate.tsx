@@ -32,6 +32,7 @@ import {
 import { recordDiBaYOnboardingDecision } from "@/lib/permissions/device-permission-manager";
 import { runNotificationGuideFlow } from "@/lib/permissions/permission-manager/notification-onboarding-flow";
 import { syncNotificationState } from "@/lib/permissions/permission-manager/notification-permission-manager";
+import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 import { subscribeDibayAuthStateChange } from "@/lib/auth/dibay-session-manager";
 import { useStoresHomeOverlayDeferUntilInput } from "@/lib/stores/use-stores-home-overlay-defer-until-input";
 
@@ -166,7 +167,9 @@ export function DiBaYDevicePermissionOnboardingGate() {
 
           const step = steps[stepIndex];
           if (step === "notification") {
-            await runNotificationGuideFlow("first_login");
+            if (isCapacitorNativePlatform()) {
+              await runNotificationGuideFlow("first_login");
+            }
             continue;
           }
 

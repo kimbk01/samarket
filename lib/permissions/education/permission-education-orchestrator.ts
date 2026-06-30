@@ -71,12 +71,12 @@ export async function runCallMediaEducationBeforeGesture(
   return { proceed: false };
 }
 
-/**
- * FSI/배터리 proactive education — 비활성 (no-op).
- * 후속: 실제 잠금화면 수신 실패 감지 후 별도 연동.
- */
+/** Android FSI only — call boundary; battery excluded. */
 export async function runLockScreenEducationIfNeeded(): Promise<void> {
-  return;
+  const { runFullScreenIntentEducationBeforeCall } = await import(
+    "@/lib/permissions/permission-manager/full-screen-intent-guide-flow"
+  );
+  await runFullScreenIntentEducationBeforeCall();
 }
 
 export function resetPermissionEducationOrchestratorForTests(): void {

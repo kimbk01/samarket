@@ -20,6 +20,7 @@ import {
   writePreferredSpeakerSinkId,
 } from "@/lib/permissions/speaker-output-preference";
 import { LinkedLoginProvidersContent } from "@/components/my/settings/LinkedLoginProvidersContent";
+import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
 const PERMISSION_KINDS: readonly DevicePermissionKind[] = [
@@ -68,6 +69,7 @@ function initialPermissionStates(): Record<DevicePermissionKind, BrowserPermissi
 
 export function DevicePermissionsSettingsContent() {
   const { t } = useI18n();
+  const isNativeShell = isCapacitorNativePlatform();
   const [permissionStates, setPermissionStates] = useState<Record<DevicePermissionKind, BrowserPermissionState>>(
     initialPermissionStates,
   );
@@ -123,10 +125,14 @@ export function DevicePermissionsSettingsContent() {
   const setPermissionHint = useCallback(
     (kind: DevicePermissionKind, state: BrowserPermissionState) => {
       if (state === "denied") {
+        if (kind === "notification" && !isNativeShell) {
+          setHint(t("settings_web_notification_denied_inline"));
+          return;
+        }
         setHint(t(DENIED_HINT_KEYS[kind]));
       }
     },
-    [t],
+    [isNativeShell, t],
   );
 
   const onAllowPermission = useCallback(
@@ -138,7 +144,11 @@ export function DevicePermissionsSettingsContent() {
         await reloadLabels();
         if (!res.result.ok) {
           if ("reason" in res.result && res.result.reason === "denied") {
-            setHint(t(DENIED_HINT_KEYS[kind]));
+            if (kind === "notification" && !isNativeShell) {
+              setHint(t("settings_web_notification_denied_inline"));
+            } else {
+              setHint(t(DENIED_HINT_KEYS[kind]));
+            }
           } else if ("reason" in res.result && res.result.reason === "no_api") {
             setHint(t("settings_device_hint_no_permission_api"));
           }
@@ -147,7 +157,7 @@ export function DevicePermissionsSettingsContent() {
         setBusy(null);
       }
     },
-    [reloadLabels, t],
+    [isNativeShell, reloadLabels, t],
   );
 
   const onRecheckPermission = useCallback(
@@ -222,9 +232,15 @@ export function DevicePermissionsSettingsContent() {
               {t("settings_device_status", { label: labelForBrowserState(state) })}
             </p>
             {state === "denied" ? (
-              <PermissionRequiredBanner
-                message={t("settings_device_perm_banner", { kind: t(PERMISSION_KIND_KEYS[kind]) })}
-              />
+              kind === "notification" && !isNativeShell ? (
+                <p className={`${Sam.text.helper} text-sam-muted`}>
+                  {t("settings_web_notification_denied_inline")}
+                </p>
+              ) : (
+                <PermissionRequiredBanner
+                  message={t("settings_device_perm_banner", { kind: t(PERMISSION_KIND_KEYS[kind]) })}
+                />
+              )
             ) : null}
             <div className="flex flex-wrap gap-2">
               <button
@@ -247,22 +263,25 @@ export function DevicePermissionsSettingsContent() {
                   ? t("settings_device_checking")
                   : t("settings_device_recheck")}
               </button>
-              <button
-                type="button"
-                disabled={busy !== null}
-                onClick={() => void onShowGuide(kind)}
-                className={`${Sam.btn.ghostCombo} ${Sam.btn.sm}`}
-              >
-                {isBusy && busy === `${kind}:guide`
-                  ? t("settings_device_checking")
-                  : t("settings_device_show_guide")}
-              </button>
+              {isNativeShell || kind !== "notification" ? (
+                <button
+                  type="button"
+                  disabled={busy !== null}
+                  onClick={() => void onShowGuide(kind)}
+                  className={`${Sam.btn.ghostCombo} ${Sam.btn.sm}`}
+                >
+                  {isBusy && busy === `${kind}:guide`
+                    ? t("settings_device_checking")
+                    : t("settings_device_show_guide")}
+                </button>
+              ) : null}
             </div>
           </section>
         );
       }),
     [
       busy,
+      isNativeShell,
       labelForBrowserState,
       onAllowPermission,
       onRecheckPermission,

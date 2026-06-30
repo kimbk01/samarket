@@ -9,6 +9,7 @@ import {
   subscribeNotificationGuideBridge,
 } from "@/lib/permissions/permission-manager/notification-permission-ui-bridge";
 import type { NotificationReceiveSnapshot } from "@/lib/permissions/permission-manager/notification-permission-types";
+import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 import {
   isSamsungDevice,
   openBatteryOptimizationSettings,
@@ -40,6 +41,10 @@ export function NotificationGuideModalHost() {
   const [, bump] = useReducer((x) => x + 1, 0);
 
   useEffect(() => subscribeNotificationGuideBridge(bump), []);
+
+  if (!isCapacitorNativePlatform()) {
+    return null;
+  }
 
   const pending = getNotificationGuidePending();
   if (!pending) return null;

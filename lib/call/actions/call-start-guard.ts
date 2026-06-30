@@ -5,6 +5,7 @@ import { bootstrapCommunityMessengerOutgoingCallSession } from "@/lib/community-
 import { logDibayCallFlow } from "@/lib/call/logging/call-flow-log";
 import { callPermissionGate } from "@/lib/call/permissions/call-permission-gate";
 import type { CallPermissionRequireResult } from "@/lib/call/permissions/call-permission-types";
+import { runLockScreenEducationIfNeeded } from "@/lib/permissions/education/permission-education-orchestrator";
 
 export type CallStartGuardInput = {
   kind: CommunityMessengerCallKind;
@@ -44,6 +45,7 @@ export function resetCallStartGuardForTests(): void {
  * createCall 이전 Agora token·route·ringtone 금지.
  */
 export async function runCallStartGuard(input: CallStartGuardInput): Promise<CallStartGuardResult> {
+  await runLockScreenEducationIfNeeded();
   let permission = await callPermissionGate.requireForOutgoing(input.kind);
   if (!permission.ok && input.promptOnDenied) {
     await callPermissionGate.prompt(input.kind, "outgoing");

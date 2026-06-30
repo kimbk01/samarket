@@ -23,6 +23,11 @@ import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 
 export type NotificationGuideFlowResult = "granted" | "declined" | "browser_denied";
 
+/** Web: settings_retry = explicit user click; first_login/disabled_resume = passive (no modal, no OS prompt). */
+function isWebNotificationUserGesture(mode: NotificationGuideMode): boolean {
+  return mode === "settings_retry";
+}
+
 async function schedulePushRegistration(): Promise<void> {
   if (isCapacitorNativePlatform()) {
     const userId = (await getCurrentUserIdForDb())?.trim() ?? "";
@@ -33,9 +38,54 @@ async function schedulePushRegistration(): Promise<void> {
 }
 
 /**
+ * Chrome/Web — browser permission model only. No app guide modal; OS prompt on explicit user gesture.
+ */
+async function runWebNotificationBrowserFlow(mode: NotificationGuideMode): Promise<NotificationGuideFlowResult> {
+  let snapshot = await syncNotificationState();
+
+  if (snapshot.receiveReady) {
+    clearNotificationRequiredBlocked();
+    recordDiBaYOnboardingDecision("notification", "accepted");
+    await schedulePushRegistration();
+    return "granted";
+  }
+
+  if (!isWebNotificationUserGesture(mode)) {
+    return "declined";
+  }
+
+  if (!canRequestOsNotificationPrompt(snapshot)) {
+    recordDiBaYOnboardingDecision("notification", "browser_denied");
+    return "browser_denied";
+  }
+
+  const osResult = await requestNotificationFromGuide();
+  snapshot = osResult.snapshot;
+
+  if (osResult.ok && snapshot.receiveReady) {
+    clearNotificationRequiredBlocked();
+    recordDiBaYOnboardingDecision("notification", "accepted");
+    await schedulePushRegistration();
+    return "granted";
+  }
+
+  if (snapshot.effectiveState === "PERMANENT_DENIED" || snapshot.effectiveState === "SYSTEM_DISABLED") {
+    recordDiBaYOnboardingDecision("notification", "browser_denied");
+    return "browser_denied";
+  }
+
+  recordDiBaYOnboardingDecision("notification", "declined");
+  return "declined";
+}
+
+/**
  * Guide-first notification flow — single entry for first login and explicit retries.
  */
 export async function runNotificationGuideFlow(mode: NotificationGuideMode): Promise<NotificationGuideFlowResult> {
+  if (!isCapacitorNativePlatform()) {
+    return runWebNotificationBrowserFlow(mode);
+  }
+
   let snapshot = await syncNotificationState();
 
   if (snapshot.receiveReady) {

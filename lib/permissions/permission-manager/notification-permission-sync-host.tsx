@@ -17,6 +17,10 @@ export function NotificationPermissionSyncHost() {
   const guideRunningRef = useRef(false);
 
   useEffect(() => {
+    if (!isCapacitorNativePlatform()) {
+      return;
+    }
+
     let cancelled = false;
 
     const runSync = async (source: "mount" | "visibility" | "app_state") => {

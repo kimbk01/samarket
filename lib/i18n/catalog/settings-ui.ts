@@ -88,6 +88,8 @@ export const settingsUiMessages = {
     settings_web_push_err_register_failed: "등록에 실패했습니다.",
     settings_web_push_err_register_generic: "등록 중 오류가 났습니다.",
     settings_web_push_err_unregister_failed: "해제에 실패했습니다.",
+    settings_web_notification_denied_inline:
+      "브라우저 주소창 왼쪽의 사이트 설정에서 알림을 허용해 주세요.",
     settings_native_push_title: "앱 푸시(Android/iOS)",
     settings_native_push_desc: "앱을 닫아도 채팅·주문·통화 알림을 받습니다. 기기 알림 권한이 필요합니다.",
     settings_native_push_no_table: "DB에 user_devices 테이블이 없습니다. Supabase 마이그레이션을 적용해 주세요.",
@@ -116,6 +118,12 @@ export const settingsUiMessages = {
     dibay_notification_guide_open_settings: "알림 설정 열기",
     dibay_notification_guide_open_fsi: "전체 화면 알림 설정",
     dibay_notification_guide_open_battery: "배터리 설정 열기",
+    dibay_fsi_guide_body:
+      "잠금화면에서 통화를 받으려면 기기의 전체화면 알림 허용이 필요합니다.",
+    dibay_fsi_guide_settings_hint: "아래 버튼을 누르면 기기 설정 화면으로 이동합니다.",
+    dibay_fsi_guide_open_settings: "기기 설정 열기",
+    dibay_fsi_guide_later: "나중에",
+    dibay_fsi_guide_dismiss_permanent: "다시 보지 않기",
     settings_device_intro:
       "위치·마이크·카메라·알림은 브라우저와 기기 권한에 연결됩니다. 같은 계정과 같은 기기에서는 허용 상태와 안내 상태를 재사용합니다.",
     settings_device_location: "위치",
@@ -459,6 +467,8 @@ export const settingsUiMessages = {
     settings_web_push_err_register_failed: "Registration failed.",
     settings_web_push_err_register_generic: "An error occurred during registration.",
     settings_web_push_err_unregister_failed: "Could not unregister.",
+    settings_web_notification_denied_inline:
+      "Allow notifications for this site via the site settings icon to the left of the address bar.",
     settings_native_push_title: "App push (Android/iOS)",
     settings_native_push_desc: "Receive chat, order, and call alerts when the app is closed. Device notification permission is required.",
     settings_native_push_no_table: "The user_devices table is missing. Apply the Supabase migration.",
@@ -487,6 +497,12 @@ export const settingsUiMessages = {
     dibay_notification_guide_open_settings: "Open notification settings",
     dibay_notification_guide_open_fsi: "Full-screen alert settings",
     dibay_notification_guide_open_battery: "Open battery settings",
+    dibay_fsi_guide_body:
+      "To receive calls on the lock screen, allow full-screen notifications on your device.",
+    dibay_fsi_guide_settings_hint: "The button below opens your device settings.",
+    dibay_fsi_guide_open_settings: "Open device settings",
+    dibay_fsi_guide_later: "Not now",
+    dibay_fsi_guide_dismiss_permanent: "Don't show again",
     settings_device_intro:
       "Location, microphone, camera, and notifications use browser and device permissions. Guidance and allowed states are reused on the same account and device.",
     settings_device_location: "Location",

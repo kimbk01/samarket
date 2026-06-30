@@ -87,7 +87,13 @@ export function WebPushSettingsRow({ pushEnabled }: { pushEnabled: boolean }) {
     try {
       const perm = await requestNotificationWithDiBaYGate({ explicitRetry: true });
       if (!perm.ok) {
-        setHint(t("settings_web_push_err_permission"));
+        const deniedInline =
+          typeof window !== "undefined" &&
+          "Notification" in window &&
+          Notification.permission === "denied";
+        setHint(
+          deniedInline ? t("settings_web_notification_denied_inline") : t("settings_web_push_err_permission"),
+        );
         return;
       }
 
@@ -170,7 +176,11 @@ export function WebPushSettingsRow({ pushEnabled }: { pushEnabled: boolean }) {
             <p className="mt-1 text-[11px] leading-snug text-sam-muted">
               {t("settings_web_push_devices", { count: String(count) })}
               {Notification.permission === "granted" ? t("settings_web_push_perm_granted") : ""}
-              {Notification.permission === "denied" ? t("settings_web_push_perm_denied") : ""}
+            </p>
+          ) : null}
+          {supported && Notification.permission === "denied" ? (
+            <p className="mt-1 text-[11px] leading-snug text-amber-800">
+              {t("settings_web_notification_denied_inline")}
             </p>
           ) : null}
         </div>
