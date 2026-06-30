@@ -51,7 +51,9 @@ export const adminSettingsMessages = {
     admin_notif_sound_save_ok: "알림음 설정이 저장되었습니다.",
     admin_notif_sound_legacy_sections: "레거시 도메인 설정 (참고)",
     admin_notif_sound_legacy_sections_hint:
-      "아래 레거시 섹션은 mirror로 유지됩니다. SSOT 테이블 저장이 우선합니다.",
+      "알림음은 위 SSOT 테이블에서만 수정할 수 있습니다. 아래는 mirror 참고용이며 저장·업로드가 비활성화되어 있습니다.",
+    admin_notif_sound_legacy_call_policy_hint:
+      "통화 정책(벨 타임아웃·볼륨 등)만 아래에서 저장할 수 있습니다. 통화 알림음은 SSOT 테이블에서 수정하세요.",
     admin_settings_notif_preview: "미리듣기",
     admin_settings_notif_preview_custom:
       "위에 올린 파일 기준으로 재생합니다. 볼륨 슬라이더 값이 반영됩니다.",
@@ -380,7 +382,9 @@ export const adminSettingsMessages = {
     admin_notif_sound_save_ok: "Notification sound settings saved.",
     admin_notif_sound_legacy_sections: "Legacy domain settings (reference)",
     admin_notif_sound_legacy_sections_hint:
-      "Legacy sections below are kept via mirror. SSOT table saves take precedence.",
+      "Edit sounds only in the SSOT table above. Legacy sections below are read-only mirrors; save and upload are disabled.",
+    admin_notif_sound_legacy_call_policy_hint:
+      "Only call policy (ring timeout, volume, etc.) can be saved below. Edit call notification sounds in the SSOT table.",
     admin_settings_notif_preview: "Preview",
     admin_settings_notif_preview_custom:
       "Plays the uploaded file above. The volume slider applies.",

@@ -16,6 +16,7 @@ function SoundFieldRow({
   onPatch,
   onTest,
   onUploadFile,
+  readOnly = false,
 }: {
   label: string;
   enabledKey: string;
@@ -24,6 +25,7 @@ function SoundFieldRow({
   onPatch: (p: Record<string, unknown>) => void;
   onTest: (url: string) => void;
   onUploadFile?: (file: File) => Promise<void>;
+  readOnly?: boolean;
 }) {
   const { t } = useI18n();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -48,16 +50,24 @@ function SoundFieldRow({
           <input
             type="checkbox"
             checked={enabled}
-            onChange={(e) => onPatch({ [enabledKey]: e.target.checked })}
+            disabled={readOnly}
+            onChange={(e) => {
+              if (readOnly) return;
+              onPatch({ [enabledKey]: e.target.checked });
+            }}
           />
         </label>
       </div>
       <input
         type="url"
         value={url}
+        readOnly={readOnly}
         placeholder={t("admin_settings_call_url_placeholder")}
-        className="w-full rounded-ui-rect border border-ui-border bg-ui-surface px-2 py-1.5 sam-text-body-secondary text-ui-fg"
-        onChange={(e) => onPatch({ [urlKey]: e.target.value || null })}
+        className="w-full rounded-ui-rect border border-ui-border bg-ui-surface px-2 py-1.5 sam-text-body-secondary text-ui-fg disabled:cursor-not-allowed disabled:opacity-70"
+        onChange={(e) => {
+          if (readOnly) return;
+          onPatch({ [urlKey]: e.target.value || null });
+        }}
       />
       <div className="flex flex-wrap gap-2">
         <button
@@ -68,31 +78,35 @@ function SoundFieldRow({
         >
           {t("admin_settings_call_preview")}
         </button>
-        <button
-          type="button"
-          className="rounded-ui-rect border border-ui-border px-3 py-1 sam-text-helper text-ui-muted hover:bg-ui-hover active:bg-ui-hover"
-          onClick={() => onPatch({ [urlKey]: null, [enabledKey]: true })}
-          title={t("admin_settings_call_reset_default_title")}
-        >
-          {t("admin_settings_call_reset_default")}
-        </button>
-        {onUploadFile ? (
+        {!readOnly ? (
           <>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="audio/mpeg,audio/mp3,audio/wav,audio/ogg,audio/webm"
-              className="hidden"
-              onChange={onFileChange}
-            />
             <button
               type="button"
-              className="rounded-ui-rect border border-ui-border px-3 py-1 sam-text-helper text-ui-fg hover:bg-ui-hover active:bg-ui-hover disabled:opacity-50"
-              disabled={uploading}
-              onClick={() => fileRef.current?.click()}
+              className="rounded-ui-rect border border-ui-border px-3 py-1 sam-text-helper text-ui-muted hover:bg-ui-hover active:bg-ui-hover"
+              onClick={() => onPatch({ [urlKey]: null, [enabledKey]: true })}
+              title={t("admin_settings_call_reset_default_title")}
             >
-              {uploading ? t("admin_settings_notif_uploading") : t("admin_settings_call_upload")}
+              {t("admin_settings_call_reset_default")}
             </button>
+            {onUploadFile ? (
+              <>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="audio/mpeg,audio/mp3,audio/wav,audio/ogg,audio/webm"
+                  className="hidden"
+                  onChange={onFileChange}
+                />
+                <button
+                  type="button"
+                  className="rounded-ui-rect border border-ui-border px-3 py-1 sam-text-helper text-ui-fg hover:bg-ui-hover active:bg-ui-hover disabled:opacity-50"
+                  disabled={uploading}
+                  onClick={() => fileRef.current?.click()}
+                >
+                  {uploading ? t("admin_settings_notif_uploading") : t("admin_settings_call_upload")}
+                </button>
+              </>
+            ) : null}
           </>
         ) : null}
       </div>
@@ -105,11 +119,13 @@ function DefaultFallbackSoundField({
   onPatch,
   onUploadFile,
   onTest,
+  readOnly = false,
 }: {
   row: Row;
   onPatch: (p: Record<string, unknown>) => void;
   onUploadFile: (file: File) => Promise<void>;
   onTest: (url: string) => void;
+  readOnly?: boolean;
 }) {
   const { t } = useI18n();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -131,7 +147,11 @@ function DefaultFallbackSoundField({
         <input
           type="checkbox"
           checked={row?.use_custom_sounds !== false}
-          onChange={(e) => onPatch({ use_custom_sounds: e.target.checked })}
+          disabled={readOnly}
+          onChange={(e) => {
+            if (readOnly) return;
+            onPatch({ use_custom_sounds: e.target.checked });
+          }}
         />
       </label>
       <p className="sam-text-helper text-ui-muted">{t("admin_settings_call_fallback_hint")}</p>
@@ -140,9 +160,13 @@ function DefaultFallbackSoundField({
         <input
           type="url"
           value={url}
+          readOnly={readOnly}
           placeholder={t("admin_settings_call_optional")}
-          className="min-w-0 flex-1 rounded-ui-rect border border-ui-border bg-ui-surface px-2 py-1.5 sam-text-body-secondary"
-          onChange={(e) => onPatch({ default_fallback_sound_url: e.target.value || null })}
+          className="min-w-0 flex-1 rounded-ui-rect border border-ui-border bg-ui-surface px-2 py-1.5 sam-text-body-secondary disabled:cursor-not-allowed disabled:opacity-70"
+          onChange={(e) => {
+            if (readOnly) return;
+            onPatch({ default_fallback_sound_url: e.target.value || null });
+          }}
         />
         <div className="flex flex-wrap gap-2">
           <button
@@ -153,28 +177,45 @@ function DefaultFallbackSoundField({
           >
             {t("admin_settings_call_preview")}
           </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="audio/mpeg,audio/mp3,audio/wav,audio/ogg,audio/webm"
-            className="hidden"
-            onChange={onFileChange}
-          />
-          <button
-            type="button"
-            className="rounded-ui-rect border border-ui-border px-3 py-1.5 sam-text-helper text-ui-fg hover:bg-ui-hover active:bg-ui-hover disabled:opacity-50"
-            disabled={uploading}
-            onClick={() => fileRef.current?.click()}
-          >
-            {uploading ? t("admin_settings_notif_uploading") : t("admin_settings_call_upload")}
-          </button>
+          {!readOnly ? (
+            <>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="audio/mpeg,audio/mp3,audio/wav,audio/ogg,audio/webm"
+                className="hidden"
+                onChange={onFileChange}
+              />
+              <button
+                type="button"
+                className="rounded-ui-rect border border-ui-border px-3 py-1.5 sam-text-helper text-ui-fg hover:bg-ui-hover active:bg-ui-hover disabled:opacity-50"
+                disabled={uploading}
+                onClick={() => fileRef.current?.click()}
+              >
+                {uploading ? t("admin_settings_notif_uploading") : t("admin_settings_call_upload")}
+              </button>
+            </>
+          ) : null}
         </div>
       </div>
     </div>
   );
 }
 
-export function AdminMessengerCallSoundsSection() {
+const CALL_POLICY_PATCH_KEYS = [
+  "incoming_ring_timeout_seconds",
+  "incoming_ringtone_volume",
+  "busy_auto_reject_enabled",
+  "repeated_call_cooldown_seconds",
+  "suppress_incoming_local_notifications",
+] as const;
+
+export function AdminMessengerCallSoundsSection({
+  soundFieldsReadOnly = false,
+}: {
+  /** When true, sound URL/enabled fields are display-only; save sends call policy keys only. */
+  soundFieldsReadOnly?: boolean;
+}) {
   const { t } = useI18n();
   const [row, setRow] = useState<Row>(null);
   const [loading, setLoading] = useState(true);
@@ -240,11 +281,16 @@ export function AdminMessengerCallSoundsSection() {
     setSaving(true);
     setErr(null);
     try {
+      const body = soundFieldsReadOnly
+        ? Object.fromEntries(
+            CALL_POLICY_PATCH_KEYS.filter((k) => k in row).map((k) => [k, row[k]])
+          )
+        : row;
       const res = await fetch("/api/admin/messenger-call-sounds", {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(row),
+        body: JSON.stringify(body),
       });
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
@@ -258,7 +304,7 @@ export function AdminMessengerCallSoundsSection() {
     } finally {
       setSaving(false);
     }
-  }, [row, t]);
+  }, [row, soundFieldsReadOnly, t]);
 
   const testPlay = useCallback(
     (url: string) => {
@@ -297,7 +343,10 @@ export function AdminMessengerCallSoundsSection() {
           row={row}
           onPatch={patchLocal}
           onTest={testPlay}
-          onUploadFile={(file) => uploadSoundFile("voice_incoming_sound_url", file)}
+          readOnly={soundFieldsReadOnly}
+          onUploadFile={
+            soundFieldsReadOnly ? undefined : (file) => uploadSoundFile("voice_incoming_sound_url", file)
+          }
         />
         <SoundFieldRow
           label={t("admin_settings_call_outgoing_ringback")}
@@ -306,7 +355,10 @@ export function AdminMessengerCallSoundsSection() {
           row={row}
           onPatch={patchLocal}
           onTest={testPlay}
-          onUploadFile={(file) => uploadSoundFile("voice_outgoing_ringback_url", file)}
+          readOnly={soundFieldsReadOnly}
+          onUploadFile={
+            soundFieldsReadOnly ? undefined : (file) => uploadSoundFile("voice_outgoing_ringback_url", file)
+          }
         />
       </AdminCard>
 
@@ -318,7 +370,10 @@ export function AdminMessengerCallSoundsSection() {
           row={row}
           onPatch={patchLocal}
           onTest={testPlay}
-          onUploadFile={(file) => uploadSoundFile("video_incoming_sound_url", file)}
+          readOnly={soundFieldsReadOnly}
+          onUploadFile={
+            soundFieldsReadOnly ? undefined : (file) => uploadSoundFile("video_incoming_sound_url", file)
+          }
         />
         <SoundFieldRow
           label={t("admin_settings_call_outgoing_ringback")}
@@ -327,7 +382,10 @@ export function AdminMessengerCallSoundsSection() {
           row={row}
           onPatch={patchLocal}
           onTest={testPlay}
-          onUploadFile={(file) => uploadSoundFile("video_outgoing_ringback_url", file)}
+          readOnly={soundFieldsReadOnly}
+          onUploadFile={
+            soundFieldsReadOnly ? undefined : (file) => uploadSoundFile("video_outgoing_ringback_url", file)
+          }
         />
       </AdminCard>
 
@@ -339,7 +397,10 @@ export function AdminMessengerCallSoundsSection() {
           row={row}
           onPatch={patchLocal}
           onTest={testPlay}
-          onUploadFile={(file) => uploadSoundFile("missed_notification_sound_url", file)}
+          readOnly={soundFieldsReadOnly}
+          onUploadFile={
+            soundFieldsReadOnly ? undefined : (file) => uploadSoundFile("missed_notification_sound_url", file)
+          }
         />
         <SoundFieldRow
           label={t("admin_settings_call_end")}
@@ -348,12 +409,14 @@ export function AdminMessengerCallSoundsSection() {
           row={row}
           onPatch={patchLocal}
           onTest={testPlay}
-          onUploadFile={(file) => uploadSoundFile("call_end_sound_url", file)}
+          readOnly={soundFieldsReadOnly}
+          onUploadFile={soundFieldsReadOnly ? undefined : (file) => uploadSoundFile("call_end_sound_url", file)}
         />
         <DefaultFallbackSoundField
           row={row}
           onPatch={patchLocal}
           onTest={testPlay}
+          readOnly={soundFieldsReadOnly}
           onUploadFile={(file) => uploadSoundFile("default_fallback_sound_url", file)}
         />
       </AdminCard>
@@ -419,7 +482,7 @@ export function AdminMessengerCallSoundsSection() {
         className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white disabled:opacity-50"
         onClick={() => void save()}
       >
-        {saving ? t("common_saving") : t("admin_settings_call_save")}
+        {saving ? t("common_saving") : t("common_save")}
       </button>
     </div>
   );

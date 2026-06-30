@@ -5,7 +5,6 @@ import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminGlobalAlertSoundSection } from "@/components/admin/stores/AdminGlobalAlertSoundSection";
 import type { NotificationDomain } from "@/lib/notifications/notification-domains";
-import { invalidateNotificationSoundConfigCache } from "@/lib/notifications/notification-sound-engine";
 import { AdminNotificationSoundSsotTable } from "@/components/admin/settings/AdminNotificationSoundSsotTable";
 import { AdminNotificationSoundPreview } from "@/components/admin/settings/AdminNotificationSoundPreview";
 import { AdminMessengerCallSoundsSection } from "@/components/admin/settings/AdminMessengerCallSoundsSection";
@@ -44,9 +43,6 @@ export function AdminNotificationDomainsSettings() {
   const { t } = useI18n();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [uploadBusy, setUploadBusy] = useState<NotificationDomain | null>(null);
-  const [clearBusy, setClearBusy] = useState<NotificationDomain | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -86,90 +82,6 @@ export function AdminNotificationDomainsSettings() {
     void load();
   }, [load]);
 
-  const patchRow = useCallback((type: NotificationDomain, partial: Partial<Row>) => {
-    setRows((prev) => prev.map((r) => (r.type === type ? { ...r, ...partial } : r)));
-  }, []);
-
-  const save = useCallback(async () => {
-    setSaving((prev) => (prev ? prev : true));
-    setErr((prev) => (prev === null ? prev : null));
-    try {
-      const res = await fetch("/api/admin/notification-settings", {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items: rows }),
-      });
-      const j = (await res.json()) as { ok?: boolean; error?: string };
-      if (!res.ok || !j.ok) {
-        setErr(j.error ?? t("admin_settings_notif_save_failed"));
-        return;
-      }
-      invalidateNotificationSoundConfigCache();
-    } catch {
-      setErr(t("common_network_error_generic"));
-    } finally {
-      setSaving((prev) => (prev ? false : prev));
-    }
-  }, [rows, t]);
-
-  const uploadSoundFile = useCallback(async (type: NotificationDomain, file: File) => {
-    setUploadBusy(type);
-    setErr(null);
-    try {
-      const fd = new FormData();
-      fd.set("type", type);
-      fd.set("file", file);
-      const res = await fetch("/api/admin/notification-settings/upload-sound", {
-        method: "POST",
-        credentials: "include",
-        body: fd,
-      });
-      const j = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        sound_url?: string;
-        error?: string;
-        message?: string;
-      };
-      if (!res.ok || !j.ok) {
-        setErr(j.message ?? j.error ?? t("admin_settings_notif_upload_failed"));
-        return;
-      }
-      if (typeof j.sound_url === "string") {
-        patchRow(type, { sound_url: j.sound_url });
-      }
-      invalidateNotificationSoundConfigCache();
-    } catch {
-      setErr(t("common_network_error_generic"));
-    } finally {
-      setUploadBusy(null);
-    }
-  }, [patchRow, t]);
-
-  const clearUploadedSound = useCallback(async (type: NotificationDomain) => {
-    setClearBusy(type);
-    setErr(null);
-    try {
-      const res = await fetch("/api/admin/notification-settings", {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items: [{ type, sound_url: null }] }),
-      });
-      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-      if (!res.ok || !j.ok) {
-        setErr(j.error ?? t("admin_settings_notif_clear_failed"));
-        return;
-      }
-      patchRow(type, { sound_url: null });
-      invalidateNotificationSoundConfigCache();
-    } catch {
-      setErr(t("common_network_error_generic"));
-    } finally {
-      setClearBusy(null);
-    }
-  }, [patchRow, t]);
-
   if (loading) {
     return (
       <div className="rounded-ui-rect border border-ui-border bg-ui-surface p-6 sam-text-body text-ui-muted">
@@ -194,129 +106,67 @@ export function AdminNotificationDomainsSettings() {
         <summary className="cursor-pointer sam-text-body-secondary text-ui-muted">
           {t("admin_notif_sound_legacy_sections")}
         </summary>
+        <p className="mt-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950">
+          {t("admin_notif_sound_legacy_sections_hint")}
+        </p>
         <div className="mt-4 space-y-4">
-      <div className="grid gap-4 lg:grid-cols-2">
-        {rows.map((r) => (
-        <AdminCard key={r.type} titleKey={DOMAIN_TITLE_KEYS[r.type]}>
-          <div className="space-y-3 px-1 py-2">
-            <label className="flex items-center justify-between gap-3 sam-text-body">
-              <span>{t("admin_settings_notif_enabled")}</span>
-              <input
-                type="checkbox"
-                checked={r.enabled}
-                onChange={(e) => patchRow(r.type, { enabled: e.target.checked })}
-              />
-            </label>
-            <div className="space-y-2">
-              <span className="sam-text-body-secondary text-ui-muted">{t("admin_settings_notif_sound_file")}</span>
-              <div className="flex flex-wrap items-center gap-2">
-                <input
-                  type="file"
-                  accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/ogg,audio/webm"
-                  className="hidden"
-                  id={`notif-domain-sound-${r.type}`}
-                  disabled={uploadBusy === r.type}
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) void uploadSoundFile(r.type, f);
-                    e.target.value = "";
-                  }}
-                />
-                <label
-                  htmlFor={`notif-domain-sound-${r.type}`}
-                  className={`inline-flex cursor-pointer rounded-ui-rect border border-ui-border bg-ui-surface px-3 py-1.5 sam-text-body-secondary text-ui-fg hover:bg-ui-hover ${
-                    uploadBusy === r.type ? "pointer-events-none opacity-60" : ""
-                  }`}
-                >
-                  {uploadBusy === r.type ? t("admin_settings_notif_uploading") : t("admin_settings_notif_pick_file")}
-                </label>
-                <button
-                  type="button"
-                  disabled={clearBusy === r.type || uploadBusy === r.type || !r.sound_url}
-                  className="rounded-ui-rect border border-ui-border px-3 py-1.5 sam-text-body-secondary text-ui-muted hover:bg-ui-hover disabled:opacity-50"
-                  onClick={() => void clearUploadedSound(r.type)}
-                >
-                  {clearBusy === r.type ? t("admin_settings_notif_clearing") : t("admin_settings_notif_clear_upload")}
-                </button>
-              </div>
-              <AdminNotificationSoundPreview soundUrl={r.sound_url} volume={r.volume} />
-            </div>
-            <label className="flex items-center gap-3 sam-text-body">
-              {t("admin_settings_notif_volume")}
-              <input
-                type="range"
-                min={0}
-                max={1}
-                step={0.05}
-                value={r.volume}
-                onChange={(e) => patchRow(r.type, { volume: Number(e.target.value) })}
-              />
-              <span className="text-ui-muted">{r.volume.toFixed(2)}</span>
-            </label>
-            <label className="flex items-center gap-3 sam-text-body">
-              {t("admin_settings_notif_repeat")}
-              <input
-                type="number"
-                min={1}
-                max={5}
-                className="w-16 rounded-ui-rect border border-ui-border px-2 py-1"
-                value={r.repeat_count}
-                onChange={(e) =>
-                  patchRow(r.type, {
-                    repeat_count: Math.max(1, Math.min(5, Number(e.target.value) || 1)),
-                  })
-                }
-              />
-            </label>
-            <label className="flex items-center gap-3 sam-text-body">
-              {t("admin_settings_notif_cooldown")}
-              <input
-                type="number"
-                min={0}
-                max={600}
-                className="w-20 rounded-ui-rect border border-ui-border px-2 py-1"
-                value={r.cooldown_seconds}
-                onChange={(e) =>
-                  patchRow(r.type, {
-                    cooldown_seconds: Math.max(0, Math.min(600, Number(e.target.value) || 0)),
-                  })
-                }
-              />
-            </label>
+          <div className="grid gap-4 lg:grid-cols-2">
+            {rows.map((r) => (
+              <AdminCard key={r.type} titleKey={DOMAIN_TITLE_KEYS[r.type]}>
+                <div className="space-y-3 px-1 py-2">
+                  <label className="flex items-center justify-between gap-3 sam-text-body">
+                    <span>{t("admin_settings_notif_enabled")}</span>
+                    <input type="checkbox" checked={r.enabled} disabled readOnly />
+                  </label>
+                  <div className="space-y-2">
+                    <span className="sam-text-body-secondary text-ui-muted">{t("admin_settings_notif_sound_file")}</span>
+                    <p className="break-all sam-text-helper text-ui-muted">
+                      {r.sound_url?.trim() ? r.sound_url : t("common_none")}
+                    </p>
+                    <AdminNotificationSoundPreview soundUrl={r.sound_url} volume={r.volume} />
+                  </div>
+                  <div className="flex items-center gap-3 sam-text-body">
+                    <span>{t("admin_settings_notif_volume")}</span>
+                    <span className="text-ui-muted">{r.volume.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center gap-3 sam-text-body">
+                    <span>{t("admin_settings_notif_repeat")}</span>
+                    <span className="text-ui-muted">{r.repeat_count}</span>
+                  </div>
+                  <div className="flex items-center gap-3 sam-text-body">
+                    <span>{t("admin_settings_notif_cooldown")}</span>
+                    <span className="text-ui-muted">{r.cooldown_seconds}</span>
+                  </div>
+                </div>
+              </AdminCard>
+            ))}
           </div>
-        </AdminCard>
-        ))}
-      </div>
 
-      <div className="grid gap-4 xl:grid-cols-2">
-        <AdminGlobalAlertSoundSection
-          titleKey="admin_settings_notification_delivery_sound_title"
-          descriptionKey="admin_settings_notification_delivery_sound_desc"
-          codeKey="admin_settings.store_delivery_alert_sound"
-          apiPath="/api/admin/store-delivery-alert-sound"
-          onAfterMutation={invalidateStoreDeliveryAlertSoundCache}
-        />
-        <AdminGlobalAlertSoundSection
-          titleKey="admin_settings_notification_match_sound_title"
-          descriptionKey="admin_settings_notification_match_sound_desc"
-          codeKey="admin_settings.order_match_chat_alert_sound"
-          apiPath="/api/admin/order-match-chat-alert-sound"
-          onAfterMutation={bustOrderMatchAlertSoundCache}
-        />
-      </div>
+          <div className="grid gap-4 xl:grid-cols-2">
+            <AdminGlobalAlertSoundSection
+              titleKey="admin_settings_notification_delivery_sound_title"
+              descriptionKey="admin_settings_notification_delivery_sound_desc"
+              codeKey="admin_settings.store_delivery_alert_sound"
+              apiPath="/api/admin/store-delivery-alert-sound"
+              onAfterMutation={invalidateStoreDeliveryAlertSoundCache}
+              readOnly
+            />
+            <AdminGlobalAlertSoundSection
+              titleKey="admin_settings_notification_match_sound_title"
+              descriptionKey="admin_settings_notification_match_sound_desc"
+              codeKey="admin_settings.order_match_chat_alert_sound"
+              apiPath="/api/admin/order-match-chat-alert-sound"
+              onAfterMutation={bustOrderMatchAlertSoundCache}
+              readOnly
+            />
+          </div>
 
-      <button
-        type="button"
-        disabled={saving}
-        className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white disabled:opacity-50"
-        onClick={() => void save()}
-      >
-        {saving ? t("common_saving") : t("common_save")}
-      </button>
-
-      <div className="border-t border-ui-border pt-8">
-        <AdminMessengerCallSoundsSection />
-      </div>
+          <div className="border-t border-ui-border pt-8">
+            <p className="mb-4 rounded-ui-rect border border-ui-border bg-ui-surface px-3 py-2 sam-text-helper text-ui-muted">
+              {t("admin_notif_sound_legacy_call_policy_hint")}
+            </p>
+            <AdminMessengerCallSoundsSection soundFieldsReadOnly />
+          </div>
         </div>
       </details>
     </div>

@@ -17,6 +17,8 @@ export type AdminGlobalAlertSoundSectionProps = {
   codeKey: string;
   apiPath: string;
   onAfterMutation?: () => void;
+  /** When true, display current sound only — no upload, preset change, or delete. */
+  readOnly?: boolean;
 };
 
 export function AdminGlobalAlertSoundSection({
@@ -25,6 +27,7 @@ export function AdminGlobalAlertSoundSection({
   codeKey,
   apiPath,
   onAfterMutation,
+  readOnly = false,
 }: AdminGlobalAlertSoundSectionProps) {
   const { t } = useI18n();
   const [soundSelect, setSoundSelect] = useState<StoreDeliveryAlertSoundSelectId | "">("builtin");
@@ -224,8 +227,9 @@ export function AdminGlobalAlertSoundSection({
             <select
               className="mt-1.5 block w-full max-w-md cursor-pointer rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 sam-text-body-lg text-sam-fg shadow-sm focus:border-signature focus:outline-none focus:ring-1 focus:ring-signature disabled:cursor-not-allowed disabled:opacity-60"
               value={soundSelect}
-              disabled={soundSaving}
+              disabled={soundSaving || readOnly}
               onChange={(e) => {
+                if (readOnly) return;
                 const v = e.target.value;
                 if (v !== "builtin" && v !== "notif") return;
                 void persistSoundChoice(v);
@@ -270,7 +274,7 @@ export function AdminGlobalAlertSoundSection({
                 </>
               ) : null}
             </p>
-            {soundFromDb ? (
+            {soundFromDb && !readOnly ? (
               <button
                 type="button"
                 disabled={soundSaving}
@@ -281,23 +285,25 @@ export function AdminGlobalAlertSoundSection({
               </button>
             ) : null}
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <input
-              ref={adminSoundFileRef}
-              type="file"
-              accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/ogg,audio/webm"
-              className="sr-only"
-              onChange={uploadAdminSoundFromPc}
-            />
-            <button
-              type="button"
-              disabled={soundSaving}
-              onClick={() => adminSoundFileRef.current?.click()}
-              className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg disabled:opacity-50"
-            >
-              {soundSaving ? t("common_processing") : t("admin_stores_alert_upload_pc")}
-            </button>
-          </div>
+          {!readOnly ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                ref={adminSoundFileRef}
+                type="file"
+                accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/ogg,audio/webm"
+                className="sr-only"
+                onChange={uploadAdminSoundFromPc}
+              />
+              <button
+                type="button"
+                disabled={soundSaving}
+                onClick={() => adminSoundFileRef.current?.click()}
+                className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg disabled:opacity-50"
+              >
+                {soundSaving ? t("common_processing") : t("admin_stores_alert_upload_pc")}
+              </button>
+            </div>
+          ) : null}
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
