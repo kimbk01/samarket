@@ -35,6 +35,7 @@ import { LatestMenuNavigationProvider } from "@/contexts/LatestMenuNavigationCon
 import { MainBottomNavTabsProvider } from "@/contexts/MainBottomNavTabsContext";
 import { DiBaYDevicePermissionOnboardingGate } from "@/components/permissions/DiBaYDevicePermissionOnboardingGate";
 import { DevicePermissionUiHost } from "@/components/permissions/DevicePermissionUiHost";
+import { PermissionEducationHost } from "@/components/permissions/education/PermissionEducationHost";
 import { NotificationGuideModalHost } from "@/lib/permissions/permission-manager/notification-guide-modal";
 import { NotificationPermissionSyncHost } from "@/lib/permissions/permission-manager/notification-permission-sync-host";
 import { PushRouteListener } from "@/components/push/PushRouteListener";
@@ -198,6 +199,7 @@ export function MainAppProviderTree({
           <NotificationRouteReadSync />
           <NativeBadgeSyncLazy />
           <DevicePermissionUiHost />
+          <PermissionEducationHost />
           <FavoriteProvider>
             <NotificationSurfaceProvider>
               <WriteCategoryProvider>

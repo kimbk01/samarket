@@ -27,6 +27,7 @@ import {
   cmCallLatencyInfo,
 } from "@/lib/community-messenger/cm-call-debug";
 import { primeOutgoingCallMediaBeforeNavigate } from "@/lib/community-messenger/call-media-bootstrap";
+import { runCallMediaEducationBeforeGesture } from "@/lib/permissions/education/permission-education-orchestrator";
 import {
   discardPrimedCommunityMessengerCallAudioTracksOnly,
   discardPrimedCommunityMessengerDevicePermission,
@@ -843,7 +844,16 @@ export async function launchOutgoingDirectCall(
   });
   /** Telegram-style — 셸 먼저, GUM·mic 프라임은 tmp 셸·bootstrap 과 병렬 */
   logCallUxEvent("call_media_prepare_start", { callKind: input.kind, sessionId: tempSessionId });
-  void primeOutgoingCallMediaBeforeNavigate(input.kind).then((prime) => {
+  void (async () => {
+    const education = await runCallMediaEducationBeforeGesture(input.kind, "outgoing");
+    if (!education.proceed) {
+      if (input.kind === "video") {
+        stopCommunityMessengerCallTone();
+        showMessengerSnackbar(outgoingCallMediaPrimeFailureMessage("video"), { variant: "error" });
+      }
+      return;
+    }
+    const prime = await primeOutgoingCallMediaBeforeNavigate(input.kind);
     if (prime.ok) {
       logCallUxEvent("call_media_preview_ready", { callKind: input.kind, sessionId: tempSessionId });
     }
@@ -853,7 +863,7 @@ export async function launchOutgoingDirectCall(
         showMessengerSnackbar(outgoingCallMediaPrimeFailureMessage("video"), { variant: "error" });
       }
     }
-  });
+  })();
   ensureOutgoingTempCallBootstrap({
     tempSessionId,
     roomId: input.roomId?.trim() || null,
