@@ -14,6 +14,10 @@ public final class IncomingCallRingOwner {
   private IncomingCallRingOwner() {}
 
   public static boolean start(Context context, String callId) {
+    return start(context, callId, null);
+  }
+
+  public static boolean start(Context context, String callId, String ringtoneUrl) {
     if (context == null || callId == null || callId.trim().isEmpty()) return false;
     Context app = context.getApplicationContext();
     String sid = callId.trim();
@@ -26,7 +30,11 @@ public final class IncomingCallRingOwner {
       return false;
     }
     stop(app, null);
-    DibayForegroundRingtone.start(app, sid);
+    String resolvedRingtoneUrl =
+        ringtoneUrl != null && !ringtoneUrl.trim().isEmpty()
+            ? ringtoneUrl.trim()
+            : IncomingCallRingtoneSsotCache.ringtoneUrlForCallId(sid);
+    DibayForegroundRingtone.start(app, sid, resolvedRingtoneUrl);
     activeCallId = sid;
     return true;
   }
@@ -36,12 +44,14 @@ public final class IncomingCallRingOwner {
     String sid = callId != null ? callId.trim() : "";
     if (!sid.isEmpty()) {
       DibayForegroundRingtone.stop(sid);
+      IncomingCallRingtoneSsotCache.clear(sid);
       if (sid.equals(activeCallId)) {
         activeCallId = null;
       }
       return;
     }
     DibayForegroundRingtone.stop(activeCallId);
+    IncomingCallRingtoneSsotCache.clear(activeCallId);
     activeCallId = null;
   }
 

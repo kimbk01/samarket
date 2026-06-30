@@ -13,6 +13,7 @@ import { fetchNotificationBadgeCount } from "@/lib/notifications/pipeline/notify
 import { dispatchPushForUser } from "@/lib/push/dispatch/dispatch-push-for-user";
 import { getSiteOrigin } from "@/lib/env/runtime";
 import { eventKeyForNotificationEventType } from "@/lib/notifications/notification-sound-event-map";
+import { ensureNotificationSoundSsotHydratedForServer } from "@/lib/notifications/notification-sound-ssot-server-hydrate";
 import { resolveNotificationSoundForEvent } from "@/lib/notifications/notification-sound-resolver";
 
 function absolutizeLink(link: string): string | null {
@@ -103,6 +104,7 @@ export async function dispatchNotificationPushIfAllowed(
   }
 
   logNotifyMessage("push_dispatch_start", { userId: row.user_id, eventId: row.id });
+  await ensureNotificationSoundSsotHydratedForServer(sb);
   const badge = await fetchNotificationBadgeCount(sb, row.user_id, { force: true });
   const out = buildPushPayload(row, badge.total);
 

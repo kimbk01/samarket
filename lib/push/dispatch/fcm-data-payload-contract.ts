@@ -333,10 +333,20 @@ export function buildFcmDataFields(
   const androidChannelId = meta ? trimText(meta.android_channel_id ?? meta.androidChannelId) : "";
   const iosSoundName = meta ? trimText(meta.ios_sound_name ?? meta.iosSoundName) : "";
   const soundAssetId = meta ? trimText(meta.sound_asset_id ?? meta.soundAssetId) : "";
+  const ringtoneUrl = meta ? trimText(meta.ringtone_url ?? meta.ringtoneUrl) : "";
   if (eventKey) fields.eventKey = eventKey;
   if (androidChannelId) fields.androidChannelId = androidChannelId;
   if (iosSoundName) fields.sound = iosSoundName;
   if (soundAssetId) fields.soundAssetId = soundAssetId;
+  if (type === "incoming_call" && eventKey) {
+    fields.callSoundEventKey = eventKey;
+    fields.event_key = eventKey;
+  }
+  if (type === "incoming_call" && soundAssetId) fields.sound_asset_id = soundAssetId;
+  if (type === "incoming_call" && ringtoneUrl) {
+    fields.ringtoneUrl = ringtoneUrl;
+    fields.ringtone_url = ringtoneUrl;
+  }
 
   return fields;
 }

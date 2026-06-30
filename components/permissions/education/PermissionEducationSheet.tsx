@@ -3,56 +3,21 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { openNativeCallPermissionSettings } from "@/lib/call/native/native-call-permissions";
-import {
-  openBatteryOptimizationSettings,
-  openFullScreenIntentSettings,
-  openNotificationSettings,
-} from "@/lib/permissions/permission-manager/notification-permission-manager";
 import { resolvePermissionEducationCopy } from "@/lib/permissions/education/permission-education-copy";
 import {
   shouldShowBrowserMediaHelp,
   shouldShowNativeSettingsCta,
-  shouldShowOemGuide,
 } from "@/lib/permissions/education/permission-education-sheet-ui";
 import { supportsPermissionEducationContext } from "@/lib/permissions/education/permission-education-platform";
-import { OEMGuideCard } from "@/components/permissions/education/OEMGuideCard";
 import type { PermissionEducationContext } from "@/lib/permissions/education/permission-education-types";
-import type { PermissionCapabilitySummary } from "@/lib/permissions/education/permission-education-types";
-import type { PermissionEducationSettingsOpens } from "@/lib/permissions/education/permission-education-copy";
 
 type Props = {
   context: PermissionEducationContext;
-  summary?: PermissionCapabilitySummary;
-  onAllow: () => void;
   onLater: () => void;
   onSettingsOpened: () => void;
 };
 
-async function openSettingsForCopy(settingsOpens: PermissionEducationSettingsOpens): Promise<void> {
-  if (settingsOpens === "call_media") {
-    await openNativeCallPermissionSettings();
-    return;
-  }
-  if (settingsOpens === "fsi") {
-    await openFullScreenIntentSettings();
-    return;
-  }
-  if (settingsOpens === "battery") {
-    await openBatteryOptimizationSettings();
-    return;
-  }
-  if (settingsOpens === "notification") {
-    await openNotificationSettings();
-  }
-}
-
-export function PermissionEducationSheet({
-  context,
-  summary,
-  onAllow,
-  onLater,
-  onSettingsOpened,
-}: Props) {
+export function PermissionEducationSheet({ context, onLater, onSettingsOpened }: Props) {
   const { safeT } = useI18n();
 
   if (!supportsPermissionEducationContext(context)) {
@@ -61,7 +26,6 @@ export function PermissionEducationSheet({
 
   const copy = resolvePermissionEducationCopy(context);
   const showNativeSettings = shouldShowNativeSettingsCta(copy);
-  const showOem = shouldShowOemGuide(copy);
   const showBrowserHelp = shouldShowBrowserMediaHelp(copy);
 
   return (
@@ -79,24 +43,10 @@ export function PermissionEducationSheet({
         </h2>
         <p className={`mt-3 ${Sam.text.bodySecondary} leading-relaxed text-sam-muted`}>
           {safeT(copy.bodyKey, {
-            fallbackKo: "이 기능을 사용하려면 설정이 필요합니다.",
-            fallbackEn: "Settings are required to use this feature.",
+            fallbackKo: "설정에서 권한을 허용해 주세요.",
+            fallbackEn: "Allow the permission in Settings.",
           })}
         </p>
-        <p className={`mt-2 ${Sam.text.body} text-sam-fg`}>
-          {safeT(copy.benefitKey, {
-            fallbackKo: "허용하면 바로 사용할 수 있습니다.",
-            fallbackEn: "You can use this right away after allowing.",
-          })}
-        </p>
-        {copy.deniedKey ? (
-          <p className={`mt-2 ${Sam.text.helper} text-sam-muted`}>
-            {safeT(copy.deniedKey, {
-              fallbackKo: "거부하면 일부 통화 기능이 제한됩니다.",
-              fallbackEn: "If denied, some call features are limited.",
-            })}
-          </p>
-        ) : null}
         {showBrowserHelp && copy.browserHelpKey ? (
           <p className={`mt-2 ${Sam.text.helper} text-sam-muted`}>
             {safeT(copy.browserHelpKey, {
@@ -107,24 +57,13 @@ export function PermissionEducationSheet({
             })}
           </p>
         ) : null}
-        {showOem ? (
-          <div className="mt-4">
-            <OEMGuideCard manufacturer={summary?.manufacturer} />
-          </div>
-        ) : null}
         <div className="mt-6 flex flex-col gap-2">
-          <button type="button" className={`${Sam.btn.primaryCombo} ${Sam.btn.block} min-h-[48px]`} onClick={onAllow}>
-            {safeT("perm_edu_cta_allow", {
-              fallbackKo: "계속",
-              fallbackEn: "Continue",
-            })}
-          </button>
           {showNativeSettings ? (
             <button
               type="button"
-              className={`${Sam.btn.secondaryCombo} ${Sam.btn.block} min-h-[44px]`}
+              className={`${Sam.btn.primaryCombo} ${Sam.btn.block} min-h-[48px]`}
               onClick={() => {
-                void openSettingsForCopy(copy.settingsOpens).then(onSettingsOpened);
+                void openNativeCallPermissionSettings().then(onSettingsOpened);
               }}
             >
               {safeT("perm_edu_cta_settings", {

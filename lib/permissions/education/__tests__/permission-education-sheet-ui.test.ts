@@ -14,7 +14,6 @@ import { resolvePermissionEducationCopy } from "@/lib/permissions/education/perm
 import {
   shouldShowBrowserMediaHelp,
   shouldShowNativeSettingsCta,
-  shouldShowOemGuide,
 } from "@/lib/permissions/education/permission-education-sheet-ui";
 
 describe("permission education sheet UI (web)", () => {
@@ -24,7 +23,7 @@ describe("permission education sheet UI (web)", () => {
     resolveCapacitorShellPlatform.mockReturnValue(null);
   });
 
-  it("hides native settings CTA and OEM on web call education", () => {
+  it("hides native settings CTA and shows browser help on web call education", () => {
     const copy = resolvePermissionEducationCopy({
       tier: "call_voice",
       flow: "outgoing",
@@ -32,15 +31,7 @@ describe("permission education sheet UI (web)", () => {
     });
     expect(copy.settingsOpens).toBe("browser_media");
     expect(shouldShowNativeSettingsCta(copy)).toBe(false);
-    expect(shouldShowOemGuide(copy)).toBe(false);
     expect(shouldShowBrowserMediaHelp(copy)).toBe(true);
-  });
-
-  it("hides native settings for lock-tier copy on web", () => {
-    const copy = resolvePermissionEducationCopy({ tier: "lock_screen_fsi" });
-    expect(copy.settingsOpens).toBe("none");
-    expect(shouldShowNativeSettingsCta(copy)).toBe(false);
-    expect(shouldShowOemGuide(copy)).toBe(false);
   });
 });
 
@@ -60,12 +51,5 @@ describe("permission education sheet UI (android)", () => {
     expect(copy.settingsOpens).toBe("call_media");
     expect(shouldShowNativeSettingsCta(copy)).toBe(true);
     expect(shouldShowBrowserMediaHelp(copy)).toBe(false);
-  });
-
-  it("shows OEM and fsi settings on android lock-tier copy", () => {
-    const copy = resolvePermissionEducationCopy({ tier: "battery_restricted" });
-    expect(copy.settingsOpens).toBe("battery");
-    expect(shouldShowNativeSettingsCta(copy)).toBe(true);
-    expect(shouldShowOemGuide(copy)).toBe(true);
   });
 });

@@ -145,6 +145,7 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "settings-general": "admin_menu_settings_general",
   "settings-auth": "admin_menu_settings_auth",
   "settings-permissions": "admin_menu_settings_permissions",
+  "settings-notifications": "admin_menu_settings_notifications",
   manage: "admin_menu_manage",
   "manage-experiments": "admin_menu_manage_experiments",
   "manage-ab": "admin_menu_manage_ab",
@@ -401,6 +402,7 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
       { key: "settings-general", title: "", path: "/admin/settings", status: "done" },
       { key: "settings-auth", title: "", path: "/admin/settings/auth", status: "done" },
       { key: "settings-permissions", title: "", path: "/admin/permissions", pendingRoute: true, status: "todo" },
+      { key: "settings-notifications", title: "", path: "/admin/settings/notifications", status: "done" },
       {
         key: "manage",
         title: "",

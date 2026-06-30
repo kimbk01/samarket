@@ -16,6 +16,7 @@ import {
   type PushTarget,
   type SendPushResult,
 } from "@/lib/push/dispatch/push-payload-types";
+import { ensureNotificationSoundSsotHydratedForServer } from "@/lib/notifications/notification-sound-ssot-server-hydrate";
 import { enrichPushPayloadWithSoundSsotMeta } from "@/lib/push/dispatch/push-sound-ssot-enrichment";
 import { isWebPushConfigured, sendWebPushToTarget } from "@/lib/push/dispatch/web-push-sender";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
@@ -199,6 +200,7 @@ export async function dispatchPushForUser(
     return { ok: false, targets_found: 0, deliveries: audits, skipped_reason: "server_misconfigured" };
   }
 
+  await ensureNotificationSoundSsotHydratedForServer(svc);
   const enrichedOut = enrichPushPayloadWithSoundSsotMeta(out, opts);
   const callPush = isCallPush(enrichedOut, opts);
   const terminalDismiss =

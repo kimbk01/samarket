@@ -1,4 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import {
+  hydrateNotificationSoundSnapshotFromRows,
+  invalidateNotificationSoundSsotCache,
+  resolveNotificationSoundForEvent,
+} from "@/lib/notifications/notification-sound-resolver";
 import { buildFcmDataFields } from "@/lib/push/dispatch/fcm-data-payload-contract";
 import {
   enrichPushPayloadWithSoundSsotMeta,
@@ -20,7 +25,46 @@ function baseOut(
   };
 }
 
+async function seedAdminMappings(
+  entries: Array<{ eventKey: string; assetId: string; androidChannel: string }>
+): Promise<void> {
+  await hydrateNotificationSoundSnapshotFromRows({
+    assets: entries.map(({ eventKey, assetId, androidChannel }) => ({
+      id: assetId,
+      label: `${eventKey}.mp3`,
+      kind: "dibay_custom" as const,
+      domain: "community" as const,
+      file_path: null,
+      file_url: `https://cdn.example.com/${eventKey}.mp3`,
+      ios_sound_name: `${eventKey}.wav`,
+      android_channel_base: androidChannel,
+      legacy_source: null,
+      enabled: true,
+    })),
+    events: [],
+    mappings: entries.map(({ eventKey, assetId }) => ({
+      event_key: eventKey,
+      asset_id: assetId,
+      use_device_default: false,
+      volume: 1,
+      repeat_count: 1,
+      cooldown_seconds: 0,
+      vibration_enabled: null,
+      priority: null,
+      enabled: true,
+    })),
+  });
+}
+
 describe("push-sound-ssot-enrichment", () => {
+  beforeEach(() => {
+    invalidateNotificationSoundSsotCache();
+  });
+
+  afterEach(() => {
+    invalidateNotificationSoundSsotCache();
+  });
+
   it("skips when meta.event_key already present", () => {
     const out = baseOut({
       notification_type: "chat",
@@ -103,5 +147,151 @@ describe("push-sound-ssot-enrichment", () => {
       meta: { push_kind: "trade" },
     });
     expect(resolveEventKeyForPushDispatch(out)).toBe("trade_offer_received");
+  });
+
+  it("resolves community like/comment/mention with distinct admin mapping assets", async () => {
+    await seedAdminMappings([
+      { eventKey: "community_like_received", assetId: "ADMIN-LIKE-99", androidChannel: "dibay_community_like_v1" },
+      {
+        eventKey: "community_comment_received",
+        assetId: "ADMIN-COMMENT-99",
+        androidChannel: "dibay_community_comment_v1",
+      },
+      {
+        eventKey: "community_mention_received",
+        assetId: "ADMIN-MENTION-99",
+        androidChannel: "dibay_community_mention_v1",
+      },
+    ]);
+
+    const likeOut = baseOut({
+      notification_type: "report",
+      meta: { kind: "community_like", push_kind: "community" },
+    });
+    expect(resolveEventKeyForPushDispatch(likeOut)).toBe("community_like_received");
+    expect(resolveEventKeyForPushDispatch(likeOut)).not.toBe("messenger_direct_message_received");
+    const likeEnriched = enrichPushPayloadWithSoundSsotMeta(likeOut);
+    expect(likeEnriched.meta?.sound_asset_id).toBe("ADMIN-LIKE-99");
+    expect(resolveNotificationSoundForEvent("community_like_received").resolvedFrom).toBe("admin_mapping");
+
+    const commentOut = baseOut({
+      notification_type: "report",
+      meta: { kind: "community_comment", push_kind: "community" },
+    });
+    expect(resolveEventKeyForPushDispatch(commentOut)).toBe("community_comment_received");
+    const commentEnriched = enrichPushPayloadWithSoundSsotMeta(commentOut);
+    expect(commentEnriched.meta?.sound_asset_id).toBe("ADMIN-COMMENT-99");
+
+    const mentionOut = baseOut({
+      notification_type: "chat",
+      meta: { kind: "mention_message", room_id: "room-1" },
+    });
+    expect(resolveEventKeyForPushDispatch(mentionOut)).toBe("community_mention_received");
+    const mentionEnriched = enrichPushPayloadWithSoundSsotMeta(mentionOut);
+    expect(mentionEnriched.meta?.sound_asset_id).toBe("ADMIN-MENTION-99");
+  });
+
+  it("maps delivery owner new order and settlement charge with admin mapping (not delivery chat default)", async () => {
+    await seedAdminMappings([
+      {
+        eventKey: "delivery_order_created_owner",
+        assetId: "ADMIN-OWNER-ORDER-99",
+        androidChannel: "dibay_delivery_owner_v1",
+      },
+      {
+        eventKey: "settlement_charge_approved",
+        assetId: "ADMIN-CHARGE-OK-99",
+        androidChannel: "dibay_settlement_v1",
+      },
+      {
+        eventKey: "settlement_balance_low",
+        assetId: "ADMIN-BALANCE-LOW-99",
+        androidChannel: "dibay_settlement_v1",
+      },
+    ]);
+
+    const ownerOrderOut = baseOut({
+      notification_type: "commerce",
+      meta: { kind: "store_order_created", order_id: "ord-1" },
+    });
+    expect(resolveEventKeyForPushDispatch(ownerOrderOut)).toBe("delivery_order_created_owner");
+    expect(resolveEventKeyForPushDispatch(ownerOrderOut)).not.toBe("delivery_chat_message_received_owner");
+    const ownerEnriched = enrichPushPayloadWithSoundSsotMeta(ownerOrderOut);
+    expect(ownerEnriched.meta?.sound_asset_id).toBe("ADMIN-OWNER-ORDER-99");
+    expect(resolveNotificationSoundForEvent("delivery_order_created_owner").resolvedFrom).toBe("admin_mapping");
+
+    const chargeOut = baseOut({
+      notification_type: "commerce",
+      meta: { kind: "store_point_charge_approved", store_id: "s1" },
+    });
+    expect(resolveEventKeyForPushDispatch(chargeOut)).toBe("settlement_charge_approved");
+    const chargeEnriched = enrichPushPayloadWithSoundSsotMeta(chargeOut);
+    expect(chargeEnriched.meta?.sound_asset_id).toBe("ADMIN-CHARGE-OK-99");
+    expect(chargeEnriched.meta?.sound_asset_id).not.toBe(
+      resolveNotificationSoundForEvent("delivery_chat_message_received_owner").assetId
+    );
+
+    const balanceOut = baseOut({
+      notification_type: "commerce",
+      meta: { kind: "store_point_low", store_id: "s1" },
+    });
+    expect(resolveEventKeyForPushDispatch(balanceOut)).toBe("settlement_balance_low");
+    const balanceEnriched = enrichPushPayloadWithSoundSsotMeta(balanceOut);
+    expect(balanceEnriched.meta?.sound_asset_id).toBe("ADMIN-BALANCE-LOW-99");
+  });
+
+  it("enriches incoming voice call push with admin SSOT mapping", async () => {
+    await seedAdminMappings([
+      {
+        eventKey: "call_incoming_voice",
+        assetId: "ADMIN-CALL-VOICE-99",
+        androidChannel: "dibay_calls_incoming_v7",
+      },
+      {
+        eventKey: "call_missed",
+        assetId: "ADMIN-CALL-MISSED-99",
+        androidChannel: "dibay_calls_incoming_v7",
+      },
+    ]);
+
+    const incomingOut = baseOut({
+      notification_type: "community_messenger_incoming_call",
+      meta: { session_id: "sess-in", kind: "voice" },
+    });
+    const incomingEnriched = enrichPushPayloadWithSoundSsotMeta(incomingOut, {
+      event_type: "call_ringing",
+      call_push_kind: "incoming_call",
+    });
+    expect(incomingEnriched.meta?.event_key).toBe("call_incoming_voice");
+    expect(incomingEnriched.meta?.sound_asset_id).toBe("ADMIN-CALL-VOICE-99");
+    expect(resolveNotificationSoundForEvent("call_incoming_voice").resolvedFrom).toBe("admin_mapping");
+
+    const missedOut = baseOut({
+      notification_type: "community_messenger_missed_call",
+      meta: { session_id: "sess-m2" },
+    });
+    const missedEnriched = enrichPushPayloadWithSoundSsotMeta(missedOut, {
+      call_push_kind: "missed_call",
+    });
+    expect(missedEnriched.meta?.event_key).toBe("call_missed");
+    expect(missedEnriched.meta?.sound_asset_id).toBe("ADMIN-CALL-MISSED-99");
+  });
+
+  it("maps call rejected and canceled push to SSOT event keys", () => {
+    const rejectedOut = baseOut({
+      notification_type: "community_messenger_call_canceled",
+      meta: { session_id: "sess-r" },
+    });
+    expect(
+      resolveEventKeyForPushDispatch(rejectedOut, { call_push_kind: "call_rejected" })
+    ).toBe("call_rejected");
+
+    const canceledOut = baseOut({
+      notification_type: "community_messenger_call_canceled",
+      meta: { session_id: "sess-c" },
+    });
+    expect(
+      resolveEventKeyForPushDispatch(canceledOut, { call_push_kind: "call_canceled" })
+    ).toBe("call_ended");
   });
 });

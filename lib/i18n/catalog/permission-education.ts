@@ -2,20 +2,16 @@
 export const permissionEducationMessages = {
   ko: {
     perm_edu_call_voice_out_title: "음성 통화를 위해 마이크가 필요합니다",
-    perm_edu_call_voice_out_body:
-      "상대방과 음성으로 대화하려면 마이크 접근이 필요합니다. 허용하지 않으면 통화를 시작하거나 받을 수 없습니다.",
+    perm_edu_call_voice_out_body: "설정에서 마이크 권한을 허용해 주세요.",
     perm_edu_call_voice_out_benefit: "마이크를 허용하면 바로 음성 통화를 사용할 수 있습니다.",
     perm_edu_call_voice_in_title: "통화 수락을 위해 마이크가 필요합니다",
-    perm_edu_call_voice_in_body:
-      "수신 통화에 음성으로 응답하려면 마이크 접근이 필요합니다. 거부하면 이 통화를 받을 수 없습니다.",
+    perm_edu_call_voice_in_body: "설정에서 마이크 권한을 허용해 주세요.",
     perm_edu_call_voice_in_benefit: "허용 후 수락하면 음성 통화가 연결됩니다.",
     perm_edu_call_video_out_title: "영상 통화를 위해 카메라와 마이크가 필요합니다",
-    perm_edu_call_video_out_body:
-      "영상 통화는 카메라와 마이크가 모두 필요합니다. 거부하면 영상 통화를 시작할 수 없습니다.",
+    perm_edu_call_video_out_body: "설정에서 마이크·카메라 권한을 허용해 주세요.",
     perm_edu_call_video_out_benefit: "허용하면 상대방과 영상으로 대화할 수 있습니다.",
     perm_edu_call_video_in_title: "영상 통화 수락을 위해 카메라와 마이크가 필요합니다",
-    perm_edu_call_video_in_body:
-      "영상 통화를 받으려면 카메라와 마이크 접근이 필요합니다. 거부하면 음성만 가능하거나 통화를 받을 수 없습니다.",
+    perm_edu_call_video_in_body: "설정에서 마이크·카메라 권한을 허용해 주세요.",
     perm_edu_call_video_in_benefit: "허용 후 수락하면 영상 통화가 연결됩니다.",
     perm_edu_lock_screen_title: "잠금 화면에서 통화 받기",
     perm_edu_lock_screen_body:
@@ -80,20 +76,16 @@ export const permissionEducationMessages = {
   },
   en: {
     perm_edu_call_voice_out_title: "Microphone needed for voice calls",
-    perm_edu_call_voice_out_body:
-      "Voice calls need microphone access. Without it, you cannot place or answer voice calls.",
+    perm_edu_call_voice_out_body: "Allow microphone access in Settings.",
     perm_edu_call_voice_out_benefit: "Allow the microphone to start voice calls right away.",
     perm_edu_call_voice_in_title: "Microphone needed to answer",
-    perm_edu_call_voice_in_body:
-      "Answering with audio requires microphone access. If denied, you cannot take this call.",
+    perm_edu_call_voice_in_body: "Allow microphone access in Settings.",
     perm_edu_call_voice_in_benefit: "After allowing, you can connect the voice call when you accept.",
     perm_edu_call_video_out_title: "Camera and mic needed for video calls",
-    perm_edu_call_video_out_body:
-      "Video calls need both camera and microphone. If denied, you cannot start a video call.",
+    perm_edu_call_video_out_body: "Allow microphone and camera access in Settings.",
     perm_edu_call_video_out_benefit: "Allow access to talk face-to-face on video.",
     perm_edu_call_video_in_title: "Camera and mic needed to answer video",
-    perm_edu_call_video_in_body:
-      "Video calls need camera and microphone access. If denied, you may only get audio or cannot answer.",
+    perm_edu_call_video_in_body: "Allow microphone and camera access in Settings.",
     perm_edu_call_video_in_benefit: "After allowing, video connects when you accept.",
     perm_edu_lock_screen_title: "Receive calls on the lock screen",
     perm_edu_lock_screen_body:

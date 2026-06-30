@@ -12,11 +12,16 @@ import {
   resolveMessengerCallMissedSoundUrl,
   resolveMessengerCallToneUrl,
 } from "@/lib/community-messenger/messenger-call-sound-config-client";
+import {
+  callSsotEventKeyForTone,
+  callSsotSignalHasPlayableUrl,
+  ensureCallNotificationSsotHydrated,
+  playCallNotificationSsotSignal,
+  resolveCallNotificationSsotWebUrlSync,
+} from "@/lib/community-messenger/call-ssot-notification-sound";
 import { cmCallAudioCleanup, cmCallLatencyInfo } from "@/lib/community-messenger/cm-call-debug";
 import { closePrimedWebAudioCallToneContext } from "@/lib/community-messenger/call-tone-web-audio";
-import { eventKeyForCallKind } from "@/lib/notifications/notification-sound-event-map";
-import { playEventNotificationSound } from "@/lib/notifications/notification-sound-engine";
-import { resolveNotificationSound } from "@/lib/notifications/notification-sound-resolver";
+import { ensureNotificationSoundSsotHydratedForClient } from "@/lib/notifications/notification-sound-ssot-client-hydrate";
 
 type CallToneMode = "incoming" | "outgoing";
 
@@ -124,11 +129,11 @@ export function consumeOutgoingRingtonePrimedSessionFlag(sessionId: string): boo
 }
 
 function resolveAutoplayPrimingUrl(): string | null {
-  const incoming =
-    resolveNotificationSound(eventKeyForCallKind("voice", "incoming"), { platform: "web" }).webUrl ??
-    null;
-  if (incoming) return incoming;
-  return resolveNotificationSound("system_default", { platform: "web" }).webUrl ?? null;
+  void ensureNotificationSoundSsotHydratedForClient();
+  return (
+    resolveCallNotificationSsotWebUrlSync(callSsotEventKeyForTone("incoming", "voice")) ??
+    resolveCallNotificationSsotWebUrlSync("system_default")
+  );
 }
 
 /**
@@ -201,6 +206,8 @@ export async function startCommunityMessengerCallTone(
     callKind: options?.callKind === "video" ? "video" : "voice",
   });
 
+  await ensureCallNotificationSsotHydrated();
+
   primeNotificationSoundAudio();
   /**
    * 유지 이유: 수신 벨은 사용자 제스처 없이 시작되는 경우가 많아, 설정 API(await)가 벨 첫 재생을 막으면 체감 지연이 커진다.
@@ -214,7 +221,9 @@ export async function startCommunityMessengerCallTone(
   const vIn =
     typeof volCfg === "number" && Number.isFinite(volCfg) ? Math.min(1, Math.max(0, volCfg)) : 0.72;
   const vOut = Math.min(1, vIn * 0.625);
-  const adminUrl = resolveMessengerCallToneUrl(cfg, mode, callKind);
+  const ssotEventKey = callSsotEventKeyForTone(mode, callKind);
+  const ssotUrl = resolveCallNotificationSsotWebUrlSync(ssotEventKey);
+  const adminUrl = ssotUrl ?? resolveMessengerCallToneUrl(cfg, mode, callKind);
   if (adminUrl) {
     let audio: HTMLAudioElement | null = null;
     const clear = () => {
@@ -264,7 +273,7 @@ export async function startCommunityMessengerCallTone(
   return noopCallToneController();
 }
 
-export type CallSignalSoundKind = "missed" | "call_end";
+export type CallSignalSoundKind = "missed" | "call_end" | "rejected" | "cancelled";
 
 const recentSignalPlays = new Map<string, number>();
 const SIGNAL_DEDUP_MS = 3500;
@@ -274,15 +283,33 @@ export type PlayCallSignalSoundOptions = {
   dedupeSessionId?: string;
 };
 
-function callSignalEventKey(kind: CallSignalSoundKind): "call_missed" | "call_ended" {
-  return kind === "missed" ? "call_missed" : "call_ended";
+async function playCallSignalLegacyUrlFallback(
+  kind: CallSignalSoundKind,
+  cfg: ReturnType<typeof getMessengerCallSoundConfigCache>
+): Promise<void> {
+  const legacyKind = kind === "missed" ? "missed" : "call_end";
+  const url =
+    legacyKind === "missed"
+      ? resolveMessengerCallMissedSoundUrl(cfg)
+      : resolveMessengerCallEndSoundUrl(cfg);
+  if (!url) return;
+  primeNotificationSoundAudio();
+  try {
+    const audio = new Audio(url);
+    trackDetachedCommunityMessengerCallAudio(audio);
+    audio.crossOrigin = "anonymous";
+    audio.volume = legacyKind === "missed" ? 0.68 : 0.42;
+    await applyPreferredSinkToHtmlAudioElement(audio);
+    const done = () => untrackDetachedCommunityMessengerCallAudio(audio);
+    audio.addEventListener("ended", done, { once: true });
+    audio.addEventListener("error", done, { once: true });
+    await audio.play();
+  } catch {
+    /* SSOT already attempted */
+  }
 }
 
-function playCallSignalSsotFallback(kind: CallSignalSoundKind): void {
-  void playEventNotificationSound(callSignalEventKey(kind));
-}
-
-/** 부재·통화 종료 등 짧은 원샷(루프 아님). URL 없거나 재생 실패 시 SSOT eventKey 원샷. */
+/** 부재·종료·거절·취소 원샷 — admin SSOT `playEventNotificationSound` 우선, legacy URL은 폴백. */
 export async function playCommunityMessengerCallSignalSound(
   kind: CallSignalSoundKind,
   options?: PlayCallSignalSoundOptions
@@ -301,39 +328,17 @@ export async function playCommunityMessengerCallSignalSound(
       }
     }
   }
-  await fetchMessengerCallSoundConfig({ force: true });
-  const cfg = getMessengerCallSoundConfigCache();
-  const url =
-    kind === "missed" ? resolveMessengerCallMissedSoundUrl(cfg) : resolveMessengerCallEndSoundUrl(cfg);
-  primeNotificationSoundAudio();
-  if (url) {
-    try {
-      const audio = new Audio(url);
-      trackDetachedCommunityMessengerCallAudio(audio);
-      audio.crossOrigin = "anonymous";
-      audio.volume = kind === "missed" ? 0.68 : 0.42;
-      void (async () => {
-        await applyPreferredSinkToHtmlAudioElement(audio);
-        const done = () => untrackDetachedCommunityMessengerCallAudio(audio);
-        audio.addEventListener("ended", done, { once: true });
-        audio.addEventListener(
-          "error",
-          () => {
-            done();
-          },
-          { once: true }
-        );
-        try {
-          await audio.play();
-        } catch {
-          done();
-          playCallSignalSsotFallback(kind);
-        }
-      })();
-    } catch {
-      playCallSignalSsotFallback(kind);
-    }
+
+  const ssotKind =
+    kind === "call_end" ? "call_end" : kind === "rejected" ? "rejected" : kind === "cancelled" ? "cancelled" : "missed";
+
+  await ensureCallNotificationSsotHydrated();
+  if (callSsotSignalHasPlayableUrl(ssotKind)) {
+    await playCallNotificationSsotSignal(ssotKind);
     return;
   }
-  playCallSignalSsotFallback(kind);
+
+  void fetchMessengerCallSoundConfig({ force: true });
+  const cfg = getMessengerCallSoundConfigCache();
+  await playCallSignalLegacyUrlFallback(kind, cfg);
 }

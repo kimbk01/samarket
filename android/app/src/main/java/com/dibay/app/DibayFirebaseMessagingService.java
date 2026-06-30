@@ -188,6 +188,7 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
     if (expiry.effectiveExpiresAtMs > 0L) {
       payload = payload.withExpiresAt(formatIsoUtc(expiry.effectiveExpiresAtMs));
     }
+    IncomingCallRingtoneSsotCache.putFromPayload(payload);
 
     if (NativeVoiceCallLane.shouldHandleIncoming(this, payload.callType)) {
       DibayIncomingCallNativeStore.setRinging(this, payload, null, expiry.effectiveExpiresAtMs);

@@ -106,16 +106,6 @@ export function AdminSettingsPage() {
     <div className="space-y-4">
       <AdminPageHeader titleKey="admin_page_settings" />
 
-      <AdminCard titleKey="admin_settings_notifications_domain_title">
-        <p className="sam-text-body text-sam-fg">{t("admin_settings_notifications_card_desc")}</p>
-        <Link
-          href="/admin/settings/notifications"
-          className="mt-3 inline-block rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white"
-        >
-          {t("admin_settings_notifications_open")}
-        </Link>
-      </AdminCard>
-
       <AdminSettingsTabs active={activeSection} onChange={setActiveSection} />
 
       <AdminCard title={undefined}>

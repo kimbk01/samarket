@@ -1,9 +1,13 @@
-import { playDomainNotificationSound } from "@/lib/notifications/notification-sound-engine";
+import { playEventNotificationSound } from "@/lib/notifications/notification-sound-engine";
+import {
+  resolveNotificationSoundEventKeyFromRowWithFallback,
+  resolveNotificationSoundGateDomainFromRow,
+  type NotificationSoundRowInput,
+} from "@/lib/notifications/notification-sound-event-key-from-row";
 import {
   isNotificationDomain,
   type NotificationDomain,
 } from "@/lib/notifications/notification-domains";
-import { OWNER_STORE_COMMERCE_NOTIFICATION_META_KINDS } from "@/lib/notifications/owner-store-commerce-notification-meta";
 
 /** `NotificationSurfaceProvider` 가 매 렌더 동기 갱신 — Realtime 콜백은 컨텍스트 리렌더 없이 읽는다. */
 export type NotificationSoundGateSnapshot = {
@@ -75,6 +79,20 @@ export function shouldPlayGroupChatInAppSoundFromGate(
   return true;
 }
 
+function rowInputFromRecord(row: Record<string, unknown>): NotificationSoundRowInput {
+  return {
+    notification_type: typeof row.notification_type === "string" ? row.notification_type : null,
+    domain: typeof row.domain === "string" ? row.domain : null,
+    meta: row.meta,
+    ref_id: typeof row.ref_id === "string" ? row.ref_id : null,
+  };
+}
+
+function playRowEventSound(row: Record<string, unknown>): void {
+  const eventKey = resolveNotificationSoundEventKeyFromRowWithFallback(rowInputFromRecord(row));
+  void playEventNotificationSound(eventKey);
+}
+
 /**
  * INSERT 알림 행에 대한 인앱 알림음 라우팅.
  * 게이트가 없으면 `undefined` — `useSupabaseNotificationsRealtime` 기본 재생 경로로 넘김.
@@ -83,69 +101,66 @@ export function routeNotificationInsertSound(row: Record<string, unknown>): bool
   const surface = gateSnapshot;
   if (!surface) return undefined;
 
+  const rowInput = rowInputFromRecord(row);
   const metaKind = (row.meta as { kind?: string; room_id?: string } | undefined)?.kind;
+
   /** 팝업 전용 알림음 경로와 이중 재생 방지 */
   if (metaKind === "friend_request") {
     return false;
   }
+
   if (metaKind === "community_group_invite") {
     const roomId = (row.meta as { room_id?: string } | undefined)?.room_id;
     if (typeof roomId === "string" && roomId.trim()) {
       if (!shouldPlayGroupChatInAppSoundFromGate(surface, roomId)) {
         return false;
       }
-      void playDomainNotificationSound("community_group_chat");
+      playRowEventSound(row);
       return true;
     }
     return false;
   }
 
-  const domainRaw = row.domain;
-  const refId = typeof row.ref_id === "string" ? row.ref_id : null;
-  if (typeof domainRaw === "string" && isNotificationDomain(domainRaw)) {
-    const metaAny = row.meta as { kind?: string; room_id?: string } | undefined;
-    if (metaAny?.kind === "group_chat" && typeof metaAny.room_id === "string") {
-      if (!shouldPlayGroupChatInAppSoundFromGate(surface, metaAny.room_id)) {
-        return false;
-      }
-      void playDomainNotificationSound("community_group_chat");
-      return true;
+  const metaAny = row.meta as { kind?: string; room_id?: string } | undefined;
+  if (metaAny?.kind === "group_chat" && typeof metaAny.room_id === "string") {
+    if (!shouldPlayGroupChatInAppSoundFromGate(surface, metaAny.room_id)) {
+      return false;
     }
+    playRowEventSound(row);
+    return true;
+  }
+
+  const gateDomain = resolveNotificationSoundGateDomainFromRow(rowInput);
+  const refId = typeof row.ref_id === "string" ? row.ref_id : null;
+  const roomRef =
+    metaAny?.room_id && typeof metaAny.room_id === "string" ? metaAny.room_id : refId;
+
+  if (gateDomain === "community_group_chat") {
+    if (!shouldPlayGroupChatInAppSoundFromGate(surface, roomRef)) {
+      return false;
+    }
+    playRowEventSound(row);
+    return true;
+  }
+
+  if (gateDomain) {
+    if (!shouldPlayInAppSoundFromGate(surface, gateDomain, roomRef)) {
+      return false;
+    }
+    playRowEventSound(row);
+    return true;
+  }
+
+  const domainRaw = row.domain;
+  if (typeof domainRaw === "string" && isNotificationDomain(domainRaw)) {
     const routedDomain =
       domainRaw === "community_chat" ? "community_direct_chat" : (domainRaw as NotificationDomain);
     if (!shouldPlayInAppSoundFromGate(surface, routedDomain, refId)) {
       return false;
     }
-    void playDomainNotificationSound(routedDomain);
+    playRowEventSound(row);
     return true;
   }
-  const meta = row.meta as { kind?: string; room_id?: string } | undefined;
-  if (row.notification_type === "chat" && meta?.kind === "trade_chat" && meta?.room_id) {
-    if (!shouldPlayInAppSoundFromGate(surface, "trade_chat", meta.room_id)) {
-      return false;
-    }
-    void playDomainNotificationSound("trade_chat");
-    return true;
-  }
-  if (row.notification_type === "chat" && meta?.kind === "community_chat" && meta?.room_id) {
-    if (!shouldPlayInAppSoundFromGate(surface, "community_direct_chat", String(meta.room_id))) {
-      return false;
-    }
-    void playDomainNotificationSound("community_direct_chat");
-    return true;
-  }
-  if (row.notification_type === "commerce" && row.meta && typeof row.meta === "object") {
-    const m = row.meta as { kind?: string; order_id?: string };
-    const oid = typeof m.order_id === "string" ? m.order_id.trim() : "";
-    const k = m.kind;
-    if (oid && typeof k === "string") {
-      const domain = OWNER_STORE_COMMERCE_NOTIFICATION_META_KINDS.has(k) ? "store" : "order";
-      if (!shouldPlayInAppSoundFromGate(surface, domain, oid)) {
-        return false;
-      }
-      void playDomainNotificationSound(domain);
-      return true;
-    }
-  }
+
   return undefined;
 }

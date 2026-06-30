@@ -1,7 +1,7 @@
 /**
  * Phase 2-1 (F3): Push dispatch SSOT sound meta enrichment.
  * Fills event_key / sound_asset_id / android_channel_id / ios_sound_name when absent.
- * Phase 1 resolver/registry — read-only.
+ * Requires server DB hydrate before resolve (see dispatch-push-for-user / notify-push-dispatcher).
  */
 import type { NotificationEventType } from "@/lib/notifications/core/notification-event-types";
 import { NOTIFICATION_EVENT_TYPES } from "@/lib/notifications/core/notification-event-types";
@@ -10,6 +10,11 @@ import {
   eventKeyForNotificationDomain,
   eventKeyForNotificationEventType,
 } from "@/lib/notifications/notification-sound-event-map";
+import {
+  resolveNotificationSoundEventKeyFromRow,
+  resolveNotificationSoundEventKeyFromRowWithFallback,
+  type NotificationSoundRowInput,
+} from "@/lib/notifications/notification-sound-event-key-from-row";
 import { isNotificationDomain } from "@/lib/notifications/notification-domains";
 import { resolveNotificationSoundForEvent } from "@/lib/notifications/notification-sound-resolver";
 import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publish-notification-side-effect";
@@ -27,6 +32,10 @@ function hasSsotSoundMeta(meta: Record<string, unknown> | null): boolean {
   return Boolean(trimText(meta?.event_key ?? meta?.eventKey));
 }
 
+function isIncomingCallPush(out: NotificationSideEffectPayloadOut, opts?: DispatchPushOptions): boolean {
+  return opts?.call_push_kind === "incoming_call" || out.notification_type === "community_messenger_incoming_call";
+}
+
 function isNotificationEventType(value: string): value is NotificationEventType {
   return (NOTIFICATION_EVENT_TYPES as readonly string[]).includes(value);
 }
@@ -40,41 +49,14 @@ function resolveCallKindFromMeta(meta: Record<string, unknown> | null): "voice" 
   return raw === "video" ? "video" : "voice";
 }
 
-function eventKeyFromPushKind(pushKind: string): string | null {
-  switch (pushKind) {
-    case "marketing":
-      return eventKeyForNotificationEventType("admin_marketing_banner");
-    case "notice":
-    case "system":
-      return eventKeyForNotificationEventType("admin_notice");
-    case "delivery":
-      return eventKeyForNotificationEventType("order_status");
-    case "trade":
-      return eventKeyForNotificationEventType("trade_status");
-    case "community":
-      return eventKeyForNotificationEventType("community_activity");
-    case "chat":
-      return eventKeyForNotificationEventType("chat_message");
-    default:
-      return null;
-  }
-}
-
-function eventKeyFromMetaKind(metaKind: string): string | null {
-  if (isNotificationEventType(metaKind)) {
-    return eventKeyForNotificationEventType(metaKind);
-  }
-  switch (metaKind) {
-    case "group_chat":
-    case "community_group_invite":
-      return eventKeyForNotificationEventType("group_message");
-    case "trade_chat":
-      return eventKeyForNotificationEventType("trade_message");
-    case "community_chat":
-      return eventKeyForNotificationEventType("chat_message");
-    default:
-      return null;
-  }
+export function rowInputFromPushOut(out: NotificationSideEffectPayloadOut): NotificationSoundRowInput {
+  const meta = metaRecord(out);
+  return {
+    notification_type: out.notification_type,
+    domain: trimText(meta?.domain) || null,
+    meta,
+    ref_id: trimText(meta?.ref_id ?? meta?.order_id ?? meta?.room_id) || null,
+  };
 }
 
 /**
@@ -107,22 +89,18 @@ export function resolveEventKeyForPushDispatch(
     return "call_ended";
   }
 
+  const fromRow = resolveNotificationSoundEventKeyFromRow(rowInputFromPushOut(out));
+  if (fromRow) return fromRow;
+
   if (isNotificationEventType(eventType)) {
     return eventKeyForNotificationEventType(eventType);
   }
 
   if (meta) {
-    const fromKind = eventKeyFromMetaKind(trimText(meta.kind));
-    if (fromKind) return fromKind;
-
     const category = trimText(meta.category);
     if (category && isNotificationEventType(category)) {
       return eventKeyForNotificationEventType(category);
     }
-
-    const pushKind = trimText(meta.push_kind);
-    const fromPushKind = eventKeyFromPushKind(pushKind);
-    if (fromPushKind) return fromPushKind;
 
     const domain = trimText(meta.domain);
     if (domain && isNotificationDomain(domain)) {
@@ -130,16 +108,7 @@ export function resolveEventKeyForPushDispatch(
     }
   }
 
-  const nt = trimText(out.notification_type);
-  if (nt === "marketing") return eventKeyForNotificationEventType("admin_marketing_banner");
-  if (nt === "notice" || nt === "system") return eventKeyForNotificationEventType("admin_notice");
-  if (nt === "community_messenger_missed_call") return eventKeyForNotificationEventType("missed_call");
-  if (nt === "community_messenger_incoming_call") {
-    return eventKeyForCallKind(resolveCallKindFromMeta(meta), "incoming");
-  }
-  if (nt === "admin_test") return eventKeyForNotificationEventType("admin_notice");
-
-  return "system_default";
+  return resolveNotificationSoundEventKeyFromRowWithFallback(rowInputFromPushOut(out));
 }
 
 /** Returns a shallow copy with SSOT sound meta merged into meta when missing. */
@@ -148,20 +117,26 @@ export function enrichPushPayloadWithSoundSsotMeta(
   opts?: DispatchPushOptions
 ): NotificationSideEffectPayloadOut {
   const meta = metaRecord(out);
-  if (hasSsotSoundMeta(meta)) {
+  if (hasSsotSoundMeta(meta) && !isIncomingCallPush(out, opts)) {
     return out;
   }
 
   const eventKey = resolveEventKeyForPushDispatch(out, opts);
   const soundResolved = resolveNotificationSoundForEvent(eventKey, { platform: "android" });
+  const ringtoneUrl = trimText(soundResolved.webUrl);
 
   const nextMeta: Record<string, unknown> = {
     ...(meta ?? {}),
     event_key: eventKey,
-    sound_asset_id: soundResolved.assetId,
-    android_channel_id: soundResolved.androidChannelId,
-    ios_sound_name: soundResolved.iosSoundName,
+    sound_asset_id: trimText(meta?.sound_asset_id ?? meta?.soundAssetId) || soundResolved.assetId,
+    android_channel_id:
+      trimText(meta?.android_channel_id ?? meta?.androidChannelId) || soundResolved.androidChannelId,
+    ios_sound_name: trimText(meta?.ios_sound_name ?? meta?.iosSoundName) || soundResolved.iosSoundName,
   };
+  const existingRingtoneUrl = trimText(meta?.ringtone_url ?? meta?.ringtoneUrl);
+  if (existingRingtoneUrl || ringtoneUrl) {
+    nextMeta.ringtone_url = existingRingtoneUrl || ringtoneUrl;
+  }
 
   return {
     ...out,

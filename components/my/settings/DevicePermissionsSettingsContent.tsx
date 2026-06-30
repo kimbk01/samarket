@@ -20,7 +20,6 @@ import {
   writePreferredSpeakerSinkId,
 } from "@/lib/permissions/speaker-output-preference";
 import { LinkedLoginProvidersContent } from "@/components/my/settings/LinkedLoginProvidersContent";
-import { PermissionStatusCard } from "@/components/permissions/education/PermissionStatusCard";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
 const PERMISSION_KINDS: readonly DevicePermissionKind[] = [
@@ -281,8 +280,6 @@ export function DevicePermissionsSettingsContent() {
       </section>
 
       <p className={`${Sam.text.bodySecondary} text-sam-muted`}>{t("settings_device_intro")}</p>
-
-      <PermissionStatusCard />
 
       {hint ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 sam-text-body-secondary text-sam-fg">

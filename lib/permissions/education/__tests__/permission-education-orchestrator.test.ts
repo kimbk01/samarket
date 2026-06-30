@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const callPermissionCheck = vi.hoisted(() => vi.fn());
 const openPermissionEducationSheet = vi.hoisted(() => vi.fn());
 const openNativeCallPermissionSettings = vi.hoisted(() => vi.fn());
-const buildPermissionCapabilitySummary = vi.hoisted(() => vi.fn());
 const isCapacitorNativePlatform = vi.hoisted(() => vi.fn(() => true));
 const resolveCapacitorShellPlatform = vi.hoisted(() => vi.fn((): "android" | "ios" | null => "android"));
 
@@ -13,24 +12,10 @@ vi.mock("@/lib/call/permissions/call-permission-gate", () => ({
 
 vi.mock("@/lib/permissions/education/permission-education-bridge", () => ({
   openPermissionEducationSheet,
-  showPermissionEducationSuccessToast: vi.fn(),
 }));
 
 vi.mock("@/lib/call/native/native-call-permissions", () => ({
   openNativeCallPermissionSettings,
-}));
-
-vi.mock("@/lib/permissions/permission-manager/notification-permission-manager", () => ({
-  openFullScreenIntentSettings: vi.fn(),
-  openBatteryOptimizationSettings: vi.fn(),
-}));
-
-vi.mock("@/lib/permissions/permission-manager/notification-permission-ui-bridge", () => ({
-  getNotificationGuidePending: vi.fn(() => null),
-}));
-
-vi.mock("@/lib/permissions/education/permission-capability-summary", () => ({
-  buildPermissionCapabilitySummary,
 }));
 
 vi.mock("@/lib/platform/capacitor-native", () => ({
@@ -39,10 +24,55 @@ vi.mock("@/lib/platform/capacitor-native", () => ({
 }));
 
 import {
+  needsCallMediaSettingsEducation,
   resetPermissionEducationOrchestratorForTests,
   runCallMediaEducationBeforeGesture,
   runLockScreenEducationIfNeeded,
 } from "@/lib/permissions/education/permission-education-orchestrator";
+
+describe("needsCallMediaSettingsEducation", () => {
+  it("returns true for permanently denied", () => {
+    expect(
+      needsCallMediaSettingsEducation("voice", {
+        isPermanentlyDenied: true,
+        effectiveState: "denied_permanently",
+        canVoice: false,
+        canVideo: false,
+        microphoneGranted: false,
+        cameraGranted: false,
+        os: { microphone: "denied", camera: "denied" },
+      } as never),
+    ).toBe(true);
+  });
+
+  it("returns true for system_revoked", () => {
+    expect(
+      needsCallMediaSettingsEducation("voice", {
+        isPermanentlyDenied: false,
+        effectiveState: "system_revoked",
+        canVoice: false,
+        canVideo: false,
+        microphoneGranted: false,
+        cameraGranted: false,
+        os: { microphone: "denied", camera: "denied" },
+      } as never),
+    ).toBe(true);
+  });
+
+  it("returns false when OS prompt may still work", () => {
+    expect(
+      needsCallMediaSettingsEducation("voice", {
+        isPermanentlyDenied: false,
+        effectiveState: "denied_once",
+        canVoice: false,
+        canVideo: false,
+        microphoneGranted: false,
+        cameraGranted: false,
+        os: { microphone: "prompt", camera: "prompt" },
+      } as never),
+    ).toBe(false);
+  });
+});
 
 describe("runCallMediaEducationBeforeGesture", () => {
   beforeEach(() => {
@@ -50,13 +80,6 @@ describe("runCallMediaEducationBeforeGesture", () => {
     resetPermissionEducationOrchestratorForTests();
     isCapacitorNativePlatform.mockReturnValue(true);
     resolveCapacitorShellPlatform.mockReturnValue("android");
-    buildPermissionCapabilitySummary.mockResolvedValue({
-      items: [],
-      overallReady: true,
-      receiveReady: true,
-      lockScreenIncomingReady: true,
-      syncedAt: 1,
-    });
   });
 
   it("proceeds when call media already granted", async () => {
@@ -66,24 +89,48 @@ describe("runCallMediaEducationBeforeGesture", () => {
     expect(openPermissionEducationSheet).not.toHaveBeenCalled();
   });
 
-  it("blocks when user chooses later", async () => {
-    callPermissionCheck.mockResolvedValue({ canVoice: false, canVideo: false });
+  it("skips sheet and proceeds when OS prompt is still available", async () => {
+    callPermissionCheck.mockResolvedValue({
+      canVoice: false,
+      canVideo: false,
+      isPermanentlyDenied: false,
+      effectiveState: "denied_once",
+      microphoneGranted: false,
+      cameraGranted: false,
+      os: { microphone: "prompt", camera: "prompt" },
+    });
+    const result = await runCallMediaEducationBeforeGesture("voice", "outgoing");
+    expect(result.proceed).toBe(true);
+    expect(openPermissionEducationSheet).not.toHaveBeenCalled();
+  });
+
+  it("opens settings sheet when permanently denied", async () => {
+    callPermissionCheck.mockResolvedValue({
+      canVoice: false,
+      canVideo: false,
+      isPermanentlyDenied: true,
+      effectiveState: "denied_permanently",
+      microphoneGranted: false,
+      cameraGranted: false,
+      os: { microphone: "denied", camera: "denied" },
+    });
     openPermissionEducationSheet.mockResolvedValue("later");
     const result = await runCallMediaEducationBeforeGesture("voice", "outgoing");
     expect(result.proceed).toBe(false);
     expect(openPermissionEducationSheet).toHaveBeenCalled();
   });
 
-  it("proceeds after allow on education sheet", async () => {
-    callPermissionCheck.mockResolvedValue({ canVoice: false, canVideo: false });
-    openPermissionEducationSheet.mockResolvedValue("allow");
-    const result = await runCallMediaEducationBeforeGesture("video", "incoming");
-    expect(result.proceed).toBe(true);
-  });
-
   it("rechecks after settings for call media", async () => {
     callPermissionCheck
-      .mockResolvedValueOnce({ canVoice: false, canVideo: false })
+      .mockResolvedValueOnce({
+        canVoice: false,
+        canVideo: false,
+        isPermanentlyDenied: true,
+        effectiveState: "denied_permanently",
+        microphoneGranted: false,
+        cameraGranted: false,
+        os: { microphone: "denied", camera: "denied" },
+      })
       .mockResolvedValueOnce({ canVoice: true, canVideo: false });
     openPermissionEducationSheet.mockResolvedValue("settings");
     openNativeCallPermissionSettings.mockResolvedValue(true);
@@ -97,11 +144,9 @@ describe("runLockScreenEducationIfNeeded", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resetPermissionEducationOrchestratorForTests();
-    isCapacitorNativePlatform.mockReturnValue(false);
-    resolveCapacitorShellPlatform.mockReturnValue(null);
   });
 
-  it("does not open lock-tier education on web/windows", async () => {
+  it("is a no-op and does not open education sheet", async () => {
     await runLockScreenEducationIfNeeded();
     expect(openPermissionEducationSheet).not.toHaveBeenCalled();
   });
