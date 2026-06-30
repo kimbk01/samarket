@@ -39,6 +39,8 @@ public class MainActivity extends BridgeActivity {
   private static final String TAG = "DIBAY_OAuth";
   private static final String WEBVIEW_LOG_TAG = "DIBAY_WebView";
   private static final long WEBVIEW_LOAD_TIMEOUT_MS = 10_000L;
+  /** Transient DNS/net at cold start — same backoff ladder as ScreenAwakeBridge.apply retry. */
+  private static final long[] WEBVIEW_LOAD_AUTO_RETRY_DELAYS_MS = {100L, 300L, 700L};
   private static final String ROUTE_PREFS = "dibay_push_route";
   private static final String CALL_ROUTE_PREFS = "dibay_call_pending_route";
   private static final String ROUTE_LOG_TAG = "DIBAY_PUSH_ROUTE";
@@ -123,6 +125,8 @@ public class MainActivity extends BridgeActivity {
   private volatile boolean mainFrameLoadFinished = false;
   private volatile String lastMainFrameLoadFailure = null;
   private volatile String pendingMainFrameUrl = null;
+  private Runnable webViewLoadAutoRetryRunnable = null;
+  private int webViewLoadAutoRetryIndex = 0;
   private final Runnable webViewLoadTimeoutRunnable =
       () -> {
         if (mainFrameLoadFinished) return;
@@ -1165,6 +1169,7 @@ public class MainActivity extends BridgeActivity {
   private void onWebViewMainFrameStarted(String url) {
     mainHandler.post(
         () -> {
+          cancelWebViewLoadAutoRetryPending();
           mainFrameLoadFinished = false;
           lastMainFrameLoadFailure = null;
           pendingMainFrameUrl = url;
@@ -1177,8 +1182,19 @@ public class MainActivity extends BridgeActivity {
   private void onWebViewMainFrameFinished(String url) {
     mainHandler.post(
         () -> {
+          if (lastMainFrameLoadFailure != null) {
+            Log.w(
+                WEBVIEW_LOG_TAG,
+                "webview_page_finished_ignored_after_failure url="
+                    + url
+                    + " reason="
+                    + lastMainFrameLoadFailure);
+            return;
+          }
           mainFrameLoadFinished = true;
           pendingMainFrameUrl = url;
+          webViewLoadAutoRetryIndex = 0;
+          cancelWebViewLoadAutoRetryPending();
           mainHandler.removeCallbacks(webViewLoadTimeoutRunnable);
           hideWebViewLoadErrorOverlay();
           maybeReplayPendingV4AcceptRouteAfterWebHydration(url);
@@ -1234,8 +1250,56 @@ public class MainActivity extends BridgeActivity {
           lastMainFrameLoadFailure = reason;
           pendingMainFrameUrl = url;
           mainHandler.removeCallbacks(webViewLoadTimeoutRunnable);
+          if (isTransientWebViewLoadFailure(reason)
+              && webViewLoadAutoRetryIndex < WEBVIEW_LOAD_AUTO_RETRY_DELAYS_MS.length) {
+            scheduleWebViewLoadAutoRetry(url, reason);
+            return;
+          }
+          webViewLoadAutoRetryIndex = 0;
+          cancelWebViewLoadAutoRetryPending();
           showWebViewLoadErrorOverlay(url, reason);
         });
+  }
+
+  private static boolean isTransientWebViewLoadFailure(String reason) {
+    if (reason == null || reason.isEmpty()) return false;
+    return reason.contains("net::ERR_NAME_NOT_RESOLVED")
+        || reason.contains("net::ERR_TIMED_OUT")
+        || reason.contains("net::ERR_CONNECTION_REFUSED")
+        || reason.contains("net::ERR_CONNECTION_RESET");
+  }
+
+  private void cancelWebViewLoadAutoRetryPending() {
+    if (webViewLoadAutoRetryRunnable == null) return;
+    mainHandler.removeCallbacks(webViewLoadAutoRetryRunnable);
+    webViewLoadAutoRetryRunnable = null;
+  }
+
+  private void scheduleWebViewLoadAutoRetry(String url, String reason) {
+    cancelWebViewLoadAutoRetryPending();
+    final long delayMs = WEBVIEW_LOAD_AUTO_RETRY_DELAYS_MS[webViewLoadAutoRetryIndex];
+    final int attempt = webViewLoadAutoRetryIndex + 1;
+    webViewLoadAutoRetryIndex++;
+    Log.i(
+        WEBVIEW_LOG_TAG,
+        "webview_load_auto_retry_scheduled url="
+            + url
+            + " reason="
+            + reason
+            + " attempt="
+            + attempt
+            + " delayMs="
+            + delayMs);
+    webViewLoadAutoRetryRunnable =
+        () -> {
+          webViewLoadAutoRetryRunnable = null;
+          if (mainFrameLoadFinished) return;
+          Log.i(
+              WEBVIEW_LOG_TAG,
+              "webview_load_auto_retry_fire url=" + url + " attempt=" + attempt);
+          reloadWebViewMainFrame(url);
+        };
+    mainHandler.postDelayed(webViewLoadAutoRetryRunnable, delayMs);
   }
 
   private void ensureWebViewLoadErrorOverlay() {
@@ -1269,6 +1333,12 @@ public class MainActivity extends BridgeActivity {
   private void retryWebViewLoad() {
     Log.i(WEBVIEW_LOG_TAG, "webview_retry_clicked");
     hideWebViewLoadErrorOverlay();
+    webViewLoadAutoRetryIndex = 0;
+    cancelWebViewLoadAutoRetryPending();
+    reloadWebViewMainFrame(pendingMainFrameUrl);
+  }
+
+  private void reloadWebViewMainFrame(String preferredUrl) {
     mainFrameLoadFinished = false;
     lastMainFrameLoadFailure = null;
     Bridge bridge = getBridge();
@@ -1276,9 +1346,11 @@ public class MainActivity extends BridgeActivity {
     WebView webView = bridge.getWebView();
     if (webView == null) return;
     String origin = DibayServerOrigin.resolve(this);
-    if (origin != null && !origin.isEmpty()) {
-      pendingMainFrameUrl = origin;
-      webView.loadUrl(origin);
+    String loadTarget =
+        preferredUrl != null && !preferredUrl.trim().isEmpty() ? preferredUrl.trim() : origin;
+    if (loadTarget != null && !loadTarget.isEmpty()) {
+      pendingMainFrameUrl = loadTarget;
+      webView.loadUrl(loadTarget);
     } else {
       webView.reload();
     }
