@@ -1,0 +1,46 @@
+---
+description: Push Device Identity SSOT LOCK — one active FCM per user, register/deactivate/dispatch (2026-06-30)
+globs:
+  - app/api/me/devices/register/route.ts
+  - app/api/me/devices/deactivate/route.ts
+  - lib/push/device-register/**
+  - lib/push/dispatch/load-active-push-targets.ts
+  - lib/push/dispatch/filter-user-device-push-targets.ts
+  - components/push/NativePushRegistration.tsx
+  - lib/permissions/dibay-post-login-onboarding-gate.ts
+  - components/permissions/DiBaYDevicePermissionOnboardingGate.tsx
+  - lib/push/disconnect-native-devices-for-logout-client.ts
+  - lib/push/native/register-native-push-client.ts
+  - docs/push/push-device-identity-ssot-lock.md
+alwaysApply: false
+---
+
+# Push Device Identity SSOT LOCK
+
+Full doc: `docs/push/push-device-identity-ssot-lock.md`  
+**Status:** LOCK (2026-06-30) — P0-1 + P0-2 PASS on prod QA device `RRGL4046NTW`
+
+## Fixed invariant
+
+- **One active FCM token per user** — register deactivates stale rows; dispatch selects single FCM target (`filterUserDevicePushTargets`).
+- Register **must not** hard-depend on notification onboarding UI settled (P0-1).
+- Legacy `dibay-*` `device_id` **must not** re-activate when fresher UUID FCM peer exists (30d).
+
+## Without explicit user approval — DO NOT
+
+1. Modify Native Call LOCK files, Android Java push/register paths, or DB `user_devices` migrations for identity.
+2. Start **P3-2** (MissedCallNotificationHelper, APNS, admin push UI, P3-2 scope).
+3. Revert multi-active FCM dispatch or remove stale-token deactivate on register success.
+4. Re-block register on `waitForNotificationOnboardingSettled()`.
+5. Touch notification sound SSOT LOCK (`docs/notifications/notification-sound-ssot-phase1-lock.md`).
+
+## Regression gate
+
+```bash
+vitest run lib/push/device-register/__tests__/device-register-gate.test.ts \
+  lib/push/device-register/__tests__/should-activate-fcm-device-register.test.ts \
+  lib/push/dispatch/__tests__/filter-user-device-push-targets.test.ts
+npm run verify:push-dispatch-contract
+```
+
+Device QA: `docs/push/push-device-identity-ssot-lock.md` §7.
