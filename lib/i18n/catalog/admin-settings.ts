@@ -24,7 +24,20 @@ export const adminSettingsMessages = {
     admin_settings_notif_upload_failed: "업로드에 실패했습니다.",
     admin_settings_notif_clear_failed: "초기화 실패",
     admin_notif_sound_ssot_intro:
-      "이벤트별 알림음 SSOT입니다. 각 행에서 변경 후 저장하거나, 하단에서 전체 변경을 한 번에 적용할 수 있습니다.",
+      "이벤트별 알림음 SSOT입니다. 파일을 업로드한 뒤 각 행의 저장을 누르면 DB와 레거시 mirror에 즉시 반영됩니다.",
+    admin_notif_sound_ssot_limits_hint:
+      "업로드 최대 2MB · 사운드 URL 최대 4096자 · 레거시 KV URL 최대 2048자 · 표시 이름 최대 255자 · 쿨다운 0–600초",
+    admin_notif_sound_policy_once: "1회 울림",
+    admin_notif_sound_policy_repeat: "반복 울림",
+    admin_notif_sound_repeat_once_warning:
+      "이 알림은 1회 울림 이벤트입니다. 반복 재생은 통화/긴급 알림에만 사용할 수 있습니다.",
+    admin_notif_sound_upload_ok_apply: "파일 업로드 완료 — 저장을 눌러 알림음에 적용하세요.",
+    admin_notif_sound_file_too_large: "사운드 파일은 최대 2MB까지 업로드할 수 있습니다.",
+    admin_notif_sound_url_too_long: "사운드 URL이 너무 깁니다. 최대 4096자까지 허용됩니다.",
+    admin_notif_sound_legacy_url_too_long: "레거시 저장 경로는 최대 2048자 URL만 허용됩니다.",
+    admin_notif_sound_label_too_long: "표시 이름은 최대 255자까지 허용됩니다.",
+    admin_notif_sound_cooldown_invalid: "쿨다운은 0–600초 사이만 허용됩니다.",
+    admin_notif_sound_save_failed_field: "저장 실패 ({field})",
     admin_notif_sound_row_save: "저장",
     admin_notif_sound_save_all: "전체 변경 미리보기",
     admin_notif_sound_preview_duration_unknown: "--:--",
@@ -361,7 +374,20 @@ export const adminSettingsMessages = {
     admin_settings_notif_upload_failed: "Upload failed.",
     admin_settings_notif_clear_failed: "Reset failed",
     admin_notif_sound_ssot_intro:
-      "SSOT per event. Save each row after editing, or preview and apply all changes at the bottom.",
+      "Per-event notification sound SSOT. Upload a file, then press Save on a row to commit to the DB and legacy mirror immediately.",
+    admin_notif_sound_ssot_limits_hint:
+      "Upload max 2MB · sound URL max 4096 chars · legacy KV URL max 2048 chars · display name max 255 chars · cooldown 0–600s",
+    admin_notif_sound_policy_once: "Play once",
+    admin_notif_sound_policy_repeat: "Repeat ring",
+    admin_notif_sound_repeat_once_warning:
+      "This event plays once only. Repeat playback is allowed for calls and urgent alerts.",
+    admin_notif_sound_upload_ok_apply: "File uploaded — press Save to apply this sound.",
+    admin_notif_sound_file_too_large: "Sound files must be 2MB or smaller.",
+    admin_notif_sound_url_too_long: "Sound URL is too long. Maximum 4096 characters.",
+    admin_notif_sound_legacy_url_too_long: "Legacy storage paths allow URLs up to 2048 characters.",
+    admin_notif_sound_label_too_long: "Display name must be 255 characters or fewer.",
+    admin_notif_sound_cooldown_invalid: "Cooldown must be between 0 and 600 seconds.",
+    admin_notif_sound_save_failed_field: "Save failed ({field})",
     admin_notif_sound_row_save: "Save",
     admin_notif_sound_save_all: "Preview all changes",
     admin_notif_sound_preview_duration_unknown: "--:--",

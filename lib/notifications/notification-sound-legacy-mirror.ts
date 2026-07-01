@@ -2,7 +2,10 @@
  * SSOT admin commit → legacy table mirror (preserve existing APIs).
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { NotificationSoundMappingRow } from "@/lib/notifications/notification-sound-types";
+import type {
+  NotificationSoundAssetRow,
+  NotificationSoundMappingRow,
+} from "@/lib/notifications/notification-sound-types";
 import {
   getRegistryAsset,
   getRegistryEvent,
@@ -14,7 +17,7 @@ export type LegacyMirrorPatch = {
   enabled?: boolean;
 };
 
-const EVENT_TO_LEGACY_ADMIN_DOMAIN: Record<string, string> = {
+export const EVENT_TO_LEGACY_ADMIN_DOMAIN: Record<string, string> = {
   messenger_direct_message_received: "community_direct_chat",
   friend_request_received: "community_direct_chat",
   friend_request_accepted: "community_direct_chat",
@@ -31,7 +34,7 @@ const EVENT_TO_LEGACY_ADMIN_DOMAIN: Record<string, string> = {
   settlement_charge_rejected: "store",
 };
 
-const EVENT_TO_CALL_COLUMN: Record<string, string> = {
+export const EVENT_TO_CALL_COLUMN: Record<string, string> = {
   call_incoming_voice: "voice_incoming_sound_url",
   call_incoming_video: "video_incoming_sound_url",
   call_outgoing_voice: "voice_outgoing_ringback_url",
@@ -41,7 +44,7 @@ const EVENT_TO_CALL_COLUMN: Record<string, string> = {
   call_rejected: "call_end_sound_url",
 };
 
-const EVENT_TO_ADMIN_SETTINGS_KEY: Record<string, string> = {
+export const EVENT_TO_ADMIN_SETTINGS_KEY: Record<string, string> = {
   delivery_order_created_owner: "store_delivery_alert_sound",
   delivery_order_cancelled_owner: "store_delivery_alert_sound",
   delivery_order_delayed_owner: "store_delivery_alert_sound",
@@ -49,11 +52,34 @@ const EVENT_TO_ADMIN_SETTINGS_KEY: Record<string, string> = {
   delivery_order_match_chat: "order_match_chat_alert_sound",
 };
 
-function resolveMirrorUrl(assetId: string, fileUrl?: string | null): string | null {
-  const fromArg = typeof fileUrl === "string" ? fileUrl.trim() || null : null;
-  if (fromArg) return fromArg;
+export function isLegacyKvMirrorEvent(eventKey: string): boolean {
+  return eventKey in EVENT_TO_ADMIN_SETTINGS_KEY;
+}
+
+export function resolveMirrorUrlForValidation(
+  assetId: string,
+  assetRow?: Pick<NotificationSoundAssetRow, "file_url" | "file_path"> | null
+): string | null {
+  const fromRow =
+    typeof assetRow?.file_url === "string" && assetRow.file_url.trim()
+      ? assetRow.file_url.trim()
+      : null;
+  if (fromRow) return fromRow;
+  const fromPath =
+    typeof assetRow?.file_path === "string" && assetRow.file_path.trim()
+      ? assetRow.file_path.trim()
+      : null;
+  if (fromPath) return fromPath;
   const asset = getRegistryAsset(assetId);
-  return (asset?.file_url && asset.file_url.trim()) || (asset?.file_path && asset.file_path.trim()) || null;
+  return (
+    (asset?.file_url && asset.file_url.trim()) ||
+    (asset?.file_path && asset.file_path.trim()) ||
+    null
+  );
+}
+
+function throwMirrorError(table: string, message: string): never {
+  throw new Error(`legacy_mirror_failed:${table}:${message}`);
 }
 
 export async function mirrorNotificationSoundToLegacy(
@@ -71,13 +97,10 @@ export async function mirrorNotificationSoundToLegacy(
       .eq("id", p.asset_id)
       .maybeSingle();
     const url =
-      resolveMirrorUrl(
+      resolveMirrorUrlForValidation(
         p.asset_id,
-        (assetRow as { file_url?: string | null } | null)?.file_url ?? null
-      ) ??
-      (typeof (assetRow as { file_path?: string | null } | null)?.file_path === "string"
-        ? (assetRow as { file_path: string }).file_path
-        : null);
+        assetRow as Pick<NotificationSoundAssetRow, "file_url" | "file_path"> | null
+      ) ?? null;
 
     const enabled = p.enabled !== false;
     const legacyDomain = EVENT_TO_LEGACY_ADMIN_DOMAIN[p.event_key];
@@ -97,7 +120,7 @@ export async function mirrorNotificationSoundToLegacy(
   }
 
   for (const [type, { url, enabled }] of domainUrls) {
-    await sb.from("admin_notification_settings").upsert(
+    const { error } = await sb.from("admin_notification_settings").upsert(
       {
         type,
         sound_url: url,
@@ -106,17 +129,19 @@ export async function mirrorNotificationSoundToLegacy(
       },
       { onConflict: "type" }
     );
+    if (error) throwMirrorError("admin_notification_settings", error.message);
   }
 
   if (Object.keys(callPatch).length > 0) {
-    await sb
+    const { error } = await sb
       .from("admin_messenger_call_sound_settings")
       .update({ ...callPatch, updated_at: new Date().toISOString() })
       .eq("id", "default");
+    if (error) throwMirrorError("admin_messenger_call_sound_settings", error.message);
   }
 
   for (const [key, url] of settingsPatch) {
-    await sb.from("admin_settings").upsert(
+    const { error } = await sb.from("admin_settings").upsert(
       {
         key,
         value_json: url ? { url } : { url: null },
@@ -124,6 +149,7 @@ export async function mirrorNotificationSoundToLegacy(
       },
       { onConflict: "key" }
     );
+    if (error) throwMirrorError("admin_settings", error.message);
   }
 }
 

@@ -6,6 +6,11 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { NOTIFICATION_SOUND_DOMAINS, type NotificationSoundDomain } from "@/lib/notifications/notification-sound-types";
 import { displayNotificationSoundAssetLabel } from "@/lib/notifications/notification-sound-display-filename";
 import { AdminNotificationSoundPreview } from "@/components/admin/settings/AdminNotificationSoundPreview";
+import { SOUND_MAX_BYTES } from "@/lib/notifications/notification-sound-ssot-admin-validation";
+import {
+  getRepeatPolicy,
+  isRepeatRingEvent,
+} from "@/lib/notifications/notification-sound-ssot-repeat-policy";
 
 type AssetRow = {
   id: string;
@@ -35,10 +40,18 @@ type MappingRow = {
   use_device_default: boolean;
   volume: number;
   repeat_count: number;
+  cooldown_seconds?: number;
   enabled: boolean;
 };
 
-type DiffRow = { field: string; event_key: string; before: unknown; after: unknown };
+const ALLOWED_SOUND_MIME = new Set([
+  "audio/mpeg",
+  "audio/mp3",
+  "audio/wav",
+  "audio/x-wav",
+  "audio/ogg",
+  "audio/webm",
+]);
 
 const DOMAIN_SECTION_KEYS: Record<NotificationSoundDomain, string> = {
   system: "admin_notif_sound_section_system",
@@ -53,6 +66,18 @@ const DOMAIN_SECTION_KEYS: Record<NotificationSoundDomain, string> = {
   settlement: "admin_notif_sound_section_settlement",
   community: "admin_notif_sound_section_community",
 };
+
+function defaultMappingFromEvent(ev: EventRow): MappingRow {
+  return {
+    event_key: ev.event_key,
+    asset_id: ev.default_asset_id,
+    use_device_default: false,
+    volume: 0.7,
+    repeat_count: 1,
+    cooldown_seconds: 0,
+    enabled: ev.enabled,
+  };
+}
 
 function mappingSnapshot(row: MappingRow): string {
   return JSON.stringify({
@@ -69,6 +94,11 @@ function isRowDirty(row: MappingRow | undefined, baseline: MappingRow | undefine
   return mappingSnapshot(row) !== mappingSnapshot(baseline);
 }
 
+function rowForSave(row: MappingRow): MappingRow {
+  if (isRepeatRingEvent(row.event_key)) return row;
+  return { ...row, repeat_count: 1 };
+}
+
 function NotificationSoundSsotRow({
   ev,
   mapping,
@@ -83,7 +113,7 @@ function NotificationSoundSsotRow({
   onSave,
 }: {
   ev: EventRow;
-  mapping: MappingRow | undefined;
+  mapping: MappingRow;
   baseline: MappingRow | undefined;
   assetById: Map<string, AssetRow>;
   language: string;
@@ -95,11 +125,12 @@ function NotificationSoundSsotRow({
   onSave: () => void;
 }) {
   const { t } = useI18n();
-  const assetId = mapping?.asset_id ?? ev.default_asset_id;
+  const assetId = mapping.asset_id;
   const asset = assetById.get(assetId);
   const previewUrl = asset?.file_url ?? asset?.file_path ?? null;
   const label = language === "en" ? ev.label_en : ev.label_ko;
   const dirty = isRowDirty(mapping, baseline);
+  const repeatPolicy = getRepeatPolicy(ev.event_key);
   const soundFileName = displayNotificationSoundAssetLabel(
     asset,
     t("admin_settings_notif_preview_default")
@@ -113,14 +144,27 @@ function NotificationSoundSsotRow({
   return (
     <div className="space-y-3 border-b border-sam-border-soft px-4 py-4 last:border-b-0 sm:px-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <span className="sam-text-body font-medium text-sam-fg">{label}</span>
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <span className="sam-text-body font-medium text-sam-fg">{label}</span>
+          <span
+            className={`rounded-full px-2 py-0.5 sam-text-helper ${
+              repeatPolicy === "repeat"
+                ? "bg-amber-100 text-amber-900"
+                : "bg-sam-app text-sam-muted"
+            }`}
+          >
+            {repeatPolicy === "repeat"
+              ? t("admin_notif_sound_policy_repeat")
+              : t("admin_notif_sound_policy_once")}
+          </span>
+        </div>
         <div className="flex flex-wrap items-center gap-4">
           <label className="flex items-center gap-2 sam-text-body-secondary text-sam-muted">
             {t("admin_notif_sound_col_device")}
             <input
               type="checkbox"
               className="h-4 w-4"
-              checked={mapping?.use_device_default === true}
+              checked={mapping.use_device_default === true}
               onChange={(e) => onPatch({ use_device_default: e.target.checked })}
             />
           </label>
@@ -129,12 +173,29 @@ function NotificationSoundSsotRow({
             <input
               type="checkbox"
               className="h-4 w-4"
-              checked={mapping?.enabled !== false}
+              checked={mapping.enabled !== false}
               onChange={(e) => onPatch({ enabled: e.target.checked })}
             />
           </label>
         </div>
       </div>
+
+      {repeatPolicy === "repeat" ? (
+        <label className="flex flex-wrap items-center gap-2 sam-text-body-secondary text-sam-muted">
+          {t("admin_settings_notif_repeat")}
+          <select
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1 sam-text-body text-sam-fg"
+            value={mapping.repeat_count}
+            onChange={(e) => onPatch({ repeat_count: Number(e.target.value) })}
+          >
+            {[1, 2, 3, 4, 5].map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
 
       <div className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
         <p className="sam-text-helper text-sam-muted">{t("admin_notif_sound_current_file")}</p>
@@ -149,7 +210,7 @@ function NotificationSoundSsotRow({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <AdminNotificationSoundPreview soundUrl={previewUrl} volume={mapping?.volume ?? 0.7} />
+        <AdminNotificationSoundPreview soundUrl={previewUrl} volume={mapping.volume ?? 0.7} />
 
         <button
           type="button"
@@ -189,7 +250,7 @@ function NotificationSoundSsotRow({
 }
 
 export function AdminNotificationSoundSsotTable() {
-  const { t, language } = useI18n();
+  const { t, safeT, language } = useI18n();
   const [assets, setAssets] = useState<AssetRow[]>([]);
   const [events, setEvents] = useState<EventRow[]>([]);
   const [draft, setDraft] = useState<MappingRow[]>([]);
@@ -200,34 +261,34 @@ export function AdminNotificationSoundSsotTable() {
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
-  const [diff, setDiff] = useState<DiffRow[] | null>(null);
-  const [confirmToken, setConfirmToken] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadTargetRef = useRef<{ eventKey: string; domain: NotificationSoundDomain } | null>(null);
-  const pendingSaveKeysRef = useRef<string[]>([]);
 
   const assetById = useMemo(() => new Map(assets.map((a) => [a.id, a])), [assets]);
-
-  const buildSaveMsg = useCallback(
-    (eventKeys: string[]) => {
-      if (eventKeys.length === 1) {
-        const row = draft.find((r) => r.event_key === eventKeys[0]);
-        const name = displayNotificationSoundAssetLabel(
-          row ? assetById.get(row.asset_id) : undefined,
-          t("admin_settings_notif_preview_default")
-        );
-        return `${t("admin_notif_sound_saved_file")}: ${name}`;
-      }
-      return t("admin_notif_sound_save_ok");
-    },
-    [assetById, draft, t]
-  );
-
+  const eventsByKey = useMemo(() => new Map(events.map((e) => [e.event_key, e])), [events]);
   const baselineByKey = useMemo(() => new Map(baseline.map((r) => [r.event_key, r])), [baseline]);
 
-  const anyDirty = useMemo(
-    () => draft.some((row) => isRowDirty(row, baselineByKey.get(row.event_key))),
-    [draft, baselineByKey]
+  const formatSaveError = useCallback(
+    (payload: { error?: string; field?: string; max?: number }) => {
+      const code = payload.error ?? "";
+      const known: Record<string, string> = {
+        file_url_too_long: t("admin_notif_sound_url_too_long"),
+        legacy_mirror_url_too_long: t("admin_notif_sound_legacy_url_too_long"),
+        label_too_long: t("admin_notif_sound_label_too_long"),
+        "invalid cooldown_seconds": t("admin_notif_sound_cooldown_invalid"),
+        repeat_not_allowed_for_once_event: t("admin_notif_sound_repeat_once_warning"),
+      };
+      if (known[code]) return known[code];
+      if (payload.field) {
+        return safeT("admin_notif_sound_save_failed_field", {
+          fallbackKo: `저장 실패 (${payload.field})`,
+          fallbackEn: `Save failed (${payload.field})`,
+          vars: { field: payload.field },
+        });
+      }
+      return code || t("admin_settings_notif_save_failed");
+    },
+    [safeT, t]
   );
 
   const sections = useMemo(() => {
@@ -245,6 +306,17 @@ export function AdminNotificationSoundSsotTable() {
     return [...grouped.entries()];
   }, []);
 
+  const applyPayload = useCallback(
+    (payload: { assets?: AssetRow[]; events?: EventRow[]; mappings?: MappingRow[] }) => {
+      setAssets(payload.assets ?? []);
+      setEvents(payload.events ?? []);
+      const m = (payload.mappings ?? []).map((x) => ({ ...x }));
+      setDraft(m.map((x) => ({ ...x })));
+      setBaseline(m);
+    },
+    []
+  );
+
   const load = useCallback(async () => {
     setLoading(true);
     setErr(null);
@@ -261,37 +333,56 @@ export function AdminNotificationSoundSsotTable() {
         setErr(j.error ?? t("admin_settings_notif_load_failed"));
         return;
       }
-      setAssets(j.assets ?? []);
-      setEvents(j.events ?? []);
-      const m = j.mappings ?? [];
-      const snapshot = m.map((x) => ({ ...x }));
-      setDraft(snapshot.map((x) => ({ ...x })));
-      setBaseline(snapshot);
+      applyPayload(j);
     } catch {
       setErr(t("common_network_error_generic"));
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [applyPayload, t]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const patchDraft = useCallback((eventKey: string, partial: Partial<MappingRow>) => {
-    setDraft((prev) =>
-      prev.map((r) => (r.event_key === eventKey ? { ...r, ...partial } : r))
-    );
-  }, []);
+  const patchDraft = useCallback(
+    (eventKey: string, partial: Partial<MappingRow>) => {
+      if (!isRepeatRingEvent(eventKey) && partial.repeat_count != null && partial.repeat_count > 1) {
+        setErr(t("admin_notif_sound_repeat_once_warning"));
+        return;
+      }
+      setDraft((prev) => {
+        const idx = prev.findIndex((r) => r.event_key === eventKey);
+        if (idx >= 0) {
+          return prev.map((r) => (r.event_key === eventKey ? { ...r, ...partial } : r));
+        }
+        const ev = eventsByKey.get(eventKey);
+        if (!ev) return prev;
+        return [...prev, { ...defaultMappingFromEvent(ev), ...partial }];
+      });
+    },
+    [eventsByKey, t]
+  );
 
   const uploadSoundFile = useCallback(
     async (eventKey: string, domain: NotificationSoundDomain, file: File) => {
+      if (file.size > SOUND_MAX_BYTES) {
+        setErr(t("admin_notif_sound_file_too_large"));
+        return;
+      }
+      const mime = file.type || "application/octet-stream";
+      if (!ALLOWED_SOUND_MIME.has(mime)) {
+        setErr(t("admin_settings_notif_upload_failed"));
+        return;
+      }
+
       setUploadingKey(eventKey);
       setErr(null);
+      setMsg(null);
       try {
         const fd = new FormData();
         fd.append("file", file);
-        fd.append("label", file.name);
+        fd.append("label", file.name.slice(0, 255));
         fd.append("domain", domain);
         const res = await fetch("/api/admin/notification-sound-ssot/upload", {
           method: "POST",
@@ -319,6 +410,7 @@ export function AdminNotificationSoundSsotTable() {
         };
         setAssets((prev) => (prev.some((a) => a.id === newAsset.id) ? prev : [...prev, newAsset]));
         patchDraft(eventKey, { asset_id: j.asset_id, use_device_default: false });
+        setMsg(t("admin_notif_sound_upload_ok_apply"));
       } catch {
         setErr(t("common_network_error_generic"));
       } finally {
@@ -344,54 +436,39 @@ export function AdminNotificationSoundSsotTable() {
     fileInputRef.current?.click();
   }, []);
 
-  const previewSaveMappings = useCallback(
-    async (mappings: MappingRow[], scopeKey: string | null) => {
+  const saveRow = useCallback(
+    async (eventKey: string) => {
+      const row = draft.find((r) => r.event_key === eventKey);
+      const base = baselineByKey.get(eventKey);
+      if (!row || !isRowDirty(row, base)) return;
+
       setSaving(true);
-      if (scopeKey) setSavingKey(scopeKey);
-      pendingSaveKeysRef.current = mappings.map((m) => m.event_key);
+      setSavingKey(eventKey);
       setErr(null);
       setMsg(null);
-      setDiff(null);
-      setConfirmToken(null);
       try {
         const res = await fetch("/api/admin/notification-sound-ssot", {
           method: "PATCH",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mappings }),
+          body: JSON.stringify({ mappings: [rowForSave(row)] }),
         });
         const j = (await res.json()) as {
           ok?: boolean;
-          preview?: boolean;
-          diff?: DiffRow[];
-          confirm_token?: string;
+          assets?: AssetRow[];
+          events?: EventRow[];
+          mappings?: MappingRow[];
           error?: string;
+          field?: string;
+          max?: number;
+          ssot_committed?: boolean;
         };
         if (!res.ok || !j.ok) {
-          setErr(j.error ?? t("admin_settings_notif_save_failed"));
+          setErr(formatSaveError(j));
           return;
         }
-        if (j.preview && j.confirm_token) {
-          const diffRows = j.diff ?? [];
-          if (diffRows.length === 0) {
-            const commitRes = await fetch("/api/admin/notification-sound-ssot", {
-              method: "PATCH",
-              credentials: "include",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ confirm_token: j.confirm_token }),
-            });
-            const cj = (await commitRes.json()) as { ok?: boolean; error?: string };
-            if (!commitRes.ok || !cj.ok) {
-              setErr(cj.error ?? t("admin_settings_notif_save_failed"));
-              return;
-            }
-            setMsg(buildSaveMsg(pendingSaveKeysRef.current));
-            await load();
-            return;
-          }
-          setDiff(diffRows);
-          setConfirmToken(j.confirm_token);
-        }
+        applyPayload(j);
+        setMsg(t("admin_notif_sound_save_ok"));
       } catch {
         setErr(t("common_network_error_generic"));
       } finally {
@@ -399,54 +476,8 @@ export function AdminNotificationSoundSsotTable() {
         setSavingKey(null);
       }
     },
-    [buildSaveMsg, load, t]
+    [applyPayload, baselineByKey, draft, formatSaveError, t]
   );
-
-  const previewSaveAll = useCallback(async () => {
-    const dirtyMappings = draft.filter((row) =>
-      isRowDirty(row, baselineByKey.get(row.event_key))
-    );
-    if (dirtyMappings.length === 0) return;
-    pendingSaveKeysRef.current = dirtyMappings.map((m) => m.event_key);
-    await previewSaveMappings(dirtyMappings, null);
-  }, [draft, baselineByKey, previewSaveMappings]);
-
-  const previewRowSave = useCallback(
-    async (eventKey: string) => {
-      const row = draft.find((r) => r.event_key === eventKey);
-      if (!row || !isRowDirty(row, baselineByKey.get(eventKey))) return;
-      await previewSaveMappings([row], eventKey);
-    },
-    [draft, baselineByKey, previewSaveMappings]
-  );
-
-  const commitSave = useCallback(async () => {
-    if (!confirmToken) return;
-    setSaving(true);
-    setErr(null);
-    try {
-      const res = await fetch("/api/admin/notification-sound-ssot", {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ confirm_token: confirmToken }),
-      });
-      const j = (await res.json()) as { ok?: boolean; error?: string };
-      if (!res.ok || !j.ok) {
-        setErr(j.error ?? t("admin_settings_notif_save_failed"));
-        return;
-      }
-      setDiff(null);
-      setConfirmToken(null);
-      setMsg(buildSaveMsg(pendingSaveKeysRef.current));
-      await load();
-    } catch {
-      setErr(t("common_network_error_generic"));
-    } finally {
-      setSaving(false);
-      setSavingKey(null);
-    }
-  }, [buildSaveMsg, confirmToken, load, t]);
 
   const restoreDefault = useCallback(
     (eventKey: string, defaultAssetId: string) => {
@@ -454,6 +485,7 @@ export function AdminNotificationSoundSsotTable() {
         asset_id: defaultAssetId,
         use_device_default: false,
         enabled: true,
+        repeat_count: 1,
       });
     },
     [patchDraft]
@@ -470,6 +502,7 @@ export function AdminNotificationSoundSsotTable() {
   return (
     <div className="space-y-4">
       <p className="sam-text-body-secondary text-sam-muted">{t("admin_notif_sound_ssot_intro")}</p>
+      <p className="sam-text-helper text-sam-muted">{t("admin_notif_sound_ssot_limits_hint")}</p>
 
       <input
         ref={fileInputRef}
@@ -503,7 +536,8 @@ export function AdminNotificationSoundSsotTable() {
             </div>
             <div>
               {domainEvents.map((ev) => {
-                const m = draft.find((x) => x.event_key === ev.event_key);
+                const m =
+                  draft.find((x) => x.event_key === ev.event_key) ?? defaultMappingFromEvent(ev);
                 return (
                   <NotificationSoundSsotRow
                     key={ev.event_key}
@@ -517,7 +551,7 @@ export function AdminNotificationSoundSsotTable() {
                     onPatch={(partial) => patchDraft(ev.event_key, partial)}
                     onUpload={() => openFilePicker(ev.event_key, ev.domain)}
                     onRestore={() => restoreDefault(ev.event_key, ev.default_asset_id)}
-                    onSave={() => void previewRowSave(ev.event_key)}
+                    onSave={() => void saveRow(ev.event_key)}
                   />
                 );
               })}
@@ -525,57 +559,6 @@ export function AdminNotificationSoundSsotTable() {
           </section>
         );
       })}
-
-      {diff && diff.length > 0 ? (
-        <section className="rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
-          <div className="border-b border-sam-border-soft px-4 py-3 sm:px-5">
-            <h2 className="sam-text-body font-semibold text-sam-fg">{t("admin_notif_sound_diff_title")}</h2>
-          </div>
-          <div className="p-4 sm:p-5">
-            <ul className="divide-y divide-sam-border-soft rounded-ui-rect border border-sam-border">
-              {diff.map((d, i) => (
-                <li
-                  key={`${d.event_key}-${d.field}-${i}`}
-                  className="px-3 py-2 font-mono sam-text-helper text-sam-fg"
-                >
-                  {d.event_key}.{d.field}: {String(d.before)} → {String(d.after)}
-                </li>
-              ))}
-            </ul>
-            <div className="mt-4 flex gap-2 border-t border-sam-border-soft pt-4">
-              <button
-                type="button"
-                className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white disabled:opacity-50"
-                disabled={saving}
-                onClick={() => void commitSave()}
-              >
-                {saving ? t("common_saving") : t("admin_notif_sound_confirm_save")}
-              </button>
-              <button
-                type="button"
-                className="rounded-ui-rect border border-sam-border px-4 py-2 sam-text-body hover:bg-sam-app"
-                onClick={() => {
-                  setDiff(null);
-                  setConfirmToken(null);
-                }}
-              >
-                {t("common_cancel")}
-              </button>
-            </div>
-          </div>
-        </section>
-      ) : anyDirty ? (
-        <div className="sticky bottom-0 z-10 border-t border-sam-border bg-sam-surface/95 px-1 py-3 backdrop-blur-sm">
-          <button
-            type="button"
-            disabled={saving}
-            className="rounded-ui-rect bg-signature px-5 py-2 sam-text-body font-medium text-white disabled:opacity-50"
-            onClick={() => void previewSaveAll()}
-          >
-            {saving ? t("common_saving") : t("admin_notif_sound_save_all")}
-          </button>
-        </div>
-      ) : null}
     </div>
   );
 }

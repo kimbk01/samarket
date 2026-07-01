@@ -22,7 +22,7 @@ QA PASS: `.qa-logs/notification-sound-ssot-qa.md` (Admin commit 포함, 2026-06-
 
 ## Without explicit user approval — DO NOT
 
-1. Modify Phase 1 SSOT core (registry, resolver priority, legacy mirror, admin PATCH diff/confirm flow).
+1. Modify Phase 1 SSOT core (registry, resolver priority) or revert Admin PATCH to in-memory confirm_token two-step flow.
 2. Drop legacy tables/APIs or add non-admin writes to SSOT mappings.
 3. Modify Native Call LOCK paths in `scripts/notification-sound-ssot-lock-manifest.json` `forbiddenModifyPaths`.
 4. Implement **Phase 2** in Phase 1 files: Android custom URI playback, FCM Java channel ensure, room custom sound UI, user per-event picker.

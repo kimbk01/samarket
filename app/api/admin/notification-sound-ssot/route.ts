@@ -6,34 +6,18 @@ import {
   mirrorNotificationSoundToLegacy,
   mappingPatchFromEventKey,
 } from "@/lib/notifications/notification-sound-legacy-mirror";
-import {
-  NOTIFICATION_SOUND_ASSET_IDS,
-  NOTIFICATION_SOUND_EVENT_KEYS,
-  getRegistryEvent,
-} from "@/lib/notifications/notification-sound-registry";
+import { NOTIFICATION_SOUND_ASSET_IDS } from "@/lib/notifications/notification-sound-registry";
 import { invalidateNotificationSoundSsotCache } from "@/lib/notifications/notification-sound-resolver";
 import {
-  consumeConfirmToken,
-  createConfirmToken,
-  diffMappings,
-} from "@/lib/notifications/notification-sound-ssot-admin-token";
+  type MappingPatch,
+  validateMappingPatch,
+} from "@/lib/notifications/notification-sound-ssot-admin-validation";
 import { invalidateNotificationSoundConfigCache } from "@/lib/notifications/notification-sound-engine";
 import { invalidateMessengerCallSoundConfigCache } from "@/lib/community-messenger/messenger-call-sound-config-client";
+import type { NotificationSoundAssetRow } from "@/lib/notifications/notification-sound-types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-type MappingPatch = {
-  event_key: string;
-  asset_id: string;
-  use_device_default?: boolean;
-  volume?: number;
-  repeat_count?: number;
-  cooldown_seconds?: number;
-  vibration_enabled?: boolean | null;
-  priority?: string | null;
-  enabled?: boolean;
-};
 
 function sbOr503() {
   try {
@@ -43,28 +27,41 @@ function sbOr503() {
   }
 }
 
-async function loadValidAssetIds(sb: NonNullable<ReturnType<typeof sbOr503>>): Promise<Set<string>> {
-  const ids = new Set<string>(NOTIFICATION_SOUND_ASSET_IDS);
-  const { data } = await sb.from("notification_sound_assets").select("id");
+async function loadValidationContext(sb: NonNullable<ReturnType<typeof sbOr503>>): Promise<{
+  validAssetIds: Set<string>;
+  assetsById: Map<string, NotificationSoundAssetRow>;
+}> {
+  const validAssetIds = new Set<string>(NOTIFICATION_SOUND_ASSET_IDS);
+  const assetsById = new Map<string, NotificationSoundAssetRow>();
+
+  const { data } = await sb
+    .from("notification_sound_assets")
+    .select("id, label, kind, domain, file_path, file_url, ios_sound_name, android_channel_base, legacy_source, enabled");
+
   for (const row of data ?? []) {
     const id = typeof row.id === "string" ? row.id : "";
-    if (id) ids.add(id);
+    if (!id) continue;
+    validAssetIds.add(id);
+    assetsById.set(id, row as NotificationSoundAssetRow);
   }
-  return ids;
+
+  return { validAssetIds, assetsById };
 }
 
-function validatePatch(p: MappingPatch, validAssetIds: Set<string>): string | null {
-  if (!p.event_key || !NOTIFICATION_SOUND_EVENT_KEYS.includes(p.event_key)) {
-    return `unregistered event_key: ${p.event_key}`;
-  }
-  if (!p.asset_id || !validAssetIds.has(p.asset_id)) {
-    return `invalid asset_id: ${p.asset_id}`;
-  }
-  if (typeof p.volume === "number" && (p.volume < 0 || p.volume > 1)) return "invalid volume";
-  if (typeof p.repeat_count === "number" && (p.repeat_count < 1 || p.repeat_count > 5)) {
-    return "invalid repeat_count";
-  }
-  return null;
+function mappingUpsertRow(p: MappingPatch, updatedBy: string) {
+  return {
+    event_key: p.event_key,
+    asset_id: p.asset_id,
+    use_device_default: p.use_device_default === true,
+    volume: typeof p.volume === "number" ? p.volume : 0.7,
+    repeat_count: typeof p.repeat_count === "number" ? p.repeat_count : 1,
+    cooldown_seconds: typeof p.cooldown_seconds === "number" ? p.cooldown_seconds : 0,
+    vibration_enabled: p.vibration_enabled ?? null,
+    priority: p.priority ?? null,
+    enabled: p.enabled !== false,
+    updated_by: updatedBy,
+    updated_at: new Date().toISOString(),
+  };
 }
 
 export async function GET() {
@@ -88,51 +85,11 @@ export async function PATCH(req: NextRequest) {
   const sb = sbOr503();
   if (!sb) return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
 
-  let body: { confirm_token?: string; mappings?: MappingPatch[] };
+  let body: { mappings?: MappingPatch[] };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
-  }
-
-  if (body.confirm_token) {
-    const patches = consumeConfirmToken(body.confirm_token);
-    if (!patches) {
-      return NextResponse.json({ ok: false, error: "invalid_or_expired_confirm_token" }, { status: 400 });
-    }
-    const mappings = patches as MappingPatch[];
-    const validAssetIds = await loadValidAssetIds(sb);
-    for (const p of mappings) {
-      const err = validatePatch(p, validAssetIds);
-      if (err) return NextResponse.json({ ok: false, error: err }, { status: 400 });
-      const { error } = await sb.from("notification_sound_mappings").upsert(
-        {
-          event_key: p.event_key,
-          asset_id: p.asset_id,
-          use_device_default: p.use_device_default === true,
-          volume: typeof p.volume === "number" ? p.volume : 0.7,
-          repeat_count: typeof p.repeat_count === "number" ? p.repeat_count : 1,
-          cooldown_seconds: typeof p.cooldown_seconds === "number" ? p.cooldown_seconds : 0,
-          vibration_enabled: p.vibration_enabled ?? null,
-          priority: p.priority ?? null,
-          enabled: p.enabled !== false,
-          updated_by: admin.userId,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "event_key" }
-      );
-      if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-    }
-
-    await mirrorNotificationSoundToLegacy(
-      sb,
-      mappings.map((p) => mappingPatchFromEventKey(p.event_key, p.asset_id, p))
-    );
-    invalidateNotificationSoundSsotCache();
-    invalidateNotificationSoundConfigCache();
-    invalidateMessengerCallSoundConfigCache();
-    await loadNotificationSoundSsotFromDb(sb);
-    return NextResponse.json({ ok: true, committed: mappings.length });
   }
 
   const mappings = Array.isArray(body.mappings) ? body.mappings : [];
@@ -140,14 +97,62 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "mappings_required" }, { status: 400 });
   }
 
-  const validAssetIds = await loadValidAssetIds(sb);
+  const { validAssetIds, assetsById } = await loadValidationContext(sb);
+  const ctx = { validAssetIds, assetsById };
+
   for (const p of mappings) {
-    const err = validatePatch(p, validAssetIds);
-    if (err) return NextResponse.json({ ok: false, error: err }, { status: 400 });
+    const result = validateMappingPatch(p, ctx);
+    if (!result.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: result.error,
+          ...(result.field ? { field: result.field } : {}),
+          ...(result.max != null ? { max: result.max } : {}),
+          ...(result.event_key ? { event_key: result.event_key } : {}),
+        },
+        { status: 400 }
+      );
+    }
   }
 
-  const { data: current } = await sb.from("notification_sound_mappings").select("*");
-  const diff = diffMappings((current ?? []) as Record<string, unknown>[], mappings as Record<string, unknown>[]);
-  const confirm_token = createConfirmToken(mappings);
-  return NextResponse.json({ ok: true, preview: true, diff, confirm_token });
+  for (const p of mappings) {
+    const { error } = await sb
+      .from("notification_sound_mappings")
+      .upsert(mappingUpsertRow(p, admin.userId), { onConflict: "event_key" });
+    if (error) {
+      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    }
+  }
+
+  try {
+    await mirrorNotificationSoundToLegacy(
+      sb,
+      mappings.map((p) => mappingPatchFromEventKey(p.event_key, p.asset_id, p))
+    );
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    const eventKey = mappings.length === 1 ? mappings[0]?.event_key : undefined;
+    return NextResponse.json(
+      {
+        ok: false,
+        error: msg.startsWith("legacy_mirror_failed:") ? "legacy_mirror_failed" : msg,
+        ssot_committed: true,
+        ...(eventKey ? { event_key: eventKey } : {}),
+      },
+      { status: 500 }
+    );
+  }
+
+  invalidateNotificationSoundSsotCache();
+  invalidateNotificationSoundConfigCache();
+  invalidateMessengerCallSoundConfigCache();
+
+  try {
+    const data = await loadNotificationSoundSsotFromDb(sb);
+    return NextResponse.json({ ok: true, ...data });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return NextResponse.json({ ok: false, error: msg, ssot_committed: true }, { status: 500 });
+  }
 }

@@ -31,7 +31,7 @@
 1. Drop/rename legacy notification sound tables or admin APIs (deprecate 표시만 유지).
 2. Add a second Admin write path to `notification_sound_mappings` / assets.
 3. Modify Native Call LOCK Java files (manifest list).
-4. Remove diff preview + confirm_token from Admin PATCH.
+4. Revert Admin PATCH to in-memory confirm_token two-step preview/commit (current contract: single-request commit + legacy mirror).
 5. Change resolver priority chain or delete `eventKey` from registry without migration + verify.
 6. Phase 2 scope를 Phase 1 PR에 끼워 넣기 (아래 백로그).
 
@@ -41,6 +41,10 @@
 - FCM Java `android_channel_id` ensure 실연결
 - Room custom sound upload / per-room asset
 - 사용자 per-event sound picker
+
+## Changelog (append-only)
+
+- **2026-07-01:** Admin PATCH → single-request commit (removed in-memory confirm_token Map); GET returns registry-merged mappings; repeat policy + legacy length validation in admin layer only.
 
 ## After any Phase 1 touch (regression gate)
 
