@@ -183,6 +183,21 @@ public final class NativeVideoCallRuntime {
     startCallerAgoraJoin(app, session);
   }
 
+  private static void promoteCallerToConnectedIfEligible(Context app, Session session) {
+    if (app == null || session == null || !session.initiator) return;
+    if (session.state == State.CONNECTED
+        || session.state == State.ENDING
+        || session.state == State.ENDED
+        || session.state == State.FAILED) {
+      return;
+    }
+    String sid = session.callId;
+    setState(app, session, State.CONNECTED);
+    NativeVideoCallLog.info("state_connected", sid);
+    NativeVideoCallService.startConnected(app, sid);
+    NativeVideoCallBridge.syncConnected(app, sid);
+  }
+
   private static void startCallerAgoraJoin(Context app, Session session) {
     String sid = session.callId;
     NativeVideoCallApi.fetchTokenAsync(
@@ -201,10 +216,7 @@ public final class NativeVideoCallRuntime {
               new NativeVideoCallAgoraEngine.Listener() {
                 @Override
                 public void onConnected() {
-                  setState(app, session, State.CONNECTED);
-                  NativeVideoCallLog.info("state_connected", sid);
-                  NativeVideoCallService.startConnected(app, sid);
-                  NativeVideoCallBridge.syncConnected(app, sid);
+                  promoteCallerToConnectedIfEligible(app, session);
                 }
 
                 @Override

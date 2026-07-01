@@ -35,6 +35,7 @@ public final class NativeVideoCallAgoraEngine {
   private static String activeCallId;
   private static Listener listener;
   private static Context renderContext;
+  private static boolean callerJoinActive;
   private static volatile boolean remoteVideoRendered;
 
   private NativeVideoCallAgoraEngine() {}
@@ -62,6 +63,7 @@ public final class NativeVideoCallAgoraEngine {
       listener = nextListener;
       activeCallId = sid;
       renderContext = context.getApplicationContext();
+      callerJoinActive = caller;
       REMOTE_SETUP_UIDS.clear();
       PENDING_REMOTE_UIDS.clear();
       remoteVideoRendered = false;
@@ -198,6 +200,7 @@ public final class NativeVideoCallAgoraEngine {
       listener = null;
       activeCallId = null;
       renderContext = null;
+      callerJoinActive = false;
       REMOTE_SETUP_UIDS.clear();
       PENDING_REMOTE_UIDS.clear();
       remoteVideoRendered = false;
@@ -311,26 +314,39 @@ public final class NativeVideoCallAgoraEngine {
         public void onJoinChannelSuccess(String channel, int uid, int elapsed) {
           Listener currentListener;
           String sid;
+          boolean callerJoin;
           synchronized (LOCK) {
             currentListener = listener;
             sid = activeCallId;
+            callerJoin = callerJoinActive;
           }
           if (sid != null) {
             NativeVideoCallLog.info(
                 "agora_native_join_success", sid, "channel=" + channel + " uid=" + uid);
+          }
+          if (callerJoin) {
+            if (sid != null) {
+              NativeVideoCallLog.info("caller_agora_local_join_success", sid, "awaiting_remote_user");
+            }
+            return;
           }
           if (currentListener != null) currentListener.onConnected();
         }
 
         @Override
         public void onUserJoined(int uid, int elapsed) {
+          Listener currentListener;
           String sid;
+          boolean callerJoin;
           synchronized (LOCK) {
+            currentListener = listener;
             sid = activeCallId;
+            callerJoin = callerJoinActive;
           }
           if (sid == null || uid == 0) return;
           NativeVideoCallLog.info("remote_user_joined", sid, "uid=" + uid);
           scheduleRemoteVideoSetup(uid, sid);
+          if (callerJoin && currentListener != null) currentListener.onConnected();
         }
 
         @Override
