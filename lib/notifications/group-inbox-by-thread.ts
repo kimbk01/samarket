@@ -21,6 +21,7 @@ import type { InboxPushKindFilter } from "@/lib/me/fetch-me-notifications-dedupe
 
 export type InboxRowInput = {
   id: string;
+  source?: "legacy" | "event";
   notification_type: string;
   title: string;
   body: string | null;

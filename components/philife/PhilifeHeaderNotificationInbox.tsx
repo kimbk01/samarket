@@ -73,7 +73,8 @@ import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-e
 
 import { prewarmInboxNotificationChatHref } from "@/lib/notifications/prewarm-inbox-notification-href";
 
-import { getSurfaceNotificationUnreadStore } from "@/lib/notifications/notification-unread-badge-store";
+import { getSurfaceNotificationUnreadStore, refreshActiveSurfaceNotificationUnreadStores } from "@/lib/notifications/notification-unread-badge-store";
+import { resyncBadgesAfterNotificationEventsRead } from "@/lib/notifications/client/notification-events-read-resync";
 
 import {
 
@@ -771,9 +772,12 @@ export function PhilifeHeaderNotificationInbox({
 
       }
 
+      resyncBadgesAfterNotificationEventsRead("notification_opened");
+      refreshActiveSurfaceNotificationUnreadStores(pathname, true);
+
     }
 
-  }, []);
+  }, [pathname]);
 
 
 
@@ -845,6 +849,9 @@ export function PhilifeHeaderNotificationInbox({
 
         }
 
+        resyncBadgesAfterNotificationEventsRead("mark_all_read_cross_tab");
+        refreshActiveSurfaceNotificationUnreadStores(pathname, true);
+
       }
 
     } finally {
@@ -853,7 +860,7 @@ export function PhilifeHeaderNotificationInbox({
 
     }
 
-  }, [badgeStore, grouped, loadInbox, markBusy, resolvedSurface, rows, totalUnread]);
+  }, [badgeStore, grouped, loadInbox, markBusy, pathname, resolvedSurface, rows, totalUnread]);
 
 
 

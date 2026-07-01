@@ -12,6 +12,7 @@ import {
   playEventNotificationSound,
 } from "@/lib/notifications/notification-sound-engine";
 import { upsertIncomingFriendRequestPopupFromNotificationInsertRow } from "@/lib/community-messenger/incoming-friend-request-popup-from-notification-row";
+import { adaptNotificationEventInsertToLegacyRow } from "@/lib/notifications/adapt-notification-event-realtime-row";
 
 export type SupabaseNotificationsRealtimeOptions = {
   /** false면 구독 자체를 생성하지 않음 (라우트 전환 시 재마운트/재구독 비용을 구조적으로 제거하기 위한 게이트) */
@@ -58,7 +59,7 @@ function playRowEventSound(row: Record<string, unknown>): void {
 }
 
 /**
- * Supabase 세션이 있을 때 `public.notifications` INSERT/UPDATE마다 onChange 호출.
+ * Supabase 세션이 있을 때 `public.notifications` + `notification_events` INSERT/UPDATE마다 onChange 호출.
  * 앱당 채널 1개(`notifications-rt:${userId}`) — 복수 구독 시 Realtime·워커 부하만 증가.
  */
 export function useSupabaseNotificationsRealtime(
@@ -91,6 +92,49 @@ export function useSupabaseNotificationsRealtime(
         currentSub = null;
       }
       let markRealtimeSignal = () => {};
+
+      const handleRealtimePayload = (payload: unknown) => {
+        markRealtimeSignal();
+        const ev = payload as { eventType?: string; new?: Record<string, unknown> };
+        const eventType = typeof ev.eventType === "string" ? ev.eventType : "UNKNOWN";
+        if (eventType === "INSERT" && ev.new && typeof ev.new === "object") {
+          upsertIncomingFriendRequestPopupFromNotificationInsertRow(ev.new as Record<string, unknown>);
+        }
+        if (playSoundOnInsertRef.current && shouldPlaySoundForNotificationInsert(payload)) {
+          const row = (payload as { new?: Record<string, unknown> }).new ?? {};
+          const onInsertSound = onInsertSoundRef.current;
+          if (onInsertSound) {
+            const r = onInsertSound(row);
+            if (r === false) {
+              onChangeRef.current({ eventType });
+              return;
+            }
+            if (r === true) {
+              onChangeRef.current({ eventType });
+              return;
+            }
+          }
+          const nid = row?.id != null && String(row.id).trim() ? String(row.id).trim() : "";
+          const eventKey = resolveNotificationSoundEventKeyFromRow(rowInputFromRecord(row));
+          if (eventKey) {
+            playRowEventSound(row);
+          } else if (row?.notification_type === "chat") {
+            const meta = row?.meta as { kind?: string } | undefined;
+            const chatKind = typeof meta?.kind === "string" ? meta.kind : "";
+            if (chatKind === "trade_chat" || chatKind === "community_chat" || chatKind === "group_chat") {
+              playRowEventSound(row);
+            } else if (nid) {
+              playCoalescedChatNotificationSound(`notif:${nid}`);
+            } else {
+              void playEventNotificationSound("system_default");
+            }
+          } else {
+            playRowEventSound(row);
+          }
+        }
+        onChangeRef.current({ eventType });
+      };
+
       const sub = subscribeWithRetry({
         sb,
         name: `notifications-rt:${uid}`,
@@ -98,56 +142,34 @@ export function useSupabaseNotificationsRealtime(
         isCancelled: () => cancelled,
         silentAfterMs: 18_000,
         build: (channel) =>
-          channel.on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "notifications",
-            filter: `user_id=eq.${uid}`,
-          },
-          (payload) => {
-            markRealtimeSignal();
-            const ev = payload as { eventType?: string; new?: Record<string, unknown> };
-            const eventType = typeof ev.eventType === "string" ? ev.eventType : "UNKNOWN";
-            if (eventType === "INSERT" && ev.new && typeof ev.new === "object") {
-              upsertIncomingFriendRequestPopupFromNotificationInsertRow(ev.new as Record<string, unknown>);
-            }
-            if (playSoundOnInsertRef.current && shouldPlaySoundForNotificationInsert(payload)) {
-              const row = (payload as { new?: Record<string, unknown> }).new ?? {};
-              const onInsertSound = onInsertSoundRef.current;
-              if (onInsertSound) {
-                const r = onInsertSound(row);
-                if (r === false) {
-                  onChangeRef.current({ eventType });
-                  return;
-                }
-                if (r === true) {
-                  onChangeRef.current({ eventType });
-                  return;
-                }
+          channel
+            .on(
+              "postgres_changes",
+              {
+                event: "*",
+                schema: "public",
+                table: "notifications",
+                filter: `user_id=eq.${uid}`,
+              },
+              handleRealtimePayload
+            )
+            .on(
+              "postgres_changes",
+              {
+                event: "INSERT",
+                schema: "public",
+                table: "notification_events",
+                filter: `user_id=eq.${uid}`,
+              },
+              (payload) => {
+                const ev = payload as { eventType?: string; new?: Record<string, unknown> };
+                if (ev.eventType !== "INSERT" || !ev.new || typeof ev.new !== "object") return;
+                handleRealtimePayload({
+                  eventType: "INSERT",
+                  new: adaptNotificationEventInsertToLegacyRow(ev.new as Record<string, unknown>),
+                });
               }
-              const nid = row?.id != null && String(row.id).trim() ? String(row.id).trim() : "";
-              const eventKey = resolveNotificationSoundEventKeyFromRow(rowInputFromRecord(row));
-              if (eventKey) {
-                playRowEventSound(row);
-              } else if (row?.notification_type === "chat") {
-                const meta = row?.meta as { kind?: string } | undefined;
-                const chatKind = typeof meta?.kind === "string" ? meta.kind : "";
-                if (chatKind === "trade_chat" || chatKind === "community_chat" || chatKind === "group_chat") {
-                  playRowEventSound(row);
-                } else if (nid) {
-                  playCoalescedChatNotificationSound(`notif:${nid}`);
-                } else {
-                  void playEventNotificationSound("system_default");
-                }
-              } else {
-                playRowEventSound(row);
-              }
-            }
-            onChangeRef.current({ eventType });
-          }
-          ),
+            ),
       });
       markRealtimeSignal = sub.markSignal;
       currentSub = sub;

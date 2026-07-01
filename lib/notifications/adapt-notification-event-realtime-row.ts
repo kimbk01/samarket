@@ -1,0 +1,22 @@
+import {
+  mapNotificationEventToInboxRow,
+  type NotificationEventInboxSource,
+} from "@/lib/notifications/inbox-events-merge";
+
+/** Realtime `notification_events` INSERT → legacy notifications row shape for sound/popup gates */
+export function adaptNotificationEventInsertToLegacyRow(
+  row: Record<string, unknown>
+): Record<string, unknown> {
+  const mapped = mapNotificationEventToInboxRow(row as NotificationEventInboxSource);
+  return {
+    id: mapped.id,
+    user_id: row.user_id,
+    created_at: mapped.created_at,
+    notification_type: mapped.notification_type,
+    push_kind: mapped.push_kind ?? null,
+    meta: mapped.meta ?? null,
+    link_url: mapped.link_url,
+    ref_id: mapped.ref_id ?? null,
+    domain: mapped.domain ?? null,
+  };
+}

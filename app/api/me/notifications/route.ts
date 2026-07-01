@@ -28,6 +28,19 @@ import {
   isOwnerDashboardMeasureInvalidateEnabled,
 } from "@/lib/performance/prod-same-region-perf";
 import { jsonPayloadBytes, logOwnerDashboardPerf, perfNowMs } from "@/lib/stores/owner-dashboard-perf";
+import {
+  fetchNotificationEventsForInbox,
+  mergeInboxNotificationRows,
+  type InboxNotificationRow,
+} from "@/lib/notifications/inbox-events-merge";
+import {
+  markAllNotificationEventsRead,
+  markChatNotificationEventsRead,
+  markNonChatNonOwnerNotificationEventsRead,
+  markOwnerStoreCommerceNotificationEventsRead,
+  patchInboxNotificationIdsRead,
+} from "@/lib/notifications/inbox-read-bridge";
+import { invalidateNotificationBadgeCache } from "@/lib/notifications/pipeline/notify-badge-service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -88,6 +101,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
   const sbx = sb;
+  const inboxUserId = userId;
 
   if (
     isOwnerDashboardMeasureInvalidateEnabled() &&
@@ -353,6 +367,9 @@ export async function GET(req: NextRequest) {
     "id, notification_type, title, body, link_url, is_read, created_at, meta, domain, ref_id, push_kind";
   const selectBase = "id, notification_type, title, body, link_url, is_read, created_at, meta, domain, ref_id";
 
+  /** merge 후 slice — legacy range 대신 양쪽 SSOT를 합친 뒤 페이지네이션 */
+  const mergeFetchUpper = explicitPage ? listOffset + displayCap + 1 : fetchUpper;
+
   async function inboxQuery(includePushKindCol: boolean) {
     const cols = includePushKindCol ? selectWithPushKind : selectBase;
     let q = sbx
@@ -366,8 +383,27 @@ export async function GET(req: NextRequest) {
     } else if (includePushKindCol && inboxPushKind) {
       q = q.eq("push_kind", inboxPushKind);
     }
-    q = q.order("created_at", { ascending: false }).range(listOffset, listOffset + fetchUpper - 1);
+    q = q.order("created_at", { ascending: false }).range(0, mergeFetchUpper - 1);
     return q;
+  }
+
+  const eventInboxOpts = {
+    fetchUpper: mergeFetchUpper,
+    inboxPushKind: inboxPushKind as import("@/lib/me/fetch-me-notifications-deduped").InboxPushKindFilter | null,
+    excludeOwnerList,
+    excludeChatMessageList,
+    ownerStoreId: ownerStoreId || undefined,
+  };
+
+  async function finalizeMergedInboxList(legacyRows: InboxNotificationRow[]): Promise<InboxNotificationRow[]> {
+    const eventRows = await fetchNotificationEventsForInbox(sbx, inboxUserId, eventInboxOpts);
+    let merged = mergeInboxNotificationRows(legacyRows, eventRows);
+    if (explicitPage) {
+      merged = merged.slice(listOffset, listOffset + displayCap + 1);
+    } else if (!ownerStoreId) {
+      merged = merged.slice(0, excludeOwnerList ? 80 : fetchUpper);
+    }
+    return merged;
   }
 
   let usePushKindCol = true;
@@ -388,7 +424,7 @@ export async function GET(req: NextRequest) {
       .order("created_at", { ascending: false })
       .limit(fetchUpper);
     if (!eMeta) {
-      let list = rowsWithMeta ?? [];
+      let list = (rowsWithMeta ?? []) as InboxNotificationRow[];
       if (ownerStoreId) {
         list = filterOwnerStoreCommerceByStoreId(list, ownerStoreId).slice(0, 200);
       } else if (excludeOwnerList) {
@@ -397,6 +433,7 @@ export async function GET(req: NextRequest) {
       if (excludeChatMessageList) {
         list = list.filter((r) => !isInAppChatMessageNotificationRow(r));
       }
+      list = await finalizeMergedInboxList(list);
       return NextResponse.json({ ok: true, notifications: list });
     }
     const { data: rowsBare, error: eBare } = await sb
@@ -406,7 +443,7 @@ export async function GET(req: NextRequest) {
       .order("created_at", { ascending: false })
       .limit(fetchUpper);
     if (!eBare) {
-      let list = rowsBare ?? [];
+      let list = (rowsBare ?? []) as InboxNotificationRow[];
       if (ownerStoreId) {
         list = [];
       } else if (excludeOwnerList) {
@@ -415,24 +452,24 @@ export async function GET(req: NextRequest) {
       if (excludeChatMessageList) {
         list = list.filter((r) => !isInAppChatMessageNotificationRow(r));
       }
+      list = await finalizeMergedInboxList(list);
       return NextResponse.json({ ok: true, notifications: list });
     }
     console.error("[GET notifications]", error);
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
-  let notifications = (data ?? []) as { meta?: unknown; notification_type?: unknown }[];
+  let legacyNotifications = (data ?? []) as InboxNotificationRow[];
   if (ownerStoreId) {
-    notifications = filterOwnerStoreCommerceByStoreId(notifications, ownerStoreId).slice(0, 200);
+    legacyNotifications = filterOwnerStoreCommerceByStoreId(legacyNotifications, ownerStoreId).slice(0, 200);
   } else if (excludeOwnerList) {
-    notifications = notifications.filter((r) => !isOwnerStoreCommerceNotificationRow(r));
-    if (!explicitPage) {
-      notifications = notifications.slice(0, 80);
-    }
+    legacyNotifications = legacyNotifications.filter((r) => !isOwnerStoreCommerceNotificationRow(r));
   }
   if (excludeChatMessageList) {
-    notifications = notifications.filter((r) => !isInAppChatMessageNotificationRow(r));
+    legacyNotifications = legacyNotifications.filter((r) => !isInAppChatMessageNotificationRow(r));
   }
+
+  let notifications = await finalizeMergedInboxList(legacyNotifications);
 
   if (explicitPage) {
     const hasMore = notifications.length > displayCap;
@@ -538,7 +575,9 @@ export async function PATCH(req: NextRequest) {
       }
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
+    await markAllNotificationEventsRead(sb, userId);
     invalidateNotificationUnreadCountCache(userId);
+    invalidateNotificationBadgeCache(userId);
     return NextResponse.json({ ok: true, updated: "all" });
   }
 
@@ -617,7 +656,9 @@ export async function PATCH(req: NextRequest) {
     } catch {
       /* badge target clear best-effort */
     }
+    await markOwnerStoreCommerceNotificationEventsRead(sb, userId, orderIds);
     invalidateNotificationUnreadCountCache(userId);
+    invalidateNotificationBadgeCache(userId);
     for (const storeId of storeIds) {
       invalidateNotificationUnreadCountCache(userId, storeId);
     }
@@ -715,7 +756,9 @@ export async function PATCH(req: NextRequest) {
     if (uErr) {
       return NextResponse.json({ ok: false, error: uErr.message }, { status: 500 });
     }
+    await markChatNotificationEventsRead(sb, userId);
     invalidateNotificationUnreadCountCache(userId);
+    invalidateNotificationBadgeCache(userId);
     return NextResponse.json({ ok: true, updated: ids.length });
   }
 
@@ -769,7 +812,9 @@ export async function PATCH(req: NextRequest) {
     if (uErr) {
       return NextResponse.json({ ok: false, error: uErr.message }, { status: 500 });
     }
+    await markNonChatNonOwnerNotificationEventsRead(sb, userId);
     invalidateNotificationUnreadCountCache(userId);
+    invalidateNotificationBadgeCache(userId);
     return NextResponse.json({ ok: true, updated: ids.length });
   }
 
@@ -778,15 +823,9 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "ids_or_mark_all_required" }, { status: 400 });
   }
 
-  const { error } = await sb
-    .from("notifications")
-    .update({ is_read: true })
-    .eq("user_id", userId)
-    .in("id", ids);
-
-  if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  const readResult = await patchInboxNotificationIdsRead(sb, userId, ids);
+  if (!readResult.ok) {
+    return NextResponse.json({ ok: false, error: readResult.error }, { status: 500 });
   }
-  invalidateNotificationUnreadCountCache(userId);
-  return NextResponse.json({ ok: true, updated: ids.length });
+  return NextResponse.json({ ok: true, updated: readResult.updated });
 }

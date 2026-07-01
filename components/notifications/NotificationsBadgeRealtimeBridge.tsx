@@ -20,7 +20,7 @@ const NOTIFICATIONS_RT_BADGE_COALESCE_MS = 1_200;
 const NOTIFICATIONS_RT_HUB_DEDUPE_MS = 5_000;
 
 /**
- * `notifications` 테이블 Realtime 을 앱당 1회만 구독하고, 배지 스토어가 듣는
+ * `notifications` + `notification_events` 테이블 Realtime 을 앱당 1회만 구독하고, 배지 스토어가 듣는
  * `KASAMA_NOTIFICATIONS_UPDATED` 로 브로드캐스트합니다.
  * INSERT 시 인앱 알림음은 동일 채널에서 처리(별도 Realtime 구독 없음).
  */
