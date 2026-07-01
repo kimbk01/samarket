@@ -2,6 +2,10 @@
 
 import type { IAgoraRTCClient, IAgoraRTCRemoteUser, ILocalVideoTrack, IRemoteVideoTrack } from "agora-rtc-sdk-ng";
 import {
+  isCommunityMessengerCameraSwitchSupported,
+  switchCommunityMessengerCameraFacing,
+} from "@/lib/community-messenger/call-camera-switch";
+import {
   bindAgoraLocalVideoTrack,
   bindAgoraRemoteVideoTrack,
   clearLocalVideoContainer,
@@ -19,6 +23,7 @@ import {
 } from "@/lib/community-messenger/call-v4/call-v4-agora";
 
 const unpublishedLocalVideoByCallId = new Set<string>();
+const callV4RearFacingRef = { current: false };
 
 async function loadProvider() {
   return import("@/lib/community-messenger/call-provider/client");
@@ -157,4 +162,50 @@ export function isCallV4VideoActive(callId: string): boolean {
       identity.localVideoReady ||
       identity.remoteVideoReady,
   );
+}
+
+export function isCallV4CameraSwitchAvailable(callId: string): boolean {
+  return isCommunityMessengerCameraSwitchSupported(readCallV4LocalVideoTrack(callId));
+}
+
+export async function switchCallV4CameraFacing(
+  callId: string,
+  container: HTMLElement | null,
+): Promise<boolean> {
+  const sid = callId.trim();
+  if (!sid || !canAttachCallV4VideoMedia(readCallV4Phase())) return false;
+  const videoTrack = readCallV4LocalVideoTrack(sid);
+  if (!videoTrack || !isCommunityMessengerCameraSwitchSupported(videoTrack)) return false;
+  const client = getCallV4AgoraClient(sid);
+  if (!client || !getCallV4AgoraLocalTracks(sid)) return false;
+
+  logCallV4("camera_switch_start", { callId: sid });
+  try {
+    const next = await switchCommunityMessengerCameraFacing({
+      videoTrack,
+      useRearFacingRef: callV4RearFacingRef,
+      client,
+      onReplacedVideoTrack: (replaced) => {
+        const tracks = getCallV4AgoraLocalTracks(sid);
+        if (tracks) {
+          setCallV4AgoraLocalTracks(sid, { ...tracks, videoTrack: replaced });
+        }
+      },
+      onAfterSwitch: async () => {
+        const track = readCallV4LocalVideoTrack(sid);
+        if (track && container) {
+          await bindAgoraLocalVideoTrack(track, container, { fit: "cover", mirror: true });
+        }
+      },
+    });
+    const tracks = getCallV4AgoraLocalTracks(sid);
+    if (tracks && tracks.videoTrack !== next) {
+      setCallV4AgoraLocalTracks(sid, { ...tracks, videoTrack: next });
+    }
+    logCallV4("camera_switch_done", { callId: sid });
+    return true;
+  } catch {
+    logCallV4("camera_switch_failed", { callId: sid });
+    return false;
+  }
 }

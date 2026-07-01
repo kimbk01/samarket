@@ -8,6 +8,7 @@ import {
   markCallV4NativeConnectedOps,
   resetCallV4ConnectedSideEffectsForTests,
 } from "@/lib/community-messenger/call-v4/call-v4-phase-bridge";
+import { callV4FetchSession } from "@/lib/community-messenger/call-v4/call-v4-api";
 import { useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
 
 const heartbeatMocks = vi.hoisted(() => ({
@@ -16,6 +17,10 @@ const heartbeatMocks = vi.hoisted(() => ({
 
 const terminalMocks = vi.hoisted(() => ({
   start: vi.fn(),
+}));
+
+vi.mock("@/lib/community-messenger/call-v4/call-v4-api", () => ({
+  callV4FetchSession: vi.fn(),
 }));
 
 vi.mock("@/lib/call/native/call-heartbeat-watchdog", () => ({
@@ -52,13 +57,22 @@ describe("native-connected-sync", () => {
     resetCallV4ConnectedSideEffectsForTests();
     heartbeatMocks.start.mockClear();
     terminalMocks.start.mockClear();
+    vi.mocked(callV4FetchSession).mockReset();
     vi.spyOn(console, "info").mockImplementation(() => {});
   });
 
-  it("hydrates store and starts native connected ops from idle", async () => {
+  it("hydrates store and starts native connected ops when outgoing session is active", async () => {
+    vi.mocked(callV4FetchSession).mockResolvedValue({
+      id: "call-o3-1",
+      status: "active",
+    } as never);
+
     await onNativeCallConnected(samplePayload());
 
+    expect(callV4FetchSession).toHaveBeenCalledTimes(1);
+    expect(callV4FetchSession).toHaveBeenCalledWith("call-o3-1");
     expect(useCallV4Store.getState().phase).toBe("connected");
+    expect(useCallV4Store.getState().connectedAt).toBe(1_700_000_000_000);
     expect(useCallV4Store.getState().identity?.callId).toBe("call-o3-1");
     expect(useCallV4Store.getState().identity?.direction).toBe("outgoing");
     expect(useCallV4Store.getState().canStartNewCall).toBe(false);
@@ -66,10 +80,43 @@ describe("native-connected-sync", () => {
     expect(terminalMocks.start).toHaveBeenCalledWith("call-o3-1");
   });
 
-  it("ignores duplicate hydrate but keeps ops idempotent", async () => {
+  it("keeps outgoing_ringing and skips connected ops when outgoing session is not active", async () => {
+    vi.mocked(callV4FetchSession).mockResolvedValue({
+      id: "call-o3-1",
+      status: "ringing",
+    } as never);
+
+    await onNativeCallConnected(samplePayload());
+
+    expect(callV4FetchSession).toHaveBeenCalledTimes(1);
+    expect(useCallV4Store.getState().phase).toBe("outgoing_ringing");
+    expect(useCallV4Store.getState().connectedAt).toBeNull();
+    expect(useCallV4Store.getState().identity?.callId).toBe("call-o3-1");
+    expect(useCallV4Store.getState().identity?.direction).toBe("outgoing");
+    expect(heartbeatMocks.start).not.toHaveBeenCalled();
+    expect(terminalMocks.start).not.toHaveBeenCalled();
+  });
+
+  it("hydrates incoming connected without session fetch gate", async () => {
+    await onNativeCallConnected(samplePayload({ direction: "incoming" }));
+
+    expect(callV4FetchSession).not.toHaveBeenCalled();
+    expect(useCallV4Store.getState().phase).toBe("connected");
+    expect(useCallV4Store.getState().identity?.direction).toBe("incoming");
+    expect(heartbeatMocks.start).toHaveBeenCalledWith("call-o3-1");
+    expect(terminalMocks.start).toHaveBeenCalledWith("call-o3-1");
+  });
+
+  it("ignores duplicate hydrate but keeps ops idempotent after connected hydrate", async () => {
+    vi.mocked(callV4FetchSession).mockResolvedValue({
+      id: "call-o3-1",
+      status: "active",
+    } as never);
+
     await onNativeCallConnected(samplePayload());
     await onNativeCallConnected(samplePayload());
 
+    expect(callV4FetchSession).toHaveBeenCalledTimes(1);
     expect(heartbeatMocks.start).toHaveBeenCalledTimes(1);
     expect(terminalMocks.start).toHaveBeenCalledTimes(1);
   });
@@ -77,6 +124,7 @@ describe("native-connected-sync", () => {
   it("ignores payload when nativeOwned is false", async () => {
     await onNativeCallConnected({ ...samplePayload(), nativeOwned: false as true });
 
+    expect(callV4FetchSession).not.toHaveBeenCalled();
     expect(useCallV4Store.getState().phase).toBe("idle");
     expect(heartbeatMocks.start).not.toHaveBeenCalled();
   });
@@ -85,6 +133,7 @@ describe("native-connected-sync", () => {
     useCallV4Store.getState().setPhase("ending");
     await onNativeCallConnected(samplePayload());
 
+    expect(callV4FetchSession).not.toHaveBeenCalled();
     expect(useCallV4Store.getState().phase).toBe("ending");
     expect(heartbeatMocks.start).not.toHaveBeenCalled();
   });

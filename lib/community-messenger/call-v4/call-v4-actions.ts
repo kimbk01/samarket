@@ -19,6 +19,7 @@ import {
   callV4PatchAccept,
   callV4PatchCancel,
   callV4PatchEnd,
+  callV4PatchMissed,
   callV4PatchReject,
   callV4ReconcileBeforeCreate,
   callV4ResolveOutgoingRoomId,
@@ -28,6 +29,7 @@ import { stopCallV4CallerActivePoll, startCallV4CallerActivePoll } from "@/lib/c
 import { cleanupCallV4 } from "@/lib/community-messenger/call-v4/call-v4-cleanup";
 import { primeCallV4ConnectionWarm } from "@/lib/community-messenger/call-v4/call-v4-connection-warm";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
+import { clearCallV4MissedTimer } from "@/lib/community-messenger/call-v4/call-v4-missed-timeout";
 import {
   canRenderWebIncomingSheet,
 } from "@/lib/community-messenger/call-v4/call-v4-incoming-surface";
@@ -65,6 +67,34 @@ const HYDRATE_PROTECTED_PHASES = new Set<CallV4Phase>(["accepting", "joining", "
 const REMOTE_TERMINAL_ALLOWED_PHASES = new Set<CallV4Phase>(["joining", "connected"]);
 
 const remoteTerminalFinalized = new Set<string>();
+const missedPatchClaimed = new Set<string>();
+
+const MISSED_TIMEOUT_TERMINAL_STATUSES = new Set([
+  "rejected",
+  "cancelled",
+  "canceled",
+  "ended",
+  "missed",
+  "failed",
+  "failed_or_stale",
+]);
+
+function claimCallV4MissedPatchOnce(callId: string): boolean {
+  const sid = callId.trim();
+  if (!sid || missedPatchClaimed.has(sid)) return false;
+  missedPatchClaimed.add(sid);
+  return true;
+}
+
+function releaseCallV4MissedPatchClaim(callId: string): void {
+  const sid = callId.trim();
+  if (!sid) return;
+  missedPatchClaimed.delete(sid);
+}
+
+function isCallV4TerminalSessionStatus(status: string | null | undefined): boolean {
+  return MISSED_TIMEOUT_TERMINAL_STATUSES.has((status ?? "").trim().toLowerCase());
+}
 
 function isCallV4NativeAcceptHandoffSource(source: string | null | undefined): boolean {
   if (!source?.trim()) return false;
@@ -451,6 +481,7 @@ export async function callV4Cancel(callId: string, router: CallV4Router): Promis
   if (!sid) return;
 
   logCallV4("cancel_click", { callId: sid });
+  clearCallV4MissedTimer(sid);
   stopCallV4CallerActivePoll();
 
   if (!claimCallV4CancelPatchOnce(sid)) {
@@ -591,6 +622,7 @@ export async function callV4EnsureAgoraJoined(
 ): Promise<void> {
   const sid = callId.trim();
   if (!sid) return;
+  clearCallV4MissedTimer(sid);
   if (isLegacyWebCallEstablishmentRemoved()) {
     logCallV4("legacy_web_establishment_removed", { callId: sid, trigger: "ensure_agora_joined" });
     return;
@@ -620,6 +652,7 @@ export async function callV4Reject(callId: string, router?: CallV4Router): Promi
   const sid = callId.trim();
     if (!sid) return;
   logCallV4("reject_start", { callId: sid });
+  clearCallV4MissedTimer(sid);
   syncCallV4NativeOnWebReject(sid);
   if (!claimCallV4RejectPatchOnce(sid)) return;
   useCallV4Store.getState().setPhase("ending");
@@ -655,8 +688,57 @@ export async function callV4HandleRemoteTerminal(
   remoteTerminalFinalized.add(sid);
   logCallV4("remote_terminal_received", { callId: sid, status: status ?? null, source });
   logCallV4("remote_terminal_finalize", { callId: sid, source });
+  clearCallV4MissedTimer(sid);
   stopCallV4CallerActivePoll();
   await finalizeCallV4Terminal(sid, mapCallV4RemoteTerminalReason(status), router ?? readCallV4ExitRouter() ?? undefined);
+}
+
+export async function callV4HandleMissedTimeout(
+  callId: string,
+  source: string,
+  router?: CallV4Router,
+): Promise<void> {
+  const sid = callId.trim();
+  if (!sid) return;
+
+  const identity = readCallV4Identity();
+  if (identity?.callId !== sid || identity.direction !== "outgoing") return;
+
+  const phase = readCallV4Phase();
+  if (phase !== "outgoing_ringing" && phase !== "creating") return;
+
+  const session = await callV4FetchSession(sid);
+  if (session && isCallV4TerminalSessionStatus(session.status)) {
+    await callV4HandleRemoteTerminal(sid, session.status, router, source);
+    return;
+  }
+
+  if (!claimCallV4MissedPatchOnce(sid)) {
+    const retrySession = await callV4FetchSession(sid);
+    if (retrySession && isCallV4TerminalSessionStatus(retrySession.status)) {
+      await callV4HandleRemoteTerminal(sid, retrySession.status, router, source);
+    }
+    return;
+  }
+
+  clearCallV4MissedTimer(sid);
+  stopCallV4CallerActivePoll();
+
+  const patched = await callV4PatchMissed(sid);
+  if (!patched.ok) {
+    const afterPatchSession = await callV4FetchSession(sid);
+    if (afterPatchSession && isCallV4TerminalSessionStatus(afterPatchSession.status)) {
+      notifyCallV4PeerTerminalBestEffort(sid, identity, afterPatchSession.status);
+      await finalizeCallV4Terminal(sid, mapCallV4RemoteTerminalReason(afterPatchSession.status), router);
+      return;
+    }
+    releaseCallV4MissedPatchClaim(sid);
+    logCallV4("missed_patch_failed", { callId: sid, source, error: patched.error ?? null });
+    return;
+  }
+
+  notifyCallV4PeerTerminalBestEffort(sid, identity, "missed");
+  await finalizeCallV4Terminal(sid, "missed", router ?? readCallV4ExitRouter() ?? undefined);
 }
 
 export function resetCallV4RemoteTerminalClaimsForTests(): void {
@@ -666,6 +748,7 @@ export function resetCallV4RemoteTerminalClaimsForTests(): void {
 export async function callV4End(callId: string, router?: CallV4Router): Promise<void> {
   const sid = callId.trim();
   if (!sid) return;
+  clearCallV4MissedTimer(sid);
   if (!claimCallV4EndPatchOnce(sid)) return;
   useCallV4Store.getState().setPhase("ending");
   stopCallV4CallerActivePoll();

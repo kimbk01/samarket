@@ -1,6 +1,7 @@
 "use client";
 
 import { registerPlugin, type PluginListenerHandle } from "@capacitor/core";
+import { callV4FetchSession } from "@/lib/community-messenger/call-v4/call-v4-api";
 import { markCallV4NativeConnectedOps } from "@/lib/community-messenger/call-v4/call-v4-phase-bridge";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import { readCallV4Phase, useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
@@ -50,6 +51,14 @@ function buildIdentityFromNativeConnected(payload: NativeCallConnectedPayload): 
   };
 }
 
+function startNativeConnectedSideEffects(payload: NativeCallConnectedPayload): void {
+  const sid = payload.callId.trim();
+  markCallV4NativeConnectedOps(sid, "native_connected");
+  if (payload.mediaType === "video") {
+    acquireConnectedVideoScreenAwake(sid, "native_connected");
+  }
+}
+
 export async function onNativeCallConnected(payload: NativeCallConnectedPayload): Promise<void> {
   const sid = payload.callId?.trim() ?? "";
   if (!sid || payload.nativeOwned !== true) return;
@@ -66,21 +75,39 @@ export async function onNativeCallConnected(payload: NativeCallConnectedPayload)
     return;
   }
 
-  if (!hydratedNativeConnected.has(sid)) {
-    hydratedNativeConnected.add(sid);
-    useCallV4Store.setState({
-      phase: "connected",
-      connectedAt: payload.connectedAtMs,
-      identity: buildIdentityFromNativeConnected(payload),
-      canStartNewCall: false,
-    });
-    logCallV4("native_connected_store_hydrate", { callId: sid, direction: payload.direction });
+  if (hydratedNativeConnected.has(sid)) {
+    startNativeConnectedSideEffects(payload);
+    return;
   }
 
-  markCallV4NativeConnectedOps(sid, "native_connected");
-  if (payload.mediaType === "video") {
-    acquireConnectedVideoScreenAwake(sid, "native_connected");
+  if (payload.direction === "outgoing") {
+    const session = await callV4FetchSession(sid);
+    const sessionStatus = (session?.status ?? "").trim().toLowerCase();
+    if (sessionStatus !== "active") {
+      useCallV4Store.setState({
+        phase: "outgoing_ringing",
+        connectedAt: null,
+        identity: buildIdentityFromNativeConnected(payload),
+        canStartNewCall: false,
+      });
+      logCallV4("native_connected_deferred_pre_active", {
+        callId: sid,
+        direction: payload.direction,
+        sessionStatus: session?.status ?? null,
+      });
+      return;
+    }
   }
+
+  hydratedNativeConnected.add(sid);
+  useCallV4Store.setState({
+    phase: "connected",
+    connectedAt: payload.connectedAtMs,
+    identity: buildIdentityFromNativeConnected(payload),
+    canStartNewCall: false,
+  });
+  logCallV4("native_connected_store_hydrate", { callId: sid, direction: payload.direction });
+  startNativeConnectedSideEffects(payload);
 }
 
 /** O3 — subscribe to Native Runtime connected events (Android sync-only). */

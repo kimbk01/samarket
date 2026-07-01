@@ -16,6 +16,7 @@ import {
 import { callV4FetchSession } from "@/lib/community-messenger/call-v4/call-v4-api";
 import { ensureCallV4AudioRouteAfterConnectedGate } from "@/lib/community-messenger/call-v4/call-v4-audio-route";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
+import { startCallV4OutgoingMissedTimer } from "@/lib/community-messenger/call-v4/call-v4-missed-timeout";
 import { useCallV4MediaStore, seedCallV4MediaPresentationForCall } from "@/lib/community-messenger/call-v4/call-v4-media-state";
 import { tryStartCallV4NativeAcceptAutostart } from "@/lib/community-messenger/call-v4/call-v4-native-accept-flight";
 import { notifyCallV4WebCallScreenReady } from "@/lib/community-messenger/call-v4/call-v4-native-connecting-handoff";
@@ -281,8 +282,9 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
     if (phase !== "outgoing_ringing" && phase !== "creating") return;
     if (identity.callId !== callId) return;
     logCallV4("caller_poll_start", { callId, phase });
+    startCallV4OutgoingMissedTimer(callId, identity.createdAt, router);
     return startCallV4CallerActivePoll(callId);
-  }, [callId, identity?.callId, identity?.direction, phase]);
+  }, [callId, identity?.callId, identity?.createdAt, identity?.direction, phase, router]);
 
   useEffect(() => {
     if (phase !== "joining" || identity?.callId !== callId) return;

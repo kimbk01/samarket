@@ -254,6 +254,20 @@ export async function callV4PatchEnd(
   return result;
 }
 
+export async function callV4PatchMissed(
+  callId: string
+): Promise<{ ok: boolean; session?: CommunityMessengerCallSession; error?: string }> {
+  logCallV4("missed_patch_start", { callId });
+  const result = await patchCommunityMessengerCallSession(callId, "missed");
+  if (result.ok) {
+    logCallV4("missed_patch_done", {
+      callId,
+      status: result.session?.status ?? "missed",
+    });
+  }
+  return result;
+}
+
 export async function callV4FetchAgoraToken(
   callId: string
 ): Promise<CommunityMessengerManagedCallConnection | null> {

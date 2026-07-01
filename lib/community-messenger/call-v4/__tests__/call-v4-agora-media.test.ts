@@ -10,6 +10,13 @@ const mockClearLocalVideoContainer = vi.fn();
 const mockSetCameraEnabled = vi.fn();
 const mockSetLocalVideoReady = vi.fn();
 const mockLogCallV4 = vi.fn();
+const mockSwitchCameraFacing = vi.fn();
+const mockIsCameraSwitchSupported = vi.fn();
+
+vi.mock("@/lib/community-messenger/call-camera-switch", () => ({
+  switchCommunityMessengerCameraFacing: (...args: unknown[]) => mockSwitchCameraFacing(...args),
+  isCommunityMessengerCameraSwitchSupported: (...args: unknown[]) => mockIsCameraSwitchSupported(...args),
+}));
 
 vi.mock("@/lib/community-messenger/call-v4/call-v4-connected-media-policy", () => ({
   canAttachCallV4VideoMedia: () => mockCanAttach(),
@@ -139,5 +146,70 @@ describe("call-v4-agora-media publish toggle", () => {
     const ok = await publishCallV4LocalVideo(callId, null);
     expect(ok).toBe(false);
     expect(mockLogCallV4).toHaveBeenCalledWith("local_video_publish_failed", { callId });
+  });
+});
+
+describe("call-v4-agora-media camera switch", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockCanAttach.mockReturnValue(true);
+    mockReadPhase.mockReturnValue("connected");
+    mockIsCameraSwitchSupported.mockImplementation((track: unknown) => Boolean(track));
+    mockSwitchCameraFacing.mockImplementation(
+      async (args: { videoTrack: unknown; onAfterSwitch?: () => void | Promise<void> }) => {
+        await args.onAfterSwitch?.();
+        return args.videoTrack;
+      },
+    );
+  });
+
+  it("delegates to legacy switchCommunityMessengerCameraFacing when track exists", async () => {
+    const callId = "call-flip";
+    const client = { publish: vi.fn(), unpublish: vi.fn() };
+    const videoTrack = { enabled: true, setDevice: vi.fn() };
+    const container = {} as HTMLElement;
+    mockGetClient.mockReturnValue(client);
+    mockGetLocalTracks.mockReturnValue({ audioTrack: {}, videoTrack });
+
+    const { switchCallV4CameraFacing } = await import("@/lib/community-messenger/call-v4/call-v4-agora-media");
+    const ok = await switchCallV4CameraFacing(callId, container);
+
+    expect(ok).toBe(true);
+    expect(mockSwitchCameraFacing).toHaveBeenCalledTimes(1);
+    expect(mockSwitchCameraFacing).toHaveBeenCalledWith(
+      expect.objectContaining({
+        videoTrack,
+        client,
+        useRearFacingRef: expect.objectContaining({ current: expect.any(Boolean) }),
+      }),
+    );
+    expect(mockBindLocalVideoTrack).toHaveBeenCalledWith(videoTrack, container, {
+      fit: "cover",
+      mirror: true,
+    });
+    expect(mockLogCallV4).toHaveBeenCalledWith("camera_switch_start", { callId });
+    expect(mockLogCallV4).toHaveBeenCalledWith("camera_switch_done", { callId });
+  });
+
+  it("returns false without calling legacy switch when track is missing", async () => {
+    mockGetClient.mockReturnValue({ publish: vi.fn(), unpublish: vi.fn() });
+    mockGetLocalTracks.mockReturnValue({ audioTrack: {} });
+    mockIsCameraSwitchSupported.mockReturnValue(false);
+
+    const { switchCallV4CameraFacing } = await import("@/lib/community-messenger/call-v4/call-v4-agora-media");
+    const ok = await switchCallV4CameraFacing("call-no-track", null);
+
+    expect(ok).toBe(false);
+    expect(mockSwitchCameraFacing).not.toHaveBeenCalled();
+  });
+
+  it("reports availability from legacy isCommunityMessengerCameraSwitchSupported", async () => {
+    const videoTrack = { enabled: true };
+    mockGetLocalTracks.mockReturnValue({ audioTrack: {}, videoTrack });
+    mockIsCameraSwitchSupported.mockReturnValue(true);
+
+    const { isCallV4CameraSwitchAvailable } = await import("@/lib/community-messenger/call-v4/call-v4-agora-media");
+    expect(isCallV4CameraSwitchAvailable("call-available")).toBe(true);
+    expect(mockIsCameraSwitchSupported).toHaveBeenCalledWith(videoTrack);
   });
 });

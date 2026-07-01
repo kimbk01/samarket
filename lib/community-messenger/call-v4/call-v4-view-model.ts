@@ -1,8 +1,10 @@
 import type { CallActionItem, CallPhase, CallScreenViewModel } from "@/components/messenger/call/call-ui.types";
 import { callV4Accept, callV4Cancel, callV4End, callV4Reject } from "@/lib/community-messenger/call-v4/call-v4-actions";
 import {
+  isCallV4CameraSwitchAvailable,
   publishCallV4LocalVideo,
   setCallV4MicEnabled,
+  switchCallV4CameraFacing,
   unpublishCallV4LocalVideo,
 } from "@/lib/community-messenger/call-v4/call-v4-agora-media";
 import { toggleCallV4SpeakerRoute } from "@/lib/community-messenger/call-v4/call-v4-audio-route";
@@ -246,6 +248,13 @@ export function buildCallV4ScreenViewModel(input: BuildCallV4ScreenViewModelInpu
             void publishCallV4LocalVideo(callId, presenter?.localVideoRef.current ?? null);
           }
         },
+      },
+      {
+        id: "camera-switch",
+        label: safeT("cm_ui_switch_camera", { fallbackKo: "전환", fallbackEn: "Flip" }),
+        icon: "camera-switch",
+        disabled: !ms.cameraEnabled || !isCallV4CameraSwitchAvailable(callId),
+        onClick: () => void switchCallV4CameraFacing(callId, presenter?.localVideoRef.current ?? null),
       },
     );
   }
