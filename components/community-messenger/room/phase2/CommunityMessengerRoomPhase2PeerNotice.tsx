@@ -9,6 +9,10 @@ import { useMessengerRoomPhase2View } from "@/components/community-messenger/roo
 import { postCommunityMessengerFriendRequestApi } from "@/lib/community-messenger/community-messenger-friend-request-client";
 import { generalFriendDirectRoomGate } from "@/lib/community-messenger/messenger-room-domain";
 import { refreshMessengerHomeSocialClient } from "@/lib/community-messenger/home/refresh-messenger-home-social-client";
+import {
+  patchRoomSnapshotAfterFriendshipAccepted,
+  patchRoomSnapshotAfterFriendshipOutgoingPending,
+} from "@/lib/community-messenger/room/messenger-room-friendship-sync";
 import type { PeerRelationLabel } from "@/lib/community-messenger/peer-relation-label";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import type { CommunityMessengerFriendRequest } from "@/lib/community-messenger/types";
@@ -158,6 +162,9 @@ export function CommunityMessengerRoomPhase2PeerNotice() {
         }
         if (action === "accept") {
           showMessengerSnackbar(t("cm_ui_friend_merged_incoming_snackbar"), { variant: "success" });
+          vm.setSnapshot((prev) =>
+            prev && peerUserId ? patchRoomSnapshotAfterFriendshipAccepted(prev, peerUserId) : prev
+          );
         }
         await refreshAfterFriendRequestOutcome();
       } catch {
@@ -166,7 +173,7 @@ export function CommunityMessengerRoomPhase2PeerNotice() {
         setRespondBusy(false);
       }
     },
-    [peerUserId, effectivePendingRequestId, refreshAfterFriendRequestOutcome, t]
+    [peerUserId, effectivePendingRequestId, refreshAfterFriendRequestOutcome, t, vm]
   );
 
   const redirectToChats = useCallback(() => {
@@ -222,10 +229,19 @@ export function CommunityMessengerRoomPhase2PeerNotice() {
         return;
       }
       showMessengerSnackbar(t("cm_ui_sent_friend_request"), { variant: "success" });
+      vm.setSnapshot((prev) =>
+        prev
+          ? patchRoomSnapshotAfterFriendshipOutgoingPending(prev, {
+              pendingFriendshipRequestId: result.request?.id,
+            })
+          : prev
+      );
+      void refreshMessengerHomeSocialClient("room_friend_request_outcome");
+      void vm.refresh(true);
     } finally {
       setFriendBusy(false);
     }
-  }, [peerUserId, t]);
+  }, [peerUserId, t, vm]);
 
   if (effectiveBranch === "none" || effectiveBranch === "pending_outgoing_hidden") return null;
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   parseFriendshipRowForRoomSync,
   patchRoomSnapshotAfterFriendshipAccepted,
+  patchRoomSnapshotAfterFriendshipOutgoingPending,
   shouldRefreshRoomOnFriendshipEvent,
 } from "@/lib/community-messenger/room/messenger-room-friendship-sync";
 import { shouldRunMessengerRoomFriendshipSync } from "@/lib/community-messenger/room/use-messenger-room-friendship-sync";
@@ -185,8 +186,37 @@ describe("patchRoomSnapshotAfterFriendshipAccepted", () => {
   it("sets peer isFriend and directCallGate allow flags", () => {
     const next = patchRoomSnapshotAfterFriendshipAccepted(baseSnapshot, "peer");
     expect(next.peerFriendshipState).toBe("accepted");
+    expect(next.friendshipDirection).toBe("mutual_accepted");
+    expect(next.pendingFriendshipRequestId).toBeUndefined();
     expect(next.directCallGate?.canStartVoice).toBe(true);
     expect(next.directCallGate?.canStartVideo).toBe(true);
     expect(next.members.find((m) => m.id === "peer")?.isFriend).toBe(true);
+  });
+});
+
+describe("patchRoomSnapshotAfterFriendshipOutgoingPending", () => {
+  const baseSnapshot = {
+    viewerUserId: "viewer",
+    room: {
+      id: "room-1",
+      title: "Peer",
+      roomType: "direct",
+      peerUserId: "peer",
+      roomStatus: "active",
+      isReadonly: false,
+    },
+    members: [],
+    messages: [],
+    myRole: "member",
+    activeCall: null,
+  } as unknown as CommunityMessengerRoomSnapshot;
+
+  it("sets outgoing_pending so PeerNotice stranger bar hides", () => {
+    const next = patchRoomSnapshotAfterFriendshipOutgoingPending(baseSnapshot, {
+      pendingFriendshipRequestId: "req-1",
+    });
+    expect(next.peerFriendshipState).toBe("pending");
+    expect(next.friendshipDirection).toBe("outgoing_pending");
+    expect(next.pendingFriendshipRequestId).toBe("req-1");
   });
 });

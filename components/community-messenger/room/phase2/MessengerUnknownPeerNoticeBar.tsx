@@ -26,7 +26,7 @@ export function MessengerUnknownPeerNoticeBar({
   onAccept,
   onReject,
 }: Props) {
-  const { t, safeT } = useI18n();
+  const { t } = useI18n();
 
   useEffect(() => {
     if (variant === "stranger" || variant === "pending_incoming") {
@@ -90,14 +90,7 @@ export function MessengerUnknownPeerNoticeBar({
 
   return (
     <div className="border-b border-[#e8e8e8] bg-[#f6f6f6] px-3 py-2">
-      <p className="sam-text-helper text-[#1e3932]">{t("cm_social_stranger_notice")}</p>
-      <p className="mt-0.5 sam-text-xxs text-ui-muted">
-        {safeT("cm_social_stranger_call_hint", {
-          fallbackKo: "친구가 아니어도 통화할 수 있지만, 원치 않으면 차단할 수 있습니다.",
-          fallbackEn: "You can call even if you are not friends. Block if you do not want contact.",
-        })}
-      </p>
-      <div className="mt-2 flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2">
         {onAddFriend ? (
           <button
             type="button"

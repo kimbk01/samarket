@@ -53,6 +53,21 @@ export function roomBootstrapTimelineFingerprint(snap: CommunityMessengerRoomSna
   return `${msgs.length}|${tailId}|${snap.room.unreadCount ?? 0}|${(snap.room.lastMessage ?? "").slice(0, 48)}|${activeCallFingerprint(snap)}`;
 }
 
+function mergePendingFriendshipRequestId(
+  prev: CommunityMessengerRoomSnapshot,
+  next: CommunityMessengerRoomSnapshot
+): string | undefined {
+  if (
+    next.friendshipDirection === "mutual_accepted" ||
+    next.peerFriendshipState === "accepted" ||
+    next.peerFriendshipState === "none" ||
+    next.peerFriendshipState === "blocked"
+  ) {
+    return undefined;
+  }
+  return next.pendingFriendshipRequestId ?? prev.pendingFriendshipRequestId;
+}
+
 /**
  * 첫 진입 seed 스냅샷 위에 foreground bootstrap 을 single-pass 로 합친다.
  * 전체 교체·remount 유발 setState(snap) 대신 필드 단위 patch.
@@ -88,6 +103,8 @@ export function mergeCommunityMessengerForegroundBootstrapIntoSnapshot(
     bootstrapEnrichmentPending:
       next.bootstrapEnrichmentPending ?? prev.bootstrapEnrichmentPending,
     peerFriendshipState: next.peerFriendshipState ?? prev.peerFriendshipState,
+    friendshipDirection: next.friendshipDirection ?? prev.friendshipDirection,
+    pendingFriendshipRequestId: mergePendingFriendshipRequestId(prev, next),
     peerRelationLabel: next.peerRelationLabel ?? prev.peerRelationLabel,
     directCallGate: next.directCallGate ?? prev.directCallGate,
     unknownPeerNoticeDismissed:

@@ -87,4 +87,38 @@ describe("mergeCommunityMessengerForegroundBootstrapIntoSnapshot activeCall", ()
     expect(merged.peerFriendshipState).toBe("accepted");
     expect(merged.directCallGate?.canStartVoice).toBe(true);
   });
+
+  it("merges friendshipDirection and clears stale pendingFriendshipRequestId on accept", () => {
+    const prev = {
+      ...baseSnapshot(null),
+      room: { ...baseSnapshot(null).room, roomType: "direct" as const, peerUserId: "peer-1" },
+      peerFriendshipState: "pending" as const,
+      friendshipDirection: "incoming_pending" as const,
+      pendingFriendshipRequestId: "req-old",
+    } as unknown as CommunityMessengerRoomSnapshot;
+    const next = {
+      ...prev,
+      peerFriendshipState: "accepted" as const,
+      friendshipDirection: "mutual_accepted" as const,
+    };
+    const merged = mergeCommunityMessengerForegroundBootstrapIntoSnapshot(prev, next);
+    expect(merged.friendshipDirection).toBe("mutual_accepted");
+    expect(merged.pendingFriendshipRequestId).toBeUndefined();
+  });
+
+  it("merges outgoing_pending friendshipDirection from foreground bootstrap", () => {
+    const prev = {
+      ...baseSnapshot(null),
+      room: { ...baseSnapshot(null).room, roomType: "direct" as const, peerUserId: "peer-1" },
+    } as unknown as CommunityMessengerRoomSnapshot;
+    const next = {
+      ...prev,
+      peerFriendshipState: "pending" as const,
+      friendshipDirection: "outgoing_pending" as const,
+      pendingFriendshipRequestId: "req-1",
+    };
+    const merged = mergeCommunityMessengerForegroundBootstrapIntoSnapshot(prev, next);
+    expect(merged.friendshipDirection).toBe("outgoing_pending");
+    expect(merged.pendingFriendshipRequestId).toBe("req-1");
+  });
 });

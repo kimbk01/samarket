@@ -42,8 +42,24 @@ export function patchRoomSnapshotAfterFriendshipAccepted(
     ...prev,
     members,
     peerFriendshipState: "accepted",
+    friendshipDirection: "mutual_accepted",
+    pendingFriendshipRequestId: undefined,
     peerRelationLabel: "mutual_friend",
     directCallGate,
+  };
+}
+
+/** Viewer sent friend request — hide stranger PeerNotice until bootstrap refresh. */
+export function patchRoomSnapshotAfterFriendshipOutgoingPending(
+  prev: CommunityMessengerRoomSnapshot,
+  options?: { pendingFriendshipRequestId?: string | null }
+): CommunityMessengerRoomSnapshot {
+  const pendingId = options?.pendingFriendshipRequestId?.trim() ?? "";
+  return {
+    ...prev,
+    peerFriendshipState: "pending",
+    friendshipDirection: "outgoing_pending",
+    ...(pendingId ? { pendingFriendshipRequestId: pendingId } : {}),
   };
 }
 
