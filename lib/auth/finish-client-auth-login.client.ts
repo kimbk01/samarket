@@ -42,7 +42,20 @@ function canUseRouterReplace(target: string): boolean {
   }
 }
 
-async function resolveLoginTarget(input: {
+/** Navigation 직전 — redirectTo·next 만으로 즉시 확정 (signup-status blocking 없음). */
+function resolveImmediateLoginTarget(input: {
+  redirectTo?: string | null;
+  next?: string | null;
+}): string {
+  const fromExchange = input.redirectTo?.trim()
+    ? sanitizeFreshLoginLandingPath(input.redirectTo.trim())
+    : null;
+  if (fromExchange) return fromExchange;
+  return sanitizeFreshLoginLandingPath(input.next) ?? POST_LOGIN_PATH;
+}
+
+/** Background — onboarding 등 signup-status route 보정 (navigation gate 아님). */
+async function resolveLoginTargetFromSignupStatus(input: {
   redirectTo?: string | null;
   next?: string | null;
 }): Promise<string> {
@@ -86,6 +99,33 @@ async function primeClientProfileRowAfterLogin(): Promise<void> {
   }
 }
 
+function schedulePostLoginBackgroundWork(input: {
+  redirectTo?: string | null;
+  next?: string | null;
+  immediateTarget: string;
+  router?: RouterLike;
+}): void {
+  void primeClientProfileRowAfterLogin();
+  void ensureAppBoot();
+
+  if (input.redirectTo?.trim()) return;
+
+  void (async () => {
+    const resolved = await resolveLoginTargetFromSignupStatus({
+      redirectTo: input.redirectTo,
+      next: input.next,
+    });
+    if (resolved === input.immediateTarget) return;
+    if (input.router && canUseRouterReplace(resolved)) {
+      input.router.replace(resolved);
+      return;
+    }
+    if (typeof window !== "undefined" && resolved !== input.immediateTarget) {
+      window.location.replace(resolved);
+    }
+  })();
+}
+
 export async function finishClientAuthLogin(input: FinishClientAuthLoginInput): Promise<void> {
   const { redirectTo, pendingToken, next, onCloseModal, router } = input;
 
@@ -109,17 +149,16 @@ export async function finishClientAuthLogin(input: FinishClientAuthLoginInput): 
   clearPostLogoutBfcacheGuard();
 
   await primeClientAuthSessionFromSupabase();
-  await primeClientProfileRowAfterLogin();
   markCallMediaOnboardingPendingSource("first_login");
 
-  const target = await resolveLoginTarget({ redirectTo, next });
+  const target = resolveImmediateLoginTarget({ redirectTo, next });
 
   if (router && canUseRouterReplace(target)) {
     router.replace(target);
-    void ensureAppBoot();
+    schedulePostLoginBackgroundWork({ redirectTo, next, immediateTarget: target, router });
     return;
   }
 
-  void ensureAppBoot();
+  schedulePostLoginBackgroundWork({ redirectTo, next, immediateTarget: target, router });
   window.location.replace(target);
 }
