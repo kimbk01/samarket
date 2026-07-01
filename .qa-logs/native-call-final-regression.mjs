@@ -61,6 +61,14 @@ const ACCEPT_CHAIN_MARKERS = [
   "native_connected_emit",
 ];
 
+/** N1-V Q2 — caller must CONNECT only after remote_user_joined on A logcat. */
+const Q2_VOICE_OUT_ACCEPT_MARKERS = [
+  "caller_agora_local_join_success",
+  "remote_user_joined",
+  "state_connected",
+  "native_connected_emit",
+];
+
 function adbObj(serial, ...args) {
   return spawnSync(ADB, ["-s", serial, ...args], { encoding: "utf8" });
 }
@@ -128,6 +136,60 @@ function lineHasCallId(line, callId) {
 
 function countMarker(logs, marker, callId) {
   return logs.split("\n").filter((l) => l.includes(marker) && (!callId || lineHasCallId(l, callId))).length;
+}
+
+function firstMarkerLineIndex(logs, marker, callId) {
+  const lines = logs.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.includes(marker)) continue;
+    if (callId && !lineHasCallId(line, callId)) continue;
+    return i;
+  }
+  return -1;
+}
+
+function q2VoiceOutAcceptMarkerCounts(logs, callId) {
+  return Object.fromEntries(Q2_VOICE_OUT_ACCEPT_MARKERS.map((m) => [m, countMarker(logs, m, callId)]));
+}
+
+function judgeN1VQ2VoiceOutAccept(logs, callId) {
+  const markerCounts = q2VoiceOutAcceptMarkerCounts(logs, callId);
+  const markerOrder = Object.fromEntries(
+    Q2_VOICE_OUT_ACCEPT_MARKERS.map((m) => [m, firstMarkerLineIndex(logs, m, callId)]),
+  );
+  const allPresent = Q2_VOICE_OUT_ACCEPT_MARKERS.every((m) => markerCounts[m] >= 1);
+  const remoteIdx = markerOrder.remote_user_joined;
+  const connectedIdx = markerOrder.state_connected;
+  const earlyConnectedViolation =
+    connectedIdx >= 0 && remoteIdx >= 0 && connectedIdx < remoteIdx;
+  const remoteWithoutConnected =
+    markerCounts.remote_user_joined >= 1 && markerCounts.state_connected < 1;
+
+  let verdict = "pass";
+  let stage = "q2_voice_out_accept_pass";
+  if (earlyConnectedViolation) {
+    verdict = "n1v_code_fail";
+    stage = "q2_early_connected_before_remote";
+  } else if (remoteWithoutConnected) {
+    verdict = "n1v_code_fail";
+    stage = "q2_remote_without_connected";
+  } else if (!allPresent) {
+    verdict = "n1v_code_fail";
+    stage = "q2_missing_markers";
+  }
+
+  const pass = verdict === "pass";
+  return {
+    pass,
+    verdict,
+    stage,
+    markerCounts,
+    markerOrder,
+    earlyConnectedViolation,
+    remoteWithoutConnected,
+    connectedAfterRemote: remoteIdx >= 0 && connectedIdx >= 0 && connectedIdx > remoteIdx,
+  };
 }
 
 function countForbidden(logs, callIds) {
@@ -593,6 +655,100 @@ async function resetBetween() {
   await sleep(1200);
 }
 
+/** N1-V Q2 — plugin voice outgoing + B FCM prep + accept; does not use resetBetween(). */
+async function runQ2VoiceOutAccept() {
+  await scenarioCleanupOnly();
+  await ensureLogin();
+  launchApkMainActivity(adbObj, SERIAL_A, ACT);
+  launchApkMainActivity(adbObj, SERIAL_B, ACT);
+  await sleep(2000);
+
+  await prepareCalleePushReady();
+  const fcmReady = await waitCalleeFcmReady();
+  if (!fcmReady.ok) {
+    const pushSnap = path.join(OUT, "logcat-q2-voice-out-accept-fcm-ready-b.txt");
+    fs.writeFileSync(pushSnap, readPushRegisterLogcat(SERIAL_B));
+    return {
+      pass: false,
+      verdict: "qa_orchestration_fail",
+      stage: "harness_fcm_ready_fail",
+      fcmReady,
+      pushRegisterLogcatB: "logcat-q2-voice-out-accept-fcm-ready-b.txt",
+    };
+  }
+
+  clearLogcat();
+  wakeDevice(SERIAL_B);
+
+  const dial = await dialNativeOutgoing("voice");
+  if (!dial.ok) {
+    return {
+      pass: false,
+      verdict: "harness_fail",
+      stage: "q2_voice_outgoing_dial",
+      dial,
+      fcmReady,
+    };
+  }
+
+  const callId = dial.callId ?? "";
+  const bIncoming = await waitIncoming(SERIAL_B, callId);
+  if (!bIncoming.ok) {
+    const logsA = readLogcat(SERIAL_A);
+    const logsB = readLogcat(SERIAL_B);
+    const slug = callId || "none";
+    fs.writeFileSync(path.join(OUT, `logcat-q2-voice-out-accept-${slug}-a.txt`), logsA);
+    fs.writeFileSync(path.join(OUT, `logcat-q2-voice-out-accept-${slug}-b.txt`), logsB);
+    return {
+      pass: false,
+      verdict: "qa_orchestration_fail",
+      stage: "q2_b_incoming_missing",
+      callId,
+      dial,
+      fcmReady,
+      bIncomingOk: false,
+      bIncomingFcmCount: countMarker(logsB, "incoming_fcm_received", callId),
+      bIncomingActivityCount: countMarker(logsB, "incoming_activity_shown", callId),
+    };
+  }
+
+  const acceptTap = tapAccept(SERIAL_B, "native_voice_call_accept");
+
+  const pollDeadline = Date.now() + 120_000;
+  let judgment = null;
+  while (Date.now() < pollDeadline) {
+    const logsA = readLogcat(SERIAL_A);
+    const probe = judgeN1VQ2VoiceOutAccept(logsA, callId);
+    if (probe.earlyConnectedViolation || probe.pass) {
+      judgment = probe;
+      break;
+    }
+    await sleep(500);
+  }
+
+  const logsA = readLogcat(SERIAL_A);
+  const logsB = readLogcat(SERIAL_B);
+  const slug = callId || "none";
+  fs.writeFileSync(path.join(OUT, `logcat-q2-voice-out-accept-${slug}-a.txt`), logsA);
+  fs.writeFileSync(path.join(OUT, `logcat-q2-voice-out-accept-${slug}-b.txt`), logsB);
+
+  if (!judgment) {
+    judgment = judgeN1VQ2VoiceOutAccept(logsA, callId);
+  }
+
+  return {
+    pass: judgment.pass,
+    verdict: judgment.pass ? "pass" : judgment.verdict,
+    stage: judgment.stage,
+    callId,
+    dial,
+    fcmReady,
+    bIncomingOk: true,
+    acceptTapOk: acceptTap.ok,
+    ...judgment,
+  };
+}
+
 async function runVoiceOutgoingOnly() {
   clearLogcat();
   const vOutDial = await dialNativeOutgoing("voice");
@@ -865,6 +1021,28 @@ async function run() {
   fs.mkdirSync(OUT, { recursive: true });
   loadEnvLocal();
   console.log(`[final-reg] A=${SERIAL_A} B=${SERIAL_B}`);
+
+  if (process.env.NATIVE_REG_Q2_VOICE_OUT_ACCEPT === "1") {
+    const result = await runQ2VoiceOutAccept();
+    const report = {
+      at: new Date().toISOString(),
+      serialA: SERIAL_A,
+      serialB: SERIAL_B,
+      mode: "q2_voice_out_accept",
+      harness: ".qa-logs/native-call-final-regression.mjs",
+      result,
+      overallPass: Boolean(result.pass),
+      verdict: result.verdict ?? (result.pass ? "pass" : "harness_fail"),
+    };
+    fs.writeFileSync(
+      path.join(OUT, "report-q2-voice-out-accept.json"),
+      JSON.stringify(report, null, 2),
+    );
+    console.log(JSON.stringify(report, null, 2));
+    await scenarioCleanupOnly();
+    process.exit(report.overallPass ? 0 : 1);
+  }
+
   await resetBetween();
   await ensureLogin();
   launchApkMainActivity(adbObj, SERIAL_A, ACT);

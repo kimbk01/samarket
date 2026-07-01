@@ -21,6 +21,7 @@ public final class NativeVoiceCallAgoraEngine {
   private static RtcEngine engine;
   private static String activeCallId;
   private static Listener listener;
+  private static boolean callerJoinActive;
 
   private NativeVoiceCallAgoraEngine() {}
 
@@ -46,6 +47,7 @@ public final class NativeVoiceCallAgoraEngine {
     synchronized (LOCK) {
       listener = nextListener;
       activeCallId = sid;
+      callerJoinActive = caller;
     }
     if (caller) {
       NativeVoiceCallLog.info("caller_agora_native_join_start", sid, "channel=" + token.channelName);
@@ -133,6 +135,7 @@ public final class NativeVoiceCallAgoraEngine {
       sid = activeCallId;
       listener = null;
       activeCallId = null;
+      callerJoinActive = false;
       if (engine != null) {
         engine.leaveChannel();
         RtcEngine.destroy();
@@ -163,14 +166,37 @@ public final class NativeVoiceCallAgoraEngine {
         public void onJoinChannelSuccess(String channel, int uid, int elapsed) {
           Listener currentListener;
           String sid;
+          boolean callerJoin;
           synchronized (LOCK) {
             currentListener = listener;
             sid = activeCallId;
+            callerJoin = callerJoinActive;
           }
           if (sid != null) {
             NativeVoiceCallLog.info(
                 "agora_native_join_success", sid, "channel=" + channel + " uid=" + uid);
           }
+          if (callerJoin) {
+            if (sid != null) {
+              NativeVoiceCallLog.info("caller_agora_local_join_success", sid, "awaiting_remote_user");
+            }
+            return;
+          }
+          if (currentListener != null) currentListener.onConnected();
+        }
+
+        @Override
+        public void onUserJoined(int uid, int elapsed) {
+          Listener currentListener;
+          String sid;
+          boolean callerJoin;
+          synchronized (LOCK) {
+            currentListener = listener;
+            sid = activeCallId;
+            callerJoin = callerJoinActive;
+          }
+          if (!callerJoin || sid == null || uid == 0) return;
+          NativeVoiceCallLog.info("remote_user_joined", sid, "uid=" + uid);
           if (currentListener != null) currentListener.onConnected();
         }
 
