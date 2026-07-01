@@ -71,12 +71,9 @@ export async function runCallMediaEducationBeforeGesture(
   return { proceed: false };
 }
 
-/** Android FSI only — call boundary; battery excluded. */
+/** FSI deferred — lock-screen receive failure follow-up only; no proactive sheet at call boundary. */
 export async function runLockScreenEducationIfNeeded(): Promise<void> {
-  const { runFullScreenIntentEducationBeforeCall } = await import(
-    "@/lib/permissions/permission-manager/full-screen-intent-guide-flow"
-  );
-  await runFullScreenIntentEducationBeforeCall();
+  /* no-op — OS-only permission UX */
 }
 
 export function resetPermissionEducationOrchestratorForTests(): void {

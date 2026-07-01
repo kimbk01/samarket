@@ -176,7 +176,7 @@ export async function ensureNotificationForPushRegister(): Promise<{
 
 /**
  * LOCK — app-wide sole OS notification request entry.
- * Call only after user confirms Notification Guide Modal.
+ * OS-first: called directly when canRequestOsNotificationPrompt; no pre-modal.
  */
 export async function requestNotificationFromGuide(): Promise<NotificationOsRequestResult> {
   let snapshot = await syncNotificationState();

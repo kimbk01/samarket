@@ -1,42 +1,29 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { CallPermissionModal } from "@/components/call/CallPermissionModal";
+import { useCallback, useEffect, useRef } from "react";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
-import { invalidateCallMediaPermissionCheckCache } from "@/lib/community-messenger/call-media-permission-preflight";
-import { callPermissionGate } from "@/lib/call/permissions/call-permission-gate";
-import {
-  markCallPermissionOnboardingShown,
-  writeCallPermissionStoreState,
-} from "@/lib/call/permissions/call-permission-store";
-import { openNativeCallPermissionSettings } from "@/lib/call/native/native-call-permissions";
 import {
   canAttemptPostLoginOnboardingGate,
   DIBAY_POST_LOGIN_ONBOARDING_PROFILE_RETRY_EVENT,
   isPostLoginOnboardingBlockedByAddressGate,
   isPostLoginOnboardingPathEligible,
   notifyPostLoginOnboardingProfileRetry,
-  resolvePostLoginOnboardingUserId,
   schedulePostLoginOnboardingOpen,
 } from "@/lib/permissions/dibay-post-login-onboarding-gate";
 import {
   resolveDibayUnifiedOnboardingPlan,
   type DibayUnifiedOnboardingPlan,
 } from "@/lib/permissions/dibay-unified-device-onboarding";
-import {
-  checkDevicePermissions,
-  markInitialDevicePermissionsDeferred,
-  type DibayDevicePermissionSource,
-} from "@/lib/permissions/dibay-device-permission-store";
 import { recordDiBaYOnboardingDecision } from "@/lib/permissions/device-permission-manager";
 import { runNotificationGuideFlow } from "@/lib/permissions/permission-manager/notification-onboarding-flow";
+import { runPostLoginFullScreenIntentCheck } from "@/lib/permissions/permission-manager/post-login-full-screen-intent-check";
 import { syncNotificationState } from "@/lib/permissions/permission-manager/notification-permission-manager";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 import { subscribeDibayAuthStateChange } from "@/lib/auth/dibay-session-manager";
 import { useStoresHomeOverlayDeferUntilInput } from "@/lib/stores/use-stores-home-overlay-defer-until-input";
 
-/** 로그인 후 notification guide 완료 전 NativePushRegistration 대기용 */
+/** 로그인 후 notification OS flow 완료 전 NativePushRegistration 대기용 */
 let notificationOnboardingSettled = false;
 let notificationOnboardingWaiters: Array<() => void> = [];
 
@@ -65,7 +52,7 @@ export function waitForNotificationOnboardingSettled(): Promise<void> {
 }
 
 /**
- * 로그인 후 1회 — Notification Guide → OS 허용 → Push Register, 이후 CallPermissionModal.
+ * 로그인 후 1회 — OS 알림 + FSI(Android) 상태 확인. mic/camera/battery는 통화 gesture 시만.
  */
 export function DiBaYDevicePermissionOnboardingGate() {
   const pathname = usePathname() ?? "";
@@ -73,9 +60,6 @@ export function DiBaYDevicePermissionOnboardingGate() {
   const shownRef = useRef(false);
   const runningRef = useRef(false);
   const mountedRef = useRef(true);
-  const callMediaGrantedAtOpenRef = useRef(false);
-  const [showCallPermissionModal, setShowCallPermissionModal] = useState(false);
-  const pendingMediaSourceRef = useRef<DibayDevicePermissionSource | null>(null);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -84,113 +68,32 @@ export function DiBaYDevicePermissionOnboardingGate() {
     };
   }, []);
 
-  const syncCallMediaDecisionIfGranted = useCallback(() => {
-    void checkDevicePermissions()
-      .then((state) => {
-        if (state.camera === "granted" && state.microphone === "granted") {
-          recordDiBaYOnboardingDecision("call_media", "accepted");
-        } else if (callMediaGrantedAtOpenRef.current) {
-          recordDiBaYOnboardingDecision("call_media", "accepted");
-        }
-        invalidateCallMediaPermissionCheckCache();
-      })
-      .catch(() => {
-        invalidateCallMediaPermissionCheckCache();
-      });
-  }, []);
+  const runOsPermissionSequence = useCallback(async (plan: DibayUnifiedOnboardingPlan) => {
+    if (runningRef.current) return;
+    runningRef.current = true;
 
-  const finishCallMediaFlow = useCallback((decision: "accepted" | "declined" | "browser_denied") => {
-    recordDiBaYOnboardingDecision("call_media", decision);
-    invalidateCallMediaPermissionCheckCache();
-  }, []);
+    const { steps } = plan;
+    console.info("[device-permission] unified_onboarding_os_sequence", { steps, source: plan.source });
 
-  const runCallMediaModalStep = useCallback(
-    (source: DibayDevicePermissionSource) => {
-      pendingMediaSourceRef.current = source;
-      markCallPermissionOnboardingShown();
-      setShowCallPermissionModal(true);
-    },
-    [],
-  );
-
-  const handleCallPermissionConfirm = useCallback(async () => {
-    setShowCallPermissionModal(false);
-    const source = pendingMediaSourceRef.current;
     try {
-      await callPermissionGate.prompt("video", "onboarding");
-      const check = await callPermissionGate.check("video");
-      if (check.canVideo || check.canVoice) {
-        finishCallMediaFlow("accepted");
-      } else {
-        writeCallPermissionStoreState(check.effectiveState === "denied_permanently" ? "denied_permanently" : "denied_once");
-        if (source) markInitialDevicePermissionsDeferred(source);
-        finishCallMediaFlow("declined");
+      await syncNotificationState();
+
+      for (let stepIndex = 0; stepIndex < steps.length; stepIndex += 1) {
+        if (!mountedRef.current) return;
+
+        const step = steps[stepIndex];
+        if (step === "notification" && isCapacitorNativePlatform()) {
+          await runNotificationGuideFlow("first_login");
+        }
+        if (step === "full_screen_intent") {
+          await runPostLoginFullScreenIntentCheck();
+        }
       }
-    } catch {
-      writeCallPermissionStoreState("denied_once");
-      if (source) markInitialDevicePermissionsDeferred(source);
-      finishCallMediaFlow("declined");
     } finally {
-      pendingMediaSourceRef.current = null;
       runningRef.current = false;
       markNotificationOnboardingSettled();
     }
-  }, [finishCallMediaFlow]);
-
-  const handleCallPermissionDecline = useCallback(() => {
-    setShowCallPermissionModal(false);
-    const source = pendingMediaSourceRef.current;
-    writeCallPermissionStoreState("denied_once");
-    if (source) markInitialDevicePermissionsDeferred(source);
-    finishCallMediaFlow("declined");
-    pendingMediaSourceRef.current = null;
-    runningRef.current = false;
-    markNotificationOnboardingSettled();
-  }, [finishCallMediaFlow]);
-
-  const runOsPermissionSequence = useCallback(
-    async (plan: DibayUnifiedOnboardingPlan) => {
-      if (runningRef.current) return;
-      runningRef.current = true;
-
-      const { steps, source } = plan;
-      console.info("[device-permission] unified_onboarding_os_sequence", {
-        steps,
-        source,
-      });
-
-      try {
-        await syncNotificationState();
-
-        for (let stepIndex = 0; stepIndex < steps.length; stepIndex += 1) {
-          if (!mountedRef.current) return;
-
-          const step = steps[stepIndex];
-          if (step === "notification") {
-            if (isCapacitorNativePlatform()) {
-              await runNotificationGuideFlow("first_login");
-            }
-            continue;
-          }
-
-          if (step === "camera" || step === "microphone") {
-            runCallMediaModalStep(source);
-            return;
-          }
-        }
-
-        if (mountedRef.current) {
-          syncCallMediaDecisionIfGranted();
-        }
-      } finally {
-        if (!pendingMediaSourceRef.current) {
-          runningRef.current = false;
-          markNotificationOnboardingSettled();
-        }
-      }
-    },
-    [runCallMediaModalStep, syncCallMediaDecisionIfGranted],
-  );
+  }, []);
 
   const tryOpen = useCallback(() => {
     if (!isPostLoginOnboardingPathEligible(pathname, deferStoresHomeLcp)) return;
@@ -211,7 +114,6 @@ export function DiBaYDevicePermissionOnboardingGate() {
             markNotificationOnboardingSettled();
             return;
           }
-          callMediaGrantedAtOpenRef.current = plan.callMediaAlreadyGranted;
 
           if (plan.callMediaAlreadyGranted && plan.steps.length === 0) {
             recordDiBaYOnboardingDecision("call_media", "accepted");
@@ -269,12 +171,5 @@ export function DiBaYDevicePermissionOnboardingGate() {
     return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
   }, [tryOpen]);
 
-  return showCallPermissionModal ? (
-    <CallPermissionModal
-      mode="onboarding"
-      onConfirm={() => void handleCallPermissionConfirm()}
-      onDecline={handleCallPermissionDecline}
-      onOpenSettings={() => void openNativeCallPermissionSettings()}
-    />
-  ) : null;
+  return null;
 }

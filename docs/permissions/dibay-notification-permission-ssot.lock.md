@@ -6,7 +6,7 @@
 
 ## Fixed goal
 
-1. First login after success: **DIBAY Notification Guide Modal** → user confirm → **single** OS request → sync → Push Register if `receiveReady`.
+1. First login after success: when `canRequestOsNotificationPrompt` — **direct** OS `requestNotificationFromGuide()` (no app guide modal). Settings-only fallback on explicit `settings_retry` when OS prompt unavailable.
 2. **No** OS `POST_NOTIFICATIONS` / `PushNotifications.requestPermissions` / `Notification.requestPermission` outside `notification-permission-manager` adapters.
 3. When `!receiveReady`: block Push Register, block Native Incoming Runtime delivery (FCM gate before Runtime).
 4. Samsung / One UI: `POST_NOTIFICATIONS granted` alone is **not** PASS — composite `receiveReady` required.
@@ -72,17 +72,32 @@ When `receiveReady=true` but `lockScreenIncomingReady=false`:
 - `receiveReady`
 - `lockScreenIncomingReady`
 
+## Related docs
+
+- **Legacy Receive Policy (3-tier SSOT):** `docs/permissions/dibay-legacy-call-receive-policy.md`
+  - Runtime / Lock Screen / Media 계층 분리 — **고정**
+  - DIBAY에서 Runtime 차단 게이트 = `receiveReady` only (레거시 앱 일반 원칙으로 단정 금지)
+  - Permission UX 변경 시에도 LOCK Runtime/FCM/Gate 수정 금지
+
 ## Flows
 
 ### First login
 
 ```
 Login Success → syncNotificationState()
-  → if !receiveReady → NotificationGuideModal
-  → user Allow → requestNotificationFromGuide() (only OS request path)
+  → if !receiveReady && canRequestOsNotificationPrompt → requestNotificationFromGuide() (OS modal only)
+  → if !receiveReady && !canRequestOsNotificationPrompt → declined (no passive app modal)
   → syncNotificationState()
   → if receiveReady → Push Register
-  → else → notification_required_blocked + Settings CTA
+  → else → notification_required_blocked
+  → (Android) runPostLoginFullScreenIntentCheck() — FSI off → openFullScreenIntentSettings() direct, no app modal
+```
+
+### Settings retry (explicit user gesture)
+
+```
+settings_retry && !canRequestOsNotificationPrompt → settings-only fallback modal → Open Settings
+settings_retry && canRequestOsNotificationPrompt → requestNotificationFromGuide() direct
 ```
 
 ### FCM incoming (Android)

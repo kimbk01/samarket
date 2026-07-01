@@ -8,6 +8,15 @@ vi.mock("@/lib/permissions/permission-manager/notification-permission-manager", 
   syncNotificationState: vi.fn(),
 }));
 
+vi.mock("@/lib/platform/capacitor-native", () => ({
+  isCapacitorNativePlatform: vi.fn(() => true),
+  resolveCapacitorShellPlatform: vi.fn(() => "android"),
+}));
+
+vi.mock("@/lib/push/native/check-android-full-screen-intent", () => ({
+  checkAndroidFullScreenIntentGranted: vi.fn(),
+}));
+
 vi.mock("@/lib/permissions/device-permission-manager", () => ({
   syncDiBaYOnboardingFromBrowserPermission: vi.fn(),
   recordDiBaYOnboardingDecision: vi.fn(),
@@ -24,7 +33,11 @@ describe("dibay-unified-device-onboarding", () => {
     vi.resetModules();
   });
 
-  it("orders notification before camera and microphone", async () => {
+  it("includes notification only when receiveReady is false", async () => {
+    const { checkAndroidFullScreenIntentGranted } = await import(
+      "@/lib/push/native/check-android-full-screen-intent"
+    );
+    vi.mocked(checkAndroidFullScreenIntentGranted).mockResolvedValue(true);
     const { syncNotificationState } = await import(
       "@/lib/permissions/permission-manager/notification-permission-manager"
     );
@@ -57,10 +70,53 @@ describe("dibay-unified-device-onboarding", () => {
     });
     const { resolveDibayUnifiedOnboardingPlan } = await import("@/lib/permissions/dibay-unified-device-onboarding");
     const plan = await resolveDibayUnifiedOnboardingPlan();
-    expect(plan.steps).toEqual(["notification", "camera", "microphone"]);
+    expect(plan.steps).toEqual(["notification"]);
   });
 
-  it("skips notification when receiveReady is true", async () => {
+  it("includes full_screen_intent when receiveReady and FSI disabled", async () => {
+    const { checkAndroidFullScreenIntentGranted } = await import(
+      "@/lib/push/native/check-android-full-screen-intent"
+    );
+    vi.mocked(checkAndroidFullScreenIntentGranted).mockResolvedValue(false);
+    const { syncNotificationState } = await import(
+      "@/lib/permissions/permission-manager/notification-permission-manager"
+    );
+    vi.mocked(syncNotificationState).mockResolvedValue({
+      effectiveState: "GRANTED",
+      notificationRuntimePermission: true,
+      appNotificationsEnabled: true,
+      incomingCallChannelEnabled: true,
+      fullScreenIntentEnabled: false,
+      batteryUnrestrictedOrUnknown: "unknown",
+      samsungSleepRisk: "unknown",
+      receiveReady: true,
+      lockScreenIncomingReady: false,
+      syncedAt: Date.now(),
+    });
+
+    const { resolveDibayDevicePermissionOnboarding } = await import(
+      "@/lib/permissions/dibay-device-permission-onboarding"
+    );
+    vi.mocked(resolveDibayDevicePermissionOnboarding).mockResolvedValue({
+      shouldShow: false,
+      state: {
+        camera: "unknown",
+        microphone: "unknown",
+        requestedAt: null,
+        grantedAt: null,
+        source: null,
+      },
+    });
+    const { resolveDibayUnifiedOnboardingPlan } = await import("@/lib/permissions/dibay-unified-device-onboarding");
+    const plan = await resolveDibayUnifiedOnboardingPlan();
+    expect(plan.steps).toEqual(["full_screen_intent"]);
+  });
+
+  it("skips all steps when receiveReady is true", async () => {
+    const { checkAndroidFullScreenIntentGranted } = await import(
+      "@/lib/push/native/check-android-full-screen-intent"
+    );
+    vi.mocked(checkAndroidFullScreenIntentGranted).mockResolvedValue(true);
     const { syncNotificationState } = await import(
       "@/lib/permissions/permission-manager/notification-permission-manager"
     );
@@ -93,6 +149,6 @@ describe("dibay-unified-device-onboarding", () => {
     });
     const { resolveDibayUnifiedOnboardingPlan } = await import("@/lib/permissions/dibay-unified-device-onboarding");
     const plan = await resolveDibayUnifiedOnboardingPlan();
-    expect(plan.steps).toEqual(["camera", "microphone"]);
+    expect(plan.steps).toEqual([]);
   });
 });

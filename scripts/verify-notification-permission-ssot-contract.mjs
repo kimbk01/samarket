@@ -166,12 +166,26 @@ if (!mainTree.includes("NotificationPermissionSyncHost")) {
   failures.push("MainAppProviderTree must mount NotificationPermissionSyncHost");
 }
 
+const onboardingFlow = read("lib/permissions/permission-manager/notification-onboarding-flow.ts");
+if (!onboardingFlow.includes("canRequestOsNotificationPrompt(snapshot)")) {
+  failures.push("notification-onboarding-flow must OS-first via canRequestOsNotificationPrompt before requestNotificationFromGuide");
+}
+if (onboardingFlow.includes('const choice = await openNotificationGuideModal(mode, snapshot)') &&
+    !onboardingFlow.includes("runNotificationSettingsGuideFlow")) {
+  failures.push("notification-onboarding-flow must not open guide modal before OS when prompt eligible");
+}
+
+const syncHost = read("lib/permissions/permission-manager/notification-permission-sync-host.tsx");
+if (syncHost.includes("runNotificationGuideFlow")) {
+  failures.push("NotificationPermissionSyncHost must sync only — no runNotificationGuideFlow on resume");
+}
+
 const onboardingGate = read("components/permissions/DiBaYDevicePermissionOnboardingGate.tsx");
 if (!onboardingGate.includes("runNotificationGuideFlow")) {
   failures.push("DiBaYDevicePermissionOnboardingGate must use runNotificationGuideFlow");
 }
-if (onboardingGate.includes("requestNativeNotificationPermissionIfNeeded")) {
-  failures.push("DiBaYDevicePermissionOnboardingGate must not call requestNativeNotificationPermissionIfNeeded");
+if (onboardingGate.includes("CallPermissionModal")) {
+  failures.push("DiBaYDevicePermissionOnboardingGate must not mount CallPermissionModal on login");
 }
 
 if (failures.length > 0) {

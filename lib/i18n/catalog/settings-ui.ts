@@ -118,6 +118,8 @@ export const settingsUiMessages = {
     dibay_notification_guide_open_settings: "알림 설정 열기",
     dibay_notification_guide_open_fsi: "전체 화면 알림 설정",
     dibay_notification_guide_open_battery: "배터리 설정 열기",
+    dibay_notification_guide_settings_only_body:
+      "알림을 허용하시겠습니까? 설정에서 알림을 켜 주세요.",
     dibay_fsi_guide_body:
       "잠금화면에서 통화를 받으려면 기기의 전체화면 알림 허용이 필요합니다.",
     dibay_fsi_guide_settings_hint: "아래 버튼을 누르면 기기 설정 화면으로 이동합니다.",
@@ -497,6 +499,8 @@ export const settingsUiMessages = {
     dibay_notification_guide_open_settings: "Open notification settings",
     dibay_notification_guide_open_fsi: "Full-screen alert settings",
     dibay_notification_guide_open_battery: "Open battery settings",
+    dibay_notification_guide_settings_only_body:
+      "Allow notifications? Turn them on in Settings.",
     dibay_fsi_guide_body:
       "To receive calls on the lock screen, allow full-screen notifications on your device.",
     dibay_fsi_guide_settings_hint: "The button below opens your device settings.",

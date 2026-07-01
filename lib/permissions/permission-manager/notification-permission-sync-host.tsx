@@ -2,19 +2,14 @@
 
 import { useEffect, useRef } from "react";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
-import {
-  getCachedNotificationReceiveSnapshot,
-  syncNotificationState,
-} from "@/lib/permissions/permission-manager/notification-permission-manager";
-import { runNotificationGuideFlow } from "@/lib/permissions/permission-manager/notification-onboarding-flow";
+import { syncNotificationState } from "@/lib/permissions/permission-manager/notification-permission-manager";
 import { clearNotificationRequiredBlocked } from "@/lib/permissions/permission-manager/notification-permission-block-store";
 
 /**
- * App start / foreground resume — sync notification composite and re-show guide when OFF.
+ * App start / foreground resume — sync notification composite only (no app modal / OS reprompt).
  */
 export function NotificationPermissionSyncHost() {
   const lastReceiveReadyRef = useRef<boolean | null>(null);
-  const guideRunningRef = useRef(false);
 
   useEffect(() => {
     if (!isCapacitorNativePlatform()) {
@@ -24,29 +19,13 @@ export function NotificationPermissionSyncHost() {
     let cancelled = false;
 
     const runSync = async (source: "mount" | "visibility" | "app_state") => {
-      /** cold start — TTL·single-flight; 복귀·visibility — OS 설정 변경 반영 */
       const snapshot = await syncNotificationState(source === "mount" ? undefined : { force: true });
       if (cancelled) return;
 
-      const prev = lastReceiveReadyRef.current;
       lastReceiveReadyRef.current = snapshot.receiveReady;
 
       if (snapshot.receiveReady) {
         clearNotificationRequiredBlocked();
-        return;
-      }
-
-      const lostReady = prev === true && !snapshot.receiveReady;
-      const shouldPrompt = lostReady || (source === "visibility" && !snapshot.receiveReady);
-
-      if (!shouldPrompt || guideRunningRef.current) return;
-      if (source === "mount" && getCachedNotificationReceiveSnapshot()?.receiveReady) return;
-
-      guideRunningRef.current = true;
-      try {
-        await runNotificationGuideFlow(lostReady ? "disabled_resume" : "settings_retry");
-      } finally {
-        guideRunningRef.current = false;
       }
     };
 

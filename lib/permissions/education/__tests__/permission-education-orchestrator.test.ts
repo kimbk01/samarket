@@ -150,12 +150,12 @@ describe("runLockScreenEducationIfNeeded", () => {
     resetPermissionEducationOrchestratorForTests();
   });
 
-  it("delegates to Android FSI education flow", async () => {
+  it("is a no-op (FSI deferred to lock-screen failure follow-up)", async () => {
     const { runFullScreenIntentEducationBeforeCall } = await import(
       "@/lib/permissions/permission-manager/full-screen-intent-guide-flow"
     );
     await runLockScreenEducationIfNeeded();
-    expect(runFullScreenIntentEducationBeforeCall).toHaveBeenCalledTimes(1);
+    expect(runFullScreenIntentEducationBeforeCall).not.toHaveBeenCalled();
     expect(openPermissionEducationSheet).not.toHaveBeenCalled();
   });
 });

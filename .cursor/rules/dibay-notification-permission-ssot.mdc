@@ -1,5 +1,5 @@
 ---
-description: DIBAY Notification Permission SSOT — Guide-first, single request path, Incoming/Push gate
+description: DIBAY Notification Permission SSOT — OS-first, single request path, Incoming/Push gate
 globs:
   - lib/permissions/permission-manager/**
   - lib/push/native/**
@@ -22,10 +22,11 @@ OS notification request (`POST_NOTIFICATIONS`, `PushNotifications.requestPermiss
 
 - `lib/permissions/permission-manager/adapters/*.ts` via `requestNotificationFromGuide()`
 
-## Guide-first
+## OS-first (permission UX)
 
-- First login: Notification Guide Modal **before** any OS popup.
-- `PERMANENT_DENIED` / `SYSTEM_DISABLED`: Settings CTA only — **no** OS popup repeat.
+- First login / settings_retry when `canRequestOsNotificationPrompt`: **direct** `requestNotificationFromGuide()` — **no** app guide modal before OS.
+- `disabled_resume` / visibility: sync only — **no** app modal, **no** OS reprompt.
+- `PERMANENT_DENIED` / `SYSTEM_DISABLED`: settings-only fallback modal (`NotificationGuideModalHost`) on explicit `settings_retry` only — **no** OS popup repeat.
 
 ## Composite tiers (LOCK)
 
@@ -67,3 +68,14 @@ FSI OFF: Push/FCM **not** blocked when receiveReady=true. Lock-screen FSI, Activ
 npm run verify:notification-permission-ssot-contract
 node scripts/qa/notification-receive-gate-adb-qa.mjs
 ```
+
+## Legacy Receive Policy (3-tier — do not mix)
+
+Full doc: `docs/permissions/dibay-legacy-call-receive-policy.md`
+
+- **DIBAY only:** Runtime official gate = `receiveReady` (Notification). Do **not** state this as universal legacy-app law.
+- **Runtime tier:** Notification → FCM → Runtime → Ring → Incoming UI. FSI/mic/camera/battery/speaker/bluetooth **must not** block Runtime.
+- **Lock Screen tier:** FSI/battery → lock full UI only; Runtime/Ring/Incoming UI **continue**.
+- **Media tier:** Mic/Camera at accept/outgoing gesture → Join only; **must not** block receive.
+- **Invariant:** Permission UX changes **must not** modify Runtime, FCM, Agora, Native Runtime, `NotificationReceiveGate`.
+- Post-login FSI (Android): `runPostLoginFullScreenIntentCheck()` — OS settings direct, no DIBAY modal.
