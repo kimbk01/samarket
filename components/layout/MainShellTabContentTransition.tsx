@@ -39,6 +39,17 @@ function StableMainTabEnterPanel() {
   return <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-sam-app" aria-hidden />;
 }
 
+/** Philife 하단 탭 push — 거래와 동일하게 defer 없이 session cache instant boot */
+function PhilifeTabPushEnterPanel({ href }: { href: string }) {
+  return (
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-sam-app">
+      <Suspense fallback={null}>
+        <PhilifeFeedClientEntry tabEnterInstantBoot tabEnterHref={href} />
+      </Suspense>
+    </div>
+  );
+}
+
 function DeferredMainTabEnterPanel({ href }: { href: string }) {
   const [ready, setReady] = useState(false);
   const { pathname, search } = useMemo(() => {
@@ -78,16 +89,6 @@ function DeferredMainTabEnterPanel({ href }: { href: string }) {
   }, [href]);
 
   if (!ready) return <StableMainTabEnterPanel />;
-
-  if (pathname === "/philife") {
-    return (
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-sam-app">
-        <Suspense fallback={null}>
-          <PhilifeFeedClientEntry />
-        </Suspense>
-      </div>
-    );
-  }
 
   if (pathname === "/stores") {
     return (
@@ -139,8 +140,11 @@ function MainBottomNavPendingEnterPanel({ href }: { href: string }) {
     return <TradeMarketTabPushEnterPanel href={href} />;
   }
 
+  if (pathname === "/philife") {
+    return <PhilifeTabPushEnterPanel href={href} />;
+  }
+
   if (
-    pathname === "/philife" ||
     pathname === "/stores" ||
     pathname === "/community-messenger" ||
     pathname === "/mypage" ||
