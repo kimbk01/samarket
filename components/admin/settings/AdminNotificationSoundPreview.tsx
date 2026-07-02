@@ -29,6 +29,23 @@ function shouldUseCrossOrigin(src: string): boolean {
   }
 }
 
+function absoluteAudioSrc(src: string): string {
+  try {
+    return new URL(src, window.location.href).href;
+  } catch {
+    return src;
+  }
+}
+
+function audioSrcMatches(audio: HTMLAudioElement, src: string): boolean {
+  if (!audio.src) return false;
+  try {
+    return new URL(audio.src).href === absoluteAudioSrc(src);
+  } catch {
+    return false;
+  }
+}
+
 export function AdminNotificationSoundPreview({
   soundUrl,
   volume,
@@ -39,6 +56,7 @@ export function AdminNotificationSoundPreview({
   const { t } = useI18n();
   const resolvedSrc = (soundUrl?.trim() || NOTIFICATION_SOUND_ASSET_PATH).trim();
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const listenersCleanupRef = useRef<(() => void) | null>(null);
   const maxStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [duration, setDuration] = useState<number | null>(null);
   const [current, setCurrent] = useState(0);
@@ -51,52 +69,71 @@ export function AdminNotificationSoundPreview({
     }
   }, []);
 
+  const detachListeners = useCallback(() => {
+    listenersCleanupRef.current?.();
+    listenersCleanupRef.current = null;
+  }, []);
+
+  const releaseAudio = useCallback(() => {
+    clearMaxStopTimer();
+    detachListeners();
+    const a = audioRef.current;
+    if (!a) return;
+    a.pause();
+    a.currentTime = 0;
+    a.removeAttribute("src");
+    void a.load();
+    audioRef.current = null;
+  }, [clearMaxStopTimer, detachListeners]);
+
+  const attachListeners = useCallback(
+    (a: HTMLAudioElement) => {
+      detachListeners();
+
+      const syncDuration = () => {
+        const d = resolveDuration(a);
+        if (d != null) setDuration(d);
+      };
+
+      const onTime = () => {
+        const tSec = a.currentTime || 0;
+        setCurrent(Math.min(tSec, NOTIFICATION_SOUND_MAX_PLAY_SEC));
+      };
+      const onEnded = () => {
+        clearMaxStopTimer();
+        setPlaying(false);
+        setCurrent(0);
+      };
+
+      a.addEventListener("loadedmetadata", syncDuration);
+      a.addEventListener("durationchange", syncDuration);
+      a.addEventListener("canplaythrough", syncDuration);
+      a.addEventListener("timeupdate", onTime);
+      a.addEventListener("ended", onEnded);
+
+      listenersCleanupRef.current = () => {
+        a.removeEventListener("loadedmetadata", syncDuration);
+        a.removeEventListener("durationchange", syncDuration);
+        a.removeEventListener("canplaythrough", syncDuration);
+        a.removeEventListener("timeupdate", onTime);
+        a.removeEventListener("ended", onEnded);
+      };
+    },
+    [clearMaxStopTimer, detachListeners]
+  );
+
   useEffect(() => {
+    releaseAudio();
     setDuration(null);
     setCurrent(0);
     setPlaying(false);
-    clearMaxStopTimer();
+  }, [releaseAudio, resolvedSrc]);
 
-    const a = new Audio(resolvedSrc);
-    a.preload = "metadata";
-    if (shouldUseCrossOrigin(resolvedSrc)) {
-      a.crossOrigin = "anonymous";
-    }
-    audioRef.current = a;
-
-    const syncDuration = () => {
-      const d = resolveDuration(a);
-      if (d != null) setDuration(d);
-    };
-
-    const onTime = () => {
-      const tSec = a.currentTime || 0;
-      setCurrent(Math.min(tSec, NOTIFICATION_SOUND_MAX_PLAY_SEC));
-    };
-    const onEnded = () => {
-      clearMaxStopTimer();
-      setPlaying(false);
-      setCurrent(0);
-    };
-
-    a.addEventListener("loadedmetadata", syncDuration);
-    a.addEventListener("durationchange", syncDuration);
-    a.addEventListener("canplaythrough", syncDuration);
-    a.addEventListener("timeupdate", onTime);
-    a.addEventListener("ended", onEnded);
-    void a.load();
-
+  useEffect(() => {
     return () => {
-      clearMaxStopTimer();
-      a.pause();
-      a.removeEventListener("loadedmetadata", syncDuration);
-      a.removeEventListener("durationchange", syncDuration);
-      a.removeEventListener("canplaythrough", syncDuration);
-      a.removeEventListener("timeupdate", onTime);
-      a.removeEventListener("ended", onEnded);
-      audioRef.current = null;
+      releaseAudio();
     };
-  }, [clearMaxStopTimer, resolvedSrc]);
+  }, [releaseAudio]);
 
   useEffect(() => {
     const a = audioRef.current;
@@ -104,14 +141,26 @@ export function AdminNotificationSoundPreview({
   }, [volume]);
 
   const toggle = useCallback(() => {
-    const a = audioRef.current;
-    if (!a) return;
     if (playing) {
       clearMaxStopTimer();
-      a.pause();
+      audioRef.current?.pause();
       setPlaying(false);
       return;
     }
+
+    let a = audioRef.current;
+    if (!a || !audioSrcMatches(a, resolvedSrc)) {
+      releaseAudio();
+      a = new Audio();
+      a.preload = "none";
+      if (shouldUseCrossOrigin(resolvedSrc)) {
+        a.crossOrigin = "anonymous";
+      }
+      a.src = resolvedSrc;
+      attachListeners(a);
+      audioRef.current = a;
+    }
+
     clearMaxStopTimer();
     a.volume = Math.max(0, Math.min(1, volume));
     a.currentTime = 0;
@@ -131,7 +180,7 @@ export function AdminNotificationSoundPreview({
         }, NOTIFICATION_SOUND_MAX_PLAY_SEC * 1000);
       })
       .catch(() => setPlaying(false));
-  }, [clearMaxStopTimer, playing, volume]);
+  }, [attachListeners, clearMaxStopTimer, playing, releaseAudio, resolvedSrc, volume]);
 
   const fileDurationLabel =
     duration != null ? formatTime(duration) : t("admin_notif_sound_preview_duration_unknown");

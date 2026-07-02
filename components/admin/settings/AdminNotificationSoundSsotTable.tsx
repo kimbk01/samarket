@@ -1,7 +1,7 @@
 "use client";
 
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Camera, Loader2 } from "lucide-react";
+import { Loader2, Music } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { NOTIFICATION_SOUND_DOMAINS, type NotificationSoundDomain } from "@/lib/notifications/notification-sound-types";
 import { displayNotificationSoundAssetLabel } from "@/lib/notifications/notification-sound-display-filename";
@@ -99,6 +99,16 @@ function rowForSave(row: MappingRow): MappingRow {
   return { ...row, repeat_count: 1 };
 }
 
+const DEFAULT_VOLUME = 0.7;
+
+type SoundSourceKind = "device" | "dibay" | "custom";
+
+function resolveSoundSource(mapping: MappingRow, asset: AssetRow | undefined): SoundSourceKind {
+  if (mapping.use_device_default === true) return "device";
+  if (asset?.kind === "dibay_custom") return "custom";
+  return "dibay";
+}
+
 function NotificationSoundSsotRow({
   ev,
   mapping,
@@ -131,6 +141,11 @@ function NotificationSoundSsotRow({
   const label = language === "en" ? ev.label_en : ev.label_ko;
   const dirty = isRowDirty(mapping, baseline);
   const repeatPolicy = getRepeatPolicy(ev.event_key);
+  const selectedSource = resolveSoundSource(mapping, asset);
+  const hasCustomAsset = asset?.kind === "dibay_custom";
+  const currentVolume = mapping.volume ?? DEFAULT_VOLUME;
+  const volumePct = Math.round(currentVolume * 100);
+  const defaultVolumePct = Math.round(DEFAULT_VOLUME * 100);
   const soundFileName = displayNotificationSoundAssetLabel(
     asset,
     t("admin_settings_notif_preview_default")
@@ -140,6 +155,18 @@ function NotificationSoundSsotRow({
     savedBaselineAsset,
     t("admin_settings_notif_preview_default")
   );
+
+  const handleSourceChange = (src: SoundSourceKind) => {
+    if (src === "device") {
+      onPatch({ use_device_default: true });
+      return;
+    }
+    if (src === "dibay") {
+      onPatch({ use_device_default: false, asset_id: ev.default_asset_id });
+      return;
+    }
+    onPatch({ use_device_default: false });
+  };
 
   return (
     <div className="space-y-3 border-b border-sam-border-soft px-4 py-4 last:border-b-0 sm:px-5">
@@ -157,27 +184,99 @@ function NotificationSoundSsotRow({
               ? t("admin_notif_sound_policy_repeat")
               : t("admin_notif_sound_policy_once")}
           </span>
+          {baseline ? (
+            dirty ? (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 sam-text-helper text-amber-900">
+                {t("admin_notif_sound_unsaved_badge")}
+              </span>
+            ) : (
+              <span className="rounded-full bg-green-100 px-2 py-0.5 sam-text-helper text-green-900">
+                {t("admin_notif_sound_applied_badge")}
+              </span>
+            )
+          ) : null}
         </div>
-        <div className="flex flex-wrap items-center gap-4">
-          <label className="flex items-center gap-2 sam-text-body-secondary text-sam-muted">
-            {t("admin_notif_sound_col_device")}
-            <input
-              type="checkbox"
-              className="h-4 w-4"
-              checked={mapping.use_device_default === true}
-              onChange={(e) => onPatch({ use_device_default: e.target.checked })}
-            />
-          </label>
-          <label className="flex items-center gap-2 sam-text-body-secondary text-sam-muted">
-            {t("admin_notif_sound_col_active")}
-            <input
-              type="checkbox"
-              className="h-4 w-4"
-              checked={mapping.enabled !== false}
-              onChange={(e) => onPatch({ enabled: e.target.checked })}
-            />
-          </label>
+        <label className="flex items-center gap-2 sam-text-body-secondary text-sam-muted">
+          {t("admin_notif_sound_col_active")}
+          <input
+            type="checkbox"
+            className="h-4 w-4"
+            checked={mapping.enabled !== false}
+            onChange={(e) => onPatch({ enabled: e.target.checked })}
+          />
+        </label>
+      </div>
+
+      <fieldset className="space-y-2">
+        <legend className="sam-text-helper font-medium text-sam-muted">{t("admin_notif_sound_col_sound")}</legend>
+        <div className="flex flex-wrap gap-x-4 gap-y-2">
+          {(
+            [
+              ["device", "admin_notif_sound_source_device"],
+              ["dibay", "admin_notif_sound_source_dibay"],
+              ["custom", "admin_notif_sound_source_custom"],
+            ] as const
+          ).map(([src, labelKey]) => (
+            <label key={src} className="flex cursor-pointer items-center gap-2 sam-text-body-secondary text-sam-fg">
+              <input
+                type="radio"
+                name={`notif-sound-source-${ev.event_key}`}
+                className="h-4 w-4"
+                checked={selectedSource === src}
+                onChange={() => handleSourceChange(src)}
+              />
+              {t(labelKey)}
+            </label>
+          ))}
         </div>
+        {!mapping.use_device_default ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface text-sam-fg hover:bg-sam-app disabled:opacity-50"
+              disabled={isUploading || isSaving}
+              onClick={onUpload}
+              aria-label={t("admin_settings_notif_pick_file")}
+              title={t("admin_settings_notif_pick_file")}
+            >
+              {isUploading ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              ) : (
+                <Music className="h-4 w-4" strokeWidth={2} aria-hidden />
+              )}
+            </button>
+            {!hasCustomAsset ? (
+              <span className="sam-text-helper text-sam-muted">{t("admin_notif_sound_custom_upload_hint")}</span>
+            ) : null}
+          </div>
+        ) : null}
+      </fieldset>
+
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 sam-text-body-secondary text-sam-muted">
+        <span>
+          {t("admin_notif_sound_volume_default")}: {defaultVolumePct}%
+        </span>
+        <label className="flex min-w-[12rem] flex-1 items-center gap-2">
+          <span className="shrink-0">{t("admin_notif_sound_volume_current")}</span>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={5}
+            value={volumePct}
+            className="min-w-[6rem] flex-1"
+            onChange={(e) => onPatch({ volume: Number(e.target.value) / 100 })}
+          />
+          <span className="w-10 shrink-0 tabular-nums">{volumePct}%</span>
+        </label>
+        <button
+          type="button"
+          className="rounded-ui-rect border border-sam-border px-2 py-1 sam-text-helper text-sam-muted hover:bg-sam-app disabled:opacity-50"
+          disabled={volumePct === defaultVolumePct}
+          onClick={() => onPatch({ volume: DEFAULT_VOLUME })}
+        >
+          {t("admin_notif_sound_volume_reset")}
+        </button>
       </div>
 
       {repeatPolicy === "repeat" ? (
@@ -210,22 +309,7 @@ function NotificationSoundSsotRow({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <AdminNotificationSoundPreview soundUrl={previewUrl} volume={mapping.volume ?? 0.7} />
-
-        <button
-          type="button"
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface text-sam-fg hover:bg-sam-app disabled:opacity-50"
-          disabled={isUploading || isSaving}
-          onClick={onUpload}
-          aria-label={t("admin_settings_notif_pick_file")}
-          title={t("admin_settings_notif_pick_file")}
-        >
-          {isUploading ? (
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-          ) : (
-            <Camera className="h-4 w-4" strokeWidth={2} aria-hidden />
-          )}
-        </button>
+        <AdminNotificationSoundPreview soundUrl={previewUrl} volume={currentVolume} />
 
         <button
           type="button"
