@@ -29,6 +29,14 @@ vi.mock("@/lib/community-messenger/call-v4/call-v4-cleanup", () => ({
   cleanupCallV4: (...args: unknown[]) => lifecycleMocks.cleanup(...args),
 }));
 
+vi.mock("@/lib/community-messenger/call-session-navigation-seed", () => ({
+  pinCommunityMessengerCallTerminalSurfaceDismiss: vi.fn(),
+}));
+
+vi.mock("@/lib/call/active-call-session", () => ({
+  hardClearActiveCallSession: vi.fn(async () => {}),
+}));
+
 vi.mock("@/lib/community-messenger/call-v4/call-v4-route", () => ({
   rememberCallV4ReturnPath: vi.fn(),
   buildCallV4ScreenHref: vi.fn(() => "/community-messenger/calls-v4/call-hook"),
@@ -49,12 +57,14 @@ vi.mock("@/lib/community-messenger/call-v4/call-v4-patch-guard", () => ({
   releaseCallV4AcceptFlightClaim: vi.fn(),
 }));
 
+import { hardClearActiveCallSession } from "@/lib/call/active-call-session";
 import {
   callV4Accept,
   callV4HandleRemoteTerminal,
   callV4Reject,
   resetCallV4RemoteTerminalClaimsForTests,
 } from "@/lib/community-messenger/call-v4/call-v4-actions";
+import { pinCommunityMessengerCallTerminalSurfaceDismiss } from "@/lib/community-messenger/call-session-navigation-seed";
 import { useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
 
 describe("call-v4 actions native lifecycle hooks", () => {
@@ -155,6 +165,8 @@ describe("call-v4 actions native lifecycle hooks", () => {
 
     expect(lifecycleMocks.cleanup).toHaveBeenCalledTimes(1);
     expect(lifecycleMocks.cleanup).toHaveBeenCalledWith("call-route", "ended");
+    expect(pinCommunityMessengerCallTerminalSurfaceDismiss).toHaveBeenCalledWith("call-route");
+    expect(hardClearActiveCallSession).toHaveBeenCalledWith("call-route", "call_v4_terminal_finalize");
     vi.unstubAllGlobals();
   });
 });
