@@ -58,7 +58,6 @@ import { maybeExitCallV4ScreenAfterCleanup } from "@/lib/community-messenger/cal
 import {
   buildCallV4ScreenHref,
   exitCallV4ScreenAfterCleanup,
-  isCallV4OutgoingPresentationSource,
   rememberCallV4ReturnPath,
   readCallV4ExitRouter,
   routeToCallV4Screen,
@@ -317,9 +316,18 @@ async function finalizeCallV4Terminal(
   router?: CallV4Router
 ): Promise<void> {
   const sid = callId.trim();
+  const wasAndroidOutgoingPresentationRoute = isAndroidOutgoingPresentationRoute(sid);
   await cleanupCallV4(sid, reason);
   pinCommunityMessengerCallTerminalSurfaceDismiss(sid);
   void hardClearActiveCallSession(sid, "call_v4_terminal_finalize");
+  if (wasAndroidOutgoingPresentationRoute) {
+    logCallV4("android_outgoing_presentation_exit", {
+      callId: sid,
+      reason: String(reason),
+    });
+    exitCallV4ScreenAfterCleanup(router);
+    return;
+  }
   if (isLegacyWebCallEstablishmentRemoved()) {
     if (isAndroidOutgoingPresentationRoute(sid)) {
       logCallV4("android_outgoing_presentation_exit", {
@@ -362,7 +370,7 @@ function isAndroidOutgoingPresentationRoute(callId: string): boolean {
   const route = `${window.location.pathname}${window.location.search}`;
   if (readCallV4SessionIdFromNativeRoute(route) !== sid) return false;
   const source = new URLSearchParams(window.location.search).get("source");
-  return isCallV4OutgoingPresentationSource(source);
+  return source?.trim() === "outgoing";
 }
 
 function canHandleCallV4RemoteTerminal(callId: string): boolean {
