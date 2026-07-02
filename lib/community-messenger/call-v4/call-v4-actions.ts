@@ -55,6 +55,8 @@ import { isAndroidNativeOutgoingShell, startNativeOutgoingEstablishment } from "
 import { maybeExitCallV4ScreenAfterCleanup } from "@/lib/community-messenger/call-v4/call-v4-exit-guard";
 import {
   buildCallV4ScreenHref,
+  exitCallV4ScreenAfterCleanup,
+  isCallV4OutgoingPresentationSource,
   rememberCallV4ReturnPath,
   readCallV4ExitRouter,
   routeToCallV4Screen,
@@ -250,11 +252,19 @@ async function finalizeCallV4Terminal(
 ): Promise<void> {
   await cleanupCallV4(callId, reason);
   if (isLegacyWebCallEstablishmentRemoved()) {
-    logCallV4("legacy_web_establishment_removed", {
-      callId: callId.trim(),
-      trigger: "exit_screen_after_cleanup",
-      reason: String(reason),
-    });
+    if (isAndroidOutgoingPresentationRoute(callId)) {
+      logCallV4("android_outgoing_presentation_exit", {
+        callId: callId.trim(),
+        reason: String(reason),
+      });
+      exitCallV4ScreenAfterCleanup(router);
+    } else {
+      logCallV4("legacy_web_establishment_removed", {
+        callId: callId.trim(),
+        trigger: "exit_screen_after_cleanup",
+        reason: String(reason),
+      });
+    }
     return;
   }
   maybeExitCallV4ScreenAfterCleanup(callId, String(reason), router);
@@ -273,6 +283,17 @@ function mapCallV4RemoteTerminalReason(status: string | null | undefined): CallV
 function readCurrentCallV4RouteCallId(): string | null {
   if (typeof window === "undefined") return null;
   return readCallV4SessionIdFromNativeRoute(`${window.location.pathname}${window.location.search}`);
+}
+
+/** Android sync-only — post-cleanup exit for Web outgoing presentation shell only. */
+function isAndroidOutgoingPresentationRoute(callId: string): boolean {
+  if (typeof window === "undefined") return false;
+  const sid = callId.trim();
+  if (!sid) return false;
+  const route = `${window.location.pathname}${window.location.search}`;
+  if (readCallV4SessionIdFromNativeRoute(route) !== sid) return false;
+  const source = new URLSearchParams(window.location.search).get("source");
+  return isCallV4OutgoingPresentationSource(source);
 }
 
 function canHandleCallV4RemoteTerminal(callId: string): boolean {
