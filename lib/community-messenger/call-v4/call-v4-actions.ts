@@ -4,7 +4,9 @@ import {
   assertPhoneVerifiedForMessengerActionOrOpenSheet,
   resolveMessengerActionReturnPath,
 } from "@/lib/auth/assert-phone-verified-for-messenger-action-client";
+import { hardClearActiveCallSession } from "@/lib/call/active-call-session";
 import { ensureCallMediaForUserGesture } from "@/lib/community-messenger/call-media-permission-preflight";
+import { pinCommunityMessengerCallTerminalSurfaceDismiss } from "@/lib/community-messenger/call-session-navigation-seed";
 import { unlockCommunityMessengerCallPlaybackFromUserGesture } from "@/lib/community-messenger/call-feedback-sound";
 import type { CommunityMessengerCallKind, CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 import { safeTranslate } from "@/lib/i18n/safe-translate";
@@ -314,24 +316,27 @@ async function finalizeCallV4Terminal(
   reason: CallV4TerminalPhase | string,
   router?: CallV4Router
 ): Promise<void> {
-  await cleanupCallV4(callId, reason);
+  const sid = callId.trim();
+  await cleanupCallV4(sid, reason);
+  pinCommunityMessengerCallTerminalSurfaceDismiss(sid);
+  void hardClearActiveCallSession(sid, "call_v4_terminal_finalize");
   if (isLegacyWebCallEstablishmentRemoved()) {
-    if (isAndroidOutgoingPresentationRoute(callId)) {
+    if (isAndroidOutgoingPresentationRoute(sid)) {
       logCallV4("android_outgoing_presentation_exit", {
-        callId: callId.trim(),
+        callId: sid,
         reason: String(reason),
       });
       exitCallV4ScreenAfterCleanup(router);
     } else {
       logCallV4("legacy_web_establishment_removed", {
-        callId: callId.trim(),
+        callId: sid,
         trigger: "exit_screen_after_cleanup",
         reason: String(reason),
       });
     }
     return;
   }
-  maybeExitCallV4ScreenAfterCleanup(callId, String(reason), router);
+  maybeExitCallV4ScreenAfterCleanup(sid, String(reason), router);
 }
 
 function mapCallV4RemoteTerminalReason(status: string | null | undefined): CallV4TerminalPhase {

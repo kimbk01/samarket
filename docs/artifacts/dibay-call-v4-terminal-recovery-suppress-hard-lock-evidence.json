@@ -1,0 +1,51 @@
+{
+  "at": "2026-07-02T05:05:59.886Z",
+  "hardLock": true,
+  "track": "V4 Terminal Recovery Suppress",
+  "lockStatement": "finalizeCallV4Terminal pins legacy terminal dismiss (pinCommunityMessengerCallTerminalSurfaceDismiss + hardClearActiveCallSession) after cleanupCallV4 and before route exit to block CallActiveSessionRecoveryHost /calls→/calls-v4 resurrection.",
+  "vercelOrigin": "https://samarket.vercel.app",
+  "devices": {
+    "serialA": "8b37179f7d94",
+    "serialB": "RFCY40PY2CA"
+  },
+  "qaHarness": ".qa-logs/p2-end-ui-residue-qa.mjs",
+  "qaReport": ".qa-logs/p2-end-ui-residue-qa/report-2026-07-02T05-05-59-886Z.json",
+  "modifiedFiles": [
+    "lib/community-messenger/call-v4/call-v4-actions.ts"
+  ],
+  "nativeDiff": 0,
+  "lockDocDiff": 0,
+  "requiredChain": [
+    "cleanup_done",
+    "android_outgoing_presentation_exit",
+    "exit_screen"
+  ],
+  "runs": [
+    {
+      "scenario": "P2-4",
+      "callId": "3b854d29-cd4d-48fb-9980-38a806b71bec",
+      "verdict": "PASS",
+      "exitProbe": {
+        "href": "https://samarket.vercel.app/community-messenger?section=call_logs&from=community",
+        "oldUrl": false,
+        "oldShell": false
+      }
+    },
+    {
+      "scenario": "P2-5",
+      "oldCallId": "d68f3138-6779-4ab4-b45c-9dac157503f2",
+      "newCallId": "b4dfb97b-76d5-4ff5-b009-21f37506e225",
+      "verdict": "PASS",
+      "oldUrl": false,
+      "oldShell": false
+    }
+  ],
+  "overallQaPass": true,
+  "trackStatus": "CLOSED",
+  "forbiddenAfterLock": [
+    "Reopen V4 Terminal Recovery Suppress without red-team approval",
+    "Remove pinCommunityMessengerCallTerminalSurfaceDismiss from finalizeCallV4Terminal",
+    "Remove hardClearActiveCallSession from finalizeCallV4Terminal",
+    "Native Runtime changes for this symptom"
+  ]
+}
