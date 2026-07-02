@@ -59,7 +59,11 @@ describe("call-v4-missed-timeout", () => {
     await Promise.resolve();
 
     expect(handleMissedMocks.handleMissed).toHaveBeenCalledTimes(1);
-    expect(handleMissedMocks.handleMissed).toHaveBeenCalledWith("call-out", "outgoing:no_answer", undefined);
+    expect(handleMissedMocks.handleMissed).toHaveBeenCalledWith("call-out", "outgoing:no_answer", undefined, {
+      callId: "call-out",
+      direction: "outgoing",
+      scheduledPhase: "outgoing_ringing",
+    });
     expect(readCallV4MissedTimerCallIdForTests()).toBeNull();
   });
 

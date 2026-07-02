@@ -29,7 +29,7 @@ import { stopCallV4CallerActivePoll, startCallV4CallerActivePoll } from "@/lib/c
 import { cleanupCallV4 } from "@/lib/community-messenger/call-v4/call-v4-cleanup";
 import { primeCallV4ConnectionWarm } from "@/lib/community-messenger/call-v4/call-v4-connection-warm";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
-import { clearCallV4MissedTimer } from "@/lib/community-messenger/call-v4/call-v4-missed-timeout";
+import { clearCallV4MissedTimer, type CallV4OutgoingMissedTimerFireContext } from "@/lib/community-messenger/call-v4/call-v4-missed-timeout";
 import {
   canRenderWebIncomingSheet,
 } from "@/lib/community-messenger/call-v4/call-v4-incoming-surface";
@@ -70,6 +70,70 @@ const REMOTE_TERMINAL_ALLOWED_PHASES = new Set<CallV4Phase>(["joining", "connect
 
 const remoteTerminalFinalized = new Set<string>();
 const missedPatchClaimed = new Set<string>();
+
+const MISSED_TIMEOUT_TERMINAL_PHASES = new Set<CallV4Phase>([
+  "ending",
+  "ended",
+  "rejected",
+  "missed",
+  "cancelled",
+  "failed",
+  "idle",
+]);
+
+function resolveOutgoingMissedTimeoutEligibility(
+  callId: string,
+  fireContext?: CallV4OutgoingMissedTimerFireContext,
+): { eligible: boolean; reason: string } {
+  const sid = callId.trim();
+  if (!sid) return { eligible: false, reason: "empty_call_id" };
+
+  const phase = readCallV4Phase();
+  if (MISSED_TIMEOUT_TERMINAL_PHASES.has(phase)) {
+    return { eligible: false, reason: `terminal_phase:${phase}` };
+  }
+
+  const identity = readCallV4Identity();
+  const identityOk = identity?.callId === sid && identity.direction === "outgoing";
+  const phaseOk = phase === "outgoing_ringing" || phase === "creating";
+  if (identityOk && phaseOk) {
+    return { eligible: true, reason: "identity_phase_ok" };
+  }
+
+  const nativeOutgoingRoute =
+    isLegacyWebCallEstablishmentRemoved() && isAndroidOutgoingPresentationRoute(sid);
+  if (nativeOutgoingRoute) {
+    if (identityOk && (phaseOk || phase === "joining")) {
+      return { eligible: true, reason: "native_outgoing_route_drift" };
+    }
+    if (fireContext?.callId === sid && fireContext.direction === "outgoing") {
+      return { eligible: true, reason: "native_outgoing_scheduled_timer" };
+    }
+    if (
+      readCurrentCallV4RouteCallId() === sid &&
+      (phaseOk || phase === "joining")
+    ) {
+      return { eligible: true, reason: "native_outgoing_route_phase" };
+    }
+  }
+
+  return {
+    eligible: false,
+    reason: `identity_phase_mismatch:identity=${identity?.callId ?? "none"}:${identity?.direction ?? "none"}:phase=${phase}`,
+  };
+}
+
+async function finalizeOutgoingMissedTimeout(
+  callId: string,
+  source: string,
+  router: CallV4Router | undefined,
+  identity: CallV4Identity | null,
+): Promise<void> {
+  const sid = callId.trim();
+  notifyCallV4PeerTerminalBestEffort(sid, identity, "missed");
+  await finalizeCallV4Terminal(sid, "missed", router ?? readCallV4ExitRouter() ?? undefined);
+  logCallV4("missed_timeout_finalize_done", { callId: sid, source });
+}
 
 const MISSED_TIMEOUT_TERMINAL_STATUSES = new Set([
   "rejected",
@@ -718,26 +782,51 @@ export async function callV4HandleMissedTimeout(
   callId: string,
   source: string,
   router?: CallV4Router,
+  fireContext?: CallV4OutgoingMissedTimerFireContext,
 ): Promise<void> {
   const sid = callId.trim();
-  if (!sid) return;
+  if (!sid) {
+    logCallV4("missed_timeout_skipped", { callId: sid, source, reason: "empty_call_id" });
+    return;
+  }
+
+  const eligibility = resolveOutgoingMissedTimeoutEligibility(sid, fireContext);
+  if (!eligibility.eligible) {
+    logCallV4("missed_timeout_skipped", { callId: sid, source, reason: eligibility.reason });
+    return;
+  }
+  logCallV4("missed_timeout_eligible", { callId: sid, source, reason: eligibility.reason });
 
   const identity = readCallV4Identity();
-  if (identity?.callId !== sid || identity.direction !== "outgoing") return;
-
-  const phase = readCallV4Phase();
-  if (phase !== "outgoing_ringing" && phase !== "creating") return;
-
   const session = await callV4FetchSession(sid);
   if (session && isCallV4TerminalSessionStatus(session.status)) {
     await callV4HandleRemoteTerminal(sid, session.status, router, source);
     return;
   }
 
+  const nativeOutgoingShell =
+    isLegacyWebCallEstablishmentRemoved() && isAndroidOutgoingPresentationRoute(sid);
+
   if (!claimCallV4MissedPatchOnce(sid)) {
+    logCallV4("missed_patch_claim_skipped", { callId: sid, source });
     const retrySession = await callV4FetchSession(sid);
     if (retrySession && isCallV4TerminalSessionStatus(retrySession.status)) {
       await callV4HandleRemoteTerminal(sid, retrySession.status, router, source);
+      return;
+    }
+    if (nativeOutgoingShell) {
+      const retryPatch = await callV4PatchMissed(sid);
+      const afterRetrySession = await callV4FetchSession(sid);
+      if (
+        retryPatch.ok ||
+        (afterRetrySession && isCallV4TerminalSessionStatus(afterRetrySession.status))
+      ) {
+        await finalizeOutgoingMissedTimeout(sid, source, router, identity);
+      } else {
+        logCallV4("missed_timeout_skipped", { callId: sid, source, reason: "patch_claim_busy" });
+      }
+    } else {
+      logCallV4("missed_timeout_skipped", { callId: sid, source, reason: "patch_claim_busy" });
     }
     return;
   }
@@ -753,13 +842,21 @@ export async function callV4HandleMissedTimeout(
       await finalizeCallV4Terminal(sid, mapCallV4RemoteTerminalReason(afterPatchSession.status), router);
       return;
     }
+    if (nativeOutgoingShell) {
+      logCallV4("missed_patch_failed_force_finalize", {
+        callId: sid,
+        source,
+        error: patched.error ?? null,
+      });
+      await finalizeOutgoingMissedTimeout(sid, source, router, identity);
+      return;
+    }
     releaseCallV4MissedPatchClaim(sid);
     logCallV4("missed_patch_failed", { callId: sid, source, error: patched.error ?? null });
     return;
   }
 
-  notifyCallV4PeerTerminalBestEffort(sid, identity, "missed");
-  await finalizeCallV4Terminal(sid, "missed", router ?? readCallV4ExitRouter() ?? undefined);
+  await finalizeOutgoingMissedTimeout(sid, source, router, identity);
 }
 
 export function resetCallV4RemoteTerminalClaimsForTests(): void {
