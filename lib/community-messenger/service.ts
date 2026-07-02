@@ -17578,14 +17578,16 @@ async function resolveRoomContextForCallSessionStart(
   };
 }
 
-async function sendIncomingCallPushBestEffort(input: {
+export type IncomingCallPushBestEffortInput = {
   recipientUserId: string;
   sessionId: string;
   roomId: string;
   callerId: string;
   callKind: CommunityMessengerCallKind;
   startedAt: string;
-}): Promise<void> {
+};
+
+export async function sendIncomingCallPushBestEffort(input: IncomingCallPushBestEffortInput): Promise<void> {
   const recipient = trimText(input.recipientUserId);
   const sessionId = trimText(input.sessionId);
   const roomId = trimText(input.roomId);
@@ -17675,28 +17677,22 @@ async function waitLiveDirectCallSessionClearedInRoom(
   return !(await getLiveDirectCallSessionIdInRoom(sb, roomId));
 }
 
-function maybeResendIncomingCallPushForReusedSession(
+function resolveIncomingCallPushDispatchInput(
   session: CommunityMessengerCallSession,
   peerUserId: string | null,
   callerUserId: string
-): void {
-  if (session.sessionMode !== "direct" || session.status !== "ringing") return;
+): IncomingCallPushBestEffortInput | null {
+  if (session.sessionMode !== "direct" || session.status !== "ringing") return null;
   const recipient = trimText(peerUserId ?? session.recipientUserId ?? "");
-  if (!recipient) return;
-  void sendIncomingCallPushBestEffort({
+  if (!recipient) return null;
+  return {
     recipientUserId: recipient,
     sessionId: session.id,
     roomId: session.roomId,
     callerId: callerUserId,
     callKind: session.callKind,
     startedAt: session.startedAt,
-  }).catch((e) => {
-    console.error("[startCommunityMessengerCallSession] incoming call push resend failed", {
-      sessionId: session.id,
-      recipientUserId: recipient,
-      message: e instanceof Error ? e.message : String(e),
-    });
-  });
+  };
 }
 
 export async function startCommunityMessengerCallSession(input: {
@@ -17711,6 +17707,8 @@ export async function startCommunityMessengerCallSession(input: {
   reused?: boolean;
   /** 개발 전용 — 클라 `[cm-call-latency] db_insert_or_rpc_done` 분해용 */
   _callStartTimingsMs?: Record<string, number>;
+  /** Route `after()` 전용 — HTTP JSON 응답에 포함하지 않음 */
+  incomingCallPush?: IncomingCallPushBestEffortInput | null;
 }> {
   const roomId = trimText(input.roomId);
   if (!roomId) return { ok: false, error: "room_required" };
@@ -17786,12 +17784,16 @@ export async function startCommunityMessengerCallSession(input: {
   }
 
   if (activeCallForReuse) {
-    maybeResendIncomingCallPushForReusedSession(
-      activeCallForReuse,
-      reusePeerUserId,
-      input.userId
-    );
-    return { ok: true, session: activeCallForReuse, reused: true };
+    return {
+      ok: true,
+      session: activeCallForReuse,
+      reused: true,
+      incomingCallPush: resolveIncomingCallPushDispatchInput(
+        activeCallForReuse,
+        reusePeerUserId,
+        input.userId
+      ),
+    };
   }
 
   if (!isGroupRoom && sb && !dialFresh) {
@@ -17957,22 +17959,6 @@ export async function startCommunityMessengerCallSession(input: {
         eventType: "ringing",
         payload: { call_kind: input.callKind, session_mode: isGroupRoom ? "group" : "direct" },
       });
-      if (!isGroupRoom && peerUserId) {
-        void sendIncomingCallPushBestEffort({
-          recipientUserId: peerUserId,
-          sessionId: inserted.id,
-          roomId,
-          callerId: input.userId,
-          callKind: input.callKind,
-          startedAt,
-        }).catch((e) => {
-          console.error("[startCommunityMessengerCallSession] incoming call push failed", {
-            sessionId: inserted.id,
-            recipientUserId: peerUserId,
-            message: e instanceof Error ? e.message : String(e),
-          });
-        });
-      }
       const syntheticParticipantRows: CallSessionParticipantRow[] = participantRows
         .filter((row): row is typeof row & { user_id: string } => typeof row.user_id === "string" && row.user_id.length > 0)
         .map((row) => ({
@@ -18000,6 +17986,10 @@ export async function startCommunityMessengerCallSession(input: {
         ok: true,
         session: mappedSession,
         ...(recordTimings ? { _callStartTimingsMs: timing } : {}),
+        incomingCallPush:
+          !isGroupRoom && peerUserId
+            ? resolveIncomingCallPushDispatchInput(mappedSession, peerUserId, input.userId)
+            : null,
       };
     }
     if (error && isUniqueViolationError(error)) {
@@ -18021,10 +18011,14 @@ export async function startCommunityMessengerCallSession(input: {
             existing = await mapCallSession(input.userId, bumped as CallSessionRow);
           }
         }
-        if (dialFresh) {
-          maybeResendIncomingCallPushForReusedSession(existing, peerUserId, input.userId);
-        }
-        return { ok: true, session: existing, reused: true };
+        return {
+          ok: true,
+          session: existing,
+          reused: true,
+          incomingCallPush: dialFresh
+            ? resolveIncomingCallPushDispatchInput(existing, peerUserId, input.userId)
+            : undefined,
+        };
       }
     }
     if (!isMissingTableError(error)) {

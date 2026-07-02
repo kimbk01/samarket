@@ -1,7 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { requirePhoneVerified } from "@/lib/auth/server-guards";
-import { reconcileUserLiveCallSessions, startCommunityMessengerCallSession } from "@/lib/community-messenger/service";
+import {
+  reconcileUserLiveCallSessions,
+  sendIncomingCallPushBestEffort,
+  startCommunityMessengerCallSession,
+} from "@/lib/community-messenger/service";
 /** SSOT_CONTRACT: messenger-call-init-route startCommunityMessengerCallSession */
 import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
@@ -61,6 +65,20 @@ export async function POST(
   const session = result.session;
   if (!session?.id) {
     return NextResponse.json({ ok: false, error: "session_missing" }, { status: 500 });
+  }
+  const incomingCallPush = result.incomingCallPush;
+  if (incomingCallPush) {
+    after(async () => {
+      try {
+        await sendIncomingCallPushBestEffort(incomingCallPush);
+      } catch (e) {
+        console.error("[room-call-start] incoming call push after failed", {
+          sessionId: incomingCallPush.sessionId,
+          recipientUserId: incomingCallPush.recipientUserId,
+          message: e instanceof Error ? e.message : String(e),
+        });
+      }
+    });
   }
   return NextResponse.json(
     {
