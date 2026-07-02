@@ -82,7 +82,7 @@ public class NativeVideoCallActivity extends Activity {
   public static void attachLocalView(String callId, View view) {
     NativeVideoCallActivity activity = activeRef.get();
     if (activity == null || callId == null || !callId.equals(activity.callId) || view == null) return;
-    activity.runOnUiThread(() -> activity.replaceView(activity.localContainer, view));
+    activity.runOnUiThread(() -> activity.replaceView(activity.localContainer, view, true));
   }
 
   public static void attachRemoteView(String callId, View view) {
@@ -91,7 +91,7 @@ public class NativeVideoCallActivity extends Activity {
     activity.runOnUiThread(
         () -> {
           activity.ensureVideoRootForRemoteRender();
-          activity.replaceView(activity.remoteContainer, view);
+          activity.replaceView(activity.remoteContainer, view, false);
           NativeVideoCallLog.info("remote_surface_attached", callId);
         });
   }
@@ -554,14 +554,14 @@ public class NativeVideoCallActivity extends Activity {
     return true;
   }
 
-  private void replaceView(FrameLayout container, View view) {
+  private void replaceView(FrameLayout container, View view, boolean mediaOverlay) {
     if (container == null || view == null) return;
     if (view.getParent() instanceof FrameLayout) {
       ((FrameLayout) view.getParent()).removeView(view);
     }
     container.removeAllViews();
     if (view instanceof SurfaceView) {
-      ((SurfaceView) view).setZOrderMediaOverlay(true);
+      ((SurfaceView) view).setZOrderMediaOverlay(mediaOverlay);
     }
     container.addView(
         view,
