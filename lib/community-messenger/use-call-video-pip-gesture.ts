@@ -61,6 +61,8 @@ export type UseCallVideoPipGestureArgs = {
   onExpandFullscreen?: () => void;
   /** fullscreen: minimized portal 복귀 · zoom: PiP 더블탭 확대/축소 */
   doubleTapAction?: CallVideoPipDoubleTapAction;
+  /** false면 현재 마운트 세션 안에서만 드래그 위치를 유지하고 storage에 쓰지 않는다. */
+  persistSnapPosition?: boolean;
 };
 
 function readViewportMetrics(): {
@@ -105,6 +107,7 @@ export function useCallVideoPipGesture(args: UseCallVideoPipGestureArgs): VideoC
     onSingleTap,
     onExpandFullscreen,
     doubleTapAction = "zoom",
+    persistSnapPosition = true,
   } = args;
 
   const pipRef = useRef<HTMLDivElement | null>(null);
@@ -134,10 +137,14 @@ export function useCallVideoPipGesture(args: UseCallVideoPipGestureArgs): VideoC
   }, []);
 
   useEffect(() => {
+    if (!persistSnapPosition) {
+      setCorner(CALL_PIP_DEFAULT_CORNER);
+      return;
+    }
     migrateLegacyCallPipSnapStorage();
     const stored = readCallPipSnapPosition();
     setCorner(stored ?? CALL_PIP_DEFAULT_CORNER);
-  }, []);
+  }, [persistSnapPosition]);
 
   useEffect(() => {
     if (!enabled) {
@@ -429,7 +436,9 @@ export function useCallVideoPipGesture(args: UseCallVideoPipGestureArgs): VideoC
           currentLayout.pipSize
         );
         setCorner(nextCorner);
-        writeCallPipSnapPosition(nextCorner);
+        if (persistSnapPosition) {
+          writeCallPipSnapPosition(nextCorner);
+        }
         return;
       }
 
@@ -467,6 +476,7 @@ export function useCallVideoPipGesture(args: UseCallVideoPipGestureArgs): VideoC
       doubleTapAction,
       onExpandFullscreen,
       onSingleTap,
+      persistSnapPosition,
       resetDragTransform,
       togglePipExpanded,
       unlockBodyScroll,

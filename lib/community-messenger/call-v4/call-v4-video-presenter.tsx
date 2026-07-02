@@ -98,15 +98,19 @@ export function useCallV4VideoPresenter(callId: string, androidOsPipSafeMode = f
   const phase = useCallV4Store((s) => s.phase);
   const identity = useCallV4Store((s) => s.identity) ?? readCallV4Identity();
   const media = useCallV4MediaStore();
-  const largeVideoRef = useRef<HTMLDivElement | null>(null);
-  const smallVideoRef = useRef<HTMLDivElement | null>(null);
+  const remoteMainVideoRef = useRef<HTMLDivElement | null>(null);
+  const remotePipVideoRef = useRef<HTMLDivElement | null>(null);
+  const localMainVideoRef = useRef<HTMLDivElement | null>(null);
+  const localPipVideoRef = useRef<HTMLDivElement | null>(null);
+  const activeLocalVideoRef = useRef<HTMLDivElement | null>(null);
   const videoStageRef = useRef<HTMLDivElement | null>(null);
   const attachedRemoteTrackRef = useRef<IRemoteVideoTrack | null>(null);
+  const attachedRemoteContainerRef = useRef<HTMLDivElement | null>(null);
   const remoteVideoRefReadyLoggedRef = useRef(false);
   const localVideoRefReadyLoggedRef = useRef(false);
   const [remoteVideoContainer, setRemoteVideoContainer] = useState<HTMLDivElement | null>(null);
   const [localVideoContainer, setLocalVideoContainer] = useState<HTMLDivElement | null>(null);
-  const [pipExpanded, setPipExpanded] = useState(false);
+  const [selfVideoInMain, setSelfVideoInMain] = useState(false);
   const [viewportWidth, setViewportWidth] = useState(390);
 
   const videoEnabled = isCallV4VideoEnabled();
@@ -115,9 +119,11 @@ export function useCallV4VideoPresenter(callId: string, androidOsPipSafeMode = f
     canAttach &&
     Boolean(identity?.callId === callId && (identity.mediaType === "video" || media.remoteVideoReady || media.localVideoReady));
 
-  const onLargeVideoRef = useCallback((node: HTMLDivElement | null) => {
-    largeVideoRef.current = node;
-    setRemoteVideoContainer(node);
+  const onRemoteMainVideoRef = useCallback((node: HTMLDivElement | null) => {
+    remoteMainVideoRef.current = node;
+    if (!selfVideoInMain) {
+      setRemoteVideoContainer(node);
+    }
     if (node && !remoteVideoRefReadyLoggedRef.current) {
       remoteVideoRefReadyLoggedRef.current = true;
       logCallV4("remote_video_ref_ready", { callId, target: "remote_main" });
@@ -125,11 +131,27 @@ export function useCallV4VideoPresenter(callId: string, androidOsPipSafeMode = f
     if (!node) {
       remoteVideoRefReadyLoggedRef.current = false;
     }
-  }, [callId]);
+  }, [callId, selfVideoInMain]);
 
-  const onLocalVideoRef = useCallback((node: HTMLDivElement | null) => {
-    smallVideoRef.current = node;
-    setLocalVideoContainer(node);
+  const onRemotePipVideoRef = useCallback((node: HTMLDivElement | null) => {
+    remotePipVideoRef.current = node;
+    if (selfVideoInMain) {
+      setRemoteVideoContainer(node);
+    }
+    if (node && !remoteVideoRefReadyLoggedRef.current) {
+      remoteVideoRefReadyLoggedRef.current = true;
+      logCallV4("remote_video_ref_ready", { callId, target: "remote_pip" });
+    }
+    if (!node) {
+      remoteVideoRefReadyLoggedRef.current = false;
+    }
+  }, [callId, selfVideoInMain]);
+
+  const onLocalPipVideoRef = useCallback((node: HTMLDivElement | null) => {
+    localPipVideoRef.current = node;
+    if (!selfVideoInMain) {
+      setLocalVideoContainer(node);
+    }
     if (node && !localVideoRefReadyLoggedRef.current) {
       localVideoRefReadyLoggedRef.current = true;
       logCallV4("self_video_ref_ready", { callId, target: "self_pip" });
@@ -137,7 +159,26 @@ export function useCallV4VideoPresenter(callId: string, androidOsPipSafeMode = f
     if (!node) {
       localVideoRefReadyLoggedRef.current = false;
     }
-  }, [callId]);
+  }, [callId, selfVideoInMain]);
+
+  const onLocalMainVideoRef = useCallback((node: HTMLDivElement | null) => {
+    localMainVideoRef.current = node;
+    if (selfVideoInMain) {
+      setLocalVideoContainer(node);
+    }
+    if (node && !localVideoRefReadyLoggedRef.current) {
+      localVideoRefReadyLoggedRef.current = true;
+      logCallV4("self_video_ref_ready", { callId, target: "self_main" });
+    }
+    if (!node) {
+      localVideoRefReadyLoggedRef.current = false;
+    }
+  }, [callId, selfVideoInMain]);
+
+  useEffect(() => {
+    setRemoteVideoContainer(selfVideoInMain ? remotePipVideoRef.current : remoteMainVideoRef.current);
+    setLocalVideoContainer(selfVideoInMain ? localMainVideoRef.current : localPipVideoRef.current);
+  }, [selfVideoInMain]);
 
   useEffect(() => {
     const allowAutoPublish = shouldAutoPublishCallV4LocalPreview({
@@ -165,15 +206,27 @@ export function useCallV4VideoPresenter(callId: string, androidOsPipSafeMode = f
         identityMediaType: identity?.mediaType ?? null,
         reason: "presenter_effect",
       });
-      await publishCallV4LocalVideo(callId, smallVideoRef.current);
+      await publishCallV4LocalVideo(callId, localVideoContainer);
     })();
-  }, [callId, canAttach, identity?.mediaType, media.cameraEnabled, media.localVideoReady, wantsVideo]);
+  }, [
+    callId,
+    canAttach,
+    identity?.mediaType,
+    localVideoContainer,
+    media.cameraEnabled,
+    media.localVideoReady,
+    wantsVideo,
+  ]);
 
   useEffect(() => {
     const remote = getCallV4AgoraRemoteVideoTrack(callId) ?? readCallV4RemoteVideoTrack(callId);
     const hasRemoteTrack = Boolean(remote);
     const hasContainer = Boolean(remoteVideoContainer);
-    const alreadyAttached = Boolean(remote && attachedRemoteTrackRef.current === remote);
+    const alreadyAttached = Boolean(
+      remote &&
+        attachedRemoteTrackRef.current === remote &&
+        attachedRemoteContainerRef.current === remoteVideoContainer,
+    );
 
     if (hasRemoteTrack && remote) {
       logCallV4("remote_track_exists", {
@@ -207,7 +260,8 @@ export function useCallV4VideoPresenter(callId: string, androidOsPipSafeMode = f
 
     let cancelled = false;
     void (async () => {
-      logCallV4("attach_remote_video_begin", { callId, target: "remote_main" });
+      const target = selfVideoInMain ? "remote_pip" : "remote_main";
+      logCallV4("attach_remote_video_begin", { callId, target });
       const attached = await bindAgoraRemoteVideoTrack(remote, remoteVideoContainer, {
         fit: "cover",
         mirror: false,
@@ -221,8 +275,9 @@ export function useCallV4VideoPresenter(callId: string, androidOsPipSafeMode = f
         return;
       }
       attachedRemoteTrackRef.current = remote;
-      logCallV4("attach_remote_video_success", { callId, target: "remote_main" });
-      logCallV4("remote_video_element_attached", { callId, target: "remote_main" });
+      attachedRemoteContainerRef.current = remoteVideoContainer;
+      logCallV4("attach_remote_video_success", { callId, target });
+      logCallV4("remote_video_element_attached", { callId, target });
     })();
 
     return () => {
@@ -234,6 +289,7 @@ export function useCallV4VideoPresenter(callId: string, androidOsPipSafeMode = f
     wantsVideo,
     media.remoteVideoReady,
     remoteVideoContainer,
+    selfVideoInMain,
     phase,
   ]);
 
@@ -243,6 +299,12 @@ export function useCallV4VideoPresenter(callId: string, androidOsPipSafeMode = f
     localVideoReady: media.localVideoReady,
     androidOsPipSafeMode,
   });
+
+  useEffect(() => {
+    if (!selfPipMounted || !media.remoteVideoReady) {
+      setSelfVideoInMain(false);
+    }
+  }, [media.remoteVideoReady, selfPipMounted]);
 
   useEffect(() => {
     if (selfPipMounted) return;
@@ -264,10 +326,7 @@ export function useCallV4VideoPresenter(callId: string, androidOsPipSafeMode = f
     return () => window.removeEventListener("resize", sync);
   }, []);
 
-  const selfDims = useMemo(
-    () => computeCallV4SelfViewDimensions(viewportWidth, pipExpanded),
-    [pipExpanded, viewportWidth],
-  );
+  const selfDims = useMemo(() => computeCallV4SelfViewDimensions(viewportWidth), [viewportWidth]);
 
   const pipGesture = useCallVideoPipGesture({
     sessionId: callId,
@@ -276,9 +335,13 @@ export function useCallV4VideoPresenter(callId: string, androidOsPipSafeMode = f
     stageBottomExtraPx: 80,
     micMuted: !media.micEnabled,
     cameraOff: !media.cameraEnabled,
-    pipLabel: identity?.peerLabel ?? "",
-    doubleTapAction: "zoom",
-    onSingleTap: () => setPipExpanded((prev) => !prev),
+    pipLabel: selfVideoInMain ? identity?.peerLabel ?? "" : "",
+    doubleTapAction: "swap",
+    persistSnapPosition: false,
+    onSingleTap: () => {
+      if (!media.remoteVideoReady) return;
+      setSelfVideoInMain((prev) => !prev);
+    },
   });
 
   const videoPipLayout = useMemo(() => {
@@ -294,20 +357,36 @@ export function useCallV4VideoPresenter(callId: string, androidOsPipSafeMode = f
   const showLocalVideo = selfPipMounted;
   const isVideoUiMode = wantsVideo && (showRemoteVideo || showLocalVideo);
 
+  activeLocalVideoRef.current = localVideoContainer;
+
   const mainVideoSlot = wantsVideo ? (
     <div ref={videoStageRef} className="absolute inset-0 min-h-0 bg-[#003D29]">
-      <div
-        ref={onLargeVideoRef}
-        className="absolute inset-0 z-[1] h-full min-h-0 w-full [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:object-cover"
-      />
+      {selfVideoInMain ? (
+        <div
+          ref={onLocalMainVideoRef}
+          className="absolute inset-0 z-[1] h-full min-h-0 w-full [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:object-cover"
+        />
+      ) : (
+        <div
+          ref={onRemoteMainVideoRef}
+          className="absolute inset-0 z-[1] h-full min-h-0 w-full [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:object-cover"
+        />
+      )}
     </div>
   ) : null;
 
   const miniVideoSlot = selfPipMounted ? (
-    <div
-      ref={onLocalVideoRef}
-      className="absolute inset-0 h-full w-full [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:object-cover"
-    />
+    selfVideoInMain ? (
+      <div
+        ref={onRemotePipVideoRef}
+        className="absolute inset-0 h-full w-full [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:object-cover"
+      />
+    ) : (
+      <div
+        ref={onLocalPipVideoRef}
+        className="absolute inset-0 h-full w-full [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:object-cover"
+      />
+    )
   ) : null;
 
   return {
@@ -319,6 +398,6 @@ export function useCallV4VideoPresenter(callId: string, androidOsPipSafeMode = f
     videoPipLayout,
     androidOsPipSafeMode,
     isVideoUiMode,
-    localVideoRef: smallVideoRef,
+    localVideoRef: activeLocalVideoRef,
   };
 }
