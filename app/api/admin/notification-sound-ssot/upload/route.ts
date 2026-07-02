@@ -26,16 +26,19 @@ function extForSoundMime(mime: string): string {
   return "bin";
 }
 
-async function nextCustomAssetId(sb: ReturnType<typeof getSupabaseServer>): Promise<string> {
-  const { data } = await sb
-    .from("notification_sound_assets")
-    .select("id")
-    .like("id", "DIBAY-SND-1%")
-    .order("id", { ascending: false })
-    .limit(1);
-  const last = data?.[0]?.id as string | undefined;
-  const n = last ? parseInt(last.replace("DIBAY-SND-", ""), 10) : 100;
-  return `DIBAY-SND-${String(Number.isFinite(n) ? n + 1 : 101).padStart(3, "0")}`;
+/** Seed DIBAY-SND-### IDs와 충돌하지 않는 커스텀 업로드 전용 prefix. */
+function createCustomUploadAssetId(): string {
+  return `DIBAY-CUSTOM-SND-${randomUUID()}`;
+}
+
+async function removeUploadedSoundOrphan(
+  sb: ReturnType<typeof getSupabaseServer>,
+  storagePath: string
+): Promise<void> {
+  const { error } = await sb.storage.from(SOUND_BUCKET).remove([storagePath]);
+  if (error) {
+    console.warn("[notification-sound-ssot upload remove orphan]", storagePath, error.message);
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -86,7 +89,7 @@ export async function POST(req: NextRequest) {
 
   const { data: pub } = sb.storage.from(SOUND_BUCKET).getPublicUrl(path);
   const fileUrl = pub?.publicUrl ?? null;
-  const assetId = await nextCustomAssetId(sb);
+  const assetId = createCustomUploadAssetId();
 
   const { error: insErr } = await sb.from("notification_sound_assets").insert({
     id: assetId,
@@ -98,6 +101,7 @@ export async function POST(req: NextRequest) {
     enabled: true,
   });
   if (insErr) {
+    await removeUploadedSoundOrphan(sb, path);
     return NextResponse.json({ ok: false, error: insErr.message }, { status: 500 });
   }
 
