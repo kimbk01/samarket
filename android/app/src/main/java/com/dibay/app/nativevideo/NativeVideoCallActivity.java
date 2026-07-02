@@ -33,6 +33,7 @@ public class NativeVideoCallActivity extends Activity {
   public static final String ACTION_NOTIFICATION_ACCEPT = "com.dibay.app.nativevideo.NOTIFICATION_ACCEPT";
   public static final String UI_MODE_INCOMING = "incoming";
   public static final String UI_MODE_OUTGOING = "outgoing";
+  public static final String UI_MODE_CONNECTED_RESTORE = "connected_restore";
 
   private static WeakReference<NativeVideoCallActivity> activeRef = new WeakReference<>(null);
 
@@ -219,7 +220,9 @@ public class NativeVideoCallActivity extends Activity {
     if (callId == null || callId.trim().isEmpty()) return false;
     callId = callId.trim();
     String mode = intent != null ? intent.getStringExtra(EXTRA_UI_MODE) : null;
-    uiMode = UI_MODE_OUTGOING.equals(mode) ? UI_MODE_OUTGOING : UI_MODE_INCOMING;
+    if (UI_MODE_OUTGOING.equals(mode)) uiMode = UI_MODE_OUTGOING;
+    else if (UI_MODE_CONNECTED_RESTORE.equals(mode)) uiMode = UI_MODE_CONNECTED_RESTORE;
+    else uiMode = UI_MODE_INCOMING;
     return true;
   }
 
@@ -227,6 +230,9 @@ public class NativeVideoCallActivity extends Activity {
     if (NativeCallVisibleSurfaceOwner.isClaimed(callId)) return true;
     if (UI_MODE_OUTGOING.equals(uiMode)) {
       return NativeCallVisibleSurfaceOwner.claim(callId, "video", "dialing");
+    }
+    if (UI_MODE_CONNECTED_RESTORE.equals(uiMode)) {
+      return NativeCallVisibleSurfaceOwner.claim(callId, "video", "connected_restore");
     }
     return NativeCallVisibleSurfaceOwner.claim(callId, "video", "incoming");
   }
@@ -240,6 +246,10 @@ public class NativeVideoCallActivity extends Activity {
   private void logSurfaceShown() {
     if (UI_MODE_OUTGOING.equals(uiMode)) {
       NativeVideoCallLog.info("native_dialing_surface_shown", callId);
+      return;
+    }
+    if (UI_MODE_CONNECTED_RESTORE.equals(uiMode)) {
+      NativeVideoCallLog.info("native_video_restore_surface_shown", callId);
       return;
     }
     NativeVideoCallLog.info("incoming_activity_shown", callId);
