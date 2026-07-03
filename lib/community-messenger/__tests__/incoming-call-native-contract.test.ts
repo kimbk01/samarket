@@ -251,14 +251,28 @@ describe("incoming-call native contract", () => {
 
   it("notification uses DIBAY CallStyle, brand color, and system action icons in layouts", () => {
     const notification = read("android/app/src/main/java/com/dibay/app/IncomingCallNotificationBuilder.java");
+    const colors = read("android/app/src/main/res/values/colors.xml");
     expect(notification).toContain("IncomingCallUiCopy");
     expect(notification).toContain("NotificationCompat.CallStyle.forIncomingCall");
     expect(notification).toContain("dibay_incoming_primary");
-    expect(read("android/app/src/main/res/values/colors.xml")).toContain("dibay_incoming_primary");
-    expect(read("android/app/src/main/res/values/colors.xml")).toContain("#006241");
+    expect(colors).toContain('name="dibay_call_primary">#00754A');
+    expect(colors).toContain('name="dibay_call_primary_pressed">#006241');
+    expect(colors).toContain('name="dibay_incoming_primary">#00754A');
     const incoming = read("android/app/src/main/res/layout/activity_incoming_call.xml");
     expect(incoming).toContain("incoming_call_accept");
     expect(incoming).toContain("incoming_call_decline");
+  });
+
+  it("N1-A native voice/video incoming notifications use colorized IncomingCallUiCopy SSOT", () => {
+    const voice = read("android/app/src/main/java/com/dibay/app/nativevoice/NativeVoiceCallNotification.java");
+    const video = read("android/app/src/main/java/com/dibay/app/nativevideo/NativeVideoCallNotification.java");
+    for (const src of [voice, video]) {
+      expect(src).toContain("IncomingCallUiCopy");
+      expect(src).toContain("setColorized(true)");
+      expect(src).toContain("R.color.dibay_incoming_primary");
+      expect(src).toContain("BigTextStyle");
+      expect(src).not.toContain("CallStyle.forIncomingCall");
+    }
   });
 
   it("caller display strips legacy @id suffix in IncomingCallUiCopy", () => {

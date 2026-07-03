@@ -33,15 +33,26 @@ describe("incoming call compact banner UI", () => {
     expect(callScreen).not.toContain("#8B5E2E");
   });
 
-  it("Android incoming fullscreen and pill use dibay_incoming_primary #006241", () => {
+  it("Android native call drawables use P2-1 Starbucks token SSOT (dibay_call_*)", () => {
     const colors = read("android/app/src/main/res/values/colors.xml");
     const fullscreen = read("android/app/src/main/res/drawable/bg_dibay_incoming_fullscreen.xml");
     const pill = read("android/app/src/main/res/drawable/bg_dibay_incoming_pill.xml");
-    expect(colors).toContain('name="dibay_incoming_primary">#006241');
+    const accept = read("android/app/src/main/res/drawable/bg_dibay_incoming_btn_accept.xml");
+
+    expect(colors).toContain('name="dibay_call_primary">#00754A');
+    expect(colors).toContain('name="dibay_call_primary_pressed">#006241');
+    expect(colors).toContain('name="dibay_incoming_primary">#00754A');
     expect(colors).toContain('name="dibay_incoming_deep_green">#006241');
-    expect(fullscreen).toContain("@color/dibay_incoming_primary");
-    expect(pill).toContain("@color/dibay_incoming_primary");
+
+    expect(fullscreen).toContain("@color/dibay_call_primary");
+    expect(fullscreen).toContain("@color/dibay_call_primary_pressed");
+    expect(fullscreen).toContain('android:endColor="#003D29"');
+    expect(fullscreen).not.toContain("dibay_incoming_gradient_start");
+
+    expect(pill).toContain("@color/dibay_call_dark_card");
     expect(pill).not.toContain("dibay_incoming_gradient_start");
+
+    expect(accept).toContain("@color/dibay_call_primary");
   });
 
   it("Global incoming host renders ForegroundIncomingCallHost with web banner SSOT", () => {
