@@ -37,6 +37,10 @@ import {
   type CallV4OutgoingMissedTimerFireContext,
 } from "@/lib/community-messenger/call-v4/call-v4-missed-timeout";
 import {
+  startNativeOutgoingTerminalSync,
+  stopNativeOutgoingTerminalSync,
+} from "@/lib/community-messenger/call-v4/native-outgoing-terminal-sync";
+import {
   canRenderWebIncomingSheet,
 } from "@/lib/community-messenger/call-v4/call-v4-incoming-surface";
 import { isNativeAcceptInflight } from "@/lib/community-messenger/call-v4/call-v4-native-accept-flight";
@@ -476,6 +480,7 @@ export async function callV4CreateOutgoing(input: {
           roomId: roomResolved.roomId,
         });
         startCallV4OutgoingMissedTimer(created.session.id, identity.createdAt, input.router);
+        startNativeOutgoingTerminalSync(created.session.id, input.router);
         shouldRouteToWebOutgoingPresentation = false;
       } else {
         if (!nativeHandoff.ok && !nativeHandoff.nativeOwned) {
@@ -801,6 +806,7 @@ export async function callV4HandleRemoteTerminal(
   logCallV4("remote_terminal_finalize", { callId: sid, source });
   clearCallV4MissedTimer(sid);
   stopCallV4CallerActivePoll();
+  stopNativeOutgoingTerminalSync(sid);
   await finalizeCallV4Terminal(sid, mapCallV4RemoteTerminalReason(status), router ?? readCallV4ExitRouter() ?? undefined);
 }
 
