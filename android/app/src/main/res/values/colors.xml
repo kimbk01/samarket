@@ -4,15 +4,22 @@
     <color name="colorPrimaryDark">#303F9F</color>
     <color name="colorAccent">#FF4081</color>
 
-    <!-- DIBAY Incoming Call UI v1 (Starbucks palette) -->
-    <color name="dibay_incoming_primary">#006241</color>
+    <!-- DIBAY Call UI 2026 — Option 1 token SSOT (P2-1). Wire in layout/drawable from P2-2+. -->
+    <color name="dibay_call_primary">#00754A</color>
+    <color name="dibay_call_primary_pressed">#006241</color>
+    <color name="dibay_call_danger">#D93025</color>
+    <color name="dibay_call_dark_bg">#121212</color>
+    <color name="dibay_call_dark_card">#1F1F1F</color>
+
+    <!-- DIBAY Incoming Call UI — legacy resource names; values aligned to Option 1 SSOT above. -->
+    <color name="dibay_incoming_primary">#00754A</color>
     <color name="dibay_incoming_deep_green">#006241</color>
     <color name="dibay_incoming_surface_light">#F6F6F6</color>
-    <color name="dibay_incoming_accept">#22C55E</color>
-    <color name="dibay_incoming_reject">#EF1035</color>
+    <color name="dibay_incoming_accept">#00754A</color>
+    <color name="dibay_incoming_reject">#D93025</color>
     <color name="dibay_incoming_text_primary">#FFFFFF</color>
     <color name="dibay_incoming_text_muted">#C9D1D9</color>
     <color name="dibay_incoming_pill_stroke">#33FFFFFF</color>
-    <color name="dibay_incoming_gradient_start">#F0101827</color>
-    <color name="dibay_incoming_gradient_end">#F0034D34</color>
+    <color name="dibay_incoming_gradient_start">#F0121212</color>
+    <color name="dibay_incoming_gradient_end">#F0006241</color>
 </resources>

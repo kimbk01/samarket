@@ -1,5 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- DIBAY Call UI 2026 — Option 1 token SSOT (P2-1). Wire in layout from P2-2+. -->
+    <dimen name="dibay_call_btn_size_min">52dp</dimen>
+    <dimen name="dibay_call_btn_size_default">56dp</dimen>
+    <dimen name="dibay_call_btn_size_max">64dp</dimen>
+    <dimen name="dibay_call_touch_min">48dp</dimen>
+    <dimen name="dibay_call_btn_gap">12dp</dimen>
+    <dimen name="dibay_call_avatar_lg">128dp</dimen>
+
     <dimen name="dibay_incoming_pill_radius">22dp</dimen>
     <dimen name="dibay_incoming_pill_margin_h">12dp</dimen>
     <dimen name="dibay_incoming_pill_height">72dp</dimen>
