@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- P2-2: Web incoming-call-surface-bg linear gradient (165deg approx). Tokens from P2-1 only. -->
+<!-- P2-2: Web STARBUCKS_BG gradient. P2-5c: bottom #003D29 for accept button contrast. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item>
         <shape android:shape="rectangle">
             <gradient
-                android:angle="165"
+                android:angle="270"
                 android:centerColor="@color/dibay_call_primary_pressed"
-                android:endColor="@color/dibay_call_primary"
-                android:startColor="@color/dibay_call_dark_bg"
+                android:endColor="#003D29"
+                android:startColor="@color/dibay_call_primary"
                 android:type="linear" />
         </shape>
     </item>
