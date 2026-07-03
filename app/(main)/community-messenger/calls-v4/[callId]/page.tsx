@@ -9,6 +9,19 @@ import { assertDibayCallLaneExclusive } from "@/lib/community-messenger/call-v4/
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import { isCallV4OutgoingPresentationSource } from "@/lib/community-messenger/call-v4/call-v4-route";
 
+function CallV4RouteSuspenseFallback() {
+  if (typeof window === "undefined") {
+    return <CommunityMessengerCallRouteLoading />;
+  }
+  try {
+    const source = new URLSearchParams(window.location.search).get("source");
+    if (isCallV4OutgoingPresentationSource(source)) return null;
+  } catch {
+    /* noop */
+  }
+  return <CommunityMessengerCallRouteLoading />;
+}
+
 function CallV4ScreenRoute() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -40,7 +53,7 @@ export default function CommunityMessengerCallV4Page() {
   }, []);
 
   return (
-    <Suspense fallback={<CommunityMessengerCallRouteLoading />}>
+    <Suspense fallback={<CallV4RouteSuspenseFallback />}>
       <CallV4ScreenRoute />
     </Suspense>
   );

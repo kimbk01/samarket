@@ -1,11 +1,14 @@
 #!/usr/bin/env node
 /**
- * Capacitor Android/iOS 셸을 Vercel(또는 CAPACITOR_SERVER_URL) origin 과 동기화.
+ * Capacitor Android/iOS 셸을 Vercel 프로덕션 origin 과 동기화.
  *
  * Usage:
  *   npm run cap:sync:vercel
- *   CAPACITOR_SERVER_URL=https://samarket.vercel.app npm run cap:sync:vercel
+ *   npm run cap:sync:vercel -- --server-url=https://preview.example.vercel.app
  *   npm run cap:sync:vercel -- --ios
+ *
+ * NOTE: shell/.env 의 CAPACITOR_SERVER_URL 은 무시한다 (QA 로컬 origin 잔류 방지).
+ * 로컬 dev APK: CAPACITOR_SERVER_URL=http://192.168.x.x:3000 npx cap sync android
  */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -43,12 +46,14 @@ function normalizeCapacitorServerUrl(url) {
   }
 }
 
-function resolveServerUrl() {
-  const raw =
-    process.env.CAPACITOR_SERVER_URL?.trim() ||
-    process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
-    "https://samarket.vercel.app";
-  return normalizeCapacitorServerUrl(raw);
+const DIBAY_PRODUCTION_SITE_ORIGIN = "https://samarket.vercel.app";
+
+function resolveServerUrl(argv) {
+  const flag = argv.find((arg) => arg.startsWith("--server-url="));
+  if (flag) {
+    return normalizeCapacitorServerUrl(flag.slice("--server-url=".length));
+  }
+  return normalizeCapacitorServerUrl(DIBAY_PRODUCTION_SITE_ORIGIN);
 }
 
 function readCapacitorJson(relPath) {
@@ -65,7 +70,7 @@ loadEnvFile(".env.local");
 loadEnvFile(".env.vercel.production");
 
 const includeIos = process.argv.includes("--ios");
-const serverUrl = resolveServerUrl();
+const serverUrl = resolveServerUrl(process.argv);
 process.env.CAPACITOR_SERVER_URL = serverUrl;
 
 console.log(`[capacitor-vercel] server.url=${serverUrl}`);

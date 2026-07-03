@@ -22,7 +22,10 @@ import { tryStartCallV4NativeAcceptAutostart } from "@/lib/community-messenger/c
 import { notifyCallV4WebCallScreenReady } from "@/lib/community-messenger/call-v4/call-v4-native-connecting-handoff";
 import { maybeExitCallV4ScreenAfterCleanup } from "@/lib/community-messenger/call-v4/call-v4-exit-guard";
 import { isCallV4NativeAcceptHandoffSource } from "@/lib/community-messenger/call-v4/call-v4-incoming-surface";
-import { registerCallV4ExitRouter } from "@/lib/community-messenger/call-v4/call-v4-route";
+import {
+  isCallV4OutgoingPresentationSource,
+  registerCallV4ExitRouter,
+} from "@/lib/community-messenger/call-v4/call-v4-route";
 import { useCallV4VideoPresenter } from "@/lib/community-messenger/call-v4/call-v4-video-presenter";
 import { buildCallV4ScreenViewModel } from "@/lib/community-messenger/call-v4/call-v4-view-model";
 import { readCallV4Identity, readCallV4Phase, useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
@@ -77,6 +80,15 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
   useEffect(() => {
     logCallV4("call_v4_screen_component_mount_done", { callId, action, source });
   }, [action, callId, source]);
+
+  useEffect(() => {
+    if (!isCallV4OutgoingPresentationSource(source)) return;
+    const root = document.documentElement;
+    root.dataset.callV4OutgoingPresentation = "1";
+    return () => {
+      delete root.dataset.callV4OutgoingPresentation;
+    };
+  }, [source]);
 
   useEffect(() => {
     nativeHandoffPhaseRef.current = null;

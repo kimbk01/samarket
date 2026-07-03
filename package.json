@@ -183,6 +183,7 @@
     "cap:sync": "npx cap sync",
     "cap:sync:vercel": "node scripts/sync-capacitor-vercel.mjs",
     "cap:sync:vercel:ios": "node scripts/sync-capacitor-vercel.mjs --ios",
+    "apk:build:vercel": "node scripts/build-apk-vercel.mjs",
     "cap:add:android": "npx cap add android",
     "cap:sync:android": "npx cap sync android",
     "cap:open:android": "npx cap open android",
