@@ -517,7 +517,7 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
           <div
             className={`${
               isStarbucks
-                ? "bg-gradient-to-t from-[#003D29]/96 via-[#006241]/58 to-transparent"
+                ? "bg-gradient-to-t from-[#003D29]/96 via-[#006241]/58 to-transparent shadow-[0_8px_24px_rgba(0,0,0,0.2)] call-control-bar"
                 : "bg-gradient-to-t from-black/95 via-black/55 to-transparent"
             } px-3 ${actionBarPaddingTop} ${actionBarPaddingBottom}`}
           >

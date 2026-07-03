@@ -65,7 +65,7 @@ export function IncomingCallView({ vm }: { vm: CallScreenViewModel }) {
                 disabled={decline?.disabled}
                 onClick={() => decline?.onClick()}
                 data-testid={decline?.dataTestId}
-                className={`flex h-[clamp(72px,22vw,88px)] w-[clamp(72px,22vw,88px)] shrink-0 items-center justify-center rounded-full transition active:scale-[0.96] disabled:opacity-40 ${
+                className={`flex h-[clamp(64px,18vw,72px)] w-[clamp(64px,18vw,72px)] shrink-0 items-center justify-center rounded-full transition-transform duration-[80ms] active:scale-[0.93] disabled:opacity-40 ${
                   isStarbucks ? INCOMING_CALL_FULLSCREEN_DECLINE_BTN_CLASS : "bg-[#FF3B30]"
                 }`}
                 aria-label={t("cm_ui_reject")}
@@ -82,7 +82,7 @@ export function IncomingCallView({ vm }: { vm: CallScreenViewModel }) {
                 disabled={accept?.disabled}
                 onClick={() => accept?.onClick()}
                 data-testid={accept?.dataTestId}
-                className={`flex h-[clamp(72px,22vw,88px)] w-[clamp(72px,22vw,88px)] shrink-0 items-center justify-center rounded-full transition active:scale-[0.96] disabled:opacity-40 ${
+                className={`flex h-[clamp(64px,18vw,72px)] w-[clamp(64px,18vw,72px)] shrink-0 items-center justify-center rounded-full transition-transform duration-[80ms] active:scale-[0.93] disabled:opacity-40 ${
                   isStarbucks ? INCOMING_CALL_FULLSCREEN_ACCEPT_BTN_CLASS : "bg-[#007AFF]"
                 }`}
                 aria-label={t("cm_ui_call_answer")}

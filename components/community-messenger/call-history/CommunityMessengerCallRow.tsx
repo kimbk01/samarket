@@ -15,6 +15,10 @@ import {
 import { presentCallHistoryRow } from "@/lib/community-messenger/call-history/call-history-presenter";
 import { formatCallLogListTime, resolveCallLogListTimestampIso } from "@/lib/community-messenger/call-log-row-copy";
 import type { CommunityMessengerCallLog } from "@/lib/community-messenger/types";
+import {
+  CALL_UI_CALL_LIST_ROW_ACTIVE_CLASS,
+  CALL_UI_CALL_LIST_ROW_CLASS,
+} from "@/lib/community-messenger/call-ui/call-ui-tokens";
 import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
 
 const DRAG_START_X = 16;
@@ -188,7 +192,7 @@ export function CommunityMessengerCallRow({
   );
 
   return (
-    <li className="relative overflow-hidden border-b border-sam-border" data-call-log-row="true">
+    <li className={`relative overflow-hidden ${CALL_UI_CALL_LIST_ROW_CLASS}`} data-call-log-row="true">
       <div
         className={`absolute inset-y-0 right-0 flex items-stretch ${
           deleteActionInteractive ? "pointer-events-auto" : "pointer-events-none"
@@ -222,7 +226,7 @@ export function CommunityMessengerCallRow({
       </div>
 
       <div
-        className="relative z-[1] flex min-h-[64px] w-full touch-pan-y items-stretch bg-sam-app"
+        className={`relative z-[1] flex min-h-[64px] w-full touch-pan-y items-stretch bg-transparent`}
         data-call-log-swipe-surface={swipeSurfaceDataAttr}
         style={{
           transform: `translate3d(${dragX}px,0,0)`,
@@ -241,7 +245,7 @@ export function CommunityMessengerCallRow({
             if (isDragging || swipeActionTapRef.current) return;
             handleNavigate();
           }}
-          className={`flex min-w-0 flex-1 items-center gap-3 px-3 py-2 text-left transition-transform duration-100 active:scale-[0.98] active:bg-sam-primary-soft ${
+          className={`flex min-w-0 flex-1 items-center gap-3 px-3 py-2 text-left transition-transform duration-100 active:scale-[0.98] ${CALL_UI_CALL_LIST_ROW_ACTIVE_CLASS} ${
             vm.canNavigate ? "cursor-pointer" : "cursor-default"
           }`}
         >

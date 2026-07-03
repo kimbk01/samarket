@@ -8,6 +8,11 @@ function readInitial(label: string): string {
   return [...trimmed][0] ?? "?";
 }
 
+const AVATAR_PULSE_RING_CLASS =
+  "pointer-events-none absolute rounded-full border border-[#D4E9E2]/50";
+
+const AVATAR_PULSE_ANIMATION = "call-pulse-ring 1s cubic-bezier(0.2, 0.8, 0.2, 1) infinite";
+
 export function CallAvatar({
   label,
   avatarUrl,
@@ -40,40 +45,30 @@ export function CallAvatar({
       : isStarbucks
         ? "sam-text-hero font-semibold text-[#006241]"
         : "sam-text-hero font-semibold text-[#5b48d6]";
-  const pulseRingClass =
-    isStarbucks && placeholderTone === "outgoingVoice"
-      ? "border-[#D4E9E2]/60 shadow-[0_0_0_1px_rgba(212,233,226,0.26)]"
-      : placeholderTone === "outgoingVoice"
-        ? "border-[#c4b5fd]/55 shadow-[0_0_0_1px_rgba(167,139,250,0.25)]"
-        : isStarbucks
-          ? "border-[#D4E9E2]/32"
-          : "border-white/18";
-  const pulseRingOuterClass =
-    isStarbucks && placeholderTone === "outgoingVoice"
-      ? "border-[#D4E9E2]/36"
-      : placeholderTone === "outgoingVoice"
-        ? "border-[#a78bfa]/35"
-        : isStarbucks
-          ? "border-[#D4E9E2]/18"
-          : "border-white/10";
+
   return (
     <div className="relative flex h-[clamp(120px,36vw,168px)] w-[clamp(120px,36vw,168px)] items-center justify-center md:h-[168px] md:w-[168px]">
       {pulse ? (
         <>
-          <div
-            className={`absolute inset-[-8%] rounded-full border opacity-[0.85] animate-pulse ${pulseRingClass}`}
-            style={{ animationDuration: "2.2s" }}
+          <span
+            className={`${AVATAR_PULSE_RING_CLASS} inset-[-6%]`}
+            style={{ animation: AVATAR_PULSE_ANIMATION }}
             aria-hidden
           />
-          <div
-            className={`absolute inset-[-16%] rounded-full border opacity-60 animate-pulse ${pulseRingOuterClass}`}
-            style={{ animationDuration: "2.8s" }}
+          <span
+            className={`${AVATAR_PULSE_RING_CLASS} inset-[-12%]`}
+            style={{ animation: AVATAR_PULSE_ANIMATION, animationDelay: "160ms" }}
+            aria-hidden
+          />
+          <span
+            className={`${AVATAR_PULSE_RING_CLASS} inset-[-18%]`}
+            style={{ animation: AVATAR_PULSE_ANIMATION, animationDelay: "320ms" }}
             aria-hidden
           />
         </>
       ) : null}
       <div
-        className={`relative flex h-full w-full items-center justify-center overflow-hidden rounded-full ${placeholderCls}`}
+        className={`relative z-[1] flex h-full w-full items-center justify-center overflow-hidden rounded-full ${placeholderCls}`}
       >
         <SamarketThumbnail
           src={avatarUrl}

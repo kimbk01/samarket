@@ -1545,7 +1545,7 @@
   }
 
   .call-btn:active .call-btn__disk {
-    transform: translateZ(0) scale(0.92);
+    transform: translateZ(0) scale(0.93);
     filter: brightness(0.9);
   }
 

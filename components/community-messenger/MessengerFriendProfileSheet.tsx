@@ -7,6 +7,7 @@ import {
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 import { Check } from "lucide-react";
+import { CallKindBottomSheetActions } from "@/components/community-messenger/call-ui/CallKindBottomSheetActions";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultAvatarFace";
 import { hasCustomUserAvatar, resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
@@ -76,7 +77,9 @@ export function MessengerFriendProfileSheet({
   return (
     <div className="fixed inset-0 z-[45] flex flex-col justify-end bg-black/25" role="dialog" aria-modal="true" aria-labelledby="messenger-friend-sheet-title">
       <button type="button" className="min-h-0 flex-1 cursor-default" aria-label={t("nav_close")} onClick={onClose} />
-      <div className="max-h-[82vh] w-full overflow-y-auto rounded-t-[12px] border border-ui-border bg-ui-surface px-3 pb-[max(0.75rem,var(--safe-bottom))] pt-2">
+      <div
+        className="max-h-[82vh] w-full overflow-y-auto rounded-t-[24px] border border-ui-border bg-ui-surface px-3 pb-[max(0.75rem,var(--safe-bottom))] pt-2 dark:border-white/10 dark:bg-[#121212]"
+      >
         <div className="flex flex-col items-center border-b border-ui-border pb-3 text-center">
           <span className="relative inline-flex h-16 w-16 shrink-0">
             <SamarketThumbnail
@@ -122,33 +125,27 @@ export function MessengerFriendProfileSheet({
           </div>
         ) : null}
 
-        <div className={`mt-3 grid grid-cols-3 gap-1.5 ${!canMessage && !canCall ? "opacity-40" : ""}`}>
+        {canCall ? (
+          <CallKindBottomSheetActions
+            onVoiceCall={onVoiceCall}
+            onVideoCall={onVideoCall}
+            voiceBusy={bVoice}
+            videoBusy={bVideo}
+            disabled={anyBusy}
+          />
+        ) : null}
+
+        <div className={`mt-3 ${!canMessage ? "opacity-40" : ""}`}>
           <button
             type="button"
             onClick={onChat}
             disabled={anyBusy || !canMessage}
-            className="rounded-ui-rect bg-ui-page px-1 py-2.5 text-center active:bg-ui-hover disabled:opacity-50"
+            className="flex h-11 w-full items-center justify-center rounded-[18px] border border-ui-border bg-ui-page sam-text-body-secondary font-semibold text-ui-fg active:bg-ui-hover disabled:opacity-50"
           >
-            <p className="sam-text-body-secondary font-semibold text-ui-fg">{t("cm_friend_cta_message")}</p>
-            {bChat ? <p className="mt-0.5 sam-text-xxs text-ui-muted">{t("cm_ui_opening")}</p> : null}
-          </button>
-          <button
-            type="button"
-            onClick={onVoiceCall}
-            disabled={anyBusy || !canCall}
-            className={`rounded-ui-rect bg-ui-page px-1 py-2.5 text-center active:bg-ui-hover disabled:opacity-50 ${canMessage && !canCall ? "opacity-60" : ""}`}
-          >
-            <p className="sam-text-body-secondary font-semibold text-ui-fg">{t("nav_voice_call_label")}</p>
-            {bVoice ? <p className="mt-0.5 sam-text-xxs text-ui-muted">{t("cm_ui_connecting")}</p> : null}
-          </button>
-          <button
-            type="button"
-            onClick={onVideoCall}
-            disabled={anyBusy || !canCall}
-            className={`rounded-ui-rect bg-ui-page px-1 py-2.5 text-center active:bg-ui-hover disabled:opacity-50 ${canMessage && !canCall ? "opacity-60" : ""}`}
-          >
-            <p className="sam-text-body-secondary font-semibold text-ui-fg">{t("nav_video_call_label")}</p>
-            {bVideo ? <p className="mt-0.5 sam-text-xxs text-ui-muted">{t("cm_ui_connecting")}</p> : null}
+            {t("cm_friend_cta_message")}
+            {bChat ? (
+              <span className="ml-2 sam-text-xxs font-medium text-ui-muted">{t("cm_ui_opening")}</span>
+            ) : null}
           </button>
         </div>
         {!canMessage ? (

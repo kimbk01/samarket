@@ -1,10 +1,17 @@
 "use client";
 
-import type { CallScreenViewModel } from "./call-ui.types";
+import type { CallActionItem, CallScreenViewModel } from "./call-ui.types";
 import { CallActionBar } from "./CallActionBar";
 import { CallAvatar } from "./CallAvatar";
 import { CallStatusText } from "./CallStatusText";
 import { useCallTimer } from "./useCallTimer";
+
+function buildConnectedControlActions(vm: CallScreenViewModel): CallActionItem[] {
+  const endAction = vm.primaryActions.find((a) => a.icon === "end" || a.tone === "danger");
+  const mediaActions = vm.secondaryActions ?? [];
+  if (!endAction) return mediaActions;
+  return [...mediaActions, endAction];
+}
 
 /**
  * 음성 통화 전용 — ringing / connecting / connected 를 한 레이아웃에서 처리해
@@ -18,6 +25,8 @@ export function VoiceCallView({ vm }: { vm: CallScreenViewModel }) {
     endedAt: vm.endedAt,
     endedDurationSeconds: vm.endedDurationSeconds,
   });
+  const isConnected = vm.phase === "connected";
+  const connectedControls = isConnected ? buildConnectedControlActions(vm) : null;
 
   return (
     <div className="relative z-[2] flex min-h-0 flex-1 flex-col justify-end px-5 pb-[max(14px,calc(env(safe-area-inset-bottom)+8px))] pt-4">
@@ -51,12 +60,18 @@ export function VoiceCallView({ vm }: { vm: CallScreenViewModel }) {
             : "bg-gradient-to-t from-[#170d32]/82 via-[#2b1858]/38 to-transparent"
         }`}
       >
-        <CallActionBar actions={vm.primaryActions} theme={vm.visualTheme} />
-        {vm.secondaryActions?.length ? (
-          <div className="mt-4">
-            <CallActionBar actions={vm.secondaryActions} compact theme={vm.visualTheme} />
-          </div>
-        ) : null}
+        {connectedControls ? (
+          <CallActionBar actions={connectedControls} theme={vm.visualTheme} compact />
+        ) : (
+          <>
+            <CallActionBar actions={vm.primaryActions} theme={vm.visualTheme} />
+            {vm.secondaryActions?.length ? (
+              <div className="mt-4">
+                <CallActionBar actions={vm.secondaryActions} compact theme={vm.visualTheme} />
+              </div>
+            ) : null}
+          </>
+        )}
       </div>
     </div>
   );

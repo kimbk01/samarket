@@ -10,8 +10,7 @@ describe("incoming call compact banner UI", () => {
   it("renders Starbucks dark green compact card with accept/decline phone buttons", () => {
     const banner = read("components/messenger/call/IncomingCallBanner.tsx");
     expect(banner).toContain("data-incoming-call-compact-banner");
-    expect(banner).toContain("INCOMING_CALL_BANNER_BG_CLASS");
-    expect(banner).toContain("#006241");
+    expect(banner).toContain("INCOMING_CALL_BANNER_ACCEPT_CLASS");
     expect(banner).toContain("PhoneOff");
     expect(banner).toContain("<Phone size={24}");
     expect(banner).not.toContain("<Check size=");
@@ -22,7 +21,8 @@ describe("incoming call compact banner UI", () => {
     const tokens = read("lib/community-messenger/call-ui/incoming-call-banner-tokens.ts");
     const incomingView = read("components/messenger/call/IncomingCallView.tsx");
     const callScreen = read("components/messenger/call/CallScreen.tsx");
-    expect(tokens).toContain('INCOMING_CALL_PRIMARY_HEX = "#006241"');
+    expect(tokens).toContain('INCOMING_CALL_PRIMARY_HEX = CALL_UI_PRIMARY');
+    expect(tokens).toContain('CALL_UI_PRIMARY = "#00754A"');
     expect(tokens).toContain("INCOMING_CALL_FULLSCREEN_SURFACE_CLASS");
     expect(incomingView).toContain("INCOMING_CALL_FULLSCREEN_ACCEPT_BTN_CLASS");
     expect(incomingView).toContain("INCOMING_CALL_FULLSCREEN_DECLINE_BTN_CLASS");

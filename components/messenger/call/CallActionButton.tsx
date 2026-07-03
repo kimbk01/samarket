@@ -1,6 +1,7 @@
 "use client";
 
 import { memo } from "react";
+import { CallRippleInks, useCallRipple } from "@/components/messenger/call/CallRipple";
 import type { CallActionItem } from "./call-ui.types";
 import {
   Headphones,
@@ -42,10 +43,10 @@ function diskClassForAction(item: CallActionItem, theme?: "starbucks"): string {
   const { icon, tone, active, disabled } = item;
   if (theme === "starbucks") {
     if (tone === "danger" || icon === "end" || icon === "decline") {
-      return "bg-[#A9472B] text-white shadow-[0_12px_28px_rgba(88,41,26,0.28)] ring-1 ring-[#F1F8F4]/22";
+      return "bg-[#D93025] text-white shadow-[0_12px_28px_rgba(217,48,37,0.28)] ring-1 ring-[#F1F8F4]/22";
     }
     if (tone === "accept" || icon === "accept") {
-      return "bg-[#00754A] text-white shadow-[0_12px_28px_rgba(0,117,74,0.34)] ring-1 ring-[#D4E9E2]/35";
+      return "bg-[#00754A] text-white shadow-[0_12px_28px_rgba(0,117,74,0.34)] ring-1 ring-[#D4E9E2]/35 active:bg-[#006241]";
     }
     if (disabled) {
       return "bg-[#003D29]/58 text-white shadow-[0_12px_28px_rgba(0,61,41,0.22)] ring-1 ring-[#D4E9E2]/24 backdrop-blur-md";
@@ -56,7 +57,7 @@ function diskClassForAction(item: CallActionItem, theme?: "starbucks"): string {
     return "bg-[#003D29]/52 text-white shadow-[0_12px_28px_rgba(0,61,41,0.24)] ring-1 ring-[#D4E9E2]/30 backdrop-blur-md";
   }
   if (tone === "danger" || icon === "end" || icon === "decline") {
-    return "bg-[#FF3B30] text-white shadow-[0_12px_28px_rgba(255,59,48,0.35)]";
+    return "bg-[#D93025] text-white shadow-[0_12px_28px_rgba(217,48,37,0.35)]";
   }
   if (tone === "accept" || icon === "accept") {
     return "bg-[#22c55e] text-white shadow-[0_12px_28px_rgba(34,197,94,0.38)]";
@@ -139,6 +140,7 @@ export const CallActionButton = memo(function CallActionButton({
 }) {
   const disk = diskClassForAction(item, theme);
   const isStarbucks = theme === "starbucks";
+  const { inks, onPointerDown } = useCallRipple(item.disabled);
 
   return (
     <button
@@ -147,12 +149,14 @@ export const CallActionButton = memo(function CallActionButton({
       disabled={item.disabled}
       data-testid={item.dataTestId}
       className={`call-btn items-center text-center disabled:opacity-40 ${
-        isStarbucks ? "min-w-0 flex-1 basis-0" : ""
+        isStarbucks ? "call-btn--control min-w-0 flex-1 basis-0" : ""
       }`.trim()}
     >
       <span
-        className={`call-btn__disk ${isStarbucks ? "h-[clamp(48px,14vw,58px)] w-[clamp(48px,14vw,58px)]" : ""} ${disk}`.trim()}
+        onPointerDown={onPointerDown}
+        className={`call-btn__disk ${isStarbucks ? "h-[clamp(52px,14vw,64px)] w-[clamp(52px,14vw,64px)]" : ""} ${disk}`.trim()}
       >
+        <CallRippleInks inks={inks} />
         <CallActionGlyph item={item} theme={theme} />
       </span>
       <span

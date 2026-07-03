@@ -107,7 +107,7 @@ export function IncomingCallBanner(props: IncomingCallBannerProps) {
       data-incoming-call-compact-banner
     >
       <div
-        className={`mx-auto flex h-[72px] max-w-[520px] items-center gap-2.5 rounded-[20px] border px-3 shadow-[0_14px_44px_rgba(0,0,0,0.34)] sm:h-[76px] ${INCOMING_CALL_BANNER_BG_CLASS} ${INCOMING_CALL_BANNER_BORDER_CLASS}`}
+        className={`mx-auto flex h-[72px] max-w-[520px] items-center gap-2.5 rounded-[20px] border px-3 shadow-[0_8px_24px_rgba(0,0,0,0.2)] sm:h-[76px] ${INCOMING_CALL_BANNER_BG_CLASS} ${INCOMING_CALL_BANNER_BORDER_CLASS}`}
       >
         <button
           type="button"
@@ -145,7 +145,7 @@ export function IncomingCallBanner(props: IncomingCallBannerProps) {
           type="button"
           disabled={busyReject || busyAccept}
           onClick={handleReject}
-          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full transition-transform active:scale-[0.94] disabled:opacity-40 ${INCOMING_CALL_BANNER_DECLINE_CLASS}`}
+          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full transition-transform duration-[80ms] active:scale-[0.93] disabled:opacity-40 ${INCOMING_CALL_BANNER_DECLINE_CLASS}`}
           aria-label={t("cm_ui_reject")}
           data-incoming-call-decline
           data-testid={rejectDataTestId}
@@ -167,7 +167,7 @@ export function IncomingCallBanner(props: IncomingCallBannerProps) {
           type="button"
           disabled={busyAccept}
           onClick={handleAccept}
-          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full transition-transform active:scale-[0.94] disabled:opacity-40 ${INCOMING_CALL_BANNER_ACCEPT_CLASS}`}
+          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full transition-transform duration-[80ms] active:scale-[0.93] disabled:opacity-40 ${INCOMING_CALL_BANNER_ACCEPT_CLASS}`}
           aria-label={t("cm_ui_accept")}
           data-incoming-call-accept
           data-testid={acceptDataTestId}

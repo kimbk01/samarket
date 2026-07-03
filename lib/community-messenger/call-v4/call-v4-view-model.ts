@@ -215,6 +215,15 @@ export function buildCallV4ScreenViewModel(input: BuildCallV4ScreenViewModelInpu
 
   if (phase === "connected") {
     secondaryActions.push({
+      id: "mute",
+      label: ms.micEnabled
+        ? safeT("cm_ui_mute", { fallbackKo: "음소거", fallbackEn: "Mute" })
+        : safeT("cm_ui_unmute", { fallbackKo: "음소거 해제", fallbackEn: "Unmute" }),
+      icon: "mic",
+      active: !ms.micEnabled,
+      onClick: () => void setCallV4MicEnabled(callId, !ms.micEnabled),
+    });
+    secondaryActions.push({
       id: "speaker",
       label: safeT("cm_ui_speaker", { fallbackKo: "스피커", fallbackEn: "Speaker" }),
       icon: "speaker",
@@ -225,15 +234,6 @@ export function buildCallV4ScreenViewModel(input: BuildCallV4ScreenViewModelInpu
 
   if (phase === "connected" && isVideoCall) {
     secondaryActions.push(
-      {
-        id: "mute",
-        label: ms.micEnabled
-          ? safeT("cm_ui_mute", { fallbackKo: "음소거", fallbackEn: "Mute" })
-          : safeT("cm_ui_unmute", { fallbackKo: "음소거 해제", fallbackEn: "Unmute" }),
-        icon: "mic",
-        active: !ms.micEnabled,
-        onClick: () => void setCallV4MicEnabled(callId, !ms.micEnabled),
-      },
       {
         id: "camera",
         label: ms.cameraEnabled

@@ -18,7 +18,7 @@ export function CallActionBar({
     <div
       className={
         themed
-          ? `flex w-full flex-nowrap items-start justify-between px-[clamp(0.25rem,2vw,0.75rem)] ${compact ? "gap-[clamp(0.45rem,2vw,0.75rem)]" : "gap-[clamp(0.35rem,1.8vw,0.9rem)]"}`
+          ? `call-control-bar flex w-full flex-nowrap items-start justify-between px-[clamp(0.25rem,2vw,0.75rem)] shadow-[0_8px_24px_rgba(0,0,0,0.2)] ${compact ? "gap-3" : "gap-3"}`
           : `flex w-full flex-wrap items-start justify-center ${compact ? "gap-x-4 gap-y-3" : "gap-x-5 gap-y-4"} `.trim()
       }
     >
