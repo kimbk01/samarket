@@ -15,6 +15,7 @@ import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import com.dibay.app.IncomingCallUiInsets;
 import com.dibay.app.R;
 import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
 import java.lang.ref.WeakReference;
@@ -223,6 +224,8 @@ public class NativeVoiceCallActivity extends Activity {
     endButton = findViewById(R.id.native_voice_call_end);
     speakerButton = findViewById(R.id.native_voice_call_speaker);
     attachDockView();
+    IncomingCallUiInsets.applyBottomSafeArea(incomingActions, 32);
+    IncomingCallUiInsets.applyBottomSafeArea(activeActions, 32);
   }
 
   private void bindActions() {

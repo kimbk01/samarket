@@ -21,6 +21,7 @@ import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import com.dibay.app.IncomingCallUiInsets;
 import com.dibay.app.R;
 import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
 import java.lang.ref.WeakReference;
@@ -345,6 +346,8 @@ public class NativeVideoCallActivity extends Activity {
     attachDockView();
     attachLocalPipDragListener();
     applyLocalPreviewLayout();
+    IncomingCallUiInsets.applyBottomSafeArea(incomingActions, 32);
+    IncomingCallUiInsets.applyBottomSafeArea(activeActions, 32);
   }
 
   private void bindActions() {
