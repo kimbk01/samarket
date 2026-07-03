@@ -690,7 +690,7 @@ public class NativeVideoCallActivity extends Activity {
   }
 
   private FrameLayout.LayoutParams createLocalPreviewLayoutParams() {
-    FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(dp(120), dp(180));
+    FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(dp(120), dp(213));
     params.gravity = Gravity.TOP | Gravity.END;
     params.setMargins(0, dp(88), dp(20), 0);
     return params;
