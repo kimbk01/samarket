@@ -11,6 +11,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.WindowManager;
@@ -61,6 +62,14 @@ public class NativeVideoCallActivity extends Activity {
   private boolean inPipMode = false;
   private boolean dockMode = false;
   private boolean acceptStarted = false;
+  private boolean localPipCustomPosition = false;
+  private boolean localPipDragging = false;
+  private float localPipDragStartRawX = 0f;
+  private float localPipDragStartRawY = 0f;
+  private int localPipDragStartLeft = 0;
+  private int localPipDragStartTop = 0;
+  private int localPipLeft = 0;
+  private int localPipTop = 0;
   private NativeVideoCallRuntime.State currentState = NativeVideoCallRuntime.State.RINGING;
   private final Handler mainHandler = new Handler(Looper.getMainLooper());
   private long connectedAtElapsedMs = 0L;
@@ -320,6 +329,7 @@ public class NativeVideoCallActivity extends Activity {
     endButton = findViewById(R.id.native_video_call_end);
     cameraButton = findViewById(R.id.native_video_call_camera);
     attachDockView();
+    attachLocalPipDragListener();
     applyLocalPreviewLayout();
   }
 
@@ -579,6 +589,47 @@ public class NativeVideoCallActivity extends Activity {
     mainHandler.removeCallbacks(durationTick);
   }
 
+  private void attachLocalPipDragListener() {
+    if (localContainer == null) return;
+    localContainer.setOnTouchListener(
+        (view, event) -> {
+          if (!isLocalPipDragEligible()) return false;
+          switch (event.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN:
+              localPipDragging = true;
+              localPipDragStartRawX = event.getRawX();
+              localPipDragStartRawY = event.getRawY();
+              localPipDragStartLeft = view.getLeft();
+              localPipDragStartTop = view.getTop();
+              int[] start = clampLocalPipPosition(localPipDragStartLeft, localPipDragStartTop);
+              localPipLeft = start[0];
+              localPipTop = start[1];
+              localPipCustomPosition = true;
+              applyLocalPipPosition(false);
+              return true;
+            case MotionEvent.ACTION_MOVE:
+              if (!localPipDragging) return false;
+              int left = localPipDragStartLeft + Math.round(event.getRawX() - localPipDragStartRawX);
+              int top = localPipDragStartTop + Math.round(event.getRawY() - localPipDragStartRawY);
+              int[] clamped = clampLocalPipPosition(left, top);
+              localPipLeft = clamped[0];
+              localPipTop = clamped[1];
+              applyLocalPipPosition(true);
+              return true;
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_CANCEL:
+              localPipDragging = false;
+              return true;
+            default:
+              return false;
+          }
+        });
+  }
+
+  private boolean isLocalPipDragEligible() {
+    return currentState == NativeVideoCallRuntime.State.CONNECTED && !inPipMode && !dockMode;
+  }
+
   private void updateDurationLabel() {
     if (connectedAtElapsedMs <= 0L || durationView == null) return;
     long elapsedSec = Math.max(0L, (SystemClock.elapsedRealtime() - connectedAtElapsedMs) / 1000L);
@@ -593,7 +644,38 @@ public class NativeVideoCallActivity extends Activity {
 
   private void applyLocalPreviewLayout() {
     if (localContainer == null) return;
+    if (localPipCustomPosition) {
+      int[] clamped = clampLocalPipPosition(localPipLeft, localPipTop);
+      localPipLeft = clamped[0];
+      localPipTop = clamped[1];
+      applyLocalPipPosition(false);
+      return;
+    }
     localContainer.setLayoutParams(createLocalPreviewLayoutParams());
+  }
+
+  private void applyLocalPipPosition(boolean logDrag) {
+    if (localContainer == null) return;
+    FrameLayout.LayoutParams current = (FrameLayout.LayoutParams) localContainer.getLayoutParams();
+    FrameLayout.LayoutParams params =
+        new FrameLayout.LayoutParams(current.width, current.height);
+    params.gravity = Gravity.TOP | Gravity.START;
+    params.setMargins(localPipLeft, localPipTop, 0, 0);
+    localContainer.setLayoutParams(params);
+    if (logDrag) {
+      NativeVideoCallLog.info(
+          "native_video_local_pip_drag", callId, "left=" + localPipLeft + " top=" + localPipTop);
+    }
+  }
+
+  private int[] clampLocalPipPosition(int left, int top) {
+    if (localContainer == null || !(localContainer.getParent() instanceof View)) {
+      return new int[] {Math.max(0, left), Math.max(0, top)};
+    }
+    View parent = (View) localContainer.getParent();
+    int maxLeft = Math.max(0, parent.getWidth() - localContainer.getWidth());
+    int maxTop = Math.max(0, parent.getHeight() - localContainer.getHeight());
+    return new int[] {Math.max(0, Math.min(left, maxLeft)), Math.max(0, Math.min(top, maxTop))};
   }
 
   private FrameLayout.LayoutParams createLocalPreviewLayoutParams() {
