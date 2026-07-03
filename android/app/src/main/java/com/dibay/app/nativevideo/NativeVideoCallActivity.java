@@ -58,6 +58,7 @@ public class NativeVideoCallActivity extends Activity {
   private Button cameraButton;
   private View dockRoot;
   private ImageButton dockMinimizeButton;
+  private ImageButton cameraFlipButton;
   private boolean cameraEnabled = true;
   private boolean inPipMode = false;
   private boolean dockMode = false;
@@ -411,7 +412,9 @@ public class NativeVideoCallActivity extends Activity {
     if (inPipMode) applyPipUiMode(true);
     if (model.showConnectedControls) {
       ensureDockMinimizeButton();
+      ensureCameraFlipButton();
     }
+    updateCameraFlipVisibility();
   }
 
   private boolean minimizeConnectedCall(String source) {
@@ -498,6 +501,35 @@ public class NativeVideoCallActivity extends Activity {
     dockMinimizeButton.setOnClickListener(v -> showDock("minimize_button"));
   }
 
+  private void ensureCameraFlipButton() {
+    if (cameraFlipButton != null || connectedControls == null) return;
+    cameraFlipButton = new ImageButton(this);
+    cameraFlipButton.setImageResource(android.R.drawable.ic_menu_rotate);
+    cameraFlipButton.setColorFilter(Color.WHITE);
+    cameraFlipButton.setContentDescription("camera_flip");
+    cameraFlipButton.setBackgroundResource(R.drawable.bg_dibay_incoming_btn_accept);
+    cameraFlipButton.setPadding(dp(12), dp(12), dp(12), dp(12));
+    cameraFlipButton.setScaleType(android.widget.ImageView.ScaleType.CENTER_INSIDE);
+    cameraFlipButton.setVisibility(View.GONE);
+    LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(48), dp(48));
+    params.setMarginEnd(dp(12));
+    int cameraIndex = connectedControls.indexOfChild(cameraButton);
+    connectedControls.addView(
+        cameraFlipButton, cameraIndex >= 0 ? cameraIndex : connectedControls.getChildCount(), params);
+    cameraFlipButton.setOnClickListener(
+        v -> {
+          NativeVideoCallAgoraEngine.switchCameraFacing();
+          updateCameraFlipVisibility();
+        });
+  }
+
+  private void updateCameraFlipVisibility() {
+    if (cameraFlipButton == null) return;
+    boolean visible =
+        currentState == NativeVideoCallRuntime.State.CONNECTED && !inPipMode && !dockMode;
+    cameraFlipButton.setVisibility(visible ? View.VISIBLE : View.GONE);
+  }
+
   private boolean isDockEligible() {
     return callId != null
         && !callId.isEmpty()
@@ -514,6 +546,7 @@ public class NativeVideoCallActivity extends Activity {
     }
     if (dockMode) return;
     dockMode = true;
+    updateCameraFlipVisibility();
     applyDockPresentation();
     NativeVideoCallLog.info("native_video_dock_shown", callId, "source=" + source);
   }

@@ -161,6 +161,14 @@ public final class NativeVideoCallAgoraEngine {
     }
   }
 
+  public static void switchCameraFacing() {
+    synchronized (LOCK) {
+      if (engine == null || activeCallId == null) return;
+      int result = engine.switchCamera();
+      NativeVideoCallLog.info("camera_facing_switch", activeCallId, "result=" + result);
+    }
+  }
+
   /** Guard-only: current Agora occupant callId, or null when unset. */
   public static String peekOccupantCallId() {
     synchronized (LOCK) {
