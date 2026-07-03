@@ -31,7 +31,11 @@ import { stopCallV4CallerActivePoll, startCallV4CallerActivePoll } from "@/lib/c
 import { cleanupCallV4 } from "@/lib/community-messenger/call-v4/call-v4-cleanup";
 import { primeCallV4ConnectionWarm } from "@/lib/community-messenger/call-v4/call-v4-connection-warm";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
-import { clearCallV4MissedTimer, type CallV4OutgoingMissedTimerFireContext } from "@/lib/community-messenger/call-v4/call-v4-missed-timeout";
+import {
+  clearCallV4MissedTimer,
+  startCallV4OutgoingMissedTimer,
+  type CallV4OutgoingMissedTimerFireContext,
+} from "@/lib/community-messenger/call-v4/call-v4-missed-timeout";
 import {
   canRenderWebIncomingSheet,
 } from "@/lib/community-messenger/call-v4/call-v4-incoming-surface";
@@ -450,8 +454,7 @@ export async function callV4CreateOutgoing(input: {
     const identity = buildOutgoingIdentity(created.session, input.peerLabel);
     useCallV4Store.getState().setIdentity(identity);
     useCallV4Store.getState().setPhase("outgoing_ringing");
-    routeToCallV4Screen(input.router, created.session.id, "outgoing");
-    logCallV4("outgoing_ringing", { callId: created.session.id, roomId: roomResolved.roomId });
+    let shouldRouteToWebOutgoingPresentation = true;
 
     if (isAndroidNativeOutgoingShell()) {
       logCallV4("native_outgoing_handoff_start", {
@@ -472,6 +475,8 @@ export async function callV4CreateOutgoing(input: {
           mediaType: input.mediaType,
           roomId: roomResolved.roomId,
         });
+        startCallV4OutgoingMissedTimer(created.session.id, identity.createdAt, input.router);
+        shouldRouteToWebOutgoingPresentation = false;
       } else {
         if (!nativeHandoff.ok && !nativeHandoff.nativeOwned) {
           logCallV4("native_establishment_unavailable", {
@@ -488,6 +493,11 @@ export async function callV4CreateOutgoing(input: {
           nativeOwned: nativeHandoff.nativeOwned,
         });
       }
+    }
+
+    if (shouldRouteToWebOutgoingPresentation) {
+      routeToCallV4Screen(input.router, created.session.id, "outgoing");
+      logCallV4("outgoing_ringing", { callId: created.session.id, roomId: roomResolved.roomId });
     }
 
     return { ok: true as const, session: created.session, roomId: roomResolved.roomId };

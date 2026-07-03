@@ -77,7 +77,7 @@ describe("call-v4-outgoing-native-fallback (P2-2)", () => {
     expect(useCallV4Store.getState().identity?.callId).toBe("call-1");
   });
 
-  it("Android native shell: handoff success keeps Web outgoing presentation screen", async () => {
+  it("Android native shell: handoff success does not create Web outgoing presentation screen", async () => {
     bridgeMocks.isAndroidNativeOutgoingShell.mockReturnValue(true);
     bridgeMocks.startNativeOutgoingEstablishment.mockResolvedValue({ ok: true, nativeOwned: true });
 
@@ -89,7 +89,7 @@ describe("call-v4-outgoing-native-fallback (P2-2)", () => {
     });
 
     expect(result.ok).toBe(true);
-    expect(replace).toHaveBeenCalledWith("/community-messenger/calls-v4/call-1?source=outgoing");
+    expect(replace).not.toHaveBeenCalled();
     expect(useCallV4Store.getState().phase).toBe("outgoing_ringing");
     expect(useCallV4Store.getState().identity?.callId).toBe("call-1");
   });
