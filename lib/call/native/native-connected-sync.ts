@@ -4,6 +4,7 @@ import { registerPlugin, type PluginListenerHandle } from "@capacitor/core";
 import { callV4FetchSession } from "@/lib/community-messenger/call-v4/call-v4-api";
 import { markCallV4NativeConnectedOps } from "@/lib/community-messenger/call-v4/call-v4-phase-bridge";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
+import { clearCallV4MissedTimer } from "@/lib/community-messenger/call-v4/call-v4-missed-timeout";
 import { readCallV4Phase, useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
 import type { CallV4Identity, CallV4Phase } from "@/lib/community-messenger/call-v4/call-v4-types";
 import {
@@ -53,6 +54,8 @@ function buildIdentityFromNativeConnected(payload: NativeCallConnectedPayload): 
 
 function startNativeConnectedSideEffects(payload: NativeCallConnectedPayload): void {
   const sid = payload.callId.trim();
+  clearCallV4MissedTimer(sid);
+  logCallV4("native_connected_clear", { callId: sid });
   markCallV4NativeConnectedOps(sid, "native_connected");
   if (payload.mediaType === "video") {
     acquireConnectedVideoScreenAwake(sid, "native_connected");

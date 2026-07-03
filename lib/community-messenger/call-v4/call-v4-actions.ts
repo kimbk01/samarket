@@ -93,6 +93,9 @@ function resolveOutgoingMissedTimeoutEligibility(
   if (MISSED_TIMEOUT_TERMINAL_PHASES.has(phase)) {
     return { eligible: false, reason: `terminal_phase:${phase}` };
   }
+  if (phase === "connected") {
+    return { eligible: false, reason: "connected_phase" };
+  }
 
   const identity = readCallV4Identity();
   const identityOk = identity?.callId === sid && identity.direction === "outgoing";

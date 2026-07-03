@@ -9,6 +9,11 @@ import {
   resetCallV4ConnectedSideEffectsForTests,
 } from "@/lib/community-messenger/call-v4/call-v4-phase-bridge";
 import { callV4FetchSession } from "@/lib/community-messenger/call-v4/call-v4-api";
+import {
+  readCallV4MissedTimerCallIdForTests,
+  resetCallV4MissedTimersForTests,
+  startCallV4OutgoingMissedTimer,
+} from "@/lib/community-messenger/call-v4/call-v4-missed-timeout";
 import { useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
 
 const heartbeatMocks = vi.hoisted(() => ({
@@ -52,9 +57,11 @@ function samplePayload(overrides: Partial<NativeCallConnectedPayload> = {}): Nat
 
 describe("native-connected-sync", () => {
   beforeEach(() => {
+    vi.useRealTimers();
     useCallV4Store.getState().resetToIdle();
     resetNativeConnectedSyncForTests();
     resetCallV4ConnectedSideEffectsForTests();
+    resetCallV4MissedTimersForTests();
     heartbeatMocks.start.mockClear();
     terminalMocks.start.mockClear();
     vi.mocked(callV4FetchSession).mockReset();
@@ -136,6 +143,34 @@ describe("native-connected-sync", () => {
     expect(callV4FetchSession).not.toHaveBeenCalled();
     expect(useCallV4Store.getState().phase).toBe("ending");
     expect(heartbeatMocks.start).not.toHaveBeenCalled();
+  });
+
+  it("clears outgoing missed timer when native connected side effects start", async () => {
+    vi.useFakeTimers();
+    const startedAt = new Date("2026-07-03T01:04:16.000Z").toISOString();
+    useCallV4Store.setState({
+      phase: "outgoing_ringing",
+      identity: {
+        callId: "call-o3-1",
+        roomId: "room-1",
+        callerUserId: "",
+        calleeUserId: "peer-1",
+        direction: "outgoing",
+        mediaType: "audio",
+        createdAt: startedAt,
+      },
+    });
+    startCallV4OutgoingMissedTimer("call-o3-1", startedAt);
+    expect(readCallV4MissedTimerCallIdForTests()).toBe("call-o3-1");
+
+    vi.mocked(callV4FetchSession).mockResolvedValue({
+      id: "call-o3-1",
+      status: "active",
+    } as never);
+
+    await onNativeCallConnected(samplePayload());
+
+    expect(readCallV4MissedTimerCallIdForTests()).toBeNull();
   });
 });
 
