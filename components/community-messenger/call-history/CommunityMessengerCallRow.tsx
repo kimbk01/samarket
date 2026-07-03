@@ -226,7 +226,7 @@ export function CommunityMessengerCallRow({
       </div>
 
       <div
-        className={`relative z-[1] flex min-h-[64px] w-full touch-pan-y items-stretch bg-transparent`}
+        className={`relative z-[1] flex min-h-[64px] w-full touch-pan-y items-stretch bg-white dark:bg-[#1F1F1F]`}
         data-call-log-swipe-surface={swipeSurfaceDataAttr}
         style={{
           transform: `translate3d(${dragX}px,0,0)`,
