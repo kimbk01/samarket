@@ -297,7 +297,7 @@ public final class NativeVideoCallAgoraEngine {
     try {
       NativeVideoCallLog.info("setup_remote_video", sid, "uid=" + uid);
       SurfaceView remote = new SurfaceView(context);
-      rtc.setupRemoteVideo(new VideoCanvas(remote, VideoCanvas.RENDER_MODE_FIT, uid));
+      rtc.setupRemoteVideo(new VideoCanvas(remote, VideoCanvas.RENDER_MODE_HIDDEN, uid));
       NativeVideoCallActivity.attachRemoteView(sid, remote);
     } catch (RuntimeException error) {
       REMOTE_SETUP_UIDS.remove(uid);
