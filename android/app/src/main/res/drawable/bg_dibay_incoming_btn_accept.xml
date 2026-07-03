@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<shape xmlns:android="http://schemas.android.com/apk/res/android"
-    android:shape="oval">
-    <solid android:color="@color/dibay_incoming_accept" />
-</shape>
+<!-- P2-2: primary accept + pressed ripple. Inline shape — no nested drawable file. -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="@color/dibay_call_primary_pressed">
+    <item>
+        <shape android:shape="oval">
+            <solid android:color="@color/dibay_call_primary" />
+        </shape>
+    </item>
+</ripple>

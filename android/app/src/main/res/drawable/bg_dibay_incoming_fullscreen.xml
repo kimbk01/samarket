@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<shape xmlns:android="http://schemas.android.com/apk/res/android"
-    android:shape="rectangle">
-    <solid android:color="@color/dibay_incoming_primary" />
-</shape>
+<!-- P2-2: Web incoming-call-surface-bg linear gradient (165deg approx). Tokens from P2-1 only. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="165"
+                android:centerColor="@color/dibay_call_primary_pressed"
+                android:endColor="@color/dibay_call_primary"
+                android:startColor="@color/dibay_call_dark_bg"
+                android:type="linear" />
+        </shape>
+    </item>
+</layer-list>
