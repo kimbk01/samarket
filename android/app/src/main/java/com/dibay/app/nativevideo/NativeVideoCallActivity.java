@@ -3,6 +3,7 @@ package com.dibay.app.nativevideo;
 import android.app.Activity;
 import android.app.PictureInPictureParams;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
 import android.graphics.Color;
 import android.os.Build;
@@ -142,6 +143,7 @@ public class NativeVideoCallActivity extends Activity {
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
+    setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
     super.onCreate(savedInstanceState);
     if (!bindIntent(getIntent())) {
       finish();
