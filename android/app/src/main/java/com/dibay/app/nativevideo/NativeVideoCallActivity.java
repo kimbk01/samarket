@@ -225,14 +225,25 @@ public class NativeVideoCallActivity extends Activity {
   }
 
   private boolean bindIntent(Intent intent) {
+    String previousCallId = callId;
     callId = intent != null ? intent.getStringExtra(EXTRA_CALL_ID) : null;
     if (callId == null || callId.trim().isEmpty()) return false;
     callId = callId.trim();
+    if (previousCallId != null && !previousCallId.equals(callId)) {
+      resetLocalPipDragMemory();
+      if (localContainer != null) applyLocalPreviewLayout();
+    }
     String mode = intent != null ? intent.getStringExtra(EXTRA_UI_MODE) : null;
     if (UI_MODE_OUTGOING.equals(mode)) uiMode = UI_MODE_OUTGOING;
     else if (UI_MODE_CONNECTED_RESTORE.equals(mode)) uiMode = UI_MODE_CONNECTED_RESTORE;
     else uiMode = UI_MODE_INCOMING;
     return true;
+  }
+
+  private void resetLocalPipDragMemory() {
+    localPipCustomPosition = false;
+    localPipLeft = 0;
+    localPipTop = 0;
   }
 
   private boolean claimVisibleSurface() {
