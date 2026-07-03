@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- P2-2: danger reject + ripple. Inline shape — no nested drawable file. -->
+<!-- P2-2: danger reject + ripple. P2-5 Tier B: adaptive rounded rect (square→circle, wide→pill). -->
 <ripple xmlns:android="http://schemas.android.com/apk/res/android"
     android:color="#33FFFFFF">
     <item>
-        <shape android:shape="oval">
+        <shape android:shape="rectangle">
+            <corners android:radius="9999dp" />
             <solid android:color="@color/dibay_call_danger" />
         </shape>
     </item>

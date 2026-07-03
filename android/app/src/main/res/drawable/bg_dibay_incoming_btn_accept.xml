@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- P2-2: primary accept + pressed ripple. Inline shape — no nested drawable file. -->
+<!-- P2-2: primary accept + pressed ripple. P2-5 Tier B: adaptive rounded rect (square→circle, wide→pill). -->
 <ripple xmlns:android="http://schemas.android.com/apk/res/android"
     android:color="@color/dibay_call_primary_pressed">
     <item>
-        <shape android:shape="oval">
+        <shape android:shape="rectangle">
+            <corners android:radius="9999dp" />
             <solid android:color="@color/dibay_call_primary" />
         </shape>
     </item>
