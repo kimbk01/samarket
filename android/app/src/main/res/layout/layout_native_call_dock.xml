@@ -7,27 +7,27 @@
     android:clickable="true"
     android:elevation="32dp"
     android:gravity="center_vertical"
-    android:minHeight="56dp"
+    android:minHeight="@dimen/dibay_call_btn_size_default"
     android:orientation="horizontal"
-    android:paddingStart="12dp"
+    android:paddingStart="@dimen/dibay_call_btn_gap"
     android:paddingTop="8dp"
-    android:paddingEnd="12dp"
+    android:paddingEnd="@dimen/dibay_call_btn_gap"
     android:paddingBottom="8dp">
 
     <TextView
         android:id="@+id/native_call_dock_avatar_initial"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
+        android:layout_width="@dimen/dibay_call_touch_min"
+        android:layout_height="@dimen/dibay_call_touch_min"
         android:background="@drawable/bg_dibay_incoming_avatar"
         android:gravity="center"
-        android:textColor="@color/dibay_incoming_primary"
+        android:textColor="@color/dibay_call_primary_pressed"
         android:textSize="16sp"
         android:textStyle="bold" />
 
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="10dp"
+        android:layout_marginStart="@dimen/dibay_call_btn_gap"
         android:layout_weight="1"
         android:orientation="vertical">
 
@@ -69,12 +69,13 @@
     <Button
         android:id="@+id/native_call_dock_resume"
         android:layout_width="wrap_content"
-        android:layout_height="36dp"
+        android:layout_height="wrap_content"
         android:layout_marginEnd="8dp"
         android:background="@drawable/bg_dibay_incoming_btn_accept"
+        android:minHeight="@dimen/dibay_call_touch_min"
         android:minWidth="0dp"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
+        android:paddingStart="@dimen/dibay_call_btn_gap"
+        android:paddingEnd="@dimen/dibay_call_btn_gap"
         android:text="@string/dibay_call_dock_resume"
         android:textAllCaps="false"
         android:textColor="@android:color/white"
@@ -83,11 +84,12 @@
     <Button
         android:id="@+id/native_call_dock_end"
         android:layout_width="wrap_content"
-        android:layout_height="36dp"
+        android:layout_height="wrap_content"
         android:background="@drawable/bg_dibay_incoming_btn_reject"
+        android:minHeight="@dimen/dibay_call_touch_min"
         android:minWidth="0dp"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
+        android:paddingStart="@dimen/dibay_call_btn_gap"
+        android:paddingEnd="@dimen/dibay_call_btn_gap"
         android:text="@string/dibay_video_call_end"
         android:textAllCaps="false"
         android:textColor="@android:color/white"

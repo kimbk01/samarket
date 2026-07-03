@@ -10,8 +10,8 @@
         android:layout_height="match_parent"
         android:gravity="center_horizontal"
         android:orientation="vertical"
-        android:paddingStart="24dp"
-        android:paddingEnd="24dp">
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -21,8 +21,8 @@
             android:orientation="vertical">
 
             <FrameLayout
-                android:layout_width="@dimen/dibay_incoming_avatar_full"
-                android:layout_height="@dimen/dibay_incoming_avatar_full">
+                android:layout_width="@dimen/dibay_call_avatar_lg"
+                android:layout_height="@dimen/dibay_call_avatar_lg">
 
                 <TextView
                     android:id="@+id/native_voice_call_avatar_initial"
@@ -30,7 +30,7 @@
                     android:layout_height="match_parent"
                     android:background="@drawable/bg_dibay_incoming_avatar"
                     android:gravity="center"
-                    android:textColor="@color/dibay_incoming_primary"
+                    android:textColor="@color/dibay_call_primary_pressed"
                     android:textSize="36sp"
                     android:textStyle="bold" />
             </FrameLayout>
@@ -39,7 +39,7 @@
                 android:id="@+id/native_voice_call_peer_name"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
+                android:layout_marginTop="24dp"
                 android:gravity="center"
                 android:textColor="@color/dibay_incoming_text_primary"
                 android:textSize="@dimen/dibay_incoming_name_sp_full"
@@ -58,7 +58,7 @@
                 android:id="@+id/native_voice_call_duration"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
+                android:layout_marginTop="@dimen/dibay_call_btn_gap"
                 android:gravity="center"
                 android:textColor="@color/dibay_incoming_text_primary"
                 android:textSize="18sp"
@@ -71,14 +71,14 @@
             android:layout_height="wrap_content"
             android:gravity="center"
             android:orientation="horizontal"
-            android:paddingBottom="24dp"
+            android:paddingBottom="32dp"
             android:visibility="gone">
 
             <ImageButton
                 android:id="@+id/native_voice_call_decline"
-                android:layout_width="@dimen/dibay_incoming_btn_circle_full"
-                android:layout_height="@dimen/dibay_incoming_btn_circle_full"
-                android:layout_marginEnd="24dp"
+                android:layout_width="@dimen/dibay_call_btn_size_max"
+                android:layout_height="@dimen/dibay_call_btn_size_max"
+                android:layout_marginEnd="40dp"
                 android:background="@drawable/bg_dibay_incoming_btn_reject"
                 android:contentDescription="@string/dibay_incoming_reject"
                 android:padding="16dp"
@@ -88,9 +88,9 @@
 
             <ImageButton
                 android:id="@+id/native_voice_call_accept"
-                android:layout_width="@dimen/dibay_incoming_btn_circle_full"
-                android:layout_height="@dimen/dibay_incoming_btn_circle_full"
-                android:layout_marginStart="24dp"
+                android:layout_width="@dimen/dibay_call_btn_size_max"
+                android:layout_height="@dimen/dibay_call_btn_size_max"
+                android:layout_marginStart="40dp"
                 android:background="@drawable/bg_dibay_incoming_btn_accept"
                 android:contentDescription="@string/dibay_incoming_accept"
                 android:padding="16dp"
@@ -113,18 +113,20 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:background="@drawable/bg_dibay_incoming_btn_reject"
+                android:minHeight="@dimen/dibay_call_touch_min"
                 android:minWidth="160dp"
-                android:paddingStart="24dp"
-                android:paddingEnd="24dp"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
                 android:text="@string/dibay_voice_call_end"
                 android:textAllCaps="false"
-                android:textColor="@android:color/white" />
+                android:textColor="@android:color/white"
+                android:textSize="15sp" />
 
             <LinearLayout
                 android:id="@+id/native_voice_call_connected_controls"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
+                android:layout_marginTop="@dimen/dibay_call_btn_gap"
                 android:gravity="center"
                 android:orientation="horizontal"
                 android:visibility="gone">
@@ -133,14 +135,16 @@
                     android:id="@+id/native_voice_call_speaker"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="12dp"
+                    android:layout_marginEnd="@dimen/dibay_call_btn_gap"
                     android:background="@drawable/bg_dibay_incoming_btn_accept"
-                    android:minWidth="120dp"
+                    android:minHeight="@dimen/dibay_call_touch_min"
+                    android:minWidth="@dimen/dibay_call_btn_size_min"
                     android:paddingStart="16dp"
                     android:paddingEnd="16dp"
                     android:text="@string/dibay_voice_speaker_off"
                     android:textAllCaps="false"
-                    android:textColor="@android:color/white" />
+                    android:textColor="@android:color/white"
+                    android:textSize="15sp" />
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>
