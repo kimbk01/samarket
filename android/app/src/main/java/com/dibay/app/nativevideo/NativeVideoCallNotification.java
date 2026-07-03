@@ -15,6 +15,7 @@ import android.service.notification.StatusBarNotification;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.ContextCompat;
+import com.dibay.app.IncomingCallUiCopy;
 import com.dibay.app.R;
 import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
 import java.util.Map;
@@ -47,21 +48,7 @@ public final class NativeVideoCallNotification {
     PendingIntent fullScreen = activityIntent(app, session);
     NativeVideoCallLog.info("fullscreen_intent_created", sid);
 
-    Notification notification =
-        new NotificationCompat.Builder(app, CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle(title(session))
-            .setContentText("Incoming DIBAY video call")
-            .setCategory(NotificationCompat.CATEGORY_CALL)
-            .setPriority(NotificationCompat.PRIORITY_MAX)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setOngoing(true)
-            .setAutoCancel(false)
-            .setContentIntent(fullScreen)
-            .setFullScreenIntent(fullScreen, true)
-            .addAction(0, "Accept", acceptActivityIntent(app, session))
-            .addAction(0, "Decline", declineIntent(app, session))
-            .build();
+    Notification notification = buildIncomingNotification(app, session, fullScreen);
 
     NotificationManagerCompat.from(app).notify(notificationId(sid), notification);
     NativeVideoCallLog.info("incoming_notification_post_done", sid);
@@ -239,6 +226,35 @@ public final class NativeVideoCallNotification {
         "incoming_notification_active_state",
         callId,
         "phase=" + phase + " notificationId=" + id + " matched=" + matched + " details=" + details);
+  }
+
+  private static Notification buildIncomingNotification(
+      Context app, NativeVideoCallRuntime.Session session, PendingIntent fullScreen) {
+    PendingIntent acceptPi = acceptActivityIntent(app, session);
+    PendingIntent declinePi = declineIntent(app, session);
+    String callerName =
+        IncomingCallUiCopy.callerDisplayName(session.callerName, title(session), null);
+    String kindLabel = IncomingCallUiCopy.statusBrandLabel(app, "video", null, null);
+    String acceptLabel = IncomingCallUiCopy.acceptLabel(app);
+    String rejectLabel = IncomingCallUiCopy.rejectLabel(app);
+
+    return new NotificationCompat.Builder(app, CHANNEL_ID)
+        .setSmallIcon(R.mipmap.ic_launcher)
+        .setContentTitle(callerName)
+        .setContentText(kindLabel)
+        .setCategory(NotificationCompat.CATEGORY_CALL)
+        .setPriority(NotificationCompat.PRIORITY_MAX)
+        .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+        .setOngoing(true)
+        .setAutoCancel(false)
+        .setContentIntent(fullScreen)
+        .setFullScreenIntent(fullScreen, true)
+        .setColor(ContextCompat.getColor(app, R.color.dibay_incoming_primary))
+        .setColorized(true)
+        .setStyle(new NotificationCompat.BigTextStyle().bigText(kindLabel))
+        .addAction(new NotificationCompat.Action.Builder(0, acceptLabel, acceptPi).build())
+        .addAction(new NotificationCompat.Action.Builder(0, rejectLabel, declinePi).build())
+        .build();
   }
 
   private static PendingIntent activityIntent(Context context, NativeVideoCallRuntime.Session session) {

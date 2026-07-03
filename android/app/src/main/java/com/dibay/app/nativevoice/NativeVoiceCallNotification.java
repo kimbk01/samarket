@@ -15,6 +15,7 @@ import android.service.notification.StatusBarNotification;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.ContextCompat;
+import com.dibay.app.IncomingCallUiCopy;
 import com.dibay.app.R;
 import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
 import java.util.Map;
@@ -47,21 +48,7 @@ public final class NativeVoiceCallNotification {
     PendingIntent fullScreen = activityIntent(app, session);
     NativeVoiceCallLog.info("fullscreen_intent_created", sid);
 
-    Notification notification =
-        new NotificationCompat.Builder(app, CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle(title(session))
-            .setContentText("Incoming DIBAY voice call")
-            .setCategory(NotificationCompat.CATEGORY_CALL)
-            .setPriority(NotificationCompat.PRIORITY_MAX)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setOngoing(true)
-            .setAutoCancel(false)
-            .setContentIntent(fullScreen)
-            .setFullScreenIntent(fullScreen, true)
-            .addAction(0, "Accept", acceptActivityIntent(app, session))
-            .addAction(0, "Decline", declineIntent(app, session))
-            .build();
+    Notification notification = buildIncomingNotification(app, session, fullScreen);
 
     NotificationManagerCompat.from(app).notify(notificationId(sid), notification);
     NativeVoiceCallLog.info("incoming_notification_post_done", sid);
@@ -206,6 +193,35 @@ public final class NativeVoiceCallNotification {
       if (pkg.equals(sbn.getPackageName()) && sbn.getId() == id) return true;
     }
     return false;
+  }
+
+  private static Notification buildIncomingNotification(
+      Context app, NativeVoiceCallRuntime.Session session, PendingIntent fullScreen) {
+    PendingIntent acceptPi = acceptActivityIntent(app, session);
+    PendingIntent declinePi = declineIntent(app, session);
+    String callerName =
+        IncomingCallUiCopy.callerDisplayName(session.callerName, title(session), null);
+    String kindLabel = IncomingCallUiCopy.statusBrandLabel(app, "voice", null, null);
+    String acceptLabel = IncomingCallUiCopy.acceptLabel(app);
+    String rejectLabel = IncomingCallUiCopy.rejectLabel(app);
+
+    return new NotificationCompat.Builder(app, CHANNEL_ID)
+        .setSmallIcon(R.mipmap.ic_launcher)
+        .setContentTitle(callerName)
+        .setContentText(kindLabel)
+        .setCategory(NotificationCompat.CATEGORY_CALL)
+        .setPriority(NotificationCompat.PRIORITY_MAX)
+        .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+        .setOngoing(true)
+        .setAutoCancel(false)
+        .setContentIntent(fullScreen)
+        .setFullScreenIntent(fullScreen, true)
+        .setColor(ContextCompat.getColor(app, R.color.dibay_incoming_primary))
+        .setColorized(true)
+        .setStyle(new NotificationCompat.BigTextStyle().bigText(kindLabel))
+        .addAction(new NotificationCompat.Action.Builder(0, acceptLabel, acceptPi).build())
+        .addAction(new NotificationCompat.Action.Builder(0, rejectLabel, declinePi).build())
+        .build();
   }
 
   private static PendingIntent activityIntent(Context context, NativeVoiceCallRuntime.Session session) {
