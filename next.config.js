@@ -43,6 +43,7 @@ const nextConfig = {
   outputFileTracingExcludes: {
     "*": [
       "./docs/perf/**",
+      "./dist/apk/**",
       "./android/**",
       "./ios/**",
       "./benchmark-runs/**",

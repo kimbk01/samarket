@@ -54,6 +54,7 @@ android/local.properties
 # DIBAY perf QA artifacts — device/local only (Vercel serverless 한도 초과 방지)
 docs/perf/**/*.apk
 docs/perf/qa-safe-area/
+dist/apk/**/*.apk
 
 # vercel
 .vercel
