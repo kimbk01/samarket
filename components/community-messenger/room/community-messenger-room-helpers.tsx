@@ -455,13 +455,7 @@ export function formatParticipantStatus(value: "invited" | "joined" | "left" | "
   return translateCmUi("cm_ui_participant_status_ended");
 }
 
-export function BackIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
+export { AppBackIcon as BackIcon } from "@/components/navigation/AppBackButton";
 
 export function MoreIcon({ className }: { className?: string }) {
   return (

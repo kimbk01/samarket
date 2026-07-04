@@ -23,6 +23,7 @@ import {
 } from "@/lib/me/fetch-me-notification-settings-client";
 import { scheduleStartupApiDeferred } from "@/lib/http/startup-api-scheduler";
 import {
+  messengerChatFiltersToSearchParams,
   messengerSectionLabel,
   resolveMessengerChatFilters,
   resolveMessengerSection,
@@ -40,6 +41,7 @@ import {
 } from "@/lib/community-messenger/messenger-entry-origin";
 import type { CommunityMessengerBootstrap } from "@/lib/community-messenger/types";
 import { guardedRouterReplace } from "@/lib/dev/network-loop-guard";
+import { MessengerPullRefreshStickyBelow } from "@/components/community-messenger/MessengerPullRefreshStickyBelow";
 import type {
   MessengerNotificationSettings,
   FriendSheetState,
@@ -161,7 +163,7 @@ export function useCommunityMessengerHomeShellEffects({
   }, [recentSearches]);
 
   useEffect(() => {
-    if (fromPhilifeHeaderStack) return;
+    if (fromPhilifeHeaderStack || pillar != null) return;
     const preserveFrom = fromParam ? `&from=${encodeURIComponent(fromParam)}` : "";
     if (activeTab === "settings") {
       openSettingsSheet();
@@ -190,6 +192,17 @@ export function useCommunityMessengerHomeShellEffects({
     setMainSection((prev) => (prev === resolvedSection ? prev : resolvedSection));
     setChatInboxFilter((prev) => (prev === inbox ? prev : inbox));
     setChatKindFilter((prev) => (prev === nextKind ? prev : nextKind));
+    if (!activeSection.trim() && !activeTab.trim()) {
+      const qs = new URLSearchParams();
+      qs.set("section", "chats");
+      messengerChatFiltersToSearchParams(inbox, nextKind).forEach((value, key) => qs.set(key, value));
+      if (fromParam) qs.set("from", fromParam);
+      guardedRouterReplace(router, `/community-messenger?${qs.toString()}`, {
+        source: "messenger-home-shell",
+        reason: "default_section_chats",
+        scroll: false,
+      });
+    }
   }, [
     activeFilter,
     activeKind,
@@ -198,6 +211,7 @@ export function useCommunityMessengerHomeShellEffects({
     fromParam,
     fromPhilifeHeaderStack,
     openSettingsSheet,
+    pillar,
     router,
     setChatInboxFilter,
     setChatKindFilter,
@@ -257,6 +271,7 @@ export function useCommunityMessengerHomeShellEffects({
       mainSection,
       origin: resolvedOrigin,
     });
+    const hideSectionBack = pillar == null;
     const nextExtras: MainTier1ExtrasState = {
       tier1: {
         rightSlot: headerActionsNode,
@@ -264,9 +279,11 @@ export function useCommunityMessengerHomeShellEffects({
         subtitle: "",
         hideTier1BottomBorder: true,
         alignTier1TitleStart: true,
-        backHref,
+        hideBack: hideSectionBack,
+        backHref: hideSectionBack ? undefined : backHref,
         preferHistoryBack: false,
       },
+      stickyBelow: !fromPhilifeHeaderStack ? <MessengerPullRefreshStickyBelow /> : undefined,
     };
     const prevRegistered = lastRegisteredTier1ExtrasRef.current;
     if (prevRegistered == null || !sameMainTier1ExtrasState(prevRegistered, nextExtras)) {

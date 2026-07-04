@@ -5,22 +5,17 @@ import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
+import { APP_BACK_GLYPH_CHAR, APP_BACK_GLYPH_CLASS } from "@/lib/ui/app-back-glyph";
 import { SECTOR_HEADER_BACK_CLASS } from "@/lib/ui/sector-header-classes";
 
 export function AppBackIcon({ className }: { className?: string }) {
   return (
-    <svg
-      className={className}
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2.2}
+    <span
+      className={[APP_BACK_GLYPH_CLASS, className].filter(Boolean).join(" ")}
       aria-hidden
     >
-      <path strokeLinecap="round" strokeLinejoin="round" d="M19 12H5M12 19l-7-7 7-7" />
-    </svg>
+      {APP_BACK_GLYPH_CHAR}
+    </span>
   );
 }
 

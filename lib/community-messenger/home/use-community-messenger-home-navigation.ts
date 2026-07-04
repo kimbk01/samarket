@@ -14,6 +14,7 @@ import {
 } from "@/lib/community-messenger/messenger-ia";
 
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
+import type { MessengerResetTransientUiFn } from "@/lib/community-messenger/messenger-reset-transient-ui";
 
 export type NavigateToCommunityRoomOptions = {
   viewerUserId?: string | null;
@@ -22,9 +23,10 @@ export type NavigateToCommunityRoomOptions = {
 
 type Args = {
   router: AppRouterInstance;
+  mainSection: MessengerMainSection;
   chatInboxFilter: MessengerChatInboxFilter;
   chatKindFilter: MessengerChatKindFilter;
-  resetMessengerTransientUi: () => void;
+  resetMessengerTransientUi: MessengerResetTransientUiFn;
   setMainSection: (next: MessengerMainSection) => void;
   setChatInboxFilter: (next: MessengerChatInboxFilter) => void;
   setChatKindFilter: (next: MessengerChatKindFilter) => void;
@@ -36,6 +38,7 @@ type Args = {
 
 export function useCommunityMessengerHomeNavigation({
   router,
+  mainSection,
   chatInboxFilter,
   chatKindFilter,
   resetMessengerTransientUi,
@@ -90,11 +93,12 @@ export function useCommunityMessengerHomeNavigation({
 
   const onPrimarySectionChange = useCallback(
     (next: MessengerMainSection) => {
-      resetMessengerTransientUi();
+      if (next === mainSection) return;
+      resetMessengerTransientUi({ bumpOverlayGeneration: false });
       setMainSection(next);
-      replaceMessengerSectionUrl(next, chatInboxFilter, chatKindFilter, { history: "push" });
+      replaceMessengerSectionUrl(next, chatInboxFilter, chatKindFilter, { history: "replace" });
     },
-    [chatInboxFilter, chatKindFilter, replaceMessengerSectionUrl, resetMessengerTransientUi, setMainSection]
+    [chatInboxFilter, chatKindFilter, mainSection, replaceMessengerSectionUrl, resetMessengerTransientUi, setMainSection]
   );
 
   const onChatListChipChange = useCallback(

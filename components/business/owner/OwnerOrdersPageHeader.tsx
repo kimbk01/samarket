@@ -52,7 +52,6 @@ export function OwnerOrdersPageHeader({
           backHref={backHref}
           preferHistoryBack
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#262626] hover:bg-[#F5F5F5]"
-          iconClassName="h-5 w-5"
           ariaLabel={t("store_owner_aria_dashboard")}
         />
         <div className="min-w-0 flex-1 overflow-hidden pr-1">

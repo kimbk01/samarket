@@ -39,6 +39,7 @@ import {
   type MessengerSwipeActionKind,
 } from "@/lib/messenger-policy/chat-room-swipe-actions";
 import { toMessengerPolicyRoomType } from "@/lib/messenger-policy/messenger-policy-room-type";
+import { incomingCallPeerNicknameLabel } from "@/lib/users/user-label";
 import { MessengerChatListItemPresenceDot } from "@/components/community-messenger/MessengerChatListItemPresenceDot";
 import { MessengerListRow } from "@/components/community-messenger/line-ui";
 import {
@@ -313,6 +314,10 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   const isTradeChatListVisual = listVisual === "trade";
   const isDeliveryChatListVisual = listVisual === "delivery";
   const isPillarChatListVisual = isTradeChatListVisual || isDeliveryChatListVisual;
+  const listDisplayTitle = useMemo(() => {
+    if (isPillarChatListVisual || room.roomType !== "direct") return room.title;
+    return incomingCallPeerNicknameLabel(room.title) || room.title;
+  }, [isPillarChatListVisual, room.roomType, room.title]);
   const tradeListRowBgClass = isTradeChatListVisual
     ? "bg-white"
     : commerceMeta?.kind === "trade" && tradeViewerRoleForTint === "seller"
@@ -786,14 +791,14 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       />
     ) : commerceMeta?.thumbnailUrl ? (
       <div className="relative">
-        <CommerceThumb src={commerceMeta.thumbnailUrl} fallbackAvatarUrl={room.avatarUrl} fallbackLabel={room.title} />
+        <CommerceThumb src={commerceMeta.thumbnailUrl} fallbackAvatarUrl={room.avatarUrl} fallbackLabel={listDisplayTitle} />
         {presencePeerUserId ? <MessengerChatListItemPresenceDot peerUserId={presencePeerUserId} /> : null}
       </div>
     ) : (
       <div className="relative">
         <AvatarCircle
           src={room.avatarUrl}
-          label={room.title}
+          label={listDisplayTitle}
           roomType={room.roomType}
           sizeClassName="h-12 w-12"
           textClassName="sam-text-body"
@@ -915,7 +920,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       <MessengerListRow className={rowSurfaceClass} avatar={avatarBlock} trailing={trailingBlock}>
         <div className="flex min-w-0 items-center gap-1">
           <p className="min-w-0 truncate sam-text-body font-semibold leading-tight" style={{ color: "var(--messenger-text)" }}>
-            {room.title}
+            {listDisplayTitle}
           </p>
           {titleSuffix ? (
             <span className="shrink-0 sam-text-helper font-normal" style={{ color: "var(--messenger-text-secondary)" }}>

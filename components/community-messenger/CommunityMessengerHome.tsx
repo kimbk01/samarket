@@ -179,6 +179,9 @@ import {
 } from "@/lib/community-messenger/home/use-community-messenger-home-navigation";
 import { fetchMeetingDeeplink } from "@/lib/community-messenger/home/fetch-meeting-deeplink";
 import { useCommunityMessengerHomeShellEffects } from "@/lib/community-messenger/home/use-community-messenger-home-shell-effects";
+import { runMessengerHomePullRefresh } from "@/lib/community-messenger/home/run-messenger-home-pull-refresh";
+import { MessengerPullRefreshHost } from "@/components/community-messenger/MessengerPullRefreshHost";
+import { MessengerPullRefreshRegister } from "@/components/community-messenger/MessengerPullRefreshRegister";
 import { usePhilifeHeaderMessengerStack } from "@/contexts/PhilifeHeaderMessengerStackContext";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
@@ -476,7 +479,7 @@ function CommunityMessengerHomeRouterEffectsHost({
     const seq = ++messengerMeetingDeeplinkSeq.current;
     const ac = new AbortController();
     const strip = () => {
-      guardedRouterReplace(router, "/community-messenger?section=open_chat", {
+      guardedRouterReplace(router, "/community-messenger?section=chats", {
         source: "community-messenger-home",
         reason: "meeting_deeplink_strip",
         scroll: false,
@@ -525,15 +528,15 @@ function CommunityMessengerHomeRouterEffectsHost({
 
   useEffect(() => {
     if (openParam !== "public-group-find") return;
-    setMainSection("open_chat");
+    setMainSection("chats");
     openHomeOverlay("public-group-find");
     const next = new URLSearchParams(searchQueryString);
     next.delete("open");
-    if (next.get("section") !== "open_chat") {
-      next.set("section", "open_chat");
+    if (next.get("section") !== "chats") {
+      next.set("section", "chats");
     }
     const qs = next.toString();
-    const target = qs ? `/community-messenger?${qs}` : "/community-messenger?section=open_chat";
+    const target = qs ? `/community-messenger?${qs}` : "/community-messenger?section=chats";
     guardedRouterReplace(router, target, {
       source: "community-messenger-home",
       reason: "open_public_group_find",
@@ -673,11 +676,13 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     });
   }, []);
 
-  const resetMessengerTransientUi = useCallback(() => {
+  const resetMessengerTransientUi = useCallback((options?: { bumpOverlayGeneration?: boolean }) => {
     setOpenedSwipeItemId((prev) => (prev === null ? prev : null));
     setOpenedMenuItemId((prev) => (prev === null ? prev : null));
     setRoomActionSheet((prev) => (prev === null ? prev : null));
-    setMessengerOverlayGeneration((g) => g + 1);
+    if (options?.bumpOverlayGeneration !== false) {
+      setMessengerOverlayGeneration((g) => g + 1);
+    }
   }, []);
 
   const notifyMessengerListScroll = useCallback(() => {
@@ -741,6 +746,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   const { navigateToCommunityRoom, onPrimarySectionChange, onChatListChipChange } =
     useCommunityMessengerHomeNavigation({
       router,
+      mainSection,
       chatInboxFilter,
       chatKindFilter,
       resetMessengerTransientUi,
@@ -2235,22 +2241,22 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     }),
     [notificationCenterItems]
   );
-  const onOpenFriendManagerStable = useCallback(() => {
-    setFriendManagerOpen(true);
-  }, []);
+  const onOpenGroupCreateStable = useCallback(() => {
+    resetMessengerTransientUi();
+    setGroupCreateStep("select");
+  }, [resetMessengerTransientUi]);
   const headerActionsNode = useMemo(
     () => (
       <div className={`${samTier1HeaderRightColumn} max-w-[min(100vw-96px,300px)]`}>
         <CommunityMessengerHeaderActions
           messengerAlertSummary={notificationCenterSummary}
-          onOpenFriendAdd={onOpenFriendManagerStable}
           onOpenSearch={() => openHomeOverlay("search")}
           onOpenNotificationCenter={() => openHomeOverlay("requests")}
           onOpenSettings={() => openHomeOverlay("settings")}
         />
       </div>
     ),
-    [notificationCenterSummary, onOpenFriendManagerStable, openHomeOverlay]
+    [notificationCenterSummary, openHomeOverlay]
   );
   const updateRoomSummaryState = useCallback(
     (roomId: string, updater: (room: CommunityMessengerRoomSummary) => CommunityMessengerRoomSummary) => {
@@ -2473,16 +2479,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     },
     [resetMessengerTransientUi]
   );
-
-  const onCreateGroupStable = useCallback(() => {
-    resetMessengerTransientUi();
-    setGroupCreateStep("private_group");
-  }, [resetMessengerTransientUi]);
-
-  const onCreateOpenGroupStable = useCallback(() => {
-    resetMessengerTransientUi();
-    setGroupCreateStep("open_group");
-  }, [resetMessengerTransientUi]);
 
   const notificationRoomMuteToggle = useCallback(
     async (room: CommunityMessengerRoomSummary) => {
@@ -2773,6 +2769,9 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   const onMessengerHomeRetryStable = useCallback(() => {
     void refresh();
   }, [refresh]);
+  const onMessengerPullRefresh = useCallback(async () => {
+    await runMessengerHomePullRefresh(refresh);
+  }, [refresh]);
   const messengerHomeBootstrapCalls = useMemo(() => data?.calls ?? [], [data?.calls]);
   const onBootstrapCallsChange = useCallback(
     (calls: CommunityMessengerCallLog[]) => {
@@ -2795,6 +2794,12 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       }
     >
       <CommunityMessengerHomeReturnConsume />
+      {!fromPhilifeHeaderStack ? (
+        <>
+          <MessengerPullRefreshRegister onRefresh={onMessengerPullRefresh} />
+          <MessengerPullRefreshHost />
+        </>
+      ) : null}
       <CommunityMessengerHomeRouterEffectsHost
         onEntryOriginQueryChange={onEntryOriginQueryChange}
         openHomeOverlay={openHomeOverlay}
@@ -2889,8 +2894,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         chatKindFilter={chatKindFilter}
         onChatListChipChange={onChatListChipChange}
         openChatJoinedItems={openChatJoinedItems}
-        onCreateGroupStable={onCreateGroupStable}
-        onCreateOpenGroupStable={onCreateOpenGroupStable}
+        onOpenGroupCreateStable={onOpenGroupCreateStable}
         pageError={pageError}
         loginRequiredText={t("nav_messenger_login_required")}
         retryText={t("common_try_again_later")}
@@ -3131,7 +3135,10 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
             setFriendManagerOpen(true);
             requestAnimationFrame(() => friendSearchRef.current?.focus());
           }}
-          onCreateGroup={() => setGroupCreateStep("private_group")}
+          onCreateGroup={() => {
+            closeHomeOverlay("composer");
+            setGroupCreateStep("select");
+          }}
           onFindOpenChat={() => openHomeOverlay("public-group-find")}
         />
       ) : null}
@@ -3271,8 +3278,23 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           onClose={() => setGroupCreateStep("closed")}
           closeAriaLabel={t("nav_close")}
           dialogAriaLabel={t("cm_ui_create_group")}
-          panelClassName="mx-auto max-w-[520px] overflow-y-auto rounded-t-ui-rect border-sam-border bg-sam-surface p-5 shadow-[0_8px_20px_rgba(17,24,39,0.06)]"
+          anchor="device-bottom"
         >
+          <div className="flex shrink-0 items-center justify-between border-b border-[color:var(--messenger-divider)] px-3 py-2.5">
+            <p className="sam-text-body-lg font-semibold" style={{ color: "var(--messenger-text)" }}>
+              {t("cm_ui_create_group")}
+            </p>
+            <button
+              type="button"
+              className="flex h-9 w-9 items-center justify-center rounded-[var(--messenger-radius-sm)] sam-text-body-lg leading-none active:bg-[color:var(--messenger-primary-soft)]"
+              style={{ color: "var(--messenger-text-secondary)" }}
+              onClick={() => setGroupCreateStep("closed")}
+              aria-label={t("nav_close")}
+            >
+              ×
+            </button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[color:var(--messenger-bg)] px-3 pb-[max(1rem,var(--safe-bottom))] pt-3">
             {groupCreateStep === "select" ? (
               <>
                 <p className="sam-text-body-secondary font-medium text-sam-fg">{t("cm_ui_create_group")}</p>
@@ -3310,7 +3332,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
                 selectedMemberProfiles={selectedGroupMemberProfiles}
                 onClearSelection={clearPrivateGroupSelection}
                 onToggleMember={togglePrivateGroupMember}
-                onClose={() => setGroupCreateStep("closed")}
+                onBack={() => setGroupCreateStep("select")}
                 inviteSearchQuery={groupInviteSearchQuery}
                 onInviteSearchQueryChange={setGroupInviteSearchQuery}
                 inviteSearchBusy={groupInviteSearchBusy}
@@ -3430,7 +3452,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
                     />
                   </label>
                   {openGroupIdentityPolicy === "alias_allowed" ? (
-                      <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-4">
+                    <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-4">
                       <div className="flex gap-2">
                         <button
                           type="button"
@@ -3476,40 +3498,36 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
               </>
             ) : null}
 
-            <div className="mt-5 flex gap-2">
-              <button
-                type="button"
-                onClick={() => setGroupCreateStep("closed")}
-                className="flex-1 rounded-ui-rect border border-sam-border px-4 py-3 sam-text-body font-medium text-sam-fg"
-              >
-                {t("nav_close")}
-              </button>
-              {groupCreateStep === "private_group" ? (
-                <button
-                  type="button"
-                  onClick={() => void createPrivateGroup()}
-                  disabled={busyId === "create-private-group" || groupMembers.length === 0}
-                  className="flex-1 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 sam-text-body font-semibold text-sam-fg disabled:opacity-40"
-                >
-                  {busyId === "create-private-group" ? t("cm_ui_creating") : t("cm_ui_create_private_group")}
-                </button>
-              ) : null}
-              {groupCreateStep === "open_group" ? (
-                <button
-                  type="button"
-                  onClick={() => void createOpenGroup()}
-                  disabled={
-                    busyId === "create-open-group" ||
-                    !openGroupTitle.trim() ||
-                    (openGroupJoinPolicy === "password" && !openGroupPassword.trim()) ||
-                    (openGroupCreatorIdentityMode === "alias" && !openGroupCreatorAliasName.trim())
-                  }
-                  className="flex-1 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 sam-text-body font-semibold text-sam-fg disabled:opacity-40"
-                >
-                  {busyId === "create-open-group" ? t("cm_ui_creating") : t("cm_ui_create_open_group_chat")}
-                </button>
-              ) : null}
-            </div>
+            {groupCreateStep === "private_group" || groupCreateStep === "open_group" ? (
+              <div className="mt-5">
+                {groupCreateStep === "private_group" ? (
+                  <button
+                    type="button"
+                    onClick={() => void createPrivateGroup()}
+                    disabled={busyId === "create-private-group" || groupMembers.length === 0}
+                    className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 sam-text-body font-semibold text-sam-fg disabled:opacity-40"
+                  >
+                    {busyId === "create-private-group" ? t("cm_ui_creating") : t("cm_ui_create_private_group")}
+                  </button>
+                ) : null}
+                {groupCreateStep === "open_group" ? (
+                  <button
+                    type="button"
+                    onClick={() => void createOpenGroup()}
+                    disabled={
+                      busyId === "create-open-group" ||
+                      !openGroupTitle.trim() ||
+                      (openGroupJoinPolicy === "password" && !openGroupPassword.trim()) ||
+                      (openGroupCreatorIdentityMode === "alias" && !openGroupCreatorAliasName.trim())
+                    }
+                    className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 sam-text-body font-semibold text-sam-fg disabled:opacity-40"
+                  >
+                    {busyId === "create-open-group" ? t("cm_ui_creating") : t("cm_ui_create_open_group_chat")}
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
         </MessengerHomeBottomSheetShell>
       ) : null}
 

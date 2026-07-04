@@ -166,11 +166,6 @@ export function MessengerHomeFabSector({
           label: t("cm_ia_section_friends"),
         },
         {
-          id: "open_chat" as const,
-          section: "open_chat" as const,
-          label: t("cm_ia_section_open_chat"),
-        },
-        {
           id: "archive" as const,
           section: "archive" as const,
           label: t("cm_ia_section_archive"),

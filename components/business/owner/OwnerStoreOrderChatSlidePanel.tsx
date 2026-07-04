@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ChevronLeft } from "lucide-react";
+import { AppBackIcon } from "@/components/navigation/AppBackButton";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { BodyPortal } from "@/components/layout/BodyPortal";
 import { CommunityMessengerRoomClient } from "@/components/community-messenger/CommunityMessengerRoomClient";
@@ -204,7 +204,7 @@ export function OwnerStoreOrderChatSlidePanel({
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[color:var(--delivery-dark)] hover:bg-[color:var(--delivery-primary-soft)]"
                 aria-label={t("store_owner_aria_exit_orders")}
               >
-                <ChevronLeft className="h-5 w-5" aria-hidden />
+                <AppBackIcon />
               </button>
               <p className="min-w-0 flex-1 truncate text-[15px] font-bold leading-[1.35] text-[color:var(--delivery-dark)]">
                 {t("store_owner_order_progress_chat_title")}

@@ -108,7 +108,6 @@ export function OwnerMobileAdminHeader({
               preferHistoryBack
               interceptBack={backIntercept}
               className={`${HEADER_ICON_BTN_CLASS} text-[var(--biz-primary)] hover:bg-[var(--biz-tan-soft)] active:bg-[var(--biz-header-bg)]`}
-              iconClassName="h-5 w-5 shrink-0"
               ariaLabel={t("store_owner_aria_exit_delivery_home")}
             />
             <div className="flex min-h-0 min-w-0 flex-1 flex-col justify-center gap-[1pt] overflow-hidden">
@@ -161,7 +160,6 @@ export function OwnerMobileAdminHeader({
                 preferHistoryBack
                 interceptBack={backIntercept}
                 className={HEADER_ICON_BTN_CLASS}
-                iconClassName="h-5 w-5"
                 ariaLabel={t("store_owner_aria_dashboard")}
               />
             ) : (

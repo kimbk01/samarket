@@ -106,8 +106,7 @@ type Props = {
   chatKindFilter: MessengerChatKindFilter;
   onChatListChipChange: (next: any) => void;
   openChatJoinedItems: UnifiedRoomListItem[];
-  onCreateGroupStable: () => void;
-  onCreateOpenGroupStable: () => void;
+  onOpenGroupCreateStable: () => void;
   pageError: string | null;
   loginRequiredText: string;
   retryText: string;
@@ -239,8 +238,7 @@ function communityMessengerHomeListPanePropsEqual(prev: Props, next: Props): boo
   }
   if (prev.openRoomActions !== next.openRoomActions) reasons.push("openRoomActions");
   if (prev.onChatListChipChange !== next.onChatListChipChange) reasons.push("onChatListChipChange");
-  if (prev.onCreateGroupStable !== next.onCreateGroupStable) reasons.push("onCreateGroupStable");
-  if (prev.onCreateOpenGroupStable !== next.onCreateOpenGroupStable) reasons.push("onCreateOpenGroupStable");
+  if (prev.onOpenGroupCreateStable !== next.onOpenGroupCreateStable) reasons.push("onOpenGroupCreateStable");
   if (prev.onRetry !== next.onRetry) reasons.push("onRetry");
   if (prev.friendQuickMenuBlocksTabSwipeRef !== next.friendQuickMenuBlocksTabSwipeRef) {
     reasons.push("friendQuickMenuBlocksTabSwipeRef");
@@ -421,8 +419,7 @@ export const CommunityMessengerHomeListPane = memo(function CommunityMessengerHo
               chatKindFilter={props.chatKindFilter}
               onChatListChipChange={props.onChatListChipChange}
               openChatJoinedItems={props.openChatJoinedItems}
-              onCreateGroup={props.onCreateGroupStable}
-              onCreateOpenGroup={props.onCreateOpenGroupStable}
+              onOpenGroupCreate={props.onOpenGroupCreateStable}
               entryOriginQuery={props.entryOriginQuery ?? null}
               pillarSummaries={props.pillarSummaries ?? null}
               chatListVisual={props.chatListVisual ?? "default"}

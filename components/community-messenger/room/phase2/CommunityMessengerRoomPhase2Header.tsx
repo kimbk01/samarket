@@ -290,7 +290,7 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
         >
           {buyerSlideHost ?
             <X className="h-[18px] w-[18px]" aria-hidden />
-          : <BackIcon className="h-[18px] w-[18px]" />}
+          : <BackIcon />}
         </button>
 
         {useDeliveryHeaderBlock ? (

@@ -1,25 +1,25 @@
 "use client";
 
+import { UserPlus2 } from "lucide-react";
 import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
-import type { MessengerMainSection } from "@/lib/community-messenger/messenger-ia";
+import {
+  SAM_TIER1_HEADER_ICON_GLYPH_CLASS,
+  SAM_TIER1_HEADER_ICON_STROKE_WIDTH,
+} from "@/lib/ui/tier1-header-icon";
+import {
+  MESSENGER_MAIN_SECTION_TAB_ORDER,
+  type MessengerMainSection,
+} from "@/lib/community-messenger/messenger-ia";
 
-type SectionTabId = "home" | "friends" | "call_logs" | "open_chat" | "archive";
-
-type TabDef = {
-  id: SectionTabId;
-  section: MessengerMainSection;
-  labelKey: MessageKey;
+const SECTION_PILL_LABEL_KEYS: Record<MessengerMainSection, MessageKey> = {
+  friends: "cm_ia_messenger_tab_friends_list",
+  call_logs: "cm_ia_messenger_tab_call_logs",
+  chats: "cm_ia_messenger_tab_home",
+  open_chat: "cm_ia_messenger_tab_meeting_room",
+  archive: "cm_ia_messenger_tab_archive",
 };
-
-const TABS: TabDef[] = [
-  { id: "home", section: "chats", labelKey: "cm_ia_messenger_tab_home" },
-  { id: "friends", section: "friends", labelKey: "cm_ia_messenger_tab_friends_list" },
-  { id: "call_logs", section: "call_logs", labelKey: "cm_ia_messenger_tab_call_logs" },
-  { id: "open_chat", section: "open_chat", labelKey: "cm_ia_messenger_tab_meeting_room" },
-  { id: "archive", section: "archive", labelKey: "cm_ia_messenger_tab_archive" },
-];
 
 /**
  * 알약 탭 — 테두리·배경·호버가 동일한 rounded-full 틀 안에서만 변함.
@@ -38,19 +38,17 @@ function sectionTabPillClass(active: boolean): string {
 type Props = {
   mainSection: MessengerMainSection;
   onPrimarySectionChange: (next: MessengerMainSection) => void;
+  onOpenGroupCreate: () => void;
 };
 
 /**
- * 메신저 홈 2단 섹션 탭 — 홈·친구목록·통화목록·그룹방·보관함.
- * 친구 추가는 1단 헤더(검색 앞)로 이동.
+ * 메신저 홈 2단 섹션 탭 — 친구 · 통화 · 대화 · 보관함 (+ 우측 그룹 생성).
  */
 export function MessengerHomeSectionTabs({
   mainSection,
   onPrimarySectionChange,
-}: {
-  mainSection: MessengerMainSection;
-  onPrimarySectionChange: (next: MessengerMainSection) => void;
-}) {
+  onOpenGroupCreate,
+}: Props) {
   const { t } = useI18n();
 
   return (
@@ -60,31 +58,47 @@ export function MessengerHomeSectionTabs({
       className="sticky top-0 z-20 min-w-0 w-full overflow-x-hidden bg-[color:var(--messenger-bg)]"
     >
       <div className="box-border py-2 pl-[max(0.75rem,var(--safe-left))] pr-[max(0.75rem,var(--safe-right))]">
-        <HorizontalDragScroll
-          className="flex min-w-0 max-w-full items-center justify-start gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          style={{ WebkitOverflowScrolling: "touch" }}
-          role="tablist"
-          aria-label={t("cm_ui_messenger_section_aria")}
-        >
-          {TABS.map((tab) => {
-            const active = mainSection === tab.section;
+        <div className="flex min-w-0 items-center gap-2">
+          <HorizontalDragScroll
+            className="flex min-h-11 min-w-0 flex-1 items-center justify-start gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            style={{ WebkitOverflowScrolling: "touch" }}
+            role="tablist"
+            aria-label={t("cm_ui_messenger_section_aria")}
+          >
+            {MESSENGER_MAIN_SECTION_TAB_ORDER.map((section) => {
+              const active = mainSection === section;
 
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                aria-current={active ? "page" : undefined}
-                data-active={active ? "true" : "false"}
-                className={sectionTabPillClass(active)}
-                onClick={() => onPrimarySectionChange(tab.section)}
-              >
-                <span className="min-w-0 max-w-[min(9rem,38vw)] truncate">{t(tab.labelKey)}</span>
-              </button>
-            );
-          })}
-        </HorizontalDragScroll>
+              return (
+                <button
+                  key={section}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  aria-current={active ? "page" : undefined}
+                  data-active={active ? "true" : "false"}
+                  className={sectionTabPillClass(active)}
+                  onClick={() => onPrimarySectionChange(section)}
+                >
+                  <span className="min-w-0 max-w-[min(9rem,38vw)] truncate">
+                    {t(SECTION_PILL_LABEL_KEYS[section])}
+                  </span>
+                </button>
+              );
+            })}
+          </HorizontalDragScroll>
+          <button
+            type="button"
+            onClick={onOpenGroupCreate}
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-sam-border bg-sam-surface text-sam-fg transition active:scale-[0.98] hover:border-sam-primary-border hover:bg-sam-primary-soft hover:text-sam-primary"
+            aria-label={t("cm_ui_create_group")}
+          >
+            <UserPlus2
+              className={SAM_TIER1_HEADER_ICON_GLYPH_CLASS}
+              strokeWidth={SAM_TIER1_HEADER_ICON_STROKE_WIDTH}
+              aria-hidden
+            />
+          </button>
+        </div>
       </div>
     </div>
   );

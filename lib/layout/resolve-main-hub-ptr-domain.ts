@@ -1,4 +1,4 @@
-export type MainHubPtrDomain = "trade" | "philife" | "stores";
+export type MainHubPtrDomain = "trade" | "philife" | "stores" | "messenger";
 
 /**
  * 메인 허브 PTR touch 리스너 — pathname 기준 단일 도메인.
@@ -13,5 +13,10 @@ export function resolveMainHubPtrDomain(pathname: string | null | undefined): Ma
   }
   if (p === "/philife") return "philife";
   if (p === "/stores" || p === "/stores/") return "stores";
+  if (p === "/community-messenger" || p.startsWith("/community-messenger/")) {
+    if (/^\/community-messenger\/rooms\/[^/]+$/.test(p)) return null;
+    if (/^\/community-messenger\/calls\/[^/]+$/.test(p)) return null;
+    return "messenger";
+  }
   return null;
 }

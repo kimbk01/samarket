@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AppBackIcon } from "@/components/navigation/AppBackButton";
 
 export function CallHeader({
   onBack,
@@ -44,7 +45,7 @@ export function CallHeader({
             onClick={onBack}
             className="inline-flex h-11 items-center gap-0.5 rounded-full px-2 sam-text-body font-medium text-white/95 drop-shadow-[0_2px_10px_rgba(0,0,0,0.35)] transition active:scale-[0.98]"
           >
-            <span className="pb-0.5 sam-text-hero font-light leading-none">‹</span>
+            <AppBackIcon />
             <span>{backLabel}</span>
           </button>
         ) : null}

@@ -80,8 +80,7 @@ type Props = {
   chatKindFilter: MessengerChatKindFilter;
   onChatListChipChange: (next: MessengerChatListChip) => void;
   openChatJoinedItems: UnifiedRoomListItem[];
-  onCreateGroup: () => void;
-  onCreateOpenGroup: () => void;
+  onOpenGroupCreate: () => void;
   /** 인박스로 들어올 때 받은 `?from=...` */
   entryOriginQuery?: string | null;
   /** 인박스 상단 거래·배달 묶음 행 — pillar 서브 라우트에서는 null */
@@ -144,8 +143,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
   chatKindFilter,
   onChatListChipChange,
   openChatJoinedItems,
-  onCreateGroup,
-  onCreateOpenGroup,
+  onOpenGroupCreate,
   entryOriginQuery = null,
   pillarSummaries = null,
   chatListVisual = "default",
@@ -164,10 +162,11 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
         <MessengerHomeSectionTabs
           mainSection={mainSection}
           onPrimarySectionChange={onPrimarySectionChange}
+          onOpenGroupCreate={onOpenGroupCreate}
         />
       ) : null}
       <div
-        className="min-h-[56dvh] space-y-2 px-3"
+        className="min-h-[56dvh] min-w-0 space-y-2 overflow-x-hidden px-3"
         data-messenger-scrolling={isScrolling ? "true" : "false"}
         data-messenger-pending-call={pendingCallTarget ? "true" : "false"}
       >
@@ -219,7 +218,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
             chatListChip={chatListChip}
             onChatListChipChange={onChatListChipChange}
             emptyMessage={messengerChatListEmptyMessageForChip(chatListChip)}
-            showFilters={chatListVisual === "default" && entryOriginQuery !== "delivery"}
+            showFilters={false}
             openedSwipeItemId={openedSwipeItemId}
             onOpenSwipeItem={onOpenSwipeItem}
             onCloseMenuItem={onCloseMenuItem}
@@ -243,8 +242,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
             onMarkRead={onMarkRead}
             onToggleArchive={onToggleArchive}
             onLeaveRoom={onLeaveRoom}
-            onCreateGroup={onCreateGroup}
-            onCreateOpenGroup={onCreateOpenGroup}
+            onOpenGroupCreate={onOpenGroupCreate}
             onOpenRoomActions={onOpenRoomActions}
             openedSwipeItemId={openedSwipeItemId}
             onOpenSwipeItem={onOpenSwipeItem}

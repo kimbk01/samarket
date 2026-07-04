@@ -14,7 +14,7 @@ export type CommunityMessengerPrivateGroupCreatePanelProps = {
   selectedMemberProfiles: CommunityMessengerProfileLite[];
   onClearSelection: () => void;
   onToggleMember: (user: CommunityMessengerProfileLite, checked: boolean) => void;
-  onClose: () => void;
+  onBack: () => void;
   inviteSearchQuery: string;
   onInviteSearchQueryChange: (value: string) => void;
   inviteSearchBusy: boolean;
@@ -61,7 +61,7 @@ export function CommunityMessengerPrivateGroupCreatePanel({
   selectedMemberProfiles,
   onClearSelection,
   onToggleMember,
-  onClose,
+  onBack,
   inviteSearchQuery,
   onInviteSearchQueryChange,
   inviteSearchBusy,
@@ -82,10 +82,10 @@ export function CommunityMessengerPrivateGroupCreatePanel({
         </div>
         <button
           type="button"
-          onClick={onClose}
+          onClick={onBack}
           className="rounded-ui-rect border border-sam-border px-3 py-2 sam-text-helper text-sam-fg"
         >
-          {t("nav_close")}
+          {t("tier1_back")}
         </button>
       </div>
       <input

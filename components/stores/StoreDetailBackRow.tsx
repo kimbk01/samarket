@@ -65,7 +65,7 @@ export function StoreDetailBackLink({
       {variant === "close" ? (
         <AppCloseIcon className="h-6 w-6" />
       ) : (
-        <AppBackIcon className="h-6 w-6" />
+        <AppBackIcon />
       )}
     </button>
   );

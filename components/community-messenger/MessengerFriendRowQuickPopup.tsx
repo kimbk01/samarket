@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { useEffect, useId, useState } from "react";
 import { Bell, BellOff } from "lucide-react";
+import { AppBackIcon } from "@/components/navigation/AppBackButton";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MessengerHomeBottomSheetShell } from "@/components/community-messenger/MessengerSheetUi";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
@@ -302,7 +303,7 @@ export function MessengerFriendRowQuickPopup({
                 style={{ color: "var(--messenger-text)" }}
                 aria-label={t("nav_back")}
               >
-                ‹
+                <AppBackIcon />
               </button>
               <p className="flex-1 text-center sam-text-body-secondary font-semibold" style={{ color: "var(--messenger-text)" }}>
                 {t("cm_ui_make_call")}

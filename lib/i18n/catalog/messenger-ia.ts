@@ -20,25 +20,25 @@ export const messengerIaMessages = {
 
     cm_ia_section_friends: "친구",
 
-    cm_ia_section_chats: "채팅",
+    cm_ia_section_chats: "대화",
 
-    cm_ia_section_open_chat: "그룹방",
+    cm_ia_section_open_chat: "+그룹",
 
     cm_ia_section_archive: "보관함",
 
-    cm_ia_messenger_tab_home: "채팅",
+    cm_ia_messenger_tab_home: "대화",
 
-    cm_ia_messenger_tab_friends_list: "친구목록",
+    cm_ia_messenger_tab_friends_list: "친구",
 
     cm_ia_messenger_tab_add_friend: "친구추가",
 
-    cm_ia_messenger_tab_call_logs: "통화목록",
+    cm_ia_messenger_tab_call_logs: "통화",
 
-    cm_ia_messenger_tab_meeting_room: "그룹방",
+    cm_ia_messenger_tab_meeting_room: "+그룹",
 
     cm_ia_messenger_tab_archive: "보관함",
 
-    cm_ia_section_call_logs: "통화목록",
+    cm_ia_section_call_logs: "통화",
 
     cm_ia_empty_trade:
 
@@ -82,7 +82,7 @@ export const messengerIaMessages = {
 
     cm_ia_section_chats: "Chats",
 
-    cm_ia_section_open_chat: "Groups",
+    cm_ia_section_open_chat: "+Group",
 
     cm_ia_section_archive: "Archive",
 
@@ -94,7 +94,7 @@ export const messengerIaMessages = {
 
     cm_ia_messenger_tab_call_logs: "Calls",
 
-    cm_ia_messenger_tab_meeting_room: "Groups",
+    cm_ia_messenger_tab_meeting_room: "+Group",
 
     cm_ia_messenger_tab_archive: "Archive",
 

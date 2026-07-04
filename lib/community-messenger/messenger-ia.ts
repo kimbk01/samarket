@@ -5,6 +5,14 @@
 
 export type MessengerMainSection = "friends" | "chats" | "open_chat" | "archive" | "call_logs";
 
+/** 메신저 홈 2단 섹션 탭 표시 순서 — 친구 · 통화 · 대화 · 보관함 (+그룹은 헤더 액션만) */
+export const MESSENGER_MAIN_SECTION_TAB_ORDER: readonly MessengerMainSection[] = [
+  "friends",
+  "call_logs",
+  "chats",
+  "archive",
+] as const;
+
 /** 채팅 목록 행·액션 시트가 일반 탭인지 보관함 탭인지(복원·로컬 삭제 범위 문구 분기). `open_chat` 은 모임 탭 전용. */
 export type MessengerChatListContext = "default" | "archive" | "open_chat";
 
@@ -70,12 +78,14 @@ export function resolveMessengerSection(
   tabParam: string | undefined
 ): MessengerMainSection {
   const raw = sectionParam?.trim().toLowerCase();
-  if (raw === "friends" || raw === "chats" || raw === "open_chat" || raw === "archive" || raw === "call_logs") {
+  if (raw === "friends" || raw === "chats" || raw === "archive" || raw === "call_logs") {
     return raw;
   }
+  /** 레거시 URL `?section=open_chat` — 탭은 제거, 대화 탭으로 진입 */
+  if (raw === "open_chat") return "chats";
   const tab = tabParam?.trim().toLowerCase();
   if (tab === "friends") return "friends";
-  if (tab === "open") return "open_chat";
+  if (tab === "open") return "chats";
   if (tab === "archived") return "archive";
   return "chats";
 }

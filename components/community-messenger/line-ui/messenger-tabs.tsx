@@ -1,6 +1,9 @@
 "use client";
 
-import type { MessengerMainSection } from "@/lib/community-messenger/messenger-ia";
+import {
+  MESSENGER_MAIN_SECTION_TAB_ORDER,
+  type MessengerMainSection,
+} from "@/lib/community-messenger/messenger-ia";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
 import {
@@ -11,7 +14,7 @@ import { Sam } from "@/lib/ui/sam-component-classes";
 import { I18N_COMPACT_CHIP_LABEL } from "@/lib/ui/i18n-compact-label-classes";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
-const SECTIONS: MessengerMainSection[] = ["friends", "chats", "call_logs", "open_chat", "archive"];
+const SECTIONS = MESSENGER_MAIN_SECTION_TAB_ORDER;
 
 const SECTION_LABEL_KEYS: Record<MessengerMainSection, MessageKey> = {
   friends: "cm_ia_section_friends",

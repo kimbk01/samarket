@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AppBackIcon } from "@/components/navigation/AppBackButton";
 
 export function MessengerImageLightbox(props: {
   open: boolean;
@@ -66,7 +67,7 @@ export function MessengerImageLightbox(props: {
               className="absolute left-1 top-1/2 z-[1] -translate-y-1/2 rounded-full bg-black/40 px-2 py-3 sam-text-hero leading-none text-white disabled:opacity-25"
               aria-label={t("tier1_back")}
             >
-              ‹
+              <AppBackIcon />
             </button>
             <button
               type="button"

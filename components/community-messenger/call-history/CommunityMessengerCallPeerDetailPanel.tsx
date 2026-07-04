@@ -1,6 +1,7 @@
 "use client";
 
-import { ChevronLeft, MessageCircle, MoreHorizontal } from "lucide-react";
+import { MessageCircle, MoreHorizontal } from "lucide-react";
+import { AppBackIcon } from "@/components/navigation/AppBackButton";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -140,7 +141,7 @@ export function CommunityMessengerCallPeerDetailPanel({
           onClick={() => requestClose?.()}
           className="inline-flex h-11 w-11 items-center justify-center rounded-full text-sam-fg active:bg-sam-surface-muted"
         >
-          <ChevronLeft className="h-6 w-6" aria-hidden />
+          <AppBackIcon />
         </button>
         <button
           type="button"

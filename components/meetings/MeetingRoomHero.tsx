@@ -145,7 +145,6 @@ export function MeetingRoomHero({
             backHref={backHref}
             ariaLabel={backAriaLabel}
             className="rounded-full bg-black/15 text-white hover:bg-black/25"
-            iconClassName="text-white"
           />
           {showHostMenu ? (
             <div className="relative" ref={menuRef}>

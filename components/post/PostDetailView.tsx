@@ -1081,7 +1081,6 @@ export function PostDetailView({
             backHref={backHref}
             ariaLabel={t("trade_detail_back_to_list")}
             className="text-[#111]"
-            iconClassName="h-[22px] w-[22px]"
           />
         ),
         rightSlot: (
