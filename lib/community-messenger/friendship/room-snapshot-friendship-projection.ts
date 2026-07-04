@@ -1,8 +1,9 @@
 /**
- * Room snapshot friendship fields — Step 3 (Gate C).
+ * Room snapshot friendship fields — Step 3 (Gate C) + Contact transition A2.
  * Design: docs/community-messenger/friendship-ssot-design.md
  *
  * Maps `resolveFriendshipPair` output to snapshot friendship projection only.
+ * `pendingFriendshipRequestId` is never populated — legacy pending UI removed (P2/P4).
  */
 
 import {
@@ -18,12 +19,9 @@ import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/t
 export type RoomSnapshotFriendshipProjection = {
   peerFriendshipState: NonNullable<CommunityMessengerRoomSnapshot["peerFriendshipState"]>;
   friendshipDirection: FriendshipDirection;
+  /** @deprecated Contact transition — never set; kept for service.ts read compatibility. */
   pendingFriendshipRequestId?: string;
 };
-
-function trimText(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
-}
 
 export function friendshipPairResolutionFromResolved(
   resolved: ResolveFriendshipPairResult
@@ -42,11 +40,8 @@ export function projectRoomSnapshotFriendshipFromResolution(
   const peerFriendshipState = peerFriendshipStateFromResolution(
     friendshipPairResolutionFromResolved(resolved)
   );
-  const pendingId =
-    resolved.state === "pending" && resolved.row?.id ? trimText(resolved.row.id) : "";
   return {
     peerFriendshipState,
     friendshipDirection: resolved.direction,
-    ...(pendingId ? { pendingFriendshipRequestId: pendingId } : {}),
   };
 }

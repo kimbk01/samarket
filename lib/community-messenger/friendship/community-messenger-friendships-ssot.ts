@@ -103,6 +103,7 @@ export async function listPendingFriendRequestRowsFromFriendshipsSsot(
   return ((data ?? []) as FriendshipSsotRow[]).map(friendshipRowToRequestRow);
 }
 
+/** @deprecated P1 Contact transition — no new pending writes. L7 removal. */
 export async function insertPendingFriendshipRequest(
   sb: { from: (table: string) => unknown },
   requesterId: string,

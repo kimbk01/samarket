@@ -53,7 +53,7 @@ export function shouldShowStrangerPeerNotice(input: {
   return true;
 }
 
-type InboundDirectChatMessage = {
+export type InboundDirectChatMessage = {
   senderId?: string | null;
   messageType?: string | null;
   createdAt?: string | null;

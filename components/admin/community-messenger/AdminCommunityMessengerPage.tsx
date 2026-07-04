@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { COMMUNITY_MESSENGER_CALL_FORCE_END_REASONS } from "@/lib/admin-community-messenger/call-force-end-reasons";
@@ -13,11 +14,10 @@ import type {
   AdminCommunityMessengerCallAuditLog,
   AdminCommunityMessengerCallLog,
   AdminCommunityMessengerDashboard,
-  AdminCommunityMessengerFriendRequest,
   AdminCommunityMessengerReport,
   AdminCommunityMessengerRoomSummary,
 } from "@/lib/admin-community-messenger/service";
-import type { CommunityMessengerFriendRequestStatus, CommunityMessengerRoomStatus } from "@/lib/community-messenger/types";
+import type { CommunityMessengerRoomStatus } from "@/lib/community-messenger/types";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { cmForceEndReasonLabel, useCmAdminLabels } from "./useCmAdminLabels";
 import type { CmAdminTranslate } from "./useCmAdminLabels";
@@ -41,6 +41,12 @@ export function AdminCommunityMessengerPage() {
     adminUnknownLabel,
     defaultRoomLabel,
   } = useCmAdminLabels();
+  const { language } = useI18n();
+  const contactPolicyTitle = language === "en" ? "Contact policy" : "Contact 정책";
+  const contactPolicyNotice =
+    language === "en"
+      ? "The friend request (pending) model is retired. User contacts use viewer-local saves. Legacy pending rows may remain in the DB but are not reviewed, accepted, or rejected in admin UI."
+      : "친구 요청(pending) 모델은 종료되었습니다. 사용자 Contact는 viewer-local 저장 방식입니다. legacy pending 데이터는 DB에 남을 수 있으나 관리자 UI에서 수락·거절·검토하지 않습니다.";
   const searchParams = useSearchParams();
   const initialListQueryAppliedRef = useRef(false);
   const [data, setData] = useState<AdminCommunityMessengerDashboard | null>(null);
@@ -49,7 +55,6 @@ export function AdminCommunityMessengerPage() {
   const [query, setQuery] = useState("");
   const [roomStatusFilter, setRoomStatusFilter] = useState<CommunityMessengerRoomStatus | "">("");
   const [roomTypeFilter, setRoomTypeFilter] = useState<"direct" | "private_group" | "open_group" | "">("");
-  const [requestStatusFilter, setRequestStatusFilter] = useState<CommunityMessengerFriendRequestStatus | "">("");
   const [callQuery, setCallQuery] = useState("");
   const [callModeFilter, setCallModeFilter] = useState<"direct" | "group" | "">("");
   const [callStatusFilter, setCallStatusFilter] = useState<
@@ -88,7 +93,7 @@ export function AdminCommunityMessengerPage() {
           forceEndTrendStats: json.forceEndTrendStats ?? [],
           forceEndAdminStats: json.forceEndAdminStats ?? [],
           rooms: json.rooms ?? [],
-          requests: json.requests ?? [],
+          requests: [],
           calls: json.calls ?? [],
           activeCalls: json.activeCalls ?? [],
           callAudits: json.callAudits ?? [],
@@ -128,11 +133,6 @@ export function AdminCommunityMessengerPage() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "community_messenger_participants" },
-        scheduleRefresh
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "community_friend_requests" },
         scheduleRefresh
       )
       .on(
@@ -186,12 +186,6 @@ export function AdminCommunityMessengerPage() {
       return haystack.includes(keyword);
     });
   }, [data?.rooms, query, roomStatusFilter, roomTypeFilter]);
-
-  const filteredRequests = useMemo(() => {
-    return (data?.requests ?? []).filter((request) =>
-      requestStatusFilter ? request.status === requestStatusFilter : true
-    );
-  }, [data?.requests, requestStatusFilter]);
 
   const filteredCalls = useMemo(() => {
     const keyword = callQuery.trim().toLowerCase();
@@ -318,23 +312,6 @@ export function AdminCommunityMessengerPage() {
     return buildForceEndReasonAdminStats(filteredAnalyticsAudits, t);
   }, [filteredAnalyticsAudits, t]);
 
-  const handleRequestAction = useCallback(
-    async (requestId: string, status: CommunityMessengerFriendRequestStatus) => {
-      setBusy(`request:${requestId}:${status}`);
-      try {
-        await fetch(`/api/admin/community-messenger/friend-requests/${encodeURIComponent(requestId)}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status }),
-        });
-        await refresh();
-      } finally {
-        setBusy(null);
-      }
-    },
-    [refresh]
-  );
-
   return (
     <div className="space-y-4">
       <AdminPageHeader
@@ -346,7 +323,6 @@ export function AdminCommunityMessengerPage() {
         <StatCard label={t("admin_cm_stat_total_rooms")} value={data?.stats.totalRooms ?? 0} helper={t("admin_cm_stat_total_rooms_helper")} />
         <StatCard label={t("admin_cm_stat_active_rooms")} value={data?.stats.activeRooms ?? 0} helper={t("admin_cm_stat_active_rooms_helper")} />
         <StatCard label={t("admin_cm_stat_blocked_archived")} value={(data?.stats.blockedRooms ?? 0) + (data?.stats.archivedRooms ?? 0)} helper="blocked + archived" />
-        <StatCard label={t("admin_cm_stat_pending_requests")} value={data?.stats.pendingRequests ?? 0} helper={t("admin_cm_stat_pending_requests_helper")} />
         <StatCard label={t("admin_cm_stat_private_groups")} value={data?.stats.privateGroupRooms ?? 0} helper="friend invite" />
         <StatCard label={t("admin_cm_stat_open_groups")} value={data?.stats.openGroupRooms ?? 0} helper="password join" />
         <StatCard label={t("admin_cm_stat_active_calls")} value={data?.stats.activeCallSessions ?? 0} helper="ringing + active" />
@@ -678,6 +654,10 @@ export function AdminCommunityMessengerPage() {
         )}
       </AdminCard>
 
+      <AdminCard title={contactPolicyTitle}>
+        <p className="sam-text-body text-sam-fg">{contactPolicyNotice}</p>
+      </AdminCard>
+
       <div className="grid gap-4 xl:grid-cols-2">
         <AdminCard titleKey="admin_cm_card_active_calls">
           <div className="mb-3 flex flex-wrap gap-2">
@@ -720,39 +700,6 @@ export function AdminCommunityMessengerPage() {
               <div className="py-8 text-center sam-text-body text-sam-muted">{t("admin_cm_empty_active_calls")}</div>
             ) : (
               filteredActiveCalls.map((call) => <ActiveCallRow key={call.id} call={call} />)
-            )}
-          </div>
-        </AdminCard>
-
-        <AdminCard titleKey="admin_cm_card_friend_requests">
-          <div className="mb-3 flex items-center gap-2">
-            <select
-              value={requestStatusFilter}
-              onChange={(e) =>
-                setRequestStatusFilter(e.target.value as CommunityMessengerFriendRequestStatus | "")
-              }
-              className="rounded border border-sam-border px-3 py-2 sam-text-body"
-            >
-              <option value="">{t("admin_cm_filter_all_request_status")}</option>
-              <option value="pending">pending</option>
-              <option value="accepted">accepted</option>
-              <option value="rejected">rejected</option>
-              <option value="cancelled">cancelled</option>
-              <option value="blocked">blocked</option>
-            </select>
-          </div>
-          <div className="space-y-2">
-            {filteredRequests.length === 0 ? (
-              <div className="py-8 text-center sam-text-body text-sam-muted">{t("admin_cm_empty_friend_requests")}</div>
-            ) : (
-              filteredRequests.map((request) => (
-                <RequestRow
-                  key={request.id}
-                  request={request}
-                  busy={busy}
-                  onAction={handleRequestAction}
-                />
-              ))
             )}
           </div>
         </AdminCard>
@@ -1411,62 +1358,6 @@ function RoomRow({ room }: { room: AdminCommunityMessengerRoomSummary }) {
         </Link>
       </td>
     </tr>
-  );
-}
-
-function RequestRow({
-  request,
-  busy,
-  onAction,
-}: {
-  request: AdminCommunityMessengerFriendRequest;
-  busy: string | null;
-  onAction: (requestId: string, status: CommunityMessengerFriendRequestStatus) => Promise<void>;
-}) {
-  const { t, formatDateTime } = useCmAdminLabels();
-  return (
-    <div className="rounded-ui-rect border border-sam-border-soft px-3 py-3">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="sam-text-body font-medium text-sam-fg">
-            {request.requesterLabel} {"->"} {request.addresseeLabel}
-          </p>
-          <p className="mt-1 sam-text-helper text-sam-muted">
-            {t("admin_cm_common_status", { status: request.status })} · {t("admin_cm_common_created", { date: formatDateTime(request.createdAt) })}
-          </p>
-          {request.note ? <p className="mt-1 sam-text-helper text-sam-fg">{t("admin_cm_common_request_note", { text: request.note })}</p> : null}
-          {request.adminNote ? (
-            <p className="mt-1 sam-text-helper text-amber-700">{t("admin_cm_common_admin_note", { text: request.adminNote })}</p>
-          ) : null}
-        </div>
-        <div className="flex flex-wrap justify-end gap-2">
-          <button
-            type="button"
-            disabled={busy === `request:${request.id}:accepted`}
-            onClick={() => void onAction(request.id, "accepted")}
-            className="rounded border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 sam-text-helper text-emerald-700"
-          >
-            {t("admin_cm_action_approve")}
-          </button>
-          <button
-            type="button"
-            disabled={busy === `request:${request.id}:rejected`}
-            onClick={() => void onAction(request.id, "rejected")}
-            className="rounded border border-sam-border bg-sam-surface px-2.5 py-1.5 sam-text-helper text-sam-fg"
-          >
-            {t("admin_cm_action_reject")}
-          </button>
-          <button
-            type="button"
-            disabled={busy === `request:${request.id}:blocked`}
-            onClick={() => void onAction(request.id, "blocked")}
-            className="rounded border border-red-200 bg-red-50 px-2.5 py-1.5 sam-text-helper text-red-700"
-          >
-            {t("admin_cm_action_block")}
-          </button>
-        </div>
-      </div>
-    </div>
   );
 }
 

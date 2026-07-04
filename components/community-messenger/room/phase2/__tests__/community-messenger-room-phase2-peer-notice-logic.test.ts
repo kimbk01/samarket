@@ -1,14 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
-  isPendingIncomingFriendRequest,
-  isPendingOutgoingFriendRequest,
+  resolveDirectChatInboundRecipient,
   resolvePeerNoticeBranch,
+  shouldHidePeerAddContactForInitiator,
 } from "@/components/community-messenger/room/phase2/community-messenger-room-phase2-peer-notice-logic";
 import { isGeneralFriendDirectRoom } from "@/lib/community-messenger/messenger-room-domain";
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 
 const TEST_GENERAL_PAIR_KEY =
   "aaaaaaaa-bbbb-bbbb-bbbb-bbbbbbbbbbbb:cccccccc-dddd-dddd-dddd-dddddddddddd";
+
+const VIEWER = "aaaaaaaa-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
+const PEER = "cccccccc-dddd-dddd-dddd-dddddddddddd";
 
 function roomSummary(partial: Partial<CommunityMessengerRoomSummary>): CommunityMessengerRoomSummary {
   return {
@@ -27,31 +30,53 @@ function roomSummary(partial: Partial<CommunityMessengerRoomSummary>): Community
     lastMessage: "",
     lastMessageAt: partial.lastMessageAt ?? "2026-01-01T00:00:00.000Z",
     memberCount: 2,
-    ownerUserId: null,
+    ownerUserId: partial.ownerUserId ?? null,
     ownerLabel: "",
     memberLimit: null,
     isDiscoverable: false,
     requiresPassword: false,
     allowMemberInvite: false,
-    peerUserId: partial.peerUserId ?? "peer-b",
+    peerUserId: partial.peerUserId ?? PEER,
     messengerDirectKey: partial.messengerDirectKey ?? null,
     contextMeta: partial.contextMeta ?? null,
   };
 }
 
-describe("isPendingOutgoingFriendRequest / isPendingIncomingFriendRequest", () => {
-  it("treats outgoing_pending as outgoing", () => {
-    expect(isPendingOutgoingFriendRequest({ friendshipDirection: "outgoing_pending" })).toBe(true);
-    expect(isPendingIncomingFriendRequest({ friendshipDirection: "outgoing_pending" })).toBe(false);
+describe("resolveDirectChatInboundRecipient", () => {
+  it("returns true when peer sent first chat message", () => {
+    expect(
+      resolveDirectChatInboundRecipient({
+        viewerUserId: VIEWER,
+        peerUserId: PEER,
+        roomOwnerUserId: VIEWER,
+        messages: [{ senderId: PEER, messageType: "text", createdAt: "2026-01-01T00:00:01.000Z" }],
+      })
+    ).toBe(true);
   });
 
-  it("treats incoming_pending as incoming", () => {
-    expect(isPendingIncomingFriendRequest({ friendshipDirection: "incoming_pending" })).toBe(true);
-    expect(isPendingOutgoingFriendRequest({ friendshipDirection: "incoming_pending" })).toBe(false);
+  it("returns false when viewer sent first message (initiator)", () => {
+    expect(
+      resolveDirectChatInboundRecipient({
+        viewerUserId: VIEWER,
+        peerUserId: PEER,
+        messages: [{ senderId: VIEWER, messageType: "text", createdAt: "2026-01-01T00:00:01.000Z" }],
+      })
+    ).toBe(false);
+  });
+
+  it("returns false for empty room before any message (PN-04)", () => {
+    expect(
+      resolveDirectChatInboundRecipient({
+        viewerUserId: VIEWER,
+        peerUserId: PEER,
+        roomOwnerUserId: PEER,
+        messages: [],
+      })
+    ).toBe(false);
   });
 });
 
-describe("resolvePeerNoticeBranch", () => {
+describe("resolvePeerNoticeBranch — P2 A/B", () => {
   it("returns none for trade_pc direct rooms", () => {
     const tradeRoom = roomSummary({
       messengerDirectKey: "trade_pc:abc:peer-b",
@@ -62,112 +87,108 @@ describe("resolvePeerNoticeBranch", () => {
       resolvePeerNoticeBranch({
         isGeneralFriendDirect: false,
         roomType: "direct",
-        peerUserId: "peer-b",
+        peerUserId: PEER,
         blockedByMe: false,
         blockedByPeer: false,
-        peerFriendshipState: "pending",
-        friendshipDirection: "incoming_pending",
         peerRelationLabel: "stranger",
+        isInboundRecipient: true,
       })
     ).toBe("none");
   });
 
-  it("returns pending_incoming on general pair even with legacy trade contextMeta", () => {
-    const generalWithLegacyTradeMeta = roomSummary({
-      messengerDirectKey: TEST_GENERAL_PAIR_KEY,
-      contextMeta: { v: 1, kind: "trade", headline: "legacy" },
-    });
-    expect(isGeneralFriendDirectRoom(generalWithLegacyTradeMeta)).toBe(true);
+  it("PN-02: recipient stranger → add_contact", () => {
     expect(
       resolvePeerNoticeBranch({
         isGeneralFriendDirect: true,
         roomType: "direct",
-        peerUserId: "peer-b",
-        blockedByMe: false,
-        blockedByPeer: false,
-        peerFriendshipState: "pending",
-        friendshipDirection: "incoming_pending",
-        peerRelationLabel: "stranger",
-      })
-    ).toBe("pending_incoming");
-  });
-
-  it("hides stranger bar for pending outgoing requester", () => {
-    expect(
-      resolvePeerNoticeBranch({
-        isGeneralFriendDirect: true,
-        roomType: "direct",
-        peerUserId: "peer-b",
-        blockedByMe: false,
-        blockedByPeer: false,
-        peerFriendshipState: "pending",
-        friendshipDirection: "outgoing_pending",
-        peerRelationLabel: "saved_by_me",
-      })
-    ).toBe("pending_outgoing_hidden");
-  });
-
-  it("returns pending_incoming before stranger for addressee", () => {
-    expect(
-      resolvePeerNoticeBranch({
-        isGeneralFriendDirect: true,
-        roomType: "direct",
-        peerUserId: "peer-b",
-        blockedByMe: false,
-        blockedByPeer: false,
-        peerFriendshipState: "pending",
-        friendshipDirection: "incoming_pending",
-        peerRelationLabel: "saved_by_peer",
-      })
-    ).toBe("pending_incoming");
-  });
-
-  it("returns none for mutual_accepted", () => {
-    expect(
-      resolvePeerNoticeBranch({
-        isGeneralFriendDirect: true,
-        roomType: "direct",
-        peerUserId: "peer-b",
-        blockedByMe: false,
-        blockedByPeer: false,
-        peerFriendshipState: "accepted",
-        friendshipDirection: "mutual_accepted",
-        peerRelationLabel: "mutual_friend",
-      })
-    ).toBe("none");
-  });
-
-  it("returns stranger for general direct with no friendship row", () => {
-    expect(
-      resolvePeerNoticeBranch({
-        isGeneralFriendDirect: true,
-        roomType: "direct",
-        peerUserId: "peer-b",
+        peerUserId: PEER,
         blockedByMe: false,
         blockedByPeer: false,
         peerFriendshipState: "none",
-        friendshipDirection: "none",
         peerRelationLabel: "stranger",
+        isInboundRecipient: true,
       })
-    ).toBe("stranger");
+    ).toBe("add_contact");
   });
 
-  it("returns none for store_order direct rooms", () => {
-    const storeOrderRoom = roomSummary({
-      messengerDirectKey: "store_order:order-1:peer-b",
-    });
-    expect(isGeneralFriendDirectRoom(storeOrderRoom)).toBe(false);
+  it("PN-01: initiator → none", () => {
     expect(
       resolvePeerNoticeBranch({
-        isGeneralFriendDirect: false,
+        isGeneralFriendDirect: true,
         roomType: "direct",
-        peerUserId: "peer-b",
+        peerUserId: PEER,
+        blockedByMe: false,
+        blockedByPeer: false,
+        peerFriendshipState: "none",
+        peerRelationLabel: "stranger",
+        isInboundRecipient: false,
+      })
+    ).toBe("none");
+  });
+
+  it("PN-10: legacy pending direction ignored — recipient still add_contact", () => {
+    expect(
+      resolvePeerNoticeBranch({
+        isGeneralFriendDirect: true,
+        roomType: "direct",
+        peerUserId: PEER,
         blockedByMe: false,
         blockedByPeer: false,
         peerFriendshipState: "pending",
-        friendshipDirection: "incoming_pending",
         peerRelationLabel: "stranger",
+        isInboundRecipient: true,
+      })
+    ).toBe("add_contact");
+  });
+
+  it("returns none for mutual contact", () => {
+    expect(
+      resolvePeerNoticeBranch({
+        isGeneralFriendDirect: true,
+        roomType: "direct",
+        peerUserId: PEER,
+        blockedByMe: false,
+        blockedByPeer: false,
+        peerFriendshipState: "accepted",
+        peerRelationLabel: "mutual_friend",
+        isInboundRecipient: true,
       })
     ).toBe("none");
+  });
+
+  it("returns blocked when blockedByMe", () => {
+    expect(
+      resolvePeerNoticeBranch({
+        isGeneralFriendDirect: true,
+        roomType: "direct",
+        peerUserId: PEER,
+        blockedByMe: true,
+        blockedByPeer: false,
+        peerRelationLabel: "stranger",
+        isInboundRecipient: true,
+      })
+    ).toBe("blocked");
+  });
+});
+
+describe("shouldHidePeerAddContactForInitiator", () => {
+  it("hides add for initiator on general direct", () => {
+    expect(
+      shouldHidePeerAddContactForInitiator({
+        isGeneralFriendDirect: true,
+        isInboundRecipient: false,
+        isContactSaved: false,
+      })
+    ).toBe(true);
+  });
+
+  it("shows add for recipient", () => {
+    expect(
+      shouldHidePeerAddContactForInitiator({
+        isGeneralFriendDirect: true,
+        isInboundRecipient: true,
+        isContactSaved: false,
+      })
+    ).toBe(false);
   });
 });

@@ -1,8 +1,6 @@
 /**
- * Friend List read path — SSOT accepted projection only (Step 2).
- * Design: docs/community-messenger/friendship-ssot-design.md
- *
- * DO NOT merge legacy community_friend_requests or mutual social relations here.
+ * Friend List read path — viewer-local contact + legacy accepted fallback (P1).
+ * Design: docs/community-messenger/friendship-ssot-design.md (G1 amendment)
  */
 
 import {
@@ -12,7 +10,7 @@ import {
 import { listHiddenUserRelationshipRows } from "@/lib/community-messenger/social-relations";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
-import { listAcceptedFriendshipPeersForViewer } from "@/lib/community-messenger/friendship/resolve-friendship-pair";
+import { listContactFriendPeersForViewer } from "@/lib/community-messenger/friendship/resolve-friendship-pair";
 
 function trimText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -36,7 +34,7 @@ async function listFavoriteFriendTargetIds(
     .filter(Boolean);
 }
 
-/** GET /api/community-messenger/friends — SSOT accepted peers only. */
+/** GET /api/community-messenger/friends — contact saves + legacy accepted fallback. */
 export async function listCommunityMessengerFriendsFromSsot(
   userId: string,
   options?: { nowMs?: number }
@@ -47,22 +45,22 @@ export async function listCommunityMessengerFriendsFromSsot(
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) return [];
 
-  const acceptedPeers = await listAcceptedFriendshipPeersForViewer(sb, viewer, options);
-  if (!acceptedPeers.length) return [];
+  const contactPeers = await listContactFriendPeersForViewer(sb, viewer, options);
+  if (!contactPeers.length) return [];
 
   const hiddenRows = await listHiddenUserRelationshipRows(viewer);
   const hiddenIdSet = new Set(hiddenRows.map((row) => row.targetUserId));
 
-  const friendIds = acceptedPeers
+  const friendIds = contactPeers
     .map((entry) => entry.peerUserId)
     .filter((peerId) => peerId && !hiddenIdSet.has(peerId));
 
   if (!friendIds.length) return [];
 
   const friendshipAcceptedAtByPeer = new Map<string, string>();
-  for (const entry of acceptedPeers) {
+  for (const entry of contactPeers) {
     if (hiddenIdSet.has(entry.peerUserId)) continue;
-    const at = trimText(entry.row.accepted_at);
+    const at = trimText(entry.savedAt);
     if (at) friendshipAcceptedAtByPeer.set(entry.peerUserId, at);
   }
 

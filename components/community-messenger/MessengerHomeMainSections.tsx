@@ -19,7 +19,7 @@ import {
   type MessengerChatListContext,
   type MessengerMainSection,
 } from "@/lib/community-messenger/messenger-ia";
-import type { CommunityMessengerProfileLite, CommunityMessengerRoomSummary, CommunityMessengerCallLog, CommunityMessengerFriendRequest } from "@/lib/community-messenger/types";
+import type { CommunityMessengerProfileLite, CommunityMessengerRoomSummary, CommunityMessengerCallLog } from "@/lib/community-messenger/types";
 import type { MessengerCallLogsStartDirectCallFn } from "@/components/community-messenger/MessengerCallLogsPanel";
 import type { MessengerFriendStateModel } from "@/lib/community-messenger/messenger-friend-model";
 import type {
@@ -46,7 +46,6 @@ type Props = {
   me: CommunityMessengerProfileLite | null;
   viewerUserId?: string | null;
   sortedFriends: CommunityMessengerProfileLite[];
-  friendRequests: CommunityMessengerFriendRequest[];
   friendSortEpochMs: number;
   friendStateModel: MessengerFriendStateModel;
   busyId: string | null;
@@ -83,8 +82,6 @@ type Props = {
   openChatJoinedItems: UnifiedRoomListItem[];
   onCreateGroup: () => void;
   onCreateOpenGroup: () => void;
-  incomingRequestCount: number;
-  receivedFriendRequestCount: number;
   /** 인박스로 들어올 때 받은 `?from=...` */
   entryOriginQuery?: string | null;
   /** 인박스 상단 거래·배달 묶음 행 — pillar 서브 라우트에서는 null */
@@ -117,7 +114,6 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
   me,
   viewerUserId = null,
   sortedFriends,
-  friendRequests,
   friendSortEpochMs,
   friendStateModel,
   busyId,
@@ -150,8 +146,6 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
   openChatJoinedItems,
   onCreateGroup,
   onCreateOpenGroup,
-  incomingRequestCount,
-  receivedFriendRequestCount,
   entryOriginQuery = null,
   pillarSummaries = null,
   chatListVisual = "default",
@@ -170,8 +164,6 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
         <MessengerHomeSectionTabs
           mainSection={mainSection}
           onPrimarySectionChange={onPrimarySectionChange}
-          incomingRequestCount={incomingRequestCount}
-          receivedFriendRequestCount={receivedFriendRequestCount}
         />
       ) : null}
       <div
@@ -184,7 +176,6 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
           <MessengerFriendsScreen
             me={me}
             sortedFriends={sortedFriends}
-            friendRequests={friendRequests}
             friendListEpochMs={friendSortEpochMs}
             friendStateModel={friendStateModel}
             busyId={busyId}
@@ -299,7 +290,6 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
             listContext="archive"
             openedSwipeItemId={openedSwipeItemId}
             selectedArchiveSection={selectedArchiveSection}
-            incomingRequestCount={incomingRequestCount}
             onOpenSwipeItem={onOpenSwipeItem}
             onCloseMenuItem={onCloseMenuItem}
             onResetTransientUi={onResetTransientUi}

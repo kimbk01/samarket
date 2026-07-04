@@ -91,6 +91,8 @@ export type ChatRoomMoreMenuProps = {
   disableArchiveToggle?: boolean;
   disableLeaveRoom?: boolean;
   disableFriendRequest?: boolean;
+  /** P2 — initiator hides Add Contact row on general direct rooms */
+  hidePeerSocialAdd?: boolean;
   onSearch: () => void;
   onOpenMediaFiles: () => void;
   onFriendRequest: () => void;
@@ -170,6 +172,7 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
     disableArchiveToggle = false,
     disableLeaveRoom = false,
     disableFriendRequest = false,
+    hidePeerSocialAdd = false,
     onSearch,
     onOpenMediaFiles,
     onFriendRequest,
@@ -304,7 +307,7 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
           <span className="min-w-0 flex-1 font-medium">{t("cm_ui_view_photo_file")}</span>
         </button>
 
-        {relation === "none" ? (
+        {!hidePeerSocialAdd && relation === "none" ? (
           <button
             type="button"
             onClick={onFriendRequest}
@@ -314,17 +317,12 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
             <UserPlus className="h-[18px] w-[18px] shrink-0 text-[color:var(--cm-room-primary)]" strokeWidth={2} aria-hidden />
             <span className="min-w-0 flex-1 font-medium">{friendLabelNone}</span>
           </button>
-        ) : relation === "requested" ? (
-          <div className={listRowClass(false)} aria-disabled>
-            <UserPlus className="h-[18px] w-[18px] shrink-0 text-[color:var(--cm-room-text-muted)]" strokeWidth={2} aria-hidden />
-            <span className="min-w-0 flex-1 font-medium text-[color:var(--cm-room-text-muted)]">{t("cm_ui_pending")}</span>
-          </div>
-        ) : (
+        ) : relation === "accepted" ? (
           <div className={listRowClass(false)}>
             <CheckCircle2 className="h-[18px] w-[18px] shrink-0 text-emerald-600" strokeWidth={2} aria-hidden />
             <span className="min-w-0 flex-1 font-medium text-[color:var(--cm-room-text)]">{t("cm_ui_is_friend")}</span>
           </div>
-        )}
+        ) : null}
 
         {showVoice ? (
           <button

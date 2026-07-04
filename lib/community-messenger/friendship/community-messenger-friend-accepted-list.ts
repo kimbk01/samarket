@@ -39,6 +39,21 @@ export function friendshipSsotRowToCommunityFriendAcceptedRow(
   };
 }
 
+/** Contact-only list entry (no legacy friendships row). */
+export function contactSaveToCommunityFriendAcceptedRow(
+  viewerUserId: string,
+  peerUserId: string,
+  savedAt: string | null
+): CommunityFriendRequestAcceptedRow {
+  return {
+    requester_id: trimText(viewerUserId),
+    addressee_id: trimText(peerUserId),
+    status: "accepted",
+    responded_at: savedAt,
+    created_at: savedAt ?? undefined,
+  };
+}
+
 export function unionCommunityFriendAcceptedRowsByPeer(
   userId: string,
   ...lists: readonly CommunityFriendRequestAcceptedRow[][]

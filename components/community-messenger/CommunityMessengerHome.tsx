@@ -162,10 +162,6 @@ import {
 } from "@/lib/community-messenger/user-public-id-search";
 import { useIncomingFriendRequestPopupStore } from "@/lib/community-messenger/stores/incoming-friend-request-popup-store";
 import {
-  countAllPendingMessengerFriendRequests,
-  countReceivedPendingMessengerFriendRequests,
-} from "@/lib/community-messenger/partition-messenger-friend-requests";
-import {
   communityMessengerFriendRequestFailureMessage,
   postCommunityMessengerFriendRequestApi,
 } from "@/lib/community-messenger/community-messenger-friend-request-client";
@@ -891,14 +887,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     data,
   });
   const backupInputRef = useRef<HTMLInputElement | null>(null);
-  const incomingRequestCount = useMemo(
-    () => countAllPendingMessengerFriendRequests(data?.requests),
-    [data?.requests]
-  );
-  const receivedFriendRequestCount = useMemo(
-    () => countReceivedPendingMessengerFriendRequests(data?.requests),
-    [data?.requests]
-  );
   const friendProfileForSheet = useMemo(() => {
     if (!friendSheet || friendSheet.mode !== "profile") return null;
     if (data) return mergeCommunityMessengerProfileFromBootstrap(friendSheet.profile, data);
@@ -1371,34 +1359,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       }
     },
     [navigateGeneralFriendRoom, refresh, t]
-  );
-
-  const respondRequest = useCallback(
-    async (requestId: string, action: "accept" | "reject" | "cancel") => {
-      const effectiveId = String(requestId ?? "").trim();
-      if (!effectiveId) return;
-      setBusyId(`request:${effectiveId}:${action}`);
-      try {
-        const res = await fetch(`/api/community-messenger/friend-requests/${encodeURIComponent(effectiveId)}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action }),
-        });
-        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; directRoomId?: string };
-        if (res.ok && json.ok) {
-          void refresh(true);
-          if (action === "accept") {
-            const roomId = json.directRoomId?.trim();
-            if (roomId) {
-              void navigateGeneralFriendRoom(roomId);
-            }
-          }
-        }
-      } finally {
-        setBusyId(null);
-      }
-    },
-    [navigateGeneralFriendRoom, refresh]
   );
 
   const resolvePeerBlockedState = useCallback(
@@ -2228,15 +2188,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   }, []);
 
   const notificationCenterItemsAll = useMemo<MessengerNotificationCenterItem[]>(() => {
-    const pending = (data?.requests ?? []).filter((request) => request.status === "pending");
-    const requestItems: MessengerNotificationCenterItem[] = pending
-      .filter((request) => request.direction === "incoming" || request.direction === "outgoing")
-      .map((request) => ({
-        id: `request:${request.id}`,
-        kind: "request" as const,
-        createdAt: request.createdAt,
-        request,
-      }));
     const missedCallItems: MessengerNotificationCenterItem[] = sortedCalls
       .filter((call) => call.status === "missed")
       .map((call) => ({
@@ -2268,17 +2219,16 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         preview: item.preview,
         highlightReason: resolveImportantRoomHighlightReason(item.room),
       }));
-    return [...requestItems, ...groupInviteItems, ...missedCallItems, ...importantRoomItems].sort(
+    return [...groupInviteItems, ...missedCallItems, ...importantRoomItems].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
-  }, [baseChatListItems, data?.requests, groupInviteNotifications, sortedCalls]);
+  }, [baseChatListItems, groupInviteNotifications, sortedCalls]);
   const notificationCenterItems = useMemo(
     () => notificationCenterItemsAll.filter((item) => !dismissedNotificationIds.includes(item.id)),
     [dismissedNotificationIds, notificationCenterItemsAll]
   );
   const notificationCenterSummary = useMemo(
     () => ({
-      requestCount: notificationCenterItems.filter((item) => item.kind === "request").length,
       groupInviteCount: notificationCenterItems.filter((item) => item.kind === "group_invite").length,
       missedCallCount: notificationCenterItems.filter((item) => item.kind === "missed_call").length,
       importantCount: notificationCenterItems.filter((item) => item.kind === "important_room").length,
@@ -2941,8 +2891,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         openChatJoinedItems={openChatJoinedItems}
         onCreateGroupStable={onCreateGroupStable}
         onCreateOpenGroupStable={onCreateOpenGroupStable}
-        incomingRequestCount={incomingRequestCount}
-        receivedFriendRequestCount={receivedFriendRequestCount}
         pageError={pageError}
         loginRequiredText={t("nav_messenger_login_required")}
         retryText={t("common_try_again_later")}
@@ -3219,7 +3167,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           summary={notificationCenterSummary}
           items={notificationCenterItems}
           busyId={busyId}
-          onRespondRequest={respondRequest}
           onOpenMissedCall={(call) => {
             if (call.roomId) {
               navigateToCommunityRoomWithViewer(call.roomId);

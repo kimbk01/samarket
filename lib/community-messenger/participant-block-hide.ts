@@ -1,5 +1,6 @@
 /**
- * Block → viewer participant hide (inbox) without deleting messages or peer participant.
+ * Block → bilateral direct room inbox hide (blocker + blocked peer).
+ * Messages preserved; communication gated separately via social-relations block.
  */
 
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
@@ -66,6 +67,75 @@ async function resolveDirectRoomIdsForPair(
     .filter(Boolean);
 }
 
+async function hideDirectRoomForParticipantUser(input: {
+  sb: NonNullable<ReturnType<typeof getSupabaseOrNull>>;
+  roomId: string;
+  participantUserId: string;
+  now: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  const { sb, roomId, participantUserId, now } = input;
+
+  const { data: roomRow } = await (sb as any)
+    .from("community_messenger_rooms")
+    .select("id, room_type")
+    .eq("id", roomId)
+    .maybeSingle();
+  if (trimText(roomRow?.room_type) !== "direct") return { ok: true };
+
+  const { data: lastMsg } = await (sb as any)
+    .from("community_messenger_messages")
+    .select("id")
+    .eq("room_id", roomId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const patch: Record<string, unknown> = {
+    blocked_hidden_at: now,
+    hidden_at: now,
+  };
+  const lastVisibleId = trimText(lastMsg?.id);
+  if (lastVisibleId) patch.last_visible_message_id = lastVisibleId;
+
+  const { error } = await (sb as any)
+    .from("community_messenger_participants")
+    .update(patch)
+    .eq("room_id", roomId)
+    .eq("user_id", participantUserId);
+
+  if (error) {
+    if (isMissingColumnError(error)) {
+      return { ok: false, error: "migration_required" };
+    }
+    return { ok: false, error: String(error.message ?? "block_hide_failed") };
+  }
+
+  return { ok: true };
+}
+
+async function restoreDirectRoomForParticipantUser(input: {
+  sb: NonNullable<ReturnType<typeof getSupabaseOrNull>>;
+  roomId: string;
+  participantUserId: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  const { sb, roomId, participantUserId } = input;
+
+  const { error } = await (sb as any)
+    .from("community_messenger_participants")
+    .update({ blocked_hidden_at: null })
+    .eq("room_id", roomId)
+    .eq("user_id", participantUserId)
+    .not("blocked_hidden_at", "is", null);
+
+  if (error) {
+    if (isMissingColumnError(error)) return { ok: true };
+    return { ok: false, error: String(error.message ?? "unblock_restore_failed") };
+  }
+
+  return { ok: true };
+}
+
+/** P3 — blocker + blocked peer both hide shared direct rooms from inbox. */
 export async function hideDirectRoomsOnBlockForViewer(input: {
   viewerUserId: string;
   peerUserId: string;
@@ -83,41 +153,14 @@ export async function hideDirectRoomsOnBlockForViewer(input: {
 
   const now = new Date().toISOString();
   const hiddenRoomIds: string[] = [];
+  const participantUserIds = [viewer, peer];
 
   for (const roomId of roomIds) {
-    const { data: roomRow } = await (sb as any)
-      .from("community_messenger_rooms")
-      .select("id, room_type, last_message_at")
-      .eq("id", roomId)
-      .maybeSingle();
-    if (trimText(roomRow?.room_type) !== "direct") continue;
-
-    const { data: lastMsg } = await (sb as any)
-      .from("community_messenger_messages")
-      .select("id")
-      .eq("room_id", roomId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    const patch: Record<string, unknown> = {
-      blocked_hidden_at: now,
-      hidden_at: now,
-    };
-    const lastVisibleId = trimText(lastMsg?.id);
-    if (lastVisibleId) patch.last_visible_message_id = lastVisibleId;
-
-    const { error } = await (sb as any)
-      .from("community_messenger_participants")
-      .update(patch)
-      .eq("room_id", roomId)
-      .eq("user_id", viewer);
-
-    if (error) {
-      if (isMissingColumnError(error)) {
-        return { ok: false, hiddenRoomIds: [], error: "migration_required" };
+    for (const participantUserId of participantUserIds) {
+      const result = await hideDirectRoomForParticipantUser({ sb, roomId, participantUserId, now });
+      if (!result.ok) {
+        return { ok: false, hiddenRoomIds, error: result.error };
       }
-      return { ok: false, hiddenRoomIds, error: String(error.message ?? "block_hide_failed") };
     }
     hiddenRoomIds.push(roomId);
   }
@@ -125,6 +168,7 @@ export async function hideDirectRoomsOnBlockForViewer(input: {
   return { ok: true, hiddenRoomIds };
 }
 
+/** P3 — unblock restores inbox visibility for both participants on shared direct rooms. */
 export async function restoreDirectRoomsOnUnblockForViewer(
   viewerUserId: string,
   peerUserId: string
@@ -139,16 +183,15 @@ export async function restoreDirectRoomsOnUnblockForViewer(
   const roomIds = await resolveDirectRoomIdsForPair(sb, viewer, peer);
   if (!roomIds.length) return { ok: true, restoredRoomIds: [] };
 
-  const { error } = await (sb as any)
-    .from("community_messenger_participants")
-    .update({ blocked_hidden_at: null })
-    .eq("user_id", viewer)
-    .in("room_id", roomIds)
-    .not("blocked_hidden_at", "is", null);
+  const participantUserIds = [viewer, peer];
 
-  if (error) {
-    if (isMissingColumnError(error)) return { ok: true, restoredRoomIds: [] };
-    return { ok: false, restoredRoomIds: [], error: String(error.message ?? "unblock_restore_failed") };
+  for (const roomId of roomIds) {
+    for (const participantUserId of participantUserIds) {
+      const result = await restoreDirectRoomForParticipantUser({ sb, roomId, participantUserId });
+      if (!result.ok) {
+        return { ok: false, restoredRoomIds: [], error: result.error };
+      }
+    }
   }
 
   return { ok: true, restoredRoomIds: roomIds };

@@ -37,11 +37,10 @@ import { useStoreOrderDeliveryMessengerHeader } from "@/lib/store-order-chat/use
 import { useStoreOrderDeliveryRoomOptional } from "@/components/community-messenger/room/phase2/store-order-delivery-room-context";
 import { formatStoreOrderDeliveryAddressPlain } from "@/lib/addresses/store-order-delivery-address-display";
 import {
-  messengerRoomShowsConfirmedDeliveryPresentation,
-  messengerRoomShowsConfirmedTradePresentation,
-  resolveMessengerDotMenuCallKind,
-  resolveMessengerDotMenuCallVisibility,
-} from "@/lib/community-messenger/messenger-room-domain";
+  resolveDirectChatInboundRecipient,
+  shouldHidePeerAddContactForInitiator,
+} from "@/components/community-messenger/room/phase2/community-messenger-room-phase2-peer-notice-logic";
+import { generalFriendDirectRoomGate, messengerRoomShowsConfirmedDeliveryPresentation, messengerRoomShowsConfirmedTradePresentation, resolveMessengerDotMenuCallKind, resolveMessengerDotMenuCallVisibility } from "@/lib/community-messenger/messenger-room-domain";
 import { logCallV3ButtonClick, logCallV3ButtonRender } from "@/lib/community-messenger/call-v3/call-v3-debug";
 
 function mapSellerListingToProductStatus(
@@ -59,7 +58,6 @@ function mapRelationFromSnapshot(
   peerFriendshipState: CommunityMessengerRoomSnapshot["peerFriendshipState"],
   cta: MessengerPeerSocialCta
 ): Relation {
-  if (peerFriendshipState === "pending") return "requested";
   if (peerFriendshipState === "accepted" || cta.kind === "friend") return "accepted";
   return "none";
 }
@@ -167,6 +165,39 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
     () => mapRelationFromSnapshot(vm.snapshot.peerFriendshipState, friendAddCta),
     [friendAddCta, vm.snapshot.peerFriendshipState]
   );
+
+  const hidePeerSocialAdd = useMemo(() => {
+    const isGeneralFriendDirect = generalFriendDirectRoomGate(vm.snapshot.room, vm.snapshot.viewerUserId);
+    const timelineMessages = (vm.roomMessages ?? vm.snapshot.messages ?? []).map((m) => ({
+      senderId: m.senderId,
+      messageType: m.messageType,
+      createdAt: m.createdAt,
+    }));
+    const isInboundRecipient = resolveDirectChatInboundRecipient({
+      viewerUserId: vm.snapshot.viewerUserId,
+      peerUserId,
+      roomOwnerUserId: vm.snapshot.room.ownerUserId,
+      messages: timelineMessages,
+    });
+    const isContactSaved =
+      vm.snapshot.peerFriendshipState === "accepted" ||
+      friendAddCta.kind === "friend" ||
+      Boolean(peerProfile?.isFriend);
+    return shouldHidePeerAddContactForInitiator({
+      isGeneralFriendDirect,
+      isInboundRecipient,
+      isContactSaved,
+    });
+  }, [
+    friendAddCta.kind,
+    peerProfile?.isFriend,
+    peerUserId,
+    vm.roomMessages,
+    vm.snapshot.messages,
+    vm.snapshot.peerFriendshipState,
+    vm.snapshot.room,
+    vm.snapshot.viewerUserId,
+  ]);
 
   const assertGeneralDirectCallAllowed = useCallback(
     (kind: "voice" | "video"): boolean => {
@@ -364,6 +395,7 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
       }
       disableLeaveRoom={vm.busy === "leave-room"}
       disableFriendRequest={Boolean(peerProfile?.blocked) || friendAddCta.kind === "blocked"}
+      hidePeerSocialAdd={hidePeerSocialAdd}
       onSearch={() => {
         vm.setRoomSearchQuery("");
         vm.setActiveSheet("search");

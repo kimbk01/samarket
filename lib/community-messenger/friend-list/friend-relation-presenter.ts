@@ -8,8 +8,6 @@ export type FriendRelationDisplayStatus =
   | "me"
   | "friend"
   | "new_friend"
-  | "pending_sent"
-  | "pending_received"
   | "blocked_by_me"
   | "blocked_me"
   | "hidden"
@@ -38,8 +36,6 @@ export type FriendRelationPresenterInput = {
   isFavorite?: boolean;
   isHidden?: boolean;
   isMuted?: boolean;
-  pendingOutgoing?: boolean;
-  pendingIncoming?: boolean;
   blockedByMe?: boolean;
   blockedMe?: boolean;
   readdBlockedUntil?: string | null;
@@ -52,8 +48,6 @@ const STATUS_BADGE: Record<
 > = {
   friend: { key: "cm_friend_badge_friend", color: "#006241" },
   new_friend: { key: "cm_friend_badge_new", color: "#006241" },
-  pending_sent: { key: "cm_friend_badge_pending_sent", color: "#6B7280" },
-  pending_received: { key: "cm_friend_badge_pending_received", color: "#FB8C00" },
   blocked_by_me: { key: "cm_friend_badge_blocked", color: "#E53935" },
   blocked_me: { key: "cm_friend_badge_blocked", color: "#E53935" },
   hidden: { key: "cm_friend_badge_hidden", color: "#6B7280" },
@@ -67,8 +61,6 @@ export function resolveFriendRelationDisplayStatus(
   if (input.blockedByMe) return "blocked_by_me";
   if (input.blockedMe) return "blocked_me";
   if (input.isHidden) return "hidden";
-  if (input.pendingIncoming) return "pending_received";
-  if (input.pendingOutgoing) return "pending_sent";
   if (input.isMuted) return "muted";
   const nowMs = input.nowMs ?? Date.now();
   if (input.profile.isFriend && isMessengerNewFriend(input.profile, nowMs, MESSENGER_NEW_FRIEND_WINDOW_MS)) {
@@ -94,8 +86,6 @@ export function presentFriendListRow(input: FriendRelationPresenterInput): Frien
   const readdUntil = input.readdBlockedUntil ?? null;
   const canAddFriend =
     !input.profile.isFriend &&
-    !input.pendingOutgoing &&
-    !input.pendingIncoming &&
     !input.blockedByMe &&
     !input.blockedMe &&
     (!readdUntil || Number.isNaN(Date.parse(readdUntil)) || Date.parse(readdUntil) <= nowMs);
@@ -135,9 +125,6 @@ export function friendListSectionForStatus(status: FriendRelationDisplayStatus):
       return "blocked";
     case "muted":
       return "muted";
-    case "pending_sent":
-    case "pending_received":
-      return null;
     default:
       return "friends";
   }

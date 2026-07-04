@@ -11,6 +11,10 @@ import {
   isBlockedByMe,
   unblockUserSocial,
 } from "@/lib/community-messenger/social-relations";
+import {
+  hideDirectRoomsOnBlockForViewer,
+  restoreDirectRoomsOnUnblockForViewer,
+} from "@/lib/community-messenger/participant-block-hide";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -103,6 +107,7 @@ export async function POST(req: NextRequest) {
     if (!result.ok) {
       return NextResponse.json({ ok: false, error: result.error ?? "unblock_failed" }, { status: 500 });
     }
+    await restoreDirectRoomsOnUnblockForViewer(auth.userId, target);
     return NextResponse.json({ ok: true, blocked: false });
   }
 
@@ -126,6 +131,11 @@ export async function POST(req: NextRequest) {
   if (!cleanup.ok) {
     console.error("[community/block-relations] community messenger friend graph cleanup failed", cleanup.error);
   }
+
+  await hideDirectRoomsOnBlockForViewer({
+    viewerUserId: auth.userId,
+    peerUserId: target,
+  });
 
   return NextResponse.json({ ok: true, blocked: true });
 }

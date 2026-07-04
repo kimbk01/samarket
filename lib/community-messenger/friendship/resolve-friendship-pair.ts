@@ -1,9 +1,10 @@
 /**
- * Friendship SSOT read resolver — Step 1 contract.
- * Design: docs/community-messenger/friendship-ssot-design.md
+ * Friendship / Contact SSOT read resolver — Step 1 + Contact transition P1.
+ * Design: docs/community-messenger/friendship-ssot-design.md (G1 amendment)
  *
  * `resolveFriendshipPair` is the single friendship pair judgment entry (Gate A).
- * Migration read-only legacy fallback is internal to this module only.
+ * P1: viewer-local contact save (`user_social_relations.friend`) is write SSOT;
+ * legacy friendships SSOT read fallback until L7.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -96,6 +97,25 @@ function buildResult(
   };
 }
 
+async function isFriendSavedByViewer(
+  sb: SupabaseClient<any>,
+  viewerUserId: string,
+  peerUserId: string
+): Promise<boolean> {
+  const viewer = trimText(viewerUserId);
+  const peer = trimText(peerUserId);
+  if (!viewer || !peer || viewer === peer) return false;
+  const { data, error } = await (sb as any)
+    .from("user_social_relations")
+    .select("id")
+    .eq("owner_user_id", viewer)
+    .eq("target_user_id", peer)
+    .eq("relation_type", "friend")
+    .maybeSingle();
+  if (error && !isMissingTableError(error)) return false;
+  return Boolean(data?.id);
+}
+
 async function isMutualFriendSavedInSocialRelations(
   sb: SupabaseClient<any>,
   userA: string,
@@ -157,6 +177,15 @@ export async function resolveFriendshipPair(
   }
 
   const nowMs = options?.nowMs ?? Date.now();
+
+  if (await isFriendSavedByViewer(sb, viewer, peer)) {
+    return buildResult(viewer, {
+      state: "accepted",
+      source: "social_relations",
+      row: null,
+    });
+  }
+
   try {
     const row = await fetchFriendshipPairRow(sb, viewer, peer);
     if (row) {
@@ -196,24 +225,68 @@ export function peerUserIdFromFriendshipSsotRow(
   return null;
 }
 
-/** Friend list projection — SSOT accepted rows only. */
+export type ContactFriendListEntry = {
+  peerUserId: string;
+  savedAt: string | null;
+  source: FriendshipJudgmentSource;
+  row: FriendshipSsotRow | null;
+};
+
+/** Friend list projection — viewer contact saves + legacy accepted SSOT fallback (P1). */
+export async function listContactFriendPeersForViewer(
+  sb: SupabaseClient<any> | null,
+  viewerUserId: string,
+  options?: { nowMs?: number }
+): Promise<ContactFriendListEntry[]> {
+  const viewer = trimText(viewerUserId);
+  if (!viewer || !sb) return [];
+
+  const nowMs = options?.nowMs ?? Date.now();
+  const byPeer = new Map<string, ContactFriendListEntry>();
+
+  const { data: contactRows, error: contactError } = await (sb as any)
+    .from("user_social_relations")
+    .select("target_user_id, created_at")
+    .eq("owner_user_id", viewer)
+    .eq("relation_type", "friend");
+  if (!contactError || !isMissingTableError(contactError)) {
+    for (const raw of contactRows ?? []) {
+      const peerUserId = trimText((raw as { target_user_id?: string }).target_user_id);
+      if (!peerUserId || peerUserId === viewer) continue;
+      const savedAt = trimText((raw as { created_at?: string }).created_at) || null;
+      byPeer.set(peerUserId, {
+        peerUserId,
+        savedAt,
+        source: "social_relations",
+        row: null,
+      });
+    }
+  }
+
+  const ssotRows = await listFriendshipSsotRowsForViewer(sb, viewer);
+  for (const row of ssotRows) {
+    if (mapFriendshipPairStateFromSsotRow(row, nowMs) !== "accepted") continue;
+    const peerUserId = peerUserIdFromFriendshipSsotRow(viewer, row);
+    if (!peerUserId || byPeer.has(peerUserId)) continue;
+    byPeer.set(peerUserId, {
+      peerUserId,
+      savedAt: trimText(row.accepted_at) || trimText(row.updated_at) || null,
+      source: "friendships_ssot",
+      row,
+    });
+  }
+
+  return [...byPeer.values()];
+}
+
+/** @deprecated alias — use `listContactFriendPeersForViewer` */
 export async function listAcceptedFriendshipPeersForViewer(
   sb: SupabaseClient<any> | null,
   viewerUserId: string,
   options?: { nowMs?: number }
 ): Promise<Array<{ peerUserId: string; row: FriendshipSsotRow }>> {
-  const viewer = trimText(viewerUserId);
-  if (!viewer || !sb) return [];
-  const nowMs = options?.nowMs ?? Date.now();
-  const rows = await listFriendshipSsotRowsForViewer(sb, viewer);
-  const out: Array<{ peerUserId: string; row: FriendshipSsotRow }> = [];
-  const seen = new Set<string>();
-  for (const row of rows) {
-    if (mapFriendshipPairStateFromSsotRow(row, nowMs) !== "accepted") continue;
-    const peerUserId = peerUserIdFromFriendshipSsotRow(viewer, row);
-    if (!peerUserId || seen.has(peerUserId)) continue;
-    seen.add(peerUserId);
-    out.push({ peerUserId, row });
-  }
-  return out;
+  const entries = await listContactFriendPeersForViewer(sb, viewerUserId, options);
+  return entries
+    .filter((entry): entry is ContactFriendListEntry & { row: FriendshipSsotRow } => entry.row != null)
+    .map((entry) => ({ peerUserId: entry.peerUserId, row: entry.row }));
 }

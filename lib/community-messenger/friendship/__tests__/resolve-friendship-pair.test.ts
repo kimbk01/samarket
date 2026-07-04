@@ -18,6 +18,7 @@ import {
 } from "@/lib/community-messenger/friendship/community-messenger-friendships-ssot";
 import {
   listAcceptedFriendshipPeersForViewer,
+  listContactFriendPeersForViewer,
   mapFriendshipDirectionFromSsot,
   mapFriendshipPairStateFromSsotRow,
   peerUserIdFromFriendshipSsotRow,
@@ -42,23 +43,50 @@ function row(partial: Partial<FriendshipSsotRow> & Pick<FriendshipSsotRow, "stat
 
 function mockSbSocialAndLegacy({
   mutualFriend = false,
+  viewerSavedPeer = false,
   legacyAccepted = false,
+  contactList = [] as Array<{ target_user_id: string; created_at?: string }>,
 }: {
   mutualFriend?: boolean;
+  viewerSavedPeer?: boolean;
   legacyAccepted?: boolean;
+  contactList?: Array<{ target_user_id: string; created_at?: string }>;
 } = {}) {
+  const savedPair = mutualFriend || viewerSavedPeer;
   const from = vi.fn((table: string) => {
     if (table === "user_social_relations") {
-      const chain = {
-        eq: vi.fn(function eq(this: unknown, col: string, val: string) {
-          if (col === "relation_type") {
-            return { maybeSingle: vi.fn().mockResolvedValue({ data: mutualFriend ? { id: "sr-1" } : null, error: null }) };
+      return {
+        select: vi.fn((cols: string) => {
+          if (cols.includes("created_at")) {
+            return {
+              eq: vi.fn(() => ({
+                eq: vi.fn(async () => ({
+                  data: contactList,
+                  error: null,
+                })),
+              })),
+            };
           }
+          const chain = {
+            eq: vi.fn(function eq(this: unknown, col: string, val: string) {
+              if (col === "relation_type") {
+                return {
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: savedPair ? { id: "sr-1" } : null,
+                    error: null,
+                  }),
+                };
+              }
+              return chain;
+            }),
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: savedPair ? { id: "sr-1" } : null,
+              error: null,
+            }),
+          };
           return chain;
         }),
-        maybeSingle: vi.fn().mockResolvedValue({ data: mutualFriend ? { id: "sr-1" } : null, error: null }),
       };
-      return { select: vi.fn(() => chain) };
     }
     if (table === "community_friend_requests") {
       return {
@@ -144,6 +172,18 @@ describe("resolveFriendshipPair", () => {
     expect(r.source).toBe("none");
   });
 
+  it("returns contact save as accepted before SSOT row lookup", async () => {
+    vi.mocked(fetchFriendshipPairRow).mockResolvedValue(
+      row({ status: "pending", requester_user_id: PEER, addressee_user_id: VIEWER })
+    );
+    const r = await resolveFriendshipPair(mockSbSocialAndLegacy({ viewerSavedPeer: true }), VIEWER, PEER, {
+      nowMs: NOW,
+    });
+    expect(r.state).toBe("accepted");
+    expect(r.source).toBe("social_relations");
+    expect(fetchFriendshipPairRow).not.toHaveBeenCalled();
+  });
+
   it("returns SSOT accepted with mutual_accepted direction", async () => {
     const ssotRow = row({ status: "accepted" });
     vi.mocked(fetchFriendshipPairRow).mockResolvedValue(ssotRow);
@@ -202,12 +242,32 @@ describe("resolveFriendshipPair", () => {
   });
 });
 
+describe("listContactFriendPeersForViewer", () => {
+  beforeEach(() => {
+    vi.mocked(listFriendshipSsotRowsForViewer).mockReset();
+  });
+
+  it("lists contact saves and legacy SSOT accepted peers", async () => {
+    vi.mocked(listFriendshipSsotRowsForViewer).mockResolvedValue([
+      row({ id: "a1", status: "accepted", requester_user_id: VIEWER, addressee_user_id: PEER }),
+      row({ id: "p1", status: "pending", requester_user_id: PEER, addressee_user_id: VIEWER }),
+    ]);
+    const sb = mockSbSocialAndLegacy({
+      contactList: [{ target_user_id: "33333333-3333-3333-3333-333333333333", created_at: "2026-06-29T00:00:00.000Z" }],
+    });
+    const list = await listContactFriendPeersForViewer(sb, VIEWER, { nowMs: NOW });
+    expect(list.map((e) => e.peerUserId).sort()).toEqual(
+      [PEER, "33333333-3333-3333-3333-333333333333"].sort()
+    );
+  });
+});
+
 describe("listAcceptedFriendshipPeersForViewer", () => {
   beforeEach(() => {
     vi.mocked(listFriendshipSsotRowsForViewer).mockReset();
   });
 
-  it("lists accepted peers only from SSOT rows", async () => {
+  it("lists accepted peers with SSOT rows only (alias)", async () => {
     vi.mocked(listFriendshipSsotRowsForViewer).mockResolvedValue([
       row({ id: "a1", status: "accepted", requester_user_id: VIEWER, addressee_user_id: PEER }),
       row({ id: "p1", status: "pending", requester_user_id: PEER, addressee_user_id: VIEWER }),
@@ -219,7 +279,13 @@ describe("listAcceptedFriendshipPeersForViewer", () => {
         addressee_user_id: "22222222-2222-2222-2222-222222222222",
       }),
     ]);
-    const list = await listAcceptedFriendshipPeersForViewer({} as any, VIEWER, { nowMs: NOW });
+    const list = await listAcceptedFriendshipPeersForViewer(
+      mockSbSocialAndLegacy({
+        contactList: [],
+      }),
+      VIEWER,
+      { nowMs: NOW }
+    );
     expect(list).toHaveLength(1);
     expect(list[0]?.peerUserId).toBe(PEER);
   });

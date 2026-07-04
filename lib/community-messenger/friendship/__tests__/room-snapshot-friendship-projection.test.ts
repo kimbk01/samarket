@@ -42,7 +42,7 @@ describe("projectRoomSnapshotFriendshipFromResolution", () => {
     expect(out.pendingFriendshipRequestId).toBeUndefined();
   });
 
-  it("maps pending incoming → pending + request id", () => {
+  it("maps legacy pending incoming without request id (Contact transition)", () => {
     const ssotRow = row({ status: "pending", requester_user_id: PEER, addressee_user_id: VIEWER });
     const out = projectRoomSnapshotFriendshipFromResolution(
       resolved({
@@ -54,10 +54,10 @@ describe("projectRoomSnapshotFriendshipFromResolution", () => {
     );
     expect(out.peerFriendshipState).toBe("pending");
     expect(out.friendshipDirection).toBe("incoming_pending");
-    expect(out.pendingFriendshipRequestId).toBe("row-pending-1");
+    expect(out.pendingFriendshipRequestId).toBeUndefined();
   });
 
-  it("maps pending outgoing → pending + request id", () => {
+  it("maps legacy pending outgoing without request id (Contact transition)", () => {
     const out = projectRoomSnapshotFriendshipFromResolution(
       resolved({
         state: "pending",
@@ -68,7 +68,7 @@ describe("projectRoomSnapshotFriendshipFromResolution", () => {
     );
     expect(out.peerFriendshipState).toBe("pending");
     expect(out.friendshipDirection).toBe("outgoing_pending");
-    expect(out.pendingFriendshipRequestId).toBe("row-pending-1");
+    expect(out.pendingFriendshipRequestId).toBeUndefined();
   });
 
   it("maps blocked SSOT → peerFriendshipState blocked", () => {

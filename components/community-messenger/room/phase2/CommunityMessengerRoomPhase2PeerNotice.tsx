@@ -1,26 +1,25 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MessengerBlockPeerConfirmModal } from "@/components/community-messenger/MessengerBlockPeerConfirmModal";
-import { resolvePeerNoticeBranch } from "@/components/community-messenger/room/phase2/community-messenger-room-phase2-peer-notice-logic";
+import {
+  resolveDirectChatInboundRecipient,
+  resolvePeerNoticeBranch,
+} from "@/components/community-messenger/room/phase2/community-messenger-room-phase2-peer-notice-logic";
 import { MessengerUnknownPeerNoticeBar } from "@/components/community-messenger/room/phase2/MessengerUnknownPeerNoticeBar";
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
 import { postCommunityMessengerFriendRequestApi } from "@/lib/community-messenger/community-messenger-friend-request-client";
 import { generalFriendDirectRoomGate } from "@/lib/community-messenger/messenger-room-domain";
 import { refreshMessengerHomeSocialClient } from "@/lib/community-messenger/home/refresh-messenger-home-social-client";
-import {
-  patchRoomSnapshotAfterFriendshipAccepted,
-  patchRoomSnapshotAfterFriendshipOutgoingPending,
-} from "@/lib/community-messenger/room/messenger-room-friendship-sync";
+import { patchRoomSnapshotAfterFriendshipAccepted } from "@/lib/community-messenger/room/messenger-room-friendship-sync";
 import type { PeerRelationLabel } from "@/lib/community-messenger/peer-relation-label";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
-import type { CommunityMessengerFriendRequest } from "@/lib/community-messenger/types";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 const MESSENGER_CHATS_HREF = "/community-messenger?section=chats";
 
-/** 1:1 direct — Kakao-style stranger / blocked peer notice + pending incoming accept/reject */
+/** 1:1 direct — Contact transition P2: recipient Add Contact + Block; initiator hidden */
 export function CommunityMessengerRoomPhase2PeerNotice() {
   const vm = useMessengerRoomPhase2View();
   const router = useRouter();
@@ -29,8 +28,6 @@ export function CommunityMessengerRoomPhase2PeerNotice() {
   const [blockConfirmOpen, setBlockConfirmOpen] = useState(false);
   const [blockBusy, setBlockBusy] = useState(false);
   const [friendBusy, setFriendBusy] = useState(false);
-  const [respondBusy, setRespondBusy] = useState(false);
-  const [pendingRequestId, setPendingRequestId] = useState<string | null>(null);
 
   const peerUserId = (room?.peerUserId ?? "").trim();
   const peer =
@@ -50,8 +47,34 @@ export function CommunityMessengerRoomPhase2PeerNotice() {
   );
 
   const peerFriendshipState = vm.snapshot?.peerFriendshipState;
+  const viewerUserId = vm.snapshot?.viewerUserId ?? "";
 
-  const friendshipDirection = vm.snapshot?.friendshipDirection;
+  const timelineMessages = useMemo(() => {
+    const fromRoom = vm.roomMessages ?? [];
+    if (fromRoom.length > 0) {
+      return fromRoom.map((m) => ({
+        senderId: m.senderId,
+        messageType: m.messageType,
+        createdAt: m.createdAt,
+      }));
+    }
+    return (vm.snapshot?.messages ?? []).map((m) => ({
+      senderId: m.senderId,
+      messageType: m.messageType,
+      createdAt: m.createdAt,
+    }));
+  }, [vm.roomMessages, vm.snapshot?.messages]);
+
+  const isInboundRecipient = useMemo(
+    () =>
+      resolveDirectChatInboundRecipient({
+        viewerUserId,
+        peerUserId,
+        roomOwnerUserId: room?.ownerUserId,
+        messages: timelineMessages,
+      }),
+    [peerUserId, room?.ownerUserId, timelineMessages, viewerUserId]
+  );
 
   const branch = useMemo(
     () =>
@@ -62,118 +85,19 @@ export function CommunityMessengerRoomPhase2PeerNotice() {
         blockedByMe,
         blockedByPeer,
         peerFriendshipState,
-        friendshipDirection,
         peerRelationLabel: relationLabel,
+        isInboundRecipient,
       }),
     [
       blockedByMe,
       blockedByPeer,
-      friendshipDirection,
       isGeneralFriendDirect,
+      isInboundRecipient,
       peerFriendshipState,
       peerUserId,
       relationLabel,
       room?.roomType,
     ]
-  );
-
-  const snapshotPendingRequestId = vm.snapshot?.pendingFriendshipRequestId?.trim() ?? null;
-
-  const shouldProbeIncomingRequest =
-    isGeneralFriendDirect &&
-    Boolean(peerUserId) &&
-    !blockedByMe &&
-    friendshipDirection === "incoming_pending" &&
-    !snapshotPendingRequestId;
-
-  useEffect(() => {
-    if (!shouldProbeIncomingRequest) {
-      setPendingRequestId(null);
-      return;
-    }
-    let cancelled = false;
-    void (async () => {
-      try {
-        const res = await fetch("/api/community-messenger/friend-requests");
-        const json = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          requests?: CommunityMessengerFriendRequest[];
-        };
-        if (!res.ok || !json.ok || cancelled) return;
-        const match = (json.requests ?? []).find(
-          (request) =>
-            request.status === "pending" &&
-            request.direction === "incoming" &&
-            request.requesterId.trim() === peerUserId
-        );
-        if (!cancelled) setPendingRequestId(match?.id?.trim() ?? null);
-      } catch {
-        if (!cancelled) setPendingRequestId(null);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [peerUserId, shouldProbeIncomingRequest]);
-
-  const effectivePendingRequestId = snapshotPendingRequestId ?? pendingRequestId;
-
-  const effectiveBranch = useMemo(() => {
-    if (branch === "blocked" || branch === "pending_outgoing_hidden") return branch;
-    if (
-      effectivePendingRequestId &&
-      isGeneralFriendDirect &&
-      !blockedByMe &&
-      friendshipDirection === "incoming_pending"
-    ) {
-      return "pending_incoming" as const;
-    }
-    return branch;
-  }, [blockedByMe, branch, effectivePendingRequestId, friendshipDirection, isGeneralFriendDirect]);
-
-  const refreshAfterFriendRequestOutcome = useCallback(async () => {
-    await refreshMessengerHomeSocialClient("room_friend_request_outcome");
-    await vm.refresh(true);
-    router.refresh();
-  }, [router, vm]);
-
-  const respondPendingRequest = useCallback(
-    async (action: "accept" | "reject") => {
-      const requestId = effectivePendingRequestId?.trim();
-      const requesterUserId = peerUserId?.trim();
-      if (!requestId && !requesterUserId) return;
-      setRespondBusy(true);
-      try {
-        const res = requestId
-          ? await fetch(`/api/community-messenger/friend-requests/${encodeURIComponent(requestId)}`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ action }),
-            })
-          : await fetch("/api/community-messenger/friend-requests/respond-incoming", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ requesterUserId, action }),
-            });
-        const json = (await res.json().catch(() => ({}))) as { ok?: boolean };
-        if (!res.ok || !json.ok) {
-          showMessengerSnackbar(t("cm_ui_friend_request_respond_failed"), { variant: "error" });
-          return;
-        }
-        if (action === "accept") {
-          showMessengerSnackbar(t("cm_ui_friend_merged_incoming_snackbar"), { variant: "success" });
-          vm.setSnapshot((prev) =>
-            prev && peerUserId ? patchRoomSnapshotAfterFriendshipAccepted(prev, peerUserId) : prev
-          );
-        }
-        await refreshAfterFriendRequestOutcome();
-      } catch {
-        showMessengerSnackbar(t("cm_ui_friend_request_respond_failed"), { variant: "error" });
-      } finally {
-        setRespondBusy(false);
-      }
-    },
-    [peerUserId, effectivePendingRequestId, refreshAfterFriendRequestOutcome, t, vm]
   );
 
   const redirectToChats = useCallback(() => {
@@ -219,7 +143,7 @@ export function CommunityMessengerRoomPhase2PeerNotice() {
     }
   }, [peerUserId, router, t]);
 
-  const onAddFriend = useCallback(async () => {
+  const onAddContact = useCallback(async () => {
     if (!peerUserId) return;
     setFriendBusy(true);
     try {
@@ -228,13 +152,9 @@ export function CommunityMessengerRoomPhase2PeerNotice() {
         showMessengerSnackbar(t("cm_ui_friend_request_send_failed"), { variant: "error" });
         return;
       }
-      showMessengerSnackbar(t("cm_ui_sent_friend_request"), { variant: "success" });
+      showMessengerSnackbar(t("cm_social_add_friend"), { variant: "success" });
       vm.setSnapshot((prev) =>
-        prev
-          ? patchRoomSnapshotAfterFriendshipOutgoingPending(prev, {
-              pendingFriendshipRequestId: result.request?.id,
-            })
-          : prev
+        prev && peerUserId ? patchRoomSnapshotAfterFriendshipAccepted(prev, peerUserId) : prev
       );
       void refreshMessengerHomeSocialClient("room_friend_request_outcome");
       void vm.refresh(true);
@@ -243,9 +163,9 @@ export function CommunityMessengerRoomPhase2PeerNotice() {
     }
   }, [peerUserId, t, vm]);
 
-  if (effectiveBranch === "none" || effectiveBranch === "pending_outgoing_hidden") return null;
+  if (branch === "none") return null;
 
-  if (effectiveBranch === "blocked") {
+  if (branch === "blocked") {
     return (
       <MessengerUnknownPeerNoticeBar
         variant="blocked_by_me"
@@ -255,23 +175,12 @@ export function CommunityMessengerRoomPhase2PeerNotice() {
     );
   }
 
-  if (effectiveBranch === "pending_incoming") {
-    return (
-      <MessengerUnknownPeerNoticeBar
-        variant="pending_incoming"
-        busy={respondBusy}
-        onAccept={() => void respondPendingRequest("accept")}
-        onReject={() => void respondPendingRequest("reject")}
-      />
-    );
-  }
-
   return (
     <>
       <MessengerUnknownPeerNoticeBar
         variant="stranger"
         busy={Boolean(vm.busy) || blockBusy || friendBusy}
-        onAddFriend={() => void onAddFriend()}
+        onAddFriend={() => void onAddContact()}
         onBlock={() => setBlockConfirmOpen(true)}
       />
       <MessengerBlockPeerConfirmModal

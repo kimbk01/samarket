@@ -9068,12 +9068,13 @@ export async function sendCommunityMessengerFriendRequest(
   ok: boolean;
   request?: CommunityMessengerFriendRequest;
   error?: string;
-  /** 상대가 보낸 pending 을 내가 친구추가로 흡수해 수락 처리한 경우 */
+  /** @deprecated Contact transition — always undefined (P1) */
   mergedFromIncoming?: boolean;
   directRoomId?: string;
-  /** `error === "reject_cooldown_active"` 일 때 재시도 가능 시각까지 남은 ms (올림) */
+  /** @deprecated Contact transition — reject cooldown from pending model removed (P1) */
   retryAfterMs?: number;
 }> {
+  void note;
   const target = trimText(targetUserId);
   if (!target || target === userId) return { ok: false, error: "bad_target" };
   if (!(await ensureNoBlockedEitherWay(userId, target))) {
@@ -9082,230 +9083,32 @@ export async function sendCommunityMessengerFriendRequest(
 
   const sb = getSupabaseOrNull();
   if (sb) {
-    const ssot = await import("@/lib/community-messenger/friendship/community-messenger-friendships-ssot");
-    let ssotUnavailable = false;
-    try {
-      const existingPair = await ssot.fetchFriendshipPairRow(sb, userId, target);
-      if (existingPair) {
-        const row = ssot.friendshipRowToRequestRow(existingPair);
-        if (existingPair.status === "accepted") return { ok: false, error: "already_friend" };
-        if (existingPair.status === "blocked") return { ok: false, error: "blocked_target" };
-        if (existingPair.status === "pending" && existingPair.requester_user_id === target) {
-          const outcome = await respondCommunityMessengerFriendRequest(userId, existingPair.id, "accept");
-          if (!outcome.ok) return outcome;
-          return {
-            ok: true,
-            mergedFromIncoming: true,
-            directRoomId: outcome.directRoomId,
-          };
-        }
-        if (existingPair.status === "pending" && existingPair.requester_user_id === userId) {
-          return { ok: false, error: "already_requested" };
-        }
-        const cooldownRemain = remainingFriendRejectCooldownMs(row, userId, target, Date.now());
-        if (cooldownRemain > 0) {
-          return {
-            ok: false,
-            error: "reject_cooldown_active",
-            retryAfterMs: Math.ceil(cooldownRemain),
-          };
-        }
-        const reset = await ssot.resetFriendshipToPending(sb, existingPair.id, userId, target);
-        if (!reset.ok) return { ok: false, error: reset.error };
-        const profileMap = await fetchProfilesByIds([userId, target]);
-        const nextRow = reset.row;
-        void notifyCommunityMessengerFriendRequestReceived(sb as any, {
-          addresseeUserId: nextRow.addressee_id,
-          requestId: nextRow.id,
-          requesterUserId: nextRow.requester_id,
-          requesterLabel: profileLabel(profileMap.get(nextRow.requester_id), nextRow.requester_id),
-        });
-        return {
-          ok: true,
-          request: {
-            id: nextRow.id,
-            requesterId: nextRow.requester_id,
-            requesterLabel: profileLabel(profileMap.get(nextRow.requester_id), nextRow.requester_id),
-            addresseeId: nextRow.addressee_id,
-            addresseeLabel: profileLabel(profileMap.get(nextRow.addressee_id), nextRow.addressee_id),
-            status: nextRow.status,
-            direction: "outgoing",
-            createdAt: nextRow.created_at,
-          },
-        };
-      }
-
-      const inserted = await ssot.insertPendingFriendshipRequest(sb, userId, target);
-      if (inserted.ok) {
-        const profileMap = await fetchProfilesByIds([userId, target]);
-        const nextRow = inserted.row;
-        void notifyCommunityMessengerFriendRequestReceived(sb as any, {
-          addresseeUserId: nextRow.addressee_id,
-          requestId: nextRow.id,
-          requesterUserId: nextRow.requester_id,
-          requesterLabel: profileLabel(profileMap.get(nextRow.requester_id), nextRow.requester_id),
-        });
-        return {
-          ok: true,
-          request: {
-            id: nextRow.id,
-            requesterId: nextRow.requester_id,
-            requesterLabel: profileLabel(profileMap.get(nextRow.requester_id), nextRow.requester_id),
-            addresseeId: nextRow.addressee_id,
-            addresseeLabel: profileLabel(profileMap.get(nextRow.addressee_id), nextRow.addressee_id),
-            status: nextRow.status,
-            direction: "outgoing",
-            createdAt: nextRow.created_at,
-          },
-        };
-      }
-      if (inserted.error !== "friend_store_unavailable") {
-        return { ok: false, error: inserted.error };
-      }
-      ssotUnavailable = true;
-    } catch (err) {
-      if (!isMissingTableError(err)) throw err;
-      ssotUnavailable = true;
+    const { resolveFriendshipPair } = await import(
+      "@/lib/community-messenger/friendship/resolve-friendship-pair"
+    );
+    const { isFriendSavedByOwner } = await import("@/lib/community-messenger/friendship-resolver");
+    const [savedByMe, resolved] = await Promise.all([
+      isFriendSavedByOwner(sb, userId, target),
+      resolveFriendshipPair(sb, userId, target),
+    ]);
+    if (savedByMe || resolved.state === "accepted") {
+      return { ok: false, error: "already_friend" };
     }
-
-    if (!ssotUnavailable) {
-      return { ok: false, error: "friend_request_failed" };
+    if (resolved.state === "blocked") {
+      return { ok: false, error: "blocked_target" };
     }
-
-    const { data: existing, error: existingError } = await (sb as any)
-      .from("community_friend_requests")
-      .select("id, requester_id, addressee_id, status, created_at, responded_at")
-      .or(
-        `and(requester_id.eq.${userId},addressee_id.eq.${target}),and(requester_id.eq.${target},addressee_id.eq.${userId})`
-      )
-      .limit(1)
-      .maybeSingle();
-    if (existing && !existingError) {
-      const row = existing as RequestRow;
-      if (row.status === "accepted") return { ok: false, error: "already_friend" };
-      /** 교차 요청: B→A pending 인데 A가 친구추가 → 새 행 없이 기존 요청을 A가 수락한 것으로 처리 */
-      if (row.status === "pending" && row.requester_id === target) {
-        const outcome = await respondCommunityMessengerFriendRequest(userId, row.id, "accept");
-        if (!outcome.ok) return outcome;
-        return {
-          ok: true,
-          mergedFromIncoming: true,
-          directRoomId: outcome.directRoomId,
-        };
-      }
-      if (row.status === "pending" && row.requester_id === userId) {
-        return { ok: false, error: "already_requested" };
-      }
-      const cooldownRemain = remainingFriendRejectCooldownMs(row, userId, target, Date.now());
-      if (cooldownRemain > 0) {
-        return {
-          ok: false,
-          error: "reject_cooldown_active",
-          retryAfterMs: Math.ceil(cooldownRemain),
-        };
-      }
-      const { error: cleanupError } = await (sb as any)
-        .from("community_friend_requests")
-        .delete()
-        .eq("id", row.id);
-      if (cleanupError && !isMissingTableError(cleanupError)) {
-        return { ok: false, error: String(cleanupError.message ?? "friend_request_reset_failed") };
-      }
-    }
-    if (!existingError) {
-      const { data, error } = await (sb as any)
-        .from("community_friend_requests")
-        .insert({
-          requester_id: userId,
-          addressee_id: target,
-          status: "pending",
-          note: trimText(note),
-        })
-        .select("id, requester_id, addressee_id, status, created_at")
-        .single();
-      if (!error) {
-        const profileMap = await fetchProfilesByIds([userId, target]);
-        const row = data as RequestRow;
-        void notifyCommunityMessengerFriendRequestReceived(sb as any, {
-          addresseeUserId: row.addressee_id,
-          requestId: row.id,
-          requesterUserId: row.requester_id,
-          requesterLabel: profileLabel(profileMap.get(row.requester_id), row.requester_id),
-        });
-        return {
-          ok: true,
-          request: {
-            id: row.id,
-            requesterId: row.requester_id,
-            requesterLabel: profileLabel(profileMap.get(row.requester_id), row.requester_id),
-            addresseeId: row.addressee_id,
-            addresseeLabel: profileLabel(profileMap.get(row.addressee_id), row.addressee_id),
-            status: row.status,
-            direction: "outgoing",
-            createdAt: row.created_at,
-          },
-        };
-      }
-      if (!isMissingTableError(error)) {
-        return { ok: false, error: String(error.message ?? "friend_request_failed") };
-      }
-    }
+    const added = await addFriendSaved(userId, target);
+    if (!added.ok) return { ok: false, error: added.error ?? "friend_add_failed" };
+    return { ok: true };
   }
 
   if (!allowCommunityMessengerFriendInMemoryDevFallback()) {
     return { ok: false, error: "friend_store_unavailable" };
   }
 
-  const dev = getDevState();
-  const existing = dev.friendRequests.find(
-    (row) =>
-      (row.requester_id === userId && row.addressee_id === target) ||
-      (row.requester_id === target && row.addressee_id === userId)
-  );
-  if (existing) {
-    if (existing.status === "accepted") return { ok: false, error: "already_friend" };
-    if (existing.status === "pending" && existing.requester_id === target) {
-      const outcome = await respondCommunityMessengerFriendRequest(userId, existing.id, "accept");
-      if (!outcome.ok) return outcome;
-      return {
-        ok: true,
-        mergedFromIncoming: true,
-        directRoomId: outcome.directRoomId,
-      };
-    }
-    if (existing.status === "pending") return { ok: false, error: "already_requested" };
-    const cooldownRemain = remainingFriendRejectCooldownMs(existing, userId, target, Date.now());
-    if (cooldownRemain > 0) {
-      return {
-        ok: false,
-        error: "reject_cooldown_active",
-        retryAfterMs: Math.ceil(cooldownRemain),
-      };
-    }
-    dev.friendRequests = dev.friendRequests.filter((row) => row.id !== existing.id);
-  }
-  const row: RequestRow = {
-    id: randomUUID(),
-    requester_id: userId,
-    addressee_id: target,
-    status: "pending",
-    created_at: nowIso(),
-  };
-  dev.friendRequests.unshift(row);
-  const profileMap = await fetchProfilesByIds([userId, target]);
-  return {
-    ok: true,
-    request: {
-      id: row.id,
-      requesterId: row.requester_id,
-      requesterLabel: profileLabel(profileMap.get(row.requester_id), row.requester_id),
-      addresseeId: row.addressee_id,
-      addresseeLabel: profileLabel(profileMap.get(row.addressee_id), row.addressee_id),
-      status: row.status,
-      direction: "outgoing",
-      createdAt: row.created_at,
-    },
-  };
+  const devAdded = await addFriendSaved(userId, target);
+  if (devAdded.ok) return { ok: true };
+  return { ok: false, error: devAdded.error ?? "friend_store_unavailable" };
 }
 
 export async function respondCommunityMessengerFriendRequest(

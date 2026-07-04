@@ -50,34 +50,24 @@ function bootstrapWithRequests(requests: CommunityMessengerFriendRequest[]): Com
 }
 
 describe("partitionPendingMessengerFriendRequests", () => {
-  it("splits pending by direction", () => {
+  it("P4 — always returns empty pending partitions", () => {
     const out = partitionPendingMessengerFriendRequests([
       pendingRequest({ id: "o1", direction: "outgoing" }),
       pendingRequest({ id: "i1", direction: "incoming", requesterId: "peer-2", addresseeId: "me-1" }),
-      pendingRequest({ id: "a1", status: "accepted" }),
     ]);
-    expect(out.sent.map((r) => r.id)).toEqual(["o1"]);
-    expect(out.received.map((r) => r.id)).toEqual(["i1"]);
+    expect(out.sent).toEqual([]);
+    expect(out.received).toEqual([]);
   });
 });
 
 describe("friend request counts", () => {
-  it("counts received pending only for friends tab badge", () => {
-    expect(
-      countReceivedPendingMessengerFriendRequests([
-        pendingRequest({ id: "o1", direction: "outgoing" }),
-        pendingRequest({ id: "i1", direction: "incoming", requesterId: "p", addresseeId: "me-1" }),
-      ])
-    ).toBe(1);
-  });
-
-  it("counts all pending for archive badge", () => {
-    expect(
-      countAllPendingMessengerFriendRequests([
-        pendingRequest({ id: "o1", direction: "outgoing" }),
-        pendingRequest({ id: "i1", direction: "incoming", requesterId: "p", addresseeId: "me-1" }),
-      ])
-    ).toBe(2);
+  it("P4 — badge counts are always zero", () => {
+    const requests = [
+      pendingRequest({ id: "o1", direction: "outgoing" }),
+      pendingRequest({ id: "i1", direction: "incoming", requesterId: "p", addresseeId: "me-1" }),
+    ];
+    expect(countReceivedPendingMessengerFriendRequests(requests)).toBe(0);
+    expect(countAllPendingMessengerFriendRequests(requests)).toBe(0);
   });
 });
 

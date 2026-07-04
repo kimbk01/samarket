@@ -11,7 +11,6 @@ import {
 import {
   playEventNotificationSound,
 } from "@/lib/notifications/notification-sound-engine";
-import { upsertIncomingFriendRequestPopupFromNotificationInsertRow } from "@/lib/community-messenger/incoming-friend-request-popup-from-notification-row";
 import { adaptNotificationEventInsertToLegacyRow } from "@/lib/notifications/adapt-notification-event-realtime-row";
 
 export type SupabaseNotificationsRealtimeOptions = {
@@ -98,7 +97,7 @@ export function useSupabaseNotificationsRealtime(
         const ev = payload as { eventType?: string; new?: Record<string, unknown> };
         const eventType = typeof ev.eventType === "string" ? ev.eventType : "UNKNOWN";
         if (eventType === "INSERT" && ev.new && typeof ev.new === "object") {
-          upsertIncomingFriendRequestPopupFromNotificationInsertRow(ev.new as Record<string, unknown>);
+          // P4: friend-request popup path removed — notification row only triggers list refresh/sound.
         }
         if (playSoundOnInsertRef.current && shouldPlaySoundForNotificationInsert(payload)) {
           const row = (payload as { new?: Record<string, unknown> }).new ?? {};

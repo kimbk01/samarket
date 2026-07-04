@@ -34,8 +34,6 @@ import type { MessengerMainSection } from "@/lib/community-messenger/messenger-i
 
 type FabPhase = "open" | "closing" | "closed" | "opening";
 
-const FAB_PANEL_COUNT_BADGE_CLASS = "main-bottom-nav-fab-sector__panel-badge ring-white";
-
 function isFabShellExpanded(phase: FabPhase, panelEnterReady: boolean): boolean {
   return phase === "open" || (phase === "opening" && panelEnterReady);
 }
@@ -54,7 +52,6 @@ type Props = {
   onPrimarySectionChange: (next: MessengerMainSection) => void;
   onOpenComposer: () => void;
   onOpenFriendManager: () => void;
-  incomingRequestCount?: number;
 };
 
 /**
@@ -66,7 +63,6 @@ export function MessengerHomeFabSector({
   onPrimarySectionChange,
   onOpenComposer,
   onOpenFriendManager,
-  incomingRequestCount = 0,
 }: Props) {
   const { t } = useI18n();
   const router = useRouter();
@@ -253,8 +249,6 @@ export function MessengerHomeFabSector({
                     const Icon = FAB_ICONS[item.id as MessengerFabItemId];
                     const isSection = item.section != null;
                     const active = isSection && mainSection === item.section;
-                    const showArchiveBadge =
-                      item.id === "archive" && incomingRequestCount > 0;
                     const rowClass = [
                       "main-bottom-nav-fab-sector__row",
                       FAB_SECTOR_TOUCH_CLASS,
@@ -293,11 +287,6 @@ export function MessengerHomeFabSector({
                             style={messengerFabIconBoxStyle(item.id as MessengerFabItemId)}
                           >
                             <Icon className="main-bottom-nav-fab-sector__glyph" aria-hidden />
-                            {showArchiveBadge ? (
-                              <span className={FAB_PANEL_COUNT_BADGE_CLASS} aria-hidden>
-                                {incomingRequestCount > 99 ? "99+" : incomingRequestCount}
-                              </span>
-                            ) : null}
                           </span>
                           <span className="main-bottom-nav-fab-sector__caption">{item.label}</span>
                         </button>

@@ -1,28 +1,22 @@
 import type { CommunityMessengerFriendRequest } from "@/lib/community-messenger/types";
 
-/** 부트스트랩 `requests` — pending 만 서버에서 내려오며, 방향별로 UI 섹션을 나눈다. */
+/** P4 — pending friend-request UI removed; partition/counts always empty. */
 export function partitionPendingMessengerFriendRequests(
-  requests: CommunityMessengerFriendRequest[] | undefined
+  _requests: CommunityMessengerFriendRequest[] | undefined
 ): { received: CommunityMessengerFriendRequest[]; sent: CommunityMessengerFriendRequest[] } {
-  const pending = (requests ?? []).filter((r) => r.status === "pending");
-  return {
-    received: pending.filter((r) => r.direction === "incoming"),
-    sent: pending.filter((r) => r.direction === "outgoing"),
-  };
+  return { received: [], sent: [] };
 }
 
-/** 친구 탭·받은 요청 배지 — `direction === "incoming"` pending 만 */
 export function countReceivedPendingMessengerFriendRequests(
-  requests: CommunityMessengerFriendRequest[] | undefined
+  _requests: CommunityMessengerFriendRequest[] | undefined
 ): number {
-  return partitionPendingMessengerFriendRequests(requests).received.length;
+  return 0;
 }
 
-/** 보관함·알림 센터 — pending 전체(받은+보낸) */
 export function countAllPendingMessengerFriendRequests(
-  requests: CommunityMessengerFriendRequest[] | undefined
+  _requests: CommunityMessengerFriendRequest[] | undefined
 ): number {
-  return (requests ?? []).filter((r) => r.status === "pending").length;
+  return 0;
 }
 
 export function hasActiveMessengerFriendRejectCooldown(

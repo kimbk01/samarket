@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { presentFriendListRow } from "@/lib/community-messenger/friend-list/friend-relation-presenter";
 
 describe("friend-relation-presenter", () => {
-  it("marks pending received and blocks readd during cooldown", () => {
-    const pending = presentFriendListRow({
+  it("does not expose pending badge statuses (Contact transition)", () => {
+    const row = presentFriendListRow({
       profile: {
         id: "peer",
         label: "Peer",
@@ -15,10 +15,12 @@ describe("friend-relation-presenter", () => {
         following: false,
       },
       viewerUserId: "me",
-      pendingIncoming: true,
     });
-    expect(pending.status).toBe("pending_received");
+    expect(row.status).toBe("friend");
+    expect(row.statusBadgeKey).not.toMatch(/pending/);
+  });
 
+  it("blocks readd during cooldown", () => {
     const blockedReadd = presentFriendListRow({
       profile: {
         id: "peer2",

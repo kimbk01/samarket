@@ -41,13 +41,14 @@ export async function getFriendshipPairState(
   };
 }
 
-/** UI·guard 공통 — accepted friend pair */
+/** UI·guard·group invite — viewer saved contact OR legacy accepted fallback (P1). */
 export async function isAcceptedFriendPair(
   sb: SupabaseClient<any> | null,
   userId: string,
   targetUserId: string,
   options?: { nowMs?: number }
 ): Promise<boolean> {
+  if (sb && (await isFriendSavedByOwner(sb, userId, targetUserId))) return true;
   const resolved = await resolveFriendshipPair(sb, userId, targetUserId, options);
   return resolved.state === "accepted";
 }

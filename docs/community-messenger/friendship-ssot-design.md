@@ -1,12 +1,86 @@
 # Community Messenger Friendship SSOT
 
-**Status:** design approved — **design phase closed** — **implementation forbidden until separate approval**  
-**Baseline QA:** `report-2026-06-30T03-58-36` (03:58 KST)  
+**Status:** **Contact transition amendment (G1 — 2026-07-04)** — P1+ implementation under [G0 package](friendship-contact-transition-g0-pack.md)  
+**Prior baseline:** design approved 2026-06-30 — sections below superseded where noted by [Amendment](#contact-transition-amendment-g1--2026-07-04)  
 **Scope:** general friend DM friendship state only — not Call, Notification, trade/delivery commerce policy
 
 ---
 
-## Goal
+## Contact transition amendment (G1 — 2026-07-04)
+
+**Authority:** G0 approved 2026-07-04 · merged at G1 · ref: `friendship-contact-transition-g0-pack.md`
+
+**Where this amendment conflicts with sections below, this amendment wins.**
+
+### Goal (amended)
+
+General friend **Contact** state has **one write SSOT and one read resolver** for viewer-local contact saves.  
+**Contact add** mutates **`user_social_relations`** (`relation_type=friend`, owner→target, **단방**).  
+Every UI surface re-reads via a single resolver — **no pending approval step**.  
+`community_messenger_friendships` is **legacy read-only** until L1–L7; **no new pending writes** (P1+).
+
+### Core decisions (amended)
+
+| # | Decision |
+|---|----------|
+| 1 | **`user_social_relations.friend` = Contact write/read SSOT** |
+| 2 | Consumers use **single resolver** — no independent friendship computation |
+| 3 | **`saved_by_me` is contact judgment**; mutual = both directions saved (derived) |
+| 4 | **direct_key** domain split unchanged |
+| 5 | **contextMeta.kind** not for classification unchanged |
+| 6 | **`addContact(viewer, peer)`** one row per owner — **no accept/reject** |
+| 7 | **pending / FriendshipDirection pending branches deprecated** (P2 UI removal) |
+| 8 | **PeerNotice A/B asymmetric** via first-message sender/recipient (P2) |
+| 9 | **Block bilateral hide:** blocker + blocked peer inbox hide (P3) |
+
+### Contact read contract
+
+```
+resolveFriendshipPair(viewerId, peerId) → {
+  state: FriendshipPairState;          // accepted = viewer contact OR legacy accepted fallback
+  direction: FriendshipDirection;       // pending direction deprecated for product (P2)
+  savedByMe: boolean;                  // contact row owner=viewer (implementation P1+)
+  source: "social_relations" | "friendships_ssot" | "legacy_requests" | "none";
+}
+```
+
+**Friend list source:** `user_social_relations` where `owner_user_id = viewer` AND `relation_type = friend`, **plus** legacy `accepted` SSOT read fallback (G0 pack §8) until L2 backfill.
+
+**Legacy `community_messenger_friendships`:**
+
+| Status | Rule |
+|--------|------|
+| `pending` | **No new writes**; UI not shown (P2); read ignored for CTA |
+| `accepted` | Read fallback — viewer list membership until contact row exists |
+| `blocked` / `removed` | Read-only |
+
+### PeerNotice (amended — P2)
+
+| Branch | Rule |
+|--------|------|
+| `none` | viewer is **first message sender** OR **saved contact** OR trade/delivery |
+| `add_contact` | viewer is **inbound recipient** AND not contact AND not blocked |
+| `blocked` | `blockedByMe` |
+| **REMOVED** | `pending_incoming`, `pending_outgoing_hidden` |
+
+### Accept/reject (removed P1 write path)
+
+```
+REMOVED: UI Accept/Reject → applyFriendshipRequestAction → pending/accepted
+REPLACED: UI Add Contact → addFriendSaved(viewer, peer) → immediate friend list
+```
+
+### Implementation gates (G0 package — supersedes Gate A–D sequence for this transition)
+
+```
+G0 Design PASS → G1 LOCK merge → G1-I impl scope → P1–P4 → G4 Scope Verification → G2/G3 QA → Production
+```
+
+P1 = Contact write + read resolver + list. P2 = PeerNotice/UI. P3 = bilateral block hide. P4 = notification cleanup.
+
+---
+
+## Goal (2026-06-30 — superseded by amendment above)
 
 Friendship state must have **one write SSOT and one read resolver**.  
 Accept/reject mutates **one row** in `community_messenger_friendships`; every UI surface re-reads that SSOT.  
@@ -563,4 +637,4 @@ Legacy 삭제는 QA PASS만으로 하지 않는다. **모든 Consumer가 더 이
 | 2026-06-30 | **Step 1 + Gate A:** `resolve-friendship-pair.ts` — `resolveFriendshipPair`, list projection; `friendship-resolver` delegates; unit tests PASS. |
 | 2026-06-30 | **Step 2 + Gate B:** `list-community-messenger-friends-ssot.ts`; `GET /api/community-messenger/friends` SSOT accepted only; home-sync/bootstrap path unchanged. |
 | 2026-06-30 | **Step 3 + Gate C:** `room-snapshot-friendship-projection.ts`; general direct room snapshot + PeerNotice pending branch from `resolveFriendshipPair` / `friendshipDirection` only. |
-| 2026-06-30 | **Step 4 + Gate D:** `bootstrap-accepted-friend-rows-from-ssot.ts`; home-sync + bootstrap friends SSOT projection; overlay caller removed from snapshot assemble. |
+| 2026-07-04 | **G1 Contact transition amendment** — viewer-local contact SSOT, pending deprecated, A/B PeerNotice, bilateral block hide; G0 package `friendship-contact-transition-g0-pack.md`. P1: contact write + read. |

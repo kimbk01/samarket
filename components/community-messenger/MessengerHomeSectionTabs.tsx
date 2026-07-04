@@ -23,10 +23,10 @@ const TABS: TabDef[] = [
 
 /**
  * 알약 탭 — 테두리·배경·호버가 동일한 rounded-full 틀 안에서만 변함.
- * ring/shadow/outline 밖으로 번지는 효과는 쓰지 않는다.
+ * 카운트 뱃지는 라벨 옆 pill 내부(inline)에 두어 clip·겹침 없이 유지한다.
  */
 const SECTION_TAB_PILL_FRAME =
-  "relative box-border inline-flex shrink-0 items-center justify-center min-h-11 overflow-hidden whitespace-nowrap rounded-full border border-solid px-3.5 text-[12px] leading-none touch-manipulation transition-[background-color,border-color,color,transform] duration-150 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sam-primary/25";
+  "relative box-border inline-flex shrink-0 items-center justify-center gap-1 min-h-11 overflow-hidden whitespace-nowrap rounded-full border border-solid px-3.5 text-[12px] leading-none touch-manipulation transition-[background-color,border-color,color,transform] duration-150 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sam-primary/25";
 
 function sectionTabPillClass(active: boolean): string {
   if (active) {
@@ -38,10 +38,6 @@ function sectionTabPillClass(active: boolean): string {
 type Props = {
   mainSection: MessengerMainSection;
   onPrimarySectionChange: (next: MessengerMainSection) => void;
-  /** 보관함 탭 — pending 전체 */
-  incomingRequestCount?: number;
-  /** 친구목록 탭 — 받은 pending 만 */
-  receivedFriendRequestCount?: number;
 };
 
 /**
@@ -51,9 +47,10 @@ type Props = {
 export function MessengerHomeSectionTabs({
   mainSection,
   onPrimarySectionChange,
-  incomingRequestCount = 0,
-  receivedFriendRequestCount = 0,
-}: Props) {
+}: {
+  mainSection: MessengerMainSection;
+  onPrimarySectionChange: (next: MessengerMainSection) => void;
+}) {
   const { t } = useI18n();
 
   return (
@@ -71,13 +68,6 @@ export function MessengerHomeSectionTabs({
         >
           {TABS.map((tab) => {
             const active = mainSection === tab.section;
-            const badgeCount =
-              tab.id === "friends"
-                ? receivedFriendRequestCount
-                : tab.id === "archive"
-                  ? incomingRequestCount
-                  : 0;
-            const showBadge = badgeCount > 0;
 
             return (
               <button
@@ -90,15 +80,7 @@ export function MessengerHomeSectionTabs({
                 className={sectionTabPillClass(active)}
                 onClick={() => onPrimarySectionChange(tab.section)}
               >
-                <span className="max-w-[min(10rem,42vw)] truncate">{t(tab.labelKey)}</span>
-                {showBadge ? (
-                  <span
-                    className="pointer-events-none absolute -right-1 -top-1 z-[1] inline-flex h-4 min-w-4 items-center justify-center rounded-full border-[1.5px] border-sam-surface bg-[#e53935] px-0.5 text-[9px] font-bold leading-none text-white"
-                    aria-hidden
-                  >
-                    {badgeCount > 99 ? "99+" : badgeCount}
-                  </span>
-                ) : null}
+                <span className="min-w-0 max-w-[min(9rem,38vw)] truncate">{t(tab.labelKey)}</span>
               </button>
             );
           })}

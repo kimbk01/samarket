@@ -5,17 +5,15 @@ import { messengerMonitorRecord } from "@/lib/community-messenger/monitoring/cli
 import { useEffect } from "react";
 
 type Props = {
-  variant: "stranger" | "blocked_by_me" | "pending_incoming";
+  variant: "stranger" | "blocked_by_me";
   busy?: boolean;
   onAddFriend?: () => void;
   onBlock?: () => void;
   onUnblock?: () => void;
-  onAccept?: () => void;
-  onReject?: () => void;
 };
 
 /**
- * 1:1 room top notice — Kakao-style stranger warning or blocked peer.
+ * 1:1 room top notice — stranger warning or blocked peer.
  */
 export function MessengerUnknownPeerNoticeBar({
   variant,
@@ -23,13 +21,11 @@ export function MessengerUnknownPeerNoticeBar({
   onAddFriend,
   onBlock,
   onUnblock,
-  onAccept,
-  onReject,
 }: Props) {
   const { t } = useI18n();
 
   useEffect(() => {
-    if (variant === "stranger" || variant === "pending_incoming") {
+    if (variant === "stranger") {
       messengerMonitorRecord({
         category: "api.community_messenger",
         metric: "unknown_user_chat_notice_rendered",
@@ -39,36 +35,6 @@ export function MessengerUnknownPeerNoticeBar({
       });
     }
   }, [variant]);
-
-  if (variant === "pending_incoming") {
-    return (
-      <div className="border-b border-[#e8e8e8] bg-[#f6f6f6] px-3 py-2">
-        <p className="sam-text-helper text-[#1e3932]">{t("cm_ui_this_user_sent_friend_request")}</p>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {onAccept ? (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={onAccept}
-              className="rounded-ui-rect border border-[#006241] bg-[#006241] px-3 py-1.5 sam-text-helper font-medium text-white disabled:opacity-50"
-            >
-              {t("cm_ui_accept")}
-            </button>
-          ) : null}
-          {onReject ? (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={onReject}
-              className="rounded-ui-rect border border-[#e8e8e8] bg-white px-3 py-1.5 sam-text-helper font-medium text-[#1e3932] disabled:opacity-50"
-            >
-              {t("cm_ui_reject")}
-            </button>
-          ) : null}
-        </div>
-      </div>
-    );
-  }
 
   if (variant === "blocked_by_me") {
     return (

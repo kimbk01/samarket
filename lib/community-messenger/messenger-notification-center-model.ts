@@ -1,22 +1,14 @@
 /**
  * 알림 센터 목록 모델 — 시트 UI와 `CommunityMessengerHome` 의 알림 집계가 공유.
- * (시트 번들에서 분리해 메신저 홈 초기 청크 경량화)
  */
 import { communityMessengerRoomIsTrade } from "@/lib/community-messenger/messenger-room-domain";
 import type {
   CommunityMessengerCallLog,
-  CommunityMessengerFriendRequest,
   CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
 import type { IncomingGroupInvitePopupEntry } from "@/lib/community-messenger/stores/incoming-friend-request-popup-store";
 
 export type MessengerNotificationCenterItem =
-  | {
-      id: string;
-      kind: "request";
-      createdAt: string;
-      request: CommunityMessengerFriendRequest;
-    }
   | {
       id: string;
       kind: "missed_call";

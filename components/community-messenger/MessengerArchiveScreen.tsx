@@ -11,7 +11,6 @@ type Props = Omit<ChatsProps, "showFilters" | "emptyMessage" | "listContext"> & 
   emptyMessage?: string;
   listContext?: MessengerChatListContext;
   selectedArchiveSection?: MessengerArchiveSection | null;
-  incomingRequestCount?: number;
   onSelectArchiveSection?: (section: MessengerArchiveSection | null) => void;
 };
 
@@ -21,7 +20,6 @@ export function MessengerArchiveScreen({
   emptyMessage,
   listContext = "archive",
   selectedArchiveSection = null,
-  incomingRequestCount = 0,
   onSelectArchiveSection,
   ...rest
 }: Props) {
@@ -63,11 +61,6 @@ export function MessengerArchiveScreen({
           title={t("cm_ui_archived_chats")}
           active={selectedArchiveSection === "archived_chats" || selectedArchiveSection === null}
           onClick={() => onSelectArchiveSection?.("archived_chats")}
-        />
-        <ArchiveSectionCard
-          title={`${t("cm_ui_requests_box")}${incomingRequestCount > 0 ? ` · ${incomingRequestCount}` : ""}`}
-          active={selectedArchiveSection === "requests"}
-          onClick={() => onSelectArchiveSection?.("requests")}
         />
       </div>
       <MessengerChatsScreen

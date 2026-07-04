@@ -6,7 +6,6 @@ import { MessengerHomeBottomSheetShell, SettingsToggleRow } from "@/components/c
 import { MessengerSearchHighlightText } from "@/components/community-messenger/MessengerSearchHighlightText";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import type { CommunityMessengerLocalSettings } from "@/lib/community-messenger/preferences";
-import { MessengerFriendAddCtaLabelKeys } from "@/lib/community-messenger/messenger-friend-add-cta";
 import { COMMUNITY_MESSENGER_USER_SEARCH_MIN_LENGTH } from "@/lib/community-messenger/user-public-id-search";
 import type { CommunityMessengerUserSearchResult } from "@/lib/community-messenger/user-public-id-search";
 
@@ -266,83 +265,55 @@ function SearchResultRow({
   const publicIdLabel = user.publicId ? `@${user.publicId}` : "";
   const bChat = busyId === `room:${user.id}`;
   const cannotMessage = !user.canMessage;
-  const isMutualFriend = user.isFriend;
 
   return (
-    <div className="flex items-center gap-2 px-3 py-2">
-      <div
-        className="flex min-w-0 flex-1 items-center gap-2.5"
-        onPointerDown={() => {
-          if (prefetchOnceRef.current) return;
-          prefetchOnceRef.current = true;
-          onPrefetchDirectRoom(user.id);
-        }}
-      >
-        <SamarketThumbnail
-          src={avatarSrc}
-          size={40}
-          roundedClassName="rounded-full"
-          className="bg-[color:var(--messenger-surface-muted)] ring-1 ring-[color:var(--messenger-primary-soft-2)]"
-          fallbackSrc=""
-          fallbackNode={<span className="sam-text-body-secondary font-semibold" style={{ color: "var(--messenger-text-secondary)" }}>{initial}</span>}
-        />
-        <div className="min-w-0 flex-1">
-          <p className="truncate sam-text-body font-medium" style={{ color: "var(--messenger-text)" }}>
-            {user.matchType === "name" ? (
-              <MessengerSearchHighlightText text={user.displayName} ranges={user.highlightRanges} />
-            ) : (
-              user.displayName
-            )}
+    <button
+      type="button"
+      disabled={cannotMessage || Boolean(busyId) || bChat}
+      onClick={() => {
+        if (cannotMessage) return;
+        void onStartDirectChat(user.id);
+      }}
+      onPointerEnter={() => {
+        if (prefetchOnceRef.current) return;
+        prefetchOnceRef.current = true;
+        onPrefetchDirectRoom(user.id);
+      }}
+      className="flex w-full items-center gap-2 px-3 py-2 text-left active:bg-[color:var(--messenger-surface-muted)] disabled:opacity-40"
+    >
+      <SamarketThumbnail
+        src={avatarSrc}
+        size={40}
+        roundedClassName="rounded-full"
+        className="bg-[color:var(--messenger-surface-muted)] ring-1 ring-[color:var(--messenger-primary-soft-2)]"
+        fallbackSrc=""
+        fallbackNode={<span className="sam-text-body-secondary font-semibold" style={{ color: "var(--messenger-text-secondary)" }}>{initial}</span>}
+      />
+      <div className="min-w-0 flex-1">
+        <p className="truncate sam-text-body font-medium" style={{ color: "var(--messenger-text)" }}>
+          {user.matchType === "name" ? (
+            <MessengerSearchHighlightText text={user.displayName} ranges={user.highlightRanges} />
+          ) : (
+            user.displayName
+          )}
+        </p>
+        {publicIdLabel ? (
+          <p className="truncate sam-text-xxs" style={{ color: "var(--messenger-text-secondary)" }}>
+            <MessengerSearchHighlightText
+              text={user.publicId ?? ""}
+              ranges={user.matchType === "name" ? [] : user.highlightRanges}
+              prefix="@"
+            />
           </p>
-          {publicIdLabel ? (
-            <p className="truncate sam-text-xxs" style={{ color: "var(--messenger-text-secondary)" }}>
-              <MessengerSearchHighlightText
-                text={user.publicId ?? ""}
-                ranges={user.matchType === "name" ? [] : user.highlightRanges}
-                prefix="@"
-              />
-            </p>
-          ) : null}
-        </div>
+        ) : null}
       </div>
-      <div className="flex shrink-0 items-center justify-end gap-1">
-        {cannotMessage ? (
-          <span className="max-w-[6.5rem] text-right sam-text-xxs leading-tight" style={{ color: "var(--messenger-text-secondary)" }}>
-            {t("cm_social_cannot_start_chat")}
-          </span>
-        ) : isMutualFriend ? (
-          <div className="flex max-w-[7.5rem] flex-col items-end text-right">
-            <span className="sam-text-helper font-semibold" style={{ color: "var(--messenger-text)" }}>
-              {t(MessengerFriendAddCtaLabelKeys.friend)}
-            </span>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                void onStartDirectChat(user.id);
-              }}
-              disabled={Boolean(busyId) || bChat}
-              className="mt-0.5 rounded-full border border-[color:var(--messenger-divider)] px-2.5 py-1 sam-text-xxs font-medium disabled:opacity-40"
-              style={{ color: "var(--messenger-text)" }}
-            >
-              {bChat ? "…" : t("cm_social_send_message")}
-            </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              void onStartDirectChat(user.id);
-            }}
-            disabled={Boolean(busyId) || bChat}
-            className="rounded-full border border-[color:var(--messenger-divider)] px-2.5 py-1.5 sam-text-xxs font-medium disabled:opacity-40"
-            style={{ color: "var(--messenger-text)" }}
-          >
-            {bChat ? "…" : t("cm_social_send_message")}
-          </button>
-        )}
-      </div>
-    </div>
+      {cannotMessage ? (
+        <span className="max-w-[6.5rem] shrink-0 text-right sam-text-xxs leading-tight" style={{ color: "var(--messenger-text-secondary)" }}>
+          {t("cm_social_cannot_start_chat")}
+        </span>
+      ) : bChat ? (
+        <span className="shrink-0 sam-text-xxs" style={{ color: "var(--messenger-text-secondary)" }}>…</span>
+      ) : null}
+    </button>
   );
 }

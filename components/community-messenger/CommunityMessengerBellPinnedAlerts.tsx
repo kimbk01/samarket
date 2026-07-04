@@ -4,7 +4,6 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { dispatchTier1HeaderOverlayClose } from "@/lib/layout/tier1-header-overlay-events";
 
 type MessengerAlertSummary = {
-  requestCount: number;
   groupInviteCount: number;
   missedCallCount: number;
   importantCount: number;
@@ -12,9 +11,6 @@ type MessengerAlertSummary = {
 
 function formatPinnedSummaryLine(summary: MessengerAlertSummary, t: ReturnType<typeof useI18n>["t"]): string | null {
   const parts: string[] = [];
-  if (summary.requestCount > 0) {
-    parts.push(t("cm_ui_request_count", { count: summary.requestCount }));
-  }
   if (summary.groupInviteCount > 0) {
     parts.push(t("cm_ui_group_invite_count", { count: summary.groupInviteCount }));
   }
@@ -28,7 +24,7 @@ function formatPinnedSummaryLine(summary: MessengerAlertSummary, t: ReturnType<t
 }
 
 /**
- * 메신저 1단 종 인박스 상단 — 친구요청·부재중 통화·중요 대화(주요 알림) 진입.
+ * 메신저 1단 종 인박스 상단 — 그룹 초대·부재중 통화·중요 대화(주요 알림) 진입.
  */
 export function CommunityMessengerBellPinnedAlerts({
   summary,
@@ -38,7 +34,7 @@ export function CommunityMessengerBellPinnedAlerts({
   onOpenNotificationCenter: () => void;
 }) {
   const { t } = useI18n();
-  const total = summary.requestCount + summary.groupInviteCount + summary.missedCallCount + summary.importantCount;
+  const total = summary.groupInviteCount + summary.missedCallCount + summary.importantCount;
   const summaryLine = formatPinnedSummaryLine(summary, t);
   if (total < 1) return null;
 
