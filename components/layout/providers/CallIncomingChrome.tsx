@@ -7,6 +7,7 @@ import { IncomingCallOverlayChunkBoundary } from "@/components/layout/providers/
 import { CallActiveSessionRecoveryHost } from "@/components/layout/providers/CallActiveSessionRecoveryHost";
 import { DibayFcmCallRouteHost } from "@/components/layout/providers/DibayFcmCallRouteHost";
 import { DibayVoipCallBridgeHost } from "@/lib/push/native/dibay-voip-call-bridge";
+import { isLegacyWebCallEstablishmentRemoved } from "@/lib/call/native/legacy-web-call-establishment-removed";
 import { isDibayCallV3SafeLaneEnabled } from "@/lib/community-messenger/call-v3/call-v3-flag";
 import { isCallV4TelegramLaneEnabled } from "@/lib/community-messenger/call-v4/call-v4-flag";
 
@@ -73,10 +74,14 @@ function CallV3IncomingChrome() {
  * 수신 통화 오버레이만 `CallProvider`(CommunityCallSurface) 안에 둔다.
  * `useCommunityCallSurface` 소비처는 현재 수신 통화 UI뿐이라 전역 트리에서 분리해도 동일.
  *
- * V4 Telegram Lane (`NEXT_PUBLIC_DIBAY_CALL_V4_TELEGRAM_LANE=1`): MainActivity single WebView + CallV4IncomingSheet.
+ * Android native lane (`isLegacyWebCallEstablishmentRemoved`): CallV4 sync-only companion only — V3/Legacy never mount.
+ * V4 Telegram Lane (`NEXT_PUBLIC_DIBAY_CALL_V4_TELEGRAM_LANE=1`): desktop/web establishment or Android sync-only.
  * V3 Safe Lane (`NEXT_PUBLIC_DIBAY_CALL_V3_SAFE_LANE=1`): legacy CallEngine hosts are not mounted.
  */
 export function CallIncomingChrome() {
+  if (isLegacyWebCallEstablishmentRemoved()) {
+    return <CallV4IncomingChrome />;
+  }
   if (isCallV4TelegramLaneEnabled()) {
     return <CallV4IncomingChrome />;
   }

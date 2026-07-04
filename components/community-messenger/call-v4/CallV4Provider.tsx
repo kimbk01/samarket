@@ -63,6 +63,11 @@ type CallV4ProviderProps = {
   children?: ReactNode;
 };
 
+/** Mount sync companion when V4 lane ON or Android native lane (V4 env OFF still syncs). */
+function shouldMountCallV4Companion(): boolean {
+  return isCallV4TelegramLaneEnabled() || isLegacyWebCallEstablishmentRemoved();
+}
+
 function registerCallV4NativeAcceptingFromAppPath(path: string): void {
   if (!shouldRegisterCallV4NativeAcceptingFromRoute(path)) return;
   const callId = readCallV4SessionIdFromNativeRoute(path);
@@ -320,7 +325,7 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
   const syncOnly = isLegacyWebCallEstablishmentRemoved();
 
   useEffect(() => {
-    if (!isCallV4TelegramLaneEnabled()) return;
+    if (!shouldMountCallV4Companion()) return;
     let cancelled = false;
     void getCurrentUserIdForDb().then((id) => {
       if (!cancelled) setUserId(id);
@@ -331,24 +336,24 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
   }, []);
 
   useEffect(() => {
-    if (!isCallV4TelegramLaneEnabled()) return;
+    if (!shouldMountCallV4Companion()) return;
     return startNativeConnectedSync();
   }, []);
 
   useEffect(() => {
-    if (!isCallV4TelegramLaneEnabled()) return;
+    if (!shouldMountCallV4Companion()) return;
     return registerCallV4ConnectedTerminalHandler((callId, status, source) =>
       callV4HandleRemoteTerminal(callId, status, readCallV4ExitRouter() ?? router, source),
     );
   }, [router]);
 
   useEffect(() => {
-    if (!isCallV4TelegramLaneEnabled() || !userId) return;
+    if (!shouldMountCallV4Companion() || !userId) return;
     return startCallV4TerminalRealtimeWatch(userId);
   }, [userId]);
 
   useEffect(() => {
-    if (!isCallV4TelegramLaneEnabled()) return;
+    if (!shouldMountCallV4Companion()) return;
 
     logCallV4("provider_ready", { syncOnly });
 
@@ -381,7 +386,7 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
     };
   }, [router, syncOnly]);
 
-  if (!isCallV4TelegramLaneEnabled()) return children ?? null;
+  if (!shouldMountCallV4Companion()) return children ?? null;
 
   if (syncOnly) {
     return <>{children}</>;
