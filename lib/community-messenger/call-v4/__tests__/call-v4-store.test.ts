@@ -2,7 +2,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   invokeCallV4ConnectedBackMinimize,
+  readCallV4Capabilities,
   registerCallV4ConnectedBackMinimize,
+  releaseCallV4OutgoingGateAfterTerminalFinalize,
   resetCallV4ConnectedBackMinimizeForTests,
   useCallV4Store,
 } from "@/lib/community-messenger/call-v4/call-v4-store";
@@ -47,4 +49,87 @@ describe("registerCallV4ConnectedBackMinimize", () => {
     invokeCallV4ConnectedBackMinimize();
     expect(handler).toHaveBeenCalledTimes(1);
   });
+});
+
+describe("releaseCallV4OutgoingGateAfterTerminalFinalize", () => {
+  const identity = {
+    callId: "call-s5",
+    roomId: "room-1",
+    callerUserId: "u-a",
+    calleeUserId: "u-b",
+    direction: "outgoing" as const,
+    mediaType: "audio" as const,
+    createdAt: new Date().toISOString(),
+  };
+
+  beforeEach(() => {
+    useCallV4Store.getState().resetToIdle();
+    vi.spyOn(console, "info").mockImplementation(() => {});
+  });
+
+  it("releases gate after terminal finalize when connected and identity matches", () => {
+    useCallV4Store.setState({
+      phase: "connected",
+      identity,
+      connectedAt: Date.now(),
+      canStartNewCall: false,
+    });
+
+    const released = releaseCallV4OutgoingGateAfterTerminalFinalize({
+      callId: "call-s5",
+      status: "ended",
+      source: "poll",
+    });
+
+    expect(released).toBe(true);
+    expect(readCallV4Capabilities().canStartNewCall).toBe(true);
+    expect(useCallV4Store.getState().phase).toBe("connected");
+  });
+
+  it("keeps gate false before release is invoked (remote_terminal_received only)", () => {
+    useCallV4Store.setState({
+      phase: "connected",
+      identity,
+      connectedAt: Date.now(),
+      canStartNewCall: false,
+    });
+
+    expect(readCallV4Capabilities().canStartNewCall).toBe(false);
+  });
+
+  it("does not release for wrong callId", () => {
+    useCallV4Store.setState({
+      phase: "connected",
+      identity,
+      connectedAt: Date.now(),
+      canStartNewCall: false,
+    });
+
+    const released = releaseCallV4OutgoingGateAfterTerminalFinalize({
+      callId: "other-call",
+      status: "ended",
+    });
+
+    expect(released).toBe(false);
+    expect(readCallV4Capabilities().canStartNewCall).toBe(false);
+  });
+
+  it.each(["creating", "outgoing_ringing"] as const)(
+    "does not release when phase is %s",
+    (phase) => {
+      useCallV4Store.setState({
+        phase,
+        identity,
+        canStartNewCall: false,
+      });
+
+      const released = releaseCallV4OutgoingGateAfterTerminalFinalize({
+        callId: "call-s5",
+        status: "ended",
+      });
+
+      expect(released).toBe(false);
+      expect(readCallV4Capabilities().canStartNewCall).toBe(false);
+    },
+  );
 });

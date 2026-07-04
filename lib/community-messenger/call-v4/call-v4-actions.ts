@@ -71,7 +71,13 @@ import {
   routeToCallV4Screen,
   type CallV4Router,
 } from "@/lib/community-messenger/call-v4/call-v4-route";
-import { readCallV4Capabilities, readCallV4Identity, readCallV4Phase, useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
+import {
+  readCallV4Capabilities,
+  readCallV4Identity,
+  readCallV4Phase,
+  releaseCallV4OutgoingGateAfterTerminalFinalize,
+  useCallV4Store,
+} from "@/lib/community-messenger/call-v4/call-v4-store";
 import type { CallV4Identity, CallV4Phase, CallV4TerminalPhase } from "@/lib/community-messenger/call-v4/call-v4-types";
 
 const HYDRATE_PROTECTED_PHASES = new Set<CallV4Phase>(["accepting", "joining", "connected"]);
@@ -403,6 +409,10 @@ export async function callV4CreateOutgoing(input: {
 }): Promise<CallV4OutgoingLaunchResult> {
   const { canStartNewCall } = readCallV4Capabilities();
   if (!canStartNewCall) {
+    logCallV4("outgoing_create_blocked_canStartNewCall", {
+      phase: readCallV4Phase(),
+      identityCallId: readCallV4Identity()?.callId ?? null,
+    });
     return { ok: false as const, userMessage: outgoingGenericErrorMessage() };
   }
 
@@ -804,6 +814,7 @@ export async function callV4HandleRemoteTerminal(
   remoteTerminalFinalized.add(sid);
   logCallV4("remote_terminal_received", { callId: sid, status: status ?? null, source });
   logCallV4("remote_terminal_finalize", { callId: sid, source });
+  releaseCallV4OutgoingGateAfterTerminalFinalize({ callId: sid, status, source });
   clearCallV4MissedTimer(sid);
   stopCallV4CallerActivePoll();
   stopNativeOutgoingTerminalSync(sid);

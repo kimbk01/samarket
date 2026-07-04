@@ -146,6 +146,32 @@ describe("call-v4 actions native lifecycle hooks", () => {
     expect(lifecycleMocks.onReject).toHaveBeenCalledWith("call-hook");
   });
 
+  it("releases outgoing gate after remote_terminal_finalize before cleanup completes", async () => {
+    useCallV4Store.setState({
+      phase: "connected",
+      connectedAt: Date.now(),
+      canStartNewCall: false,
+      identity: {
+        callId: "call-hook",
+        roomId: "room-1",
+        callerUserId: "u-a",
+        calleeUserId: "u-b",
+        direction: "outgoing",
+        mediaType: "audio",
+        createdAt: new Date().toISOString(),
+      },
+    });
+
+    lifecycleMocks.cleanup.mockImplementation(async () => {
+      expect(useCallV4Store.getState().canStartNewCall).toBe(true);
+    });
+
+    await callV4HandleRemoteTerminal("call-hook", "ended", undefined, "poll");
+
+    expect(useCallV4Store.getState().canStartNewCall).toBe(true);
+    expect(lifecycleMocks.cleanup).toHaveBeenCalledWith("call-hook", "ended");
+  });
+
   it("remote terminal allows route callId during connected hydrate gap and finalizes once", async () => {
     useCallV4Store.getState().setIdentity(null);
     useCallV4Store.setState({ phase: "connected", connectedAt: Date.now() });

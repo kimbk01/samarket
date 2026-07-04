@@ -72,4 +72,31 @@ describe("call-v4-create-outgoing", () => {
     expect(state.identity?.direction).toBe("outgoing");
     expect(state.identity?.callId).toBe("call-1");
   });
+
+  it("logs outgoing_create_blocked_canStartNewCall when gate is closed", async () => {
+    const logs: string[] = [];
+    const originalInfo = console.info;
+    console.info = (...args: unknown[]) => {
+      if (args[0] === "[DIBAY_CALL_V4]" && typeof args[1] === "string") {
+        logs.push(args[1]);
+      }
+      originalInfo(...args);
+    };
+
+    useCallV4Store.setState({ canStartNewCall: false, phase: "connected" });
+
+    try {
+      const result = await callV4CreateOutgoing({
+        roomId: "room-1",
+        mediaType: "audio",
+        router: { push: vi.fn(), replace: vi.fn() },
+      });
+
+      expect(result.ok).toBe(false);
+      expect(logs).toContain("outgoing_create_blocked_canStartNewCall");
+      expect(apiMocks.createSession).not.toHaveBeenCalled();
+    } finally {
+      console.info = originalInfo;
+    }
+  });
 });
