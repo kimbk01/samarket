@@ -53,7 +53,10 @@ function ssotRow(partial: Partial<FriendshipSsotRow> & Pick<FriendshipSsotRow, "
   };
 }
 
-function mockSbForFavorites(favoriteIds: string[] = []) {
+function mockSbForFavorites(
+  favoriteIds: string[] = [],
+  contactRows: Array<{ target_user_id: string; created_at?: string }> = []
+) {
   return {
     from: vi.fn((table: string) => {
       if (table === "community_friend_favorites") {
@@ -62,6 +65,18 @@ function mockSbForFavorites(favoriteIds: string[] = []) {
             eq: vi.fn(() => ({
               in: vi.fn(async () => ({
                 data: favoriteIds.map((id) => ({ target_user_id: id })),
+                error: null,
+              })),
+            })),
+          })),
+        };
+      }
+      if (table === "user_social_relations") {
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              eq: vi.fn(async () => ({
+                data: contactRows,
                 error: null,
               })),
             })),
