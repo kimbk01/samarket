@@ -118,6 +118,7 @@ import {
   communityMessengerRoomHref,
   MESSENGER_ENTRY_ORIGIN_QUERY_KEY,
 } from "@/lib/community-messenger/messenger-entry-origin";
+import { leaveMessengerRoomFromHomeClient } from "@/lib/community-messenger/home/messenger-home-room-leave-client";
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
 import {
   buildCommunityMessengerMarkReadPatchBody,
@@ -2708,27 +2709,33 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     setBusyId(`room-leave:${roomId}`);
     setActionError(null);
     try {
-      const res = await fetch(`${communityMessengerRoomResourcePath(roomId)}/leave`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ quiet: false }),
+      const result = await leaveMessengerRoomFromHomeClient({
+        roomId,
+        roomType: room.roomType,
+        setData,
       });
-      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-      if (res.ok && json.ok) {
-        removeRoomFromBootstrapState(roomId);
+      if (result.ok) {
         setRoomActionSheet(null);
       } else {
-        setActionError(getMessengerActionErrorMessage(json.error ?? "leave_failed"));
+        setActionError(getMessengerActionErrorMessage(result.error ?? "leave_failed"));
         void refresh(true);
       }
     } finally {
       setBusyId(null);
     }
-  }, [getMessengerActionErrorMessage, leaveConfirmRoom, refresh, removeRoomFromBootstrapState]);
+  }, [getMessengerActionErrorMessage, leaveConfirmRoom, refresh, setData]);
 
-  const leaveMessengerRoom = useCallback((room: CommunityMessengerRoomSummary) => {
-    setLeaveConfirmRoom(room);
-  }, []);
+  const leaveMessengerRoom = useCallback(
+    (room: CommunityMessengerRoomSummary) => {
+      const meId = data?.me?.id?.trim();
+      if (room.roomType === "private_group" && meId && room.ownerUserId?.trim() === meId) {
+        setActionError(getMessengerActionErrorMessage("owner_cannot_leave"));
+        return;
+      }
+      setLeaveConfirmRoom(room);
+    },
+    [data?.me?.id, getMessengerActionErrorMessage]
+  );
 
   const clearLocalRoomPreview = useCallback((roomId: string) => {
     invalidateRoomSnapshot(roomId);

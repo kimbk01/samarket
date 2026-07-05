@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { GROUP_ROOM_ERROR } from "@/lib/community-messenger/group/group-room-errors";
+import { leaveGroupRoom } from "@/lib/community-messenger/group/group-room-service";
 import { leaveCommunityMessengerRoom } from "@/lib/community-messenger/service";
 import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
@@ -41,6 +43,29 @@ export async function POST(
 
   const sb = tryCreateSupabaseServiceClient();
   if (sb) {
+    const { data: roomTypeRow } = await sb
+      .from("community_messenger_rooms")
+      .select("room_type")
+      .eq("id", canon.canonicalRoomId)
+      .maybeSingle();
+    const roomType = String((roomTypeRow as { room_type?: unknown } | null)?.room_type ?? "").trim();
+    if (roomType === "private_group") {
+      const groupLeave = await leaveGroupRoom({ userId: auth.userId, roomId: canon.canonicalRoomId });
+      if (groupLeave.ok) {
+        return NextResponse.json({ ok: true }, { status: 200 });
+      }
+      const err = groupLeave.error ?? GROUP_ROOM_ERROR.LEAVE_FAILED;
+      const status =
+        err === GROUP_ROOM_ERROR.OWNER_CANNOT_LEAVE
+          ? 400
+          : err === GROUP_ROOM_ERROR.ROOM_NOT_FOUND || err === GROUP_ROOM_ERROR.NOT_GROUP_ROOM
+            ? 404
+            : err === GROUP_ROOM_ERROR.FORBIDDEN
+              ? 403
+              : 500;
+      return NextResponse.json({ ok: false, error: err }, { status });
+    }
+
     const unified = await leaveMessengerRoomUnified(sb as import("@supabase/supabase-js").SupabaseClient<any>, auth.userId, canon.canonicalRoomId, {
       quiet,
     });

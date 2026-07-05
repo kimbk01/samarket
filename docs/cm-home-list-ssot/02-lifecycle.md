@@ -40,8 +40,8 @@
 | Stage | Entry | Notes |
 |-------|-------|-------|
 | Create | `createGroupRoom` / `POST group-rooms` | |
-| Leave | **Dual:** `DELETE .../group-rooms/.../participants` **or** `POST .../leave` | Owner `owner_cannot_leave` |
-| Post-leave client | `removePrivateGroupRoomFromMessengerHome` | Cache direct mutate (As-Is violation) |
+| Leave | **Self-leave:** `DELETE .../group-rooms/.../participants` → `leaveGroupRoom`. **Legacy:** `POST .../rooms/.../leave` → `leaveGroupRoom` ([14](./14-m2-leave-api-contract.md)). Owner `owner_cannot_leave`. | REMOVE (`remove_room` after API ok) | `left_at` via `markParticipantLeft` |
+| Post-leave client | `messenger-home-room-leave-client` → `syncMessengerHomeAfterRoomLeave` | Reducer + cache mirror (no tombstone) |
 | Bootstrap filter | migration `20260705120000_cm_bootstrap_hide_left_blocked_participants.sql` | `left_at is null` |
 
 ## Trade (`product_chat`)

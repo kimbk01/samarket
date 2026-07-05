@@ -52,6 +52,10 @@ import {
   cmReceiveLatencyNow,
 } from "@/lib/community-messenger/monitoring/cm-receive-latency";
 import { buildCommunityMessengerInternalShareClipboard } from "@/lib/community-messenger/message-actions/message-internal-share-card";
+import {
+  requestLeaveMessengerRoomClient,
+  syncMessengerHomeAfterRoomLeave,
+} from "@/lib/community-messenger/home/messenger-home-room-leave-client";
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
 import { communityMessengerGroupRoomApiPath } from "@/lib/community-messenger/group/group-room-deeplink";
 import { useGroupRoomInviteLink } from "@/lib/community-messenger/group/use-group-room-invite-link";
@@ -775,15 +779,21 @@ export function useMessengerRoomPhase2Controller() {
     setLeaveRoomConfirmOpen(false);
     setBusy("leave-room");
     try {
-      const res = await fetch(`${communityMessengerRoomResourcePath(streamRoomId)}/leave`, {
-        method: "POST",
-      });
-      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-      if (!res.ok || !json.ok) {
-        if (redirectIfMessengerAuthBlocked(res, json)) return;
-        showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
+      const roomType = isPrivateGroupRoom
+        ? ("private_group" as const)
+        : isOpenGroupRoom
+          ? ("open_group" as const)
+          : ("direct" as const);
+      const result = await requestLeaveMessengerRoomClient(streamRoomId, roomType);
+      if (!result.ok) {
+        const res = new Response(null, { status: result.status ?? 400 });
+        if (redirectIfMessengerAuthBlocked(res, { error: result.error })) {
+          return;
+        }
+        showMessengerSnackbar(getRoomActionErrorMessage(result.error ?? "leave_failed"), { variant: "error" });
         return;
       }
+      syncMessengerHomeAfterRoomLeave(streamRoomId);
       router.replace(
         isOpenGroupRoom ? SAMARKET_ROUTES.chat.messengerMeetingsHub : SAMARKET_ROUTES.chat.messengerHub,
         { scroll: false }
@@ -791,7 +801,14 @@ export function useMessengerRoomPhase2Controller() {
     } finally {
       setBusy(null);
     }
-  }, [getRoomActionErrorMessage, isOpenGroupRoom, redirectIfMessengerAuthBlocked, streamRoomId, router, t]);
+  }, [
+    getRoomActionErrorMessage,
+    isOpenGroupRoom,
+    isPrivateGroupRoom,
+    redirectIfMessengerAuthBlocked,
+    streamRoomId,
+    router,
+  ]);
 
   const openMembersForOwnerTransfer = useCallback(() => {
     if (activeSheet) {

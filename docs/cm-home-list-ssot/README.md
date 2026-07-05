@@ -1,6 +1,6 @@
 # CM Home List SSOT — Architecture Specification
 
-> **Status:** 2026-07-05 — M1a **PASS-1 committed** (`39f9b3f4`). M1b **HOLD** until explicit approval after [13-m1b-acceptance-criteria.md](./13-m1b-acceptance-criteria.md) sign-off.
+> **Status:** 2026-07-05 — M1a/M1b/M1c **PASS-1** on `origin/main`. M2 **PASS-1** (leave SSOT — see [14-m2-leave-api-contract.md](./14-m2-leave-api-contract.md)).
 >
 > **Scope:** Community Messenger 홈 대화 목록 (`chats` / `groups`) — 일반 DM, private_group, trade, store_order.
 >
@@ -23,6 +23,7 @@
 | 11 | [11-architecture-compliance-checklist.md](./11-architecture-compliance-checklist.md) | PR / CI contract violation checks |
 | 12 | [12-m1a-acceptance-criteria.md](./12-m1a-acceptance-criteria.md) | M1a frozen scope + PASS conditions |
 | 13 | [13-m1b-acceptance-criteria.md](./13-m1b-acceptance-criteria.md) | M1b frozen scope + PASS conditions (approval pending) |
+| 14 | [14-m2-leave-api-contract.md](./14-m2-leave-api-contract.md) | M2 leave API + client SSOT; known structural verify FAIL |
 
 ## Approved work order
 
