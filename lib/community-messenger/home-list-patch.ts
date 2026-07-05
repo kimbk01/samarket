@@ -258,6 +258,7 @@ function mergeRoomListsWithVersionGuard(
   return { list: out, unreadGuardApplied };
 }
 
+/** CONTRACT (M1a): `critical_patch` is PATCH ONLY — unknown `roomId` must not INSERT. */
 function mergeCriticalRoomPatchesIntoLists(
   baseList: CommunityMessengerRoomSummary[],
   incoming: CommunityMessengerRoomSummary[]
@@ -274,12 +275,10 @@ function mergeCriticalRoomPatchesIntoLists(
   let changedRoomCount = 0;
   const criticalChangedFields: Record<string, string[]> = {};
   const incomingById = new Map(incoming.map((r) => [r.id, r]));
-  const patchedIncomingIds = new Set<string>();
 
   const patched = baseList.map((room) => {
     const inc = incomingById.get(room.id);
     if (!inc) return room;
-    patchedIncomingIds.add(room.id);
     const merged = mergeMessengerRoomSummaryForHomeSyncCriticalPatch(room, inc);
     if (merged.unreadCount !== inc.unreadCount) unreadGuardApplied += 1;
     if (roomSummaryListRowDisplayEqual(room, merged)) return room;
@@ -289,21 +288,11 @@ function mergeCriticalRoomPatchesIntoLists(
     return merged;
   });
 
-  const newRooms: CommunityMessengerRoomSummary[] = [];
-  for (const inc of incoming) {
-    if (patchedIncomingIds.has(inc.id)) continue;
-    const merged = mergeMessengerRoomSummaryForHomeSyncCriticalPatch(undefined, inc);
-    criticalChangedFields[inc.id] = ["*new*"];
-    changedRoomCount += 1;
-    newRooms.push(merged);
-  }
-
-  if (newRooms.length === 0 && patched.every((row, index) => row === baseList[index])) {
+  if (patched.every((row, index) => row === baseList[index])) {
     return { list: baseList, unreadGuardApplied, changedRoomCount: 0, criticalChangedFields: {} };
   }
 
-  const list = newRooms.length > 0 ? [...newRooms, ...patched] : patched;
-  return { list, unreadGuardApplied, changedRoomCount, criticalChangedFields };
+  return { list: patched, unreadGuardApplied, changedRoomCount, criticalChangedFields };
 }
 
 /** silent full 보강 시 outgoing pending 유지 — home-bootstrap 와 동일 */

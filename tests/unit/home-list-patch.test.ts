@@ -104,4 +104,56 @@ describe("applyHomeListPatch", () => {
     expect(next?.chats).toHaveLength(1);
     expect(next?.chats[0]?.id).toBe("b");
   });
+
+  it("home_sync critical_patch does not insert unknown direct room", () => {
+    const prev = bootstrap([room("a")]);
+    const next = applyHomeListPatch(
+      prev,
+      { kind: "home_sync", chats: [room("unknown-left")], roomMode: "critical_patch" },
+      "home-sync"
+    );
+    expect(next?.chats).toHaveLength(1);
+    expect(next?.chats[0]?.id).toBe("a");
+    expect(next?.chats.some((r) => r.id === "unknown-left")).toBe(false);
+  });
+
+  it("home_sync critical_patch does not insert unknown private_group room", () => {
+    const prev = bootstrap([room("a")]);
+    const unknownGroup = { ...room("g-unknown"), roomType: "private_group" as const };
+    const next = applyHomeListPatch(
+      prev,
+      { kind: "home_sync", groups: [unknownGroup], roomMode: "critical_patch" },
+      "home-sync"
+    );
+    expect(next?.groups).toHaveLength(0);
+    expect(next?.chats).toHaveLength(1);
+    expect(next?.chats[0]?.id).toBe("a");
+  });
+
+  it("home_sync critical_patch patches existing row without increasing count", () => {
+    const prev = bootstrap([room("a"), room("b")]);
+    const next = applyHomeListPatch(
+      prev,
+      {
+        kind: "home_sync",
+        chats: [{ ...room("b"), lastMessage: "ping", lastMessageAt: "2026-05-20T10:00:00.000Z" }],
+        roomMode: "critical_patch",
+      },
+      "home-sync"
+    );
+    expect(next?.chats).toHaveLength(2);
+    const b = next?.chats.find((r) => r.id === "b");
+    expect(b?.lastMessage).toBe("ping");
+  });
+
+  it("home_sync replace can add server-authoritative new room", () => {
+    const prev = bootstrap([room("a")]);
+    const next = applyHomeListPatch(
+      prev,
+      { kind: "home_sync", chats: [room("a"), room("new-server")], roomMode: "replace" },
+      "home-sync"
+    );
+    expect(next?.chats).toHaveLength(2);
+    expect(next?.chats.map((r) => r.id)).toContain("new-server");
+  });
 });
