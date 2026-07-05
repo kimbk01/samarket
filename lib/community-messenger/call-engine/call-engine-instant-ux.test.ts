@@ -118,13 +118,14 @@ describe("call-engine instant telegram UX contracts", () => {
     }
   });
 
-  it("accept controller PATCH runs before media permission await", () => {
+  it("accept controller awaits media permission before PATCH", () => {
     const controller = read("lib/community-messenger/call-engine/call-engine-controller.ts");
     const fn = controller.slice(controller.indexOf("async function handleUserAccept"));
-    expect(indexBefore(fn, 'stopCallEngineIncomingRingtone(sid, "accept_pressed_immediate")', "await callEngineAcceptIncoming")).toBe(
-      true
-    );
-    expect(indexBefore(fn, "await callEngineAcceptIncoming", "void ensureCallMediaForUserGesture")).toBe(true);
+    expect(
+      indexBefore(fn, 'stopCallEngineIncomingRingtone(sid, "accept_pressed_immediate")', "await ensureCallMediaForUserGesture"),
+    ).toBe(true);
+    expect(indexBefore(fn, "await ensureCallMediaForUserGesture", "await callEngineAcceptIncoming")).toBe(true);
+    expect(fn).not.toContain("void ensureCallMediaForUserGesture");
   });
 
   it("call engine accept stops ringtone before PATCH await", async () => {

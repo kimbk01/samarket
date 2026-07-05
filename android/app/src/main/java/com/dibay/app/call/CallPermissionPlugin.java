@@ -5,7 +5,6 @@ import android.content.Intent;
 import android.net.Uri;
 import android.provider.Settings;
 import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.PermissionState;
 import com.getcapacitor.Plugin;
@@ -27,13 +26,17 @@ public class CallPermissionPlugin extends Plugin {
   static final String ALIAS_CAMERA = "camera";
   static final int REQUEST_CODE_CALL_MEDIA = 0xD1BC;
   private static volatile PluginCall pendingCallMediaPluginCall;
-  private static volatile android.content.Context pendingCallMediaContext;
+  private static volatile CallPermissionPlugin pendingCallMediaPlugin;
+
+  static final String OS_GRANTED = "granted";
+  static final String OS_PROMPT_AVAILABLE = "prompt_available";
+  static final String OS_PERMANENTLY_DENIED = "permanently_denied";
 
   @PluginMethod
   public void checkPermissions(PluginCall call) {
     JSObject result = new JSObject();
-    result.put("microphone", mapState(readState(Manifest.permission.RECORD_AUDIO)));
-    result.put("camera", mapState(readState(Manifest.permission.CAMERA)));
+    result.put("microphone", readOsGateState(ALIAS_MICROPHONE));
+    result.put("camera", readOsGateState(ALIAS_CAMERA));
     call.resolve(result);
   }
 
@@ -42,10 +45,10 @@ public class CallPermissionPlugin extends Plugin {
     String callKind = call.getString("callKind", "voice");
     boolean video = "video".equalsIgnoreCase(callKind.trim());
     java.util.ArrayList<String> needed = new java.util.ArrayList<>();
-    if (readState(Manifest.permission.RECORD_AUDIO) != PermissionState.GRANTED) {
+    if (OS_PROMPT_AVAILABLE.equals(readOsGateState(ALIAS_MICROPHONE))) {
       needed.add(Manifest.permission.RECORD_AUDIO);
     }
-    if (video && readState(Manifest.permission.CAMERA) != PermissionState.GRANTED) {
+    if (video && OS_PROMPT_AVAILABLE.equals(readOsGateState(ALIAS_CAMERA))) {
       needed.add(Manifest.permission.CAMERA);
     }
     if (needed.isEmpty()) {
@@ -58,7 +61,7 @@ public class CallPermissionPlugin extends Plugin {
     }
     call.setKeepAlive(true);
     pendingCallMediaPluginCall = call;
-    pendingCallMediaContext = getContext();
+    pendingCallMediaPlugin = this;
     ActivityCompat.requestPermissions(
         getActivity(), needed.toArray(new String[0]), REQUEST_CODE_CALL_MEDIA);
   }
@@ -67,15 +70,15 @@ public class CallPermissionPlugin extends Plugin {
       int requestCode, String[] permissions, int[] grantResults) {
     if (requestCode != REQUEST_CODE_CALL_MEDIA) return false;
     PluginCall call = pendingCallMediaPluginCall;
-    android.content.Context context = pendingCallMediaContext;
+    CallPermissionPlugin plugin = pendingCallMediaPlugin;
     pendingCallMediaPluginCall = null;
-    pendingCallMediaContext = null;
+    pendingCallMediaPlugin = null;
     if (call == null) return true;
-    if (context == null) {
-      call.reject("context_missing");
+    if (plugin == null) {
+      call.reject("plugin_missing");
       return true;
     }
-    resolveCallMediaStatic(call, context);
+    plugin.resolveCallMedia(call);
     return true;
   }
 
@@ -95,39 +98,18 @@ public class CallPermissionPlugin extends Plugin {
   }
 
   private void resolveCallMedia(PluginCall call) {
-    resolveCallMediaStatic(call, getContext());
-  }
-
-  private static void resolveCallMediaStatic(PluginCall call, android.content.Context context) {
     JSObject result = new JSObject();
     result.put("callKind", call.getString("callKind", "voice"));
-    result.put(
-        "microphone",
-        mapState(
-            ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
-                    == android.content.pm.PackageManager.PERMISSION_GRANTED
-                ? PermissionState.GRANTED
-                : PermissionState.DENIED));
-    result.put(
-        "camera",
-        mapState(
-            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA)
-                    == android.content.pm.PackageManager.PERMISSION_GRANTED
-                ? PermissionState.GRANTED
-                : PermissionState.DENIED));
+    result.put("microphone", readOsGateState(ALIAS_MICROPHONE));
+    result.put("camera", readOsGateState(ALIAS_CAMERA));
     call.resolve(result);
   }
 
-  private PermissionState readState(String permission) {
-    return ContextCompat.checkSelfPermission(getContext(), permission)
-            == android.content.pm.PackageManager.PERMISSION_GRANTED
-        ? PermissionState.GRANTED
-        : PermissionState.DENIED;
-  }
-
-  private static String mapState(PermissionState state) {
-    if (state == PermissionState.GRANTED) return "granted";
-    if (state == PermissionState.DENIED) return "denied";
-    return "prompt";
+  /** Capacitor PermissionState — granted / prompt_available / permanently_denied */
+  String readOsGateState(String alias) {
+    PermissionState cap = getPermissionState(alias);
+    if (cap == PermissionState.GRANTED) return OS_GRANTED;
+    if (cap == PermissionState.PROMPT) return OS_PROMPT_AVAILABLE;
+    return OS_PERMANENTLY_DENIED;
   }
 }

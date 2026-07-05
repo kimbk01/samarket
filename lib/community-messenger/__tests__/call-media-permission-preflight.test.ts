@@ -53,7 +53,7 @@ describe("call-media-permission-preflight", () => {
   it("blocks voice before media creation when microphone is denied", async () => {
     gateCheckMock.mockResolvedValue(
       buildCheck({
-        os: { microphone: "denied", camera: "granted" },
+        os: { microphone: "permanently_denied", camera: "granted" },
         microphoneGranted: false,
         canVoice: false,
         canVideo: false,

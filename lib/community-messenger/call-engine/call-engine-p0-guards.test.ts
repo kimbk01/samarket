@@ -83,7 +83,7 @@ vi.mock("@/lib/community-messenger/call-feedback-sound", () => ({
 }));
 
 vi.mock("@/lib/community-messenger/call-media-permission-preflight", () => ({
-  ensureCallMediaForUserGesture: vi.fn(async () => true),
+  ensureCallMediaForUserGesture: vi.fn(async () => ({ ok: true, state: { microphone: "granted", camera: "granted" } })),
 }));
 
 vi.mock("@/lib/community-messenger/call-connection-prefetch", () => ({

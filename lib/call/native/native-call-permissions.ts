@@ -27,8 +27,10 @@ const CallPermission = registerPlugin<CallPermissionPlugin>(CALL_PERMISSION_PLUG
 
 function mapOsState(state: string | null | undefined): CallOsPermissionSnapshot["microphone"] {
   if (state === "granted") return "granted";
-  if (state === "denied") return "denied";
-  if (state === "prompt") return "prompt";
+  if (state === "prompt_available") return "prompt_available";
+  if (state === "permanently_denied") return "permanently_denied";
+  if (state === "denied") return "permanently_denied";
+  if (state === "prompt") return "prompt_available";
   return "unknown";
 }
 

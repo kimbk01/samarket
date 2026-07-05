@@ -17,10 +17,21 @@ export type CallMediaPermissionPreflightResult =
     };
 
 function mapGateOsToDeviceState(check: Awaited<ReturnType<typeof callPermissionGate.check>>): DibayDevicePermissionState {
+  const mapMic =
+    check.os.microphone === "granted"
+      ? "granted"
+      : check.os.microphone === "permanently_denied"
+        ? "denied"
+        : "unknown";
+  const mapCam =
+    check.os.camera === "granted"
+      ? "granted"
+      : check.os.camera === "permanently_denied"
+        ? "denied"
+        : "unknown";
   return {
-    microphone:
-      check.os.microphone === "granted" ? "granted" : check.os.microphone === "denied" ? "denied" : "unknown",
-    camera: check.os.camera === "granted" ? "granted" : check.os.camera === "denied" ? "denied" : "unknown",
+    microphone: mapMic,
+    camera: mapCam,
     requestedAt: null,
     grantedAt: check.canVoice || check.canVideo ? Date.now() : null,
     source: null,

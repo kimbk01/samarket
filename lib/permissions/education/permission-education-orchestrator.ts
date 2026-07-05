@@ -37,8 +37,8 @@ export function needsCallMediaSettingsEducation(
   if (check.isPermanentlyDenied) return true;
   if (check.effectiveState === "system_revoked") return true;
   if (!isMobileNativePlatform()) {
-    if (!check.microphoneGranted && check.os.microphone === "denied") return true;
-    if (kind === "video" && !check.cameraGranted && check.os.camera === "denied") return true;
+    if (!check.microphoneGranted && check.os.microphone === "permanently_denied") return true;
+    if (kind === "video" && !check.cameraGranted && check.os.camera === "permanently_denied") return true;
   }
   return false;
 }

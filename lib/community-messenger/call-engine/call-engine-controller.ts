@@ -57,6 +57,7 @@ import {
   type CallEngineRouter,
 } from "@/lib/community-messenger/call-engine/call-engine-route-gate";
 import { clearCallEngineRouteLock } from "@/lib/community-messenger/call-engine/call-engine-locks";
+import { logDibayCallFlow } from "@/lib/call/logging/call-flow-log";
 import { logAcceptPipeline } from "@/lib/community-messenger/call-engine/call-engine-accept-pipeline-log";
 import { dismissNativeForegroundIncomingUi } from "@/lib/community-messenger/call-engine/call-engine-native-surface";
 import { getCallEngineSurfaceOwner } from "@/lib/community-messenger/call-engine/call-engine-locks";
@@ -393,6 +394,16 @@ async function handleUserAccept(signal: Extract<CallEngineSignal, { type: "user_
 
   try {
     setCallEngineState(sid, "accepting");
+    const mediaGate = await ensureCallMediaForUserGesture(s.callKind);
+    if (!mediaGate.ok) {
+      syncCallEngineStateFromSession(sid, s.status, s.isMineInitiator);
+      logDibayCallFlow("incoming_accept_blocked_permission", {
+        kind: s.callKind,
+        reason: mediaGate.reason,
+        callId: sid,
+      });
+      return { ok: false, sessionId: sid, reason: "permission_denied" };
+    }
     logAcceptPipeline("accept_patch_start", { callId: sid });
     const patched = await callEngineAcceptIncoming({ callId: sid, source: signal.source });
     logAcceptPipeline("accept_patch_done", { callId: sid, status: patched.ok ? "ok" : patched.error ?? "failed" });
@@ -436,7 +447,6 @@ async function handleUserAccept(signal: Extract<CallEngineSignal, { type: "user_
     }
     logAcceptPipeline("route_allowed", { callId: sid, href });
 
-    void ensureCallMediaForUserGesture(s.callKind);
     notifySnapshots(sid);
     return { ok: true, sessionId: sid };
   } finally {

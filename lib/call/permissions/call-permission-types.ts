@@ -9,9 +9,18 @@ export type CallPermissionStoreState =
   | "denied_permanently"
   | "system_revoked";
 
+export type CallOsPermissionState =
+  | "granted"
+  | "prompt_available"
+  | "permanently_denied"
+  | "unknown";
+
+/** @deprecated Web Permissions API — mapped into CallOsPermissionState at bridge */
+export type CallOsPermissionLegacyState = "denied" | "prompt";
+
 export type CallOsPermissionSnapshot = {
-  microphone: "granted" | "denied" | "prompt" | "unknown";
-  camera: "granted" | "denied" | "prompt" | "unknown";
+  microphone: CallOsPermissionState;
+  camera: CallOsPermissionState;
 };
 
 export type CallPermissionCheckResult = {

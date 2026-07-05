@@ -4,6 +4,7 @@ import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types
 import { logDibayCallFlow } from "@/lib/call/logging/call-flow-log";
 import {
   checkNativeCallOsPermissions,
+  openNativeCallPermissionSettings,
   requestNativeCallMediaPermissions,
 } from "@/lib/call/native/native-call-permissions";
 import {
@@ -12,6 +13,8 @@ import {
   writeCallPermissionStoreState,
 } from "@/lib/call/permissions/call-permission-store";
 import type {
+  CallOsPermissionSnapshot,
+  CallOsPermissionState,
   CallPermissionCheckResult,
   CallPermissionGateContext,
   CallPermissionRequireResult,
@@ -19,13 +22,32 @@ import type {
 } from "@/lib/call/permissions/call-permission-types";
 import { requiredPermissionsForKind } from "@/lib/call/permissions/call-permission-types";
 
-function isOsGranted(state: string): boolean {
+function isOsGranted(state: CallOsPermissionState): boolean {
   return state === "granted";
+}
+
+function isOsPromptAvailable(state: CallOsPermissionState): boolean {
+  return state === "prompt_available";
+}
+
+function isOsPermanentlyDenied(state: CallOsPermissionState): boolean {
+  return state === "permanently_denied";
+}
+
+function resolveOsPermanentDenial(
+  kind: CommunityMessengerCallKind,
+  os: CallOsPermissionSnapshot,
+): boolean {
+  const required = requiredPermissionsForKind(kind);
+  if (required.microphone && isOsPermanentlyDenied(os.microphone)) return true;
+  if (required.camera && isOsPermanentlyDenied(os.camera)) return true;
+  return false;
 }
 
 function resolveEffectiveState(
   storeState: CallPermissionStoreState,
-  os: { microphone: string; camera: string },
+  os: CallOsPermissionSnapshot,
+  kind: CommunityMessengerCallKind,
 ): CallPermissionStoreState {
   const micGranted = isOsGranted(os.microphone);
   const camGranted = isOsGranted(os.camera);
@@ -33,10 +55,18 @@ function resolveEffectiveState(
   if (storeSaysGranted && !micGranted) return "system_revoked";
   if (micGranted && camGranted) return "granted_audio_video";
   if (micGranted) return "granted_audio";
+  if (resolveOsPermanentDenial(kind, os)) return "denied_permanently";
   if (storeState === "denied_permanently") return "denied_permanently";
   if (storeState === "denied_once") return "denied_once";
   if (storeState === "system_revoked") return "system_revoked";
   return storeState === "unknown" ? "unknown" : storeState;
+}
+
+function osNeedsPrompt(kind: CommunityMessengerCallKind, os: CallOsPermissionSnapshot): boolean {
+  const required = requiredPermissionsForKind(kind);
+  if (required.microphone && isOsPromptAvailable(os.microphone)) return true;
+  if (required.camera && isOsPromptAvailable(os.camera)) return true;
+  return false;
 }
 
 export async function checkCallPermission(
@@ -47,11 +77,11 @@ export async function checkCallPermission(
   const os = await checkNativeCallOsPermissions();
   const microphoneGranted = isOsGranted(os.microphone);
   const cameraGranted = isOsGranted(os.camera);
-  const effectiveState = resolveEffectiveState(storeState, os);
+  const effectiveState = resolveEffectiveState(storeState, os, kind);
   const canVoice = microphoneGranted;
   const canVideo = microphoneGranted && cameraGranted;
   const canFallbackToVoice = kind === "video" && microphoneGranted && !cameraGranted;
-  const isPermanentlyDenied = effectiveState === "denied_permanently";
+  const isPermanentlyDenied = resolveOsPermanentDenial(kind, os) || effectiveState === "denied_permanently";
 
   const result: CallPermissionCheckResult = {
     storeState,
@@ -73,10 +103,19 @@ export async function promptCallPermission(
   context: CallPermissionGateContext,
 ): Promise<CallPermissionCheckResult> {
   logDibayCallFlow("permission_prompt_open", { kind, context });
+  const before = await checkCallPermission(kind);
+  if ((kind === "video" ? before.canVideo : before.canVoice) || !osNeedsPrompt(kind, before.os)) {
+    if (before.isPermanentlyDenied) {
+      logDibayCallFlow("permission_prompt_denied", { kind, context, settingsOnly: true });
+      await openNativeCallPermissionSettings();
+    }
+    return before;
+  }
+
   const osAfter = await requestNativeCallMediaPermissions(kind);
   const microphoneGranted = isOsGranted(osAfter.microphone);
   const cameraGranted = isOsGranted(osAfter.camera);
-  const deniedPermanently = osAfter.microphone === "denied" || osAfter.camera === "denied";
+  const deniedPermanently = resolveOsPermanentDenial(kind, osAfter);
   const nextStore = deriveStoreStateFromOsGrant({ microphoneGranted, cameraGranted, deniedPermanently });
   writeCallPermissionStoreState(nextStore);
   const check = await checkCallPermission(kind);
@@ -126,15 +165,11 @@ export async function requireCallPermissionForIncoming(
   kind: CommunityMessengerCallKind,
 ): Promise<CallPermissionRequireResult> {
   const check = await checkCallPermission(kind);
-  const voiceEval = evaluateRequire("voice", check);
-  if (!voiceEval.ok) {
-    logDibayCallFlow("incoming_accept_blocked_permission", { kind, reason: voiceEval.reason });
-    return voiceEval;
+  const evaluated = evaluateRequire(kind, check);
+  if (!evaluated.ok) {
+    logDibayCallFlow("incoming_accept_blocked_permission", { kind, reason: evaluated.reason });
   }
-  if (kind === "video" && !check.cameraGranted) {
-    return { ok: true, check };
-  }
-  return evaluateRequire(kind, check);
+  return evaluated;
 }
 
 export const callPermissionGate = {
