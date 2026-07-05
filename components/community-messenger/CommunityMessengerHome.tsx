@@ -2707,7 +2707,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     const roomId = room.id;
     setBusyId(`room-leave:${roomId}`);
     setActionError(null);
-    removeRoomFromBootstrapState(roomId);
     try {
       const res = await fetch(`${communityMessengerRoomResourcePath(roomId)}/leave`, {
         method: "POST",
@@ -2716,6 +2715,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (res.ok && json.ok) {
+        removeRoomFromBootstrapState(roomId);
         setRoomActionSheet(null);
       } else {
         setActionError(getMessengerActionErrorMessage(json.error ?? "leave_failed"));
