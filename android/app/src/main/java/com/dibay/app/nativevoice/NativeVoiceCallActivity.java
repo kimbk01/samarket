@@ -1,8 +1,12 @@
 package com.dibay.app.nativevoice;
 
+import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Build;
+import android.provider.Settings;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -15,6 +19,8 @@ import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import com.dibay.app.IncomingCallUiInsets;
 import com.dibay.app.R;
 import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
@@ -31,6 +37,7 @@ public class NativeVoiceCallActivity extends Activity {
   public static final String UI_MODE_OUTGOING = "outgoing";
 
   private static WeakReference<NativeVoiceCallActivity> activeRef = new WeakReference<>(null);
+  private static final int REQUEST_CODE_ACCEPT_MEDIA = 0xD1C0;
 
   private String callId;
   private String uiMode = UI_MODE_INCOMING;
@@ -49,6 +56,8 @@ public class NativeVoiceCallActivity extends Activity {
   private boolean speakerEnabled;
   private boolean dockMode = false;
   private boolean acceptStarted = false;
+  private boolean acceptMediaPromptIssued = false;
+  private String pendingAcceptSource;
   private NativeVoiceCallRuntime.State currentState = NativeVoiceCallRuntime.State.RINGING;
   private final Handler mainHandler = new Handler(Looper.getMainLooper());
   private long connectedAtElapsedMs = 0L;
@@ -136,6 +145,21 @@ public class NativeVoiceCallActivity extends Activity {
     NativeVoiceCallLog.info("native_voice_back_blocked", callId, "state=" + currentState);
   }
 
+  @Override
+  public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+    if (requestCode != REQUEST_CODE_ACCEPT_MEDIA) return;
+    String source = pendingAcceptSource;
+    pendingAcceptSource = null;
+    if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+        != PackageManager.PERMISSION_GRANTED) {
+      if (!ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.RECORD_AUDIO)) {
+        openAcceptAppSettings();
+      }
+      return;
+    }
+    resumeAccept(source);
+  }
+
   private boolean bindIntent(Intent intent) {
     callId = intent != null ? intent.getStringExtra(EXTRA_CALL_ID) : null;
     if (callId == null || callId.trim().isEmpty()) return false;
@@ -183,19 +207,55 @@ public class NativeVoiceCallActivity extends Activity {
     NativeVoiceCallRuntime.Session session = NativeVoiceCallRuntime.getSession(callId);
     if (session == null || session.state != NativeVoiceCallRuntime.State.RINGING) {
       NativeVoiceCallLog.info(
-          "accept_duplicate_blocked", callId, "source=" + source + " state=" + (session != null ? session.state : "missing"));
+          "accept_duplicate_blocked",
+          callId,
+          "source=" + source + " state=" + (session != null ? session.state : "missing"));
       return;
     }
     if (acceptStarted) {
       NativeVoiceCallLog.info("accept_duplicate_blocked", callId, "source=" + source + " reason=in_flight");
       return;
     }
+    if (pendingAcceptSource != null) {
+      NativeVoiceCallLog.info(
+          "accept_duplicate_blocked", callId, "source=" + source + " reason=permission_prompt_pending");
+      return;
+    }
+    if (!ensureAcceptMediaPermissions(source)) return;
+    resumeAccept(source);
+  }
+
+  private void resumeAccept(String source) {
     acceptStarted = true;
     if ("notification".equals(source)) {
       NativeVoiceCallLog.info("activity_notification_accept", callId);
       NativeVoiceCallLog.info("state_accepting", callId);
     }
     NativeVoiceCallRuntime.accept(this, callId);
+  }
+
+  private boolean ensureAcceptMediaPermissions(String source) {
+    if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+        == PackageManager.PERMISSION_GRANTED) {
+      return true;
+    }
+    if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.RECORD_AUDIO)
+        || !acceptMediaPromptIssued) {
+      acceptMediaPromptIssued = true;
+      pendingAcceptSource = source;
+      ActivityCompat.requestPermissions(
+          this, new String[] {Manifest.permission.RECORD_AUDIO}, REQUEST_CODE_ACCEPT_MEDIA);
+      return false;
+    }
+    openAcceptAppSettings();
+    return false;
+  }
+
+  private void openAcceptAppSettings() {
+    try {
+      startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).setData(Uri.fromParts("package", getPackageName(), null)));
+    } catch (Exception ignored) {
+    }
   }
 
   private void applyIncomingWakeFlags() {

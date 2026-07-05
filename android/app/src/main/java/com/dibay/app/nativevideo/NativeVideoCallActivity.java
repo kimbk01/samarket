@@ -1,12 +1,16 @@
 package com.dibay.app.nativevideo;
 
+import android.Manifest;
 import android.app.Activity;
 import android.app.PictureInPictureParams;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
+import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.Build;
+import android.provider.Settings;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -21,6 +25,8 @@ import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import com.dibay.app.IncomingCallUiInsets;
 import com.dibay.app.R;
 import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
@@ -39,6 +45,7 @@ public class NativeVideoCallActivity extends Activity {
   public static final String UI_MODE_CONNECTED_RESTORE = "connected_restore";
 
   private static WeakReference<NativeVideoCallActivity> activeRef = new WeakReference<>(null);
+  private static final int REQUEST_CODE_ACCEPT_MEDIA = 0xD1C1;
 
   private String callId;
   private String uiMode = UI_MODE_INCOMING;
@@ -65,6 +72,8 @@ public class NativeVideoCallActivity extends Activity {
   private boolean inPipMode = false;
   private boolean dockMode = false;
   private boolean acceptStarted = false;
+  private boolean acceptMediaPromptIssued = false;
+  private String pendingAcceptSource;
   private boolean localPipCustomPosition = false;
   private boolean localPipDragging = false;
   private float localPipDragStartRawX = 0f;
@@ -210,6 +219,24 @@ public class NativeVideoCallActivity extends Activity {
   }
 
   @Override
+  public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+    if (requestCode != REQUEST_CODE_ACCEPT_MEDIA) return;
+    String source = pendingAcceptSource;
+    pendingAcceptSource = null;
+    if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED
+        || ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+            != PackageManager.PERMISSION_GRANTED) {
+      if (!ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.RECORD_AUDIO)
+          && !ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.CAMERA)) {
+        openAcceptAppSettings();
+      }
+      return;
+    }
+    resumeAccept(source);
+  }
+
+  @Override
   public void onPictureInPictureModeChanged(boolean isInPictureInPictureMode) {
     super.onPictureInPictureModeChanged(isInPictureInPictureMode);
     inPipMode = isInPictureInPictureMode;
@@ -295,19 +322,65 @@ public class NativeVideoCallActivity extends Activity {
     NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(callId);
     if (session == null || session.state != NativeVideoCallRuntime.State.RINGING) {
       NativeVideoCallLog.info(
-          "accept_duplicate_blocked", callId, "source=" + source + " state=" + (session != null ? session.state : "missing"));
+          "accept_duplicate_blocked",
+          callId,
+          "source=" + source + " state=" + (session != null ? session.state : "missing"));
       return;
     }
     if (acceptStarted) {
       NativeVideoCallLog.info("accept_duplicate_blocked", callId, "source=" + source + " reason=in_flight");
       return;
     }
+    if (pendingAcceptSource != null) {
+      NativeVideoCallLog.info(
+          "accept_duplicate_blocked", callId, "source=" + source + " reason=permission_prompt_pending");
+      return;
+    }
+    if (!ensureAcceptMediaPermissions(source)) return;
+    resumeAccept(source);
+  }
+
+  private void resumeAccept(String source) {
     acceptStarted = true;
     if ("notification".equals(source)) {
       NativeVideoCallLog.info("activity_notification_accept", callId);
       NativeVideoCallLog.info("state_accepting", callId);
     }
     NativeVideoCallRuntime.accept(this, callId);
+  }
+
+  private boolean ensureAcceptMediaPermissions(String source) {
+    boolean audioGranted =
+        ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+            == PackageManager.PERMISSION_GRANTED;
+    boolean cameraGranted =
+        ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+            == PackageManager.PERMISSION_GRANTED;
+    if (audioGranted && cameraGranted) return true;
+    if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.RECORD_AUDIO)
+        || ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.CAMERA)
+        || !acceptMediaPromptIssued) {
+      acceptMediaPromptIssued = true;
+      pendingAcceptSource = source;
+      ActivityCompat.requestPermissions(
+          this,
+          audioGranted
+              ? new String[] {Manifest.permission.CAMERA}
+              : cameraGranted
+                  ? new String[] {Manifest.permission.RECORD_AUDIO}
+                  : new String[] {Manifest.permission.RECORD_AUDIO, Manifest.permission.CAMERA},
+          REQUEST_CODE_ACCEPT_MEDIA);
+      return false;
+    }
+    openAcceptAppSettings();
+    return false;
+  }
+
+  private void openAcceptAppSettings() {
+    try {
+      startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).setData(Uri.fromParts("package", getPackageName(), null)));
+    } catch (Exception ignored) {
+    }
   }
 
   private void applyIncomingWakeFlags() {
