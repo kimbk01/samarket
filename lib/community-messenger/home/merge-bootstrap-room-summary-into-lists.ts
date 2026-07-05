@@ -60,20 +60,24 @@ function mergeSummaryIntoDescSortedBucket(
 }
 
 /**
- * 홈 부트스트랩 `chats` / `groups` 에 단일 방 요약을 넣거나 동일 id 를 교체한다.
+ * 홈 부트스트랩 `chats` / `groups` 에 **기존 id** 방 요약을 PATCH 한다.
+ * CONTRACT (M1b): absent `summary.id` → no-op (INSERT 금지).
  * 잘못된 버킷에 있던 동일 id 행은 제거한다(방 타입 변경 등 희귀 케이스).
  */
 export function mergeBootstrapRoomSummaryIntoLists(
   data: CommunityMessengerBootstrap,
   summary: CommunityMessengerRoomSummary
 ): CommunityMessengerBootstrap {
-  bumpMessengerRenderPerf("messenger_room_summary_merge");
   const isGroup = isCommunityMessengerPrivateGroupListRoomType(summary.roomType);
   const targetKey = isGroup ? "groups" : "chats";
   const otherKey = isGroup ? "chats" : "groups";
   const target0 = data[targetKey] ?? [];
   const sameIndex = target0.findIndex((r) => sameMessengerListRoomId(r.id, summary.id));
   const existsInOther = (data[otherKey] ?? []).some((r) => sameMessengerListRoomId(r.id, summary.id));
+  if (sameIndex < 0 && !existsInOther) {
+    return data;
+  }
+  bumpMessengerRenderPerf("messenger_room_summary_merge");
   if (!existsInOther && sameIndex >= 0) {
     const same = target0[sameIndex]!;
     const prev = sameIndex > 0 ? target0[sameIndex - 1] : null;

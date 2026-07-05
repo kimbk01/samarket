@@ -72,29 +72,40 @@ describe("mergeBootstrapRoomSummaryIntoLists + messenger_room_list_sort 카운�
     resetMessengerHomeVerificationStateForTests();
   });
 
-  it("이미 lastMessageAt 내림차순인 chats 버킷: merge 1회 시 messenger_room_list_sort 증가 없음", () => {
+  it("이미 lastMessageAt 내림차순인 chats 버킷: 기존 id PATCH 시 messenger_room_list_sort 증가 없음", () => {
     const chats = [
       baseRoom({ id: "a", lastMessageAt: "2026-01-05T00:00:00.000Z" }),
       baseRoom({ id: "b", lastMessageAt: "2026-01-03T00:00:00.000Z" }),
     ];
     const data = emptyBootstrap(chats);
-    const summary = baseRoom({ id: "c", lastMessageAt: "2026-01-04T00:00:00.000Z" });
+    const summary = baseRoom({ id: "b", lastMessageAt: "2026-01-04T00:00:00.000Z" });
     mergeBootstrapRoomSummaryIntoLists(data, summary);
     const perf = getMessengerRenderPerfCounts();
     expect(perf.messenger_room_summary_merge).toBe(1);
     expect(perf.messenger_room_list_sort ?? 0).toBe(0);
   });
 
-  it("lastMessageAt 순서가 깨진 chats 버킷: merge 1회 시 messenger_room_list_sort 1회(전체 정렬)", () => {
+  it("lastMessageAt 순서가 깨진 chats 버킷: 기존 id PATCH 시 messenger_room_list_sort 1회(전체 정렬)", () => {
     const chats = [
       baseRoom({ id: "a", lastMessageAt: "2026-01-03T00:00:00.000Z" }),
+      baseRoom({ id: "c", lastMessageAt: "2026-01-04T00:00:00.000Z" }),
       baseRoom({ id: "b", lastMessageAt: "2026-01-05T00:00:00.000Z" }),
     ];
     const data = emptyBootstrap(chats);
-    const summary = baseRoom({ id: "c", lastMessageAt: "2026-01-04T00:00:00.000Z" });
+    const summary = baseRoom({ id: "c", lastMessageAt: "2026-01-06T00:00:00.000Z" });
     mergeBootstrapRoomSummaryIntoLists(data, summary);
     const perf = getMessengerRenderPerfCounts();
     expect(perf.messenger_room_summary_merge).toBe(1);
     expect(perf.messenger_room_list_sort).toBe(1);
+  });
+
+  it("unknown id는 no-op — messenger_room_summary_merge 증가 없음", () => {
+    const chats = [baseRoom({ id: "a", lastMessageAt: "2026-01-05T00:00:00.000Z" })];
+    const data = emptyBootstrap(chats);
+    const summary = baseRoom({ id: "unknown", lastMessageAt: "2026-01-04T00:00:00.000Z" });
+    const next = mergeBootstrapRoomSummaryIntoLists(data, summary);
+    expect(next).toBe(data);
+    const perf = getMessengerRenderPerfCounts();
+    expect(perf.messenger_room_summary_merge ?? 0).toBe(0);
   });
 });

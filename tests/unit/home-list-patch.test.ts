@@ -146,6 +146,42 @@ describe("applyHomeListPatch", () => {
     expect(b?.lastMessage).toBe("ping");
   });
 
+  it("merge_room_summary does not insert unknown direct room", () => {
+    const prev = bootstrap([room("a")]);
+    const next = applyHomeListPatch(
+      prev,
+      { kind: "merge_room_summary", summary: room("unknown-summary") },
+      "realtime"
+    );
+    expect(next?.chats).toHaveLength(1);
+    expect(next?.chats[0]?.id).toBe("a");
+    expect(next).toBe(prev);
+  });
+
+  it("merge_room_summary does not insert unknown private_group room", () => {
+    const prev = bootstrap([room("a")]);
+    const unknownGroup = { ...room("g-unknown"), roomType: "private_group" as const };
+    const next = applyHomeListPatch(
+      prev,
+      { kind: "merge_room_summary", summary: unknownGroup },
+      "realtime"
+    );
+    expect(next?.groups).toHaveLength(0);
+    expect(next?.chats).toHaveLength(1);
+    expect(next).toBe(prev);
+  });
+
+  it("merge_room_summary patches existing row without increasing count", () => {
+    const prev = bootstrap([room("a"), room("b")]);
+    const next = applyHomeListPatch(
+      prev,
+      { kind: "merge_room_summary", summary: { ...room("b"), lastMessage: "updated-b" } },
+      "realtime"
+    );
+    expect(next?.chats).toHaveLength(2);
+    expect(next?.chats.find((r) => r.id === "b")?.lastMessage).toBe("updated-b");
+  });
+
   it("home_sync replace can add server-authoritative new room", () => {
     const prev = bootstrap([room("a")]);
     const next = applyHomeListPatch(
