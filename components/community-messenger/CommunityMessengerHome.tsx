@@ -2725,17 +2725,9 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     }
   }, [getMessengerActionErrorMessage, leaveConfirmRoom, refresh, setData]);
 
-  const leaveMessengerRoom = useCallback(
-    (room: CommunityMessengerRoomSummary) => {
-      const meId = data?.me?.id?.trim();
-      if (room.roomType === "private_group" && meId && room.ownerUserId?.trim() === meId) {
-        setActionError(getMessengerActionErrorMessage("owner_cannot_leave"));
-        return;
-      }
-      setLeaveConfirmRoom(room);
-    },
-    [data?.me?.id, getMessengerActionErrorMessage]
-  );
+  const leaveMessengerRoom = useCallback((room: CommunityMessengerRoomSummary) => {
+    setLeaveConfirmRoom(room);
+  }, []);
 
   const clearLocalRoomPreview = useCallback((roomId: string) => {
     invalidateRoomSnapshot(roomId);

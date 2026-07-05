@@ -300,6 +300,65 @@ export async function kickGroupMember(input: {
   return { ok: true };
 }
 
+async function fetchOtherActiveParticipantsOldestFirst(
+  sb: GroupRoomSupabase,
+  roomId: string,
+  excludeUserId: string
+): Promise<Array<{ user_id: string }>> {
+  const rid = trimText(roomId);
+  const uid = trimText(excludeUserId);
+  if (!rid || !uid) return [];
+  const { data, error } = await (sb as any)
+    .from("community_messenger_participants")
+    .select("user_id, joined_at")
+    .eq("room_id", rid)
+    .neq("user_id", uid)
+    .is("left_at", null)
+    .is("blocked_hidden_at", null)
+    .order("joined_at", { ascending: true, nullsFirst: false });
+  if (error) return [];
+  return ((data ?? []) as Array<{ user_id?: string }>)
+    .map((row) => ({ user_id: trimText(row.user_id) }))
+    .filter((row) => row.user_id.length > 0);
+}
+
+async function promotePrivateGroupOwner(
+  sb: GroupRoomSupabase,
+  roomId: string,
+  nextOwnerUserId: string
+): Promise<{ ok: boolean; error?: string }> {
+  const rid = trimText(roomId);
+  const nextOwner = trimText(nextOwnerUserId);
+  if (!rid || !nextOwner) return { ok: false, error: GROUP_ROOM_ERROR.LEAVE_FAILED };
+  const { error: roomError } = await (sb as any)
+    .from("community_messenger_rooms")
+    .update({ owner_user_id: nextOwner })
+    .eq("id", rid);
+  if (roomError) return { ok: false, error: String(roomError.message ?? GROUP_ROOM_ERROR.LEAVE_FAILED) };
+  const { error: roleError } = await (sb as any)
+    .from("community_messenger_participants")
+    .update({ role: "owner" })
+    .eq("room_id", rid)
+    .eq("user_id", nextOwner)
+    .is("left_at", null);
+  if (roleError) return { ok: false, error: String(roleError.message ?? GROUP_ROOM_ERROR.LEAVE_FAILED) };
+  return { ok: true };
+}
+
+async function archivePrivateGroupRoom(
+  sb: GroupRoomSupabase,
+  roomId: string
+): Promise<{ ok: boolean; error?: string }> {
+  const rid = trimText(roomId);
+  if (!rid) return { ok: false, error: GROUP_ROOM_ERROR.ROOM_NOT_FOUND };
+  const { error } = await (sb as any)
+    .from("community_messenger_rooms")
+    .update({ room_status: "archived" })
+    .eq("id", rid);
+  if (error) return { ok: false, error: String(error.message ?? GROUP_ROOM_ERROR.LEAVE_FAILED) };
+  return { ok: true };
+}
+
 export async function leaveGroupRoom(input: {
   userId: string;
   roomId: string;
@@ -313,8 +372,20 @@ export async function leaveGroupRoom(input: {
 
   const room = await fetchPrivateGroupRoom(sb, roomId);
   if (!room) return { ok: false, error: GROUP_ROOM_ERROR.ROOM_NOT_FOUND };
-  if (trimText(room.owner_user_id) === userId) {
-    return { ok: false, error: GROUP_ROOM_ERROR.OWNER_CANNOT_LEAVE };
+
+  const me = await fetchActiveParticipant(sb, roomId, userId);
+  if (!me) return { ok: false, error: GROUP_ROOM_ERROR.ROOM_NOT_FOUND };
+
+  const isOwner = trimText(room.owner_user_id) === userId || normalizeRole(me.role) === "owner";
+  if (isOwner) {
+    const successors = await fetchOtherActiveParticipantsOldestFirst(sb, roomId, userId);
+    if (successors.length > 0) {
+      const promoted = await promotePrivateGroupOwner(sb, roomId, successors[0]!.user_id);
+      if (!promoted.ok) return promoted;
+    } else {
+      const archived = await archivePrivateGroupRoom(sb, roomId);
+      if (!archived.ok) return archived;
+    }
   }
 
   const left = await markParticipantLeft(sb, roomId, userId);

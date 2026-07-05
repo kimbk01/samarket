@@ -9,9 +9,8 @@ import {
   primeMessengerBootstrapCritical,
   primeMessengerBootstrapMinimal,
 } from "@/lib/community-messenger/bootstrap-cache";
-import { communityMessengerGroupRoomApiPath } from "@/lib/community-messenger/group/group-room-deeplink";
-import { applyHomeListPatch, commitHomeListPatch } from "@/lib/community-messenger/home-list-patch";
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
+import { applyHomeListPatch, commitHomeListPatch } from "@/lib/community-messenger/home-list-patch";
 import { invalidateRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import type {
   CommunityMessengerBootstrap,
@@ -101,21 +100,10 @@ export function applyMessengerHomeRoomLeaveSuccess(
 
 export async function requestLeaveMessengerRoomClient(
   roomId: string,
-  roomType: CommunityMessengerRoomSummary["roomType"]
+  _roomType: CommunityMessengerRoomSummary["roomType"]
 ): Promise<LeaveMessengerRoomClientResult> {
   const rid = trimRoomId(roomId);
   if (!rid) return { ok: false, error: "room_not_found" };
-
-  if (roomType === "private_group") {
-    const res = await fetch(`${communityMessengerGroupRoomApiPath(rid)}/participants`, {
-      method: "DELETE",
-    });
-    const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; code?: string };
-    if (!res.ok || !json.ok) {
-      return { ok: false, error: parseLeaveApiError(json), status: res.status };
-    }
-    return { ok: true };
-  }
 
   const res = await fetch(`${communityMessengerRoomResourcePath(rid)}/leave`, {
     method: "POST",

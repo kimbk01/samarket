@@ -60,15 +60,15 @@ describe("messenger-home-room-leave-client", () => {
     vi.unstubAllGlobals();
   });
 
-  it("private_group uses DELETE participants endpoint", async () => {
+  it("private_group uses POST leave endpoint", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(
       new Response(JSON.stringify({ ok: true }), { status: 200 })
     );
     const result = await requestLeaveMessengerRoomClient("g1", "private_group");
     expect(result.ok).toBe(true);
     expect(fetch).toHaveBeenCalledWith(
-      "/api/community-messenger/group-rooms/g1/participants",
-      { method: "DELETE" }
+      "/api/community-messenger/rooms/g1/leave",
+      expect.objectContaining({ method: "POST" })
     );
   });
 
