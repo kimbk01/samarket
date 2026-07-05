@@ -16,10 +16,12 @@ type Props = {
   profile: CommunityMessengerProfileLite;
   busyId: string | null;
   onClose: () => void;
+  /** default: Home·친구목록. roomHeader: 1:1 방 안 — 「메시지 보내기」 CTA 생략 */
+  context?: "default" | "roomHeader";
   onVoiceCall: () => void;
   onVideoCall: () => void;
-  onChat: () => void;
-  onToggleFavorite: () => void;
+  onChat?: () => void;
+  onToggleFavorite?: () => void;
   onToggleHidden?: () => void;
   onInviteToGroup?: () => void;
   onToggleMuteNotifications?: () => void;
@@ -40,6 +42,7 @@ export function MessengerFriendProfileSheet({
   profile,
   busyId,
   onClose,
+  context = "default",
   onVoiceCall,
   onVideoCall,
   onChat,
@@ -73,6 +76,8 @@ export function MessengerFriendProfileSheet({
   const canMessage = !profile.blocked;
   const canCall = canMessage;
   const cta = friendAddCta;
+  const showDirectChatAction = context === "default";
+  const showFriendMenuActions = context === "default";
 
   return (
     <div className="fixed inset-0 z-[45] flex flex-col justify-end bg-black/25" role="dialog" aria-modal="true" aria-labelledby="messenger-friend-sheet-title">
@@ -135,32 +140,37 @@ export function MessengerFriendProfileSheet({
           />
         ) : null}
 
-        <div className={`mt-3 ${!canMessage ? "opacity-40" : ""}`}>
-          <button
-            type="button"
-            onClick={onChat}
-            disabled={anyBusy || !canMessage}
-            className="flex h-11 w-full items-center justify-center rounded-[18px] border border-ui-border bg-ui-page sam-text-body-secondary font-semibold text-ui-fg active:bg-ui-hover disabled:opacity-50"
-          >
-            {t("cm_friend_cta_message")}
-            {bChat ? (
-              <span className="ml-2 sam-text-xxs font-medium text-ui-muted">{t("cm_ui_opening")}</span>
+        {showDirectChatAction ? (
+          <>
+            <div className={`mt-3 ${!canMessage ? "opacity-40" : ""}`}>
+              <button
+                type="button"
+                onClick={onChat}
+                disabled={anyBusy || !canMessage || !onChat}
+                className="flex h-11 w-full items-center justify-center rounded-[18px] border border-ui-border bg-ui-page sam-text-body-secondary font-semibold text-ui-fg active:bg-ui-hover disabled:opacity-50"
+              >
+                {t("cm_friend_cta_message")}
+                {bChat ? (
+                  <span className="ml-2 sam-text-xxs font-medium text-ui-muted">{t("cm_ui_opening")}</span>
+                ) : null}
+              </button>
+            </div>
+            {!canMessage ? (
+              <p className="mt-2 text-center sam-text-xxs text-ui-muted">{t("cm_ui_cannot_add_friend_or_chat_when_blocked")}</p>
             ) : null}
-          </button>
-        </div>
-        {!canMessage ? (
-          <p className="mt-2 text-center sam-text-xxs text-ui-muted">{t("cm_ui_cannot_add_friend_or_chat_when_blocked")}</p>
+          </>
         ) : null}
 
+        {showFriendMenuActions ? (
         <div className="mt-3 divide-y divide-ui-border border-t border-ui-border">
-          {profile.isFriend ? (
+          {onToggleFavorite && profile.isFriend ? (
             <ActionRow
               label={bFav ? t("common_processing") : profile.isFavoriteFriend ? t("cm_ui_unfavorite") : t("cm_ui_favorite")}
               onClick={onToggleFavorite}
               disabled={anyBusy}
             />
           ) : null}
-          {profile.isFriend ? (
+          {onToggleHidden && profile.isFriend ? (
             <ActionRow
               label={bHidden ? t("common_processing") : profile.isHiddenFriend ? t("cm_ui_unhide") : t("common_hide")}
               onClick={onToggleHidden}
@@ -187,6 +197,7 @@ export function MessengerFriendProfileSheet({
           {onBlock ? <ActionRow label={profile.blocked ? t("cm_ui_unblock") : t("common_block")} onClick={onBlock} disabled={anyBusy} danger /> : null}
           {onReport ? <ActionRow label={t("common_report")} onClick={onReport} disabled={anyBusy} danger /> : null}
         </div>
+        ) : null}
 
         <button type="button" onClick={onClose} className="mt-2 w-full py-2.5 sam-text-body-secondary font-medium text-ui-muted active:bg-ui-hover">
           {t("nav_close")}

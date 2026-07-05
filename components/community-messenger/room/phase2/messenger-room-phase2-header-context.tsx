@@ -16,7 +16,10 @@ export type MessengerRoomPhase2HeaderViewModel = Pick<
   | "setActiveSheet"
   | "setRoomSearchQuery"
   | "startManagedDirectCall"
->;
+> & {
+  canOpenPeerFriendProfile: boolean;
+  openPeerFriendProfile: () => void;
+};
 
 const MessengerRoomPhase2HeaderContext = createContext<MessengerRoomPhase2HeaderViewModel | null>(null);
 

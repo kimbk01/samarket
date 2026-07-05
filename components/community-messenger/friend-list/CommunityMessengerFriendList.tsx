@@ -17,6 +17,7 @@ type Props = {
   blockedFriendIds: Set<string>;
   mutedFriendIds: Set<string>;
   onOpenProfile: (profile: CommunityMessengerProfileLite) => void;
+  onOpenChat: (userId: string) => void;
   onOpenFriendQuickMenu: (userId: string) => void;
 };
 
@@ -29,6 +30,7 @@ export function CommunityMessengerFriendList({
   blockedFriendIds,
   mutedFriendIds,
   onOpenProfile,
+  onOpenChat,
   onOpenFriendQuickMenu,
 }: Props) {
   const viewerId = me?.id ?? "";
@@ -52,9 +54,7 @@ export function CommunityMessengerFriendList({
       <CommunityMessengerFriendRow
         key={row.profileId}
         row={row}
-        onPress={() =>
-          onOpenProfile(sortedFriends.find((f) => f.id === row.profileId) ?? { id: row.profileId, label: row.displayName, avatarUrl: null, following: false, blocked: false, isFriend: false, isFavoriteFriend: false })
-        }
+        onPress={() => onOpenChat(row.profileId)}
         onLongPress={() => onOpenFriendQuickMenu(row.profileId)}
       />
     ));

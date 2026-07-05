@@ -107,6 +107,7 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
   const headerVoiceDisabled = vm.roomUnavailable || vm.outgoingDialLocked;
   const roomId = vm.snapshot.room.id;
   const peerUserId = vm.snapshot.room.peerUserId ?? "";
+  const canOpenPeerFriendProfile = vm.canOpenPeerFriendProfile;
 
   useEffect(() => {
     logCallV3ButtonRender({
@@ -300,6 +301,35 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
             showPresence={Boolean(showDeliveryPresence)}
             subtitle={deliveryHeaderSubtitle}
           />
+        ) : canOpenPeerFriendProfile ? (
+          <button
+            type="button"
+            onClick={vm.openPeerFriendProfile}
+            className="flex min-w-0 flex-1 items-center gap-2 self-center text-left active:opacity-80"
+            aria-label={vm.snapshot.room.title}
+          >
+            <div className="relative h-9 w-9 shrink-0 self-center">
+              <div className="h-full w-full overflow-hidden rounded-full bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)]">
+                <SamarketThumbnail
+                  src={resolveUserAvatarImageSrc(vm.snapshot.room.avatarUrl)}
+                  fill
+                  roundedClassName="rounded-full"
+                  className="bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)]"
+                  fallbackSrc=""
+                  fallbackNode={<SamarketDefaultAvatarFace className="h-full w-full" />}
+                />
+              </div>
+              {bindPresenceAndTyping && vm.snapshot.room.roomType === "direct" && peerPresence ? (
+                <CommunityMessengerPresenceDot state={peerPresence.state} />
+              ) : null}
+            </div>
+            <div className="flex min-h-9 min-w-0 flex-1 flex-col justify-center self-center gap-0 leading-tight">
+              <p className="-translate-y-[1pt] truncate sam-text-body font-semibold leading-tight text-[color:var(--cm-room-text)]">
+                {vm.snapshot.room.title}
+              </p>
+              <p className="truncate sam-text-xxs leading-tight text-[color:var(--cm-room-text-muted)]">{statusLine}</p>
+            </div>
+          </button>
         ) : (
           <>
             <div className="relative h-9 w-9 shrink-0 self-center">

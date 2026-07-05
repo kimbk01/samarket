@@ -246,6 +246,7 @@ export function MessengerFriendsScreen({
           blockedFriendIds={blockedFriendIds}
           mutedFriendIds={mutedFriendIds}
           onOpenProfile={onOpenProfile}
+          onOpenChat={onFriendChat}
           onOpenFriendQuickMenu={openFriendQuickMenu}
         />
 

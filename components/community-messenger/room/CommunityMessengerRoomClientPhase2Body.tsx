@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { noteCmRoomPhase2HydratedModuleEval } from "@/lib/community-messenger/room/cm-room-phase2-entry-perf";
 
 noteCmRoomPhase2HydratedModuleEval();
@@ -21,6 +21,7 @@ import { CommunityMessengerRoomPhase2AttachmentsAndTrade } from "@/components/co
 import { CommunityMessengerRoomPhase2MessageTimeline } from "@/components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MessageTimeline";
 import { CommunityMessengerRoomPhase2MessageOverlays } from "@/components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MessageOverlays";
 import { CommunityMessengerRoomPhase2RoomSheets } from "@/components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets";
+import { CommunityMessengerRoomFriendProfileSheetHost } from "@/components/community-messenger/room/phase2/CommunityMessengerRoomFriendProfileSheetHost";
 import { CommunityMessengerRoomPhase2MemberActionModal } from "@/components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MemberActionModal";
 import { CommunityMessengerRoomPhase2CallLayer } from "@/components/community-messenger/room/phase2/CommunityMessengerRoomPhase2CallLayer";
 import { CommunityMessengerRoomPhase2Composer } from "@/components/community-messenger/room/phase2/CommunityMessengerRoomPhase2Composer";
@@ -57,11 +58,13 @@ import {
   runMessengerRoomBackNavigation,
 } from "@/lib/community-messenger/room/messenger-room-back-navigation";
 import { messengerDeliveryViewerRole } from "@/lib/community-messenger/messenger-delivery-viewer-role";
+import { generalFriendDirectRoomGate } from "@/lib/community-messenger/messenger-room-domain";
 import {
   isCommunityMessengerStoreOrderDeliveryRoom,
   resolveCommunityMessengerDeliveryContextMeta,
 } from "@/lib/community-messenger/room-context-meta";
 import { messengerTradeViewerRoleFromContextMeta } from "@/lib/community-messenger/messenger-trade-viewer-role";
+import { messengerRoomShowsConfirmedTradePresentation } from "@/lib/community-messenger/messenger-room-domain";
 import { CmReactCommitProbe, useCmDevRenderTrace, useCmStrictModeEffectProbe } from "@/lib/community-messenger/dev/cm-event-loop-dev";
 import { logCmRenderRoomEntry } from "@/lib/community-messenger/room/cm-room-entry-priority-mode";
 import {
@@ -349,6 +352,26 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
 
   const storeOrderDeliveryIsOwnerApi =
     deliveryViewerRole === "seller" && view.storeIdForDock.length > 0;
+  const [friendProfileSheetOpen, setFriendProfileSheetOpen] = useState(false);
+  const canOpenPeerFriendProfile = useMemo(() => {
+    if (view.isGroupRoom || view.isPrivateGroupRoom) return false;
+    if (isDeliveryKindRoom) return false;
+    if (
+      messengerRoomShowsConfirmedTradePresentation(view.snapshot.room, view.snapshot.viewerUserId)
+    ) {
+      return false;
+    }
+    return generalFriendDirectRoomGate(view.snapshot.room, view.snapshot.viewerUserId);
+  }, [
+    isDeliveryKindRoom,
+    view.isGroupRoom,
+    view.isPrivateGroupRoom,
+    view.snapshot.room,
+    view.snapshot.viewerUserId,
+  ]);
+  const openPeerFriendProfile = useCallback(() => {
+    setFriendProfileSheetOpen(true);
+  }, []);
   const headerView = useMemo(
     () => ({
       snapshot: view.snapshot,
@@ -362,6 +385,8 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
       setActiveSheet: view.setActiveSheet,
       setRoomSearchQuery: view.setRoomSearchQuery,
       startManagedDirectCall: view.startManagedDirectCall,
+      canOpenPeerFriendProfile,
+      openPeerFriendProfile,
     }),
     [
       view.snapshot,
@@ -375,6 +400,8 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
       view.setActiveSheet,
       view.setRoomSearchQuery,
       view.startManagedDirectCall,
+      canOpenPeerFriendProfile,
+      openPeerFriendProfile,
     ]
   );
   const composerView = useMemo<MessengerRoomPhase2ComposerViewModel>(
@@ -593,6 +620,11 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
               <CommunityMessengerRoomPhase2CallLayer />
             </MessengerRoomPhase2CallProvider>
           </div>
+          <CommunityMessengerRoomFriendProfileSheetHost
+            open={friendProfileSheetOpen}
+            onClose={() => setFriendProfileSheetOpen(false)}
+            vm={view}
+          />
         </div>
         </CmRoomPhase2HydrationProvider>
         </StoreOrderDeliveryRoomProvider>
