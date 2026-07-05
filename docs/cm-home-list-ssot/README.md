@@ -1,6 +1,6 @@
 # CM Home List SSOT — Architecture Specification
 
-> **Status:** Design frozen (2026-07-05). M1a code **HOLD** until explicit approval after this doc set is merged.
+> **Status:** 2026-07-05 — M1a **PASS-1 committed** (`39f9b3f4`). M1b **HOLD** until explicit approval after [13-m1b-acceptance-criteria.md](./13-m1b-acceptance-criteria.md) sign-off.
 >
 > **Scope:** Community Messenger 홈 대화 목록 (`chats` / `groups`) — 일반 DM, private_group, trade, store_order.
 >
@@ -22,14 +22,15 @@
 | 10 | [10-ssot-design.md](./10-ssot-design.md) | One-page SSOT summary + milestone map |
 | 11 | [11-architecture-compliance-checklist.md](./11-architecture-compliance-checklist.md) | PR / CI contract violation checks |
 | 12 | [12-m1a-acceptance-criteria.md](./12-m1a-acceptance-criteria.md) | M1a frozen scope + PASS conditions |
+| 13 | [13-m1b-acceptance-criteria.md](./13-m1b-acceptance-criteria.md) | M1b frozen scope + PASS conditions (approval pending) |
 
 ## Approved work order
 
 ```
 01 Ownership → 02 Lifecycle → 03 Function Inventory → 04 Dead Code
 → 05 Event → 06 Reducer → 07 Cache → 08 RT → 09 State Transition
-→ 10 SSOT Design → 11 Compliance → 12 M1a Acceptance
-→ [explicit M1a approval] → M1a (2 files only) → PASS → M1b → PASS → M2
+→ 10 SSOT Design → 11 Compliance → 12 M1a Acceptance → [M1a committed]
+→ 13 M1b Acceptance → [explicit M1b approval] → M1b (≤3 files) → PASS → M2
 ```
 
 ## Pipeline (legal path only)

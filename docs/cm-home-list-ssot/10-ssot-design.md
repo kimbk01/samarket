@@ -51,7 +51,7 @@ Event → [Authority gate] → Reducer(Pre) → mutate → Post → prime(cache)
 | Milestone | Scope | Out of scope |
 |-----------|-------|--------------|
 | **M1a** | `mergeCriticalRoomPatchesIntoLists` — unknown id DROP | tombstone, RT, cache, API, leave client |
-| **M1b** | `merge_room_summary` no-op if absent | RT summary chain refactor |
+| **M1b** | `mergeBootstrapRoomSummaryIntoLists` absent id no-op | RT hook, tombstone, M1a revert |
 | **M2** | cache prime single path; leave API unify | dead delete; service.ts split |
 
 ## M1a frozen statement
