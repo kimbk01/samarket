@@ -159,10 +159,11 @@ describe("incoming-call policy contracts", () => {
     expect(service).toContain("if (!isGroupRoom && sb && !dialFresh)");
   });
 
-  it("terminal call end navigates to call_logs section", () => {
+  it("terminal call end uses origin return navigation", () => {
     const nav = read("lib/community-messenger/call-session-navigation-seed.ts");
-    expect(nav).toContain("COMMUNITY_MESSENGER_CALL_LOGS_HREF");
+    expect(nav).toContain("navigateBackFromCommunityMessengerCall");
     expect(nav).toContain("finalizeCommunityMessengerCallTerminalExit");
+    expect(nav).not.toContain("navigateToCommunityMessengerCallLogsAfterTerminal");
     const client = read("components/community-messenger/CommunityMessengerCallClient.tsx");
     expect(client).toContain("finalizeCommunityMessengerCallTerminalExit");
     expect(client).toContain("stale_ringing_blocked");

@@ -245,9 +245,6 @@ export function takeCallNavigationReturnPath(): string | null {
   }
 }
 
-/** 통화 종료 후 메신저 통화 목록 탭 */
-export const COMMUNITY_MESSENGER_CALL_LOGS_HREF = "/community-messenger?section=call_logs";
-
 /** 종료·거절·취소 직후 host·active 복구가 통화 화면을 다시 띄우지 않게 한다 */
 export function pinCommunityMessengerCallTerminalSurfaceDismiss(sessionId: string): void {
   const sid = sessionId.trim();
@@ -263,11 +260,12 @@ export function pinCommunityMessengerCallTerminalSurfaceDismiss(sessionId: strin
   }
 }
 
-/** 터미널 확정 — surface 정리 + active 세션 해제 + 통화 목록으로 즉시 복귀 */
+/** 터미널 확정 — surface 정리 + active 세션 해제 + Origin Return 복귀 */
 export function finalizeCommunityMessengerCallTerminalExit(
   router: { replace: (href: string) => void },
   sessionId: string,
-  source = "call_client_terminal"
+  source = "call_client_terminal",
+  roomIdFallback?: string | null
 ): void {
   const sid = sessionId.trim();
   pinCommunityMessengerCallTerminalSurfaceDismiss(sid);
@@ -275,18 +273,7 @@ export function finalizeCommunityMessengerCallTerminalExit(
     void hardClearActiveCallSession(sid, source);
   }
   releaseCallActionLock(source);
-  navigateToCommunityMessengerCallLogsAfterTerminal(router);
-}
-
-/** 종료·거절·취소·missed 직후 — return path 무시하고 통화 목록으로 */
-export function navigateToCommunityMessengerCallLogsAfterTerminal(router: { replace: (href: string) => void }): void {
-  console.info("[call-flow] call_return_navigation_decision", {
-    target: COMMUNITY_MESSENGER_CALL_LOGS_HREF,
-    reason: "terminal_call_logs",
-    hasReturnPath: false,
-    hasRoomIdFallback: false,
-  });
-  router.replace(COMMUNITY_MESSENGER_CALL_LOGS_HREF);
+  navigateBackFromCommunityMessengerCall(router, roomIdFallback);
 }
 
 export function navigateBackFromCommunityMessengerCall(

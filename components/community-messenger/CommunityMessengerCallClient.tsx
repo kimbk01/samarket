@@ -834,7 +834,7 @@ export function CommunityMessengerCallClient({
       setRingingDismissUiLatch(true);
       if (terminalNavigateBackOnceRef.current !== active.id) {
         terminalNavigateBackOnceRef.current = active.id;
-        finalizeCommunityMessengerCallTerminalExit(router, active.id, "ringing_dismiss");
+        finalizeCommunityMessengerCallTerminalExit(router, active.id, "ringing_dismiss", active.roomId);
       }
     },
     [router]
@@ -896,7 +896,7 @@ export function CommunityMessengerCallClient({
           terminalNavigateBackOnceRef.current !== cur.id
         ) {
           terminalNavigateBackOnceRef.current = cur.id;
-          finalizeCommunityMessengerCallTerminalExit(router, cur.id, "remote_terminal_bus");
+          finalizeCommunityMessengerCallTerminalExit(router, cur.id, "remote_terminal_bus", cur.roomId);
         }
       }
     });
@@ -3170,7 +3170,12 @@ export function CommunityMessengerCallClient({
     dibayIncomingLaneStopRing("reject_pressed", sessionId);
     dismissAllIncomingCallNotificationsFireAndForget(sessionId);
     runIncomingCallCleanup({ sessionId, reason: "reject_hydrate", stopRingtone: false });
-    finalizeCommunityMessengerCallTerminalExit(router, sessionId, "reject_hydrate");
+    finalizeCommunityMessengerCallTerminalExit(
+      router,
+      sessionId,
+      "reject_hydrate",
+      sessionRef.current?.roomId ?? null
+    );
     try {
       const json = await callEngineActions.patch({
         callId: sessionId,
@@ -3380,7 +3385,7 @@ export function CommunityMessengerCallClient({
       terminalNavigateBackOnceRef.current !== sid
     ) {
       terminalNavigateBackOnceRef.current = sid;
-      finalizeCommunityMessengerCallTerminalExit(router, sid, "caller_end");
+      finalizeCommunityMessengerCallTerminalExit(router, sid, "caller_end", roomId);
     }
     postCommunityMessengerCallSessionTerminalBusEvent({
       sessionId: sid,
@@ -4417,7 +4422,7 @@ export function CommunityMessengerCallClient({
     const sid = (s?.id ?? sessionId).trim();
     if (sid) {
       terminalNavigateBackOnceRef.current = sid;
-      finalizeCommunityMessengerCallTerminalExit(router, sid, "terminal_close_view");
+      finalizeCommunityMessengerCallTerminalExit(router, sid, "terminal_close_view", s?.roomId ?? null);
     }
   }, [router, sessionId]);
 
