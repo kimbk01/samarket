@@ -80,7 +80,9 @@ import { isMainBottomNavDisplayTabActive } from "@/lib/main-menu/main-bottom-nav
 import { isMainBottomNavUnifiedInboxTabId } from "@/lib/community-messenger/messenger-entry-origin";
 import { dismissLoginRequiredSheet, requireAuthAction } from "@/lib/auth/require-auth-action";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { isClientSignupComplete } from "@/lib/auth/client-signup-gate";
+import { isClientSignupComplete, profileToDibaySignupInput } from "@/lib/auth/client-signup-gate";
+import { evaluateProfileRequirements } from "@/lib/profile/require-profile-completion";
+import { toProfileActionType } from "@/lib/profile/profile-requirements";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import { useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
 import type {
@@ -1307,21 +1309,41 @@ export function BottomNav({
         });
         if (!guardBeforeNavigate(targetHref)) return false;
         if (!targetHref.includes("/community-messenger")) return true;
-        /**
-         * messenger_open 은 profile gate 없음(toProfileActionType → null).
-         * 로그인·가입완료 사용자는 표준 commit(beginMenuNavigation·dual-panel·pending) 경로.
-         * 미로그인만 requireAuthAction — 이전 router.push 단독 경로는 pending 패널·슬라이드 미참여 병목.
-         */
         const cached = getCurrentUser();
-        if (cached?.id && isClientSignupComplete(cached)) return true;
-        void requireAuthAction(
-          "messenger_open",
-          () => {
-            router.push(targetHref);
-          },
-          { next: targetHref },
-        );
-        return false;
+        if (!cached?.id || !isClientSignupComplete(cached)) {
+          void requireAuthAction(
+            "messenger_open",
+            () => {
+              router.push(targetHref);
+            },
+            { next: targetHref },
+          );
+          return false;
+        }
+        const profileAction = toProfileActionType("messenger_open");
+        if (profileAction) {
+          const signupInput = profileToDibaySignupInput(cached);
+          const evaluation = evaluateProfileRequirements(
+            {
+              ...signupInput,
+              nickname: cached.nickname ?? signupInput.display_name,
+              phone_verified: cached.phone_verified,
+              phone_verified_at: cached.phone_verified_at ?? null,
+            },
+            profileAction,
+          );
+          if (!evaluation.satisfied) {
+            void requireAuthAction(
+              "messenger_open",
+              () => {
+                router.push(targetHref);
+              },
+              { next: targetHref },
+            );
+            return false;
+          }
+        }
+        return true;
       };
       const closeSwitcherOnNav = undefined;
 

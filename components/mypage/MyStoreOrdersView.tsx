@@ -34,6 +34,7 @@ import {
   buildMessengerContextMetaFromStoreOrder,
 } from "@/lib/community-messenger/store-order-messenger-context";
 import { buildStoreOrderMessengerRoomHref } from "@/lib/chats/surfaces/order-chat-surface";
+import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import {
   deleteMeStoreOrder,
   fetchMeStoreOrdersListDeduped,
@@ -553,6 +554,16 @@ function MyStoreOrderCard({
           <Link
             href={chatHref}
             className={actionCellSignature}
+            onClick={(e) => {
+              e.preventDefault();
+              void requireAuthAction(
+                "order_chat",
+                () => {
+                  router.push(chatHref);
+                },
+                { next: chatHref }
+              );
+            }}
             onMouseEnter={onChatPointerEnter}
             onFocus={onChatPointerEnter}
           >
@@ -720,10 +731,12 @@ export function MyStoreOrdersView({
   const openChatOrder = useCallback(
     (orderId: string) => {
       if (!isDeliveryHub) return;
-      setExpandedOrderId(null);
-      setReviewOrderId(null);
-      router.replace("/orders", { scroll: false });
-      setChatOrderId(orderId);
+      void requireAuthAction("order_chat", () => {
+        setExpandedOrderId(null);
+        setReviewOrderId(null);
+        router.replace("/orders", { scroll: false });
+        setChatOrderId(orderId);
+      });
     },
     [isDeliveryHub, router]
   );

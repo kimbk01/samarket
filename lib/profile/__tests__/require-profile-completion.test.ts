@@ -54,6 +54,41 @@ describe("require-profile-completion", () => {
     expect(ok.satisfied).toBe(true);
   });
 
+  it("messenger_open requires phone, dibay_id, display_name", () => {
+    const missing = evaluateProfileRequirements(
+      {
+        display_name: "User",
+        phone_verified: false,
+        dibay_id_locked: false,
+      },
+      "messenger_open"
+    );
+    expect(missing.satisfied).toBe(false);
+    expect(missing.missingFields).toContain("phone_verified");
+    expect(missing.missingFields).toContain("dibay_id");
+
+    const ok = evaluateProfileRequirements(
+      {
+        display_name: "User",
+        phone_verified: true,
+        dibay_id: "my_id",
+        dibay_id_locked: true,
+        username_confirmed: true,
+      },
+      "messenger_open"
+    );
+    expect(ok.satisfied).toBe(true);
+  });
+
+  it("order_chat shares messenger chat access fields", async () => {
+    const { MESSENGER_CHAT_ACCESS_FIELDS, ACTION_PROFILE_REQUIREMENTS } = await import(
+      "@/lib/profile/profile-requirements"
+    );
+    expect(ACTION_PROFILE_REQUIREMENTS.order_chat).toEqual([...MESSENGER_CHAT_ACCESS_FIELDS]);
+    expect(ACTION_PROFILE_REQUIREMENTS.trade_chat).toEqual([...MESSENGER_CHAT_ACCESS_FIELDS]);
+    expect(ACTION_PROFILE_REQUIREMENTS.messenger_new_chat).toEqual([...MESSENGER_CHAT_ACCESS_FIELDS]);
+  });
+
   it("delivery_order requires phone and address", () => {
     const result = evaluateProfileRequirements(
       {

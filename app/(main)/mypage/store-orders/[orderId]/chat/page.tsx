@@ -2,8 +2,10 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
+import { OrderChatProfileGateBlocked } from "@/components/mypage/OrderChatProfileGateBlocked";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenticated-user-id";
 import { ensureStoreOrderMessengerRoom } from "@/lib/community-messenger/store-order-chat-service";
+import { requireProfileFieldsForAction } from "@/lib/profile/require-profile-completion.server";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
 import { translate } from "@/lib/i18n/messages";
@@ -47,13 +49,35 @@ async function MypageStoreOrderChatPageBody({
   }
 
   const sb = tryGetSupabaseForStores();
-  const result = sb ? await ensureStoreOrderMessengerRoom(sb as any, { orderId, userId }) : null;
-  if (result == null || !result.ok) {
+  if (!sb) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-sam-app px-4 text-center">
+        <p className="text-sm text-sam-fg">{translate(lang, "common_content_unavailable")}</p>
+      </div>
+    );
+  }
+
+  const profileGate = await requireProfileFieldsForAction(
+    sb as import("@supabase/supabase-js").SupabaseClient,
+    userId,
+    "order_chat"
+  );
+  if (!profileGate.ok) {
+    return (
+      <OrderChatProfileGateBlocked
+        orderId={orderId}
+        detailHref={`/mypage/store-orders/${encodeURIComponent(orderId)}`}
+      />
+    );
+  }
+
+  const result = await ensureStoreOrderMessengerRoom(sb as any, { orderId, userId });
+  if (!result.ok) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-sam-app px-4 text-center">
         <p className="text-sm text-sam-fg">
           채팅을 열 수 없습니다.
-          {result && !result.ok ? ` (${result.error})` : ""}
+          {` (${result.error})`}
         </p>
         <Link
           href={`/mypage/store-orders/${encodeURIComponent(orderId)}`}

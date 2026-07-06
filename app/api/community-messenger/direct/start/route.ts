@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
   const signupGate = await requireSignupCompleteForUser(sb, auth.userId);
   if (!signupGate.ok) return signupGate.response;
 
-  const profileGate = await requireProfileFieldsForAction(sb, auth.userId, "messenger_new_chat");
+  const profileGate = await requireProfileFieldsForAction(sb, auth.userId, "messenger_open");
   if (!profileGate.ok) return profileGate.response;
 
   const rateLimit = await enforceRateLimit({

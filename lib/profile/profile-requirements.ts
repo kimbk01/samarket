@@ -8,6 +8,13 @@ export type ProfileRequirementField =
   | "default_address"
   | "recipient_phone";
 
+/** 메신저·채팅 진입 SSOT — messenger_open / trade_chat / order_chat 등이 동일 배열을 참조한다. */
+export const MESSENGER_CHAT_ACCESS_FIELDS = [
+  "phone_verified",
+  "dibay_id",
+  "display_name",
+] as const satisfies readonly ProfileRequirementField[];
+
 export type ProfileActionType =
   | "community_write"
   | "community_comment"
@@ -17,9 +24,11 @@ export type ProfileActionType =
   | "trade_create_item"
   | "trade_chat"
   | "trade_buy"
+  | "messenger_open"
   | "messenger_new_chat"
   | "messenger_add_friend"
   | "friend_chat"
+  | "order_chat"
   | "delivery_order"
   | "owner_store_register";
 
@@ -47,6 +56,10 @@ export function toProfileActionType(actionType: RequireAuthActionType): ProfileA
       return "messenger_new_chat";
     case "friend_chat":
       return "friend_chat";
+    case "messenger_open":
+      return "messenger_open";
+    case "order_chat":
+      return "order_chat";
     case "delivery_order":
       return "delivery_order";
     case "owner_dashboard":
@@ -63,11 +76,13 @@ export const ACTION_PROFILE_REQUIREMENTS: Record<ProfileActionType, ProfileRequi
   community_bookmark: [],
   community_report: [],
   trade_create_item: ["phone_verified", "display_name", "default_address"], // spec: trade_sell
-  trade_chat: ["phone_verified", "display_name"],
+  trade_chat: [...MESSENGER_CHAT_ACCESS_FIELDS],
   trade_buy: ["phone_verified", "default_address"],
-  messenger_new_chat: ["display_name"],
+  messenger_open: [...MESSENGER_CHAT_ACCESS_FIELDS],
+  messenger_new_chat: [...MESSENGER_CHAT_ACCESS_FIELDS],
   messenger_add_friend: ["display_name", "dibay_id"],
-  friend_chat: ["display_name"],
+  friend_chat: [...MESSENGER_CHAT_ACCESS_FIELDS],
+  order_chat: [...MESSENGER_CHAT_ACCESS_FIELDS],
   delivery_order: ["phone_verified", "default_address", "recipient_phone"], // spec: delivery_checkout
   owner_store_register: ["phone_verified"],
 };
@@ -89,9 +104,11 @@ export function modalVariantForAction(actionType: ProfileActionType): ProfileCom
     case "trade_chat":
     case "trade_buy":
       return "trade";
+    case "messenger_open":
     case "messenger_new_chat":
     case "messenger_add_friend":
     case "friend_chat":
+    case "order_chat":
       return "messenger";
     case "delivery_order":
       return "delivery";

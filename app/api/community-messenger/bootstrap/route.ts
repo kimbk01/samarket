@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { requireProfileFieldsForAction } from "@/lib/profile/require-profile-completion.server";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import type { CommunityMessengerBootstrap } from "@/lib/community-messenger/types";
 import type { CommunityMessengerBootstrapDiagnostics } from "@/lib/community-messenger/service";
@@ -376,6 +378,20 @@ export async function GET(request: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   const authMs = Math.round(performance.now() - tAuth);
   if (!auth.ok) return auth.response;
+
+  let sb: ReturnType<typeof getSupabaseServer>;
+  try {
+    sb = getSupabaseServer();
+  } catch {
+    return NextResponse.json({ ok: false, error: "server_config" }, { status: 503 });
+  }
+
+  const profileGate = await requireProfileFieldsForAction(
+    sb as import("@supabase/supabase-js").SupabaseClient,
+    auth.userId,
+    "messenger_open"
+  );
+  if (!profileGate.ok) return profileGate.response;
 
   const rateLimit = await enforceRateLimit({
     key: `community-messenger:bootstrap:${getRateLimitKey(request, auth.userId)}`,
