@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { HomeSyncSnapshotUnavailableError } from "@/lib/community-messenger/home-sync-snapshot";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
-import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { requireProfileFieldsForAction } from "@/lib/profile/require-profile-completion.server";
 import { enforceRateLimit, getRateLimitKey, jsonOkWithRequest } from "@/lib/http/api-route";
 import type { CommunityMessengerHomeSyncBundlePayload } from "@/lib/community-messenger/get-community-messenger-home-sync-bundle";
 import {
@@ -182,20 +180,6 @@ export async function GET(req: NextRequest) {
     }
     return auth.response;
   }
-
-  let sb: ReturnType<typeof getSupabaseServer>;
-  try {
-    sb = getSupabaseServer();
-  } catch {
-    return NextResponse.json({ ok: false, error: "server_config" }, { status: 503 });
-  }
-
-  const profileGate = await requireProfileFieldsForAction(
-    sb as import("@supabase/supabase-js").SupabaseClient,
-    auth.userId,
-    "messenger_open"
-  );
-  if (!profileGate.ok) return profileGate.response;
 
   const tRate0 = performance.now();
   const rateLimit = await enforceRateLimit({

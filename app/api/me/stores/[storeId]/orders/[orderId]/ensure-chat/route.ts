@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
-import { requireProfileFieldsForAction } from "@/lib/profile/require-profile-completion.server";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
 import { ensureStoreOrderChatWithBootstrap } from "@/lib/stores/store-order-ensure-chat-with-bootstrap";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
@@ -29,13 +28,6 @@ export async function POST(
   if (!sb) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
-
-  const profileGate = await requireProfileFieldsForAction(
-    sb as import("@supabase/supabase-js").SupabaseClient,
-    userId,
-    "order_chat"
-  );
-  if (!profileGate.ok) return profileGate.response;
 
   const gate = await getStoreIfOwner(sb, userId, sid);
   if (!gate.ok) {

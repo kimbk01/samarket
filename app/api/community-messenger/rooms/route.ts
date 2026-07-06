@@ -34,20 +34,6 @@ export async function GET(req: NextRequest) {
   const session = await validateActiveSession(auth.userId);
   if (!session.ok) return session.response;
 
-  let sb: ReturnType<typeof getSupabaseServer>;
-  try {
-    sb = getSupabaseServer();
-  } catch {
-    return jsonError("server_config", 503);
-  }
-
-  const profileGate = await requireProfileFieldsForAction(
-    sb as import("@supabase/supabase-js").SupabaseClient,
-    auth.userId,
-    "messenger_open"
-  );
-  if (!profileGate.ok) return profileGate.response;
-
   const listRateLimit = await enforceRateLimit({
     key: `community-messenger:rooms-list:${getRateLimitKey(req, auth.userId)}`,
     limit: 90,
@@ -87,7 +73,7 @@ export async function POST(req: NextRequest) {
   const profileGate = await requireProfileFieldsForAction(
     sb as import("@supabase/supabase-js").SupabaseClient,
     auth.userId,
-    "messenger_open"
+    "messenger_new_chat"
   );
   if (!profileGate.ok) return profileGate.response;
 

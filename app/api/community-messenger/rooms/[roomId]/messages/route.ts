@@ -1,8 +1,7 @@
 import { after, NextRequest } from "next/server";
 import type { CommunityMessengerMessagesAfterPerf } from "@/lib/community-messenger/service";
 import { ensureApiRouteAuthGate } from "@/lib/auth/ensure-api-route-auth-gate";
-import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { requireProfileFieldsForAction } from "@/lib/profile/require-profile-completion.server";
+import { requirePhoneVerified } from "@/lib/auth/server-guards";
 import {
   enforceRateLimit,
   getRateLimitKey,
@@ -33,20 +32,6 @@ export async function GET(
   const auth_ms = authGate.auth_ms;
   const auth_cache_hit = authGate.auth_cache_hit;
   const auth_source = authGate.auth_source;
-
-  let sb: ReturnType<typeof getSupabaseServer>;
-  try {
-    sb = getSupabaseServer();
-  } catch {
-    return jsonError("server_config", 503);
-  }
-
-  const profileGate = await requireProfileFieldsForAction(
-    sb as import("@supabase/supabase-js").SupabaseClient,
-    auth.userId,
-    "messenger_open"
-  );
-  if (!profileGate.ok) return profileGate.response;
 
   const rateLimit = await enforceRateLimit({
     key: `community-messenger:message-page:${getRateLimitKey(req, auth.userId)}`,
@@ -181,7 +166,7 @@ export async function POST(
   const userId = authGate.userId;
   const rawRoomId = String(routeParams.roomId ?? "").trim();
 
-  const [rateLimit, profileGate, canon] = await Promise.all([
+  const [rateLimit, phone, canon] = await Promise.all([
     enforceRateLimit({
       key: `community-messenger:message-send:${getRateLimitKey(req, userId)}`,
       limit: 30,
@@ -189,29 +174,14 @@ export async function POST(
       message: "메신저 전송 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
       code: "community_messenger_message_rate_limited",
     }),
-    (async () => {
-      let sb: ReturnType<typeof getSupabaseServer>;
-      try {
-        sb = getSupabaseServer();
-      } catch {
-        return {
-          ok: false as const,
-          response: jsonError("server_config", 503),
-        };
-      }
-      return requireProfileFieldsForAction(
-        sb as import("@supabase/supabase-js").SupabaseClient,
-        userId,
-        "messenger_open"
-      );
-    })(),
+    requirePhoneVerified(userId),
     import("@/lib/community-messenger/server/messenger-room-canonical-resolve-api").then(
       ({ messengerRoomCanonicalOrJsonError }) => messengerRoomCanonicalOrJsonError(userId, rawRoomId)
     ),
   ]);
   if (!parsed.ok) return parsed.response;
   if (!rateLimit.ok) return rateLimit.response;
-  if (!profileGate.ok) return profileGate.response;
+  if (!phone.ok) return phone.response;
   if (!canon.ok) return canon.response;
   const { recordMessengerApiTiming } = await import("@/lib/community-messenger/monitoring/messenger-api-route-timing");
   const body = parsed.value;

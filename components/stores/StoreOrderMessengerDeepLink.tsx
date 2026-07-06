@@ -2,8 +2,7 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { requireAuthAction } from "@/lib/auth/require-auth-action";
+import { usePathname, useSearchParams } from "next/navigation";
 import { buildStoreOrderMessengerRoomHref } from "@/lib/chats/surfaces/order-chat-surface";
 import {
   buildMessengerContextMetaFromStoreOrder,
@@ -25,7 +24,6 @@ export function StoreOrderMessengerDeepLink({
   context?: StoreOrderMessengerContextInput | null;
 }) {
   const { t } = useI18n();
-  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const id = roomId.trim();
@@ -51,16 +49,6 @@ export function StoreOrderMessengerDeepLink({
         className ??
         "delivery-ui inline-flex w-full items-center justify-center rounded-[var(--delivery-radius)] border border-[color:var(--delivery-primary)] bg-[color:var(--delivery-primary-soft)] px-3 py-3 text-sm font-bold text-[color:var(--delivery-primary)] shadow-none"
       }
-      onClick={(e) => {
-        e.preventDefault();
-        void requireAuthAction(
-          "order_chat",
-          () => {
-            router.push(href);
-          },
-          { next: href }
-        );
-      }}
     >
       {label}
     </Link>

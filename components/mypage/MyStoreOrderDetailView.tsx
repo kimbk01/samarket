@@ -31,7 +31,6 @@ import { StoreOrderReorderAgainButton } from "@/components/mypage/StoreOrderReor
 import { BuyerStoreOrderCompletedReviewBlock } from "@/components/mypage/BuyerStoreOrderCompletedReviewBlock";
 import type { BuyerStoreOrderReviewSummary } from "@/lib/stores/buyer-store-order-review-meta";
 import { StoreOrderMessengerDeepLink } from "@/components/stores/StoreOrderMessengerDeepLink";
-import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { buildMessengerContextInputFromStoreOrderSnapshot } from "@/lib/community-messenger/store-order-messenger-context";
 import {
@@ -572,21 +571,12 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
               {t("mypage_comp_order_chat_disabled")}
             </span>
           ) : (
-            <button
-              type="button"
-              onClick={() => {
-                void requireAuthAction(
-                  "order_chat",
-                  () => {
-                    router.push(chatHref);
-                  },
-                  { next: chatHref }
-                );
-              }}
-              className="delivery-ui inline-flex w-full items-center justify-center rounded-[var(--delivery-radius)] border border-[color:var(--delivery-primary)] bg-[color:var(--delivery-primary-soft)] px-3 py-3 text-sm font-bold text-[color:var(--delivery-primary)] shadow-none"
+            <Link
+              href={chatHref}
+              className="delivery-ui inline-flex items-center justify-center rounded-[var(--delivery-radius)] border border-[color:var(--delivery-primary)] bg-[color:var(--delivery-primary-soft)] px-3 py-3 text-sm font-bold text-[color:var(--delivery-primary)] shadow-none"
             >
               {t("store_owner_order_progress_chat_title")}
-            </button>
+            </Link>
           )}
           {order.store_slug ? (
             <Link
@@ -975,21 +965,9 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
 
       <div className="space-y-2">
         {!orderChatDisabled ? (
-          <button
-            type="button"
-            onClick={() => {
-              void requireAuthAction(
-                "order_chat",
-                () => {
-                  router.push(chatHref);
-                },
-                { next: chatHref }
-              );
-            }}
-            className="block w-full text-center text-sm text-signature underline"
-          >
+          <Link href={chatHref} className="block text-center text-sm text-signature underline">
             {t("mypage_comp_order_chat_nav")}
-          </button>
+          </Link>
         ) : null}
         <Link href={listHref} className="block text-center text-sm text-signature underline">
           {t("mypage_comp_back_to_list_full")}

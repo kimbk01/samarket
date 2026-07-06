@@ -28,7 +28,6 @@ import {
   mergeRealtimeRecordIntoOrderDelivery,
 } from "@/lib/business/owner-store-order-delivery-row-rt";
 import { mergeOwnerStoreOrderListRows } from "@/lib/business/merge-owner-store-order-list-rows";
-import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import {
   listRowToOwnerOrder,
   normalizeOwnerStoreOrderListRow,
@@ -138,7 +137,7 @@ export function OwnerStoreOrdersView() {
 
   /** 펼치기 UI — URL만 쓰면 Suspense 리마운트로 취소 탭·버튼이 먹통이 될 수 있음 */
   const [expandedOrderId, setExpandedOrderId] = useState(highlightOrderId);
-  const [chatOrderId, setChatOrderId] = useState("");
+  const [chatOrderId, setChatOrderId] = useState(highlightChatOrderId);
 
   const [state, setState] = useState(() =>
     buildOwnerOrdersViewInitialState(
@@ -393,30 +392,8 @@ export function OwnerStoreOrdersView() {
   }, [highlightOrderId]);
 
   useEffect(() => {
-    const oid = highlightChatOrderId.trim();
-    if (!oid) {
-      setChatOrderId("");
-      return;
-    }
-    let cancelled = false;
-    void requireAuthAction("order_chat", () => {
-      if (!cancelled) setChatOrderId(oid);
-    }).then((ok) => {
-      if (cancelled || ok) return;
-      setChatOrderId("");
-      const sid = state.kind === "ok" ? state.storeId : urlStoreId;
-      if (sid) {
-        replaceOwnerOrdersUrlQuery({
-          storeId: sid,
-          tab,
-          orderId: expandedOrderId || highlightOrderId || undefined,
-        });
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [expandedOrderId, highlightChatOrderId, highlightOrderId, state, tab, urlStoreId]);
+    setChatOrderId(highlightChatOrderId);
+  }, [highlightChatOrderId]);
 
   useEffect(() => {
     deepLinkEnrichAttemptsRef.current = 0;
@@ -714,7 +691,7 @@ export function OwnerStoreOrdersView() {
     }
   }, [state, activeExpandOrderId, tab, router, enrichOrder, searchParams]);
 
-  const activeChatOrderId = chatOrderId;
+  const activeChatOrderId = chatOrderId || highlightChatOrderId;
 
   useEffect(() => {
     if (state.kind !== "ok" || !activeChatOrderId) return;
@@ -895,14 +872,12 @@ export function OwnerStoreOrdersView() {
     (orderId: string) => {
       if (state.kind !== "ok") return;
       const oid = orderId.trim();
-      void requireAuthAction("order_chat", () => {
-        setChatOrderId(oid);
-        replaceOwnerOrdersUrlQuery({
-          storeId: state.storeId,
-          tab,
-          chatOrderId: oid,
-          orderId: expandedOrderId || undefined,
-        });
+      setChatOrderId(oid);
+      replaceOwnerOrdersUrlQuery({
+        storeId: state.storeId,
+        tab,
+        chatOrderId: oid,
+        orderId: expandedOrderId || undefined,
       });
     },
     [expandedOrderId, state, tab]
