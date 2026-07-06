@@ -4332,9 +4332,10 @@ export async function listCommunityMessengerMyChatsAndGroups(
       ? prefetchHs5LegacyUnreadRows(sbList as any, userId, hs5Hints.cmRoomIds, hs5Hints.productChatIds, options?.trace)
       : Promise.resolve(null);
 
+  const useLabelsOnlyParticipantHydrate = isCritical || options?.homeSyncSkipHeavyEnrich === true;
   const tHydrate = performance.now();
   const [profileMembers, unreadPreloaded] = await Promise.all([
-    isCritical
+    useLabelsOnlyParticipantHydrate
       ? hydrateProfilesLabelsOnly(userId, allIds, { includeSelf: true, trace: options?.trace })
       : hydrateProfiles(userId, allIds, { includeSelf: true }),
     unreadPrefetchPromise,
@@ -4344,13 +4345,17 @@ export async function listCommunityMessengerMyChatsAndGroups(
   const participantsProfilesMs = hs5HydrateUnreadParallelWallMs;
   if (homeSyncBreakdownEnabled()) {
     phaseRows.push({
-      phase: isCritical ? "hydrate_profiles_labels_only_fetch" : "hydrate_profiles_full_with_relations",
+      phase: useLabelsOnlyParticipantHydrate
+        ? "hydrate_profiles_labels_only_fetch"
+        : "hydrate_profiles_full_with_relations",
       ms: participantsProfilesMs,
     });
   }
   if (messengerPerfStepsEnabled()) {
     logMessengerPerfMs(
-      isCritical ? "hydrate_profiles_labels_only_fetch" : "hydrate_profiles_full_with_relations",
+      useLabelsOnlyParticipantHydrate
+        ? "hydrate_profiles_labels_only_fetch"
+        : "hydrate_profiles_full_with_relations",
       participantsProfilesMs
     );
   }
