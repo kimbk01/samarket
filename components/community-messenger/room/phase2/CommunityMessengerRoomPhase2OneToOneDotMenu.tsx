@@ -42,6 +42,7 @@ import {
 } from "@/components/community-messenger/room/phase2/community-messenger-room-phase2-peer-notice-logic";
 import { generalFriendDirectRoomGate, messengerRoomShowsConfirmedDeliveryPresentation, messengerRoomShowsConfirmedTradePresentation, resolveMessengerDotMenuCallKind, resolveMessengerDotMenuCallVisibility } from "@/lib/community-messenger/messenger-room-domain";
 import { logCallV3ButtonClick, logCallV3ButtonRender } from "@/lib/community-messenger/call-v3/call-v3-debug";
+import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 
 function mapSellerListingToProductStatus(
   raw: unknown,
@@ -110,6 +111,7 @@ function buildTradeContextFromMeta(
 
 export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: MessengerRoomPhase2ViewModel }) {
   const { t } = useI18n();
+  const [dotMenuOutgoingConfirm, setDotMenuOutgoingConfirm] = useState<null | "voice" | "video">(null);
 
   const peerUserId = (vm.snapshot.room.peerUserId ?? "").trim();
   const peerProfile = useMemo(
@@ -376,6 +378,7 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
   }, [peerProfile?.blocked, peerUserId, t, vm]);
 
   return (
+    <>
     <ChatRoomMoreMenu
       roomType={roomType}
       relation={relation}
@@ -414,8 +417,7 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
           peerId: peerUserId,
           mediaType: "audio",
         });
-        vm.dismissRoomSheet();
-        void vm.startManagedDirectCall("voice");
+        setDotMenuOutgoingConfirm("voice");
       }}
       onVideoCall={() => {
         if (!assertGeneralDirectCallAllowed("video")) return;
@@ -425,12 +427,27 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
           peerId: peerUserId,
           mediaType: "video",
         });
-        vm.dismissRoomSheet();
-        void vm.startManagedDirectCall("video");
+        setDotMenuOutgoingConfirm("video");
       }}
       onToggleMute={() => void vm.toggleRoomMute()}
       onToggleArchive={() => void vm.toggleRoomArchive()}
       onLeaveRoom={() => void vm.requestLeaveRoom()}
     />
+    {dotMenuOutgoingConfirm ? (
+      <MessengerOutgoingCallConfirmDialog
+        open
+        peerLabel={peerProfile?.label?.trim() || vm.snapshot.room.title?.trim() || ""}
+        kind={dotMenuOutgoingConfirm}
+        busy={vm.outgoingDialLocked}
+        onCancel={() => setDotMenuOutgoingConfirm(null)}
+        onConfirm={() => {
+          const kind = dotMenuOutgoingConfirm;
+          setDotMenuOutgoingConfirm(null);
+          vm.dismissRoomSheet();
+          void vm.startManagedDirectCall(kind);
+        }}
+      />
+    ) : null}
+    </>
   );
 }

@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { MessengerFriendProfileSheet } from "@/components/community-messenger/MessengerFriendProfileSheet";
+import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 import type { MessengerRoomPhase2ViewModel } from "@/lib/community-messenger/room/phase2/messenger-room-phase2-view-model";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 
@@ -13,6 +14,7 @@ type Props = {
 
 /** 1:1 일반 친구 방 헤더 탭 — 프로필 시트(통화만). Home 친구 액션 API 복제 없음. */
 export function CommunityMessengerRoomFriendProfileSheetHost({ open, onClose, vm }: Props) {
+  const [outgoingConfirmKind, setOutgoingConfirmKind] = useState<null | "voice" | "video">(null);
   const peerUserId = (vm.snapshot.room.peerUserId ?? "").trim();
 
   const profile = useMemo((): CommunityMessengerProfileLite | null => {
@@ -35,22 +37,39 @@ export function CommunityMessengerRoomFriendProfileSheetHost({ open, onClose, vm
     onClose();
   }, [onClose]);
 
-  if (!open || !profile) return null;
+  if ((!open && !outgoingConfirmKind) || !profile) return null;
 
   return (
-    <MessengerFriendProfileSheet
-      profile={profile}
-      busyId={null}
-      context="roomHeader"
-      onClose={handleClose}
-      onVoiceCall={() => {
-        handleClose();
-        void vm.startManagedDirectCall("voice");
-      }}
-      onVideoCall={() => {
-        handleClose();
-        void vm.startManagedDirectCall("video");
-      }}
-    />
+    <>
+      {open ? (
+        <MessengerFriendProfileSheet
+          profile={profile}
+          busyId={null}
+          context="roomHeader"
+          onClose={handleClose}
+          onVoiceCall={() => {
+            setOutgoingConfirmKind("voice");
+          }}
+          onVideoCall={() => {
+            setOutgoingConfirmKind("video");
+          }}
+        />
+      ) : null}
+      {outgoingConfirmKind ? (
+        <MessengerOutgoingCallConfirmDialog
+          open
+          peerLabel={profile.label?.trim() || vm.snapshot.room.title?.trim() || ""}
+          kind={outgoingConfirmKind}
+          busy={vm.outgoingDialLocked}
+          onCancel={() => setOutgoingConfirmKind(null)}
+          onConfirm={() => {
+            const kind = outgoingConfirmKind;
+            setOutgoingConfirmKind(null);
+            handleClose();
+            void vm.startManagedDirectCall(kind);
+          }}
+        />
+      ) : null}
+    </>
   );
 }
