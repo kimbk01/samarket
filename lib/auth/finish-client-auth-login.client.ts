@@ -14,7 +14,12 @@ import {
   clearStoredLoginRequiredDetail,
   consumePendingAuthAction,
 } from "@/lib/auth/require-auth-action";
-import { sanitizeFreshLoginLandingPath, sanitizeNextPath } from "@/lib/auth/safe-next-path";
+import { DIBAY_SIGNUP_TERMS_PATH } from "@/lib/auth/dibay-signup-status";
+import {
+  sanitizeFreshLoginLandingPath,
+  sanitizeNextPath,
+  withNextSearchParam,
+} from "@/lib/auth/safe-next-path";
 import { fetchMeProfileDeduped } from "@/lib/profile/fetch-me-profile-deduped";
 import { markCallMediaOnboardingPendingSource } from "@/lib/permissions/dibay-device-permission-onboarding";
 
@@ -24,13 +29,26 @@ type RouterLike = {
 
 const SIGNUP_STATUS_ROUTE_TIMEOUT_MS = 900;
 
-export type FinishClientAuthLoginInput = {
+/** Native exchange 등에서 전달 — 약관 미동의 시 redirectTo보다 우선 */
+export type FinishClientAuthLoginTermsHandoff = {
+  needsTermsAgreement?: boolean | null;
+  consentComplete?: boolean | null;
+  signupComplete?: boolean | null;
+};
+
+export type FinishClientAuthLoginInput = FinishClientAuthLoginTermsHandoff & {
   redirectTo?: string | null;
   pendingToken?: string | null;
   next?: string | null;
   onCloseModal?: () => void;
   router?: RouterLike;
 };
+
+function requiresTermsAgreementHandoff(input: FinishClientAuthLoginTermsHandoff): boolean {
+  if (input.needsTermsAgreement === true) return true;
+  if (input.consentComplete === false) return true;
+  return false;
+}
 
 function canUseRouterReplace(target: string): boolean {
   if (typeof window === "undefined") return false;
@@ -42,11 +60,21 @@ function canUseRouterReplace(target: string): boolean {
   }
 }
 
-/** Navigation 직전 — redirectTo·next 만으로 즉시 확정 (signup-status blocking 없음). */
-function resolveImmediateLoginTarget(input: {
-  redirectTo?: string | null;
-  next?: string | null;
-}): string {
+/**
+ * Navigation 직전 — 약관 미동의는 exchange redirectTo(/mypage 등)보다 우선.
+ * signup-status fetch는 blocking 하지 않는다.
+ */
+export function resolveImmediateLoginTarget(
+  input: FinishClientAuthLoginTermsHandoff & {
+    redirectTo?: string | null;
+    next?: string | null;
+  },
+): string {
+  const safeNext = sanitizeNextPath(input.next ?? null);
+  if (requiresTermsAgreementHandoff(input)) {
+    return withNextSearchParam(DIBAY_SIGNUP_TERMS_PATH, safeNext);
+  }
+
   const fromExchange = input.redirectTo?.trim()
     ? sanitizeFreshLoginLandingPath(input.redirectTo.trim())
     : null;
@@ -151,7 +179,7 @@ export async function finishClientAuthLogin(input: FinishClientAuthLoginInput): 
   await primeClientAuthSessionFromSupabase();
   markCallMediaOnboardingPendingSource("first_login");
 
-  const target = resolveImmediateLoginTarget({ redirectTo, next });
+  const target = resolveImmediateLoginTarget(input);
 
   if (router && canUseRouterReplace(target)) {
     router.replace(target);

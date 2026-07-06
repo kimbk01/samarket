@@ -19,9 +19,10 @@ import { findAuthUserByEmail } from "@/lib/auth/naver-oauth";
 import { revokeSessionForWithdrawnMember } from "@/lib/auth/withdrawn-account-guard";
 import { getOnboardingStatus } from "@/lib/auth/get-onboarding-status";
 import { ensurePendingAuthProfileRow } from "@/lib/auth/member-access";
+import { DIBAY_SIGNUP_TERMS_PATH } from "@/lib/auth/dibay-signup-status";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { resolvePostLoginRoute } from "@/lib/auth/resolve-post-login-route";
-import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
+import { sanitizeNextPath, withNextSearchParam } from "@/lib/auth/safe-next-path";
 import { buildRequestSessionMeta } from "@/lib/auth/request-device-info";
 import { syncActiveSessionForUser } from "@/lib/auth/server-guards";
 
@@ -342,7 +343,10 @@ export async function establishAppleNativeSession(
         next: safeNext,
       }) ?? redirectTo;
   } catch {
-    /* 약관 gate fallback */
+    /* web callback 와 동일 — 조회 실패 시 약관 화면 (메인·deep link 직행 금지) */
+    redirectTo = withNextSearchParam(DIBAY_SIGNUP_TERMS_PATH, safeNext);
+    needsTermsAgreement = true;
+    signupComplete = false;
   }
 
   const sessionMeta = buildRequestSessionMeta(ctx.request);

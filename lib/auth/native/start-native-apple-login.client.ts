@@ -14,6 +14,7 @@ import {
 import { logOAuthNativeEvent } from "@/lib/auth/oauth/oauth-native-callback-log";
 import { openProviderEmailConflictFromExchange } from "@/lib/auth/provider-identity/provider-email-conflict.client";
 import { clearStoredLoginRequiredDetail } from "@/lib/auth/require-auth-action";
+import type { FinishClientAuthLoginTermsHandoff } from "@/lib/auth/finish-client-auth-login.client";
 import { isNativeAppleLoginAvailable } from "@/lib/platform/capacitor-native";
 
 export type NativeAppleExchangeResponse = NativeExchangeResponse;
@@ -117,13 +118,28 @@ export function isNativeAppleLoginStartError(code: string): code is NativeAppleA
   );
 }
 
+export type NativeAppleLoginHandoff = FinishClientAuthLoginTermsHandoff & {
+  redirectTo: string | null;
+};
+
+function buildNativeAppleLoginHandoff(
+  exchange: Extract<NativeAppleExchangeResponse, { ok: true }>,
+): NativeAppleLoginHandoff {
+  return {
+    redirectTo: exchange.redirectTo?.trim() ?? null,
+    needsTermsAgreement: exchange.needsTermsAgreement,
+    signupComplete: exchange.signupComplete,
+    consentComplete: exchange.needsTermsAgreement === false || exchange.signupComplete === true,
+  };
+}
+
 /**
  * iOS Capacitor — AuthenticationServices via NativeAppleAuth plugin.
  * Web / Android: caller must use Web OAuth (`startOAuthLogin`).
  */
 export async function startNativeAppleLogin(input?: {
   next?: string | null;
-}): Promise<{ redirectTo: string | null }> {
+}): Promise<NativeAppleLoginHandoff> {
   if (!isNativeAppleLoginAvailable()) {
     throw new NativeAppleAuthError("apple_native_unavailable");
   }
@@ -156,11 +172,12 @@ export async function startNativeAppleLogin(input?: {
 
     logOAuthNativeEvent("apple_native_exchange_success", {
       signupComplete: exchange.signupComplete ?? null,
+      needsTermsAgreement: exchange.needsTermsAgreement ?? null,
       redirectTo: exchange.redirectTo ?? null,
     });
     endOAuthFlow("apple");
     clearStoredLoginRequiredDetail();
-    return { redirectTo: exchange.redirectTo?.trim() ?? null };
+    return buildNativeAppleLoginHandoff(exchange);
   } catch (error) {
     if (error instanceof NativeAppleAuthError && error.code === "user_cancelled") {
       releaseOAuthFlowOnUserCancel();

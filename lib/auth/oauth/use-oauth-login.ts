@@ -48,6 +48,7 @@ import {
   resolveOAuthRoutingShellPlatform,
   waitForCapacitorBridgeReady,
 } from "@/lib/platform/capacitor-native";
+import type { FinishClientAuthLoginTermsHandoff } from "@/lib/auth/finish-client-auth-login.client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export const OAUTH_PENDING_CLEAR_EVENT = "dibay:oauth-pending-clear";
@@ -58,7 +59,7 @@ export type OAuthInlineStatus = "idle" | "preparing" | "opening" | "awaiting_ret
 let sharedPendingProvider: OAuthProvider | null = null;
 const pendingSubscribers = new Set<() => void>();
 
-export type OAuthAuthSuccessInput = {
+export type OAuthAuthSuccessInput = FinishClientAuthLoginTermsHandoff & {
   redirectTo?: string | null;
 };
 
@@ -244,11 +245,11 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
   }, [resetInlineState]);
 
   const completeAuthSuccess = useCallback(
-    async (redirectTo: string | null) => {
+    async (input: OAuthAuthSuccessInput) => {
       clearStoredLoginRequiredDetail();
       try {
         if (onAuthSuccess) {
-          await onAuthSuccess({ redirectTo });
+          await onAuthSuccess(input);
         }
       } finally {
         clearPending();
@@ -400,7 +401,7 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
           setOauthInlineStatus("opening");
           try {
             const result = await startNativeProviderLogin({ provider, next });
-            await completeAuthSuccess(result.redirectTo);
+            await completeAuthSuccess(result);
           } catch (err) {
             await handleOAuthStartFailure(err);
           }

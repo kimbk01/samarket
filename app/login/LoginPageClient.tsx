@@ -14,6 +14,7 @@ import {
 import { finishClientAuthLogin } from "@/lib/auth/finish-client-auth-login.client";
 import { shouldAutoRestoreLoginSessionOnMount } from "@/lib/auth/login-session-auto-restore-policy";
 import { sanitizeNextPath, sanitizeFreshLoginLandingPath, withNextSearchParam } from "@/lib/auth/safe-next-path";
+import type { OAuthAuthSuccessInput } from "@/lib/auth/oauth/use-oauth-login";
 import { dispatchOAuthPendingClear, useOAuthLogin } from "@/lib/auth/oauth/use-oauth-login";
 import { AuthProviderEmailConflictHost } from "@/components/auth/AuthProviderEmailConflictHost";
 import { openProviderEmailConflictFromRedirect } from "@/lib/auth/provider-identity/provider-email-conflict.client";
@@ -78,10 +79,13 @@ function LoginPageContent() {
   const [providersError, setProvidersError] = useState<string | null>(null);
   const [passwordEnabled, setPasswordEnabled] = useState(true);
   const handleAuthSuccess = useCallback(
-    async (input: { redirectTo?: string | null }) => {
+    async (input: OAuthAuthSuccessInput) => {
       await finishClientAuthLogin({
         redirectTo: input.redirectTo,
         next: next ?? null,
+        needsTermsAgreement: input.needsTermsAgreement,
+        consentComplete: input.consentComplete,
+        signupComplete: input.signupComplete,
         router,
       });
     },

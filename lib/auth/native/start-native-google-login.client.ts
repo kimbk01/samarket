@@ -19,7 +19,7 @@ import {
 } from "@/lib/auth/oauth/native-oauth-contract";
 import { logOAuthNativeEvent } from "@/lib/auth/oauth/oauth-native-callback-log";
 import { openProviderEmailConflictFromExchange } from "@/lib/auth/provider-identity/provider-email-conflict.client";
-import { finishClientAuthLogin } from "@/lib/auth/finish-client-auth-login.client";
+import { finishClientAuthLogin, type FinishClientAuthLoginTermsHandoff } from "@/lib/auth/finish-client-auth-login.client";
 import { clearStoredLoginRequiredDetail } from "@/lib/auth/require-auth-action";
 import { isNativeGoogleLoginAvailable } from "@/lib/platform/capacitor-native";
 
@@ -41,11 +41,26 @@ async function abortGoogleNativeRecoverPending(reason: string): Promise<void> {
   await revokeNativeGoogleSessionIfAvailable();
 }
 
+export type NativeGoogleLoginHandoff = FinishClientAuthLoginTermsHandoff & {
+  redirectTo: string | null;
+};
+
+function buildNativeGoogleLoginHandoff(
+  exchange: Extract<NativeGoogleExchangeResponse, { ok: true }>,
+): NativeGoogleLoginHandoff {
+  return {
+    redirectTo: exchange.redirectTo?.trim() ?? null,
+    needsTermsAgreement: exchange.needsTermsAgreement,
+    signupComplete: exchange.signupComplete,
+    consentComplete: exchange.needsTermsAgreement === false || exchange.signupComplete === true,
+  };
+}
+
 async function finishNativeGoogleRecoverNavigation(
-  redirectTo: string | null | undefined,
+  handoff: NativeGoogleLoginHandoff,
   next?: string | null,
 ): Promise<void> {
-  await finishClientAuthLogin({ redirectTo, next: next ?? null });
+  await finishClientAuthLogin({ ...handoff, next: next ?? null });
 }
 
 /**
@@ -60,7 +75,7 @@ async function completeNativeGoogleSession(input: {
   signInResult: { idToken: string };
   next?: string | null;
   recovered?: boolean;
-}): Promise<{ redirectTo: string | null }> {
+}): Promise<NativeGoogleLoginHandoff> {
   const exchangeBody = buildNativeGoogleExchangeRequest({
     provider: "google",
     idToken: input.signInResult.idToken,
@@ -78,12 +93,13 @@ async function completeNativeGoogleSession(input: {
 
   logOAuthNativeEvent("google_native_exchange_ok", {
     signupComplete: exchange.signupComplete ?? null,
+    needsTermsAgreement: exchange.needsTermsAgreement ?? null,
     redirectTo: exchange.redirectTo ?? null,
     recovered: input.recovered ?? false,
   });
   endOAuthFlow("google");
   clearStoredLoginRequiredDetail();
-  return { redirectTo: exchange.redirectTo?.trim() ?? null };
+  return buildNativeGoogleLoginHandoff(exchange);
 }
 
 /**
@@ -115,7 +131,7 @@ export async function recoverNativeGoogleLoginIfPending(): Promise<boolean> {
         next: recovered.next ?? null,
         recovered: true,
       });
-      await finishNativeGoogleRecoverNavigation(result.redirectTo, recovered.next ?? null);
+      await finishNativeGoogleRecoverNavigation(result, recovered.next ?? null);
       return true;
     } catch (error) {
       releaseFlow?.();
@@ -136,7 +152,7 @@ export async function recoverNativeGoogleLoginIfPending(): Promise<boolean> {
  */
 export async function startNativeGoogleLogin(input?: {
   next?: string | null;
-}): Promise<{ redirectTo: string | null }> {
+}): Promise<NativeGoogleLoginHandoff> {
   if (!isNativeGoogleLoginAvailable()) {
     throw new NativeGoogleAuthError("google_native_unavailable");
   }

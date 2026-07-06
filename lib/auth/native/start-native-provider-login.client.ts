@@ -6,6 +6,7 @@ import {
   normalizeNativeExchangeProvider,
   type NativeExchangeProvider,
 } from "@/lib/auth/native/native-provider-contract";
+import type { FinishClientAuthLoginTermsHandoff } from "@/lib/auth/finish-client-auth-login.client";
 import { startNativeAppleLogin } from "@/lib/auth/native/start-native-apple-login.client";
 import { startNativeGoogleLogin } from "@/lib/auth/native/start-native-google-login.client";
 import { startNativeKakaoLogin } from "@/lib/auth/native/start-native-kakao-login.client";
@@ -49,7 +50,7 @@ function resolveUnavailableErrorCode(provider: NativeExchangeProvider): string {
   return "google_native_unavailable";
 }
 
-export type NativeProviderLoginSuccess = {
+export type NativeProviderLoginSuccess = FinishClientAuthLoginTermsHandoff & {
   redirectTo: string | null;
 };
 

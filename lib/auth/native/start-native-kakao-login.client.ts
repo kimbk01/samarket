@@ -14,6 +14,7 @@ import {
 } from "@/lib/auth/oauth/native-oauth-contract";
 import { logOAuthNativeEvent } from "@/lib/auth/oauth/oauth-native-callback-log";
 import { openProviderEmailConflictFromExchange } from "@/lib/auth/provider-identity/provider-email-conflict.client";
+import type { FinishClientAuthLoginTermsHandoff } from "@/lib/auth/finish-client-auth-login.client";
 import { clearStoredLoginRequiredDetail } from "@/lib/auth/require-auth-action";
 import { isNativeKakaoLoginAvailable } from "@/lib/platform/capacitor-native";
 
@@ -28,13 +29,28 @@ function throwNativeKakaoExchangeError(exchange: Extract<NativeKakaoExchangeResp
   throw new NativeKakaoAuthError(mapped.code, mapped.message);
 }
 
+export type NativeKakaoLoginHandoff = FinishClientAuthLoginTermsHandoff & {
+  redirectTo: string | null;
+};
+
+function buildNativeKakaoLoginHandoff(
+  exchange: Extract<NativeKakaoExchangeResponse, { ok: true }>,
+): NativeKakaoLoginHandoff {
+  return {
+    redirectTo: exchange.redirectTo?.trim() ?? null,
+    needsTermsAgreement: exchange.needsTermsAgreement,
+    signupComplete: exchange.signupComplete,
+    consentComplete: exchange.needsTermsAgreement === false || exchange.signupComplete === true,
+  };
+}
+
 /**
  * Android/iOS Capacitor — Kakao SDK via NativeKakaoAuth plugin.
  * Web: caller must use Web OAuth (`startOAuthLogin`).
  */
 export async function startNativeKakaoLogin(input?: {
   next?: string | null;
-}): Promise<{ redirectTo: string | null }> {
+}): Promise<NativeKakaoLoginHandoff> {
   if (!isNativeKakaoLoginAvailable()) {
     throw new NativeKakaoAuthError("kakao_native_unavailable");
   }
@@ -63,11 +79,12 @@ export async function startNativeKakaoLogin(input?: {
 
     logOAuthNativeEvent("kakao_native_exchange_ok", {
       signupComplete: exchange.signupComplete ?? null,
+      needsTermsAgreement: exchange.needsTermsAgreement ?? null,
       redirectTo: exchange.redirectTo ?? null,
     });
     endOAuthFlow("kakao");
     clearStoredLoginRequiredDetail();
-    return { redirectTo: exchange.redirectTo?.trim() ?? null };
+    return buildNativeKakaoLoginHandoff(exchange);
   } catch (error) {
     if (error instanceof NativeKakaoAuthError && error.code === "user_cancelled") {
       releaseOAuthFlowOnUserCancel();

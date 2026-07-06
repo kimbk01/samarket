@@ -18,7 +18,7 @@ import {
   mapSupabaseFetchFailureToMessage,
 } from "@/lib/auth/login-error-i18n";
 import { finishClientAuthLogin } from "@/lib/auth/finish-client-auth-login.client";
-import { useOAuthLogin } from "@/lib/auth/oauth/use-oauth-login";
+import { useOAuthLogin, type OAuthAuthSuccessInput } from "@/lib/auth/oauth/use-oauth-login";
 import type { LoginRequiredDetail } from "@/lib/auth/require-auth-action";
 import { AuthGateOverlay } from "@/components/auth/AuthGateOverlay";
 import { AuthProviderEmailConflictHost } from "@/components/auth/AuthProviderEmailConflictHost";
@@ -73,11 +73,14 @@ export function AuthModal({ open, detail, onClose }: Props) {
   }, [detail?.next]);
 
   const handleAuthSuccess = useCallback(
-    async (input: { redirectTo?: string | null }) => {
+    async (input: OAuthAuthSuccessInput) => {
       await finishClientAuthLogin({
         redirectTo: input.redirectTo,
         pendingToken: detail?.token,
         next,
+        needsTermsAgreement: input.needsTermsAgreement,
+        consentComplete: input.consentComplete,
+        signupComplete: input.signupComplete,
         onCloseModal: onClose,
         router,
       });

@@ -73,7 +73,7 @@ describe("finishClientAuthLogin", () => {
     expect(ensureAppBoot).toHaveBeenCalledTimes(1);
   });
 
-  it("uses exchange redirect without signup fetch and navigates with router.replace", async () => {
+  it("uses exchange redirect without signup fetch when terms are already complete", async () => {
     consumePendingAuthAction.mockResolvedValueOnce(false);
     const replace = vi.fn();
     const { finishClientAuthLogin } = await import("@/lib/auth/finish-client-auth-login.client");
@@ -84,6 +84,8 @@ describe("finishClientAuthLogin", () => {
 
     await finishClientAuthLogin({
       redirectTo: "/market",
+      needsTermsAgreement: false,
+      signupComplete: true,
       router: { replace },
     });
 
@@ -95,6 +97,67 @@ describe("finishClientAuthLogin", () => {
     await Promise.resolve();
     expect(fetchMeProfileDeduped).toHaveBeenCalled();
     expect(ensureAppBoot).toHaveBeenCalledTimes(1);
+  });
+
+  it("routes to terms when exchange redirectTo is /mypage but needsTermsAgreement is true", async () => {
+    consumePendingAuthAction.mockResolvedValueOnce(false);
+    const replace = vi.fn();
+    const { finishClientAuthLogin } = await import("@/lib/auth/finish-client-auth-login.client");
+
+    vi.stubGlobal("window", {
+      location: { replace: vi.fn(), origin: "https://example.com", pathname: "/login" },
+    });
+
+    await finishClientAuthLogin({
+      redirectTo: "/mypage",
+      needsTermsAgreement: true,
+      signupComplete: false,
+      router: { replace },
+    });
+
+    expect(replace).toHaveBeenCalledWith("/auth/onboarding/terms");
+    expect(fetchSignupStatusDeduped).not.toHaveBeenCalled();
+  });
+
+  it("preserves deep link next on terms redirect when terms are required", async () => {
+    consumePendingAuthAction.mockResolvedValueOnce(false);
+    const replace = vi.fn();
+    const { finishClientAuthLogin } = await import("@/lib/auth/finish-client-auth-login.client");
+
+    vi.stubGlobal("window", {
+      location: { replace: vi.fn(), origin: "https://example.com", pathname: "/login" },
+    });
+
+    await finishClientAuthLogin({
+      redirectTo: "/mypage",
+      needsTermsAgreement: true,
+      next: "/community-messenger/rooms/room-abc",
+      router: { replace },
+    });
+
+    expect(replace).toHaveBeenCalledWith(
+      "/auth/onboarding/terms?next=%2Fcommunity-messenger%2Frooms%2Froom-abc",
+    );
+  });
+
+  it("keeps redirectTo when consent is already complete", async () => {
+    consumePendingAuthAction.mockResolvedValueOnce(false);
+    const replace = vi.fn();
+    const { finishClientAuthLogin } = await import("@/lib/auth/finish-client-auth-login.client");
+
+    vi.stubGlobal("window", {
+      location: { replace: vi.fn(), origin: "https://example.com", pathname: "/login" },
+    });
+
+    await finishClientAuthLogin({
+      redirectTo: "/philife",
+      needsTermsAgreement: false,
+      consentComplete: true,
+      signupComplete: true,
+      router: { replace },
+    });
+
+    expect(replace).toHaveBeenCalledWith("/philife");
   });
 
   it("navigates after session prime only — profile and signup-status run in background", async () => {
