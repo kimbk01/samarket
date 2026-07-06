@@ -17,6 +17,19 @@ import {
 import type { CommunityMessengerGroupCallHandle } from "@/lib/community-messenger/use-community-messenger-group-call";
 import { getLatestCallStubForSession } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import type { MessageKey } from "@/lib/i18n/messages";
+import type { CommunityMessengerRoomContextMetaV1 } from "@/lib/community-messenger/types";
+
+/** `summary`·`contextMeta` 가 거래/배달 v1 기계 메타만 담는지 — 친구 1:1 DM legacy 잔재 포함. */
+export function roomSummaryIsTradeOrDeliveryContextMetaOnly(input: {
+  summary?: string | null;
+  contextMeta?: CommunityMessengerRoomContextMetaV1 | null;
+}): boolean {
+  const raw = input.summary?.trim();
+  const k = input.contextMeta?.kind;
+  if (k === "trade" || k === "delivery") return true;
+  if (!raw) return false;
+  return parseCommunityMessengerRoomContextMeta(raw) != null;
+}
 
 export type MessengerRoomPhase2RoomPresentationArgs = {
   snapshot: CommunityMessengerRoomSnapshot | null;
@@ -46,14 +59,14 @@ export function useMessengerRoomPhase2RoomPresentation({
   const roomUnavailable = roomGloballyBlocked || tradeSendBlocked;
   const isGroupRoom = snapshot ? snapshot.room.roomType !== "direct" : false;
   /** `summary` 컬럼에 거래/배달 v1 JSON만 들어간 경우 — 공지·소개에 원문 JSON 을 노출하지 않음 */
-  const roomSummaryHoldsOnlyTradeOrDeliveryMeta = useMemo(() => {
-    if (isGeneralFriendDirect) return false;
-    const raw = snapshot?.room.summary?.trim();
-    if (!raw) return false;
-    const k = snapshot?.room.contextMeta?.kind;
-    if (k === "trade" || k === "delivery") return true;
-    return parseCommunityMessengerRoomContextMeta(raw) != null;
-  }, [isGeneralFriendDirect, snapshot?.room.summary, snapshot?.room.contextMeta]);
+  const roomSummaryHoldsOnlyTradeOrDeliveryMeta = useMemo(
+    () =>
+      roomSummaryIsTradeOrDeliveryContextMetaOnly({
+        summary: snapshot?.room.summary,
+        contextMeta: snapshot?.room.contextMeta,
+      }),
+    [snapshot?.room.summary, snapshot?.room.contextMeta]
+  );
   const tradeProductChatIdForDock = useMemo(() => {
     if (isGeneralFriendDirect) return "";
     const m = snapshot?.room.contextMeta;
