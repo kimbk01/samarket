@@ -2,12 +2,14 @@
 
 /* eslint-disable react-hooks/refs -- `CommunityMessengerGroupCallHandle`는 훅 반환 객체이며 ref가 아님; `.call*`·`panel` 등 접근이 오탐으로 걸립니다. */
 
+import { useState } from "react";
 import type { CommunityMessengerCallParticipant } from "@/lib/community-messenger/types";
 import type { CommunityMessengerGroupCallHandle } from "@/lib/community-messenger/use-community-messenger-group-call";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { getCommunityMessengerPermissionGuide } from "@/lib/community-messenger/call-permission";
 import { isCallMediaPermissionBlockedUiMessage } from "@/lib/community-messenger/call-media-permission-preflight";
 import { CallScreen } from "@/components/messenger/call/CallScreen";
+import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 import type { CallActionItem, CallPhase, CallScreenViewModel } from "@/components/messenger/call/call-ui.types";
 import { useMessengerCallMainBottomNavSuppress } from "@/lib/layout/messenger-call-main-bottom-nav-suppress";
 import { useCallVideoPipGesture } from "@/lib/community-messenger/use-call-video-pip-gesture";
@@ -47,7 +49,26 @@ export function GroupRoomCallOverlay({
 }: GroupRoomCallOverlayProps) {
   const sessionPanel = groupCall.panel;
   const endedPanel = groupCall.endedPanel;
+  const [outgoingConfirmKind, setOutgoingConfirmKind] = useState<null | "voice" | "video">(null);
   useMessengerCallMainBottomNavSuppress(Boolean(sessionPanel || endedPanel));
+
+  const outgoingConfirmPeerLabel =
+    endedPanel?.peerLabel?.trim() || sessionPanel?.peerLabel?.trim() || "";
+  const outgoingConfirmDialog =
+    outgoingConfirmKind != null ? (
+      <MessengerOutgoingCallConfirmDialog
+        open
+        peerLabel={outgoingConfirmPeerLabel}
+        kind={outgoingConfirmKind}
+        busy={groupCall.busy === "call-start"}
+        onCancel={() => setOutgoingConfirmKind(null)}
+        onConfirm={() => {
+          const kind = outgoingConfirmKind;
+          setOutgoingConfirmKind(null);
+          void groupCall.startOutgoingCall(kind);
+        }}
+      />
+    ) : null;
 
   const videoRemotesPreview = sessionPanel ? remoteVideoPeers(groupCall) : [];
   const remoteLeadPreview = videoRemotesPreview[0] ?? groupCall.remotePeers[0] ?? null;
@@ -110,7 +131,7 @@ export function GroupRoomCallOverlay({
           id: "retry-call",
           label: t("common_retry"),
           icon: "retry",
-          onClick: () => void groupCall.startOutgoingCall(endedPanel.kind === "video" ? "video" : "voice"),
+          onClick: () => setOutgoingConfirmKind(endedPanel.kind === "video" ? "video" : "voice"),
         },
         {
           id: "reject-after-end",
@@ -123,7 +144,12 @@ export function GroupRoomCallOverlay({
       autoCloseMs: 2400,
     };
 
-    return <CallScreen vm={endedVm} variant="overlay" />;
+    return (
+      <>
+        <CallScreen vm={endedVm} variant="overlay" />
+        {outgoingConfirmDialog}
+      </>
+    );
   }
 
   if (!sessionPanel) return null;
@@ -209,7 +235,7 @@ export function GroupRoomCallOverlay({
               label: t("cm_ui_switch_to_video"),
               icon: "video",
               disabled: sessionPanel.mode === "active",
-              onClick: () => void groupCall.startOutgoingCall("video"),
+              onClick: () => setOutgoingConfirmKind("video"),
             },
             {
               id: "mute",
@@ -346,6 +372,7 @@ export function GroupRoomCallOverlay({
           className="hidden"
         />
       ))}
+      {outgoingConfirmDialog}
     </>
   );
 }

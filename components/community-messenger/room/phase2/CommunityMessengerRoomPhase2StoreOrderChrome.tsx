@@ -7,6 +7,7 @@ import type { MessageKey } from "@/lib/i18n/messages";
 type StoreOrderI18nT = (key: MessageKey, vars?: Record<string, string | number>) => string;
 import { StoreOrderSellerOrderPanel } from "@/components/chats/StoreOrderSellerOrderPanel";
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
+import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 import { StoreOrderBuyerRoomSheet } from "@/components/community-messenger/room/phase2/StoreOrderBuyerRoomSheet";
 import { useStoreOrderDeliveryRoom } from "@/components/community-messenger/room/phase2/store-order-delivery-room-context";
 import type { CommunityMessengerRoomContextMetaV1 } from "@/lib/community-messenger/types";
@@ -39,6 +40,7 @@ type Props = {
 export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }: Props) {
   const { t } = useI18n();
   const vm = useMessengerRoomPhase2View();
+  const [buyerVoiceOutgoingConfirmOpen, setBuyerVoiceOutgoingConfirmOpen] = useState(false);
   const {
     snapshot,
     loading,
@@ -180,10 +182,25 @@ export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }
       onCancel={() => void handleCancel()}
       chatRoomId={vm.snapshot.room.id}
       onSendOrderMatchAck={sendMatchAck}
-      onVoiceCall={() => void vm.startManagedDirectCall("voice")}
+      onVoiceCall={() => setBuyerVoiceOutgoingConfirmOpen(true)}
       voiceCallDisabled={vm.roomUnavailable || vm.outgoingDialLocked}
     />
   ) : null;
+
+  const buyerVoiceOutgoingConfirmDialog =
+    buyerVoiceOutgoingConfirmOpen && !isSeller ? (
+      <MessengerOutgoingCallConfirmDialog
+        open
+        peerLabel={vm.snapshot.room.title?.trim() || ""}
+        kind="voice"
+        busy={vm.outgoingDialLocked}
+        onCancel={() => setBuyerVoiceOutgoingConfirmOpen(false)}
+        onConfirm={() => {
+          setBuyerVoiceOutgoingConfirmOpen(false);
+          void vm.startManagedDirectCall("voice");
+        }}
+      />
+    ) : null;
 
   const sellerOrderPanel =
     isSeller && storeId ? (
@@ -232,6 +249,7 @@ export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }
         </div>
         {buyerOrderSheet}
         {sellerOrderPanel}
+        {buyerVoiceOutgoingConfirmDialog}
       </>
     );
   }
@@ -285,6 +303,7 @@ export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }
       />
       {buyerOrderSheet}
       {sellerOrderPanel}
+      {buyerVoiceOutgoingConfirmDialog}
     </>
   );
 }

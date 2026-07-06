@@ -46,6 +46,7 @@ import {
   sampleMessengerScrollFrameBudget,
 } from "@/lib/community-messenger/monitoring/messenger-frame-budget-trace";
 import { MessageReactionRosterSheet } from "@/components/community-messenger/room/message/MessageReactionRosterSheet";
+import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 import {
   beginCmRenderTimelineFrame,
   cmRenderAnalysisEnsureSession,
@@ -775,6 +776,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     reactionKey: string;
     anchor: CommunityMessengerMessageActionAnchorRect;
   } | null>(null);
+  const [stubRedialConfirmKind, setStubRedialConfirmKind] = useState<null | "voice" | "video">(null);
 
   const onOpenImageLightbox = useCallback((urls: string[], originals: string[], index: number) => {
     setImageLightbox({ urls, originals, index });
@@ -1087,13 +1089,9 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
   const startCallStubRedial = useCallback(
     (kind: "voice" | "video") => {
       if (vm.roomUnavailable) return;
-      if (vm.isGroupRoom) {
-        void vm.startGroupCall(kind);
-        return;
-      }
-      void vm.startManagedDirectCall(kind);
+      setStubRedialConfirmKind(kind);
     },
-    [vm.isGroupRoom, vm.roomUnavailable, vm.startGroupCall, vm.startManagedDirectCall]
+    [vm.roomUnavailable]
   );
   const virtualItemsForLayout = vm.chatVirtualizer.getVirtualItems();
   const virtualizerMeasuredReadyForLayout =
@@ -2008,6 +2006,21 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
         streamRoomId={vm.streamRoomId}
         onClose={() => setReactionRoster((prev) => (prev === null ? prev : null))}
       />
+      {stubRedialConfirmKind ? (
+        <MessengerOutgoingCallConfirmDialog
+          open
+          peerLabel={vm.snapshot.room.title?.trim() || ""}
+          kind={stubRedialConfirmKind}
+          busy={vm.outgoingDialLocked}
+          onCancel={() => setStubRedialConfirmKind(null)}
+          onConfirm={() => {
+            const kind = stubRedialConfirmKind;
+            setStubRedialConfirmKind(null);
+            if (vm.isGroupRoom) void vm.startGroupCall(kind);
+            else void vm.startManagedDirectCall(kind);
+          }}
+        />
+      ) : null}
     </div>
   );
 });

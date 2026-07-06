@@ -34,6 +34,7 @@ import {
   MessengerSearchSheet,
   MessengerSettingsSheet,
 } from "@/components/community-messenger/community-messenger-home-lazy-sheets";
+import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 import { samTier1HeaderRightColumn } from "@/lib/ui/tier1-header-icon";
 import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
 import { tryRedirectMessengerHomeAuthBlocked } from "@/lib/community-messenger/home/messenger-home-auth-blocked-redirect";
@@ -631,6 +632,11 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   const [friendAddTab, setFriendAddTab] = useState<MessengerFriendAddTab>("id");
   const [friendUserSearchAttempted, setFriendUserSearchAttempted] = useState(false);
   const [friendSheet, setFriendSheet] = useState<FriendSheetState | null>(null);
+  const [homeOutgoingConfirm, setHomeOutgoingConfirm] = useState<null | {
+    peerUserId: string;
+    peerLabel: string;
+    kind: "voice" | "video";
+  }>(null);
   const friendSearchRef = useRef<HTMLInputElement | null>(null);
   const [mainSection, setMainSection] = useState<MessengerMainSection>(() =>
     pillar ? "chats" : resolveMessengerSection(initialSection, initialTab)
@@ -2018,17 +2024,28 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     [data?.chats, sortedFriends, startDirectCall, t]
   );
 
+  const openHomeOutgoingConfirm = useCallback(
+    (peerUserId: string, kind: "voice" | "video", peerLabelOverride?: string | null) => {
+      const fromFriend = sortedFriends.find((f) => f.id === peerUserId)?.label?.trim();
+      const room = pickGeneralDirectRoomForPeer(data?.chats ?? [], peerUserId);
+      const peerLabel =
+        peerLabelOverride?.trim() || fromFriend || room?.title?.trim() || t("cm_ui_chat_peer_fallback");
+      setHomeOutgoingConfirm({ peerUserId, peerLabel, kind });
+    },
+    [data?.chats, sortedFriends, t]
+  );
+
   const onFriendRowVoiceCallStable = useCallback(
     (userId: string) => {
-      void startFriendDirectCall(userId, "voice");
+      openHomeOutgoingConfirm(userId, "voice");
     },
-    [startFriendDirectCall]
+    [openHomeOutgoingConfirm]
   );
   const onFriendRowVideoCallStable = useCallback(
     (userId: string) => {
-      void startFriendDirectCall(userId, "video");
+      openHomeOutgoingConfirm(userId, "video");
     },
-    [startFriendDirectCall]
+    [openHomeOutgoingConfirm]
   );
   const searchKeywordNormalized = roomSearchKeyword.trim().toLowerCase();
   const searchFriendMatches = useMemo(() => {
@@ -2917,14 +2934,10 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           busyId={busyId}
           onClose={() => setFriendSheet(null)}
           onVoiceCall={() => {
-            const id = friendProfileForSheet.id;
-            setFriendSheet(null);
-            void startFriendDirectCall(id, "voice");
+            openHomeOutgoingConfirm(friendProfileForSheet.id, "voice", friendProfileForSheet.label);
           }}
           onVideoCall={() => {
-            const id = friendProfileForSheet.id;
-            setFriendSheet(null);
-            void startFriendDirectCall(id, "video");
+            openHomeOutgoingConfirm(friendProfileForSheet.id, "video", friendProfileForSheet.label);
           }}
           onChat={() => {
             const id = friendProfileForSheet.id;
@@ -3566,6 +3579,21 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           zIndexClass="z-[70]"
           ariaLabel={t("cm_ui_leave_confirm_aria")}
           interactionMode="blocking"
+        />
+      ) : null}
+
+      {homeOutgoingConfirm ? (
+        <MessengerOutgoingCallConfirmDialog
+          open
+          peerLabel={homeOutgoingConfirm.peerLabel}
+          kind={homeOutgoingConfirm.kind}
+          onCancel={() => setHomeOutgoingConfirm(null)}
+          onConfirm={() => {
+            const next = homeOutgoingConfirm;
+            setHomeOutgoingConfirm(null);
+            setFriendSheet(null);
+            void startFriendDirectCall(next.peerUserId, next.kind);
+          }}
         />
       ) : null}
 

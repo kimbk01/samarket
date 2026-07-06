@@ -22,6 +22,7 @@ import {
   tradeChatCallPolicyAllowsVoice,
   type TradeChatCallPolicy,
 } from "@/lib/trade/trade-chat-call-policy";
+import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 type CallKind = "voice" | "video";
@@ -42,6 +43,7 @@ export function TradeChatCallHeaderButtons(props: {
   const router = useRouter();
   const pathname = usePathname() ?? "";
   const [busy, setBusy] = useState(false);
+  const [outgoingConfirmKind, setOutgoingConfirmKind] = useState<null | CallKind>(null);
   const { blocked: outgoingBlocked } = useOutgoingCallBlocked();
 
   const startCall = useCallback(
@@ -120,37 +122,55 @@ export function TradeChatCallHeaderButtons(props: {
   if (!tradeChatCallPolicyAllowsVoice(policy)) return null;
 
   return (
-    <div className="flex shrink-0 items-center gap-0.5 pr-0.5">
-      <button
-        type="button"
-        disabled={busy || outgoingBlocked}
-        onClick={() => {
-          cmCallLatencyMarkClick({ surface: "trade_chat_header", callKind: "voice" });
-          setCmCallLatencyContext({ role: "initiator", callKind: "voice" });
-          unlockCommunityMessengerCallPlaybackFromUserGesture();
-          void startCall("voice");
-        }}
-        className="flex h-10 w-10 items-center justify-center rounded-ui-rect text-sam-fg hover:bg-black/10 disabled:opacity-50"
-        aria-label={t("chats_trade_call_voice_aria")}
-      >
-        <Phone className="h-5 w-5" strokeWidth={2} />
-      </button>
-      {tradeChatCallPolicyAllowsVideo(policy) ? (
+    <>
+      <div className="flex shrink-0 items-center gap-0.5 pr-0.5">
         <button
           type="button"
           disabled={busy || outgoingBlocked}
           onClick={() => {
-            cmCallLatencyMarkClick({ surface: "trade_chat_header", callKind: "video" });
-            setCmCallLatencyContext({ role: "initiator", callKind: "video" });
+            cmCallLatencyMarkClick({ surface: "trade_chat_header", callKind: "voice" });
+            setCmCallLatencyContext({ role: "initiator", callKind: "voice" });
             unlockCommunityMessengerCallPlaybackFromUserGesture();
-            void startCall("video");
+            setOutgoingConfirmKind("voice");
           }}
           className="flex h-10 w-10 items-center justify-center rounded-ui-rect text-sam-fg hover:bg-black/10 disabled:opacity-50"
-          aria-label={t("chats_trade_call_video_aria")}
+          aria-label={t("chats_trade_call_voice_aria")}
         >
-          <Video className="h-5 w-5" strokeWidth={2} />
+          <Phone className="h-5 w-5" strokeWidth={2} />
         </button>
+        {tradeChatCallPolicyAllowsVideo(policy) ? (
+          <button
+            type="button"
+            disabled={busy || outgoingBlocked}
+            onClick={() => {
+              cmCallLatencyMarkClick({ surface: "trade_chat_header", callKind: "video" });
+              setCmCallLatencyContext({ role: "initiator", callKind: "video" });
+              unlockCommunityMessengerCallPlaybackFromUserGesture();
+              setOutgoingConfirmKind("video");
+            }}
+            className="flex h-10 w-10 items-center justify-center rounded-ui-rect text-sam-fg hover:bg-black/10 disabled:opacity-50"
+            aria-label={t("chats_trade_call_video_aria")}
+          >
+            <Video className="h-5 w-5" strokeWidth={2} />
+          </button>
+        ) : null}
+      </div>
+      {outgoingConfirmKind ? (
+        <MessengerOutgoingCallConfirmDialog
+          open
+          peerLabel={t("common_partner")}
+          kind={outgoingConfirmKind}
+          busy={busy}
+          onCancel={() => {
+            if (!busy) setOutgoingConfirmKind(null);
+          }}
+          onConfirm={() => {
+            const kind = outgoingConfirmKind;
+            setOutgoingConfirmKind(null);
+            void startCall(kind);
+          }}
+        />
       ) : null}
-    </div>
+    </>
   );
 }

@@ -286,6 +286,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { VideoOff } from "lucide-react";
 import { SamarketUserAvatarThumb } from "@/components/profile/SamarketUserAvatarThumb";
 import { OutgoingRingCameraPreview } from "@/components/community-messenger/OutgoingRingCameraPreview";
+import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 
 const CALL_CLIENT_TIER = getPublicDeployTier();
 const MAX_MOBILE_CALL_ACTIONS = 5;
@@ -645,6 +646,7 @@ export function CommunityMessengerCallClient({
   const [layoutSwapped, setLayoutSwapped] = useState(false);
   const [camOff, setCamOff] = useState(false);
   const [micMuted, setMicMuted] = useState(false);
+  const [retryOutgoingConfirmKind, setRetryOutgoingConfirmKind] = useState<null | "voice" | "video">(null);
   /** 조인 직후(트랙 생성 시점)에도 최신 음소거 의도를 반영 */
   const micMutedRef = useRef(false);
   useEffect(() => {
@@ -5069,7 +5071,7 @@ export function CommunityMessengerCallClient({
         id: "retry-call",
         label: t("common_retry"),
         icon: "retry",
-        onClick: () => startOutgoingAgain(session.callKind),
+        onClick: () => setRetryOutgoingConfirmKind(session.callKind),
         disabled: !session.peerUserId,
       });
     }
@@ -5562,6 +5564,19 @@ export function CommunityMessengerCallClient({
         <CallerInsecureGateOverlay
           onClose={() => void endCall()}
           closeBusy={busy === "end"}
+        />
+      ) : null}
+      {retryOutgoingConfirmKind ? (
+        <MessengerOutgoingCallConfirmDialog
+          open
+          peerLabel={session.peerLabel?.trim() || ""}
+          kind={retryOutgoingConfirmKind}
+          onCancel={() => setRetryOutgoingConfirmKind(null)}
+          onConfirm={() => {
+            const kind = retryOutgoingConfirmKind;
+            setRetryOutgoingConfirmKind(null);
+            startOutgoingAgain(kind);
+          }}
         />
       ) : null}
     </div>

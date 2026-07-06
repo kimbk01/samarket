@@ -4,6 +4,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
+  useState,
 } from "react";
 import { communityMessengerRoomIsGloballyUsable } from "@/lib/community-messenger/types";
 import { CM_CLUSTER_GAP_MS } from "@/lib/community-messenger/room/messenger-room-ui-constants";
@@ -48,6 +49,7 @@ import {
 } from "@/components/community-messenger/room/community-messenger-room-phase2-lazy";
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
 import { CommunityMessengerRoomPhase2OneToOneDotMenu } from "@/components/community-messenger/room/phase2/CommunityMessengerRoomPhase2OneToOneDotMenu";
+import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 import { MessengerStickerSheet } from "@/components/community-messenger/stickers/MessengerStickerSheet";
 import { ChatEmojiPicker } from "@/components/chat-ui/ChatEmojiPicker";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
@@ -59,6 +61,7 @@ import { GroupRoomMediaAlbumTabs } from "@/components/community-messenger/group/
 
 export function CommunityMessengerRoomPhase2RoomSheets() {
   const vm = useMessengerRoomPhase2View();
+  const [groupOutgoingConfirmKind, setGroupOutgoingConfirmKind] = useState<null | "voice" | "video">(null);
   const composerOutboundBusy = isMessengerComposerOutboundBusy(vm.busy);
   const isGroupMenuDrawer = vm.activeSheet === "menu" && vm.isGroupRoom;
   const isAttachMenuSheet = vm.activeSheet === "attach";
@@ -517,7 +520,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <button
                     type="button"
-                    onClick={() => void vm.startGroupCall("voice")}
+                    onClick={() => setGroupOutgoingConfirmKind("voice")}
                     disabled={!vm.canStartGroupCall || vm.call.busy === "call-start" || vm.call.busy === "device-prepare"}
                     className="rounded-ui-rect border border-sam-border px-3 py-3 text-left sam-text-body font-semibold text-sam-fg transition active:bg-sam-surface disabled:opacity-40"
                   >
@@ -525,7 +528,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => void vm.startGroupCall("video")}
+                    onClick={() => setGroupOutgoingConfirmKind("video")}
                     disabled={!vm.canStartGroupCall || vm.call.busy === "call-start" || vm.call.busy === "device-prepare"}
                     className="rounded-ui-rect border border-sam-border px-3 py-3 text-left sam-text-body font-semibold text-sam-fg transition active:bg-sam-surface disabled:opacity-40"
                   >
@@ -1702,6 +1705,20 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
             ) : null}
           </div>
         </div>
+      ) : null}
+      {groupOutgoingConfirmKind ? (
+        <MessengerOutgoingCallConfirmDialog
+          open
+          peerLabel={vm.snapshot.room.title?.trim() || ""}
+          kind={groupOutgoingConfirmKind}
+          busy={vm.call.busy === "call-start" || vm.call.busy === "device-prepare"}
+          onCancel={() => setGroupOutgoingConfirmKind(null)}
+          onConfirm={() => {
+            const kind = groupOutgoingConfirmKind;
+            setGroupOutgoingConfirmKind(null);
+            void vm.startGroupCall(kind);
+          }}
+        />
       ) : null}
     </>
   );
