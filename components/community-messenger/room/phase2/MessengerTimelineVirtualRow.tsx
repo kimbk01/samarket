@@ -279,11 +279,14 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
                 cancelLongPress();
               }
             },
-            onPointerUp: () => {
+            onPointerUp: (e: ReactPointerEvent<HTMLDivElement>) => {
               const origin = longPressOriginRef.current;
               const tapReady = messageLongPressTimerRef.current != null;
               cancelLongPress();
               if (!origin || !tapReady || stubBusy) return;
+              // pointerup으로 발신 확인을 연 직후 합성 click이 backdrop onCancel을 치는 touch-through 차단.
+              // MessageLongPressPopover·CallStubActionPopover backdrop guard 와 동일 이슈 — call_stub만 onPointerUp 경로.
+              e.preventDefault();
               onCallStubRedial(item.callKind === "video" ? "video" : "voice");
             },
             onPointerCancel: cancelLongPress,
