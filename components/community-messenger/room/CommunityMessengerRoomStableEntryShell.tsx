@@ -5,6 +5,7 @@ import { memo, useLayoutEffect } from "react";
 import { useParams } from "next/navigation";
 import { useMatchMaxWidthMd } from "@/lib/ui/use-match-max-width";
 import { CommunityMessengerRoomShellChromeFrame } from "@/components/community-messenger/room/CommunityMessengerRoomShellChromeFrame";
+import { useMessengerRoomEntryHeaderSeed } from "@/lib/community-messenger/room/use-messenger-room-entry-header-seed";
 
 const CommunityMessengerRoomPass1ComposerShell = dynamic(
   () =>
@@ -42,6 +43,7 @@ export const CommunityMessengerRoomStableEntryShell = memo(function CommunityMes
 }) {
   const params = useParams();
   const resolvedRoomId = roomId?.trim() || String(params?.roomId ?? "").trim();
+  const headerSeed = useMessengerRoomEntryHeaderSeed(resolvedRoomId);
   const narrowViewportFromHook = useMatchMaxWidthMd();
   const narrowViewport = narrowViewportProp ?? narrowViewportFromHook;
   const includePass1Milestone = variant === "entry" || variant === "pass1";
@@ -76,6 +78,7 @@ export const CommunityMessengerRoomStableEntryShell = memo(function CommunityMes
     <CommunityMessengerRoomShellChromeFrame
       narrowViewport={narrowViewport}
       screenReaderHidden={false}
+      headerSeed={headerSeed}
       dataAttrs={dataAttrs}
       footerSlot={
         composerEntryVisible ? (

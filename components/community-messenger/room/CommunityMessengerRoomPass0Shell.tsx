@@ -10,6 +10,7 @@ import { scheduleCmRoomPass0ToPass1 } from "@/lib/community-messenger/room/cm-ro
 import { isCmPreRouteShellOverlayActiveForRoom } from "@/lib/community-messenger/room/cm-room-opening-overlay-store";
 import { noteCmRoomEntryShellFirstPaint } from "@/lib/community-messenger/room/cm-room-entry-shell-first-pass";
 import { shouldBlockCmRoomStrictEffectReRun } from "@/lib/community-messenger/room/cm-room-subtree-stability";
+import { useMessengerRoomEntryHeaderSeed } from "@/lib/community-messenger/room/use-messenger-room-entry-header-seed";
 
 type CommunityMessengerRoomPass0ShellProps = {
   roomId: string;
@@ -28,6 +29,8 @@ export const CommunityMessengerRoomPass0Shell = memo(function CommunityMessenger
   const advancedRef = useRef(false);
   const onAdvanceRef = useRef(onAdvance);
   onAdvanceRef.current = onAdvance;
+
+  const headerSeed = useMessengerRoomEntryHeaderSeed(roomId);
 
   const advanceOnce = useCallback(() => {
     if (advancedRef.current) return;
@@ -52,6 +55,7 @@ export const CommunityMessengerRoomPass0Shell = memo(function CommunityMessenger
   return (
     <CommunityMessengerRoomShellChromeFrame
       narrowViewport={narrowViewport}
+      headerSeed={headerSeed}
       dataAttrs={{
         "data-messenger-shell": "",
         "data-cm-room": "",
