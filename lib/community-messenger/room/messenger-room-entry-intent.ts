@@ -14,7 +14,51 @@ export type MessengerRoomEntryScrollPlan = {
 const PUSH_INTENT_STORAGE_KEY = "samarket:cm:push_entry_intent.v1";
 const PUSH_INTENT_TTL_MS = 30_000;
 
+const ROOM_ENTRY_INTENT_STORAGE_KEY = "samarket:cm:room_entry_intent.v1";
+const ROOM_ENTRY_INTENT_TTL_MS = 20_000;
+
 type PushIntentRow = { roomId: string; at: number };
+type RoomEntryIntentRow = { roomId: string; at: number; seed?: { title?: string | null; avatarUrl?: string | null } };
+
+function activeRoomEntryIntent(roomId?: string): RoomEntryIntentRow | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const row = JSON.parse(sessionStorage.getItem(ROOM_ENTRY_INTENT_STORAGE_KEY) || "null") as RoomEntryIntentRow | null;
+    if (!row?.roomId || !Number.isFinite(row.at) || nowMs() - row.at > ROOM_ENTRY_INTENT_TTL_MS) return null;
+    const id = roomId?.trim();
+    return id && row.roomId !== id ? null : row;
+  } catch {
+    return null;
+  }
+}
+
+export function markRoomEntryIntent(roomId: string, seed?: RoomEntryIntentRow["seed"]): void {
+  if (typeof window === "undefined") return;
+  const id = String(roomId ?? "").trim();
+  if (!id) return;
+  try {
+    sessionStorage.setItem(ROOM_ENTRY_INTENT_STORAGE_KEY, JSON.stringify({ roomId: id, at: nowMs(), seed }));
+  } catch {
+    /* ignore */
+  }
+}
+
+export const getRoomEntryIntent = activeRoomEntryIntent;
+
+export function clearRoomEntryIntent(roomId?: string): void {
+  if (typeof window === "undefined") return;
+  const id = roomId?.trim();
+  if (id && activeRoomEntryIntent(id)?.roomId !== id) return;
+  try {
+    sessionStorage.removeItem(ROOM_ENTRY_INTENT_STORAGE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function isRoomEntryInFlight(roomId?: string): boolean {
+  return activeRoomEntryIntent(roomId) !== null;
+}
 
 function nowMs(): number {
   return Date.now();

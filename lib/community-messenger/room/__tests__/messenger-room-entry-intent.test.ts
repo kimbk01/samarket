@@ -2,8 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   __resetMessengerPushEntryIntentForTest,
   appendMessengerPushEntryQuery,
+  clearRoomEntryIntent,
   consumeMessengerRoomEntryIntent,
+  getRoomEntryIntent,
+  isRoomEntryInFlight,
   markMessengerPushEntryIntent,
+  markRoomEntryIntent,
   parseMessengerRoomIdFromAppPath,
   resolveMessengerRoomEntryScrollPlan,
 } from "@/lib/community-messenger/room/messenger-room-entry-intent";
@@ -15,6 +19,7 @@ describe("messenger-room-entry-intent", () => {
   beforeEach(() => {
     sessionStore.clear();
     __resetMessengerPushEntryIntentForTest();
+    clearRoomEntryIntent();
     vi.stubGlobal("window", { location: { search: "" } });
     vi.stubGlobal("sessionStorage", {
       getItem: (key: string) => sessionStore.get(key) ?? null,
@@ -77,5 +82,15 @@ describe("messenger-room-entry-intent", () => {
     expect(appendMessengerPushEntryQuery("/chats/r1?foo=bar")).toBe(
       "/chats/r1?foo=bar&entry=push"
     );
+  });
+
+  it("list tap room entry intent — mark, get, in-flight, clear", () => {
+    markRoomEntryIntent(ROOM, { title: "Test Room" });
+    expect(isRoomEntryInFlight()).toBe(true);
+    expect(isRoomEntryInFlight(ROOM)).toBe(true);
+    expect(getRoomEntryIntent(ROOM)?.seed?.title).toBe("Test Room");
+    clearRoomEntryIntent(ROOM);
+    expect(isRoomEntryInFlight()).toBe(false);
+    expect(getRoomEntryIntent(ROOM)).toBeNull();
   });
 });

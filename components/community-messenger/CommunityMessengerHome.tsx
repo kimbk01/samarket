@@ -107,6 +107,7 @@ import {
   messengerRoomPrefetchPriorityScore,
   MESSENGER_HOME_LIST_PREFETCH_SEED_COUNT,
 } from "@/lib/community-messenger/room-prefetch-queue";
+import { isRoomEntryInFlight } from "@/lib/community-messenger/room/messenger-room-entry-intent";
 import {
   invalidateRoomSnapshot,
   peekRoomSnapshot,
@@ -1993,6 +1994,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   useEffect(() => {
     if (!listPrefetchSeedSig) return;
     if (!data?.me?.id) return;
+    if (isRoomEntryInFlight()) return;
     const top = primaryListItems.slice(0, MESSENGER_HOME_LIST_PREFETCH_SEED_COUNT);
     for (const it of top) {
       enqueueRoomPrefetch(it.room.id, messengerRoomPrefetchPriorityScore(it.room.lastMessageAt));
