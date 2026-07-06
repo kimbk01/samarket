@@ -33,7 +33,7 @@ import { beginRoomDeepRouteNavigationLock } from "@/lib/navigation/cm-deep-route
 import { clearPendingMenuNavigationBridge } from "@/lib/navigation/pending-menu-navigation-bridge";
 import { guardedClientNavigate } from "@/lib/navigation/guarded-client-navigation";
 import { abortPendingMainBottomNavRouteCommits } from "@/lib/main-menu/main-bottom-nav-route-commit";
-import { markRoomEntryIntent } from "@/lib/community-messenger/room/messenger-room-entry-intent";
+import { isRoomEntryInFlight, markRoomEntryIntent } from "@/lib/community-messenger/room/messenger-room-entry-intent";
 
 /** 클릭~라우팅 사이 스냅샷 GET 상한 — 포인터다운 프리패치가 거의 끝난 경우 짧게 합류(무한 대기 금지) */
 const ROOM_NAV_SNAPSHOT_LEAD_MS_MIN = 0;
@@ -105,7 +105,7 @@ export async function runCommunityMessengerRoomForwardNavigation(
   scheduleCmPreRouteRoomNavigationFollowUp(() => {
     noteCmRoomRouteTransitionStart();
     const snapshotFresh = isRoomSnapshotFresh(id, vu);
-    if (!snapshotFresh) {
+    if (!snapshotFresh || isRoomEntryInFlight(id)) {
       beginCmPreRouteRoomOpeningOverlay(id);
     }
     beginCmRoomEntryPriorityMode(id);

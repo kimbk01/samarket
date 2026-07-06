@@ -4,6 +4,8 @@ import { memo, useEffect, useLayoutEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { CommunityMessengerRoomShellChromeFrame } from "@/components/community-messenger/room/CommunityMessengerRoomShellChromeFrame";
 import { useCmRoomOpeningOverlayStore } from "@/lib/community-messenger/room/cm-room-opening-overlay-store";
+import { isRoomEntryInFlight } from "@/lib/community-messenger/room/messenger-room-entry-intent";
+import { getActiveDeepRouteNavigationLock } from "@/lib/navigation/cm-deep-route-navigation-lock";
 import {
   emitCmPreRouteShellOverlayVisibleLog,
   tryEmitCmPreRouteShellFinalLog,
@@ -34,7 +36,13 @@ export const CommunityMessengerRoomOpeningOverlayHost = memo(function CommunityM
     if (!openingRoomId) return;
     const onPath = pathname?.includes(`/community-messenger/rooms/${encodeURIComponent(openingRoomId)}`);
     if (!onPath && phase !== "handoff") {
-      reset();
+      const lock = getActiveDeepRouteNavigationLock();
+      const preRoutePending =
+        phase === "overlay" &&
+        (isRoomEntryInFlight(openingRoomId) || (lock?.kind === "room" && lock.targetId === openingRoomId));
+      if (!preRoutePending) {
+        reset();
+      }
     }
   }, [openingRoomId, pathname, phase, reset]);
 
