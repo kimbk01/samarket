@@ -1,6 +1,7 @@
 "use client";
 
-import { memo, useEffect, useLayoutEffect, useMemo } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 import { useMessengerRoomUrlSearchParams } from "@/lib/community-messenger/room/use-messenger-room-url-search-params";
 import { BackIcon, MoreIcon } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import { useMessengerRoomPhase2HeaderView } from "@/components/community-messenger/room/phase2/messenger-room-phase2-header-context";
@@ -108,6 +109,17 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
   const roomId = vm.snapshot.room.id;
   const peerUserId = vm.snapshot.room.peerUserId ?? "";
   const canOpenPeerFriendProfile = vm.canOpenPeerFriendProfile;
+  const [headerVoiceConfirmOpen, setHeaderVoiceConfirmOpen] = useState(false);
+
+  const openHeaderVoiceConfirm = () => {
+    logCallV3ButtonClick({
+      location: "room_header",
+      roomId,
+      peerId: peerUserId,
+      mediaType: "audio",
+    });
+    setHeaderVoiceConfirmOpen(true);
+  };
 
   useEffect(() => {
     logCallV3ButtonRender({
@@ -282,6 +294,7 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
   ]);
 
   return (
+    <>
     <MessengerHeader>
         <button
           type="button"
@@ -393,15 +406,7 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
           {isDeliveryBuyer ? (
             <button
               type="button"
-              onClick={() => {
-                logCallV3ButtonClick({
-                  location: "room_header",
-                  roomId,
-                  peerId: peerUserId,
-                  mediaType: "audio",
-                });
-                void vm.startManagedDirectCall("voice");
-              }}
+              onClick={openHeaderVoiceConfirm}
               disabled={headerVoiceDisabled}
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[color:var(--cm-room-text-muted)] transition active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-45"
               aria-label={vm.t("cm_ui_voice_call")}
@@ -411,15 +416,7 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
           ) : showHeaderVoiceCall ? (
             <button
               type="button"
-              onClick={() => {
-                logCallV3ButtonClick({
-                  location: "room_header",
-                  roomId,
-                  peerId: peerUserId,
-                  mediaType: "audio",
-                });
-                void vm.startManagedDirectCall("voice");
-              }}
+              onClick={openHeaderVoiceConfirm}
               disabled={headerVoiceDisabled}
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[color:var(--cm-room-text-muted)] transition active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-45"
               aria-label={vm.t("cm_ui_voice_call")}
@@ -438,5 +435,19 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
           )}
         </div>
     </MessengerHeader>
+    {headerVoiceConfirmOpen ? (
+      <MessengerOutgoingCallConfirmDialog
+        open
+        peerLabel={vm.snapshot.room.title?.trim() || ""}
+        kind="voice"
+        busy={vm.outgoingDialLocked}
+        onCancel={() => setHeaderVoiceConfirmOpen(false)}
+        onConfirm={() => {
+          setHeaderVoiceConfirmOpen(false);
+          void vm.startManagedDirectCall("voice");
+        }}
+      />
+    ) : null}
+    </>
   );
 });
