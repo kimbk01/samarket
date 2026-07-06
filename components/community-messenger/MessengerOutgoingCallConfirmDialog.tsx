@@ -2,18 +2,20 @@
 
 import { useEffect } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import {
-  COMMUNITY_BUTTON_PRIMARY_CLASS,
-  COMMUNITY_BUTTON_SECONDARY_CLASS,
-  COMMUNITY_MODAL_PANEL_CLASS,
-  COMMUNITY_OVERLAY_BACKDROP_CLASS,
-} from "@/lib/philife/philife-flat-ui-classes";
+import { COMMUNITY_OVERLAY_BACKDROP_CLASS } from "@/lib/philife/philife-flat-ui-classes";
+
+/** DIBAY 1:1 발신 확인 — iOS-style action blue (카톡 레거시 레이아웃) */
+const OUTGOING_CONFIRM_ACTION_COLOR = "#007AFF";
+
+const OUTGOING_CONFIRM_ACTION_CLASS =
+  "flex h-11 flex-1 items-center justify-center text-[17px] font-normal leading-none transition-none touch-manipulation active:bg-[rgba(0,0,0,0.14)] disabled:cursor-not-allowed disabled:opacity-40";
 
 /**
- * 발신 전 확인 — 취소 / 통화 2버튼. `busy` 시 연결 진행 중임을 표시한다.
+ * 1:1 발신 전 확인 — 취소 | 통화 2분할. `busy` 시 통화 버튼만 비활성.
  */
 export type MessengerOutgoingCallConfirmDialogProps = {
   open: boolean;
+  /** 접근성 라벨용. UI에는 표시하지 않음. */
   peerLabel: string;
   kind: "voice" | "video";
   busy?: boolean;
@@ -22,12 +24,14 @@ export type MessengerOutgoingCallConfirmDialogProps = {
 };
 
 export function MessengerOutgoingCallConfirmDialog(props: MessengerOutgoingCallConfirmDialogProps) {
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
   const { open, peerLabel, kind, busy = false, onCancel, onConfirm } = props;
 
-  const title = kind === "video" ? t("cm_ui_video_call") : t("cm_ui_voice_call");
+  const title =
+    kind === "video"
+      ? safeT("cm_ui_face_talk_label", { fallbackKo: "영상통화", fallbackEn: "Video Call" })
+      : safeT("cm_ui_voice_talk_label", { fallbackKo: "음성통화", fallbackEn: "Voice Call" });
   const dialogLabel = `${peerLabel.trim() || t("common_partner")} ${title}`;
-  const peer = peerLabel.trim() || t("cm_ui_other_party");
 
   useEffect(() => {
     if (!open) return;
@@ -46,6 +50,7 @@ export function MessengerOutgoingCallConfirmDialog(props: MessengerOutgoingCallC
       role="dialog"
       aria-modal="true"
       aria-labelledby="outgoing-call-confirm-title"
+      aria-describedby="outgoing-call-confirm-body"
       aria-busy={busy}
       aria-label={dialogLabel}
     >
@@ -58,30 +63,37 @@ export function MessengerOutgoingCallConfirmDialog(props: MessengerOutgoingCallC
         }}
       />
       <div
-        className={`relative z-50 w-full max-w-[320px] overflow-hidden ${COMMUNITY_MODAL_PANEL_CLASS}`}
+        className="relative z-50 w-[270px] max-w-[calc(100vw-40px)] overflow-hidden rounded-[14px] border border-black/[0.04] bg-white/90 shadow-[0_8px_28px_rgba(0,0,0,0.18)] backdrop-blur-md"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-5 pt-6 pb-5 text-center">
-          <h2 id="outgoing-call-confirm-title" className="text-[16px] font-bold tracking-tight text-[#1F2430]">
+        <div className="px-4 pt-[22px] pb-[18px] text-center">
+          <h2
+            id="outgoing-call-confirm-title"
+            className="text-[17px] font-semibold leading-snug tracking-tight text-black"
+          >
             {title}
           </h2>
-          <p className="mt-1 text-[13px] font-normal text-[#6B7280]">{peer}</p>
-          <p className="mt-2 text-[14px] font-normal leading-[1.5] text-[#1F2430]">{t("cm_ui_start_call_question")}</p>
+          <p id="outgoing-call-confirm-body" className="mt-2 text-[13px] font-normal leading-[1.45] text-black">
+            {t("cm_ui_start_call_question")}
+          </p>
         </div>
-        <div className="flex gap-2 border-t border-[#E5E7EB] px-4 pb-4 pt-3">
+        <div className="flex border-t border-black/10">
           <button
             type="button"
             disabled={busy}
             onClick={onCancel}
-            className={`flex-1 ${COMMUNITY_BUTTON_SECONDARY_CLASS}`}
+            className={OUTGOING_CONFIRM_ACTION_CLASS}
+            style={{ color: OUTGOING_CONFIRM_ACTION_COLOR }}
           >
             {t("common_cancel")}
           </button>
+          <div className="w-px shrink-0 self-stretch bg-black/10" aria-hidden />
           <button
             type="button"
             disabled={busy}
             onClick={onConfirm}
-            className={`flex-1 ${COMMUNITY_BUTTON_PRIMARY_CLASS}`}
+            className={OUTGOING_CONFIRM_ACTION_CLASS}
+            style={{ color: OUTGOING_CONFIRM_ACTION_COLOR }}
           >
             {t("cm_ui_call")}
           </button>
