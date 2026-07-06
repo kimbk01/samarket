@@ -1,10 +1,14 @@
 "use client";
 
-import { memo, useEffect, useLayoutEffect, useRef } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { CommunityMessengerRoomShellChromeFrame } from "@/components/community-messenger/room/CommunityMessengerRoomShellChromeFrame";
 import { useCmRoomOpeningOverlayStore } from "@/lib/community-messenger/room/cm-room-opening-overlay-store";
-import { isRoomEntryInFlight } from "@/lib/community-messenger/room/messenger-room-entry-intent";
+import {
+  clearRoomEntryIntent,
+  getRoomEntryIntent,
+  isRoomEntryInFlight,
+} from "@/lib/community-messenger/room/messenger-room-entry-intent";
 import { getActiveDeepRouteNavigationLock } from "@/lib/navigation/cm-deep-route-navigation-lock";
 import {
   emitCmPreRouteShellOverlayVisibleLog,
@@ -24,6 +28,11 @@ export const CommunityMessengerRoomOpeningOverlayHost = memo(function CommunityM
   overlayPaintStartRef.current = typeof performance !== "undefined" ? performance.now() : 0;
 
   const active = Boolean(openingRoomId) && (phase === "overlay" || phase === "handoff");
+
+  const headerSeed = useMemo(() => {
+    if (!openingRoomId || !active) return null;
+    return getRoomEntryIntent(openingRoomId)?.seed ?? null;
+  }, [active, openingRoomId, phase]);
 
   useLayoutEffect(() => {
     if (!active || !openingRoomId) return;
@@ -47,13 +56,15 @@ export const CommunityMessengerRoomOpeningOverlayHost = memo(function CommunityM
   }, [openingRoomId, pathname, phase, reset]);
 
   useEffect(() => {
-    if (phase !== "handoff") return;
+    if (phase !== "handoff" || !openingRoomId) return;
+    const roomId = openingRoomId;
     const t = window.setTimeout(() => {
       tryEmitCmPreRouteShellFinalLog();
+      clearRoomEntryIntent(roomId);
       reset();
     }, 180);
     return () => window.clearTimeout(t);
-  }, [phase, reset]);
+  }, [phase, openingRoomId, reset]);
 
   if (!active || !openingRoomId) return null;
 
@@ -69,6 +80,7 @@ export const CommunityMessengerRoomOpeningOverlayHost = memo(function CommunityM
     >
       <CommunityMessengerRoomShellChromeFrame
         narrowViewport
+        headerSeed={headerSeed}
         dataAttrs={{
           "data-messenger-shell": "",
           "data-cm-room": "",
