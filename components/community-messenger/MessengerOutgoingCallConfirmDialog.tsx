@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { COMMUNITY_OVERLAY_BACKDROP_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 
@@ -9,6 +9,9 @@ const OUTGOING_CONFIRM_ACTION_COLOR = "#007AFF";
 
 const OUTGOING_CONFIRM_ACTION_CLASS =
   "flex h-11 flex-1 items-center justify-center text-[17px] font-normal leading-none transition-none touch-manipulation active:bg-[rgba(0,0,0,0.14)] disabled:cursor-not-allowed disabled:opacity-40";
+
+/** call_stub pointerup 직후 ghost click이 backdrop onCancel을 치는 touch-through 방지 (MessageLongPressPopover 동일). */
+const BACKDROP_DISMISS_GUARD_MS = 350;
 
 /**
  * 1:1 발신 전 확인 — 취소 | 통화 2분할. `busy` 시 통화 버튼만 비활성.
@@ -32,6 +35,12 @@ export function MessengerOutgoingCallConfirmDialog(props: MessengerOutgoingCallC
       ? safeT("cm_ui_face_talk_label", { fallbackKo: "영상통화", fallbackEn: "Video Call" })
       : safeT("cm_ui_voice_talk_label", { fallbackKo: "음성통화", fallbackEn: "Voice Call" });
   const dialogLabel = `${peerLabel.trim() || t("common_partner")} ${title}`;
+  const openedAtRef = useRef(0);
+
+  useEffect(() => {
+    if (!open) return;
+    openedAtRef.current = Date.now();
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -43,6 +52,26 @@ export function MessengerOutgoingCallConfirmDialog(props: MessengerOutgoingCallC
   }, [open, busy, onCancel]);
 
   if (!open) return null;
+
+  const isBackdropDismissGuarded = () => Date.now() - openedAtRef.current < BACKDROP_DISMISS_GUARD_MS;
+
+  const handleBackdropPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (isBackdropDismissGuarded()) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    if (!busy) onCancel();
+  };
+
+  const handleBackdropClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (isBackdropDismissGuarded()) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    if (!busy) onCancel();
+  };
 
   return (
     <div
@@ -58,9 +87,8 @@ export function MessengerOutgoingCallConfirmDialog(props: MessengerOutgoingCallC
         type="button"
         className={COMMUNITY_OVERLAY_BACKDROP_CLASS}
         aria-label={t("nav_close")}
-        onClick={() => {
-          if (!busy) onCancel();
-        }}
+        onPointerDown={handleBackdropPointerDown}
+        onClick={handleBackdropClick}
       />
       <div
         className="relative z-50 w-[270px] max-w-[calc(100vw-40px)] overflow-hidden rounded-[14px] border border-black/[0.04] bg-white/90 shadow-[0_8px_28px_rgba(0,0,0,0.18)] backdrop-blur-md"
