@@ -26,6 +26,8 @@ import {
   isCallV4OutgoingPresentationSource,
   registerCallV4ExitRouter,
 } from "@/lib/community-messenger/call-v4/call-v4-route";
+import { syncCallV4OutgoingRingback } from "@/lib/community-messenger/call-v4/call-v4-outgoing-ringback-sync";
+import { stopOutgoingRingback } from "@/lib/community-messenger/call-outgoing-ringback-controller";
 import { useCallV4VideoPresenter } from "@/lib/community-messenger/call-v4/call-v4-video-presenter";
 import { buildCallV4ScreenViewModel } from "@/lib/community-messenger/call-v4/call-v4-view-model";
 import { readCallV4Identity, readCallV4Phase, useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
@@ -297,6 +299,21 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
     startCallV4OutgoingMissedTimer(callId, identity.createdAt, router);
     return startCallV4CallerActivePoll(callId);
   }, [callId, identity?.callId, identity?.createdAt, identity?.direction, phase, router]);
+
+  useEffect(() => {
+    if (!callId) return;
+    const identityMatches = identity?.callId === callId;
+    syncCallV4OutgoingRingback({
+      callId,
+      phase,
+      direction: identityMatches ? identity.direction : undefined,
+      mediaType: identityMatches ? identity.mediaType : undefined,
+      outgoingPresentation: isCallV4OutgoingPresentationSource(source),
+    });
+    return () => {
+      stopOutgoingRingback(callId, "call_v4_screen_unmount");
+    };
+  }, [callId, identity, phase, source]);
 
   useEffect(() => {
     if (phase !== "joining" || identity?.callId !== callId) return;

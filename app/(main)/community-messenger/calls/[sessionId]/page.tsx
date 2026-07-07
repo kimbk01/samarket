@@ -9,6 +9,7 @@ import { subscribeCommunityCallHostSync } from "@/components/layout/providers/Co
 import { isCallSessionHostedByActiveCallHost } from "@/lib/community-messenger/direct-call-minimize";
 import { isDibayCallV3SafeLaneEnabled } from "@/lib/community-messenger/call-v3/call-v3-flag";
 import { isCallV4TelegramLaneEnabled } from "@/lib/community-messenger/call-v4/call-v4-flag";
+import { isCommunityMessengerTempCallSessionId } from "@/lib/community-messenger/call-session-navigation-seed";
 
 const CommunityMessengerCallClient = dynamic(
   () =>
@@ -60,6 +61,10 @@ export default function CommunityMessengerCallPage() {
   useEffect(() => {
     if (!sessionId || !v4Lane) return;
     const qs = typeof window !== "undefined" ? window.location.search : "";
+    if (isCommunityMessengerTempCallSessionId(sessionId)) {
+      router.replace(`/community-messenger/calls/outgoing${qs}`);
+      return;
+    }
     router.replace(`/community-messenger/calls-v4/${encodeURIComponent(sessionId)}${qs}`);
   }, [router, sessionId, v4Lane]);
 
