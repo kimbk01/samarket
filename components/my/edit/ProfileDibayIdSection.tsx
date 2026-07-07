@@ -190,30 +190,25 @@ export function ProfileDibayIdSection({
     <div className={wrapClass} data-profile-field="dibay_id">
       <div className="space-y-3">
         <div>
-          <div className="relative">
-            <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-[15px] text-[#6F4E37]">
-              @
-            </span>
-            <input
-              id="profile-dibay-id"
-              type="text"
-              autoComplete="off"
-              spellCheck={false}
-              value={raw}
-              onChange={(e) => {
-                userEditedRef.current = true;
-                setRaw(e.target.value);
-                setAvailable(null);
-                setError(null);
-              }}
-              onFocus={scrollInputAboveKeyboard}
-              placeholder={safeT("profile_edit_dibay_id_placeholder", {
-                fallbackKo: "아이디를 입력해 주세요",
-                fallbackEn: "Enter your username",
-              })}
-              className={`${inputClass} pl-7`}
-            />
-          </div>
+          <input
+            id="profile-dibay-id"
+            type="text"
+            autoComplete="off"
+            spellCheck={false}
+            value={raw}
+            onChange={(e) => {
+              userEditedRef.current = true;
+              setRaw(e.target.value);
+              setAvailable(null);
+              setError(null);
+            }}
+            onFocus={scrollInputAboveKeyboard}
+            placeholder={safeT("profile_edit_dibay_id_placeholder", {
+              fallbackKo: "아이디 입력",
+              fallbackEn: "Enter ID",
+            })}
+            className={inputClass}
+          />
           <p className="mt-1 text-[13px] text-[#6F4E37]">{t("profile_edit_dibay_id_helper")}</p>
         </div>
         {error ? (

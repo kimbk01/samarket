@@ -8,6 +8,7 @@ import { PhoneVerificationBox } from "@/components/mypage/profile/PhoneVerificat
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
 import { invalidateMandatoryAddressGateClientCache } from "@/lib/addresses/mandatory-address-gate-client";
+import { hasVerifiedPhone } from "@/lib/auth/post-login-profile-policy";
 import { MypageBottomSheetShell } from "./MypageBottomSheetShell";
 import { useMypageProfileSheets } from "./mypage-profile-sheets-context";
 
@@ -87,9 +88,42 @@ export function PhoneVerificationSheet({ open, onClose }: { open: boolean; onClo
   const handleRefresh = useCallback(async () => {
     invalidateMeProfileDedupedCache();
     invalidateMandatoryAddressGateClientCache();
-    await load();
+    const [p, settingsRes] = await Promise.all([
+      getMyProfile(),
+      runSingleFlight("me:phone-verification:get", () =>
+        fetch("/api/me/phone-verification", { credentials: "include", cache: "no-store" }),
+      ),
+    ]);
+    setProfile(p);
+    try {
+      const j = (await settingsRes.json()) as {
+        ok?: boolean;
+        verification?: {
+          settings?: {
+            enabled?: boolean;
+            provider?: string;
+            guide_text?: string;
+            resend_cooldown_seconds?: number;
+          };
+        };
+      };
+      const s = j?.verification?.settings;
+      if (j?.ok && s) {
+        setPhoneSettings({
+          enabled: s.enabled === true,
+          provider: (s.provider === "semaphore" ? "semaphore" : "supabase") as "supabase" | "semaphore",
+          guide_text: s.guide_text ?? "",
+          resend_cooldown_seconds: Number(s.resend_cooldown_seconds ?? 60),
+        });
+      }
+    } catch {
+      /* keep prior settings */
+    }
     onProfileUpdated();
-  }, [load, onProfileUpdated]);
+    if (p && hasVerifiedPhone(p)) {
+      onClose();
+    }
+  }, [onClose, onProfileUpdated]);
 
   return (
     <MypageBottomSheetShell

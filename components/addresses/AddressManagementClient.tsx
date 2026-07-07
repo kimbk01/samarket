@@ -314,6 +314,9 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
       } else {
         broadcastUserAddressesChanged();
       }
+      if (embedded) {
+        return;
+      }
       const exitHref = resolveAddressManagementExitHref(returnTo);
       clearAddressFlowExitHref();
       if (exitHref) {

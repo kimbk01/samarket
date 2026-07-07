@@ -5,7 +5,11 @@ import {
   deriveProfileCompletionState,
   type ProfileCompletionState,
 } from "@/lib/profile/profile-completion-state";
-import { readMandatoryAddressGateNeedsBlock } from "@/lib/addresses/mandatory-address-gate-client";
+import {
+  invalidateMandatoryAddressGateClientCache,
+  readMandatoryAddressGateNeedsBlock,
+} from "@/lib/addresses/mandatory-address-gate-client";
+import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/lib/addresses/addresses-updated-event";
 import { hasVerifiedPhone, hasValidDisplayName } from "@/lib/auth/post-login-profile-policy";
 import { evaluatePublicIdProfileView } from "@/lib/auth/dibay-public-id-ssot";
 import type { ProfileRow } from "@/lib/profile/types";
@@ -53,6 +57,15 @@ export function useMypageHomeDashboardModel({
     }
     void refreshCompletion();
   }, [initialCompletion, refreshCompletion]);
+
+  useEffect(() => {
+    const handleAddressesUpdated = () => {
+      invalidateMandatoryAddressGateClientCache();
+      void refreshCompletion();
+    };
+    window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, handleAddressesUpdated);
+    return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, handleAddressesUpdated);
+  }, [refreshCompletion]);
 
   useEffect(() => {
     dibayMyInfoPerfMark("profile_card_visible_ms", { surface: "mypage_root" });

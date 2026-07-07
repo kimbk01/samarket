@@ -1,10 +1,10 @@
- "use client";
+"use client";
 
-import Link from "next/link";
 import { CheckCircle2, Lock } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { renderMypageHomeMenuIcon } from "@/components/mypage/myinfo/myinfo-menu-icon";
+import { useMypageProfileSheets } from "@/components/mypage/profile-settings/mypage-profile-sheets-context";
 import type { ProfileCompletionState } from "@/lib/profile/profile-completion-state";
 import { evaluatePublicIdProfileView, resolvePublicIdAtDisplay } from "@/lib/auth/dibay-public-id-ssot";
 import { hasVerifiedPhone } from "@/lib/auth/post-login-profile-policy";
@@ -15,7 +15,6 @@ import { resolveRepresentativeFullAddressLineFromSnapshot } from "@/lib/addresse
 import { peekFreshAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
 import { invalidateMandatoryAddressGateClientCache, readMandatoryAddressGateNeedsBlock } from "@/lib/addresses/mandatory-address-gate-client";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/lib/addresses/addresses-updated-event";
-import { MYPAGE_ADDRESSES_HREF, MYPAGE_REQUIRED_DIBAY_ID_HREF, MYPAGE_REQUIRED_PHONE_HREF } from "@/lib/mypage/mypage-profile-routes";
 import type { MypageHomeMenuIconId } from "@/lib/mypage/mypage-home-menu-config";
 import { MYPAGE_HOME_CARD_CLASS, MYPAGE_HOME_ICON_WRAP_CLASS, MYPAGE_HOME_SECTION_HEADER_CLASS, MYPAGE_HOME_SECTION_LABEL_CLASS } from "@/lib/ui/mypage-home-starbucks-styles";
 
@@ -32,9 +31,9 @@ type RequiredInfoRow = {
   badge: string;
   value: string;
   ctaLabel?: string;
-  ctaHref?: string;
+  onCtaClick?: () => void;
   changeLabel?: string;
-  changeHref?: string;
+  onChangeClick?: () => void;
 };
 
 function pickTrimmed(input: unknown): string {
@@ -106,20 +105,22 @@ function RequiredInfoStatusRow({ row }: { row: RequiredInfoRow }) {
           </div>
           <p className="mt-1 truncate text-[13px] leading-snug text-[#6F4E37]">{row.value}</p>
         </div>
-        {row.ctaHref && row.ctaLabel ? (
-          <Link
-            href={row.ctaHref}
+        {row.onCtaClick && row.ctaLabel ? (
+          <button
+            type="button"
+            onClick={row.onCtaClick}
             className="shrink-0 rounded-full bg-[#00704A] px-3.5 py-2 text-[13px] font-semibold text-white"
           >
             {row.ctaLabel}
-          </Link>
-        ) : row.changeHref && row.changeLabel ? (
-          <Link
-            href={row.changeHref}
+          </button>
+        ) : row.onChangeClick && row.changeLabel ? (
+          <button
+            type="button"
+            onClick={row.onChangeClick}
             className="shrink-0 text-[13px] font-semibold text-[#00704A] underline underline-offset-2"
           >
             {row.changeLabel}
-          </Link>
+          </button>
         ) : null}
       </div>
     </li>
@@ -136,6 +137,7 @@ export function RequiredInfoList({
   onProfileRefresh?: () => void;
 }) {
   const { safeT } = useI18n();
+  const { openSheet } = useMypageProfileSheets();
   const [hasDefaultAddress, setHasDefaultAddress] = useState(completion.hasDefaultAddress);
   const addressPresentationState = useRepresentativeAddressPresentation();
 
@@ -200,7 +202,7 @@ export function RequiredInfoList({
     {
       id: "dibay-id",
       icon: "user-round",
-      title: safeT("mypage_required_dibay_id", { fallbackKo: "@아이디", fallbackEn: "@ ID" }),
+      title: safeT("mypage_required_dibay_id", { fallbackKo: "아이디", fallbackEn: "ID" }),
       state: makeState("dibay-id", hasDibayId),
       badge: hasDibayId
         ? safeT("mypage_required_status_done", { fallbackKo: "완료", fallbackEn: "Done" })
@@ -211,10 +213,10 @@ export function RequiredInfoList({
         ? resolvePublicIdAtDisplay(profile) ?? ""
         : safeT("mypage_required_dibay_id_active_hint", {
             fallbackKo: "사용할 아이디를 설정해 주세요.",
-            fallbackEn: "Set the @ ID you want to use.",
+            fallbackEn: "Set the ID you want to use.",
           }),
       ctaLabel: activeStep === "dibay-id" ? safeT("mypage_required_cta_set", { fallbackKo: "설정", fallbackEn: "Set" }) : undefined,
-      ctaHref: activeStep === "dibay-id" ? MYPAGE_REQUIRED_DIBAY_ID_HREF : undefined,
+      onCtaClick: activeStep === "dibay-id" ? () => openSheet("dibay-id") : undefined,
     },
     {
       id: "phone",
@@ -233,7 +235,7 @@ export function RequiredInfoList({
             fallbackEn: "Phone verification required.",
           }),
       ctaLabel: activeStep === "phone" ? safeT("mypage_required_cta_verify", { fallbackKo: "인증", fallbackEn: "Verify" }) : undefined,
-      ctaHref: activeStep === "phone" ? MYPAGE_REQUIRED_PHONE_HREF : undefined,
+      onCtaClick: activeStep === "phone" ? () => openSheet("phone") : undefined,
     },
     {
       id: "address",
@@ -252,9 +254,9 @@ export function RequiredInfoList({
             fallbackEn: "Please add your default address.",
           }),
       ctaLabel: activeStep === "address" ? safeT("mypage_required_cta_register", { fallbackKo: "등록", fallbackEn: "Register" }) : undefined,
-      ctaHref: activeStep === "address" ? MYPAGE_ADDRESSES_HREF : undefined,
+      onCtaClick: activeStep === "address" ? () => openSheet("address") : undefined,
       changeLabel: hasDefaultAddress ? safeT("mypage_required_change_action", { fallbackKo: "변경", fallbackEn: "Change" }) : undefined,
-      changeHref: hasDefaultAddress ? MYPAGE_ADDRESSES_HREF : undefined,
+      onChangeClick: hasDefaultAddress ? () => openSheet("address") : undefined,
     },
   ];
 

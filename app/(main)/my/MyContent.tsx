@@ -29,6 +29,8 @@ import {
 import { guardedRouterReplace, logNetworkLoopGuardReplace } from "@/lib/dev/network-loop-guard";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MyPageGuestHomeDashboard } from "@/components/mypage/MyPageGuestHomeDashboard";
+import { MypageProfileSheetsHost } from "@/components/mypage/profile-settings/MypageProfileSheetsHost";
+import { MypageProfileSheetsProvider } from "@/components/mypage/profile-settings/mypage-profile-sheets-context";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
 
 function resolveLegacyMyPageRedirectTarget(args: {
@@ -231,15 +233,18 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
   }
 
   return (
-    <div className={`flex min-h-0 min-w-0 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
-      <MyPageHeader />
-      <div className={`${APP_MAIN_COLUMN_CLASS} min-h-0 min-w-0 ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
-        <MyPageHomeDashboard
-          profile={profile}
-          profileCompletion={data.profileCompletion ?? null}
-          onProfileRefresh={() => void load({ silent: true })}
-        />
+    <MypageProfileSheetsProvider>
+      <div className={`flex min-h-0 min-w-0 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
+        <MyPageHeader />
+        <div className={`${APP_MAIN_COLUMN_CLASS} min-h-0 min-w-0 ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
+          <MyPageHomeDashboard
+            profile={profile}
+            profileCompletion={data.profileCompletion ?? null}
+            onProfileRefresh={() => void load({ silent: true })}
+          />
+        </div>
       </div>
-    </div>
+      <MypageProfileSheetsHost profile={profile} />
+    </MypageProfileSheetsProvider>
   );
 }

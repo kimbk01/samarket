@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { MyInfoProfileSection } from "@/components/mypage/myinfo/MyInfoProfileSection";
 import { RequiredInfoList } from "@/components/mypage/myinfo/RequiredInfoList";
 import { MyPageAdminMenuEntry } from "@/components/mypage/MyPageAdminMenuEntry";
@@ -13,6 +14,7 @@ import { MYPAGE_HOME_BODY_CLASS } from "@/lib/ui/mypage-home-starbucks-styles";
 import type { ProfileCompletionState } from "@/lib/profile/profile-completion-state";
 import type { ProfileRow } from "@/lib/profile/types";
 import { useMypageHomeDashboardModel } from "@/hooks/use-mypage-home-dashboard-model";
+import { useMypageProfileSheets } from "@/components/mypage/profile-settings/mypage-profile-sheets-context";
 
 const COLUMN_STACK_CLASS = "flex min-w-0 flex-col gap-3 md:gap-4";
 
@@ -31,6 +33,12 @@ export function MyPageHomeDashboard({
     initialCompletion: profileCompletion,
     onProfileRefresh,
   });
+  const { setOnProfileUpdated } = useMypageProfileSheets();
+
+  useEffect(() => {
+    if (!onProfileRefresh) return;
+    setOnProfileUpdated(onProfileRefresh);
+  }, [onProfileRefresh, setOnProfileUpdated]);
 
   return (
     <div className={MYPAGE_HOME_BODY_CLASS}>
