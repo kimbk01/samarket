@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useAdminMemberUuidVisibility } from "@/hooks/useAdminMemberUuidVisibility";
@@ -16,7 +15,8 @@ import type { ModerationStatus } from "@/lib/types/report";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { AppLanguageCode } from "@/lib/i18n/config";
 
-export type ApiTestUserRow = {
+/** GET /api/admin/users/:id `user` 페이로드 (profiles SSOT + hasProfile 계약) */
+export type AdminUserDetailPayload = {
   id: string;
   username: string | null;
   email?: string | null;
@@ -37,12 +37,10 @@ export type ApiTestUserRow = {
   hasProfile?: boolean;
 };
 
-const ROLE_LABEL_KEYS: Record<string, MessageKey> = {
-  admin: "admin_users_test_role_admin",
-  master: "admin_users_test_role_master",
-  super_admin: "admin_users_test_role_master",
-  special: "admin_users_test_role_special",
-  member: "admin_users_test_role_member",
+const MEMBER_TYPE_LABEL_KEYS: Record<MemberType, MessageKey> = {
+  normal: "admin_users_member_type_normal_short",
+  premium: "admin_users_member_type_premium_short",
+  admin: "admin_users_member_type_admin_short",
 };
 
 function deriveMemberType(role: string, memberType?: string | null): MemberType {
@@ -63,7 +61,7 @@ function contactPhoneDisplay(raw: string | null | undefined): string {
   return spaced || t;
 }
 
-export function AdminTestUserDetail({ user }: { user: ApiTestUserRow }) {
+export function AdminMemberDetail({ user }: { user: AdminUserDetailPayload }) {
   const { t, language } = useI18n();
   const dateLocale = dateLocaleTag(language);
   const { showMemberUuid, setShowMemberUuid } = useAdminMemberUuidVisibility();
@@ -72,12 +70,12 @@ export function AdminTestUserDetail({ user }: { user: ApiTestUserRow }) {
   const display =
     user.nickname?.trim() || user.display_name?.trim() || user.username || (showMemberUuid ? user.id : "—");
 
-  const roleLabelKey = ROLE_LABEL_KEYS[user.role];
+  const memberType = deriveMemberType(user.role, user.member_type);
   const isReadOnly = user.hasProfile === false;
   const actionUser: AdminUser = {
     id: user.id,
     nickname: display,
-    memberType: deriveMemberType(user.role, user.member_type),
+    memberType,
     moderationStatus: (user.moderation_status ?? "normal") as ModerationStatus,
     productCount: 0,
     soldCount: 0,
@@ -92,7 +90,7 @@ export function AdminTestUserDetail({ user }: { user: ApiTestUserRow }) {
   return (
     <div className={`${ADMIN_USERS_PAGE_BG_CLASS} pb-6`}>
       <div className="space-y-4">
-      <AdminPageHeader titleKey="admin_users_detail_test_title" backHref="/admin/users" />
+      <AdminPageHeader titleKey="admin_users_detail_title" backHref="/admin/users" />
 
       {isReadOnly ? (
         <div
@@ -159,8 +157,8 @@ export function AdminTestUserDetail({ user }: { user: ApiTestUserRow }) {
             </dd>
           </div>
           <div>
-            <dt className="sam-text-helper font-medium text-sam-muted">{t("admin_users_test_label_role")}</dt>
-            <dd className="mt-0.5 text-sam-fg">{roleLabelKey ? t(roleLabelKey) : user.role}</dd>
+            <dt className="sam-text-helper font-medium text-sam-muted">{t("admin_users_label_member_type")}</dt>
+            <dd className="mt-0.5 text-sam-fg">{t(MEMBER_TYPE_LABEL_KEYS[memberType])}</dd>
           </div>
           <div>
             <dt className="sam-text-helper font-medium text-sam-muted">{t("admin_users_test_label_phone_verify")}</dt>
@@ -285,29 +283,6 @@ export function AdminTestUserDetail({ user }: { user: ApiTestUserRow }) {
       ) : null}
 
       {!isReadOnly ? <AdminUserPointsSection userId={user.id} /> : null}
-
-      {!isReadOnly ? (
-      <AdminCard titleKey="admin_users_card_login_test_guide">
-        <ul className="list-disc space-y-2 pl-5 sam-text-body-secondary leading-relaxed text-sam-fg">
-          <li>
-            <Link href="/login" className="text-signature underline">
-              {t("admin_users_test_guide_login_page")}
-            </Link>
-            {t("admin_users_test_guide_login_a")}{" "}
-            <strong>{t("admin_users_test_guide_login_b")}</strong>
-            {t("admin_users_test_guide_login_c")}{" "}
-            <Link href="/my" className="text-signature underline">
-              {t("admin_users_test_guide_my_page")}
-            </Link>
-            {t("admin_users_test_guide_login_d")}
-          </li>
-          <li>
-            {t("admin_users_test_guide_multi_account")}
-          </li>
-          <li>{t("admin_users_test_guide_profile_split")}</li>
-        </ul>
-      </AdminCard>
-      ) : null}
       </div>
     </div>
   );

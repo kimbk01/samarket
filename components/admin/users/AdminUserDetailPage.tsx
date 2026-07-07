@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
-  AdminTestUserDetail,
-  type ApiTestUserRow,
+  AdminMemberDetail,
+  type AdminUserDetailPayload,
 } from "@/components/admin/users/AdminTestUserDetail";
 import { ADMIN_USERS_PAGE_BG_CLASS } from "@/lib/ui/admin-users-starbucks-styles";
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -15,7 +15,7 @@ interface AdminUserDetailPageProps {
 
 type DetailLoadState =
   | { kind: "loading" }
-  | { kind: "user"; user: ApiTestUserRow }
+  | { kind: "user"; user: AdminUserDetailPayload }
   | { kind: "error"; messageKey: MessageKey };
 
 function detailErrorKeyForStatus(status: number): MessageKey {
@@ -41,7 +41,7 @@ export function AdminUserDetailPage({ userId }: AdminUserDetailPageProps) {
         });
         if (cancelled) return;
         if (res.ok) {
-          const data = (await res.json()) as { ok?: boolean; user?: ApiTestUserRow };
+          const data = (await res.json()) as { ok?: boolean; user?: AdminUserDetailPayload };
           if (data.ok && data.user) {
             setState({ kind: "user", user: data.user });
             return;
@@ -77,5 +77,5 @@ export function AdminUserDetailPage({ userId }: AdminUserDetailPageProps) {
     );
   }
 
-  return <AdminTestUserDetail user={state.user} />;
+  return <AdminMemberDetail user={state.user} />;
 }

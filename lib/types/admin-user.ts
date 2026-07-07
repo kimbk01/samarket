@@ -89,7 +89,7 @@ export interface UserModerationLog {
   createdAt: string;
 }
 
-/** 관리자 회원 상세 API `user` 페이로드 — profiles SSOT + hasProfile 계약 */
+/** 관리자 회원 상세 API `user` 페이로드 — profiles SSOT + hasProfile 계약 (상세 UI·AdminUserDetailPayload) */
 export interface AdminUserDetail {
   id: string;
   username: string | null;

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState, useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { AdminTableBottomHorizontalScroll } from "@/components/admin/AdminTableBottomHorizontalScroll";
 import { readSidebarExpanded } from "@/lib/admin-ui-prefs";
@@ -465,26 +464,7 @@ export function AdminUserListPage() {
         <>
           <div className={`${ADMIN_USERS_CARD_CLASS} px-4 py-3 text-sm leading-relaxed text-[#6F4E37]`}>
             <p className="font-bold text-[#1E3932]">{t("admin_users_member_list_title")}</p>
-            <p className="mt-1">
-              {t("admin_users_member_list_help_a")}
-              <code className="rounded bg-[#f0f2f5] px-1.5 py-0.5 text-[#050505]">
-                {t("admin_users_manual_email_pattern", { domain: MANUAL_MEMBER_EMAIL_DOMAIN })}
-              </code>
-              {t("admin_users_member_list_help_b")}
-              <Link href="/login" className="font-bold text-sam-primary underline hover:text-sam-primary-hover">
-                /login
-              </Link>
-              {t("admin_users_member_list_help_c")}
-              <a
-                href="/api/system/supabase-project"
-                className="font-bold text-sam-primary underline hover:text-sam-primary-hover"
-              >
-                /api/system/supabase-project
-              </a>
-              {t("admin_users_member_list_help_d")}
-              <code className="rounded bg-[#f0f2f5] px-1.5 py-0.5 text-[#050505]">projectRef</code>
-              {t("admin_users_member_list_help_e")}
-            </p>
+            <p className="mt-1">{t("admin_users_member_list_ssot_hint", { domain: MANUAL_MEMBER_EMAIL_DOMAIN })}</p>
           </div>
           <div className={`${ADMIN_USERS_CARD_CLASS} p-4 font-sans`}>
             <div className="flex flex-wrap items-end justify-between gap-3 border-b border-[#e9edf3] pb-3">

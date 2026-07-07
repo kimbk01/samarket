@@ -43,6 +43,7 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  const isReadOnly = user.hasProfile === false;
   const memberLocked =
     user.profileRole === "master" || (!isMasterUi && user.memberType === "admin");
 
@@ -64,6 +65,7 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isReadOnly) return;
     setError(null);
 
     const nextNickname = nickname.trim();
@@ -144,7 +146,7 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
         <p className="mt-2 sam-text-helper text-amber-800">
           {t("admin_users_edit_profiles_hint")}
         </p>
-        {user.hasProfile === false ? (
+        {isReadOnly ? (
           <p className="mt-2 rounded-ui-rect border border-sky-200 bg-sky-50 px-3 py-2 sam-text-helper text-sky-950">
             {t("admin_users_edit_test_only_hint")}
           </p>
@@ -157,7 +159,8 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
               value={nickname}
               onChange={(e) => setNickname(e.target.value)}
               maxLength={20}
-              className="mt-1.5 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
+              disabled={isReadOnly}
+              className="mt-1.5 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body disabled:cursor-not-allowed disabled:bg-sam-surface-muted"
               placeholder={t("admin_users_label_nickname")}
             />
           </label>
@@ -167,7 +170,7 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
             <select
               value={memberType}
               onChange={(e) => setMemberType(e.target.value as MemberType)}
-              disabled={memberLocked}
+              disabled={isReadOnly || memberLocked}
               className="mt-1.5 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body disabled:cursor-not-allowed disabled:bg-sam-surface-muted"
             >
               {memberOptions.map((v) => (
@@ -198,7 +201,8 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
             <select
               value={phoneStatus}
               onChange={(e) => setPhoneStatus(e.target.value)}
-              className="mt-1.5 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
+              disabled={isReadOnly}
+              className="mt-1.5 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body disabled:cursor-not-allowed disabled:bg-sam-surface-muted"
             >
               {PHONE_OPTION_KEYS.map((o) => (
                 <option key={o.value} value={o.value}>
@@ -221,7 +225,7 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
           </button>
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || isReadOnly}
             className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white hover:bg-signature/90 disabled:opacity-50"
           >
             {submitting ? t("admin_users_saving") : t("common_save")}
