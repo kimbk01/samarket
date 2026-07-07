@@ -401,6 +401,12 @@ export async function establishGoogleNativeSession(
     signupComplete = false;
   }
 
+  if (isNewUser) {
+    needsTermsAgreement = true;
+    signupComplete = false;
+    redirectTo = withNextSearchParam(DIBAY_SIGNUP_TERMS_PATH, safeNext);
+  }
+
   const sessionMeta = buildRequestSessionMeta(ctx.request);
   const authEmail = resolveAuthEmailForGoogleUser(googleUserId);
   await syncActiveSessionForUser(signedUser.id, ctx.response, {

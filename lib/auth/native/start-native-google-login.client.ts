@@ -48,11 +48,14 @@ export type NativeGoogleLoginHandoff = FinishClientAuthLoginTermsHandoff & {
 function buildNativeGoogleLoginHandoff(
   exchange: Extract<NativeGoogleExchangeResponse, { ok: true }>,
 ): NativeGoogleLoginHandoff {
+  const needsTermsAgreement =
+    exchange.isNewUser === true ? true : exchange.needsTermsAgreement;
+  const signupComplete = exchange.isNewUser === true ? false : exchange.signupComplete;
   return {
     redirectTo: exchange.redirectTo?.trim() ?? null,
-    needsTermsAgreement: exchange.needsTermsAgreement,
-    signupComplete: exchange.signupComplete,
-    consentComplete: exchange.needsTermsAgreement === false || exchange.signupComplete === true,
+    needsTermsAgreement,
+    signupComplete,
+    consentComplete: needsTermsAgreement === false,
   };
 }
 
@@ -91,15 +94,17 @@ async function completeNativeGoogleSession(input: {
     throwNativeGoogleExchangeError(exchange);
   }
 
+  const handoff = buildNativeGoogleLoginHandoff(exchange);
   logOAuthNativeEvent("google_native_exchange_ok", {
-    signupComplete: exchange.signupComplete ?? null,
-    needsTermsAgreement: exchange.needsTermsAgreement ?? null,
-    redirectTo: exchange.redirectTo ?? null,
+    isNewUser: exchange.isNewUser ?? null,
+    signupComplete: handoff.signupComplete ?? null,
+    needsTermsAgreement: handoff.needsTermsAgreement ?? null,
+    redirectTo: handoff.redirectTo ?? null,
     recovered: input.recovered ?? false,
   });
   endOAuthFlow("google");
   clearStoredLoginRequiredDetail();
-  return buildNativeGoogleLoginHandoff(exchange);
+  return handoff;
 }
 
 /**
