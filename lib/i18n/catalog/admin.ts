@@ -848,9 +848,7 @@ export const adminMessages = {
     admin_users_edit_profiles_hint: "구분·전화 인증은 profiles(및 개발용 test_users.role)에 반영됩니다.",
     admin_users_edit_test_only_hint: "수동(test_users)만 연결된 계정입니다. 저장 시 같은 UUID로 Supabase Auth와 profiles가 없으면 자동으로 만들어 정식 회원과 동일하게 맞춥니다.",
     admin_users_edit_master_role_hint: "최고 관리자 계정은 DB role이 유지됩니다. 전화 인증만 바꿀 수 있습니다.",
-    admin_users_edit_member_type_hint: "일반·특별 회원 구분만 변경할 수 있습니다.",
-    admin_users_admin_via_staff_tab_hint:
-      "관리자 승격·생성은 「관리자(스태프)」 탭에서 처리합니다.",
+    admin_users_edit_member_type_hint: "일반·특별 ↔ 관리자 변경은 최고 관리자만 할 수 있습니다.",
     admin_users_label_member_type: "회원 구분",
     admin_users_label_phone_verify_status: "전화 인증 상태",
     admin_users_phone_unverified: "미인증",
@@ -2660,9 +2658,7 @@ export const adminMessages = {
     admin_users_edit_profiles_hint: "Member type and phone verification are saved to profiles (and test_users.role in dev).",
     admin_users_edit_test_only_hint: "Account linked only via test_users. On save, Supabase Auth and profiles are created with the same UUID if missing.",
     admin_users_edit_master_role_hint: "Master admin DB role is preserved. Only phone verification can change.",
-    admin_users_edit_member_type_hint: "You can only change regular or premium member type here.",
-    admin_users_admin_via_staff_tab_hint:
-      "Admin promotion and creation are handled on the Staff tab.",
+    admin_users_edit_member_type_hint: "Only master admins can change regular/premium ↔ admin.",
     admin_users_label_member_type: "Member type",
     admin_users_label_phone_verify_status: "Phone verification",
     admin_users_phone_unverified: "Unverified",

@@ -655,17 +655,6 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "nothing_to_update" }, { status: 400 });
   }
 
-  if (hasMember && String(memberTypeRaw).trim().toLowerCase() === "admin") {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: "use_staff_api_for_admin_promotion",
-        message: "관리자 승격은 Staff API를 사용해 주세요.",
-      },
-      { status: 403 }
-    );
-  }
-
   let parsedMemberType: MemberType | null = null;
   if (hasMember) {
     const m = String(memberTypeRaw).trim().toLowerCase();

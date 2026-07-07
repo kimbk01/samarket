@@ -127,15 +127,8 @@ export async function POST(req: NextRequest) {
   const emailRaw = String(body.email ?? "").trim().toLowerCase();
   const name = String(body.name ?? "").trim();
   const accountTypeRaw = String(body.accountType ?? "development_member").trim().toLowerCase();
-  if (accountTypeRaw === "admin") {
-    return jsonFieldError(
-      "accountType",
-      "use_staff_api_for_admin_create",
-      403,
-      "관리자 생성은 Staff API를 사용해 주세요."
-    );
-  }
-  const memberType = "normal";
+  const isAdminAccount = accountTypeRaw === "admin";
+  const memberType = isAdminAccount ? "admin" : "normal";
   const contactPhoneRaw = String(body.contactPhone ?? "").trim();
   const contactAddressRaw = String(body.contactAddress ?? "").trim();
   const regionIdLegacy = String(body.regionCode ?? "").trim();
@@ -168,7 +161,7 @@ export async function POST(req: NextRequest) {
   if (!emailRaw || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailRaw)) {
     return jsonFieldError("email", "admin_users_err_email_invalid", 400);
   }
-  if (!["development_member", "operations_member"].includes(accountTypeRaw)) {
+  if (!["development_member", "operations_member", "admin"].includes(accountTypeRaw)) {
     return jsonFieldError("accountType", "admin_users_err_account_type_invalid", 400);
   }
 
@@ -250,8 +243,8 @@ export async function POST(req: NextRequest) {
     username,
     nickname,
     realname: name,
-    role: "user",
-    ["is_admin"]: false,
+    role: isAdminAccount ? "admin" : "user",
+    is_admin: isAdminAccount,
     member_type: memberType,
     member_status: "active",
     verified_member_at: nowIso,
@@ -358,7 +351,7 @@ export async function POST(req: NextRequest) {
       nickname,
       name,
       email,
-      role: "user",
+      role: isAdminAccount ? "admin" : "user",
       memberType,
       accountType: accountTypeRaw,
       phoneVerified: true,

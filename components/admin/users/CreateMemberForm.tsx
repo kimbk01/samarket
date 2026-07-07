@@ -26,11 +26,12 @@ import {
 import type { MessageKey } from "@/lib/i18n/messages";
 
 const ACCOUNT_TYPE_OPTIONS: {
-  value: "development_member" | "operations_member";
+  value: "development_member" | "operations_member" | "admin";
   labelKey: MessageKey;
 }[] = [
   { value: "development_member", labelKey: "admin_users_account_dev_member" },
   { value: "operations_member", labelKey: "admin_users_account_ops_member" },
+  { value: "admin", labelKey: "admin_users_account_admin" },
 ];
 
 function fieldClass(hasError: boolean): string {
@@ -66,7 +67,9 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
   const [email, setEmail] = useState("");
   const [contactPhoneDigits, setContactPhoneDigits] = useState("");
   const [address, setAddress] = useState<AdminCreateMemberAddressInput>(emptyAdminCreateMemberAddress());
-  const [accountType, setAccountType] = useState<"development_member" | "operations_member">("development_member");
+  const [accountType, setAccountType] = useState<"development_member" | "operations_member" | "admin">(
+    "development_member"
+  );
   const [fieldErrors, setFieldErrors] = useState<AdminCreateMemberFieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [addressAttempted, setAddressAttempted] = useState(false);
@@ -412,7 +415,7 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
               <select
                 value={accountType}
                 onChange={(e) => {
-                  setAccountType(e.target.value as "development_member" | "operations_member");
+                  setAccountType(e.target.value as "development_member" | "operations_member" | "admin");
                   touchField("accountType");
                 }}
                 aria-invalid={Boolean(resolvedFieldMessages.accountType)}
@@ -426,11 +429,8 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
               </select>
               <FieldError message={resolvedFieldMessages.accountType} />
             </div>
-            <div className="space-y-2">
-              <div className="rounded-ui-rect border border-emerald-200 bg-emerald-50/70 px-3 py-2 sam-text-body-secondary text-sam-fg">
-                {t("admin_users_manual_account_hint")}
-              </div>
-              <p className="sam-text-xxs text-sam-muted">{t("admin_users_admin_via_staff_tab_hint")}</p>
+            <div className="rounded-ui-rect border border-emerald-200 bg-emerald-50/70 px-3 py-2 sam-text-body-secondary text-sam-fg">
+              {t("admin_users_manual_account_hint")}
             </div>
 
             {formError || resolvedFieldMessages.form ? (
