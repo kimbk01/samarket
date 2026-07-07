@@ -34,6 +34,7 @@ export type ApiTestUserRow = {
   status?: string | null;
   moderation_status?: string;
   created_at: string | null;
+  hasProfile?: boolean;
 };
 
 const ROLE_LABEL_KEYS: Record<string, MessageKey> = {
@@ -72,6 +73,7 @@ export function AdminTestUserDetail({ user }: { user: ApiTestUserRow }) {
     user.nickname?.trim() || user.display_name?.trim() || user.username || (showMemberUuid ? user.id : "—");
 
   const roleLabelKey = ROLE_LABEL_KEYS[user.role];
+  const isReadOnly = user.hasProfile === false;
   const actionUser: AdminUser = {
     id: user.id,
     nickname: display,
@@ -84,12 +86,24 @@ export function AdminTestUserDetail({ user }: { user: ApiTestUserRow }) {
     chatCount: 0,
     joinedAt: user.created_at ?? new Date().toISOString(),
     profileRole: user.role,
+    hasProfile: user.hasProfile,
   };
 
   return (
     <div className={`${ADMIN_USERS_PAGE_BG_CLASS} pb-6`}>
       <div className="space-y-4">
       <AdminPageHeader titleKey="admin_users_detail_test_title" backHref="/admin/users" />
+
+      {isReadOnly ? (
+        <div
+          className="rounded-ui-rect border border-sky-200 bg-sky-50 px-4 py-3 sam-text-body text-sky-950"
+          role="status"
+        >
+          <span className="font-semibold">{t("admin_users_profile_not_created")}</span>
+          <span className="mx-1.5 text-sky-700">·</span>
+          <span>{t("admin_users_readonly")}</span>
+        </div>
+      ) : null}
 
       <AdminCard titleKey="admin_users_card_member_account">
         <dl className="grid gap-3 sam-text-body">
@@ -211,6 +225,7 @@ export function AdminTestUserDetail({ user }: { user: ApiTestUserRow }) {
         </dl>
       </AdminCard>
 
+      {!isReadOnly ? (
       <AdminCard titleKey="admin_users_card_phone_verify">
         <div className="flex flex-wrap gap-2">
           <button
@@ -255,17 +270,23 @@ export function AdminTestUserDetail({ user }: { user: ApiTestUserRow }) {
           </button>
         </div>
       </AdminCard>
+      ) : null}
 
+      {!isReadOnly ? (
       <AdminCard titleKey="admin_users_card_moderation_actions">
         <AdminUserActionPanel user={actionUser} onActionSuccess={onActionSuccess} />
       </AdminCard>
+      ) : null}
 
+      {!isReadOnly ? (
       <AdminCard titleKey="admin_users_card_moderation_log">
         <AdminUserModerationEventsList userId={user.id} refreshKey={actionRefresh} />
       </AdminCard>
+      ) : null}
 
-      <AdminUserPointsSection userId={user.id} />
+      {!isReadOnly ? <AdminUserPointsSection userId={user.id} /> : null}
 
+      {!isReadOnly ? (
       <AdminCard titleKey="admin_users_card_login_test_guide">
         <ul className="list-disc space-y-2 pl-5 sam-text-body-secondary leading-relaxed text-sam-fg">
           <li>
@@ -286,6 +307,7 @@ export function AdminTestUserDetail({ user }: { user: ApiTestUserRow }) {
           <li>{t("admin_users_test_guide_profile_split")}</li>
         </ul>
       </AdminCard>
+      ) : null}
       </div>
     </div>
   );

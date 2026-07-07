@@ -43,7 +43,10 @@ export interface AdminUser {
   memberType: MemberType;
   /** profiles.role 원본 — master 판별·서버 검증용 */
   profileRole?: string;
-  /** profiles 행 존재 여부(목록만 test_users 인 레거시는 false) */
+  /**
+   * profiles 행 존재 여부.
+   * true = SSOT 회원 · false = auth-only 예외(목록·상세 읽기 전용).
+   */
   hasProfile?: boolean;
   /** normal = active 표시용 */
   moderationStatus: ModerationStatus;
@@ -84,6 +87,29 @@ export interface UserModerationLog {
   adminNickname: string;
   note: string;
   createdAt: string;
+}
+
+/** 관리자 회원 상세 API `user` 페이로드 — profiles SSOT + hasProfile 계약 */
+export interface AdminUserDetail {
+  id: string;
+  username: string | null;
+  email: string | null;
+  role: string;
+  display_name: string | null;
+  nickname: string | null;
+  contact_phone: string | null;
+  contact_address: string | null;
+  phone_verified: boolean;
+  phone_verified_at: string | null;
+  phone_verification_status: string;
+  member_status: string | null;
+  member_type: string | null;
+  status: string | null;
+  deleted_at: string | null;
+  moderation_status: string;
+  verified_member_at: string | null;
+  created_at: string | null;
+  hasProfile: boolean;
 }
 
 export interface UserActivitySummary {

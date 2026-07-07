@@ -368,14 +368,13 @@ export async function GET(_req: NextRequest) {
   });
 
   const profileIds = profileRows.map((row) => row.id).filter(Boolean);
-  const ids = new Set(profileIds);
   const authOnlyIdSet = authOnlyEntries
     .map((u) => String(u?.id ?? "").trim())
     .filter(Boolean);
   const allUserIdsForAddress = Array.from(new Set([...profileIds, ...authOnlyIdSet]));
   const allUserIdsForProviders = Array.from(new Set([...profileIds, ...authOnlyIdSet]));
 
-  const [adminAddressMap, linkedIdentitiesMap, warnedUserIds, matchedTestRows, recentTestResult] =
+  const [adminAddressMap, linkedIdentitiesMap, warnedUserIds, matchedTestRows] =
     await Promise.all([
       loadAdminAddressMap(supabase, allUserIdsForAddress),
       loadLinkedIdentitiesMapChunked(supabase, allUserIdsForProviders).catch(
@@ -383,26 +382,13 @@ export async function GET(_req: NextRequest) {
       ),
       loadWarnedUserIdSet(supabase, profileIds).catch(() => new Set<string>()),
       loadTestUsersByIdsChunked(supabase, profileIds).catch(() => [] as TestUserRow[]),
-      supabase
-        .from("test_users")
-        .select("id, username, display_name, role, contact_phone, contact_address, created_at")
-        .order("created_at", { ascending: false })
-        .limit(250),
     ]);
-
-  const recentTestRows = recentTestResult.data;
 
   const testRowsById = new Map<string, TestUserRow>();
   for (const row of (matchedTestRows ?? []) as TestUserRow[]) {
     if (row?.id) testRowsById.set(row.id, row);
   }
-  for (const row of (recentTestRows ?? []) as TestUserRow[]) {
-    if (row?.id && !testRowsById.has(row.id)) testRowsById.set(row.id, row);
-  }
-  const testRows = Array.from(testRowsById.values());
-  const testMap = new Map<string, TestUserRow>(
-    ((testRows ?? []) as TestUserRow[]).map((row) => [row.id, row])
-  );
+  const testMap = testRowsById;
   const authMap = buildAuthUserMap(authUsers);
 
   const list: AdminUser[] = profileRows.map((r) => {
@@ -419,46 +405,6 @@ export async function GET(_req: NextRequest) {
       return fallbackAdminUserFromProfileRow(r);
     }
   });
-
-  const legacyTestUsers: AdminUser[] = ((testRows ?? []) as TestUserRow[])
-    .filter((row) => !ids.has(row.id))
-    .map((row) => {
-      const role = String(row.role ?? "member").trim().toLowerCase();
-      const memberType: MemberType =
-        role === "admin" || role === "master" || role === "super_admin"
-          ? "admin"
-          : role === "special" || role === "premium"
-            ? "premium"
-            : "normal";
-      const loc = firstLineOfMultiline(row.contact_address) || undefined;
-      return {
-        id: row.id,
-        loginUsername: row.username?.trim() || undefined,
-        loginIdentifier: row.username?.trim() || undefined,
-        username: row.username?.trim() || null,
-        displayName: row.display_name?.trim() || null,
-        nickname: labelFromDisplayAndUsername(row.display_name?.trim() || "", row.username?.trim() || "") || row.display_name?.trim() || row.username?.trim() || row.id,
-        authProvider: "manual",
-        providerLabel: "Manual",
-        phone: row.contact_phone?.trim() || undefined,
-        memberType,
-        profileRole: row.role ?? undefined,
-        hasProfile: false,
-        moderationStatus: "normal",
-        location: loc,
-        phoneVerified: false,
-        phoneVerifiedAt: undefined,
-        verificationStatus: "unverified",
-        memberStatus: "pending",
-        verifiedMemberAt: undefined,
-        productCount: 0,
-        soldCount: 0,
-        reviewCount: 0,
-        reportCount: 0,
-        chatCount: 0,
-        joinedAt: row.created_at ?? new Date().toISOString(),
-      };
-    });
 
   /**
    * Supabase Auth 에는 있지만 `profiles` upsert가 막혀 행이 없는 회원 →
@@ -550,10 +496,10 @@ export async function GET(_req: NextRequest) {
 
   /**
    * 최종 dedupe — `auth.users.id` 기준으로 1행만 유지한다.
-   * profiles → legacyTestUsers → profileLessAuthUsers 순으로 우선순위가 높다(앞 항목이 보존).
-   * (정상 케이스에서는 이미 분기에서 분리되지만 동일 UUID 충돌이 생겨도 안전하게 1행으로 수렴.)
+   * profiles → profileLessAuthUsers 순으로 우선순위가 높다(앞 항목이 보존).
+   * test_users-only(프로필 없음)는 기본 목록에서 제외한다.
    */
-  const merged = [...list, ...legacyTestUsers, ...profileLessAuthUsers];
+  const merged = [...list, ...profileLessAuthUsers];
   const seenIds = new Set<string>();
   const dedupedUsers: AdminUser[] = [];
   for (const u of merged) {

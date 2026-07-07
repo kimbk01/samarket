@@ -188,6 +188,8 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
     onEditMember(u);
   }, [onEditMember, u]);
 
+  const isReadOnly = u.hasProfile === false;
+
   return (
     <tr className="group border-b border-[#e6eaf0] bg-white hover:bg-[#f8fbff]">
       <td className="sticky left-0 z-10 min-w-[132px] border-r border-[#e9edf3] whitespace-nowrap bg-white px-3 py-3 group-hover:bg-[#f8fbff]">
@@ -230,6 +232,16 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
         <p className="mt-0.5 text-[11px] font-mono text-[#8a8d91]">
           {(u.dibay_id ?? u.username)?.trim() ? `@${(u.dibay_id ?? u.username)?.trim()}` : "-"}
         </p>
+        {isReadOnly ? (
+          <p className="mt-1 flex flex-wrap gap-1">
+            <span className="rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[10px] font-bold text-sky-900">
+              {t("admin_users_profile_not_created")}
+            </span>
+            <span className="rounded-full border border-[#dadde1] bg-[#f7f8fa] px-2 py-0.5 text-[10px] font-bold text-[#65676b]">
+              {t("admin_users_readonly")}
+            </span>
+          </p>
+        ) : null}
       </td>
       <td className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-[#475467]">{u.email?.trim() || emptyCell}</td>
       <td className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-[#475467]">{u.phone?.trim() || emptyCell}</td>
@@ -294,7 +306,8 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
       <td className="whitespace-nowrap px-3 py-3 pr-5 align-top">
         <button
           type="button"
-          className="rounded-full border border-sam-primary-border bg-sam-primary-soft px-3 py-1 text-xs font-bold text-sam-primary shadow-sm transition hover:bg-sam-primary-soft-2"
+          disabled={isReadOnly}
+          className="rounded-full border border-sam-primary-border bg-sam-primary-soft px-3 py-1 text-xs font-bold text-sam-primary shadow-sm transition hover:bg-sam-primary-soft-2 disabled:cursor-not-allowed disabled:border-[#dadde1] disabled:bg-[#f0f2f5] disabled:text-[#98a2b3]"
           onClick={handleEdit}
         >
           {t("admin_users_action_edit")}

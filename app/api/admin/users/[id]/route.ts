@@ -23,7 +23,7 @@ import { rowToUserAddressDTO } from "@/lib/addresses/user-address-mapper";
 import { buildAddressListDetailLine, buildTradePublicLine } from "@/lib/addresses/user-address-format";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { resolveProfileLocationAddressLines } from "@/lib/profile/profile-location";
-import type { MemberType } from "@/lib/types/admin-user";
+import type { AdminUserDetail, MemberType } from "@/lib/types/admin-user";
 import { buildManualMemberAuthEmail } from "@/lib/auth/manual-member-email";
 import {
   profilePhoneStorageFieldsFromDb09,
@@ -347,26 +347,7 @@ function phoneStatusToPatch(status: (typeof PHONE_VERIFICATION_STATUSES)[number]
   }
 }
 
-type AdminUserDetailRow = {
-  id: string;
-  username: string | null;
-  email: string | null;
-  role: string;
-  display_name: string | null;
-  nickname: string | null;
-  contact_phone: string | null;
-  contact_address: string | null;
-  phone_verified: boolean;
-  phone_verified_at: string | null;
-  phone_verification_status: string;
-  member_status: string | null;
-  member_type: string | null;
-  status: string | null;
-  deleted_at: string | null;
-  moderation_status: string;
-  verified_member_at: string | null;
-  created_at: string | null;
-};
+type AdminUserDetailRow = AdminUserDetail;
 
 const AUTH_ONLY_ADDRESS_SELECT =
   "id,user_id,label_type,nickname,recipient_name,phone_number,country_code,country_name,province,city_municipality,barangay,district,street_address,building_name,unit_floor_room,landmark,latitude,longitude,full_address,neighborhood_name,app_region_id,app_city_id,use_for_life,use_for_trade,use_for_delivery,is_default_master,is_default_life,is_default_trade,is_default_delivery,is_active,sort_order,created_at,updated_at";
@@ -487,6 +468,7 @@ async function buildAuthOnlyAdminUserDetail(
     verified_member_at: null,
     created_at:
       typeof authUser.created_at === "string" && authUser.created_at ? authUser.created_at : null,
+    hasProfile: false,
   };
 }
 
@@ -539,63 +521,91 @@ export async function GET(
       rawId,
       authData.user as AdminAuthListUser
     );
-    return NextResponse.json({ ok: true, user, hasProfile: false });
+    return NextResponse.json({ ok: true, user });
   }
 
-  const role =
-    String(profile?.role ?? testUser?.role ?? "user").trim() || "user";
+  if (profile) {
+    const prof = profile as {
+      region_code?: string | null;
+      region_name?: string | null;
+      address_street_line?: string | null;
+      address_detail?: string | null;
+      status?: string | null;
+      deleted_at?: string | null;
+      member_type?: string | null;
+      username?: string | null;
+      email?: string | null;
+      role?: string | null;
+      display_name?: string | null;
+      nickname?: string | null;
+      phone?: string | null;
+      phone_verified?: boolean | null;
+      phone_verified_at?: string | null;
+      phone_verification_status?: string | null;
+      member_status?: string | null;
+      verified_member_at?: string | null;
+      created_at?: string | null;
+    };
+    const fromProfileLines = resolveProfileLocationAddressLines({
+      region_code: prof.region_code,
+      region_name: prof.region_name,
+      address_street_line: prof.address_street_line,
+      address_detail: prof.address_detail,
+    });
+    const hasWarn = await userHasRecentWarn(supabase, rawId).catch(() => false);
+    const moderationStatus = mapProfileStatusToModeration(
+      prof.status,
+      prof.deleted_at,
+      hasWarn
+    );
+    const user: AdminUserDetailRow = {
+      id: rawId,
+      username: prof.username ?? null,
+      email: prof.email ?? null,
+      role: String(prof.role ?? "user").trim() || "user",
+      display_name: prof.display_name ?? prof.nickname ?? null,
+      nickname: prof.nickname ?? null,
+      contact_phone: prof.phone ?? null,
+      contact_address: fromProfileLines.length > 0 ? fromProfileLines.join("\n") : null,
+      phone_verified: prof.phone_verified === true,
+      phone_verified_at: prof.phone_verified_at ?? null,
+      phone_verification_status:
+        (prof.phone_verification_status as string | null) ??
+        (prof.phone_verified ? "verified" : prof.phone ? "pending" : "unverified"),
+      member_status: prof.member_status ?? null,
+      member_type: prof.member_type ?? null,
+      status: prof.status ?? null,
+      deleted_at: prof.deleted_at ?? null,
+      moderation_status: moderationStatus,
+      verified_member_at: prof.verified_member_at ?? null,
+      created_at: prof.created_at ?? testUser?.created_at ?? null,
+      hasProfile: true,
+    };
+    return NextResponse.json({ ok: true, user });
+  }
 
-  const prof = profile as {
-    region_code?: string | null;
-    region_name?: string | null;
-    address_street_line?: string | null;
-    address_detail?: string | null;
-  } | null;
+  const role = String(testUser?.role ?? "user").trim() || "user";
   const fromTestAddr = (testUser?.contact_address as string | null | undefined)?.trim() ?? "";
-  const fromProfileLines = resolveProfileLocationAddressLines({
-    region_code: prof?.region_code,
-    region_name: prof?.region_name,
-    address_street_line: prof?.address_street_line,
-    address_detail: prof?.address_detail,
-  });
-  const mergedContactAddress =
-    fromTestAddr ||
-    (fromProfileLines.length > 0 ? fromProfileLines.join("\n") : "") ||
-    null;
-
-  const profRow = profile as {
-    status?: string | null;
-    deleted_at?: string | null;
-    member_type?: string | null;
-  } | null;
-  const hasWarn = await userHasRecentWarn(supabase, rawId).catch(() => false);
-  const moderationStatus = mapProfileStatusToModeration(
-    profRow?.status,
-    profRow?.deleted_at,
-    hasWarn
-  );
-
   const user: AdminUserDetailRow = {
     id: rawId,
-    username: (testUser?.username ?? profile?.username ?? null) as string | null,
-    email: (profile?.email ?? null) as string | null,
+    username: (testUser?.username ?? null) as string | null,
+    email: null,
     role,
-    display_name: (testUser?.display_name ?? profile?.display_name ?? profile?.nickname ?? null) as string | null,
-    nickname: (profile?.nickname ?? testUser?.display_name ?? null) as string | null,
-    contact_phone: (profile?.phone ?? testUser?.contact_phone ?? null) as string | null,
-    contact_address: mergedContactAddress,
-    phone_verified: profile?.phone_verified === true,
-    phone_verified_at: (profile?.phone_verified_at ?? null) as string | null,
-    phone_verification_status:
-      (profile?.phone_verification_status as string | null) ??
-      (profile?.phone_verified ? "verified" : profile?.phone ? "pending" : "unverified"),
-    member_status: (profile?.member_status ?? null) as string | null,
-    member_type: (profile?.member_type ?? null) as string | null,
-    status: (profile?.status ?? null) as string | null,
-    deleted_at: (profile?.deleted_at ?? null) as string | null,
-    moderation_status: moderationStatus,
-    verified_member_at: (profile?.verified_member_at ?? null) as string | null,
-    created_at: (profile?.created_at ?? testUser?.created_at ?? null) as string | null,
+    display_name: (testUser?.display_name ?? null) as string | null,
+    nickname: (testUser?.display_name ?? null) as string | null,
+    contact_phone: (testUser?.contact_phone ?? null) as string | null,
+    contact_address: fromTestAddr || null,
+    phone_verified: false,
+    phone_verified_at: null,
+    phone_verification_status: "unverified",
+    member_status: "pending",
+    member_type: "normal",
+    status: null,
+    deleted_at: null,
+    moderation_status: "normal",
+    verified_member_at: null,
+    created_at: (testUser?.created_at ?? null) as string | null,
+    hasProfile: false,
   };
 
   return NextResponse.json({ ok: true, user });
@@ -684,17 +694,10 @@ export async function PATCH(
   if (profileError) {
     return NextResponse.json({ ok: false, error: profileError.message }, { status: 500 });
   }
-  let profile = initialProfile;
-  if (!profile) {
-    const ensured = await ensureProfileRow(sb, userId);
-    if (!ensured.ok) {
-      return NextResponse.json(
-        { ok: false, error: ensured.error, message: ensured.message },
-        { status: ensured.status }
-      );
-    }
-    profile = ensured.profile;
+  if (!initialProfile) {
+    return NextResponse.json({ ok: false, error: "profile_required" }, { status: 403 });
   }
+  const profile = initialProfile;
 
   const targetRole = normalizeAdminRole((profile as { role?: string }).role);
   const actorIsMaster = actor.isSuperAdmin || (await loadActorIsMaster(sb, actor.userId));
