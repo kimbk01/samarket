@@ -779,18 +779,5 @@ export async function PATCH(
     await syncPhoneVerifiedServerCache(userId);
   }
 
-  if (memberTypeToApply !== null || nextNickname !== null) {
-    const { data: testRow } = await sb.from("test_users").select("id").eq("id", userId).maybeSingle();
-    if (testRow) {
-      const testPatch: Record<string, unknown> = {};
-      if (memberTypeToApply !== null) {
-        const { testRole } = memberTypeToProfileAndTestRole(memberTypeToApply);
-        testPatch.role = testRole;
-      }
-      if (nextNickname !== null) testPatch.display_name = nextNickname;
-      if (Object.keys(testPatch).length > 0) await sb.from("test_users").update(testPatch).eq("id", userId);
-    }
-  }
-
   return NextResponse.json({ ok: true });
 }
