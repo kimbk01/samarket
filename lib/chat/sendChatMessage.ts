@@ -162,6 +162,13 @@ export async function sendChatMessage(
     body: preview,
     link_url: tradeChatNotificationHref(roomId, "product_chat"),
     is_read: false,
+    domain: "trade_chat",
+    ref_id: roomId,
+    meta: {
+      kind: "trade_chat",
+      room_id: roomId,
+      product_chat_id: roomId,
+    },
   });
 
   return { ok: true, messageId: msg?.id ?? "" };

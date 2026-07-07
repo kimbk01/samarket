@@ -131,6 +131,13 @@ export async function POST(
       title: "거래가 완료 처리되었어요",
       body: "정상 거래였다면 거래완료 확인 후 평가·후기를 남겨 주세요.",
       link_url: tradeChatNotificationHref(resolved.productChatId, "product_chat"),
+      domain: "trade_chat",
+      ref_id: resolved.productChatId,
+      meta: {
+        kind: "trade_completed",
+        room_id: resolved.productChatId,
+        product_chat_id: resolved.productChatId,
+      },
     });
   } catch {
     /* 알림 실패 무시 */

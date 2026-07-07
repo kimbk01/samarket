@@ -96,6 +96,7 @@ function metaFromEvent(event: NotificationEventInboxSource): Record<string, unkn
     return legacyMeta as Record<string, unknown>;
   }
   const meta: Record<string, unknown> = {};
+  if (event.type === "missed_call") meta.kind = "missed_call";
   const roomKind = trimText(payload?.roomKind);
   if (roomKind) meta.kind = roomKind === "group" ? "group_chat" : roomKind === "trade" ? "trade_chat" : "community_chat";
   if (event.room_id) meta.room_id = event.room_id;

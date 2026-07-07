@@ -20,6 +20,23 @@ const ALLOWED_TRANSITIONS: Record<string, PostStatus[]> = {
   hidden: ["active", "reserved", "sold"],
 };
 
+function tradeStatusNotificationMeta(
+  status: PostStatus,
+  roomId: string
+): { domain: "trade_chat"; ref_id: string; meta: Record<string, string> } | null {
+  if (status !== "sold" && status !== "reserved") return null;
+  const kind = status === "sold" ? "trade_completed" : "trade_reserved";
+  return {
+    domain: "trade_chat",
+    ref_id: roomId,
+    meta: {
+      kind,
+      room_id: roomId,
+      product_chat_id: roomId,
+    },
+  };
+}
+
 /**
  * 당근형: 상품 상태 변경 (판매자만) + 시스템 메시지 + 상대방 알림
  */
@@ -59,6 +76,7 @@ export async function updateProductStatusWithNotify(
       message_type: "system",
       content: `판매자가 상태를 ${statusLabel}(으)로 변경했습니다.`,
     });
+    const tradeStatusMeta = tradeStatusNotificationMeta(nextStatus, room.id);
     await sb.from("notifications").insert({
       user_id: otherId,
       notification_type: "status",
@@ -66,6 +84,7 @@ export async function updateProductStatusWithNotify(
       body: statusLabel,
       link_url: tradeChatNotificationHref(room.id, "product_chat"),
       is_read: false,
+      ...(tradeStatusMeta ?? {}),
     });
   }
 

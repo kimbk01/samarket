@@ -86,6 +86,13 @@ export async function POST(
       title: "구매자가 거래를 확인했어요",
       body: "서로 후기를 남기실 수 있어요.",
       link_url: tradeChatNotificationHref(resolved.productChatId, "product_chat"),
+      domain: "trade_chat",
+      ref_id: resolved.productChatId,
+      meta: {
+        kind: "trade_completed",
+        room_id: resolved.productChatId,
+        product_chat_id: resolved.productChatId,
+      },
     });
   } catch {
     /* ignore */
