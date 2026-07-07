@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, requirePhoneVerified, validateActiveSession } from "@/lib/auth/server-guards";
+import { requireAuth, validateActiveSession } from "@/lib/auth/server-guards";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { requireProfileFieldsForAction } from "@/lib/profile/require-profile-completion.server";
 import {
   countUserCommunityPostsToday,
   findBannedWord,
@@ -33,8 +34,20 @@ export async function POST(req: NextRequest) {
   if (!auth.ok) return auth.response;
   const session = await validateActiveSession(auth.userId);
   if (!session.ok) return session.response;
-  const phone = await requirePhoneVerified(auth.userId);
-  if (!phone.ok) return phone.response;
+
+  let sb: ReturnType<typeof getSupabaseServer>;
+  try {
+    sb = getSupabaseServer();
+  } catch {
+    return jsonError("server_config", 500);
+  }
+
+  const profileGate = await requireProfileFieldsForAction(
+    sb as import("@supabase/supabase-js").SupabaseClient,
+    auth.userId,
+    "community_write"
+  );
+  if (!profileGate.ok) return profileGate.response;
 
   const createRateLimit = await enforceRateLimit({
     key: `community-post:create:${getRateLimitKey(req, auth.userId)}`,
@@ -119,13 +132,6 @@ export async function POST(req: NextRequest) {
   }
 
   const categoryForDb = is_meetup ? "meetup" : normalizeNeighborhoodCategory(topicSlug) ?? "etc";
-
-  let sb: ReturnType<typeof getSupabaseServer>;
-  try {
-    sb = getSupabaseServer();
-  } catch {
-    return jsonError("서버 설정 오류", 500);
-  }
 
   if (ops.max_posts_per_day > 0) {
     const n = await countUserCommunityPostsToday(auth.userId);

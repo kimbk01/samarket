@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { validateActiveSession } from "@/lib/auth/server-guards";
+import { requireProfileFieldsForAction } from "@/lib/profile/require-profile-completion.server";
 import { ensureStoreOrderChatWithBootstrap } from "@/lib/stores/store-order-ensure-chat-with-bootstrap";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
@@ -43,6 +44,13 @@ export async function POST(
   if (oErr || !order) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
+
+  const profileGate = await requireProfileFieldsForAction(
+    sb as import("@supabase/supabase-js").SupabaseClient,
+    buyerId,
+    "order_chat"
+  );
+  if (!profileGate.ok) return profileGate.response;
 
   const result = await ensureStoreOrderChatWithBootstrap({
     sb: sb as import("@supabase/supabase-js").SupabaseClient<any>,

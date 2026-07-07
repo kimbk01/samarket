@@ -1,7 +1,8 @@
 import { after, NextRequest } from "next/server";
 import type { CommunityMessengerMessagesAfterPerf } from "@/lib/community-messenger/service";
 import { ensureApiRouteAuthGate } from "@/lib/auth/ensure-api-route-auth-gate";
-import { requirePhoneVerified } from "@/lib/auth/server-guards";
+import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { requireProfileFieldsForAction } from "@/lib/profile/require-profile-completion.server";
 import {
   enforceRateLimit,
   getRateLimitKey,
@@ -166,7 +167,7 @@ export async function POST(
   const userId = authGate.userId;
   const rawRoomId = String(routeParams.roomId ?? "").trim();
 
-  const [rateLimit, phone, canon] = await Promise.all([
+  const [rateLimit, canon] = await Promise.all([
     enforceRateLimit({
       key: `community-messenger:message-send:${getRateLimitKey(req, userId)}`,
       limit: 30,
@@ -174,15 +175,26 @@ export async function POST(
       message: "메신저 전송 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
       code: "community_messenger_message_rate_limited",
     }),
-    requirePhoneVerified(userId),
     import("@/lib/community-messenger/server/messenger-room-canonical-resolve-api").then(
       ({ messengerRoomCanonicalOrJsonError }) => messengerRoomCanonicalOrJsonError(userId, rawRoomId)
     ),
   ]);
   if (!parsed.ok) return parsed.response;
   if (!rateLimit.ok) return rateLimit.response;
-  if (!phone.ok) return phone.response;
   if (!canon.ok) return canon.response;
+
+  let sbSend: ReturnType<typeof getSupabaseServer>;
+  try {
+    sbSend = getSupabaseServer();
+  } catch {
+    return jsonError("server_config", 503);
+  }
+  const profileGate = await requireProfileFieldsForAction(
+    sbSend as import("@supabase/supabase-js").SupabaseClient,
+    userId,
+    "messenger_send_message"
+  );
+  if (!profileGate.ok) return profileGate.response;
   const { recordMessengerApiTiming } = await import("@/lib/community-messenger/monitoring/messenger-api-route-timing");
   const body = parsed.value;
   const canonicalRoomId = canon.canonicalRoomId;

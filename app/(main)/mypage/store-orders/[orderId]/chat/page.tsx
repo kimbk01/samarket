@@ -8,6 +8,9 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
 import { translate } from "@/lib/i18n/messages";
 import { encodeCommunityMessengerRoomCmCtx } from "@/lib/community-messenger/cm-ctx-url";
+import { buildProfileEditHref } from "@/lib/profile/profile-completion-modal-client";
+import type { ProfileRequirementField } from "@/lib/profile/profile-requirements";
+import { requireProfileFieldsForAction } from "@/lib/profile/require-profile-completion.server";
 
 /** 마이페이지 매장 주문 채팅 — RSC 선로딩 */
 export default function MypageStoreOrderChatPage({
@@ -47,13 +50,36 @@ async function MypageStoreOrderChatPageBody({
   }
 
   const sb = tryGetSupabaseForStores();
-  const result = sb ? await ensureStoreOrderMessengerRoom(sb as any, { orderId, userId }) : null;
-  if (result == null || !result.ok) {
+  if (!sb) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-sam-app px-4 text-center text-sm text-sam-muted">
+        서버 설정이 필요합니다.
+      </div>
+    );
+  }
+
+  const chatReturnPath = `/mypage/store-orders/${encodeURIComponent(orderId)}/chat`;
+  const profileGate = await requireProfileFieldsForAction(
+    sb as import("@supabase/supabase-js").SupabaseClient,
+    userId,
+    "order_chat"
+  );
+  if (!profileGate.ok) {
+    redirect(
+      buildProfileEditHref({
+        required: profileGate.missingFields as ProfileRequirementField[],
+        returnTo: chatReturnPath,
+      })
+    );
+  }
+
+  const result = await ensureStoreOrderMessengerRoom(sb as any, { orderId, userId });
+  if (!result.ok) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-sam-app px-4 text-center">
         <p className="text-sm text-sam-fg">
           채팅을 열 수 없습니다.
-          {result && !result.ok ? ` (${result.error})` : ""}
+          {result.error ? ` (${result.error})` : ""}
         </p>
         <Link
           href={`/mypage/store-orders/${encodeURIComponent(orderId)}`}

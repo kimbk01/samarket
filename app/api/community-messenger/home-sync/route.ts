@@ -181,6 +181,23 @@ export async function GET(req: NextRequest) {
     return auth.response;
   }
 
+  const { getSupabaseServer } = await import("@/lib/chat/supabase-server");
+  const { requireProfileFieldsForAction } = await import(
+    "@/lib/profile/require-profile-completion.server"
+  );
+  let sbHomeSync: ReturnType<typeof getSupabaseServer>;
+  try {
+    sbHomeSync = getSupabaseServer();
+  } catch {
+    return NextResponse.json({ ok: false, error: "server_config" }, { status: 503 });
+  }
+  const profileGate = await requireProfileFieldsForAction(
+    sbHomeSync as import("@supabase/supabase-js").SupabaseClient,
+    auth.userId,
+    "messenger_open"
+  );
+  if (!profileGate.ok) return profileGate.response;
+
   const tRate0 = performance.now();
   const rateLimit = await enforceRateLimit({
     key: `community-messenger:home-sync:${getRateLimitKey(req, auth.userId)}`,

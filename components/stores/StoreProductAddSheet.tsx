@@ -3,6 +3,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import {
   type AddStoreCartLineInput,
   useStoreCommerceCartActionsOptional,
@@ -491,6 +492,22 @@ export function StoreProductAddSheet({
       });
       return;
     }
+
+    const cartNext =
+      typeof window !== "undefined" ? `${window.location.pathname}${window.location.search}` : undefined;
+    void requireAuthAction(
+      "delivery_cart_add",
+      () => {
+        addToCartAfterProfileGate(submitStart);
+      },
+      { next: cartNext }
+    );
+  }
+
+  function addToCartAfterProfileGate(submitStart: number) {
+    const st = store;
+    const pr = product;
+    if (!st || !pr || !commerceCart) return;
     setSheetErr(null);
     const maxForCart = trackInv ? Math.min(maxQ, pr.stock_qty) : maxQ;
     const listBaseUnit = Math.floor(pr.price);

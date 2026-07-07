@@ -27,6 +27,7 @@ export type RequireAuthActionType =
   | "friend_chat"
   | "voice_call"
   | "video_call"
+  | "delivery_cart_add"
   | "delivery_order"
   | "order_chat"
   | "review_write"

@@ -17,6 +17,11 @@ type ProfileRowForGate = {
   nickname?: string | null;
   phone_verified?: boolean | null;
   phone_verified_at?: string | null;
+  phone_verification_method?: string | null;
+  role?: string | null;
+  provider?: string | null;
+  auth_provider?: string | null;
+  email?: string | null;
 };
 
 export type ProfileFieldsGateResult =
@@ -34,7 +39,7 @@ export async function requireProfileFieldsForAction(
     const { data, error } = await sb
       .from("profiles")
       .select(
-        "id,dibay_id,dibay_id_locked,username,username_confirmed,display_name,nickname,phone_verified,phone_verified_at"
+        "id,dibay_id,dibay_id_locked,username,username_confirmed,display_name,nickname,phone_verified,phone_verified_at,phone_verification_method,role,provider,auth_provider,email"
       )
       .eq("id", userId)
       .maybeSingle();

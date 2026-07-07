@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { validateActiveSession } from "@/lib/auth/server-guards";
+import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { requireProfileFieldsForAction } from "@/lib/profile/require-profile-completion.server";
 import { resolveTradeChatEntry } from "@/lib/chat-domain/use-cases/trade-chat-entry-resolve";
 import { createTradeEntryPerfTrace } from "@/lib/trade/trade-entry-perf-log";
 
@@ -20,6 +22,24 @@ export async function POST(req: NextRequest) {
   perf?.mark("resolve_route_session");
   const session = await validateActiveSession(auth.userId);
   if (!session.ok) return session.response;
+
+  let sb: ReturnType<typeof getSupabaseServer>;
+  try {
+    sb = getSupabaseServer();
+  } catch {
+    perf?.finish("entry_resolve_route", { outcome: "server_config" });
+    return NextResponse.json({ ok: false, error: "server_config" }, { status: 503 });
+  }
+
+  const profileGate = await requireProfileFieldsForAction(
+    sb as import("@supabase/supabase-js").SupabaseClient,
+    auth.userId,
+    "trade_chat"
+  );
+  if (!profileGate.ok) {
+    perf?.finish("entry_resolve_route", { outcome: "profile_incomplete" });
+    return profileGate.response;
+  }
 
   let body: EntryResolveBody;
   try {

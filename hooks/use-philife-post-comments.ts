@@ -131,22 +131,38 @@ export function usePhilifePostComments(postId: string) {
   );
 
   const submitRootComment = useCallback(async () => {
-    const ok = await postComment(commentText, null);
-    if (ok) {
-      setCommentText("");
-      setScrollSig((s) => s + 1);
-    }
-  }, [commentText, postComment]);
+    const next =
+      typeof window !== "undefined" ? `${window.location.pathname}${window.location.search}` : undefined;
+    await requireAction(
+      "community_comment",
+      async () => {
+        const ok = await postComment(commentText, null);
+        if (ok) {
+          setCommentText("");
+          setScrollSig((s) => s + 1);
+        }
+      },
+      { next }
+    );
+  }, [commentText, postComment, requireAction]);
 
   const submitReply = useCallback(
     async (parentId: string, content: string) => {
-      const ok = await postComment(content, parentId);
-      if (ok) {
-        setFocusCommentId(parentId);
-        setScrollSig((s) => s + 1);
-      }
+      const next =
+        typeof window !== "undefined" ? `${window.location.pathname}${window.location.search}` : undefined;
+      await requireAction(
+        "community_comment",
+        async () => {
+          const ok = await postComment(content, parentId);
+          if (ok) {
+            setFocusCommentId(parentId);
+            setScrollSig((s) => s + 1);
+          }
+        },
+        { next }
+      );
     },
-    [postComment]
+    [postComment, requireAction]
   );
 
   const likeComment = useCallback(

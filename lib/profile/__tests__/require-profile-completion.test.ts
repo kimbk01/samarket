@@ -1,68 +1,124 @@
 import { describe, expect, it } from "vitest";
+import { hasVerifiedPhone } from "@/lib/auth/post-login-profile-policy";
 import { evaluateProfileRequirements } from "@/lib/profile/require-profile-completion";
+import { ACTION_ACCESS_BASE_FIELDS } from "@/lib/profile/profile-requirements";
+
+const completeBaseProfile = {
+  display_name: "홍길동",
+  nickname: "홍길동",
+  dibay_id: "my_id",
+  dibay_id_locked: true,
+  username_confirmed: true,
+  phone_verified: true,
+  phone_verified_at: "2026-01-01T00:00:00.000Z",
+};
 
 describe("require-profile-completion", () => {
-  it("community_write requires display_name only", () => {
+  it("community_write requires phone, dibay_id, display_name", () => {
     const missing = evaluateProfileRequirements(
-      { display_name: null, nickname: null },
+      { display_name: null, nickname: null, phone_verified: false },
       "community_write"
     );
     expect(missing.satisfied).toBe(false);
-    expect(missing.missingFields).toEqual(["display_name"]);
+    expect(missing.missingFields).toEqual(ACTION_ACCESS_BASE_FIELDS);
 
-    const ok = evaluateProfileRequirements(
-      { display_name: "홍길동", nickname: "홍길동" },
-      "community_write"
-    );
+    const ok = evaluateProfileRequirements(completeBaseProfile, "community_write");
     expect(ok.satisfied).toBe(true);
   });
 
-  it("trade_create_item requires phone, display_name, address", () => {
+  it("trade_create_item requires base fields and default_address", () => {
     const result = evaluateProfileRequirements(
       {
-        display_name: "Seller",
-        phone_verified: false,
+        ...completeBaseProfile,
         has_default_address: false,
       },
       "trade_create_item"
     );
     expect(result.satisfied).toBe(false);
-    expect(result.missingFields).toContain("phone_verified");
     expect(result.missingFields).toContain("default_address");
-  });
-
-  it("messenger_add_friend requires display_name and dibay_id", () => {
-    const result = evaluateProfileRequirements(
-      {
-        display_name: "User",
-        dibay_id_locked: false,
-      },
-      "messenger_add_friend"
-    );
-    expect(result.satisfied).toBe(false);
-    expect(result.missingFields).toContain("dibay_id");
 
     const ok = evaluateProfileRequirements(
-      {
-        display_name: "User",
-        dibay_id: "my_id",
-        dibay_id_locked: true,
-        username_confirmed: true,
-      },
-      "messenger_add_friend"
+      { ...completeBaseProfile, has_default_address: true },
+      "trade_create_item"
     );
     expect(ok.satisfied).toBe(true);
   });
 
-  it("delivery_order requires phone and address", () => {
+  it("delivery_order requires base fields, address, and recipient phone", () => {
     const result = evaluateProfileRequirements(
       {
-        phone_verified: true,
+        ...completeBaseProfile,
         has_default_address: false,
       },
       "delivery_order"
     );
     expect(result.missingFields).toContain("default_address");
+  });
+
+  it("messenger_open uses base access fields", () => {
+    const result = evaluateProfileRequirements(
+      { display_name: "User", phone_verified: false, dibay_id_locked: false },
+      "messenger_open"
+    );
+    expect(result.satisfied).toBe(false);
+    expect(result.missingFields).toContain("phone_verified");
+    expect(result.missingFields).toContain("dibay_id");
+  });
+});
+
+describe("hasVerifiedPhone admin_manual alignment", () => {
+  it("passes phone_verified=true", () => {
+    expect(hasVerifiedPhone({ phone_verified: true })).toBe(true);
+  });
+
+  it("passes phone_verified_at", () => {
+    expect(hasVerifiedPhone({ phone_verified_at: "2026-01-01T00:00:00.000Z" })).toBe(true);
+  });
+
+  it("passes phone_verification_method=admin_manual", () => {
+    expect(
+      hasVerifiedPhone({
+        phone_verified: false,
+        phone_verification_method: "admin_manual",
+      })
+    ).toBe(true);
+  });
+
+  it("passes legacy manual_admin provider without phone_verified", () => {
+    expect(
+      hasVerifiedPhone({
+        phone_verified: false,
+        auth_provider: "manual_admin",
+        email: "user@manual.local",
+      })
+    ).toBe(true);
+  });
+
+  it("blocks unverified sns member", () => {
+    expect(
+      hasVerifiedPhone({
+        phone_verified: false,
+        auth_provider: "google",
+        email: "user@gmail.com",
+      })
+    ).toBe(false);
+  });
+
+  it("admin_manual passes community_write evaluator without phone_verified flag", () => {
+    const evaluation = evaluateProfileRequirements(
+      {
+        display_name: "Admin User",
+        nickname: "Admin User",
+        dibay_id: "admin_user",
+        dibay_id_locked: true,
+        username_confirmed: true,
+        phone_verified: false,
+        auth_provider: "admin_manual",
+        email: "ops@manual.local",
+      },
+      "community_write"
+    );
+    expect(evaluation.satisfied).toBe(true);
   });
 });
 

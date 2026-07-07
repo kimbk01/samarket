@@ -51,6 +51,7 @@ import { postAdTypeLabel } from "@/lib/ads/post-ad-label-keys";
 import { useUserPointBalance } from "@/hooks/useUserPointBalance";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import { invalidateCommunityAuthorPostsClientCaches } from "@/lib/community/invalidate-community-author-posts-client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -623,6 +624,12 @@ export function PhilifeNeighborhoodWriteForm({
         setErr(t("philife_write_err_depositor"));
         return;
       }
+    }
+
+    const writeNext =
+      typeof window !== "undefined" ? `${pathname}${window.location.search}` : pathname;
+    if (!(await requireAuthAction("community_write", async () => {}, { next: writeNext }))) {
+      return;
     }
 
     setBusy(true);

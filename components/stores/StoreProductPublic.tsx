@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
+import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import {
   type AddStoreCartLineInput,
   useStoreCommerceCartActionsOptional,
@@ -405,6 +406,23 @@ export function StoreProductPublic({
       setCartErr(t("common_check_option_selection"));
       return;
     }
+
+    const cartNext =
+      typeof window !== "undefined" ? `${window.location.pathname}${window.location.search}` : undefined;
+    void requireAuthAction(
+      "delivery_cart_add",
+      () => {
+        addToCartAfterProfileGate();
+      },
+      { next: cartNext }
+    );
+  }
+
+  function addToCartAfterProfileGate() {
+    if (addInFlightRef.current) return;
+    const st = store;
+    const pr = product;
+    if (!st || !pr || !commerceCartActions) return;
     setCartErr(null);
     addInFlightRef.current = true;
     setAddBusy(true);

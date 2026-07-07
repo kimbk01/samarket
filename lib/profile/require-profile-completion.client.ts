@@ -7,6 +7,7 @@ import {
 import type { Profile } from "@/lib/types/profile";
 import { profileToDibaySignupInput } from "@/lib/auth/client-signup-gate";
 import { evaluateProfileRequirements } from "@/lib/profile/require-profile-completion";
+import type { ProfileFieldCheckInput } from "@/lib/auth/post-login-profile-policy";
 import {
   openProfileCompletionRequiredModal,
   type ProfileCompletionRequiredDetail,
@@ -38,17 +39,7 @@ async function readHasDefaultAddressFromGate(): Promise<boolean> {
 export async function profileToRequirementInput(
   profile: Profile,
   opts?: { hasDefaultAddress?: boolean; actionType?: ProfileActionType }
-): Promise<{
-  display_name?: string | null;
-  nickname?: string | null;
-  phone_verified?: boolean | null;
-  phone_verified_at?: string | null;
-  dibay_id?: string | null;
-  dibay_id_locked?: boolean | null;
-  username?: string | null;
-  username_confirmed?: boolean | null;
-  has_default_address?: boolean;
-}> {
+): Promise<ProfileFieldCheckInput> {
   let hasDefaultAddress = opts?.hasDefaultAddress;
   const needsAddress =
     opts?.actionType != null
@@ -67,6 +58,11 @@ export async function profileToRequirementInput(
     nickname: profile.nickname ?? signupInput.display_name,
     phone_verified: profile.phone_verified,
     phone_verified_at: profile.phone_verified_at ?? null,
+    phone_verification_method: profile.phone_verification_method ?? null,
+    role: profile.role ?? null,
+    provider: profile.provider ?? null,
+    auth_provider: profile.auth_provider ?? null,
+    email: profile.email ?? null,
     has_default_address: hasDefaultAddress,
   };
 }

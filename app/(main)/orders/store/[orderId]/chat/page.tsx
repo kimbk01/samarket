@@ -8,6 +8,9 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
 import { translate } from "@/lib/i18n/messages";
 import { encodeCommunityMessengerRoomCmCtx } from "@/lib/community-messenger/cm-ctx-url";
+import { buildProfileEditHref } from "@/lib/profile/profile-completion-modal-client";
+import type { ProfileRequirementField } from "@/lib/profile/profile-requirements";
+import { requireProfileFieldsForAction } from "@/lib/profile/require-profile-completion.server";
 
 /** 주문 허브 매장 주문 채팅 — RSC 선로딩으로 첫 GET 제거 */
 export default function OrdersStoreOrderChatPage({
@@ -54,6 +57,21 @@ async function OrdersStoreOrderChatPageBody({
       </div>
     );
   }
+  const chatReturnPath = `/orders/store/${encodeURIComponent(orderId)}/chat`;
+  const profileGate = await requireProfileFieldsForAction(
+    sb as import("@supabase/supabase-js").SupabaseClient,
+    userId,
+    "order_chat"
+  );
+  if (!profileGate.ok) {
+    redirect(
+      buildProfileEditHref({
+        required: profileGate.missingFields as ProfileRequirementField[],
+        returnTo: chatReturnPath,
+      })
+    );
+  }
+
   const result = await ensureStoreOrderMessengerRoom(sb as any, { orderId, userId });
   if (!result.ok) {
     return (

@@ -23,6 +23,7 @@ export interface Profile {
   phone_verified?: boolean;
   phone_verified_at?: string | null;
   phone_verification_status?: string;
+  phone_verification_method?: string | null;
   auth_login_email?: string | null;
   provider?: string | null;
   auth_provider?: string | null;
