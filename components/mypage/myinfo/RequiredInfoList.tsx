@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Lock } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { renderMypageHomeMenuIcon } from "@/components/mypage/myinfo/myinfo-menu-icon";
@@ -16,10 +16,10 @@ import { peekFreshAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-
 import { invalidateMandatoryAddressGateClientCache, readMandatoryAddressGateNeedsBlock } from "@/lib/addresses/mandatory-address-gate-client";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/lib/addresses/addresses-updated-event";
 import type { MypageHomeMenuIconId } from "@/lib/mypage/mypage-home-menu-config";
-import { MYPAGE_HOME_CARD_CLASS, MYPAGE_HOME_ICON_WRAP_CLASS, MYPAGE_HOME_SECTION_HEADER_CLASS, MYPAGE_HOME_SECTION_LABEL_CLASS } from "@/lib/ui/mypage-home-starbucks-styles";
+import { MYPAGE_HOME_CARD_CLASS, MYPAGE_HOME_SECTION_HEADER_CLASS, MYPAGE_HOME_SECTION_LABEL_CLASS } from "@/lib/ui/mypage-home-starbucks-styles";
 
 type RequiredStepId = "dibay-id" | "phone" | "address";
-type StepState = "done" | "active" | "locked";
+type StepState = "done" | "incomplete";
 const PHONE_COUNTRY_CODE_KEY = ["phone", "country", "code"].join("_") as "phone_country_code";
 const PHONE_NUMBER_KEY = ["phone", "number"].join("_") as "phone_number";
 
@@ -56,33 +56,16 @@ function resolvePhoneDisplay(profile: ProfileRow): string {
   return [countryCode, phoneNumber].filter(Boolean).join(" ").trim();
 }
 
-function getActiveStep(args: {
-  hasDibayId: boolean;
-  hasVerifiedPhone: boolean;
-  hasDefaultAddress: boolean;
-}): RequiredStepId | null {
-  if (!args.hasDibayId) return "dibay-id";
-  if (!args.hasVerifiedPhone) return "phone";
-  if (!args.hasDefaultAddress) return "address";
-  return null;
-}
-
 function RequiredInfoStatusRow({ row }: { row: RequiredInfoRow }) {
   const isDone = row.state === "done";
-  const isActive = row.state === "active";
-  const shellClass = isActive
-    ? "border-[#00704A]/28 bg-[#F8FCFA] shadow-[inset_3px_0_0_0_#00704A] cursor-pointer active:opacity-90"
-    : row.state === "locked"
-      ? "border-[#E5E0D7] bg-[#FAF8F4] opacity-70"
-      : "border-[#D4E9E2] bg-white";
-  const badgeClass = isDone
-    ? "bg-[#E8F3EE] text-[#00704A]"
-    : isActive
-      ? "bg-[#FFF3D9] text-[#8A5A00]"
-      : "bg-[#F2F0EB] text-[#8B7A67]";
+  const isIncomplete = row.state === "incomplete";
+  const shellClass = isIncomplete
+    ? "border-[#E53935]/45 bg-[#FFF5F5] shadow-[inset_3px_0_0_0_#E53935] cursor-pointer active:opacity-90"
+    : "border-[#D4E9E2] bg-white";
+  const badgeClass = isIncomplete ? "bg-[#FDECEC] text-[#C62828]" : "bg-[#E8F3EE] text-[#00704A]";
 
-  const openActiveSheet = () => {
-    if (isActive && row.onCtaClick) row.onCtaClick();
+  const openSheet = () => {
+    if (isIncomplete && row.onCtaClick) row.onCtaClick();
   };
 
   return (
@@ -91,39 +74,35 @@ function RequiredInfoStatusRow({ row }: { row: RequiredInfoRow }) {
       data-required-step={row.id}
       data-state={row.state}
       data-accordion="false"
-      onClick={isActive ? openActiveSheet : undefined}
+      onClick={isIncomplete ? openSheet : undefined}
       onKeyDown={
-        isActive
+        isIncomplete
           ? (event) => {
               if (event.key === "Enter" || event.key === " ") {
                 event.preventDefault();
-                openActiveSheet();
+                openSheet();
               }
             }
           : undefined
       }
-      role={isActive ? "button" : undefined}
-      tabIndex={isActive ? 0 : undefined}
+      role={isIncomplete ? "button" : undefined}
+      tabIndex={isIncomplete ? 0 : undefined}
     >
       <div className="flex items-start gap-3 px-4 py-3.5">
-        <span className={isDone ? "mt-0.5 text-[#00704A]" : isActive ? MYPAGE_HOME_ICON_WRAP_CLASS : "mt-0.5 text-[#8B7A67]"}>
-          {isDone ? (
-            <CheckCircle2 className="h-5 w-5" aria-hidden />
-          ) : isActive ? (
-            renderMypageHomeMenuIcon(row.icon)
-          ) : (
-            <Lock className="h-4 w-4" aria-hidden />
-          )}
+        <span className={isDone ? "mt-0.5 text-[#00704A]" : "mt-0.5 text-[#C62828]"}>
+          {isDone ? <CheckCircle2 className="h-5 w-5" aria-hidden /> : renderMypageHomeMenuIcon(row.icon)}
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <p className={`text-[15px] font-semibold ${isActive ? "text-[#00704A]" : "text-[#1E3932]"}`}>{row.title}</p>
+            <p className={`text-[15px] font-semibold ${isIncomplete ? "text-[#B71C1C]" : "text-[#1E3932]"}`}>{row.title}</p>
             <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${badgeClass}`}>{row.badge}</span>
           </div>
-          <p className="mt-1 truncate text-[13px] leading-snug text-[#6F4E37]">{row.value}</p>
+          <p className={`mt-1 truncate text-[13px] leading-snug ${isIncomplete ? "text-[#C62828]" : "text-[#6F4E37]"}`}>
+            {row.value}
+          </p>
         </div>
         {row.onCtaClick && row.ctaLabel ? (
-          <span className="shrink-0 rounded-full bg-[#00704A] px-3.5 py-2 text-[13px] font-semibold text-white">
+          <span className="shrink-0 rounded-full bg-[#C62828] px-3.5 py-2 text-[13px] font-semibold text-white">
             {row.ctaLabel}
           </span>
         ) : row.onChangeClick && row.changeLabel ? (
@@ -174,8 +153,8 @@ export function RequiredInfoList({
 
   const hasDibayId = evaluatePublicIdProfileView(profile).setupComplete;
   const phoneVerified = hasVerifiedPhone(profile);
-  const activeStep = getActiveStep({ hasDibayId, hasVerifiedPhone: phoneVerified, hasDefaultAddress });
   const completeCount = [hasDibayId, phoneVerified, hasDefaultAddress].filter(Boolean).length;
+  const bundleComplete = completeCount === 3;
 
   const addressValueText = useMemo(() => {
     if (addressPresentationState.status === "ready" && addressPresentationState.presentation) {
@@ -191,7 +170,7 @@ export function RequiredInfoList({
     fallbackEn: "Please enter your primary address",
   });
 
-  if (activeStep === null) {
+  if (bundleComplete) {
     return (
       <section className={`${MYPAGE_HOME_CARD_CLASS} mt-1 w-full self-start`} data-testid="mypage-required-info-card" data-state="complete">
         <div className={`${MYPAGE_HOME_SECTION_HEADER_CLASS} space-y-1.5`}>
@@ -212,75 +191,57 @@ export function RequiredInfoList({
     );
   }
 
-  const makeState = (id: RequiredStepId, done: boolean): StepState => (done ? "done" : activeStep === id ? "active" : "locked");
-
   const rows: RequiredInfoRow[] = [
     {
       id: "dibay-id",
       icon: "user-round",
       title: safeT("mypage_required_dibay_id", { fallbackKo: "아이디", fallbackEn: "ID" }),
-      state: makeState("dibay-id", hasDibayId),
+      state: hasDibayId ? "done" : "incomplete",
       badge: hasDibayId
         ? safeT("mypage_required_status_done", { fallbackKo: "완료", fallbackEn: "Done" })
-        : activeStep === "dibay-id"
-          ? safeT("mypage_required_status_needed", { fallbackKo: "필요", fallbackEn: "Required" })
-          : safeT("mypage_required_status_waiting", { fallbackKo: "대기", fallbackEn: "Waiting" }),
+        : safeT("mypage_required_status_needed", { fallbackKo: "필요", fallbackEn: "Required" }),
       value: hasDibayId
         ? resolvePublicIdAtDisplay(profile) ?? ""
         : safeT("mypage_required_dibay_id_active_hint", {
             fallbackKo: "사용할 아이디를 설정해 주세요.",
             fallbackEn: "Set the ID you want to use.",
           }),
-      ctaLabel: activeStep === "dibay-id" ? safeT("mypage_required_cta_set", { fallbackKo: "설정", fallbackEn: "Set" }) : undefined,
-      onCtaClick: activeStep === "dibay-id" ? () => openSheet("dibay-id") : undefined,
+      ctaLabel: hasDibayId ? undefined : safeT("mypage_required_cta_set", { fallbackKo: "설정", fallbackEn: "Set" }),
+      onCtaClick: hasDibayId ? undefined : () => openSheet("dibay-id"),
     },
     {
       id: "phone",
       icon: "phone",
       title: safeT("mypage_required_phone", { fallbackKo: "전화번호", fallbackEn: "Phone" }),
-      state: makeState("phone", phoneVerified),
+      state: phoneVerified ? "done" : "incomplete",
       badge: phoneVerified
         ? safeT("mypage_required_status_phone_done", { fallbackKo: "인증 완료", fallbackEn: "Verified" })
-        : activeStep === "phone"
-          ? safeT("mypage_required_status_phone_needed", { fallbackKo: "인증 필요", fallbackEn: "Verification needed" })
-          : safeT("mypage_required_status_waiting", { fallbackKo: "대기", fallbackEn: "Waiting" }),
+        : safeT("mypage_required_status_phone_needed", { fallbackKo: "인증 필요", fallbackEn: "Verification needed" }),
       value: phoneVerified
         ? resolvePhoneDisplay(profile)
-        : activeStep === "phone"
-          ? safeT("mypage_required_phone_active_hint", {
-              fallbackKo: "전화번호 인증이 필요합니다.",
-              fallbackEn: "Phone verification is required.",
-            })
-          : safeT("mypage_required_phone_waiting", {
-              fallbackKo: "아이디 확정 후 인증할 수 있습니다.",
-              fallbackEn: "Available after your ID is confirmed.",
-            }),
-      ctaLabel: activeStep === "phone" ? safeT("mypage_required_cta_verify", { fallbackKo: "인증", fallbackEn: "Verify" }) : undefined,
-      onCtaClick: activeStep === "phone" ? () => openSheet("phone") : undefined,
+        : safeT("mypage_required_phone_active_hint", {
+            fallbackKo: "전화번호 인증이 필요합니다.",
+            fallbackEn: "Phone verification is required.",
+          }),
+      ctaLabel: phoneVerified ? undefined : safeT("mypage_required_cta_verify", { fallbackKo: "인증", fallbackEn: "Verify" }),
+      onCtaClick: phoneVerified ? undefined : () => openSheet("phone"),
     },
     {
       id: "address",
       icon: "address-pin",
       title: safeT("mypage_required_address", { fallbackKo: "기본 주소", fallbackEn: "Default address" }),
-      state: makeState("address", hasDefaultAddress),
+      state: hasDefaultAddress ? "done" : "incomplete",
       badge: hasDefaultAddress
         ? safeT("mypage_required_status_address_done", { fallbackKo: "등록 완료", fallbackEn: "Registered" })
-        : activeStep === "address"
-          ? safeT("mypage_required_status_address_needed", { fallbackKo: "등록 필요", fallbackEn: "Address needed" })
-          : safeT("mypage_required_status_waiting", { fallbackKo: "대기", fallbackEn: "Waiting" }),
+        : safeT("mypage_required_status_address_needed", { fallbackKo: "등록 필요", fallbackEn: "Address needed" }),
       value: hasDefaultAddress
         ? addressValue
-        : activeStep === "address"
-          ? safeT("mypage_required_address_active_hint", {
-              fallbackKo: "대표 주소를 등록해 주세요.",
-              fallbackEn: "Please add your default address.",
-            })
-          : safeT("mypage_required_address_waiting", {
-              fallbackKo: "전화번호 인증 후 등록할 수 있습니다.",
-              fallbackEn: "Available after phone verification.",
-            }),
-      ctaLabel: activeStep === "address" ? safeT("mypage_required_cta_register", { fallbackKo: "등록", fallbackEn: "Register" }) : undefined,
-      onCtaClick: activeStep === "address" ? () => openSheet("address") : undefined,
+        : safeT("mypage_required_address_active_hint", {
+            fallbackKo: "대표 주소를 등록해 주세요.",
+            fallbackEn: "Please add your default address.",
+          }),
+      ctaLabel: hasDefaultAddress ? undefined : safeT("mypage_required_cta_register", { fallbackKo: "등록", fallbackEn: "Register" }),
+      onCtaClick: hasDefaultAddress ? undefined : () => openSheet("address"),
       changeLabel: hasDefaultAddress ? safeT("mypage_required_change_action", { fallbackKo: "변경", fallbackEn: "Change" }) : undefined,
       onChangeClick: hasDefaultAddress ? () => openSheet("address") : undefined,
     },
@@ -296,20 +257,26 @@ export function RequiredInfoList({
               fallbackEn: "Required info",
             })}
           </h2>
-          <span className="rounded-full bg-[#F2F0EB] px-2.5 py-1 text-[12px] font-bold text-[#6F4E37]">
+          <span
+            className={`rounded-full px-2.5 py-1 text-[12px] font-bold ${
+              completeCount < 3 ? "bg-[#FDECEC] text-[#C62828]" : "bg-[#F2F0EB] text-[#6F4E37]"
+            }`}
+          >
             {completeCount}/3
           </span>
         </div>
         <p className="text-[13px] leading-snug text-[#6F4E37]">
           {safeT("mypage_required_incomplete_desc", {
-            fallbackKo: "서비스 이용을 위해 아래 정보를 순서대로 완료해 주세요.",
-            fallbackEn: "Complete the information below in order to continue using the service.",
+            fallbackKo: "서비스 이용을 위해 아래 항목을 완료해 주세요.",
+            fallbackEn: "Complete the required items below to continue using the service.",
           })}
         </p>
       </div>
 
       <ul className="space-y-2 p-3">
-        {rows.map((row) => <RequiredInfoStatusRow key={row.id} row={row} />)}
+        {rows.map((row) => (
+          <RequiredInfoStatusRow key={row.id} row={row} />
+        ))}
       </ul>
     </section>
   );
