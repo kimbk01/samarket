@@ -3,7 +3,7 @@ import { formatStoreOrderDeliveryAddressMultiline } from "@/lib/addresses/store-
 import { NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
-import { notifyStoreOwnerNewOrder } from "@/lib/notifications/notify-store-commerce";
+import { notifyStoreOwnerNewOrder, notifyStoreOwnerProductSoldOutFromOrder } from "@/lib/notifications/notify-store-commerce";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { requireSignupCompleteForUser } from "@/lib/auth/require-signup-complete-api";
@@ -357,6 +357,7 @@ export async function POST(req: NextRequest) {
       : null;
 
   const stockRollback: { id: string; delta: number }[] = [];
+  const soldOutFromOrder: { productId: string; productTitle: string }[] = [];
 
   for (const line of lines) {
     const p = productsById[line.product_id];
@@ -378,6 +379,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "stock_update_failed" }, { status: 409 });
     }
     stockRollback.push({ id: line.product_id, delta: line.qty });
+    if (trackStock && next <= 0) {
+      soldOutFromOrder.push({
+        productId: line.product_id,
+        productTitle: line.title.trim() || String(p.title ?? "").trim(),
+      });
+    }
   }
 
   const orderNo = makeOrderNo();
@@ -628,6 +635,21 @@ export async function POST(req: NextRequest) {
   } else {
     /** 이벤트 원장 삽입 실패 시에도 알림은 dedupe_key(order_id 기반)로 1회만 */
     void notifyStoreOwnerNewOrder(sb, notifyOwnerPayload);
+  }
+
+  if (ownerUserId && soldOutFromOrder.length) {
+    const storeNameForSoldOut = (store.store_name as string) ?? undefined;
+    for (const sold of soldOutFromOrder) {
+      void notifyStoreOwnerProductSoldOutFromOrder(sb, {
+        storeId,
+        orderId,
+        orderNo,
+        productId: sold.productId,
+        productTitle: sold.productTitle,
+        ownerUserId,
+        storeName: storeNameForSoldOut,
+      });
+    }
   }
 
   try {

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
 import { buildOwnerStoreOrderNotificationHref } from "@/lib/business/owner-store-order-notification-href";
+import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { DEFAULT_APP_LANGUAGE, normalizeAppLanguage, type AppLanguageCode } from "@/lib/i18n/config";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 import { invalidateNotificationUnreadCountCache } from "@/lib/notifications/notification-unread-count-cache";
@@ -160,6 +161,61 @@ export async function notifyStoreOwnerNewOrder(
       ...(pay && pay !== "—" ? { payment_label: pay } : {}),
       ...(note ? { buyer_note_preview: note } : {}),
       ...(evTrim ? { store_order_event_id: evTrim } : {}),
+    },
+  });
+}
+
+/** 주문 재고 차감으로 상품이 품절 처리될 때 매장 오너에게 인앱 알림 */
+export async function notifyStoreOwnerProductSoldOutFromOrder(
+  sb: SupabaseClient,
+  opts: {
+    storeId: string;
+    orderId: string;
+    orderNo: string;
+    productId: string;
+    productTitle?: string;
+    ownerUserId: string;
+    storeName?: string;
+  }
+): Promise<void> {
+  const sid = opts.storeId.trim();
+  const oid = opts.orderId.trim();
+  const pid = opts.productId.trim();
+  const ownerId = opts.ownerUserId.trim();
+  if (!sid || !oid || !pid || !ownerId) return;
+
+  const language = await loadUserLanguage(sb, ownerId);
+  const orderNo = opts.orderNo.trim() || oid.slice(0, 8);
+  const productTitle =
+    (opts.productTitle ?? "").trim() || nt(language, "notify_commerce_store_fallback");
+  const storeName = (opts.storeName ?? "").trim();
+  const dedupe = `commerce:owner:sold_out:${oid}:${pid}`;
+
+  await appendUserNotification(sb, {
+    user_id: ownerId,
+    notification_type: "commerce",
+    domain: "store",
+    ref_id: oid,
+    dedupe_key: dedupe,
+    title: nt(language, "notify_commerce_owner_sold_out_title"),
+    body: storeName
+      ? nt(language, "notify_commerce_owner_sold_out_body_named", {
+          store: storeName,
+          productTitle,
+          orderNo,
+        })
+      : nt(language, "notify_commerce_owner_sold_out_body", {
+          productTitle,
+          orderNo,
+        }),
+    link_url: OwnerRoutes.products(sid),
+    meta: {
+      kind: "store_order_sold_out",
+      store_id: sid,
+      order_id: oid,
+      order_no: orderNo,
+      product_id: pid,
+      product_title: productTitle,
     },
   });
 }

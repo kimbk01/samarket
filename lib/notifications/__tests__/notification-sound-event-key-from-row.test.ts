@@ -128,6 +128,134 @@ describe("notification-sound-event-key-from-row", () => {
     ).not.toBe("delivery_chat_message_received_owner");
   });
 
+  it("maps friend_accepted to friend_request_accepted (not messenger direct)", () => {
+    expect(
+      resolveNotificationSoundEventKeyFromRow({
+        notification_type: "system",
+        domain: "community_chat",
+        meta: { kind: "friend_accepted", request_id: "req-1" },
+      })
+    ).toBe("friend_request_accepted");
+
+    expect(
+      resolveNotificationSoundEventKeyFromRow({
+        notification_type: "system",
+        domain: "community_chat",
+        meta: { kind: "friend_accepted", request_id: "req-1" },
+      })
+    ).not.toBe("messenger_direct_message_received");
+  });
+
+  it("maps owner accept reminders to delivery_order_delayed_owner", () => {
+    expect(
+      resolveNotificationSoundEventKeyFromRow({
+        notification_type: "commerce",
+        domain: "store",
+        meta: { kind: "store_order_accept_reminder_30s", order_id: "o1" },
+      })
+    ).toBe("delivery_order_delayed_owner");
+
+    expect(
+      resolveNotificationSoundEventKeyFromRow({
+        notification_type: "commerce",
+        domain: "store",
+        meta: { kind: "store_order_accept_reminder_60s", order_id: "o1" },
+      })
+    ).toBe("delivery_order_delayed_owner");
+
+    expect(
+      resolveNotificationSoundEventKeyFromRow({
+        notification_type: "commerce",
+        domain: "store",
+        meta: { kind: "store_order_accept_reminder_30s", order_id: "o1" },
+      })
+    ).not.toBe("delivery_order_created_owner");
+  });
+
+  it("keeps a7f38fc5 resolver mappings (regression)", () => {
+    expect(
+      resolveNotificationSoundEventKeyFromRow({
+        notification_type: "chat",
+        domain: "trade_chat",
+        meta: { kind: "trade_chat", room_id: "r1" },
+      })
+    ).toBe("trade_chat_message_received");
+
+    expect(
+      resolveNotificationSoundEventKeyFromRow({
+        notification_type: "status",
+        meta: { kind: "trade_offer" },
+      })
+    ).toBe("trade_offer_received");
+
+    expect(
+      resolveNotificationSoundEventKeyFromRow({
+        notification_type: "status",
+        domain: "trade_chat",
+        meta: { kind: "trade_completed" },
+      })
+    ).toBe("trade_completed");
+
+    expect(
+      resolveNotificationSoundEventKeyFromRow({
+        notification_type: "status",
+        domain: "trade_chat",
+        meta: { kind: "trade_reserved" },
+      })
+    ).toBe("trade_reserved");
+
+    expect(
+      resolveNotificationSoundEventKeyFromRow({
+        notification_type: "commerce",
+        domain: "store",
+        meta: { kind: "store_order_buyer_cancelled", order_id: "o1" },
+      })
+    ).toBe("delivery_order_cancelled_owner");
+
+    expect(
+      resolveNotificationSoundEventKeyFromRow({
+        notification_type: "system",
+        meta: { kind: "missed_call" },
+      })
+    ).toBe("call_missed");
+  });
+
+  it("maps Phase 3 owner store meta.kind to delivery SSOT keys (not owner chat default)", () => {
+    expect(
+      resolveNotificationSoundEventKeyFromRow({
+        notification_type: "commerce",
+        domain: "store",
+        meta: { kind: "store_order_sold_out", order_id: "o1", product_id: "p1" },
+      })
+    ).toBe("delivery_order_sold_out_owner");
+
+    expect(
+      resolveNotificationSoundEventKeyFromRow({
+        notification_type: "commerce",
+        domain: "store",
+        meta: { kind: "store_review", review_id: "rv-1", order_id: "o1" },
+      })
+    ).toBe("delivery_review_received_owner");
+
+    expect(
+      resolveNotificationSoundEventKeyFromRow({
+        notification_type: "commerce",
+        domain: "store",
+        meta: { kind: "store_inquiry", inquiry_id: "inq-1" },
+      })
+    ).toBe("delivery_inquiry_received_owner");
+
+    for (const kind of ["store_order_sold_out", "store_review", "store_inquiry"] as const) {
+      expect(
+        resolveNotificationSoundEventKeyFromRow({
+          notification_type: "commerce",
+          domain: "store",
+          meta: { kind },
+        })
+      ).not.toBe("delivery_chat_message_received_owner");
+    }
+  });
+
   it("maps admin notice and report", () => {
     expect(
       resolveNotificationSoundEventKeyFromRow({

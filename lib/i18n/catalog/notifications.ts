@@ -140,6 +140,11 @@ export const notificationMessages = {
     notify_commerce_refund_requested_title: "매장 주문 환불 요청",
     notify_commerce_refund_requested_body_named: "「{store}」 주문 {orderNo} — 고객이 환불을 요청했습니다.",
     notify_commerce_refund_requested_body: "주문 {orderNo} — 고객이 환불을 요청했습니다.",
+    notify_commerce_owner_sold_out_title: "메뉴 품절",
+    notify_commerce_owner_sold_out_body_named:
+      "「{store}」 {productTitle} — 주문 {orderNo}으로 재고가 소진되어 품절 처리되었습니다.",
+    notify_commerce_owner_sold_out_body:
+      "{productTitle} — 주문 {orderNo}으로 재고가 소진되어 품절 처리되었습니다.",
     notify_commerce_owner_status_accepted_title: "주문이 접수되었어요",
     notify_commerce_owner_status_accepted_body: "「{store}」 {orderNo} 주문을 매장이 접수했습니다.",
     notify_commerce_owner_status_preparing_title: "상품 준비 중이에요",
@@ -330,6 +335,11 @@ export const notificationMessages = {
     notify_commerce_refund_requested_title: "Store order refund requested",
     notify_commerce_refund_requested_body_named: "\"{store}\" order {orderNo} — The customer requested a refund.",
     notify_commerce_refund_requested_body: "Order {orderNo} — The customer requested a refund.",
+    notify_commerce_owner_sold_out_title: "Item sold out",
+    notify_commerce_owner_sold_out_body_named:
+      "\"{store}\" {productTitle} — sold out after order {orderNo} used the last unit in stock.",
+    notify_commerce_owner_sold_out_body:
+      "{productTitle} — sold out after order {orderNo} used the last unit in stock.",
     notify_commerce_owner_status_accepted_title: "Your order was accepted",
     notify_commerce_owner_status_accepted_body: "\"{store}\" accepted order {orderNo}.",
     notify_commerce_owner_status_preparing_title: "Preparing your items",
