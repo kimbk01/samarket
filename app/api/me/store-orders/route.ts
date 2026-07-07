@@ -628,28 +628,37 @@ export async function POST(req: NextRequest) {
     ),
     buyerNote: buyer_note,
   };
+  const ownerNotifyTasks: Promise<void>[] = [];
   if (createdEv.ok) {
     if (createdEv.inserted) {
-      void notifyStoreOwnerNewOrder(sb, { ...notifyOwnerPayload, storeOrderEventId: createdEv.row.id });
+      ownerNotifyTasks.push(
+        notifyStoreOwnerNewOrder(sb, { ...notifyOwnerPayload, storeOrderEventId: createdEv.row.id })
+      );
     }
   } else {
     /** 이벤트 원장 삽입 실패 시에도 알림은 dedupe_key(order_id 기반)로 1회만 */
-    void notifyStoreOwnerNewOrder(sb, notifyOwnerPayload);
+    ownerNotifyTasks.push(notifyStoreOwnerNewOrder(sb, notifyOwnerPayload));
   }
 
   if (ownerUserId && soldOutFromOrder.length) {
     const storeNameForSoldOut = (store.store_name as string) ?? undefined;
     for (const sold of soldOutFromOrder) {
-      void notifyStoreOwnerProductSoldOutFromOrder(sb, {
-        storeId,
-        orderId,
-        orderNo,
-        productId: sold.productId,
-        productTitle: sold.productTitle,
-        ownerUserId,
-        storeName: storeNameForSoldOut,
-      });
+      ownerNotifyTasks.push(
+        notifyStoreOwnerProductSoldOutFromOrder(sb, {
+          storeId,
+          orderId,
+          orderNo,
+          productId: sold.productId,
+          productTitle: sold.productTitle,
+          ownerUserId,
+          storeName: storeNameForSoldOut,
+        })
+      );
     }
+  }
+
+  if (ownerNotifyTasks.length > 0) {
+    await Promise.allSettled(ownerNotifyTasks);
   }
 
   try {
