@@ -11,11 +11,21 @@ type StaffApiRow = {
   disabled?: boolean;
 };
 
+function staffListFetchError(res: Response): Error {
+  if (res.status === 401) return new Error("admin_users_error_login_required");
+  if (res.status === 403) return new Error("admin_users_error_admin_only");
+  return new Error("admin_users_error_fetch_failed");
+}
+
 export async function fetchAdminStaffList(): Promise<AdminStaff[]> {
   const res = await fetch("/api/admin/staff", { credentials: "include", cache: "no-store" });
-  if (!res.ok) return [];
-  const data = (await res.json()) as { ok?: boolean; staff?: StaffApiRow[] };
-  if (!data.ok || !Array.isArray(data.staff)) return [];
+  if (!res.ok) {
+    throw staffListFetchError(res);
+  }
+  const data = (await res.json()) as { ok?: boolean; staff?: StaffApiRow[]; error?: string };
+  if (!data.ok || !Array.isArray(data.staff)) {
+    throw new Error("admin_users_error_fetch_failed");
+  }
   return data.staff.filter((s) => !s.disabled);
 }
 

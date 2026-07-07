@@ -4,6 +4,24 @@ import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { normalizeAdminRole, isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
 import { isSuperAdminRole, userHasRecentWarn } from "@/lib/admin/admin-user-server";
 import { mapProfileStatusToModeration } from "@/lib/admin-users/moderation-status";
+import {
+  resolveAdminAuthProvider,
+  type AdminAuthListUser,
+} from "@/lib/admin-users/resolve-admin-auth-provider";
+import {
+  resolveAdminDisplayEmail,
+  resolveAdminLoginIdentifier,
+  resolveAdminProviderUserId,
+  type AdminLinkedIdentity,
+} from "@/lib/admin-users/resolve-admin-user-display";
+import {
+  linkedProvidersFromIdentities,
+  loadLinkedIdentitiesMapChunked,
+  resolveProfileLessAdminNickname,
+} from "@/lib/admin-users/admin-users-list-server";
+import { rowToUserAddressDTO } from "@/lib/addresses/user-address-mapper";
+import { buildAddressListDetailLine, buildTradePublicLine } from "@/lib/addresses/user-address-format";
+import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { resolveProfileLocationAddressLines } from "@/lib/profile/profile-location";
 import type { MemberType } from "@/lib/types/admin-user";
 import { buildManualMemberAuthEmail } from "@/lib/auth/manual-member-email";
@@ -350,8 +368,130 @@ type AdminUserDetailRow = {
   created_at: string | null;
 };
 
+const AUTH_ONLY_ADDRESS_SELECT =
+  "id,user_id,label_type,nickname,recipient_name,phone_number,country_code,country_name,province,city_municipality,barangay,district,street_address,building_name,unit_floor_room,landmark,latitude,longitude,full_address,neighborhood_name,app_region_id,app_city_id,use_for_life,use_for_trade,use_for_delivery,is_default_master,is_default_life,is_default_trade,is_default_delivery,is_active,sort_order,created_at,updated_at";
+
+function locationLineFromUserAddress(dto: UserAddressDTO | null | undefined): string {
+  if (!dto) return "";
+  const main = buildTradePublicLine(dto).trim();
+  if (!main || main === "주소 미입력") return "";
+  const tail = buildAddressListDetailLine(dto, main);
+  return tail ? `${main} · ${tail}` : main;
+}
+
+function pickAdminLocationAddressForUser(rows: UserAddressDTO[]): UserAddressDTO | null {
+  if (rows.length === 0) return null;
+  const score = (a: UserAddressDTO): number =>
+    (a.isDefaultMaster ? 1000 : 0) +
+    (a.isDefaultLife ? 100 : 0) +
+    (a.isDefaultTrade ? 10 : 0) +
+    (a.isDefaultDelivery ? 1 : 0);
+  let best = rows[0];
+  let bestScore = score(best);
+  for (let i = 1; i < rows.length; i += 1) {
+    const cur = rows[i];
+    const s = score(cur);
+    if (s > bestScore) {
+      best = cur;
+      bestScore = s;
+    }
+  }
+  return best;
+}
+
+async function loadAuthOnlyContactAddress(
+  sb: SupabaseClient,
+  userId: string
+): Promise<string | null> {
+  const { data: rows, error } = await sb
+    .from("user_addresses")
+    .select(AUTH_ONLY_ADDRESS_SELECT)
+    .eq("user_id", userId)
+    .eq("is_active", true);
+  if (error || !Array.isArray(rows)) return null;
+  const dtos = rows
+    .map((row) => rowToUserAddressDTO(row as Record<string, unknown>))
+    .filter((dto) => dto.userId);
+  const best = pickAdminLocationAddressForUser(dtos);
+  const line = locationLineFromUserAddress(best);
+  return line || null;
+}
+
+/** profiles·test_users 없이 auth.users 만 있는 회원 — 목록 GET과 동일 read-only fallback */
+async function buildAuthOnlyAdminUserDetail(
+  sb: SupabaseClient,
+  rawId: string,
+  authUser: AdminAuthListUser
+): Promise<AdminUserDetailRow> {
+  const email = typeof authUser.email === "string" ? authUser.email.trim() : "";
+  const meta = (authUser.user_metadata ?? {}) as Record<string, unknown>;
+  const linkedIdentitiesMap = await loadLinkedIdentitiesMapChunked(sb, [rawId]).catch(
+    () => new Map<string, AdminLinkedIdentity[]>()
+  );
+  const linkedIdentities = linkedIdentitiesMap.get(rawId) ?? null;
+  const authProvider = resolveAdminAuthProvider({
+    authUser,
+    profile: null,
+    linkedProviders: linkedProvidersFromIdentities(linkedIdentities ?? undefined),
+  });
+  const providerUserId = resolveAdminProviderUserId({
+    provider: authProvider,
+    authUser,
+    profile: null,
+    linkedIdentities,
+  });
+  const loginIdentifier = resolveAdminLoginIdentifier({
+    provider: authProvider,
+    authUser,
+    profile: null,
+    testUser: null,
+    linkedIdentities,
+    providerUserId,
+  });
+  const displayEmail = resolveAdminDisplayEmail({
+    authUser,
+    profile: null,
+    linkedIdentities,
+    provider: authProvider,
+  });
+  const nicknameMeta =
+    (typeof meta.nickname === "string" && meta.nickname.trim()) ||
+    (typeof meta.full_name === "string" && meta.full_name.trim()) ||
+    (typeof meta.name === "string" && meta.name.trim()) ||
+    "";
+  const fallbackName = resolveProfileLessAdminNickname({
+    userMetadata: meta,
+    authEmail: email,
+    loginIdentifier,
+    userId: rawId,
+  });
+  const contactAddress = await loadAuthOnlyContactAddress(sb, rawId);
+
+  return {
+    id: rawId,
+    username: null,
+    email: displayEmail ?? null,
+    role: "user",
+    display_name: nicknameMeta || null,
+    nickname: fallbackName,
+    contact_phone: null,
+    contact_address: contactAddress,
+    phone_verified: false,
+    phone_verified_at: null,
+    phone_verification_status: "unverified",
+    member_status: "pending",
+    member_type: "normal",
+    status: null,
+    deleted_at: null,
+    moderation_status: "warned",
+    verified_member_at: null,
+    created_at:
+      typeof authUser.created_at === "string" && authUser.created_at ? authUser.created_at : null,
+  };
+}
+
 /**
- * 관리자: profiles + test_users 단건
+ * 관리자: profiles + test_users 단건 (+ auth-only read fallback)
  * GET /api/admin/users/:id
  */
 export async function GET(
@@ -390,7 +530,16 @@ export async function GET(
     );
   }
   if (!profile && !testUser) {
-    return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+    const { data: authData, error: authLoadError } = await supabase.auth.admin.getUserById(rawId);
+    if (authLoadError || !authData?.user) {
+      return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+    }
+    const user = await buildAuthOnlyAdminUserDetail(
+      supabase,
+      rawId,
+      authData.user as AdminAuthListUser
+    );
+    return NextResponse.json({ ok: true, user, hasProfile: false });
   }
 
   const role =

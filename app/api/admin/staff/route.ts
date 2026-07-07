@@ -23,7 +23,6 @@ type StaffRow = {
   nickname: string | null;
   display_name: string | null;
   role: string | null;
-  admin_tier: string | null;
   status: string | null;
   deleted_at: string | null;
   created_at: string | null;
@@ -46,7 +45,7 @@ function mapStaffRow(
     String(row.email ?? "").split("@")[0] ||
     row.id;
   const displayName = String(row.nickname ?? row.display_name ?? loginId);
-  const uiRole = adminTierToUiRole(row.admin_tier, row.role);
+  const uiRole = adminTierToUiRole(null, row.role);
   return {
     id: row.id,
     loginId,
@@ -65,7 +64,7 @@ export async function GET() {
   const { sb } = gate;
   const { data, error } = await sb
     .from("profiles")
-    .select("id, username, email, nickname, display_name, role, admin_tier, status, deleted_at, created_at")
+    .select("id, username, email, nickname, display_name, role, status, deleted_at, created_at")
     .in("role", ["admin", "super_admin"])
     .order("created_at", { ascending: false });
 
@@ -81,7 +80,7 @@ export async function GET() {
     () => new Map<string, AdminPermissionKey[]>()
   );
   const staff = rows.map((row) => {
-    const uiRole = adminTierToUiRole(row.admin_tier, row.role);
+    const uiRole = adminTierToUiRole(null, row.role);
     const perms =
       normalizeAdminRole(row.role) === "super_admin"
         ? defaultPermissionsForUiRole("master")
