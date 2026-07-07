@@ -10,6 +10,7 @@ import { buildAddressListDetailLine, buildTradePublicLine } from "@/lib/addresse
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import {
   adminAuthProviderLabel,
+  normalizeAdminAuthProvider,
   resolveAdminAuthProvider,
   type AdminAuthListUser,
 } from "@/lib/admin-users/resolve-admin-auth-provider";
@@ -24,7 +25,6 @@ import {
   linkedProvidersFromIdentities,
   loadAllAuthAdminUsers,
   loadLinkedIdentitiesMapChunked,
-  loadTestUsersByIdsChunked,
   resolveProfileLessAdminNickname,
 } from "@/lib/admin-users/admin-users-list-server";
 import { chunkIds, CHAT_ROOM_ID_IN_CHUNK_SIZE } from "@/lib/chats/chat-list-limits";
@@ -68,16 +68,6 @@ type ProfileRow = {
   created_at: string | null;
 };
 
-type TestUserRow = {
-  id: string;
-  username: string | null;
-  display_name: string | null;
-  role: string | null;
-  contact_phone: string | null;
-  contact_address: string | null;
-  created_at: string | null;
-};
-
 type AuthListUser = AdminAuthListUser;
 
 type AuthAdminClient = SupabaseClient & {
@@ -90,14 +80,6 @@ type AuthAdminClient = SupabaseClient & {
     };
   };
 };
-
-/** 목록 셀용: 수동 입력 멀티라인 중 첫 줄(보통 동네·ZIP) */
-function firstLineOfMultiline(text: string | null | undefined): string {
-  const t = (text ?? "").trim();
-  if (!t) return "";
-  const line = t.split(/\r?\n/).map((s) => s.trim()).find(Boolean);
-  return line ?? "";
-}
 
 const ADDRESS_SELECT =
   "id,user_id,label_type,nickname,recipient_name,phone_number,country_code,country_name,province,city_municipality,barangay,district,street_address,building_name,unit_floor_room,landmark,latitude,longitude,full_address,neighborhood_name,app_region_id,app_city_id,use_for_life,use_for_trade,use_for_delivery,is_default_master,is_default_life,is_default_trade,is_default_delivery,is_active,sort_order,created_at,updated_at";
@@ -179,19 +161,24 @@ async function loadAdminAddressMap(
   return out;
 }
 
+function profileIsManualMember(row: Pick<ProfileRow, "auth_provider" | "provider">): boolean {
+  const provider =
+    normalizeAdminAuthProvider(row.auth_provider) ?? normalizeAdminAuthProvider(row.provider);
+  return provider === "manual";
+}
+
 function mapProfileRowToAdminUser(input: {
   row: ProfileRow;
-  testUser?: TestUserRow;
   authUser: AuthListUser | null;
   linkedIdentities: AdminLinkedIdentity[] | null;
   adminAddressMap: Map<string, UserAddressDTO>;
   warnedUserIds: Set<string>;
 }): AdminUser {
-  const { row: r, testUser, authUser, linkedIdentities, adminAddressMap, warnedUserIds } = input;
+  const { row: r, authUser, linkedIdentities, adminAddressMap, warnedUserIds } = input;
   const authProvider = resolveAdminAuthProvider({
     authUser,
     profile: r,
-    isManualTestUser: Boolean(testUser),
+    isManualTestUser: profileIsManualMember(r),
     linkedProviders: linkedProvidersFromIdentities(linkedIdentities ?? undefined),
   });
   const providerUserId = resolveAdminProviderUserId({
@@ -204,7 +191,6 @@ function mapProfileRowToAdminUser(input: {
     provider: authProvider,
     authUser,
     profile: r,
-    testUser,
     linkedIdentities,
     providerUserId,
   });
@@ -227,17 +213,15 @@ function mapProfileRowToAdminUser(input: {
     address_street_line: r.address_street_line,
     address_detail: r.address_detail,
   }).trim();
-  const fromTestLine = firstLineOfMultiline(testUser?.contact_address);
   const locationLine =
     fromUserAddress ||
     fromProfile ||
-    fromTestLine ||
     (r.region_name ?? "").trim() ||
     undefined;
 
   return {
     id: r.id,
-    loginUsername: testUser?.username?.trim() || r.username?.trim() || undefined,
+    loginUsername: r.username?.trim() || undefined,
     loginIdentifier,
     username: r.username?.trim() || null,
     dibay_id: r.dibay_id?.trim() || null,
@@ -247,19 +231,18 @@ function mapProfileRowToAdminUser(input: {
     displayName: r.display_name?.trim() || r.nickname?.trim() || null,
     nickname:
       labelFromDisplayAndUsername(
-        (r.display_name ?? r.nickname ?? testUser?.display_name ?? "").trim(),
+        (r.display_name ?? r.nickname ?? "").trim(),
         (r.username ?? "").trim(),
       ) ||
       r.display_name?.trim() ||
       r.nickname?.trim() ||
-      testUser?.display_name?.trim() ||
       r.username?.trim() ||
       r.id,
     email: displayEmail,
     authProvider,
     providerLabel: adminAuthProviderLabel(authProvider),
     providerUserId: providerUserId ?? undefined,
-    phone: r.phone?.trim() || testUser?.contact_phone?.trim() || undefined,
+    phone: r.phone?.trim() || undefined,
     memberType,
     profileRole: r.role ?? undefined,
     hasProfile: true,
@@ -374,28 +357,20 @@ export async function GET(_req: NextRequest) {
   const allUserIdsForAddress = Array.from(new Set([...profileIds, ...authOnlyIdSet]));
   const allUserIdsForProviders = Array.from(new Set([...profileIds, ...authOnlyIdSet]));
 
-  const [adminAddressMap, linkedIdentitiesMap, warnedUserIds, matchedTestRows] =
-    await Promise.all([
-      loadAdminAddressMap(supabase, allUserIdsForAddress),
-      loadLinkedIdentitiesMapChunked(supabase, allUserIdsForProviders).catch(
-        () => new Map<string, AdminLinkedIdentity[]>(),
-      ),
-      loadWarnedUserIdSet(supabase, profileIds).catch(() => new Set<string>()),
-      loadTestUsersByIdsChunked(supabase, profileIds).catch(() => [] as TestUserRow[]),
-    ]);
+  const [adminAddressMap, linkedIdentitiesMap, warnedUserIds] = await Promise.all([
+    loadAdminAddressMap(supabase, allUserIdsForAddress),
+    loadLinkedIdentitiesMapChunked(supabase, allUserIdsForProviders).catch(
+      () => new Map<string, AdminLinkedIdentity[]>(),
+    ),
+    loadWarnedUserIdSet(supabase, profileIds).catch(() => new Set<string>()),
+  ]);
 
-  const testRowsById = new Map<string, TestUserRow>();
-  for (const row of (matchedTestRows ?? []) as TestUserRow[]) {
-    if (row?.id) testRowsById.set(row.id, row);
-  }
-  const testMap = testRowsById;
   const authMap = buildAuthUserMap(authUsers);
 
   const list: AdminUser[] = profileRows.map((r) => {
     try {
       return mapProfileRowToAdminUser({
         row: r,
-        testUser: testMap.get(r.id),
         authUser: authMap.get(r.id) ?? null,
         linkedIdentities: linkedIdentitiesMap.get(r.id) ?? null,
         adminAddressMap,

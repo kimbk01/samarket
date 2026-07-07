@@ -17,7 +17,7 @@ export type AdminAuthProvider =
 
 export interface AdminUser {
   id: string;
-  /** 아이디 로그인(test_users.username). DB PK id와 별개 */
+  /** 아이디 로그인 표시용(profiles.username) */
   loginUsername?: string;
   /** 운영 목록 표시용 실제 로그인 식별값(SNS email/provider id/manual login_id) */
   loginIdentifier?: string;

@@ -67,9 +67,7 @@ async function isNicknameTaken(sb: SupabaseClient, userId: string, nickname: str
 
 async function loadActorIsMaster(sb: SupabaseClient, actorId: string): Promise<boolean> {
   const { data: p } = await sb.from("profiles").select("role").eq("id", actorId).maybeSingle();
-  if (isSuperAdminRole((p as { role?: string } | null)?.role)) return true;
-  const { data: t } = await sb.from("test_users").select("role").eq("id", actorId).maybeSingle();
-  return isSuperAdminRole((t as { role?: string } | null)?.role);
+  return isSuperAdminRole((p as { role?: string } | null)?.role);
 }
 
 function memberTypeToProfileAndTestRole(memberType: MemberType): {
@@ -490,38 +488,19 @@ export async function GET(
   }
 
   const supabase = gate.sb;
-  const [{ data: profile, error: profileError }, { data: testUser, error: testUserError }] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select(
-        "id, username, email, role, display_name, nickname, phone, phone_verified, phone_verified_at, phone_verification_status, member_status, member_type, status, deleted_at, verified_member_at, created_at, region_code, region_name, address_street_line, address_detail"
-      )
-      .eq("id", rawId)
-      .maybeSingle(),
-    supabase
-      .from("test_users")
-      .select("id, username, role, display_name, contact_phone, contact_address, created_at")
-      .eq("id", rawId)
-      .maybeSingle(),
-  ]);
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select(
+      "id, username, email, role, display_name, nickname, phone, phone_verified, phone_verified_at, phone_verification_status, member_status, member_type, status, deleted_at, verified_member_at, created_at, region_code, region_name, address_street_line, address_detail"
+    )
+    .eq("id", rawId)
+    .maybeSingle();
 
-  if (profileError || testUserError) {
+  if (profileError) {
     return NextResponse.json(
-      { ok: false, error: profileError?.message ?? testUserError?.message ?? "load_failed" },
+      { ok: false, error: profileError.message ?? "load_failed" },
       { status: 500 }
     );
-  }
-  if (!profile && !testUser) {
-    const { data: authData, error: authLoadError } = await supabase.auth.admin.getUserById(rawId);
-    if (authLoadError || !authData?.user) {
-      return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
-    }
-    const user = await buildAuthOnlyAdminUserDetail(
-      supabase,
-      rawId,
-      authData.user as AdminAuthListUser
-    );
-    return NextResponse.json({ ok: true, user });
   }
 
   if (profile) {
@@ -578,22 +557,47 @@ export async function GET(
       deleted_at: prof.deleted_at ?? null,
       moderation_status: moderationStatus,
       verified_member_at: prof.verified_member_at ?? null,
-      created_at: prof.created_at ?? testUser?.created_at ?? null,
+      created_at: prof.created_at ?? null,
       hasProfile: true,
     };
     return NextResponse.json({ ok: true, user });
   }
 
-  const role = String(testUser?.role ?? "user").trim() || "user";
-  const fromTestAddr = (testUser?.contact_address as string | null | undefined)?.trim() ?? "";
+  const { data: testUser, error: testUserError } = await supabase
+    .from("test_users")
+    .select("id, username, role, display_name, contact_phone, contact_address, created_at")
+    .eq("id", rawId)
+    .maybeSingle();
+
+  if (testUserError) {
+    return NextResponse.json(
+      { ok: false, error: testUserError.message ?? "load_failed" },
+      { status: 500 }
+    );
+  }
+  if (!testUser) {
+    const { data: authData, error: authLoadError } = await supabase.auth.admin.getUserById(rawId);
+    if (authLoadError || !authData?.user) {
+      return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+    }
+    const user = await buildAuthOnlyAdminUserDetail(
+      supabase,
+      rawId,
+      authData.user as AdminAuthListUser
+    );
+    return NextResponse.json({ ok: true, user });
+  }
+
+  const role = String(testUser.role ?? "user").trim() || "user";
+  const fromTestAddr = (testUser.contact_address as string | null | undefined)?.trim() ?? "";
   const user: AdminUserDetailRow = {
     id: rawId,
-    username: (testUser?.username ?? null) as string | null,
+    username: (testUser.username ?? null) as string | null,
     email: null,
     role,
-    display_name: (testUser?.display_name ?? null) as string | null,
-    nickname: (testUser?.display_name ?? null) as string | null,
-    contact_phone: (testUser?.contact_phone ?? null) as string | null,
+    display_name: (testUser.display_name ?? null) as string | null,
+    nickname: (testUser.display_name ?? null) as string | null,
+    contact_phone: (testUser.contact_phone ?? null) as string | null,
     contact_address: fromTestAddr || null,
     phone_verified: false,
     phone_verified_at: null,
@@ -604,7 +608,7 @@ export async function GET(
     deleted_at: null,
     moderation_status: "normal",
     verified_member_at: null,
-    created_at: (testUser?.created_at ?? null) as string | null,
+    created_at: (testUser.created_at ?? null) as string | null,
     hasProfile: false,
   };
 
