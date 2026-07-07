@@ -13,6 +13,7 @@ import com.dibay.app.DibayKeyguardHelper;
 import com.dibay.app.IncomingCallActionCoordinator;
 import com.dibay.app.IncomingCallNotificationBuilder;
 import com.dibay.app.IncomingCallRingOwner;
+import com.dibay.app.NativeOutgoingRingbackOwner;
 import com.dibay.app.call.DibayActiveCallSessionManager;
 import com.dibay.app.call.ScreenAwakeBridge;
 import com.dibay.app.nativecall.NativeCallEngineOwnership;
@@ -179,6 +180,7 @@ public final class NativeVideoCallRuntime {
     SESSIONS.put(sid, session);
     DibayIncomingCallNativeStore.markState(app, sid, DibayIncomingCallNativeStore.STATE_CONNECTING);
     NativeVideoCallService.startConnecting(app, sid);
+    NativeOutgoingRingbackOwner.start(app, sid, "video");
     startOutgoingDialingActivity(app, session);
     startCallerAgoraJoin(app, session);
   }
@@ -192,6 +194,7 @@ public final class NativeVideoCallRuntime {
       return;
     }
     String sid = session.callId;
+    NativeOutgoingRingbackOwner.stop(sid, "connected");
     setState(app, session, State.CONNECTED);
     NativeVideoCallLog.info("state_connected", sid);
     NativeVideoCallService.startConnected(app, sid);
@@ -324,6 +327,7 @@ public final class NativeVideoCallRuntime {
     Context app = context.getApplicationContext();
     String sid = callId.trim();
     String reason = normalizeTerminalReason(terminalKind);
+    NativeOutgoingRingbackOwner.stop(sid, reason);
     Session session = SESSIONS.get(sid);
     if (session != null && "missed".equals(reason) && session.state == State.CONNECTED) {
       NativeVideoCallLog.info(
@@ -348,6 +352,7 @@ public final class NativeVideoCallRuntime {
     Context app = context.getApplicationContext();
     String sid = callId.trim();
     NativeVideoCallLog.info("runtime_cleanup_start", sid, "reason=" + safe(reason));
+    NativeOutgoingRingbackOwner.stop(sid, reason);
     cancelMissed(sid);
     NativeVideoCallAgoraEngine.leave(reason);
     NativeVideoCallNotification.dismiss(app, sid);
@@ -369,6 +374,7 @@ public final class NativeVideoCallRuntime {
     Context app = context.getApplicationContext();
     String sid = callId.trim();
     Session session = SESSIONS.get(sid);
+    NativeOutgoingRingbackOwner.stop(sid, action);
     if (session != null) setState(app, session, State.ENDING);
     cancelMissed(sid);
     NativeVideoCallApi.PatchCallback done =

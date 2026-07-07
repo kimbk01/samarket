@@ -10,6 +10,7 @@ import com.dibay.app.DibayKeyguardHelper;
 import com.dibay.app.IncomingCallActionCoordinator;
 import com.dibay.app.IncomingCallNotificationBuilder;
 import com.dibay.app.IncomingCallRingOwner;
+import com.dibay.app.NativeOutgoingRingbackOwner;
 import com.dibay.app.call.DibayActiveCallSessionManager;
 import com.dibay.app.nativecall.NativeCallEngineOwnership;
 import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
@@ -172,6 +173,7 @@ public final class NativeVoiceCallRuntime {
     SESSIONS.put(sid, session);
     DibayIncomingCallNativeStore.markState(app, sid, DibayIncomingCallNativeStore.STATE_CONNECTING);
     NativeVoiceCallService.startConnecting(app, sid);
+    NativeOutgoingRingbackOwner.start(app, sid, "voice");
     startOutgoingDialingActivity(app, session);
     startCallerAgoraJoin(app, session);
   }
@@ -185,6 +187,7 @@ public final class NativeVoiceCallRuntime {
       return;
     }
     String sid = session.callId;
+    NativeOutgoingRingbackOwner.stop(sid, "connected");
     setState(app, session, State.CONNECTED);
     NativeVoiceCallLog.info("state_connected", sid);
     NativeVoiceCallService.startConnected(app, sid);
@@ -303,6 +306,7 @@ public final class NativeVoiceCallRuntime {
     Context app = context.getApplicationContext();
     String sid = callId.trim();
     String reason = normalizeTerminalReason(terminalKind);
+    NativeOutgoingRingbackOwner.stop(sid, reason);
     Session session = SESSIONS.get(sid);
     if (session != null && "missed".equals(reason) && session.state == State.CONNECTED) {
       NativeVoiceCallLog.info(
@@ -327,6 +331,7 @@ public final class NativeVoiceCallRuntime {
     Context app = context.getApplicationContext();
     String sid = callId.trim();
     NativeVoiceCallLog.info("runtime_cleanup_start", sid, "reason=" + safe(reason));
+    NativeOutgoingRingbackOwner.stop(sid, reason);
     cancelMissed(sid);
     NativeVoiceCallAgoraEngine.leave(reason);
     NativeVoiceCallNotification.dismiss(app, sid);
@@ -348,6 +353,7 @@ public final class NativeVoiceCallRuntime {
     Context app = context.getApplicationContext();
     String sid = callId.trim();
     Session session = SESSIONS.get(sid);
+    NativeOutgoingRingbackOwner.stop(sid, action);
     if (session != null) setState(app, session, State.ENDING);
     cancelMissed(sid);
     NativeVoiceCallApi.PatchCallback done =
