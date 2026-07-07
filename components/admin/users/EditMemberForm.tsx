@@ -46,11 +46,8 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
   const memberLocked =
     user.profileRole === "master" || (!isMasterUi && user.memberType === "admin");
 
-  const memberOptions: MemberType[] = isMasterUi
-    ? ["normal", "premium", "admin"]
-    : user.memberType === "admin"
-      ? ["admin"]
-      : ["normal", "premium"];
+  const memberOptions: MemberType[] =
+    user.memberType === "admin" ? ["admin"] : ["normal", "premium"];
 
   useEffect(() => {
     setNickname(user.nickname);
@@ -183,10 +180,16 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
               <span className="mt-1 block sam-text-xxs text-amber-700">
                 {t("admin_users_edit_master_role_hint")}
               </span>
-            ) : !isMasterUi ? (
-              <span className="mt-1 block sam-text-xxs text-sam-muted">
-                {t("admin_users_edit_member_type_hint")}
-              </span>
+            ) : null}
+            {user.memberType !== "admin" ? (
+              <>
+                <span className="mt-1 block sam-text-xxs text-sam-muted">
+                  {t("admin_users_edit_member_type_hint")}
+                </span>
+                <span className="mt-1 block sam-text-xxs text-sam-muted">
+                  {t("admin_users_admin_via_staff_tab_hint")}
+                </span>
+              </>
             ) : null}
           </label>
 
