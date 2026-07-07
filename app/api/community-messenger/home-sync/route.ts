@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { HomeSyncSnapshotUnavailableError } from "@/lib/community-messenger/home-sync-snapshot";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { enforceRateLimit, getRateLimitKey, jsonOkWithRequest } from "@/lib/http/api-route";
+import { requireMessengerOpenAccess } from "@/lib/profile/require-profile-completion.server";
 import type { CommunityMessengerHomeSyncBundlePayload } from "@/lib/community-messenger/get-community-messenger-home-sync-bundle";
 import {
   COMMUNITY_MESSENGER_HOME_SYNC_CRITICAL_ROOM_CAP,
@@ -181,21 +182,7 @@ export async function GET(req: NextRequest) {
     return auth.response;
   }
 
-  const { getSupabaseServer } = await import("@/lib/chat/supabase-server");
-  const { requireProfileFieldsForAction } = await import(
-    "@/lib/profile/require-profile-completion.server"
-  );
-  let sbHomeSync: ReturnType<typeof getSupabaseServer>;
-  try {
-    sbHomeSync = getSupabaseServer();
-  } catch {
-    return NextResponse.json({ ok: false, error: "server_config" }, { status: 503 });
-  }
-  const profileGate = await requireProfileFieldsForAction(
-    sbHomeSync as import("@supabase/supabase-js").SupabaseClient,
-    auth.userId,
-    "messenger_open"
-  );
+  const profileGate = await requireMessengerOpenAccess(auth.userId);
   if (!profileGate.ok) return profileGate.response;
 
   const tRate0 = performance.now();

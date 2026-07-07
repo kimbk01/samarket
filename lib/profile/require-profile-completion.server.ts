@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { isMandatoryAddressGateSatisfied } from "@/lib/addresses/user-address-service";
 import { evaluateProfileRequirements } from "@/lib/profile/require-profile-completion";
 import {
@@ -89,4 +90,19 @@ export async function requireProfileFieldsForAction(
       { status: 403 }
     ),
   };
+}
+
+/** 메신저 접근·동기화 GET — SSOT (bootstrap / home-sync / rooms list) */
+export async function requireMessengerOpenAccess(userId: string): Promise<ProfileFieldsGateResult> {
+  let sb: ReturnType<typeof getSupabaseServer>;
+  try {
+    sb = getSupabaseServer();
+  } catch {
+    return {
+      ok: false,
+      missingFields: [],
+      response: NextResponse.json({ ok: false, error: "server_config" }, { status: 503 }),
+    };
+  }
+  return requireProfileFieldsForAction(sb as SupabaseClient, userId, "messenger_open");
 }

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { requireSignupCompleteForUser } from "@/lib/auth/require-signup-complete-api";
-import { requireProfileFieldsForAction } from "@/lib/profile/require-profile-completion.server";
+import { requireProfileFieldsForAction, requireMessengerOpenAccess } from "@/lib/profile/require-profile-completion.server";
 import { validateActiveSession } from "@/lib/auth/server-guards";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import {
@@ -34,17 +34,7 @@ export async function GET(req: NextRequest) {
   const session = await validateActiveSession(auth.userId);
   if (!session.ok) return session.response;
 
-  let sbList: ReturnType<typeof getSupabaseServer>;
-  try {
-    sbList = getSupabaseServer();
-  } catch {
-    return jsonError("server_config", 503);
-  }
-  const listProfileGate = await requireProfileFieldsForAction(
-    sbList as import("@supabase/supabase-js").SupabaseClient,
-    auth.userId,
-    "messenger_open"
-  );
+  const listProfileGate = await requireMessengerOpenAccess(auth.userId);
   if (!listProfileGate.ok) return listProfileGate.response;
 
   const listRateLimit = await enforceRateLimit({

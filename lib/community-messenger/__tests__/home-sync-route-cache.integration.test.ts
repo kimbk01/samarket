@@ -11,6 +11,15 @@ vi.mock("@/lib/auth/api-session", () => ({
   requireAuthenticatedUserId: vi.fn(async () => ({ ok: true as const, userId: USER_ID })),
 }));
 
+/** in-process cache 테스트 — DB·프로필 gate 경계 분리 (messenger_open SSOT) */
+vi.mock("@/lib/profile/require-profile-completion.server", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("@/lib/profile/require-profile-completion.server")>();
+  return {
+    ...mod,
+    requireMessengerOpenAccess: vi.fn(async () => ({ ok: true as const })),
+  };
+});
+
 vi.mock("@/lib/http/api-route", async (importOriginal) => {
   const mod = await importOriginal<typeof import("@/lib/http/api-route")>();
   return {
