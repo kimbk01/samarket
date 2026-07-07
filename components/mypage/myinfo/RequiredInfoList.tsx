@@ -71,7 +71,7 @@ function RequiredInfoStatusRow({ row }: { row: RequiredInfoRow }) {
   const isDone = row.state === "done";
   const isActive = row.state === "active";
   const shellClass = isActive
-    ? "border-[#00704A]/28 bg-[#F8FCFA] shadow-[inset_3px_0_0_0_#00704A]"
+    ? "border-[#00704A]/28 bg-[#F8FCFA] shadow-[inset_3px_0_0_0_#00704A] cursor-pointer active:opacity-90"
     : row.state === "locked"
       ? "border-[#E5E0D7] bg-[#FAF8F4] opacity-70"
       : "border-[#D4E9E2] bg-white";
@@ -81,12 +81,29 @@ function RequiredInfoStatusRow({ row }: { row: RequiredInfoRow }) {
       ? "bg-[#FFF3D9] text-[#8A5A00]"
       : "bg-[#F2F0EB] text-[#8B7A67]";
 
+  const openActiveSheet = () => {
+    if (isActive && row.onCtaClick) row.onCtaClick();
+  };
+
   return (
     <li
       className={`rounded-ui-rect border ${shellClass}`}
       data-required-step={row.id}
       data-state={row.state}
       data-accordion="false"
+      onClick={isActive ? openActiveSheet : undefined}
+      onKeyDown={
+        isActive
+          ? (event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                openActiveSheet();
+              }
+            }
+          : undefined
+      }
+      role={isActive ? "button" : undefined}
+      tabIndex={isActive ? 0 : undefined}
     >
       <div className="flex items-start gap-3 px-4 py-3.5">
         <span className={isDone ? "mt-0.5 text-[#00704A]" : isActive ? MYPAGE_HOME_ICON_WRAP_CLASS : "mt-0.5 text-[#8B7A67]"}>
@@ -106,17 +123,16 @@ function RequiredInfoStatusRow({ row }: { row: RequiredInfoRow }) {
           <p className="mt-1 truncate text-[13px] leading-snug text-[#6F4E37]">{row.value}</p>
         </div>
         {row.onCtaClick && row.ctaLabel ? (
-          <button
-            type="button"
-            onClick={row.onCtaClick}
-            className="shrink-0 rounded-full bg-[#00704A] px-3.5 py-2 text-[13px] font-semibold text-white"
-          >
+          <span className="shrink-0 rounded-full bg-[#00704A] px-3.5 py-2 text-[13px] font-semibold text-white">
             {row.ctaLabel}
-          </button>
+          </span>
         ) : row.onChangeClick && row.changeLabel ? (
           <button
             type="button"
-            onClick={row.onChangeClick}
+            onClick={(event) => {
+              event.stopPropagation();
+              row.onChangeClick?.();
+            }}
             className="shrink-0 text-[13px] font-semibold text-[#00704A] underline underline-offset-2"
           >
             {row.changeLabel}
@@ -230,10 +246,15 @@ export function RequiredInfoList({
           : safeT("mypage_required_status_waiting", { fallbackKo: "대기", fallbackEn: "Waiting" }),
       value: phoneVerified
         ? resolvePhoneDisplay(profile)
-        : safeT("mypage_required_phone_empty", {
-            fallbackKo: "전화번호 인증이 필요합니다.",
-            fallbackEn: "Phone verification required.",
-          }),
+        : activeStep === "phone"
+          ? safeT("mypage_required_phone_active_hint", {
+              fallbackKo: "전화번호 인증이 필요합니다.",
+              fallbackEn: "Phone verification is required.",
+            })
+          : safeT("mypage_required_phone_waiting", {
+              fallbackKo: "아이디 확정 후 인증할 수 있습니다.",
+              fallbackEn: "Available after your ID is confirmed.",
+            }),
       ctaLabel: activeStep === "phone" ? safeT("mypage_required_cta_verify", { fallbackKo: "인증", fallbackEn: "Verify" }) : undefined,
       onCtaClick: activeStep === "phone" ? () => openSheet("phone") : undefined,
     },
@@ -249,10 +270,15 @@ export function RequiredInfoList({
           : safeT("mypage_required_status_waiting", { fallbackKo: "대기", fallbackEn: "Waiting" }),
       value: hasDefaultAddress
         ? addressValue
-        : safeT("mypage_required_address_active_hint", {
-            fallbackKo: "대표 주소를 등록해 주세요.",
-            fallbackEn: "Please add your default address.",
-          }),
+        : activeStep === "address"
+          ? safeT("mypage_required_address_active_hint", {
+              fallbackKo: "대표 주소를 등록해 주세요.",
+              fallbackEn: "Please add your default address.",
+            })
+          : safeT("mypage_required_address_waiting", {
+              fallbackKo: "전화번호 인증 후 등록할 수 있습니다.",
+              fallbackEn: "Available after phone verification.",
+            }),
       ctaLabel: activeStep === "address" ? safeT("mypage_required_cta_register", { fallbackKo: "등록", fallbackEn: "Register" }) : undefined,
       onCtaClick: activeStep === "address" ? () => openSheet("address") : undefined,
       changeLabel: hasDefaultAddress ? safeT("mypage_required_change_action", { fallbackKo: "변경", fallbackEn: "Change" }) : undefined,
