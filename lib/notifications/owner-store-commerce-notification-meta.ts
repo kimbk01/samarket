@@ -8,6 +8,7 @@ export const OWNER_STORE_COMMERCE_NOTIFICATION_META_KINDS = new Set([
   "store_order_accept_reminder_60s",
   "store_order_payment_completed",
   "store_order_buyer_cancelled",
+  "store_order_sold_out",
   "store_order_refund_requested",
 ]);
 

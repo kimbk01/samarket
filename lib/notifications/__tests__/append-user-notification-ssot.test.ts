@@ -77,6 +77,41 @@ describe("appendUserNotification SSOT bridge", () => {
     expect(insert).not.toHaveBeenCalled();
   });
 
+  it("preserves legacyDomain in notification_events displayPayload", async () => {
+    createAndDispatchNotificationEvent.mockResolvedValue({
+      ok: true,
+      row: { id: "evt-sold-out", user_id: "owner-1" },
+    });
+
+    const insert = vi.fn();
+    const sb = { from: vi.fn(() => ({ insert })) } as unknown as Parameters<
+      (typeof import("@/lib/notifications/append-user-notification"))["appendUserNotification"]
+    >[0];
+    const { appendUserNotification } = await import(
+      "@/lib/notifications/append-user-notification"
+    );
+
+    const ok = await appendUserNotification(sb, {
+      user_id: "owner-1",
+      notification_type: "commerce",
+      domain: "store",
+      title: "sold out",
+      body: "body",
+      meta: { kind: "store_order_sold_out", store_id: "store-1" },
+    });
+
+    expect(ok).toBe(true);
+    expect(createAndDispatchNotificationEvent).toHaveBeenCalledWith(
+      sb,
+      expect.objectContaining({
+        displayPayload: expect.objectContaining({
+          legacyDomain: "store",
+          legacyMeta: expect.objectContaining({ kind: "store_order_sold_out" }),
+        }),
+      })
+    );
+  });
+
   it("keeps legacy fallback disabled by default when SSOT fails", async () => {
     createAndDispatchNotificationEvent.mockRejectedValue(new Error("boom"));
 

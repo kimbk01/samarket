@@ -254,6 +254,14 @@ describe("notification-sound-event-key-from-row", () => {
         })
       ).not.toBe("delivery_chat_message_received_owner");
     }
+
+    expect(
+      resolveNotificationSoundGateDomainFromRow({
+        notification_type: "commerce",
+        domain: "store",
+        meta: { kind: "store_order_sold_out", order_id: "o1", product_id: "p1" },
+      })
+    ).toBe("store");
   });
 
   it("maps admin notice and report", () => {

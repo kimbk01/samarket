@@ -208,6 +208,7 @@ export async function appendUserNotification(
         legacyPushKind: row.push_kind ?? null,
         legacyMeta: row.meta ?? null,
         legacyRefId: row.ref_id ?? null,
+        legacyDomain: row.domain ?? null,
       },
       unread: true,
       appState: "background",

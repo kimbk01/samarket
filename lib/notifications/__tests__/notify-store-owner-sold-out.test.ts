@@ -1,4 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
+import {
+  isOwnerStoreCommerceNotificationRow,
+  OWNER_STORE_COMMERCE_NOTIFICATION_META_KINDS,
+} from "@/lib/notifications/owner-store-commerce-notification-meta";
 import { notifyStoreOwnerProductSoldOutFromOrder } from "@/lib/notifications/notify-store-commerce";
 
 vi.mock("@/lib/notifications/append-user-notification", () => ({
@@ -20,6 +24,15 @@ function makeSb() {
 }
 
 describe("notifyStoreOwnerProductSoldOutFromOrder", () => {
+  it("classifies store_order_sold_out as owner store commerce meta kind", () => {
+    expect(OWNER_STORE_COMMERCE_NOTIFICATION_META_KINDS.has("store_order_sold_out")).toBe(true);
+    expect(
+      isOwnerStoreCommerceNotificationRow({
+        meta: { kind: "store_order_sold_out", store_id: "store-1" },
+      })
+    ).toBe(true);
+  });
+
   it("appends commerce store notification with sold-out meta and dedupe", async () => {
     const sb = makeSb() as never;
     await notifyStoreOwnerProductSoldOutFromOrder(sb, {
