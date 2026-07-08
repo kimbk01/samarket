@@ -2,6 +2,7 @@
  * 거래·배달 CM 목록 lifecycle enrich 단일 진입점 (home-sync·bootstrap·trade-chat-list-meta).
  */
 import { enrichDeliveryRoomLifecycleFieldsFromStoreOrders } from "@/lib/community-messenger/delivery-chat-list/delivery-context-meta-lifecycle-enrich";
+import { homeSyncTraceMeterEnabled, ms, type HomeSyncTrace } from "@/lib/community-messenger/home-sync-trace";
 import { enrichTradeRoomLifecycleFieldsFromProductChats } from "@/lib/community-messenger/trade-chat-list/trade-context-meta-lifecycle-enrich";
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 
@@ -12,9 +13,22 @@ type LifecycleSupabase = {
 /** product_chats·store_orders 원장 기준 lifecycle contextMeta + isReadonly 보강 */
 export async function enrichCommerceChatRoomLifecycleForList(
   sb: LifecycleSupabase | null | undefined,
-  summaries: CommunityMessengerRoomSummary[]
+  summaries: CommunityMessengerRoomSummary[],
+  options?: { trace?: HomeSyncTrace }
 ): Promise<void> {
   if (!sb || !summaries.length) return;
+  const tTrade = performance.now();
   await enrichTradeRoomLifecycleFieldsFromProductChats(sb, summaries);
+  const tradeMs = performance.now() - tTrade;
+  const tDelivery = performance.now();
   await enrichDeliveryRoomLifecycleFieldsFromStoreOrders(sb, summaries);
+  const deliveryMs = performance.now() - tDelivery;
+  if (homeSyncTraceMeterEnabled(options?.trace)) {
+    const tr = options!.trace!;
+    tr.deepSteps.bundleSteps = {
+      ...(tr.deepSteps.bundleSteps ?? {}),
+      commerceLifecycleTradeMs: ms(tradeMs),
+      commerceLifecycleDeliveryMs: ms(deliveryMs),
+    };
+  }
 }

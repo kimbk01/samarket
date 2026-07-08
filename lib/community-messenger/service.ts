@@ -4237,7 +4237,6 @@ export async function listCommunityMessengerMyChatsAndGroups(
     const snap = await tryBuildHomeSyncCriticalFromSnapshot(sbSnap as never, userId, options?.trace);
     if (snap) {
       const chats = dedupeTradeMessengerRoomSummaries(snap.chats);
-      await enrichCommerceChatRoomLifecycleForList(sbSnap, chats);
       if (messengerPerfStepsEnabled()) {
         logMessengerPerfMs("listCommunityMessengerMyChatsAndGroups_wall", performance.now() - tListTop);
       }

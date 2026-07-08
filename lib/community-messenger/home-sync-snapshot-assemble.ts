@@ -11,6 +11,7 @@ import {
   enrichMessengerTradeUnreadWithLegacyTrade,
   type Hs5LegacyLoadResult,
 } from "@/lib/community-messenger/enrich-messenger-trade-unread-with-legacy-trade";
+import { applyCommerceLifecycleFromSnapshotPayload } from "@/lib/community-messenger/home-sync-snapshot-commerce-lifecycle-apply";
 import { COMMUNITY_MESSENGER_HOME_SYNC_CRITICAL_ROOM_CAP } from "@/lib/community-messenger/home-sync-room-caps";
 import type { HomeSyncTrace } from "@/lib/community-messenger/home-sync-trace";
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
@@ -28,6 +29,11 @@ export type HomeSyncSnapshotPayloadJson = {
   hs5?: {
     chatRows?: unknown[];
     pcRows?: unknown[];
+  };
+  commerce_lifecycle?: {
+    product_chats?: unknown[];
+    store_orders?: unknown[];
+    order_completed_events?: unknown[];
   };
   room_cap?: number;
 };
@@ -210,6 +216,8 @@ export async function assembleHomeSyncCriticalFromSnapshotPayload(
     ).catch(() => {});
     unreadBadgeMs = performance.now() - tUnread;
   }
+
+  applyCommerceLifecycleFromSnapshotPayload(mySummaries, payload);
 
   const chats = mySummaries.filter((room) => room.roomType === "direct");
   const groups = mySummaries.filter((room) => isCommunityMessengerPrivateGroupListRoomType(room.roomType));

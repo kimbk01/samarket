@@ -138,9 +138,17 @@ async function loadHomeSyncBundle(
   tier: "critical" | "full",
   trace: HomeSyncTrace | undefined
 ): Promise<CommunityMessengerHomeSyncBundlePayload> {
+  const tDynamicImport = performance.now();
   const { getCommunityMessengerHomeSyncBundle } = await import(
     "@/lib/community-messenger/get-community-messenger-home-sync-bundle"
   );
+  const routeBundleDynamicImportMs = performance.now() - tDynamicImport;
+  if (trace && homeSyncTraceMeterEnabled(trace)) {
+    trace.deepSteps.bundleSteps = {
+      ...(trace.deepSteps.bundleSteps ?? {}),
+      routeBundleDynamicImportMs: ms(routeBundleDynamicImportMs),
+    };
+  }
   return getCommunityMessengerHomeSyncBundle(userId, tier, { trace });
 }
 

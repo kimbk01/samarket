@@ -198,6 +198,11 @@ export class HomeSyncSnapshotUnavailableError extends Error {
   }
 }
 
+function snapshotPayloadHasCommerceLifecycle(payload: HomeSyncSnapshotPayloadJson): boolean {
+  const block = payload.commerce_lifecycle;
+  return Boolean(block && typeof block === "object" && !Array.isArray(block));
+}
+
 /** Snapshot-first critical build — null = unified RPC unavailable; caller returns 503. */
 export async function tryBuildHomeSyncCriticalFromSnapshot(
   sbAny: SupabaseClient<any>,
@@ -271,11 +276,15 @@ export async function tryBuildHomeSyncCriticalFromSnapshot(
       const readMs = devPerfNow() - read0;
 
       if (counter.hit && !counter.stale) {
-        return finish(counter.row.payload_json, readMs, "counter_row");
-      }
-      if (counter.hit && counter.stale) {
+        if (snapshotPayloadHasCommerceLifecycle(counter.row.payload_json)) {
+          return finish(counter.row.payload_json, readMs, "counter_row");
+        }
         scheduleHomeSyncSnapshotRefresh(uid);
-        return finish(counter.row.payload_json, readMs, "counter_row", true);
+      } else if (counter.hit && counter.stale) {
+        scheduleHomeSyncSnapshotRefresh(uid);
+        if (snapshotPayloadHasCommerceLifecycle(counter.row.payload_json)) {
+          return finish(counter.row.payload_json, readMs, "counter_row", true);
+        }
       }
     }
 

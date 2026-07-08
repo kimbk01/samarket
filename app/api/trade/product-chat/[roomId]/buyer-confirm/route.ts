@@ -10,6 +10,7 @@ import { TRUST_EVENT_DELTAS } from "@/lib/trust/trust-score-core";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
+import { invalidateHomeSyncSnapshotForTradeLifecycle } from "@/lib/community-messenger/home-sync-snapshot-commerce-invalidation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -79,6 +80,8 @@ export async function POST(
       chat_mode: "open",
     })
     .eq("id", resolved.productChatId);
+
+  invalidateHomeSyncSnapshotForTradeLifecycle([pc.seller_id, pc.buyer_id]);
 
   try {
     await appendUserNotification(sbAny, {

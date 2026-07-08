@@ -422,6 +422,14 @@ export type HomeSyncDeepStepsBundleSteps = {
   routeHandlerMs?: number;
   /** 번들 await 제외 route 구간(인증·rate limit·진단·응답 직전까지 근사) */
   routeOutsideBundleAwaitMs?: number;
+  /** `loadHomeSyncBundle` dynamic import 벽시계 — cold root-cause trace 전용 */
+  routeBundleDynamicImportMs?: number;
+  /** `enrichCommerceChatRoomLifecycleForList` 전체 벽시계 — cold root-cause trace 전용 */
+  commerceLifecycleEnrichMs?: number;
+  /** commerce lifecycle — `enrichTradeRoomLifecycleFieldsFromProductChats` */
+  commerceLifecycleTradeMs?: number;
+  /** commerce lifecycle — `enrichDeliveryRoomLifecycleFieldsFromStoreOrders` */
+  commerceLifecycleDeliveryMs?: number;
 };
 
 /** dev: `listCommunityMessengerMyChatsAndGroups` unread·레거시 거래 unread 보강 구간 (응답 shape 무관) */

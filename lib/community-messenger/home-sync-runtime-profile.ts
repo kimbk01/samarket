@@ -53,6 +53,19 @@ export function emitHomeSyncRuntimeProfile(params: {
   const friendsFetch = ms(bs.friendsFetchMs);
   const friendsReq = ms(bs.friendsRequestsFetchMs);
   const bundleParallelWall = ms(bs.bundleParallelWallMs);
+  const dynamicImport = ms(bs.routeBundleDynamicImportMs ?? 0);
+  const commerceLifecycleEnrich = ms(bs.commerceLifecycleEnrichMs ?? 0);
+  const commerceLifecycleTrade = ms(bs.commerceLifecycleTradeMs ?? 0);
+  const commerceLifecycleDelivery = ms(bs.commerceLifecycleDeliveryMs ?? 0);
+  const explainedColdMs =
+    dynamicImport +
+    roomsFetch +
+    participantsProfiles +
+    unreadBadge +
+    commerceLifecycleEnrich +
+    payloadBuild +
+    summarizeRooms;
+  const coldGapResidualMs = params.shortTtlHit ? 0 : Math.max(0, routeAwait - explainedColdMs);
 
   const candidates: Array<[string, number]> = [
     ["rooms_fetch", roomsFetch],
@@ -62,6 +75,11 @@ export function emitHomeSyncRuntimeProfile(params: {
     ["payload_build", payloadBuild],
     ["summarize_rooms", summarizeRooms],
     ["route_bundle_await", routeAwait],
+    ["route_bundle_dynamic_import", dynamicImport],
+    ["commerce_lifecycle_enrich", commerceLifecycleEnrich],
+    ["commerce_lifecycle_trade", commerceLifecycleTrade],
+    ["commerce_lifecycle_delivery", commerceLifecycleDelivery],
+    ["cold_gap_residual", coldGapResidualMs],
     ["route_dev_diagnostics", routeDevDiag],
     ["list_my_chats_wall", listWall],
     ["friends_fetch", friendsFetch],
@@ -100,6 +118,12 @@ export function emitHomeSyncRuntimeProfile(params: {
     home_sync_bundle_parallel_wall_ms: bundleParallelWall,
     home_sync_route_dev_diagnostics_ms: routeDevDiag,
     home_sync_summarize_rooms_ms: summarizeRooms,
+    home_sync_bundle_dynamic_import_ms: dynamicImport,
+    home_sync_commerce_lifecycle_enrich_ms: commerceLifecycleEnrich,
+    home_sync_commerce_lifecycle_trade_ms: commerceLifecycleTrade,
+    home_sync_commerce_lifecycle_delivery_ms: commerceLifecycleDelivery,
+    home_sync_cold_gap_explained_ms: explainedColdMs,
+    home_sync_cold_gap_residual_ms: coldGapResidualMs,
     home_sync_top_bottleneck: top?.key ?? "none",
     home_sync_top_bottleneck_ms: top?.ms ?? 0,
     trade_meta_cache_hit: tradeMeta?.tradeMetaCacheHit ?? null,

@@ -7,6 +7,7 @@ import { resolveProductChat } from "@/lib/trade/resolve-product-chat";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
+import { invalidateHomeSyncSnapshotForTradeLifecycle } from "@/lib/community-messenger/home-sync-snapshot-commerce-invalidation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -112,6 +113,8 @@ export async function POST(
     })
     .eq("post_id", pc.post_id)
     .neq("id", resolved.productChatId);
+
+  invalidateHomeSyncSnapshotForTradeLifecycle([pc.seller_id, pc.buyer_id]);
 
   try {
     await sbAny

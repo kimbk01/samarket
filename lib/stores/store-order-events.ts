@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { writeThroughStoreOrderEventsReadCache } from "@/lib/stores/store-order-events-read-cache";
 import { invalidateStoreOrderDetailSnapshot } from "@/lib/stores/store-order-detail-snapshot-cache";
 import { invalidateBuyerStoreOrdersListSnapshotForOrder } from "@/lib/stores/buyer-store-orders-list-snapshot-cache";
+import { invalidateHomeSyncSnapshotForStoreOrderLifecycle } from "@/lib/community-messenger/home-sync-snapshot-commerce-invalidation";
 
 export type StoreOrderActorRole = "buyer" | "owner" | "rider" | "admin" | "system";
 
@@ -178,6 +179,13 @@ export async function createStoreOrderStatusEvent(
   });
 }
 
+function shouldInvalidateHomeSyncSnapshotForStoreOrderEvent(input: CreateStoreOrderEventInput): boolean {
+  const eventType = String(input.eventType).trim();
+  if (eventType === "order_completed" || eventType.startsWith("order_")) return true;
+  if (input.toStatus?.trim()) return true;
+  return false;
+}
+
 /**
  * append-only insert — 동일 dedupe_key 가 이미 있으면 기존 행 반환(inserted: false).
  */
@@ -234,6 +242,23 @@ export async function createStoreOrderEvent(
           : undefined;
     invalidateStoreOrderDetailSnapshot(orderId, buyerUid, String(input.eventType));
     invalidateBuyerStoreOrdersListSnapshotForOrder(orderId, buyerUid, String(input.eventType));
+    if (shouldInvalidateHomeSyncSnapshotForStoreOrderEvent(input)) {
+      const lifecycleUserIds: string[] = [];
+      if (input.actorUserId?.trim()) lifecycleUserIds.push(input.actorUserId.trim());
+      if (buyerUid) lifecycleUserIds.push(buyerUid);
+      if (!buyerUid) {
+        const { data: orderRow } = await sb
+          .from("store_orders")
+          .select("buyer_user_id")
+          .eq("id", orderId)
+          .maybeSingle();
+        const resolvedBuyer = String(
+          (orderRow as { buyer_user_id?: string } | null)?.buyer_user_id ?? ""
+        ).trim();
+        if (resolvedBuyer) lifecycleUserIds.push(resolvedBuyer);
+      }
+      invalidateHomeSyncSnapshotForStoreOrderLifecycle(lifecycleUserIds);
+    }
     return { ok: true, row: data as StoreOrderEventRow, inserted: true };
   }
 
