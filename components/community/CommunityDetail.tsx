@@ -53,6 +53,7 @@ import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useCommunityTopicUILabel } from "@/lib/i18n/use-community-topic-ui-label";
 import { formatAppNumber } from "@/lib/i18n/locale-for-app-language";
+import { postNotificationThreadRead } from "@/lib/notifications/client/notification-event-read-client";
 
 const meetingToolbarBtn =
   "sam-btn sam-btn--outline sam-btn--block px-1 py-2 text-center disabled:opacity-50";
@@ -74,9 +75,23 @@ export function CommunityDetail({
   const { t, safeT, language } = useI18n();
   const router = useRouter();
   const requireAction = useRequireAuthAction();
+  const communityPostNotificationReadOnceRef = useRef<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const me = mounted ? getCurrentUser() : getHydrationSafeCurrentUser();
   const viewerIsAdmin = !!me && isAdminUser(me);
+
+  useEffect(() => {
+    const postId = post.id?.trim();
+    if (!postId) return;
+    if (communityPostNotificationReadOnceRef.current === postId) return;
+    communityPostNotificationReadOnceRef.current = postId;
+    void postNotificationThreadRead(postId, {
+      threadType: "community_post",
+      readReason: "community_post_opened",
+      categories: ["community_activity"],
+    });
+  }, [post.id]);
+
   const {
     comments,
     loading: commentsLoading,

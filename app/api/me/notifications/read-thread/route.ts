@@ -76,7 +76,11 @@ export async function POST(req: NextRequest) {
   }
 
   const categories = normalizeCategories(body.categories, threadType);
-  const cleared = await markNotificationThreadRead(sb, userId, threadId, { categories });
+  const cleared = await markNotificationThreadRead(sb, userId, threadId, {
+    categories,
+    threadType,
+    readReason,
+  });
   const badge = await fetchNotificationBadgeCount(sb, userId, { force: true });
   return NextResponse.json({
     ok: true,

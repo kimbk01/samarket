@@ -61,6 +61,7 @@ import {
   dibayPerfRecordOrderDetailSeedHydrated,
   dibayPerfRecordOrderDetailSeedUsed,
 } from "@/lib/dibay/delivery-flow-perf";
+import { postNotificationThreadRead } from "@/lib/notifications/client/notification-event-read-client";
 
 type ItemRow = {
   id: string;
@@ -184,6 +185,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
   const [refundReason, setRefundReason] = useState("");
   const detailPerfOnceRef = useRef<string | null>(null);
   const seedUsedOnceRef = useRef<string | null>(null);
+  const orderNotificationReadOnceRef = useRef<string | null>(null);
 
   useLayoutEffect(() => {
     const oid = orderId.trim();
@@ -302,6 +304,16 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
     detailPerfOnceRef.current = orderId;
     dibayPerfOnOrderDetailVisible(orderId);
   }, [state.kind, orderId]);
+
+  useEffect(() => {
+    if (!orderId || (state.kind !== "ok" && state.kind !== "seed")) return;
+    if (orderNotificationReadOnceRef.current === orderId) return;
+    orderNotificationReadOnceRef.current = orderId;
+    void postNotificationThreadRead(orderId, {
+      threadType: "order",
+      readReason: "order_detail_opened",
+    });
+  }, [orderId, state.kind]);
 
   useLayoutEffect(() => {
     if (state.kind !== "seed" || !orderId) return;

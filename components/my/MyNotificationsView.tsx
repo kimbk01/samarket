@@ -16,6 +16,7 @@ import { buildInboxGroupItems, type InboxGroupItem } from "@/lib/notifications/g
 import { NotificationDeleteConfirmDialog } from "@/components/notifications/NotificationDeleteConfirmDialog";
 import { NotificationInboxByDateSections } from "@/components/notifications/NotificationInboxByDateSections";
 import { resolveNotifInboxErrorMessageKey } from "@/lib/notifications/resolve-notif-inbox-error-message";
+import { resyncBadgesAfterNotificationEventsRead } from "@/lib/notifications/client/notification-events-read-resync";
 
 type Row = {
   id: string;
@@ -235,6 +236,7 @@ export function MyNotificationsView() {
     if (j?.ok) {
       setRows((prev) => prev.map((x) => (ids.includes(x.id) ? { ...x, is_read: true } : x)));
       broadcastNotificationsUpdated();
+      resyncBadgesAfterNotificationEventsRead("notification_opened");
     }
   }, [broadcastNotificationsUpdated]);
 

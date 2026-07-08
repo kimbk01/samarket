@@ -66,6 +66,7 @@ import { OwnerStoreOrdersMobileBody } from "@/components/business/owner/OwnerSto
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import { KASAMA_OWNER_HUB_BADGE_REFRESH } from "@/lib/chats/chat-channel-events";
 import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-events";
+import { postNotificationThreadRead } from "@/lib/notifications/client/notification-event-read-client";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 import {
   r2d1OwnerOrdersTrace,
@@ -158,6 +159,7 @@ export function OwnerStoreOrdersView() {
     chipAccept: false,
     chipDelivery: false,
   });
+  const ownerOrderNotificationReadOnceRef = useRef<string | null>(null);
 
   useLayoutEffect(() => {
     alertStoreIdRef.current = state.kind === "ok" ? state.storeId : null;
@@ -407,6 +409,19 @@ export function OwnerStoreOrdersView() {
       setDeepLinkEnrichSettled(true);
     }
   }, [highlightOrderId, state]);
+
+  useEffect(() => {
+    if (state.kind !== "ok") return;
+    const oid = (expandedOrderId || highlightOrderId).trim();
+    if (!oid || chatOrderId) return;
+    if (!state.orders.some((o) => o.id === oid)) return;
+    if (ownerOrderNotificationReadOnceRef.current === oid) return;
+    ownerOrderNotificationReadOnceRef.current = oid;
+    void postNotificationThreadRead(oid, {
+      threadType: "order",
+      readReason: "order_detail_opened",
+    });
+  }, [chatOrderId, expandedOrderId, highlightOrderId, state]);
 
   useEffect(() => {
     deepLinkChatEnrichAttemptedRef.current = false;

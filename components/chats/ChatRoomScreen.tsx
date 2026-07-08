@@ -28,6 +28,7 @@ import {
   patchTradeChatEntryMark,
   readTradeChatEntryMark,
 } from "@/lib/chats/trade-chat-entry-client";
+import { postNotificationThreadRead } from "@/lib/notifications/client/notification-event-read-client";
 import { logClientPerf, perfNow } from "@/lib/performance/samarket-perf";
 import { TradeChatLoadingShell } from "@/components/chats/TradeChatLoadingShell";
 import { useNotificationSurfaceTradeChatRoom } from "@/lib/ui/use-notification-surface-explicit-chat-rooms";
@@ -105,6 +106,7 @@ export function ChatRoomScreen({
   });
   const chatEntryShellLoggedRef = useRef(false);
   const chatEntryRoomReadyLoggedRef = useRef<string | null>(null);
+  const tradeChatNotificationReadOnceRef = useRef<string | null>(null);
   const accessDeniedRedirectRef = useRef(false);
   const router = useRouter();
   /** `lite` 부트스트랩 후 `full` 보강 예약 취소용 */
@@ -478,6 +480,14 @@ export function ChatRoomScreen({
       source: room.source ?? null,
       elapsedMs: Math.max(0, next.roomResolvedAt - next.startedAt),
     });
+    if (tradeChatNotificationReadOnceRef.current !== room.id) {
+      tradeChatNotificationReadOnceRef.current = room.id;
+      void postNotificationThreadRead(room.id, {
+        threadType: "trade_room",
+        readReason: "chat_room_visible",
+        categories: ["trade_message"],
+      });
+    }
   }, [room, resolvedUserId]);
 
   const viewportClass =

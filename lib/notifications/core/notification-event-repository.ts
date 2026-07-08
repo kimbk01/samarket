@@ -323,6 +323,71 @@ export async function markNotificationEventsReadByCategory(
   return data?.length ?? 0;
 }
 
+function displayPayloadRouteUrlContainsId(routeUrlPattern: string): string {
+  const escaped = routeUrlPattern.replace(/[%_\\]/g, "\\$&");
+  return `display_payload->>routeUrl.ilike.%${escaped}%`;
+}
+
+export async function markCommunityPostNotificationEventsRead(
+  sb: SupabaseClient<any>,
+  userId: string,
+  postId: string
+): Promise<number> {
+  const uid = userId.trim();
+  const pid = postId.trim();
+  if (!uid || !pid) return 0;
+  const now = new Date().toISOString();
+  const { data, error } = await sb
+    .from("notification_events")
+    .update({ unread: false, read_at: now, opened_at: now })
+    .eq("user_id", uid)
+    .in("category", ["community_activity"])
+    .eq("unread", true)
+    .is("read_at", null)
+    .or(
+      [
+        `display_payload->>legacyRefId.eq.${pid}`,
+        `display_payload->legacyMeta->>post_id.eq.${pid}`,
+        `display_payload->legacyMeta->>community_post_id.eq.${pid}`,
+        displayPayloadRouteUrlContainsId(pid),
+        displayPayloadRouteUrlContainsId(`/philife/${pid}`),
+        displayPayloadRouteUrlContainsId(`/philife/posts/${pid}`),
+      ].join(",")
+    )
+    .select("id");
+  if (error) return 0;
+  return data?.length ?? 0;
+}
+
+export async function markTradeStatusNotificationEventsReadByProductId(
+  sb: SupabaseClient<any>,
+  userId: string,
+  productId: string
+): Promise<number> {
+  const uid = userId.trim();
+  const product = productId.trim();
+  if (!uid || !product) return 0;
+  const now = new Date().toISOString();
+  const { data, error } = await sb
+    .from("notification_events")
+    .update({ unread: false, read_at: now, opened_at: now })
+    .eq("user_id", uid)
+    .in("category", ["trade_status"])
+    .eq("unread", true)
+    .is("read_at", null)
+    .or(
+      [
+        `display_payload->legacyMeta->>product_id.eq.${product}`,
+        `display_payload->>legacyRefId.eq.${product}`,
+        displayPayloadRouteUrlContainsId(`/post/${product}`),
+        displayPayloadRouteUrlContainsId(`/post/${encodeURIComponent(product)}`),
+      ].join(",")
+    )
+    .select("id");
+  if (error) return 0;
+  return data?.length ?? 0;
+}
+
 export async function markOrderNotificationEventsRead(
   sb: SupabaseClient<any>,
   userId: string,
@@ -367,7 +432,16 @@ export async function markNotificationEventsReadByThread(
     .from("notification_events")
     .update({ unread: false, read_at: now, opened_at: now })
     .eq("user_id", uid)
-    .or(`room_id.eq.${tid},call_session_id.eq.${tid}`)
+    .or(
+      [
+        `room_id.eq.${tid}`,
+        `call_session_id.eq.${tid}`,
+        `display_payload->>legacyRefId.eq.${tid}`,
+        `display_payload->legacyMeta->>room_id.eq.${tid}`,
+        `display_payload->legacyMeta->>chat_room_id.eq.${tid}`,
+        `display_payload->legacyMeta->>product_chat_id.eq.${tid}`,
+      ].join(",")
+    )
     .eq("unread", true)
     .is("read_at", null);
   const categories = [...new Set((opts?.categories ?? []).map((c) => c.trim()).filter(Boolean))];

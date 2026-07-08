@@ -7,6 +7,8 @@ const markAllMissedCallEventsRead = vi.fn();
 const markNotificationEventsReadByCategory = vi.fn();
 const markNotificationEventsReadByThread = vi.fn();
 const markOrderNotificationEventsRead = vi.fn();
+const markCommunityPostNotificationEventsRead = vi.fn();
+const markTradeStatusNotificationEventsReadByProductId = vi.fn();
 const fetchNotificationBadgeCount = vi.fn();
 const invalidateNotificationBadgeCache = vi.fn();
 
@@ -21,6 +23,10 @@ vi.mock("@/lib/notifications/core/notification-event-repository", () => ({
     markNotificationEventsReadByThread(...args),
   markOrderNotificationEventsRead: (...args: unknown[]) =>
     markOrderNotificationEventsRead(...args),
+  markCommunityPostNotificationEventsRead: (...args: unknown[]) =>
+    markCommunityPostNotificationEventsRead(...args),
+  markTradeStatusNotificationEventsReadByProductId: (...args: unknown[]) =>
+    markTradeStatusNotificationEventsReadByProductId(...args),
 }));
 
 vi.mock("@/lib/notifications/pipeline/notify-badge-service", () => ({
@@ -49,6 +55,8 @@ describe("notify-read-service", () => {
     markNotificationEventsReadByCategory.mockResolvedValue(3);
     markNotificationEventsReadByThread.mockResolvedValue(4);
     markOrderNotificationEventsRead.mockResolvedValue(1);
+    markCommunityPostNotificationEventsRead.mockResolvedValue(2);
+    markTradeStatusNotificationEventsReadByProductId.mockResolvedValue(3);
     fetchNotificationBadgeCount.mockResolvedValue({ total: 0 });
   });
 
@@ -90,13 +98,51 @@ describe("notify-read-service", () => {
   it("marks thread read and refreshes badge immediately", async () => {
     const count = await markNotificationThreadRead(sb, "user-1", "room-1", {
       categories: ["chat_message"],
+      threadType: "trade_room",
+      readReason: "chat_room_visible",
     });
     expect(count).toBe(4);
     expect(markNotificationEventsReadByThread).toHaveBeenCalledWith(sb, "user-1", "room-1", {
       categories: ["chat_message"],
+      threadType: "trade_room",
+      readReason: "chat_room_visible",
     });
     expect(invalidateNotificationBadgeCache).toHaveBeenCalledWith("user-1");
     expect(fetchNotificationBadgeCount).toHaveBeenCalled();
+  });
+
+  it("marks order thread read via order repository path", async () => {
+    const count = await markNotificationThreadRead(sb, "user-1", "order-1", {
+      threadType: "order",
+      readReason: "order_detail_opened",
+    });
+    expect(count).toBe(1);
+    expect(markOrderNotificationEventsRead).toHaveBeenCalledWith(sb, "user-1", "order-1");
+    expect(markNotificationEventsReadByThread).not.toHaveBeenCalled();
+  });
+
+  it("marks community post thread read via community repository path", async () => {
+    const count = await markNotificationThreadRead(sb, "user-1", "post-1", {
+      threadType: "community_post",
+      readReason: "community_post_opened",
+    });
+    expect(count).toBe(2);
+    expect(markCommunityPostNotificationEventsRead).toHaveBeenCalledWith(sb, "user-1", "post-1");
+  });
+
+  it("marks trade detail read via product id repository path", async () => {
+    const count = await markNotificationThreadRead(sb, "user-1", "product-1", {
+      threadType: "trade_room",
+      readReason: "trade_detail_opened",
+      categories: ["trade_status"],
+    });
+    expect(count).toBe(3);
+    expect(markTradeStatusNotificationEventsReadByProductId).toHaveBeenCalledWith(
+      sb,
+      "user-1",
+      "product-1"
+    );
+    expect(markNotificationEventsReadByThread).not.toHaveBeenCalled();
   });
 
   it("marks order notifications read and refreshes badge immediately", async () => {

@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { postNotificationThreadRead } from "@/lib/notifications/client/notification-event-read-client";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { PostDetailView } from "@/components/post/PostDetailView";
@@ -101,6 +102,19 @@ export function PostDetailPageClient({ initialBundle, initialRouteTotalMs, child
   );
   const hasRelatedSlot = Boolean(children);
   const lastListingFieldsRefreshAtRef = useRef(0);
+  const tradeStatusNotificationReadOnceRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const productId = id?.trim();
+    if (!productId) return;
+    if (tradeStatusNotificationReadOnceRef.current === productId) return;
+    tradeStatusNotificationReadOnceRef.current = productId;
+    void postNotificationThreadRead(productId, {
+      threadType: "trade_room",
+      readReason: "trade_detail_opened",
+      categories: ["trade_status"],
+    });
+  }, [id]);
 
   useEffect(() => {
     setPost(initialBundle.item);

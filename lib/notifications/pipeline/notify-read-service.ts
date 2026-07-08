@@ -1,12 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   markAllMissedCallEventsRead,
+  markCommunityPostNotificationEventsRead,
   markMissedCallEventsRead,
   markNotificationEventRead,
   markNotificationEventsReadByCategory,
   markNotificationEventsReadByThread,
   markOrderNotificationEventsRead,
   markRoomNotificationEventsRead,
+  markTradeStatusNotificationEventsReadByProductId,
 } from "@/lib/notifications/core/notification-event-repository";
 import { logMissedCall, logNotifyBadge } from "@/lib/notifications/core/notification-logs";
 import {
@@ -92,12 +94,23 @@ export async function markNotificationThreadRead(
   sb: SupabaseClient<any>,
   userId: string,
   threadId: string,
-  opts?: { categories?: string[] }
+  opts?: { categories?: string[]; threadType?: string; readReason?: string }
 ): Promise<number> {
-  const count = await markNotificationEventsReadByThread(sb, userId, threadId, opts);
+  const threadType = String(opts?.threadType ?? "").trim();
+  const readReason = String(opts?.readReason ?? "").trim();
+  let count = 0;
+  if (threadType === "order") {
+    count = await markOrderNotificationEventsRead(sb, userId, threadId);
+  } else if (threadType === "community_post") {
+    count = await markCommunityPostNotificationEventsRead(sb, userId, threadId);
+  } else if (readReason === "trade_detail_opened") {
+    count = await markTradeStatusNotificationEventsReadByProductId(sb, userId, threadId);
+  } else {
+    count = await markNotificationEventsReadByThread(sb, userId, threadId, opts);
+  }
   if (count > 0) {
     invalidateNotificationBadgeCache(userId);
-    logNotifyBadge("read_clear", { userId, threadId, count });
+    logNotifyBadge("read_clear", { userId, threadId, count, threadType, readReason });
     await fetchNotificationBadgeCount(sb, userId, { force: true });
   }
   return count;
