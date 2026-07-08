@@ -73,6 +73,11 @@ function metaKind(row: NotificationSoundRowInput): string {
   return trimText(metaRecord(row)?.kind);
 }
 
+function receiverRole(row: NotificationSoundRowInput): string {
+  const meta = metaRecord(row);
+  return trimText(meta?.receiverRole ?? meta?.recipientRole);
+}
+
 function pushKind(row: NotificationSoundRowInput): string {
   const meta = metaRecord(row);
   return trimText(meta?.push_kind ?? meta?.pushKind);
@@ -125,6 +130,11 @@ export function resolveNotificationSoundEventKeyFromRow(
   if (kind) {
     const fromMeta = META_KIND_TO_EVENT_KEY[kind];
     if (fromMeta) return fromMeta;
+    if (kind === "store_order_message") {
+      const role = receiverRole(row);
+      if (role === "owner") return "delivery_chat_message_received_owner";
+      if (role === "user" || role === "member") return "delivery_chat_message_received_user";
+    }
     if (isNotificationEventType(kind)) {
       return eventKeyForNotificationEventType(kind);
     }

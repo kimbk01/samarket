@@ -109,6 +109,7 @@ import { buildReplyPreviewSnapshot } from "@/lib/community-messenger/message-act
 import { registerMessengerRoomComposerPhase2Bridge } from "@/lib/community-messenger/room/messenger-room-composer-phase2-bridge";
 import { scheduleMessengerComposerFocusRetain } from "@/lib/community-messenger/room/messenger-composer-focus-after-send";
 import { translateCmUi } from "@/lib/community-messenger/cm-ui-translate";
+import { playEventNotificationSound } from "@/lib/notifications/notification-sound-engine";
 
 export type MessengerRoomPhase2ControllerState = ReturnType<typeof useMessengerRoomPhase2Controller>;
 
@@ -128,6 +129,7 @@ export type MessengerAttachmentConfirmDraft =
   | { kind: "location"; content: string };
 
 const MESSENGER_IMAGE_ALBUM_PICK_MAX = 10;
+const MESSENGER_MESSAGE_SENT_EVENT_KEY = "messenger_message_sent";
 
 /** `viewerUserId` 비어 있을 때만 — 확정 메시지가 오면 교체. 서버 POST 와 무관(세션 auth). */
 const CM_OPTIMISTIC_SENDER_FALLBACK_ID = "__cm_shell_self__";
@@ -144,6 +146,20 @@ function optimisticOutboundSender(
     };
   }
   return { senderId: CM_OPTIMISTIC_SENDER_FALLBACK_ID, senderLabel: translateCmUi("common_me") };
+}
+
+export function playMessengerMessageSentFeedbackOnce(
+  playedClientMessageIds: Set<string>,
+  clientMessageId: string | null | undefined,
+  confirmedMessageId: string | null | undefined,
+  play: (eventKey: string) => unknown = playEventNotificationSound
+): boolean {
+  const cid = trimCmText(clientMessageId);
+  const mid = trimCmText(confirmedMessageId);
+  if (!cid || !mid || playedClientMessageIds.has(cid)) return false;
+  playedClientMessageIds.add(cid);
+  void play(MESSENGER_MESSAGE_SENT_EVENT_KEY);
+  return true;
 }
 
 export function useMessengerRoomPhase2Controller() {
@@ -311,6 +327,7 @@ export function useMessengerRoomPhase2Controller() {
 
   const [attachmentConfirmDraft, setAttachmentConfirmDraft] = useState<MessengerAttachmentConfirmDraft | null>(null);
   const [privateGroupAvatarUrl, setPrivateGroupAvatarUrl] = useState<string | null>(null);
+  const messengerSentFeedbackPlayedClientIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const rid = roomId?.trim();
@@ -936,6 +953,11 @@ export function useMessengerRoomPhase2Controller() {
           )
         );
         onMessengerOutboundConfirmed(withCid, clientMessageId);
+        playMessengerMessageSentFeedbackOnce(
+          messengerSentFeedbackPlayedClientIdsRef.current,
+          clientMessageId,
+          withCid.id
+        );
         forgetRoomBootstrapClientFlightsAfterMutation();
         return true;
       }

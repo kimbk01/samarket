@@ -35,9 +35,37 @@ export type NotifyMessagePipelineInput = {
   mentionUserIds?: string[];
 };
 
+type StoreOrderReceiverRole = "owner" | "user";
+
 function resolveEventType(input: NotifyMessagePipelineInput) {
   if (input.roomKind) return eventTypeForMessageRoomKind(input.roomKind);
   return resolveMessageEventTypeFromDirectKey(input.directKey);
+}
+
+async function loadStoreOrderReceiverRoleByUserId(
+  sb: SupabaseClient<any>,
+  roomId: string,
+  recipientUserIds: string[]
+): Promise<Map<string, StoreOrderReceiverRole>> {
+  const recipients = [...new Set(recipientUserIds.map((id) => id.trim()).filter(Boolean))];
+  if (!roomId || recipients.length === 0) return new Map();
+
+  const { data, error } = await sb
+    .from("community_messenger_participants")
+    .select("user_id, role")
+    .eq("room_id", roomId)
+    .in("user_id", recipients);
+  if (error || !data) return new Map();
+
+  const out = new Map<string, StoreOrderReceiverRole>();
+  for (const row of data as Array<{ user_id?: unknown; role?: unknown }>) {
+    const userId = typeof row.user_id === "string" ? row.user_id.trim() : "";
+    const role = typeof row.role === "string" ? row.role.trim() : "";
+    if (!userId) continue;
+    if (role === "owner") out.set(userId, "owner");
+    else if (role === "member") out.set(userId, "user");
+  }
+  return out;
 }
 
 export async function notifyMessagePipeline(
@@ -53,6 +81,11 @@ export async function notifyMessagePipeline(
   const baseEventType = resolveEventType(input);
 
   logNotifyMessage("create_start", { roomId, messageId, recipientCount: recipients.length });
+
+  const receiverRoleByUserId =
+    baseEventType === "store_order_message" || input.roomKind === "store_order"
+      ? await loadStoreOrderReceiverRoleByUserId(sb, roomId, recipients)
+      : new Map<string, StoreOrderReceiverRole>();
 
   const displayShared = await loadMessageNotificationDisplaySharedContext(sb, {
     roomId,
@@ -116,6 +149,18 @@ export async function notifyMessagePipeline(
       },
       displayShared
     );
+    const receiverRole = receiverRoleByUserId.get(recipientUserId);
+    const displayPayload =
+      receiverRole && eventType === "store_order_message"
+        ? {
+            ...display,
+            receiverRole,
+            legacyMeta: {
+              kind: "store_order_message",
+              receiverRole,
+            },
+          }
+        : display;
 
     const created = await createAndDispatchNotificationEvent(sb, {
       userId: recipientUserId,
@@ -126,7 +171,7 @@ export async function notifyMessagePipeline(
       actorUserId: senderUserId,
       title: display.title,
       body: display.body,
-      displayPayload: display,
+      displayPayload,
       dedupeKey,
       mutedSnapshot: muted,
       pushSuppressedReason,

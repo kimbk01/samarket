@@ -76,6 +76,11 @@ describe("group-room P0 contract", () => {
       expect(resolveGroupMessageRoomKind("direct", "trade_item:room-2")).toBe("trade");
     });
 
+    it("maps store order direct keys on direct rooms to store_order", () => {
+      expect(resolveGroupMessageRoomKind("direct", "store_order:order-1")).toBe("store_order");
+      expect(resolveGroupMessageRoomKind("direct", "trade_order:order-2")).toBe("store_order");
+    });
+
     it("defaults plain direct rooms to direct", () => {
       expect(resolveGroupMessageRoomKind("direct", "aa:bb")).toBe("direct");
       expect(resolveGroupMessageRoomKind("direct", null)).toBe("direct");

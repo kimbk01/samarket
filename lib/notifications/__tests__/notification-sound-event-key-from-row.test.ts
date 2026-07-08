@@ -67,6 +67,36 @@ describe("notification-sound-event-key-from-row", () => {
     ).toBe("trade_chat_message_received");
   });
 
+  it("maps store order message receiver roles to owner/user delivery chat sounds", () => {
+    expect(
+      resolveNotificationSoundEventKeyFromRow({
+        notification_type: "chat",
+        meta: { kind: "store_order_message", receiverRole: "owner", room_id: "r1" },
+      })
+    ).toBe("delivery_chat_message_received_owner");
+
+    expect(
+      resolveNotificationSoundEventKeyFromRow({
+        notification_type: "chat",
+        meta: { kind: "store_order_message", receiverRole: "user", room_id: "r1" },
+      })
+    ).toBe("delivery_chat_message_received_user");
+
+    expect(
+      resolveNotificationSoundEventKeyFromRow({
+        notification_type: "chat",
+        meta: { kind: "store_order_message", receiverRole: "member", room_id: "r1" },
+      })
+    ).toBe("delivery_chat_message_received_user");
+
+    expect(
+      resolveNotificationSoundEventKeyFromRow({
+        notification_type: "chat",
+        meta: { kind: "store_order_message", room_id: "r1" },
+      })
+    ).toBe("delivery_chat_message_received_user");
+  });
+
   it("maps delivery owner new order separately from owner chat domain default", () => {
     expect(
       resolveNotificationSoundEventKeyFromRow({

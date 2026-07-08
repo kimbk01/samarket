@@ -9,6 +9,7 @@ import {
 import {
   partitionInboxReadIdsFromLookup,
 } from "@/lib/notifications/inbox-read-bridge";
+import { resolveNotificationSoundEventKeyFromRow } from "@/lib/notifications/notification-sound-event-key-from-row";
 
 function baseEvent(overrides: Partial<NotificationEventInboxSource> = {}): NotificationEventInboxSource {
   return {
@@ -128,5 +129,63 @@ describe("inbox-events-merge-regression", () => {
       })
     );
     expect(href).toBe("/mypage/store-orders/ord-55");
+  });
+
+  it("maps production trade_legacy roomKind to trade chat sound eventKey", () => {
+    const row = mapNotificationEventToInboxRow(
+      baseEvent({
+        type: "trade_message",
+        category: "trade_message",
+        display_payload: {
+          roomKind: "trade_legacy",
+          routeUrl: "/chats/product/trade-room-1",
+        },
+        room_id: "trade-room-1",
+      })
+    );
+
+    expect(row.meta?.kind).toBe("trade_chat");
+    expect(resolveNotificationSoundEventKeyFromRow(row)).toBe("trade_chat_message_received");
+  });
+
+  it("does not collapse store_order roomKind to messenger direct sound", () => {
+    const row = mapNotificationEventToInboxRow(
+      baseEvent({
+        type: "store_order_message",
+        category: "order_status",
+        display_payload: {
+          roomKind: "store_order",
+          routeUrl: "/community-messenger/rooms/store-order-room-1",
+        },
+        room_id: "store-order-room-1",
+      })
+    );
+
+    expect(row.meta?.kind).toBe("store_order_message");
+    expect(row.meta?.kind).not.toBe("community_chat");
+    expect(resolveNotificationSoundEventKeyFromRow(row)).toBe("delivery_chat_message_received_user");
+    expect(resolveNotificationSoundEventKeyFromRow(row)).not.toBe("messenger_direct_message_received");
+  });
+
+  it("keeps direct and group roomKind sound mapping unchanged", () => {
+    const direct = mapNotificationEventToInboxRow(
+      baseEvent({
+        display_payload: { roomKind: "direct" },
+        room_id: "direct-room-1",
+      })
+    );
+    const group = mapNotificationEventToInboxRow(
+      baseEvent({
+        type: "group_message",
+        category: "group_message",
+        display_payload: { roomKind: "group" },
+        room_id: "group-room-1",
+      })
+    );
+
+    expect(direct.meta?.kind).toBe("community_chat");
+    expect(resolveNotificationSoundEventKeyFromRow(direct)).toBe("messenger_direct_message_received");
+    expect(group.meta?.kind).toBe("group_chat");
+    expect(resolveNotificationSoundEventKeyFromRow(group)).toBe("messenger_group_message_received");
   });
 });

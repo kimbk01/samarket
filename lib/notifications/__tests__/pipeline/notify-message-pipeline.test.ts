@@ -53,6 +53,20 @@ import { notifyMessagePipeline } from "@/lib/notifications/pipeline/notify-messa
 
 const sb = {} as never;
 
+function storeOrderRoleSupabase(rows: Array<{ user_id: string; role: string }>, error: unknown = null) {
+  const inMock = vi.fn(async () => ({ data: rows, error }));
+  const eqMock = vi.fn(() => ({ in: inMock }));
+  const selectMock = vi.fn(() => ({ eq: eqMock }));
+  const fromMock = vi.fn(() => ({ select: selectMock }));
+  return {
+    client: { from: fromMock } as never,
+    fromMock,
+    selectMock,
+    eqMock,
+    inMock,
+  };
+}
+
 function defaultPresenceDecision(overrides: Record<string, unknown> = {}) {
   return {
     suppressPush: false,
@@ -209,5 +223,72 @@ describe("notify-message-pipeline", () => {
       preview: "two",
     });
     expect(createAndDispatchNotificationEvent).toHaveBeenCalledTimes(2);
+  });
+
+  it("preserves owner/user receiverRole for store order message recipients", async () => {
+    const roleDb = storeOrderRoleSupabase([
+      { user_id: "owner-user", role: "owner" },
+      { user_id: "buyer-user", role: "member" },
+    ]);
+
+    await notifyMessagePipeline(roleDb.client, {
+      roomId: "store-room-1",
+      messageId: "msg-store-1",
+      senderUserId: "sender-user",
+      recipientUserIds: ["owner-user", "buyer-user"],
+      preview: "store hello",
+      roomKind: "store_order",
+    });
+
+    expect(roleDb.fromMock).toHaveBeenCalledWith("community_messenger_participants");
+    expect(roleDb.selectMock).toHaveBeenCalledWith("user_id, role");
+    expect(roleDb.eqMock).toHaveBeenCalledWith("room_id", "store-room-1");
+    expect(roleDb.inMock).toHaveBeenCalledWith("user_id", ["owner-user", "buyer-user"]);
+    expect(createAndDispatchNotificationEvent).toHaveBeenCalledWith(
+      roleDb.client,
+      expect.objectContaining({
+        userId: "owner-user",
+        type: "store_order_message",
+        displayPayload: expect.objectContaining({
+          receiverRole: "owner",
+          legacyMeta: { kind: "store_order_message", receiverRole: "owner" },
+        }),
+      })
+    );
+    expect(createAndDispatchNotificationEvent).toHaveBeenCalledWith(
+      roleDb.client,
+      expect.objectContaining({
+        userId: "buyer-user",
+        type: "store_order_message",
+        displayPayload: expect.objectContaining({
+          receiverRole: "user",
+          legacyMeta: { kind: "store_order_message", receiverRole: "user" },
+        }),
+      })
+    );
+  });
+
+  it("keeps store order payload fallback when receiver role lookup has no match", async () => {
+    const roleDb = storeOrderRoleSupabase([]);
+
+    await notifyMessagePipeline(roleDb.client, {
+      roomId: "store-room-1",
+      messageId: "msg-store-2",
+      senderUserId: "sender-user",
+      recipientUserIds: ["unknown-user"],
+      preview: "store hello",
+      roomKind: "store_order",
+    });
+
+    expect(createAndDispatchNotificationEvent).toHaveBeenCalledWith(
+      roleDb.client,
+      expect.objectContaining({
+        userId: "unknown-user",
+        type: "store_order_message",
+        displayPayload: expect.not.objectContaining({
+          receiverRole: expect.any(String),
+        }),
+      })
+    );
   });
 });

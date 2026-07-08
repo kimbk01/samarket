@@ -127,7 +127,12 @@ function metaFromEvent(event: NotificationEventInboxSource): Record<string, unkn
   const meta: Record<string, unknown> = {};
   if (event.type === "missed_call") meta.kind = "missed_call";
   const roomKind = trimText(payload?.roomKind);
-  if (roomKind) meta.kind = roomKind === "group" ? "group_chat" : roomKind === "trade" ? "trade_chat" : "community_chat";
+  if (roomKind) {
+    if (roomKind === "group") meta.kind = "group_chat";
+    else if (roomKind === "trade" || roomKind === "trade_legacy") meta.kind = "trade_chat";
+    else if (roomKind === "store_order") meta.kind = "store_order_message";
+    else meta.kind = "community_chat";
+  }
   if (event.room_id) meta.room_id = event.room_id;
   return Object.keys(meta).length > 0 ? meta : null;
 }

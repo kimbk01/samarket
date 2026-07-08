@@ -1,6 +1,6 @@
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 
-export type GroupMessageRoomKind = "direct" | "group" | "trade";
+export type GroupMessageRoomKind = "direct" | "group" | "trade" | "store_order";
 
 /** FCM data.kind for CM group message push (P0 contract token). */
 export const GROUP_MESSAGE_FCM_PUSH_KIND = "group_message" as const;
@@ -8,6 +8,11 @@ export const GROUP_MESSAGE_FCM_PUSH_KIND = "group_message" as const;
 export function isTradeMessengerDirectKey(directKey: string | null | undefined): boolean {
   const t = (directKey ?? "").trim();
   return t.startsWith("trade_pc:") || t.startsWith("trade_item:");
+}
+
+export function isStoreOrderMessengerDirectKey(directKey: string | null | undefined): boolean {
+  const t = (directKey ?? "").trim();
+  return t.startsWith("store_order:") || t.startsWith("trade_order:");
 }
 
 /**
@@ -20,6 +25,7 @@ export function resolveGroupMessageRoomKind(
 ): GroupMessageRoomKind {
   if (roomType === "private_group" || roomType === "open_group") return "group";
   if (isTradeMessengerDirectKey(directKey)) return "trade";
+  if (isStoreOrderMessengerDirectKey(directKey)) return "store_order";
   return "direct";
 }
 
