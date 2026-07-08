@@ -15,13 +15,8 @@ import {
 } from "@/lib/notifications/messenger-chat-tab-badge";
 import {
   getNotificationBadgeCountSnapshot,
-  subscribeNotificationBadgeCount,
 } from "@/lib/notifications/notification-badge-count-store";
-import { resolveBottomNavTradeTabBadgeCount } from "@/lib/notifications/samarket-messenger-notification-regulations";
 import { useOwnerLiteHasPreferredStore } from "@/lib/stores/use-owner-lite-store";
-import {
-  resolveBottomNavStoresTabBadgeForOwnerStore,
-} from "@/lib/stores/owner-store-badge-display-policy";
 import { bumpMessengerRenderPerf } from "@/lib/runtime/samarket-runtime-debug";
 import { bumpRerenderTrace } from "@/lib/dibay/network-fetch-storm-trace";
 import { logHubBadgeRenderTrace } from "@/lib/dibay/shell-fetch-trace";
@@ -61,48 +56,42 @@ function tabUnreadFromBreakdown(
     case "chat":
       return resolveMessengerChatTabBadgeCount(hasOwnerStore, s);
     case "trade":
-      return resolveBottomNavTradeTabBadgeCount(s);
     case "community":
-      return s.philifeChatUnread;
+      return 0;
     case "stores":
-      return resolveBottomNavStoresTabBadgeForOwnerStore(s, hasOwnerStore);
+      return 0;
     default:
       return 0;
   }
 }
 
+/** Legacy feed tabs — BottomNav must not consume notification_events SUM. */
+const LEGACY_BOTTOM_NAV_FEED_TAB_ICONS = new Set<BottomNavIconKey>([
+  "community",
+  "trade",
+  "stores",
+]);
+
 /**
- * BottomNav non-Chat events slices (Community / Stores / Trade 조회용).
- * Chat icon → always null (Rebuild: Chat tab must not use event SUM).
+ * BottomNav events slice lookup — Legacy: feed tabs return null (badge always 0).
+ * Chat → hub room count only. App icon total uses badge-count store separately.
  */
 export function resolveBottomNavTabUnreadFromNotificationEvents(
   icon: BottomNavIconKey
 ): number | null {
-  const snap = getNotificationBadgeCountSnapshot();
-  if (!snap) return null;
-  if (icon === "chat") {
-    // Rebuild: Chat tab authority is hub room count — never event SUM.
+  if (icon === "chat" || LEGACY_BOTTOM_NAV_FEED_TAB_ICONS.has(icon)) {
     return null;
   }
-  if (icon === "trade") {
-    return Math.max(0, (snap.tradeMessage ?? 0) + (snap.tradeStatus ?? snap.trade));
-  }
-  if (icon === "community") {
-    // Philife(community) 탭: community_activity만. admin_notice는 Tier1 종·앱 아이콘 total.
-    return Math.max(0, snap.communityActivity ?? 0);
-  }
-  if (icon === "stores") {
-    return Math.max(0, (snap.orderStatus ?? snap.store) + (snap.deliveryStatus ?? 0));
-  }
+  const snap = getNotificationBadgeCountSnapshot();
+  if (!snap) return null;
   return 0;
 }
 
 /**
- * 하단 탭 한 칸만 구독 — Rebuild Authority.
+ * 하단 탭 한 칸만 구독 — Legacy Authority.
  *
  * - chat: hub unread **room** count (`subscribeMessengerChatTabBadge`)
- * - trade: events trade_message + trade_status
- * - community / stores: events slice, else hub breakdown
+ * - community / trade / stores: **0** (feed/browse entry — causes in tier1 bell / FAB / chat row)
  */
 export function useOwnerHubBadgeTabUnreadCount(icon: BottomNavIconKey): number {
   const hasOwnerStore = useOwnerLiteHasPreferredStore();
@@ -110,16 +99,13 @@ export function useOwnerHubBadgeTabUnreadCount(icon: BottomNavIconKey): number {
   hasOwnerStoreRef.current = hasOwnerStore;
   const subscribe = useCallback(
     (onStoreChange: () => void) => {
-      const unsubs: Array<() => void> = [];
       if (icon === "chat") {
-        unsubs.push(subscribeMessengerChatTabBadge(onStoreChange));
-      } else {
-        unsubs.push(subscribeOwnerHubBadge(onStoreChange));
-        unsubs.push(subscribeNotificationBadgeCount(onStoreChange));
+        return subscribeMessengerChatTabBadge(onStoreChange);
       }
-      return () => {
-        for (const unsub of unsubs) unsub();
-      };
+      if (LEGACY_BOTTOM_NAV_FEED_TAB_ICONS.has(icon)) {
+        return () => {};
+      }
+      return subscribeOwnerHubBadge(onStoreChange);
     },
     [icon]
   );
@@ -127,11 +113,9 @@ export function useOwnerHubBadgeTabUnreadCount(icon: BottomNavIconKey): number {
     if (icon === "chat") {
       return resolveMessengerChatTabBadgeCount(hasOwnerStoreRef.current, getOwnerHubBadgeSnapshot());
     }
-    if (icon === "trade") {
-      return resolveBottomNavTradeTabBadgeCount(getOwnerHubBadgeSnapshot());
+    if (LEGACY_BOTTOM_NAV_FEED_TAB_ICONS.has(icon)) {
+      return 0;
     }
-    const fromEvents = resolveBottomNavTabUnreadFromNotificationEvents(icon);
-    if (fromEvents != null) return fromEvents;
     const hub = getOwnerHubBadgeSnapshot();
     return tabUnreadFromBreakdown(icon, hub, hasOwnerStoreRef.current);
   }, [icon]);

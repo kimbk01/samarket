@@ -1,41 +1,42 @@
 /**
- * SAMARKET 거래 + 메신저 + 알림 + 뱃지 — Rebuild Authority (`notif-0002` 개정).
+ * SAMARKET 거래 + 메신저 + 알림 + 뱃지 — Legacy Authority (`notif-0002` Legacy 정렬).
  *
- * 이 파일이 BottomNav badge 단위 SSOT이다. Legacy(event SUM Chat / Trade=0)와 혼용하지 않는다.
+ * BottomNav badge SSOT: **Chat tab only** (unread room count). Feed tabs (community/trade/stores)
+ * show **no** notification_events SUM — causes live in tier1 bell / FAB / chat row.
  *
  * ---------------------------------------------------------------------------
  * [0. 절대 원칙]
  * ---------------------------------------------------------------------------
  * 1. 알림은 **1번만** 발생한다 (중복 금지).
- * 2. 하단 탭 badge = 그 탭에서 사용자가 **실제로 볼 수 있는 unread 원인 수**.
- * 3. Chat / Trade / Delivery / Community **원인 혼합·중복 카운트 금지**.
+ * 2. BottomNav feed 탭 = 도메인 피드/browse 진입만 — 탭 badge 없음.
+ * 3. 도메인 알림 원인 = tier1 종 / FAB / 해당 채팅 row.
  * 4. Chat tab ≠ App icon total (단위가 다를 수 있음 — 정상).
  * 5. **Admin** 알림음 SSOT + `notification-sound-gate` (이 파일에서 Sound registry 수정 금지).
  *
  * ---------------------------------------------------------------------------
- * [1. Badge 단위 — Rebuild]
+ * [1. Badge 단위 — Legacy]
  * ---------------------------------------------------------------------------
- * - **Chat 탭**: unread **room** count (`communityMessengerUnread` / `bottom_nav_chat` =
- *   consumer `chat_room` only). DO NOT use `chat_message`+`group_message` event SUM.
+ * - **Chat 탭**: unread **room** count (`communityMessengerUnread` / `bottom_nav_chat`).
  * - **Chat row**: room `participants.unread_count` (message count).
- * - **Trade 탭**: `trade_message` + `trade_status` event unread (Trade 화면에서 해결).
- * - **Stores/Delivery 탭**: `order_status` + `delivery_status` (+ owner policy).
- * - **Community 탭**: `community_activity` only.
- * - **App icon**: `notification_events` category total (event SUM) — Chat tab과 별개.
+ * - **Community / Trade / Stores 탭**: BottomNav badge **0** (events SUM 금지).
+ * - **Community 원인**: tier1 `bottom_nav_community` 종 + 게시글 진입 clear.
+ * - **Trade 원인**: tier1 `bottom_nav_my` 종 + 거래 채팅 row unread.
+ * - **Delivery 원인**: tier1 `bottom_nav_delivery` 종 + FAB 주문내역/주문채팅.
+ * - **App icon**: `notification_events` category total — BottomNav와 독립.
  *
  * ---------------------------------------------------------------------------
  * [2. 탭 역할]
  * ---------------------------------------------------------------------------
  * - **메신저(Chat) 탭**: 일반 1:1 + 그룹만. trade/store_order/community 미포함.
- * - **거래 탭**: 거래 미읽 원인(메시지·상태) 해결. 탭 아이콘 뱃지 O (Rebuild).
- * - **배달/매장 탭**: 주문·배달 unread 원인.
- * - **커뮤니티 탭**: Philife community_activity.
+ * - **거래 탭**: 거래 피드 (`/market`). 알림은 종·거래 채팅 row.
+ * - **배달/매장 탭**: 매장 browse (`/stores`). 알림은 FAB·주문 상세.
+ * - **커뮤니티 탭**: Philife 피드. 알림은 상단 종.
  *
  * ---------------------------------------------------------------------------
  * [3. 폐기 (혼용 금지)]
  * ---------------------------------------------------------------------------
  * - Chat tab = chat_message + group_message event SUM — **폐기**.
- * - Trade tab 아이콘 항상 0 (`notif-0002` 구 조항) — **폐기**.
+ * - BottomNav community/trade/stores = notification_events SUM — **폐기** (2026-07-08).
  * - 거래 채팅 unread를 Chat tab에 합산 — **금지**.
  *
  * ---------------------------------------------------------------------------
@@ -47,7 +48,7 @@
  * ---------------------------------------------------------------------------
  * [5. 거래 채팅]
  * ---------------------------------------------------------------------------
- * room key: trade_item_id + buyer_id + seller_id. Badge 원인은 Trade 탭/상세.
+ * room key: trade_item_id + buyer_id + seller_id. Badge 원인은 tier1 종·거래 채팅 row.
  *
  * @see docs/dibay-notification-badge-number-policy.md
  * @see lib/notifications/unified-messenger-trade-alert-contract.ts
@@ -57,7 +58,6 @@
 import type { OwnerHubBadgeBreakdown } from "@/lib/chats/owner-hub-badge-types";
 import { isTradeFloatingMenuSurface } from "@/lib/layout/mobile-top-tier1-rules";
 import type { NotificationDomain } from "@/lib/notifications/notification-domains";
-import { getNotificationBadgeCountSnapshot } from "@/lib/notifications/notification-badge-count-store";
 
 export const SAMARKET_NOTIFICATION_REGULATION_ID = "notif-0002" as const;
 
@@ -93,13 +93,10 @@ export function resolveMessengerTabTotalUnreadBadgeCount(bd: OwnerHubBadgeBreakd
 }
 
 /**
- * Trade 탭: Trade 영역에서 볼 수 있는 unread 원인 수
- * (`trade_message` + `trade_status`). 항상 0 정책은 폐기.
+ * Trade BottomNav tab — Legacy: always 0. Trade causes in tier1 bell / trade chat row.
  */
 export function resolveBottomNavTradeTabBadgeCount(_bd?: OwnerHubBadgeBreakdown): number {
-  const snap = getNotificationBadgeCountSnapshot();
-  if (!snap) return 0;
-  return Math.max(0, (snap.tradeMessage ?? 0) + (snap.tradeStatus ?? snap.trade));
+  return 0;
 }
 
 /** @deprecated 메신저 탭은 `resolveMessengerTabTotalUnreadBadgeCount` 사용 */

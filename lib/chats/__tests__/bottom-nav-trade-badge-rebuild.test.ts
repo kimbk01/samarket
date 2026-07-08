@@ -1,11 +1,8 @@
-import fs from "node:fs";
-import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 let eventsSnap: {
   tradeMessage?: number;
   tradeStatus?: number;
-  trade?: number;
   chatMessage?: number;
   groupMessage?: number;
 } | null = {
@@ -22,7 +19,7 @@ vi.mock("@/lib/notifications/notification-badge-count-store", () => ({
 import { resolveBottomNavTradeTabBadgeCount } from "@/lib/notifications/samarket-messenger-notification-regulations";
 import { resolveBottomNavTabUnreadFromNotificationEvents } from "@/lib/chats/use-owner-hub-badge-total";
 
-describe("bottom nav trade badge Rebuild", () => {
+describe("bottom nav trade badge Legacy", () => {
   beforeEach(() => {
     eventsSnap = {
       tradeMessage: 3,
@@ -32,40 +29,15 @@ describe("bottom nav trade badge Rebuild", () => {
     };
   });
 
-  it("Trade tab shows trade_message + trade_status causes (not always 0)", () => {
-    expect(resolveBottomNavTradeTabBadgeCount()).toBe(8);
+  it("Trade tab badge stays 0 even when trade events are unread", () => {
+    expect(resolveBottomNavTradeTabBadgeCount()).toBe(0);
   });
 
-  it("events trade slice matches Trade tab authority", () => {
-    expect(resolveBottomNavTabUnreadFromNotificationEvents("trade")).toBe(8);
+  it("Trade events slice is not wired to BottomNav (returns null)", () => {
+    expect(resolveBottomNavTabUnreadFromNotificationEvents("trade")).toBeNull();
   });
 
   it("Chat events slice is not used as Chat tab authority (returns null)", () => {
     expect(resolveBottomNavTabUnreadFromNotificationEvents("chat")).toBeNull();
-  });
-
-  it("lock: useOwnerHubBadgeTabUnreadCount routes chat via room count, trade via trade resolver", () => {
-    const src = fs.readFileSync(
-      path.join(process.cwd(), "lib/chats/use-owner-hub-badge-total.ts"),
-      "utf8"
-    );
-    expect(src).toContain('if (icon === "chat")');
-    expect(src).toContain("resolveMessengerChatTabBadgeCount");
-    expect(src).toContain('if (icon === "trade")');
-    expect(src).toContain("resolveBottomNavTradeTabBadgeCount");
-    expect(src).not.toMatch(/chatMessage \?\? snap\.chat\) \+ \(snap\.groupMessage/);
-  });
-
-  it("lock: Trade badge resolver uses events causes (not constant zero)", () => {
-    const src = fs.readFileSync(
-      path.join(process.cwd(), "lib/notifications/samarket-messenger-notification-regulations.ts"),
-      "utf8"
-    );
-    expect(src).toContain("getNotificationBadgeCountSnapshot");
-    expect(src).toContain("tradeMessage");
-    expect(src).toContain("tradeStatus");
-    expect(src).not.toMatch(
-      /export function resolveBottomNavTradeTabBadgeCount\([^)]*\)\s*\{\s*return 0;\s*\}/
-    );
   });
 });

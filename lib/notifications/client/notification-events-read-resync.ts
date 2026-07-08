@@ -5,6 +5,7 @@ import {
   getNotificationBadgeCountSnapshot,
   patchNotificationBadgeCountSnapshot,
 } from "@/lib/notifications/notification-badge-count-store";
+import { clearTier1AdminNoticeBellSupplementOptimistic } from "@/lib/notifications/tier1-admin-notice-bell-supplement";
 
 /**
  * notification_events 읽음 mutation 이후 UI 배지 단일 진입점 (Rebuild).
@@ -13,6 +14,11 @@ import {
  */
 export function resyncBadgesAfterNotificationEventsRead(reason: MessengerHubBadgeResyncReason): void {
   requestMessengerHubBadgeResync(reason);
+}
+
+/** tier1 종 모두 읽음 — adminNotice supplement 즉시 0 (badge-count resync와 병행) */
+export function applyTier1InboxMarkAllReadOptimistic(): void {
+  clearTier1AdminNoticeBellSupplementOptimistic();
 }
 
 /** 서버 응답 `cleared` 를 반영해 missedCall 뱃지를 즉시 내린 뒤 서버와 재정합 */

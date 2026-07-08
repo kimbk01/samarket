@@ -74,7 +74,7 @@ import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-e
 import { prewarmInboxNotificationChatHref } from "@/lib/notifications/prewarm-inbox-notification-href";
 
 import { getSurfaceNotificationUnreadStore, refreshActiveSurfaceNotificationUnreadStores } from "@/lib/notifications/notification-unread-badge-store";
-import { resyncBadgesAfterNotificationEventsRead } from "@/lib/notifications/client/notification-events-read-resync";
+import { resyncBadgesAfterNotificationEventsRead, applyTier1InboxMarkAllReadOptimistic } from "@/lib/notifications/client/notification-events-read-resync";
 
 import {
 
@@ -774,14 +774,18 @@ export function PhilifeHeaderNotificationInbox({
 
       resyncBadgesAfterNotificationEventsRead("notification_opened");
       refreshActiveSurfaceNotificationUnreadStores(pathname, true);
+      void badgeStore.refresh(true);
 
     }
 
-  }, [pathname]);
+  }, [badgeStore, pathname]);
 
 
 
-  const onActivate = (item: InboxGroupItem) => {
+  const onActivate = async (item: InboxGroupItem) => {
+    if (item.unreadCount > 0) {
+      await markIdsRead(item.ids);
+    }
 
     prewarmInboxNotificationChatHref(router, item.href);
 
@@ -790,9 +794,6 @@ export function PhilifeHeaderNotificationInbox({
     invalidateMeNotificationsListDedupedCache();
 
     router.push(item.href);
-
-    if (item.unreadCount > 0) void markIdsRead(item.ids);
-
   };
 
 
@@ -816,10 +817,13 @@ export function PhilifeHeaderNotificationInbox({
         .filter((g) => g.unreadCount > 0)
         .flatMap((g) => g.ids);
       const rowUnreadIds = rows.filter((r) => !r.is_read).map((r) => r.id);
-      const markBody = resolveTier1BellMarkAllReadBody(
-        resolvedSurface,
-        unreadIds.length > 0 ? unreadIds : rowUnreadIds
-      );
+      const markBody =
+        resolvedSurface === "tier1_inbox_bell"
+          ? ({ mark_my_notifications_read_excluding_owner_and_chat: true } as const)
+          : resolveTier1BellMarkAllReadBody(
+              resolvedSurface,
+              unreadIds.length > 0 ? unreadIds : rowUnreadIds
+            );
 
       const res = await fetch("/api/me/notifications", {
 
@@ -837,11 +841,17 @@ export function PhilifeHeaderNotificationInbox({
 
       if (res.ok && j?.ok) {
 
+        setRows((prev) => prev.map((x) => ({ ...x, is_read: true })));
+
+        if (resolvedSurface === "tier1_inbox_bell") {
+          applyTier1InboxMarkAllReadOptimistic();
+        }
+
         invalidateMeNotificationsListDedupedCache();
 
-        void loadInbox(true, { silent: true });
+        await loadInbox(true, { silent: true });
 
-        void badgeStore.refresh(true);
+        await badgeStore.refresh(true);
 
         if (typeof window !== "undefined") {
 
@@ -906,6 +916,13 @@ export function PhilifeHeaderNotificationInbox({
 
         invalidateMeNotificationsListDedupedCache();
 
+        await badgeStore.refresh(true);
+
+        void loadInbox(true, { silent: true });
+
+        resyncBadgesAfterNotificationEventsRead("notification_opened");
+        refreshActiveSurfaceNotificationUnreadStores(pathname, true);
+
         if (typeof window !== "undefined") {
 
           window.dispatchEvent(new Event(KASAMA_NOTIFICATIONS_UPDATED));
@@ -922,7 +939,7 @@ export function PhilifeHeaderNotificationInbox({
 
     }
 
-  }, []);
+  }, [badgeStore, loadInbox, pathname]);
 
 
 

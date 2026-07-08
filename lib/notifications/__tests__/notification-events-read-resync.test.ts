@@ -29,10 +29,16 @@ vi.mock("@/lib/notifications/notification-badge-count-store", () => ({
   },
 }));
 
+vi.mock("@/lib/notifications/tier1-admin-notice-bell-supplement", () => ({
+  clearTier1AdminNoticeBellSupplementOptimistic: vi.fn(() => true),
+}));
+
 import {
   applyMissedCallNotificationReadOptimistic,
+  applyTier1InboxMarkAllReadOptimistic,
   resyncBadgesAfterNotificationEventsRead,
 } from "@/lib/notifications/client/notification-events-read-resync";
+import { clearTier1AdminNoticeBellSupplementOptimistic } from "@/lib/notifications/tier1-admin-notice-bell-supplement";
 
 describe("notification-events-read-resync", () => {
   beforeEach(() => {
@@ -62,5 +68,10 @@ describe("notification-events-read-resync", () => {
     const before = snap;
     applyMissedCallNotificationReadOptimistic(0);
     expect(snap).toBe(before);
+  });
+
+  it("applyTier1InboxMarkAllReadOptimistic clears admin notice supplement", () => {
+    applyTier1InboxMarkAllReadOptimistic();
+    expect(clearTier1AdminNoticeBellSupplementOptimistic).toHaveBeenCalledTimes(1);
   });
 });

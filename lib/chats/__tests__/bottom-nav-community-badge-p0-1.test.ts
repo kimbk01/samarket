@@ -14,13 +14,13 @@ vi.mock("@/lib/notifications/notification-badge-count-store", () => ({
 
 import { resolveBottomNavTabUnreadFromNotificationEvents } from "@/lib/chats/use-owner-hub-badge-total";
 
-describe("bottom nav community badge P0.1", () => {
+describe("bottom nav community badge Legacy", () => {
   beforeEach(() => {
     eventsSnap = { communityActivity: 1, adminNotice: 2 };
   });
 
-  it("counts only community_activity on community tab (excludes admin_notice)", () => {
-    expect(resolveBottomNavTabUnreadFromNotificationEvents("community")).toBe(1);
+  it("does not surface community_activity on BottomNav community tab (returns null)", () => {
+    expect(resolveBottomNavTabUnreadFromNotificationEvents("community")).toBeNull();
   });
 
   it("returns null when notification_events snapshot is absent", () => {

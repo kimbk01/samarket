@@ -1595,7 +1595,9 @@ async function main() {
     const isFullOrMultiCase =
       QA_CASE_FILTER.has("all") ||
       [...QA_CASE_FILTER].filter((c) => c !== "all").some((c) => ["2", "3", "4", "5", "6"].includes(c));
-    if (isFullOrMultiCase && QA1_REPEAT === 1) {
+    const shouldResetParticipantUnread =
+      QA1_REPEAT === 1 && (isFullOrMultiCase || qaCaseEnabled(1));
+    if (shouldResetParticipantUnread) {
       await resetResidualParticipantUnread(sb, userId, report);
     } else {
       const residual = (parts ?? []).filter((p) => Math.max(0, Number(p.unread_count) || 0) > 0);
@@ -1604,7 +1606,7 @@ async function main() {
         skipped: true,
         note: isFullOrMultiCase
           ? "QA1_REPEAT>1 — residual participant unread recorded, not reset"
-          : "single/isolated case — residual participant unread recorded",
+          : "QA1 disabled or QA1_REPEAT>1 — residual participant unread recorded",
         recordedResidual: residual,
       };
     }

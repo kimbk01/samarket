@@ -5,6 +5,11 @@
  * after an already-successful read so visible badges do not linger.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  BUYER_STORE_COMMERCE_NOTIFICATION_META_KINDS,
+  OWNER_STORE_COMMERCE_NOTIFICATION_META_KINDS,
+} from "@/lib/notifications/owner-store-commerce-notification-meta";
+import { buildTradeTargetId } from "@/lib/notifications/badge-target-policy";
 import { clearMessengerRoomNotificationTargetAfterRead } from "@/lib/notifications/notification-target-messenger-bridge";
 import { clearNotificationTarget } from "@/lib/notifications/notification-targets";
 
@@ -57,6 +62,89 @@ async function clearTradeTargetsForProduct(
       })
     )
   );
+}
+
+/** Legacy `notifications` inbox row → inverse of bumpNotificationTargetFromInboxRow. */
+export async function clearNotificationTargetsForLegacyInboxRow(
+  sb: SupabaseClient<any>,
+  userId: string,
+  row: {
+    notification_type: string;
+    ref_id?: string | null;
+    meta?: Record<string, unknown> | null;
+    link_url?: string | null;
+    domain?: string | null;
+    push_kind?: string | null;
+  }
+): Promise<void> {
+  const uid = userId.trim();
+  if (!uid) return;
+
+  const meta = row.meta ?? {};
+  const kind = typeof meta.kind === "string" ? meta.kind.trim() : "";
+  const orderId =
+    (typeof meta.order_id === "string" ? meta.order_id.trim() : "") ||
+    (typeof row.ref_id === "string" ? row.ref_id.trim() : "");
+  const postId =
+    (typeof meta.post_id === "string" ? meta.post_id.trim() : "") ||
+    (typeof meta.community_post_id === "string" ? meta.community_post_id.trim() : "");
+  const productId = typeof meta.product_id === "string" ? meta.product_id.trim() : "";
+  const sellerId = typeof meta.seller_id === "string" ? meta.seller_id.trim() : "";
+  const buyerId = typeof meta.buyer_id === "string" ? meta.buyer_id.trim() : "";
+  const storeId = typeof meta.store_id === "string" ? meta.store_id.trim() : null;
+
+  if (postId) {
+    await clearNotificationTarget(sb, {
+      userId: uid,
+      targetType: "community_post",
+      targetId: postId,
+    });
+  }
+
+  if (row.notification_type === "commerce" && orderId) {
+    if (OWNER_STORE_COMMERCE_NOTIFICATION_META_KINDS.has(kind)) {
+      await clearNotificationTarget(sb, {
+        userId: uid,
+        targetType: "owner_order",
+        targetId: orderId,
+        storeId,
+      });
+      return;
+    }
+    if (BUYER_STORE_COMMERCE_NOTIFICATION_META_KINDS.has(kind)) {
+      await clearNotificationTarget(sb, {
+        userId: uid,
+        targetType: "buyer_order",
+        targetId: orderId,
+      });
+      return;
+    }
+    await clearOrderTargets(sb, uid, orderId);
+    return;
+  }
+
+  if (row.notification_type === "review") {
+    const reviewId =
+      (typeof meta.review_id === "string" ? meta.review_id.trim() : "") ||
+      (typeof row.ref_id === "string" ? row.ref_id.trim() : "");
+    if (reviewId) {
+      await clearNotificationTarget(sb, {
+        userId: uid,
+        targetType: "store_review",
+        targetId: reviewId,
+        storeId,
+      });
+    }
+    return;
+  }
+
+  if (row.notification_type === "status" && kind === "trade_offer" && productId && sellerId && buyerId) {
+    await clearNotificationTarget(sb, {
+      userId: uid,
+      targetType: "trade",
+      targetId: buildTradeTargetId(productId, sellerId, buyerId),
+    });
+  }
 }
 
 export async function clearNotificationTargetsAfterRoomRead(

@@ -55,9 +55,12 @@ import {
   noteHomeSyncPayloadFlushed,
   registerDeferredHomeSyncRunner,
   shouldDeferPostLiteFollowUp,
+  homeSyncPayloadHasUnreadIncreaseAgainstBase,
+  homeSyncPayloadNeedsReactUnreadSync,
   shouldSkipHomeSyncPayload,
   tryEnterHomeBootstrapRefreshRound,
 } from "@/lib/community-messenger/home/lite-merge-gate";
+import { noteBootstrapUnreadIncreasesFromBootstrap } from "@/lib/community-messenger/merge-critical-home-sync-room-summary";
 import {
   logCmBootstrapV2ClientFinalize,
   markCmBootstrapV2ClientFlowAnchor,
@@ -306,7 +309,10 @@ export function useCommunityMessengerHomeBootstrap({
       prime: (bootstrap: CommunityMessengerBootstrap) => void = primeBootstrapCache
     ): CommunityMessengerBootstrap | null => {
       const resolved = resolveMessengerHomeBootstrapSetData("bootstrap", prev, next, { reason });
-      if (resolved && resolved !== prev) prime(resolved);
+      if (resolved && resolved !== prev) {
+        noteBootstrapUnreadIncreasesFromBootstrap(prev, resolved);
+        prime(resolved);
+      }
       return resolved;
     },
     []
@@ -469,12 +475,17 @@ export function useCommunityMessengerHomeBootstrap({
       },
       roomMode: "replace" | "critical_patch" = "replace"
     ) => {
-      if (shouldSkipHomeSyncPayload({ ...payload, roomMode })) return;
       setData((prev) => {
+        const cache = peekBootstrapCache();
+        const base = prev ?? cache;
+        if (!base) return prev;
+        const skipPayload = { ...payload, roomMode };
+        const needsReactSync = homeSyncPayloadNeedsReactUnreadSync(skipPayload, prev, cache);
+        const forceApply =
+          needsReactSync || homeSyncPayloadHasUnreadIncreaseAgainstBase(skipPayload, base);
+        if (!forceApply && shouldSkipHomeSyncPayload(skipPayload, { reactBase: prev })) return prev;
         const tUiAlign0 = typeof performance !== "undefined" ? performance.now() : null;
         try {
-          const base = prev ?? peekBootstrapCache();
-          if (!base) return prev;
           const next = applyHomeListPatch(
             base,
             {
@@ -493,10 +504,30 @@ export function useCommunityMessengerHomeBootstrap({
             criticalChangedFields && Object.keys(criticalChangedFields).length > 0
               ? Object.keys(criticalChangedFields)[0]
               : payload.chats?.[0]?.id ?? payload.groups?.[0]?.id;
+          let candidate: CommunityMessengerBootstrap | null =
+            !next || next === base ? null : next;
+          if (!candidate && needsReactSync && prev) {
+            const retried = applyHomeListPatch(
+              prev,
+              {
+                kind: "home_sync",
+                chats: payload.chats,
+                groups: payload.groups,
+                requests: payload.requests,
+                friends: payload.friends,
+                roomMode,
+              },
+              "home-sync"
+            );
+            if (retried && retried !== prev) candidate = retried;
+          }
+          if (!candidate && needsReactSync && prev == null && cache) {
+            candidate = cache;
+          }
           const resolved = resolveMessengerHomeBootstrapSetData(
             "home-sync",
             prev,
-            !next || next === base ? prev : next,
+            candidate ?? prev,
             {
               reason: `home_sync_patch:${roomMode}`,
               changedRoomCount: stats?.changedRoomCount ?? 0,
@@ -505,6 +536,7 @@ export function useCommunityMessengerHomeBootstrap({
             }
           );
           if (!resolved || resolved === prev) return prev;
+          noteBootstrapUnreadIncreasesFromBootstrap(prev, resolved);
           primeBootstrapCache(resolved);
           noteHomeSyncPayloadFlushed({ ...payload, roomMode });
           return resolved;
@@ -534,8 +566,18 @@ export function useCommunityMessengerHomeBootstrap({
       },
       roomMode: "replace" | "critical_patch" = "replace"
     ) => {
-      if (deferHomeSyncPatchDuringLiteMerge({ ...payload, roomMode })) return;
+      const wrapped = { ...payload, roomMode };
+      if (deferHomeSyncPatchDuringLiteMerge(wrapped)) return;
       const apply = () => applyHomeSyncPayload(payload, roomMode);
+      const needsSync = homeSyncPayloadNeedsReactUnreadSync(
+        wrapped,
+        dataRef.current,
+        peekBootstrapCache()
+      );
+      if (needsSync) {
+        apply();
+        return;
+      }
       const run = () => deferHomeSyncMerge(apply);
       if (shouldDeferDuringRoomEntryQuiet(run)) return;
       run();
@@ -664,9 +706,7 @@ export function useCommunityMessengerHomeBootstrap({
             chats: json.chats ?? [],
             groups: json.groups ?? [],
           };
-          if (!shouldSkipHomeSyncPayload({ ...silentCriticalPayload, roomMode: "critical_patch" })) {
-            mergeHomeSyncIntoBootstrap(silentCriticalPayload, "critical_patch");
-          }
+          mergeHomeSyncIntoBootstrap(silentCriticalPayload, "critical_patch");
           silentFullSupplementTimerRef.current = window.setTimeout(() => {
             silentFullSupplementTimerRef.current = null;
             void (async () => {
@@ -684,9 +724,7 @@ export function useCommunityMessengerHomeBootstrap({
                     requests: jsonFull.requests,
                     friends: jsonFull.friends,
                   };
-                  if (!shouldSkipHomeSyncPayload(silentFullPayload)) {
-                    mergeHomeSyncIntoBootstrap(silentFullPayload);
-                  }
+                  mergeHomeSyncIntoBootstrap(silentFullPayload);
                 }
               } catch {
                 /* ignore */

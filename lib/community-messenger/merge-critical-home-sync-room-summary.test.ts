@@ -8,10 +8,13 @@ import {
   clearHomeListServerUnreadIncreaseForTests,
   hasCriticalPatchReadClearEvidence,
   mergeMessengerRoomSummaryForHomeSyncCriticalPatch,
+  mergeMessengerRoomSummaryForHomeSyncReplace,
   mergeTradeRoomContextMetaPreferLocalDetail,
+  noteBootstrapUnreadIncreasesFromBootstrap,
   noteHomeListServerUnreadIncrease,
   peekRecentHomeListServerUnreadIncrease,
   shouldBlockCriticalPatchStaleZeroClobber,
+  shouldBlockStalePositiveUnreadDecreaseClobber,
 } from "@/lib/community-messenger/merge-critical-home-sync-room-summary";
 import {
   shouldBlockStaleHomeListUnreadZero,
@@ -117,7 +120,30 @@ describe("mergeMessengerRoomSummaryForHomeSyncCriticalPatch", () => {
     expect(out.unreadCount).toBe(5);
   });
 
-  it("non-critical home_sync replace still suppresses stale positive unread under read guard", () => {
+  it("home_sync_replace accepts server unread increase at same lastMessageAt despite read guard", () => {
+    const ts = "2026-01-02T00:00:00.000Z";
+    setLocalReadGuard({ roomId: "r1", referenceLastMessageAt: ts, source: "manual" });
+    const prev = room({
+      id: "r1",
+      lastMessageAt: ts,
+      unreadCount: 0,
+    });
+    const incoming = room({ id: "r1", lastMessageAt: ts, unreadCount: 5 });
+    const out = mergeMessengerRoomSummaryForHomeSyncReplace(prev, incoming);
+    expect(out.unreadCount).toBe(5);
+  });
+
+  it("home_sync_replace allows actual read clear when local read guard is active at tail", () => {
+    const ts = "2026-01-02T00:00:00.000Z";
+    setLocalReadGuard({ roomId: "r1", referenceLastMessageAt: ts, source: "manual" });
+    const prev = room({ id: "r1", lastMessageAt: ts, unreadCount: 5 });
+    const incoming = room({ id: "r1", lastMessageAt: ts, unreadCount: 0 });
+    expect(hasCriticalPatchReadClearEvidence(prev, incoming)).toBe(true);
+    const out = mergeMessengerRoomSummaryForHomeSyncReplace(prev, incoming);
+    expect(out.unreadCount).toBe(0);
+  });
+
+  it("low-level coalesce home_sync_replace still suppresses stale positive unread under read guard", () => {
     const ts = "2026-01-02T00:00:00.000Z";
     setLocalReadGuard({ roomId: "r1", referenceLastMessageAt: ts, source: "manual" });
     const prev = room({
@@ -211,6 +237,36 @@ describe("mergeMessengerRoomSummaryForHomeSyncCriticalPatch", () => {
     ).toBe(false);
   });
 
+  it("critical_patch stale positive decrease 5 to 3 blocked at same lastMessageAt", () => {
+    const ts = "2026-01-02T00:00:00.000Z";
+    noteHomeListServerUnreadIncrease("r1", 5);
+    const prev = room({ id: "r1", lastMessageAt: ts, unreadCount: 5 });
+    const incoming = room({ id: "r1", lastMessageAt: ts, unreadCount: 3 });
+    expect(shouldBlockStalePositiveUnreadDecreaseClobber(prev, incoming)).toBe(true);
+    const outCritical = mergeMessengerRoomSummaryForHomeSyncCriticalPatch(prev, incoming);
+    const outReplace = mergeMessengerRoomSummaryForHomeSyncReplace(prev, incoming);
+    expect(outCritical.unreadCount).toBe(5);
+    expect(outReplace.unreadCount).toBe(5);
+  });
+
+  it("home_sync_replace server increase 3 to 5 still applies after stale decrease guard", () => {
+    const ts = "2026-01-02T00:00:00.000Z";
+    const prev = room({ id: "r1", lastMessageAt: ts, unreadCount: 3 });
+    const incoming = room({ id: "r1", lastMessageAt: ts, unreadCount: 5 });
+    const out = mergeMessengerRoomSummaryForHomeSyncReplace(prev, incoming);
+    expect(out.unreadCount).toBe(5);
+  });
+
+  it("stale positive decrease allows actual read clear to zero", () => {
+    const ts = "2026-01-02T00:00:00.000Z";
+    setLocalReadGuard({ roomId: "r1", referenceLastMessageAt: ts, source: "manual" });
+    const prev = room({ id: "r1", lastMessageAt: ts, unreadCount: 5 });
+    const incoming = room({ id: "r1", lastMessageAt: ts, unreadCount: 0 });
+    expect(shouldBlockStalePositiveUnreadDecreaseClobber(prev, incoming)).toBe(false);
+    const out = mergeMessengerRoomSummaryForHomeSyncReplace(prev, incoming);
+    expect(out.unreadCount).toBe(0);
+  });
+
   it("critical_patch stale zero does not clobber prev positive unread at same lastMessageAt", () => {
     const ts = "2026-01-02T00:00:00.000Z";
     const prev = room({ id: "r1", lastMessageAt: ts, unreadCount: 5 });
@@ -267,5 +323,12 @@ describe("mergeMessengerRoomSummaryForHomeSyncCriticalPatch", () => {
       room({ id: "r1", lastMessageAt: ts, unreadCount: 5 })
     );
     expect(out.unreadCount).toBe(5);
+  });
+
+  it("noteBootstrapUnreadIncreasesFromBootstrap records monotonic floor TTL on cache prime", () => {
+    const prev = room({ id: "r1", lastMessageAt: "2026-01-02T00:00:00.000Z", unreadCount: 0 });
+    const next = room({ id: "r1", lastMessageAt: "2026-01-02T00:00:00.000Z", unreadCount: 5 });
+    noteBootstrapUnreadIncreasesFromBootstrap({ chats: [prev], groups: [] }, { chats: [next], groups: [] });
+    expect(peekRecentHomeListServerUnreadIncrease("r1")).toBe(5);
   });
 });

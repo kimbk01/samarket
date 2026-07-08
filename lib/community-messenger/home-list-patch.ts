@@ -14,8 +14,10 @@ import {
   patchBootstrapRoomListForRealtimeMessageInsert,
   patchBootstrapRoomListForSenderLocalEcho,
 } from "@/lib/community-messenger/home/patch-bootstrap-room-list-from-realtime-message";
-import { mergeMessengerRoomSummaryForHomeSyncCriticalPatch } from "@/lib/community-messenger/merge-critical-home-sync-room-summary";
-import { mergeRoomSummaryWithConsistency } from "@/lib/community-messenger/consistency/messenger-consistency-merge";
+import {
+  mergeMessengerRoomSummaryForHomeSyncCriticalPatch,
+  mergeMessengerRoomSummaryForHomeSyncReplace,
+} from "@/lib/community-messenger/merge-critical-home-sync-room-summary";
 import {
   resolveMessengerHomeBootstrapSetData,
   type CmHomeSetDataSource,
@@ -246,12 +248,7 @@ function mergeRoomListsWithVersionGuard(
   const out = nextList.map((inc) => {
     const old = prevById.get(inc.id);
     if (!old || old.unreadCount === inc.unreadCount) return inc;
-    const merged = mergeRoomSummaryWithConsistency(old, inc, {
-      surface: "home_sync",
-      roomId: inc.id,
-      source: "home_sync_replace",
-      eventType: "replace",
-    });
+    const merged = mergeMessengerRoomSummaryForHomeSyncReplace(old, inc);
     if (merged.unreadCount !== inc.unreadCount) unreadGuardApplied += 1;
     return merged;
   });

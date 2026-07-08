@@ -89,6 +89,35 @@ function pushKindFromEvent(event: NotificationEventInboxSource): string | null {
   return "system";
 }
 
+function payloadTime(payload: unknown, keys: string[]): number | null {
+  if (!payload || typeof payload !== "object") return null;
+  const obj = payload as Record<string, unknown>;
+  for (const key of keys) {
+    const value = obj[key];
+    if (typeof value !== "string" || !value.trim()) continue;
+    const parsed = Date.parse(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+function payloadFlag(payload: unknown, keys: string[]): boolean | null {
+  if (!payload || typeof payload !== "object") return null;
+  const obj = payload as Record<string, unknown>;
+  for (const key of keys) {
+    const value = obj[key];
+    if (typeof value === "boolean") return value;
+  }
+  return null;
+}
+
+export function isInboxDismissedNotificationEvent(event: NotificationEventInboxSource): boolean {
+  const payload = payloadRecord(event.display_payload);
+  if (payloadFlag(payload, ["deleted", "isDeleted"]) === true) return true;
+  if (payloadTime(payload, ["deleted_at", "deletedAt", "inbox_dismissed_at"]) != null) return true;
+  return false;
+}
+
 function metaFromEvent(event: NotificationEventInboxSource): Record<string, unknown> | null {
   const payload = payloadRecord(event.display_payload);
   const legacyMeta = payload?.legacyMeta;
@@ -125,8 +154,14 @@ export function resolveEventInboxLinkUrl(event: NotificationEventInboxSource): s
   }
 
   const postId = trimText(meta?.post_id ?? meta?.community_post_id);
-  if (postId) return `/philife/posts/${encodeURIComponent(postId)}`;
+  if (postId) return `/philife/${encodeURIComponent(postId)}`;
 
+  const orderId =
+    trimText(meta?.order_id) ||
+    trimText(payload?.legacyRefId);
+  if ((type === "order_status" || type === "delivery_status") && orderId) {
+    return `/mypage/store-orders/${encodeURIComponent(orderId)}`;
+  }
   if (type === "order_status" || type === "delivery_status") return "/my/store-orders";
   if (type === "community_activity") return "/philife";
   if (type === "admin_marketing_banner") {
@@ -257,6 +292,7 @@ export async function fetchNotificationEventsForInbox(
 
   const mapped = (data ?? [])
     .filter((row) => !INBOX_EXCLUDED_EVENT_TYPES.has(trimText((row as NotificationEventInboxSource).type)))
+    .filter((row) => !isInboxDismissedNotificationEvent(row as NotificationEventInboxSource))
     .map((row) => mapNotificationEventToInboxRow(row as NotificationEventInboxSource));
 
   return filterMappedInboxEventRows(mapped, opts);

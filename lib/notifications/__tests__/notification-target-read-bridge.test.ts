@@ -15,6 +15,7 @@ vi.mock("@/lib/notifications/notification-targets", () => ({
 import {
   clearNotificationTargetsAfterRoomRead,
   clearNotificationTargetsAfterThreadRead,
+  clearNotificationTargetsForLegacyInboxRow,
 } from "@/lib/notifications/notification-target-read-bridge";
 
 function tradeTargetQuery(data: Array<{ target_id: string }> = [{ target_id: "post-1:seller-1:buyer-1" }]) {
@@ -139,6 +140,20 @@ describe("notification-target-read-bridge", () => {
       userId: "user-1",
       targetType: "trade",
       targetId: "post-1:seller-2:buyer-2",
+    });
+  });
+
+  it("clears legacy buyer order target from commerce row", async () => {
+    const sb = {} as never;
+    await clearNotificationTargetsForLegacyInboxRow(sb, "user-1", {
+      notification_type: "commerce",
+      ref_id: "ord-1",
+      meta: { kind: "store_order_owner_status", order_id: "ord-1" },
+    });
+    expect(clearNotificationTarget).toHaveBeenCalledWith(sb, {
+      userId: "user-1",
+      targetType: "buyer_order",
+      targetId: "ord-1",
     });
   });
 });

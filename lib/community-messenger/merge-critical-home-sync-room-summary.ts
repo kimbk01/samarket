@@ -48,6 +48,23 @@ export function clearHomeListServerUnreadIncreaseForTests(): void {
   recentHomeListServerUnreadIncrease.clear();
 }
 
+/** cache prime·setData 직후 — monotonic floor TTL (stale 0/3 clobber 방어) */
+export function noteBootstrapUnreadIncreasesFromBootstrap(
+  prev: { chats?: CommunityMessengerRoomSummary[]; groups?: CommunityMessengerRoomSummary[] } | null | undefined,
+  next: { chats?: CommunityMessengerRoomSummary[]; groups?: CommunityMessengerRoomSummary[] }
+): void {
+  const prevById = new Map(
+    [...(prev?.chats ?? []), ...(prev?.groups ?? [])].map((room) => [room.id, room])
+  );
+  for (const room of [...(next.chats ?? []), ...(next.groups ?? [])]) {
+    const prevUnread = Math.max(0, Math.floor(Number(prevById.get(room.id)?.unreadCount) || 0));
+    const nextUnread = Math.max(0, Math.floor(Number(room.unreadCount) || 0));
+    if (nextUnread > prevUnread) {
+      noteHomeListServerUnreadIncrease(room.id, nextUnread);
+    }
+  }
+}
+
 function isPlaceholderTradeHeadline(value: string | null | undefined): boolean {
   const t = String(value ?? "").trim();
   return !t || t === "거래";
@@ -134,6 +151,33 @@ export function hasCriticalPatchReadClearEvidence(
   });
 }
 
+/**
+ * home-sync — 서버 unread 증가(예: 5) 직후, read clear 근거 없이 낮은 positive unread(예: 3) 가
+ * 같은 tail `lastMessageAt` 에서 list state 를 덮지 못하게 한다.
+ */
+export function shouldBlockStalePositiveUnreadDecreaseClobber(
+  prev: CommunityMessengerRoomSummary,
+  incoming: CommunityMessengerRoomSummary
+): boolean {
+  const prevUnread = Math.max(0, Math.floor(Number(prev.unreadCount) || 0));
+  const incomingUnread = Math.max(0, Math.floor(Number(incoming.unreadCount) || 0));
+  if (incomingUnread >= prevUnread || prevUnread <= 0) return false;
+  if (incomingUnread === 0) return false;
+
+  const incomingLastAt = String(incoming.lastMessageAt ?? "");
+  const prevLastAt = String(prev.lastMessageAt ?? "");
+  if (incomingLastAt && prevLastAt && incomingLastMessageIsAfterReference(prevLastAt, incomingLastAt)) {
+    return false;
+  }
+
+  if (hasCriticalPatchReadClearEvidence(prev, incoming)) return false;
+
+  const recentServerUnread = peekRecentHomeListServerUnreadIncrease(incoming.id);
+  if (recentServerUnread != null && recentServerUnread > incomingUnread) return true;
+
+  return true;
+}
+
 /** critical_patch — stale payload `unreadCount=0` 이 positive list unread 를 덮지 못하게 한다 */
 export function shouldBlockCriticalPatchStaleZeroClobber(
   prev: CommunityMessengerRoomSummary,
@@ -157,9 +201,15 @@ export function shouldBlockCriticalPatchStaleZeroClobber(
   return true;
 }
 
-export function mergeMessengerRoomSummaryForHomeSyncCriticalPatch(
+type HomeSyncListRowMergeMode = {
+  source: "home_sync_critical_patch" | "home_sync_replace";
+  eventType: "critical_patch" | "replace";
+};
+
+function mergeMessengerRoomSummaryForHomeSyncListRow(
   prev: CommunityMessengerRoomSummary | undefined,
-  incoming: CommunityMessengerRoomSummary
+  incoming: CommunityMessengerRoomSummary,
+  mode: HomeSyncListRowMergeMode
 ): CommunityMessengerRoomSummary {
   if (!prev) return incoming;
   const mergedMeta = mergeTradeRoomContextMetaPreferLocalDetail(prev.contextMeta, incoming.contextMeta);
@@ -180,17 +230,40 @@ export function mergeMessengerRoomSummaryForHomeSyncCriticalPatch(
   }
 
   const blockedStaleZero = shouldBlockCriticalPatchStaleZeroClobber(prev, incoming);
-  const coalesceIncoming = blockedStaleZero ? { ...merged, unreadCount: prevUnread } : merged;
+  const blockedStaleDecrease = shouldBlockStalePositiveUnreadDecreaseClobber(prev, incoming);
+  const blockedStaleUnread = blockedStaleZero || blockedStaleDecrease;
+  const coalesceIncoming = blockedStaleUnread ? { ...merged, unreadCount: prevUnread } : merged;
   const coalesced = coalesceRoomSummarySnapshotRow(prev, coalesceIncoming, {
     surface: "home_sync",
     roomId: incoming.id,
-    source: "home_sync_critical_patch",
-    eventType: "critical_patch",
+    source: mode.source,
+    eventType: mode.eventType,
   });
-  const patched = blockedStaleZero ? { ...coalesced, unreadCount: prevUnread } : coalesced;
+  const patched = blockedStaleUnread ? { ...coalesced, unreadCount: prevUnread } : coalesced;
   const finalUnread = Math.max(0, Math.floor(Number(patched.unreadCount) || 0));
   if (finalUnread > prevUnread) {
     noteHomeListServerUnreadIncrease(incoming.id, finalUnread);
   }
   return patched;
+}
+
+export function mergeMessengerRoomSummaryForHomeSyncCriticalPatch(
+  prev: CommunityMessengerRoomSummary | undefined,
+  incoming: CommunityMessengerRoomSummary
+): CommunityMessengerRoomSummary {
+  return mergeMessengerRoomSummaryForHomeSyncListRow(prev, incoming, {
+    source: "home_sync_critical_patch",
+    eventType: "critical_patch",
+  });
+}
+
+/** `home_sync` full/replace tier — critical_patch 와 동일한 unread increase·read-clear 계약 */
+export function mergeMessengerRoomSummaryForHomeSyncReplace(
+  prev: CommunityMessengerRoomSummary | undefined,
+  incoming: CommunityMessengerRoomSummary
+): CommunityMessengerRoomSummary {
+  return mergeMessengerRoomSummaryForHomeSyncListRow(prev, incoming, {
+    source: "home_sync_replace",
+    eventType: "replace",
+  });
 }

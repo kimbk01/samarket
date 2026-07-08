@@ -101,18 +101,6 @@ describe("inbox-events-merge-regression", () => {
     expect(href).toBe("/community-messenger?section=friends");
   });
 
-  it("resolves order href fallback", () => {
-    const href = resolveEventInboxLinkUrl(
-      baseEvent({
-        type: "order_status",
-        category: "order_status",
-        display_payload: { legacyPushKind: "delivery" },
-        room_id: null,
-      })
-    );
-    expect(href).toBe("/my/store-orders");
-  });
-
   it("resolves community post href from meta", () => {
     const href = resolveEventInboxLinkUrl(
       baseEvent({
@@ -120,11 +108,25 @@ describe("inbox-events-merge-regression", () => {
         category: "community_activity",
         display_payload: {
           legacyMeta: { post_id: "post-99" },
-          routeUrl: "/philife/posts/post-99",
         },
         room_id: null,
       })
     );
-    expect(href).toBe("/philife/posts/post-99");
+    expect(href).toBe("/philife/post-99");
+  });
+
+  it("resolves order href with order id", () => {
+    const href = resolveEventInboxLinkUrl(
+      baseEvent({
+        type: "order_status",
+        category: "order_status",
+        display_payload: {
+          legacyMeta: { order_id: "ord-55" },
+          legacyPushKind: "delivery",
+        },
+        room_id: null,
+      })
+    );
+    expect(href).toBe("/mypage/store-orders/ord-55");
   });
 });

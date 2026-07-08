@@ -2,7 +2,10 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { applyHomeListPatch } from "@/lib/community-messenger/home-list-patch";
 import { clearMessengerConsistencyStateForTests } from "@/lib/community-messenger/consistency/messenger-consistency-version";
 import { clearHomeListServerUnreadIncreaseForTests } from "@/lib/community-messenger/merge-critical-home-sync-room-summary";
-import { clearLocalReadGuardsForTests } from "@/lib/community-messenger/read/local-read-guard";
+import {
+  clearLocalReadGuardsForTests,
+  setLocalReadGuard,
+} from "@/lib/community-messenger/read/local-read-guard";
 import type {
   CommunityMessengerBootstrap,
   CommunityMessengerRoomSummary,
@@ -219,6 +222,47 @@ describe("applyHomeListPatch", () => {
     );
     expect(next?.chats).toHaveLength(2);
     expect(next?.chats.find((r) => r.id === "b")?.lastMessage).toBe("updated-b");
+  });
+
+  it("home_sync replace blocks stale positive decrease 5 to 3", () => {
+    const ts = "2026-05-16T10:00:00.000Z";
+    const prev = bootstrap([room("a", 5)]);
+    const incoming = { ...room("a", 3), lastMessageAt: ts };
+    const next = applyHomeListPatch(
+      prev,
+      { kind: "home_sync", chats: [incoming], roomMode: "replace" },
+      "home-sync"
+    );
+    expect(next?.chats[0]?.unreadCount).toBe(5);
+  });
+
+  it("home_sync replace applies server unread increase 0 to 5 under read guard", () => {
+    const ts = "2026-01-02T00:00:00.000Z";
+    setLocalReadGuard({ roomId: "a", referenceLastMessageAt: ts, source: "manual" });
+    const prev = bootstrap([{ ...room("a", 0), lastMessageAt: ts }]);
+    const incoming = { ...room("a", 5), lastMessageAt: ts };
+    const next = applyHomeListPatch(
+      prev,
+      { kind: "home_sync", chats: [incoming], roomMode: "replace" },
+      "home-sync"
+    );
+    expect(next?.chats[0]?.unreadCount).toBe(5);
+  });
+
+  it("home_sync replace allows read clear with lastReadMessageId evidence", () => {
+    const ts = "2026-01-02T00:00:00.000Z";
+    const prev = bootstrap([room("a", 5)]);
+    const incoming = {
+      ...room("a", 0),
+      lastMessageAt: ts,
+      lastReadMessageId: "msg-read-1",
+    } as CommunityMessengerRoomSummary;
+    const next = applyHomeListPatch(
+      prev,
+      { kind: "home_sync", chats: [incoming], roomMode: "replace" },
+      "home-sync"
+    );
+    expect(next?.chats[0]?.unreadCount).toBe(0);
   });
 
   it("home_sync replace can add server-authoritative new room", () => {

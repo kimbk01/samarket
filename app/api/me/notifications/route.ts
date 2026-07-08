@@ -34,10 +34,12 @@ import {
   type InboxNotificationRow,
 } from "@/lib/notifications/inbox-events-merge";
 import {
+  clearChatInboxTargetsAfterMarkAll,
   markAllNotificationEventsRead,
   markChatNotificationEventsRead,
   markNonChatNonOwnerNotificationEventsRead,
   markOwnerStoreCommerceNotificationEventsRead,
+  patchInboxNotificationIdsDelete,
   patchInboxNotificationIdsRead,
 } from "@/lib/notifications/inbox-read-bridge";
 import { invalidateNotificationBadgeCache } from "@/lib/notifications/pipeline/notify-badge-service";
@@ -546,20 +548,11 @@ export async function PATCH(req: NextRequest) {
     Array.isArray(body.delete_ids) ? body.delete_ids.map((x) => String(x).trim()).filter(Boolean) : [];
   const deleteIds = [...new Set(rawDelete)].slice(0, DELETE_IDS_CAP);
   if (deleteIds.length > 0) {
-    const { data: deletedRows, error } = await sb
-      .from("notifications")
-      .delete()
-      .eq("user_id", userId)
-      .in("id", deleteIds)
-      .select("id");
-    if (error) {
-      if (error.message?.includes("notifications") && error.message.includes("does not exist")) {
-        return NextResponse.json({ ok: true, deleted: 0 });
-      }
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    const deleteResult = await patchInboxNotificationIdsDelete(sb, userId, deleteIds);
+    if (!deleteResult.ok) {
+      return NextResponse.json({ ok: false, error: deleteResult.error }, { status: 500 });
     }
-    invalidateNotificationUnreadCountCache(userId);
-    return NextResponse.json({ ok: true, deleted: deletedRows?.length ?? 0 });
+    return NextResponse.json({ ok: true, deleted: deleteResult.deleted });
   }
 
   if (body.mark_all_read === true) {
@@ -757,6 +750,7 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ ok: false, error: uErr.message }, { status: 500 });
     }
     await markChatNotificationEventsRead(sb, userId);
+    await clearChatInboxTargetsAfterMarkAll(sb, userId);
     invalidateNotificationUnreadCountCache(userId);
     invalidateNotificationBadgeCache(userId);
     return NextResponse.json({ ok: true, updated: ids.length });

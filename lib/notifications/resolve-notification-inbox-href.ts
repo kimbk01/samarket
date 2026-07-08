@@ -97,7 +97,7 @@ function resolveTradeOfferInboxHref(r: InboxHrefRow): string | null {
 }
 
 /**
- * 구매자 매장 주문 알림: 링크가 상세/채팅이어도 목록으로 통일 (`MyNotificationsView` 와 동일)
+ * 구매자 매장 주문 알림: 주문 상세로 직행. 오너 commerce는 link_url 그대로.
  */
 export function resolveNotificationInboxHref(r: InboxHrefRow): string | null {
   const trade = resolveTradeOfferInboxHref(r);
@@ -107,17 +107,6 @@ export function resolveNotificationInboxHref(r: InboxHrefRow): string | null {
   if (!u) return null;
   if (r.notification_type !== "commerce") return u;
   if (isOwnerStoreCommerceNotificationRow(r)) return u;
-  let path = u;
-  if (u.startsWith("http://") || u.startsWith("https://")) {
-    try {
-      path = new URL(u).pathname;
-    } catch {
-      return u;
-    }
-  }
-  if (path === "/my/store-orders" || path.startsWith("/my/store-orders/")) {
-    return "/my/store-orders";
-  }
   return u;
 }
 

@@ -124,6 +124,41 @@ function mergeRoomListsPreferHigherUnread(
   return merged;
 }
 
+export type HomeSyncSkipContext = {
+  /** React `data` — cache-only hydrate 누락 감지용 */
+  reactBase?: CommunityMessengerBootstrap | null;
+};
+
+/** server positive unread 가 React list 에 아직 반영되지 않았으면 identical skip 금지 */
+export function homeSyncPayloadNeedsReactUnreadSync(
+  payload: DeferredHomeSyncPayload,
+  reactBase: CommunityMessengerBootstrap | null | undefined,
+  cacheBase: CommunityMessengerBootstrap | null | undefined
+): boolean {
+  const reactById = reactBase
+    ? new Map(
+        [...(reactBase.chats ?? []), ...(reactBase.groups ?? [])].map((room) => [room.id, room])
+      )
+    : new Map<string, CommunityMessengerRoomSummary>();
+  const cacheById = cacheBase
+    ? new Map(
+        [...(cacheBase.chats ?? []), ...(cacheBase.groups ?? [])].map((room) => [room.id, room])
+      )
+    : new Map<string, CommunityMessengerRoomSummary>();
+
+  for (const room of [...(payload.chats ?? []), ...(payload.groups ?? [])]) {
+    const incomingUnread = roomUnreadCount(room);
+    if (incomingUnread <= 0) continue;
+    const reactUnread = roomUnreadCount(reactById.get(room.id));
+    if (incomingUnread > reactUnread) return true;
+    if (!reactBase) {
+      const cacheUnread = roomUnreadCount(cacheById.get(room.id));
+      if (cacheUnread > 0 || incomingUnread > 0) return true;
+    }
+  }
+  return false;
+}
+
 /** critical_patch payload carries a higher unread than bootstrap cache for any known room. */
 export function homeSyncPayloadHasUnreadIncreaseAgainstBase(
   payload: DeferredHomeSyncPayload,
@@ -189,16 +224,20 @@ function homeSyncWouldChangeBootstrap(base: CommunityMessengerBootstrap, payload
   return fingerprintHomeBootstrapLists(next) !== fingerprintHomeBootstrapLists(base);
 }
 
-function shouldForceApplyCriticalUnreadIncrease(payload: DeferredHomeSyncPayload): boolean {
-  if ((payload.roomMode ?? "replace") !== "critical_patch") return false;
+function shouldForceApplyUnreadIncrease(payload: DeferredHomeSyncPayload): boolean {
   const base = peekBootstrapCache();
   if (!base) return false;
   return homeSyncPayloadHasUnreadIncreaseAgainstBase(payload, base);
 }
 
-export function shouldSkipHomeSyncPayload(payload: DeferredHomeSyncPayload): boolean {
-  const forceCriticalUnreadIncrease = shouldForceApplyCriticalUnreadIncrease(payload);
-  if (forceCriticalUnreadIncrease) return false;
+export function shouldSkipHomeSyncPayload(
+  payload: DeferredHomeSyncPayload,
+  context?: HomeSyncSkipContext
+): boolean {
+  const cache = peekBootstrapCache();
+  const reactBase = context?.reactBase ?? null;
+  if (homeSyncPayloadNeedsReactUnreadSync(payload, reactBase, cache)) return false;
+  if (shouldForceApplyUnreadIncrease(payload)) return false;
 
   const incomingFp = fingerprintHomeSyncLists(payload);
   if (incomingFp && incomingFp === lastFlushedHomeSyncFingerprint) {
@@ -208,22 +247,21 @@ export function shouldSkipHomeSyncPayload(payload: DeferredHomeSyncPayload): boo
     return true;
   }
 
-  const base = peekBootstrapCache();
-  if (!base) return false;
+  if (!cache) return false;
 
-  const cacheFp = fingerprintHomeBootstrapLists(base);
+  const cacheFp = fingerprintHomeBootstrapLists(cache);
   if (incomingFp && incomingFp === cacheFp) {
     logHomeSyncIdenticalSkip("incoming_matches_bootstrap_cache", {
       incoming_rooms: (payload.chats?.length ?? 0) + (payload.groups?.length ?? 0),
-      cache_rooms: (base.chats?.length ?? 0) + (base.groups?.length ?? 0),
+      cache_rooms: (cache.chats?.length ?? 0) + (cache.groups?.length ?? 0),
     });
     return true;
   }
 
-  if (!homeSyncWouldChangeBootstrap(base, payload)) {
+  if (!homeSyncWouldChangeBootstrap(cache, payload)) {
     logHomeSyncIdenticalSkip("apply_noop_against_bootstrap", {
       incoming_rooms: (payload.chats?.length ?? 0) + (payload.groups?.length ?? 0),
-      cache_rooms: (base.chats?.length ?? 0) + (base.groups?.length ?? 0),
+      cache_rooms: (cache.chats?.length ?? 0) + (cache.groups?.length ?? 0),
       room_mode: payload.roomMode ?? "replace",
     });
     return true;
@@ -278,8 +316,7 @@ function flushDeferredHomeSyncPatches(): void {
   if (!deferredApplyRunner || deferredHomeSyncQueue.length === 0) return;
   const merged = mergeDeferredHomeSyncQueue(deferredHomeSyncQueue);
   deferredHomeSyncQueue.length = 0;
-  if (shouldSkipHomeSyncPayload(merged)) return;
-  noteHomeSyncPayloadFlushed(merged);
+  /** skip 판정은 runner(`applyHomeSyncPayload`)에서 React state 기준으로 수행 */
   deferredApplyRunner(merged);
 }
 

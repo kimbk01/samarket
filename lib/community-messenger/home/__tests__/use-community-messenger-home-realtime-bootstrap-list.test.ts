@@ -11,6 +11,9 @@ import {
   shouldBlockStaleHomeListUnreadZero,
 } from "@/lib/community-messenger/home/use-community-messenger-home-realtime-bootstrap-list";
 import {
+  mergeMessengerRoomSummaryForHomeSyncReplace,
+} from "@/lib/community-messenger/merge-critical-home-sync-room-summary";
+import {
   clearLocalReadGuardsForTests,
   setLocalReadGuard,
 } from "@/lib/community-messenger/read/local-read-guard";
@@ -80,7 +83,16 @@ describe("mergeParticipantUnreadDeltaIntoHomeListRoom", () => {
     expect(out.unreadCount).toBe(0);
   });
 
-  it("non-participant home_sync replace still suppresses stale positive unread under read guard", () => {
+  it("home_sync replace accepts server unread increase at same lastMessageAt despite read guard", () => {
+    const ts = "2026-01-02T00:00:00.000Z";
+    setLocalReadGuard({ roomId: "r1", referenceLastMessageAt: ts, source: "manual" });
+    const prev = room({ id: "r1", lastMessageAt: ts, unreadCount: 0 });
+    const incoming = room({ id: "r1", lastMessageAt: ts, unreadCount: 5 });
+    const out = mergeMessengerRoomSummaryForHomeSyncReplace(prev, incoming);
+    expect(out.unreadCount).toBe(5);
+  });
+
+  it("low-level coalesce home_sync_replace still suppresses stale positive unread under read guard", () => {
     const ts = "2026-01-02T00:00:00.000Z";
     setLocalReadGuard({ roomId: "r1", referenceLastMessageAt: ts, source: "manual" });
     const prev = room({ id: "r1", lastMessageAt: ts, unreadCount: 0 });
