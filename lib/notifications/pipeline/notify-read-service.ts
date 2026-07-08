@@ -15,6 +15,40 @@ import {
   fetchNotificationBadgeCount,
   invalidateNotificationBadgeCache,
 } from "@/lib/notifications/pipeline/notify-badge-service";
+import {
+  clearNotificationTargetsAfterRoomRead,
+  clearNotificationTargetsAfterThreadRead,
+} from "@/lib/notifications/notification-target-read-bridge";
+
+async function clearTargetsAfterRoomReadBestEffort(
+  sb: SupabaseClient<any>,
+  userId: string,
+  roomId: string
+): Promise<void> {
+  try {
+    await clearNotificationTargetsAfterRoomRead(sb, userId, roomId);
+  } catch {
+    logNotifyBadge("target_clear_failed", { userId, roomId, path: "room_read" });
+  }
+}
+
+async function clearTargetsAfterThreadReadBestEffort(
+  sb: SupabaseClient<any>,
+  userId: string,
+  input: { threadId: string; threadType?: string; readReason?: string }
+): Promise<void> {
+  try {
+    await clearNotificationTargetsAfterThreadRead(sb, userId, input);
+  } catch {
+    logNotifyBadge("target_clear_failed", {
+      userId,
+      threadId: input.threadId,
+      threadType: input.threadType,
+      readReason: input.readReason,
+      path: "thread_read",
+    });
+  }
+}
 
 export async function markNotificationRead(
   sb: SupabaseClient<any>,
@@ -42,6 +76,7 @@ export async function markRoomRead(
     logNotifyBadge("read_clear", { userId, roomId, count });
     await fetchNotificationBadgeCount(sb, userId, { force: true });
   }
+  await clearTargetsAfterRoomReadBestEffort(sb, userId, roomId);
   return count;
 }
 
@@ -113,5 +148,10 @@ export async function markNotificationThreadRead(
     logNotifyBadge("read_clear", { userId, threadId, count, threadType, readReason });
     await fetchNotificationBadgeCount(sb, userId, { force: true });
   }
+  await clearTargetsAfterThreadReadBestEffort(sb, userId, {
+    threadId,
+    threadType,
+    readReason,
+  });
   return count;
 }

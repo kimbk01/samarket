@@ -11,6 +11,8 @@ const markCommunityPostNotificationEventsRead = vi.fn();
 const markTradeStatusNotificationEventsReadByProductId = vi.fn();
 const fetchNotificationBadgeCount = vi.fn();
 const invalidateNotificationBadgeCache = vi.fn();
+const clearNotificationTargetsAfterRoomRead = vi.fn();
+const clearNotificationTargetsAfterThreadRead = vi.fn();
 
 vi.mock("@/lib/notifications/core/notification-event-repository", () => ({
   markNotificationEventRead: (...args: unknown[]) => markNotificationEventRead(...args),
@@ -32,6 +34,13 @@ vi.mock("@/lib/notifications/core/notification-event-repository", () => ({
 vi.mock("@/lib/notifications/pipeline/notify-badge-service", () => ({
   fetchNotificationBadgeCount: (...args: unknown[]) => fetchNotificationBadgeCount(...args),
   invalidateNotificationBadgeCache: (...args: unknown[]) => invalidateNotificationBadgeCache(...args),
+}));
+
+vi.mock("@/lib/notifications/notification-target-read-bridge", () => ({
+  clearNotificationTargetsAfterRoomRead: (...args: unknown[]) =>
+    clearNotificationTargetsAfterRoomRead(...args),
+  clearNotificationTargetsAfterThreadRead: (...args: unknown[]) =>
+    clearNotificationTargetsAfterThreadRead(...args),
 }));
 
 import {
@@ -58,6 +67,8 @@ describe("notify-read-service", () => {
     markCommunityPostNotificationEventsRead.mockResolvedValue(2);
     markTradeStatusNotificationEventsReadByProductId.mockResolvedValue(3);
     fetchNotificationBadgeCount.mockResolvedValue({ total: 0 });
+    clearNotificationTargetsAfterRoomRead.mockResolvedValue(undefined);
+    clearNotificationTargetsAfterThreadRead.mockResolvedValue(undefined);
   });
 
   it("marks single notification read and refreshes badge", async () => {
@@ -71,6 +82,14 @@ describe("notify-read-service", () => {
     const count = await markRoomRead(sb, "user-1", "room-1");
     expect(count).toBe(2);
     expect(invalidateNotificationBadgeCache).toHaveBeenCalledWith("user-1");
+    expect(clearNotificationTargetsAfterRoomRead).toHaveBeenCalledWith(sb, "user-1", "room-1");
+  });
+
+  it("does not fail room read when target clear bridge fails", async () => {
+    clearNotificationTargetsAfterRoomRead.mockRejectedValueOnce(new Error("target clear failed"));
+    const count = await markRoomRead(sb, "user-1", "room-1");
+    expect(count).toBe(2);
+    expect(fetchNotificationBadgeCount).toHaveBeenCalled();
   });
 
   it("marks missed call events read", async () => {
@@ -95,6 +114,31 @@ describe("notify-read-service", () => {
     expect(fetchNotificationBadgeCount).toHaveBeenCalled();
   });
 
+  it("clears targets after thread read even when events are already read", async () => {
+    markNotificationEventsReadByThread.mockResolvedValueOnce(0);
+    const count = await markNotificationThreadRead(sb, "user-1", "room-1", {
+      threadType: "chat_room",
+      readReason: "chat_room_visible",
+    });
+    expect(count).toBe(0);
+    expect(fetchNotificationBadgeCount).not.toHaveBeenCalled();
+    expect(clearNotificationTargetsAfterThreadRead).toHaveBeenCalledWith(sb, "user-1", {
+      threadId: "room-1",
+      threadType: "chat_room",
+      readReason: "chat_room_visible",
+    });
+  });
+
+  it("does not fail thread read when target clear bridge fails", async () => {
+    clearNotificationTargetsAfterThreadRead.mockRejectedValueOnce(new Error("target clear failed"));
+    const count = await markNotificationThreadRead(sb, "user-1", "room-1", {
+      threadType: "chat_room",
+      readReason: "chat_room_visible",
+    });
+    expect(count).toBe(4);
+    expect(fetchNotificationBadgeCount).toHaveBeenCalled();
+  });
+
   it("marks thread read and refreshes badge immediately", async () => {
     const count = await markNotificationThreadRead(sb, "user-1", "room-1", {
       categories: ["chat_message"],
@@ -109,6 +153,11 @@ describe("notify-read-service", () => {
     });
     expect(invalidateNotificationBadgeCache).toHaveBeenCalledWith("user-1");
     expect(fetchNotificationBadgeCount).toHaveBeenCalled();
+    expect(clearNotificationTargetsAfterThreadRead).toHaveBeenCalledWith(sb, "user-1", {
+      threadId: "room-1",
+      threadType: "trade_room",
+      readReason: "chat_room_visible",
+    });
   });
 
   it("marks order thread read via order repository path", async () => {
