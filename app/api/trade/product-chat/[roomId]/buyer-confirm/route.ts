@@ -9,6 +9,7 @@ import { applyTrustScoreDeltaToMany } from "@/lib/trust/trust-score-apply";
 import { TRUST_EVENT_DELTAS } from "@/lib/trust/trust-score-core";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
+import { appendUserNotification } from "@/lib/notifications/append-user-notification";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -80,7 +81,7 @@ export async function POST(
     .eq("id", resolved.productChatId);
 
   try {
-    await sbAny.from("notifications").insert({
+    await appendUserNotification(sbAny, {
       user_id: pc.seller_id,
       notification_type: "status",
       title: "구매자가 거래를 확인했어요",

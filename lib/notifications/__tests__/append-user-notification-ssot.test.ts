@@ -112,6 +112,45 @@ describe("appendUserNotification SSOT bridge", () => {
     );
   });
 
+  it("routes trade status meta kinds to trade_status badge category", async () => {
+    createAndDispatchNotificationEvent.mockResolvedValue({
+      ok: true,
+      row: { id: "evt-trade", user_id: "seller-1" },
+    });
+
+    const insert = vi.fn();
+    const sb = { from: vi.fn(() => ({ insert })) } as unknown as Parameters<
+      (typeof import("@/lib/notifications/append-user-notification"))["appendUserNotification"]
+    >[0];
+    const { appendUserNotification } = await import(
+      "@/lib/notifications/append-user-notification"
+    );
+
+    const ok = await appendUserNotification(sb, {
+      user_id: "seller-1",
+      notification_type: "status",
+      domain: "trade_chat",
+      ref_id: "room-1",
+      title: "trade done",
+      body: "body",
+      meta: { kind: "trade_completed", room_id: "room-1" },
+    });
+
+    expect(ok).toBe(true);
+    expect(createAndDispatchNotificationEvent).toHaveBeenCalledWith(
+      sb,
+      expect.objectContaining({
+        type: "trade_status",
+        category: "trade_status",
+        displayPayload: expect.objectContaining({
+          legacyDomain: "trade_chat",
+          legacyMeta: expect.objectContaining({ kind: "trade_completed" }),
+        }),
+      })
+    );
+    expect(insert).not.toHaveBeenCalled();
+  });
+
   it("keeps legacy fallback disabled by default when SSOT fails", async () => {
     createAndDispatchNotificationEvent.mockRejectedValue(new Error("boom"));
 

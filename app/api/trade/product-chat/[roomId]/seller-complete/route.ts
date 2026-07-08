@@ -6,6 +6,7 @@ import { getTradeServiceClient } from "@/lib/trade/service-supabase";
 import { resolveProductChat } from "@/lib/trade/resolve-product-chat";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
+import { appendUserNotification } from "@/lib/notifications/append-user-notification";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -125,7 +126,7 @@ export async function POST(
   }
 
   try {
-    await sbAny.from("notifications").insert({
+    await appendUserNotification(sbAny, {
       user_id: pc.buyer_id,
       notification_type: "status",
       title: "거래가 완료 처리되었어요",

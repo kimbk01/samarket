@@ -88,6 +88,9 @@ function toNotificationEventType(row: {
   if (pushKind === "delivery") return "order_status";
   if (pushKind === "trade") return "trade_status";
   if (pushKind === "community") return "community_activity";
+  if (metaKind === "trade_offer" || metaKind === "trade_reserved" || metaKind === "trade_completed") {
+    return "trade_status";
+  }
   if (metaKind === "group_chat" || metaKind === "community_group_invite") return "group_message";
   if (metaKind === "trade_chat") return "trade_message";
   if (metaKind === "community_chat") return "chat_message";
