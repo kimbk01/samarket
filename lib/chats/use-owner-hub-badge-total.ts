@@ -123,6 +123,9 @@ export function useOwnerHubBadgeTabUnreadCount(icon: BottomNavIconKey): number {
     [icon]
   );
   const getSnapshot = useCallback(() => {
+    if (icon === "trade") {
+      return resolveBottomNavTradeTabBadgeCount(getOwnerHubBadgeSnapshot());
+    }
     const fromEvents = tabUnreadFromNotificationEvents(icon);
     if (fromEvents != null) return fromEvents;
     const hub = getOwnerHubBadgeSnapshot();
