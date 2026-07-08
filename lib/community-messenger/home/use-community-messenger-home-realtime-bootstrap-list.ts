@@ -37,6 +37,12 @@ import {
 import { cmRtStableSubLog } from "@/lib/community-messenger/realtime/cm-rt-stable-sub-log";
 import { messengerIncomingMessageAlreadyTracked } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import {
+  noteHomeListServerUnreadIncrease,
+  peekRecentHomeListServerUnreadIncrease,
+  clearHomeListServerUnreadIncrease,
+  clearHomeListServerUnreadIncreaseForTests,
+} from "@/lib/community-messenger/merge-critical-home-sync-room-summary";
+import {
   noteHomeVisibilityHidden,
   noteHomeVisibilityRestored,
   shouldBlockSilentHomeSyncForVisibilityRestore,
@@ -46,6 +52,34 @@ const HOME_SUMMARY_MIN_FETCH_GAP_MS = 1_500;
 /** Realtime meta → home-sync silent refresh 최소 간격(부트스트랩 debounce 와 정렬) */
 const HOME_REALTIME_SILENT_REFRESH_MIN_GAP_MS = 2_400;
 let cmHomeRealtimeRefreshScheduleOrdinal = 0;
+
+export { clearHomeListServerUnreadIncreaseForTests };
+
+export type HomeListUnreadZeroBusContext = {
+  busType: "cm.room.read" | "cm.room.local_unread";
+  roomId: string;
+  incomingUnread: number;
+  existingUnread: number;
+  lastReadMessageId?: string | null;
+};
+
+/**
+ * stale optimistic `local_unread(0)` / read bus 가 서버에서 확인된 positive unread 를 덮지 못하게 한다.
+ * 실제 mark_read(`lastReadMessageId` 존재) 는 0 허용.
+ */
+export function shouldBlockStaleHomeListUnreadZero(ctx: HomeListUnreadZeroBusContext): boolean {
+  if (ctx.incomingUnread !== 0) return false;
+  const existingUnread = Math.max(0, Math.floor(Number(ctx.existingUnread) || 0));
+  if (existingUnread <= 0) return false;
+
+  if (ctx.busType === "cm.room.read") {
+    const lastReadMessageId = String(ctx.lastReadMessageId ?? "").trim();
+    if (lastReadMessageId) return false;
+  }
+
+  const recentServerUnread = peekRecentHomeListServerUnreadIncrease(ctx.roomId);
+  return recentServerUnread != null && recentServerUnread > 0;
+}
 
 /**
  * Phase1 가 연속으로 `cm.room.read` → `cm.room.local_unread`(0) 를 보낼 때
@@ -67,6 +101,58 @@ function tryConsumeBusLocalUnreadDuplicateAfterRead(roomId: string, unreadCount:
   if (busUnreadZeroHandledAfterReadRoomId !== roomId) return false;
   busUnreadZeroHandledAfterReadRoomId = null;
   return true;
+}
+
+/** `cm.room.summary_patch` — guard 없이 서버 unread 직접 반영 (기존 동작 유지) */
+export function applyHomeListSummaryPatchUnread(
+  room: CommunityMessengerRoomSummary,
+  nextUnread: number | null
+): CommunityMessengerRoomSummary {
+  if (nextUnread == null || room.unreadCount === nextUnread) return room;
+  const prevUnread = Math.max(0, Math.floor(Number(room.unreadCount) || 0));
+  const unreadCount = Math.max(0, Math.floor(Number(nextUnread) || 0));
+  if (unreadCount > prevUnread) {
+    noteHomeListServerUnreadIncrease(room.id, unreadCount);
+  }
+  return { ...room, unreadCount };
+}
+
+/**
+ * participant_unread_delta — 서버 unread 증가는 local-read-guard 동일 timestamp suppress 예외.
+ * critical_patch narrow exception 과 동일 철학; stale_version_discard 는 유지.
+ */
+export function mergeParticipantUnreadDeltaIntoHomeListRoom(
+  room: CommunityMessengerRoomSummary,
+  hint: CommunityMessengerHomeRealtimeParticipantUnreadHint
+): CommunityMessengerRoomSummary {
+  const rid = String(hint.roomId ?? room.id ?? "").trim();
+  const hintUnread = Math.max(0, Math.floor(Number(hint.unreadCount) || 0));
+  const prevUnread = Math.max(0, Math.floor(Number(room.unreadCount) || 0));
+  const merged = resolveMessengerUnreadMerge({
+    surface: "realtime",
+    roomId: rid,
+    incomingUnread: hintUnread,
+    incomingLastMessageAt: String(room.lastMessageAt ?? ""),
+    source: "participant_unread_delta",
+    eventType: "participant_unread_delta",
+    prevUnread,
+    duplicateEventKey: `${rid}:${hintUnread}:${hint.lastReadMessageId ?? ""}:${hint.lastReadAt ?? ""}`,
+    reconnectState: "realtime",
+  });
+  let unreadCount = merged.unreadCount;
+  const serverUnreadIncreased = hintUnread > prevUnread;
+  if (
+    serverUnreadIncreased &&
+    merged.resolution_path !== "stale_version_discard" &&
+    unreadCount < hintUnread
+  ) {
+    unreadCount = hintUnread;
+  }
+  if (unreadCount === room.unreadCount) return room;
+  if (unreadCount > prevUnread) {
+    noteHomeListServerUnreadIncrease(rid, unreadCount);
+  }
+  return { ...room, unreadCount };
 }
 
 function bootstrapHasRoomRow(root: CommunityMessengerBootstrap, roomId: string): boolean {
@@ -339,22 +425,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
             {
               kind: "room_update",
               roomId: rid,
-              updater: (room) => {
-                const merged = resolveMessengerUnreadMerge({
-                  surface: "realtime",
-                  roomId: rid,
-                  incomingUnread: hint.unreadCount,
-                  incomingLastMessageAt: String(room.lastMessageAt ?? ""),
-                  source: "participant_unread_delta",
-                  eventType: "participant_unread_delta",
-                  prevUnread: room.unreadCount,
-                  userIdShort: me.slice(0, 8) || undefined,
-                  duplicateEventKey: `${rid}:${hint.unreadCount}:${hint.lastReadMessageId ?? ""}:${hint.lastReadAt ?? ""}`,
-                  reconnectState: "realtime",
-                });
-                if (merged.unreadCount === room.unreadCount) return room;
-                return { ...room, unreadCount: merged.unreadCount };
-              },
+              updater: (room) => mergeParticipantUnreadDeltaIntoHomeListRoom(room, hint),
             },
             "realtime"
           );
@@ -425,6 +496,21 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
           evRoomNormEarly &&
           existingEarly.unreadCount === ev.unreadCount
         ) {
+          return;
+        }
+        if (
+          shouldBlockStaleHomeListUnreadZero({
+            busType: "cm.room.local_unread",
+            roomId: ev.roomId,
+            incomingUnread: ev.unreadCount,
+            existingUnread: existingEarly?.unreadCount ?? 0,
+          })
+        ) {
+          cmReadBadgeLog("home_list_stale_unread_zero_blocked", {
+            roomId: ev.roomId,
+            busType: "cm.room.local_unread",
+            existingUnread: existingEarly?.unreadCount ?? 0,
+          });
           return;
         }
         let tradeRoomForLegacyUnreadResync: string | null = null;
@@ -513,10 +599,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
             {
               kind: "room_update",
               roomId: ev.roomId,
-              updater: (room) => {
-                if (nextUnread == null || room.unreadCount === nextUnread) return room;
-                return { ...room, unreadCount: nextUnread };
-              },
+              updater: (room) => applyHomeListSummaryPatchUnread(room, nextUnread),
             },
             "mark-read"
           );
@@ -538,6 +621,23 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
           registerBusRoomReadUnreadZeroForDedupe(ev.roomId);
           return;
         }
+        if (
+          shouldBlockStaleHomeListUnreadZero({
+            busType: "cm.room.read",
+            roomId: ev.roomId,
+            incomingUnread: 0,
+            existingUnread: readRow?.unreadCount ?? 0,
+            lastReadMessageId: ev.lastReadMessageId,
+          })
+        ) {
+          cmReadBadgeLog("home_list_stale_unread_zero_blocked", {
+            roomId: ev.roomId,
+            busType: "cm.room.read",
+            existingUnread: readRow?.unreadCount ?? 0,
+            lastReadMessageId: ev.lastReadMessageId ?? null,
+          });
+          return;
+        }
         setLocalReadGuard({
           roomId: ev.roomId,
           referenceLastMessageAt: String(readRow?.lastMessageAt ?? ""),
@@ -548,6 +648,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
           viewerUserId: me,
           roomId: ev.roomId,
         });
+        clearHomeListServerUnreadIncrease(ev.roomId);
         let missedRead = false;
         scheduleListPatch((prev) => {
           const next = applyHomeListPatch(

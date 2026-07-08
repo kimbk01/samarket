@@ -40,17 +40,13 @@ export function resolveBottomNavStoresTabBadgeForOwnerStore(
 }
 
 /**
- * 소유 매장이 있을 때 하단 「메신저」탭 — 주문·매장 채팅은 FAB 전용.
+ * 하단 「메신저」탭 — Rebuild: unread room count (`communityMessengerUnread` /
+ * bottom_nav_chat = consumer chat_room only). Owner 주문·매장 채팅은 FAB 전용 축이라
+ * Chat room count와 차감·혼합하지 않는다 (구 event/commerce overlap 차감 폐기).
  */
 export function resolveBottomNavMessengerTabBadgeForOwnerStore(
   bd: OwnerHubBadgeBreakdown,
-  hasOwnerStore: boolean
+  _hasOwnerStore: boolean
 ): number {
-  const base = resolveMessengerTabTotalUnreadBadgeCount(bd);
-  if (!hasOwnerStore) return base;
-  const storeOpsOverlap = Math.max(
-    resolveFabOwnerOrderChatBadgeCount(bd),
-    resolveFabOwnerOrdersBadgeCount(bd)
-  );
-  return Math.max(0, base - storeOpsOverlap);
+  return resolveMessengerTabTotalUnreadBadgeCount(bd);
 }

@@ -67,6 +67,15 @@ export async function clearNotificationTargetsAfterRoomRead(
   const uid = userId.trim();
   const rid = roomId.trim();
   if (!uid || !rid) return;
+
+  // CONTRACT (P0): bottom_nav_chat counts consumer chat_room targets keyed by room id.
+  // Always clear on room read — messenger bridge trade/delivery branches must not skip this.
+  await clearNotificationTarget(sb, {
+    userId: uid,
+    targetType: "chat_room",
+    targetId: rid,
+  });
+
   await clearMessengerRoomNotificationTargetAfterRead(sb, uid, rid);
 }
 

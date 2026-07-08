@@ -1,5 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { applyHomeListPatch } from "@/lib/community-messenger/home-list-patch";
+import { clearMessengerConsistencyStateForTests } from "@/lib/community-messenger/consistency/messenger-consistency-version";
+import { clearHomeListServerUnreadIncreaseForTests } from "@/lib/community-messenger/merge-critical-home-sync-room-summary";
+import { clearLocalReadGuardsForTests } from "@/lib/community-messenger/read/local-read-guard";
 import type {
   CommunityMessengerBootstrap,
   CommunityMessengerRoomSummary,
@@ -51,6 +54,12 @@ function bootstrap(chats: CommunityMessengerRoomSummary[]): CommunityMessengerBo
 }
 
 describe("applyHomeListPatch", () => {
+  beforeEach(() => {
+    clearLocalReadGuardsForTests();
+    clearMessengerConsistencyStateForTests();
+    clearHomeListServerUnreadIncreaseForTests();
+  });
+
   it("seeds bootstrap when prev is null", () => {
     const b = bootstrap([room("a")]);
     const next = applyHomeListPatch(null, { kind: "bootstrap_full_seed", bootstrap: b }, "bootstrap");
@@ -144,6 +153,36 @@ describe("applyHomeListPatch", () => {
     expect(next?.chats).toHaveLength(2);
     const b = next?.chats.find((r) => r.id === "b");
     expect(b?.lastMessage).toBe("ping");
+  });
+
+  it("home_sync critical_patch stale zero does not clobber positive unread", () => {
+    const ts = "2026-05-16T10:00:00.000Z";
+    const prev = bootstrap([{ ...room("a", 5), lastMessageAt: ts }]);
+    const next = applyHomeListPatch(
+      prev,
+      {
+        kind: "home_sync",
+        chats: [{ ...room("a", 0), lastMessageAt: ts }],
+        roomMode: "critical_patch",
+      },
+      "home-sync"
+    );
+    expect(next?.chats[0]?.unreadCount).toBe(5);
+  });
+
+  it("home_sync critical_patch applies server unread increase 0 to 5", () => {
+    const ts = "2026-05-16T10:00:00.000Z";
+    const prev = bootstrap([{ ...room("a", 0), lastMessageAt: ts }]);
+    const next = applyHomeListPatch(
+      prev,
+      {
+        kind: "home_sync",
+        chats: [{ ...room("a", 5), lastMessageAt: ts }],
+        roomMode: "critical_patch",
+      },
+      "home-sync"
+    );
+    expect(next?.chats[0]?.unreadCount).toBe(5);
   });
 
   it("merge_room_summary does not insert unknown direct room", () => {

@@ -7,8 +7,9 @@ import {
 } from "@/lib/notifications/notification-badge-count-store";
 
 /**
- * notification_events 읽음 mutation 이후 UI 배지 단일 진입점.
- * `requestMessengerHubBadgeResync` 가 notification badge fetch 까지 포함한다.
+ * notification_events 읽음 mutation 이후 UI 배지 단일 진입점 (Rebuild).
+ * `requestMessengerHubBadgeResync` → hub (Chat room count) + `requestNotificationBadgeCountResync`
+ * (App icon total). categoryCounts 유무와 무관하게 호출해야 한다.
  */
 export function resyncBadgesAfterNotificationEventsRead(reason: MessengerHubBadgeResyncReason): void {
   requestMessengerHubBadgeResync(reason);

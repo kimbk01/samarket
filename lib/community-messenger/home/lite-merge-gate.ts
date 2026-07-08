@@ -12,12 +12,16 @@ import {
   fingerprintHomeSyncLists,
   logHomeSyncIdenticalSkip,
 } from "@/lib/community-messenger/home/home-sync-list-fingerprint";
+import type {
+  CommunityMessengerBootstrap,
+  CommunityMessengerRoomSummary,
+} from "@/lib/community-messenger/types";
 
 export type DeferredHomeSyncPayload = {
-  chats?: import("@/lib/community-messenger/types").CommunityMessengerRoomSummary[];
-  groups?: import("@/lib/community-messenger/types").CommunityMessengerRoomSummary[];
-  requests?: import("@/lib/community-messenger/types").CommunityMessengerBootstrap["requests"];
-  friends?: import("@/lib/community-messenger/types").CommunityMessengerProfileLite[];
+  chats?: CommunityMessengerRoomSummary[];
+  groups?: CommunityMessengerRoomSummary[];
+  requests?: CommunityMessengerBootstrap["requests"];
+  friends?: CommunityMessengerBootstrap["friends"];
   roomMode?: "replace" | "critical_patch";
 };
 
@@ -86,7 +90,88 @@ export function finishHomeBootstrapRefreshRound(onPendingSilent: () => void): vo
   }
 }
 
-function homeSyncWouldChangeBootstrap(base: import("@/lib/community-messenger/types").CommunityMessengerBootstrap, payload: DeferredHomeSyncPayload): boolean {
+function roomUnreadCount(room: CommunityMessengerRoomSummary | undefined): number {
+  return Math.max(0, Math.floor(Number(room?.unreadCount) || 0));
+}
+
+function mergeRoomSummariesPreferHigherUnread(
+  prev: CommunityMessengerRoomSummary | undefined,
+  incoming: CommunityMessengerRoomSummary
+): CommunityMessengerRoomSummary {
+  if (!prev) return incoming;
+  const prevUnread = roomUnreadCount(prev);
+  const incomingUnread = roomUnreadCount(incoming);
+  if (incomingUnread >= prevUnread) return incoming;
+  return { ...incoming, unreadCount: prevUnread };
+}
+
+function mergeRoomListsPreferHigherUnread(
+  prev: CommunityMessengerRoomSummary[] | undefined,
+  incoming: CommunityMessengerRoomSummary[] | undefined
+): CommunityMessengerRoomSummary[] | undefined {
+  if (!incoming?.length) return prev;
+  if (!prev?.length) return incoming;
+  const incomingById = new Map(incoming.map((room) => [room.id, room]));
+  const merged = prev.map((room) => {
+    const patch = incomingById.get(room.id);
+    if (!patch) return room;
+    incomingById.delete(room.id);
+    return mergeRoomSummariesPreferHigherUnread(room, patch);
+  });
+  for (const patch of incomingById.values()) {
+    merged.push(patch);
+  }
+  return merged;
+}
+
+/** critical_patch payload carries a higher unread than bootstrap cache for any known room. */
+export function homeSyncPayloadHasUnreadIncreaseAgainstBase(
+  payload: DeferredHomeSyncPayload,
+  base: CommunityMessengerBootstrap
+): boolean {
+  const baseById = new Map(
+    [...(base.chats ?? []), ...(base.groups ?? [])].map((room) => [room.id, room])
+  );
+  for (const room of [...(payload.chats ?? []), ...(payload.groups ?? [])]) {
+    const prev = baseById.get(room.id);
+    if (!prev) continue;
+    if (roomUnreadCount(room) > roomUnreadCount(prev)) return true;
+  }
+  return false;
+}
+
+function coalesceDeferredHomeSyncPayload(
+  last: DeferredHomeSyncPayload,
+  payload: DeferredHomeSyncPayload
+): DeferredHomeSyncPayload {
+  const hasLast =
+    last.chats !== undefined ||
+    last.groups !== undefined ||
+    last.requests !== undefined ||
+    last.friends !== undefined ||
+    last.roomMode !== undefined;
+  if (!hasLast) return { ...payload };
+
+  const chats = mergeRoomListsPreferHigherUnread(last.chats, payload.chats);
+  const groups = mergeRoomListsPreferHigherUnread(last.groups, payload.groups);
+  return {
+    chats: chats ?? last.chats ?? payload.chats,
+    groups: groups ?? last.groups ?? payload.groups,
+    requests: payload.requests ?? last.requests,
+    friends: payload.friends ?? last.friends,
+    roomMode: payload.roomMode ?? last.roomMode,
+  };
+}
+
+function mergeDeferredHomeSyncQueue(queue: DeferredHomeSyncPayload[]): DeferredHomeSyncPayload {
+  let merged: DeferredHomeSyncPayload = {};
+  for (const payload of queue) {
+    merged = coalesceDeferredHomeSyncPayload(merged, payload);
+  }
+  return merged;
+}
+
+function homeSyncWouldChangeBootstrap(base: CommunityMessengerBootstrap, payload: DeferredHomeSyncPayload): boolean {
   const roomMode = payload.roomMode ?? "replace";
   const next = applyHomeListPatch(
     base,
@@ -104,7 +189,17 @@ function homeSyncWouldChangeBootstrap(base: import("@/lib/community-messenger/ty
   return fingerprintHomeBootstrapLists(next) !== fingerprintHomeBootstrapLists(base);
 }
 
+function shouldForceApplyCriticalUnreadIncrease(payload: DeferredHomeSyncPayload): boolean {
+  if ((payload.roomMode ?? "replace") !== "critical_patch") return false;
+  const base = peekBootstrapCache();
+  if (!base) return false;
+  return homeSyncPayloadHasUnreadIncreaseAgainstBase(payload, base);
+}
+
 export function shouldSkipHomeSyncPayload(payload: DeferredHomeSyncPayload): boolean {
+  const forceCriticalUnreadIncrease = shouldForceApplyCriticalUnreadIncrease(payload);
+  if (forceCriticalUnreadIncrease) return false;
+
   const incomingFp = fingerprintHomeSyncLists(payload);
   if (incomingFp && incomingFp === lastFlushedHomeSyncFingerprint) {
     logHomeSyncIdenticalSkip("incoming_matches_last_flush", {
@@ -172,13 +267,7 @@ export function deferHomeSyncPatchDuringLiteMerge(payload: DeferredHomeSyncPaylo
   hydrationOverlap = true;
   const last = deferredHomeSyncQueue[deferredHomeSyncQueue.length - 1];
   if (last) {
-    deferredHomeSyncQueue[deferredHomeSyncQueue.length - 1] = {
-      chats: payload.chats ?? last.chats,
-      groups: payload.groups ?? last.groups,
-      requests: payload.requests ?? last.requests,
-      friends: payload.friends ?? last.friends,
-      roomMode: payload.roomMode ?? last.roomMode,
-    };
+    deferredHomeSyncQueue[deferredHomeSyncQueue.length - 1] = coalesceDeferredHomeSyncPayload(last, payload);
   } else {
     deferredHomeSyncQueue.push(payload);
   }
@@ -187,14 +276,7 @@ export function deferHomeSyncPatchDuringLiteMerge(payload: DeferredHomeSyncPaylo
 
 function flushDeferredHomeSyncPatches(): void {
   if (!deferredApplyRunner || deferredHomeSyncQueue.length === 0) return;
-  const merged: DeferredHomeSyncPayload = {};
-  for (const p of deferredHomeSyncQueue) {
-    if (p.chats !== undefined) merged.chats = p.chats;
-    if (p.groups !== undefined) merged.groups = p.groups;
-    if (p.requests !== undefined) merged.requests = p.requests;
-    if (p.friends !== undefined) merged.friends = p.friends;
-    if (p.roomMode !== undefined) merged.roomMode = p.roomMode;
-  }
+  const merged = mergeDeferredHomeSyncQueue(deferredHomeSyncQueue);
   deferredHomeSyncQueue.length = 0;
   if (shouldSkipHomeSyncPayload(merged)) return;
   noteHomeSyncPayloadFlushed(merged);
@@ -208,4 +290,17 @@ export function shouldDeferPostLiteFollowUp(): boolean {
 
 export function markLiteMergeFollowUpsUnblocked(): void {
   liteMergeComplete = true;
+}
+
+/** Vitest — 프로덕션에서 호출하지 않는다 */
+export function resetLiteMergeGateStateForTests(): void {
+  liteMergeActive = false;
+  liteMergeComplete = true;
+  hydrationOverlap = false;
+  deferredHomeSyncQueue.length = 0;
+  deferredApplyRunner = null;
+  lastFlushedHomeSyncFingerprint = "";
+  homeRefreshRoundActive = false;
+  homeRefreshRoundPendingSilent = null;
+  lastVisibilityRestoredAt = 0;
 }

@@ -171,9 +171,31 @@ const MESSENGER_MARK_READ_HUB_BYPASS_BLOCK_MS = 5_000;
 
 const PARTICIPANT_UNREAD_ROOM_DEDUPE_MS = 4_000;
 
+/** fresh cmFresh·optimistic 이후 stale broadcast/cache 가 cm 을 내리지 못하게 하는 창 */
+
+const CM_UNREAD_STALE_DOWNGRADE_GUARD_MS = 45_000;
+
+
+
+type HubBadgeApplySource =
+
+  | { kind: "network_fresh" }
+
+  | { kind: "network_plain" }
+
+  | { kind: "broadcast" }
+
+  | { kind: "client_cache" }
+
+  | { kind: "optimistic" };
+
 
 
 let snapshot: OwnerHubBadgeBreakdown = OWNER_HUB_BADGE_EMPTY;
+
+let lastNetworkFreshCommunityMessengerUnread = 0;
+
+let lastNetworkFreshCommunityMessengerUnreadAt = 0;
 
 const listeners = new Set<() => void>();
 
@@ -254,15 +276,183 @@ function emit() {
 
 
 
-function applyFromNetwork(data: unknown) {
+function recalcHubBadgeTotal(bd: OwnerHubBadgeBreakdown): number {
 
-  const next = parseOwnerHubBadgeJson(data);
+  return (
+
+    Math.max(0, bd.socialChatUnread) +
+
+    Math.max(0, bd.storesTabAttention) +
+
+    Math.max(0, bd.communityMessengerUnread)
+
+  );
+
+}
+
+
+
+function guardStaleCommunityMessengerUnread(
+
+  next: OwnerHubBadgeBreakdown,
+
+  source: HubBadgeApplySource
+
+): OwnerHubBadgeBreakdown {
+
+  if (source.kind === "network_fresh" || source.kind === "optimistic") return next;
+
+
+
+  const incomingCm = Math.max(0, Math.floor(Number(next.communityMessengerUnread) || 0));
+
+  const currentCm = Math.max(0, Math.floor(Number(snapshot.communityMessengerUnread) || 0));
+
+  const freshCm = Math.max(0, Math.floor(Number(lastNetworkFreshCommunityMessengerUnread) || 0));
+
+  const freshAge = Date.now() - lastNetworkFreshCommunityMessengerUnreadAt;
+
+  const freshGuardActive =
+
+    lastNetworkFreshCommunityMessengerUnreadAt > 0 && freshAge < CM_UNREAD_STALE_DOWNGRADE_GUARD_MS;
+
+
+
+  if (!freshGuardActive) {
+
+    if (
+
+      (source.kind === "broadcast" ||
+
+        source.kind === "client_cache" ||
+
+        source.kind === "network_plain") &&
+
+      incomingCm > currentCm
+
+    ) {
+
+      return {
+
+        ...next,
+
+        communityMessengerUnread: incomingCm,
+
+        total: recalcHubBadgeTotal({ ...next, communityMessengerUnread: incomingCm }),
+
+      };
+
+    }
+
+    return next;
+
+  }
+
+
+
+  const authoritativeCm = Math.max(currentCm, freshCm);
+
+  if (incomingCm >= authoritativeCm) return next;
+
+
+
+  return {
+
+    ...next,
+
+    communityMessengerUnread: authoritativeCm,
+
+    total: recalcHubBadgeTotal({ ...next, communityMessengerUnread: authoritativeCm }),
+
+  };
+
+}
+
+
+
+function noteNetworkFreshCommunityMessengerUnread(cm: number): void {
+
+  lastNetworkFreshCommunityMessengerUnread = Math.max(0, Math.floor(Number(cm) || 0));
+
+  lastNetworkFreshCommunityMessengerUnreadAt = Date.now();
+
+}
+
+
+
+function applyOwnerHubBadgePayload(data: unknown, source: HubBadgeApplySource): void {
+
+  const parsed = parseOwnerHubBadgeJson(data);
+
+  const next = guardStaleCommunityMessengerUnread(parsed, source);
+
+
+
+  if (source.kind === "network_fresh" || source.kind === "optimistic") {
+
+    noteNetworkFreshCommunityMessengerUnread(next.communityMessengerUnread);
+
+  }
+
+
 
   if (sameOwnerHubBadge(snapshot, next)) return;
 
   snapshot = next;
 
   emit();
+
+}
+
+
+
+function maybeScheduleCmFreshVerifyAfterZeroCache(
+
+  source: string,
+
+  opts?: FetchOwnerHubBadgeNowOptions
+
+): void {
+
+  if (Math.max(0, snapshot.communityMessengerUnread) > 0) return;
+
+  const now = Date.now();
+
+  if (now - lastFetchStartedAt < MIN_FORCE_FETCH_GAP_MS) return;
+
+  ensureOwnerHubLeaderAndSync();
+
+  const verifyOpts: FetchOwnerHubBadgeNowOptions = {
+
+    ...opts,
+
+    serverHubBadgeBypass: true,
+
+    allowImmediateUserAction: true,
+
+    callerComponent: opts?.callerComponent ?? "cm_fresh_verify",
+
+  };
+
+  if (isLeaderOwnerHubBadgeRef.current) {
+
+    void fetchOwnerHubBadgeNow(true, verifyOpts);
+
+    return;
+
+  }
+
+  postOwnerHubBadgeRefreshRequest(true);
+
+  scheduleDeferredHubBadgeFetch(`${source}_cm_fresh_verify`, true, verifyOpts);
+
+}
+
+
+
+function applyFromNetwork(data: unknown) {
+
+  applyOwnerHubBadgePayload(data, { kind: "network_plain" });
 
 }
 
@@ -284,11 +474,9 @@ export function applyCommunityMessengerUnreadOptimistic(unread: number): void {
 
   if (sameOwnerHubBadge(snapshot, next)) return;
 
-  snapshot = next;
+  applyOwnerHubBadgePayload({ ok: true, ...next }, { kind: "optimistic" });
 
-  emit();
-
-  broadcastOwnerHubBadgeSnapshot({ ok: true, ...next });
+  broadcastOwnerHubBadgeSnapshot({ ok: true, ...getOwnerHubBadgeSnapshot() });
 
 }
 
@@ -321,6 +509,14 @@ function broadcastOwnerHubBadgeSnapshot(data: unknown) {
     /* ignore */
 
   }
+
+}
+
+
+
+function broadcastAppliedOwnerHubBadgeSnapshot(): void {
+
+  broadcastOwnerHubBadgeSnapshot({ ok: true, ...getOwnerHubBadgeSnapshot() });
 
 }
 
@@ -386,7 +582,7 @@ function ensureOwnerHubLeaderAndSync() {
 
     if (d.type === "snapshot") {
 
-      applyFromNetwork(d.data ?? null);
+      applyOwnerHubBadgePayload(d.data ?? null, { kind: "broadcast" });
 
       return;
 
@@ -648,9 +844,11 @@ function scheduleDeferredHubBadgeFetch(
 
     if (cachedPayload != null) {
 
-      applyFromNetwork(cachedPayload);
+      applyOwnerHubBadgePayload(cachedPayload, { kind: "client_cache" });
 
-      broadcastOwnerHubBadgeSnapshot(cachedPayload);
+      broadcastAppliedOwnerHubBadgeSnapshot();
+
+      maybeScheduleCmFreshVerifyAfterZeroCache(source, opts);
 
       logHubBadgeScheduleTrace({ source, skipped: true, ttlHit: true });
 
@@ -667,6 +865,36 @@ function scheduleDeferredHubBadgeFetch(
       return;
 
     }
+
+  }
+
+  if (force) {
+
+    logHubBadgeScheduleTrace({ source, skipped: false });
+
+    logHubBadgeLoopTrace({ reason: `schedule:${source}:force_immediate` });
+
+    if (!canIssueHubBadgeNetworkFetch(force, opts)) {
+
+      logHubBadgeScheduleTrace({ source, skipped: true });
+
+      return;
+
+    }
+
+    void fetchOwnerHubBadgeNow(force, {
+
+      ...opts,
+
+      callerComponent: opts?.callerComponent ?? source,
+
+      allowImmediateUserAction: force ? true : opts?.allowImmediateUserAction,
+
+      serverHubBadgeBypass: force ? opts?.serverHubBadgeBypass ?? true : opts?.serverHubBadgeBypass,
+
+    });
+
+    return;
 
   }
 
@@ -708,9 +936,11 @@ function fetchOwnerHubBadgeLeaderNetwork(force: boolean, opts?: FetchOwnerHubBad
 
     if (cachedPayload != null) {
 
-      applyFromNetwork(cachedPayload);
+      applyOwnerHubBadgePayload(cachedPayload, { kind: "client_cache" });
 
-      broadcastOwnerHubBadgeSnapshot(cachedPayload);
+      broadcastAppliedOwnerHubBadgeSnapshot();
+
+      maybeScheduleCmFreshVerifyAfterZeroCache("fetchOwnerHubBadgeLeaderNetwork", opts);
 
       lastFetchCompletedAt = now;
 
@@ -811,6 +1041,12 @@ function fetchOwnerHubBadgeLeaderNetwork(force: boolean, opts?: FetchOwnerHubBad
 
   lastFetchStartedAt = now;
 
+  if (force) {
+
+    clientHubBadgeResponseCache = null;
+
+  }
+
 
 
   const hubCacheHit = !force && peekClientHubBadgeResponseCache() != null ? 1 : 0;
@@ -910,9 +1146,9 @@ function fetchOwnerHubBadgeLeaderNetwork(force: boolean, opts?: FetchOwnerHubBad
 
       }
 
-      applyFromNetwork(data);
+      applyOwnerHubBadgePayload(data, { kind: force ? "network_fresh" : "network_plain" });
 
-      broadcastOwnerHubBadgeSnapshot(data);
+      broadcastAppliedOwnerHubBadgeSnapshot();
 
       lastFetchCompletedAt = Date.now();
 
@@ -1260,6 +1496,30 @@ function scheduleMessengerParticipantHubBadgeRefresh(detail?: OwnerHubBadgeRefre
 
   const now = Date.now();
 
+  const shouldForceCmFreshForMessengerEvent = (): boolean => {
+
+    if (direction === "increase") return true;
+
+    if (
+
+      reason === "home_list_merge_summary" ||
+
+      reason === "direct_room_created" ||
+
+      reason === "trade_chat_entry_room_ready" ||
+
+      reason === "sender_echo_room_missing"
+
+    ) {
+
+      return true;
+
+    }
+
+    return false;
+
+  };
+
   const logParticipantSkip = (extra: {
     reason: string;
     dedupe_hit?: boolean;
@@ -1340,7 +1600,9 @@ function scheduleMessengerParticipantHubBadgeRefresh(detail?: OwnerHubBadgeRefre
 
   const staleEnough = now - lastFetchCompletedAt >= MESSENGER_PARTICIPANT_FORCE_STALE_MS;
 
-  const shouldForceFresh = staleEnough && !recentHubFetch;
+  const shouldForceFresh =
+
+    shouldForceCmFreshForMessengerEvent() || (staleEnough && !recentHubFetch);
 
   const elapsed = now - lastMessengerParticipantForceRefreshAt;
 
@@ -1394,6 +1656,10 @@ function scheduleMessengerParticipantHubBadgeRefresh(detail?: OwnerHubBadgeRefre
 
       callerComponent: "community_messenger_participant",
 
+      serverHubBadgeBypass: shouldForceFresh,
+
+      allowImmediateUserAction: shouldForceFresh,
+
     });
 
     return;
@@ -1414,15 +1680,21 @@ function scheduleMessengerParticipantHubBadgeRefresh(detail?: OwnerHubBadgeRefre
 
     const trailingShouldForceFresh =
 
-      Date.now() - lastFetchCompletedAt >= MESSENGER_PARTICIPANT_FORCE_STALE_MS &&
+      shouldForceCmFreshForMessengerEvent() ||
 
-      !trailingRecentHubFetch;
+      (Date.now() - lastFetchCompletedAt >= MESSENGER_PARTICIPANT_FORCE_STALE_MS &&
+
+        !trailingRecentHubFetch);
 
     logParticipantTrigger(trailingShouldForceFresh);
 
     scheduleDeferredHubBadgeFetch("community_messenger_event_trailing", trailingShouldForceFresh, {
 
       callerComponent: "community_messenger_participant",
+
+      serverHubBadgeBypass: trailingShouldForceFresh,
+
+      allowImmediateUserAction: trailingShouldForceFresh,
 
     });
 
@@ -1888,6 +2160,26 @@ export function refreshOwnerHubBadgeIfHubPath(pathname: string | null) {
 
     hubPathRefreshTimer = null;
 
+    const messengerPath = Boolean(pathname?.startsWith("/community-messenger"));
+
+    if (messengerPath) {
+
+      void fetchOwnerHubBadgeNow(true, {
+
+        serverHubBadgeBypass: true,
+
+        allowImmediateUserAction: true,
+
+        callerComponent: "OwnerHubBadgeRuntime",
+
+        routeTransitionSource: pathname ?? undefined,
+
+      });
+
+      return;
+
+    }
+
     scheduleDeferredHubBadgeFetch("hub_path_refresh", false, {
 
       callerComponent: "OwnerHubBadgeRuntime",
@@ -1897,6 +2189,38 @@ export function refreshOwnerHubBadgeIfHubPath(pathname: string | null) {
     });
 
   }, HUB_PATH_REFRESH_DEBOUNCE_MS);
+
+}
+
+
+
+/** @internal vitest — owner hub badge store cm sync contract */
+
+export function __resetOwnerHubBadgeStoreForTest(): void {
+
+  snapshot = OWNER_HUB_BADGE_EMPTY;
+
+  lastNetworkFreshCommunityMessengerUnread = 0;
+
+  lastNetworkFreshCommunityMessengerUnreadAt = 0;
+
+  clientHubBadgeResponseCache = null;
+
+}
+
+
+
+/** @internal vitest — apply hub payload with explicit source */
+
+export function __testApplyOwnerHubBadgePayloadForTest(
+
+  data: unknown,
+
+  source: HubBadgeApplySource["kind"]
+
+): void {
+
+  applyOwnerHubBadgePayload(data, { kind: source });
 
 }
 

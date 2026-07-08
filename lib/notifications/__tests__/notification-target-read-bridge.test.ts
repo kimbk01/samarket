@@ -36,10 +36,37 @@ describe("notification-target-read-bridge", () => {
   it("delegates room read target clear to messenger bridge", async () => {
     const sb = {} as never;
     await clearNotificationTargetsAfterRoomRead(sb, "user-1", "room-1");
+    expect(clearNotificationTarget).toHaveBeenCalledWith(sb, {
+      userId: "user-1",
+      targetType: "chat_room",
+      targetId: "room-1",
+    });
     expect(clearMessengerRoomNotificationTargetAfterRead).toHaveBeenCalledWith(
       sb,
       "user-1",
       "room-1"
+    );
+  });
+
+  it("always clears chat_room target before messenger bridge even for trade-linked rooms", async () => {
+    const sb = {} as never;
+    clearMessengerRoomNotificationTargetAfterRead.mockImplementation(async () => {
+      await clearNotificationTarget(sb, {
+        userId: "user-1",
+        targetType: "trade",
+        targetId: "post-1:seller-1:buyer-1",
+      });
+    });
+    await clearNotificationTargetsAfterRoomRead(sb, "user-1", "room-trade-1");
+    expect(clearNotificationTarget).toHaveBeenNthCalledWith(1, sb, {
+      userId: "user-1",
+      targetType: "chat_room",
+      targetId: "room-trade-1",
+    });
+    expect(clearMessengerRoomNotificationTargetAfterRead).toHaveBeenCalledWith(
+      sb,
+      "user-1",
+      "room-trade-1"
     );
   });
 

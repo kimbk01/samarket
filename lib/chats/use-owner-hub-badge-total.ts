@@ -71,24 +71,24 @@ function tabUnreadFromBreakdown(
   }
 }
 
-function tabUnreadFromNotificationEvents(icon: BottomNavIconKey): number | null {
-  return resolveBottomNavTabUnreadFromNotificationEvents(icon);
-}
-
-/** P0.1 — BottomNav 탭별 notification_events 슬라이스 (테스트·계약용 export) */
+/**
+ * BottomNav non-Chat events slices (Community / Stores / Trade 조회용).
+ * Chat icon → always null (Rebuild: Chat tab must not use event SUM).
+ */
 export function resolveBottomNavTabUnreadFromNotificationEvents(
   icon: BottomNavIconKey
 ): number | null {
   const snap = getNotificationBadgeCountSnapshot();
   if (!snap) return null;
   if (icon === "chat") {
-    return Math.max(0, (snap.chatMessage ?? snap.chat) + (snap.groupMessage ?? snap.group));
+    // Rebuild: Chat tab authority is hub room count — never event SUM.
+    return null;
   }
   if (icon === "trade") {
     return Math.max(0, (snap.tradeMessage ?? 0) + (snap.tradeStatus ?? snap.trade));
   }
   if (icon === "community") {
-    // P0.1 — Philife(community) 탭: community_activity만. admin_notice는 Tier1 종·앱 아이콘 total.
+    // Philife(community) 탭: community_activity만. admin_notice는 Tier1 종·앱 아이콘 total.
     return Math.max(0, snap.communityActivity ?? 0);
   }
   if (icon === "stores") {
@@ -98,10 +98,11 @@ export function resolveBottomNavTabUnreadFromNotificationEvents(
 }
 
 /**
- * 하단 탭 한 칸만 구독 — 배지 API 갱신 시 해당 필드가 바뀐 탭만 리렌더.
- * 숫자 정의는 `samarket-messenger-notification-regulations.ts`.
+ * 하단 탭 한 칸만 구독 — Rebuild Authority.
  *
- * 메신저(`chat`) 탭: `notification_events` SSOT + owner-hub 폴백 — `subscribeMessengerChatTabBadge`.
+ * - chat: hub unread **room** count (`subscribeMessengerChatTabBadge`)
+ * - trade: events trade_message + trade_status
+ * - community / stores: events slice, else hub breakdown
  */
 export function useOwnerHubBadgeTabUnreadCount(icon: BottomNavIconKey): number {
   const hasOwnerStore = useOwnerLiteHasPreferredStore();
@@ -114,8 +115,8 @@ export function useOwnerHubBadgeTabUnreadCount(icon: BottomNavIconKey): number {
         unsubs.push(subscribeMessengerChatTabBadge(onStoreChange));
       } else {
         unsubs.push(subscribeOwnerHubBadge(onStoreChange));
+        unsubs.push(subscribeNotificationBadgeCount(onStoreChange));
       }
-      unsubs.push(subscribeNotificationBadgeCount(onStoreChange));
       return () => {
         for (const unsub of unsubs) unsub();
       };
@@ -123,10 +124,13 @@ export function useOwnerHubBadgeTabUnreadCount(icon: BottomNavIconKey): number {
     [icon]
   );
   const getSnapshot = useCallback(() => {
+    if (icon === "chat") {
+      return resolveMessengerChatTabBadgeCount(hasOwnerStoreRef.current, getOwnerHubBadgeSnapshot());
+    }
     if (icon === "trade") {
       return resolveBottomNavTradeTabBadgeCount(getOwnerHubBadgeSnapshot());
     }
-    const fromEvents = tabUnreadFromNotificationEvents(icon);
+    const fromEvents = resolveBottomNavTabUnreadFromNotificationEvents(icon);
     if (fromEvents != null) return fromEvents;
     const hub = getOwnerHubBadgeSnapshot();
     return tabUnreadFromBreakdown(icon, hub, hasOwnerStoreRef.current);

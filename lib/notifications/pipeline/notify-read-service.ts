@@ -71,12 +71,12 @@ export async function markRoomRead(
   roomId: string
 ): Promise<number> {
   const count = await markRoomNotificationEventsRead(sb, userId, roomId);
-  if (count > 0) {
-    invalidateNotificationBadgeCache(userId);
-    logNotifyBadge("read_clear", { userId, roomId, count });
-    await fetchNotificationBadgeCount(sb, userId, { force: true });
-  }
   await clearTargetsAfterRoomReadBestEffort(sb, userId, roomId);
+  invalidateNotificationBadgeCache(userId);
+  if (count > 0) {
+    logNotifyBadge("read_clear", { userId, roomId, count });
+  }
+  await fetchNotificationBadgeCount(sb, userId, { force: true });
   return count;
 }
 
@@ -143,15 +143,20 @@ export async function markNotificationThreadRead(
   } else {
     count = await markNotificationEventsReadByThread(sb, userId, threadId, opts);
   }
-  if (count > 0) {
-    invalidateNotificationBadgeCache(userId);
-    logNotifyBadge("read_clear", { userId, threadId, count, threadType, readReason });
-    await fetchNotificationBadgeCount(sb, userId, { force: true });
-  }
   await clearTargetsAfterThreadReadBestEffort(sb, userId, {
     threadId,
     threadType,
     readReason,
   });
+  const messengerRoomThreadRead =
+    threadType === "chat_room" ||
+    (threadType === "trade_room" && readReason !== "trade_detail_opened");
+  if (count > 0 || messengerRoomThreadRead) {
+    invalidateNotificationBadgeCache(userId);
+    if (count > 0) {
+      logNotifyBadge("read_clear", { userId, threadId, count, threadType, readReason });
+    }
+    await fetchNotificationBadgeCount(sb, userId, { force: true });
+  }
   return count;
 }

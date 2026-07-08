@@ -3,11 +3,8 @@ import type { OwnerHubBadgeBreakdown } from "@/lib/chats/owner-hub-badge-types";
 import { OWNER_HUB_BADGE_EMPTY } from "@/lib/chats/owner-hub-badge-types";
 
 const hubListeners = new Set<() => void>();
-const eventsListeners = new Set<() => void>();
 
 let hubSnap: OwnerHubBadgeBreakdown = { ...OWNER_HUB_BADGE_EMPTY, communityMessengerUnread: 3 };
-let eventsSnap: { total: number; chat: number; group: number; trade: number; store: number; missedCall: number } | null =
-  { total: 5, chat: 2, group: 1, trade: 1, store: 0, missedCall: 1 };
 
 vi.mock("@/lib/chats/owner-hub-badge-store", () => ({
   getOwnerHubBadgeSnapshot: () => hubSnap,
@@ -17,47 +14,35 @@ vi.mock("@/lib/chats/owner-hub-badge-store", () => ({
   },
 }));
 
-vi.mock("@/lib/notifications/notification-badge-count-store", () => ({
-  getNotificationBadgeCountSnapshot: () => eventsSnap,
-  subscribeNotificationBadgeCount: (fn: () => void) => {
-    eventsListeners.add(fn);
-    return () => eventsListeners.delete(fn);
-  },
-}));
-
 import {
   resolveMessengerChatTabBadgeCount,
   subscribeMessengerChatTabBadge,
 } from "@/lib/notifications/messenger-chat-tab-badge";
 
-describe("messenger-chat-tab-badge", () => {
+describe("messenger-chat-tab-badge Rebuild (room count)", () => {
   beforeEach(() => {
     hubSnap = { ...OWNER_HUB_BADGE_EMPTY, communityMessengerUnread: 3 };
-    eventsSnap = { total: 5, chat: 2, group: 1, trade: 1, store: 0, missedCall: 1 };
     hubListeners.clear();
-    eventsListeners.clear();
   });
 
-  it("prefers notification_events chat/group slice over hub communityMessengerUnread", () => {
+  it("uses hub communityMessengerUnread room count (not event SUM)", () => {
     expect(resolveMessengerChatTabBadgeCount(false)).toBe(3);
   });
 
-  it("does not let owner-hub fallback override a zero notification_events snapshot", () => {
+  it("does not collapse when hub room count is high", () => {
     hubSnap = { ...OWNER_HUB_BADGE_EMPTY, communityMessengerUnread: 99 };
-    eventsSnap = { total: 0, chat: 0, group: 0, trade: 0, store: 0, missedCall: 0 };
+    expect(resolveMessengerChatTabBadgeCount(false)).toBe(99);
+  });
+
+  it("returns 0 when hub room count is 0", () => {
+    hubSnap = { ...OWNER_HUB_BADGE_EMPTY, communityMessengerUnread: 0 };
     expect(resolveMessengerChatTabBadgeCount(false)).toBe(0);
   });
 
-  it("falls back to hub when notification_events snapshot is null", () => {
-    eventsSnap = null;
-    expect(resolveMessengerChatTabBadgeCount(false)).toBe(3);
-  });
-
-  it("notifies when either hub or notification_events store changes", () => {
+  it("notifies only on hub store changes (room-count authority)", () => {
     const onChange = vi.fn();
     subscribeMessengerChatTabBadge(onChange);
     hubListeners.forEach((l) => l());
-    eventsListeners.forEach((l) => l());
-    expect(onChange).toHaveBeenCalledTimes(2);
+    expect(onChange).toHaveBeenCalledTimes(1);
   });
 });

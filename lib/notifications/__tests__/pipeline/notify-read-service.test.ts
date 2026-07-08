@@ -81,8 +81,18 @@ describe("notify-read-service", () => {
   it("marks room events read when count > 0", async () => {
     const count = await markRoomRead(sb, "user-1", "room-1");
     expect(count).toBe(2);
-    expect(invalidateNotificationBadgeCache).toHaveBeenCalledWith("user-1");
     expect(clearNotificationTargetsAfterRoomRead).toHaveBeenCalledWith(sb, "user-1", "room-1");
+    expect(invalidateNotificationBadgeCache).toHaveBeenCalledWith("user-1");
+    expect(fetchNotificationBadgeCount).toHaveBeenCalled();
+  });
+
+  it("refreshes badge after room read target clear even when events are already read", async () => {
+    markRoomNotificationEventsRead.mockResolvedValueOnce(0);
+    const count = await markRoomRead(sb, "user-1", "room-1");
+    expect(count).toBe(0);
+    expect(clearNotificationTargetsAfterRoomRead).toHaveBeenCalledWith(sb, "user-1", "room-1");
+    expect(invalidateNotificationBadgeCache).toHaveBeenCalledWith("user-1");
+    expect(fetchNotificationBadgeCount).toHaveBeenCalled();
   });
 
   it("does not fail room read when target clear bridge fails", async () => {
@@ -121,7 +131,7 @@ describe("notify-read-service", () => {
       readReason: "chat_room_visible",
     });
     expect(count).toBe(0);
-    expect(fetchNotificationBadgeCount).not.toHaveBeenCalled();
+    expect(fetchNotificationBadgeCount).toHaveBeenCalled();
     expect(clearNotificationTargetsAfterThreadRead).toHaveBeenCalledWith(sb, "user-1", {
       threadId: "room-1",
       threadType: "chat_room",
