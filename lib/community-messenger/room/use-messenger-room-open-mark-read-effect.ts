@@ -17,7 +17,7 @@ import { isMessengerRoomReadGateExtraBlocked } from "@/lib/community-messenger/r
 import { messengerMonitorUnreadListSync } from "@/lib/community-messenger/monitoring/client";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
-import { postNotificationThreadRead } from "@/lib/notifications/client/notification-event-read-client";
+import { postNotificationRoomRead } from "@/lib/notifications/client/notification-event-read-client";
 import {
   cmReadBadgeLog,
   refreshLocalReadGuardServerAck,
@@ -161,14 +161,6 @@ function currentRouteMatchesRoom(roomId: string, snapshotRoomId: string | null):
   return routeRoomId === roomId || (snapshotRoomId != null && routeRoomId === snapshotRoomId);
 }
 
-function roomNotificationReadCategories(snapshot: CommunityMessengerRoomSnapshot): string[] {
-  if (snapshot.room.contextMeta?.kind === "trade") return ["trade_message"];
-  if (snapshot.room.roomType === "private_group" || snapshot.room.roomType === "open_group") {
-    return ["group_message"];
-  }
-  return ["chat_message"];
-}
-
 function documentIsVisible(): boolean {
   if (typeof document === "undefined") return true;
   return document.visibilityState === "visible";
@@ -285,7 +277,7 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
   const readMarkEffectEndRecordedRoomRef = useRef<string | null>(null);
   const readMarkEffectCountRef = useRef(0);
   const lastSeenReadGateMessageIdRef = useRef<string | null>(null);
-  /** mark_read 성공 후 notification_events read-thread — 방 진입당 1회 (immediate_open·scroll_ack 중복 방지) */
+  /** mark_read 성공 후 notification_events room-read — 방 진입당 1회 (immediate_open·scroll_ack 중복 방지) */
   const notificationThreadReadDoneRef = useRef(false);
   /** 동일 lastReadMessageId 에 대해 리스트 낙관적 0 중복 적용 방지 */
   const earlyOptimisticMessageIdRef = useRef<string | null>(null);
@@ -362,31 +354,10 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
       return typeof performance !== "undefined" ? Math.round(performance.now() - tAlign0) : 0;
     };
 
-    const readRoomNotificationEventsAfterServerRead = (
-      snap: CommunityMessengerRoomSnapshot,
-      lastVisibleMessageId: string | null
-    ): boolean => {
+    const readRoomNotificationEventsAfterServerRead = (): boolean => {
       if (notificationThreadReadDoneRef.current) return true;
-      const readable = isRoomActuallyReadableState({
-        roomId: id,
-        snapshot: snap,
-        roomMessages: roomMessagesRef.current,
-        roomLoading: roomLoadingRef.current,
-        overlayBlocked: readPhase1OverlayBlockedRef.current,
-      });
-      const viewport = messagesViewportRef.current;
-      const visibleMessageId = lastVisibleMessageId ?? lastMarkableMessageId(roomMessagesRef.current, snap.messages);
-      if (!readable.readable || !viewport || !visibleMessageId) return false;
-      if (!isNearBottom(viewport) && !isLatestMessageVisibleEnoughInViewport(viewport, visibleMessageId)) return false;
       notificationThreadReadDoneRef.current = true;
-      void postNotificationThreadRead(id, {
-        threadType: snap.room.contextMeta?.kind === "trade" ? "trade_room" : "chat_room",
-        roomId: id,
-        categories: roomNotificationReadCategories(snap),
-        readReason: "chat_room_visible",
-        lastVisibleMessageId,
-        clientVisibleAt: new Date().toISOString(),
-      });
+      void postNotificationRoomRead(id);
       return true;
     };
 
@@ -430,7 +401,7 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
                 reason: "immediate_open_patch",
               });
             }
-            readRoomNotificationEventsAfterServerRead(snap, tailId);
+            readRoomNotificationEventsAfterServerRead();
             cmReadBadgeLog("mark_read_patch_done", { roomId: id, path: "immediate_open" });
           } else {
             cmReadBadgeLog("mark_read_patch_fail", {
@@ -626,10 +597,7 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
                 reason: "scroll_ack_patch",
               });
             }
-            const notificationReadDone = readRoomNotificationEventsAfterServerRead(
-              snap,
-              serverLastId ?? lastReadMessageId
-            );
+            const notificationReadDone = readRoomNotificationEventsAfterServerRead();
             cmReadBadgeLog("mark_read_patch_done", { roomId: id, path: "scroll_ack" });
             if (peerTailMarkReadHintRef?.current && peerTailMarkReadHintRef.current === lastReadMessageId) {
               peerTailMarkReadHintRef.current = null;
