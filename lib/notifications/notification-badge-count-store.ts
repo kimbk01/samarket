@@ -22,6 +22,56 @@ function setSnap(next: NotificationBadgeCount | null) {
   emit();
 }
 
+/** badge-count API JSON · read-thread `categoryCounts` 공통 정규화 */
+export function normalizeNotificationBadgeCountPayload(
+  j: Record<string, unknown> | null | undefined
+): NotificationBadgeCount | null {
+  if (!j || typeof j !== "object") return null;
+  const hasShape =
+    j.total !== undefined ||
+    j.chatMessage !== undefined ||
+    j.chat_message !== undefined ||
+    j.chat !== undefined ||
+    j.communityActivity !== undefined ||
+    j.community_activity !== undefined;
+  if (!hasShape) return null;
+  return {
+    total: Math.max(0, Math.floor(Number(j.total) || 0)),
+    chatMessage: Math.max(0, Math.floor(Number(j.chatMessage ?? j.chat_message ?? j.chat) || 0)),
+    groupMessage: Math.max(0, Math.floor(Number(j.groupMessage ?? j.group_message ?? j.group) || 0)),
+    tradeMessage: Math.max(0, Math.floor(Number(j.tradeMessage ?? j.trade_message ?? j.trade) || 0)),
+    tradeStatus: Math.max(0, Math.floor(Number(j.tradeStatus ?? j.trade_status) || 0)),
+    orderStatus: Math.max(0, Math.floor(Number(j.orderStatus ?? j.order_status ?? j.store) || 0)),
+    deliveryStatus: Math.max(0, Math.floor(Number(j.deliveryStatus ?? j.delivery_status) || 0)),
+    communityActivity: Math.max(
+      0,
+      Math.floor(Number(j.communityActivity ?? j.community_activity) || 0)
+    ),
+    adminMarketingBanner: Math.max(
+      0,
+      Math.floor(Number(j.adminMarketingBanner ?? j.admin_marketing_banner) || 0)
+    ),
+    adminNotice: Math.max(0, Math.floor(Number(j.adminNotice ?? j.admin_notice) || 0)),
+    chat: Math.max(0, Math.floor(Number(j.chat) || 0)),
+    group: Math.max(0, Math.floor(Number(j.group) || 0)),
+    trade: Math.max(0, Math.floor(Number(j.trade) || 0)),
+    store: Math.max(0, Math.floor(Number(j.store) || 0)),
+    missedCall: Math.max(0, Math.floor(Number(j.missedCall ?? j.missed_call) || 0)),
+  };
+}
+
+/** read-thread / room-read 응답 categoryCounts → BottomNav events snapshot 즉시 반영 */
+export function applyNotificationBadgeCountFromReadResponse(categoryCounts: unknown): boolean {
+  const payload =
+    categoryCounts && typeof categoryCounts === "object" && !Array.isArray(categoryCounts)
+      ? normalizeNotificationBadgeCountPayload(categoryCounts as Record<string, unknown>)
+      : null;
+  if (!payload) return false;
+  patchNotificationBadgeCountSnapshot(payload);
+  logNotifyBadge("ui_set_read_patch", payload);
+  return true;
+}
+
 export function getNotificationBadgeCountSnapshot(): NotificationBadgeCount | null {
   return snap;
 }
@@ -56,29 +106,11 @@ async function doFetch(force = false): Promise<void> {
     unauthorizedPaused = false;
     const j = await res.json();
     if (j?.ok) {
-      const next: NotificationBadgeCount = {
-        total: Math.max(0, Math.floor(Number(j.total) || 0)),
-        chatMessage: Math.max(0, Math.floor(Number(j.chatMessage ?? j.chat_message ?? j.chat) || 0)),
-        groupMessage: Math.max(0, Math.floor(Number(j.groupMessage ?? j.group_message ?? j.group) || 0)),
-        tradeMessage: Math.max(0, Math.floor(Number(j.tradeMessage ?? j.trade_message ?? j.trade) || 0)),
-        tradeStatus: Math.max(0, Math.floor(Number(j.tradeStatus ?? j.trade_status) || 0)),
-        orderStatus: Math.max(0, Math.floor(Number(j.orderStatus ?? j.order_status ?? j.store) || 0)),
-        deliveryStatus: Math.max(0, Math.floor(Number(j.deliveryStatus ?? j.delivery_status) || 0)),
-        communityActivity: Math.max(
-          0,
-          Math.floor(Number(j.communityActivity ?? j.community_activity) || 0)
-        ),
-        adminMarketingBanner: Math.max(
-          0,
-          Math.floor(Number(j.adminMarketingBanner ?? j.admin_marketing_banner) || 0)
-        ),
-        adminNotice: Math.max(0, Math.floor(Number(j.adminNotice ?? j.admin_notice) || 0)),
-        chat: Math.max(0, Math.floor(Number(j.chat) || 0)),
-        group: Math.max(0, Math.floor(Number(j.group) || 0)),
-        trade: Math.max(0, Math.floor(Number(j.trade) || 0)),
-        store: Math.max(0, Math.floor(Number(j.store) || 0)),
-        missedCall: Math.max(0, Math.floor(Number(j.missedCall) || 0)),
-      };
+      const next = normalizeNotificationBadgeCountPayload(j as Record<string, unknown>);
+      if (!next) {
+        logNotifyBadge("ui_set", { fetchFailed: true });
+        return;
+      }
       setSnap(next);
       logNotifyBadge("ui_set", next);
       if (!pollInterval && subscriberCount > 0) {

@@ -1,12 +1,18 @@
 import { logNotifyOpen } from "@/lib/notifications/core/notification-logs";
 import type { MessengerHubBadgeResyncReason } from "@/lib/community-messenger/notifications/messenger-notification-contract";
+import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
 import {
   applyMissedCallNotificationReadOptimistic,
   resyncBadgesAfterNotificationEventsRead,
 } from "@/lib/notifications/client/notification-events-read-resync";
+import { applyNotificationBadgeCountFromReadResponse } from "@/lib/notifications/notification-badge-count-store";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
-type ReadMutationResult = { ok: boolean; cleared?: number };
+type ReadMutationResult = {
+  ok: boolean;
+  cleared?: number;
+  categoryCounts?: unknown;
+};
 type ReadThreadClientOptions = {
   threadType?: "chat_room" | "trade_room" | "order" | "community_post" | "call";
   roomId?: string;
@@ -33,17 +39,34 @@ async function postJson(url: string, body: Record<string, unknown>): Promise<Rea
       body: JSON.stringify(body),
     });
     if (!res.ok) return { ok: false };
-    const j = (await res.json()) as { ok?: boolean; cleared?: number };
+    const j = (await res.json()) as {
+      ok?: boolean;
+      cleared?: number;
+      categoryCounts?: unknown;
+    };
     const cleared = Math.max(0, Math.floor(Number(j.cleared) || 0));
-    return { ok: j?.ok === true, cleared: cleared > 0 ? cleared : undefined };
+    return {
+      ok: j?.ok === true,
+      cleared: cleared > 0 ? cleared : undefined,
+      categoryCounts: j.categoryCounts,
+    };
   } catch {
     return { ok: false };
   }
 }
 
-function afterNotificationEventsRead(reason: MessengerHubBadgeResyncReason, cleared?: number): void {
-  if (cleared != null && cleared > 0) {
-    applyMissedCallNotificationReadOptimistic(cleared);
+function afterNotificationEventsRead(
+  reason: MessengerHubBadgeResyncReason,
+  result?: Pick<ReadMutationResult, "cleared" | "categoryCounts">
+): void {
+  const patched =
+    result?.categoryCounts != null && applyNotificationBadgeCountFromReadResponse(result.categoryCounts);
+  if (patched) {
+    requestMessengerHubBadgeResync(reason);
+    return;
+  }
+  if (result?.cleared != null && result.cleared > 0) {
+    applyMissedCallNotificationReadOptimistic(result.cleared);
   }
   resyncBadgesAfterNotificationEventsRead(reason);
 }
@@ -62,7 +85,7 @@ export async function postNotificationEventOpenedRead(
   });
   if (result.ok) {
     logNotifyOpen(opts?.dismissed ? "dismissed" : "deeplink_consumed", { notificationEventId: id });
-    afterNotificationEventsRead("notification_opened");
+    afterNotificationEventsRead("notification_opened", result);
   }
   return result.ok;
 }
@@ -73,7 +96,7 @@ export async function postNotificationRoomRead(roomId: string): Promise<boolean>
   const result = await postJson("/api/me/notifications/room-read", { roomId: rid });
   if (result.ok) {
     logNotifyOpen("room_opened", { roomId: rid });
-    afterNotificationEventsRead("room_read", result.cleared);
+    afterNotificationEventsRead("room_read", result);
   }
   return result.ok;
 }
@@ -83,7 +106,7 @@ export async function postNotificationCategoryRead(category: string): Promise<bo
   if (!cat) return false;
   const result = await postJson("/api/me/notifications/read-category", { category: cat });
   if (result.ok) {
-    afterNotificationEventsRead("notification_opened", result.cleared);
+    afterNotificationEventsRead("notification_opened", result);
   }
   return result.ok;
 }
@@ -113,7 +136,7 @@ export async function postNotificationThreadRead(
         : undefined,
     });
     if (result.ok) {
-      afterNotificationEventsRead("room_read", result.cleared);
+      afterNotificationEventsRead("room_read", result);
     }
     return result.ok;
   });
@@ -131,7 +154,7 @@ export async function postNotificationMissedCallRead(opts: {
     callSessionId,
   });
   if (result.ok) {
-    afterNotificationEventsRead("missed_call_read", result.cleared);
+    afterNotificationEventsRead("missed_call_read", result);
   }
   return result.ok;
 }
@@ -142,7 +165,7 @@ export async function postNotificationCallLogsMissedCallsRead(): Promise<boolean
   callLogsMissedReadFlight = (async () => {
     const result = await postJson("/api/me/notifications/missed-call-read", { scope: "call_logs" });
     if (result.ok) {
-      afterNotificationEventsRead("call_logs_viewed", result.cleared);
+      afterNotificationEventsRead("call_logs_viewed", result);
     }
     return result.ok;
   })().finally(() => {
