@@ -323,6 +323,7 @@ public class NativeVoiceCallActivity extends Activity {
     endButton.setOnClickListener(v -> NativeVoiceCallRuntime.end(this, callId));
     speakerButton.setOnClickListener(
         v -> {
+          if (!speakerButton.isEnabled()) return;
           speakerEnabled = !speakerEnabled;
           updateSpeakerChrome();
           NativeVoiceCallAgoraEngine.setSpeakerEnabled(speakerEnabled);
@@ -332,7 +333,12 @@ public class NativeVoiceCallActivity extends Activity {
   }
 
   private void applyState(NativeVoiceCallRuntime.State state) {
+    NativeVoiceCallRuntime.State previousState = currentState;
     currentState = state;
+    if (state == NativeVoiceCallRuntime.State.CONNECTED
+        && previousState != NativeVoiceCallRuntime.State.CONNECTED) {
+      speakerEnabled = false;
+    }
     if (state != NativeVoiceCallRuntime.State.CONNECTED && dockMode) {
       hideDock("state_change");
     }
@@ -365,8 +371,8 @@ public class NativeVoiceCallActivity extends Activity {
     activeActions.setVisibility(model.showActiveActions ? View.VISIBLE : View.GONE);
     connectedControls.setVisibility(model.showConnectedControls ? View.VISIBLE : View.GONE);
     endButton.setContentDescription(model.endButtonLabel);
-    endLabelView.setText(model.endButtonLabel);
-    speakerButton.setContentDescription(model.speakerLabel);
+    boolean speakerInteractive = state == NativeVoiceCallRuntime.State.CONNECTED;
+    speakerButton.setEnabled(speakerInteractive);
     updateSpeakerChrome();
     if (model.showDuration) {
       if (connectedAtElapsedMs <= 0L) connectedAtElapsedMs = SystemClock.elapsedRealtime();
@@ -382,13 +388,15 @@ public class NativeVoiceCallActivity extends Activity {
 
   private void updateSpeakerChrome() {
     if (speakerButton == null) return;
-    int labelRes = speakerEnabled ? R.string.dibay_voice_speaker_on : R.string.dibay_voice_speaker_off;
-    speakerButton.setContentDescription(getString(labelRes));
+    speakerButton.setContentDescription(getString(R.string.dibay_voice_speaker));
     speakerButton.setImageResource(
-        speakerEnabled ? R.drawable.ic_dibay_voice_speaker_on : R.drawable.ic_dibay_voice_speaker_off);
+        speakerEnabled
+            ? android.R.drawable.stat_sys_speakerphone
+            : android.R.drawable.ic_lock_silent_mode_off);
     speakerButton.setBackgroundResource(
         speakerEnabled ? R.drawable.bg_dibay_voice_control_active : R.drawable.bg_dibay_voice_control_neutral);
-    if (speakerLabelView != null) speakerLabelView.setText(labelRes);
+    speakerButton.setAlpha(speakerButton.isEnabled() ? 1f : 0.4f);
+    if (speakerLabelView != null) speakerLabelView.setText(R.string.dibay_voice_speaker);
   }
 
   private boolean minimizeConnectedCall(String source) {
