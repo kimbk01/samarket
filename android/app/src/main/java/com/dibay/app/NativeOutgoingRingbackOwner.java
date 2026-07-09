@@ -2,6 +2,8 @@ package com.dibay.app;
 
 import android.content.Context;
 import android.media.AudioAttributes;
+import android.media.AudioDeviceInfo;
+import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Build;
@@ -16,12 +18,15 @@ public final class NativeOutgoingRingbackOwner {
   private static String activeMediaType;
   private static MediaPlayer activePlayer;
   private static int generation;
+  private static Context ringbackAppContext;
+  private static boolean communicationRoutePinned;
 
   private NativeOutgoingRingbackOwner() {}
 
   public static void start(Context context, String callId, String mediaType) {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
     Context app = context.getApplicationContext();
+    ringbackAppContext = app;
     String sid = callId.trim();
     String media = normalizeMediaType(mediaType);
     final int gen;
@@ -89,6 +94,7 @@ public final class NativeOutgoingRingbackOwner {
               return;
             }
             try {
+              pinRingbackBeforeStart(app, prepared, callId);
               prepared.start();
               Log.i(TAG, "[DIBAY_CALL] native_outgoing_ringback_start callId=" + callId + " mediaType=" + mediaType + " deduped=false");
             } catch (Exception error) {
@@ -115,6 +121,135 @@ public final class NativeOutgoingRingbackOwner {
       Log.w(TAG, "[DIBAY_CALL] native_outgoing_ringback_config_fetch_fail callId=" + callId + " reason=" + safe(error.getClass().getSimpleName()) + " mediaType=" + mediaType);
       stop(callId, "prepare_failed");
     }
+  }
+
+  /** Prefer earpiece for ringback track before playback; never block call start on pin failure. */
+  private static void pinRingbackBeforeStart(Context app, MediaPlayer player, String callId) {
+    AudioManager audioManager = (AudioManager) app.getSystemService(Context.AUDIO_SERVICE);
+    if (audioManager == null) {
+      logRouteSkip(callId, "audio_manager_missing");
+      return;
+    }
+    if (hasExternalOutputDevice(audioManager)) {
+      logRouteSkip(callId, "external_output_active");
+      return;
+    }
+
+    AudioDeviceInfo earpiece = findBuiltinEarpiece(audioManager);
+    if (earpiece == null) {
+      logRouteSkip(callId, "earpiece_unavailable");
+      return;
+    }
+
+    boolean preferredApplied = false;
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+      preferredApplied = player.setPreferredDevice(earpiece);
+      logRoutePin(callId, "preferredDevice", preferredApplied ? "ok" : "fail");
+    }
+
+    if (preferredApplied) return;
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      AudioDeviceInfo communicationEarpiece = findCommunicationEarpiece(audioManager);
+      if (communicationEarpiece != null) {
+        try {
+          audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
+          boolean applied = audioManager.setCommunicationDevice(communicationEarpiece);
+          if (applied) {
+            communicationRoutePinned = true;
+          }
+          logRoutePin(callId, "setCommunicationDevice", applied ? "ok" : "fail");
+        } catch (Exception error) {
+          logRoutePin(callId, "setCommunicationDevice", "fail");
+        }
+        return;
+      }
+    }
+
+    applyLegacySpeakerOffFallback(audioManager, callId);
+  }
+
+  @SuppressWarnings("deprecation")
+  private static void applyLegacySpeakerOffFallback(AudioManager audioManager, String callId) {
+    try {
+      audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
+      audioManager.setSpeakerphoneOn(false);
+      logRoutePin(callId, "setSpeakerphoneOn", "ok");
+    } catch (Exception error) {
+      logRoutePin(callId, "setSpeakerphoneOn", "fail");
+    }
+  }
+
+  private static AudioDeviceInfo findBuiltinEarpiece(AudioManager audioManager) {
+    if (audioManager == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return null;
+    for (AudioDeviceInfo device : audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)) {
+      if (device.getType() == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE) return device;
+    }
+    return null;
+  }
+
+  private static AudioDeviceInfo findCommunicationEarpiece(AudioManager audioManager) {
+    if (audioManager == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return null;
+    for (AudioDeviceInfo device : audioManager.getAvailableCommunicationDevices()) {
+      if (device.getType() == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE) return device;
+    }
+    return null;
+  }
+
+  @SuppressWarnings("deprecation")
+  private static boolean hasExternalOutputDevice(AudioManager audioManager) {
+    if (audioManager == null) return false;
+    if (audioManager.isBluetoothScoOn() || audioManager.isBluetoothA2dpOn()) return true;
+    if (audioManager.isWiredHeadsetOn()) return true;
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+      for (AudioDeviceInfo device : audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)) {
+        int type = device.getType();
+        if (type == AudioDeviceInfo.TYPE_WIRED_HEADSET
+            || type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES
+            || type == AudioDeviceInfo.TYPE_USB_HEADSET
+            || type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+            || type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  private static void releasePinnedCommunicationRoute(Context app, String reason) {
+    if (!communicationRoutePinned || app == null) return;
+    if ("connected".equals(reason)) {
+      communicationRoutePinned = false;
+      return;
+    }
+    AudioManager audioManager = (AudioManager) app.getSystemService(Context.AUDIO_SERVICE);
+    if (audioManager != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      try {
+        audioManager.clearCommunicationDevice();
+      } catch (Exception ignored) {
+      }
+    }
+    communicationRoutePinned = false;
+  }
+
+  private static void logRoutePin(String callId, String api, String result) {
+    Log.i(
+        TAG,
+        "[DIBAY_CALL] native_outgoing_ringback_route_pin callId="
+            + safe(callId)
+            + " api="
+            + api
+            + " result="
+            + result);
+  }
+
+  private static void logRouteSkip(String callId, String reason) {
+    Log.i(
+        TAG,
+        "[DIBAY_CALL] native_outgoing_ringback_route_skip callId="
+            + safe(callId)
+            + " reason="
+            + safe(reason));
   }
 
   private static AudioAttributes buildRingbackAudioAttributes() {
@@ -150,6 +285,8 @@ public final class NativeOutgoingRingbackOwner {
 
   private static void releaseLocked(String reason) {
     generation += 1;
+    Context app = ringbackAppContext;
+    releasePinnedCommunicationRoute(app, reason);
     releasePlayerLocked();
     activeCallId = null;
     activeMediaType = null;

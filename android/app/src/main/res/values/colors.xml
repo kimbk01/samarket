@@ -10,6 +10,9 @@
     <color name="dibay_call_danger">#D93025</color>
     <color name="dibay_call_dark_bg">#121212</color>
     <color name="dibay_call_dark_card">#1F1F1F</color>
+    <color name="dibay_call_control_neutral">#85003D29</color>
+    <color name="dibay_call_control_active_bg">#F1F8F4</color>
+    <color name="dibay_call_control_active_icon">#003D29</color>
 
     <!-- DIBAY Incoming Call UI — legacy resource names; values aligned to Option 1 SSOT above. -->
     <color name="dibay_incoming_primary">#00754A</color>

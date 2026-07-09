@@ -1,0 +1,111 @@
+{
+  "at": "2026-07-09T19:05:00.000Z",
+  "hardLock": true,
+  "preLock": false,
+  "voiceUiHardLock": true,
+  "lockStatement": "Telegram Voice UI (B1+B2+B3a) + R1 ringback route pin HARD LOCK. Phase V voice\u2192video upgrade is a separate project.",
+  "vercelOrigin": "https://samarket.vercel.app",
+  "devices": {
+    "serialA": "8b37179f7d94",
+    "serialB": "RFCY40PY2CA"
+  },
+  "commitAtLock": "1d69eb5b19089ed56dd1d654cb27f11f0a930fce",
+  "commitMessage": "lock(native-call): telegram voice ui and ringback route",
+  "qaPolicy": {
+    "fastQa": "Voice UI scope only",
+    "regressionQa": "Once at track completion",
+    "forbiddenWithoutNewEvidence": [
+      "O2/O3/O4 re-audit",
+      "Full matrix repeat",
+      "Video UI re-check under Voice rationale",
+      "Phase V mixed into Voice UI commit"
+    ]
+  },
+  "uiInvariants": [
+    {
+      "id": 1,
+      "label": "INCOMING accept/decline preserved",
+      "proof": "incoming_panel + existing accept/decline ids"
+    },
+    {
+      "id": 2,
+      "label": "Outgoing shell DIALING/CONNECTING/CONNECTED",
+      "proof": "outgoing_shell + 4-button chrome"
+    },
+    {
+      "id": 3,
+      "label": "Speaker via existing Agora API",
+      "proof": "speaker_toggle + audio_route_applied speaker="
+    },
+    {
+      "id": 4,
+      "label": "Video button UI-only until Phase V",
+      "proof": "videoActiveChrome; no Runtime upgrade"
+    },
+    {
+      "id": 5,
+      "label": "R1 ringback EARPIECE-first",
+      "proof": "native_outgoing_ringback_route_pin + APM SIGNALLING EARPIECE"
+    }
+  ],
+  "lockedFiles": [
+    "android/app/src/main/java/com/dibay/app/nativevoice/NativeVoiceCallActivity.java",
+    "android/app/src/main/java/com/dibay/app/nativevoice/NativeVoiceCallUiPresenter.java",
+    "android/app/src/main/java/com/dibay/app/NativeOutgoingRingbackOwner.java",
+    "android/app/src/main/res/layout/activity_native_voice_call.xml",
+    "android/app/src/main/res/values/colors.xml",
+    "android/app/src/main/res/values/dimens.xml",
+    "android/app/src/main/res/values/strings.xml",
+    "android/app/src/main/res/drawable/bg_call_control_accept.xml",
+    "android/app/src/main/res/drawable/bg_call_control_active.xml",
+    "android/app/src/main/res/drawable/bg_call_control_danger.xml",
+    "android/app/src/main/res/drawable/bg_call_control_neutral.xml",
+    "android/app/src/main/res/drawable/ic_call_check.xml",
+    "android/app/src/main/res/drawable/ic_call_end_x.xml",
+    "android/app/src/main/res/drawable/ic_call_mic_off.xml",
+    "android/app/src/main/res/drawable/ic_call_mic_on.xml",
+    "android/app/src/main/res/drawable/ic_call_speaker_off.xml",
+    "android/app/src/main/res/drawable/ic_call_speaker_on.xml",
+    "android/app/src/main/res/drawable/ic_call_video.xml"
+  ],
+  "qaReports": {
+    "r1RingbackRouting": {
+      "log": ".qa-logs/native-voice-r1-ringback-route.log",
+      "verdict": "PASS",
+      "note": "3/3 preferredDevice ok; APM EARPIECE; no ringback track SPEAKER"
+    },
+    "connectedSpeakerOnOff": {
+      "log": ".qa-logs/native-voice-r1-connected-speaker-qa.log",
+      "callId": "a07ba80b-1a2d-4fc0-8a76-1e877e81a267",
+      "verdict": "PASS",
+      "note": "speaker_toggle enabled=true/false; setSpeakerphoneOn broker; cleanup_done"
+    },
+    "step0bRingbackBaseline": {
+      "log": ".qa-logs/native-voice-step0b-apk-ringback-apm.log",
+      "verdict": "ROOT_CAUSE_CONFIRMED_PRE_R1"
+    }
+  },
+  "phaseV": {
+    "started": false,
+    "codeChangesForbidden": true,
+    "nextSteps": [
+      "requestUpgradeToVideo SSOT audit",
+      "NativeVoiceCallApi impact",
+      "NativeVoiceCallRuntime impact",
+      "NativeVoiceCallAgoraEngine impact",
+      "files diff rollback report",
+      "implement after approval"
+    ],
+    "forbiddenInVoiceUiTrack": [
+      "NativeVoiceCallApi.java",
+      "NativeVoiceCallRuntime.java",
+      "NativeVoiceCallAgoraEngine.java",
+      "NativeVideoCallRuntime.java",
+      "call signaling / Realtime upgrade paths"
+    ]
+  },
+  "rollback": {
+    "voiceUi": "git restore android/app/src/main/java/com/dibay/app/nativevoice/ android/app/src/main/res/layout/activity_native_voice_call.xml android/app/src/main/res/values/colors.xml android/app/src/main/res/values/dimens.xml android/app/src/main/res/values/strings.xml android/app/src/main/res/drawable/bg_call_control_*.xml android/app/src/main/res/drawable/ic_call_*.xml",
+    "r1Only": "git restore android/app/src/main/java/com/dibay/app/NativeOutgoingRingbackOwner.java"
+  }
+}

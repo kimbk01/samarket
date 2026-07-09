@@ -12,6 +12,11 @@
     <string name="dibay_incoming_default_caller">DIBAY</string>
     <string name="dibay_voice_call_incoming">음성 통화 수신</string>
     <string name="dibay_voice_call_calling">연결 중…</string>
+    <string name="dibay_voice_call_dialing">전화 거는 중 …</string>
+    <string name="dibay_call_control_speaker">스피커</string>
+    <string name="dibay_call_control_video">영상</string>
+    <string name="dibay_call_control_mute">음소거</string>
+    <string name="dibay_call_control_unmute">음소거 해제</string>
     <string name="dibay_voice_call_connecting">연결 중…</string>
     <string name="dibay_voice_call_connected">통화 중</string>
     <string name="dibay_voice_call_ending">통화 종료 중</string>

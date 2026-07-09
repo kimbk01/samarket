@@ -1,6 +1,7 @@
 package com.dibay.app.nativevoice;
 
 import android.content.Context;
+import com.dibay.app.IncomingCallUiCopy;
 import com.dibay.app.R;
 
 /** Maps Native Voice Runtime session/state to render-only UI model. No ownership of session/Agora/cleanup. */
@@ -19,11 +20,9 @@ public final class NativeVoiceCallUiPresenter {
     public final String statusText;
     public final String avatarInitial;
     public final boolean showIncomingActions;
-    public final boolean showActiveActions;
-    public final boolean showConnectedControls;
+    public final boolean showMediaActions;
+    public final boolean micChromeEnabled;
     public final boolean showDuration;
-    public final String endButtonLabel;
-    public final String speakerLabel;
 
     Model(
         Phase phase,
@@ -31,21 +30,17 @@ public final class NativeVoiceCallUiPresenter {
         String statusText,
         String avatarInitial,
         boolean showIncomingActions,
-        boolean showActiveActions,
-        boolean showConnectedControls,
-        boolean showDuration,
-        String endButtonLabel,
-        String speakerLabel) {
+        boolean showMediaActions,
+        boolean micChromeEnabled,
+        boolean showDuration) {
       this.phase = phase;
       this.peerName = peerName;
       this.statusText = statusText;
       this.avatarInitial = avatarInitial;
       this.showIncomingActions = showIncomingActions;
-      this.showActiveActions = showActiveActions;
-      this.showConnectedControls = showConnectedControls;
+      this.showMediaActions = showMediaActions;
+      this.micChromeEnabled = micChromeEnabled;
       this.showDuration = showDuration;
-      this.endButtonLabel = endButtonLabel;
-      this.speakerLabel = speakerLabel;
     }
   }
 
@@ -56,16 +51,11 @@ public final class NativeVoiceCallUiPresenter {
     String peerName = resolvePeerName(session);
     Phase phase = resolvePhase(session, state);
     String statusText = resolveStatusText(app, phase);
-    String avatarInitial = initialFromName(peerName);
+    String avatarInitial = IncomingCallUiCopy.peerInitial(peerName);
     boolean ending = phase == Phase.ENDING;
     boolean incoming = phase == Phase.INCOMING;
     boolean connected = phase == Phase.CONNECTED;
     boolean dialingOrConnecting = phase == Phase.DIALING || phase == Phase.CONNECTING;
-    String endLabel =
-        phase == Phase.DIALING
-            ? safeString(app, R.string.dibay_voice_call_cancel)
-            : safeString(app, R.string.dibay_voice_call_end);
-    String speakerLabel = safeString(app, R.string.dibay_voice_speaker_off);
     return new Model(
         phase,
         peerName,
@@ -74,9 +64,7 @@ public final class NativeVoiceCallUiPresenter {
         incoming && !ending,
         (dialingOrConnecting || connected) && !ending,
         connected && !ending,
-        connected && !ending,
-        endLabel,
-        speakerLabel);
+        connected && !ending);
   }
 
   public static Phase resolvePhase(NativeVoiceCallRuntime.Session session, NativeVoiceCallRuntime.State state) {
@@ -104,7 +92,7 @@ public final class NativeVoiceCallUiPresenter {
     if (session == null || session.callerName == null || session.callerName.trim().isEmpty()) {
       return "DIBAY";
     }
-    return session.callerName.trim();
+    return IncomingCallUiCopy.sanitizeNickname(session.callerName.trim());
   }
 
   private static String resolveStatusText(Context app, Phase phase) {
@@ -113,7 +101,7 @@ public final class NativeVoiceCallUiPresenter {
       case INCOMING:
         return safeString(app, R.string.dibay_voice_call_incoming);
       case DIALING:
-        return safeString(app, R.string.dibay_voice_call_calling);
+        return safeString(app, R.string.dibay_voice_call_dialing);
       case CONNECTING:
         return safeString(app, R.string.dibay_voice_call_connecting);
       case CONNECTED:
@@ -122,11 +110,6 @@ public final class NativeVoiceCallUiPresenter {
       default:
         return safeString(app, R.string.dibay_voice_call_ending);
     }
-  }
-
-  private static String initialFromName(String name) {
-    if (name == null || name.isEmpty()) return "D";
-    return name.substring(0, 1).toUpperCase();
   }
 
   private static String safeString(Context app, int resId) {

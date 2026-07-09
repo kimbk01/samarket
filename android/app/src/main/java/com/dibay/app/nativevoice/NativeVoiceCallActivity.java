@@ -4,6 +4,8 @@ import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.res.ColorStateList;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
 import android.provider.Settings;
@@ -14,7 +16,6 @@ import android.os.SystemClock;
 import android.view.Gravity;
 import android.view.View;
 import android.view.WindowManager;
-import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
@@ -46,14 +47,19 @@ public class NativeVoiceCallActivity extends Activity {
   private TextView durationView;
   private TextView avatarInitialView;
   private LinearLayout incomingActions;
-  private LinearLayout activeActions;
-  private LinearLayout connectedControls;
+  private LinearLayout mediaActions;
   private ImageButton acceptButton;
   private ImageButton declineButton;
-  private Button endButton;
-  private Button speakerButton;
+  private ImageButton speakerButton;
+  private ImageButton videoButton;
+  private ImageButton muteButton;
+  private ImageButton endButton;
+  private TextView muteLabel;
   private View dockRoot;
   private boolean speakerEnabled;
+  private boolean micMutedChrome;
+  private boolean videoActiveChrome;
+  private boolean micChromeEnabled;
   private boolean dockMode = false;
   private boolean acceptStarted = false;
   private boolean acceptMediaPromptIssued = false;
@@ -277,15 +283,17 @@ public class NativeVoiceCallActivity extends Activity {
     durationView = findViewById(R.id.native_voice_call_duration);
     avatarInitialView = findViewById(R.id.native_voice_call_avatar_initial);
     incomingActions = findViewById(R.id.native_voice_call_incoming_actions);
-    activeActions = findViewById(R.id.native_voice_call_active_actions);
-    connectedControls = findViewById(R.id.native_voice_call_connected_controls);
+    mediaActions = findViewById(R.id.native_voice_call_media_actions);
     acceptButton = findViewById(R.id.native_voice_call_accept);
     declineButton = findViewById(R.id.native_voice_call_decline);
-    endButton = findViewById(R.id.native_voice_call_end);
     speakerButton = findViewById(R.id.native_voice_call_speaker);
+    videoButton = findViewById(R.id.native_voice_call_video);
+    muteButton = findViewById(R.id.native_voice_call_mute);
+    endButton = findViewById(R.id.native_voice_call_end);
+    muteLabel = findViewById(R.id.native_voice_call_mute_label);
     attachDockView();
     IncomingCallUiInsets.applyBottomSafeArea(incomingActions, 32);
-    IncomingCallUiInsets.applyBottomSafeArea(activeActions, 32);
+    IncomingCallUiInsets.applyBottomSafeArea(mediaActions, 32);
   }
 
   private void bindActions() {
@@ -295,9 +303,24 @@ public class NativeVoiceCallActivity extends Activity {
     speakerButton.setOnClickListener(
         v -> {
           speakerEnabled = !speakerEnabled;
-          speakerButton.setText(
-              getString(speakerEnabled ? R.string.dibay_voice_speaker_on : R.string.dibay_voice_speaker_off));
           NativeVoiceCallAgoraEngine.setSpeakerEnabled(speakerEnabled);
+          updateControlChrome();
+        });
+    muteButton.setOnClickListener(
+        v -> {
+          if (!micChromeEnabled) return;
+          micMutedChrome = !micMutedChrome;
+          if (muteLabel != null) {
+            muteLabel.setText(
+                getString(
+                    micMutedChrome ? R.string.dibay_call_control_unmute : R.string.dibay_call_control_mute));
+          }
+          updateControlChrome();
+        });
+    videoButton.setOnClickListener(
+        v -> {
+          videoActiveChrome = !videoActiveChrome;
+          updateControlChrome();
         });
   }
 
@@ -317,14 +340,12 @@ public class NativeVoiceCallActivity extends Activity {
     }
     NativeVoiceCallRuntime.Session session = NativeVoiceCallRuntime.getSession(callId);
     NativeVoiceCallUiPresenter.Model model = NativeVoiceCallUiPresenter.build(this, session, state);
+    micChromeEnabled = model.micChromeEnabled;
     peerNameView.setText(model.peerName);
     statusView.setText(model.statusText);
     avatarInitialView.setText(model.avatarInitial);
     incomingActions.setVisibility(model.showIncomingActions ? View.VISIBLE : View.GONE);
-    activeActions.setVisibility(model.showActiveActions ? View.VISIBLE : View.GONE);
-    connectedControls.setVisibility(model.showConnectedControls ? View.VISIBLE : View.GONE);
-    endButton.setText(model.endButtonLabel);
-    speakerButton.setText(model.speakerLabel);
+    mediaActions.setVisibility(model.showMediaActions ? View.VISIBLE : View.GONE);
     if (model.showDuration) {
       if (connectedAtElapsedMs <= 0L) connectedAtElapsedMs = SystemClock.elapsedRealtime();
       durationView.setVisibility(View.VISIBLE);
@@ -334,6 +355,51 @@ public class NativeVoiceCallActivity extends Activity {
       connectedAtElapsedMs = 0L;
       durationView.setVisibility(View.GONE);
     }
+    updateControlChrome();
+  }
+
+  private void updateControlChrome() {
+    if (speakerButton == null || videoButton == null || muteButton == null || endButton == null) return;
+    applyMediaDisk(speakerButton, speakerEnabled, false, false);
+    speakerButton.setImageResource(
+        speakerEnabled ? R.drawable.ic_call_speaker_on : R.drawable.ic_call_speaker_off);
+
+    applyMediaDisk(videoButton, videoActiveChrome, false, false);
+    videoButton.setImageResource(R.drawable.ic_call_video);
+
+    boolean micActive = !micMutedChrome;
+    applyMediaDisk(muteButton, micActive, !micChromeEnabled, false);
+    muteButton.setImageResource(micActive ? R.drawable.ic_call_mic_on : R.drawable.ic_call_mic_off);
+    muteButton.setEnabled(micChromeEnabled);
+    if (muteLabel != null && !micChromeEnabled) {
+      muteLabel.setText(getString(R.string.dibay_call_control_mute));
+    }
+
+    applyMediaDisk(endButton, false, false, true);
+    endButton.setImageResource(R.drawable.ic_call_end_x);
+  }
+
+  private void applyMediaDisk(ImageButton button, boolean active, boolean disabled, boolean danger) {
+    int iconColor;
+    if (danger) {
+      button.setBackgroundResource(R.drawable.bg_call_control_danger);
+      iconColor = Color.WHITE;
+      button.setAlpha(1f);
+    } else if (disabled) {
+      button.setBackgroundResource(R.drawable.bg_call_control_neutral);
+      iconColor = Color.WHITE;
+      button.setAlpha(0.4f);
+    } else {
+      button.setAlpha(1f);
+      if (active) {
+        button.setBackgroundResource(R.drawable.bg_call_control_active);
+        iconColor = ContextCompat.getColor(this, R.color.dibay_call_control_active_icon);
+      } else {
+        button.setBackgroundResource(R.drawable.bg_call_control_neutral);
+        iconColor = Color.WHITE;
+      }
+    }
+    button.setImageTintList(ColorStateList.valueOf(iconColor));
   }
 
   private boolean minimizeConnectedCall(String source) {
@@ -423,7 +489,7 @@ public class NativeVoiceCallActivity extends Activity {
           NativeVoiceCallLog.info("end_tapped", callId, "source=dock");
           NativeVoiceCallRuntime.end(NativeVoiceCallActivity.this, callId);
         });
-    if (activeActions != null) activeActions.setVisibility(View.GONE);
+    if (mediaActions != null) mediaActions.setVisibility(View.GONE);
     dockRoot.setVisibility(View.VISIBLE);
     dockRoot.bringToFront();
     dockRoot.setTranslationZ(32f);
