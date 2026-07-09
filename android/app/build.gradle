@@ -37,6 +37,22 @@ android {
         }
         resValue "string", "google_web_client_id", googleWebClientId
 
+        def supabaseUrl = (
+            System.getenv("NEXT_PUBLIC_SUPABASE_URL")
+            ?: localProperties.getProperty("NEXT_PUBLIC_SUPABASE_URL")
+            ?: ""
+        ).trim()
+        def supabaseAnonKey = (
+            System.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY")
+            ?: localProperties.getProperty("NEXT_PUBLIC_SUPABASE_ANON_KEY")
+            ?: ""
+        ).trim()
+        if (supabaseUrl.isEmpty() || supabaseAnonKey.isEmpty()) {
+            logger.warn("NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY not set — Native Realtime upgrade broadcast will fail until configured (env or android/local.properties)")
+        }
+        resValue "string", "dibay_supabase_url", supabaseUrl
+        resValue "string", "dibay_supabase_anon_key", supabaseAnonKey
+
         ndk {
             abiFilters "arm64-v8a", "armeabi-v7a"
         }
@@ -74,6 +90,7 @@ dependencies {
     implementation "com.google.android.gms:play-services-auth:21.3.0"
     implementation "com.google.firebase:firebase-messaging:24.1.0"
     implementation "io.agora.rtc:full-sdk:4.6.3"
+    implementation "com.squareup.okhttp3:okhttp:4.12.0"
     implementation project(':capacitor-android')
     testImplementation "junit:junit:$junitVersion"
     testImplementation "org.robolectric:robolectric:4.14.1"
