@@ -47,6 +47,8 @@ export type DibaySignupProfileInput = {
   id?: string | null;
   dibay_id?: string | null;
   dibay_id_locked?: boolean | null;
+  dibay_id_auto_assigned?: boolean | null;
+  dibay_id_changed_once?: boolean | null;
   username?: string | null;
   username_confirmed?: boolean | null;
   display_name?: string | null;

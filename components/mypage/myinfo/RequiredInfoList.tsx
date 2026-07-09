@@ -151,10 +151,32 @@ export function RequiredInfoList({
     return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, handleAddressesUpdated);
   }, [onProfileRefresh]);
 
-  const hasDibayId = evaluatePublicIdProfileView(profile).setupComplete;
+  const publicIdView = evaluatePublicIdProfileView(profile);
+  const hasDibayId = publicIdView.setupComplete;
   const phoneVerified = hasVerifiedPhone(profile);
   const completeCount = [hasDibayId, phoneVerified, hasDefaultAddress].filter(Boolean).length;
   const bundleComplete = completeCount === 3;
+
+  const dibayIdBadge = !hasDibayId
+    ? safeT("mypage_required_status_needed", { fallbackKo: "필요", fallbackEn: "Required" })
+    : publicIdView.autoAssigned && publicIdView.canChangeOnce
+      ? safeT("mypage_required_dibay_id_auto_assigned_badge", {
+          fallbackKo: "자동 부여됨",
+          fallbackEn: "Auto-assigned",
+        })
+      : publicIdView.changeComplete
+        ? safeT("mypage_required_dibay_id_change_complete_badge", {
+            fallbackKo: "변경 완료",
+            fallbackEn: "Change complete",
+          })
+        : safeT("mypage_required_status_done", { fallbackKo: "완료", fallbackEn: "Done" });
+
+  const dibayIdValue = hasDibayId
+    ? publicIdView.atDisplay ?? resolvePublicIdAtDisplay(profile) ?? ""
+    : safeT("mypage_required_dibay_id_recover_hint", {
+        fallbackKo: "아이디가 없습니다. 복구가 필요합니다.",
+        fallbackEn: "No ID found. Recovery is required.",
+      });
 
   const addressValueText = useMemo(() => {
     if (addressPresentationState.status === "ready" && addressPresentationState.presentation) {
@@ -176,17 +198,21 @@ export function RequiredInfoList({
       icon: "user-round",
       title: safeT("mypage_required_dibay_id", { fallbackKo: "아이디", fallbackEn: "ID" }),
       state: hasDibayId ? "done" : "incomplete",
-      badge: hasDibayId
-        ? safeT("mypage_required_status_done", { fallbackKo: "완료", fallbackEn: "Done" })
-        : safeT("mypage_required_status_needed", { fallbackKo: "필요", fallbackEn: "Required" }),
-      value: hasDibayId
-        ? resolvePublicIdAtDisplay(profile) ?? ""
-        : safeT("mypage_required_dibay_id_active_hint", {
-            fallbackKo: "사용할 아이디를 설정해 주세요.",
-            fallbackEn: "Set the ID you want to use.",
-          }),
-      ctaLabel: hasDibayId ? undefined : safeT("mypage_required_cta_set", { fallbackKo: "설정", fallbackEn: "Set" }),
+      badge: dibayIdBadge,
+      value: dibayIdValue,
+      ctaLabel: hasDibayId
+        ? undefined
+        : safeT("mypage_required_dibay_id_recover_btn", { fallbackKo: "복구", fallbackEn: "Recover" }),
       onCtaClick: hasDibayId ? undefined : () => openSheet("dibay-id"),
+      changeLabel:
+        hasDibayId && publicIdView.canChangeOnce
+          ? safeT("mypage_required_dibay_id_change_once_action", {
+              fallbackKo: "1회 변경",
+              fallbackEn: "Change once",
+            })
+          : undefined,
+      onChangeClick:
+        hasDibayId && publicIdView.canChangeOnce ? () => openSheet("dibay-id") : undefined,
     },
     {
       id: "phone",

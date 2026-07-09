@@ -15,14 +15,16 @@ const consented = {
 };
 
 describe("dibay-signup-status", () => {
-  it("treats auto dibay_* as incomplete", () => {
+  it("auto dibay_* passes gate when auto-assigned", () => {
     expect(
       isDibayIdComplete({
         dibay_id: "dibay_a1b2c3",
-        dibay_id_locked: true,
+        dibay_id_auto_assigned: true,
+        dibay_id_changed_once: false,
+        dibay_id_locked: false,
         username_confirmed: true,
       })
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("terms_required before consent", () => {

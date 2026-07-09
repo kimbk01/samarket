@@ -656,6 +656,8 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
                 bio={bio}
                 dibayId={profile.dibay_id ?? null}
                 dibayIdLocked={dibayIdLocked}
+                dibayIdAutoAssigned={profile.dibay_id_auto_assigned === true}
+                dibayIdChangedOnce={profile.dibay_id_changed_once === true}
                 username={profile.username ?? profile.dibay_id ?? null}
                 usernameConfirmed={profile.username_confirmed ?? null}
                 usernameComplete={usernameComplete}

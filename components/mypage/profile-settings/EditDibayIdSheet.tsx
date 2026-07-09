@@ -59,10 +59,12 @@ export function EditDibayIdSheet({ open, onClose }: { open: boolean; onClose: ()
         <p className="py-8 text-center sam-text-body text-sam-muted">{t("mypage_comp_profile_load_failed_short")}</p>
       ) : (
         <ProfileDibayIdSection
-          dibayId={profile.dibay_id ?? null}
-          dibayIdLocked={profile.dibay_id_locked === true}
+          dibay_id={profile.dibay_id ?? null}
+          dibay_id_locked={profile.dibay_id_locked === true}
+          dibay_id_auto_assigned={profile.dibay_id_auto_assigned === true}
+          dibay_id_changed_once={profile.dibay_id_changed_once === true}
           username={profile.username ?? profile.dibay_id ?? null}
-          usernameConfirmed={profile.username_confirmed ?? null}
+          username_confirmed={profile.username_confirmed ?? null}
           onConfirmed={handleConfirmed}
         />
       )}

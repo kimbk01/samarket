@@ -17,6 +17,8 @@ export interface ProfileBasicFieldsProps {
   bio: string;
   dibayId: string | null;
   dibayIdLocked: boolean;
+  dibayIdAutoAssigned?: boolean;
+  dibayIdChangedOnce?: boolean;
   username: string | null;
   usernameConfirmed?: boolean | null;
   usernameComplete: boolean;
@@ -40,6 +42,8 @@ export function ProfileBasicFields({
   bio,
   dibayId,
   dibayIdLocked,
+  dibayIdAutoAssigned = false,
+  dibayIdChangedOnce = false,
   username,
   usernameConfirmed = null,
   usernameComplete,
@@ -78,10 +82,12 @@ export function ProfileBasicFields({
       <ProfileEditFieldRow label={t("profile_edit_username_label")}>
         <div data-profile-field="dibay_id">
           <ProfileDibayIdSection
-            dibayId={dibayId}
-            dibayIdLocked={dibayIdLocked}
+            dibay_id={dibayId}
+            dibay_id_locked={dibayIdLocked}
+            dibay_id_auto_assigned={dibayIdAutoAssigned}
+            dibay_id_changed_once={dibayIdChangedOnce}
             username={username}
-            usernameConfirmed={usernameConfirmed}
+            username_confirmed={usernameConfirmed}
             highlighted={usernameHighlighted}
             fieldComplete={dibayIdComplete}
             onConfirmed={onDibayIdConfirmed}

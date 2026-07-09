@@ -41,7 +41,7 @@ describe("dibay-public-id-ssot", () => {
     expect(resolvePublicIdInputSeed(row)).toBe("draft_id");
   });
 
-  it("auto dibay_* is never searchable or complete", () => {
+  it("auto dibay_* is searchable only after custom change", () => {
     const row = {
       dibay_id: "dibay_a1b2c3",
       dibay_id_locked: true,
@@ -49,6 +49,16 @@ describe("dibay-public-id-ssot", () => {
     };
     expect(isPublicIdSetupComplete(row)).toBe(false);
     expect(resolveSearchablePublicId(row)).toBeNull();
+
+    expect(
+      isPublicIdSetupComplete({
+        dibay_id: "dibay_a1b2c3",
+        dibay_id_auto_assigned: true,
+        dibay_id_changed_once: false,
+        dibay_id_locked: false,
+        username_confirmed: true,
+      })
+    ).toBe(true);
   });
 
   it("evaluatePublicIdProfileView bundles UI fields", () => {

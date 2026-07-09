@@ -10,6 +10,10 @@ export interface Profile {
   username?: string | null;
   dibay_id?: string | null;
   dibay_id_locked?: boolean;
+  dibay_id_auto_assigned?: boolean;
+  dibay_id_initial?: string | null;
+  dibay_id_changed_once?: boolean;
+  dibay_id_changed_at?: string | null;
   username_confirmed?: boolean | null;
   onboarding_status?: string | null;
   onboarding_completed_at?: string | null;

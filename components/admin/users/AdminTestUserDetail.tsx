@@ -19,6 +19,12 @@ import type { AppLanguageCode } from "@/lib/i18n/config";
 export type AdminUserDetailPayload = {
   id: string;
   username: string | null;
+  dibay_id?: string | null;
+  dibay_id_locked?: boolean;
+  dibay_id_auto_assigned?: boolean;
+  dibay_id_initial?: string | null;
+  dibay_id_changed_once?: boolean;
+  dibay_id_changed_at?: string | null;
   email?: string | null;
   role: string;
   display_name: string | null;
@@ -107,7 +113,37 @@ export function AdminMemberDetail({ user }: { user: AdminUserDetailPayload }) {
         <dl className="grid gap-3 sam-text-body">
           <div>
             <dt className="sam-text-helper font-medium text-sam-muted">{t("admin_users_test_label_login_id")}</dt>
-            <dd className="mt-0.5 font-mono sam-text-body font-semibold text-sam-fg">{user.username ?? "—"}</dd>
+            <dd className="mt-0.5 font-mono sam-text-body font-semibold text-sam-fg">
+              {user.dibay_id?.trim()
+                ? `@${user.dibay_id.trim()}`
+                : user.username?.trim()
+                  ? `@${user.username.trim()}`
+                  : "—"}
+            </dd>
+          </div>
+          <div>
+            <dt className="sam-text-helper font-medium text-sam-muted">{t("admin_users_dibay_id_auto_assigned")}</dt>
+            <dd className="mt-0.5 text-sam-fg">
+              {user.dibay_id_auto_assigned ? t("admin_bool_yes") : t("admin_bool_no")}
+            </dd>
+          </div>
+          <div>
+            <dt className="sam-text-helper font-medium text-sam-muted">{t("admin_users_dibay_id_initial")}</dt>
+            <dd className="mt-0.5 font-mono text-sam-fg">
+              {user.dibay_id_initial?.trim() ? `@${user.dibay_id_initial.trim()}` : "—"}
+            </dd>
+          </div>
+          <div>
+            <dt className="sam-text-helper font-medium text-sam-muted">{t("admin_users_dibay_id_changed_once")}</dt>
+            <dd className="mt-0.5 text-sam-fg">
+              {user.dibay_id_changed_once ? t("admin_bool_yes") : t("admin_bool_no")}
+            </dd>
+          </div>
+          <div>
+            <dt className="sam-text-helper font-medium text-sam-muted">{t("admin_users_dibay_id_changed_at")}</dt>
+            <dd className="mt-0.5 text-sam-fg">
+              {user.dibay_id_changed_at ? new Date(user.dibay_id_changed_at).toLocaleString(dateLocale) : "—"}
+            </dd>
           </div>
           <div>
             <dt className="sam-text-helper font-medium text-sam-muted">{t("admin_users_label_nickname")}</dt>

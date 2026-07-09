@@ -40,7 +40,7 @@ export async function requireProfileFieldsForAction(
     const { data, error } = await sb
       .from("profiles")
       .select(
-        "id,dibay_id,dibay_id_locked,username,username_confirmed,display_name,nickname,phone_verified,phone_verified_at,phone_verification_method,role,provider,auth_provider,email"
+        "id,dibay_id,dibay_id_locked,dibay_id_auto_assigned,dibay_id_changed_once,username,username_confirmed,display_name,nickname,phone_verified,phone_verified_at,phone_verification_method,role,provider,auth_provider,email"
       )
       .eq("id", userId)
       .maybeSingle();

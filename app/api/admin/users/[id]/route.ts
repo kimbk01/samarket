@@ -491,7 +491,7 @@ export async function GET(
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select(
-      "id, username, email, role, display_name, nickname, phone, phone_verified, phone_verified_at, phone_verification_status, member_status, member_type, status, deleted_at, verified_member_at, created_at, region_code, region_name, address_street_line, address_detail"
+      "id, username, dibay_id, dibay_id_locked, dibay_id_auto_assigned, dibay_id_initial, dibay_id_changed_once, dibay_id_changed_at, email, role, display_name, nickname, phone, phone_verified, phone_verified_at, phone_verification_status, member_status, member_type, status, deleted_at, verified_member_at, created_at, region_code, region_name, address_street_line, address_detail"
     )
     .eq("id", rawId)
     .maybeSingle();
@@ -513,6 +513,12 @@ export async function GET(
       deleted_at?: string | null;
       member_type?: string | null;
       username?: string | null;
+      dibay_id?: string | null;
+      dibay_id_locked?: boolean | null;
+      dibay_id_auto_assigned?: boolean | null;
+      dibay_id_initial?: string | null;
+      dibay_id_changed_once?: boolean | null;
+      dibay_id_changed_at?: string | null;
       email?: string | null;
       role?: string | null;
       display_name?: string | null;
@@ -539,7 +545,13 @@ export async function GET(
     );
     const user: AdminUserDetailRow = {
       id: rawId,
-      username: prof.username ?? null,
+      username: prof.username ?? prof.dibay_id ?? null,
+      dibay_id: prof.dibay_id ?? null,
+      dibay_id_locked: prof.dibay_id_locked === true,
+      dibay_id_auto_assigned: prof.dibay_id_auto_assigned === true,
+      dibay_id_initial: prof.dibay_id_initial ?? null,
+      dibay_id_changed_once: prof.dibay_id_changed_once === true,
+      dibay_id_changed_at: prof.dibay_id_changed_at ?? null,
       email: prof.email ?? null,
       role: String(prof.role ?? "user").trim() || "user",
       display_name: prof.display_name ?? prof.nickname ?? null,

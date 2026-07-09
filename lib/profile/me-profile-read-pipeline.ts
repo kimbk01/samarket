@@ -1,5 +1,6 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { ensureAuthProfileRow } from "@/lib/auth/member-access";
+import { ensureAutoDibayIdAssigned } from "@/lib/auth/assign-auto-dibay-id.server";
 import {
   createEnsureUserProfileMetrics,
   ensureUserProfile,
@@ -124,6 +125,10 @@ export async function runMeProfileReadPipeline(args: {
     if (!profile) {
       profile = await fetchProfileRowSafe(serviceSb, authUserId, m, selectMode);
     }
+    if (profile && serviceSb && !profile.dibay_id?.trim()) {
+      await ensureAutoDibayIdAssigned(serviceSb, authUserId).catch(() => null);
+      profile = (await fetchProfileRowSafe(serviceSb, authUserId, m, selectMode)) ?? profile;
+    }
     finalizePerf(profile);
     return profile;
   }
@@ -179,6 +184,16 @@ export async function runMeProfileReadPipeline(args: {
         /* INSERT-only 도 막혔다면 다음 GET 에서 다시 시도 */
       }
       profile = await fetchProfileRowSafe(routeSb, authUserId, m, selectMode);
+    }
+  }
+  if (profile) {
+    const assignSb = serviceSb ?? tryCreateSupabaseServiceClient();
+    if (assignSb && !profile.dibay_id?.trim()) {
+      await ensureAutoDibayIdAssigned(assignSb, authUserId).catch(() => null);
+      profile =
+        (await fetchProfileRowSafe(assignSb, authUserId, m, selectMode)) ??
+        (await fetchProfileRowSafe(routeSb, authUserId, m, selectMode)) ??
+        profile;
     }
   }
   finalizePerf(profile);

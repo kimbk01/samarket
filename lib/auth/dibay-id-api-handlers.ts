@@ -92,7 +92,9 @@ export async function confirmDibayIdForUser(
     const status =
       code === "terms_required"
         ? 403
-        : code === "dibay_id_taken" || code === "dibay_id_already_locked"
+        : code === "dibay_id_taken" ||
+            code === "dibay_id_already_locked" ||
+            code === "dibay_id_change_limit"
           ? 409
           : 400;
     return { ok: false, error: code, status };

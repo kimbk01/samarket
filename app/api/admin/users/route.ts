@@ -41,6 +41,10 @@ type ProfileRow = {
   username: string | null;
   dibay_id: string | null;
   dibay_id_locked: boolean | null;
+  dibay_id_auto_assigned: boolean | null;
+  dibay_id_initial: string | null;
+  dibay_id_changed_once: boolean | null;
+  dibay_id_changed_at: string | null;
   onboarding_status: string | null;
   onboarding_completed_at: string | null;
   nickname: string | null;
@@ -226,6 +230,10 @@ function mapProfileRowToAdminUser(input: {
     username: r.username?.trim() || null,
     dibay_id: r.dibay_id?.trim() || null,
     dibay_id_locked: r.dibay_id_locked === true,
+    dibay_id_auto_assigned: r.dibay_id_auto_assigned === true,
+    dibay_id_initial: r.dibay_id_initial?.trim() || null,
+    dibay_id_changed_once: r.dibay_id_changed_once === true,
+    dibay_id_changed_at: r.dibay_id_changed_at ?? null,
     onboarding_status: r.onboarding_status?.trim() || null,
     onboarding_completed_at: r.onboarding_completed_at ?? null,
     displayName: r.display_name?.trim() || r.nickname?.trim() || null,
@@ -306,9 +314,9 @@ export async function GET(_req: NextRequest) {
   const supabase = createClient(supabaseEnv.url, supabaseEnv.serviceKey, { auth: { persistSession: false } });
 
   const profileSelect =
-    "id, email, auth_login_email, provider_user_id, username, dibay_id, dibay_id_locked, onboarding_status, onboarding_completed_at, nickname, display_name, role, member_type, status, deleted_at, member_status, region_code, region_name, address_street_line, address_detail, points, phone, phone_verified, phone_verified_at, phone_verification_status, verified_member_at, provider, auth_provider, last_login_at, created_at";
+    "id, email, auth_login_email, provider_user_id, username, dibay_id, dibay_id_locked, dibay_id_auto_assigned, dibay_id_initial, dibay_id_changed_once, dibay_id_changed_at, onboarding_status, onboarding_completed_at, nickname, display_name, role, member_type, status, deleted_at, member_status, region_code, region_name, address_street_line, address_detail, points, phone, phone_verified, phone_verified_at, phone_verification_status, verified_member_at, provider, auth_provider, last_login_at, created_at";
   const profileSelectLegacy =
-    "id, email, username, dibay_id, dibay_id_locked, onboarding_status, onboarding_completed_at, nickname, display_name, role, member_type, status, deleted_at, member_status, region_code, region_name, address_street_line, address_detail, points, phone, phone_verified, phone_verified_at, phone_verification_status, verified_member_at, provider, auth_provider, last_login_at, created_at";
+    "id, email, username, dibay_id, dibay_id_locked, dibay_id_auto_assigned, dibay_id_initial, dibay_id_changed_once, dibay_id_changed_at, onboarding_status, onboarding_completed_at, nickname, display_name, role, member_type, status, deleted_at, member_status, region_code, region_name, address_street_line, address_detail, points, phone, phone_verified, phone_verified_at, phone_verification_status, verified_member_at, provider, auth_provider, last_login_at, created_at";
 
   const fetchProfiles = async () => {
     const primary = await supabase

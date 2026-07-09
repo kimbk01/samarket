@@ -61,10 +61,12 @@ export function MypageRequiredDibayIdClient() {
   return (
     <div className="px-4 py-4 sm:px-5">
       <ProfileDibayIdSection
-        dibayId={profile.dibay_id ?? null}
-        dibayIdLocked={profile.dibay_id_locked === true}
+        dibay_id={profile.dibay_id ?? null}
+        dibay_id_locked={profile.dibay_id_locked === true}
+        dibay_id_auto_assigned={profile.dibay_id_auto_assigned === true}
+        dibay_id_changed_once={profile.dibay_id_changed_once === true}
         username={profile.username ?? profile.dibay_id ?? null}
-        usernameConfirmed={profile.username_confirmed ?? null}
+        username_confirmed={profile.username_confirmed ?? null}
         onConfirmed={handleConfirmed}
       />
     </div>

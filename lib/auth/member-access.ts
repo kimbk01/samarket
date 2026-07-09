@@ -18,6 +18,7 @@ import {
 } from "@/lib/auth/store-member-policy";
 import { resolveOAuthSeedDisplayName } from "@/lib/auth/post-login-profile-policy";
 import { isVerifiedMember } from "@/lib/auth/member-status";
+import { assignAutoDibayIdForUser } from "@/lib/auth/assign-auto-dibay-id.server";
 
 export type MemberAccessState = {
   userId: string;
@@ -215,7 +216,7 @@ async function resolveUniqueNicknameForInsert(
 }
 
 /**
- * OAuth 직후 최소 profiles 행 — dibay_id 자동 부여 금지, 약관·@id는 온보딩에서만.
+ * OAuth 직후 최소 profiles 행 — 서버에서 dibay_[hex6] 자동 부여(1회 변경 가능).
  */
 export async function ensurePendingAuthProfileRow(
   sb: SupabaseClient,
@@ -282,6 +283,9 @@ export async function ensurePendingAuthProfileRow(
       patch.updated_at = nowIso;
       await sb.from("profiles").update(patch).eq("id", user.id);
     }
+    if (!pickTrimmed((row as { dibay_id?: string | null }).dibay_id)) {
+      await assignAutoDibayIdForUser(sb, user.id).catch(() => null);
+    }
     return;
   }
 
@@ -333,6 +337,7 @@ export async function ensurePendingAuthProfileRow(
       }
     }
   }
+  await assignAutoDibayIdForUser(sb, user.id).catch(() => null);
 }
 
 export async function ensureAuthProfileRow(
