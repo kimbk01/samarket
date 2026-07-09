@@ -7,10 +7,6 @@
     <dimen name="dibay_call_touch_min">48dp</dimen>
     <dimen name="dibay_call_btn_gap">12dp</dimen>
     <dimen name="dibay_call_avatar_lg">128dp</dimen>
-    <dimen name="dibay_voice_control_size">58dp</dimen>
-    <dimen name="dibay_voice_control_gap">12dp</dimen>
-    <dimen name="dibay_voice_waveform_height">44dp</dimen>
-    <dimen name="dibay_voice_wave_bar_radius">8dp</dimen>
 
     <dimen name="dibay_incoming_pill_radius">22dp</dimen>
     <dimen name="dibay_incoming_pill_margin_h">12dp</dimen>

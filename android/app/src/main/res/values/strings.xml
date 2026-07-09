@@ -17,13 +17,6 @@
     <string name="dibay_voice_call_ending">통화 종료 중</string>
     <string name="dibay_voice_call_end">종료</string>
     <string name="dibay_voice_call_cancel">취소</string>
-    <string name="dibay_voice_call_header_connecting">음성 통화 연결 중</string>
-    <string name="dibay_voice_speaker">스피커</string>
-    <string name="dibay_voice_video_switch">영상 전환</string>
-    <string name="dibay_voice_mute">음소거</string>
-    <string name="dibay_voice_me">나</string>
-    <string name="dibay_voice_me_status_waiting">대기 중…</string>
-    <string name="dibay_voice_me_status_speaking">말하는 중…</string>
     <string name="dibay_voice_speaker_on">스피커 켬</string>
     <string name="dibay_voice_speaker_off">스피커 끔</string>
     <string name="dibay_video_call_incoming">영상 통화 수신</string>
