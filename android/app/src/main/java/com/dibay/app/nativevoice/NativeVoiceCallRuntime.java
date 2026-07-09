@@ -112,6 +112,79 @@ public final class NativeVoiceCallRuntime {
     return SESSIONS.get(callId.trim());
   }
 
+  /**
+   * CONNECTED session only — publish camera on the active Agora channel. No leave/join, no V1/V2.
+   *
+   * @return true only when guards pass and {@link NativeVoiceCallAgoraEngine#publishCameraInPlace}
+   *     returns true
+   */
+  public static boolean publishCameraInPlaceForConnected(String callId) {
+    String sid = normalizeCallId(callId);
+    if (sid == null) {
+      NativeVoiceCallLog.warn("upgrade_video_runtime_skip", "unknown", "reason=empty_call_id");
+      return false;
+    }
+    Session session = SESSIONS.get(sid);
+    String skip =
+        skipReasonForInPlaceMedia(sid, session, NativeVoiceCallAgoraEngine.peekOccupantCallId());
+    if (skip != null) {
+      NativeVoiceCallLog.warn("upgrade_video_runtime_skip", sid, "reason=" + skip);
+      return false;
+    }
+    NativeVoiceCallLog.info("upgrade_video_runtime_start", sid, "path=in_place");
+    boolean ok = NativeVoiceCallAgoraEngine.publishCameraInPlace(sid);
+    if (!ok) {
+      NativeVoiceCallLog.warn("upgrade_video_runtime_failed", sid, "reason=engine_false");
+    }
+    return ok;
+  }
+
+  /**
+   * CONNECTED session only — downgrade to voice-only on the same channel. No leave, no V1/V2.
+   *
+   * @return true only when guards pass and {@link
+   *     NativeVoiceCallAgoraEngine#downgradeToVoiceOnlyInPlace} returns true
+   */
+  public static boolean downgradeToVoiceOnlyForConnected(String callId) {
+    String sid = normalizeCallId(callId);
+    if (sid == null) {
+      NativeVoiceCallLog.warn("downgrade_voice_runtime_skip", "unknown", "reason=empty_call_id");
+      return false;
+    }
+    Session session = SESSIONS.get(sid);
+    String skip =
+        skipReasonForInPlaceMedia(sid, session, NativeVoiceCallAgoraEngine.peekOccupantCallId());
+    if (skip != null) {
+      NativeVoiceCallLog.warn("downgrade_voice_runtime_skip", sid, "reason=" + skip);
+      return false;
+    }
+    NativeVoiceCallLog.info("downgrade_voice_runtime_start", sid, "path=in_place");
+    boolean ok = NativeVoiceCallAgoraEngine.downgradeToVoiceOnlyInPlace(sid);
+    if (!ok) {
+      NativeVoiceCallLog.warn("downgrade_voice_runtime_failed", sid, "reason=engine_false");
+    }
+    return ok;
+  }
+
+  /**
+   * Guard for in-place media APIs. Returns skip reason, or null when publish/downgrade may proceed.
+   * Occupant check applies only when {@code occupantCallId} is non-empty.
+   */
+  static String skipReasonForInPlaceMedia(
+      String callId, Session session, String occupantCallId) {
+    if (callId == null || callId.trim().isEmpty()) return "empty_call_id";
+    if (session == null) return "session_null";
+    if (session.state != State.CONNECTED) {
+      return "state_not_connected state=" + session.state;
+    }
+    if (occupantCallId != null
+        && !occupantCallId.trim().isEmpty()
+        && !callId.trim().equals(occupantCallId.trim())) {
+      return "occupant_mismatch active=" + occupantCallId.trim();
+    }
+    return null;
+  }
+
   /** Guard-only: another callId with live session state. */
   public static String findOtherLiveSessionCallId(String incomingCallId) {
     if (incomingCallId == null || incomingCallId.trim().isEmpty()) return null;
@@ -545,6 +618,11 @@ public final class NativeVoiceCallRuntime {
           "background_unlocked_activity_start_blocked", callId, "reason=" + safe(error.getClass().getSimpleName()));
       NativeVoiceCallLog.info("background_unlocked_notification_fallback_kept", callId);
     }
+  }
+
+  private static String normalizeCallId(String callId) {
+    if (callId == null || callId.trim().isEmpty()) return null;
+    return callId.trim();
   }
 
   private static String safe(String value) {
