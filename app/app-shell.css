@@ -95,32 +95,17 @@ html.sam-main-shell-viewport-lock .main-shell-viewport-root {
     padding-top: var(--safe-top);
   }
 
-  /** 홈 인디케이터 회피 — fixed bottom 외곽이나 단독 하단 CTA 컨테이너 */
-  .app-safe-bottom {
-    padding-bottom: var(--safe-bottom);
-  }
-
-  /**
-   * 메인 하단 탭이 있는 본문 — **탭 본체(`--app-bottom-nav-height` = 60px) + safe-bottom** 만.
-   * 실서비스 `<main>` 은 `MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS`
-   * (`pb-[calc(76px+env(...))]` = 탭 + **16px** 여백 + safe) 를 쓰므로
-   * 두 클래스를 **동시에** 붙이면 하단 패딩이 이중으로 쌓인다 — 택일만.
-   */
-  .app-main-with-bottom-nav {
-    padding-bottom: calc(var(--app-bottom-nav-height) + var(--safe-bottom));
-  }
-
   /**
    * 화면 하단 고정 바(거래 채팅 입력·상품 상세 CTA·시트 등) 외곽.
    * inner 콘텐츠는 자체 padding 을 가지고, 외곽은 safe-bottom 만 책임진다.
    * (`100vw` 사용 금지 — `left:0; right:0` 로 가로 흔들림 차단)
+   * padding-bottom: `app/globals.css` `@layer utilities` (preflight base 보다 우선).
    */
   .mobile-fixed-bottom {
     position: fixed;
     left: 0;
     right: 0;
     bottom: 0;
-    padding-bottom: var(--safe-bottom);
   }
 
   /**

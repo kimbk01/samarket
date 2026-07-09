@@ -956,6 +956,13 @@ public class MainActivity extends BridgeActivity {
               + (hydrationCallId != null ? hydrationCallId : "unknown"));
     }
     handleNotificationLaunchIntent(launchIntent);
+    DibayWebSafeAreaBridge.attach(this);
+  }
+
+  @Override
+  public void onConfigurationChanged(android.content.res.Configuration newConfig) {
+    super.onConfigurationChanged(newConfig);
+    DibayWebSafeAreaBridge.requestInsetsSync(this);
   }
 
   @Override
@@ -988,6 +995,7 @@ public class MainActivity extends BridgeActivity {
       CallScreenStateReceiver.register(this);
       DibayActiveCallSessionManager.onAppForeground(this, callId);
     }
+    DibayWebSafeAreaBridge.syncIfPossible(this);
   }
 
   @Override
