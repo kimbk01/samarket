@@ -484,9 +484,20 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
     </ViberChatBubble>
   );
 
+  const callStubTimeLabel = showMessageTime ? (
+    <span className="shrink-0 pb-0.5 text-[11px] tabular-nums leading-none text-[#65676b]">
+      {formatTime(item.createdAt)}
+    </span>
+  ) : null;
+
   const callStubEventRow = (
     <div className={`flex w-full min-w-0 px-2 ${item.isMine ? "justify-end" : "justify-start"}`}>
-      <div className={`flex min-w-0 max-w-[min(76vw,520px)] flex-col ${item.isMine ? "items-end" : "items-start"}`}>
+      <div
+        className={`flex min-w-0 max-w-[min(76vw,520px)] items-end gap-1.5 ${
+          item.isMine ? "flex-row justify-end" : "flex-row justify-start"
+        }`}
+      >
+        {item.isMine ? callStubTimeLabel : null}
         <div
           role="button"
           aria-label={item.content.trim() || `${item.callKind === "video" ? videoCallLabel : voiceCallLabel} · ${callStatusLabel}`}
@@ -500,6 +511,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
         >
           {viberInnerBody}
         </div>
+        {!item.isMine ? callStubTimeLabel : null}
       </div>
     </div>
   );

@@ -253,10 +253,9 @@ export function getLatestCallStubForSession(
   return best;
 }
 
-/** Viber 톤 — 브랜드 보라 발신 / 화이트 수신. `showTail`: 새 덩어리(프로필 옆)만 꼬리 표시 */
+/** Viber 톤 — tail은 `[data-cm-room] .sam-bubble::*` pseudo-element가 항상 담당한다. */
 export function ViberChatBubble({
   isMine,
-  showTail,
   children,
 }: {
   isMine: boolean;
@@ -270,21 +269,6 @@ export function ViberChatBubble({
         borderRadius: "var(--cm-room-radius-bubble)",
       }}
     >
-      {showTail ? (
-        !isMine ? (
-          <span
-            aria-hidden
-            className="pointer-events-none absolute -left-[8px] top-[8px] z-[1] h-0 w-0 border-y-[9px] border-y-transparent border-r-[11px]"
-            style={{ borderRightColor: "var(--cm-room-bubble-incoming)" }}
-          />
-        ) : (
-          <span
-            aria-hidden
-            className="pointer-events-none absolute -right-[8px] top-[8px] z-[1] h-0 w-0 border-y-[9px] border-y-transparent border-l-[11px]"
-            style={{ borderLeftColor: "var(--cm-room-bubble-outgoing)" }}
-          />
-        )
-      ) : null}
       {children}
     </div>
   );

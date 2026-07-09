@@ -312,10 +312,12 @@
   --cm-room-text-muted: var(--messenger-text-secondary);
   --cm-room-divider: var(--messenger-divider);
   --cm-room-header-bg: var(--messenger-surface);
-  --cm-room-bubble-incoming: var(--dibay-card);
-  --cm-room-bubble-incoming-fg: var(--dibay-brown);
-  --cm-room-bubble-outgoing: var(--dibay-green);
-  --cm-room-bubble-outgoing-fg: var(--dibay-cream);
+  --cm-room-starbucks-green: #006241;
+  --cm-room-starbucks-cream: #f1f8f4;
+  --cm-room-bubble-incoming: var(--cm-room-starbucks-cream);
+  --cm-room-bubble-incoming-fg: #12372a;
+  --cm-room-bubble-outgoing: var(--cm-room-starbucks-green);
+  --cm-room-bubble-outgoing-fg: #ffffff;
   --cm-room-radius-bubble: 18px;
   --cm-room-radius-input: var(--sam-radius-sm);
 }
@@ -345,8 +347,10 @@
   --cm-room-text: var(--delivery-dark);
   --cm-room-text-muted: var(--delivery-mocha);
   --cm-room-divider: var(--delivery-chat-chrome-border);
-  --cm-room-bubble-outgoing: var(--delivery-primary);
-  --cm-room-bubble-outgoing-fg: var(--dibay-cream);
+  --cm-room-bubble-incoming: var(--cm-room-starbucks-cream);
+  --cm-room-bubble-incoming-fg: #12372a;
+  --cm-room-bubble-outgoing: var(--cm-room-starbucks-green);
+  --cm-room-bubble-outgoing-fg: #ffffff;
 }
 
 /**
@@ -476,6 +480,15 @@
     --messenger-badge-trade-bg: var(--sam-success-soft);
     --messenger-badge-delivery-bg: var(--sam-warning-soft);
     --messenger-badge-openchat-bg: var(--sam-info-soft);
+  }
+
+  [data-cm-room] {
+    --cm-room-starbucks-green: #00754a;
+    --cm-room-starbucks-cream: #173c2d;
+    --cm-room-bubble-incoming: var(--cm-room-starbucks-cream);
+    --cm-room-bubble-incoming-fg: #e6f4ea;
+    --cm-room-bubble-outgoing: var(--cm-room-starbucks-green);
+    --cm-room-bubble-outgoing-fg: #ffffff;
   }
 
   [data-admin] {

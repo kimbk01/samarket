@@ -143,19 +143,30 @@ export const TimelineViberInnerCallStub = memo(function TimelineViberInnerCallSt
   const CallGlyph = item.callKind === "video" ? VideoCallIcon : VoiceCallIcon;
   const fallbackLabel = `${item.callKind === "video" ? videoCallLabel : voiceCallLabel} · ${callStatusLabel}`;
   const displayLabel = item.content.trim() || fallbackLabel;
+  const bubbleToneClass = item.isMine
+    ? "border-transparent bg-[color:var(--cm-room-bubble-outgoing)] text-[color:var(--cm-room-bubble-outgoing-fg)] shadow-[0_1px_0_rgba(0,0,0,0.08)]"
+    : "border-transparent bg-[color:var(--cm-room-bubble-incoming)] text-[color:var(--cm-room-bubble-incoming-fg)] shadow-[0_1px_0_rgba(0,0,0,0.04)]";
+  const iconToneClass = item.isMine
+    ? "bg-white/22 text-[color:var(--cm-room-bubble-outgoing-fg)]"
+    : "bg-white/80 text-[color:var(--cm-room-bubble-incoming-fg)]";
+  const labelToneClass = item.isMine
+    ? "text-[color:var(--cm-room-bubble-outgoing-fg)]"
+    : "text-[color:var(--cm-room-bubble-incoming-fg)]";
   return (
     <div
-      className={`inline-flex min-h-[40px] max-w-[min(76vw,420px)] items-center gap-2 rounded-[18px] border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-3 py-1.5 text-left text-[color:var(--cm-room-text)] shadow-none ${
+      className={`sam-bubble ${item.isMine ? "sam-bubble--outgoing" : "sam-bubble--incoming"} inline-flex min-h-[40px] max-w-[min(76vw,420px)] items-center gap-2 rounded-[18px] border px-3 py-1.5 text-left shadow-none ${bubbleToneClass} ${
         stubBusy ? "opacity-45" : ""
       }`}
     >
       <span
-        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[color:var(--cm-room-primary-soft)] text-[color:var(--cm-room-primary)]"
+        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${iconToneClass}`}
         aria-hidden
       >
         <CallGlyph className="h-3.5 w-3.5" />
       </span>
-      <span className="min-w-0 truncate sam-text-helper font-semibold leading-snug">{displayLabel}</span>
+      <span className={`min-w-0 truncate sam-text-helper font-semibold leading-snug ${labelToneClass}`}>
+        {displayLabel}
+      </span>
     </div>
   );
 });

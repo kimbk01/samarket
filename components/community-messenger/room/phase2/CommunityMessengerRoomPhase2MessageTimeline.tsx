@@ -99,6 +99,7 @@ import {
   markMessengerRoomLayoutSettling,
 } from "@/lib/community-messenger/room/messenger-room-entry-scroll-owner";
 import { useDeliveryRoomMessageSenderLabel } from "@/lib/store-order-chat/use-delivery-room-message-sender-label";
+import { useMessengerTypingStore } from "@/lib/community-messenger/stores/useMessengerTypingStore";
 import {
   noteCmRoomR5TimelineComponentMount,
   noteCmRoomR5TimelineFirstRowDom,
@@ -1588,6 +1589,37 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     return { peerAvatarFor };
   }, [vm.roomMembersDisplay]);
 
+  const typingByRoomId = useMessengerTypingStore((state) => state.byRoomId);
+  const typingPeerUserIds = useMemo(() => {
+    const roomId = vm.streamRoomId.trim().toLowerCase();
+    const viewerId = (vm.snapshot.viewerUserId ?? "").trim();
+    const now = Date.now();
+    if (!roomId || !viewerId) return [];
+    if (vm.snapshot.room.roomType === "direct") {
+      const peerUserId = (vm.snapshot.room.peerUserId ?? "").trim();
+      const entry = peerUserId ? typingByRoomId[roomId]?.[peerUserId] : null;
+      return entry && entry.expiresAt > now ? [peerUserId] : [];
+    }
+    const bucket = typingByRoomId[roomId] ?? {};
+    const ids: string[] = [];
+    for (const [userId, entry] of Object.entries(bucket)) {
+      if (userId === viewerId) continue;
+      if (entry.expiresAt > now) ids.push(userId);
+    }
+    return ids;
+  }, [
+    typingByRoomId,
+    vm.snapshot.room.peerUserId,
+    vm.snapshot.room.roomType,
+    vm.snapshot.viewerUserId,
+    vm.streamRoomId,
+  ]);
+  const typingPeerAvatar = typingPeerUserIds[0] ? messageRowPreamble.peerAvatarFor(typingPeerUserIds[0]) : null;
+  const typingIndicatorLabel =
+    typingPeerUserIds.length >= 2
+      ? vm.t("cm_ui_typing_multiple", { count: typingPeerUserIds.length })
+      : vm.t("chats_peer_typing");
+
   const virtualizerScrollTraceRafRef = useRef<number | null>(null);
   const scheduleVirtualizerScrollTraceDrain = useCallback(() => {
     if (!cmScrollAnalysisEnabled()) return;
@@ -1850,10 +1882,8 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                 });
                 const showMessageTime =
                   item.messageType !== "system" &&
-                  !isCallStub &&
                   (!next ||
                     next.messageType === "system" ||
-                    next.messageType === "call_stub" ||
                     next.isMine !== item.isMine ||
                     (vm.isGroupRoom && (next.senderId ?? "") !== (item.senderId ?? "")) ||
                     formatTime(next.createdAt) !== formatTime(item.createdAt));
@@ -1981,6 +2011,27 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
               <StoreDeliveryBufferingSpinner />
             </div>
           )}
+          {typingPeerUserIds.length > 0 ? (
+            <div className="flex w-full items-end justify-start gap-2 px-2 pt-1" aria-live="polite">
+              <div className="flex h-[30px] w-[34px] shrink-0 items-center justify-center">
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[color:var(--cm-room-bubble-incoming)] text-[11px] font-bold text-[color:var(--cm-room-bubble-incoming-fg)] ring-1 ring-black/5">
+                  {typingPeerAvatar?.initials ?? "?"}
+                </span>
+              </div>
+              <div className="inline-flex max-w-[min(76vw,360px)] items-center gap-2 rounded-[18px] bg-[color:var(--cm-room-bubble-incoming)] px-3 py-2 text-[color:var(--cm-room-bubble-incoming-fg)] ring-1 ring-black/5">
+                <span className="sam-text-helper font-semibold leading-none">{typingIndicatorLabel}</span>
+                <span className="inline-flex items-center gap-0.5" aria-hidden>
+                  {[0, 1, 2].map((dot) => (
+                    <span
+                      key={dot}
+                      className="h-1.5 w-1.5 animate-pulse rounded-full bg-current opacity-70"
+                      style={{ animationDelay: `${dot * 140}ms` }}
+                    />
+                  ))}
+                </span>
+              </div>
+            </div>
+          ) : null}
           <div ref={vm.messageEndRef} />
             </div>
           </div>

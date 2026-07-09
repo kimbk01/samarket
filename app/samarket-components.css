@@ -800,6 +800,19 @@
     border: 1px solid transparent;
   }
 
+  /* 말꼬리 — bubble border box 안쪽에만 그림 (scroll/row overflow clip 회피) */
+  [data-cm-room] .sam-bubble--outgoing::after {
+    content: "";
+    pointer-events: none;
+    position: absolute;
+    right: 0;
+    top: 11px;
+    width: 10px;
+    height: 14px;
+    background-color: var(--cm-room-bubble-outgoing);
+    clip-path: polygon(100% 50%, 0 0, 0 100%);
+  }
+
   [data-cm-room] .sam-bubble--outgoing a {
     color: color-mix(in srgb, var(--cm-room-bubble-outgoing-fg, var(--dibay-cream)) 92%, var(--dibay-card));
     text-decoration: underline;
@@ -810,6 +823,18 @@
     background-color: var(--cm-room-bubble-incoming);
     color: var(--cm-room-bubble-incoming-fg, #050505);
     border: 1px solid transparent;
+  }
+
+  [data-cm-room] .sam-bubble--incoming::after {
+    content: "";
+    pointer-events: none;
+    position: absolute;
+    left: 0;
+    top: 11px;
+    width: 10px;
+    height: 14px;
+    background-color: var(--cm-room-bubble-incoming);
+    clip-path: polygon(0 50%, 100% 0, 100% 100%);
   }
 
   [data-cm-room] .sam-bubble--incoming a {

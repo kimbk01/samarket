@@ -81,6 +81,18 @@ export function useCommunityMessengerRoomTypingPublisher(args: {
     const channel = sb.channel(`community-messenger-typing:${roomId}`, { config: { broadcast: { ack: false } } }).subscribe();
     channelRef.current = channel;
     return () => {
+      if (lastStateRef.current === "typing") {
+        void channel.send({
+          type: "broadcast",
+          event: "typing:stop",
+          payload: {
+            roomId,
+            fromUserId: viewerUserId,
+            at: new Date().toISOString(),
+          },
+        });
+        lastStateRef.current = "idle";
+      }
       channelRef.current = null;
       void sb.removeChannel(channel);
     };
