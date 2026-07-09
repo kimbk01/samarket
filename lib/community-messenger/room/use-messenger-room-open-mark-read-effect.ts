@@ -12,12 +12,17 @@ import {
   CM_MARK_READ_VIEWPORT_BOTTOM_GAP_PX,
   CM_READ_LATEST_MESSAGE_MIN_VISIBLE_RATIO,
 } from "@/lib/community-messenger/room/messenger-room-ui-constants";
-import { dispatchTradeChatUnreadUpdated } from "@/lib/chats/chat-channel-events";
+import {
+  dispatchOwnerHubBadgeRefresh,
+  KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH,
+  dispatchTradeChatUnreadUpdated,
+} from "@/lib/chats/chat-channel-events";
 import { isMessengerRoomReadGateExtraBlocked } from "@/lib/community-messenger/room/messenger-room-read-gate";
 import { messengerMonitorUnreadListSync } from "@/lib/community-messenger/monitoring/client";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
 import { postNotificationRoomRead } from "@/lib/notifications/client/notification-event-read-client";
+import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-events";
 import {
   cmReadBadgeLog,
   refreshLocalReadGuardServerAck,
@@ -113,6 +118,18 @@ type LastVisibleUnreadMessage = {
   id: string | null;
   visible: boolean;
   domExists: boolean;
+};
+
+type OrderChatReadInput = {
+  orderId: string;
+  roomId: string;
+  lastReadMessageId?: string | null;
+};
+
+type OrderChatReadResponse = {
+  ok?: boolean;
+  error?: string;
+  role?: "owner" | "customer";
 };
 
 export function traceRoomOpenAlignChain(
@@ -235,6 +252,50 @@ function debugRoomReadAck(payload: {
   if (!messengerVerboseTraceConsoleEnabled()) return;
   // eslint-disable-next-line no-console -- gated read-ack diagnostic
   console.debug("[cm-read-ack]", payload);
+}
+
+function resolveOrderChatReadInput(
+  snap: CommunityMessengerRoomSnapshot,
+  roomId: string,
+  lastReadMessageId?: string | null
+): OrderChatReadInput | null {
+  const meta = snap.room.contextMeta;
+  if (meta?.kind !== "delivery") return null;
+  const orderId = meta.storeOrderId?.trim() ?? "";
+  const rid = roomId.trim();
+  if (!orderId || !rid) return null;
+  return { orderId, roomId: rid, lastReadMessageId: lastReadMessageId?.trim() || null };
+}
+
+async function postOrderChatRead(input: OrderChatReadInput): Promise<OrderChatReadResponse> {
+  const res = await fetch("/api/domains/order/read-order-chat", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  const json = (await res.json().catch(() => ({}))) as OrderChatReadResponse;
+  return { ...json, ok: res.ok && json.ok === true };
+}
+
+function dispatchOrderChatReadRefresh(roomId: string, role?: "owner" | "customer"): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(KASAMA_NOTIFICATIONS_UPDATED));
+  if (role === "owner") {
+    dispatchOwnerHubBadgeRefresh({
+      source: "order-domain-read-order-chat",
+      key: "owner_order_chat",
+      roomId,
+      participantUnreadDirection: "decrease",
+      dedupeMs: 0,
+    });
+    return;
+  }
+  window.dispatchEvent(
+    new CustomEvent(KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH, {
+      detail: { source: "order-domain-read-order-chat", roomId, at: Date.now() },
+    })
+  );
 }
 
 /**
@@ -370,6 +431,39 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
       const refLm = String(snap.room.lastMessageAt ?? "");
       setLocalReadGuard({ roomId: id, referenceLastMessageAt: refLm, source: "room_enter" });
       const tailId = lastMarkableMessageId(roomMessagesRef.current, snap.messages);
+      const orderReadInput = resolveOrderChatReadInput(snap, id, tailId);
+      if (orderReadInput) {
+        cmReadBadgeLog("order_read_api_start", { roomId: id, path: "immediate_open" });
+        void (async () => {
+          try {
+            const json = await postOrderChatRead(orderReadInput);
+            if (json.ok === true) {
+              refreshLocalReadGuardServerAck(id);
+              const alignMs = applyOptimisticRoomRead(snap, tailId);
+              dispatchOrderChatReadRefresh(id, json.role);
+              cmReadBadgeLog("order_read_api_done", { roomId: id, path: "immediate_open", role: json.role ?? null });
+              if (typeof performance !== "undefined" && unreadReadSyncRecordedRoomRef.current !== id) {
+                unreadReadSyncRecordedRoomRef.current = id;
+                recordRouteEntryMetric("messenger_room_entry", "unread_read_sync_ms", alignMs);
+              }
+            } else {
+              cmReadBadgeLog("order_read_api_fail", {
+                roomId: id,
+                path: "immediate_open",
+                apiError: json.error ?? null,
+              });
+            }
+          } catch (err) {
+            cmReadBadgeLog("order_read_api_fail", {
+              roomId: id,
+              path: "immediate_open",
+              networkError: true,
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
+        })();
+        return;
+      }
       cmReadBadgeLog("room_enter_optimistic_zero", { roomId: id, hasTail: Boolean(tailId) });
       const alignMs = applyOptimisticRoomRead(snap, tailId);
       if (typeof performance !== "undefined") {
@@ -532,6 +626,99 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
       roomOpenMarkReadRef.current.phase = "in_flight";
       const tAnchor = typeof performance !== "undefined" ? performance.now() : Date.now();
       const previousReadCursor = roomOpenMarkReadRef.current.lastMarkedMessageId ?? null;
+      const orderReadInput = resolveOrderChatReadInput(snap, id, lastReadMessageId);
+      if (orderReadInput) {
+        debugRoomReadAck({
+          roomId: id,
+          reason,
+          visible: documentIsVisible(),
+          focused: windowIsFocused(),
+          rendered: true,
+          hasDom: true,
+          nearBottom: isNearBottom(messagesViewportRef.current),
+          lastVisibleMessageId: lastReadMessageId,
+          previousReadCursor,
+          nextReadCursor: lastReadMessageId,
+          debounceMs: CM_MARK_READ_SCROLL_DEBOUNCE_MS,
+          optimisticApplied: false,
+        });
+        cmReadBadgeLog("order_read_api_start", { roomId: id, path: "scroll_ack", lastReadMessageId });
+        void (async () => {
+          try {
+            const json = await postOrderChatRead(orderReadInput);
+            if (json.ok === true) {
+              refreshLocalReadGuardServerAck(id);
+              const alignMs = applyOptimisticRoomRead(snap, lastReadMessageId);
+              dispatchOrderChatReadRefresh(id, json.role);
+              earlyOptimisticMessageIdRef.current = null;
+              preOptimisticUnreadRef.current = null;
+              roomOpenMarkReadRef.current = {
+                roomId: id,
+                phase: "done",
+                lastMarkedMessageId: lastReadMessageId,
+              };
+              cmReadBadgeLog("order_read_api_done", { roomId: id, path: "scroll_ack", role: json.role ?? null });
+              debugRoomReadAck({
+                roomId: id,
+                reason,
+                visible: documentIsVisible(),
+                focused: windowIsFocused(),
+                rendered: true,
+                hasDom: true,
+                nearBottom: isNearBottom(messagesViewportRef.current),
+                lastVisibleMessageId: lastReadMessageId,
+                previousReadCursor,
+                nextReadCursor: lastReadMessageId,
+                debounceMs: CM_MARK_READ_SCROLL_DEBOUNCE_MS,
+                optimisticApplied: true,
+                optimistic_clear_ms: alignMs,
+                serverOk: true,
+                elapsedMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - tAnchor),
+              });
+              return;
+            }
+            cmReadBadgeLog("order_read_api_fail", {
+              roomId: id,
+              path: "scroll_ack",
+              apiError: json.error ?? null,
+              lastReadMessageId,
+            });
+          } catch (err) {
+            cmReadBadgeLog("order_read_api_fail", {
+              roomId: id,
+              path: "scroll_ack",
+              networkError: true,
+              error: err instanceof Error ? err.message : String(err),
+              lastReadMessageId,
+            });
+          }
+          earlyOptimisticMessageIdRef.current = null;
+          preOptimisticUnreadRef.current = null;
+          const cur = roomOpenMarkReadRef.current;
+          roomOpenMarkReadRef.current = {
+            roomId: id,
+            phase: "idle",
+            lastMarkedMessageId: cur.lastMarkedMessageId,
+          };
+          debugRoomReadAck({
+            roomId: id,
+            reason,
+            visible: documentIsVisible(),
+            focused: windowIsFocused(),
+            rendered: true,
+            hasDom: true,
+            nearBottom: isNearBottom(messagesViewportRef.current),
+            lastVisibleMessageId: lastReadMessageId,
+            previousReadCursor,
+            nextReadCursor: lastReadMessageId,
+            debounceMs: CM_MARK_READ_SCROLL_DEBOUNCE_MS,
+            optimisticApplied: false,
+            serverOk: false,
+            elapsedMs: Math.round((typeof performance !== "undefined" ? performance.now() : Date.now()) - tAnchor),
+          });
+        })();
+        return;
+      }
       let alignMs = 0;
       if (!optimisticAlreadyApplied) {
         alignMs = applyOptimisticRoomRead(snap, lastReadMessageId);

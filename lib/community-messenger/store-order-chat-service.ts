@@ -354,7 +354,9 @@ export async function appendStoreOrderMessengerOrderSummaryIfNeeded(
         updated_at: createdAt,
       })
       .eq("id", ensured.roomId);
-    await publishStoreOrderMessengerSystemMessageBump(ensured, updateSummaryId, createdAt, content, metadata);
+    // CONTRACT — summary refresh (UPDATE only): room/message sync; no notification_targets bump.
+    // Re-bump Prevention A: ensure-chat reentry must not re-UPSERT buyer_order via system bump.
+    // DO NOT: publishStoreOrderMessengerSystemMessageBump on this branch.
     return;
   }
   const { data: inserted, error } = await sb

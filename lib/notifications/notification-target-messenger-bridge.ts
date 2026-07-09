@@ -131,37 +131,6 @@ async function bumpDeliveryTargetForRecipient(
   });
 }
 
-async function clearDeliveryTargetForRecipient(
-  sb: SupabaseClient<any>,
-  opts: {
-    userId: string;
-    roomId: string;
-    orderCtx: StoreOrderRoomContext | null;
-    directKey: string | null;
-  }
-): Promise<void> {
-  const uid = opts.userId.trim();
-  const rid = opts.roomId.trim();
-  if (!uid || !rid) return;
-  const ownerTarget = messengerTargetForUser(uid, opts.orderCtx);
-  if (ownerTarget.isOwnerOrderChat) {
-    await clearChatRoomTargetFromMessengerRead(sb, {
-      userId: uid,
-      roomId: rid,
-      isOwnerOrderChat: true,
-      storeId: ownerTarget.storeId,
-    });
-    return;
-  }
-  const orderId = opts.orderCtx?.orderId ?? orderIdFromDirectKey(opts.directKey);
-  if (!orderId) return;
-  await clearNotificationTarget(sb, {
-    userId: uid,
-    targetType: "buyer_order",
-    targetId: orderId,
-  });
-}
-
 async function clearTradeTargetForMessengerRoomUser(
   sb: SupabaseClient<any>,
   userId: string,
@@ -251,7 +220,7 @@ export async function clearMessengerRoomNotificationTargetAfterRead(
     return;
   }
   if (kind === "delivery") {
-    await clearDeliveryTargetForRecipient(sb, { userId: uid, roomId: rid, orderCtx, directKey });
+    // OrderDomain.readOrderChat owns buyer_order / owner_order_chat clear.
     return;
   }
   await clearChatRoomTargetFromMessengerRead(sb, {

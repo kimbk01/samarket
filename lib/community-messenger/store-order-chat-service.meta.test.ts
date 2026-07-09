@@ -1,9 +1,21 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 import {
   buildMessengerContextInputFromStoreOrderSnapshot,
   buildMessengerContextMetaFromStoreOrder,
 } from "@/lib/community-messenger/store-order-messenger-context";
 import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
+
+const publishMessengerRoomBumpAfterMutation = vi.fn().mockResolvedValue(undefined);
+
+vi.mock("@/lib/community-messenger/server/publish-messenger-room-bump", () => ({
+  publishMessengerRoomBumpAfterMutation: (...args: unknown[]) =>
+    publishMessengerRoomBumpAfterMutation(...args),
+}));
+
+const servicePath = join(dirname(fileURLToPath(import.meta.url)), "store-order-chat-service.ts");
 
 describe("store order messenger context meta", () => {
   it("uses buyer-facing stepLabel not raw db status", () => {
@@ -116,7 +128,9 @@ describe("appendStoreOrderMessengerOrderSummaryIfNeeded idempotency", () => {
           }),
         };
       }),
+      rpc: vi.fn(),
     };
+    publishMessengerRoomBumpAfterMutation.mockClear();
     const { appendStoreOrderMessengerOrderSummaryIfNeeded } = await import(
       "@/lib/community-messenger/store-order-chat-service"
     );
@@ -134,5 +148,36 @@ describe("appendStoreOrderMessengerOrderSummaryIfNeeded idempotency", () => {
     expect(insert).not.toHaveBeenCalled();
     expect(messageUpdate).toHaveBeenCalled();
     expect(roomUpdate).toHaveBeenCalled();
+    expect(publishMessengerRoomBumpAfterMutation).not.toHaveBeenCalled();
+  });
+});
+
+describe("order chat re-bump prevention contract (summary paths)", () => {
+  it("summary UPDATE branch does not publish messenger target bump", () => {
+    const src = readFileSync(servicePath, "utf8");
+    const updateBranch = src.slice(
+      src.indexOf("if (updateSummaryId)"),
+      src.indexOf("const { data: inserted, error } = await sb")
+    );
+    expect(updateBranch).toContain("Re-bump Prevention A");
+    expect(updateBranch).not.toMatch(/await\s+publishStoreOrderMessengerSystemMessageBump\s*\(/);
+  });
+
+  it("summary INSERT branch still publishes system message bump", () => {
+    const src = readFileSync(servicePath, "utf8");
+    const insertBranch = src.slice(
+      src.indexOf("const { data: inserted, error } = await sb"),
+      src.indexOf("/**\n * Mutation-only")
+    );
+    expect(insertBranch).toContain("publishStoreOrderMessengerSystemMessageBump");
+  });
+
+  it("status system message insert still publishes system message bump", () => {
+    const src = readFileSync(servicePath, "utf8");
+    const statusFn = src.slice(
+      src.indexOf("async function appendStoreOrderMessengerSystemMessage"),
+      src.indexOf("export async function appendStoreOrderMessengerPaymentCompletedLine")
+    );
+    expect(statusFn).toContain("publishStoreOrderMessengerSystemMessageBump");
   });
 });
