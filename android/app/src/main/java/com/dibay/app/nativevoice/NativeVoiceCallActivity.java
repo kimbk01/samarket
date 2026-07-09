@@ -50,6 +50,10 @@ public class NativeVoiceCallActivity extends Activity {
   private TextView activePeerNameView;
   private TextView activeStatusView;
   private TextView activeAvatarInitialView;
+  private View peerWaveformView;
+  private View dividerView;
+  private View localAreaView;
+  private View localWaveformView;
   private TextView localStatusView;
   private LinearLayout incomingActions;
   private LinearLayout activeActions;
@@ -60,6 +64,7 @@ public class NativeVoiceCallActivity extends Activity {
   private ImageButton speakerButton;
   private ImageButton videoSwitchButton;
   private ImageButton micButton;
+  private TextView speakerLabelView;
   private TextView endLabelView;
   private View dockRoot;
   private boolean speakerEnabled;
@@ -291,6 +296,10 @@ public class NativeVoiceCallActivity extends Activity {
     activePeerNameView = findViewById(R.id.native_voice_call_active_peer_name);
     activeStatusView = findViewById(R.id.native_voice_call_active_status);
     activeAvatarInitialView = findViewById(R.id.native_voice_call_active_avatar_initial);
+    peerWaveformView = findViewById(R.id.native_voice_call_peer_waveform);
+    dividerView = findViewById(R.id.native_voice_call_divider);
+    localAreaView = findViewById(R.id.native_voice_call_local_area);
+    localWaveformView = findViewById(R.id.native_voice_call_local_waveform);
     localStatusView = findViewById(R.id.native_voice_call_local_status);
     incomingActions = findViewById(R.id.native_voice_call_incoming_actions);
     activeActions = findViewById(R.id.native_voice_call_active_actions);
@@ -301,6 +310,7 @@ public class NativeVoiceCallActivity extends Activity {
     speakerButton = findViewById(R.id.native_voice_call_speaker);
     videoSwitchButton = findViewById(R.id.native_voice_call_video_switch);
     micButton = findViewById(R.id.native_voice_call_mic);
+    speakerLabelView = findViewById(R.id.native_voice_call_speaker_label);
     endLabelView = findViewById(R.id.native_voice_call_end_label);
     attachDockView();
     IncomingCallUiInsets.applyBottomSafeArea(incomingActions, 32);
@@ -314,8 +324,7 @@ public class NativeVoiceCallActivity extends Activity {
     speakerButton.setOnClickListener(
         v -> {
           speakerEnabled = !speakerEnabled;
-          speakerButton.setContentDescription(
-              getString(speakerEnabled ? R.string.dibay_voice_speaker_on : R.string.dibay_voice_speaker_off));
+          updateSpeakerChrome();
           NativeVoiceCallAgoraEngine.setSpeakerEnabled(speakerEnabled);
         });
     videoSwitchButton.setOnClickListener(v -> {});
@@ -348,12 +357,17 @@ public class NativeVoiceCallActivity extends Activity {
     activeStatusView.setText(model.statusText);
     activeAvatarInitialView.setText(model.avatarInitial);
     localStatusView.setText(model.localStatusText);
+    peerWaveformView.setVisibility(model.showConnectedSplit ? View.VISIBLE : View.GONE);
+    dividerView.setVisibility(model.showConnectedSplit ? View.VISIBLE : View.GONE);
+    localAreaView.setVisibility(model.showConnectedSplit ? View.VISIBLE : View.GONE);
+    localWaveformView.setVisibility(model.showConnectedSplit ? View.VISIBLE : View.GONE);
     incomingActions.setVisibility(model.showIncomingActions ? View.VISIBLE : View.GONE);
     activeActions.setVisibility(model.showActiveActions ? View.VISIBLE : View.GONE);
     connectedControls.setVisibility(model.showConnectedControls ? View.VISIBLE : View.GONE);
     endButton.setContentDescription(model.endButtonLabel);
     endLabelView.setText(model.endButtonLabel);
     speakerButton.setContentDescription(model.speakerLabel);
+    updateSpeakerChrome();
     if (model.showDuration) {
       if (connectedAtElapsedMs <= 0L) connectedAtElapsedMs = SystemClock.elapsedRealtime();
       durationView.setVisibility(View.VISIBLE);
@@ -364,6 +378,17 @@ public class NativeVoiceCallActivity extends Activity {
       durationView.setVisibility(model.showOutgoingContent ? View.VISIBLE : View.GONE);
       durationView.setText("00:00");
     }
+  }
+
+  private void updateSpeakerChrome() {
+    if (speakerButton == null) return;
+    int labelRes = speakerEnabled ? R.string.dibay_voice_speaker_on : R.string.dibay_voice_speaker_off;
+    speakerButton.setContentDescription(getString(labelRes));
+    speakerButton.setImageResource(
+        speakerEnabled ? R.drawable.ic_dibay_voice_speaker_on : R.drawable.ic_dibay_voice_speaker_off);
+    speakerButton.setBackgroundResource(
+        speakerEnabled ? R.drawable.bg_dibay_voice_control_active : R.drawable.bg_dibay_voice_control_neutral);
+    if (speakerLabelView != null) speakerLabelView.setText(labelRes);
   }
 
   private boolean minimizeConnectedCall(String source) {

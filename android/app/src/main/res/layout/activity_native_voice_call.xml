@@ -298,24 +298,25 @@
                     android:gravity="center"
                     android:orientation="vertical">
 
-                <ImageButton
-                    android:id="@+id/native_voice_call_speaker"
-                    android:layout_width="@dimen/dibay_voice_control_size"
-                    android:layout_height="@dimen/dibay_voice_control_size"
-                    android:background="@drawable/bg_dibay_voice_control_neutral"
-                    android:contentDescription="@string/dibay_voice_speaker"
-                    android:minHeight="@dimen/dibay_call_touch_min"
-                    android:minWidth="@dimen/dibay_call_touch_min"
-                    android:padding="15dp"
-                    android:scaleType="centerInside"
-                    android:src="@android:drawable/ic_lock_silent_mode_off"
-                    android:tint="@android:color/white" />
+                    <ImageButton
+                        android:id="@+id/native_voice_call_speaker"
+                        android:layout_width="@dimen/dibay_voice_control_size"
+                        android:layout_height="@dimen/dibay_voice_control_size"
+                        android:background="@drawable/bg_dibay_voice_control_neutral"
+                        android:contentDescription="@string/dibay_voice_speaker_off"
+                        android:minHeight="@dimen/dibay_call_touch_min"
+                        android:minWidth="@dimen/dibay_call_touch_min"
+                        android:padding="15dp"
+                        android:scaleType="centerInside"
+                        android:src="@drawable/ic_dibay_voice_speaker_off"
+                        android:tint="@android:color/white" />
 
                     <TextView
+                        android:id="@+id/native_voice_call_speaker_label"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="6dp"
-                        android:text="@string/dibay_voice_speaker"
+                        android:text="@string/dibay_voice_speaker_off"
                         android:textColor="@color/dibay_call_soft_white"
                         android:textSize="12sp" />
                 </LinearLayout>
@@ -337,7 +338,7 @@
                         android:minWidth="@dimen/dibay_call_touch_min"
                         android:padding="15dp"
                         android:scaleType="centerInside"
-                        android:src="@android:drawable/presence_video_online"
+                        android:src="@drawable/ic_dibay_voice_video_switch"
                         android:tint="@android:color/white" />
 
                     <TextView
@@ -366,7 +367,7 @@
                         android:minWidth="@dimen/dibay_call_touch_min"
                         android:padding="15dp"
                         android:scaleType="centerInside"
-                        android:src="@android:drawable/ic_btn_speak_now"
+                        android:src="@drawable/ic_dibay_voice_mic_off"
                         android:tint="@android:color/white" />
 
                     <TextView
@@ -394,7 +395,7 @@
                         android:minWidth="@dimen/dibay_call_touch_min"
                         android:padding="15dp"
                         android:scaleType="centerInside"
-                        android:src="@android:drawable/ic_menu_close_clear_cancel"
+                        android:src="@drawable/ic_dibay_voice_end"
                         android:tint="@android:color/white" />
 
                     <TextView

@@ -25,6 +25,7 @@ public final class NativeVoiceCallUiPresenter {
     public final boolean showIncomingActions;
     public final boolean showActiveActions;
     public final boolean showConnectedControls;
+    public final boolean showConnectedSplit;
     public final boolean showDuration;
     public final String endButtonLabel;
     public final String speakerLabel;
@@ -41,6 +42,7 @@ public final class NativeVoiceCallUiPresenter {
         boolean showIncomingActions,
         boolean showActiveActions,
         boolean showConnectedControls,
+        boolean showConnectedSplit,
         boolean showDuration,
         String endButtonLabel,
         String speakerLabel) {
@@ -55,6 +57,7 @@ public final class NativeVoiceCallUiPresenter {
       this.showIncomingActions = showIncomingActions;
       this.showActiveActions = showActiveActions;
       this.showConnectedControls = showConnectedControls;
+      this.showConnectedSplit = showConnectedSplit;
       this.showDuration = showDuration;
       this.endButtonLabel = endButtonLabel;
       this.speakerLabel = speakerLabel;
@@ -95,6 +98,7 @@ public final class NativeVoiceCallUiPresenter {
         incoming && !ending,
         (dialingOrConnecting || connected) && !ending,
         (dialingOrConnecting || connected) && !ending,
+        connected && !ending,
         connected && !ending,
         endLabel,
         speakerLabel);
