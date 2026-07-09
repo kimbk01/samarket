@@ -9,7 +9,10 @@
     "serialA": "8b37179f7d94",
     "serialB": "RFCY40PY2CA"
   },
-  "commitAtLock": "1d69eb5b19089ed56dd1d654cb27f11f0a930fce",
+  "commitAtLock": "56a65c1c8abca38def0301d4b4ff89e236bc1847",
+  "commitAtLockNote": "Authoritative Voice UI HARD LOCK bundle commit. Prior evidence value 1d69eb5b19089ed56dd1d654cb27f11f0a930fce was amend-chain intermediate (non-authoritative; retained here for audit only).",
+  "priorCommitAtLockNonAuthoritative": "1d69eb5b19089ed56dd1d654cb27f11f0a930fce",
+  "authoritativeLockCommit": "56a65c1c8abca38def0301d4b4ff89e236bc1847",
   "commitMessage": "lock(native-call): telegram voice ui and ringback route",
   "qaPolicy": {
     "fastQa": "Voice UI scope only",

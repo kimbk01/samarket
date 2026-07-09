@@ -112,3 +112,15 @@ NativeOutgoingRingbackOwner (R1 — ringback route pin only, shared Voice/Video 
 5. Implement after explicit approval
 
 Machine-readable: `docs/artifacts/dibay-call-voice-ui-hard-lock-evidence.json`
+
+## Deploy Baseline at Lock
+
+| Item | Value |
+|---|---|
+| **Authoritative lock commit (Voice UI bundle)** | `56a65c1c8abca38def0301d4b4ff89e236bc1847` |
+| Git message | `lock(native-call): telegram voice ui and ringback route` |
+| evidence `commitAtLock` | `56a65c1c8abca38def0301d4b4ff89e236bc1847` (corrected in docs follow-up) |
+| Prior non-authoritative | `1d69eb5b19089ed56dd1d654cb27f11f0a930fce` (amend-chain intermediate; note only) |
+| Push | Separate user approval |
+
+**Note:** Voice UI code HARD LOCK lives on **`56a65c1c`**. Docs follow-up commits do not move the lock bundle; they only correct evidence metadata.
