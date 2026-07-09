@@ -99,4 +99,28 @@ describe("chat-room-list-lifecycle-policy delivery", () => {
     const nowMs = anchorMs + COMPLETED_CHAT_LIST_VISIBLE_MS - 60 * 60 * 1000;
     expect(shouldShowCommerceChatInList(room, nowMs)).toBe(true);
   });
+
+  it("hides pending delivery order from chat list", () => {
+    const room = baseRoom({
+      contextMeta: {
+        v: 1,
+        kind: "delivery",
+        storeOrderId: "ord-pending",
+        orderStatus: "pending",
+      },
+    });
+    expect(shouldShowCommerceChatInList(room)).toBe(false);
+  });
+
+  it("shows accepted delivery order in chat list", () => {
+    const room = baseRoom({
+      contextMeta: {
+        v: 1,
+        kind: "delivery",
+        storeOrderId: "ord-accepted",
+        orderStatus: "accepted",
+      },
+    });
+    expect(shouldShowCommerceChatInList(room)).toBe(true);
+  });
 });

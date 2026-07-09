@@ -29,7 +29,8 @@ export function resolveStoreOrderDeliveryHeaderMode(input: {
   if (input.storeOrderSnap?.buyerOrder) return "buyer_store";
   if (input.myRole === "owner") return "owner_buyer_peer";
   if (input.myRole === "member") return "buyer_store";
-  return "generic_delivery";
+  /** 구매자·역할 미확인 — room.title(오너 닉네임) 폴백 대신 매장 표면 유지 */
+  return "buyer_store";
 }
 
 /** store order 방 `title` 은 종종 「매장명 · 상품」 — 주문자 닉네임 폴백으로 쓰지 않음 */
@@ -201,4 +202,14 @@ export function resolveDeliveryPeerUserId(input: {
     if (uid && uid !== viewer) return uid;
   }
   return peer;
+}
+
+/** 구매자 주문방 — 음성통화 확인 등 peerLabel (매장명만, room.title 금지) */
+export function resolveStoreOrderBuyerVoicePeerLabel(input: {
+  headerMode: StoreOrderDeliveryHeaderMode;
+  storeDisplayName: string;
+}): string {
+  if (input.headerMode !== "buyer_store") return "";
+  const name = input.storeDisplayName.trim();
+  return name && !isStoreTechnicalIdentifier(name) ? name : "매장";
 }

@@ -27,6 +27,7 @@ import { scheduleMessengerScrollToBottomAfterRowsPainted } from "@/lib/community
 import {
   resolveDeliveryChromePrimaryLabel,
   resolveDeliveryPeerUserId,
+  resolveStoreOrderBuyerVoicePeerLabel,
 } from "@/lib/store-order-chat/messenger-delivery-room-header";
 
 type Props = {
@@ -187,11 +188,21 @@ export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }
     />
   ) : null;
 
+  const buyerVoicePeerLabel = useMemo(() => {
+    if (isSeller) return vm.snapshot.room.title?.trim() || "";
+    return (
+      resolveStoreOrderBuyerVoicePeerLabel({
+        headerMode: "buyer_store",
+        storeDisplayName: chromePrimaryLabel,
+      }) || chromePrimaryLabel
+    );
+  }, [chromePrimaryLabel, isSeller, vm.snapshot.room.title]);
+
   const buyerVoiceOutgoingConfirmDialog =
     buyerVoiceOutgoingConfirmOpen && !isSeller ? (
       <MessengerOutgoingCallConfirmDialog
         open
-        peerLabel={vm.snapshot.room.title?.trim() || ""}
+        peerLabel={buyerVoicePeerLabel}
         kind="voice"
         busy={vm.outgoingDialLocked}
         onCancel={() => setBuyerVoiceOutgoingConfirmOpen(false)}

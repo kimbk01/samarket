@@ -1,7 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { buildStoreOrderMessengerRoomHref } from "@/lib/chats/surfaces/order-chat-surface";
+import {
+  ORDER_CHAT_MESSENGER_LIST_HREF,
+  ORDER_MANAGEMENT_HUB_PATH,
+  buildStoreOrderMessengerRoomHref,
+} from "@/lib/chats/surfaces/order-chat-surface";
 
 describe("buildStoreOrderMessengerRoomHref", () => {
+  it("order chat hub and management paths are separated", () => {
+    expect(ORDER_CHAT_MESSENGER_LIST_HREF).toBe("/community-messenger/delivery-chats");
+    expect(ORDER_MANAGEMENT_HUB_PATH).toBe("/mypage/store-orders");
+    expect(ORDER_CHAT_MESSENGER_LIST_HREF).not.toBe(ORDER_MANAGEMENT_HUB_PATH);
+  });
+
   it("sets delivery list back params", () => {
     const href = buildStoreOrderMessengerRoomHref("room-abc");
     expect(href).toContain("/community-messenger/rooms/room-abc");

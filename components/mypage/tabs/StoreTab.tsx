@@ -5,6 +5,7 @@ import { AddressManagementClient } from "@/components/addresses/AddressManagemen
 import { MyStoreOrdersView } from "@/components/mypage/MyStoreOrdersView";
 import { MyPageQuickActions } from "@/components/mypage/MyPageQuickActions";
 import { MyPageSectionHeader } from "@/components/mypage/MyPageSectionHeader";
+import { MemberOrderChatList } from "@/components/member-orders/MemberOrderChatList";
 import type { MyPageConsoleProps } from "@/components/mypage/types";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
@@ -42,17 +43,7 @@ export function StoreTab({
         title={safeT("mypage_comp_nav_sec_store_order_chat_label")}
         description={t("mypage_comp_nav_sec_store_order_chat_desc")}
       >
-        <MyPageQuickActions
-          items={[
-            {
-              label: safeT("mypage_comp_quick_open_orders_label"),
-              href: "/mypage/section/store/orders",
-              caption: safeT("mypage_comp_quick_open_orders_caption"),
-            },
-            { label: t("mypage_comp_nav_sec_store_orders_label"), href: "/mypage/section/store/orders", caption: t("mypage_comp_nav_sec_store_orders_desc") },
-            { label: t("mypage_comp_view_order_list"), href: "/mypage/store-orders", caption: t("mypage_comp_back_to_list_full") },
-          ]}
-        />
+        <MemberOrderChatList />
       </TabShell>
     );
   }

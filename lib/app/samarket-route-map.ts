@@ -79,7 +79,7 @@ export const SAMARKET_ROUTES = {
     storeOrders: "/mypage/store-orders",
     tradePurchases: "/mypage/purchases",
     /** 구매자 배달·매장 주문 목록(채팅 허브 탭과 동일) */
-    orderChats: "/my/store-orders",
+    orderChats: "/community-messenger/delivery-chats",
   },
   chat: {
     messengerHub: "/community-messenger?section=chats",

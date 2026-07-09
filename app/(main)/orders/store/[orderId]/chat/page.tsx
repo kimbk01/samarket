@@ -8,6 +8,10 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
 import { translate } from "@/lib/i18n/messages";
 import { encodeCommunityMessengerRoomCmCtx } from "@/lib/community-messenger/cm-ctx-url";
+import {
+  MESSENGER_ROOM_RETURN_QUERY_KEY,
+  sanitizeMessengerRoomReturnHref,
+} from "@/lib/community-messenger/messenger-entry-origin";
 import { buildProfileEditHref } from "@/lib/profile/profile-completion-modal-client";
 import type { ProfileRequirementField } from "@/lib/profile/profile-requirements";
 import { requireProfileFieldsForAction } from "@/lib/profile/require-profile-completion.server";
@@ -108,5 +112,8 @@ async function OrdersStoreOrderChatPageBody({
     headline: result.storeName,
   });
   roomUrl.searchParams.set("cm_ctx", cmCtx);
+  const cmReturn =
+    sanitizeMessengerRoomReturnHref("/orders") ?? "/orders";
+  roomUrl.searchParams.set(MESSENGER_ROOM_RETURN_QUERY_KEY, cmReturn);
   redirect(`${roomUrl.pathname}${roomUrl.search}`);
 }

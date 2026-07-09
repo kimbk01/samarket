@@ -297,7 +297,7 @@ export function resolveDeliveryMessengerRoomReturnHref(args: {
  * 방 화면 헤더·스와이프 뒤로가기
  * - `cm_return` → 진입 직전 화면(우선)
  * - `cm_list=trade` → 거래 채팅방 목록
- * - `cm_list=delivery` → **메신저 배달 목록이 아님** — `?from=` 출처 탭(`/stores` 등)
+ * - `cm_list=delivery` → 주문 채팅방 리스트 (`/community-messenger/delivery-chats`)
  * - 없음·인박스 → 전체 채팅 목록(`section=chats`)
  */
 export function buildMessengerRoomListBackHref(searchParams: { get: (key: string) => string | null }): string {
@@ -309,16 +309,16 @@ export function buildMessengerRoomListBackHref(searchParams: { get: (key: string
   const source = parseMessengerRoomListSource(searchParams.get(MESSENGER_ROOM_LIST_SOURCE_QUERY_KEY));
   const o = parseMessengerEntryOrigin(searchParams.get(MESSENGER_ENTRY_ORIGIN_QUERY_KEY));
   if (source === "delivery") {
-    return messengerEntryOriginBackHref(o ?? "delivery");
+    return messengerRoomListDestination("delivery", o ?? "delivery");
   }
   return messengerRoomListDestination(source, o);
 }
 
-/** 배달 주문 채팅 방 — 히스토리 back 이 `delivery-chats` 로 가지 않도록 직행 복귀 */
-export function shouldForceDirectDeliveryMessengerRoomBack(searchParams: {
+/** 배달 주문 채팅 방 — `cm_return` 없을 때 history back 우선, 폴백만 delivery-chats */
+export function shouldForceDirectDeliveryMessengerRoomBack(_searchParams: {
   get: (key: string) => string | null;
 }): boolean {
-  return parseMessengerRoomListSource(searchParams.get(MESSENGER_ROOM_LIST_SOURCE_QUERY_KEY)) === "delivery";
+  return false;
 }
 
 /**

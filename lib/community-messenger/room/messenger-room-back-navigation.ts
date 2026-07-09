@@ -1,5 +1,7 @@
 import {
   buildMessengerRoomListBackHref,
+  MESSENGER_ROOM_RETURN_QUERY_KEY,
+  sanitizeMessengerRoomReturnHref,
   shouldForceDirectDeliveryMessengerRoomBack,
 } from "@/lib/community-messenger/messenger-entry-origin";
 import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
@@ -34,6 +36,13 @@ export function resolveMessengerRoomBackNavigation(args: {
   roomId: string;
   searchParams: { get: (key: string) => string | null };
 }): MessengerRoomBackNavigationPlan {
+  const explicitReturn = sanitizeMessengerRoomReturnHref(
+    args.searchParams.get(MESSENGER_ROOM_RETURN_QUERY_KEY)
+  );
+  if (explicitReturn) {
+    return { href: explicitReturn, forceDirect: false };
+  }
+
   const override = getMessengerRoomBackOverride(args.roomId);
   if (override) return override;
 

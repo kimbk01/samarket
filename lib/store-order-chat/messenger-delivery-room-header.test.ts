@@ -7,6 +7,7 @@ import {
   resolveDeliveryStoreDisplayName,
   resolveDeliveryStoreIndustryParts,
   resolveDeliveryStoreIndustrySubtitle,
+  resolveStoreOrderBuyerVoicePeerLabel,
   resolveStoreOrderDeliveryHeaderMode,
 } from "@/lib/store-order-chat/messenger-delivery-room-header";
 import { resolveDeliveryRoomMessageSenderLabel } from "@/lib/store-order-chat/use-delivery-room-message-sender-label";
@@ -60,6 +61,16 @@ describe("resolveStoreOrderDeliveryHeaderMode", () => {
         },
       })
     ).toBe("owner_buyer_peer");
+  });
+
+  it("admin on delivery room keeps buyer_store (no room.title fallback)", () => {
+    expect(
+      resolveStoreOrderDeliveryHeaderMode({
+        isDeliveryRoom: true,
+        myRole: "admin",
+        storeOrderSnap: null,
+      })
+    ).toBe("buyer_store");
   });
 });
 
@@ -209,5 +220,34 @@ describe("buyerNicknameForOwnerHeader", () => {
 
   it("uses peer profile label first", () => {
     expect(buyerNicknameForOwnerHeader("홍길동", "매장 · 상품")).toBe("홍길동");
+  });
+});
+
+describe("resolveStoreOrderBuyerVoicePeerLabel", () => {
+  it("returns store display name for buyer_store mode", () => {
+    expect(
+      resolveStoreOrderBuyerVoicePeerLabel({
+        headerMode: "buyer_store",
+        storeDisplayName: "나의 카페",
+      })
+    ).toBe("나의 카페");
+  });
+
+  it("ignores owner nickname when mode is buyer_store even if passed as slug", () => {
+    expect(
+      resolveStoreOrderBuyerVoicePeerLabel({
+        headerMode: "buyer_store",
+        storeDisplayName: "나의 카페",
+      })
+    ).not.toBe("owner_nickname_123");
+  });
+
+  it("returns empty for non-buyer_store modes", () => {
+    expect(
+      resolveStoreOrderBuyerVoicePeerLabel({
+        headerMode: "owner_buyer_peer",
+        storeDisplayName: "나의 카페",
+      })
+    ).toBe("");
   });
 });

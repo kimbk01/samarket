@@ -34,6 +34,9 @@ export function resolveDeliveryRoomMessageSenderLabel(input: {
   if (input.headerMode === "owner_buyer_peer") {
     return stripMessengerMemberHandleSuffix(input.buyerDisplayName) || "주문자";
   }
+  if (input.isDeliveryRoom && input.storeDisplayName.trim()) {
+    return input.storeDisplayName.trim();
+  }
   return stripMessengerMemberHandleSuffix(input.rawLabel);
 }
 
@@ -84,7 +87,8 @@ export function useDeliveryRoomMessageSenderLabel(vm: VmLike) {
         isMine: Boolean(message.isMine),
         rawLabel: raw,
         headerMode,
-        storeDisplayName: headerMode === "buyer_store" ? deliveryHeader.title : "",
+        storeDisplayName:
+          headerMode === "buyer_store" || isDeliveryRoom ? deliveryHeader.title : "",
         buyerDisplayName: headerMode === "owner_buyer_peer" ? deliveryHeader.title : "",
       });
     },

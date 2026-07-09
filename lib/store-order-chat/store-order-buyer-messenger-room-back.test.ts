@@ -4,16 +4,7 @@ import { resolveStoreOrderBuyerMessengerRoomBackHref } from "@/lib/store-order-c
 const deliveryMeta = { v: 1 as const, kind: "delivery" as const, headline: "카페 · 아메" };
 
 describe("resolveStoreOrderBuyerMessengerRoomBackHref", () => {
-  it("returns null for seller (owner role)", () => {
-    expect(
-      resolveStoreOrderBuyerMessengerRoomBackHref({
-        contextMeta: deliveryMeta,
-        myRole: "owner",
-      })
-    ).toBeNull();
-  });
-
-  it("returns restaurant browse list for 식당 business_type", () => {
+  it("always returns null — browse 직행 override removed", () => {
     expect(
       resolveStoreOrderBuyerMessengerRoomBackHref({
         contextMeta: deliveryMeta,
@@ -21,27 +12,16 @@ describe("resolveStoreOrderBuyerMessengerRoomBackHref", () => {
         storeSlug: "my-cafe",
         businessType: "식당 · 한식",
       })
-    ).toBe("/stores/browse/restaurant?sub=all");
+    ).toBeNull();
   });
 
-  it("returns hardware browse list for 공구 business_type", () => {
+  it("returns null for seller (owner role)", () => {
     expect(
       resolveStoreOrderBuyerMessengerRoomBackHref({
         contextMeta: deliveryMeta,
-        myRole: "member",
-        businessType: "공구류 · 전동공구",
+        myRole: "owner",
       })
-    ).toBe("/stores/browse/hardware?sub=all");
-  });
-
-  it("defaults to restaurant browse when taxonomy unknown", () => {
-    expect(
-      resolveStoreOrderBuyerMessengerRoomBackHref({
-        contextMeta: deliveryMeta,
-        myRole: "member",
-        fromQuery: "delivery",
-      })
-    ).toBe("/stores/browse/restaurant?sub=all");
+    ).toBeNull();
   });
 
   it("returns null for non-delivery rooms", () => {

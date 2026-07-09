@@ -16,19 +16,25 @@ import {
  */
 export const ORDER_CHAT_MESSENGER_LIST_HREF = "/community-messenger/delivery-chats";
 
+/** 주문 관리(결제·상태·리뷰) — 주문 채팅방 리스트와 분리 */
+export const ORDER_MANAGEMENT_HUB_PATH = "/mypage/store-orders";
+
 export const ORDER_CHAT_SURFACE = {
   id: "order",
   hubTabLabel: "주문 채팅",
   hubTabLabelKey: "nav_chat_order",
-  hubPath: "/my/store-orders",
+  /** 주문 채팅방 리스트 SSOT */
+  hubPath: ORDER_CHAT_MESSENGER_LIST_HREF,
+  /** 주문 관리(목록·상세) — `hubPath` 와 혼용 금지 */
+  orderManagementHubPath: ORDER_MANAGEMENT_HUB_PATH,
   /** 메신저 배달 묶음 — 「배달 채팅」 행 진입점 */
   messengerDeliveryListHref: ORDER_CHAT_MESSENGER_LIST_HREF,
-  /** `/orders` 허브 상단 탭 라벨(탭 선택 시 실제 이동은 `/my/store-orders`) */
-  ordersHubTabLabel: "주문채팅",
+  /** 레거시 `/orders` 허브 탭 — 주문 채팅방 리스트로 연결 */
+  ordersHubTabLabel: "주문 채팅",
   ordersHubTabLabelKey: "nav_chat_order_compact",
   listEmptyMessage: "주문 채팅이 없어요.",
   listEmptyMessageKey: "nav_chat_order_empty",
-  emptyCtaHref: "/my/store-orders",
+  emptyCtaHref: ORDER_MANAGEMENT_HUB_PATH,
   emptyCtaLabel: "내 배달 주문으로",
   emptyCtaLabelKey: "nav_chat_order_cta",
 } as const;

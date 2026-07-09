@@ -7,6 +7,7 @@
  */
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 import { resolveCommunityMessengerDeliveryContextMeta } from "@/lib/community-messenger/room-context-meta";
+import { resolveDeliveryChatListOrderStatusRaw } from "@/lib/community-messenger/delivery-chat-list/delivery-chat-list-resolve";
 
 /** 완료 거래·주문 채팅을 목록에 유지하는 기간 */
 export const COMPLETED_CHAT_LIST_VISIBLE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -52,6 +53,19 @@ function tradeMeta(room: CommunityMessengerRoomSummary) {
 
 function deliveryMeta(room: CommunityMessengerRoomSummary) {
   return resolveCommunityMessengerDeliveryContextMeta(room);
+}
+
+/** 주문 채팅방 목록 — 미접수(pending)·취소·환불 완료 제외 (방은 checkout 시 생성될 수 있음) */
+const DELIVERY_CHAT_LIST_HIDDEN_ORDER_STATUSES = new Set(["pending", "cancelled", "refunded"]);
+
+export function shouldShowDeliveryOrderChatInList(room: CommunityMessengerRoomSummary): boolean {
+  const delivery = deliveryMeta(room);
+  if (!delivery) return true;
+  const status =
+    trimIso(delivery.orderStatus)?.toLowerCase() ??
+    resolveDeliveryChatListOrderStatusRaw(room).toLowerCase();
+  if (!status) return true;
+  return !DELIVERY_CHAT_LIST_HIDDEN_ORDER_STATUSES.has(status);
 }
 
 /** 거래·배달 방이 거래/주문 완료 상태인지 (readonly·목록 정책 공통) */
@@ -116,7 +130,9 @@ export function shouldShowCommerceChatInList(
   room: CommunityMessengerRoomSummary,
   nowMs: number = Date.now()
 ): boolean {
-  return !shouldHideCompletedChatFromList(room, nowMs);
+  if (shouldHideCompletedChatFromList(room, nowMs)) return false;
+  if (!shouldShowDeliveryOrderChatInList(room)) return false;
+  return true;
 }
 
 /** dedupe 전 목록 노출 필터 + dedupe 후 유지할 room id 집합 */

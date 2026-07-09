@@ -2,9 +2,7 @@ import {
   MESSENGER_ENTRY_ORIGIN_QUERY_KEY,
   MESSENGER_ROOM_LIST_SOURCE_QUERY_KEY,
 } from "@/lib/community-messenger/messenger-entry-origin";
-import { messengerDeliveryViewerRole } from "@/lib/community-messenger/messenger-delivery-viewer-role";
 import type { CommunityMessengerRoomContextMetaV1 } from "@/lib/community-messenger/types";
-import { resolveStoreBrowseListHref } from "@/lib/stores/resolve-store-browse-list-href";
 
 export type StoreOrderBuyerMessengerRoomBackInput = {
   contextMeta: CommunityMessengerRoomContextMetaV1 | null | undefined;
@@ -16,20 +14,13 @@ export type StoreOrderBuyerMessengerRoomBackInput = {
 };
 
 /**
- * 배달·매장 주문 메신저 방 — **구매자(주문자)** 뒤로가기 목적지.
- * 해당 주문 매장 업종의 browse 전체 목록 (`/stores/browse/{primary}?sub=all`).
+ * 배달·매장 주문 메신저 방 — 구매자 browse 직행 override 제거.
+ * 뒤로가기는 `cm_return` → history back → delivery-chats (`resolveMessengerRoomBackNavigation`).
  */
 export function resolveStoreOrderBuyerMessengerRoomBackHref(
-  input: StoreOrderBuyerMessengerRoomBackInput
+  _input: StoreOrderBuyerMessengerRoomBackInput
 ): string | null {
-  if (messengerDeliveryViewerRole(input.contextMeta, input.myRole) !== "buyer") {
-    return null;
-  }
-  return resolveStoreBrowseListHref({
-    storeSlug: input.storeSlug,
-    storeCategorySlug: input.storeCategorySlug,
-    businessType: input.businessType,
-  });
+  return null;
 }
 
 export function shouldForceDirectStoreOrderBuyerMessengerRoomBack(

@@ -30,7 +30,10 @@ import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
 import { translate } from "@/lib/i18n/messages";
 import { useOwnerOrderChatSlideHost } from "@/components/business/owner/OwnerOrderChatSlideHostContext";
 import { useBuyerOrderChatSlideHost } from "@/components/mypage/BuyerOrderChatSlideHostContext";
-import { formatDeliveryMessengerPresenceIndustrySubtitle } from "@/lib/store-order-chat/messenger-delivery-room-header";
+import {
+  formatDeliveryMessengerPresenceIndustrySubtitle,
+  resolveStoreOrderBuyerVoicePeerLabel,
+} from "@/lib/store-order-chat/messenger-delivery-room-header";
 import { useStoreOrderDeliveryMessengerHeader } from "@/lib/store-order-chat/use-store-order-delivery-messenger-header";
 import { StoreOrderDeliveryMessengerHeaderBlock } from "@/components/community-messenger/room/phase2/StoreOrderDeliveryMessengerHeaderBlock";
 import {
@@ -254,6 +257,17 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
     runMessengerRoomBackNavigation(vm.router, plan);
   };
 
+  const voiceConfirmPeerLabel = useMemo(() => {
+    if (isDeliveryBuyer && deliveryHeaderModel.mode === "buyer_store") {
+      const storeLabel = resolveStoreOrderBuyerVoicePeerLabel({
+        headerMode: deliveryHeaderModel.mode,
+        storeDisplayName: deliveryHeaderModel.title,
+      });
+      if (storeLabel) return storeLabel;
+    }
+    return vm.snapshot.room.title?.trim() || "";
+  }, [deliveryHeaderModel.mode, deliveryHeaderModel.title, isDeliveryBuyer, vm.snapshot.room.title]);
+
   const showDeliveryPresence =
     useDeliveryHeaderBlock &&
     deliveryHeaderModel.showPresence &&
@@ -438,7 +452,7 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
     {headerVoiceConfirmOpen ? (
       <MessengerOutgoingCallConfirmDialog
         open
-        peerLabel={vm.snapshot.room.title?.trim() || ""}
+        peerLabel={voiceConfirmPeerLabel}
         kind="voice"
         busy={vm.outgoingDialLocked}
         onCancel={() => setHeaderVoiceConfirmOpen(false)}

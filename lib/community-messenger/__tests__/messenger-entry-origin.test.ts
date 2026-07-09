@@ -107,12 +107,12 @@ describe("mainBottomNavGlobalInboxTabHref", () => {
 });
 
 describe("buildMessengerRoomListBackHref", () => {
-  it("cm_list=delivery 는 메신저 배달 목록이 아닌 출처 탭으로", () => {
+  it("cm_list=delivery 는 주문 채팅방 리스트로", () => {
     expect(
       buildMessengerRoomListBackHref({
         get: (k) => (k === "cm_list" ? "delivery" : k === "from" ? "delivery" : null),
       })
-    ).toBe("/stores");
+    ).toContain("/community-messenger/delivery-chats");
   });
 
   it("cm_return 이 있으면 우선", () => {
@@ -128,11 +128,11 @@ describe("buildMessengerRoomListBackHref", () => {
 });
 
 describe("shouldForceDirectDeliveryMessengerRoomBack", () => {
-  it("배달 주문 방은 직행", () => {
+  it("배달 주문 방도 history back 허용", () => {
     expect(
       shouldForceDirectDeliveryMessengerRoomBack({
         get: (k) => (k === "cm_list" ? "delivery" : null),
       })
-    ).toBe(true);
+    ).toBe(false);
   });
 });
