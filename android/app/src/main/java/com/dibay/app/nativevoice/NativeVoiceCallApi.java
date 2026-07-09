@@ -23,6 +23,20 @@ public final class NativeVoiceCallApi {
     void onDone(TokenConnection connection, String error);
   }
 
+  public interface RealtimeCredentialsCallback {
+    void onDone(RealtimeCredentials credentials, String error);
+  }
+
+  public static final class RealtimeCredentials {
+    public final String accessToken;
+    public final String expiresAt;
+
+    RealtimeCredentials(String accessToken, String expiresAt) {
+      this.accessToken = accessToken;
+      this.expiresAt = expiresAt;
+    }
+  }
+
   public static final class TokenConnection {
     public final String appId;
     public final String channelName;
@@ -53,6 +67,63 @@ public final class NativeVoiceCallApi {
 
   public static void missedAsync(Context context, String callId, PatchCallback callback) {
     patchAsync(context, callId, "missed", "missed_patch_start", "missed_patch_done", callback);
+  }
+
+  /** Phase V V1 — dead code until Runtime wiring (V4). */
+  public static void upgradeToVideoAsync(Context context, String callId, PatchCallback callback) {
+    patchAsync(
+        context, callId, "upgrade_to_video", "upgrade_patch_start", "upgrade_patch_done", callback);
+  }
+
+  /** Phase V V1 — dead code until Realtime wiring (V2). Memory-only; never log token values. */
+  public static void fetchRealtimeCredentialsAsync(
+      Context context, RealtimeCredentialsCallback callback) {
+    if (context == null) return;
+    Context app = context.getApplicationContext();
+    NativeVoiceCallLog.info("realtime_cred_fetch_start", "realtime_cred");
+    new Thread(
+            () -> {
+              HttpURLConnection conn = null;
+              try {
+                String origin = DibayServerOrigin.resolve(app);
+                if (origin == null || origin.isEmpty()) {
+                  finishRealtimeCredentials(callback, null, "no_server_origin");
+                  return;
+                }
+                URL url =
+                    new URL(origin + "/api/community-messenger/calls/realtime-credentials");
+                conn = open(app, origin, url);
+                conn.setRequestMethod("GET");
+                int status = conn.getResponseCode();
+                String body = readBody(conn, status);
+                JSONObject json =
+                    body != null && !body.isEmpty() ? new JSONObject(body) : new JSONObject();
+                String accessToken = json.optString("accessToken", "");
+                String expiresAt = json.optString("expiresAt", "");
+                if (status < 200
+                    || status >= 300
+                    || !json.optBoolean("ok", false)
+                    || accessToken.isEmpty()
+                    || expiresAt.isEmpty()) {
+                  finishRealtimeCredentials(
+                      callback,
+                      null,
+                      "status="
+                          + status
+                          + " error="
+                          + json.optString("error", "realtime_cred_failed"));
+                  return;
+                }
+                NativeVoiceCallLog.info("realtime_cred_fetch_done", "realtime_cred", "status=" + status);
+                finishRealtimeCredentials(
+                    callback, new RealtimeCredentials(accessToken, expiresAt), null);
+              } catch (Exception error) {
+                finishRealtimeCredentials(callback, null, error.getClass().getSimpleName());
+              } finally {
+                if (conn != null) conn.disconnect();
+              }
+            })
+        .start();
   }
 
   /** Caller-side join entry — uses the same token contract as callee accept. */
@@ -212,5 +283,10 @@ public final class NativeVoiceCallApi {
 
   private static void finishToken(TokenCallback callback, TokenConnection connection, String error) {
     if (callback != null) callback.onDone(connection, error);
+  }
+
+  private static void finishRealtimeCredentials(
+      RealtimeCredentialsCallback callback, RealtimeCredentials credentials, String error) {
+    if (callback != null) callback.onDone(credentials, error);
   }
 }
