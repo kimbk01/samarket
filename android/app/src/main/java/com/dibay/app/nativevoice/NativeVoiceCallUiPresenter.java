@@ -17,7 +17,11 @@ public final class NativeVoiceCallUiPresenter {
     public final Phase phase;
     public final String peerName;
     public final String statusText;
+    public final String headerText;
+    public final String localStatusText;
     public final String avatarInitial;
+    public final boolean showIncomingContent;
+    public final boolean showOutgoingContent;
     public final boolean showIncomingActions;
     public final boolean showActiveActions;
     public final boolean showConnectedControls;
@@ -29,7 +33,11 @@ public final class NativeVoiceCallUiPresenter {
         Phase phase,
         String peerName,
         String statusText,
+        String headerText,
+        String localStatusText,
         String avatarInitial,
+        boolean showIncomingContent,
+        boolean showOutgoingContent,
         boolean showIncomingActions,
         boolean showActiveActions,
         boolean showConnectedControls,
@@ -39,7 +47,11 @@ public final class NativeVoiceCallUiPresenter {
       this.phase = phase;
       this.peerName = peerName;
       this.statusText = statusText;
+      this.headerText = headerText;
+      this.localStatusText = localStatusText;
       this.avatarInitial = avatarInitial;
+      this.showIncomingContent = showIncomingContent;
+      this.showOutgoingContent = showOutgoingContent;
       this.showIncomingActions = showIncomingActions;
       this.showActiveActions = showActiveActions;
       this.showConnectedControls = showConnectedControls;
@@ -61,19 +73,28 @@ public final class NativeVoiceCallUiPresenter {
     boolean incoming = phase == Phase.INCOMING;
     boolean connected = phase == Phase.CONNECTED;
     boolean dialingOrConnecting = phase == Phase.DIALING || phase == Phase.CONNECTING;
+    String headerText = safeString(app, R.string.dibay_voice_call_header_connecting);
+    String localStatusText =
+        connected
+            ? safeString(app, R.string.dibay_voice_me_status_speaking)
+            : safeString(app, R.string.dibay_voice_me_status_waiting);
     String endLabel =
         phase == Phase.DIALING
             ? safeString(app, R.string.dibay_voice_call_cancel)
             : safeString(app, R.string.dibay_voice_call_end);
-    String speakerLabel = safeString(app, R.string.dibay_voice_speaker_off);
+    String speakerLabel = safeString(app, R.string.dibay_voice_speaker);
     return new Model(
         phase,
         peerName,
         statusText,
+        headerText,
+        localStatusText,
         avatarInitial,
         incoming && !ending,
+        !incoming && !ending,
+        incoming && !ending,
         (dialingOrConnecting || connected) && !ending,
-        connected && !ending,
+        (dialingOrConnecting || connected) && !ending,
         connected && !ending,
         endLabel,
         speakerLabel);

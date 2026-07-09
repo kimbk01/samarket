@@ -14,6 +14,7 @@
         android:paddingEnd="20dp">
 
         <LinearLayout
+            android:id="@+id/native_voice_call_incoming_content"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
@@ -66,6 +67,180 @@
         </LinearLayout>
 
         <LinearLayout
+            android:id="@+id/native_voice_call_outgoing_content"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:paddingTop="24dp"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/native_voice_call_header_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text="@string/dibay_voice_call_header_connecting"
+                android:textColor="@color/dibay_call_soft_white"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/native_voice_call_header_duration"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:gravity="center"
+                android:text="00:00"
+                android:textColor="@color/dibay_call_mint"
+                android:textSize="14sp" />
+
+            <LinearLayout
+                android:id="@+id/native_voice_call_active_peer_area"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <FrameLayout
+                    android:layout_width="@dimen/dibay_call_avatar_lg"
+                    android:layout_height="@dimen/dibay_call_avatar_lg">
+
+                    <TextView
+                        android:id="@+id/native_voice_call_active_avatar_initial"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="@drawable/bg_dibay_incoming_avatar"
+                        android:gravity="center"
+                        android:textColor="@color/dibay_call_primary_pressed"
+                        android:textSize="36sp"
+                        android:textStyle="bold" />
+                </FrameLayout>
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:gravity="center"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/native_voice_call_active_peer_name"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:textColor="@color/dibay_incoming_text_primary"
+                        android:textSize="24sp"
+                        android:textStyle="bold" />
+
+                    <View
+                        android:layout_width="7dp"
+                        android:layout_height="7dp"
+                        android:layout_marginStart="6dp"
+                        android:background="@drawable/bg_dibay_voice_status_dot" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/native_voice_call_active_status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:gravity="center"
+                    android:textColor="@color/dibay_call_mint"
+                    android:textSize="@dimen/dibay_incoming_status_sp" />
+
+                <LinearLayout
+                    android:id="@+id/native_voice_call_peer_waveform"
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/dibay_voice_waveform_height"
+                    android:layout_marginTop="20dp"
+                    android:gravity="center"
+                    android:orientation="horizontal">
+
+                    <View android:layout_width="4dp" android:layout_height="8dp" android:layout_margin="3dp" android:background="@drawable/bg_dibay_voice_wave_bar" />
+                    <View android:layout_width="4dp" android:layout_height="18dp" android:layout_margin="3dp" android:background="@drawable/bg_dibay_voice_wave_bar" />
+                    <View android:layout_width="4dp" android:layout_height="30dp" android:layout_margin="3dp" android:background="@drawable/bg_dibay_voice_wave_bar" />
+                    <View android:layout_width="4dp" android:layout_height="16dp" android:layout_margin="3dp" android:background="@drawable/bg_dibay_voice_wave_bar" />
+                    <View android:layout_width="4dp" android:layout_height="34dp" android:layout_margin="3dp" android:background="@drawable/bg_dibay_voice_wave_bar" />
+                    <View android:layout_width="4dp" android:layout_height="22dp" android:layout_margin="3dp" android:background="@drawable/bg_dibay_voice_wave_bar" />
+                    <View android:layout_width="4dp" android:layout_height="12dp" android:layout_margin="3dp" android:background="@drawable/bg_dibay_voice_wave_bar" />
+                    <View android:layout_width="4dp" android:layout_height="26dp" android:layout_margin="3dp" android:background="@drawable/bg_dibay_voice_wave_bar" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <FrameLayout
+                android:id="@+id/native_voice_call_divider"
+                android:layout_width="match_parent"
+                android:layout_height="36dp">
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_gravity="center"
+                    android:background="@drawable/bg_dibay_voice_divider" />
+
+                <TextView
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:layout_gravity="center"
+                    android:background="@drawable/bg_dibay_incoming_avatar"
+                    android:gravity="center"
+                    android:text="S"
+                    android:textColor="@color/dibay_call_primary_pressed"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+            </FrameLayout>
+
+            <LinearLayout
+                android:id="@+id/native_voice_call_local_area"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:id="@+id/native_voice_call_local_waveform"
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/dibay_voice_waveform_height"
+                    android:gravity="center"
+                    android:orientation="horizontal">
+
+                    <View android:layout_width="4dp" android:layout_height="8dp" android:layout_margin="3dp" android:background="@drawable/bg_dibay_voice_wave_bar" />
+                    <View android:layout_width="4dp" android:layout_height="24dp" android:layout_margin="3dp" android:background="@drawable/bg_dibay_voice_wave_bar" />
+                    <View android:layout_width="4dp" android:layout_height="32dp" android:layout_margin="3dp" android:background="@drawable/bg_dibay_voice_wave_bar" />
+                    <View android:layout_width="4dp" android:layout_height="14dp" android:layout_margin="3dp" android:background="@drawable/bg_dibay_voice_wave_bar" />
+                    <View android:layout_width="4dp" android:layout_height="36dp" android:layout_margin="3dp" android:background="@drawable/bg_dibay_voice_wave_bar" />
+                    <View android:layout_width="4dp" android:layout_height="20dp" android:layout_margin="3dp" android:background="@drawable/bg_dibay_voice_wave_bar" />
+                    <View android:layout_width="4dp" android:layout_height="12dp" android:layout_margin="3dp" android:background="@drawable/bg_dibay_voice_wave_bar" />
+                    <View android:layout_width="4dp" android:layout_height="28dp" android:layout_margin="3dp" android:background="@drawable/bg_dibay_voice_wave_bar" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/native_voice_call_local_name"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:gravity="center"
+                    android:text="@string/dibay_voice_me"
+                    android:textColor="@color/dibay_incoming_text_primary"
+                    android:textSize="20sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/native_voice_call_local_status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:gravity="center"
+                    android:textColor="@color/dibay_call_mint"
+                    android:textSize="@dimen/dibay_incoming_status_sp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout
             android:id="@+id/native_voice_call_incoming_actions"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -108,43 +283,129 @@
             android:paddingBottom="32dp"
             android:visibility="gone">
 
-            <Button
-                android:id="@+id/native_voice_call_end"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:background="@drawable/bg_dibay_incoming_btn_reject"
-                android:minHeight="@dimen/dibay_call_touch_min"
-                android:minWidth="160dp"
-                android:paddingStart="20dp"
-                android:paddingEnd="20dp"
-                android:text="@string/dibay_voice_call_end"
-                android:textAllCaps="false"
-                android:textColor="@android:color/white"
-                android:textSize="15sp" />
-
             <LinearLayout
                 android:id="@+id/native_voice_call_connected_controls"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/dibay_call_btn_gap"
                 android:gravity="center"
                 android:orientation="horizontal"
-                android:visibility="gone">
+                android:visibility="visible">
 
-                <Button
-                    android:id="@+id/native_voice_call_speaker"
+                <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="@dimen/dibay_call_btn_gap"
-                    android:background="@drawable/bg_dibay_incoming_btn_accept"
+                    android:layout_marginEnd="@dimen/dibay_voice_control_gap"
+                    android:gravity="center"
+                    android:orientation="vertical">
+
+                <ImageButton
+                    android:id="@+id/native_voice_call_speaker"
+                    android:layout_width="@dimen/dibay_voice_control_size"
+                    android:layout_height="@dimen/dibay_voice_control_size"
+                    android:background="@drawable/bg_dibay_voice_control_neutral"
+                    android:contentDescription="@string/dibay_voice_speaker"
                     android:minHeight="@dimen/dibay_call_touch_min"
-                    android:minWidth="@dimen/dibay_call_btn_size_min"
-                    android:paddingStart="16dp"
-                    android:paddingEnd="16dp"
-                    android:text="@string/dibay_voice_speaker_off"
-                    android:textAllCaps="false"
-                    android:textColor="@android:color/white"
-                    android:textSize="15sp" />
+                    android:minWidth="@dimen/dibay_call_touch_min"
+                    android:padding="15dp"
+                    android:scaleType="centerInside"
+                    android:src="@android:drawable/ic_lock_silent_mode_off"
+                    android:tint="@android:color/white" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="@string/dibay_voice_speaker"
+                        android:textColor="@color/dibay_call_soft_white"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="@dimen/dibay_voice_control_gap"
+                    android:gravity="center"
+                    android:orientation="vertical">
+
+                    <ImageButton
+                        android:id="@+id/native_voice_call_video_switch"
+                        android:layout_width="@dimen/dibay_voice_control_size"
+                        android:layout_height="@dimen/dibay_voice_control_size"
+                        android:background="@drawable/bg_dibay_voice_control_neutral"
+                        android:contentDescription="@string/dibay_voice_video_switch"
+                        android:minHeight="@dimen/dibay_call_touch_min"
+                        android:minWidth="@dimen/dibay_call_touch_min"
+                        android:padding="15dp"
+                        android:scaleType="centerInside"
+                        android:src="@android:drawable/presence_video_online"
+                        android:tint="@android:color/white" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="@string/dibay_voice_video_switch"
+                        android:textColor="@color/dibay_call_soft_white"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="@dimen/dibay_voice_control_gap"
+                    android:gravity="center"
+                    android:orientation="vertical">
+
+                    <ImageButton
+                        android:id="@+id/native_voice_call_mic"
+                        android:layout_width="@dimen/dibay_voice_control_size"
+                        android:layout_height="@dimen/dibay_voice_control_size"
+                        android:background="@drawable/bg_dibay_voice_control_neutral"
+                        android:contentDescription="@string/dibay_voice_mute"
+                        android:minHeight="@dimen/dibay_call_touch_min"
+                        android:minWidth="@dimen/dibay_call_touch_min"
+                        android:padding="15dp"
+                        android:scaleType="centerInside"
+                        android:src="@android:drawable/ic_btn_speak_now"
+                        android:tint="@android:color/white" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="@string/dibay_voice_mute"
+                        android:textColor="@color/dibay_call_soft_white"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:orientation="vertical">
+
+                    <ImageButton
+                        android:id="@+id/native_voice_call_end"
+                        android:layout_width="@dimen/dibay_voice_control_size"
+                        android:layout_height="@dimen/dibay_voice_control_size"
+                        android:background="@drawable/bg_dibay_incoming_btn_reject"
+                        android:contentDescription="@string/dibay_voice_call_end"
+                        android:minHeight="@dimen/dibay_call_touch_min"
+                        android:minWidth="@dimen/dibay_call_touch_min"
+                        android:padding="15dp"
+                        android:scaleType="centerInside"
+                        android:src="@android:drawable/ic_menu_close_clear_cancel"
+                        android:tint="@android:color/white" />
+
+                    <TextView
+                        android:id="@+id/native_voice_call_end_label"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="@string/dibay_voice_call_end"
+                        android:textColor="@color/dibay_call_soft_white"
+                        android:textSize="12sp" />
+                </LinearLayout>
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>

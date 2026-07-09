@@ -14,7 +14,6 @@ import android.os.SystemClock;
 import android.view.Gravity;
 import android.view.View;
 import android.view.WindowManager;
-import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
@@ -45,13 +44,23 @@ public class NativeVoiceCallActivity extends Activity {
   private TextView statusView;
   private TextView durationView;
   private TextView avatarInitialView;
+  private View incomingContent;
+  private View outgoingContent;
+  private TextView headerTitleView;
+  private TextView activePeerNameView;
+  private TextView activeStatusView;
+  private TextView activeAvatarInitialView;
+  private TextView localStatusView;
   private LinearLayout incomingActions;
   private LinearLayout activeActions;
   private LinearLayout connectedControls;
   private ImageButton acceptButton;
   private ImageButton declineButton;
-  private Button endButton;
-  private Button speakerButton;
+  private ImageButton endButton;
+  private ImageButton speakerButton;
+  private ImageButton videoSwitchButton;
+  private ImageButton micButton;
+  private TextView endLabelView;
   private View dockRoot;
   private boolean speakerEnabled;
   private boolean dockMode = false;
@@ -274,8 +283,15 @@ public class NativeVoiceCallActivity extends Activity {
   private void bindViews() {
     peerNameView = findViewById(R.id.native_voice_call_peer_name);
     statusView = findViewById(R.id.native_voice_call_status);
-    durationView = findViewById(R.id.native_voice_call_duration);
+    durationView = findViewById(R.id.native_voice_call_header_duration);
     avatarInitialView = findViewById(R.id.native_voice_call_avatar_initial);
+    incomingContent = findViewById(R.id.native_voice_call_incoming_content);
+    outgoingContent = findViewById(R.id.native_voice_call_outgoing_content);
+    headerTitleView = findViewById(R.id.native_voice_call_header_title);
+    activePeerNameView = findViewById(R.id.native_voice_call_active_peer_name);
+    activeStatusView = findViewById(R.id.native_voice_call_active_status);
+    activeAvatarInitialView = findViewById(R.id.native_voice_call_active_avatar_initial);
+    localStatusView = findViewById(R.id.native_voice_call_local_status);
     incomingActions = findViewById(R.id.native_voice_call_incoming_actions);
     activeActions = findViewById(R.id.native_voice_call_active_actions);
     connectedControls = findViewById(R.id.native_voice_call_connected_controls);
@@ -283,6 +299,9 @@ public class NativeVoiceCallActivity extends Activity {
     declineButton = findViewById(R.id.native_voice_call_decline);
     endButton = findViewById(R.id.native_voice_call_end);
     speakerButton = findViewById(R.id.native_voice_call_speaker);
+    videoSwitchButton = findViewById(R.id.native_voice_call_video_switch);
+    micButton = findViewById(R.id.native_voice_call_mic);
+    endLabelView = findViewById(R.id.native_voice_call_end_label);
     attachDockView();
     IncomingCallUiInsets.applyBottomSafeArea(incomingActions, 32);
     IncomingCallUiInsets.applyBottomSafeArea(activeActions, 32);
@@ -295,10 +314,12 @@ public class NativeVoiceCallActivity extends Activity {
     speakerButton.setOnClickListener(
         v -> {
           speakerEnabled = !speakerEnabled;
-          speakerButton.setText(
+          speakerButton.setContentDescription(
               getString(speakerEnabled ? R.string.dibay_voice_speaker_on : R.string.dibay_voice_speaker_off));
           NativeVoiceCallAgoraEngine.setSpeakerEnabled(speakerEnabled);
         });
+    videoSwitchButton.setOnClickListener(v -> {});
+    micButton.setOnClickListener(v -> {});
   }
 
   private void applyState(NativeVoiceCallRuntime.State state) {
@@ -320,11 +341,19 @@ public class NativeVoiceCallActivity extends Activity {
     peerNameView.setText(model.peerName);
     statusView.setText(model.statusText);
     avatarInitialView.setText(model.avatarInitial);
+    incomingContent.setVisibility(model.showIncomingContent ? View.VISIBLE : View.GONE);
+    outgoingContent.setVisibility(model.showOutgoingContent ? View.VISIBLE : View.GONE);
+    headerTitleView.setText(model.headerText);
+    activePeerNameView.setText(model.peerName);
+    activeStatusView.setText(model.statusText);
+    activeAvatarInitialView.setText(model.avatarInitial);
+    localStatusView.setText(model.localStatusText);
     incomingActions.setVisibility(model.showIncomingActions ? View.VISIBLE : View.GONE);
     activeActions.setVisibility(model.showActiveActions ? View.VISIBLE : View.GONE);
     connectedControls.setVisibility(model.showConnectedControls ? View.VISIBLE : View.GONE);
-    endButton.setText(model.endButtonLabel);
-    speakerButton.setText(model.speakerLabel);
+    endButton.setContentDescription(model.endButtonLabel);
+    endLabelView.setText(model.endButtonLabel);
+    speakerButton.setContentDescription(model.speakerLabel);
     if (model.showDuration) {
       if (connectedAtElapsedMs <= 0L) connectedAtElapsedMs = SystemClock.elapsedRealtime();
       durationView.setVisibility(View.VISIBLE);
@@ -332,7 +361,8 @@ public class NativeVoiceCallActivity extends Activity {
     } else {
       stopDurationTimer();
       connectedAtElapsedMs = 0L;
-      durationView.setVisibility(View.GONE);
+      durationView.setVisibility(model.showOutgoingContent ? View.VISIBLE : View.GONE);
+      durationView.setText("00:00");
     }
   }
 
