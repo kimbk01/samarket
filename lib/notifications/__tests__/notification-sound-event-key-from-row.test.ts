@@ -163,6 +163,14 @@ describe("notification-sound-event-key-from-row", () => {
       resolveNotificationSoundEventKeyFromRow({
         notification_type: "system",
         domain: "community_chat",
+        meta: { kind: "friend_request", request_id: "req-1" },
+      })
+    ).toBe("friend_request_received");
+
+    expect(
+      resolveNotificationSoundEventKeyFromRow({
+        notification_type: "system",
+        domain: "community_chat",
         meta: { kind: "friend_accepted", request_id: "req-1" },
       })
     ).toBe("friend_request_accepted");

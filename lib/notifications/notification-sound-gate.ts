@@ -93,6 +93,11 @@ function playRowEventSound(row: Record<string, unknown>): void {
   void playEventNotificationSound(eventKey);
 }
 
+function hasSoundSuppression(row: Record<string, unknown>): boolean {
+  if (row.muted_snapshot === true) return true;
+  return typeof row.sound_suppressed_reason === "string" && row.sound_suppressed_reason.trim().length > 0;
+}
+
 /**
  * INSERT 알림 행에 대한 인앱 알림음 라우팅.
  * 게이트가 없으면 `undefined` — `useSupabaseNotificationsRealtime` 기본 재생 경로로 넘김.
@@ -101,13 +106,10 @@ export function routeNotificationInsertSound(row: Record<string, unknown>): bool
   const surface = gateSnapshot;
   if (!surface) return undefined;
 
+  if (hasSoundSuppression(row)) return false;
+
   const rowInput = rowInputFromRecord(row);
   const metaKind = (row.meta as { kind?: string; room_id?: string } | undefined)?.kind;
-
-  /** 팝업 전용 알림음 경로와 이중 재생 방지 */
-  if (metaKind === "friend_request") {
-    return false;
-  }
 
   if (metaKind === "community_group_invite") {
     const roomId = (row.meta as { room_id?: string } | undefined)?.room_id;

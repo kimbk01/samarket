@@ -1,5 +1,3 @@
-import { playStoreOrderDeliveryAlertSound } from "@/lib/business/store-order-alert-sound";
-
 const lastPlayByStore = new Map<string, number>();
 const GAP_MS = 2800;
 const LAST_PLAY_STALE_MS = 3_600_000;
@@ -16,7 +14,10 @@ function capLastPlayByStore(now: number): void {
   }
 }
 
-/** Realtime·폴링이 동시에 울릴 수 있어 짧은 간격으로 한 번만 재생 (매장별) */
+/**
+ * store_orders Realtime/polling은 badge·list refresh만 담당한다.
+ * 신규 주문 sound 권위는 notification_events INSERT → Admin SSOT gate 한 갈래다.
+ */
 export function playDeliveryOrderAlertDebounced(storeId: string | null): void {
   const n = Date.now();
   const k = storeId?.trim() ? storeId.trim() : "_";
@@ -24,5 +25,4 @@ export function playDeliveryOrderAlertDebounced(storeId: string | null): void {
   if (n - last < GAP_MS) return;
   lastPlayByStore.set(k, n);
   capLastPlayByStore(n);
-  void playStoreOrderDeliveryAlertSound();
 }

@@ -34,6 +34,7 @@ const META_KIND_TO_EVENT_KEY: Readonly<Record<string, string>> = {
   trade_completed: "trade_completed",
   trade_reserved: "trade_reserved",
   missed_call: "call_missed",
+  friend_request: "friend_request_received",
   friend_accepted: "friend_request_accepted",
   store_order_created: "delivery_order_created_owner",
   store_order_accept_reminder_30s: "delivery_order_delayed_owner",

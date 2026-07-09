@@ -18,5 +18,7 @@ export function adaptNotificationEventInsertToLegacyRow(
     link_url: mapped.link_url,
     ref_id: mapped.ref_id ?? null,
     domain: mapped.domain ?? null,
+    muted_snapshot: row.muted_snapshot ?? null,
+    sound_suppressed_reason: row.sound_suppressed_reason ?? null,
   };
 }
