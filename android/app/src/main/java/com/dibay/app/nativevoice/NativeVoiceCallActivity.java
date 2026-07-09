@@ -317,35 +317,11 @@ public class NativeVoiceCallActivity extends Activity {
           }
           updateControlChrome();
         });
-    videoButton.setOnClickListener(v -> onVideoButtonTapped());
-  }
-
-  /** In-place camera publish/downgrade — chrome changes only after Runtime returns true. */
-  private void onVideoButtonTapped() {
-    if (callId == null || callId.trim().isEmpty()) {
-      NativeVoiceCallLog.warn("upgrade_video_ui_skip", "unknown", "reason=empty_call_id");
-      return;
-    }
-    String sid = callId.trim();
-    if (!videoActiveChrome) {
-      boolean ok = NativeVoiceCallRuntime.publishCameraInPlaceForConnected(sid);
-      if (ok) {
-        videoActiveChrome = true;
-        updateControlChrome();
-        NativeVoiceCallLog.info("upgrade_video_ui_chrome_on", sid, "ok=true");
-      } else {
-        NativeVoiceCallLog.warn("upgrade_video_ui_chrome_unchanged", sid, "ok=false action=publish");
-      }
-      return;
-    }
-    boolean ok = NativeVoiceCallRuntime.downgradeToVoiceOnlyForConnected(sid);
-    if (ok) {
-      videoActiveChrome = false;
-      updateControlChrome();
-      NativeVoiceCallLog.info("downgrade_voice_ui_chrome_off", sid, "ok=true");
-    } else {
-      NativeVoiceCallLog.warn("downgrade_voice_ui_chrome_unchanged", sid, "ok=false action=downgrade");
-    }
+    videoButton.setOnClickListener(
+        v -> {
+          videoActiveChrome = !videoActiveChrome;
+          updateControlChrome();
+        });
   }
 
   private void applyState(NativeVoiceCallRuntime.State state) {

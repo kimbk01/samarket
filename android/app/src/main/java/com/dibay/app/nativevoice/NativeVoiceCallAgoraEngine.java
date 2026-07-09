@@ -7,11 +7,7 @@ import io.agora.rtc2.IRtcEngineEventHandler;
 import io.agora.rtc2.RtcEngine;
 import io.agora.rtc2.RtcEngineConfig;
 
-/**
- * Agora Android SDK wrapper for Native Voice Runtime.
- *
- * <p>Same-channel camera publish / voice-only downgrade without leave/rejoin (Engine media only).
- */
+/** Agora Android SDK wrapper for voice-only Native Runtime. */
 public final class NativeVoiceCallAgoraEngine {
   public interface Listener {
     void onConnected();
@@ -48,7 +44,6 @@ public final class NativeVoiceCallAgoraEngine {
     if (context == null || callId == null || token == null) return;
     String sid = callId.trim();
     if (sid.isEmpty()) return;
-    Context app = context.getApplicationContext();
     synchronized (LOCK) {
       listener = nextListener;
       activeCallId = sid;
@@ -62,7 +57,7 @@ public final class NativeVoiceCallAgoraEngine {
     new Thread(
             () -> {
               try {
-                RtcEngine rtc = ensureEngine(app, token.appId);
+                RtcEngine rtc = ensureEngine(context.getApplicationContext(), token.appId);
                 rtc.enableAudio();
                 rtc.disableVideo();
                 rtc.setDefaultAudioRoutetoSpeakerphone(false);
@@ -100,80 +95,6 @@ public final class NativeVoiceCallAgoraEngine {
       engine.setEnableSpeakerphone(enabled);
       NativeVoiceCallLog.info("speaker_toggle", activeCallId, "enabled=" + enabled);
       NativeVoiceCallLog.info("audio_route_applied", activeCallId, "speaker=" + enabled);
-    }
-  }
-
-  /**
-   * Publish camera in-place on the active voice channel. No leaveChannel / joinChannel*.
-   *
-   * @return true only when enableVideo, startPreview, and updateChannelMediaOptions all return 0
-   */
-  public static boolean publishCameraInPlace(String callId) {
-    RtcEngine rtc = engineForActiveCallOrNull(callId, "upgrade_video_skip");
-    if (rtc == null) return false;
-    String sid = callId.trim();
-    NativeVoiceCallLog.info("upgrade_video_start", sid, "path=in_place");
-    try {
-      int enableResult = rtc.enableVideo();
-      NativeVoiceCallLog.info("upgrade_video_enable_ok", sid, "result=" + enableResult);
-      if (enableResult != 0) return false;
-      int previewResult = rtc.startPreview();
-      NativeVoiceCallLog.info("upgrade_video_preview_ok", sid, "result=" + previewResult);
-      if (previewResult != 0) return false;
-      ChannelMediaOptions options = videoPublishOptions();
-      int updateResult = rtc.updateChannelMediaOptions(options);
-      NativeVoiceCallLog.info(
-          "upgrade_video_update_options_ok",
-          sid,
-          "result=" + updateResult + " publishCameraTrack=true autoSubscribeVideo=true");
-      if (updateResult != 0) return false;
-      NativeVoiceCallLog.info("upgrade_video_publish_ok", sid, "path=in_place leave=0 join=0");
-      return true;
-    } catch (RuntimeException error) {
-      NativeVoiceCallLog.warn(
-          "upgrade_video_failed", sid, "reason=exception err=" + error.getClass().getSimpleName());
-      return false;
-    }
-  }
-
-  /**
-   * Downgrade to voice-only on the same channel. No leaveChannel.
-   *
-   * @return true only when updateChannelMediaOptions and disableVideo both return 0; stopPreview is
-   *     best-effort
-   */
-  public static boolean downgradeToVoiceOnlyInPlace(String callId) {
-    RtcEngine rtc = engineForActiveCallOrNull(callId, "downgrade_voice_skip");
-    if (rtc == null) return false;
-    String sid = callId.trim();
-    NativeVoiceCallLog.info("downgrade_voice_start", sid, "path=in_place");
-    try {
-      ChannelMediaOptions options = voiceOnlyOptions();
-      int updateResult = rtc.updateChannelMediaOptions(options);
-      NativeVoiceCallLog.info(
-          "downgrade_voice_update_options_ok",
-          sid,
-          "result=" + updateResult + " publishCameraTrack=false autoSubscribeVideo=false");
-      if (updateResult != 0) return false;
-      try {
-        rtc.stopPreview();
-      } catch (RuntimeException error) {
-        NativeVoiceCallLog.warn(
-            "downgrade_voice_stop_preview_best_effort",
-            sid,
-            "err=" + error.getClass().getSimpleName());
-      }
-      int disableResult = rtc.disableVideo();
-      NativeVoiceCallLog.info(
-          "downgrade_voice_done", sid, "disableVideo=" + disableResult + " leave=0");
-      if (disableResult != 0) return false;
-      return true;
-    } catch (RuntimeException error) {
-      NativeVoiceCallLog.warn(
-          "downgrade_voice_failed",
-          sid,
-          "reason=exception err=" + error.getClass().getSimpleName());
-      return false;
     }
   }
 
@@ -224,46 +145,6 @@ public final class NativeVoiceCallAgoraEngine {
     if (currentListener != null && sid != null) {
       currentListener.onDisconnected(reason != null ? reason : "leave");
     }
-  }
-
-  private static RtcEngine engineForActiveCallOrNull(String callId, String skipMarker) {
-    if (callId == null || callId.trim().isEmpty()) {
-      NativeVoiceCallLog.warn(skipMarker, "unknown", "reason=empty_call_id");
-      return null;
-    }
-    String sid = callId.trim();
-    synchronized (LOCK) {
-      if (engine == null) {
-        NativeVoiceCallLog.warn(skipMarker, sid, "reason=engine_null");
-        return null;
-      }
-      if (activeCallId == null || !sid.equals(activeCallId)) {
-        NativeVoiceCallLog.warn(
-            skipMarker,
-            sid,
-            "reason=call_id_mismatch active=" + (activeCallId != null ? activeCallId : "null"));
-        return null;
-      }
-      return engine;
-    }
-  }
-
-  private static ChannelMediaOptions voiceOnlyOptions() {
-    ChannelMediaOptions options = new ChannelMediaOptions();
-    options.channelProfile = Constants.CHANNEL_PROFILE_COMMUNICATION;
-    options.clientRoleType = Constants.CLIENT_ROLE_BROADCASTER;
-    options.autoSubscribeAudio = true;
-    options.autoSubscribeVideo = false;
-    options.publishMicrophoneTrack = true;
-    options.publishCameraTrack = false;
-    return options;
-  }
-
-  private static ChannelMediaOptions videoPublishOptions() {
-    ChannelMediaOptions options = voiceOnlyOptions();
-    options.autoSubscribeVideo = true;
-    options.publishCameraTrack = true;
-    return options;
   }
 
   private static RtcEngine ensureEngine(Context context, String appId) throws Exception {
