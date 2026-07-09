@@ -1,127 +1,68 @@
 "use client";
 
 import { useMemo, useState, useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AdminTableBottomHorizontalScroll } from "@/components/admin/AdminTableBottomHorizontalScroll";
 import { readSidebarExpanded } from "@/lib/admin-ui-prefs";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import {
-  ADMIN_USER_PROVIDER_LABEL_KEY,
-  filterAndSortUsers,
-  normalizeAdminUserSortKey,
-  normalizeAdminUserSortOrder,
-  type AdminUserFilters,
-  type AdminUserSortKey,
-  type AdminUserSortOrder,
-} from "@/lib/admin-users/admin-user-utils";
+import { adminMemberMessengerHref } from "@/lib/admin-users/admin-member-messenger-link";
 import { fetchAdminStaffList } from "@/lib/admin-users/admin-staff-api";
 import { fetchAdminMeSnapshot } from "@/lib/admin-auth/admin-me-context";
 import { useAdminMe } from "@/hooks/useAdminMe";
 import type { AdminStaff } from "@/lib/types/admin-staff";
 import {
-  ADMIN_USERS_PAGE_BG_CLASS,
   ADMIN_USERS_CARD_CLASS,
-  ADMIN_USERS_PRIMARY_BTN_CLASS,
-  ADMIN_USERS_DANGER_BTN_CLASS,
-  ADMIN_USERS_TAB_ACTIVE_CLASS,
-  ADMIN_USERS_TAB_IDLE_CLASS,
 } from "@/lib/ui/admin-users-starbucks-styles";
+import {
+  ADMIN_USERS_LITE_BTN_OUTLINE_DANGER,
+  ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY,
+  ADMIN_USERS_LITE_CARD,
+  ADMIN_USERS_LITE_PAGE_BG,
+} from "@/lib/ui/admin-users-lite-styles";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { adminFetch, invalidateAdminFetchCache } from "@/lib/admin/admin-fetch-client";
 import { invalidateAdminQueryCache } from "@/lib/admin/admin-query-cache";
 import { ADMIN_QUERY_TTL_MS } from "@/lib/admin/admin-query-ttl";
 import { useAdminQuery } from "@/hooks/useAdminQuery";
-import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminUserFilterBar } from "./AdminUserFilterBar";
+import { AdminUserListSummaryCards } from "./AdminUserListSummaryCards";
 import { AdminUserTable } from "./AdminUserTable";
 import { AdminStaffTable } from "./AdminStaffTable";
 import { CreateAdminForm } from "./CreateAdminForm";
 import { EditAdminForm } from "./EditAdminForm";
 import { CreateMemberForm } from "./CreateMemberForm";
 import { EditMemberForm } from "./EditMemberForm";
+import { AdminUserDetailModal } from "./AdminUserDetailModal";
 import type { MessageKey } from "@/lib/i18n/messages";
-import type { AdminAuthProvider, AdminUser } from "@/lib/types/admin-user";
-import { useAdminMemberUuidVisibility } from "@/hooks/useAdminMemberUuidVisibility";
-import { MANUAL_MEMBER_EMAIL_DOMAIN } from "@/lib/auth/manual-member-email";
-
-const DEFAULT_FILTERS: AdminUserFilters = {
-  authProvider: "",
-  phoneVerified: "",
-  moderationStatus: "",
-  memberType: "",
-  location: "",
-  sortKey: "joined" as AdminUserSortKey,
-  sortOrder: "desc",
-};
+import type { AdminAccountCategory, AdminUser, AdminUserStatusCategory } from "@/lib/types/admin-user";
 
 type Tab = "members" | "staff";
 
-const PROVIDER_SUMMARY_ORDER: AdminAuthProvider[] = [
-  "google",
-  "kakao",
-  "naver",
-  "apple",
-  "facebook",
-  "email",
-  "manual",
-  "unknown",
-];
-
-const PROVIDER_SUMMARY_META: Record<AdminAuthProvider, { shortLabel: string; className: string }> = {
-  google: {
-    shortLabel: "G",
-    className: "border-sam-primary-border bg-white text-sam-primary",
-  },
-  kakao: {
-    shortLabel: "K",
-    className: "border-[#f4d35e] bg-[#fff8d8] text-[#7a5a00]",
-  },
-  naver: {
-    shortLabel: "N",
-    className: "border-[#bdecc8] bg-[#ecf8ef] text-[#128a3a]",
-  },
-  apple: {
-    shortLabel: "A",
-    className: "border-[#dadde1] bg-white text-[#050505]",
-  },
-  facebook: {
-    shortLabel: "f",
-    className: "border-sam-primary-border bg-sam-primary-soft text-sam-primary",
-  },
-  email: {
-    shortLabel: "@",
-    className: "border-sam-primary-border bg-sam-primary-soft text-sam-primary",
-  },
-  manual: {
-    shortLabel: "M",
-    className: "border-[#cfd6df] bg-[#f8fafc] text-[#475467]",
-  },
-  unknown: {
-    shortLabel: "?",
-    className: "border-[#dadde1] bg-[#f7f8fa] text-[#65676b]",
-  },
+type AdminUsersListResult = {
+  users: AdminUser[];
+  summary: {
+    totalRows: number;
+    accountCategoryCounts: Record<AdminAccountCategory, number>;
+  };
 };
 
-function normalizeSummaryProvider(provider: AdminUser["authProvider"]): AdminAuthProvider {
-  return provider && PROVIDER_SUMMARY_ORDER.includes(provider) ? provider : "unknown";
-}
+const EMPTY_ACCOUNT_COUNTS: Record<AdminAccountCategory, number> = {
+  member: 0,
+  store_manager: 0,
+  admin: 0,
+};
 
 export function AdminUserListPage() {
-  const { t, language } = useI18n();
-  const countLocale = language === "en" ? "en-US" : "ko-KR";
+  const { t } = useI18n();
   const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
-  const initialSortKey = normalizeAdminUserSortKey(searchParams.get("sort"));
-  const initialSortOrder = normalizeAdminUserSortOrder(searchParams.get("order"));
+  const detailFromUrl = searchParams.get("detail");
   const [tab, setTab] = useState<Tab>("members");
-  const [filters, setFilters] = useState<AdminUserFilters>({
-    ...DEFAULT_FILTERS,
-    sortKey: initialSortKey,
-    sortOrder: initialSortOrder,
-  });
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchDraft, setSearchDraft] = useState("");
+  const [appliedSearch, setAppliedSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState<AdminAccountCategory | "">("");
+  const [statusFilter, setStatusFilter] = useState<AdminUserStatusCategory | "">("");
   const [showCreateAdmin, setShowCreateAdmin] = useState(false);
   const [showCreateMember, setShowCreateMember] = useState(false);
   const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
@@ -129,8 +70,10 @@ export function AdminUserListPage() {
   const [staffKey, setStaffKey] = useState(0);
   const [membersKey, setMembersKey] = useState(0);
   const [cleanupLoading, setCleanupLoading] = useState(false);
+  const [membersPage, setMembersPage] = useState(1);
+  const [membersPageSize, setMembersPageSize] = useState(10);
+  const detailUserId = detailFromUrl?.trim() || null;
   const { isSuperAdmin } = useAdminMe();
-  const { showMemberUuid, setShowMemberUuid } = useAdminMemberUuidVisibility();
   const tableScrollRef = useRef<HTMLDivElement>(null);
   const bottomScrollRef = useRef<HTMLDivElement>(null);
   const [tableScrollWidth, setTableScrollWidth] = useState(0);
@@ -150,19 +93,75 @@ export function AdminUserListPage() {
     return () => window.removeEventListener(TEST_AUTH_CHANGED_EVENT, onAuthChanged);
   }, []);
 
-  const membersQueryKey = `admin:users:list:${membersKey}`;
+  const openDetail = useCallback(
+    (userId: string) => {
+      const id = userId.trim();
+      if (!id) return;
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("detail", id);
+      router.replace(`/admin/users?${params.toString()}`, { scroll: false });
+    },
+    [router, searchParams],
+  );
+
+  const closeDetail = useCallback(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("detail");
+    const next = params.toString();
+    router.replace(next ? `/admin/users?${next}` : "/admin/users", { scroll: false });
+  }, [router, searchParams]);
+
+  const handleViewDetail = useCallback(
+    (user: AdminUser) => {
+      openDetail(user.id);
+    },
+    [openDetail],
+  );
+
+  const handleSendMessage = useCallback(
+    (user: AdminUser) => {
+      closeDetail();
+      router.push(adminMemberMessengerHref(user.id));
+    },
+    [closeDetail, router],
+  );
+
+  const handleSendMessageToUserId = useCallback(
+    (userId: string) => {
+      closeDetail();
+      router.push(adminMemberMessengerHref(userId));
+    },
+    [closeDetail, router],
+  );
+
+  const membersQueryParams = useMemo(() => {
+    const params = new URLSearchParams();
+    if (appliedSearch) params.set("search", appliedSearch);
+    if (roleFilter) params.set("role", roleFilter);
+    if (statusFilter) params.set("status", statusFilter);
+    return params.toString();
+  }, [appliedSearch, roleFilter, statusFilter]);
+
+  const applySearch = useCallback(() => {
+    setAppliedSearch(searchDraft.trim());
+    setMembersPage(1);
+  }, [searchDraft]);
+  const membersQueryKey = `admin:users:list:${membersKey}:${membersQueryParams}`;
 
   const {
     data: membersFromApi,
     error: membersErrorCode,
     loading: membersLoading,
-  } = useAdminQuery<AdminUser[]>({
+    refreshing: membersRefreshing,
+  } = useAdminQuery<AdminUsersListResult>({
     queryKey: membersQueryKey,
     enabled: tab === "members",
     ttlMs: ADMIN_QUERY_TTL_MS,
+    revalidateOnMount: true,
     fetcher: async () => {
       try {
-        const res = await adminFetch("/api/admin/users", {
+        const url = membersQueryParams ? `/api/admin/users?${membersQueryParams}` : "/api/admin/users";
+        const res = await adminFetch(url, {
           credentials: "include",
           cache: "no-store",
           dedupeKey: membersQueryKey,
@@ -170,6 +169,10 @@ export function AdminUserListPage() {
         });
         const data = (await res.json().catch(() => ({}))) as {
           users?: AdminUser[];
+          summary?: {
+            totalRows?: number;
+            accountCategoryCounts?: Partial<Record<AdminAccountCategory, number>>;
+          };
           error?: string;
           code?: string;
         };
@@ -181,7 +184,19 @@ export function AdminUserListPage() {
           }
           throw new Error("admin_users_error_fetch_failed");
         }
-        return data.users ?? [];
+        const users = data.users ?? [];
+        const counts = data.summary?.accountCategoryCounts ?? {};
+        return {
+          users,
+          summary: {
+            totalRows: data.summary?.totalRows ?? users.length,
+            accountCategoryCounts: {
+              member: counts.member ?? 0,
+              store_manager: counts.store_manager ?? 0,
+              admin: counts.admin ?? 0,
+            },
+          },
+        };
       } catch (err) {
         if (err instanceof Error && err.message.startsWith("admin_")) throw err;
         throw new Error("admin_users_error_network");
@@ -230,33 +245,49 @@ export function AdminUserListPage() {
   );
 
   useEffect(() => {
+    setMembersPage(1);
+  }, [appliedSearch, roleFilter, statusFilter, membersKey]);
+
+  const handleRoleFilterChange = useCallback((value: AdminAccountCategory | "") => {
+    setRoleFilter(value);
+    setMembersPage(1);
+  }, []);
+
+  const handleStatusFilterChange = useCallback((value: AdminUserStatusCategory | "") => {
+    setStatusFilter(value);
+    setMembersPage(1);
+  }, []);
+
+  const handleMembersPageSizeChange = useCallback((size: number) => {
+    setMembersPageSize(size);
+    setMembersPage(1);
+  }, []);
+
+  useEffect(() => {
     void fetchAdminMeSnapshot();
   }, []);
 
-  const users = useMemo(() => membersFromApi ?? [], [membersFromApi]);
-  const filtered = useMemo(
-    () => filterAndSortUsers(users, filters, searchQuery),
-    [users, filters, searchQuery]
-  );
+  const users = useMemo(() => membersFromApi?.users ?? [], [membersFromApi]);
+  const paginatedUsers = useMemo(() => {
+    const start = (membersPage - 1) * membersPageSize;
+    return users.slice(start, start + membersPageSize);
+  }, [membersPage, membersPageSize, users]);
+  const membersListPending =
+    membersLoading || (membersRefreshing && users.length === 0);
   const memberSummary = useMemo(() => {
-    const counts = PROVIDER_SUMMARY_ORDER.reduce(
-      (acc, provider) => ({ ...acc, [provider]: 0 }),
-      {} as Record<AdminAuthProvider, number>
-    );
-    for (const user of users) {
-      counts[normalizeSummaryProvider(user.authProvider)] += 1;
-    }
+    const counts = membersFromApi?.summary?.accountCategoryCounts ?? EMPTY_ACCOUNT_COUNTS;
     return {
-      total: users.length,
-      visible: filtered.length,
-      counts,
+      total: membersFromApi?.summary?.totalRows ?? users.length,
+      member: counts.member,
+      storeManager: counts.store_manager,
+      admin: counts.admin,
     };
-  }, [filtered.length, users]);
+  }, [membersFromApi, users.length]);
 
   const isMaster = isSuperAdmin;
 
   const showMembersTable =
-    tab === "members" && !membersError && !membersLoading && filtered.length > 0;
+    tab === "members" && !membersError && !membersListPending && users.length > 0;
   const showStaffTable = tab === "staff" && staffList.length > 0;
   const showTableScrollChrome = showMembersTable || showStaffTable;
 
@@ -318,9 +349,8 @@ export function AdminUserListPage() {
     measureTableScroll,
     showTableScrollChrome,
     tab,
-    filtered.length,
+    users.length,
     staffList.length,
-    showMemberUuid,
     membersLoading,
     membersError,
   ]);
@@ -344,40 +374,6 @@ export function AdminUserListPage() {
     invalidateAdminQueryCache("admin:users:list:");
     setMembersKey((k) => k + 1);
   }, []);
-
-  const replaceSortQuery = useCallback(
-    (sortKey: AdminUserSortKey, sortOrder: AdminUserSortOrder) => {
-      const next = new URLSearchParams(searchParams.toString());
-      next.set("sort", sortKey);
-      next.set("order", sortOrder);
-      router.replace(`${pathname}?${next.toString()}`, { scroll: false });
-    },
-    [pathname, router, searchParams]
-  );
-
-  const handleSortChange = useCallback(
-    (key: AdminUserSortKey) => {
-      setFilters((prev) => {
-        const nextOrder: AdminUserSortOrder =
-          prev.sortKey === key ? (prev.sortOrder === "asc" ? "desc" : "asc") : "asc";
-        const next = { ...prev, sortKey: key, sortOrder: nextOrder };
-        replaceSortQuery(next.sortKey, next.sortOrder);
-        return next;
-      });
-    },
-    [replaceSortQuery]
-  );
-
-  const handleSortOrderChange = useCallback(
-    (order: AdminUserSortOrder) => {
-      setFilters((prev) => {
-        const next = { ...prev, sortOrder: order };
-        replaceSortQuery(next.sortKey, next.sortOrder);
-        return next;
-      });
-    },
-    [replaceSortQuery]
-  );
 
   const handleEditMember = useCallback((u: AdminUser) => {
     setEditingMember(u);
@@ -407,41 +403,68 @@ export function AdminUserListPage() {
   }, [adminUserId, refreshMembers, t]);
 
   return (
-    <div className={`${ADMIN_USERS_PAGE_BG_CLASS}${showBottomFixedScroll ? " pb-[4.5rem]" : ""}`}>
-      <AdminPageHeader titleKey="admin_page_user_management" />
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex rounded-full border border-[#00704A]/15 bg-white p-1 shadow-sm">
-          <button
-            type="button"
-            onClick={() => setTab("members")}
-            className={tab === "members" ? ADMIN_USERS_TAB_ACTIVE_CLASS : ADMIN_USERS_TAB_IDLE_CLASS}
-          >
-            {t("admin_users_tab_members")}
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab("staff")}
-            className={tab === "staff" ? ADMIN_USERS_TAB_ACTIVE_CLASS : ADMIN_USERS_TAB_IDLE_CLASS}
-          >
-            {t("admin_users_tab_staff")}
-          </button>
+    <div className={`${ADMIN_USERS_LITE_PAGE_BG} space-y-4 pb-6${showBottomFixedScroll ? " pb-[4.5rem]" : ""}`}>
+      <nav className="text-xs font-medium text-[#667085]" aria-label="Breadcrumb">
+        <span>{t("admin_users_lite_breadcrumb_members")}</span>
+        {tab === "members" ? (
+          <>
+            <span className="mx-1.5 text-[#98a2b3]">›</span>
+            <span className="text-[#344054]">{t("admin_users_lite_list_title")}</span>
+          </>
+        ) : (
+          <>
+            <span className="mx-1.5 text-[#98a2b3]">›</span>
+            <span className="text-[#344054]">{t("admin_users_tab_staff")}</span>
+          </>
+        )}
+      </nav>
+
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-[#101828]">
+            {tab === "members" ? t("admin_users_lite_list_title") : t("admin_users_tab_staff")}
+          </h1>
+          <div className="mt-3 flex rounded-lg border border-[#e4e7ec] bg-white p-1 shadow-sm">
+            <button
+              type="button"
+              onClick={() => setTab("members")}
+              className={
+                tab === "members"
+                  ? "rounded-md bg-[#eff6ff] px-3 py-1.5 text-xs font-semibold text-[#2563eb]"
+                  : "rounded-md px-3 py-1.5 text-xs font-semibold text-[#667085] hover:bg-[#f9fafb]"
+              }
+            >
+              {t("admin_users_tab_members")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab("staff")}
+              className={
+                tab === "staff"
+                  ? "rounded-md bg-[#eff6ff] px-3 py-1.5 text-xs font-semibold text-[#2563eb]"
+                  : "rounded-md px-3 py-1.5 text-xs font-semibold text-[#667085] hover:bg-[#f9fafb]"
+              }
+            >
+              {t("admin_users_tab_staff")}
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {tab === "members" && (
             <>
               <button
                 type="button"
                 onClick={() => setShowCreateMember(true)}
-                className={ADMIN_USERS_PRIMARY_BTN_CLASS}
+                className={ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY}
               >
-                {t("admin_users_manual_create")}
+                + {t("admin_users_manual_create")}
               </button>
               {isMaster && (
                 <button
                   type="button"
                   onClick={handleCleanup}
                   disabled={cleanupLoading}
-                  className={`${ADMIN_USERS_DANGER_BTN_CLASS} disabled:opacity-50`}
+                  className={`${ADMIN_USERS_LITE_BTN_OUTLINE_DANGER} disabled:opacity-50`}
                 >
                   {cleanupLoading ? t("admin_users_saving") : t("admin_users_cleanup_button")}
                 </button>
@@ -452,9 +475,9 @@ export function AdminUserListPage() {
             <button
               type="button"
               onClick={() => setShowCreateAdmin(true)}
-              className="rounded-full bg-sam-primary px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-sam-primary-hover active:bg-sam-primary-active"
+              className={ADMIN_USERS_LITE_BTN_OUTLINE_PRIMARY}
             >
-              {t("admin_users_create_admin")}
+              + {t("admin_users_create_admin")}
             </button>
           )}
         </div>
@@ -462,60 +485,15 @@ export function AdminUserListPage() {
 
       {tab === "members" && (
         <>
-          <div className={`${ADMIN_USERS_CARD_CLASS} px-4 py-3 text-sm leading-relaxed text-[#6F4E37]`}>
-            <p className="font-bold text-[#1E3932]">{t("admin_users_member_list_title")}</p>
-            <p className="mt-1">{t("admin_users_member_list_ssot_hint", { domain: MANUAL_MEMBER_EMAIL_DOMAIN })}</p>
-          </div>
-          <div className={`${ADMIN_USERS_CARD_CLASS} p-4 font-sans`}>
-            <div className="flex flex-wrap items-end justify-between gap-3 border-b border-[#e9edf3] pb-3">
-              <div>
-                <p className="text-xs font-bold tracking-[0.04em] text-[#667085]">{t("admin_users_member_summary_title")}</p>
-                <p className="mt-1 text-2xl font-black tabular-nums text-[#101828]">
-                  {t("admin_users_member_summary_total", {
-                    count: memberSummary.total.toLocaleString(countLocale),
-                  })}
-                </p>
-              </div>
-              <div className="rounded-lg border border-sam-primary-border bg-sam-primary-soft px-3 py-2 text-right">
-                <p className="text-xs font-bold text-sam-primary">{t("admin_users_member_summary_visible_label")}</p>
-                <p className="text-lg font-black tabular-nums text-[#101828]">
-                  {t("admin_users_member_summary_visible_count", {
-                    count: memberSummary.visible.toLocaleString(countLocale),
-                  })}
-                </p>
-              </div>
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-8">
-              {PROVIDER_SUMMARY_ORDER.map((provider) => {
-                const meta = PROVIDER_SUMMARY_META[provider];
-                return (
-                  <div
-                    key={provider}
-                    className={`rounded-lg border px-3 py-2 ${meta.className}`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white text-xs font-black shadow-sm">
-                        {meta.shortLabel}
-                      </span>
-                      <span className="text-lg font-black tabular-nums">
-                        {memberSummary.counts[provider].toLocaleString()}
-                      </span>
-                    </div>
-                    <p className="mt-1 truncate text-xs font-bold">{t(ADMIN_USER_PROVIDER_LABEL_KEY[provider])}</p>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+          <AdminUserListSummaryCards summary={memberSummary} />
           <AdminUserFilterBar
-            filters={filters}
-            searchQuery={searchQuery}
-            onFiltersChange={setFilters}
-            onSearchChange={setSearchQuery}
-            showMemberUuid={showMemberUuid}
-            onShowMemberUuidChange={setShowMemberUuid}
-            onSortChange={handleSortChange}
-            onSortOrderChange={handleSortOrderChange}
+            searchDraft={searchDraft}
+            onSearchDraftChange={setSearchDraft}
+            onSearchSubmit={applySearch}
+            roleFilter={roleFilter}
+            onRoleFilterChange={handleRoleFilterChange}
+            statusFilter={statusFilter}
+            onStatusFilterChange={handleStatusFilterChange}
           />
           {membersError ? (
             <div className="rounded-2xl border border-[#fad2cf] bg-white px-4 py-6 text-center text-sm text-[#b42318] shadow-sm">
@@ -529,23 +507,26 @@ export function AdminUserListPage() {
                 {t("admin_users_retry")}
               </button>
             </div>
-          ) : membersLoading && users.length === 0 ? (
-            <div className="rounded-2xl border border-[#dadde1] bg-white py-12 text-center text-sm font-semibold text-[#65676b] shadow-sm">
+          ) : membersListPending ? (
+            <div className={`${ADMIN_USERS_LITE_CARD} py-12 text-center text-sm font-semibold text-[#667085]`}>
               {t("admin_users_loading_list")}
             </div>
-          ) : filtered.length === 0 ? (
-            <div className="rounded-2xl border border-[#dadde1] bg-white py-12 text-center text-sm font-semibold text-[#65676b] shadow-sm">
+          ) : users.length === 0 ? (
+            <div className={`${ADMIN_USERS_LITE_CARD} py-12 text-center text-sm font-semibold text-[#667085]`}>
               {t("admin_users_empty_filtered")}
             </div>
           ) : (
             <AdminUserTable
               ref={tableScrollRef}
-              users={filtered}
-              showMemberUuid={showMemberUuid}
-              sortKey={filters.sortKey}
-              sortOrder={filters.sortOrder}
-              onSortChange={handleSortChange}
+              users={paginatedUsers}
+              totalItems={users.length}
+              page={membersPage}
+              pageSize={membersPageSize}
+              onPageChange={setMembersPage}
+              onPageSizeChange={handleMembersPageSizeChange}
+              onViewDetail={handleViewDetail}
               onEditMember={handleEditMember}
+              onSendMessage={handleSendMessage}
               onHorizontalScroll={onTableHorizontalScroll}
             />
           )}
@@ -622,6 +603,15 @@ export function AdminUserListPage() {
           onSuccess={refreshMembers}
         />
       )}
+      {detailUserId ? (
+        <AdminUserDetailModal
+          key={detailUserId}
+          userId={detailUserId}
+          onClose={closeDetail}
+          onUpdated={refreshMembers}
+          onSendMessage={handleSendMessageToUserId}
+        />
+      ) : null}
     </div>
   );
 }

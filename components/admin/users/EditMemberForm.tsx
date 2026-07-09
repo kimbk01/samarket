@@ -38,6 +38,9 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
   const { showMemberUuid, setShowMemberUuid } = useAdminMemberUuidVisibility();
   const { isSuperAdmin: isMasterUi } = useAdminMe();
   const [nickname, setNickname] = useState(user.nickname);
+  const [dibayId, setDibayId] = useState(() => (user.dibay_id ?? user.username ?? "").replace(/^@+/, ""));
+  const [email, setEmail] = useState(user.email ?? "");
+  const [phone, setPhone] = useState(user.phone ?? "");
   const [memberType, setMemberType] = useState<MemberType>(user.memberType);
   const [phoneStatus, setPhoneStatus] = useState(() => inferPhoneValue(user));
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +55,9 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
 
   useEffect(() => {
     setNickname(user.nickname);
+    setDibayId((user.dibay_id ?? user.username ?? "").replace(/^@+/, ""));
+    setEmail(user.email ?? "");
+    setPhone(user.phone ?? "");
     setMemberType(user.memberType);
     setPhoneStatus(inferPhoneValue(user));
   }, [user]);
@@ -77,8 +83,24 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
       setError(t("admin_users_err_nickname_max"));
       return;
     }
-    const body: { nickname?: string; memberType?: MemberType; phoneVerificationStatus?: string } = {};
+    const body: {
+      nickname?: string;
+      memberType?: MemberType;
+      phoneVerificationStatus?: string;
+      dibayId?: string;
+      email?: string;
+      phone?: string;
+    } = {};
     if (nextNickname !== user.nickname) body.nickname = nextNickname;
+    const nextDibayId = dibayId.trim().replace(/^@+/, "").toLowerCase();
+    const currentDibayId = (user.dibay_id ?? user.username ?? "").replace(/^@+/, "").toLowerCase();
+    if (nextDibayId !== currentDibayId) body.dibayId = nextDibayId;
+    const nextEmail = email.trim().toLowerCase();
+    const currentEmail = (user.email ?? "").trim().toLowerCase();
+    if (nextEmail !== currentEmail) body.email = nextEmail;
+    const nextPhone = phone.trim();
+    const currentPhone = (user.phone ?? "").trim();
+    if (nextPhone !== currentPhone) body.phone = nextPhone;
     const effectiveMember = memberLocked ? user.memberType : memberType;
     if (effectiveMember !== user.memberType) body.memberType = effectiveMember;
     if (phoneStatus !== inferPhoneValue(user)) body.phoneVerificationStatus = phoneStatus;
@@ -98,7 +120,15 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
       });
       const data = (await res.json()) as { ok?: boolean; error?: string; message?: string };
       if (!res.ok || !data.ok) {
-        setError(data.message ?? data.error ?? t("admin_users_err_save_failed"));
+        const message =
+          data.error === "invalid_dibay_id"
+            ? t("admin_users_err_invalid_dibay_id")
+            : data.error === "dibay_id_taken"
+              ? t("admin_users_err_dibay_id_taken")
+              : data.error === "invalid_email"
+                ? t("admin_users_err_invalid_email")
+                : data.message ?? data.error ?? t("admin_users_err_save_failed");
+        setError(message);
         setSubmitting(false);
         return;
       }
@@ -113,14 +143,14 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4"
       onClick={handleBackdrop}
       onKeyDown={(e) => e.key === "Escape" && onClose()}
       role="presentation"
     >
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-md rounded-ui-rect border border-sam-border bg-sam-surface p-6 shadow-xl"
+        className="w-full max-w-lg rounded-ui-rect border border-sam-border bg-sam-surface p-6 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-lg font-semibold text-sam-fg">{t("admin_users_form_edit_member_title")}</h2>
@@ -153,6 +183,39 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
         ) : null}
 
         <div className="mt-5 space-y-4">
+          <label className="block">
+            <span className="sam-text-body-secondary font-medium text-sam-fg">{t("admin_users_lite_label_public_id")}</span>
+            <input
+              value={dibayId}
+              onChange={(e) => setDibayId(e.target.value.replace(/^@+/, ""))}
+              maxLength={20}
+              disabled={isReadOnly}
+              className="mt-1.5 w-full rounded-ui-rect border border-sam-border px-3 py-2 font-mono sam-text-body disabled:cursor-not-allowed disabled:bg-sam-surface-muted"
+              placeholder="dai_kim"
+            />
+          </label>
+
+          <label className="block">
+            <span className="sam-text-body-secondary font-medium text-sam-fg">{t("admin_users_label_email")}</span>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={isReadOnly}
+              className="mt-1.5 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body disabled:cursor-not-allowed disabled:bg-sam-surface-muted"
+            />
+          </label>
+
+          <label className="block">
+            <span className="sam-text-body-secondary font-medium text-sam-fg">{t("admin_users_lite_label_phone")}</span>
+            <input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              disabled={isReadOnly}
+              className="mt-1.5 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body disabled:cursor-not-allowed disabled:bg-sam-surface-muted"
+            />
+          </label>
+
           <label className="block">
             <span className="sam-text-body-secondary font-medium text-sam-fg">{t("admin_users_label_nickname")}</span>
             <input

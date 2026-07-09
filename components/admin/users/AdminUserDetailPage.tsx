@@ -2,11 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import {
-  AdminMemberDetail,
-  type AdminUserDetailPayload,
-} from "@/components/admin/users/AdminTestUserDetail";
-import { ADMIN_USERS_PAGE_BG_CLASS } from "@/lib/ui/admin-users-starbucks-styles";
+import { AdminMemberDetail, type AdminUserDetailPayload } from "@/components/admin/users/AdminTestUserDetail";
+import { ADMIN_USERS_LITE_PAGE_BG } from "@/lib/ui/admin-users-lite-styles";
 import type { MessageKey } from "@/lib/i18n/messages";
 
 interface AdminUserDetailPageProps {
@@ -63,7 +60,7 @@ export function AdminUserDetailPage({ userId }: AdminUserDetailPageProps) {
 
   if (state.kind === "loading") {
     return (
-      <div className={`${ADMIN_USERS_PAGE_BG_CLASS} py-12 text-center text-[13px] text-[#6F4E37]`}>
+      <div className={`${ADMIN_USERS_LITE_PAGE_BG} py-12 text-center text-[13px] text-[#667085]`}>
         {t("admin_users_detail_loading")}
       </div>
     );
@@ -71,7 +68,7 @@ export function AdminUserDetailPage({ userId }: AdminUserDetailPageProps) {
 
   if (state.kind === "error") {
     return (
-      <div className={`${ADMIN_USERS_PAGE_BG_CLASS} py-12 text-center text-[13px] text-[#6F4E37]`}>
+      <div className={`${ADMIN_USERS_LITE_PAGE_BG} py-12 text-center text-[13px] text-[#667085]`}>
         {t(state.messageKey)}
       </div>
     );

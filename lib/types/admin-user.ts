@@ -5,6 +5,8 @@
 import type { ModerationStatus } from "@/lib/types/report";
 
 export type MemberType = "normal" | "premium" | "admin";
+export type AdminAccountCategory = "member" | "store_manager" | "admin";
+export type AdminUserStatusCategory = "active" | "needs_review" | "suspended" | "deleted";
 export type AdminAuthProvider =
   | "google"
   | "kakao"
@@ -47,6 +49,11 @@ export interface AdminUser {
   memberType: MemberType;
   /** profiles.role 원본 — master 판별·서버 검증용 */
   profileRole?: string;
+  /** Legacy Lite 목록 분류 — profiles.role/member_type 기준 */
+  accountCategory?: AdminAccountCategory;
+  roleCategory?: AdminAccountCategory;
+  /** Legacy Lite 상태 분류 — 목록 표시·필터용 */
+  statusCategory?: AdminUserStatusCategory;
   /**
    * profiles 행 존재 여부.
    * true = SSOT 회원 · false = auth-only 예외(목록·상세 읽기 전용).

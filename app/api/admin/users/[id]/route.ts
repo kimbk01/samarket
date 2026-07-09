@@ -34,6 +34,7 @@ import {
   loadProfilePhoneRowSlice,
 } from "@/lib/profile/admin-phone-verification-sync";
 import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
+import { isValidDibayIdFormat, normalizeDibayIdInput } from "@/lib/auth/dibay-id-policy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -59,6 +60,17 @@ async function isNicknameTaken(sb: SupabaseClient, userId: string, nickname: str
     .from("profiles")
     .select("id")
     .ilike("nickname", normalized)
+    .neq("id", userId)
+    .limit(1);
+  if (error) return false;
+  return Array.isArray(data) && data.length > 0;
+}
+
+async function isDibayIdTaken(sb: SupabaseClient, userId: string, dibayId: string): Promise<boolean> {
+  const { data, error } = await sb
+    .from("profiles")
+    .select("id")
+    .eq("dibay_id", dibayId)
     .neq("id", userId)
     .limit(1);
   if (error) return false;
@@ -649,6 +661,9 @@ export async function PATCH(
     memberType?: string;
     phoneVerificationStatus?: string;
     nickname?: string;
+    dibayId?: string;
+    phone?: string;
+    email?: string;
   };
   try {
     body = await req.json();
@@ -659,15 +674,22 @@ export async function PATCH(
   const memberTypeRaw = body.memberType;
   const phoneRaw = body.phoneVerificationStatus;
   const nicknameRaw = body.nickname;
+  const dibayIdRaw = body.dibayId;
+  const phoneRawValue = body.phone;
+  const emailRaw = body.email;
   const hasMember =
     memberTypeRaw !== undefined &&
     memberTypeRaw !== null &&
     String(memberTypeRaw).trim() !== "";
   const hasPhone =
     phoneRaw !== undefined && phoneRaw !== null && String(phoneRaw).trim() !== "";
+  const hasPhoneNumber =
+    phoneRawValue !== undefined && phoneRawValue !== null;
   const hasNickname =
     nicknameRaw !== undefined && nicknameRaw !== null && String(nicknameRaw).trim() !== "";
-  if (!hasMember && !hasPhone && !hasNickname) {
+  const hasDibayId = dibayIdRaw !== undefined && dibayIdRaw !== null;
+  const hasEmail = emailRaw !== undefined && emailRaw !== null;
+  if (!hasMember && !hasPhone && !hasNickname && !hasDibayId && !hasPhoneNumber && !hasEmail) {
     return NextResponse.json({ ok: false, error: "nothing_to_update" }, { status: 400 });
   }
 
@@ -708,6 +730,41 @@ export async function PATCH(
       return NextResponse.json({ ok: false, error: "닉네임은 20자 이내로 입력해 주세요." }, { status: 400 });
     }
     nextNickname = n;
+  }
+
+  let nextDibayId: string | null | undefined = undefined;
+  if (hasDibayId) {
+    const normalized = normalizeDibayIdInput(dibayIdRaw);
+    if (!normalized) {
+      nextDibayId = null;
+    } else if (!isValidDibayIdFormat(normalized)) {
+      return NextResponse.json({ ok: false, error: "invalid_dibay_id" }, { status: 400 });
+    } else {
+      nextDibayId = normalized;
+    }
+  }
+
+  let nextPhonePatch: Record<string, unknown> | null = null;
+  if (hasPhoneNumber) {
+    const rawPhone = String(phoneRawValue ?? "").trim();
+    if (!rawPhone) {
+      nextPhonePatch = { phone: null, phone_country_code: null, phone_number: null };
+    } else {
+      const phoneNorm = normalizeOptionalPhMobileDb(rawPhone);
+      if (!phoneNorm.ok) {
+        return NextResponse.json({ ok: false, error: phoneNorm.error ?? "invalid_phone" }, { status: 400 });
+      }
+      nextPhonePatch = profilePhoneStorageFieldsFromDb09(phoneNorm.value);
+    }
+  }
+
+  let nextEmail: string | null | undefined = undefined;
+  if (hasEmail) {
+    const email = String(emailRaw ?? "").trim().toLowerCase();
+    nextEmail = email || null;
+    if (email && !email.includes("@")) {
+      return NextResponse.json({ ok: false, error: "invalid_email" }, { status: 400 });
+    }
   }
 
   const { sb, actor } = gate;
@@ -773,8 +830,21 @@ export async function PATCH(
     memberTypeToApply = null;
   }
 
-  if (memberTypeToApply === null && phoneStatus === null && nextNickname === null) {
+  if (
+    memberTypeToApply === null &&
+    phoneStatus === null &&
+    nextNickname === null &&
+    nextDibayId === undefined &&
+    nextPhonePatch === null &&
+    nextEmail === undefined
+  ) {
     return NextResponse.json({ ok: false, error: "nothing_to_update" }, { status: 400 });
+  }
+
+  if (nextDibayId) {
+    if (await isDibayIdTaken(sb, userId, nextDibayId)) {
+      return NextResponse.json({ ok: false, error: "dibay_id_taken" }, { status: 409 });
+    }
   }
 
   const patch: Record<string, unknown> = {};
@@ -795,6 +865,16 @@ export async function PATCH(
     }
     patch.nickname = nextNickname;
     patch.display_name = nextNickname;
+  }
+  if (nextDibayId !== undefined) {
+    patch.dibay_id = nextDibayId;
+  }
+  if (nextPhonePatch !== null) {
+    Object.assign(patch, nextPhonePatch);
+  }
+  if (nextEmail !== undefined) {
+    patch.email = nextEmail;
+    patch.auth_login_email = nextEmail;
   }
 
   const { error: updateError } = await sb.from("profiles").update(patch).eq("id", userId);
