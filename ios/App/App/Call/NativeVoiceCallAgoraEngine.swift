@@ -45,6 +45,18 @@ final class NativeVoiceCallAgoraEngine: NSObject {
     let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !sid.isEmpty else { return (false, 0, "invalid_call_id") }
 
+    switch NativeCallAgoraLaneGuard.prepareJoin(callId: sid, lane: .voice) {
+    case .busy(let reason):
+      return (false, 0, reason)
+    case .idempotentSkip:
+      lock.lock()
+      let gen = generation
+      lock.unlock()
+      return (true, gen, nil)
+    case .proceed:
+      break
+    }
+
     lock.lock()
     listener = nextListener
     activeCallId = sid
@@ -97,9 +109,11 @@ final class NativeVoiceCallAgoraEngine: NSObject {
     localJoined = false
     connectedEmitted = false
     generation &+= 1
-    if engine != nil {
-      engine?.leaveChannel(nil)
-      AgoraRtcEngineKit.destroy()
+    if let rtc = engine {
+      rtc.leaveChannel(nil)
+      if NativeCallAgoraLaneGuard.shouldDestroySharedEngine(leavingLane: .voice, leavingCallId: sid) {
+        AgoraRtcEngineKit.destroy()
+      }
       engine = nil
     }
     lock.unlock()

@@ -22,6 +22,7 @@
 		C7NVR0022FED79650016851F /* NativeVoiceCallRuntimeState.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NVR0012FED79650016851F /* NativeVoiceCallRuntimeState.swift */; };
 		C7NVR0122FED79650016851F /* NativeVoiceCallRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NVR0112FED79650016851F /* NativeVoiceCallRuntime.swift */; };
 		C7NVA0022FED79650016851F /* NativeVoiceCallApi.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NVA0012FED79650016851F /* NativeVoiceCallApi.swift */; };
+		C7G1G0022FED79650016851F /* NativeCallAgoraLaneGuard.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7G1G0012FED79650016851F /* NativeCallAgoraLaneGuard.swift */; };
 		C7NVE0022FED79650016851F /* NativeVoiceCallAgoraEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NVE0012FED79650016851F /* NativeVoiceCallAgoraEngine.swift */; };
 		C7NVC0022FED79650016851F /* NativeVoiceIncomingCallCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NVC0012FED79650016851F /* NativeVoiceIncomingCallCoordinator.swift */; };
 		C7VID0022FED79650016851F /* NativeVideoCallRuntimeState.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VID0012FED79650016851F /* NativeVideoCallRuntimeState.swift */; };
@@ -57,6 +58,7 @@
 		C7NVR0012FED79650016851F /* NativeVoiceCallRuntimeState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceCallRuntimeState.swift; sourceTree = "<group>"; };
 		C7NVR0112FED79650016851F /* NativeVoiceCallRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceCallRuntime.swift; sourceTree = "<group>"; };
 		C7NVA0012FED79650016851F /* NativeVoiceCallApi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceCallApi.swift; sourceTree = "<group>"; };
+		C7G1G0012FED79650016851F /* NativeCallAgoraLaneGuard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeCallAgoraLaneGuard.swift; sourceTree = "<group>"; };
 		C7NVE0012FED79650016851F /* NativeVoiceCallAgoraEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceCallAgoraEngine.swift; sourceTree = "<group>"; };
 		C7NVC0012FED79650016851F /* NativeVoiceIncomingCallCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceIncomingCallCoordinator.swift; sourceTree = "<group>"; };
 		C7VID0012FED79650016851F /* NativeVideoCallRuntimeState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoCallRuntimeState.swift; sourceTree = "<group>"; };
@@ -155,6 +157,7 @@
 		C7ACS0032FED79650016851F /* Call */ = {
 			isa = PBXGroup;
 			children = (
+				C7G1G0012FED79650016851F /* NativeCallAgoraLaneGuard.swift */,
 				C7ACS0012FED79650016851F /* DibayActiveCallSessionManager.swift */,
 				C7AUD0012FED79650016851F /* DibayCallAudioSessionController.swift */,
 				C7AWK0012FED79650016851F /* ScreenAwakeBridge.swift */,
@@ -281,6 +284,7 @@
 				C7NVR0022FED79650016851F /* NativeVoiceCallRuntimeState.swift in Sources */,
 				C7NVR0122FED79650016851F /* NativeVoiceCallRuntime.swift in Sources */,
 				C7NVA0022FED79650016851F /* NativeVoiceCallApi.swift in Sources */,
+				C7G1G0022FED79650016851F /* NativeCallAgoraLaneGuard.swift in Sources */,
 				C7NVE0022FED79650016851F /* NativeVoiceCallAgoraEngine.swift in Sources */,
 				C7NVC0022FED79650016851F /* NativeVoiceIncomingCallCoordinator.swift in Sources */,
 				C7VID0022FED79650016851F /* NativeVideoCallRuntimeState.swift in Sources */,

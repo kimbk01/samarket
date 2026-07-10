@@ -18,9 +18,7 @@ protocol NativeVideoCallAgoraEngineListener: AnyObject {
  *   (`NativeVoiceCallAgoraEngine.shared.peekOccupantCallId() == nil`).
  * - Video `join()` is rejected while Voice lane is occupied to avoid stomping Voice media config.
  *
- * B5 GATE (separate approved track — required before CallKit video native handoff):
- * - `NativeCallAgoraLaneGuard` must add Voice↔Video symmetric mutual exclusion on the shared
- *   Agora singleton. B5 is NOT approved until that guard ships. This file only guards Video→Voice.
+ * Lane guard: `NativeCallAgoraLaneGuard` (Voice↔Video symmetric join + shared destroy gate).
  */
 final class NativeVideoCallAgoraEngine: NSObject {
   static let shared = NativeVideoCallAgoraEngine()
@@ -118,13 +116,16 @@ final class NativeVideoCallAgoraEngine: NSObject {
     let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !sid.isEmpty else { return (false, 0, "invalid_call_id") }
 
-    if let voiceOccupant = NativeVoiceCallAgoraEngine.shared.peekOccupantCallId() {
-      NativeVideoCallLog.warn(
-        "duplicate_runtime_blocked",
-        callId: sid,
-        details: "reason=voice_lane_occupied occupant=\(voiceOccupant)"
-      )
+    switch NativeCallAgoraLaneGuard.prepareJoin(callId: sid, lane: .video) {
+    case .busy:
       return (false, 0, "voice_lane_occupied")
+    case .idempotentSkip:
+      lock.lock()
+      let gen = generation
+      lock.unlock()
+      return (true, gen, nil)
+    case .proceed:
+      break
     }
 
     lock.lock()
@@ -199,23 +200,13 @@ final class NativeVideoCallAgoraEngine: NSObject {
     return rtc
   }
 
-  /**
-   * Voice LOCK guard: never destroy the process-wide Agora singleton while Voice runtime is active.
-   */
   private func tearDownSharedEngineIfAllowed(
     rtc: AgoraRtcEngineKit,
     shouldDestroySharedEngine: Bool,
     callId: String?
   ) {
     guard shouldDestroySharedEngine else { return }
-    if NativeVoiceCallAgoraEngine.shared.peekOccupantCallId() != nil {
-      if let callId {
-        NativeVideoCallLog.info(
-          "agora_destroy_skipped_voice_lane",
-          callId: callId,
-          details: "reason=voice_engine_active"
-        )
-      }
+    guard NativeCallAgoraLaneGuard.shouldDestroySharedEngine(leavingLane: .video, leavingCallId: callId) else {
       return
     }
     _ = rtc
