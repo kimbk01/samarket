@@ -1,8 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { registerNativePushFromClient, attachVoipPushTokenListener } from "@/lib/push/native/register-native-push-client";
-import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
+import {
+  attachVoipPushTokenListener,
+  isVoipPushTokenListenerAttached,
+  registerNativePushFromClient,
+} from "@/lib/push/native/register-native-push-client";
+import {
+  hasAndroidBridge,
+  isCapacitorNativePlatform,
+  resolveCapacitorShellPlatform,
+  waitForCapacitorBridgeReady,
+} from "@/lib/platform/capacitor-native";
 import { getSessionPhase, subscribeDibayAuthStateChange, subscribeSessionPhase } from "@/lib/auth/dibay-session-manager";
 import { allowsPushRegistration, isTerminalGuestPhase, type DibaySessionPhase } from "@/lib/auth/dibay-session-policy";
 import { getCurrentUser, getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
@@ -23,6 +32,7 @@ import { waitForNotificationOnboardingSettled } from "@/components/permissions/D
 
 const MAX_USER_ID_WAIT_ATTEMPTS = 8;
 const MAX_REGISTER_ATTEMPTS = 3;
+const VOIP_LISTENER_BRIDGE_READY_TIMEOUT_MS = 5_000;
 
 /**
  * Native FCM/APNS — authenticated phase only.
@@ -50,9 +60,26 @@ export function NativePushRegistration() {
   }, [phase]);
 
   useEffect(() => {
-    if (!isCapacitorNativePlatform()) return;
-    const detachVoip = attachVoipPushTokenListener();
+    if (hasAndroidBridge() || resolveCapacitorShellPlatform() === "android") return;
+
+    let cancelled = false;
+    let detachVoip: () => void = () => {};
+
+    const tryAttachVoip = (reason: string) => {
+      if (cancelled || isVoipPushTokenListenerAttached()) return;
+      logPushRegister("voip_listener_attach_attempt", { reason });
+      detachVoip = attachVoipPushTokenListener();
+    };
+
+    tryAttachVoip("mount");
+    void waitForCapacitorBridgeReady({ timeoutMs: VOIP_LISTENER_BRIDGE_READY_TIMEOUT_MS }).then((ready) => {
+      if (cancelled) return;
+      logPushRegister("voip_listener_bridge_ready", { ready });
+      tryAttachVoip(ready ? "bridge_ready" : "bridge_timeout");
+    });
+
     return () => {
+      cancelled = true;
       detachVoip();
     };
   }, []);

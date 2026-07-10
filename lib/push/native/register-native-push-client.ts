@@ -2,7 +2,11 @@
 
 import { ensureClientInstanceId } from "@/lib/auth/client-instance-id";
 import { resolveDibayDeepLinkToAppPath } from "@/lib/platform/deep-link-routes";
-import { isCapacitorNativePlatform, resolveCapacitorShellPlatform } from "@/lib/platform/capacitor-native";
+import {
+  hasLikelyIosCapacitorShell,
+  isCapacitorNativePlatform,
+  resolveCapacitorShellPlatform,
+} from "@/lib/platform/capacitor-native";
 import {
   ensureNotificationForPushRegister,
   getCachedNotificationReceiveSnapshot,
@@ -237,8 +241,7 @@ export async function registerNativePushFromClient(
 
   try {
     const { PushNotifications } = await import("@capacitor/push-notifications");
-    const { Capacitor } = await import("@capacitor/core");
-    const platform = Capacitor.getPlatform();
+    const platform = resolveCapacitorShellPlatform();
     if (platform !== "android" && platform !== "ios") {
       logPushRegisterFail("unsupported_platform", { platform });
       return { ok: false, error: "unsupported_platform" };
@@ -469,11 +472,19 @@ function retryVoipTokenRegistration(reason: string, userId?: string): void {
 
 let voipListenerAttached = false;
 
+export function isVoipPushTokenListenerAttached(): boolean {
+  return voipListenerAttached;
+}
+
 /** iOS PushKit VoIP token — native `dibay:voip-token` 이벤트 구독. */
 export function attachVoipPushTokenListener(): () => void {
   if (typeof window === "undefined" || voipListenerAttached) return () => undefined;
-  if (resolveCapacitorShellPlatform() !== "ios") return () => undefined;
+  if (!hasLikelyIosCapacitorShell()) {
+    logPushRegister("voip_listener_attach_skipped", { reason: "not_ios_shell" });
+    return () => undefined;
+  }
   voipListenerAttached = true;
+  logPushRegister("voip_listener_attached", { push_provider: "voip_apns" });
 
   const onToken = (ev: Event) => {
     const detail = (ev as CustomEvent<{ token?: string }>).detail;
