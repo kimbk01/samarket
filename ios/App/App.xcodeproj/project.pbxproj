@@ -19,6 +19,12 @@
 		C7ACS0022FED79650016851F /* DibayActiveCallSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7ACS0012FED79650016851F /* DibayActiveCallSessionManager.swift */; };
 		C7AUD0022FED79650016851F /* DibayCallAudioSessionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7AUD0012FED79650016851F /* DibayCallAudioSessionController.swift */; };
 		C7AWK0022FED79650016851F /* ScreenAwakeBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7AWK0012FED79650016851F /* ScreenAwakeBridge.swift */; };
+		C7NVR0022FED79650016851F /* NativeVoiceCallRuntimeState.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NVR0012FED79650016851F /* NativeVoiceCallRuntimeState.swift */; };
+		C7NVR0122FED79650016851F /* NativeVoiceCallRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NVR0112FED79650016851F /* NativeVoiceCallRuntime.swift */; };
+		C7NVA0022FED79650016851F /* NativeVoiceCallApi.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NVA0012FED79650016851F /* NativeVoiceCallApi.swift */; };
+		C7NVE0022FED79650016851F /* NativeVoiceCallAgoraEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NVE0012FED79650016851F /* NativeVoiceCallAgoraEngine.swift */; };
+		C7NVC0022FED79650016851F /* NativeVoiceIncomingCallCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NVC0012FED79650016851F /* NativeVoiceIncomingCallCoordinator.swift */; };
+		C7AGR0122AF431CB00220026 /* RtcBasic in Frameworks */ = {isa = PBXBuildFile; productRef = C7AGR0112AF431CB00220026 /* RtcBasic */; };
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
 		4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22ABE82AF431CB00220026 /* CapApp-SPM */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
@@ -41,6 +47,11 @@
 		C7ACS0012FED79650016851F /* DibayActiveCallSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayActiveCallSessionManager.swift; sourceTree = "<group>"; };
 		C7AUD0012FED79650016851F /* DibayCallAudioSessionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayCallAudioSessionController.swift; sourceTree = "<group>"; };
 		C7AWK0012FED79650016851F /* ScreenAwakeBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenAwakeBridge.swift; sourceTree = "<group>"; };
+		C7NVR0012FED79650016851F /* NativeVoiceCallRuntimeState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceCallRuntimeState.swift; sourceTree = "<group>"; };
+		C7NVR0112FED79650016851F /* NativeVoiceCallRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceCallRuntime.swift; sourceTree = "<group>"; };
+		C7NVA0012FED79650016851F /* NativeVoiceCallApi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceCallApi.swift; sourceTree = "<group>"; };
+		C7NVE0012FED79650016851F /* NativeVoiceCallAgoraEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceCallAgoraEngine.swift; sourceTree = "<group>"; };
+		C7NVC0012FED79650016851F /* NativeVoiceIncomingCallCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceIncomingCallCoordinator.swift; sourceTree = "<group>"; };
 		C7A1B0042FED79650016851F /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
 		50379B222058CBB4000EE86E /* capacitor.config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
@@ -62,6 +73,7 @@
 			files = (
 				4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */,
 				C7KAK0122AF431CB00220026 /* KakaoSDK in Frameworks */,
+				C7AGR0122AF431CB00220026 /* RtcBasic in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -132,6 +144,11 @@
 				C7ACS0012FED79650016851F /* DibayActiveCallSessionManager.swift */,
 				C7AUD0012FED79650016851F /* DibayCallAudioSessionController.swift */,
 				C7AWK0012FED79650016851F /* ScreenAwakeBridge.swift */,
+				C7NVR0012FED79650016851F /* NativeVoiceCallRuntimeState.swift */,
+				C7NVR0112FED79650016851F /* NativeVoiceCallRuntime.swift */,
+				C7NVA0012FED79650016851F /* NativeVoiceCallApi.swift */,
+				C7NVE0012FED79650016851F /* NativeVoiceCallAgoraEngine.swift */,
+				C7NVC0012FED79650016851F /* NativeVoiceIncomingCallCoordinator.swift */,
 			);
 			path = Call;
 			sourceTree = "<group>";
@@ -155,6 +172,7 @@
 			packageProductDependencies = (
 				4D22ABE82AF431CB00220026 /* CapApp-SPM */,
 				C7KAK0112AF431CB00220026 /* KakaoSDK */,
+				C7AGR0112AF431CB00220026 /* RtcBasic */,
 			);
 			productName = App;
 			productReference = 504EC3041FED79650016851F /* App.app */;
@@ -188,6 +206,7 @@
 			packageReferences = (
 				D4C12C0A2AAA248700AAC8A2 /* XCLocalSwiftPackageReference "CapApp-SPM" */,
 				C7KAK0102AAA248700AAC8A2 /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */,
+				C7AGR0102AAA248700AAC8A2 /* XCRemoteSwiftPackageReference "AgoraRtcEngine_iOS" */,
 			);
 			productRefGroup = 504EC3051FED79650016851F /* Products */;
 			projectDirPath = "";
@@ -230,6 +249,11 @@
 				C7ACS0022FED79650016851F /* DibayActiveCallSessionManager.swift in Sources */,
 				C7AUD0022FED79650016851F /* DibayCallAudioSessionController.swift in Sources */,
 				C7AWK0022FED79650016851F /* ScreenAwakeBridge.swift in Sources */,
+				C7NVR0022FED79650016851F /* NativeVoiceCallRuntimeState.swift in Sources */,
+				C7NVR0122FED79650016851F /* NativeVoiceCallRuntime.swift in Sources */,
+				C7NVA0022FED79650016851F /* NativeVoiceCallApi.swift in Sources */,
+				C7NVE0022FED79650016851F /* NativeVoiceCallAgoraEngine.swift in Sources */,
+				C7NVC0022FED79650016851F /* NativeVoiceIncomingCallCoordinator.swift in Sources */,
 				C7KAK0022FED79650016851F /* NativeKakaoAuthPlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -444,6 +468,14 @@
 				minimumVersion = 2.22.0;
 			};
 		};
+		C7AGR0102AAA248700AAC8A2 /* XCRemoteSwiftPackageReference "AgoraRtcEngine_iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/AgoraIO/AgoraRtcEngine_iOS";
+			requirement = {
+				kind = exactVersion;
+				version = 4.6.2;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCLocalSwiftPackageReference section */
@@ -463,6 +495,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = D4C12C0A2AAA248700AAC8A2 /* XCLocalSwiftPackageReference "CapApp-SPM" */;
 			productName = "CapApp-SPM";
+		};
+		C7AGR0112AF431CB00220026 /* RtcBasic */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C7AGR0102AAA248700AAC8A2 /* XCRemoteSwiftPackageReference "AgoraRtcEngine_iOS" */;
+			productName = RtcBasic;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
