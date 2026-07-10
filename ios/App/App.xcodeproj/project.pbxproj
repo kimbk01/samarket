@@ -7,24 +7,33 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
+		4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22ABE82AF431CB00220026 /* CapApp-SPM */; };
+		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
+		504EC3081FED79650016851F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
+		504EC30D1FED79650016851F /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30B1FED79650016851F /* Main.storyboard */; };
+		504EC30F1FED79650016851F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
+		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
+		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
+		C7A1B0022FED79650016851F /* NativeAppleAuthPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7A1B0012FED79650016851F /* NativeAppleAuthPlugin.swift */; };
+		C7ACS0022FED79650016851F /* DibayActiveCallSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7ACS0012FED79650016851F /* DibayActiveCallSessionManager.swift */; };
+		C7AGR0122AF431CB00220026 /* RtcBasic in Frameworks */ = {isa = PBXBuildFile; productRef = C7AGR0112AF431CB00220026 /* RtcBasic */; };
+		C7AUD0022FED79650016851F /* DibayCallAudioSessionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7AUD0012FED79650016851F /* DibayCallAudioSessionController.swift */; };
+		C7AWK0022FED79650016851F /* ScreenAwakeBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7AWK0012FED79650016851F /* ScreenAwakeBridge.swift */; };
+		C7B5J0022FED79650016851F /* dibay-call-lane.json in Resources */ = {isa = PBXBuildFile; fileRef = C7B5J0012FED79650016851F /* dibay-call-lane.json */; };
+		C7G1G0022FED79650016851F /* NativeCallAgoraLaneGuard.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7G1G0012FED79650016851F /* NativeCallAgoraLaneGuard.swift */; };
+		C7KAK0022FED79650016851F /* NativeKakaoAuthPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7KAK0012FED79650016851F /* NativeKakaoAuthPlugin.swift */; };
+		C7KAK0122AF431CB00220026 /* KakaoSDK in Frameworks */ = {isa = PBXBuildFile; productRef = C7KAK0112AF431CB00220026 /* KakaoSDK */; };
+		C7NCS0022FED79650016851F /* NativeCallServicePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NCS0012FED79650016851F /* NativeCallServicePlugin.swift */; };
+		C7NVA0022FED79650016851F /* NativeVoiceCallApi.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NVA0012FED79650016851F /* NativeVoiceCallApi.swift */; };
+		C7NVC0022FED79650016851F /* NativeVoiceIncomingCallCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NVC0012FED79650016851F /* NativeVoiceIncomingCallCoordinator.swift */; };
+		C7NVE0022FED79650016851F /* NativeVoiceCallAgoraEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NVE0012FED79650016851F /* NativeVoiceCallAgoraEngine.swift */; };
+		C7NVR0022FED79650016851F /* NativeVoiceCallRuntimeState.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NVR0012FED79650016851F /* NativeVoiceCallRuntimeState.swift */; };
+		C7NVR0122FED79650016851F /* NativeVoiceCallRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NVR0112FED79650016851F /* NativeVoiceCallRuntime.swift */; };
+		C7OWN0022FED79650016851F /* CallV4SurfaceOwnerBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7OWN0012FED79650016851F /* CallV4SurfaceOwnerBridge.swift */; };
 		C7PUSH0022FED79650016851F /* VoIPPushRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7PUSH0012FED79650016851F /* VoIPPushRegistry.swift */; };
 		C7PUSH0122FED79650016851F /* CallKitProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7PUSH0112FED79650016851F /* CallKitProvider.swift */; };
 		C7PUSH0222FED79650016851F /* DibayPushTokenBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7PUSH0212FED79650016851F /* DibayPushTokenBridge.swift */; };
-		C7OWN0022FED79650016851F /* CallV4SurfaceOwnerBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7OWN0012FED79650016851F /* CallV4SurfaceOwnerBridge.swift */; };
-		C7KAK0022FED79650016851F /* NativeKakaoAuthPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7KAK0012FED79650016851F /* NativeKakaoAuthPlugin.swift */; };
-		C7KAK0122AF431CB00220026 /* KakaoSDK in Frameworks */ = {isa = PBXBuildFile; productRef = C7KAK0112AF431CB00220026 /* KakaoSDK */; };
-		C7A1B0022FED79650016851F /* NativeAppleAuthPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7A1B0012FED79650016851F /* NativeAppleAuthPlugin.swift */; };
-		C7VOIP0022FED79650016851F /* DibayVoipCallPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VOIP0012FED79650016851F /* DibayVoipCallPlugin.swift */; };
-		C7NCS0022FED79650016851F /* NativeCallServicePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NCS0012FED79650016851F /* NativeCallServicePlugin.swift */; };
-		C7ACS0022FED79650016851F /* DibayActiveCallSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7ACS0012FED79650016851F /* DibayActiveCallSessionManager.swift */; };
-		C7AUD0022FED79650016851F /* DibayCallAudioSessionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7AUD0012FED79650016851F /* DibayCallAudioSessionController.swift */; };
-		C7AWK0022FED79650016851F /* ScreenAwakeBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7AWK0012FED79650016851F /* ScreenAwakeBridge.swift */; };
-		C7NVR0022FED79650016851F /* NativeVoiceCallRuntimeState.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NVR0012FED79650016851F /* NativeVoiceCallRuntimeState.swift */; };
-		C7NVR0122FED79650016851F /* NativeVoiceCallRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NVR0112FED79650016851F /* NativeVoiceCallRuntime.swift */; };
-		C7NVA0022FED79650016851F /* NativeVoiceCallApi.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NVA0012FED79650016851F /* NativeVoiceCallApi.swift */; };
-		C7G1G0022FED79650016851F /* NativeCallAgoraLaneGuard.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7G1G0012FED79650016851F /* NativeCallAgoraLaneGuard.swift */; };
-		C7NVE0022FED79650016851F /* NativeVoiceCallAgoraEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NVE0012FED79650016851F /* NativeVoiceCallAgoraEngine.swift */; };
-		C7NVC0022FED79650016851F /* NativeVoiceIncomingCallCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NVC0012FED79650016851F /* NativeVoiceIncomingCallCoordinator.swift */; };
 		C7VID0022FED79650016851F /* NativeVideoCallRuntimeState.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VID0012FED79650016851F /* NativeVideoCallRuntimeState.swift */; };
 		C7VID0122FED79650016851F /* NativeVideoCallOwner.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VID0112FED79650016851F /* NativeVideoCallOwner.swift */; };
 		C7VID0222FED79650016851F /* NativeVideoCallLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VID0212FED79650016851F /* NativeVideoCallLog.swift */; };
@@ -32,47 +41,17 @@
 		C7VID0422FED79650016851F /* NativeVideoCallRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VID0412FED79650016851F /* NativeVideoCallRuntime.swift */; };
 		C7VID0522FED79650016851F /* NativeVideoCallAgoraEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VID0512FED79650016851F /* NativeVideoCallAgoraEngine.swift */; };
 		C7VID0622FED79650016851F /* NativeVideoIncomingCallCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VID0612FED79650016851F /* NativeVideoIncomingCallCoordinator.swift */; };
-		C7AGR0122AF431CB00220026 /* RtcBasic in Frameworks */ = {isa = PBXBuildFile; productRef = C7AGR0112AF431CB00220026 /* RtcBasic */; };
-		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
-		4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22ABE82AF431CB00220026 /* CapApp-SPM */; };
-		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
-		C7B5J0022FED79650016851F /* dibay-call-lane.json in Resources */ = {isa = PBXBuildFile; fileRef = C7B5J0012FED79650016851F /* dibay-call-lane.json */; };
-		504EC3081FED79650016851F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
-		504EC30D1FED79650016851F /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30B1FED79650016851F /* Main.storyboard */; };
-		504EC30F1FED79650016851F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
-		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
-		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
+		C7VID0722FED79650016851F /* NativeVideoCallUiPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VID0712FED79650016851F /* NativeVideoCallUiPresenter.swift */; };
+		C7VID0822FED79650016851F /* NativeVideoCallUiHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VID0812FED79650016851F /* NativeVideoCallUiHost.swift */; };
+		C7VID0922FED79650016851F /* NativeVideoCallViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VID0912FED79650016851F /* NativeVideoCallViewController.swift */; };
+		C7VID0A22FED79650016851F /* NativeVideoCallPipPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VID0A12FED79650016851F /* NativeVideoCallPipPresenter.swift */; };
+		C7PIP0022FED79650016851F /* DibayCallPipPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7PIP0012FED79650016851F /* DibayCallPipPlugin.swift */; };
+		C7VOIP0022FED79650016851F /* DibayVoipCallPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VOIP0012FED79650016851F /* DibayVoipCallPlugin.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		C7PUSH0012FED79650016851F /* VoIPPushRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoIPPushRegistry.swift; sourceTree = "<group>"; };
-		C7PUSH0112FED79650016851F /* CallKitProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallKitProvider.swift; sourceTree = "<group>"; };
-		C7PUSH0212FED79650016851F /* DibayPushTokenBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayPushTokenBridge.swift; sourceTree = "<group>"; };
-		C7OWN0012FED79650016851F /* CallV4SurfaceOwnerBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallV4SurfaceOwnerBridge.swift; sourceTree = "<group>"; };
-		C7KAK0012FED79650016851F /* NativeKakaoAuthPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeKakaoAuthPlugin.swift; sourceTree = "<group>"; };
-		C7A1B0012FED79650016851F /* NativeAppleAuthPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeAppleAuthPlugin.swift; sourceTree = "<group>"; };
-		C7VOIP0012FED79650016851F /* DibayVoipCallPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayVoipCallPlugin.swift; sourceTree = "<group>"; };
-		C7NCS0012FED79650016851F /* NativeCallServicePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeCallServicePlugin.swift; sourceTree = "<group>"; };
-		C7ACS0012FED79650016851F /* DibayActiveCallSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayActiveCallSessionManager.swift; sourceTree = "<group>"; };
-		C7AUD0012FED79650016851F /* DibayCallAudioSessionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayCallAudioSessionController.swift; sourceTree = "<group>"; };
-		C7AWK0012FED79650016851F /* ScreenAwakeBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenAwakeBridge.swift; sourceTree = "<group>"; };
-		C7NVR0012FED79650016851F /* NativeVoiceCallRuntimeState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceCallRuntimeState.swift; sourceTree = "<group>"; };
-		C7NVR0112FED79650016851F /* NativeVoiceCallRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceCallRuntime.swift; sourceTree = "<group>"; };
-		C7NVA0012FED79650016851F /* NativeVoiceCallApi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceCallApi.swift; sourceTree = "<group>"; };
-		C7G1G0012FED79650016851F /* NativeCallAgoraLaneGuard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeCallAgoraLaneGuard.swift; sourceTree = "<group>"; };
-		C7NVE0012FED79650016851F /* NativeVoiceCallAgoraEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceCallAgoraEngine.swift; sourceTree = "<group>"; };
-		C7NVC0012FED79650016851F /* NativeVoiceIncomingCallCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceIncomingCallCoordinator.swift; sourceTree = "<group>"; };
-		C7VID0012FED79650016851F /* NativeVideoCallRuntimeState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoCallRuntimeState.swift; sourceTree = "<group>"; };
-		C7VID0112FED79650016851F /* NativeVideoCallOwner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoCallOwner.swift; sourceTree = "<group>"; };
-		C7VID0212FED79650016851F /* NativeVideoCallLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoCallLog.swift; sourceTree = "<group>"; };
-		C7VID0312FED79650016851F /* NativeVideoCallApi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoCallApi.swift; sourceTree = "<group>"; };
-		C7VID0412FED79650016851F /* NativeVideoCallRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoCallRuntime.swift; sourceTree = "<group>"; };
-		C7VID0512FED79650016851F /* NativeVideoCallAgoraEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoCallAgoraEngine.swift; sourceTree = "<group>"; };
-		C7VID0612FED79650016851F /* NativeVideoIncomingCallCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoIncomingCallCoordinator.swift; sourceTree = "<group>"; };
-		C7A1B0042FED79650016851F /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
 		50379B222058CBB4000EE86E /* capacitor.config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
-		C7B5J0012FED79650016851F /* dibay-call-lane.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "dibay-call-lane.json"; sourceTree = "<group>"; };
 		504EC3041FED79650016851F /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		504EC3071FED79650016851F /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		504EC30C1FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
@@ -81,7 +60,38 @@
 		504EC3131FED79650016851F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
+		C7A1B0012FED79650016851F /* NativeAppleAuthPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeAppleAuthPlugin.swift; sourceTree = "<group>"; };
+		C7A1B0042FED79650016851F /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
+		C7ACS0012FED79650016851F /* DibayActiveCallSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayActiveCallSessionManager.swift; sourceTree = "<group>"; };
+		C7AUD0012FED79650016851F /* DibayCallAudioSessionController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayCallAudioSessionController.swift; sourceTree = "<group>"; };
+		C7AWK0012FED79650016851F /* ScreenAwakeBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenAwakeBridge.swift; sourceTree = "<group>"; };
+		C7B5J0012FED79650016851F /* dibay-call-lane.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "dibay-call-lane.json"; sourceTree = "<group>"; };
+		C7G1G0012FED79650016851F /* NativeCallAgoraLaneGuard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeCallAgoraLaneGuard.swift; sourceTree = "<group>"; };
+		C7KAK0012FED79650016851F /* NativeKakaoAuthPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeKakaoAuthPlugin.swift; sourceTree = "<group>"; };
 		C7KAK0202AAA248700AAC8A2 /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = release.xcconfig; path = ../release.xcconfig; sourceTree = SOURCE_ROOT; };
+		C7NCS0012FED79650016851F /* NativeCallServicePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeCallServicePlugin.swift; sourceTree = "<group>"; };
+		C7NVA0012FED79650016851F /* NativeVoiceCallApi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceCallApi.swift; sourceTree = "<group>"; };
+		C7NVC0012FED79650016851F /* NativeVoiceIncomingCallCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceIncomingCallCoordinator.swift; sourceTree = "<group>"; };
+		C7NVE0012FED79650016851F /* NativeVoiceCallAgoraEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceCallAgoraEngine.swift; sourceTree = "<group>"; };
+		C7NVR0012FED79650016851F /* NativeVoiceCallRuntimeState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceCallRuntimeState.swift; sourceTree = "<group>"; };
+		C7NVR0112FED79650016851F /* NativeVoiceCallRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceCallRuntime.swift; sourceTree = "<group>"; };
+		C7OWN0012FED79650016851F /* CallV4SurfaceOwnerBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallV4SurfaceOwnerBridge.swift; sourceTree = "<group>"; };
+		C7PUSH0012FED79650016851F /* VoIPPushRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoIPPushRegistry.swift; sourceTree = "<group>"; };
+		C7PUSH0112FED79650016851F /* CallKitProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallKitProvider.swift; sourceTree = "<group>"; };
+		C7PUSH0212FED79650016851F /* DibayPushTokenBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayPushTokenBridge.swift; sourceTree = "<group>"; };
+		C7VID0012FED79650016851F /* NativeVideoCallRuntimeState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoCallRuntimeState.swift; sourceTree = "<group>"; };
+		C7VID0112FED79650016851F /* NativeVideoCallOwner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoCallOwner.swift; sourceTree = "<group>"; };
+		C7VID0212FED79650016851F /* NativeVideoCallLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoCallLog.swift; sourceTree = "<group>"; };
+		C7VID0312FED79650016851F /* NativeVideoCallApi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoCallApi.swift; sourceTree = "<group>"; };
+		C7VID0412FED79650016851F /* NativeVideoCallRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoCallRuntime.swift; sourceTree = "<group>"; };
+		C7VID0512FED79650016851F /* NativeVideoCallAgoraEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoCallAgoraEngine.swift; sourceTree = "<group>"; };
+		C7VID0612FED79650016851F /* NativeVideoIncomingCallCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoIncomingCallCoordinator.swift; sourceTree = "<group>"; };
+		C7VID0712FED79650016851F /* NativeVideoCallUiPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoCallUiPresenter.swift; sourceTree = "<group>"; };
+		C7VID0812FED79650016851F /* NativeVideoCallUiHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoCallUiHost.swift; sourceTree = "<group>"; };
+		C7VID0912FED79650016851F /* NativeVideoCallViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoCallViewController.swift; sourceTree = "<group>"; };
+		C7VID0A12FED79650016851F /* NativeVideoCallPipPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoCallPipPresenter.swift; sourceTree = "<group>"; };
+		C7PIP0012FED79650016851F /* DibayCallPipPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayCallPipPlugin.swift; sourceTree = "<group>"; };
+		C7VOIP0012FED79650016851F /* DibayVoipCallPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayVoipCallPlugin.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -104,6 +114,7 @@
 				958DCC722DB07C7200EA8C5F /* debug.xcconfig */,
 				504EC3061FED79650016851F /* App */,
 				504EC3051FED79650016851F /* Products */,
+				ACAA3FB4300124E100C355C7 /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -121,6 +132,7 @@
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				C7B5J0012FED79650016851F /* dibay-call-lane.json */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
+				C7PIP0012FED79650016851F /* DibayCallPipPlugin.swift */,
 				C7PUSH0032FED79650016851F /* Push */,
 				C7ACS0032FED79650016851F /* Call */,
 				C7A1B0032FED79650016851F /* Plugins */,
@@ -135,6 +147,14 @@
 			path = App;
 			sourceTree = "<group>";
 		};
+		ACAA3FB4300124E100C355C7 /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				C7KAK0202AAA248700AAC8A2 /* release.xcconfig */,
+			);
+			name = "Recovered References";
+			sourceTree = "<group>";
+		};
 		C7A1B0032FED79650016851F /* Plugins */ = {
 			isa = PBXGroup;
 			children = (
@@ -144,17 +164,6 @@
 				C7KAK0012FED79650016851F /* NativeKakaoAuthPlugin.swift */,
 			);
 			path = Plugins;
-			sourceTree = "<group>";
-		};
-		C7PUSH0032FED79650016851F /* Push */ = {
-			isa = PBXGroup;
-			children = (
-				C7PUSH0012FED79650016851F /* VoIPPushRegistry.swift */,
-				C7PUSH0112FED79650016851F /* CallKitProvider.swift */,
-				C7PUSH0212FED79650016851F /* DibayPushTokenBridge.swift */,
-				C7OWN0012FED79650016851F /* CallV4SurfaceOwnerBridge.swift */,
-			);
-			path = Push;
 			sourceTree = "<group>";
 		};
 		C7ACS0032FED79650016851F /* Call */ = {
@@ -174,6 +183,17 @@
 			path = Call;
 			sourceTree = "<group>";
 		};
+		C7PUSH0032FED79650016851F /* Push */ = {
+			isa = PBXGroup;
+			children = (
+				C7PUSH0012FED79650016851F /* VoIPPushRegistry.swift */,
+				C7PUSH0112FED79650016851F /* CallKitProvider.swift */,
+				C7PUSH0212FED79650016851F /* DibayPushTokenBridge.swift */,
+				C7OWN0012FED79650016851F /* CallV4SurfaceOwnerBridge.swift */,
+			);
+			path = Push;
+			sourceTree = "<group>";
+		};
 		C7VID0032FED79650016851F /* Video */ = {
 			isa = PBXGroup;
 			children = (
@@ -184,6 +204,10 @@
 				C7VID0412FED79650016851F /* NativeVideoCallRuntime.swift */,
 				C7VID0512FED79650016851F /* NativeVideoCallAgoraEngine.swift */,
 				C7VID0612FED79650016851F /* NativeVideoIncomingCallCoordinator.swift */,
+				C7VID0712FED79650016851F /* NativeVideoCallUiPresenter.swift */,
+				C7VID0812FED79650016851F /* NativeVideoCallUiHost.swift */,
+				C7VID0912FED79650016851F /* NativeVideoCallViewController.swift */,
+				C7VID0A12FED79650016851F /* NativeVideoCallPipPresenter.swift */,
 			);
 			path = Video;
 			sourceTree = "<group>";
@@ -298,6 +322,11 @@
 				C7VID0422FED79650016851F /* NativeVideoCallRuntime.swift in Sources */,
 				C7VID0522FED79650016851F /* NativeVideoCallAgoraEngine.swift in Sources */,
 				C7VID0622FED79650016851F /* NativeVideoIncomingCallCoordinator.swift in Sources */,
+				C7VID0722FED79650016851F /* NativeVideoCallUiPresenter.swift in Sources */,
+				C7VID0822FED79650016851F /* NativeVideoCallUiHost.swift in Sources */,
+				C7VID0922FED79650016851F /* NativeVideoCallViewController.swift in Sources */,
+				C7VID0A22FED79650016851F /* NativeVideoCallPipPresenter.swift in Sources */,
+				C7PIP0022FED79650016851F /* DibayCallPipPlugin.swift in Sources */,
 				C7KAK0022FED79650016851F /* NativeKakaoAuthPlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -441,6 +470,7 @@
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 2TFKXT6Y99;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -465,6 +495,7 @@
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 2TFKXT6Y99;
 				INFOPLIST_FILE = App/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -503,15 +534,14 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin XCRemoteSwiftPackageReference section */
-		C7KAK0102AAA248700AAC8A2 /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/kakao/kakao-ios-sdk";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 2.22.0;
-			};
+/* Begin XCLocalSwiftPackageReference section */
+		D4C12C0A2AAA248700AAC8A2 /* XCLocalSwiftPackageReference "CapApp-SPM" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "CapApp-SPM";
 		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCRemoteSwiftPackageReference section */
 		C7AGR0102AAA248700AAC8A2 /* XCRemoteSwiftPackageReference "AgoraRtcEngine_iOS" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/AgoraIO/AgoraRtcEngine_iOS";
@@ -520,21 +550,17 @@
 				version = 4.6.2;
 			};
 		};
+		C7KAK0102AAA248700AAC8A2 /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/kakao/kakao-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.22.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
-/* Begin XCLocalSwiftPackageReference section */
-		D4C12C0A2AAA248700AAC8A2 /* XCLocalSwiftPackageReference "CapApp-SPM" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = "CapApp-SPM";
-		};
-/* End XCLocalSwiftPackageReference section */
-
 /* Begin XCSwiftPackageProductDependency section */
-		C7KAK0112AF431CB00220026 /* KakaoSDK */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = C7KAK0102AAA248700AAC8A2 /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */;
-			productName = KakaoSDK;
-		};
 		4D22ABE82AF431CB00220026 /* CapApp-SPM */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = D4C12C0A2AAA248700AAC8A2 /* XCLocalSwiftPackageReference "CapApp-SPM" */;
@@ -544,6 +570,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = C7AGR0102AAA248700AAC8A2 /* XCRemoteSwiftPackageReference "AgoraRtcEngine_iOS" */;
 			productName = RtcBasic;
+		};
+		C7KAK0112AF431CB00220026 /* KakaoSDK */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C7KAK0102AAA248700AAC8A2 /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */;
+			productName = KakaoSDK;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -1,7 +1,7 @@
 import Foundation
 import Capacitor
 
-/** iOS P0 stub — AVPictureInPictureController phase 분리. Web Dock fallback only. */
+/** Native video PiP bridge — delegates to `NativeVideoCallPipPresenter` when flag/runtime active. */
 @objc(DibayCallPipPlugin)
 public class DibayCallPipPlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "DibayCallPipPlugin"
@@ -13,14 +13,18 @@ public class DibayCallPipPlugin: CAPPlugin, CAPBridgedPlugin {
     ]
 
     @objc func isPipSupported(_ call: CAPPluginCall) {
-        call.resolve(["supported": false])
+        call.resolve(["supported": NativeVideoCallPipPresenter.isSupported()])
     }
 
     @objc func enterCallPip(_ call: CAPPluginCall) {
-        call.resolve(["ok": false])
+        let callId = call.getString("callId") ?? ""
+        let ok = NativeVideoCallPipPresenter.requestEnter(callId: callId, source: "plugin")
+        call.resolve(["ok": ok])
     }
 
     @objc func exitCallPip(_ call: CAPPluginCall) {
-        call.resolve(["ok": false])
+        let callId = call.getString("callId") ?? ""
+        let ok = NativeVideoCallPipPresenter.requestExit(callId: callId)
+        call.resolve(["ok": ok])
     }
 }

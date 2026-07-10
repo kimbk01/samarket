@@ -84,6 +84,7 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
 
       try registerLocked(incoming, initialState: .ringing)
       scheduleMissedLocked(sessionId: sid)
+      publishUiLocked(sessionId: sid)
       return true
     }
   }
@@ -102,6 +103,7 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
       cancelMissedLocked()
       state = .accepting
       NativeVideoCallLog.info("accept_tapped", callId: normalize(sessionId))
+      publishUiLocked(sessionId: normalize(sessionId))
     }
   }
 
@@ -112,6 +114,7 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
         throw NativeVideoCallRuntimeError.invalidTransition(from: state, action: "markConnecting")
       }
       state = .connecting
+      publishUiLocked(sessionId: normalize(sessionId))
     }
   }
 
@@ -124,6 +127,7 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
       cancelMissedLocked()
       state = .connected
       NativeVideoCallLog.info("state_connected", callId: normalize(sessionId))
+      publishUiLocked(sessionId: normalize(sessionId))
     }
   }
 
@@ -135,7 +139,9 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
       cancelMissedLocked()
       state = .failed
       NativeVideoCallLog.warn("error_terminal", callId: sid, details: "reason=\(reason)")
+      publishUiLocked(sessionId: sid)
       clearSessionLocked(sessionId: sid, releaseOwnerReason: "failed")
+      NativeVideoCallUiHost.finishIfActive(callId: sid)
     }
   }
 
@@ -152,6 +158,7 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
       default:
         cancelMissedLocked()
         state = .ending
+        publishUiLocked(sessionId: normalize(sessionId))
       }
     }
   }
@@ -166,7 +173,9 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
       case .ending, .ringing, .accepting, .connecting, .connected:
         cancelMissedLocked()
         state = .failed
+        publishUiLocked(sessionId: sid)
         clearSessionLocked(sessionId: sid, releaseOwnerReason: "reject")
+        NativeVideoCallUiHost.finishIfActive(callId: sid)
       }
     }
   }
@@ -183,6 +192,7 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
         cancelMissedLocked()
         state = .ending
         NativeVideoCallLog.info("end_tapped", callId: normalize(sessionId))
+        publishUiLocked(sessionId: normalize(sessionId))
       }
     }
   }
@@ -197,7 +207,9 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
       case .ending, .connected, .connecting, .accepting, .ringing, .failed:
         cancelMissedLocked()
         state = .ended
+        publishUiLocked(sessionId: sid)
         clearSessionLocked(sessionId: sid, releaseOwnerReason: "ended")
+        NativeVideoCallUiHost.finishIfActive(callId: sid)
       }
     }
   }
@@ -210,7 +222,9 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
       cancelMissedLocked()
       state = .failed
       NativeVideoCallLog.info("missed_timeout", callId: sid)
+      publishUiLocked(sessionId: sid)
       clearSessionLocked(sessionId: sid, releaseOwnerReason: "missed")
+      NativeVideoCallUiHost.finishIfActive(callId: sid)
     }
   }
 
@@ -332,5 +346,14 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
 
   private func normalize(_ value: String) -> String {
     value.trimmingCharacters(in: .whitespacesAndNewlines)
+  }
+
+  /// Phase C1b — UI hook only. No O2/O3/O4 logic.
+  private func publishUiLocked(sessionId: String) {
+    let snap = NativeVideoCallRuntimeSnapshot(session: session, state: state)
+    let sid = normalize(sessionId)
+    DispatchQueue.main.async {
+      NativeVideoCallUiHost.handleRuntimeSnapshot(snap)
+    }
   }
 }

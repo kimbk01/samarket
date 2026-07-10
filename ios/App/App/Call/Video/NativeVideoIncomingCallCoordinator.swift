@@ -216,6 +216,7 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
       try NativeVideoCallRuntime.shared.markConnected(sessionId: sid)
       log("ios_native_video_connected", sid)
       DibayActiveCallSessionManager.shared.bindActiveCall(callId: sid, mediaType: "video", phase: "CONNECTED")
+      NativeVideoCallAgoraEngine.shared.attachLocalPreviewIfUiReady(callId: sid)
     } catch {
       log("ios_native_video_stale_callback_ignored", sid, "stage=mark_connected")
     }
@@ -224,6 +225,10 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
   func onRemoteVideoReady() {
     guard let sid = NativeVideoCallAgoraEngine.shared.peekOccupantCallId() else { return }
     log("ios_native_video_remote_render_ready", sid)
+    DispatchQueue.main.async {
+      _ = NativeVideoCallUiHost.ensureVideoRootForRemoteRender(callId: sid)
+      NativeVideoCallAgoraEngine.shared.onRemoteRenderSurfaceReady(callId: sid)
+    }
   }
 
   func onDisconnected(reason: String) {
@@ -306,6 +311,10 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
 
     NativeVideoCallAgoraEngine.shared.leave(reason: reason, notifyListener: false)
     DibayCallAudioSessionController.shared.deactivate()
+    if !sid.isEmpty {
+      NativeVideoCallUiHost.clearVideoSurfaces(callId: sid)
+      NativeVideoCallUiHost.finishIfActive(callId: sid)
+    }
     NativeVideoCallRuntime.shared.reset(sessionId: sid)
     if DibayActiveCallSessionManager.shared.callId == sid {
       DibayActiveCallSessionManager.shared.clearSession()
