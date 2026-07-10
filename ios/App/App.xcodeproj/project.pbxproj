@@ -29,6 +29,7 @@
 		C7VID0222FED79650016851F /* NativeVideoCallLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VID0212FED79650016851F /* NativeVideoCallLog.swift */; };
 		C7VID0322FED79650016851F /* NativeVideoCallApi.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VID0312FED79650016851F /* NativeVideoCallApi.swift */; };
 		C7VID0422FED79650016851F /* NativeVideoCallRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VID0412FED79650016851F /* NativeVideoCallRuntime.swift */; };
+		C7VID0522FED79650016851F /* NativeVideoCallAgoraEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VID0512FED79650016851F /* NativeVideoCallAgoraEngine.swift */; };
 		C7AGR0122AF431CB00220026 /* RtcBasic in Frameworks */ = {isa = PBXBuildFile; productRef = C7AGR0112AF431CB00220026 /* RtcBasic */; };
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
 		4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22ABE82AF431CB00220026 /* CapApp-SPM */; };
@@ -62,6 +63,7 @@
 		C7VID0212FED79650016851F /* NativeVideoCallLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoCallLog.swift; sourceTree = "<group>"; };
 		C7VID0312FED79650016851F /* NativeVideoCallApi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoCallApi.swift; sourceTree = "<group>"; };
 		C7VID0412FED79650016851F /* NativeVideoCallRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoCallRuntime.swift; sourceTree = "<group>"; };
+		C7VID0512FED79650016851F /* NativeVideoCallAgoraEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoCallAgoraEngine.swift; sourceTree = "<group>"; };
 		C7A1B0042FED79650016851F /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
 		50379B222058CBB4000EE86E /* capacitor.config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
@@ -172,6 +174,7 @@
 				C7VID0212FED79650016851F /* NativeVideoCallLog.swift */,
 				C7VID0312FED79650016851F /* NativeVideoCallApi.swift */,
 				C7VID0412FED79650016851F /* NativeVideoCallRuntime.swift */,
+				C7VID0512FED79650016851F /* NativeVideoCallAgoraEngine.swift */,
 			);
 			path = Video;
 			sourceTree = "<group>";
@@ -282,6 +285,7 @@
 				C7VID0222FED79650016851F /* NativeVideoCallLog.swift in Sources */,
 				C7VID0322FED79650016851F /* NativeVideoCallApi.swift in Sources */,
 				C7VID0422FED79650016851F /* NativeVideoCallRuntime.swift in Sources */,
+				C7VID0522FED79650016851F /* NativeVideoCallAgoraEngine.swift in Sources */,
 				C7KAK0022FED79650016851F /* NativeKakaoAuthPlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -1,0 +1,342 @@
+import Foundation
+import AgoraRtcKit
+
+protocol NativeVideoCallAgoraEngineListener: AnyObject {
+  func onConnected()
+  func onRemoteVideoReady()
+  func onDisconnected(reason: String)
+  func onError(reason: String)
+}
+
+/**
+ * Phase B3 — Agora iOS wrapper for video-only Native Runtime.
+ *
+ * CONTRACT (Voice LOCK separation):
+ * - Separate class from `NativeVoiceCallAgoraEngine` — do not extend or modify Voice engine.
+ * - iOS Agora exposes a process-wide `sharedEngine` singleton; Android uses distinct RtcEngine instances.
+ * - Video `leave()` calls `AgoraRtcEngineKit.destroy()` ONLY when Voice lane is unoccupied
+ *   (`NativeVoiceCallAgoraEngine.shared.peekOccupantCallId() == nil`).
+ * - Video `join()` is rejected while Voice lane is occupied to avoid stomping Voice media config.
+ *
+ * B5 GATE (separate approved track — required before CallKit video native handoff):
+ * - `NativeCallAgoraLaneGuard` must add Voice↔Video symmetric mutual exclusion on the shared
+ *   Agora singleton. B5 is NOT approved until that guard ships. This file only guards Video→Voice.
+ */
+final class NativeVideoCallAgoraEngine: NSObject {
+  static let shared = NativeVideoCallAgoraEngine()
+
+  private let lock = NSLock()
+  private var engine: AgoraRtcEngineKit?
+  private var activeCallId: String?
+  private var generation: UInt64 = 0
+  private weak var listener: NativeVideoCallAgoraEngineListener?
+  private var callerJoinActive = false
+  private var remoteVideoRendered = false
+  private var ownsSharedEngineDestroy = false
+
+  private override init() {
+    super.init()
+  }
+
+  func peekOccupantCallId() -> String? {
+    lock.lock()
+    defer { lock.unlock() }
+    guard let sid = activeCallId, !sid.isEmpty else { return nil }
+    return sid
+  }
+
+  @discardableResult
+  func join(
+    callId: String,
+    token: NativeVideoCallApi.TokenConnection,
+    listener nextListener: NativeVideoCallAgoraEngineListener
+  ) -> (ok: Bool, generation: UInt64, error: String?) {
+    joinInternal(callId: callId, token: token, listener: nextListener, caller: false)
+  }
+
+  @discardableResult
+  func joinCaller(
+    callId: String,
+    token: NativeVideoCallApi.TokenConnection,
+    listener nextListener: NativeVideoCallAgoraEngineListener
+  ) -> (ok: Bool, generation: UInt64, error: String?) {
+    joinInternal(callId: callId, token: token, listener: nextListener, caller: true)
+  }
+
+  func leave(reason: String, notifyListener: Bool = true) {
+    let currentListener: NativeVideoCallAgoraEngineListener?
+    let sid: String?
+    let rtc: AgoraRtcEngineKit?
+    let shouldDestroySharedEngine: Bool
+
+    lock.lock()
+    currentListener = notifyListener ? listener : nil
+    sid = activeCallId
+    listener = nil
+    activeCallId = nil
+    callerJoinActive = false
+    remoteVideoRendered = false
+    generation &+= 1
+    rtc = engine
+    shouldDestroySharedEngine = ownsSharedEngineDestroy
+    engine = nil
+    ownsSharedEngineDestroy = false
+    lock.unlock()
+
+    if let rtc {
+      rtc.stopPreview()
+      rtc.leaveChannel(nil)
+      tearDownSharedEngineIfAllowed(rtc: rtc, shouldDestroySharedEngine: shouldDestroySharedEngine, callId: sid)
+    }
+
+    if let sid, !sid.isEmpty {
+      NativeVideoCallLog.info(
+        "agora_native_leave",
+        callId: sid,
+        details: "reason=\(reason.isEmpty ? "leave" : reason)"
+      )
+    }
+    if let currentListener, sid != nil {
+      currentListener.onDisconnected(reason: reason.isEmpty ? "leave" : reason)
+    }
+  }
+
+  func matches(callId: String, generation expected: UInt64) -> Bool {
+    lock.lock()
+    defer { lock.unlock() }
+    return activeCallId == callId.trimmingCharacters(in: .whitespacesAndNewlines) && generation == expected
+  }
+
+  // MARK: - Private
+
+  private func joinInternal(
+    callId: String,
+    token: NativeVideoCallApi.TokenConnection,
+    listener nextListener: NativeVideoCallAgoraEngineListener,
+    caller: Bool
+  ) -> (ok: Bool, generation: UInt64, error: String?) {
+    let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !sid.isEmpty else { return (false, 0, "invalid_call_id") }
+
+    if let voiceOccupant = NativeVoiceCallAgoraEngine.shared.peekOccupantCallId() {
+      NativeVideoCallLog.warn(
+        "duplicate_runtime_blocked",
+        callId: sid,
+        details: "reason=voice_lane_occupied occupant=\(voiceOccupant)"
+      )
+      return (false, 0, "voice_lane_occupied")
+    }
+
+    lock.lock()
+    if let existing = activeCallId, !existing.isEmpty, existing != sid {
+      lock.unlock()
+      return (false, 0, "video_lane_occupied")
+    }
+    listener = nextListener
+    activeCallId = sid
+    generation &+= 1
+    let gen = generation
+    callerJoinActive = caller
+    remoteVideoRendered = false
+    lock.unlock()
+
+    if caller {
+      NativeVideoCallLog.info("caller_agora_native_join_start", callId: sid, details: "channel=\(token.channelName)")
+    } else {
+      NativeVideoCallLog.info("agora_native_join_start", callId: sid, details: "channel=\(token.channelName)")
+    }
+
+    do {
+      let rtc = try ensureEngine(appId: token.appId)
+      rtc.enableAudio()
+      rtc.enableVideo()
+      rtc.setDefaultAudioRouteToSpeakerphone(true)
+      NativeVideoCallLog.info("audio_route_applied", callId: sid, details: "speaker=true")
+
+      // Phase C will attach UIView canvases. B3 publishes camera without local canvas.
+      rtc.startPreview()
+      if caller {
+        NativeVideoCallLog.info("caller_local_camera_preview_started", callId: sid)
+      } else {
+        NativeVideoCallLog.info("local_camera_preview_started", callId: sid)
+      }
+      NativeVideoCallLog.info("local_camera_publish_success", callId: sid)
+
+      let options = AgoraRtcChannelMediaOptions()
+      options.channelProfile = .communication
+      options.clientRoleType = .broadcaster
+      options.autoSubscribeAudio = true
+      options.autoSubscribeVideo = true
+      options.publishMicrophoneTrack = true
+      options.publishCameraTrack = true
+
+      let result = rtc.joinChannel(
+        byToken: token.token,
+        channelId: token.channelName,
+        userAccount: token.uid,
+        mediaOptions: options,
+        joinSuccess: nil
+      )
+      if result != 0 {
+        fail(callId: sid, generation: gen, reason: "join_return=\(result)")
+        return (false, gen, "join_return=\(result)")
+      }
+      return (true, gen, nil)
+    } catch {
+      fail(callId: sid, generation: gen, reason: String(describing: type(of: error)))
+      return (false, gen, String(describing: type(of: error)))
+    }
+  }
+
+  private func ensureEngine(appId: String) throws -> AgoraRtcEngineKit {
+    lock.lock()
+    defer { lock.unlock() }
+    if let engine { return engine }
+    let rtc = AgoraRtcEngineKit.sharedEngine(withAppId: appId, delegate: self)
+    rtc.setChannelProfile(.communication)
+    engine = rtc
+    ownsSharedEngineDestroy = true
+    return rtc
+  }
+
+  /**
+   * Voice LOCK guard: never destroy the process-wide Agora singleton while Voice runtime is active.
+   */
+  private func tearDownSharedEngineIfAllowed(
+    rtc: AgoraRtcEngineKit,
+    shouldDestroySharedEngine: Bool,
+    callId: String?
+  ) {
+    guard shouldDestroySharedEngine else { return }
+    if NativeVoiceCallAgoraEngine.shared.peekOccupantCallId() != nil {
+      if let callId {
+        NativeVideoCallLog.info(
+          "agora_destroy_skipped_voice_lane",
+          callId: callId,
+          details: "reason=voice_engine_active"
+        )
+      }
+      return
+    }
+    _ = rtc
+    AgoraRtcEngineKit.destroy()
+  }
+
+  private func fail(callId: String, generation expected: UInt64, reason: String) {
+    let currentListener: NativeVideoCallAgoraEngineListener?
+    lock.lock()
+    guard activeCallId == callId, generation == expected else {
+      lock.unlock()
+      return
+    }
+    currentListener = listener
+    lock.unlock()
+    NativeVideoCallLog.warn("error_terminal", callId: callId, details: "reason=\(reason)")
+    currentListener?.onError(reason: reason)
+  }
+
+  private func markRemoteVideoRendered(uid: UInt, callId: String, generation expected: UInt64, details: String) {
+    let currentListener: NativeVideoCallAgoraEngineListener?
+    lock.lock()
+    guard activeCallId == callId, generation == expected, !remoteVideoRendered else {
+      lock.unlock()
+      return
+    }
+    remoteVideoRendered = true
+    currentListener = listener
+    lock.unlock()
+    NativeVideoCallLog.info("remote_video_render_ready", callId: callId, details: "uid=\(uid)\(details)")
+    currentListener?.onRemoteVideoReady()
+  }
+}
+
+extension NativeVideoCallAgoraEngine: AgoraRtcEngineDelegate {
+  func rtcEngine(_ engine: AgoraRtcEngineKit, didJoinChannel channel: String, withUid uid: UInt, elapsed: Int) {
+    let sid: String?
+    let gen: UInt64
+    let callerJoin: Bool
+    let currentListener: NativeVideoCallAgoraEngineListener?
+    lock.lock()
+    sid = activeCallId
+    gen = generation
+    callerJoin = callerJoinActive
+    currentListener = listener
+    lock.unlock()
+    guard let sid else { return }
+
+    NativeVideoCallLog.info(
+      "agora_native_join_success",
+      callId: sid,
+      details: "channel=\(channel) uid=\(uid)"
+    )
+
+    if callerJoin {
+      NativeVideoCallLog.info("caller_agora_local_join_success", callId: sid, details: "awaiting_remote_user")
+      return
+    }
+    currentListener?.onConnected()
+  }
+
+  func rtcEngine(_ engine: AgoraRtcEngineKit, didJoinedOfUid uid: UInt, elapsed: Int) {
+    let sid: String?
+    let gen: UInt64
+    let callerJoin: Bool
+    let currentListener: NativeVideoCallAgoraEngineListener?
+    lock.lock()
+    sid = activeCallId
+    gen = generation
+    callerJoin = callerJoinActive
+    currentListener = listener
+    lock.unlock()
+    guard let sid, uid != 0 else { return }
+
+    NativeVideoCallLog.info("remote_user_joined", callId: sid, details: "uid=\(uid)")
+    if callerJoin {
+      currentListener?.onConnected()
+    }
+    markRemoteVideoRendered(uid: uid, callId: sid, generation: gen, details: " source=user_joined")
+  }
+
+  func rtcEngine(
+    _ engine: AgoraRtcEngineKit,
+    firstRemoteVideoFrameOfUid uid: UInt,
+    size: CGSize,
+    elapsed: Int
+  ) {
+    let sid: String?
+    let gen: UInt64
+    lock.lock()
+    sid = activeCallId
+    gen = generation
+    lock.unlock()
+    guard let sid, uid != 0 else { return }
+    markRemoteVideoRendered(
+      uid: uid,
+      callId: sid,
+      generation: gen,
+      details: " width=\(Int(size.width)) height=\(Int(size.height))"
+    )
+  }
+
+  func rtcEngine(_ engine: AgoraRtcEngineKit, didOfflineOfUid uid: UInt, reason: AgoraUserOfflineReason) {
+    let sid: String?
+    let currentListener: NativeVideoCallAgoraEngineListener?
+    lock.lock()
+    sid = activeCallId
+    currentListener = listener
+    lock.unlock()
+    guard sid != nil else { return }
+    currentListener?.onDisconnected(reason: "remote_offline=\(reason.rawValue)")
+  }
+
+  func rtcEngine(_ engine: AgoraRtcEngineKit, didOccurError errorCode: AgoraErrorCode) {
+    let sid: String?
+    let gen: UInt64
+    lock.lock()
+    sid = activeCallId
+    gen = generation
+    lock.unlock()
+    guard let sid else { return }
+    fail(callId: sid, generation: gen, reason: "agora_error=\(errorCode.rawValue)")
+  }
+}
