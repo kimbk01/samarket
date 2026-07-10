@@ -29,6 +29,30 @@ final class DibayCallAudioSessionController {
     }
   }
 
+  /** Native Voice V1 — prepare category/mode; CallKit `didActivate` owns setActive(true). */
+  func prepareForNativeVoiceCall() {
+    let session = AVAudioSession.sharedInstance()
+    do {
+      try session.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetooth])
+      NSLog("[DIBAY_CALL] ios_audio_session_prepared video=false")
+    } catch {
+      NSLog("[DIBAY_CALL] ios_audio_session_failed err=%@", error.localizedDescription)
+    }
+  }
+
+  /** CallKit activated the session — do not re-setActive aggressively. */
+  func noteCallKitDidActivate() {
+    NSLog("[DIBAY_CALL] ios_audio_session_callkit_activated")
+  }
+
+  func noteCallKitDidDeactivate() {
+    NSLog("[DIBAY_CALL] ios_audio_session_callkit_deactivated")
+  }
+
+  func deactivateAfterNativeVoiceCall() {
+    deactivate()
+  }
+
   func deactivate() {
     let session = AVAudioSession.sharedInstance()
     do {

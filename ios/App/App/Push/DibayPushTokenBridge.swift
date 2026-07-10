@@ -6,16 +6,46 @@ import WebKit
 enum DibayPushTokenBridge {
   private static var pendingScripts: [String] = []
   private static var replayWorkItem: DispatchWorkItem?
+  private static var lastVoipToken: String?
+  private static var voipDeliveryRetryGeneration = 0
 
   static func postVoipToken(_ token: String) {
+    let normalized = token.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !normalized.isEmpty else { return }
+    lastVoipToken = normalized
+    deliverVoipTokenEvent(normalized)
+    scheduleVoipTokenDeliveryRetries()
+  }
+
+  static func replayLastVoipTokenIfPresent() {
+    guard let token = lastVoipToken, !token.isEmpty else { return }
+    NSLog("[DIBAY_CALL] ios_voip_bridge_replay_last_token len=%d", token.count)
+    deliverVoipTokenEvent(token)
+  }
+
+  static func postVoipTokenInvalidated() {
+    lastVoipToken = nil
+    voipDeliveryRetryGeneration += 1
+    evaluateJs("window.dispatchEvent(new CustomEvent('dibay:voip-token-invalidated'));")
+  }
+
+  private static func deliverVoipTokenEvent(_ token: String) {
     let escaped = token.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "'", with: "\\'")
     evaluateJs("""
       window.dispatchEvent(new CustomEvent('dibay:voip-token', { detail: { token: '\(escaped)' } }));
     """)
   }
 
-  static func postVoipTokenInvalidated() {
-    evaluateJs("window.dispatchEvent(new CustomEvent('dibay:voip-token-invalidated'));")
+  private static func scheduleVoipTokenDeliveryRetries() {
+    voipDeliveryRetryGeneration += 1
+    let generation = voipDeliveryRetryGeneration
+    for delay in [1.0, 3.0, 8.0, 15.0] {
+      DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+        guard generation == voipDeliveryRetryGeneration, let token = lastVoipToken, !token.isEmpty else { return }
+        NSLog("[DIBAY_CALL] ios_voip_bridge_retry delay=%.0f", delay)
+        deliverVoipTokenEvent(token)
+      }
+    }
   }
 
   static func openCallDeepLink(sessionId: String) {
