@@ -2,7 +2,7 @@
 
 import { ensureClientInstanceId } from "@/lib/auth/client-instance-id";
 import { resolveDibayDeepLinkToAppPath } from "@/lib/platform/deep-link-routes";
-import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
+import { isCapacitorNativePlatform, resolveCapacitorShellPlatform } from "@/lib/platform/capacitor-native";
 import {
   ensureNotificationForPushRegister,
   getCachedNotificationReceiveSnapshot,
@@ -472,7 +472,7 @@ let voipListenerAttached = false;
 /** iOS PushKit VoIP token — native `dibay:voip-token` 이벤트 구독. */
 export function attachVoipPushTokenListener(): () => void {
   if (typeof window === "undefined" || voipListenerAttached) return () => undefined;
-  if ((window as Window & { Capacitor?: { getPlatform?: () => string } }).Capacitor?.getPlatform?.() !== "ios") return () => undefined;
+  if (resolveCapacitorShellPlatform() !== "ios") return () => undefined;
   voipListenerAttached = true;
 
   const onToken = (ev: Event) => {
