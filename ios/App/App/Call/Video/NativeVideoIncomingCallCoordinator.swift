@@ -47,15 +47,42 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
       return
     }
 
-    guard hasMediaPermissions() else {
-      log("ios_native_video_accept_failed", sid, "err=missing_camera_or_microphone_permission")
-      failBeforeFulfill(
-        sessionId: sid,
-        generation: NativeVideoCallRuntime.shared.currentGeneration(),
-        reason: .missingCameraOrMicrophonePermission,
-        serverAction: "reject",
-        completion: completion
-      )
+    log("ios_native_video_permission_check_started", sid)
+    ensureMediaPermissions(sessionId: sid) { [weak self] granted in
+      guard let self else { return }
+      guard self.isStillAccepting(sessionId: sid) else {
+        self.log("ios_native_video_stale_callback_ignored", sid, "stage=permission")
+        completion(false)
+        return
+      }
+      if !granted {
+        self.log("ios_native_video_accept_failed", sid, "err=missing_camera_or_microphone_permission")
+        self.failBeforeFulfill(
+          sessionId: sid,
+          generation: NativeVideoCallRuntime.shared.currentGeneration(),
+          reason: .missingCameraOrMicrophonePermission,
+          serverAction: "reject",
+          completion: completion
+        )
+        return
+      }
+      self.log("ios_native_video_permission_granted", sid)
+      self.continueAnswerAfterPermissions(sessionId: sid, completion: completion)
+    }
+  }
+
+  private func continueAnswerAfterPermissions(
+    sessionId: String,
+    completion: @escaping (_ fulfill: Bool) -> Void
+  ) {
+    let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !sid.isEmpty else {
+      completion(false)
+      return
+    }
+    guard isStillAccepting(sessionId: sid) else {
+      log("ios_native_video_stale_callback_ignored", sid, "stage=continue_after_permission")
+      completion(false)
       return
     }
 
@@ -339,15 +366,83 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
     return NativeVideoCallRuntime.shared.matches(sessionId: sessionId, generation: generation)
   }
 
+  private func isStillAccepting(sessionId: String) -> Bool {
+    let snap = NativeVideoCallRuntime.shared.snapshot()
+    return snap.session?.sessionId == sessionId && snap.state == .accepting
+  }
+
   private func hasMediaPermissions() -> Bool {
-    let audioGranted: Bool = {
-      if #available(iOS 17.0, *) {
-        return AVAudioApplication.shared.recordPermission == .granted
+    isAudioAuthorized() && AVCaptureDevice.authorizationStatus(for: .video) == .authorized
+  }
+
+  private func isAudioAuthorized() -> Bool {
+    if #available(iOS 17.0, *) {
+      return AVAudioApplication.shared.recordPermission == .granted
+    }
+    return AVAudioSession.sharedInstance().recordPermission == .granted
+  }
+
+  private func ensureMediaPermissions(sessionId: String, completion: @escaping (Bool) -> Void) {
+    if hasMediaPermissions() {
+      DispatchQueue.main.async { completion(true) }
+      return
+    }
+    requestAudioPermission { [weak self] audioGranted in
+      guard let self else {
+        DispatchQueue.main.async { completion(false) }
+        return
       }
-      return AVAudioSession.sharedInstance().recordPermission == .granted
-    }()
-    let videoGranted = AVCaptureDevice.authorizationStatus(for: .video) == .authorized
-    return audioGranted && videoGranted
+      guard audioGranted else {
+        self.log("ios_native_video_permission_denied", sessionId, "kind=microphone")
+        DispatchQueue.main.async { completion(false) }
+        return
+      }
+      self.requestVideoPermission { videoGranted in
+        if !videoGranted {
+          self.log("ios_native_video_permission_denied", sessionId, "kind=camera")
+        }
+        DispatchQueue.main.async { completion(videoGranted) }
+      }
+    }
+  }
+
+  private func requestAudioPermission(completion: @escaping (Bool) -> Void) {
+    if #available(iOS 17.0, *) {
+      switch AVAudioApplication.shared.recordPermission {
+      case .granted:
+        completion(true)
+      case .undetermined:
+        AVAudioApplication.requestRecordPermission { granted in
+          completion(granted)
+        }
+      default:
+        completion(false)
+      }
+      return
+    }
+    switch AVAudioSession.sharedInstance().recordPermission {
+    case .granted:
+      completion(true)
+    case .undetermined:
+      AVAudioSession.sharedInstance().requestRecordPermission { granted in
+        completion(granted)
+      }
+    default:
+      completion(false)
+    }
+  }
+
+  private func requestVideoPermission(completion: @escaping (Bool) -> Void) {
+    switch AVCaptureDevice.authorizationStatus(for: .video) {
+    case .authorized:
+      completion(true)
+    case .notDetermined:
+      AVCaptureDevice.requestAccess(for: .video) { granted in
+        completion(granted)
+      }
+    default:
+      completion(false)
+    }
   }
 
   private func log(_ event: String, _ sessionId: String, _ extra: String = "") {

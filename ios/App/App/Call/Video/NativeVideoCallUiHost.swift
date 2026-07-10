@@ -7,6 +7,13 @@ import UIKit
 enum NativeVideoCallUiHost {
   private static let sync = NSLock()
   private static weak var activeController: NativeVideoCallViewController?
+  private static var unlockObserverRegistered = false
+  private static var deferredCallId: String?
+
+  /// Device unlocked — custom UI and camera surfaces are allowed (iOS protected-data contract).
+  static func canPresentVideoSurfaces() -> Bool {
+    UIApplication.shared.isProtectedDataAvailable
+  }
 
   static func handleRuntimeSnapshot(_ snapshot: NativeVideoCallRuntimeSnapshot) {
     guard let session = snapshot.session else { return }
@@ -14,30 +21,52 @@ enum NativeVideoCallUiHost {
     DispatchQueue.main.async {
       switch snapshot.state {
       case .ended, .failed:
+        clearDeferredPresentation(callId: callId)
         finishIfActive(callId: callId)
         return
       case .ending:
         renderState(callId: callId, state: snapshot.state)
         return
-      case .ringing, .accepting, .connecting:
+      case .ringing:
+        // CallKit owns incoming UI — Native fullscreen only after user accepts.
+        return
+      case .accepting, .connecting, .connected:
         ensureIncomingPresented(callId: callId, session: session)
-        renderState(callId: callId, state: snapshot.state)
-      case .connected:
         renderState(callId: callId, state: snapshot.state)
       }
     }
   }
 
-  static func ensureIncomingPresented(callId: String, session: NativeVideoCallSession) {
+  static func ensureIncomingPresented(
+    callId: String,
+    session: NativeVideoCallSession,
+    bypassLockCheck: Bool = false
+  ) {
     guard Thread.isMainThread else {
-      DispatchQueue.main.async { ensureIncomingPresented(callId: callId, session: session) }
+      DispatchQueue.main.async {
+        ensureIncomingPresented(callId: callId, session: session, bypassLockCheck: bypassLockCheck)
+      }
       return
     }
     if isShowing(callId: callId) {
       renderState(callId: callId, state: NativeVideoCallRuntime.shared.snapshot().state)
       return
     }
-    guard let presenter = topPresenter() else { return }
+    if !bypassLockCheck && !canPresentVideoSurfaces() {
+      deferredCallId = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+      ensureUnlockObserver()
+      NativeVideoCallLog.info("native_video_ui_deferred_locked", callId: callId)
+      return
+    }
+    guard let presenter = topPresenter() else {
+      if !bypassLockCheck {
+        deferredCallId = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+        ensureUnlockObserver()
+        NativeVideoCallLog.info("native_video_ui_deferred_locked", callId: callId, details: "reason=no_presenter")
+      }
+      return
+    }
+    deferredCallId = nil
     let controller = NativeVideoCallViewController(callId: callId, session: session)
     sync.lock()
     activeController = controller
@@ -45,7 +74,10 @@ enum NativeVideoCallUiHost {
     controller.modalPresentationStyle = .fullScreen
     presenter.present(controller, animated: true)
     NativeVideoCallLog.info("incoming_activity_shown", callId: callId)
-    NativeVideoCallLog.info("lock_screen_visible", callId: callId)
+    if bypassLockCheck {
+      NativeVideoCallLog.info("native_video_surface_shown_after_unlock", callId: callId)
+    }
+    attachVideoSurfacesIfNeeded(callId: callId)
   }
 
   static func renderState(callId: String, state: NativeVideoCallRuntimeState) {
@@ -86,6 +118,7 @@ enum NativeVideoCallUiHost {
 
   static func finishIfActive(callId: String) {
     onMain {
+      clearDeferredPresentation(callId: callId)
       guard let controller = controller(for: callId) else { return }
       sync.lock()
       if activeController === controller {
@@ -120,6 +153,49 @@ enum NativeVideoCallUiHost {
       controller.stopPipIfActive()
     }
     return true
+  }
+
+  private static func attachVideoSurfacesIfNeeded(callId: String) {
+    NativeVideoCallAgoraEngine.shared.attachLocalPreviewIfUiReady(callId: callId)
+    _ = ensureVideoRootForRemoteRender(callId: callId)
+    NativeVideoCallAgoraEngine.shared.onRemoteRenderSurfaceReady(callId: callId)
+  }
+
+  private static func clearDeferredPresentation(callId: String) {
+    let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+    if deferredCallId == sid {
+      deferredCallId = nil
+    }
+  }
+
+  private static func ensureUnlockObserver() {
+    guard !unlockObserverRegistered else { return }
+    unlockObserverRegistered = true
+    NotificationCenter.default.addObserver(
+      forName: UIApplication.protectedDataDidBecomeAvailableNotification,
+      object: nil,
+      queue: .main
+    ) { _ in
+      flushDeferredPresentationAfterUnlock()
+    }
+  }
+
+  private static func flushDeferredPresentationAfterUnlock() {
+    guard canPresentVideoSurfaces() else { return }
+    let snap = NativeVideoCallRuntime.shared.snapshot()
+    guard let session = snap.session else {
+      deferredCallId = nil
+      return
+    }
+    let callId = session.sessionId
+    switch snap.state {
+    case .accepting, .connecting, .connected:
+      NativeVideoCallLog.info("device_unlocked_video_ui_flush", callId: callId, details: "state=\(snap.state)")
+      ensureIncomingPresented(callId: callId, session: session, bypassLockCheck: true)
+      renderState(callId: callId, state: snap.state)
+    default:
+      deferredCallId = nil
+    }
   }
 
   private static func controller(for callId: String) -> NativeVideoCallViewController? {

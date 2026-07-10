@@ -1,5 +1,6 @@
 import AVFoundation
 import AVKit
+import CallKit
 import UIKit
 
 /** Native-only video call UI. Never hosts WebView. Render-only over NativeVideoCallRuntime state. */
@@ -101,6 +102,10 @@ final class NativeVideoCallViewController: UIViewController {
 
     if inPipMode {
       applyPipUiMode(true)
+    }
+
+    if state != .ringing {
+      acceptStarted = false
     }
 
     if state == .connected {
@@ -331,7 +336,7 @@ final class NativeVideoCallViewController: UIViewController {
   }
 
   @objc private func onDeclineTapped() {
-    NativeVideoIncomingCallCoordinator.shared.handleRejectOrEnd(sessionId: boundCallId) {}
+    NativeVideoCallKitBridge.requestEnd(callId: boundCallId, kind: "decline")
   }
 
   @objc private func onEndTapped() {
@@ -367,22 +372,8 @@ final class NativeVideoCallViewController: UIViewController {
       NativeVideoCallLog.info("accept_duplicate_blocked", callId: boundCallId, details: "source=\(source) reason=in_flight")
       return
     }
-    guard hasMediaPermissions() else { return }
     acceptStarted = true
-    NativeVideoIncomingCallCoordinator.shared.handleAnswer(sessionId: boundCallId) { [weak self] _ in
-      self?.acceptStarted = false
-    }
-  }
-
-  private func hasMediaPermissions() -> Bool {
-    let audioGranted: Bool = {
-      if #available(iOS 17.0, *) {
-        return AVAudioApplication.shared.recordPermission == .granted
-      }
-      return AVAudioSession.sharedInstance().recordPermission == .granted
-    }()
-    let videoGranted = AVCaptureDevice.authorizationStatus(for: .video) == .authorized
-    return audioGranted && videoGranted
+    NativeVideoCallKitBridge.requestAnswer(callId: boundCallId, source: source)
   }
 
   private func replaceSubview(in container: UIView, with child: UIView, mediaOverlay: Bool) {
@@ -448,5 +439,74 @@ extension NativeVideoCallViewController: AVPictureInPictureControllerDelegate {
       callId: boundCallId,
       details: "err=\(error.localizedDescription)"
     )
+  }
+}
+
+/** Routes Native accept/decline through CallKit so CXAnswer/CXEnd fulfill existing CallKitProvider paths. */
+enum NativeVideoCallKitBridge {
+  private static let callController = CXCallController()
+
+  static func requestAnswer(callId: String, source: String) {
+    guard let uuid = resolveCallUUID(callId: callId) else {
+      NativeVideoCallLog.info(
+        "callkit_action_failed",
+        callId: callId,
+        details: "kind=answer source=\(source) reason=missing_uuid"
+      )
+      return
+    }
+    let action = CXAnswerCallAction(call: uuid)
+    let transaction = CXTransaction(action: action)
+    callController.request(transaction) { error in
+      if let error {
+        NativeVideoCallLog.info(
+          "callkit_action_failed",
+          callId: callId,
+          details: "kind=answer source=\(source) err=\(error.localizedDescription)"
+        )
+      } else {
+        NativeVideoCallLog.info(
+          "callkit_action_requested",
+          callId: callId,
+          details: "kind=answer source=\(source)"
+        )
+      }
+    }
+  }
+
+  static func requestEnd(callId: String, kind: String) {
+    guard let uuid = resolveCallUUID(callId: callId) else {
+      NativeVideoCallLog.info(
+        "callkit_action_failed",
+        callId: callId,
+        details: "kind=\(kind) reason=missing_uuid"
+      )
+      return
+    }
+    let action = CXEndCallAction(call: uuid)
+    let transaction = CXTransaction(action: action)
+    callController.request(transaction) { error in
+      if let error {
+        NativeVideoCallLog.info(
+          "callkit_action_failed",
+          callId: callId,
+          details: "kind=\(kind) err=\(error.localizedDescription)"
+        )
+      } else {
+        NativeVideoCallLog.info(
+          "callkit_action_requested",
+          callId: callId,
+          details: "kind=\(kind)"
+        )
+      }
+    }
+  }
+
+  private static func resolveCallUUID(callId: String) -> UUID? {
+    let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !sid.isEmpty else { return nil }
+    let snap = NativeVideoCallRuntime.shared.snapshot()
+    guard let session = snap.session, session.sessionId == sid else { return nil }
+    return session.callUUID
   }
 }

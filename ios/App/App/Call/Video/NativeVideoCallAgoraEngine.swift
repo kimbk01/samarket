@@ -208,6 +208,8 @@ final class NativeVideoCallAgoraEngine: NSObject {
         guard let self else { return }
         if NativeVideoCallUiHost.isShowing(callId: sid) {
           self.attachLocalPreviewOnMain(callId: sid, rtc: rtc, callerJoin: caller)
+        } else if !NativeVideoCallUiHost.canPresentVideoSurfaces() {
+          NativeVideoCallLog.info("local_camera_preview_deferred_locked", callId: sid)
         } else if caller {
           NativeVideoCallLog.info("no_ui_preview_skipped", callId: sid)
           rtc.startPreview()
@@ -309,6 +311,7 @@ final class NativeVideoCallAgoraEngine: NSObject {
     lock.unlock()
     guard let engineRtc else { return }
     if alreadyAttached { return }
+    guard NativeVideoCallUiHost.canPresentVideoSurfaces() else { return }
     guard NativeVideoCallUiHost.isShowing(callId: sid) else { return }
 
     let localView = UIView(frame: .zero)
