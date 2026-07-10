@@ -60,8 +60,32 @@ struct NativeVideoCallRuntimeSnapshot: Equatable, Sendable {
 }
 
 enum NativeVideoCallLane {
+  private static var cachedEnabled: Bool?
+
+  /** B5 — bundled `dibay-call-lane.json` gate (default OFF). Android assets parity. */
+  static func isEnabled() -> Bool {
+    if let cached = cachedEnabled { return cached }
+    let enabled = readEnabled()
+    cachedEnabled = enabled
+    if enabled {
+      NativeVideoCallLog.info("native_video_flag_enabled", callId: "unknown")
+    }
+    return enabled
+  }
+
   static func isVideoMediaType(_ mediaType: String?) -> Bool {
     let normalized = mediaType?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
     return normalized == "video"
+  }
+
+  private static func readEnabled() -> Bool {
+    guard
+      let url = Bundle.main.url(forResource: "dibay-call-lane", withExtension: "json"),
+      let data = try? Data(contentsOf: url),
+      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+    else {
+      return false
+    }
+    return json["nativeVideoRuntime"] as? Bool ?? false
   }
 }

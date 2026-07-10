@@ -53,12 +53,20 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
     }
     let caller = (data["title"] as? String) ?? "수신 통화"
     let hasVideo = (data["kind"] as? String) == "video"
+    let roomId = stringField(data, keys: ["roomId", "room_id"])
+    let callerId = stringField(data, keys: ["callerId", "caller_id"])
     CallV4SurfaceOwnerBridge.deliver(
       callId: sessionId,
       owner: "native_fsi",
       reason: "ios_callkit_incoming"
     )
-    callProvider.reportIncomingCall(uuidString: sessionId, handle: caller, hasVideo: hasVideo) { error in
+    callProvider.reportIncomingCall(
+      uuidString: sessionId,
+      handle: caller,
+      hasVideo: hasVideo,
+      roomId: roomId,
+      callerId: callerId
+    ) { error in
       if let error = error {
         NSLog(
           "[DIBAY_CALL_V4] ios_callkit_incoming_failed callId=%@ err=%@",
@@ -73,5 +81,15 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
       }
       completion()
     }
+  }
+
+  private func stringField(_ data: [AnyHashable: Any], keys: [String]) -> String? {
+    for key in keys {
+      if let value = data[key] as? String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty { return trimmed }
+      }
+    }
+    return nil
   }
 }

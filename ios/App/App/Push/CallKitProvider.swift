@@ -23,7 +23,14 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
     provider.setDelegate(self, queue: nil)
   }
 
-  func reportIncomingCall(uuidString: String, handle: String, hasVideo: Bool, completion: @escaping (Error?) -> Void) {
+  func reportIncomingCall(
+    uuidString: String,
+    handle: String,
+    hasVideo: Bool,
+    roomId: String? = nil,
+    callerId: String? = nil,
+    completion: @escaping (Error?) -> Void
+  ) {
     let sessionId = uuidString.trimmingCharacters(in: .whitespacesAndNewlines)
     let uuid = uuidFromSession(sessionId: sessionId)
     callUuidBySessionId[sessionId] = uuid
@@ -48,6 +55,24 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
         )
         // Keep existing CallKit presentation policy — still report incoming UI.
       }
+    } else if NativeVideoCallLane.isEnabled() {
+      // B5 — Native Video Runtime registration (flag ON only).
+      do {
+        _ = try NativeVideoCallRuntime.shared.registerIncomingSession(
+          sessionId: sessionId,
+          roomId: roomId ?? "",
+          callerId: callerId ?? "",
+          callerName: handle,
+          mediaType: "video",
+          callUUID: uuid
+        )
+      } catch {
+        NSLog(
+          "[DIBAY_CALL] ios_native_video_register_failed sessionId=%@ err=%@",
+          maskSessionId(sessionId),
+          String(describing: error)
+        )
+      }
     }
 
     let update = CXCallUpdate()
@@ -59,13 +84,21 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
 
   func reportCallEnded(uuidString: String) {
     let sid = uuidString.trimmingCharacters(in: .whitespacesAndNewlines)
+    let isVideo = hasVideoBySessionId[sid] ?? false
     // Terminal VoIP / remote cleanup — Native Voice path only when Runtime still owns session.
-    let snap = NativeVoiceCallRuntime.shared.snapshot()
-    if let active = snap.session, active.sessionId == sid, !(hasVideoBySessionId[sid] ?? false) {
-      NativeVoiceIncomingCallCoordinator.shared.handleRemoteTerminal(sessionId: sid)
+    if !isVideo {
+      let snap = NativeVoiceCallRuntime.shared.snapshot()
+      if let active = snap.session, active.sessionId == sid {
+        NativeVoiceIncomingCallCoordinator.shared.handleRemoteTerminal(sessionId: sid)
+      }
+    } else if NativeVideoCallLane.isEnabled() {
+      let snap = NativeVideoCallRuntime.shared.snapshot()
+      if let active = snap.session, active.sessionId == sid {
+        NativeVideoIncomingCallCoordinator.shared.handleRemoteTerminal(sessionId: sid)
+      }
     }
     guard let uuid = callUuidBySessionId[sid] ?? UUID(uuidString: sid) else { return }
-    if !(hasVideoBySessionId[sid] ?? false) {
+    if !isVideo {
       NSLog(
         "[DIBAY_CALL] ios_native_voice_callkit_end sessionId=%@ reason=report_call_ended",
         maskSessionId(sid)
@@ -111,6 +144,7 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
     return String(sessionId.prefix(4)) + "…" + String(sessionId.suffix(4))
   }
 
+  /// Legacy Web handoff — unchanged since pre-B5; used when `nativeVideoRuntime` is false.
   private func deliverExistingAnswerHandoff(sessionId: String) {
     CallV4SurfaceOwnerBridge.deliver(
       callId: sessionId,
@@ -118,6 +152,19 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
       reason: "ios_callkit_answer"
     )
     DibayPushTokenBridge.openCallDeepLink(sessionId: sessionId)
+  }
+
+  /// Legacy Web end — byte-identical to pre-B5 video `CXEndCallAction` path.
+  private func deliverLegacyVideoEnd(sessionId: String, action: CXEndCallAction) {
+    CallV4SurfaceOwnerBridge.deliver(
+      callId: sessionId,
+      owner: "terminal",
+      reason: "ios_callkit_end"
+    )
+    action.fulfill()
+    DibayPushTokenBridge.postCallAction(sessionId: sessionId, action: "reject_or_end")
+    callUuidBySessionId.removeValue(forKey: sessionId)
+    hasVideoBySessionId.removeValue(forKey: sessionId)
   }
 
   func providerDidReset(_ provider: CXProvider) {
@@ -142,7 +189,18 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
 
     let isVideo = hasVideoBySessionId[sessionId] ?? false
     if isVideo {
-      // Video Runtime not in Phase V1 — keep legacy WebView-only answer path.
+      if NativeVideoCallLane.isEnabled() {
+        NativeVideoIncomingCallCoordinator.shared.handleAnswer(sessionId: sessionId) { fulfill in
+          DispatchQueue.main.async {
+            if fulfill {
+              action.fulfill()
+            } else {
+              action.fail()
+            }
+          }
+        }
+        return
+      }
       deliverExistingAnswerHandoff(sessionId: sessionId)
       action.fulfill()
       return
@@ -168,15 +226,17 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
 
     let isVideo = hasVideoBySessionId[sessionId] ?? false
     if isVideo {
-      CallV4SurfaceOwnerBridge.deliver(
-        callId: sessionId,
-        owner: "terminal",
-        reason: "ios_callkit_end"
-      )
-      action.fulfill()
-      DibayPushTokenBridge.postCallAction(sessionId: sessionId, action: "reject_or_end")
-      callUuidBySessionId.removeValue(forKey: sessionId)
-      hasVideoBySessionId.removeValue(forKey: sessionId)
+      if NativeVideoCallLane.isEnabled() {
+        NativeVideoIncomingCallCoordinator.shared.handleRejectOrEnd(sessionId: sessionId) {
+          DispatchQueue.main.async {
+            action.fulfill()
+            self.callUuidBySessionId.removeValue(forKey: sessionId)
+            self.hasVideoBySessionId.removeValue(forKey: sessionId)
+          }
+        }
+        return
+      }
+      deliverLegacyVideoEnd(sessionId: sessionId, action: action)
       return
     }
 
