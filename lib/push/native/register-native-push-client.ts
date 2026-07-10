@@ -10,9 +10,11 @@ import {
 import type { DeviceRegisterIdentity } from "@/lib/push/device-register/device-register-identity";
 import {
   markDeviceRegisterNativeSuccess,
+  prepareDeviceRegisterAfterLogin,
   registerDeviceOnce,
   shouldSkipDeviceRegisterPost,
 } from "@/lib/push/device-register/register-device-once";
+import { subscribeDibayAuthStateChange } from "@/lib/auth/dibay-session-manager";
 import { logPushRegister, logPushRegisterFail } from "@/lib/push/native/native-push-register-log";
 import { registerPushDeviceViaNative } from "@/lib/push/native/native-push-register-bridge";
 
@@ -411,25 +413,58 @@ export function navigateFromDibayDeepLink(deepLink: string): boolean {
   return true;
 }
 
+let lastVoipPushToken: string | null = null;
+let voipAuthUnsubscribe: (() => void) | null = null;
+
 async function registerVoipToken(token: string): Promise<RegisterResult> {
+  const normalized = token.trim();
+  if (!normalized) {
+    return { ok: false, error: "empty_voip_token" };
+  }
+  lastVoipPushToken = normalized;
+
   const deviceId = ensureClientInstanceId();
   const appVersion = await getAppVersion();
   const identity: DeviceRegisterIdentity = {
     userId: "",
     deviceId,
-    pushToken: token,
+    pushToken: normalized,
     platform: "ios",
     pushProvider: "voip_apns",
   };
-  return registerDeviceOnce(identity, "registerVoipToken", async () =>
+  const result = await registerDeviceOnce(identity, "registerVoipToken", async () =>
     postDeviceRegistration({
       platform: "ios",
       device_id: deviceId,
-      push_token: token,
+      push_token: normalized,
       push_provider: "voip_apns",
       app_version: appVersion,
     }),
   );
+
+  if (result.ok) {
+    logPushRegister("voip_token_register_success", { push_provider: "voip_apns" });
+  } else {
+    logPushRegisterFail("voip_token_register_failed", { error: result.error, push_provider: "voip_apns" });
+  }
+  return result;
+}
+
+function retryVoipTokenRegistration(reason: string, userId?: string): void {
+  const token = lastVoipPushToken?.trim();
+  if (!token) return;
+  const uid = userId?.trim();
+  if (uid) {
+    prepareDeviceRegisterAfterLogin(uid);
+  }
+  logPushRegister("voip_token_register_retry", { reason, ...(uid ? { user_id: uid } : {}) });
+  void registerVoipToken(token).catch((err: unknown) => {
+    logPushRegisterFail("voip_token_register_exception", {
+      reason,
+      error: err instanceof Error ? err.message : String(err),
+      push_provider: "voip_apns",
+    });
+  });
 }
 
 let voipListenerAttached = false;
@@ -437,23 +472,45 @@ let voipListenerAttached = false;
 /** iOS PushKit VoIP token — native `dibay:voip-token` 이벤트 구독. */
 export function attachVoipPushTokenListener(): () => void {
   if (typeof window === "undefined" || voipListenerAttached) return () => undefined;
+  if ((window as Window & { Capacitor?: { getPlatform?: () => string } }).Capacitor?.getPlatform?.() !== "ios") return () => undefined;
   voipListenerAttached = true;
 
   const onToken = (ev: Event) => {
     const detail = (ev as CustomEvent<{ token?: string }>).detail;
     const token = detail?.token?.trim();
     if (!token) return;
-    void registerVoipToken(token).catch(() => undefined);
+    void registerVoipToken(token).catch((err: unknown) => {
+      logPushRegisterFail("voip_token_register_exception", {
+        reason: "dibay:voip-token",
+        error: err instanceof Error ? err.message : String(err),
+        push_provider: "voip_apns",
+      });
+    });
   };
 
   const onInvalidated = () => {
+    lastVoipPushToken = null;
     void fetch("/api/me/devices/deactivate", {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ push_provider: "voip_apns" }),
-    }).catch(() => undefined);
+    }).catch((err: unknown) => {
+      logPushRegisterFail("voip_token_deactivate_exception", {
+        error: err instanceof Error ? err.message : String(err),
+        push_provider: "voip_apns",
+      });
+    });
   };
+
+  if (!voipAuthUnsubscribe) {
+    voipAuthUnsubscribe = subscribeDibayAuthStateChange((event, session) => {
+      const uid = session?.user?.id?.trim() ?? "";
+      if (!uid) return;
+      if (event !== "SIGNED_IN" && event !== "INITIAL_SESSION") return;
+      retryVoipTokenRegistration(`auth:${event}`, uid);
+    });
+  }
 
   window.addEventListener("dibay:voip-token", onToken);
   window.addEventListener("dibay:voip-token-invalidated", onInvalidated);
@@ -461,6 +518,8 @@ export function attachVoipPushTokenListener(): () => void {
   return () => {
     window.removeEventListener("dibay:voip-token", onToken);
     window.removeEventListener("dibay:voip-token-invalidated", onInvalidated);
+    voipAuthUnsubscribe?.();
+    voipAuthUnsubscribe = null;
     voipListenerAttached = false;
   };
 }
