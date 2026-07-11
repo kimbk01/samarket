@@ -4,7 +4,7 @@ import Foundation
  * Phase 1-A — iOS Native Voice Call Runtime state machine.
  *
  * Owns at most one active voice session. Thread-safe via a dedicated serial queue.
- * Not wired to CallKit / PushKit / HTTP / Agora in this phase.
+ * Phase publish fan-out: NativeVoiceCallUiHost (incoming UI only).
  */
 final class NativeVoiceCallRuntime: @unchecked Sendable {
   static let shared = NativeVoiceCallRuntime()
@@ -34,6 +34,7 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
   func registerIncomingSession(_ session: NativeVoiceCallSession) throws {
     try queue.sync {
       try registerLocked(session, expectedDirection: .incoming, presentedPhase: .incomingPresented)
+      publishUiLocked(source: "register_incoming")
     }
   }
 
@@ -58,6 +59,7 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
         throw NativeVoiceCallRuntimeError.invalidTransition(from: phase, action: "beginAccept")
       }
       phase = .accepting
+      publishUiLocked(source: "begin_accept")
     }
   }
 
@@ -68,6 +70,7 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
         throw NativeVoiceCallRuntimeError.invalidTransition(from: phase, action: "markAcceptSucceeded")
       }
       phase = .accepted
+      publishUiLocked(source: "accept_succeeded")
     }
   }
 
@@ -78,6 +81,7 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
         throw NativeVoiceCallRuntimeError.invalidTransition(from: phase, action: "markAcceptFailed")
       }
       phase = .failed(reason: .acceptFailed)
+      publishUiLocked(source: "accept_failed")
     }
   }
 
@@ -91,11 +95,12 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
       case .incomingPresented, .outgoingStarting, .accepting, .accepted, .tokenPending, .joining,
         .connected, .rejecting, .ending:
         phase = .failed(reason: reason)
+        publishUiLocked(source: "pipeline_failed")
       }
     }
   }
 
-  // MARK: - Connect pipeline (stubs for later phases)
+  // MARK: - Connect pipeline
 
   func markTokenPending(sessionId: String) throws {
     try queue.sync {
@@ -104,6 +109,7 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
         throw NativeVoiceCallRuntimeError.invalidTransition(from: phase, action: "markTokenPending")
       }
       phase = .tokenPending
+      publishUiLocked(source: "token_pending")
     }
   }
 
@@ -114,6 +120,7 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
         throw NativeVoiceCallRuntimeError.invalidTransition(from: phase, action: "markJoining")
       }
       phase = .joining
+      publishUiLocked(source: "joining")
     }
   }
 
@@ -124,6 +131,7 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
         throw NativeVoiceCallRuntimeError.invalidTransition(from: phase, action: "markConnected")
       }
       phase = .connected
+      publishUiLocked(source: "connected")
     }
   }
 
@@ -140,6 +148,7 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
       case .incomingPresented, .accepting, .accepted, .tokenPending, .joining, .connected,
         .outgoingStarting, .failed:
         phase = .rejecting
+        publishUiLocked(source: "begin_reject")
       case .idle:
         throw NativeVoiceCallRuntimeError.invalidSession
       }
@@ -155,6 +164,7 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
       case .rejecting:
         phase = .failed(reason: .rejected)
         clearSessionLocked()
+        publishIdleLocked(source: "rejected")
       default:
         throw NativeVoiceCallRuntimeError.invalidTransition(from: phase, action: "markRejected")
       }
@@ -173,6 +183,7 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
         throw NativeVoiceCallRuntimeError.invalidSession
       default:
         phase = .ending
+        publishUiLocked(source: "begin_end")
       }
     }
   }
@@ -186,6 +197,7 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
       case .ending:
         phase = .ended
         clearSessionLocked()
+        publishIdleLocked(source: "ended")
       default:
         throw NativeVoiceCallRuntimeError.invalidTransition(from: phase, action: "markEnded")
       }
@@ -203,6 +215,7 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
       clearSessionLocked()
       phase = .idle
       generation &+= 1
+      publishIdleLocked(source: "reset")
     }
   }
 
@@ -227,7 +240,9 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
       sessionId: sid,
       callUUID: incoming.callUUID,
       direction: incoming.direction,
-      peerId: incoming.peerId,
+      roomId: incoming.roomId,
+      callerId: incoming.callerId,
+      callerName: incoming.callerName,
       createdAt: incoming.createdAt
     )
 
@@ -286,6 +301,23 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
       return true
     default:
       return false
+    }
+  }
+
+  private func publishUiLocked(source: String) {
+    let snap = NativeVoiceCallRuntimeSnapshot(session: session, phase: phase)
+    guard snap.session?.direction == .incoming else { return }
+    DispatchQueue.main.async {
+      NativeVoiceCallUiHost.handleRuntimeSnapshot(snap)
+      _ = source
+    }
+  }
+
+  private func publishIdleLocked(source: String) {
+    let snap = NativeVoiceCallRuntimeSnapshot(session: nil, phase: .idle)
+    DispatchQueue.main.async {
+      NativeVoiceCallUiHost.handleRuntimeSnapshot(snap)
+      _ = source
     }
   }
 }

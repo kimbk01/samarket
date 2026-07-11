@@ -42,7 +42,9 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
         sessionId: sessionId,
         callUUID: uuid,
         direction: .incoming,
-        peerId: nil,
+        roomId: roomId?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "",
+        callerId: callerId?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "",
+        callerName: handle.trimmingCharacters(in: .whitespacesAndNewlines),
         createdAt: Date()
       )
       do {
@@ -211,6 +213,8 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
       DispatchQueue.main.async {
         if fulfill {
           action.fulfill()
+          let snap = NativeVoiceCallRuntime.shared.snapshot()
+          NativeVoiceCallUiHost.handleRuntimeSnapshot(snap)
         } else {
           action.fail()
         }

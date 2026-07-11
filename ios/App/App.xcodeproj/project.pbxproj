@@ -27,6 +27,10 @@
 		C7NCS0022FED79650016851F /* NativeCallServicePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NCS0012FED79650016851F /* NativeCallServicePlugin.swift */; };
 		C7NVA0022FED79650016851F /* NativeVoiceCallApi.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NVA0012FED79650016851F /* NativeVoiceCallApi.swift */; };
 		C7NVC0022FED79650016851F /* NativeVoiceIncomingCallCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NVC0012FED79650016851F /* NativeVoiceIncomingCallCoordinator.swift */; };
+		C7NVU0022FED79650016851F /* NativeVoiceCallUiHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NVU0012FED79650016851F /* NativeVoiceCallUiHost.swift */; };
+		C7NVU0122FED79650016851F /* NativeVoiceCallUiPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NVU0112FED79650016851F /* NativeVoiceCallUiPresenter.swift */; };
+		C7NVU0222FED79650016851F /* NativeVoiceCallViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NVU0212FED79650016851F /* NativeVoiceCallViewController.swift */; };
+		C7DCL0022FED79650016851F /* DibayCallLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7DCL0012FED79650016851F /* DibayCallLog.swift */; };
 		C7NVE0022FED79650016851F /* NativeVoiceCallAgoraEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NVE0012FED79650016851F /* NativeVoiceCallAgoraEngine.swift */; };
 		C7NVR0022FED79650016851F /* NativeVoiceCallRuntimeState.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NVR0012FED79650016851F /* NativeVoiceCallRuntimeState.swift */; };
 		C7NVR0122FED79650016851F /* NativeVoiceCallRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NVR0112FED79650016851F /* NativeVoiceCallRuntime.swift */; };
@@ -72,6 +76,10 @@
 		C7NCS0012FED79650016851F /* NativeCallServicePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeCallServicePlugin.swift; sourceTree = "<group>"; };
 		C7NVA0012FED79650016851F /* NativeVoiceCallApi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceCallApi.swift; sourceTree = "<group>"; };
 		C7NVC0012FED79650016851F /* NativeVoiceIncomingCallCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceIncomingCallCoordinator.swift; sourceTree = "<group>"; };
+		C7NVU0012FED79650016851F /* NativeVoiceCallUiHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceCallUiHost.swift; sourceTree = "<group>"; };
+		C7NVU0112FED79650016851F /* NativeVoiceCallUiPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceCallUiPresenter.swift; sourceTree = "<group>"; };
+		C7NVU0212FED79650016851F /* NativeVoiceCallViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceCallViewController.swift; sourceTree = "<group>"; };
+		C7DCL0012FED79650016851F /* DibayCallLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DibayCallLog.swift; sourceTree = "<group>"; };
 		C7NVE0012FED79650016851F /* NativeVoiceCallAgoraEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceCallAgoraEngine.swift; sourceTree = "<group>"; };
 		C7NVR0012FED79650016851F /* NativeVoiceCallRuntimeState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceCallRuntimeState.swift; sourceTree = "<group>"; };
 		C7NVR0112FED79650016851F /* NativeVoiceCallRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceCallRuntime.swift; sourceTree = "<group>"; };
@@ -178,6 +186,10 @@
 				C7NVA0012FED79650016851F /* NativeVoiceCallApi.swift */,
 				C7NVE0012FED79650016851F /* NativeVoiceCallAgoraEngine.swift */,
 				C7NVC0012FED79650016851F /* NativeVoiceIncomingCallCoordinator.swift */,
+				C7NVU0012FED79650016851F /* NativeVoiceCallUiHost.swift */,
+				C7NVU0112FED79650016851F /* NativeVoiceCallUiPresenter.swift */,
+				C7NVU0212FED79650016851F /* NativeVoiceCallViewController.swift */,
+				C7DCL0012FED79650016851F /* DibayCallLog.swift */,
 				C7VID0032FED79650016851F /* Video */,
 			);
 			path = Call;
@@ -315,6 +327,10 @@
 				C7G1G0022FED79650016851F /* NativeCallAgoraLaneGuard.swift in Sources */,
 				C7NVE0022FED79650016851F /* NativeVoiceCallAgoraEngine.swift in Sources */,
 				C7NVC0022FED79650016851F /* NativeVoiceIncomingCallCoordinator.swift in Sources */,
+				C7NVU0022FED79650016851F /* NativeVoiceCallUiHost.swift in Sources */,
+				C7NVU0122FED79650016851F /* NativeVoiceCallUiPresenter.swift in Sources */,
+				C7NVU0222FED79650016851F /* NativeVoiceCallViewController.swift in Sources */,
+				C7DCL0022FED79650016851F /* DibayCallLog.swift in Sources */,
 				C7VID0022FED79650016851F /* NativeVideoCallRuntimeState.swift in Sources */,
 				C7VID0122FED79650016851F /* NativeVideoCallOwner.swift in Sources */,
 				C7VID0222FED79650016851F /* NativeVideoCallLog.swift in Sources */,
