@@ -63,6 +63,7 @@ vi.mock("@/lib/community-messenger/call-runtime-registry", () => ({
 }));
 
 import { cleanupCallV4 } from "@/lib/community-messenger/call-v4/call-v4-cleanup";
+import { stopCallV4NativeActiveSession } from "@/lib/community-messenger/call-v4/call-v4-native-active-session";
 import { useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
 
 describe("cleanupCallV4 heartbeat", () => {
@@ -78,5 +79,12 @@ describe("cleanupCallV4 heartbeat", () => {
     expect(heartbeatMocks.stop).toHaveBeenCalledWith("call-hb");
     expect(heartbeatMocks.stop).toHaveBeenCalledTimes(1);
     expect(releaseAudioRouteMock).toHaveBeenCalledWith("call-hb", "v4_cleanup");
+  });
+
+  it("reaches cleanup_done when native active session stop throws", async () => {
+    vi.mocked(stopCallV4NativeActiveSession).mockRejectedValueOnce(new Error("plugin_unavailable"));
+    await expect(cleanupCallV4("call-native-fail", "ended")).resolves.toBeUndefined();
+    expect(stopCallV4NativeActiveSession).toHaveBeenCalledWith("call-native-fail", "ended");
+    expect(useCallV4Store.getState().phase).toBe("idle");
   });
 });

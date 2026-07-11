@@ -178,6 +178,26 @@ export function resetCallV4AgoraJoinStateForCallId(callId: string): void {
   }
 }
 
+async function abandonCallV4AgoraJoinClient(callId: string, client: IAgoraRTCClient): Promise<void> {
+  const sid = callId.trim();
+  if (!sid) return;
+  try {
+    const provider = await loadCommunityMessengerCallProviderClient();
+    await provider.cleanupCommunityMessengerAgoraCallResources({
+      client,
+      tracks: null,
+      remoteAudioTrack: null,
+      remoteVideoTrack: null,
+    });
+    logCallV4("agora_join_abandon_done", { callId: sid });
+  } catch (error) {
+    logCallV4("agora_join_abandon_failed", {
+      callId: sid,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
 export async function joinCallV4Agora(
   callId: string,
   options?: { afterPatch?: boolean },
@@ -215,6 +235,7 @@ export async function joinCallV4Agora(
         logCallV4("agora_app_id_missing", { callId: sid, source: "client_runtime" });
         return false;
       }
+      let joinedClient: IAgoraRTCClient | null = null;
       try {
         const connection = await resolveCallV4AgoraConnection(sid, options?.afterPatch ?? false);
         if (!connection) {
@@ -227,6 +248,7 @@ export async function joinCallV4Agora(
         }
         const provider = await loadCommunityMessengerCallProviderClient();
         const client = provider.createCommunityMessengerAgoraClient();
+        joinedClient = client;
         attachRemoteHandlers(sid, client);
         logCallV4("client_join_start", {
           callId: sid,
@@ -251,9 +273,6 @@ export async function joinCallV4Agora(
           });
           throw error;
         }
-        logCallV4("agora_join_success", { callId: sid });
-        joinSucceeded.add(sid);
-        writeCallV4ConnectedGateAgoraSignals(sid, { agoraJoinSuccess: true });
         const trackKind = readCallV4Identity()?.mediaType === "video" ? "video" : "voice";
         logCallV4("local_audio_track_create_start", { callId: sid, trackKind });
         let tracks: CommunityMessengerAgoraLocalTracks;
@@ -273,6 +292,9 @@ export async function joinCallV4Agora(
           logCallV4("local_video_publish_start", { callId: sid });
         }
         await provider.publishCommunityMessengerAgoraTracks({ client, tracks });
+        joinSucceeded.add(sid);
+        writeCallV4ConnectedGateAgoraSignals(sid, { agoraJoinSuccess: true });
+        logCallV4("agora_join_success", { callId: sid });
         if (trackKind === "video" && tracks.videoTrack) {
           useCallV4MediaStore.getState().setCameraEnabled(true);
           useCallV4MediaStore.getState().setLocalVideoReady(true);
@@ -286,6 +308,7 @@ export async function joinCallV4Agora(
           remoteAudioTrack: null,
           connectedLogged: false,
         };
+        joinedClient = null;
         for (const user of client.remoteUsers) {
           await subscribeRemoteAudio(sid, client, user);
           if (user.hasVideo) {
@@ -295,6 +318,11 @@ export async function joinCallV4Agora(
         maybeLogConnected(sid, "agora_join");
         return true;
       } catch (error) {
+        joinSucceeded.delete(sid);
+        resetCallV4AgoraJoinStateForCallId(sid);
+        if (joinedClient) {
+          await abandonCallV4AgoraJoinClient(sid, joinedClient);
+        }
         const formatted = formatAgoraError(error);
         logCallV4("agora_join_error", {
           callId: sid,

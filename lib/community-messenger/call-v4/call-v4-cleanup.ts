@@ -15,6 +15,14 @@ import { useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store"
 import type { CallV4TerminalPhase } from "@/lib/community-messenger/call-v4/call-v4-types";
 import { releaseConnectedVideoScreenAwake } from "@/lib/call/native/screen-awake-bridge";
 
+function logCleanupStepFailure(callId: string, step: string, error: unknown): void {
+  logCallV4("cleanup_step_failed", {
+    callId,
+    step,
+    error: error instanceof Error ? error.message : String(error),
+  });
+}
+
 export async function cleanupCallV4(callId: string, reason: CallV4TerminalPhase | string): Promise<void> {
   const sid = callId.trim();
   logCallV4("cleanup_start", { callId: sid, reason });
@@ -24,8 +32,12 @@ export async function cleanupCallV4(callId: string, reason: CallV4TerminalPhase 
   logCallV4("call_heartbeat_watchdog_stop", { callId: sid, reason });
   stopCallV4CallerActivePoll();
   stopCallV4ConnectedTerminalWatch(sid);
-  const { leaveCallV4Agora } = await import("@/lib/community-messenger/call-v4/call-v4-agora");
-  await leaveCallV4Agora(sid);
+  try {
+    const { leaveCallV4Agora } = await import("@/lib/community-messenger/call-v4/call-v4-agora");
+    await leaveCallV4Agora(sid);
+  } catch (error) {
+    logCleanupStepFailure(sid, "leave_agora", error);
+  }
   const { releaseCallV4AudioRoute } = await import("@/lib/community-messenger/call-v4/call-v4-audio-route");
   await releaseCallV4AudioRoute(sid, "v4_cleanup");
   clearCallV4ConnectionWarm(sid);
@@ -37,7 +49,11 @@ export async function cleanupCallV4(callId: string, reason: CallV4TerminalPhase 
   clearCallV4SurfaceOwner(sid, "cleanup");
   useCallV4MediaStore.getState().reset();
   forceResetCommunityMessengerCallRuntimeSurface();
-  await stopCallV4NativeActiveSession(sid, String(reason));
+  try {
+    await stopCallV4NativeActiveSession(sid, String(reason));
+  } catch (error) {
+    logCleanupStepFailure(sid, "stop_native_active_session", error);
+  }
   useCallV4Store.getState().resetToIdle();
   logCallV4("cleanup_done", { callId: sid, reason });
 }
