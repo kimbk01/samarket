@@ -510,6 +510,22 @@ public class IncomingCallActivity extends AppCompatActivity {
     super.onStop();
   }
 
+  /**
+   * Device back — minimize instead of destroying the ringing/connecting surface.
+   * finish()/decline are never invoked here; the call session and its notification/
+   * foreground-service state are untouched, matching the existing minimize pattern
+   * already shipped in NativeVoiceCallActivity/NativeVideoCallActivity.
+   */
+  @Override
+  public void onBackPressed() {
+    if (!finished && callId != null && !callId.trim().isEmpty()) {
+      Log.i(TAG, "[call-ui] incoming_activity_back_pressed_minimize callId=" + callId);
+      moveTaskToBack(true);
+      return;
+    }
+    super.onBackPressed();
+  }
+
   @Override
   protected void onDestroy() {
     LIVE_INSTANCES.remove(System.identityHashCode(this));

@@ -24,6 +24,7 @@ import android.webkit.WebView;
 import com.getcapacitor.BridgeWebViewClient;
 import android.app.PictureInPictureParams;
 import android.util.Rational;
+import androidx.activity.OnBackPressedCallback;
 import com.dibay.app.call.CallScreenStateReceiver;
 import com.dibay.app.call.DibayActiveCallSessionManager;
 import com.dibay.app.callv4.CallV4IntentHelper;
@@ -127,6 +128,8 @@ public class MainActivity extends BridgeActivity {
   private volatile String pendingMainFrameUrl = null;
   private Runnable webViewLoadAutoRetryRunnable = null;
   private int webViewLoadAutoRetryIndex = 0;
+  /** Back-press minimize for an active call — never touches call/session logic, only UI routing. */
+  private OnBackPressedCallback activeCallBackPressedCallback = null;
   private final Runnable webViewLoadTimeoutRunnable =
       () -> {
         if (mainFrameLoadFinished) return;
@@ -924,6 +927,7 @@ public class MainActivity extends BridgeActivity {
     registerPlugin(com.dibay.app.call.DibayCallPipPlugin.class);
     registerPlugin(NotificationSoundBridgePlugin.class);
     super.onCreate(savedInstanceState);
+    registerActiveCallBackPressedCallback();
     Log.i(WEBVIEW_LOG_TAG, "app_start package=" + getPackageName());
     String serverOrigin = DibayServerOrigin.resolve(this);
     Log.i(WEBVIEW_LOG_TAG, "capacitor_server_url=" + (serverOrigin != null ? serverOrigin : "(missing)"));
@@ -1034,6 +1038,39 @@ public class MainActivity extends BridgeActivity {
     if (plugin != null) {
       plugin.emitPipModeChanged(isInPictureInPictureMode, callId);
     }
+  }
+
+  /**
+   * Device back while a call is connected — minimize (PiP, else task-to-back) instead of
+   * navigating/dismissing the WebView call screen. Reuses tryEnterVideoCallPip() verbatim
+   * (the same method already wired from onUserLeaveHint), so this never touches
+   * DibayActiveCallSessionManager/Agora/signaling — pure UI back-routing.
+   * When no call is connected, this callback disables itself and immediately re-dispatches,
+   * so normal WebView back-navigation (owned by Capacitor's AppPlugin) is completely unaffected.
+   */
+  private void registerActiveCallBackPressedCallback() {
+    if (activeCallBackPressedCallback != null) return;
+    activeCallBackPressedCallback =
+        new OnBackPressedCallback(true) {
+          @Override
+          public void handleOnBackPressed() {
+            String callId = DibayActiveCallSessionManager.getActiveCallId();
+            boolean callActive =
+                callId != null && !callId.isEmpty() && DibayActiveCallSessionManager.isConnected();
+            if (!callActive) {
+              setEnabled(false);
+              getOnBackPressedDispatcher().onBackPressed();
+              setEnabled(true);
+              return;
+            }
+            Log.i("DIBAY_CALL", "[DIBAY_CALL] main_activity_back_pressed_call_active callId=" + callId);
+            boolean entered = tryEnterVideoCallPip();
+            if (!entered) {
+              moveTaskToBack(false);
+            }
+          }
+        };
+    getOnBackPressedDispatcher().addCallback(this, activeCallBackPressedCallback);
   }
 
   /** Bridge entry — video active call system PiP */
