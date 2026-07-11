@@ -740,7 +740,7 @@ async function userHasLiveDirectCallSession(sb: SupabaseLike, userId: string): P
   return Boolean(id);
 }
 
-const STALE_ACTIVE_RECONCILE_MS = 6 * 60 * 60 * 1000;
+const STALE_ACTIVE_RECONCILE_MS = 10 * 60 * 1000;
 
 type LiveReconcileRow = {
   id: string;
