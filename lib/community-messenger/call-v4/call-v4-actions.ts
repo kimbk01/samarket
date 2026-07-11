@@ -61,7 +61,7 @@ import {
   tryClaimCallV4AcceptFlight,
 } from "@/lib/community-messenger/call-v4/call-v4-patch-guard";
 import { isLegacyWebCallEstablishmentRemoved } from "@/lib/call/native/legacy-web-call-establishment-removed";
-import { isAndroidNativeOutgoingShell, startNativeOutgoingEstablishment } from "@/lib/call/native/native-outgoing-bridge";
+import { isAndroidNativeOutgoingShell, isIOSNativeOutgoingShell, startNativeOutgoingEstablishment } from "@/lib/call/native/native-outgoing-bridge";
 import { maybeExitCallV4ScreenAfterCleanup } from "@/lib/community-messenger/call-v4/call-v4-exit-guard";
 import {
   buildCallV4ScreenHref,
@@ -327,14 +327,23 @@ function notifyCallV4PeerTerminalBestEffort(callId: string, identity: CallV4Iden
   });
 }
 
+/** Terminal finalize can be triggered twice for one call (local end_patch + remote bus signal). Run once. */
+const finalizedCallV4Ids = new Set<string>();
+
 async function finalizeCallV4Terminal(
   callId: string,
   reason: CallV4TerminalPhase | string,
   router?: CallV4Router
 ): Promise<void> {
   const sid = callId.trim();
-  const wasOutgoingPresentationRoute = isAndroidOutgoingPresentationRoute(sid);
+  if (!sid) return;
   const reasonStr = String(reason);
+  if (finalizedCallV4Ids.has(sid)) {
+    logCallV4("terminal_finalize_skipped_duplicate", { callId: sid, reason: reasonStr });
+    return;
+  }
+  finalizedCallV4Ids.add(sid);
+  const wasOutgoingPresentationRoute = isAndroidOutgoingPresentationRoute(sid);
   try {
     await cleanupCallV4(sid, reason);
     pinCommunityMessengerCallTerminalSurfaceDismiss(sid);
@@ -489,7 +498,10 @@ export async function callV4CreateOutgoing(input: {
     useCallV4Store.getState().setPhase("outgoing_ringing");
     let shouldRouteToWebOutgoingPresentation = true;
 
-    if (isAndroidNativeOutgoingShell()) {
+    const androidNativeShell = isAndroidNativeOutgoingShell();
+    const iosNativeShell = androidNativeShell ? false : await isIOSNativeOutgoingShell();
+
+    if (androidNativeShell || iosNativeShell) {
       logCallV4("native_outgoing_handoff_start", {
         callId: created.session.id,
         mediaType: input.mediaType,
@@ -577,25 +589,31 @@ export async function callV4LaunchOutgoingDirectCall(
     );
     return { ok: false, userMessage: "" };
   }
-  if (input.kind === "video") {
-    logCallV4("call_v4_video_preflight_start", {});
-    const perm = await ensureCallMediaForUserGesture("video");
+  {
+    logCallV4("call_v4_media_preflight_start", { kind: input.kind });
+    const perm = await ensureCallMediaForUserGesture(input.kind);
     if (!perm.ok) {
-      logCallV4("call_v4_video_preflight_failed", {
+      logCallV4("call_v4_media_preflight_failed", {
+        kind: input.kind,
         reason: perm.reason,
         microphone: perm.state.microphone,
         camera: perm.state.camera,
       });
       showMessengerSnackbar(
         safeTranslate(getRuntimeAppLanguage(), "common_content_unavailable", {
-          fallbackKo: "카메라·마이크 권한이 필요합니다.",
-          fallbackEn: "Camera and microphone permissions are required.",
+          fallbackKo:
+            input.kind === "video" ? "카메라·마이크 권한이 필요합니다." : "마이크 권한이 필요합니다.",
+          fallbackEn:
+            input.kind === "video"
+              ? "Camera and microphone permissions are required."
+              : "Microphone permission is required.",
         }),
         { variant: "error" },
       );
       return { ok: false, userMessage: "" };
     }
-    logCallV4("call_v4_video_preflight_done", {
+    logCallV4("call_v4_media_preflight_done", {
+      kind: input.kind,
       microphone: perm.state.microphone,
       camera: perm.state.camera,
     });
@@ -941,6 +959,7 @@ export async function callV4HandleMissedTimeout(
 
 export function resetCallV4RemoteTerminalClaimsForTests(): void {
   remoteTerminalFinalized.clear();
+  finalizedCallV4Ids.clear();
 }
 
 export async function callV4End(callId: string, router?: CallV4Router): Promise<void> {
