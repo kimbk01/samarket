@@ -338,16 +338,6 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
   }
 
   private func log(_ event: String, _ sessionId: String, _ extra: String = "") {
-    let masked = maskSessionId(sessionId)
-    if extra.isEmpty {
-      NSLog("[DIBAY_CALL] %@ sessionId=%@", event, masked)
-    } else {
-      NSLog("[DIBAY_CALL] %@ sessionId=%@ %@", event, masked, extra)
-    }
-  }
-
-  private func maskSessionId(_ sessionId: String) -> String {
-    guard sessionId.count > 8 else { return sessionId }
-    return String(sessionId.prefix(4)) + "…" + String(sessionId.suffix(4))
+    DibayCallLog.info(event, sessionId: sessionId, detail: extra)
   }
 }
