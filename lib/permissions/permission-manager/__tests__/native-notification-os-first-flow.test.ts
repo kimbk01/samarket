@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resetNotificationPermissionSyncForTests } from "@/lib/permissions/permission-manager/notification-permission-manager";
 
-const openNotificationGuideModal = vi.fn();
 const requestNotificationFromGuide = vi.fn();
 const registerNativePushFromClient = vi.fn();
 
@@ -31,10 +30,6 @@ const readySnapshot = {
 
 vi.mock("@/lib/platform/capacitor-native", () => ({
   isCapacitorNativePlatform: vi.fn(() => true),
-}));
-
-vi.mock("@/lib/permissions/permission-manager/notification-permission-ui-bridge", () => ({
-  openNotificationGuideModal: (...args: unknown[]) => openNotificationGuideModal(...args),
 }));
 
 vi.mock("@/lib/permissions/permission-manager/notification-permission-manager", async (importOriginal) => {
@@ -74,18 +69,16 @@ describe("runNotificationGuideFlow (native OS-first)", () => {
       ok: true,
       snapshot: readySnapshot,
     });
-    openNotificationGuideModal.mockResolvedValue("later");
   });
 
-  it("first_login calls OS request directly without app guide modal", async () => {
+  it("first_login does not call OS request or app guide modal", async () => {
     const { runNotificationGuideFlow } = await import(
       "@/lib/permissions/permission-manager/notification-onboarding-flow"
     );
     const result = await runNotificationGuideFlow("first_login");
-    expect(openNotificationGuideModal).not.toHaveBeenCalled();
-    expect(requestNotificationFromGuide).toHaveBeenCalledTimes(1);
-    expect(result).toBe("granted");
-    expect(registerNativePushFromClient).toHaveBeenCalled();
+    expect(requestNotificationFromGuide).not.toHaveBeenCalled();
+    expect(result).toBe("declined");
+    expect(registerNativePushFromClient).not.toHaveBeenCalled();
   });
 
   it("disabled_resume does not open app modal or OS prompt", async () => {
@@ -94,11 +87,10 @@ describe("runNotificationGuideFlow (native OS-first)", () => {
     );
     const result = await runNotificationGuideFlow("disabled_resume");
     expect(result).toBe("declined");
-    expect(openNotificationGuideModal).not.toHaveBeenCalled();
     expect(requestNotificationFromGuide).not.toHaveBeenCalled();
   });
 
-  it("settings_retry opens settings-only modal when OS prompt unavailable", async () => {
+  it("settings_retry returns browser_denied without app modal when OS prompt unavailable", async () => {
     const { canRequestOsNotificationPrompt, syncNotificationState } = await import(
       "@/lib/permissions/permission-manager/notification-permission-manager"
     );
@@ -107,13 +99,11 @@ describe("runNotificationGuideFlow (native OS-first)", () => {
       ...notReadySnapshot,
       effectiveState: "PERMANENT_DENIED",
     });
-    openNotificationGuideModal.mockResolvedValue("open_settings");
 
     const { runNotificationGuideFlow } = await import(
       "@/lib/permissions/permission-manager/notification-onboarding-flow"
     );
     const result = await runNotificationGuideFlow("settings_retry");
-    expect(openNotificationGuideModal).toHaveBeenCalledTimes(1);
     expect(requestNotificationFromGuide).not.toHaveBeenCalled();
     expect(result).toBe("browser_denied");
   });

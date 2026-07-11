@@ -86,7 +86,10 @@ export async function onNativeCallConnected(payload: NativeCallConnectedPayload)
   if (payload.direction === "outgoing") {
     const session = await callV4FetchSession(sid);
     const sessionStatus = (session?.status ?? "").trim().toLowerCase();
-    if (sessionStatus !== "active") {
+    const trustNativeOutgoingConnected =
+      payload.nativeOwned === true &&
+      (payload.runtime === "native_voice" || payload.runtime === "native_video");
+    if (sessionStatus !== "active" && !trustNativeOutgoingConnected) {
       useCallV4Store.setState({
         phase: "outgoing_ringing",
         connectedAt: null,
@@ -113,9 +116,13 @@ export async function onNativeCallConnected(payload: NativeCallConnectedPayload)
   startNativeConnectedSideEffects(payload);
 }
 
-/** O3 — subscribe to Native Runtime connected events (Android sync-only). */
+/** O3 — subscribe to Native Runtime connected events (Android + iOS native voice parity). */
 export function startNativeConnectedSync(): () => void {
-  if (!isCapacitorNativePlatform() || resolveCapacitorShellPlatform() !== "android") {
+  if (!isCapacitorNativePlatform()) {
+    return () => undefined;
+  }
+  const platform = resolveCapacitorShellPlatform();
+  if (platform !== "android" && platform !== "ios") {
     return () => undefined;
   }
   if (typeof window === "undefined") return () => undefined;
@@ -142,6 +149,12 @@ export function startNativeConnectedSync(): () => void {
     if (handle) void handle.remove();
     handle = null;
   };
+}
+
+export function clearNativeConnectedHydrationForCall(callId: string): void {
+  const sid = callId.trim();
+  if (!sid) return;
+  hydratedNativeConnected.delete(sid);
 }
 
 export function resetNativeConnectedSyncForTests(): void {

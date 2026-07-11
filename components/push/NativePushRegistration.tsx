@@ -5,6 +5,7 @@ import {
   attachVoipPushTokenListener,
   isVoipPushTokenListenerAttached,
   registerNativePushFromClient,
+  retryVoipTokenRegistration,
 } from "@/lib/push/native/register-native-push-client";
 import {
   hasAndroidBridge,
@@ -166,6 +167,9 @@ export function NativePushRegistration() {
         attemptedUserIdRef.current = userId;
         logGuestAuthBootMarker("push_register_success_authenticated", { user_id: userId });
         logGuestAuthBootMarker("user_device_active_after_login", { user_id: userId });
+        if (resolveCapacitorShellPlatform() === "ios") {
+          retryVoipTokenRegistration("apns_register_success", userId);
+        }
         return;
       }
 

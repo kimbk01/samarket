@@ -114,22 +114,37 @@ describe("releaseCallV4OutgoingGateAfterTerminalFinalize", () => {
     expect(readCallV4Capabilities().canStartNewCall).toBe(false);
   });
 
-  it.each(["creating", "outgoing_ringing"] as const)(
-    "does not release when phase is %s",
-    (phase) => {
-      useCallV4Store.setState({
-        phase,
-        identity,
-        canStartNewCall: false,
-      });
+  it("does not release when phase is creating", () => {
+    useCallV4Store.setState({
+      phase: "creating",
+      identity,
+      canStartNewCall: false,
+    });
 
-      const released = releaseCallV4OutgoingGateAfterTerminalFinalize({
-        callId: "call-s5",
-        status: "ended",
-      });
+    const released = releaseCallV4OutgoingGateAfterTerminalFinalize({
+      callId: "call-s5",
+      status: "ended",
+    });
 
-      expect(released).toBe(false);
-      expect(readCallV4Capabilities().canStartNewCall).toBe(false);
-    },
-  );
+    expect(released).toBe(false);
+    expect(readCallV4Capabilities().canStartNewCall).toBe(false);
+  });
+
+  it("releases gate when phase is outgoing_ringing after terminal finalize", () => {
+    useCallV4Store.setState({
+      phase: "outgoing_ringing",
+      identity,
+      canStartNewCall: false,
+    });
+
+    const released = releaseCallV4OutgoingGateAfterTerminalFinalize({
+      callId: "call-s5",
+      status: "ended",
+      source: "native_local_terminal",
+    });
+
+    expect(released).toBe(true);
+    expect(readCallV4Capabilities().canStartNewCall).toBe(true);
+    expect(useCallV4Store.getState().phase).toBe("outgoing_ringing");
+  });
 });

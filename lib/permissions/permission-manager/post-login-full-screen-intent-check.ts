@@ -5,16 +5,11 @@ import {
   resolveCapacitorShellPlatform,
 } from "@/lib/platform/capacitor-native";
 import { checkAndroidFullScreenIntentGranted } from "@/lib/push/native/check-android-full-screen-intent";
-import { openFullScreenIntentSettings } from "@/lib/permissions/permission-manager/notification-permission-manager";
-
-const FSI_POST_LOGIN_NUDGE_KEY = "dibay_fsi_post_login_settings_nudged";
 
 export type PostLoginFullScreenIntentCheckResult = "granted" | "opened_settings" | "skipped" | "unknown";
 
 /**
- * Post-login FSI tier — status check only; no DIBAY app modal.
- * When FSI is off, opens OS full-screen intent settings directly (user may dismiss).
- * Does not block Runtime receive (lockScreenIncomingReady tier only).
+ * Post-login FSI tier — status check only. Does not open OS settings automatically.
  */
 export async function runPostLoginFullScreenIntentCheck(): Promise<PostLoginFullScreenIntentCheckResult> {
   if (!isCapacitorNativePlatform() || resolveCapacitorShellPlatform() !== "android") {
@@ -25,29 +20,14 @@ export async function runPostLoginFullScreenIntentCheck(): Promise<PostLoginFull
   if (granted === true) {
     return "granted";
   }
-  if (granted !== false) {
-    return "unknown";
-  }
-
-  if (typeof sessionStorage !== "undefined" && sessionStorage.getItem(FSI_POST_LOGIN_NUDGE_KEY) === "1") {
-    console.info("[device-permission] post_login_fsi_check", { result: "skipped_already_nudged" });
+  if (granted === false) {
+    console.info("[device-permission] post_login_fsi_check", { result: "skipped_not_granted" });
     return "skipped";
   }
-
-  const opened = await openFullScreenIntentSettings();
-  if (typeof sessionStorage !== "undefined") {
-    sessionStorage.setItem(FSI_POST_LOGIN_NUDGE_KEY, "1");
-  }
-  console.info("[device-permission] post_login_fsi_check", {
-    result: opened ? "opened_settings" : "skipped",
-    lockScreenIncomingReady: false,
-  });
-  return opened ? "opened_settings" : "skipped";
+  return "unknown";
 }
 
-/** Test-only reset for session nudge gate. */
+/** @deprecated session nudge removed — kept for test import stability */
 export function resetPostLoginFullScreenIntentCheckForTests(): void {
-  if (typeof sessionStorage !== "undefined") {
-    sessionStorage.removeItem(FSI_POST_LOGIN_NUDGE_KEY);
-  }
+  /* no-op */
 }

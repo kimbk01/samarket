@@ -36,7 +36,7 @@ import {
 } from "@/lib/community-messenger/call-outgoing-ringback-controller";
 import { stopIncomingCallRing, syncIncomingCallRing } from "@/lib/community-messenger/incoming-call/ring-owner";
 import { primeOutgoingCallMediaBeforeNavigate } from "@/lib/community-messenger/call-media-bootstrap";
-import { runCallMediaEducationBeforeGesture } from "@/lib/permissions/education/permission-education-orchestrator";
+import { ensureCallMediaForUserGesture } from "@/lib/community-messenger/call-media-permission-preflight";
 import { useCommunityMessengerRoomGroupCall } from "@/lib/community-messenger/room/community-messenger-group-call-context";
 import { useMessengerRoomClientPhase1Context } from "@/lib/community-messenger/room/messenger-room-client-phase1-context";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
@@ -2019,8 +2019,8 @@ export function useMessengerRoomPhase2Controller() {
         showMessengerSnackbar(translateCmUi("cm_ui_group_member_call_forbidden"), { variant: "error" });
         return;
       }
-      const education = await runCallMediaEducationBeforeGesture(kind, "outgoing");
-      if (!education.proceed) return;
+      const permission = await ensureCallMediaForUserGesture(kind);
+      if (!permission.ok) return;
       dismissRoomSheet();
       await call.startOutgoingCall(kind);
     },

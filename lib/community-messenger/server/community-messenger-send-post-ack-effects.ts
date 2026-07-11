@@ -16,6 +16,7 @@ import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache"
 import { mirrorCommunityMessengerTextToItemTradeLedger } from "@/lib/trade/mirror-community-messenger-text-to-item-trade-ledger";
 import { cmMessagePreviewFallback } from "@/lib/community-messenger/cm-service-copy";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import type { NotificationDecision } from "@/lib/notifications/engine/notification-decision";
 import { notifyMessagePipeline } from "@/lib/notifications/pipeline/notify-message-pipeline";
 
 type SupabaseLike = ReturnType<typeof getSupabaseServer>;
@@ -31,6 +32,8 @@ export type CommunityMessengerSendPostAckEffects = {
   roomType?: CommunityMessengerRoomType | string | null;
   directKey?: string | null;
   hasMention?: boolean;
+  /** T0 Legacy write Decision Snapshots — pass-through to Engine shadow only. */
+  decisionSnapshotsByRecipientId?: Record<string, NotificationDecision>;
 };
 
 function dedupeIds(ids: string[]): string[] {
@@ -90,8 +93,9 @@ export async function runCommunityMessengerSendPostAckEffects(
       await persistMessageMentionUserIds(sb, messageId, mentionUserIds).catch(() => {});
     }
   }
+  let decisionSnapshotsByRecipientId: Record<string, NotificationDecision> = {};
   if (messageId) {
-    await notifyMessagePipeline(sb, {
+    const pipelineResult = await notifyMessagePipeline(sb, {
       roomId,
       messageId,
       senderUserId,
@@ -101,7 +105,16 @@ export async function runCommunityMessengerSendPostAckEffects(
       hasMention: effects.hasMention ?? /@\S/.test(content),
       roomKind,
       mentionUserIds,
-    }).catch(() => {});
+    }).catch(() => null);
+    decisionSnapshotsByRecipientId = pipelineResult?.decisionSnapshotsByRecipientId ?? {};
   }
+  void import("@/lib/notifications/engine/adapters/legacy-message-created-adapter").then((mod) =>
+    mod
+      .runLegacyMessageCreatedNotificationEngineAdapter(sb, {
+        ...effects,
+        decisionSnapshotsByRecipientId,
+      })
+      .catch(() => {})
+  );
   invalidateOwnerHubBadgeForCommunityMessengerPeers(senderUserId, recipientUserIds, roomId);
 }

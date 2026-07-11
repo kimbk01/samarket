@@ -34,11 +34,7 @@ import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 import { LatestMenuNavigationProvider } from "@/contexts/LatestMenuNavigationContext";
 import { MainBottomNavTabsProvider } from "@/contexts/MainBottomNavTabsContext";
 import { DiBaYDevicePermissionOnboardingGate } from "@/components/permissions/DiBaYDevicePermissionOnboardingGate";
-import { DevicePermissionUiHost } from "@/components/permissions/DevicePermissionUiHost";
-import { PermissionEducationHost } from "@/components/permissions/education/PermissionEducationHost";
-import { NotificationGuideModalHost } from "@/lib/permissions/permission-manager/notification-guide-modal";
 import { NotificationPermissionSyncHost } from "@/lib/permissions/permission-manager/notification-permission-sync-host";
-import { FullScreenIntentGuideHost } from "@/components/permissions/FullScreenIntentGuideHost";
 import { PushRouteListener } from "@/components/push/PushRouteListener";
 import { NotificationRouteReadSync } from "@/components/push/NotificationRouteReadSync";
 import { registerGoogleNativeRecoverBootstrap } from "@/lib/auth/native/google-native-recover-bootstrap.client";
@@ -193,15 +189,11 @@ export function MainAppProviderTree({
           <PhoneVerificationRequiredSheet />
           <MissingProfileInfoModal />
           <DiBaYDevicePermissionOnboardingGate />
-          <NotificationGuideModalHost />
           <NotificationPermissionSyncHost />
-          <FullScreenIntentGuideHost />
           <NativePushRegistrationLazy />
           <PushRouteListener />
           <NotificationRouteReadSync />
           <NativeBadgeSyncLazy />
-          <DevicePermissionUiHost />
-          <PermissionEducationHost />
           <FavoriteProvider>
             <NotificationSurfaceProvider>
               <WriteCategoryProvider>

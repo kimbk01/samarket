@@ -1,3 +1,5 @@
+import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it, beforeEach } from "vitest";
 import type { OwnerHubBadgeBreakdown } from "@/lib/chats/owner-hub-badge-types";
 import {
@@ -83,6 +85,42 @@ describe("owner-hub-badge-store communityMessengerUnread sync", () => {
   });
 
   it("allows fresh network cm decrease after mark_read (network_fresh cm=0)", () => {
+    __testApplyOwnerHubBadgePayloadForTest(hubPayload({ communityMessengerUnread: 1 }), "network_fresh");
+    __testApplyOwnerHubBadgePayloadForTest(hubPayload({ communityMessengerUnread: 0 }), "network_fresh");
+    expect(getOwnerHubBadgeSnapshot().communityMessengerUnread).toBe(0);
+  });
+
+  it("RC-1 proof: mark_read_ack + network_plain hub fetch blocked by stale guard", () => {
+    __testApplyOwnerHubBadgePayloadForTest(hubPayload({ communityMessengerUnread: 1 }), "network_fresh");
+    const communityMessengerUnread_before = getOwnerHubBadgeSnapshot().communityMessengerUnread;
+
+    __testApplyOwnerHubBadgePayloadForTest(hubPayload({ communityMessengerUnread: 0 }), "network_plain");
+    const communityMessengerUnread_after = getOwnerHubBadgeSnapshot().communityMessengerUnread;
+
+    const proof = {
+      mark_read_ack: true,
+      notification_targets: 0,
+      hub_fetch_mode: "network_plain",
+      guardStaleCommunityMessengerUnread_blocked:
+        communityMessengerUnread_before > 0 &&
+        communityMessengerUnread_after === communityMessengerUnread_before,
+      communityMessengerUnread_before,
+      communityMessengerUnread_after,
+      proof_note:
+        "Pre-fix: mark_read within MESSENGER_MARK_READ_HUB_BYPASS_BLOCK_MS used useForceFresh=false → network_plain",
+    };
+
+    mkdirSync(join(process.cwd(), ".qa-logs"), { recursive: true });
+    writeFileSync(join(process.cwd(), ".qa-logs/m2-rc1-stale-guard-proof.json"), JSON.stringify(proof, null, 2));
+
+    expect(proof.guardStaleCommunityMessengerUnread_blocked).toBe(true);
+  });
+
+  it("mark_read ack hub fetch always uses network_fresh after RC-1 fix", () => {
+    const storeSrc = readFileSync(join(process.cwd(), "lib/chats/owner-hub-badge-store.ts"), "utf8");
+    expect(storeSrc).toContain("const useForceFresh = true");
+    expect(storeSrc).not.toMatch(/const useForceFresh = !recentHubFetch/);
+
     __testApplyOwnerHubBadgePayloadForTest(hubPayload({ communityMessengerUnread: 1 }), "network_fresh");
     __testApplyOwnerHubBadgePayloadForTest(hubPayload({ communityMessengerUnread: 0 }), "network_fresh");
     expect(getOwnerHubBadgeSnapshot().communityMessengerUnread).toBe(0);

@@ -22,11 +22,12 @@ OS notification request (`POST_NOTIFICATIONS`, `PushNotifications.requestPermiss
 
 - `lib/permissions/permission-manager/adapters/*.ts` via `requestNotificationFromGuide()`
 
-## OS-first (permission UX)
+## OS-first (permission UX — OS-ONLY LOCK)
 
-- First login / settings_retry when `canRequestOsNotificationPrompt`: **direct** `requestNotificationFromGuide()` — **no** app guide modal before OS.
-- `disabled_resume` / visibility: sync only — **no** app modal, **no** OS reprompt.
-- `PERMANENT_DENIED` / `SYSTEM_DISABLED`: settings-only fallback modal (`NotificationGuideModalHost`) on explicit `settings_retry` only — **no** OS popup repeat.
+- **No** DIBAY notification guide modal (`NotificationGuideModalHost` removed). `MainAppProviderTree` must **not** mount permission education/guide hosts.
+- `first_login` / `disabled_resume` / post-login gate: **sync only** — **no** app modal, **no** auto OS reprompt, **no** auto FSI settings open.
+- Explicit user action (`settings_retry`, settings register button): `canRequestOsNotificationPrompt` → `requestNotificationFromGuide()` only.
+- `PERMANENT_DENIED` / `SYSTEM_DISABLED`: return `settingsRequired` / `browser_denied` — user opens OS settings from settings UI; **no** DIBAY fallback modal.
 
 ## Composite tiers (LOCK)
 
@@ -78,4 +79,4 @@ Full doc: `docs/permissions/dibay-legacy-call-receive-policy.md`
 - **Lock Screen tier:** FSI/battery → lock full UI only; Runtime/Ring/Incoming UI **continue**.
 - **Media tier:** Mic/Camera at accept/outgoing gesture → Join only; **must not** block receive.
 - **Invariant:** Permission UX changes **must not** modify Runtime, FCM, Agora, Native Runtime, `NotificationReceiveGate`.
-- Post-login FSI (Android): `runPostLoginFullScreenIntentCheck()` — OS settings direct, no DIBAY modal.
+- Post-login FSI (Android): `runPostLoginFullScreenIntentCheck()` — **status check only**; FSI settings open on **user action** (`openFullScreenIntentSettingsOnUserAction`), no DIBAY modal.

@@ -17,7 +17,7 @@ enum NativeVoiceCallUiHost {
     UIApplication.shared.isProtectedDataAvailable
   }
 
-  static func handleRuntimeSnapshot(_ snapshot: NativeVoiceCallRuntimeSnapshot) {
+  static func handleRuntimeSnapshot(_ snapshot: NativeVoiceCallRuntimeSnapshot, source: String = "") {
     DispatchQueue.main.async {
       guard let session = snapshot.session else {
         if isTerminalPhase(snapshot.phase) {
@@ -25,22 +25,25 @@ enum NativeVoiceCallUiHost {
         }
         return
       }
-      guard session.direction == .incoming else { return }
       let callId = session.sessionId
+      let direction = session.direction == .outgoing ? "outgoing" : "incoming"
       switch snapshot.phase {
       case .incomingPresented:
         return
-      case .accepting, .accepted, .tokenPending, .joining, .connected:
+      case .outgoingStarting, .accepting, .accepted, .tokenPending, .joining, .connected:
+        DibayCallLog.info(
+          "ios_native_voice_ui_publish_requested",
+          sessionId: callId,
+          detail: "direction=\(direction) phase=\(phaseLabel(snapshot.phase)) source=\(source)"
+        )
         ensurePresented(callId: callId, session: session)
-        renderState(callId: callId, snapshot: snapshot)
+        renderState(callId: callId, snapshot: snapshot, source: source)
       case .ending:
         clearDeferredPresentation(callId: callId)
         finishIfActive(callId: callId)
       case .rejecting, .ended, .failed, .idle:
         clearDeferredPresentation(callId: callId)
         finishIfActive(callId: callId)
-      case .outgoingStarting:
-        return
       }
     }
   }
@@ -50,7 +53,6 @@ enum NativeVoiceCallUiHost {
     session: NativeVoiceCallSession,
     bypassLockCheck: Bool = false
   ) {
-    guard session.direction == .incoming else { return }
     guard Thread.isMainThread else {
       DispatchQueue.main.async {
         ensurePresented(callId: callId, session: session, bypassLockCheck: bypassLockCheck)
@@ -58,7 +60,12 @@ enum NativeVoiceCallUiHost {
       return
     }
     if isShowing(callId: callId) {
-      renderState(callId: callId, snapshot: NativeVoiceCallRuntime.shared.snapshot())
+      DibayCallLog.info(
+        "ios_native_voice_ui_duplicate_skipped",
+        sessionId: callId,
+        detail: "reason=already_presented"
+      )
+      renderState(callId: callId, snapshot: NativeVoiceCallRuntime.shared.snapshot(), source: "duplicate_present_skip")
       return
     }
     dismissStaleControllers(exceptCallId: callId)
@@ -86,17 +93,29 @@ enum NativeVoiceCallUiHost {
     sync.unlock()
     controller.modalPresentationStyle = .fullScreen
     presenter.present(controller, animated: true)
-    DibayCallLog.info("ios_native_voice_ui_present", sessionId: callId)
+    DibayCallLog.info(
+      "ios_native_voice_ui_presented",
+      sessionId: callId,
+      detail: "direction=\(session.direction == .outgoing ? "outgoing" : "incoming")"
+    )
   }
 
-  static func renderState(callId: String, snapshot: NativeVoiceCallRuntimeSnapshot) {
+  static func renderState(callId: String, snapshot: NativeVoiceCallRuntimeSnapshot, source: String = "") {
     guard Thread.isMainThread else {
-      DispatchQueue.main.async { renderState(callId: callId, snapshot: snapshot) }
+      DispatchQueue.main.async { renderState(callId: callId, snapshot: snapshot, source: source) }
       return
     }
-    for controller in controllers(for: callId) {
+    let controllers = controllers(for: callId)
+    guard !controllers.isEmpty else { return }
+    for controller in controllers {
       controller.applySnapshot(snapshot)
     }
+    let direction = snapshot.session?.direction == .outgoing ? "outgoing" : "incoming"
+    DibayCallLog.info(
+      "ios_native_voice_ui_snapshot_updated",
+      sessionId: callId,
+      detail: "direction=\(direction) phase=\(phaseLabel(snapshot.phase)) source=\(source)"
+    )
   }
 
   static func finishIfActive(callId: String) {
@@ -162,7 +181,7 @@ enum NativeVoiceCallUiHost {
       return
     }
 
-    DibayCallLog.info("ios_native_voice_ui_dismiss", sessionId: sid)
+    DibayCallLog.info("ios_native_voice_ui_dismissed", sessionId: sid)
     controller.dismiss(animated: true) {
       sync.lock()
       if activeController === controller {
@@ -223,18 +242,35 @@ enum NativeVoiceCallUiHost {
   private static func flushDeferredPresentationAfterUnlock() {
     guard canPresentVoiceSurfaces() else { return }
     let snap = NativeVoiceCallRuntime.shared.snapshot()
-    guard let session = snap.session, session.direction == .incoming else {
+    guard let session = snap.session else {
       deferredCallId = nil
       return
     }
     let callId = session.sessionId
     switch snap.phase {
-    case .accepting, .accepted, .tokenPending, .joining, .connected:
+    case .outgoingStarting, .accepting, .accepted, .tokenPending, .joining, .connected:
       DibayCallLog.info("ios_native_voice_ui_flush_after_unlock", sessionId: callId)
       ensurePresented(callId: callId, session: session, bypassLockCheck: true)
-      renderState(callId: callId, snapshot: snap)
+      renderState(callId: callId, snapshot: snap, source: "flush_after_unlock")
     default:
       deferredCallId = nil
+    }
+  }
+
+  private static func phaseLabel(_ phase: NativeVoiceCallPhase) -> String {
+    switch phase {
+    case .idle: return "idle"
+    case .incomingPresented: return "incoming_presented"
+    case .outgoingStarting: return "outgoing_starting"
+    case .accepting: return "accepting"
+    case .accepted: return "accepted"
+    case .tokenPending: return "token_pending"
+    case .joining: return "joining"
+    case .connected: return "connected"
+    case .rejecting: return "rejecting"
+    case .ending: return "ending"
+    case .ended: return "ended"
+    case .failed: return "failed"
     }
   }
 

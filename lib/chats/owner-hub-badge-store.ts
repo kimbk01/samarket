@@ -1316,23 +1316,8 @@ function executeMarkReadHubBadgeFetch(detail: OwnerHubBadgeRefreshDetail): void 
 
   lastMessengerParticipantForceRefreshAt = now;
 
-  const recentHubFetch = now - lastFetchCompletedAt < MESSENGER_MARK_READ_HUB_BYPASS_BLOCK_MS;
-
-  const useForceFresh = !recentHubFetch;
-
-  if (recentHubFetch) {
-
-    logHubRefreshGuard({
-
-      source: "messenger_mark_read",
-
-      reason,
-
-      cmFresh_bypass_blocked: true,
-
-    });
-
-  }
+  // CONTRACT — mark_read ack: always network_fresh so guardStaleCommunityMessengerUnread cannot block decrease.
+  const useForceFresh = true;
 
   scheduleDeferredHubBadgeFetch("messenger_mark_read", useForceFresh, {
 
@@ -1378,15 +1363,21 @@ function scheduleMarkReadHubBadgeRefresh(detail: OwnerHubBadgeRefreshDetail): vo
 
       messageId: null,
 
-      triggered_hub_refresh: false,
+      triggered_hub_refresh: true,
 
-      refresh_skipped: true,
+      refresh_skipped: false,
 
       same_snapshot: false,
 
       collapsed: true,
 
-      reason: "inflight_join",
+      reason: "inflight_join_followup",
+
+    });
+
+    void inFlight.finally(() => {
+
+      executeMarkReadHubBadgeFetch(detail);
 
     });
 

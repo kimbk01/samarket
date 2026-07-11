@@ -318,6 +318,8 @@ async function runRegisterNativePushOrchestration(args: {
     return await new Promise<RegisterResult>((resolve) => {
       let settled = false;
       let registrationListenerInvocations = 0;
+      let regHandle: Promise<{ remove: () => Promise<void> }> | null = null;
+      let errHandle: Promise<{ remove: () => Promise<void> }> | null = null;
       const apiInstrumentation: ApiPostInstrumentation = {
         fetchResolved: false,
         jsonParsed: false,
@@ -326,8 +328,8 @@ async function runRegisterNativePushOrchestration(args: {
       const finish = (result: RegisterResult) => {
         if (settled) return;
         settled = true;
-        void regHandle.then((h) => h.remove()).catch(() => undefined);
-        void errHandle.then((h) => h.remove()).catch(() => undefined);
+        void regHandle?.then((h) => h.remove()).catch(() => undefined);
+        void errHandle?.then((h) => h.remove()).catch(() => undefined);
         clearTimeout(timer);
         if (!result.ok) {
           logPushRegisterFail(result.error, {
@@ -340,60 +342,67 @@ async function runRegisterNativePushOrchestration(args: {
         resolve(result);
       };
 
-      const regHandle = PushNotifications.addListener("registration", (token) => {
-        registrationListenerInvocations += 1;
-        const value = token.value?.trim();
-        logPushRegister("registration_event", {
-          platform,
-          push_provider: pushProvider,
-          token_len: value?.length ?? 0,
-          user_id: resolvedUserId || null,
-          listener_invocation: registrationListenerInvocations,
-        });
-        if (!value) {
-          finish({ ok: false, error: "empty_token" });
-          return;
-        }
-        void postDeviceRegistrationWithNativeFirst(
-          {
-            user_id: resolvedUserId || undefined,
-            platform,
-            device_id: deviceId,
-            push_token: value,
-            push_provider: pushProvider,
-            app_version: appVersion,
-          },
-          {
-            instrumentation: apiInstrumentation,
-            isOrchestrationSettled: () => settled,
-            callsite: `${callsite}:registration_event`,
-          },
-        ).then((result) => {
-          if (settled) return;
-          finish(result);
-        });
-      });
+      const registrationTimeoutMs = platform === "ios" ? 30_000 : 15_000;
+      let timer = 0;
 
-      const errHandle = PushNotifications.addListener("registrationError", (err) => {
-        finish({ ok: false, error: err.error ?? "registration_error" });
-      });
-
-      const timer = window.setTimeout(() => {
-        if (!apiInstrumentation.fetchResolved) {
-          logPushRegister("registration_timeout_before_api_response", {
+      void (async () => {
+        regHandle = PushNotifications.addListener("registration", (token) => {
+          registrationListenerInvocations += 1;
+          const value = token.value?.trim();
+          logPushRegister("registration_event", {
             platform,
             push_provider: pushProvider,
+            token_len: value?.length ?? 0,
             user_id: resolvedUserId || null,
-            device_id: deviceId,
-            json_parsed: apiInstrumentation.jsonParsed,
-            listener_invocations: registrationListenerInvocations,
+            listener_invocation: registrationListenerInvocations,
           });
-        }
-        finish({ ok: false, error: "registration_timeout" });
-      }, 15_000);
+          if (!value) {
+            finish({ ok: false, error: "empty_token" });
+            return;
+          }
+          void postDeviceRegistrationWithNativeFirst(
+            {
+              user_id: resolvedUserId || undefined,
+              platform,
+              device_id: deviceId,
+              push_token: value,
+              push_provider: pushProvider,
+              app_version: appVersion,
+            },
+            {
+              instrumentation: apiInstrumentation,
+              isOrchestrationSettled: () => settled,
+              callsite: `${callsite}:registration_event`,
+            },
+          ).then((result) => {
+            if (settled) return;
+            finish(result);
+          });
+        });
 
-      logPushRegister("register_call", { platform, push_provider: pushProvider });
-      void PushNotifications.register().catch((e: unknown) => {
+        errHandle = PushNotifications.addListener("registrationError", (err) => {
+          finish({ ok: false, error: err.error ?? "registration_error" });
+        });
+
+        await Promise.all([regHandle, errHandle]);
+
+        timer = window.setTimeout(() => {
+          if (!apiInstrumentation.fetchResolved) {
+            logPushRegister("registration_timeout_before_api_response", {
+              platform,
+              push_provider: pushProvider,
+              user_id: resolvedUserId || null,
+              device_id: deviceId,
+              json_parsed: apiInstrumentation.jsonParsed,
+              listener_invocations: registrationListenerInvocations,
+            });
+          }
+          finish({ ok: false, error: "registration_timeout" });
+        }, registrationTimeoutMs);
+
+        logPushRegister("register_call", { platform, push_provider: pushProvider });
+        await PushNotifications.register();
+      })().catch((e: unknown) => {
         finish({ ok: false, error: e instanceof Error ? e.message : "register_failed" });
       });
     });
@@ -453,7 +462,7 @@ async function registerVoipToken(token: string): Promise<RegisterResult> {
   return result;
 }
 
-function retryVoipTokenRegistration(reason: string, userId?: string): void {
+export function retryVoipTokenRegistration(reason: string, userId?: string): void {
   const token = lastVoipPushToken?.trim();
   if (!token) return;
   const uid = userId?.trim();

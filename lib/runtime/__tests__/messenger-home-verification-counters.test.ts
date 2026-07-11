@@ -4,6 +4,7 @@ import { clearBootstrapCache, primeBootstrapCache } from "@/lib/community-messen
 import { fetchCommunityMessengerBootstrapClient } from "@/lib/community-messenger/cm-bootstrap-client-fetch";
 import {
   fetchCommunityMessengerHomeSilentLists,
+  invalidateCommunityMessengerHomeSilentListsReplay,
   resetCommunityMessengerHomeSilentListsClientStateForTests,
 } from "@/lib/community-messenger/cm-home-silent-lists-fetch";
 import { warmMessengerListBootstrapClient } from "@/lib/community-messenger/warm-messenger-list-bootstrap-client";
@@ -171,6 +172,26 @@ describe("messenger home verification counters (실행 횟수)", () => {
     await vi.runAllTimersAsync();
     await third;
     expect(getMessengerHomeVerificationSnapshot().homeSyncNetworkFetch).toBe(2);
+    vi.useRealTimers();
+  });
+
+  it("home-sync: mark_read invalidation drops full replay only; critical replay remains", async () => {
+    vi.useFakeTimers();
+    await fetchCommunityMessengerHomeSilentLists({ tier: "critical" });
+    await vi.runAllTimersAsync();
+    await fetchCommunityMessengerHomeSilentLists({ tier: "full" });
+    await vi.runAllTimersAsync();
+    expect(getMessengerHomeVerificationSnapshot().homeSyncNetworkFetch).toBe(2);
+    vi.advanceTimersByTime(500);
+    invalidateCommunityMessengerHomeSilentListsReplay({ tier: "full" });
+    await fetchCommunityMessengerHomeSilentLists({ tier: "full" });
+    await vi.runAllTimersAsync();
+    expect(getMessengerHomeVerificationSnapshot().homeSyncNetworkFetch).toBe(3);
+    expect(getMessengerHomeVerificationSnapshot().homeSyncReplaySyntheticReturns).toBe(0);
+    await fetchCommunityMessengerHomeSilentLists({ tier: "critical" });
+    await vi.runAllTimersAsync();
+    expect(getMessengerHomeVerificationSnapshot().homeSyncNetworkFetch).toBe(3);
+    expect(getMessengerHomeVerificationSnapshot().homeSyncReplaySyntheticReturns).toBe(1);
     vi.useRealTimers();
   });
 

@@ -60,9 +60,9 @@ import {
   rememberCallNavigationReturnPath,
 } from "@/lib/community-messenger/call-session-navigation-seed";
 import {
+  ensureCallMediaForUserGesture,
   getCallMediaPermissionBlockedMessageKey,
 } from "@/lib/community-messenger/call-media-permission-preflight";
-import { runCallMediaEducationBeforeGesture } from "@/lib/permissions/education/permission-education-orchestrator";
 import {
   COMMUNITY_MESSENGER_PREFERENCE_EVENT,
   isCommunityMessengerIncomingCallBannerEnabled,
@@ -2202,8 +2202,11 @@ export function GlobalCommunityMessengerIncomingCall() {
         const groupUrl = `/community-messenger/rooms/${encodeURIComponent(session.roomId)}?callAction=accept&sessionId=${encodeURIComponent(session.id)}`;
         void (async () => {
           try {
-            const education = await runCallMediaEducationBeforeGesture(session.callKind, "incoming");
-            if (!education.proceed) return;
+            const permission = await ensureCallMediaForUserGesture(session.callKind);
+            if (!permission.ok) {
+              showMessengerSnackbar(t(getCallMediaPermissionBlockedMessageKey(session.callKind)), { variant: "error" });
+              return;
+            }
             const result = await acceptIncomingCallOnce({
               session,
               router,
@@ -2248,8 +2251,8 @@ export function GlobalCommunityMessengerIncomingCall() {
       prepareCallEngineForFreshIncomingRing(session.id);
       void (async () => {
         try {
-          const education = await runCallMediaEducationBeforeGesture(session.callKind, "incoming");
-          if (!education.proceed) return;
+          const permission = await ensureCallMediaForUserGesture(session.callKind);
+          if (!permission.ok) return;
           const result = await acceptIncomingCallOnce({
             session,
             router,

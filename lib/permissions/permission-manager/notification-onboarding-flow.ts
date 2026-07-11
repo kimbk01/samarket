@@ -11,7 +11,6 @@ import {
   markNotificationRequiredBlocked,
   clearNotificationRequiredBlocked,
 } from "@/lib/permissions/permission-manager/notification-permission-block-store";
-import { openNotificationGuideModal } from "@/lib/permissions/permission-manager/notification-permission-ui-bridge";
 import type { NotificationGuideMode } from "@/lib/permissions/permission-manager/notification-permission-types";
 import { recordDiBaYOnboardingDecision } from "@/lib/permissions/device-permission-manager";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
@@ -26,9 +25,9 @@ function isWebNotificationUserGesture(mode: NotificationGuideMode): boolean {
   return mode === "settings_retry";
 }
 
-/** Native passive — resume/visibility: sync only, no app modal or OS prompt. */
+/** Native passive — resume/visibility: sync only, no OS prompt. */
 function isNativePassiveNotificationMode(mode: NotificationGuideMode): boolean {
-  return mode === "disabled_resume";
+  return mode === "disabled_resume" || mode === "first_login";
 }
 
 async function schedulePushRegistration(): Promise<void> {
@@ -90,11 +89,9 @@ async function runWebNotificationBrowserFlow(mode: NotificationGuideMode): Promi
 }
 
 /**
- * Settings-only fallback — short in-app guide when OS prompt is not available.
+ * Settings retry — OS prompt when available; otherwise return settingsRequired state only.
  */
-async function runNotificationSettingsGuideFlow(
-  mode: NotificationGuideMode,
-): Promise<NotificationGuideFlowResult> {
+async function runNotificationSettingsGuideFlow(): Promise<NotificationGuideFlowResult> {
   const snapshot = await syncNotificationState();
 
   if (snapshot.receiveReady) {
@@ -104,22 +101,18 @@ async function runNotificationSettingsGuideFlow(
     return "granted";
   }
 
-  const choice = await openNotificationGuideModal(mode, snapshot);
-
-  if (choice === "later") {
-    markNotificationRequiredBlocked();
-    recordDiBaYOnboardingDecision("notification", "declined");
-    return "declined";
+  if (canRequestOsNotificationPrompt(snapshot)) {
+    const osResult = await requestNotificationFromGuide();
+    return finalizeNotificationOsResult(osResult);
   }
 
-  await openNotificationSettings();
   markNotificationRequiredBlocked();
   recordDiBaYOnboardingDecision("notification", "browser_denied");
   return "browser_denied";
 }
 
 /**
- * OS-first notification flow — single entry for first login and explicit retries.
+ * OS-first notification flow — explicit user action or passive sync modes.
  */
 export async function runNotificationGuideFlow(mode: NotificationGuideMode): Promise<NotificationGuideFlowResult> {
   if (!isCapacitorNativePlatform()) {
@@ -135,12 +128,12 @@ export async function runNotificationGuideFlow(mode: NotificationGuideMode): Pro
     return "granted";
   }
 
-  if (!shouldShowNotificationGuide(snapshot)) {
-    recordDiBaYOnboardingDecision("notification", "declined");
+  if (isNativePassiveNotificationMode(mode)) {
     return "declined";
   }
 
-  if (isNativePassiveNotificationMode(mode)) {
+  if (!shouldShowNotificationGuide(snapshot)) {
+    recordDiBaYOnboardingDecision("notification", "declined");
     return "declined";
   }
 
@@ -150,10 +143,15 @@ export async function runNotificationGuideFlow(mode: NotificationGuideMode): Pro
   }
 
   if (mode === "settings_retry") {
-    return runNotificationSettingsGuideFlow(mode);
+    return runNotificationSettingsGuideFlow();
   }
 
   markNotificationRequiredBlocked();
   recordDiBaYOnboardingDecision("notification", "browser_denied");
   return "browser_denied";
+}
+
+/** Explicit settings / register button — OS prompt only, no DIBAY guide UI. */
+export async function requestNotificationOnUserAction(): Promise<NotificationGuideFlowResult> {
+  return runNotificationGuideFlow("settings_retry");
 }

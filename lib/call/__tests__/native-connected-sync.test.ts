@@ -87,21 +87,17 @@ describe("native-connected-sync", () => {
     expect(terminalMocks.start).toHaveBeenCalledWith("call-o3-1");
   });
 
-  it("keeps outgoing_ringing and skips connected ops when outgoing session is not active", async () => {
+  it("hydrates native-owned outgoing connected without waiting for server active", async () => {
     vi.mocked(callV4FetchSession).mockResolvedValue({
       id: "call-o3-1",
       status: "ringing",
     } as never);
 
-    await onNativeCallConnected(samplePayload());
+    await onNativeCallConnected(samplePayload({ runtime: "native_voice", nativeOwned: true }));
 
-    expect(callV4FetchSession).toHaveBeenCalledTimes(1);
-    expect(useCallV4Store.getState().phase).toBe("outgoing_ringing");
-    expect(useCallV4Store.getState().connectedAt).toBeNull();
-    expect(useCallV4Store.getState().identity?.callId).toBe("call-o3-1");
-    expect(useCallV4Store.getState().identity?.direction).toBe("outgoing");
-    expect(heartbeatMocks.start).not.toHaveBeenCalled();
-    expect(terminalMocks.start).not.toHaveBeenCalled();
+    expect(useCallV4Store.getState().phase).toBe("connected");
+    expect(heartbeatMocks.start).toHaveBeenCalledWith("call-o3-1");
+    expect(terminalMocks.start).toHaveBeenCalledWith("call-o3-1");
   });
 
   it("hydrates incoming connected without session fetch gate", async () => {

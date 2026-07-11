@@ -159,20 +159,34 @@ for (const field of ["nativeVoiceChannelBlocked", "nativeVideoChannelBlocked", "
 }
 
 const mainTree = read("components/layout/MainAppProviderTree.tsx");
-if (!mainTree.includes("NotificationGuideModalHost")) {
-  failures.push("MainAppProviderTree must mount NotificationGuideModalHost");
+const forbiddenPermissionHosts = [
+  "NotificationGuideModalHost",
+  "FullScreenIntentGuideHost",
+  "PermissionEducationHost",
+  "DevicePermissionUiHost",
+  "CallPermissionModal",
+];
+for (const host of forbiddenPermissionHosts) {
+  if (mainTree.includes(host)) {
+    failures.push(`MainAppProviderTree must not mount ${host} (OS-only UX)`);
+  }
 }
 if (!mainTree.includes("NotificationPermissionSyncHost")) {
   failures.push("MainAppProviderTree must mount NotificationPermissionSyncHost");
+}
+if (!mainTree.includes("DiBaYDevicePermissionOnboardingGate")) {
+  failures.push("MainAppProviderTree must mount DiBaYDevicePermissionOnboardingGate");
 }
 
 const onboardingFlow = read("lib/permissions/permission-manager/notification-onboarding-flow.ts");
 if (!onboardingFlow.includes("canRequestOsNotificationPrompt(snapshot)")) {
   failures.push("notification-onboarding-flow must OS-first via canRequestOsNotificationPrompt before requestNotificationFromGuide");
 }
-if (onboardingFlow.includes('const choice = await openNotificationGuideModal(mode, snapshot)') &&
-    !onboardingFlow.includes("runNotificationSettingsGuideFlow")) {
-  failures.push("notification-onboarding-flow must not open guide modal before OS when prompt eligible");
+if (onboardingFlow.includes("openNotificationGuideModal")) {
+  failures.push("notification-onboarding-flow must not import or call openNotificationGuideModal (OS-only UX)");
+}
+if (!onboardingFlow.includes('mode === "first_login"') && !onboardingFlow.includes("first_login")) {
+  failures.push("notification-onboarding-flow must treat first_login as passive (no auto OS prompt)");
 }
 
 const syncHost = read("lib/permissions/permission-manager/notification-permission-sync-host.tsx");
@@ -181,11 +195,22 @@ if (syncHost.includes("runNotificationGuideFlow")) {
 }
 
 const onboardingGate = read("components/permissions/DiBaYDevicePermissionOnboardingGate.tsx");
-if (!onboardingGate.includes("runNotificationGuideFlow")) {
-  failures.push("DiBaYDevicePermissionOnboardingGate must use runNotificationGuideFlow");
+if (!onboardingGate.includes("syncNotificationState")) {
+  failures.push("DiBaYDevicePermissionOnboardingGate must sync notification state on login");
+}
+if (onboardingGate.includes('runNotificationGuideFlow("first_login")')) {
+  failures.push("DiBaYDevicePermissionOnboardingGate must not auto-run runNotificationGuideFlow(first_login)");
+}
+if (onboardingGate.includes("runPostLoginFullScreenIntentCheck")) {
+  failures.push("DiBaYDevicePermissionOnboardingGate must not auto-run runPostLoginFullScreenIntentCheck");
 }
 if (onboardingGate.includes("CallPermissionModal")) {
   failures.push("DiBaYDevicePermissionOnboardingGate must not mount CallPermissionModal on login");
+}
+
+const postLoginFsi = read("lib/permissions/permission-manager/post-login-full-screen-intent-check.ts");
+if (postLoginFsi.includes("openFullScreenIntentSettings()")) {
+  failures.push("post-login-full-screen-intent-check must not auto-open FSI settings");
 }
 
 if (failures.length > 0) {

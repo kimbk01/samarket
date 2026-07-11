@@ -49,6 +49,20 @@ P0 구조 SSOT는 `notification_events` + `notification_targets` 이중 축을 �
 | `bottom_nav_delivery` / `bottom_nav_my` | 각 surface별 `notification_targets` |
 | `owner_commerce_inbox` | 매장 오너 commerce targets |
 
+### Order Badge SSOT (`bottom_nav_delivery`)
+
+구매자 주문·배달 탭 배지 숫자의 **단일 진실 원천**:
+
+```
+bottom_nav_delivery = count_notification_targets(p_user_id, 'bottom_nav_delivery')
+```
+
+- **SQL:** `notification_targets` 중 `target_type = 'buyer_order'` · `scope = 'consumer'` · `is_unread = true` 인 행 수 (`supabase/migrations/20260606120000_notification_targets.sql`).
+- **API:** `GET /api/me/notifications?unread_count_only=1&badge_surface=bottom_nav_delivery` → `countNotificationTargetsSurfaceServer` (서버 20s 캐시).
+- **UI:** `Tier1NotificationAnchor surface="bottom_nav_delivery"` — `notification_targets` 를 직접 그리지 않고 **항상 surface count API** 만 조회.
+
+**따라서** `buyer_order` target 이 `is_unread = true` 로 다시 올라가면(예: ensure-chat system bump 재발행) UI 배지는 **반드시** 다시 표시된다. Read clear 는 `clear_notification_target` 로 같은 row 를 `is_unread = false` 로 만든다; bump producer 가 다시 `upsert_notification_target_unread` 를 호출하면 surface count 가 증가한다.
+
 - surface 간 **합산 금지** — pathname 기준 단일 surface만 표시
 - 인박스 목록 fetch 옵션은 surface별 `resolveTier1BellListFetchOpts` 따름
 

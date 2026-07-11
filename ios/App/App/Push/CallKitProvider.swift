@@ -129,11 +129,14 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
   }
 
   /** P4 — outgoing/active CallKit session for connected calls */
-  func reportOutgoingCallStarted(sessionId: String, hasVideo: Bool) {
-    let uuid = uuidFromSession(sessionId: sessionId)
-    callUuidBySessionId[sessionId] = uuid
-    outgoingSessionIds.insert(sessionId.trimmingCharacters(in: .whitespacesAndNewlines))
-    let handle = CXHandle(type: .generic, value: sessionId)
+  func reportOutgoingCallStarted(sessionId: String, hasVideo: Bool, peerName: String = "") {
+    let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+    let uuid = uuidFromSession(sessionId: sid)
+    callUuidBySessionId[sid] = uuid
+    outgoingSessionIds.insert(sid)
+    let trimmedPeer = peerName.trimmingCharacters(in: .whitespacesAndNewlines)
+    let displayValue = trimmedPeer.isEmpty ? sid : trimmedPeer
+    let handle = CXHandle(type: .generic, value: displayValue)
     let start = CXStartCallAction(call: uuid, handle: handle)
     start.isVideo = hasVideo
     let transaction = CXTransaction(action: start)
@@ -141,7 +144,7 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
       if let error = error {
         DibayCallLog.infoCall(
           "ios_callkit_start_failed",
-          callId: sessionId,
+          callId: sid,
           detail: "err=\(error.localizedDescription)"
         )
       }
@@ -211,6 +214,24 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
     DibayCallAudioSessionController.shared.noteCallKitDidDeactivate()
   }
 
+  func provider(_ provider: CXProvider, perform action: CXStartCallAction) {
+    let sid = sessionId(for: action.callUUID)
+    action.fulfill()
+    if let sid {
+      let trimmedPeer = action.handle.value.trimmingCharacters(in: .whitespacesAndNewlines)
+      let runtimePeer = NativeVoiceCallRuntime.shared.snapshot().session
+        .flatMap { $0.sessionId == sid && !$0.callerName.isEmpty ? $0.callerName : nil }
+      let displayValue = (runtimePeer ?? trimmedPeer).trimmingCharacters(in: .whitespacesAndNewlines)
+      let localizedName = displayValue.isEmpty ? sid : displayValue
+      let update = CXCallUpdate()
+      update.remoteHandle = CXHandle(type: .generic, value: localizedName)
+      update.localizedCallerName = localizedName
+      update.hasVideo = hasVideoBySessionId[sid] ?? action.isVideo
+      provider.reportCall(with: action.callUUID, updated: update)
+      provider.reportOutgoingCall(with: action.callUUID, startedConnectingAt: Date())
+    }
+  }
+
   func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
     guard let sessionId = sessionId(for: action.callUUID) else {
       // Preserve prior behavior when mapping is missing: fulfill without handoff.
@@ -275,9 +296,20 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
     }
 
     // Voice — only route to Native V1 coordinator when Runtime actually owns this session.
-    // Legacy Web voice (nativeVoiceOutgoingRuntime off, or any session Runtime never registered)
-    // must fall back to the pre-existing Web postCallAction handoff.
+    // Outgoing sessions already cleaned up natively must not fall through to legacy Web handoff.
     let runtimeOwnsSession = NativeVoiceCallRuntime.shared.snapshot().session?.sessionId == sessionId
+    if !runtimeOwnsSession, isOutgoingSession(sessionId) {
+      DibayCallLog.info(
+        "ios_native_voice_callkit_end",
+        sessionId: sessionId,
+        detail: "reason=callkit_end_outgoing_runtime_cleared"
+      )
+      action.fulfill()
+      callUuidBySessionId.removeValue(forKey: sessionId)
+      hasVideoBySessionId.removeValue(forKey: sessionId)
+      outgoingSessionIds.remove(sessionId)
+      return
+    }
     guard runtimeOwnsSession else {
       DibayCallLog.info(
         "ios_legacy_web_voice_callkit_end",

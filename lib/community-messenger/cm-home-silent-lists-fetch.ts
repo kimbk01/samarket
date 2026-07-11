@@ -134,6 +134,31 @@ function syntheticResponseFromReplay(c: ReplayCacheEntry): CommunityMessengerHom
   return { res, json: c.json };
 }
 
+function silentHomeSyncFlightKey(tier: "critical" | "full"): string {
+  return `${FLIGHT_KEY}:${tier}`;
+}
+
+export type InvalidateCommunityMessengerHomeSilentListsReplayOpts = {
+  /** 기본 `full` — mark_read 후 stale full-tier list replay 차단 */
+  tier?: "critical" | "full" | "all";
+};
+
+/**
+ * mark_read 직후 pre-read full-tier replay 가 silent supplement 로 재주입되지 않게 한다 (RC-2α).
+ * critical replay·TTL 은 유지한다.
+ */
+export function invalidateCommunityMessengerHomeSilentListsReplay(
+  opts: InvalidateCommunityMessengerHomeSilentListsReplayOpts = {}
+): void {
+  const tier = opts.tier ?? "full";
+  if (tier === "all") {
+    lastReplayableByTier.delete(silentHomeSyncFlightKey("critical"));
+    lastReplayableByTier.delete(silentHomeSyncFlightKey("full"));
+    return;
+  }
+  lastReplayableByTier.delete(silentHomeSyncFlightKey(tier));
+}
+
 /** 테스트·수동: TTL 캐시 + 단일 비행 키 정리 */
 export function resetCommunityMessengerHomeSilentListsClientStateForTests(): void {
   lastReplayableByTier.clear();
@@ -159,7 +184,7 @@ export function fetchCommunityMessengerHomeSilentLists(
     });
   }
   const tier = opts.tier ?? "full";
-  const flightKey = `${FLIGHT_KEY}:${tier}`;
+  const flightKey = silentHomeSyncFlightKey(tier);
   const url = homeSyncUrl(tier);
   const pathname = pathnameForLog();
   const previous_pathname = silentFetchLastPathname;

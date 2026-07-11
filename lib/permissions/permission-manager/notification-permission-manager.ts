@@ -96,7 +96,19 @@ async function readPlatformSnapshot(appBlocked: boolean): Promise<NotificationRe
 async function runSyncNotificationStateInternal(
   appBlocked: boolean,
 ): Promise<NotificationReceiveSnapshot> {
-  const snapshot = await readPlatformSnapshot(appBlocked);
+  let snapshot = await readPlatformSnapshot(appBlocked);
+
+  // Prior onboarding failure can leave a stale in-app block while OS permission is already granted.
+  if (appBlocked && snapshot.notificationRuntimePermission && !snapshot.receiveReady) {
+    clearNotificationRequiredBlocked();
+    snapshot = {
+      ...snapshot,
+      effectiveState: "GRANTED",
+      receiveReady: true,
+      lockScreenIncomingReady: true,
+      blockReason: undefined,
+    };
+  }
 
   if (snapshot.receiveReady && appBlocked) {
     clearNotificationRequiredBlocked();
@@ -254,6 +266,10 @@ export async function openFullScreenIntentSettings(): Promise<boolean> {
     /* fall through */
   }
   return false;
+}
+
+export async function openFullScreenIntentSettingsOnUserAction(): Promise<boolean> {
+  return openFullScreenIntentSettings();
 }
 
 export async function openBatteryOptimizationSettings(): Promise<boolean> {

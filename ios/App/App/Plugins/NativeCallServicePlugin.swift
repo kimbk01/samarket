@@ -5,8 +5,10 @@ import Foundation
 @objc(NativeCallServicePlugin)
 public class NativeCallServicePlugin: CAPPlugin, CAPBridgedPlugin {
   static let eventNativeCallConnected = "nativeCallConnected"
+  static let eventNativeCallTerminal = "nativeCallTerminal"
 
   private static var connectedEmitted = Set<String>()
+  private static var terminalEmitted = Set<String>()
   private static weak var pluginInstance: NativeCallServicePlugin?
 
   public let identifier = "NativeCallServicePlugin"
@@ -73,6 +75,31 @@ public class NativeCallServicePlugin: CAPPlugin, CAPBridgedPlugin {
   private static func emitNativeCallConnected(_ payload: JSObject) {
     guard let plugin = pluginInstance else { return }
     plugin.notifyListeners(eventNativeCallConnected, data: payload)
+  }
+
+  /** Local/remote native terminal — immediate Web idle so re-dial is not blocked by async cleanup. */
+  static func publishNativeTerminal(callId: String, reason: String, source: String) {
+    let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !sid.isEmpty else { return }
+    guard terminalEmitted.insert(sid).inserted else { return }
+
+    var payload = JSObject()
+    payload["callId"] = sid
+    payload["reason"] = reason.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "ended" : reason
+    payload["source"] = source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "native_terminal" : source
+    payload["nativeOwned"] = true
+    emitNativeCallTerminal(payload)
+  }
+
+  static func clearNativeTerminalEmit(callId: String) {
+    let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !sid.isEmpty else { return }
+    terminalEmitted.remove(sid)
+  }
+
+  private static func emitNativeCallTerminal(_ payload: JSObject) {
+    guard let plugin = pluginInstance else { return }
+    plugin.notifyListeners(eventNativeCallTerminal, data: payload)
   }
 
   @objc func prepareAccept(_ call: CAPPluginCall) {

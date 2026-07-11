@@ -84,9 +84,13 @@ const TERMINAL_OUTGOING_GATE_RELEASE_STATUSES = new Set([
   "failed",
 ]);
 
-const OUTGOING_GATE_RELEASE_ALLOWED_PHASES = new Set<CallV4Phase>(["connected", "joining"]);
+const OUTGOING_GATE_RELEASE_ALLOWED_PHASES = new Set<CallV4Phase>([
+  "connected",
+  "joining",
+  "outgoing_ringing",
+]);
 
-const OUTGOING_GATE_RELEASE_BLOCKED_PHASES = new Set<CallV4Phase>(["creating", "outgoing_ringing"]);
+const OUTGOING_GATE_RELEASE_BLOCKED_PHASES = new Set<CallV4Phase>(["creating"]);
 
 /**
  * S5 — terminal finalize 직후 발신 gate만 선해제. cleanupCallV4/resetToIdle 은 별도 경로.

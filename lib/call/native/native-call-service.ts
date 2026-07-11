@@ -32,6 +32,14 @@ export type NativeCallConnectedPayload = {
 };
 
 export const NATIVE_CALL_CONNECTED_EVENT = "nativeCallConnected";
+export const NATIVE_CALL_TERMINAL_EVENT = "nativeCallTerminal";
+
+export type NativeCallTerminalPayload = {
+  callId: string;
+  reason: string;
+  source: string;
+  nativeOwned: true;
+};
 
 export type NativeCallServicePlugin = {
   prepareAccept(options: { callId: string; callKind?: string }): Promise<{ ok: boolean }>;

@@ -31,6 +31,26 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
 
     log("ios_native_voice_answer_started", sid)
 
+    let micContext = DibayVoiceMicrophonePermission.resolveIncomingAnswerContext()
+    DibayVoiceMicrophonePermission.ensureGranted(sessionId: sid, context: micContext) { [weak self] micGranted in
+      guard let self else {
+        completion(false)
+        return
+      }
+      guard micGranted else {
+        self.failMicrophoneBeforeAccept(sessionId: sid, context: micContext, completion: completion)
+        return
+      }
+      self.continueHandleAnswer(sessionId: sid, completion: completion)
+    }
+  }
+
+  private func continueHandleAnswer(
+    sessionId: String,
+    completion: @escaping (_ fulfill: Bool) -> Void
+  ) {
+    let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+
     do {
       try NativeVoiceCallRuntime.shared.beginAccept(sessionId: sid)
     } catch let error as NativeVoiceCallRuntimeError {
@@ -147,6 +167,26 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
     }
   }
 
+  private func failMicrophoneBeforeAccept(
+    sessionId: String,
+    context: DibayVoiceMicrophoneGateContext,
+    completion: @escaping (_ fulfill: Bool) -> Void
+  ) {
+    log(
+      "ios_native_voice_mic_blocked_before_accept",
+      sessionId,
+      "context=\(context) agora_join=0"
+    )
+    try? NativeVoiceCallRuntime.shared.markPipelineFailed(sessionId: sessionId, reason: .mediaFailed)
+    cleanup(
+      sessionId: sessionId,
+      reason: "mic_permission_denied",
+      reportCallKitEnded: true,
+      serverAction: "reject"
+    )
+    completion(false)
+  }
+
   // MARK: - Reject / End / Terminal
 
   func handleRejectOrEnd(sessionId: String, completion: @escaping () -> Void) {
@@ -177,6 +217,7 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
     case .accepted, .tokenPending, .joining, .connected, .outgoingStarting:
       log("ios_native_voice_local_end", sid, "state=\(snap.phase)")
       do { try NativeVoiceCallRuntime.shared.beginEnd(sessionId: sid) } catch { /* */ }
+      NativeVoiceCallBridge.publishLocalTerminal(sessionId: sid, reason: "ended", source: "local_end_begin")
       NativeVoiceCallApi.endAsync(callId: sid) { [weak self] _, _, _ in
         do { try NativeVoiceCallRuntime.shared.markEnded(sessionId: sid) } catch { /* */ }
         self?.cleanup(
@@ -227,13 +268,7 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
       return
     }
     log("ios_native_voice_agora_local_joined", sid)
-    do {
-      try NativeVoiceCallRuntime.shared.markConnected(sessionId: sid)
-      log("ios_native_voice_connected", sid)
-      DibayActiveCallSessionManager.shared.bindActiveCall(callId: sid, mediaType: "voice", phase: "CONNECTED")
-    } catch {
-      log("ios_native_voice_stale_callback_ignored", sid, "stage=mark_connected")
-    }
+    NativeVoiceCallBridge.publishConnectedState(sessionId: sid, source: "incoming_agora_connected")
   }
 
   func onDisconnected(reason: String) {
@@ -313,14 +348,19 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
 
     NativeVoiceCallAgoraEngine.shared.leave(reason: reason, notifyListener: false)
     DibayCallAudioSessionController.shared.deactivateAfterNativeVoiceCall()
+    NativeVoiceCallBridge.clearConnectedPublish(callId: sid)
+    NativeCallServicePlugin.clearNativeTerminalEmit(callId: sid)
     NativeVoiceCallRuntime.shared.reset(sessionId: sid)
     if DibayActiveCallSessionManager.shared.callId == sid {
       DibayActiveCallSessionManager.shared.clearSession()
     }
 
-    if reportCallKitEnded {
-      CallKitProvider.shared.reportCallEnded(uuidString: sid)
-    }
+    CallKitProvider.shared.endCallKitSession(
+      sessionId: sid,
+      reason: .remoteEnded,
+      logDetail: reason
+    )
+    NativeVoiceCallOwner.release(callId: sid, reason: reason)
 
     syncQueue.sync {
       answerGenerationBySession.removeValue(forKey: sid)

@@ -4,10 +4,6 @@
  */
 
 import { getBestCurrentPosition, type GeolocationResult } from "@/lib/map/geolocation";
-import {
-  openPermissionGuideModal,
-  type PermissionGuideChoice,
-} from "@/lib/permissions/permission-ui-bridge";
 import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
 import type {
   DevicePermissionFeatureKey,
@@ -294,10 +290,6 @@ export function shouldShowGuide(kind: DevicePermissionGuideKind, browserState: B
   return browserState === "prompt" || browserState === "unknown";
 }
 
-async function requestGuideChoice(kind: DevicePermissionGuideKind): Promise<PermissionGuideChoice> {
-  return openPermissionGuideModal(kind);
-}
-
 export type LocationRequestResult =
   | { ok: true; position: Extract<GeolocationResult, { ok: true }> }
   | {
@@ -320,7 +312,6 @@ export async function requestLocationWithDiBaYGate(options?: {
   }
 
   const browserState = await refreshPermissionState("location");
-  const explicitRetry = !!options?.explicitRetry;
 
   if (browserState === "denied") {
     return { ok: false, reason: "denied", message: "브라우저·기기 설정에서 위치 권한을 허용해 주세요." };
@@ -340,24 +331,7 @@ export async function requestLocationWithDiBaYGate(options?: {
     };
   }
 
-  // prompt 또는 unknown
-  if (!explicitRetry) {
-    if (shouldShowGuide("location", browserState)) {
-      const choice = await requestGuideChoice("location");
-      markGuideSeen("location");
-      if (choice === "later") {
-        markSessionLater("location");
-        return { ok: false, reason: "later" };
-      }
-    } else if (isGuideSeen("location") || wasSessionLater("location")) {
-      return {
-        ok: false,
-        reason: "deferred",
-        message: "설정에서 권한을 다시 확인하거나 주소를 직접 입력해 주세요.",
-      };
-    }
-  }
-
+  // prompt 또는 unknown — OS geolocation API 직접 호출 (DIBAY 안내 UI 없음)
   const pos = await getBestCurrentPosition();
   if (pos.ok) {
     void refreshPermissionState("location");
@@ -428,22 +402,6 @@ async function ensureDevicePermissionsWithDiBaYGate(
   }
   if (options?.featureKey && isPermissionFeatureCompleted(options.featureKey)) {
     return finalizeWithNativeAndroid();
-  }
-
-  const explicitRetry = !!options?.explicitRetry || isCallMediaFeatureKey(options?.featureKey);
-  const guideKind = options?.guideKind ?? kinds[0] ?? "microphone";
-
-  if (!explicitRetry) {
-    if (shouldShowGuide(guideKind, states.find((state) => state !== "granted") ?? "unknown")) {
-      const choice = await requestGuideChoice(guideKind);
-      for (const kind of kinds) markGuideSeen(kind);
-      if (choice === "later") {
-        for (const kind of kinds) markSessionLater(kind);
-        return { ok: false, reason: "later" };
-      }
-    } else if (kinds.some((kind) => isGuideSeen(kind) || wasSessionLater(kind))) {
-      return { ok: false, reason: "deferred" };
-    }
   }
 
   return finalizeWithNativeAndroid();
@@ -653,7 +611,11 @@ export async function requestNotificationWithDiBaYGate(options?: {
     return { ok: true, permission: "granted" };
   }
 
-  const result = await runNotificationGuideFlow(options?.explicitRetry ? "settings_retry" : "first_login");
+  if (!options?.explicitRetry) {
+    return { ok: false, reason: "deferred" };
+  }
+
+  const result = await runNotificationGuideFlow("settings_retry");
   await syncNotificationState();
   const after = getCachedNotificationReceiveSnapshot();
 
@@ -679,20 +641,10 @@ export async function requestNotificationWithDiBaYGate(options?: {
 }
 
 /** 스피커: 소리 테스트. 반복 모달 없음 — 설정에서만 안내 모달 병행 가능 */
-export async function runSpeakerTestWithOptionalGuide(options?: {
-  /** 첫 안내(1회)까지 모달 사용 */
+export async function runSpeakerTestWithOptionalGuide(_options?: {
+  /** @deprecated DIBAY guide removed — OS-only speaker test */
   showFirstGuide?: boolean;
 }): Promise<{ ok: boolean; error?: string }> {
-  const showFirst = !!options?.showFirstGuide;
-  if (showFirst && !isGuideSeen("speaker") && !wasSessionLater("speaker")) {
-    const choice = await requestGuideChoice("speaker");
-    markGuideSeen("speaker");
-    if (choice === "later") {
-      markSessionLater("speaker");
-      return { ok: false, error: "later" };
-    }
-  }
-
   try {
     const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (Ctx) {

@@ -70,10 +70,6 @@ export async function ensureCallCanUseMedia(
 export async function ensureCallMediaForUserGesture(
   kind: CommunityMessengerCallKind,
 ): Promise<CallMediaPermissionPreflightResult> {
-  const { runLockScreenEducationIfNeeded } = await import(
-    "@/lib/permissions/education/permission-education-orchestrator"
-  );
-  await runLockScreenEducationIfNeeded();
   let result = await ensureCallCanUseMedia(kind);
   if (result.ok) return result;
 

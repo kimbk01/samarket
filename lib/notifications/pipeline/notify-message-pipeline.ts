@@ -13,6 +13,10 @@ import {
   buildRecipientMessageNotificationDisplay,
   loadMessageNotificationDisplaySharedContext,
 } from "@/lib/notifications/display/load-message-notification-display-context";
+import {
+  createNotificationDecision,
+  type NotificationDecision,
+} from "@/lib/notifications/engine/notification-decision";
 import { isNotificationBlockedForRecipient } from "@/lib/notifications/policy/notification-block-policy";
 import { isRoomMutedForUser } from "@/lib/notifications/policy/notification-mute-policy";
 import {
@@ -35,11 +39,24 @@ export type NotifyMessagePipelineInput = {
   mentionUserIds?: string[];
 };
 
+/** T0 Legacy write Decision Snapshot — recipientId → frozen decision. */
+export type NotifyMessagePipelineResult = {
+  decisionSnapshotsByRecipientId: Record<string, NotificationDecision>;
+};
+
 type StoreOrderReceiverRole = "owner" | "user";
 
 function resolveEventType(input: NotifyMessagePipelineInput) {
   if (input.roomKind) return eventTypeForMessageRoomKind(input.roomKind);
   return resolveMessageEventTypeFromDirectKey(input.directKey);
+}
+
+function resolvePushSoundSuppressedReason(
+  decision: NotificationDecision
+): "same_room_foreground" | "muted_room" | null {
+  if (decision.suppressReasons.includes("same_room_foreground")) return "same_room_foreground";
+  if (decision.suppressReasons.includes("room_muted")) return "muted_room";
+  return null;
 }
 
 async function loadStoreOrderReceiverRoleByUserId(
@@ -71,12 +88,15 @@ async function loadStoreOrderReceiverRoleByUserId(
 export async function notifyMessagePipeline(
   sb: SupabaseClient<any>,
   input: NotifyMessagePipelineInput
-): Promise<void> {
+): Promise<NotifyMessagePipelineResult> {
+  const decisionSnapshotsByRecipientId: Record<string, NotificationDecision> = {};
   const roomId = input.roomId.trim();
   const messageId = input.messageId.trim();
   const senderUserId = input.senderUserId.trim();
   const recipients = input.recipientUserIds.map((id) => id.trim()).filter(Boolean);
-  if (!roomId || !messageId || !senderUserId || !recipients.length) return;
+  if (!roomId || !messageId || !senderUserId || !recipients.length) {
+    return { decisionSnapshotsByRecipientId };
+  }
 
   const baseEventType = resolveEventType(input);
 
@@ -120,16 +140,22 @@ export async function notifyMessagePipeline(
     const presence = await loadRecipientPresenceSnapshot(sb, recipientUserId);
     const presenceDecision = resolvePresenceSuppressDecision(presence, roomId);
 
-    const pushSuppressedReason = presenceDecision.suppressPush
-      ? ("same_room_foreground" as const)
-      : muted
-        ? ("muted_room" as const)
-        : null;
-    const soundSuppressedReason = presenceDecision.suppressSound
-      ? ("same_room_foreground" as const)
-      : muted
-        ? ("muted_room" as const)
-        : null;
+    const suppressReasons: string[] = [];
+    if (muted) suppressReasons.push("room_muted");
+    if (presenceDecision.reason) suppressReasons.push(presenceDecision.reason);
+    if (presenceDecision.autoRead) suppressReasons.push("auto_read_same_room");
+
+    const decisionSnapshot = createNotificationDecision({
+      playSound: !muted && !presenceDecision.suppressSound,
+      showBottomBadge: !presenceDecision.suppressBadge,
+      showListBadge: !presenceDecision.suppressBadge,
+      push: !muted && !presenceDecision.suppressPush,
+      persist: true,
+      suppressReasons,
+    });
+
+    const pushSuppressedReason = resolvePushSoundSuppressedReason(decisionSnapshot);
+    const soundSuppressedReason = pushSuppressedReason;
 
     if (muted) logNotifyMessage("muted_sound_suppressed", { roomId, recipientUserId });
     if (presenceDecision.reason === "same_room_foreground") {
@@ -176,7 +202,7 @@ export async function notifyMessagePipeline(
       mutedSnapshot: muted,
       pushSuppressedReason,
       soundSuppressedReason,
-      unread: !presenceDecision.suppressBadge,
+      unread: decisionSnapshot.showBottomBadge,
       appState: String(presence.appVisibility ?? "").toLowerCase() === "foreground" ? "foreground" : "background",
     });
 
@@ -188,11 +214,15 @@ export async function notifyMessagePipeline(
 
     logNotifyMessage("create_done", { roomId, recipientUserId, eventId: created.row.id });
 
-    if (presenceDecision.autoRead) {
+    // Freeze only after successful Legacy write — same Snapshot used for write above.
+    decisionSnapshotsByRecipientId[recipientUserId] = decisionSnapshot;
+
+    if (decisionSnapshot.suppressReasons.includes("auto_read_same_room")) {
       await markRoomRead(sb, recipientUserId, roomId);
     } else {
       invalidateNotificationBadgeCache(recipientUserId);
     }
-
   }
+
+  return { decisionSnapshotsByRecipientId };
 }

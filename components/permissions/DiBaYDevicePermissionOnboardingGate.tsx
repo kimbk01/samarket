@@ -11,15 +11,7 @@ import {
   notifyPostLoginOnboardingProfileRetry,
   schedulePostLoginOnboardingOpen,
 } from "@/lib/permissions/dibay-post-login-onboarding-gate";
-import {
-  resolveDibayUnifiedOnboardingPlan,
-  type DibayUnifiedOnboardingPlan,
-} from "@/lib/permissions/dibay-unified-device-onboarding";
-import { recordDiBaYOnboardingDecision } from "@/lib/permissions/device-permission-manager";
-import { runNotificationGuideFlow } from "@/lib/permissions/permission-manager/notification-onboarding-flow";
-import { runPostLoginFullScreenIntentCheck } from "@/lib/permissions/permission-manager/post-login-full-screen-intent-check";
 import { syncNotificationState } from "@/lib/permissions/permission-manager/notification-permission-manager";
-import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 import { subscribeDibayAuthStateChange } from "@/lib/auth/dibay-session-manager";
 import { useStoresHomeOverlayDeferUntilInput } from "@/lib/stores/use-stores-home-overlay-defer-until-input";
 
@@ -52,7 +44,7 @@ export function waitForNotificationOnboardingSettled(): Promise<void> {
 }
 
 /**
- * 로그인 후 1회 — OS 알림 + FSI(Android) 상태 확인. mic/camera/battery는 통화 gesture 시만.
+ * 로그인 후 — OS 알림 상태 sync만 수행. 자동 OS 권한 요청·설정 이동 없음.
  */
 export function DiBaYDevicePermissionOnboardingGate() {
   const pathname = usePathname() ?? "";
@@ -68,27 +60,11 @@ export function DiBaYDevicePermissionOnboardingGate() {
     };
   }, []);
 
-  const runOsPermissionSequence = useCallback(async (plan: DibayUnifiedOnboardingPlan) => {
+  const runPostLoginSync = useCallback(async () => {
     if (runningRef.current) return;
     runningRef.current = true;
-
-    const { steps } = plan;
-    console.info("[device-permission] unified_onboarding_os_sequence", { steps, source: plan.source });
-
     try {
       await syncNotificationState();
-
-      for (let stepIndex = 0; stepIndex < steps.length; stepIndex += 1) {
-        if (!mountedRef.current) return;
-
-        const step = steps[stepIndex];
-        if (step === "notification" && isCapacitorNativePlatform()) {
-          await runNotificationGuideFlow("first_login");
-        }
-        if (step === "full_screen_intent") {
-          await runPostLoginFullScreenIntentCheck();
-        }
-      }
     } finally {
       runningRef.current = false;
       markNotificationOnboardingSettled();
@@ -105,40 +81,26 @@ export function DiBaYDevicePermissionOnboardingGate() {
         .then((needsBlock) => {
           if (needsBlock) {
             markNotificationOnboardingSettled();
-            return null;
+            return;
           }
-          return resolveDibayUnifiedOnboardingPlan();
-        })
-        .then((plan) => {
-          if (!plan || !mountedRef.current) {
+          if (!mountedRef.current) {
             markNotificationOnboardingSettled();
             return;
           }
-
-          if (plan.callMediaAlreadyGranted && plan.steps.length === 0) {
-            recordDiBaYOnboardingDecision("call_media", "accepted");
-            markNotificationOnboardingSettled();
-            return;
-          }
-          if (plan.steps.length === 0) {
-            markNotificationOnboardingSettled();
-            return;
-          }
-
           shownRef.current = true;
-          return runOsPermissionSequence(plan);
+          return runPostLoginSync();
         })
         .catch((error) => {
           shownRef.current = false;
           runningRef.current = false;
           markNotificationOnboardingSettled();
           if (process.env.NODE_ENV === "development") {
-            console.warn("[DiBaYDevicePermissionOnboarding] plan failed", error);
+            console.warn("[DiBaYDevicePermissionOnboarding] sync failed", error);
           }
         });
     };
     schedulePostLoginOnboardingOpen(run);
-  }, [deferStoresHomeLcp, pathname, runOsPermissionSequence]);
+  }, [deferStoresHomeLcp, pathname, runPostLoginSync]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => tryOpen(), 300);

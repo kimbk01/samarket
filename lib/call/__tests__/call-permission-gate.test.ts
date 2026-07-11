@@ -114,14 +114,14 @@ describe("call-permission-gate", () => {
     expect(result.canVoice).toBe(true);
   });
 
-  it("skips OS request when permanently_denied and opens settings", async () => {
+  it("skips OS request when permanently_denied without auto-opening settings", async () => {
     checkNativeCallOsPermissions.mockResolvedValue({
       microphone: "permanently_denied",
       camera: "granted",
     });
     const result = await callPermissionGate.prompt("voice", "outgoing");
     expect(requestNativeCallMediaPermissions).not.toHaveBeenCalled();
-    expect(openNativeCallPermissionSettings).toHaveBeenCalled();
+    expect(openNativeCallPermissionSettings).not.toHaveBeenCalled();
     expect(result.canVoice).toBe(false);
   });
 });

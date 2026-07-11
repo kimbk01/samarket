@@ -47,15 +47,21 @@ public class NativeKakaoAuthPlugin: CAPPlugin, CAPBridgedPlugin {
   }
 
   private func isUserCancelled(_ error: Error) -> Bool {
-    if let clientError = error as? ClientError, clientError.reason == .Cancelled {
+    if let sdkError = error as? SdkError,
+      sdkError.isClientFailed,
+      sdkError.getClientError().reason == .Cancelled
+    {
       return true
     }
     return error.localizedDescription.lowercased().contains("cancel")
   }
 
   private func logFailure(_ error: Error) {
-    if let clientError = error as? ClientError {
-      logEvent("kakao_native_failed \(error.localizedDescription) cause=\(String(describing: clientError.reason))")
+    if let sdkError = error as? SdkError, sdkError.isClientFailed {
+      let client = sdkError.getClientError()
+      logEvent(
+        "kakao_native_failed \(error.localizedDescription) cause=\(String(describing: client.reason))"
+      )
       return
     }
     logEvent("kakao_native_failed \(error.localizedDescription)")
@@ -84,8 +90,8 @@ public class NativeKakaoAuthPlugin: CAPPlugin, CAPBridgedPlugin {
     var result = JSObject()
     result["provider"] = "kakao"
     result["accessToken"] = token.accessToken
-    if let refresh = token.refreshToken, !refresh.isEmpty {
-      result["refreshToken"] = refresh
+    if !token.refreshToken.isEmpty {
+      result["refreshToken"] = token.refreshToken
     }
     if let idToken = token.idToken, !idToken.isEmpty {
       result["idToken"] = idToken
@@ -135,7 +141,8 @@ public class NativeKakaoAuthPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     let trimmedKey = appKey.trimmingCharacters(in: .whitespacesAndNewlines)
-    if !KakaoSDK.isInitialized() {
+    // KakaoSDK 2.28 has no isInitialized(); AppDelegate usually inits — fill only if missing.
+    if (try? KakaoSDK.shared.appKey()) == nil {
       KakaoSDK.initSDK(appKey: trimmedKey)
     }
 

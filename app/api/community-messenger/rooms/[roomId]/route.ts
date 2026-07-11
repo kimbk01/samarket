@@ -267,6 +267,23 @@ export async function PATCH(
         } catch {
           /* badge target clear best-effort */
         }
+        after(async () => {
+          try {
+            const { getSupabaseServer } = await import("@/lib/chat/supabase-server");
+            const { runLegacyRoomReadNotificationEngineAdapter } = await import(
+              "@/lib/notifications/engine/adapters/legacy-room-read-adapter"
+            );
+            await runLegacyRoomReadNotificationEngineAdapter(getSupabaseServer(), {
+              userId: auth.userId,
+              roomId,
+              lastReadMessageId: result.lastReadMessageId ?? null,
+              readAt: result.lastReadAt ?? new Date().toISOString(),
+              causation: "legacy_patch_mark_read",
+            });
+          } catch {
+            /* notification engine shadow */
+          }
+        });
       }
 
       const tBeforeResponse = devPerfNow();

@@ -146,6 +146,7 @@ describe("native-outgoing-terminal-sync", () => {
     await vi.advanceTimersByTimeAsync(1500);
 
     expect(actionsMocks.handleRemoteTerminal).not.toHaveBeenCalled();
+    expect(useCallV4Store.getState().phase).toBe("connected");
   });
 
   it("restarts poll without overlapping intervals when start is called twice", async () => {

@@ -29,6 +29,32 @@ final class NativeVoiceOutgoingCallCoordinator: NativeVoiceCallAgoraEngineListen
 
     log("ios_native_voice_caller_outgoing_start", sid, "roomId=\(roomId) mediaType=\(mediaType)")
 
+    DibayVoiceMicrophonePermission.ensureGranted(sessionId: sid, context: .outgoing) { [weak self] micGranted in
+      guard let self else { return }
+      guard micGranted else {
+        self.log("ios_native_voice_outgoing_mic_denied", sid, "agora_join=0")
+        NativeVoiceCallOwner.release(callId: sid, reason: "mic_permission_denied")
+        return
+      }
+      self.continueOutgoingAfterMicGranted(
+        callId: sid,
+        roomId: roomId,
+        peerUserId: peerUserId,
+        peerName: peerName,
+        mediaType: mediaType
+      )
+    }
+  }
+
+  private func continueOutgoingAfterMicGranted(
+    callId: String,
+    roomId: String,
+    peerUserId: String,
+    peerName: String,
+    mediaType: String
+  ) {
+    let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+
     DibayCallAudioSessionController.shared.resetOutgoingJoinGate()
 
     let callUUID = UUID(uuidString: sid) ?? UUID()
@@ -50,7 +76,7 @@ final class NativeVoiceOutgoingCallCoordinator: NativeVoiceCallAgoraEngineListen
       return
     }
 
-    CallKitProvider.shared.reportOutgoingCallStarted(sessionId: sid, hasVideo: false)
+    CallKitProvider.shared.reportOutgoingCallStarted(sessionId: sid, hasVideo: false, peerName: peerName)
     DibayCallAudioSessionController.shared.prepareForNativeVoiceCall()
 
     do {
@@ -92,12 +118,7 @@ final class NativeVoiceOutgoingCallCoordinator: NativeVoiceCallAgoraEngineListen
       log("ios_native_voice_stale_callback_ignored", sid, "stage=outgoing_connected")
       return
     }
-    do {
-      try NativeVoiceCallRuntime.shared.markConnected(sessionId: sid)
-      log("ios_native_voice_connected", sid)
-    } catch {
-      log("ios_native_voice_stale_callback_ignored", sid, "stage=mark_outgoing_connected")
-    }
+    NativeVoiceCallBridge.publishConnectedState(sessionId: sid, source: "outgoing_agora_connected")
   }
 
   func onDisconnected(reason: String) {

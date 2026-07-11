@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { startNativeConnectedSync } from "@/lib/call/native/native-connected-sync";
+import { startNativeTerminalSync } from "@/lib/call/native/native-terminal-sync";
 import { isLegacyWebCallEstablishmentRemoved } from "@/lib/call/native/legacy-web-call-establishment-removed";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import { useCallV4ForegroundResume } from "@/lib/community-messenger/call-v4/use-call-v4-foreground-resume";
@@ -50,7 +51,11 @@ import {
   syncCallV4NativeAcceptInflightFromWindowLocation,
 } from "@/lib/community-messenger/call-v4/call-v4-native-accept-flight";
 import { readCallV4ExitRouter } from "@/lib/community-messenger/call-v4/call-v4-route";
-import { readCallV4Phase, useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
+import { readCallV4Identity, readCallV4Phase, useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
+import {
+  isCapacitorNativePlatform,
+  resolveCapacitorShellPlatform,
+} from "@/lib/platform/capacitor-native";
 import {
   installDibayFcmCallBridge,
   type DibayFcmIncomingWakeDetail,
@@ -294,6 +299,23 @@ function CallV4WebEstablishmentHost({ children, pathname, router, userId }: Call
         reason: detail.reason,
       });
       ingestCallV4SurfaceOwnerSignal(detail);
+      if (
+        detail.owner === "terminal" &&
+        detail.reason?.includes("ios_callkit_end") &&
+        isCapacitorNativePlatform() &&
+        resolveCapacitorShellPlatform() === "ios"
+      ) {
+        const sid = detail.callId.trim();
+        const identity = readCallV4Identity();
+        if (identity?.callId === sid) {
+          void callV4HandleRemoteTerminal(
+            sid,
+            "ended",
+            readCallV4ExitRouter() ?? router,
+            detail.reason,
+          );
+        }
+      }
       const owner = getCallV4PersistedSurfaceOwner(detail.callId.trim());
       if (owner === "web_in_app") {
         void tryHydrateCallV4IncomingForWebOwner(detail.callId.trim());
@@ -306,7 +328,7 @@ function CallV4WebEstablishmentHost({ children, pathname, router, userId }: Call
       window.removeEventListener("dibay:call-v4-native-surface", onNativeSurfaceBridge);
       window.removeEventListener("dibay:call-surface-owner", onSurfaceOwnerBridge);
     };
-  }, []);
+  }, [router]);
 
   return (
     <>
@@ -338,6 +360,11 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
   useEffect(() => {
     if (!shouldMountCallV4Companion()) return;
     return startNativeConnectedSync();
+  }, []);
+
+  useEffect(() => {
+    if (!shouldMountCallV4Companion()) return;
+    return startNativeTerminalSync();
   }, []);
 
   useEffect(() => {

@@ -99,8 +99,8 @@ public class NativeAppleAuthPlugin: CAPPlugin, CAPBridgedPlugin, ASAuthorization
     result["identityToken"] = identityToken
     result["nonce"] = currentNonce
 
-    if let userIdentifier = credential.user, !userIdentifier.isEmpty {
-      result["userIdentifier"] = userIdentifier
+    if !credential.user.isEmpty {
+      result["userIdentifier"] = credential.user
     }
 
     if let authCodeData = credential.authorizationCode,
@@ -122,7 +122,7 @@ public class NativeAppleAuthPlugin: CAPPlugin, CAPBridgedPlugin, ASAuthorization
       }
     }
 
-    logEvent("apple_native_success", "hasUserId=\(!(credential.user ?? "").isEmpty)")
+    logEvent("apple_native_success", "hasUserId=\(!credential.user.isEmpty)")
     call.resolve(result)
   }
 

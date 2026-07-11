@@ -50,7 +50,6 @@ import {
   invalidateCallMediaPermissionCheckCache,
   isCallMediaPermissionBlockedUiMessage,
 } from "@/lib/community-messenger/call-media-permission-preflight";
-import { runCallMediaEducationBeforeGesture } from "@/lib/permissions/education/permission-education-orchestrator";
 import {
   isCallMediaGrantedSync,
   syncDevicePermissionState,
@@ -2943,14 +2942,6 @@ export function CommunityMessengerCallClient({
         }
       }
     }
-    const education = await runCallMediaEducationBeforeGesture(s.callKind, "incoming");
-    if (!education.proceed) {
-      if (!s.isMineInitiator) {
-        setCalleeVideoConnectingShell(false);
-        releaseIncomingCallAccept(s.id);
-      }
-      return null;
-    }
     const permission = await ensureCallMediaForUserGesture(s.callKind);
     if (!permission.ok) {
       setCallPermissionBlocked(true);
@@ -3242,19 +3233,13 @@ export function CommunityMessengerCallClient({
       /**
        * ringing + action=accept — gateway PATCH 1회 (nativePrep 포함).
        */
-      await acceptIncoming();
-      const education = await runCallMediaEducationBeforeGesture(loaded.callKind, "incoming");
-      if (!education.proceed) {
+      const permission = await ensureCallMediaForUserGesture(loaded.callKind);
+      if (!permission.ok) {
         setCallPermissionBlocked(true);
         setErrorMessage(t(getCallMediaPermissionBlockedMessageKey(loaded.callKind)));
         return;
       }
-      void ensureCallMediaForUserGesture(loaded.callKind).then((permission) => {
-        if (!permission.ok) {
-          setCallPermissionBlocked(true);
-          setErrorMessage(t(getCallMediaPermissionBlockedMessageKey(loaded.callKind)));
-        }
-      });
+      await acceptIncoming();
     } catch {
       setCalleeVideoConnectingShell(false);
       setErrorMessage(t("cm_ui_call_accept_failed"));
@@ -3545,11 +3530,6 @@ export function CommunityMessengerCallClient({
     setPendingVideoUpgradeRequest(false);
     setIncomingVideoUpgradeRequest(false);
     try {
-      const education = await runCallMediaEducationBeforeGesture("video", "outgoing");
-      if (!education.proceed) {
-        setErrorMessage(t(getCallMediaPermissionBlockedMessageKey("video")));
-        return false;
-      }
       const perm = await ensureCallMediaForUserGesture("video");
       if (!perm.ok) {
         setErrorMessage(t(getCallMediaPermissionBlockedMessageKey("video")));

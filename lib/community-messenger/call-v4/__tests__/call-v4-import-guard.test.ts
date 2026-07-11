@@ -366,22 +366,23 @@ describe("call-v4 import isolation", () => {
     }
   });
 
-  it("P2-2 callV4CreateOutgoing Android routes Web presentation only outside native-owned success", () => {
+  it("P2-2 callV4CreateOutgoing Android+iOS routes Web presentation only outside native-owned success", () => {
     const actions = read("lib/community-messenger/call-v4/call-v4-actions.ts");
     expect(actions).toContain("isAndroidNativeOutgoingShell");
+    expect(actions).toContain("isIOSNativeOutgoingShell");
     expect(actions).toContain("native_outgoing_failed");
     expect(actions).toContain("native_establishment_unavailable");
     expect(actions).toContain("startCallV4OutgoingMissedTimer");
     expect(actions).toContain("shouldRouteToWebOutgoingPresentation = false");
     expect(actions).toContain('routeToCallV4Screen(input.router, created.session.id, "outgoing")');
     expect(actions).toContain('useCallV4Store.getState().setPhase("outgoing_ringing")');
-    const androidBlock = actions.match(/if \(isAndroidNativeOutgoingShell\(\)\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
-    expect(androidBlock).toContain("native_outgoing_failed");
-    expect(androidBlock).toContain("native_outgoing_handoff_done");
-    expect(androidBlock).toContain("shouldRouteToWebOutgoingPresentation = false");
-    expect(androidBlock).not.toContain('routeToCallV4Screen(input.router, created.session.id, "outgoing")');
-    expect(androidBlock).not.toContain("resetToIdle");
-    expect(androidBlock).not.toContain("outgoingGenericErrorMessage");
+    const nativeBlock = actions.match(/if \(androidNativeShell \|\| iosNativeShell\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
+    expect(nativeBlock).toContain("native_outgoing_failed");
+    expect(nativeBlock).toContain("native_outgoing_handoff_done");
+    expect(nativeBlock).toContain("shouldRouteToWebOutgoingPresentation = false");
+    expect(nativeBlock).not.toContain('routeToCallV4Screen(input.router, created.session.id, "outgoing")');
+    expect(nativeBlock).not.toContain("resetToIdle");
+    expect(nativeBlock).not.toContain("outgoingGenericErrorMessage");
   });
 
   it("Track ③ — Android Legacy dead files removed (HARD LOCK)", () => {

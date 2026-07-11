@@ -47,6 +47,7 @@ import {
   noteHomeVisibilityRestored,
   shouldBlockSilentHomeSyncForVisibilityRestore,
 } from "@/lib/community-messenger/home/lite-merge-gate";
+import { invalidateCommunityMessengerHomeSilentListsReplay } from "@/lib/community-messenger/cm-home-silent-lists-fetch";
 
 const HOME_SUMMARY_MIN_FETCH_GAP_MS = 1_500;
 /** Realtime meta → home-sync silent refresh 최소 간격(부트스트랩 debounce 와 정렬) */
@@ -618,6 +619,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
         if (String(ev.viewerUserId) !== me) return;
         const readRow = findHomeListRoomRow(peekBootstrapCache(), ev.roomId);
         if (readRow && (readRow.unreadCount ?? 0) === 0) {
+          invalidateCommunityMessengerHomeSilentListsReplay({ tier: "full" });
           registerBusRoomReadUnreadZeroForDedupe(ev.roomId);
           return;
         }
@@ -649,6 +651,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
           roomId: ev.roomId,
         });
         clearHomeListServerUnreadIncrease(ev.roomId);
+        invalidateCommunityMessengerHomeSilentListsReplay({ tier: "full" });
         let missedRead = false;
         scheduleListPatch((prev) => {
           const next = applyHomeListPatch(

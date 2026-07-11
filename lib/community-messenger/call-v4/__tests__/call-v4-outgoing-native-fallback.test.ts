@@ -3,6 +3,7 @@ import type { CommunityMessengerCallSession } from "@/lib/community-messenger/ty
 
 const bridgeMocks = vi.hoisted(() => ({
   isAndroidNativeOutgoingShell: vi.fn(() => false),
+  isIOSNativeOutgoingShell: vi.fn(async () => false),
   startNativeOutgoingEstablishment: vi.fn(async () => ({ ok: false, nativeOwned: false })),
 }));
 
@@ -32,6 +33,7 @@ const apiMocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/call/native/native-outgoing-bridge", () => ({
   isAndroidNativeOutgoingShell: bridgeMocks.isAndroidNativeOutgoingShell,
+  isIOSNativeOutgoingShell: bridgeMocks.isIOSNativeOutgoingShell,
   startNativeOutgoingEstablishment: bridgeMocks.startNativeOutgoingEstablishment,
   isNativeEstablishmentOwned: vi.fn(async () => false),
 }));
@@ -53,6 +55,7 @@ describe("call-v4-outgoing-native-fallback (P2-2)", () => {
   beforeEach(() => {
     useCallV4Store.getState().resetToIdle();
     bridgeMocks.isAndroidNativeOutgoingShell.mockReturnValue(false);
+    bridgeMocks.isIOSNativeOutgoingShell.mockResolvedValue(false);
     bridgeMocks.startNativeOutgoingEstablishment.mockResolvedValue({ ok: false, nativeOwned: false });
     apiMocks.reconcile.mockClear();
     apiMocks.resolveRoom.mockClear();
@@ -96,6 +99,7 @@ describe("call-v4-outgoing-native-fallback (P2-2)", () => {
 
   it("non-Android: handoff failure still uses legacy Web outgoing route", async () => {
     bridgeMocks.isAndroidNativeOutgoingShell.mockReturnValue(false);
+    bridgeMocks.isIOSNativeOutgoingShell.mockResolvedValue(false);
     bridgeMocks.startNativeOutgoingEstablishment.mockResolvedValue({ ok: false, nativeOwned: false });
 
     const replace = vi.fn();

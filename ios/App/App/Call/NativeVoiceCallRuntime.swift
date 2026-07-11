@@ -4,7 +4,7 @@ import Foundation
  * Phase 1-A — iOS Native Voice Call Runtime state machine.
  *
  * Owns at most one active voice session. Thread-safe via a dedicated serial queue.
- * Phase publish fan-out: NativeVoiceCallUiHost (incoming UI only).
+ * Phase publish fan-out: NativeVoiceCallUiHost (incoming + outgoing voice UI).
  */
 final class NativeVoiceCallRuntime: @unchecked Sendable {
   static let shared = NativeVoiceCallRuntime()
@@ -49,6 +49,7 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
   func registerOutgoingSession(_ session: NativeVoiceCallSession) throws {
     try queue.sync {
       try registerLocked(session, expectedDirection: .outgoing, presentedPhase: .outgoingStarting)
+      publishUiLocked(source: "register_outgoing")
     }
   }
 
@@ -277,7 +278,7 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
         // Idempotent re-register of the same session.
         return
       }
-      if !isTerminal(phase) {
+      if !canReplaceActiveSessionForNewCall(phase) {
         throw NativeVoiceCallRuntimeError.conflictingActiveCall
       }
       clearSessionLocked()
@@ -318,6 +319,17 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
     }
   }
 
+  /// Local end is async — `.ending` still holds the previous session until `markEnded`.
+  /// Allow immediate re-dial with a new callId while the prior HTTP cleanup finishes.
+  private func canReplaceActiveSessionForNewCall(_ phase: NativeVoiceCallPhase) -> Bool {
+    switch phase {
+    case .ended, .failed, .idle, .ending:
+      return true
+    default:
+      return false
+    }
+  }
+
   private func isPostAcceptPipeline(_ phase: NativeVoiceCallPhase) -> Bool {
     switch phase {
     case .tokenPending, .joining, .connected:
@@ -329,18 +341,15 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
 
   private func publishUiLocked(source: String) {
     let snap = NativeVoiceCallRuntimeSnapshot(session: session, phase: phase)
-    guard snap.session?.direction == .incoming else { return }
     DispatchQueue.main.async {
-      NativeVoiceCallUiHost.handleRuntimeSnapshot(snap)
-      _ = source
+      NativeVoiceCallUiHost.handleRuntimeSnapshot(snap, source: source)
     }
   }
 
   private func publishIdleLocked(source: String) {
     let snap = NativeVoiceCallRuntimeSnapshot(session: nil, phase: .idle)
     DispatchQueue.main.async {
-      NativeVoiceCallUiHost.handleRuntimeSnapshot(snap)
-      _ = source
+      NativeVoiceCallUiHost.handleRuntimeSnapshot(snap, source: source)
     }
   }
 }

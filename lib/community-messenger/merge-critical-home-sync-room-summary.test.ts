@@ -276,6 +276,38 @@ describe("mergeMessengerRoomSummaryForHomeSyncCriticalPatch", () => {
     expect(out.unreadCount).toBe(5);
   });
 
+  it("M2 RC-1 A: private_group allows post-read home-sync zero without read-clear payload evidence", () => {
+    const ts = "2026-01-02T00:00:00.000Z";
+    const prev = room({ id: "g1", roomType: "private_group", lastMessageAt: ts, unreadCount: 2 });
+    const incoming = room({ id: "g1", roomType: "private_group", lastMessageAt: ts, unreadCount: 0 });
+    expect(shouldBlockCriticalPatchStaleZeroClobber(prev, incoming)).toBe(false);
+    const out = mergeMessengerRoomSummaryForHomeSyncCriticalPatch(prev, incoming);
+    expect(out.unreadCount).toBe(0);
+  });
+
+  it("M2 RC-1 A: direct trade contextMeta still blocks stale zero (chats bucket)", () => {
+    const ts = "2026-01-02T00:00:00.000Z";
+    const tradeMeta = { v: 1 as const, kind: "trade" as const, headline: "Item" };
+    const prev = room({ id: "t1", lastMessageAt: ts, unreadCount: 3, contextMeta: tradeMeta });
+    const incoming = room({ id: "t1", lastMessageAt: ts, unreadCount: 0, contextMeta: tradeMeta });
+    expect(shouldBlockCriticalPatchStaleZeroClobber(prev, incoming)).toBe(true);
+    expect(mergeMessengerRoomSummaryForHomeSyncCriticalPatch(prev, incoming).unreadCount).toBe(3);
+  });
+
+  it("M2 RC-1 A: direct delivery contextMeta still blocks stale zero (chats bucket)", () => {
+    const ts = "2026-01-02T00:00:00.000Z";
+    const deliveryMeta = {
+      v: 1 as const,
+      kind: "delivery" as const,
+      storeOrderId: "order-1",
+      headline: "Order",
+    };
+    const prev = room({ id: "d1", lastMessageAt: ts, unreadCount: 2, contextMeta: deliveryMeta });
+    const incoming = room({ id: "d1", lastMessageAt: ts, unreadCount: 0, contextMeta: deliveryMeta });
+    expect(shouldBlockCriticalPatchStaleZeroClobber(prev, incoming)).toBe(true);
+    expect(mergeMessengerRoomSummaryForHomeSyncCriticalPatch(prev, incoming).unreadCount).toBe(2);
+  });
+
   it("critical_patch stale zero blocked when recent server unread increase TTL is active", () => {
     const ts = "2026-01-02T00:00:00.000Z";
     noteHomeListServerUnreadIncrease("r1", 5);

@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resetNotificationPermissionSyncForTests } from "@/lib/permissions/permission-manager/notification-permission-manager";
 
-const openNotificationGuideModal = vi.fn();
 const requestNotificationFromGuide = vi.fn();
 const registerWebPushSubscriptionFromClient = vi.fn();
 
@@ -31,10 +30,6 @@ const readySnapshot = {
 
 vi.mock("@/lib/platform/capacitor-native", () => ({
   isCapacitorNativePlatform: vi.fn(() => false),
-}));
-
-vi.mock("@/lib/permissions/permission-manager/notification-permission-ui-bridge", () => ({
-  openNotificationGuideModal: (...args: unknown[]) => openNotificationGuideModal(...args),
 }));
 
 vi.mock("@/lib/permissions/permission-manager/notification-permission-manager", async (importOriginal) => {
@@ -71,13 +66,12 @@ describe("runNotificationGuideFlow (web)", () => {
     });
   });
 
-  it("does not open app guide modal on passive first_login", async () => {
+  it("does not call OS prompt on passive first_login", async () => {
     const { runNotificationGuideFlow } = await import(
       "@/lib/permissions/permission-manager/notification-onboarding-flow"
     );
     const result = await runNotificationGuideFlow("first_login");
     expect(result).toBe("declined");
-    expect(openNotificationGuideModal).not.toHaveBeenCalled();
     expect(requestNotificationFromGuide).not.toHaveBeenCalled();
   });
 
@@ -86,7 +80,6 @@ describe("runNotificationGuideFlow (web)", () => {
       "@/lib/permissions/permission-manager/notification-onboarding-flow"
     );
     const result = await runNotificationGuideFlow("settings_retry");
-    expect(openNotificationGuideModal).not.toHaveBeenCalled();
     expect(requestNotificationFromGuide).toHaveBeenCalledTimes(1);
     expect(result).toBe("granted");
     expect(registerWebPushSubscriptionFromClient).toHaveBeenCalled();
@@ -106,7 +99,6 @@ describe("runNotificationGuideFlow (web)", () => {
       "@/lib/permissions/permission-manager/notification-onboarding-flow"
     );
     const result = await runNotificationGuideFlow("settings_retry");
-    expect(openNotificationGuideModal).not.toHaveBeenCalled();
     expect(result).toBe("browser_denied");
     expect(requestNotificationFromGuide).not.toHaveBeenCalled();
   });

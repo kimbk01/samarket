@@ -4,7 +4,6 @@ import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types
 import { logDibayCallFlow } from "@/lib/call/logging/call-flow-log";
 import {
   checkNativeCallOsPermissions,
-  openNativeCallPermissionSettings,
   requestNativeCallMediaPermissions,
 } from "@/lib/call/native/native-call-permissions";
 import {
@@ -107,7 +106,6 @@ export async function promptCallPermission(
   if ((kind === "video" ? before.canVideo : before.canVoice) || !osNeedsPrompt(kind, before.os)) {
     if (before.isPermanentlyDenied) {
       logDibayCallFlow("permission_prompt_denied", { kind, context, settingsOnly: true });
-      await openNativeCallPermissionSettings();
     }
     return before;
   }

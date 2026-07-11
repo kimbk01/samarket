@@ -8,6 +8,7 @@ import type {
   CommunityMessengerRoomContextMetaV1,
   CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
+import { isCommunityMessengerPrivateGroupListRoomType } from "@/lib/community-messenger/types";
 
 /** home list — server unread 증가 직후 stale bus zero 차단 TTL (critical_patch · delta · summary_patch 공유) */
 const HOME_LIST_SERVER_UNREAD_INCREASE_TTL_MS = 8_000;
@@ -194,6 +195,10 @@ export function shouldBlockCriticalPatchStaleZeroClobber(
   }
 
   if (hasCriticalPatchReadClearEvidence(prev, incoming)) return false;
+
+  // M2 RC-1 (A): `groups[]` private_group — post-read home-sync `unreadCount=0` merge 허용.
+  // `chats[]` direct·trade·delivery 는 stale-zero block 유지.
+  if (isCommunityMessengerPrivateGroupListRoomType(prev.roomType)) return false;
 
   const recentServerUnread = peekRecentHomeListServerUnreadIncrease(incoming.id);
   if (recentServerUnread != null && recentServerUnread > 0) return true;

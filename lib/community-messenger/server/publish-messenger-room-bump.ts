@@ -51,6 +51,39 @@ export async function publishMessengerRoomBumpAfterMutation(args: {
   try {
     const sb = getSupabaseServer();
     await bumpMessengerRoomTargetsForRecipients(sb, { roomId: canon, fromUserId });
+    const { data: roomRow } = await sb
+      .from("community_messenger_rooms")
+      .select("room_type, direct_key")
+      .eq("id", canon)
+      .maybeSingle();
+    const roomMeta =
+      roomRow && typeof roomRow === "object"
+        ? (roomRow as { room_type?: unknown; direct_key?: unknown })
+        : null;
+    const { data: participantRows } = await sb
+      .from("community_messenger_participants")
+      .select("user_id")
+      .eq("room_id", canon);
+    const recipientUserIds = (participantRows ?? [])
+      .map((row) =>
+        row && typeof row === "object" && typeof (row as { user_id?: unknown }).user_id === "string"
+          ? (row as { user_id: string }).user_id.trim()
+          : ""
+      )
+      .filter(Boolean);
+    void import("@/lib/notifications/engine/adapters/legacy-target-bump-adapter").then((mod) =>
+      mod
+        .runLegacyTargetBumpNotificationEngineAdapter(sb, {
+          roomId: canon,
+          fromUserId,
+          recipientUserIds,
+          messageId: args.messageId,
+          messageCreatedAt: args.messageCreatedAt,
+          roomType: typeof roomMeta?.room_type === "string" ? roomMeta.room_type : null,
+          directKey: typeof roomMeta?.direct_key === "string" ? roomMeta.direct_key : null,
+        })
+        .catch(() => {})
+    );
   } catch {
     /* badge target bump best-effort */
   }

@@ -2,8 +2,10 @@
 
 import { callV4FetchSessionForCallerPoll } from "@/lib/community-messenger/call-v4/call-v4-api";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
+import { markCallV4NativeConnectedOps } from "@/lib/community-messenger/call-v4/call-v4-phase-bridge";
+import { clearCallV4MissedTimer } from "@/lib/community-messenger/call-v4/call-v4-missed-timeout";
 import type { CallV4Router } from "@/lib/community-messenger/call-v4/call-v4-route";
-import { readCallV4Identity, readCallV4Phase } from "@/lib/community-messenger/call-v4/call-v4-store";
+import { readCallV4Identity, readCallV4Phase, useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
 import type { CallV4Phase } from "@/lib/community-messenger/call-v4/call-v4-types";
 import { isNativeEstablishmentOwned } from "@/lib/call/native/native-outgoing-bridge";
 
@@ -62,6 +64,13 @@ async function tickOutgoingTerminalSync(meta: SyncMeta): Promise<void> {
 
   const status = fetchResult.session?.status ?? null;
   if (status === "active") {
+    const phase = readCallV4Phase();
+    if (phase === "outgoing_ringing" && readCallV4Identity()?.callId === sid) {
+      useCallV4Store.setState({ phase: "connected", connectedAt: Date.now() });
+      markCallV4NativeConnectedOps(sid, "outgoing_terminal_sync_active");
+      clearCallV4MissedTimer(sid);
+      logCallV4("outgoing_terminal_sync_promoted_connected", { callId: sid });
+    }
     stopNativeOutgoingTerminalSync(sid);
     return;
   }

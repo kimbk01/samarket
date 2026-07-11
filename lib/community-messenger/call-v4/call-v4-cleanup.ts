@@ -13,6 +13,8 @@ import { resetCallV4AcceptPatchStateForCallId } from "@/lib/community-messenger/
 import { forceResetCommunityMessengerCallRuntimeSurface } from "@/lib/community-messenger/call-runtime-registry";
 import { useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
 import type { CallV4TerminalPhase } from "@/lib/community-messenger/call-v4/call-v4-types";
+import { clearNativeConnectedHydrationForCall } from "@/lib/call/native/native-connected-sync";
+import { clearNativeLocalTerminalHandledForCall } from "@/lib/call/native/native-terminal-sync";
 import { releaseConnectedVideoScreenAwake } from "@/lib/call/native/screen-awake-bridge";
 
 function logCleanupStepFailure(callId: string, step: string, error: unknown): void {
@@ -61,6 +63,8 @@ export async function cleanupCallV4(callId: string, reason: CallV4TerminalPhase 
   syncCallV4NativeTerminalCleanup(sid, reason);
   clearCallV4NativeIncomingSurface(sid, "cleanup");
   clearCallV4SurfaceOwner(sid, "cleanup");
+  clearNativeConnectedHydrationForCall(sid);
+  clearNativeLocalTerminalHandledForCall(sid);
   useCallV4MediaStore.getState().reset();
   forceResetCommunityMessengerCallRuntimeSurface();
   try {
