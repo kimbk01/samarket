@@ -18,7 +18,8 @@ export type CallV4ForegroundResumeSkipReason =
   | "already_on_call_screen"
   | "terminal_status"
   | "duplicate_restore"
-  | "legacy_web_establishment_removed";
+  | "legacy_web_establishment_removed"
+  | "native_establishment_owned";
 
 export type CallV4ForegroundResumeDecision =
   | { action: "restore"; callId: string; href: string }
@@ -35,6 +36,7 @@ export function evaluateCallV4ForegroundResume(input: {
   nativeSnapshot: NativeActiveCallSnapshot | null;
   dedupeKey: string | null;
   lastRestoreKey: string | null;
+  nativeEstablishmentOwned?: boolean;
 }): CallV4ForegroundResumeDecision {
   const laneEnabled = input.laneEnabled ?? isCallV4TelegramLaneEnabled();
   const storeCallId = input.storeCallId?.trim() ?? "";
@@ -79,6 +81,10 @@ export function evaluateCallV4ForegroundResume(input: {
 
   if (input.dedupeKey && input.lastRestoreKey === input.dedupeKey) {
     return { action: "skip", reason: "duplicate_restore", callId: sid };
+  }
+
+  if (input.nativeEstablishmentOwned === true) {
+    return { action: "skip", reason: "native_establishment_owned", callId: sid };
   }
 
   return {

@@ -73,19 +73,6 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
     let hasVideo = (data["kind"] as? String) == "video"
     let roomId = stringField(data, keys: ["roomId", "room_id"])
     let callerId = stringField(data, keys: ["callerId", "caller_id"])
-    if NativeVoiceCallLane.isEnabled() && !hasVideo {
-      CallV4SurfaceOwnerBridge.deliver(
-        callId: sessionId,
-        owner: "native_fsi",
-        reason: "ios_native_voice_incoming"
-      )
-    } else {
-      CallV4SurfaceOwnerBridge.deliver(
-        callId: sessionId,
-        owner: "native_fsi",
-        reason: "ios_callkit_incoming"
-      )
-    }
     callProvider.reportIncomingCall(
       uuidString: sessionId,
       handle: caller,
@@ -104,6 +91,18 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
           callId: sessionId,
           owner: "notification_fallback",
           reason: "ios_callkit_incoming_failed"
+        )
+      } else if NativeVoiceCallLane.isEnabled() && !hasVideo {
+        CallV4SurfaceOwnerBridge.deliver(
+          callId: sessionId,
+          owner: "native_fsi",
+          reason: "ios_native_voice_incoming"
+        )
+      } else {
+        CallV4SurfaceOwnerBridge.deliver(
+          callId: sessionId,
+          owner: "native_fsi",
+          reason: "ios_callkit_incoming"
         )
       }
       completion()
@@ -126,7 +125,7 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
     // Ambiguous fallback — callUuidBySessionId is populated by BOTH reportIncomingCall
     // and reportOutgoingCallStarted, so a bare session-id match cannot prove direction.
     // Explicitly exclude known-outgoing sessions before trusting this fallback.
-    guard callProvider.getActiveCallSessionId() == sid else { return false }
+    guard callProvider.hasTrackedCallKitSession(sessionId: sid) else { return false }
     return !callProvider.isOutgoingSession(sid)
   }
 

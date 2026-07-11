@@ -33,6 +33,7 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
     completion: @escaping (Error?) -> Void
   ) {
     let sessionId = uuidString.trimmingCharacters(in: .whitespacesAndNewlines)
+    reconcileStaleSessionsBeforeIncoming(newSessionId: sessionId, hasVideo: hasVideo)
     let uuid = uuidFromSession(sessionId: sessionId)
     callUuidBySessionId[sessionId] = uuid
     hasVideoBySessionId[sessionId] = hasVideo
@@ -151,9 +152,47 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
     }
   }
 
-  /** NativeCallService contract — in-memory CallKit map */
+  /** NativeCallService contract — prefer live Runtime session; never leak stale CallKit-only ids. */
   func getActiveCallSessionId() -> String? {
-    callUuidBySessionId.keys.first
+    if let active = NativeVoiceCallRuntime.shared.snapshot().session {
+      return active.sessionId
+    }
+    if NativeVideoCallLane.isEnabled(), let video = NativeVideoCallRuntime.shared.snapshot().session {
+      return video.sessionId
+    }
+    return nil
+  }
+
+  /// Clear orphan CallKit entries and stuck `.rejecting` runtime before a new incoming ring.
+  private func reconcileStaleSessionsBeforeIncoming(newSessionId: String, hasVideo: Bool) {
+    let sid = newSessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !sid.isEmpty else { return }
+
+    if !hasVideo {
+      let snap = NativeVoiceCallRuntime.shared.snapshot()
+      if let active = snap.session, active.sessionId != sid {
+        switch snap.phase {
+        case .rejecting, .ending, .ended, .failed:
+          DibayCallLog.info(
+            "ios_callkit_runtime_stale_cleared",
+            sessionId: active.sessionId,
+            detail: "reason=before_incoming phase=\(String(describing: snap.phase))"
+          )
+          NativeVoiceIncomingCallCoordinator.shared.handleRemoteTerminal(sessionId: active.sessionId)
+        default:
+          break
+        }
+      }
+    }
+
+    for existing in Array(callUuidBySessionId.keys) where existing != sid {
+      DibayCallLog.info(
+        "ios_callkit_stale_cleared",
+        sessionId: existing,
+        detail: "reason=before_incoming"
+      )
+      endCallKitSession(sessionId: existing, reason: .failed, logDetail: "stale_before_incoming")
+    }
   }
 
   /**
@@ -164,6 +203,13 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
    */
   func isOutgoingSession(_ sessionId: String) -> Bool {
     outgoingSessionIds.contains(sessionId.trimmingCharacters(in: .whitespacesAndNewlines))
+  }
+
+  /** VoIP terminal disambiguation — map entry may exist while Runtime is already idle. */
+  func hasTrackedCallKitSession(sessionId: String) -> Bool {
+    let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !sid.isEmpty else { return false }
+    return callUuidBySessionId[sid] != nil
   }
 
   private func uuidFromSession(sessionId: String) -> UUID {

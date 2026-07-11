@@ -9,6 +9,7 @@ public class NativeCallServicePlugin: CAPPlugin, CAPBridgedPlugin {
 
   private static var connectedEmitted = Set<String>()
   private static var terminalEmitted = Set<String>()
+  private static var pendingTerminalPayloads: [JSObject] = []
   private static weak var pluginInstance: NativeCallServicePlugin?
 
   public let identifier = "NativeCallServicePlugin"
@@ -34,6 +35,7 @@ public class NativeCallServicePlugin: CAPPlugin, CAPBridgedPlugin {
   public override func load() {
     super.load()
     NativeCallServicePlugin.pluginInstance = self
+    NativeCallServicePlugin.flushPendingTerminalEmits(using: self)
   }
 
   /** O3 — idempotent native connected publish (Android `publishNativeConnected` parity). */
@@ -99,8 +101,23 @@ public class NativeCallServicePlugin: CAPPlugin, CAPBridgedPlugin {
   }
 
   private static func emitNativeCallTerminal(_ payload: JSObject) {
-    guard let plugin = pluginInstance else { return }
+    guard let plugin = pluginInstance else {
+      pendingTerminalPayloads.append(payload)
+      DibayCallLog.info("ios_native_terminal_emit_deferred", detail: "pending_count=\(pendingTerminalPayloads.count)")
+      return
+    }
+    flushPendingTerminalEmits(using: plugin)
     plugin.notifyListeners(eventNativeCallTerminal, data: payload)
+  }
+
+  private static func flushPendingTerminalEmits(using plugin: NativeCallServicePlugin) {
+    guard !pendingTerminalPayloads.isEmpty else { return }
+    let queue = pendingTerminalPayloads
+    pendingTerminalPayloads.removeAll()
+    for payload in queue {
+      plugin.notifyListeners(eventNativeCallTerminal, data: payload)
+    }
+    DibayCallLog.info("ios_native_terminal_emit_flushed", detail: "count=\(queue.count)")
   }
 
   @objc func prepareAccept(_ call: CAPPluginCall) {
@@ -186,8 +203,34 @@ public class NativeCallServicePlugin: CAPPlugin, CAPBridgedPlugin {
   }
 
   @objc func getActiveCallId(_ call: CAPPluginCall) {
-    let active = DibayActiveCallSessionManager.shared.callId ?? CallKitProvider.shared.getActiveCallSessionId()
-    call.resolve(["callId": active as Any])
+    if let runtimeId = NativeVoiceCallRuntime.shared.snapshot().session?.sessionId {
+      let sid = runtimeId.trimmingCharacters(in: .whitespacesAndNewlines)
+      if !sid.isEmpty {
+        call.resolve(["callId": sid])
+        return
+      }
+    }
+    if NativeVideoCallLane.isEnabled(),
+       let videoId = NativeVideoCallRuntime.shared.snapshot().session?.sessionId
+    {
+      let sid = videoId.trimmingCharacters(in: .whitespacesAndNewlines)
+      if !sid.isEmpty {
+        call.resolve(["callId": sid])
+        return
+      }
+    }
+    if let managerId = DibayActiveCallSessionManager.shared.callId {
+      let sid = managerId.trimmingCharacters(in: .whitespacesAndNewlines)
+      if !sid.isEmpty {
+        call.resolve(["callId": sid])
+        return
+      }
+    }
+    if let callkitId = CallKitProvider.shared.getActiveCallSessionId() {
+      call.resolve(["callId": callkitId])
+      return
+    }
+    call.resolve(["callId": NSNull()])
   }
 
   @objc func heartbeat(_ call: CAPPluginCall) {

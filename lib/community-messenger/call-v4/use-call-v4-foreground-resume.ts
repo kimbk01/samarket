@@ -7,8 +7,9 @@ import {
   readNativeActiveCallId,
   readNativeActiveCallSnapshot,
 } from "@/lib/call/native/native-call-service";
+import { isNativeEstablishmentOwned } from "@/lib/call/native/native-outgoing-bridge";
 import { isLegacyWebCallEstablishmentRemoved } from "@/lib/call/native/legacy-web-call-establishment-removed";
-import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
+import { isCapacitorNativePlatform, resolveCapacitorShellPlatform } from "@/lib/platform/capacitor-native";
 import {
   applyCallV4ForegroundResumeRestore,
   buildCallV4ForegroundResumeDedupeKey,
@@ -68,6 +69,10 @@ export function useCallV4ForegroundResume(): void {
       try {
         const nativeSnapshot = await readNativeActiveCallSnapshot();
         const nativeCallId = (nativeSnapshot?.callId ?? (await readNativeActiveCallId()))?.trim() ?? "";
+        const nativeEstablishmentOwned =
+          resolveCapacitorShellPlatform() === "ios" && nativeCallId
+            ? await isNativeEstablishmentOwned(nativeCallId)
+            : false;
         const dedupeKey = nativeCallId
           ? buildCallV4ForegroundResumeDedupeKey(nativeCallId, pathname)
           : null;
@@ -80,6 +85,7 @@ export function useCallV4ForegroundResume(): void {
           nativeSnapshot,
           dedupeKey,
           lastRestoreKey: lastRestoreKeyRef.current,
+          nativeEstablishmentOwned,
         });
 
         if (decision.action === "skip") {

@@ -20,6 +20,24 @@ import { clearNativeConnectedHydrationForCall } from "@/lib/call/native/native-c
 import { isCapacitorNativePlatform, resolveCapacitorShellPlatform } from "@/lib/platform/capacitor-native";
 
 const handledNativeLocalTerminal = new Set<string>();
+const pendingNativeLocalTerminal: NativeCallTerminalPayload[] = [];
+let nativeTerminalListenerReady = false;
+
+function deliverNativeLocalTerminal(payload: NativeCallTerminalPayload): void {
+  if (nativeTerminalListenerReady) {
+    void onNativeCallLocalTerminal(payload);
+    return;
+  }
+  pendingNativeLocalTerminal.push(payload);
+}
+
+function flushPendingNativeLocalTerminal(): void {
+  nativeTerminalListenerReady = true;
+  const queued = pendingNativeLocalTerminal.splice(0);
+  for (const payload of queued) {
+    void onNativeCallLocalTerminal(payload);
+  }
+}
 
 function mapNativeTerminalReason(reason: string): string {
   const normalized = reason.trim().toLowerCase();
@@ -90,7 +108,7 @@ export function startNativeTerminalSync(): () => void {
   let handle: PluginListenerHandle | null = null;
 
   void nativeCallServicePlugin.addListener(NATIVE_CALL_TERMINAL_EVENT, (payload) => {
-    void onNativeCallLocalTerminal(payload as NativeCallTerminalPayload);
+    deliverNativeLocalTerminal(payload as NativeCallTerminalPayload);
   })
     .then((subscription) => {
       if (disposed) {
@@ -98,6 +116,7 @@ export function startNativeTerminalSync(): () => void {
         return;
       }
       handle = subscription;
+      flushPendingNativeLocalTerminal();
     })
     .catch(() => {
       /* plugin optional until native shell ready */
@@ -118,6 +137,8 @@ export function clearNativeLocalTerminalHandledForCall(callId: string): void {
 
 export function resetNativeTerminalSyncForTests(): void {
   handledNativeLocalTerminal.clear();
+  pendingNativeLocalTerminal.length = 0;
+  nativeTerminalListenerReady = false;
 }
 
 export type { NativeCallTerminalPayload };

@@ -100,6 +100,20 @@ describe("call-v4-foreground-resume", () => {
     expect(decision).toEqual({ action: "skip", reason: "duplicate_restore", callId: "call-abc" });
   });
 
+  it("skips when iOS native establishment owns the active call", () => {
+    const decision = evaluateCallV4ForegroundResume({
+      phase: "connected",
+      pathname: "/community-messenger",
+      storeCallId: "call-abc",
+      nativeCallId: "call-abc",
+      nativeSnapshot: { callId: "call-abc", phase: "CONNECTED", mediaType: "audio", connected: true },
+      dedupeKey: "call-abc:/community-messenger",
+      lastRestoreKey: null,
+      nativeEstablishmentOwned: true,
+    });
+    expect(decision).toEqual({ action: "skip", reason: "native_establishment_owned", callId: "call-abc" });
+  });
+
   it("applyCallV4ForegroundResumeRestore expands dock before route", () => {
     applyCallV4ForegroundResumeRestore({
       callId: "call-abc",
