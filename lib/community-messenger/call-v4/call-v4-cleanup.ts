@@ -23,6 +23,20 @@ function logCleanupStepFailure(callId: string, step: string, error: unknown): vo
   });
 }
 
+const NATIVE_ACTIVE_SESSION_STOP_TIMEOUT_MS = 1_500;
+
+async function stopCallV4NativeActiveSessionWithTimeout(callId: string, reason: string): Promise<void> {
+  await Promise.race([
+    stopCallV4NativeActiveSession(callId, reason),
+    new Promise<void>((resolve) => {
+      setTimeout(() => {
+        logCallV4("cleanup_native_active_session_timeout", { callId, reason, timeoutMs: NATIVE_ACTIVE_SESSION_STOP_TIMEOUT_MS });
+        resolve();
+      }, NATIVE_ACTIVE_SESSION_STOP_TIMEOUT_MS);
+    }),
+  ]);
+}
+
 export async function cleanupCallV4(callId: string, reason: CallV4TerminalPhase | string): Promise<void> {
   const sid = callId.trim();
   logCallV4("cleanup_start", { callId: sid, reason });
@@ -50,7 +64,7 @@ export async function cleanupCallV4(callId: string, reason: CallV4TerminalPhase 
   useCallV4MediaStore.getState().reset();
   forceResetCommunityMessengerCallRuntimeSurface();
   try {
-    await stopCallV4NativeActiveSession(sid, String(reason));
+    await stopCallV4NativeActiveSessionWithTimeout(sid, String(reason));
   } catch (error) {
     logCleanupStepFailure(sid, "stop_native_active_session", error);
   }

@@ -333,14 +333,33 @@ async function finalizeCallV4Terminal(
   router?: CallV4Router
 ): Promise<void> {
   const sid = callId.trim();
-  const wasAndroidOutgoingPresentationRoute = isAndroidOutgoingPresentationRoute(sid);
-  await cleanupCallV4(sid, reason);
-  pinCommunityMessengerCallTerminalSurfaceDismiss(sid);
-  void hardClearActiveCallSession(sid, "call_v4_terminal_finalize");
-  if (wasAndroidOutgoingPresentationRoute) {
-    logCallV4("android_outgoing_presentation_exit", {
+  const wasOutgoingPresentationRoute = isAndroidOutgoingPresentationRoute(sid);
+  const reasonStr = String(reason);
+  try {
+    await cleanupCallV4(sid, reason);
+    pinCommunityMessengerCallTerminalSurfaceDismiss(sid);
+    void hardClearActiveCallSession(sid, "call_v4_terminal_finalize");
+  } catch (error) {
+    logCallV4("terminal_finalize_cleanup_failed", {
       callId: sid,
-      reason: String(reason),
+      reason: reasonStr,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+  runCallV4ScreenExitAfterTerminalCleanup(sid, reasonStr, router, wasOutgoingPresentationRoute);
+}
+
+function runCallV4ScreenExitAfterTerminalCleanup(
+  callId: string,
+  reason: string,
+  router?: CallV4Router,
+  wasOutgoingPresentationRoute = false,
+): void {
+  const sid = callId.trim();
+  if (wasOutgoingPresentationRoute || isAndroidOutgoingPresentationRoute(sid)) {
+    logCallV4("outgoing_presentation_exit", {
+      callId: sid,
+      reason,
     });
     exitCallV4ScreenAfterCleanup(router);
     return;
@@ -349,19 +368,19 @@ async function finalizeCallV4Terminal(
     if (isAndroidOutgoingPresentationRoute(sid)) {
       logCallV4("android_outgoing_presentation_exit", {
         callId: sid,
-        reason: String(reason),
+        reason,
       });
       exitCallV4ScreenAfterCleanup(router);
     } else {
       logCallV4("legacy_web_establishment_removed", {
         callId: sid,
         trigger: "exit_screen_after_cleanup",
-        reason: String(reason),
+        reason,
       });
     }
     return;
   }
-  maybeExitCallV4ScreenAfterCleanup(sid, String(reason), router);
+  maybeExitCallV4ScreenAfterCleanup(sid, reason, router);
 }
 
 function mapCallV4RemoteTerminalReason(status: string | null | undefined): CallV4TerminalPhase {

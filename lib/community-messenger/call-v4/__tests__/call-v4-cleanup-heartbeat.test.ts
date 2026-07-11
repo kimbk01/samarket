@@ -87,4 +87,16 @@ describe("cleanupCallV4 heartbeat", () => {
     expect(stopCallV4NativeActiveSession).toHaveBeenCalledWith("call-native-fail", "ended");
     expect(useCallV4Store.getState().phase).toBe("idle");
   });
+
+  it("reaches cleanup_done when native active session stop hangs", async () => {
+    vi.useFakeTimers();
+    vi.mocked(stopCallV4NativeActiveSession).mockImplementation(
+      () => new Promise(() => undefined),
+    );
+    const done = cleanupCallV4("call-native-hang", "ended");
+    await vi.advanceTimersByTimeAsync(1_500);
+    await expect(done).resolves.toBeUndefined();
+    expect(useCallV4Store.getState().phase).toBe("idle");
+    vi.useRealTimers();
+  });
 });
