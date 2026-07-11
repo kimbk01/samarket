@@ -42,12 +42,22 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
     let sessionId = (data["sessionId"] as? String) ?? (data["session_id"] as? String) ?? UUID().uuidString
     let kind = data["call_push_kind"] as? String
     if kind == "call_canceled" || kind == "call_rejected" || kind == "call_ended" {
-      CallV4SurfaceOwnerBridge.deliver(
-        callId: sessionId,
-        owner: "terminal",
-        reason: "ios_voip_terminal_\(kind ?? "unknown")"
-      )
-      callProvider.reportCallEnded(uuidString: sessionId)
+      let terminalReason = "ios_voip_terminal_\(kind ?? "unknown")"
+      if isVoipTerminalIncomingSession(sessionId: sessionId) {
+        CallV4SurfaceOwnerBridge.deliver(
+          callId: sessionId,
+          owner: "terminal",
+          reason: terminalReason
+        )
+        callProvider.reportCallEnded(uuidString: sessionId)
+      } else {
+        DibayCallLog.infoCallV4(
+          "ios_voip_terminal_bridge_skipped",
+          callId: sessionId,
+          owner: "terminal",
+          reason: "\(terminalReason)_not_incoming"
+        )
+      }
       completion()
       return
     }
@@ -86,6 +96,22 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
       }
       completion()
     }
+  }
+
+  /// VoIP terminal dismiss applies only to registered incoming sessions — Web outgoing SSOT owns caller teardown.
+  private func isVoipTerminalIncomingSession(sessionId: String) -> Bool {
+    let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !sid.isEmpty else { return false }
+
+    if let voice = NativeVoiceCallRuntime.shared.getSession(sessionId: sid) {
+      return voice.direction == .incoming
+    }
+
+    if NativeVideoCallLane.isEnabled(), NativeVideoCallRuntime.shared.getSession(sessionId: sid) != nil {
+      return true
+    }
+
+    return callProvider.getActiveCallSessionId() == sid
   }
 
   private func stringField(_ data: [AnyHashable: Any], keys: [String]) -> String? {

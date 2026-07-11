@@ -36,6 +36,7 @@ function pickIncomingRingingCallee(sessions: CommunityMessengerCallSession[]): C
 }
 
 function isIncomingDiscoveryDuplicateSkip(callId: string): boolean {
+  if (shouldSkipIncomingDiscoveryForActiveOutgoing(callId)) return true;
   if (isCallV4NativeAcceptingSurface(callId)) return true;
   if (isNativeAcceptInflight(callId)) return true;
   if (typeof window !== "undefined") {
@@ -51,6 +52,16 @@ function isIncomingDiscoveryDuplicateSkip(callId: string): boolean {
   const current = readCallV4Identity();
   if (current?.callId !== callId) return false;
   return phase !== "idle";
+}
+
+/** Skip poll discovery when the same callId is the active outgoing session (stale server row). */
+export function shouldSkipIncomingDiscoveryForActiveOutgoing(callId: string): boolean {
+  const sid = callId.trim();
+  if (!sid) return false;
+  const identity = readCallV4Identity();
+  if (identity?.callId !== sid || identity.direction !== "outgoing") return false;
+  const phase = readCallV4Phase();
+  return phase === "creating" || phase === "outgoing_ringing";
 }
 
 function readCallV4IncomingDiscoveryPathname(): string | null {
@@ -140,7 +151,12 @@ export function startCallV4IncomingDiscovery(userId: string | null): () => void 
       const candidate = pickIncomingRingingCallee(sessions);
       if (!candidate?.id) return;
       const callId = candidate.id.trim();
-      if (isIncomingDiscoveryDuplicateSkip(callId)) return;
+      if (isIncomingDiscoveryDuplicateSkip(callId)) {
+        if (shouldSkipIncomingDiscoveryForActiveOutgoing(callId)) {
+          logCallV4("incoming_discovery_suppressed", { callId, reason: "active_outgoing_same_call_id" });
+        }
+        return;
+      }
       if (isCallV4NativeAcceptingSurface(callId)) {
         logCallV4("incoming_sheet_suppressed_native_accepting", { callId });
         return;
