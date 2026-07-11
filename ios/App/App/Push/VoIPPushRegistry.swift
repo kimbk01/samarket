@@ -41,7 +41,7 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
     let data = payload.dictionaryPayload
     let sessionId = (data["sessionId"] as? String) ?? (data["session_id"] as? String) ?? UUID().uuidString
     let kind = data["call_push_kind"] as? String
-    if kind == "call_canceled" || kind == "call_rejected" || kind == "call_ended" {
+    if kind == "call_canceled" || kind == "call_rejected" || kind == "call_ended" || kind == "missed_call" {
       let terminalReason = "ios_voip_terminal_\(kind ?? "unknown")"
       if isVoipTerminalIncomingSession(sessionId: sessionId) {
         CallV4SurfaceOwnerBridge.deliver(
@@ -58,12 +58,25 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
           reason: terminalReason
         )
         callProvider.reportCallEnded(uuidString: sessionId)
-      } else {
+      } else if callProvider.hasTrackedCallKitSession(sessionId: sessionId) {
         DibayCallLog.infoCallV4(
-          "ios_voip_terminal_bridge_skipped",
+          "ios_voip_terminal_callkit_clear",
           callId: sessionId,
           owner: "terminal",
-          reason: "\(terminalReason)_not_incoming"
+          reason: terminalReason
+        )
+        callProvider.reportCallEnded(uuidString: sessionId)
+      } else {
+        DibayCallLog.infoCallV4(
+          "ios_voip_terminal_orphan_clear",
+          callId: sessionId,
+          owner: "terminal",
+          reason: terminalReason
+        )
+        callProvider.endCallKitSession(
+          sessionId: sessionId,
+          reason: .failed,
+          logDetail: terminalReason
         )
       }
       completion()
@@ -73,6 +86,21 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
     let hasVideo = (data["kind"] as? String) == "video"
     let roomId = stringField(data, keys: ["roomId", "room_id"])
     let callerId = stringField(data, keys: ["callerId", "caller_id"])
+    // Baseline (8dcfa709): queue native_fsi before CallKit so background/locked VoIP wake
+    // can seed owner even when WebView is not ready yet (pendingByCallId).
+    if NativeVoiceCallLane.isEnabled() && !hasVideo {
+      CallV4SurfaceOwnerBridge.deliver(
+        callId: sessionId,
+        owner: "native_fsi",
+        reason: "ios_native_voice_incoming"
+      )
+    } else {
+      CallV4SurfaceOwnerBridge.deliver(
+        callId: sessionId,
+        owner: "native_fsi",
+        reason: "ios_callkit_incoming"
+      )
+    }
     callProvider.reportIncomingCall(
       uuidString: sessionId,
       handle: caller,
@@ -91,18 +119,6 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
           callId: sessionId,
           owner: "notification_fallback",
           reason: "ios_callkit_incoming_failed"
-        )
-      } else if NativeVoiceCallLane.isEnabled() && !hasVideo {
-        CallV4SurfaceOwnerBridge.deliver(
-          callId: sessionId,
-          owner: "native_fsi",
-          reason: "ios_native_voice_incoming"
-        )
-      } else {
-        CallV4SurfaceOwnerBridge.deliver(
-          callId: sessionId,
-          owner: "native_fsi",
-          reason: "ios_callkit_incoming"
         )
       }
       completion()

@@ -163,7 +163,7 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
     return nil
   }
 
-  /// Clear orphan CallKit entries and stuck `.rejecting` runtime before a new incoming ring.
+  /// Clear orphan CallKit entries and stuck runtime before a new incoming ring.
   private func reconcileStaleSessionsBeforeIncoming(newSessionId: String, hasVideo: Bool) {
     let sid = newSessionId.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !sid.isEmpty else { return }
@@ -171,16 +171,26 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
     if !hasVideo {
       let snap = NativeVoiceCallRuntime.shared.snapshot()
       if let active = snap.session, active.sessionId != sid {
+        let staleRuntime: Bool
         switch snap.phase {
-        case .rejecting, .ending, .ended, .failed:
+        case .connected, .outgoingStarting:
+          staleRuntime = false
+        case .incomingPresented, .rejecting, .accepting, .accepted, .tokenPending, .joining,
+          .ending, .ended, .failed, .idle:
+          staleRuntime = true
+        }
+        if staleRuntime {
           DibayCallLog.info(
             "ios_callkit_runtime_stale_cleared",
             sessionId: active.sessionId,
             detail: "reason=before_incoming phase=\(String(describing: snap.phase))"
           )
-          NativeVoiceIncomingCallCoordinator.shared.handleRemoteTerminal(sessionId: active.sessionId)
-        default:
-          break
+          NativeVoiceCallRuntime.shared.reset(sessionId: active.sessionId)
+          endCallKitSession(
+            sessionId: active.sessionId,
+            reason: .failed,
+            logDetail: "stale_runtime_before_incoming"
+          )
         }
       }
     }
