@@ -14,6 +14,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { patchIosCapacitorPackageClassList } from "./patch-ios-capacitor-package-class-list.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -94,6 +95,14 @@ for (const platform of targets) {
   });
   if (result.status !== 0) {
     process.exit(result.status ?? 1);
+  }
+  if (platform === "ios") {
+    const patch = patchIosCapacitorPackageClassList();
+    if (patch.changed) {
+      console.log(
+        `[capacitor-vercel] patched ios packageClassList (${patch.before.length} -> ${patch.after.length})`,
+      );
+    }
   }
 }
 

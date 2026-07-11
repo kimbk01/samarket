@@ -2,11 +2,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const cleanupMocks = vi.hoisted(() => ({
   cleanup: vi.fn<(callId: string, reason: string) => Promise<void>>(async () => undefined),
+  endNative: vi.fn<(callId: string, reason: string) => Promise<boolean>>(async () => true),
 }));
 
 vi.mock("@/lib/community-messenger/call-v4/call-v4-cleanup", () => ({
   cleanupCallV4: (callId: string, reason: string) => cleanupMocks.cleanup(callId, reason),
 }));
+
+vi.mock("@/lib/call/native/native-call-service", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/call/native/native-call-service")>();
+  return {
+    ...actual,
+    endNativeCallService: (callId: string, reason: string) => cleanupMocks.endNative(callId, reason),
+  };
+});
 
 import {
   onNativeCallLocalTerminal,
@@ -29,6 +38,7 @@ describe("native-terminal-sync", () => {
   beforeEach(() => {
     resetNativeTerminalSyncForTests();
     cleanupMocks.cleanup.mockClear();
+    cleanupMocks.endNative.mockClear();
     useCallV4Store.getState().resetToIdle();
     vi.spyOn(console, "info").mockImplementation(() => {});
   });
@@ -73,5 +83,6 @@ describe("native-terminal-sync", () => {
 
     expect(useCallV4Store.getState().phase).toBe("outgoing_ringing");
     expect(cleanupMocks.cleanup).not.toHaveBeenCalled();
+    expect(cleanupMocks.endNative).toHaveBeenCalledWith("call-end-1", "native_stale_terminal");
   });
 });

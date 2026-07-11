@@ -28,6 +28,7 @@ public class NativeCallServicePlugin: CAPPlugin, CAPBridgedPlugin {
     CAPPluginMethod(name: "startNativeOutgoingEstablishment", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "isNativeEstablishmentOwned", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "isNativeVoiceOutgoingLaneEnabled", returnType: CAPPluginReturnPromise),
+    CAPPluginMethod(name: "isNativeVoiceIncomingLaneEnabled", returnType: CAPPluginReturnPromise),
   ]
 
   public override func load() {
@@ -138,11 +139,50 @@ public class NativeCallServicePlugin: CAPPlugin, CAPBridgedPlugin {
       return
     }
     let reason = call.getString("reason") ?? "client_end"
+
+    if Self.isRemoteTerminalCleanupReason(reason),
+       !NativeVoiceCallOwner.isNativeOwned(callId: callId),
+       NativeVoiceCallRuntime.shared.getSession(sessionId: callId) == nil
+    {
+      call.resolve(["ok": true])
+      return
+    }
+
+  // Native Voice Runtime owns outgoing/incoming establishment — DibayActiveCallSessionManager is legacy sync.
+    if NativeVoiceCallOwner.isNativeOwned(callId: callId)
+      || NativeVoiceCallRuntime.shared.getSession(sessionId: callId) != nil
+    {
+      DibayCallLog.info(
+        "ios_native_voice_end_call",
+        sessionId: callId,
+        detail: "reason=\(reason) path=native_voice_runtime"
+      )
+      if Self.isRemoteTerminalCleanupReason(reason) {
+        NativeVoiceIncomingCallCoordinator.shared.handleRemoteTerminal(sessionId: callId)
+        call.resolve(["ok": true])
+        return
+      }
+      NativeVoiceIncomingCallCoordinator.shared.handleRejectOrEnd(sessionId: callId) {
+        call.resolve(["ok": true])
+      }
+      return
+    }
+
     let ok = DibayActiveCallSessionManager.shared.requestCleanup(reason: reason)
     if ok {
       DibayCallAudioSessionController.shared.deactivate()
     }
     call.resolve(["ok": ok])
+  }
+
+  private static func isRemoteTerminalCleanupReason(_ reason: String) -> Bool {
+    switch reason.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+    case "rejected", "declined", "cancelled", "canceled", "missed", "failed",
+         "ended", "remote_ended", "peer_busy", "remote_terminal", "native_stale_terminal":
+      return true
+    default:
+      return false
+    }
   }
 
   @objc func getActiveCallId(_ call: CAPPluginCall) {
@@ -273,6 +313,11 @@ public class NativeCallServicePlugin: CAPPlugin, CAPBridgedPlugin {
     DibayCallLog.info("ios_native_outgoing_lane_check_received")
     let enabled = NativeVoiceCallLane.isOutgoingVoiceLaneActive(mediaType: "voice")
     DibayCallLog.info("ios_native_outgoing_lane_check_resolving", detail: "enabled=\(enabled)")
+    call.resolve(["enabled": enabled])
+  }
+
+  @objc func isNativeVoiceIncomingLaneEnabled(_ call: CAPPluginCall) {
+    let enabled = NativeVoiceCallLane.isEnabled()
     call.resolve(["enabled": enabled])
   }
 }

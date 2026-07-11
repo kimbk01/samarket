@@ -1,6 +1,6 @@
 "use client";
 
-import { registerPlugin } from "@capacitor/core";
+import { registerPlugin, type PluginListenerHandle } from "@capacitor/core";
 import { canCleanupActiveCall } from "@/lib/call/active-call-session-machine";
 import { logDibayCallFlow } from "@/lib/call/logging/call-flow-log";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
@@ -58,15 +58,24 @@ export type NativeCallServicePlugin = {
     peerName?: string;
   }): Promise<{ ok: boolean; nativeOwned: boolean }>;
   isNativeEstablishmentOwned(options: { callId: string }): Promise<{ owned: boolean }>;
+  isNativeVoiceOutgoingLaneEnabled(): Promise<{ enabled: boolean }>;
+  isNativeVoiceIncomingLaneEnabled(): Promise<{ enabled: boolean }>;
   acquireScreenAwake(options: { callId: string; reason?: string }): Promise<{ ok: boolean }>;
   releaseScreenAwake(options: { callId: string; reason?: string }): Promise<{ ok: boolean }>;
   notifyScreenAwakePresentation(options: { callId: string; presentation?: string }): Promise<{ ok: boolean }>;
+  addListener(
+    eventName: string,
+    listenerFunc: (data: unknown) => void,
+  ): Promise<PluginListenerHandle>;
 };
 
-const NativeCallService = registerPlugin<NativeCallServicePlugin>(NATIVE_CALL_SERVICE_PLUGIN_ID);
+/** Single Capacitor registration — do not call registerPlugin(NativeCallService) elsewhere. */
+export const nativeCallServicePlugin = registerPlugin<NativeCallServicePlugin>(NATIVE_CALL_SERVICE_PLUGIN_ID);
 
-function invokeNative<T>(
-  method: keyof NativeCallServicePlugin,
+export type NativeCallServiceInvokeMethod = Exclude<keyof NativeCallServicePlugin, "addListener">;
+
+export function invokeNativeCallServicePlugin<T>(
+  method: NativeCallServiceInvokeMethod,
   options?: Record<string, unknown>,
 ): Promise<T | null> {
   if (!isCapacitorNativePlatform()) return Promise.resolve(null);
@@ -77,12 +86,19 @@ function invokeNative<T>(
   if (typeof nativePromise === "function") {
     return nativePromise(NATIVE_CALL_SERVICE_PLUGIN_ID, method, options ?? {}) as Promise<T>;
   }
-  const plugin = NativeCallService as unknown as Record<string, (opts: unknown) => Promise<T>>;
+  const plugin = nativeCallServicePlugin as unknown as Record<string, (opts: unknown) => Promise<T>>;
   const fn = plugin[method as string];
   if (typeof fn === "function") {
     return fn(options ?? {});
   }
   return Promise.resolve(null);
+}
+
+function invokeNative<T>(
+  method: NativeCallServiceInvokeMethod,
+  options?: Record<string, unknown>,
+): Promise<T | null> {
+  return invokeNativeCallServicePlugin<T>(method, options);
 }
 
 /** native accept prep — FGS 시작·알림 정리·IncomingActivity 종료 (PATCH 없음) */

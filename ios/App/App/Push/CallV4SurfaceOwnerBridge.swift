@@ -35,9 +35,33 @@ enum CallV4SurfaceOwnerBridge {
 
   @discardableResult
   static func claimForegroundWebInAppIfActive(callId: String, reason: String = "ios_foreground_active") -> Bool {
+    let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !sid.isEmpty else { return false }
+    if shouldBlockWebIncomingOwnerClaim(callId: sid) {
+      DibayCallLog.infoCallV4(
+        "ios_web_incoming_owner_claim_blocked",
+        callId: sid,
+        owner: "native_fsi",
+        reason: "native_voice_incoming_lane"
+      )
+      return false
+    }
     guard UIApplication.shared.applicationState == .active else { return false }
-    deliver(callId: callId, owner: "web_in_app", reason: reason)
+    deliver(callId: sid, owner: "web_in_app", reason: reason)
     return true
+  }
+
+  /// Native Voice Runtime owns iOS incoming — Web poll must not claim `web_in_app`.
+  private static func shouldBlockWebIncomingOwnerClaim(callId: String) -> Bool {
+    if NativeVoiceCallLane.isEnabled() {
+      return true
+    }
+    if let voice = NativeVoiceCallRuntime.shared.getSession(sessionId: callId),
+       voice.direction == .incoming
+    {
+      return true
+    }
+    return false
   }
 
   static func flushPending() {

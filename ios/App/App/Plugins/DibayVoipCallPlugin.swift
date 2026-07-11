@@ -43,7 +43,9 @@ public class DibayVoipCallPlugin: CAPPlugin, CAPBridgedPlugin {
       return
     }
     let reason = call.getString("reason")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "ios_foreground_fcm_wake"
-    let claimed = CallV4SurfaceOwnerBridge.claimForegroundWebInAppIfActive(callId: sessionId, reason: reason)
-    call.resolve(["claimed": claimed])
+    DispatchQueue.main.async {
+      let claimed = CallV4SurfaceOwnerBridge.claimForegroundWebInAppIfActive(callId: sessionId, reason: reason)
+      call.resolve(["claimed": claimed])
+    }
   }
 }

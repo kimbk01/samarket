@@ -53,12 +53,19 @@ if (!pbx.includes("CODE_SIGN_ENTITLEMENTS = App/App.entitlements")) {
   failures.push("project.pbxproj must set CODE_SIGN_ENTITLEMENTS = App/App.entitlements");
 }
 
+const capServerUrl = exists("lib/platform/capacitor-server-url.ts")
+  ? read("lib/platform/capacitor-server-url.ts")
+  : "";
+
 if (!capConfig.includes('appId: "com.dibay.app"')) {
   failures.push("capacitor.config.ts appId must be com.dibay.app");
 }
 
-if (!capConfig.includes("https://samarket.vercel.app")) {
-  failures.push("capacitor.config.ts must default server.url to https://samarket.vercel.app");
+if (
+  !capConfig.includes("resolveCapacitorServerUrlFromEnv") ||
+  !capServerUrl.includes("https://samarket.vercel.app")
+) {
+  failures.push("capacitor server.url must default to https://samarket.vercel.app via resolveCapacitorServerUrlFromEnv");
 }
 
 try {
@@ -68,6 +75,19 @@ try {
   }
   if (!String(parsed.server?.url ?? "").includes("samarket.vercel.app")) {
     failures.push("ios capacitor.config.json server.url must point to samarket.vercel.app");
+  }
+  const requiredIosPlugins = [
+    "NativeCallServicePlugin",
+    "DibayVoipCallPlugin",
+    "DibayCallPipPlugin",
+    "NativeAppleAuthPlugin",
+    "NativeKakaoAuthPlugin",
+  ];
+  const classList = Array.isArray(parsed.packageClassList) ? parsed.packageClassList : [];
+  for (const cls of requiredIosPlugins) {
+    if (!classList.includes(cls)) {
+      failures.push(`ios capacitor.config.json packageClassList must include ${cls} (run patch-ios-capacitor-package-class-list after cap sync)`);
+    }
   }
 } catch {
   failures.push("ios/App/App/capacitor.config.json must be valid JSON");

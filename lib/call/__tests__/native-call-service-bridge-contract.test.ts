@@ -65,4 +65,20 @@ describe("NativeCallService bridge contract", () => {
     expect(sync).toContain("native_connected_store_hydrate");
     expect(sync).toContain("startNativeConnectedSync");
   });
+
+  it("registers NativeCallService Capacitor plugin exactly once", () => {
+    const paths = [
+      "lib/call/native/native-call-service.ts",
+      "lib/call/native/native-connected-sync.ts",
+      "lib/call/native/native-terminal-sync.ts",
+      "lib/call/native/native-outgoing-bridge.ts",
+    ];
+    let registerCount = 0;
+    for (const path of paths) {
+      const source = read(path);
+      const matches = source.match(/registerPlugin\s*</g);
+      registerCount += matches?.length ?? 0;
+    }
+    expect(registerCount).toBe(1);
+  });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { registerPlugin, type PluginListenerHandle } from "@capacitor/core";
+import type { PluginListenerHandle } from "@capacitor/core";
 import { cleanupCallV4 } from "@/lib/community-messenger/call-v4/call-v4-cleanup";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 import { clearCallV4MissedTimer } from "@/lib/community-messenger/call-v4/call-v4-missed-timeout";
@@ -11,23 +11,15 @@ import {
   useCallV4Store,
 } from "@/lib/community-messenger/call-v4/call-v4-store";
 import {
-  NATIVE_CALL_SERVICE_PLUGIN_ID,
   NATIVE_CALL_TERMINAL_EVENT,
+  endNativeCallService,
+  nativeCallServicePlugin,
   type NativeCallTerminalPayload,
 } from "@/lib/call/native/native-call-service";
 import { clearNativeConnectedHydrationForCall } from "@/lib/call/native/native-connected-sync";
 import { isCapacitorNativePlatform, resolveCapacitorShellPlatform } from "@/lib/platform/capacitor-native";
 
 const handledNativeLocalTerminal = new Set<string>();
-
-type NativeTerminalSyncPlugin = {
-  addListener(
-    eventName: typeof NATIVE_CALL_TERMINAL_EVENT,
-    listenerFunc: (payload: NativeCallTerminalPayload) => void,
-  ): Promise<PluginListenerHandle>;
-};
-
-const NativeTerminalSyncPlugin = registerPlugin<NativeTerminalSyncPlugin>(NATIVE_CALL_SERVICE_PLUGIN_ID);
 
 function mapNativeTerminalReason(reason: string): string {
   const normalized = reason.trim().toLowerCase();
@@ -52,6 +44,8 @@ export async function onNativeCallLocalTerminal(payload: NativeCallTerminalPaylo
   const identity = readCallV4Identity();
   if (identity?.callId !== sid) {
     logCallV4("native_local_terminal_ignored", { callId: sid, reason: "not_current_identity" });
+    // Remote terminal may have cleared Web identity while native VC is still visible — best-effort cleanup.
+    void endNativeCallService(sid, "native_stale_terminal");
     return;
   }
 
@@ -95,8 +89,8 @@ export function startNativeTerminalSync(): () => void {
   let disposed = false;
   let handle: PluginListenerHandle | null = null;
 
-  void NativeTerminalSyncPlugin.addListener(NATIVE_CALL_TERMINAL_EVENT, (payload) => {
-    void onNativeCallLocalTerminal(payload);
+  void nativeCallServicePlugin.addListener(NATIVE_CALL_TERMINAL_EVENT, (payload) => {
+    void onNativeCallLocalTerminal(payload as NativeCallTerminalPayload);
   })
     .then((subscription) => {
       if (disposed) {

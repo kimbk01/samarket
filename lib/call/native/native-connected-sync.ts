@@ -1,6 +1,6 @@
 "use client";
 
-import { registerPlugin, type PluginListenerHandle } from "@capacitor/core";
+import type { PluginListenerHandle } from "@capacitor/core";
 import { callV4FetchSession } from "@/lib/community-messenger/call-v4/call-v4-api";
 import { markCallV4NativeConnectedOps } from "@/lib/community-messenger/call-v4/call-v4-phase-bridge";
 import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
@@ -9,7 +9,7 @@ import { readCallV4Phase, useCallV4Store } from "@/lib/community-messenger/call-
 import type { CallV4Identity, CallV4Phase } from "@/lib/community-messenger/call-v4/call-v4-types";
 import {
   NATIVE_CALL_CONNECTED_EVENT,
-  NATIVE_CALL_SERVICE_PLUGIN_ID,
+  nativeCallServicePlugin,
   type NativeCallConnectedPayload,
 } from "@/lib/call/native/native-call-service";
 import { acquireConnectedVideoScreenAwake } from "@/lib/call/native/screen-awake-bridge";
@@ -25,15 +25,6 @@ const TERMINAL_OR_BLOCKING_PHASES = new Set<CallV4Phase>([
 ]);
 
 const hydratedNativeConnected = new Set<string>();
-
-type NativeConnectedSyncPlugin = {
-  addListener(
-    eventName: typeof NATIVE_CALL_CONNECTED_EVENT,
-    listenerFunc: (payload: NativeCallConnectedPayload) => void,
-  ): Promise<PluginListenerHandle>;
-};
-
-const NativeConnectedSyncPlugin = registerPlugin<NativeConnectedSyncPlugin>(NATIVE_CALL_SERVICE_PLUGIN_ID);
 
 function buildIdentityFromNativeConnected(payload: NativeCallConnectedPayload): CallV4Identity {
   const direction = payload.direction === "outgoing" ? "outgoing" : "incoming";
@@ -130,8 +121,8 @@ export function startNativeConnectedSync(): () => void {
   let disposed = false;
   let handle: PluginListenerHandle | null = null;
 
-  void NativeConnectedSyncPlugin.addListener(NATIVE_CALL_CONNECTED_EVENT, (payload) => {
-    void onNativeCallConnected(payload);
+  void nativeCallServicePlugin.addListener(NATIVE_CALL_CONNECTED_EVENT, (payload) => {
+    void onNativeCallConnected(payload as NativeCallConnectedPayload);
   })
     .then((subscription) => {
       if (disposed) {

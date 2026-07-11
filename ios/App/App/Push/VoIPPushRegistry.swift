@@ -50,6 +50,14 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
           reason: terminalReason
         )
         callProvider.reportCallEnded(uuidString: sessionId)
+      } else if isVoipTerminalOutgoingSession(sessionId: sessionId) {
+        DibayCallLog.infoCallV4(
+          "ios_voip_terminal_outgoing",
+          callId: sessionId,
+          owner: "terminal",
+          reason: terminalReason
+        )
+        callProvider.reportCallEnded(uuidString: sessionId)
       } else {
         DibayCallLog.infoCallV4(
           "ios_voip_terminal_bridge_skipped",
@@ -66,7 +74,11 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
     let roomId = stringField(data, keys: ["roomId", "room_id"])
     let callerId = stringField(data, keys: ["callerId", "caller_id"])
     if NativeVoiceCallLane.isEnabled() && !hasVideo {
-      DibayCallLog.infoSurfaceBridgeSkip(sessionId: sessionId, reason: "native_voice_lane")
+      CallV4SurfaceOwnerBridge.deliver(
+        callId: sessionId,
+        owner: "native_fsi",
+        reason: "ios_native_voice_incoming"
+      )
     } else {
       CallV4SurfaceOwnerBridge.deliver(
         callId: sessionId,
@@ -116,6 +128,24 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
     // Explicitly exclude known-outgoing sessions before trusting this fallback.
     guard callProvider.getActiveCallSessionId() == sid else { return false }
     return !callProvider.isOutgoingSession(sid)
+  }
+
+  /// Outgoing native voice — callee reject/cancel must dismiss caller native UI (Android onRemoteTerminal parity).
+  private func isVoipTerminalOutgoingSession(sessionId: String) -> Bool {
+    let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !sid.isEmpty else { return false }
+
+    if let voice = NativeVoiceCallRuntime.shared.getSession(sessionId: sid) {
+      return voice.direction == .outgoing
+    }
+
+    if NativeVideoCallLane.isEnabled(),
+       let video = NativeVideoCallRuntime.shared.getSession(sessionId: sid)
+    {
+      return video.initiator
+    }
+
+    return callProvider.isOutgoingSession(sid)
   }
 
   private func stringField(_ data: [AnyHashable: Any], keys: [String]) -> String? {
