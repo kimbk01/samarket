@@ -103,6 +103,21 @@ export async function requestNativeCallMediaPermissions(
     }
     return checkNativeCallOsPermissions();
   }
+  // iOS / web fallback — no native plugin bridge here, so the real OS permission
+  // dialog only fires if we actually call getUserMedia() ourselves. Without this,
+  // iOS never shows the system mic prompt and Settings never gets an entry for the app.
+  if (typeof navigator !== "undefined" && navigator.mediaDevices?.getUserMedia) {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: callKind === "video",
+      });
+      stream.getTracks().forEach((track) => track.stop());
+    } catch {
+      // Denied, dismissed, or errored — fall through and let the re-check below
+      // report the real resulting OS state (denied vs still-prompt-available).
+    }
+  }
   return checkNativeCallOsPermissions();
 }
 
