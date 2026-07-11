@@ -1,3 +1,4 @@
+import Capacitor
 import UIKit
 
 /**
@@ -9,6 +10,7 @@ enum NativeVoiceCallUiHost {
   private static weak var activeController: NativeVoiceCallViewController?
   private static let presentedControllers = NSHashTable<NativeVoiceCallViewController>.weakObjects()
   private static var unlockObserverRegistered = false
+  private static var lifecycleObserverRegistered = false
   private static var deferredCallId: String?
 
   static func canPresentVoiceSurfaces() -> Bool {
@@ -66,6 +68,8 @@ enum NativeVoiceCallUiHost {
       if !bypassLockCheck {
         deferredCallId = callId.trimmingCharacters(in: .whitespacesAndNewlines)
         ensureUnlockObserver()
+        ensureLifecycleObserver()
+        schedulePresenterRetry(callId: callId, session: session)
         DibayCallLog.info("ios_native_voice_ui_deferred_locked", sessionId: callId, detail: "reason=no_presenter")
       }
       return
@@ -182,6 +186,31 @@ enum NativeVoiceCallUiHost {
     }
   }
 
+  private static func ensureLifecycleObserver() {
+    guard !lifecycleObserverRegistered else { return }
+    lifecycleObserverRegistered = true
+    NotificationCenter.default.addObserver(
+      forName: UIApplication.didBecomeActiveNotification,
+      object: nil,
+      queue: .main
+    ) { _ in
+      flushDeferredPresentationAfterUnlock()
+    }
+  }
+
+  private static func schedulePresenterRetry(callId: String, session: NativeVoiceCallSession) {
+    let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+    DispatchQueue.main.async {
+      guard deferredCallId == sid else { return }
+      ensurePresented(callId: sid, session: session, bypassLockCheck: false)
+    }
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+      guard deferredCallId == sid else { return }
+      DibayCallLog.info("ios_native_voice_ui_flush_after_presenter_retry", sessionId: sid)
+      ensurePresented(callId: sid, session: session, bypassLockCheck: true)
+    }
+  }
+
   private static func flushDeferredPresentationAfterUnlock() {
     guard canPresentVoiceSurfaces() else { return }
     let snap = NativeVoiceCallRuntime.shared.snapshot()
@@ -201,13 +230,46 @@ enum NativeVoiceCallUiHost {
   }
 
   private static func topPresenter() -> UIViewController? {
-    let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-    let keyWindow = scenes.flatMap(\.windows).first { $0.isKeyWindow }
-    guard var top = keyWindow?.rootViewController else { return nil }
+    guard let root = resolveRootViewController() else { return nil }
+    var top = root
     while let presented = top.presentedViewController {
       top = presented
     }
     return top
+  }
+
+  /// Capacitor iOS — `isKeyWindow` is often false on foreground scenes; fall back before giving up.
+  private static func resolveKeyWindow() -> UIWindow? {
+    let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+    let windows = scenes
+      .filter {
+        $0.activationState == .foregroundActive || $0.activationState == .foregroundInactive
+      }
+      .flatMap(\.windows)
+    if let key = windows.first(where: { $0.isKeyWindow }) {
+      return key
+    }
+    if let visible = windows.first(where: { !$0.isHidden && $0.alpha > 0 && $0.windowLevel == .normal }) {
+      return visible
+    }
+    return scenes.flatMap(\.windows).first(where: { !$0.isHidden && $0.alpha > 0 })
+  }
+
+  private static func resolveRootViewController() -> UIViewController? {
+    if let window = resolveKeyWindow(), let root = window.rootViewController {
+      return root
+    }
+    for scene in UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }) {
+      for window in scene.windows where !window.isHidden {
+        if let bridge = window.rootViewController as? CAPBridgeViewController {
+          return bridge
+        }
+        if let root = window.rootViewController {
+          return root
+        }
+      }
+    }
+    return nil
   }
 
   private static func onMain(_ block: @escaping () -> Void) {
