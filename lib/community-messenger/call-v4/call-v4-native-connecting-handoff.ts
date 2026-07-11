@@ -14,7 +14,7 @@ export function notifyCallV4WebCallScreenReady(
 ): void {
   const sid = callId.trim();
   if (!sid) return;
-  logCallV4("web_call_screen_ready_emit", { callId: sid, phase });
+  logCallV4("web_call_screen_ready_emit", { callId: sid, phase, source: "accept_handoff" });
   logCallV4("web_call_screen_ready", { callId: sid, phase });
   markCallV4WebCallScreenReady(sid, phase);
   if (typeof window !== "undefined") {
@@ -25,8 +25,20 @@ export function notifyCallV4WebCallScreenReady(
     );
   }
   const plugin = getSyncNativeIncomingCallPlugin();
-  if (!plugin?.notifyWebCallScreenReady) return;
-  void plugin.notifyWebCallScreenReady({ callId: sid, phase }).catch(() => {
-    /* best-effort native handoff */
+  if (!plugin?.notifyWebCallScreenReady) {
+    logCallV4("web_call_screen_ready_native_notify_skipped", {
+      callId: sid,
+      phase,
+      reason: "plugin_unavailable",
+    });
+    return;
+  }
+  logCallV4("web_call_screen_ready_native_notify_start", { callId: sid, phase });
+  void plugin.notifyWebCallScreenReady({ callId: sid, phase }).catch((error: unknown) => {
+    logCallV4("web_call_screen_ready_native_notify_failed", {
+      callId: sid,
+      phase,
+      error: error instanceof Error ? error.message : String(error),
+    });
   });
 }

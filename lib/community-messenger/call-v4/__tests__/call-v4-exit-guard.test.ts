@@ -79,6 +79,51 @@ describe("call-v4 exit guard", () => {
     expect(exitMock).toHaveBeenCalledTimes(1);
   });
 
+  it("allows outgoing ended exit before screen ready handoff", () => {
+    useCallV4Store.getState().setIdentity({
+      callId: "call-out",
+      roomId: "room-1",
+      callerUserId: "me",
+      calleeUserId: "peer",
+      direction: "outgoing",
+      mediaType: "audio",
+      createdAt: new Date().toISOString(),
+    });
+    useCallV4Store.getState().setPhase("outgoing_ringing");
+
+    expect(
+      shouldDeferCallV4ExitUntilScreenReady({
+        callId: "call-out",
+        reason: "ended",
+        phase: "outgoing_ringing",
+      }),
+    ).toBe(false);
+    maybeExitCallV4ScreenAfterCleanup("call-out", "ended");
+    expect(exitMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("schedules fallback exit when incoming accept defer blocks ended cleanup", () => {
+    vi.useFakeTimers();
+    nativeInflight.isInflight = true;
+    useCallV4Store.getState().setIdentity({
+      callId: "call-accept",
+      roomId: "room-1",
+      callerUserId: "peer",
+      calleeUserId: "me",
+      direction: "incoming",
+      mediaType: "audio",
+      createdAt: new Date().toISOString(),
+    });
+    useCallV4Store.getState().setPhase("joining");
+
+    maybeExitCallV4ScreenAfterCleanup("call-accept", "ended");
+    expect(exitMock).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(8_000);
+    expect(exitMock).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
+
   it("clears screen-ready markers on cleanup path", () => {
     markCallV4WebCallScreenReady("call-1", "connected");
     clearCallV4WebCallScreenReady("call-1");
