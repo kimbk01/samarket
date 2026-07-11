@@ -61,7 +61,7 @@ import {
   tryClaimCallV4AcceptFlight,
 } from "@/lib/community-messenger/call-v4/call-v4-patch-guard";
 import { isLegacyWebCallEstablishmentRemoved } from "@/lib/call/native/legacy-web-call-establishment-removed";
-import { isAndroidNativeOutgoingShell, startNativeOutgoingEstablishment } from "@/lib/call/native/native-outgoing-bridge";
+import { isAndroidNativeOutgoingShell, isIOSNativeOutgoingShell, startNativeOutgoingEstablishment } from "@/lib/call/native/native-outgoing-bridge";
 import { maybeExitCallV4ScreenAfterCleanup } from "@/lib/community-messenger/call-v4/call-v4-exit-guard";
 import {
   buildCallV4ScreenHref,
@@ -504,6 +504,50 @@ export async function callV4CreateOutgoing(input: {
           callId: created.session.id,
           mediaType: input.mediaType,
           roomId: roomResolved.roomId,
+          ok: nativeHandoff.ok,
+          nativeOwned: nativeHandoff.nativeOwned,
+        });
+      }
+    }
+
+    if (await isIOSNativeOutgoingShell()) {
+      logCallV4("native_outgoing_handoff_start", {
+        callId: created.session.id,
+        mediaType: input.mediaType,
+        roomId: roomResolved.roomId,
+        platform: "ios",
+      });
+      const nativeHandoff = await startNativeOutgoingEstablishment({
+        callId: created.session.id,
+        roomId: roomResolved.roomId,
+        mediaType: input.mediaType,
+        peerUserId: input.peerUserId,
+        peerName: input.peerLabel,
+      });
+      if (nativeHandoff.ok && nativeHandoff.nativeOwned) {
+        logCallV4("native_outgoing_handoff_done", {
+          callId: created.session.id,
+          mediaType: input.mediaType,
+          roomId: roomResolved.roomId,
+          platform: "ios",
+        });
+        startCallV4OutgoingMissedTimer(created.session.id, identity.createdAt, input.router);
+        startNativeOutgoingTerminalSync(created.session.id, input.router);
+        shouldRouteToWebOutgoingPresentation = false;
+      } else {
+        if (!nativeHandoff.ok && !nativeHandoff.nativeOwned) {
+          logCallV4("native_establishment_unavailable", {
+            callId: created.session.id,
+            mediaType: input.mediaType,
+            roomId: roomResolved.roomId,
+            platform: "ios",
+          });
+        }
+        logCallV4("native_outgoing_failed", {
+          callId: created.session.id,
+          mediaType: input.mediaType,
+          roomId: roomResolved.roomId,
+          platform: "ios",
           ok: nativeHandoff.ok,
           nativeOwned: nativeHandoff.nativeOwned,
         });

@@ -130,14 +130,7 @@ enum NativeCallAgoraLaneGuard {
     details: String,
     warn: Bool = false
   ) {
-    let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
-    let masked =
-      sid.count > 8 ? String(sid.prefix(4)) + "…" + String(sid.suffix(4)) : (sid.isEmpty ? "unknown" : sid)
     let extra = details.trimmingCharacters(in: .whitespacesAndNewlines)
-    if extra.isEmpty {
-      NSLog("[DIBAY_CALL] ios_native_%@ sessionId=%@", marker, masked)
-    } else {
-      NSLog("[DIBAY_CALL] ios_native_%@ sessionId=%@ %@", marker, masked, extra)
-    }
+    DibayCallLog.info("ios_native_\(marker)", sessionId: callId, detail: extra)
   }
 }

@@ -55,11 +55,15 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
     let hasVideo = (data["kind"] as? String) == "video"
     let roomId = stringField(data, keys: ["roomId", "room_id"])
     let callerId = stringField(data, keys: ["callerId", "caller_id"])
-    CallV4SurfaceOwnerBridge.deliver(
-      callId: sessionId,
-      owner: "native_fsi",
-      reason: "ios_callkit_incoming"
-    )
+    if NativeVoiceCallLane.isEnabled() && !hasVideo {
+      DibayCallLog.infoSurfaceBridgeSkip(sessionId: sessionId, reason: "native_voice_lane")
+    } else {
+      CallV4SurfaceOwnerBridge.deliver(
+        callId: sessionId,
+        owner: "native_fsi",
+        reason: "ios_callkit_incoming"
+      )
+    }
     callProvider.reportIncomingCall(
       uuidString: sessionId,
       handle: caller,
@@ -68,10 +72,11 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
       callerId: callerId
     ) { error in
       if let error = error {
-        NSLog(
-          "[DIBAY_CALL_V4] ios_callkit_incoming_failed callId=%@ err=%@",
-          sessionId,
-          error.localizedDescription
+        DibayCallLog.infoCallV4(
+          "ios_callkit_incoming_failed",
+          callId: sessionId,
+          owner: "error",
+          reason: error.localizedDescription
         )
         CallV4SurfaceOwnerBridge.deliver(
           callId: sessionId,

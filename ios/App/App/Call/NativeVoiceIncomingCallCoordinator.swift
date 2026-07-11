@@ -149,7 +149,11 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
 
   // MARK: - Reject / End / Terminal
 
-  func handleRejectOrEnd(sessionId: String, completion: @escaping () -> Void) {
+  func handleRejectOrEnd(
+    sessionId: String,
+    origin: NativeVoiceCallEndOrigin = .nativeAppUi,
+    completion: @escaping () -> Void
+  ) {
     let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !sid.isEmpty else {
       completion()
@@ -160,6 +164,7 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
       completion()
       return
     }
+    let callKitCleanup = callKitCleanupMode(for: origin)
 
     switch snap.phase {
     case .incomingPresented, .accepting:
@@ -169,7 +174,7 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
         self?.cleanup(
           sessionId: sid,
           reason: "reject",
-          reportCallKitEnded: false,
+          callKitCleanup: callKitCleanup,
           serverAction: nil
         )
         completion()
@@ -182,13 +187,13 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
         self?.cleanup(
           sessionId: sid,
           reason: "local_end",
-          reportCallKitEnded: false,
+          callKitCleanup: callKitCleanup,
           serverAction: nil
         )
         completion()
       }
     default:
-      cleanup(sessionId: sid, reason: "end_idle", reportCallKitEnded: false, serverAction: nil)
+      cleanup(sessionId: sid, reason: "end_idle", callKitCleanup: callKitCleanup, serverAction: nil)
       completion()
     }
   }
@@ -205,7 +210,7 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
       try? NativeVoiceCallRuntime.shared.markPipelineFailed(sessionId: sid, reason: .ended)
     }
     log("ios_native_voice_remote_terminal", sid, "state=\(snap.phase)")
-    cleanup(sessionId: sid, reason: "remote_terminal", reportCallKitEnded: false, serverAction: nil)
+    cleanup(sessionId: sid, reason: "remote_terminal", callKitCleanup: .none, serverAction: nil)
   }
 
   // MARK: - Agora Listener
@@ -230,7 +235,6 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
     do {
       try NativeVoiceCallRuntime.shared.markConnected(sessionId: sid)
       log("ios_native_voice_connected", sid)
-      DibayActiveCallSessionManager.shared.bindActiveCall(callId: sid, mediaType: "voice", phase: "CONNECTED")
     } catch {
       log("ios_native_voice_stale_callback_ignored", sid, "stage=mark_connected")
     }
@@ -277,20 +281,35 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
     }
     log("ios_native_voice_callkit_failed", sessionId, "reason=\(String(describing: reason))")
     try? NativeVoiceCallRuntime.shared.markPipelineFailed(sessionId: sessionId, reason: reason)
-    cleanup(sessionId: sessionId, reason: "fail_before_fulfill", reportCallKitEnded: true, serverAction: serverAction)
+    cleanup(sessionId: sessionId, reason: "fail_before_fulfill", callKitCleanup: .reportTerminal, serverAction: serverAction)
     completion(false)
   }
 
   private func failAfterFulfill(sessionId: String, reason: NativeVoiceCallFailure, serverAction: String?) {
     log("ios_native_voice_cleanup_started", sessionId, "reason=\(String(describing: reason))")
     try? NativeVoiceCallRuntime.shared.markPipelineFailed(sessionId: sessionId, reason: reason)
-    cleanup(sessionId: sessionId, reason: "fail_after_fulfill", reportCallKitEnded: true, serverAction: serverAction)
+    cleanup(sessionId: sessionId, reason: "fail_after_fulfill", callKitCleanup: .reportTerminal, serverAction: serverAction)
+  }
+
+  private enum CallKitCleanupMode {
+    case none
+    case endSessionOnly
+    case reportTerminal
+  }
+
+  private func callKitCleanupMode(for origin: NativeVoiceCallEndOrigin) -> CallKitCleanupMode {
+    switch origin {
+    case .callKitSystemAction:
+      return .none
+    case .nativeAppUi:
+      return .endSessionOnly
+    }
   }
 
   private func cleanup(
     sessionId: String,
     reason: String,
-    reportCallKitEnded: Bool,
+    callKitCleanup: CallKitCleanupMode,
     serverAction: String?
   ) {
     let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -313,12 +332,21 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
 
     NativeVoiceCallAgoraEngine.shared.leave(reason: reason, notifyListener: false)
     DibayCallAudioSessionController.shared.deactivateAfterNativeVoiceCall()
+    NativeVoiceCallOwner.release(callId: sid, reason: reason)
     NativeVoiceCallRuntime.shared.reset(sessionId: sid)
-    if DibayActiveCallSessionManager.shared.callId == sid {
+    if DibayActiveCallSessionManager.shared.callId == sid,
+      DibayActiveCallSessionManager.shared.voiceRuntimeBound
+    {
       DibayActiveCallSessionManager.shared.clearSession()
     }
+    DibayCallCoordinator.shared.notifyVoiceCleanupCompleted(sessionId: sid, reason: reason)
 
-    if reportCallKitEnded {
+    switch callKitCleanup {
+    case .none:
+      break
+    case .endSessionOnly:
+      CallKitProvider.shared.endCallKitSession(sessionId: sid, reason: .remoteEnded)
+    case .reportTerminal:
       CallKitProvider.shared.reportCallEnded(uuidString: sid)
     }
 
@@ -338,16 +366,10 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
   }
 
   private func log(_ event: String, _ sessionId: String, _ extra: String = "") {
-    let masked = maskSessionId(sessionId)
-    if extra.isEmpty {
-      NSLog("[DIBAY_CALL] %@ sessionId=%@", event, masked)
-    } else {
-      NSLog("[DIBAY_CALL] %@ sessionId=%@ %@", event, masked, extra)
-    }
+    DibayCallLog.info(event, sessionId: sessionId, detail: extra)
   }
 
   private func maskSessionId(_ sessionId: String) -> String {
-    guard sessionId.count > 8 else { return sessionId }
-    return String(sessionId.prefix(4)) + "…" + String(sessionId.suffix(4))
+    DibayCallLog.mask(sessionId)
   }
 }

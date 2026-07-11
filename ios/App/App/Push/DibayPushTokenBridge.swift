@@ -19,7 +19,7 @@ enum DibayPushTokenBridge {
 
   static func replayLastVoipTokenIfPresent() {
     guard let token = lastVoipToken, !token.isEmpty else { return }
-    NSLog("[DIBAY_CALL] ios_voip_bridge_replay_last_token len=%d", token.count)
+    DibayCallLog.info("ios_voip_bridge_replay_last_token", detail: "len=\(token.count)")
     deliverVoipTokenEvent(token)
   }
 
@@ -42,7 +42,7 @@ enum DibayPushTokenBridge {
     for delay in [1.0, 3.0, 8.0, 15.0] {
       DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
         guard generation == voipDeliveryRetryGeneration, let token = lastVoipToken, !token.isEmpty else { return }
-        NSLog("[DIBAY_CALL] ios_voip_bridge_retry delay=%.0f", delay)
+        DibayCallLog.info("ios_voip_bridge_retry", detail: "delay=\(delay)")
         deliverVoipTokenEvent(token)
       }
     }
@@ -80,7 +80,7 @@ enum DibayPushTokenBridge {
     guard !pendingScripts.isEmpty else { return }
     let scripts = pendingScripts
     pendingScripts.removeAll()
-    NSLog("[DIBAY_CALL] ios_voip_bridge_replay count=%d", scripts.count)
+    DibayCallLog.info("ios_voip_bridge_replay", detail: "count=\(scripts.count)")
     for script in scripts {
       webView.evaluateJavaScript(script, completionHandler: nil)
     }
@@ -110,7 +110,7 @@ enum DibayPushTokenBridge {
         return
       }
       pendingScripts.append(script)
-      NSLog("[DIBAY_CALL] ios_voip_bridge_queued pending=%d", pendingScripts.count)
+      DibayCallLog.info("ios_voip_bridge_queued", detail: "pending=\(pendingScripts.count)")
       scheduleReplay()
     }
   }

@@ -4,7 +4,7 @@ import Foundation
  * Phase 1-A — iOS Native Voice Call Runtime state machine.
  *
  * Owns at most one active voice session. Thread-safe via a dedicated serial queue.
- * Not wired to CallKit / PushKit / HTTP / Agora in this phase.
+ * Phase publish fan-out: DibayCallCoordinator + NativeVoiceCallUiHost (stub).
  */
 final class NativeVoiceCallRuntime: @unchecked Sendable {
   static let shared = NativeVoiceCallRuntime()
@@ -29,17 +29,26 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
     }
   }
 
+  func getSession(sessionId: String) -> NativeVoiceCallSession? {
+    queue.sync {
+      guard let active = session, active.sessionId == normalize(sessionId) else { return nil }
+      return active
+    }
+  }
+
   // MARK: - Registration
 
   func registerIncomingSession(_ session: NativeVoiceCallSession) throws {
     try queue.sync {
       try registerLocked(session, expectedDirection: .incoming, presentedPhase: .incomingPresented)
+      publishUiLocked(sessionId: session.sessionId, source: "register_incoming")
     }
   }
 
   func registerOutgoingSession(_ session: NativeVoiceCallSession) throws {
     try queue.sync {
       try registerLocked(session, expectedDirection: .outgoing, presentedPhase: .outgoingStarting)
+      publishUiLocked(sessionId: session.sessionId, source: "register_outgoing")
     }
   }
 
@@ -58,72 +67,94 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
         throw NativeVoiceCallRuntimeError.invalidTransition(from: phase, action: "beginAccept")
       }
       phase = .accepting
+      publishUiLocked(sessionId: active.sessionId, source: "begin_accept")
     }
   }
 
   func markAcceptSucceeded(sessionId: String) throws {
     try queue.sync {
-      _ = try requireActiveSession(sessionId)
+      let active = try requireActiveSession(sessionId)
       guard phase == .accepting else {
         throw NativeVoiceCallRuntimeError.invalidTransition(from: phase, action: "markAcceptSucceeded")
       }
       phase = .accepted
+      publishUiLocked(sessionId: active.sessionId, source: "accept_succeeded")
     }
   }
 
   func markAcceptFailed(sessionId: String) throws {
     try queue.sync {
-      _ = try requireActiveSession(sessionId)
+      let active = try requireActiveSession(sessionId)
       guard phase == .accepting else {
         throw NativeVoiceCallRuntimeError.invalidTransition(from: phase, action: "markAcceptFailed")
       }
       phase = .failed(reason: .acceptFailed)
+      publishUiLocked(sessionId: active.sessionId, source: "accept_failed")
     }
   }
 
   /// Fail from any non-terminal pipeline phase (token / join / media). Idempotent when already failed/ended.
   func markPipelineFailed(sessionId: String, reason: NativeVoiceCallFailure) throws {
     try queue.sync {
-      _ = try requireActiveSession(sessionId)
+      let active = try requireActiveSession(sessionId)
       switch phase {
       case .ended, .failed, .idle:
         return
       case .incomingPresented, .outgoingStarting, .accepting, .accepted, .tokenPending, .joining,
         .connected, .rejecting, .ending:
         phase = .failed(reason: reason)
+        publishUiLocked(sessionId: active.sessionId, source: "pipeline_failed")
       }
     }
   }
 
-  // MARK: - Connect pipeline (stubs for later phases)
+  // MARK: - Connect pipeline
 
   func markTokenPending(sessionId: String) throws {
     try queue.sync {
-      _ = try requireActiveSession(sessionId)
+      let active = try requireActiveSession(sessionId)
       guard phase == .accepted else {
         throw NativeVoiceCallRuntimeError.invalidTransition(from: phase, action: "markTokenPending")
       }
       phase = .tokenPending
+      publishUiLocked(sessionId: active.sessionId, source: "token_pending")
+    }
+  }
+
+  /// Outgoing caller path — `outgoingStarting` → `tokenPending` without accept phases.
+  func beginOutgoingConnect(sessionId: String) throws {
+    try queue.sync {
+      let active = try requireActiveSession(sessionId)
+      guard active.direction == .outgoing else {
+        throw NativeVoiceCallRuntimeError.invalidTransition(from: phase, action: "beginOutgoingConnect")
+      }
+      guard phase == .outgoingStarting else {
+        throw NativeVoiceCallRuntimeError.invalidTransition(from: phase, action: "beginOutgoingConnect")
+      }
+      phase = .tokenPending
+      publishUiLocked(sessionId: active.sessionId, source: "outgoing_token_pending")
     }
   }
 
   func markJoining(sessionId: String) throws {
     try queue.sync {
-      _ = try requireActiveSession(sessionId)
+      let active = try requireActiveSession(sessionId)
       guard phase == .tokenPending else {
         throw NativeVoiceCallRuntimeError.invalidTransition(from: phase, action: "markJoining")
       }
       phase = .joining
+      publishUiLocked(sessionId: active.sessionId, source: "joining")
     }
   }
 
   func markConnected(sessionId: String) throws {
     try queue.sync {
-      _ = try requireActiveSession(sessionId)
+      let active = try requireActiveSession(sessionId)
       guard phase == .joining else {
         throw NativeVoiceCallRuntimeError.invalidTransition(from: phase, action: "markConnected")
       }
       phase = .connected
+      publishUiLocked(sessionId: active.sessionId, source: "connected")
     }
   }
 
@@ -131,7 +162,7 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
 
   func beginReject(sessionId: String) throws {
     try queue.sync {
-      _ = try requireActiveSession(sessionId)
+      let active = try requireActiveSession(sessionId)
       switch phase {
       case .ended, .failed(reason: .rejected):
         return
@@ -140,6 +171,7 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
       case .incomingPresented, .accepting, .accepted, .tokenPending, .joining, .connected,
         .outgoingStarting, .failed:
         phase = .rejecting
+        publishUiLocked(sessionId: active.sessionId, source: "begin_reject")
       case .idle:
         throw NativeVoiceCallRuntimeError.invalidSession
       }
@@ -148,12 +180,13 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
 
   func markRejected(sessionId: String) throws {
     try queue.sync {
-      _ = try requireActiveSession(sessionId)
+      let active = try requireActiveSession(sessionId)
       switch phase {
       case .ended, .failed(reason: .rejected):
         return
       case .rejecting:
         phase = .failed(reason: .rejected)
+        publishUiLocked(sessionId: active.sessionId, source: "rejected")
         clearSessionLocked()
       default:
         throw NativeVoiceCallRuntimeError.invalidTransition(from: phase, action: "markRejected")
@@ -163,7 +196,7 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
 
   func beginEnd(sessionId: String) throws {
     try queue.sync {
-      _ = try requireActiveSession(sessionId)
+      let active = try requireActiveSession(sessionId)
       switch phase {
       case .ended, .failed(reason: .ended):
         return
@@ -173,18 +206,20 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
         throw NativeVoiceCallRuntimeError.invalidSession
       default:
         phase = .ending
+        publishUiLocked(sessionId: active.sessionId, source: "begin_end")
       }
     }
   }
 
   func markEnded(sessionId: String) throws {
     try queue.sync {
-      _ = try requireActiveSession(sessionId)
+      let active = try requireActiveSession(sessionId)
       switch phase {
       case .ended, .failed(reason: .ended):
         return
       case .ending:
         phase = .ended
+        publishUiLocked(sessionId: active.sessionId, source: "ended")
         clearSessionLocked()
       default:
         throw NativeVoiceCallRuntimeError.invalidTransition(from: phase, action: "markEnded")
@@ -196,13 +231,22 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
 
   func reset(sessionId: String?) {
     queue.sync {
+      let sidBeforeReset = session?.sessionId
       if let sessionId {
         let trimmed = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let active = session, active.sessionId == trimmed else { return }
+        if let active = session, active.sessionId != trimmed {
+          return
+        }
       }
+      let wasNonIdle = phase != .idle
       clearSessionLocked()
       phase = .idle
       generation &+= 1
+      if let sidBeforeReset {
+        publishUiLocked(sessionId: sidBeforeReset, source: "reset_idle")
+      } else if wasNonIdle {
+        publishIdleLocked(source: "reset_idle")
+      }
     }
   }
 
@@ -227,7 +271,9 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
       sessionId: sid,
       callUUID: incoming.callUUID,
       direction: incoming.direction,
-      peerId: incoming.peerId,
+      roomId: incoming.roomId.trimmingCharacters(in: .whitespacesAndNewlines),
+      callerId: incoming.callerId.trimmingCharacters(in: .whitespacesAndNewlines),
+      callerName: incoming.callerName.trimmingCharacters(in: .whitespacesAndNewlines),
       createdAt: incoming.createdAt
     )
 
@@ -236,7 +282,6 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
         if active.callUUID != normalized.callUUID {
           throw NativeVoiceCallRuntimeError.conflictingActiveCall
         }
-        // Idempotent re-register of the same session.
         return
       }
       if !isTerminal(phase) {
@@ -286,6 +331,26 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
       return true
     default:
       return false
+    }
+  }
+
+  private func normalize(_ value: String) -> String {
+    value.trimmingCharacters(in: .whitespacesAndNewlines)
+  }
+
+  private func publishUiLocked(sessionId: String, source: String) {
+    let snap = NativeVoiceCallRuntimeSnapshot(session: session, phase: phase)
+    DispatchQueue.main.async {
+      DibayCallCoordinator.shared.onRuntimeSnapshot(snap, source: source)
+      NativeVoiceCallUiHost.handleRuntimeSnapshot(snap)
+    }
+  }
+
+  private func publishIdleLocked(source: String) {
+    let snap = NativeVoiceCallRuntimeSnapshot(session: nil, phase: .idle)
+    DispatchQueue.main.async {
+      DibayCallCoordinator.shared.onRuntimeSnapshot(snap, source: source)
+      NativeVoiceCallUiHost.handleRuntimeSnapshot(snap)
     }
   }
 }
