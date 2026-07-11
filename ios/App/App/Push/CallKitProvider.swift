@@ -9,6 +9,7 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
   private let provider: CXProvider
   private var callUuidBySessionId: [String: UUID] = [:]
   private var hasVideoBySessionId: [String: Bool] = [:]
+  private var outgoingSessionIds: Set<String> = []
 
   private override init() {
     let config = CXProviderConfiguration(localizedName: "DIBAY")
@@ -124,12 +125,14 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
     provider.reportCall(with: uuid, endedAt: Date(), reason: reason)
     callUuidBySessionId.removeValue(forKey: sid)
     hasVideoBySessionId.removeValue(forKey: sid)
+    outgoingSessionIds.remove(sid)
   }
 
   /** P4 — outgoing/active CallKit session for connected calls */
   func reportOutgoingCallStarted(sessionId: String, hasVideo: Bool) {
     let uuid = uuidFromSession(sessionId: sessionId)
     callUuidBySessionId[sessionId] = uuid
+    outgoingSessionIds.insert(sessionId.trimmingCharacters(in: .whitespacesAndNewlines))
     let handle = CXHandle(type: .generic, value: sessionId)
     let start = CXStartCallAction(call: uuid, handle: handle)
     start.isVideo = hasVideo
@@ -148,6 +151,16 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
   /** NativeCallService contract — in-memory CallKit map */
   func getActiveCallSessionId() -> String? {
     callUuidBySessionId.keys.first
+  }
+
+  /**
+   * Direction disambiguation for VoIP terminal push handling.
+   * `getActiveCallSessionId()` alone cannot tell caller vs callee — both populate
+   * `callUuidBySessionId`. Callers (VoIPPushRegistry) must exclude known-outgoing
+   * sessions before treating a terminal push as applying to an incoming call.
+   */
+  func isOutgoingSession(_ sessionId: String) -> Bool {
+    outgoingSessionIds.contains(sessionId.trimmingCharacters(in: .whitespacesAndNewlines))
   }
 
   private func uuidFromSession(sessionId: String) -> UUID {
@@ -186,11 +199,13 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
     DibayPushTokenBridge.postCallAction(sessionId: sessionId, action: "reject_or_end")
     callUuidBySessionId.removeValue(forKey: sessionId)
     hasVideoBySessionId.removeValue(forKey: sessionId)
+    outgoingSessionIds.remove(sessionId)
   }
 
   func providerDidReset(_ provider: CXProvider) {
     callUuidBySessionId.removeAll()
     hasVideoBySessionId.removeAll()
+    outgoingSessionIds.removeAll()
   }
 
   func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
@@ -253,6 +268,7 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
             action.fulfill()
             self.callUuidBySessionId.removeValue(forKey: sessionId)
             self.hasVideoBySessionId.removeValue(forKey: sessionId)
+            self.outgoingSessionIds.remove(sessionId)
           }
         }
         return
@@ -261,7 +277,29 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
       return
     }
 
-    // Voice Native V1 — reject/end via Native coordinator (no Web postCallAction).
+    // Voice — only route to Native V1 coordinator when Runtime actually owns this session.
+    // Legacy Web voice (nativeVoiceOutgoingRuntime off, or any session Runtime never registered)
+    // must fall back to the pre-existing Web postCallAction handoff, same as video legacy path.
+    let runtimeOwnsSession = NativeVoiceCallRuntime.shared.snapshot().session?.sessionId == sessionId
+    guard runtimeOwnsSession else {
+      DibayCallLog.info(
+        "ios_legacy_web_voice_callkit_end",
+        sessionId: sessionId,
+        detail: "reason=callkit_end_action_runtime_unowned"
+      )
+      CallV4SurfaceOwnerBridge.deliver(
+        callId: sessionId,
+        owner: "terminal",
+        reason: "ios_callkit_end"
+      )
+      action.fulfill()
+      DibayPushTokenBridge.postCallAction(sessionId: sessionId, action: "reject_or_end")
+      callUuidBySessionId.removeValue(forKey: sessionId)
+      hasVideoBySessionId.removeValue(forKey: sessionId)
+      outgoingSessionIds.remove(sessionId)
+      return
+    }
+
     DibayCallLog.info(
       "ios_native_voice_callkit_end",
       sessionId: sessionId,
@@ -275,6 +313,7 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
         action.fulfill()
         self.callUuidBySessionId.removeValue(forKey: sessionId)
         self.hasVideoBySessionId.removeValue(forKey: sessionId)
+        self.outgoingSessionIds.remove(sessionId)
       }
     }
   }

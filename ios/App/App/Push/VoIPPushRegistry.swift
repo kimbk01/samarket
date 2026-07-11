@@ -111,7 +111,11 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
       return true
     }
 
-    return callProvider.getActiveCallSessionId() == sid
+    // Ambiguous fallback — callUuidBySessionId is populated by BOTH reportIncomingCall
+    // and reportOutgoingCallStarted, so a bare session-id match cannot prove direction.
+    // Explicitly exclude known-outgoing sessions before trusting this fallback.
+    guard callProvider.getActiveCallSessionId() == sid else { return false }
+    return !callProvider.isOutgoingSession(sid)
   }
 
   private func stringField(_ data: [AnyHashable: Any], keys: [String]) -> String? {
