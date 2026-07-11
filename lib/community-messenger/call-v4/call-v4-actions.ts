@@ -511,10 +511,19 @@ export async function callV4CreateOutgoing(input: {
       }
     }
 
-    logCallV4("outgoing_ios_shell_check_start", { callId: created.session.id });
-    const iosNativeOutgoingShell = await isIOSNativeOutgoingShell();
+    const outgoingCallId = created.session.id;
+    logCallV4("outgoing_ios_shell_check_start", { callId: outgoingCallId });
+    const iosNativeOutgoingShell = await Promise.race([
+      isIOSNativeOutgoingShell(),
+      new Promise<boolean>((resolve) => {
+        setTimeout(() => {
+          logCallV4("outgoing_ios_shell_check_timeout", { callId: outgoingCallId });
+          resolve(false);
+        }, 3000);
+      }),
+    ]);
     logCallV4("outgoing_ios_shell_check_done", {
-      callId: created.session.id,
+      callId: outgoingCallId,
       iosNativeOutgoingShell,
     });
 

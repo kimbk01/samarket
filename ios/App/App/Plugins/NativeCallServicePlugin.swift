@@ -248,6 +248,9 @@ public class NativeCallServicePlugin: CAPPlugin, CAPBridgedPlugin {
   }
 
   @objc func isNativeVoiceOutgoingLaneEnabled(_ call: CAPPluginCall) {
-    call.resolve(["enabled": NativeVoiceCallLane.isOutgoingVoiceLaneActive(mediaType: "voice")])
+    NSLog("[DIBAY_CALL] ios_native_outgoing_lane_check_received")
+    let enabled = NativeVoiceCallLane.isOutgoingVoiceLaneActive(mediaType: "voice")
+    NSLog("[DIBAY_CALL] ios_native_outgoing_lane_check_resolving enabled=%@", enabled ? "true" : "false")
+    call.resolve(["enabled": enabled])
   }
 }
