@@ -50,7 +50,6 @@ export type NativeCallServicePlugin = {
     peerName?: string;
   }): Promise<{ ok: boolean; nativeOwned: boolean }>;
   isNativeEstablishmentOwned(options: { callId: string }): Promise<{ owned: boolean }>;
-  isNativeVoiceOutgoingLaneEnabled(): Promise<{ enabled: boolean }>;
   acquireScreenAwake(options: { callId: string; reason?: string }): Promise<{ ok: boolean }>;
   releaseScreenAwake(options: { callId: string; reason?: string }): Promise<{ ok: boolean }>;
   notifyScreenAwakePresentation(options: { callId: string; presentation?: string }): Promise<{ ok: boolean }>;

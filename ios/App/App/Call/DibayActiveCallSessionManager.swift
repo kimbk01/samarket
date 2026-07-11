@@ -11,12 +11,8 @@ final class DibayActiveCallSessionManager {
   private(set) var phase: String = "IDLE"
   private(set) var mediaType: String = "voice"
   private(set) var connected: Bool = false
-  private(set) var voiceRuntimeBound: Bool = false
   private var localEndSent = false
   private var remoteEndReceived = false
-
-  /// SSOT phase label mirrored from `NativeVoiceCallRuntime` (voice native path only).
-  var voiceSsotPhaseLabel: String { phase }
 
   private static let forbiddenCleanup: Set<String> = [
     "activity_destroyed", "webview_reload", "notification_dismissed",
@@ -32,33 +28,9 @@ final class DibayActiveCallSessionManager {
     self.mediaType = mediaType
     self.phase = phase
     self.connected = phase == "CONNECTED"
-    self.voiceRuntimeBound = false
     persist()
     if connected {
-      DibayCallLog.infoCall("active_call_connected", callId: callId, detail: "media=\(mediaType)")
-    }
-  }
-
-  /**
-   * Voice native SSOT — only `DibayCallCoordinator` may call this.
-   * Do not call `bindActiveCall` for native voice runtime phase transitions.
-   */
-  func applyVoiceRuntimeSnapshot(_ snapshot: NativeVoiceCallRuntimeSnapshot, source: String) {
-    let ssot = snapshot.phase.ssotLabel
-    if let session = snapshot.session {
-      callId = session.sessionId
-      mediaType = "voice"
-      phase = ssot
-      connected = snapshot.phase == .connected
-      voiceRuntimeBound = true
-      persist()
-      DibayCallLog.infoSsotApply(callId: session.sessionId, phase: ssot, source: source)
-      return
-    }
-    if snapshot.phase == .idle {
-      if voiceRuntimeBound {
-        clearSession()
-      }
+      NSLog("[DIBAY_CALL] active_call_connected callId=%@ media=%@", callId, mediaType)
     }
   }
 
@@ -67,7 +39,7 @@ final class DibayActiveCallSessionManager {
     phase = next
     if next == "CONNECTED" { connected = true }
     persist()
-    DibayCallLog.info("active_call_phase", detail: "\(next) source=\(source)")
+    NSLog("[DIBAY_CALL] active_call_phase %@ source=%@", next, source)
   }
 
   func canCleanup(_ reason: String) -> Bool {
@@ -79,11 +51,11 @@ final class DibayActiveCallSessionManager {
   func requestCleanup(reason: String) -> Bool {
     guard let sid = callId, !sid.isEmpty else { return false }
     guard canCleanup(reason) else {
-      DibayCallLog.infoCall("active_call_cleanup_blocked", callId: sid, detail: "reason=\(reason)")
+      NSLog("[DIBAY_CALL] active_call_cleanup_blocked callId=%@ reason=%@", sid, reason)
       return false
     }
     transitionPhase("LOCAL_ENDING", source: reason)
-    DibayCallLog.infoCall("active_call_cleanup", callId: sid, detail: "reason=\(reason)")
+    NSLog("[DIBAY_CALL] active_call_cleanup callId=%@ reason=%@", sid, reason)
     CallKitProvider.shared.reportCallEnded(uuidString: sid)
     clearSession()
     return true
@@ -92,7 +64,7 @@ final class DibayActiveCallSessionManager {
   func onRemoteEnded(callId: String) {
     if remoteEndReceived { return }
     remoteEndReceived = true
-    DibayCallLog.infoCall("ios_remote_ended_received", callId: callId)
+    NSLog("[DIBAY_CALL] ios_remote_ended_received callId=%@", callId)
     transitionPhase("REMOTE_ENDED", source: "remote_ended")
     CallKitProvider.shared.reportCallEnded(uuidString: callId)
     clearSession()
@@ -101,18 +73,18 @@ final class DibayActiveCallSessionManager {
   func onLocalEndNotified(callId: String) {
     if localEndSent { return }
     localEndSent = true
-    DibayCallLog.infoCall("ios_local_end_notified_remote", callId: callId)
+    NSLog("[DIBAY_CALL] ios_local_end_notified_remote callId=%@", callId)
   }
 
   func onAppBackground() {
     guard connected, let sid = callId else { return }
     transitionPhase("BACKGROUNDED", source: "app_background")
-    DibayCallLog.infoCall("ios_call_background_keep_alive", callId: sid)
+    NSLog("[DIBAY_CALL] ios_call_background_keep_alive callId=%@", sid)
   }
 
   func onAppForeground() {
     guard let sid = callId else { return }
-    DibayCallLog.infoCall("ios_active_call_resume_found", callId: sid)
+    NSLog("[DIBAY_CALL] ios_active_call_resume_found callId=%@", sid)
     if connected {
       transitionPhase("REENTERING", source: "app_foreground")
       transitionPhase("CONNECTED", source: "reenter_complete")
@@ -122,7 +94,7 @@ final class DibayActiveCallSessionManager {
   func onScreenLocked() {
     guard connected, let sid = callId else { return }
     transitionPhase("SCREEN_OFF_ACTIVE", source: "screen_lock")
-    DibayCallLog.infoCall("ios_call_screen_locked_keep_alive", callId: sid)
+    NSLog("[DIBAY_CALL] ios_call_screen_locked_keep_alive callId=%@", sid)
   }
 
   func recordHeartbeat(callId: String) {
@@ -148,7 +120,6 @@ final class DibayActiveCallSessionManager {
     phase = "CLEANED"
     mediaType = "voice"
     connected = false
-    voiceRuntimeBound = false
     localEndSent = false
     remoteEndReceived = false
     prefs.removeObject(forKey: prefsKey)

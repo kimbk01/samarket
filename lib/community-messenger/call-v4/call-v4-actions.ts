@@ -61,7 +61,7 @@ import {
   tryClaimCallV4AcceptFlight,
 } from "@/lib/community-messenger/call-v4/call-v4-patch-guard";
 import { isLegacyWebCallEstablishmentRemoved } from "@/lib/call/native/legacy-web-call-establishment-removed";
-import { isAndroidNativeOutgoingShell, isIOSNativeOutgoingShell, startNativeOutgoingEstablishment } from "@/lib/call/native/native-outgoing-bridge";
+import { isAndroidNativeOutgoingShell, startNativeOutgoingEstablishment } from "@/lib/call/native/native-outgoing-bridge";
 import { maybeExitCallV4ScreenAfterCleanup } from "@/lib/community-messenger/call-v4/call-v4-exit-guard";
 import {
   buildCallV4ScreenHref,
@@ -421,7 +421,6 @@ export async function callV4CreateOutgoing(input: {
   }
 
   const flight: Promise<CallV4OutgoingLaunchResult> = (async (): Promise<CallV4OutgoingLaunchResult> => {
-   try {
     useCallV4Store.getState().setPhase("creating");
     useCallV4Store.setState({ canStartNewCall: false });
 
@@ -511,89 +510,12 @@ export async function callV4CreateOutgoing(input: {
       }
     }
 
-    const outgoingCallId = created.session.id;
-    logCallV4("outgoing_ios_shell_check_start", { callId: outgoingCallId });
-    const iosNativeOutgoingShell = await Promise.race([
-      isIOSNativeOutgoingShell(),
-      new Promise<boolean>((resolve) => {
-        setTimeout(() => {
-          logCallV4("outgoing_ios_shell_check_timeout", { callId: outgoingCallId });
-          resolve(false);
-        }, 3000);
-      }),
-    ]);
-    logCallV4("outgoing_ios_shell_check_done", {
-      callId: outgoingCallId,
-      iosNativeOutgoingShell,
-    });
-
-    if (iosNativeOutgoingShell) {
-      logCallV4("native_outgoing_handoff_start", {
-        callId: created.session.id,
-        mediaType: input.mediaType,
-        roomId: roomResolved.roomId,
-        platform: "ios",
-      });
-      const nativeHandoff = await startNativeOutgoingEstablishment({
-        callId: created.session.id,
-        roomId: roomResolved.roomId,
-        mediaType: input.mediaType,
-        peerUserId: input.peerUserId,
-        peerName: input.peerLabel,
-      });
-      if (nativeHandoff.ok && nativeHandoff.nativeOwned) {
-        logCallV4("native_outgoing_handoff_done", {
-          callId: created.session.id,
-          mediaType: input.mediaType,
-          roomId: roomResolved.roomId,
-          platform: "ios",
-        });
-        startCallV4OutgoingMissedTimer(created.session.id, identity.createdAt, input.router);
-        startNativeOutgoingTerminalSync(created.session.id, input.router);
-        // iOS P4 fail-safe: native VC present can fail (Capacitor presenter). Never skip Web
-        // outgoing shell on iOS — web Agora/poll are quarantined when native owns (call-v4-agora).
-        logCallV4("ios_native_outgoing_web_shell_kept", {
-          callId: created.session.id,
-          roomId: roomResolved.roomId,
-        });
-      } else {
-        if (!nativeHandoff.ok && !nativeHandoff.nativeOwned) {
-          logCallV4("native_establishment_unavailable", {
-            callId: created.session.id,
-            mediaType: input.mediaType,
-            roomId: roomResolved.roomId,
-            platform: "ios",
-          });
-        }
-        logCallV4("native_outgoing_failed", {
-          callId: created.session.id,
-          mediaType: input.mediaType,
-          roomId: roomResolved.roomId,
-          platform: "ios",
-          ok: nativeHandoff.ok,
-          nativeOwned: nativeHandoff.nativeOwned,
-        });
-      }
-    }
-
-    logCallV4("outgoing_pre_route_check", {
-      callId: created.session.id,
-      shouldRouteToWebOutgoingPresentation,
-    });
-
     if (shouldRouteToWebOutgoingPresentation) {
       routeToCallV4Screen(input.router, created.session.id, "outgoing");
       logCallV4("outgoing_ringing", { callId: created.session.id, roomId: roomResolved.roomId });
     }
 
     return { ok: true as const, session: created.session, roomId: roomResolved.roomId };
-   } catch (error) {
-    logCallV4("outgoing_create_unhandled_error", {
-      message: error instanceof Error ? error.message : String(error),
-    });
-    useCallV4Store.getState().resetToIdle();
-    return { ok: false as const, userMessage: outgoingGenericErrorMessage() };
-   }
   })();
 
   outgoingCreateInFlight = flight;
@@ -924,16 +846,6 @@ export async function callV4HandleMissedTimeout(
     await callV4HandleRemoteTerminal(sid, session.status, router, source);
     return;
   }
-  if (session && session.status === "active") {
-    // Callee already accepted (server session is "active") — the caller-active poll should have
-    // caught this, but a stuck native bridge call (isNativeEstablishmentOwned) can starve it.
-    // Never patch this session as "missed" once it's active; join instead.
-    logCallV4("missed_timeout_session_already_active", { callId: sid, source });
-    clearCallV4MissedTimer(sid);
-    stopCallV4CallerActivePoll();
-    await callV4EnsureAgoraJoined(sid);
-    return;
-  }
 
   const nativeOutgoingShell =
     isLegacyWebCallEstablishmentRemoved() && isAndroidOutgoingPresentationRoute(sid);
@@ -971,14 +883,6 @@ export async function callV4HandleMissedTimeout(
     if (afterPatchSession && isCallV4TerminalSessionStatus(afterPatchSession.status)) {
       notifyCallV4PeerTerminalBestEffort(sid, identity, afterPatchSession.status);
       await finalizeCallV4Terminal(sid, mapCallV4RemoteTerminalReason(afterPatchSession.status), router);
-      return;
-    }
-    if (afterPatchSession && afterPatchSession.status === "active") {
-      // Same race as above, caught this time by the post-patch-failure refetch:
-      // "missed" was rejected (bad_action) precisely because the callee accepted in between.
-      logCallV4("missed_patch_failed_session_already_active", { callId: sid, source });
-      releaseCallV4MissedPatchClaim(sid);
-      await callV4EnsureAgoraJoined(sid);
       return;
     }
     if (nativeOutgoingShell) {

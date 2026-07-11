@@ -25,11 +25,11 @@ enum CallV4SurfaceOwnerBridge {
       return
     }
     pendingByCallId[sid] = PendingOwner(owner: ownerNorm, reason: reasonNorm, tsMs: tsMs)
-    DibayCallLog.infoCallV4(
-      "surface_owner_bridge_queued",
-      callId: sid,
-      owner: ownerNorm,
-      reason: reasonNorm
+    NSLog(
+      "[DIBAY_CALL_V4] surface_owner_bridge_queued callId=%@ owner=%@ reason=%@",
+      sid,
+      ownerNorm,
+      reasonNorm
     )
   }
 
@@ -61,11 +61,11 @@ enum CallV4SurfaceOwnerBridge {
     DispatchQueue.main.async {
       webView.evaluateJavaScript(js, completionHandler: nil)
     }
-    DibayCallLog.infoCallV4(
-      "surface_owner_bridge_injected",
-      callId: callId,
-      owner: owner,
-      reason: reason
+    NSLog(
+      "[DIBAY_CALL_V4] surface_owner_bridge_injected callId=%@ owner=%@ reason=%@",
+      callId,
+      owner,
+      reason
     )
     return true
   }

@@ -3,7 +3,6 @@ import type { CommunityMessengerCallSession } from "@/lib/community-messenger/ty
 
 const bridgeMocks = vi.hoisted(() => ({
   isAndroidNativeOutgoingShell: vi.fn(() => false),
-  isIOSNativeOutgoingShell: vi.fn(async () => false),
   startNativeOutgoingEstablishment: vi.fn(async () => ({ ok: false, nativeOwned: false })),
 }));
 
@@ -33,7 +32,6 @@ const apiMocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/call/native/native-outgoing-bridge", () => ({
   isAndroidNativeOutgoingShell: bridgeMocks.isAndroidNativeOutgoingShell,
-  isIOSNativeOutgoingShell: bridgeMocks.isIOSNativeOutgoingShell,
   startNativeOutgoingEstablishment: bridgeMocks.startNativeOutgoingEstablishment,
   isNativeEstablishmentOwned: vi.fn(async () => false),
 }));
@@ -55,7 +53,6 @@ describe("call-v4-outgoing-native-fallback (P2-2)", () => {
   beforeEach(() => {
     useCallV4Store.getState().resetToIdle();
     bridgeMocks.isAndroidNativeOutgoingShell.mockReturnValue(false);
-    bridgeMocks.isIOSNativeOutgoingShell.mockResolvedValue(false);
     bridgeMocks.startNativeOutgoingEstablishment.mockResolvedValue({ ok: false, nativeOwned: false });
     apiMocks.reconcile.mockClear();
     apiMocks.resolveRoom.mockClear();
@@ -93,23 +90,6 @@ describe("call-v4-outgoing-native-fallback (P2-2)", () => {
 
     expect(result.ok).toBe(true);
     expect(replace).not.toHaveBeenCalled();
-    expect(useCallV4Store.getState().phase).toBe("outgoing_ringing");
-    expect(useCallV4Store.getState().identity?.callId).toBe("call-1");
-  });
-
-  it("iOS native shell: handoff success still routes Web outgoing shell (fail-safe)", async () => {
-    bridgeMocks.isIOSNativeOutgoingShell.mockResolvedValue(true);
-    bridgeMocks.startNativeOutgoingEstablishment.mockResolvedValue({ ok: true, nativeOwned: true });
-
-    const replace = vi.fn();
-    const result = await callV4CreateOutgoing({
-      roomId: "room-1",
-      mediaType: "audio",
-      router: { push: vi.fn(), replace },
-    });
-
-    expect(result.ok).toBe(true);
-    expect(replace).toHaveBeenCalledWith("/community-messenger/calls-v4/call-1?source=outgoing");
     expect(useCallV4Store.getState().phase).toBe("outgoing_ringing");
     expect(useCallV4Store.getState().identity?.callId).toBe("call-1");
   });

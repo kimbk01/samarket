@@ -37,9 +37,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         DibayActiveCallSessionManager.shared.onAppForeground()
         ScreenAwakeBridge.shared.reapplyOnBecomeActive()
         CallV4SurfaceOwnerBridge.flushPending()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            DibayPushTokenBridge.replayLastVoipTokenIfPresent()
-        }
     }
 
     func applicationWillTerminate(_ application: UIApplication) {
@@ -61,16 +58,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Feel free to add additional processing here, but if you want the App API to support
         // tracking app url opens, make sure to keep this call
         return ApplicationDelegateProxy.shared.application(application, continue: userActivity, restorationHandler: restorationHandler)
-    }
-
-    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-        NSLog("[DIBAY_PUSH] ios_apns_did_register token_len=%d", deviceToken.count)
-        NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)
-    }
-
-    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
-        NSLog("[DIBAY_PUSH] ios_apns_register_failed err=%@", error.localizedDescription)
-        NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
     }
 
 }

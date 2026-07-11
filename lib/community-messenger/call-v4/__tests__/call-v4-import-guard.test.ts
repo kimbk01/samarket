@@ -196,8 +196,7 @@ describe("call-v4 import isolation", () => {
     expect(bridge).toContain("dibay:call-surface-owner");
     expect(bridge).toContain("surface_owner_bridge_injected");
     expect(voip).toContain('owner: "native_fsi"');
-    expect(voip).toContain("isVoipTerminalIncomingSession");
-    expect(voip).toContain("ios_voip_terminal_bridge_skipped");
+    expect(voip).toContain('owner: "terminal"');
     expect(callkit).toContain('owner: "accepted_transition"');
     expect(callkit).toContain('owner: "terminal"');
     expect(plugin).toContain("claimForegroundWebIncomingOwner");
@@ -267,7 +266,7 @@ describe("call-v4 import isolation", () => {
     );
     const provider = read("components/community-messenger/call-v4/CallV4Provider.tsx");
     expect(provider).toContain("CallV4ActiveCallHost");
-    expect(provider).toContain("maybeFinalizeCallV4FromVoipSurfaceOwnerBridge");
+    expect(provider).toContain("useCallV4PresentationPlatform");
     expect(provider).toContain("useCallV4ForegroundResume");
     expect(provider).not.toContain("CommunityMessengerCallClient");
     const host = read("components/community-messenger/call-v4/CallV4ActiveCallHost.tsx");

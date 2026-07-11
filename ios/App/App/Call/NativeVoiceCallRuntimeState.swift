@@ -14,12 +14,8 @@ struct NativeVoiceCallSession: Equatable, Sendable {
   let sessionId: String
   let callUUID: UUID
   let direction: NativeVoiceCallDirection
-  let roomId: String
-  let callerId: String
-  let callerName: String
+  let peerId: String?
   let createdAt: Date
-
-  var initiator: Bool { direction == .outgoing }
 }
 
 enum NativeVoiceCallFailure: Equatable, Sendable {

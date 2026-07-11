@@ -51,7 +51,6 @@ import {
 } from "@/lib/community-messenger/call-v4/call-v4-native-accept-flight";
 import { readCallV4ExitRouter } from "@/lib/community-messenger/call-v4/call-v4-route";
 import { readCallV4Phase, useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
-import { maybeFinalizeCallV4FromVoipSurfaceOwnerBridge } from "@/lib/community-messenger/call-v4/call-v4-voip-surface-terminal-bridge";
 import {
   installDibayFcmCallBridge,
   type DibayFcmIncomingWakeDetail,
@@ -295,7 +294,6 @@ function CallV4WebEstablishmentHost({ children, pathname, router, userId }: Call
         reason: detail.reason,
       });
       ingestCallV4SurfaceOwnerSignal(detail);
-      maybeFinalizeCallV4FromVoipSurfaceOwnerBridge(detail);
       const owner = getCallV4PersistedSurfaceOwner(detail.callId.trim());
       if (owner === "web_in_app") {
         void tryHydrateCallV4IncomingForWebOwner(detail.callId.trim());

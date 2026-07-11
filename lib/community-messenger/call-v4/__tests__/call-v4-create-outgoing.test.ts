@@ -27,7 +27,6 @@ const apiMocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/call/native/native-outgoing-bridge", () => ({
   isAndroidNativeOutgoingShell: vi.fn(() => false),
-  isIOSNativeOutgoingShell: vi.fn(async () => false),
   startNativeOutgoingEstablishment: vi.fn(async () => ({ ok: false, nativeOwned: false })),
   isNativeEstablishmentOwned: vi.fn(async () => false),
 }));
