@@ -40,6 +40,24 @@ enum NativeVoiceCallApi {
     patchAsync(callId: callId, action: "end", completion: completion)
   }
 
+  static func startCallerJoinAsync(
+    callId: String,
+    roomId: String,
+    peerUserId: String,
+    peerName: String,
+    mediaType: String
+  ) {
+    let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !sid.isEmpty else { return }
+    NativeVoiceOutgoingCallCoordinator.shared.handleOutgoing(
+      callId: sid,
+      roomId: roomId,
+      peerUserId: peerUserId,
+      peerName: peerName,
+      mediaType: mediaType
+    )
+  }
+
   static func fetchTokenAsync(callId: String, completion: @escaping TokenCallback) {
     let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !sid.isEmpty else {

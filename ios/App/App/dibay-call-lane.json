@@ -1,5 +1,6 @@
 {
   "v4TelegramLane": false,
   "nativeVoiceRuntime": true,
+  "nativeVoiceOutgoingRuntime": false,
   "nativeVideoRuntime": false
 }

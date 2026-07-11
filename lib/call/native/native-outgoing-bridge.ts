@@ -3,6 +3,7 @@
 import { registerPlugin } from "@capacitor/core";
 import { NATIVE_CALL_SERVICE_PLUGIN_ID } from "@/lib/call/native/native-call-service";
 import { isCapacitorNativePlatform, resolveCapacitorShellPlatform } from "@/lib/platform/capacitor-native";
+import { logCallV4 } from "@/lib/community-messenger/call-v4/call-v4-debug";
 
 export type NativeOutgoingEstablishmentInput = {
   callId: string;
@@ -22,6 +23,7 @@ type NativeOutgoingBridgePlugin = {
     options: NativeOutgoingEstablishmentInput,
   ): Promise<NativeOutgoingEstablishmentResult>;
   isNativeEstablishmentOwned(options: { callId: string }): Promise<{ owned: boolean }>;
+  isNativeVoiceOutgoingLaneEnabled(): Promise<{ enabled: boolean }>;
 };
 
 const NativeOutgoingBridge = registerPlugin<NativeOutgoingBridgePlugin>(NATIVE_CALL_SERVICE_PLUGIN_ID);
@@ -30,12 +32,29 @@ function isAndroidNativeShell(): boolean {
   return isCapacitorNativePlatform() && resolveCapacitorShellPlatform() === "android";
 }
 
+function isIosNativeShell(): boolean {
+  return isCapacitorNativePlatform() && resolveCapacitorShellPlatform() === "ios";
+}
+
 /** True when outgoing must use Native Runtime only (Android Capacitor shell). */
 export function isAndroidNativeOutgoingShell(): boolean {
   return isAndroidNativeShell();
 }
 
-async function invokeNative<T>(method: keyof NativeOutgoingBridgePlugin, options: Record<string, unknown>): Promise<T | null> {
+/**
+ * iOS native voice outgoing — reads bundled lane flags from native (dibay-call-lane.json).
+ * No Web sessionStorage/env gate — QA only needs json + rebuild.
+ */
+export async function isIOSNativeOutgoingShell(): Promise<boolean> {
+  if (!isIosNativeShell()) return false;
+  const result = await invokeNativeIos<{ enabled: boolean }>("isNativeVoiceOutgoingLaneEnabled", {});
+  return result?.enabled ?? false;
+}
+
+async function invokeNativeAndroid<T>(
+  method: keyof NativeOutgoingBridgePlugin,
+  options: Record<string, unknown>,
+): Promise<T | null> {
   if (!isAndroidNativeShell()) return null;
   const cap = (typeof window !== "undefined" ? window : undefined) as Window & {
     Capacitor?: { nativePromise?: (plugin: string, methodName: string, options?: unknown) => Promise<unknown> };
@@ -52,30 +71,92 @@ async function invokeNative<T>(method: keyof NativeOutgoingBridgePlugin, options
   return null;
 }
 
-/** O2 — hand off outgoing establishment to Native Runtime (Android only). */
+async function invokeNativeIos<T>(
+  method: keyof NativeOutgoingBridgePlugin,
+  options: Record<string, unknown> = {},
+): Promise<T | null> {
+  if (!isIosNativeShell()) return null;
+  const cap = (typeof window !== "undefined" ? window : undefined) as Window & {
+    Capacitor?: { nativePromise?: (plugin: string, methodName: string, options?: unknown) => Promise<unknown> };
+  };
+  const nativePromise = cap?.Capacitor?.nativePromise;
+  if (typeof nativePromise === "function") {
+    return nativePromise(NATIVE_CALL_SERVICE_PLUGIN_ID, method, options) as Promise<T>;
+  }
+  const plugin = NativeOutgoingBridge as unknown as Record<string, (opts: unknown) => Promise<T>>;
+  const fn = plugin[method as string];
+  if (typeof fn === "function") {
+    return fn(options);
+  }
+  return null;
+}
+
+/** O2 — hand off outgoing establishment to Native Runtime (Android + iOS when gated). */
 export async function startNativeOutgoingEstablishment(
   input: NativeOutgoingEstablishmentInput,
 ): Promise<NativeOutgoingEstablishmentResult> {
   const callId = input.callId.trim();
-  if (!callId || !isAndroidNativeShell()) {
+  if (!callId) {
     return { ok: false, nativeOwned: false };
   }
-  const result = await invokeNative<NativeOutgoingEstablishmentResult>("startNativeOutgoingEstablishment", {
-    callId,
-    roomId: input.roomId.trim(),
-    mediaType: input.mediaType.trim() || "voice",
-    peerUserId: input.peerUserId?.trim() || "",
-    peerName: input.peerName?.trim() || "",
-  });
-  return {
-    ok: result?.ok ?? false,
-    nativeOwned: result?.nativeOwned ?? false,
-  };
+  if (isAndroidNativeShell()) {
+    const result = await invokeNativeAndroid<NativeOutgoingEstablishmentResult>("startNativeOutgoingEstablishment", {
+      callId,
+      roomId: input.roomId.trim(),
+      mediaType: input.mediaType.trim() || "voice",
+      peerUserId: input.peerUserId?.trim() || "",
+      peerName: input.peerName?.trim() || "",
+    });
+    return {
+      ok: result?.ok ?? false,
+      nativeOwned: result?.nativeOwned ?? false,
+    };
+  }
+  if (await isIOSNativeOutgoingShell()) {
+    const result = await invokeNativeIos<NativeOutgoingEstablishmentResult>("startNativeOutgoingEstablishment", {
+      callId,
+      roomId: input.roomId.trim(),
+      mediaType: input.mediaType.trim() || "voice",
+      peerUserId: input.peerUserId?.trim() || "",
+      peerName: input.peerName?.trim() || "",
+    });
+    return {
+      ok: result?.ok ?? false,
+      nativeOwned: result?.nativeOwned ?? false,
+    };
+  }
+  return { ok: false, nativeOwned: false };
 }
+
+/**
+ * iOS Capacitor bridge dispatch (registerPlugin proxy / nativePromise) has been observed to hang
+ * indefinitely without resolving or rejecting (same failure mode as isNativeVoiceOutgoingLaneEnabled,
+ * see call-v4-actions.ts outgoing_ios_shell_check_timeout). Since this is polled every 500ms from
+ * the caller-active poll (call-v4-caller-active.ts) and gates the Agora join (call-v4-agora.ts), a
+ * hang here silently blocks the caller from ever detecting the callee's accept. Timeout + fallback
+ * to `false` (== "not native owned" == safe/Web path) so a stuck bridge call can never freeze the
+ * outgoing call flow.
+ */
+const IOS_NATIVE_ESTABLISHMENT_OWNED_TIMEOUT_MS = 1500;
 
 export async function isNativeEstablishmentOwned(callId: string): Promise<boolean> {
   const sid = callId.trim();
-  if (!sid || !isAndroidNativeShell()) return false;
-  const result = await invokeNative<{ owned: boolean }>("isNativeEstablishmentOwned", { callId: sid });
-  return result?.owned ?? false;
+  if (!sid) return false;
+  if (isAndroidNativeShell()) {
+    const result = await invokeNativeAndroid<{ owned: boolean }>("isNativeEstablishmentOwned", { callId: sid });
+    return result?.owned ?? false;
+  }
+  if (isIosNativeShell()) {
+    const result = await Promise.race([
+      invokeNativeIos<{ owned: boolean }>("isNativeEstablishmentOwned", { callId: sid }),
+      new Promise<null>((resolve) => {
+        setTimeout(() => {
+          logCallV4("ios_native_establishment_owned_check_timeout", { callId: sid });
+          resolve(null);
+        }, IOS_NATIVE_ESTABLISHMENT_OWNED_TIMEOUT_MS);
+      }),
+    ]);
+    return result?.owned ?? false;
+  }
+  return false;
 }

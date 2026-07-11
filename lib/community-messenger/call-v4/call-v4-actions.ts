@@ -846,6 +846,16 @@ export async function callV4HandleMissedTimeout(
     await callV4HandleRemoteTerminal(sid, session.status, router, source);
     return;
   }
+  if (session && session.status === "active") {
+    // Callee already accepted (server session is "active") — the caller-active poll should have
+    // caught this, but a stuck native bridge call (isNativeEstablishmentOwned) can starve it.
+    // Never patch this session as "missed" once it's active; join instead.
+    logCallV4("missed_timeout_session_already_active", { callId: sid, source });
+    clearCallV4MissedTimer(sid);
+    stopCallV4CallerActivePoll();
+    await callV4EnsureAgoraJoined(sid);
+    return;
+  }
 
   const nativeOutgoingShell =
     isLegacyWebCallEstablishmentRemoved() && isAndroidOutgoingPresentationRoute(sid);
@@ -883,6 +893,14 @@ export async function callV4HandleMissedTimeout(
     if (afterPatchSession && isCallV4TerminalSessionStatus(afterPatchSession.status)) {
       notifyCallV4PeerTerminalBestEffort(sid, identity, afterPatchSession.status);
       await finalizeCallV4Terminal(sid, mapCallV4RemoteTerminalReason(afterPatchSession.status), router);
+      return;
+    }
+    if (afterPatchSession && afterPatchSession.status === "active") {
+      // Same race as above, caught this time by the post-patch-failure refetch:
+      // "missed" was rejected (bad_action) precisely because the callee accepted in between.
+      logCallV4("missed_patch_failed_session_already_active", { callId: sid, source });
+      releaseCallV4MissedPatchClaim(sid);
+      await callV4EnsureAgoraJoined(sid);
       return;
     }
     if (nativeOutgoingShell) {

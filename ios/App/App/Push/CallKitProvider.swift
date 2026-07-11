@@ -9,6 +9,7 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
   private let provider: CXProvider
   private var callUuidBySessionId: [String: UUID] = [:]
   private var hasVideoBySessionId: [String: Bool] = [:]
+  private var outgoingSessionIds: Set<String> = []
 
   private override init() {
     let config = CXProviderConfiguration(localizedName: "DIBAY")
@@ -50,10 +51,10 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
       do {
         try NativeVoiceCallRuntime.shared.registerIncomingSession(session)
       } catch {
-        NSLog(
-          "[DIBAY_CALL] ios_native_voice_register_failed sessionId=%@ err=%@",
-          maskSessionId(sessionId),
-          String(describing: error)
+        DibayCallLog.info(
+          "ios_native_voice_register_failed",
+          sessionId: sessionId,
+          detail: "err=\(String(describing: error))"
         )
         // Keep existing CallKit presentation policy — still report incoming UI.
       }
@@ -69,10 +70,10 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
           callUUID: uuid
         )
       } catch {
-        NSLog(
-          "[DIBAY_CALL] ios_native_video_register_failed sessionId=%@ err=%@",
-          maskSessionId(sessionId),
-          String(describing: error)
+        DibayCallLog.info(
+          "ios_native_video_register_failed",
+          sessionId: sessionId,
+          detail: "err=\(String(describing: error))"
         )
       }
     }
@@ -99,29 +100,50 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
         NativeVideoIncomingCallCoordinator.shared.handleRemoteTerminal(sessionId: sid)
       }
     }
+    endCallKitSession(sessionId: sid, reason: .remoteEnded, logDetail: "report_call_ended")
+  }
+
+  /**
+   * Dismiss CallKit in-call UI only — no runtime terminal fan-out.
+   * Use when the app already ran native cleanup (native VC end button).
+   */
+  func endCallKitSession(
+    sessionId: String,
+    reason: CXCallEndedReason = .remoteEnded,
+    logDetail: String = "end_callkit_session_only"
+  ) {
+    let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
     guard let uuid = callUuidBySessionId[sid] ?? UUID(uuidString: sid) else { return }
+    let isVideo = hasVideoBySessionId[sid] ?? false
     if !isVideo {
-      NSLog(
-        "[DIBAY_CALL] ios_native_voice_callkit_end sessionId=%@ reason=report_call_ended",
-        maskSessionId(sid)
+      DibayCallLog.info(
+        "ios_native_voice_callkit_end",
+        sessionId: sid,
+        detail: "reason=\(logDetail)"
       )
     }
-    provider.reportCall(with: uuid, endedAt: Date(), reason: .remoteEnded)
+    provider.reportCall(with: uuid, endedAt: Date(), reason: reason)
     callUuidBySessionId.removeValue(forKey: sid)
     hasVideoBySessionId.removeValue(forKey: sid)
+    outgoingSessionIds.remove(sid)
   }
 
   /** P4 — outgoing/active CallKit session for connected calls */
   func reportOutgoingCallStarted(sessionId: String, hasVideo: Bool) {
     let uuid = uuidFromSession(sessionId: sessionId)
     callUuidBySessionId[sessionId] = uuid
+    outgoingSessionIds.insert(sessionId.trimmingCharacters(in: .whitespacesAndNewlines))
     let handle = CXHandle(type: .generic, value: sessionId)
     let start = CXStartCallAction(call: uuid, handle: handle)
     start.isVideo = hasVideo
     let transaction = CXTransaction(action: start)
     CXCallController().request(transaction) { error in
       if let error = error {
-        NSLog("[DIBAY_CALL] ios_callkit_start_failed callId=%@ err=%@", sessionId, error.localizedDescription)
+        DibayCallLog.infoCall(
+          "ios_callkit_start_failed",
+          callId: sessionId,
+          detail: "err=\(error.localizedDescription)"
+        )
       }
     }
   }
@@ -129,6 +151,16 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
   /** NativeCallService contract — in-memory CallKit map */
   func getActiveCallSessionId() -> String? {
     callUuidBySessionId.keys.first
+  }
+
+  /**
+   * Direction disambiguation for VoIP terminal push handling.
+   * `getActiveCallSessionId()` alone cannot tell caller vs callee — both populate
+   * `callUuidBySessionId`. Callers (VoIPPushRegistry) must exclude known-outgoing
+   * sessions before treating a terminal push as applying to an incoming call.
+   */
+  func isOutgoingSession(_ sessionId: String) -> Bool {
+    outgoingSessionIds.contains(sessionId.trimmingCharacters(in: .whitespacesAndNewlines))
   }
 
   private func uuidFromSession(sessionId: String) -> UUID {
@@ -139,11 +171,6 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
 
   private func sessionId(for callUUID: UUID) -> String? {
     callUuidBySessionId.first(where: { $0.value == callUUID })?.key
-  }
-
-  private func maskSessionId(_ sessionId: String) -> String {
-    guard sessionId.count > 8 else { return sessionId }
-    return String(sessionId.prefix(4)) + "…" + String(sessionId.suffix(4))
   }
 
   /// Legacy Web handoff — unchanged since pre-B5; used when `nativeVideoRuntime` is false.
@@ -167,15 +194,17 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
     DibayPushTokenBridge.postCallAction(sessionId: sessionId, action: "reject_or_end")
     callUuidBySessionId.removeValue(forKey: sessionId)
     hasVideoBySessionId.removeValue(forKey: sessionId)
+    outgoingSessionIds.remove(sessionId)
   }
 
   func providerDidReset(_ provider: CXProvider) {
     callUuidBySessionId.removeAll()
     hasVideoBySessionId.removeAll()
+    outgoingSessionIds.removeAll()
   }
 
   func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
-    DibayCallAudioSessionController.shared.noteCallKitDidActivate()
+    DibayCallAudioSessionController.shared.notifyCallKitDidActivate()
   }
 
   func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
@@ -236,6 +265,7 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
             action.fulfill()
             self.callUuidBySessionId.removeValue(forKey: sessionId)
             self.hasVideoBySessionId.removeValue(forKey: sessionId)
+            self.outgoingSessionIds.remove(sessionId)
           }
         }
         return
@@ -244,16 +274,40 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
       return
     }
 
-    // Voice Native V1 — reject/end via Native coordinator (no Web postCallAction).
-    NSLog(
-      "[DIBAY_CALL] ios_native_voice_callkit_end sessionId=%@ reason=callkit_end_action",
-      maskSessionId(sessionId)
+    // Voice — only route to Native V1 coordinator when Runtime actually owns this session.
+    // Legacy Web voice (nativeVoiceOutgoingRuntime off, or any session Runtime never registered)
+    // must fall back to the pre-existing Web postCallAction handoff.
+    let runtimeOwnsSession = NativeVoiceCallRuntime.shared.snapshot().session?.sessionId == sessionId
+    guard runtimeOwnsSession else {
+      DibayCallLog.info(
+        "ios_legacy_web_voice_callkit_end",
+        sessionId: sessionId,
+        detail: "reason=callkit_end_action_runtime_unowned"
+      )
+      CallV4SurfaceOwnerBridge.deliver(
+        callId: sessionId,
+        owner: "terminal",
+        reason: "ios_callkit_end"
+      )
+      action.fulfill()
+      DibayPushTokenBridge.postCallAction(sessionId: sessionId, action: "reject_or_end")
+      callUuidBySessionId.removeValue(forKey: sessionId)
+      hasVideoBySessionId.removeValue(forKey: sessionId)
+      outgoingSessionIds.remove(sessionId)
+      return
+    }
+
+    DibayCallLog.info(
+      "ios_native_voice_callkit_end",
+      sessionId: sessionId,
+      detail: "reason=callkit_end_action"
     )
     NativeVoiceIncomingCallCoordinator.shared.handleRejectOrEnd(sessionId: sessionId) {
       DispatchQueue.main.async {
         action.fulfill()
         self.callUuidBySessionId.removeValue(forKey: sessionId)
         self.hasVideoBySessionId.removeValue(forKey: sessionId)
+        self.outgoingSessionIds.remove(sessionId)
       }
     }
   }

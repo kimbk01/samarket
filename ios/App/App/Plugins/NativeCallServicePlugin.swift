@@ -4,6 +4,11 @@ import Foundation
 /** P4 — lib/call/native/native-call-service.ts */
 @objc(NativeCallServicePlugin)
 public class NativeCallServicePlugin: CAPPlugin, CAPBridgedPlugin {
+  static let eventNativeCallConnected = "nativeCallConnected"
+
+  private static var connectedEmitted = Set<String>()
+  private static weak var pluginInstance: NativeCallServicePlugin?
+
   public let identifier = "NativeCallServicePlugin"
   public let jsName = "NativeCallService"
   public let pluginMethods: [CAPPluginMethod] = [
@@ -18,7 +23,57 @@ public class NativeCallServicePlugin: CAPPlugin, CAPBridgedPlugin {
     CAPPluginMethod(name: "acquireScreenAwake", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "releaseScreenAwake", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "notifyScreenAwakePresentation", returnType: CAPPluginReturnPromise),
+    CAPPluginMethod(name: "startNativeOutgoingEstablishment", returnType: CAPPluginReturnPromise),
+    CAPPluginMethod(name: "isNativeEstablishmentOwned", returnType: CAPPluginReturnPromise),
+    CAPPluginMethod(name: "isNativeVoiceOutgoingLaneEnabled", returnType: CAPPluginReturnPromise),
   ]
+
+  public override func load() {
+    super.load()
+    NativeCallServicePlugin.pluginInstance = self
+  }
+
+  /** O3 — idempotent native connected publish (Android `publishNativeConnected` parity). */
+  static func publishNativeConnected(
+    callId: String,
+    roomId: String,
+    mediaType: String,
+    direction: String,
+    peerUserId: String,
+    peerName: String,
+    runtime: String,
+    fgsOwner: String
+  ) {
+    let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !sid.isEmpty else { return }
+    guard connectedEmitted.insert(sid).inserted else { return }
+
+    let managerMedia = mediaType.lowercased() == "video" ? "video" : "voice"
+    var payload = JSObject()
+    payload["callId"] = sid
+    payload["roomId"] = roomId
+    payload["mediaType"] = managerMedia
+    payload["direction"] = direction
+    payload["peerUserId"] = peerUserId
+    payload["peerName"] = peerName
+    payload["connectedAtMs"] = Int(Date().timeIntervalSince1970 * 1000)
+    payload["nativeOwned"] = true
+    payload["runtime"] = runtime
+    payload["fgsOwner"] = fgsOwner
+    payload["source"] = "native_connected_bridge"
+    emitNativeCallConnected(payload)
+  }
+
+  static func clearNativeConnectedEmit(callId: String) {
+    let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !sid.isEmpty else { return }
+    connectedEmitted.remove(sid)
+  }
+
+  private static func emitNativeCallConnected(_ payload: JSObject) {
+    guard let plugin = pluginInstance else { return }
+    plugin.notifyListeners(eventNativeCallConnected, data: payload)
+  }
 
   @objc func prepareAccept(_ call: CAPPluginCall) {
     guard let callId = call.getString("callId")?.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -44,7 +99,7 @@ public class NativeCallServicePlugin: CAPPlugin, CAPBridgedPlugin {
     DibayActiveCallSessionManager.shared.bindActiveCall(callId: callId, mediaType: kind, phase: "CONNECTED")
     DibayCallAudioSessionController.shared.activateForCall(video: kind == "video")
     CallKitProvider.shared.reportOutgoingCallStarted(sessionId: callId, hasVideo: kind == "video")
-    NSLog("[DIBAY_CALL] ios_callkit_call_started callId=%@", callId)
+    DibayCallLog.infoCall("ios_callkit_call_started", callId: callId)
     call.resolve(["ok": true])
   }
 
@@ -149,5 +204,48 @@ public class NativeCallServicePlugin: CAPPlugin, CAPBridgedPlugin {
     let presentation = call.getString("presentation") ?? "unknown"
     ScreenAwakeBridge.shared.notifyPresentationChanged(callId: callId, presentation: presentation)
     call.resolve(["ok": true])
+  }
+
+  @objc func startNativeOutgoingEstablishment(_ call: CAPPluginCall) {
+    guard let callId = call.getString("callId")?.trimmingCharacters(in: .whitespacesAndNewlines),
+      !callId.isEmpty
+    else {
+      call.reject("invalid_call_id")
+      return
+    }
+    let roomId = call.getString("roomId") ?? ""
+    let mediaType = call.getString("mediaType") ?? "voice"
+    let peerUserId = call.getString("peerUserId") ?? ""
+    let peerName = call.getString("peerName") ?? ""
+    guard NativeVoiceCallLane.isOutgoingVoiceLaneActive(mediaType: mediaType) else {
+      call.resolve(["ok": false, "nativeOwned": false])
+      return
+    }
+    NativeVoiceCallApi.startCallerJoinAsync(
+      callId: callId,
+      roomId: roomId,
+      peerUserId: peerUserId,
+      peerName: peerName,
+      mediaType: mediaType
+    )
+    let nativeOwned = NativeVoiceCallOwner.isNativeOwned(callId: callId)
+    call.resolve(["ok": nativeOwned, "nativeOwned": nativeOwned])
+  }
+
+  @objc func isNativeEstablishmentOwned(_ call: CAPPluginCall) {
+    guard let callId = call.getString("callId")?.trimmingCharacters(in: .whitespacesAndNewlines),
+      !callId.isEmpty
+    else {
+      call.reject("invalid_call_id")
+      return
+    }
+    call.resolve(["owned": NativeVoiceCallOwner.isNativeOwned(callId: callId)])
+  }
+
+  @objc func isNativeVoiceOutgoingLaneEnabled(_ call: CAPPluginCall) {
+    DibayCallLog.info("ios_native_outgoing_lane_check_received")
+    let enabled = NativeVoiceCallLane.isOutgoingVoiceLaneActive(mediaType: "voice")
+    DibayCallLog.info("ios_native_outgoing_lane_check_resolving", detail: "enabled=\(enabled)")
+    call.resolve(["enabled": enabled])
   }
 }

@@ -29,6 +29,14 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
     }
   }
 
+  func getSession(sessionId: String) -> NativeVoiceCallSession? {
+    queue.sync {
+      let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+      guard let active = session, active.sessionId == sid else { return nil }
+      return active
+    }
+  }
+
   // MARK: - Registration
 
   func registerIncomingSession(_ session: NativeVoiceCallSession) throws {
@@ -110,6 +118,21 @@ final class NativeVoiceCallRuntime: @unchecked Sendable {
       }
       phase = .tokenPending
       publishUiLocked(source: "token_pending")
+    }
+  }
+
+  /// Outgoing caller path — `outgoingStarting` → `tokenPending` without accept phases.
+  func beginOutgoingConnect(sessionId: String) throws {
+    try queue.sync {
+      let active = try requireActiveSession(sessionId)
+      guard active.direction == .outgoing else {
+        throw NativeVoiceCallRuntimeError.invalidTransition(from: phase, action: "beginOutgoingConnect")
+      }
+      guard phase == .outgoingStarting else {
+        throw NativeVoiceCallRuntimeError.invalidTransition(from: phase, action: "beginOutgoingConnect")
+      }
+      phase = .tokenPending
+      publishUiLocked(source: "outgoing_token_pending")
     }
   }
 

@@ -25,6 +25,23 @@ enum DibayCallLog {
     emit(level: .info, message: formatCall(marker: marker, callId: callId, detail: detail))
   }
 
+  static func infoConnectedEmit(sessionId: String, direction: String) {
+    let message =
+      "native_connected_emit sessionId=\(mask(sessionId)) runtime=native_voice direction=\(direction)"
+    emit(level: .info, message: message)
+  }
+
+  static func infoSurfaceBridgeSkip(sessionId: String, reason: String) {
+    let message =
+      "ios_native_voice_surface_bridge_skip sessionId=\(sessionId) reason=\(reason)"
+    emit(level: .info, message: message)
+  }
+
+  static func infoCallV4(_ marker: String, callId: String, owner: String, reason: String) {
+    let message = "\(marker) callId=\(callId) owner=\(owner) reason=\(reason)"
+    emit(level: .info, message: message, prefix: "[DIBAY_CALL_V4] ")
+  }
+
   private static func emit(level: OSLogType, message: String, prefix: String = "[DIBAY_CALL] ") {
     let line = prefix + message
     os_log("%{public}@", log: osLog, type: level, line)

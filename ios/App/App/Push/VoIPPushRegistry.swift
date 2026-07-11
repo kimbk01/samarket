@@ -42,12 +42,22 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
     let sessionId = (data["sessionId"] as? String) ?? (data["session_id"] as? String) ?? UUID().uuidString
     let kind = data["call_push_kind"] as? String
     if kind == "call_canceled" || kind == "call_rejected" || kind == "call_ended" {
-      CallV4SurfaceOwnerBridge.deliver(
-        callId: sessionId,
-        owner: "terminal",
-        reason: "ios_voip_terminal_\(kind ?? "unknown")"
-      )
-      callProvider.reportCallEnded(uuidString: sessionId)
+      let terminalReason = "ios_voip_terminal_\(kind ?? "unknown")"
+      if isVoipTerminalIncomingSession(sessionId: sessionId) {
+        CallV4SurfaceOwnerBridge.deliver(
+          callId: sessionId,
+          owner: "terminal",
+          reason: terminalReason
+        )
+        callProvider.reportCallEnded(uuidString: sessionId)
+      } else {
+        DibayCallLog.infoCallV4(
+          "ios_voip_terminal_bridge_skipped",
+          callId: sessionId,
+          owner: "terminal",
+          reason: "\(terminalReason)_not_incoming"
+        )
+      }
       completion()
       return
     }
@@ -55,11 +65,15 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
     let hasVideo = (data["kind"] as? String) == "video"
     let roomId = stringField(data, keys: ["roomId", "room_id"])
     let callerId = stringField(data, keys: ["callerId", "caller_id"])
-    CallV4SurfaceOwnerBridge.deliver(
-      callId: sessionId,
-      owner: "native_fsi",
-      reason: "ios_callkit_incoming"
-    )
+    if NativeVoiceCallLane.isEnabled() && !hasVideo {
+      DibayCallLog.infoSurfaceBridgeSkip(sessionId: sessionId, reason: "native_voice_lane")
+    } else {
+      CallV4SurfaceOwnerBridge.deliver(
+        callId: sessionId,
+        owner: "native_fsi",
+        reason: "ios_callkit_incoming"
+      )
+    }
     callProvider.reportIncomingCall(
       uuidString: sessionId,
       handle: caller,
@@ -68,10 +82,11 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
       callerId: callerId
     ) { error in
       if let error = error {
-        NSLog(
-          "[DIBAY_CALL_V4] ios_callkit_incoming_failed callId=%@ err=%@",
-          sessionId,
-          error.localizedDescription
+        DibayCallLog.infoCallV4(
+          "ios_callkit_incoming_failed",
+          callId: sessionId,
+          owner: "error",
+          reason: error.localizedDescription
         )
         CallV4SurfaceOwnerBridge.deliver(
           callId: sessionId,
@@ -81,6 +96,26 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
       }
       completion()
     }
+  }
+
+  /// VoIP terminal dismiss applies only to registered incoming sessions — Web outgoing SSOT owns caller teardown.
+  private func isVoipTerminalIncomingSession(sessionId: String) -> Bool {
+    let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !sid.isEmpty else { return false }
+
+    if let voice = NativeVoiceCallRuntime.shared.getSession(sessionId: sid) {
+      return voice.direction == .incoming
+    }
+
+    if NativeVideoCallLane.isEnabled(), NativeVideoCallRuntime.shared.getSession(sessionId: sid) != nil {
+      return true
+    }
+
+    // Ambiguous fallback — callUuidBySessionId is populated by BOTH reportIncomingCall
+    // and reportOutgoingCallStarted, so a bare session-id match cannot prove direction.
+    // Explicitly exclude known-outgoing sessions before trusting this fallback.
+    guard callProvider.getActiveCallSessionId() == sid else { return false }
+    return !callProvider.isOutgoingSession(sid)
   }
 
   private func stringField(_ data: [AnyHashable: Any], keys: [String]) -> String? {
