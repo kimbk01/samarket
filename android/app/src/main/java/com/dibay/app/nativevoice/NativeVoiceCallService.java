@@ -3,6 +3,7 @@ package com.dibay.app.nativevoice;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
@@ -12,6 +13,7 @@ import android.media.AudioManager;
 import android.os.Build;
 import android.os.IBinder;
 import androidx.core.app.NotificationCompat;
+import androidx.core.app.Person;
 import com.dibay.app.R;
 
 /** Foreground service for native voice calls. WebView is not involved. */
@@ -87,14 +89,75 @@ public class NativeVoiceCallService extends Service {
         ACTION_CONNECTED.equals(action)
             ? "DIBAY voice call"
             : ACTION_CONNECTING.equals(action) ? "DIBAY voice connecting" : "DIBAY incoming call";
-    return new NotificationCompat.Builder(this, CHANNEL_ID)
-        .setSmallIcon(R.mipmap.ic_launcher)
-        .setContentTitle(title)
-        .setContentText("Native voice runtime")
-        .setOngoing(!ACTION_RINGING.equals(action))
-        .setPriority(NotificationCompat.PRIORITY_HIGH)
-        .setCategory(NotificationCompat.CATEGORY_CALL)
-        .build();
+    NotificationCompat.Builder builder =
+        new NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle(title)
+            .setContentText("Native voice runtime")
+            .setOngoing(!ACTION_RINGING.equals(action))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_CALL);
+
+    // Connected — tap-to-return content intent + status-bar CallStyle chip (Android 12+),
+    // so backgrounding the call (device back/home) still leaves a way back to the call screen.
+    // Read-only session lookup; NativeVoiceCallRuntime state machine is untouched.
+    if (ACTION_CONNECTED.equals(action) && callId != null && !callId.trim().isEmpty()) {
+      String sid = callId.trim();
+      NativeVoiceCallRuntime.Session session = NativeVoiceCallRuntime.getSession(sid);
+      PendingIntent contentPi = returnToCallIntent(sid, session);
+      if (contentPi != null) {
+        builder.setContentIntent(contentPi);
+      }
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        PendingIntent hangUpPi = hangUpIntent(sid);
+        if (hangUpPi != null) {
+          try {
+            String callerName =
+                session != null && session.callerName != null && !session.callerName.trim().isEmpty()
+                    ? session.callerName.trim()
+                    : "DIBAY";
+            Person person = new Person.Builder().setName(callerName).setImportant(true).build();
+            builder.setStyle(NotificationCompat.CallStyle.forOngoingCall(person, hangUpPi));
+          } catch (IllegalArgumentException | IllegalStateException error) {
+            NativeVoiceCallLog.warn(
+                "ongoing_notification_callstyle_failed",
+                sid,
+                "err=" + error.getClass().getSimpleName());
+          }
+        }
+      }
+    }
+
+    return builder.build();
+  }
+
+  private PendingIntent returnToCallIntent(String callId, NativeVoiceCallRuntime.Session session) {
+    Intent intent = new Intent(this, NativeVoiceCallActivity.class);
+    intent.setFlags(
+        Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+    intent.putExtra(NativeVoiceCallActivity.EXTRA_CALL_ID, callId);
+    if (session != null) {
+      intent.putExtra("roomId", session.roomId);
+      intent.putExtra("callerId", session.callerId);
+      intent.putExtra("callerName", session.callerName);
+      intent.putExtra("mediaType", session.mediaType);
+    }
+    return PendingIntent.getActivity(
+        this,
+        (callId + ":ongoing_content").hashCode(),
+        intent,
+        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+  }
+
+  private PendingIntent hangUpIntent(String callId) {
+    Intent intent = new Intent(this, NativeVoiceCallActionReceiver.class);
+    intent.setAction(NativeVoiceCallActionReceiver.ACTION_END);
+    intent.putExtra(NativeVoiceCallActivity.EXTRA_CALL_ID, callId);
+    return PendingIntent.getBroadcast(
+        this,
+        (callId + ":ongoing_hangup").hashCode(),
+        intent,
+        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
   }
 
   private void ensureChannel() {
