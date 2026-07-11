@@ -421,6 +421,7 @@ export async function callV4CreateOutgoing(input: {
   }
 
   const flight: Promise<CallV4OutgoingLaunchResult> = (async (): Promise<CallV4OutgoingLaunchResult> => {
+   try {
     useCallV4Store.getState().setPhase("creating");
     useCallV4Store.setState({ canStartNewCall: false });
 
@@ -510,7 +511,14 @@ export async function callV4CreateOutgoing(input: {
       }
     }
 
-    if (await isIOSNativeOutgoingShell()) {
+    logCallV4("outgoing_ios_shell_check_start", { callId: created.session.id });
+    const iosNativeOutgoingShell = await isIOSNativeOutgoingShell();
+    logCallV4("outgoing_ios_shell_check_done", {
+      callId: created.session.id,
+      iosNativeOutgoingShell,
+    });
+
+    if (iosNativeOutgoingShell) {
       logCallV4("native_outgoing_handoff_start", {
         callId: created.session.id,
         mediaType: input.mediaType,
@@ -559,12 +567,24 @@ export async function callV4CreateOutgoing(input: {
       }
     }
 
+    logCallV4("outgoing_pre_route_check", {
+      callId: created.session.id,
+      shouldRouteToWebOutgoingPresentation,
+    });
+
     if (shouldRouteToWebOutgoingPresentation) {
       routeToCallV4Screen(input.router, created.session.id, "outgoing");
       logCallV4("outgoing_ringing", { callId: created.session.id, roomId: roomResolved.roomId });
     }
 
     return { ok: true as const, session: created.session, roomId: roomResolved.roomId };
+   } catch (error) {
+    logCallV4("outgoing_create_unhandled_error", {
+      message: error instanceof Error ? error.message : String(error),
+    });
+    useCallV4Store.getState().resetToIdle();
+    return { ok: false as const, userMessage: outgoingGenericErrorMessage() };
+   }
   })();
 
   outgoingCreateInFlight = flight;
