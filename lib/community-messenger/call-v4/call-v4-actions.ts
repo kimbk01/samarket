@@ -533,7 +533,12 @@ export async function callV4CreateOutgoing(input: {
         });
         startCallV4OutgoingMissedTimer(created.session.id, identity.createdAt, input.router);
         startNativeOutgoingTerminalSync(created.session.id, input.router);
-        shouldRouteToWebOutgoingPresentation = false;
+        // iOS P4 fail-safe: native VC present can fail (Capacitor presenter). Never skip Web
+        // outgoing shell on iOS — web Agora/poll are quarantined when native owns (call-v4-agora).
+        logCallV4("ios_native_outgoing_web_shell_kept", {
+          callId: created.session.id,
+          roomId: roomResolved.roomId,
+        });
       } else {
         if (!nativeHandoff.ok && !nativeHandoff.nativeOwned) {
           logCallV4("native_establishment_unavailable", {

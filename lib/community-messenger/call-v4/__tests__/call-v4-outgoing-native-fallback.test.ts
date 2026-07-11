@@ -97,6 +97,23 @@ describe("call-v4-outgoing-native-fallback (P2-2)", () => {
     expect(useCallV4Store.getState().identity?.callId).toBe("call-1");
   });
 
+  it("iOS native shell: handoff success still routes Web outgoing shell (fail-safe)", async () => {
+    bridgeMocks.isIOSNativeOutgoingShell.mockResolvedValue(true);
+    bridgeMocks.startNativeOutgoingEstablishment.mockResolvedValue({ ok: true, nativeOwned: true });
+
+    const replace = vi.fn();
+    const result = await callV4CreateOutgoing({
+      roomId: "room-1",
+      mediaType: "audio",
+      router: { push: vi.fn(), replace },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(replace).toHaveBeenCalledWith("/community-messenger/calls-v4/call-1?source=outgoing");
+    expect(useCallV4Store.getState().phase).toBe("outgoing_ringing");
+    expect(useCallV4Store.getState().identity?.callId).toBe("call-1");
+  });
+
   it("non-Android: handoff failure still uses legacy Web outgoing route", async () => {
     bridgeMocks.isAndroidNativeOutgoingShell.mockReturnValue(false);
     bridgeMocks.startNativeOutgoingEstablishment.mockResolvedValue({ ok: false, nativeOwned: false });
