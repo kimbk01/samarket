@@ -13,6 +13,11 @@ type CmHomeListPatchMutator = {
   source: CmHomeSetDataSource;
 };
 
+export type CmHomeListPatchScheduleOptions = {
+  /** 사용자 직접 활동(sender echo·call preview·merge) — room entry render pause 우회 */
+  bypassRenderPause?: boolean;
+};
+
 const CM_HOME_LIST_PATCH_MAX_MUTATORS_PER_FRAME = 8;
 const CM_HOME_LIST_PATCH_FRAME_BUDGET_MS = 16;
 
@@ -25,7 +30,8 @@ export function createCmHomeListRafPatchScheduler(
   setData: Dispatch<SetStateAction<CommunityMessengerBootstrap | null>>
 ): (
   mutate: (prev: CommunityMessengerBootstrap) => CommunityMessengerBootstrap | null,
-  source?: CmHomeSetDataSource
+  source?: CmHomeSetDataSource,
+  options?: CmHomeListPatchScheduleOptions
 ) => void {
   let rafId: number | null = null;
   const mutators: CmHomeListPatchMutator[] = [];
@@ -76,10 +82,15 @@ export function createCmHomeListRafPatchScheduler(
     });
   };
 
-  return (mutate, source = "bus") => {
-    deferCmRoomListRenderUpdate(() => {
+  return (mutate, source = "bus", options) => {
+    const enqueue = () => {
       mutators.push({ mutate, source });
       scheduleFlush();
-    });
+    };
+    if (options?.bypassRenderPause) {
+      enqueue();
+      return;
+    }
+    deferCmRoomListRenderUpdate(enqueue);
   };
 }

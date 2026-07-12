@@ -1,0 +1,220 @@
+import {
+  clearBootstrapCache,
+  peekBootstrapCache,
+  primeBootstrapCache,
+} from "@/lib/community-messenger/bootstrap-cache";
+import { applyHomeListPatch, findHomeListRoomRow } from "@/lib/community-messenger/home-list-patch";
+import { shouldApplyCallStubListPreviewPatch } from "@/lib/community-messenger/home/patch-bootstrap-room-list-from-realtime-message";
+import type { HomeListPatch, HomeListPatchSource } from "@/lib/community-messenger/home-list-patch";
+import {
+  buildCommunityMessengerBusEventId,
+  type MessengerBusEvent,
+} from "@/lib/community-messenger/multi-tab-bus";
+import type { CommunityMessengerBootstrap } from "@/lib/community-messenger/types";
+
+export const BOOTSTRAP_CACHE_SYNC_HOST_WRITER_ID = "community-messenger-bootstrap-cache-sync-host";
+
+export type BootstrapCacheWriteResult = {
+  eventId: string;
+  eventType: string;
+  roomId: string | null;
+  writerId: string;
+  previousLastMessageAt: string | null;
+  nextLastMessageAt: string | null;
+  previousPreview: string | null;
+  nextPreview: string | null;
+  cacheWriteApplied: boolean;
+  cacheWriteSkipReason: string | null;
+};
+
+let activeViewerUserId: string | null = null;
+const processedEventIds = new Set<string>();
+let cacheWriteCountForTests = 0;
+
+function lastEventAtMs(iso: string | null | undefined): number {
+  const ms = new Date(String(iso ?? "")).getTime();
+  return Number.isFinite(ms) ? ms : 0;
+}
+
+function trimText(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function logBootstrapCacheWrite(result: BootstrapCacheWriteResult): void {
+  if (process.env.NODE_ENV === "production") return;
+  // eslint-disable-next-line no-console -- bootstrap cache owner diagnostics
+  console.log("[cm-bootstrap-cache-write]", result);
+}
+
+export function clearBootstrapCacheBusWriterStateForTests(): void {
+  activeViewerUserId = null;
+  processedEventIds.clear();
+  cacheWriteCountForTests = 0;
+}
+
+export function getBootstrapCacheWriteCountForTests(): number {
+  return cacheWriteCountForTests;
+}
+
+export function noteBootstrapCacheBusWriterViewerUserId(viewerUserId: string | null): void {
+  const next = viewerUserId?.trim() || null;
+  if (activeViewerUserId === next) return;
+  activeViewerUserId = next;
+  processedEventIds.clear();
+  if (!next) {
+    clearBootstrapCache();
+  }
+}
+
+function shouldSkipStaleSenderPreview(
+  room: ReturnType<typeof findHomeListRoomRow>,
+  previewAt: string
+): string | null {
+  if (!room) return null;
+  const incomingMs = lastEventAtMs(previewAt);
+  const cachedMs = lastEventAtMs(room.lastMessageAt);
+  if (incomingMs <= 0) return "invalid_incoming_timestamp";
+  if (cachedMs > incomingMs) return "stale_last_message_at";
+  return null;
+}
+
+function resolveBusPatch(
+  ev: MessengerBusEvent,
+  viewerUserId: string
+): { patch: HomeListPatch; source: HomeListPatchSource; roomId: string } | null {
+  switch (ev.type) {
+    case "cm.room.message_sent": {
+      if (!ev.senderUserId || ev.senderUserId.trim() !== viewerUserId) return null;
+      return {
+        patch: { kind: "sender_local_echo", roomId: ev.roomId, preview: ev.listPreview ?? null },
+        source: "optimistic-read",
+        roomId: ev.roomId,
+      };
+    }
+    case "cm.room.call_stub_preview": {
+      if (ev.viewerUserId.trim() !== viewerUserId) return null;
+      return {
+        patch: { kind: "call_stub_preview", roomId: ev.roomId, preview: ev.preview },
+        source: "multi-tab",
+        roomId: ev.roomId,
+      };
+    }
+    case "cm.home.merge_room_summary": {
+      if (ev.viewerUserId.trim() !== viewerUserId) return null;
+      return {
+        patch: { kind: "merge_room_summary", summary: ev.summary },
+        source: "multi-tab",
+        roomId: ev.summary.id,
+      };
+    }
+    default:
+      return null;
+  }
+}
+
+function previewFields(
+  bootstrap: CommunityMessengerBootstrap | null,
+  roomId: string
+): { lastMessageAt: string | null; preview: string | null } {
+  const row = findHomeListRoomRow(bootstrap, roomId);
+  return {
+    lastMessageAt: row?.lastMessageAt ?? null,
+    preview: row?.lastMessage ?? null,
+  };
+}
+
+/**
+ * 단일 bootstrap cache writer — sessionStorage full cache 만 갱신한다 (React state 는 Home hook).
+ */
+export function applyBootstrapCacheBusEvent(
+  ev: MessengerBusEvent,
+  viewerUserId: string,
+  writerId: string = BOOTSTRAP_CACHE_SYNC_HOST_WRITER_ID
+): BootstrapCacheWriteResult {
+  const me = viewerUserId.trim();
+  const eventId = buildCommunityMessengerBusEventId(ev);
+  const baseResult: BootstrapCacheWriteResult = {
+    eventId,
+    eventType: ev.type,
+    roomId: null,
+    writerId,
+    previousLastMessageAt: null,
+    nextLastMessageAt: null,
+    previousPreview: null,
+    nextPreview: null,
+    cacheWriteApplied: false,
+    cacheWriteSkipReason: null,
+  };
+
+  if (!me) {
+    return { ...baseResult, cacheWriteSkipReason: "viewer_user_unresolved" };
+  }
+  if (activeViewerUserId && activeViewerUserId !== me) {
+    return { ...baseResult, cacheWriteSkipReason: "viewer_user_mismatch" };
+  }
+
+  const resolved = resolveBusPatch(ev, me);
+  if (!resolved) {
+    return { ...baseResult, cacheWriteSkipReason: "event_not_owned_by_viewer" };
+  }
+
+  const { patch, source, roomId } = resolved;
+  baseResult.roomId = roomId;
+
+  if (processedEventIds.has(eventId)) {
+    return { ...baseResult, cacheWriteSkipReason: "duplicate_event_id" };
+  }
+
+  const prevBootstrap = peekBootstrapCache();
+  const before = previewFields(prevBootstrap, roomId);
+  baseResult.previousLastMessageAt = before.lastMessageAt;
+  baseResult.previousPreview = before.preview;
+
+  if (patch.kind === "sender_local_echo" && patch.preview?.lastMessageAt) {
+    const existing = findHomeListRoomRow(prevBootstrap, roomId);
+    const staleReason = shouldSkipStaleSenderPreview(existing, patch.preview.lastMessageAt);
+    if (staleReason) {
+      return { ...baseResult, cacheWriteSkipReason: staleReason };
+    }
+  }
+
+  if (patch.kind === "call_stub_preview") {
+    const existing = findHomeListRoomRow(prevBootstrap, roomId);
+    if (existing && !shouldApplyCallStubListPreviewPatch(existing, patch.preview)) {
+      return { ...baseResult, cacheWriteSkipReason: "call_stub_preview_guard" };
+    }
+  }
+
+  if (patch.kind === "merge_room_summary") {
+    const existing = findHomeListRoomRow(prevBootstrap, roomId);
+    const incomingAt = trimText(patch.summary.lastMessageAt);
+    const cachedAt = trimText(existing?.lastMessageAt);
+    if (existing && incomingAt && cachedAt && lastEventAtMs(incomingAt) < lastEventAtMs(cachedAt)) {
+      return { ...baseResult, cacheWriteSkipReason: "stale_merge_summary" };
+    }
+  }
+
+  if (!prevBootstrap) {
+    return { ...baseResult, cacheWriteSkipReason: "cache_empty" };
+  }
+
+  const next = applyHomeListPatch(prevBootstrap, patch, source);
+  if (!next || next === prevBootstrap) {
+    return { ...baseResult, cacheWriteSkipReason: "patch_noop" };
+  }
+
+  const after = previewFields(next, roomId);
+  processedEventIds.add(eventId);
+  primeBootstrapCache(next);
+  cacheWriteCountForTests += 1;
+
+  const result: BootstrapCacheWriteResult = {
+    ...baseResult,
+    nextLastMessageAt: after.lastMessageAt,
+    nextPreview: after.preview,
+    cacheWriteApplied: true,
+    cacheWriteSkipReason: null,
+  };
+  logBootstrapCacheWrite(result);
+  return result;
+}

@@ -110,6 +110,62 @@ export type MessengerBusEvent =
 
 const CHANNEL = "samarket:community-messenger";
 
+const localBusHandlers = new Set<(ev: MessengerBusEvent) => void>();
+
+function dispatchCommunityMessengerBusEventLocal(ev: MessengerBusEvent): void {
+  for (const handler of localBusHandlers) {
+    try {
+      handler(ev);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+/** cache writer dedupe — 동일 payload 의 local + transport 2회 수신 방지 */
+export function buildCommunityMessengerBusEventId(ev: MessengerBusEvent): string {
+  const at = String(ev.at ?? 0);
+  switch (ev.type) {
+    case "cm.room.message_sent": {
+      const previewAt = ev.listPreview?.lastMessageAt ?? "";
+      const clientMessageId = ev.clientMessageId?.trim() ?? "";
+      const previewMsg = ev.listPreview?.lastMessage ?? "";
+      return `message_sent:${ev.roomId}:${clientMessageId}:${previewAt}:${previewMsg}:${at}`;
+    }
+    case "cm.room.call_stub_preview":
+      return `call_stub_preview:${ev.roomId}:${ev.preview.lastMessageAt}:${ev.preview.lastMessage}:${ev.preview.lastMessageType}:${at}`;
+    case "cm.home.merge_room_summary":
+      return `merge_room_summary:${ev.summary.id}:${ev.summary.lastMessageAt ?? ""}:${ev.summary.lastMessage ?? ""}:${at}`;
+    case "cm.room.bump":
+      return `bump:${ev.roomId}:${at}`;
+    case "cm.room.local_unread":
+      return `local_unread:${ev.roomId}:${ev.viewerUserId}:${ev.unreadCount}:${at}`;
+    case "cm.room.incoming_message": {
+      const mid =
+        typeof ev.messageRow?.id === "string" ? ev.messageRow.id.trim() : "";
+      return `incoming_message:${ev.roomId}:${ev.viewerUserId}:${mid}:${at}`;
+    }
+    case "cm.room.read":
+      return `read:${ev.roomId}:${ev.viewerUserId}:${ev.lastReadMessageId ?? ""}:${at}`;
+    case "cm.room.summary_patch":
+      return `summary_patch:${ev.roomId}:${ev.viewerUserId}:${ev.unreadCount ?? ""}:${at}`;
+    case "cm.room.peer_read_ack":
+      return `peer_read_ack:${ev.roomId}:${ev.readerUserId}:${ev.lastReadMessageId ?? ""}:${at}`;
+    case "cm.home.social_sync":
+      return `social_sync:${at}`;
+    case "cm.call.session_terminal":
+      return `call_terminal:${ev.sessionId ?? ""}:${ev.tmpSessionId ?? ""}:${ev.status}:${at}`;
+    case "cm.call.incoming_consumed":
+      return `incoming_consumed:${ev.sessionId}:${ev.reason ?? ""}:${at}`;
+    default:
+      return `unknown:${at}`;
+  }
+}
+
+export function clearCommunityMessengerBusLocalHandlersForTests(): void {
+  localBusHandlers.clear();
+}
+
 function getChannel(): BroadcastChannel | null {
   if (typeof window === "undefined") return null;
   const BC = (globalThis as any).BroadcastChannel as typeof BroadcastChannel | undefined;
@@ -203,6 +259,7 @@ export function postCommunityMessengerCallIncomingConsumedBusEvent(
 }
 
 export function postCommunityMessengerBusEvent(ev: MessengerBusEvent): void {
+  dispatchCommunityMessengerBusEventLocal(ev);
   const ch = getChannel();
   if (!ch) return;
   try {
@@ -214,12 +271,12 @@ export function postCommunityMessengerBusEvent(ev: MessengerBusEvent): void {
   }
 }
 
-export function onCommunityMessengerBusEvent(handler: (ev: MessengerBusEvent) => void): () => void {
-  const ch = getChannel();
-  if (!ch) return () => {};
-  const onMsg = (e: MessageEvent) => {
-    const d = e.data as any;
-    if (!d || typeof d !== "object") return;
+function validateAndDispatchMessengerBusEvent(
+  raw: unknown,
+  handler: (ev: MessengerBusEvent) => void
+): void {
+  const d = raw as any;
+  if (!d || typeof d !== "object") return;
     if (d.type === "cm.call.session_terminal") {
       if (typeof d.status !== "string" || !d.status.trim()) return;
       handler(d as MessengerBusEvent);
@@ -267,13 +324,27 @@ export function onCommunityMessengerBusEvent(handler: (ev: MessengerBusEvent) =>
     if (d.type === "cm.room.incoming_message" || d.type === "cm.room.read" || d.type === "cm.room.summary_patch" || d.type === "cm.room.call_stub_preview") {
       if (typeof d.viewerUserId !== "string" || !d.viewerUserId.trim()) return;
     }
-    if (d.type === "cm.room.incoming_message") {
-      if (!d.messageRow || typeof d.messageRow !== "object") return;
-    }
-    handler(d as MessengerBusEvent);
+  if (d.type === "cm.room.incoming_message") {
+    if (!d.messageRow || typeof d.messageRow !== "object") return;
+  }
+  handler(d as MessengerBusEvent);
+}
+
+export function onCommunityMessengerBusEvent(handler: (ev: MessengerBusEvent) => void): () => void {
+  const onMsg = (e: MessageEvent) => {
+    validateAndDispatchMessengerBusEvent(e.data, handler);
   };
-  ch.addEventListener("message", onMsg);
+  const onLocal = (ev: MessengerBusEvent) => {
+    validateAndDispatchMessengerBusEvent(ev, handler);
+  };
+  localBusHandlers.add(onLocal);
+  const ch = getChannel();
+  if (ch) {
+    ch.addEventListener("message", onMsg);
+  }
   return () => {
+    localBusHandlers.delete(onLocal);
+    if (!ch) return;
     try {
       ch.removeEventListener("message", onMsg);
       ch.close();

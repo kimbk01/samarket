@@ -473,12 +473,15 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
 
       if (ev.type === "cm.home.merge_room_summary") {
         if (String(ev.viewerUserId) !== me) return;
-        scheduleListPatch((prev) => {
-          const next = applyHomeListPatch(prev, { kind: "merge_room_summary", summary: ev.summary }, "multi-tab");
-          if (!next || next === prev) return prev;
-          primeBootstrapCache(next);
-          return next;
-        }, "bus");
+        scheduleListPatch(
+          (prev) => {
+            const next = applyHomeListPatch(prev, { kind: "merge_room_summary", summary: ev.summary }, "multi-tab");
+            if (!next || next === prev) return prev;
+            return next;
+          },
+          "bus",
+          { bypassRenderPause: true }
+        );
         queueMicrotask(() => {
           requestMessengerHubBadgeResync("home_list_merge_summary");
         });
@@ -618,19 +621,22 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
       if (ev.type === "cm.room.call_stub_preview") {
         if (String(ev.viewerUserId) !== me) return;
         let missedPreview = false;
-        scheduleListPatch((prev) => {
-          const next = applyHomeListPatch(
-            prev,
-            { kind: "call_stub_preview", roomId: ev.roomId, preview: ev.preview },
-            "multi-tab"
-          );
-          if (!next || next === prev) {
-            missedPreview = true;
-            return prev;
-          }
-          primeBootstrapCache(next);
-          return next;
-        }, "bus");
+        scheduleListPatch(
+          (prev) => {
+            const next = applyHomeListPatch(
+              prev,
+              { kind: "call_stub_preview", roomId: ev.roomId, preview: ev.preview },
+              "multi-tab"
+            );
+            if (!next || next === prev) {
+              missedPreview = true;
+              return prev;
+            }
+            return next;
+          },
+          "bus",
+          { bypassRenderPause: true }
+        );
         if (missedPreview) scheduleHomeMissingRoomSummaryMerge(ev.roomId);
         return;
       }
@@ -695,19 +701,22 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
         if (!ev.senderUserId || String(ev.senderUserId) !== me) return;
         patchMessengerRoomReadSnapshotRuntime({ viewerUserId: me, roomId: ev.roomId });
         let missedEcho = false;
-        scheduleListPatch((prev) => {
-          const next = applyHomeListPatch(
-            prev,
-            { kind: "sender_local_echo", roomId: ev.roomId, preview: ev.listPreview ?? null },
-            "optimistic-read"
-          );
-          if (!next || next === prev) {
-            missedEcho = true;
-            return prev;
-          }
-          primeBootstrapCache(next);
-          return next;
-        }, "bus");
+        scheduleListPatch(
+          (prev) => {
+            const next = applyHomeListPatch(
+              prev,
+              { kind: "sender_local_echo", roomId: ev.roomId, preview: ev.listPreview ?? null },
+              "optimistic-read"
+            );
+            if (!next || next === prev) {
+              missedEcho = true;
+              return prev;
+            }
+            return next;
+          },
+          "bus",
+          { bypassRenderPause: true }
+        );
         if (missedEcho) {
           void requestMessengerHomeListMergeFromHomeSummary(ev.roomId, "sender_echo_room_missing");
         }

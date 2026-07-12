@@ -10,11 +10,13 @@ import { CommunityMessengerRoomRouteChunkWarmHubVisible } from "@/components/com
 import { MessengerSnackbarHost } from "@/components/community-messenger/MessengerSnackbarHost";
 import { CommunityMessengerPresenceRuntimeChrome } from "@/components/layout/providers/CommunityMessengerPresenceRuntimeChrome";
 import { MessengerBootstrapEarlyWarm } from "@/components/community-messenger/MessengerBootstrapEarlyWarm";
+import { CommunityMessengerBootstrapCacheSyncHost } from "@/lib/community-messenger/home/CommunityMessengerBootstrapCacheSyncHost";
 
 export default function CommunityMessengerLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
       <CommunityMessengerPresenceRuntimeChrome />
+      <CommunityMessengerBootstrapCacheSyncHost />
       <MessengerBootstrapEarlyWarm />
       <CommunityMessengerRoomClientPrefetch />
       <CommunityMessengerRoomRouteChunkWarmHubVisible />
