@@ -1,5 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const sessionStore = new Map<string, string>();
+
+function stubSessionStorage(): void {
+  vi.stubGlobal("sessionStorage", {
+    getItem: (key: string) => sessionStore.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      sessionStore.set(key, value);
+    },
+    removeItem: (key: string) => {
+      sessionStore.delete(key);
+    },
+    clear: () => {
+      sessionStore.clear();
+    },
+  });
+}
+
 const batteryRestrictedSnapshot = {
   effectiveState: "GRANTED" as const,
   notificationRuntimePermission: true,
@@ -37,7 +54,8 @@ vi.mock("@/lib/permissions/permission-manager/notification-permission-manager", 
 describe("runCallBoundaryBatteryOptimizationCheck", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    sessionStorage.clear();
+    sessionStore.clear();
+    stubSessionStorage();
   });
 
   it("opens battery settings when restricted and receiveReady", async () => {

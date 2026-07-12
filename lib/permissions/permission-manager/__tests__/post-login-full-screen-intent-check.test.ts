@@ -1,5 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const sessionStore = new Map<string, string>();
+
+function stubSessionStorage(): void {
+  vi.stubGlobal("sessionStorage", {
+    getItem: (key: string) => sessionStore.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      sessionStore.set(key, value);
+    },
+    removeItem: (key: string) => {
+      sessionStore.delete(key);
+    },
+    clear: () => {
+      sessionStore.clear();
+    },
+  });
+}
+
 vi.mock("@/lib/platform/capacitor-native", () => ({
   isCapacitorNativePlatform: vi.fn(() => true),
   resolveCapacitorShellPlatform: vi.fn(() => "android"),
@@ -16,7 +33,8 @@ vi.mock("@/lib/permissions/permission-manager/notification-permission-manager", 
 describe("runPostLoginFullScreenIntentCheck", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    sessionStorage.clear();
+    sessionStore.clear();
+    stubSessionStorage();
   });
 
   it("opens settings when FSI is not granted", async () => {
