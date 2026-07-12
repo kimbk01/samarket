@@ -25,9 +25,9 @@ function isWebNotificationUserGesture(mode: NotificationGuideMode): boolean {
   return mode === "settings_retry";
 }
 
-/** Native passive — resume/visibility: sync only, no OS prompt. */
+/** Native passive — resume/visibility only; first_login may OS-prompt on post-login gate. */
 function isNativePassiveNotificationMode(mode: NotificationGuideMode): boolean {
-  return mode === "disabled_resume" || mode === "first_login";
+  return mode === "disabled_resume";
 }
 
 async function schedulePushRegistration(): Promise<void> {

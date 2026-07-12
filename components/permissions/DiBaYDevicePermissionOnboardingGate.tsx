@@ -11,7 +11,10 @@ import {
   notifyPostLoginOnboardingProfileRetry,
   schedulePostLoginOnboardingOpen,
 } from "@/lib/permissions/dibay-post-login-onboarding-gate";
+import { runNotificationGuideFlow } from "@/lib/permissions/permission-manager/notification-onboarding-flow";
+import { runPostLoginFullScreenIntentCheck } from "@/lib/permissions/permission-manager/post-login-full-screen-intent-check";
 import { syncNotificationState } from "@/lib/permissions/permission-manager/notification-permission-manager";
+import { isCapacitorNativePlatform, resolveCapacitorShellPlatform } from "@/lib/platform/capacitor-native";
 import { subscribeDibayAuthStateChange } from "@/lib/auth/dibay-session-manager";
 import { useStoresHomeOverlayDeferUntilInput } from "@/lib/stores/use-stores-home-overlay-defer-until-input";
 
@@ -44,7 +47,7 @@ export function waitForNotificationOnboardingSettled(): Promise<void> {
 }
 
 /**
- * 로그인 후 — OS 알림 상태 sync만 수행. 자동 OS 권한 요청·설정 이동 없음.
+ * 로그인 후 — native: 알림 OS prompt → (Android) FSI 설정 유도. mic/camera는 통화 제스처만.
  */
 export function DiBaYDevicePermissionOnboardingGate() {
   const pathname = usePathname() ?? "";
@@ -60,11 +63,17 @@ export function DiBaYDevicePermissionOnboardingGate() {
     };
   }, []);
 
-  const runPostLoginSync = useCallback(async () => {
+  const runPostLoginNotificationFlow = useCallback(async () => {
     if (runningRef.current) return;
     runningRef.current = true;
     try {
       await syncNotificationState();
+      if (isCapacitorNativePlatform()) {
+        await runNotificationGuideFlow("first_login");
+        if (resolveCapacitorShellPlatform() === "android") {
+          await runPostLoginFullScreenIntentCheck();
+        }
+      }
     } finally {
       runningRef.current = false;
       markNotificationOnboardingSettled();
@@ -88,7 +97,7 @@ export function DiBaYDevicePermissionOnboardingGate() {
             return;
           }
           shownRef.current = true;
-          return runPostLoginSync();
+          return runPostLoginNotificationFlow();
         })
         .catch((error) => {
           shownRef.current = false;
@@ -100,7 +109,7 @@ export function DiBaYDevicePermissionOnboardingGate() {
         });
     };
     schedulePostLoginOnboardingOpen(run);
-  }, [deferStoresHomeLcp, pathname, runPostLoginSync]);
+  }, [deferStoresHomeLcp, pathname, runPostLoginNotificationFlow]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => tryOpen(), 300);

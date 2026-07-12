@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const callPermissionCheck = vi.hoisted(() => vi.fn());
+const runCallBoundaryBatteryCheck = vi.hoisted(() => vi.fn(async () => "opened_settings"));
 
 vi.mock("@/lib/call/permissions/call-permission-gate", () => ({
   callPermissionGate: { check: callPermissionCheck },
@@ -8,6 +9,11 @@ vi.mock("@/lib/call/permissions/call-permission-gate", () => ({
 
 vi.mock("@/lib/permissions/education/permission-education-platform", () => ({
   isMobileNativePlatform: vi.fn(() => true),
+}));
+
+vi.mock("@/lib/permissions/permission-manager/call-boundary-battery-optimization-check", () => ({
+  runCallBoundaryBatteryOptimizationCheck: runCallBoundaryBatteryCheck,
+  resetCallBoundaryBatteryOptimizationCheckForTests: vi.fn(),
 }));
 
 import {
@@ -75,7 +81,12 @@ describe("runCallMediaEducationBeforeGesture", () => {
 });
 
 describe("runLockScreenEducationIfNeeded", () => {
-  it("is a no-op", async () => {
-    await expect(runLockScreenEducationIfNeeded()).resolves.toBeUndefined();
+  beforeEach(() => {
+    runCallBoundaryBatteryCheck.mockClear();
+  });
+
+  it("delegates to call-boundary battery check", async () => {
+    await runLockScreenEducationIfNeeded();
+    expect(runCallBoundaryBatteryCheck).toHaveBeenCalledTimes(1);
   });
 });

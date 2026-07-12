@@ -47,10 +47,18 @@ export async function runCallMediaEducationBeforeGesture(
   return { proceed: false };
 }
 
+/** Call boundary — battery tier OS settings when restricted (legacy; login excluded). */
 export async function runLockScreenEducationIfNeeded(): Promise<void> {
-  /* no-op — OS-only permission UX */
+  const { runCallBoundaryBatteryOptimizationCheck } = await import(
+    "@/lib/permissions/permission-manager/call-boundary-battery-optimization-check"
+  );
+  await runCallBoundaryBatteryOptimizationCheck();
 }
 
 export function resetPermissionEducationOrchestratorForTests(): void {
-  /* no-op */
+  void import("@/lib/permissions/permission-manager/call-boundary-battery-optimization-check").then(
+    ({ resetCallBoundaryBatteryOptimizationCheckForTests }) => {
+      resetCallBoundaryBatteryOptimizationCheckForTests();
+    },
+  );
 }

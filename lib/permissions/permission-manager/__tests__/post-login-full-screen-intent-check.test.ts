@@ -16,9 +16,10 @@ vi.mock("@/lib/permissions/permission-manager/notification-permission-manager", 
 describe("runPostLoginFullScreenIntentCheck", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    sessionStorage.clear();
   });
 
-  it("does not open settings when FSI is not granted", async () => {
+  it("opens settings when FSI is not granted", async () => {
     const { checkAndroidFullScreenIntentGranted } = await import(
       "@/lib/push/native/check-android-full-screen-intent"
     );
@@ -32,8 +33,8 @@ describe("runPostLoginFullScreenIntentCheck", () => {
     );
     const result = await runPostLoginFullScreenIntentCheck();
 
-    expect(result).toBe("skipped");
-    expect(openFullScreenIntentSettings).not.toHaveBeenCalled();
+    expect(result).toBe("opened_settings");
+    expect(openFullScreenIntentSettings).toHaveBeenCalledTimes(1);
   });
 
   it("returns granted when FSI already enabled", async () => {
@@ -51,6 +52,26 @@ describe("runPostLoginFullScreenIntentCheck", () => {
     const result = await runPostLoginFullScreenIntentCheck();
 
     expect(result).toBe("granted");
+    expect(openFullScreenIntentSettings).not.toHaveBeenCalled();
+  });
+
+  it("skips repeat nudge in same session", async () => {
+    const { checkAndroidFullScreenIntentGranted } = await import(
+      "@/lib/push/native/check-android-full-screen-intent"
+    );
+    const { openFullScreenIntentSettings } = await import(
+      "@/lib/permissions/permission-manager/notification-permission-manager"
+    );
+    vi.mocked(checkAndroidFullScreenIntentGranted).mockResolvedValue(false);
+
+    const { runPostLoginFullScreenIntentCheck } = await import(
+      "@/lib/permissions/permission-manager/post-login-full-screen-intent-check"
+    );
+    await runPostLoginFullScreenIntentCheck();
+    vi.mocked(openFullScreenIntentSettings).mockClear();
+
+    const second = await runPostLoginFullScreenIntentCheck();
+    expect(second).toBe("skipped");
     expect(openFullScreenIntentSettings).not.toHaveBeenCalled();
   });
 });

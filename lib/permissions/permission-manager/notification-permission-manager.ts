@@ -275,12 +275,20 @@ export async function openFullScreenIntentSettingsOnUserAction(): Promise<boolea
 export async function openBatteryOptimizationSettings(): Promise<boolean> {
   if (!isCapacitorNativePlatform() || resolveCapacitorShellPlatform() !== "android") return false;
   try {
-    window.location.href =
-      "intent:#Intent;action=android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS;end";
-    return true;
+    const cap = (typeof window !== "undefined" ? window : undefined) as Window & {
+      Capacitor?: { nativePromise?: (plugin: string, methodName: string, options?: unknown) => Promise<unknown> };
+    };
+    const nativePromise = cap?.Capacitor?.nativePromise;
+    if (typeof nativePromise === "function") {
+      const result = (await nativePromise("NativeDevicePermissions", "requestBatteryOptimizationExemption", {})) as {
+        opened?: boolean;
+      };
+      return Boolean(result.opened);
+    }
   } catch {
-    return false;
+    /* fall through */
   }
+  return false;
 }
 
 export function isSamsungDevice(snapshot: NotificationReceiveSnapshot | null): boolean {

@@ -6,7 +6,7 @@
 
 ## Fixed goal
 
-1. After login success: **no** auto OS notification prompt. `DiBaYDevicePermissionOnboardingGate` runs `syncNotificationState` only. OS `requestNotificationFromGuide()` on **explicit user gesture** (`settings_retry` / settings register) when `canRequestOsNotificationPrompt`.
+1. After login success (native): `syncNotificationState` then `runNotificationGuideFlow("first_login")` when `canRequestOsNotificationPrompt` — OS modal only, no DIBAY guide modal. Resume/visibility: sync only. Explicit retry: `settings_retry` / settings register.
 2. **No** OS `POST_NOTIFICATIONS` / `PushNotifications.requestPermissions` / `Notification.requestPermission` outside `notification-permission-manager` adapters.
 3. When `!receiveReady`: block Push Register, block Native Incoming Runtime delivery (FCM gate before Runtime).
 4. Samsung / One UI: `POST_NOTIFICATIONS granted` alone is **not** PASS — composite `receiveReady` required.

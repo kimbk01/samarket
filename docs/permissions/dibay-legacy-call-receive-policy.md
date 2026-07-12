@@ -126,7 +126,7 @@ Media prompt: `callPermissionGate` / `call-media-permission-preflight` (gesture 
 |------|------|
 | mic / camera / battery | **로그인에서 묻지 않음** |
 | Notification 거부 | 가능. 푸시 기반 통화 수신 제한 가능 — **장문 DIBAY Popup 금지** |
-| Battery | 로그인 제외. 통화 반복 실패·진단 시에만 후속 |
+| Battery | 로그인 제외. **발신 시** `runLockScreenEducationIfNeeded` → 배터리 제한이면 `requestBatteryOptimizationExemption` (원탭 OS 허용 팝업, Android). |
 
 **Permission UI 구현 (non-LOCK):**
 

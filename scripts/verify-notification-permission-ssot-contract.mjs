@@ -186,7 +186,10 @@ if (onboardingFlow.includes("openNotificationGuideModal")) {
   failures.push("notification-onboarding-flow must not import or call openNotificationGuideModal (OS-only UX)");
 }
 if (!onboardingFlow.includes('mode === "first_login"') && !onboardingFlow.includes("first_login")) {
-  failures.push("notification-onboarding-flow must treat first_login as passive (no auto OS prompt)");
+  failures.push("notification-onboarding-flow must reference first_login mode for post-login native flow");
+}
+if (/isNativePassiveNotificationMode[\s\S]*first_login/.test(onboardingFlow)) {
+  failures.push("notification-onboarding-flow must not treat first_login as passive (disabled_resume only)");
 }
 
 const syncHost = read("lib/permissions/permission-manager/notification-permission-sync-host.tsx");
@@ -198,19 +201,19 @@ const onboardingGate = read("components/permissions/DiBaYDevicePermissionOnboard
 if (!onboardingGate.includes("syncNotificationState")) {
   failures.push("DiBaYDevicePermissionOnboardingGate must sync notification state on login");
 }
-if (onboardingGate.includes('runNotificationGuideFlow("first_login")')) {
-  failures.push("DiBaYDevicePermissionOnboardingGate must not auto-run runNotificationGuideFlow(first_login)");
+if (!onboardingGate.includes('runNotificationGuideFlow("first_login")')) {
+  failures.push("DiBaYDevicePermissionOnboardingGate must run runNotificationGuideFlow(first_login) on native after sync");
 }
-if (onboardingGate.includes("runPostLoginFullScreenIntentCheck")) {
-  failures.push("DiBaYDevicePermissionOnboardingGate must not auto-run runPostLoginFullScreenIntentCheck");
+if (!onboardingGate.includes("runPostLoginFullScreenIntentCheck")) {
+  failures.push("DiBaYDevicePermissionOnboardingGate must run runPostLoginFullScreenIntentCheck on Android after notification");
 }
 if (onboardingGate.includes("CallPermissionModal")) {
   failures.push("DiBaYDevicePermissionOnboardingGate must not mount CallPermissionModal on login");
 }
 
 const postLoginFsi = read("lib/permissions/permission-manager/post-login-full-screen-intent-check.ts");
-if (postLoginFsi.includes("openFullScreenIntentSettings()")) {
-  failures.push("post-login-full-screen-intent-check must not auto-open FSI settings");
+if (!postLoginFsi.includes("openFullScreenIntentSettings()")) {
+  failures.push("post-login-full-screen-intent-check must open FSI settings when not granted");
 }
 
 if (failures.length > 0) {

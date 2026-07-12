@@ -71,14 +71,14 @@ describe("runNotificationGuideFlow (native OS-first)", () => {
     });
   });
 
-  it("first_login does not call OS request or app guide modal", async () => {
+  it("first_login calls requestNotificationFromGuide when OS prompt is available", async () => {
     const { runNotificationGuideFlow } = await import(
       "@/lib/permissions/permission-manager/notification-onboarding-flow"
     );
     const result = await runNotificationGuideFlow("first_login");
-    expect(requestNotificationFromGuide).not.toHaveBeenCalled();
-    expect(result).toBe("declined");
-    expect(registerNativePushFromClient).not.toHaveBeenCalled();
+    expect(requestNotificationFromGuide).toHaveBeenCalledTimes(1);
+    expect(result).toBe("granted");
+    expect(registerNativePushFromClient).toHaveBeenCalledWith("user-1", "notificationOnboardingFlow");
   });
 
   it("disabled_resume does not open app modal or OS prompt", async () => {

@@ -242,6 +242,21 @@ public class NativeDevicePermissionsPlugin extends Plugin {
     }
   }
 
+  @PluginMethod
+  public void requestBatteryOptimizationExemption(PluginCall call) {
+    JSObject result = new JSObject();
+    try {
+      Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+      intent.setData(Uri.parse("package:" + getContext().getPackageName()));
+      intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+      getContext().startActivity(intent);
+      result.put("opened", true);
+      call.resolve(result);
+    } catch (Exception error) {
+      call.reject("request_battery_optimization_failed", error);
+    }
+  }
+
   @PermissionCallback
   private void permissionRequestCallback(PluginCall call) {
     String kind = normalizeKind(call.getString("kind"));
