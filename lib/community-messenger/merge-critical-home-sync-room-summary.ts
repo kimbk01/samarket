@@ -272,3 +272,25 @@ export function mergeMessengerRoomSummaryForHomeSyncReplace(
     eventType: "replace",
   });
 }
+
+/**
+ * home list hydrate — 서버·캐시 row 가 로컬보다 오래된 `lastMessageAt` 이면 tail 필드를 유지한다.
+ * unread 동일 시 `mergeRoomListsWithVersionGuard` early-return·lite `bootstrap_apply_full` 역행 방지.
+ */
+export function mergeMessengerRoomSummaryMonotonicLastEventForHomeList(
+  prev: CommunityMessengerRoomSummary,
+  incoming: CommunityMessengerRoomSummary
+): CommunityMessengerRoomSummary {
+  const merged = mergeMessengerRoomSummaryForHomeSyncReplace(prev, incoming);
+  const prevAt = String(prev.lastMessageAt ?? "");
+  const mergedAt = String(merged.lastMessageAt ?? "");
+  if (prevAt && mergedAt && prevAt.localeCompare(mergedAt) > 0) {
+    return {
+      ...merged,
+      lastMessageAt: prev.lastMessageAt,
+      lastMessage: prev.lastMessage,
+      lastMessageType: prev.lastMessageType,
+    };
+  }
+  return merged;
+}

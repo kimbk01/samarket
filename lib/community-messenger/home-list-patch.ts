@@ -17,7 +17,7 @@ import {
 } from "@/lib/community-messenger/home/patch-bootstrap-room-list-from-realtime-message";
 import {
   mergeMessengerRoomSummaryForHomeSyncCriticalPatch,
-  mergeMessengerRoomSummaryForHomeSyncReplace,
+  mergeMessengerRoomSummaryMonotonicLastEventForHomeList,
 } from "@/lib/community-messenger/merge-critical-home-sync-room-summary";
 import {
   resolveMessengerHomeBootstrapSetData,
@@ -244,6 +244,19 @@ function logHomeListOwner(stats: HomeListPatchStats): void {
   messengerTraceConsoleDebug("[cm-list-owner]", stats);
 }
 
+function mergeIncomingRoomListMonotonicLastEvent(
+  prevList: CommunityMessengerRoomSummary[],
+  nextList: CommunityMessengerRoomSummary[]
+): CommunityMessengerRoomSummary[] {
+  if (!nextList.length) return prevList;
+  const prevById = new Map(prevList.map((r) => [r.id, r]));
+  return nextList.map((inc) => {
+    const old = prevById.get(inc.id);
+    if (!old) return inc;
+    return mergeMessengerRoomSummaryMonotonicLastEventForHomeList(old, inc);
+  });
+}
+
 function mergeRoomListsWithVersionGuard(
   prevList: CommunityMessengerRoomSummary[],
   nextList: CommunityMessengerRoomSummary[]
@@ -253,8 +266,8 @@ function mergeRoomListsWithVersionGuard(
   let unreadGuardApplied = 0;
   const out = nextList.map((inc) => {
     const old = prevById.get(inc.id);
-    if (!old || old.unreadCount === inc.unreadCount) return inc;
-    const merged = mergeMessengerRoomSummaryForHomeSyncReplace(old, inc);
+    if (!old) return inc;
+    const merged = mergeMessengerRoomSummaryMonotonicLastEventForHomeList(old, inc);
     if (merged.unreadCount !== inc.unreadCount) unreadGuardApplied += 1;
     return merged;
   });
@@ -619,8 +632,14 @@ export function applyHomeListPatch(
           const tBuild0 = typeof performance !== "undefined" ? performance.now() : 0;
           const mergeReq = patch.mergeStaleOutgoingRequests !== false;
           const incoming = patch.next;
-          const chatMerge = mergeRoomListsPreserveRefs(base.chats ?? [], incoming.chats ?? []);
-          const groupMerge = mergeRoomListsPreserveRefs(base.groups ?? [], incoming.groups ?? []);
+          const chatMerge = mergeRoomListsPreserveRefs(
+            base.chats ?? [],
+            mergeIncomingRoomListMonotonicLastEvent(base.chats ?? [], incoming.chats ?? [])
+          );
+          const groupMerge = mergeRoomListsPreserveRefs(
+            base.groups ?? [],
+            mergeIncomingRoomListMonotonicLastEvent(base.groups ?? [], incoming.groups ?? [])
+          );
           const patchBuildMs =
             typeof performance !== "undefined" ? Math.round(performance.now() - tBuild0) : 0;
           const requestsMerged = mergeReq
