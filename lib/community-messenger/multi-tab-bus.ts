@@ -68,6 +68,14 @@ export type MessengerBusEvent =
       at: number;
     }
   | {
+      /** call_stub terminal — preview만 갱신(lastMessageAt 동일 시 정렬 유지) */
+      type: "cm.room.call_stub_preview";
+      roomId: string;
+      viewerUserId: string;
+      preview: MessengerBusListPreview;
+      at: number;
+    }
+  | {
       /** 수신/발신 탭 — 통화 터미널(취소·종료) 시 프리뷰·활성 스냅샷 정리 */
       type: "cm.call.session_terminal";
       sessionId?: string;
@@ -135,6 +143,24 @@ export function syncMessengerHomeAfterOutboundSend(args: {
   requestMessengerHubBadgeResync("participant_unread_changed", {
     roomId: args.roomId,
     participantUnreadDirection: "increase",
+  });
+}
+
+/** 통화 터미널·동일 stub preview 갱신 — Realtime UPDATE 미수신 보완 */
+export function postCommunityMessengerCallStubPreviewBusEvent(args: {
+  roomId: string;
+  viewerUserId: string;
+  preview: MessengerBusListPreview;
+}): void {
+  const roomId = args.roomId.trim();
+  const viewerUserId = args.viewerUserId.trim();
+  if (!roomId || !viewerUserId) return;
+  postCommunityMessengerBusEvent({
+    type: "cm.room.call_stub_preview",
+    roomId,
+    viewerUserId,
+    preview: args.preview,
+    at: Date.now(),
   });
 }
 
@@ -213,6 +239,7 @@ export function onCommunityMessengerBusEvent(handler: (ev: MessengerBusEvent) =>
       d.type !== "cm.room.incoming_message" &&
       d.type !== "cm.room.read" &&
       d.type !== "cm.room.summary_patch" &&
+      d.type !== "cm.room.call_stub_preview" &&
       d.type !== "cm.room.peer_read_ack"
     )
       return;
@@ -237,7 +264,7 @@ export function onCommunityMessengerBusEvent(handler: (ev: MessengerBusEvent) =>
       if (typeof d.viewerUserId !== "string" || !d.viewerUserId.trim()) return;
       if (!d.summary || typeof d.summary !== "object" || typeof (d.summary as { id?: unknown }).id !== "string") return;
     }
-    if (d.type === "cm.room.incoming_message" || d.type === "cm.room.read" || d.type === "cm.room.summary_patch") {
+    if (d.type === "cm.room.incoming_message" || d.type === "cm.room.read" || d.type === "cm.room.summary_patch" || d.type === "cm.room.call_stub_preview") {
       if (typeof d.viewerUserId !== "string" || !d.viewerUserId.trim()) return;
     }
     if (d.type === "cm.room.incoming_message") {

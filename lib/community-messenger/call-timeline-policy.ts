@@ -11,7 +11,7 @@
  * - lastMessage·방 preview 는 messages.call_stub 기준
  *
  * ## Reconciliation
- * - terminal call 종료 시 `appendCommunityMessengerCallStubMessage` 가 messages + rooms.last_message 갱신
+ * - terminal call 종료 시 동일 sessionId `call_stub` UPDATE (created_at·last_message_at 불변)
  * - call_logs INSERT 는 별도 — 불일치 시 서버 repair(향후 cron) 대상
  * - 클라 UI merge 로 call_logs 를 방 타임라인에 합치지 않음
  *

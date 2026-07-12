@@ -17,7 +17,6 @@ import {
 import { matchesGroupChatListKindFilter } from "@/lib/community-messenger/group/group-room-notification-policy";
 import { philifeMeetingMemberRoleLabel } from "@/lib/community-messenger/cm-ui-translate";
 import {
-  formatCallPreview,
   getRoomPreviewText,
   getRoomTypeBadgeLabel,
 } from "@/lib/community-messenger/cm-home-list-copy";
@@ -240,7 +239,7 @@ function communityMessengerRoomsSortCacheKey(rooms: CommunityMessengerRoomSummar
   return rooms
     .map(
       (r) =>
-        `${r.id}\t${r.lastMessageAt}\t${r.isPinned ? 1 : 0}\t${r.unreadCount}\t${r.title}\t${r.philifeMeetingMemberLabel ?? ""}\t${messengerRoomTradeThumbKeyPart(r)}\t${messengerRoomTradeListMetaSig(r)}`
+        `${r.id}\t${r.lastMessageAt}\t${r.lastMessage ?? ""}\t${r.lastMessageType ?? ""}\t${r.isPinned ? 1 : 0}\t${r.unreadCount}\t${r.title}\t${r.philifeMeetingMemberLabel ?? ""}\t${messengerRoomTradeThumbKeyPart(r)}\t${messengerRoomTradeListMetaSig(r)}`
     )
     .join("\n");
 }
@@ -421,23 +420,6 @@ export function useCommunityMessengerHomeState({
         lastEventAt: room.lastMessageAt,
       });
     }
-    for (const call of sortedCalls) {
-      if (!call.roomId) continue;
-      const existing = roomMap.get(call.roomId);
-      if (!existing) continue;
-      const callAt = new Date(call.startedAt).getTime();
-      const roomAt = new Date(existing.lastEventAt).getTime();
-      if (Number.isFinite(callAt) && (!Number.isFinite(roomAt) || callAt >= roomAt)) {
-        roomMap.set(call.roomId, {
-          room: existing.room,
-          preview: formatCallPreview(call),
-          previewKind: "call",
-          callStatus: call.status,
-          callKind: call.callKind,
-          lastEventAt: call.startedAt,
-        });
-      }
-    }
     const merged = collapseDirectPeerRooms([...roomMap.values()]);
     const sortedNext = merged.sort(sortUnifiedRoomListItems);
 
@@ -470,7 +452,7 @@ export function useCommunityMessengerHomeState({
     bumpMessengerRenderPerf("messenger_room_list_sort");
     unifiedRoomsStableListRef.current = reconciled;
     return reconciled;
-  }, [sortedChats, sortedGroups, sortedCalls]);
+  }, [sortedChats, sortedGroups]);
 
   const baseChatListItemsStableRef = useRef<UnifiedRoomListItem[]>([]);
   const baseChatListItems = useMemo(() => {

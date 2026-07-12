@@ -38,6 +38,7 @@ import {
 import {
   buildCommunityMessengerCallStubLabel,
 } from "@/lib/community-messenger/call-stub-message-label";
+import { logCallTimelineDevWarning } from "@/lib/community-messenger/call-timeline-dev-log";
 import {
   cmDirectRoomSubtitleFallback,
   cmGroupRoomSubtitle,
@@ -4899,6 +4900,75 @@ function hasMatchingCallStubSessionId(metadata: unknown, sessionId: string | nul
   return trimText(metadata.sessionId) === sessionId;
 }
 
+type CallStubExistingRow = { id: string; createdAt: string };
+
+async function findCallStubRowBySessionId(
+  roomId: string,
+  sessionId: string
+): Promise<CallStubExistingRow | null> {
+  const sid = trimText(sessionId);
+  if (!sid) return null;
+  const sb = getSupabaseOrNull();
+  if (sb) {
+    const { data: existingRows } = await (sb as any)
+      .from("community_messenger_messages")
+      .select("id, metadata, created_at")
+      .eq("room_id", roomId)
+      .eq("message_type", "call_stub")
+      .order("created_at", { ascending: false })
+      .limit(100);
+    const existingRow = ((existingRows ?? []) as Array<{ id: string; metadata?: unknown; created_at?: string }>).find(
+      (row) => hasMatchingCallStubSessionId(row.metadata, sid)
+    );
+    if (!existingRow?.id) return null;
+    return {
+      id: existingRow.id,
+      createdAt: trimText(existingRow.created_at) || "",
+    };
+  }
+  const dev = getDevState();
+  const existingMessage = [...dev.messages]
+    .reverse()
+    .find(
+      (item) =>
+        item.roomId === roomId &&
+        item.messageType === "call_stub" &&
+        hasMatchingCallStubSessionId(item.metadata, sid)
+    );
+  if (!existingMessage) return null;
+  return { id: existingMessage.id, createdAt: trimText(existingMessage.createdAt) };
+}
+
+async function resolveCallSessionStartedAtIso(input: {
+  sessionId?: string | null;
+  explicitStartedAt?: string | null;
+  context: string;
+}): Promise<string> {
+  const explicit = trimText(input.explicitStartedAt ?? "");
+  if (explicit) return explicit;
+  const sessionId = trimText(input.sessionId ?? "");
+  if (sessionId) {
+    const sb = getSupabaseOrNull();
+    if (sb) {
+      const { data } = await (sb as any)
+        .from("community_messenger_call_sessions")
+        .select("started_at")
+        .eq("id", sessionId)
+        .maybeSingle();
+      const fromDb = trimText((data as { started_at?: string } | null)?.started_at);
+      if (fromDb) return fromDb;
+    }
+    const devSession = getDevState().callSessions.find((item) => item.id === sessionId);
+    const fromDev = trimText(devSession?.startedAt);
+    if (fromDev) return fromDev;
+  }
+  logCallTimelineDevWarning("call_started_at_fallback", {
+    context: input.context,
+    sessionId: sessionId || null,
+  });
+  return nowIso();
+}
+
 export async function appendCommunityMessengerCallStubMessage(input: {
   userId: string;
   roomId: string | null;
@@ -4911,6 +4981,8 @@ export async function appendCommunityMessengerCallStubMessage(input: {
   replaceExisting?: boolean;
   incrementUnread?: boolean;
   durationSeconds?: number;
+  /** false — terminal UPDATE·동일 sessionId 재처리 시 rooms.last_message_at 유지 */
+  bumpRoomLastMessageAt?: boolean;
 }) {
   if (!input.roomId) return;
   const label = buildCommunityMessengerCallStubLabel(input.callKind, input.status, input.durationSeconds);
@@ -4926,39 +4998,71 @@ export async function appendCommunityMessengerCallStubMessage(input: {
         : null,
   };
   const shouldIncrementUnread = input.incrementUnread ?? true;
-  const sb = getSupabaseOrNull();
-  if (sb) {
-    if (input.replaceExisting && input.sessionId) {
-      const { data: existingRows } = await (sb as any)
+  const sessionId = trimText(input.sessionId ?? "");
+  const bumpRoomLastMessageAt = input.bumpRoomLastMessageAt !== false;
+
+  const updateExistingStub = async (existing: CallStubExistingRow) => {
+    const stubStartedAt = trimText(existing.createdAt) || trimText(input.createdAt);
+    const sb = getSupabaseOrNull();
+    if (sb) {
+      await (sb as any)
         .from("community_messenger_messages")
-        .select("id, metadata")
-        .eq("room_id", input.roomId)
-        .eq("message_type", "call_stub")
-        .order("created_at", { ascending: false })
-        .limit(100);
-      const existingRow = ((existingRows ?? []) as Array<{ id: string; metadata?: unknown }>).find((row) =>
-        hasMatchingCallStubSessionId(row.metadata, input.sessionId)
-      );
-      if (existingRow) {
-        await (sb as any)
-          .from("community_messenger_messages")
-          .update({
-            content: label,
-            metadata,
-            created_at: input.createdAt,
-          })
-          .eq("id", existingRow.id);
+        .update({
+          content: label,
+          metadata,
+        })
+        .eq("id", existing.id);
+      const { data: roomRow } = await (sb as any)
+        .from("community_messenger_rooms")
+        .select("last_message_at, last_message_type")
+        .eq("id", input.roomId)
+        .maybeSingle();
+      const roomAt = trimText((roomRow as { last_message_at?: string } | null)?.last_message_at);
+      const roomMs = new Date(roomAt).getTime();
+      const stubMs = new Date(stubStartedAt).getTime();
+      const roomPreviewStillFromThisCall =
+        Number.isFinite(roomMs) && Number.isFinite(stubMs) && roomMs <= stubMs;
+      if (roomPreviewStillFromThisCall) {
         await (sb as any)
           .from("community_messenger_rooms")
           .update({
             last_message: label,
-            last_message_at: input.createdAt,
             last_message_type: "call_stub",
-            updated_at: input.createdAt,
           })
           .eq("id", input.roomId);
+      }
+      return;
+    }
+    const dev = getDevState();
+    const existingMessage = dev.messages.find((item) => item.id === existing.id);
+    if (existingMessage) {
+      existingMessage.content = label;
+      existingMessage.metadata = metadata;
+    }
+    const room = dev.rooms.find((item) => item.id === input.roomId);
+    if (room) {
+      const roomMs = new Date(trimText(room.lastMessageAt)).getTime();
+      const stubMs = new Date(stubStartedAt).getTime();
+      if (Number.isFinite(roomMs) && Number.isFinite(stubMs) && roomMs > stubMs) {
         return;
       }
+      room.lastMessage = label;
+      room.lastMessageType = "call_stub";
+    }
+  };
+
+  if (sessionId) {
+    const existing = await findCallStubRowBySessionId(input.roomId, sessionId);
+    if (existing) {
+      await updateExistingStub(existing);
+      return;
+    }
+  }
+
+  const sb = getSupabaseOrNull();
+  if (sb) {
+    if (input.replaceExisting && sessionId) {
+      /* legacy path — sessionId 매칭 행 없으면 복구 INSERT */
     }
     await (sb as any).from("community_messenger_messages").insert({
       room_id: input.roomId,
@@ -4968,15 +5072,15 @@ export async function appendCommunityMessengerCallStubMessage(input: {
       metadata,
       created_at: input.createdAt,
     });
-    await (sb as any)
-      .from("community_messenger_rooms")
-      .update({
-        last_message: label,
-        last_message_at: input.createdAt,
-        last_message_type: "call_stub",
-        updated_at: input.createdAt,
-      })
-      .eq("id", input.roomId);
+    const roomPatch: Record<string, unknown> = {
+      last_message: label,
+      last_message_type: "call_stub",
+    };
+    if (bumpRoomLastMessageAt) {
+      roomPatch.last_message_at = input.createdAt;
+      roomPatch.updated_at = input.createdAt;
+    }
+    await (sb as any).from("community_messenger_rooms").update(roomPatch).eq("id", input.roomId);
     const { data: participants } = await (sb as any)
       .from("community_messenger_participants")
       .select("id, user_id, unread_count")
@@ -4995,28 +5099,6 @@ export async function appendCommunityMessengerCallStubMessage(input: {
   }
 
   const dev = getDevState();
-  if (input.replaceExisting && input.sessionId) {
-    const existingMessage = [...dev.messages]
-      .reverse()
-      .find(
-        (item) =>
-          item.roomId === input.roomId &&
-          item.messageType === "call_stub" &&
-          hasMatchingCallStubSessionId(item.metadata, input.sessionId)
-      );
-    if (existingMessage) {
-      existingMessage.content = label;
-      existingMessage.metadata = metadata;
-      existingMessage.createdAt = input.createdAt;
-      const room = dev.rooms.find((item) => item.id === input.roomId);
-      if (room) {
-        room.lastMessage = label;
-        room.lastMessageAt = input.createdAt;
-        room.lastMessageType = "call_stub";
-      }
-      return;
-    }
-  }
   dev.messages.push({
     id: randomUUID(),
     roomId: input.roomId,
@@ -5029,8 +5111,10 @@ export async function appendCommunityMessengerCallStubMessage(input: {
   const room = dev.rooms.find((item) => item.id === input.roomId);
   if (room) {
     room.lastMessage = label;
-    room.lastMessageAt = input.createdAt;
     room.lastMessageType = "call_stub";
+    if (bumpRoomLastMessageAt) {
+      room.lastMessageAt = input.createdAt;
+    }
   }
   if (!shouldIncrementUnread) return;
   for (const participant of dev.participants.filter((item) => item.roomId === input.roomId)) {
@@ -17240,11 +17324,16 @@ export async function createCommunityMessengerCallLog(input: {
   status: CommunityMessengerCallStatus;
   durationSeconds?: number;
   replaceExistingStub?: boolean;
+  startedAt?: string | null;
 }): Promise<{ ok: boolean; error?: string }> {
   const roomId = trimText(input.roomId ?? "") || null;
   const sessionId = trimText(input.sessionId ?? "") || null;
   const peerUserId = trimText(input.peerUserId ?? "") || null;
-  const startedAt = nowIso();
+  const startedAt = await resolveCallSessionStartedAtIso({
+    sessionId,
+    explicitStartedAt: input.startedAt,
+    context: "createCommunityMessengerCallLog",
+  });
   const payload = {
     session_id: sessionId,
     room_id: roomId,
@@ -17268,6 +17357,7 @@ export async function createCommunityMessengerCallLog(input: {
         createdAt: startedAt,
         replaceExisting: input.replaceExistingStub,
         incrementUnread: !input.replaceExistingStub,
+        bumpRoomLastMessageAt: !input.replaceExistingStub,
         durationSeconds: input.durationSeconds,
       });
       return { ok: true };
@@ -17283,6 +17373,7 @@ export async function createCommunityMessengerCallLog(input: {
         createdAt: startedAt,
         replaceExisting: input.replaceExistingStub ?? true,
         incrementUnread: false,
+        bumpRoomLastMessageAt: false,
         durationSeconds: input.durationSeconds,
       });
       return { ok: true };
@@ -17311,6 +17402,7 @@ export async function createCommunityMessengerCallLog(input: {
     createdAt: startedAt,
     replaceExisting: input.replaceExistingStub,
     incrementUnread: !input.replaceExistingStub,
+    bumpRoomLastMessageAt: !input.replaceExistingStub,
     durationSeconds: input.durationSeconds,
   });
   return { ok: true };
@@ -17750,15 +17842,23 @@ export async function startCommunityMessengerCallSession(input: {
         return { ok: false, error: String(participantInsertError.message ?? "call_session_participants_insert_failed") };
       }
       if (!isGroupRoom) {
-        /* 채팅 스텁은 수신 실시간보다 늦어도 되므로 발신 응답을 막지 않는다 */
-        void appendCommunityMessengerCallStubMessage({
-          userId: input.userId,
-          roomId,
-          sessionId: inserted.id,
-          callKind: input.callKind,
-          status: "dialing",
-          createdAt: startedAt,
-        });
+        try {
+          await appendCommunityMessengerCallStubMessage({
+            userId: input.userId,
+            roomId,
+            sessionId: inserted.id,
+            callKind: input.callKind,
+            status: "dialing",
+            createdAt: startedAt,
+            bumpRoomLastMessageAt: true,
+          });
+        } catch (stubError) {
+          logCallTimelineDevWarning("call_stub_start_failed", {
+            sessionId: inserted.id,
+            roomId,
+            error: String(stubError),
+          });
+        }
       }
       await appendCommunityMessengerCallSessionEvent(sb, {
         sessionId: inserted.id,
@@ -18059,20 +18159,35 @@ export async function updateCommunityMessengerCallSession(input: {
     mapped: CommunityMessengerCallSession
   ) => {
     if (!isTerminalCallSessionStatus(mapped.status)) return;
+    const sessionStartedAt =
+      "started_at" in session
+        ? trimText(session.started_at ?? "")
+        : trimText(session.startedAt ?? "");
+    const stubCreatedAt =
+      sessionStartedAt ||
+      (await resolveCallSessionStartedAtIso({
+        sessionId,
+        context: "ensureTerminalCallStub",
+      }));
     await appendCommunityMessengerCallStubMessage({
       userId: "initiator_user_id" in session ? session.initiator_user_id : session.initiatorUserId,
       roomId: "room_id" in session ? session.room_id : session.roomId,
       sessionId,
       callKind: "call_kind" in session ? session.call_kind : session.callKind,
       status: terminalLogStatus(mapped),
-      createdAt: mapped.endedAt ?? nowIso(),
+      createdAt: stubCreatedAt,
       replaceExisting: mapped.sessionMode === "direct",
       incrementUnread: false,
+      bumpRoomLastMessageAt: false,
       durationSeconds,
     });
   };
   const finalizeLog = async (session: CallSessionRow | DevCallSession, mapped: CommunityMessengerCallSession) => {
     const status = terminalLogStatus(mapped);
+    const sessionStartedAt =
+      "started_at" in session
+        ? trimText(session.started_at ?? "")
+        : trimText(session.startedAt ?? "");
     await createCommunityMessengerCallLog({
       userId: "initiator_user_id" in session ? session.initiator_user_id : session.initiatorUserId,
       roomId: "room_id" in session ? session.room_id : session.roomId,
@@ -18082,6 +18197,7 @@ export async function updateCommunityMessengerCallSession(input: {
       status,
       durationSeconds,
       replaceExistingStub: mapped.sessionMode === "direct",
+      startedAt: sessionStartedAt || undefined,
     });
   };
 

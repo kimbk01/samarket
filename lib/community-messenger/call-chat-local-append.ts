@@ -1,7 +1,8 @@
 "use client";
 
 /**
- * 통화 이벤트 call_stub — 시그널 경로에서 채팅 로그에 즉시 반영(로컬) + 터미널만 API 베스트에포트 저장.
+ * 통화 이벤트 call_stub — 서버 messages.call_stub 가 SSOT.
+ * 클라이언트는 terminal 시 동일 sessionId 말풍선 reconcile + 목록 preview patch 만 수행한다.
  */
 import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
 import {
@@ -10,11 +11,10 @@ import {
   type CallSessionResolvedEvent,
   resolveCallSessionEventType,
 } from "@/lib/community-messenger/call-event-message";
-import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import {
-  applyIncomingMessageEvent,
-  removeRingingCallStubsForSessionKeys,
-} from "@/lib/community-messenger/stores/messenger-realtime-store";
+  postCommunityMessengerCallStubPreviewBusEvent,
+} from "@/lib/community-messenger/multi-tab-bus";
+import { reconcileCallStubMessageBySession } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import type { CommunityMessengerCallKind, CommunityMessengerCallStatus } from "@/lib/community-messenger/types";
 
 const appliedClientDedupeKeys = new Set<string>();
@@ -39,26 +39,6 @@ export function callChatClientDedupeKey(
   return `call_event:${r}:${sk}:${resolvedEvent}:${v}`;
 }
 
-/** 동일 세션·이벤트에 대해 양 클라이언트가 같은 로컬 id를 쓰도록 (방 단위) */
-function stableStubIdentityKey(
-  roomId: string,
-  sessionId: string | null | undefined,
-  tmpSessionId: string | null | undefined,
-  resolvedEvent: CallSessionResolvedEvent
-): string {
-  const sk = sessionKeyForDedupe(sessionId, tmpSessionId);
-  return `call_event:${roomId.trim()}:${sk}:${resolvedEvent}`;
-}
-
-function stableClientStubMessageId(identityKey: string): string {
-  let h = 2166136261;
-  for (let i = 0; i < identityKey.length; i++) {
-    h ^= identityKey.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return `cm-cevt-${(h >>> 0).toString(36)}`;
-}
-
 export type AppendCallChatMessageArgs = {
   roomId: string;
   sessionId?: string | null;
@@ -67,12 +47,12 @@ export type AppendCallChatMessageArgs = {
   callKind: CommunityMessengerCallKind;
   resolvedEvent: CallSessionResolvedEvent;
   durationSeconds?: number;
-  /** 링 스텁만 기본 true — 터미널은 서버 finalize 우선 */
+  /** peer_busy 등 세션 없는 로컬 전용 이벤트 */
   persistToApi?: boolean;
 };
 
 /**
- * 터미널 페이로드에서 이벤트 해석 후 스텁 반영 — `GlobalCommunityMessengerIncomingCall` 등에서 사용.
+ * 터미널 페이로드에서 이벤트 해석 후 동일 session stub reconcile — IncomingCall·CallClient 에서 사용.
  */
 export function appendLocalCallChatMessageFromTerminalSession(input: {
   roomId: string;
@@ -82,9 +62,11 @@ export function appendLocalCallChatMessageFromTerminalSession(input: {
   recipientUserId?: string | null;
   callKind: CommunityMessengerCallKind;
   status: string;
+  startedAt?: string | null;
   answeredAt?: string | null;
   hangupReason?: string | null;
   endedReason?: string | null;
+  durationSeconds?: number;
 }): void {
   const statusNorm = input.status.trim().toLowerCase();
   const resolved = resolveCallSessionEventType({
@@ -97,12 +79,17 @@ export function appendLocalCallChatMessageFromTerminalSession(input: {
 
   const viewerUserId = getSyncViewerUserIdForClient()?.trim() || "";
   const ini = input.initiatorUserId.trim();
+  const roomId = input.roomId.trim();
+  if (!roomId || !ini || !viewerUserId) return;
+
   const text = getCallMessageText({
     callKind: input.callKind,
     eventType: resolved,
     viewerUserId: viewerUserId || ini,
     initiatorUserId: ini,
   });
+  const status = mapResolvedEventToCallStatus(resolved);
+  const callStartedAt = typeof input.startedAt === "string" ? input.startedAt.trim() : "";
 
   if (process.env.NODE_ENV !== "production") {
     console.info("[cm-call-message-resolve]", {
@@ -117,51 +104,16 @@ export function appendLocalCallChatMessageFromTerminalSession(input: {
     });
   }
 
-  appendLocalCallChatMessage({
-    roomId: input.roomId,
-    sessionId: input.sessionId,
-    tmpSessionId: input.tmpSessionId,
-    initiatorUserId: ini,
-    callKind: input.callKind,
-    resolvedEvent: resolved,
-    persistToApi: true,
-  });
-  void input.recipientUserId;
-}
-
-/**
- * 로컬 타임라인 + BroadcastChannel fan-out + POST stub-message (best effort, 터미널만).
- */
-export function appendLocalCallChatMessage(args: AppendCallChatMessageArgs): void {
-  const roomId = args.roomId.trim();
-  const initiatorUserId = args.initiatorUserId.trim();
-  if (!roomId || !initiatorUserId) return;
-
-  const viewerUserId = getSyncViewerUserIdForClient()?.trim() || "";
-  if (!viewerUserId) return;
-
-  const isRinging = args.resolvedEvent === "outgoing_started" || args.resolvedEvent === "incoming_received";
-  if (!isRinging) {
-    removeRingingCallStubsForSessionKeys({
-      roomId,
-      sessionId: args.sessionId,
-      tmpSessionId: args.tmpSessionId,
-    });
-  }
-
   const clientDedupeKey = callChatClientDedupeKey(
     roomId,
-    args.sessionId,
-    args.tmpSessionId,
-    args.resolvedEvent,
+    input.sessionId,
+    input.tmpSessionId,
+    resolved,
     viewerUserId
   );
   if (appliedClientDedupeKeys.has(clientDedupeKey)) {
     if (process.env.NODE_ENV !== "production") {
-      console.info("[cm-call-message-dedupe]", {
-        dedupeKey: clientDedupeKey,
-        action: "skip",
-      });
+      console.info("[cm-call-message-dedupe]", { dedupeKey: clientDedupeKey, action: "skip" });
     }
     return;
   }
@@ -171,8 +123,72 @@ export function appendLocalCallChatMessage(args: AppendCallChatMessageArgs): voi
     if (!it.done) appliedClientDedupeKeys.delete(it.value);
   }
 
-  const identityKey = stableStubIdentityKey(roomId, args.sessionId, args.tmpSessionId, args.resolvedEvent);
-  const messageId = stableClientStubMessageId(identityKey);
+  reconcileCallStubMessageBySession({
+    roomId,
+    sessionId: input.sessionId,
+    tmpSessionId: input.tmpSessionId,
+    content: text,
+    callStatus: status,
+    callKind: input.callKind,
+  });
+
+  if (callStartedAt) {
+    postCommunityMessengerCallStubPreviewBusEvent({
+      roomId,
+      viewerUserId,
+      preview: {
+        lastMessage: text,
+        lastMessageType: "call_stub",
+        lastMessageAt: callStartedAt,
+      },
+    });
+  }
+
+  void persistCallStubMessageBestEffort({
+    roomId,
+    sessionId: input.sessionId ?? null,
+    tmpSessionId: input.tmpSessionId ?? null,
+    senderId: ini,
+    callKind: input.callKind,
+    status,
+    replaceExisting: true,
+    callStartedAt: callStartedAt || null,
+    durationSeconds: input.durationSeconds,
+  }).then((src) => {
+    if (process.env.NODE_ENV !== "production" && src) {
+      console.info("[cm-call-message-append]", {
+        roomId,
+        sessionId: input.sessionId ?? undefined,
+        tmpSessionId: input.tmpSessionId ?? undefined,
+        resolvedEvent: resolved,
+        source: src,
+      });
+    }
+  });
+
+  void input.recipientUserId;
+}
+
+/**
+ * peer_busy 등 세션 없는 로컬 전용 이벤트 — 일반 통화 경로에서는 사용하지 않는다.
+ */
+export function appendLocalCallChatMessage(args: AppendCallChatMessageArgs): void {
+  const roomId = args.roomId.trim();
+  const initiatorUserId = args.initiatorUserId.trim();
+  if (!roomId || !initiatorUserId) return;
+
+  const viewerUserId = getSyncViewerUserIdForClient()?.trim() || "";
+  if (!viewerUserId) return;
+
+  const clientDedupeKey = callChatClientDedupeKey(
+    roomId,
+    args.sessionId,
+    args.tmpSessionId,
+    args.resolvedEvent,
+    viewerUserId
+  );
+  if (appliedClientDedupeKeys.has(clientDedupeKey)) return;
+  appliedClientDedupeKeys.add(clientDedupeKey);
 
   const status = mapResolvedEventToCallStatus(args.resolvedEvent);
   const text = getCallMessageText({
@@ -182,49 +198,7 @@ export function appendLocalCallChatMessage(args: AppendCallChatMessageArgs): voi
     initiatorUserId,
   });
 
-  if (process.env.NODE_ENV !== "production") {
-    console.info("[cm-call-message-dedupe]", {
-      dedupeKey: clientDedupeKey,
-      action: "append",
-    });
-  }
-
-  const metadata: Record<string, unknown> = {
-    callKind: args.callKind,
-    callStatus: status,
-    sessionId: typeof args.sessionId === "string" && args.sessionId.trim() ? args.sessionId.trim() : null,
-    tmpSessionId: typeof args.tmpSessionId === "string" && args.tmpSessionId.trim() ? args.tmpSessionId.trim() : null,
-    callResolvedEvent: args.resolvedEvent,
-    callDedupeKey: clientDedupeKey,
-  };
-
-  const messageRow: Record<string, unknown> = {
-    id: messageId,
-    room_id: roomId,
-    sender_id: initiatorUserId,
-    message_type: "call_stub",
-    content: text,
-    metadata,
-    created_at: new Date().toISOString(),
-  };
-
-  applyIncomingMessageEvent({
-    viewerUserId,
-    roomId,
-    messageRow,
-  });
-  postCommunityMessengerBusEvent({
-    type: "cm.room.incoming_message",
-    roomId,
-    viewerUserId,
-    messageRow,
-    at: Date.now(),
-  });
-
-  const shouldPersist =
-    args.persistToApi === true ||
-    (args.persistToApi !== false && (args.resolvedEvent === "incoming_received" || !isRinging));
-  if (shouldPersist) {
+  if (args.persistToApi) {
     void persistCallStubMessageBestEffort({
       roomId,
       sessionId: args.sessionId ?? null,
@@ -232,18 +206,17 @@ export function appendLocalCallChatMessage(args: AppendCallChatMessageArgs): voi
       senderId: initiatorUserId,
       callKind: args.callKind,
       status,
-      replaceExisting: !isRinging,
+      replaceExisting: false,
+      callStartedAt: null,
       durationSeconds: args.durationSeconds,
-    }).then((src) => {
-      if (process.env.NODE_ENV !== "production" && src) {
-        console.info("[cm-call-message-append]", {
-          roomId,
-          sessionId: args.sessionId ?? undefined,
-          tmpSessionId: args.tmpSessionId ?? undefined,
-          resolvedEvent: args.resolvedEvent,
-          source: src,
-        });
-      }
+    });
+  }
+
+  if (process.env.NODE_ENV !== "production") {
+    console.info("[cm-call-message-local-only]", {
+      roomId,
+      resolvedEvent: args.resolvedEvent,
+      text,
     });
   }
 }
@@ -256,6 +229,7 @@ async function persistCallStubMessageBestEffort(input: {
   callKind: CommunityMessengerCallKind;
   status: CommunityMessengerCallStatus;
   replaceExisting: boolean;
+  callStartedAt: string | null;
   durationSeconds?: number;
 }): Promise<"db" | null> {
   try {
@@ -271,6 +245,7 @@ async function persistCallStubMessageBestEffort(input: {
         callKind: input.callKind,
         status: input.status,
         replaceExisting: input.replaceExisting,
+        callStartedAt: input.callStartedAt ?? undefined,
         durationSeconds: input.durationSeconds ?? 0,
       }),
     });

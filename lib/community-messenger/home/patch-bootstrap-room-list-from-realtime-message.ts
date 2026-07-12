@@ -124,6 +124,59 @@ function bumpRoomUnreadIfNeeded(
   return hit ? next : rooms;
 }
 
+function findRoomInBootstrapLists(
+  data: CommunityMessengerBootstrap,
+  roomId: string
+): CommunityMessengerRoomSummary | null {
+  const target = normalizeCmListRoomId(roomId);
+  const hit =
+    (data.chats ?? []).find((r) => normalizeCmListRoomId(String(r.id)) === target) ??
+    (data.groups ?? []).find((r) => normalizeCmListRoomId(String(r.id)) === target);
+  return hit ?? null;
+}
+
+function lastEventAtMs(iso: string | null | undefined): number {
+  const ms = new Date(String(iso ?? "")).getTime();
+  return Number.isFinite(ms) ? ms : 0;
+}
+
+/**
+ * call_stub terminal preview — room.lastMessageAt(=lastEventAt)이 session.startedAt보다
+ * 최신이면 홈 목록 preview를 덮어쓰지 않는다.
+ */
+export function shouldApplyCallStubListPreviewPatch(
+  room: Pick<CommunityMessengerRoomSummary, "lastMessage" | "lastMessageAt" | "lastMessageType">,
+  preview: Pick<CommunityMessengerRoomSummary, "lastMessage" | "lastMessageAt" | "lastMessageType">
+): boolean {
+  const previewAt = trimText(preview.lastMessageAt);
+  if (!previewAt) return false;
+  const roomAt = trimText(room.lastMessageAt);
+  const roomMs = lastEventAtMs(roomAt);
+  const previewMs = lastEventAtMs(previewAt);
+  if (previewMs <= 0) return false;
+  if (roomMs > previewMs) return false;
+  if (roomMs === previewMs && room.lastMessageType !== "call_stub") return false;
+  return true;
+}
+
+/** call_stub terminal preview — lastMessageAt 동일 시 정렬·bump 없이 content만 교체 */
+export function patchBootstrapRoomListForCallStubPreviewUpdate(
+  data: CommunityMessengerBootstrap,
+  roomId: string,
+  preview: Pick<CommunityMessengerRoomSummary, "lastMessage" | "lastMessageType" | "lastMessageAt">
+): CommunityMessengerBootstrap {
+  const rid = String(roomId ?? "").trim();
+  if (!rid) return data;
+  const existing = findRoomInBootstrapLists(data, rid);
+  if (existing && !shouldApplyCallStubListPreviewPatch(existing, preview)) {
+    return data;
+  }
+  const nextChats = patchRoomInList(data.chats ?? [], rid, preview);
+  const nextGroups = patchRoomInList(data.groups ?? [], rid, preview);
+  if (nextChats === data.chats && nextGroups === data.groups) return data;
+  return { ...data, chats: nextChats, groups: nextGroups };
+}
+
 export function patchBootstrapRoomListForRealtimeMessageInsert(
   data: CommunityMessengerBootstrap,
   roomId: string,
@@ -137,6 +190,14 @@ export function patchBootstrapRoomListForRealtimeMessageInsert(
   const mid = typeof messageRow.id === "string" ? messageRow.id.trim() : "";
   const roomKey = rid.toLowerCase();
   if (mid && lastRealtimeListMessageAppliedByRoomId.get(roomKey) === mid) {
+    const existing = findRoomInBootstrapLists(data, rid);
+    if (
+      existing &&
+      (String(existing.lastMessage ?? "") !== String(preview.lastMessage ?? "") ||
+        String(existing.lastMessageType ?? "") !== String(preview.lastMessageType ?? ""))
+    ) {
+      return patchBootstrapRoomListForCallStubPreviewUpdate(data, rid, preview);
+    }
     return data;
   }
   const boost = Boolean(opts?.boostUnreadCount);

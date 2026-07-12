@@ -478,6 +478,49 @@ export function removeRingingCallStubsForSessionKeys(input: {
   });
 }
 
+/** terminal call_stub — 동일 sessionId 말풍선 content/status만 갱신(신규 bubble 생성 금지) */
+export function reconcileCallStubMessageBySession(input: {
+  roomId: string;
+  sessionId?: string | null;
+  tmpSessionId?: string | null;
+  content: string;
+  callStatus: CommunityMessengerCallStatus;
+  callKind: CommunityMessengerCallKind;
+}): boolean {
+  const rid = normalizeRoomId(input.roomId);
+  if (!rid) return false;
+  let updated = false;
+  useMessengerRealtimeStore.setState((state) => {
+    const list = state.messagesByRoomId[rid] ?? [];
+    const idx = list.findIndex(
+      (m) =>
+        m.messageType === "call_stub" &&
+        sessionKeysMatchMessage(input.sessionId, input.tmpSessionId, m.callSessionId, m.callTmpSessionId ?? null)
+    );
+    if (idx < 0) return state;
+    const cur = list[idx]!;
+    const nextMessage: CommunityMessengerMessage = {
+      ...cur,
+      content: input.content,
+      callKind: input.callKind,
+      callStatus: input.callStatus,
+      messageType: "call_stub",
+    };
+    if (
+      cur.content === nextMessage.content &&
+      cur.callStatus === nextMessage.callStatus &&
+      cur.callKind === nextMessage.callKind
+    ) {
+      return state;
+    }
+    updated = true;
+    const next = [...list];
+    next[idx] = nextMessage;
+    return { ...state, messagesByRoomId: { ...state.messagesByRoomId, [rid]: next } };
+  });
+  return updated;
+}
+
 export function primeMessengerRoomEntrySnapshot(args: {
   viewerUserId: string | null | undefined;
   room: CommunityMessengerRoomSummary;

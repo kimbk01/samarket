@@ -615,6 +615,26 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
         return;
       }
 
+      if (ev.type === "cm.room.call_stub_preview") {
+        if (String(ev.viewerUserId) !== me) return;
+        let missedPreview = false;
+        scheduleListPatch((prev) => {
+          const next = applyHomeListPatch(
+            prev,
+            { kind: "call_stub_preview", roomId: ev.roomId, preview: ev.preview },
+            "multi-tab"
+          );
+          if (!next || next === prev) {
+            missedPreview = true;
+            return prev;
+          }
+          primeBootstrapCache(next);
+          return next;
+        }, "bus");
+        if (missedPreview) scheduleHomeMissingRoomSummaryMerge(ev.roomId);
+        return;
+      }
+
       if (ev.type === "cm.room.read") {
         if (String(ev.viewerUserId) !== me) return;
         const readRow = findHomeListRoomRow(peekBootstrapCache(), ev.roomId);

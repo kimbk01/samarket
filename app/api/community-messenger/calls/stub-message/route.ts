@@ -41,6 +41,7 @@ export async function POST(req: NextRequest) {
   const status = body.status as CommunityMessengerCallStatus;
   const replaceExisting = body.replaceExisting === true;
   const durationSeconds = Math.max(0, Number(body.durationSeconds ?? 0));
+  const callStartedAt = trimText(body.callStartedAt);
 
   if (!roomId || !senderId) {
     return NextResponse.json({ ok: false, error: "bad_request" }, { status: 400 });
@@ -83,7 +84,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "bad_sender" }, { status: 400 });
   }
 
-  const createdAt = new Date().toISOString();
+  const createdAt = callStartedAt || (replaceExisting ? "" : new Date().toISOString());
+  if (!createdAt) {
+    return NextResponse.json({ ok: false, error: "call_started_at_required" }, { status: 400 });
+  }
+
   await appendCommunityMessengerCallStubMessage({
     userId: senderId,
     roomId,
@@ -94,13 +99,18 @@ export async function POST(req: NextRequest) {
     createdAt,
     replaceExisting,
     incrementUnread: !replaceExisting,
+    bumpRoomLastMessageAt: !replaceExisting,
     durationSeconds,
   });
-  await publishMessengerRoomBumpAfterMutation({
-    rawRouteRoomId: roomId,
-    canonicalRoomId: roomId,
-    fromUserId: senderId,
-  });
+
+  if (!replaceExisting) {
+    await publishMessengerRoomBumpAfterMutation({
+      rawRouteRoomId: roomId,
+      canonicalRoomId: roomId,
+      fromUserId: senderId,
+      messageCreatedAt: createdAt,
+    });
+  }
 
   return NextResponse.json({ ok: true });
 }

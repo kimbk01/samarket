@@ -11,6 +11,7 @@ import {
 } from "@/lib/community-messenger/home/merge-bootstrap-lists-preserve-refs";
 import { mergeBootstrapRoomSummaryIntoLists } from "@/lib/community-messenger/home/merge-bootstrap-room-summary-into-lists";
 import {
+  patchBootstrapRoomListForCallStubPreviewUpdate,
   patchBootstrapRoomListForRealtimeMessageInsert,
   patchBootstrapRoomListForSenderLocalEcho,
 } from "@/lib/community-messenger/home/patch-bootstrap-room-list-from-realtime-message";
@@ -69,6 +70,11 @@ export type HomeListPatch =
       kind: "sender_local_echo";
       roomId: string;
       preview: Pick<CommunityMessengerRoomSummary, "lastMessage" | "lastMessageType" | "lastMessageAt"> | null;
+    }
+  | {
+      kind: "call_stub_preview";
+      roomId: string;
+      preview: Pick<CommunityMessengerRoomSummary, "lastMessage" | "lastMessageType" | "lastMessageAt">;
     }
   | { kind: "local_unread"; roomId: string; unreadCount: number }
   | {
@@ -751,6 +757,12 @@ export function applyHomeListPatch(
         case "sender_local_echo": {
           incomingPatchRooms = 1;
           next = patchBootstrapRoomListForSenderLocalEcho(base, patch.roomId, patch.preview);
+          appliedRooms = next === base ? 0 : 1;
+          break;
+        }
+        case "call_stub_preview": {
+          incomingPatchRooms = 1;
+          next = patchBootstrapRoomListForCallStubPreviewUpdate(base, patch.roomId, patch.preview);
           appliedRooms = next === base ? 0 : 1;
           break;
         }

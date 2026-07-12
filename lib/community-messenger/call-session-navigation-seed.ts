@@ -9,6 +9,8 @@ import {
 import { isPhoneVerificationRequiredApiPayload } from "@/lib/auth/phone-verification-required-detect";
 import { openPhoneVerificationRequiredSheet } from "@/lib/auth/phone-verification-required-client";
 import { isOutgoingCallPhoneVerificationRequired } from "@/lib/call/outgoing-call-start-guard";
+import { getCallMessageText } from "@/lib/community-messenger/call-event-message";
+import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { isCmCallVideoEnabled } from "@/lib/community-messenger/call-phase0-basics";
 import {
   primeOutgoingRingbackWebAudioFromUserGesture,
@@ -131,6 +133,27 @@ export function finalizeOutgoingCallSessionBootstrap(
     void notifyCommunityMessengerCallInviteRingBestEffort(session, {
       dialTmpSessionId: dialTmp ?? undefined,
     });
+    const viewerUserId = getSyncViewerUserIdForClient()?.trim() || "";
+    const startedAt = session.startedAt?.trim() || "";
+    if (viewerUserId && startedAt && session.initiatorUserId.trim() === viewerUserId) {
+      const lastMessage = getCallMessageText({
+        callKind: session.callKind,
+        eventType: "outgoing_started",
+        viewerUserId,
+        initiatorUserId: session.initiatorUserId,
+      });
+      postCommunityMessengerBusEvent({
+        type: "cm.room.message_sent",
+        roomId: session.roomId,
+        senderUserId: viewerUserId,
+        listPreview: {
+          lastMessage,
+          lastMessageType: "call_stub",
+          lastMessageAt: startedAt,
+        },
+        at: Date.now(),
+      });
+    }
   }
 }
 

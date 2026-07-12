@@ -810,6 +810,7 @@ export function CommunityMessengerCallClient({
         recipientUserId: source.recipientUserId ?? undefined,
         callKind: source.callKind,
         status,
+        startedAt: source.startedAt,
         answeredAt: source.answeredAt ?? null,
         hangupReason: opts?.hangupReason ?? null,
         endedReason: opts?.endedReason ?? source.endedReason ?? null,
