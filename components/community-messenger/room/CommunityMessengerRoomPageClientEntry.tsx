@@ -11,6 +11,13 @@ if (typeof window !== "undefined") {
   noteBn14DirectColdMark("page_client_entry_module_eval");
 }
 
+import { CommunityMessengerRoomRouteEntryShell } from "@/components/community-messenger/room/CommunityMessengerRoomRouteEntryShell";
+
+function CommunityMessengerRoomPageClientEntryDeferredLoading() {
+  const rid = String(useParams()?.roomId ?? "").trim();
+  return <CommunityMessengerRoomRouteEntryShell roomId={rid || undefined} />;
+}
+
 const CommunityMessengerRoomPageClientEntryDeferred = dynamic(
   () => {
     noteBn14DirectColdMark("deferred_chunk_import_start");
@@ -21,7 +28,7 @@ const CommunityMessengerRoomPageClientEntryDeferred = dynamic(
       }
     );
   },
-  { ssr: false, loading: () => null }
+  { ssr: false, loading: CommunityMessengerRoomPageClientEntryDeferredLoading }
 );
 
 /**

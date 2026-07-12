@@ -9,7 +9,10 @@ export function CommunityMessengerHomeDetailEmpty() {
     fallbackEn: "Select an item from the list",
   });
   return (
-    <div className="flex flex-1 items-center justify-center bg-sam-app p-8 text-center">
+    <div
+      className="flex flex-1 items-center justify-center bg-sam-app p-8 text-center"
+      data-messenger-detail-empty=""
+    >
       <p className="sam-text-body text-sam-fg-muted">{label}</p>
     </div>
   );

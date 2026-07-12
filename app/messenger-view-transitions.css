@@ -108,8 +108,10 @@
     contain: none !important;
   }
 
+  /* segment inline shell — z-0 배경; 본문(z-1) 로드 전 split 우측 빈 화면 방지 */
   [data-messenger-responsive-shell="wide"] [data-cm-room-segment-shell-host] {
-    display: none !important;
+    display: flex !important;
+    pointer-events: none;
   }
 
   [data-cm-pre-route-shell] {

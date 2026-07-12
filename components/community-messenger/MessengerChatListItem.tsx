@@ -9,6 +9,7 @@ import { philifeMeetingMemberRoleLabel } from "@/lib/community-messenger/cm-ui-t
 import { messengerRoomPrefetchPriorityScore } from "@/lib/community-messenger/room-prefetch-queue";
 import { armMessengerRoomRoutePrefetch } from "@/lib/community-messenger/room/arm-messenger-room-route-prefetch";
 import { runCommunityMessengerRoomForwardNavigation } from "@/lib/community-messenger/community-messenger-room-forward-navigation";
+import { shouldSkipMessengerNavTransitionModifiers } from "@/lib/community-messenger/messenger-view-transition";
 import { useMessengerRoomListPrefetchRefCallback } from "@/lib/community-messenger/use-messenger-room-list-prefetch-intersection";
 import {
   communityMessengerRoomHref,
@@ -16,7 +17,6 @@ import {
   MESSENGER_ROOM_LIST_SOURCE_QUERY_KEY,
   resolveMessengerRoomListSource,
 } from "@/lib/community-messenger/messenger-entry-origin";
-import { matchesMessengerSplitViewport } from "@/lib/ui/app-viewport-layout-breakpoints";
 import { markCommunityMessengerRoomNavTap } from "@/lib/community-messenger/room-nav-timing";
 import { cmReceiveBadgeLog } from "@/lib/community-messenger/read/cm-receive-badge-log";
 import { cmReadUiLog } from "@/lib/community-messenger/read/cm-read-ui-log";
@@ -635,25 +635,9 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   const swipeOpen = openedSwipeItemId === swipeItemId;
   const pressVisualActive = isPressedVisual && !isDragging && !swipeOpen;
 
-  const runSplitListRoomNavigate = useCallback(() => {
-    if (!matchesMessengerSplitViewport()) return false;
-    if (longPressTriggeredRef.current || consumeClickSuppression()) return false;
-    if (dragXRef.current < -16) {
-      closeSwipe();
-      return false;
-    }
-    markCommunityMessengerRoomNavTap(room.id);
-    void navigateToCommunityRoom(room.id);
-    return true;
-  }, [closeSwipe, consumeClickSuppression, navigateToCommunityRoom, room.id]);
-
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     if (compact) return;
     if (e.button !== 0) return;
-    if (matchesMessengerSplitViewport()) {
-      kickRoomNavPrefetchOnPointerDown();
-      return;
-    }
     clearReleasePressTimer();
     suppressTapRef.current = false;
     longPressTriggeredRef.current = false;
@@ -702,11 +686,6 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   const onPointerUp = useCallback(
     (e: React.PointerEvent) => {
       if (compact) return;
-      if (matchesMessengerSplitViewport()) {
-        runSplitListRoomNavigate();
-        releasePressedVisual(PRESS_RELEASE_MS);
-        return;
-      }
       if (!dragRef.current.active) return;
       dragRef.current.active = false;
       const wasDragging = dragRef.current.dragging;
@@ -760,9 +739,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       menuItemId,
       onCloseMenuItem,
       onOpenSwipeItem,
-      onResetTransientUi,
       releasePressedVisual,
-      runSplitListRoomNavigate,
       navigateToCommunityRoom,
       room.id,
       swipeItemId,
@@ -1077,6 +1054,36 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       >
         {rowContent}
       </Link>
+    );
+  }
+
+  if (isSplitList) {
+    return (
+      <div
+        ref={setMainRowRef}
+        className={`relative w-full min-w-0 ${tradeListRowShellClass}`}
+        data-messenger-chat-row="true"
+        data-messenger-trade-row-role={tradeViewerRoleForTint ?? undefined}
+      >
+        <Link
+          ref={prefetchAttach}
+          href={roomHref}
+          prefetch={false}
+          scroll={false}
+          onPointerEnter={kickRoomNavPrefetchOnPointerEnter}
+          onPointerDown={() => {
+            kickRoomNavPrefetchOnPointerDown();
+          }}
+          onClick={(e) => {
+            if (shouldSkipMessengerNavTransitionModifiers(e)) return;
+            e.preventDefault();
+            void navigateToCommunityRoom(room.id);
+          }}
+          className="block w-full px-0 py-0 touch-manipulation transition-colors duration-100 ease-out"
+        >
+          {rowContent}
+        </Link>
+      </div>
     );
   }
 
