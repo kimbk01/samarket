@@ -61,11 +61,12 @@ struct NativeVideoCallRuntimeSnapshot: Equatable, Sendable {
 
 enum NativeVideoCallLane {
   private static var cachedEnabled: Bool?
+  private static var cachedOutgoingEnabled: Bool?
 
   /** B5 — bundled `dibay-call-lane.json` gate (default OFF). Android assets parity. */
   static func isEnabled() -> Bool {
     if let cached = cachedEnabled { return cached }
-    let enabled = readEnabled()
+    let enabled = readLaneBool(key: "nativeVideoRuntime")
     cachedEnabled = enabled
     if enabled {
       NativeVideoCallLog.info("native_video_flag_enabled", callId: "unknown")
@@ -73,12 +74,26 @@ enum NativeVideoCallLane {
     return enabled
   }
 
+  static func isOutgoingEnabled() -> Bool {
+    if let cached = cachedOutgoingEnabled { return cached }
+    let enabled = readLaneBool(key: "nativeVideoOutgoingRuntime")
+    cachedOutgoingEnabled = enabled
+    if enabled {
+      NativeVideoCallLog.info("native_video_outgoing_flag_enabled", callId: "unknown")
+    }
+    return enabled
+  }
+
+  static func isOutgoingVideoLaneActive(mediaType: String) -> Bool {
+    isOutgoingEnabled() && isVideoMediaType(mediaType)
+  }
+
   static func isVideoMediaType(_ mediaType: String?) -> Bool {
     let normalized = mediaType?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
     return normalized == "video"
   }
 
-  private static func readEnabled() -> Bool {
+  private static func readLaneBool(key: String) -> Bool {
     guard
       let url = Bundle.main.url(forResource: "dibay-call-lane", withExtension: "json"),
       let data = try? Data(contentsOf: url),
@@ -86,6 +101,6 @@ enum NativeVideoCallLane {
     else {
       return false
     }
-    return json["nativeVideoRuntime"] as? Bool ?? false
+    return json[key] as? Bool ?? false
   }
 }

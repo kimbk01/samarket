@@ -340,6 +340,21 @@ describe("call-v4 import isolation", () => {
     expect(nav).toContain("@/lib/community-messenger/call-v4/call-v4-actions");
   });
 
+  it("launchOutgoingDirectCall routes iOS native voice outgoing via V4 without Telegram lane env", () => {
+    const nav = read("lib/community-messenger/call-session-navigation-seed.ts");
+    const launch = nav.slice(nav.indexOf("export async function launchOutgoingDirectCall"));
+    expect(launch).toContain('input.kind === "voice"');
+    expect(launch).toContain('resolveCapacitorShellPlatform() === "ios"');
+    expect(launch).toContain("isIOSNativeOutgoingShell");
+    expect(launch).toContain("callV4LaunchOutgoingDirectCall");
+    const iosBypass = launch.indexOf("isIOSNativeOutgoingShell");
+    const telegramLane = launch.indexOf("isCallV4TelegramLaneEnabled()");
+    const legacyTap = launch.indexOf('logCallUxEvent("call_outgoing_tap"');
+    expect(iosBypass).toBeGreaterThan(-1);
+    expect(telegramLane).toBeGreaterThan(iosBypass);
+    expect(legacyTap).toBeGreaterThan(telegramLane);
+  });
+
   it("CallIncomingChrome lazy-loads V4 provider and active call host", () => {
     const chrome = read("components/layout/providers/CallIncomingChrome.tsx");
     expect(chrome).not.toMatch(

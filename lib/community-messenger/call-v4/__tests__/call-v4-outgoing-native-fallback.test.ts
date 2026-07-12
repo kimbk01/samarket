@@ -4,6 +4,7 @@ import type { CommunityMessengerCallSession } from "@/lib/community-messenger/ty
 const bridgeMocks = vi.hoisted(() => ({
   isAndroidNativeOutgoingShell: vi.fn(() => false),
   isIOSNativeOutgoingShell: vi.fn(async () => false),
+  isIOSNativeVideoOutgoingShell: vi.fn(async () => false),
   startNativeOutgoingEstablishment: vi.fn(async () => ({ ok: false, nativeOwned: false })),
 }));
 
@@ -34,6 +35,7 @@ const apiMocks = vi.hoisted(() => ({
 vi.mock("@/lib/call/native/native-outgoing-bridge", () => ({
   isAndroidNativeOutgoingShell: bridgeMocks.isAndroidNativeOutgoingShell,
   isIOSNativeOutgoingShell: bridgeMocks.isIOSNativeOutgoingShell,
+  isIOSNativeVideoOutgoingShell: bridgeMocks.isIOSNativeVideoOutgoingShell,
   startNativeOutgoingEstablishment: bridgeMocks.startNativeOutgoingEstablishment,
   isNativeEstablishmentOwned: vi.fn(async () => false),
 }));
@@ -56,6 +58,7 @@ describe("call-v4-outgoing-native-fallback (P2-2)", () => {
     useCallV4Store.getState().resetToIdle();
     bridgeMocks.isAndroidNativeOutgoingShell.mockReturnValue(false);
     bridgeMocks.isIOSNativeOutgoingShell.mockResolvedValue(false);
+    bridgeMocks.isIOSNativeVideoOutgoingShell.mockResolvedValue(false);
     bridgeMocks.startNativeOutgoingEstablishment.mockResolvedValue({ ok: false, nativeOwned: false });
     apiMocks.reconcile.mockClear();
     apiMocks.resolveRoom.mockClear();
@@ -100,6 +103,7 @@ describe("call-v4-outgoing-native-fallback (P2-2)", () => {
   it("non-Android: handoff failure still uses legacy Web outgoing route", async () => {
     bridgeMocks.isAndroidNativeOutgoingShell.mockReturnValue(false);
     bridgeMocks.isIOSNativeOutgoingShell.mockResolvedValue(false);
+    bridgeMocks.isIOSNativeVideoOutgoingShell.mockResolvedValue(false);
     bridgeMocks.startNativeOutgoingEstablishment.mockResolvedValue({ ok: false, nativeOwned: false });
 
     const replace = vi.fn();
@@ -112,5 +116,41 @@ describe("call-v4-outgoing-native-fallback (P2-2)", () => {
     expect(result.ok).toBe(true);
     expect(replace).toHaveBeenCalledWith("/community-messenger/calls-v4/call-1?source=outgoing");
     expect(useCallV4Store.getState().phase).toBe("outgoing_ringing");
+  });
+
+  it("iOS native video shell: handoff success does not create Web outgoing presentation screen", async () => {
+    bridgeMocks.isIOSNativeVideoOutgoingShell.mockResolvedValue(true);
+    bridgeMocks.startNativeOutgoingEstablishment.mockResolvedValue({ ok: true, nativeOwned: true });
+    apiMocks.createSession.mockResolvedValueOnce({
+      ok: true,
+      session: {
+        id: "call-video-1",
+        roomId: "room-1",
+        sessionMode: "direct",
+        initiatorUserId: "user-a",
+        recipientUserId: "user-b",
+        peerUserId: "user-b",
+        peerLabel: "Peer",
+        callKind: "video",
+        status: "ringing",
+        startedAt: new Date().toISOString(),
+        answeredAt: null,
+        endedAt: null,
+        isMineInitiator: true,
+        participants: [],
+      } as CommunityMessengerCallSession,
+    });
+
+    const replace = vi.fn();
+    const result = await callV4CreateOutgoing({
+      roomId: "room-1",
+      mediaType: "video",
+      router: { push: vi.fn(), replace },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(replace).not.toHaveBeenCalled();
+    expect(useCallV4Store.getState().phase).toBe("outgoing_ringing");
+    expect(useCallV4Store.getState().identity?.callId).toBe("call-video-1");
   });
 });

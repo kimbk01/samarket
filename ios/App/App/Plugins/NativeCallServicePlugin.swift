@@ -29,6 +29,7 @@ public class NativeCallServicePlugin: CAPPlugin, CAPBridgedPlugin {
     CAPPluginMethod(name: "startNativeOutgoingEstablishment", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "isNativeEstablishmentOwned", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "isNativeVoiceOutgoingLaneEnabled", returnType: CAPPluginReturnPromise),
+    CAPPluginMethod(name: "isNativeVideoOutgoingLaneEnabled", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "isNativeVoiceIncomingLaneEnabled", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "requestCallMediaPermissions", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "checkCallMediaPermissions", returnType: CAPPluginReturnPromise),
@@ -368,6 +369,18 @@ public class NativeCallServicePlugin: CAPPlugin, CAPBridgedPlugin {
     let mediaType = call.getString("mediaType") ?? "voice"
     let peerUserId = call.getString("peerUserId") ?? ""
     let peerName = call.getString("peerName") ?? ""
+    if NativeVideoCallLane.isOutgoingVideoLaneActive(mediaType: mediaType) {
+      NativeVideoCallApi.startCallerJoinAsync(
+        callId: callId,
+        roomId: roomId,
+        peerUserId: peerUserId,
+        peerName: peerName,
+        mediaType: mediaType
+      )
+      let nativeOwned = NativeVideoCallOwner.isNativeOwned(callId: callId)
+      call.resolve(["ok": nativeOwned, "nativeOwned": nativeOwned])
+      return
+    }
     guard NativeVoiceCallLane.isOutgoingVoiceLaneActive(mediaType: mediaType) else {
       call.resolve(["ok": false, "nativeOwned": false])
       return
@@ -390,7 +403,15 @@ public class NativeCallServicePlugin: CAPPlugin, CAPBridgedPlugin {
       call.reject("invalid_call_id")
       return
     }
-    call.resolve(["owned": NativeVoiceCallOwner.isNativeOwned(callId: callId)])
+    call.resolve([
+      "owned": NativeVoiceCallOwner.isNativeOwned(callId: callId)
+        || NativeVideoCallOwner.isNativeOwned(callId: callId),
+    ])
+  }
+
+  @objc func isNativeVideoOutgoingLaneEnabled(_ call: CAPPluginCall) {
+    let enabled = NativeVideoCallLane.isOutgoingVideoLaneActive(mediaType: "video")
+    call.resolve(["enabled": enabled])
   }
 
   @objc func isNativeVoiceOutgoingLaneEnabled(_ call: CAPPluginCall) {

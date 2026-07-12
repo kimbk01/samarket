@@ -73,7 +73,11 @@ enum NativeVideoCallUiHost {
     sync.unlock()
     controller.modalPresentationStyle = .fullScreen
     presenter.present(controller, animated: true)
-    NativeVideoCallLog.info("incoming_activity_shown", callId: callId)
+    if session.initiator {
+      NativeVideoCallLog.info("outgoing_activity_shown", callId: callId)
+    } else {
+      NativeVideoCallLog.info("incoming_activity_shown", callId: callId)
+    }
     if bypassLockCheck {
       NativeVideoCallLog.info("native_video_surface_shown_after_unlock", callId: callId)
     }

@@ -779,6 +779,36 @@ export async function launchOutgoingDirectCall(
   if (!assertPhoneVerifiedForMessengerActionOrOpenSheet(resolveMessengerActionReturnPath())) {
     return { ok: false, userMessage: "", phoneVerificationRequired: true };
   }
+  // iOS Capacitor native voice outgoing — V4 create + native handoff without Telegram lane env.
+  if (input.kind === "voice") {
+    const { isCapacitorNativePlatform, resolveCapacitorShellPlatform } = await import(
+      "@/lib/platform/capacitor-native"
+    );
+    if (isCapacitorNativePlatform() && resolveCapacitorShellPlatform() === "ios") {
+      const { isIOSNativeOutgoingShell } = await import("@/lib/call/native/native-outgoing-bridge");
+      if (await isIOSNativeOutgoingShell()) {
+        const { callV4LaunchOutgoingDirectCall } = await import(
+          "@/lib/community-messenger/call-v4/call-v4-actions"
+        );
+        return callV4LaunchOutgoingDirectCall(input, router);
+      }
+    }
+  }
+  // iOS Capacitor native video outgoing — same V4 create + native handoff path.
+  if (input.kind === "video") {
+    const { isCapacitorNativePlatform, resolveCapacitorShellPlatform } = await import(
+      "@/lib/platform/capacitor-native"
+    );
+    if (isCapacitorNativePlatform() && resolveCapacitorShellPlatform() === "ios") {
+      const { isIOSNativeVideoOutgoingShell } = await import("@/lib/call/native/native-outgoing-bridge");
+      if (await isIOSNativeVideoOutgoingShell()) {
+        const { callV4LaunchOutgoingDirectCall } = await import(
+          "@/lib/community-messenger/call-v4/call-v4-actions"
+        );
+        return callV4LaunchOutgoingDirectCall(input, router);
+      }
+    }
+  }
   if (isCallV4TelegramLaneEnabled()) {
     const { callV4LaunchOutgoingDirectCall } = await import(
       "@/lib/community-messenger/call-v4/call-v4-actions"

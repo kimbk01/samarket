@@ -89,6 +89,37 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
     }
   }
 
+  /// Android `handleOutgoing` registration — outgoing caller CONNECTING + UI.
+  func registerOutgoingSession(
+    sessionId: String,
+    roomId: String,
+    peerUserId: String,
+    peerName: String,
+    callUUID: UUID
+  ) throws {
+    try queue.sync {
+      let sid = normalize(sessionId)
+      guard !sid.isEmpty else { throw NativeVideoCallRuntimeError.invalidSession }
+      guard NativeVideoCallOwner.isNativeOwned(callId: sid) else {
+        throw NativeVideoCallRuntimeError.invalidSession
+      }
+
+      let outgoing = NativeVideoCallSession(
+        sessionId: sid,
+        roomId: roomId.trimmingCharacters(in: .whitespacesAndNewlines),
+        callerId: peerUserId.trimmingCharacters(in: .whitespacesAndNewlines),
+        callerName: peerName.trimmingCharacters(in: .whitespacesAndNewlines),
+        mediaType: "video",
+        initiator: true,
+        callUUID: callUUID,
+        createdAt: Date()
+      )
+
+      try registerOutgoingLocked(outgoing, initialState: .connecting)
+      publishUiLocked(sessionId: sid)
+    }
+  }
+
   // MARK: - Accept pipeline
 
   func beginAccept(sessionId: String) throws {
@@ -258,10 +289,26 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
     guard !sid.isEmpty, !incoming.initiator else {
       throw NativeVideoCallRuntimeError.invalidSession
     }
+    try installSessionLocked(incoming, initialState: initialState)
+  }
+
+  private func registerOutgoingLocked(_ outgoing: NativeVideoCallSession, initialState: NativeVideoCallRuntimeState) throws {
+    let sid = outgoing.sessionId
+    guard !sid.isEmpty, outgoing.initiator else {
+      throw NativeVideoCallRuntimeError.invalidSession
+    }
+    try installSessionLocked(outgoing, initialState: initialState)
+  }
+
+  private func installSessionLocked(_ next: NativeVideoCallSession, initialState: NativeVideoCallRuntimeState) throws {
+    let sid = next.sessionId
+    guard !sid.isEmpty else {
+      throw NativeVideoCallRuntimeError.invalidSession
+    }
 
     if let active = session {
       if active.sessionId == sid {
-        if active.callUUID != incoming.callUUID {
+        if active.callUUID != next.callUUID {
           throw NativeVideoCallRuntimeError.conflictingActiveCall
         }
         return
@@ -277,7 +324,7 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
       throw NativeVideoCallRuntimeError.internalInvariant
     }
 
-    session = incoming
+    session = next
     state = initialState
     generation &+= 1
   }

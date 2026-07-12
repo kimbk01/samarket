@@ -51,6 +51,7 @@
 		C7VID0422FED79650016851F /* NativeVideoCallRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VID0412FED79650016851F /* NativeVideoCallRuntime.swift */; };
 		C7VID0522FED79650016851F /* NativeVideoCallAgoraEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VID0512FED79650016851F /* NativeVideoCallAgoraEngine.swift */; };
 		C7VID0622FED79650016851F /* NativeVideoIncomingCallCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VID0612FED79650016851F /* NativeVideoIncomingCallCoordinator.swift */; };
+		C7VID0D22FED79650016851F /* NativeVideoOutgoingCallCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VID0D12FED79650016851F /* NativeVideoOutgoingCallCoordinator.swift */; };
 		C7VID0722FED79650016851F /* NativeVideoCallUiPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VID0712FED79650016851F /* NativeVideoCallUiPresenter.swift */; };
 		C7VID0822FED79650016851F /* NativeVideoCallUiHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VID0812FED79650016851F /* NativeVideoCallUiHost.swift */; };
 		C7VID0922FED79650016851F /* NativeVideoCallViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7VID0912FED79650016851F /* NativeVideoCallViewController.swift */; };
@@ -107,6 +108,7 @@
 		C7VID0412FED79650016851F /* NativeVideoCallRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoCallRuntime.swift; sourceTree = "<group>"; };
 		C7VID0512FED79650016851F /* NativeVideoCallAgoraEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoCallAgoraEngine.swift; sourceTree = "<group>"; };
 		C7VID0612FED79650016851F /* NativeVideoIncomingCallCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoIncomingCallCoordinator.swift; sourceTree = "<group>"; };
+		C7VID0D12FED79650016851F /* NativeVideoOutgoingCallCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoOutgoingCallCoordinator.swift; sourceTree = "<group>"; };
 		C7VID0712FED79650016851F /* NativeVideoCallUiPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoCallUiPresenter.swift; sourceTree = "<group>"; };
 		C7VID0812FED79650016851F /* NativeVideoCallUiHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoCallUiHost.swift; sourceTree = "<group>"; };
 		C7VID0912FED79650016851F /* NativeVideoCallViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVideoCallViewController.swift; sourceTree = "<group>"; };
@@ -236,6 +238,7 @@
 				C7VID0412FED79650016851F /* NativeVideoCallRuntime.swift */,
 				C7VID0512FED79650016851F /* NativeVideoCallAgoraEngine.swift */,
 				C7VID0612FED79650016851F /* NativeVideoIncomingCallCoordinator.swift */,
+				C7VID0D12FED79650016851F /* NativeVideoOutgoingCallCoordinator.swift */,
 				C7VID0712FED79650016851F /* NativeVideoCallUiPresenter.swift */,
 				C7VID0812FED79650016851F /* NativeVideoCallUiHost.swift */,
 				C7VID0912FED79650016851F /* NativeVideoCallViewController.swift */,
@@ -365,6 +368,7 @@
 				C7VID0422FED79650016851F /* NativeVideoCallRuntime.swift in Sources */,
 				C7VID0522FED79650016851F /* NativeVideoCallAgoraEngine.swift in Sources */,
 				C7VID0622FED79650016851F /* NativeVideoIncomingCallCoordinator.swift in Sources */,
+				C7VID0D22FED79650016851F /* NativeVideoOutgoingCallCoordinator.swift in Sources */,
 				C7VID0722FED79650016851F /* NativeVideoCallUiPresenter.swift in Sources */,
 				C7VID0822FED79650016851F /* NativeVideoCallUiHost.swift in Sources */,
 				C7VID0922FED79650016851F /* NativeVideoCallViewController.swift in Sources */,

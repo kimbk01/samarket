@@ -59,6 +59,24 @@ enum NativeVideoCallApi {
     )
   }
 
+  static func startCallerJoinAsync(
+    callId: String,
+    roomId: String,
+    peerUserId: String,
+    peerName: String,
+    mediaType: String
+  ) {
+    let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !sid.isEmpty else { return }
+    NativeVideoOutgoingCallCoordinator.shared.handleOutgoing(
+      callId: sid,
+      roomId: roomId,
+      peerUserId: peerUserId,
+      peerName: peerName,
+      mediaType: mediaType
+    )
+  }
+
   static func missedAsync(callId: String, completion: @escaping PatchCallback) {
     patchAsync(
       callId: callId,

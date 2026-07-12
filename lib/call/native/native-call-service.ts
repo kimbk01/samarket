@@ -59,6 +59,7 @@ export type NativeCallServicePlugin = {
   }): Promise<{ ok: boolean; nativeOwned: boolean }>;
   isNativeEstablishmentOwned(options: { callId: string }): Promise<{ owned: boolean }>;
   isNativeVoiceOutgoingLaneEnabled(): Promise<{ enabled: boolean }>;
+  isNativeVideoOutgoingLaneEnabled(): Promise<{ enabled: boolean }>;
   isNativeVoiceIncomingLaneEnabled(): Promise<{ enabled: boolean }>;
   checkCallMediaPermissions(): Promise<{ microphone: string; camera: string }>;
   requestCallMediaPermissions(options: {

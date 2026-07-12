@@ -61,7 +61,7 @@ import {
   tryClaimCallV4AcceptFlight,
 } from "@/lib/community-messenger/call-v4/call-v4-patch-guard";
 import { isLegacyWebCallEstablishmentRemoved } from "@/lib/call/native/legacy-web-call-establishment-removed";
-import { isAndroidNativeOutgoingShell, isIOSNativeOutgoingShell, startNativeOutgoingEstablishment } from "@/lib/call/native/native-outgoing-bridge";
+import { isAndroidNativeOutgoingShell, isIOSNativeOutgoingShell, isIOSNativeVideoOutgoingShell, startNativeOutgoingEstablishment } from "@/lib/call/native/native-outgoing-bridge";
 import { maybeExitCallV4ScreenAfterCleanup } from "@/lib/community-messenger/call-v4/call-v4-exit-guard";
 import {
   buildCallV4ScreenHref,
@@ -499,7 +499,11 @@ export async function callV4CreateOutgoing(input: {
     let shouldRouteToWebOutgoingPresentation = true;
 
     const androidNativeShell = isAndroidNativeOutgoingShell();
-    const iosNativeShell = androidNativeShell ? false : await isIOSNativeOutgoingShell();
+    const iosNativeShell = androidNativeShell
+      ? false
+      : input.mediaType === "video"
+        ? await isIOSNativeVideoOutgoingShell()
+        : await isIOSNativeOutgoingShell();
 
     if (androidNativeShell || iosNativeShell) {
       logCallV4("native_outgoing_handoff_start", {

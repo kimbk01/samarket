@@ -40,6 +40,13 @@ export async function isIOSNativeOutgoingShell(): Promise<boolean> {
   return result?.enabled ?? false;
 }
 
+/** iOS native video outgoing — reads bundled lane flags from native (dibay-call-lane.json). */
+export async function isIOSNativeVideoOutgoingShell(): Promise<boolean> {
+  if (!isIosNativeShell()) return false;
+  const result = await invokeNativeCallServicePlugin<{ enabled: boolean }>("isNativeVideoOutgoingLaneEnabled", {});
+  return result?.enabled ?? false;
+}
+
 /** O2 — hand off outgoing establishment to Native Runtime (Android + iOS when gated). */
 export async function startNativeOutgoingEstablishment(
   input: NativeOutgoingEstablishmentInput,
