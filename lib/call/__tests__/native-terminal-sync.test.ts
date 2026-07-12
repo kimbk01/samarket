@@ -3,10 +3,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const cleanupMocks = vi.hoisted(() => ({
   cleanup: vi.fn<(callId: string, reason: string) => Promise<void>>(async () => undefined),
   endNative: vi.fn<(callId: string, reason: string) => Promise<boolean>>(async () => true),
+  clearMissedTimer: vi.fn<(callId?: string) => void>(),
+  stopOutgoingTerminalSync: vi.fn<(callId?: string) => void>(),
 }));
 
 vi.mock("@/lib/community-messenger/call-v4/call-v4-cleanup", () => ({
   cleanupCallV4: (callId: string, reason: string) => cleanupMocks.cleanup(callId, reason),
+}));
+
+vi.mock("@/lib/community-messenger/call-v4/call-v4-missed-timeout", () => ({
+  clearCallV4MissedTimer: (callId?: string) => cleanupMocks.clearMissedTimer(callId),
+}));
+
+vi.mock("@/lib/community-messenger/call-v4/native-outgoing-terminal-sync", () => ({
+  stopNativeOutgoingTerminalSync: (callId?: string) => cleanupMocks.stopOutgoingTerminalSync(callId),
 }));
 
 vi.mock("@/lib/call/native/native-call-service", async (importOriginal) => {
@@ -45,6 +55,8 @@ describe("native-terminal-sync", () => {
     resetNativeConnectedSyncForTests();
     cleanupMocks.cleanup.mockClear();
     cleanupMocks.endNative.mockClear();
+    cleanupMocks.clearMissedTimer.mockClear();
+    cleanupMocks.stopOutgoingTerminalSync.mockClear();
     useCallV4Store.getState().resetToIdle();
     vi.spyOn(console, "info").mockImplementation(() => {});
   });
@@ -89,6 +101,8 @@ describe("native-terminal-sync", () => {
 
     expect(useCallV4Store.getState().phase).toBe("outgoing_ringing");
     expect(cleanupMocks.cleanup).not.toHaveBeenCalled();
+    expect(cleanupMocks.clearMissedTimer).toHaveBeenCalledWith("call-end-1");
+    expect(cleanupMocks.stopOutgoingTerminalSync).toHaveBeenCalledWith("call-end-1");
     expect(cleanupMocks.endNative).toHaveBeenCalledWith("call-end-1", "native_stale_terminal");
   });
 

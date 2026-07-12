@@ -516,8 +516,13 @@ export function GlobalCommunityMessengerIncomingCall() {
           }
           if (opts?.source === "poll") {
             if (serverList.length > 0) {
+              const pollUid = viewerUserIdRef.current?.trim() ?? "";
               const prev = prevIncomingRingingIdsRef.current;
-              const nextIds = new Set(serverList.map((s) => s.id));
+              const nextIds = new Set(
+                serverList
+                  .filter((s) => pollUid && isDirectRingingCalleeForSound(s, pollUid))
+                  .map((s) => s.id),
+              );
               const hasNew = [...nextIds].some((id) => !prev.has(id));
               prevIncomingRingingIdsRef.current = nextIds;
               console.info("[call-flow] incoming_poll_hit", {
@@ -1780,8 +1785,11 @@ export function GlobalCommunityMessengerIncomingCall() {
   }, []);
 
   useEffect(() => {
-    if (!userId) return;
-    const current = new Set(sessions.filter((s) => s.status === "ringing").map((s) => s.id));
+    const uid = userId?.trim();
+    if (!uid) return;
+    const current = new Set(
+      sessions.filter((s) => isDirectRingingCalleeForSound(s, uid)).map((s) => s.id),
+    );
     const prev = prevIncomingRingingIdsRef.current;
     for (const id of prev) {
       if (!current.has(id)) {

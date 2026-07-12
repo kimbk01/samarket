@@ -67,6 +67,8 @@ export async function onNativeCallLocalTerminal(payload: NativeCallTerminalPaylo
   const identity = readCallV4Identity();
   if (identity?.callId !== sid) {
     logCallV4("native_local_terminal_ignored", { callId: sid, reason: "not_current_identity" });
+    clearCallV4MissedTimer(sid);
+    stopNativeOutgoingTerminalSync(sid);
     // Remote terminal may have cleared Web identity while native VC is still visible — best-effort cleanup.
     void endNativeCallService(sid, "native_stale_terminal");
     return;

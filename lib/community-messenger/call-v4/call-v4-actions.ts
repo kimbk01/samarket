@@ -524,6 +524,7 @@ export async function callV4CreateOutgoing(input: {
           mediaType: input.mediaType,
           roomId: roomResolved.roomId,
         });
+        clearCallV4MissedTimer();
         startCallV4OutgoingMissedTimer(created.session.id, identity.createdAt, input.router);
         startNativeOutgoingTerminalSync(created.session.id, input.router);
         shouldRouteToWebOutgoingPresentation = false;
