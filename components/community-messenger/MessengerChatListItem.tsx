@@ -13,8 +13,10 @@ import { useMessengerRoomListPrefetchRefCallback } from "@/lib/community-messeng
 import {
   communityMessengerRoomHref,
   MESSENGER_ENTRY_ORIGIN_QUERY_KEY,
-  messengerRoomListSourceFromPathname,
+  MESSENGER_ROOM_LIST_SOURCE_QUERY_KEY,
+  resolveMessengerRoomListSource,
 } from "@/lib/community-messenger/messenger-entry-origin";
+import { matchesMessengerSplitViewport } from "@/lib/ui/app-viewport-layout-breakpoints";
 import { markCommunityMessengerRoomNavTap } from "@/lib/community-messenger/room-nav-timing";
 import { cmReceiveBadgeLog } from "@/lib/community-messenger/read/cm-receive-badge-log";
 import { cmReadUiLog } from "@/lib/community-messenger/read/cm-read-ui-log";
@@ -220,7 +222,14 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   }, [pathname]);
   const searchParams = useSearchParams();
   const fromEntryOrigin = searchParams.get(MESSENGER_ENTRY_ORIGIN_QUERY_KEY);
-  const roomListSource = useMemo(() => messengerRoomListSourceFromPathname(pathname), [pathname]);
+  const roomListSource = useMemo(
+    () =>
+      resolveMessengerRoomListSource({
+        pathname,
+        cmList: searchParams.get(MESSENGER_ROOM_LIST_SOURCE_QUERY_KEY),
+      }),
+    [pathname, searchParams]
+  );
   const roomReturnHref = useMemo(() => {
     if (roomListSource === "inbox") return null;
     const qs = searchParams.toString();
@@ -626,10 +635,22 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   const swipeOpen = openedSwipeItemId === swipeItemId;
   const pressVisualActive = isPressedVisual && !isDragging && !swipeOpen;
 
+  const runSplitListRoomNavigate = useCallback(() => {
+    if (!matchesMessengerSplitViewport()) return false;
+    if (longPressTriggeredRef.current || consumeClickSuppression()) return false;
+    if (dragXRef.current < -16) {
+      closeSwipe();
+      return false;
+    }
+    markCommunityMessengerRoomNavTap(room.id);
+    void navigateToCommunityRoom(room.id);
+    return true;
+  }, [closeSwipe, consumeClickSuppression, navigateToCommunityRoom, room.id]);
+
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     if (compact) return;
     if (e.button !== 0) return;
-    if (isSplitList) {
+    if (matchesMessengerSplitViewport()) {
       kickRoomNavPrefetchOnPointerDown();
       return;
     }
@@ -647,7 +668,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       dragging: false,
     };
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-  }, [clearReleasePressTimer, compact, isSplitList, kickRoomNavPrefetchOnPointerDown, swipeOpen]);
+  }, [clearReleasePressTimer, compact, kickRoomNavPrefetchOnPointerDown, swipeOpen]);
 
   const onPointerMove = useCallback(
     (e: React.PointerEvent) => {
@@ -680,7 +701,12 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
 
   const onPointerUp = useCallback(
     (e: React.PointerEvent) => {
-      if (compact || isSplitList) return;
+      if (compact) return;
+      if (matchesMessengerSplitViewport()) {
+        runSplitListRoomNavigate();
+        releasePressedVisual(PRESS_RELEASE_MS);
+        return;
+      }
       if (!dragRef.current.active) return;
       dragRef.current.active = false;
       const wasDragging = dragRef.current.dragging;
@@ -731,12 +757,12 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       closeSwipe,
       compact,
       consumeClickSuppression,
-      isSplitList,
       menuItemId,
       onCloseMenuItem,
       onOpenSwipeItem,
       onResetTransientUi,
       releasePressedVisual,
+      runSplitListRoomNavigate,
       navigateToCommunityRoom,
       room.id,
       swipeItemId,
@@ -1106,16 +1132,6 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         <div
           role="button"
           tabIndex={0}
-          onClick={() => {
-            if (!isSplitList) return;
-            if (longPressTriggeredRef.current || consumeClickSuppression()) return;
-            if (dragXRef.current < -16) {
-              closeSwipe();
-              return;
-            }
-            markCommunityMessengerRoomNavTap(room.id);
-            void navigateToCommunityRoom(room.id);
-          }}
           onKeyDown={(event) => {
             if (event.key === "Enter" || event.key === " ") {
               event.preventDefault();

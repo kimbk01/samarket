@@ -1,4 +1,5 @@
 import type { MessengerMainSection } from "@/lib/community-messenger/messenger-ia";
+import { parseCommunityMessengerRoomIdFromPathname } from "@/lib/community-messenger/messenger-room-pathname";
 
 /**
  * 메신저 진입 출처(`?from=...`) 단일 원천.
@@ -49,6 +50,17 @@ export function messengerRoomListSourceFromPathname(pathname: string | null | un
     return "delivery";
   }
   return "inbox";
+}
+
+/** pathname + 방 URL 의 `cm_list` — 목록 scope·방 forward navigation SSOT */
+export function resolveMessengerRoomListSource(args: {
+  pathname: string | null | undefined;
+  cmList: string | null | undefined;
+}): MessengerRoomListSource {
+  if (parseCommunityMessengerRoomIdFromPathname(args.pathname)) {
+    return parseMessengerRoomListSource(args.cmList);
+  }
+  return messengerRoomListSourceFromPathname(args.pathname);
 }
 
 /** `cm_list` + `from` 로 채팅방 목록(거래/배달/인박스) 절대 경로 생성 */

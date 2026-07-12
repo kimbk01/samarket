@@ -3,6 +3,7 @@ import {
   parseMessengerSplitListScopeFromPathname,
   resolveMessengerSplitListScope,
 } from "@/lib/community-messenger/messenger-split-list-scope";
+import { resolveMessengerRoomListSource } from "@/lib/community-messenger/messenger-entry-origin";
 
 describe("messenger-split-list-scope", () => {
   it("parses pillar list routes from pathname", () => {
@@ -14,6 +15,12 @@ describe("messenger-split-list-scope", () => {
   it("uses cm_list on room routes", () => {
     expect(
       resolveMessengerSplitListScope({
+        pathname: "/community-messenger/rooms/abc",
+        cmList: "trade",
+      })
+    ).toBe("trade");
+    expect(
+      resolveMessengerRoomListSource({
         pathname: "/community-messenger/rooms/abc",
         cmList: "trade",
       })

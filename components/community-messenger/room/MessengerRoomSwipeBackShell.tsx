@@ -116,7 +116,10 @@ export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Prop
       router.replace(SAMARKET_ROUTES.chat.messengerMeetingsHub, { scroll: false });
       return;
     }
-    runMessengerRoomBackNavigation(router, backPlan);
+    runMessengerRoomBackNavigation(
+      router,
+      splitPaneMode ? { ...backPlan, forceDirect: true } : backPlan
+    );
   }, [router, backPlan, roomType]);
 
   const requestAnimatedBack = useCallback(() => {
@@ -311,8 +314,8 @@ export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Prop
 
   const disabled = reducedMotion || roomType == null || splitPaneMode;
   const surfaceClassName = [
-    splitPaneMode ? "" : "messenger-page",
-    splitPaneMode ? "" : "messenger-room-page",
+    "messenger-page",
+    "messenger-room-page",
     "flex min-h-0 min-w-0 flex-1 flex-col",
     phase === "enter" ? "messenger-enter" : "",
     phase === "enter-active" ? "messenger-enter-active" : "",
