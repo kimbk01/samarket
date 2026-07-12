@@ -2,6 +2,8 @@
 
 import { useMemo } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
+import { normalizeAppPathnameForTier1 } from "@/lib/layout/normalize-app-pathname";
+import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   getMobileTopTier1RuleSet,
@@ -13,7 +15,6 @@ import {
   shouldForceDirectDeliveryMessengerRoomBack,
 } from "@/lib/community-messenger/messenger-entry-origin";
 import { getMessengerRoomBackOverride } from "@/lib/community-messenger/room/messenger-room-back-navigation";
-import { normalizeAppPathnameForTier1 } from "@/lib/layout/normalize-app-pathname";
 import { resolveMainTier1Subpage } from "@/lib/layout/resolve-main-tier1";
 import { resolveTier1BarLabel } from "@/lib/layout/resolve-tier1-bar-label";
 import { useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
@@ -49,6 +50,12 @@ export function RegionBar({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const pathNoQuery = normalizeAppPathnameForTier1(pathname);
+  const isMessengerSplit = useIsMessengerSplitViewport();
+  const isMessengerSplitHub =
+    isMessengerSplit &&
+    (pathNoQuery === "/community-messenger" ||
+      pathNoQuery === "/community-messenger/trade-chats" ||
+      pathNoQuery === "/community-messenger/delivery-chats");
   const ruleSet = useMemo(
     () => tier1RuleSetProp ?? getMobileTopTier1RuleSet(pathname),
     [tier1RuleSetProp, pathname]
@@ -56,7 +63,7 @@ export function RegionBar({
   const tier1Subpage = useMemo(() => resolveMainTier1Subpage(pathNoQuery), [pathNoQuery]);
   const extrasOpt = useMainTier1ExtrasOptional();
   const extras = extrasOpt?.extras ?? null;
-  if (!ruleSet.showRegionBar) {
+  if (!ruleSet.showRegionBar || isMessengerSplitHub) {
     return null;
   }
 

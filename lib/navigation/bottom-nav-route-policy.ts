@@ -13,6 +13,12 @@ export type BottomNavSuppressionInput = {
   headerMessengerFromPhilife?: boolean;
   storeOwnerFlyoutSuppressesBottomNav?: boolean;
   messengerCallSuppressesBottomNav?: boolean;
+  /** 768px+ 메신저 split — room route 에서도 BottomNav 유지 */
+  messengerSplitViewport?: boolean;
+};
+
+export type BottomNavRouteOptions = {
+  messengerSplitViewport?: boolean;
 };
 
 function normalizeBottomNavPathname(pathname: string | null | undefined): string {
@@ -71,14 +77,22 @@ function isStoreCheckoutOrDetailFlow(pathname: string): boolean {
   return true;
 }
 
-/** Main bottom nav route contract. Runtime data, badge, auth, profile, and keyboard state do not participate. */
-export function isBottomNavEligibleRoute(pathname: string): boolean {
+/**
+ * Main bottom nav route contract.
+ * `messengerSplitViewport`: 768px+ split room — room path 도 eligible.
+ */
+export function isBottomNavEligibleRoute(
+  pathname: string,
+  options?: BottomNavRouteOptions
+): boolean {
   const p = normalizeBottomNavPathname(pathname);
   if (p === "/") return true;
   if (p === "/my/logout" || p.startsWith("/my/settings") || isProfileEditPath(p)) return false;
   if (isWritePath(p) || isPersonalProductComposerPath(p)) return false;
+  if (isCommunityMessengerRoomPath(p)) {
+    return Boolean(options?.messengerSplitViewport);
+  }
   if (
-    isCommunityMessengerRoomPath(p) ||
     isCommunityMessengerCallPath(p) ||
     isLegacyChatDetailPath(p) ||
     isMypageTradeChatRoomPath(p)
@@ -95,7 +109,13 @@ export function isBottomNavEligibleRoute(pathname: string): boolean {
 }
 
 export function shouldRenderMainBottomNav(input: BottomNavSuppressionInput): boolean {
-  if (!isBottomNavEligibleRoute(input.pathname)) return false;
+  if (
+    !isBottomNavEligibleRoute(input.pathname, {
+      messengerSplitViewport: input.messengerSplitViewport,
+    })
+  ) {
+    return false;
+  }
   if (input.isWriteSheetOpen) return false;
   if (input.isMessengerStackSurface && input.headerMessengerFromPhilife) return false;
   if (input.storeOwnerFlyoutSuppressesBottomNav) return false;

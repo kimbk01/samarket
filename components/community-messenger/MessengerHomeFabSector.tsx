@@ -20,11 +20,6 @@ import {
   MAIN_BOTTOM_NAV_FAB_BOTTOM_CLASS,
   MAIN_BOTTOM_NAV_FAB_SECTOR_Z_CLASS,
 } from "@/lib/main-menu/bottom-nav-config";
-import { useIsDesktopShellViewport } from "@/hooks/use-is-desktop-shell-viewport";
-import {
-  MAIN_BOTTOM_NAV_FAB_DESKTOP_SIDE_NAV_BOTTOM_CLASS,
-  MAIN_BOTTOM_NAV_FAB_DESKTOP_SIDE_NAV_LEFT_CLASS,
-} from "@/lib/layout/main-desktop-side-nav-layout";
 import { APP_MAIN_COLUMN_CLASS, APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 import {
   FAB_SECTOR_TOUCH_CLASS,
@@ -66,7 +61,6 @@ export function MessengerHomeFabSector({
 }: Props) {
   const { t } = useI18n();
   const router = useRouter();
-  const isDesktopShell = useIsDesktopShellViewport();
   const enabled = true;
   const [expandLocked, setExpandLocked] = useState(false);
   const { collapsed, collapse, expand } = useMainBottomNavFabSectorScroll(enabled, expandLocked);
@@ -220,11 +214,7 @@ export function MessengerHomeFabSector({
         data-fab-shell-expanded={shellExpanded ? "true" : "false"}
         data-panel-enter-ready={panelEnterReady ? "true" : "false"}
         data-fab-surface-alpha={FAB_SURFACE_ALPHA}
-        className={`main-bottom-nav-fab-sector pointer-events-none fixed ${
-          isDesktopShell ? "inset-x-auto right-0" : "inset-x-0"
-        } ${MAIN_BOTTOM_NAV_FAB_SECTOR_Z_CLASS} ${
-          isDesktopShell ? MAIN_BOTTOM_NAV_FAB_DESKTOP_SIDE_NAV_BOTTOM_CLASS : MAIN_BOTTOM_NAV_FAB_BOTTOM_CLASS
-        } ${isDesktopShell ? MAIN_BOTTOM_NAV_FAB_DESKTOP_SIDE_NAV_LEFT_CLASS : ""}`}
+        className={`main-bottom-nav-fab-sector pointer-events-none fixed inset-x-0 ${MAIN_BOTTOM_NAV_FAB_SECTOR_Z_CLASS} ${MAIN_BOTTOM_NAV_FAB_BOTTOM_CLASS}`}
         style={fabRootStyle}
       >
         <div

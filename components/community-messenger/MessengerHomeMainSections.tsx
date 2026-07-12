@@ -7,6 +7,7 @@ import { MessengerChatsScreen, MessengerOpenChatScreen } from "@/components/comm
 import { MessengerArchiveScreen } from "@/components/community-messenger/MessengerArchiveScreen";
 import { MessengerCallLogsPanel } from "@/components/community-messenger/MessengerCallLogsPanel";
 import { MessengerFriendsScreen } from "@/components/community-messenger/MessengerFriendsScreen";
+import { MessengerHomeInlineFriendSearch } from "@/components/community-messenger/MessengerHomeInlineFriendSearch";
 import { MessengerHomeSectionTabs } from "@/components/community-messenger/MessengerHomeSectionTabs";
 import { MessengerHomeSectionTransition } from "@/components/community-messenger/MessengerHomeSectionTransition";
 import {
@@ -155,6 +156,11 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
   onPrimarySectionChange,
 }: Props) {
   const chatListChip = inboxKindToChatListChip(chatInboxFilter, chatKindFilter);
+  const showInlineFriendSearch =
+    mainSection === "friends" ||
+    mainSection === "call_logs" ||
+    mainSection === "chats" ||
+    mainSection === "archive";
 
   return (
     <section data-cm-messenger-main className="space-y-2">
@@ -165,8 +171,19 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
           onOpenGroupCreate={onOpenGroupCreate}
         />
       ) : null}
+      {showInlineFriendSearch ? (
+        <div
+          className={
+            showSectionTabs
+              ? "box-border pb-1 pl-[max(0.75rem,var(--safe-left))] pr-[max(0.75rem,var(--safe-right))]"
+              : "px-0 pb-1"
+          }
+        >
+          <MessengerHomeInlineFriendSearch busyId={busyId} onSelectUser={onFriendRowChat} />
+        </div>
+      ) : null}
       <div
-        className="min-h-[56dvh] min-w-0 space-y-2 overflow-x-hidden px-3"
+        className={`min-h-0 min-w-0 space-y-2 overflow-x-hidden ${showSectionTabs ? "px-0" : "px-3"}`}
         data-messenger-scrolling={isScrolling ? "true" : "false"}
         data-messenger-pending-call={pendingCallTarget ? "true" : "false"}
       >

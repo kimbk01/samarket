@@ -245,6 +245,8 @@ type CommunityMessengerHomeProps = {
   initialServerBootstrap?: CommunityMessengerBootstrap | null;
   fromPhilifeHeaderStack?: boolean;
   pillar?: "trade" | "delivery" | null;
+  /** 태블릿 room split 좌 pane — 목록·시트·bootstrap만, master-detail 우측 없음 */
+  tabletSplitListOnly?: boolean;
 };
 
 /** `use-community-messenger-home-state` 의 `directRoomMapsEqual` 과 동일 — peer→room Map 참조 안정화 */
@@ -349,6 +351,16 @@ function communityMessengerHomePropsEqual(
     propDiff.pillar = {
       prev: prev.pillar,
       next: next.pillar,
+      refChurn: false,
+      valueChange: true,
+    };
+  }
+
+  if (prev.tabletSplitListOnly !== next.tabletSplitListOnly) {
+    reasons.push("tabletSplitListOnly");
+    propDiff.tabletSplitListOnly = {
+      prev: prev.tabletSplitListOnly,
+      next: next.tabletSplitListOnly,
       refChurn: false,
       valueChange: true,
     };
@@ -569,6 +581,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
    * - 1단 헤더 제목은 해당 채팅 scope 로 표기.
    */
   pillar = null,
+  tabletSplitListOnly = false,
 }: CommunityMessengerHomeProps) {
   useCmDevRenderTrace("CommunityMessengerHome");
   useCmStrictModeEffectProbe("CommunityMessengerHome");
@@ -2267,7 +2280,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   }, [resetMessengerTransientUi]);
   const headerActionsNode = useMemo(
     () => (
-      <div className={`${samTier1HeaderRightColumn} max-w-[min(100vw-96px,300px)]`}>
+      <div className={samTier1HeaderRightColumn}>
         <CommunityMessengerHeaderActions
           messengerAlertSummary={notificationCenterSummary}
           onOpenSearch={() => openHomeOverlay("search")}
@@ -2806,13 +2819,15 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       data-messenger-shell
       data-cm-messenger-home-root
       className={
-        fromPhilifeHeaderStack
+        tabletSplitListOnly
+          ? `min-h-0 space-y-0 bg-[color:var(--messenger-bg)] px-0 py-0 ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS} text-[color:var(--messenger-text)]`
+          : fromPhilifeHeaderStack
           ? `min-h-0 space-y-2 bg-[color:var(--messenger-bg)] px-0 pt-0 ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS} text-[color:var(--messenger-text)]`
           : `min-h-0 space-y-2 bg-[color:var(--messenger-bg)] px-0 py-2 ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS} text-[color:var(--messenger-text)]`
       }
     >
       <CommunityMessengerHomeReturnConsume />
-      {!fromPhilifeHeaderStack ? (
+      {!fromPhilifeHeaderStack && !tabletSplitListOnly ? (
         <>
           <MessengerPullRefreshRegister onRefresh={onMessengerPullRefresh} />
           <MessengerPullRefreshHost />
@@ -2925,6 +2940,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         onBootstrapCallsChange={onBootstrapCallsChange}
         chatListVisual={pillar === "trade" ? "trade" : pillar === "delivery" ? "delivery" : "default"}
         showSectionTabs={!listAwaitingCritical && !authRequired && !fromPhilifeHeaderStack && pillar == null}
+        splitLayoutMode={tabletSplitListOnly ? "list-only" : "hub"}
       />
 
       {friendSheet?.mode === "profile" && friendProfileForSheet ? (

@@ -42,10 +42,14 @@ import {
 import type { CommunityMessengerBootstrap } from "@/lib/community-messenger/types";
 import { guardedRouterReplace } from "@/lib/dev/network-loop-guard";
 import { MessengerPullRefreshStickyBelow } from "@/components/community-messenger/MessengerPullRefreshStickyBelow";
+import { useRegisterMessengerSplitChrome } from "@/components/community-messenger/MessengerSplitChromeContext";
+import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
 import type {
   MessengerNotificationSettings,
   FriendSheetState,
 } from "@/lib/community-messenger/home/community-messenger-home-types";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveTier1BarLabel } from "@/lib/layout/resolve-tier1-bar-label";
 
 type Args = {
   router: AppRouterInstance;
@@ -103,6 +107,8 @@ export function useCommunityMessengerHomeShellEffects({
   mainSection,
   pillar = null,
 }: Args): void {
+  const isMessengerSplit = useIsMessengerSplitViewport();
+  const { t, tt } = useI18n();
   const lastRegisteredTier1ExtrasRef = useRef<MainTier1ExtrasState | null>(null);
   /** `useSearchParams` 객체는 렌더마다 참조가 바뀔 수 있음 → primitive deps 만 사용 */
   const queryString = searchParams.toString();
@@ -260,18 +266,19 @@ export function useCommunityMessengerHomeShellEffects({
       pillar === "trade" ? "nav_trade_chat_label"
       : pillar === "delivery" ? "nav_chat_order_compact"
       : messengerSectionLabel(mainSection);
-    /**
-     * 1단 헤더 뒤로가기:
-     * - 인박스·거래/배달 묶음 모두 **명시적 `backHref` + `preferHistoryBack: false`** — 히스토리 back 에 의존하지 않음.
-     * - `?from=` 이 없으면 세션에 저장된 마지막 출처로 `/philife`·`/market`·`/stores` 결정.
-     * - 채팅홈: 출처 탭. FAB 섹션(친구·모임·보관함): 채팅 인박스(`section=chats` + `from` 보존).
-     */
     const backHref = resolveMessengerHomeTier1BackHref({
       pillar: pillar ?? null,
       mainSection,
       origin: resolvedOrigin,
     });
     const hideSectionBack = pillar == null;
+
+    if (isMessengerSplit) {
+      lastRegisteredTier1ExtrasRef.current = null;
+      setMainTier1Extras(null);
+      return () => setMainTier1Extras(null);
+    }
+
     const nextExtras: MainTier1ExtrasState = {
       tier1: {
         rightSlot: headerActionsNode,
@@ -294,7 +301,38 @@ export function useCommunityMessengerHomeShellEffects({
       lastRegisteredTier1ExtrasRef.current = null;
       setMainTier1Extras(null);
     };
-  }, [headerActionsNode, mainSection, setMainTier1Extras, fromPhilifeHeaderStack, pillar, fromParam]);
+  }, [
+    headerActionsNode,
+    mainSection,
+    setMainTier1Extras,
+    fromPhilifeHeaderStack,
+    pillar,
+    fromParam,
+    isMessengerSplit,
+  ]);
+
+  const splitTitleText =
+    pillar === "trade"
+      ? resolveTier1BarLabel(t, tt, "nav_trade_chat_label") ?? ""
+      : pillar === "delivery"
+        ? resolveTier1BarLabel(t, tt, "nav_chat_order_compact") ?? ""
+        : messengerSectionLabel(mainSection);
+  const splitBackHref =
+    pillar != null
+      ? resolveMessengerHomeTier1BackHref({
+          pillar,
+          mainSection,
+          origin: parseMessengerEntryOrigin(fromParam || null) ?? readStoredMessengerEntryOrigin(),
+        })
+      : undefined;
+
+  useRegisterMessengerSplitChrome(
+    !fromPhilifeHeaderStack && isMessengerSplit,
+    splitTitleText,
+    pillar != null,
+    splitBackHref,
+    headerActionsNode
+  );
 
   useEffect(() => {
     let cancelled = false;

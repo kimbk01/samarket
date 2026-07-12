@@ -212,6 +212,10 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   }
   const router = useRouter();
   const pathname = usePathname() ?? "";
+  const routeRoomId = useMemo(() => {
+    const m = pathname.match(/\/community-messenger\/rooms\/([^/?#]+)/);
+    return m?.[1]?.trim().toLowerCase() ?? null;
+  }, [pathname]);
   const searchParams = useSearchParams();
   const fromEntryOrigin = searchParams.get(MESSENGER_ENTRY_ORIGIN_QUERY_KEY);
   const roomListSource = useMemo(() => messengerRoomListSourceFromPathname(pathname), [pathname]);
@@ -221,6 +225,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     return qs ? `${pathname}?${qs}` : pathname;
   }, [pathname, roomListSource, searchParams]);
   const room = item.room;
+  const isRouteActiveRoom = routeRoomId != null && room.id.trim().toLowerCase() === routeRoomId;
   const rowRef = useRef<HTMLDivElement | null>(null);
   const roomPrefetchPriority = useMemo(
     () => messengerRoomPrefetchPriorityScore(room.lastMessageAt),
@@ -889,7 +894,9 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       </>
     );
 
-  const rowSurfaceClass = `transition-colors duration-100 ${pressVisualActive ? "bg-[color:var(--messenger-surface-muted)]" : ""}`;
+  const rowSurfaceClass = `transition-colors duration-100 ${
+    pressVisualActive || isRouteActiveRoom ? "bg-[color:var(--messenger-surface-muted)]" : ""
+  } ${isRouteActiveRoom ? "ring-1 ring-inset ring-[color:var(--messenger-primary)]/35" : ""}`;
 
   const rowContent =
     isDeliveryChatListVisual && deliveryRowModel ? (

@@ -1,19 +1,13 @@
 "use client";
 
 import type { MutableRefObject } from "react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessengerResetTransientUiFn } from "@/lib/community-messenger/messenger-reset-transient-ui";
 import { MessengerFriendRowQuickPopup } from "@/components/community-messenger/MessengerFriendRowQuickPopup";
 import { MessengerBlockPeerConfirmModal } from "@/components/community-messenger/MessengerBlockPeerConfirmModal";
 import { MessengerFriendsPrivacySummaryIcons } from "@/components/community-messenger/MessengerFriendsPrivacySheet";
 import { CommunityMessengerFriendList } from "@/components/community-messenger/friend-list/CommunityMessengerFriendList";
-import { MessengerSearchHighlightText } from "@/components/community-messenger/MessengerSearchHighlightText";
-import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
-import {
-  COMMUNITY_MESSENGER_USER_SEARCH_MIN_LENGTH,
-  type CommunityMessengerUserSearchResult,
-} from "@/lib/community-messenger/user-public-id-search";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 import type { MessengerFriendStateModel } from "@/lib/community-messenger/messenger-friend-model";
 
@@ -78,12 +72,6 @@ export function MessengerFriendsScreen({
   const { t } = useI18n();
   const [quickMenuUserId, setQuickMenuUserId] = useState<string | null>(null);
   const [blockConfirmUserId, setBlockConfirmUserId] = useState<string | null>(null);
-  const [inlineSearchKeyword, setInlineSearchKeyword] = useState("");
-  const [inlineSearchResults, setInlineSearchResults] = useState<CommunityMessengerUserSearchResult[]>([]);
-  const [inlineSearchBusy, setInlineSearchBusy] = useState(false);
-  const [inlineSearchAttempted, setInlineSearchAttempted] = useState(false);
-  const inlineSearchSeqRef = useRef(0);
-
   useLayoutEffect(() => {
     friendQuickMenuBlocksTabSwipeRef.current = quickMenuUserId != null;
     return () => {
@@ -129,38 +117,6 @@ export function MessengerFriendsScreen({
 
   const hasVisibleFriends = sortedFriends.length > 0;
 
-  useEffect(() => {
-    const keyword = inlineSearchKeyword.trim();
-    if (!keyword || keyword.length < COMMUNITY_MESSENGER_USER_SEARCH_MIN_LENGTH) {
-      inlineSearchSeqRef.current += 1;
-      setInlineSearchResults([]);
-      setInlineSearchBusy(false);
-      if (!keyword) setInlineSearchAttempted(false);
-      return;
-    }
-    const seq = ++inlineSearchSeqRef.current;
-    const timer = window.setTimeout(() => {
-      void (async () => {
-        setInlineSearchBusy(true);
-        try {
-          const res = await fetch(`/api/community-messenger/users?q=${encodeURIComponent(keyword)}`, {
-            cache: "no-store",
-          });
-          if (seq !== inlineSearchSeqRef.current) return;
-          const json = (await res.json()) as { ok?: boolean; users?: CommunityMessengerUserSearchResult[] };
-          setInlineSearchResults(res.ok && json.ok ? json.users ?? [] : []);
-          setInlineSearchAttempted(true);
-        } finally {
-          if (seq === inlineSearchSeqRef.current) setInlineSearchBusy(false);
-        }
-      })();
-    }, 300);
-    return () => window.clearTimeout(timer);
-  }, [inlineSearchKeyword]);
-
-  const showInlineResults =
-    inlineSearchKeyword.trim().length >= COMMUNITY_MESSENGER_USER_SEARCH_MIN_LENGTH;
-
   return (
     <>
       <section
@@ -175,68 +131,6 @@ export function MessengerFriendsScreen({
           onResetTransientUi();
         }}
       >
-        <div className="px-0 pb-1">
-          <input
-            value={inlineSearchKeyword}
-            onChange={(e) => setInlineSearchKeyword(e.target.value.slice(0, 20))}
-            maxLength={20}
-            placeholder={t("cm_ui_at_id_example")}
-            autoCapitalize="none"
-            autoCorrect="off"
-            spellCheck={false}
-            className="w-full rounded-ui-rect border border-transparent bg-[color:var(--messenger-primary-soft)] px-2 py-2 text-[14px] outline-none focus:border-[color:var(--messenger-primary)] focus:bg-[color:var(--messenger-surface)] focus:ring-1 focus:ring-[color:var(--messenger-primary)]"
-            style={{ color: "var(--messenger-text)" }}
-          />
-        </div>
-        {showInlineResults ? (
-          <div className="divide-y divide-[color:var(--messenger-divider)] overflow-hidden rounded-ui-rect border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)]">
-            {inlineSearchBusy ? (
-              <p className="px-3 py-4 text-center sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }}>
-                {t("common_loading")}
-              </p>
-            ) : inlineSearchResults.length === 0 ? (
-              <p className="px-3 py-4 text-center sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }}>
-                {!inlineSearchAttempted ? t("cm_ui_enter_keyword_then_search") : t("cm_social_no_matching_users")}
-              </p>
-            ) : (
-              inlineSearchResults.map((user) => (
-                <button
-                  key={user.id}
-                  type="button"
-                  disabled={!user.canMessage || Boolean(busyId)}
-                  onClick={() => {
-                    if (!user.canMessage) return;
-                    onFriendChat(user.id);
-                  }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left active:bg-[color:var(--messenger-surface-muted)] disabled:opacity-40"
-                >
-                  <SamarketThumbnail
-                    src={user.avatarUrl?.trim() || null}
-                    size={40}
-                    roundedClassName="rounded-full"
-                    className="bg-[color:var(--messenger-surface-muted)]"
-                    fallbackSrc=""
-                    fallbackNode={
-                      <span className="sam-text-body-secondary font-semibold" style={{ color: "var(--messenger-text-secondary)" }}>
-                        {user.displayName.trim().slice(0, 1) || "?"}
-                      </span>
-                    }
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate sam-text-body font-medium" style={{ color: "var(--messenger-text)" }}>
-                      {user.displayName}
-                    </p>
-                    {user.publicId ? (
-                      <p className="truncate sam-text-xxs" style={{ color: "var(--messenger-text-secondary)" }}>
-                        <MessengerSearchHighlightText text={user.publicId} ranges={user.highlightRanges} prefix="@" />
-                      </p>
-                    ) : null}
-                  </div>
-                </button>
-              ))
-            )}
-          </div>
-        ) : null}
         <CommunityMessengerFriendList
           me={me}
           sortedFriends={sortedFriends}

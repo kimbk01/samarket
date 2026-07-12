@@ -50,9 +50,11 @@ import {
   tradeChatCallPolicyAllowsVoice,
 } from "@/lib/trade/trade-chat-call-policy";
 import { logCallV3ButtonClick, logCallV3ButtonRender } from "@/lib/community-messenger/call-v3/call-v3-debug";
+import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
 
 export const CommunityMessengerRoomPhase2Header = memo(function CommunityMessengerRoomPhase2Header() {
   const { t } = useI18n();
+  const isMessengerSplit = useIsMessengerSplitViewport();
   const vm = useMessengerRoomPhase2HeaderView();
   const hydrationPass = useCmRoomPhase2HydrationPass();
   const ownerSlideHost = useOwnerOrderChatSlideHost();
@@ -310,6 +312,7 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
   return (
     <>
     <MessengerHeader>
+        {!isMessengerSplit || buyerSlideHost ? (
         <button
           type="button"
           onClick={handleBack}
@@ -320,6 +323,7 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
             <X className="h-[18px] w-[18px]" aria-hidden />
           : <BackIcon />}
         </button>
+        ) : null}
 
         {useDeliveryHeaderBlock ? (
           <StoreOrderDeliveryMessengerHeaderBlock

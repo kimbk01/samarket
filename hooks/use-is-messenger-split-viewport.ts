@@ -1,9 +1,9 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { APP_MESSENGER_SPLIT_MIN_PX } from "@/lib/ui/app-viewport-layout-breakpoints";
 
-/** @deprecated 메인 5탭은 모든 viewport 에서 BottomNav. 항상 false. */
-const QUERY = "(max-width: 0px)";
+const QUERY = `(min-width: ${APP_MESSENGER_SPLIT_MIN_PX}px)`;
 
 function subscribe(onChange: () => void) {
   const m = window.matchMedia(QUERY);
@@ -12,14 +12,14 @@ function subscribe(onChange: () => void) {
 }
 
 function getSnapshot() {
-  return false;
+  return window.matchMedia(QUERY).matches;
 }
 
 function getServerSnapshot() {
   return false;
 }
 
-/** @deprecated — MainDesktopSideNav 제거. 호환용 stub (항상 false). */
-export function useIsDesktopShellViewport() {
+/** 768px+ — 메신저 Kakao/Telegram형 master-detail (모바일 full-page와 분리) */
+export function useIsMessengerSplitViewport() {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }

@@ -121,6 +121,7 @@ type Props = {
   onStartDirectCall?: MessengerCallLogsStartDirectCallFn;
   onBootstrapCallsChange?: (calls: CommunityMessengerCallLog[]) => void;
   showSectionTabs?: boolean;
+  splitLayoutMode?: "hub" | "list-only";
 };
 
 function communityMessengerHomeListPanePropsEqual(prev: Props, next: Props): boolean {
@@ -148,6 +149,7 @@ function communityMessengerHomeListPanePropsEqual(prev: Props, next: Props): boo
   if (prev.chatListVisual !== next.chatListVisual) reasons.push("chatListVisual");
   if (prev.callsHydrating !== next.callsHydrating) reasons.push("callsHydrating");
   if (prev.showSectionTabs !== next.showSectionTabs) reasons.push("showSectionTabs");
+  if (prev.splitLayoutMode !== next.splitLayoutMode) reasons.push("splitLayoutMode");
   if (!roomListItemsDisplayEqual(prev.primaryListItems, next.primaryListItems)) {
     reasons.push("primaryListItems");
   }
@@ -351,7 +353,7 @@ export const CommunityMessengerHomeListPane = memo(function CommunityMessengerHo
     <>
       <div
         ref={frameRef}
-        className={`relative min-h-[56dvh] ${isPillarChatList ? "sam-messenger-pillar-list-enter" : ""}`}
+        className={`relative ${props.splitLayoutMode === "list-only" ? "min-h-0" : "min-h-[56dvh]"} ${isPillarChatList ? "sam-messenger-pillar-list-enter" : ""}`}
         data-cm-home-frame="true"
         data-cm-pillar-list={isPillarChatList ? props.chatListVisual : undefined}
         data-cm-home-state={
@@ -368,8 +370,70 @@ export const CommunityMessengerHomeListPane = memo(function CommunityMessengerHo
       >
         {canRenderList && props.data ? (
           <div data-cm-home-list-mounted="true">
+            {props.splitLayoutMode === "list-only" ? (
+              <MessengerHomeMainSections
+                mainSection={props.mainSection}
+                openedSwipeItemId={props.openedSwipeItemId}
+                openedMenuItemId={props.openedMenuItemId}
+                friendQuickMenuBlocksTabSwipeRef={props.friendQuickMenuBlocksTabSwipeRef}
+                messengerOverlayGeneration={props.messengerOverlayGeneration}
+                selectedArchiveSection={props.selectedArchiveSection}
+                pendingCallTarget={null}
+                isScrolling={props.isScrolling}
+                onResetTransientUi={props.resetMessengerTransientUi}
+                onListScrollStart={props.notifyMessengerListScroll}
+                onOpenMenuItem={props.openMessengerMenuItem}
+                onCloseMenuItem={props.closeMessengerMenuItem}
+                onOpenSwipeItem={props.setOpenedSwipeItemId}
+                onSelectArchiveSection={props.setSelectedArchiveSection}
+                me={props.data.me}
+                viewerUserId={props.data.me?.id ?? null}
+                sortedFriends={props.sortedFriends}
+                friendSortEpochMs={props.friendSortEpochMs}
+                friendStateModel={props.friendStateModel}
+                busyId={props.busyId}
+                onOpenFriendsPrivacySummary={props.onOpenFriendsPrivacySummary}
+                onOpenProfile={props.onOpenProfile}
+                onToggleFavoriteFriend={props.toggleFavoriteFriend}
+                onFriendSwipeHide={props.toggleHiddenFriend}
+                onFriendSwipeRemove={props.removeFriend}
+                onFriendSwipeBlock={props.toggleBlock}
+                onFriendRowChat={props.startDirectRoom}
+                onFriendRowVoiceCall={props.onFriendRowVoiceCallStable}
+                onFriendRowVideoCall={props.onFriendRowVideoCallStable}
+                getFriendDirectRoomMuted={props.getFriendDirectRoomMutedStable}
+                getFriendDirectRoomKind={props.getFriendDirectRoomKindStable}
+                friendNotificationsBusy={props.friendNotificationsBusyStable}
+                onFriendToggleRoomMute={props.onFriendToggleRoomMuteStable}
+                friendHasDirectRoom={props.friendHasDirectRoomStable}
+                primaryListItems={props.primaryListItems}
+                favoriteFriendIds={props.favoriteFriendIds}
+                savedFriendIds={props.savedFriendIds}
+                onTogglePin={props.handleMessengerHomeTogglePin}
+                onToggleMute={props.handleMessengerHomeToggleMute}
+                onMarkRead={props.handleMessengerHomeMarkRoomRead}
+                onToggleArchive={props.handleMessengerHomeToggleRoomArchive}
+                onLeaveRoom={props.handleMessengerHomeLeaveRoom}
+                onOpenRoomActions={props.openRoomActions}
+                chatInboxFilter={props.chatInboxFilter}
+                chatKindFilter={props.chatKindFilter}
+                onChatListChipChange={props.onChatListChipChange}
+                openChatJoinedItems={props.openChatJoinedItems}
+                onOpenGroupCreate={props.onOpenGroupCreateStable}
+                entryOriginQuery={props.entryOriginQuery}
+                pillarSummaries={props.pillarSummaries}
+                chatListVisual={props.chatListVisual}
+                bootstrapCalls={props.bootstrapCalls}
+                callsHydrating={props.callsHydrating}
+                onStartDirectCall={props.onStartDirectCall}
+                onBootstrapCallsChange={props.onBootstrapCallsChange}
+                showSectionTabs={props.showSectionTabs}
+                onPrimarySectionChange={props.onPrimarySectionChange}
+              />
+            ) : (
             <CommunityMessengerHomeMasterDetail
               showDetail={false}
+              reserveBottomNavClearance
               list={
                 <MessengerHomeMainSections
               mainSection={props.mainSection}
@@ -432,6 +496,7 @@ export const CommunityMessengerHomeListPane = memo(function CommunityMessengerHo
                 />
               }
             />
+            )}
           </div>
         ) : null}
 

@@ -19,9 +19,24 @@ describe("bottom-nav-route-policy", () => {
     expect(shouldRenderMainBottomNav({ pathname })).toBe(true);
   });
 
+  it("shows nav on messenger room route in 768px+ split viewport", () => {
+    expect(
+      isBottomNavEligibleRoute("/community-messenger/rooms/test", { messengerSplitViewport: true })
+    ).toBe(true);
+    expect(
+      shouldRenderMainBottomNav({
+        pathname: "/community-messenger/rooms/test",
+        messengerSplitViewport: true,
+      })
+    ).toBe(true);
+  });
+
+  it("hides nav on messenger room route without split (mobile full-page)", () => {
+    expect(isBottomNavEligibleRoute("/community-messenger/rooms/test")).toBe(false);
+    expect(shouldRenderMainBottomNav({ pathname: "/community-messenger/rooms/test" })).toBe(false);
+  });
+
   it.each([
-    "/community-messenger/rooms/test",
-    "/community-messenger/calls/test",
     "/mypage/trade/chat/test",
     "/chats/test",
     "/philife/write",

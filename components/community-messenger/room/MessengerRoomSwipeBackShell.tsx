@@ -13,6 +13,7 @@ import {
   type TransitionEvent as ReactTransitionEvent,
 } from "react";
 import { useRouter } from "next/navigation";
+import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
 import { useMessengerRoomUrlSearchParams } from "@/lib/community-messenger/room/use-messenger-room-url-search-params";
 import { markCommunityMessengerHomeReturn } from "@/lib/community-messenger/home-return-timing";
 import {
@@ -67,6 +68,8 @@ export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Prop
   const router = useRouter();
   const searchParams = useMessengerRoomUrlSearchParams();
   const reducedMotion = usePrefersReducedMotion();
+  const isMessengerSplit = useIsMessengerSplitViewport();
+  const splitPaneMode = isMessengerSplit;
   const backPlan = useMemo(
     () =>
       resolveMessengerRoomBackNavigation({
@@ -119,17 +122,17 @@ export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Prop
   const requestAnimatedBack = useCallback(() => {
     if (committedNavRef.current || pendingNavRef.current) return;
     markCommunityMessengerHomeReturn();
-    if (reducedMotion) {
+    if (reducedMotion || splitPaneMode) {
       commitNavigation();
       return;
     }
     pendingNavRef.current = true;
     setPhase("exit-active");
     setDragPx(0);
-  }, [commitNavigation, reducedMotion]);
+  }, [commitNavigation, reducedMotion, splitPaneMode]);
 
   useEffect(() => {
-    if (reducedMotion) {
+    if (reducedMotion || splitPaneMode) {
       setPhase("idle");
       return;
     }
@@ -137,7 +140,7 @@ export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Prop
       setPhase((current) => (current === "enter" ? "enter-active" : current));
     });
     return () => window.cancelAnimationFrame(raf);
-  }, [reducedMotion]);
+  }, [reducedMotion, splitPaneMode]);
 
   useEffect(() => {
     if (phase !== "enter-active") return;
@@ -149,7 +152,7 @@ export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Prop
 
   const onEdgePointerDown = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
-      if (reducedMotion || roomType == null) return;
+      if (reducedMotion || splitPaneMode || roomType == null) return;
       if (e.button !== 0) return;
       if (typeof window === "undefined") return;
       if (e.clientX > EDGE_HIT_PX) return;
@@ -166,7 +169,7 @@ export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Prop
         /* noop */
       }
     },
-    [reducedMotion, roomType]
+    [reducedMotion, splitPaneMode, roomType]
   );
 
   const onEdgePointerMove = useCallback(
@@ -306,10 +309,10 @@ export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Prop
     } as const;
   }, [dragPx, phase]);
 
-  const disabled = reducedMotion || roomType == null;
+  const disabled = reducedMotion || roomType == null || splitPaneMode;
   const surfaceClassName = [
-    "messenger-page",
-    "messenger-room-page",
+    splitPaneMode ? "" : "messenger-page",
+    splitPaneMode ? "" : "messenger-room-page",
     "flex min-h-0 min-w-0 flex-1 flex-col",
     phase === "enter" ? "messenger-enter" : "",
     phase === "enter-active" ? "messenger-enter-active" : "",
