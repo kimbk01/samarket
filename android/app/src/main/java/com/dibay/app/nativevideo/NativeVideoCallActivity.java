@@ -15,6 +15,8 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.window.OnBackInvokedCallback;
+import android.window.OnBackInvokedDispatcher;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.SurfaceView;
@@ -46,6 +48,13 @@ public class NativeVideoCallActivity extends Activity {
 
   private static WeakReference<NativeVideoCallActivity> activeRef = new WeakReference<>(null);
   private static final int REQUEST_CODE_ACCEPT_MEDIA = 0xD1C1;
+  private static final long PIP_REQUEST_TIMEOUT_MS = 1_500L; // Diagnostic only; callback is the success SSOT.
+
+  private enum PipState {
+    PIP_IDLE,
+    PIP_REQUESTED,
+    PIP_ACTIVE
+  }
 
   private String callId;
   private String uiMode = UI_MODE_INCOMING;
@@ -70,6 +79,9 @@ public class NativeVideoCallActivity extends Activity {
   private ImageButton cameraFlipButton;
   private boolean cameraEnabled = true;
   private boolean inPipMode = false;
+  private PipState pipState = PipState.PIP_IDLE;
+  private String lastPipSource = "";
+  private long lastPipRequestAt = 0L;
   private boolean dockMode = false;
   private boolean acceptStarted = false;
   private boolean acceptMediaPromptIssued = false;
@@ -93,6 +105,15 @@ public class NativeVideoCallActivity extends Activity {
           mainHandler.postDelayed(this, 1000L);
         }
       };
+  private final Runnable requestVerificationRunnable =
+      new Runnable() {
+        @Override
+        public void run() {
+          verifyPipRequestTimeout();
+        }
+      };
+  private OnBackInvokedCallback nativeVideoBackCallback;
+  private boolean nativeVideoBackCallbackRegistered;
 
   public static void renderState(String callId, NativeVideoCallRuntime.State state) {
     NativeVideoCallActivity activity = activeRef.get();
@@ -103,18 +124,45 @@ public class NativeVideoCallActivity extends Activity {
   public static void attachLocalView(String callId, View view) {
     NativeVideoCallActivity activity = activeRef.get();
     if (activity == null || callId == null || !callId.equals(activity.callId) || view == null) return;
-    activity.runOnUiThread(() -> activity.replaceView(activity.localContainer, view, true));
+    Runnable attach =
+        () -> {
+          if (!callId.equals(activity.callId) || activity.isFinishing() || activity.isDestroyed()) return;
+          activity.replaceView(activity.localContainer, view, true);
+        };
+    if (Looper.myLooper() == Looper.getMainLooper()) {
+      attach.run();
+    } else {
+      activity.runOnUiThread(attach);
+    }
+  }
+
+  static boolean hasLocalSurfaceChild(String callId) {
+    NativeVideoCallActivity activity = activeRef.get();
+    if (activity == null || callId == null || !callId.equals(activity.callId)) return false;
+    return activity.localContainer != null && activity.localContainer.getChildCount() > 0;
   }
 
   public static void attachRemoteView(String callId, View view) {
     NativeVideoCallActivity activity = activeRef.get();
     if (activity == null || callId == null || !callId.equals(activity.callId) || view == null) return;
-    activity.runOnUiThread(
+    Runnable attach =
         () -> {
+          if (!callId.equals(activity.callId) || activity.isFinishing() || activity.isDestroyed()) return;
           activity.ensureVideoRootForRemoteRender();
           activity.replaceView(activity.remoteContainer, view, false);
           NativeVideoCallLog.info("remote_surface_attached", callId);
-        });
+        };
+    if (Looper.myLooper() == Looper.getMainLooper()) {
+      attach.run();
+    } else {
+      activity.runOnUiThread(attach);
+    }
+  }
+
+  static boolean hasRemoteSurfaceChild(String callId) {
+    NativeVideoCallActivity activity = activeRef.get();
+    if (activity == null || callId == null || !callId.equals(activity.callId)) return false;
+    return activity.remoteContainer != null && activity.remoteContainer.getChildCount() > 0;
   }
 
   public static boolean ensureVideoRootForRemoteRender(String callId) {
@@ -174,16 +222,26 @@ public class NativeVideoCallActivity extends Activity {
     NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(callId);
     applyState(session != null ? session.state : defaultStateForMode());
     maybeHandleNotificationAccept(getIntent());
+    maybeReattachSurfacesAfterConnectedRestore();
+    registerNativeVideoBackCallback();
   }
 
   @Override
   protected void onResume() {
     super.onResume();
+    NativeVideoCallLog.info("native_video_pip_activity_resumed", callId, buildPipLogDetails("resume"));
   }
 
   @Override
   protected void onPause() {
     super.onPause();
+    NativeVideoCallLog.info("native_video_pip_activity_paused", callId, buildPipLogDetails("pause"));
+  }
+
+  @Override
+  protected void onStop() {
+    super.onStop();
+    NativeVideoCallLog.info("native_video_pip_activity_stopped", callId, buildPipLogDetails("stop"));
   }
 
   @Override
@@ -194,6 +252,7 @@ public class NativeVideoCallActivity extends Activity {
     NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(callId);
     applyState(session != null ? session.state : defaultStateForMode());
     maybeHandleNotificationAccept(intent);
+    maybeReattachSurfacesAfterConnectedRestore();
   }
 
   @Override
@@ -214,8 +273,37 @@ public class NativeVideoCallActivity extends Activity {
 
   @Override
   public void onBackPressed() {
-    if (minimizeConnectedCall("back")) return;
-    NativeVideoCallLog.info("native_video_back_blocked", callId, "state=" + currentState);
+    handleNativeVideoBack("back");
+  }
+
+  private void registerNativeVideoBackCallback() {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return;
+    if (nativeVideoBackCallbackRegistered) return;
+    nativeVideoBackCallback = () -> handleNativeVideoBack("back_invoked");
+    getOnBackInvokedDispatcher()
+        .registerOnBackInvokedCallback(
+            OnBackInvokedDispatcher.PRIORITY_DEFAULT, nativeVideoBackCallback);
+    nativeVideoBackCallbackRegistered = true;
+    NativeVideoCallLog.info(
+        "native_video_back_callback_registered", callId, "state=" + currentState);
+  }
+
+  private void unregisterNativeVideoBackCallback() {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return;
+    if (!nativeVideoBackCallbackRegistered || nativeVideoBackCallback == null) return;
+    getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(nativeVideoBackCallback);
+    nativeVideoBackCallbackRegistered = false;
+    nativeVideoBackCallback = null;
+    NativeVideoCallLog.info(
+        "native_video_back_callback_unregistered", callId, "state=" + currentState);
+  }
+
+  private void handleNativeVideoBack(String source) {
+    if (minimizeConnectedCall(source)) {
+      return;
+    }
+    NativeVideoCallLog.info(
+        "native_video_back_blocked", callId, "state=" + currentState + " source=" + source);
   }
 
   @Override
@@ -241,12 +329,32 @@ public class NativeVideoCallActivity extends Activity {
     super.onPictureInPictureModeChanged(isInPictureInPictureMode);
     inPipMode = isInPictureInPictureMode;
     applyPipUiMode(isInPictureInPictureMode);
+    if (isInPictureInPictureMode && isInPictureInPictureMode()) {
+      clearPipRequestVerification();
+      pipState = PipState.PIP_ACTIVE;
+      NativeVideoCallLog.info(
+          "native_video_pip_callback_entered", callId, buildPipLogDetails("callback"));
+      if (lastPipSource != null && !lastPipSource.isEmpty()) {
+        NativeVideoCallLog.info("native_video_minimize_pip", callId, "source=" + lastPipSource);
+      }
+    } else if (!isInPictureInPictureMode) {
+      clearPipRequestVerification();
+      pipState = PipState.PIP_IDLE;
+      NativeVideoCallLog.info(
+          "native_video_pip_callback_exited", callId, buildPipLogDetails("callback"));
+    }
     NativeVideoCallLog.info(
-        isInPictureInPictureMode ? "native_video_pip_entered" : "native_video_pip_exited", callId);
+        isInPictureInPictureMode ? "native_video_pip_entered" : "native_video_pip_exited",
+        callId,
+        buildPipLogDetails("legacy_callback"));
   }
 
   @Override
   protected void onDestroy() {
+    NativeVideoCallLog.info("native_video_pip_activity_destroyed", callId, buildPipLogDetails("destroy"));
+    unregisterNativeVideoBackCallback();
+    clearPipRequestVerification();
+    pipState = PipState.PIP_IDLE;
     stopDurationTimer();
     hideDock("destroy");
     detachDockView();
@@ -316,6 +424,115 @@ public class NativeVideoCallActivity extends Activity {
   private void maybeHandleNotificationAccept(Intent intent) {
     if (!isNotificationAcceptIntent(intent) || !UI_MODE_INCOMING.equals(uiMode)) return;
     performAccept("notification");
+  }
+
+  private void maybeReattachSurfacesAfterConnectedRestore() {
+    if (!UI_MODE_CONNECTED_RESTORE.equals(uiMode)) return;
+    if (callId == null || callId.isEmpty()) return;
+    if (isFinishing() || isDestroyed()) {
+      logRemoteReattachSkipped("activity_destroyed");
+      return;
+    }
+    NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(callId);
+    if (session == null) {
+      logRemoteReattachSkipped("session_missing");
+      return;
+    }
+    if (session.state != NativeVideoCallRuntime.State.CONNECTED) {
+      logRemoteReattachSkipped("session_not_connected");
+      return;
+    }
+    if (!callId.equals(NativeVideoCallAgoraEngine.peekOccupantCallId())) {
+      logRemoteReattachSkipped("active_call_mismatch");
+      return;
+    }
+
+    if (remoteContainer != null && remoteSurfaceChildCount() == 0) {
+      NativeVideoCallLog.info(
+          "native_video_remote_reattach_request",
+          callId,
+          "uid=unknown remoteUidCount=unknown remoteChildCount=0 uiMode="
+              + uiMode
+              + " sessionState="
+              + session.state.name());
+      NativeVideoCallAgoraEngine.RemoteReattachResult remoteResult =
+          NativeVideoCallAgoraEngine.reattachRemoteSurfaceIfNeeded(callId);
+      if (remoteResult == NativeVideoCallAgoraEngine.RemoteReattachResult.FAILED_SETUP) {
+        logRemoteReattachSkipped("engine_setup_failed");
+      }
+    } else if (remoteContainer != null && remoteSurfaceChildCount() > 0) {
+      logRemoteReattachSkipped("existing_remote_child");
+    }
+
+    if (localContainer == null) {
+      logLocalReattachSkipped("local_container_missing", 0);
+      return;
+    }
+    int localChildCount = localSurfaceChildCount();
+    if (localChildCount > 0) {
+      logLocalReattachSkipped("existing_local_child", localChildCount);
+      return;
+    }
+    if (!cameraEnabled) {
+      logLocalReattachSkipped("camera_disabled", localChildCount);
+      return;
+    }
+    NativeVideoCallLog.info(
+        "native_video_local_reattach_request",
+        callId,
+        "cameraEnabled=true localChildCount=0 uiMode="
+            + uiMode
+            + " sessionState="
+            + session.state.name()
+            + " previewRunningKnown=true");
+    NativeVideoCallAgoraEngine.LocalReattachResult localResult =
+        NativeVideoCallAgoraEngine.reattachLocalPreviewIfNeeded(callId, cameraEnabled);
+    if (localResult == NativeVideoCallAgoraEngine.LocalReattachResult.FAILED_SETUP) {
+      logLocalReattachSkipped("engine_setup_failed", localChildCount);
+    }
+  }
+
+  private int localSurfaceChildCount() {
+    return localContainer != null ? localContainer.getChildCount() : 0;
+  }
+
+  private void logRemoteReattachSkipped(String reason) {
+    NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(callId);
+    String sessionState = session != null ? session.state.name() : "missing";
+    NativeVideoCallLog.info(
+        "native_video_remote_reattach_skipped",
+        callId != null ? callId : "unknown",
+        "reason="
+            + reason
+            + " remoteChildCount="
+            + remoteSurfaceChildCount()
+            + " uiMode="
+            + uiMode
+            + " sessionState="
+            + sessionState);
+  }
+
+  private void logLocalReattachSkipped(String reason, int localChildCount) {
+    NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(callId);
+    String sessionState = session != null ? session.state.name() : "missing";
+    NativeVideoCallLog.info(
+        "native_video_local_reattach_skipped",
+        callId != null ? callId : "unknown",
+        "reason="
+            + reason
+            + " cameraEnabled="
+            + cameraEnabled
+            + " localChildCount="
+            + localChildCount
+            + " uiMode="
+            + uiMode
+            + " sessionState="
+            + sessionState
+            + " previewRunningKnown=true");
+  }
+
+  private void logReattachSkipped(String reason) {
+    logRemoteReattachSkipped(reason);
   }
 
   private void performAccept(String source) {
@@ -444,6 +661,8 @@ public class NativeVideoCallActivity extends Activity {
     if (state == NativeVideoCallRuntime.State.ENDING
         || state == NativeVideoCallRuntime.State.ENDED
         || state == NativeVideoCallRuntime.State.FAILED) {
+      clearPipRequestVerification();
+      pipState = PipState.PIP_IDLE;
       detachDockView();
     }
     if (dockMode && state == NativeVideoCallRuntime.State.CONNECTED) {
@@ -501,7 +720,7 @@ public class NativeVideoCallActivity extends Activity {
       return false;
     }
     if (tryEnterPip(source)) {
-      NativeVideoCallLog.info("native_video_minimize_pip", callId, "source=" + source);
+      NativeVideoCallLog.info("native_video_pip_request_consumed", callId, buildPipLogDetails(source));
       return true;
     }
     showDock(source + "_pip_fallback");
@@ -514,22 +733,64 @@ public class NativeVideoCallActivity extends Activity {
   }
 
   private boolean tryEnterPip(String source) {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false;
-    if (inPipMode || isInPictureInPictureMode()) return true;
+    lastPipSource = source != null ? source : "";
+    NativeVideoCallLog.info("native_video_pip_request", callId, buildPipLogDetails(lastPipSource));
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+      NativeVideoCallLog.info(
+          "native_video_pip_request_rejected", callId, buildPipLogDetails(lastPipSource) + " reason=api_below_26");
+      return false;
+    }
+    if (!hasSystemPipFeature()) {
+      NativeVideoCallLog.info(
+          "native_video_pip_request_rejected",
+          callId,
+          buildPipLogDetails(lastPipSource) + " reason=feature_picture_in_picture_false");
+      return false;
+    }
+    if (inPipMode || isInPictureInPictureMode() || pipState == PipState.PIP_ACTIVE) {
+      pipState = PipState.PIP_ACTIVE;
+      NativeVideoCallLog.info(
+          "native_video_pip_request_consumed",
+          callId,
+          buildPipLogDetails(lastPipSource) + " reason=already_in_pip");
+      return true;
+    }
+    if (pipState == PipState.PIP_REQUESTED) {
+      NativeVideoCallLog.info(
+          "native_video_pip_request_consumed",
+          callId,
+          buildPipLogDetails(lastPipSource) + " reason=request_in_flight");
+      return true;
+    }
     if (!isPipEligible()) {
       NativeVideoCallLog.info("native_video_pip_blocked", callId, "source=" + source + " state=" + currentState);
+      NativeVideoCallLog.info(
+          "native_video_pip_request_rejected", callId, buildPipLogDetails(lastPipSource) + " reason=ineligible");
       return false;
     }
     PictureInPictureParams params = NativeVideoCallPipPresenter.buildParams(this, callId);
-    if (params == null) return false;
-    try {
-      boolean entered = enterPictureInPictureMode(params);
+    if (params == null) {
       NativeVideoCallLog.info(
-          entered ? "native_video_pip_enter_requested" : "native_video_pip_enter_rejected",
-          callId,
-          "source=" + source);
+          "native_video_pip_request_rejected", callId, buildPipLogDetails(lastPipSource) + " reason=params_null");
+      return false;
+    }
+    try {
+      clearPipRequestVerification();
+      boolean entered = enterPictureInPictureMode(params);
+      if (entered) {
+        pipState = PipState.PIP_REQUESTED;
+        lastPipRequestAt = SystemClock.elapsedRealtime();
+        NativeVideoCallLog.info(
+            "native_video_pip_request_accepted", callId, buildPipLogDetails(lastPipSource));
+        mainHandler.postDelayed(requestVerificationRunnable, PIP_REQUEST_TIMEOUT_MS);
+      } else {
+        pipState = PipState.PIP_IDLE;
+        NativeVideoCallLog.info(
+            "native_video_pip_request_rejected", callId, buildPipLogDetails(lastPipSource));
+      }
       return entered;
     } catch (RuntimeException error) {
+      pipState = PipState.PIP_IDLE;
       NativeVideoCallLog.warn(
           "native_video_pip_enter_failed", callId, "err=" + error.getClass().getSimpleName());
       return false;
@@ -538,6 +799,61 @@ public class NativeVideoCallActivity extends Activity {
 
   private boolean isPipEligible() {
     return callId != null && !callId.isEmpty() && currentState == NativeVideoCallRuntime.State.CONNECTED;
+  }
+
+  private void verifyPipRequestTimeout() {
+    if (pipState != PipState.PIP_REQUESTED) return;
+    boolean actualPip = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && isInPictureInPictureMode();
+    if (actualPip) return;
+    NativeVideoCallLog.info("native_video_pip_request_timeout", callId, buildPipLogDetails("timeout"));
+    pipState = PipState.PIP_IDLE;
+  }
+
+  private void clearPipRequestVerification() {
+    mainHandler.removeCallbacks(requestVerificationRunnable);
+  }
+
+  private boolean hasSystemPipFeature() {
+    return Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+        && getPackageManager().hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE);
+  }
+
+  private boolean isRemoteSurfaceAttached() {
+    if (remoteContainer == null || remoteContainer.getChildCount() <= 0) return false;
+    View child = remoteContainer.getChildAt(0);
+    return child != null && child.isAttachedToWindow();
+  }
+
+  private int remoteSurfaceChildCount() {
+    return remoteContainer != null ? remoteContainer.getChildCount() : 0;
+  }
+
+  private String buildPipLogDetails(String source) {
+    long elapsedMs =
+        lastPipRequestAt > 0L ? Math.max(0L, SystemClock.elapsedRealtime() - lastPipRequestAt) : -1L;
+    boolean actualPip = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && isInPictureInPictureMode();
+    return "source="
+        + (source != null && !source.isEmpty() ? source : "unknown")
+        + " state="
+        + currentState
+        + " pipState="
+        + pipState.name()
+        + " isInPictureInPictureMode="
+        + actualPip
+        + " isFinishing="
+        + isFinishing()
+        + " isDestroyed="
+        + isDestroyed()
+        + " dockMode="
+        + dockMode
+        + " remoteChildCount="
+        + remoteSurfaceChildCount()
+        + " remote_surface_attached="
+        + isRemoteSurfaceAttached()
+        + " lastPipSource="
+        + (lastPipSource != null && !lastPipSource.isEmpty() ? lastPipSource : "none")
+        + " elapsedMs="
+        + elapsedMs;
   }
 
   private void applyPipUiMode(boolean enabled) {

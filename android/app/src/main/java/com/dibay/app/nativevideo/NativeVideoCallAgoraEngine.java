@@ -12,6 +12,7 @@ import io.agora.rtc2.IRtcEngineEventHandler;
 import io.agora.rtc2.RtcEngine;
 import io.agora.rtc2.RtcEngineConfig;
 import io.agora.rtc2.video.VideoCanvas;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -27,6 +28,29 @@ public final class NativeVideoCallAgoraEngine {
     void onError(String reason);
   }
 
+  public enum RemoteReattachResult {
+    SUCCESS,
+    SKIPPED_INVALID_CALL_ID,
+    SKIPPED_CALL_MISMATCH,
+    SKIPPED_ENGINE_NULL,
+    SKIPPED_NO_REMOTE_UID,
+    SKIPPED_AMBIGUOUS_REMOTE_UID,
+    SKIPPED_IN_FLIGHT,
+    SKIPPED_NOT_MAIN_THREAD,
+    FAILED_SETUP
+  }
+
+  public enum LocalReattachResult {
+    SUCCESS,
+    SKIPPED_INVALID_CALL_ID,
+    SKIPPED_CALL_MISMATCH,
+    SKIPPED_ENGINE_NULL,
+    SKIPPED_CAMERA_DISABLED,
+    SKIPPED_IN_FLIGHT,
+    SKIPPED_NOT_MAIN_THREAD,
+    FAILED_SETUP
+  }
+
   private static final Object LOCK = new Object();
   private static final Handler MAIN = new Handler(Looper.getMainLooper());
   private static final Set<Integer> REMOTE_SETUP_UIDS = ConcurrentHashMap.newKeySet();
@@ -37,6 +61,8 @@ public final class NativeVideoCallAgoraEngine {
   private static Context renderContext;
   private static boolean callerJoinActive;
   private static volatile boolean remoteVideoRendered;
+  private static volatile String reattachInFlightCallId;
+  private static volatile String localReattachInFlightCallId;
 
   private NativeVideoCallAgoraEngine() {}
 
@@ -67,6 +93,8 @@ public final class NativeVideoCallAgoraEngine {
       REMOTE_SETUP_UIDS.clear();
       PENDING_REMOTE_UIDS.clear();
       remoteVideoRendered = false;
+      reattachInFlightCallId = null;
+      localReattachInFlightCallId = null;
     }
     if (caller) {
       NativeVideoCallLog.info("caller_agora_native_join_start", sid, "channel=" + token.channelName);
@@ -153,6 +181,176 @@ public final class NativeVideoCallAgoraEngine {
     }
   }
 
+  /**
+   * Recreates one remote SurfaceView for an active call after Activity destroy (e.g. Recents swipe +
+   * notification restore). Does not leave/join or clear all setup uids.
+   */
+  public static RemoteReattachResult reattachRemoteSurfaceIfNeeded(String callId) {
+    if (callId == null || callId.trim().isEmpty()) {
+      return RemoteReattachResult.SKIPPED_INVALID_CALL_ID;
+    }
+    if (Looper.myLooper() != Looper.getMainLooper()) {
+      return RemoteReattachResult.SKIPPED_NOT_MAIN_THREAD;
+    }
+    String sid = callId.trim();
+    int remoteUid;
+    synchronized (LOCK) {
+      if (!sid.equals(activeCallId)) {
+        logReattachSkipped(sid, "call_mismatch", REMOTE_SETUP_UIDS.size());
+        return RemoteReattachResult.SKIPPED_CALL_MISMATCH;
+      }
+      if (engine == null) {
+        logReattachSkipped(sid, "engine_null", REMOTE_SETUP_UIDS.size());
+        return RemoteReattachResult.SKIPPED_ENGINE_NULL;
+      }
+      if (reattachInFlightCallId != null && sid.equals(reattachInFlightCallId)) {
+        logReattachSkipped(sid, "in_flight", REMOTE_SETUP_UIDS.size());
+        return RemoteReattachResult.SKIPPED_IN_FLIGHT;
+      }
+      Set<Integer> snapshot = new HashSet<>(REMOTE_SETUP_UIDS);
+      if (snapshot.isEmpty()) {
+        logReattachSkipped(sid, "no_remote_uid", 0);
+        return RemoteReattachResult.SKIPPED_NO_REMOTE_UID;
+      }
+      if (snapshot.size() > 1) {
+        logReattachSkipped(sid, "ambiguous_remote_uid", snapshot.size());
+        return RemoteReattachResult.SKIPPED_AMBIGUOUS_REMOTE_UID;
+      }
+      Integer onlyUid = snapshot.iterator().next();
+      if (onlyUid == null || onlyUid == 0) {
+        logReattachSkipped(sid, "no_remote_uid", snapshot.size());
+        return RemoteReattachResult.SKIPPED_NO_REMOTE_UID;
+      }
+      remoteUid = onlyUid;
+      reattachInFlightCallId = sid;
+      REMOTE_SETUP_UIDS.remove(remoteUid);
+    }
+    try {
+      NativeVideoCallLog.info(
+          "native_video_remote_reattach_setup_started",
+          sid,
+          "uid=" + remoteUid + " remoteUidCount=1");
+      setupRemoteVideo(remoteUid, sid);
+      if (NativeVideoCallActivity.hasRemoteSurfaceChild(sid)) {
+        NativeVideoCallLog.info(
+            "native_video_remote_reattach_surface_attached",
+            sid,
+            "uid=" + remoteUid + " remoteChildCount=1");
+        return RemoteReattachResult.SUCCESS;
+      }
+      NativeVideoCallLog.warn(
+          "native_video_remote_reattach_failed",
+          sid,
+          "uid=" + remoteUid + " reason=setup_no_surface");
+      return RemoteReattachResult.FAILED_SETUP;
+    } catch (RuntimeException error) {
+      NativeVideoCallLog.warn(
+          "native_video_remote_reattach_failed",
+          sid,
+          "uid=" + remoteUid + " err=" + error.getClass().getSimpleName());
+      return RemoteReattachResult.FAILED_SETUP;
+    } finally {
+      synchronized (LOCK) {
+        if (sid.equals(reattachInFlightCallId)) {
+          reattachInFlightCallId = null;
+        }
+      }
+    }
+  }
+
+  private static void logReattachSkipped(String callId, String reason, int remoteUidCount) {
+    NativeVideoCallLog.info(
+        "native_video_remote_reattach_skipped",
+        callId,
+        "reason=" + reason + " remoteUidCount=" + remoteUidCount);
+  }
+
+  /**
+   * Rebinds local preview to a new Activity after destroy. Preview capture stays running; does not
+   * call startPreview unless a future audit proves preview was stopped.
+   */
+  public static LocalReattachResult reattachLocalPreviewIfNeeded(String callId, boolean cameraEnabled) {
+    if (callId == null || callId.trim().isEmpty()) {
+      return LocalReattachResult.SKIPPED_INVALID_CALL_ID;
+    }
+    if (!cameraEnabled) {
+      logLocalReattachSkipped(callId.trim(), "camera_disabled", false, 0);
+      return LocalReattachResult.SKIPPED_CAMERA_DISABLED;
+    }
+    if (Looper.myLooper() != Looper.getMainLooper()) {
+      return LocalReattachResult.SKIPPED_NOT_MAIN_THREAD;
+    }
+    String sid = callId.trim();
+    RtcEngine rtc;
+    Context context;
+    synchronized (LOCK) {
+      if (!sid.equals(activeCallId)) {
+        logLocalReattachSkipped(sid, "call_mismatch", false, 0);
+        return LocalReattachResult.SKIPPED_CALL_MISMATCH;
+      }
+      rtc = engine;
+      context = renderContext;
+      if (rtc == null || context == null) {
+        logLocalReattachSkipped(sid, "engine_null", false, 0);
+        return LocalReattachResult.SKIPPED_ENGINE_NULL;
+      }
+      if (localReattachInFlightCallId != null && sid.equals(localReattachInFlightCallId)) {
+        logLocalReattachSkipped(sid, "in_flight", false, 0);
+        return LocalReattachResult.SKIPPED_IN_FLIGHT;
+      }
+      localReattachInFlightCallId = sid;
+    }
+    try {
+      // Activity destroy does not call stopPreview; only leave/tearDownEngine does (policy A).
+      NativeVideoCallLog.info(
+          "native_video_local_reattach_setup_started",
+          sid,
+          "cameraEnabled=true previewRunningKnown=true");
+      SurfaceView local = new SurfaceView(context);
+      local.setZOrderMediaOverlay(true);
+      rtc.setupLocalVideo(new VideoCanvas(local, VideoCanvas.RENDER_MODE_HIDDEN, 0));
+      NativeVideoCallActivity.attachLocalView(sid, local);
+      if (NativeVideoCallActivity.hasLocalSurfaceChild(sid)) {
+        NativeVideoCallLog.info(
+            "native_video_local_reattach_surface_attached",
+            sid,
+            "cameraEnabled=true localChildCount=1 previewRunningKnown=true");
+        return LocalReattachResult.SUCCESS;
+      }
+      NativeVideoCallLog.warn(
+          "native_video_local_reattach_failed",
+          sid,
+          "cameraEnabled=true reason=setup_no_surface previewRunningKnown=true");
+      return LocalReattachResult.FAILED_SETUP;
+    } catch (RuntimeException error) {
+      NativeVideoCallLog.warn(
+          "native_video_local_reattach_failed",
+          sid,
+          "cameraEnabled=true err=" + error.getClass().getSimpleName() + " previewRunningKnown=true");
+      return LocalReattachResult.FAILED_SETUP;
+    } finally {
+      synchronized (LOCK) {
+        if (sid.equals(localReattachInFlightCallId)) {
+          localReattachInFlightCallId = null;
+        }
+      }
+    }
+  }
+
+  private static void logLocalReattachSkipped(
+      String callId, String reason, boolean cameraEnabled, int localChildCount) {
+    NativeVideoCallLog.info(
+        "native_video_local_reattach_skipped",
+        callId,
+        "reason="
+            + reason
+            + " cameraEnabled="
+            + cameraEnabled
+            + " localChildCount="
+            + localChildCount
+            + " previewRunningKnown=true");
+  }
+
   public static void setCameraEnabled(boolean enabled) {
     synchronized (LOCK) {
       if (engine == null || activeCallId == null) return;
@@ -191,6 +389,8 @@ public final class NativeVideoCallAgoraEngine {
       REMOTE_SETUP_UIDS.clear();
       PENDING_REMOTE_UIDS.clear();
       remoteVideoRendered = false;
+      reattachInFlightCallId = null;
+      localReattachInFlightCallId = null;
       engineToDestroy = engine;
       engine = null;
     }
@@ -212,6 +412,8 @@ public final class NativeVideoCallAgoraEngine {
       REMOTE_SETUP_UIDS.clear();
       PENDING_REMOTE_UIDS.clear();
       remoteVideoRendered = false;
+      reattachInFlightCallId = null;
+      localReattachInFlightCallId = null;
       engineToDestroy = engine;
       engine = null;
     }

@@ -4,6 +4,7 @@ import android.Manifest;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
@@ -90,14 +91,67 @@ public class NativeVideoCallService extends Service {
         ACTION_CONNECTED.equals(action)
             ? "DIBAY video call"
             : ACTION_CONNECTING.equals(action) ? "DIBAY video connecting" : "DIBAY incoming video call";
-    return new NotificationCompat.Builder(this, CHANNEL_ID)
-        .setSmallIcon(R.mipmap.ic_launcher)
-        .setContentTitle(title)
-        .setContentText("Native video runtime")
-        .setOngoing(!ACTION_RINGING.equals(action))
-        .setPriority(NotificationCompat.PRIORITY_HIGH)
-        .setCategory(NotificationCompat.CATEGORY_CALL)
-        .build();
+    NotificationCompat.Builder builder =
+        new NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle(title)
+            .setContentText("Native video runtime")
+            .setOngoing(!ACTION_RINGING.equals(action))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_CALL);
+
+    if (ACTION_CONNECTED.equals(action) && hasConnectedSession(callId)) {
+      String sid = callId.trim();
+      NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(sid);
+      PendingIntent contentPi = returnToCallIntent(sid, session);
+      if (contentPi != null) {
+        builder.setContentIntent(contentPi);
+      }
+      PendingIntent hangUpPi = hangUpIntent(sid);
+      if (hangUpPi != null) {
+        builder.addAction(
+            new NotificationCompat.Action.Builder(
+                    0, getString(R.string.dibay_video_call_end), hangUpPi)
+                .build());
+      }
+    }
+
+    return builder.build();
+  }
+
+  private boolean hasConnectedSession(String callId) {
+    if (callId == null || callId.trim().isEmpty()) return false;
+    NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(callId.trim());
+    return session != null && session.state == NativeVideoCallRuntime.State.CONNECTED;
+  }
+
+  private PendingIntent returnToCallIntent(String callId, NativeVideoCallRuntime.Session session) {
+    if (session == null || session.state != NativeVideoCallRuntime.State.CONNECTED) return null;
+    Intent intent = new Intent(this, NativeVideoCallActivity.class);
+    intent.setFlags(
+        Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+    intent.putExtra(NativeVideoCallActivity.EXTRA_CALL_ID, callId);
+    intent.putExtra(NativeVideoCallActivity.EXTRA_UI_MODE, NativeVideoCallActivity.UI_MODE_CONNECTED_RESTORE);
+    intent.putExtra("roomId", session.roomId);
+    intent.putExtra("callerId", session.callerId);
+    intent.putExtra("callerName", session.callerName);
+    intent.putExtra("mediaType", session.mediaType);
+    return PendingIntent.getActivity(
+        this,
+        (callId + ":ongoing_content").hashCode(),
+        intent,
+        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+  }
+
+  private PendingIntent hangUpIntent(String callId) {
+    Intent intent = new Intent(this, NativeVideoCallActionReceiver.class);
+    intent.setAction(NativeVideoCallActionReceiver.ACTION_END);
+    intent.putExtra(NativeVideoCallActivity.EXTRA_CALL_ID, callId);
+    return PendingIntent.getBroadcast(
+        this,
+        (callId + ":ongoing_hangup").hashCode(),
+        intent,
+        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
   }
 
   private void promoteForeground(String callId, Notification notification) {
