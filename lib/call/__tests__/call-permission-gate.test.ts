@@ -95,7 +95,7 @@ describe("call-permission-gate", () => {
     expect(result.ok).toBe(true);
   });
 
-  it("requests OS prompt only when prompt_available", async () => {
+  it("requests OS prompt when prompt_available", async () => {
     checkNativeCallOsPermissions
       .mockResolvedValueOnce({
         microphone: "prompt_available",
@@ -110,8 +110,27 @@ describe("call-permission-gate", () => {
       camera: "granted",
     });
     const result = await callPermissionGate.prompt("voice", "outgoing");
-    expect(requestNativeCallMediaPermissions).toHaveBeenCalledWith("voice");
+    expect(requestNativeCallMediaPermissions).toHaveBeenCalledWith("voice", undefined);
     expect(result.canVoice).toBe(true);
+  });
+
+  it("requests OS prompt when permission state is unknown", async () => {
+    checkNativeCallOsPermissions
+      .mockResolvedValueOnce({
+        microphone: "unknown",
+        camera: "unknown",
+      })
+      .mockResolvedValue({
+        microphone: "granted",
+        camera: "granted",
+      });
+    requestNativeCallMediaPermissions.mockResolvedValue({
+      microphone: "granted",
+      camera: "granted",
+    });
+    const result = await callPermissionGate.prompt("video", "incoming", "call-unknown");
+    expect(requestNativeCallMediaPermissions).toHaveBeenCalledWith("video", "call-unknown");
+    expect(result.canVideo).toBe(true);
   });
 
   it("skips OS request when permanently_denied without auto-opening settings", async () => {

@@ -2,6 +2,7 @@
 
 import { registerPlugin } from "@capacitor/core";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
+import { invokeNativeCallServicePlugin } from "@/lib/call/native/native-call-service";
 import {
   checkAndroidNativeDevicePermission,
   openAndroidNativeAppSettings,
@@ -9,6 +10,7 @@ import {
   requestAndroidNativeDevicePermission,
   shouldUseAndroidNativeDevicePermissionBridge,
 } from "@/lib/permissions/native-device-permissions-plugin";
+import { isCapacitorNativePlatform, resolveCapacitorShellPlatform } from "@/lib/platform/capacitor-native";
 import type { CallOsPermissionSnapshot } from "@/lib/call/permissions/call-permission-types";
 
 export const CALL_PERMISSION_PLUGIN_ID = "CallPermission";
@@ -58,8 +60,26 @@ async function checkViaLegacyBridge(): Promise<CallOsPermissionSnapshot> {
   };
 }
 
+async function checkViaIosNativeBridge(): Promise<CallOsPermissionSnapshot | null> {
+  if (!isCapacitorNativePlatform() || resolveCapacitorShellPlatform() !== "ios") return null;
+  try {
+    const result = await invokeNativeCallServicePlugin<{ microphone: string; camera: string }>(
+      "checkCallMediaPermissions",
+    );
+    if (!result) return null;
+    return {
+      microphone: mapOsState(result.microphone),
+      camera: mapOsState(result.camera),
+    };
+  } catch {
+    return null;
+  }
+}
+
 /** Android native permission check — store 값보다 우선 */
 export async function checkNativeCallOsPermissions(): Promise<CallOsPermissionSnapshot> {
+  const iosResult = await checkViaIosNativeBridge();
+  if (iosResult) return iosResult;
   const pluginResult = await checkViaCallPermissionPlugin();
   if (pluginResult) return pluginResult;
   if (shouldUseAndroidNativeDevicePermissionBridge()) {
@@ -84,7 +104,26 @@ export async function checkNativeCallOsPermissions(): Promise<CallOsPermissionSn
 
 export async function requestNativeCallMediaPermissions(
   callKind: CommunityMessengerCallKind,
+  callId?: string,
 ): Promise<CallOsPermissionSnapshot> {
+  if (isCapacitorNativePlatform() && resolveCapacitorShellPlatform() === "ios") {
+    const sid = callId?.trim() ?? "permission_probe";
+    try {
+      const result = await invokeNativeCallServicePlugin<{
+        ok: boolean;
+        microphone: string;
+        camera: string;
+      }>("requestCallMediaPermissions", { callId: sid, callKind });
+      if (result) {
+        return {
+          microphone: mapOsState(result.microphone),
+          camera: mapOsState(result.camera),
+        };
+      }
+    } catch {
+      /* fall through to GUM probe */
+    }
+  }
   if (shouldUseAndroidNativeDevicePermissionBridge()) {
     try {
       const pluginResult = await CallPermission.requestCallMediaPermissions({ callKind });

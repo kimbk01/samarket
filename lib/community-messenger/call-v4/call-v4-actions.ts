@@ -740,6 +740,29 @@ export async function callV4Accept(
     return;
   }
 
+  const mediaKind = identity.mediaType === "video" ? "video" : "voice";
+  logCallV4("call_v4_accept_media_preflight_start", { callId: sid, kind: mediaKind });
+  const mediaPerm = await ensureCallMediaForUserGesture(mediaKind, { callId: sid });
+  if (!mediaPerm.ok) {
+    logCallV4("call_v4_accept_media_preflight_failed", {
+      callId: sid,
+      kind: mediaKind,
+      reason: mediaPerm.reason,
+      microphone: mediaPerm.state.microphone,
+      camera: mediaPerm.state.camera,
+    });
+    await leaveCallV4Agora(sid);
+    useCallV4Store.getState().setPhase("failed");
+    await finalizeCallV4Terminal(sid, "failed", router);
+    return;
+  }
+  logCallV4("call_v4_accept_media_preflight_done", {
+    callId: sid,
+    kind: mediaKind,
+    microphone: mediaPerm.state.microphone,
+    camera: mediaPerm.state.camera,
+  });
+
   const nativeAcceptSource = (options?.source ?? "").trim();
   const nativeAcceptPatched = isCallV4NativeAcceptHandoffSource(nativeAcceptSource);
   if (nativeAcceptPatched) {

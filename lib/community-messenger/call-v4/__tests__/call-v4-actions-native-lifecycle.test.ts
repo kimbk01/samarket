@@ -22,6 +22,17 @@ vi.mock("@/lib/community-messenger/call-v4/call-v4-agora", () => ({
   leaveCallV4Agora: vi.fn(async () => {}),
 }));
 
+const ensureCallMediaForUserGestureMock = vi.hoisted(() =>
+  vi.fn<() => Promise<CallMediaPermissionPreflightResult>>(async () => ({
+    ok: true,
+    state: { microphone: "granted", camera: "granted", requestedAt: null, grantedAt: null, source: null },
+  })),
+);
+
+vi.mock("@/lib/community-messenger/call-media-permission-preflight", () => ({
+  ensureCallMediaForUserGesture: ensureCallMediaForUserGestureMock,
+}));
+
 import { callV4PatchAccept } from "@/lib/community-messenger/call-v4/call-v4-api";
 import { joinCallV4Agora } from "@/lib/community-messenger/call-v4/call-v4-agora";
 
@@ -58,6 +69,7 @@ vi.mock("@/lib/community-messenger/call-v4/call-v4-patch-guard", () => ({
 }));
 
 import { hardClearActiveCallSession } from "@/lib/call/active-call-session";
+import type { CallMediaPermissionPreflightResult } from "@/lib/community-messenger/call-media-permission-preflight";
 import {
   callV4Accept,
   callV4HandleRemoteTerminal,
@@ -70,6 +82,11 @@ import { useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store"
 describe("call-v4 actions native lifecycle hooks", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    ensureCallMediaForUserGestureMock.mockReset();
+    ensureCallMediaForUserGestureMock.mockResolvedValue({
+      ok: true,
+      state: { microphone: "granted", camera: "granted", requestedAt: null, grantedAt: null, source: null },
+    });
     vi.mocked(callV4PatchAccept).mockResolvedValue({ ok: true, session: { status: "active" } as never });
     vi.mocked(joinCallV4Agora).mockResolvedValue(true);
     lifecycleMocks.onAccept.mockReset();
@@ -117,6 +134,13 @@ describe("call-v4 actions native lifecycle hooks", () => {
 
   it("callV4Accept awaits patch before agora join", async () => {
     const order: string[] = [];
+    ensureCallMediaForUserGestureMock.mockImplementation(async () => {
+      order.push("media_preflight");
+      return {
+        ok: true,
+        state: { microphone: "granted", camera: "granted", requestedAt: null, grantedAt: null, source: null },
+      };
+    });
     vi.mocked(callV4PatchAccept).mockImplementation(async () => {
       order.push("patch");
       return { ok: true, session: { status: "active" } as never };
@@ -129,8 +153,21 @@ describe("call-v4 actions native lifecycle hooks", () => {
     const router = { push: vi.fn(), replace: vi.fn() };
     await callV4Accept("call-hook", router, { skipRoute: true, source: "sheet" });
 
-    expect(order).toEqual(["patch", "join"]);
+    expect(order).toEqual(["media_preflight", "patch", "join"]);
+    expect(ensureCallMediaForUserGestureMock).toHaveBeenCalledWith("voice", { callId: "call-hook" });
     expect(joinCallV4Agora).toHaveBeenCalledWith("call-hook", { afterPatch: true });
+  });
+
+  it("callV4Accept blocks agora join when media preflight fails", async () => {
+    ensureCallMediaForUserGestureMock.mockResolvedValue({
+      ok: false,
+      reason: "permission_denied",
+      state: { microphone: "denied", camera: "granted", requestedAt: null, grantedAt: null, source: null },
+    });
+    const router = { push: vi.fn(), replace: vi.fn() };
+    await callV4Accept("call-hook", router, { skipRoute: true, source: "sheet" });
+    expect(callV4PatchAccept).not.toHaveBeenCalled();
+    expect(joinCallV4Agora).not.toHaveBeenCalled();
   });
 
   it("native accept handoff skips web patch and joins agora", async () => {

@@ -60,6 +60,11 @@ export type NativeCallServicePlugin = {
   isNativeEstablishmentOwned(options: { callId: string }): Promise<{ owned: boolean }>;
   isNativeVoiceOutgoingLaneEnabled(): Promise<{ enabled: boolean }>;
   isNativeVoiceIncomingLaneEnabled(): Promise<{ enabled: boolean }>;
+  checkCallMediaPermissions(): Promise<{ microphone: string; camera: string }>;
+  requestCallMediaPermissions(options: {
+    callId: string;
+    callKind?: string;
+  }): Promise<{ ok: boolean; callKind: string; microphone: string; camera: string }>;
   acquireScreenAwake(options: { callId: string; reason?: string }): Promise<{ ok: boolean }>;
   releaseScreenAwake(options: { callId: string; reason?: string }): Promise<{ ok: boolean }>;
   notifyScreenAwakePresentation(options: { callId: string; presentation?: string }): Promise<{ ok: boolean }>;

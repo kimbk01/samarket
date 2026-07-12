@@ -30,6 +30,8 @@ public class NativeCallServicePlugin: CAPPlugin, CAPBridgedPlugin {
     CAPPluginMethod(name: "isNativeEstablishmentOwned", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "isNativeVoiceOutgoingLaneEnabled", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "isNativeVoiceIncomingLaneEnabled", returnType: CAPPluginReturnPromise),
+    CAPPluginMethod(name: "requestCallMediaPermissions", returnType: CAPPluginReturnPromise),
+    CAPPluginMethod(name: "checkCallMediaPermissions", returnType: CAPPluginReturnPromise),
   ]
 
   public override func load() {
@@ -143,8 +145,16 @@ public class NativeCallServicePlugin: CAPPlugin, CAPBridgedPlugin {
     let kind = call.getString("callKind") ?? "voice"
     DibayActiveCallSessionManager.shared.bindActiveCall(callId: callId, mediaType: kind, phase: "CONNECTED")
     DibayCallAudioSessionController.shared.activateForCall(video: kind == "video")
-    CallKitProvider.shared.reportOutgoingCallStarted(sessionId: callId, hasVideo: kind == "video")
-    DibayCallLog.infoCall("ios_callkit_call_started", callId: callId)
+    if Self.shouldReportOutgoingCallKit(sessionId: callId, callKind: kind) {
+      CallKitProvider.shared.reportOutgoingCallStarted(sessionId: callId, hasVideo: kind == "video")
+      DibayCallLog.infoCall("ios_callkit_call_started", callId: callId)
+    } else {
+      DibayCallLog.infoCall(
+        "ios_callkit_call_started_skipped",
+        callId: callId,
+        detail: "reason=video_no_native_establishment"
+      )
+    }
     call.resolve(["ok": true])
   }
 
@@ -157,11 +167,33 @@ public class NativeCallServicePlugin: CAPPlugin, CAPBridgedPlugin {
     }
     let reason = call.getString("reason") ?? "client_end"
 
-    if Self.isRemoteTerminalCleanupReason(reason),
-       !NativeVoiceCallOwner.isNativeOwned(callId: callId),
-       NativeVoiceCallRuntime.shared.getSession(sessionId: callId) == nil
+    if Self.isRemoteTerminalCleanupReason(reason) {
+      let voiceOwned = NativeVoiceCallOwner.isNativeOwned(callId: callId)
+        || NativeVoiceCallRuntime.shared.getSession(sessionId: callId) != nil
+      let videoOwned = NativeVideoCallOwner.isNativeOwned(callId: callId)
+        || NativeVideoCallRuntime.shared.getSession(sessionId: callId) != nil
+      if !voiceOwned && !videoOwned {
+        call.resolve(["ok": true])
+        return
+      }
+    }
+
+    if NativeVideoCallOwner.isNativeOwned(callId: callId)
+      || NativeVideoCallRuntime.shared.getSession(sessionId: callId) != nil
     {
-      call.resolve(["ok": true])
+      DibayCallLog.info(
+        "ios_native_video_end_call",
+        sessionId: callId,
+        detail: "reason=\(reason) path=native_video_runtime"
+      )
+      if Self.isRemoteTerminalCleanupReason(reason) {
+        NativeVideoIncomingCallCoordinator.shared.handleRemoteTerminal(sessionId: callId)
+        call.resolve(["ok": true])
+        return
+      }
+      NativeVideoIncomingCallCoordinator.shared.handleRejectOrEnd(sessionId: callId) {
+        call.resolve(["ok": true])
+      }
       return
     }
 
@@ -200,6 +232,15 @@ public class NativeCallServicePlugin: CAPPlugin, CAPBridgedPlugin {
     default:
       return false
     }
+  }
+
+  private static func shouldReportOutgoingCallKit(sessionId: String, callKind: String) -> Bool {
+    let kind = callKind.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    guard kind == "video" else { return true }
+    let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !sid.isEmpty else { return false }
+    return NativeVideoCallOwner.isNativeOwned(callId: sid)
+      || NativeVideoCallRuntime.shared.getSession(sessionId: sid) != nil
   }
 
   @objc func getActiveCallId(_ call: CAPPluginCall) {
@@ -362,5 +403,40 @@ public class NativeCallServicePlugin: CAPPlugin, CAPBridgedPlugin {
   @objc func isNativeVoiceIncomingLaneEnabled(_ call: CAPPluginCall) {
     let enabled = NativeVoiceCallLane.isEnabled()
     call.resolve(["enabled": enabled])
+  }
+
+  @objc func checkCallMediaPermissions(_ call: CAPPluginCall) {
+    let snap = DibayVideoMediaPermission.snapshot()
+    call.resolve([
+      "microphone": snap.microphone,
+      "camera": snap.camera,
+    ])
+  }
+
+  @objc func requestCallMediaPermissions(_ call: CAPPluginCall) {
+    guard let callId = call.getString("callId")?.trimmingCharacters(in: .whitespacesAndNewlines),
+      !callId.isEmpty
+    else {
+      call.reject("invalid_call_id")
+      return
+    }
+    let kind = (call.getString("callKind") ?? "voice").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    let context = DibayVoiceMicrophonePermission.resolveIncomingAnswerContext()
+
+    let complete: (Bool) -> Void = { granted in
+      let snap = DibayVideoMediaPermission.snapshot()
+      call.resolve([
+        "ok": granted,
+        "callKind": kind,
+        "microphone": snap.microphone,
+        "camera": kind == "video" ? snap.camera : "granted",
+      ])
+    }
+
+    if kind == "video" {
+      DibayVideoMediaPermission.ensureGranted(sessionId: callId, context: context, completion: complete)
+      return
+    }
+    DibayVoiceMicrophonePermission.ensureGranted(sessionId: callId, context: context, completion: complete)
   }
 }

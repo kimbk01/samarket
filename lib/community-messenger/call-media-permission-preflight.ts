@@ -69,11 +69,12 @@ export async function ensureCallCanUseMedia(
  */
 export async function ensureCallMediaForUserGesture(
   kind: CommunityMessengerCallKind,
+  options?: { callId?: string },
 ): Promise<CallMediaPermissionPreflightResult> {
   let result = await ensureCallCanUseMedia(kind);
   if (result.ok) return result;
 
-  await callPermissionGate.prompt(kind, "incoming");
+  await callPermissionGate.prompt(kind, "incoming", options?.callId?.trim() || undefined);
   invalidateCallMediaPermissionCheckCache();
   result = await ensureCallCanUseMedia(kind);
   return result;

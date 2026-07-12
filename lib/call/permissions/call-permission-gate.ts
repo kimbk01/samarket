@@ -61,10 +61,22 @@ function resolveEffectiveState(
   return storeState === "unknown" ? "unknown" : storeState;
 }
 
-function osNeedsPrompt(kind: CommunityMessengerCallKind, os: CallOsPermissionSnapshot): boolean {
+function permissionCanBeRequested(state: CallOsPermissionState): boolean {
+  return (
+    isOsPromptAvailable(state) ||
+  // Native iOS bridge may report unknown before first OS request — still attempt on user gesture.
+    state === "unknown"
+  );
+}
+
+function osShouldRequestPermission(kind: CommunityMessengerCallKind, os: CallOsPermissionSnapshot): boolean {
   const required = requiredPermissionsForKind(kind);
-  if (required.microphone && isOsPromptAvailable(os.microphone)) return true;
-  if (required.camera && isOsPromptAvailable(os.camera)) return true;
+  if (required.microphone && !isOsGranted(os.microphone) && !isOsPermanentlyDenied(os.microphone)) {
+    if (permissionCanBeRequested(os.microphone)) return true;
+  }
+  if (required.camera && !isOsGranted(os.camera) && !isOsPermanentlyDenied(os.camera)) {
+    if (permissionCanBeRequested(os.camera)) return true;
+  }
   return false;
 }
 
@@ -100,17 +112,18 @@ export async function checkCallPermission(
 export async function promptCallPermission(
   kind: CommunityMessengerCallKind,
   context: CallPermissionGateContext,
+  callId?: string,
 ): Promise<CallPermissionCheckResult> {
   logDibayCallFlow("permission_prompt_open", { kind, context });
   const before = await checkCallPermission(kind);
-  if ((kind === "video" ? before.canVideo : before.canVoice) || !osNeedsPrompt(kind, before.os)) {
+  if ((kind === "video" ? before.canVideo : before.canVoice) || !osShouldRequestPermission(kind, before.os)) {
     if (before.isPermanentlyDenied) {
       logDibayCallFlow("permission_prompt_denied", { kind, context, settingsOnly: true });
     }
     return before;
   }
 
-  const osAfter = await requestNativeCallMediaPermissions(kind);
+  const osAfter = await requestNativeCallMediaPermissions(kind, callId);
   const microphoneGranted = isOsGranted(osAfter.microphone);
   const cameraGranted = isOsGranted(osAfter.camera);
   const deniedPermanently = resolveOsPermanentDenial(kind, osAfter);
