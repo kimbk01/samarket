@@ -1,8 +1,8 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { CommunityMessengerHome } from "@/components/community-messenger/CommunityMessengerHome";
 import { CommunityMessengerHomeMasterDetail } from "@/components/community-messenger/home/CommunityMessengerHomeMasterDetail";
+import { MessengerSplitListPane } from "@/components/community-messenger/MessengerSplitListPane";
 import { MessengerSplitTopBar } from "@/components/community-messenger/MessengerSplitTopBar";
 import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
 import { parseCommunityMessengerRoomIdFromPathname } from "@/lib/community-messenger/messenger-room-pathname";
@@ -39,7 +39,7 @@ export function MessengerResponsiveShell({ children }: Props) {
         splitMode="split"
         reserveBottomNavClearance
         showDetail={Boolean(roomId)}
-        list={<CommunityMessengerHome tabletSplitListOnly key="messenger-split-list" />}
+        list={<MessengerSplitListPane key="messenger-split-list" />}
         detail={
           roomId ? (
             <div

@@ -18,6 +18,7 @@ import {
   warnCmRoomRouteGuardBlocked,
 } from "@/lib/navigation/cm-deep-route-navigation-lock";
 import { isCommunityMessengerRoomPath } from "@/lib/navigation/community-messenger-deep-route-path";
+import { matchesMessengerSplitViewport } from "@/lib/ui/app-viewport-layout-breakpoints";
 
 export const CM_ROOM_ENTRY_PRIORITY_DURATION_MS = 1500;
 export const CM_ROOM_ENTRY_HOME_SYNC_DEFER_MS = CM_ROOM_ENTRY_PRIORITY_DURATION_MS;
@@ -55,6 +56,11 @@ export function beginCmRoomEntryPriorityMode(roomId: string): void {
   const id = String(roomId ?? "").trim();
   if (!id) return;
   markRoomTapAtClick(id);
+  /**
+   * 768px+ master-detail — 좌측 목록은 고정·선택만. list freeze·home-sync defer 는
+   * aria-hidden 빈 pane·우측 room 미표시(6차 회귀)를 유발하므로 스킵.
+   */
+  if (matchesMessengerSplitViewport()) return;
   beginCmRoomListRenderPause(id);
   if (priorityEndTimer != null) {
     clearTimeout(priorityEndTimer);

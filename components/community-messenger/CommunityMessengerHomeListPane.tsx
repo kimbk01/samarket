@@ -258,7 +258,8 @@ export const CommunityMessengerHomeListPane = memo(function CommunityMessengerHo
   const { t } = useI18n();
   const frozenTreeRef = useRef<ReactElement | null>(null);
   const frameRef = useRef<HTMLDivElement | null>(null);
-  const listFrozen = shouldFreezeRoomListSubtree();
+  const listFrozen =
+    props.splitLayoutMode !== "list-only" && shouldFreezeRoomListSubtree();
   const canRenderList = !props.authRequired && Boolean(props.data);
   const listHold = Boolean(props.listPlaceholder);
   const showRefreshingOverlay = props.loading && canRenderList;

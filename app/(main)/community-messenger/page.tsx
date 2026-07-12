@@ -1,6 +1,6 @@
 import { Suspense } from "react";
-import { CommunityMessengerHome } from "@/components/community-messenger/CommunityMessengerHome";
 import { CommunityMessengerHomeReturnConsume } from "@/components/community-messenger/CommunityMessengerHomeReturnConsume";
+import { MessengerHubRouteGate } from "@/components/community-messenger/MessengerHubRouteGate";
 
 type MessengerSearch = { tab?: string; section?: string; filter?: string; kind?: string; from?: string };
 
@@ -18,7 +18,7 @@ async function CommunityMessengerPageBody({ searchParamsPromise }: { searchParam
   const { tab, section, filter, kind, from: _from } = await searchParamsPromise;
   void _from;
   return (
-    <CommunityMessengerHome
+    <MessengerHubRouteGate
       initialTab={tab}
       initialSection={section}
       initialFilter={filter}

@@ -36,7 +36,7 @@ export function CommunityMessengerHomeMasterDetail({
     : `min-h-0 w-full flex-1 ${reserveBottomNavClearance ? HUB_SHELL_HEIGHT_WITH_BOTTOM_NAV : ""}`;
 
   const listPaneClass = isSplitRoom
-    ? `${MESSENGER_SPLIT_LIST_PANE_BORDER_CLASS} border-sam-border shrink-0 overflow-y-auto overflow-x-hidden min-h-0`
+    ? `${MESSENGER_SPLIT_LIST_PANE_BORDER_CLASS} flex min-h-0 flex-col border-sam-border shrink-0 overflow-y-auto overflow-x-hidden`
     : `w-full md:w-[min(420px,38vw)] md:max-w-[420px] md:min-w-[min(320px,32vw)] md:border-r border-sam-border shrink-0 overflow-y-auto overflow-x-hidden min-h-0`;
 
   const rightPaneClass = isSplitRoom
