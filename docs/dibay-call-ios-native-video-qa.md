@@ -1,7 +1,7 @@
 # DIBAY iOS Native Video 통화 QA (수신 + PiP)
 
-Status: iOS Native Video **수신(Incoming) + PiP** 실기 QA 체크리스트. 발신(Outgoing)·그룹콜·Windows는 범위 밖.
-대상 코드: STEP 2(수신 P0) + STEP 3(PiP) 구현 완료본. 커밋 플래그 `nativeVideoRuntime=false` 유지.
+Status: iOS Native Video **수신(Incoming) + PiP** 실기 QA 완료(§6 PASS). **iOS `nativeVideoRuntime=true` rollout** (Android assets와 동일).
+대상 코드: STEP 2(수신 P0) + STEP 3(PiP) + P4 cleanup fix (`4aafc362` 이후 rollout).
 작성일: 2026-07-12
 
 ---
@@ -15,10 +15,8 @@ Status: iOS Native Video **수신(Incoming) + PiP** 실기 QA 체크리스트. �
 
 ## 1. 준비
 
-1. **로컬 빌드에서만** `ios/App/App/dibay-call-lane.json` 의 `nativeVideoRuntime` 을 `true` 로 바꿔 빌드·설치.
-   - ⚠️ **커밋 금지.** QA 끝나면 다시 `false` 로 되돌림(또는 커밋에 포함하지 않음).
-2. **실기 2대** (A=발신자 웹/기존, B=수신자 = 이번 Native 테스트 대상 iPhone).
-   - 이번 QA는 **B(수신자)** 가 iOS Native Video 로 받는 경로만 검증.
+1. **`ios/App/App/dibay-call-lane.json`** — `nativeVideoRuntime: true` (repo 기본값, Android parity).
+2. **실기 2대** (A=발신자 웹/기존, B=수신자 = iOS Native 테스트 iPhone). **B는 수신만** 검증(발신 Native Video 미구현).
 3. B 기기에서 앱 카메라·마이크 권한을 미리 허용해 둠(권한 거부 시나리오는 별도 케이스).
 
 ### 로그 보는 법 (엔지니어)
@@ -131,9 +129,11 @@ Xcode → Window → Devices and Simulators → B 기기 → Open Console, 필�
 | §6 PiP P1–P5 | **PASS** (P2b 미구현 별도 기록) |
 | §7 오디오 회귀 A1–A3 | (실기 미기록) |
 | §3 금지 마커 0건 | 확인 |
-| 커밋 `nativeVideoRuntime=false` 복원 | **완료** |
+| iOS `nativeVideoRuntime=true` (rollout) | **완료** (`false` 시 Web `/calls-v4` handoff — 실기 혼동 주의) |
 
-**§6 PASS (2026-07-12):** 코드 커밋은 `nativeVideoRuntime=false` 유지. TestFlight/실기 활성은 **별도 커밋**으로 `true` 전환(staged rollout).
+**§6 PASS (2026-07-12, `nativeVideoRuntime=true` 로 실기 확인).** `false` 빌드는 Native가 아닌 Web Agora(`ConnectedVideoView`, `Agora-SDK` 로그) — QA 무효 아님, 플래그 OFF 동작.
+
+**rollout 후 실기 1회:** 수신 시 `[DIBAY_NATIVE_VIDEO]` + `legacy_web_handoff_blocked` 확인 (Web `connected_video_shell` 없어야 함).
 
 **FAIL 발생 시:** 해당 시나리오 번호 + 로그 마커를 그대로 전달 → 원인 대조 후 수정.
 
