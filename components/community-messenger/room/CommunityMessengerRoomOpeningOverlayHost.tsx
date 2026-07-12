@@ -15,11 +15,13 @@ import {
   tryEmitCmPreRouteShellFinalLog,
 } from "@/lib/community-messenger/room/cm-pre-route-shell-instrumentation";
 import { measureCmPassRenderCommit } from "@/lib/community-messenger/room/cm-room-pass-instrumentation";
+import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
 
 const OVERLAY_Z = "z-[125]";
 
 export const CommunityMessengerRoomOpeningOverlayHost = memo(function CommunityMessengerRoomOpeningOverlayHost() {
   const pathname = usePathname();
+  const isMessengerSplit = useIsMessengerSplitViewport();
   const openingRoomId = useCmRoomOpeningOverlayStore((s) => s.openingRoomId);
   const phase = useCmRoomOpeningOverlayStore((s) => s.phase);
   const noteOverlayVisible = useCmRoomOpeningOverlayStore((s) => s.noteOverlayVisible);
@@ -56,6 +58,11 @@ export const CommunityMessengerRoomOpeningOverlayHost = memo(function CommunityM
   }, [openingRoomId, pathname, phase, reset]);
 
   useEffect(() => {
+    if (!isMessengerSplit || !openingRoomId) return;
+    reset();
+  }, [isMessengerSplit, openingRoomId, reset]);
+
+  useEffect(() => {
     if (phase !== "handoff" || !openingRoomId) return;
     const roomId = openingRoomId;
     const t = window.setTimeout(() => {
@@ -66,7 +73,7 @@ export const CommunityMessengerRoomOpeningOverlayHost = memo(function CommunityM
     return () => window.clearTimeout(t);
   }, [phase, openingRoomId, reset]);
 
-  if (!active || !openingRoomId) return null;
+  if (!active || !openingRoomId || isMessengerSplit) return null;
 
   return (
     <div

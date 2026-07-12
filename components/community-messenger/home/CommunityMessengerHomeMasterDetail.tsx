@@ -44,7 +44,7 @@ export function CommunityMessengerHomeMasterDetail({
     : `hidden min-h-0 min-w-0 flex-1 ${SPLIT_MIN_TW}:flex ${SPLIT_MIN_TW}:flex-col overflow-hidden`;
 
   return (
-    <div className={`flex min-h-0 w-full ${shellHeightClass}`}>
+    <div className={`flex min-h-0 w-full flex-row ${shellHeightClass}`}>
       <div className={listPaneClass}>{list}</div>
       <div className={`${rightPaneClass} min-w-0`}>
         {showDetail && detail ? detail : <CommunityMessengerHomeDetailEmpty />}

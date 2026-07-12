@@ -2,6 +2,7 @@
 
 import { useParams } from "next/navigation";
 import { CommunityMessengerRoomShellChromeFrame } from "@/components/community-messenger/room/CommunityMessengerRoomShellChromeFrame";
+import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
 import { useMessengerRoomEntryHeaderSeed } from "@/lib/community-messenger/room/use-messenger-room-entry-header-seed";
 
 /**
@@ -11,6 +12,9 @@ import { useMessengerRoomEntryHeaderSeed } from "@/lib/community-messenger/room/
 export function CommunityMessengerRoomLayoutInlineShell() {
   const roomId = String(useParams()?.roomId ?? "").trim();
   const headerSeed = useMessengerRoomEntryHeaderSeed(roomId);
+  const isMessengerSplit = useIsMessengerSplitViewport();
+
+  if (isMessengerSplit) return null;
 
   return (
     <CommunityMessengerRoomShellChromeFrame

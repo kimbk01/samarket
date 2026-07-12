@@ -39,10 +39,11 @@ export function MessengerResponsiveShell({ children }: Props) {
         splitMode="split"
         reserveBottomNavClearance
         showDetail={Boolean(roomId)}
-        list={<CommunityMessengerHome tabletSplitListOnly />}
+        list={<CommunityMessengerHome tabletSplitListOnly key="messenger-split-list" />}
         detail={
           roomId ? (
             <div
+              key={roomId}
               className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
               data-messenger-split-room-pane=""
             >

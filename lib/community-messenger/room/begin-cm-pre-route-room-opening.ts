@@ -2,6 +2,7 @@
 
 import { acquireCmRoomEntryTimingSession } from "@/lib/community-messenger/room/cm-room-entry-timing-session";
 import { useCmRoomOpeningOverlayStore } from "@/lib/community-messenger/room/cm-room-opening-overlay-store";
+import { matchesMessengerSplitViewport } from "@/lib/ui/app-viewport-layout-breakpoints";
 
 /**
  * R2-M10 — overlay 는 `router.push` 이후 비동기로 올린다.
@@ -10,6 +11,8 @@ import { useCmRoomOpeningOverlayStore } from "@/lib/community-messenger/room/cm-
 export function beginCmPreRouteRoomOpeningOverlay(roomId: string): void {
   const id = String(roomId ?? "").trim();
   if (!id || typeof window === "undefined") return;
+  /** 768px+ split — 전체 화면 pre-route overlay 가 좌측 목록 pane 을 덮지 않게 스킵 */
+  if (matchesMessengerSplitViewport()) return;
   acquireCmRoomEntryTimingSession(id, "nav_tap");
   useCmRoomOpeningOverlayStore.getState().beginOpening(id);
 }
