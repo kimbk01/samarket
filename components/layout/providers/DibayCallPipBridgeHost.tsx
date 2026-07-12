@@ -18,13 +18,11 @@ import {
   subscribeDibayCallPipAction,
   subscribeDibayCallPipModeChanged,
 } from "@/lib/call/native/dibay-call-pip";
+import { resolveCapacitorShellPlatform } from "@/lib/platform/capacitor-native";
 
 const PIP_FALLBACK_DOCK_EVENT = "dibay:call-pip-fallback-dock";
 
-/**
- * Android OS PiP ↔ Web presentation bridge.
- * iOS: stub only (native PiP phase 분리).
- */
+/** Native OS PiP ↔ Web presentation bridge (Android dock + iOS native video PiP emit). */
 export function DibayCallPipBridgeHost() {
   const endRef = useRef<(() => void) | null>(null);
   const muteRef = useRef<(() => void) | null>(null);
@@ -50,18 +48,20 @@ export function DibayCallPipBridgeHost() {
       if (!callId) return;
       const runtime = getCommunityMessengerCallRuntime();
       if (!runtime || runtime.sessionId !== callId) return;
-      if (event.inPipMode) {
-        enterAndroidOsPipCommunityCall({
-          sessionId: callId,
-          roomId: runtime.session?.roomId ?? null,
-          cleanup: () => runtime.cleanupMedia(),
-        });
-        notifyCommunityCallHostSync();
-      } else {
-        exitAndroidOsPipCommunityCall(callId);
-        expandCommunityCallFromAndroidOsPip(callId);
-        notifyCommunityCallHostSync();
+      const platform = resolveCapacitorShellPlatform();
+      if (platform === "android") {
+        if (event.inPipMode) {
+          enterAndroidOsPipCommunityCall({
+            sessionId: callId,
+            roomId: runtime.session?.roomId ?? null,
+            cleanup: () => runtime.cleanupMedia(),
+          });
+        } else {
+          exitAndroidOsPipCommunityCall(callId);
+          expandCommunityCallFromAndroidOsPip(callId);
+        }
       }
+      notifyCommunityCallHostSync();
     }).then((unsub) => {
       unsubMode = unsub;
     });
@@ -76,10 +76,10 @@ export function DibayCallPipBridgeHost() {
       }
       if (event.action === "restore") {
         const callId = event.callId?.trim();
-        if (callId) {
+        if (resolveCapacitorShellPlatform() === "android" && callId) {
           expandCommunityCallFromAndroidOsPip(callId);
-          notifyCommunityCallHostSync();
         }
+        notifyCommunityCallHostSync();
         dockRef.current?.();
       }
     }).then((unsub) => {

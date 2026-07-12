@@ -216,15 +216,7 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
 
   func markMissed(sessionId: String) throws {
     try queue.sync {
-      let sid = normalize(sessionId)
-      guard let active = session, active.sessionId == sid else { return }
-      guard state == .ringing else { return }
-      cancelMissedLocked()
-      state = .failed
-      NativeVideoCallLog.info("missed_timeout", callId: sid)
-      publishUiLocked(sessionId: sid)
-      clearSessionLocked(sessionId: sid, releaseOwnerReason: "missed")
-      NativeVideoCallUiHost.finishIfActive(callId: sid)
+      try markMissedLocked(sessionId: sessionId)
     }
   }
 
@@ -308,14 +300,33 @@ final class NativeVideoCallRuntime: @unchecked Sendable {
     generation &+= 1
   }
 
+  private func markMissedLocked(sessionId: String) throws {
+    let sid = normalize(sessionId)
+    guard let active = session, active.sessionId == sid else { return }
+    guard state == .ringing else { return }
+    cancelMissedLocked()
+    state = .failed
+    NativeVideoCallLog.info("missed_timeout", callId: sid)
+    publishUiLocked(sessionId: sid)
+    clearSessionLocked(sessionId: sid, releaseOwnerReason: "missed")
+    NativeVideoCallUiHost.finishIfActive(callId: sid)
+  }
+
+  /// Called only from `queue` (missed timer) — no `queue.sync` re-entry.
+  private func performMissedTimeoutIfCurrent(sessionId: String, generation expectedGeneration: UInt64) {
+    let sid = normalize(sessionId)
+    guard let active = session, active.sessionId == sid, generation == expectedGeneration else { return }
+    guard state == .ringing else { return }
+    try? markMissedLocked(sessionId: sid)
+  }
+
   private func scheduleMissedLocked(sessionId: String) {
     cancelMissedLocked()
     let sid = normalize(sessionId)
     let expectedGeneration = generation
     let work = DispatchWorkItem { [weak self] in
       guard let self else { return }
-      guard self.matches(sessionId: sid, generation: expectedGeneration) else { return }
-      try? self.markMissed(sessionId: sid)
+      self.performMissedTimeoutIfCurrent(sessionId: sid, generation: expectedGeneration)
     }
     missedWorkItem = work
     queue.asyncAfter(deadline: .now() + Self.missedTimeoutSeconds, execute: work)

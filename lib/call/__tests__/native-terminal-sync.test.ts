@@ -18,6 +18,11 @@ vi.mock("@/lib/call/native/native-call-service", async (importOriginal) => {
 });
 
 import {
+  enqueueNativeConnectedForTests,
+  flushPendingNativeConnected,
+  resetNativeConnectedSyncForTests,
+} from "@/lib/call/native/native-connected-sync";
+import {
   onNativeCallLocalTerminal,
   resetNativeTerminalSyncForTests,
   type NativeCallTerminalPayload,
@@ -37,6 +42,7 @@ function sampleTerminal(overrides: Partial<NativeCallTerminalPayload> = {}): Nat
 describe("native-terminal-sync", () => {
   beforeEach(() => {
     resetNativeTerminalSyncForTests();
+    resetNativeConnectedSyncForTests();
     cleanupMocks.cleanup.mockClear();
     cleanupMocks.endNative.mockClear();
     useCallV4Store.getState().resetToIdle();
@@ -84,5 +90,32 @@ describe("native-terminal-sync", () => {
     expect(useCallV4Store.getState().phase).toBe("outgoing_ringing");
     expect(cleanupMocks.cleanup).not.toHaveBeenCalled();
     expect(cleanupMocks.endNative).toHaveBeenCalledWith("call-end-1", "native_stale_terminal");
+  });
+
+  it("flushes pending connected before terminal so identity is set for idle reset", async () => {
+    resetNativeConnectedSyncForTests();
+    enqueueNativeConnectedForTests({
+      callId: "call-end-1",
+      roomId: "room-1",
+      mediaType: "video",
+      direction: "incoming",
+      peerUserId: "peer-1",
+      peerName: "Peer",
+      connectedAtMs: 1_700_000_000_000,
+      nativeOwned: true,
+      runtime: "native_video",
+      fgsOwner: "NativeVideoCall",
+      source: "native_connected_bridge",
+    });
+
+    await flushPendingNativeConnected();
+    expect(useCallV4Store.getState().phase).toBe("connected");
+    expect(useCallV4Store.getState().identity?.callId).toBe("call-end-1");
+
+    await onNativeCallLocalTerminal(sampleTerminal());
+
+    expect(useCallV4Store.getState().phase).toBe("idle");
+    expect(useCallV4Store.getState().canStartNewCall).toBe(true);
+    expect(cleanupMocks.cleanup).toHaveBeenCalledWith("call-end-1", "ended");
   });
 });

@@ -25,6 +25,8 @@ const TERMINAL_OR_BLOCKING_PHASES = new Set<CallV4Phase>([
 ]);
 
 const hydratedNativeConnected = new Set<string>();
+const pendingNativeConnected: NativeCallConnectedPayload[] = [];
+let nativeConnectedListenerReady = false;
 
 function buildIdentityFromNativeConnected(payload: NativeCallConnectedPayload): CallV4Identity {
   const direction = payload.direction === "outgoing" ? "outgoing" : "incoming";
@@ -50,6 +52,23 @@ function startNativeConnectedSideEffects(payload: NativeCallConnectedPayload): v
   markCallV4NativeConnectedOps(sid, "native_connected");
   if (payload.mediaType === "video") {
     acquireConnectedVideoScreenAwake(sid, "native_connected");
+  }
+}
+
+function deliverNativeCallConnected(payload: NativeCallConnectedPayload): void {
+  if (nativeConnectedListenerReady) {
+    void onNativeCallConnected(payload);
+    return;
+  }
+  pendingNativeConnected.push(payload);
+}
+
+/** Flush queued connected events before terminal handling (identity before idle). */
+export async function flushPendingNativeConnected(): Promise<void> {
+  nativeConnectedListenerReady = true;
+  const queued = pendingNativeConnected.splice(0);
+  for (const payload of queued) {
+    await onNativeCallConnected(payload);
   }
 }
 
@@ -122,7 +141,7 @@ export function startNativeConnectedSync(): () => void {
   let handle: PluginListenerHandle | null = null;
 
   void nativeCallServicePlugin.addListener(NATIVE_CALL_CONNECTED_EVENT, (payload) => {
-    void onNativeCallConnected(payload as NativeCallConnectedPayload);
+    deliverNativeCallConnected(payload as NativeCallConnectedPayload);
   })
     .then((subscription) => {
       if (disposed) {
@@ -130,6 +149,7 @@ export function startNativeConnectedSync(): () => void {
         return;
       }
       handle = subscription;
+      void flushPendingNativeConnected();
     })
     .catch(() => {
       /* plugin optional until native shell ready */
@@ -150,6 +170,13 @@ export function clearNativeConnectedHydrationForCall(callId: string): void {
 
 export function resetNativeConnectedSyncForTests(): void {
   hydratedNativeConnected.clear();
+  pendingNativeConnected.length = 0;
+  nativeConnectedListenerReady = false;
+}
+
+/** Test-only — enqueue connected before listener subscription is ready. */
+export function enqueueNativeConnectedForTests(payload: NativeCallConnectedPayload): void {
+  pendingNativeConnected.push(payload);
 }
 
 export type { NativeCallConnectedPayload };

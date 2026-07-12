@@ -68,9 +68,11 @@ type CallV4ProviderProps = {
   children?: ReactNode;
 };
 
-/** Mount sync companion when V4 lane ON or Android native lane (V4 env OFF still syncs). */
+/** Mount sync companion when V4 lane ON, Android native lane, or iOS native call sync. */
 function shouldMountCallV4Companion(): boolean {
-  return isCallV4TelegramLaneEnabled() || isLegacyWebCallEstablishmentRemoved();
+  if (isCallV4TelegramLaneEnabled()) return true;
+  if (isLegacyWebCallEstablishmentRemoved()) return true;
+  return isCapacitorNativePlatform() && resolveCapacitorShellPlatform() === "ios";
 }
 
 function registerCallV4NativeAcceptingFromAppPath(path: string): void {
@@ -344,7 +346,9 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
   const [userId, setUserId] = useState<string | null>(null);
   const pathname = usePathname() ?? "";
   const router = useRouter();
-  const syncOnly = isLegacyWebCallEstablishmentRemoved();
+  const syncOnly =
+    isLegacyWebCallEstablishmentRemoved() ||
+    (isCapacitorNativePlatform() && resolveCapacitorShellPlatform() === "ios");
 
   useEffect(() => {
     if (!shouldMountCallV4Companion()) return;

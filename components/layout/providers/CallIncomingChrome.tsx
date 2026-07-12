@@ -8,6 +8,7 @@ import { CallActiveSessionRecoveryHost } from "@/components/layout/providers/Cal
 import { DibayFcmCallRouteHost } from "@/components/layout/providers/DibayFcmCallRouteHost";
 import { DibayVoipCallBridgeHost } from "@/lib/push/native/dibay-voip-call-bridge";
 import { isLegacyWebCallEstablishmentRemoved } from "@/lib/call/native/legacy-web-call-establishment-removed";
+import { isCapacitorNativePlatform, resolveCapacitorShellPlatform } from "@/lib/platform/capacitor-native";
 import { isDibayCallV3SafeLaneEnabled } from "@/lib/community-messenger/call-v3/call-v3-flag";
 import { isCallV4TelegramLaneEnabled } from "@/lib/community-messenger/call-v4/call-v4-flag";
 
@@ -83,6 +84,9 @@ export function CallIncomingChrome() {
     return <CallV4IncomingChrome />;
   }
   if (isCallV4TelegramLaneEnabled()) {
+    return <CallV4IncomingChrome />;
+  }
+  if (isCapacitorNativePlatform() && resolveCapacitorShellPlatform() === "ios") {
     return <CallV4IncomingChrome />;
   }
   if (isDibayCallV3SafeLaneEnabled()) {

@@ -34,6 +34,7 @@ final class NativeVideoCallAgoraEngine: NSObject {
   private var ownsSharedEngineDestroy = false
   private var localPreviewAttached = false
   private var pendingRemoteUids: [UInt] = []
+  private var remoteUidByCallId: [String: UInt] = [:]
 
   private override init() {
     super.init()
@@ -79,6 +80,9 @@ final class NativeVideoCallAgoraEngine: NSObject {
     remoteVideoRendered = false
     localPreviewAttached = false
     pendingRemoteUids.removeAll()
+    if let sid, !sid.isEmpty {
+      remoteUidByCallId.removeValue(forKey: sid)
+    }
     generation &+= 1
     rtc = engine
     shouldDestroySharedEngine = ownsSharedEngineDestroy
@@ -135,6 +139,16 @@ final class NativeVideoCallAgoraEngine: NSObject {
     DispatchQueue.main.async { [weak self] in
       self?.attachLocalPreviewOnMain(callId: callId)
     }
+  }
+
+  func reattachRemoteVideo(callId: String) {
+    let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !sid.isEmpty else { return }
+    lock.lock()
+    let uid = remoteUidByCallId[sid]
+    lock.unlock()
+    guard let uid, uid != 0 else { return }
+    scheduleRemoteVideoSetup(uid: uid, callId: sid)
   }
 
   func onRemoteRenderSurfaceReady(callId: String) {
@@ -364,6 +378,9 @@ final class NativeVideoCallAgoraEngine: NSObject {
     canvas.renderMode = .hidden
     canvas.uid = uid
     rtc.setupRemoteVideo(canvas)
+    lock.lock()
+    remoteUidByCallId[sid] = uid
+    lock.unlock()
     NativeVideoCallUiHost.attachRemoteView(callId: sid, view: remoteView)
   }
 }

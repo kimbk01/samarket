@@ -48,6 +48,21 @@ final class DibayCallAudioSessionController {
     }
   }
 
+  /** Native Video incoming — prepare category/mode; CallKit `didActivate` owns setActive(true). */
+  func prepareForNativeVideoCall() {
+    let session = AVAudioSession.sharedInstance()
+    do {
+      try session.setCategory(
+        .playAndRecord,
+        mode: .videoChat,
+        options: [.allowBluetooth, .defaultToSpeaker]
+      )
+      DibayCallLog.info("ios_audio_session_prepared", detail: "video=true")
+    } catch {
+      DibayCallLog.info("ios_audio_session_failed", detail: "err=\(error.localizedDescription)")
+    }
+  }
+
   /** Clears outgoing join gate state — call at outgoing start and after native voice cleanup. */
   func resetOutgoingJoinGate() {
     gateLock.lock()

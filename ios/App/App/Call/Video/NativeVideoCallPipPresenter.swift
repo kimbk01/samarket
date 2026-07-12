@@ -19,7 +19,11 @@ enum NativeVideoCallPipPresenter {
   }
 
   static func requestExit(callId: String) -> Bool {
-    let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+    var sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+    if sid.isEmpty {
+      sid = NativeVideoCallRuntime.shared.snapshot().session?.sessionId
+        .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    }
     guard !sid.isEmpty else { return false }
     return NativeVideoCallUiHost.requestExitPip(callId: sid)
   }

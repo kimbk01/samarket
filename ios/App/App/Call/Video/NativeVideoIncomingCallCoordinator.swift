@@ -1,4 +1,3 @@
-import AVFoundation
 import Foundation
 
 /**
@@ -8,11 +7,14 @@ import Foundation
 final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListener {
   static let shared = NativeVideoIncomingCallCoordinator()
 
+  private static let connectingTimeoutSeconds: TimeInterval = 12
+
   private let syncQueue = DispatchQueue(label: "com.dibay.app.native-video-incoming-coordinator")
   private var answerGenerationBySession: [String: UInt64] = [:]
   private var agoraGenerationBySession: [String: UInt64] = [:]
   private var cleanupInFlight: Set<String> = []
   private var callkitFulfilled: Set<String> = []
+  private var connectingTimeoutWorkItem: DispatchWorkItem?
 
   private init() {}
 
@@ -38,29 +40,47 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
         completion(true)
         return
       }
-      log("ios_native_video_accept_failed", sid, "err=\(String(describing: error))")
-      completion(false)
+      abortAnswerFailure(
+        sessionId: sid,
+        marker: "video_accept_fail_begin",
+        terminalReason: "failed",
+        terminalSource: "begin_accept_failed",
+        reportCallKitEnded: true,
+        serverAction: "reject",
+        completion: completion
+      )
       return
     } catch {
-      log("ios_native_video_accept_failed", sid, "err=\(String(describing: error))")
-      completion(false)
+      abortAnswerFailure(
+        sessionId: sid,
+        marker: "video_accept_fail_begin",
+        terminalReason: "failed",
+        terminalSource: "begin_accept_failed",
+        reportCallKitEnded: true,
+        serverAction: "reject",
+        completion: completion
+      )
       return
     }
 
     log("ios_native_video_permission_check_started", sid)
-    ensureMediaPermissions(sessionId: sid) { [weak self] granted in
+    let micContext = DibayVoiceMicrophonePermission.resolveIncomingAnswerContext()
+    DibayVideoMediaPermission.ensureGranted(sessionId: sid, context: micContext) { [weak self] granted in
       guard let self else { return }
       guard self.isStillAccepting(sessionId: sid) else {
-        self.log("ios_native_video_stale_callback_ignored", sid, "stage=permission")
-        completion(false)
+        self.abortStaleAnswer(
+          sessionId: sid,
+          stage: "permission",
+          completion: completion
+        )
         return
       }
       if !granted {
-        self.log("ios_native_video_accept_failed", sid, "err=missing_camera_or_microphone_permission")
         self.failBeforeFulfill(
           sessionId: sid,
           generation: NativeVideoCallRuntime.shared.currentGeneration(),
           reason: .missingCameraOrMicrophonePermission,
+          failMarker: "video_accept_fail_permission",
           serverAction: "reject",
           completion: completion
         )
@@ -81,8 +101,7 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
       return
     }
     guard isStillAccepting(sessionId: sid) else {
-      log("ios_native_video_stale_callback_ignored", sid, "stage=continue_after_permission")
-      completion(false)
+      abortStaleAnswer(sessionId: sid, stage: "continue_after_permission", completion: completion)
       return
     }
 
@@ -102,6 +121,7 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
           sessionId: sid,
           generation: runtimeGen,
           reason: .acceptFailed,
+          failMarker: "video_accept_fail_patch",
           serverAction: "reject",
           completion: completion
         )
@@ -115,6 +135,7 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
           sessionId: sid,
           generation: runtimeGen,
           reason: .internalInvariant,
+          failMarker: "video_accept_fail_patch",
           serverAction: "end",
           completion: completion
         )
@@ -134,6 +155,7 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
             sessionId: sid,
             generation: runtimeGen,
             reason: .tokenFailed,
+            failMarker: "video_accept_fail_token",
             serverAction: "end",
             completion: completion
           )
@@ -153,6 +175,7 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
             sessionId: sid,
             generation: runtimeGen,
             reason: .joinFailed,
+            failMarker: "video_accept_fail_join",
             serverAction: "end",
             completion: completion
           )
@@ -160,7 +183,8 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
         }
         self.syncQueue.sync { self.agoraGenerationBySession[sid] = join.generation }
 
-        DibayCallAudioSessionController.shared.activateForCall(video: true)
+        DibayCallAudioSessionController.shared.prepareForNativeVideoCall()
+        self.scheduleConnectingTimeout(sessionId: sid, generation: runtimeGen)
 
         self.syncQueue.sync { self.callkitFulfilled.insert(sid) }
         self.log("ios_native_video_callkit_fulfilled", sid)
@@ -191,26 +215,39 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
         self?.cleanup(
           sessionId: sid,
           reason: "reject",
+          terminalReason: "rejected",
+          terminalSource: "local_reject",
           reportCallKitEnded: false,
           serverAction: nil
         )
         completion()
       }
     case .connecting, .connected:
+      NativeVideoCallUiHost.publishPipEndActionIfNeeded(callId: sid)
       log("ios_native_video_local_end", sid, "state=\(snap.state)")
       do { try NativeVideoCallRuntime.shared.beginEnd(sessionId: sid) } catch { /* */ }
+      NativeVideoCallBridge.publishLocalTerminal(sessionId: sid, reason: "ended", source: "local_end_begin")
       NativeVideoCallApi.endAsync(callId: sid) { [weak self] _, _, _ in
         do { try NativeVideoCallRuntime.shared.markEnded(sessionId: sid) } catch { /* */ }
         self?.cleanup(
           sessionId: sid,
           reason: "local_end",
+          terminalReason: "ended",
+          terminalSource: "local_end",
           reportCallKitEnded: false,
           serverAction: nil
         )
         completion()
       }
     default:
-      cleanup(sessionId: sid, reason: "end_idle", reportCallKitEnded: false, serverAction: nil)
+      cleanup(
+        sessionId: sid,
+        reason: "end_idle",
+        terminalReason: "ended",
+        terminalSource: "end_idle",
+        reportCallKitEnded: false,
+        serverAction: nil
+      )
       completion()
     }
   }
@@ -227,7 +264,14 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
       try? NativeVideoCallRuntime.shared.markFailed(sessionId: sid, reason: .ended)
     }
     log("ios_native_video_remote_terminal", sid, "state=\(snap.state)")
-    cleanup(sessionId: sid, reason: "remote_terminal", reportCallKitEnded: false, serverAction: nil)
+    cleanup(
+      sessionId: sid,
+      reason: "remote_terminal",
+      terminalReason: "remote_ended",
+      terminalSource: "remote_terminal",
+      reportCallKitEnded: false,
+      serverAction: nil
+    )
   }
 
   // MARK: - Agora Listener
@@ -239,11 +283,13 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
       log("ios_native_video_stale_callback_ignored", sid, "stage=connected")
       return
     }
+    cancelConnectingTimeout()
     do {
       try NativeVideoCallRuntime.shared.markConnected(sessionId: sid)
       log("ios_native_video_connected", sid)
       DibayActiveCallSessionManager.shared.bindActiveCall(callId: sid, mediaType: "video", phase: "CONNECTED")
       NativeVideoCallAgoraEngine.shared.attachLocalPreviewIfUiReady(callId: sid)
+      NativeVideoCallBridge.publishConnectedState(sessionId: sid, source: "incoming_agora_connected")
     } catch {
       log("ios_native_video_stale_callback_ignored", sid, "stage=mark_connected")
     }
@@ -267,20 +313,36 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
     default:
       break
     }
-    failAfterFulfill(sessionId: sid, reason: .mediaFailed, serverAction: "end")
+    let normalized = reason.lowercased()
+    if snap.state == .connected, normalized.contains("remote_offline") {
+      handleRemoteTerminal(sessionId: sid)
+      return
+    }
+    failAfterFulfill(
+      sessionId: sid,
+      reason: .mediaFailed,
+      failMarker: "video_accept_fail_join",
+      serverAction: "end"
+    )
   }
 
   func onError(reason: String) {
     guard let sid = NativeVideoCallAgoraEngine.shared.peekOccupantCallId() else { return }
     let fulfilled = syncQueue.sync { callkitFulfilled.contains(sid) }
     if fulfilled {
-      failAfterFulfill(sessionId: sid, reason: .joinFailed, serverAction: "end")
+      failAfterFulfill(
+        sessionId: sid,
+        reason: .joinFailed,
+        failMarker: "video_accept_fail_join",
+        serverAction: "end"
+      )
     } else {
       let runtimeGen = syncQueue.sync { answerGenerationBySession[sid] } ?? 0
       failBeforeFulfill(
         sessionId: sid,
         generation: runtimeGen,
         reason: .joinFailed,
+        failMarker: "video_accept_fail_join",
         serverAction: "end",
         completion: { _ in }
       )
@@ -293,6 +355,7 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
     sessionId: String,
     generation: UInt64,
     reason: NativeVideoCallFailure,
+    failMarker: String,
     serverAction: String?,
     completion: @escaping (Bool) -> Void
   ) {
@@ -300,21 +363,115 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
       log("ios_native_video_stale_callback_ignored", sessionId, "stage=fail_before")
       return
     }
+    log(failMarker, sessionId, "reason=\(String(describing: reason))")
     log("ios_native_video_callkit_failed", sessionId, "reason=\(String(describing: reason))")
     try? NativeVideoCallRuntime.shared.markFailed(sessionId: sessionId, reason: reason)
-    cleanup(sessionId: sessionId, reason: "fail_before_fulfill", reportCallKitEnded: true, serverAction: serverAction)
+    cleanup(
+      sessionId: sessionId,
+      reason: "fail_before_fulfill",
+      terminalReason: terminalReason(for: reason),
+      terminalSource: failMarker,
+      reportCallKitEnded: true,
+      serverAction: serverAction
+    )
     completion(false)
   }
 
-  private func failAfterFulfill(sessionId: String, reason: NativeVideoCallFailure, serverAction: String?) {
+  private func failAfterFulfill(
+    sessionId: String,
+    reason: NativeVideoCallFailure,
+    failMarker: String,
+    serverAction: String?
+  ) {
+    log(failMarker, sessionId, "reason=\(String(describing: reason))")
     log("ios_native_video_cleanup_started", sessionId, "reason=\(String(describing: reason))")
     try? NativeVideoCallRuntime.shared.markFailed(sessionId: sessionId, reason: reason)
-    cleanup(sessionId: sessionId, reason: "fail_after_fulfill", reportCallKitEnded: true, serverAction: serverAction)
+    cleanup(
+      sessionId: sessionId,
+      reason: "fail_after_fulfill",
+      terminalReason: terminalReason(for: reason),
+      terminalSource: failMarker,
+      reportCallKitEnded: true,
+      serverAction: serverAction
+    )
+  }
+
+  private func abortAnswerFailure(
+    sessionId: String,
+    marker: String,
+    terminalReason: String,
+    terminalSource: String,
+    reportCallKitEnded: Bool,
+    serverAction: String?,
+    completion: @escaping (Bool) -> Void
+  ) {
+    log(marker, sessionId)
+    try? NativeVideoCallRuntime.shared.markFailed(sessionId: sessionId, reason: .invalidSession)
+    cleanup(
+      sessionId: sessionId,
+      reason: marker,
+      terminalReason: terminalReason,
+      terminalSource: terminalSource,
+      reportCallKitEnded: reportCallKitEnded,
+      serverAction: serverAction
+    )
+    completion(false)
+  }
+
+  private func abortStaleAnswer(
+    sessionId: String,
+    stage: String,
+    completion: @escaping (Bool) -> Void
+  ) {
+    log("ios_native_video_stale_callback_ignored", sessionId, "stage=\(stage)")
+    let snap = NativeVideoCallRuntime.shared.snapshot()
+    if snap.session?.sessionId == sessionId, snap.state == .accepting {
+      abortAnswerFailure(
+        sessionId: sessionId,
+        marker: "video_accept_fail_stale",
+        terminalReason: "failed",
+        terminalSource: "stale_callback_\(stage)",
+        reportCallKitEnded: true,
+        serverAction: "reject",
+        completion: completion
+      )
+      return
+    }
+    completion(false)
+  }
+
+  private func scheduleConnectingTimeout(sessionId: String, generation: UInt64) {
+    cancelConnectingTimeout()
+    let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+    let work = DispatchWorkItem { [weak self] in
+      guard let self else { return }
+      guard self.isCurrentAnswer(sessionId: sid, generation: generation) else { return }
+      let snap = NativeVideoCallRuntime.shared.snapshot()
+      guard snap.session?.sessionId == sid, snap.state == .connecting else { return }
+      self.log("video_accept_fail_join_hang", sid, "timeout_s=\(Int(Self.connectingTimeoutSeconds))")
+      self.failAfterFulfill(
+        sessionId: sid,
+        reason: .joinFailed,
+        failMarker: "video_accept_fail_join_hang",
+        serverAction: "end"
+      )
+    }
+    syncQueue.sync { connectingTimeoutWorkItem = work }
+    DispatchQueue.main.asyncAfter(deadline: .now() + Self.connectingTimeoutSeconds, execute: work)
+  }
+
+  private func cancelConnectingTimeout() {
+    syncQueue.sync {
+      connectingTimeoutWorkItem?.cancel()
+      connectingTimeoutWorkItem = nil
+    }
   }
 
   private func cleanup(
     sessionId: String,
     reason: String,
+    terminalReason: String,
+    terminalSource: String,
     reportCallKitEnded: Bool,
     serverAction: String?
   ) {
@@ -326,6 +483,7 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
     }
     guard shouldRun else { return }
 
+    cancelConnectingTimeout()
     log("ios_native_video_cleanup_started", sid, "reason=\(reason)")
 
     if let serverAction {
@@ -336,28 +494,54 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
       }
     }
 
+    NativeVideoCallBridge.publishLocalTerminal(sessionId: sid, reason: terminalReason, source: terminalSource)
+    NativeVideoCallBridge.clearConnectedPublish(callId: sid)
+    NativeCallServicePlugin.clearNativeTerminalEmit(callId: sid)
+
     NativeVideoCallAgoraEngine.shared.leave(reason: reason, notifyListener: false)
     DibayCallAudioSessionController.shared.deactivate()
-    if !sid.isEmpty {
-      NativeVideoCallUiHost.clearVideoSurfaces(callId: sid)
-      NativeVideoCallUiHost.finishIfActive(callId: sid)
-    }
-    NativeVideoCallRuntime.shared.reset(sessionId: sid)
-    if DibayActiveCallSessionManager.shared.callId == sid {
-      DibayActiveCallSessionManager.shared.clearSession()
-    }
 
-    if reportCallKitEnded {
-      CallKitProvider.shared.reportCallEnded(uuidString: sid)
+    // UI teardown on main FIFO: stopPip → clearSurfaces → dismiss (P4 — no main.sync from background).
+    DispatchQueue.main.async {
+      if !sid.isEmpty {
+        NativeVideoCallUiHost.stopPipBeforeDismiss(callId: sid)
+        NativeVideoCallUiHost.clearVideoSurfaces(callId: sid)
+        NativeVideoCallUiHost.finishIfActive(callId: sid)
+      }
+      NativeVideoCallRuntime.shared.reset(sessionId: sid)
+      if DibayActiveCallSessionManager.shared.callId == sid {
+        DibayActiveCallSessionManager.shared.clearSession()
+      }
+      if reportCallKitEnded {
+        CallKitProvider.shared.reportCallEnded(uuidString: sid)
+      } else {
+        CallKitProvider.shared.endCallKitSession(
+          sessionId: sid,
+          reason: .remoteEnded,
+          logDetail: reason
+        )
+      }
+      self.syncQueue.async {
+        self.answerGenerationBySession.removeValue(forKey: sid)
+        self.agoraGenerationBySession.removeValue(forKey: sid)
+        self.callkitFulfilled.remove(sid)
+        self.cleanupInFlight.remove(sid)
+        self.log("ios_native_video_cleanup_done", sid, "reason=\(reason)")
+      }
     }
+  }
 
-    syncQueue.sync {
-      answerGenerationBySession.removeValue(forKey: sid)
-      agoraGenerationBySession.removeValue(forKey: sid)
-      callkitFulfilled.remove(sid)
-      cleanupInFlight.remove(sid)
+  private func terminalReason(for failure: NativeVideoCallFailure) -> String {
+    switch failure {
+    case .missingCameraOrMicrophonePermission, .rejected:
+      return "rejected"
+    case .acceptFailed, .tokenFailed, .joinFailed, .mediaFailed, .invalidSession, .internalInvariant:
+      return "failed"
+    case .ended:
+      return "ended"
+    default:
+      return "failed"
     }
-    log("ios_native_video_cleanup_done", sid, "reason=\(reason)")
   }
 
   private func isCurrentAnswer(sessionId: String, generation: UInt64) -> Bool {
@@ -369,80 +553,6 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
   private func isStillAccepting(sessionId: String) -> Bool {
     let snap = NativeVideoCallRuntime.shared.snapshot()
     return snap.session?.sessionId == sessionId && snap.state == .accepting
-  }
-
-  private func hasMediaPermissions() -> Bool {
-    isAudioAuthorized() && AVCaptureDevice.authorizationStatus(for: .video) == .authorized
-  }
-
-  private func isAudioAuthorized() -> Bool {
-    if #available(iOS 17.0, *) {
-      return AVAudioApplication.shared.recordPermission == .granted
-    }
-    return AVAudioSession.sharedInstance().recordPermission == .granted
-  }
-
-  private func ensureMediaPermissions(sessionId: String, completion: @escaping (Bool) -> Void) {
-    if hasMediaPermissions() {
-      DispatchQueue.main.async { completion(true) }
-      return
-    }
-    requestAudioPermission { [weak self] audioGranted in
-      guard let self else {
-        DispatchQueue.main.async { completion(false) }
-        return
-      }
-      guard audioGranted else {
-        self.log("ios_native_video_permission_denied", sessionId, "kind=microphone")
-        DispatchQueue.main.async { completion(false) }
-        return
-      }
-      self.requestVideoPermission { videoGranted in
-        if !videoGranted {
-          self.log("ios_native_video_permission_denied", sessionId, "kind=camera")
-        }
-        DispatchQueue.main.async { completion(videoGranted) }
-      }
-    }
-  }
-
-  private func requestAudioPermission(completion: @escaping (Bool) -> Void) {
-    if #available(iOS 17.0, *) {
-      switch AVAudioApplication.shared.recordPermission {
-      case .granted:
-        completion(true)
-      case .undetermined:
-        AVAudioApplication.requestRecordPermission { granted in
-          completion(granted)
-        }
-      default:
-        completion(false)
-      }
-      return
-    }
-    switch AVAudioSession.sharedInstance().recordPermission {
-    case .granted:
-      completion(true)
-    case .undetermined:
-      AVAudioSession.sharedInstance().requestRecordPermission { granted in
-        completion(granted)
-      }
-    default:
-      completion(false)
-    }
-  }
-
-  private func requestVideoPermission(completion: @escaping (Bool) -> Void) {
-    switch AVCaptureDevice.authorizationStatus(for: .video) {
-    case .authorized:
-      completion(true)
-    case .notDetermined:
-      AVCaptureDevice.requestAccess(for: .video) { granted in
-        completion(granted)
-      }
-    default:
-      completion(false)
-    }
   }
 
   private func log(_ event: String, _ sessionId: String, _ extra: String = "") {

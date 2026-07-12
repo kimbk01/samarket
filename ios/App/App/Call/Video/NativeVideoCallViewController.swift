@@ -15,6 +15,8 @@ final class NativeVideoCallViewController: UIViewController {
   private var acceptStarted = false
   private var inPipMode = false
   private var pipController: AVPictureInPictureController?
+  private var pipContentViewController: AVPictureInPictureVideoCallViewController?
+  private var remoteRenderView: UIView?
 
   private let videoRoot = UIView()
   private let remoteContainer = UIView()
@@ -66,10 +68,8 @@ final class NativeVideoCallViewController: UIViewController {
 
   func applyState(_ state: NativeVideoCallRuntimeState) {
     currentState = state
-    let model = NativeVideoCallUiPresenter.build(
-      session: NativeVideoCallRuntime.shared.getSession(sessionId: boundCallId) ?? session,
-      state: state
-    )
+    // Use init-captured session — avoid queue.sync on main during PiP reparent/stop (P4 deadlock).
+    let model = NativeVideoCallUiPresenter.build(session: session, state: state)
 
     peerNameLabel.text = model.peerName
     statusLabel.text = model.statusText
@@ -128,12 +128,18 @@ final class NativeVideoCallViewController: UIViewController {
 
   func attachRemoteView(_ view: UIView) {
     ensureVideoRootForRemoteRender()
+    remoteRenderView = view
     replaceSubview(in: remoteContainer, with: view, mediaOverlay: false)
   }
 
   func clearVideoSurfaces() {
     localContainer.subviews.forEach { $0.removeFromSuperview() }
     remoteContainer.subviews.forEach { $0.removeFromSuperview() }
+    remoteRenderView = nil
+  }
+
+  var isPictureInPictureActive: Bool {
+    pipController?.isPictureInPictureActive == true
   }
 
   // MARK: - PiP (Phase C3)
@@ -170,7 +176,46 @@ final class NativeVideoCallViewController: UIViewController {
   }
 
   func stopPipIfActive() {
+    guard pipController?.isPictureInPictureActive == true else { return }
+    reparentRemoteViewToFullscreen()
+    applyPipUiMode(false)
     pipController?.stopPictureInPicture()
+  }
+
+  private func reparentRemoteView(to container: UIView) {
+    if let remoteView = remoteRenderView {
+      guard remoteView.superview !== container else { return }
+      remoteView.removeFromSuperview()
+      remoteView.translatesAutoresizingMaskIntoConstraints = false
+      container.addSubview(remoteView)
+      NSLayoutConstraint.activate([
+        remoteView.topAnchor.constraint(equalTo: container.topAnchor),
+        remoteView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+        remoteView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+        remoteView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+      ])
+      return
+    }
+    NativeVideoCallAgoraEngine.shared.reattachRemoteVideo(callId: boundCallId)
+  }
+
+  private func reparentRemoteViewToPip() {
+    guard let pipVC = pipContentViewController else { return }
+    _ = ensureVideoRootForRemoteRender()
+    reparentRemoteView(to: pipVC.view)
+    NativeVideoCallLog.info("native_video_pip_remote_reparented", callId: boundCallId, details: "target=pip")
+  }
+
+  private func reparentRemoteViewToFullscreen() {
+    _ = ensureVideoRootForRemoteRender()
+    if let remoteView = remoteRenderView, remoteView.superview === remoteContainer {
+      return
+    }
+    reparentRemoteView(to: remoteContainer)
+    if remoteRenderView == nil {
+      NativeVideoCallAgoraEngine.shared.reattachRemoteVideo(callId: boundCallId)
+    }
+    NativeVideoCallLog.info("native_video_pip_remote_reparented", callId: boundCallId, details: "target=fullscreen")
   }
 
   private func isPipEligible() -> Bool {
@@ -184,6 +229,7 @@ final class NativeVideoCallViewController: UIViewController {
 
     let pipVC = AVPictureInPictureVideoCallViewController()
     pipVC.preferredContentSize = CGSize(width: 9, height: 16)
+    pipContentViewController = pipVC
     let contentSource = AVPictureInPictureController.ContentSource(
       activeVideoCallSourceView: remoteContainer,
       contentViewController: pipVC
@@ -341,6 +387,9 @@ final class NativeVideoCallViewController: UIViewController {
 
   @objc private func onEndTapped() {
     NativeVideoCallLog.info("native_video_call_end", callId: boundCallId)
+    if isPictureInPictureActive {
+      DibayCallPipPlugin.publishPipAction(action: "end", callId: boundCallId)
+    }
     NativeVideoIncomingCallCoordinator.shared.handleRejectOrEnd(sessionId: boundCallId) {}
   }
 
@@ -373,7 +422,17 @@ final class NativeVideoCallViewController: UIViewController {
       return
     }
     acceptStarted = true
-    NativeVideoCallKitBridge.requestAnswer(callId: boundCallId, source: source)
+    let context = DibayVoiceMicrophonePermission.resolveIncomingAnswerContext()
+    DibayVideoMediaPermission.ensureGranted(sessionId: boundCallId, context: context) { [weak self] granted in
+      guard let self else { return }
+      guard granted else {
+        self.acceptStarted = false
+        NativeVideoCallLog.info("video_accept_fail_permission", callId: self.boundCallId, details: "source=\(source)")
+        NativeVideoCallKitBridge.requestEnd(callId: self.boundCallId, kind: "decline")
+        return
+      }
+      NativeVideoCallKitBridge.requestAnswer(callId: self.boundCallId, source: source)
+    }
   }
 
   private func replaceSubview(in container: UIView, with child: UIView, mediaOverlay: Bool) {
@@ -419,15 +478,30 @@ final class NativeVideoCallViewController: UIViewController {
 @available(iOS 15.0, *)
 extension NativeVideoCallViewController: AVPictureInPictureControllerDelegate {
   func pictureInPictureControllerWillStartPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
+    reparentRemoteViewToPip()
     applyPipUiMode(true)
     ScreenAwakeBridge.shared.notifyPresentationChanged(callId: boundCallId, presentation: "pip")
+    DibayCallPipPlugin.publishPipModeChanged(inPipMode: true, callId: boundCallId)
     NativeVideoCallLog.info("native_video_pip_entered", callId: boundCallId)
   }
 
   func pictureInPictureControllerDidStopPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
+    reparentRemoteViewToFullscreen()
     applyPipUiMode(false)
     ScreenAwakeBridge.shared.notifyPresentationChanged(callId: boundCallId, presentation: "fullscreen")
+    DibayCallPipPlugin.publishPipModeChanged(inPipMode: false, callId: boundCallId)
     NativeVideoCallLog.info("native_video_pip_exited", callId: boundCallId)
+  }
+
+  func pictureInPictureController(
+    _ pictureInPictureController: AVPictureInPictureController,
+    restoreUserInterfaceForPictureInPictureStopWithCompletionHandler completionHandler: @escaping (Bool) -> Void
+  ) {
+    reparentRemoteViewToFullscreen()
+    applyPipUiMode(false)
+    DibayCallPipPlugin.publishPipAction(action: "restore", callId: boundCallId)
+    NativeVideoCallLog.info("native_video_pip_restore", callId: boundCallId)
+    completionHandler(true)
   }
 
   func pictureInPictureController(

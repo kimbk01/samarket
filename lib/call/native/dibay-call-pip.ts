@@ -16,7 +16,7 @@ export type DibayCallPipPlugin = {
     cameraOff?: boolean;
     displayName?: string;
   }): Promise<{ ok: boolean }>;
-  exitCallPip(): Promise<{ ok: boolean }>;
+  exitCallPip(options: { callId?: string }): Promise<{ ok: boolean }>;
   addListener(
     eventName: "pipModeChanged",
     listener: (event: { inPipMode: boolean; callId?: string | null }) => void
@@ -46,7 +46,6 @@ function invokeNative<T>(method: keyof DibayCallPipPlugin, options?: Record<stri
   return Promise.resolve(null);
 }
 
-/** iOS P0: stub — native PiP 미구현 */
 export async function isDibayNativeCallPipSupported(): Promise<boolean> {
   const result = await invokeNative<{ supported: boolean }>("isPipSupported");
   return result?.supported ?? false;
@@ -71,8 +70,9 @@ export async function enterDibayNativeCallPip(options: {
   return result?.ok ?? false;
 }
 
-export async function exitDibayNativeCallPip(): Promise<boolean> {
-  const result = await invokeNative<{ ok: boolean }>("exitCallPip");
+export async function exitDibayNativeCallPip(callId?: string): Promise<boolean> {
+  const sid = callId?.trim() ?? "";
+  const result = await invokeNative<{ ok: boolean }>("exitCallPip", sid ? { callId: sid } : {});
   return result?.ok ?? false;
 }
 

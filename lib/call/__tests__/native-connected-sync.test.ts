@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  enqueueNativeConnectedForTests,
+  flushPendingNativeConnected,
   onNativeCallConnected,
   resetNativeConnectedSyncForTests,
   type NativeCallConnectedPayload,
@@ -167,6 +169,16 @@ describe("native-connected-sync", () => {
     await onNativeCallConnected(samplePayload());
 
     expect(readCallV4MissedTimerCallIdForTests()).toBeNull();
+  });
+
+  it("flushPendingNativeConnected hydrates queued payloads before listener ready", async () => {
+    enqueueNativeConnectedForTests(samplePayload({ direction: "incoming" }));
+    expect(useCallV4Store.getState().phase).toBe("idle");
+
+    await flushPendingNativeConnected();
+
+    expect(useCallV4Store.getState().phase).toBe("connected");
+    expect(useCallV4Store.getState().identity?.callId).toBe("call-o3-1");
   });
 });
 

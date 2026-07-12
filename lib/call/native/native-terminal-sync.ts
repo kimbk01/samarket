@@ -16,26 +16,31 @@ import {
   nativeCallServicePlugin,
   type NativeCallTerminalPayload,
 } from "@/lib/call/native/native-call-service";
-import { clearNativeConnectedHydrationForCall } from "@/lib/call/native/native-connected-sync";
+import {
+  clearNativeConnectedHydrationForCall,
+  flushPendingNativeConnected,
+} from "@/lib/call/native/native-connected-sync";
 import { isCapacitorNativePlatform, resolveCapacitorShellPlatform } from "@/lib/platform/capacitor-native";
 
 const handledNativeLocalTerminal = new Set<string>();
 const pendingNativeLocalTerminal: NativeCallTerminalPayload[] = [];
 let nativeTerminalListenerReady = false;
 
-function deliverNativeLocalTerminal(payload: NativeCallTerminalPayload): void {
-  if (nativeTerminalListenerReady) {
-    void onNativeCallLocalTerminal(payload);
+async function deliverNativeLocalTerminal(payload: NativeCallTerminalPayload): Promise<void> {
+  if (!nativeTerminalListenerReady) {
+    pendingNativeLocalTerminal.push(payload);
     return;
   }
-  pendingNativeLocalTerminal.push(payload);
+  await flushPendingNativeConnected();
+  await onNativeCallLocalTerminal(payload);
 }
 
-function flushPendingNativeLocalTerminal(): void {
+async function flushPendingNativeLocalTerminal(): Promise<void> {
   nativeTerminalListenerReady = true;
+  await flushPendingNativeConnected();
   const queued = pendingNativeLocalTerminal.splice(0);
   for (const payload of queued) {
-    void onNativeCallLocalTerminal(payload);
+    await onNativeCallLocalTerminal(payload);
   }
 }
 
@@ -108,7 +113,7 @@ export function startNativeTerminalSync(): () => void {
   let handle: PluginListenerHandle | null = null;
 
   void nativeCallServicePlugin.addListener(NATIVE_CALL_TERMINAL_EVENT, (payload) => {
-    deliverNativeLocalTerminal(payload as NativeCallTerminalPayload);
+    void deliverNativeLocalTerminal(payload as NativeCallTerminalPayload);
   })
     .then((subscription) => {
       if (disposed) {
@@ -116,7 +121,7 @@ export function startNativeTerminalSync(): () => void {
         return;
       }
       handle = subscription;
-      flushPendingNativeLocalTerminal();
+      void flushPendingNativeLocalTerminal();
     })
     .catch(() => {
       /* plugin optional until native shell ready */

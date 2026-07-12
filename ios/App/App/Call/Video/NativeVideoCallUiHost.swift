@@ -120,12 +120,30 @@ enum NativeVideoCallUiHost {
     onMain {
       clearDeferredPresentation(callId: callId)
       guard let controller = controller(for: callId) else { return }
+      controller.stopPipIfActive()
+      DibayCallPipPlugin.clearPipEmitGuards(callId: callId)
       sync.lock()
       if activeController === controller {
         activeController = nil
       }
       sync.unlock()
       controller.dismiss(animated: true)
+    }
+  }
+
+  /** Cleanup path — stop PiP on main before surfaces cleared / VC dismissed. Main thread only (no sync). */
+  static func stopPipBeforeDismiss(callId: String) {
+    guard Thread.isMainThread else {
+      assertionFailure("stopPipBeforeDismiss must run on main — batch via cleanup main.async")
+      return
+    }
+    controller(for: callId)?.stopPipIfActive()
+  }
+
+  static func publishPipEndActionIfNeeded(callId: String) {
+    onMain {
+      guard let controller = controller(for: callId), controller.isPictureInPictureActive else { return }
+      DibayCallPipPlugin.publishPipAction(action: "end", callId: callId)
     }
   }
 
@@ -148,9 +166,21 @@ enum NativeVideoCallUiHost {
   }
 
   static func requestExitPip(callId: String) -> Bool {
-    onMain {
-      guard let controller = controller(for: callId) else { return }
+    if Thread.isMainThread {
+      return requestExitPipOnMain(callId: callId)
+    }
+    var ok = false
+    DispatchQueue.main.sync {
+      ok = requestExitPipOnMain(callId: callId)
+    }
+    return ok
+  }
+
+  private static func requestExitPipOnMain(callId: String) -> Bool {
+    guard let controller = controller(for: callId) else { return false }
+    if controller.isPictureInPictureActive {
       controller.stopPipIfActive()
+      return true
     }
     return true
   }
