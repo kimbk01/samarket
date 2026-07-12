@@ -73,11 +73,17 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
           owner: "terminal",
           reason: terminalReason
         )
-        callProvider.endCallKitSession(
+        let caller = (data["title"] as? String) ?? "통화"
+        let hasVideo = (data["kind"] as? String) == "video"
+        callProvider.reportOrphanTerminalVoipPushAndEnd(
           sessionId: sessionId,
-          reason: .failed,
+          handle: caller,
+          hasVideo: hasVideo,
           logDetail: terminalReason
-        )
+        ) {
+          completion()
+        }
+        return
       }
       completion()
       return

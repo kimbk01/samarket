@@ -197,6 +197,9 @@ describe("call-v4 import isolation", () => {
     expect(bridge).toContain("surface_owner_bridge_injected");
     expect(voip).toContain('owner: "native_fsi"');
     expect(voip).toContain('owner: "terminal"');
+    expect(voip).toContain("reportOrphanTerminalVoipPushAndEnd");
+    expect(callkit).toContain("reportOrphanTerminalVoipPushAndEnd");
+    expect(callkit).toContain("ios_voip_terminal_orphan_reported_and_ended");
     expect(callkit).toContain('owner: "accepted_transition"');
     expect(callkit).toContain('owner: "terminal"');
     expect(plugin).toContain("claimForegroundWebIncomingOwner");
