@@ -139,7 +139,7 @@ export function MessengerPillarSummaryRow({ variant, summary, entryOriginQuery =
       ? lastTitle
       : copy.emptyPreview;
   const lastEventAt = lastItem?.lastEventAt;
-  const unread = summary.unreadRoomCount;
+  const unread = summary.unreadTotal;
 
   const avatar = (
     <div
