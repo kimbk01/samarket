@@ -545,15 +545,17 @@ public final class NativeVideoCallAgoraEngine {
     }
   }
 
-  private static void markRemoteVideoRendered(int uid, String sid, String details) {
+  private static void markRemoteVideoRendered(int uid, String sid, int width, int height, String details) {
     Listener currentListener;
     boolean firstFrame;
+    boolean callerJoin;
     synchronized (LOCK) {
       if (!sid.equals(activeCallId)) return;
       firstFrame = !remoteVideoRendered;
       if (remoteVideoRendered) return;
       remoteVideoRendered = true;
       currentListener = listener;
+      callerJoin = callerJoinActive;
     }
     if (firstFrame) {
       NativeVideoCallLog.info(
@@ -570,6 +572,9 @@ public final class NativeVideoCallAgoraEngine {
               + details);
     }
     NativeVideoCallLog.info("remote_video_render_ready", sid, "uid=" + uid + details);
+    if (callerJoin) {
+      NativeVideoCallActivity.onOutgoingRemoteFirstFrameReady(sid, uid, width, height);
+    }
     if (currentListener != null) currentListener.onRemoteVideoReady();
   }
 
@@ -613,6 +618,9 @@ public final class NativeVideoCallAgoraEngine {
           }
           if (sid == null || uid == 0) return;
           NativeVideoCallLog.info("remote_user_joined", sid, "uid=" + uid);
+          if (callerJoin) {
+            NativeVideoCallActivity.onOutgoingRemoteUserJoined(sid, uid);
+          }
           scheduleRemoteVideoSetup(uid, sid);
           if (callerJoin && currentListener != null) currentListener.onConnected();
         }
@@ -637,7 +645,7 @@ public final class NativeVideoCallAgoraEngine {
             sid = activeCallId;
           }
           if (sid == null || uid == 0) return;
-          markRemoteVideoRendered(uid, sid, " width=" + width + " height=" + height);
+          markRemoteVideoRendered(uid, sid, width, height, " width=" + width + " height=" + height);
         }
 
         @Override
@@ -647,7 +655,20 @@ public final class NativeVideoCallAgoraEngine {
             sid = activeCallId;
           }
           if (sid == null || uid == 0) return;
-          markRemoteVideoRendered(uid, sid, " width=" + width + " height=" + height);
+          markRemoteVideoRendered(uid, sid, width, height, " width=" + width + " height=" + height);
+        }
+
+        @Override
+        public void onFirstLocalVideoFrame(
+            Constants.VideoSourceType source, int width, int height, int elapsed) {
+          String sid;
+          boolean callerJoin;
+          synchronized (LOCK) {
+            sid = activeCallId;
+            callerJoin = callerJoinActive;
+          }
+          if (sid == null || !callerJoin) return;
+          NativeVideoCallActivity.onOutgoingLocalFirstFrameReady(sid, width, height);
         }
 
         @Override

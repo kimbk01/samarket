@@ -1,6 +1,7 @@
 package com.dibay.app.nativevideo;
 
 import android.Manifest;
+import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.app.PictureInPictureParams;
 import android.content.Intent;
@@ -23,6 +24,7 @@ import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.ViewGroup;
+import android.view.animation.DecelerateInterpolator;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
@@ -131,6 +133,14 @@ public class NativeVideoCallActivity extends Activity {
   private boolean backgroundTapMoved = false;
   private float backgroundTapStartX = 0f;
   private float backgroundTapStartY = 0f;
+  private boolean outgoingLocalFirstFrameReady = false;
+  private boolean outgoingRemoteFirstFrameReady = false;
+  private boolean outgoingTransitionRunning = false;
+  private boolean outgoingTransitionCompleted = false;
+  private int outgoingTransitionGeneration = 0;
+  private ValueAnimator outgoingLocalToPipAnimator;
+  private int[] lockedOutgoingPipTargetRect = null;
+  private int pipLayoutPassCount = 0;
   private NativeVideoCallRuntime.State currentState = NativeVideoCallRuntime.State.RINGING;
   private final Handler mainHandler = new Handler(Looper.getMainLooper());
   private long connectedAtElapsedMs = 0L;
@@ -172,6 +182,7 @@ public class NativeVideoCallActivity extends Activity {
         () -> {
           if (!callId.equals(activity.callId) || activity.isFinishing() || activity.isDestroyed()) return;
           activity.replaceView(activity.localContainer, view, true);
+          activity.applyOutgoingLocalLayoutAfterAttach("attach_local");
         };
     if (Looper.myLooper() == Looper.getMainLooper()) {
       attach.run();
@@ -208,6 +219,29 @@ public class NativeVideoCallActivity extends Activity {
     NativeVideoCallActivity activity = activeRef.get();
     if (activity == null || callId == null || !callId.equals(activity.callId)) return false;
     return activity.remoteContainer != null && activity.remoteContainer.getChildCount() > 0;
+  }
+
+  public static void onOutgoingLocalFirstFrameReady(String callId, int width, int height) {
+    NativeVideoCallActivity activity = activeRef.get();
+    if (activity == null || callId == null || !callId.equals(activity.callId)) return;
+    activity.runOnUiThread(() -> activity.handleOutgoingLocalFirstFrameReady(width, height));
+  }
+
+  public static void onOutgoingRemoteUserJoined(String callId, int uid) {
+    NativeVideoCallActivity activity = activeRef.get();
+    if (activity == null || callId == null || !callId.equals(activity.callId)) return;
+    activity.runOnUiThread(
+        () ->
+            NativeVideoCallLog.info(
+                "outgoing_remote_user_joined",
+                callId,
+                activity.buildOutgoingVideoLogDetails("uid=" + uid)));
+  }
+
+  public static void onOutgoingRemoteFirstFrameReady(String callId, int uid, int width, int height) {
+    NativeVideoCallActivity activity = activeRef.get();
+    if (activity == null || callId == null || !callId.equals(activity.callId)) return;
+    activity.runOnUiThread(() -> activity.handleOutgoingRemoteFirstFrameReady(uid, width, height));
   }
 
   public static boolean ensureVideoRootForRemoteRender(String callId) {
@@ -401,6 +435,7 @@ public class NativeVideoCallActivity extends Activity {
     unregisterNativeVideoBackCallback();
     clearPipRequestVerification();
     cancelConnectedChromeHide("destroy");
+    cancelOutgoingVideoTransition("destroy");
     NativeVideoCallAgoraEngine.setNetworkQualityObserver(null);
     pipState = PipState.PIP_IDLE;
     stopDurationTimer();
@@ -732,6 +767,7 @@ public class NativeVideoCallActivity extends Activity {
         || state == NativeVideoCallRuntime.State.ENDED
         || state == NativeVideoCallRuntime.State.FAILED) {
       cancelConnectedChromeHide("terminal_state");
+      cancelOutgoingVideoTransition("terminal_state");
       wasConnectedFullscreen = false;
       displayedNetworkTier = NetworkDisplayTier.GOOD;
       networkVeryPoorActive = false;
@@ -748,25 +784,34 @@ public class NativeVideoCallActivity extends Activity {
     }
     NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(callId);
     NativeVideoCallUiPresenter.Model model = NativeVideoCallUiPresenter.build(this, session, state);
+    boolean outgoingPresentation = isOutgoingVideoPresentation(session);
     peerNameView.setText(model.peerName);
     statusView.setText(model.statusText);
     avatarInitialView.setText(model.avatarInitial);
     incomingActions.setVisibility(model.showIncomingActions ? View.VISIBLE : View.GONE);
-    if (!model.showConnectedControls) {
+    if (!model.showConnectedControls && !outgoingPresentation) {
       activeActions.setVisibility(model.showActiveActions ? View.VISIBLE : View.GONE);
       connectedControls.setVisibility(View.GONE);
+    } else if (outgoingPresentation && !isTerminalState(state)) {
+      activeActions.setVisibility(View.VISIBLE);
+      connectedControls.setVisibility(View.VISIBLE);
+      updateConnectedControlChrome();
     }
-    videoRoot.setVisibility(model.showVideoSurfaces ? View.VISIBLE : View.GONE);
-    localContainer.setVisibility(model.showLocalPreview ? View.VISIBLE : View.GONE);
-    statusPanel.setVisibility(model.showStatusOverlay ? View.VISIBLE : View.GONE);
-    if (model.showVideoSurfaces) {
-      overlayRoot.setBackgroundColor(Color.TRANSPARENT);
-      peerNameView.setTextColor(Color.WHITE);
-      statusView.setTextColor(Color.LTGRAY);
+    if (outgoingPresentation && !isTerminalState(state)) {
+      applyOutgoingVideoPresentation(model, state);
     } else {
-      overlayRoot.setBackgroundResource(R.drawable.bg_dibay_incoming_fullscreen);
-      peerNameView.setTextColor(getResources().getColor(R.color.dibay_incoming_text_primary, getTheme()));
-      statusView.setTextColor(getResources().getColor(R.color.dibay_incoming_text_muted, getTheme()));
+      videoRoot.setVisibility(model.showVideoSurfaces ? View.VISIBLE : View.GONE);
+      localContainer.setVisibility(model.showLocalPreview ? View.VISIBLE : View.GONE);
+      statusPanel.setVisibility(model.showStatusOverlay ? View.VISIBLE : View.GONE);
+      if (model.showVideoSurfaces) {
+        overlayRoot.setBackgroundColor(Color.TRANSPARENT);
+        peerNameView.setTextColor(Color.WHITE);
+        statusView.setTextColor(Color.LTGRAY);
+      } else {
+        overlayRoot.setBackgroundResource(R.drawable.bg_dibay_incoming_fullscreen);
+        peerNameView.setTextColor(getResources().getColor(R.color.dibay_incoming_text_primary, getTheme()));
+        statusView.setTextColor(getResources().getColor(R.color.dibay_incoming_text_muted, getTheme()));
+      }
     }
     if (model.showDuration) {
       if (connectedAtElapsedMs <= 0L) connectedAtElapsedMs = SystemClock.elapsedRealtime();
@@ -777,19 +822,25 @@ public class NativeVideoCallActivity extends Activity {
       connectedAtElapsedMs = 0L;
       durationView.setVisibility(View.GONE);
     }
-    if (model.showVideoSurfaces) {
-      activeActions.bringToFront();
-      activeActions.setTranslationZ(24f);
+    if (outgoingPresentation && !outgoingTransitionCompleted) {
+      durationView.setVisibility(View.GONE);
+    }
+    if (model.showVideoSurfaces || outgoingPresentation) {
       if (connectedChromeOverlay != null) {
         connectedChromeOverlay.bringToFront();
         connectedChromeOverlay.setTranslationZ(20f);
       }
+      activeActions.bringToFront();
+      activeActions.setTranslationZ(32f);
       ensureVideoRootForRemoteRender();
       NativeVideoCallAgoraEngine.onRemoteRenderSurfaceReady(callId);
     }
     updateConnectedInfoPanel(model);
     if (inPipMode) applyPipUiMode(true);
-    boolean connectedFullscreenNow = model.showConnectedControls && isConnectedFullscreenPresentation();
+    boolean connectedFullscreenNow =
+        model.showConnectedControls
+            && isConnectedFullscreenPresentation()
+            && (!outgoingPresentation || outgoingTransitionCompleted);
     if (connectedFullscreenNow) {
       updateConnectedControlChrome();
       if (!wasConnectedFullscreen) {
@@ -800,6 +851,521 @@ public class NativeVideoCallActivity extends Activity {
       chromeVisible = false;
     }
     wasConnectedFullscreen = connectedFullscreenNow;
+  }
+
+  private boolean isOutgoingVideoPresentation(NativeVideoCallRuntime.Session session) {
+    return session != null
+        && session.initiator
+        && (UI_MODE_OUTGOING.equals(uiMode) || UI_MODE_CONNECTED_RESTORE.equals(uiMode));
+  }
+
+  private boolean shouldSkipConnectedPipLayout() {
+    NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(callId);
+    return isOutgoingVideoPresentation(session)
+        && !outgoingTransitionCompleted
+        && !outgoingTransitionRunning;
+  }
+
+  private boolean isTerminalState(NativeVideoCallRuntime.State state) {
+    return state == NativeVideoCallRuntime.State.ENDING
+        || state == NativeVideoCallRuntime.State.ENDED
+        || state == NativeVideoCallRuntime.State.FAILED;
+  }
+
+  private void applyOutgoingVideoPresentation(
+      NativeVideoCallUiPresenter.Model model, NativeVideoCallRuntime.State state) {
+    videoRoot.setVisibility(View.VISIBLE);
+    if (!outgoingTransitionCompleted && !outgoingTransitionRunning) {
+      applyOutgoingLocalFullscreenLayout();
+    } else if (outgoingTransitionCompleted) {
+      applyConnectedLocalPipLayout("outgoing_presentation_connected");
+    }
+    remoteContainer.setVisibility(outgoingRemoteFirstFrameReady ? View.VISIBLE : View.INVISIBLE);
+    remoteContainer.setAlpha(outgoingRemoteFirstFrameReady ? 1f : 0f);
+    localContainer.setVisibility(outgoingLocalFirstFrameReady ? View.VISIBLE : View.INVISIBLE);
+    localContainer.setAlpha(outgoingLocalFirstFrameReady ? 1f : 0f);
+    localContainer.setEnabled(outgoingTransitionCompleted && state == NativeVideoCallRuntime.State.CONNECTED);
+    activeActions.setVisibility(View.VISIBLE);
+    activeActions.setEnabled(true);
+    connectedControls.setVisibility(View.VISIBLE);
+    connectedControls.setEnabled(true);
+    updateConnectedControlChrome();
+    NativeVideoCallLog.info(
+        "outgoing_controls_visible", callId, buildOutgoingVideoLogDetails("reason=outgoing_presentation"));
+    NativeVideoCallLog.info(
+        "outgoing_end_call_visible", callId, buildOutgoingVideoLogDetails("handler=NativeVideoCallRuntime.end"));
+    statusPanel.setVisibility(outgoingTransitionCompleted ? View.GONE : View.VISIBLE);
+    if (outgoingLocalFirstFrameReady) {
+      overlayRoot.setBackgroundColor(Color.TRANSPARENT);
+      peerNameView.setTextColor(Color.WHITE);
+      statusView.setTextColor(Color.LTGRAY);
+      if (!outgoingTransitionCompleted) {
+        NativeVideoCallLog.info(
+            "outgoing_avatar_visible", callId, buildOutgoingVideoLogDetails("source=avatar_initial"));
+      }
+      NativeVideoCallLog.info(
+          "outgoing_local_fullscreen_visible",
+          callId,
+          buildOutgoingVideoLogDetails("phase=" + model.phase.name()));
+    } else {
+      overlayRoot.setBackgroundResource(R.drawable.bg_dibay_incoming_fullscreen);
+      peerNameView.setTextColor(getResources().getColor(R.color.dibay_incoming_text_primary, getTheme()));
+      statusView.setTextColor(getResources().getColor(R.color.dibay_incoming_text_muted, getTheme()));
+      NativeVideoCallLog.info(
+          "outgoing_video_ui_preparing",
+          callId,
+          buildOutgoingVideoLogDetails("phase=" + model.phase.name()));
+    }
+    if (state == NativeVideoCallRuntime.State.CONNECTED && outgoingRemoteFirstFrameReady) {
+      maybeStartOutgoingLocalToPipTransition("apply_state_connected");
+    }
+    if (outgoingTransitionCompleted) {
+      NativeVideoCallLog.info("outgoing_avatar_hidden", callId, buildOutgoingVideoLogDetails("reason=connected"));
+      NativeVideoCallLog.info("outgoing_duration_visible", callId, buildOutgoingVideoLogDetails("source=connectedAt"));
+      NativeVideoCallLog.info("outgoing_signal_visible", callId, buildOutgoingVideoLogDetails("source=agora_networkQuality"));
+      NativeVideoCallLog.info("outgoing_controls_layout_restored", callId, buildOutgoingVideoLogDetails("reason=connected"));
+    }
+  }
+
+  private void applyOutgoingLocalLayoutAfterAttach(String reason) {
+    NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(callId);
+    if (!isOutgoingVideoPresentation(session) || isTerminalState(currentState)) return;
+    if (outgoingTransitionCompleted) {
+      applyConnectedLocalPipLayout("attach_local_connected");
+    } else {
+      applyOutgoingLocalFullscreenLayout();
+      localContainer.setVisibility(outgoingLocalFirstFrameReady ? View.VISIBLE : View.INVISIBLE);
+      localContainer.setAlpha(outgoingLocalFirstFrameReady ? 1f : 0f);
+    }
+    NativeVideoCallLog.info(
+        "outgoing_video_ui_preparing", callId, buildOutgoingVideoLogDetails("reason=" + reason));
+  }
+
+  private void handleOutgoingLocalFirstFrameReady(int width, int height) {
+    NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(callId);
+    if (!isOutgoingVideoPresentation(session) || outgoingLocalFirstFrameReady) return;
+    outgoingLocalFirstFrameReady = true;
+    NativeVideoCallLog.info(
+        "outgoing_local_first_frame_ready",
+        callId,
+        buildOutgoingVideoLogDetails("width=" + width + " height=" + height));
+    applyState(currentState);
+    maybeStartOutgoingLocalToPipTransition("local_first_frame");
+  }
+
+  private void handleOutgoingRemoteFirstFrameReady(int uid, int width, int height) {
+    NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(callId);
+    if (!isOutgoingVideoPresentation(session) || outgoingRemoteFirstFrameReady) return;
+    outgoingRemoteFirstFrameReady = true;
+    NativeVideoCallLog.info(
+        "outgoing_remote_first_frame_ready",
+        callId,
+        buildOutgoingVideoLogDetails("uid=" + uid + " width=" + width + " height=" + height));
+    maybeStartOutgoingLocalToPipTransition("remote_first_frame");
+  }
+
+  private void maybeStartOutgoingLocalToPipTransition(String reason) {
+    NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(callId);
+    if (!isOutgoingVideoPresentation(session)
+        || currentState != NativeVideoCallRuntime.State.CONNECTED
+        || isFinishing()
+        || isDestroyed()
+        || outgoingTransitionRunning
+        || outgoingTransitionCompleted) {
+      logOutgoingTransitionSkipped(reason);
+      return;
+    }
+    if (!outgoingLocalFirstFrameReady || !outgoingRemoteFirstFrameReady) {
+      logOutgoingTransitionSkipped(reason);
+      return;
+    }
+    if (localContainer == null || videoRoot == null || videoRoot.getWidth() <= 0 || videoRoot.getHeight() <= 0) {
+      logOutgoingTransitionSkipped("layout_not_ready");
+      return;
+    }
+    startOutgoingLocalToPipTransition(reason);
+  }
+
+  private void startOutgoingLocalToPipTransition(String reason) {
+    outgoingTransitionRunning = true;
+    final int generation = ++outgoingTransitionGeneration;
+    remoteContainer.setVisibility(View.VISIBLE);
+    remoteContainer.setAlpha(1f);
+    localContainer.setVisibility(View.VISIBLE);
+    localContainer.setAlpha(1f);
+    localContainer.setEnabled(false);
+    localContainer.bringToFront();
+    activeActions.bringToFront();
+    if (connectedChromeOverlay != null) connectedChromeOverlay.bringToFront();
+
+    final int startLeft = localContainer.getLeft();
+    final int startTop = localContainer.getTop();
+    final int startWidth = localContainer.getWidth() > 0 ? localContainer.getWidth() : videoRoot.getWidth();
+    final int startHeight = localContainer.getHeight() > 0 ? localContainer.getHeight() : videoRoot.getHeight();
+    logOutgoingPipParentBounds("transition_prepare");
+    logOutgoingPipInsetsResolved("transition_prepare");
+    final int[] end = resolveConnectedLocalPipRect("transition_target");
+    lockedOutgoingPipTargetRect = new int[] {end[0], end[1], end[2], end[3]};
+    logOutgoingPipTargetResolved(end, localPipCustomPosition ? "saved_drag" : "default");
+    NativeVideoCallLog.info(
+        "outgoing_local_to_pip_transition_started",
+        callId,
+        buildOutgoingVideoLogDetails(
+            "reason="
+                + reason
+                + " start="
+                + startLeft
+                + ","
+                + startTop
+                + ","
+                + startWidth
+                + "x"
+                + startHeight
+                + " end="
+                + end[0]
+                + ","
+                + end[1]
+                + ","
+                + end[2]
+                + "x"
+                + end[3]));
+    outgoingLocalToPipAnimator = ValueAnimator.ofFloat(0f, 1f);
+    outgoingLocalToPipAnimator.setDuration(320L);
+    outgoingLocalToPipAnimator.setInterpolator(new DecelerateInterpolator(1.6f));
+    outgoingLocalToPipAnimator.addUpdateListener(
+        animator -> {
+          float t = (float) animator.getAnimatedValue();
+          int left = Math.round(startLeft + (end[0] - startLeft) * t);
+          int top = Math.round(startTop + (end[1] - startTop) * t);
+          int width = Math.round(startWidth + (end[2] - startWidth) * t);
+          int height = Math.round(startHeight + (end[3] - startHeight) * t);
+          setLocalContainerBounds(left, top, width, height);
+        });
+    outgoingLocalToPipAnimator.addListener(
+        new android.animation.AnimatorListenerAdapter() {
+          @Override
+          public void onAnimationEnd(android.animation.Animator animation) {
+            if (generation != outgoingTransitionGeneration || isTerminalState(currentState)) return;
+            outgoingTransitionRunning = false;
+            outgoingTransitionCompleted = true;
+            outgoingLocalToPipAnimator = null;
+            localPipLeft = end[0];
+            localPipTop = end[1];
+            localContainer.setEnabled(true);
+            setLocalContainerBounds(end[0], end[1], end[2], end[3]);
+            localContainer.setTranslationX(0f);
+            localContainer.setTranslationY(0f);
+            localContainer.setScaleX(1f);
+            localContainer.setScaleY(1f);
+            int[] measured = measureLocalContainerBounds();
+            logOutgoingPipFinalFrameMeasured(end, measured, "transition_completed");
+            NativeVideoCallLog.info(
+                "outgoing_local_to_pip_transition_completed",
+                callId,
+                buildOutgoingVideoLogDetails(
+                    "reason="
+                        + reason
+                        + " finalX="
+                        + measured[0]
+                        + " finalY="
+                        + measured[1]
+                        + " finalWidth="
+                        + measured[2]
+                        + " finalHeight="
+                        + measured[3]
+                        + " targetDeltaPx="
+                        + pipRectDelta(end, measured)));
+            NativeVideoCallLog.info(
+                "outgoing_video_connected_ui_ready",
+                callId,
+                buildOutgoingVideoLogDetails("reason=transition_completed"));
+            localContainer.post(
+                () -> {
+                  if (generation != outgoingTransitionGeneration || isTerminalState(currentState)) return;
+                  int[] layoutPassMeasured = measureLocalContainerBounds();
+                  verifyPipPositionAfterLayout("transition_completed_layout_pass", lockedOutgoingPipTargetRect);
+                  logOutgoingPipFinalFrameMeasured(
+                      lockedOutgoingPipTargetRect, layoutPassMeasured, "transition_completed_layout_pass");
+                });
+            applyState(currentState);
+          }
+
+          @Override
+          public void onAnimationCancel(android.animation.Animator animation) {
+            outgoingTransitionRunning = false;
+            outgoingLocalToPipAnimator = null;
+            NativeVideoCallLog.info(
+                "outgoing_video_transition_cancelled",
+                callId,
+                buildOutgoingVideoLogDetails("reason=animator_cancel"));
+          }
+        });
+    outgoingLocalToPipAnimator.start();
+  }
+
+  private void cancelOutgoingVideoTransition(String reason) {
+    outgoingTransitionGeneration++;
+    if (outgoingLocalToPipAnimator != null) {
+      outgoingLocalToPipAnimator.cancel();
+      outgoingLocalToPipAnimator = null;
+    }
+    if (outgoingTransitionRunning) {
+      NativeVideoCallLog.info(
+          "outgoing_video_transition_cancelled",
+          callId != null ? callId : "unknown",
+          buildOutgoingVideoLogDetails("reason=" + reason));
+    }
+    outgoingTransitionRunning = false;
+    lockedOutgoingPipTargetRect = null;
+  }
+
+  private void logOutgoingTransitionSkipped(String reason) {
+    NativeVideoCallLog.info(
+        "outgoing_local_to_pip_transition_skipped",
+        callId != null ? callId : "unknown",
+        buildOutgoingVideoLogDetails("reason=" + reason));
+  }
+
+  private void applyOutgoingLocalFullscreenLayout() {
+    if (localContainer == null || videoRoot == null) return;
+    FrameLayout.LayoutParams params =
+        new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT);
+    params.gravity = Gravity.TOP | Gravity.START;
+    params.setMargins(0, 0, 0, 0);
+    localContainer.setLayoutParams(params);
+    localContainer.setTranslationX(0f);
+    localContainer.setTranslationY(0f);
+    localContainer.setScaleX(1f);
+    localContainer.setScaleY(1f);
+  }
+
+  /** SSOT: connected 보조 PiP frame (parent-local). transition·final layout·기본 배치 공통. */
+  private int[] resolveConnectedLocalPipRect(String positionSource) {
+    int width = dp(LOCAL_PIP_WIDTH_DP);
+    int height = dp(LOCAL_PIP_HEIGHT_DP);
+    int margin = dp(LOCAL_PIP_MARGIN_DP);
+    int left;
+    int top;
+    if (localPipCustomPosition) {
+      logOutgoingPipSavedPositionResolved(localPipLeft, localPipTop);
+      int[] clamped = clampLocalPipPosition(localPipLeft, localPipTop);
+      left = clamped[0];
+      top = clamped[1];
+    } else {
+      int[] bounds = getLocalPipUsableBounds();
+      if (bounds == null) {
+        left = margin;
+        top = margin;
+      } else {
+        left = bounds[0] + margin;
+        top = bounds[3] - height - margin;
+        int[] clamped = clampLocalPipPosition(left, top);
+        left = clamped[0];
+        top = clamped[1];
+      }
+    }
+    return new int[] {left, top, width, height};
+  }
+
+  private void applyConnectedLocalPipLayout(String reason) {
+    if (localContainer == null || shouldSkipConnectedPipLayout()) return;
+    pipLayoutPassCount++;
+    int[] rect = resolveConnectedLocalPipRect(reason);
+    localPipLeft = rect[0];
+    localPipTop = rect[1];
+    setLocalContainerBounds(rect[0], rect[1], rect[2], rect[3]);
+    localContainer.setTranslationX(0f);
+    localContainer.setTranslationY(0f);
+    localContainer.setScaleX(1f);
+    localContainer.setScaleY(1f);
+    NativeVideoCallLog.info(
+        "outgoing_pip_layout_reapplied",
+        callId,
+        buildOutgoingPipLayoutDetails(
+            reason,
+            rect,
+            measureLocalContainerBounds(),
+            localPipCustomPosition ? "saved_drag" : "default"));
+    if (outgoingTransitionCompleted && lockedOutgoingPipTargetRect != null) {
+      verifyPipPositionAfterLayout(reason, lockedOutgoingPipTargetRect);
+    }
+  }
+
+  private int[] measureLocalContainerBounds() {
+    if (localContainer == null) return new int[] {0, 0, 0, 0};
+    return new int[] {
+      localContainer.getLeft(),
+      localContainer.getTop(),
+      localContainer.getWidth(),
+      localContainer.getHeight()
+    };
+  }
+
+  private int pipRectDelta(int[] expected, int[] actual) {
+    if (expected == null || actual == null) return -1;
+    return Math.abs(actual[0] - expected[0])
+        + Math.abs(actual[1] - expected[1])
+        + Math.abs(actual[2] - expected[2])
+        + Math.abs(actual[3] - expected[3]);
+  }
+
+  private void verifyPipPositionAfterLayout(String reason, int[] expected) {
+    if (expected == null || localContainer == null) return;
+    int[] measured = measureLocalContainerBounds();
+    int delta = pipRectDelta(expected, measured);
+    if (delta > 1) {
+      NativeVideoCallLog.info(
+          "outgoing_pip_unexpected_position_change",
+          callId,
+          buildOutgoingPipLayoutDetails(reason, expected, measured, "unexpected"));
+    }
+  }
+
+  private void logOutgoingPipParentBounds(String reason) {
+    int parentWidth = videoRoot != null ? videoRoot.getWidth() : 0;
+    int parentHeight = videoRoot != null ? videoRoot.getHeight() : 0;
+    NativeVideoCallLog.info(
+        "outgoing_pip_parent_bounds",
+        callId,
+        buildOutgoingVideoLogDetails(
+            "reason="
+                + reason
+                + " orientation="
+                + getResources().getConfiguration().orientation
+                + " parentX=0 parentY=0 parentWidth="
+                + parentWidth
+                + " parentHeight="
+                + parentHeight
+                + " layoutPassCount="
+                + pipLayoutPassCount));
+  }
+
+  private void logOutgoingPipInsetsResolved(String reason) {
+    NativeVideoCallLog.info(
+        "outgoing_pip_insets_resolved",
+        callId,
+        buildOutgoingVideoLogDetails(
+            "reason="
+                + reason
+                + " safeLeft="
+                + systemBarsLeft
+                + " safeTop="
+                + systemBarsTop
+                + " safeRight="
+                + systemBarsRight
+                + " safeBottom="
+                + systemBarsBottom));
+  }
+
+  private void logOutgoingPipSavedPositionResolved(int left, int top) {
+    NativeVideoCallLog.info(
+        "outgoing_pip_saved_position_resolved",
+        callId,
+        buildOutgoingVideoLogDetails(
+            "savedLeft=" + left + " savedTop=" + top + " savedPositionUsed=true positionSource=saved_drag"));
+  }
+
+  private void logOutgoingPipTargetResolved(int[] rect, String positionSource) {
+    NativeVideoCallLog.info(
+        "outgoing_pip_target_resolved",
+        callId,
+        buildOutgoingPipLayoutDetails("transition_target", rect, rect, positionSource));
+  }
+
+  private void logOutgoingPipFinalFrameMeasured(int[] target, int[] measured, String reason) {
+    NativeVideoCallLog.info(
+        "outgoing_pip_final_frame_measured",
+        callId,
+        buildOutgoingPipLayoutDetails(reason, target, measured, "measured"));
+  }
+
+  private String buildOutgoingPipLayoutDetails(
+      String reason, int[] target, int[] measured, String positionSource) {
+    int delta = pipRectDelta(target, measured);
+    return buildOutgoingVideoLogDetails(
+        "reason="
+            + reason
+            + " orientation="
+            + getResources().getConfiguration().orientation
+            + " parentWidth="
+            + (videoRoot != null ? videoRoot.getWidth() : 0)
+            + " parentHeight="
+            + (videoRoot != null ? videoRoot.getHeight() : 0)
+            + " safeTop="
+            + systemBarsTop
+            + " safeBottom="
+            + systemBarsBottom
+            + " safeLeft="
+            + systemBarsLeft
+            + " safeRight="
+            + systemBarsRight
+            + " pipWidth="
+            + (target != null ? target[2] : 0)
+            + " pipHeight="
+            + (target != null ? target[3] : 0)
+            + " targetX="
+            + (target != null ? target[0] : 0)
+            + " targetY="
+            + (target != null ? target[1] : 0)
+            + " finalX="
+            + (measured != null ? measured[0] : 0)
+            + " finalY="
+            + (measured != null ? measured[1] : 0)
+            + " finalWidth="
+            + (measured != null ? measured[2] : 0)
+            + " finalHeight="
+            + (measured != null ? measured[3] : 0)
+            + " deltaX="
+            + (target != null && measured != null ? Math.abs(measured[0] - target[0]) : 0)
+            + " deltaY="
+            + (target != null && measured != null ? Math.abs(measured[1] - target[1]) : 0)
+            + " deltaWidth="
+            + (target != null && measured != null ? Math.abs(measured[2] - target[2]) : 0)
+            + " deltaHeight="
+            + (target != null && measured != null ? Math.abs(measured[3] - target[3]) : 0)
+            + " targetDeltaPx="
+            + delta
+            + " savedPositionUsed="
+            + localPipCustomPosition
+            + " positionSource="
+            + positionSource
+            + " layoutPassCount="
+            + pipLayoutPassCount
+            + " transitionCompleted="
+            + outgoingTransitionCompleted);
+  }
+
+  private void setLocalContainerBounds(int left, int top, int width, int height) {
+    if (localContainer == null) return;
+    FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(width, height);
+    params.gravity = Gravity.TOP | Gravity.START;
+    params.setMargins(left, top, 0, 0);
+    localContainer.setLayoutParams(params);
+  }
+
+  private String buildOutgoingVideoLogDetails(String extra) {
+    NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(callId);
+    return "platform=android"
+        + " initiator="
+        + (session != null && session.initiator)
+        + " uiMode="
+        + uiMode
+        + " runtimeState="
+        + currentState
+        + " localFrameReady="
+        + outgoingLocalFirstFrameReady
+        + " remoteFrameReady="
+        + outgoingRemoteFirstFrameReady
+        + " transitionRunning="
+        + outgoingTransitionRunning
+        + " transitionCompleted="
+        + outgoingTransitionCompleted
+        + " localAttached="
+        + localSurfaceChildCount()
+        + " remoteAttached="
+        + remoteSurfaceChildCount()
+        + (extra != null && !extra.isEmpty() ? " " + extra : "");
   }
 
   private void attachBackgroundChromeTapListener() {
@@ -1211,7 +1777,14 @@ public class NativeVideoCallActivity extends Activity {
   private boolean ensureVideoRootForRemoteRender() {
     if (videoRoot == null || remoteContainer == null) return false;
     videoRoot.setVisibility(View.VISIBLE);
-    remoteContainer.setVisibility(View.VISIBLE);
+    NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(callId);
+    if (isOutgoingVideoPresentation(session) && !outgoingRemoteFirstFrameReady) {
+      remoteContainer.setVisibility(View.INVISIBLE);
+      remoteContainer.setAlpha(0f);
+    } else {
+      remoteContainer.setVisibility(View.VISIBLE);
+      remoteContainer.setAlpha(1f);
+    }
     return true;
   }
 
@@ -1278,6 +1851,10 @@ public class NativeVideoCallActivity extends Activity {
   }
 
   private boolean isLocalPipDragEligible() {
+    NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(callId);
+    if (isOutgoingVideoPresentation(session) && (!outgoingTransitionCompleted || outgoingTransitionRunning)) {
+      return false;
+    }
     return currentState == NativeVideoCallRuntime.State.CONNECTED && !inPipMode && !dockMode;
   }
 
@@ -1491,8 +2068,11 @@ public class NativeVideoCallActivity extends Activity {
           systemBarsTop = bars.top;
           systemBarsRight = bars.right;
           systemBarsBottom = bars.bottom;
+          if (shouldSkipConnectedPipLayout()) {
+            return insets;
+          }
           if (!localPipCustomPosition) {
-            applyDefaultLocalPipPosition();
+            applyConnectedLocalPipLayout("window_insets");
           } else {
             int[] clamped = clampLocalPipPosition(localPipLeft, localPipTop);
             localPipLeft = clamped[0];
@@ -1505,18 +2085,7 @@ public class NativeVideoCallActivity extends Activity {
   }
 
   private void applyDefaultLocalPipPosition() {
-    if (localContainer == null) return;
-    int[] bounds = getLocalPipUsableBounds();
-    if (bounds == null) return;
-    int margin = dp(LOCAL_PIP_MARGIN_DP);
-    int pipWidth = localContainer.getWidth() > 0 ? localContainer.getWidth() : dp(LOCAL_PIP_WIDTH_DP);
-    int pipHeight = localContainer.getHeight() > 0 ? localContainer.getHeight() : dp(LOCAL_PIP_HEIGHT_DP);
-    localPipLeft = bounds[0] + margin;
-    localPipTop = bounds[3] - pipHeight - margin;
-    int[] clamped = clampLocalPipPosition(localPipLeft, localPipTop);
-    localPipLeft = clamped[0];
-    localPipTop = clamped[1];
-    applyLocalPipPosition(false);
+    applyConnectedLocalPipLayout("default_position");
   }
 
   /** usableLeft, usableTop, usableRight, usableBottom or null when parent not laid out. */
@@ -1535,7 +2104,7 @@ public class NativeVideoCallActivity extends Activity {
   }
 
   private void applyLocalPreviewLayout() {
-    if (localContainer == null) return;
+    if (localContainer == null || shouldSkipConnectedPipLayout()) return;
     if (localPipCustomPosition) {
       int[] clamped = clampLocalPipPosition(localPipLeft, localPipTop);
       localPipLeft = clamped[0];
@@ -1543,7 +2112,7 @@ public class NativeVideoCallActivity extends Activity {
       applyLocalPipPosition(false);
       return;
     }
-    localContainer.setLayoutParams(createLocalPreviewLayoutParams());
+    applyConnectedLocalPipLayout("preview_layout");
   }
 
   private void applyLocalPipPosition(boolean logDrag) {
@@ -1579,23 +2148,12 @@ public class NativeVideoCallActivity extends Activity {
   }
 
   private FrameLayout.LayoutParams createLocalPreviewLayoutParams() {
-    FrameLayout.LayoutParams params =
-        new FrameLayout.LayoutParams(dp(LOCAL_PIP_WIDTH_DP), dp(LOCAL_PIP_HEIGHT_DP));
+    int[] rect = resolveConnectedLocalPipRect("create_layout_params");
+    localPipLeft = rect[0];
+    localPipTop = rect[1];
+    FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(rect[2], rect[3]);
     params.gravity = Gravity.TOP | Gravity.START;
-    int margin = dp(LOCAL_PIP_MARGIN_DP);
-    int[] bounds = getLocalPipUsableBounds();
-    int top = margin;
-    int left = margin;
-    if (bounds != null) {
-      left = bounds[0] + margin;
-      top = bounds[3] - dp(LOCAL_PIP_HEIGHT_DP) - margin;
-      int[] clamped = clampLocalPipPosition(left, top);
-      left = clamped[0];
-      top = clamped[1];
-    }
-    params.setMargins(left, top, 0, 0);
-    localPipLeft = left;
-    localPipTop = top;
+    params.setMargins(rect[0], rect[1], 0, 0);
     return params;
   }
 

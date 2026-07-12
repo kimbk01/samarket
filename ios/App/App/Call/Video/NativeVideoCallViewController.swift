@@ -21,6 +21,21 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
   private var pipController: AVPictureInPictureController?
   private var pipContentViewController: AVPictureInPictureVideoCallViewController?
   private var remoteRenderView: UIView?
+  private var outgoingLocalFirstFrameReadyFlag = false
+  private var outgoingRemoteFirstFrameReadyFlag = false
+  private var outgoingTransitionRunning = false
+  private var outgoingTransitionCompleted = false
+  private var outgoingTransitionGeneration = 0
+  private var outgoingTransitionAnimator: UIViewPropertyAnimator?
+  private var lockedOutgoingPipTarget: ResolvedPipFrame?
+  private var pipLayoutPassCount = 0
+
+  private struct ResolvedPipFrame: Equatable {
+    let leading: CGFloat
+    let top: CGFloat
+    let width: CGFloat
+    let height: CGFloat
+  }
 
   // R1 — 보조 PiP 드래그 (Android attachLocalPipDragListener 패리티)
   private static let localPipWidth: CGFloat = 120
@@ -28,6 +43,8 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
   private static let localPipMargin: CGFloat = 16
   private var localPipLeadingConstraint: NSLayoutConstraint?
   private var localPipTopConstraint: NSLayoutConstraint?
+  private var localPipWidthConstraint: NSLayoutConstraint?
+  private var localPipHeightConstraint: NSLayoutConstraint?
   private var localPipLeading: CGFloat = 0
   private var localPipTop: CGFloat = 16
   private var localPipCustomPosition = false
@@ -117,12 +134,17 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
   override func viewDidLayoutSubviews() {
     super.viewDidLayoutSubviews()
     guard videoRoot.bounds.width > 0 else { return }
+    if isOutgoingVideoPresentation, !outgoingTransitionCompleted, !outgoingTransitionRunning {
+      applyOutgoingLocalFullscreenLayout()
+      return
+    }
+    if shouldSkipConnectedPipLayout() { return }
     // 회전/레이아웃 변경: 기본 위치는 재계산, 사용자가 옮긴 위치는 새 bounds로 재clamp (QA A2)
     if localPipCustomPosition {
       let clamped = clampLocalPipPosition(leading: localPipLeading, top: localPipTop)
       applyLocalPipPosition(leading: clamped.leading, top: clamped.top)
     } else {
-      applyDefaultLocalPipPosition()
+      applyConnectedLocalPipLayout(reason: "view_did_layout", layoutNow: false)
     }
   }
 
@@ -144,14 +166,22 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
     statusLabel.text = model.statusText
     avatarInitialLabel.text = model.avatarInitial
     incomingActions.isHidden = !model.showIncomingActions
-    if !model.showConnectedControls {
+    if !model.showConnectedControls && !isOutgoingVideoPresentation {
       activeActions.isHidden = true
       connectedControls.isHidden = true
+    } else if isOutgoingVideoPresentation, !state.isTerminal {
+      activeActions.isHidden = false
+      connectedControls.isHidden = false
+      updateConnectedControlChrome()
     }
-    videoRoot.isHidden = !model.showVideoSurfaces
-    localContainer.isHidden = !model.showLocalPreview
-    statusPanel.isHidden = !model.showStatusOverlay
-    overlayRoot.backgroundColor = model.showVideoSurfaces ? .clear : UIColor(white: 0.08, alpha: 1)
+    if isOutgoingVideoPresentation, !state.isTerminal {
+      applyOutgoingVideoPresentation(model: model, state: state)
+    } else {
+      videoRoot.isHidden = !model.showVideoSurfaces
+      localContainer.isHidden = !model.showLocalPreview
+      statusPanel.isHidden = !model.showStatusOverlay
+      overlayRoot.backgroundColor = model.showVideoSurfaces ? .clear : UIColor(white: 0.08, alpha: 1)
+    }
 
     if model.showDuration {
       if connectedAt == nil { connectedAt = Date() }
@@ -162,10 +192,13 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
       connectedAt = nil
       durationLabel.isHidden = true
     }
+    if isOutgoingVideoPresentation, !outgoingTransitionCompleted {
+      durationLabel.isHidden = true
+    }
 
-    if model.showVideoSurfaces {
+    if model.showVideoSurfaces || isOutgoingVideoPresentation {
       view.bringSubviewToFront(connectedChromeContainer)
-      view.bringSubviewToFront(activeActions)
+      view.bringSubviewToFront(overlayRoot)
       _ = ensureVideoRootForRemoteRender()
       NativeVideoCallAgoraEngine.shared.onRemoteRenderSurfaceReady(callId: boundCallId)
     }
@@ -182,6 +215,7 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
     if state == .connected {
       ScreenAwakeBridge.shared.acquire(callId: boundCallId, reason: "connected_video")
     } else if state == .ending || state == .ended || state == .failed {
+      cancelOutgoingTransition(reason: "terminal_state")
       cancelConnectedChromeHide(reason: "terminal_state")
       displayedNetworkTier = .good
       networkVeryPoorActive = false
@@ -192,7 +226,7 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
     // B1 — connected 동안에만 자동 시스템 PiP 활성(빈 화면 PiP 방지).
     pipController?.canStartPictureInPictureAutomaticallyFromInline = (state == .connected)
 
-    if model.showConnectedControls {
+    if model.showConnectedControls && (!isOutgoingVideoPresentation || outgoingTransitionCompleted) {
       updateConnectedControlChrome()
       if previousState != .connected {
         showConnectedChrome(source: "connected_enter")
@@ -206,13 +240,20 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
   @discardableResult
   func ensureVideoRootForRemoteRender() -> Bool {
     videoRoot.isHidden = false
-    remoteContainer.isHidden = false
+    if isOutgoingVideoPresentation, !outgoingRemoteFirstFrameReadyFlag {
+      remoteContainer.isHidden = true
+      remoteContainer.alpha = 0
+    } else {
+      remoteContainer.isHidden = false
+      remoteContainer.alpha = 1
+    }
     return true
   }
 
   func attachLocalView(_ view: UIView) {
     localRenderView = view
     replaceSubview(in: localContainer, with: view, mediaOverlay: true)
+    applyOutgoingLocalLayoutAfterAttach(reason: "attach_local")
     if localIsMain { applyVideoSwap() }
   }
 
@@ -224,16 +265,443 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
   }
 
   func clearVideoSurfaces() {
+    cancelOutgoingTransition(reason: "clear_video_surfaces")
     teardownPipFrameBridge(reason: "clear_video_surfaces")
     localContainer.subviews.forEach { $0.removeFromSuperview() }
     remoteContainer.subviews.forEach { $0.removeFromSuperview() }
     remoteRenderView = nil
     localRenderView = nil
     localIsMain = false
+    outgoingLocalFirstFrameReadyFlag = false
+    outgoingRemoteFirstFrameReadyFlag = false
+    outgoingTransitionCompleted = false
+    lockedOutgoingPipTarget = nil
   }
 
   var isPictureInPictureActive: Bool {
     pipController?.isPictureInPictureActive == true
+  }
+
+  func outgoingLocalFirstFrameReady(width: Int, height: Int) {
+    guard isOutgoingVideoPresentation, !outgoingLocalFirstFrameReadyFlag else { return }
+    outgoingLocalFirstFrameReadyFlag = true
+    NativeVideoCallLog.info(
+      "outgoing_local_first_frame_ready",
+      callId: boundCallId,
+      details: outgoingLogDetails("width=\(width) height=\(height)")
+    )
+    applyState(currentState)
+    maybeStartOutgoingTransition(reason: "local_first_frame")
+  }
+
+  func outgoingRemoteUserJoined(uid: UInt) {
+    guard isOutgoingVideoPresentation else { return }
+    NativeVideoCallLog.info(
+      "outgoing_remote_user_joined",
+      callId: boundCallId,
+      details: outgoingLogDetails("uid=\(uid)")
+    )
+  }
+
+  func outgoingRemoteFirstFrameReady(uid: UInt, width: Int, height: Int) {
+    guard isOutgoingVideoPresentation, !outgoingRemoteFirstFrameReadyFlag else { return }
+    outgoingRemoteFirstFrameReadyFlag = true
+    NativeVideoCallLog.info(
+      "outgoing_remote_first_frame_ready",
+      callId: boundCallId,
+      details: outgoingLogDetails("uid=\(uid) width=\(width) height=\(height)")
+    )
+    maybeStartOutgoingTransition(reason: "remote_first_frame")
+  }
+
+  private var isOutgoingVideoPresentation: Bool {
+    session.initiator
+  }
+
+  private func applyOutgoingVideoPresentation(
+    model: NativeVideoCallUiPresenter.Model,
+    state: NativeVideoCallRuntimeState
+  ) {
+    videoRoot.isHidden = false
+    if !outgoingTransitionCompleted && !outgoingTransitionRunning {
+      applyOutgoingLocalFullscreenLayout()
+    } else if outgoingTransitionCompleted {
+      applyConnectedLocalPipLayout(reason: "outgoing_presentation_connected")
+    }
+    remoteContainer.isHidden = !outgoingRemoteFirstFrameReadyFlag
+    remoteContainer.alpha = outgoingRemoteFirstFrameReadyFlag ? 1 : 0
+    localContainer.isHidden = !outgoingLocalFirstFrameReadyFlag
+    localContainer.alpha = outgoingLocalFirstFrameReadyFlag ? 1 : 0
+    localContainer.isUserInteractionEnabled = outgoingTransitionCompleted && state == .connected
+    activeActions.isHidden = false
+    connectedControls.isHidden = false
+    updateConnectedControlChrome()
+    NativeVideoCallLog.info(
+      "outgoing_controls_visible",
+      callId: boundCallId,
+      details: outgoingLogDetails("reason=outgoing_presentation")
+    )
+    NativeVideoCallLog.info(
+      "outgoing_end_call_visible",
+      callId: boundCallId,
+      details: outgoingLogDetails("handler=NativeVideoCallRuntime.end")
+    )
+    statusPanel.isHidden = outgoingTransitionCompleted
+    if outgoingLocalFirstFrameReadyFlag {
+      overlayRoot.backgroundColor = .clear
+      if !outgoingTransitionCompleted {
+        NativeVideoCallLog.info(
+          "outgoing_avatar_visible",
+          callId: boundCallId,
+          details: outgoingLogDetails("source=avatar_initial")
+        )
+      }
+      NativeVideoCallLog.info(
+        "outgoing_local_fullscreen_visible",
+        callId: boundCallId,
+        details: outgoingLogDetails("phase=\(model.phase)")
+      )
+    } else {
+      overlayRoot.backgroundColor = UIColor(white: 0.08, alpha: 1)
+      NativeVideoCallLog.info(
+        "outgoing_video_ui_preparing",
+        callId: boundCallId,
+        details: outgoingLogDetails("phase=\(model.phase)")
+      )
+    }
+    if state == .connected, outgoingRemoteFirstFrameReadyFlag {
+      maybeStartOutgoingTransition(reason: "apply_state_connected")
+    }
+    if outgoingTransitionCompleted {
+      NativeVideoCallLog.info("outgoing_avatar_hidden", callId: boundCallId, details: outgoingLogDetails("reason=connected"))
+      NativeVideoCallLog.info("outgoing_duration_visible", callId: boundCallId, details: outgoingLogDetails("source=connectedAt"))
+      NativeVideoCallLog.info("outgoing_signal_visible", callId: boundCallId, details: outgoingLogDetails("source=agora_networkQuality"))
+      NativeVideoCallLog.info("outgoing_controls_layout_restored", callId: boundCallId, details: outgoingLogDetails("reason=connected"))
+    }
+  }
+
+  private func applyOutgoingLocalLayoutAfterAttach(reason: String) {
+    guard isOutgoingVideoPresentation, !currentState.isTerminal else { return }
+    if outgoingTransitionCompleted {
+      applyConnectedLocalPipLayout(reason: "attach_local_connected")
+    } else {
+      applyOutgoingLocalFullscreenLayout()
+      localContainer.isHidden = !outgoingLocalFirstFrameReadyFlag
+      localContainer.alpha = outgoingLocalFirstFrameReadyFlag ? 1 : 0
+    }
+    NativeVideoCallLog.info(
+      "outgoing_video_ui_preparing",
+      callId: boundCallId,
+      details: outgoingLogDetails("reason=\(reason)")
+    )
+  }
+
+  private func maybeStartOutgoingTransition(reason: String) {
+    guard isOutgoingVideoPresentation,
+          currentState == .connected,
+          outgoingLocalFirstFrameReadyFlag,
+          outgoingRemoteFirstFrameReadyFlag,
+          !outgoingTransitionRunning,
+          !outgoingTransitionCompleted,
+          !currentState.isTerminal else {
+      NativeVideoCallLog.info(
+        "outgoing_local_to_pip_transition_skipped",
+        callId: boundCallId,
+        details: outgoingLogDetails("reason=\(reason)")
+      )
+      return
+    }
+    guard view.window != nil, videoRoot.bounds.width > 0, videoRoot.bounds.height > 0 else {
+      NativeVideoCallLog.info(
+        "outgoing_local_to_pip_transition_skipped",
+        callId: boundCallId,
+        details: outgoingLogDetails("reason=layout_not_ready")
+      )
+      return
+    }
+    startOutgoingTransition(reason: reason)
+  }
+
+  private func startOutgoingTransition(reason: String) {
+    outgoingTransitionRunning = true
+    outgoingTransitionGeneration += 1
+    let generation = outgoingTransitionGeneration
+    remoteContainer.isHidden = false
+    remoteContainer.alpha = 1
+    localContainer.isHidden = false
+    localContainer.alpha = 1
+    localContainer.isUserInteractionEnabled = false
+    view.layoutIfNeeded()
+    let startFrame = localContainer.frame
+    logOutgoingPipParentBounds(reason: "transition_prepare")
+    logOutgoingPipInsetsResolved(reason: "transition_prepare")
+    let target = resolveConnectedLocalPipFrame(positionSource: localPipCustomPosition ? "saved_drag" : "default")
+    lockedOutgoingPipTarget = target
+    logOutgoingPipTargetResolved(target, positionSource: localPipCustomPosition ? "saved_drag" : "default")
+    NativeVideoCallLog.info(
+      "outgoing_local_to_pip_transition_started",
+      callId: boundCallId,
+      details: outgoingLogDetails(
+        "reason=\(reason) start=\(Int(startFrame.minX)),\(Int(startFrame.minY)),\(Int(startFrame.width))x\(Int(startFrame.height)) end=\(Int(target.leading)),\(Int(target.top)),\(Int(target.width))x\(Int(target.height))"
+      )
+    )
+    localPipLeadingConstraint?.constant = target.leading
+    localPipTopConstraint?.constant = target.top
+    localPipWidthConstraint?.constant = target.width
+    localPipHeightConstraint?.constant = target.height
+    localPipLeading = target.leading
+    localPipTop = target.top
+    localContainer.layer.cornerRadius = 0
+    videoRoot.bringSubviewToFront(localContainer)
+    view.bringSubviewToFront(connectedChromeContainer)
+    view.bringSubviewToFront(activeActions)
+    let animator = UIViewPropertyAnimator(duration: 0.32, curve: .easeInOut) { [weak self] in
+      guard let self else { return }
+      self.localContainer.layer.cornerRadius = 8
+      self.view.layoutIfNeeded()
+    }
+    animator.addCompletion { [weak self] _ in
+      guard let self else { return }
+      guard generation == self.outgoingTransitionGeneration, !self.currentState.isTerminal else { return }
+      self.outgoingTransitionRunning = false
+      self.outgoingTransitionCompleted = true
+      self.outgoingTransitionAnimator = nil
+      self.localContainer.isUserInteractionEnabled = true
+      self.view.layoutIfNeeded()
+      let measured = self.measureLocalContainerFrame()
+      self.logOutgoingPipFinalFrameMeasured(
+        target: target,
+        measured: measured,
+        reason: "transition_completed"
+      )
+      let delta = self.pipFrameDelta(expected: target, measured: measured)
+      NativeVideoCallLog.info(
+        "outgoing_local_to_pip_transition_completed",
+        callId: self.boundCallId,
+        details: self.outgoingPipLayoutDetails(
+          reason: reason,
+          target: target,
+          measured: measured,
+          positionSource: self.localPipCustomPosition ? "saved_drag" : "default"
+        )
+      )
+      NativeVideoCallLog.info(
+        "outgoing_video_connected_ui_ready",
+        callId: self.boundCallId,
+        details: self.outgoingLogDetails("reason=transition_completed targetDeltaPx=\(Int(delta.rounded()))")
+      )
+      DispatchQueue.main.async {
+        guard generation == self.outgoingTransitionGeneration, !self.currentState.isTerminal else { return }
+        let layoutPassMeasured = self.measureLocalContainerFrame()
+        self.logOutgoingPipFinalFrameMeasured(
+          target: target,
+          measured: layoutPassMeasured,
+          reason: "transition_completed_layout_pass"
+        )
+        self.verifyPipPositionAfterLayout(reason: "transition_completed_layout_pass", expected: target)
+      }
+      self.applyState(self.currentState)
+    }
+    outgoingTransitionAnimator = animator
+    animator.startAnimation()
+  }
+
+  private func cancelOutgoingTransition(reason: String) {
+    outgoingTransitionGeneration += 1
+    if outgoingTransitionAnimator != nil || outgoingTransitionRunning {
+      outgoingTransitionAnimator?.stopAnimation(true)
+      NativeVideoCallLog.info(
+        "outgoing_video_transition_cancelled",
+        callId: boundCallId,
+        details: outgoingLogDetails("reason=\(reason)")
+      )
+    }
+    outgoingTransitionAnimator = nil
+    outgoingTransitionRunning = false
+    lockedOutgoingPipTarget = nil
+  }
+
+  private func shouldSkipConnectedPipLayout() -> Bool {
+    isOutgoingVideoPresentation && !outgoingTransitionCompleted && !outgoingTransitionRunning
+  }
+
+  private func applyOutgoingLocalFullscreenLayout() {
+    guard videoRoot.bounds.width > 0, videoRoot.bounds.height > 0 else { return }
+    localPipLeading = 0
+    localPipTop = -videoRoot.safeAreaInsets.top
+    localPipLeadingConstraint?.constant = localPipLeading
+    localPipTopConstraint?.constant = localPipTop
+    localPipWidthConstraint?.constant = videoRoot.bounds.width
+    localPipHeightConstraint?.constant = videoRoot.bounds.height
+    localContainer.layer.cornerRadius = 0
+    localContainer.transform = .identity
+  }
+
+  /** SSOT: connected 보조 PiP frame. transition·final layout·기본 배치 공통. */
+  private func resolveConnectedLocalPipFrame(positionSource: String) -> ResolvedPipFrame {
+    let width = Self.localPipWidth
+    let height = Self.localPipHeight
+    let insets = videoRoot.safeAreaInsets
+    let leading: CGFloat
+    let top: CGFloat
+    if localPipCustomPosition {
+      logOutgoingPipSavedPositionResolved()
+      let clamped = clampLocalPipPosition(leading: localPipLeading, top: localPipTop)
+      leading = clamped.leading
+      top = clamped.top
+    } else {
+      let defaultTop =
+        videoRoot.bounds.height - insets.top - insets.bottom - height - Self.localPipMargin
+      let clamped = clampLocalPipPosition(leading: insets.left + Self.localPipMargin, top: defaultTop)
+      leading = clamped.leading
+      top = clamped.top
+    }
+    _ = positionSource
+    return ResolvedPipFrame(leading: leading, top: top, width: width, height: height)
+  }
+
+  private func applyConnectedLocalPipLayout(reason: String, layoutNow: Bool = true) {
+    guard !shouldSkipConnectedPipLayout() else { return }
+    pipLayoutPassCount += 1
+    let frame = resolveConnectedLocalPipFrame(positionSource: localPipCustomPosition ? "saved_drag" : "default")
+    localPipWidthConstraint?.constant = frame.width
+    localPipHeightConstraint?.constant = frame.height
+    applyLocalPipPosition(leading: frame.leading, top: frame.top)
+    localContainer.layer.cornerRadius = 8
+    localContainer.transform = .identity
+    if layoutNow {
+      view.layoutIfNeeded()
+    }
+    let measured = measureLocalContainerFrame()
+    NativeVideoCallLog.info(
+      "outgoing_pip_layout_reapplied",
+      callId: boundCallId,
+      details: outgoingPipLayoutDetails(
+        reason: reason,
+        target: frame,
+        measured: measured,
+        positionSource: localPipCustomPosition ? "saved_drag" : "default"
+      )
+    )
+    if outgoingTransitionCompleted, let locked = lockedOutgoingPipTarget {
+      verifyPipPositionAfterLayout(reason: reason, expected: locked)
+    }
+  }
+
+  private func measureLocalContainerFrame() -> ResolvedPipFrame {
+    let frame = localContainer.frame
+    let insets = videoRoot.safeAreaInsets
+    return ResolvedPipFrame(
+      leading: frame.minX,
+      top: frame.minY - insets.top,
+      width: frame.width,
+      height: frame.height
+    )
+  }
+
+  private func pipFrameDelta(expected: ResolvedPipFrame, measured: ResolvedPipFrame) -> CGFloat {
+    abs(measured.leading - expected.leading)
+      + abs(measured.top - expected.top)
+      + abs(measured.width - expected.width)
+      + abs(measured.height - expected.height)
+  }
+
+  private func verifyPipPositionAfterLayout(reason: String, expected: ResolvedPipFrame) {
+    let measured = measureLocalContainerFrame()
+    if pipFrameDelta(expected: expected, measured: measured) > 1 {
+      NativeVideoCallLog.info(
+        "outgoing_pip_unexpected_position_change",
+        callId: boundCallId,
+        details: outgoingPipLayoutDetails(
+          reason: reason,
+          target: expected,
+          measured: measured,
+          positionSource: "unexpected"
+        )
+      )
+    }
+  }
+
+  private func logOutgoingPipParentBounds(reason: String) {
+    NativeVideoCallLog.info(
+      "outgoing_pip_parent_bounds",
+      callId: boundCallId,
+      details: outgoingLogDetails(
+        "reason=\(reason) orientation=\(currentInterfaceOrientation()) parentX=0 parentY=0 parentWidth=\(Int(videoRoot.bounds.width)) parentHeight=\(Int(videoRoot.bounds.height)) layoutPassCount=\(pipLayoutPassCount)"
+      )
+    )
+  }
+
+  private func logOutgoingPipInsetsResolved(reason: String) {
+    let insets = videoRoot.safeAreaInsets
+    NativeVideoCallLog.info(
+      "outgoing_pip_insets_resolved",
+      callId: boundCallId,
+      details: outgoingLogDetails(
+        "reason=\(reason) safeLeft=\(Int(insets.left)) safeTop=\(Int(insets.top)) safeRight=\(Int(insets.right)) safeBottom=\(Int(insets.bottom))"
+      )
+    )
+  }
+
+  private func logOutgoingPipSavedPositionResolved() {
+    NativeVideoCallLog.info(
+      "outgoing_pip_saved_position_resolved",
+      callId: boundCallId,
+      details: outgoingLogDetails(
+        "savedLeading=\(Int(localPipLeading)) savedTop=\(Int(localPipTop)) savedPositionUsed=true positionSource=saved_drag"
+      )
+    )
+  }
+
+  private func logOutgoingPipTargetResolved(_ target: ResolvedPipFrame, positionSource: String) {
+    NativeVideoCallLog.info(
+      "outgoing_pip_target_resolved",
+      callId: boundCallId,
+      details: outgoingPipLayoutDetails(
+        reason: "transition_target",
+        target: target,
+        measured: target,
+        positionSource: positionSource
+      )
+    )
+  }
+
+  private func logOutgoingPipFinalFrameMeasured(
+    target: ResolvedPipFrame,
+    measured: ResolvedPipFrame,
+    reason: String
+  ) {
+    NativeVideoCallLog.info(
+      "outgoing_pip_final_frame_measured",
+      callId: boundCallId,
+      details: outgoingPipLayoutDetails(
+        reason: reason,
+        target: target,
+        measured: measured,
+        positionSource: "measured"
+      )
+    )
+  }
+
+  private func outgoingPipLayoutDetails(
+    reason: String,
+    target: ResolvedPipFrame,
+    measured: ResolvedPipFrame,
+    positionSource: String
+  ) -> String {
+    let insets = videoRoot.safeAreaInsets
+    let delta = pipFrameDelta(expected: target, measured: measured)
+    return outgoingLogDetails(
+      "reason=\(reason) orientation=\(currentInterfaceOrientation()) parentWidth=\(Int(videoRoot.bounds.width)) parentHeight=\(Int(videoRoot.bounds.height)) safeTop=\(Int(insets.top)) safeBottom=\(Int(insets.bottom)) safeLeft=\(Int(insets.left)) safeRight=\(Int(insets.right)) pipWidth=\(Int(target.width)) pipHeight=\(Int(target.height)) targetX=\(Int(target.leading)) targetY=\(Int(target.top)) finalX=\(Int(measured.leading)) finalY=\(Int(measured.top)) finalWidth=\(Int(measured.width)) finalHeight=\(Int(measured.height)) deltaX=\(Int(abs(measured.leading - target.leading))) deltaY=\(Int(abs(measured.top - target.top))) deltaWidth=\(Int(abs(measured.width - target.width))) deltaHeight=\(Int(abs(measured.height - target.height))) targetDeltaPx=\(Int(delta.rounded())) savedPositionUsed=\(localPipCustomPosition) positionSource=\(positionSource) layoutPassCount=\(pipLayoutPassCount) transitionCompleted=\(outgoingTransitionCompleted)"
+    )
+  }
+
+  private func currentInterfaceOrientation() -> Int {
+    view.window?.windowScene?.interfaceOrientation.rawValue ?? 0
+  }
+
+  private func outgoingLogDetails(_ extra: String) -> String {
+    "platform=ios initiator=\(session.initiator) runtimeState=\(currentState) localFrameReady=\(outgoingLocalFirstFrameReadyFlag) remoteFrameReady=\(outgoingRemoteFirstFrameReadyFlag) transitionRunning=\(outgoingTransitionRunning) transitionCompleted=\(outgoingTransitionCompleted) localAttached=\(localContainer.subviews.count) remoteAttached=\(remoteContainer.subviews.count) \(extra)"
   }
 
   // MARK: - PiP (Phase C3)
@@ -360,13 +828,17 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
       $0.backgroundColor = .black
       videoRoot.addSubview($0)
     }
+    let localWidth = localContainer.widthAnchor.constraint(equalToConstant: Self.localPipWidth)
+    let localHeight = localContainer.heightAnchor.constraint(equalToConstant: Self.localPipHeight)
+    localPipWidthConstraint = localWidth
+    localPipHeightConstraint = localHeight
     NSLayoutConstraint.activate([
       remoteContainer.topAnchor.constraint(equalTo: videoRoot.topAnchor),
       remoteContainer.leadingAnchor.constraint(equalTo: videoRoot.leadingAnchor),
       remoteContainer.trailingAnchor.constraint(equalTo: videoRoot.trailingAnchor),
       remoteContainer.bottomAnchor.constraint(equalTo: videoRoot.bottomAnchor),
-      localContainer.widthAnchor.constraint(equalToConstant: Self.localPipWidth),
-      localContainer.heightAnchor.constraint(equalToConstant: Self.localPipHeight),
+      localWidth,
+      localHeight,
     ])
     // 가변 leading/top (드래그 이동용). 기본 위치는 viewDidLayoutSubviews에서 좌하단으로 설정.
     let localTop = localContainer.topAnchor.constraint(
@@ -726,11 +1198,7 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
 
   /** 기본 위치: 좌하단(안전영역 기준 margin). */
   private func applyDefaultLocalPipPosition() {
-    guard videoRoot.bounds.width > 0 else { return }
-    let insets = videoRoot.safeAreaInsets
-    let defaultTop = videoRoot.bounds.height - insets.top - insets.bottom - Self.localPipHeight - Self.localPipMargin
-    let clamped = clampLocalPipPosition(leading: insets.left + Self.localPipMargin, top: defaultTop)
-    applyLocalPipPosition(leading: clamped.leading, top: clamped.top)
+    applyConnectedLocalPipLayout(reason: "default_position")
   }
 
   /** leading은 videoRoot 전체폭 기준, top은 safeArea top 기준 좌표. 안전영역 안으로 clamp. */
@@ -1291,4 +1759,10 @@ extension NativeVideoCallPipFrameBridge: AgoraVideoFrameDelegate {
   func getVideoFormatPreference() -> AgoraVideoFormat { .cvPixelBGRA }
   func getRotationApplied() -> Bool { true }
   func getMirrorApplied() -> Bool { false }
+}
+
+private extension NativeVideoCallRuntimeState {
+  var isTerminal: Bool {
+    self == .ending || self == .ended || self == .failed
+  }
 }

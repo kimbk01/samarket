@@ -351,8 +351,16 @@ final class NativeVideoCallAgoraEngine: NSObject {
     currentListener?.onError(reason: reason)
   }
 
-  private func markRemoteVideoRendered(uid: UInt, callId: String, generation expected: UInt64, details: String) {
+  private func markRemoteVideoRendered(
+    uid: UInt,
+    callId: String,
+    generation expected: UInt64,
+    width: Int,
+    height: Int,
+    details: String
+  ) {
     let currentListener: NativeVideoCallAgoraEngineListener?
+    let callerJoin: Bool
     lock.lock()
     guard activeCallId == callId, generation == expected, !remoteVideoRendered else {
       lock.unlock()
@@ -360,8 +368,12 @@ final class NativeVideoCallAgoraEngine: NSObject {
     }
     remoteVideoRendered = true
     currentListener = listener
+    callerJoin = callerJoinActive
     lock.unlock()
     NativeVideoCallLog.info("remote_video_render_ready", callId: callId, details: "uid=\(uid)\(details)")
+    if callerJoin {
+      NativeVideoCallUiHost.outgoingRemoteFirstFrameReady(callId: callId, uid: uid, width: width, height: height)
+    }
     currentListener?.onRemoteVideoReady()
   }
 
@@ -477,10 +489,20 @@ extension NativeVideoCallAgoraEngine: AgoraRtcEngineDelegate {
 
     NativeVideoCallLog.info("remote_user_joined", callId: sid, details: "uid=\(uid)")
     if callerJoin {
+      NativeVideoCallUiHost.outgoingRemoteUserJoined(callId: sid, uid: uid)
       currentListener?.onConnected()
     }
     scheduleRemoteVideoSetup(uid: uid, callId: sid)
-    markRemoteVideoRendered(uid: uid, callId: sid, generation: gen, details: " source=user_joined")
+    if !callerJoin {
+      markRemoteVideoRendered(
+        uid: uid,
+        callId: sid,
+        generation: gen,
+        width: 0,
+        height: 0,
+        details: " source=user_joined"
+      )
+    }
   }
 
   func rtcEngine(
@@ -501,7 +523,29 @@ extension NativeVideoCallAgoraEngine: AgoraRtcEngineDelegate {
       uid: uid,
       callId: sid,
       generation: gen,
+      width: Int(size.width),
+      height: Int(size.height),
       details: " width=\(Int(size.width)) height=\(Int(size.height))"
+    )
+  }
+
+  func rtcEngine(
+    _ engine: AgoraRtcEngineKit,
+    firstLocalVideoFrameWith size: CGSize,
+    elapsed: Int,
+    sourceType: AgoraVideoSourceType
+  ) {
+    let sid: String?
+    let callerJoin: Bool
+    lock.lock()
+    sid = activeCallId
+    callerJoin = callerJoinActive
+    lock.unlock()
+    guard let sid, callerJoin else { return }
+    NativeVideoCallUiHost.outgoingLocalFirstFrameReady(
+      callId: sid,
+      width: Int(size.width),
+      height: Int(size.height)
     )
   }
 

@@ -108,6 +108,24 @@ enum NativeVideoCallUiHost {
     }
   }
 
+  static func outgoingLocalFirstFrameReady(callId: String, width: Int, height: Int) {
+    onMain {
+      controller(for: callId)?.outgoingLocalFirstFrameReady(width: width, height: height)
+    }
+  }
+
+  static func outgoingRemoteUserJoined(callId: String, uid: UInt) {
+    onMain {
+      controller(for: callId)?.outgoingRemoteUserJoined(uid: uid)
+    }
+  }
+
+  static func outgoingRemoteFirstFrameReady(callId: String, uid: UInt, width: Int, height: Int) {
+    onMain {
+      controller(for: callId)?.outgoingRemoteFirstFrameReady(uid: uid, width: width, height: height)
+    }
+  }
+
   @discardableResult
   static func ensureVideoRootForRemoteRender(callId: String) -> Bool {
     guard Thread.isMainThread else { return false }
