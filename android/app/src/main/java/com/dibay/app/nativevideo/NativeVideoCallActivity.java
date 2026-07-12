@@ -21,14 +21,18 @@ import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.SurfaceView;
 import android.view.View;
+import android.view.ViewConfiguration;
+import android.view.ViewGroup;
 import android.view.WindowManager;
-import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import com.dibay.app.IncomingCallUiInsets;
 import com.dibay.app.R;
 import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
@@ -49,6 +53,18 @@ public class NativeVideoCallActivity extends Activity {
   private static WeakReference<NativeVideoCallActivity> activeRef = new WeakReference<>(null);
   private static final int REQUEST_CODE_ACCEPT_MEDIA = 0xD1C1;
   private static final long PIP_REQUEST_TIMEOUT_MS = 1_500L; // Diagnostic only; callback is the success SSOT.
+  private static final long CONNECTED_CHROME_HIDE_DELAY_MS = 5_000L;
+  private static final int LOCAL_PIP_WIDTH_DP = 120;
+  private static final int LOCAL_PIP_HEIGHT_DP = 213;
+  private static final int LOCAL_PIP_MARGIN_DP = 16;
+  private static final int CONNECTED_CONTROLS_DESIGN_MARGIN_DP = 12;
+
+  private enum NetworkDisplayTier {
+    GOOD,
+    FAIR,
+    POOR,
+    VERY_POOR
+  }
 
   private enum PipState {
     PIP_IDLE,
@@ -72,12 +88,28 @@ public class NativeVideoCallActivity extends Activity {
   private LinearLayout connectedControls;
   private ImageButton acceptButton;
   private ImageButton declineButton;
-  private Button endButton;
-  private Button cameraButton;
+  private ImageButton endButton;
+  private ImageButton cameraButton;
+  private ImageButton micButton;
   private View dockRoot;
-  private ImageButton dockMinimizeButton;
   private ImageButton cameraFlipButton;
+  private FrameLayout connectedChromeOverlay;
+  private LinearLayout connectedInfoPanel;
+  private TextView connectedPeerNameView;
+  private TextView connectedDurationView;
+  private TextView connectedSignalLabelView;
+  private View[] connectedSignalBars = new View[4];
+  private int systemBarsLeft;
+  private int systemBarsTop;
+  private int systemBarsRight;
+  private int systemBarsBottom;
+  private NetworkDisplayTier displayedNetworkTier = NetworkDisplayTier.GOOD;
+  private int networkRecoveryStableCount;
+  private boolean networkVeryPoorActive;
   private boolean cameraEnabled = true;
+  private boolean micMuted = false;
+  private boolean chromeVisible = false;
+  private boolean wasConnectedFullscreen = false;
   private boolean inPipMode = false;
   private PipState pipState = PipState.PIP_IDLE;
   private String lastPipSource = "";
@@ -94,6 +126,11 @@ public class NativeVideoCallActivity extends Activity {
   private int localPipDragStartTop = 0;
   private int localPipLeft = 0;
   private int localPipTop = 0;
+  private int backgroundTapSlop = 0;
+  private boolean backgroundTapTracking = false;
+  private boolean backgroundTapMoved = false;
+  private float backgroundTapStartX = 0f;
+  private float backgroundTapStartY = 0f;
   private NativeVideoCallRuntime.State currentState = NativeVideoCallRuntime.State.RINGING;
   private final Handler mainHandler = new Handler(Looper.getMainLooper());
   private long connectedAtElapsedMs = 0L;
@@ -110,6 +147,13 @@ public class NativeVideoCallActivity extends Activity {
         @Override
         public void run() {
           verifyPipRequestTimeout();
+        }
+      };
+  private final Runnable chromeHideRunnable =
+      new Runnable() {
+        @Override
+        public void run() {
+          hideConnectedChrome("timeout");
         }
       };
   private OnBackInvokedCallback nativeVideoBackCallback;
@@ -150,6 +194,7 @@ public class NativeVideoCallActivity extends Activity {
           if (!callId.equals(activity.callId) || activity.isFinishing() || activity.isDestroyed()) return;
           activity.ensureVideoRootForRemoteRender();
           activity.replaceView(activity.remoteContainer, view, false);
+          NativeVideoCallAcceptTiming.markSurfaceAttached(callId);
           NativeVideoCallLog.info("remote_surface_attached", callId);
         };
     if (Looper.myLooper() == Looper.getMainLooper()) {
@@ -218,6 +263,7 @@ public class NativeVideoCallActivity extends Activity {
     setContentView(R.layout.activity_native_video_call);
     bindViews();
     bindActions();
+    NativeVideoCallAgoraEngine.setNetworkQualityObserver(this::handleNetworkQualitySample);
     logSurfaceShown();
     NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(callId);
     applyState(session != null ? session.state : defaultStateForMode());
@@ -354,6 +400,8 @@ public class NativeVideoCallActivity extends Activity {
     NativeVideoCallLog.info("native_video_pip_activity_destroyed", callId, buildPipLogDetails("destroy"));
     unregisterNativeVideoBackCallback();
     clearPipRequestVerification();
+    cancelConnectedChromeHide("destroy");
+    NativeVideoCallAgoraEngine.setNetworkQualityObserver(null);
     pipState = PipState.PIP_IDLE;
     stopDurationTimer();
     hideDock("destroy");
@@ -617,6 +665,7 @@ public class NativeVideoCallActivity extends Activity {
   }
 
   private void bindViews() {
+    backgroundTapSlop = ViewConfiguration.get(this).getScaledTouchSlop();
     videoRoot = findViewById(R.id.native_video_call_video_root);
     remoteContainer = findViewById(R.id.native_video_call_remote);
     localContainer = findViewById(R.id.native_video_call_local);
@@ -633,24 +682,45 @@ public class NativeVideoCallActivity extends Activity {
     declineButton = findViewById(R.id.native_video_call_decline);
     endButton = findViewById(R.id.native_video_call_end);
     cameraButton = findViewById(R.id.native_video_call_camera);
+    micButton = findViewById(R.id.native_video_call_mic);
+    cameraFlipButton = findViewById(R.id.native_video_call_camera_flip);
+    connectedChromeOverlay = findViewById(R.id.native_video_call_connected_chrome);
+    connectedInfoPanel = findViewById(R.id.native_video_call_connected_info);
+    connectedPeerNameView = findViewById(R.id.native_video_call_connected_peer_name);
+    connectedDurationView = findViewById(R.id.native_video_call_connected_duration);
+    connectedSignalLabelView = findViewById(R.id.native_video_call_signal_label);
+    connectedSignalBars[0] = findViewById(R.id.native_video_call_signal_bar_1);
+    connectedSignalBars[1] = findViewById(R.id.native_video_call_signal_bar_2);
+    connectedSignalBars[2] = findViewById(R.id.native_video_call_signal_bar_3);
+    connectedSignalBars[3] = findViewById(R.id.native_video_call_signal_bar_4);
     attachDockView();
+    attachConnectedControlsInsetsListener();
+    attachLocalPipInsetsListener();
+    attachBackgroundChromeTapListener();
     attachLocalPipDragListener();
     applyLocalPreviewLayout();
+    localContainer.post(this::applyDefaultLocalPipPosition);
+    IncomingCallUiInsets.applyTopSafeArea(connectedInfoPanel, 8);
     IncomingCallUiInsets.applyBottomSafeArea(incomingActions, 32);
-    IncomingCallUiInsets.applyBottomSafeArea(activeActions, 32);
   }
 
   private void bindActions() {
     acceptButton.setOnClickListener(v -> performAccept("button"));
     declineButton.setOnClickListener(v -> NativeVideoCallRuntime.reject(this, callId));
     endButton.setOnClickListener(v -> NativeVideoCallRuntime.end(this, callId));
+    cameraFlipButton.setOnClickListener(
+        v -> {
+          NativeVideoCallAgoraEngine.switchCameraFacing();
+          showConnectedChrome("camera_flip");
+        });
     cameraButton.setOnClickListener(
         v -> {
           cameraEnabled = !cameraEnabled;
-          cameraButton.setText(
-              getString(cameraEnabled ? R.string.dibay_video_camera_on : R.string.dibay_video_camera_off));
           NativeVideoCallAgoraEngine.setCameraEnabled(cameraEnabled);
+          updateConnectedControlChrome();
+          showConnectedChrome("video_toggle");
         });
+    micButton.setOnClickListener(v -> onMicTapped());
   }
 
   private void applyState(NativeVideoCallRuntime.State state) {
@@ -661,11 +731,18 @@ public class NativeVideoCallActivity extends Activity {
     if (state == NativeVideoCallRuntime.State.ENDING
         || state == NativeVideoCallRuntime.State.ENDED
         || state == NativeVideoCallRuntime.State.FAILED) {
+      cancelConnectedChromeHide("terminal_state");
+      wasConnectedFullscreen = false;
+      displayedNetworkTier = NetworkDisplayTier.GOOD;
+      networkVeryPoorActive = false;
+      networkRecoveryStableCount = 0;
       clearPipRequestVerification();
       pipState = PipState.PIP_IDLE;
       detachDockView();
     }
     if (dockMode && state == NativeVideoCallRuntime.State.CONNECTED) {
+      cancelConnectedChromeHide("dock_state");
+      wasConnectedFullscreen = false;
       applyDockPresentation();
       return;
     }
@@ -675,10 +752,10 @@ public class NativeVideoCallActivity extends Activity {
     statusView.setText(model.statusText);
     avatarInitialView.setText(model.avatarInitial);
     incomingActions.setVisibility(model.showIncomingActions ? View.VISIBLE : View.GONE);
-    activeActions.setVisibility(model.showActiveActions ? View.VISIBLE : View.GONE);
-    connectedControls.setVisibility(model.showConnectedControls ? View.VISIBLE : View.GONE);
-    endButton.setText(model.endButtonLabel);
-    cameraButton.setText(model.cameraLabel);
+    if (!model.showConnectedControls) {
+      activeActions.setVisibility(model.showActiveActions ? View.VISIBLE : View.GONE);
+      connectedControls.setVisibility(View.GONE);
+    }
     videoRoot.setVisibility(model.showVideoSurfaces ? View.VISIBLE : View.GONE);
     localContainer.setVisibility(model.showLocalPreview ? View.VISIBLE : View.GONE);
     statusPanel.setVisibility(model.showStatusOverlay ? View.VISIBLE : View.GONE);
@@ -703,15 +780,172 @@ public class NativeVideoCallActivity extends Activity {
     if (model.showVideoSurfaces) {
       activeActions.bringToFront();
       activeActions.setTranslationZ(24f);
+      if (connectedChromeOverlay != null) {
+        connectedChromeOverlay.bringToFront();
+        connectedChromeOverlay.setTranslationZ(20f);
+      }
       ensureVideoRootForRemoteRender();
       NativeVideoCallAgoraEngine.onRemoteRenderSurfaceReady(callId);
     }
+    updateConnectedInfoPanel(model);
     if (inPipMode) applyPipUiMode(true);
-    if (model.showConnectedControls) {
-      ensureDockMinimizeButton();
-      ensureCameraFlipButton();
+    boolean connectedFullscreenNow = model.showConnectedControls && isConnectedFullscreenPresentation();
+    if (connectedFullscreenNow) {
+      updateConnectedControlChrome();
+      if (!wasConnectedFullscreen) {
+        showConnectedChrome("connected_enter");
+      }
+    } else {
+      cancelConnectedChromeHide("state_not_connected");
+      chromeVisible = false;
     }
-    updateCameraFlipVisibility();
+    wasConnectedFullscreen = connectedFullscreenNow;
+  }
+
+  private void attachBackgroundChromeTapListener() {
+    if (videoRoot == null) return;
+    videoRoot.setOnTouchListener(
+        (view, event) -> {
+          if (!isConnectedFullscreenPresentation()) return false;
+          switch (event.getActionMasked()) {
+            case MotionEvent.ACTION_DOWN:
+              backgroundTapTracking = true;
+              backgroundTapMoved = false;
+              backgroundTapStartX = event.getRawX();
+              backgroundTapStartY = event.getRawY();
+              return true;
+            case MotionEvent.ACTION_MOVE:
+              if (!backgroundTapTracking) return false;
+              float dx = Math.abs(event.getRawX() - backgroundTapStartX);
+              float dy = Math.abs(event.getRawY() - backgroundTapStartY);
+              if (dx > backgroundTapSlop || dy > backgroundTapSlop) {
+                backgroundTapMoved = true;
+              }
+              return true;
+            case MotionEvent.ACTION_UP:
+              if (backgroundTapTracking && !backgroundTapMoved) {
+                showConnectedChrome("background_tap");
+              }
+              backgroundTapTracking = false;
+              return true;
+            case MotionEvent.ACTION_CANCEL:
+              backgroundTapTracking = false;
+              return true;
+            default:
+              return false;
+          }
+        });
+  }
+
+  private boolean isConnectedFullscreenPresentation() {
+    return currentState == NativeVideoCallRuntime.State.CONNECTED
+        && !inPipMode
+        && !dockMode
+        && !isFinishing();
+  }
+
+  private void showConnectedChrome(String source) {
+    cancelConnectedChromeHide("show_" + source);
+    setConnectedChromeViewsVisible(true);
+    if (!chromeVisible) {
+      NativeVideoCallLog.info(
+          "native_video_chrome_shown",
+          callId,
+          "source="
+              + source
+              + " connected="
+              + (currentState == NativeVideoCallRuntime.State.CONNECTED)
+              + " presentation=fullscreen"
+              + " nicknameSource=session_callerName_sanitized");
+    }
+    chromeVisible = true;
+    if (isConnectedFullscreenPresentation()) {
+      scheduleConnectedChromeHide(source);
+    }
+  }
+
+  private void hideConnectedChrome(String source) {
+    cancelConnectedChromeHide("hide_" + source);
+    if (!isConnectedFullscreenPresentation()) return;
+    if (!chromeVisible) return;
+    setConnectedChromeViewsVisible(false);
+    chromeVisible = false;
+    NativeVideoCallLog.info(
+        "native_video_chrome_hidden",
+        callId,
+        "source=" + source + " connected=true presentation=fullscreen");
+  }
+
+  private void setConnectedChromeViewsVisible(boolean visible) {
+    int visibility = visible ? View.VISIBLE : View.GONE;
+    if (activeActions != null) {
+      activeActions.setAlpha(1f);
+      activeActions.setEnabled(visible);
+      activeActions.setVisibility(visible ? View.VISIBLE : View.GONE);
+    }
+    if (connectedControls != null) {
+      connectedControls.setAlpha(1f);
+      connectedControls.setEnabled(visible);
+      connectedControls.setVisibility(visible ? View.VISIBLE : View.GONE);
+    }
+    if (connectedChromeOverlay != null) {
+      connectedChromeOverlay.setVisibility(visible ? View.VISIBLE : View.GONE);
+    }
+  }
+
+  private void scheduleConnectedChromeHide(String source) {
+    mainHandler.removeCallbacks(chromeHideRunnable);
+    if (isConnectedFullscreenPresentation()) {
+      mainHandler.postDelayed(chromeHideRunnable, CONNECTED_CHROME_HIDE_DELAY_MS);
+    }
+  }
+
+  private void cancelConnectedChromeHide(String reason) {
+    mainHandler.removeCallbacks(chromeHideRunnable);
+  }
+
+  private void updateConnectedControlChrome() {
+    if (cameraButton != null) {
+      cameraButton.setImageResource(cameraEnabled ? R.drawable.ic_call_video : R.drawable.ic_call_video_off);
+      cameraButton.setContentDescription(
+          getString(cameraEnabled ? R.string.dibay_video_camera_on : R.string.dibay_video_camera_off));
+      cameraButton.setBackgroundResource(R.drawable.bg_call_control_neutral);
+      cameraButton.setColorFilter(Color.WHITE);
+    }
+    if (micButton != null) {
+      micButton.setImageResource(micMuted ? R.drawable.ic_call_mic_off : R.drawable.ic_call_mic_on);
+      micButton.setContentDescription(
+          getString(micMuted ? R.string.dibay_call_control_unmute : R.string.dibay_call_control_mute));
+      micButton.setBackgroundResource(R.drawable.bg_call_control_neutral);
+      micButton.setColorFilter(Color.WHITE);
+    }
+    if (cameraFlipButton != null) {
+      cameraFlipButton.setBackgroundResource(R.drawable.bg_call_control_neutral);
+      cameraFlipButton.setColorFilter(Color.WHITE);
+    }
+    if (endButton != null) {
+      endButton.setBackgroundResource(R.drawable.bg_call_control_danger);
+      endButton.setColorFilter(Color.WHITE);
+    }
+  }
+
+  private void onMicTapped() {
+    micMuted = !micMuted;
+    boolean applied = NativeVideoCallAgoraEngine.setMicMuted(micMuted);
+    if (!applied) {
+      micMuted = !micMuted;
+    }
+    updateConnectedControlChrome();
+    NativeVideoCallLog.info(
+        "native_video_mic_muted_changed",
+        callId,
+        "source=button connected="
+            + (currentState == NativeVideoCallRuntime.State.CONNECTED)
+            + " presentation=fullscreen requestedMuted="
+            + micMuted
+            + " result="
+            + applied);
+    showConnectedChrome("mic_toggle");
   }
 
   private boolean minimizeConnectedCall(String source) {
@@ -857,13 +1091,26 @@ public class NativeVideoCallActivity extends Activity {
   }
 
   private void applyPipUiMode(boolean enabled) {
+    if (enabled) {
+      cancelConnectedChromeHide("pip_enter");
+      wasConnectedFullscreen = false;
+    }
     if (enabled && dockMode) hideDock("pip_enter");
     if (overlayRoot != null) overlayRoot.setVisibility(enabled ? View.GONE : View.VISIBLE);
+    if (connectedChromeOverlay != null) {
+      connectedChromeOverlay.setVisibility(enabled || !chromeVisible ? View.GONE : View.VISIBLE);
+    }
     if (activeActions != null) activeActions.setVisibility(enabled ? View.GONE : View.VISIBLE);
     if (localContainer != null) localContainer.setVisibility(enabled ? View.GONE : View.VISIBLE);
     if (dockRoot != null) dockRoot.setVisibility(enabled || !dockMode ? View.GONE : View.VISIBLE);
     if (!enabled && currentState != null) {
+      if (currentState == NativeVideoCallRuntime.State.CONNECTED) {
+        wasConnectedFullscreen = true;
+      }
       applyState(currentState);
+      if (isConnectedFullscreenPresentation()) {
+        showConnectedChrome("pip_restore");
+      }
     }
   }
 
@@ -881,49 +1128,6 @@ public class NativeVideoCallActivity extends Activity {
     root.addView(dockRoot, params);
   }
 
-  private void ensureDockMinimizeButton() {
-    if (dockMinimizeButton != null || connectedControls == null) return;
-    dockMinimizeButton = new ImageButton(this);
-    dockMinimizeButton.setImageResource(android.R.drawable.ic_menu_agenda);
-    dockMinimizeButton.setContentDescription("dock_minimize");
-    dockMinimizeButton.setBackgroundResource(R.drawable.bg_dibay_incoming_btn_accept);
-    dockMinimizeButton.setPadding(dp(12), dp(12), dp(12), dp(12));
-    dockMinimizeButton.setScaleType(android.widget.ImageView.ScaleType.CENTER_INSIDE);
-    LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(48), dp(48));
-    params.setMarginEnd(dp(12));
-    connectedControls.addView(dockMinimizeButton, 0, params);
-    dockMinimizeButton.setOnClickListener(v -> showDock("minimize_button"));
-  }
-
-  private void ensureCameraFlipButton() {
-    if (cameraFlipButton != null || connectedControls == null) return;
-    cameraFlipButton = new ImageButton(this);
-    cameraFlipButton.setImageResource(android.R.drawable.ic_menu_rotate);
-    cameraFlipButton.setColorFilter(Color.WHITE);
-    cameraFlipButton.setContentDescription("camera_flip");
-    cameraFlipButton.setBackgroundResource(R.drawable.bg_dibay_incoming_btn_accept);
-    cameraFlipButton.setPadding(dp(12), dp(12), dp(12), dp(12));
-    cameraFlipButton.setScaleType(android.widget.ImageView.ScaleType.CENTER_INSIDE);
-    cameraFlipButton.setVisibility(View.GONE);
-    LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(48), dp(48));
-    params.setMarginEnd(dp(12));
-    int cameraIndex = connectedControls.indexOfChild(cameraButton);
-    connectedControls.addView(
-        cameraFlipButton, cameraIndex >= 0 ? cameraIndex : connectedControls.getChildCount(), params);
-    cameraFlipButton.setOnClickListener(
-        v -> {
-          NativeVideoCallAgoraEngine.switchCameraFacing();
-          updateCameraFlipVisibility();
-        });
-  }
-
-  private void updateCameraFlipVisibility() {
-    if (cameraFlipButton == null) return;
-    boolean visible =
-        currentState == NativeVideoCallRuntime.State.CONNECTED && !inPipMode && !dockMode;
-    cameraFlipButton.setVisibility(visible ? View.VISIBLE : View.GONE);
-  }
-
   private boolean isDockEligible() {
     return callId != null
         && !callId.isEmpty()
@@ -939,8 +1143,9 @@ public class NativeVideoCallActivity extends Activity {
       return;
     }
     if (dockMode) return;
+    cancelConnectedChromeHide("dock_enter");
+    wasConnectedFullscreen = false;
     dockMode = true;
-    updateCameraFlipVisibility();
     applyDockPresentation();
     NativeVideoCallLog.info("native_video_dock_shown", callId, "source=" + source);
   }
@@ -953,7 +1158,15 @@ public class NativeVideoCallActivity extends Activity {
     if (currentState != null && currentState != NativeVideoCallRuntime.State.CONNECTED) {
       return;
     }
-    if (currentState != null) applyState(currentState);
+    if (currentState != null) {
+      if (currentState == NativeVideoCallRuntime.State.CONNECTED) {
+        wasConnectedFullscreen = true;
+      }
+      applyState(currentState);
+      if (isConnectedFullscreenPresentation()) {
+        showConnectedChrome("dock_restore");
+      }
+    }
   }
 
   private void detachDockView() {
@@ -1069,15 +1282,256 @@ public class NativeVideoCallActivity extends Activity {
   }
 
   private void updateDurationLabel() {
-    if (connectedAtElapsedMs <= 0L || durationView == null) return;
-    long elapsedSec = Math.max(0L, (SystemClock.elapsedRealtime() - connectedAtElapsedMs) / 1000L);
-    long minutes = elapsedSec / 60L;
-    long seconds = elapsedSec % 60L;
-    String label = String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds);
-    durationView.setText(label);
+    if (connectedAtElapsedMs <= 0L) return;
+    String label = formatConnectedDuration(connectedAtElapsedMs);
+    if (durationView != null) durationView.setText(label);
+    if (connectedDurationView != null) connectedDurationView.setText(label);
     if (dockMode && dockRoot != null) {
       NativeVideoCallDockPresenter.updateDuration(dockRoot, label);
     }
+  }
+
+  private static String formatConnectedDuration(long connectedAtElapsedMs) {
+    if (connectedAtElapsedMs <= 0L) return "00:00";
+    long elapsedSec = Math.max(0L, (SystemClock.elapsedRealtime() - connectedAtElapsedMs) / 1000L);
+    long hours = elapsedSec / 3600L;
+    long minutes = (elapsedSec % 3600L) / 60L;
+    long seconds = elapsedSec % 60L;
+    if (hours > 0L) {
+      return String.format(Locale.getDefault(), "%d:%02d:%02d", hours, minutes, seconds);
+    }
+    return String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds);
+  }
+
+  private void updateConnectedInfoPanel(NativeVideoCallUiPresenter.Model model) {
+    if (connectedPeerNameView == null) return;
+    if (!model.showConnectedControls || !model.showVideoSurfaces) {
+      if (connectedChromeOverlay != null && !chromeVisible) {
+        connectedChromeOverlay.setVisibility(View.GONE);
+      }
+      return;
+    }
+    connectedPeerNameView.setText(model.peerName);
+    updateDurationLabel();
+    updateNetworkSignalUi();
+  }
+
+  private void handleNetworkQualitySample(int worstQuality, int txQuality, int rxQuality) {
+    if (!isConnectedFullscreenPresentation() && !dockMode) return;
+    NetworkDisplayTier previousTier = displayedNetworkTier;
+    NetworkDisplayTier instantTier = networkTierFromAgora(worstQuality);
+    NetworkDisplayTier nextTier = displayedNetworkTier;
+    if (instantTier == NetworkDisplayTier.VERY_POOR) {
+      nextTier = NetworkDisplayTier.VERY_POOR;
+      networkRecoveryStableCount = 0;
+    } else if (instantTier.ordinal() > displayedNetworkTier.ordinal()) {
+      nextTier = instantTier;
+      networkRecoveryStableCount = 0;
+    } else if (instantTier.ordinal() < displayedNetworkTier.ordinal()) {
+      networkRecoveryStableCount++;
+      if (networkRecoveryStableCount >= 2) {
+        nextTier = instantTier;
+        networkRecoveryStableCount = 0;
+      }
+    } else {
+      networkRecoveryStableCount = 0;
+    }
+    if (nextTier != displayedNetworkTier) {
+      NativeVideoCallLog.info(
+          "native_video_network_quality_changed",
+          callId,
+          "source=agora_onNetworkQuality previousQuality="
+              + previousTier.name()
+              + " currentQuality="
+              + nextTier.name()
+              + " chromeVisible="
+              + chromeVisible
+              + " connected="
+              + (currentState == NativeVideoCallRuntime.State.CONNECTED)
+              + " presentation=fullscreen");
+      displayedNetworkTier = nextTier;
+      updateNetworkSignalUi();
+    }
+    if (nextTier == NetworkDisplayTier.VERY_POOR && previousTier != NetworkDisplayTier.VERY_POOR) {
+      showNetworkVeryPoorChrome();
+    } else if (nextTier != NetworkDisplayTier.VERY_POOR) {
+      networkVeryPoorActive = false;
+    }
+  }
+
+  private void showNetworkVeryPoorChrome() {
+    if (networkVeryPoorActive) return;
+    networkVeryPoorActive = true;
+    boolean chromeWasVisible = chromeVisible;
+    showConnectedChrome("network_quality_very_poor");
+    NativeVideoCallLog.info(
+        "native_video_network_quality_alert_shown",
+        callId,
+        "source=network_quality_very_poor previousQuality="
+            + displayedNetworkTier.name()
+            + " currentQuality=VERY_POOR chromeWasVisible="
+            + chromeWasVisible
+            + " connected=true presentation=fullscreen");
+  }
+
+  private NetworkDisplayTier networkTierFromAgora(int worstQuality) {
+    if (worstQuality <= 2) return NetworkDisplayTier.GOOD;
+    if (worstQuality == 3) return NetworkDisplayTier.FAIR;
+    if (worstQuality == 4) return NetworkDisplayTier.POOR;
+    return NetworkDisplayTier.VERY_POOR;
+  }
+
+  private void updateNetworkSignalUi() {
+    if (connectedSignalLabelView == null) return;
+    int activeBars;
+    int labelRes;
+    int barColor;
+    switch (displayedNetworkTier) {
+      case FAIR:
+        activeBars = 3;
+        labelRes = R.string.dibay_video_network_quality_fair;
+        barColor = Color.parseColor("#D4E9E2");
+        break;
+      case POOR:
+        activeBars = 2;
+        labelRes = R.string.dibay_video_network_quality_poor;
+        barColor = Color.parseColor("#F5C26B");
+        break;
+      case VERY_POOR:
+        activeBars = 1;
+        labelRes = R.string.dibay_video_network_quality_very_poor;
+        barColor = Color.parseColor("#F28B82");
+        break;
+      case GOOD:
+      default:
+        activeBars = 4;
+        labelRes = R.string.dibay_video_network_quality_good;
+        barColor = Color.parseColor("#D4E9E2");
+        break;
+    }
+    connectedSignalLabelView.setText(getString(labelRes));
+    connectedSignalLabelView.setTextColor(barColor);
+    for (int i = 0; i < connectedSignalBars.length; i++) {
+      View bar = connectedSignalBars[i];
+      if (bar == null) continue;
+      boolean on = i < activeBars;
+      bar.setAlpha(on ? 1f : 0.28f);
+      bar.setBackgroundColor(barColor);
+    }
+  }
+
+  private void attachConnectedControlsInsetsListener() {
+    FrameLayout root = findViewById(R.id.native_video_call_root);
+    if (root == null || activeActions == null || connectedControls == null) return;
+    ViewCompat.setOnApplyWindowInsetsListener(
+        root,
+        (view, insets) -> {
+          applyConnectedControlsLayout(root, insets);
+          return insets;
+        });
+    connectedControls.addOnLayoutChangeListener(
+        (v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
+          if (bottom == oldBottom) return;
+          WindowInsetsCompat current = ViewCompat.getRootWindowInsets(root);
+          if (current != null) applyConnectedControlsLayout(root, current);
+        });
+    ViewCompat.requestApplyInsets(root);
+  }
+
+  /**
+   * WindowInsets usable bottom for connected controls.
+   *
+   * <p>controlsBottom = usableBottom - controlStackHeight - controlMargin
+   */
+  private void applyConnectedControlsLayout(FrameLayout root, WindowInsetsCompat insets) {
+    if (activeActions == null || connectedControls == null) return;
+    int parentHeight = root.getHeight();
+    if (parentHeight <= 0) {
+      root.post(() -> applyConnectedControlsLayout(root, insets));
+      return;
+    }
+
+    Insets nav =
+        insets.getInsets(
+            WindowInsetsCompat.Type.navigationBars()
+                | WindowInsetsCompat.Type.systemGestures()
+                | WindowInsetsCompat.Type.displayCutout());
+    int insetBottom = Math.max(nav.bottom, 0);
+    int usableBottom = parentHeight - insetBottom;
+    int controlMargin = dp(CONNECTED_CONTROLS_DESIGN_MARGIN_DP);
+    int controlStackHeight = measureConnectedControlStackHeight();
+    int controlsBottom = usableBottom - controlStackHeight - controlMargin;
+
+    ViewGroup.LayoutParams raw = activeActions.getLayoutParams();
+    if (!(raw instanceof FrameLayout.LayoutParams)) return;
+    FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) raw;
+    lp.gravity = Gravity.BOTTOM | Gravity.END;
+    lp.bottomMargin = Math.max(0, parentHeight - (controlsBottom + controlStackHeight));
+    activeActions.setLayoutParams(lp);
+  }
+
+  private int measureConnectedControlStackHeight() {
+    if (connectedControls == null) return 0;
+    int measured = connectedControls.getHeight();
+    if (measured > 0) return measured;
+    int buttonSize = getResources().getDimensionPixelSize(R.dimen.dibay_call_btn_size_default);
+    int buttonGap = getResources().getDimensionPixelSize(R.dimen.dibay_call_btn_gap);
+    return buttonSize * 4 + buttonGap * 3;
+  }
+
+  private void attachLocalPipInsetsListener() {
+    if (videoRoot == null) return;
+    ViewCompat.setOnApplyWindowInsetsListener(
+        videoRoot,
+        (view, insets) -> {
+          Insets bars =
+              insets.getInsets(
+                  WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+          systemBarsLeft = bars.left;
+          systemBarsTop = bars.top;
+          systemBarsRight = bars.right;
+          systemBarsBottom = bars.bottom;
+          if (!localPipCustomPosition) {
+            applyDefaultLocalPipPosition();
+          } else {
+            int[] clamped = clampLocalPipPosition(localPipLeft, localPipTop);
+            localPipLeft = clamped[0];
+            localPipTop = clamped[1];
+            applyLocalPipPosition(false);
+          }
+          return insets;
+        });
+    ViewCompat.requestApplyInsets(videoRoot);
+  }
+
+  private void applyDefaultLocalPipPosition() {
+    if (localContainer == null) return;
+    int[] bounds = getLocalPipUsableBounds();
+    if (bounds == null) return;
+    int margin = dp(LOCAL_PIP_MARGIN_DP);
+    int pipWidth = localContainer.getWidth() > 0 ? localContainer.getWidth() : dp(LOCAL_PIP_WIDTH_DP);
+    int pipHeight = localContainer.getHeight() > 0 ? localContainer.getHeight() : dp(LOCAL_PIP_HEIGHT_DP);
+    localPipLeft = bounds[0] + margin;
+    localPipTop = bounds[3] - pipHeight - margin;
+    int[] clamped = clampLocalPipPosition(localPipLeft, localPipTop);
+    localPipLeft = clamped[0];
+    localPipTop = clamped[1];
+    applyLocalPipPosition(false);
+  }
+
+  /** usableLeft, usableTop, usableRight, usableBottom or null when parent not laid out. */
+  private int[] getLocalPipUsableBounds() {
+    if (localContainer == null || !(localContainer.getParent() instanceof View)) return null;
+    View parent = (View) localContainer.getParent();
+    int parentWidth = parent.getWidth();
+    int parentHeight = parent.getHeight();
+    if (parentWidth <= 0 || parentHeight <= 0) return null;
+    return new int[] {
+      systemBarsLeft,
+      systemBarsTop,
+      parentWidth - systemBarsRight,
+      parentHeight - systemBarsBottom
+    };
   }
 
   private void applyLocalPreviewLayout() {
@@ -1107,19 +1561,41 @@ public class NativeVideoCallActivity extends Activity {
   }
 
   private int[] clampLocalPipPosition(int left, int top) {
-    if (localContainer == null || !(localContainer.getParent() instanceof View)) {
+    int[] bounds = getLocalPipUsableBounds();
+    if (bounds == null || localContainer == null) {
       return new int[] {Math.max(0, left), Math.max(0, top)};
     }
-    View parent = (View) localContainer.getParent();
-    int maxLeft = Math.max(0, parent.getWidth() - localContainer.getWidth());
-    int maxTop = Math.max(0, parent.getHeight() - localContainer.getHeight());
-    return new int[] {Math.max(0, Math.min(left, maxLeft)), Math.max(0, Math.min(top, maxTop))};
+    int margin = dp(LOCAL_PIP_MARGIN_DP);
+    int pipWidth = localContainer.getWidth() > 0 ? localContainer.getWidth() : dp(LOCAL_PIP_WIDTH_DP);
+    int pipHeight = localContainer.getHeight() > 0 ? localContainer.getHeight() : dp(LOCAL_PIP_HEIGHT_DP);
+    int minLeft = bounds[0] + margin;
+    int maxLeft = Math.max(minLeft, bounds[2] - pipWidth - margin);
+    int minTop = bounds[1] + margin;
+    int maxTop = Math.max(minTop, bounds[3] - pipHeight - margin);
+    return new int[] {
+      Math.max(minLeft, Math.min(left, maxLeft)),
+      Math.max(minTop, Math.min(top, maxTop))
+    };
   }
 
   private FrameLayout.LayoutParams createLocalPreviewLayoutParams() {
-    FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(dp(120), dp(213));
-    params.gravity = Gravity.TOP | Gravity.END;
-    params.setMargins(0, dp(88), dp(20), 0);
+    FrameLayout.LayoutParams params =
+        new FrameLayout.LayoutParams(dp(LOCAL_PIP_WIDTH_DP), dp(LOCAL_PIP_HEIGHT_DP));
+    params.gravity = Gravity.TOP | Gravity.START;
+    int margin = dp(LOCAL_PIP_MARGIN_DP);
+    int[] bounds = getLocalPipUsableBounds();
+    int top = margin;
+    int left = margin;
+    if (bounds != null) {
+      left = bounds[0] + margin;
+      top = bounds[3] - dp(LOCAL_PIP_HEIGHT_DP) - margin;
+      int[] clamped = clampLocalPipPosition(left, top);
+      left = clamped[0];
+      top = clamped[1];
+    }
+    params.setMargins(left, top, 0, 0);
+    localPipLeft = left;
+    localPipTop = top;
     return params;
   }
 

@@ -20,12 +20,105 @@
         <FrameLayout
             android:id="@+id/native_video_call_local"
             android:layout_width="120dp"
-            android:layout_height="180dp"
-            android:layout_gravity="top|end"
-            android:layout_marginTop="88dp"
-            android:layout_marginEnd="20dp"
-            android:background="@color/dibay_call_dark_card"
+            android:layout_height="213dp"
+            android:layout_gravity="top|start"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="0dp"
+            android:background="@android:color/transparent"
             android:visibility="gone" />
+    </FrameLayout>
+
+    <FrameLayout
+        android:id="@+id/native_video_call_connected_chrome"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clickable="false"
+        android:focusable="false"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:id="@+id/native_video_call_connected_info"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|start"
+            android:clickable="false"
+            android:focusable="false"
+            android:orientation="vertical"
+            android:paddingStart="20dp"
+            android:paddingTop="12dp"
+            android:paddingEnd="96dp"
+            android:paddingBottom="8dp">
+
+            <TextView
+                android:id="@+id/native_video_call_connected_peer_name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="#F1F8F4"
+                android:textSize="17sp"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/native_video_call_connected_duration"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:textColor="#D4E9E2"
+                    android:textSize="14sp" />
+
+                <LinearLayout
+                    android:id="@+id/native_video_call_signal_bars"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:gravity="bottom"
+                    android:orientation="horizontal">
+
+                    <View
+                        android:id="@+id/native_video_call_signal_bar_1"
+                        android:layout_width="3dp"
+                        android:layout_height="6dp"
+                        android:layout_marginEnd="2dp"
+                        android:background="#D4E9E2" />
+
+                    <View
+                        android:id="@+id/native_video_call_signal_bar_2"
+                        android:layout_width="3dp"
+                        android:layout_height="9dp"
+                        android:layout_marginEnd="2dp"
+                        android:background="#D4E9E2" />
+
+                    <View
+                        android:id="@+id/native_video_call_signal_bar_3"
+                        android:layout_width="3dp"
+                        android:layout_height="12dp"
+                        android:layout_marginEnd="2dp"
+                        android:background="#D4E9E2" />
+
+                    <View
+                        android:id="@+id/native_video_call_signal_bar_4"
+                        android:layout_width="3dp"
+                        android:layout_height="15dp"
+                        android:background="#D4E9E2" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/native_video_call_signal_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:textColor="#D4E9E2"
+                    android:textSize="13sp" />
+            </LinearLayout>
+        </LinearLayout>
     </FrameLayout>
 
     <LinearLayout
@@ -128,52 +221,67 @@
 
     <LinearLayout
         android:id="@+id/native_video_call_active_actions"
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="bottom"
+        android:layout_gravity="bottom|end"
         android:clickable="true"
         android:elevation="24dp"
         android:gravity="center"
         android:orientation="vertical"
-        android:paddingBottom="32dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="0dp"
         android:visibility="gone">
-
-        <Button
-            android:id="@+id/native_video_call_end"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:background="@drawable/bg_dibay_incoming_btn_reject"
-            android:minHeight="@dimen/dibay_call_touch_min"
-            android:minWidth="160dp"
-            android:paddingStart="20dp"
-            android:paddingEnd="20dp"
-            android:text="@string/dibay_video_call_end"
-            android:textAllCaps="false"
-            android:textColor="@android:color/white"
-            android:textSize="15sp" />
 
         <LinearLayout
             android:id="@+id/native_video_call_connected_controls"
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/dibay_call_btn_gap"
             android:gravity="center"
-            android:orientation="horizontal"
+            android:orientation="vertical"
             android:visibility="gone">
 
-            <Button
+            <ImageButton
+                android:id="@+id/native_video_call_camera_flip"
+                android:layout_width="@dimen/dibay_call_btn_size_default"
+                android:layout_height="@dimen/dibay_call_btn_size_default"
+                android:background="@drawable/bg_call_control_neutral"
+                android:contentDescription="@string/dibay_video_camera_flip"
+                android:padding="14dp"
+                android:scaleType="centerInside"
+                android:src="@android:drawable/ic_menu_rotate" />
+
+            <ImageButton
                 android:id="@+id/native_video_call_camera"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:background="@drawable/bg_dibay_incoming_btn_accept"
-                android:minHeight="@dimen/dibay_call_touch_min"
-                android:minWidth="@dimen/dibay_call_btn_size_min"
-                android:paddingStart="16dp"
-                android:paddingEnd="16dp"
-                android:text="@string/dibay_video_camera_on"
-                android:textAllCaps="false"
-                android:textColor="@android:color/white"
-                android:textSize="15sp" />
+                android:layout_width="@dimen/dibay_call_btn_size_default"
+                android:layout_height="@dimen/dibay_call_btn_size_default"
+                android:layout_marginTop="@dimen/dibay_call_btn_gap"
+                android:background="@drawable/bg_call_control_neutral"
+                android:contentDescription="@string/dibay_video_camera_on"
+                android:padding="14dp"
+                android:scaleType="centerInside"
+                android:src="@drawable/ic_call_video" />
+
+            <ImageButton
+                android:id="@+id/native_video_call_mic"
+                android:layout_width="@dimen/dibay_call_btn_size_default"
+                android:layout_height="@dimen/dibay_call_btn_size_default"
+                android:layout_marginTop="@dimen/dibay_call_btn_gap"
+                android:background="@drawable/bg_call_control_neutral"
+                android:contentDescription="@string/dibay_call_control_mute"
+                android:padding="14dp"
+                android:scaleType="centerInside"
+                android:src="@drawable/ic_call_mic_on" />
+
+            <ImageButton
+                android:id="@+id/native_video_call_end"
+                android:layout_width="@dimen/dibay_call_btn_size_default"
+                android:layout_height="@dimen/dibay_call_btn_size_default"
+                android:layout_marginTop="@dimen/dibay_call_btn_gap"
+                android:background="@drawable/bg_call_control_danger"
+                android:contentDescription="@string/dibay_video_call_end"
+                android:padding="14dp"
+                android:scaleType="centerInside"
+                android:src="@drawable/ic_call_end_x" />
         </LinearLayout>
     </LinearLayout>
 </FrameLayout>

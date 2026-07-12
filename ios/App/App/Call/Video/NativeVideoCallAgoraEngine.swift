@@ -35,9 +35,16 @@ final class NativeVideoCallAgoraEngine: NSObject {
   private var localPreviewAttached = false
   private var pendingRemoteUids: [UInt] = []
   private var remoteUidByCallId: [String: UInt] = [:]
+  private var networkQualityHandler: ((_ worst: Int, _ tx: Int, _ rx: Int) -> Void)?
 
   private override init() {
     super.init()
+  }
+
+  func setNetworkQualityHandler(_ handler: ((_ worst: Int, _ tx: Int, _ rx: Int) -> Void)?) {
+    lock.lock()
+    networkQualityHandler = handler
+    lock.unlock()
   }
 
   func peekOccupantCallId() -> String? {
@@ -154,6 +161,18 @@ final class NativeVideoCallAgoraEngine: NSObject {
     guard let rtc, let sid, !sid.isEmpty else { return }
     rtc.muteLocalVideoStream(!enabled)
     NativeVideoCallLog.info("camera_toggle", callId: sid, details: "enabled=\(enabled)")
+  }
+
+  @discardableResult
+  func setMicMuted(_ muted: Bool) -> Bool {
+    lock.lock()
+    let sid = activeCallId
+    let rtc = engine
+    lock.unlock()
+    guard let rtc, let sid, !sid.isEmpty else { return false }
+    let result = rtc.muteLocalAudioStream(muted)
+    NativeVideoCallLog.info("native_video_mic_mute_applied", callId: sid, details: "muted=\(muted) result=\(result)")
+    return result == 0
   }
 
   func switchCameraFacing() {
@@ -506,5 +525,22 @@ extension NativeVideoCallAgoraEngine: AgoraRtcEngineDelegate {
     lock.unlock()
     guard let sid else { return }
     fail(callId: sid, generation: gen, reason: "agora_error=\(errorCode.rawValue)")
+  }
+
+  func rtcEngine(
+    _ engine: AgoraRtcEngineKit,
+    networkQuality uid: UInt,
+    txQuality: AgoraNetworkQuality,
+    rxQuality: AgoraNetworkQuality
+  ) {
+    guard uid == 0 else { return }
+    let tx = Int(txQuality.rawValue)
+    let rx = Int(rxQuality.rawValue)
+    let worst = max(tx, rx)
+    lock.lock()
+    let handler = networkQualityHandler
+    lock.unlock()
+    guard let handler else { return }
+    DispatchQueue.main.async { handler(worst, tx, rx) }
   }
 }

@@ -75,7 +75,21 @@ enum NativeVideoCallUiPresenter {
 
   private static func resolvePeerName(_ session: NativeVideoCallSession?) -> String {
     let name = session?.callerName.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-    return name.isEmpty ? "DIBAY" : name
+    if name.isEmpty { return "DIBAY" }
+    return sanitizeNickname(name)
+  }
+
+  private static func sanitizeNickname(_ value: String) -> String {
+    let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+    if trimmed.isEmpty { return trimmed }
+    if let paren = trimmed.range(of: " (@"), paren.lowerBound > trimmed.startIndex, trimmed.hasSuffix(")") {
+      return String(trimmed[..<paren.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    if trimmed.hasPrefix("@") {
+      let rest = String(trimmed.drop(while: { $0 == "@" })).trimmingCharacters(in: .whitespacesAndNewlines)
+      return rest.isEmpty ? trimmed : rest
+    }
+    return trimmed
   }
 
   private static func resolveStatusText(phase: Phase) -> String {

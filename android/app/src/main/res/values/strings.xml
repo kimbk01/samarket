@@ -31,8 +31,13 @@
     <string name="dibay_video_call_ending">통화 종료 중</string>
     <string name="dibay_video_call_end">종료</string>
     <string name="dibay_video_call_cancel">취소</string>
+    <string name="dibay_video_camera_flip">카메라 전환</string>
     <string name="dibay_video_camera_on">카메라 켬</string>
     <string name="dibay_video_camera_off">카메라 끔</string>
+    <string name="dibay_video_network_quality_good">좋음</string>
+    <string name="dibay_video_network_quality_fair">보통</string>
+    <string name="dibay_video_network_quality_poor">나쁨</string>
+    <string name="dibay_video_network_quality_very_poor">매우 나쁨</string>
     <string name="dibay_call_dock_resume">통화로 돌아가기</string>
     <string name="incoming_call_connecting">연결 중…</string>
 

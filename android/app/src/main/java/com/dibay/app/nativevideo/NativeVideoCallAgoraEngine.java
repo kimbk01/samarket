@@ -28,6 +28,10 @@ public final class NativeVideoCallAgoraEngine {
     void onError(String reason);
   }
 
+  public interface NetworkQualityObserver {
+    void onNetworkQuality(int worstQuality, int txQuality, int rxQuality);
+  }
+
   public enum RemoteReattachResult {
     SUCCESS,
     SKIPPED_INVALID_CALL_ID,
@@ -58,6 +62,7 @@ public final class NativeVideoCallAgoraEngine {
   private static RtcEngine engine;
   private static String activeCallId;
   private static Listener listener;
+  private static NetworkQualityObserver networkQualityObserver;
   private static Context renderContext;
   private static boolean callerJoinActive;
   private static volatile boolean remoteVideoRendered;
@@ -65,6 +70,12 @@ public final class NativeVideoCallAgoraEngine {
   private static volatile String localReattachInFlightCallId;
 
   private NativeVideoCallAgoraEngine() {}
+
+  public static void setNetworkQualityObserver(NetworkQualityObserver observer) {
+    synchronized (LOCK) {
+      networkQualityObserver = observer;
+    }
+  }
 
   public static void join(
       Context context, String callId, NativeVideoCallApi.TokenConnection token, Listener nextListener) {
@@ -111,39 +122,55 @@ public final class NativeVideoCallAgoraEngine {
                 rtc.enableVideo();
                 rtc.setDefaultAudioRoutetoSpeakerphone(true);
                 NativeVideoCallLog.info("audio_route_applied", sid, "speaker=true");
-                CountDownLatch previewReady = new CountDownLatch(1);
-                final String[] previewError = {null};
-                MAIN.post(
-                    () -> {
-                      try {
-                        if (NativeVideoCallActivity.isShowing(sid)) {
+                if (callerJoin) {
+                  CountDownLatch previewReady = new CountDownLatch(1);
+                  final String[] previewError = {null};
+                  MAIN.post(
+                      () -> {
+                        try {
+                          if (NativeVideoCallActivity.isShowing(sid)) {
+                            SurfaceView local = new SurfaceView(app);
+                            local.setZOrderMediaOverlay(true);
+                            rtc.setupLocalVideo(new VideoCanvas(local, VideoCanvas.RENDER_MODE_HIDDEN, 0));
+                            NativeVideoCallActivity.attachLocalView(sid, local);
+                            rtc.startPreview();
+                            NativeVideoCallLog.info("caller_local_camera_preview_started", sid);
+                          } else {
+                            NativeVideoCallLog.info("no_ui_preview_skipped", sid);
+                            rtc.startPreview();
+                          }
+                        } catch (RuntimeException error) {
+                          previewError[0] = "local_preview=" + error.getClass().getSimpleName();
+                        } finally {
+                          previewReady.countDown();
+                        }
+                      });
+                  if (!previewReady.await(8, TimeUnit.SECONDS)) {
+                    fail(sid, "preview_ready_timeout");
+                    return;
+                  }
+                  if (previewError[0] != null) {
+                    fail(sid, previewError[0]);
+                    return;
+                  }
+                } else {
+                  MAIN.post(
+                      () -> {
+                        try {
+                          if (!NativeVideoCallActivity.isShowing(sid)) return;
                           SurfaceView local = new SurfaceView(app);
                           local.setZOrderMediaOverlay(true);
                           rtc.setupLocalVideo(new VideoCanvas(local, VideoCanvas.RENDER_MODE_HIDDEN, 0));
                           NativeVideoCallActivity.attachLocalView(sid, local);
                           rtc.startPreview();
-                          if (callerJoin) {
-                            NativeVideoCallLog.info("caller_local_camera_preview_started", sid);
-                          } else {
-                            NativeVideoCallLog.info("local_camera_preview_started", sid);
-                          }
-                        } else if (callerJoin) {
-                          NativeVideoCallLog.info("no_ui_preview_skipped", sid);
-                          rtc.startPreview();
+                          NativeVideoCallLog.info("local_camera_preview_started", sid);
+                        } catch (RuntimeException error) {
+                          NativeVideoCallLog.warn(
+                              "error_terminal",
+                              sid,
+                              "callee_local_preview_async=" + error.getClass().getSimpleName());
                         }
-                      } catch (RuntimeException error) {
-                        previewError[0] = "local_preview=" + error.getClass().getSimpleName();
-                      } finally {
-                        previewReady.countDown();
-                      }
-                    });
-                if (!previewReady.await(8, TimeUnit.SECONDS)) {
-                  fail(sid, "preview_ready_timeout");
-                  return;
-                }
-                if (previewError[0] != null) {
-                  fail(sid, previewError[0]);
-                  return;
+                      });
                 }
 
                 ChannelMediaOptions options = new ChannelMediaOptions();
@@ -359,6 +386,16 @@ public final class NativeVideoCallAgoraEngine {
     }
   }
 
+  public static boolean setMicMuted(boolean muted) {
+    synchronized (LOCK) {
+      if (engine == null || activeCallId == null) return false;
+      int result = engine.muteLocalAudioStream(muted);
+      NativeVideoCallLog.info(
+          "native_video_mic_mute_applied", activeCallId, "muted=" + muted + " result=" + result);
+      return result == 0;
+    }
+  }
+
   public static void switchCameraFacing() {
     synchronized (LOCK) {
       if (engine == null || activeCallId == null) return;
@@ -501,6 +538,7 @@ public final class NativeVideoCallAgoraEngine {
       SurfaceView remote = new SurfaceView(context);
       rtc.setupRemoteVideo(new VideoCanvas(remote, VideoCanvas.RENDER_MODE_HIDDEN, uid));
       NativeVideoCallActivity.attachRemoteView(sid, remote);
+      NativeVideoCallAcceptTiming.markSurfaceAttached(sid);
     } catch (RuntimeException error) {
       REMOTE_SETUP_UIDS.remove(uid);
       fail(sid, "setup_remote_video=" + error.getClass().getSimpleName());
@@ -509,10 +547,27 @@ public final class NativeVideoCallAgoraEngine {
 
   private static void markRemoteVideoRendered(int uid, String sid, String details) {
     Listener currentListener;
+    boolean firstFrame;
     synchronized (LOCK) {
-      if (!sid.equals(activeCallId) || remoteVideoRendered) return;
+      if (!sid.equals(activeCallId)) return;
+      firstFrame = !remoteVideoRendered;
+      if (remoteVideoRendered) return;
       remoteVideoRendered = true;
       currentListener = listener;
+    }
+    if (firstFrame) {
+      NativeVideoCallLog.info(
+          "native_video_remote_first_frame",
+          sid,
+          "remoteUid="
+              + uid
+              + " elapsedFromAnswerMs="
+              + NativeVideoCallAcceptTiming.elapsedFromAcceptMs(sid)
+              + " elapsedFromJoinMs="
+              + NativeVideoCallAcceptTiming.elapsedFromJoinMs(sid)
+              + " elapsedFromSurfaceAttachMs="
+              + NativeVideoCallAcceptTiming.elapsedFromSurfaceAttachMs(sid)
+              + details);
     }
     NativeVideoCallLog.info("remote_video_render_ready", sid, "uid=" + uid + details);
     if (currentListener != null) currentListener.onRemoteVideoReady();
@@ -533,6 +588,9 @@ public final class NativeVideoCallAgoraEngine {
           if (sid != null) {
             NativeVideoCallLog.info(
                 "agora_native_join_success", sid, "channel=" + channel + " uid=" + uid);
+            if (!callerJoin) {
+              NativeVideoCallAcceptTiming.markJoinSuccess(sid);
+            }
           }
           if (callerJoin) {
             if (sid != null) {
@@ -590,6 +648,20 @@ public final class NativeVideoCallAgoraEngine {
           }
           if (sid == null || uid == 0) return;
           markRemoteVideoRendered(uid, sid, " width=" + width + " height=" + height);
+        }
+
+        @Override
+        public void onNetworkQuality(int uid, int txQuality, int rxQuality) {
+          if (uid != 0) return;
+          NetworkQualityObserver observer;
+          String sid;
+          synchronized (LOCK) {
+            observer = networkQualityObserver;
+            sid = activeCallId;
+          }
+          if (observer == null || sid == null) return;
+          int worst = Math.max(txQuality, rxQuality);
+          MAIN.post(() -> observer.onNetworkQuality(worst, txQuality, rxQuality));
         }
 
         @Override

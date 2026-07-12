@@ -1,6 +1,7 @@
 package com.dibay.app.nativevideo;
 
 import android.content.Context;
+import com.dibay.app.IncomingCallUiCopy;
 import com.dibay.app.R;
 
 /** Maps Native Video Runtime session/state to render-only UI model. */
@@ -117,7 +118,7 @@ public final class NativeVideoCallUiPresenter {
     if (session == null || session.callerName == null || session.callerName.trim().isEmpty()) {
       return "DIBAY";
     }
-    return session.callerName.trim();
+    return IncomingCallUiCopy.sanitizeNickname(session.callerName.trim());
   }
 
   private static String resolveStatusText(Context app, Phase phase) {
@@ -138,8 +139,7 @@ public final class NativeVideoCallUiPresenter {
   }
 
   private static String initialFromName(String name) {
-    if (name == null || name.isEmpty()) return "D";
-    return name.substring(0, 1).toUpperCase();
+    return IncomingCallUiCopy.peerInitial(name);
   }
 
   private static String safeString(Context app, int resId) {

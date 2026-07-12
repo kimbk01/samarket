@@ -5,12 +5,15 @@ import CallKit
 import UIKit
 
 /** Native-only video call UI. Never hosts WebView. Render-only over NativeVideoCallRuntime state. */
-final class NativeVideoCallViewController: UIViewController {
+final class NativeVideoCallViewController: UIViewController, UIGestureRecognizerDelegate {
   let boundCallId: String
 
   private let session: NativeVideoCallSession
   private var currentState: NativeVideoCallRuntimeState = .ringing
   private var cameraEnabled = true
+  private var micMuted = false
+  private var isChromeVisible = false
+  private var chromeHideWorkItem: DispatchWorkItem?
   private var connectedAt: Date?
   private var durationTimer: Timer?
   private var acceptStarted = false
@@ -55,7 +58,20 @@ final class NativeVideoCallViewController: UIViewController {
   private let endButton = UIButton(type: .system)
   private let cameraButton = UIButton(type: .system)
   private let cameraFlipButton = UIButton(type: .system)
-  private let minimizeButton = UIButton(type: .system)
+  private let micButton = UIButton(type: .system)
+
+  private enum NetworkDisplayTier {
+    case good, fair, poor, veryPoor
+  }
+
+  private let connectedChromeContainer = UIView()
+  private let connectedPeerNameLabel = UILabel()
+  private let connectedDurationLabel = UILabel()
+  private let connectedSignalLabel = UILabel()
+  private var connectedSignalBars: [UIView] = []
+  private var displayedNetworkTier: NetworkDisplayTier = .good
+  private var networkRecoveryStableCount = 0
+  private var networkVeryPoorActive = false
 
   init(callId: String, session: NativeVideoCallSession) {
     self.boundCallId = callId.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -73,6 +89,9 @@ final class NativeVideoCallViewController: UIViewController {
     view.backgroundColor = .black
     buildLayout()
     bindActions()
+    NativeVideoCallAgoraEngine.shared.setNetworkQualityHandler { [weak self] worst, _, _ in
+      self?.handleNetworkQualitySample(worst: worst)
+    }
     // B안: autostart PiP가 백그라운드에서 PiP를 띄우기 직전에 프레임 브리지를 워밍업(willStart 아님).
     NotificationCenter.default.addObserver(
       self, selector: #selector(onAppWillResignActive),
@@ -84,6 +103,8 @@ final class NativeVideoCallViewController: UIViewController {
   }
 
   deinit {
+    cancelConnectedChromeHide(reason: "deinit")
+    NativeVideoCallAgoraEngine.shared.setNetworkQualityHandler(nil)
     NotificationCenter.default.removeObserver(self)
     teardownPipFrameBridge(reason: "deinit")
   }
@@ -107,12 +128,14 @@ final class NativeVideoCallViewController: UIViewController {
 
   override func viewDidDisappear(_ animated: Bool) {
     super.viewDidDisappear(animated)
+    cancelConnectedChromeHide(reason: "view_did_disappear")
     stopDurationTimer()
     // PiP 활성 중이면 프레임 유지(백그라운드 시 view가 사라져도 브리지는 살아있어야 함). 통화 종료는 clearVideoSurfaces가 처리.
     if !inPipMode { teardownPipFrameBridge(reason: "view_did_disappear") }
   }
 
   func applyState(_ state: NativeVideoCallRuntimeState) {
+    let previousState = currentState
     currentState = state
     // Use init-captured session — avoid queue.sync on main during PiP reparent/stop (P4 deadlock).
     let model = NativeVideoCallUiPresenter.build(session: session, state: state)
@@ -121,10 +144,10 @@ final class NativeVideoCallViewController: UIViewController {
     statusLabel.text = model.statusText
     avatarInitialLabel.text = model.avatarInitial
     incomingActions.isHidden = !model.showIncomingActions
-    activeActions.isHidden = !model.showActiveActions
-    connectedControls.isHidden = !model.showConnectedControls
-    endButton.setTitle(model.endButtonLabel, for: .normal)
-    cameraButton.setTitle(model.cameraLabel, for: .normal)
+    if !model.showConnectedControls {
+      activeActions.isHidden = true
+      connectedControls.isHidden = true
+    }
     videoRoot.isHidden = !model.showVideoSurfaces
     localContainer.isHidden = !model.showLocalPreview
     statusPanel.isHidden = !model.showStatusOverlay
@@ -141,10 +164,12 @@ final class NativeVideoCallViewController: UIViewController {
     }
 
     if model.showVideoSurfaces {
+      view.bringSubviewToFront(connectedChromeContainer)
       view.bringSubviewToFront(activeActions)
       _ = ensureVideoRootForRemoteRender()
       NativeVideoCallAgoraEngine.shared.onRemoteRenderSurfaceReady(callId: boundCallId)
     }
+    updateConnectedInfoPanel(model)
 
     if inPipMode {
       applyPipUiMode(true)
@@ -157,11 +182,25 @@ final class NativeVideoCallViewController: UIViewController {
     if state == .connected {
       ScreenAwakeBridge.shared.acquire(callId: boundCallId, reason: "connected_video")
     } else if state == .ending || state == .ended || state == .failed {
+      cancelConnectedChromeHide(reason: "terminal_state")
+      displayedNetworkTier = .good
+      networkVeryPoorActive = false
+      networkRecoveryStableCount = 0
       ScreenAwakeBridge.shared.release(callId: boundCallId, reason: "video_runtime_state")
     }
 
     // B1 — connected 동안에만 자동 시스템 PiP 활성(빈 화면 PiP 방지).
     pipController?.canStartPictureInPictureAutomaticallyFromInline = (state == .connected)
+
+    if model.showConnectedControls {
+      updateConnectedControlChrome()
+      if previousState != .connected {
+        showConnectedChrome(source: "connected_enter")
+      }
+    } else {
+      cancelConnectedChromeHide(reason: "state_not_connected")
+      isChromeVisible = false
+    }
   }
 
   @discardableResult
@@ -221,8 +260,10 @@ final class NativeVideoCallViewController: UIViewController {
   }
 
   func applyPipUiMode(_ enabled: Bool) {
+    if enabled { cancelConnectedChromeHide(reason: "pip_enter") }
     inPipMode = enabled
     overlayRoot.isHidden = enabled
+    connectedChromeContainer.isHidden = enabled || !isChromeVisible
     activeActions.isHidden = enabled
     localContainer.isHidden = enabled
     if !enabled {
@@ -327,7 +368,7 @@ final class NativeVideoCallViewController: UIViewController {
       localContainer.widthAnchor.constraint(equalToConstant: Self.localPipWidth),
       localContainer.heightAnchor.constraint(equalToConstant: Self.localPipHeight),
     ])
-    // 고정 top/trailing → 가변 leading/top (드래그 이동용). 기본 위치는 viewDidLayoutSubviews에서 우상단으로 설정.
+    // 가변 leading/top (드래그 이동용). 기본 위치는 viewDidLayoutSubviews에서 좌하단으로 설정.
     let localTop = localContainer.topAnchor.constraint(
       equalTo: videoRoot.safeAreaLayoutGuide.topAnchor,
       constant: localPipTop
@@ -343,6 +384,8 @@ final class NativeVideoCallViewController: UIViewController {
     attachLocalPipDoubleTapGesture()
     localContainer.layer.cornerRadius = 8
     localContainer.clipsToBounds = true
+
+    buildConnectedChrome()
 
     statusPanel.translatesAutoresizingMaskIntoConstraints = false
     overlayRoot.addSubview(statusPanel)
@@ -392,10 +435,34 @@ final class NativeVideoCallViewController: UIViewController {
 
     configureActionButton(acceptButton, title: "수락", color: .systemGreen)
     configureActionButton(declineButton, title: "거절", color: .systemRed)
-    configureActionButton(endButton, title: "종료", color: .systemRed)
-    configureActionButton(cameraButton, title: "카메라 켬", color: .white)
-    configureActionButton(cameraFlipButton, title: "전환", color: .white)
-    configureActionButton(minimizeButton, title: "축소", color: .white)
+    configureMediaButton(
+      cameraFlipButton,
+      symbolName: "camera.rotate.fill",
+      fallbackSymbolName: "camera.fill",
+      accessibilityLabel: "카메라 전환",
+      danger: false
+    )
+    configureMediaButton(
+      cameraButton,
+      symbolName: "video.fill",
+      fallbackSymbolName: "video.fill",
+      accessibilityLabel: "카메라 켬",
+      danger: false
+    )
+    configureMediaButton(
+      micButton,
+      symbolName: "mic.fill",
+      fallbackSymbolName: "mic.fill",
+      accessibilityLabel: "음소거",
+      danger: false
+    )
+    configureMediaButton(
+      endButton,
+      symbolName: "phone.down.fill",
+      fallbackSymbolName: "phone.down.fill",
+      accessibilityLabel: "종료",
+      danger: true
+    )
 
     incomingActions.axis = .horizontal
     incomingActions.spacing = 24
@@ -403,28 +470,87 @@ final class NativeVideoCallViewController: UIViewController {
     incomingActions.addArrangedSubview(declineButton)
     incomingActions.addArrangedSubview(acceptButton)
 
-    connectedControls.axis = .horizontal
+    connectedControls.axis = .vertical
     connectedControls.spacing = 12
-    connectedControls.addArrangedSubview(cameraButton)
     connectedControls.addArrangedSubview(cameraFlipButton)
-    connectedControls.addArrangedSubview(minimizeButton)
+    connectedControls.addArrangedSubview(cameraButton)
+    connectedControls.addArrangedSubview(micButton)
+    connectedControls.addArrangedSubview(endButton)
 
     activeActions.axis = .vertical
-    activeActions.spacing = 16
+    activeActions.spacing = 0
     activeActions.addArrangedSubview(connectedControls)
-    activeActions.addArrangedSubview(endButton)
 
-    [incomingActions, activeActions].forEach {
-      $0.translatesAutoresizingMaskIntoConstraints = false
-      overlayRoot.addSubview($0)
-      NSLayoutConstraint.activate([
-        $0.leadingAnchor.constraint(equalTo: overlayRoot.leadingAnchor, constant: 24),
-        $0.trailingAnchor.constraint(equalTo: overlayRoot.trailingAnchor, constant: -24),
-        $0.bottomAnchor.constraint(equalTo: overlayRoot.safeAreaLayoutGuide.bottomAnchor, constant: -32),
-      ])
-    }
+    incomingActions.translatesAutoresizingMaskIntoConstraints = false
+    activeActions.translatesAutoresizingMaskIntoConstraints = false
+    overlayRoot.addSubview(incomingActions)
+    overlayRoot.addSubview(activeActions)
+    NSLayoutConstraint.activate([
+      incomingActions.leadingAnchor.constraint(equalTo: overlayRoot.leadingAnchor, constant: 24),
+      incomingActions.trailingAnchor.constraint(equalTo: overlayRoot.trailingAnchor, constant: -24),
+      incomingActions.bottomAnchor.constraint(equalTo: overlayRoot.safeAreaLayoutGuide.bottomAnchor, constant: -32),
+      activeActions.trailingAnchor.constraint(equalTo: overlayRoot.safeAreaLayoutGuide.trailingAnchor, constant: -20),
+      activeActions.bottomAnchor.constraint(equalTo: overlayRoot.safeAreaLayoutGuide.bottomAnchor, constant: -32),
+    ])
+    attachBackgroundChromeTapGesture()
     videoRoot.isHidden = true
     localContainer.isHidden = true
+  }
+
+  private func buildConnectedChrome() {
+    connectedChromeContainer.translatesAutoresizingMaskIntoConstraints = false
+    connectedChromeContainer.isUserInteractionEnabled = false
+    connectedChromeContainer.isHidden = true
+    view.addSubview(connectedChromeContainer)
+    NSLayoutConstraint.activate([
+      connectedChromeContainer.topAnchor.constraint(equalTo: view.topAnchor),
+      connectedChromeContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+      connectedChromeContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+      connectedChromeContainer.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+    ])
+
+    connectedPeerNameLabel.font = .systemFont(ofSize: 17, weight: .semibold)
+    connectedPeerNameLabel.textColor = UIColor(red: 241 / 255, green: 248 / 255, blue: 244 / 255, alpha: 1)
+    connectedPeerNameLabel.numberOfLines = 1
+    connectedPeerNameLabel.lineBreakMode = .byTruncatingTail
+
+    connectedDurationLabel.font = .monospacedDigitSystemFont(ofSize: 14, weight: .regular)
+    connectedDurationLabel.textColor = UIColor(red: 212 / 255, green: 233 / 255, blue: 226 / 255, alpha: 1)
+
+    connectedSignalLabel.font = .systemFont(ofSize: 13, weight: .regular)
+    connectedSignalLabel.textColor = UIColor(red: 212 / 255, green: 233 / 255, blue: 226 / 255, alpha: 1)
+
+    let barsStack = UIStackView()
+    barsStack.axis = .horizontal
+    barsStack.spacing = 2
+    barsStack.alignment = .bottom
+    let barHeights: [CGFloat] = [6, 9, 12, 15]
+    for height in barHeights {
+      let bar = UIView()
+      bar.translatesAutoresizingMaskIntoConstraints = false
+      bar.backgroundColor = UIColor(red: 212 / 255, green: 233 / 255, blue: 226 / 255, alpha: 1)
+      bar.widthAnchor.constraint(equalToConstant: 3).isActive = true
+      bar.heightAnchor.constraint(equalToConstant: height).isActive = true
+      barsStack.addArrangedSubview(bar)
+      connectedSignalBars.append(bar)
+    }
+
+    let metaRow = UIStackView(arrangedSubviews: [connectedDurationLabel, barsStack, connectedSignalLabel])
+    metaRow.axis = .horizontal
+    metaRow.spacing = 12
+    metaRow.alignment = .center
+
+    let infoStack = UIStackView(arrangedSubviews: [connectedPeerNameLabel, metaRow])
+    infoStack.axis = .vertical
+    infoStack.spacing = 4
+    infoStack.translatesAutoresizingMaskIntoConstraints = false
+    connectedChromeContainer.addSubview(infoStack)
+    NSLayoutConstraint.activate([
+      infoStack.topAnchor.constraint(equalTo: connectedChromeContainer.safeAreaLayoutGuide.topAnchor, constant: 8),
+      infoStack.leadingAnchor.constraint(equalTo: connectedChromeContainer.safeAreaLayoutGuide.leadingAnchor, constant: 20),
+      infoStack.trailingAnchor.constraint(lessThanOrEqualTo: connectedChromeContainer.safeAreaLayoutGuide.trailingAnchor, constant: -96),
+    ])
+    updateNetworkSignalUi()
   }
 
   private func configureActionButton(_ button: UIButton, title: String, color: UIColor) {
@@ -436,13 +562,128 @@ final class NativeVideoCallViewController: UIViewController {
     button.contentEdgeInsets = UIEdgeInsets(top: 12, left: 16, bottom: 12, right: 16)
   }
 
+  private func configureMediaButton(
+    _ button: UIButton,
+    symbolName: String,
+    fallbackSymbolName: String,
+    accessibilityLabel: String,
+    danger: Bool
+  ) {
+    button.setTitle(nil, for: .normal)
+    button.setImage(UIImage(systemName: symbolName) ?? UIImage(systemName: fallbackSymbolName), for: .normal)
+    button.accessibilityLabel = accessibilityLabel
+    button.backgroundColor = danger
+      ? UIColor(red: 0.86, green: 0.2, blue: 0.24, alpha: 1)
+      : UIColor(white: 0.22, alpha: 0.85)
+    button.tintColor = .white
+    button.translatesAutoresizingMaskIntoConstraints = false
+    NSLayoutConstraint.activate([
+      button.widthAnchor.constraint(equalToConstant: 56),
+      button.heightAnchor.constraint(equalToConstant: 56),
+    ])
+    button.layer.cornerRadius = 28
+    button.clipsToBounds = true
+  }
+
   private func bindActions() {
     acceptButton.addTarget(self, action: #selector(onAcceptTapped), for: .touchUpInside)
     declineButton.addTarget(self, action: #selector(onDeclineTapped), for: .touchUpInside)
     endButton.addTarget(self, action: #selector(onEndTapped), for: .touchUpInside)
     cameraButton.addTarget(self, action: #selector(onCameraTapped), for: .touchUpInside)
     cameraFlipButton.addTarget(self, action: #selector(onCameraFlipTapped), for: .touchUpInside)
-    minimizeButton.addTarget(self, action: #selector(onMinimizeTapped), for: .touchUpInside)
+    micButton.addTarget(self, action: #selector(onMicTapped), for: .touchUpInside)
+  }
+
+  private func attachBackgroundChromeTapGesture() {
+    let tap = UITapGestureRecognizer(target: self, action: #selector(onBackgroundTapped(_:)))
+    tap.cancelsTouchesInView = false
+    tap.delegate = self
+    videoRoot.addGestureRecognizer(tap)
+  }
+
+  func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+    let pointInVideo = touch.location(in: videoRoot)
+    let pointInLocal = touch.location(in: localContainer)
+    let pointInControls = touch.location(in: activeActions)
+    if localContainer.bounds.contains(pointInLocal) { return false }
+    if activeActions.bounds.contains(pointInControls) { return false }
+    return videoRoot.bounds.contains(pointInVideo) && isConnectedFullscreenPresentation
+  }
+
+  func gestureRecognizer(
+    _ gestureRecognizer: UIGestureRecognizer,
+    shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+  ) -> Bool {
+    false
+  }
+
+  @objc private func onBackgroundTapped(_ gesture: UITapGestureRecognizer) {
+    guard gesture.state == .ended, isConnectedFullscreenPresentation else { return }
+    showConnectedChrome(source: "background_tap")
+  }
+
+  private var isConnectedFullscreenPresentation: Bool {
+    currentState == .connected && !inPipMode
+  }
+
+  private func showConnectedChrome(source: String) {
+    cancelConnectedChromeHide(reason: "show_\(source)")
+    setConnectedChromeViewsVisible(true)
+    if !isChromeVisible {
+      NativeVideoCallLog.info(
+        "native_video_chrome_shown",
+        callId: boundCallId,
+        details: "source=\(source) connected=\(currentState == .connected) presentation=fullscreen nicknameSource=session_callerName_sanitized"
+      )
+    }
+    isChromeVisible = true
+    if isConnectedFullscreenPresentation {
+      scheduleConnectedChromeHide(source: source)
+    }
+  }
+
+  private func hideConnectedChrome(source: String) {
+    cancelConnectedChromeHide(reason: "hide_\(source)")
+    guard isConnectedFullscreenPresentation else { return }
+    setConnectedChromeViewsVisible(false)
+    isChromeVisible = false
+    NativeVideoCallLog.info(
+      "native_video_chrome_hidden",
+      callId: boundCallId,
+      details: "source=\(source) connected=true presentation=fullscreen"
+    )
+  }
+
+  private func setConnectedChromeViewsVisible(_ visible: Bool) {
+    activeActions.alpha = 1
+    activeActions.isHidden = !visible
+    activeActions.isUserInteractionEnabled = visible
+    connectedControls.alpha = 1
+    connectedControls.isHidden = !visible
+    connectedControls.isUserInteractionEnabled = visible
+    connectedChromeContainer.isHidden = !visible
+  }
+
+  private func scheduleConnectedChromeHide(source: String) {
+    cancelConnectedChromeHide(reason: "reschedule_\(source)")
+    guard isConnectedFullscreenPresentation else { return }
+    let work = DispatchWorkItem { [weak self] in
+      self?.hideConnectedChrome(source: "timeout")
+    }
+    chromeHideWorkItem = work
+    DispatchQueue.main.asyncAfter(deadline: .now() + 5, execute: work)
+  }
+
+  private func cancelConnectedChromeHide(reason: String) {
+    chromeHideWorkItem?.cancel()
+    chromeHideWorkItem = nil
+  }
+
+  private func updateConnectedControlChrome() {
+    cameraButton.setImage(UIImage(systemName: cameraEnabled ? "video.fill" : "video.slash.fill"), for: .normal)
+    cameraButton.accessibilityLabel = cameraEnabled ? "카메라 끔" : "카메라 켬"
+    micButton.setImage(UIImage(systemName: micMuted ? "mic.slash.fill" : "mic.fill"), for: .normal)
+    micButton.accessibilityLabel = micMuted ? "음소거 해제" : "음소거"
   }
 
   // MARK: - R1 보조 PiP 드래그 (Android attachLocalPipDragListener 패리티)
@@ -483,10 +724,12 @@ final class NativeVideoCallViewController: UIViewController {
     }
   }
 
-  /** 기본 위치: 우상단(안전영역 기준 margin). */
+  /** 기본 위치: 좌하단(안전영역 기준 margin). */
   private func applyDefaultLocalPipPosition() {
     guard videoRoot.bounds.width > 0 else { return }
-    let clamped = clampLocalPipPosition(leading: .greatestFiniteMagnitude, top: Self.localPipMargin)
+    let insets = videoRoot.safeAreaInsets
+    let defaultTop = videoRoot.bounds.height - insets.top - insets.bottom - Self.localPipHeight - Self.localPipMargin
+    let clamped = clampLocalPipPosition(leading: insets.left + Self.localPipMargin, top: defaultTop)
     applyLocalPipPosition(leading: clamped.leading, top: clamped.top)
   }
 
@@ -552,6 +795,9 @@ final class NativeVideoCallViewController: UIViewController {
   @objc private func onAppDidBecomeActive() {
     // 포그라운드 복귀 & PiP 미진입이면(워밍업만 하고 PiP가 안 뜬 경우) 즉시 정리.
     if !inPipMode { teardownPipFrameBridge(reason: "did_become_active_no_pip") }
+    if isConnectedFullscreenPresentation && !isChromeVisible {
+      showConnectedChrome(source: "app_active")
+    }
   }
 
   /// 연결된 영상통화 + Voice 미점유 시에만 프레임 델리게이트 등록 + sample 뷰 부착. 실패 시 no-op(fail-safe).
@@ -618,16 +864,29 @@ final class NativeVideoCallViewController: UIViewController {
 
   @objc private func onCameraTapped() {
     cameraEnabled.toggle()
-    cameraButton.setTitle(NativeVideoCallUiPresenter.cameraLabel(enabled: cameraEnabled), for: .normal)
     NativeVideoCallAgoraEngine.shared.setCameraEnabled(cameraEnabled)
+    updateConnectedControlChrome()
+    showConnectedChrome(source: "video_toggle")
   }
 
   @objc private func onCameraFlipTapped() {
     NativeVideoCallAgoraEngine.shared.switchCameraFacing()
+    showConnectedChrome(source: "camera_flip")
   }
 
-  @objc private func onMinimizeTapped() {
-    _ = tryEnterPip(source: "button")
+  @objc private func onMicTapped() {
+    micMuted.toggle()
+    let applied = NativeVideoCallAgoraEngine.shared.setMicMuted(micMuted)
+    if !applied {
+      micMuted.toggle()
+    }
+    updateConnectedControlChrome()
+    NativeVideoCallLog.info(
+      "native_video_mic_muted_changed",
+      callId: boundCallId,
+      details: "source=button connected=\(currentState == .connected) presentation=fullscreen requestedMuted=\(micMuted) result=\(applied)"
+    )
+    showConnectedChrome(source: "mic_toggle")
   }
 
   private func performAccept(source: String) {
@@ -689,18 +948,134 @@ final class NativeVideoCallViewController: UIViewController {
   private func updateDurationLabel() {
     guard let connectedAt else {
       durationLabel.text = nil
+      connectedDurationLabel.text = nil
       return
     }
     let elapsed = max(0, Int(Date().timeIntervalSince(connectedAt)))
-    let minutes = elapsed / 60
-    let seconds = elapsed % 60
-    durationLabel.text = String(format: "%02d:%02d", minutes, seconds)
+    let label = Self.formatConnectedDuration(elapsedSeconds: elapsed)
+    durationLabel.text = label
+    connectedDurationLabel.text = label
+  }
+
+  private static func formatConnectedDuration(elapsedSeconds: Int) -> String {
+    let hours = elapsedSeconds / 3600
+    let minutes = (elapsedSeconds % 3600) / 60
+    let seconds = elapsedSeconds % 60
+    if hours > 0 {
+      return String(format: "%d:%02d:%02d", hours, minutes, seconds)
+    }
+    return String(format: "%02d:%02d", minutes, seconds)
+  }
+
+  private func updateConnectedInfoPanel(_ model: NativeVideoCallUiPresenter.Model) {
+    guard model.showConnectedControls, model.showVideoSurfaces else {
+      if !isChromeVisible { connectedChromeContainer.isHidden = true }
+      return
+    }
+    connectedPeerNameLabel.text = model.peerName
+    updateDurationLabel()
+    updateNetworkSignalUi()
+  }
+
+  private func handleNetworkQualitySample(worst: Int) {
+    guard currentState == .connected else { return }
+    let previousTier = displayedNetworkTier
+    let instantTier = networkTierFromAgora(worst)
+    var nextTier = displayedNetworkTier
+    if instantTier == .veryPoor {
+      nextTier = .veryPoor
+      networkRecoveryStableCount = 0
+    } else if tierRank(instantTier) > tierRank(displayedNetworkTier) {
+      nextTier = instantTier
+      networkRecoveryStableCount = 0
+    } else if tierRank(instantTier) < tierRank(displayedNetworkTier) {
+      networkRecoveryStableCount += 1
+      if networkRecoveryStableCount >= 2 {
+        nextTier = instantTier
+        networkRecoveryStableCount = 0
+      }
+    } else {
+      networkRecoveryStableCount = 0
+    }
+    if nextTier != displayedNetworkTier {
+      NativeVideoCallLog.info(
+        "native_video_network_quality_changed",
+        callId: boundCallId,
+        details: "source=agora_networkQuality previousQuality=\(previousTier) currentQuality=\(nextTier) chromeVisible=\(isChromeVisible) connected=\(currentState == .connected) presentation=fullscreen"
+      )
+      displayedNetworkTier = nextTier
+      updateNetworkSignalUi()
+    }
+    if nextTier == .veryPoor && previousTier != .veryPoor {
+      showNetworkVeryPoorChrome(previousTier: previousTier)
+    } else if nextTier != .veryPoor {
+      networkVeryPoorActive = false
+    }
+  }
+
+  private func showNetworkVeryPoorChrome(previousTier: NetworkDisplayTier) {
+    if networkVeryPoorActive { return }
+    networkVeryPoorActive = true
+    let chromeWasVisible = isChromeVisible
+    showConnectedChrome(source: "network_quality_very_poor")
+    NativeVideoCallLog.info(
+      "native_video_network_quality_alert_shown",
+      callId: boundCallId,
+      details: "source=network_quality_very_poor previousQuality=\(previousTier) currentQuality=veryPoor chromeWasVisible=\(chromeWasVisible) connected=true presentation=fullscreen"
+    )
+  }
+
+  private func tierRank(_ tier: NetworkDisplayTier) -> Int {
+    switch tier {
+    case .good: return 0
+    case .fair: return 1
+    case .poor: return 2
+    case .veryPoor: return 3
+    }
+  }
+
+  private func networkTierFromAgora(_ worstQuality: Int) -> NetworkDisplayTier {
+    if worstQuality <= 2 { return .good }
+    if worstQuality == 3 { return .fair }
+    if worstQuality == 4 { return .poor }
+    return .veryPoor
+  }
+
+  private func updateNetworkSignalUi() {
+    let activeBars: Int
+    let label: String
+    let color: UIColor
+    switch displayedNetworkTier {
+    case .fair:
+      activeBars = 3
+      label = "보통"
+      color = UIColor(red: 212 / 255, green: 233 / 255, blue: 226 / 255, alpha: 1)
+    case .poor:
+      activeBars = 2
+      label = "나쁨"
+      color = UIColor(red: 245 / 255, green: 194 / 255, blue: 107 / 255, alpha: 1)
+    case .veryPoor:
+      activeBars = 1
+      label = "매우 나쁨"
+      color = UIColor(red: 242 / 255, green: 139 / 255, blue: 130 / 255, alpha: 1)
+    case .good:
+      activeBars = 4
+      label = "좋음"
+      color = UIColor(red: 212 / 255, green: 233 / 255, blue: 226 / 255, alpha: 1)
+    }
+    connectedSignalLabel.text = label
+    connectedSignalLabel.textColor = color
+    for (index, bar) in connectedSignalBars.enumerated() {
+      bar.alpha = index < activeBars ? 1 : 0.28
+      bar.backgroundColor = color
+    }
   }
 }
 
 @available(iOS 15.0, *)
 extension NativeVideoCallViewController: AVPictureInPictureControllerDelegate {
   func pictureInPictureControllerWillStartPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
+    cancelConnectedChromeHide(reason: "pip_will_start")
     resetVideoSwapForPip()
     reparentRemoteViewToPip()
     // 조건 준수: willStart에서 최초 등록하지 않음 — willResignActive 워밍업으로 이미 준비된 브리지의 sample 뷰만 부착(부재 시 no-op).
@@ -717,6 +1092,9 @@ extension NativeVideoCallViewController: AVPictureInPictureControllerDelegate {
     applyPipUiMode(false)
     ScreenAwakeBridge.shared.notifyPresentationChanged(callId: boundCallId, presentation: "fullscreen")
     DibayCallPipPlugin.publishPipModeChanged(inPipMode: false, callId: boundCallId)
+    if currentState == .connected {
+      showConnectedChrome(source: "pip_exit")
+    }
     NativeVideoCallLog.info("native_video_pip_exited", callId: boundCallId)
   }
 
@@ -728,6 +1106,9 @@ extension NativeVideoCallViewController: AVPictureInPictureControllerDelegate {
     reparentRemoteViewToFullscreen()
     applyPipUiMode(false)
     DibayCallPipPlugin.publishPipAction(action: "restore", callId: boundCallId)
+    if currentState == .connected {
+      showConnectedChrome(source: "pip_restore")
+    }
     NativeVideoCallLog.info("native_video_pip_restore", callId: boundCallId)
     completionHandler(true)
   }

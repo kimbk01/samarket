@@ -248,6 +248,7 @@ public final class NativeVideoCallRuntime {
     if (session == null) return;
     cancelMissed(sid);
     setState(app, session, State.ACCEPTING);
+    NativeVideoCallAcceptTiming.markAcceptTapped(sid);
     NativeVideoCallLog.info("accept_tapped", sid);
     if (!hasMediaPermissions(app)) {
       fail(app, sid, "missing_camera_or_microphone_permission");
@@ -258,54 +259,82 @@ public final class NativeVideoCallRuntime {
     NativeVideoCallNotification.dismiss(app, sid);
     IncomingCallNotificationBuilder.dismissIncomingCall(app, sid);
     NativeVideoCallService.startConnecting(app, sid);
+
+    final Object joinGate = new Object();
+    final boolean[] acceptOk = {false};
+    final boolean[] acceptFailed = {false};
+    final boolean[] tokenReady = {false};
+    final NativeVideoCallApi.TokenConnection[] tokenHolder = {null};
+
+    Runnable maybeStartJoin =
+        () -> {
+          synchronized (joinGate) {
+            if (acceptFailed[0] || !acceptOk[0] || !tokenReady[0] || tokenHolder[0] == null) return;
+          }
+          if (!prepareJoinGuard(app, sid)) return;
+          setState(app, session, State.CONNECTING);
+          NativeVideoCallAgoraEngine.join(
+              app,
+              sid,
+              tokenHolder[0],
+              new NativeVideoCallAgoraEngine.Listener() {
+                @Override
+                public void onConnected() {
+                  setState(app, session, State.CONNECTED);
+                  NativeVideoCallLog.info("state_connected", sid);
+                  closeIncomingVisualsOnConnected(app, sid);
+                  NativeVideoCallService.startConnected(app, sid);
+                  NativeVideoCallBridge.syncConnected(app, sid);
+                }
+
+                @Override
+                public void onRemoteVideoReady() {
+                  NativeVideoCallLog.info("remote_render_connected", sid);
+                }
+
+                @Override
+                public void onDisconnected(String reason) {
+                  NativeVideoCallLog.info("agora_native_disconnected", sid, "reason=" + safe(reason));
+                }
+
+                @Override
+                public void onError(String reason) {
+                  fail(app, sid, "agora " + safe(reason));
+                }
+              });
+        };
+
+    NativeVideoCallApi.fetchTokenAsync(
+        app,
+        sid,
+        (connection, tokenError) -> {
+          synchronized (joinGate) {
+            if (acceptFailed[0]) return;
+            if (connection == null) {
+              acceptFailed[0] = true;
+              fail(app, sid, "token_fetch_failed " + safe(tokenError));
+              return;
+            }
+            tokenHolder[0] = connection;
+            tokenReady[0] = true;
+          }
+          MAIN.post(maybeStartJoin);
+        });
+
     NativeVideoCallApi.acceptAsync(
         app,
         sid,
         (ok, status, error) -> {
-          if (!ok) {
-            fail(app, sid, "accept_patch_failed " + safe(error));
-            return;
+          synchronized (joinGate) {
+            if (acceptFailed[0]) return;
+            if (!ok) {
+              acceptFailed[0] = true;
+              fail(app, sid, "accept_patch_failed " + safe(error));
+              return;
+            }
+            acceptOk[0] = true;
           }
-          setState(app, session, State.CONNECTING);
-          NativeVideoCallApi.fetchTokenAsync(
-              app,
-              sid,
-              (connection, tokenError) -> {
-                if (connection == null) {
-                  fail(app, sid, "token_fetch_failed " + safe(tokenError));
-                  return;
-                }
-                if (!prepareJoinGuard(app, sid)) return;
-                NativeVideoCallAgoraEngine.join(
-                    app,
-                    sid,
-                    connection,
-                    new NativeVideoCallAgoraEngine.Listener() {
-                      @Override
-                      public void onConnected() {
-                        setState(app, session, State.CONNECTED);
-                        NativeVideoCallLog.info("state_connected", sid);
-                        closeIncomingVisualsOnConnected(app, sid);
-                        NativeVideoCallService.startConnected(app, sid);
-                        NativeVideoCallBridge.syncConnected(app, sid);
-                      }
-
-                      @Override
-                      public void onRemoteVideoReady() {
-                        NativeVideoCallLog.info("remote_render_connected", sid);
-                      }
-
-                      @Override
-                      public void onDisconnected(String reason) {
-                        NativeVideoCallLog.info("agora_native_disconnected", sid, "reason=" + safe(reason));
-                      }
-
-                      @Override
-                      public void onError(String reason) {
-                        fail(app, sid, "agora " + safe(reason));
-                      }
-                    });
-              });
+          MAIN.post(maybeStartJoin);
         });
   }
 
@@ -352,6 +381,7 @@ public final class NativeVideoCallRuntime {
     Context app = context.getApplicationContext();
     String sid = callId.trim();
     NativeVideoCallLog.info("runtime_cleanup_start", sid, "reason=" + safe(reason));
+    NativeVideoCallAcceptTiming.clear(sid);
     NativeOutgoingRingbackOwner.stop(sid, reason);
     cancelMissed(sid);
     NativeVideoCallAgoraEngine.leave(reason);
