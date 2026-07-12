@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { CommunityMessengerHomeReturnConsume } from "@/components/community-messenger/CommunityMessengerHomeReturnConsume";
 import { MessengerPillarChatsSegment } from "@/components/community-messenger/MessengerPillarChatsSegment";
+import { MessengerWideRouteGate } from "@/components/community-messenger/MessengerWideRouteGate";
 import { CommunityMessengerHomeShellSkeleton } from "@/components/community-messenger/CommunityMessengerRouteSkeletons";
 
 /**
@@ -12,7 +13,9 @@ export default function TradeChatsPage() {
     <>
       <CommunityMessengerHomeReturnConsume />
       <Suspense fallback={<CommunityMessengerHomeShellSkeleton />}>
-        <MessengerPillarChatsSegment pillar="trade" />
+        <MessengerWideRouteGate>
+          <MessengerPillarChatsSegment pillar="trade" />
+        </MessengerWideRouteGate>
       </Suspense>
     </>
   );

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
 import { philifeMeetingMemberRoleLabel } from "@/lib/community-messenger/cm-ui-translate";
 import { messengerRoomPrefetchPriorityScore } from "@/lib/community-messenger/room-prefetch-queue";
 import { armMessengerRoomRoutePrefetch } from "@/lib/community-messenger/room/arm-messenger-room-route-prefetch";
@@ -212,6 +213,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   }
   const router = useRouter();
   const pathname = usePathname() ?? "";
+  const isSplitList = useIsMessengerSplitViewport();
   const routeRoomId = useMemo(() => {
     const m = pathname.match(/\/community-messenger\/rooms\/([^/?#]+)/);
     return m?.[1]?.trim().toLowerCase() ?? null;
@@ -627,6 +629,10 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     if (compact) return;
     if (e.button !== 0) return;
+    if (isSplitList) {
+      kickRoomNavPrefetchOnPointerDown();
+      return;
+    }
     clearReleasePressTimer();
     suppressTapRef.current = false;
     longPressTriggeredRef.current = false;
@@ -641,11 +647,11 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       dragging: false,
     };
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-  }, [clearReleasePressTimer, compact, kickRoomNavPrefetchOnPointerDown, swipeOpen]);
+  }, [clearReleasePressTimer, compact, isSplitList, kickRoomNavPrefetchOnPointerDown, swipeOpen]);
 
   const onPointerMove = useCallback(
     (e: React.PointerEvent) => {
-      if (compact) return;
+      if (compact || isSplitList) return;
       if (!dragRef.current.active) return;
       const dx = e.clientX - dragRef.current.startX;
       const dy = e.clientY - dragRef.current.startY;
@@ -669,12 +675,12 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       dragXRef.current = next;
       setDragX(next);
     },
-    [cancelPending, clamp, compact, releasePressedVisual]
+    [cancelPending, clamp, compact, isSplitList, releasePressedVisual]
   );
 
   const onPointerUp = useCallback(
     (e: React.PointerEvent) => {
-      if (compact) return;
+      if (compact || isSplitList) return;
       if (!dragRef.current.active) return;
       dragRef.current.active = false;
       const wasDragging = dragRef.current.dragging;
@@ -725,6 +731,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       closeSwipe,
       compact,
       consumeClickSuppression,
+      isSplitList,
       menuItemId,
       onCloseMenuItem,
       onOpenSwipeItem,
@@ -1076,29 +1083,39 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         }}
         onPointerEnter={kickRoomNavPrefetchOnPointerEnter}
         onPointerDown={(e) => {
-          if (!compact && e.button === 0) bind.onPointerDown(e);
+          if (!compact && !isSplitList && e.button === 0) bind.onPointerDown(e);
           onPointerDown(e);
         }}
         onPointerMove={(e) => {
-          if (!compact) bind.onPointerMove(e);
+          if (!compact && !isSplitList) bind.onPointerMove(e);
           onPointerMove(e);
         }}
         onPointerUp={(e) => {
-          if (!compact) bind.onPointerUp(e);
+          if (!compact && !isSplitList) bind.onPointerUp(e);
           onPointerUp(e);
         }}
         onPointerCancel={(e) => {
-          if (!compact) bind.onPointerCancel(e);
+          if (!compact && !isSplitList) bind.onPointerCancel(e);
           onPointerCancel(e);
         }}
         onLostPointerCapture={(e) => {
-          if (!compact) bind.onPointerCancel(e);
+          if (!compact && !isSplitList) bind.onPointerCancel(e);
           onPointerCancel(e);
         }}
       >
         <div
           role="button"
           tabIndex={0}
+          onClick={() => {
+            if (!isSplitList) return;
+            if (longPressTriggeredRef.current || consumeClickSuppression()) return;
+            if (dragXRef.current < -16) {
+              closeSwipe();
+              return;
+            }
+            markCommunityMessengerRoomNavTap(room.id);
+            void navigateToCommunityRoom(room.id);
+          }}
           onKeyDown={(event) => {
             if (event.key === "Enter" || event.key === " ") {
               event.preventDefault();

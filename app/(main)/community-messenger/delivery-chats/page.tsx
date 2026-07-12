@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { CommunityMessengerHomeReturnConsume } from "@/components/community-messenger/CommunityMessengerHomeReturnConsume";
 import { MessengerPillarChatsSegment } from "@/components/community-messenger/MessengerPillarChatsSegment";
+import { MessengerWideRouteGate } from "@/components/community-messenger/MessengerWideRouteGate";
 import { CommunityMessengerHomeShellSkeleton } from "@/components/community-messenger/CommunityMessengerRouteSkeletons";
 
 /**
@@ -11,7 +12,9 @@ export default function DeliveryChatsPage() {
     <>
       <CommunityMessengerHomeReturnConsume />
       <Suspense fallback={<CommunityMessengerHomeShellSkeleton />}>
-        <MessengerPillarChatsSegment pillar="delivery" />
+        <MessengerWideRouteGate>
+          <MessengerPillarChatsSegment pillar="delivery" />
+        </MessengerWideRouteGate>
       </Suspense>
     </>
   );

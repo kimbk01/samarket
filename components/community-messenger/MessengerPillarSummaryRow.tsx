@@ -11,6 +11,7 @@ import {
 import { withMessengerEntryOrigin } from "@/lib/community-messenger/messenger-entry-origin";
 import { runMessengerViewTransition, shouldSkipMessengerNavTransitionModifiers } from "@/lib/community-messenger/messenger-view-transition";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
 
 /**
  * 메신저 받은메시지함 상단의 「거래 채팅」/「배달 채팅」 묶음 행.
@@ -99,6 +100,7 @@ type Props = {
 
 export function MessengerPillarSummaryRow({ variant, summary, entryOriginQuery = null }: Props) {
   const router = useRouter();
+  const isWide = useIsMessengerSplitViewport();
   const { t } = useI18n();
   const copy = useMemo(() => {
     const base = VARIANT_COPY[variant];
@@ -137,7 +139,7 @@ export function MessengerPillarSummaryRow({ variant, summary, entryOriginQuery =
       ? lastTitle
       : copy.emptyPreview;
   const lastEventAt = lastItem?.lastEventAt;
-  const unread = summary.unreadTotal;
+  const unread = summary.unreadRoomCount;
 
   const avatar = (
     <div
@@ -162,6 +164,10 @@ export function MessengerPillarSummaryRow({ variant, summary, entryOriginQuery =
         if (shouldSkipMessengerNavTransitionModifiers(e)) return;
         e.preventDefault();
         runMessengerViewTransition(() => {
+          if (isWide) {
+            router.replace(href, { scroll: false });
+            return;
+          }
           router.push(href);
         }, "pillar-forward");
       }}

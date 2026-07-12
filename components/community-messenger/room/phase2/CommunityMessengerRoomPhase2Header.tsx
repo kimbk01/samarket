@@ -243,6 +243,19 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
       buyerSlideHost.closeSlide();
       return;
     }
+    if (isMessengerSplit) {
+      markCommunityMessengerHomeReturn();
+      if (vm.snapshot.room.roomType === "open_group") {
+        vm.router.replace(SAMARKET_ROUTES.chat.messengerMeetingsHub, { scroll: false });
+        return;
+      }
+      const plan = resolveMessengerRoomBackNavigation({
+        roomId: vm.snapshot.room.id,
+        searchParams,
+      });
+      runMessengerRoomBackNavigation(vm.router, { ...plan, forceDirect: true });
+      return;
+    }
     if (requestAnimatedBack) {
       requestAnimatedBack();
       return;
@@ -312,7 +325,6 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
   return (
     <>
     <MessengerHeader>
-        {!isMessengerSplit || buyerSlideHost ? (
         <button
           type="button"
           onClick={handleBack}
@@ -323,7 +335,6 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
             <X className="h-[18px] w-[18px]" aria-hidden />
           : <BackIcon />}
         </button>
-        ) : null}
 
         {useDeliveryHeaderBlock ? (
           <StoreOrderDeliveryMessengerHeaderBlock
