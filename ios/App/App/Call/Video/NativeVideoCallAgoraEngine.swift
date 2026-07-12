@@ -47,6 +47,37 @@ final class NativeVideoCallAgoraEngine: NSObject {
     return sid
   }
 
+  // MARK: - PiP frame tap (additive only — 기존 렌더/delegate/Voice 무수정)
+
+  /// 시스템 PiP 전용 원격 프레임 델리게이트 등록. Voice 레인 점유 시 거부(격리 가드).
+  /// 비어있는 frame delegate 슬롯만 사용하며 기존 rendering 설정을 덮어쓰지 않는다.
+  @discardableResult
+  func startPipFrameTap(_ delegate: AgoraVideoFrameDelegate) -> Bool {
+    if NativeVoiceCallAgoraEngine.shared.peekOccupantCallId() != nil { return false }
+    lock.lock()
+    let rtc = engine
+    lock.unlock()
+    guard let rtc else { return false }
+    _ = rtc.setVideoFrameDelegate(delegate)
+    return true
+  }
+
+  /// PiP 프레임 델리게이트 해제(nil). idempotent.
+  func stopPipFrameTap() {
+    lock.lock()
+    let rtc = engine
+    lock.unlock()
+    _ = rtc?.setVideoFrameDelegate(nil)
+  }
+
+  /// 현재 통화의 원격 uid(프레임 필터용). 기존 remoteUidByCallId 읽기 전용 접근자.
+  func currentRemoteUid(callId: String) -> UInt? {
+    let sid = callId.trimmingCharacters(in: .whitespacesAndNewlines)
+    lock.lock()
+    defer { lock.unlock() }
+    return remoteUidByCallId[sid]
+  }
+
   @discardableResult
   func join(
     callId: String,
