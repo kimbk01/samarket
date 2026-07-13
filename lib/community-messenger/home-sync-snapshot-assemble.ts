@@ -7,6 +7,7 @@ import {
   hydrateProfilesLabelsOnlyWithMap,
   summarizeRoomsBatchWithProfileMap,
 } from "@/lib/community-messenger/service";
+import { enrichTradeRoomClassificationForDeferredHomeSync } from "@/lib/community-messenger/trade-chat-list/trade-room-classification-enrich";
 import {
   enrichMessengerTradeUnreadWithLegacyTrade,
   type Hs5LegacyLoadResult,
@@ -201,6 +202,10 @@ export async function assembleHomeSyncCriticalFromSnapshotPayload(
     profileById
   );
   const summarizeMs = performance.now() - tSummarize;
+
+  if (sbAny) {
+    await enrichTradeRoomClassificationForDeferredHomeSync(sbAny as never, userId, mySummaries);
+  }
 
   let unreadBadgeMs = 0;
   if (sbAny) {

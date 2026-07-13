@@ -207,14 +207,15 @@ async function finishFromPayload(
   userId: string,
   tier: BootstrapTier,
   payload: FullBootstrapSnapshotPayloadJson,
-  input: { totalMs: number; readMs: number; via: SnapshotReadVia }
+  input: { totalMs: number; readMs: number; via: SnapshotReadVia },
+  sbAny: SupabaseClient<any> | null
 ): Promise<FullBootstrapSnapshotReadResult | null> {
   const gate = fullBootstrapSnapshotGateFromPayload(payload);
   if (!gate.ok) return null;
 
   const assemble0 = devPerfNow();
   if (tier === "critical") {
-    const assembled = await assembleCriticalBootstrapFromSnapshotPayload(userId, payload);
+    const assembled = await assembleCriticalBootstrapFromSnapshotPayload(userId, payload, sbAny);
     const payloadBuildMs = devPerfNow() - assemble0;
     if (!assembled) return null;
     const breakdown = buildBreakdown({
@@ -291,7 +292,7 @@ async function tryLoadFromSnapshotInternal(
           totalMs: devPerfNow() - build0,
           readMs,
           via: "counter_row",
-        });
+        }, sbAny);
         if (done) return done;
       }
       if (counter.hit && counter.stale) {
@@ -300,7 +301,7 @@ async function tryLoadFromSnapshotInternal(
           totalMs: devPerfNow() - build0,
           readMs,
           via: "counter_row",
-        });
+        }, sbAny);
         if (done) return done;
       }
     }
@@ -319,7 +320,7 @@ async function tryLoadFromSnapshotInternal(
       totalMs: devPerfNow() - build0,
       readMs: rpcMs || devPerfNow() - build0,
       via: "unified_rpc",
-    });
+    }, sbAny);
   });
 }
 

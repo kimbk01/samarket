@@ -48,6 +48,8 @@ import {
   shouldBlockSilentHomeSyncForVisibilityRestore,
 } from "@/lib/community-messenger/home/lite-merge-gate";
 import { invalidateCommunityMessengerHomeSilentListsReplay } from "@/lib/community-messenger/cm-home-silent-lists-fetch";
+import type { MessengerHomeShadowDispatch } from "@/lib/community-messenger/home/inbox-pipeline/shadow";
+import type { CanonicalMessengerHomeRoomPatch } from "@/lib/community-messenger/home/inbox-pipeline/types";
 
 const HOME_SUMMARY_MIN_FETCH_GAP_MS = 1_500;
 /** Realtime meta → home-sync silent refresh 최소 간격(부트스트랩 debounce 와 정렬) */
@@ -174,7 +176,20 @@ export type UseCommunityMessengerHomeRealtimeBootstrapListArgs = {
   homeRealtimeGateOpen: boolean;
   refresh: (silent?: boolean) => Promise<void>;
   setData: Dispatch<SetStateAction<CommunityMessengerBootstrap | null>>;
+  shadowDispatch?: MessengerHomeShadowDispatch;
 };
+
+function patchFromRealtimeMessageRow(roomId: string, row: Record<string, unknown>): CanonicalMessengerHomeRoomPatch {
+  const createdAt = typeof row.created_at === "string" ? row.created_at : undefined;
+  const messageType = typeof row.message_type === "string" ? row.message_type : undefined;
+  const content = typeof row.content === "string" ? row.content : "";
+  return {
+    roomId,
+    ...(createdAt ? { lastMessageAt: createdAt } : {}),
+    latestMessage: content,
+    ...(messageType ? { latestMessageType: messageType as CanonicalMessengerHomeRoomPatch["latestMessageType"] } : {}),
+  };
+}
 
 /**
  * 홈 방 목록 부트스트랩에 대한 Realtime 메시지/참가자 unread 패치 및 누락 방 home-summary 병합.
@@ -188,6 +203,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
   homeRealtimeGateOpen,
   refresh,
   setData,
+  shadowDispatch,
 }: UseCommunityMessengerHomeRealtimeBootstrapListArgs): void {
   useCmDevRenderTrace("useCommunityMessengerHomeRealtimeBootstrapList");
   useCmStrictModeEffectProbe("useCommunityMessengerHomeRealtimeBootstrapList");
@@ -197,6 +213,11 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
   const homeRealtimeRefreshLastAtRef = useRef(0);
   const homeRealtimeRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const homeRealtimeSilentRefreshInFlightRef = useRef(false);
+  const shadowGenerationRef = useRef(0);
+  const nextShadowGeneration = useCallback(() => {
+    shadowGenerationRef.current += 1;
+    return shadowGenerationRef.current;
+  }, []);
   const refreshRef = useRef(refresh);
   refreshRef.current = refresh;
 
@@ -308,6 +329,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
               room?: CommunityMessengerRoomSummary;
             };
             if (!res.ok || !json.ok || !json.room) return;
+            shadowDispatch?.dispatchRoomSummary("realtime", nextShadowGeneration(), json.room);
             setData((prev) => {
               const merged = applyHomeListPatch(
                 prev,
@@ -330,7 +352,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
       }, HOME_MISSING_ROOM_SUMMARY_DEBOUNCE_MS);
       timers.set(id, t);
     },
-    [setData]
+    [nextShadowGeneration, setData, shadowDispatch]
   );
 
   const applyRealtimeMessageListBatch = useCallback(
@@ -341,6 +363,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
       for (const hint of batch) {
         const rid = String(hint.roomId ?? "").trim();
         if (!rid) continue;
+        shadowDispatch?.dispatchPatch("realtime", nextShadowGeneration(), patchFromRealtimeMessageRow(rid, hint.newRecord));
         applyIncomingMessageEvent({
           viewerUserId: me || null,
           roomId: rid,
@@ -386,7 +409,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
         if (rid) scheduleHomeMissingRoomSummaryMerge(rid);
       }
     },
-    [setData, scheduleHomeMissingRoomSummaryMerge, userId]
+    [nextShadowGeneration, setData, shadowDispatch, scheduleHomeMissingRoomSummaryMerge, userId]
   );
 
   const flushParticipantUnreadBatch = useCallback(
@@ -395,6 +418,12 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
       const me = String(userId ?? "").trim();
       for (const hint of batch) {
         const rid = String(hint.roomId ?? "").trim();
+        if (rid) {
+          shadowDispatch?.dispatchPatch("participant", nextShadowGeneration(), {
+            roomId: rid,
+            unreadCount: hint.unreadCount,
+          });
+        }
         cmRtReadSyncLog("list_unread_increment_apply", {
           roomId: rid,
           viewerUserId: me || null,
@@ -450,7 +479,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
         return cur;
       }, "unread-delta");
     },
-    [scheduleHomeMissingRoomSummaryMerge, userId]
+    [nextShadowGeneration, scheduleHomeMissingRoomSummaryMerge, shadowDispatch, userId]
   );
 
   const enqueueParticipantUnread = useMemo(
@@ -473,6 +502,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
 
       if (ev.type === "cm.home.merge_room_summary") {
         if (String(ev.viewerUserId) !== me) return;
+        shadowDispatch?.dispatchRoomSummary("multi_tab", nextShadowGeneration(), ev.summary);
         scheduleListPatch(
           (prev) => {
             const next = applyHomeListPatch(prev, { kind: "merge_room_summary", summary: ev.summary }, "multi-tab");
@@ -517,6 +547,10 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
           });
           return;
         }
+        shadowDispatch?.dispatchPatch("participant", nextShadowGeneration(), {
+          roomId: ev.roomId,
+          unreadCount: ev.unreadCount,
+        });
         let tradeRoomForLegacyUnreadResync: string | null = null;
         let missedList = false;
         scheduleListPatch((prev) => {
@@ -558,6 +592,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
           roomId: ev.roomId,
           messageRow: ev.messageRow,
         });
+        shadowDispatch?.dispatchPatch("realtime", nextShadowGeneration(), patchFromRealtimeMessageRow(ev.roomId, ev.messageRow));
         let missedIncoming = false;
         scheduleListPatch((prev) => {
           const next = applyHomeListPatch(
@@ -591,6 +626,12 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
         if (summaryExisting && nextUnread != null && summaryExisting.unreadCount === nextUnread) {
           return;
         }
+        if (nextUnread != null) {
+          shadowDispatch?.dispatchPatch("participant", nextShadowGeneration(), {
+            roomId: ev.roomId,
+            unreadCount: nextUnread,
+          });
+        }
         let missedSummary = false;
         scheduleListPatch((prev) => {
           const existing = findHomeListRoomRow(prev, ev.roomId);
@@ -620,6 +661,12 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
 
       if (ev.type === "cm.room.call_stub_preview") {
         if (String(ev.viewerUserId) !== me) return;
+        shadowDispatch?.dispatchPatch("multi_tab", nextShadowGeneration(), {
+          roomId: ev.roomId,
+          latestMessage: ev.preview.lastMessage,
+          latestMessageType: ev.preview.lastMessageType,
+          lastMessageAt: ev.preview.lastMessageAt,
+        });
         let missedPreview = false;
         scheduleListPatch(
           (prev) => {
@@ -678,6 +725,10 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
         });
         clearHomeListServerUnreadIncrease(ev.roomId);
         invalidateCommunityMessengerHomeSilentListsReplay({ tier: "full" });
+        shadowDispatch?.dispatchPatch("participant", nextShadowGeneration(), {
+          roomId: ev.roomId,
+          unreadCount: 0,
+        });
         let missedRead = false;
         scheduleListPatch((prev) => {
           const next = applyHomeListPatch(
@@ -700,6 +751,14 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
       if (ev.type === "cm.room.message_sent") {
         if (!ev.senderUserId || String(ev.senderUserId) !== me) return;
         patchMessengerRoomReadSnapshotRuntime({ viewerUserId: me, roomId: ev.roomId });
+        if (ev.listPreview) {
+          shadowDispatch?.dispatchPatch("multi_tab", nextShadowGeneration(), {
+            roomId: ev.roomId,
+            latestMessage: ev.listPreview.lastMessage,
+            latestMessageType: ev.listPreview.lastMessageType,
+            lastMessageAt: ev.listPreview.lastMessageAt,
+          });
+        }
         let missedEcho = false;
         scheduleListPatch(
           (prev) => {
@@ -722,7 +781,14 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
         }
       }
     });
-  }, [homeRealtimeGateOpen, scheduleHomeMissingRoomSummaryMerge, scheduleListPatch, userId]);
+  }, [
+    homeRealtimeGateOpen,
+    nextShadowGeneration,
+    scheduleHomeMissingRoomSummaryMerge,
+    scheduleListPatch,
+    shadowDispatch,
+    userId,
+  ]);
 
   useEffect(() => {
     const me = userId?.trim();

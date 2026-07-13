@@ -10,6 +10,7 @@ import { shouldDeferTradeChatListMetaHydration } from "@/lib/community-messenger
 import { primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import { resolveMessengerHomeBootstrapSetData } from "@/lib/community-messenger/dev/cm-event-loop-dev";
 import { applyHomeListPatch } from "@/lib/community-messenger/home-list-patch";
+import type { MessengerHomeShadowDispatch } from "@/lib/community-messenger/home/inbox-pipeline/shadow";
 import { communityMessengerRoomIsTrade } from "@/lib/community-messenger/messenger-room-domain";
 import type {
   CommunityMessengerBootstrap,
@@ -144,10 +145,12 @@ export function useTradeChatListMetaHydration(args: {
   viewerUserId: string | null;
   chats: CommunityMessengerRoomSummary[] | null | undefined;
   setData: Dispatch<SetStateAction<CommunityMessengerBootstrap | null>>;
+  shadowDispatch?: MessengerHomeShadowDispatch;
   /** 한 번에 hydrate 할 roomId 상한 — 거래 탭 첫 페인트 우선 */
   maxBatchSize?: number;
 }): void {
-  const { enabled, viewerUserId, chats, setData, maxBatchSize } = args;
+  const { enabled, viewerUserId, chats, setData, shadowDispatch, maxBatchSize } = args;
+  const shadowGenerationRef = useRef(0);
   const tradeMetaFetchAttemptedRef = useRef(new Set<string>());
   const [surfaceResumeTick, setSurfaceResumeTick] = useState(0);
 
@@ -168,6 +171,7 @@ export function useTradeChatListMetaHydration(args: {
 
   useEffect(() => {
     if (!enabled || !viewerUserId || !missingKey) return;
+    shadowDispatch?.markTradeMetaInFlight();
     if (shouldDeferTradeChatListMetaHydration()) return;
     let roomIds = missingKey.split(",").filter(Boolean);
     if (maxBatchSize != null && maxBatchSize > 0) {
@@ -244,6 +248,13 @@ export function useTradeChatListMetaHydration(args: {
               });
               return prev;
             }
+            for (const patch of filtered) {
+              shadowGenerationRef.current += 1;
+              shadowDispatch?.dispatchPatch("trade_meta", shadowGenerationRef.current, {
+                roomId: patch.roomId,
+                contextMeta: patch.contextMeta,
+              });
+            }
             const next = applyHomeListPatch(
               prev,
               { kind: "trade_context_meta", patches: filtered },
@@ -265,6 +276,7 @@ export function useTradeChatListMetaHydration(args: {
           if (signal.aborted || stale) return;
         } finally {
           tradeMetaHydrationInFlightKeys.delete(dedupeKey);
+          shadowDispatch?.markTradeMetaSettled();
         }
       },
     });
@@ -272,5 +284,5 @@ export function useTradeChatListMetaHydration(args: {
     return () => {
       stale = true;
     };
-  }, [enabled, maxBatchSize, missingKey, setData, viewerUserId, surfaceResumeTick]);
+  }, [enabled, maxBatchSize, missingKey, setData, shadowDispatch, viewerUserId, surfaceResumeTick]);
 }

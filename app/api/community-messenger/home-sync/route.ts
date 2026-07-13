@@ -47,6 +47,8 @@ import {
 } from "@/lib/community-messenger/home-sync-deep-trace-log";
 import { emitHomeSyncRuntimeProfile } from "@/lib/community-messenger/home-sync-runtime-profile";
 import { getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
+import { resolveCmHomeCutoverGateRuntimeMeta } from "@/lib/community-messenger/home/cm-home-cutover-gate-db";
+import { CM_HOME_CUTOVER_GATE_RUNTIME_META_KEY } from "@/lib/community-messenger/home/cm-home-cutover-gate-keys";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -978,11 +980,18 @@ export async function GET(req: NextRequest) {
             rpcRemoved: 0,
             fallbackUsed: 0,
           };
-  return jsonOkWithRequest(req, bundle, {
-    headers: {
-      ...messengerApiEdgeCacheHeaders(),
-      ...perfHeaders,
-      ...buildSnapshotSignoffHeaders("home-sync", homeSyncSignoffObs),
-    },
-  });
+  // Gate 는 bundle(payload) cache 와 분리 — 응답 직전 최신 resolver 결과를 overlay 한다.
+  // bundle 객체를 변형하지 않고 새 envelope 로만 합류시킨다(캐시 오염 방지).
+  const cutoverGate = await resolveCmHomeCutoverGateRuntimeMeta(auth.userId);
+  return jsonOkWithRequest(
+    req,
+    { ...bundle, runtimeMeta: { [CM_HOME_CUTOVER_GATE_RUNTIME_META_KEY]: cutoverGate } },
+    {
+      headers: {
+        ...messengerApiEdgeCacheHeaders(),
+        ...perfHeaders,
+        ...buildSnapshotSignoffHeaders("home-sync", homeSyncSignoffObs),
+      },
+    }
+  );
 }

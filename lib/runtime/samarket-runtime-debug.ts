@@ -9,6 +9,9 @@
  * 메신저 홈 계측 카운터: `getMessengerHomeDebugCounts()` — 디버그 여부와 무관하게 누적(세션 단위).
  */
 
+// 측정 전용(read-only): Runtime Cutover Gate client snapshot 노출. 부작용 없음.
+import { peekCmHomeCutoverGate } from "@/lib/community-messenger/home/cm-home-cutover-gate-client";
+
 export function samarketRuntimeDebugEnabled(): boolean {
   if (typeof window === "undefined") return false;
   try {
@@ -783,12 +786,14 @@ function exposeMessengerHomeDebugApiToWindowOnce(): void {
     getMessengerRenderPerfCounts?: typeof getMessengerRenderPerfCounts;
     getAppWidePerfCounts?: typeof getAppWidePerfCounts;
     getAppWidePhaseLastMs?: typeof getAppWidePhaseLastMs;
+    getCmHomeCutoverGateSnapshot?: typeof peekCmHomeCutoverGate;
   };
   w.getMessengerHomeDebugCounts = getMessengerHomeDebugCounts;
   w.getMessengerHomeVerificationSnapshot = getMessengerHomeVerificationSnapshot;
   w.getMessengerRenderPerfCounts = getMessengerRenderPerfCounts;
   w.getAppWidePerfCounts = getAppWidePerfCounts;
   w.getAppWidePhaseLastMs = getAppWidePhaseLastMs;
+  w.getCmHomeCutoverGateSnapshot = peekCmHomeCutoverGate;
 }
 
 /** `fetchCommunityMessengerBootstrapClient` 의 `runSingleFlight` 팩토리가 실행될 때만(실제 fetch 직전) */

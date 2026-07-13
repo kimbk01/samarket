@@ -569,6 +569,8 @@ export type CommunityMessengerCriticalRoomRow = {
     is_discoverable: boolean;
     join_policy: CommunityMessengerRoomJoinPolicy;
   } | null;
+  /** 서버 critical tier JSON — `CommunityMessengerRoomSummary.contextMeta` 와 동일 v1 shape (camelCase). */
+  context_meta?: CommunityMessengerRoomContextMetaV1 | null;
 };
 
 export type CommunityMessengerBootstrapCritical = {

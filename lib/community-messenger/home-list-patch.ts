@@ -57,7 +57,7 @@ export type HomeListPatch =
       groups?: CommunityMessengerRoomSummary[];
       requests?: CommunityMessengerBootstrap["requests"];
       friends?: CommunityMessengerBootstrap["friends"];
-      roomMode?: "replace" | "critical_patch";
+      roomMode?: "replace" | "critical_patch" | "partial_upsert";
     }
   | { kind: "merge_room_summary"; summary: CommunityMessengerRoomSummary }
   | {
@@ -274,6 +274,32 @@ function mergeRoomListsWithVersionGuard(
   return { list: out, unreadGuardApplied };
 }
 
+/**
+ * home_sync `full` 은 최근 상위 캡(30) partial 스냅샷이라 authoritative full 이 아니다.
+ * incoming 에 있는 방은 monotonic merge 로 갱신하고, incoming 에 **없다는 이유만으로**
+ * 기존 방을 제거하지 않는다(HOME_SYNC_PARTIAL_REPLACE_TRUNCATION 방지). 신규 방은 append.
+ * empty incoming 은 no-op(기존 방 유지). 명시적 삭제는 `remove_room` 등 별도 경로에서만 수행한다.
+ */
+function upsertRoomListPreserveBase(
+  prevList: CommunityMessengerRoomSummary[],
+  nextList: CommunityMessengerRoomSummary[]
+): { list: CommunityMessengerRoomSummary[]; unreadGuardApplied: number } {
+  if (!nextList.length) return { list: prevList, unreadGuardApplied: 0 };
+  const incomingById = new Map(nextList.map((r) => [r.id, r]));
+  const prevIds = new Set(prevList.map((r) => r.id));
+  let unreadGuardApplied = 0;
+  const updated = prevList.map((room) => {
+    const inc = incomingById.get(room.id);
+    if (!inc) return room;
+    const merged = mergeMessengerRoomSummaryMonotonicLastEventForHomeList(room, inc);
+    if (merged.unreadCount !== inc.unreadCount) unreadGuardApplied += 1;
+    return merged;
+  });
+  const appended = nextList.filter((inc) => !prevIds.has(inc.id));
+  const list = appended.length ? [...updated, ...appended] : updated;
+  return { list, unreadGuardApplied };
+}
+
 /** CONTRACT (M1a): `critical_patch` is PATCH ONLY — unknown `roomId` must not INSERT. */
 function mergeCriticalRoomPatchesIntoLists(
   baseList: CommunityMessengerRoomSummary[],
@@ -465,6 +491,11 @@ function applyHomeSyncPatch(
       unreadGuardApplied += merged.unreadGuardApplied;
       changedRoomCount += merged.changedRoomCount;
       Object.assign(criticalChangedFields, merged.criticalChangedFields);
+    } else if (roomMode === "partial_upsert") {
+      const versioned = upsertRoomListPreserveBase(base.chats ?? [], patch.chats);
+      const merged = mergeRoomListsPreserveRefs(base.chats ?? [], versioned.list);
+      chats = merged.list;
+      unreadGuardApplied += versioned.unreadGuardApplied;
     } else {
       const versioned = mergeRoomListsWithVersionGuard(base.chats ?? [], patch.chats);
       const merged = mergeRoomListsPreserveRefs(base.chats ?? [], versioned.list);
@@ -480,6 +511,11 @@ function applyHomeSyncPatch(
       unreadGuardApplied += merged.unreadGuardApplied;
       changedRoomCount += merged.changedRoomCount;
       Object.assign(criticalChangedFields, merged.criticalChangedFields);
+    } else if (roomMode === "partial_upsert") {
+      const versioned = upsertRoomListPreserveBase(base.groups ?? [], patch.groups);
+      const merged = mergeRoomListsPreserveRefs(base.groups ?? [], versioned.list);
+      groups = merged.list;
+      unreadGuardApplied += versioned.unreadGuardApplied;
     } else {
       const versioned = mergeRoomListsWithVersionGuard(base.groups ?? [], patch.groups);
       const merged = mergeRoomListsPreserveRefs(base.groups ?? [], versioned.list);

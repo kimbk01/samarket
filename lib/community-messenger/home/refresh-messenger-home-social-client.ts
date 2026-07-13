@@ -1,93 +1,24 @@
 "use client";
 
-import { peekBootstrapCache, primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
-import { applyHomeListPatch } from "@/lib/community-messenger/home-list-patch";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
-import type { CommunityMessengerBootstrap } from "@/lib/community-messenger/types";
-
-function mergeFriendsById(
-  primary: CommunityMessengerBootstrap["friends"] | undefined,
-  secondary: CommunityMessengerBootstrap["friends"] | undefined
-): CommunityMessengerBootstrap["friends"] {
-  const map = new Map<string, NonNullable<CommunityMessengerBootstrap["friends"]>[number]>();
-  for (const friend of secondary ?? []) {
-    const id = friend?.id?.trim();
-    if (!id) continue;
-    map.set(id, friend);
-  }
-  for (const friend of primary ?? []) {
-    const id = friend?.id?.trim();
-    if (!id) continue;
-    map.set(id, { ...map.get(id), ...friend });
-  }
-  return [...map.values()];
-}
-
-function bootstrapFromApiJson(json: Record<string, unknown>): CommunityMessengerBootstrap | null {
-  if (json.ok === false) return null;
-  const { ok: _ok, bootstrap, data, ...rest } = json as {
-    ok?: boolean;
-    bootstrap?: CommunityMessengerBootstrap;
-    data?: CommunityMessengerBootstrap;
-    [key: string]: unknown;
-  };
-  return bootstrap ?? data ?? (rest as CommunityMessengerBootstrap);
-}
 
 /**
- * 방 안 친구 요청 수락/거절 후 — Home 이 언마운트여도 bootstrap cache 를 SSOT friends 로 맞춘다.
- * `cm.home.social_sync` 는 Home 마운트 시 `refresh(true)` 용; 여기서는 home-sync + bootstrap fresh + cache prime.
+ * 방 안 친구 요청 수락/거절 후 — Home 동기화 트리거.
+ *
+ * W10 격리 (Runtime 증명 `W10_RUNTIME_EQUIVALENCE_CONFIRMED` — `.qa-logs/cm-w10-runtime-equivalence.json`):
+ * 여기서는 `cm.home.social_sync` bus 만 발행한다.
+ * - Home 마운트 시: W3(`CommunityMessengerHome` 리스너 → `refresh(true)` → `mergeHomeSyncIntoBootstrap`)가
+ *   home-sync fetch / merge / cache prime 를 담당한다.
+ * - Home 미마운트 시: Home 재진입 refresh 가 최종 catch-up 을 담당한다.
+ * - Multi-tab: 다른 탭 Home 이 BroadcastChannel `social_sync` 를 받아 W3 로 반영한다.
+ *
+ * CONTRACT / DO NOT: 과거처럼 이 함수에서 `home-sync?fresh=1&tier=full` + `bootstrap?fresh=1` 을 직접 호출해
+ * bootstrap cache 에 `partial_upsert` 하지 말 것 (W3 와 중복된 network/cache writer 였다 — W10).
+ * bus 발행은 반드시 유지한다. W3/W5/W9·Canonical 분류·home-sync 계약은 이 격리와 무관하다.
  */
 export async function refreshMessengerHomeSocialClient(
-  trigger: "room_friend_request_outcome" = "room_friend_request_outcome"
+  _trigger: "room_friend_request_outcome" = "room_friend_request_outcome"
 ): Promise<boolean> {
   postCommunityMessengerBusEvent({ type: "cm.home.social_sync", at: Date.now() });
-  try {
-    const fetchOpts = { cache: "no-store" as RequestCache, credentials: "include" as RequestCredentials };
-    const [homeSyncRes, bootstrapRes] = await Promise.all([
-      fetch("/api/community-messenger/home-sync?fresh=1&tier=full", fetchOpts),
-      fetch("/api/community-messenger/bootstrap?fresh=1", fetchOpts),
-    ]);
-    const homeSyncJson = (await homeSyncRes.json().catch(() => ({}))) as {
-      ok?: boolean;
-      chats?: CommunityMessengerBootstrap["chats"];
-      groups?: CommunityMessengerBootstrap["groups"];
-      requests?: CommunityMessengerBootstrap["requests"];
-      friends?: CommunityMessengerBootstrap["friends"];
-    };
-    const bootstrapJson = (await bootstrapRes.json().catch(() => ({}))) as Record<string, unknown>;
-    const bootstrapPayload = bootstrapFromApiJson(bootstrapJson);
-    if (!homeSyncRes.ok || homeSyncJson.ok === false) return false;
-    if (!bootstrapRes.ok || !bootstrapPayload) return false;
-
-    const friends = mergeFriendsById(homeSyncJson.friends, bootstrapPayload.friends);
-
-    const base = peekBootstrapCache() ?? bootstrapPayload;
-    if (!peekBootstrapCache()) {
-      primeBootstrapCache(bootstrapPayload);
-    }
-
-    const next = applyHomeListPatch(
-      base,
-      {
-        kind: "home_sync",
-        chats: homeSyncJson.chats,
-        groups: homeSyncJson.groups,
-        requests: homeSyncJson.requests,
-        friends,
-        roomMode: "replace",
-      },
-      trigger
-    );
-    const resolved = next ?? applyHomeListPatch(
-      base,
-      { kind: "bootstrap_full_seed", bootstrap: { ...bootstrapPayload, friends: friends ?? bootstrapPayload.friends } },
-      trigger
-    );
-    if (!resolved) return false;
-    primeBootstrapCache(resolved);
-    return true;
-  } catch {
-    return false;
-  }
+  return true;
 }

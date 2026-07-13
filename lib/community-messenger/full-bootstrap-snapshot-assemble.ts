@@ -1,6 +1,7 @@
 /**
  * FBT1 full bootstrap snapshot assembly — CPU-only from precomputed RPC payload.
  */
+import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import {
   acceptedPeerIdsFromCommunityFriendRows,
   buildBootstrapCallsFromPreloadedSnapshot,
@@ -16,6 +17,7 @@ import {
   sliceGroupParticipantsForRoomBootstrap,
   summarizeRoomsBatchWithProfileMap,
 } from "@/lib/community-messenger/service";
+import { enrichTradeRoomClassificationForDeferredHomeSync } from "@/lib/community-messenger/trade-chat-list/trade-room-classification-enrich";
 import {
   enrichMessengerTradeUnreadWithLegacyTrade,
   type Hs5LegacyLoadResult,
@@ -30,6 +32,7 @@ import type {
   CommunityMessengerRoomSummary,
   CommunityMessengerRoomType,
 } from "@/lib/community-messenger/types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { isCommunityMessengerPrivateGroupListRoomType } from "@/lib/community-messenger/types";
 import {
   FBT1_CRITICAL_DEFAULT_LIMIT,
@@ -171,6 +174,14 @@ function hs5FromSnapshot(payload: FullBootstrapSnapshotPayloadJson): Hs5LegacyLo
   };
 }
 
+function getSupabaseOrNull(): ReturnType<typeof getSupabaseServer> | null {
+  try {
+    return getSupabaseServer();
+  } catch {
+    return null;
+  }
+}
+
 function dedupeIds(values: string[]): string[] {
   const out: string[] = [];
   const seen = new Set<string>();
@@ -205,7 +216,7 @@ export function fullBootstrapSnapshotGateFromPayload(
   return { ok: true };
 }
 
-function summaryToCriticalRow(
+export function summaryToCriticalRow(
   summary: CommunityMessengerRoomSummary,
   participant_labels_minimal: CommunityMessengerCriticalParticipantLabel[]
 ): CommunityMessengerCriticalRoomRow {
@@ -220,6 +231,7 @@ function summaryToCriticalRow(
     last_message_at: summary.lastMessageAt,
     unread_count: summary.unreadCount,
     participant_labels_minimal,
+    context_meta: summary.contextMeta ?? null,
     group_meta:
       summary.roomType !== "direct"
         ? {
@@ -234,7 +246,8 @@ function summaryToCriticalRow(
 
 export async function assembleCriticalBootstrapFromSnapshotPayload(
   userId: string,
-  payload: FullBootstrapSnapshotPayloadJson
+  payload: FullBootstrapSnapshotPayloadJson,
+  sbAny?: SupabaseClient<any> | null
 ): Promise<CommunityMessengerBootstrapCritical | null> {
   const gate = fullBootstrapSnapshotGateFromPayload(payload);
   if (!gate.ok) return null;
@@ -284,6 +297,11 @@ export async function assembleCriticalBootstrapFromSnapshotPayload(
     byRoomId,
     profileById
   );
+
+  const sbBoot = sbAny ?? getSupabaseOrNull();
+  if (sbBoot) {
+    await enrichTradeRoomClassificationForDeferredHomeSync(sbBoot as never, userId, mySummaries);
+  }
 
   await enrichMessengerTradeUnreadWithLegacyTrade(
     null as never,

@@ -22,7 +22,7 @@ export type DeferredHomeSyncPayload = {
   groups?: CommunityMessengerRoomSummary[];
   requests?: CommunityMessengerBootstrap["requests"];
   friends?: CommunityMessengerBootstrap["friends"];
-  roomMode?: "replace" | "critical_patch";
+  roomMode?: "replace" | "critical_patch" | "partial_upsert";
 };
 
 type DeferredHomeSyncApply = (payload: DeferredHomeSyncPayload) => void;

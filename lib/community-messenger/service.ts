@@ -80,6 +80,7 @@ import {
 } from "@/lib/community-messenger/cm-home-list-copy";
 import { buildMessengerContextMetaFromProductChatSnapshot } from "@/lib/community-messenger/product-chat-messenger-meta";
 import { enrichCommerceChatRoomLifecycleForList } from "@/lib/community-messenger/commerce-chat-room-lifecycle-enrich";
+import { enrichTradeRoomClassificationForDeferredHomeSync } from "@/lib/community-messenger/trade-chat-list/trade-room-classification-enrich";
 import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
 import {
   enrichMessengerTradeUnreadWithLegacyTrade,
@@ -2842,6 +2843,12 @@ export type CommunityMessengerBootstrapDiagnostics = {
   enrichTradeHiddenFallbackMs: number;
   /** true = lite fast path( mega direct_keys + critical posts + fallback_only category ) */
   bootstrapLiteTradeEnrichFastPath: boolean;
+  /**
+   * lite tier 거래 분류 parity — fast-path 이후 critical/full 과 동일한
+   * `enrichTradeRoomClassificationForDeferredHomeSync`(peer-pair/product_chats) 벽시계.
+   * critical `criticalTradeClassificationMs` 와 동일 의미(관측 전용, optional).
+   */
+  bootstrapLiteTradeClassificationMs?: number;
   /** true = Phase A–D 중개 파이프라인을 생략(direct_keys·seller 만 또는 조기 종료) */
   bootstrapLiteTradeHeavyPipelineSkipped: boolean;
   /** direct_keys 직전 trade 목록 heavy 후보 수 */
@@ -4386,11 +4393,15 @@ export async function listCommunityMessengerMyChatsAndGroups(
   }
   const deferTradeMeta = options?.deferTradeMetaEnrich === true;
   if (deferTradeMeta) {
+    const tTradeClass = performance.now();
+    await enrichTradeRoomClassificationForDeferredHomeSync(sbList, userId, mySummaries);
+    const tradeClassificationMs = performance.now() - tTradeClass;
     const tradeRooms = mySummaries.filter((s) => s.contextMeta?.kind === "trade").length;
     console.log("[trade-meta-deferred]", {
       tier,
       rooms_count: mySummaries.length,
       trade_rooms_count: tradeRooms,
+      trade_classification_ms: Math.round(tradeClassificationMs),
       cache_hit: 0,
       deferred_ms: 0,
     });
@@ -4399,10 +4410,12 @@ export async function listCommunityMessengerMyChatsAndGroups(
       tr.deepSteps.bundleSteps = {
         ...(tr.deepSteps.bundleSteps ?? {}),
         tradeMetaEnrichTotalMs: 0,
+        tradeClassificationMs: ms(tradeClassificationMs),
         tradeMetaDeferred: true,
       };
     }
     if (homeSyncBreakdownEnabled()) {
+      phaseRows.push({ phase: "enrich_trade_room_classification_deferred", ms: tradeClassificationMs });
       phaseRows.push({ phase: "enrich_trade_room_context_meta_deferred", ms: 0 });
     }
     await enrichCommerceChatRoomLifecycleForList(sbList, mySummaries);
@@ -5668,6 +5681,18 @@ export async function getCommunityMessengerBootstrap(
           ));
     const sbBoot = getSupabaseOrNull();
     if (sbBoot) {
+      /**
+       * Lite tier 거래 분류 parity — critical(`bootstrap/critical-stage`)·full 과 동일하게
+       * peer-pair/product_chats/item_trade ledger 기반 trade 확정을 lite context_meta 에 반영한다.
+       * fast-path 로 이미 `kind==="trade"` 인 방은 함수 내부에서 보존되고 미분류 direct 방만 보강한다
+       * (일반 friend·delivery·group·commerce direct_key·타 CM 방 FK product_chat 은 제외 — 오분류 방지 유지).
+       * 추가 쿼리는 미분류 direct 방이 있을 때만: product_chats(by room) + chat_rooms(ledger) + peer-pair 2병렬 — N+1 아님.
+       */
+      if (isMinimalLiteBootstrap) {
+        const tTradeClass = performance.now();
+        await enrichTradeRoomClassificationForDeferredHomeSync(sbBoot as never, userId, mySummaries).catch(() => {});
+        diagnostics && (diagnostics.bootstrapLiteTradeClassificationMs = Math.round(performance.now() - tTradeClass));
+      }
       const tUnread = performance.now();
       await enrichMessengerTradeUnreadWithLegacyTrade(sbBoot as any, userId, mySummaries).catch(() => {});
       diagnostics && (diagnostics.unreadMs = Math.round(performance.now() - tUnread));

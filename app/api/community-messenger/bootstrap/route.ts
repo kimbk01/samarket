@@ -11,6 +11,8 @@ import {
   sampleFromBootstrapDiagnostics,
   warnBootstrapLitePerformanceLockIfNeeded,
 } from "@/lib/community-messenger/bootstrap-lite-performance-lock";
+import { resolveCmHomeCutoverGateRuntimeMeta } from "@/lib/community-messenger/home/cm-home-cutover-gate-db";
+import { CM_HOME_CUTOVER_GATE_RUNTIME_META_KEY } from "@/lib/community-messenger/home/cm-home-cutover-gate-keys";
 
 /** 1단계: `[cm-bootstrap-v2]` — 동작 변경 없이 관측만 (critical tier 분리 전) */
 function logCmBootstrapV2(params: {
@@ -470,7 +472,13 @@ export async function GET(request: NextRequest) {
       200
     );
 
-    const jsonBodyCritical = { ok: true as const, ...critical.payload };
+    // Gate 는 payload cache 와 분리 — 응답 직전 최신 resolver 결과를 overlay 한다.
+    const cutoverGateCritical = await resolveCmHomeCutoverGateRuntimeMeta(auth.userId);
+    const jsonBodyCritical = {
+      ok: true as const,
+      ...critical.payload,
+      runtimeMeta: { [CM_HOME_CUTOVER_GATE_RUNTIME_META_KEY]: cutoverGateCritical },
+    };
     const tSerCritical = performance.now();
     const serializedCritical = JSON.stringify(jsonBodyCritical);
     const serializationMsCritical = Math.round(performance.now() - tSerCritical);
@@ -876,7 +884,13 @@ export async function GET(request: NextRequest) {
     });
     return diagResponse;
   }
-  const jsonBody = { ok: true as const, ...data };
+  // Gate 는 payload cache 와 분리 — 응답 직전 최신 resolver 결과를 overlay 한다.
+  const cutoverGateMain = await resolveCmHomeCutoverGateRuntimeMeta(auth.userId);
+  const jsonBody = {
+    ok: true as const,
+    ...data,
+    runtimeMeta: { [CM_HOME_CUTOVER_GATE_RUNTIME_META_KEY]: cutoverGateMain },
+  };
   const tSerMain = performance.now();
   const serializedMain = JSON.stringify(jsonBody);
   const serializationMsMain = Math.round(performance.now() - tSerMain);

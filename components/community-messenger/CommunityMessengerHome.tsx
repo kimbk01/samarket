@@ -75,6 +75,7 @@ import {
 } from "@/lib/community-messenger/multi-tab-bus";
 import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
 import { useCommunityMessengerHomeBootstrap } from "@/lib/community-messenger/home/use-community-messenger-home-bootstrap";
+import { installMessengerHomeShadowRuntimeBridge } from "@/lib/community-messenger/home/inbox-pipeline/shadow";
 import { useTradeChatListMetaHydration } from "@/lib/community-messenger/use-trade-chat-list-meta-hydration";
 import { TRADE_CHAT_LIST_META_HYDRATE_BATCH_SIZE } from "@/lib/community-messenger/trade-chat-list/trade-chat-list-pagination";
 import { mergeDiscoverableGroupsFromOpenGroupsClient } from "@/lib/community-messenger/merge-discoverable-open-groups-client";
@@ -181,6 +182,8 @@ import {
   type NavigateToCommunityRoomOptions,
 } from "@/lib/community-messenger/home/use-community-messenger-home-navigation";
 import { fetchMeetingDeeplink } from "@/lib/community-messenger/home/fetch-meeting-deeplink";
+import { useMessengerHomeProjectionFlags } from "@/lib/community-messenger/home/projection-source-flag";
+import { useMessengerHomeCanonicalListData } from "@/lib/community-messenger/home/canonical-home-render-adapter";
 import { useCommunityMessengerHomeShellEffects } from "@/lib/community-messenger/home/use-community-messenger-home-shell-effects";
 import { runMessengerHomePullRefresh } from "@/lib/community-messenger/home/run-messenger-home-pull-refresh";
 import { MessengerPullRefreshHost } from "@/components/community-messenger/MessengerPullRefreshHost";
@@ -617,7 +620,43 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     homeRealtimeGateOpen,
     hydrateDeferredCallLogs,
     hydrateMessengerFriends,
+    shadowDispatch,
   } = useCommunityMessengerHomeBootstrap({ initialServerBootstrap, tRef });
+  const dataRef = useRef(data);
+  dataRef.current = data;
+  /**
+   * Phase 3 — Canonical Projection READ cutover.
+   * flag `samarket:cm-home-projection-source` = legacy(기본) | canonical | dual.
+   * legacy 에서는 `homeListRenderData === data` (참조 동일)로 완전 무해.
+   * canonical/dual 에서만 목록(chats/groups) 표시 소스를 canonical store 로 교체한다.
+   * Writer/Realtime/구독은 여전히 `data` 만 사용(아래 homeRoomIds 등) — 구독·API 델타 0 유지.
+   */
+  const { source: projectionSource, pillarScope: projectionPillarScope } = useMessengerHomeProjectionFlags();
+  const homeListRenderData = useMessengerHomeCanonicalListData({
+    legacyData: data,
+    dispatch: shadowDispatch,
+    source: projectionSource,
+    pillarScope: projectionPillarScope,
+  });
+  useEffect(() => {
+    installMessengerHomeShadowRuntimeBridge(shadowDispatch, () => dataRef.current);
+    return () => {
+      if (typeof window !== "undefined") {
+        delete (window as Window & { __DIBAY_MESSENGER_HOME_SHADOW__?: unknown }).__DIBAY_MESSENGER_HOME_SHADOW__;
+      }
+    };
+  }, [shadowDispatch]);
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production") return;
+    if (listAwaitingCritical || !data) return;
+    shadowDispatch.markLegacyListReady();
+    const frame = document.querySelector('[data-cm-home-frame="true"]');
+    if (!frame) return;
+    const settled = shadowDispatch.getSettled();
+    const qaSettled =
+      settled.bootstrapSettled && settled.tradeMetaSettled && settled.silentRefreshSettled;
+    frame.setAttribute("data-cm-home-qa-settled", qaSettled ? "true" : "false");
+  }, [data, listAwaitingCritical, loading, shadowDispatch]);
   useLayoutEffect(() => {
     markMessengerShellVisible();
     return () => resetMessengerAppShellFastPathClock();
@@ -1793,7 +1832,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     tradePillarSummary,
     deliveryPillarSummary,
   } = useCommunityMessengerHomeState({
-    data,
+    data: homeListRenderData,
     mainSection,
     chatInboxFilter,
     chatKindFilter,
@@ -1815,6 +1854,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     chats: tradeMetaHydrationChats,
     maxBatchSize: pillar === "trade" ? TRADE_CHAT_LIST_META_HYDRATE_BATCH_SIZE : undefined,
     setData,
+    shadowDispatch,
   });
 
   const inboxPillarSummaries = useMemo(
@@ -1937,6 +1977,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     homeRealtimeGateOpen,
     refresh,
     setData,
+    shadowDispatch,
   });
 
   useEffect(() => {
@@ -2745,6 +2786,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         roomId,
         roomType: room.roomType,
         setData,
+        shadowDispatch,
       });
       if (result.ok) {
         setRoomActionSheet(null);
@@ -2755,7 +2797,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     } finally {
       setBusyId(null);
     }
-  }, [getMessengerActionErrorMessage, leaveConfirmRoom, refresh, setData]);
+  }, [getMessengerActionErrorMessage, leaveConfirmRoom, refresh, setData, shadowDispatch]);
 
   const leaveMessengerRoom = useCallback((room: CommunityMessengerRoomSummary) => {
     setLeaveConfirmRoom(room);

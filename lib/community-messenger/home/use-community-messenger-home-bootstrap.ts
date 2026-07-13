@@ -15,12 +15,21 @@ import {
 import { unstable_batchedUpdates } from "react-dom";
 import { fetchCommunityMessengerHomeSilentLists } from "@/lib/community-messenger/cm-home-silent-lists-fetch";
 import {
+  applyCmHomeCutoverGateFromResponseJson,
+  noteCmHomeCutoverNetworkSeed,
+  peekCmHomeCutoverGate,
+  startCmHomeCutoverGateMultiTab,
+} from "@/lib/community-messenger/home/cm-home-cutover-gate-client";
+import {
   messengerMonitorHomeListBootstrapUiAlign,
   messengerMonitorHomeSyncFetchMs,
   messengerMonitorSilentFailFallbackBootstrapMs,
 } from "@/lib/community-messenger/monitoring/client";
 import {
   clearBootstrapCache,
+  cmWarmNetworkPayloadFingerprint,
+  cmWarmNetworkRoomIdsFingerprint,
+  consumeWarmNetworkProvenance,
   peekBootstrapCache,
   peekMessengerBootstrapCritical,
   peekMessengerBootstrapFull,
@@ -66,6 +75,10 @@ import {
   markCmBootstrapV2ClientFlowAnchor,
 } from "@/lib/community-messenger/cm-bootstrap-v2-client-log";
 import { communityMessengerBootstrapFromCriticalPayload } from "@/lib/community-messenger/home/critical-bootstrap-to-partial";
+import {
+  createMessengerHomeShadowDispatch,
+  type MessengerHomeShadowDispatch,
+} from "@/lib/community-messenger/home/inbox-pipeline/shadow";
 import type {
   CommunityMessengerBootstrap,
   CommunityMessengerBootstrapCritical,
@@ -101,6 +114,25 @@ import {
   shouldDeferDuringRoomEntryQuiet,
   shouldDeferHomeSyncStart,
 } from "@/lib/community-messenger/room/cm-room-entry-priority-mode";
+
+/**
+ * Cold complete bootstrap(lite/full) apply 가 여전히 유효한지 판정한다.
+ *
+ * COLD_COMPLETE_APPLY_SUPERSEDED_BY_HOME_SYNC_REQUEST 방지 계약:
+ * - complete apply 는 자신의 apply-gen 이 최신일 때만 store 에 반영된다.
+ * - silent home_sync `refresh(true)` 는 apply-gen 을 올리지 않으므로, home_sync 가 뒤늦게 도착·발화해도
+ *   아직 유효한 cold complete apply 를 stale 로 드롭하지 못한다(→ terminal 53 보존).
+ * - 더 새로운 non-silent cold complete bootstrap 은 apply-gen 을 올리므로 이전 complete 는 정상 drop.
+ * - route change / unmount 로 controller 가 abort 되면 drop.
+ */
+export function shouldApplyColdBootstrapComplete(args: {
+  capturedApplyGen: number;
+  currentApplyGen: number;
+  aborted: boolean;
+}): boolean {
+  if (args.aborted) return false;
+  return args.capturedApplyGen === args.currentApplyGen;
+}
 
 /** lite/full·open-groups 보강 — 셸 페인트 이후 `requestIdleCallback`(폴백 `setTimeout`) */
 function scheduleMessengerDeferredOnIdle(run: () => void): void {
@@ -243,6 +275,8 @@ export type UseCommunityMessengerHomeBootstrapResult = {
   hydrateDeferredCallLogs: () => Promise<void>;
   /** 친구 탭 — lite/critical 에 friends 가 비었을 때 GET /friends 단일 보강 */
   hydrateMessengerFriends: () => Promise<void>;
+  /** Phase2 shadow-only canonical pipeline dispatcher — UI render 입력으로 사용 금지 */
+  shadowDispatch: MessengerHomeShadowDispatch;
 };
 
 /**
@@ -268,6 +302,19 @@ export function useCommunityMessengerHomeBootstrap({
   /** `refresh(false)` 가 Strict Mode·중복 effect 로 겹칠 때 동일 네트워크 라운드 방지 */
   const bootstrapNonSilentInFlightRef = useRef(false);
   const refreshRequestIdRef = useRef(0);
+  /**
+   * Cold terminal set race 방지 전용 generation.
+   * non-silent cold complete bootstrap(lite/full) apply 만 이 값을 증가시킨다.
+   * silent home_sync `refresh(true)` 는 `refreshRequestIdRef` 만 증가시키고 이 값은 건드리지 않으므로,
+   * home_sync followup 이 아직 유효한 cold complete apply 를 stale 로 드롭하지 못한다.
+   * (COLD_COMPLETE_APPLY_SUPERSEDED_BY_HOME_SYNC_REQUEST)
+   */
+  const bootstrapApplyGenRef = useRef(0);
+  /**
+   * warm-cache seed 가 full(53) tier 로 store 에 적용됐는지. critical(30)→full(53) 승격을 1회만 허용하고
+   * 이후 warm-cache-ready 재발화 시 full→full 재적용·중복 dispatch 를 막는다. (applyWarmCacheIfEmpty 전용)
+   */
+  const warmFullSeedAppliedRef = useRef(false);
   const refreshAbortRef = useRef<AbortController | null>(null);
   const deferredCallLogRequestIdRef = useRef(0);
   const deferredCallLogAbortRef = useRef<AbortController | null>(null);
@@ -300,6 +347,11 @@ export function useCommunityMessengerHomeBootstrap({
   const [pageError, setPageError] = useState<string | null>(null);
   const dataRef = useRef(data);
   dataRef.current = data;
+  const shadowDispatchRef = useRef<MessengerHomeShadowDispatch | null>(null);
+  if (shadowDispatchRef.current == null) {
+    shadowDispatchRef.current = createMessengerHomeShadowDispatch();
+  }
+  const shadowDispatch = shadowDispatchRef.current;
 
   const commitBootstrapSetData = useCallback(
     (
@@ -312,16 +364,56 @@ export function useCommunityMessengerHomeBootstrap({
       if (resolved && resolved !== prev) {
         noteBootstrapUnreadIncreasesFromBootstrap(prev, resolved);
         prime(resolved);
+        shadowDispatch.compareLegacy(resolved, resolved.me?.id ?? null);
       }
       return resolved;
     },
-    []
+    [shadowDispatch]
+  );
+
+  /**
+   * Warm/cache full-seed 를 trusted provenance 가 있을 때만 network-equivalent 로 seedComplete 시킨다(§4/§6).
+   * 반드시 해당 rooms 를 canonical store 에 dispatch 한 직후·commit prime 전에 호출한다
+   * (commit prime = primeMessengerBootstrapFull 이 provenance 를 clear 하므로).
+   *
+   * 계약:
+   *  - critical provenance(30) 로는 seedComplete 금지 — final full provenance(lite/full)만 승격.
+   *  - gate kill/LEGACY/version 불일치·fingerprint 불일치·이미 소비 → no-op (fail-closed).
+   *  - one-shot: consume 성공 시 provenance 삭제. 단순 room count·source="cache" 만으로는 승격하지 않는다.
+   */
+  const seedCanonicalFromTrustedFullProvenance = useCallback(
+    (rooms: readonly CommunityMessengerRoomSummary[]) => {
+      const gate = peekCmHomeCutoverGate();
+      if (gate.kill || gate.dispatch !== "shadow") return;
+      if (!(gate.targetRead === "canonical" || gate.targetRead === "dual")) return;
+      const roomIdsFingerprint = cmWarmNetworkRoomIdsFingerprint(rooms);
+      const payloadFingerprint = cmWarmNetworkPayloadFingerprint(rooms);
+      const provenance = consumeWarmNetworkProvenance("full", {
+        gateVersion: gate.gateVersion,
+        kill: gate.kill,
+        dispatch: gate.dispatch,
+        wantsCanonicalRead: true,
+        payloadFingerprint,
+        roomIdsFingerprint,
+      });
+      if (!provenance || provenance.tier === "critical") return;
+      noteCmHomeCutoverNetworkSeed({
+        source: provenance.tier,
+        appliedRoomIds: rooms.map((r) => r.id),
+        peekState: shadowDispatch.peekState,
+      });
+    },
+    [shadowDispatch]
   );
 
   useLayoutEffect(() => {
     if (initialServerBootstrap) return;
     const fullCached = peekMessengerBootstrapFull();
     if (fullCached) {
+      const fullRooms = [...(fullCached.chats ?? []), ...(fullCached.groups ?? [])];
+      shadowDispatch.dispatchRoomSummaries("cache", 1, fullRooms);
+      // dispatch 직후·commit prime 전에 trusted provenance 로만 seedComplete 승격(§4/§6).
+      seedCanonicalFromTrustedFullProvenance(fullRooms);
       setData((prev) =>
         commitBootstrapSetData(
           prev,
@@ -335,6 +427,7 @@ export function useCommunityMessengerHomeBootstrap({
     }
     const minCached = peekMessengerBootstrapMinimal();
     if (minCached) {
+      shadowDispatch.dispatchRoomSummaries("cache", 1, [...(minCached.chats ?? []), ...(minCached.groups ?? [])]);
       setData((prev) =>
         commitBootstrapSetData(
           prev,
@@ -349,6 +442,7 @@ export function useCommunityMessengerHomeBootstrap({
     const critCached = peekMessengerBootstrapCritical();
     if (!critCached) return;
     const critBootstrap = communityMessengerBootstrapFromCriticalPayload(critCached);
+    shadowDispatch.dispatchCriticalPayload("cache", 1, critCached);
     setData((prev) =>
       commitBootstrapSetData(
         prev,
@@ -358,17 +452,40 @@ export function useCommunityMessengerHomeBootstrap({
     );
     setLoading(false);
     setListAwaitingCritical(false);
-  }, [initialServerBootstrap]);
+  }, [commitBootstrapSetData, initialServerBootstrap, seedCanonicalFromTrustedFullProvenance, shadowDispatch]);
 
   useEffect(() => {
     if (initialServerBootstrap || typeof window === "undefined") return;
     const applyWarmCacheIfEmpty = () => {
-      if (dataRef.current) return;
-      const fullCached = peekMessengerBootstrapFull();
-      const critCached = peekMessengerBootstrapCritical();
+      const fullPeek = peekMessengerBootstrapFull();
+      const critPeek = peekMessengerBootstrapCritical();
+      const dataCount = dataRef.current
+        ? (dataRef.current.chats?.length ?? 0) + (dataRef.current.groups?.length ?? 0)
+        : 0;
+      const fullCount = fullPeek ? (fullPeek.chats?.length ?? 0) + (fullPeek.groups?.length ?? 0) : 0;
+      // COLD_COMPLETE_APPLY_SUPERSEDED_BY_HOME_SYNC_REQUEST 후속:
+      // warm critical(30) 이 먼저 seed 되면 뒤이어 준비된 warm full(53) 이 무조건 early-return 되어
+      // store 가 30 에 고착되던 문제. 아래 계약으로 critical→full **승격 1회만** 허용한다.
+      //  - full 이 이미 store 에 seed 됐으면(=warmFullSeedAppliedRef) 재적용/중복 dispatch 금지 (full→full 금지)
+      //  - 이미 데이터가 있고 승격할 warm full 이 없거나 현재가 이미 full tier(count>=full)면 스킵 (critical-only 유지)
+      const alreadyFullApplied = warmFullSeedAppliedRef.current;
+      const skipNoUpgrade = !!dataRef.current && (!fullPeek || dataCount >= fullCount);
+      if (alreadyFullApplied || skipNoUpgrade) return;
+      const fullCached = fullPeek;
+      const critCached = critPeek;
       const warmSeed =
         fullCached ?? (critCached ? communityMessengerBootstrapFromCriticalPayload(critCached) : null);
       if (!warmSeed) return;
+      if (fullCached) {
+        const fullRooms = [...(fullCached.chats ?? []), ...(fullCached.groups ?? [])];
+        shadowDispatch.dispatchRoomSummaries("cache", 1, fullRooms);
+        // full seed 완료 표시 — 이후 warm-cache-ready 재발화 시 full→full 재적용/중복 dispatch 방지.
+        warmFullSeedAppliedRef.current = true;
+        // dispatch 직후·commit prime 전에 trusted provenance 로만 seedComplete 승격(§4/§6).
+        seedCanonicalFromTrustedFullProvenance(fullRooms);
+      } else if (critCached) {
+        shadowDispatch.dispatchCriticalPayload("cache", 1, critCached);
+      }
       setData((prev) =>
         commitBootstrapSetData(
           prev,
@@ -386,7 +503,7 @@ export function useCommunityMessengerHomeBootstrap({
     return () => {
       window.removeEventListener("samarket:messenger-home-warm-cache-ready", applyWarmCacheIfEmpty);
     };
-  }, [commitBootstrapSetData, initialServerBootstrap]);
+  }, [commitBootstrapSetData, initialServerBootstrap, seedCanonicalFromTrustedFullProvenance, shadowDispatch]);
 
   useLayoutEffect(() => {
     if (!getCmClientFirstPaintActiveSessionId()) return;
@@ -417,6 +534,11 @@ export function useCommunityMessengerHomeBootstrap({
     };
     document.addEventListener("visibilitychange", onVis);
     return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
+
+  /** Multi-tab Kill 전파 수신 (control-plane 전용 BroadcastChannel). */
+  useEffect(() => {
+    return startCmHomeCutoverGateMultiTab();
   }, []);
 
   /** 서버 `deferCallLog` 분기 — `listCommunityMessengerCallLogs` 단일 왕복 */
@@ -473,13 +595,13 @@ export function useCommunityMessengerHomeBootstrap({
         requests?: CommunityMessengerBootstrap["requests"];
         friends?: CommunityMessengerBootstrap["friends"];
       },
-      roomMode: "replace" | "critical_patch" = "replace"
+      roomMode: "replace" | "critical_patch" | "partial_upsert" = "replace"
     ) => {
+      const skipPayload = { ...payload, roomMode };
       setData((prev) => {
         const cache = peekBootstrapCache();
         const base = prev ?? cache;
         if (!base) return prev;
-        const skipPayload = { ...payload, roomMode };
         const needsReactSync = homeSyncPayloadNeedsReactUnreadSync(skipPayload, prev, cache);
         const forceApply =
           needsReactSync || homeSyncPayloadHasUnreadIncreaseAgainstBase(skipPayload, base);
@@ -536,8 +658,17 @@ export function useCommunityMessengerHomeBootstrap({
             }
           );
           if (!resolved || resolved === prev) return prev;
+          const generation = refreshRequestIdRef.current || 1;
+          const appliedRooms = [...(resolved.chats ?? []), ...(resolved.groups ?? [])];
+          shadowDispatch.dispatchRoomSummaries("home_sync", generation, appliedRooms);
+          noteCmHomeCutoverNetworkSeed({
+            source: "home_sync",
+            appliedRoomIds: appliedRooms.map((r) => r.id),
+            peekState: shadowDispatch.peekState,
+          });
           noteBootstrapUnreadIncreasesFromBootstrap(prev, resolved);
           primeBootstrapCache(resolved);
+          shadowDispatch.compareLegacy(resolved, resolved.me?.id ?? null);
           noteHomeSyncPayloadFlushed({ ...payload, roomMode });
           return resolved;
         } finally {
@@ -547,7 +678,7 @@ export function useCommunityMessengerHomeBootstrap({
         }
       });
     },
-    []
+    [shadowDispatch]
   );
 
   useEffect(() => {
@@ -564,7 +695,7 @@ export function useCommunityMessengerHomeBootstrap({
         requests?: CommunityMessengerBootstrap["requests"];
         friends?: CommunityMessengerBootstrap["friends"];
       },
-      roomMode: "replace" | "critical_patch" = "replace"
+      roomMode: "replace" | "critical_patch" | "partial_upsert" = "replace"
     ) => {
       const wrapped = { ...payload, roomMode };
       if (deferHomeSyncPatchDuringLiteMerge(wrapped)) return;
@@ -589,6 +720,12 @@ export function useCommunityMessengerHomeBootstrap({
     async <T,>(res: Response): Promise<T> => {
       const json = (await res.json().catch(() => ({}))) as T;
       recordMessengerBootstrapJsonParseComplete();
+      // 각 실제 네트워크 응답에서 dispatch 전에 Runtime Gate overlay 를 먼저 적용한다(§7).
+      // 적용 후 runtimeMeta 는 제거 — sessionStorage/캐시 payload 에 gate 상태를 남기지 않는다(§6).
+      if (json && typeof json === "object" && "runtimeMeta" in (json as object)) {
+        applyCmHomeCutoverGateFromResponseJson(json);
+        delete (json as Record<string, unknown>).runtimeMeta;
+      }
       return json;
     },
     []
@@ -644,6 +781,10 @@ export function useCommunityMessengerHomeBootstrap({
       bootstrapNonSilentInFlightRef.current = true;
     }
     const requestId = ++refreshRequestIdRef.current;
+    // non-silent cold complete bootstrap 만 apply-gen 을 올린다. silent home_sync 는 올리지 않는다.
+    const bootstrapApplyGen = silent
+      ? bootstrapApplyGenRef.current
+      : ++bootstrapApplyGenRef.current;
     refreshAbortRef.current?.abort();
     if (silentFullSupplementTimerRef.current != null) {
       clearTimeout(silentFullSupplementTimerRef.current);
@@ -662,13 +803,22 @@ export function useCommunityMessengerHomeBootstrap({
     const shouldBlock = !silent && !loadedRef.current && !stale;
     const useLiteBootstrapFallback = !silent && !stale && !loadedRef.current;
     if (stale) {
-      setData((prev) =>
-        commitBootstrapSetData(
+      if (staleFullOnly) {
+        const staleFullRooms = [...(staleFullOnly.chats ?? []), ...(staleFullOnly.groups ?? [])];
+        shadowDispatch.dispatchRoomSummaries("cache", requestId, staleFullRooms);
+        // dispatch 직후·commit prime 전에 trusted provenance 로만 seedComplete 승격(§4/§6).
+        seedCanonicalFromTrustedFullProvenance(staleFullRooms);
+      } else if (staleCritPayload) {
+        shadowDispatch.dispatchCriticalPayload("cache", requestId, staleCritPayload);
+      }
+      setData((prev) => {
+        const seeded = commitBootstrapSetData(
           prev,
           applyHomeListPatch(prev, { kind: "bootstrap_full_seed", bootstrap: stale }, "bootstrap"),
           "refresh_stale_seed"
-        )
-      );
+        );
+        return seeded;
+      });
       setAuthRequired(false);
       setPageError(null);
       setListAwaitingCritical(false);
@@ -679,6 +829,7 @@ export function useCommunityMessengerHomeBootstrap({
     }
     try {
       if (silent) {
+        shadowDispatch.markSilentRefreshStarted();
         if (shouldDeferHomeSyncStart()) {
           finishSilentRefreshRound(silent, silentRefreshBusyRef, silentRefreshAgainRef, () => {});
           endRefreshRound(() => {
@@ -724,7 +875,7 @@ export function useCommunityMessengerHomeBootstrap({
                     requests: jsonFull.requests,
                     friends: jsonFull.friends,
                   };
-                  mergeHomeSyncIntoBootstrap(silentFullPayload);
+                  mergeHomeSyncIntoBootstrap(silentFullPayload, "partial_upsert");
                 }
               } catch {
                 /* ignore */
@@ -776,6 +927,15 @@ export function useCommunityMessengerHomeBootstrap({
                 discoverableGroups: jsonFull.discoverableGroups ?? [],
                 calls: jsonFull.calls ?? [],
               };
+              shadowDispatch.dispatchRoomSummaries("full", requestId, [
+                ...(next.chats ?? []),
+                ...(next.groups ?? []),
+              ]);
+              noteCmHomeCutoverNetworkSeed({
+                source: "full",
+                appliedRoomIds: [...(next.chats ?? []), ...(next.groups ?? [])].map((r) => r.id),
+                peekState: shadowDispatch.peekState,
+              });
               setAuthRequired(false);
               setPageError(null);
               setData((prev) => {
@@ -888,7 +1048,14 @@ export function useCommunityMessengerHomeBootstrap({
                 const resLite = await fetchCommunityMessengerBootstrapClient("lite", {
                   signal: mergedSignal,
                 });
-                if (controller.signal.aborted || requestId !== refreshRequestIdRef.current) return;
+                const coldLiteApply = shouldApplyColdBootstrapComplete({
+                  capturedApplyGen: bootstrapApplyGen,
+                  currentApplyGen: bootstrapApplyGenRef.current,
+                  aborted: controller.signal.aborted,
+                });
+                if (!coldLiteApply) {
+                  return;
+                }
                 const jsonLite = await parseBootstrapJson<CommunityMessengerBootstrap & {
                   ok?: boolean;
                   error?: string;
@@ -899,6 +1066,15 @@ export function useCommunityMessengerHomeBootstrap({
                   refreshDataOk = true;
                   samarketMessengerHomeDebugEvent("messenger_home_bootstrap_success", { mode: "lite" });
                   const next = messengerBootstrapFromLiteApiJson(jsonLite);
+                  shadowDispatch.dispatchRoomSummaries("lite", hydrateRequestId, [
+                    ...(next.chats ?? []),
+                    ...(next.groups ?? []),
+                  ]);
+                  noteCmHomeCutoverNetworkSeed({
+                    source: "lite",
+                    appliedRoomIds: [...(next.chats ?? []), ...(next.groups ?? [])].map((r) => r.id),
+                    peekState: shadowDispatch.peekState,
+                  });
                   const responseAt =
                     typeof performance !== "undefined" ? performance.now() : 0;
                   resetCmClientMergeBreakdown(true);
@@ -1020,6 +1196,9 @@ export function useCommunityMessengerHomeBootstrap({
             if (resCrit.ok && jsonCrit.ok && jsonCrit.tier === "critical") {
               const tApplyCrit0 = typeof performance !== "undefined" ? performance.now() : 0;
               primeMessengerBootstrapCritical(jsonCrit);
+              // critical 은 Canonical ingest(dispatch)까지만 허용 — seedComplete 는 완료하지 않는다(§3).
+              // partial(30) room set 로 read 를 canonical 로 전환하면 안 되므로 seed note 는 final full 에서만.
+              shadowDispatch.dispatchCriticalPayload("critical", requestId, jsonCrit);
               const partial = communityMessengerBootstrapFromCriticalPayload(jsonCrit);
               refreshDataOk = true;
               setAuthRequired(false);
@@ -1095,7 +1274,14 @@ export function useCommunityMessengerHomeBootstrap({
             const res = await fetchCommunityMessengerBootstrapClient(useLiteBootstrapFallback ? "lite" : "full", {
               signal: controller.signal,
             });
-            if (controller.signal.aborted || requestId !== refreshRequestIdRef.current) return;
+            const coldFallbackApply = shouldApplyColdBootstrapComplete({
+              capturedApplyGen: bootstrapApplyGen,
+              currentApplyGen: bootstrapApplyGenRef.current,
+              aborted: controller.signal.aborted,
+            });
+            if (!coldFallbackApply) {
+              return;
+            }
             const json = await parseBootstrapJson<CommunityMessengerBootstrap & {
               ok?: boolean;
               error?: string;
@@ -1108,6 +1294,15 @@ export function useCommunityMessengerHomeBootstrap({
                 mode: useLiteBootstrapFallback ? "lite" : "full",
               });
               const next = messengerBootstrapFromLiteApiJson(json);
+              shadowDispatch.dispatchRoomSummaries(useLiteBootstrapFallback ? "lite" : "full", requestId, [
+                ...(next.chats ?? []),
+                ...(next.groups ?? []),
+              ]);
+              noteCmHomeCutoverNetworkSeed({
+                source: useLiteBootstrapFallback ? "lite" : "full",
+                appliedRoomIds: [...(next.chats ?? []), ...(next.groups ?? [])].map((r) => r.id),
+                peekState: shadowDispatch.peekState,
+              });
               if (useLiteBootstrapFallback) {
                 const responseAt =
                   typeof performance !== "undefined" ? performance.now() : 0;
@@ -1272,10 +1467,14 @@ export function useCommunityMessengerHomeBootstrap({
       finishSilentRefreshRound(silent, silentRefreshBusyRef, silentRefreshAgainRef, () => {
         void refresh(true);
       });
+      if (silent) {
+        shadowDispatch.markSilentRefreshSettled();
+      }
       endRefreshRound(() => {
         void refresh(true);
       });
       loadedRef.current = true;
+      shadowDispatch.markBootstrapSettled();
       if (!silent) {
         setLoading(false);
       }
@@ -1285,7 +1484,13 @@ export function useCommunityMessengerHomeBootstrap({
     }
     // tRef.current 만 읽음 — 언어 전환 시에도 동일 refresh 인스턴스 유지
     // eslint-disable-next-line react-hooks/exhaustive-deps -- tRef 안정 참조
-  }, [mergeDeferredMessengerCallLogs, mergeHomeSyncIntoBootstrap, parseBootstrapJson]);
+  }, [
+    mergeDeferredMessengerCallLogs,
+    mergeHomeSyncIntoBootstrap,
+    parseBootstrapJson,
+    seedCanonicalFromTrustedFullProvenance,
+    shadowDispatch,
+  ]);
 
   /** `refresh` 콜백 참조가 바뀌어도 초기 마운트 부트스트랩 effect 가 재실행·중복 fetch 되지 않게 */
   const refreshRef = useRef(refresh);
@@ -1293,8 +1498,22 @@ export function useCommunityMessengerHomeBootstrap({
 
   useEffect(() => {
     if (initialServerBootstrap) {
+      shadowDispatch.dispatchRoomSummaries("full", 1, [
+        ...(initialServerBootstrap.chats ?? []),
+        ...(initialServerBootstrap.groups ?? []),
+      ]);
+      // RSC 초기 주입은 runtimeMeta 가 없어 Gate 는 legacy 유지 → seed note 는 no-op(승격 없음, §7 warm 규칙).
+      noteCmHomeCutoverNetworkSeed({
+        source: "full",
+        appliedRoomIds: [...(initialServerBootstrap.chats ?? []), ...(initialServerBootstrap.groups ?? [])].map(
+          (r) => r.id
+        ),
+        peekState: shadowDispatch.peekState,
+      });
+      shadowDispatch.compareLegacy(initialServerBootstrap, initialServerBootstrap.me?.id ?? null);
       primeBootstrapCache(initialServerBootstrap);
       loadedRef.current = true;
+      shadowDispatch.markBootstrapSettled();
       setAuthRequired(false);
       setPageError(null);
       if (initialServerBootstrap.deferredCallLog && !isDevSafeMode()) {
@@ -1355,7 +1574,7 @@ export function useCommunityMessengerHomeBootstrap({
     }
     if (!tryClaimInitialForegroundBootstrap()) return;
     void refreshRef.current();
-  }, [initialServerBootstrap, mergeDeferredMessengerCallLogs]);
+  }, [initialServerBootstrap, mergeDeferredMessengerCallLogs, shadowDispatch]);
 
   /** critical 이후 idle 에서 홈 Realtime·버스 attach — 셸·목록 먼저 */
   useEffect(() => {
@@ -1453,5 +1672,6 @@ export function useCommunityMessengerHomeBootstrap({
     homeRealtimeGateOpen,
     hydrateDeferredCallLogs,
     hydrateMessengerFriends,
+    shadowDispatch,
   };
 }

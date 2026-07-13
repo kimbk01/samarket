@@ -1,9 +1,25 @@
+import { parseCommunityMessengerRoomContextMeta } from "@/lib/community-messenger/room-context-meta";
 import type {
   CommunityMessengerBootstrap,
   CommunityMessengerBootstrapCritical,
   CommunityMessengerCriticalRoomRow,
+  CommunityMessengerRoomContextMetaV1,
   CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
+
+/** critical API `context_meta` — string(JSON) 또는 v1 객체 → client `contextMeta`. */
+function mapCriticalRowContextMeta(
+  raw: CommunityMessengerCriticalRoomRow["context_meta"]
+): CommunityMessengerRoomContextMetaV1 | null {
+  if (raw == null) return null;
+  if (typeof raw === "string") {
+    return parseCommunityMessengerRoomContextMeta(raw);
+  }
+  if (typeof raw === "object") {
+    return parseCommunityMessengerRoomContextMeta(JSON.stringify(raw));
+  }
+  return null;
+}
 
 function peerUserIdFromCriticalDirectRow(row: CommunityMessengerCriticalRoomRow, meId: string | null): string | null {
   if (row.room_type !== "direct") return null;
@@ -51,7 +67,7 @@ export function criticalRoomRowToRoomSummary(
     allowMemberInvite: true,
     messengerDirectKey: row.direct_key,
     peerUserId: peerUserIdFromCriticalDirectRow(row, meId),
-    contextMeta: null,
+    contextMeta: mapCriticalRowContextMeta(row.context_meta),
   };
 }
 

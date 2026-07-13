@@ -365,6 +365,8 @@ export type HomeSyncDeepStepsBundleSteps = {
   tradeMetaEnrichTotalMs: number;
   /** home-sync: `enrichTradeRoomContextMetaForBootstrap` 를 응답 전에 실행하지 않음 */
   tradeMetaDeferred?: boolean;
+  /** deferred home-sync: peer-pair/product_chats trade 분류 벽시계 */
+  tradeClassificationMs?: number;
   /** bundle 벽시계 − trade enrich (RPC·프로필 hydrate·summarize·legacy unread 등) */
   outsideTradeEnrichMs: number;
   roomsFetchMs: number;

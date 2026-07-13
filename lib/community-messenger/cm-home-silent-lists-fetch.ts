@@ -13,6 +13,7 @@
  * → pathname 전환·동일 경로 왕복은 **재생 TTL·안정화 창**으로 네트워크 사이클을 추가로 억제한다.
  */
 import { getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
+import { applyCmHomeCutoverGateFromResponseJson } from "@/lib/community-messenger/home/cm-home-cutover-gate-client";
 import { messengerMonitorHomeSyncClientPhases } from "@/lib/community-messenger/monitoring/client";
 import {
   recordMessengerHomeHomeSyncNetworkFetch,
@@ -277,6 +278,12 @@ export function fetchCommunityMessengerHomeSilentLists(
     });
     const t1 = typeof performance !== "undefined" ? performance.now() : 0;
     const json = (await res.json().catch(() => ({}))) as CommunityMessengerHomeSilentListsPayload["json"];
+    // 실제 네트워크 응답에서만 Runtime Gate overlay 적용 (synthetic replay 는 승격 근거 아님).
+    // 적용 후 runtimeMeta 는 제거 — replay/sessionStorage cache 에 gate 상태를 남기지 않는다.
+    if (res.ok && json && typeof json === "object" && "runtimeMeta" in (json as object)) {
+      applyCmHomeCutoverGateFromResponseJson(json);
+      delete (json as Record<string, unknown>).runtimeMeta;
+    }
     const t2 = typeof performance !== "undefined" ? performance.now() : 0;
     if (typeof performance !== "undefined") {
       const networkMs = Math.round(t1 - t0);

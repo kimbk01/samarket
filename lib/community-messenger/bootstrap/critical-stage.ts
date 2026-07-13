@@ -1,5 +1,6 @@
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { enrichMessengerTradeUnreadWithLegacyTrade } from "@/lib/community-messenger/enrich-messenger-trade-unread-with-legacy-trade";
+import { enrichTradeRoomClassificationForDeferredHomeSync } from "@/lib/community-messenger/trade-chat-list/trade-room-classification-enrich";
 import {
   buildParticipantsByRoomMap,
   createEmptyBootstrapRoomsDiagnostics,
@@ -41,6 +42,8 @@ export type CommunityMessengerCriticalTierDiagnostics = {
   unreadMs: number;
   /** `summarizeRoomsBatchWithProfileMap` + `mapRows` CPU (critical 전용) */
   criticalCpuMergeMs: number;
+  /** peer-pair·ledger trade kind 확정 enrich (썸네일 제외) */
+  criticalTradeClassificationMs?: number;
   /** `fetchMyRoomsPayload` 의 `community_messenger_room_profiles` 라운드 생략 시 true */
   criticalSkippedRoomProfiles: boolean;
   /** `fetchMyRoomsPayload` 가 반환한 `byRoomId` 재사용으로 `buildParticipantsByRoomMap` 생략 */
@@ -96,7 +99,7 @@ function participantLabelsForRoom(
   return out;
 }
 
-function summaryToCriticalRow(
+export function summaryToCriticalRow(
   summary: CommunityMessengerRoomSummary,
   participant_labels_minimal: CommunityMessengerCriticalParticipantLabel[]
 ): CommunityMessengerCriticalRoomRow {
@@ -111,6 +114,7 @@ function summaryToCriticalRow(
     last_message_at: summary.lastMessageAt,
     unread_count: summary.unreadCount,
     participant_labels_minimal,
+    context_meta: summary.contextMeta ?? null,
     group_meta:
       summary.roomType !== "direct"
         ? {
@@ -193,6 +197,11 @@ export async function loadCommunityMessengerBootstrapCritical(
   const tAfterSummarize = performance.now();
 
   const sbBoot = getSupabaseOrNull();
+  const tTradeClass0 = performance.now();
+  if (sbBoot) {
+    await enrichTradeRoomClassificationForDeferredHomeSync(sbBoot as never, userId, mySummaries);
+  }
+  const tradeClassificationMs = Math.round(performance.now() - tTradeClass0);
 
   const enrichUnreadMetrics = { dbRoundTrips: 0 };
   const tUnread = performance.now();
@@ -207,6 +216,7 @@ export async function loadCommunityMessengerBootstrapCritical(
   const unreadMs = Math.round(performance.now() - tUnread);
   if (diagnostics) {
     diagnostics.unreadMs = unreadMs;
+    diagnostics.criticalTradeClassificationMs = tradeClassificationMs;
     diagnostics.dbRoundTrips =
       roomsDiag.queryCount + profileDbRoundTrips + enrichUnreadMetrics.dbRoundTrips;
   }

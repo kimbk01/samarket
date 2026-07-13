@@ -11,6 +11,7 @@ import {
 } from "@/lib/community-messenger/bootstrap-cache";
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
 import { applyHomeListPatch, commitHomeListPatch } from "@/lib/community-messenger/home-list-patch";
+import type { MessengerHomeShadowDispatch } from "@/lib/community-messenger/home/inbox-pipeline/shadow";
 import { invalidateRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import type {
   CommunityMessengerBootstrap,
@@ -88,10 +89,12 @@ export function syncMessengerHomeAfterRoomLeave(roomId: string): void {
 
 export function applyMessengerHomeRoomLeaveSuccess(
   roomId: string,
-  setData?: Dispatch<SetStateAction<CommunityMessengerBootstrap | null>>
+  setData?: Dispatch<SetStateAction<CommunityMessengerBootstrap | null>>,
+  shadowDispatch?: MessengerHomeShadowDispatch
 ): void {
   const rid = trimRoomId(roomId);
   if (!rid) return;
+  shadowDispatch?.dispatchRemove("multi_tab", 1, rid, "leave");
   if (setData) {
     commitHomeListPatch(setData, { kind: "remove_room", roomId: rid }, "bootstrap");
   }
@@ -121,9 +124,10 @@ export async function leaveMessengerRoomFromHomeClient(input: {
   roomId: string;
   roomType: CommunityMessengerRoomSummary["roomType"];
   setData?: Dispatch<SetStateAction<CommunityMessengerBootstrap | null>>;
+  shadowDispatch?: MessengerHomeShadowDispatch;
 }): Promise<LeaveMessengerRoomClientResult> {
   const result = await requestLeaveMessengerRoomClient(input.roomId, input.roomType);
   if (!result.ok) return result;
-  applyMessengerHomeRoomLeaveSuccess(input.roomId, input.setData);
+  applyMessengerHomeRoomLeaveSuccess(input.roomId, input.setData, input.shadowDispatch);
   return { ok: true };
 }

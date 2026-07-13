@@ -276,3 +276,131 @@ describe("applyHomeListPatch", () => {
     expect(next?.chats.map((r) => r.id)).toContain("new-server");
   });
 });
+
+/**
+ * HOME_SYNC_PARTIAL_REPLACE_TRUNCATION 방지 — `full` tier 는 cap 30 partial 스냅샷이라
+ * incoming 에 없는 기존 유효 room 을 삭제하면 안 된다(§ CANONICAL_53_IS_CORRECT).
+ */
+describe("applyHomeListPatch home_sync partial_upsert", () => {
+  beforeEach(() => {
+    clearLocalReadGuardsForTests();
+    clearMessengerConsistencyStateForTests();
+    clearHomeListServerUnreadIncreaseForTests();
+  });
+
+  function manyRooms(count: number, prefix = "r"): CommunityMessengerRoomSummary[] {
+    return Array.from({ length: count }, (_, i) => room(`${prefix}${i}`));
+  }
+
+  it("7.1 truncation 방지: base 53 + incoming partial 29 -> 53 유지, 29 최신 필드 반영", () => {
+    const prev = bootstrap(manyRooms(53));
+    const incoming = manyRooms(29).map((r) => ({
+      ...r,
+      lastMessage: "updated",
+      lastMessageAt: "2026-05-20T10:00:00.000Z",
+    }));
+    const next = applyHomeListPatch(
+      prev,
+      { kind: "home_sync", chats: incoming, roomMode: "partial_upsert" },
+      "home-sync"
+    );
+    expect(next?.chats).toHaveLength(53);
+    expect(next?.chats.find((r) => r.id === "r0")?.lastMessage).toBe("updated");
+    expect(next?.chats.find((r) => r.id === "r28")?.lastMessage).toBe("updated");
+    // cap 밖(30번째 이후) 기존 room 은 유지
+    expect(next?.chats.find((r) => r.id === "r29")?.lastMessage).toBe("hi");
+    expect(next?.chats.find((r) => r.id === "r52")).toBeTruthy();
+  });
+
+  it("7.2 incoming 신규 room 추가: base 53 + incoming(29, 신규 1 포함) -> 54", () => {
+    const prev = bootstrap(manyRooms(53));
+    const incoming = [...manyRooms(29), room("brand-new")];
+    const next = applyHomeListPatch(
+      prev,
+      { kind: "home_sync", chats: incoming, roomMode: "partial_upsert" },
+      "home-sync"
+    );
+    expect(next?.chats).toHaveLength(54);
+    expect(next?.chats.some((r) => r.id === "brand-new")).toBe(true);
+    expect(next?.chats.find((r) => r.id === "r52")).toBeTruthy();
+  });
+
+  it("7.3 기존 room 갱신: lastMessage / lastMessageAt / unread 증가 반영", () => {
+    const prev = bootstrap([room("a", 0), room("b", 0), room("c", 0)]);
+    const incoming = [
+      {
+        ...room("a", 5),
+        lastMessage: "ping-a",
+        lastMessageAt: "2026-05-21T10:00:00.000Z",
+      },
+    ];
+    const next = applyHomeListPatch(
+      prev,
+      { kind: "home_sync", chats: incoming, roomMode: "partial_upsert" },
+      "home-sync"
+    );
+    const a = next?.chats.find((r) => r.id === "a");
+    expect(a?.lastMessage).toBe("ping-a");
+    expect(a?.lastMessageAt).toBe("2026-05-21T10:00:00.000Z");
+    expect(a?.unreadCount).toBe(5);
+    // 나머지 유지
+    expect(next?.chats).toHaveLength(3);
+  });
+
+  it("7.4 explicit remove: partial 누락은 삭제 안 됨, remove_room 은 삭제", () => {
+    const prev = bootstrap([room("a"), room("b"), room("c")]);
+    // b, c 가 payload 에서 누락되어도 유지
+    const afterPartial = applyHomeListPatch(
+      prev,
+      { kind: "home_sync", chats: [room("a")], roomMode: "partial_upsert" },
+      "home-sync"
+    );
+    expect(afterPartial?.chats).toHaveLength(3);
+    // 명시적 remove 는 정상 삭제
+    const afterRemove = applyHomeListPatch(
+      afterPartial ?? prev,
+      { kind: "remove_room", roomId: "b" },
+      "bootstrap"
+    );
+    expect(afterRemove?.chats).toHaveLength(2);
+    expect(afterRemove?.chats.some((r) => r.id === "b")).toBe(false);
+  });
+
+  it("7.5 empty partial: base 전체 유지 (no-op)", () => {
+    const prev = bootstrap(manyRooms(53));
+    const next = applyHomeListPatch(
+      prev,
+      { kind: "home_sync", chats: [], groups: [], roomMode: "partial_upsert" },
+      "home-sync"
+    );
+    expect(next?.chats).toHaveLength(53);
+    expect(next).toBe(prev);
+  });
+
+  it("7.6 authoritative replace 회귀: replace fixture 는 기존 축소 동작 유지", () => {
+    const prev = bootstrap([room("a"), room("b"), room("c")]);
+    const next = applyHomeListPatch(
+      prev,
+      { kind: "home_sync", chats: [room("a")], roomMode: "replace" },
+      "home-sync"
+    );
+    // replace 는 payload 에 없는 방을 제거 (기존 계약 그대로)
+    expect(next?.chats).toHaveLength(1);
+    expect(next?.chats[0]?.id).toBe("a");
+  });
+
+  it("7.7 reference stability: 변경 없는 room 은 reference 유지", () => {
+    const base = [room("a"), room("b"), room("c")];
+    const prev = bootstrap(base);
+    const originalB = prev.chats[1];
+    const originalC = prev.chats[2];
+    const next = applyHomeListPatch(
+      prev,
+      { kind: "home_sync", chats: [room("a")], roomMode: "partial_upsert" },
+      "home-sync"
+    );
+    // a 는 display-equal -> 동일 참조 복원, b/c 는 payload 누락 -> 원본 유지
+    expect(next?.chats.find((r) => r.id === "b")).toBe(originalB);
+    expect(next?.chats.find((r) => r.id === "c")).toBe(originalC);
+  });
+});

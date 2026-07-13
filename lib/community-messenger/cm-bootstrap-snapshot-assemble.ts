@@ -1,6 +1,7 @@
 /**
  * CMB1 bootstrap snapshot assembly — CPU-only from precomputed RPC payload.
  */
+import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import {
   buildParticipantsByRoomMap,
   buildProfilesFromKnownRelations,
@@ -11,6 +12,7 @@ import {
   summarizeRoomsBatchWithProfileMap,
   dedupeParticipantUserIds,
 } from "@/lib/community-messenger/service";
+import { enrichTradeRoomClassificationForDeferredHomeSync } from "@/lib/community-messenger/trade-chat-list/trade-room-classification-enrich";
 import {
   enrichMessengerTradeUnreadWithLegacyTrade,
   type Hs5LegacyLoadResult,
@@ -171,6 +173,14 @@ function dedupeIds(values: string[]): string[] {
   return out;
 }
 
+function getSupabaseOrNull(): ReturnType<typeof getSupabaseServer> | null {
+  try {
+    return getSupabaseServer();
+  } catch {
+    return null;
+  }
+}
+
 export function parseCmBootstrapSnapshotRpcData(data: unknown): CmBootstrapSnapshotPayloadJson | null {
   if (!data || typeof data !== "object") return null;
   return data as CmBootstrapSnapshotPayloadJson;
@@ -260,6 +270,18 @@ export async function assembleLiteBootstrapFromSnapshotPayload(
     byRoomId,
     profileById
   );
+
+  /**
+   * Lite tier 거래 분류 parity — critical(`assembleCriticalBootstrapFromSnapshotPayload`)·full 과 동일하게
+   * peer-pair/product_chats/item_trade ledger 기반 trade 확정을 lite context_meta 에 반영한다.
+   * lite snapshot payload 에는 `trade_context` 프리컴퓨트가 없어 미분류 direct 방이 null 로 남던 것을 보강.
+   * 이미 trade 인 방은 함수 내부에서 보존되고, 일반 friend·delivery·group·commerce direct_key·
+   * 타 CM 방 FK product_chat 은 제외한다(오분류 방지 유지). 추가 쿼리는 미분류 direct 방이 있을 때만.
+   */
+  const sbBoot = getSupabaseOrNull();
+  if (sbBoot) {
+    await enrichTradeRoomClassificationForDeferredHomeSync(sbBoot as never, userId, mySummaries);
+  }
 
   await enrichMessengerTradeUnreadWithLegacyTrade(
     null as never,
