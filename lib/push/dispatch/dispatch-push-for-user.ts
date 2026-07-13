@@ -9,6 +9,7 @@ import {
 } from "@/lib/push/dispatch/load-active-push-targets";
 import {
   isCallPush,
+  resolveCallPushProviderPolicy,
   resolveEventType,
   type DispatchDeliveryAudit,
   type DispatchPushOptions,
@@ -240,14 +241,36 @@ export async function dispatchPushForUser(
     return { ok: true, targets_found: 0, deliveries: audits };
   }
 
+  const hasNativeCallTarget = targets.some(
+    (t) => t.push_provider === "fcm" || t.push_provider === "voip_apns"
+  );
+
   for (const target of targets) {
-    if (callPush && target.push_provider === "web_push" && terminalDismiss) {
-      /* terminal dismiss goes to all providers including web so stale incoming UI can close. */
-    } else if (callPush && !terminalDismiss) {
-      if (
-        target.push_provider === "web_push" &&
-        targets.some((t) => t.push_provider === "fcm" || t.push_provider === "voip_apns")
-      ) {
+    if (callPush) {
+      const decision = resolveCallPushProviderPolicy({
+        callPushKind: opts?.call_push_kind ?? null,
+        provider: target.push_provider,
+        hasNativeCallTarget,
+      });
+
+      // VoIP(PushKit) 결정은 유령 재전화 회귀 추적을 위해 항상 관측한다(raw token 미기록).
+      if (target.push_provider === "voip_apns") {
+        console.info(
+          decision.allow
+            ? "[DIBAY_CALL_PUSH] call_push_provider_allowed"
+            : "[DIBAY_CALL_PUSH] call_push_provider_skipped",
+          {
+            kind: opts?.call_push_kind ?? null,
+            provider: "voip_apns",
+            ...(decision.reason ? { reason: decision.reason } : {}),
+            sessionId: callIdFromOutput(enrichedOut),
+            recipientUserId: out.user_id,
+            targetId: tokenPrefix(target),
+          }
+        );
+      }
+
+      if (!decision.allow) {
         await auditDelivery(svc, audits, {
           user_id: out.user_id,
           device_id: deviceIdForDelivery(target),
@@ -255,7 +278,7 @@ export async function dispatchPushForUser(
           target_type: opts?.target_type ?? null,
           target_id: opts?.target_id ?? null,
           status: "skipped",
-          provider_response: { reason: "native_call_preferred" },
+          provider_response: { reason: decision.reason ?? "call_push_provider_disallowed" },
           push_provider: target.push_provider,
         });
         continue;

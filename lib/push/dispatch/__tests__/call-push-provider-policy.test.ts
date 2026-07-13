@@ -1,0 +1,102 @@
+import { describe, expect, it } from "vitest";
+import {
+  isTerminalDismissCallPushKind,
+  resolveCallPushProviderPolicy,
+} from "@/lib/push/dispatch/push-payload-types";
+
+describe("call push provider policy — VoIP ghost-redial fix", () => {
+  it("allows incoming_call over voip_apns", () => {
+    expect(
+      resolveCallPushProviderPolicy({
+        callPushKind: "incoming_call",
+        provider: "voip_apns",
+        hasNativeCallTarget: true,
+      })
+    ).toEqual({ allow: true });
+  });
+
+  it("blocks call_ended over voip_apns (terminal_voip_disallowed)", () => {
+    expect(
+      resolveCallPushProviderPolicy({
+        callPushKind: "call_ended",
+        provider: "voip_apns",
+        hasNativeCallTarget: true,
+      })
+    ).toEqual({ allow: false, reason: "terminal_voip_disallowed" });
+  });
+
+  it("blocks call_rejected over voip_apns", () => {
+    expect(
+      resolveCallPushProviderPolicy({
+        callPushKind: "call_rejected",
+        provider: "voip_apns",
+        hasNativeCallTarget: true,
+      })
+    ).toEqual({ allow: false, reason: "terminal_voip_disallowed" });
+  });
+
+  it("blocks call_canceled over voip_apns", () => {
+    expect(
+      resolveCallPushProviderPolicy({
+        callPushKind: "call_canceled",
+        provider: "voip_apns",
+        hasNativeCallTarget: true,
+      })
+    ).toEqual({ allow: false, reason: "terminal_voip_disallowed" });
+  });
+
+  it("keeps terminal dismiss on non-VoIP providers (apns/fcm/web_push)", () => {
+    for (const kind of ["call_ended", "call_rejected", "call_canceled"] as const) {
+      expect(
+        resolveCallPushProviderPolicy({ callPushKind: kind, provider: "apns", hasNativeCallTarget: true }).allow
+      ).toBe(true);
+      expect(
+        resolveCallPushProviderPolicy({ callPushKind: kind, provider: "fcm", hasNativeCallTarget: true }).allow
+      ).toBe(true);
+      // terminal dismiss must reach web too so stale incoming UI can close, even with native target present.
+      expect(
+        resolveCallPushProviderPolicy({ callPushKind: kind, provider: "web_push", hasNativeCallTarget: true }).allow
+      ).toBe(true);
+    }
+  });
+
+  it("keeps incoming web_push suppressed when a native call target exists (unchanged policy)", () => {
+    expect(
+      resolveCallPushProviderPolicy({
+        callPushKind: "incoming_call",
+        provider: "web_push",
+        hasNativeCallTarget: true,
+      })
+    ).toEqual({ allow: false, reason: "native_call_preferred" });
+  });
+
+  it("delivers incoming web_push when no native call target exists (unchanged policy)", () => {
+    expect(
+      resolveCallPushProviderPolicy({
+        callPushKind: "incoming_call",
+        provider: "web_push",
+        hasNativeCallTarget: false,
+      })
+    ).toEqual({ allow: true });
+  });
+
+  it("leaves missed_call VoIP routing unchanged (out of terminal-dismiss scope)", () => {
+    expect(isTerminalDismissCallPushKind("missed_call")).toBe(false);
+    expect(
+      resolveCallPushProviderPolicy({
+        callPushKind: "missed_call",
+        provider: "voip_apns",
+        hasNativeCallTarget: true,
+      })
+    ).toEqual({ allow: true });
+  });
+
+  it("classifies terminal-dismiss kinds correctly", () => {
+    expect(isTerminalDismissCallPushKind("call_ended")).toBe(true);
+    expect(isTerminalDismissCallPushKind("call_rejected")).toBe(true);
+    expect(isTerminalDismissCallPushKind("call_canceled")).toBe(true);
+    expect(isTerminalDismissCallPushKind("incoming_call")).toBe(false);
+    expect(isTerminalDismissCallPushKind(null)).toBe(false);
+    expect(isTerminalDismissCallPushKind(undefined)).toBe(false);
+  });
+});

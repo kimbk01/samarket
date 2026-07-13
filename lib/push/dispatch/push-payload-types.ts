@@ -84,3 +84,52 @@ export function isCallPush(out: NotificationSideEffectPayloadOut, opts?: Dispatc
   const nt = String(out.notification_type ?? "");
   return nt === "community_messenger_incoming_call" || nt === "community_messenger_missed_call";
 }
+
+const TERMINAL_DISMISS_CALL_PUSH_KINDS: ReadonlySet<NonNullable<DispatchPushOptions["call_push_kind"]>> = new Set([
+  "call_canceled",
+  "call_rejected",
+  "call_ended",
+]);
+
+/** call_ended / call_rejected / call_canceled — 이미 끝난 통화의 UI 정리용 dismiss 신호. */
+export function isTerminalDismissCallPushKind(
+  kind: DispatchPushOptions["call_push_kind"] | null | undefined
+): boolean {
+  return kind != null && TERMINAL_DISMISS_CALL_PUSH_KINDS.has(kind);
+}
+
+export type CallPushProviderDecision = { allow: boolean; reason?: string };
+
+/**
+ * (call_push_kind, provider) 별 명시적 라우팅 정책 — SSOT.
+ *
+ * VoIP(PushKit) APNs 는 "실제 신규 수신 통화(incoming_call)" 에만 사용한다. iOS 는 수신한 모든
+ * VoIP push 에 대해 `reportNewIncomingCall` 을 강제하므로, terminal dismiss 를 VoIP 로 보내면
+ * 이미 끝난 통화가 새 착신처럼 잠깐 표시되는 "유령 재전화" 가 발생한다.
+ * 따라서 terminal dismiss 는 `voip_apns` 만 제외하고, 나머지 provider(apns/fcm/web_push)로는
+ * 기존 정책대로 발송해 killed/background 상태의 잔여 UI 를 정리한다.
+ *
+ * 정상 incoming call 경로(voip_apns 허용 + web_push native 대체)는 변경하지 않는다.
+ */
+export function resolveCallPushProviderPolicy(input: {
+  callPushKind: DispatchPushOptions["call_push_kind"] | null | undefined;
+  provider: PushProvider;
+  hasNativeCallTarget: boolean;
+}): CallPushProviderDecision {
+  const terminalDismiss = isTerminalDismissCallPushKind(input.callPushKind);
+
+  if (input.provider === "voip_apns") {
+    if (terminalDismiss) return { allow: false, reason: "terminal_voip_disallowed" };
+    return { allow: true };
+  }
+
+  if (input.provider === "web_push") {
+    // incoming/missed 은 native(voip/fcm) 가 있으면 web 중복 착신을 막는다(기존 정책).
+    if (!terminalDismiss && input.hasNativeCallTarget) {
+      return { allow: false, reason: "native_call_preferred" };
+    }
+    return { allow: true };
+  }
+
+  return { allow: true };
+}
