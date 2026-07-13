@@ -29,6 +29,7 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
   private var outgoingTransitionAnimator: UIViewPropertyAnimator?
   private var lockedOutgoingPipTarget: ResolvedPipFrame?
   private var pipLayoutPassCount = 0
+  private var suppressOutgoingTransitionRestart = false
 
   private struct ResolvedPipFrame: Equatable {
     let leading: CGFloat
@@ -397,6 +398,14 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
   }
 
   private func maybeStartOutgoingTransition(reason: String) {
+    if suppressOutgoingTransitionRestart {
+      NativeVideoCallLog.info(
+        "outgoing_local_to_pip_transition_skipped",
+        callId: boundCallId,
+        details: outgoingLogDetails("reason=layout_restore")
+      )
+      return
+    }
     guard isOutgoingVideoPresentation,
           currentState == .connected,
           outgoingLocalFirstFrameReadyFlag,
@@ -518,11 +527,52 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
     }
     outgoingTransitionAnimator = nil
     outgoingTransitionRunning = false
+    if currentState == .connected {
+      outgoingTransitionCompleted = true
+    }
     lockedOutgoingPipTarget = nil
   }
 
   private func shouldSkipConnectedPipLayout() -> Bool {
     isOutgoingVideoPresentation && !outgoingTransitionCompleted && !outgoingTransitionRunning
+  }
+
+  /** CONNECTED PiP 복귀 — 발신 전환 플래그 + 보조 PiP SSOT (applyState만으로는 bounds 미복원). */
+  private func syncOutgoingFlagsForConnectedLayoutRestore() {
+    guard isOutgoingVideoPresentation, currentState == .connected else { return }
+    cancelOutgoingTransition(reason: "connected_layout_restore")
+    outgoingTransitionCompleted = true
+    outgoingLocalFirstFrameReadyFlag = true
+    outgoingRemoteFirstFrameReadyFlag = true
+  }
+
+  private func restoreConnectedFullscreenVideoLayout(reason: String) {
+    guard currentState == .connected else { return }
+    suppressOutgoingTransitionRestart = true
+    defer { suppressOutgoingTransitionRestart = false }
+    syncOutgoingFlagsForConnectedLayoutRestore()
+    refreshConnectedVideoShellAfterRestore(reason: reason)
+  }
+
+  private func refreshConnectedVideoShellAfterRestore(reason: String) {
+    if localIsMain { resetVideoSwapForPip() }
+    videoRoot.isHidden = false
+    overlayRoot.isHidden = false
+    overlayRoot.backgroundColor = .clear
+    statusPanel.isHidden = true
+    remoteContainer.isHidden = false
+    remoteContainer.alpha = 1
+    localContainer.isHidden = false
+    localContainer.alpha = 1
+    _ = ensureVideoRootForRemoteRender()
+    guard !shouldSkipConnectedPipLayout() else { return }
+    applyConnectedLocalPipLayout(reason: reason, layoutNow: true)
+    NativeVideoCallAgoraEngine.shared.onRemoteRenderSurfaceReady(callId: boundCallId)
+    NativeVideoCallLog.info(
+      "native_video_connected_shell_restored",
+      callId: boundCallId,
+      details: "reason=\(reason) localAttached=\(localContainer.subviews.count) remoteAttached=\(remoteContainer.subviews.count)"
+    )
   }
 
   private func applyOutgoingLocalFullscreenLayout() {
@@ -735,7 +785,13 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
     activeActions.isHidden = enabled
     localContainer.isHidden = enabled
     if !enabled {
+      if currentState == .connected {
+        syncOutgoingFlagsForConnectedLayoutRestore()
+      }
       applyState(currentState)
+      if currentState == .connected {
+        restoreConnectedFullscreenVideoLayout(reason: "pip_ui_restore")
+      }
     }
   }
 
@@ -772,6 +828,7 @@ final class NativeVideoCallViewController: UIViewController, UIGestureRecognizer
 
   private func reparentRemoteViewToFullscreen() {
     _ = ensureVideoRootForRemoteRender()
+    if localIsMain { resetVideoSwapForPip() }
     if let remoteView = remoteRenderView, remoteView.superview === remoteContainer {
       return
     }

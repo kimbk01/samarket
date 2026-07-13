@@ -300,9 +300,16 @@ public class NativeVideoCallActivity extends Activity {
     NativeVideoCallAgoraEngine.setNetworkQualityObserver(this::handleNetworkQualitySample);
     logSurfaceShown();
     NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(callId);
+    if (session != null && session.state == NativeVideoCallRuntime.State.CONNECTED) {
+      currentState = session.state;
+      syncOutgoingFlagsForConnectedLayoutRestore();
+    }
     applyState(session != null ? session.state : defaultStateForMode());
     maybeHandleNotificationAccept(getIntent());
     maybeReattachSurfacesAfterConnectedRestore();
+    if (currentState == NativeVideoCallRuntime.State.CONNECTED) {
+      restoreConnectedFullscreenVideoLayout("connected_restore");
+    }
     registerNativeVideoBackCallback();
   }
 
@@ -333,6 +340,9 @@ public class NativeVideoCallActivity extends Activity {
     applyState(session != null ? session.state : defaultStateForMode());
     maybeHandleNotificationAccept(intent);
     maybeReattachSurfacesAfterConnectedRestore();
+    if (currentState == NativeVideoCallRuntime.State.CONNECTED) {
+      restoreConnectedFullscreenVideoLayout("connected_restore");
+    }
   }
 
   @Override
@@ -965,6 +975,10 @@ public class NativeVideoCallActivity extends Activity {
   }
 
   private void maybeStartOutgoingLocalToPipTransition(String reason) {
+    if (suppressOutgoingTransitionRestart) {
+      logOutgoingTransitionSkipped("layout_restore");
+      return;
+    }
     NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(callId);
     if (!isOutgoingVideoPresentation(session)
         || currentState != NativeVideoCallRuntime.State.CONNECTED
@@ -1094,6 +1108,9 @@ public class NativeVideoCallActivity extends Activity {
           public void onAnimationCancel(android.animation.Animator animation) {
             outgoingTransitionRunning = false;
             outgoingLocalToPipAnimator = null;
+            if (currentState == NativeVideoCallRuntime.State.CONNECTED) {
+              outgoingTransitionCompleted = true;
+            }
             NativeVideoCallLog.info(
                 "outgoing_video_transition_cancelled",
                 callId,
@@ -1656,6 +1673,64 @@ public class NativeVideoCallActivity extends Activity {
         + elapsedMs;
   }
 
+  private boolean suppressOutgoingTransitionRestart = false;
+
+  /** CONNECTED PiP/dock/알림 복귀 — 발신 전환 플래그 + 보조 PiP SSOT + 녹색 오버레이 제거. */
+  private void restoreConnectedFullscreenVideoLayout(String reason) {
+    if (currentState != NativeVideoCallRuntime.State.CONNECTED) return;
+    suppressOutgoingTransitionRestart = true;
+    try {
+      syncOutgoingFlagsForConnectedLayoutRestore();
+      refreshConnectedVideoShellAfterRestore(reason);
+    } finally {
+      suppressOutgoingTransitionRestart = false;
+    }
+  }
+
+  /** applyState 직후 CONNECTED 영상 셸 강제 복원(녹색 bg_dibay_incoming_fullscreen 잔류 방지). */
+  private void refreshConnectedVideoShellAfterRestore(String reason) {
+    if (videoRoot != null) videoRoot.setVisibility(View.VISIBLE);
+    if (overlayRoot != null) {
+      overlayRoot.setVisibility(View.VISIBLE);
+      overlayRoot.setBackgroundColor(Color.TRANSPARENT);
+    }
+    if (statusPanel != null) statusPanel.setVisibility(View.GONE);
+    if (remoteContainer != null) {
+      remoteContainer.setVisibility(View.VISIBLE);
+      remoteContainer.setAlpha(1f);
+    }
+    if (localContainer != null) {
+      localContainer.setVisibility(View.VISIBLE);
+      localContainer.setAlpha(1f);
+    }
+    ensureVideoRootForRemoteRender();
+    if (!shouldSkipConnectedPipLayout()) {
+      applyConnectedLocalPipLayout(reason);
+    }
+    NativeVideoCallAgoraEngine.onRemoteRenderSurfaceReady(callId);
+    NativeVideoCallLog.info(
+        "native_video_connected_shell_restored",
+        callId,
+        "reason=" + reason
+            + " localAttached="
+            + localSurfaceChildCount()
+            + " remoteAttached="
+            + remoteSurfaceChildCount());
+  }
+
+  private void syncOutgoingFlagsForConnectedLayoutRestore() {
+    NativeVideoCallRuntime.Session session = NativeVideoCallRuntime.getSession(callId);
+    if (!isOutgoingVideoPresentation(session)) return;
+    if (outgoingLocalToPipAnimator != null) {
+      outgoingLocalToPipAnimator.cancel();
+      outgoingLocalToPipAnimator = null;
+    }
+    outgoingTransitionRunning = false;
+    outgoingTransitionCompleted = true;
+    outgoingLocalFirstFrameReady = true;
+    outgoingRemoteFirstFrameReady = true;
+  }
+
   private void applyPipUiMode(boolean enabled) {
     if (enabled) {
       cancelConnectedChromeHide("pip_enter");
@@ -1672,8 +1747,12 @@ public class NativeVideoCallActivity extends Activity {
     if (!enabled && currentState != null) {
       if (currentState == NativeVideoCallRuntime.State.CONNECTED) {
         wasConnectedFullscreen = true;
+        syncOutgoingFlagsForConnectedLayoutRestore();
       }
       applyState(currentState);
+      if (currentState == NativeVideoCallRuntime.State.CONNECTED) {
+        restoreConnectedFullscreenVideoLayout("pip_restore");
+      }
       if (isConnectedFullscreenPresentation()) {
         showConnectedChrome("pip_restore");
       }
@@ -1727,8 +1806,12 @@ public class NativeVideoCallActivity extends Activity {
     if (currentState != null) {
       if (currentState == NativeVideoCallRuntime.State.CONNECTED) {
         wasConnectedFullscreen = true;
+        syncOutgoingFlagsForConnectedLayoutRestore();
       }
       applyState(currentState);
+      if (currentState == NativeVideoCallRuntime.State.CONNECTED) {
+        restoreConnectedFullscreenVideoLayout("dock_restore");
+      }
       if (isConnectedFullscreenPresentation()) {
         showConnectedChrome("dock_restore");
       }
