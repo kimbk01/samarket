@@ -12,7 +12,10 @@ vi.mock("@/lib/community-messenger/notifications/messenger-notification-contract
 }));
 
 vi.mock("@/lib/notifications/coalesced-chat-alert-sound", () => ({
-  playCoalescedChatNotificationSound: vi.fn(),
+  playCoalescedChatNotificationSound: vi.fn(() => ({
+    status: "scheduled",
+    dedupeKey: "test",
+  })),
 }));
 
 vi.mock("@/lib/community-messenger/notifications/messenger-web-desktop-notification", () => ({

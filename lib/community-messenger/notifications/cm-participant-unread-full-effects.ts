@@ -9,6 +9,10 @@
  * - 방 음소거 / 앱·도메인 알림음 OFF
  * - silent delivery / 중복 스케줄
  * pathname(`/market` 등)만으로 general_direct·group 음을 막지 않는다.
+ *
+ * Root layout 참가자 브리지는 NotificationSurfaceProvider 밖이라 surfaceRef 가 null 이다.
+ * 설정·activeRoom 은 `getNotificationSoundGateSnapshot()`(+ pathname) 폴백.
+ * settings 미수신 시 sound OFF 로 오판하지 않는다 (`=== false` 만 억제).
  */
 
 import type { RefObject } from "react";
@@ -32,6 +36,7 @@ import {
   noteCmParticipantSurfaceSoundHandled,
 } from "@/lib/community-messenger/notifications/cm-participant-surface-sync";
 import { playCoalescedChatNotificationSound } from "@/lib/notifications/coalesced-chat-alert-sound";
+import { getNotificationSoundGateSnapshot } from "@/lib/notifications/notification-sound-gate";
 import {
   MESSENGER_ENTRY_ORIGIN_QUERY_KEY,
   messengerRoomListSourceFromPathname,
@@ -45,6 +50,36 @@ function activeCommunityRoomIdFromPathname(pathname: string | null): string | nu
   if (!pathname) return null;
   const m = pathname.match(/^\/community-messenger\/rooms\/([^/]+)\/?$/);
   return m?.[1] ? decodeURIComponent(m[1]) : null;
+}
+
+/**
+ * `MainShellMessengerParticipantBridge` 는 root layout 에 있어
+ * `useNotificationSurface()` 가 null 이다. Provider 는 children 쪽에서
+ * `syncNotificationSoundGateSnapshot` 으로 모듈 게이트를 갱신하므로 그걸 폴백한다.
+ * settings 미수신 시 기본은 음 허용 (undefined → OFF 로 오판 금지).
+ */
+function resolveParticipantSoundSurface(args: {
+  surface: ReturnType<typeof useNotificationSurface>;
+  pathname: string | null;
+}): {
+  activeRoom: string | null;
+  suppressSound: boolean;
+  windowFocused: boolean;
+  communityChatEnabled: boolean;
+} {
+  const gate = getNotificationSoundGateSnapshot();
+  const settings = args.surface?.userNotificationSettings ?? gate?.userNotificationSettings;
+  const activeRoom =
+    args.surface?.activeCommunityChatRoomId ??
+    gate?.activeCommunityChatRoomId ??
+    activeCommunityRoomIdFromPathname(args.pathname);
+  return {
+    activeRoom,
+    suppressSound:
+      settings?.sound_enabled === false || settings?.community_chat_enabled === false,
+    windowFocused: args.surface?.isWindowFocused ?? gate?.isWindowFocused ?? true,
+    communityChatEnabled: settings?.community_chat_enabled !== false,
+  };
 }
 
 type TranslateFn = ReturnType<typeof useI18n>["t"];
@@ -156,12 +191,16 @@ export function applyCmParticipantUnreadFullEffects(args: CmParticipantUnreadFul
     return;
   }
 
-  const sfc = surfaceRef.current;
-  /** 06e392 — surface SSOT only (pathname 우선은 다른 방 수신 무음+뱃지 오판) */
-  const activeRoom = sfc?.activeCommunityChatRoomId ?? null;
   const appVisibility = documentVisibilityToAppVisibility(visibilityRef.current);
-  const settings = sfc?.userNotificationSettings;
-  const suppressSound = !settings?.sound_enabled || settings?.community_chat_enabled === false;
+  const {
+    activeRoom,
+    suppressSound,
+    windowFocused,
+    communityChatEnabled,
+  } = resolveParticipantSoundSurface({
+    surface: surfaceRef.current,
+    pathname: pathnameRef.current,
+  });
   const scrollPolicy = messengerRolloutUsesRoomScrollHints();
   const scrollHint = scrollPolicy
     ? useMessengerRoomReaderStateStore.getState().getScrollPositionForPolicy(nextRoomId)
@@ -177,7 +216,7 @@ export function applyCmParticipantUnreadFullEffects(args: CmParticipantUnreadFul
     suppressInAppMessageSound: suppressSound,
     sameRoomScrollHint: scrollHint,
     applySameRoomScrollPolicy: scrollPolicy,
-    windowFocused: sfc?.isWindowFocused ?? true,
+    windowFocused,
   });
 
   /**
@@ -218,8 +257,8 @@ export function applyCmParticipantUnreadFullEffects(args: CmParticipantUnreadFul
     prevUnread,
     activeCommunityRoomId: activeRoom,
     appVisibility,
-    windowFocused: sfc?.isWindowFocused ?? true,
-    communityChatEnabled: settings?.community_chat_enabled !== false,
+    windowFocused,
+    communityChatEnabled,
     callStatus: useCallStore.getState().callStatus,
     onNavigateToRoom,
   });
