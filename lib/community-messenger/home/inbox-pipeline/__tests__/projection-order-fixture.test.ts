@@ -14,6 +14,8 @@ function tradeRoom(id: string, productChatId: string, completedAt: string | null
       completedAt: completedAt ?? undefined,
       tradeFlowStatus: completedAt ? "buyer_confirmed" : undefined,
     },
+    chatDomain: null,
+    domainIdentity: null,
     title: id,
     avatarUrl: null,
     latestMessage: "hi",

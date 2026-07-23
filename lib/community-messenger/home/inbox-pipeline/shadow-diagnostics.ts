@@ -188,6 +188,8 @@ function canonicalRoomToSummary(room: CanonicalMessengerHomeRoom): CommunityMess
     isArchivedByViewer: room.isArchived,
     isBlockedHiddenByViewer: room.isBlockedHidden,
     contextMeta: room.contextMeta,
+    chatDomain: room.chatDomain,
+    domainIdentity: room.domainIdentity,
   };
 }
 

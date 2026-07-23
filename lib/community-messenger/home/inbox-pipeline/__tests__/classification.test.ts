@@ -8,6 +8,8 @@ function room(extra: Partial<CanonicalMessengerHomeRoom> = {}): CanonicalMesseng
     roomType: "direct",
     directKey: null,
     contextMeta: null,
+    chatDomain: null,
+    domainIdentity: null,
     title: "hello",
     avatarUrl: null,
     latestMessage: "message",
@@ -56,5 +58,17 @@ describe("resolveMessengerHomeBucket", () => {
     expect(resolveMessengerHomeBucket(room({ title: "거래 문의", latestMessage: "배달 주문" }), "u1")).toBe(
       "direct"
     );
+  });
+
+  it("prefers chatDomain over conflicting legacy directKey", () => {
+    expect(
+      resolveMessengerHomeBucket(
+        room({ chatDomain: "store_order", domainIdentity: "so:o1", directKey: "trade_pc:pc" }),
+        "u1"
+      )
+    ).toBe("delivery");
+    expect(
+      resolveMessengerHomeBucket(room({ chatDomain: "trade", domainIdentity: "trade:i:s:b", directKey: null }), "u1")
+    ).toBe("trade");
   });
 });

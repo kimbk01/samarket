@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   buildGeneralDirectRoomByPeerMap,
+  communityMessengerRoomIsConfirmedDelivery,
+  communityMessengerRoomIsConfirmedTrade,
   communityMessengerSummaryEligibleForPhaseDTradeEnrich,
   messengerRoomShowsConfirmedDeliveryPresentation,
   messengerRoomShowsConfirmedTradePresentation,
@@ -44,11 +46,46 @@ function roomSummary(partial: Partial<CommunityMessengerRoomSummary>): Community
     peerUserId: partial.peerUserId ?? "peer-b",
     messengerDirectKey: partial.messengerDirectKey ?? null,
     contextMeta: partial.contextMeta ?? null,
+    chatDomain: partial.chatDomain ?? null,
+    domainIdentity: partial.domainIdentity ?? null,
   };
 }
 
 const TEST_GENERAL_PAIR_KEY =
   "aaaaaaaa-bbbb-bbbb-bbbb-bbbbbbbbbbbb:cccccccc-dddd-dddd-dddd-dddddddddddd";
+
+describe("chatDomain Domain paint preference (slice-2)", () => {
+  it("prefers chatDomain=trade over missing contextMeta", () => {
+    const room = roomSummary({
+      chatDomain: "trade",
+      domainIdentity: "trade:i:s:b",
+      contextMeta: null,
+      messengerDirectKey: null,
+    });
+    expect(communityMessengerRoomIsConfirmedTrade(room)).toBe(true);
+    expect(communityMessengerRoomIsConfirmedDelivery(room)).toBe(false);
+  });
+
+  it("fail-closes trade when chatDomain=store_order even if trade directKey", () => {
+    const room = roomSummary({
+      chatDomain: "store_order",
+      domainIdentity: "so:order:1",
+      messengerDirectKey: "trade_pc:pc-1",
+      contextMeta: { kind: "trade" } as CommunityMessengerRoomSummary["contextMeta"],
+    });
+    expect(communityMessengerRoomIsConfirmedTrade(room)).toBe(false);
+    expect(communityMessengerRoomIsConfirmedDelivery(room)).toBe(true);
+  });
+
+  it("keeps legacy directKey when chatDomain absent", () => {
+    const room = roomSummary({
+      messengerDirectKey: "store_order:ord-1",
+      contextMeta: null,
+    });
+    expect(communityMessengerRoomIsConfirmedDelivery(room)).toBe(true);
+    expect(communityMessengerRoomIsConfirmedTrade(room)).toBe(false);
+  });
+});
 
 describe("isMessengerGeneralFriendDirectKey", () => {
   const pairKey =

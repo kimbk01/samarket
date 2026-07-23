@@ -66,6 +66,13 @@ export function adaptRoomSummaryToCanonicalPatch(
   if (hasOwn(summary, "contextMeta")) {
     patch.contextMeta = summary.contextMeta ?? null;
   }
+  if (hasOwn(summary, "chatDomain")) {
+    patch.chatDomain = summary.chatDomain ?? null;
+  }
+  if (hasOwn(summary, "domainIdentity")) {
+    const id = summary.domainIdentity;
+    patch.domainIdentity = typeof id === "string" ? id : null;
+  }
   return patch;
 }
 

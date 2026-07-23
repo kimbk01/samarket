@@ -21,6 +21,11 @@ export function resolveMessengerHomeBucket(
   if (room.isArchived || room.isBlockedHidden || room.roomStatus === "archived" || room.roomStatus === "blocked") {
     return "excluded";
   }
+  /** Domain chatDomain SSOT when present (Domain list paint slice-2). */
+  if (room.chatDomain === "trade") return "trade";
+  if (room.chatDomain === "store_order") return "delivery";
+  if (room.chatDomain === "general_direct") return "direct";
+  if (room.chatDomain === "group") return room.roomType === "private_group" ? "group" : "direct";
   if (room.contextMeta?.kind === "trade" || directKeyHasTradePrefix(room.directKey)) return "trade";
   if (room.contextMeta?.kind === "delivery" || directKeyHasDeliveryPrefix(room.directKey)) return "delivery";
   if (room.roomType === "private_group") return "group";

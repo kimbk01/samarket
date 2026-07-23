@@ -4,12 +4,16 @@ import type {
   CommunityMessengerRoomStatus,
   CommunityMessengerRoomType,
 } from "@/lib/community-messenger/types";
+import type { ChatDomain } from "@/lib/chat-domain/four-domain-freeze";
 
 export type CanonicalMessengerHomeRoom = {
   roomId: string;
   roomType: CommunityMessengerRoomType;
   directKey: string | null;
   contextMeta: CommunityMessengerRoomContextMetaV1 | null;
+  /** Phase C+ Domain — nullable until backfill. */
+  chatDomain: ChatDomain | null;
+  domainIdentity: string | null;
 
   title: string;
   avatarUrl: string | null;
@@ -33,6 +37,8 @@ export type CanonicalMessengerHomeRoomPatch = {
   roomType?: CommunityMessengerRoomType;
   directKey?: string | null;
   contextMeta?: CommunityMessengerRoomContextMetaV1 | null;
+  chatDomain?: ChatDomain | null;
+  domainIdentity?: string | null;
 
   title?: string;
   avatarUrl?: string | null;

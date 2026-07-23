@@ -18,6 +18,8 @@ function room(extra: Partial<CanonicalMessengerHomeRoom> = {}): CanonicalMesseng
     roomType: "direct",
     directKey: null,
     contextMeta: null,
+    chatDomain: null,
+    domainIdentity: null,
     title: "room",
     avatarUrl: null,
     latestMessage: "hello",

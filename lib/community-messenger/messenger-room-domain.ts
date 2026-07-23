@@ -48,12 +48,29 @@ export function communityMessengerSummaryEligibleForPhaseDTradeEnrich(
 }
 
 export function communityMessengerRoomIsConfirmedTrade(room: CommunityMessengerRoomSummary): boolean {
+  /** Domain identity SSOT when present — fail-closed for other domains. */
+  if (room.chatDomain === "trade") return true;
+  if (
+    room.chatDomain === "general_direct" ||
+    room.chatDomain === "group" ||
+    room.chatDomain === "store_order"
+  ) {
+    return false;
+  }
   if (room.contextMeta?.kind === "trade") return true;
   const dk = room.messengerDirectKey?.trim() ?? "";
   return dk.startsWith("trade_pc:") || dk.startsWith("trade_item:");
 }
 
 export function communityMessengerRoomIsConfirmedDelivery(room: CommunityMessengerRoomSummary): boolean {
+  if (room.chatDomain === "store_order") return true;
+  if (
+    room.chatDomain === "general_direct" ||
+    room.chatDomain === "group" ||
+    room.chatDomain === "trade"
+  ) {
+    return false;
+  }
   if (room.contextMeta?.kind === "delivery") return true;
   const dk = room.messengerDirectKey?.trim() ?? "";
   if (dk.startsWith("trade_pc:") || dk.startsWith("trade_item:")) return false;

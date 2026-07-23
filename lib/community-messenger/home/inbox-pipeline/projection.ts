@@ -38,6 +38,8 @@ function toRoomSummary(room: CanonicalMessengerHomeRoom): CommunityMessengerRoom
     isArchivedByViewer: room.isArchived,
     isBlockedHiddenByViewer: room.isBlockedHidden,
     contextMeta: room.contextMeta,
+    chatDomain: room.chatDomain,
+    domainIdentity: room.domainIdentity,
   };
 }
 

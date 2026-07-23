@@ -48,6 +48,8 @@ function roomFromPatch(patch: CanonicalMessengerHomeRoomPatch): CanonicalMesseng
     roomType: patch.roomType!,
     directKey: patch.directKey ?? null,
     contextMeta: patch.contextMeta ?? null,
+    chatDomain: patch.chatDomain ?? null,
+    domainIdentity: patch.domainIdentity ?? null,
     title: patch.title!,
     avatarUrl: patch.avatarUrl ?? null,
     latestMessage: patch.latestMessage!,
@@ -110,6 +112,8 @@ function mergeRoom(
 
   if (patch.roomType !== undefined) assign("roomType", patch.roomType);
   if (patch.directKey !== undefined) assign("directKey", patch.directKey);
+  if (patch.chatDomain !== undefined) assign("chatDomain", patch.chatDomain);
+  if (patch.domainIdentity !== undefined) assign("domainIdentity", patch.domainIdentity);
   const mergedContextMeta = mergeContextMeta(prev.contextMeta, patch.contextMeta);
   if (!contextMetaEqual(prev.contextMeta, mergedContextMeta)) {
     next.contextMeta = mergedContextMeta;
