@@ -5,19 +5,17 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useState,
 } from "react";
 import { usePathname } from "next/navigation";
+import { stopNotificationPlayback } from "@/lib/notifications/notification-sound-engine";
 import type { NotificationDomain } from "@/lib/notifications/notification-domains";
 import {
   fetchMeNotificationSettingsSnapshot,
   peekMeNotificationSettingsSnapshotCached,
 } from "@/lib/me/fetch-me-notification-settings-client";
 import { scheduleNotificationSettingsSnapshotDeferred } from "@/lib/http/startup-api-scheduler";
-import { noteCmParticipantSurfaceSoundHandled } from "@/lib/community-messenger/notifications/cm-participant-surface-sync";
-import { invalidatePendingNotificationSoundPlayback } from "@/lib/notifications/notification-sound-engine";
 import {
   shouldPlayGroupChatInAppSoundFromGate,
   shouldPlayInAppSoundFromGate,
@@ -156,14 +154,10 @@ export function NotificationSurfaceProvider({ children }: { children: React.Reac
     };
   }, []);
 
-  useLayoutEffect(() => {
-    if (activeCommunityChatRoomId) {
-      noteCmParticipantSurfaceSoundHandled(activeCommunityChatRoomId);
-      invalidatePendingNotificationSoundPlayback();
-      return;
-    }
-    if (activeTradeChatRoomId) {
-      invalidatePendingNotificationSoundPlayback();
+  /** 경로·명시 채팅방 진입 시 재생 중 알림음 종료 (수신 hydrate 는 끊지 않음 — 06e392d1a) */
+  useEffect(() => {
+    if (activeTradeChatRoomId || activeCommunityChatRoomId) {
+      stopNotificationPlayback();
     }
   }, [activeTradeChatRoomId, activeCommunityChatRoomId]);
 

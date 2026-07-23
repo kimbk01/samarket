@@ -97,13 +97,30 @@ describe("playEventNotificationSound", () => {
     });
     const playSpy = vi.spyOn(HTMLAudioElement.prototype, "play").mockImplementation(() => Promise.resolve());
 
-    const { invalidatePendingNotificationSoundPlayback } = await import(
+    const { invalidatePendingNotificationSoundPlayback, stopNotificationPlayback } = await import(
       "@/lib/notifications/notification-sound-engine"
     );
     const pending = playEventNotificationSound("messenger_direct_message_received");
-    invalidatePendingNotificationSoundPlayback();
+    /** 일반 stop 만으로는 수신 pending 을 죽이면 안 됨 */
+    stopNotificationPlayback();
     resolveHydrate();
     await pending;
+    await new Promise((r) => setTimeout(r, 20));
+    expect(playSpy).toHaveBeenCalled();
+    playSpy.mockClear();
+
+    let resolveHydrate2!: () => void;
+    vi.mocked(ensureNotificationSoundSsotHydratedForClient).mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveHydrate2 = resolve;
+        })
+    );
+    const pending2 = playEventNotificationSound("messenger_direct_message_received");
+    invalidatePendingNotificationSoundPlayback();
+    resolveHydrate2();
+    await pending2;
+    await new Promise((r) => setTimeout(r, 20));
     expect(playSpy).not.toHaveBeenCalled();
     playSpy.mockRestore();
   });

@@ -1,6 +1,10 @@
 /**
  * 도메인별 알림음 — SSOT resolver · 반복·타임아웃·중단(stopNotificationPlayback).
  * 브라우저 전용.
+ *
+ * CONTRACT: 수신 알림음(playEvent) 은 hydrate 중 일반 stop 으로 취소하지 않는다.
+ * 방 진입(종/푸시) 만 `invalidatePendingNotificationSoundPlayback` 으로 pending 을 끊는다.
+ * (dffab904e 가 stop≡invalidate 로 묶어 수신음까지 죽인 회귀 방지)
  */
 import type { NotificationDomain } from "@/lib/notifications/notification-domains";
 import { eventKeyForNotificationDomain } from "@/lib/notifications/notification-sound-event-map";
@@ -22,8 +26,11 @@ const DOMAIN_PLAY_DEDUPE_MS = UNIFIED_IN_APP_CHAT_SOUND_MIN_GAP_MS;
 type TimerHandle = number | ReturnType<typeof globalThis.setTimeout>;
 let maxDurationTimer: TimerHandle | null = null;
 const repeatTimers: TimerHandle[] = [];
-/** hydrate await 중 방 진입·stop 이 오면 이후 playOneShot 무효화 */
-let playbackGeneration = 0;
+/**
+ * 종·푸시·배너 방 진입 전용 cancel epoch.
+ * 일반 stopNotificationPlayback 은 이 값을 올리지 않음 → 수신 hydrate 를 죽이지 않음.
+ */
+let roomEntryCancelEpoch = 0;
 
 export const NOTIFICATION_SOUND_MAX_PLAY_MS = 10_000;
 const MAX_PLAY_MS = NOTIFICATION_SOUND_MAX_PLAY_MS;
@@ -33,8 +40,8 @@ const REPEAT_GAP_MS = 800;
 /** Runtime Link P1 — prod WebView logcat/CDP 계측 (로직 무관) */
 const RUNTIME_LINK_P1_LOG = "[runtime-link-p1]";
 
+/** 재생 중 타이머만 정리 — 수신 pending hydrate 는 유지 (06e392d1a 계약) */
 export function stopNotificationPlayback(): void {
-  playbackGeneration += 1;
   if (maxDurationTimer) {
     clearTimeout(maxDurationTimer);
     maxDurationTimer = null;
@@ -45,13 +52,14 @@ export function stopNotificationPlayback(): void {
   repeatTimers.length = 0;
 }
 
-/** 방 진입 등 — hydrate 대기 중이던 play 도 무효화 */
+/** 방 진입(종/푸시) — hydrate 대기 중이던 play 만 무효화 */
 export function invalidatePendingNotificationSoundPlayback(): void {
+  roomEntryCancelEpoch += 1;
   stopNotificationPlayback();
 }
 
-function playOneShot(url: string, volume: number, generation: number): void {
-  if (generation !== playbackGeneration) return;
+function playOneShot(url: string, volume: number, entryEpoch: number): void {
+  if (entryEpoch !== roomEntryCancelEpoch) return;
   try {
     const a = new Audio(url);
     a.volume = Math.max(0, Math.min(1, volume));
@@ -69,11 +77,11 @@ export async function playEventNotificationSound(
   context?: { roomMuted?: boolean; userSoundEnabled?: boolean; userDomainEnabled?: boolean }
 ): Promise<void> {
   if (typeof window === "undefined") return;
-  const genBeforeHydrate = playbackGeneration;
+  const entryEpochAtStart = roomEntryCancelEpoch;
   console.info(RUNTIME_LINK_P1_LOG, "playEventNotificationSound:enter", { eventKey });
   await ensureNotificationSoundSsotHydratedForClient();
-  /** 방 진입·stop 이 hydrate 동안 발생하면 늦게 울리지 않음 */
-  if (genBeforeHydrate !== playbackGeneration) return;
+  /** 방 진입 invalidate 만 pending 취소 — 일반 stop 은 여기 안 걸림 */
+  if (entryEpochAtStart !== roomEntryCancelEpoch) return;
   const resolved = resolveNotificationSound(eventKey, { ...context, platform: "web" });
   console.info(RUNTIME_LINK_P1_LOG, "playEventNotificationSound:resolved", {
     eventKey: resolved.eventKey,
@@ -83,7 +91,7 @@ export async function playEventNotificationSound(
   if (!resolved.webUrl) return;
 
   stopNotificationPlayback();
-  const myGen = playbackGeneration;
+  const entryEpochForShots = roomEntryCancelEpoch;
 
   const url = resolved.webUrl;
   const vol = resolved.volume;
@@ -95,7 +103,7 @@ export async function playEventNotificationSound(
   });
   for (let i = 0; i < repeats; i++) {
     const t = window.setTimeout(() => {
-      playOneShot(url, vol, myGen);
+      playOneShot(url, vol, entryEpochForShots);
     }, i * REPEAT_GAP_MS);
     repeatTimers.push(t);
   }
