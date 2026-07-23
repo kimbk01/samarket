@@ -3,6 +3,7 @@
  * CONTRACT: list 행 변경은 본 모듈 `applyHomeListPatch` 만. 직접 `setData` 로 chats/groups mutate 금지.
  */
 
+import { dualWriteDomainListProjectionsFromRooms } from "@/lib/chat-domain/list/dual-write-domain-list-from-rooms";
 import { peekBootstrapCache, primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import {
   mergeJsonRecordsPreserveRefs,
@@ -913,6 +914,11 @@ export function applyHomeListPatch(
   };
   lastHomeListPatchStats = stats;
   logHomeListOwner(stats);
+
+  /** Domain list dual-write (slice-1) — paint SSOT remains this reducer. */
+  if (next) {
+    dualWriteDomainListProjectionsFromRooms([...(next.chats ?? []), ...(next.groups ?? [])]);
+  }
 
   return next === prev ? prev : next;
 }

@@ -11,7 +11,7 @@
 |------|------|
 | Domain list writers | `apply*ListProjection` → `ok` + last snapshot |
 | Bootstrap | `load*ListBootstrap` → `tryLoadDomainListByChatDomain` (sb 필수) |
-| Dual-write | home `chats`+`groups` settle → Domain projections |
+| Dual-write | `applyHomeListPatch` 성공 `next` → Domain projections (paint KEEP) |
 | Pillar refresh | trade/delivery mount → Domain bootstrap load |
 | CM home | `applyHomeListPatch` **KEEP** (표시 SSOT) |
 

@@ -44,7 +44,6 @@ import {
   sortChatListRooms,
 } from "@/lib/community-messenger/chat-list/chat-list-sorter";
 import { mergeCallHistoryForHomeList } from "@/lib/community-messenger/call-history/call-history-merge";
-import { dualWriteDomainListProjectionsFromRooms } from "@/lib/chat-domain/list/dual-write-domain-list-from-rooms";
 import { sortCallHistoryEntries } from "@/lib/community-messenger/call-history/call-history-sorter";
 
 export type { MessengerFriendState, MessengerFriendStateModel } from "@/lib/community-messenger/messenger-friend-model";
@@ -389,13 +388,6 @@ export function useCommunityMessengerHomeState({
 
   const sortedChats = useMemo(() => sortRoomsWithStableOutput(data?.chats ?? []), [data?.chats]);
   const sortedGroups = useMemo(() => sortRoomsWithStableOutput(data?.groups ?? []), [data?.groups]);
-
-  /** Domain list projection dual-write — paint still uses applyHomeListPatch / this list. */
-  useEffect(() => {
-    const rooms = [...(data?.chats ?? []), ...(data?.groups ?? [])];
-    if (rooms.length === 0) return;
-    dualWriteDomainListProjectionsFromRooms(rooms);
-  }, [data?.chats, data?.groups]);
 
   const filteredDiscoverableGroups = useMemo(() => {
     const keyword = openGroupSearch.trim().toLowerCase();
