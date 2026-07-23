@@ -8,6 +8,7 @@ import { useMessengerInAppMessageBannerStore } from "@/lib/community-messenger/n
 import { applyMessengerRoomUnreadFactAndSyncBottom } from "@/lib/community-messenger/unread/messenger-room-unread-authority";
 import { normalizeLocalReadGuardRoomId } from "@/lib/community-messenger/read/local-read-guard";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
+import { invalidatePendingNotificationSoundPlayback } from "@/lib/notifications/notification-sound-engine";
 
 /** participant 경로가 음을 낸 직후 notif INSERT 중복음 차단 창 */
 const CM_PARTICIPANT_SOUND_DEDUP_MS = 4_000;
@@ -53,6 +54,47 @@ export function shouldSkipNotificationInsertSoundForCmParticipant(roomId: string
 
 export function clearCmParticipantSurfaceSoundHandledForTests(): void {
   participantSoundHandledAt.clear();
+}
+
+/** `/community-messenger/rooms/:id` href·path → roomId */
+export function communityMessengerRoomIdFromHref(href: string | null | undefined): string | null {
+  const raw = typeof href === "string" ? href.trim() : "";
+  if (!raw) return null;
+  let path = raw;
+  try {
+    if (/^https?:\/\//i.test(raw)) {
+      path = new URL(raw).pathname;
+    } else {
+      path = raw.split("?")[0] ?? raw;
+    }
+  } catch {
+    path = raw.split("?")[0] ?? raw;
+  }
+  const m = path.match(/^\/community-messenger\/rooms\/([^/]+)\/?$/);
+  if (!m?.[1]) return null;
+  try {
+    return decodeURIComponent(m[1]);
+  } catch {
+    return m[1];
+  }
+}
+
+/**
+ * 종·푸시·배너에서 방 진입 직전 동기 호출 — hydrate 대기 중이던 알림음이 진입 후 울리는 것 차단.
+ */
+export function suppressCmRoomEntryNotificationSound(hrefOrRoomId: string | null | undefined): void {
+  const asPath = communityMessengerRoomIdFromHref(hrefOrRoomId);
+  const asId =
+    !asPath &&
+    typeof hrefOrRoomId === "string" &&
+    hrefOrRoomId.trim() &&
+    !hrefOrRoomId.includes("/")
+      ? normalizeLocalReadGuardRoomId(hrefOrRoomId)
+      : null;
+  const rid = asPath ?? asId;
+  if (!rid) return;
+  noteCmParticipantSurfaceSoundHandled(rid);
+  invalidatePendingNotificationSoundPlayback();
 }
 
 export function dismissMessengerInAppBannerForRoom(roomId: string): void {

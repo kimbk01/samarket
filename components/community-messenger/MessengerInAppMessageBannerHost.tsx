@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useMessengerInAppMessageBannerStore } from "@/lib/community-messenger/notifications/messenger-in-app-banner-store";
+import { suppressCmRoomEntryNotificationSound } from "@/lib/community-messenger/notifications/cm-participant-surface-sync";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
 /** 인앱 메시지 배너 — 자동 소멸 (읽음 clear 와 별도 TTL) */
@@ -42,6 +43,7 @@ export function MessengerInAppMessageBannerHost() {
           type="button"
           className="min-w-0 flex-1 text-left"
           onClick={() => {
+            suppressCmRoomEntryNotificationSound(banner.roomId);
             dismiss();
             router.push(`/community-messenger/rooms/${encodeURIComponent(banner.roomId)}`);
           }}

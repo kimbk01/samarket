@@ -72,6 +72,7 @@ import {
 import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-events";
 
 import { prewarmInboxNotificationChatHref } from "@/lib/notifications/prewarm-inbox-notification-href";
+import { suppressCmRoomEntryNotificationSound } from "@/lib/community-messenger/notifications/cm-participant-surface-sync";
 
 import { getSurfaceNotificationUnreadStore, refreshActiveSurfaceNotificationUnreadStores } from "@/lib/notifications/notification-unread-badge-store";
 import { resyncBadgesAfterNotificationEventsRead, applyTier1InboxMarkAllReadOptimistic } from "@/lib/notifications/client/notification-events-read-resync";
@@ -783,6 +784,7 @@ export function PhilifeHeaderNotificationInbox({
 
 
   const onActivate = async (item: InboxGroupItem) => {
+    suppressCmRoomEntryNotificationSound(item.href);
     if (item.unreadCount > 0) {
       await markIdsRead(item.ids);
     }

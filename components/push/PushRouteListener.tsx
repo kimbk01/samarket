@@ -21,6 +21,7 @@ import {
 } from "@/lib/push/native/push-route-native-bridge";
 import { shouldReplaceRoute } from "@/lib/push/push-route-policy";
 import { postNotificationEventOpenedRead } from "@/lib/notifications/client/notification-event-read-client";
+import { suppressCmRoomEntryNotificationSound } from "@/lib/community-messenger/notifications/cm-participant-surface-sync";
 import { callEngineActions } from "@/lib/community-messenger/call-engine";
 import { isDibayCallV3SafeLaneEnabled } from "@/lib/community-messenger/call-v3/call-v3-flag";
 import { isCallV4TelegramLaneEnabled } from "@/lib/community-messenger/call-v4/call-v4-flag";
@@ -116,6 +117,8 @@ export function PushRouteListener() {
       const path = rawPath.trim();
       if (!path.startsWith("/")) return;
       if (shouldIgnoreNotification(notificationId)) return;
+
+      suppressCmRoomEntryNotificationSound(path);
 
       const now = Date.now();
       const last = lastRouteRef.current;

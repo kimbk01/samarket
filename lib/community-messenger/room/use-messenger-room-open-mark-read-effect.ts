@@ -199,7 +199,11 @@ function isRoomActuallyReadableState(args: {
   const focused = windowIsFocused();
   const routeMatches = currentRouteMatchesRoom(args.roomId, snapshotRoomId);
   const rendered = args.roomMessages.length > 0 || Boolean(args.snapshot?.messages?.length);
-  const blocked = args.roomLoading || args.overlayBlocked || isMessengerRoomReadGateExtraBlocked();
+  const blocked =
+    args.roomLoading ||
+    args.overlayBlocked ||
+    isMessengerRoomReadGateExtraBlocked(args.roomId) ||
+    Boolean(args.snapshot?.clientShellPlaceholder);
   /** 분할 창 등: 탭은 보이나 `document.hasFocus()` 가 false 인 경우에도 읽음 커서 진행 허용 */
   const readable =
     Boolean(args.snapshot) && visible && routeMatches && rendered && !blocked;
@@ -366,6 +370,16 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
       notificationThreadReadDoneRef.current = false;
       earlyOptimisticMessageIdRef.current = null;
       preOptimisticUnreadRef.current = null;
+    } else if (roomOpenMarkReadRef.current.phase === "in_flight") {
+      /**
+       * readGateVersion remount 중 이전 effect 의 in_flight 가 고착되면
+       * resolveReadCandidate 가 영구 null → 1차 진입 뱃지 미제거 / 2차 진입에야 해제.
+       */
+      roomOpenMarkReadRef.current = {
+        roomId: id,
+        phase: "idle",
+        lastMarkedMessageId: roomOpenMarkReadRef.current.lastMarkedMessageId,
+      };
     }
 
     let cancelled = false;
@@ -1102,21 +1116,32 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
       // eslint-disable-next-line no-console -- mark-read defer diagnostics
       console.log("[cm-mark-read-deferred]", {
         roomId: id,
-        optimistic_applied: true,
+        optimistic_applied: immediateOpenFlushDoneThisMount,
         server_patch_ms: null,
         unread_recalc_deferred: false,
         ui_blocking: false,
-        phase: "room_ready_immediate",
+        phase: immediateOpenFlushDoneThisMount ? "room_ready_immediate" : "room_ready_retry_pending",
         deferred_ms: Math.round(
           (typeof performance !== "undefined" ? performance.now() : Date.now()) - patchStart
         ),
       });
     };
+    /**
+     * 첫 rAF 에 viewport/loading 미준비면 몇 프레임 재시도.
+     * (mutationObserver 는 viewport null 이면 등록 불가 → 재시도 없으면 2차 진입까지 읽음 누락)
+     */
+    let readyTries = 0;
+    const pumpRoomReady = () => {
+      if (cancelled) return;
+      startMarkReadOnRoomReady();
+      if (immediateOpenFlushDoneThisMount) return;
+      if (readyTries++ >= 24) return;
+      if (typeof requestAnimationFrame === "function") {
+        requestAnimationFrame(pumpRoomReady);
+      }
+    };
     if (typeof window !== "undefined" && typeof requestAnimationFrame === "function") {
-      /** 1 rAF: 메시지 viewport DOM 부착 직후 near-bottom/visible 판정 */
-      requestAnimationFrame(() => {
-        startMarkReadOnRoomReady();
-      });
+      requestAnimationFrame(pumpRoomReady);
     } else {
       startMarkReadOnRoomReady();
     }

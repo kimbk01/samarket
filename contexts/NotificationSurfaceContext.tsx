@@ -10,7 +10,6 @@ import {
   useState,
 } from "react";
 import { usePathname } from "next/navigation";
-import { stopNotificationPlayback } from "@/lib/notifications/notification-sound-engine";
 import type { NotificationDomain } from "@/lib/notifications/notification-domains";
 import {
   fetchMeNotificationSettingsSnapshot,
@@ -18,6 +17,7 @@ import {
 } from "@/lib/me/fetch-me-notification-settings-client";
 import { scheduleNotificationSettingsSnapshotDeferred } from "@/lib/http/startup-api-scheduler";
 import { noteCmParticipantSurfaceSoundHandled } from "@/lib/community-messenger/notifications/cm-participant-surface-sync";
+import { invalidatePendingNotificationSoundPlayback } from "@/lib/notifications/notification-sound-engine";
 import {
   shouldPlayGroupChatInAppSoundFromGate,
   shouldPlayInAppSoundFromGate,
@@ -156,18 +156,14 @@ export function NotificationSurfaceProvider({ children }: { children: React.Reac
     };
   }, []);
 
-  /**
-   * 방 URL 진입 직후(레이아웃): 재생 중 음 중지 + 늦은 INSERT/participant 중복음 차단.
-   * useEffect 는 paint 이후라 진입 프레임에 한 번 더 울릴 수 있음.
-   */
   useLayoutEffect(() => {
     if (activeCommunityChatRoomId) {
       noteCmParticipantSurfaceSoundHandled(activeCommunityChatRoomId);
-      stopNotificationPlayback();
+      invalidatePendingNotificationSoundPlayback();
       return;
     }
     if (activeTradeChatRoomId) {
-      stopNotificationPlayback();
+      invalidatePendingNotificationSoundPlayback();
     }
   }, [activeTradeChatRoomId, activeCommunityChatRoomId]);
 

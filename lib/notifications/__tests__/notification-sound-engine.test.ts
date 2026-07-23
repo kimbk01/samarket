@@ -70,4 +70,41 @@ describe("playEventNotificationSound", () => {
     expect(playSpy).not.toHaveBeenCalled();
     playSpy.mockRestore();
   });
+
+  it("cancels play after hydrate when room entry invalidates pending playback", async () => {
+    let resolveHydrate!: () => void;
+    vi.mocked(ensureNotificationSoundSsotHydratedForClient).mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveHydrate = resolve;
+        })
+    );
+    vi.mocked(resolveNotificationSound).mockReturnValue({
+      eventKey: "messenger_direct_message_received",
+      assetId: "DIBAY-SND-010",
+      kind: "dibay_default",
+      webUrl: "https://cdn.example.com/msg.wav",
+      iosSoundName: "default",
+      androidChannelId: "dibay_chat_messages_v1",
+      vibration: true,
+      volume: 0.7,
+      repeatCount: 1,
+      cooldownSeconds: 0,
+      priority: "default",
+      enabled: true,
+      resolvedFrom: "admin_mapping",
+      legacySource: null,
+    });
+    const playSpy = vi.spyOn(HTMLAudioElement.prototype, "play").mockImplementation(() => Promise.resolve());
+
+    const { invalidatePendingNotificationSoundPlayback } = await import(
+      "@/lib/notifications/notification-sound-engine"
+    );
+    const pending = playEventNotificationSound("messenger_direct_message_received");
+    invalidatePendingNotificationSoundPlayback();
+    resolveHydrate();
+    await pending;
+    expect(playSpy).not.toHaveBeenCalled();
+    playSpy.mockRestore();
+  });
 });

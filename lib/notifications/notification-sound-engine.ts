@@ -22,6 +22,8 @@ const DOMAIN_PLAY_DEDUPE_MS = UNIFIED_IN_APP_CHAT_SOUND_MIN_GAP_MS;
 type TimerHandle = number | ReturnType<typeof globalThis.setTimeout>;
 let maxDurationTimer: TimerHandle | null = null;
 const repeatTimers: TimerHandle[] = [];
+/** hydrate await 중 방 진입·stop 이 오면 이후 playOneShot 무효화 */
+let playbackGeneration = 0;
 
 export const NOTIFICATION_SOUND_MAX_PLAY_MS = 10_000;
 const MAX_PLAY_MS = NOTIFICATION_SOUND_MAX_PLAY_MS;
@@ -32,6 +34,7 @@ const REPEAT_GAP_MS = 800;
 const RUNTIME_LINK_P1_LOG = "[runtime-link-p1]";
 
 export function stopNotificationPlayback(): void {
+  playbackGeneration += 1;
   if (maxDurationTimer) {
     clearTimeout(maxDurationTimer);
     maxDurationTimer = null;
@@ -42,7 +45,13 @@ export function stopNotificationPlayback(): void {
   repeatTimers.length = 0;
 }
 
-function playOneShot(url: string, volume: number): void {
+/** 방 진입 등 — hydrate 대기 중이던 play 도 무효화 */
+export function invalidatePendingNotificationSoundPlayback(): void {
+  stopNotificationPlayback();
+}
+
+function playOneShot(url: string, volume: number, generation: number): void {
+  if (generation !== playbackGeneration) return;
   try {
     const a = new Audio(url);
     a.volume = Math.max(0, Math.min(1, volume));
@@ -60,8 +69,11 @@ export async function playEventNotificationSound(
   context?: { roomMuted?: boolean; userSoundEnabled?: boolean; userDomainEnabled?: boolean }
 ): Promise<void> {
   if (typeof window === "undefined") return;
+  const genBeforeHydrate = playbackGeneration;
   console.info(RUNTIME_LINK_P1_LOG, "playEventNotificationSound:enter", { eventKey });
   await ensureNotificationSoundSsotHydratedForClient();
+  /** 방 진입·stop 이 hydrate 동안 발생하면 늦게 울리지 않음 */
+  if (genBeforeHydrate !== playbackGeneration) return;
   const resolved = resolveNotificationSound(eventKey, { ...context, platform: "web" });
   console.info(RUNTIME_LINK_P1_LOG, "playEventNotificationSound:resolved", {
     eventKey: resolved.eventKey,
@@ -71,6 +83,7 @@ export async function playEventNotificationSound(
   if (!resolved.webUrl) return;
 
   stopNotificationPlayback();
+  const myGen = playbackGeneration;
 
   const url = resolved.webUrl;
   const vol = resolved.volume;
@@ -82,7 +95,7 @@ export async function playEventNotificationSound(
   });
   for (let i = 0; i < repeats; i++) {
     const t = window.setTimeout(() => {
-      playOneShot(url, vol);
+      playOneShot(url, vol, myGen);
     }, i * REPEAT_GAP_MS);
     repeatTimers.push(t);
   }
