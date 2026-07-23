@@ -2,7 +2,10 @@ import { messengerMonitorRecord } from "@/lib/community-messenger/monitoring/cli
 import { endCmRoomEntryPriorityMode } from "@/lib/community-messenger/room/cm-room-entry-priority-mode";
 
 const STORAGE_KEY = "samarket:cm:home_return_t0.v1";
-/** 방→리스트 remount 시 silent home-sync tip churn 대신 cold bootstrap 1회 */
+/**
+ * 방→리스트 remount 마커.
+ * consume 측: memory fresh 면 전체 refresh 금지(리스트 락). cold memory 만 bootstrap.
+ */
 const COLD_BOOTSTRAP_KEY = "samarket:cm:home_return_cold.v1";
 const TTL_MS = 20_000;
 
@@ -40,8 +43,7 @@ export function markCommunityMessengerHomeReturn(): void {
 }
 
 /**
- * 홈 bootstrap remount — 방 복귀면 true 를 반환하고 플래그를 소비한다.
- * `CommunityMessengerHomeReturnConsume` 과 독립(레이아웃 effect 순서와 무관).
+ * 방 복귀 remount 마커. consume: fresh memory → 리스트 락(refresh 금지).
  */
 export function consumeCommunityMessengerHomeReturnColdBootstrap(): boolean {
   if (typeof window === "undefined") return false;

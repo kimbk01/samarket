@@ -1544,14 +1544,18 @@ export function useCommunityMessengerHomeBootstrap({
         return;
       }
       /**
-       * Hard refresh: memory empty → session-only seed needs cold bootstrap.
-       * Room→list remount: memory often still "fresh" but silent critical_patch cannot
-       * INSERT and tip churns — force one non-silent refresh (home_return_cold flag).
+       * Hard refresh / cold memory → non-silent bootstrap.
+       * Room→list remount with fresh memory → LIST LOCK (no refresh).
+       * mark_read / participant RT already patched unread while in-room;
+       * full refresh(false) was reordering tips every enter→exit (8072 regression).
        * Soft re-entry without room return: silent + cooldown.
        */
       const fromRoomReturn = consumeCommunityMessengerHomeReturnColdBootstrap();
       const memoryFresh = isBootstrapCacheFresh() || isCriticalBootstrapCacheFresh();
-      if (fromRoomReturn || !memoryFresh) {
+      if (fromRoomReturn && memoryFresh) {
+        return;
+      }
+      if (!memoryFresh) {
         void refreshRef.current(false);
         return;
       }

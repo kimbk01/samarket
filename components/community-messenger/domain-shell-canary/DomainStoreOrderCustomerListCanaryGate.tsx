@@ -18,11 +18,15 @@ import {
 } from "@/components/community-messenger/domain-shell-canary/domain-list-canary-retry";
 import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
 import {
+  isDomainStoreOrderCustomerListCanaryCacheFresh,
   peekDomainStoreOrderCustomerListCanaryCache,
   primeDomainStoreOrderCustomerListCanaryCache,
   type SoCustomerListDto,
 } from "@/components/community-messenger/domain-shell-canary/domain-store-order-customer-list-canary-cache";
-import { stabilizeSoCustomerListDto } from "@/components/community-messenger/domain-shell-canary/domain-list-canary-stabilize";
+import {
+  domainSoCustomerListPaintEqual,
+  stabilizeSoCustomerListDto,
+} from "@/components/community-messenger/domain-shell-canary/domain-list-canary-stabilize";
 import { subscribeDomainListCanaryPatch } from "@/components/community-messenger/domain-shell-canary/domain-list-canary-realtime-patch";
 
 export type { SoCustomerListDto };
@@ -129,6 +133,19 @@ export function DomainStoreOrderCustomerListCanaryGate({
           softFail("bundle_killed");
           return;
         }
+        const syncUid = getSyncViewerUserIdForClient() ?? null;
+        /**
+         * LIST LOCK: room→list remount with fresh session cache — no network rewrite.
+         */
+        if (isDomainStoreOrderCustomerListCanaryCacheFresh(syncUid)) {
+          const cached = peekDomainStoreOrderCustomerListCanaryCache(syncUid);
+          if (cached && !cancelled) {
+            setDto(cached);
+            setMode("ready");
+            setReason(null);
+          }
+          return;
+        }
         const sb = getSupabaseClient();
         if (!sb) {
           softFail("no_supabase");
@@ -164,7 +181,7 @@ export function DomainStoreOrderCustomerListCanaryGate({
         if (cancelled) return;
         const stable = stabilizeSoCustomerListDto(body);
         primeDomainStoreOrderCustomerListCanaryCache(stable);
-        setDto(stable);
+        setDto((prev) => (domainSoCustomerListPaintEqual(prev, stable) ? prev : stable));
         setMode("ready");
         setReason(null);
       } catch {

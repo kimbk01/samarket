@@ -10,8 +10,8 @@ import type { TradeListDto } from "@/components/community-messenger/domain-shell
  *
  * 해결: 직전에 성공적으로 받은 DTO를 세션 스토리지에 남겨두고, 다음 마운트에서는(같은 뷰어
  * 기준) stale 여부와 무관하게 즉시 그 데이터로 첫 페인트를 한다(Stale-While-Revalidate).
- * 백그라운드에서는 항상 fresh fetch를 그대로 수행해 화면을 최신화한다 — 캐시는 오직
- * "첫 페인트를 앞당기는 용도"이고 신뢰 가능한 최신 데이터 판단은 기존 흐름이 그대로 담당한다.
+ * SOFT_TTL 안이면 remount 시 network 재요청을 하지 않는다(리스트 락 — 방→리스트 churn 방지).
+ * TTL 만료 시에만 fresh fetch 후 paint-equal 이면 setDto 스킵.
  */
 
 const STORAGE_KEY_PREFIX = "samarket.messenger.domain-trade-list-canary.v1.";

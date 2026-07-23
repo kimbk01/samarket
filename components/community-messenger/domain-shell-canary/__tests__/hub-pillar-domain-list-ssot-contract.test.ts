@@ -29,4 +29,18 @@ describe("hub pillar preview SSOT = Domain list", () => {
     expect(src).toContain("stabilizeSoCustomerListDto");
     expect(src).not.toMatch(/if \(peekDomainTradeListCanaryCache\(uid\)\) return Promise\.resolve\(\)/);
   });
+
+  it("room→list LIST LOCK: fresh memory skips refresh(false); Domain Gate skips fetch when TTL fresh", () => {
+    const home = read("lib/community-messenger/home/use-community-messenger-home-bootstrap.ts");
+    expect(home).toContain("fromRoomReturn && memoryFresh");
+    expect(home).not.toMatch(/if \(fromRoomReturn \|\| !memoryFresh\)/);
+    const tradeGate = read(
+      "components/community-messenger/domain-shell-canary/DomainTradeListCanaryGate.tsx"
+    );
+    expect(tradeGate).toContain("isDomainTradeListCanaryCacheFresh");
+    const soGate = read(
+      "components/community-messenger/domain-shell-canary/DomainStoreOrderCustomerListCanaryGate.tsx"
+    );
+    expect(soGate).toContain("isDomainStoreOrderCustomerListCanaryCacheFresh");
+  });
 });

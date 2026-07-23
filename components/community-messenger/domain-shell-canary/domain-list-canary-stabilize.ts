@@ -50,3 +50,45 @@ export function stabilizeSoCustomerListDto(body: SoCustomerListDto): SoCustomerL
     },
   };
 }
+
+/** Remount revalidate 결과가 화면과 같으면 setDto 스킵 (리스트 락). */
+export function domainTradeListPaintEqual(a: TradeListDto | null, b: TradeListDto): boolean {
+  if (!a || a.viewerUserId !== b.viewerUserId) return false;
+  if (a.rows.length !== b.rows.length) return false;
+  if (a.hub.unreadRoomCount !== b.hub.unreadRoomCount) return false;
+  for (let i = 0; i < a.rows.length; i++) {
+    const x = a.rows[i]!;
+    const y = b.rows[i]!;
+    if (
+      x.roomId !== y.roomId ||
+      x.unreadCount !== y.unreadCount ||
+      x.lastMessageAt !== y.lastMessageAt ||
+      (x.previewText ?? "") !== (y.previewText ?? "")
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+export function domainSoCustomerListPaintEqual(
+  a: SoCustomerListDto | null,
+  b: SoCustomerListDto
+): boolean {
+  if (!a || a.viewerUserId !== b.viewerUserId) return false;
+  if (a.rows.length !== b.rows.length) return false;
+  if (a.hub.unreadRoomCount !== b.hub.unreadRoomCount) return false;
+  for (let i = 0; i < a.rows.length; i++) {
+    const x = a.rows[i]!;
+    const y = b.rows[i]!;
+    if (
+      x.roomId !== y.roomId ||
+      x.unreadCount !== y.unreadCount ||
+      x.lastMessageAt !== y.lastMessageAt ||
+      (x.previewText ?? "") !== (y.previewText ?? "")
+    ) {
+      return false;
+    }
+  }
+  return true;
+}

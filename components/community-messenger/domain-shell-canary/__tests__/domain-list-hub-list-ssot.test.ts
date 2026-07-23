@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  domainTradeListPaintEqual,
   stabilizeSoCustomerListDto,
   stabilizeTradeListDto,
 } from "@/components/community-messenger/domain-shell-canary/domain-list-canary-stabilize";
@@ -101,5 +102,47 @@ describe("domain list stabilize — hub matches list top", () => {
     const next = stabilizeTradeListDto(body);
     expect(next.hub.latestRoomId).toBe("t-new");
     expect(next.rows[0]?.roomId).toBe("t-new");
+  });
+
+  it("paintEqual is true for identical rows (list lock skip setDto)", () => {
+    const body: TradeListDto = {
+      authority: "domain_trade_list_canary",
+      viewerUserId: "u1",
+      producedAt: "2026-07-23T00:00:00.000Z",
+      hub: {
+        roomCount: 1,
+        unreadRoomCount: 0,
+        latestRoomId: "t1",
+        previewText: "hi",
+      },
+      rows: [
+        {
+          roomId: "t1",
+          chatDomain: "trade",
+          domainIdentityKey: "t:1",
+          itemId: "i1",
+          productTitle: "Item",
+          productImageUrl: null,
+          peerLabel: null,
+          previewText: "hi",
+          statusBadge: null,
+          unreadCount: 0,
+          lastMessageAt: "2026-07-22T02:56:00.000Z",
+          href: "/a",
+        },
+      ],
+    };
+    const a = stabilizeTradeListDto(body);
+    const b = stabilizeTradeListDto({ ...body, producedAt: "2026-07-23T01:00:00.000Z" });
+    expect(domainTradeListPaintEqual(a, b)).toBe(true);
+    expect(
+      domainTradeListPaintEqual(
+        a,
+        stabilizeTradeListDto({
+          ...body,
+          rows: [{ ...body.rows[0]!, previewText: "changed" }],
+        })
+      )
+    ).toBe(false);
   });
 });
