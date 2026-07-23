@@ -3,6 +3,12 @@
 /**
  * participants unread 증가 — full playback 전용 (sound·banner·desktop·nav).
  * hub-sync 와 같은 턴에서 동기 호출한다 (dynamic import 금지 — 음 지연 원인).
+ *
+ * 알림음 억제 (텔레그램·카톡형):
+ * - 현재 보고 있는 바로 그 방 (activeRoomId === roomId)
+ * - 방 음소거 / 앱·도메인 알림음 OFF
+ * - silent delivery / 중복 스케줄
+ * pathname(`/market` 등)만으로 general_direct·group 음을 막지 않는다.
  */
 
 import type { RefObject } from "react";
@@ -26,7 +32,6 @@ import {
   noteCmParticipantSurfaceSoundHandled,
 } from "@/lib/community-messenger/notifications/cm-participant-surface-sync";
 import { playCoalescedChatNotificationSound } from "@/lib/notifications/coalesced-chat-alert-sound";
-import { shouldSuppressMessengerInAppSoundOnTradeExplorationSurface } from "@/lib/notifications/samarket-messenger-notification-regulations";
 import {
   MESSENGER_ENTRY_ORIGIN_QUERY_KEY,
   messengerRoomListSourceFromPathname,
@@ -103,6 +108,7 @@ export function applyCmParticipantUnreadFullEffects(args: CmParticipantUnreadFul
     const visOk = typeof document !== "undefined" && document.visibilityState === "visible";
     const focusOk = typeof document === "undefined" || document.hasFocus();
     if (sameRoomPath && visOk && focusOk) {
+      /** 현재 방 — 강한 음·notif INSERT 중복음 차단 */
       noteCmParticipantSurfaceSoundHandled(nextRoomId);
       requestMessengerHubBadgeResync("participant_unread_changed", {
         roomId: nextRoomId,
@@ -110,11 +116,11 @@ export function applyCmParticipantUnreadFullEffects(args: CmParticipantUnreadFul
       });
       return;
     }
-    if (!shouldSuppressMessengerInAppSoundOnTradeExplorationSurface(pathnameRef.current)) {
-      playCoalescedChatNotificationSound(
-        `community-messenger:${nextRoomId}:${prevUnread}->${nextUnread}:${Date.now()}`,
-        "community_direct_chat"
-      );
+    const scheduled = playCoalescedChatNotificationSound(
+      `community-messenger:${nextRoomId}:${prevUnread}->${nextUnread}:${Date.now()}`,
+      "community_direct_chat"
+    );
+    if (scheduled.status === "scheduled") {
       noteCmParticipantSurfaceSoundHandled(nextRoomId);
       sound_schedule_ms =
         typeof performance !== "undefined" ? Math.round(performance.now() - t0) : 0;
@@ -173,16 +179,25 @@ export function applyCmParticipantUnreadFullEffects(args: CmParticipantUnreadFul
     windowFocused: sfc?.isWindowFocused ?? true,
   });
 
-  const allowSound =
-    playInAppMessageSound && !shouldSuppressMessengerInAppSoundOnTradeExplorationSurface(pathnameRef.current);
-  if (dedupeKey) {
-    noteCmParticipantSurfaceSoundHandled(nextRoomId);
-  }
+  /**
+   * allowSound = domain/room/user 정책만 (pathname `/market` 억제 금지).
+   * 배너와 소리는 같은 decision 에서 파생하되 결과가 다를 수 있음(현재 방 등).
+   */
+  const allowSound = playInAppMessageSound;
   if (dedupeKey && allowSound) {
     cmReceiveLatencyMark(key, { notification_sound_start_ms: cmReceiveLatencyNow() });
-    playCoalescedChatNotificationSound(dedupeKey, "community_direct_chat");
-    sound_schedule_ms =
-      typeof performance !== "undefined" ? Math.round(performance.now() - t0) : 0;
+    const scheduled = playCoalescedChatNotificationSound(dedupeKey, "community_direct_chat");
+    if (scheduled.status === "scheduled") {
+      noteCmParticipantSurfaceSoundHandled(nextRoomId);
+      sound_schedule_ms =
+        typeof performance !== "undefined" ? Math.round(performance.now() - t0) : 0;
+    }
+  } else if (dedupeKey && !allowSound) {
+    /**
+     * 현재 방·음소거·설정 OFF 등 의도적 억제 — notif INSERT 가 늦게 울리지 않게 handled.
+     * (재생하지 않았는데 market 억제만으로 handled 하던 패턴과 구분)
+     */
+    noteCmParticipantSurfaceSoundHandled(nextRoomId);
   }
   if (messengerRolloutShowsInAppMessageBanner() && dedupeKey && showAppLevelBanner) {
     useMessengerInAppMessageBannerStore.getState().pushOrMerge({

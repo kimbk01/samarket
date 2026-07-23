@@ -13,7 +13,8 @@ export {
 
 /**
  * `true`: 허브 스냅샷 증가만으로 `trade_chat` 도메인 톤을 내지 않음 (메신저 Realtime 경로와 이중 재생 방지).
- * 거래 탐색 표면 전체 무음은 `shouldSuppressMessengerInAppSoundOnTradeExplorationSurface` + `GlobalOrderChatUnreadSound` 가 담당.
+ * 거래 탐색 표면의 **trade_chat** 톤 억제는 `shouldSuppressMessengerInAppSoundOnTradeExplorationSurface`
+ * + `GlobalOrderChatUnreadSound` 가 담당. CM(general_direct/group) 에는 적용하지 않는다.
  */
 export const TRADE_CHAT_HUB_SNAPSHOT_BASED_SOUND_SUPPRESSED = true;
 

@@ -110,7 +110,11 @@ export function resolveUnifiedChatUnreadHintForDashboard(bd: OwnerHubBadgeBreakd
 }
 
 /**
- * 거래 **탐색** 표면(홈·마켓·거래 숏컷)에서는 **인앱 채팅 알림음**을 내지 않는다.
+ * 거래 **탐색** 표면(`/market` 등) — **거래 채팅(trade_chat)** 인앱 톤 억제용.
+ *
+ * general_direct / group(community messenger) 알림음에는 사용하지 않는다.
+ * CM 억제 기준: 현재 방 · 방/앱 음소거 · silent delivery · 중복 스케줄
+ * (`pathname === "/market"` 만으로 CM 음을 막지 말 것).
  */
 export function shouldSuppressMessengerInAppSoundOnTradeExplorationSurface(
   pathname: string | null | undefined
@@ -125,7 +129,7 @@ export const SAMARKET_NOTIFICATION_QA_CHECKLIST: readonly string[] = [
   "trade_message: single_alert_path_only",
   "trade_tab_icon: badge_matches_trade_causes",
   "trade_unread: not_in_chat_tab",
-  "trade_feed: no_in_app_chat_sound",
+  "trade_feed: trade_chat_tone_suppressed_cm_tone_allowed",
   "messenger_tab: badge_unread_room_count",
   "same_room: silent_no_unread_bump",
   "other_room: single_sound_coalesced",
