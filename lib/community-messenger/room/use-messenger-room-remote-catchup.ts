@@ -1,34 +1,33 @@
 "use client";
 
-import { useCallback, type MutableRefObject } from "react";
+import { useCallback, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
+import { mergeRoomMessages } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
 import type { CommunityMessengerMessage, CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { isUuidLikeString } from "@/lib/shared/uuid-string";
+
 import type { MessengerRoomBootstrapRefreshFn } from "@/lib/community-messenger/room/use-messenger-room-bootstrap-lifecycle";
-import {
-  authorityApplyCatchUp,
-  authorityGetMessages,
-} from "@/lib/community-messenger/room/message-authority/message-authority";
-import type { RoomTimelineMessage } from "@/lib/community-messenger/room/message-authority/room-message-store";
 
 export type MessengerRoomBootstrapRefresh = MessengerRoomBootstrapRefreshFn;
 
 /**
- * Catch-up: missing ids only via Message Authority. No React setRoomMessages / merge replace.
+ * 탭 복귀·bump 후 증분 동기화: `after=` 페이지 및 단건 GET 재시도.
+ * `useMessengerRoomClientPhase1` 의 catch-up `useCallback` 3개를 그대로 옮김.
  */
 export function useMessengerRoomRemoteCatchup({
   roomId,
   streamRoomId,
+  refresh,
   snapshotRef,
   roomMessagesRef,
+  setRoomMessages,
 }: {
   roomId: string;
   streamRoomId: string;
-  refresh?: MessengerRoomBootstrapRefresh;
+  refresh: MessengerRoomBootstrapRefresh;
   snapshotRef: MutableRefObject<CommunityMessengerRoomSnapshot | null>;
-  roomMessagesRef: MutableRefObject<RoomTimelineMessage[]>;
-  /** @deprecated ignored — Authority is sole writer */
-  setRoomMessages?: unknown;
+  roomMessagesRef: MutableRefObject<Array<CommunityMessengerMessage & { pending?: boolean }>>;
+  setRoomMessages: Dispatch<SetStateAction<Array<CommunityMessengerMessage & { pending?: boolean }>>>;
 }): {
   catchUpNewerMessages: () => Promise<boolean>;
   catchUpAfterRemoteBump: (
@@ -39,12 +38,11 @@ export function useMessengerRoomRemoteCatchup({
   const catchUpNewerMessages = useCallback(async (): Promise<boolean> => {
     const id = (snapshotRef.current?.room?.id?.trim() || roomId?.trim() || "").trim();
     if (!id) return false;
-    const live = authorityGetMessages(id);
-    roomMessagesRef.current = live;
-    const confirmed = live.filter((m) => !m.pending);
+    const confirmed = roomMessagesRef.current.filter((m) => !m.pending);
     if (confirmed.length === 0) {
       return false;
     }
+    /** 앵커는 배열 끝이 아니라 **시간상 최신 확정 메시지** — 정렬/가상화와 무관하게 `after=` 일관 */
     let anchorId: string | null = null;
     let bestTime = -Infinity;
     let bestIdForTie = "";
@@ -72,20 +70,26 @@ export function useMessengerRoomRemoteCatchup({
         messages?: CommunityMessengerMessage[];
       };
       if (!res.ok || !json.ok || !Array.isArray(json.messages) || json.messages.length === 0) return false;
-      const appended = authorityApplyCatchUp(id, json.messages);
-      roomMessagesRef.current = authorityGetMessages(id);
-      return appended > 0;
+      setRoomMessages((prev) => mergeRoomMessages(prev, json.messages ?? []));
+      return true;
     } catch {
       /* ignore */
     }
     return false;
-  }, [roomId, roomMessagesRef, snapshotRef]);
+  }, [roomId]);
 
-  const tryMergeSingleMessageFromBump = useCallback(
-    async (messageId: string): Promise<boolean> => {
-      const rid = (snapshotRef.current?.room?.id?.trim() || streamRoomId?.trim() || roomId?.trim() || "").trim();
-      const mid = messageId.trim();
-      if (!rid || !mid || !isUuidLikeString(mid)) return false;
+  const tryMergeSingleMessageFromBump = useCallback(async (messageId: string): Promise<boolean> => {
+    const mid = String(messageId ?? "").trim();
+    if (!mid || !isUuidLikeString(mid)) return false;
+    /**
+     * INSERT 직후 단건 GET 이 404/5xx 면 복제·커밋 레이스 가능 — 짧은 간격으로만 재시도.
+     * (분당 72회 한도: 404/503 등에만 재시도·상한으로 폭주 방지)
+     */
+    const maxAttempts = 14;
+    const gapMs = 130;
+    for (let i = 0; i < maxAttempts; i++) {
+      const rid = (snapshotRef.current?.room?.id?.trim() || streamRoomId?.trim() || "").trim();
+      if (!rid) return false;
       try {
         const res = await fetch(
           `${communityMessengerRoomResourcePath(rid)}/messages/${encodeURIComponent(mid)}`,
@@ -95,29 +99,59 @@ export function useMessengerRoomRemoteCatchup({
           ok?: boolean;
           message?: CommunityMessengerMessage;
         };
-        if (!res.ok || !json.ok || !json.message?.id) return false;
-        const n = authorityApplyCatchUp(rid, [json.message]);
-        roomMessagesRef.current = authorityGetMessages(rid);
-        return n > 0 || authorityGetMessages(rid).some((m) => m.id === json.message!.id);
+        if (res.ok && json.ok && json.message) {
+          const row = json.message;
+          setRoomMessages((prev) => mergeRoomMessages(prev, [row]));
+          return true;
+        }
+        const retryable = res.status === 404 || res.status === 503 || res.status >= 500;
+        if (!retryable || i + 1 >= maxAttempts) return false;
       } catch {
-        return false;
+        if (i + 1 >= maxAttempts) return false;
       }
-    },
-    [roomId, roomMessagesRef, snapshotRef, streamRoomId]
-  );
+      await new Promise<void>((r) => setTimeout(r, gapMs));
+    }
+    return false;
+  }, [streamRoomId]);
 
+  /** 원격 bump 직후: 단건 병합 → 실패 시 `after` 증분 → 마지막에 스냅샷 refresh */
   const catchUpAfterRemoteBump = useCallback(
     async (hintMessageId?: string | null, opts?: { alreadyMergedSnapshot?: boolean }) => {
-      if (opts?.alreadyMergedSnapshot) return;
-      const hint = hintMessageId?.trim();
-      if (hint) {
-        const ok = await tryMergeSingleMessageFromBump(hint);
+      const hint = typeof hintMessageId === "string" ? hintMessageId.trim() : "";
+      const mergedBySnapshot = Boolean(opts?.alreadyMergedSnapshot && hint);
+      if (mergedBySnapshot) {
+        const merged = roomMessagesRef.current.find((m) => String(m.id ?? "").trim() === hint);
+        const meta =
+          merged?.metadata && typeof merged.metadata === "object"
+            ? (merged.metadata as { domain?: unknown; orderStatus?: unknown })
+            : null;
+        if (meta?.domain === "store_order" && meta.orderStatus) {
+          void refresh(true, { triggerReason: "store_order_status_bump" });
+        }
+        return;
+      }
+      if (hint && (await tryMergeSingleMessageFromBump(hint))) {
+        const merged = roomMessagesRef.current.find((m) => String(m.id ?? "").trim() === hint);
+        const meta =
+          merged?.metadata && typeof merged.metadata === "object"
+            ? (merged.metadata as { domain?: unknown; orderStatus?: unknown })
+            : null;
+        if (meta?.domain === "store_order" && meta.orderStatus) {
+          void refresh(true, { triggerReason: "store_order_status_bump" });
+        }
+        return;
+      }
+      const backoffMs = [14, 32, 72];
+      for (let attempt = 0; attempt < 3; attempt++) {
+        if (attempt > 0) {
+          await new Promise<void>((r) => setTimeout(r, backoffMs[attempt - 1] ?? 72));
+        }
+        const ok = await catchUpNewerMessages();
         if (ok) return;
       }
-      await catchUpNewerMessages();
-      /** DO NOT refresh(true) timeline rewrite on miss — Authority catch-up only. */
+      void refresh(true, { triggerReason: "realtime_bump_catchup" });
     },
-    [catchUpNewerMessages, tryMergeSingleMessageFromBump]
+    [catchUpNewerMessages, refresh, roomMessagesRef, tryMergeSingleMessageFromBump]
   );
 
   return { catchUpNewerMessages, catchUpAfterRemoteBump };

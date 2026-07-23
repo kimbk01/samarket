@@ -45,7 +45,6 @@ import {
   touchCmRoomForegroundLockFromSnapshot,
   type CmForegroundBootstrapSource,
 } from "@/lib/community-messenger/room/cm-room-bootstrap-lock";
-import { authorityApplyCatchUp, authoritySeedBootstrap } from "@/lib/community-messenger/room/message-authority/message-authority";
 import {
   bootstrapTierFromQuery,
   CM_BOOTSTRAP_DEBOUNCE_MS,
@@ -65,6 +64,8 @@ import { logChatRoomTimelineInitialFetch } from "@/lib/community-messenger/room/
 import { isMessengerRoomTimelineBootstrapSeedComplete } from "@/lib/community-messenger/room/messenger-room-timeline-hydration";
 import { isMessengerRoomBootstrapReadySnapshot } from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
 import { noteCmRoomR5BootstrapFingerprintSkip } from "@/lib/community-messenger/room/cm-room-r5-timeline-mount-instrumentation";
+import { mergeRoomMessages } from "@/components/community-messenger/room/community-messenger-room-helpers";
+import { roomMessagesTimelineFingerprint } from "@/lib/community-messenger/room/messenger-room-timeline-paint-model";
 import {
   isCmRoomEntryPriorityModeActive,
   logCmRoomBootstrapPatchOnly,
@@ -140,6 +141,10 @@ export type MessengerRoomBootstrapRefreshDeps = {
   silentBootstrapThrottleCoalesceTimerRef: MutableRefObject<ReturnType<typeof setTimeout> | null>;
   /** `consumeRoomSnapshot` 직후 full 보강 silent 타이머(100~300ms) — 언마운트·재진입 시 클리어 */
   swrDeferredBootstrapTimerRef: MutableRefObject<number | null>;
+  /** primed·reuse 시 타임라인 즉시 paint — bootstrap await 전 FMV */
+  setRoomMessages?: Dispatch<
+    SetStateAction<Array<CommunityMessengerMessage & { pending?: boolean }>>
+  >;
   /** blocking bootstrap 403/404 — toast 후 목록으로 replace */
   onBlockingBootstrapDenied?: (status: number) => void;
   /** initial/retry/recover bootstrap 결과 — timeline FAILED UI */
@@ -153,20 +158,24 @@ export type MessengerRoomBootstrapRefreshDeps = {
   }) => void;
 };
 
-function applyPrimedTimelineSeed(primed: CommunityMessengerRoomSnapshot): boolean {
-  const rid = String(primed.room?.id ?? "").trim();
+function applyPrimedTimelineSeed(
+  primed: CommunityMessengerRoomSnapshot,
+  setRoomMessages: MessengerRoomBootstrapRefreshDeps["setRoomMessages"]
+): boolean {
+  if (!setRoomMessages) return false;
   const msgs = primed.messages ?? [];
-  if (!rid || msgs.length === 0) return false;
-  if (
-    authoritySeedBootstrap(
-      rid,
-      msgs as Array<CommunityMessengerMessage & { pending?: boolean }>
-    )
-  ) {
-    return true;
-  }
-  /** Already seeded — missing ids only (never replace). */
-  return authorityApplyCatchUp(rid, msgs) > 0;
+  if (msgs.length === 0) return false;
+  setRoomMessages((prev) => {
+    if (prev.length === 0) {
+      return msgs as Array<CommunityMessengerMessage & { pending?: boolean }>;
+    }
+    const next = mergeRoomMessages(prev, msgs);
+    if (roomMessagesTimelineFingerprint(prev) === roomMessagesTimelineFingerprint(next)) {
+      return prev;
+    }
+    return next;
+  });
+  return true;
 }
 
 /** 메시지 전송 직후 in-flight 부트스트랩 Promise 가 옛 결과를 재사용하지 않도록 비운다. */
@@ -237,6 +246,7 @@ export function createMessengerRoomBootstrapRefresh(
     silentRoomRefreshAgainRef,
     silentBootstrapThrottleCoalesceTimerRef,
     swrDeferredBootstrapTimerRef,
+    setRoomMessages,
     onBlockingBootstrapDenied,
     reportTimelineBootstrapOutcome,
   } = deps;
@@ -303,7 +313,7 @@ export function createMessengerRoomBootstrapRefresh(
         });
       }
       if (!(silent && bootstrapTierHdr === "silent_delta")) {
-        applyPrimedTimelineSeed(snap);
+        applyPrimedTimelineSeed(snap, setRoomMessages);
       }
       const usedMinimalMemberHydration =
         shouldBlock || bootstrapQueryWithSrc.includes("memberHydration=minimal");
@@ -445,7 +455,7 @@ export function createMessengerRoomBootstrapRefresh(
     try {
       if (primed && isMessengerRoomBootstrapReadySnapshot(primed) && isMessengerRoomTimelineBootstrapSeedComplete(primed)) {
         setSnapshot(primed);
-        const cachedSeedHit = applyPrimedTimelineSeed(primed);
+        const cachedSeedHit = applyPrimedTimelineSeed(primed, setRoomMessages);
         setLoading(false);
         if (cmRoomEntryTraceEnabled()) {
           const prefetchHit = consumePrefetchHitForRoom(roomId);
@@ -531,7 +541,7 @@ export function createMessengerRoomBootstrapRefresh(
             isMessengerRoomTimelineBootstrapSeedComplete(reuseAfterPrefetch)
           ) {
             setSnapshot(reuseAfterPrefetch);
-            applyPrimedTimelineSeed(reuseAfterPrefetch);
+            applyPrimedTimelineSeed(reuseAfterPrefetch, setRoomMessages);
             setLoading(false);
             touchCmRoomForegroundLockFromSnapshot(roomId, reuseAfterPrefetch);
             if (cmRoomEntryTraceEnabled()) {
@@ -593,7 +603,7 @@ export function createMessengerRoomBootstrapRefresh(
         if (fg.action === "skip") {
           if (fg.reuseSnapshot && isMessengerRoomBootstrapReadySnapshot(fg.reuseSnapshot)) {
             setSnapshot(fg.reuseSnapshot);
-            applyPrimedTimelineSeed(fg.reuseSnapshot);
+            applyPrimedTimelineSeed(fg.reuseSnapshot, setRoomMessages);
             setLoading(false);
             touchCmRoomForegroundLockFromSnapshot(roomId, fg.reuseSnapshot);
             logCmRoomReentryZeroFetchWithRegression({

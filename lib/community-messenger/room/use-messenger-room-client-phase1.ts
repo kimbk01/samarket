@@ -163,14 +163,10 @@ import {
   seedMessengerRealtimeFromRoomSnapshot,
   setActiveMessengerRealtimeRoom,
   applyIncomingMessageEvent,
+  getMessengerRealtimeRoomMessages,
   normalizeMessengerRealtimeRoomId,
   useMessengerRealtimeStore,
 } from "@/lib/community-messenger/stores/messenger-realtime-store";
-import {
-  authorityApplyCatchUp,
-  authoritySeedBootstrap,
-} from "@/lib/community-messenger/room/message-authority/message-authority";
-import { useRoomMessagesFromAuthority } from "@/lib/community-messenger/room/message-authority/use-room-messages-from-authority";
 import {
   BackIcon,
   communityMessengerMemberAvatar,
@@ -186,6 +182,7 @@ import {
   formatVoiceRecordTenThousandths,
   getLatestCallStubForSession,
   looksLikeDirectImageUrl,
+  mergeRoomMessages,
   MicHoldIcon,
   MoreIcon,
   PlusIcon,
@@ -380,12 +377,13 @@ export function useMessengerRoomClientPhase1({
       if ((prev.messages?.length ?? 0) >= msgCount) return prev;
       return seeded;
     });
-    if (rid && msgCount > 0) {
-      const msgs = seeded.messages as Array<CommunityMessengerMessage & { pending?: boolean }>;
-      if (!authoritySeedBootstrap(rid, msgs)) {
-        authorityApplyCatchUp(rid, msgs);
-      }
-    }
+    setRoomMessages((prev) => {
+      if (msgCount <= 0) return prev;
+      return mergeRoomMessages(
+        prev,
+        seeded.messages as Array<CommunityMessengerMessage & { pending?: boolean }>
+      );
+    });
   }, [initialServerSnapshot, roomId]);
 
   useEffect(() => {
@@ -399,19 +397,26 @@ export function useMessengerRoomClientPhase1({
     };
   }, [streamRoomId, phase1EntryLightPass]);
 
-  /** Sync seed into Message Authority before subscribe (first paint). */
-  {
-    const rid = streamRoomId.trim();
-    const seedMsgs = (snapshot?.messages ??
-      initialServerSnapshot?.messages ??
-      []) as Array<CommunityMessengerMessage & { pending?: boolean }>;
-    if (rid && seedMsgs.length > 0 && !isCmRoomEntryShellFirstPass()) {
-      if (!authoritySeedBootstrap(rid, seedMsgs)) {
-        /* already seeded — keep store; catch-up happens on snapshot effect */
-      }
-    }
-  }
-  const roomMessages = useRoomMessagesFromAuthority(streamRoomId);
+  const [roomMessages, setRoomMessages] = useState<Array<CommunityMessengerMessage & { pending?: boolean }>>(() => {
+    const base = (initialSnapshotResolved?.messages as Array<CommunityMessengerMessage & { pending?: boolean }>) ?? [];
+    const rid = roomId.trim();
+    if (!rid || isCmRoomEntryShellFirstPass()) return base;
+    const live = getMessengerRealtimeRoomMessages(rid);
+    if (live.length <= base.length) return base;
+    return mergeRoomMessages(base, live);
+  });
+
+  useEffect(() => {
+    if (isCmRoomEntryShellFirstPass()) return;
+    const rid = roomId.trim();
+    if (!rid) return;
+    const live = getMessengerRealtimeRoomMessages(rid);
+    if (live.length <= 0) return;
+    setRoomMessages((prev) => {
+      if (live.length <= prev.length) return prev;
+      return mergeRoomMessages(prev, live);
+    });
+  }, [roomId, phase1EntryLightPass]);
 
   useLayoutEffect(() => {
     const rid = roomId.trim();
@@ -438,19 +443,18 @@ export function useMessengerRoomClientPhase1({
   snapshotRef.current = snapshot;
   roomMessagesRef.current = roomMessages;
 
-  /** cached seed — bootstrap·hydration: Authority seedOnce / missing catch-up only */
+  /** cached seed — bootstrap·hydration pass 대기 전 타임라인 state 동기(첫 paint FMV) */
   useLayoutEffect(() => {
     const snap = snapshot;
     if (!snap || snap.clientShellPlaceholder) return;
-    const rid = streamRoomId.trim();
     const snapMsgs = snap.messages ?? [];
-    if (!rid) return;
     if (snapMsgs.length === 0 && !snap.room.lastMessage?.trim()) return;
-    if (snapMsgs.length === 0) return;
-    if (!authoritySeedBootstrap(rid, snapMsgs)) {
-      authorityApplyCatchUp(rid, snapMsgs);
-    }
-  }, [snapshot, snapshot?.messages?.length, snapshot?.room.lastMessage, streamRoomId]);
+    setRoomMessages((prev) => {
+      if (snapMsgs.length === 0) return prev;
+      if (prev.length === 0) return snapMsgs;
+      return mergeRoomMessages(prev, snapMsgs);
+    });
+  }, [snapshot, snapshot?.messages?.length, snapshot?.room.lastMessage]);
 
   if (!phase1SnapshotCommitRecordedRef.current && snapshot?.room?.id) {
     phase1SnapshotCommitRecordedRef.current = true;
@@ -545,7 +549,10 @@ export function useMessengerRoomClientPhase1({
       } else {
         return;
       }
-      /** Timeline writes go through Message Authority (ingest/catch-up) — no dual React merge. */
+      const mergedMessages = getMessengerRealtimeRoomMessages(rid);
+      if (mergedMessages.length > 0) {
+        setRoomMessages((prev) => mergeRoomMessages(prev, mergedMessages));
+      }
     });
   }, [initialServerSnapshot?.room, initialServerSnapshot?.viewerUserId, roomId, setSnapshot]);
   const [friends, setFriends] = useState<CommunityMessengerProfileLite[]>([]);
@@ -738,6 +745,7 @@ export function useMessengerRoomClientPhase1({
     roomId,
     viewerBootstrapDedupRef,
     setSnapshot,
+    setRoomMessages,
     setLoading,
     setRoomReadyForRealtime,
     loadedRef,
@@ -754,6 +762,7 @@ export function useMessengerRoomClientPhase1({
     roomId,
     viewerBootstrapDedupRef,
     setSnapshot,
+    setRoomMessages,
     setLoading,
     setRoomReadyForRealtime,
     loadedRef,
@@ -778,6 +787,7 @@ export function useMessengerRoomClientPhase1({
       roomId: d.roomId,
       viewerBootstrapDedupRef: d.viewerBootstrapDedupRef,
       setSnapshot: d.setSnapshot,
+      setRoomMessages: d.setRoomMessages,
       setLoading: d.setLoading,
       setRoomReadyForRealtime: d.setRoomReadyForRealtime,
       loadedRef: d.loadedRef,
@@ -1016,6 +1026,7 @@ export function useMessengerRoomClientPhase1({
     refresh,
     snapshotRef,
     roomMessagesRef,
+    setRoomMessages,
   });
 
   useMessengerRoomVisibilityBusCatchup({
@@ -1300,6 +1311,7 @@ export function useMessengerRoomClientPhase1({
     stickToBottomRef,
     messagesViewportRef,
     peerTailMarkReadHintRef,
+    setRoomMessages,
     timelineInitialLoadComplete,
     onParticipantPostgres: onParticipantPostgresForPeerRead,
     onRefresh: () => {
@@ -1330,6 +1342,7 @@ export function useMessengerRoomClientPhase1({
     roomMembersDisplayRef,
     remoteBumpCatchUpRafRef,
     lastRemoteBumpDedupeRef,
+    setRoomMessages,
     catchUpAfterRemoteBump,
   });
 
@@ -1404,11 +1417,9 @@ export function useMessengerRoomClientPhase1({
 
   useEffect(() => {
     if (!snapshot) {
-      /** hydrate 중 snapshot 일시 null — 기존 Authority timeline 유지(빈 타임라인 flash 방지) */
+      /** hydrate 중 snapshot 일시 null — 기존 timeline·cached seed 유지(빈 타임라인 flash 방지) */
       return;
     }
-    const rid = streamRoomId.trim();
-    const msgs = snapshot.messages ?? [];
     if (roomMessagesRef.current === snapshot.messages && roomMessagesRef.current.length > 0) {
       recordRouteEntryMetric("messenger_room_entry", "initial_messages_merge_map_index_ms", 0);
       recordRouteEntryMetric("messenger_room_entry", "initial_messages_merge_dedupe_ms", 0);
@@ -1423,27 +1434,38 @@ export function useMessengerRoomClientPhase1({
       });
       return;
     }
-    if (!rid) return;
-    if (msgs.length === 0 && Boolean(snapshot.room.lastMessage?.trim())) {
-      /** hydrate wave 가 빈 messages[] 만 내려줄 때 기존 Authority timeline 유지 */
-      return;
-    }
-    if (msgs.length === 0) return;
-    recordRouteEntryMetric("messenger_room_entry", "initial_messages_merge_map_index_ms", 0);
-    recordRouteEntryMetric("messenger_room_entry", "initial_messages_merge_dedupe_ms", 0);
-    recordRouteEntryMetric("messenger_room_entry", "initial_messages_merge_normalize_ms", 0);
-    recordRouteEntryMetric("messenger_room_entry", "initial_messages_merge_sort_ms", 0);
-    const applied = authoritySeedBootstrap(rid, msgs) || authorityApplyCatchUp(rid, msgs) > 0;
-    if (applied || roomMessagesRef.current.length > 0) {
-      recordRouteEntryElapsedMetricOnce("messenger_room_entry", "room_snapshot_messages_merge_applied_ms");
-      recordCmRoomDomFirstMessageVisible({
-        roomId,
-        seedRowsCount: Math.max(roomMessagesRef.current.length, msgs.length),
-        fmrGateReason: "fallback_visible_rows",
-        directLayout: false,
-      });
-    }
-  }, [snapshot, streamRoomId]);
+    setRoomMessages((prev) => {
+      let next: Array<CommunityMessengerMessage & { pending?: boolean }>;
+      if (prev.length === 0) {
+        recordRouteEntryMetric("messenger_room_entry", "initial_messages_merge_map_index_ms", 0);
+        recordRouteEntryMetric("messenger_room_entry", "initial_messages_merge_dedupe_ms", 0);
+        recordRouteEntryMetric("messenger_room_entry", "initial_messages_merge_normalize_ms", 0);
+        recordRouteEntryMetric("messenger_room_entry", "initial_messages_merge_sort_ms", 0);
+        next = snapshot.messages;
+      } else if ((snapshot.messages?.length ?? 0) === 0 && Boolean(snapshot.room.lastMessage?.trim())) {
+        /** hydrate wave 가 빈 messages[] 만 내려줄 때 기존 cached timeline 유지 */
+        return prev;
+      } else {
+        next = mergeRoomMessages(prev, snapshot.messages, {
+          perfScope: "messenger_room_entry",
+          perfMetricPrefix: "initial_messages_merge",
+        });
+      }
+      if (next.length > 0) {
+        recordRouteEntryElapsedMetricOnce("messenger_room_entry", "room_snapshot_messages_merge_applied_ms");
+        recordCmRoomDomFirstMessageVisible({
+          roomId,
+          seedRowsCount: next.length,
+          fmrGateReason: "fallback_visible_rows",
+          directLayout: false,
+        });
+      }
+      if (roomMessagesTimelineFingerprint(prev) === roomMessagesTimelineFingerprint(next)) {
+        return prev;
+      }
+      return next;
+    });
+  }, [snapshot]);
 
   useEffect(() => {
     if (roomMessages.length <= 0) return;
@@ -1458,6 +1480,7 @@ export function useMessengerRoomClientPhase1({
     snapshotRef,
     roomMessages,
     roomMessagesRef,
+    setRoomMessages,
     messagesViewportRef,
     chatVirtualizerRef,
     olderMessagesExhaustedRef,
@@ -1990,6 +2013,7 @@ export function useMessengerRoomClientPhase1({
   setPrivateGroupNoticeDraft,
   setReplyToMessage,
   setEditingMessage,
+  setRoomMessages,
   setRoomPreferences,
   setRoomReadyForRealtime,
   setRoomSearchQuery,

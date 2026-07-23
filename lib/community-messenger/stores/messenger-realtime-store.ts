@@ -36,13 +36,6 @@ import {
 } from "@/lib/community-messenger/call-event-message";
 import { cmReceiveBadgeLog } from "@/lib/community-messenger/read/cm-receive-badge-log";
 import { cmRtStoreScopeLog } from "@/lib/community-messenger/realtime/cm-rt-store-scope-log";
-import {
-  authorityApplyCatchUp,
-  authorityApplyDelete,
-  authorityApplyRealtime,
-  authorityGetMessages,
-  authoritySeedBootstrap,
-} from "@/lib/community-messenger/room/message-authority/message-authority";
 
 type IncomingMessageEventInput = {
   viewerUserId?: string | null;
@@ -133,6 +126,34 @@ export function messengerIncomingMessageAlreadyTracked(roomId: string, messageId
   if (!messageId) return false;
   const set = seenIncomingMessageIdsByRoom.get(roomId.toLowerCase());
   return Boolean(set?.has(messageId));
+}
+
+function mergeMessages(
+  prev: CommunityMessengerMessage[],
+  nextMessage: CommunityMessengerMessage
+): CommunityMessengerMessage[] {
+  const callStubKeys = callStubSessionDedupeKeys(nextMessage);
+  const incomingIsLocal = String(nextMessage.id ?? "").startsWith("cm-cevt-");
+  let skipIncomingCallStub = false;
+  const next = prev.filter((item) => {
+    if (item.id === nextMessage.id) return false;
+    if (callStubKeys.length === 0) return true;
+    const existingKeys = callStubSessionDedupeKeys(item);
+    if (!existingKeys.some((key) => callStubKeys.includes(key))) return true;
+    const existingIsLocal = String(item.id ?? "").startsWith("cm-cevt-");
+    if (existingIsLocal || !incomingIsLocal) return false;
+    skipIncomingCallStub = true;
+    return true;
+  });
+  if (skipIncomingCallStub) return prev;
+  next.push(nextMessage);
+  next.sort((a, b) => {
+    const ta = new Date(a.createdAt).getTime();
+    const tb = new Date(b.createdAt).getTime();
+    if (ta !== tb) return ta - tb;
+    return String(a.id).localeCompare(String(b.id));
+  });
+  return next;
 }
 
 function mergeCallStubDuplicates(messages: CommunityMessengerMessage[]): CommunityMessengerMessage[] {
@@ -239,22 +260,21 @@ export const useMessengerRealtimeStore = create<MessengerRealtimeState>((set, ge
     if (!snapshot) return;
     const rid = normalizeRoomId(snapshot.room.id);
     if (!rid) return;
-    const msgs = mergeCallStubDuplicates(snapshot.messages ?? []);
-    if (msgs.length > 0) {
-      if (!authoritySeedBootstrap(rid, msgs)) {
-        authorityApplyCatchUp(rid, msgs);
-      }
-    }
     set((state) => {
+      let messagesByRoomId = {
+        ...state.messagesByRoomId,
+        [rid]: mergeCallStubDuplicates(snapshot.messages ?? state.messagesByRoomId[rid] ?? []),
+      };
       let lastReadByRoomId = {
         ...state.lastReadByRoomId,
         [rid]: snapshot.readReceipt?.lastReadMessageId ?? state.lastReadByRoomId[rid] ?? null,
       };
       const pr = pruneRuntimeRoomMaps({
-        messagesByRoomId: state.messagesByRoomId,
+        messagesByRoomId,
         lastReadByRoomId,
         activeRoomId: state.activeRoomId,
       });
+      messagesByRoomId = pr.messagesByRoomId;
       lastReadByRoomId = pr.lastReadByRoomId;
       const viewer = snapshot.viewerUserId?.trim() || state.viewerUserId;
       if (viewer) {
@@ -263,7 +283,7 @@ export const useMessengerRealtimeStore = create<MessengerRealtimeState>((set, ge
       }
       return {
         viewerUserId: viewer,
-        messagesByRoomId: pr.messagesByRoomId,
+        messagesByRoomId,
         lastReadByRoomId,
         activeRoomId: state.activeRoomId,
       };
@@ -333,65 +353,36 @@ export const useMessengerRealtimeStore = create<MessengerRealtimeState>((set, ge
         afterUnread: null,
       });
 
+      let messagesByRoomId = state.messagesByRoomId;
       if (fallbackMessage != null) {
         wroteMessages = true;
-        /**
-         * List tip projection only (last message).
-         * Room timeline SSOT is Message Authority via ingest/bump/catch-up/send — DO NOT authorityApplyRealtime here.
-         */
-        const messagesByRoomId = {
-          ...state.messagesByRoomId,
-          [rid]: [fallbackMessage],
+        messagesByRoomId = {
+          ...messagesByRoomId,
+          [rid]: mergeMessages(messagesByRoomId[rid] ?? [], fallbackMessage),
         };
         const pr = pruneRuntimeRoomMaps({
           messagesByRoomId,
           lastReadByRoomId: state.lastReadByRoomId,
           activeRoomId: state.activeRoomId,
         });
-
-        if (roomSummary && viewer && fallbackMessage) {
-          seedRoomSnapshotFromSummary({
-            room: roomSummary,
-            viewerUserId: viewer,
-            message: fallbackMessage,
-          });
-        }
-        if (fallbackMessage && viewer) {
-          mergeMessageIntoRoomSnapshotCache({
-            roomId: rid,
-            viewerUserId: viewer,
-            roomSummary: roomSummary ?? undefined,
-            message: fallbackMessage,
-          });
-        } else if (roomSummary && viewer && preview) {
-          patchRoomSummaryInSnapshotCache({
-            roomId: rid,
-            viewerUserId: viewer,
-            patch: {
-              lastMessage: preview.lastMessage,
-              lastMessageAt: preview.lastMessageAt,
-              lastMessageType: preview.lastMessageType,
-            },
-          });
-        }
-
-        const messageIdForLatency = incomingMessageId || "";
-        const latencyKey = cmReceiveLatencyKey({ roomId: rid, messageId: messageIdForLatency || null });
-        const tApply1 = cmReceiveLatencyNow();
-        cmReceiveLatencyMark(latencyKey, {
-          receiver_store_apply_start_ms: tApply0,
-          receiver_store_apply_done_ms: tApply1,
-        });
-
-        return {
-          viewerUserId: viewer ?? state.viewerUserId,
-          messagesByRoomId: pr.messagesByRoomId,
-          lastReadByRoomId: pr.lastReadByRoomId,
-          activeRoomId: state.activeRoomId,
-        };
+        messagesByRoomId = pr.messagesByRoomId;
       }
 
-      if (roomSummary && viewer && preview) {
+      if (roomSummary && viewer && fallbackMessage) {
+        seedRoomSnapshotFromSummary({
+          room: roomSummary,
+          viewerUserId: viewer,
+          message: fallbackMessage,
+        });
+      }
+      if (fallbackMessage && viewer) {
+        mergeMessageIntoRoomSnapshotCache({
+          roomId: rid,
+          viewerUserId: viewer,
+          roomSummary: roomSummary ?? undefined,
+          message: fallbackMessage,
+        });
+      } else if (roomSummary && viewer && preview) {
         patchRoomSummaryInSnapshotCache({
           roomId: rid,
           viewerUserId: viewer,
@@ -411,15 +402,10 @@ export const useMessengerRealtimeStore = create<MessengerRealtimeState>((set, ge
         receiver_store_apply_done_ms: tApply1,
       });
 
-      const pr = pruneRuntimeRoomMaps({
-        messagesByRoomId: state.messagesByRoomId,
-        lastReadByRoomId: state.lastReadByRoomId,
-        activeRoomId: state.activeRoomId,
-      });
       return {
         viewerUserId: viewer ?? state.viewerUserId,
-        messagesByRoomId: pr.messagesByRoomId,
-        lastReadByRoomId: pr.lastReadByRoomId,
+        messagesByRoomId,
+        lastReadByRoomId: state.lastReadByRoomId,
         activeRoomId: state.activeRoomId,
       };
     });
@@ -464,7 +450,6 @@ export function applyIncomingMessageEvent(input: IncomingMessageEventInput): voi
 }
 
 export function getMessengerRealtimeRoomMessages(roomId: string): CommunityMessengerMessage[] {
-  /** List tip projection only — room timeline reads Message Authority, not this map. */
   return useMessengerRealtimeStore.getState().messagesByRoomId[normalizeRoomId(roomId)] ?? [];
 }
 
@@ -478,17 +463,19 @@ export function removeRingingCallStubsForSessionKeys(input: {
 }): void {
   const rid = normalizeRoomId(input.roomId);
   if (!rid) return;
-  const list = authorityGetMessages(rid);
-  for (const m of list) {
-    if (m.messageType !== "call_stub") continue;
-    if (!sessionKeysMatchMessage(input.sessionId, input.tmpSessionId, m.callSessionId, m.callTmpSessionId ?? null)) {
-      continue;
-    }
-    const st = m.callStatus;
-    if (st === "dialing" || st === "incoming") {
-      authorityApplyDelete(rid, m.id);
-    }
-  }
+  useMessengerRealtimeStore.setState((state) => {
+    const list = state.messagesByRoomId[rid] ?? [];
+    const next = list.filter((m) => {
+      if (m.messageType !== "call_stub") return true;
+      if (!sessionKeysMatchMessage(input.sessionId, input.tmpSessionId, m.callSessionId, m.callTmpSessionId ?? null)) {
+        return true;
+      }
+      const st = m.callStatus;
+      return st !== "dialing" && st !== "incoming";
+    });
+    if (next.length === list.length) return state;
+    return { ...state, messagesByRoomId: { ...state.messagesByRoomId, [rid]: next } };
+  });
 }
 
 /** terminal call_stub — 동일 sessionId 말풍선 content/status만 갱신(신규 bubble 생성 금지) */
@@ -502,29 +489,36 @@ export function reconcileCallStubMessageBySession(input: {
 }): boolean {
   const rid = normalizeRoomId(input.roomId);
   if (!rid) return false;
-  const list = authorityGetMessages(rid);
-  const cur = list.find(
-    (m) =>
-      m.messageType === "call_stub" &&
-      sessionKeysMatchMessage(input.sessionId, input.tmpSessionId, m.callSessionId, m.callTmpSessionId ?? null)
-  );
-  if (!cur) return false;
-  const nextMessage: CommunityMessengerMessage = {
-    ...cur,
-    content: input.content,
-    callKind: input.callKind,
-    callStatus: input.callStatus,
-    messageType: "call_stub",
-  };
-  if (
-    cur.content === nextMessage.content &&
-    cur.callStatus === nextMessage.callStatus &&
-    cur.callKind === nextMessage.callKind
-  ) {
-    return false;
-  }
-  authorityApplyRealtime(rid, { eventType: "UPDATE", message: nextMessage });
-  return true;
+  let updated = false;
+  useMessengerRealtimeStore.setState((state) => {
+    const list = state.messagesByRoomId[rid] ?? [];
+    const idx = list.findIndex(
+      (m) =>
+        m.messageType === "call_stub" &&
+        sessionKeysMatchMessage(input.sessionId, input.tmpSessionId, m.callSessionId, m.callTmpSessionId ?? null)
+    );
+    if (idx < 0) return state;
+    const cur = list[idx]!;
+    const nextMessage: CommunityMessengerMessage = {
+      ...cur,
+      content: input.content,
+      callKind: input.callKind,
+      callStatus: input.callStatus,
+      messageType: "call_stub",
+    };
+    if (
+      cur.content === nextMessage.content &&
+      cur.callStatus === nextMessage.callStatus &&
+      cur.callKind === nextMessage.callKind
+    ) {
+      return state;
+    }
+    updated = true;
+    const next = [...list];
+    next[idx] = nextMessage;
+    return { ...state, messagesByRoomId: { ...state.messagesByRoomId, [rid]: next } };
+  });
+  return updated;
 }
 
 export function primeMessengerRoomEntrySnapshot(args: {

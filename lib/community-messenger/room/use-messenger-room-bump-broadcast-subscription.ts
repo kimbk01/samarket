@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, type MutableRefObject } from "react";
+import { useEffect, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
+import { mergeRoomMessages } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
-import type { CommunityMessengerProfileLite, CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
+import type { CommunityMessengerMessage, CommunityMessengerProfileLite, CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import {
   communityMessengerBumpKnownRoomIds,
   communityMessengerBumpPayloadMatchesKnownRooms,
@@ -11,7 +12,6 @@ import { parseCommunityMessengerBumpMessageSnapshot } from "@/lib/community-mess
 import { resolveRoomBumpDedupeKey } from "@/lib/chat-domain/realtime/domain-realtime-envelope";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { subscribeCommunityMessengerRoomBumpBroadcast } from "@/lib/community-messenger/realtime/room-bump-broadcast";
-import { authorityApplyRealtime } from "@/lib/community-messenger/room/message-authority/message-authority";
 
 type RoomBumpListener = {
   onBump: (payload: Record<string, unknown>) => void;
@@ -72,6 +72,7 @@ export function useMessengerRoomBumpBroadcastSubscription({
   roomMembersDisplayRef,
   remoteBumpCatchUpRafRef,
   lastRemoteBumpDedupeRef,
+  setRoomMessages,
   catchUpAfterRemoteBump,
 }: {
   roomId: string;
@@ -83,8 +84,7 @@ export function useMessengerRoomBumpBroadcastSubscription({
   roomMembersDisplayRef: MutableRefObject<CommunityMessengerProfileLite[]>;
   remoteBumpCatchUpRafRef: MutableRefObject<number | null>;
   lastRemoteBumpDedupeRef: MutableRefObject<string>;
-  /** @deprecated ignored — Authority is sole writer */
-  setRoomMessages?: unknown;
+  setRoomMessages: Dispatch<SetStateAction<Array<CommunityMessengerMessage & { pending?: boolean }>>>;
   catchUpAfterRemoteBump: (
     hintMessageId?: string | null,
     opts?: { alreadyMergedSnapshot?: boolean }
@@ -173,28 +173,24 @@ export function useMessengerRoomBumpBroadcastSubscription({
       if (lastRemoteBumpDedupeRef.current === dedupeKey) return;
       lastRemoteBumpDedupeRef.current = dedupeKey;
 
-      /**
-       * Message Authority: apply bump snapshot as one realtime event (no React setState / rAF list rewrite).
-       * scheduleCatchUp fills missing ids only.
-       */
-      const pre = parseCommunityMessengerBumpMessageSnapshot(payload, viewer);
-      let mergedSnapshot = false;
-      let catchUpHint = hint;
-      if (pre) {
-        const member = roomMembersDisplayRef.current.find((m) => messengerUserIdsEqual(m.id, pre.senderId ?? ""));
-        const enriched =
-          member?.label && member.label.trim().length > 0 ? { ...pre, senderLabel: member.label } : pre;
-        const authorityRoom =
-          String(streamRoomId ?? "").trim() ||
-          String(snapshotRef.current?.room?.id ?? "").trim() ||
-          String(roomId ?? "").trim();
-        if (authorityRoom) {
-          authorityApplyRealtime(authorityRoom, { eventType: "INSERT", message: enriched });
-        }
-        catchUpHint = catchUpHint || String(pre.id ?? "").trim();
-        mergedSnapshot = true;
+      if (remoteBumpCatchUpRafRef.current != null) {
+        cancelAnimationFrame(remoteBumpCatchUpRafRef.current);
       }
-      scheduleCatchUp(catchUpHint, { alreadyMergedSnapshot: mergedSnapshot });
+      remoteBumpCatchUpRafRef.current = requestAnimationFrame(() => {
+        remoteBumpCatchUpRafRef.current = null;
+        const pre = parseCommunityMessengerBumpMessageSnapshot(payload, viewer);
+        let mergedSnapshot = false;
+        let catchUpHint = hint;
+        if (pre) {
+          const member = roomMembersDisplayRef.current.find((m) => messengerUserIdsEqual(m.id, pre.senderId ?? ""));
+          const enriched =
+            member?.label && member.label.trim().length > 0 ? { ...pre, senderLabel: member.label } : pre;
+          setRoomMessages((prev) => mergeRoomMessages(prev, [enriched]));
+          catchUpHint = catchUpHint || String(pre.id ?? "").trim();
+          mergedSnapshot = true;
+        }
+        scheduleCatchUp(catchUpHint, { alreadyMergedSnapshot: mergedSnapshot });
+      });
     };
     listenerRef.current.onBump = onBump;
     const registryKey = `${viewer}:${[...bumpSubscribeIds].sort().join("\0")}`;
@@ -224,13 +220,9 @@ export function useMessengerRoomBumpBroadcastSubscription({
     catchUpAfterRemoteBump,
     initialServerSnapshot?.viewerUserId,
     roomId,
-    roomMembersDisplayRef,
     roomReadyForRealtime,
     snapshot?.room?.id,
     snapshot?.viewerUserId,
-    snapshotRef,
     streamRoomId,
-    lastRemoteBumpDedupeRef,
-    remoteBumpCatchUpRafRef,
   ]);
 }
