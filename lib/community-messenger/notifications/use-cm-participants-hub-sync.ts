@@ -14,6 +14,7 @@ import { findHomeListRoomRow } from "@/lib/community-messenger/home-list-patch";
 import { peekRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { syncSupabaseRealtimeAuthFromSession } from "@/lib/supabase/wait-for-realtime-auth";
+import { applyBootstrapCacheBusEvent } from "@/lib/community-messenger/home/bootstrap-cache-bus-writer";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
 import {
@@ -43,7 +44,8 @@ const MESSAGE_NOTIFICATION_ROOM_BUMP_MIN_GAP_MS = 260;
  */
 export function useCmParticipantsHubSync(
   enabled = true,
-  playback: MessageNotificationBridgePlayback = "full"
+  /** retained for callers / chrome policy; increase sound no longer gated on this */
+  _playback: MessageNotificationBridgePlayback = "full"
 ): void {
   const { t } = useI18n();
   const tRef = useRef(t);
@@ -51,7 +53,6 @@ export function useCmParticipantsHubSync(
   const routerRef = useRef(router);
   const pathname = usePathname();
   const pathnameRef = useRef<string | null>(null);
-  const playbackRef = useRef<MessageNotificationBridgePlayback>(playback);
   const surface = useNotificationSurface();
   const surfaceRef = useRef(surface);
   const visibilityRef = useRef<DocumentVisibilityState>(
@@ -63,10 +64,9 @@ export function useCmParticipantsHubSync(
   useEffect(() => {
     routerRef.current = router;
     pathnameRef.current = pathname;
-    playbackRef.current = playback;
     surfaceRef.current = surface;
     tRef.current = t;
-  }, [pathname, playback, router, surface, t]);
+  }, [pathname, router, surface, t]);
 
   useLayoutEffect(() => {
     if (!enabled) return;
@@ -159,13 +159,20 @@ export function useCmParticipantsHubSync(
               versionMs: Date.now(),
               source: "participant_rt",
             });
-            postCommunityMessengerBusEvent({
-              type: "cm.room.summary_patch",
+            const summaryPatch = {
+              type: "cm.room.summary_patch" as const,
               roomId: nextRoomId,
               viewerUserId: userId,
               unreadCount: applied.unreadCount,
               at: Date.now(),
-            });
+            };
+            postCommunityMessengerBusEvent(summaryPatch);
+            /**
+             * Bootstrap cache 는 `/community-messenger` layout Host 없이도 갱신한다.
+             * (마켓·스토어 등에서 수신 후 메신저 목록 진입 시 행 배지 누락 방지)
+             * Host 가 같은 eventId 를 다시 받으면 duplicate skip.
+             */
+            applyBootstrapCacheBusEvent(summaryPatch, userId, "cm-participants-hub-sync");
             if (nextUnread <= prevUnread) {
               requestMessengerHubBadgeResync("participant_unread_changed", {
                 roomId: nextRoomId,
@@ -188,10 +195,11 @@ export function useCmParticipantsHubSync(
             }
             prefetchRoomSnapshotLazy(nextRoomId);
 
-            if (playbackRef.current === "hub_sync_only") {
-              return;
-            }
-
+            /**
+             * `hub_sync_only`(마켓·방 등)에서도 increase 시 full effects 를 돌린다.
+             * 같은 방·포커스 중 음소거는 `applyCmParticipantUnreadFullEffects` 가 담당.
+             * notifications 테이블 INSERT 지연에 의존하지 않는다.
+             */
             scheduleParticipantUnreadFullEffects({
               nextRoomId,
               nextUnread,

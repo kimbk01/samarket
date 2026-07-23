@@ -18,6 +18,7 @@ import {
   postCommunityMessengerBusEvent,
   type MessengerBusEvent,
 } from "@/lib/community-messenger/multi-tab-bus";
+import { clearLocalReadGuardsForTests } from "@/lib/community-messenger/read/local-read-guard";
 import type { CommunityMessengerBootstrap, CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 
 function room(
@@ -71,6 +72,7 @@ describe("bootstrap-cache-bus-writer", () => {
     clearBootstrapCache();
     clearBootstrapCacheBusWriterStateForTests();
     clearCommunityMessengerBusLocalHandlersForTests();
+    clearLocalReadGuardsForTests();
     noteBootstrapCacheBusWriterViewerUserId("user-a");
   });
 
@@ -318,6 +320,37 @@ describe("bootstrap-cache-bus-writer", () => {
     );
     expect(peekBootstrapCache()?.chats?.[0]?.lastMessageAt).toBe(startedAt);
     expect(peekBootstrapCache()?.chats?.[0]?.lastMessage).toBe("취소됨");
+  });
+
+  it("summary_patch updates unreadCount in bootstrap cache without Home mounted", () => {
+    primeBootstrapCache(
+      bootstrap([room({ id: "room-a", unreadCount: 0, lastMessageAt: "2026-06-01T00:00:00.000Z" })])
+    );
+    const result = applyBootstrapCacheBusEvent(
+      {
+        type: "cm.room.summary_patch",
+        roomId: "room-a",
+        viewerUserId: "user-a",
+        unreadCount: 3,
+        at: 42,
+      },
+      "user-a",
+      "cm-participants-hub-sync"
+    );
+    expect(result.cacheWriteApplied).toBe(true);
+    expect(peekBootstrapCache()?.chats?.find((r) => r.id === "room-a")?.unreadCount).toBe(3);
+    const again = applyBootstrapCacheBusEvent(
+      {
+        type: "cm.room.summary_patch",
+        roomId: "room-a",
+        viewerUserId: "user-a",
+        unreadCount: 3,
+        at: 42,
+      },
+      "user-a",
+      BOOTSTRAP_CACHE_SYNC_HOST_WRITER_ID
+    );
+    expect(again.cacheWriteSkipReason).toBe("duplicate_event_id");
   });
 });
 

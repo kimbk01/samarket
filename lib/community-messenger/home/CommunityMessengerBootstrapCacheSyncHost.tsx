@@ -17,6 +17,8 @@ const HOST_CACHE_BUS_TYPES = new Set<MessengerBusEvent["type"]>([
   "cm.room.message_sent",
   "cm.room.call_stub_preview",
   "cm.home.merge_room_summary",
+  /** participants unread — layout 마운트 중 Home 없이도 목록 배지 캐시 유지 */
+  "cm.room.summary_patch",
 ]);
 
 /**

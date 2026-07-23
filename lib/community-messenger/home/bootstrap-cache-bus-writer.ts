@@ -4,6 +4,7 @@ import {
   primeBootstrapCache,
 } from "@/lib/community-messenger/bootstrap-cache";
 import { applyHomeListPatch, findHomeListRoomRow } from "@/lib/community-messenger/home-list-patch";
+import { applyHomeListSummaryPatchUnread } from "@/lib/community-messenger/home/use-community-messenger-home-realtime-bootstrap-list";
 import { shouldApplyCallStubListPreviewPatch } from "@/lib/community-messenger/home/patch-bootstrap-room-list-from-realtime-message";
 import type { HomeListPatch, HomeListPatchSource } from "@/lib/community-messenger/home-list-patch";
 import {
@@ -105,6 +106,23 @@ function resolveBusPatch(
         patch: { kind: "merge_room_summary", summary: ev.summary },
         source: "multi-tab",
         roomId: ev.summary.id,
+      };
+    }
+    case "cm.room.summary_patch": {
+      if (ev.viewerUserId.trim() !== viewerUserId) return null;
+      const nextUnread =
+        typeof ev.unreadCount === "number" && Number.isFinite(ev.unreadCount)
+          ? Math.max(0, Math.floor(ev.unreadCount))
+          : null;
+      if (nextUnread == null) return null;
+      return {
+        patch: {
+          kind: "room_update",
+          roomId: ev.roomId,
+          updater: (room) => applyHomeListSummaryPatchUnread(room, nextUnread),
+        },
+        source: "multi-tab",
+        roomId: ev.roomId,
       };
     }
     default:

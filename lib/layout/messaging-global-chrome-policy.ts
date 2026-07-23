@@ -34,9 +34,9 @@ export function resolveMessagingGlobalChromeFromPath(
 
   /**
    * 참가자 브리지(`useMessageNotificationBridge`) 재생 모드 — 경로별 분리.
-   * - 허브: `messengerSurface` 이고 `/community-messenger/rooms/[roomId]` 가 아님 → `full`(인앱 사운드·배너·데스크톱 등).
-   * - 방: `f.isCommunityMessengerRoom` → `hub_sync_only` — participants Realtime·`cm.room.bump`·배지 리싱크는 동일,
-   *   `full` 전용 분기(글로벌 사운드/배너/데스크톱 해석)만 축소 (`use-message-notification-bridge` 주석과 동일 계약).
+   * - 허브: `messengerSurface` 이고 `/community-messenger/rooms/[roomId]` 가 아님 → `full`.
+   * - 그 외(방·마켓 등): `hub_sync_only` — Realtime·뱃지·bump·list cache 동일.
+   *   unread increase 알림음은 participants 경로에서 즉시 schedule(같은 방 포커스만 음소거).
    */
   const isCommunityMessengerHubPlayback = messengerSurface && !f.isCommunityMessengerRoom;
   const communityMessengerParticipantPlayback: MessageNotificationBridgePlayback =

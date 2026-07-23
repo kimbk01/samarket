@@ -1,4 +1,8 @@
-/** `full`: 사운드·배너·데스크톱 알림. `hub_sync_only`: participants Realtime + 허브/뱃지/room bump 만(비메신저 표면). */
+/**
+ * `full`: 메신저 허브 — 사운드·배너·데스크톱 알림.
+ * `hub_sync_only`: 비허브(마켓·방 등) — participants Realtime + 허브/뱃지/room bump + list cache.
+ * increase 시 알림음·배너·데스크톱도 schedule 하되, 같은 방·포커스 음소거는 full effects 가 처리.
+ */
 export type MessageNotificationBridgePlayback = "full" | "hub_sync_only";
 
 export type ParticipantRealtimeRow = {
