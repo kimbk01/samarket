@@ -245,19 +245,11 @@ function logHomeListOwner(stats: HomeListPatchStats): void {
   messengerTraceConsoleDebug("[cm-list-owner]", stats);
 }
 
-function mergeIncomingRoomListMonotonicLastEvent(
-  prevList: CommunityMessengerRoomSummary[],
-  nextList: CommunityMessengerRoomSummary[]
-): CommunityMessengerRoomSummary[] {
-  if (!nextList.length) return prevList;
-  const prevById = new Map(prevList.map((r) => [r.id, r]));
-  return nextList.map((inc) => {
-    const old = prevById.get(inc.id);
-    if (!old) return inc;
-    return mergeMessengerRoomSummaryMonotonicLastEventForHomeList(old, inc);
-  });
-}
-
+/**
+ * Same-room monotonic merge used by version-guard / upsert paths.
+ * Prefer `upsertRoomListPreserveBase` when applying capped partial snapshots so
+ * previous-only rooms are not dropped.
+ */
 function mergeRoomListsWithVersionGuard(
   prevList: CommunityMessengerRoomSummary[],
   nextList: CommunityMessengerRoomSummary[]
@@ -666,19 +658,20 @@ export function applyHomeListPatch(
           break;
         }
         case "bootstrap_apply_full": {
-          const tBuild0 = typeof performance !== "undefined" ? performance.now() : 0;
+          /**
+           * Capped bootstrap/home-sync payloads are partial — same contract as
+           * `home_sync` `partial_upsert`: keep previous-only rooms, upsert incoming,
+           * monotonic last-event on overlap. Do NOT treat incoming as authoritative full
+           * replace (HOME_SYNC_PARTIAL_REPLACE_TRUNCATION class).
+           * `mergeRoomListsPreserveRefs` stays reference-stable only (global contract unchanged).
+           */
           const mergeReq = patch.mergeStaleOutgoingRequests !== false;
           const incoming = patch.next;
-          const chatMerge = mergeRoomListsPreserveRefs(
-            base.chats ?? [],
-            mergeIncomingRoomListMonotonicLastEvent(base.chats ?? [], incoming.chats ?? [])
-          );
-          const groupMerge = mergeRoomListsPreserveRefs(
-            base.groups ?? [],
-            mergeIncomingRoomListMonotonicLastEvent(base.groups ?? [], incoming.groups ?? [])
-          );
-          const patchBuildMs =
-            typeof performance !== "undefined" ? Math.round(performance.now() - tBuild0) : 0;
+          const chatVersioned = upsertRoomListPreserveBase(base.chats ?? [], incoming.chats ?? []);
+          const chatMerge = mergeRoomListsPreserveRefs(base.chats ?? [], chatVersioned.list);
+          const groupVersioned = upsertRoomListPreserveBase(base.groups ?? [], incoming.groups ?? []);
+          const groupMerge = mergeRoomListsPreserveRefs(base.groups ?? [], groupVersioned.list);
+          unreadGuardApplied += chatVersioned.unreadGuardApplied + groupVersioned.unreadGuardApplied;
           const requestsMerged = mergeReq
             ? mergeFriendRequestsKeepStaleOutgoingForBootstrap(base, incoming.requests ?? [])
             : incoming.requests ?? base.requests;

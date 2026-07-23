@@ -30,6 +30,8 @@ import {
   cmWarmNetworkPayloadFingerprint,
   cmWarmNetworkRoomIdsFingerprint,
   consumeWarmNetworkProvenance,
+  isBootstrapCacheFresh,
+  isCriticalBootstrapCacheFresh,
   peekBootstrapCache,
   peekMessengerBootstrapCritical,
   peekMessengerBootstrapFull,
@@ -1538,6 +1540,16 @@ export function useCommunityMessengerHomeBootstrap({
       (staleCritPeek ? communityMessengerBootstrapFromCriticalPayload(staleCritPeek) : null);
     if (stale) {
       if (isDevSafeMode()) {
+        return;
+      }
+      /**
+       * Hard refresh: memory is empty and only sessionStorage seeds paint — silent home_sync
+       * (+ 20s cooldown skip) cannot INSERT new rooms (critical_patch). Cold bootstrap once.
+       * Soft re-entry with fresh memory: keep silent + cooldown.
+       */
+      const memoryFresh = isBootstrapCacheFresh() || isCriticalBootstrapCacheFresh();
+      if (!memoryFresh) {
+        void refreshRef.current(false);
         return;
       }
       /**
