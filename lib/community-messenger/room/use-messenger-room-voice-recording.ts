@@ -2,10 +2,7 @@
 
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import {
-  mergeRoomMessages,
-  nextOptimisticCommunityMessengerCreatedAtIso,
-} from "@/components/community-messenger/room/community-messenger-room-helpers";
+import { nextOptimisticCommunityMessengerCreatedAtIso } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import { getCommunityMessengerPermissionGuide } from "@/lib/community-messenger/call-permission";
 import { messengerMonitorMessageRtt } from "@/lib/community-messenger/monitoring/client";
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
@@ -25,6 +22,12 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import { pickMessengerApiErrorField } from "@/lib/community-messenger/room/messenger-room-action-error-messages";
 import { getCommunityMessengerUserMedia } from "@/lib/community-messenger/call-media-stream";
 import { isDiBaYMicGateDeferredAbort } from "@/lib/permissions/dibay-mic-gate-messages";
+import {
+  authorityApplyOptimistic,
+  authorityConfirmOptimistic,
+  authorityFailOptimistic,
+  authorityGetMessages,
+} from "@/lib/community-messenger/room/message-authority/message-authority";
 
 export type UseMessengerRoomVoiceRecordingParams = {
   roomId: string;
@@ -38,7 +41,8 @@ export type UseMessengerRoomVoiceRecordingParams = {
   pendingMessageIdRef: MutableRefObject<number>;
   getRoomActionErrorMessage: (error?: string) => string;
   setBusy: Dispatch<SetStateAction<string | null>>;
-  setRoomMessages: Dispatch<SetStateAction<Array<CommunityMessengerMessage & { pending?: boolean }>>>;
+  /** @deprecated Message Authority owns timeline writes — ignored. */
+  setRoomMessages?: unknown;
   scrollMessengerToBottom: () => void;
   /** 음성 전송 확정 시 텍스트·스티커와 동일하게 홈 목록·허브 뱃지 동기화 */
   onOutboundMessageConfirmed?: (message: CommunityMessengerMessage) => void;
@@ -60,7 +64,6 @@ export function useMessengerRoomVoiceRecording({
   busy,
   pendingMessageIdRef,
   getRoomActionErrorMessage,
-  setRoomMessages,
   scrollMessengerToBottom,
   onOutboundMessageConfirmed,
   tryRedirectAuthBlocked,
@@ -191,25 +194,23 @@ export function useMessengerRoomVoiceRecording({
       const roundedDur = Math.max(1, Math.min(600, Math.round(wallDurationSeconds)));
       const blobUrl = URL.createObjectURL(blob);
       const tempId = `pending:${apiRoom}:voice:${pendingMessageIdRef.current++}`;
-      setRoomMessages((prev) => {
-        const optimisticMessage: CommunityMessengerMessage & { pending?: boolean } = {
-          id: tempId,
-          roomId: apiRoom,
-          senderId: snapshot.viewerUserId,
-          senderLabel: roomMembersDisplay.find((member) => member.id === snapshot.viewerUserId)?.label ?? t("common_me"),
-          messageType: "voice",
-          content: blobUrl,
-          createdAt: nextOptimisticCommunityMessengerCreatedAtIso(prev),
-          isMine: true,
-          pending: true,
-          callKind: null,
-          callStatus: null,
-          voiceDurationSeconds: roundedDur,
-          voiceMimeType: blobMime,
-          ...(waveformPeaks.length > 0 ? { voiceWaveformPeaks: waveformPeaks } : {}),
-        };
-        return mergeRoomMessages(prev, [optimisticMessage]);
-      });
+      const optimisticMessage: CommunityMessengerMessage & { pending?: boolean } = {
+        id: tempId,
+        roomId: apiRoom,
+        senderId: snapshot.viewerUserId,
+        senderLabel: roomMembersDisplay.find((member) => member.id === snapshot.viewerUserId)?.label ?? t("common_me"),
+        messageType: "voice",
+        content: blobUrl,
+        createdAt: nextOptimisticCommunityMessengerCreatedAtIso(authorityGetMessages(apiRoom)),
+        isMine: true,
+        pending: true,
+        callKind: null,
+        callStatus: null,
+        voiceDurationSeconds: roundedDur,
+        voiceMimeType: blobMime,
+        ...(waveformPeaks.length > 0 ? { voiceWaveformPeaks: waveformPeaks } : {}),
+      };
+      authorityApplyOptimistic(apiRoom, optimisticMessage);
       scrollMessengerToBottom();
       voiceFinalizingRef.current = false;
       try {
@@ -223,9 +224,10 @@ export function useMessengerRoomVoiceRecording({
             : wallDurationSeconds;
         const uploadDurationSeconds = Math.max(1, Math.min(600, Math.round(durationSeconds)));
         if (uploadDurationSeconds !== roundedDur) {
-          setRoomMessages((prev) =>
-            prev.map((item) => (item.id === tempId ? { ...item, voiceDurationSeconds: uploadDurationSeconds } : item))
-          );
+          authorityApplyOptimistic(apiRoom, {
+            ...optimisticMessage,
+            voiceDurationSeconds: uploadDurationSeconds,
+          });
         }
         const form = new FormData();
         const fileForUpload = new File([blob], `voice.${ext}`, { type: blobMime });
@@ -252,7 +254,7 @@ export function useMessengerRoomVoiceRecording({
         }
         if (!res.ok || !json.ok) {
           URL.revokeObjectURL(blobUrl);
-          setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
+          authorityFailOptimistic(apiRoom, tempId);
           if (tryRedirectAuthBlocked?.(res, json)) return;
           showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
           return;
@@ -260,18 +262,13 @@ export function useMessengerRoomVoiceRecording({
         const confirmedVoice = json.message;
         if (confirmedVoice) {
           URL.revokeObjectURL(blobUrl);
-          setRoomMessages((prev) =>
-            mergeRoomMessages(
-              prev.filter((item) => item.id !== tempId),
-              [confirmedVoice]
-            )
-          );
+          authorityConfirmOptimistic(apiRoom, confirmedVoice);
           scrollMessengerToBottom();
           onOutboundMessageConfirmed?.(confirmedVoice);
           return;
         }
         URL.revokeObjectURL(blobUrl);
-        setRoomMessages((prev) => prev.map((item) => (item.id === tempId ? { ...item, pending: false } : item)));
+        authorityConfirmOptimistic(apiRoom, { ...optimisticMessage, pending: false });
       } finally {
         voiceFinalizingRef.current = false;
       }

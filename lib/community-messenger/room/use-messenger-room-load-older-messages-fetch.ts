@@ -9,7 +9,6 @@ import {
   type MutableRefObject,
   type SetStateAction,
 } from "react";
-import { mergeRoomMessages } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
 import {
   COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT,
@@ -25,6 +24,7 @@ import {
 import { logChatRoomScroll } from "@/lib/community-messenger/room/messenger-room-timeline-log";
 import { restoreChatThreadPrependAnchor } from "@/lib/chat-thread-scroll/prepend-anchor";
 import { estimateMessengerRoomTimelineTotalHeight } from "@/lib/community-messenger/room/messenger-room-timeline-paint-model";
+import { authorityPrependOlder } from "@/lib/community-messenger/room/message-authority/message-authority";
 
 type PrependVirtualizerLike = {
   scrollOffset?: number;
@@ -37,7 +37,8 @@ export type UseMessengerRoomLoadOlderMessagesFetchArgs = {
   snapshotRef: MutableRefObject<CommunityMessengerRoomSnapshot | null>;
   roomMessages: Array<CommunityMessengerMessage & { pending?: boolean }>;
   roomMessagesRef: MutableRefObject<Array<CommunityMessengerMessage & { pending?: boolean }>>;
-  setRoomMessages: Dispatch<SetStateAction<Array<CommunityMessengerMessage & { pending?: boolean }>>>;
+  /** @deprecated Message Authority owns timeline writes — ignored. */
+  setRoomMessages?: unknown;
   messagesViewportRef: MutableRefObject<HTMLDivElement | null>;
   chatVirtualizerRef: MutableRefObject<PrependVirtualizerLike | null>;
   olderMessagesExhaustedRef: MutableRefObject<boolean>;
@@ -62,7 +63,7 @@ function oldestPersistedMessageId(
 }
 
 /**
- * 이전 메시지 페이지 fetch·병합·스크롤 높이 보정·paging 상태.
+ * 이전 메시지 페이지 fetch·Authority prepend·스크롤 높이 보정·paging 상태.
  * 센티넬(IntersectionObserver)은 `useMessengerRoomLoadOlderMessagesIntersection` 에 분리.
  */
 export function useMessengerRoomLoadOlderMessagesFetch({
@@ -71,7 +72,6 @@ export function useMessengerRoomLoadOlderMessagesFetch({
   snapshotRef,
   roomMessages,
   roomMessagesRef,
-  setRoomMessages,
   messagesViewportRef,
   chatVirtualizerRef,
   olderMessagesExhaustedRef,
@@ -158,7 +158,7 @@ export function useMessengerRoomLoadOlderMessagesFetch({
           deferredHistoryMilestoneRecordedRef.current = true;
           recordCmRoomEntryMilestone("deferred_history_ms");
         }
-        setRoomMessages((prev) => mergeRoomMessages(prev, json.messages ?? []));
+        authorityPrependOlder(apiRoomId, json.messages ?? []);
         if (!json.hasMore) {
           olderMessagesExhaustedRef.current = true;
         }

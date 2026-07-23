@@ -87,9 +87,16 @@ import { cmCallLatencyInfo, cmCallLatencyMarkClick, setCmCallLatencyContext } fr
 import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
 import { logClientPerf } from "@/lib/performance/samarket-perf";
 import {
-  mergeRoomMessages,
   nextOptimisticCommunityMessengerCreatedAtIso,
 } from "@/components/community-messenger/room/community-messenger-room-helpers";
+import {
+  authorityApplyDelete,
+  authorityApplyEdit,
+  authorityApplyOptimistic,
+  authorityApplyReaction,
+  authorityConfirmOptimistic,
+  authorityFailOptimistic,
+} from "@/lib/community-messenger/room/message-authority/message-authority";
 import { callStubHiddenKeys } from "@/lib/community-messenger/call-event-message";
 import { createCommunityMessengerClientMessageId } from "@/lib/community-messenger/client-message-id";
 import { syncMessengerHomeAfterOutboundSend } from "@/lib/community-messenger/multi-tab-bus";
@@ -306,7 +313,6 @@ export function useMessengerRoomPhase2Controller() {
     setPrivateGroupNoticeDraft,
     setReplyToMessage,
     setEditingMessage,
-    setRoomMessages,
     setRoomPreferences,
     setRoomReadyForRealtime,
     setRoomSearchQuery,
@@ -486,7 +492,6 @@ export function useMessengerRoomPhase2Controller() {
     pendingMessageIdRef,
     getRoomActionErrorMessage,
     setBusy,
-    setRoomMessages,
     scrollMessengerToBottom,
     onOutboundMessageConfirmed: onMessengerOutboundConfirmed,
     tryRedirectAuthBlocked: redirectIfMessengerAuthBlocked,
@@ -897,7 +902,7 @@ export function useMessengerRoomPhase2Controller() {
             }
           : {}),
       };
-      setRoomMessages((prev) => mergeRoomMessages(prev, [optimisticMessage]));
+      authorityApplyOptimistic(streamRoomId, optimisticMessage);
       stickToBottomRef.current = true;
       scrollMessengerToBottom({ reason: "own_message_append" });
       cmReceiveLatencyMark(latencyKey, { send_api_start_ms: cmReceiveLatencyNow() });
@@ -926,7 +931,7 @@ export function useMessengerRoomPhase2Controller() {
         messengerMonitorMessageRtt(streamRoomId, elapsed, "text");
       }
       if (!res.ok || !json.ok) {
-        setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
+        authorityFailOptimistic(streamRoomId, tempId);
         if (restoreOnFail !== undefined) setMessage(restoreOnFail);
         if (redirectIfMessengerAuthBlocked(res, json)) return false;
         showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
@@ -939,19 +944,7 @@ export function useMessengerRoomPhase2Controller() {
           !trimCmText(confirmedMessage.clientMessageId) && clientMessageId
             ? { ...confirmedMessage, clientMessageId }
             : confirmedMessage;
-        setRoomMessages((prev) =>
-          mergeRoomMessages(
-            prev.filter(
-              (item) =>
-                item.id !== tempId &&
-                !(
-                  (item as { pending?: boolean }).pending &&
-                  item.clientMessageId === clientMessageId
-                )
-            ),
-            [withCid]
-          )
-        );
+        authorityConfirmOptimistic(streamRoomId, withCid, clientMessageId);
         onMessengerOutboundConfirmed(withCid, clientMessageId);
         playMessengerMessageSentFeedbackOnce(
           messengerSentFeedbackPlayedClientIdsRef.current,
@@ -1017,7 +1010,7 @@ export function useMessengerRoomPhase2Controller() {
           showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
           return;
         }
-        setRoomMessages((prev) => prev.map((m) => (m.id === mid ? { ...m, ...json.message } : m)));
+        authorityApplyEdit(streamRoomId, json.message);
         setEditingMessage(null);
         setMessage("");
       } finally {
@@ -1029,7 +1022,6 @@ export function useMessengerRoomPhase2Controller() {
       redirectIfMessengerAuthBlocked,
       setEditingMessage,
       setMessage,
-      setRoomMessages,
       streamRoomId,
     ]
   );
@@ -1101,7 +1093,7 @@ export function useMessengerRoomPhase2Controller() {
         callKind: null,
         callStatus: null,
       };
-      setRoomMessages((prev) => mergeRoomMessages(prev, [optimisticMessage]));
+      authorityApplyOptimistic(streamRoomId, optimisticMessage);
       stickToBottomRef.current = true;
       scrollMessengerToBottom({ reason: "own_message_append" });
       setBusy("send-sticker");
@@ -1128,7 +1120,7 @@ export function useMessengerRoomPhase2Controller() {
           messengerMonitorMessageRtt(streamRoomId, elapsed, "sticker");
         }
         if (!res.ok || !json.ok) {
-          setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
+          authorityFailOptimistic(streamRoomId, tempId);
           if (redirectIfMessengerAuthBlocked(res, json)) return;
           showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
           return;
@@ -1137,16 +1129,11 @@ export function useMessengerRoomPhase2Controller() {
         touchRecentStickerUrl(path);
         const confirmedSticker = json.message;
         if (confirmedSticker) {
-          setRoomMessages((prev) =>
-            mergeRoomMessages(
-              prev.filter((item) => item.id !== tempId),
-              [confirmedSticker]
-            )
-          );
+          authorityConfirmOptimistic(streamRoomId, confirmedSticker, clientMessageId);
           onMessengerOutboundConfirmed(confirmedSticker, clientMessageId);
           return;
         }
-        setRoomMessages((prev) => prev.map((item) => (item.id === tempId ? { ...item, pending: false } : item)));
+        authorityConfirmOptimistic(streamRoomId, { ...optimisticMessage, pending: false }, clientMessageId);
         void refresh(true);
         forgetRoomBootstrapClientFlightsAfterMutation();
       } finally {
@@ -1231,7 +1218,7 @@ export function useMessengerRoomPhase2Controller() {
         callKind: null,
         callStatus: null,
       };
-      setRoomMessages((prev) => mergeRoomMessages(prev, [optimisticMessage]));
+      authorityApplyOptimistic(streamRoomId, optimisticMessage);
       stickToBottomRef.current = true;
       scrollMessengerToBottom({ reason: "own_message_append" });
       setBusy("send-image");
@@ -1255,7 +1242,7 @@ export function useMessengerRoomPhase2Controller() {
           messengerMonitorMessageRtt(streamRoomId, elapsed, "image");
         }
         if (!res.ok || !json.ok) {
-          setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
+          authorityFailOptimistic(streamRoomId, tempId);
           if (redirectIfMessengerAuthBlocked(res, json)) return;
           showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
           return;
@@ -1263,16 +1250,11 @@ export function useMessengerRoomPhase2Controller() {
         bumpCommunityMessengerPresenceActivity("message_sent");
         const serverImageMsg = json.message;
         if (serverImageMsg) {
-          setRoomMessages((prev) =>
-            mergeRoomMessages(
-              prev.filter((item) => item.id !== tempId),
-              [serverImageMsg]
-            )
-          );
+          authorityConfirmOptimistic(streamRoomId, serverImageMsg);
           onMessengerOutboundConfirmed(serverImageMsg);
           return;
         }
-        setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
+        authorityFailOptimistic(streamRoomId, tempId);
         void refresh(true);
         forgetRoomBootstrapClientFlightsAfterMutation();
       } finally {
@@ -1342,7 +1324,7 @@ export function useMessengerRoomPhase2Controller() {
         fileMimeType: file.type || "application/octet-stream",
         fileSizeBytes: file.size,
       };
-      setRoomMessages((prev) => mergeRoomMessages(prev, [optimisticMessage]));
+      authorityApplyOptimistic(streamRoomId, optimisticMessage);
       stickToBottomRef.current = true;
       scrollMessengerToBottom({ reason: "own_message_append" });
       setBusy("send-file");
@@ -1366,7 +1348,7 @@ export function useMessengerRoomPhase2Controller() {
           messengerMonitorMessageRtt(streamRoomId, elapsed, "file");
         }
         if (!res.ok || !json.ok) {
-          setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
+          authorityFailOptimistic(streamRoomId, tempId);
           if (redirectIfMessengerAuthBlocked(res, json)) return;
           showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
           return;
@@ -1374,16 +1356,11 @@ export function useMessengerRoomPhase2Controller() {
         bumpCommunityMessengerPresenceActivity("message_sent");
         const serverFileMsg = json.message;
         if (serverFileMsg) {
-          setRoomMessages((prev) =>
-            mergeRoomMessages(
-              prev.filter((item) => item.id !== tempId),
-              [serverFileMsg]
-            )
-          );
+          authorityConfirmOptimistic(streamRoomId, serverFileMsg);
           onMessengerOutboundConfirmed(serverFileMsg);
           return;
         }
-        setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
+        authorityFailOptimistic(streamRoomId, tempId);
         void refresh(true);
         forgetRoomBootstrapClientFlightsAfterMutation();
       } finally {
@@ -1480,12 +1457,12 @@ export function useMessengerRoomPhase2Controller() {
         }
         setReplyToMessage((prev) => (prev?.id === messageId ? null : prev));
         setEditingMessage((prev) => (prev?.id === messageId ? null : prev));
-        setRoomMessages((prev) => prev.filter((item) => item.id !== messageId));
+        authorityApplyDelete(streamRoomId, messageId);
       } finally {
         setBusy(null);
       }
     },
-    [getRoomActionErrorMessage, redirectIfMessengerAuthBlocked, setEditingMessage, setReplyToMessage, setRoomMessages, streamRoomId]
+    [getRoomActionErrorMessage, redirectIfMessengerAuthBlocked, setEditingMessage, setReplyToMessage, streamRoomId]
   );
 
   const deleteRoomMessageForEveryone = useCallback(
@@ -1550,13 +1527,13 @@ export function useMessengerRoomPhase2Controller() {
           return;
         }
         if (Array.isArray(json.reactions)) {
-          setRoomMessages((prev) => prev.map((m) => (m.id === mid ? { ...m, reactions: json.reactions } : m)));
+          authorityApplyReaction(streamRoomId, mid, { reactions: json.reactions });
         }
       } finally {
         busy.delete(mid);
       }
     },
-    [getRoomActionErrorMessage, redirectIfMessengerAuthBlocked, setRoomMessages, streamRoomId]
+    [getRoomActionErrorMessage, redirectIfMessengerAuthBlocked, streamRoomId]
   );
 
   const deleteRoomMessage = useCallback(
@@ -1577,13 +1554,13 @@ export function useMessengerRoomPhase2Controller() {
           return;
         }
         setReplyToMessage((prev) => (prev?.id === messageId ? null : prev));
-        setRoomMessages((prev) => prev.filter((item) => item.id !== messageId));
+        authorityApplyDelete(streamRoomId, messageId);
         void refresh(true);
       } finally {
         setBusy(null);
       }
     },
-    [getRoomActionErrorMessage, redirectIfMessengerAuthBlocked, refresh, setReplyToMessage, setRoomMessages, streamRoomId, t]
+    [getRoomActionErrorMessage, redirectIfMessengerAuthBlocked, refresh, setReplyToMessage, streamRoomId, t]
   );
 
   const blockPeerFromMessage = useCallback(
