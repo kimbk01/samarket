@@ -10,11 +10,18 @@ import {
   getOwnerHubBadgeSnapshot,
 } from "@/lib/chats/owner-hub-badge-store";
 import { OWNER_HUB_BADGE_EMPTY } from "@/lib/chats/owner-hub-badge-types";
+import { clearBootstrapCache, primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
+import { roomSummaryCountsForBottomChat } from "@/lib/community-messenger/notifications/bottom-chat-live-room-count";
 import {
-  applyBottomChatLiveRoomCountDelta,
-  roomSummaryCountsForBottomChat,
-} from "@/lib/community-messenger/notifications/bottom-chat-live-room-count";
-import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
+  setLocalReadGuard,
+  clearLocalReadGuardsForTests,
+} from "@/lib/community-messenger/read/local-read-guard";
+import type { CommunityMessengerBootstrap, CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
+import {
+  __resetMessengerRoomUnreadAuthorityForTest,
+  applyMessengerRoomUnreadFactAndSyncBottom,
+  recountBottomChatUnreadRoomCount,
+} from "@/lib/community-messenger/unread/messenger-room-unread-authority";
 
 function room(
   partial: Partial<CommunityMessengerRoomSummary> & { id: string },
@@ -38,6 +45,10 @@ function room(
     domainIdentity: null,
     ...rest,
   } as CommunityMessengerRoomSummary;
+}
+
+function boot(chats: CommunityMessengerRoomSummary[]): CommunityMessengerBootstrap {
+  return { chats, groups: [] } as unknown as CommunityMessengerBootstrap;
 }
 
 describe("roomSummaryCountsForBottomChat", () => {
@@ -66,13 +77,16 @@ describe("roomSummaryCountsForBottomChat", () => {
   });
 });
 
-describe("applyBottomChatLiveRoomCountDelta", () => {
+describe("messenger-room-unread-authority Bottom recount", () => {
   afterEach(() => {
     __resetOwnerHubBadgeStoreForTest();
     __resetDomainListProjectionsForTest();
+    __resetMessengerRoomUnreadAuthorityForTest();
+    clearLocalReadGuardsForTests();
+    clearBootstrapCache();
   });
 
-  it("bumps +1 for GD room 0→>0 via domain list projection", () => {
+  it("absolute recount sets hub CM for GD room via domain projection", () => {
     __testApplyOwnerHubBadgePayloadForTest(
       { ok: true, ...OWNER_HUB_BADGE_EMPTY, communityMessengerUnread: 0, total: 0 },
       "network_fresh",
@@ -92,18 +106,17 @@ describe("applyBottomChatLiveRoomCountDelta", () => {
       ],
     });
 
-    expect(
-      applyBottomChatLiveRoomCountDelta({
-        roomId: "gd-1",
-        viewerUserId: "u1",
-        prevUnread: 0,
-        nextUnread: 2,
-      }),
-    ).toBe("bumped");
+    const out = applyMessengerRoomUnreadFactAndSyncBottom({
+      roomId: "gd-1",
+      viewerUserId: "u1",
+      unreadCount: 2,
+    });
+    expect(out.unreadCount).toBe(2);
+    expect(out.bottomRoomCount).toBe(1);
     expect(getOwnerHubBadgeSnapshot().communityMessengerUnread).toBe(1);
   });
 
-  it("does not bump for trade room 0→>0", () => {
+  it("does not count trade room toward Bottom", () => {
     __testApplyOwnerHubBadgePayloadForTest(
       { ok: true, ...OWNER_HUB_BADGE_EMPTY, communityMessengerUnread: 0, total: 0 },
       "network_fresh",
@@ -123,29 +136,54 @@ describe("applyBottomChatLiveRoomCountDelta", () => {
       ],
     });
 
-    expect(
-      applyBottomChatLiveRoomCountDelta({
-        roomId: "tr-1",
-        viewerUserId: "u1",
-        prevUnread: 0,
-        nextUnread: 3,
-      }),
-    ).toBe("skipped_domain");
+    applyMessengerRoomUnreadFactAndSyncBottom({
+      roomId: "tr-1",
+      viewerUserId: "u1",
+      unreadCount: 3,
+    });
     expect(getOwnerHubBadgeSnapshot().communityMessengerUnread).toBe(0);
   });
 
-  it("fail-closes when room Domain is unknown", () => {
-    expect(
-      applyBottomChatLiveRoomCountDelta({
-        roomId: "unknown-room",
-        viewerUserId: "u1",
-        prevUnread: 0,
-        nextUnread: 1,
-      }),
-    ).toBe("unknown_fail_closed");
+  it("excludes Domain-unknown from Bottom but still stores fact", () => {
+    __testApplyOwnerHubBadgePayloadForTest(
+      { ok: true, ...OWNER_HUB_BADGE_EMPTY, communityMessengerUnread: 5, total: 5 },
+      "network_fresh",
+    );
+    const out = applyMessengerRoomUnreadFactAndSyncBottom({
+      roomId: "unknown-room",
+      viewerUserId: "u1",
+      unreadCount: 1,
+    });
+    expect(out.hubSynced).toBe(false);
+    expect(getOwnerHubBadgeSnapshot().communityMessengerUnread).toBe(5);
+    expect(recountBottomChatUnreadRoomCount("u1")).toBe(0);
   });
 
-  it("decrements on >0→0 for GD room", () => {
+  it("counts GD via home bootstrap when domain projection empty", () => {
+    __testApplyOwnerHubBadgePayloadForTest(
+      { ok: true, ...OWNER_HUB_BADGE_EMPTY, communityMessengerUnread: 0, total: 0 },
+      "network_fresh",
+    );
+    primeBootstrapCache(
+      boot([
+        room({
+          id: "gd-home",
+          chatDomain: "general_direct",
+          unreadCount: 0,
+          lastMessageAt: "2026-01-02T00:00:00.000Z",
+        }),
+      ]),
+    );
+    applyMessengerRoomUnreadFactAndSyncBottom({
+      roomId: "gd-home",
+      viewerUserId: "u1",
+      unreadCount: 4,
+      lastMessageAt: "2026-01-02T00:00:00.000Z",
+    });
+    expect(getOwnerHubBadgeSnapshot().communityMessengerUnread).toBe(1);
+  });
+
+  it("decrements Bottom when GD unread clears to 0", () => {
     __testApplyOwnerHubBadgePayloadForTest(
       { ok: true, ...OWNER_HUB_BADGE_EMPTY, communityMessengerUnread: 2, total: 2 },
       "network_fresh",
@@ -164,14 +202,39 @@ describe("applyBottomChatLiveRoomCountDelta", () => {
         },
       ],
     });
-    expect(
-      applyBottomChatLiveRoomCountDelta({
-        roomId: "gd-2",
-        viewerUserId: "u1",
-        prevUnread: 1,
-        nextUnread: 0,
-      }),
-    ).toBe("bumped");
-    expect(getOwnerHubBadgeSnapshot().communityMessengerUnread).toBe(1);
+    applyMessengerRoomUnreadFactAndSyncBottom({
+      roomId: "gd-2",
+      viewerUserId: "u1",
+      unreadCount: 0,
+    });
+    expect(getOwnerHubBadgeSnapshot().communityMessengerUnread).toBe(0);
+  });
+
+  it("suppresses stale unread under local-read-guard", () => {
+    const ts = "2026-01-02T00:00:00.000Z";
+    setLocalReadGuard({ roomId: "gd-g", referenceLastMessageAt: ts, source: "manual" });
+    applyGeneralDirectListProjection({
+      chatDomain: "general_direct",
+      versionMs: 1,
+      items: [
+        {
+          roomId: "gd-g",
+          chatDomain: "general_direct",
+          domainIdentity: "general_direct:a:b",
+          unreadCount: 0,
+          lastMessageAt: ts,
+          title: "x",
+        },
+      ],
+    });
+    const out = applyMessengerRoomUnreadFactAndSyncBottom({
+      roomId: "gd-g",
+      viewerUserId: "u1",
+      unreadCount: 5,
+      lastMessageAt: ts,
+    });
+    expect(out.suppressed).toBe(true);
+    expect(out.unreadCount).toBe(0);
+    expect(out.bottomRoomCount).toBe(0);
   });
 });

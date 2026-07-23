@@ -113,10 +113,27 @@ describe("applyHomeListSummaryPatchUnread", () => {
     clearHomeListServerUnreadIncreaseForTests();
   });
 
-  it("summary_patch assigns unread directly without read guard interaction", () => {
+  it("summary_patch suppresses stale unread under local-read-guard", () => {
+    clearLocalReadGuardsForTests();
     const ts = "2026-01-02T00:00:00.000Z";
     setLocalReadGuard({ roomId: "r1", referenceLastMessageAt: ts, source: "manual" });
     const prev = room({ id: "r1", lastMessageAt: ts, unreadCount: 0 });
+    const out = applyHomeListSummaryPatchUnread(prev, 5);
+    expect(out.unreadCount).toBe(0);
+  });
+
+  it("summary_patch admits unread when lastMessageAt is newer than guard", () => {
+    clearLocalReadGuardsForTests();
+    setLocalReadGuard({
+      roomId: "r1",
+      referenceLastMessageAt: "2026-01-02T00:00:00.000Z",
+      source: "manual",
+    });
+    const prev = room({
+      id: "r1",
+      lastMessageAt: "2026-01-02T01:00:00.000Z",
+      unreadCount: 0,
+    });
     const out = applyHomeListSummaryPatchUnread(prev, 5);
     expect(out.unreadCount).toBe(5);
   });

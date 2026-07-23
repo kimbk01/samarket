@@ -7,8 +7,8 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { useNotificationSurface } from "@/contexts/NotificationSurfaceContext";
-import { applyBottomChatLiveRoomCountDelta } from "@/lib/community-messenger/notifications/bottom-chat-live-room-count";
 import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
+import { applyMessengerRoomUnreadFactAndSyncBottom } from "@/lib/community-messenger/unread/messenger-room-unread-authority";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
@@ -139,21 +139,22 @@ export function useCmParticipantsHubSync(
               bottom_badge_updated_ms: cmReceiveLatencyNow(),
               room_list_row_updated_ms: cmReceiveLatencyNow(),
             });
+            /** Single authority: guarded fact → bus list + Bottom GD+group absolute recount. */
+            const applied = applyMessengerRoomUnreadFactAndSyncBottom({
+              roomId: nextRoomId,
+              viewerUserId: userId,
+              unreadCount: nextUnread,
+              lastMessageAt: null,
+              versionMs: Date.now(),
+            });
             postCommunityMessengerBusEvent({
               type: "cm.room.summary_patch",
               roomId: nextRoomId,
               viewerUserId: userId,
-              unreadCount: nextUnread,
+              unreadCount: applied.unreadCount,
               at: Date.now(),
             });
             if (nextUnread <= prevUnread) {
-              /** >0→0 GD/group: immediate Bottom Chat −1; trade/SO / unknown fail-closed. */
-              applyBottomChatLiveRoomCountDelta({
-                roomId: nextRoomId,
-                viewerUserId: userId,
-                prevUnread,
-                nextUnread,
-              });
               requestMessengerHubBadgeResync("participant_unread_changed", {
                 roomId: nextRoomId,
                 participantUnreadDirection: "decrease",
@@ -161,13 +162,6 @@ export function useCmParticipantsHubSync(
               return;
             }
 
-            /** 0→>0 GD/group: immediate Bottom Chat +1; trade/SO excluded; unknown fail-closed. */
-            applyBottomChatLiveRoomCountDelta({
-              roomId: nextRoomId,
-              viewerUserId: userId,
-              prevUnread,
-              nextUnread,
-            });
             requestMessengerHubBadgeResync("participant_unread_changed", {
               roomId: nextRoomId,
               participantUnreadDirection: "increase",

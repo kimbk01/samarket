@@ -62,12 +62,13 @@ describe("cm-participant-hub-sync-lazy", () => {
 });
 
 describe("cm-participant-hub-sync increase path", () => {
-  it("wires Bottom Chat live delta (GD+group) and keeps resync", () => {
+  it("wires room unread authority absolute Bottom sync and keeps resync", () => {
     const src = readFileSync(
       join(process.cwd(), "lib/community-messenger/notifications/use-cm-participants-hub-sync.ts"),
       "utf8",
     );
-    expect(src).toContain("applyBottomChatLiveRoomCountDelta");
+    expect(src).toContain("applyMessengerRoomUnreadFactAndSyncBottom");
+    expect(src).not.toContain("applyBottomChatLiveRoomCountDelta");
     expect(src).toContain('participantUnreadDirection: "increase"');
     expect(src).toContain('participantUnreadDirection: "decrease"');
   });

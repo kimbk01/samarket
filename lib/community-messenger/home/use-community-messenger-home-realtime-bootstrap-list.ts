@@ -18,7 +18,11 @@ import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifi
 import { onCommunityMessengerBusEvent, type MessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { requestMessengerHomeListMergeFromHomeSummary } from "@/lib/community-messenger/request-messenger-home-list-merge-from-summary";
 import { resolveMessengerUnreadMerge } from "@/lib/community-messenger/consistency/messenger-consistency-merge";
-import { cmReadBadgeLog, setLocalReadGuard } from "@/lib/community-messenger/read/local-read-guard";
+import {
+  cmReadBadgeLog,
+  resolveUnreadWithLocalReadGuard,
+  setLocalReadGuard,
+} from "@/lib/community-messenger/read/local-read-guard";
 import {
   broadcastMessengerReconnectPreserveCrossTab,
   wireMessengerConsistencyCrossTabHandlers,
@@ -106,14 +110,20 @@ function tryConsumeBusLocalUnreadDuplicateAfterRead(roomId: string, unreadCount:
   return true;
 }
 
-/** `cm.room.summary_patch` — guard 없이 서버 unread 직접 반영 (기존 동작 유지) */
+/** `cm.room.summary_patch` — local-read-guard 통과 후 unread 반영 (읽음 후 stale 재등장 차단). */
 export function applyHomeListSummaryPatchUnread(
   room: CommunityMessengerRoomSummary,
   nextUnread: number | null
 ): CommunityMessengerRoomSummary {
-  if (nextUnread == null || room.unreadCount === nextUnread) return room;
+  if (nextUnread == null) return room;
   const prevUnread = Math.max(0, Math.floor(Number(room.unreadCount) || 0));
-  const unreadCount = Math.max(0, Math.floor(Number(nextUnread) || 0));
+  const guarded = resolveUnreadWithLocalReadGuard({
+    roomId: room.id,
+    incomingUnread: nextUnread,
+    incomingLastMessageAt: String(room.lastMessageAt ?? ""),
+  });
+  const unreadCount = guarded.unreadCount;
+  if (unreadCount === room.unreadCount) return room;
   if (unreadCount > prevUnread) {
     noteHomeListServerUnreadIncrease(room.id, unreadCount);
   }

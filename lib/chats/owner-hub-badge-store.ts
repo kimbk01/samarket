@@ -466,20 +466,18 @@ export function applyCommunityMessengerUnreadOptimistic(unread: number): void {
   /**
    * R1 QUARANTINED / dead — measurement 2026-07-23 removed sole product caller.
    * Kept as no-op export so accidental imports fail closed (no store write).
-   * Live 0→>0 room-count bump: use applyHubBadgeCmUnreadRoomCountDelta instead.
+   * Live Bottom Chat: use applyHubBadgeCmUnreadRoomCountAbsolute (room-count recount).
    */
   void unread;
 }
 
 /**
- * Bottom Chat room-count ±Δ via Phase H projection (optimistic).
- * Callers must filter GD+group only (`applyBottomChatLiveRoomCountDelta`).
- * Network resync remains authority. DO NOT: revive R1 · Bell · Native Call.
+ * Bottom Chat room-count absolute via Phase H projection (optimistic).
+ * Callers pass GD+group unread-room recount from messenger-room-unread-authority.
+ * Network resync remains authority. DO NOT: revive ±1 delta · R1 · Bell · Native Call.
  */
-export function applyHubBadgeCmUnreadRoomCountDelta(delta: number): void {
-  const d = Math.floor(Number(delta) || 0);
-  if (d === 0) return;
-  const nextCm = Math.max(0, Math.floor(Number(snapshot.communityMessengerUnread) || 0) + d);
+export function applyHubBadgeCmUnreadRoomCountAbsolute(roomCount: number): void {
+  const nextCm = Math.max(0, Math.floor(Number(roomCount) || 0));
   const next: OwnerHubBadgeBreakdown = {
     ...snapshot,
     communityMessengerUnread: nextCm,
