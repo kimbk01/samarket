@@ -1,32 +1,61 @@
 /**
- * Phase H — BottomNav Hub badge — single writer contract.
- * Target path from Phase B freeze. Not wired to owner-hub-badge-store yet.
+ * Phase H extension — BottomNav Hub badge single writer (slice-1 cutover).
+ * Product mutations funnel through applyHubBadgeProjection → registered store sink.
+ * DO NOT: delete R1 optimistic / R2 poll yet (measurement required) · Bell/AppIcon · Native Call.
  */
 
-import {
-  SURFACE_PROJECTION_NOT_WIRED,
-  type BadgeProjectionSnapshot,
-  type SurfaceProjectionApplyResult,
+import type { OwnerHubBadgeBreakdown } from "@/lib/chats/owner-hub-badge-types";
+import type {
+  HubBadgeProjectionSourceKind,
+  SurfaceProjectionApplyResult,
 } from "@/lib/chat-domain/projections/surface-projection-types";
 
-let lastHub: BadgeProjectionSnapshot | null = null;
+export type HubBadgeProjectionSnapshot = {
+  breakdown: OwnerHubBadgeBreakdown;
+  versionMs: number;
+  source: HubBadgeProjectionSourceKind;
+  /** Convenience mirror of breakdown.total for readers. */
+  totalUnread: number;
+  /** Optional 4-domain split — fail-closed omit when unknown. */
+  byDomain?: Partial<
+    Record<"general_direct" | "group" | "trade" | "store_order", number>
+  >;
+};
 
-/** Read-only — product may subscribe later; until wire, returns last apply or null. */
-export function getHubBadgeProjection(): BadgeProjectionSnapshot | null {
+let lastHub: HubBadgeProjectionSnapshot | null = null;
+
+type HubBadgeProjectionSink = (snapshot: HubBadgeProjectionSnapshot) => void;
+
+let sink: HubBadgeProjectionSink | null = null;
+
+/** Store registers once at module load — avoids circular import. */
+export function registerHubBadgeProjectionSink(next: HubBadgeProjectionSink): void {
+  sink = next;
+}
+
+/** Read-only last apply (projection layer). UI still reads owner-hub-badge-store. */
+export function getHubBadgeProjection(): HubBadgeProjectionSnapshot | null {
   return lastHub;
 }
 
 /**
- * Sole Hub writer entry (contract). Cutover: replace optimistic/poll/fetch multi-writes
- * with this apply only. Phase H returns not_wired so legacy store stays authority.
+ * Sole Hub writer entry. Sources (fetch/poll/optimistic/broadcast/cache) must call this;
+ * the registered sink mutates owner-hub-badge-store.
  */
 export function applyHubBadgeProjection(
-  _snapshot: BadgeProjectionSnapshot,
+  snapshot: HubBadgeProjectionSnapshot,
 ): SurfaceProjectionApplyResult {
-  return { status: "not_wired", error: SURFACE_PROJECTION_NOT_WIRED };
+  lastHub = snapshot;
+  sink?.(snapshot);
+  return { status: "ok" };
 }
 
-/** Test / future cutover helper — not called from product in Phase H. */
-export function __applyHubBadgeProjectionForTests(snapshot: BadgeProjectionSnapshot): void {
+/** @internal vitest — set last without requiring sink. */
+export function __applyHubBadgeProjectionForTests(snapshot: HubBadgeProjectionSnapshot): void {
   lastHub = snapshot;
+}
+
+/** @internal vitest */
+export function __resetHubBadgeProjectionForTest(): void {
+  lastHub = null;
 }

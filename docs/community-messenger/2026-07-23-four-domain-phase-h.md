@@ -1,7 +1,7 @@
-# Phase H — Surface projection 1 writer (계약 · not_wired)
+# Phase H — Surface projection 1 writer
 
 **선행:** Phase G  
-**상태:** **PASS** · **STOP** (Phase I 승인 전)
+**상태:** **PASS (Hub slice-1 cutover)** · Bell/AppIcon/list `not_wired` · **STOP**
 
 ---
 
@@ -9,7 +9,7 @@
 
 | Surface | Writer 경로 | 상태 |
 |---------|-------------|------|
-| Hub | `lib/chat-domain/projections/hub-badge-projection.ts` | `not_wired` |
+| Hub | `lib/chat-domain/projections/hub-badge-projection.ts` | **`ok` (slice-1 wired)** |
 | Bell | `…/bell-badge-projection.ts` | `not_wired` |
 | App Icon | `…/app-icon-badge-projection.ts` | `not_wired` |
 | GD/group/trade/SO list | `lib/chat-domain/list/*-list-writer.ts` | `not_wired` |
@@ -17,44 +17,40 @@
 
 ---
 
-## 2. 범위 / 금지
+## 2. Hub slice-1 (이번 cutover)
+
+- `applyHubBadgeProjection` → `{ status: "ok" }`
+- snapshot: `OwnerHubBadgeBreakdown` + `versionMs` + `source` + `totalUnread`
+- `owner-hub-badge-store` 모든 apply(network/poll/optimistic/broadcast/cache) → projection → **registered sink**만 store mutate
+- R1 optimistic / R2 poll **소스 유지** (측정 전 삭제 금지)
+
+---
+
+## 3. 범위 / 금지
 
 | 함 | 안 함 |
 |----|------|
-| TARGET 경로에 단일 apply API 신설 | `owner-hub-badge-store` / bell / app-icon **실배선** |
-| quarantine 후보 문서화 (R1–R4) | optimistic/poll **실삭제** |
-| applyHomeListPatch KEEP | list writer cutover |
-| | REMOVE 셸 삭제 · Native Call · 뱃지 추측 패치 |
-
-**이유:** 7/14 이후 뱃지 multi-writer 추측 수정이 실패한 전례 — cutover는 **별도 승인 + 측정** 후.
+| Hub 단일 apply 실배선 | Bell / App Icon 실배선 |
+| store sink 등록 | Domain list / bootstrap cutover |
+| | R1–R4 **실삭제** |
+| | 7/14 trash 복원 · Native Call |
 
 ---
 
-## 3. Gate
+## 4. Gate
 
 | # | 조건 | 결과 |
 |---|------|------|
-| 1 | 7 writer 파일 존재 · apply → not_wired | PASS |
-| 2 | legacy store / applyHomeListPatch 미교체 | PASS |
-| 3 | REMOVE 실삭제 0 | PASS |
+| 1 | Hub apply → ok · Bell/AppIcon/list not_wired | PASS |
+| 2 | hub CM sync tests 회귀 | PASS |
+| 3 | R1–R4 미삭제 | PASS |
 | 4 | Native Call 0 | PASS |
-| 5 | `verify:chat-domain-file-lock` | PASS |
 
-**판정:** `PASS (contract)` · **STOP**
+**판정:** `PASS (Hub slice-1)` · **STOP**
 
 ---
 
-## 4. Phase I 킥오프 (승인 후만)
+## 5. 다음 (별도 승인)
 
-```text
-docs/community-messenger/2026-07-23-four-domain-phase-h.md 준수.
-Phase I만. 진입 경로 Domain별; 방 chrome 1단; Domain header/dock.
-Pass/Deferred REMOVE 실행 준비만·실삭제 금지. Native Call 금지. 끝나면 STOP.
-```
-
-## 5. Hub cutover (별도 승인 · H 연장 아님)
-
-```text
-applyHubBadgeProjection 실배선 + R1–R4 quarantine 증명.
-측정 없이 optimistic 제거 금지.
-```
+- Domain list cutover **또는** Hub R1–R4 제거(측정 필수)
+- Bell / App Icon cutover

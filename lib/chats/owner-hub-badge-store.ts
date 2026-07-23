@@ -78,6 +78,13 @@ import { logHubRefreshGuard, logMarkReadRefreshChain, logParticipantUnreadHubRef
 
 import { runDevSafeSingleFlight } from "@/lib/dev/dev-safe-dedupe";
 import { createTrailingCoalescedCallback } from "@/lib/http/coalesce-trailing-callback";
+import {
+  applyHubBadgeProjection,
+  registerHubBadgeProjectionSink,
+  __resetHubBadgeProjectionForTest,
+  type HubBadgeProjectionSnapshot,
+} from "@/lib/chat-domain/projections/hub-badge-projection";
+import type { HubBadgeProjectionSourceKind } from "@/lib/chat-domain/projections/surface-projection-types";
 
 
 
@@ -177,17 +184,7 @@ const CM_UNREAD_STALE_DOWNGRADE_GUARD_MS = 45_000;
 
 
 
-type HubBadgeApplySource =
-
-  | { kind: "network_fresh" }
-
-  | { kind: "network_plain" }
-
-  | { kind: "broadcast" }
-
-  | { kind: "client_cache" }
-
-  | { kind: "optimistic" };
+type HubBadgeApplySource = { kind: HubBadgeProjectionSourceKind };
 
 
 
@@ -380,29 +377,36 @@ function noteNetworkFreshCommunityMessengerUnread(cm: number): void {
 
 
 
+/**
+ * Funnel every hub surface write through Phase H applyHubBadgeProjection.
+ * Sink (below) owns stale-CM guard + emit.
+ */
 function applyOwnerHubBadgePayload(data: unknown, source: HubBadgeApplySource): void {
-
   const parsed = parseOwnerHubBadgeJson(data);
+  applyHubBadgeProjection({
+    breakdown: parsed,
+    versionMs: Date.now(),
+    source: source.kind,
+    totalUnread: Math.max(0, parsed.total),
+  });
+}
 
-  const next = guardStaleCommunityMessengerUnread(parsed, source);
-
-
+/** Projection sink — sole mutator of hub snapshot after cutover slice-1. */
+function sinkOwnerHubBadgeFromProjection(proj: HubBadgeProjectionSnapshot): void {
+  const source: HubBadgeApplySource = { kind: proj.source };
+  const next = guardStaleCommunityMessengerUnread(proj.breakdown, source);
 
   if (source.kind === "network_fresh" || source.kind === "optimistic") {
-
     noteNetworkFreshCommunityMessengerUnread(next.communityMessengerUnread);
-
   }
-
-
 
   if (sameOwnerHubBadge(snapshot, next)) return;
 
   snapshot = next;
-
   emit();
-
 }
+
+registerHubBadgeProjectionSink(sinkOwnerHubBadgeFromProjection);
 
 
 
@@ -2196,6 +2200,8 @@ export function __resetOwnerHubBadgeStoreForTest(): void {
   lastNetworkFreshCommunityMessengerUnreadAt = 0;
 
   clientHubBadgeResponseCache = null;
+
+  __resetHubBadgeProjectionForTest();
 
 }
 

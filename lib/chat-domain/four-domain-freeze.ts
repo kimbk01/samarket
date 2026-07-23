@@ -54,8 +54,8 @@ export function buildStoreOrderIdentity(
 }
 
 /**
- * Surface → 단일 writer 경로 (Phase H 신설 · apply는 not_wired until cutover).
- * verify:chat-domain-file-lock 이 이 목록을 freeze한다.
+ * Surface → 단일 writer 경로 (Phase H). Hub slice-1: applyHubBadgeProjection wired.
+ * Bell/AppIcon/list apply remain not_wired until cutover.
  */
 export const TARGET_SURFACE_WRITERS = {
   hubBadge: "lib/chat-domain/projections/hub-badge-projection.ts",

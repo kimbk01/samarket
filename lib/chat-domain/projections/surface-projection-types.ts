@@ -1,7 +1,7 @@
 /**
  * Phase H — Surface projection contracts (1 writer per surface).
- * Product stores remain multi-writer until cutover; these modules are the SSOT apply API.
- * DO NOT: wire hub/bell/app-icon stores yet · delete REMOVE · Native Call.
+ * Hub cutover (slice-1): applyHubBadgeProjection is wired; Bell/AppIcon stay not_wired.
+ * DO NOT: restore 7/14 Domain Authority trash · Native Call.
  * docs/community-messenger/2026-07-23-four-domain-phase-h.md
  */
 
@@ -15,6 +15,7 @@ export type SurfaceProjectionApplyResult = {
 
 export const SURFACE_PROJECTION_NOT_WIRED = "phase_h_surface_projection_not_wired" as const;
 
+/** Bell / App Icon — still not_wired until separate cutover. */
 export type BadgeProjectionSnapshot = {
   totalUnread: number;
   /** Optional per-domain breakdown — fail-closed omit when unknown. */
@@ -23,3 +24,11 @@ export type BadgeProjectionSnapshot = {
   >;
   versionMs: number;
 };
+
+/** Hub apply source — matches owner-hub-badge-store apply kinds. */
+export type HubBadgeProjectionSourceKind =
+  | "network_fresh"
+  | "network_plain"
+  | "broadcast"
+  | "client_cache"
+  | "optimistic";

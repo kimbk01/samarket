@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { applyAppIconBadgeProjection } from "@/lib/chat-domain/projections/app-icon-badge-projection";
 import { applyBellBadgeProjection } from "@/lib/chat-domain/projections/bell-badge-projection";
-import { applyHubBadgeProjection } from "@/lib/chat-domain/projections/hub-badge-projection";
+import {
+  applyHubBadgeProjection,
+  getHubBadgeProjection,
+  __resetHubBadgeProjectionForTest,
+} from "@/lib/chat-domain/projections/hub-badge-projection";
 import {
   PHASE_H_PROJECTION_WRITER_PATHS,
   PHASE_H_QUARANTINE_CANDIDATES,
@@ -11,22 +15,28 @@ import { applyGeneralDirectListProjection } from "@/lib/chat-domain/list/general
 import { applyGroupListProjection } from "@/lib/chat-domain/list/group-list-writer";
 import { applyStoreOrderListProjection } from "@/lib/chat-domain/list/store-order-list-writer";
 import { applyTradeListProjection } from "@/lib/chat-domain/list/trade-list-writer";
+import { OWNER_HUB_BADGE_EMPTY } from "@/lib/chats/owner-hub-badge-types";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 
-const snap = { totalUnread: 1, versionMs: 1 };
+const bellSnap = { totalUnread: 1, versionMs: 1 };
 
 describe("Phase H surface projection writers", () => {
-  it("badge writers exist and stay not_wired (no product cutover)", () => {
-    expect(applyHubBadgeProjection(snap)).toEqual({
+  it("Hub apply is wired (slice-1); Bell/AppIcon stay not_wired", () => {
+    __resetHubBadgeProjectionForTest();
+    const hubSnap = {
+      breakdown: { ...OWNER_HUB_BADGE_EMPTY, communityMessengerUnread: 2, total: 2 },
+      versionMs: 1,
+      source: "network_fresh" as const,
+      totalUnread: 2,
+    };
+    expect(applyHubBadgeProjection(hubSnap)).toEqual({ status: "ok" });
+    expect(getHubBadgeProjection()?.totalUnread).toBe(2);
+    expect(applyBellBadgeProjection(bellSnap)).toEqual({
       status: "not_wired",
       error: SURFACE_PROJECTION_NOT_WIRED,
     });
-    expect(applyBellBadgeProjection(snap)).toEqual({
-      status: "not_wired",
-      error: SURFACE_PROJECTION_NOT_WIRED,
-    });
-    expect(applyAppIconBadgeProjection(snap)).toEqual({
+    expect(applyAppIconBadgeProjection(bellSnap)).toEqual({
       status: "not_wired",
       error: SURFACE_PROJECTION_NOT_WIRED,
     });

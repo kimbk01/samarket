@@ -1,7 +1,8 @@
 /**
- * Freeze TARGET paths — Phase H files must exist (writers not_wired until cutover).
- * Re-export for file-lock / docs.
+ * Freeze TARGET paths — Phase H files must exist.
+ * Hub slice-1: applyHubBadgeProjection wired; Bell/AppIcon/list stay not_wired until cutover.
  */
+
 export const PHASE_H_PROJECTION_WRITER_PATHS = [
   "lib/chat-domain/projections/hub-badge-projection.ts",
   "lib/chat-domain/projections/bell-badge-projection.ts",
