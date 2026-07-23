@@ -7,12 +7,8 @@
 
 import type { CommunityMessengerBootstrap } from "@/lib/community-messenger/types";
 import { peekBootstrapCache, primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
-import { findHomeListRoomRow } from "@/lib/community-messenger/home-list-patch";
-import {
-  patchBootstrapRoomListForRealtimeMessageInsert,
-  patchBootstrapRoomListForSenderLocalEcho,
-  listPreviewFromMessengerMessageRow,
-} from "@/lib/community-messenger/home/patch-bootstrap-room-list-from-realtime-message";
+import { applyHomeListPatch, findHomeListRoomRow } from "@/lib/community-messenger/home-list-patch";
+import { listPreviewFromMessengerMessageRow } from "@/lib/community-messenger/home/patch-bootstrap-room-list-from-realtime-message";
 import { buildNotificationBadgeProjection } from "@/lib/notifications/build-notification-badge-projection";
 import { getNotificationBadgeCountSnapshot } from "@/lib/notifications/notification-badge-count-store";
 import {
@@ -106,6 +102,10 @@ export function roomSummaryToListState(
   }
 }
 
+/**
+ * Telegram list authority: hub session cache mirror MUST go through applyHomeListPatch only.
+ * DO NOT call patchBootstrapRoomList* / chats.map here.
+ */
 function mirrorListCacheAfterEvent(event: DomainRoomEvent): void {
   const cache = peekBootstrapCache();
   if (!cache) return;
@@ -117,64 +117,87 @@ function mirrorListCacheAfterEvent(event: DomainRoomEvent): void {
       created_at: event.lastMessageAt,
     };
     const next = event.boostUnread
-      ? patchBootstrapRoomListForRealtimeMessageInsert(cache, event.roomId, messageRow, {
-          boostUnreadCount: true,
-        })
-      : patchBootstrapRoomListForSenderLocalEcho(cache, event.roomId, {
-          lastMessage: event.previewText,
-          lastMessageType: event.lastMessageType as never,
-          lastMessageAt: event.lastMessageAt,
-        });
-    if (next !== cache) primeBootstrapCache(next);
+      ? applyHomeListPatch(
+          cache,
+          {
+            kind: "realtime_message_insert",
+            roomId: event.roomId,
+            messageRow,
+            boostUnreadCount: true,
+          },
+          "realtime"
+        )
+      : applyHomeListPatch(
+          cache,
+          {
+            kind: "sender_local_echo",
+            roomId: event.roomId,
+            preview: {
+              lastMessage: event.previewText,
+              lastMessageType: event.lastMessageType as never,
+              lastMessageAt: event.lastMessageAt,
+            },
+          },
+          "realtime"
+        );
+    if (next && next !== cache) primeBootstrapCache(next);
     return;
   }
   if (event.type === "read") {
-    const next = patchBootstrapRoomListForSenderLocalEcho(cache, event.roomId, null);
-    if (next !== cache) primeBootstrapCache(next);
+    const next = applyHomeListPatch(
+      cache,
+      { kind: "local_unread", roomId: event.roomId, unreadCount: 0 },
+      "mark-read"
+    );
+    if (next && next !== cache) primeBootstrapCache(next);
     return;
   }
   if (event.type === "snapshot") {
-    // Snapshot is seeded from bootstrap; list cache already holds authority for replace.
-    // Merge mode: patch unread/preview from store rooms onto cache rows.
-    let cur = cache;
+    let cur: CommunityMessengerBootstrap = cache;
     for (const room of event.rooms) {
       const existing = findHomeListRoomRow(cur, room.roomId);
       if (!existing) continue;
-      const preview = {
-        lastMessage: room.previewText,
-        lastMessageType: room.lastMessageType as never,
-        lastMessageAt: room.lastMessageAt,
-      };
-      const withPreview =
-        room.unreadCount > 0
-          ? patchBootstrapRoomListForRealtimeMessageInsert(
-              cur,
-              room.roomId,
-              {
-                id: `snapshot:${room.roomId}:${room.lastMessageAt}`,
-                content: room.previewText,
-                message_type: room.lastMessageType,
-                created_at: room.lastMessageAt,
-              },
-              { boostUnreadCount: false }
-            )
-          : patchBootstrapRoomListForSenderLocalEcho(cur, room.roomId, preview);
-      // Force unread from snapshot room
-      const row = findHomeListRoomRow(withPreview, room.roomId);
-      if (row && row.unreadCount !== room.unreadCount) {
-        const chats = (withPreview.chats ?? []).map((r) =>
-          String(r.id).toLowerCase() === normalizeDomainRoomId(room.roomId)
-            ? { ...r, unreadCount: room.unreadCount, lastMessage: room.previewText, lastMessageAt: room.lastMessageAt }
-            : r
+      if (room.unreadCount > 0) {
+        const patched = applyHomeListPatch(
+          cur,
+          {
+            kind: "realtime_message_insert",
+            roomId: room.roomId,
+            messageRow: {
+              id: `snapshot:${room.roomId}:${room.lastMessageAt}`,
+              content: room.previewText,
+              message_type: room.lastMessageType,
+              created_at: room.lastMessageAt,
+            },
+            boostUnreadCount: false,
+          },
+          "multi-tab"
         );
-        const groups = (withPreview.groups ?? []).map((r) =>
-          String(r.id).toLowerCase() === normalizeDomainRoomId(room.roomId)
-            ? { ...r, unreadCount: room.unreadCount, lastMessage: room.previewText, lastMessageAt: room.lastMessageAt }
-            : r
-        );
-        cur = { ...withPreview, chats, groups };
+        cur = patched ?? cur;
       } else {
-        cur = withPreview;
+        const patched = applyHomeListPatch(
+          cur,
+          {
+            kind: "sender_local_echo",
+            roomId: room.roomId,
+            preview: {
+              lastMessage: room.previewText,
+              lastMessageType: room.lastMessageType as never,
+              lastMessageAt: room.lastMessageAt,
+            },
+          },
+          "multi-tab"
+        );
+        cur = patched ?? cur;
+      }
+      const row = findHomeListRoomRow(cur, room.roomId);
+      if (row && row.unreadCount !== room.unreadCount) {
+        const unreadPatched = applyHomeListPatch(
+          cur,
+          { kind: "local_unread", roomId: room.roomId, unreadCount: room.unreadCount },
+          "multi-tab"
+        );
+        cur = unreadPatched ?? cur;
       }
     }
     if (cur !== cache) primeBootstrapCache(cur);

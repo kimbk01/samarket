@@ -83,6 +83,33 @@ const eslintConfig = defineConfig([
       "react-hooks/refs": "off",
     },
   },
+  /**
+   * Telegram list authority — dual-write paint path deleted; forbid resurrection via import.
+   */
+  {
+    files: ["**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "@/lib/chat-domain/list/dual-write-domain-list-from-rooms",
+              message:
+                "Deleted (Telegram list authority). Use Domain canary patch / applyHomeListPatch only.",
+            },
+          ],
+          patterns: [
+            {
+              group: ["**/dual-write-domain-list-from-rooms*"],
+              message:
+                "Deleted (Telegram list authority). Use Domain canary patch / applyHomeListPatch only.",
+            },
+          ],
+        },
+      ],
+    },
+  },
 ]);
 
 export default eslintConfig;

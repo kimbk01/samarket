@@ -23,7 +23,7 @@ describe("hub list remount blank-list lock", () => {
 
   it("viewer null must not clearBootstrapCache (Host remount wipe)", () => {
     const src = read("lib/community-messenger/home/bootstrap-cache-bus-writer.ts");
-    expect(src).toContain("DO NOT clearBootstrapCache() here");
+    expect(src).toContain("DO NOT call clearBootstrapCache on viewer null");
     expect(src).not.toMatch(/if \(!next\) \{\s*clearBootstrapCache\(\);/);
   });
 

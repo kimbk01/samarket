@@ -11,8 +11,6 @@ import {
   getDomainListProjection,
   __resetDomainListProjectionsForTest,
 } from "@/lib/chat-domain/list/domain-list-writers";
-import { dualWriteDomainListProjectionsFromRooms } from "@/lib/chat-domain/list/dual-write-domain-list-from-rooms";
-import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 
 describe("Phase D domain list bootstrap (slice-1 wired)", () => {
   it("requires supabase client (no silent not_wired stub)", async () => {
@@ -38,28 +36,9 @@ describe("Phase D domain list bootstrap (slice-1 wired)", () => {
     expect(item.domainIdentity.startsWith("gd:")).toBe(true);
   });
 
-  it("dual-write is quarantined no-op (trade/SO paint authority deleted)", () => {
+  it("dual-write module is deleted (trade/SO paint authority)", () => {
     __resetDomainListProjectionsForTest();
-    const rooms = [
-      {
-        id: "t1",
-        chatDomain: "trade",
-        domainIdentity: "trade:i:s:b",
-        unreadCount: 2,
-        lastMessageAt: "2026-01-01T00:00:00Z",
-        title: "Trade",
-        lastMessage: "hi",
-      },
-      {
-        id: "skip",
-        unreadCount: 1,
-        title: "No domain",
-      },
-    ] as unknown as CommunityMessengerRoomSummary[];
-    const r = dualWriteDomainListProjectionsFromRooms(rooms, 10);
-    expect(r.byDomain.trade).toBe(0);
-    expect(r.omitted).toBe(2);
-    expect(getDomainListProjection("trade")).toBeNull();
     expect(applyTradeListProjection({ chatDomain: "trade", items: [], versionMs: 11 }).status).toBe("ok");
+    expect(getDomainListProjection("trade")?.items).toEqual([]);
   });
 });

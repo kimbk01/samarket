@@ -31,7 +31,6 @@ export type SoCustomerListDto = {
  */
 
 const STORAGE_KEY_PREFIX = "samarket.messenger.domain-so-customer-list-canary.v1.";
-const SOFT_TTL_MS = 5 * 60 * 1000;
 
 type CacheEntry = { at: number; dto: SoCustomerListDto };
 
@@ -59,21 +58,6 @@ export function peekDomainStoreOrderCustomerListCanaryCache(
     return dto;
   } catch {
     return null;
-  }
-}
-
-export function isDomainStoreOrderCustomerListCanaryCacheFresh(
-  viewerUserId: string | null | undefined
-): boolean {
-  const uid = viewerUserId?.trim();
-  if (!uid || typeof window === "undefined") return false;
-  try {
-    const raw = sessionStorage.getItem(storageKey(uid));
-    if (!raw) return false;
-    const parsed = JSON.parse(raw) as CacheEntry;
-    return Boolean(parsed?.at) && Date.now() - parsed.at <= SOFT_TTL_MS;
-  } catch {
-    return false;
   }
 }
 

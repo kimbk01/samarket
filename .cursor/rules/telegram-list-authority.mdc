@@ -3,12 +3,14 @@ description: Telegram-style chat list authority file lock (3 surfaces)
 globs:
   - lib/community-messenger/home/use-community-messenger-home-bootstrap.ts
   - lib/community-messenger/home-list-patch.ts
-  - lib/chat-domain/list/dual-write-domain-list-from-rooms.ts
+  - lib/community-messenger/realtime/domain-room-state-store.ts
   - components/community-messenger/domain-shell-canary/DomainTradeListCanaryGate.tsx
   - components/community-messenger/domain-shell-canary/DomainStoreOrderCustomerListCanaryGate.tsx
   - components/community-messenger/domain-shell-canary/domain-list-canary-hub-prefetch.ts
   - components/community-messenger/domain-shell-canary/domain-list-canary-realtime-patch.ts
   - components/messenger/DomainRoomStateRealtimeHost.tsx
+  - components/community-messenger/MessengerSplitListPane.tsx
+  - components/community-messenger/MessengerPillarChatsSegment.tsx
 alwaysApply: false
 ---
 
@@ -22,16 +24,21 @@ alwaysApply: false
 방→리스트 remount (hydrated):
 
 - memory paint only
-- **금지:** `refresh(true)` silent · critical_patch→partial_upsert · Gate TTL remount fetch · prefetch always-revalidate · CM dual-write trade/SO paint · full replace
+- **금지:** `refresh(true)` silent · Gate TTL remount fetch · prefetch always-revalidate · CM dual-write · hub raw `patchBootstrapRoomList*` / `chats.map` bypass · full replace
 
 Surface reducer 1개:
 
-- hub GD+group → `applyHomeListPatch` only
+- hub GD+group → `applyHomeListPatch` only (session mirror 포함)
 - trade / store_order → Domain canary + `domain-list-canary-realtime-patch` only
 
 ## DO NOT
 
-- remount 치유용 신규 cold/tip/dwell lock 추가
-- dual-write를 trade/SO list truth로 복원
+- `dual-write-domain-list-from-rooms` 파일·import 부활 (ESLint + verify FAIL)
+- QUARANTINED no-op 파일로 대체
+- remount 치유용 신규 cold/tip/dwell lock
 - MARK_READ/PARTICIPANT_UNREAD로 preview/LMA 쓰기
 - 서버 PATCH 실패 시 전체 list refetch
+- hydrated 리스트에 silent `refresh(true)` (home_sync tip rewrite)
+- `cm.home.social_sync` → `refresh(true)` (friends 는 `hydrateMessengerFriends`)
+- product hub paint 에 canonical/dual overlay (`source: "legacy"` 고정)
+- Host `noteBootstrapCacheBusWriterViewerUserId(null)` → `clearBootstrapCache`

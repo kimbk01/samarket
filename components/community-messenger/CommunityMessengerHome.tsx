@@ -626,17 +626,15 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   const dataRef = useRef(data);
   dataRef.current = data;
   /**
-   * Phase 3 — Canonical Projection READ cutover.
-   * flag `samarket:cm-home-projection-source` = legacy(기본) | canonical | dual.
-   * legacy 에서는 `homeListRenderData === data` (참조 동일)로 완전 무해.
-   * canonical/dual 에서만 목록(chats/groups) 표시 소스를 canonical store 로 교체한다.
-   * Writer/Realtime/구독은 여전히 `data` 만 사용(아래 homeRoomIds 등) — 구독·API 델타 0 유지.
+   * Telegram list authority: hub paint is always legacy bootstrap `data` (applyHomeListPatch).
+   * Phase3 canonical/dual overlay is a second paint SSOT — product list forces `legacy`.
+   * Writer/Realtime still use `data` (homeRoomIds 등).
    */
-  const { source: projectionSource, pillarScope: projectionPillarScope } = useMessengerHomeProjectionFlags();
+  const { pillarScope: projectionPillarScope } = useMessengerHomeProjectionFlags();
   const homeListRenderData = useMessengerHomeCanonicalListData({
     legacyData: data,
     dispatch: shadowDispatch,
-    source: projectionSource,
+    source: "legacy",
     pillarScope: projectionPillarScope,
   });
   useEffect(() => {
@@ -672,9 +670,11 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   }, []);
   useEffect(() => {
     return onCommunityMessengerBusEvent((ev) => {
-      if (ev.type === "cm.home.social_sync") void refresh(true);
+      if (ev.type !== "cm.home.social_sync") return;
+      /** Friends/requests only — do not silent-rewrite hydrated hub chat list. */
+      void hydrateMessengerFriends();
     });
-  }, [refresh]);
+  }, [hydrateMessengerFriends]);
   /** 발신 다이얼 `router.push` 동기 연타 방지 */
   const outgoingDialSyncGuardRef = useRef(false);
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
@@ -1045,8 +1045,9 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
 
   useEffect(() => {
     if (groupCreateStep !== "private_group") return;
-    void refresh(true);
-  }, [groupCreateStep, refresh]);
+    /** Friends for picker only — do not silent-rewrite hydrated hub list. */
+    void hydrateMessengerFriends();
+  }, [groupCreateStep, hydrateMessengerFriends]);
 
   useEffect(() => {
     if (joinTargetGroup) return;
@@ -1412,7 +1413,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
             t(result.mergedFromIncoming ? "cm_ui_friend_accept_success_snackbar" : "cm_ui_sent_friend_request"),
             { variant: "success" }
           );
-          void refresh(true);
+          void hydrateMessengerFriends();
           const roomId = result.directRoomId?.trim();
           if (roomId) {
             void navigateGeneralFriendRoom(roomId);
@@ -1425,7 +1426,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         setBusyId(null);
       }
     },
-    [navigateGeneralFriendRoom, refresh, t]
+    [hydrateMessengerFriends, navigateGeneralFriendRoom, t]
   );
 
   const resolvePeerBlockedState = useCallback(
@@ -1481,7 +1482,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
               ? { ...prev, profile: { ...prev.profile, isFavoriteFriend: nextFavorite } }
               : prev
           );
-          void refresh(true);
           return;
         }
         if (
@@ -1502,7 +1502,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         setBusyId(null);
       }
     },
-    [getMessengerActionErrorMessage, messengerListPathname, refresh, router, setAuthRequired, setData, setPageError, t]
+    [getMessengerActionErrorMessage, messengerListPathname, router, setAuthRequired, setData, setPageError, t]
   );
 
   const toggleHiddenFriend = useCallback(
@@ -1545,13 +1545,12 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
               ? { ...prev, profile: { ...prev.profile, isHiddenFriend: nextHidden } }
               : prev
           );
-          void refresh(true);
         }
       } finally {
         setBusyId(null);
       }
     },
-    [refresh, setData]
+    [setData]
   );
 
   const toggleBlock = useCallback(
@@ -1573,7 +1572,8 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           if (isBlocked) {
             showMessengerSnackbar(t("cm_social_unblock_success"), { variant: "success" });
           }
-          void refresh(true);
+          /** Block changes room visibility — explicit non-silent reload (not silent tip rewrite). */
+          void refresh(false);
           void refreshFriendSearch(searchKeyword);
           return;
         }
@@ -1626,7 +1626,8 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; roomId?: string; error?: string };
       if (res.ok && json.ok && json.roomId) {
-        void refresh(true);
+        /** New room membership — explicit cold reload; silent hydrated skip must not apply. */
+        void refresh(false);
         resetGroupCreateDraft();
         setGroupCreateStep("closed");
         navigateToCommunityRoomWithViewer(json.roomId);
@@ -1692,7 +1693,8 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; roomId?: string; error?: string };
       if (res.ok && json.ok && json.roomId) {
-        void refresh(true);
+        /** New room membership — explicit cold reload; silent hydrated skip must not apply. */
+        void refresh(false);
         resetGroupCreateDraft();
         setGroupCreateStep("closed");
         navigateToCommunityRoomWithViewer(json.roomId);
@@ -1761,7 +1763,8 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; roomId?: string; error?: string };
       if (res.ok && json.ok && json.roomId) {
-        void refresh(true);
+        /** New room membership — explicit cold reload; silent hydrated skip must not apply. */
+        void refresh(false);
         closeJoinOpenGroupModal();
         closeHomeOverlay("public-group-find");
         navigateToCommunityRoomWithViewer(json.roomId);
@@ -2799,7 +2802,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         setRoomActionSheet(null);
       } else {
         setActionError(getMessengerActionErrorMessage(result.error ?? "leave_failed"));
-        void refresh(true);
+        void refresh(false);
       }
     } finally {
       setBusyId(null);

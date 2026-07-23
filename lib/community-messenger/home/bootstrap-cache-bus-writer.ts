@@ -62,11 +62,11 @@ export function noteBootstrapCacheBusWriterViewerUserId(viewerUserId: string | n
   activeViewerUserId = next;
   processedEventIds.clear();
   /**
-   * DO NOT clearBootstrapCache() here.
+   * DO NOT call clearBootstrapCache on viewer null.
    * DomainRoomStateRealtimeHost / BootstrapCacheSyncHost call this(null) on effect cleanup.
    * Host remount (Strict Mode, layout swap) was wiping the hub list session cache →
    * room→list return painted empty and memoryFresh skipped refetch.
-   * Logout / explicit pull-refresh must call clearBootstrapCache() themselves.
+   * Logout / explicit pull-refresh must clear the bootstrap cache themselves.
    */
 }
 

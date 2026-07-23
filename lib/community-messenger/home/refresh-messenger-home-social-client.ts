@@ -7,10 +7,10 @@ import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-
  *
  * W10 격리 (Runtime 증명 `W10_RUNTIME_EQUIVALENCE_CONFIRMED` — `.qa-logs/cm-w10-runtime-equivalence.json`):
  * 여기서는 `cm.home.social_sync` bus 만 발행한다.
- * - Home 마운트 시: W3(`CommunityMessengerHome` 리스너 → `refresh(true)` → `mergeHomeSyncIntoBootstrap`)가
- *   home-sync fetch / merge / cache prime 를 담당한다.
- * - Home 미마운트 시: Home 재진입 refresh 가 최종 catch-up 을 담당한다.
- * - Multi-tab: 다른 탭 Home 이 BroadcastChannel `social_sync` 를 받아 W3 로 반영한다.
+ * - Home 마운트 시: `CommunityMessengerHome` 리스너 → `hydrateMessengerFriends` 만
+ *   (채팅 리스트 silent `refresh(true)` 금지 — Telegram list authority).
+ * - Home 미마운트 시: 재진입 memory paint + RT; friends 는 해당 hydrate.
+ * - Multi-tab: 다른 탭 Home 이 BroadcastChannel `social_sync` 를 받아 friends hydrate.
  *
  * CONTRACT / DO NOT: 과거처럼 이 함수에서 `home-sync?fresh=1&tier=full` + `bootstrap?fresh=1` 을 직접 호출해
  * bootstrap cache 에 `partial_upsert` 하지 말 것 (W3 와 중복된 network/cache writer 였다 — W10).

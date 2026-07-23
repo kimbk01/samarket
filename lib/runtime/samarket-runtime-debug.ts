@@ -38,6 +38,8 @@ export type MessengerHomeDebugEvent =
   | "messenger_home_refresh_start"
   | "messenger_home_refresh_success"
   | "messenger_home_refresh_skip_non_silent_inflight"
+  /** Telegram list authority: skip silent home_sync tip rewrite when hub list already hydrated */
+  | "messenger_home_silent_skip_hydrated_list"
   | "messenger_home_warm_start"
   | "messenger_home_warm_skip_cached"
   /** critical tier prewarm 성공 — `warmMessengerListBootstrapClient` */
