@@ -582,7 +582,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
           }
           primeBootstrapCache(next);
           return next;
-        }, "bus");
+        }, "bus", { bypassRenderPause: true });
         if (missedList) scheduleHomeMissingRoomSummaryMerge(ev.roomId);
         else if (tradeRoomForLegacyUnreadResync) {
           scheduleHomeMissingRoomSummaryMerge(tradeRoomForLegacyUnreadResync);
@@ -664,7 +664,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
           }
           primeBootstrapCache(next);
           return next;
-        }, "bus");
+        }, "bus", { bypassRenderPause: true });
         if (missedSummary) scheduleHomeMissingRoomSummaryMerge(ev.roomId);
         return;
       }
@@ -752,7 +752,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
           }
           primeBootstrapCache(next);
           return next;
-        }, "bus");
+        }, "bus", { bypassRenderPause: true });
         if (missedRead) scheduleHomeMissingRoomSummaryMerge(ev.roomId);
         registerBusRoomReadUnreadZeroForDedupe(ev.roomId);
         return;

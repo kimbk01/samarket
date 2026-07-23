@@ -4,6 +4,7 @@ import {
   resolveNotificationSoundGateDomainFromRow,
   type NotificationSoundRowInput,
 } from "@/lib/notifications/notification-sound-event-key-from-row";
+import { shouldSkipNotificationInsertSoundForCmParticipant } from "@/lib/community-messenger/notifications/cm-participant-surface-sync";
 import {
   isNotificationDomain,
   type NotificationDomain,
@@ -110,6 +111,22 @@ export function routeNotificationInsertSound(row: Record<string, unknown>): bool
 
   const rowInput = rowInputFromRecord(row);
   const metaKind = (row.meta as { kind?: string; room_id?: string } | undefined)?.kind;
+  const metaAny = row.meta as { kind?: string; room_id?: string } | undefined;
+  const refId = typeof row.ref_id === "string" ? row.ref_id : null;
+  const roomRef =
+    metaAny?.room_id && typeof metaAny.room_id === "string" ? metaAny.room_id : refId;
+
+  /**
+   * CM participants Realtime 이 이미 인앱 음을 냈으면 notifications INSERT 중복음 스킵.
+   * (INSERT 가 participants 보다 늦게 도착해 "늦게 울림"으로 체감되는 경로)
+   */
+  const gateDomainEarly = resolveNotificationSoundGateDomainFromRow(rowInput);
+  if (
+    (gateDomainEarly == null || isCommunityChatSoundDomain(gateDomainEarly) || metaKind === "community_chat" || metaKind === "group_chat") &&
+    shouldSkipNotificationInsertSoundForCmParticipant(roomRef)
+  ) {
+    return false;
+  }
 
   if (metaKind === "community_group_invite") {
     const roomId = (row.meta as { room_id?: string } | undefined)?.room_id;
@@ -123,7 +140,6 @@ export function routeNotificationInsertSound(row: Record<string, unknown>): bool
     return false;
   }
 
-  const metaAny = row.meta as { kind?: string; room_id?: string } | undefined;
   if (metaAny?.kind === "group_chat" && typeof metaAny.room_id === "string") {
     if (!shouldPlayGroupChatInAppSoundFromGate(surface, metaAny.room_id)) {
       return false;
@@ -132,10 +148,7 @@ export function routeNotificationInsertSound(row: Record<string, unknown>): bool
     return true;
   }
 
-  const gateDomain = resolveNotificationSoundGateDomainFromRow(rowInput);
-  const refId = typeof row.ref_id === "string" ? row.ref_id : null;
-  const roomRef =
-    metaAny?.room_id && typeof metaAny.room_id === "string" ? metaAny.room_id : refId;
+  const gateDomain = gateDomainEarly;
 
   if (gateDomain === "community_group_chat") {
     if (!shouldPlayGroupChatInAppSoundFromGate(surface, roomRef)) {

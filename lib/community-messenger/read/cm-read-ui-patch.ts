@@ -1,6 +1,7 @@
 "use client";
 
 import { dispatchTradeChatUnreadUpdated } from "@/lib/chats/chat-channel-events";
+import { applyOptimisticUnreadZeroSurfaces } from "@/lib/community-messenger/notifications/cm-participant-surface-sync";
 import { patchRoomReadStateInSnapshotCache } from "@/lib/community-messenger/room-snapshot-cache";
 import { cmReadUiLog } from "@/lib/community-messenger/read/cm-read-ui-log";
 import { normalizeMessengerRealtimeRoomId } from "@/lib/community-messenger/stores/messenger-realtime-store";
@@ -8,8 +9,8 @@ import { normalizeMessengerRealtimeRoomId } from "@/lib/community-messenger/stor
 export type CmReadUiBadgePhase = "optimistic" | "patch_done";
 
 /**
- * 방 스냅샷 캐시·거래 허브 — mark_read 낙관/확정 공통 멱등 패치.
- * 홈 list unread 는 `applyHomeListPatch` / bus (`cm.room.read`) 경로만.
+ * 방 스냅샷 캐시·거래 허브·Bottom/list/banner — mark_read 낙관/확정 공통 멱등 패치.
+ * 홈 list React 는 bus (`cm.room.read` / summary_patch) + `bypassRenderPause`.
  */
 export function applyCmReadUiBadgeZero(args: {
   roomId: string;
@@ -25,6 +26,17 @@ export function applyCmReadUiBadgeZero(args: {
   if (!rid || !vid) return;
 
   patchRoomReadStateInSnapshotCache({ roomId: rid, viewerUserId: vid, unreadCount: 0 });
+
+  if (args.phase === "optimistic") {
+    applyOptimisticUnreadZeroSurfaces({
+      roomId: rid,
+      viewerUserId: vid,
+      prevUnreadHint:
+        typeof args.beforeUnread === "number" && Number.isFinite(args.beforeUnread)
+          ? Math.max(0, Math.floor(args.beforeUnread))
+          : undefined,
+    });
+  }
 
   const postId = args.postId ?? null;
   const productChatId = args.productChatId ?? null;

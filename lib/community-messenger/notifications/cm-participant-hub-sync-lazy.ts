@@ -2,7 +2,10 @@ import type { RefObject } from "react";
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import type { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { useNotificationSurface } from "@/contexts/NotificationSurfaceContext";
-import type { CmParticipantUnreadFullEffectsArgs } from "@/lib/community-messenger/notifications/cm-participant-unread-full-effects";
+import {
+  applyCmParticipantUnreadFullEffects,
+  type CmParticipantUnreadFullEffectsArgs,
+} from "@/lib/community-messenger/notifications/cm-participant-unread-full-effects";
 
 type TranslateFn = ReturnType<typeof useI18n>["t"];
 
@@ -24,9 +27,10 @@ export function prefetchRoomSnapshotLazy(roomId: string): void {
   });
 }
 
-/** full playback only — dynamic import of sound/banner/desktop graph */
+/**
+ * sound·banner — 정적 import 동기 호출 (Bottom/list 와 같은 턴).
+ * (이전 dynamic import 는 청크 로드만큼 알림음이 늦어짐)
+ */
 export function scheduleParticipantUnreadFullEffects(args: ScheduleParticipantUnreadFullEffectsArgs): void {
-  void import("@/lib/community-messenger/notifications/cm-participant-unread-full-effects").then((mod) => {
-    mod.applyCmParticipantUnreadFullEffects(args);
-  });
+  applyCmParticipantUnreadFullEffects(args);
 }

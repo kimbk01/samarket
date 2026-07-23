@@ -38,7 +38,7 @@ describe("cm-participant-hub-sync-lazy", () => {
     });
   });
 
-  it("scheduleParticipantUnreadFullEffects dynamic-imports full effects module", async () => {
+  it("scheduleParticipantUnreadFullEffects calls full effects synchronously", async () => {
     fullEffectsMock.mockClear();
     const { scheduleParticipantUnreadFullEffects } = await import(
       "@/lib/community-messenger/notifications/cm-participant-hub-sync-lazy"
@@ -55,9 +55,7 @@ describe("cm-participant-hub-sync-lazy", () => {
       routerRef: { current: { push: vi.fn(), replace: vi.fn() } as unknown as AppRouterInstance },
     };
     scheduleParticipantUnreadFullEffects(args);
-    await vi.waitFor(() => {
-      expect(fullEffectsMock).toHaveBeenCalledWith(args);
-    });
+    expect(fullEffectsMock).toHaveBeenCalledWith(args);
   });
 });
 
@@ -73,6 +71,8 @@ describe("cm-participant-hub-sync increase path", () => {
     expect(src).not.toContain("applyBottomChatLiveRoomCountDelta");
     expect(src).toContain('participantUnreadDirection: "increase"');
     expect(src).toContain('participantUnreadDirection: "decrease"');
+    expect(src).toContain("logCmSurfaceSync");
+    expect(src).toContain("dismissMessengerInAppBannerForRoom");
   });
 });
 

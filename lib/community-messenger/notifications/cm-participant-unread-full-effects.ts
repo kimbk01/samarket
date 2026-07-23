@@ -2,7 +2,7 @@
 
 /**
  * participants unread 증가 — full playback 전용 (sound·banner·desktop·nav).
- * `use-cm-participants-hub-sync` 에서 dynamic import 로만 로드한다.
+ * hub-sync 와 같은 턴에서 동기 호출한다 (dynamic import 금지 — 음 지연 원인).
  */
 
 import type { RefObject } from "react";
@@ -21,6 +21,10 @@ import {
   messengerRolloutUsesSurfaceAndVisibilityForSound,
 } from "@/lib/community-messenger/notifications/messenger-notification-rollout";
 import { useMessengerRoomReaderStateStore } from "@/lib/community-messenger/notifications/messenger-room-reader-state-store";
+import {
+  logCmSurfaceSync,
+  noteCmParticipantSurfaceSoundHandled,
+} from "@/lib/community-messenger/notifications/cm-participant-surface-sync";
 import { playCoalescedChatNotificationSound } from "@/lib/notifications/coalesced-chat-alert-sound";
 import { shouldSuppressMessengerInAppSoundOnTradeExplorationSurface } from "@/lib/notifications/samarket-messenger-notification-regulations";
 import {
@@ -89,6 +93,9 @@ export function applyCmParticipantUnreadFullEffects(args: CmParticipantUnreadFul
     routerRef,
   } = args;
 
+  const t0 = typeof performance !== "undefined" ? performance.now() : Date.now();
+  let sound_schedule_ms: number | null = null;
+  let banner_ms: number | null = null;
   const onNavigateToRoom = (roomId: string) => navigateToCommunityRoomLazy(routerRef, pathnameRef, roomId);
 
   if (!messengerRolloutUsesSurfaceAndVisibilityForSound()) {
@@ -96,6 +103,7 @@ export function applyCmParticipantUnreadFullEffects(args: CmParticipantUnreadFul
     const visOk = typeof document !== "undefined" && document.visibilityState === "visible";
     const focusOk = typeof document === "undefined" || document.hasFocus();
     if (sameRoomPath && visOk && focusOk) {
+      noteCmParticipantSurfaceSoundHandled(nextRoomId);
       requestMessengerHubBadgeResync("participant_unread_changed", {
         roomId: nextRoomId,
         participantUnreadDirection: "increase",
@@ -107,6 +115,9 @@ export function applyCmParticipantUnreadFullEffects(args: CmParticipantUnreadFul
         `community-messenger:${nextRoomId}:${prevUnread}->${nextUnread}:${Date.now()}`,
         "community_direct_chat"
       );
+      noteCmParticipantSurfaceSoundHandled(nextRoomId);
+      sound_schedule_ms =
+        typeof performance !== "undefined" ? Math.round(performance.now() - t0) : 0;
     }
     tryShowMessengerWebDesktopNotification({
       roomId: nextRoomId,
@@ -124,6 +135,17 @@ export function applyCmParticipantUnreadFullEffects(args: CmParticipantUnreadFul
     requestMessengerHubBadgeResync("participant_unread_changed", {
       roomId: nextRoomId,
       participantUnreadDirection: "increase",
+    });
+    logCmSurfaceSync({
+      phase: "participant_increase",
+      roomId: nextRoomId,
+      t0,
+      bottom_ms: 0,
+      list_cache_ms: 0,
+      sound_schedule_ms,
+      banner_ms: null,
+      unread: nextUnread,
+      prevUnread,
     });
     return;
   }
@@ -153,9 +175,14 @@ export function applyCmParticipantUnreadFullEffects(args: CmParticipantUnreadFul
 
   const allowSound =
     playInAppMessageSound && !shouldSuppressMessengerInAppSoundOnTradeExplorationSurface(pathnameRef.current);
+  if (dedupeKey) {
+    noteCmParticipantSurfaceSoundHandled(nextRoomId);
+  }
   if (dedupeKey && allowSound) {
     cmReceiveLatencyMark(key, { notification_sound_start_ms: cmReceiveLatencyNow() });
     playCoalescedChatNotificationSound(dedupeKey, "community_direct_chat");
+    sound_schedule_ms =
+      typeof performance !== "undefined" ? Math.round(performance.now() - t0) : 0;
   }
   if (messengerRolloutShowsInAppMessageBanner() && dedupeKey && showAppLevelBanner) {
     useMessengerInAppMessageBannerStore.getState().pushOrMerge({
@@ -164,6 +191,7 @@ export function applyCmParticipantUnreadFullEffects(args: CmParticipantUnreadFul
       preview: tRef.current("notify_messenger_new_message_arrived"),
       dedupeKey,
     });
+    banner_ms = typeof performance !== "undefined" ? Math.round(performance.now() - t0) : 0;
   }
   cmReceiveLatencyMark(key, { push_decision_ms: cmReceiveLatencyNow() });
   tryShowMessengerWebDesktopNotification({
@@ -182,5 +210,16 @@ export function applyCmParticipantUnreadFullEffects(args: CmParticipantUnreadFul
   requestMessengerHubBadgeResync("participant_unread_changed", {
     roomId: nextRoomId,
     participantUnreadDirection: "increase",
+  });
+  logCmSurfaceSync({
+    phase: "participant_increase",
+    roomId: nextRoomId,
+    t0,
+    bottom_ms: 0,
+    list_cache_ms: 0,
+    sound_schedule_ms,
+    banner_ms,
+    unread: nextUnread,
+    prevUnread,
   });
 }

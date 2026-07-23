@@ -32,6 +32,10 @@ import {
 export type { MessageNotificationBridgePlayback } from "@/lib/community-messenger/notifications/cm-participant-notification-types";
 
 import {
+  dismissMessengerInAppBannerForRoom,
+  logCmSurfaceSync,
+} from "@/lib/community-messenger/notifications/cm-participant-surface-sync";
+import {
   prefetchRoomSnapshotLazy,
   scheduleParticipantUnreadFullEffects,
 } from "@/lib/community-messenger/notifications/cm-participant-hub-sync-lazy";
@@ -39,8 +43,7 @@ import {
 const MESSAGE_NOTIFICATION_ROOM_BUMP_MIN_GAP_MS = 260;
 
 /**
- * participants Realtime + hub sync (badge·bump·bus) — static graph only.
- * full playback(sound·banner·desktop)는 dynamic import(`cm-participant-unread-full-effects`).
+ * participants Realtime + hub sync (badge·bump·bus·sound·banner) — 같은 턴 동기 반영.
  */
 export function useCmParticipantsHubSync(
   enabled = true,
@@ -134,18 +137,13 @@ export function useCmParticipantsHubSync(
             const nextUnread = getParticipantUnreadCount((payload.new ?? null) as ParticipantRealtimeRow | null);
             const prevUnread = getParticipantUnreadCount((payload.old ?? null) as ParticipantRealtimeRow | null);
             if (!nextRoomId) return;
+            const t0 = typeof performance !== "undefined" ? performance.now() : Date.now();
             const key = cmReceiveLatencyKey({ roomId: nextRoomId, messageId: null });
             cmReceiveLatencyMark(key, {
               realtime_event_received_ms: cmReceiveLatencyNow(),
               realtime_payload_room_id: nextRoomId,
               realtime_payload_message_id: "",
               receiver_store_apply_start_ms: cmReceiveLatencyNow(),
-            });
-            cmReceiveLatencyMark(key, {
-              receiver_store_apply_done_ms: cmReceiveLatencyNow(),
-              unread_delta_applied_ms: cmReceiveLatencyNow(),
-              bottom_badge_updated_ms: cmReceiveLatencyNow(),
-              room_list_row_updated_ms: cmReceiveLatencyNow(),
             });
             /** Single authority: participant_rt fact (empty LMA must not suppress) → list + Bottom. */
             const homeLma = findHomeListRoomRow(peekBootstrapCache(), nextRoomId)?.lastMessageAt;
@@ -159,6 +157,8 @@ export function useCmParticipantsHubSync(
               versionMs: Date.now(),
               source: "participant_rt",
             });
+            const bottom_ms =
+              typeof performance !== "undefined" ? Math.round(performance.now() - t0) : 0;
             const summaryPatch = {
               type: "cm.room.summary_patch" as const,
               roomId: nextRoomId,
@@ -173,7 +173,29 @@ export function useCmParticipantsHubSync(
              * Host 가 같은 eventId 를 다시 받으면 duplicate skip.
              */
             applyBootstrapCacheBusEvent(summaryPatch, userId, "cm-participants-hub-sync");
+            const list_cache_ms =
+              typeof performance !== "undefined" ? Math.round(performance.now() - t0) : 0;
+            cmReceiveLatencyMark(key, {
+              receiver_store_apply_done_ms: cmReceiveLatencyNow(),
+              unread_delta_applied_ms: cmReceiveLatencyNow(),
+              bottom_badge_updated_ms: cmReceiveLatencyNow(),
+              room_list_row_updated_ms: cmReceiveLatencyNow(),
+            });
             if (nextUnread <= prevUnread) {
+              dismissMessengerInAppBannerForRoom(nextRoomId);
+              const banner_ms =
+                typeof performance !== "undefined" ? Math.round(performance.now() - t0) : 0;
+              logCmSurfaceSync({
+                phase: "participant_decrease",
+                roomId: nextRoomId,
+                t0,
+                bottom_ms,
+                list_cache_ms,
+                sound_schedule_ms: null,
+                banner_ms,
+                unread: applied.unreadCount,
+                prevUnread,
+              });
               requestMessengerHubBadgeResync("participant_unread_changed", {
                 roomId: nextRoomId,
                 participantUnreadDirection: "decrease",
@@ -196,8 +218,7 @@ export function useCmParticipantsHubSync(
             prefetchRoomSnapshotLazy(nextRoomId);
 
             /**
-             * `hub_sync_only`(마켓·방 등)에서도 increase 시 full effects 를 돌린다.
-             * 같은 방·포커스 중 음소거는 `applyCmParticipantUnreadFullEffects` 가 담당.
+             * Bottom/list 와 같은 턴에서 sound·banner 동기 schedule.
              * notifications 테이블 INSERT 지연에 의존하지 않는다.
              */
             scheduleParticipantUnreadFullEffects({
@@ -210,6 +231,19 @@ export function useCmParticipantsHubSync(
               surfaceRef,
               tRef,
               routerRef,
+            });
+            const sound_schedule_ms =
+              typeof performance !== "undefined" ? Math.round(performance.now() - t0) : 0;
+            logCmSurfaceSync({
+              phase: "participant_increase",
+              roomId: nextRoomId,
+              t0,
+              bottom_ms,
+              list_cache_ms,
+              sound_schedule_ms,
+              banner_ms: null,
+              unread: applied.unreadCount,
+              prevUnread,
             });
           }
         );

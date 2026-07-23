@@ -1,8 +1,12 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useMessengerInAppMessageBannerStore } from "@/lib/community-messenger/notifications/messenger-in-app-banner-store";
 import { Sam } from "@/lib/ui/sam-component-classes";
+
+/** 인앱 메시지 배너 — 자동 소멸 (읽음 clear 와 별도 TTL) */
+const MESSENGER_IN_APP_BANNER_AUTO_DISMISS_MS = 4_000;
 
 /**
  * 앱 레벨 메시지 배너 — 통화 오버레이보다 낮은 z-index (`IncomingCallOverlay` 가 위).
@@ -12,6 +16,18 @@ export function MessengerInAppMessageBannerHost() {
   const router = useRouter();
   const banner = useMessengerInAppMessageBannerStore((s) => s.banner);
   const dismiss = useMessengerInAppMessageBannerStore((s) => s.dismiss);
+
+  useEffect(() => {
+    if (!banner) return;
+    const updatedAt = banner.updatedAt;
+    const elapsed = Date.now() - updatedAt;
+    const remain = Math.max(0, MESSENGER_IN_APP_BANNER_AUTO_DISMISS_MS - elapsed);
+    const t = window.setTimeout(() => {
+      const cur = useMessengerInAppMessageBannerStore.getState().banner;
+      if (cur && cur.updatedAt === updatedAt) dismiss();
+    }, remain);
+    return () => window.clearTimeout(t);
+  }, [banner, dismiss]);
 
   if (!banner) return null;
 

@@ -33,18 +33,17 @@ export function resolveMessagingGlobalChromeFromPath(
   const mountMainShellNotificationsRealtime = !f.isCommunityMessengerCallPage;
 
   /**
-   * 참가자 브리지(`useMessageNotificationBridge`) 재생 모드 — 경로별 분리.
-   * - 허브: `messengerSurface` 이고 `/community-messenger/rooms/[roomId]` 가 아님 → `full`.
-   * - 그 외(방·마켓 등): `hub_sync_only` — Realtime·뱃지·bump·list cache 동일.
-   *   unread increase 알림음은 participants 경로에서 즉시 schedule(같은 방 포커스만 음소거).
+   * 참가자 브리지 재생 모드 — 경로별 분리.
+   * - 허브: `full`.
+   * - 그 외: `hub_sync_only` (Realtime·뱃지·bump·list·increase 음 동일).
+   * 인앱 배너 호스트는 통화 화면 제외 전역 — 마켓에서도 participants 와 같은 턴에 표시.
    */
   const isCommunityMessengerHubPlayback = messengerSurface && !f.isCommunityMessengerRoom;
   const communityMessengerParticipantPlayback: MessageNotificationBridgePlayback =
     isCommunityMessengerHubPlayback ? "full" : "hub_sync_only";
 
-  /** 방 화면은 대화 UI가 주 표면 — 허브용 인앱 배너 호스트는 마운트하지 않는다. */
   const mountMessengerInAppBannerHost =
-    messengerRolloutShowsInAppMessageBanner() && isCommunityMessengerHubPlayback;
+    messengerRolloutShowsInAppMessageBanner() && !f.isCommunityMessengerCallPage;
 
   const stableKey = [
     f.mountGlobalRealtimeChrome ? "1" : "0",
