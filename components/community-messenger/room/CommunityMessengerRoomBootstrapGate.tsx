@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CommunityMessengerRoomClient } from "@/components/community-messenger/CommunityMessengerRoomClient";
-import { CommunityMessengerRoomStableEntryShell } from "@/components/community-messenger/room/CommunityMessengerRoomStableEntryShell";
+import { CommunityMessengerRoomEntryEmpty } from "@/components/community-messenger/room/CommunityMessengerRoomEntryEmpty";
 import { redirectResourceAccessDenied } from "@/lib/auth/resource-access-denied-flow";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { decodeCommunityMessengerRoomCmCtx } from "@/lib/community-messenger/cm-ctx-url";
@@ -13,13 +13,32 @@ import {
   canMountCommunityMessengerRoomClient,
   pickAuthoritativeMessengerRoomSnapshot,
 } from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
-import { isRoomSnapshotFresh } from "@/lib/community-messenger/room-snapshot-cache";
 import { prepareStoreOrderMessengerRoomEntryByRoomId } from "@/lib/store-order-chat/store-order-messenger-room-entry-client";
 import { inferInstantStoreOrderMessengerMyRole } from "@/lib/store-order-chat/infer-store-order-messenger-instant-role";
 
+/** TTL fresh 여부와 무관 — mountable cache면 즉시 실방. */
+function peekMountableEntrySnapshot(
+  roomId: string,
+  viewerUserId: string | undefined
+): CommunityMessengerRoomSnapshot | null {
+  const rid = roomId.trim();
+  const viewer = viewerUserId?.trim() ?? "";
+  if (!rid || !viewer) return null;
+  const cached = pickAuthoritativeMessengerRoomSnapshot({
+    roomId: rid,
+    viewerUserId: viewer,
+    serverSnapshot: null,
+  });
+  if (cached && canMountCommunityMessengerRoomClient(cached)) {
+    return cached;
+  }
+  return null;
+}
+
 /**
- * CM room URL 진입 — authoritative bootstrap complete 전 RoomClient 마운트 금지.
- * store order·배달·일반 DM·그룹(CM) 동일 계약.
+ * Warm/stale cache → 첫 paint RoomClient.
+ * Cold only → 「채팅방 입장 중…」 spinner + bootstrap.
+ * Cache hit 시 UI 유지한 채 background refresh.
  */
 export function CommunityMessengerRoomBootstrapGate({
   roomId,
@@ -44,8 +63,12 @@ export function CommunityMessengerRoomBootstrapGate({
     [cmCtx, searchParams]
   );
 
-  const [entrySnapshot, setEntrySnapshot] = useState<CommunityMessengerRoomSnapshot | null>(null);
-  const [bootstrapPending, setBootstrapPending] = useState(true);
+  const [entrySnapshot, setEntrySnapshot] = useState<CommunityMessengerRoomSnapshot | null>(() =>
+    peekMountableEntrySnapshot(roomId, viewerUserId)
+  );
+  const [bootstrapPending, setBootstrapPending] = useState(
+    () => !peekMountableEntrySnapshot(roomId, viewerUserId)
+  );
   const [entryError, setEntryError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -58,31 +81,36 @@ export function CommunityMessengerRoomBootstrapGate({
     }
 
     let cancelled = false;
-    setBootstrapPending(true);
     setEntryError(null);
-    setEntrySnapshot(null);
 
-    const viewer = viewerUserId?.trim() ?? "";
-    if (viewer) {
-      const cached = pickAuthoritativeMessengerRoomSnapshot({
-        roomId: rid,
-        viewerUserId: viewer,
-        serverSnapshot: null,
-      });
-      if (cached && isRoomSnapshotFresh(rid, viewer) && canMountCommunityMessengerRoomClient(cached)) {
-        setEntrySnapshot(cached);
-        setBootstrapPending(false);
-        return () => {
-          cancelled = true;
-        };
-      }
+    const cached = peekMountableEntrySnapshot(rid, viewerUserId);
+    if (cached) {
+      setEntrySnapshot(cached);
+      setBootstrapPending(false);
+      // background refresh — do not clear room to spinner
+      void (async () => {
+        const result = await prepareStoreOrderMessengerRoomEntryByRoomId(rid, {
+          instantContextMeta: cmCtx,
+          myRole: instantMyRole,
+          viewerUserId: viewerUserId?.trim() || undefined,
+        });
+        if (cancelled || !result.ok) return;
+        if (!canMountCommunityMessengerRoomClient(result.snapshot)) return;
+        setEntrySnapshot(result.snapshot);
+      })();
+      return () => {
+        cancelled = true;
+      };
     }
+
+    setBootstrapPending(true);
+    setEntrySnapshot(null);
 
     void (async () => {
       const result = await prepareStoreOrderMessengerRoomEntryByRoomId(rid, {
         instantContextMeta: cmCtx,
         myRole: instantMyRole,
-        viewerUserId: viewer || undefined,
+        viewerUserId: viewerUserId?.trim() || undefined,
       });
       if (cancelled) return;
       if (!result.ok) {
@@ -116,7 +144,12 @@ export function CommunityMessengerRoomBootstrapGate({
 
   if (bootstrapPending || !entrySnapshot || !canMountCommunityMessengerRoomClient(entrySnapshot)) {
     return (
-      <CommunityMessengerRoomStableEntryShell roomId={roomId} variant="entry" recordShellPaint={false} />
+      <CommunityMessengerRoomEntryEmpty
+        roomId={roomId}
+        recordShellPaint={false}
+        recordPass1Milestones
+        dataAttrs={{ "data-cm-room-pass1-stable-shell": "" }}
+      />
     );
   }
 

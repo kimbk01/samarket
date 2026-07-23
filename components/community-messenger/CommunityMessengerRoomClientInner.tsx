@@ -1,6 +1,5 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useMemo } from "react";
 import {
@@ -20,17 +19,10 @@ import { useMessengerRoomClientPhase1 } from "@/lib/community-messenger/room/use
 import { recordRouteEntryElapsedMetricOnce } from "@/lib/runtime/samarket-runtime-debug";
 import type { CommunityMessengerCallSession, CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { MessengerRoomPhase1TimelineHeavyHost } from "@/components/community-messenger/room/MessengerRoomPhase1TimelineHeavyHost";
-
-const CommunityMessengerRoomClientPhase2 = dynamic(
-  () =>
-    import("@/components/community-messenger/room/CommunityMessengerRoomPhase2").then(
-      (m) => m.CommunityMessengerRoomClientPhase2
-    ),
-  { ssr: false, loading: () => null }
-);
+/** Static Phase2 — dynamic loading:null 이 「입장 중」과 실방 사이 빈 화면 간섭을 만듦. */
+import { CommunityMessengerRoomClientPhase2 } from "@/components/community-messenger/room/CommunityMessengerRoomPhase2";
 import { MessengerRoomSwipeBackShell } from "@/components/community-messenger/room/MessengerRoomSwipeBackShell";
 import { noteR2M9Stage } from "@/lib/community-messenger/room/cm-room-r2-m9-entry-profile";
-import { noteTradeChatRoomInnerChunkEval } from "@/lib/trade/trade-chat-room-shell-breakdown-perf";
 import {
   noteR2M11FirstClientBoundary,
   noteR2M11Phase1Visible,

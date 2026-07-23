@@ -1,52 +1,21 @@
-# Phase I — Domain entry · chrome 1단 계약 (준비만)
+# Phase I — chrome 1단 cutover (fake shell 제거)
 
-**선행:** Phase H  
-**상태:** **PASS** · **STOP** (Phase J 승인 전)
+**상태:** cutover 적용 (2026-07-23)
 
----
+## 확인된 문제
+May~Jul 패치로 `ShellChromeFrame`(뒤로가기 없는 seed 헤더)가 overlay/layout/Gate/Pass0에 중첩 → 2단 진입. 3개월 전(2026-04)에는 해당 파일 없음.
 
-## 1. 산출
+## 제품 변경
+| 제거/비활성 | 대체 |
+|-------------|------|
+| layout z-0 LayoutInline ShellChromeFrame | 호스트 제거 |
+| OpeningOverlay ShellChromeFrame | `return null` (store만) |
+| Stable/RouteEntry ShellChromeFrame | `EntryEmpty` (bg only) |
+| Phase2 Pass0 + Pass1 Stable | Phase2Body 직행 |
+| RoomClient Inner loading RouteEntry | `null` |
 
-| 산출 | 경로 |
-|------|------|
-| Entry plan | `lib/chat-domain/room-chrome/domain-room-entry.ts` |
-| Single chrome plan | `…/domain-room-chrome.ts` |
-| Header/dock | `…/domain-room-header-dock.ts` (`not_wired`) |
-| REMOVE prep R5–R10 | `…/phase-i-remove-prep.ts` |
-| Tests | `lib/chat-domain/__tests__/four-domain-phase-i.test.ts` |
+첫 보이는 방 UI = `Phase2Body`(실제 헤더·뒤로가기·타임라인).
+Pass0Shell 파일은 잔존(호출 0에 가깝음) — J 삭제 후보.
 
----
-
-## 2. 범위 / 금지
-
-| 함 | 안 함 |
-|----|------|
-| Domain별 entry/chrome/header/dock **계약** | `CommunityMessengerRoomPhase2` / Pass 셸 **교체** |
-| REMOVE 후보 목록 + **파일 존재** 검증 | R5–R10 **실삭제** |
-| chromeMode=`legacy_multi_shell` 명시 | Native Call · hub cutover |
-
-제품 진입은 기존: `PageClientEntry` → `RouteEntryShell` → Gate → Pass0/1 → Stable → Body.
-
----
-
-## 3. Gate
-
-| # | 조건 | 결과 |
-|---|------|------|
-| 1 | entry/chrome/header/dock not_wired unit | PASS |
-| 2 | REMOVE 후보 파일 전부 존재 | PASS |
-| 3 | 제품 셸 트리 미변경 | PASS |
-| 4 | Native Call 0 | PASS |
-| 5 | `verify:chat-domain-file-lock` | PASS |
-
-**판정:** `PASS (contract)` · **STOP**
-
----
-
-## 4. Phase J 킥오프 (승인 후만)
-
-```text
-docs/community-messenger/2026-07-23-four-domain-phase-i.md 준수.
-Phase J만. Quarantine → 호출 0 증명 → 실삭제 → import-ban 강화.
-순서 변경 금지. Native Call·hub 추측 배선 금지. 끝나면 STOP.
-```
+## 비대상
+Hub/Bell/AppIcon · Native Call · Domain header/dock not_wired

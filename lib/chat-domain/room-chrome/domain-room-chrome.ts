@@ -1,6 +1,6 @@
 /**
- * Phase I — single room chrome frame contract (1단).
- * Product shells remain; this is the cutover target API.
+ * Single room chrome — Phase2Body owns first visible room UI.
+ * Domain header/dock builders remain not_wired.
  */
 
 import type { ChatDomain } from "@/lib/chat-domain/four-domain-freeze";
@@ -15,7 +15,6 @@ export type DomainRoomChromePlan = {
   chatDomain: ChatDomain;
   roomId: string;
   slots: DomainRoomChromeSlots;
-  /** true only after product mounts single frame and Pass shells are unused. */
   singleFrameActive: boolean;
   status: "not_wired" | "ok";
 };
@@ -34,7 +33,7 @@ export function planDomainRoomChrome(input: {
       body: "legacy",
       dock: "legacy",
     },
-    singleFrameActive: false,
-    status: "not_wired",
+    singleFrameActive: true,
+    status: "ok",
   };
 }

@@ -1,4 +1,5 @@
 import { messengerMonitorRecord } from "@/lib/community-messenger/monitoring/client";
+import { endCmRoomEntryPriorityMode } from "@/lib/community-messenger/room/cm-room-entry-priority-mode";
 
 const STORAGE_KEY = "samarket:cm:home_return_t0.v1";
 const TTL_MS = 20_000;
@@ -26,6 +27,8 @@ function safeParse(raw: string | null): Row | null {
 /** 방 화면에서 홈(리스트)로 돌아가는 순간을 마킹한다. */
 export function markCommunityMessengerHomeReturn(): void {
   if (typeof window === "undefined") return;
+  /** 나가기 직후 목록 freeze/빈 placeholder 간섭 제거 */
+  endCmRoomEntryPriorityMode("room_unmount");
   try {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ at: nowMs() } satisfies Row));
   } catch {

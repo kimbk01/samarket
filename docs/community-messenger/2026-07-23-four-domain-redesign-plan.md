@@ -241,15 +241,9 @@ commit → push → **Vercel Ready를 CLI/대시보드로 확인** (추정 금�
 
 ## 10. 즉시 다음 액션 (지금)
 
-1. ~~A~~ … ~~J-slice-1~~ · ~~K~~  
-2. **다음:** 사용자 승인 후 **Phase L만** (commit/push/Ready/기기 QA)  
-   · J-slice-2·hub cutover는 L과 **별도** (호출 잔존 시 삭제 금지)
-
-```text
-docs/community-messenger/2026-07-23-four-domain-phase-k.md 준수.
-Phase L만. commit→push→Vercel Ready 확인→기기 QA.
-추정 Ready 금지. Native Call 금지.
-```
+1. ~~A~~ … ~~K~~ · **I chrome cutover** (ShellChromeFrame first-paint 제거)
+2. **사용자:** `build && start`(dev 금지)로 2단 진입 재확인
+3. 잔여: J-slice-2(R5–R8 호출0 후 삭제) · hub cutover (별도)
 
 ---
 

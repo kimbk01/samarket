@@ -1,12 +1,10 @@
 "use client";
 
-import { memo, useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { memo, useEffect, useLayoutEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
-import { CommunityMessengerRoomShellChromeFrame } from "@/components/community-messenger/room/CommunityMessengerRoomShellChromeFrame";
 import { useCmRoomOpeningOverlayStore } from "@/lib/community-messenger/room/cm-room-opening-overlay-store";
 import {
   clearRoomEntryIntent,
-  getRoomEntryIntent,
   isRoomEntryInFlight,
 } from "@/lib/community-messenger/room/messenger-room-entry-intent";
 import { getActiveDeepRouteNavigationLock } from "@/lib/navigation/cm-deep-route-navigation-lock";
@@ -17,8 +15,10 @@ import {
 import { measureCmPassRenderCommit } from "@/lib/community-messenger/room/cm-room-pass-instrumentation";
 import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
 
-const OVERLAY_Z = "z-[125]";
-
+/**
+ * Pre-route overlay host — store/handoff only.
+ * DO NOT paint ShellChromeFrame (fake room without back). That was the first step of 2단 진입.
+ */
 export const CommunityMessengerRoomOpeningOverlayHost = memo(function CommunityMessengerRoomOpeningOverlayHost() {
   const pathname = usePathname();
   const isMessengerSplit = useIsMessengerSplitViewport();
@@ -30,11 +30,6 @@ export const CommunityMessengerRoomOpeningOverlayHost = memo(function CommunityM
   overlayPaintStartRef.current = typeof performance !== "undefined" ? performance.now() : 0;
 
   const active = Boolean(openingRoomId) && (phase === "overlay" || phase === "handoff");
-
-  const headerSeed = useMemo(() => {
-    if (!openingRoomId || !active) return null;
-    return getRoomEntryIntent(openingRoomId)?.seed ?? null;
-  }, [active, openingRoomId, phase]);
 
   useLayoutEffect(() => {
     if (!active || !openingRoomId) return;
@@ -73,28 +68,6 @@ export const CommunityMessengerRoomOpeningOverlayHost = memo(function CommunityM
     return () => window.clearTimeout(t);
   }, [phase, openingRoomId, reset]);
 
-  if (!active || !openingRoomId || isMessengerSplit) return null;
-
-  return (
-    <div
-      className={`pointer-events-none fixed inset-0 ${OVERLAY_Z} flex flex-col bg-[color:var(--cm-room-page-bg)] transition-opacity duration-150 ease-out ${
-        phase === "handoff" ? "opacity-0" : "opacity-100"
-      }`}
-      data-cm-pre-route-shell
-      data-cm-room-opening-overlay
-      data-opening-room-id={openingRoomId}
-      aria-hidden
-    >
-      <CommunityMessengerRoomShellChromeFrame
-        narrowViewport
-        headerSeed={headerSeed}
-        dataAttrs={{
-          "data-messenger-shell": "",
-          "data-cm-room": "",
-          "data-cm-room-pass0": "pre-route",
-        }}
-        className="min-h-0 flex-1"
-      />
-    </div>
-  );
+  // No DOM — list stays until real room mounts.
+  return null;
 });

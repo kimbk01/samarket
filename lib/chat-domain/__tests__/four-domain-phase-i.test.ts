@@ -11,20 +11,20 @@ import {
 } from "@/lib/chat-domain/room-chrome";
 
 describe("Phase I domain room chrome / entry", () => {
-  it("plans entry as not_wired legacy multi-shell", () => {
+  it("plans entry as single_frame after fake-shell removal", () => {
     const plan = planDomainRoomEntry({ chatDomain: "general_direct", roomId: "r1" });
     expect(plan).toMatchObject({
       href: "/community-messenger/rooms/r1",
-      chromeMode: "legacy_multi_shell",
-      status: "not_wired",
+      chromeMode: "single_frame",
+      status: "ok",
     });
   });
 
-  it("plans single-frame chrome as not_wired", () => {
+  it("plans single-frame chrome as active", () => {
     const chrome = planDomainRoomChrome({ chatDomain: "trade", roomId: "r1" });
     expect(chrome).toMatchObject({
-      singleFrameActive: false,
-      status: "not_wired",
+      singleFrameActive: true,
+      status: "ok",
       slots: { header: "legacy", body: "legacy", dock: "legacy" },
     });
   });

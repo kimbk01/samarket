@@ -337,14 +337,11 @@ export const CommunityMessengerHomeListPane = memo(function CommunityMessengerHo
 
   if (listFrozen) {
     if (frozenTreeRef.current) return frozenTreeRef.current;
-    return (
-      <div
-        className="relative min-h-[56dvh]"
-        data-cm-home-frame="true"
-        data-cm-home-frozen="true"
-        aria-hidden
-      />
-    );
+    /**
+     * DO NOT: empty min-h placeholder.
+     * 방→목록 복귀 시 Home 재마운트 + freeze 잔존이면 frozenTree 없이 흰 「목록 형태」만 보였음.
+     * freeze 스냅샷 없으면 정상 목록 렌더로 진행.
+     */
   }
 
   bumpMessengerRenderPerf("messenger_home_list_render");

@@ -125,14 +125,12 @@ export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Prop
   const requestAnimatedBack = useCallback(() => {
     if (committedNavRef.current || pendingNavRef.current) return;
     markCommunityMessengerHomeReturn();
-    if (reducedMotion || splitPaneMode) {
-      commitNavigation();
-      return;
-    }
-    pendingNavRef.current = true;
-    setPhase("exit-active");
-    setDragPx(0);
-  }, [commitNavigation, reducedMotion, splitPaneMode]);
+    /**
+     * exit-active 애니 후 navigate 하면 방 아래 흰 레이어가 먼저 보임(흰 목록 형태).
+     * 나가기: 방 → 목록 직행 (중간 빈 화면 금지).
+     */
+    commitNavigation();
+  }, [commitNavigation]);
 
   useEffect(() => {
     if (reducedMotion || splitPaneMode) {
