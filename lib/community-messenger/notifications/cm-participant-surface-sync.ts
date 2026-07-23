@@ -32,9 +32,9 @@ export type CmSurfaceSyncLog = {
 };
 
 export function logCmSurfaceSync(payload: CmSurfaceSyncLog): void {
-  // Always emit — surface desync 조사 SSOT (경량 payload).
+  // JSON 한 줄 — CDP `console.text()` 가 object 를 잘라 먹지 않게 한다.
   // eslint-disable-next-line no-console -- surface sync diagnostics
-  console.info("[cm-surface-sync]", payload);
+  console.info(`[cm-surface-sync] ${JSON.stringify(payload)}`);
 }
 
 export function noteCmParticipantSurfaceSoundHandled(roomId: string): void {
