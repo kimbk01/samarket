@@ -64,7 +64,7 @@ export function useCmParticipantsHubSync(
   const [userId, setUserId] = useState<string | null>(null);
   const roomBumpLastAtRef = useRef<Map<string, number>>(new Map());
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     routerRef.current = router;
     pathnameRef.current = pathname;
     surfaceRef.current = surface;

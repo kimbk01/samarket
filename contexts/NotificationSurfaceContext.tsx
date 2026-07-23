@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
 } from "react";
@@ -16,6 +17,7 @@ import {
   peekMeNotificationSettingsSnapshotCached,
 } from "@/lib/me/fetch-me-notification-settings-client";
 import { scheduleNotificationSettingsSnapshotDeferred } from "@/lib/http/startup-api-scheduler";
+import { noteCmParticipantSurfaceSoundHandled } from "@/lib/community-messenger/notifications/cm-participant-surface-sync";
 import {
   shouldPlayGroupChatInAppSoundFromGate,
   shouldPlayInAppSoundFromGate,
@@ -154,9 +156,17 @@ export function NotificationSurfaceProvider({ children }: { children: React.Reac
     };
   }, []);
 
-  /** 경로·명시 채팅방 진입 시 재생 중 알림음 종료 */
-  useEffect(() => {
-    if (activeTradeChatRoomId || activeCommunityChatRoomId) {
+  /**
+   * 방 URL 진입 직후(레이아웃): 재생 중 음 중지 + 늦은 INSERT/participant 중복음 차단.
+   * useEffect 는 paint 이후라 진입 프레임에 한 번 더 울릴 수 있음.
+   */
+  useLayoutEffect(() => {
+    if (activeCommunityChatRoomId) {
+      noteCmParticipantSurfaceSoundHandled(activeCommunityChatRoomId);
+      stopNotificationPlayback();
+      return;
+    }
+    if (activeTradeChatRoomId) {
       stopNotificationPlayback();
     }
   }, [activeTradeChatRoomId, activeCommunityChatRoomId]);

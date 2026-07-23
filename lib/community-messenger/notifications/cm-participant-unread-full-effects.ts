@@ -157,7 +157,12 @@ export function applyCmParticipantUnreadFullEffects(args: CmParticipantUnreadFul
   }
 
   const sfc = surfaceRef.current;
-  const activeRoom = sfc?.activeCommunityChatRoomId ?? null;
+  /**
+   * 현재 방 판정 — pathname 우선 (surfaceRef 는 useEffect 갱신 지연으로
+   * 방 진입 직후 1프레임 activeRoom=null → 알림음이 한 번 더 울리는 원인).
+   */
+  const pathActiveRoom = activeCommunityRoomIdFromPathname(pathnameRef.current);
+  const activeRoom = pathActiveRoom ?? sfc?.activeCommunityChatRoomId ?? null;
   const appVisibility = documentVisibilityToAppVisibility(visibilityRef.current);
   const settings = sfc?.userNotificationSettings;
   const suppressSound = !settings?.sound_enabled || settings?.community_chat_enabled === false;

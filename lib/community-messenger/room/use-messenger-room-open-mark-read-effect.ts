@@ -33,7 +33,6 @@ import { cmRtReadSyncLog } from "@/lib/community-messenger/read/cm-rt-read-sync-
 import { patchMessengerRoomReadSnapshotRuntime } from "@/lib/community-messenger/realtime/messenger-realtime-snapshot-runtime";
 import { recordRouteEntryElapsedMetric, recordRouteEntryMetric } from "@/lib/runtime/samarket-runtime-debug";
 import { noteTradeChatRoomReadEffectReadyForShellBreakdown } from "@/lib/trade/trade-chat-room-shell-breakdown-perf";
-import { scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
 import { messengerVerboseTraceConsoleEnabled } from "@/lib/community-messenger/messenger-trace-console";
 import type {
   CommunityMessengerMessage,
@@ -415,10 +414,15 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
       return typeof performance !== "undefined" ? Math.round(performance.now() - tAlign0) : 0;
     };
 
+    const notificationThreadReadInFlightRef = { current: false };
     const readRoomNotificationEventsAfterServerRead = (): boolean => {
-      if (notificationThreadReadDoneRef.current) return true;
-      notificationThreadReadDoneRef.current = true;
-      void postNotificationRoomRead(id);
+      if (notificationThreadReadDoneRef.current || notificationThreadReadInFlightRef.current) return true;
+      notificationThreadReadInFlightRef.current = true;
+      /** 성공 시에만 done — 실패 시 PATCH 경로에서 재시도 */
+      void postNotificationRoomRead(id).then((ok) => {
+        notificationThreadReadInFlightRef.current = false;
+        if (ok) notificationThreadReadDoneRef.current = true;
+      });
       return true;
     };
 
@@ -427,6 +431,15 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
       const snap = snapshotRef.current;
       const viewer = snap?.viewerUserId?.trim();
       if (!snap || String(snap.room.id) !== String(id) || !viewer) return;
+      const readableState = isRoomActuallyReadableState({
+        roomId: id,
+        snapshot: snap,
+        roomMessages: roomMessagesRef.current,
+        roomLoading: roomLoadingRef.current,
+        overlayBlocked: readPhase1OverlayBlockedRef.current,
+      });
+      /** 라우트 클릭만으로 읽음 금지 — bootstrap·메시지 렌더·활성 라우트 후에만 */
+      if (!readableState.readable) return;
       immediateOpenFlushDoneThisMount = true;
       const refLm = String(snap.room.lastMessageAt ?? "");
       setLocalReadGuard({ roomId: id, referenceLastMessageAt: refLm, source: "room_enter" });
@@ -440,6 +453,7 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
             if (json.ok === true) {
               refreshLocalReadGuardServerAck(id);
               const alignMs = applyOptimisticRoomRead(snap, tailId);
+              readRoomNotificationEventsAfterServerRead();
               dispatchOrderChatReadRefresh(id, json.role);
               cmReadBadgeLog("order_read_api_done", { roomId: id, path: "immediate_open", role: json.role ?? null });
               if (typeof performance !== "undefined" && unreadReadSyncRecordedRoomRef.current !== id) {
@@ -466,6 +480,8 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
       }
       cmReadBadgeLog("room_enter_optimistic_zero", { roomId: id, hasTail: Boolean(tailId) });
       const alignMs = applyOptimisticRoomRead(snap, tailId);
+      /** 종/알림 뱃지 — Bottom·list optimistic 과 같은 턴 (PATCH 대기 금지) */
+      readRoomNotificationEventsAfterServerRead();
       if (typeof performance !== "undefined") {
         messengerMonitorUnreadListSync(id, alignMs, "mark_read");
         if (unreadReadSyncRecordedRoomRef.current !== id) {
@@ -1000,15 +1016,25 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
         if (snapEarly && String(snapEarly.room.id) === String(id)) {
           tryEarlyOptimisticListBadgeClear(reason, candidate, snapEarly);
         }
+        /**
+         * 카톡·텔레그램형: 방 실제 오픈(initial)·하단 가시 수신은 고정 dwell 없이 즉시 flush.
+         * scroll/resize/focus 만 짧은 coalesce (연타 방지).
+         */
+        const immediateFlush =
+          reason === "initial-render" || reason === "incoming-visible";
+        if (immediateFlush) {
+          flushRoomReadAck(reason, candidate);
+          return;
+        }
         readAckDebounceTimer = setTimeout(() => {
           readAckDebounceTimer = null;
           if (cancelled) return;
-          const candidateAfterDwell = resolveReadCandidate(reason);
-          if (!candidateAfterDwell) {
+          const candidateAfter = resolveReadCandidate(reason);
+          if (!candidateAfter) {
             maybeRollbackEarlyOptimisticBadge("rollback");
             return;
           }
-          flushRoomReadAck(reason, candidateAfterDwell);
+          flushRoomReadAck(reason, candidateAfter);
         }, CM_MARK_READ_SCROLL_DEBOUNCE_MS);
       };
       if (typeof requestAnimationFrame === "function") {
@@ -1067,21 +1093,9 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
         ? "incoming-visible"
         : "initial-render";
 
-    /** 진입 직후 mark-read — UI 페인트·blocking bootstrap 이후 idle 에 실행 */
-    const deferMarkReadAfterPaint = (phase: "idle_scheduled" | "idle_run") => {
+    /** 진입 직후 mark-read — bootstrap 준비된 effect 시점에 즉시 (고정 idle/dwell 금지) */
+    const startMarkReadOnRoomReady = () => {
       if (cancelled) return;
-      if (phase === "idle_scheduled") {
-        // eslint-disable-next-line no-console -- mark-read defer diagnostics
-        console.log("[cm-mark-read-deferred]", {
-          roomId: id,
-          optimistic_applied: false,
-          server_patch_ms: null,
-          unread_recalc_deferred: true,
-          ui_blocking: false,
-          phase,
-        });
-        return;
-      }
       const patchStart = typeof performance !== "undefined" ? performance.now() : Date.now();
       runImmediateOpenFlushOnce();
       scheduleRoomReadAck(firstScheduleReason);
@@ -1090,23 +1104,21 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
         roomId: id,
         optimistic_applied: true,
         server_patch_ms: null,
-        unread_recalc_deferred: true,
+        unread_recalc_deferred: false,
         ui_blocking: false,
-        phase,
+        phase: "room_ready_immediate",
         deferred_ms: Math.round(
           (typeof performance !== "undefined" ? performance.now() : Date.now()) - patchStart
         ),
       });
     };
-    if (typeof window !== "undefined") {
+    if (typeof window !== "undefined" && typeof requestAnimationFrame === "function") {
+      /** 1 rAF: 메시지 viewport DOM 부착 직후 near-bottom/visible 판정 */
       requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          deferMarkReadAfterPaint("idle_scheduled");
-          scheduleWhenBrowserIdle(() => deferMarkReadAfterPaint("idle_run"), 160);
-        });
+        startMarkReadOnRoomReady();
       });
     } else {
-      deferMarkReadAfterPaint("idle_run");
+      startMarkReadOnRoomReady();
     }
     return () => {
       cancelled = true;

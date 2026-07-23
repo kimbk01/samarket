@@ -1,3 +1,4 @@
+/** @vitest-environment jsdom */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { adaptNotificationEventInsertToLegacyRow } from "@/lib/notifications/adapt-notification-event-realtime-row";
 import {
@@ -114,5 +115,23 @@ describe("notification-sound-gate", () => {
 
     expect(routed).toBe(false);
     expect(playEventNotificationSound).not.toHaveBeenCalled();
+  });
+
+  it("suppresses INSERT sound from window pathname when gate activeRoom is still null", () => {
+    const prevPath = window.location.pathname;
+    window.history.pushState({}, "", "/community-messenger/rooms/room-enter");
+    syncNotificationSoundGateSnapshot({ ...DEFAULT_GATE, activeCommunityChatRoomId: null });
+
+    const routed = routeNotificationInsertSound({
+      id: "evt-late-insert",
+      notification_type: "chat",
+      unread: true,
+      sound_suppressed_reason: null,
+      meta: { kind: "community_chat", room_id: "room-enter" },
+    });
+
+    expect(routed).toBe(false);
+    expect(playEventNotificationSound).not.toHaveBeenCalled();
+    window.history.pushState({}, "", prevPath || "/");
   });
 });

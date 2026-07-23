@@ -32,6 +32,18 @@ function isCommunityChatSoundDomain(domain: NotificationDomain): boolean {
   return domain === "community_chat" || domain === "community_direct_chat" || domain === "community_group_chat";
 }
 
+/** Provider 리렌더 전 Realtime 콜백용 — URL 이 이미 방이면 동일 방 음 억제 */
+function communityRoomIdFromWindowPath(): string | null {
+  if (typeof window === "undefined") return null;
+  const m = window.location.pathname.match(/^\/community-messenger\/rooms\/([^/]+)\/?$/);
+  if (!m?.[1]) return null;
+  try {
+    return decodeURIComponent(m[1]);
+  } catch {
+    return m[1];
+  }
+}
+
 export function syncNotificationSoundGateSnapshot(next: NotificationSoundGateSnapshot | null): void {
   gateSnapshot = next;
 }
@@ -60,8 +72,10 @@ export function shouldPlayInAppSoundFromGate(
   if (domain === "trade_chat" && ref && snap.activeTradeChatRoomId === ref) {
     return false;
   }
-  if (isCommunityChatSoundDomain(domain) && ref && snap.activeCommunityChatRoomId === ref) {
-    return false;
+  if (isCommunityChatSoundDomain(domain) && ref) {
+    const activeCommunity =
+      communityRoomIdFromWindowPath() ?? snap.activeCommunityChatRoomId;
+    if (activeCommunity === ref) return false;
   }
   if (!snap.isWindowFocused) {
     return true;
@@ -119,7 +133,13 @@ export function routeNotificationInsertSound(row: Record<string, unknown>): bool
   /**
    * CM participants Realtime 이 이미 인앱 음을 냈으면 notifications INSERT 중복음 스킵.
    * (INSERT 가 participants 보다 늦게 도착해 "늦게 울림"으로 체감되는 경로)
+   * 방 URL 진입 직후·동일 방 화면이면 Provider 스냅샷 지연과 무관하게 INSERT 음 차단.
    */
+  const pathActiveRoom = communityRoomIdFromWindowPath();
+  const roomRefNorm = roomRef != null ? String(roomRef).trim() : "";
+  if (pathActiveRoom && roomRefNorm && pathActiveRoom === roomRefNorm) {
+    return false;
+  }
   const gateDomainEarly = resolveNotificationSoundGateDomainFromRow(rowInput);
   if (
     (gateDomainEarly == null || isCommunityChatSoundDomain(gateDomainEarly) || metaKind === "community_chat" || metaKind === "group_chat") &&
