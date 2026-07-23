@@ -56,3 +56,7 @@
 - Domain projection 행 소스 렌더
 - `chat_domain` backfill
 - R2 hub poll 재평가 (측정)
+
+## 6. 관련 (증상 1 · list unread)
+
+- `local-read-guard` high-water: soft TTL만으로 stale unread 재통과 금지 (newer `lastMessageAt`만 허용). 2026-07-23.
