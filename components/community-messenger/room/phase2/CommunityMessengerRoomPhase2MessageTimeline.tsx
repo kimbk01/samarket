@@ -32,6 +32,7 @@ import { snapshotMessengerRoomTimelineViewportProbe } from "@/lib/community-mess
 import {
   buildMessengerRoomTimelinePaintModel,
   estimateMessengerRoomTimelineTotalHeight,
+  roomMessagesTimelineFingerprint,
   selectMessengerRoomVirtualRows,
 } from "@/lib/community-messenger/room/messenger-room-timeline-paint-model";
 import { resolveMessengerRoomTimelineLoadUi } from "@/lib/community-messenger/room/messenger-room-timeline-load-ui";
@@ -1091,24 +1092,44 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
   const virtualizerMeasuredReadyForLayout =
     virtualItemsForLayout.length > 0 && vm.chatVirtualizer.getTotalSize() > 0;
 
+  /**
+   * Data (Samsung 04:54 display=40): rows_reference_changed×89 while messages_append×2.
+   * Correlated: optimistic_read_zero×11 / mark-read / cm-pass-render — snapshot identity churn.
+   * DO NOT depend on `vm.snapshot` object when display/room messages already paint (sort copy thrash).
+   */
+  const displayMsgsForPaint = vm.displayRoomMessages;
+  const roomMsgsForPaint = vm.roomMessages;
+  const needSnapshotPaintFallback =
+    displayMsgsForPaint.length === 0 && roomMsgsForPaint.length === 0;
+  const snapshotLastMessageForPaint = vm.snapshot?.room.lastMessage ?? "";
+  const snapshotMessagesPaintKey = needSnapshotPaintFallback
+    ? roomMessagesTimelineFingerprint(vm.snapshot?.messages ?? [])
+    : "";
+
   const paintModel = useMemo(
     () =>
       buildMessengerRoomTimelinePaintModel({
-        displayRoomMessages: vm.displayRoomMessages,
-        roomMessages: vm.roomMessages,
+        displayRoomMessages: displayMsgsForPaint,
+        roomMessages: roomMsgsForPaint,
         loading: vm.loading,
         timelineInitialLoadComplete: vm.timelineInitialLoadComplete,
-        snapshot: vm.snapshot,
+        snapshot: needSnapshotPaintFallback
+          ? vm.snapshot
+          : { room: { lastMessage: snapshotLastMessageForPaint } },
         hasStoreOrderDock,
         hasStoreOrderTimeline,
         virtualizerMeasuredReady: virtualizerMeasuredReadyForLayout,
       }),
     [
-      vm.displayRoomMessages,
-      vm.roomMessages,
+      displayMsgsForPaint,
+      roomMsgsForPaint,
       vm.loading,
       vm.timelineInitialLoadComplete,
-      vm.snapshot,
+      needSnapshotPaintFallback,
+      snapshotMessagesPaintKey,
+      snapshotLastMessageForPaint,
+      // Only when empty timeline: full snapshot for bootstrap seed paint.
+      needSnapshotPaintFallback ? vm.snapshot : null,
       hasStoreOrderDock,
       hasStoreOrderTimeline,
       virtualizerMeasuredReadyForLayout,
