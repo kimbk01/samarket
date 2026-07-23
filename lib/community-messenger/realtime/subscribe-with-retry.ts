@@ -544,12 +544,17 @@ function createInternalSubscribeWithRetry(args: SubscribeWithRetryArgs): Subscri
         ...cmRtHs4FingerprintDigest(args.hs4Context?.fingerprint ?? ""),
       });
       /**
-       * 초기 쿠키 복원 레이스에서 anon JWT로 붙지 않도록,
-       * 짧은 상한으로 한 번 대기 후 세션 토큰을 다시 맞춘다.
+       * 쿠키 세션 복원 전에 anon JWT 로 붙으면 SUBSCRIBED 인데 RLS 로
+       * postgres_changes 가 영구 무음(하단 뱃지는 180s poll 만 갱신).
+       * 기본 상한(8s)까지 대기하고, 토큰 없으면 구독하지 말고 재시도.
        */
-      await waitForSupabaseRealtimeAuth(args.sb, 1_500);
-      await syncSupabaseRealtimeAuthFromSession(args.sb);
+      const authOk = await waitForSupabaseRealtimeAuth(args.sb);
+      const synced = await syncSupabaseRealtimeAuthFromSession(args.sb);
       if (stopped || args.isCancelled() || attachGen !== activeGeneration) return;
+      if (!authOk && !synced) {
+        scheduleRetry("auth_not_ready");
+        return;
+      }
       channel = channel.subscribe((status) => {
         const elapsedAttachMs =
           attachCycleT0 != null && typeof performance !== "undefined"

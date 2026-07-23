@@ -13,6 +13,7 @@ import { peekBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import { findHomeListRoomRow } from "@/lib/community-messenger/home-list-patch";
 import { peekRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { syncSupabaseRealtimeAuthFromSession } from "@/lib/supabase/wait-for-realtime-auth";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
 import {
@@ -108,6 +109,10 @@ export function useCmParticipantsHubSync(
     if (!sb) return;
 
     let markRealtimeSignal = () => {};
+    const authUnsub = sb.auth.onAuthStateChange((event) => {
+      if (event !== "TOKEN_REFRESHED" && event !== "SIGNED_IN") return;
+      void syncSupabaseRealtimeAuthFromSession(sb);
+    });
     const sub = subscribeWithRetry({
       sb,
       name: `community-messenger-unread-sound:${userId}`,
@@ -205,6 +210,11 @@ export function useCmParticipantsHubSync(
     markRealtimeSignal = sub.markSignal;
 
     return () => {
+      try {
+        authUnsub.data.subscription.unsubscribe();
+      } catch {
+        /* ignore */
+      }
       sub.stop();
     };
   }, [enabled, userId]);

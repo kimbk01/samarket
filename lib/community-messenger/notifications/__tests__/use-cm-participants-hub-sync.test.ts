@@ -69,8 +69,20 @@ describe("cm-participant-hub-sync increase path", () => {
     );
     expect(src).toContain("applyMessengerRoomUnreadFactAndSyncBottom");
     expect(src).toContain('source: "participant_rt"');
+    expect(src).toContain("syncSupabaseRealtimeAuthFromSession");
     expect(src).not.toContain("applyBottomChatLiveRoomCountDelta");
     expect(src).toContain('participantUnreadDirection: "increase"');
     expect(src).toContain('participantUnreadDirection: "decrease"');
+  });
+});
+
+describe("subscribe-with-retry auth gate", () => {
+  it("waits for realtime auth with default bound and fails closed without token", () => {
+    const src = readFileSync(
+      join(process.cwd(), "lib/community-messenger/realtime/subscribe-with-retry.ts"),
+      "utf8",
+    );
+    expect(src).not.toMatch(/waitForSupabaseRealtimeAuth\(args\.sb,\s*1_500\)/);
+    expect(src).toContain('scheduleRetry("auth_not_ready")');
   });
 });
