@@ -161,6 +161,10 @@ export async function publishCommunityMessengerRoomBumpFromServer(args: {
   rawRouteRoomId?: string | null;
   /** 서비스 롤 전용 — 클라 broadcast 와 혼동되므로 수신 측에서 반드시 검증 */
   messageSnapshot?: Record<string, unknown> | null;
+  /** Phase E — optional Domain envelope fields (omit when unknown / not dual-written yet). */
+  chatDomain?: string | null;
+  domainIdentity?: string | null;
+  eventId?: string | null;
 }): Promise<void> {
   const channelKey = args.channelRoomId.trim();
   const canonicalRoomId = args.canonicalRoomId.trim();
@@ -190,6 +194,17 @@ export async function publishCommunityMessengerRoomBumpFromServer(args: {
   const snap = args.messageSnapshot;
   if (snap && typeof snap === "object" && snap !== null && Object.keys(snap).length > 0) {
     payload.message = snap;
+  }
+  const chatDomain = typeof args.chatDomain === "string" ? args.chatDomain.trim() : "";
+  const domainIdentity = typeof args.domainIdentity === "string" ? args.domainIdentity.trim() : "";
+  if (chatDomain && domainIdentity) {
+    payload.chatDomain = chatDomain;
+    payload.domainIdentity = domainIdentity;
+    const eventId =
+      (typeof args.eventId === "string" && args.eventId.trim()) ||
+      messageId ||
+      (typeof payload.at === "string" ? payload.at : "");
+    if (eventId) payload.eventId = eventId;
   }
 
   try {

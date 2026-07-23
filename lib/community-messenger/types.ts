@@ -1,6 +1,7 @@
 import type { ChatRoom } from "@/lib/types/chat";
 import type { DirectCallDenyCode } from "@/lib/community-messenger/direct-call-permission";
 import type { FriendshipDirection } from "@/lib/community-messenger/friendship/resolve-friendship-pair";
+import type { ChatDomain } from "@/lib/chat-domain/four-domain-freeze";
 
 export type CommunityMessengerTab = "friends" | "chats" | "groups" | "calls";
 
@@ -191,6 +192,15 @@ export type CommunityMessengerRoomSummary = {
    * 목록 pillar 분류에 사용(`summary` JSON 파싱 실패 시에도 동일 키로 거래 탭에 포함).
    */
   messengerDirectKey?: string | null;
+  /**
+   * Phase C+/D — DB `chat_domain` (nullable dual-write window).
+   * DO NOT treat absence as authority to re-infer; prefer column when present.
+   */
+  chatDomain?: ChatDomain | null;
+  /**
+   * Phase C+/D — DB `domain_identity` (nullable dual-write window).
+   */
+  domainIdentity?: string | null;
   /**
    * `community_messenger_participants.is_archived` — 내 목록에서만 숨김(보관함).
    * `roomStatus` 는 `community_messenger_rooms` 의 운영 상태(active/blocked/archived)만 반영한다.
@@ -433,6 +443,23 @@ export type CommunityMessengerRoomSnapshot = {
   };
   /** Kakao-style — 친구 목록·경고 문구용 */
   peerRelationLabel?: import("@/lib/community-messenger/peer-relation-label").PeerRelationLabel;
+  /**
+   * Phase F — content clock for atomic room read (ms).
+   * Derived from lastMessageAt + message createdAt when omitted.
+   * DO NOT use cache write time as authority.
+   */
+  readVersionMs?: number;
+  /**
+   * Phase F — provenance of this snapshot for stale/source ranking.
+   * `optimistic` must not beat equal-or-newer server/cache.
+   */
+  readVersionSource?:
+    | "server_bootstrap"
+    | "memory_cache"
+    | "hot_cache"
+    | "idb"
+    | "optimistic"
+    | "unknown";
 };
 
 /** `getCommunityMessengerRoomSnapshot` 초기 메시지 윈도 — 부트스트랩 API·가상 스크롤 `hasMore` 판단과 맞춤 */

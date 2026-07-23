@@ -9,6 +9,7 @@ import {
   communityMessengerBumpPayloadMatchesKnownRooms,
 } from "@/lib/community-messenger/realtime/community-messenger-room-bump-channel";
 import { parseCommunityMessengerBumpMessageSnapshot } from "@/lib/community-messenger/realtime/community-messenger-room-bump-message-snapshot";
+import { resolveRoomBumpDedupeKey } from "@/lib/chat-domain/realtime/domain-realtime-envelope";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { subscribeCommunityMessengerRoomBumpBroadcast } from "@/lib/community-messenger/realtime/room-bump-broadcast";
 
@@ -168,8 +169,7 @@ export function useMessengerRoomBumpBroadcastSubscription({
           : typeof (payload as { message_id?: unknown }).message_id === "string"
             ? String((payload as { message_id: string }).message_id).trim()
             : "";
-      const at = typeof payload.at === "string" ? payload.at.trim() : "";
-      const dedupeKey = `${from}|${hint || "no-mid"}|${at}`;
+      const dedupeKey = resolveRoomBumpDedupeKey(payload);
       if (lastRemoteBumpDedupeRef.current === dedupeKey) return;
       lastRemoteBumpDedupeRef.current = dedupeKey;
 

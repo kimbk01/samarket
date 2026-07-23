@@ -16,6 +16,11 @@ import {
 } from "@/lib/community-messenger/room/cm-bootstrap-scheduling";
 import { getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
 import { isMessengerRoomBootstrapReadySnapshot } from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
+import {
+  applyAtomicRoomRead,
+} from "@/lib/chat-domain/room-read/atomic-room-read";
+import { roomReadVersionFromSnapshot } from "@/lib/chat-domain/room-read/attach-room-read-version";
+import { withRoomReadVersion } from "@/lib/chat-domain/room-read/attach-room-read-version";
 
 const TTL_MS = 60_000;
 /** 방 스냅샷 메인 캐시 — LRU 상한 50 (접근 시 순서 bump, TTL 60s 유지) */
@@ -87,9 +92,26 @@ function touchLruEntry(key: string): void {
 
 export function primeRoomSnapshot(roomId: string, snapshot: CommunityMessengerRoomSnapshot) {
   if (!isMessengerRoomBootstrapReadySnapshot(snapshot)) return;
-  const k = cacheKey(roomId, snapshot.viewerUserId);
-  entries.delete(k);
-  entries.set(k, { snapshot, at: Date.now() });
+  const incoming = withRoomReadVersion(
+    snapshot,
+    snapshot.readVersionSource ?? "server_bootstrap",
+  );
+  const k = cacheKey(roomId, incoming.viewerUserId);
+  const existing = entries.get(k);
+  if (existing) {
+    const applied = applyAtomicRoomRead({
+      prevValue: existing.snapshot,
+      prevVersion: roomReadVersionFromSnapshot(existing.snapshot, "memory_cache"),
+      incomingValue: incoming,
+      incomingVersion: roomReadVersionFromSnapshot(incoming, incoming.readVersionSource ?? "server_bootstrap"),
+    });
+    if (!applied.accepted) return;
+    entries.delete(k);
+    entries.set(k, { snapshot: applied.value, at: Date.now() });
+  } else {
+    entries.delete(k);
+    entries.set(k, { snapshot: incoming, at: Date.now() });
+  }
   pruneIfNeeded();
 }
 

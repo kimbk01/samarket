@@ -398,6 +398,8 @@ type RoomRow = {
   last_message_at: string | null;
   last_message_type: string | null;
   direct_key?: string | null;
+  chat_domain?: string | null;
+  domain_identity?: string | null;
 };
 
 type ParticipantRow = {
@@ -2412,6 +2414,15 @@ function buildRoomSummaryFromHydratedMembers(
       )
     );
   }
+  const domainRaw = isDbRoom ? trimText((room as RoomRow).chat_domain ?? "") : "";
+  const identityRaw = isDbRoom ? trimText((room as RoomRow).domain_identity ?? "") : "";
+  const chatDomainAttached =
+    domainRaw === "general_direct" ||
+    domainRaw === "group" ||
+    domainRaw === "trade" ||
+    domainRaw === "store_order"
+      ? (domainRaw as CommunityMessengerRoomSummary["chatDomain"])
+      : undefined;
   return {
     id: roomId,
     roomType,
@@ -2457,6 +2468,8 @@ function buildRoomSummaryFromHydratedMembers(
     isBlockedHiddenByViewer,
     messengerDirectKey,
     contextMeta: contextMeta ?? null,
+    ...(chatDomainAttached ? { chatDomain: chatDomainAttached } : {}),
+    ...(identityRaw ? { domainIdentity: identityRaw } : {}),
   };
 }
 
@@ -3134,7 +3147,7 @@ async function fetchBootstrapLiteMyRoomsBundleViaRpc(
 
 /** home-sync critical — DB select 최소(응답 필드는 summarize·hydrate 로 동일 표면 유지) */
 const HOME_SYNC_CRITICAL_ROOMS_SELECT =
-  "id, room_type, room_status, is_readonly, direct_key, title, last_message, last_message_at, last_message_type";
+  "id, room_type, room_status, is_readonly, direct_key, title, last_message, last_message_at, last_message_type, chat_domain, domain_identity";
 
 export async function fetchMyRoomsPayload(
   userId: string,
@@ -3156,7 +3169,7 @@ export async function fetchMyRoomsPayload(
   const bootstrapLiteBundle = options?.bootstrapLiteBundle === true;
   const roomsTableSelect = criticalSlimRoomSelect
     ? HOME_SYNC_CRITICAL_ROOMS_SELECT
-    : "id, room_type, room_status, is_readonly, direct_key, title, summary, avatar_url, last_message, last_message_at, last_message_type";
+    : "id, room_type, room_status, is_readonly, direct_key, title, summary, avatar_url, last_message, last_message_at, last_message_type, chat_domain, domain_identity";
   const sb = getSupabaseOrNull();
   let roomRows: Array<RoomRow | DevRoom> = [];
   let participantRows: Array<ParticipantRow | DevParticipant> = [];
@@ -3433,7 +3446,7 @@ async function fetchRoomsPayloadByRoomIds(
           (sb as any)
             .from("community_messenger_rooms")
             .select(
-              "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, direct_key, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, pinned_message_id, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type"
+              "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, direct_key, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, pinned_message_id, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type, chat_domain, domain_identity"
             )
             .in("id", uniqueRoomIds),
           (sb as any)
@@ -13894,9 +13907,9 @@ async function loadCommunityMessengerRoomSnapshotUncached(
 
     /** defer seed: `notice_text` 만 제외 — 첫 페인트·textarea 전 공지 본문은 불필요, `bootstrapEnrichmentPending` 경로로 후속 보강 가능. */
     const roomSelectColsDeferSeedNoNoticeBody =
-      "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, direct_key, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type";
+      "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, direct_key, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type, chat_domain, domain_identity";
     const roomSelectColsFull =
-      "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, direct_key, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, pinned_message_id, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type";
+      "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, direct_key, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, pinned_message_id, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type, chat_domain, domain_identity";
     const roomSelectForBootstrap =
       deferSecondaryRequested || isCriticalTier ? roomSelectColsDeferSeedNoNoticeBody : roomSelectColsFull;
     const roomQuery = (sb as any)

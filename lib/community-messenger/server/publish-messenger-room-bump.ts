@@ -1,4 +1,5 @@
 import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
+import { isChatDomain } from "@/lib/chat-domain/realtime/domain-realtime-envelope";
 import { serializeCommunityMessengerMessageForBump } from "@/lib/community-messenger/realtime/community-messenger-room-bump-message-snapshot";
 import { publishCommunityMessengerRoomBumpFromServer } from "@/lib/community-messenger/realtime/room-bump-broadcast-server";
 import { invalidateRoomBootstrapRouteCacheForRoom } from "@/lib/community-messenger/server/room-bootstrap-route-cache";
@@ -27,6 +28,53 @@ export async function publishMessengerRoomBumpAfterMutation(args: {
   const messageSnapshot =
     args.messageForBump != null ? serializeCommunityMessengerMessageForBump(args.messageForBump) : null;
 
+  let roomMeta: {
+    room_type?: unknown;
+    direct_key?: unknown;
+    chat_domain?: unknown;
+    domain_identity?: unknown;
+  } | null = null;
+  let recipientUserIds: string[] = [];
+  let sbForBadge: ReturnType<typeof getSupabaseServer> | null = null;
+  try {
+    sbForBadge = getSupabaseServer();
+    const [{ data: roomRow }, { data: participantRows }] = await Promise.all([
+      sbForBadge
+        .from("community_messenger_rooms")
+        .select("room_type, direct_key, chat_domain, domain_identity")
+        .eq("id", canon)
+        .maybeSingle(),
+      sbForBadge.from("community_messenger_participants").select("user_id").eq("room_id", canon),
+    ]);
+    roomMeta =
+      roomRow && typeof roomRow === "object"
+        ? (roomRow as {
+            room_type?: unknown;
+            direct_key?: unknown;
+            chat_domain?: unknown;
+            domain_identity?: unknown;
+          })
+        : null;
+    recipientUserIds = (participantRows ?? [])
+      .map((row) =>
+        row && typeof row === "object" && typeof (row as { user_id?: unknown }).user_id === "string"
+          ? (row as { user_id: string }).user_id.trim()
+          : ""
+      )
+      .filter(Boolean);
+  } catch {
+    /* domain/badge meta best-effort */
+  }
+
+  const chatDomainRaw = typeof roomMeta?.chat_domain === "string" ? roomMeta.chat_domain.trim() : "";
+  const domainIdentity =
+    typeof roomMeta?.domain_identity === "string" ? roomMeta.domain_identity.trim() : "";
+  const chatDomain = isChatDomain(chatDomainRaw) ? chatDomainRaw : null;
+  const domainFields =
+    chatDomain && domainIdentity
+      ? { chatDomain, domainIdentity, eventId: args.messageId?.trim() || null }
+      : {};
+
   await publishCommunityMessengerRoomBumpFromServer({
     channelRoomId: canon,
     canonicalRoomId: canon,
@@ -35,6 +83,7 @@ export async function publishMessengerRoomBumpAfterMutation(args: {
     messageCreatedAt: args.messageCreatedAt,
     rawRouteRoomId: rawTagged || null,
     messageSnapshot,
+    ...domainFields,
   });
   if (rawTagged) {
     await publishCommunityMessengerRoomBumpFromServer({
@@ -45,35 +94,16 @@ export async function publishMessengerRoomBumpAfterMutation(args: {
       messageCreatedAt: args.messageCreatedAt,
       rawRouteRoomId: rawTagged,
       messageSnapshot,
+      ...domainFields,
     });
   }
 
+  if (!sbForBadge) return;
   try {
-    const sb = getSupabaseServer();
-    await bumpMessengerRoomTargetsForRecipients(sb, { roomId: canon, fromUserId });
-    const { data: roomRow } = await sb
-      .from("community_messenger_rooms")
-      .select("room_type, direct_key")
-      .eq("id", canon)
-      .maybeSingle();
-    const roomMeta =
-      roomRow && typeof roomRow === "object"
-        ? (roomRow as { room_type?: unknown; direct_key?: unknown })
-        : null;
-    const { data: participantRows } = await sb
-      .from("community_messenger_participants")
-      .select("user_id")
-      .eq("room_id", canon);
-    const recipientUserIds = (participantRows ?? [])
-      .map((row) =>
-        row && typeof row === "object" && typeof (row as { user_id?: unknown }).user_id === "string"
-          ? (row as { user_id: string }).user_id.trim()
-          : ""
-      )
-      .filter(Boolean);
+    await bumpMessengerRoomTargetsForRecipients(sbForBadge, { roomId: canon, fromUserId });
     void import("@/lib/notifications/engine/adapters/legacy-target-bump-adapter").then((mod) =>
       mod
-        .runLegacyTargetBumpNotificationEngineAdapter(sb, {
+        .runLegacyTargetBumpNotificationEngineAdapter(sbForBadge!, {
           roomId: canon,
           fromUserId,
           recipientUserIds,

@@ -160,6 +160,7 @@
     "verify:messenger-home-list-owner": "node scripts/verify-messenger-home-list-owner.cjs",
     "verify:messenger-realtime-store-scope": "node scripts/verify-messenger-realtime-store-scope.cjs",
     "verify:messenger-dead-hub-cleanup": "node scripts/verify-messenger-dead-hub-cleanup.cjs",
+    "verify:chat-domain-file-lock": "node scripts/verify-chat-domain-file-lock.cjs",
     "verify:parity-gates": "npm run verify:app-boot-consent-contract && npm run verify:trade-hot-path-contract && npm run verify:messenger-hot-path-contract && npm run verify:store-cart-sheet-contract && npm run verify:store-payment-cod-label-contract && npm run verify:store-cart-hooks-contract && npm run verify:thumbnail-contract && npm run verify:store-delivery-featured-thumbnails-contract && npm run verify:stores-home-hub-contract && npm run verify:main-bottom-nav-fab-sector-contract && npm run verify:messenger-home && npm run verify:messenger-home-list-owner && npm run verify:messenger-realtime-store-scope && npm run verify:messenger-dead-hub-cleanup && npx tsc --noEmit",
     "verify:pending-supabase-migrations": "node scripts/verify-pending-supabase-migrations.cjs",
     "check:i18n": "node scripts/check-i18n-messages.mjs",

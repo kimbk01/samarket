@@ -1,0 +1,3 @@
+-- PROMOTED → supabase/migrations/20261001120000_cm_rooms_chat_domain_identity.sql
+-- This draft path kept as pointer only. Do not apply from here.
+-- Backfill SQL (still deferred) lives in the promoted file comments + phase-c.md.

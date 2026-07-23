@@ -2,9 +2,46 @@ import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/t
 import { peekHotRoomSnapshot, peekRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import { isMessengerRoomTimelineBootstrapSeedComplete } from "@/lib/community-messenger/room/messenger-room-timeline-hydration";
 import { isMessengerRoomLastMessageDisplayPlaceholder } from "@/lib/community-messenger/room/messenger-room-last-message-placeholder";
+import {
+  deriveRoomReadVersionMs,
+  shouldAcceptIncomingRoomRead,
+  type DomainRoomReadVersion,
+  type RoomReadSource,
+} from "@/lib/chat-domain/room-read/domain-room-read-version";
 
 function messageCount(snap: CommunityMessengerRoomSnapshot | null | undefined): number {
   return snap?.messages?.length ?? 0;
+}
+
+function versionFromSnap(
+  snap: CommunityMessengerRoomSnapshot,
+  fallbackSource: RoomReadSource,
+): DomainRoomReadVersion {
+  return {
+    roomId: String(snap.room?.id ?? "").trim(),
+    versionMs: deriveRoomReadVersionMs({
+      lastMessageAt: snap.room?.lastMessageAt,
+      messageCreatedAts: (snap.messages ?? []).map((m) => m.createdAt),
+      explicitVersionMs: snap.readVersionMs,
+    }),
+    source: snap.readVersionSource ?? fallbackSource,
+    chatDomain: snap.room?.chatDomain ?? null,
+    domainIdentity: snap.room?.domainIdentity ?? null,
+  };
+}
+
+function preferSnapshotByRoomReadVersion(
+  current: CommunityMessengerRoomSnapshot,
+  candidate: CommunityMessengerRoomSnapshot,
+  currentSource: RoomReadSource,
+  candidateSource: RoomReadSource,
+): CommunityMessengerRoomSnapshot {
+  const prev = versionFromSnap(current, currentSource);
+  const incoming = versionFromSnap(candidate, candidateSource);
+  if (prev.versionMs > 0 || incoming.versionMs > 0) {
+    return shouldAcceptIncomingRoomRead(prev, incoming) ? candidate : current;
+  }
+  return messageCount(candidate) > messageCount(current) ? candidate : current;
 }
 
 /** BootstrapGate·IndexedDB·foreground lock 재사용 가능한 실스냅샷(클라 셸 placeholder 제외) */
@@ -50,28 +87,43 @@ function isAuthoritativeRoomSnapshotCandidate(
 
 /**
  * complete seed 또는 confirmed empty 후보만 pool — lastMessage-only incomplete 는 authoritative 금지.
+ * Phase F: content clock(readVersion)이 있으면 stale-rich cache가 fresher server를 이기지 못함.
  */
 export function pickRichestAuthoritativeRoomSnapshot(
   server: CommunityMessengerRoomSnapshot | null,
   ...others: Array<CommunityMessengerRoomSnapshot | null | undefined>
 ): CommunityMessengerRoomSnapshot | null {
-  const candidates: CommunityMessengerRoomSnapshot[] = [];
-  if (server && isAuthoritativeRoomSnapshotCandidate(server)) candidates.push(server);
+  type Tagged = { snap: CommunityMessengerRoomSnapshot; source: RoomReadSource };
+  const candidates: Tagged[] = [];
+  if (server && isAuthoritativeRoomSnapshotCandidate(server)) {
+    candidates.push({ snap: server, source: "server_bootstrap" });
+  }
   for (const candidate of others) {
-    if (isAuthoritativeRoomSnapshotCandidate(candidate)) candidates.push(candidate);
+    if (isAuthoritativeRoomSnapshotCandidate(candidate)) {
+      const source: RoomReadSource =
+        candidate.readVersionSource === "hot_cache"
+          ? "hot_cache"
+          : candidate.readVersionSource === "idb"
+            ? "idb"
+            : candidate.readVersionSource === "optimistic"
+              ? "optimistic"
+              : "memory_cache";
+      candidates.push({ snap: candidate, source });
+    }
   }
   if (candidates.length === 0) return null;
 
-  let best = candidates[0] ?? null;
-  let bestCount = messageCount(best);
+  let best = candidates[0]!;
   for (const candidate of candidates.slice(1)) {
-    const n = messageCount(candidate);
-    if (n > bestCount) {
-      best = candidate;
-      bestCount = n;
-    }
+    const next = preferSnapshotByRoomReadVersion(
+      best.snap,
+      candidate.snap,
+      best.source,
+      candidate.source,
+    );
+    if (next === candidate.snap) best = candidate;
   }
-  return best;
+  return best.snap;
 }
 
 export type PickAuthoritativeMessengerRoomSnapshotInput = {
