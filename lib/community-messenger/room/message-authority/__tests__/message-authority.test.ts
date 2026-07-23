@@ -9,7 +9,7 @@ import {
   authorityIsSeeded,
   authoritySeedBootstrap,
 } from "@/lib/community-messenger/room/message-authority/message-authority";
-import { resetRoomMessageStoreForTests } from "@/lib/community-messenger/room/message-authority/room-message-store";
+import { resetRoomMessageStoreForTests, peekRoomMessageState, subscribeRoomMessageStore } from "@/lib/community-messenger/room/message-authority/room-message-store";
 import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
 
 function msg(
@@ -89,5 +89,21 @@ describe("message authority contract", () => {
     authoritySeedBootstrap("room-1", [msg("a", "1"), msg("b", "2")]);
     authorityApplyCatchUp("room-1", [msg("a", "overwrite")]);
     expect(authorityGetMessages("room-1").find((m) => m.id === "a")?.content).toBe("1");
+  });
+
+  it("identical upsert is complete noop — no generation bump, no emit", () => {
+    authoritySeedBootstrap("room-1", [msg("a", "1")]);
+    const before = peekRoomMessageState("room-1")!;
+    const genBefore = before.generation;
+    let emits = 0;
+    const unsub = subscribeRoomMessageStore((rid) => {
+      if (rid === "room-1") emits += 1;
+    });
+    authorityApplyRealtime("room-1", { eventType: "UPDATE", message: msg("a", "1") });
+    authorityApplyRealtime("room-1", { eventType: "INSERT", message: msg("a", "1") });
+    unsub();
+    expect(peekRoomMessageState("room-1")!.generation).toBe(genBefore);
+    expect(emits).toBe(0);
+    expect(authorityGetMessages("room-1").map((m) => m.id)).toEqual(["a"]);
   });
 });
