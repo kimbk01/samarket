@@ -137,6 +137,13 @@ export function cmReadBadgeLog(event: string, payload: Record<string, unknown>):
   console.info("[cm-read-badge]", event, payload);
 }
 
+/** Clear one room guard — participant RT unread>0 admits new activity (empty LMA must not suppress). */
+export function clearLocalReadGuard(roomId: string): void {
+  const rid = normalizeLocalReadGuardRoomId(roomId);
+  if (!rid) return;
+  guards.delete(rid);
+}
+
 /** Vitest 등 — 프로덕션에서 호출하지 않는다 */
 export function clearLocalReadGuardsForTests(): void {
   guards.clear();

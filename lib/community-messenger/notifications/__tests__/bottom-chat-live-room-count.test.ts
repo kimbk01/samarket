@@ -210,7 +210,7 @@ describe("messenger-room-unread-authority Bottom recount", () => {
     expect(getOwnerHubBadgeSnapshot().communityMessengerUnread).toBe(0);
   });
 
-  it("suppresses stale unread under local-read-guard", () => {
+  it("participant_rt admits unread under local-read-guard even with empty lastMessageAt", () => {
     const ts = "2026-01-02T00:00:00.000Z";
     setLocalReadGuard({ roomId: "gd-g", referenceLastMessageAt: ts, source: "manual" });
     applyGeneralDirectListProjection({
@@ -227,14 +227,65 @@ describe("messenger-room-unread-authority Bottom recount", () => {
         },
       ],
     });
+    __testApplyOwnerHubBadgePayloadForTest(
+      { ok: true, ...OWNER_HUB_BADGE_EMPTY, communityMessengerUnread: 0, total: 0 },
+      "network_fresh",
+    );
     const out = applyMessengerRoomUnreadFactAndSyncBottom({
       roomId: "gd-g",
       viewerUserId: "u1",
       unreadCount: 5,
+      lastMessageAt: null,
+      source: "participant_rt",
+      prevUnreadHint: 0,
+    });
+    expect(out.suppressed).toBe(false);
+    expect(out.unreadCount).toBe(5);
+    expect(out.hubSynced).toBe(true);
+    expect(getOwnerHubBadgeSnapshot().communityMessengerUnread).toBe(1);
+  });
+
+  it("default source still suppresses stale unread when lastMessageAt is not newer", () => {
+    const ts = "2026-01-02T00:00:00.000Z";
+    setLocalReadGuard({ roomId: "gd-g2", referenceLastMessageAt: ts, source: "manual" });
+    const out = applyMessengerRoomUnreadFactAndSyncBottom({
+      roomId: "gd-g2",
+      viewerUserId: "u1",
+      unreadCount: 5,
       lastMessageAt: ts,
+      source: "default",
     });
     expect(out.suppressed).toBe(true);
     expect(out.unreadCount).toBe(0);
-    expect(out.bottomRoomCount).toBe(0);
+  });
+
+  it("eligible contribution bumps hub without full seed wipe", () => {
+    __testApplyOwnerHubBadgePayloadForTest(
+      { ok: true, ...OWNER_HUB_BADGE_EMPTY, communityMessengerUnread: 4, total: 4 },
+      "network_fresh",
+    );
+    applyGeneralDirectListProjection({
+      chatDomain: "general_direct",
+      versionMs: 1,
+      items: [
+        {
+          roomId: "gd-only",
+          chatDomain: "general_direct",
+          domainIdentity: "general_direct:a:b",
+          unreadCount: 0,
+          lastMessageAt: null,
+          title: "x",
+        },
+      ],
+    });
+    /** Full seed present → absolute recount of known rooms (1 after fact). */
+    applyMessengerRoomUnreadFactAndSyncBottom({
+      roomId: "gd-only",
+      viewerUserId: "u1",
+      unreadCount: 2,
+      source: "participant_rt",
+      prevUnreadHint: 0,
+    });
+    expect(getOwnerHubBadgeSnapshot().communityMessengerUnread).toBe(1);
   });
 });

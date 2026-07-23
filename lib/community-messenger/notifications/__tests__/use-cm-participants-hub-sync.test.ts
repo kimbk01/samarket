@@ -68,6 +68,7 @@ describe("cm-participant-hub-sync increase path", () => {
       "utf8",
     );
     expect(src).toContain("applyMessengerRoomUnreadFactAndSyncBottom");
+    expect(src).toContain('source: "participant_rt"');
     expect(src).not.toContain("applyBottomChatLiveRoomCountDelta");
     expect(src).toContain('participantUnreadDirection: "increase"');
     expect(src).toContain('participantUnreadDirection: "decrease"');

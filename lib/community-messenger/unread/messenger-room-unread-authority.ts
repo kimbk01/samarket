@@ -1,11 +1,16 @@
 /**
  * Live unread single authority — room fact → list + Bottom Chat (GD+group room count).
- * Absolute recount (not ±1). DO NOT: revive messenger-realtime-store totalUnread · Bell/App · Native Call.
+ * participant_rt: trust participant unread_count (empty lastMessageAt must NOT suppress).
+ * Bottom: full seed → absolute recount; else eligible room → contribution vs hub (no wipe).
+ * DO NOT: revive messenger-realtime-store totalUnread · Bell/App · Native Call.
  */
 
 import type { ChatDomain } from "@/lib/chat-domain/four-domain-freeze";
 import { getDomainListProjection } from "@/lib/chat-domain/list/domain-list-writers";
-import { applyHubBadgeCmUnreadRoomCountAbsolute } from "@/lib/chats/owner-hub-badge-store";
+import {
+  applyHubBadgeCmUnreadRoomCountAbsolute,
+  getOwnerHubBadgeSnapshot,
+} from "@/lib/chats/owner-hub-badge-store";
 import { peekBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import { findHomeListRoomRow } from "@/lib/community-messenger/home-list-patch";
 import {
@@ -13,6 +18,7 @@ import {
   roomSummaryCountsForBottomChat,
 } from "@/lib/community-messenger/notifications/bottom-chat-live-room-count";
 import {
+  clearLocalReadGuard,
   normalizeLocalReadGuardRoomId,
   resolveUnreadWithLocalReadGuard,
 } from "@/lib/community-messenger/read/local-read-guard";
@@ -26,6 +32,8 @@ export type MessengerRoomUnreadFact = {
   versionMs: number;
 };
 
+export type MessengerRoomUnreadFactSource = "default" | "participant_rt";
+
 type RecountRow = {
   roomId: string;
   unreadCount: number;
@@ -34,7 +42,6 @@ type RecountRow = {
     CommunityMessengerRoomSummary,
     "chatDomain" | "roomType" | "messengerDirectKey" | "contextMeta"
   > | null;
-  /** When summary missing but Domain list projection hit — use this for eligibility. */
   projectionDomain: ChatDomain | null;
 };
 
@@ -47,6 +54,8 @@ export function applyMessengerRoomUnreadFact(input: {
   unreadCount: number;
   lastMessageAt?: string | null;
   versionMs?: number;
+  /** participant RT unread_count is authoritative; empty LMA must not zero-out. */
+  source?: MessengerRoomUnreadFactSource;
 }): { unreadCount: number; suppressed: boolean; allowedNewMessage: boolean } {
   const rid = normalizeLocalReadGuardRoomId(input.roomId);
   if (!rid) {
@@ -54,11 +63,39 @@ export function applyMessengerRoomUnreadFact(input: {
   }
   const lastMessageAt =
     typeof input.lastMessageAt === "string" ? input.lastMessageAt.trim() : "";
-  const guarded = resolveUnreadWithLocalReadGuard({
-    roomId: rid,
-    incomingUnread: input.unreadCount,
-    incomingLastMessageAt: lastMessageAt,
-  });
+  const unreadIn = Math.max(0, Math.floor(Number(input.unreadCount) || 0));
+  const source = input.source ?? "default";
+
+  let guarded: { unreadCount: number; suppressed: boolean; allowedNewMessage: boolean };
+
+  if (source === "participant_rt") {
+    /** Server participant unread is live truth — do not suppress on missing lastMessageAt. */
+    if (unreadIn > 0) {
+      clearLocalReadGuard(rid);
+    }
+    guarded = {
+      unreadCount: unreadIn,
+      suppressed: false,
+      allowedNewMessage: unreadIn > 0,
+    };
+  } else if (!lastMessageAt) {
+    /**
+     * No comparable timestamp — cannot prove stale; admit count.
+     * (Guard only applies when both watermark and incoming LMA exist.)
+     */
+    guarded = {
+      unreadCount: unreadIn,
+      suppressed: false,
+      allowedNewMessage: false,
+    };
+  } else {
+    guarded = resolveUnreadWithLocalReadGuard({
+      roomId: rid,
+      incomingUnread: unreadIn,
+      incomingLastMessageAt: lastMessageAt,
+    });
+  }
+
   const prev = facts.get(rid);
   facts.set(rid, {
     roomId: rid,
@@ -100,7 +137,8 @@ function rowEligibleForBottom(row: RecountRow, viewerUserId: string): boolean {
   return eligible === true;
 }
 
-function hasBottomRecountSeed(viewerUserId: string): boolean {
+/** Bootstrap or Domain list present — safe for absolute recount (won't wipe unknown rooms). */
+function hasFullBottomRecountSeed(): boolean {
   const boot = peekBootstrapCache();
   if (boot) {
     const rooms = [...(boot.chats ?? []), ...(boot.groups ?? [])];
@@ -110,17 +148,12 @@ function hasBottomRecountSeed(viewerUserId: string): boolean {
     const proj = getDomainListProjection(d);
     if (proj && proj.items.length > 0) return true;
   }
-  const viewer = String(viewerUserId ?? "").trim();
-  for (const fact of facts.values()) {
-    if (resolveBottomChatRoomEligible(fact.roomId, viewer) === true) return true;
-  }
   return false;
 }
 
 /**
  * Merge bootstrap + domain projections + room snapshots + live facts, then count
- * GD+group rooms with unread>0. Domain-unknown rooms are excluded from Bottom
- * (no trade pollution) but facts/list still update separately.
+ * GD+group rooms with unread>0. Domain-unknown rooms are excluded from Bottom.
  */
 export function recountBottomChatUnreadRoomCount(viewerUserId: string): number {
   const viewer = String(viewerUserId ?? "").trim();
@@ -211,25 +244,70 @@ export function recountBottomChatUnreadRoomCount(viewerUserId: string): number {
   return count;
 }
 
-/** Apply fact, then set hub Bottom Chat room-count absolute from recount when seeded. */
+function syncBottomHubAfterFact(opts: {
+  roomId: string;
+  viewerUserId: string;
+  prevUnread: number;
+  nextUnread: number;
+}): { bottomRoomCount: number; hubSynced: boolean } {
+  const viewer = String(opts.viewerUserId ?? "").trim();
+  const bottomRoomCount = recountBottomChatUnreadRoomCount(viewer);
+
+  if (hasFullBottomRecountSeed()) {
+    applyHubBadgeCmUnreadRoomCountAbsolute(bottomRoomCount);
+    return { bottomRoomCount, hubSynced: true };
+  }
+
+  const eligible = resolveBottomChatRoomEligible(opts.roomId, viewer);
+  if (eligible !== true) {
+    return { bottomRoomCount, hubSynced: false };
+  }
+
+  const prevCounted = Math.max(0, Math.floor(Number(opts.prevUnread) || 0)) > 0;
+  const nextCounted = Math.max(0, Math.floor(Number(opts.nextUnread) || 0)) > 0;
+  if (prevCounted === nextCounted) {
+    return { bottomRoomCount, hubSynced: false };
+  }
+
+  const current = Math.max(
+    0,
+    Math.floor(Number(getOwnerHubBadgeSnapshot().communityMessengerUnread) || 0),
+  );
+  const nextCm = Math.max(0, current + (nextCounted ? 1 : 0) - (prevCounted ? 1 : 0));
+  applyHubBadgeCmUnreadRoomCountAbsolute(nextCm);
+  return { bottomRoomCount: nextCm, hubSynced: true };
+}
+
+/** Apply fact, then sync Bottom Chat hub (absolute when seeded, else eligible contribution). */
 export function applyMessengerRoomUnreadFactAndSyncBottom(input: {
   roomId: string;
   viewerUserId: string;
   unreadCount: number;
+  /** RT payload.old unread — contribution when full seed absent. */
+  prevUnreadHint?: number;
   lastMessageAt?: string | null;
   versionMs?: number;
+  source?: MessengerRoomUnreadFactSource;
 }): { unreadCount: number; suppressed: boolean; bottomRoomCount: number; hubSynced: boolean } {
+  const rid = normalizeLocalReadGuardRoomId(input.roomId);
+  const prevUnread =
+    typeof input.prevUnreadHint === "number" && Number.isFinite(input.prevUnreadHint)
+      ? Math.max(0, Math.floor(input.prevUnreadHint))
+      : rid
+        ? (facts.get(rid)?.unreadCount ?? 0)
+        : 0;
   const guarded = applyMessengerRoomUnreadFact(input);
-  const bottomRoomCount = recountBottomChatUnreadRoomCount(input.viewerUserId);
-  const hubSynced = hasBottomRecountSeed(input.viewerUserId);
-  if (hubSynced) {
-    applyHubBadgeCmUnreadRoomCountAbsolute(bottomRoomCount);
-  }
+  const sync = syncBottomHubAfterFact({
+    roomId: input.roomId,
+    viewerUserId: input.viewerUserId,
+    prevUnread,
+    nextUnread: guarded.unreadCount,
+  });
   return {
     unreadCount: guarded.unreadCount,
     suppressed: guarded.suppressed,
-    bottomRoomCount,
-    hubSynced,
+    bottomRoomCount: sync.bottomRoomCount,
+    hubSynced: sync.hubSynced,
   };
 }
 

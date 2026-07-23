@@ -9,6 +9,9 @@ import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { useNotificationSurface } from "@/contexts/NotificationSurfaceContext";
 import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
 import { applyMessengerRoomUnreadFactAndSyncBottom } from "@/lib/community-messenger/unread/messenger-room-unread-authority";
+import { peekBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
+import { findHomeListRoomRow } from "@/lib/community-messenger/home-list-patch";
+import { peekRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
@@ -139,13 +142,17 @@ export function useCmParticipantsHubSync(
               bottom_badge_updated_ms: cmReceiveLatencyNow(),
               room_list_row_updated_ms: cmReceiveLatencyNow(),
             });
-            /** Single authority: guarded fact → bus list + Bottom GD+group absolute recount. */
+            /** Single authority: participant_rt fact (empty LMA must not suppress) → list + Bottom. */
+            const homeLma = findHomeListRoomRow(peekBootstrapCache(), nextRoomId)?.lastMessageAt;
+            const snapLma = peekRoomSnapshot(nextRoomId, userId)?.room?.lastMessageAt;
             const applied = applyMessengerRoomUnreadFactAndSyncBottom({
               roomId: nextRoomId,
               viewerUserId: userId,
               unreadCount: nextUnread,
-              lastMessageAt: null,
+              prevUnreadHint: prevUnread,
+              lastMessageAt: homeLma ?? snapLma ?? null,
               versionMs: Date.now(),
+              source: "participant_rt",
             });
             postCommunityMessengerBusEvent({
               type: "cm.room.summary_patch",
