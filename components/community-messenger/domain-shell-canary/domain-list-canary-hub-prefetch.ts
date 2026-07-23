@@ -100,9 +100,11 @@ export function peekDomainStoreOrderUnreadRoomCount(): number | null {
   );
 }
 
+/** Cache miss only — never overwrite hydrated Domain list canary (Telegram list authority). */
 export function prefetchDomainTradeListCanaryForHub(): Promise<void> {
   const uid = viewerEligible();
   if (!uid) return Promise.resolve();
+  if (peekDomainTradeListCanaryCache(uid)) return Promise.resolve();
   if (tradePrefetchInflight) return tradePrefetchInflight;
   tradePrefetchInflight = (async () => {
     try {
@@ -132,6 +134,7 @@ export function prefetchDomainTradeListCanaryForHub(): Promise<void> {
 export function prefetchDomainStoreOrderCustomerListCanaryForHub(): Promise<void> {
   const uid = viewerEligible();
   if (!uid) return Promise.resolve();
+  if (peekDomainStoreOrderCustomerListCanaryCache(uid)) return Promise.resolve();
   if (soPrefetchInflight) return soPrefetchInflight;
   soPrefetchInflight = (async () => {
     try {
@@ -163,7 +166,7 @@ export function prefetchDomainStoreOrderCustomerListCanaryForHub(): Promise<void
   return soPrefetchInflight;
 }
 
-/** Always revalidate (do not skip when session cache exists). */
+/** Seed Domain commerce list caches on hub enter only when empty. */
 export function prefetchDomainCommerceListsForHub(): void {
   void prefetchDomainTradeListCanaryForHub();
   void prefetchDomainStoreOrderCustomerListCanaryForHub();

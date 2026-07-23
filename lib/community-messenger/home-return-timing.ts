@@ -4,7 +4,8 @@ import { endCmRoomEntryPriorityMode } from "@/lib/community-messenger/room/cm-ro
 const STORAGE_KEY = "samarket:cm:home_return_t0.v1";
 /**
  * 방→리스트 remount 마커.
- * consume 측: memory fresh 면 전체 refresh 금지(리스트 락). cold memory 만 bootstrap.
+ * consume 측: memory fresh 면 refresh/silent 전부 금지(Telegram list authority).
+ * 치유용 flag·refresh 제어로 쓰지 말 것.
  */
 const COLD_BOOTSTRAP_KEY = "samarket:cm:home_return_cold.v1";
 const TTL_MS = 20_000;

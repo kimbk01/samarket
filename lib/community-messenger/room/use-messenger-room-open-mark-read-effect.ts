@@ -199,11 +199,16 @@ function isRoomActuallyReadableState(args: {
   const focused = windowIsFocused();
   const routeMatches = currentRouteMatchesRoom(args.roomId, snapshotRoomId);
   const rendered = args.roomMessages.length > 0 || Boolean(args.snapshot?.messages?.length);
+  /**
+   * Kakao/Telegram: 메시지 본문이 있으면 loading(백그라운드 보강)만으로 읽음을 막지 않는다.
+   * 셸-only / placeholder / overlay 만 blocked.
+   * (roomLoading∧rendered 이면 예전엔 영구 return → 리스트 unread 잔존 + list-lock 체감)
+   */
   const blocked =
-    args.roomLoading ||
     args.overlayBlocked ||
     isMessengerRoomReadGateExtraBlocked(args.roomId) ||
-    Boolean(args.snapshot?.clientShellPlaceholder);
+    Boolean(args.snapshot?.clientShellPlaceholder) ||
+    (args.roomLoading && !rendered);
   /** 분할 창 등: 탭은 보이나 `document.hasFocus()` 가 false 인 경우에도 읽음 커서 진행 허용 */
   const readable =
     Boolean(args.snapshot) && visible && routeMatches && rendered && !blocked;
@@ -215,6 +220,13 @@ function isRoomActuallyReadableState(args: {
     rendered,
     blocked,
   };
+}
+
+/** @internal vitest — readable 게이트 계약 */
+export function __testIsRoomActuallyReadableState(
+  args: Parameters<typeof isRoomActuallyReadableState>[0]
+): RoomReadableState {
+  return isRoomActuallyReadableState(args);
 }
 
 function isNearBottom(root: HTMLElement | null): boolean {
@@ -978,6 +990,13 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
         hintId === lastId &&
         (nearBottom || stickToBottomRef.current);
       const viewportOk = lastVisible.domExists && (nearBottom || lastVisible.visible || peerTailViewportBypass);
+      /**
+       * Telegram list authority: room open readable → list unread 0 must fire even if
+       * viewport blocks server cursor PATCH. Do not let viewport early-return suppress list store.
+       */
+      if (state.readable && lastId && earlyOptimisticMessageIdRef.current !== lastId) {
+        tryEarlyOptimisticListBadgeClear(reason, lastId, snap);
+      }
       if (!state.readable || !viewportOk) {
         cmRtReadSyncLog("event_ignored_reason", {
           roomId: id,
@@ -990,6 +1009,7 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
           blocked: state.blocked,
           nearBottom,
           viewportOk,
+          listOptimisticApplied: state.readable,
         });
         debugRoomReadAck({
           roomId: id,
@@ -1003,7 +1023,7 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
           previousReadCursor: roomOpenMarkReadRef.current.lastMarkedMessageId ?? null,
           nextReadCursor: lastId,
           debounceMs: CM_MARK_READ_SCROLL_DEBOUNCE_MS,
-          optimisticApplied: false,
+          optimisticApplied: Boolean(state.readable && earlyOptimisticMessageIdRef.current === lastId),
         });
         return null;
       }
@@ -1023,7 +1043,11 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
         if (cancelled) return;
         const candidate = resolveReadCandidate(reason);
         if (!candidate) {
-          maybeRollbackEarlyOptimisticBadge(reason);
+          /**
+           * viewport 미달로 candidate null 이어도 list unread optimistic 은 유지
+           * (resolveReadCandidate 가 readable 시 tryEarlyOptimistic 이미 적용).
+           * 전체 list refetch / rollback 금지 — 서버 PATCH 실패 시에도 동일.
+           */
           return;
         }
         const snapEarly = snapshotRef.current;
@@ -1045,7 +1069,6 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
           if (cancelled) return;
           const candidateAfter = resolveReadCandidate(reason);
           if (!candidateAfter) {
-            maybeRollbackEarlyOptimisticBadge("rollback");
             return;
           }
           flushRoomReadAck(reason, candidateAfter);

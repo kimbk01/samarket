@@ -3,7 +3,10 @@
  * CONTRACT: list 행 변경은 본 모듈 `applyHomeListPatch` 만. 직접 `setData` 로 chats/groups mutate 금지.
  */
 
-import { dualWriteDomainListProjectionsFromRooms } from "@/lib/chat-domain/list/dual-write-domain-list-from-rooms";
+import {
+  logListAuthorityMutation,
+  logListAuthorityViolation,
+} from "@/lib/chat-domain/list/domain-list-mutation-contract";
 import { peekBootstrapCache, primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import {
   mergeJsonRecordsPreserveRefs,
@@ -404,9 +407,9 @@ function applyLocalUnreadToLists(
       if (room.unreadCount === unreadCount) return room;
       return { ...room, unreadCount };
     });
-  if (!hit) return { data, applied: false };
   const nextChats = patchRooms(data.chats ?? []);
   const nextGroups = patchRooms(data.groups ?? []);
+  if (!hit) return { data, applied: false };
   if (nextChats === data.chats && nextGroups === data.groups) {
     return { data, applied: false };
   }
@@ -908,12 +911,51 @@ export function applyHomeListPatch(
   lastHomeListPatchStats = stats;
   logHomeListOwner(stats);
 
-  /** Domain list dual-write (slice-1) — paint SSOT remains this reducer. */
+  /** Telegram list authority: hub paint is GD+group only — drop commerce domain rows. */
   if (next) {
-    dualWriteDomainListProjectionsFromRooms([...(next.chats ?? []), ...(next.groups ?? [])]);
+    next = stripCommerceDomainRowsFromHubLists(next);
+  }
+
+  if (patch.kind === "local_unread" && next) {
+    logListAuthorityMutation({
+      surface: "hub_gd_group",
+      roomId: patch.roomId,
+      mutationType: patch.unreadCount === 0 ? "MARK_READ" : "PARTICIPANT_UNREAD",
+      changedFields: ["unreadCount"],
+      listOrderChanged: false,
+      writerName: "applyHomeListPatch",
+    });
   }
 
   return next === prev ? prev : next;
+}
+
+/** Hub chats/groups must not paint trade/store_order identity rows. */
+export function stripCommerceDomainRowsFromHubLists(
+  data: CommunityMessengerBootstrap
+): CommunityMessengerBootstrap {
+  const filter = (rooms: CommunityMessengerRoomSummary[] | undefined) => {
+    if (!rooms?.length) return rooms;
+    let changed = false;
+    const next = rooms.filter((r) => {
+      const d = r.chatDomain;
+      if (d === "trade" || d === "store_order") {
+        logListAuthorityViolation("DOMAIN_ROW_LEAK", {
+          surface: "hub_gd_group",
+          roomId: r.id,
+          chatDomain: d,
+        });
+        changed = true;
+        return false;
+      }
+      return true;
+    });
+    return changed ? next : rooms;
+  };
+  const chats = filter(data.chats);
+  const groups = filter(data.groups);
+  if (chats === data.chats && groups === data.groups) return data;
+  return { ...data, chats: chats ?? data.chats, groups: groups ?? data.groups };
 }
 
 /** R2-M2 — React 홈 list 행 조회 (Zustand summary 대체) */

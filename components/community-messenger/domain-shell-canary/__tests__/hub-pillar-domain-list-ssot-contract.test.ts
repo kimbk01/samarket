@@ -21,26 +21,32 @@ describe("hub pillar preview SSOT = Domain list", () => {
     expect(src).toContain('data-messenger-pillar-preview-source={useDomain ? "domain_list" : "bootstrap"}');
   });
 
-  it("prefetch stabilizes DTO before prime (same as list)", () => {
+  it("prefetch seeds only on cache miss (no always-revalidate)", () => {
     const src = read(
       "components/community-messenger/domain-shell-canary/domain-list-canary-hub-prefetch.ts"
     );
     expect(src).toContain("stabilizeTradeListDto");
     expect(src).toContain("stabilizeSoCustomerListDto");
-    expect(src).not.toMatch(/if \(peekDomainTradeListCanaryCache\(uid\)\) return Promise\.resolve\(\)/);
+    expect(src).toMatch(/if \(peekDomainTradeListCanaryCache\(uid\)\) return Promise\.resolve\(\)/);
+    expect(src).toMatch(
+      /if \(peekDomainStoreOrderCustomerListCanaryCache\(uid\)\) return Promise\.resolve\(\)/
+    );
   });
 
-  it("room→list LIST LOCK: fresh memory skips refresh(false); Domain Gate skips fetch when TTL fresh", () => {
+  it("room→list: hydrated memory skips all refresh; Domain Gate skips fetch when cache present", () => {
     const home = read("lib/community-messenger/home/use-community-messenger-home-bootstrap.ts");
-    expect(home).toContain("fromRoomReturn && memoryFresh");
-    expect(home).not.toMatch(/if \(fromRoomReturn \|\| !memoryFresh\)/);
+    expect(home).toContain("Telegram list authority");
+    expect(home).not.toMatch(/await refreshRef\.current\(true\)/);
+    expect(home).not.toMatch(/messenger:stale-resume-silent/);
     const tradeGate = read(
       "components/community-messenger/domain-shell-canary/DomainTradeListCanaryGate.tsx"
     );
-    expect(tradeGate).toContain("isDomainTradeListCanaryCacheFresh");
+    expect(tradeGate).toContain("peekDomainTradeListCanaryCache(syncUid)");
+    expect(tradeGate).not.toContain("isDomainTradeListCanaryCacheFresh");
     const soGate = read(
       "components/community-messenger/domain-shell-canary/DomainStoreOrderCustomerListCanaryGate.tsx"
     );
-    expect(soGate).toContain("isDomainStoreOrderCustomerListCanaryCacheFresh");
+    expect(soGate).toContain("peekDomainStoreOrderCustomerListCanaryCache(syncUid)");
+    expect(soGate).not.toContain("isDomainStoreOrderCustomerListCanaryCacheFresh");
   });
 });

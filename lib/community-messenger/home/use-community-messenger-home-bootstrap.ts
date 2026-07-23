@@ -222,11 +222,8 @@ function abortSignalAny(signals: AbortSignal[]): AbortSignal {
   return alive[0]!;
 }
 
-const STALE_CACHE_RESUME_SILENT_REFRESH_COOLDOWN_MS = 20_000;
-/** silent home-sync·visibility 직후 폭주 완화 — `refresh(true)` 최소 간격 */
 const HOME_SILENT_REFRESH_MIN_GAP_MS = 680;
 const INITIAL_FOREGROUND_BOOTSTRAP_SS_KEY = "samarket:cm:initial-foreground-bootstrap:v1";
-let lastStaleCacheResumeSilentRefreshAt = 0;
 
 /** React Strict Mode 이중 마운트에서 foreground `refresh(false)` 가 두 번 열리지 않게 */
 function tryClaimInitialForegroundBootstrap(): boolean {
@@ -1544,52 +1541,20 @@ export function useCommunityMessengerHomeBootstrap({
         return;
       }
       /**
-       * Hard refresh / cold memory → non-silent bootstrap.
-       * Room→list remount with fresh memory → LIST LOCK (no refresh).
-       * mark_read / participant RT already patched unread while in-room;
-       * full refresh(false) was reordering tips every enter→exit (8072 regression).
-       * Soft re-entry without room return: silent + cooldown.
+       * Telegram list authority: hydrated memory → seed paint only.
+       * Remount / soft resume must NOT call refresh(true) silent critical→partial,
+       * refresh(false), or full replace. Cold / empty memory only → non-silent fetch.
        */
       const fromRoomReturn = consumeCommunityMessengerHomeReturnColdBootstrap();
       const memoryFresh = isBootstrapCacheFresh() || isCriticalBootstrapCacheFresh();
-      if (fromRoomReturn && memoryFresh) {
-        return;
-      }
-      if (!memoryFresh) {
-        void refreshRef.current(false);
-        return;
-      }
-      /**
-       * 세션 복원 직후 재진입이 짧은 간격으로 반복될 때 stale hit마다 silent sync GET을 다시 열지 않게 한다.
-       * 같은 탭에서 최근 silent sync를 이미 예약/실행했다면 이번 라운드는 캐시만 사용한다.
-       */
-      if (Date.now() - lastStaleCacheResumeSilentRefreshAt < STALE_CACHE_RESUME_SILENT_REFRESH_COOLDOWN_MS) {
-        return;
-      }
-      let ricId: number | undefined;
-      let resumeTimer: number | undefined;
-      const runResume = () => {
-        lastStaleCacheResumeSilentRefreshAt = Date.now();
-        getMessengerBackgroundHydrationScheduler().schedule({
-          id: `messenger:stale-resume-silent:${Date.now()}`,
-          dedupeKey: "messenger:stale-resume-silent",
-          priority: "medium",
-          run: async () => {
-            await refreshRef.current(true);
-          },
-        });
-      };
-      if (typeof requestIdleCallback === "function") {
-        ricId = requestIdleCallback(runResume, { timeout: 1500 });
-      } else {
-        resumeTimer = window.setTimeout(runResume, 100);
-      }
-      return () => {
-        if (ricId !== undefined && typeof cancelIdleCallback === "function") {
-          cancelIdleCallback(ricId);
+      if (memoryFresh) {
+        if (fromRoomReturn) {
+          /* list lock — mark_read / participant already patched while in-room */
         }
-        if (resumeTimer !== undefined) window.clearTimeout(resumeTimer);
-      };
+        return;
+      }
+      void refreshRef.current(false);
+      return;
     }
     if (!tryClaimInitialForegroundBootstrap()) return;
     void refreshRef.current();

@@ -18,7 +18,6 @@ import {
 } from "@/components/community-messenger/domain-shell-canary/domain-list-canary-retry";
 import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
 import {
-  isDomainStoreOrderCustomerListCanaryCacheFresh,
   peekDomainStoreOrderCustomerListCanaryCache,
   primeDomainStoreOrderCustomerListCanaryCache,
   type SoCustomerListDto,
@@ -135,11 +134,12 @@ export function DomainStoreOrderCustomerListCanaryGate({
         }
         const syncUid = getSyncViewerUserIdForClient() ?? null;
         /**
-         * LIST LOCK: room→list remount with fresh session cache — no network rewrite.
+         * Telegram list authority: hydrated session cache → memory paint only.
+         * Remount must not network-rewrite (TTL soft-skip then fetch deleted).
          */
-        if (isDomainStoreOrderCustomerListCanaryCacheFresh(syncUid)) {
-          const cached = peekDomainStoreOrderCustomerListCanaryCache(syncUid);
-          if (cached && !cancelled) {
+        const cached = peekDomainStoreOrderCustomerListCanaryCache(syncUid);
+        if (cached) {
+          if (!cancelled) {
             setDto(cached);
             setMode("ready");
             setReason(null);

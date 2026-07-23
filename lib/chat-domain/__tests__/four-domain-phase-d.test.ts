@@ -38,7 +38,7 @@ describe("Phase D domain list bootstrap (slice-1 wired)", () => {
     expect(item.domainIdentity.startsWith("gd:")).toBe(true);
   });
 
-  it("dual-write applies Domain projections fail-closed", () => {
+  it("dual-write is quarantined no-op (trade/SO paint authority deleted)", () => {
     __resetDomainListProjectionsForTest();
     const rooms = [
       {
@@ -57,9 +57,9 @@ describe("Phase D domain list bootstrap (slice-1 wired)", () => {
       },
     ] as unknown as CommunityMessengerRoomSummary[];
     const r = dualWriteDomainListProjectionsFromRooms(rooms, 10);
-    expect(r.byDomain.trade).toBe(1);
-    expect(r.omitted).toBe(1);
-    expect(getDomainListProjection("trade")?.items[0]?.roomId).toBe("t1");
+    expect(r.byDomain.trade).toBe(0);
+    expect(r.omitted).toBe(2);
+    expect(getDomainListProjection("trade")).toBeNull();
     expect(applyTradeListProjection({ chatDomain: "trade", items: [], versionMs: 11 }).status).toBe("ok");
   });
 });

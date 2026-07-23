@@ -27,6 +27,7 @@ import {
 import { peekBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import {
   applyDomainListCanaryReadPatchByRoomId,
+  applyDomainListCanaryUnreadOnlyPatchByRoomId,
   applyDomainStoreOrderListRealtimeMessagePatch,
   applyDomainTradeListRealtimeMessagePatch,
 } from "@/components/community-messenger/domain-shell-canary/domain-list-canary-realtime-patch";
@@ -163,7 +164,11 @@ export function DomainRoomStateRealtimeHost() {
       if (ev.type === "cm.room.read" || ev.type === "cm.room.local_unread") {
         if (String(ev.viewerUserId) !== me) return;
         if (ev.type === "cm.room.local_unread" && ev.unreadCount > 0) {
-          // Non-zero local unread is participant sync — merge via summary path later.
+          applyDomainListCanaryUnreadOnlyPatchByRoomId({
+            viewerUserId: me,
+            roomId: ev.roomId,
+            unreadCount: ev.unreadCount,
+          });
           return;
         }
         const readEv = domainRoomReadEventFromRoom({ roomId: ev.roomId });

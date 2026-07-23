@@ -39,6 +39,10 @@ export function peekDomainTradeListCanaryCache(viewerUserId: string | null | und
   }
 }
 
+/**
+ * Soft TTL — UI freshness hint only. Remount must NOT use this to trigger network rewrite
+ * (Telegram list authority: hydrated peek = memory paint; cold/empty/pull only fetch).
+ */
 export function isDomainTradeListCanaryCacheFresh(viewerUserId: string | null | undefined): boolean {
   const uid = viewerUserId?.trim();
   if (!uid || typeof window === "undefined") return false;

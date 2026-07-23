@@ -1,15 +1,14 @@
 /**
- * Dual-write CM room summaries → Domain list projection (slice-1).
- * Paint still uses applyHomeListPatch; this keeps Domain writers current for refresh/SSOT readers.
- * Fail-closed: rooms without chatDomain+domainIdentity are omitted.
+ * QUARANTINED (Telegram list authority 2026-07-24).
+ * CM hub rooms must NOT dual-write trade/store_order list paint truth.
+ * Paint SSOT: Domain canary stores + domain-list-canary-realtime-patch.
+ * Callers should be removed; this no-op remains only for dead-import safety during cutover.
  */
 
 import type { ChatDomain } from "@/lib/chat-domain/four-domain-freeze";
+import { logListAuthorityViolation } from "@/lib/chat-domain/list/domain-list-mutation-contract";
 import type { DomainListItemDto } from "@/lib/chat-domain/list/domain-list-dto";
-import { applyDomainListProjection } from "@/lib/chat-domain/list/domain-list-writers";
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
-
-const DOMAINS: ChatDomain[] = ["general_direct", "group", "trade", "store_order"];
 
 function isChatDomain(v: unknown): v is ChatDomain {
   return v === "general_direct" || v === "group" || v === "trade" || v === "store_order";
@@ -35,32 +34,25 @@ export function mapRoomSummaryToDomainListItem(
 }
 
 /**
- * Partition room list by Domain and apply each Domain writer.
- * Call after home bootstrap / home-sync settles (dual-write window).
+ * @deprecated No-op — dual-write to Domain trade/SO list paint is forbidden.
  */
 export function dualWriteDomainListProjectionsFromRooms(
   rooms: readonly CommunityMessengerRoomSummary[],
-  versionMs = Date.now(),
+  _versionMs = Date.now(),
 ): { byDomain: Record<ChatDomain, number>; omitted: number } {
-  const buckets: Record<ChatDomain, DomainListItemDto[]> = {
-    general_direct: [],
-    group: [],
-    trade: [],
-    store_order: [],
+  if (rooms.length > 0) {
+    logListAuthorityViolation("MULTI_WRITER_DETECTED", {
+      writer: "dualWriteDomainListProjectionsFromRooms",
+      roomCount: rooms.length,
+    });
+  }
+  return {
+    byDomain: {
+      general_direct: 0,
+      group: 0,
+      trade: 0,
+      store_order: 0,
+    },
+    omitted: rooms.length,
   };
-  let omitted = 0;
-  for (const room of rooms) {
-    const item = mapRoomSummaryToDomainListItem(room);
-    if (!item) {
-      omitted += 1;
-      continue;
-    }
-    buckets[item.chatDomain].push(item);
-  }
-  const byDomain = {} as Record<ChatDomain, number>;
-  for (const d of DOMAINS) {
-    applyDomainListProjection({ chatDomain: d, items: buckets[d], versionMs });
-    byDomain[d] = buckets[d].length;
-  }
-  return { byDomain, omitted };
 }
