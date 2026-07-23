@@ -140,4 +140,11 @@ describe("owner-hub-badge-store communityMessengerUnread sync", () => {
     applyHubBadgeCmUnreadRoomCountAbsolute(0);
     expect(getOwnerHubBadgeSnapshot().communityMessengerUnread).toBe(0);
   });
+
+  it("participant increase must not force cmFresh (stale counter wipe)", () => {
+    const storeSrc = readFileSync(join(process.cwd(), "lib/chats/owner-hub-badge-store.ts"), "utf8");
+    expect(storeSrc).toContain('if (direction === "increase") return false');
+    expect(storeSrc).toContain('direction === "increase"');
+    expect(storeSrc).not.toMatch(/if \(direction === "increase"\) return true/);
+  });
 });

@@ -1500,7 +1500,12 @@ function scheduleMessengerParticipantHubBadgeRefresh(detail?: OwnerHubBadgeRefre
 
   const shouldForceCmFreshForMessengerEvent = (): boolean => {
 
-    if (direction === "increase") return true;
+    /**
+     * increase 에 cmFresh 금지 — hub counter_row SWR 이 아직 0이면 network_fresh 가
+     * live absolute/optimistic CM 을 즉시 0으로 덮어 뱃지 깜빡임·소멸이 난다.
+     * 증가 반영은 participant live recount 가 담당, 정합은 plain/poll.
+     */
+    if (direction === "increase") return false;
 
     if (
 
@@ -1602,9 +1607,14 @@ function scheduleMessengerParticipantHubBadgeRefresh(detail?: OwnerHubBadgeRefre
 
   const staleEnough = now - lastFetchCompletedAt >= MESSENGER_PARTICIPANT_FORCE_STALE_MS;
 
+  /** increase: never cmFresh (stale counter wipe). decrease/other: existing force rules. */
   const shouldForceFresh =
 
-    shouldForceCmFreshForMessengerEvent() || (staleEnough && !recentHubFetch);
+    direction === "increase"
+
+      ? false
+
+      : shouldForceCmFreshForMessengerEvent() || (staleEnough && !recentHubFetch);
 
   const elapsed = now - lastMessengerParticipantForceRefreshAt;
 
@@ -1682,11 +1692,15 @@ function scheduleMessengerParticipantHubBadgeRefresh(detail?: OwnerHubBadgeRefre
 
     const trailingShouldForceFresh =
 
-      shouldForceCmFreshForMessengerEvent() ||
+      direction === "increase"
 
-      (Date.now() - lastFetchCompletedAt >= MESSENGER_PARTICIPANT_FORCE_STALE_MS &&
+        ? false
 
-        !trailingRecentHubFetch);
+        : shouldForceCmFreshForMessengerEvent() ||
+
+          (Date.now() - lastFetchCompletedAt >= MESSENGER_PARTICIPANT_FORCE_STALE_MS &&
+
+            !trailingRecentHubFetch);
 
     logParticipantTrigger(trailingShouldForceFresh);
 
