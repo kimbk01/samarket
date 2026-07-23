@@ -1,4 +1,5 @@
 import type { CmScrollOwnerReason } from "@/lib/community-messenger/room/messenger-room-entry-scroll-owner";
+import type { ChatDomain } from "@/lib/chat-domain/chat-domain";
 
 export const MESSENGER_ROOM_ENTRY_QUERY = "entry";
 export const MESSENGER_ROOM_ENTRY_PUSH = "push";
@@ -18,7 +19,16 @@ const ROOM_ENTRY_INTENT_STORAGE_KEY = "samarket:cm:room_entry_intent.v1";
 const ROOM_ENTRY_INTENT_TTL_MS = 20_000;
 
 type PushIntentRow = { roomId: string; at: number };
-type RoomEntryIntentRow = { roomId: string; at: number; seed?: { title?: string | null; avatarUrl?: string | null } };
+type RoomEntryIntentRow = {
+  roomId: string;
+  at: number;
+  seed?: {
+    title?: string | null;
+    avatarUrl?: string | null;
+    expectedDomain?: ChatDomain;
+    expectedIdentityKey?: string;
+  };
+};
 
 function activeRoomEntryIntent(roomId?: string): RoomEntryIntentRow | null {
   if (typeof window === "undefined") return null;

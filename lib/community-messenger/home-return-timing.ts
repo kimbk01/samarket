@@ -2,6 +2,8 @@ import { messengerMonitorRecord } from "@/lib/community-messenger/monitoring/cli
 import { endCmRoomEntryPriorityMode } from "@/lib/community-messenger/room/cm-room-entry-priority-mode";
 
 const STORAGE_KEY = "samarket:cm:home_return_t0.v1";
+/** 방→리스트 remount 시 silent home-sync tip churn 대신 cold bootstrap 1회 */
+const COLD_BOOTSTRAP_KEY = "samarket:cm:home_return_cold.v1";
 const TTL_MS = 20_000;
 
 type Row = { at: number };
@@ -31,8 +33,24 @@ export function markCommunityMessengerHomeReturn(): void {
   endCmRoomEntryPriorityMode("room_unmount");
   try {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ at: nowMs() } satisfies Row));
+    sessionStorage.setItem(COLD_BOOTSTRAP_KEY, "1");
   } catch {
     /* ignore */
+  }
+}
+
+/**
+ * 홈 bootstrap remount — 방 복귀면 true 를 반환하고 플래그를 소비한다.
+ * `CommunityMessengerHomeReturnConsume` 과 독립(레이아웃 effect 순서와 무관).
+ */
+export function consumeCommunityMessengerHomeReturnColdBootstrap(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const v = sessionStorage.getItem(COLD_BOOTSTRAP_KEY);
+    sessionStorage.removeItem(COLD_BOOTSTRAP_KEY);
+    return v === "1";
+  } catch {
+    return false;
   }
 }
 

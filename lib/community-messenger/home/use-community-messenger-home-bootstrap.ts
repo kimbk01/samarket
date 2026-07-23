@@ -111,6 +111,7 @@ import {
 } from "@/lib/community-messenger/dev/cm-event-loop-dev";
 import { profileArraysReferenceEqual } from "@/lib/community-messenger/home/merge-bootstrap-lists-preserve-refs";
 import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
+import { consumeCommunityMessengerHomeReturnColdBootstrap } from "@/lib/community-messenger/home-return-timing";
 import {
   deferHomeSyncMerge,
   shouldDeferDuringRoomEntryQuiet,
@@ -685,7 +686,7 @@ export function useCommunityMessengerHomeBootstrap({
 
   useEffect(() => {
     registerDeferredHomeSyncRunner((payload) => {
-      applyHomeSyncPayload(payload, payload.roomMode ?? "replace");
+      applyHomeSyncPayload(payload, payload.roomMode ?? "partial_upsert");
     });
   }, [applyHomeSyncPayload]);
 
@@ -1543,12 +1544,14 @@ export function useCommunityMessengerHomeBootstrap({
         return;
       }
       /**
-       * Hard refresh: memory is empty and only sessionStorage seeds paint — silent home_sync
-       * (+ 20s cooldown skip) cannot INSERT new rooms (critical_patch). Cold bootstrap once.
-       * Soft re-entry with fresh memory: keep silent + cooldown.
+       * Hard refresh: memory empty → session-only seed needs cold bootstrap.
+       * Room→list remount: memory often still "fresh" but silent critical_patch cannot
+       * INSERT and tip churns — force one non-silent refresh (home_return_cold flag).
+       * Soft re-entry without room return: silent + cooldown.
        */
+      const fromRoomReturn = consumeCommunityMessengerHomeReturnColdBootstrap();
       const memoryFresh = isBootstrapCacheFresh() || isCriticalBootstrapCacheFresh();
-      if (!memoryFresh) {
+      if (fromRoomReturn || !memoryFresh) {
         void refreshRef.current(false);
         return;
       }

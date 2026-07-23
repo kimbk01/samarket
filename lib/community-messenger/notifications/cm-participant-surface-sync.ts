@@ -8,7 +8,6 @@ import { useMessengerInAppMessageBannerStore } from "@/lib/community-messenger/n
 import { applyMessengerRoomUnreadFactAndSyncBottom } from "@/lib/community-messenger/unread/messenger-room-unread-authority";
 import { normalizeLocalReadGuardRoomId } from "@/lib/community-messenger/read/local-read-guard";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
-import { invalidatePendingNotificationSoundPlayback } from "@/lib/notifications/notification-sound-engine";
 
 /** participant 경로가 음을 낸 직후 notif INSERT 중복음 차단 창 */
 const CM_PARTICIPANT_SOUND_DEDUP_MS = 4_000;
@@ -80,7 +79,8 @@ export function communityMessengerRoomIdFromHref(href: string | null | undefined
 }
 
 /**
- * 종·푸시·배너에서 방 진입 직전 동기 호출 — hydrate 대기 중이던 알림음이 진입 후 울리는 것 차단.
+ * 종·푸시·배너에서 방 진입 직전 동기 호출 — INSERT 중복음만 막는다.
+ * 수신 hydrate play 는 cancel 하지 않음 (54cd/06e392 · c359 계약 — invalidate 금지).
  */
 export function suppressCmRoomEntryNotificationSound(hrefOrRoomId: string | null | undefined): void {
   const asPath = communityMessengerRoomIdFromHref(hrefOrRoomId);
@@ -94,7 +94,6 @@ export function suppressCmRoomEntryNotificationSound(hrefOrRoomId: string | null
   const rid = asPath ?? asId;
   if (!rid) return;
   noteCmParticipantSurfaceSoundHandled(rid);
-  invalidatePendingNotificationSoundPlayback();
 }
 
 export function dismissMessengerInAppBannerForRoom(roomId: string): void {

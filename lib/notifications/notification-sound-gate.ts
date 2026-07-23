@@ -73,9 +73,7 @@ export function shouldPlayInAppSoundFromGate(
     return false;
   }
   if (isCommunityChatSoundDomain(domain) && ref) {
-    const activeCommunity =
-      communityRoomIdFromWindowPath() ?? snap.activeCommunityChatRoomId;
-    if (activeCommunity === ref) return false;
+    if (snap.activeCommunityChatRoomId === ref) return false;
   }
   if (!snap.isWindowFocused) {
     return true;

@@ -10,6 +10,9 @@ import {
   messengerClientMessageToInsertRow,
 } from "@/lib/community-messenger/home/patch-bootstrap-room-list-from-realtime-message";
 import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
+import { acceptChatDomainRealtimePayload } from "@/lib/chat-domain/realtime/domain-realtime-registry";
+import { requireChatDomain, type ChatDomain } from "@/lib/chat-domain/chat-domain";
+import { dispatchChatDomainRead } from "@/lib/chat-domain/read/domain-read-registry";
 
 export type MessengerBusListPreview = {
   lastMessage: string;
@@ -45,6 +48,8 @@ export type MessengerBusEvent =
       type: "cm.room.incoming_message";
       roomId: string;
       viewerUserId: string;
+      chatDomain?: ChatDomain;
+      domainIdentityKey?: string;
       messageRow: Record<string, unknown>;
       at: number;
     }
@@ -97,6 +102,8 @@ export type MessengerBusEvent =
       /** 서버 Realtime broadcast `read_ack` — peer 읽음 커서(안읽음/1 제거) */
       type: "cm.room.peer_read_ack";
       roomId: string;
+      chatDomain?: ChatDomain;
+      domainIdentityKey?: string;
       readerUserId: string;
       lastReadMessageId: string | null;
       lastReadAt: string | null;
@@ -307,6 +314,22 @@ function validateAndDispatchMessengerBusEvent(
     if (d.type === "cm.room.peer_read_ack") {
       if (typeof d.roomId !== "string" || !d.roomId.trim()) return;
       if (typeof d.readerUserId !== "string" || !d.readerUserId.trim()) return;
+      /**
+       * Domain accept is best-effort — HEAD emitters may omit chatDomain.
+       * DO NOT drop the bus event when Domain fields are absent (legacy CM path).
+       */
+      try {
+        if (d.chatDomain != null && d.domainIdentityKey) {
+          const domain = requireChatDomain(d.chatDomain);
+          dispatchChatDomainRead(domain).acceptRoom({
+            roomId: d.roomId,
+            chatDomain: domain,
+            domainIdentityKey: d.domainIdentityKey,
+          });
+        }
+      } catch {
+        /* legacy without Domain identity — still deliver peer_read_ack */
+      }
       handler(d as MessengerBusEvent);
       return;
     }
@@ -320,12 +343,31 @@ function validateAndDispatchMessengerBusEvent(
     if (d.type === "cm.home.merge_room_summary") {
       if (typeof d.viewerUserId !== "string" || !d.viewerUserId.trim()) return;
       if (!d.summary || typeof d.summary !== "object" || typeof (d.summary as { id?: unknown }).id !== "string") return;
+      try {
+        const summary = d.summary as { chatDomain?: unknown; domainIdentityKey?: unknown; id?: unknown };
+        if (summary.chatDomain != null && summary.domainIdentityKey != null) {
+          acceptChatDomainRealtimePayload({
+            chatDomain: summary.chatDomain,
+            domainIdentityKey: summary.domainIdentityKey,
+            roomId: summary.id,
+          });
+        }
+      } catch {
+        /* legacy summary without Domain identity */
+      }
     }
     if (d.type === "cm.room.incoming_message" || d.type === "cm.room.read" || d.type === "cm.room.summary_patch" || d.type === "cm.room.call_stub_preview") {
       if (typeof d.viewerUserId !== "string" || !d.viewerUserId.trim()) return;
     }
   if (d.type === "cm.room.incoming_message") {
     if (!d.messageRow || typeof d.messageRow !== "object") return;
+    try {
+      if (d.chatDomain != null && d.domainIdentityKey) {
+        acceptChatDomainRealtimePayload(d as Record<string, unknown>);
+      }
+    } catch {
+      /* legacy incoming without Domain identity — still deliver to CM handlers */
+    }
   }
   handler(d as MessengerBusEvent);
 }

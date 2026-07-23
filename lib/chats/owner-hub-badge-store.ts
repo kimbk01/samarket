@@ -2242,4 +2242,26 @@ export function __testApplyOwnerHubBadgePayloadForTest(
 
 }
 
-
+/** Domain badge authority → Hub surfaces (trade/order/bottom). Projection Apply only. */
+export function applyDomainAuthorityHubBadgeOptimistic(input: {
+  communityMessengerUnread: number;
+  tradeUnread: number;
+  storeOrderChatUnread: number;
+}): void {
+  const communityMessengerUnread = Math.max(0, Math.floor(input.communityMessengerUnread || 0));
+  const tradeUnread = Math.max(0, Math.floor(input.tradeUnread || 0));
+  const storeOrderChatUnread = Math.max(0, Math.floor(input.storeOrderChatUnread || 0));
+  const current = getOwnerHubBadgeSnapshot();
+  const philife = Math.max(0, current.philifeChatUnread || 0);
+  applyOwnerHubBadgePayload(
+    {
+      ok: true,
+      ...current,
+      communityMessengerUnread,
+      chatUnread: tradeUnread,
+      storeOrderChatUnread,
+      socialChatUnread: communityMessengerUnread + philife,
+    },
+    { kind: "optimistic" }
+  );
+}

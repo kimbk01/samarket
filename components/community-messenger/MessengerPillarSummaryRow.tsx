@@ -2,23 +2,30 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { MessengerListRow } from "@/components/community-messenger/line-ui";
 import {
   formatConversationTimestamp,
   type MessengerPillarSummary,
 } from "@/lib/community-messenger/use-community-messenger-home-state";
 import { withMessengerEntryOrigin } from "@/lib/community-messenger/messenger-entry-origin";
+import { resolveStoreOrderDisplayIdentity } from "@/lib/community-messenger/store-order-display-identity";
 import { runMessengerViewTransition, shouldSkipMessengerNavTransitionModifiers } from "@/lib/community-messenger/messenger-view-transition";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
+import { useOwnerHubBadgeBreakdown } from "@/lib/chats/use-owner-hub-badge-total";
+import {
+  DOMAIN_LIST_CANARY_PRIMED_EVENT,
+  peekDomainStoreOrderHubListPreview,
+  peekDomainTradeHubListPreview,
+  type DomainCommerceHubListPreview,
+} from "@/components/community-messenger/domain-shell-canary/domain-list-canary-hub-prefetch";
 
 /**
  * 메신저 받은메시지함 상단의 「거래 채팅」/「배달 채팅」 묶음 행.
  *
- * - 추가 fetch 없이 `MessengerPillarSummary` 만으로 렌더(거래 가볍게 invariant 유지).
- * - 탭 시 전용 서브 라우트(`/community-messenger/trade-chats|delivery-chats`)로 이동.
- * - 1:1·그룹 채팅 행과 시각 톤(아바타·제목·미리보기·우측 시간·미읽음 뱃지)을 통일.
+ * - Preview/시각/latestRoomId: Domain list DTO (List와 동일 Facts). bootstrap summarize 는 cold fallback.
+ * - 보라 미읽음 뱃지는 Projection Apply → owner-hub (`chatUnread` / `storeOrderChatUnread`)만.
  */
 
 type Variant = "trade" | "delivery";
@@ -91,6 +98,10 @@ function ChevronRightIcon() {
   );
 }
 
+function readDomainPreview(variant: Variant): DomainCommerceHubListPreview | null {
+  return variant === "trade" ? peekDomainTradeHubListPreview() : peekDomainStoreOrderHubListPreview();
+}
+
 type Props = {
   variant: Variant;
   summary: MessengerPillarSummary;
@@ -102,6 +113,23 @@ export function MessengerPillarSummaryRow({ variant, summary, entryOriginQuery =
   const router = useRouter();
   const isWide = useIsMessengerSplitViewport();
   const { t } = useI18n();
+  const hub = useOwnerHubBadgeBreakdown();
+  const [domainPreview, setDomainPreview] = useState<DomainCommerceHubListPreview | null>(() =>
+    readDomainPreview(variant)
+  );
+
+  useEffect(() => {
+    setDomainPreview(readDomainPreview(variant));
+    const onPrimed = (ev: Event) => {
+      const bundle = (ev as CustomEvent<{ bundle?: string }>).detail?.bundle;
+      if (variant === "trade" && bundle !== "trade") return;
+      if (variant === "delivery" && bundle !== "store_order") return;
+      setDomainPreview(readDomainPreview(variant));
+    };
+    window.addEventListener(DOMAIN_LIST_CANARY_PRIMED_EVENT, onPrimed);
+    return () => window.removeEventListener(DOMAIN_LIST_CANARY_PRIMED_EVENT, onPrimed);
+  }, [variant]);
+
   const copy = useMemo(() => {
     const base = VARIANT_COPY[variant];
     if (variant === "trade") {
@@ -131,15 +159,36 @@ export function MessengerPillarSummaryRow({ variant, summary, entryOriginQuery =
   }, [copy.href, entryOriginQuery]);
 
   const lastItem = summary.lastItem;
-  const lastTitle = lastItem?.room.title?.trim() || copy.defaultRoomLabel;
-  const previewBase = lastItem?.preview?.trim();
+  /**
+   * 주문(delivery) 허브 preview 는 표시 정체성이 매장이어야 한다(회원명·room.title 금지).
+   * Domain list 가 있으면 매장명/preview/시각은 List 1행과 동일 Facts.
+   */
+  const deliveryStoreIdentity =
+    variant === "delivery" && lastItem ? resolveStoreOrderDisplayIdentity(lastItem.room) : null;
+  const useDomain = Boolean(domainPreview && (domainPreview.latestRoomId || domainPreview.lastEventAt));
+  const lastTitle = useDomain
+    ? domainPreview!.title.trim() || copy.defaultRoomLabel
+    : variant === "delivery"
+      ? deliveryStoreIdentity?.storeName?.trim() || copy.defaultRoomLabel
+      : lastItem?.room.title?.trim() || copy.defaultRoomLabel;
+  const previewBase = useDomain
+    ? domainPreview!.previewText.trim()
+    : lastItem?.preview?.trim() || "";
   const preview = previewBase
     ? `${lastTitle}: ${previewBase}`
-    : lastItem
+    : useDomain || lastItem
       ? lastTitle
       : copy.emptyPreview;
-  const lastEventAt = lastItem?.lastEventAt;
-  const unread = summary.unreadTotal;
+  const lastEventAt = useDomain ? domainPreview!.lastEventAt : lastItem?.lastEventAt;
+  const latestRoomId = useDomain ? domainPreview!.latestRoomId : lastItem?.room.id ?? null;
+  /**
+   * Projection Apply SSOT — Trade Hub = chatUnread, Order Hub = storeOrderChatUnread.
+   * Bootstrap room totals are never the purple badge.
+   */
+  const unread =
+    variant === "trade"
+      ? Math.max(0, Math.floor(hub.chatUnread || 0))
+      : Math.max(0, Math.floor(hub.storeOrderChatUnread || 0));
 
   const avatar = (
     <div
@@ -158,6 +207,9 @@ export function MessengerPillarSummaryRow({ variant, summary, entryOriginQuery =
       scroll={false}
       data-messenger-chat-row="true"
       data-messenger-pillar-row={variant}
+      data-messenger-pillar-unread={String(unread)}
+      data-messenger-pillar-latest-room={latestRoomId ?? ""}
+      data-messenger-pillar-preview-source={useDomain ? "domain_list" : "bootstrap"}
       className="block select-none touch-manipulation rounded-[var(--messenger-radius-md)] transition-[transform,background-color,box-shadow] duration-100 ease-out will-change-transform active:scale-[0.97] active:bg-[color:var(--messenger-surface-muted)] [box-shadow:inset_0_0_0_1px_transparent] active:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.06),inset_0_2px_10px_rgba(0,0,0,0.1)]"
       aria-label={`${copy.title} 묶음 보기`}
       onClick={(e) => {
@@ -202,14 +254,6 @@ export function MessengerPillarSummaryRow({ variant, summary, entryOriginQuery =
           >
             {copy.title}
           </p>
-          {summary.count > 0 ? (
-            <span
-              className="shrink-0 sam-text-helper font-normal tabular-nums"
-              style={{ color: "var(--messenger-text-secondary)" }}
-            >
-              {summary.count}
-            </span>
-          ) : null}
         </div>
         <p
           className={`min-w-0 truncate sam-text-body-secondary font-normal leading-snug ${unread > 0 ? "font-medium" : ""}`}

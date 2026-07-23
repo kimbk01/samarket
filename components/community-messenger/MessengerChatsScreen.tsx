@@ -22,6 +22,7 @@ import { MessengerChatFilterSheet } from "@/components/community-messenger/Messe
 import { TradeChatListLoadMoreFooter } from "@/components/community-messenger/trade-chat-list/TradeChatListLoadMoreFooter";
 import { useTradeChatListClientPagination } from "@/lib/community-messenger/trade-chat-list/use-trade-chat-list-client-pagination";
 import { tradeListPaginationResetKey } from "@/lib/trade/trade-list-pagination-reset-key";
+import { prefetchDomainCommerceListsForHub } from "@/components/community-messenger/domain-shell-canary/domain-list-canary-hub-prefetch";
 
 function useMessengerHomeListDocumentScroll(onScroll: () => void) {
   useEffect(() => {
@@ -118,6 +119,10 @@ export function MessengerChatsScreen({
   const renderedListItems = isPillarChatListVisual ? pillarPagination.visibleItems : items;
   const showPillarSummaryRows =
     Boolean(pillarSummaries) && chatListChip === "all" && listContext === "default";
+  useEffect(() => {
+    if (!showPillarSummaryRows) return;
+    prefetchDomainCommerceListsForHub();
+  }, [showPillarSummaryRows]);
   const onDocumentScroll = useCallback(() => {
     setFilterSheetOpen((prev) => (prev ? false : prev));
     onListScrollStart();

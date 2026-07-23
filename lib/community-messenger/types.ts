@@ -140,6 +140,8 @@ export type CommunityMessengerRoomContextMetaV1 = {
   storeId?: string;
   /** 목록 행 — 매장명(피어 닉네임·id 대신 표시) */
   storeDisplayName?: string;
+  /** 목록/허브 — 매장 프로필 이미지 URL */
+  storeProfileImageUrl?: string | null;
   /** `store_orders.fulfillment_type` 스냅샷 */
   fulfillmentType?: string;
   /** 배달·주문 채팅 음성 메시지 허용 스냅샷 */
@@ -201,6 +203,8 @@ export type CommunityMessengerRoomSummary = {
    * Phase C+/D — DB `domain_identity` (nullable dual-write window).
    */
   domainIdentity?: string | null;
+  /** Domain List canary / Phase R — same semantic as domainIdentity when set. */
+  domainIdentityKey?: string | null;
   /**
    * `community_messenger_participants.is_archived` — 내 목록에서만 숨김(보관함).
    * `roomStatus` 는 `community_messenger_rooms` 의 운영 상태(active/blocked/archived)만 반영한다.
