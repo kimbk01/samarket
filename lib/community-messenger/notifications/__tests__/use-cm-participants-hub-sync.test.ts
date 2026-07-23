@@ -62,13 +62,13 @@ describe("cm-participant-hub-sync-lazy", () => {
 });
 
 describe("cm-participant-hub-sync increase path", () => {
-  it("wires 0→>0 Hub room-count delta and keeps increase resync", () => {
+  it("wires Bottom Chat live delta (GD+group) and keeps resync", () => {
     const src = readFileSync(
       join(process.cwd(), "lib/community-messenger/notifications/use-cm-participants-hub-sync.ts"),
       "utf8",
     );
-    expect(src).toContain("applyHubBadgeCmUnreadRoomCountDelta(1)");
-    expect(src).toContain("prevUnread === 0 && nextUnread > 0");
+    expect(src).toContain("applyBottomChatLiveRoomCountDelta");
     expect(src).toContain('participantUnreadDirection: "increase"');
+    expect(src).toContain('participantUnreadDirection: "decrease"');
   });
 });

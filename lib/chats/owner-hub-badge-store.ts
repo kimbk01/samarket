@@ -472,9 +472,9 @@ export function applyCommunityMessengerUnreadOptimistic(unread: number): void {
 }
 
 /**
- * Symptom 2 — Hub CM unread is a room count. On participant 0→>0, bump +1 immediately
- * via Phase H projection (optimistic). Network resync still runs for authority.
- * DO NOT: revive R1 absolute set · Bell · Domain DTO · Native Call.
+ * Bottom Chat room-count ±Δ via Phase H projection (optimistic).
+ * Callers must filter GD+group only (`applyBottomChatLiveRoomCountDelta`).
+ * Network resync remains authority. DO NOT: revive R1 · Bell · Native Call.
  */
 export function applyHubBadgeCmUnreadRoomCountDelta(delta: number): void {
   const d = Math.floor(Number(delta) || 0);

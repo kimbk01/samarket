@@ -241,9 +241,9 @@ commit → push → **Vercel Ready를 CLI/대시보드로 확인** (추정 금�
 
 ## 10. 즉시 다음 액션 (지금)
 
-1. ~~A~~ … ~~local-read-guard high-water~~ · ~~Hub realtime room-count bump (0→>0)~~
-2. **사용자:** 다른 방 메시지 수신 시 **하단 채팅 탭 즉시 +1** 재확인 · Domain 분류 재확인
-3. 잔여: Domain projection 행 소스 렌더 · backfill · R2 재평가 · 목록/종 실시간(별도) — **별도 승인**
+1. ~~A~~ … ~~Hub realtime room-count bump~~ · ~~B1 Bottom Chat live (GD+group)~~
+2. **사용자:** 다른 화면에서 GD/group 메시지 → **하단 채팅 즉시 +1** · trade/SO는 하단 불변
+3. 잔여: B2 리스트 · B3 Domain 허브 · B4 Bell/App Icon · backfill · R2 — **별도 승인**
 
 ---
 

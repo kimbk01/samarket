@@ -7,7 +7,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { useNotificationSurface } from "@/contexts/NotificationSurfaceContext";
-import { applyHubBadgeCmUnreadRoomCountDelta } from "@/lib/chats/owner-hub-badge-store";
+import { applyBottomChatLiveRoomCountDelta } from "@/lib/community-messenger/notifications/bottom-chat-live-room-count";
 import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
@@ -147,6 +147,13 @@ export function useCmParticipantsHubSync(
               at: Date.now(),
             });
             if (nextUnread <= prevUnread) {
+              /** >0→0 GD/group: immediate Bottom Chat −1; trade/SO / unknown fail-closed. */
+              applyBottomChatLiveRoomCountDelta({
+                roomId: nextRoomId,
+                viewerUserId: userId,
+                prevUnread,
+                nextUnread,
+              });
               requestMessengerHubBadgeResync("participant_unread_changed", {
                 roomId: nextRoomId,
                 participantUnreadDirection: "decrease",
@@ -154,10 +161,13 @@ export function useCmParticipantsHubSync(
               return;
             }
 
-            /** 0→>0 room: immediate Hub room-count +1 via projection; resync keeps authority. */
-            if (prevUnread === 0 && nextUnread > 0) {
-              applyHubBadgeCmUnreadRoomCountDelta(1);
-            }
+            /** 0→>0 GD/group: immediate Bottom Chat +1; trade/SO excluded; unknown fail-closed. */
+            applyBottomChatLiveRoomCountDelta({
+              roomId: nextRoomId,
+              viewerUserId: userId,
+              prevUnread,
+              nextUnread,
+            });
             requestMessengerHubBadgeResync("participant_unread_changed", {
               roomId: nextRoomId,
               participantUnreadDirection: "increase",
