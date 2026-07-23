@@ -44,14 +44,6 @@ describe("messenger-room-timeline-ssot", () => {
     expect(rows.map((r) => r.id)).toEqual(["a", "b", "c"]);
   });
 
-  it("A2 — already-sorted input keeps same array reference", () => {
-    const input = [
-      msg({ id: "a", createdAt: "2026-01-01T00:00:01.000Z" }),
-      msg({ id: "b", createdAt: "2026-01-01T00:00:02.000Z" }),
-    ];
-    expect(sortMessengerRoomTimelineMessages(input)).toBe(input);
-  });
-
   it("B — incomplete initial load with lastMessage hint paints empty (skeleton path)", () => {
     const paint = resolveMessengerRoomTimelinePaintSource({
       displayRoomMessages: [],

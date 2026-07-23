@@ -15,31 +15,16 @@ export function messengerRoomTimelineItemKey(message: MessengerRoomTimelineMessa
 }
 
 /** created_at ASC, tie-breaker id ASC (pending 는 동일 시각에서 tail) */
-function compareMessengerRoomTimelineMessages(
-  a: MessengerRoomTimelineMessage,
-  b: MessengerRoomTimelineMessage
-): number {
-  const ta = new Date(a.createdAt).getTime();
-  const tb = new Date(b.createdAt).getTime();
-  if (ta !== tb) return ta - tb;
-  if (Boolean(a.pending) !== Boolean(b.pending)) return a.pending ? 1 : -1;
-  return String(a.id ?? "").localeCompare(String(b.id ?? ""));
-}
-
-/**
- * Sort ASC — if already ordered, return the same array reference (no copy).
- * Idle snapshot/mark-read re-renders must not create a new paintMessages identity.
- */
 export function sortMessengerRoomTimelineMessages(
   messages: MessengerRoomTimelineMessage[]
 ): MessengerRoomTimelineMessage[] {
-  if (messages.length <= 1) return messages;
-  for (let i = 1; i < messages.length; i += 1) {
-    if (compareMessengerRoomTimelineMessages(messages[i - 1]!, messages[i]!) > 0) {
-      return [...messages].sort(compareMessengerRoomTimelineMessages);
-    }
-  }
-  return messages;
+  return [...messages].sort((a, b) => {
+    const ta = new Date(a.createdAt).getTime();
+    const tb = new Date(b.createdAt).getTime();
+    if (ta !== tb) return ta - tb;
+    if (Boolean(a.pending) !== Boolean(b.pending)) return a.pending ? 1 : -1;
+    return String(a.id ?? "").localeCompare(String(b.id ?? ""));
+  });
 }
 
 /** scrollHeight - scrollTop - clientHeight */
