@@ -72,16 +72,7 @@ export function coalesceRoomSummarySnapshotRow(
     return prev;
   }
   if (prev.unreadCount === incoming.unreadCount && prev.lastMessageAt === incoming.lastMessageAt) {
-    /**
-     * Same tip clock — do not let silent home-sync replace preview text while
-     * unread+lastMessageAt are unchanged (room→list remount churn).
-     */
-    return {
-      ...incoming,
-      lastMessage: prev.lastMessage,
-      lastMessageType: prev.lastMessageType,
-      lastMessageAt: prev.lastMessageAt,
-    };
+    return incoming;
   }
   return mergeRoomSummaryWithConsistency(prev, incoming, args);
 }
