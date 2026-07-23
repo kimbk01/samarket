@@ -49,21 +49,6 @@ function emit(roomId: string, state: RoomMessageRoomState): void {
   for (const listener of listeners) listener(roomId, state);
 }
 
-/**
- * Stable fingerprint for upsert noop — identical content must not bump/emit.
- * Pending is normalized; undefined keys omitted.
- */
-function timelineMessageFingerprint(message: RoomTimelineMessage): string {
-  const normalized: Record<string, unknown> = { pending: Boolean(message.pending) };
-  for (const key of Object.keys(message).sort()) {
-    if (key === "pending") continue;
-    const value = (message as Record<string, unknown>)[key];
-    if (value === undefined) continue;
-    normalized[key] = value;
-  }
-  return JSON.stringify(normalized);
-}
-
 function ensureRoom(roomId: string): RoomMessageRoomState {
   const rid = normalizeRoomId(roomId);
   let state = rooms.get(rid);
@@ -180,7 +165,7 @@ export function storeUpsertMessage(roomId: string, message: RoomTimelineMessage)
   const state = ensureRoom(rid);
   const existing = state.byId.get(id);
   if (existing) {
-    const next: RoomTimelineMessage = {
+    const next = {
       ...existing,
       ...message,
       pending: Boolean(message.pending),
@@ -189,10 +174,6 @@ export function storeUpsertMessage(roomId: string, message: RoomTimelineMessage)
           ? message.metadata
           : existing.metadata,
     };
-    /** Same content → complete no-op: no generation bump, no emit, no new array. */
-    if (timelineMessageFingerprint(existing) === timelineMessageFingerprint(next)) {
-      return "noop";
-    }
     state.byId.set(id, next);
     bump(state);
     emit(rid, state);
