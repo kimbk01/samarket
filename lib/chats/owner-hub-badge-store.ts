@@ -466,8 +466,31 @@ export function applyCommunityMessengerUnreadOptimistic(unread: number): void {
   /**
    * R1 QUARANTINED / dead — measurement 2026-07-23 removed sole product caller.
    * Kept as no-op export so accidental imports fail closed (no store write).
+   * Live 0→>0 room-count bump: use applyHubBadgeCmUnreadRoomCountDelta instead.
    */
   void unread;
+}
+
+/**
+ * Symptom 2 — Hub CM unread is a room count. On participant 0→>0, bump +1 immediately
+ * via Phase H projection (optimistic). Network resync still runs for authority.
+ * DO NOT: revive R1 absolute set · Bell · Domain DTO · Native Call.
+ */
+export function applyHubBadgeCmUnreadRoomCountDelta(delta: number): void {
+  const d = Math.floor(Number(delta) || 0);
+  if (d === 0) return;
+  const nextCm = Math.max(0, Math.floor(Number(snapshot.communityMessengerUnread) || 0) + d);
+  const next: OwnerHubBadgeBreakdown = {
+    ...snapshot,
+    communityMessengerUnread: nextCm,
+    total: recalcHubBadgeTotal({ ...snapshot, communityMessengerUnread: nextCm }),
+  };
+  applyHubBadgeProjection({
+    breakdown: next,
+    versionMs: Date.now(),
+    source: "optimistic",
+    totalUnread: Math.max(0, next.total),
+  });
 }
 
 

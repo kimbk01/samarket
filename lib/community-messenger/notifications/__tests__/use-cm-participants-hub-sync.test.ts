@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 
 import {
@@ -56,5 +58,17 @@ describe("cm-participant-hub-sync-lazy", () => {
     await vi.waitFor(() => {
       expect(fullEffectsMock).toHaveBeenCalledWith(args);
     });
+  });
+});
+
+describe("cm-participant-hub-sync increase path", () => {
+  it("wires 0→>0 Hub room-count delta and keeps increase resync", () => {
+    const src = readFileSync(
+      join(process.cwd(), "lib/community-messenger/notifications/use-cm-participants-hub-sync.ts"),
+      "utf8",
+    );
+    expect(src).toContain("applyHubBadgeCmUnreadRoomCountDelta(1)");
+    expect(src).toContain("prevUnread === 0 && nextUnread > 0");
+    expect(src).toContain('participantUnreadDirection: "increase"');
   });
 });

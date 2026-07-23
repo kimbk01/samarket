@@ -5,6 +5,7 @@ import type { OwnerHubBadgeBreakdown } from "@/lib/chats/owner-hub-badge-types";
 import {
   __resetOwnerHubBadgeStoreForTest,
   __testApplyOwnerHubBadgePayloadForTest,
+  applyHubBadgeCmUnreadRoomCountDelta,
   getOwnerHubBadgeSnapshot,
 } from "@/lib/chats/owner-hub-badge-store";
 
@@ -124,5 +125,19 @@ describe("owner-hub-badge-store communityMessengerUnread sync", () => {
     __testApplyOwnerHubBadgePayloadForTest(hubPayload({ communityMessengerUnread: 1 }), "network_fresh");
     __testApplyOwnerHubBadgePayloadForTest(hubPayload({ communityMessengerUnread: 0 }), "network_fresh");
     expect(getOwnerHubBadgeSnapshot().communityMessengerUnread).toBe(0);
+  });
+
+  it("applyHubBadgeCmUnreadRoomCountDelta bumps CM room count via optimistic projection", () => {
+    __testApplyOwnerHubBadgePayloadForTest(hubPayload({ communityMessengerUnread: 0 }), "network_fresh");
+    applyHubBadgeCmUnreadRoomCountDelta(1);
+    expect(getOwnerHubBadgeSnapshot().communityMessengerUnread).toBe(1);
+    applyHubBadgeCmUnreadRoomCountDelta(1);
+    expect(getOwnerHubBadgeSnapshot().communityMessengerUnread).toBe(2);
+  });
+
+  it("applyHubBadgeCmUnreadRoomCountDelta(0) is a no-op", () => {
+    __testApplyOwnerHubBadgePayloadForTest(hubPayload({ communityMessengerUnread: 3 }), "network_fresh");
+    applyHubBadgeCmUnreadRoomCountDelta(0);
+    expect(getOwnerHubBadgeSnapshot().communityMessengerUnread).toBe(3);
   });
 });

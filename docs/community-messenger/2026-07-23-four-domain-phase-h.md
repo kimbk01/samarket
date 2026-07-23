@@ -60,3 +60,7 @@
 ## 6. 관련 (증상 1 · list unread)
 
 - `local-read-guard` high-water: soft TTL만으로 stale unread 재통과 금지 (newer `lastMessageAt`만 허용). 2026-07-23.
+
+## 7. 관련 (증상 2 · Hub realtime)
+
+- Hub CM 방 수: participant `0→>0` 시 `applyHubBadgeCmUnreadRoomCountDelta(+1)` → `applyHubBadgeProjection(optimistic)` + resync 유지. R1 noop 미부활. 2026-07-23.
