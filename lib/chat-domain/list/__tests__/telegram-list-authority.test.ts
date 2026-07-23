@@ -2,6 +2,8 @@
  * @vitest-environment jsdom
  * Telegram-style list authority — 12-item contract tests.
  */
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   allowedFieldsForListMutation,
@@ -292,5 +294,35 @@ describe("telegram list authority mutation contract", () => {
     });
     expect(spy).toHaveBeenCalled();
     logListAuthorityViolation("ROOM_RETURN_FETCH_ATTEMPT", { surface: "hub_gd_group" });
+  });
+
+  it("13 dual-write module file is deleted", () => {
+    expect(
+      existsSync(join(process.cwd(), "lib/chat-domain/list/dual-write-domain-list-from-rooms.ts"))
+    ).toBe(false);
+  });
+
+  it("14 hub spine mirror uses applyHomeListPatch only", () => {
+    const src = readFileSync(
+      join(process.cwd(), "lib/community-messenger/realtime/domain-room-state-store.ts"),
+      "utf8"
+    );
+    expect(src).toContain("applyHomeListPatch");
+    expect(src).not.toContain("patchBootstrapRoomListForRealtimeMessageInsert");
+    expect(src).not.toContain("patchBootstrapRoomListForSenderLocalEcho");
+  });
+
+  it("15 participant unread-only fields lock", () => {
+    expect([...allowedFieldsForListMutation("PARTICIPANT_UNREAD")]).toEqual(["unreadCount"]);
+  });
+
+  it("16 mark_read effect does not rollback list optimistic on viewport miss", () => {
+    const src = readFileSync(
+      join(process.cwd(), "lib/community-messenger/room/use-messenger-room-open-mark-read-effect.ts"),
+      "utf8"
+    );
+    expect(src).toContain("listOptimisticApplied");
+    expect(src).toMatch(/if \(!candidate\) \{\s*\n\s*\/\*\*/);
+    expect(src).not.toMatch(/if \(!candidate\) \{\s*\n\s*maybeRollbackEarlyOptimisticBadge\(reason\)/);
   });
 });

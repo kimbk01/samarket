@@ -1,5 +1,4 @@
 import {
-  clearBootstrapCache,
   peekBootstrapCache,
   primeBootstrapCache,
 } from "@/lib/community-messenger/bootstrap-cache";
@@ -62,9 +61,13 @@ export function noteBootstrapCacheBusWriterViewerUserId(viewerUserId: string | n
   if (activeViewerUserId === next) return;
   activeViewerUserId = next;
   processedEventIds.clear();
-  if (!next) {
-    clearBootstrapCache();
-  }
+  /**
+   * DO NOT clearBootstrapCache() here.
+   * DomainRoomStateRealtimeHost / BootstrapCacheSyncHost call this(null) on effect cleanup.
+   * Host remount (Strict Mode, layout swap) was wiping the hub list session cache →
+   * room→list return painted empty and memoryFresh skipped refetch.
+   * Logout / explicit pull-refresh must call clearBootstrapCache() themselves.
+   */
 }
 
 function shouldSkipStaleSenderPreview(

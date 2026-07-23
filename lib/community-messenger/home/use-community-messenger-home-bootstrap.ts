@@ -223,19 +223,6 @@ function abortSignalAny(signals: AbortSignal[]): AbortSignal {
 }
 
 const HOME_SILENT_REFRESH_MIN_GAP_MS = 680;
-const INITIAL_FOREGROUND_BOOTSTRAP_SS_KEY = "samarket:cm:initial-foreground-bootstrap:v1";
-
-/** React Strict Mode 이중 마운트에서 foreground `refresh(false)` 가 두 번 열리지 않게 */
-function tryClaimInitialForegroundBootstrap(): boolean {
-  if (typeof window === "undefined") return true;
-  try {
-    if (sessionStorage.getItem(INITIAL_FOREGROUND_BOOTSTRAP_SS_KEY) === "1") return false;
-    sessionStorage.setItem(INITIAL_FOREGROUND_BOOTSTRAP_SS_KEY, "1");
-    return true;
-  } catch {
-    return true;
-  }
-}
 
 function peekClientStaleBootstrap(): CommunityMessengerBootstrap | null {
   if (typeof window === "undefined") return null;
@@ -1541,24 +1528,38 @@ export function useCommunityMessengerHomeBootstrap({
         return;
       }
       /**
-       * Telegram list authority: hydrated memory → seed paint only.
-       * Remount / soft resume must NOT call refresh(true) silent critical→partial,
-       * refresh(false), or full replace. Cold / empty memory only → non-silent fetch.
+       * Room→list remount (blank-list root cause):
+       * Host cleanup used to clearBootstrapCache; remount then hit stale=null while
+       * session foreground-claim already set → refresh skipped
+       * → React data stayed null → hub list gone until hard reload.
+       * Rule: no rooms in cache → always refresh(false). Never gate empty remount on claim.
+       * Non-empty + TTL fresh → memory paint into React (do not early-return without setData).
        */
       const fromRoomReturn = consumeCommunityMessengerHomeReturnColdBootstrap();
-      const memoryFresh = isBootstrapCacheFresh() || isCriticalBootstrapCacheFresh();
+      const hasRooms = homeBootstrapHasListRooms(stale);
+      const memoryFresh =
+        hasRooms && (isBootstrapCacheFresh() || isCriticalBootstrapCacheFresh());
       if (memoryFresh) {
-        if (fromRoomReturn) {
-          /* list lock — mark_read / participant already patched while in-room */
-        }
+        const staleRooms = [...(stale.chats ?? []), ...(stale.groups ?? [])];
+        shadowDispatch.dispatchRoomSummaries("cache", 1, staleRooms);
+        setData((prev) =>
+          commitBootstrapSetData(
+            prev,
+            applyHomeListPatch(prev, { kind: "bootstrap_full_seed", bootstrap: stale }, "bootstrap"),
+            fromRoomReturn ? "room_return_memory_paint" : "soft_resume_memory_paint"
+          )
+        );
+        setLoading(false);
+        setListAwaitingCritical(false);
+        loadedRef.current = true;
         return;
       }
       void refreshRef.current(false);
       return;
     }
-    if (!tryClaimInitialForegroundBootstrap()) return;
-    void refreshRef.current();
-  }, [initialServerBootstrap, mergeDeferredMessengerCallLogs, shadowDispatch]);
+    /** Empty / missing cache — always fetch. Do not use session claim (blocks remount forever). */
+    void refreshRef.current(false);
+  }, [commitBootstrapSetData, initialServerBootstrap, mergeDeferredMessengerCallLogs, shadowDispatch]);
 
   /** critical 이후 idle 에서 홈 Realtime·버스 attach — 셸·목록 먼저 */
   useEffect(() => {
