@@ -703,7 +703,7 @@ export function useMessengerRoomClientPhase1({
     };
   }, [roomId]);
 
-  /** TRUE PASS-0 shell timing은 `CommunityMessengerRoomPass0Shell` 전용 — Phase1 에서 shell 스테이지를 찍지 않는다. */
+  /** TRUE PASS-0 shell timing was Pass0Shell-only — file deleted in Phase J slice-2. */
 
   useMessengerRoomPhase1ViewerBootstrapDedupSync({
     snapshotViewerUserId: snapshot?.viewerUserId,

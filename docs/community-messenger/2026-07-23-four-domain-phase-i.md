@@ -14,8 +14,8 @@ May~Jul 패치로 `ShellChromeFrame`(뒤로가기 없는 seed 헤더)가 overlay
 | Phase2 Pass0 + Pass1 Stable | Phase2Body 직행 |
 | RoomClient Inner loading RouteEntry | `null` |
 
-첫 보이는 방 UI = `Phase2Body`(실제 헤더·뒤로가기·타임라인).
-Pass0Shell 파일은 잔존(호출 0에 가깝음) — J 삭제 후보.
+첫 보이는 방 UI = `Phase2Body`(실제 헤더·뒤로가기·타임라인).  
+Pass0/RouteEntry/StableEntry/Pass1Stable **파일 삭제** — Phase J slice-2.
 
 ## 비대상
 Hub/Bell/AppIcon · Native Call · Domain header/dock not_wired

@@ -80,6 +80,10 @@ export const FORBIDDEN_RESTORE_PATHS = [
   /** Phase J deleted — callers were 0 */
   "components/community-messenger/room/CommunityMessengerRoomSegmentShellLayout.tsx",
   "components/community-messenger/room/CommunityMessengerRoomStableEntryShellLight.tsx",
+  "components/community-messenger/room/CommunityMessengerRoomRouteEntryShell.tsx",
+  "components/community-messenger/room/CommunityMessengerRoomPass0Shell.tsx",
+  "components/community-messenger/room/CommunityMessengerRoomPass1StableShell.tsx",
+  "components/community-messenger/room/CommunityMessengerRoomStableEntryShell.tsx",
 ] as const;
 
 /**
@@ -90,10 +94,7 @@ export const REMOVE_OPTIMISTIC_HUB_CALLERS_FROZEN = [
   "lib/community-messenger/notifications/use-cm-participants-hub-sync.ts",
 ] as const;
 
+/** Remaining REMOVE chrome — R7b still has product callers (ComposerEarly). */
 export const REMOVE_ROOM_CHROME_SHELLS = [
-  "components/community-messenger/room/CommunityMessengerRoomRouteEntryShell.tsx",
-  "components/community-messenger/room/CommunityMessengerRoomPass0Shell.tsx",
-  "components/community-messenger/room/CommunityMessengerRoomPass1StableShell.tsx",
   "components/community-messenger/room/CommunityMessengerRoomPass1ComposerShell.tsx",
-  "components/community-messenger/room/CommunityMessengerRoomStableEntryShell.tsx",
 ] as const;

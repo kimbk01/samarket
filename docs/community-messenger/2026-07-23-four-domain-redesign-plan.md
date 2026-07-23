@@ -241,9 +241,9 @@ commit → push → **Vercel Ready를 CLI/대시보드로 확인** (추정 금�
 
 ## 10. 즉시 다음 액션 (지금)
 
-1. ~~A~~ … ~~K~~ · **I chrome cutover** (ShellChromeFrame first-paint 제거)
+1. ~~A~~ … ~~K~~ · ~~I chrome cutover~~ · ~~J-slice-2 (R5–R8 삭제)~~
 2. **사용자:** `build && start`(dev 금지)로 2단 진입 재확인
-3. 잔여: J-slice-2(R5–R8 호출0 후 삭제) · hub cutover (별도)
+3. 잔여: **hub badge cutover** (별도 승인 · 측정)
 
 ---
 

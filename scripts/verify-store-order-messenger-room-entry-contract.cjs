@@ -94,8 +94,8 @@ const bootstrapGate = read("components/community-messenger/room/CommunityMesseng
 if (!bootstrapGate.includes("canMountCommunityMessengerRoomClient")) {
   fail("BootstrapGate must gate RoomClient mount on authoritative bootstrap snapshot");
 }
-if (!bootstrapGate.includes("CommunityMessengerRoomStableEntryShell")) {
-  fail("BootstrapGate must show entry shell while bootstrap pending");
+if (!bootstrapGate.includes("CommunityMessengerRoomEntryEmpty")) {
+  fail("BootstrapGate must show EntryEmpty (spinner wait) while bootstrap pending");
 }
 if (bootstrapGate.includes("resolveInstantStoreOrderMessengerEntrySnapshot")) {
   fail("BootstrapGate must not mount RoomClient with instant incomplete shell snapshot");

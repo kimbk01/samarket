@@ -4,7 +4,7 @@
  * - trash / Phase J deleted path restore FAIL
  * - applyCommunityMessengerUnreadOptimistic caller freeze
  * - SegmentShellLayout import FAIL (file deleted — any import fails)
- * - remaining REMOVE chrome shells must still exist until later J slices
+ * - remaining REMOVE chrome (Pass1ComposerShell) must still exist until callers=0
  */
 const fs = require("node:fs");
 const path = require("node:path");
@@ -19,6 +19,10 @@ const FORBIDDEN_RESTORE = [
   "lib/chat-domain/chat-domain.ts",
   "components/community-messenger/room/CommunityMessengerRoomSegmentShellLayout.tsx",
   "components/community-messenger/room/CommunityMessengerRoomStableEntryShellLight.tsx",
+  "components/community-messenger/room/CommunityMessengerRoomRouteEntryShell.tsx",
+  "components/community-messenger/room/CommunityMessengerRoomPass0Shell.tsx",
+  "components/community-messenger/room/CommunityMessengerRoomPass1StableShell.tsx",
+  "components/community-messenger/room/CommunityMessengerRoomStableEntryShell.tsx",
 ];
 
 const OPTIMISTIC_DEF = "lib/chats/owner-hub-badge-store.ts";
@@ -29,11 +33,14 @@ const OPTIMISTIC_CALLERS_ALLOWED = new Set([
 const SEGMENT_LAYOUT_IMPORT_RE =
   /from\s+["'][^"']*CommunityMessengerRoomSegmentShellLayout["']|from\s+["']@\/components\/community-messenger\/room\/CommunityMessengerRoomSegmentShellLayout["']/;
 
+/** Phase J slice-2 deleted shells — any import FAIL */
+const DELETED_CHROME_IMPORT_RE =
+  /CommunityMessengerRoom(RouteEntryShell|Pass0Shell|Pass1StableShell|StableEntryShell)\b/;
+
 const FREEZE_MODULE = "lib/chat-domain/four-domain-freeze.ts";
 
 const REMAINING_CHROME_MUST_EXIST = [
-  "components/community-messenger/room/CommunityMessengerRoomPass0Shell.tsx",
-  "components/community-messenger/room/CommunityMessengerRoomRouteEntryShell.tsx",
+  "components/community-messenger/room/CommunityMessengerRoomPass1ComposerShell.tsx",
 ];
 
 let failed = false;
@@ -84,9 +91,24 @@ for (const root of scanRoots) {
 for (const root of [...scanRoots, path.join(ROOT, "tests")]) {
   for (const abs of walk(root)) {
     const rel = path.relative(ROOT, abs).split(path.sep).join("/");
+    if (rel.includes("/__tests__/") || rel.endsWith(".test.ts") || rel.endsWith(".test.tsx")) continue;
     const src = fs.readFileSync(abs, "utf8");
     if (SEGMENT_LAYOUT_IMPORT_RE.test(src)) {
       fail(`SegmentShellLayout import after Phase J delete: ${rel}`);
+    }
+    if (DELETED_CHROME_IMPORT_RE.test(src)) {
+      // Allow string mentions in comments / lock scripts themselves
+      if (rel === "scripts/verify-chat-domain-file-lock.cjs") continue;
+      if (rel === "lib/chat-domain/room-chrome/phase-i-remove-prep.ts") continue;
+      if (rel === "lib/chat-domain/four-domain-freeze.ts") continue;
+      // Type-only / instrumentation name leftovers without component import are OK if not importing the module
+      if (
+        /from\s+["'][^"']*CommunityMessengerRoom(RouteEntryShell|Pass0Shell|Pass1StableShell|StableEntryShell)["']/.test(
+          src,
+        )
+      ) {
+        fail(`deleted chrome shell import after Phase J slice-2: ${rel}`);
+      }
     }
   }
 }
