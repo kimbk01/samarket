@@ -1,11 +1,11 @@
 {
-  "recordedAt": "2026-06-30",
+  "recordedAt": "2026-07-23",
   "recordedFrom": "npm run check:bundle:update-baseline",
   "metrics": {
-    "total_client_js_kb": 16593,
-    "messenger_home_js_kb": 4021,
-    "messenger_room_js_kb": 4155,
-    "messenger_call_js_kb": 4033
+    "total_client_js_kb": 16576,
+    "messenger_home_js_kb": 4152,
+    "messenger_room_js_kb": 4920,
+    "messenger_call_js_kb": 4164
   },
   "growth_slack_kb": {
     "total_client_js": 500,
@@ -15,36 +15,40 @@
   },
   "top_chunks": [
     {
-      "path": ".next/static/chunks/4f4e489620614fa2.js",
-      "kb": 1556
+      "path": ".next/static/chunks/93e5f4051e40743c.js",
+      "kb": 1583
     },
     {
       "path": ".next/static/chunks/c0ca526563b0f454.js",
       "kb": 1462
     },
     {
-      "path": ".next/static/chunks/360a91418141a488.js",
-      "kb": 355
+      "path": ".next/static/chunks/d0d773db9c854b5d.js",
+      "kb": 432
     },
     {
-      "path": ".next/static/chunks/4da5a91988e5a3ca.js",
-      "kb": 225
+      "path": ".next/static/chunks/e8f5dd355b10e841.js",
+      "kb": 432
+    },
+    {
+      "path": ".next/static/chunks/2d731fff31f18542.js",
+      "kb": 239
     },
     {
       "path": ".next/static/chunks/00a68db08414d08c.js",
       "kb": 219
     },
     {
-      "path": ".next/static/chunks/a2688ea8c7784765.js",
-      "kb": 190
+      "path": ".next/static/chunks/010dfe2b3f7fc0b9.js",
+      "kb": 181
     },
     {
-      "path": ".next/static/chunks/43033059c4bc31dd.js",
-      "kb": 184
+      "path": ".next/static/chunks/9345c4d893534329.js",
+      "kb": 164
     },
     {
-      "path": ".next/static/chunks/df9837aa53cb48a7.js",
-      "kb": 168
+      "path": ".next/static/chunks/e14cfc16580614dc.js",
+      "kb": 161
     },
     {
       "path": ".next/static/chunks/738f9efac561fcf6.js",
@@ -55,29 +59,25 @@
       "kb": 160
     },
     {
-      "path": ".next/static/chunks/702c1385abacf1ff.js",
-      "kb": 159
-    },
-    {
-      "path": ".next/static/chunks/2ef8c4353a20e7be.js",
-      "kb": 141
+      "path": ".next/static/chunks/3ba09bbfd79c1721.js",
+      "kb": 157
     }
   ],
   "provenance": {
     "measurement_version": 1,
-    "recorded_at_iso": "2026-06-30T08:24:06.733Z",
-    "build_id": "HOEfHDgXOZIwYka3qj6SX",
-    "chunk_file_count": 552,
+    "recorded_at_iso": "2026-07-23T10:11:50.865Z",
+    "build_id": "aGSnIrwNWaRW2WmARgGgw",
+    "chunk_file_count": 524,
     "bytes": {
-      "total_client_js": 16991377,
-      "messenger_home_js": 4117967,
-      "messenger_room_js": 4254465,
-      "messenger_call_js": 4129909
+      "total_client_js": 16974137,
+      "messenger_home_js": 4252032,
+      "messenger_room_js": 5038184,
+      "messenger_call_js": 4263583
     },
     "messenger_refs": {
-      "home": 56,
-      "room": 59,
-      "call": 57
+      "home": 55,
+      "room": 61,
+      "call": 55
     }
   }
 }

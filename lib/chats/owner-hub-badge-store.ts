@@ -463,25 +463,11 @@ function applyFromNetwork(data: unknown) {
 
 
 export function applyCommunityMessengerUnreadOptimistic(unread: number): void {
-
-  const nextUnread = Math.max(0, Math.floor(Number(unread) || 0));
-
-  const next = {
-
-    ...snapshot,
-
-    communityMessengerUnread: nextUnread,
-
-    total: Math.max(0, snapshot.socialChatUnread) + Math.max(0, snapshot.storesTabAttention) + nextUnread,
-
-  };
-
-  if (sameOwnerHubBadge(snapshot, next)) return;
-
-  applyOwnerHubBadgePayload({ ok: true, ...next }, { kind: "optimistic" });
-
-  broadcastOwnerHubBadgeSnapshot({ ok: true, ...getOwnerHubBadgeSnapshot() });
-
+  /**
+   * R1 QUARANTINED / dead — measurement 2026-07-23 removed sole product caller.
+   * Kept as no-op export so accidental imports fail closed (no store write).
+   */
+  void unread;
 }
 
 

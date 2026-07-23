@@ -1,7 +1,7 @@
 # Phase H — Surface projection 1 writer
 
 **선행:** Phase G  
-**상태:** **PASS (Hub slice-1 cutover)** · Bell/AppIcon/list `not_wired` · **STOP**
+**상태:** **PASS (Hub slice-1 + Domain list writers ok + R1 removed)** · Bell/AppIcon `not_wired` · **STOP**
 
 ---
 
@@ -12,8 +12,8 @@
 | Hub | `lib/chat-domain/projections/hub-badge-projection.ts` | **`ok` (slice-1 wired)** |
 | Bell | `…/bell-badge-projection.ts` | `not_wired` |
 | App Icon | `…/app-icon-badge-projection.ts` | `not_wired` |
-| GD/group/trade/SO list | `lib/chat-domain/list/*-list-writer.ts` | `not_wired` |
-| Quarantine 목록 | `projections/phase-h-quarantine.ts` (R1–R4) | 삭제 **안 함** |
+| GD/group/trade/SO list | `lib/chat-domain/list/*-list-writer.ts` | **`ok` (slice-1 dual-write)** |
+| Quarantine 목록 | `projections/phase-h-quarantine.ts` (R1–R4) | R1 **removed** · R2 keep · R3–R4 defer |
 
 ---
 

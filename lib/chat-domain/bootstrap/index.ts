@@ -19,13 +19,6 @@ export type DomainListBootstrapRequest = {
   limit?: number;
 };
 
-const NOT_WIRED = (chatDomain: ChatDomain): DomainListBootstrapResult => ({
-  status: "not_wired",
-  chatDomain,
-  items: [],
-  error: "phase_d_domain_bootstrap_not_wired",
-});
-
 function mapDomainRows(
   chatDomain: ChatDomain,
   rows: Array<{
@@ -139,27 +132,55 @@ export async function tryLoadDomainListByChatDomain(
   }
 }
 
-/** Product-facing stubs — not wired to home Surface (Phase H). */
+/** Product-facing Domain list bootstrap — uses tryLoad when sb present. */
 export async function loadGeneralDirectListBootstrap(
-  _req: DomainListBootstrapRequest,
+  req: DomainListBootstrapRequest,
 ): Promise<DomainListBootstrapResult> {
-  return NOT_WIRED("general_direct");
+  return loadDomainListBootstrap("general_direct", req);
 }
 
 export async function loadGroupListBootstrap(
-  _req: DomainListBootstrapRequest,
+  req: DomainListBootstrapRequest,
 ): Promise<DomainListBootstrapResult> {
-  return NOT_WIRED("group");
+  return loadDomainListBootstrap("group", req);
 }
 
 export async function loadTradeListBootstrap(
-  _req: DomainListBootstrapRequest,
+  req: DomainListBootstrapRequest,
 ): Promise<DomainListBootstrapResult> {
-  return NOT_WIRED("trade");
+  return loadDomainListBootstrap("trade", req);
 }
 
 export async function loadStoreOrderListBootstrap(
-  _req: DomainListBootstrapRequest,
+  req: DomainListBootstrapRequest,
 ): Promise<DomainListBootstrapResult> {
-  return NOT_WIRED("store_order");
+  return loadDomainListBootstrap("store_order", req);
+}
+
+async function loadDomainListBootstrap(
+  chatDomain: ChatDomain,
+  req: DomainListBootstrapRequest,
+): Promise<DomainListBootstrapResult> {
+  const uid = req.userId?.trim() ?? "";
+  if (!uid) {
+    return { status: "error", chatDomain, items: [], error: "missing_user" };
+  }
+  if (!req.sb) {
+    return {
+      status: "error",
+      chatDomain,
+      items: [],
+      error: "missing_supabase_client",
+    };
+  }
+  const result = await tryLoadDomainListByChatDomain(req.sb, uid, chatDomain, req.limit ?? 100);
+  if (result.status === "ok") {
+    const { applyDomainListProjection } = await import("@/lib/chat-domain/list/domain-list-writers");
+    applyDomainListProjection({
+      chatDomain,
+      items: result.items,
+      versionMs: Date.now(),
+    });
+  }
+  return result;
 }

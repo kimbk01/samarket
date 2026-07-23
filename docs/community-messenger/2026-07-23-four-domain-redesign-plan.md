@@ -241,9 +241,9 @@ commit → push → **Vercel Ready를 CLI/대시보드로 확인** (추정 금�
 
 ## 10. 즉시 다음 액션 (지금)
 
-1. ~~A~~ … ~~K~~ · ~~I chrome cutover~~ · ~~J-slice-2 (R5–R8 삭제)~~ · ~~Hub badge slice-1~~
-2. **사용자:** `build && start`(dev 금지)로 2단 진입·Hub 뱃지 재확인
-3. 잔여: Domain list cutover · Bell/AppIcon · Hub R1–R4 제거(측정) — **별도 승인**
+1. ~~A~~ … ~~Hub badge slice-1~~ · ~~Domain list slice-1~~ · ~~R1 remove (측정)~~
+2. **사용자:** trade-chats / delivery-chats / 일반 홈 새로고침·뱃지 재확인
+3. 잔여: Bell/AppIcon cutover · Domain list **paint** SSOT · R2 재평가 — **별도 승인**
 
 ---
 

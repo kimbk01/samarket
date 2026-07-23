@@ -8,10 +8,6 @@ import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { useNotificationSurface } from "@/contexts/NotificationSurfaceContext";
 import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
-import {
-  applyCommunityMessengerUnreadOptimistic,
-  getOwnerHubBadgeSnapshot,
-} from "@/lib/chats/owner-hub-badge-store";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
@@ -157,11 +153,11 @@ export function useCmParticipantsHubSync(
               return;
             }
 
-            {
-              const roomCountDelta = prevUnread === 0 && nextUnread > 0 ? 1 : 0;
-              const currentCmUnread = getOwnerHubBadgeSnapshot().communityMessengerUnread;
-              applyCommunityMessengerUnreadOptimistic(Math.max(0, currentCmUnread) + roomCountDelta);
-            }
+            /** R1 optimistic removed (measurement 2026-07-23) — network resync only. */
+            requestMessengerHubBadgeResync("participant_unread_changed", {
+              roomId: nextRoomId,
+              participantUnreadDirection: "increase",
+            });
 
             const now = Date.now();
             const roomNorm = nextRoomId.toLowerCase();
@@ -173,10 +169,6 @@ export function useCmParticipantsHubSync(
             prefetchRoomSnapshotLazy(nextRoomId);
 
             if (playbackRef.current === "hub_sync_only") {
-              requestMessengerHubBadgeResync("participant_unread_changed", {
-                roomId: nextRoomId,
-                participantUnreadDirection: "increase",
-              });
               return;
             }
 

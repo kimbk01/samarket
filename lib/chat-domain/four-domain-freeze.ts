@@ -90,9 +90,7 @@ export const FORBIDDEN_RESTORE_PATHS = [
  * REMOVE 후보 — Phase J 전 실삭제 금지.
  * optimistic hub: 허용 호출 파일은 아래 집합으로 freeze (신규 호출부 추가 시 FAIL).
  */
-export const REMOVE_OPTIMISTIC_HUB_CALLERS_FROZEN = [
-  "lib/community-messenger/notifications/use-cm-participants-hub-sync.ts",
-] as const;
+export const REMOVE_OPTIMISTIC_HUB_CALLERS_FROZEN = [] as const;
 
 /** Remaining REMOVE chrome — R7b still has product callers (ComposerEarly). */
 export const REMOVE_ROOM_CHROME_SHELLS = [

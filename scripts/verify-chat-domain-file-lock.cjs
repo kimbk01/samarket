@@ -27,7 +27,7 @@ const FORBIDDEN_RESTORE = [
 
 const OPTIMISTIC_DEF = "lib/chats/owner-hub-badge-store.ts";
 const OPTIMISTIC_CALLERS_ALLOWED = new Set([
-  "lib/community-messenger/notifications/use-cm-participants-hub-sync.ts",
+  /* R1 removed 2026-07-23 — zero product callers allowed */
 ]);
 
 const SEGMENT_LAYOUT_IMPORT_RE =

@@ -184,6 +184,7 @@ import {
 import { fetchMeetingDeeplink } from "@/lib/community-messenger/home/fetch-meeting-deeplink";
 import { useMessengerHomeProjectionFlags } from "@/lib/community-messenger/home/projection-source-flag";
 import { useMessengerHomeCanonicalListData } from "@/lib/community-messenger/home/canonical-home-render-adapter";
+import { useDomainListPillarBootstrapRefresh } from "@/lib/chat-domain/list/use-domain-list-pillar-bootstrap-refresh";
 import { useCommunityMessengerHomeShellEffects } from "@/lib/community-messenger/home/use-community-messenger-home-shell-effects";
 import { runMessengerHomePullRefresh } from "@/lib/community-messenger/home/run-messenger-home-pull-refresh";
 import { MessengerPullRefreshHost } from "@/components/community-messenger/MessengerPullRefreshHost";
@@ -1978,6 +1979,12 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     refresh,
     setData,
     shadowDispatch,
+  });
+
+  useDomainListPillarBootstrapRefresh({
+    pillar,
+    userId: data?.me?.id,
+    enabled: !listAwaitingCritical,
   });
 
   useEffect(() => {
