@@ -1,6 +1,6 @@
 /**
  * Phase H — Surface projection contracts (1 writer per surface).
- * Hub cutover (slice-1): applyHubBadgeProjection is wired; Bell/AppIcon stay not_wired.
+ * Hub + Domain list + Bell/AppIcon slice-1: apply* return ok when wired.
  * DO NOT: restore 7/14 Domain Authority trash · Native Call.
  * docs/community-messenger/2026-07-23-four-domain-phase-h.md
  */
@@ -15,7 +15,7 @@ export type SurfaceProjectionApplyResult = {
 
 export const SURFACE_PROJECTION_NOT_WIRED = "phase_h_surface_projection_not_wired" as const;
 
-/** Bell / App Icon — still not_wired until separate cutover. */
+/** Shared thin badge shape (legacy helpers). Bell/AppIcon have typed snapshots in their modules. */
 export type BadgeProjectionSnapshot = {
   totalUnread: number;
   /** Optional per-domain breakdown — fail-closed omit when unknown. */

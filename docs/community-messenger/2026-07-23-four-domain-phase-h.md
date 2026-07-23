@@ -1,7 +1,7 @@
 # Phase H — Surface projection 1 writer
 
 **선행:** Phase G  
-**상태:** **PASS (Hub slice-1 + Domain list writers ok + R1 removed)** · Bell/AppIcon `not_wired` · **STOP**
+**상태:** **PASS (Hub + Domain list + Bell/AppIcon slice-1)** · R2 keep · R3/R4 poll·supplement **소스 유지**(삭제 금지) · **STOP**
 
 ---
 
@@ -9,20 +9,21 @@
 
 | Surface | Writer 경로 | 상태 |
 |---------|-------------|------|
-| Hub | `lib/chat-domain/projections/hub-badge-projection.ts` | **`ok` (slice-1 wired)** |
-| Bell | `…/bell-badge-projection.ts` | `not_wired` |
-| App Icon | `…/app-icon-badge-projection.ts` | `not_wired` |
-| GD/group/trade/SO list | `lib/chat-domain/list/*-list-writer.ts` | **`ok` (slice-1 dual-write)** |
-| Quarantine 목록 | `projections/phase-h-quarantine.ts` (R1–R4) | R1 **removed** · R2 keep · R3–R4 defer |
+| Hub | `lib/chat-domain/projections/hub-badge-projection.ts` | **`ok` (wired)** |
+| Bell | `…/bell-badge-projection.ts` | **`ok` (slice-1 wired)** |
+| App Icon | `…/app-icon-badge-projection.ts` | **`ok` (Bell total mirror)** |
+| GD/group/trade/SO list | `lib/chat-domain/list/*-list-writer.ts` | **`ok` (dual-write + chatDomain paint)** |
+| Quarantine 목록 | `projections/phase-h-quarantine.ts` (R1–R4) | R1 **removed** · R2/R3/R4 **keep** (소스) |
 
 ---
 
-## 2. Hub slice-1 (이번 cutover)
+## 2. Bell / App Icon slice-1 (이번 cutover)
 
-- `applyHubBadgeProjection` → `{ status: "ok" }`
-- snapshot: `OwnerHubBadgeBreakdown` + `versionMs` + `source` + `totalUnread`
-- `owner-hub-badge-store` 모든 apply(network/poll/optimistic/broadcast/cache) → projection → **registered sink**만 store mutate
-- R1 optimistic / R2 poll **소스 유지** (측정 전 삭제 금지)
+- `applyBellBadgeProjection` → `{ status: "ok" }` → registered sink → `notification-badge-count-store` snap mutate
+- fetch / read_patch / optimistic_admin 모두 store → `applyBellBadgeProjection` 경유 (직접 snap set 금지)
+- App Icon: Bell sink가 `totalUnread` 를 `applyAppIconBadgeProjection(..., source: "bell_mirror")` 로 미러
+- `NativeBadgeSync` 는 기존처럼 badge-count `total` 구독 (SSOT 동일)
+- **안 함:** `notification-unread-badge-store` 다중 surface 재배선 · R3 45s poll 삭제 · R4 adminNotice supplement 삭제 · Native Call
 
 ---
 
@@ -30,10 +31,10 @@
 
 | 함 | 안 함 |
 |----|------|
-| Hub 단일 apply 실배선 | Bell / App Icon 실배선 |
-| store sink 등록 | Domain list / bootstrap cutover |
-| | R1–R4 **실삭제** |
-| | 7/14 trash 복원 · Native Call |
+| Bell/AppIcon 단일 apply 실배선 | Domain list 행 소스 UI cutover |
+| badge-count → Bell → App Icon mirror | unread multi-surface 통합 |
+| | R2/R3/R4 **실삭제** |
+| | 7/14 trash 복원 · Native Call · backfill SQL |
 
 ---
 
@@ -41,16 +42,17 @@
 
 | # | 조건 | 결과 |
 |---|------|------|
-| 1 | Hub apply → ok · Bell/AppIcon/list not_wired | PASS |
-| 2 | hub CM sync tests 회귀 | PASS |
-| 3 | R1–R4 미삭제 | PASS |
+| 1 | Hub/Bell/AppIcon apply → ok | PASS |
+| 2 | badge-count funnel + App Icon mirror test | PASS |
+| 3 | R2–R4 미삭제 | PASS |
 | 4 | Native Call 0 | PASS |
 
-**판정:** `PASS (Hub slice-1)` · **STOP**
+**판정:** `PASS (Bell/AppIcon slice-1)` · **STOP**
 
 ---
 
 ## 5. 다음 (별도 승인)
 
-- Domain list cutover **또는** Hub R1–R4 제거(측정 필수)
-- Bell / App Icon cutover
+- Domain projection 행 소스 렌더
+- `chat_domain` backfill
+- R2 hub poll 재평가 (측정)

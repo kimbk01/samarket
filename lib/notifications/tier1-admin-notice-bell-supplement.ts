@@ -26,6 +26,6 @@ export function clearTier1AdminNoticeBellSupplementOptimistic(): boolean {
     ...prev,
     adminNotice: 0,
     total: Math.max(0, (prev.total ?? 0) - adminNotice),
-  });
+  }, "optimistic_admin");
   return true;
 }

@@ -241,9 +241,9 @@ commit → push → **Vercel Ready를 CLI/대시보드로 확인** (추정 금�
 
 ## 10. 즉시 다음 액션 (지금)
 
-1. ~~A~~ … ~~Domain list slice-1~~ · ~~R1 remove~~ · ~~Domain list paint slice-2 (chatDomain)~~
+1. ~~A~~ … ~~Domain list paint slice-2~~ · ~~Bell/AppIcon slice-1~~
 2. **사용자:** trade-chats / delivery-chats 에서 Domain 컬럼 있는 방 분류 재확인
-3. 잔여: **Bell/AppIcon cutover** · Domain projection 행 소스 렌더 · backfill · R2 — **별도 승인**
+3. 잔여: Domain projection 행 소스 렌더 · backfill · R2 재평가 — **별도 승인**
 
 ---
 

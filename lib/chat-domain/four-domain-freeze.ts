@@ -54,8 +54,7 @@ export function buildStoreOrderIdentity(
 }
 
 /**
- * Surface → 단일 writer 경로 (Phase H). Hub slice-1: applyHubBadgeProjection wired.
- * Bell/AppIcon/list apply remain not_wired until cutover.
+ * Surface → 단일 writer 경로 (Phase H). Hub + Domain list + Bell/AppIcon slice-1 wired.
  */
 export const TARGET_SURFACE_WRITERS = {
   hubBadge: "lib/chat-domain/projections/hub-badge-projection.ts",

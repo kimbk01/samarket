@@ -1,26 +1,53 @@
 /**
- * Phase H — Bell badge — single writer contract.
- * Not wired to notification-badge-count-store yet.
+ * Phase H extension — Bell badge single writer (slice-1 cutover).
+ * Product mutations funnel through applyBellBadgeProjection → registered store sink.
+ * DO NOT: delete R4 adminNotice/poll yet · Domain list · Native Call · 7/14 trash.
  */
 
-import {
-  SURFACE_PROJECTION_NOT_WIRED,
-  type BadgeProjectionSnapshot,
-  type SurfaceProjectionApplyResult,
-} from "@/lib/chat-domain/projections/surface-projection-types";
+import type { NotificationBadgeCount } from "@/lib/notifications/core/notification-event-types";
+import type { SurfaceProjectionApplyResult } from "@/lib/chat-domain/projections/surface-projection-types";
 
-let lastBell: BadgeProjectionSnapshot | null = null;
+export type BellBadgeProjectionSourceKind =
+  | "network"
+  | "read_patch"
+  | "optimistic_admin"
+  | "clear";
 
-export function getBellBadgeProjection(): BadgeProjectionSnapshot | null {
+export type BellBadgeProjectionSnapshot = {
+  breakdown: NotificationBadgeCount;
+  versionMs: number;
+  source: BellBadgeProjectionSourceKind;
+  totalUnread: number;
+};
+
+let lastBell: BellBadgeProjectionSnapshot | null = null;
+
+type BellBadgeProjectionSink = (snapshot: BellBadgeProjectionSnapshot) => void;
+
+let sink: BellBadgeProjectionSink | null = null;
+
+export function registerBellBadgeProjectionSink(next: BellBadgeProjectionSink): void {
+  sink = next;
+}
+
+export function getBellBadgeProjection(): BellBadgeProjectionSnapshot | null {
   return lastBell;
 }
 
 export function applyBellBadgeProjection(
-  _snapshot: BadgeProjectionSnapshot,
+  snapshot: BellBadgeProjectionSnapshot,
 ): SurfaceProjectionApplyResult {
-  return { status: "not_wired", error: SURFACE_PROJECTION_NOT_WIRED };
+  lastBell = snapshot;
+  sink?.(snapshot);
+  return { status: "ok" };
 }
 
-export function __applyBellBadgeProjectionForTests(snapshot: BadgeProjectionSnapshot): void {
+/** @internal vitest */
+export function __applyBellBadgeProjectionForTests(snapshot: BellBadgeProjectionSnapshot): void {
   lastBell = snapshot;
+}
+
+/** @internal vitest */
+export function __resetBellBadgeProjectionForTest(): void {
+  lastBell = null;
 }

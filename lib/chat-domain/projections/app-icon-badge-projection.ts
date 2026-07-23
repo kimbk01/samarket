@@ -1,26 +1,47 @@
 /**
- * Phase H — App Icon badge — single writer contract.
- * Not wired to notification-unread-badge-store yet.
+ * Phase H extension — App Icon badge single writer (slice-1 cutover).
+ * Mirrors Bell totalUnread (NativeBadgeSync already reads badge-count total).
+ * DO NOT: rewire unread multi-surface stores · delete R3 poll · Native Call LOCK.
  */
 
-import {
-  SURFACE_PROJECTION_NOT_WIRED,
-  type BadgeProjectionSnapshot,
-  type SurfaceProjectionApplyResult,
-} from "@/lib/chat-domain/projections/surface-projection-types";
+import type { SurfaceProjectionApplyResult } from "@/lib/chat-domain/projections/surface-projection-types";
 
-let lastAppIcon: BadgeProjectionSnapshot | null = null;
+export type AppIconBadgeProjectionSourceKind = "bell_mirror" | "network" | "clear";
 
-export function getAppIconBadgeProjection(): BadgeProjectionSnapshot | null {
+export type AppIconBadgeProjectionSnapshot = {
+  totalUnread: number;
+  versionMs: number;
+  source: AppIconBadgeProjectionSourceKind;
+};
+
+let lastAppIcon: AppIconBadgeProjectionSnapshot | null = null;
+
+type AppIconBadgeProjectionSink = (snapshot: AppIconBadgeProjectionSnapshot) => void;
+
+let sink: AppIconBadgeProjectionSink | null = null;
+
+export function registerAppIconBadgeProjectionSink(next: AppIconBadgeProjectionSink): void {
+  sink = next;
+}
+
+export function getAppIconBadgeProjection(): AppIconBadgeProjectionSnapshot | null {
   return lastAppIcon;
 }
 
 export function applyAppIconBadgeProjection(
-  _snapshot: BadgeProjectionSnapshot,
+  snapshot: AppIconBadgeProjectionSnapshot,
 ): SurfaceProjectionApplyResult {
-  return { status: "not_wired", error: SURFACE_PROJECTION_NOT_WIRED };
+  lastAppIcon = snapshot;
+  sink?.(snapshot);
+  return { status: "ok" };
 }
 
-export function __applyAppIconBadgeProjectionForTests(snapshot: BadgeProjectionSnapshot): void {
+/** @internal vitest */
+export function __applyAppIconBadgeProjectionForTests(snapshot: AppIconBadgeProjectionSnapshot): void {
   lastAppIcon = snapshot;
+}
+
+/** @internal vitest */
+export function __resetAppIconBadgeProjectionForTest(): void {
+  lastAppIcon = null;
 }

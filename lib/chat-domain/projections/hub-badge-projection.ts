@@ -1,7 +1,7 @@
 /**
  * Phase H extension — BottomNav Hub badge single writer (slice-1 cutover).
  * Product mutations funnel through applyHubBadgeProjection → registered store sink.
- * DO NOT: delete R1 optimistic / R2 poll yet (measurement required) · Bell/AppIcon · Native Call.
+ * DO NOT: delete R2 poll yet (measurement required) · Native Call · 7/14 trash.
  */
 
 import type { OwnerHubBadgeBreakdown } from "@/lib/chats/owner-hub-badge-types";

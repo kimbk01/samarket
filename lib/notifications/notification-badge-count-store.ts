@@ -2,6 +2,16 @@
 
 import type { NotificationBadgeCount } from "@/lib/notifications/core/notification-event-types";
 import { logNotifyBadge } from "@/lib/notifications/core/notification-logs";
+import {
+  applyAppIconBadgeProjection,
+  __resetAppIconBadgeProjectionForTest,
+} from "@/lib/chat-domain/projections/app-icon-badge-projection";
+import {
+  applyBellBadgeProjection,
+  registerBellBadgeProjectionSink,
+  type BellBadgeProjectionSourceKind,
+  __resetBellBadgeProjectionForTest,
+} from "@/lib/chat-domain/projections/bell-badge-projection";
 
 const POLL_MS = 45_000;
 const fetchUrl = "/api/me/notifications/badge-count";
@@ -17,9 +27,66 @@ function emit() {
   for (const l of listeners) l();
 }
 
-function setSnap(next: NotificationBadgeCount | null) {
+function sameBadgeCount(a: NotificationBadgeCount, b: NotificationBadgeCount): boolean {
+  return (
+    a.total === b.total &&
+    a.chatMessage === b.chatMessage &&
+    a.groupMessage === b.groupMessage &&
+    a.tradeMessage === b.tradeMessage &&
+    a.tradeStatus === b.tradeStatus &&
+    a.orderStatus === b.orderStatus &&
+    a.deliveryStatus === b.deliveryStatus &&
+    a.communityActivity === b.communityActivity &&
+    a.adminMarketingBanner === b.adminMarketingBanner &&
+    a.adminNotice === b.adminNotice &&
+    a.chat === b.chat &&
+    a.group === b.group &&
+    a.trade === b.trade &&
+    a.store === b.store &&
+    a.missedCall === b.missedCall
+  );
+}
+
+/** Projection sink — sole mutator of badge-count snap after Bell cutover. */
+function sinkBellBadgeFromProjection(proj: {
+  breakdown: NotificationBadgeCount;
+  totalUnread: number;
+  versionMs: number;
+  source: BellBadgeProjectionSourceKind;
+}): void {
+  const next = proj.breakdown;
+  if (snap && sameBadgeCount(snap, next)) return;
   snap = next;
   emit();
+  applyAppIconBadgeProjection({
+    totalUnread: Math.max(0, proj.totalUnread),
+    versionMs: proj.versionMs,
+    source: "bell_mirror",
+  });
+}
+
+registerBellBadgeProjectionSink(sinkBellBadgeFromProjection);
+
+function applyBellFromStore(
+  next: NotificationBadgeCount,
+  source: BellBadgeProjectionSourceKind,
+): void {
+  applyBellBadgeProjection({
+    breakdown: next,
+    versionMs: Date.now(),
+    source,
+    totalUnread: Math.max(0, next.total),
+  });
+}
+
+function setSnap(next: NotificationBadgeCount | null, source: BellBadgeProjectionSourceKind = "network") {
+  if (next == null) {
+    snap = null;
+    emit();
+    applyAppIconBadgeProjection({ totalUnread: 0, versionMs: Date.now(), source: "clear" });
+    return;
+  }
+  applyBellFromStore(next, source);
 }
 
 /** badge-count API JSON · read-thread `categoryCounts` 공통 정규화 */
@@ -134,39 +201,23 @@ export function requestNotificationBadgeCountResync(reason?: string): void {
 }
 
 /** 읽음 mutation 직후 서버 fetch 전 로컬 missedCall 감소 — stale fetch 가 되살리지 않게 */
-export function patchNotificationBadgeCountSnapshot(next: NotificationBadgeCount): void {
-  if (!snap) {
-    setSnap(next);
-    return;
-  }
-  if (
-    snap.total === next.total &&
-    snap.chatMessage === next.chatMessage &&
-    snap.groupMessage === next.groupMessage &&
-    snap.tradeMessage === next.tradeMessage &&
-    snap.tradeStatus === next.tradeStatus &&
-    snap.orderStatus === next.orderStatus &&
-    snap.deliveryStatus === next.deliveryStatus &&
-    snap.communityActivity === next.communityActivity &&
-    snap.adminMarketingBanner === next.adminMarketingBanner &&
-    snap.adminNotice === next.adminNotice &&
-    snap.chat === next.chat &&
-    snap.group === next.group &&
-    snap.trade === next.trade &&
-    snap.store === next.store &&
-    snap.missedCall === next.missedCall
-  ) {
-    return;
-  }
-  setSnap(next);
+export function patchNotificationBadgeCountSnapshot(
+  next: NotificationBadgeCount,
+  source: BellBadgeProjectionSourceKind = "read_patch",
+): void {
+  if (snap && sameBadgeCount(snap, next)) return;
+  applyBellFromStore(next, source);
 }
 
 export function resetNotificationBadgeCountStoreForTests(): void {
   snap = null;
   listeners.clear();
   subscriberCount = 0;
+  unauthorizedPaused = false;
   if (pollInterval) {
     clearInterval(pollInterval);
     pollInterval = null;
   }
+  __resetBellBadgeProjectionForTest();
+  __resetAppIconBadgeProjectionForTest();
 }
