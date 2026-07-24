@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const resyncBadgesAfterNotificationEventsRead = vi.fn();
-const applyMissedCallNotificationReadOptimistic = vi.fn();
+const applyCallLogsOrphanMissedReadFact = vi.fn();
 
 vi.mock("@/lib/community-messenger/notifications/messenger-notification-contract", () => ({
   requestMessengerHubBadgeResync: vi.fn(),
@@ -10,8 +10,8 @@ vi.mock("@/lib/community-messenger/notifications/messenger-notification-contract
 vi.mock("@/lib/notifications/client/notification-events-read-resync", () => ({
   resyncBadgesAfterNotificationEventsRead: (...args: unknown[]) =>
     resyncBadgesAfterNotificationEventsRead(...args),
-  applyMissedCallNotificationReadOptimistic: (...args: unknown[]) =>
-    applyMissedCallNotificationReadOptimistic(...args),
+  applyCallLogsOrphanMissedReadFact: (...args: unknown[]) =>
+    applyCallLogsOrphanMissedReadFact(...args),
 }));
 
 vi.mock("@/lib/notifications/core/notification-logs", () => ({
@@ -23,6 +23,7 @@ vi.mock("@/lib/http/run-single-flight", () => ({
 }));
 
 import {
+  postNotificationCallLogsMissedCallsRead,
   postNotificationRoomRead,
   postNotificationThreadRead,
 } from "@/lib/notifications/client/notification-event-read-client";
@@ -56,7 +57,7 @@ describe("notification-event-read-client read path (Domain Bell)", () => {
     );
   });
 
-  it("does not apply events categoryCounts as Bell; always resyncs", async () => {
+  it("does not apply events categoryCounts as Bell; resyncs, and never orphan-fact on room read", async () => {
     vi.mocked(fetch).mockResolvedValueOnce({
       ok: true,
       json: async () => ({ ok: true, cleared: 1, categoryCounts }),
@@ -69,10 +70,11 @@ describe("notification-event-read-client read path (Domain Bell)", () => {
 
     expect(ok).toBe(true);
     expect(resyncBadgesAfterNotificationEventsRead).toHaveBeenCalledWith("room_read");
-    expect(applyMissedCallNotificationReadOptimistic).toHaveBeenCalledWith(1);
+    // P0-3: 일반 room/thread read 는 orphan missed 를 감소시키지 않는다.
+    expect(applyCallLogsOrphanMissedReadFact).not.toHaveBeenCalled();
   });
 
-  it("resyncs after room-read without events SUM patch", async () => {
+  it("resyncs after room-read without events SUM patch or orphan fact", async () => {
     vi.mocked(fetch).mockResolvedValueOnce({
       ok: true,
       json: async () => ({ ok: true, cleared: 0, categoryCounts }),
@@ -82,9 +84,10 @@ describe("notification-event-read-client read path (Domain Bell)", () => {
 
     expect(ok).toBe(true);
     expect(resyncBadgesAfterNotificationEventsRead).toHaveBeenCalledWith("room_read");
+    expect(applyCallLogsOrphanMissedReadFact).not.toHaveBeenCalled();
   });
 
-  it("resyncs when categoryCounts is missing", async () => {
+  it("resyncs when categoryCounts is missing; still no orphan fact on generic read", async () => {
     vi.mocked(fetch).mockResolvedValueOnce({
       ok: true,
       json: async () => ({ ok: true, cleared: 2 }),
@@ -97,6 +100,19 @@ describe("notification-event-read-client read path (Domain Bell)", () => {
 
     expect(ok).toBe(true);
     expect(resyncBadgesAfterNotificationEventsRead).toHaveBeenCalledWith("room_read");
-    expect(applyMissedCallNotificationReadOptimistic).toHaveBeenCalledWith(2);
+    expect(applyCallLogsOrphanMissedReadFact).not.toHaveBeenCalled();
+  });
+
+  it("call_logs missed read applies orphan missed fact exactly once (missed-only path)", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ ok: true, cleared: 3 }),
+    } as Response);
+
+    const ok = await postNotificationCallLogsMissedCallsRead();
+
+    expect(ok).toBe(true);
+    expect(applyCallLogsOrphanMissedReadFact).toHaveBeenCalledTimes(1);
+    expect(resyncBadgesAfterNotificationEventsRead).toHaveBeenCalledWith("call_logs_viewed");
   });
 });

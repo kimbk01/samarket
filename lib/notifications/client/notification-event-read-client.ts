@@ -1,7 +1,7 @@
 import { logNotifyOpen } from "@/lib/notifications/core/notification-logs";
 import type { MessengerHubBadgeResyncReason } from "@/lib/community-messenger/notifications/messenger-notification-contract";
 import {
-  applyMissedCallNotificationReadOptimistic,
+  applyCallLogsOrphanMissedReadFact,
   resyncBadgesAfterNotificationEventsRead,
 } from "@/lib/notifications/client/notification-events-read-resync";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
@@ -54,8 +54,11 @@ async function postJson(url: string, body: Record<string, unknown>): Promise<Rea
 }
 
 /**
- * Rebuild Read/Clear: hub room count + Domain badge-count authority resync.
+ * Reconcile Read/Clear: hub room count + Domain badge-count authority resync.
  * DO NOT apply events categoryCounts as Header Bell (events SUM ≠ Domain projection).
+ *
+ * P0-3 LOCK: `cleared` 숫자만으로 missed-call optimistic 을 추론하지 않는다.
+ * orphan missed 감소는 missed-call 전용 API(`call_logs`)에서만 event fact 로 처리한다.
  */
 function afterNotificationEventsRead(
   reason: MessengerHubBadgeResyncReason,
@@ -65,9 +68,7 @@ function afterNotificationEventsRead(
   }
 ): void {
   void result?.categoryCounts;
-  if (result?.cleared != null && result.cleared > 0) {
-    applyMissedCallNotificationReadOptimistic(result.cleared);
-  }
+  void result?.cleared;
   // Always: Chat tab room-count hub + Domain Bell/App Icon authority resync.
   resyncBadgesAfterNotificationEventsRead(reason);
 }
@@ -166,6 +167,8 @@ export async function postNotificationCallLogsMissedCallsRead(): Promise<boolean
   callLogsMissedReadFlight = (async () => {
     const result = await postJson("/api/me/notifications/missed-call-read", { scope: "call_logs" });
     if (result.ok) {
+      // Orphan missed_call cleared → Bell/App Icon missed via event fact (ACK 성공 후 1회).
+      applyCallLogsOrphanMissedReadFact();
       afterNotificationEventsRead("call_logs_viewed", result);
     }
     return result.ok;

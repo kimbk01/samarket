@@ -1,124 +1,60 @@
 import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
 import type { MessengerHubBadgeResyncReason } from "@/lib/community-messenger/notifications/messenger-notification-contract";
-import { getOwnerHubBadgeSnapshot } from "@/lib/chats/owner-hub-badge-store";
-import {
-  buildNotificationBadgeProjection,
-  EMPTY_BELL_BADGE_FACTS,
-  type NotificationBadgeProjectionInput,
-} from "@/lib/notifications/build-notification-badge-projection";
-import { applyNotificationBadgeProjection } from "@/lib/messenger/contracts/domain-badge-authority-product-bridge";
-import {
-  getNotificationBadgeCountSnapshot,
-  requestNotificationBadgeCountResync,
-} from "@/lib/notifications/notification-badge-count-store";
-import type { NotificationBadgeCount } from "@/lib/notifications/core/notification-event-types";
+import { commitNotificationEventReadFact } from "@/lib/notifications/projection-authority";
+import { requestNotificationBadgeCountResync } from "@/lib/notifications/notification-badge-count-store";
 
 /**
- * notification_events 읽음 mutation 이후 UI 배지 단일 진입점 (Rebuild).
+ * notification_events 읽음 mutation 이후 UI 배지 단일 진입점 (Reconcile).
  * Hub room count + Domain badge-count authority resync.
+ *
+ * P0-3 LOCK:
+ * - Surface(Hub/Bell/App Icon) 현재 값을 다시 읽어 Projection input 으로 재조립하지 않는다.
+ * - Optimistic read 는 aggregate surface 숫자가 아니라 event fact 로만 Authority 에 입력한다.
+ * - ACK 성공 후에만 fact commit; baseline(complete snapshot) 없으면 commit 하지 않고 resync 에 맡긴다.
  */
 export function resyncBadgesAfterNotificationEventsRead(reason: MessengerHubBadgeResyncReason): void {
   requestMessengerHubBadgeResync(reason);
   requestNotificationBadgeCountResync(reason);
 }
 
-function sumEventCategories(bell: NotificationBadgeCount): number {
-  return (
-    Math.max(0, Math.floor(Number(bell.chatMessage) || 0)) +
-    Math.max(0, Math.floor(Number(bell.groupMessage) || 0)) +
-    Math.max(0, Math.floor(Number(bell.tradeMessage) || 0)) +
-    Math.max(0, Math.floor(Number(bell.tradeStatus) || 0)) +
-    Math.max(0, Math.floor(Number(bell.orderStatus) || 0)) +
-    Math.max(0, Math.floor(Number(bell.deliveryStatus) || 0)) +
-    Math.max(0, Math.floor(Number(bell.communityActivity) || 0)) +
-    Math.max(0, Math.floor(Number(bell.adminNotice) || 0)) +
-    Math.max(0, Math.floor(Number(bell.missedCall) || 0))
-  );
+/** Monotonic sequence so same-ms event identities never collide. */
+let eventFactSeq = 0;
+function nextEventFactSeq(): number {
+  eventFactSeq += 1;
+  return eventFactSeq;
 }
 
 /**
- * Bell Contract B optimistic: keep Domain room facts from Hub; patch event inbox only.
- */
-function projectionInputFromSurfaces(nextBell: NotificationBadgeCount): NotificationBadgeProjectionInput {
-  const hub = getOwnerHubBadgeSnapshot();
-  const gdPlusGroup = Math.max(0, Math.floor(Number(hub.communityMessengerUnread) || 0));
-  const trade = Math.max(0, Math.floor(Number(hub.chatUnread) || 0));
-  const buyer = Math.max(0, Math.floor(Number(hub.buyerOrderAttention) || 0));
-  const owner = Math.max(
-    0,
-    Math.floor(
-      Number(hub.storeOrderOwnerUnreadRooms || hub.storeOrderChatUnread) || 0
-    )
-  );
-  const orphan = Math.max(0, Math.floor(Number(nextBell.missedCall) || 0));
-  return {
-    domainUnreadRooms: {
-      general_direct: gdPlusGroup,
-      group: 0,
-      trade,
-      store_order: owner + buyer,
-    },
-    storeOrderBuyerDeliveryUnread: buyer,
-    storeOrderOwnerChatUnread: owner,
-    orphanMissedCall: orphan,
-    nonChatEventAttention: {
-      tradeStatus: Math.max(0, Math.floor(Number(nextBell.tradeStatus) || 0)),
-      orderStatus: Math.max(0, Math.floor(Number(nextBell.orderStatus) || 0)),
-      deliveryStatus: Math.max(0, Math.floor(Number(nextBell.deliveryStatus) || 0)),
-      communityActivity: Math.max(0, Math.floor(Number(nextBell.communityActivity) || 0)),
-      adminNotice: Math.max(0, Math.floor(Number(nextBell.adminNotice) || 0)),
-    },
-    unreadApprovedNotificationEvents: sumEventCategories(nextBell),
-    bell: { ...nextBell, total: sumEventCategories(nextBell) },
-  };
-}
-
-function reapplyProjectionFromInput(
-  input: NotificationBadgeProjectionInput,
-  sourceHint: string
-): boolean {
-  void sourceHint;
-  const projection = buildNotificationBadgeProjection(input);
-  applyNotificationBadgeProjection(projection, {
-    applyBell: true,
-    projectionVersionMs: Date.now(),
-  });
-  return true;
-}
-
-/**
- * tier1 종 모두 읽음 — adminNotice → 0 then Builder re-run (Bell Contract B).
+ * tier1 종 모두 읽음 (admin/notice inbox) — Bell adminNotice 만 0.
+ * App Icon / CM / Trade / Order 는 불변 (event fact = admin_notice_absolute).
  */
 export function applyTier1InboxMarkAllReadOptimistic(): void {
-  const prev = getNotificationBadgeCountSnapshot();
-  if (!prev) {
-    requestNotificationBadgeCountResync("optimistic_admin_missing_snap");
-    return;
+  const now = Date.now();
+  const committed = commitNotificationEventReadFact({
+    fact: { kind: "admin_notice_absolute", absolute: 0 },
+    eventIdentity: `tier1_mark_all:${now}:${nextEventFactSeq()}`,
+    eventVersion: now,
+    source: "tier1_mark_all",
+  });
+  if (!committed) {
+    requestNotificationBadgeCountResync("optimistic_admin_baseline_missing");
   }
-  const nextBell: NotificationBadgeCount = {
-    ...EMPTY_BELL_BADGE_FACTS,
-    ...prev,
-    adminNotice: 0,
-  };
-  reapplyProjectionFromInput(projectionInputFromSurfaces(nextBell), "optimistic_admin");
 }
 
 /**
- * Orphan missed_call read — reduce event missedCall (Bell) + App Icon orphan.
- * Room-bound missed must not be subtracted here (already in room attention).
+ * 통화목록(call_logs) 부재중 전체 읽음 — orphan missed_call 만 0.
+ * Room-bound missed 는 CM room fact 영역이라 이 경로에서 건드리지 않는다(resync 로 정합).
  */
-export function applyMissedCallNotificationReadOptimistic(cleared: number): void {
-  if (cleared <= 0) return;
-  const prev = getNotificationBadgeCountSnapshot();
-  if (!prev) {
-    requestNotificationBadgeCountResync("optimistic_missed_missing_snap");
-    return;
+export function applyCallLogsOrphanMissedReadFact(): void {
+  const now = Date.now();
+  const committed = commitNotificationEventReadFact({
+    fact: { kind: "orphan_missed_absolute", absolute: 0 },
+    eventIdentity: `missed_call_read:call_logs:${now}:${nextEventFactSeq()}`,
+    eventVersion: now,
+    source: "call_logs_viewed",
+    scope: "call_logs",
+  });
+  if (!committed) {
+    requestNotificationBadgeCountResync("optimistic_missed_baseline_missing");
   }
-  const nextMissed = Math.max(0, Math.floor(Number(prev.missedCall) || 0) - cleared);
-  const nextBell: NotificationBadgeCount = {
-    ...EMPTY_BELL_BADGE_FACTS,
-    ...prev,
-    missedCall: nextMissed,
-  };
-  reapplyProjectionFromInput(projectionInputFromSurfaces(nextBell), "optimistic_missed");
 }

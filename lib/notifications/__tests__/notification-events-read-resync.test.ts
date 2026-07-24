@@ -2,91 +2,31 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const requestMessengerHubBadgeResync = vi.fn();
 const requestNotificationBadgeCountResync = vi.fn();
-const applyNotificationBadgeProjection = vi.fn();
+const commitNotificationEventReadFact = vi.fn((_event: unknown): boolean => true);
 
 vi.mock("@/lib/community-messenger/notifications/messenger-notification-contract", () => ({
   requestMessengerHubBadgeResync: (...args: unknown[]) => requestMessengerHubBadgeResync(...args),
 }));
 
-vi.mock("@/lib/chats/owner-hub-badge-store", () => ({
-  getOwnerHubBadgeSnapshot: () => ({
-    chatUnread: 0,
-    communityMessengerUnread: 0,
-    philifeChatUnread: 0,
-    socialChatUnread: 0,
-    storeOrderChatUnread: 0,
-    storeOrderOwnerUnreadRooms: 0,
-    orderAttention: 0,
-    inquiryAttention: 0,
-    ownerReviewAttention: 0,
-    storesTabAttention: 0,
-    buyerOrderAttention: 0,
-    storeDeepLink: null,
-    total: 0,
-  }),
+vi.mock("@/lib/notifications/projection-authority", () => ({
+  commitNotificationEventReadFact: (event: unknown) => commitNotificationEventReadFact(event),
 }));
 
-let snap: {
-  total: number;
-  chat: number;
-  chatMessage?: number;
-  group: number;
-  groupMessage?: number;
-  trade: number;
-  tradeMessage?: number;
-  store: number;
-  missedCall: number;
-  adminNotice?: number;
-  tradeStatus?: number;
-  orderStatus?: number;
-  deliveryStatus?: number;
-  communityActivity?: number;
-} | null = {
-  total: 5,
-  chat: 1,
-  chatMessage: 1,
-  group: 1,
-  groupMessage: 1,
-  trade: 0,
-  tradeMessage: 0,
-  store: 0,
-  missedCall: 1,
-  adminNotice: 2,
-};
-
 vi.mock("@/lib/notifications/notification-badge-count-store", () => ({
-  getNotificationBadgeCountSnapshot: () => snap,
-  patchNotificationBadgeCountSnapshot: vi.fn(),
   requestNotificationBadgeCountResync: (...args: unknown[]) =>
     requestNotificationBadgeCountResync(...args),
 }));
 
-vi.mock("@/lib/messenger/contracts/domain-badge-authority-product-bridge", () => ({
-  applyNotificationBadgeProjection: (...args: unknown[]) =>
-    applyNotificationBadgeProjection(...args),
-}));
-
 import {
-  applyMissedCallNotificationReadOptimistic,
+  applyCallLogsOrphanMissedReadFact,
   applyTier1InboxMarkAllReadOptimistic,
   resyncBadgesAfterNotificationEventsRead,
 } from "@/lib/notifications/client/notification-events-read-resync";
 
-describe("notification-events-read-resync (Bell Contract B)", () => {
+describe("notification-events-read-resync (P0-3 event fact)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    snap = {
-      total: 5,
-      chat: 1,
-      chatMessage: 1,
-      group: 1,
-      groupMessage: 1,
-      trade: 0,
-      tradeMessage: 0,
-      store: 0,
-      missedCall: 1,
-      adminNotice: 2,
-    };
+    commitNotificationEventReadFact.mockReturnValue(true);
   });
 
   it("resyncs hub room count and Domain badge-count authority", () => {
@@ -97,43 +37,56 @@ describe("notification-events-read-resync (Bell Contract B)", () => {
     expect(requestNotificationBadgeCountResync).toHaveBeenCalledWith("call_logs_viewed");
   });
 
-  it("optimistically rebuilds projection with reduced orphan missedCall (Bell Contract B)", () => {
-    applyMissedCallNotificationReadOptimistic(1);
-    expect(applyNotificationBadgeProjection).toHaveBeenCalledTimes(1);
-    const projection = applyNotificationBadgeProjection.mock.calls[0]?.[0] as {
-      bellTotal: number;
-      bell: { missedCall: number };
-      appIcon: { missedCall: number };
+  it("tier1 mark-all commits admin_notice_absolute=0 event fact only (no surface rebuild)", () => {
+    applyTier1InboxMarkAllReadOptimistic();
+    expect(commitNotificationEventReadFact).toHaveBeenCalledTimes(1);
+    const arg = commitNotificationEventReadFact.mock.calls[0]?.[0] as {
+      fact: { kind: string; absolute: number };
+      source: string;
+      eventVersion: number;
+      eventIdentity: string;
     };
-    expect(projection.bell.missedCall).toBe(0);
-    expect(projection.appIcon.missedCall).toBe(0);
-    // Events: chat(1)+group(1)+admin(2)+missed(0) = 4
-    expect(projection.bellTotal).toBe(4);
-  });
-
-  it("skips optimistic patch when cleared is zero", () => {
-    applyMissedCallNotificationReadOptimistic(0);
-    expect(applyNotificationBadgeProjection).not.toHaveBeenCalled();
+    expect(arg.fact).toEqual({ kind: "admin_notice_absolute", absolute: 0 });
+    expect(arg.source).toBe("tier1_mark_all");
+    expect(arg.eventVersion).toBeGreaterThan(0);
+    expect(arg.eventIdentity).toContain("tier1_mark_all:");
     expect(requestNotificationBadgeCountResync).not.toHaveBeenCalled();
   });
 
-  it("applyTier1InboxMarkAllReadOptimistic zeros adminNotice via Builder", () => {
-    applyTier1InboxMarkAllReadOptimistic();
-    expect(applyNotificationBadgeProjection).toHaveBeenCalledTimes(1);
-    const projection = applyNotificationBadgeProjection.mock.calls[0]?.[0] as {
-      bellTotal: number;
-      bell: { adminNotice: number; missedCall: number };
+  it("call_logs orphan read commits orphan_missed_absolute=0 event fact only", () => {
+    applyCallLogsOrphanMissedReadFact();
+    expect(commitNotificationEventReadFact).toHaveBeenCalledTimes(1);
+    const arg = commitNotificationEventReadFact.mock.calls[0]?.[0] as {
+      fact: { kind: string; absolute: number };
+      source: string;
+      scope: string;
     };
-    expect(projection.bell.adminNotice).toBe(0);
-    // Events: chat(1)+group(1)+missed(1)+admin(0) = 3
-    expect(projection.bellTotal).toBe(3);
-    expect(projection.bell.missedCall).toBe(1);
+    expect(arg.fact).toEqual({ kind: "orphan_missed_absolute", absolute: 0 });
+    expect(arg.source).toBe("call_logs_viewed");
+    expect(arg.scope).toBe("call_logs");
+    expect(requestNotificationBadgeCountResync).not.toHaveBeenCalled();
   });
 
-  it("resyncs badge-count when snap missing for admin optimistic", () => {
-    snap = null;
+  it("falls back to badge-count resync when baseline missing (commit returns false)", () => {
+    commitNotificationEventReadFact.mockReturnValue(false);
     applyTier1InboxMarkAllReadOptimistic();
-    expect(applyNotificationBadgeProjection).not.toHaveBeenCalled();
-    expect(requestNotificationBadgeCountResync).toHaveBeenCalledWith("optimistic_admin_missing_snap");
+    expect(requestNotificationBadgeCountResync).toHaveBeenCalledWith(
+      "optimistic_admin_baseline_missing"
+    );
+
+    vi.clearAllMocks();
+    commitNotificationEventReadFact.mockReturnValue(false);
+    applyCallLogsOrphanMissedReadFact();
+    expect(requestNotificationBadgeCountResync).toHaveBeenCalledWith(
+      "optimistic_missed_baseline_missing"
+    );
+  });
+
+  it("produces unique event identities across same-ms calls", () => {
+    applyTier1InboxMarkAllReadOptimistic();
+    applyTier1InboxMarkAllReadOptimistic();
+    const a = commitNotificationEventReadFact.mock.calls[0]?.[0] as { eventIdentity: string };
+    const b = commitNotificationEventReadFact.mock.calls[1]?.[0] as { eventIdentity: string };
+    expect(a.eventIdentity).not.toBe(b.eventIdentity);
   });
 });

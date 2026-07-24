@@ -19,8 +19,10 @@
 import type { ChatDomain } from "@/lib/chat-domain/chat-domain";
 import {
   buildNotificationBadgeProjection,
+  EMPTY_BELL_BADGE_FACTS,
   type NotificationBadgeProjectionInput,
 } from "@/lib/notifications/build-notification-badge-projection";
+import type { NotificationBadgeCount } from "@/lib/notifications/core/notification-event-types";
 import { applyNotificationBadgeProjection } from "@/lib/messenger/contracts/domain-badge-authority-product-bridge";
 import { logNotifyBadge } from "@/lib/notifications/core/notification-logs";
 
@@ -35,6 +37,7 @@ export type ProjectionAuthoritySource =
   | "badge_count_http"
   | "room_unread_delta"
   | "cm_room_fact"
+  | "event_fact"
   | "test";
 
 /** Projection lifecycle — RT / CM room facts are only legal in COMPLETE. */
@@ -109,6 +112,12 @@ export type ProjectionAuthorityCounters = Readonly<{
   room_version_stale: number;
   domain_rejected: number;
   duplicate_event: number;
+  /** P0-3 — notification event read facts (admin_notice / orphan missed). */
+  event_fact_commit_ok: number;
+  event_fact_baseline_missing: number;
+  event_version_stale: number;
+  event_kind_rejected: number;
+  event_fact_noop: number;
 }>;
 
 type MutableCounters = {
@@ -137,12 +146,19 @@ const counters: MutableCounters = {
   room_version_stale: 0,
   domain_rejected: 0,
   duplicate_event: 0,
+  event_fact_commit_ok: 0,
+  event_fact_baseline_missing: 0,
+  event_version_stale: 0,
+  event_kind_rejected: 0,
+  event_fact_noop: 0,
 };
 
 const CM_DOMAINS = new Set<CmRoomFactDomain>(["general_direct", "group"]);
 const processedEventIdentities = new Set<string>();
 const MAX_EVENT_IDENTITY_CACHE = 2_000;
 const roomFacts = new Map<string, RoomFactRow>();
+/** Per-axis last applied event-fact version (admin_notice / orphan_missed). */
+const eventFactVersions = new Map<string, number>();
 
 let state: ProjectionAuthorityState = "EMPTY";
 let lastCompleteInput: NotificationBadgeProjectionInput | null = null;
@@ -262,6 +278,7 @@ export function resetProjectionAuthorityForTests(): void {
   surfaceVersionMs = 0;
   roomFacts.clear();
   processedEventIdentities.clear();
+  eventFactVersions.clear();
   counters.complete_snapshot_commit_ok = 0;
   counters.room_delta_commit_ok = 0;
   counters.room_fact_commit_ok = 0;
@@ -273,6 +290,11 @@ export function resetProjectionAuthorityForTests(): void {
   counters.room_version_stale = 0;
   counters.domain_rejected = 0;
   counters.duplicate_event = 0;
+  counters.event_fact_commit_ok = 0;
+  counters.event_fact_baseline_missing = 0;
+  counters.event_version_stale = 0;
+  counters.event_kind_rejected = 0;
+  counters.event_fact_noop = 0;
 }
 
 function reject(reason: ProjectionRejectReason, extra?: Record<string, unknown>): false {
@@ -657,6 +679,155 @@ export function commitCmRoomUnreadFactEvent(event: CmRoomUnreadFactEvent): boole
 
   const ok = commitApply(merged, "cm_room_fact", factsVersion, event.applyBell !== false);
   if (ok) counters.room_fact_commit_ok += 1;
+  return ok;
+}
+
+/**
+ * P0-3 — notification event read fact (never an aggregate surface number).
+ * `admin_notice_absolute` clears Bell adminNotice only; App Icon / CM / Trade / Order stay.
+ * `orphan_missed_*` change orphan missed + Bell missed + App Icon missed only.
+ */
+export type NotificationEventReadFact =
+  | { kind: "admin_notice_absolute"; absolute: number }
+  | { kind: "orphan_missed_absolute"; absolute: number }
+  | { kind: "orphan_missed_delta"; cleared: number };
+
+export type NotificationEventFactEvent = Readonly<{
+  fact: NotificationEventReadFact;
+  eventIdentity: string;
+  eventVersion: number;
+  /** Explicit read origin — never inferred from a bare `cleared` count. */
+  source: string;
+  /** Optional scope identifier (call_logs / roomId / callSessionId). */
+  scope?: string;
+  applyBell?: boolean;
+}>;
+
+type EventFactAxis = "admin_notice" | "orphan_missed";
+
+function eventFactAxis(kind: NotificationEventReadFact["kind"]): EventFactAxis {
+  return kind === "admin_notice_absolute" ? "admin_notice" : "orphan_missed";
+}
+
+function rejectEventFact(
+  reason:
+    | "event_fact_baseline_missing"
+    | "event_version_stale"
+    | "event_kind_rejected"
+    | "duplicate_event",
+  extra?: Record<string, unknown>
+): false {
+  if (reason === "event_fact_baseline_missing") counters.event_fact_baseline_missing += 1;
+  else if (reason === "event_version_stale") counters.event_version_stale += 1;
+  else if (reason === "event_kind_rejected") counters.event_kind_rejected += 1;
+  else if (reason === "duplicate_event") counters.duplicate_event += 1;
+  logNotifyBadge(reason, { state, generation, factsVersion, ...extra });
+  return false;
+}
+
+function buildEventFactMergedInput(
+  base: NotificationBadgeProjectionInput,
+  fact: NotificationEventReadFact
+): { merged: NotificationBadgeProjectionInput; changed: boolean } {
+  const bell: NotificationBadgeCount = base.bell ?? EMPTY_BELL_BADGE_FACTS;
+  const prevApproved = nonNeg(base.unreadApprovedNotificationEvents ?? bell.total);
+
+  if (fact.kind === "admin_notice_absolute") {
+    const prevAdmin = nonNeg(bell.adminNotice);
+    const nextAdmin = nonNeg(fact.absolute);
+    if (nextAdmin === prevAdmin) return { merged: base, changed: false };
+    const cleared = Math.max(0, prevAdmin - nextAdmin);
+    const nextApproved = Math.max(0, prevApproved - cleared);
+    const nextBell: NotificationBadgeCount = { ...bell, adminNotice: nextAdmin, total: nextApproved };
+    const merged: NotificationBadgeProjectionInput = {
+      ...base,
+      // Bell-only axis — domainUnreadRooms / orphanMissedCall untouched (App Icon stable).
+      bell: nextBell,
+      unreadApprovedNotificationEvents: nextApproved,
+      nonChatEventAttention: { ...base.nonChatEventAttention, adminNotice: nextAdmin },
+    };
+    return { merged, changed: true };
+  }
+
+  // orphan_missed_absolute | orphan_missed_delta
+  const prevOrphan = nonNeg(base.orphanMissedCall);
+  const nextOrphan =
+    fact.kind === "orphan_missed_absolute"
+      ? nonNeg(fact.absolute)
+      : Math.max(0, prevOrphan - nonNeg(fact.cleared));
+  if (nextOrphan === prevOrphan) return { merged: base, changed: false };
+  const cleared = Math.max(0, prevOrphan - nextOrphan);
+  const nextApproved = Math.max(0, prevApproved - cleared);
+  const nextBell: NotificationBadgeCount = { ...bell, missedCall: nextOrphan, total: nextApproved };
+  const merged: NotificationBadgeProjectionInput = {
+    ...base,
+    // Orphan missed axis only — never touches CM room facts or domainUnreadRooms.
+    orphanMissedCall: nextOrphan,
+    bell: nextBell,
+    unreadApprovedNotificationEvents: nextApproved,
+  };
+  return { merged, changed: true };
+}
+
+/**
+ * Commit a notification event read fact through the sole Authority path.
+ * Baseline (no complete snapshot) → reject + leave HTTP resync to reconcile.
+ */
+export function commitNotificationEventReadFact(event: NotificationEventFactEvent): boolean {
+  const kind = event.fact?.kind;
+  if (
+    kind !== "admin_notice_absolute" &&
+    kind !== "orphan_missed_absolute" &&
+    kind !== "orphan_missed_delta"
+  ) {
+    return rejectEventFact("event_kind_rejected", { at: "event_fact_kind", kind });
+  }
+
+  if (state !== "COMPLETE" || !isCompleteProjectionInput(lastCompleteInput)) {
+    markProjectionAuthorityWaitingComplete("event_fact_before_complete");
+    return rejectEventFact("event_fact_baseline_missing", { at: "event_fact", kind });
+  }
+
+  const eventIdentity = String(event.eventIdentity ?? "").trim();
+  const eventVersion = nonNeg(event.eventVersion);
+  if (!eventIdentity || eventVersion <= 0) {
+    return rejectEventFact("event_kind_rejected", { at: "event_fact_identity", kind });
+  }
+
+  if (processedEventIdentities.has(eventIdentity)) {
+    return rejectEventFact("duplicate_event", { eventIdentity, kind });
+  }
+
+  const axis = eventFactAxis(kind);
+  const lastVersion = eventFactVersions.get(axis) ?? 0;
+  if (eventVersion < lastVersion) {
+    return rejectEventFact("event_version_stale", { axis, eventVersion, lastVersion });
+  }
+
+  const { merged, changed } = buildEventFactMergedInput(lastCompleteInput, event.fact);
+
+  rememberEventIdentity(eventIdentity);
+  eventFactVersions.set(axis, Math.max(lastVersion, eventVersion));
+
+  if (!changed) {
+    counters.event_fact_noop += 1;
+    logNotifyBadge("event_fact_noop", { kind, axis, eventVersion, source: event.source });
+    return true;
+  }
+
+  const ok = commitApply(merged, "event_fact", factsVersion, event.applyBell !== false);
+  if (ok) {
+    counters.event_fact_commit_ok += 1;
+    logNotifyBadge("event_fact_commit", {
+      kind,
+      axis,
+      eventVersion,
+      source: event.source,
+      scope: event.scope ?? null,
+      generation,
+      event_fact_commit_ok: counters.event_fact_commit_ok,
+    });
+  }
   return ok;
 }
 
