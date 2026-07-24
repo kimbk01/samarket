@@ -5,8 +5,9 @@ import {
 } from "@/lib/notifications/notification-badge-count-store";
 
 /**
- * P0.1 — 운영 공지(admin_notice)는 Philife 하단탭이 아니라 Tier1 통합 종에만 보조 합산.
- * notification_targets SSOT는 유지하고, notification_events.admin_notice 만 얹는다.
+ * P0.1 — 운영 공지(admin_notice)는 notification-badge-count `total`에 포함.
+ * B4: Header `tier1_inbox_bell` 표시는 badge-count.total 단일 읽기 — 이 supplement를 **다시 가산하지 말 것**.
+ * clearOptimistic 은 mark-all 경로에서 R4 소스로 유지.
  */
 export function resolveTier1AdminNoticeBellSupplement(
   surface: Tier1BellBadgeSurface

@@ -79,7 +79,7 @@ import { resyncBadgesAfterNotificationEventsRead, applyTier1InboxMarkAllReadOpti
 
 import {
 
-  computeTier1HeaderInboxDisplayUnread,
+  resolveTier1HeaderBellBadgeTotal,
 
   syncTier1HeaderInboxUnreadFromRows,
 
@@ -93,9 +93,11 @@ import {
   type Tier1BellBadgeSurface,
 } from "@/lib/notifications/resolve-tier1-bell-surface";
 
-import { resolveTier1AdminNoticeBellSupplement } from "@/lib/notifications/tier1-admin-notice-bell-supplement";
-
-import { subscribeNotificationBadgeCount } from "@/lib/notifications/notification-badge-count-store";
+import {
+  getNotificationBadgeCountSnapshot,
+  getNotificationBadgeCountServerSnapshot,
+  subscribeNotificationBadgeCount,
+} from "@/lib/notifications/notification-badge-count-store";
 
 export type { Tier1BellBadgeSurface };
 
@@ -360,39 +362,34 @@ export function PhilifeHeaderNotificationInbox({
 
   );
 
-  const getAdminNoticeSupplementSnapshot = useCallback(
-    () => resolveTier1AdminNoticeBellSupplement(resolvedSurface),
-    [resolvedSurface]
-  );
-
-  const adminNoticeSupplement = useSyncExternalStore(
+  const badgeCountSnap = useSyncExternalStore(
     subscribeNotificationBadgeCount,
-    getAdminNoticeSupplementSnapshot,
-    () => 0
+    getNotificationBadgeCountSnapshot,
+    getNotificationBadgeCountServerSnapshot
   );
 
   const totalUnread = useMemo(
-
     () =>
-
-      computeTier1HeaderInboxDisplayUnread({
-
+      resolveTier1HeaderBellBadgeTotal({
+        surface: resolvedSurface,
+        badgeCountTotal: badgeCountSnap?.total,
         storeUnread,
-
         rowUnread,
-
         listSynced,
-
         open,
-
         loading,
-
-      }) +
-      Math.max(0, Math.floor(supplementalUnreadCount)) +
-      adminNoticeSupplement,
-
-    [listSynced, loading, open, rowUnread, storeUnread, supplementalUnreadCount, adminNoticeSupplement]
-
+        supplementalUnreadCount,
+      }),
+    [
+      badgeCountSnap?.total,
+      listSynced,
+      loading,
+      open,
+      resolvedSurface,
+      rowUnread,
+      storeUnread,
+      supplementalUnreadCount,
+    ]
   );
 
   const showListLoading = loading && rows.length === 0;
