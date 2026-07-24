@@ -53,9 +53,13 @@ function mockSb(tables: Record<string, { data: unknown }>) {
 
 describe("critical bootstrap trade classification", () => {
   it("maps enriched trade contextMeta into critical row context_meta", async () => {
+    /**
+     * Non-GF / non-commerce key so deferred enrich can stamp contextMeta via product_chats FK.
+     * GF pair keys must never receive trade stamps (4-domain separation).
+     */
     const peerTrade = room({
       id: "room-peer-trade",
-      messengerDirectKey: `${VIEWER}:${PEER}`,
+      messengerDirectKey: null,
     });
     const sb = mockSb({
       product_chats: {
