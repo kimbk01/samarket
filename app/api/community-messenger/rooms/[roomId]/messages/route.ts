@@ -252,7 +252,29 @@ export async function POST(
       messageCreatedAt: typeof msg?.createdAt === "string" ? msg.createdAt : undefined,
       messageForBump: result.message ?? null,
     };
-    /** mark_read 와 동일 — ACK 는 RPC 직후 반환, 알림·배지·bump 는 `after()` (MP-AUDIT-14). */
+    /**
+     * Domain Badge Authority SSOT = notification_targets.
+     * Await target bump BEFORE ACK so a fast room-open mark_read cannot clear before
+     * the unread write lands (measured group/SO race: after() bump after mark_read).
+     * Realtime room bump + notify pipeline remain in `after()` (MP-AUDIT-14 latency).
+     */
+    try {
+      const { bumpMessengerRoomTargetsForRecipients } = await import(
+        "@/lib/notifications/notification-target-messenger-bridge"
+      );
+      const { resolveServiceSupabaseForApi } = await import(
+        "@/lib/supabase/resolve-service-supabase-for-api"
+      );
+      const sb = resolveServiceSupabaseForApi();
+      if (sb) {
+        await bumpMessengerRoomTargetsForRecipients(sb, {
+          roomId: canonicalRoomId,
+          fromUserId: userId,
+        });
+      }
+    } catch {
+      /* best-effort — after() publish retries bump */
+    }
     after(async () => {
       if (postAckEffects) {
         try {

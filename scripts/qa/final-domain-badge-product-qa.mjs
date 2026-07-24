@@ -272,6 +272,28 @@ function delta(before, after, key) {
   return n(after[key]) - n(before[key]);
 }
 
+async function waitForDelta(auth, before, key, expectDelta, timeoutMs = 8000) {
+  const start = Date.now();
+  let last = before;
+  while (Date.now() - start < timeoutMs) {
+    await sleep(700);
+    last = await snapshot(auth);
+    if (n(last[key]) - n(before[key]) === expectDelta) return last;
+  }
+  return last;
+}
+
+async function waitForValue(auth, key, expectValue, timeoutMs = 8000) {
+  const start = Date.now();
+  let last = await snapshot(auth);
+  while (Date.now() - start < timeoutMs) {
+    if (n(last[key]) === expectValue) return last;
+    await sleep(700);
+    last = await snapshot(auth);
+  }
+  return last;
+}
+
 async function scenarioGd({ sender, receiver, round, outDir }) {
   // Baseline: clear receiver unread for this room so room-count +1 is measurable
   await markReadCm(receiver, GD_ROOM);
@@ -280,17 +302,15 @@ async function scenarioGd({ sender, receiver, round, outDir }) {
   const beforeS = await snapshot(sender);
   const label = `[final-badge] GD R${round} ${Date.now()}`;
   const send1 = await sendCmMessage(sender, GD_ROOM, label);
-  await sleep(3000);
-  const after1R = await snapshot(receiver);
+  const after1R = await waitForDelta(receiver, beforeR, "gd", 1);
   const after1S = await snapshot(sender);
   const send2 = await sendCmMessage(sender, GD_ROOM, `${label} +2`);
   const send3 = await sendCmMessage(sender, GD_ROOM, `${label} +3`);
-  await sleep(2000);
+  await sleep(1500);
   const afterExtraR = await snapshot(receiver);
   const read = await markReadCm(receiver, GD_ROOM);
-  await sleep(2500);
-  const afterReadR = await snapshot(receiver);
-  await sleep(500);
+  const afterReadR = await waitForValue(receiver, "gd", beforeR.gd);
+  await sleep(800);
   const afterResumeR = await snapshot(receiver);
 
   const bumped = delta(beforeR, after1R, "gd") === 1;
@@ -352,14 +372,13 @@ async function scenarioGroup({ sender, receiver, round, outDir }) {
   const beforeR = await snapshot(receiver);
   const label = `[final-badge] GROUP R${round} ${Date.now()}`;
   const send1 = await sendCmMessage(sender, GROUP_ROOM, label);
-  await sleep(3000);
-  const after1R = await snapshot(receiver);
+  const after1R = await waitForDelta(receiver, beforeR, "group", 1);
   await sendCmMessage(sender, GROUP_ROOM, `${label} +2`);
   await sleep(1500);
   const afterExtraR = await snapshot(receiver);
   const read = await markReadCm(receiver, GROUP_ROOM);
-  await sleep(2500);
-  const afterReadR = await snapshot(receiver);
+  const afterReadR = await waitForValue(receiver, "group", beforeR.group);
+  await sleep(800);
   const afterResumeR = await snapshot(receiver);
 
   const noExtra =
@@ -419,14 +438,13 @@ async function scenarioTrade({ buyerAuth, sellerAuth, itemId, round, outDir, tag
   const beforeBuyer = await snapshot(buyerAuth);
   const label = `[final-badge] TRADE ${tag} R${round} ${Date.now()}`;
   const send1 = await sendTradeMessage(buyerAuth, tradeRoomId, label);
-  await sleep(3000);
-  const after1Seller = await snapshot(sellerAuth);
+  const after1Seller = await waitForDelta(sellerAuth, beforeSeller, "trade", 1);
   await sendTradeMessage(buyerAuth, tradeRoomId, `${label} +2`);
   await sleep(1500);
   const afterExtraSeller = await snapshot(sellerAuth);
   const read = await markReadCm(sellerAuth, messengerRoomId);
-  await sleep(2500);
-  const afterReadSeller = await snapshot(sellerAuth);
+  const afterReadSeller = await waitForValue(sellerAuth, "trade", beforeSeller.trade);
+  await sleep(800);
   const afterResumeSeller = await snapshot(sellerAuth);
 
   const noExtra =
@@ -441,8 +459,7 @@ async function scenarioTrade({ buyerAuth, sellerAuth, itemId, round, outDir, tag
     noExtra &&
     bottomUnchanged &&
     afterReadSeller.trade === beforeSeller.trade &&
-    afterResumeSeller.trade === afterReadSeller.trade &&
-    delta(beforeBuyer, after1Seller, "bottom") === 0;
+    afterResumeSeller.trade === afterReadSeller.trade;
 
   const result = {
     domain: "trade",
@@ -478,23 +495,19 @@ async function scenarioStoreOrder({ buyerAuth, ownerAuth, roomId, orderId, round
   const label = `[final-badge] SO R${round} ${Date.now()}`;
 
   const sendOwner = await sendCmMessage(buyerAuth, roomId, `${label} buyer->owner`);
-  await sleep(3000);
-  const afterOwnerRecv = await snapshot(ownerAuth);
+  const afterOwnerRecv = await waitForDelta(ownerAuth, beforeOwner, "owner", 1);
   const afterBuyerUnchanged = await snapshot(buyerAuth);
 
   const sendBuyer = await sendCmMessage(ownerAuth, roomId, `${label} owner->buyer`);
-  await sleep(3000);
-  const afterBuyerRecv = await snapshot(buyerAuth);
+  const afterBuyerRecv = await waitForDelta(buyerAuth, beforeBuyer, "buyer", 1);
   const afterOwnerUnchangedOnBuyerMsg = await snapshot(ownerAuth);
 
   const ownerRead = await markReadOrderChat(ownerAuth, { orderId, roomId, role: "owner" });
-  await sleep(2500);
-  const afterOwnerRead = await snapshot(ownerAuth);
+  const afterOwnerRead = await waitForValue(ownerAuth, "owner", beforeOwner.owner);
   const afterBuyerWhenOwnerRead = await snapshot(buyerAuth);
 
   const buyerRead = await markReadOrderChat(buyerAuth, { orderId, roomId, role: "customer" });
-  await sleep(2500);
-  const afterBuyerRead = await snapshot(buyerAuth);
+  const afterBuyerRead = await waitForValue(buyerAuth, "buyer", beforeBuyer.buyer);
   const afterOwnerWhenBuyerRead = await snapshot(ownerAuth);
 
   const ownerBumpOk = delta(beforeOwner, afterOwnerRecv, "owner") === 1;
