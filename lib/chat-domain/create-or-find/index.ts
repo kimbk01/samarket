@@ -179,6 +179,20 @@ export async function findRoomIdByDomainIdentity(
     const { data, error } = await sb
       .from("community_messenger_rooms")
       .select("id")
+      .eq("domain_identity_key", identity)
+      .maybeSingle();
+    if (!error) {
+      const id = typeof data?.id === "string" ? data.id.trim() : "";
+      if (id) return { roomId: id, source: "domain_identity" };
+    }
+  } catch {
+    /* column missing until migration apply */
+  }
+
+  try {
+    const { data, error } = await sb
+      .from("community_messenger_rooms")
+      .select("id")
       .eq("domain_identity", identity)
       .maybeSingle();
     if (!error) {

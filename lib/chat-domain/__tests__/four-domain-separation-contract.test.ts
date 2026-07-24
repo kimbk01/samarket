@@ -39,6 +39,14 @@ describe("4 domain canonical identity keys", () => {
     expect(plannedColumnsForStoreOrderRoom("o1").domain_identity).toBe("store_order:o1");
   });
 
+  it("roomDomainInsertColumns dual-writes domain_identity_key for prod NOT NULL", async () => {
+    const { roomDomainInsertColumns } = await import("@/lib/chat-domain/domain-identity-legacy-map");
+    const cols = roomDomainInsertColumns(plannedColumnsForTrade("i1", "seller", "buyer"));
+    expect(cols.chat_domain).toBe("trade");
+    expect(cols.domain_identity).toBe("trade:i1:seller:buyer");
+    expect(cols.domain_identity_key).toBe(cols.domain_identity);
+  });
+
   it("same item reuses same trade identity", () => {
     const a = tradeRoomIdentity({ itemId: "item-x", sellerId: "s", buyerId: "b" });
     const b = tradeRoomIdentity({ itemId: "item-x", sellerId: "s", buyerId: "b" });

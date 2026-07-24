@@ -19,9 +19,11 @@ export async function bestEffortWriteRoomDomainColumns(
       .update({
         chat_domain: planned.chat_domain,
         domain_identity: planned.domain_identity,
+        /** Prod authority column (NOT NULL); keep in sync with Phase C `domain_identity`. */
+        domain_identity_key: planned.domain_identity,
       })
       .eq("id", id)
-      .is("domain_identity", null);
+      .is("domain_identity_key", null);
     if (error) return "failed";
     return "written";
   } catch {

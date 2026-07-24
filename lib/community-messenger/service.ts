@@ -138,6 +138,7 @@ import {
   plannedColumnsForGeneralDirect,
   plannedColumnsForStoreOrderRoom,
   plannedColumnsForTrade,
+  roomDomainInsertColumns,
   type PlannedRoomDomainColumns,
 } from "@/lib/chat-domain/domain-identity-legacy-map";
 import {
@@ -9868,6 +9869,7 @@ export async function ensureGeneralFriendDirectRoom(
     }
 
     const gdDomain = plannedColumnsForGeneralDirect(userId, peerId);
+    const gdCols = roomDomainInsertColumns(gdDomain);
     const { data: room, error: roomError } = await (sb as any)
       .from("community_messenger_rooms")
       .insert({
@@ -9876,8 +9878,9 @@ export async function ensureGeneralFriendDirectRoom(
         is_readonly: false,
         created_by: userId,
         direct_key: basePairKey,
-        chat_domain: gdDomain.chat_domain,
-        domain_identity: gdDomain.domain_identity,
+        chat_domain: gdCols.chat_domain,
+        domain_identity: gdCols.domain_identity,
+        domain_identity_key: gdCols.domain_identity_key,
         title: "",
         last_message: "",
         last_message_type: "system",
@@ -10128,6 +10131,9 @@ export async function ensureCommunityMessengerDirectRoom(
       }
     }
     if (!existing || isMissingTableError(existingError)) {
+      if (isCommerceEnsure && !plannedDomain) {
+        return { ok: false, error: "trade_identity_required" };
+      }
       const insertRow: Record<string, unknown> = {
         room_type: "direct",
         room_status: "active",
@@ -10139,11 +10145,10 @@ export async function ensureCommunityMessengerDirectRoom(
         last_message_type: "system",
       };
       if (plannedDomain) {
-        insertRow.chat_domain = plannedDomain.chat_domain;
-        insertRow.domain_identity = plannedDomain.domain_identity;
-      } else if (isCommerceEnsure && (productChatId || itemTradeChatRoomId)) {
-        /** trade_pc/trade_item without item triple — still mark domain=trade; identity filled when triple known */
-        insertRow.chat_domain = "trade";
+        const cols = roomDomainInsertColumns(plannedDomain);
+        insertRow.chat_domain = cols.chat_domain;
+        insertRow.domain_identity = cols.domain_identity;
+        insertRow.domain_identity_key = cols.domain_identity_key;
       }
       const { data: room, error: roomError } = await (sb as any)
         .from("community_messenger_rooms")
@@ -10165,7 +10170,7 @@ export async function ensureCommunityMessengerDirectRoom(
             roomId,
             directKey,
             chatDomain: (insertRow.chat_domain as string) ?? null,
-            domainIdentity: (insertRow.domain_identity as string) ?? null,
+            domainIdentity: (insertRow.domain_identity_key as string) ?? (insertRow.domain_identity as string) ?? null,
           });
           return { ok: true, roomId };
         }
@@ -10173,7 +10178,19 @@ export async function ensureCommunityMessengerDirectRoom(
         return { ok: false, error: String(participantError.message ?? "room_participant_create_failed") };
       }
       if (isUniqueViolationError(roomError)) {
-        const roomId = await loadExistingRoomId();
+        const roomId =
+          (await loadExistingRoomId()) ||
+          (plannedDomain
+            ? await (async () => {
+                const { data } = await (sb as any)
+                  .from("community_messenger_rooms")
+                  .select("id")
+                  .eq("domain_identity_key", plannedDomain.domain_identity)
+                  .maybeSingle();
+                const id = trimText((data as { id?: unknown } | null)?.id);
+                return id || null;
+              })()
+            : null);
         if (roomId) {
           await ensureDirectMessengerRoomParticipantsForPair(sb, roomId, userId, peerId);
           return { ok: true, roomId };

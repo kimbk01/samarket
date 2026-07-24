@@ -18,6 +18,22 @@ export type PlannedRoomDomainColumns = {
   domain_identity: string;
 };
 
+/**
+ * Prod rooms enforce NOT NULL `chat_domain` + `domain_identity_key`.
+ * Phase C also dual-writes `domain_identity` (same long-form SSOT value).
+ */
+export function roomDomainInsertColumns(planned: PlannedRoomDomainColumns): {
+  chat_domain: ChatDomain;
+  domain_identity: string;
+  domain_identity_key: string;
+} {
+  return {
+    chat_domain: planned.chat_domain,
+    domain_identity: planned.domain_identity,
+    domain_identity_key: planned.domain_identity,
+  };
+}
+
 /** GD: DB `direct_key` is sorted pair without domain prefix. Accept long-form + legacy `gd:`. */
 export function legacyGeneralDirectKeyFromIdentity(domainIdentity: string): string | null {
   const id = domainIdentity.trim();
