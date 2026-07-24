@@ -43,13 +43,14 @@ export type TradeListDto = {
     chatDomain: "trade";
     domainIdentityKey: string;
     itemId: string;
-    sellerUserId: string;
-    buyerUserId: string;
-    viewerRole: "seller" | "buyer";
+    /** May be absent on legacy session cache — stabilize recomputes from identity */
+    sellerUserId?: string;
+    buyerUserId?: string;
+    viewerRole?: "seller" | "buyer";
     productTitle: string;
     productImageUrl: string | null;
     peerLabel: string | null;
-    peerAvatarUrl: string | null;
+    peerAvatarUrl?: string | null;
     previewText: string;
     previewIsSystemEvent?: boolean;
     statusBadge: string | null;
@@ -67,6 +68,9 @@ function clientValidate(dto: TradeListDto): string | null {
     if (row.chatDomain !== "trade") return "foreign_domain_row";
     if (!row.itemId.trim()) return "product_identity_missing";
     if (row.viewerRole !== "seller" && row.viewerRole !== "buyer") return "trade_viewer_role_missing";
+    if (!(row.sellerUserId ?? "").trim() || !(row.buyerUserId ?? "").trim()) {
+      return "trade_parties_missing";
+    }
     if (ids.has(row.roomId)) return "duplicate_room_id";
     ids.add(row.roomId);
   }
@@ -116,13 +120,26 @@ export function DomainTradeListCanaryGate({
   filter?: string;
 }) {
   void _filter;
-  const [{ mode: initialMode, dto: initialDto }] = useState(() => {
+  const [{ mode: initialMode, dto: initialDto, needsRefetch: initialNeedsRefetch }] = useState(() => {
     const syncUid = getSyncViewerUserIdForClient() ?? null;
     const cached = peekDomainTradeListCanaryCache(syncUid);
-    if (cached) return { mode: "ready" as const, dto: cached };
-    return { mode: "loading" as const, dto: null };
+    if (cached) {
+      const stabilized = stabilizeTradeListDto(cached);
+      if (stabilized.dto.rows.length > 0 || cached.rows.length === 0) {
+        primeDomainTradeListCanaryCache(stabilized.dto);
+        return {
+          mode: "ready" as const,
+          dto: stabilized.dto,
+          needsRefetch: stabilized.needsBackgroundRefetch,
+        };
+      }
+      // All rows invalid — do not paint buyer fallback; wait for network.
+      return { mode: "loading" as const, dto: null, needsRefetch: true };
+    }
+    return { mode: "loading" as const, dto: null, needsRefetch: false };
   });
   const hadCacheOnMountRef = useRef(initialMode === "ready");
+  const needsBackgroundRefetchRef = useRef(initialNeedsRefetch);
 
   const [mode, setMode] = useState<"loading" | "ready" | "error">(initialMode);
   const [dto, setDto] = useState<TradeListDto | null>(initialDto);
@@ -134,7 +151,10 @@ export function DomainTradeListCanaryGate({
     const uid = getSyncViewerUserIdForClient() ?? null;
     return subscribeDomainListCanaryPatch("trade", () => {
       const next = peekDomainTradeListCanaryCache(uid);
-      if (next) setDto(next);
+      if (!next) return;
+      const stabilized = stabilizeTradeListDto(next);
+      primeDomainTradeListCanaryCache(stabilized.dto);
+      setDto(stabilized.dto);
     });
   }, []);
 
@@ -166,9 +186,11 @@ export function DomainTradeListCanaryGate({
         }
         const syncUid = getSyncViewerUserIdForClient() ?? null;
         const cached = peekDomainTradeListCanaryCache(syncUid);
-        if (cached) {
+        if (cached && !needsBackgroundRefetchRef.current) {
+          const stabilized = stabilizeTradeListDto(cached);
           if (!cancelled) {
-            setDto(cached);
+            primeDomainTradeListCanaryCache(stabilized.dto);
+            setDto(stabilized.dto);
             setMode("ready");
             setReason(null);
           }
@@ -201,15 +223,16 @@ export function DomainTradeListCanaryGate({
           softFail("viewer_mismatch", { retried: fetchResult.retried });
           return;
         }
-        const fail = clientValidate(body);
+        const stabilized = stabilizeTradeListDto(body);
+        const fail = clientValidate(stabilized.dto);
         if (fail) {
           softFail(fail, { retried: fetchResult.retried });
           return;
         }
         if (cancelled) return;
-        const stable = stabilizeTradeListDto(body);
-        primeDomainTradeListCanaryCache(stable);
-        setDto((prev) => (domainTradeListPaintEqual(prev, stable) ? prev : stable));
+        needsBackgroundRefetchRef.current = false;
+        primeDomainTradeListCanaryCache(stabilized.dto);
+        setDto((prev) => (domainTradeListPaintEqual(prev, stabilized.dto) ? prev : stabilized.dto));
         setMode("ready");
         setReason(null);
       } catch {
@@ -227,11 +250,13 @@ export function DomainTradeListCanaryGate({
   const visibleRows = useMemo(() => {
     if (!dto) return [];
     return filterTradeListRowsByRole(
-      dto.rows.map((r) => ({
-        ...r,
-        viewerRole: r.viewerRole,
-        needsResponse: r.needsResponse ?? r.unreadCount > 0,
-      })),
+      dto.rows
+        .filter((r) => r.viewerRole === "seller" || r.viewerRole === "buyer")
+        .map((r) => ({
+          ...r,
+          viewerRole: r.viewerRole as "seller" | "buyer",
+          needsResponse: r.needsResponse ?? r.unreadCount > 0,
+        })),
       roleFilter
     );
   }, [dto, roleFilter]);
@@ -346,8 +371,8 @@ export function DomainTradeListCanaryGate({
             productTitle={row.productTitle}
             productImageUrl={row.productImageUrl}
             peerLabel={row.peerLabel?.trim() || (language === "en" ? "Counterpart" : "상대방")}
-            peerAvatarUrl={row.peerAvatarUrl}
-            roleLabel={roleLabelFor(row.viewerRole)}
+            peerAvatarUrl={row.peerAvatarUrl ?? null}
+            roleLabel={roleLabelFor(row.viewerRole!)}
             statusBadge={row.statusBadge}
             preview={row.previewText || (language === "en" ? "No messages" : "메시지가 없습니다")}
             previewIsSystemEvent={row.previewIsSystemEvent === true}
@@ -356,7 +381,7 @@ export function DomainTradeListCanaryGate({
             onNavigate={() =>
               markRoomEntryIntent(row.roomId, {
                 title: row.peerLabel?.trim() || row.productTitle,
-                avatarUrl: row.peerAvatarUrl || row.productImageUrl,
+                avatarUrl: row.peerAvatarUrl || row.productImageUrl || null,
                 expectedDomain: "trade",
                 expectedIdentityKey: row.domainIdentityKey,
               })

@@ -49,7 +49,7 @@ export function peekDomainTradeHubListPreview(): DomainCommerceHubListPreview | 
   if (!uid) return null;
   const raw = peekDomainTradeListCanaryCache(uid);
   if (!raw) return null;
-  const dto = stabilizeTradeListDto(raw);
+  const dto = stabilizeTradeListDto(raw).dto;
   const latestId = dto.hub.latestRoomId?.trim() ?? "";
   const top =
     (latestId ? dto.rows.find((r) => r.roomId === latestId) : null) ?? dto.rows[0];
@@ -88,7 +88,7 @@ export function peekDomainTradeUnreadRoomCount(): number | null {
   if (!uid) return null;
   const dto = peekDomainTradeListCanaryCache(uid);
   if (!dto) return null;
-  return Math.max(0, Math.floor(Number(stabilizeTradeListDto(dto).hub.unreadRoomCount) || 0));
+  return Math.max(0, Math.floor(Number(stabilizeTradeListDto(dto).dto.hub.unreadRoomCount) || 0));
 }
 
 export function peekDomainStoreOrderUnreadRoomCount(): number | null {
@@ -118,7 +118,7 @@ export function prefetchDomainTradeListCanaryForHub(): Promise<void> {
       const body = (await fetchResult.res.json()) as TradeListDto;
       if (body.viewerUserId !== uid || body.authority !== "domain_trade_list_canary") return;
       const stabilized = stabilizeTradeListDto(body);
-      primeDomainTradeListCanaryCache(stabilized);
+      primeDomainTradeListCanaryCache(stabilized.dto);
       if (typeof window !== "undefined") {
         window.dispatchEvent(
           new CustomEvent(DOMAIN_LIST_CANARY_PRIMED_EVENT, { detail: { bundle: "trade" } })

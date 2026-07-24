@@ -33,22 +33,28 @@ const UID = "viewer-telegram-list-authority";
 function tradeRow(
   partial: Partial<TradeListDto["rows"][number]> & Pick<TradeListDto["rows"][number], "roomId" | "previewText" | "lastMessageAt" | "unreadCount">
 ): TradeListDto["rows"][number] {
+  const roomId = partial.roomId;
+  const seller = partial.sellerUserId ?? UID;
+  const buyer = partial.buyerUserId ?? "buyer-peer";
   return {
+    roomId,
     chatDomain: "trade",
-    domainIdentityKey: `trade:${partial.roomId}`,
-    itemId: `item:${partial.roomId}`,
-    sellerUserId: "seller-1",
-    buyerUserId: "buyer-1",
-    viewerRole: "seller",
-    productTitle: "p",
-    productImageUrl: null,
-    peerLabel: "peer",
-    peerAvatarUrl: null,
-    statusBadge: null,
-    needsResponse: partial.unreadCount > 0,
-    previewIsSystemEvent: false,
-    href: `/community-messenger/rooms/${partial.roomId}`,
-    ...partial,
+    domainIdentityKey: partial.domainIdentityKey ?? `trade:item-${roomId}:${seller}:${buyer}`,
+    itemId: partial.itemId ?? `item-${roomId}`,
+    sellerUserId: seller,
+    buyerUserId: buyer,
+    viewerRole: partial.viewerRole ?? "seller",
+    productTitle: partial.productTitle ?? "p",
+    productImageUrl: partial.productImageUrl ?? null,
+    peerLabel: partial.peerLabel ?? "peer",
+    peerAvatarUrl: partial.peerAvatarUrl ?? null,
+    previewText: partial.previewText,
+    statusBadge: partial.statusBadge ?? null,
+    unreadCount: partial.unreadCount,
+    needsResponse: partial.needsResponse ?? partial.unreadCount > 0,
+    previewIsSystemEvent: partial.previewIsSystemEvent ?? false,
+    lastMessageAt: partial.lastMessageAt,
+    href: partial.href ?? `/community-messenger/rooms/${roomId}`,
   };
 }
 

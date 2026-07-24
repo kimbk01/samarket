@@ -60,7 +60,7 @@ describe("domain list stabilize — hub matches list top", () => {
   it("trade: hub.latest follows activity; unread can reorder list rows[0]", () => {
     const body: TradeListDto = {
       authority: "domain_trade_list_canary",
-      viewerUserId: "u1",
+      viewerUserId: "s1",
       producedAt: "2026-07-23T00:00:00.000Z",
       hub: {
         roomCount: 2,
@@ -72,7 +72,7 @@ describe("domain list stabilize — hub matches list top", () => {
         {
           roomId: "t-old",
           chatDomain: "trade",
-          domainIdentityKey: "t:old",
+          domainIdentityKey: "trade:i1:s1:b1",
           itemId: "i1",
           sellerUserId: "s1",
           buyerUserId: "b1",
@@ -90,7 +90,7 @@ describe("domain list stabilize — hub matches list top", () => {
         {
           roomId: "t-new",
           chatDomain: "trade",
-          domainIdentityKey: "t:new",
+          domainIdentityKey: "trade:i2:s1:b2",
           itemId: "i2",
           sellerUserId: "s1",
           buyerUserId: "b2",
@@ -108,14 +108,14 @@ describe("domain list stabilize — hub matches list top", () => {
       ],
     };
     const next = stabilizeTradeListDto(body);
-    expect(next.hub.latestRoomId).toBe("t-new");
-    expect(next.rows[0]?.roomId).toBe("t-old");
+    expect(next.dto.hub.latestRoomId).toBe("t-new");
+    expect(next.dto.rows[0]?.roomId).toBe("t-old");
   });
 
   it("paintEqual is true for identical rows (list lock skip setDto)", () => {
     const body: TradeListDto = {
       authority: "domain_trade_list_canary",
-      viewerUserId: "u1",
+      viewerUserId: "s1",
       producedAt: "2026-07-23T00:00:00.000Z",
       hub: {
         roomCount: 1,
@@ -127,7 +127,7 @@ describe("domain list stabilize — hub matches list top", () => {
         {
           roomId: "t1",
           chatDomain: "trade",
-          domainIdentityKey: "t:1",
+          domainIdentityKey: "trade:i1:s1:b1",
           itemId: "i1",
           sellerUserId: "s1",
           buyerUserId: "b1",
@@ -144,8 +144,8 @@ describe("domain list stabilize — hub matches list top", () => {
         },
       ],
     };
-    const a = stabilizeTradeListDto(body);
-    const b = stabilizeTradeListDto({ ...body, producedAt: "2026-07-23T01:00:00.000Z" });
+    const a = stabilizeTradeListDto(body).dto;
+    const b = stabilizeTradeListDto({ ...body, producedAt: "2026-07-23T01:00:00.000Z" }).dto;
     expect(domainTradeListPaintEqual(a, b)).toBe(true);
     expect(
       domainTradeListPaintEqual(
@@ -153,7 +153,7 @@ describe("domain list stabilize — hub matches list top", () => {
         stabilizeTradeListDto({
           ...body,
           rows: [{ ...body.rows[0]!, previewText: "changed" }],
-        })
+        }).dto
       )
     ).toBe(false);
   });

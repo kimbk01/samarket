@@ -1,27 +1,109 @@
+/**
+ * Normalize / stabilize trade list DTO for cache paint.
+ * Recomputes viewerRole from seller/buyer identity — never defaults to buyer.
+ */
 import type { TradeListDto } from "@/components/community-messenger/domain-shell-canary/DomainTradeListCanaryGate";
 import type { SoCustomerListDto } from "@/components/community-messenger/domain-shell-canary/domain-store-order-customer-list-canary-cache";
 import { sortTradeListRows } from "@/lib/messenger/trade/list-sort-filter";
 import { selectLatestRowByActivityAt } from "@/lib/messenger/contracts/latest-activity-selector";
+import { resolveTradeViewerRole } from "@/lib/messenger/trade/viewer-role";
+import { parseTradeIdentityKey } from "@/lib/messenger/trade/identity";
+
+export type StabilizeTradeListResult = {
+  dto: TradeListDto;
+  droppedInvalidCount: number;
+  reconstructedRoleCount: number;
+  needsBackgroundRefetch: boolean;
+};
+
+type TradeListRow = TradeListDto["rows"][number];
+type StabilizedTradeRow = TradeListRow & {
+  sellerUserId: string;
+  buyerUserId: string;
+  viewerRole: "seller" | "buyer";
+};
+
+function resolvePartiesForRow(row: TradeListRow): {
+  sellerUserId: string;
+  buyerUserId: string;
+  itemId: string;
+} | null {
+  const seller = (row.sellerUserId ?? "").trim();
+  const buyer = (row.buyerUserId ?? "").trim();
+  const itemId = (row.itemId ?? "").trim();
+  if (seller && buyer && itemId) {
+    return { sellerUserId: seller, buyerUserId: buyer, itemId };
+  }
+  try {
+    const parsed = parseTradeIdentityKey((row.domainIdentityKey ?? "").trim());
+    return {
+      sellerUserId: parsed.sellerUserId,
+      buyerUserId: parsed.counterpartyUserId,
+      itemId: parsed.itemId || itemId,
+    };
+  } catch {
+    return null;
+  }
+}
 
 /**
- * Trade list: unread/needsResponse first, then lastMessageAt.
- * Hub latest = max activity (not necessarily rows[0] after unread sort).
+ * Drop invalid rows; recompute viewerRole from parties + viewerUserId.
+ * DO NOT use `viewerRole ?? "buyer"`.
  */
+export function stabilizeTradeListDto(body: TradeListDto): StabilizeTradeListResult {
+  const viewerUserId = (body.viewerUserId ?? "").trim();
+  let droppedInvalidCount = 0;
+  let reconstructedRoleCount = 0;
+  const kept: StabilizedTradeRow[] = [];
 
-export function stabilizeTradeListDto(body: TradeListDto): TradeListDto {
-  const rows = sortTradeListRows(
-    body.rows.map((r) => ({
+  for (const r of body.rows) {
+    const parties = resolvePartiesForRow(r);
+    if (!parties || !viewerUserId) {
+      droppedInvalidCount += 1;
+      console.warn("[TRADE_PARTICIPANT_MISMATCH]", {
+        reason: "missing_parties_or_viewer",
+        roomId: r.roomId,
+        viewerUserId: viewerUserId || null,
+      });
+      continue;
+    }
+    const role = resolveTradeViewerRole({
+      viewerUserId,
+      sellerId: parties.sellerUserId,
+      buyerId: parties.buyerUserId,
+    });
+    if (!role) {
+      droppedInvalidCount += 1;
+      console.warn("[TRADE_PARTICIPANT_MISMATCH]", {
+        reason: "viewer_not_party",
+        roomId: r.roomId,
+        viewerUserId,
+        sellerId: parties.sellerUserId,
+        buyerId: parties.buyerUserId,
+      });
+      continue;
+    }
+    const hadRole = r.viewerRole === "seller" || r.viewerRole === "buyer";
+    if (!hadRole || r.viewerRole !== role) {
+      reconstructedRoleCount += 1;
+    }
+    kept.push({
       ...r,
-      viewerRole: r.viewerRole === "seller" || r.viewerRole === "buyer" ? r.viewerRole : "buyer",
+      itemId: parties.itemId || r.itemId,
+      sellerUserId: parties.sellerUserId,
+      buyerUserId: parties.buyerUserId,
+      viewerRole: role,
       needsResponse: r.needsResponse ?? r.unreadCount > 0,
-    }))
-  );
+    });
+  }
+
+  const rows = sortTradeListRows(kept);
   const unreadRoomCount = rows.filter((r) => r.unreadCount > 0).length;
   const activityLatest = selectLatestRowByActivityAt(rows, (r) => ({
     activityAt: r.lastMessageAt,
     tieKey: r.roomId,
   }));
-  return {
+  const dto: TradeListDto = {
     ...body,
     rows,
     hub: {
@@ -32,6 +114,18 @@ export function stabilizeTradeListDto(body: TradeListDto): TradeListDto {
       previewText: (activityLatest?.previewText ?? body.hub.previewText ?? "").trim(),
     },
   };
+
+  return {
+    dto,
+    droppedInvalidCount,
+    reconstructedRoleCount,
+    needsBackgroundRefetch: droppedInvalidCount > 0,
+  };
+}
+
+/** Backward-compatible wrapper — returns DTO only (callers that ignore diagnostics). */
+export function stabilizeTradeListDtoOnly(body: TradeListDto): TradeListDto {
+  return stabilizeTradeListDto(body).dto;
 }
 
 export function stabilizeSoCustomerListDto(body: SoCustomerListDto): SoCustomerListDto {
@@ -70,7 +164,9 @@ export function domainTradeListPaintEqual(a: TradeListDto | null, b: TradeListDt
       x.lastMessageAt !== y.lastMessageAt ||
       (x.previewText ?? "") !== (y.previewText ?? "") ||
       (x.statusBadge ?? "") !== (y.statusBadge ?? "") ||
-      x.viewerRole !== y.viewerRole
+      x.viewerRole !== y.viewerRole ||
+      x.sellerUserId !== y.sellerUserId ||
+      x.buyerUserId !== y.buyerUserId
     ) {
       return false;
     }

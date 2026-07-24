@@ -101,7 +101,7 @@ export function applyDomainTradeListRealtimeMessagePatch(input: {
       : r
   );
   const stabilized = stabilizeTradeListDto({ ...cached, rows });
-  primeDomainTradeListCanaryCache(stabilized);
+  primeDomainTradeListCanaryCache(stabilized.dto);
   notifyDomainListCanaryPatch("trade");
   logListAuthorityMutation({
     surface: "trade",
@@ -151,7 +151,7 @@ export function applyDomainTradeListUnreadOnlyPatch(input: {
   });
   const rows = cached.rows.map((r, i) => (i === idx ? { ...r, unreadCount: nextUnread } : r));
   const stabilized = stabilizeTradeListDto({ ...cached, rows });
-  primeDomainTradeListCanaryCache(stabilized);
+  primeDomainTradeListCanaryCache(stabilized.dto);
   notifyDomainListCanaryPatch("trade");
   logListAuthorityMutation({
     surface: "trade",

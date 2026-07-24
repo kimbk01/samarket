@@ -33,9 +33,9 @@ function seedTradeDto(): TradeListDto {
       {
         roomId: "t-1",
         chatDomain: "trade",
-        domainIdentityKey: "t:1",
+        domainIdentityKey: `trade:i1:${UID}:b1`,
         itemId: "i1",
-        sellerUserId: "s1",
+        sellerUserId: UID,
         buyerUserId: "b1",
         viewerRole: "seller",
         productTitle: "Item",
