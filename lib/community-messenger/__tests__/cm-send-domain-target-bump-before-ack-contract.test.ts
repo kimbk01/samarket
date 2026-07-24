@@ -17,11 +17,41 @@ describe("CM message send Domain target bump before ACK", () => {
     expect(syncBump).toBeLessThan(afterCall);
   });
 
+  it("awaits runCommunityMessengerSendPostAckEffects (notify/FCM) before after()", () => {
+    const notify = src.indexOf("await runCommunityMessengerSendPostAckEffects");
+    const afterCall = src.indexOf("after(async () => {");
+    expect(notify).toBeGreaterThan(-1);
+    expect(afterCall).toBeGreaterThan(-1);
+    expect(notify).toBeLessThan(afterCall);
+    // Must not keep notify only inside after() — Production after() stalled events.
+    const afterBlock = src.slice(afterCall);
+    expect(afterBlock).not.toContain("runCommunityMessengerSendPostAckEffects");
+  });
+
   it("keeps realtime publishMessengerRoomBumpAfterMutation in after() with skipBadgeTargetBump", () => {
     const afterCall = src.indexOf("after(async () => {");
     const publish = src.indexOf("publishMessengerRoomBumpAfterMutation", afterCall);
     expect(publish).toBeGreaterThan(afterCall);
     expect(src).toContain("skipBadgeTargetBump: true");
+  });
+});
+
+const groupSrc = readFileSync(
+  join(process.cwd(), "app/api/community-messenger/group-rooms/[roomId]/messages/route.ts"),
+  "utf8"
+);
+
+describe("CM group-rooms message send notify before ACK", () => {
+  it("awaits notify + target bump before after() and skips notify in after()", () => {
+    const notify = groupSrc.indexOf("await runCommunityMessengerSendPostAckEffects");
+    const syncBump = groupSrc.indexOf("await bumpMessengerRoomTargetsForRecipients");
+    const afterCall = groupSrc.indexOf("after(async () => {");
+    expect(notify).toBeGreaterThan(-1);
+    expect(syncBump).toBeGreaterThan(-1);
+    expect(afterCall).toBeGreaterThan(-1);
+    expect(Math.max(notify, syncBump)).toBeLessThan(afterCall);
+    expect(groupSrc.slice(afterCall)).not.toContain("runCommunityMessengerSendPostAckEffects");
+    expect(groupSrc).toContain("skipBadgeTargetBump: true");
   });
 });
 

@@ -257,7 +257,11 @@ export async function POST(
      * Domain Badge Authority SSOT = notification_targets.
      * Await target bump BEFORE ACK so a fast room-open mark_read cannot clear before
      * the unread write lands (measured group/SO race: after() bump after mark_read).
-     * Realtime room bump + notify pipeline remain in `after()` (MP-AUDIT-14 latency).
+     *
+     * Await notify/FCM pipeline BEFORE ACK as well — Production measured that
+     * `after()` post-ack notify often never persisted notification_events (last
+     * events stalled ~2026-07-22) so OS FCM tray never fired. Realtime room bump
+     * stays in `after()`; skipBadgeTargetBump prevents a second target write.
      */
     try {
       const { bumpMessengerRoomTargetsForRecipients } = await import(
@@ -272,23 +276,17 @@ export async function POST(
           roomId: canonicalRoomId,
           fromUserId: userId,
         });
-      }
-    } catch {
-      /* best-effort — after() publish retries bump */
-    }
-    after(async () => {
-      if (postAckEffects) {
-        try {
+        if (postAckEffects) {
           const { runCommunityMessengerSendPostAckEffects } = await import(
             "@/lib/community-messenger/server/community-messenger-send-post-ack-effects"
           );
-          const { resolveServiceSupabaseForApi } = await import("@/lib/supabase/resolve-service-supabase-for-api");
-          const sb = resolveServiceSupabaseForApi();
-          if (sb) await runCommunityMessengerSendPostAckEffects(sb, postAckEffects);
-        } catch {
-          /* best-effort */
+          await runCommunityMessengerSendPostAckEffects(sb, postAckEffects);
         }
       }
+    } catch {
+      /* best-effort — do not fail the send ACK */
+    }
+    after(async () => {
       try {
         const { publishMessengerRoomBumpAfterMutation } = await import(
           "@/lib/community-messenger/server/publish-messenger-room-bump"

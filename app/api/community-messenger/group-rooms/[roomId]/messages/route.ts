@@ -186,6 +186,10 @@ export async function POST(
       messageForBump: result.message ?? null,
       skipBadgeTargetBump: true as const,
     };
+    /**
+     * Same contract as rooms/[roomId]/messages: sync target bump + notify/FCM
+     * before ACK; realtime publish only in after() with skipBadgeTargetBump.
+     */
     try {
       const { bumpMessengerRoomTargetsForRecipients } = await import(
         "@/lib/notifications/notification-target-messenger-bridge"
@@ -199,23 +203,17 @@ export async function POST(
           roomId,
           fromUserId: auth.userId,
         });
-      }
-    } catch {
-      /* best-effort — after() publish retries unless skip */
-    }
-    after(async () => {
-      if (postAckEffects) {
-        try {
+        if (postAckEffects) {
           const { runCommunityMessengerSendPostAckEffects } = await import(
             "@/lib/community-messenger/server/community-messenger-send-post-ack-effects"
           );
-          const { resolveServiceSupabaseForApi } = await import("@/lib/supabase/resolve-service-supabase-for-api");
-          const sb = resolveServiceSupabaseForApi();
-          if (sb) await runCommunityMessengerSendPostAckEffects(sb, postAckEffects);
-        } catch {
-          /* best-effort */
+          await runCommunityMessengerSendPostAckEffects(sb, postAckEffects);
         }
       }
+    } catch {
+      /* best-effort — do not fail the send ACK */
+    }
+    after(async () => {
       try {
         const { publishMessengerRoomBumpAfterMutation } = await import(
           "@/lib/community-messenger/server/publish-messenger-room-bump"

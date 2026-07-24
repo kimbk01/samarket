@@ -31,9 +31,11 @@ export async function syncNativeBadgeCount(count: number): Promise<{
     } catch {
       supported = null;
     }
+    // ShortcutBadger.isSupported is OEM-heuristic only. Still apply absolute count —
+    // Xiaomi often reports unsupported while Samsung accepts; OS tray number from
+    // FCM setNumber remains the notification-based App Icon path when launcher API fails.
     if (supported === false) {
-      console.warn("[native-badge] launcher_badge_unsupported count=", value);
-      return { attempted: true, supported: false, applied: false };
+      console.warn("[native-badge] launcher_badge_unsupported_try_set count=", value);
     }
     if (value <= 0) {
       await Badge.clear();
