@@ -1,4 +1,9 @@
+import { randomUUID } from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  plannedColumnsForGroup,
+  roomDomainInsertColumns,
+} from "@/lib/chat-domain/domain-identity-legacy-map";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import type {
   GroupParticipantRow,
@@ -45,9 +50,13 @@ export async function insertPrivateGroupRoom(
   input: { userId: string; title: string }
 ): Promise<{ ok: true; roomId: string } | { ok: false; error: string; missingTable?: boolean }> {
   const title = trimText(input.title);
+  /** Pre-allocate id so group:{roomId} identity is atomic with chat_domain (prod NOT NULL). */
+  const roomId = randomUUID();
+  const domainCols = roomDomainInsertColumns(plannedColumnsForGroup(roomId));
   const { data, error } = await (sb as any)
     .from("community_messenger_rooms")
     .insert({
+      id: roomId,
       room_type: "private_group",
       room_status: "active",
       visibility: "private",
@@ -69,6 +78,9 @@ export async function insertPrivateGroupRoom(
       last_message_type: "system",
       invite_token: generateGroupInviteToken(),
       invite_link_enabled: true,
+      chat_domain: domainCols.chat_domain,
+      domain_identity: domainCols.domain_identity,
+      domain_identity_key: domainCols.domain_identity_key,
     })
     .select("id")
     .single();
@@ -79,9 +91,9 @@ export async function insertPrivateGroupRoom(
       missingTable: isMissingTableError(error),
     };
   }
-  const roomId = trimText((data as { id?: string } | null)?.id);
-  if (!roomId) return { ok: false, error: "group_create_failed" };
-  return { ok: true, roomId };
+  const insertedId = trimText((data as { id?: string } | null)?.id) || roomId;
+  if (!insertedId) return { ok: false, error: "group_create_failed" };
+  return { ok: true, roomId: insertedId };
 }
 
 export async function insertGroupParticipants(

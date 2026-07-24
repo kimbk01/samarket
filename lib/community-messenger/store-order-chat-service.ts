@@ -21,6 +21,10 @@ import {
   buildMessengerContextMetaFromStoreOrder,
 } from "@/lib/community-messenger/store-order-messenger-context";
 import {
+  plannedColumnsForStoreOrderRoom,
+  roomDomainInsertColumns,
+} from "@/lib/chat-domain/domain-identity-legacy-map";
+import {
   SYSTEM_LINE_DELIVERY_ARRIVED,
   systemChatLineForOrderStatus,
   type OrderChatFlow,
@@ -431,7 +435,17 @@ export async function ensureStoreOrderMessengerRoom(
 
   const existingLinked = trimText(row.community_messenger_room_id);
   const directKeys = [`store_order:${orderId}`, `trade_order:${orderId}`];
+  const soDomainCols = roomDomainInsertColumns(plannedColumnsForStoreOrderRoom(orderId));
   let roomId = existingLinked;
+  if (!roomId) {
+    const { data: byIdentity } = await sb
+      .from("community_messenger_rooms")
+      .select("id")
+      .eq("chat_domain", "store_order")
+      .eq("domain_identity_key", soDomainCols.domain_identity_key)
+      .maybeSingle();
+    roomId = trimText((byIdentity as { id?: unknown } | null)?.id);
+  }
   if (!roomId) {
     const { data: existingRoom } = await sb
       .from("community_messenger_rooms")
@@ -447,6 +461,10 @@ export async function ensureStoreOrderMessengerRoom(
   const createdAt = nowIso();
   const meta = contextMetaFromOrder(row);
   if (!roomId) {
+    /**
+     * Prod NOT NULL: chat_domain + domain_identity_key must be atomic with insert.
+     * Canonical identity: store_order:{orderId} (never buyer×owner pair).
+     */
     const { data: inserted, error: insertErr } = await sb
       .from("community_messenger_rooms")
       .insert({
@@ -460,20 +478,31 @@ export async function ensureStoreOrderMessengerRoom(
         last_message: "",
         last_message_type: "system",
         last_message_at: createdAt,
+        chat_domain: soDomainCols.chat_domain,
+        domain_identity: soDomainCols.domain_identity,
+        domain_identity_key: soDomainCols.domain_identity_key,
       })
       .select("id")
       .single();
     if (insertErr) {
       if (!isUniqueViolationError(insertErr)) return { ok: false, error: insertErr.message, status: 500 };
-      const { data: raced } = await sb
+      const { data: racedByKey } = await sb
         .from("community_messenger_rooms")
         .select("id")
-        .eq("room_type", "direct")
-        .in("direct_key", directKeys)
-        .order("created_at", { ascending: true })
-        .limit(1)
+        .eq("domain_identity_key", soDomainCols.domain_identity_key)
         .maybeSingle();
-      roomId = trimText((raced as { id?: unknown } | null)?.id);
+      roomId = trimText((racedByKey as { id?: unknown } | null)?.id);
+      if (!roomId) {
+        const { data: raced } = await sb
+          .from("community_messenger_rooms")
+          .select("id")
+          .eq("room_type", "direct")
+          .in("direct_key", directKeys)
+          .order("created_at", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        roomId = trimText((raced as { id?: unknown } | null)?.id);
+      }
     } else {
       roomId = trimText((inserted as { id?: unknown } | null)?.id);
     }
@@ -486,8 +515,8 @@ export async function ensureStoreOrderMessengerRoom(
   if (!roomId) return { ok: false, error: "room_create_failed", status: 500 };
 
   const participants = [
-    { room_id: roomId, user_id: buyerUserId, role: "member" },
-    { room_id: roomId, user_id: ownerUserId, role: "owner" },
+    { room_id: roomId, user_id: buyerUserId, role: "member", store_order_role: "customer" },
+    { room_id: roomId, user_id: ownerUserId, role: "owner", store_order_role: "owner" },
   ];
   const partResults = await Promise.all(
     participants.map((participant) =>
