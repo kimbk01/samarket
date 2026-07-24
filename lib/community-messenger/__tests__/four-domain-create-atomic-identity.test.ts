@@ -38,6 +38,25 @@ describe("four-domain create atomic identity", () => {
     expect(cols.domain_identity_key).toBe("group:g-1");
   });
 
+  it("open group create preallocates id and writes group identity", () => {
+    const src = readFileSync(join(root, "service.ts"), "utf8");
+    const slice = src.slice(src.indexOf("export async function createOpenGroupRoom"));
+    expect(slice).toContain("plannedColumnsForGroup(roomId)");
+    expect(slice).toContain("domain_identity_key: domainCols.domain_identity_key");
+    expect(slice).toContain("id: roomId");
+  });
+
+  it("1:1 member-sheet dial keeps source roomId (no peer-only GD ensure)", () => {
+    const src = readFileSync(
+      join(root, "room/phase2/use-messenger-room-phase2-controller.ts"),
+      "utf8"
+    );
+    const slice = src.slice(src.indexOf("const startDirectCallWithMember"));
+    expect(slice).toContain("!isGroupRoom");
+    expect(slice).toContain("roomId: rid");
+    expect(slice).toContain("launchOutgoingDirectCall");
+  });
+
   it("GD + trade ensure paths dual-write domain_identity_key", () => {
     const src = readFileSync(join(root, "service.ts"), "utf8");
     expect(src).toContain("domain_identity_key: gdCols.domain_identity_key");

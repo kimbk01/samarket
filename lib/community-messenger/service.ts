@@ -136,6 +136,7 @@ import { listBootstrapAcceptedFriendRowsFromSsot } from "@/lib/community-messeng
 import { listFriendshipSsotRowsForViewer } from "@/lib/community-messenger/friendship/community-messenger-friendships-ssot";
 import {
   plannedColumnsForGeneralDirect,
+  plannedColumnsForGroup,
   plannedColumnsForStoreOrderRoom,
   plannedColumnsForTrade,
   roomDomainInsertColumns,
@@ -10541,9 +10542,13 @@ export async function createOpenGroupRoom(input: {
   const passwordHash = joinPolicy === "password" ? hashMeetingPassword(password) : null;
   const sb = getSupabaseOrNull();
   if (sb) {
+    /** Pre-allocate id so group:{roomId} + chat_domain are atomic (prod NOT NULL). */
+    const roomId = randomUUID();
+    const domainCols = roomDomainInsertColumns(plannedColumnsForGroup(roomId));
     const { data: room, error: roomError } = await (sb as any)
       .from("community_messenger_rooms")
       .insert({
+        id: roomId,
         room_type: "open_group",
         room_status: "active",
         visibility: "public",
@@ -10566,27 +10571,30 @@ export async function createOpenGroupRoom(input: {
         allow_member_call: true,
         last_message: "",
         last_message_type: "system",
+        chat_domain: domainCols.chat_domain,
+        domain_identity: domainCols.domain_identity,
+        domain_identity_key: domainCols.domain_identity_key,
       })
       .select("id")
       .single();
     if (!roomError) {
-      const roomId = room.id as string;
+      const insertedId = (room.id as string) || roomId;
       const { error: participantError } = await (sb as any).from("community_messenger_participants").insert({
-        room_id: roomId,
+        room_id: insertedId,
         user_id: input.userId,
         role: "owner",
       });
       if (!participantError) {
         const roomProfile = await upsertRoomIdentityProfile({
           userId: input.userId,
-          roomId,
+          roomId: insertedId,
           identityMode: creatorIdentityMode,
           aliasProfile: input.creatorAliasProfile,
         });
-        if (roomProfile.ok) return { ok: true, roomId };
+        if (roomProfile.ok) return { ok: true, roomId: insertedId };
         return roomProfile;
       }
-      await (sb as any).from("community_messenger_rooms").delete().eq("id", roomId);
+      await (sb as any).from("community_messenger_rooms").delete().eq("id", insertedId);
       return { ok: false, error: String(participantError.message ?? "open_group_participant_create_failed") };
     }
     if (!isMissingTableError(roomError)) {

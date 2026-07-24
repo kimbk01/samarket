@@ -1808,20 +1808,41 @@ export function useMessengerRoomPhase2Controller() {
       setOutgoingDialLocked(true);
 
       const peer = peerUserId.trim();
+      /**
+       * 1:1 방(일반/거래/주문) 멤버시트 발신 — 현재 roomId 유지 (peer-only → GD ensure 금지).
+       * 그룹방 멤버 1:1 발신은 peer-only (의도적으로 general_direct).
+       */
+      const rid = !isGroupRoom ? String(roomId ?? "").trim() : "";
       cmCallLatencyMarkClick({
         surface: "member_sheet",
         peerUserId: peer,
         kind,
+        ...(rid ? { roomId: rid } : {}),
       });
-      setCmCallLatencyContext({ role: "initiator", callKind: kind });
+      setCmCallLatencyContext({
+        role: "initiator",
+        callKind: kind,
+        ...(rid ? { roomId: rid } : {}),
+      });
       cmCallLatencyInfo("outgoing_route_push_start", {
         peerUserId: peer,
         callKind: kind,
         role: "initiator",
+        ...(rid ? { roomId: rid } : {}),
       });
-      logClientPerf("messenger-call.dial.push", { phase: "member_sheet_outgoing_shell", peerUserId: peer, kind });
+      logClientPerf("messenger-call.dial.push", {
+        phase: "member_sheet_outgoing_shell",
+        peerUserId: peer,
+        kind,
+        ...(rid ? { roomId: rid } : {}),
+      });
       void (async () => {
-        const result = await launchOutgoingDirectCall({ kind, peerUserId: peer, peerLabel: peerLabelHint }, router);
+        const result = await launchOutgoingDirectCall(
+          rid
+            ? { kind, roomId: rid, peerUserId: peer, peerLabel: peerLabelHint }
+            : { kind, peerUserId: peer, peerLabel: peerLabelHint },
+          router
+        );
         outgoingDialSyncGuardRef.current = false;
         setOutgoingDialLocked(false);
         if (!result.ok) {
@@ -1831,7 +1852,7 @@ export function useMessengerRoomPhase2Controller() {
       })();
       return true;
     },
-    [router, t]
+    [isGroupRoom, roomId, router, t]
   );
 
   const pinGroupMessage = useCallback(
