@@ -90,7 +90,7 @@ async function buildJsonForExistingItemTradeRoom(
       .maybeSingle(),
     sbAny
       .from("product_chats")
-      .select("id, community_messenger_room_id")
+      .select("id, community_messenger_room_id, buyer_left_at, seller_left_at")
       .eq("post_id", itemId)
       .eq("seller_id", sellerId)
       .eq("buyer_id", buyerId)
@@ -123,6 +123,33 @@ async function buildJsonForExistingItemTradeRoom(
     perf?.mark("room_existing_participants_reopen_updates_done");
   } else {
     perf?.mark("room_existing_participants_load");
+  }
+
+  /**
+   * Reopen must also clear product_chats.*_left_at. Otherwise CM send still fails with
+   * trade_sender_left while legacy chat_room_participants are already reactivated.
+   */
+  {
+    const pcLeft = pcRowRes.data as {
+      id?: string;
+      buyer_left_at?: string | null;
+      seller_left_at?: string | null;
+    } | null;
+    const pcLeftId = typeof pcLeft?.id === "string" ? pcLeft.id.trim() : "";
+    if (
+      pcLeftId &&
+      (Boolean(pcLeft?.buyer_left_at) || Boolean(pcLeft?.seller_left_at))
+    ) {
+      await sbAny
+        .from("product_chats")
+        .update({
+          buyer_left_at: null,
+          seller_left_at: null,
+          updated_at: now,
+        })
+        .eq("id", pcLeftId);
+      perf?.noteDbRoundTrip(1);
+    }
   }
 
   const quickMessengerId = trimMessengerCol(

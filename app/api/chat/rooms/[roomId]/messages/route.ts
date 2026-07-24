@@ -21,6 +21,7 @@ import {
 import { normalizeIncomingImageUrlList } from "@/lib/chats/chat-image-bundle";
 import { bumpUnreadForChatRoomRecipients } from "@/lib/chats/chat-room-unread";
 import { notifyMessagePipeline } from "@/lib/notifications/pipeline/notify-message-pipeline";
+import { bumpTradeTargetForMessengerRoomRecipients } from "@/lib/notifications/notification-target-messenger-bridge";
 import { isBlockedEitherWay } from "@/lib/community-messenger/social-relations";
 import {
   enforceRateLimit,
@@ -187,7 +188,7 @@ export async function POST(
     sbAny
       .from("chat_rooms")
       .select(
-        "id, room_type, item_id, meeting_id, related_group_id, is_blocked, blocked_by, is_locked, is_readonly, seller_id, buyer_id, initiator_id, peer_id, request_status, store_order_id"
+        "id, room_type, item_id, meeting_id, related_group_id, is_blocked, blocked_by, is_locked, is_readonly, seller_id, buyer_id, initiator_id, peer_id, request_status, store_order_id, community_messenger_room_id"
       )
       .eq("id", roomId)
       .maybeSingle(),
@@ -383,6 +384,21 @@ export async function POST(
       recipientUserIds,
       roomKind: "trade_legacy",
     });
+    /**
+     * Domain Badge Authority trade unread SSOT = notification_targets (target_type=trade).
+     * Legacy item_trade POST does not go through CM publish-messenger-room-bump, so bump
+     * trade targets here via the linked community_messenger room (same writer as CM path).
+     */
+    const messengerRoomId = String(
+      (room as { community_messenger_room_id?: unknown }).community_messenger_room_id ?? ""
+    ).trim();
+    if (messengerRoomId && recipientUserIds.length > 0) {
+      await bumpTradeTargetForMessengerRoomRecipients(sbAny, {
+        roomId: messengerRoomId,
+        recipientUserIds,
+        senderUserId: userId,
+      });
+    }
   })();
 
   await Promise.all([updateRoomPromise, touchLegacyPromise, bumpAndNotifyPromise]);
