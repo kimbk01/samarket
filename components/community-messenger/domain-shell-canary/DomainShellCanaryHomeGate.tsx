@@ -177,8 +177,7 @@ export function DomainShellCanaryHomeGate(props: Props) {
             missedCall?: number;
             domainAppIcon?: { messenger: number; trade: number; storeOrder: number; missedCall: number };
           }) => {
-            // Room-list missed_call only. App Icon writer = domain-badge-surface-store via
-            // scheduleDomainBadgeSurfaceResync / publishDomainBadgeShellToAppIcon — never here.
+            // Room-list missed_call only. App Icon writer = Domain projection apply — never here.
             publishRoomMissedCallBadgeByRoom(badgeBody.missedCallByRoom ?? {});
           })
           .catch(() => {

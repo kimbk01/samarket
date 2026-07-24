@@ -5,8 +5,8 @@
  * - Surfaces receive Projection only (no per-path formulas).
  * - Builder is `buildNotificationBadgeProjection` (pure, single).
  * - DO NOT: hub↔App Icon cross-write, Bell total→App Icon, path-local Surface math.
+ * Phase J4: half-publish + dead surface-resync helper removed (call-0).
  */
-import type { ChatDomainBadgeShellResult } from "@/lib/chat-domain/shell/hub-badge-shell-aggregator";
 import { applyAppIconBadgeProjection } from "@/lib/chat-domain/projections/app-icon-badge-projection";
 import { applyDomainAuthorityHubBadgeOptimistic } from "@/lib/chats/owner-hub-badge-store";
 import type { NotificationBadgeProjection } from "@/lib/notifications/build-notification-badge-projection";
@@ -51,54 +51,4 @@ export function applyNotificationBadgeProjection(
       }
     });
   }
-}
-
-/**
- * @deprecated Prefer `applyNotificationBadgeProjection`. Nav-only half for transitional callers.
- */
-export function publishDomainBadgeAuthorityShellToNav(input: {
-  viewerUserId: string;
-  shell: ChatDomainBadgeShellResult;
-}): void {
-  if (typeof window === "undefined") return;
-  const viewer = input.viewerUserId.trim();
-  if (!viewer) return;
-  applyDomainAuthorityHubBadgeOptimistic({
-    communityMessengerUnread: input.shell.communityMessengerUnread,
-    tradeUnread: input.shell.tradeUnread,
-    storeOrderChatUnread: input.shell.storeOrderChatUnread,
-  });
-}
-
-/**
- * @deprecated Prefer `applyNotificationBadgeProjection`. App Icon half for transitional callers.
- */
-export function publishDomainBadgeShellToAppIcon(shell: {
-  communityMessengerUnread: number;
-  tradeUnread: number;
-  storeOrderChatUnread: number;
-  missedCall?: number;
-}): void {
-  if (typeof window === "undefined") return;
-  void import("@/lib/messenger/contracts/domain-badge-surface-store").then((mod) => {
-    mod.publishDomainBadgeShellToSurfaceStore({
-      communityMessengerUnread: shell.communityMessengerUnread,
-      tradeUnread: shell.tradeUnread,
-      storeOrderChatUnread: shell.storeOrderChatUnread,
-    });
-    if (shell.missedCall != null) {
-      mod.publishMissedCallToDomainBadgeSurface(shell.missedCall);
-    }
-  });
-}
-
-/**
- * Cold/Resume/Poll/mark_read without Atomic Projection — Fact fetch → Builder → Apply.
- */
-export function scheduleDomainBadgeSurfaceResync(viewerUserId?: string | null): void {
-  if (typeof window === "undefined") return;
-  void viewerUserId;
-  void import("@/lib/notifications/apply-badge-count-authority-response").then((mod) => {
-    void mod.resyncNotificationBadgeAuthorityFromBadgeCount();
-  });
 }

@@ -2,7 +2,7 @@
 /**
  * 4 Domain file-lock (Phase B–J).
  * - trash / Phase J deleted path restore FAIL
- * - applyCommunityMessengerUnreadOptimistic caller freeze
+ * - Phase J1: R1 hub optimistic unread helper must stay deleted (callers=0 + no export)
  * - SegmentShellLayout import FAIL (file deleted — any import fails)
  * - remaining REMOVE chrome (Pass1ComposerShell) must still exist until callers=0
  */
@@ -72,12 +72,26 @@ for (const rel of FORBIDDEN_RESTORE) {
 }
 
 const optimisticRe = /\bapplyCommunityMessengerUnreadOptimistic\s*\(/;
+const optimisticExportRe =
+  /export\s+(?:async\s+)?function\s+applyCommunityMessengerUnreadOptimistic\b/;
+{
+  const defAbs = path.join(ROOT, OPTIMISTIC_DEF);
+  if (!fs.existsSync(defAbs)) {
+    fail(`missing hub badge store: ${OPTIMISTIC_DEF}`);
+  } else {
+    const defSrc = fs.readFileSync(defAbs, "utf8");
+    if (optimisticExportRe.test(defSrc)) {
+      fail(
+        `Phase J1: applyCommunityMessengerUnreadOptimistic must not be exported from ${OPTIMISTIC_DEF}`,
+      );
+    }
+  }
+}
 const scanRoots = ["lib", "components", "app", "hooks"].map((d) => path.join(ROOT, d));
 for (const root of scanRoots) {
   for (const abs of walk(root)) {
     const rel = path.relative(ROOT, abs).split(path.sep).join("/");
     if (rel.includes("/__tests__/") || rel.endsWith(".test.ts") || rel.endsWith(".test.tsx")) continue;
-    if (rel === OPTIMISTIC_DEF) continue;
     const src = fs.readFileSync(abs, "utf8");
     if (!optimisticRe.test(src)) continue;
     if (!OPTIMISTIC_CALLERS_ALLOWED.has(rel)) {

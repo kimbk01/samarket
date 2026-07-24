@@ -20,7 +20,6 @@ import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-
 import { invalidateAddressDefaultsSnapshotCache } from "@/lib/addresses/fetch-address-defaults-client";
 import { invalidateMeAddressesListClientCache } from "@/lib/addresses/address-list-client-cache";
 import { invalidateClientMembershipResolveFlight } from "@/lib/auth/resolve-client-profile-session";
-import { pauseAndClearAllNotificationUnreadBadgeStores } from "@/lib/notifications/notification-unread-badge-store";
 import { closeAllServiceWorkerNotifications } from "@/lib/push/push-manager";
 import { clearUserSettingsClientCache } from "@/lib/settings/user-settings-store";
 import { clearCommerceCartStorage } from "@/lib/stores/store-commerce-cart-storage";
@@ -132,7 +131,6 @@ function resetInMemoryClientStores(): void {
   resetMessengerPresenceStore();
   resetMessengerTypingStore();
   resetMessengerRoomReaderStateStore();
-  pauseAndClearAllNotificationUnreadBadgeStores();
   clearAllRoomSnapshotCaches();
   clearTradeChatRoomClientCache();
   clearCommerceCartStorage();

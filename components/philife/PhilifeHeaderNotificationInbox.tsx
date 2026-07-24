@@ -74,16 +74,9 @@ import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-e
 import { prewarmInboxNotificationChatHref } from "@/lib/notifications/prewarm-inbox-notification-href";
 import { suppressCmRoomEntryNotificationSound } from "@/lib/community-messenger/notifications/cm-participant-surface-sync";
 
-import { getSurfaceNotificationUnreadStore, refreshActiveSurfaceNotificationUnreadStores } from "@/lib/notifications/notification-unread-badge-store";
 import { resyncBadgesAfterNotificationEventsRead, applyTier1InboxMarkAllReadOptimistic } from "@/lib/notifications/client/notification-events-read-resync";
 
-import {
-
-  resolveTier1HeaderBellBadgeTotal,
-
-  syncTier1HeaderInboxUnreadFromRows,
-
-} from "@/lib/notifications/tier1-header-inbox-sync";
+import { resolveTier1HeaderBellBadgeTotal } from "@/lib/notifications/tier1-header-inbox-sync";
 
 import {
   badgeSurfaceToPriorityPushKind,
@@ -292,11 +285,6 @@ export function PhilifeHeaderNotificationInbox({
     [resolvedSurface]
   );
 
-  const badgeStore = useMemo(
-    () => getSurfaceNotificationUnreadStore(resolvedSurface, storeId),
-    [resolvedSurface, storeId]
-  );
-
   const router = useRouter();
 
   const { t, language } = useI18n();
@@ -352,16 +340,6 @@ export function PhilifeHeaderNotificationInbox({
 
   const rowUnread = useMemo(() => countUnread(rows), [rows]);
 
-  const storeUnread = useSyncExternalStore(
-
-    badgeStore.subscribe,
-
-    badgeStore.getSnapshot,
-
-    badgeStore.getServerSnapshot
-
-  );
-
   const badgeCountSnap = useSyncExternalStore(
     subscribeNotificationBadgeCount,
     getNotificationBadgeCountSnapshot,
@@ -373,7 +351,6 @@ export function PhilifeHeaderNotificationInbox({
       resolveTier1HeaderBellBadgeTotal({
         surface: resolvedSurface,
         badgeCountTotal: badgeCountSnap?.total,
-        storeUnread,
         rowUnread,
         listSynced,
         open,
@@ -387,7 +364,6 @@ export function PhilifeHeaderNotificationInbox({
       open,
       resolvedSurface,
       rowUnread,
-      storeUnread,
       supplementalUnreadCount,
     ]
   );
@@ -581,8 +557,6 @@ export function PhilifeHeaderNotificationInbox({
 
       setListSynced(true);
 
-      syncTier1HeaderInboxUnreadFromRows(nextRows);
-
     } catch {
 
       /* 목록 실패 시 기존 store 배지 유지 */
@@ -650,8 +624,6 @@ export function PhilifeHeaderNotificationInbox({
 
       void loadInbox(true, { silent: true });
 
-      void badgeStore.refresh(true);
-
     };
 
     window.addEventListener("kasama:user-notification-settings-changed", onCustom);
@@ -666,7 +638,7 @@ export function PhilifeHeaderNotificationInbox({
 
     };
 
-  }, [loadInbox, loadSound, badgeStore]);
+  }, [loadInbox, loadSound]);
 
 
 
@@ -728,9 +700,7 @@ export function PhilifeHeaderNotificationInbox({
 
     void loadInbox(true, { silent: listSynced });
 
-    void badgeStore.refresh(true);
-
-  }, [open, listSynced, loadInbox, badgeStore]);
+  }, [open, listSynced, loadInbox]);
 
 
 
@@ -756,11 +726,7 @@ export function PhilifeHeaderNotificationInbox({
 
       setRows((prev) => {
 
-        const next = prev.map((x) => (ids.includes(x.id) ? { ...x, is_read: true } : x));
-
-        syncTier1HeaderInboxUnreadFromRows(next);
-
-        return next;
+        return prev.map((x) => (ids.includes(x.id) ? { ...x, is_read: true } : x));
 
       });
 
@@ -771,12 +737,10 @@ export function PhilifeHeaderNotificationInbox({
       }
 
       resyncBadgesAfterNotificationEventsRead("notification_opened");
-      refreshActiveSurfaceNotificationUnreadStores(pathname, true);
-      void badgeStore.refresh(true);
 
     }
 
-  }, [badgeStore, pathname]);
+  }, []);
 
 
 
@@ -850,8 +814,6 @@ export function PhilifeHeaderNotificationInbox({
 
         await loadInbox(true, { silent: true });
 
-        await badgeStore.refresh(true);
-
         if (typeof window !== "undefined") {
 
           window.dispatchEvent(new Event(KASAMA_NOTIFICATIONS_UPDATED));
@@ -859,7 +821,6 @@ export function PhilifeHeaderNotificationInbox({
         }
 
         resyncBadgesAfterNotificationEventsRead("mark_all_read_cross_tab");
-        refreshActiveSurfaceNotificationUnreadStores(pathname, true);
 
       }
 
@@ -869,7 +830,7 @@ export function PhilifeHeaderNotificationInbox({
 
     }
 
-  }, [badgeStore, grouped, loadInbox, markBusy, pathname, resolvedSurface, rows, totalUnread]);
+  }, [grouped, loadInbox, markBusy, resolvedSurface, rows, totalUnread]);
 
 
 
@@ -905,22 +866,15 @@ export function PhilifeHeaderNotificationInbox({
 
         setRows((prev) => {
 
-          const next = prev.filter((r) => !item.ids.includes(r.id));
-
-          syncTier1HeaderInboxUnreadFromRows(next);
-
-          return next;
+          return prev.filter((r) => !item.ids.includes(r.id));
 
         });
 
         invalidateMeNotificationsListDedupedCache();
 
-        await badgeStore.refresh(true);
-
         void loadInbox(true, { silent: true });
 
         resyncBadgesAfterNotificationEventsRead("notification_opened");
-        refreshActiveSurfaceNotificationUnreadStores(pathname, true);
 
         if (typeof window !== "undefined") {
 
@@ -938,7 +892,7 @@ export function PhilifeHeaderNotificationInbox({
 
     }
 
-  }, [badgeStore, loadInbox, pathname]);
+  }, [loadInbox]);
 
 
 

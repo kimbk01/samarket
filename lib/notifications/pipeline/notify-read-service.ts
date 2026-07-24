@@ -12,7 +12,7 @@ import {
 } from "@/lib/notifications/core/notification-event-repository";
 import { logMissedCall, logNotifyBadge } from "@/lib/notifications/core/notification-logs";
 import {
-  fetchNotificationBadgeCount,
+  fetchDomainBadgeAuthorityPayload,
   invalidateNotificationBadgeCache,
 } from "@/lib/notifications/pipeline/notify-badge-service";
 import {
@@ -60,7 +60,7 @@ export async function markNotificationRead(
   if (ok) {
     invalidateNotificationBadgeCache(userId);
     logNotifyBadge("read_clear", { userId, notificationEventId });
-    await fetchNotificationBadgeCount(sb, userId, { force: true });
+    await fetchDomainBadgeAuthorityPayload(sb, userId, { force: true });
   }
   return ok;
 }
@@ -76,7 +76,7 @@ export async function markRoomRead(
   if (count > 0) {
     logNotifyBadge("read_clear", { userId, roomId, count });
   }
-  await fetchNotificationBadgeCount(sb, userId, { force: true });
+  await fetchDomainBadgeAuthorityPayload(sb, userId, { force: true });
   return count;
 }
 
@@ -92,7 +92,7 @@ export async function markMissedCallsRead(
   if (count > 0) {
     invalidateNotificationBadgeCache(userId);
     logMissedCall("read_marked", { userId, ...opts, count });
-    await fetchNotificationBadgeCount(sb, userId, { force: true });
+    await fetchDomainBadgeAuthorityPayload(sb, userId, { force: true });
   }
   return count;
 }
@@ -106,7 +106,7 @@ export async function markNotificationCategoryRead(
   if (count > 0) {
     invalidateNotificationBadgeCache(userId);
     logNotifyBadge("read_clear", { userId, category, count });
-    await fetchNotificationBadgeCount(sb, userId, { force: true });
+    await fetchDomainBadgeAuthorityPayload(sb, userId, { force: true });
   }
   return count;
 }
@@ -120,7 +120,7 @@ export async function markOrderNotificationsRead(
   if (count > 0) {
     invalidateNotificationBadgeCache(userId);
     logNotifyBadge("read_clear", { userId, orderId, count });
-    await fetchNotificationBadgeCount(sb, userId, { force: true });
+    await fetchDomainBadgeAuthorityPayload(sb, userId, { force: true });
   }
   return count;
 }
@@ -156,7 +156,7 @@ export async function markNotificationThreadRead(
     if (count > 0) {
       logNotifyBadge("read_clear", { userId, threadId, count, threadType, readReason });
     }
-    await fetchNotificationBadgeCount(sb, userId, { force: true });
+    await fetchDomainBadgeAuthorityPayload(sb, userId, { force: true });
   }
   return count;
 }

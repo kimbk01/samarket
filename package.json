@@ -102,6 +102,7 @@
     "verify:cm-room-entry-scroll-contract": "node scripts/verify-cm-room-entry-scroll-contract.mjs",
     "verify:chat-thread-scroll-contract": "node scripts/verify-chat-thread-scroll-contract.mjs",
     "verify:badge-target-policy": "node scripts/verify-badge-target-policy.mjs",
+    "verify:badge-import-ban": "node scripts/verify-badge-import-ban.mjs",
     "verify:bottom-nav-chat-surface": "node scripts/verify-bottom-nav-chat-surface-post-migrate.mjs",
     "verify:delivery-dial-navigation-contract": "node scripts/verify-delivery-dial-navigation-contract.cjs",
     "check:bundle": "node scripts/check-bundle-budgets.mjs",

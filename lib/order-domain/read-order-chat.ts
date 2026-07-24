@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { clearNotificationTarget } from "@/lib/notifications/notification-targets";
 import {
-  fetchNotificationBadgeCount,
+  fetchDomainBadgeAuthorityPayload,
   invalidateNotificationBadgeCache,
 } from "@/lib/notifications/pipeline/notify-badge-service";
 
@@ -259,11 +259,11 @@ export async function readOrderChat(
 
   invalidateNotificationBadgeCache(userId);
 
-  const [participantUnreadAfter, targetUnreadAfter, eventUnreadAfter, badge] = await Promise.all([
+  const [participantUnreadAfter, targetUnreadAfter, eventUnreadAfter, domain] = await Promise.all([
     countParticipantUnread(sb, ctx.roomId, userId),
     countOrderChatTargetUnread(sb, ctx, userId),
     countOrderChatEventUnread(sb, ctx, userId),
-    fetchNotificationBadgeCount(sb, userId, { force: true }),
+    fetchDomainBadgeAuthorityPayload(sb, userId, { force: true }),
   ]);
 
   if (participantUnreadAfter !== 0 || targetUnreadAfter !== 0 || eventUnreadAfter !== 0) {
@@ -285,8 +285,8 @@ export async function readOrderChat(
     updatedParticipantUnreadCount,
     updatedNotificationTargetCount: 1,
     updatedNotificationEventCount,
-    nextBadgeTotal: badge.total,
-    nativeBadgeTotal: badge.total,
+    nextBadgeTotal: Math.max(0, Math.floor(Number(domain.projection?.bellTotal) || 0)),
+    nativeBadgeTotal: Math.max(0, Math.floor(Number(domain.projection?.appIconTotal) || 0)),
     surface: ctx.role === "owner" ? "owner_commerce_inbox" : "bottom_nav_delivery",
     ...(ctx.role === "owner" ? { ownerFabSurface: "fab_owner_order_chat" as const } : {}),
   };

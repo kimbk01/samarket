@@ -1,13 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import { usePathname } from "next/navigation";
 import { useSupabaseNotificationsRealtime } from "@/hooks/useSupabaseNotificationsRealtime";
 import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-events";
-import {
-  refreshActiveSurfaceNotificationUnreadStores,
-  reconcileTier1BellSurfacePolling,
-} from "@/lib/notifications/notification-unread-badge-store";
 import { routeNotificationInsertSound } from "@/lib/notifications/notification-sound-gate";
 import { dispatchOwnerHubBadgeRefresh } from "@/lib/chats/chat-channel-events";
 import { createTrailingCoalescedCallback } from "@/lib/http/coalesce-trailing-callback";
@@ -22,15 +17,11 @@ const NOTIFICATIONS_RT_HUB_DEDUPE_MS = 5_000;
 /**
  * `notifications` + `notification_events` 테이블 Realtime 을 앱당 1회만 구독하고, 배지 스토어가 듣는
  * `KASAMA_NOTIFICATIONS_UPDATED` 로 브로드캐스트합니다.
+ * Phase J2a: legacy surface unread badge poll refresh 제거 — Domain Bell은 badge-count / resync 경로.
  * INSERT 시 인앱 알림음은 동일 채널에서 처리(별도 Realtime 구독 없음).
  */
 export function NotificationsBadgeRealtimeBridge({ enabled = true }: { enabled?: boolean }) {
-  const pathname = usePathname();
   const coalescedBadgeBumpRef = useRef<ReturnType<typeof createTrailingCoalescedCallback> | null>(null);
-
-  useEffect(() => {
-    reconcileTier1BellSurfacePolling(pathname);
-  }, [pathname]);
 
   useEffect(() => {
     coalescedBadgeBumpRef.current = createTrailingCoalescedCallback(() => {
@@ -46,7 +37,6 @@ export function NotificationsBadgeRealtimeBridge({ enabled = true }: { enabled?:
 
   const bump = useCallback(({ eventType }: { eventType: string }) => {
     if (eventType === "INSERT") {
-      refreshActiveSurfaceNotificationUnreadStores(pathname, true);
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event(KASAMA_NOTIFICATIONS_UPDATED));
       }
@@ -55,7 +45,7 @@ export function NotificationsBadgeRealtimeBridge({ enabled = true }: { enabled?:
     }
     /**
      * 거래/주문/문의 **신규** 알림 INSERT만 owner hub 배지 갱신.
-     * UPDATE burst(읽음 일괄)는 unread 스토어 coalesce 로 충분 — hub cmFresh 연쇄 방지.
+     * UPDATE burst(읽음 일괄)는 list coalesce 로 충분 — hub cmFresh 연쇄 방지.
      */
     if (eventType === "INSERT") {
       dispatchOwnerHubBadgeRefresh({
@@ -64,7 +54,7 @@ export function NotificationsBadgeRealtimeBridge({ enabled = true }: { enabled?:
         dedupeMs: NOTIFICATIONS_RT_HUB_DEDUPE_MS,
       });
     }
-  }, [pathname]);
+  }, []);
 
   const onInsertSound = useCallback((row: Record<string, unknown>) => {
     if (isOwnerStoreCommerceNotificationRow({ meta: row.meta })) {

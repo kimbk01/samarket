@@ -1,6 +1,7 @@
 /**
  * Client map: roomId → unread missed_call event count (room-attached only).
- * Fed from badge-count `missedCallByRoom`; cleared on room mark_read / missed-call-read.
+ * Fed from badge-count `missedCallByRoom`; Domain canary / list only.
+ * Phase J4: per-room get/clear helpers removed (product call-0).
  */
 "use client";
 
@@ -9,12 +10,6 @@ const listeners = new Set<() => void>();
 
 function emit(): void {
   for (const l of listeners) l();
-}
-
-export function getRoomMissedCallBadgeCount(roomId: string | null | undefined): number {
-  const id = roomId?.trim();
-  if (!id) return 0;
-  return Math.max(0, Math.floor(Number(byRoom[id]) || 0));
 }
 
 export function getRoomMissedCallBadgeByRoomSnapshot(): Readonly<Record<string, number>> {
@@ -39,16 +34,6 @@ export function publishRoomMissedCallBadgeByRoom(next: Record<string, number> | 
     return;
   }
   byRoom = Object.freeze(normalized);
-  emit();
-}
-
-/** Optimistic clear after room Atomic Read / missed-call-read success. */
-export function clearRoomMissedCallBadge(roomId: string | null | undefined): void {
-  const id = roomId?.trim();
-  if (!id || !(id in byRoom)) return;
-  const next = { ...byRoom };
-  delete next[id];
-  byRoom = Object.freeze(next);
   emit();
 }
 

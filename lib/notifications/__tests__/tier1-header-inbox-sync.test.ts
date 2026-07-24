@@ -1,22 +1,5 @@
-import { describe, expect, it, beforeEach } from "vitest";
-import {
-  resolveTier1HeaderBellBadgeTotal,
-  computeTier1HeaderInboxDisplayUnread,
-} from "@/lib/notifications/tier1-header-inbox-sync";
-
-describe("computeTier1HeaderInboxDisplayUnread (legacy helper)", () => {
-  it("uses API store count when list is synced", () => {
-    expect(
-      computeTier1HeaderInboxDisplayUnread({
-        storeUnread: 75,
-        rowUnread: 65,
-        listSynced: true,
-        open: false,
-        loading: false,
-      })
-    ).toBe(75);
-  });
-});
+import { describe, expect, it } from "vitest";
+import { resolveTier1HeaderBellBadgeTotal } from "@/lib/notifications/tier1-header-inbox-sync";
 
 describe("resolveTier1HeaderBellBadgeTotal (Domain Bell SSOT)", () => {
   it("L. all surfaces use badgeCountTotal only (route consistency)", () => {

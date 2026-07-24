@@ -1,20 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const buildDomainBadgeAuthorityHttpPayload = vi.fn();
-const countNotificationEventsBadge = vi.fn();
 
 vi.mock("@/lib/notifications/pipeline/build-domain-badge-authority-http", () => ({
   buildDomainBadgeAuthorityHttpPayload: (...args: unknown[]) =>
     buildDomainBadgeAuthorityHttpPayload(...args),
 }));
 
-vi.mock("@/lib/notifications/core/notification-event-repository", () => ({
-  countNotificationEventsBadge: (...args: unknown[]) => countNotificationEventsBadge(...args),
-}));
-
 import {
   fetchDomainBadgeAuthorityPayload,
-  fetchNotificationBadgeCount,
   invalidateNotificationBadgeCache,
   NOTIFICATION_BADGE_SERVER_CACHE_MS,
   peekNotificationBadgeCacheHit,
@@ -87,7 +81,6 @@ describe("notify-badge-service (Domain authority)", () => {
     vi.clearAllMocks();
     resetNotificationBadgeCacheForTests();
     buildDomainBadgeAuthorityHttpPayload.mockResolvedValue(SAMPLE_DOMAIN);
-    countNotificationEventsBadge.mockResolvedValue(SAMPLE_EVENTS);
   });
 
   it("caches domain authority within TTL", async () => {
@@ -121,15 +114,6 @@ describe("notify-badge-service (Domain authority)", () => {
     expect(peekNotificationBadgeCacheHit("user-1")).toBe(false);
     await fetchDomainBadgeAuthorityPayload(sb, "user-1");
     expect(buildDomainBadgeAuthorityHttpPayload).toHaveBeenCalledTimes(2);
-  });
-
-  it("fetchNotificationBadgeCount is inbox/events-only (no domain cache)", async () => {
-    const a = await fetchNotificationBadgeCount(sb, "user-1");
-    const b = await fetchNotificationBadgeCount(sb, "user-1");
-    expect(a).toEqual(SAMPLE_EVENTS);
-    expect(b).toEqual(SAMPLE_EVENTS);
-    expect(countNotificationEventsBadge).toHaveBeenCalledTimes(2);
-    expect(buildDomainBadgeAuthorityHttpPayload).not.toHaveBeenCalled();
   });
 
   it("uses 12-20s server cache TTL window", () => {

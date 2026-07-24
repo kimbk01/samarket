@@ -26,7 +26,7 @@ import {
 } from "@/lib/notifications/policy/notification-policy-profiles";
 import { loadActivePushTargets } from "@/lib/push/dispatch/load-active-push-targets";
 import { dispatchPushForUser } from "@/lib/push/dispatch/dispatch-push-for-user";
-import { fetchNotificationBadgeCount } from "@/lib/notifications/pipeline/notify-badge-service";
+import { fetchDomainBadgeAuthorityPayload } from "@/lib/notifications/pipeline/notify-badge-service";
 import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publish-notification-side-effect";
 import { getSiteOrigin } from "@/lib/env/runtime";
 
@@ -296,8 +296,10 @@ export async function sendCampaignToUser(
                 type: eventType,
               };
 
-        const badgeSnap = await fetchNotificationBadgeCount(svc, userId).catch(() => null);
-        const badgeCount = badgeSnap?.total ?? 0;
+        const domain = await fetchDomainBadgeAuthorityPayload(svc, userId, { force: true }).catch(
+          () => null
+        );
+        const badgeCount = Math.max(0, Math.floor(Number(domain?.projection?.appIconTotal) || 0));
         const pushPayload = buildCampaignPushPayload(eventRow, campaign, routeUrl, pushImageUrl, badgeCount);
 
         const gate = await evaluateCampaignPushGate(svc, userId, pushPayload);

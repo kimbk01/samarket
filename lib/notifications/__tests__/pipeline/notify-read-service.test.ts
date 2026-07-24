@@ -9,7 +9,7 @@ const markNotificationEventsReadByThread = vi.fn();
 const markOrderNotificationEventsRead = vi.fn();
 const markCommunityPostNotificationEventsRead = vi.fn();
 const markTradeStatusNotificationEventsReadByProductId = vi.fn();
-const fetchNotificationBadgeCount = vi.fn();
+const fetchDomainBadgeAuthorityPayload = vi.fn();
 const invalidateNotificationBadgeCache = vi.fn();
 const clearNotificationTargetsAfterRoomRead = vi.fn();
 const clearNotificationTargetsAfterThreadRead = vi.fn();
@@ -32,7 +32,7 @@ vi.mock("@/lib/notifications/core/notification-event-repository", () => ({
 }));
 
 vi.mock("@/lib/notifications/pipeline/notify-badge-service", () => ({
-  fetchNotificationBadgeCount: (...args: unknown[]) => fetchNotificationBadgeCount(...args),
+  fetchDomainBadgeAuthorityPayload: (...args: unknown[]) => fetchDomainBadgeAuthorityPayload(...args),
   invalidateNotificationBadgeCache: (...args: unknown[]) => invalidateNotificationBadgeCache(...args),
 }));
 
@@ -66,7 +66,7 @@ describe("notify-read-service", () => {
     markOrderNotificationEventsRead.mockResolvedValue(1);
     markCommunityPostNotificationEventsRead.mockResolvedValue(2);
     markTradeStatusNotificationEventsReadByProductId.mockResolvedValue(3);
-    fetchNotificationBadgeCount.mockResolvedValue({ total: 0 });
+    fetchDomainBadgeAuthorityPayload.mockResolvedValue({ total: 0 });
     clearNotificationTargetsAfterRoomRead.mockResolvedValue(undefined);
     clearNotificationTargetsAfterThreadRead.mockResolvedValue(undefined);
   });
@@ -75,7 +75,7 @@ describe("notify-read-service", () => {
     const ok = await markNotificationRead(sb, "user-1", "evt-1", { openedAt: true });
     expect(ok).toBe(true);
     expect(invalidateNotificationBadgeCache).toHaveBeenCalledWith("user-1");
-    expect(fetchNotificationBadgeCount).toHaveBeenCalled();
+    expect(fetchDomainBadgeAuthorityPayload).toHaveBeenCalled();
   });
 
   it("marks room events read when count > 0", async () => {
@@ -83,7 +83,7 @@ describe("notify-read-service", () => {
     expect(count).toBe(2);
     expect(clearNotificationTargetsAfterRoomRead).toHaveBeenCalledWith(sb, "user-1", "room-1");
     expect(invalidateNotificationBadgeCache).toHaveBeenCalledWith("user-1");
-    expect(fetchNotificationBadgeCount).toHaveBeenCalled();
+    expect(fetchDomainBadgeAuthorityPayload).toHaveBeenCalled();
   });
 
   it("refreshes badge after room read target clear even when events are already read", async () => {
@@ -92,14 +92,14 @@ describe("notify-read-service", () => {
     expect(count).toBe(0);
     expect(clearNotificationTargetsAfterRoomRead).toHaveBeenCalledWith(sb, "user-1", "room-1");
     expect(invalidateNotificationBadgeCache).toHaveBeenCalledWith("user-1");
-    expect(fetchNotificationBadgeCount).toHaveBeenCalled();
+    expect(fetchDomainBadgeAuthorityPayload).toHaveBeenCalled();
   });
 
   it("does not fail room read when target clear bridge fails", async () => {
     clearNotificationTargetsAfterRoomRead.mockRejectedValueOnce(new Error("target clear failed"));
     const count = await markRoomRead(sb, "user-1", "room-1");
     expect(count).toBe(2);
-    expect(fetchNotificationBadgeCount).toHaveBeenCalled();
+    expect(fetchDomainBadgeAuthorityPayload).toHaveBeenCalled();
   });
 
   it("marks missed call events read", async () => {
@@ -121,7 +121,7 @@ describe("notify-read-service", () => {
     expect(count).toBe(3);
     expect(markNotificationEventsReadByCategory).toHaveBeenCalledWith(sb, "user-1", "admin_notice");
     expect(invalidateNotificationBadgeCache).toHaveBeenCalledWith("user-1");
-    expect(fetchNotificationBadgeCount).toHaveBeenCalled();
+    expect(fetchDomainBadgeAuthorityPayload).toHaveBeenCalled();
   });
 
   it("clears targets after thread read even when events are already read", async () => {
@@ -131,7 +131,7 @@ describe("notify-read-service", () => {
       readReason: "chat_room_visible",
     });
     expect(count).toBe(0);
-    expect(fetchNotificationBadgeCount).toHaveBeenCalled();
+    expect(fetchDomainBadgeAuthorityPayload).toHaveBeenCalled();
     expect(clearNotificationTargetsAfterThreadRead).toHaveBeenCalledWith(sb, "user-1", {
       threadId: "room-1",
       threadType: "chat_room",
@@ -146,7 +146,7 @@ describe("notify-read-service", () => {
       readReason: "chat_room_visible",
     });
     expect(count).toBe(4);
-    expect(fetchNotificationBadgeCount).toHaveBeenCalled();
+    expect(fetchDomainBadgeAuthorityPayload).toHaveBeenCalled();
   });
 
   it("marks thread read and refreshes badge immediately", async () => {
@@ -162,7 +162,7 @@ describe("notify-read-service", () => {
       readReason: "chat_room_visible",
     });
     expect(invalidateNotificationBadgeCache).toHaveBeenCalledWith("user-1");
-    expect(fetchNotificationBadgeCount).toHaveBeenCalled();
+    expect(fetchDomainBadgeAuthorityPayload).toHaveBeenCalled();
     expect(clearNotificationTargetsAfterThreadRead).toHaveBeenCalledWith(sb, "user-1", {
       threadId: "room-1",
       threadType: "trade_room",
@@ -209,6 +209,6 @@ describe("notify-read-service", () => {
     expect(count).toBe(1);
     expect(markOrderNotificationEventsRead).toHaveBeenCalledWith(sb, "user-1", "order-1");
     expect(invalidateNotificationBadgeCache).toHaveBeenCalledWith("user-1");
-    expect(fetchNotificationBadgeCount).toHaveBeenCalled();
+    expect(fetchDomainBadgeAuthorityPayload).toHaveBeenCalled();
   });
 });

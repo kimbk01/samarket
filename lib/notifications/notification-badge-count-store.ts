@@ -126,19 +126,6 @@ export function normalizeNotificationBadgeCountPayload(
   };
 }
 
-/**
- * @deprecated Prefer Domain projection apply. Kept for transitional read responses that
- * already carry Builder-shaped categoryCounts (domain rooms in chatMessage fields).
- */
-export function applyNotificationBadgeCountFromReadResponse(categoryCounts: unknown): boolean {
-  const payload =
-    categoryCounts && typeof categoryCounts === "object" && !Array.isArray(categoryCounts)
-      ? normalizeNotificationBadgeCountPayload(categoryCounts as Record<string, unknown>)
-      : null;
-  if (!payload) return false;
-  return patchNotificationBadgeCountSnapshot(payload);
-}
-
 export function getNotificationBadgeCountSnapshot(): NotificationBadgeCount | null {
   return snap;
 }

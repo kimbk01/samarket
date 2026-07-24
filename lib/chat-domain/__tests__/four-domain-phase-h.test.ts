@@ -98,5 +98,7 @@ describe("Phase H surface projection writers", () => {
       expect(existsSync(resolve(root, rel)), rel).toBe(true);
     }
     expect(PHASE_H_QUARANTINE_CANDIDATES.map((c) => c.id)).toEqual(["R1", "R2", "R3", "R4"]);
+    expect(PHASE_H_QUARANTINE_CANDIDATES.find((c) => c.id === "R1")?.status).toBe("deleted");
+    expect(PHASE_H_QUARANTINE_CANDIDATES.find((c) => c.id === "R4")?.status).toBe("deleted");
   });
 });

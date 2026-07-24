@@ -13,10 +13,6 @@ import {
 import { normalizeNotificationBadgeCountPayload } from "@/lib/notifications/notification-badge-count-store";
 import { applyNotificationBadgeProjection } from "@/lib/messenger/contracts/domain-badge-authority-product-bridge";
 
-let resyncInflight: Promise<void> | null = null;
-let resyncQueued = false;
-let resyncRevision = 0;
-
 export type BadgeCountAuthorityJson = {
   authority?: string;
   projectionVersionMs?: number;
@@ -128,39 +124,4 @@ export function applyAuthorityJsonAsProjection(
     projectionVersionMs: versionMs,
   });
   return true;
-}
-
-export async function resyncNotificationBadgeAuthorityFromBadgeCount(): Promise<void> {
-  if (typeof window === "undefined") return;
-  resyncQueued = true;
-  const scheduledRevision = ++resyncRevision;
-  if (resyncInflight) return;
-  resyncInflight = (async () => {
-    while (resyncQueued) {
-      resyncQueued = false;
-      try {
-        const res = await fetch("/api/me/notifications/badge-count?fresh=1", { cache: "no-store" });
-        if (!res.ok) continue;
-        if (scheduledRevision < resyncRevision) continue;
-        const body = (await res.json()) as BadgeCountAuthorityJson;
-        if (body.authority !== "domain_badge") {
-          // DO NOT fall back to event SUM
-          continue;
-        }
-        if (scheduledRevision < resyncRevision) continue;
-        applyAuthorityJsonAsProjection(body, {
-          applyBell: true,
-          projectionVersionMs: Math.max(
-            0,
-            Math.floor(Number(body.projectionVersionMs) || Date.now())
-          ),
-        });
-      } catch {
-        /* fail-soft */
-      }
-    }
-  })().finally(() => {
-    resyncInflight = null;
-  });
-  await resyncInflight;
 }

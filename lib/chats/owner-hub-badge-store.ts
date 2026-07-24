@@ -462,19 +462,11 @@ function applyFromNetwork(data: unknown) {
 
 
 
-export function applyCommunityMessengerUnreadOptimistic(unread: number): void {
-  /**
-   * R1 QUARANTINED / dead — measurement 2026-07-23 removed sole product caller.
-   * Kept as no-op export so accidental imports fail closed (no store write).
-   * Live Bottom Chat: use applyHubBadgeCmUnreadRoomCountAbsolute (room-count recount).
-   */
-  void unread;
-}
-
 /**
  * Bottom Chat room-count absolute via Phase H projection (optimistic).
  * Callers pass GD+group unread-room recount from messenger-room-unread-authority.
  * Network resync remains authority. DO NOT: revive ±1 delta · R1 · Bell · Native Call.
+ * Phase J1: R1 optimistic unread helper deleted (import-ban: verify:badge-import-ban).
  */
 export function applyHubBadgeCmUnreadRoomCountAbsolute(roomCount: number): void {
   const nextCm = Math.max(0, Math.floor(Number(roomCount) || 0));

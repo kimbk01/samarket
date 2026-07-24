@@ -30,7 +30,9 @@ vi.mock("@/lib/admin/notification-campaigns/campaign-presence", () => ({
   resolveCampaignUserAppState: (...args: unknown[]) => resolveCampaignUserAppState(...args),
 }));
 vi.mock("@/lib/notifications/pipeline/notify-badge-service", () => ({
-  fetchNotificationBadgeCount: async () => 0,
+  fetchDomainBadgeAuthorityPayload: async () => ({
+    projection: { appIconTotal: 0, bellTotal: 0 },
+  }),
 }));
 
 const baseCampaign = {

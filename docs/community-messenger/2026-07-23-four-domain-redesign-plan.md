@@ -241,9 +241,13 @@ commit → push → **Vercel Ready를 CLI/대시보드로 확인** (추정 금�
 
 ## 10. 즉시 다음 액션 (지금)
 
-1. ~~A~~ … ~~Hub realtime room-count bump~~ · ~~B1 Bottom Chat live (GD+group)~~
-2. **사용자:** 다른 화면에서 GD/group 메시지 → **하단 채팅 즉시 +1** · trade/SO는 하단 불변
-3. 잔여: ~~B3 Domain 허브~~ · ~~B4 Bell/App Icon Header 단일 읽기~~ · Push/sound/read QA · projection 행 소스 · backfill · R2 — **별도 승인**
+1. **Badge/Bell Authority:** LOCKED (digit formulas)
+2. **Phase J1–J4 + Residual Review:** PASS (삭제 대상 residual 0)
+3. **Phase J LOCK:** 보류 — **2기기 최종 QA만 남음**  
+   (`2026-07-24-badge-bell-phase-j-final-qa.md`)
+4. 코드 추가 수정 단계 아님 — QA 후 LOCK 승인
+5. 추적만: R-SO-DUAL · R-TRADE-MULTI · R-INBOX-BRIDGE(active) · R-LIST-75(active)
+
 
 ---
 

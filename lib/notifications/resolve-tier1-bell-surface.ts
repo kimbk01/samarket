@@ -98,11 +98,6 @@ export function resolveTier1BellUnreadFetchUrl(
   return `/api/me/notifications?${sp.toString()}`;
 }
 
-/** legacy myGeneral store URL과 동등 — tier1_inbox_bell surface */
-export function resolveTier1InboxBellLegacyUnreadUrl(): string {
-  return resolveTier1BellUnreadFetchUrl("tier1_inbox_bell");
-}
-
 export function badgeSurfaceToPriorityPushKind(
   surface: Tier1BellBadgeSurface
 ): InboxPushKindFilter | null {
