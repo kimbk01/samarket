@@ -10,6 +10,7 @@ import {
   setSupabaseProfileCache,
 } from "@/lib/auth/supabase-profile-cache";
 import { awaitClientSupabaseSessionReady } from "@/lib/auth/await-client-supabase-session-ready";
+import { runBrowserAuthRefreshDeduped } from "@/lib/supabase/auth-refresh-telemetry";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
 const PRIME_SESSION_READY_MS = 1_500;
@@ -29,7 +30,10 @@ export async function primeClientAuthSessionFromSupabase(): Promise<boolean> {
     data: { session },
   } = await sb.auth.getSession().catch(() => ({ data: { session: null } }));
   if (!session?.user?.id) {
-    await sb.auth.refreshSession().catch(() => undefined);
+    // P0-2: 직접 sb.auth.refreshSession() 금지 — canonical single-flight 경유.
+    await runBrowserAuthRefreshDeduped(sb, "prime_supabase", { allowRecoverableGuest: true }).catch(
+      () => undefined,
+    );
     ({
       data: { session },
     } = await sb.auth.getSession().catch(() => ({ data: { session: null } })));

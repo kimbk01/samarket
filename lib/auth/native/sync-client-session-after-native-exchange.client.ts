@@ -7,6 +7,7 @@ import { clearGuestAuthState } from "@/lib/auth/guest-auth-state";
 import { logOAuthNativeEvent } from "@/lib/auth/oauth/oauth-native-callback-log";
 import { invalidateClientMembershipResolveFlight } from "@/lib/auth/resolve-client-profile-session";
 import { dispatchTestAuthChanged } from "@/lib/auth/test-auth-store";
+import { runBrowserAuthRefreshDeduped } from "@/lib/supabase/auth-refresh-telemetry";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
 /** Native exchange Set-Cookie → Supabase browser client 반영 대기 */
@@ -28,7 +29,10 @@ export async function syncClientSessionAfterNativeExchange(): Promise<boolean> {
     await awaitClientSupabaseSessionReady(NATIVE_EXCHANGE_SESSION_READY_MS);
     const { data: first } = await sb.auth.getSession().catch(() => ({ data: { session: null } }));
     if (!first.session?.user?.id) {
-      await sb.auth.refreshSession().catch(() => undefined);
+      // P0-2: 직접 sb.auth.refreshSession() 금지 — canonical single-flight 경유.
+      await runBrowserAuthRefreshDeduped(sb, "native_exchange_sync", {
+        allowRecoverableGuest: true,
+      }).catch(() => undefined);
     }
   }
 

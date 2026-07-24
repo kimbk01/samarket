@@ -3,7 +3,11 @@
  * Supabase refresh token rotation 은 **동일 토큰으로 동시 refresh 시** `Already Used` 가 난다.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { isGuestAuthEstablished, logGuestFetchSkipped } from "@/lib/auth/guest-auth-state";
+import {
+  isGuestAuthEstablished,
+  isTerminalGuestAuthEstablished,
+  logGuestFetchSkipped,
+} from "@/lib/auth/guest-auth-state";
 
 type RefreshResult = Awaited<ReturnType<SupabaseClient["auth"]["refreshSession"]>>;
 
@@ -54,12 +58,30 @@ export function getAuthRefreshInflightPeak(): number {
   return refreshInflightPeak;
 }
 
+export type RunBrowserAuthRefreshOptions = {
+  /**
+   * recoverable guest(부트 레이스·401 복구 중)에서도 refresh 를 허용한다.
+   * 세션 복구 경로(prime/native exchange sync) 전용 — terminal guest 는 여전히 차단.
+   * P0-2: 이 옵션 덕에 복구 경로가 `sb.auth.refreshSession()` 을 직접 호출해
+   * single-flight 를 우회할 필요가 없다. 직접 호출 재도입 금지.
+   */
+  allowRecoverableGuest?: boolean;
+};
+
 /**
  * `sb.auth.refreshSession()` — 동시 호출은 **같은 Promise**에 합류.
  * (auto-refresh 와의 완전 직렬화는 SDK 내부 한계가 있으나, 수동 `refreshSession` 경합은 제거)
+ * CONTRACT(P0-2): 제품 브라우저 코드의 수동 refresh 는 반드시 이 함수를 경유한다.
  */
-export async function runBrowserAuthRefreshDeduped(sb: SupabaseClient, source: string): Promise<RefreshResult> {
-  if (isGuestAuthEstablished()) {
+export async function runBrowserAuthRefreshDeduped(
+  sb: SupabaseClient,
+  source: string,
+  opts?: RunBrowserAuthRefreshOptions,
+): Promise<RefreshResult> {
+  const guestBlocked = opts?.allowRecoverableGuest
+    ? isTerminalGuestAuthEstablished()
+    : isGuestAuthEstablished();
+  if (guestBlocked) {
     logGuestFetchSkipped("auth_refresh", source);
     return { data: { session: null, user: null }, error: null };
   }

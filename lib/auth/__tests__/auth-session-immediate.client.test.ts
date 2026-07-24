@@ -40,8 +40,20 @@ vi.mock("@/lib/auth/test-auth-store", () => ({
 }));
 
 vi.mock("@/lib/auth/supabase-profile-cache", () => ({
-  sessionToProfile: () => ({ id: "user-1", email: "a@test.local", nickname: "A", display_name: "A" }),
+  sessionToProfile: (session: unknown) =>
+    session
+      ? { id: "user-1", email: "a@test.local", nickname: "A", display_name: "A" }
+      : null,
   setSupabaseProfileCache,
+}));
+
+const runBrowserAuthRefreshDeduped = vi.fn(async () => ({
+  data: { session: null, user: null },
+  error: null,
+}));
+
+vi.mock("@/lib/supabase/auth-refresh-telemetry", () => ({
+  runBrowserAuthRefreshDeduped: (...args: unknown[]) => runBrowserAuthRefreshDeduped(...(args as [])),
 }));
 
 describe("auth-session-immediate.client", () => {
@@ -83,5 +95,36 @@ describe("auth-session-immediate.client", () => {
 
     applyImmediateLogoutClientState();
     expect(setAppBootAnonymous).toHaveBeenCalled();
+  });
+
+  it("P0-2: uses canonical single-flight refresh instead of direct sb.auth.refreshSession", async () => {
+    vi.stubGlobal("window", {});
+    vi.doMock("@/lib/auth/await-client-supabase-session-ready", () => ({
+      awaitClientSupabaseSessionReady: vi.fn(async () => undefined),
+    }));
+    const directRefreshSession = vi.fn(async () => ({ data: { session: null }, error: null }));
+    vi.doMock("@/lib/supabase/client", () => ({
+      getSupabaseClient: () => ({
+        auth: {
+          getSession: async () => ({ data: { session: null } }),
+          refreshSession: directRefreshSession,
+        },
+      }),
+    }));
+
+    const { primeClientAuthSessionFromSupabase } = await import(
+      "@/lib/auth/auth-session-immediate.client"
+    );
+
+    const ok = await primeClientAuthSessionFromSupabase();
+    expect(ok).toBe(false);
+    // 세션이 없을 때 refresh 는 canonical single-flight 로만 수행된다.
+    expect(runBrowserAuthRefreshDeduped).toHaveBeenCalledTimes(1);
+    expect(runBrowserAuthRefreshDeduped).toHaveBeenCalledWith(
+      expect.anything(),
+      "prime_supabase",
+      { allowRecoverableGuest: true },
+    );
+    expect(directRefreshSession).not.toHaveBeenCalled();
   });
 });
