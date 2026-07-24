@@ -1,11 +1,14 @@
 /**
- * P0 Projection Authority — single commit gate for Badge Projection surfaces.
+ * P0 Projection Authority — the ONLY component allowed to commit a Badge Projection.
  *
- * CONTRACT:
- * - Complete HTTP/bootstrap snapshots register here, then apply once.
- * - Realtime room unread may only merge into the last complete input.
- * - Incomplete Facts never call applyNotificationBadgeProjection.
- * - Stale generation never overwrites a newer committed generation.
+ * CONTRACT (Authority, not "writer removal"):
+ * - Surfaces are written exclusively through `applyNotificationBadgeProjection`
+ *   called from this module. No other module may call it.
+ * - State machine: EMPTY → WAITING_COMPLETE → COMPLETE → (RT delta) → COMPLETE.
+ *   Realtime may NEVER produce a Projection in EMPTY / WAITING_COMPLETE.
+ * - Every commit carries metadata (id / generation / source / completedAt / factsVersion).
+ * - `factsVersion` orders server snapshots; an older server snapshot never overwrites
+ *   a newer one, even after Realtime deltas bumped the generation.
  *
  * DO NOT:
  * - Treat DomainRoomState-only Facts as complete.
@@ -17,22 +20,41 @@
 import type { ChatDomain } from "@/lib/chat-domain/chat-domain";
 import {
   buildNotificationBadgeProjection,
-  type NotificationBadgeDomainFacts,
   type NotificationBadgeProjectionInput,
 } from "@/lib/notifications/build-notification-badge-projection";
 import { applyNotificationBadgeProjection } from "@/lib/messenger/contracts/domain-badge-authority-product-bridge";
 import { logNotifyBadge } from "@/lib/notifications/core/notification-logs";
 
-/** Minimal room row — avoid community-messenger ↔ notifications cycles. */
+/** Minimal room row — avoid community-messenger ↔ notifications type cycles. */
 export type ProjectionAuthorityRoomRow = Readonly<{
   roomId: string;
   chatDomain: ChatDomain;
   unreadCount: number;
 }>;
+
 export type ProjectionAuthoritySource =
   | "badge_count_http"
   | "room_unread_delta"
   | "test";
+
+/** Projection lifecycle — RT is only legal in COMPLETE. */
+export type ProjectionAuthorityState = "EMPTY" | "WAITING_COMPLETE" | "COMPLETE";
+
+export type ProjectionRejectReason =
+  | "incomplete"
+  | "stale"
+  | "no_complete_snapshot"
+  | "empty_domain_set";
+
+/** Commit metadata — required for later race forensics. */
+export type ProjectionMetadata = Readonly<{
+  projectionId: string;
+  projectionGeneration: number;
+  projectionSource: ProjectionAuthoritySource;
+  projectionCompletedAt: number;
+  /** Server snapshot ordering key (badge-count `projectionVersionMs`). */
+  projectionFactsVersion: number;
+}>;
 
 export type ProjectionAuthorityCounters = Readonly<{
   complete_snapshot_commit_ok: number;
@@ -56,12 +78,22 @@ const counters: MutableCounters = {
   room_delta_noop: 0,
 };
 
+let state: ProjectionAuthorityState = "EMPTY";
 let lastCompleteInput: NotificationBadgeProjectionInput | null = null;
-let lastCommittedGenerationMs = 0;
-let lastCommitSource: ProjectionAuthoritySource | null = null;
+let lastMetadata: ProjectionMetadata | null = null;
+/** Monotonic internal generation — +1 per committed projection. */
+let generation = 0;
+/** Server snapshot ordering — only complete snapshots advance this. */
+let factsVersion = 0;
+/** Monotonic ms handed to surfaces so a newer delta is never dropped downstream. */
+let surfaceVersionMs = 0;
 
 function nonNeg(n: unknown): number {
   return Math.max(0, Math.floor(Number(n) || 0));
+}
+
+function nextProjectionId(gen: number): string {
+  return `proj-${gen}-${Date.now().toString(36)}`;
 }
 
 /**
@@ -92,6 +124,14 @@ export function isCompleteProjectionInput(
   return true;
 }
 
+export function getProjectionAuthorityState(): ProjectionAuthorityState {
+  return state;
+}
+
+export function getProjectionMetadata(): ProjectionMetadata | null {
+  return lastMetadata;
+}
+
 export function getProjectionAuthorityCounters(): ProjectionAuthorityCounters {
   return { ...counters };
 }
@@ -101,13 +141,28 @@ export function getLastCompleteProjectionInput(): NotificationBadgeProjectionInp
 }
 
 export function getLastCommittedProjectionGenerationMs(): number {
-  return lastCommittedGenerationMs;
+  return surfaceVersionMs;
+}
+
+/**
+ * A complete snapshot has been requested (fetch start / reconnect catch-up).
+ * EMPTY → WAITING_COMPLETE. COMPLETE stays COMPLETE (surfaces keep last truth).
+ */
+export function markProjectionAuthorityWaitingComplete(reason: string): ProjectionAuthorityState {
+  if (state === "EMPTY") {
+    state = "WAITING_COMPLETE";
+    logNotifyBadge("projection_state", { state, reason });
+  }
+  return state;
 }
 
 export function resetProjectionAuthorityForTests(): void {
+  state = "EMPTY";
   lastCompleteInput = null;
-  lastCommittedGenerationMs = 0;
-  lastCommitSource = null;
+  lastMetadata = null;
+  generation = 0;
+  factsVersion = 0;
+  surfaceVersionMs = 0;
   counters.complete_snapshot_commit_ok = 0;
   counters.room_delta_commit_ok = 0;
   counters.projection_commit_ok = 0;
@@ -116,46 +171,49 @@ export function resetProjectionAuthorityForTests(): void {
   counters.room_delta_noop = 0;
 }
 
-function rejectIncomplete(reason: string): false {
-  counters.incomplete_commit_rejected += 1;
-  logNotifyBadge("ui_set", {
-    projection_authority: "incomplete_commit_rejected",
+function reject(reason: ProjectionRejectReason, extra?: Record<string, unknown>): false {
+  if (reason === "stale") counters.stale_generation_rejected += 1;
+  else counters.incomplete_commit_rejected += 1;
+  logNotifyBadge("projection_reject", {
     reason,
-    incomplete_commit_rejected: counters.incomplete_commit_rejected,
-  });
-  return false;
-}
-
-function rejectStale(versionMs: number): false {
-  counters.stale_generation_rejected += 1;
-  logNotifyBadge("ui_set", {
-    projection_authority: "stale_generation_rejected",
-    versionMs,
-    lastCommittedGenerationMs,
-    stale_generation_rejected: counters.stale_generation_rejected,
+    state,
+    generation,
+    factsVersion,
+    ...extra,
   });
   return false;
 }
 
 function commitApply(
   input: NotificationBadgeProjectionInput,
-  versionMs: number,
   source: ProjectionAuthoritySource,
+  nextFactsVersion: number,
   applyBell: boolean
 ): true {
   const projection = buildNotificationBadgeProjection(input);
+  surfaceVersionMs = Math.max(Date.now(), surfaceVersionMs + 1);
   applyNotificationBadgeProjection(projection, {
     applyBell,
-    projectionVersionMs: versionMs,
+    projectionVersionMs: surfaceVersionMs,
   });
+  generation += 1;
+  factsVersion = nextFactsVersion;
   lastCompleteInput = input;
-  lastCommittedGenerationMs = versionMs;
-  lastCommitSource = source;
+  state = "COMPLETE";
+  lastMetadata = {
+    projectionId: nextProjectionId(generation),
+    projectionGeneration: generation,
+    projectionSource: source,
+    projectionCompletedAt: Date.now(),
+    projectionFactsVersion: factsVersion,
+  };
   counters.projection_commit_ok += 1;
-  logNotifyBadge("ui_set", {
-    projection_authority: "commit_ok",
+  logNotifyBadge(source === "room_unread_delta" ? "projection_delta" : "projection_commit", {
+    generation,
     source,
-    versionMs,
+    factsVersion,
+    surfaceVersionMs,
+    projectionId: lastMetadata.projectionId,
     projection_commit_ok: counters.projection_commit_ok,
   });
   return true;
@@ -163,6 +221,7 @@ function commitApply(
 
 /**
  * Register a complete server/bootstrap snapshot and apply surfaces exactly once.
+ * An older `projectionVersionMs` is rejected even after Realtime deltas.
  */
 export function commitCompleteProjectionSnapshot(
   input: NotificationBadgeProjectionInput,
@@ -173,22 +232,24 @@ export function commitCompleteProjectionSnapshot(
   }
 ): boolean {
   if (!isCompleteProjectionInput(input)) {
-    return rejectIncomplete("complete_snapshot_missing_required_facts");
+    markProjectionAuthorityWaitingComplete("incomplete_snapshot");
+    return reject("incomplete", { at: "complete_snapshot" });
   }
-  const versionMs = Math.max(
-    0,
-    Math.floor(Number(opts?.projectionVersionMs) || Date.now())
-  );
-  if (versionMs < lastCommittedGenerationMs) {
-    return rejectStale(versionMs);
+  const nextFactsVersion = nonNeg(opts?.projectionVersionMs) || Date.now();
+  if (state === "COMPLETE" && nextFactsVersion < factsVersion) {
+    return reject("stale", { incomingFactsVersion: nextFactsVersion });
   }
-  if (versionMs === lastCommittedGenerationMs && lastCompleteInput != null) {
-    // Idempotent same-generation replay — refresh stored input, no second surface apply.
+  if (state === "COMPLETE" && nextFactsVersion === factsVersion) {
+    // Same server truth replayed — refresh stored Facts, never re-apply surfaces.
     lastCompleteInput = input;
+    logNotifyBadge("projection_commit_skipped_same_facts", {
+      generation,
+      factsVersion,
+    });
     return true;
   }
   const source = opts?.source ?? "badge_count_http";
-  const ok = commitApply(input, versionMs, source, opts?.applyBell !== false);
+  const ok = commitApply(input, source, nextFactsVersion, opts?.applyBell !== false);
   if (ok) counters.complete_snapshot_commit_ok += 1;
   return ok;
 }
@@ -211,35 +272,24 @@ function mergeRowUnreadForDomains(args: {
   return next;
 }
 
-function domainFactsEqual(
-  a: NotificationBadgeDomainFacts,
-  b: NotificationBadgeDomainFacts
-): boolean {
-  return (
-    nonNeg(a.general_direct) === nonNeg(b.general_direct) &&
-    nonNeg(a.group) === nonNeg(b.group) &&
-    nonNeg(a.trade) === nonNeg(b.trade) &&
-    nonNeg(a.store_order) === nonNeg(b.store_order)
-  );
-}
-
 /**
  * Merge RT room unread into the last complete snapshot.
- * Without a prior complete snapshot, refuse to invent a Projection.
+ * Legal only in COMPLETE — EMPTY / WAITING_COMPLETE must never invent a Projection.
  */
 export function commitRoomUnreadDeltaFromDomainSpine(args: {
   domainsToUpdate: ReadonlyArray<ChatDomain>;
-  spineDomainCounts: NotificationBadgeDomainFacts;
+  spineDomainCounts: Readonly<Record<ChatDomain, number>>;
   rooms: ReadonlyMap<string, ProjectionAuthorityRoomRow>;
   applyBell?: boolean;
 }): boolean {
-  if (!lastCompleteInput || !isCompleteProjectionInput(lastCompleteInput)) {
-    return rejectIncomplete("room_delta_without_complete_snapshot");
+  if (state !== "COMPLETE" || !isCompleteProjectionInput(lastCompleteInput)) {
+    markProjectionAuthorityWaitingComplete("room_delta_before_complete");
+    return reject("no_complete_snapshot", { at: "room_delta" });
   }
   const domains = [...new Set(args.domainsToUpdate)].filter(Boolean);
   if (domains.length === 0) {
     counters.room_delta_noop += 1;
-    return false;
+    return reject("empty_domain_set", { at: "room_delta" });
   }
 
   const base = lastCompleteInput.domainUnreadRooms;
@@ -275,36 +325,45 @@ export function commitRoomUnreadDeltaFromDomainSpine(args: {
     osNotificationRemove: lastCompleteInput.osNotificationRemove,
   };
 
+  const sameDomains =
+    nonNeg(base.general_direct) === nextRooms.general_direct &&
+    nonNeg(base.group) === nextRooms.group &&
+    nonNeg(base.trade) === nextRooms.trade &&
+    nonNeg(base.store_order) === nextRooms.store_order;
   if (
-    domainFactsEqual(lastCompleteInput.domainUnreadRooms, nextRooms) &&
+    sameDomains &&
     JSON.stringify(lastCompleteInput.rowUnreadByRoomId ?? {}) === JSON.stringify(nextRows)
   ) {
     counters.room_delta_noop += 1;
+    logNotifyBadge("projection_delta_noop", { generation, factsVersion });
     return true;
   }
 
-  const versionMs = Math.max(Date.now(), lastCommittedGenerationMs + 1);
-  const ok = commitApply(
-    merged,
-    versionMs,
-    "room_unread_delta",
-    args.applyBell !== false
-  );
+  /** RT never advances server facts ordering — keeps old HTTP rejectable. */
+  const ok = commitApply(merged, "room_unread_delta", factsVersion, args.applyBell !== false);
   if (ok) counters.room_delta_commit_ok += 1;
   return ok;
 }
 
-/** Test/harness — last commit metadata + counters for CDP/runtime QA. */
+/** Harness / QA — full Authority state for CDP and device evidence. */
 export function getProjectionAuthorityDebugState(): {
+  state: ProjectionAuthorityState;
   hasComplete: boolean;
+  metadata: ProjectionMetadata | null;
+  generation: number;
+  factsVersion: number;
   lastCommittedGenerationMs: number;
   lastCommitSource: ProjectionAuthoritySource | null;
   counters: ProjectionAuthorityCounters;
 } {
   return {
+    state,
     hasComplete: lastCompleteInput != null,
-    lastCommittedGenerationMs,
-    lastCommitSource,
+    metadata: lastMetadata,
+    generation,
+    factsVersion,
+    lastCommittedGenerationMs: surfaceVersionMs,
+    lastCommitSource: lastMetadata?.projectionSource ?? null,
     counters: getProjectionAuthorityCounters(),
   };
 }
@@ -314,6 +373,8 @@ declare global {
     __dibayProjectionAuthority?: {
       getDebugState: typeof getProjectionAuthorityDebugState;
       getCounters: typeof getProjectionAuthorityCounters;
+      getState: typeof getProjectionAuthorityState;
+      getMetadata: typeof getProjectionMetadata;
     };
   }
 }
@@ -322,5 +383,7 @@ if (typeof window !== "undefined") {
   window.__dibayProjectionAuthority = {
     getDebugState: getProjectionAuthorityDebugState,
     getCounters: getProjectionAuthorityCounters,
+    getState: getProjectionAuthorityState,
+    getMetadata: getProjectionMetadata,
   };
 }

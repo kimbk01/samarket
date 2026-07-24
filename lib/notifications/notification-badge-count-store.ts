@@ -16,6 +16,7 @@ import {
   applyAuthorityJsonAsProjection,
   type BadgeCountAuthorityJson,
 } from "@/lib/notifications/apply-badge-count-authority-response";
+import { markProjectionAuthorityWaitingComplete } from "@/lib/notifications/projection-authority";
 import { scheduleStartupApiDeferred } from "@/lib/http/startup-api-scheduler";
 
 const POLL_MS = 45_000;
@@ -185,6 +186,8 @@ async function doFetch(force = false): Promise<void> {
 
 async function runDoFetch(force = false): Promise<void> {
   try {
+    /** Authority state machine: EMPTY → WAITING_COMPLETE while the snapshot is in flight. */
+    markProjectionAuthorityWaitingComplete(force ? "badge_count_fresh" : "badge_count_fetch");
     const res = await fetch(force ? `${fetchUrl}?fresh=1` : fetchUrl, { credentials: "include" });
     if (res.status === 401) {
       snap = null;

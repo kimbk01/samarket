@@ -161,7 +161,7 @@ describe("projection-authority P0", () => {
     expect(getLastCommittedProjectionGenerationMs()).toBeGreaterThanOrEqual(1_000);
   });
 
-  it("rejects stale complete generation after newer delta", () => {
+  it("rejects an older server factsVersion after Realtime deltas", () => {
     commitCompleteProjectionSnapshot(completeInput(), { projectionVersionMs: 1_000 });
     const rooms = new Map([
       [
@@ -179,10 +179,10 @@ describe("projection-authority P0", () => {
       },
       rooms,
     });
-    const genAfterDelta = getLastCommittedProjectionGenerationMs();
     applySpy.mockClear();
+    /** Realtime does not advance server ordering — an older snapshot is still stale. */
     const ok = commitCompleteProjectionSnapshot(completeInput(), {
-      projectionVersionMs: Math.max(0, genAfterDelta - 1),
+      projectionVersionMs: 999,
     });
     expect(ok).toBe(false);
     expect(applySpy).not.toHaveBeenCalled();
@@ -201,7 +201,7 @@ describe("projection-authority P0", () => {
       },
       rooms: new Map(),
     });
-    const gen = getLastCommittedProjectionGenerationMs();
+    const gen = 1_000;
     applySpy.mockClear();
     expect(
       commitCompleteProjectionSnapshot(
