@@ -83,6 +83,10 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
 
   const includeMeta = args.includeMeta !== false;
   if (includeMeta) {
+    // Boot/IO Authority: the FIRST SUBSCRIBED is cold bind — bootstrap/follow-up owns the
+    // initial list, so it must NOT drive a full home-sync. Only a RESUBSCRIBE (reconnect
+    // after drop) schedules a catch-up. Mirrors global-messenger-room-bundle-channel.
+    let metaFirstSubscribedSeen = false;
     const meta = subscribeWithRetry({
       sb: args.sb,
       name: `community-messenger-home:meta:${args.userId}`,
@@ -94,7 +98,12 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
         bindOrdinal,
       },
       onStatus: (status) => {
-        if (status === "SUBSCRIBED" && !cancelled()) refreshScheduler.schedule();
+        if (status !== "SUBSCRIBED" || cancelled()) return;
+        if (!metaFirstSubscribedSeen) {
+          metaFirstSubscribedSeen = true;
+          return; // cold bind → no full sync
+        }
+        refreshScheduler.schedule(); // resubscribe → catch-up
       },
       build: (channel) =>
         channel
@@ -252,6 +261,8 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
     const chunk = roomIds.slice(offset, offset + COMMUNITY_MESSENGER_HOME_ROOMS_IN_FILTER_MAX);
     const roomsFilter = `id=in.(${chunk.join(",")})`;
     const messagesFilter = `room_id=in.(${chunk.join(",")})`;
+    // First SUBSCRIBED of each rooms-in chunk is cold bind → no full sync (see meta above).
+    let roomBundleFirstSubscribedSeen = false;
     const roomBundle = subscribeWithRetry({
       sb: args.sb,
       name: `community-messenger-home:rooms-in:${args.userId}:${offset}`,
@@ -264,7 +275,12 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
         bindOrdinal,
       },
       onStatus: (status) => {
-        if (status === "SUBSCRIBED" && !cancelled()) refreshScheduler.schedule();
+        if (status !== "SUBSCRIBED" || cancelled()) return;
+        if (!roomBundleFirstSubscribedSeen) {
+          roomBundleFirstSubscribedSeen = true;
+          return; // cold bind → no full sync
+        }
+        refreshScheduler.schedule(); // resubscribe → catch-up
       },
       build: (channel) =>
         channel

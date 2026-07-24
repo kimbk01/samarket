@@ -173,12 +173,31 @@ export async function createNotificationEvent(
   return { ok: true, row: data as NotificationEventRow };
 }
 
+/** Modern taxonomy keys the SQL COUNT RPC must return before we trust it (vs legacy 5-key RPC). */
+function isModernBadgeRpcShape(raw: Record<string, unknown> | null): boolean {
+  if (!raw) return false;
+  return "trade_status" in raw || "delivery_status" in raw || "admin_notice" in raw;
+}
+
 export async function countNotificationEventsBadge(
   sb: SupabaseClient<any>,
   userId: string
 ): Promise<NotificationBadgeCount> {
   const uid = userId.trim();
   if (!uid) return EMPTY_BADGE;
+
+  // Boot/IO Authority: aggregate in DB (COUNT) instead of transferring every unread row.
+  // Only trust the RPC once the modern-taxonomy migration is applied; otherwise fall back
+  // to the row-scan path so meaning stays identical during a code-before-migration window.
+  try {
+    const { data, error } = await sb.rpc("count_notification_events_badge", { p_user_id: uid });
+    if (!error && data && typeof data === "object") {
+      const raw = data as Record<string, unknown>;
+      if (isModernBadgeRpcShape(raw)) return mapBadgeRpc(raw);
+    }
+  } catch {
+    /* fall through to row-scan fallback */
+  }
   return countNotificationEventsBadgeFallback(sb, uid);
 }
 

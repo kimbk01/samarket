@@ -8,7 +8,18 @@ function fakeBadgeSb(rows: Array<{ category: string; display_payload?: Record<st
     is: async () => ({ data: rows, error: null }),
   };
   return {
+    // No `rpc` here → repository RPC attempt throws → row-scan fallback (legacy semantics kept).
     from: () => q,
+  } as unknown;
+}
+
+/** sb whose COUNT RPC returns the modern taxonomy shape (migration applied). */
+function fakeBadgeRpcSb(rpcResult: Record<string, number>) {
+  return {
+    rpc: async () => ({ data: rpcResult, error: null }),
+    from: () => {
+      throw new Error("row-scan must not run when modern RPC is available");
+    },
   } as unknown;
 }
 
@@ -43,5 +54,46 @@ describe("notification badge admin policy", () => {
     const out = await countNotificationEventsBadge(sb as never, "u1");
     expect(out.chatMessage).toBe(1);
     expect(out.total).toBe(1);
+  });
+
+  it("uses the modern COUNT RPC result when available (no row scan)", async () => {
+    const sb = fakeBadgeRpcSb({
+      chat_message: 3,
+      group_message: 1,
+      trade_message: 2,
+      trade_status: 1,
+      order_status: 4,
+      delivery_status: 0,
+      community_activity: 0,
+      admin_marketing_banner: 5, // excluded from total
+      admin_notice: 2,
+      missed_call: 1,
+    });
+    const out = await countNotificationEventsBadge(sb as never, "u1");
+    expect(out.chatMessage).toBe(3);
+    expect(out.trade).toBe(3); // trade_message + trade_status
+    expect(out.store).toBe(4); // order_status + delivery_status
+    expect(out.adminMarketingBanner).toBe(5);
+    // total excludes admin_marketing_banner
+    expect(out.total).toBe(3 + 1 + 2 + 1 + 4 + 0 + 0 + 2 + 1);
+  });
+
+  it("ignores a legacy-shape RPC result and falls back to row scan", async () => {
+    // Old deployed RPC returns only legacy keys → not modern shape → row scan runs.
+    const legacyRows = [{ category: "chat_message" }, { category: "admin_notice" }];
+    const q = {
+      select: () => q,
+      eq: () => q,
+      is: async () => ({ data: legacyRows, error: null }),
+    };
+    const sb = {
+      rpc: async () => ({ data: { chat: 99, group: 0, trade: 0, store: 0, missed_call: 0 }, error: null }),
+      from: () => q,
+    } as unknown;
+    const out = await countNotificationEventsBadge(sb as never, "u1");
+    // legacy RPC (chat:99) ignored; row scan → chatMessage 1 + adminNotice 1
+    expect(out.chatMessage).toBe(1);
+    expect(out.adminNotice).toBe(1);
+    expect(out.total).toBe(2);
   });
 });

@@ -84,7 +84,7 @@ export async function bumpNotificationTarget(
 
   const roomId = opts.roomId?.trim() || null;
 
-  const { error } = await sb.rpc(UPSERT_NOTIFICATION_TARGET_RPC, {
+  const { data, error } = await sb.rpc(UPSERT_NOTIFICATION_TARGET_RPC, {
     p_user_id: uid,
     p_target_type: opts.targetType,
     p_target_id: tid,
@@ -99,6 +99,9 @@ export async function bumpNotificationTarget(
     return;
   }
   if (!error) {
+    // Idempotent RPC: `false` = no-op (already unread, nothing changed) → skip cache
+    // invalidation + downstream recount. Legacy `void` RPC returns null → treat as changed.
+    if (data === false) return;
     invalidateBadgeTargetCaches(uid, opts.storeId);
   }
 }

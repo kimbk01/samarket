@@ -46,6 +46,11 @@ export function ChatRoomList({
   const [error, setError] = useState<string | null>(null);
   /** 서버 401 — `getCurrentUser()` 지연과 무관하게 판별 */
   const [sessionDenied, setSessionDenied] = useState(false);
+  /**
+   * Boot/IO Authority contract ④: Realtime healthy 동안 90초 poll 을 멈춘다.
+   * poll 은 Realtime 실패·장기 끊김·명시 복구의 fallback 으로만 동작.
+   */
+  const [listRealtimeHealthy, setListRealtimeHealthy] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -76,6 +81,8 @@ export function ChatRoomList({
 
   useEffect(() => {
     if (sessionDenied) return;
+    // Realtime healthy → no fallback poll (contract ④). Health flips re-run this effect.
+    if (listRealtimeHealthy) return;
     let inFlight = false;
     const safeLoad = () => {
       if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
@@ -112,7 +119,7 @@ export function ChatRoomList({
       stopPoll();
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [load, sessionDenied]);
+  }, [load, sessionDenied, listRealtimeHealthy]);
 
   useEffect(() => {
     const onUnread = () => void load();
@@ -143,6 +150,7 @@ export function ChatRoomList({
     integratedRoomIds,
     enabled: !sessionDenied && rooms !== null && Boolean(viewerId),
     onListStale: load,
+    onHealthChange: setListRealtimeHealthy,
   });
   usePostsSellerListingRealtimeBatch({
     userId: viewerId,

@@ -5,9 +5,29 @@ import {
   invalidateBadgeTargetCaches,
 } from "@/lib/notifications/notification-targets";
 
+const invalidateNotificationUnreadCountCache = vi.fn();
+const invalidateUserChatUnreadCache = vi.fn();
+const invalidateCommunityMessengerUnreadTotalCache = vi.fn();
+const invalidateOwnerHubBadgeCache = vi.fn();
+
+vi.mock("@/lib/notifications/notification-unread-count-cache", () => ({
+  invalidateNotificationUnreadCountCache: (...a: unknown[]) =>
+    invalidateNotificationUnreadCountCache(...a),
+}));
+vi.mock("@/lib/chat/user-chat-unread-parts", () => ({
+  invalidateUserChatUnreadCache: (...a: unknown[]) => invalidateUserChatUnreadCache(...a),
+}));
+vi.mock("@/lib/community-messenger/community-messenger-unread-total", () => ({
+  invalidateCommunityMessengerUnreadTotalCache: (...a: unknown[]) =>
+    invalidateCommunityMessengerUnreadTotalCache(...a),
+}));
+vi.mock("@/lib/chats/owner-hub-badge-cache", () => ({
+  invalidateOwnerHubBadgeCache: (...a: unknown[]) => invalidateOwnerHubBadgeCache(...a),
+}));
+
 describe("notification-targets", () => {
   beforeEach(() => {
-    vi.restoreAllMocks();
+    vi.clearAllMocks();
   });
 
   function mockSb(rpcImpl: (name: string, args: Record<string, unknown>) => { data?: unknown; error?: null }) {
@@ -42,5 +62,40 @@ describe("notification-targets", () => {
 
   it("invalidateBadgeTargetCaches does not throw for empty user", () => {
     expect(() => invalidateBadgeTargetCaches("")).not.toThrow();
+  });
+
+  it("skips cache invalidation when RPC returns false (already-unread no-op)", async () => {
+    const sb = mockSb(() => ({ data: false, error: null }));
+    await bumpNotificationTarget(sb, {
+      userId: "user-a",
+      targetType: "chat_room",
+      targetId: "room-1",
+    });
+    expect(sb.rpc).toHaveBeenCalledOnce();
+    expect(invalidateNotificationUnreadCountCache).not.toHaveBeenCalled();
+    expect(invalidateUserChatUnreadCache).not.toHaveBeenCalled();
+    expect(invalidateCommunityMessengerUnreadTotalCache).not.toHaveBeenCalled();
+    expect(invalidateOwnerHubBadgeCache).not.toHaveBeenCalled();
+  });
+
+  it("invalidates caches when RPC returns true (real write)", async () => {
+    const sb = mockSb(() => ({ data: true, error: null }));
+    await bumpNotificationTarget(sb, {
+      userId: "user-a",
+      targetType: "chat_room",
+      targetId: "room-1",
+    });
+    expect(invalidateNotificationUnreadCountCache).toHaveBeenCalledTimes(1);
+    expect(invalidateOwnerHubBadgeCache).toHaveBeenCalledTimes(1);
+  });
+
+  it("invalidates caches when RPC returns null (legacy void RPC compat)", async () => {
+    const sb = mockSb(() => ({ data: null, error: null }));
+    await bumpNotificationTarget(sb, {
+      userId: "user-a",
+      targetType: "chat_room",
+      targetId: "room-1",
+    });
+    expect(invalidateNotificationUnreadCountCache).toHaveBeenCalledTimes(1);
   });
 });

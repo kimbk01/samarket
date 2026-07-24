@@ -16,9 +16,12 @@ import {
   applyAuthorityJsonAsProjection,
   type BadgeCountAuthorityJson,
 } from "@/lib/notifications/apply-badge-count-authority-response";
+import { scheduleStartupApiDeferred } from "@/lib/http/startup-api-scheduler";
 
 const POLL_MS = 45_000;
 const fetchUrl = "/api/me/notifications/badge-count";
+/** Boot/IO Authority: first subscriber fetch runs AFTER first paint (idle), deduped across remounts. */
+const BADGE_COUNT_FIRST_FETCH_JOB = "notification-badge-count-first";
 
 let snap: NotificationBadgeCount | null = null;
 /** Monotonic projection revision — stale poll must not overwrite newer realtime. */
@@ -26,6 +29,9 @@ let lastProjectionVersionMs = 0;
 let subscriberCount = 0;
 let pollInterval: ReturnType<typeof setInterval> | null = null;
 let unauthorizedPaused = false;
+/** Single-flight — coalesce concurrent boot fetches (first-paint deferred + resync races). */
+let inflight: Promise<void> | null = null;
+let inflightForce = false;
 
 const listeners = new Set<() => void>();
 
@@ -141,7 +147,19 @@ export function getNotificationBadgeProjectionVersionMs(): number {
 export function subscribeNotificationBadgeCount(onStoreChange: () => void): () => void {
   listeners.add(onStoreChange);
   subscriberCount += 1;
-  if (subscriberCount === 1) void doFetch();
+  if (subscriberCount === 1) {
+    // First paint must not wait on badge IO. Defer to idle; the scheduler joins
+    // duplicate mounts (Strict Mode / navigation) and TTL-skips repeats, so the
+    // boot unread query runs at most once. Already-hydrated snap → skip entirely.
+    scheduleStartupApiDeferred(
+      BADGE_COUNT_FIRST_FETCH_JOB,
+      () => {
+        if (snap != null) return;
+        void doFetch();
+      },
+      { delayMs: 0, source: "badge-count-first-subscriber" }
+    );
+  }
   return () => {
     listeners.delete(onStoreChange);
     subscriberCount = Math.max(0, subscriberCount - 1);
@@ -154,6 +172,18 @@ export function subscribeNotificationBadgeCount(onStoreChange: () => void): () =
 
 async function doFetch(force = false): Promise<void> {
   if (typeof window === "undefined") return;
+  // Single-flight: a non-fresh call joins any inflight; a fresh call joins only an
+  // inflight fresh call. Prevents duplicate concurrent badge-count fetches on boot.
+  if (inflight && (!force || inflightForce)) return inflight;
+  inflightForce = force;
+  inflight = runDoFetch(force).finally(() => {
+    inflight = null;
+    inflightForce = false;
+  });
+  return inflight;
+}
+
+async function runDoFetch(force = false): Promise<void> {
   try {
     const res = await fetch(force ? `${fetchUrl}?fresh=1` : fetchUrl, { credentials: "include" });
     if (res.status === 401) {
@@ -223,6 +253,8 @@ export function resetNotificationBadgeCountStoreForTests(): void {
   listeners.clear();
   subscriberCount = 0;
   unauthorizedPaused = false;
+  inflight = null;
+  inflightForce = false;
   if (pollInterval) {
     clearInterval(pollInterval);
     pollInterval = null;

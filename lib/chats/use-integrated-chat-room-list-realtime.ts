@@ -10,7 +10,7 @@ const INTEGRATED_CHAT_LIST_IN_FILTER_MAX = 90;
 /** 목록 GET 합류 — Realtime 버스트 시 폭주 완화 */
 const LIST_STALE_DEBOUNCE_MS = 380;
 
-function useStableCallback(callback: () => void) {
+function useStableCallback<T extends (...args: never[]) => void>(callback: T) {
   const ref = useRef(callback);
   useEffect(() => {
     ref.current = callback;
@@ -30,8 +30,15 @@ export function useIntegratedChatRoomListRealtime(args: {
   integratedRoomIds: string[];
   enabled: boolean;
   onListStale: () => void;
+  /**
+   * Boot/IO Authority contract ④: Realtime health signal so the list poll can stand down
+   * while Realtime is healthy and resume only as a fallback (drop / error / recovery).
+   * healthy = every subscribed channel is currently SUBSCRIBED.
+   */
+  onHealthChange?: (healthy: boolean) => void;
 }): void {
   const onStaleRef = useStableCallback(args.onListStale);
+  const onHealthRef = useStableCallback(args.onHealthChange ?? (() => {}));
   const fp = [...new Set(args.integratedRoomIds.map((x) => String(x).trim()).filter(Boolean))].sort().join("\0");
 
   useEffect(() => {
@@ -44,6 +51,24 @@ export function useIntegratedChatRoomListRealtime(args: {
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     /** `waitFor` 이후 비동기로 채워짐 — cleanup 이 빈 배열로 끝나는 레이스 방지 */
     const mountedChannels: RealtimeChannel[] = [];
+
+    // Health tracking: expected channel count vs currently-SUBSCRIBED set.
+    let expectedChannelCount = 0;
+    const subscribedChannels = new Set<string>();
+    let lastHealthy = false;
+    const recomputeHealth = () => {
+      const healthy =
+        expectedChannelCount > 0 && subscribedChannels.size >= expectedChannelCount;
+      if (healthy === lastHealthy) return;
+      lastHealthy = healthy;
+      if (!cancelled) onHealthRef.current(healthy);
+    };
+    const trackStatus = (name: string, status: string) => {
+      if (cancelled) return;
+      if (status === "SUBSCRIBED") subscribedChannels.add(name);
+      else subscribedChannels.delete(name);
+      recomputeHealth();
+    };
 
     const scheduleStale = () => {
       if (debounceTimer != null) return;
@@ -61,8 +86,10 @@ export function useIntegratedChatRoomListRealtime(args: {
        * seller 측 목록이 다음 폴링 전까지 갱신되지 않을 수 있었다.
        * 참가자 행(내 user_id) INSERT/UPDATE를 함께 구독해 신규 방 유입도 즉시 stale 처리한다.
        */
+      const participantsName = `integrated-chat-list:participants:${userId}`;
+      expectedChannelCount += 1;
       const chParticipants = sb
-        .channel(`integrated-chat-list:participants:${userId}`)
+        .channel(participantsName)
         .on(
           "postgres_changes",
           {
@@ -75,7 +102,7 @@ export function useIntegratedChatRoomListRealtime(args: {
             if (!cancelled) scheduleStale();
           }
         )
-        .subscribe();
+        .subscribe((status) => trackStatus(participantsName, status));
       mountedChannels.push(chParticipants);
 
       const roomIds = fp.split("\0").filter(Boolean);
@@ -83,8 +110,10 @@ export function useIntegratedChatRoomListRealtime(args: {
         if (cancelled) break;
         const chunk = roomIds.slice(offset, offset + INTEGRATED_CHAT_LIST_IN_FILTER_MAX);
         const filter = `room_id=in.(${chunk.join(",")})`;
+        const msgName = `integrated-chat-list:msgs:${userId}:${offset}`;
+        expectedChannelCount += 1;
         const chMsg = sb
-          .channel(`integrated-chat-list:msgs:${userId}:${offset}`)
+          .channel(msgName)
           .on(
             "postgres_changes",
             { event: "*", schema: "public", table: "chat_messages", filter },
@@ -92,12 +121,14 @@ export function useIntegratedChatRoomListRealtime(args: {
               if (!cancelled) scheduleStale();
             }
           )
-          .subscribe();
+          .subscribe((status) => trackStatus(msgName, status));
         mountedChannels.push(chMsg);
 
         const roomFilter = `id=in.(${chunk.join(",")})`;
+        const roomName = `integrated-chat-list:rooms:${userId}:${offset}`;
+        expectedChannelCount += 1;
         const chRoom = sb
-          .channel(`integrated-chat-list:rooms:${userId}:${offset}`)
+          .channel(roomName)
           .on(
             "postgres_changes",
             { event: "UPDATE", schema: "public", table: "chat_rooms", filter: roomFilter },
@@ -105,7 +136,7 @@ export function useIntegratedChatRoomListRealtime(args: {
               if (!cancelled) scheduleStale();
             }
           )
-          .subscribe();
+          .subscribe((status) => trackStatus(roomName, status));
         mountedChannels.push(chRoom);
       }
       if (cancelled) {
@@ -122,10 +153,15 @@ export function useIntegratedChatRoomListRealtime(args: {
         clearTimeout(debounceTimer);
         debounceTimer = null;
       }
+      // Unmount → not healthy (poll may resume for the next mount).
+      if (lastHealthy) {
+        lastHealthy = false;
+        onHealthRef.current(false);
+      }
       for (const ch of mountedChannels) {
         void sb.removeChannel(ch);
       }
       mountedChannels.length = 0;
     };
-  }, [args.enabled, args.userId, fp, onStaleRef]);
+  }, [args.enabled, args.userId, fp, onStaleRef, onHealthRef]);
 }

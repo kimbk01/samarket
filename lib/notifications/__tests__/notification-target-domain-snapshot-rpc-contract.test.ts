@@ -11,6 +11,12 @@ const MIGRATION = resolve(
   "supabase/migrations/20261008120000_notification_targets_domain_snapshot.sql"
 );
 
+/** Append-only idempotency migration (Boot/IO Authority) — supersedes the void RPC body. */
+const IDEMPOTENT_MIGRATION = resolve(
+  process.cwd(),
+  "supabase/migrations/20261009120000_notification_targets_idempotent_bump.sql"
+);
+
 describe("upsert_notification_target_unread Domain snapshot RPC contract", () => {
   it("migration drops 6-arg overload and creates 7-arg with p_room_id", () => {
     const sql = readFileSync(MIGRATION, "utf8");
@@ -30,6 +36,34 @@ describe("upsert_notification_target_unread Domain snapshot RPC contract", () =>
     const sql = readFileSync(MIGRATION, "utf8");
     expect(sql).toContain("ADD COLUMN IF NOT EXISTS chat_domain text NULL");
     expect(sql).toContain("ADD COLUMN IF NOT EXISTS domain_identity_key text NULL");
+  });
+});
+
+describe("upsert_notification_target_unread idempotency (append-only)", () => {
+  it("recreates the 7-arg function as RETURNS boolean", () => {
+    const sql = readFileSync(IDEMPOTENT_MIGRATION, "utf8");
+    expect(sql).toContain(
+      "DROP FUNCTION IF EXISTS public.upsert_notification_target_unread(uuid, text, text, text, uuid, jsonb, uuid)"
+    );
+    expect(sql).toMatch(/RETURNS boolean/);
+  });
+
+  it("skips the physical UPDATE when the row is already unread and nothing changes", () => {
+    const sql = readFileSync(IDEMPOTENT_MIGRATION, "utf8");
+    // guard reads existing unread/scope/store and returns false before UPDATE
+    expect(sql).toContain("v_existing_unread");
+    expect(sql).toMatch(/v_existing_unread IS TRUE/);
+    expect(sql).toMatch(/RETURN false;/);
+    // domain fill + mismatch log preserved (LOCK: meaning unchanged)
+    expect(sql).toContain("notification_target_domain_mismatch");
+    expect(sql).toMatch(/chat_domain IS NULL\s+AND domain_identity_key IS NULL/);
+    expect(sql).not.toMatch(/DEFAULT\s+'general_direct'/i);
+  });
+
+  it("does not edit the frozen 20261008120000 migration body", () => {
+    const frozen = readFileSync(MIGRATION, "utf8");
+    // frozen file still declares the original void signature
+    expect(frozen).toMatch(/RETURNS void/);
   });
 });
 

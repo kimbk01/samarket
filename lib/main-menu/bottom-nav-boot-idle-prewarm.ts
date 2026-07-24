@@ -2,7 +2,6 @@
 
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { BOTTOM_NAV_ITEMS, type BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
-import { prewarmBottomNavTapHrefResolvingStoresRegion } from "@/lib/main-menu/bottom-nav-prewarm-href";
 import { resolveBottomNavTabProgrammaticPrefetchHref } from "@/lib/main-menu/main-bottom-nav-prefetch-pick";
 import { isMainBottomNavDisplayTabActive } from "@/lib/main-menu/main-bottom-nav-tab-active";
 import { resolveMainBottomNavPickTabActiveOptions } from "@/lib/main-menu/main-bottom-nav-pick-context";
@@ -91,22 +90,21 @@ export function collectBottomNavBootPrewarmHrefs(
   return out;
 }
 
+/**
+ * Boot/IO Authority contract ⑥: APK boot prewarm은 **코드·최소 셸(RSC)** 까지만 허용한다.
+ * 비활성 탭 도메인의 **클라이언트 데이터 API fan-out**(stores feed·trade posts·philife·messenger
+ * bootstrap·mypage)은 부팅 중 실행하지 않는다 — 첫 화면 IO/네트워크 폭주 방지.
+ * (탭 tap `pointer_intent`·`route_commit` prewarm 은 그대로 유지되어 실제 진입 시에만 데이터 웜한다.)
+ */
 async function runStaggeredBootPrewarm(args: {
   hrefs: string[];
-  primaryRegion: UserRegion | null;
   prefetchRoute?: (href: string) => void;
 }): Promise<void> {
+  if (!args.prefetchRoute) return;
   for (let i = 0; i < args.hrefs.length; i += 1) {
     const href = args.hrefs[i]!;
-    if (args.prefetchRoute) {
-      try {
-        args.prefetchRoute(href);
-      } catch {
-        /* ignore */
-      }
-    }
     try {
-      prewarmBottomNavTapHrefResolvingStoresRegion(href, args.primaryRegion);
+      args.prefetchRoute(href);
     } catch {
       /* ignore */
     }
@@ -146,11 +144,12 @@ export function scheduleBottomNavBootIdlePrewarm(args: ScheduleBottomNavBootIdle
 
     const hrefs = collectBottomNavBootPrewarmHrefs(args.pathname, args.tabs, args.ctx);
     if (hrefs.length === 0) return;
+    // Code/shell only: nothing to warm without a route prefetcher (no client data fan-out).
+    if (!args.prefetchRoute) return;
 
     if (bootPrewarmInflight) return;
     bootPrewarmInflight = runStaggeredBootPrewarm({
       hrefs,
-      primaryRegion: args.primaryRegion,
       prefetchRoute: args.prefetchRoute,
     }).finally(() => {
       bootPrewarmInflight = null;
