@@ -1,16 +1,14 @@
 /**
- * Live unread single authority — room fact → list + Bottom Chat (GD+group room count).
- * participant_rt: trust participant unread_count (empty lastMessageAt must NOT suppress).
- * Bottom: full seed → absolute recount; else eligible room → contribution vs hub (no wipe).
- * DO NOT: revive messenger-realtime-store totalUnread · Bell/App · Native Call.
+ * Live unread room fact — list surfaces + Projection Authority CM room-fact input.
+ *
+ * P0-2 LOCK:
+ * - DO NOT call applyHubBadgeCmUnreadRoomCountAbsolute / Hub snapshot ±1.
+ * - Hub/Bottom CM totals come only from Projection Authority (room fact → Builder).
+ * - Trade/store_order room facts may still update list caches; Authority rejects them.
  */
 
 import type { ChatDomain } from "@/lib/chat-domain/four-domain-freeze";
 import { getDomainListProjection } from "@/lib/chat-domain/list/domain-list-writers";
-import {
-  applyHubBadgeCmUnreadRoomCountAbsolute,
-  getOwnerHubBadgeSnapshot,
-} from "@/lib/chats/owner-hub-badge-store";
 import { peekBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import { findHomeListRoomRow } from "@/lib/community-messenger/home-list-patch";
 import {
@@ -24,6 +22,11 @@ import {
 } from "@/lib/community-messenger/read/local-read-guard";
 import { peekRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
+import { isCommunityMessengerGroupRoomType } from "@/lib/community-messenger/types";
+import {
+  commitCmRoomUnreadFactEvent,
+  type CmRoomUnreadFactSource,
+} from "@/lib/notifications/projection-authority";
 
 export type MessengerRoomUnreadFact = {
   roomId: string;
@@ -79,10 +82,6 @@ export function applyMessengerRoomUnreadFact(input: {
       allowedNewMessage: unreadIn > 0,
     };
   } else if (!lastMessageAt) {
-    /**
-     * No comparable timestamp — cannot prove stale; admit count.
-     * (Guard only applies when both watermark and incoming LMA exist.)
-     */
     guarded = {
       unreadCount: unreadIn,
       suppressed: false,
@@ -137,23 +136,46 @@ function rowEligibleForBottom(row: RecountRow, viewerUserId: string): boolean {
   return eligible === true;
 }
 
-/** Bootstrap or Domain list present — safe for absolute recount (won't wipe unknown rooms). */
-function hasFullBottomRecountSeed(): boolean {
-  const boot = peekBootstrapCache();
-  if (boot) {
-    const rooms = [...(boot.chats ?? []), ...(boot.groups ?? [])];
-    if (rooms.some((r) => roomSummaryCountsForBottomChat(r))) return true;
+/**
+ * Resolve chat domain for Authority input. Returns trade/store_order so Authority can reject.
+ */
+export function resolveMessengerRoomChatDomain(
+  roomId: string,
+  viewerUserId: string
+): ChatDomain | null {
+  const rid = normalizeLocalReadGuardRoomId(roomId);
+  const viewer = String(viewerUserId ?? "").trim();
+  if (!rid) return null;
+
+  const snap = viewer ? peekRoomSnapshot(rid, viewer)?.room : null;
+  if (snap?.chatDomain === "general_direct" || snap?.chatDomain === "group") return snap.chatDomain;
+  if (snap?.chatDomain === "trade" || snap?.chatDomain === "store_order") return snap.chatDomain;
+
+  const home = findHomeListRoomRow(peekBootstrapCache(), rid);
+  if (home?.chatDomain === "general_direct" || home?.chatDomain === "group") return home.chatDomain;
+  if (home?.chatDomain === "trade" || home?.chatDomain === "store_order") return home.chatDomain;
+  if (home && roomSummaryCountsForBottomChat(home)) {
+    return isCommunityMessengerGroupRoomType(home.roomType) ? "group" : "general_direct";
   }
-  for (const d of ["general_direct", "group"] as const) {
+
+  for (const d of ["general_direct", "group", "trade", "store_order"] as const) {
     const proj = getDomainListProjection(d);
-    if (proj && proj.items.length > 0) return true;
+    const hit = proj?.items.some(
+      (i) => normalizeLocalReadGuardRoomId(i.roomId) === rid
+    );
+    if (hit) return d;
   }
-  return false;
+
+  if (snap && roomSummaryCountsForBottomChat(snap)) {
+    return isCommunityMessengerGroupRoomType(snap.roomType) ? "group" : "general_direct";
+  }
+  return null;
 }
 
 /**
  * Merge bootstrap + domain projections + room snapshots + live facts, then count
  * GD+group rooms with unread>0. Domain-unknown rooms are excluded from Bottom.
+ * Diagnostic / tests only — Hub surfaces must not use this as a writer.
  */
 export function recountBottomChatUnreadRoomCount(viewerUserId: string): number {
   const viewer = String(viewerUserId ?? "").trim();
@@ -218,7 +240,7 @@ export function recountBottomChatUnreadRoomCount(viewerUserId: string): number {
       for (const d of ["general_direct", "group", "trade", "store_order"] as const) {
         const proj = getDomainListProjection(d);
         const hit = proj?.items.some(
-          (i) => normalizeLocalReadGuardRoomId(i.roomId) === rid,
+          (i) => normalizeLocalReadGuardRoomId(i.roomId) === rid
         );
         if (hit) {
           projectionDomain = d;
@@ -244,51 +266,37 @@ export function recountBottomChatUnreadRoomCount(viewerUserId: string): number {
   return count;
 }
 
-function syncBottomHubAfterFact(opts: {
-  roomId: string;
-  viewerUserId: string;
-  prevUnread: number;
-  nextUnread: number;
-}): { bottomRoomCount: number; hubSynced: boolean } {
-  const viewer = String(opts.viewerUserId ?? "").trim();
-  const bottomRoomCount = recountBottomChatUnreadRoomCount(viewer);
-
-  if (hasFullBottomRecountSeed()) {
-    applyHubBadgeCmUnreadRoomCountAbsolute(bottomRoomCount);
-    return { bottomRoomCount, hubSynced: true };
-  }
-
-  const eligible = resolveBottomChatRoomEligible(opts.roomId, viewer);
-  if (eligible !== true) {
-    return { bottomRoomCount, hubSynced: false };
-  }
-
-  const prevCounted = Math.max(0, Math.floor(Number(opts.prevUnread) || 0)) > 0;
-  const nextCounted = Math.max(0, Math.floor(Number(opts.nextUnread) || 0)) > 0;
-  if (prevCounted === nextCounted) {
-    return { bottomRoomCount, hubSynced: false };
-  }
-
-  const current = Math.max(
-    0,
-    Math.floor(Number(getOwnerHubBadgeSnapshot().communityMessengerUnread) || 0),
-  );
-  const nextCm = Math.max(0, current + (nextCounted ? 1 : 0) - (prevCounted ? 1 : 0));
-  applyHubBadgeCmUnreadRoomCountAbsolute(nextCm);
-  return { bottomRoomCount: nextCm, hubSynced: true };
+function mapFactSource(
+  source: MessengerRoomUnreadFactSource | undefined,
+  authoritySource?: CmRoomUnreadFactSource
+): CmRoomUnreadFactSource {
+  if (authoritySource) return authoritySource;
+  if (source === "participant_rt") return "participant_realtime";
+  return "message_insert";
 }
 
-/** Apply fact, then sync Bottom Chat hub (absolute when seeded, else eligible contribution). */
+/**
+ * Apply local room fact, then feed Projection Authority (no Hub direct write).
+ */
 export function applyMessengerRoomUnreadFactAndSyncBottom(input: {
   roomId: string;
   viewerUserId: string;
   unreadCount: number;
-  /** RT payload.old unread — contribution when full seed absent. */
+  /** RT payload.old unread — contribution baseline when Authority room is UNKNOWN. */
   prevUnreadHint?: number;
   lastMessageAt?: string | null;
   versionMs?: number;
   source?: MessengerRoomUnreadFactSource;
-}): { unreadCount: number; suppressed: boolean; bottomRoomCount: number; hubSynced: boolean } {
+  /** Optional Authority event identity (defaults to room+version+unread). */
+  eventIdentity?: string;
+  authoritySource?: CmRoomUnreadFactSource;
+}): {
+  unreadCount: number;
+  suppressed: boolean;
+  bottomRoomCount: number;
+  hubSynced: boolean;
+  authorityApplied: boolean;
+} {
   const rid = normalizeLocalReadGuardRoomId(input.roomId);
   const prevUnread =
     typeof input.prevUnreadHint === "number" && Number.isFinite(input.prevUnreadHint)
@@ -297,17 +305,50 @@ export function applyMessengerRoomUnreadFactAndSyncBottom(input: {
         ? (facts.get(rid)?.unreadCount ?? 0)
         : 0;
   const guarded = applyMessengerRoomUnreadFact(input);
-  const sync = syncBottomHubAfterFact({
+  const bottomRoomCount = recountBottomChatUnreadRoomCount(input.viewerUserId);
+
+  const domain = resolveMessengerRoomChatDomain(input.roomId, input.viewerUserId);
+  if (!domain) {
+    return {
+      unreadCount: guarded.unreadCount,
+      suppressed: guarded.suppressed,
+      bottomRoomCount,
+      hubSynced: false,
+      authorityApplied: false,
+    };
+  }
+
+  const eventVersion =
+    typeof input.versionMs === "number" && Number.isFinite(input.versionMs) && input.versionMs > 0
+      ? Math.floor(input.versionMs)
+      : Date.now();
+  const eventIdentity =
+    String(input.eventIdentity ?? "").trim() ||
+    `cm-room-fact:${rid}:${eventVersion}:${guarded.unreadCount}:${mapFactSource(
+      input.source,
+      input.authoritySource
+    )}`;
+
+  const authorityApplied = commitCmRoomUnreadFactEvent({
     roomId: input.roomId,
-    viewerUserId: input.viewerUserId,
-    prevUnread,
-    nextUnread: guarded.unreadCount,
+    domain,
+    unread: {
+      kind: "absolute",
+      unreadCount: guarded.unreadCount,
+      previousUnreadCount: prevUnread,
+    },
+    source: mapFactSource(input.source, input.authoritySource),
+    eventIdentity,
+    eventVersion,
+    occurredAt: Date.now(),
   });
+
   return {
     unreadCount: guarded.unreadCount,
     suppressed: guarded.suppressed,
-    bottomRoomCount: sync.bottomRoomCount,
-    hubSynced: sync.hubSynced,
+    bottomRoomCount,
+    hubSynced: authorityApplied,
+    authorityApplied,
   };
 }
 

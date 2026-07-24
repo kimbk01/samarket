@@ -12,11 +12,12 @@ import {
 } from "@/lib/community-messenger/bootstrap-cache";
 import { clearBootstrapCacheBusWriterStateForTests, noteBootstrapCacheBusWriterViewerUserId } from "@/lib/community-messenger/home/bootstrap-cache-bus-writer";
 import { __resetMessengerRoomUnreadAuthorityForTest } from "@/lib/community-messenger/unread/messenger-room-unread-authority";
+import { getOwnerHubBadgeSnapshot } from "@/lib/chats/owner-hub-badge-store";
+import { EMPTY_BELL_BADGE_FACTS } from "@/lib/notifications/build-notification-badge-projection";
 import {
-  __testApplyOwnerHubBadgePayloadForTest,
-  getOwnerHubBadgeSnapshot,
-} from "@/lib/chats/owner-hub-badge-store";
-import { OWNER_HUB_BADGE_EMPTY } from "@/lib/chats/owner-hub-badge-types";
+  commitCompleteProjectionSnapshot,
+  resetProjectionAuthorityForTests,
+} from "@/lib/notifications/projection-authority";
 import type { CommunityMessengerBootstrap, CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 
 vi.mock("@/lib/community-messenger/notifications/messenger-in-app-banner-store", () => {
@@ -88,14 +89,36 @@ function bootstrap(chats: CommunityMessengerRoomSummary[]): CommunityMessengerBo
 
 describe("cm-participant-surface-sync", () => {
   beforeEach(() => {
+    vi.stubGlobal("window", { dispatchEvent: vi.fn() });
     clearBootstrapCache();
     clearBootstrapCacheBusWriterStateForTests();
     __resetMessengerRoomUnreadAuthorityForTest();
+    resetProjectionAuthorityForTests();
     clearCmParticipantSurfaceSoundHandledForTests();
     noteBootstrapCacheBusWriterViewerUserId("user-a");
-    __testApplyOwnerHubBadgePayloadForTest(
-      { ok: true, ...OWNER_HUB_BADGE_EMPTY, communityMessengerUnread: 1, total: 1 },
-      "client_cache"
+    commitCompleteProjectionSnapshot(
+      {
+        domainUnreadRooms: {
+          general_direct: 1,
+          group: 0,
+          trade: 0,
+          store_order: 0,
+        },
+        storeOrderBuyerDeliveryUnread: 0,
+        storeOrderOwnerChatUnread: 0,
+        orphanMissedCall: 0,
+        nonChatEventAttention: {
+          tradeStatus: 0,
+          orderStatus: 0,
+          deliveryStatus: 0,
+          communityActivity: 0,
+          adminNotice: 0,
+        },
+        unreadApprovedNotificationEvents: 0,
+        bell: { ...EMPTY_BELL_BADGE_FACTS, total: 0 },
+        rowUnreadByRoomId: { "room-a": 2 },
+      },
+      { projectionVersionMs: 1_000 }
     );
   });
 

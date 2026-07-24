@@ -145,17 +145,20 @@ export function useCmParticipantsHubSync(
               realtime_payload_message_id: "",
               receiver_store_apply_start_ms: cmReceiveLatencyNow(),
             });
-            /** Single authority: participant_rt fact (empty LMA must not suppress) → list + Bottom. */
+            /** P0-2: room fact → Projection Authority (no Hub absolute writer). */
             const homeLma = findHomeListRoomRow(peekBootstrapCache(), nextRoomId)?.lastMessageAt;
             const snapLma = peekRoomSnapshot(nextRoomId, userId)?.room?.lastMessageAt;
+            const eventVersion = Date.now();
             const applied = applyMessengerRoomUnreadFactAndSyncBottom({
               roomId: nextRoomId,
               viewerUserId: userId,
               unreadCount: nextUnread,
               prevUnreadHint: prevUnread,
               lastMessageAt: homeLma ?? snapLma ?? null,
-              versionMs: Date.now(),
+              versionMs: eventVersion,
               source: "participant_rt",
+              authoritySource: "participant_realtime",
+              eventIdentity: `participant_rt:${nextRoomId}:${prevUnread}->${nextUnread}:${eventVersion}`,
             });
             const bottom_ms =
               typeof performance !== "undefined" ? Math.round(performance.now() - t0) : 0;

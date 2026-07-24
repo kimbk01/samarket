@@ -117,14 +117,17 @@ export function applyOptimisticUnreadZeroSurfaces(args: {
   const t0 = typeof performance !== "undefined" ? performance.now() : Date.now();
   const rid = args.roomId.trim();
   const vid = args.viewerUserId.trim();
+  const eventVersion = Date.now();
   const applied = applyMessengerRoomUnreadFactAndSyncBottom({
     roomId: rid,
     viewerUserId: vid,
     unreadCount: 0,
     prevUnreadHint: args.prevUnreadHint,
     lastMessageAt: null,
-    versionMs: Date.now(),
+    versionMs: eventVersion,
     source: "participant_rt",
+    authoritySource: "optimistic_read",
+    eventIdentity: `optimistic_read:${rid}:0:${eventVersion}`,
   });
   const bottom_ms =
     typeof performance !== "undefined" ? Math.round(performance.now() - t0) : 0;

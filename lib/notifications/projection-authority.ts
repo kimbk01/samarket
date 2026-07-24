@@ -1,19 +1,18 @@
 /**
- * P0 Projection Authority — the ONLY component allowed to commit a Badge Projection.
+ * P0/P0-2 Projection Authority — the ONLY component allowed to commit a Badge Projection.
  *
- * CONTRACT (Authority, not "writer removal"):
+ * CONTRACT:
  * - Surfaces are written exclusively through `applyNotificationBadgeProjection`
- *   called from this module. No other module may call it.
- * - State machine: EMPTY → WAITING_COMPLETE → COMPLETE → (RT delta) → COMPLETE.
- *   Realtime may NEVER produce a Projection in EMPTY / WAITING_COMPLETE.
- * - Every commit carries metadata (id / generation / source / completedAt / factsVersion).
- * - `factsVersion` orders server snapshots; an older server snapshot never overwrites
- *   a newer one, even after Realtime deltas bumped the generation.
+ *   called from this module.
+ * - State machine: EMPTY → WAITING_COMPLETE → COMPLETE → (RT/room fact) → COMPLETE.
+ * - CM Hub unread (General+Group) comes from room facts → Builder → Projection only.
+ * - DO NOT accept aggregate surface totals (communityMessengerUnread / hubTotal / appIconTotal).
+ * - eventIdentity AND room.lastAppliedVersion are both required to stop races.
  *
  * DO NOT:
  * - Treat DomainRoomState-only Facts as complete.
- * - Zero Bell / orphan / buyer / owner when merging room deltas.
- * - Add a second surface apply path alongside this Authority.
+ * - Zero Bell / orphan / buyer / owner when merging room facts.
+ * - Add a second Hub CM surface apply path alongside this Authority.
  */
 "use client";
 
@@ -35,16 +34,35 @@ export type ProjectionAuthorityRoomRow = Readonly<{
 export type ProjectionAuthoritySource =
   | "badge_count_http"
   | "room_unread_delta"
+  | "cm_room_fact"
   | "test";
 
-/** Projection lifecycle — RT is only legal in COMPLETE. */
+/** Projection lifecycle — RT / CM room facts are only legal in COMPLETE. */
 export type ProjectionAuthorityState = "EMPTY" | "WAITING_COMPLETE" | "COMPLETE";
+
+/** Per-room fact lifecycle for CM (General/Group) Authority input. */
+export type RoomFactState = "UNKNOWN" | "KNOWN" | "READ";
+
+export type CmRoomFactDomain = "general_direct" | "group";
+
+export type CmRoomUnreadFactSource =
+  | "participant_realtime"
+  | "message_insert"
+  | "optimistic_read"
+  | "read_ack"
+  | "multi_tab"
+  | "reconnect"
+  | "test";
 
 export type ProjectionRejectReason =
   | "incomplete"
   | "stale"
   | "no_complete_snapshot"
-  | "empty_domain_set";
+  | "empty_domain_set"
+  | "room_fact_baseline_missing"
+  | "room_version_stale"
+  | "domain_rejected"
+  | "duplicate_event";
 
 /** Commit metadata — required for later race forensics. */
 export type ProjectionMetadata = Readonly<{
@@ -56,31 +74,80 @@ export type ProjectionMetadata = Readonly<{
   projectionFactsVersion: number;
 }>;
 
+/** Same-generation lineage: Room Fact → Builder → Projection → Hub → Bottom. */
+export type ProjectionGenerationLineage = Readonly<{
+  generation: number;
+  roomFactCount: number;
+  builderBottomChat: number;
+  projectionBottomChat: number;
+  hubCm: number;
+  bottomChat: number;
+  sameGeneration: true;
+  source: ProjectionAuthoritySource;
+  projectionId: string;
+}>;
+
+export type ProjectionAuthorityRoomFactDebug = Readonly<{
+  roomId: string;
+  domain: CmRoomFactDomain | null;
+  unread: number;
+  version: number;
+  state: RoomFactState;
+  lastSource: CmRoomUnreadFactSource | null;
+  lastEventIdentity: string | null;
+}>;
+
 export type ProjectionAuthorityCounters = Readonly<{
   complete_snapshot_commit_ok: number;
   room_delta_commit_ok: number;
+  room_fact_commit_ok: number;
   projection_commit_ok: number;
   incomplete_commit_rejected: number;
   stale_generation_rejected: number;
   room_delta_noop: number;
+  room_fact_baseline_missing: number;
+  room_version_stale: number;
+  domain_rejected: number;
+  duplicate_event: number;
 }>;
 
 type MutableCounters = {
   -readonly [K in keyof ProjectionAuthorityCounters]: number;
 };
 
+type RoomFactRow = {
+  roomId: string;
+  domain: CmRoomFactDomain | null;
+  unreadCount: number;
+  lastAppliedVersion: number;
+  state: RoomFactState;
+  lastSource: CmRoomUnreadFactSource | null;
+  lastEventIdentity: string | null;
+};
+
 const counters: MutableCounters = {
   complete_snapshot_commit_ok: 0,
   room_delta_commit_ok: 0,
+  room_fact_commit_ok: 0,
   projection_commit_ok: 0,
   incomplete_commit_rejected: 0,
   stale_generation_rejected: 0,
   room_delta_noop: 0,
+  room_fact_baseline_missing: 0,
+  room_version_stale: 0,
+  domain_rejected: 0,
+  duplicate_event: 0,
 };
+
+const CM_DOMAINS = new Set<CmRoomFactDomain>(["general_direct", "group"]);
+const processedEventIdentities = new Set<string>();
+const MAX_EVENT_IDENTITY_CACHE = 2_000;
+const roomFacts = new Map<string, RoomFactRow>();
 
 let state: ProjectionAuthorityState = "EMPTY";
 let lastCompleteInput: NotificationBadgeProjectionInput | null = null;
 let lastMetadata: ProjectionMetadata | null = null;
+let lastLineage: ProjectionGenerationLineage | null = null;
 /** Monotonic internal generation — +1 per committed projection. */
 let generation = 0;
 /** Server snapshot ordering — only complete snapshots advance this. */
@@ -92,8 +159,19 @@ function nonNeg(n: unknown): number {
   return Math.max(0, Math.floor(Number(n) || 0));
 }
 
+function normalizeRoomId(roomId: string): string {
+  return String(roomId ?? "").trim().toLowerCase();
+}
+
 function nextProjectionId(gen: number): string {
   return `proj-${gen}-${Date.now().toString(36)}`;
+}
+
+function rememberEventIdentity(id: string): void {
+  processedEventIdentities.add(id);
+  if (processedEventIdentities.size <= MAX_EVENT_IDENTITY_CACHE) return;
+  const first = processedEventIdentities.values().next().value;
+  if (typeof first === "string") processedEventIdentities.delete(first);
 }
 
 /**
@@ -132,6 +210,10 @@ export function getProjectionMetadata(): ProjectionMetadata | null {
   return lastMetadata;
 }
 
+export function getProjectionGenerationLineage(): ProjectionGenerationLineage | null {
+  return lastLineage;
+}
+
 export function getProjectionAuthorityCounters(): ProjectionAuthorityCounters {
   return { ...counters };
 }
@@ -142,6 +224,20 @@ export function getLastCompleteProjectionInput(): NotificationBadgeProjectionInp
 
 export function getLastCommittedProjectionGenerationMs(): number {
   return surfaceVersionMs;
+}
+
+export function listProjectionAuthorityRoomFacts(): ProjectionAuthorityRoomFactDebug[] {
+  return [...roomFacts.values()]
+    .map((row) => ({
+      roomId: row.roomId,
+      domain: row.domain,
+      unread: row.unreadCount,
+      version: row.lastAppliedVersion,
+      state: row.state,
+      lastSource: row.lastSource,
+      lastEventIdentity: row.lastEventIdentity,
+    }))
+    .sort((a, b) => a.roomId.localeCompare(b.roomId));
 }
 
 /**
@@ -160,19 +256,32 @@ export function resetProjectionAuthorityForTests(): void {
   state = "EMPTY";
   lastCompleteInput = null;
   lastMetadata = null;
+  lastLineage = null;
   generation = 0;
   factsVersion = 0;
   surfaceVersionMs = 0;
+  roomFacts.clear();
+  processedEventIdentities.clear();
   counters.complete_snapshot_commit_ok = 0;
   counters.room_delta_commit_ok = 0;
+  counters.room_fact_commit_ok = 0;
   counters.projection_commit_ok = 0;
   counters.incomplete_commit_rejected = 0;
   counters.stale_generation_rejected = 0;
   counters.room_delta_noop = 0;
+  counters.room_fact_baseline_missing = 0;
+  counters.room_version_stale = 0;
+  counters.domain_rejected = 0;
+  counters.duplicate_event = 0;
 }
 
 function reject(reason: ProjectionRejectReason, extra?: Record<string, unknown>): false {
   if (reason === "stale") counters.stale_generation_rejected += 1;
+  else if (reason === "room_fact_baseline_missing") counters.room_fact_baseline_missing += 1;
+  else if (reason === "room_version_stale") counters.room_version_stale += 1;
+  else if (reason === "domain_rejected") counters.domain_rejected += 1;
+  else if (reason === "duplicate_event") counters.duplicate_event += 1;
+  else if (reason === "empty_domain_set") counters.room_delta_noop += 1;
   else counters.incomplete_commit_rejected += 1;
   logNotifyBadge("projection_reject", {
     reason,
@@ -182,6 +291,25 @@ function reject(reason: ProjectionRejectReason, extra?: Record<string, unknown>)
     ...extra,
   });
   return false;
+}
+
+function seedRoomFactsFromCompleteInput(input: NotificationBadgeProjectionInput): void {
+  const rows = input.rowUnreadByRoomId ?? {};
+  for (const [rawId, unreadRaw] of Object.entries(rows)) {
+    const roomId = normalizeRoomId(rawId);
+    if (!roomId) continue;
+    const unreadCount = nonNeg(unreadRaw);
+    const prev = roomFacts.get(roomId);
+    roomFacts.set(roomId, {
+      roomId,
+      domain: prev?.domain ?? null,
+      unreadCount,
+      lastAppliedVersion: Math.max(prev?.lastAppliedVersion ?? 0, factsVersion),
+      state: unreadCount > 0 ? "KNOWN" : "READ",
+      lastSource: prev?.lastSource ?? null,
+      lastEventIdentity: prev?.lastEventIdentity ?? null,
+    });
+  }
 }
 
 function commitApply(
@@ -207,8 +335,20 @@ function commitApply(
     projectionCompletedAt: Date.now(),
     projectionFactsVersion: factsVersion,
   };
+  const bottom = Math.max(0, projection.bottomChat);
+  lastLineage = {
+    generation,
+    roomFactCount: [...roomFacts.values()].filter((r) => r.unreadCount > 0 && r.domain != null).length,
+    builderBottomChat: bottom,
+    projectionBottomChat: bottom,
+    hubCm: bottom,
+    bottomChat: bottom,
+    sameGeneration: true,
+    source,
+    projectionId: lastMetadata.projectionId,
+  };
   counters.projection_commit_ok += 1;
-  logNotifyBadge(source === "room_unread_delta" ? "projection_delta" : "projection_commit", {
+  logNotifyBadge(source === "badge_count_http" ? "projection_commit" : "projection_delta", {
     generation,
     source,
     factsVersion,
@@ -216,6 +356,7 @@ function commitApply(
     projectionId: lastMetadata.projectionId,
     projection_commit_ok: counters.projection_commit_ok,
   });
+  logNotifyBadge("projection_generation_lineage", { ...lastLineage });
   return true;
 }
 
@@ -240,8 +381,8 @@ export function commitCompleteProjectionSnapshot(
     return reject("stale", { incomingFactsVersion: nextFactsVersion });
   }
   if (state === "COMPLETE" && nextFactsVersion === factsVersion) {
-    // Same server truth replayed — refresh stored Facts, never re-apply surfaces.
     lastCompleteInput = input;
+    seedRoomFactsFromCompleteInput(input);
     logNotifyBadge("projection_commit_skipped_same_facts", {
       generation,
       factsVersion,
@@ -250,7 +391,10 @@ export function commitCompleteProjectionSnapshot(
   }
   const source = opts?.source ?? "badge_count_http";
   const ok = commitApply(input, source, nextFactsVersion, opts?.applyBell !== false);
-  if (ok) counters.complete_snapshot_commit_ok += 1;
+  if (ok) {
+    counters.complete_snapshot_commit_ok += 1;
+    seedRoomFactsFromCompleteInput(input);
+  }
   return ok;
 }
 
@@ -273,7 +417,7 @@ function mergeRowUnreadForDomains(args: {
 }
 
 /**
- * Merge RT room unread into the last complete snapshot.
+ * Merge RT DomainRoomState unread into the last complete snapshot.
  * Legal only in COMPLETE — EMPTY / WAITING_COMPLETE must never invent a Projection.
  */
 export function commitRoomUnreadDeltaFromDomainSpine(args: {
@@ -288,7 +432,6 @@ export function commitRoomUnreadDeltaFromDomainSpine(args: {
   }
   const domains = [...new Set(args.domainsToUpdate)].filter(Boolean);
   if (domains.length === 0) {
-    counters.room_delta_noop += 1;
     return reject("empty_domain_set", { at: "room_delta" });
   }
 
@@ -309,10 +452,26 @@ export function commitRoomUnreadDeltaFromDomainSpine(args: {
     domainsToUpdate: domains,
   });
 
+  for (const room of args.rooms.values()) {
+    if (!CM_DOMAINS.has(room.chatDomain as CmRoomFactDomain)) continue;
+    const roomId = normalizeRoomId(room.roomId);
+    if (!roomId) continue;
+    const unreadCount = nonNeg(room.unreadCount);
+    const prev = roomFacts.get(roomId);
+    roomFacts.set(roomId, {
+      roomId,
+      domain: room.chatDomain as CmRoomFactDomain,
+      unreadCount,
+      lastAppliedVersion: Math.max(prev?.lastAppliedVersion ?? 0, Date.now()),
+      state: unreadCount > 0 ? "KNOWN" : "READ",
+      lastSource: prev?.lastSource ?? null,
+      lastEventIdentity: prev?.lastEventIdentity ?? null,
+    });
+  }
+
   const merged: NotificationBadgeProjectionInput = {
     ...lastCompleteInput,
     domainUnreadRooms: nextRooms,
-    // Preserve Bell / orphan / buyer / owner / non-chat — never rewrite from RT spine.
     orphanMissedCall: lastCompleteInput.orphanMissedCall,
     nonChatEventAttention: lastCompleteInput.nonChatEventAttention,
     unreadApprovedNotificationEvents: lastCompleteInput.unreadApprovedNotificationEvents,
@@ -339,9 +498,165 @@ export function commitRoomUnreadDeltaFromDomainSpine(args: {
     return true;
   }
 
-  /** RT never advances server facts ordering — keeps old HTTP rejectable. */
   const ok = commitApply(merged, "room_unread_delta", factsVersion, args.applyBell !== false);
   if (ok) counters.room_delta_commit_ok += 1;
+  return ok;
+}
+
+export type CmRoomUnreadFactEvent = Readonly<{
+  roomId: string;
+  /** Only General/Group are legal. Trade/Store-order must be rejected. */
+  domain: ChatDomain;
+  unread:
+    | {
+        kind: "absolute";
+        unreadCount: number;
+        /** Required when room fact is UNKNOWN — contribution baseline. */
+        previousUnreadCount?: number;
+      }
+    | { kind: "delta"; delta: number };
+  source: CmRoomUnreadFactSource;
+  eventIdentity: string;
+  eventVersion: number;
+  occurredAt?: number;
+  applyBell?: boolean;
+}>;
+
+/**
+ * P0-2 — CM room fact → Fact Merge → Builder → Projection Commit.
+ * Accepts room facts only (never Hub/App Icon aggregates).
+ */
+export function commitCmRoomUnreadFactEvent(event: CmRoomUnreadFactEvent): boolean {
+  if (state !== "COMPLETE" || !isCompleteProjectionInput(lastCompleteInput)) {
+    markProjectionAuthorityWaitingComplete("cm_room_fact_before_complete");
+    return reject("no_complete_snapshot", { at: "cm_room_fact" });
+  }
+
+  const roomId = normalizeRoomId(event.roomId);
+  const eventIdentity = String(event.eventIdentity ?? "").trim();
+  const eventVersion = nonNeg(event.eventVersion);
+  if (!roomId || !eventIdentity || eventVersion <= 0) {
+    return reject("incomplete", { at: "cm_room_fact_identity" });
+  }
+
+  if (processedEventIdentities.has(eventIdentity)) {
+    return reject("duplicate_event", { eventIdentity, roomId });
+  }
+
+  if (event.domain !== "general_direct" && event.domain !== "group") {
+    return reject("domain_rejected", { domain: event.domain, roomId });
+  }
+  const domain = event.domain;
+
+  const prev = roomFacts.get(roomId);
+  if (prev && eventVersion < prev.lastAppliedVersion) {
+    return reject("room_version_stale", {
+      roomId,
+      eventVersion,
+      lastAppliedVersion: prev.lastAppliedVersion,
+    });
+  }
+  if (
+    prev &&
+    eventVersion === prev.lastAppliedVersion &&
+    event.unread.kind === "absolute" &&
+    nonNeg(event.unread.unreadCount) === prev.unreadCount
+  ) {
+    rememberEventIdentity(eventIdentity);
+    counters.room_delta_noop += 1;
+    logNotifyBadge("room_delta_noop", {
+      roomId,
+      eventVersion,
+      reason: "same_absolute",
+    });
+    return true;
+  }
+
+  let previousUnread: number | null = null;
+  if (prev && prev.state !== "UNKNOWN") {
+    previousUnread = prev.unreadCount;
+  } else if (event.unread.kind === "absolute" && event.unread.previousUnreadCount != null) {
+    previousUnread = nonNeg(event.unread.previousUnreadCount);
+  } else if (event.unread.kind === "delta") {
+    // Delta without a known room requires an explicit previous baseline.
+    return reject("room_fact_baseline_missing", {
+      roomId,
+      state: prev?.state ?? "UNKNOWN",
+      kind: "delta",
+    });
+  } else {
+    return reject("room_fact_baseline_missing", {
+      roomId,
+      state: prev?.state ?? "UNKNOWN",
+      kind: "absolute",
+    });
+  }
+
+  const nextUnread =
+    event.unread.kind === "absolute"
+      ? nonNeg(event.unread.unreadCount)
+      : Math.max(0, nonNeg(previousUnread) + Math.trunc(Number(event.unread.delta) || 0));
+
+  const prevCounted = nonNeg(previousUnread) > 0;
+  const nextCounted = nextUnread > 0;
+  const domainDelta = (nextCounted ? 1 : 0) - (prevCounted ? 1 : 0);
+
+  const base = lastCompleteInput.domainUnreadRooms;
+  const nextRooms = {
+    general_direct: nonNeg(base.general_direct),
+    group: nonNeg(base.group),
+    trade: nonNeg(base.trade),
+    store_order: nonNeg(base.store_order),
+  };
+  nextRooms[domain] = Math.max(0, nonNeg(nextRooms[domain]) + domainDelta);
+
+  const nextRows: Record<string, number> = {
+    ...(lastCompleteInput.rowUnreadByRoomId ?? {}),
+  };
+  if (nextUnread > 0) nextRows[roomId] = nextUnread;
+  else delete nextRows[roomId];
+
+  roomFacts.set(roomId, {
+    roomId,
+    domain,
+    unreadCount: nextUnread,
+    lastAppliedVersion: eventVersion,
+    state: nextUnread > 0 ? "KNOWN" : "READ",
+    lastSource: event.source,
+    lastEventIdentity: eventIdentity,
+  });
+  rememberEventIdentity(eventIdentity);
+
+  if (
+    domainDelta === 0 &&
+    JSON.stringify(lastCompleteInput.rowUnreadByRoomId ?? {}) === JSON.stringify(nextRows)
+  ) {
+    counters.room_delta_noop += 1;
+    logNotifyBadge("room_delta_noop", {
+      roomId,
+      eventVersion,
+      reason: "no_domain_change",
+    });
+    return true;
+  }
+
+  const merged: NotificationBadgeProjectionInput = {
+    ...lastCompleteInput,
+    domainUnreadRooms: nextRooms,
+    orphanMissedCall: lastCompleteInput.orphanMissedCall,
+    nonChatEventAttention: lastCompleteInput.nonChatEventAttention,
+    unreadApprovedNotificationEvents: lastCompleteInput.unreadApprovedNotificationEvents,
+    bell: lastCompleteInput.bell,
+    storeOrderBuyerDeliveryUnread: lastCompleteInput.storeOrderBuyerDeliveryUnread,
+    storeOrderOwnerChatUnread: lastCompleteInput.storeOrderOwnerChatUnread,
+    storeOrderOwnerUnreadByStoreId: lastCompleteInput.storeOrderOwnerUnreadByStoreId,
+    philifeChatUnread: lastCompleteInput.philifeChatUnread,
+    rowUnreadByRoomId: nextRows,
+    osNotificationRemove: lastCompleteInput.osNotificationRemove,
+  };
+
+  const ok = commitApply(merged, "cm_room_fact", factsVersion, event.applyBell !== false);
+  if (ok) counters.room_fact_commit_ok += 1;
   return ok;
 }
 
@@ -350,21 +665,25 @@ export function getProjectionAuthorityDebugState(): {
   state: ProjectionAuthorityState;
   hasComplete: boolean;
   metadata: ProjectionMetadata | null;
+  lineage: ProjectionGenerationLineage | null;
   generation: number;
   factsVersion: number;
   lastCommittedGenerationMs: number;
   lastCommitSource: ProjectionAuthoritySource | null;
   counters: ProjectionAuthorityCounters;
+  rooms: ProjectionAuthorityRoomFactDebug[];
 } {
   return {
     state,
     hasComplete: lastCompleteInput != null,
     metadata: lastMetadata,
+    lineage: lastLineage,
     generation,
     factsVersion,
     lastCommittedGenerationMs: surfaceVersionMs,
     lastCommitSource: lastMetadata?.projectionSource ?? null,
     counters: getProjectionAuthorityCounters(),
+    rooms: listProjectionAuthorityRoomFacts(),
   };
 }
 
@@ -375,6 +694,8 @@ declare global {
       getCounters: typeof getProjectionAuthorityCounters;
       getState: typeof getProjectionAuthorityState;
       getMetadata: typeof getProjectionMetadata;
+      getLineage: typeof getProjectionGenerationLineage;
+      listRooms: typeof listProjectionAuthorityRoomFacts;
     };
   }
 }
@@ -385,5 +706,7 @@ if (typeof window !== "undefined") {
     getCounters: getProjectionAuthorityCounters,
     getState: getProjectionAuthorityState,
     getMetadata: getProjectionMetadata,
+    getLineage: getProjectionGenerationLineage,
+    listRooms: listProjectionAuthorityRoomFacts,
   };
 }

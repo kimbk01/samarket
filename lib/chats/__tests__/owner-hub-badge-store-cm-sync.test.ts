@@ -5,7 +5,6 @@ import type { OwnerHubBadgeBreakdown } from "@/lib/chats/owner-hub-badge-types";
 import {
   __resetOwnerHubBadgeStoreForTest,
   __testApplyOwnerHubBadgePayloadForTest,
-  applyHubBadgeCmUnreadRoomCountAbsolute,
   getOwnerHubBadgeSnapshot,
 } from "@/lib/chats/owner-hub-badge-store";
 
@@ -127,18 +126,11 @@ describe("owner-hub-badge-store communityMessengerUnread sync", () => {
     expect(getOwnerHubBadgeSnapshot().communityMessengerUnread).toBe(0);
   });
 
-  it("applyHubBadgeCmUnreadRoomCountAbsolute sets CM room count via optimistic projection", () => {
-    __testApplyOwnerHubBadgePayloadForTest(hubPayload({ communityMessengerUnread: 0 }), "network_fresh");
-    applyHubBadgeCmUnreadRoomCountAbsolute(1);
-    expect(getOwnerHubBadgeSnapshot().communityMessengerUnread).toBe(1);
-    applyHubBadgeCmUnreadRoomCountAbsolute(3);
-    expect(getOwnerHubBadgeSnapshot().communityMessengerUnread).toBe(3);
-  });
-
-  it("applyHubBadgeCmUnreadRoomCountAbsolute(0) clears CM room count", () => {
-    __testApplyOwnerHubBadgePayloadForTest(hubPayload({ communityMessengerUnread: 3 }), "network_fresh");
-    applyHubBadgeCmUnreadRoomCountAbsolute(0);
-    expect(getOwnerHubBadgeSnapshot().communityMessengerUnread).toBe(0);
+  it("P0-2: Absolute Hub CM writer is deleted (Projection Authority only)", () => {
+    const storeSrc = readFileSync(join(process.cwd(), "lib/chats/owner-hub-badge-store.ts"), "utf8");
+    expect(storeSrc).toContain("applyHubBadgeCmUnreadRoomCountAbsolute deleted");
+    expect(storeSrc).not.toMatch(/export function applyHubBadgeCmUnreadRoomCountAbsolute\b/);
+    expect(storeSrc).toContain("applyDomainAuthorityHubBadgeOptimistic");
   });
 
   it("participant increase must not force cmFresh (stale counter wipe)", () => {

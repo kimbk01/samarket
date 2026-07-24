@@ -475,25 +475,10 @@ function applyFromNetwork(data: unknown) {
 
 
 /**
- * Bottom Chat room-count absolute via Phase H projection (optimistic).
- * Callers pass GD+group unread-room recount from messenger-room-unread-authority.
- * Network resync remains authority. DO NOT: revive ±1 delta · R1 · Bell · Native Call.
- * Phase J1: R1 optimistic unread helper deleted (import-ban: verify:badge-import-ban).
+ * P0-2 LOCK: applyHubBadgeCmUnreadRoomCountAbsolute deleted.
+ * Hub CM unread must come only from Projection Authority → applyDomainAuthorityHubBadgeOptimistic.
+ * DO NOT revive absolute recount / ±1 Hub snapshot writers.
  */
-export function applyHubBadgeCmUnreadRoomCountAbsolute(roomCount: number): void {
-  const nextCm = Math.max(0, Math.floor(Number(roomCount) || 0));
-  const next: OwnerHubBadgeBreakdown = {
-    ...snapshot,
-    communityMessengerUnread: nextCm,
-    total: recalcHubBadgeTotal({ ...snapshot, communityMessengerUnread: nextCm }),
-  };
-  applyHubBadgeProjection({
-    breakdown: next,
-    versionMs: Date.now(),
-    source: "optimistic",
-    totalUnread: Math.max(0, next.total),
-  });
-}
 
 
 

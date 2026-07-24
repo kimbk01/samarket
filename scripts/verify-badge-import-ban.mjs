@@ -32,6 +32,8 @@ const ALLOWLIST_REL = new Set([
   "lib/chat-domain/projections/hub-r1-r4-measurement.ts",
   "lib/chat-domain/__tests__/hub-r1-r4-measurement.test.ts",
   "lib/notifications/__tests__/app-icon-domain-authority-j3.test.ts",
+  "lib/chats/__tests__/owner-hub-badge-store-cm-sync.test.ts",
+  "lib/notifications/__tests__/projection-authority-p0-2-contract.test.ts",
   "scripts/verify-badge-import-ban.mjs",
 ]);
 
@@ -47,6 +49,8 @@ const FORBIDDEN_PATTERNS = [
   { id: "call:pauseAndClearAllNotificationUnreadBadgeStores", re: /\bpauseAndClearAllNotificationUnreadBadgeStores\s*\(/ },
   { id: "call:applyCommunityMessengerUnreadOptimistic", re: /\bapplyCommunityMessengerUnreadOptimistic\s*\(/ },
   { id: "export:applyCommunityMessengerUnreadOptimistic", re: /export\s+(?:async\s+)?function\s+applyCommunityMessengerUnreadOptimistic\b/ },
+  { id: "call:applyHubBadgeCmUnreadRoomCountAbsolute", re: /\bapplyHubBadgeCmUnreadRoomCountAbsolute\s*\(/ },
+  { id: "export:applyHubBadgeCmUnreadRoomCountAbsolute", re: /export\s+(?:async\s+)?function\s+applyHubBadgeCmUnreadRoomCountAbsolute\b/ },
   { id: "call:syncTier1HeaderInboxUnreadFromRows", re: /\bsyncTier1HeaderInboxUnreadFromRows\s*\(/ },
   { id: "export:syncTier1HeaderInboxUnreadFromRows", re: /export\s+(?:async\s+)?function\s+syncTier1HeaderInboxUnreadFromRows\b/ },
   { id: "call:computeTier1HeaderInboxDisplayUnread", re: /\bcomputeTier1HeaderInboxDisplayUnread\s*\(/ },
