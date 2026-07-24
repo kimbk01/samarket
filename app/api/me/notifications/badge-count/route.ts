@@ -36,6 +36,7 @@ const EMPTY_DOMAIN = {
     missedCall: 0,
   },
   storeOrderBuyerDeliveryUnread: 0,
+  storeOrderOwnerChatUnread: 0,
   nonChatEventAttention: {
     tradeStatus: 0,
     orderStatus: 0,

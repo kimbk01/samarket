@@ -29,6 +29,7 @@ export type BadgeCountAuthorityJson = {
     store_order?: number;
   };
   storeOrderBuyerDeliveryUnread?: number;
+  storeOrderOwnerChatUnread?: number;
   philifeChatUnread?: number;
   nonChatEventAttention?: Partial<NotificationNonChatEventAttentionFacts>;
   missedCallByRoom?: Record<string, number>;
@@ -76,6 +77,14 @@ export function projectionInputFromBadgeCountAuthorityJson(
         0,
         Math.floor(Number(body.storeOrderBuyerDeliveryUnread) || 0)
       ),
+      ...(body.storeOrderOwnerChatUnread != null
+        ? {
+            storeOrderOwnerChatUnread: Math.max(
+              0,
+              Math.floor(Number(body.storeOrderOwnerChatUnread) || 0)
+            ),
+          }
+        : {}),
       philifeChatUnread: Math.max(0, Math.floor(Number(body.philifeChatUnread) || 0)),
       orphanMissedCall: Math.max(
         0,
@@ -91,14 +100,20 @@ export function projectionInputFromBadgeCountAuthorityJson(
   const trade = Math.max(0, Math.floor(Number(icon.trade) || 0));
   const storeOrder = Math.max(0, Math.floor(Number(icon.storeOrder) || 0));
   const buyer = Math.max(0, Math.floor(Number(body.storeOrderBuyerDeliveryUnread) || 0));
+  const ownerExplicit =
+    body.storeOrderOwnerChatUnread != null
+      ? Math.max(0, Math.floor(Number(body.storeOrderOwnerChatUnread) || 0))
+      : null;
+  const owner = ownerExplicit != null ? ownerExplicit : Math.max(0, storeOrder - buyer);
   return {
     domainUnreadRooms: {
       general_direct: messenger,
       group: 0,
       trade,
-      store_order: Math.max(0, storeOrder - buyer),
+      store_order: owner + buyer,
     },
     storeOrderBuyerDeliveryUnread: buyer,
+    ...(ownerExplicit != null ? { storeOrderOwnerChatUnread: ownerExplicit } : { storeOrderOwnerChatUnread: owner }),
     orphanMissedCall: Math.max(0, Math.floor(Number(icon.missedCall) || 0)),
     nonChatEventAttention: nonChatFromBody(body),
     rowUnreadByRoomId: body.missedCallByRoom ?? {},

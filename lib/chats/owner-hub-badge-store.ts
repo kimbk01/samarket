@@ -2238,13 +2238,20 @@ export function __testApplyOwnerHubBadgePayloadForTest(
 export function applyDomainAuthorityHubBadgeOptimistic(input: {
   communityMessengerUnread: number;
   tradeUnread: number;
+  /** Owner order-chat / FAB — owner_order_chat room count. */
   storeOrderChatUnread: number;
+  /** Customer messenger order pillar — buyer_order room count. */
+  buyerOrderAttention?: number;
 }): void {
   const communityMessengerUnread = Math.max(0, Math.floor(input.communityMessengerUnread || 0));
   const tradeUnread = Math.max(0, Math.floor(input.tradeUnread || 0));
   const storeOrderChatUnread = Math.max(0, Math.floor(input.storeOrderChatUnread || 0));
   const current = getOwnerHubBadgeSnapshot();
   const philife = Math.max(0, current.philifeChatUnread || 0);
+  const buyerOrderAttention =
+    input.buyerOrderAttention != null
+      ? Math.max(0, Math.floor(input.buyerOrderAttention || 0))
+      : Math.max(0, Math.floor(current.buyerOrderAttention || 0));
   applyOwnerHubBadgePayload(
     {
       ok: true,
@@ -2252,6 +2259,8 @@ export function applyDomainAuthorityHubBadgeOptimistic(input: {
       communityMessengerUnread,
       chatUnread: tradeUnread,
       storeOrderChatUnread,
+      buyerOrderAttention,
+      storesTabAttention: buyerOrderAttention,
       socialChatUnread: communityMessengerUnread + philife,
     },
     { kind: "optimistic" }

@@ -46,6 +46,7 @@ export async function POST(req: NextRequest) {
     domainAppIcon: domain.domainAppIcon,
     nonChatEventAttention: domain.nonChatEventAttention,
     storeOrderBuyerDeliveryUnread: domain.storeOrderBuyerDeliveryUnread,
+    storeOrderOwnerChatUnread: domain.storeOrderOwnerChatUnread,
     projectionVersionMs: domain.projectionVersionMs,
     threadUnreadAfter: null,
     nativeBadgeTotal: domain.projection.appIconTotal,

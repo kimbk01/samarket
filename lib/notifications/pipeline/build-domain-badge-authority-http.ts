@@ -51,6 +51,8 @@ export type DomainBadgeAuthorityHttpPayload = {
     missedCall: number;
   };
   storeOrderBuyerDeliveryUnread: number;
+  /** Owner order-chat rooms (fab_owner_order_chat / owner_order_chat). */
+  storeOrderOwnerChatUnread: number;
   nonChatEventAttention: NotificationNonChatEventAttentionFacts;
   missedCallByRoom: Record<string, number>;
   /** Product Bell snapshot fields (Builder output) — Header digit SSOT. */
@@ -174,11 +176,14 @@ export async function buildDomainBadgeAuthorityHttpPayload(
     store_order: storeOrderAttention.size,
   };
   const storeOrderBuyerDeliveryUnread = buyerOrderIds.size;
+  /** Room count SSOT for owner FAB — owner_order_chat.target_id = room_id. */
+  const storeOrderOwnerChatUnread = ownerIndex.roomIds.size;
   const nonChatEventAttention = nonChatFromCategoryCounts(categoryCounts);
 
   const projection: NotificationBadgeProjection = buildNotificationBadgeProjection({
     domainUnreadRooms,
     storeOrderBuyerDeliveryUnread,
+    storeOrderOwnerChatUnread,
     orphanMissedCall: missed.orphan,
     nonChatEventAttention,
     rowUnreadByRoomId: missed.byRoom,
@@ -214,6 +219,7 @@ export async function buildDomainBadgeAuthorityHttpPayload(
       missedCall: projection.appIcon.missedCall,
     },
     storeOrderBuyerDeliveryUnread,
+    storeOrderOwnerChatUnread,
     nonChatEventAttention,
     missedCallByRoom: missed.byRoom,
     total: Math.max(0, Math.floor(Number(bell.total) || 0)),

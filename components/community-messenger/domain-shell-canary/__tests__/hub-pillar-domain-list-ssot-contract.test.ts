@@ -18,6 +18,8 @@ describe("hub pillar preview SSOT = Domain list", () => {
     const src = read("components/community-messenger/MessengerPillarSummaryRow.tsx");
     expect(src).toContain("peekDomainTradeHubListPreview");
     expect(src).toContain("peekDomainStoreOrderHubListPreview");
+    expect(src).toContain("peekDomainStoreOrderUnreadRoomCount");
+    expect(src).toContain("buyerOrderAttention");
     expect(src).toContain('data-messenger-pillar-preview-source={useDomain ? "domain_list" : "bootstrap"}');
   });
 

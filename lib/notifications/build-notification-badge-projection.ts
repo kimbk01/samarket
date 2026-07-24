@@ -55,6 +55,11 @@ export type NotificationBadgeProjectionInput = Readonly<{
   domainUnreadRooms: NotificationBadgeDomainFacts;
   /** Fact: buyer/customer store_order attention (bottom_nav_delivery) — not recomputed. */
   storeOrderBuyerDeliveryUnread?: number;
+  /**
+   * Fact: owner store_order chat attention (fab_owner_order_chat / owner_order_chat rooms).
+   * When set, Hub `storeOrderChatUnread` uses this — never buyer+owner sum.
+   */
+  storeOrderOwnerChatUnread?: number;
   /** Fact: philife/community tab rooms (optional). */
   philifeChatUnread?: number;
   /** Fact: orphan missed_call events (room_id null). */
@@ -84,7 +89,10 @@ export type NotificationBadgeProjectionInput = Readonly<{
 export type NotificationBadgeProjection = Readonly<{
   bottomChat: number;
   tradeHub: number;
+  /** Owner order-chat hub / FAB — owner_order_chat room count only. */
   storeOrderHub: number;
+  /** Customer order-chat messenger pillar — buyer_order room count only. */
+  storeOrderCustomerUnread: number;
   socialChatUnread: number;
   shell: ChatDomainBadgeShellResult;
   appIcon: DomainAppIconBadgeParts;
@@ -163,22 +171,34 @@ export function buildNotificationBadgeProjection(
   const gd = nonNeg(input.domainUnreadRooms.general_direct);
   const group = nonNeg(input.domainUnreadRooms.group);
   const trade = nonNeg(input.domainUnreadRooms.trade);
-  const storeOrder = nonNeg(input.domainUnreadRooms.store_order);
+  const storeOrderCombined = nonNeg(input.domainUnreadRooms.store_order);
+  const buyer = nonNeg(input.storeOrderBuyerDeliveryUnread);
   const orphan = nonNeg(input.orphanMissedCall);
   const nonChatFacts = input.nonChatEventAttention ?? EMPTY_NON_CHAT_EVENT_ATTENTION;
   const nonChat = sumNonChatEventAttention(nonChatFacts);
+
+  /**
+   * Owner hub/FAB axis — never buyer+owner sum.
+   * Prefer explicit owner Fact; else legacy: domain store_order when buyer Fact absent.
+   */
+  const ownerForHub =
+    input.storeOrderOwnerChatUnread != null
+      ? nonNeg(input.storeOrderOwnerChatUnread)
+      : buyer > 0
+        ? Math.max(0, storeOrderCombined - buyer)
+        : storeOrderCombined;
 
   const shell = aggregateChatDomainBadgeShell(
     {
       general_direct: gd,
       group,
       trade,
-      store_order: storeOrder,
+      store_order: ownerForHub,
     },
     nonNeg(input.philifeChatUnread)
   );
-  const storeOrderForAppIcon =
-    shell.storeOrderChatUnread + nonNeg(input.storeOrderBuyerDeliveryUnread);
+  /** App Icon = owner rooms + buyer rooms (no double-count of buyer inside combined). */
+  const storeOrderForAppIcon = ownerForHub + buyer;
   const appIcon = resolveDomainAppIconBadgeParts({
     communityMessengerUnread: shell.communityMessengerUnread,
     tradeUnread: shell.tradeUnread,
@@ -186,8 +206,12 @@ export function buildNotificationBadgeProjection(
     missedCall: orphan,
   });
 
-  /** Chat Attention = all four domain unread rooms + orphan missed (no event-row chat dupes). */
-  const bellChatAttentionCount = gd + group + trade + storeOrder + orphan;
+  /** Bell chat attention — prefer explicit owner+buyer when split Facts exist. */
+  const storeOrderBell =
+    input.storeOrderOwnerChatUnread != null || buyer > 0
+      ? ownerForHub + buyer
+      : storeOrderCombined;
+  const bellChatAttentionCount = gd + group + trade + storeOrderBell + orphan;
   const bellNonChatEventCount = nonChat;
   const bellTotal = bellChatAttentionCount + bellNonChatEventCount;
 
@@ -205,7 +229,7 @@ export function buildNotificationBadgeProjection(
     chat: gd,
     group,
     trade,
-    store: storeOrder,
+    store: storeOrderBell,
     missedCall: orphan,
   };
 
@@ -213,6 +237,7 @@ export function buildNotificationBadgeProjection(
     bottomChat: shell.communityMessengerUnread,
     tradeHub: shell.tradeUnread,
     storeOrderHub: shell.storeOrderChatUnread,
+    storeOrderCustomerUnread: buyer,
     socialChatUnread: shell.socialChatUnread,
     shell,
     appIcon,
@@ -224,7 +249,7 @@ export function buildNotificationBadgeProjection(
     generalDirectUnreadRooms: gd,
     groupUnreadRooms: group,
     tradeUnreadRooms: trade,
-    storeOrderUnreadRooms: storeOrder,
+    storeOrderUnreadRooms: storeOrderBell,
     rowUnreadByRoomId: input.rowUnreadByRoomId ?? {},
     osNotificationRemove: input.osNotificationRemove ?? [],
   };

@@ -50,6 +50,7 @@ const SAMPLE_DOMAIN = {
   domainUnreadRooms: { general_direct: 1, group: 1, trade: 1, store_order: 0 },
   domainAppIcon: { messenger: 2, trade: 1, storeOrder: 0, missedCall: 0 },
   storeOrderBuyerDeliveryUnread: 0,
+  storeOrderOwnerChatUnread: 0,
   nonChatEventAttention: {
     tradeStatus: 0,
     orderStatus: 0,

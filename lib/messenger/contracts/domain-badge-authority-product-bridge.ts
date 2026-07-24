@@ -26,7 +26,10 @@ export function applyNotificationBadgeProjection(
   applyDomainAuthorityHubBadgeOptimistic({
     communityMessengerUnread: projection.bottomChat,
     tradeUnread: projection.tradeHub,
+    /** Owner FAB / owner order-chat — never buyer+owner sum. */
     storeOrderChatUnread: projection.storeOrderHub,
+    /** Customer messenger 「주문 채팅」 pillar — buyer_order room count. */
+    buyerOrderAttention: projection.storeOrderCustomerUnread,
   });
   void import("@/lib/messenger/contracts/domain-badge-surface-store").then((mod) => {
     mod.publishDomainBadgeShellToSurfaceStore({

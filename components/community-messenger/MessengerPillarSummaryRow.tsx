@@ -17,15 +17,21 @@ import { useOwnerHubBadgeBreakdown } from "@/lib/chats/use-owner-hub-badge-total
 import {
   DOMAIN_LIST_CANARY_PRIMED_EVENT,
   peekDomainStoreOrderHubListPreview,
+  peekDomainStoreOrderUnreadRoomCount,
   peekDomainTradeHubListPreview,
   type DomainCommerceHubListPreview,
 } from "@/components/community-messenger/domain-shell-canary/domain-list-canary-hub-prefetch";
+import { subscribeDomainListCanaryPatch } from "@/components/community-messenger/domain-shell-canary/domain-list-canary-realtime-patch";
 
 /**
  * 메신저 받은메시지함 상단의 「거래 채팅」/「배달 채팅」 묶음 행.
  *
  * - Preview/시각/latestRoomId: Domain list DTO (List와 동일 Facts). bootstrap summarize 는 cold fallback.
- * - 보라 미읽음 뱃지는 Projection Apply → owner-hub (`chatUnread` / `storeOrderChatUnread`)만.
+ * - 보라 미읽음 뱃지:
+ *   - trade → owner-hub `chatUnread` (trade targets)
+ *   - delivery(주문 채팅) → customer `buyer_order` 축만 (`buyerOrderAttention` /
+ *     Domain customer list unreadRoomCount). owner `storeOrderChatUnread` 금지
+ *     (route=`/delivery-chats` = customer list).
  */
 
 type Variant = "trade" | "delivery";
@@ -117,17 +123,35 @@ export function MessengerPillarSummaryRow({ variant, summary, entryOriginQuery =
   const [domainPreview, setDomainPreview] = useState<DomainCommerceHubListPreview | null>(() =>
     readDomainPreview(variant)
   );
+  const [listUnreadRooms, setListUnreadRooms] = useState<number | null>(() =>
+    variant === "delivery" ? peekDomainStoreOrderUnreadRoomCount() : null
+  );
 
   useEffect(() => {
     setDomainPreview(readDomainPreview(variant));
+    if (variant === "delivery") {
+      setListUnreadRooms(peekDomainStoreOrderUnreadRoomCount());
+    }
     const onPrimed = (ev: Event) => {
       const bundle = (ev as CustomEvent<{ bundle?: string }>).detail?.bundle;
       if (variant === "trade" && bundle !== "trade") return;
       if (variant === "delivery" && bundle !== "store_order") return;
       setDomainPreview(readDomainPreview(variant));
+      if (variant === "delivery") {
+        setListUnreadRooms(peekDomainStoreOrderUnreadRoomCount());
+      }
     };
     window.addEventListener(DOMAIN_LIST_CANARY_PRIMED_EVENT, onPrimed);
-    return () => window.removeEventListener(DOMAIN_LIST_CANARY_PRIMED_EVENT, onPrimed);
+    const unsubPatch =
+      variant === "delivery"
+        ? subscribeDomainListCanaryPatch("store_order", () => {
+            setListUnreadRooms(peekDomainStoreOrderUnreadRoomCount());
+          })
+        : () => {};
+    return () => {
+      window.removeEventListener(DOMAIN_LIST_CANARY_PRIMED_EVENT, onPrimed);
+      unsubPatch();
+    };
   }, [variant]);
 
   const copy = useMemo(() => {
@@ -182,13 +206,22 @@ export function MessengerPillarSummaryRow({ variant, summary, entryOriginQuery =
   const lastEventAt = useDomain ? domainPreview!.lastEventAt : lastItem?.lastEventAt;
   const latestRoomId = useDomain ? domainPreview!.latestRoomId : lastItem?.room.id ?? null;
   /**
-   * Projection Apply SSOT — Trade Hub = chatUnread, Order Hub = storeOrderChatUnread.
-   * Bootstrap room totals are never the purple badge.
+   * Trade Hub = chatUnread (trade targets).
+   * Order Hub (customer delivery-chats) = buyer_order unread **room** count only.
+   * Prefer Domain customer list cache when primed (same Facts as list rows);
+   * else hub.buyerOrderAttention (bottom_nav_delivery). Never storeOrderChatUnread (owner FAB).
    */
   const unread =
     variant === "trade"
       ? Math.max(0, Math.floor(hub.chatUnread || 0))
-      : Math.max(0, Math.floor(hub.storeOrderChatUnread || 0));
+      : Math.max(
+          0,
+          Math.floor(
+            listUnreadRooms != null
+              ? listUnreadRooms
+              : hub.buyerOrderAttention || 0
+          )
+        );
 
   const avatar = (
     <div

@@ -8,7 +8,10 @@ export type OwnerHubBadgeBreakdown = {
   philifeChatUnread: number;
   /** 거래 + 커뮤니티 채팅 미읽음 합 */
   socialChatUnread: number;
-  /** 배달·매장 주문 메신저 미읽음(딥링크·알림음용) — `total` 합산에는 `communityMessengerUnread` 만 사용 */
+  /**
+   * Owner 주문채팅 unread **방** 수 (`fab_owner_order_chat` / owner_order_chat).
+   * FAB·오너 허브 전용. 메신저 「주문 채팅」 묶음 행·customer delivery-chats 에 쓰지 않음.
+   */
   storeOrderChatUnread: number;
   /** 허브 매장: 접수 대기·환불 요청 */
   orderAttention: number;
@@ -18,7 +21,10 @@ export type OwnerHubBadgeBreakdown = {
   ownerReviewAttention: number;
   /** 하단 「매장」탭 숫자 (주문+문의+매장 주문 채팅, 딥링크는 API storeDeepLink) */
   storesTabAttention: number;
-  /** 구매자 — 확인 안 한 주문 target 수 (배달 탭) */
+  /**
+   * Customer 주문채팅 unread **방** 수 (`buyer_order` / bottom_nav_delivery).
+   * 메신저 「주문 채팅」 묶음 행 + `/delivery-chats` list 와 동일 축.
+   */
   buyerOrderAttention: number;
   /** 매장 탭 탭 시 이동할 경로; 없으면 기본 /stores */
   storeDeepLink: string | null;
