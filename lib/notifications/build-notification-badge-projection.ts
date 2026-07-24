@@ -7,13 +7,14 @@
  * - All inputs (Cold Start / Bootstrap / Hub / Push / Realtime / Resume / Poll /
  *   Broadcast / Atomic Read) normalize to ProjectionInput then call this Builder only.
  *
- * Bell (product live badge) — NOT raw notification_events SUM:
- *   chatAttention = Σ domain unread rooms (GD+Group+Trade+StoreOrder) + orphan missed-call
- *   nonChatEventAttention = independent status/notice events only (no chat_message dupes)
- *   bellTotal = chatAttention + nonChatEventAttention
+ * Bell (product live badge) — Contract B:
+ *   bellTotal = unreadApprovedNotificationEvents
+ *   (eligible unread notification_events for the viewer — NOT domain unread room sum)
  *
  * App Icon — Domain Attention Projection only (no non-chat status/notice):
- *   messenger(GD+Group) + trade + storeOrder(+buyer) + orphan missed
+ *   messenger(GD+Group) + trade + storeOrderCustomer + storeOrderOwner + orphan missed
+ *
+ * Bottom Chat — general_direct + group unread rooms only.
  */
 import type { ChatDomain } from "@/lib/chat-domain/chat-domain";
 import {
@@ -36,8 +37,7 @@ export type NotificationBadgeDomainFacts = Readonly<Record<ChatDomain, number>>;
 
 /**
  * Independent non-chat event attention Facts (inbox / status / notice).
- * Must NOT include chat_message / group_message / trade_message / store_order_message
- * (those are covered by domain unread rooms).
+ * Used for diagnostics / App Icon exclusion — NOT Bell total under Contract B.
  */
 export type NotificationNonChatEventAttentionFacts = Readonly<{
   tradeStatus: number;
@@ -57,21 +57,31 @@ export type NotificationBadgeProjectionInput = Readonly<{
   storeOrderBuyerDeliveryUnread?: number;
   /**
    * Fact: owner store_order chat attention (fab_owner_order_chat / owner_order_chat rooms).
-   * When set, Hub `storeOrderChatUnread` uses this — never buyer+owner sum.
+   * Hub owner aggregate (`storeOrderOwnerUnreadRooms`) — never buyer+owner sum.
    */
   storeOrderOwnerChatUnread?: number;
+  /**
+   * Optional per-store owner unread room counts (pass-through for store-scoped FAB).
+   * Builder does not invent these — Fact producer only.
+   */
+  storeOrderOwnerUnreadByStoreId?: Readonly<Record<string, number>>;
   /** Fact: philife/community tab rooms (optional). */
   philifeChatUnread?: number;
   /** Fact: orphan missed_call events (room_id null). */
   orphanMissedCall: number;
   /**
-   * Fact: independent non-chat event attention breakdown.
+   * Fact: independent non-chat event attention breakdown (diagnostics).
    * Chat-domain message events must already be excluded by the Fact producer.
    */
   nonChatEventAttention: NotificationNonChatEventAttentionFacts;
   /**
-   * @deprecated Raw events breakdown for inbox filters only — Builder does not use
-   * `bell.total` as product Bell. Prefer `nonChatEventAttention`.
+   * Fact: unread approved notification_events total (Bell Contract B).
+   * Prefer this; else `bell.total` from event category count.
+   */
+  unreadApprovedNotificationEvents?: number;
+  /**
+   * Event category breakdown for inbox filters — `total` is Bell when
+   * `unreadApprovedNotificationEvents` omitted.
    */
   bell?: NotificationBadgeCount;
   /** Fact: per-room list badge (message unread ± room-attached missed). Pass-through. */
@@ -89,28 +99,42 @@ export type NotificationBadgeProjectionInput = Readonly<{
 export type NotificationBadgeProjection = Readonly<{
   bottomChat: number;
   tradeHub: number;
-  /** Owner order-chat hub / FAB — owner_order_chat room count only. */
+  /**
+   * @deprecated Prefer `storeOrderOwnerUnreadRooms`. Owner FAB aggregate from Builder.
+   * Store-scoped FAB must use hub `storeOrderChatUnread` (targets + storeId), not this alone.
+   */
   storeOrderHub: number;
   /** Customer order-chat messenger pillar — buyer_order room count only. */
   storeOrderCustomerUnread: number;
+  /** Explicit alias — customer unread rooms. */
+  storeOrderCustomerUnreadRooms: number;
+  /** Explicit alias — owner unread rooms (all stores aggregate). */
+  storeOrderOwnerUnreadRooms: number;
+  /** Pass-through store-scoped owner unread. */
+  storeOrderOwnerUnreadByStoreId: Readonly<Record<string, number>>;
   socialChatUnread: number;
   shell: ChatDomainBadgeShellResult;
   appIcon: DomainAppIconBadgeParts;
   appIconTotal: number;
-  /** Domain unread rooms + orphan missed (no non-chat status). */
+  /**
+   * Diagnostic: domain unread rooms + orphan (NOT product Bell under Contract B).
+   */
   bellChatAttentionCount: number;
-  /** Independent non-chat event attention (no chat message dupes). */
+  /** Diagnostic: non-chat event attention sum (NOT product Bell alone). */
   bellNonChatEventCount: number;
-  /** Product Bell live total = chatAttention + nonChatEventAttention. */
+  /** Product Bell live total = unreadApprovedNotificationEvents. */
   bellTotal: number;
   /**
-   * Bell snapshot for Surface store — `total` is Projection bellTotal (not events SUM).
-   * Category fields carry non-chat + orphan missed for inbox UI filters.
+   * Bell snapshot for Surface store — `total` is Projection bellTotal (event inbox).
+   * Category fields from approved events for inbox UI filters.
    */
   bell: NotificationBadgeCount;
   generalDirectUnreadRooms: number;
   groupUnreadRooms: number;
   tradeUnreadRooms: number;
+  /**
+   * @deprecated Prefer customer+owner split fields. Combined owner+buyer for diagnostics.
+   */
   storeOrderUnreadRooms: number;
   rowUnreadByRoomId: Readonly<Record<string, number>>;
   osNotificationRemove: ReadonlyArray<{
@@ -162,6 +186,20 @@ export function sumNonChatEventAttention(
   );
 }
 
+function sumApprovedEventCategories(bell: NotificationBadgeCount): number {
+  return (
+    nonNeg(bell.chatMessage) +
+    nonNeg(bell.groupMessage) +
+    nonNeg(bell.tradeMessage) +
+    nonNeg(bell.tradeStatus) +
+    nonNeg(bell.orderStatus) +
+    nonNeg(bell.deliveryStatus) +
+    nonNeg(bell.communityActivity) +
+    nonNeg(bell.adminNotice) +
+    nonNeg(bell.missedCall)
+  );
+}
+
 /**
  * THE Notification/Badge Projection Builder — pure, single implementation.
  */
@@ -178,7 +216,7 @@ export function buildNotificationBadgeProjection(
   const nonChat = sumNonChatEventAttention(nonChatFacts);
 
   /**
-   * Owner hub/FAB axis — never buyer+owner sum.
+   * Owner hub aggregate — never buyer+owner sum.
    * Prefer explicit owner Fact; else legacy: domain store_order when buyer Fact absent.
    */
   const ownerForHub =
@@ -206,38 +244,38 @@ export function buildNotificationBadgeProjection(
     missedCall: orphan,
   });
 
-  /** Bell chat attention — prefer explicit owner+buyer when split Facts exist. */
-  const storeOrderBell =
+  /** Diagnostic only — NOT product Bell (Contract B). */
+  const storeOrderCombinedForDiag =
     input.storeOrderOwnerChatUnread != null || buyer > 0
       ? ownerForHub + buyer
       : storeOrderCombined;
-  const bellChatAttentionCount = gd + group + trade + storeOrderBell + orphan;
+  const bellChatAttentionCount = gd + group + trade + storeOrderCombinedForDiag + orphan;
   const bellNonChatEventCount = nonChat;
-  const bellTotal = bellChatAttentionCount + bellNonChatEventCount;
+
+  const eventBell = input.bell ?? EMPTY_BELL_BADGE_FACTS;
+  const unreadApprovedNotificationEvents =
+    input.unreadApprovedNotificationEvents != null
+      ? nonNeg(input.unreadApprovedNotificationEvents)
+      : input.bell
+        ? nonNeg(eventBell.total) || sumApprovedEventCategories(eventBell)
+        : 0;
+  const bellTotal = unreadApprovedNotificationEvents;
 
   const bell: NotificationBadgeCount = {
+    ...eventBell,
     total: bellTotal,
-    chatMessage: gd,
-    groupMessage: group,
-    tradeMessage: trade,
-    tradeStatus: nonNeg(nonChatFacts.tradeStatus),
-    orderStatus: nonNeg(nonChatFacts.orderStatus),
-    deliveryStatus: nonNeg(nonChatFacts.deliveryStatus),
-    communityActivity: nonNeg(nonChatFacts.communityActivity),
-    adminMarketingBanner: 0,
-    adminNotice: nonNeg(nonChatFacts.adminNotice),
-    chat: gd,
-    group,
-    trade,
-    store: storeOrderBell,
-    missedCall: orphan,
   };
+
+  const byStore = input.storeOrderOwnerUnreadByStoreId ?? {};
 
   return {
     bottomChat: shell.communityMessengerUnread,
     tradeHub: shell.tradeUnread,
     storeOrderHub: shell.storeOrderChatUnread,
     storeOrderCustomerUnread: buyer,
+    storeOrderCustomerUnreadRooms: buyer,
+    storeOrderOwnerUnreadRooms: ownerForHub,
+    storeOrderOwnerUnreadByStoreId: byStore,
     socialChatUnread: shell.socialChatUnread,
     shell,
     appIcon,
@@ -249,7 +287,7 @@ export function buildNotificationBadgeProjection(
     generalDirectUnreadRooms: gd,
     groupUnreadRooms: group,
     tradeUnreadRooms: trade,
-    storeOrderUnreadRooms: storeOrderBell,
+    storeOrderUnreadRooms: storeOrderCombinedForDiag,
     rowUnreadByRoomId: input.rowUnreadByRoomId ?? {},
     osNotificationRemove: input.osNotificationRemove ?? [],
   };

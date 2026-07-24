@@ -1,9 +1,10 @@
 import type { Tier1BellBadgeSurface } from "@/lib/notifications/resolve-tier1-bell-surface";
 
 /**
- * Header Bell digit SSOT — Domain projection `badge-count.total` only.
+ * Header Bell digit SSOT — Domain projection `badge-count.total` only
+ * (= unreadApprovedNotificationEvents / Bell Contract B).
  * All routes / surfaces show the same Bell total.
- * DO NOT: storeUnread, rowUnread, supplementalUnreadCount, adminNotice re-add.
+ * DO NOT: storeUnread, rowUnread, supplementalUnreadCount, domain room sum, adminNotice re-add.
  *
  * Phase J1 removed legacy row-sync / display-unread helpers (import-ban: verify:badge-import-ban).
  */

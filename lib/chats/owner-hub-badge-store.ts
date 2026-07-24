@@ -383,11 +383,23 @@ function noteNetworkFreshCommunityMessengerUnread(cm: number): void {
  */
 function applyOwnerHubBadgePayload(data: unknown, source: HubBadgeApplySource): void {
   const parsed = parseOwnerHubBadgeJson(data);
+  const raw = data && typeof data === "object" ? (data as Record<string, unknown>) : null;
+  /** Hub snapshot API omits global owner rooms — preserve Domain Authority value. */
+  const hasExplicitOwnerRooms = raw != null && typeof raw.storeOrderOwnerUnreadRooms === "number";
+  const breakdown = hasExplicitOwnerRooms
+    ? parsed
+    : {
+        ...parsed,
+        storeOrderOwnerUnreadRooms: Math.max(
+          0,
+          Math.floor(Number(snapshot.storeOrderOwnerUnreadRooms) || 0)
+        ),
+      };
   applyHubBadgeProjection({
-    breakdown: parsed,
+    breakdown,
     versionMs: Date.now(),
     source: source.kind,
-    totalUnread: Math.max(0, parsed.total),
+    totalUnread: Math.max(0, breakdown.total),
   });
 }
 
@@ -2234,18 +2246,27 @@ export function __testApplyOwnerHubBadgePayloadForTest(
 
 }
 
-/** Domain badge authority → Hub surfaces (trade/order/bottom). Projection Apply only. */
+/**
+ * Domain badge authority → Hub surfaces (trade / customer order / owner aggregate).
+ * Projection Apply only.
+ *
+ * DO NOT overwrite `storeOrderChatUnread` (store-scoped FAB from hub targets).
+ * Write `storeOrderOwnerUnreadRooms` for all-stores owner attention / App Icon axis.
+ */
 export function applyDomainAuthorityHubBadgeOptimistic(input: {
   communityMessengerUnread: number;
   tradeUnread: number;
-  /** Owner order-chat / FAB — owner_order_chat room count. */
-  storeOrderChatUnread: number;
+  /** All-stores owner order-chat room count. */
+  storeOrderOwnerUnreadRooms: number;
   /** Customer messenger order pillar — buyer_order room count. */
   buyerOrderAttention?: number;
 }): void {
   const communityMessengerUnread = Math.max(0, Math.floor(input.communityMessengerUnread || 0));
   const tradeUnread = Math.max(0, Math.floor(input.tradeUnread || 0));
-  const storeOrderChatUnread = Math.max(0, Math.floor(input.storeOrderChatUnread || 0));
+  const storeOrderOwnerUnreadRooms = Math.max(
+    0,
+    Math.floor(input.storeOrderOwnerUnreadRooms || 0)
+  );
   const current = getOwnerHubBadgeSnapshot();
   const philife = Math.max(0, current.philifeChatUnread || 0);
   const buyerOrderAttention =
@@ -2258,7 +2279,9 @@ export function applyDomainAuthorityHubBadgeOptimistic(input: {
       ...current,
       communityMessengerUnread,
       chatUnread: tradeUnread,
-      storeOrderChatUnread,
+      /** Preserve store-scoped FAB — never replace with global owner aggregate. */
+      storeOrderChatUnread: current.storeOrderChatUnread,
+      storeOrderOwnerUnreadRooms,
       buyerOrderAttention,
       storesTabAttention: buyerOrderAttention,
       socialChatUnread: communityMessengerUnread + philife,

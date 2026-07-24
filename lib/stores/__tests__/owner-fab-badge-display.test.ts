@@ -14,6 +14,7 @@ function sampleBreakdown(overrides: Partial<OwnerHubBadgeBreakdown> = {}): Owner
     philifeChatUnread: 2,
     socialChatUnread: 5,
     storeOrderChatUnread: 8,
+    storeOrderOwnerUnreadRooms: 8,
     orderAttention: 5,
     inquiryAttention: 1,
     ownerReviewAttention: 2,

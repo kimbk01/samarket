@@ -1,8 +1,9 @@
 /**
  * Server Domain Badge Authority for GET /api/me/notifications/badge-count.
  *
- * Header Bell / App Icon / Bottom facts — NOT notification_events chat message SUM.
- * categoryCounts remains for inbox filter / diagnostics only.
+ * Bell Contract B: bellTotal = unread approved notification_events (categoryCounts.total).
+ * App Icon / Bottom / Hub = Domain unread room Facts (not Bell mirror).
+ * categoryCounts also feeds inbox filter / diagnostics.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadMessengerChatRoomUnreadTargetRoomIds } from "@/lib/messenger/contracts/chat-room-unread-from-notification-targets";
@@ -53,6 +54,8 @@ export type DomainBadgeAuthorityHttpPayload = {
   storeOrderBuyerDeliveryUnread: number;
   /** Owner order-chat rooms (fab_owner_order_chat / owner_order_chat). */
   storeOrderOwnerChatUnread: number;
+  /** Bell Contract B — unread approved notification_events total. */
+  unreadApprovedNotificationEvents: number;
   nonChatEventAttention: NotificationNonChatEventAttentionFacts;
   missedCallByRoom: Record<string, number>;
   /** Product Bell snapshot fields (Builder output) — Header digit SSOT. */
@@ -128,7 +131,7 @@ function nonChatFromCategoryCounts(c: NotificationBadgeCount): NotificationNonCh
 
 /**
  * Collect Domain Facts → Builder → HTTP payload.
- * DO NOT return events chat_message/group_message/trade_message SUM as Bell total.
+ * Bell = approved event inbox total (Contract B). Domain room sums stay App Icon / Hub / Bottom.
  */
 export async function buildDomainBadgeAuthorityHttpPayload(
   sb: SupabaseClient,
@@ -176,9 +179,13 @@ export async function buildDomainBadgeAuthorityHttpPayload(
     store_order: storeOrderAttention.size,
   };
   const storeOrderBuyerDeliveryUnread = buyerOrderIds.size;
-  /** Room count SSOT for owner FAB — owner_order_chat.target_id = room_id. */
+  /** All-stores owner aggregate — owner_order_chat.target_id = room_id. */
   const storeOrderOwnerChatUnread = ownerIndex.roomIds.size;
   const nonChatEventAttention = nonChatFromCategoryCounts(categoryCounts);
+  const unreadApprovedNotificationEvents = Math.max(
+    0,
+    Math.floor(Number(categoryCounts.total) || 0)
+  );
 
   const projection: NotificationBadgeProjection = buildNotificationBadgeProjection({
     domainUnreadRooms,
@@ -186,6 +193,8 @@ export async function buildDomainBadgeAuthorityHttpPayload(
     storeOrderOwnerChatUnread,
     orphanMissedCall: missed.orphan,
     nonChatEventAttention,
+    unreadApprovedNotificationEvents,
+    bell: categoryCounts,
     rowUnreadByRoomId: missed.byRoom,
   });
 
@@ -220,6 +229,7 @@ export async function buildDomainBadgeAuthorityHttpPayload(
     },
     storeOrderBuyerDeliveryUnread,
     storeOrderOwnerChatUnread,
+    unreadApprovedNotificationEvents,
     nonChatEventAttention,
     missedCallByRoom: missed.byRoom,
     total: Math.max(0, Math.floor(Number(bell.total) || 0)),

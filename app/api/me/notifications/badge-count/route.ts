@@ -37,6 +37,7 @@ const EMPTY_DOMAIN = {
   },
   storeOrderBuyerDeliveryUnread: 0,
   storeOrderOwnerChatUnread: 0,
+  unreadApprovedNotificationEvents: 0,
   nonChatEventAttention: {
     tradeStatus: 0,
     orderStatus: 0,

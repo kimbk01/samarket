@@ -41,6 +41,7 @@ describe("hub bundle → messenger tab (no chatUnread sum)", () => {
       ownerReviewAttention: 0,
       storesTabAttention: 0,
       buyerOrderAttention: 0,
+      storeOrderOwnerUnreadRooms: 0,
       storeDeepLink: null,
       total: 4,
     };

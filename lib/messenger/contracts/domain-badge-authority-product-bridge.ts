@@ -5,6 +5,8 @@
  * - Surfaces receive Projection only (no per-path formulas).
  * - Builder is `buildNotificationBadgeProjection` (pure, single).
  * - DO NOT: hub↔App Icon cross-write, Bell total→App Icon, path-local Surface math.
+ * - DO NOT overwrite store-scoped FAB field (`storeOrderChatUnread`) with global owner aggregate
+ *   (prevents owner FAB 1→3→1 when customer route applies Domain badge-count).
  * Phase J4: half-publish + dead surface-resync helper removed (call-0).
  */
 import { applyAppIconBadgeProjection } from "@/lib/chat-domain/projections/app-icon-badge-projection";
@@ -26,10 +28,10 @@ export function applyNotificationBadgeProjection(
   applyDomainAuthorityHubBadgeOptimistic({
     communityMessengerUnread: projection.bottomChat,
     tradeUnread: projection.tradeHub,
-    /** Owner FAB / owner order-chat — never buyer+owner sum. */
-    storeOrderChatUnread: projection.storeOrderHub,
+    /** Global owner aggregate — never overwrite store-scoped FAB field. */
+    storeOrderOwnerUnreadRooms: projection.storeOrderOwnerUnreadRooms,
     /** Customer messenger 「주문 채팅」 pillar — buyer_order room count. */
-    buyerOrderAttention: projection.storeOrderCustomerUnread,
+    buyerOrderAttention: projection.storeOrderCustomerUnreadRooms,
   });
   void import("@/lib/messenger/contracts/domain-badge-surface-store").then((mod) => {
     mod.publishDomainBadgeShellToSurfaceStore({

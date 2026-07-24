@@ -221,16 +221,21 @@ describe("notification-target-domain-snapshot (A–O)", () => {
     expect(p.storeOrderHub).toBe(3);
   });
 
-  it("O. Bell projection — 4 Domain rooms each +1, no event double-count", () => {
-    const p = buildNotificationBadgeProjection({
+  it("O. Bell Contract B — room facts alone do not set Bell; events do", () => {
+    const roomsOnly = buildNotificationBadgeProjection({
       domainUnreadRooms: { general_direct: 1, group: 1, trade: 1, store_order: 1 },
       orphanMissedCall: 0,
       nonChatEventAttention: EMPTY_NON_CHAT_EVENT_ATTENTION,
     });
-    expect(p.bellTotal).toBe(4);
-    expect(p.bell.chatMessage).toBe(1);
-    expect(p.bell.groupMessage).toBe(1);
-    expect(p.bell.tradeMessage).toBe(1);
+    expect(roomsOnly.bellTotal).toBe(0);
+    expect(roomsOnly.bottomChat).toBe(2);
+    const withEvents = buildNotificationBadgeProjection({
+      domainUnreadRooms: { general_direct: 1, group: 1, trade: 1, store_order: 1 },
+      orphanMissedCall: 0,
+      nonChatEventAttention: EMPTY_NON_CHAT_EVENT_ATTENTION,
+      unreadApprovedNotificationEvents: 4,
+    });
+    expect(withEvents.bellTotal).toBe(4);
   });
 
   it("rejects peer invent / unsorted GD identity", () => {

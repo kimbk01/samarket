@@ -19,7 +19,7 @@ describe("Bell vs App Icon separation + poll revision", () => {
     resetNotificationBadgeCountStoreForTests();
   });
 
-  it("K. App Icon is not Bell total mirror", () => {
+  it("K. App Icon is not Bell total mirror (Contract B)", () => {
     const projection = buildNotificationBadgeProjection({
       domainUnreadRooms: { general_direct: 2, group: 0, trade: 1, store_order: 0 },
       orphanMissedCall: 1,
@@ -27,11 +27,12 @@ describe("Bell vs App Icon separation + poll revision", () => {
         ...EMPTY_NON_CHAT_EVENT_ATTENTION,
         adminNotice: 4,
       },
+      unreadApprovedNotificationEvents: 8,
     });
     applyNotificationBadgeProjection(projection, { applyBell: true, projectionVersionMs: 1000 });
     const bell = getNotificationBadgeCountSnapshot();
     const appIcon = getAppIconBadgeProjection();
-    expect(bell?.total).toBe(2 + 1 + 1 + 4);
+    expect(bell?.total).toBe(8);
     expect(appIcon?.totalUnread).toBe(2 + 1 + 1); // messenger+trade+orphan
     expect(appIcon?.source).not.toBe("bell_mirror");
     expect(appIcon?.totalUnread).not.toBe(bell?.total);
@@ -42,6 +43,7 @@ describe("Bell vs App Icon separation + poll revision", () => {
       domainUnreadRooms: { general_direct: 3, group: 0, trade: 0, store_order: 0 },
       orphanMissedCall: 0,
       nonChatEventAttention: EMPTY_NON_CHAT_EVENT_ATTENTION,
+      unreadApprovedNotificationEvents: 3,
     });
     applyNotificationBadgeProjection(newer, { applyBell: true, projectionVersionMs: 5000 });
     expect(getNotificationBadgeCountSnapshot()?.total).toBe(3);
@@ -50,6 +52,7 @@ describe("Bell vs App Icon separation + poll revision", () => {
       domainUnreadRooms: { general_direct: 1, group: 0, trade: 0, store_order: 0 },
       orphanMissedCall: 0,
       nonChatEventAttention: EMPTY_NON_CHAT_EVENT_ATTENTION,
+      unreadApprovedNotificationEvents: 1,
     });
     const applied = patchNotificationBadgeCountSnapshot(stale.bell, "network", 1000);
     expect(applied).toBe(false);

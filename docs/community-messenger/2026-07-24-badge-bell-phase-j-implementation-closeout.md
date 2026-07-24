@@ -30,11 +30,13 @@ RUNTIME LOCK — PENDING FINAL TWO-DEVICE QA
 
 ---
 
-## Frozen formulas (unchanged)
+## Frozen formulas (unchanged except Bell Contract B 2026-07-25)
 
-- Header Bell = Domain `badge-count.total`
+- Header Bell = `unreadApprovedNotificationEvents` (`badge-count.total` / event inbox)
 - Bottom Chat = `general_direct` + `group` unread room count
-- App Icon / Push badge = Domain `appIconTotal`
+- App Icon / Push badge = Domain `appIconTotal` (GD+group+trade+customer SO+owner SO+orphan)
+- Customer order hub = `storeOrderCustomerUnreadRooms` / `buyerOrderAttention`
+- Owner store FAB = store-scoped `storeOrderChatUnread` (not global Domain overwrite)
 - Target Domain snapshot writer/RPC · Domain loaders · NativeBadgeSync
 - List 75s · Domain 45s · Hub 180s · Push sound/banner · Atomic Read
 - R-SO-DUAL / R-TRADE-MULTI track-only

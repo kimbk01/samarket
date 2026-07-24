@@ -9,10 +9,15 @@ export type OwnerHubBadgeBreakdown = {
   /** 거래 + 커뮤니티 채팅 미읽음 합 */
   socialChatUnread: number;
   /**
-   * Owner 주문채팅 unread **방** 수 (`fab_owner_order_chat` / owner_order_chat).
-   * FAB·오너 허브 전용. 메신저 「주문 채팅」 묶음 행·customer delivery-chats 에 쓰지 않음.
+   * Owner 주문채팅 unread **방** 수 — **현재 hub storeId 스코프** (`fab_owner_order_chat`).
+   * Store FAB 전용. Domain badge-count apply 가 이 필드를 전역 owner 합으로 덮어쓰지 않음.
    */
   storeOrderChatUnread: number;
+  /**
+   * Owner 주문채팅 unread **방** 수 — **전체 매장 합계** (Domain Authority).
+   * App Icon / 전체 오너 허브. 특정 매장 FAB 는 `storeOrderChatUnread` 사용.
+   */
+  storeOrderOwnerUnreadRooms: number;
   /** 허브 매장: 접수 대기·환불 요청 */
   orderAttention: number;
   /** 허브 매장: 미답변 문의(open) */
@@ -38,6 +43,7 @@ export const OWNER_HUB_BADGE_EMPTY: OwnerHubBadgeBreakdown = {
   philifeChatUnread: 0,
   socialChatUnread: 0,
   storeOrderChatUnread: 0,
+  storeOrderOwnerUnreadRooms: 0,
   orderAttention: 0,
   inquiryAttention: 0,
   ownerReviewAttention: 0,
@@ -76,6 +82,9 @@ export function parseOwnerHubBadgeJson(data: unknown): OwnerHubBadgeBreakdown {
         : chatUnread;
   const storeOrderChatUnread =
     typeof d.storeOrderChatUnread === "number" ? d.storeOrderChatUnread : 0;
+  /** Missing → 0 (do not alias store-scoped FAB into global owner aggregate). */
+  const storeOrderOwnerUnreadRooms =
+    typeof d.storeOrderOwnerUnreadRooms === "number" ? d.storeOrderOwnerUnreadRooms : 0;
   const orderAttention = typeof d.orderAttention === "number" ? d.orderAttention : 0;
   const inquiryAttention = typeof d.inquiryAttention === "number" ? d.inquiryAttention : 0;
   const ownerReviewAttention =
@@ -98,6 +107,7 @@ export function parseOwnerHubBadgeJson(data: unknown): OwnerHubBadgeBreakdown {
     philifeChatUnread,
     socialChatUnread,
     storeOrderChatUnread,
+    storeOrderOwnerUnreadRooms,
     orderAttention,
     inquiryAttention,
     ownerReviewAttention,
@@ -115,6 +125,7 @@ export function sameOwnerHubBadge(a: OwnerHubBadgeBreakdown, b: OwnerHubBadgeBre
     a.philifeChatUnread === b.philifeChatUnread &&
     a.socialChatUnread === b.socialChatUnread &&
     a.storeOrderChatUnread === b.storeOrderChatUnread &&
+    a.storeOrderOwnerUnreadRooms === b.storeOrderOwnerUnreadRooms &&
     a.orderAttention === b.orderAttention &&
     a.inquiryAttention === b.inquiryAttention &&
     a.ownerReviewAttention === b.ownerReviewAttention &&

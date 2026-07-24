@@ -32,6 +32,7 @@ export type BadgeCountAuthorityJson = {
   storeOrderOwnerChatUnread?: number;
   philifeChatUnread?: number;
   nonChatEventAttention?: Partial<NotificationNonChatEventAttentionFacts>;
+  unreadApprovedNotificationEvents?: number;
   missedCallByRoom?: Record<string, number>;
   [key: string]: unknown;
 };
@@ -66,6 +67,15 @@ export function projectionInputFromBadgeCountAuthorityJson(
   const rooms = body.domainUnreadRooms;
   if (rooms && typeof rooms === "object") {
     const bell = normalizeNotificationBadgeCountPayload(body) ?? EMPTY_BELL_BADGE_FACTS;
+    const unreadApproved =
+      body.unreadApprovedNotificationEvents != null
+        ? Math.max(0, Math.floor(Number(body.unreadApprovedNotificationEvents) || 0))
+        : body.projection && typeof body.projection === "object"
+          ? Math.max(
+              0,
+              Math.floor(Number((body.projection as { bellTotal?: number }).bellTotal) || 0)
+            )
+          : Math.max(0, Math.floor(Number(bell.total) || 0));
     return {
       domainUnreadRooms: {
         general_direct: Math.max(0, Math.floor(Number(rooms.general_direct) || 0)),
@@ -91,6 +101,8 @@ export function projectionInputFromBadgeCountAuthorityJson(
         Math.floor(Number(body.domainAppIcon?.missedCall ?? bell.missedCall) || 0)
       ),
       nonChatEventAttention: nonChatFromBody(body),
+      unreadApprovedNotificationEvents: unreadApproved,
+      bell,
       rowUnreadByRoomId: body.missedCallByRoom ?? {},
     };
   }
@@ -105,6 +117,11 @@ export function projectionInputFromBadgeCountAuthorityJson(
       ? Math.max(0, Math.floor(Number(body.storeOrderOwnerChatUnread) || 0))
       : null;
   const owner = ownerExplicit != null ? ownerExplicit : Math.max(0, storeOrder - buyer);
+  const bell = normalizeNotificationBadgeCountPayload(body) ?? EMPTY_BELL_BADGE_FACTS;
+  const unreadApproved =
+    body.unreadApprovedNotificationEvents != null
+      ? Math.max(0, Math.floor(Number(body.unreadApprovedNotificationEvents) || 0))
+      : Math.max(0, Math.floor(Number(bell.total) || 0));
   return {
     domainUnreadRooms: {
       general_direct: messenger,
@@ -113,9 +130,13 @@ export function projectionInputFromBadgeCountAuthorityJson(
       store_order: owner + buyer,
     },
     storeOrderBuyerDeliveryUnread: buyer,
-    ...(ownerExplicit != null ? { storeOrderOwnerChatUnread: ownerExplicit } : { storeOrderOwnerChatUnread: owner }),
+    ...(ownerExplicit != null
+      ? { storeOrderOwnerChatUnread: ownerExplicit }
+      : { storeOrderOwnerChatUnread: owner }),
     orphanMissedCall: Math.max(0, Math.floor(Number(icon.missedCall) || 0)),
     nonChatEventAttention: nonChatFromBody(body),
+    unreadApprovedNotificationEvents: unreadApproved,
+    bell,
     rowUnreadByRoomId: body.missedCallByRoom ?? {},
   };
 }

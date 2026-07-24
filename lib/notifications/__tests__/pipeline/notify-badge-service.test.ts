@@ -51,6 +51,7 @@ const SAMPLE_DOMAIN = {
   domainAppIcon: { messenger: 2, trade: 1, storeOrder: 0, missedCall: 0 },
   storeOrderBuyerDeliveryUnread: 0,
   storeOrderOwnerChatUnread: 0,
+  unreadApprovedNotificationEvents: 5,
   nonChatEventAttention: {
     tradeStatus: 0,
     orderStatus: 0,

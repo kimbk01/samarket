@@ -8,6 +8,24 @@ vi.mock("@/lib/community-messenger/notifications/messenger-notification-contract
   requestMessengerHubBadgeResync: (...args: unknown[]) => requestMessengerHubBadgeResync(...args),
 }));
 
+vi.mock("@/lib/chats/owner-hub-badge-store", () => ({
+  getOwnerHubBadgeSnapshot: () => ({
+    chatUnread: 0,
+    communityMessengerUnread: 0,
+    philifeChatUnread: 0,
+    socialChatUnread: 0,
+    storeOrderChatUnread: 0,
+    storeOrderOwnerUnreadRooms: 0,
+    orderAttention: 0,
+    inquiryAttention: 0,
+    ownerReviewAttention: 0,
+    storesTabAttention: 0,
+    buyerOrderAttention: 0,
+    storeDeepLink: null,
+    total: 0,
+  }),
+}));
+
 let snap: {
   total: number;
   chat: number;
@@ -24,7 +42,7 @@ let snap: {
   deliveryStatus?: number;
   communityActivity?: number;
 } | null = {
-  total: 3,
+  total: 5,
   chat: 1,
   chatMessage: 1,
   group: 1,
@@ -54,11 +72,11 @@ import {
   resyncBadgesAfterNotificationEventsRead,
 } from "@/lib/notifications/client/notification-events-read-resync";
 
-describe("notification-events-read-resync (Domain Bell)", () => {
+describe("notification-events-read-resync (Bell Contract B)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     snap = {
-      total: 3,
+      total: 5,
       chat: 1,
       chatMessage: 1,
       group: 1,
@@ -79,7 +97,7 @@ describe("notification-events-read-resync (Domain Bell)", () => {
     expect(requestNotificationBadgeCountResync).toHaveBeenCalledWith("call_logs_viewed");
   });
 
-  it("optimistically rebuilds projection with reduced orphan missedCall", () => {
+  it("optimistically rebuilds projection with reduced orphan missedCall (Bell Contract B)", () => {
     applyMissedCallNotificationReadOptimistic(1);
     expect(applyNotificationBadgeProjection).toHaveBeenCalledTimes(1);
     const projection = applyNotificationBadgeProjection.mock.calls[0]?.[0] as {
@@ -89,7 +107,7 @@ describe("notification-events-read-resync (Domain Bell)", () => {
     };
     expect(projection.bell.missedCall).toBe(0);
     expect(projection.appIcon.missedCall).toBe(0);
-    // GD(1)+group(1)+orphan(0)+admin(2) = 4
+    // Events: chat(1)+group(1)+admin(2)+missed(0) = 4
     expect(projection.bellTotal).toBe(4);
   });
 
@@ -107,7 +125,7 @@ describe("notification-events-read-resync (Domain Bell)", () => {
       bell: { adminNotice: number; missedCall: number };
     };
     expect(projection.bell.adminNotice).toBe(0);
-    // GD(1)+group(1)+orphan missed(1)+admin(0) = 3
+    // Events: chat(1)+group(1)+missed(1)+admin(0) = 3
     expect(projection.bellTotal).toBe(3);
     expect(projection.bell.missedCall).toBe(1);
   });
