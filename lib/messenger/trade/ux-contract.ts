@@ -27,11 +27,18 @@ export type TradeListViewModel = Readonly<{
   domainIdentityKey: string;
   /** trade:{itemId}:{sellerId}:{counterpartyId} */
   itemId: string;
+  sellerUserId: string;
+  buyerUserId: string;
+  viewerRole: "seller" | "buyer";
   productTitle: string;
   productImageUrl: string | null;
   peerLabel: string | null;
+  peerAvatarUrl: string | null;
   previewText: string;
+  previewIsSystemEvent: boolean;
+  statusBadge: string | null;
   unreadCount: number;
+  needsResponse: boolean;
   lastMessageAt: string;
   href: string;
 }>;

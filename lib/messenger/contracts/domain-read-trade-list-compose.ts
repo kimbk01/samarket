@@ -10,7 +10,8 @@ import {
 import { selectLatestRowByActivityAt } from "@/lib/messenger/contracts/latest-activity-selector";
 import { runTradeBootstrap } from "@/lib/messenger/trade/phase6-bootstrap";
 import { buildTradeHubViewModel } from "@/lib/messenger/trade/hub";
-import { buildTradeListViewModel, tradeStatusBadgeSeparated } from "@/lib/messenger/trade/row-model";
+import { buildTradeListViewModel } from "@/lib/messenger/trade/row-model";
+import { sortTradeListRows } from "@/lib/messenger/trade/list-sort-filter";
 import { TRADE_DOMAIN } from "@/lib/messenger/trade/domain";
 
 export type DomainReadTradeListDto = Readonly<{
@@ -30,12 +31,18 @@ export type DomainReadTradeListDto = Readonly<{
     chatDomain: typeof TRADE_DOMAIN;
     domainIdentityKey: string;
     itemId: string;
+    sellerUserId: string;
+    buyerUserId: string;
+    viewerRole: "seller" | "buyer";
     productTitle: string;
     productImageUrl: string | null;
     peerLabel: string | null;
+    peerAvatarUrl: string | null;
     previewText: string;
+    previewIsSystemEvent: boolean;
     statusBadge: string | null;
     unreadCount: number;
+    needsResponse: boolean;
     lastMessageAt: string;
     href: string;
   }>;
@@ -64,6 +71,9 @@ export function validateDomainReadTradeListDto(
     if (row.chatDomain !== TRADE_DOMAIN) return { ok: false, trigger: "foreign_domain_row" };
     if (!row.roomId || !row.domainIdentityKey || !row.itemId) {
       return { ok: false, trigger: "trade_identity_missing" };
+    }
+    if (row.viewerRole !== "seller" && row.viewerRole !== "buyer") {
+      return { ok: false, trigger: "trade_viewer_role_missing" };
     }
     if (!row.productTitle.trim()) return { ok: false, trigger: "product_identity_missing" };
     if (ids.has(row.roomId)) return { ok: false, trigger: "duplicate_room_id" };
@@ -122,13 +132,13 @@ export async function composeDomainReadTradeListDto(
     }
 
     const vms = trade.rows.map(buildTradeListViewModel);
-    const sorted = [...vms].sort((a, b) => {
-      const ta = Date.parse(a.lastMessageAt) || 0;
-      const tb = Date.parse(b.lastMessageAt) || 0;
-      if (tb !== ta) return tb - ta;
-      return a.roomId < b.roomId ? -1 : a.roomId > b.roomId ? 1 : 0;
-    });
-    const byId = new Map(trade.rows.map((r) => [r.roomId, r]));
+    const sorted = sortTradeListRows(vms);
+    const latestVm =
+      sorted.find((r) => r.roomId === hub.latestRoomId) ??
+      selectLatestRowByActivityAt(sorted, (r) => ({
+        activityAt: r.lastMessageAt,
+        tieKey: r.roomId,
+      }));
 
     const dto: DomainReadTradeListDto = {
       authority: "domain_trade_list_canary",
@@ -139,7 +149,7 @@ export async function composeDomainReadTradeListDto(
         unreadRoomCount: hub.unreadCount,
         latestRoomId: hub.latestRoomId,
         latestActivityAt: hub.lastEventAt,
-        previewText: hub.previewText,
+        previewText: latestVm?.previewText ?? hub.previewText,
         latestDomainIdentityKey: hub.latestDomainIdentityKey,
       },
       rows: sorted.map((vm) => ({
@@ -147,12 +157,18 @@ export async function composeDomainReadTradeListDto(
         chatDomain: TRADE_DOMAIN,
         domainIdentityKey: vm.domainIdentityKey,
         itemId: vm.itemId,
+        sellerUserId: vm.sellerUserId,
+        buyerUserId: vm.buyerUserId,
+        viewerRole: vm.viewerRole,
         productTitle: vm.productTitle,
         productImageUrl: vm.productImageUrl,
         peerLabel: vm.peerLabel,
+        peerAvatarUrl: vm.peerAvatarUrl,
         previewText: vm.previewText,
-        statusBadge: tradeStatusBadgeSeparated(byId.get(vm.roomId)!) ?? null,
+        previewIsSystemEvent: vm.previewIsSystemEvent,
+        statusBadge: vm.statusBadge,
         unreadCount: vm.unreadCount,
+        needsResponse: vm.needsResponse,
         lastMessageAt: vm.lastMessageAt,
         href: vm.href,
       })),

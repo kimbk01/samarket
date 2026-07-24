@@ -30,6 +30,7 @@ import {
 } from "@/lib/messenger/store-order/phase11a-db-loader-owner";
 import type { GroupSubtype } from "@/lib/messenger/group/types";
 import { parseTradeIdentityKey } from "@/lib/messenger/trade/identity";
+import { resolveTradeItemStatus } from "@/lib/messenger/trade/item-status";
 import { parseGeneralDirectIdentityKey } from "@/lib/messenger/general-direct/identity";
 import { storeOrderRoomIdentity } from "@/lib/chat-domain/room-identity";
 import type { GeneralDirectBootstrapSource } from "@/lib/messenger/general-direct/phase6-bootstrap";
@@ -144,7 +145,14 @@ async function loadTradeListingPosts(
   sb: SupabaseClient,
   itemIds: string[]
 ): Promise<{
-  map: Map<string, { title: string | null; imageUrl: string | null }>;
+  map: Map<
+    string,
+    {
+      title: string | null;
+      imageUrl: string | null;
+      statusBadgeLabel: string | null;
+    }
+  >;
   timing: Phase11bQueryTiming;
 }> {
   const uniq = [...new Set(itemIds.map((id) => id.trim()).filter(Boolean))];
@@ -152,15 +160,27 @@ async function loadTradeListingPosts(
     return { map: new Map(), timing: { label: "trade_listing_posts", durationMs: 0, rowCount: 0 } };
   }
   const { data, timing } = await timedSelect("trade_listing_posts", () =>
-    sb.from("posts").select("id, title, thumbnail_url").in("id", uniq)
+    sb.from("posts").select("id, title, thumbnail_url, status, seller_listing_state").in("id", uniq)
   );
-  const map = new Map<string, { title: string | null; imageUrl: string | null }>();
+  const map = new Map<
+    string,
+    {
+      title: string | null;
+      imageUrl: string | null;
+      statusBadgeLabel: string | null;
+    }
+  >();
   for (const row of (data ?? []) as Array<Record<string, unknown>>) {
     const id = String(row.id ?? "").trim();
     if (!id) continue;
+    const status = resolveTradeItemStatus({
+      sellerListingStateRaw: row.seller_listing_state,
+      postStatus: typeof row.status === "string" ? row.status : null,
+    });
     map.set(id, {
       title: typeof row.title === "string" ? row.title.trim() || null : null,
       imageUrl: typeof row.thumbnail_url === "string" ? row.thumbnail_url.trim() || null : null,
+      statusBadgeLabel: status.statusBadgeLabel,
     });
   }
   return { map, timing };
@@ -651,6 +671,7 @@ export async function fetchTradeLiveBatch(
       peerDisplayName: prof?.name ?? null,
       peerAvatarUrl: prof?.avatar ?? null,
       productChatId,
+      tradeStatusLabel: listing?.statusBadgeLabel ?? null,
       unreadCount: resolveTradeListUnreadCount({
         domainIdentityKey: key,
         unreadTargetIdentityKeys: tradeUnreadIdentityKeys,

@@ -26,6 +26,8 @@ export type TradeRoomInput = Readonly<{
   lastMessageAt: string | null | undefined;
   unreadCount: number | null | undefined;
   tradeStatusLabel?: string | null | undefined;
+  /** Latest message is system / status event (preview styling) */
+  lastMessageIsSystem?: boolean | null | undefined;
   updatedAt?: string | null | undefined;
   /** 진단용 — ListPort 는 Domain 재판정에 사용 금지 */
   roomType?: string | null | undefined;
@@ -39,6 +41,8 @@ export type TradeListItem = Readonly<{
   itemId: string;
   sellerUserId: string;
   counterpartyUserId: string;
+  /** viewer-relative — null rows must be dropped before DTO */
+  viewerRole: "seller" | "buyer";
   itemTitle: string;
   itemImageUrl: string | null;
   peerDisplayName: string;
@@ -46,6 +50,7 @@ export type TradeListItem = Readonly<{
   /** Real product_chats.id when linked — dock must not use itemId */
   productChatId: string | null;
   lastMessage: string;
+  lastMessageIsSystem: boolean;
   lastMessageAt: string;
   unreadCount: number;
   tradeStatusLabel: string | null;

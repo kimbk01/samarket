@@ -36,11 +36,26 @@ export { buildTradeHubViewModel, assertHomeInboxRejectsTradeDomain } from "@/lib
 export { resolveTradePresentation, resolveTradePresentationFromListItem } from "@/lib/messenger/trade/presentation";
 export { resolveTradeHeaderKind, buildTradeHeaderModel } from "@/lib/messenger/trade/header";
 export { resolveTradePreview, assertTradePreviewDoesNotUseMetadata } from "@/lib/messenger/trade/preview";
+export { buildTradeListViewModel, tradeStatusBadgeSeparated, tradeRouterPort } from "@/lib/messenger/trade/row-model";
 export {
-  buildTradeListViewModel,
-  tradeStatusBadgeSeparated,
-  tradeRouterPort,
-} from "@/lib/messenger/trade/row-model";
+  resolveTradeViewerRole,
+  tradeViewerRoleLabelKo,
+  tradeViewerRoleLabelEn,
+  type TradeViewerRole,
+} from "@/lib/messenger/trade/viewer-role";
+export {
+  resolveTradeItemStatus,
+  normalizeTradeListPreviewLine,
+  looksLikeTradeStatusChangePreview,
+  type TradeItemStatus,
+} from "@/lib/messenger/trade/item-status";
+export {
+  filterTradeListRowsByRole,
+  sortTradeListRows,
+  compareTradeListSortKeys,
+  type TradeListRoleFilter,
+} from "@/lib/messenger/trade/list-sort-filter";
+
 export { acceptTradeBootstrap, mergeTradePartialBootstrap } from "@/lib/messenger/trade/bootstrap";
 export {
   buildTradeCacheKey,

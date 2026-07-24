@@ -40,6 +40,7 @@ function listItem(partial: Partial<TradeListItem> & { itemId: string }): TradeLi
     itemId: partial.itemId,
     sellerUserId: partial.sellerUserId ?? SELLER,
     counterpartyUserId: partial.counterpartyUserId ?? BUYER,
+    viewerRole: partial.viewerRole ?? "seller",
     itemTitle: partial.itemTitle ?? "Living Room Furniture",
     itemImageUrl:
       partial.itemImageUrl === undefined ? "https://cdn.example/listing.jpg" : partial.itemImageUrl,
@@ -48,6 +49,7 @@ function listItem(partial: Partial<TradeListItem> & { itemId: string }): TradeLi
       partial.peerAvatarUrl === undefined ? "https://cdn.example/peer.jpg" : partial.peerAvatarUrl,
     productChatId: partial.productChatId === undefined ? null : partial.productChatId,
     lastMessage: "hi",
+    lastMessageIsSystem: false,
     lastMessageAt: "2026-07-14T00:00:00.000Z",
     unreadCount: 0,
     tradeStatusLabel: null,

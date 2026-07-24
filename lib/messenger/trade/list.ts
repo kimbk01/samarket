@@ -2,6 +2,7 @@
  * trade ListPort — trade 방만 · 방 단위 1행. user-pair 병합 금지.
  */
 import { buildTradeIdentity, parseTradeIdentityKey } from "@/lib/messenger/trade/identity";
+import { resolveTradeViewerRole } from "@/lib/messenger/trade/viewer-role";
 import {
   TRADE_DOMAIN,
   TRADE_PEER_PLACEHOLDER,
@@ -47,23 +48,45 @@ function rejectForeignOrInvalid(row: TradeRoomInput): string | null {
   return null;
 }
 
-export function mapTradeListItem(row: TradeRoomInput, generation: string): TradeListItem {
+export function mapTradeListItem(
+  row: TradeRoomInput,
+  generation: string,
+  viewerUserId: string
+): TradeListItem | null {
   const err = rejectForeignOrInvalid(row);
   if (err) throw new Error(err);
+  const sellerUserId = trimOrEmpty(row.sellerUserId);
+  const counterpartyUserId = trimOrEmpty(row.counterpartyUserId);
+  const viewerRole = resolveTradeViewerRole({
+    viewerUserId,
+    sellerUserId,
+    counterpartyUserId,
+  });
+  if (!viewerRole) {
+    console.warn("[TRADE_PARTICIPANT_MISMATCH]", {
+      roomId: trimOrEmpty(row.roomId),
+      viewerUserId: viewerUserId.trim(),
+      sellerUserId,
+      counterpartyUserId,
+    });
+    return null;
+  }
   const lastAt = trimOrEmpty(row.lastMessageAt) || trimOrEmpty(row.updatedAt) || "";
   return {
     roomId: trimOrEmpty(row.roomId),
     chatDomain: TRADE_DOMAIN,
     domainIdentityKey: trimOrEmpty(row.domainIdentityKey),
     itemId: trimOrEmpty(row.itemId),
-    sellerUserId: trimOrEmpty(row.sellerUserId),
-    counterpartyUserId: trimOrEmpty(row.counterpartyUserId),
+    sellerUserId,
+    counterpartyUserId,
+    viewerRole,
     itemTitle: trimOrEmpty(row.itemTitle) || TRADE_PRODUCT_TITLE_PLACEHOLDER,
     itemImageUrl: trimOrEmpty(row.itemImageUrl) || null,
     peerDisplayName: trimOrEmpty(row.peerDisplayName) || TRADE_PEER_PLACEHOLDER,
     peerAvatarUrl: trimOrEmpty(row.peerAvatarUrl) || null,
     productChatId: trimOrEmpty(row.productChatId) || null,
     lastMessage: trimOrEmpty(row.lastMessage),
+    lastMessageIsSystem: row.lastMessageIsSystem === true,
     lastMessageAt: lastAt,
     unreadCount: Math.max(0, Math.floor(Number(row.unreadCount) || 0)),
     tradeStatusLabel: trimOrEmpty(row.tradeStatusLabel) || null,
@@ -86,12 +109,13 @@ export function buildTradeListSnapshot(input: {
   for (const room of input.rooms) {
     const foreign = rejectForeignOrInvalid(room);
     if (foreign) return { ok: false, error: foreign };
-    let item: TradeListItem;
+    let item: TradeListItem | null;
     try {
-      item = mapTradeListItem(room, generation);
+      item = mapTradeListItem(room, generation, viewerUserId);
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : "dibay_trade_list_map_failed" };
     }
+    if (!item) continue;
     const prev = seenIdentity.get(item.domainIdentityKey);
     if (prev && prev !== item.roomId) {
       return { ok: false, error: `dibay_trade_duplicate_identity:${item.domainIdentityKey}` };

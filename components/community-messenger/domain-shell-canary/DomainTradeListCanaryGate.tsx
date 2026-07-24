@@ -1,15 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import {
   isClientBundleKilled,
   isDomainShellReadUiCanaryViewer,
 } from "@/components/community-messenger/domain-shell-canary/canary-allowlist";
-import {
-  DomainCanaryShellRow,
-  formatDomainCanaryTime,
-} from "@/components/community-messenger/domain-shell-canary/DomainCanaryShellRow";
+import { TradeDomainShellRow } from "@/components/community-messenger/domain-shell-canary/TradeDomainShellRow";
 import { markRoomEntryIntent } from "@/lib/community-messenger/room/messenger-room-entry-intent";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -26,6 +23,10 @@ import {
   stabilizeTradeListDto,
 } from "@/components/community-messenger/domain-shell-canary/domain-list-canary-stabilize";
 import { subscribeDomainListCanaryPatch } from "@/components/community-messenger/domain-shell-canary/domain-list-canary-realtime-patch";
+import {
+  filterTradeListRowsByRole,
+  type TradeListRoleFilter,
+} from "@/lib/messenger/trade/list-sort-filter";
 
 export type TradeListDto = {
   authority: "domain_trade_list_canary";
@@ -42,12 +43,18 @@ export type TradeListDto = {
     chatDomain: "trade";
     domainIdentityKey: string;
     itemId: string;
+    sellerUserId: string;
+    buyerUserId: string;
+    viewerRole: "seller" | "buyer";
     productTitle: string;
     productImageUrl: string | null;
     peerLabel: string | null;
+    peerAvatarUrl: string | null;
     previewText: string;
+    previewIsSystemEvent?: boolean;
     statusBadge: string | null;
     unreadCount: number;
+    needsResponse?: boolean;
     lastMessageAt: string;
     href: string;
   }>;
@@ -59,6 +66,7 @@ function clientValidate(dto: TradeListDto): string | null {
   for (const row of dto.rows) {
     if (row.chatDomain !== "trade") return "foreign_domain_row";
     if (!row.itemId.trim()) return "product_identity_missing";
+    if (row.viewerRole !== "seller" && row.viewerRole !== "buyer") return "trade_viewer_role_missing";
     if (ids.has(row.roomId)) return "duplicate_room_id";
     ids.add(row.roomId);
   }
@@ -78,13 +86,14 @@ function DomainListRowSkeleton({ count = 6 }: { count?: number }) {
       {Array.from({ length: count }).map((_, i) => (
         <div
           key={i}
-          className="flex min-h-[68px] items-center gap-3 border-b border-sam-border px-3"
+          className="flex min-h-[76px] items-center gap-3 border-b border-sam-border px-3"
           data-domain-list-row-skeleton="1"
         >
-          <div className="h-12 w-12 shrink-0 rounded-full bg-sam-muted/20" />
+          <div className="h-12 w-12 shrink-0 rounded-ui-rect bg-sam-muted/20" />
           <div className="min-w-0 flex-1 space-y-2">
             <div className="h-3 w-2/5 rounded bg-sam-muted/20" />
             <div className="h-3 w-3/5 rounded bg-sam-muted/15" />
+            <div className="h-3 w-4/5 rounded bg-sam-muted/10" />
           </div>
         </div>
       ))}
@@ -92,9 +101,12 @@ function DomainListRowSkeleton({ count = 6 }: { count?: number }) {
   );
 }
 
+const ROLE_FILTERS: TradeListRoleFilter[] = ["all", "selling", "buying"];
+
 /**
  * Trade Hub→List — Domain Facts only. Production surface (no Legacy home rollback).
  * Cache/seed paints immediately; refresh merges in background.
+ * Role filter is a selector on one trade authority list (no extra store).
  */
 export function DomainTradeListCanaryGate({
   tabletSplitListOnly,
@@ -103,6 +115,7 @@ export function DomainTradeListCanaryGate({
   tabletSplitListOnly?: boolean;
   filter?: string;
 }) {
+  void _filter;
   const [{ mode: initialMode, dto: initialDto }] = useState(() => {
     const syncUid = getSyncViewerUserIdForClient() ?? null;
     const cached = peekDomainTradeListCanaryCache(syncUid);
@@ -114,12 +127,9 @@ export function DomainTradeListCanaryGate({
   const [mode, setMode] = useState<"loading" | "ready" | "error">(initialMode);
   const [dto, setDto] = useState<TradeListDto | null>(initialDto);
   const [reason, setReason] = useState<string | null>(null);
-  const { language } = useI18n();
+  const [roleFilter, setRoleFilter] = useState<TradeListRoleFilter>("all");
+  const { language, t, safeT } = useI18n();
 
-  /**
-   * 2026-07-23: realtime message/read patch가 세션 캐시에 적용될 때 이 화면이 마운트돼 있으면
-   * 즉시 반영 — 이전엔 마운트 시 1회 fetch 후 고정이라 재진입/새로고침 전까진 안 보였다.
-   */
   useEffect(() => {
     const uid = getSyncViewerUserIdForClient() ?? null;
     return subscribeDomainListCanaryPatch("trade", () => {
@@ -155,10 +165,6 @@ export function DomainTradeListCanaryGate({
           return;
         }
         const syncUid = getSyncViewerUserIdForClient() ?? null;
-        /**
-         * Telegram list authority: hydrated session cache → memory paint only.
-         * Remount must not network-rewrite (TTL soft-skip then fetch deleted).
-         */
         const cached = peekDomainTradeListCanaryCache(syncUid);
         if (cached) {
           if (!cancelled) {
@@ -218,6 +224,33 @@ export function DomainTradeListCanaryGate({
   const title = language === "en" ? "Trade chats" : "거래 채팅";
   const unreadRoomCount = dto?.hub.unreadRoomCount ?? 0;
 
+  const visibleRows = useMemo(() => {
+    if (!dto) return [];
+    return filterTradeListRowsByRole(
+      dto.rows.map((r) => ({
+        ...r,
+        viewerRole: r.viewerRole,
+        needsResponse: r.needsResponse ?? r.unreadCount > 0,
+      })),
+      roleFilter
+    );
+  }, [dto, roleFilter]);
+
+  const filterLabel = (id: TradeListRoleFilter) => {
+    if (id === "all") {
+      return safeT("cm_trade_chat_filter_all", { fallbackKo: "전체", fallbackEn: "All" });
+    }
+    if (id === "selling") {
+      return safeT("cm_trade_chat_filter_selling", { fallbackKo: "판매", fallbackEn: "Selling" });
+    }
+    return safeT("cm_trade_chat_filter_buying", { fallbackKo: "구매", fallbackEn: "Buying" });
+  };
+
+  const roleLabelFor = (role: "seller" | "buyer") =>
+    role === "seller"
+      ? safeT("cm_trade_chat_role_sale", { fallbackKo: "판매", fallbackEn: "Selling" })
+      : safeT("cm_trade_chat_role_purchase", { fallbackKo: "구매", fallbackEn: "Buying" });
+
   if (mode === "loading" && !dto) {
     return (
       <div
@@ -273,6 +306,7 @@ export function DomainTradeListCanaryGate({
       data-domain-trade-list="1"
       data-domain-list-mode="domain"
       data-domain-unread-rooms={String(unreadRoomCount)}
+      data-trade-role-filter={roleFilter}
       data-tablet-split={tabletSplitListOnly ? "1" : "0"}
     >
       <div className="border-b border-sam-border px-4 py-3">
@@ -282,24 +316,47 @@ export function DomainTradeListCanaryGate({
             {language === "en" ? `${unreadRoomCount} unread` : `읽지 않음 ${unreadRoomCount}`}
           </div>
         ) : null}
+        <div className="mt-2 flex gap-1.5" role="tablist" aria-label={t("cm_trade_chat_filter_all")}>
+          {ROLE_FILTERS.map((id) => {
+            const active = roleFilter === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                className={
+                  active
+                    ? "rounded-full bg-sam-primary px-3 py-1 text-xs text-white"
+                    : "rounded-full bg-sam-muted/15 px-3 py-1 text-xs text-sam-fg"
+                }
+                onClick={() => setRoleFilter(id)}
+              >
+                {filterLabel(id)}
+              </button>
+            );
+          })}
+        </div>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {dto.rows.map((row) => (
-          <DomainCanaryShellRow
+        {visibleRows.map((row) => (
+          <TradeDomainShellRow
             key={row.roomId}
             href={row.href}
-            title={row.productTitle}
-            subtitle={row.peerLabel ?? undefined}
-            preview={row.previewText || (language === "en" ? "No messages" : "메시지가 없습니다")}
-            avatarUrl={row.productImageUrl}
-            avatarKind="listing"
+            productTitle={row.productTitle}
+            productImageUrl={row.productImageUrl}
+            peerLabel={row.peerLabel?.trim() || (language === "en" ? "Counterpart" : "상대방")}
+            peerAvatarUrl={row.peerAvatarUrl}
+            roleLabel={roleLabelFor(row.viewerRole)}
             statusBadge={row.statusBadge}
+            preview={row.previewText || (language === "en" ? "No messages" : "메시지가 없습니다")}
+            previewIsSystemEvent={row.previewIsSystemEvent === true}
             unreadCount={row.unreadCount}
-            time={formatDomainCanaryTime(row.lastMessageAt)}
+            lastMessageAt={row.lastMessageAt}
             onNavigate={() =>
               markRoomEntryIntent(row.roomId, {
-                title: row.productTitle,
-                avatarUrl: row.productImageUrl,
+                title: row.peerLabel?.trim() || row.productTitle,
+                avatarUrl: row.peerAvatarUrl || row.productImageUrl,
                 expectedDomain: "trade",
                 expectedIdentityKey: row.domainIdentityKey,
               })

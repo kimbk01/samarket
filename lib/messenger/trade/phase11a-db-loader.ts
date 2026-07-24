@@ -11,6 +11,10 @@ import type { TradeBootstrapSource } from "@/lib/messenger/trade/phase6-bootstra
 import { parseTradeIdentityKey } from "@/lib/messenger/trade/identity";
 import { TRADE_DOMAIN, type TradeRoomInput } from "@/lib/messenger/trade/types";
 
+function trimOrEmpty(v: string | null | undefined): string {
+  return typeof v === "string" ? v.trim() : "";
+}
+
 export type TradeLoaderBatchRow = Readonly<{
   roomId: string;
   chatDomain: string;
@@ -87,10 +91,12 @@ export function mapTradeLoaderBatchRows(input: {
         latestMessage: row.latestMessage,
         roomLastMessageSummary: row.roomLastMessageSummary,
         productSummary: row.productSummary,
-        orderStatusLabel: row.tradeStatusLabel,
+        orderStatusLabel: null,
       }),
       lastMessageAt: row.latestMessage?.createdAt ?? null,
+      lastMessageIsSystem: row.latestMessage?.isSystem === true,
       unreadCount: row.unreadCount,
+      tradeStatusLabel: trimOrEmpty(row.tradeStatusLabel) || null,
     });
   }
 

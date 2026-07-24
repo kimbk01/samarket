@@ -43,14 +43,16 @@ export type DomainCommerceHubListPreview = {
   lastEventAt: string | null;
 };
 
-/** Same top row the Domain trade list shows after stabilize. */
+/** Hub pillar follows activity-latest (hub.latestRoomId), not unread-sorted rows[0]. */
 export function peekDomainTradeHubListPreview(): DomainCommerceHubListPreview | null {
   const uid = viewerEligible();
   if (!uid) return null;
   const raw = peekDomainTradeListCanaryCache(uid);
   if (!raw) return null;
   const dto = stabilizeTradeListDto(raw);
-  const top = dto.rows[0];
+  const latestId = dto.hub.latestRoomId?.trim() ?? "";
+  const top =
+    (latestId ? dto.rows.find((r) => r.roomId === latestId) : null) ?? dto.rows[0];
   if (!top) {
     return { latestRoomId: null, title: "", previewText: "", lastEventAt: null };
   }

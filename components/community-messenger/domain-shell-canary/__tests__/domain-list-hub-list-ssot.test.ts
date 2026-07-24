@@ -57,14 +57,14 @@ describe("domain list stabilize — hub matches list top", () => {
     expect(next.hub.latestRoomId).toBe("room-new");
   });
 
-  it("trade: stabilize picks newest lastMessageAt as hub.latestRoomId", () => {
+  it("trade: hub.latest follows activity; unread can reorder list rows[0]", () => {
     const body: TradeListDto = {
       authority: "domain_trade_list_canary",
       viewerUserId: "u1",
       producedAt: "2026-07-23T00:00:00.000Z",
       hub: {
         roomCount: 2,
-        unreadRoomCount: 0,
+        unreadRoomCount: 1,
         latestRoomId: "t-old",
         previewText: "old",
       },
@@ -74,12 +74,16 @@ describe("domain list stabilize — hub matches list top", () => {
           chatDomain: "trade",
           domainIdentityKey: "t:old",
           itemId: "i1",
+          sellerUserId: "s1",
+          buyerUserId: "b1",
+          viewerRole: "seller",
           productTitle: "Old item",
           productImageUrl: null,
           peerLabel: null,
+          peerAvatarUrl: null,
           previewText: "old",
           statusBadge: null,
-          unreadCount: 0,
+          unreadCount: 2,
           lastMessageAt: "2026-07-09T08:27:00.000Z",
           href: "/a",
         },
@@ -88,9 +92,13 @@ describe("domain list stabilize — hub matches list top", () => {
           chatDomain: "trade",
           domainIdentityKey: "t:new",
           itemId: "i2",
+          sellerUserId: "s1",
+          buyerUserId: "b2",
+          viewerRole: "seller",
           productTitle: "New item",
           productImageUrl: null,
           peerLabel: "Shawn",
+          peerAvatarUrl: null,
           previewText: "hi",
           statusBadge: null,
           unreadCount: 0,
@@ -101,7 +109,7 @@ describe("domain list stabilize — hub matches list top", () => {
     };
     const next = stabilizeTradeListDto(body);
     expect(next.hub.latestRoomId).toBe("t-new");
-    expect(next.rows[0]?.roomId).toBe("t-new");
+    expect(next.rows[0]?.roomId).toBe("t-old");
   });
 
   it("paintEqual is true for identical rows (list lock skip setDto)", () => {
@@ -121,9 +129,13 @@ describe("domain list stabilize — hub matches list top", () => {
           chatDomain: "trade",
           domainIdentityKey: "t:1",
           itemId: "i1",
+          sellerUserId: "s1",
+          buyerUserId: "b1",
+          viewerRole: "seller",
           productTitle: "Item",
           productImageUrl: null,
           peerLabel: null,
+          peerAvatarUrl: null,
           previewText: "hi",
           statusBadge: null,
           unreadCount: 0,
