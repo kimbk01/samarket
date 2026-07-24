@@ -7,6 +7,7 @@
  * - DO NOT: hub↔App Icon cross-write, Bell total→App Icon, path-local Surface math.
  */
 import type { ChatDomainBadgeShellResult } from "@/lib/chat-domain/shell/hub-badge-shell-aggregator";
+import { applyAppIconBadgeProjection } from "@/lib/chat-domain/projections/app-icon-badge-projection";
 import { applyDomainAuthorityHubBadgeOptimistic } from "@/lib/chats/owner-hub-badge-store";
 import type { NotificationBadgeProjection } from "@/lib/notifications/build-notification-badge-projection";
 import { patchNotificationBadgeCountSnapshot } from "@/lib/notifications/notification-badge-count-store";
@@ -14,12 +15,14 @@ import { patchNotificationBadgeCountSnapshot } from "@/lib/notifications/notific
 /**
  * THE Projection Apply — Bottom/Trade/Order Hub + App Icon + Bell + OS tray remove.
  * Call only with output of `buildNotificationBadgeProjection`.
+ * App Icon uses projection.appIconTotal — NEVER Bell total mirror.
  */
 export function applyNotificationBadgeProjection(
   projection: NotificationBadgeProjection,
-  opts?: { applyBell?: boolean }
+  opts?: { applyBell?: boolean; projectionVersionMs?: number }
 ): void {
   if (typeof window === "undefined") return;
+  const versionMs = Math.max(0, Math.floor(Number(opts?.projectionVersionMs) || Date.now()));
   applyDomainAuthorityHubBadgeOptimistic({
     communityMessengerUnread: projection.bottomChat,
     tradeUnread: projection.tradeHub,
@@ -33,8 +36,13 @@ export function applyNotificationBadgeProjection(
     });
     mod.publishMissedCallToDomainBadgeSurface(projection.appIcon.missedCall);
   });
+  applyAppIconBadgeProjection({
+    totalUnread: Math.max(0, projection.appIconTotal),
+    versionMs,
+    source: "network",
+  });
   if (opts?.applyBell !== false) {
-    patchNotificationBadgeCountSnapshot(projection.bell);
+    patchNotificationBadgeCountSnapshot(projection.bell, "network", versionMs);
   }
   if (projection.osNotificationRemove.length > 0) {
     void import("@/lib/push/native/remove-delivered-notifications").then((mod) => {

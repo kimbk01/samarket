@@ -1,12 +1,11 @@
 /**
- * Phase H extension — App Icon badge single writer (slice-1 cutover).
- * Mirrors Bell totalUnread (NativeBadgeSync already reads badge-count total).
- * DO NOT: rewire unread multi-surface stores · delete R3 poll · Native Call LOCK.
+ * Phase H extension — App Icon badge single writer.
+ * Independent Domain App Icon projection — DO NOT mirror Header Bell total.
  */
 
 import type { SurfaceProjectionApplyResult } from "@/lib/chat-domain/projections/surface-projection-types";
 
-export type AppIconBadgeProjectionSourceKind = "bell_mirror" | "network" | "clear";
+export type AppIconBadgeProjectionSourceKind = "network" | "clear" | "domain_authority";
 
 export type AppIconBadgeProjectionSnapshot = {
   totalUnread: number;

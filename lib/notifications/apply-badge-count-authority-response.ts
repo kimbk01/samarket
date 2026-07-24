@@ -19,6 +19,7 @@ let resyncRevision = 0;
 
 export type BadgeCountAuthorityJson = {
   authority?: string;
+  projectionVersionMs?: number;
   domainAppIcon?: {
     messenger?: number;
     trade?: number;
@@ -110,12 +111,22 @@ export function projectionInputFromBadgeCountAuthorityJson(
 
 export function applyAuthorityJsonAsProjection(
   body: BadgeCountAuthorityJson | Record<string, unknown>,
-  opts?: { applyBell?: boolean }
+  opts?: { applyBell?: boolean; projectionVersionMs?: number }
 ): boolean {
   const input = projectionInputFromBadgeCountAuthorityJson(body as BadgeCountAuthorityJson);
   if (!input) return false;
   const projection = buildNotificationBadgeProjection(input);
-  applyNotificationBadgeProjection(projection, { applyBell: opts?.applyBell !== false });
+  const versionMs = Math.max(
+    0,
+    Math.floor(
+      Number(opts?.projectionVersionMs ?? (body as BadgeCountAuthorityJson).projectionVersionMs) ||
+        Date.now()
+    )
+  );
+  applyNotificationBadgeProjection(projection, {
+    applyBell: opts?.applyBell !== false,
+    projectionVersionMs: versionMs,
+  });
   return true;
 }
 
@@ -132,9 +143,18 @@ export async function resyncNotificationBadgeAuthorityFromBadgeCount(): Promise<
         if (!res.ok) continue;
         if (scheduledRevision < resyncRevision) continue;
         const body = (await res.json()) as BadgeCountAuthorityJson;
-        if (body.authority !== "domain_badge") continue;
+        if (body.authority !== "domain_badge") {
+          // DO NOT fall back to event SUM
+          continue;
+        }
         if (scheduledRevision < resyncRevision) continue;
-        applyAuthorityJsonAsProjection(body, { applyBell: true });
+        applyAuthorityJsonAsProjection(body, {
+          applyBell: true,
+          projectionVersionMs: Math.max(
+            0,
+            Math.floor(Number(body.projectionVersionMs) || Date.now())
+          ),
+        });
       } catch {
         /* fail-soft */
       }

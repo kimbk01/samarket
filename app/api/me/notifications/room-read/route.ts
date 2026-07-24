@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { markRoomRead } from "@/lib/notifications/pipeline/notify-read-service";
-import { fetchNotificationBadgeCount } from "@/lib/notifications/pipeline/notify-badge-service";
+import { fetchDomainBadgeAuthorityPayload } from "@/lib/notifications/pipeline/notify-badge-service";
 import { logNotifyOpen } from "@/lib/notifications/core/notification-logs";
 
 export const runtime = "nodejs";
@@ -31,17 +31,24 @@ export async function POST(req: NextRequest) {
   }
 
   const cleared = await markRoomRead(sb, userId, roomId);
-  const badge = await fetchNotificationBadgeCount(sb, userId, { force: true });
+  const domain = await fetchDomainBadgeAuthorityPayload(sb, userId, { force: true });
   logNotifyOpen("room_opened", { userId, roomId, cleared });
   return NextResponse.json({
     ok: true,
     cleared,
     updatedNotificationEventCount: cleared,
     updatedParticipantUnreadCount: null,
-    nextBadgeTotal: badge.total,
-    categoryCounts: badge,
+    nextBadgeTotal: domain.projection.bellTotal,
+    /** Inbox/diagnostics events breakdown — not Header Bell authority. */
+    categoryCounts: domain.categoryCounts,
+    authority: "domain_badge",
+    domainUnreadRooms: domain.domainUnreadRooms,
+    domainAppIcon: domain.domainAppIcon,
+    nonChatEventAttention: domain.nonChatEventAttention,
+    storeOrderBuyerDeliveryUnread: domain.storeOrderBuyerDeliveryUnread,
+    projectionVersionMs: domain.projectionVersionMs,
     threadUnreadAfter: null,
-    nativeBadgeTotal: badge.total,
+    nativeBadgeTotal: domain.projection.appIconTotal,
     affectedThreadId: roomId,
     readReason: body.readReason ?? "chat_room_visible",
   });

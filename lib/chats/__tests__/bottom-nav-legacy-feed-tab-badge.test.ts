@@ -94,12 +94,13 @@ describe("bottom nav Legacy feed tab badges", () => {
     expect(src).toContain("not message sum");
   });
 
-  it("7. App icon badge-count path unchanged (events total SSOT)", () => {
+  it("7. App icon / Bell badge-count uses Domain authority (not events SUM SSOT)", () => {
     const src = fs.readFileSync(
       path.join(process.cwd(), "app/api/me/notifications/badge-count/route.ts"),
       "utf8"
     );
-    expect(src).toContain("fetchNotificationBadgeCount");
+    expect(src).toContain("fetchDomainBadgeAuthorityPayload");
+    expect(src).toContain("domain_badge");
     expect(src).toContain("total");
   });
 

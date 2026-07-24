@@ -23,7 +23,7 @@ import { applyGroupListProjection } from "@/lib/chat-domain/list/group-list-writ
 import { applyStoreOrderListProjection } from "@/lib/chat-domain/list/store-order-list-writer";
 import { applyTradeListProjection } from "@/lib/chat-domain/list/trade-list-writer";
 import { OWNER_HUB_BADGE_EMPTY } from "@/lib/chats/owner-hub-badge-types";
-/** Side-effect: registers Bell → badge-count store sink (+ App Icon mirror). */
+/** Side-effect: registers Bell → badge-count store sink (App Icon separate). */
 import "@/lib/notifications/notification-badge-count-store";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
@@ -47,7 +47,7 @@ const EMPTY_BELL = {
 };
 
 describe("Phase H surface projection writers", () => {
-  it("Hub/Bell/AppIcon apply are wired (slice-1); Domain list writers ok", () => {
+  it("Hub/Bell/AppIcon apply are wired; App Icon independent of Bell", () => {
     __resetHubBadgeProjectionForTest();
     __resetBellBadgeProjectionForTest();
     __resetAppIconBadgeProjectionForTest();
@@ -69,7 +69,8 @@ describe("Phase H surface projection writers", () => {
       }),
     ).toEqual({ status: "ok" });
     expect(getBellBadgeProjection()?.totalUnread).toBe(1);
-    expect(getAppIconBadgeProjection()?.totalUnread).toBe(1);
+    // Bell apply must NOT auto-mirror App Icon
+    expect(getAppIconBadgeProjection()?.totalUnread ?? 0).not.toBe(1);
 
     expect(
       applyAppIconBadgeProjection({ totalUnread: 3, versionMs: 3, source: "network" }),

@@ -77,7 +77,10 @@ function applyProjectionFromRoomState(state: DomainRoomStateSnapshot): void {
   });
   // Dynamic import — keep community-messenger → lib/messenger static import count at 0 (Phase 4.5/6/7/8A).
   void import("@/lib/messenger/contracts/domain-badge-authority-product-bridge").then((mod) => {
-    mod.applyNotificationBadgeProjection(projection, { applyBell: true });
+    mod.applyNotificationBadgeProjection(projection, {
+      applyBell: true,
+      projectionVersionMs: Date.now(),
+    });
   });
 }
 

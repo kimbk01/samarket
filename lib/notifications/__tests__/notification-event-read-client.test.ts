@@ -1,12 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const requestMessengerHubBadgeResync = vi.fn();
 const resyncBadgesAfterNotificationEventsRead = vi.fn();
-const applyNotificationBadgeCountFromReadResponse = vi.fn();
 const applyMissedCallNotificationReadOptimistic = vi.fn();
 
 vi.mock("@/lib/community-messenger/notifications/messenger-notification-contract", () => ({
-  requestMessengerHubBadgeResync: (...args: unknown[]) => requestMessengerHubBadgeResync(...args),
+  requestMessengerHubBadgeResync: vi.fn(),
 }));
 
 vi.mock("@/lib/notifications/client/notification-events-read-resync", () => ({
@@ -14,11 +12,6 @@ vi.mock("@/lib/notifications/client/notification-events-read-resync", () => ({
     resyncBadgesAfterNotificationEventsRead(...args),
   applyMissedCallNotificationReadOptimistic: (...args: unknown[]) =>
     applyMissedCallNotificationReadOptimistic(...args),
-}));
-
-vi.mock("@/lib/notifications/notification-badge-count-store", () => ({
-  applyNotificationBadgeCountFromReadResponse: (...args: unknown[]) =>
-    applyNotificationBadgeCountFromReadResponse(...args),
 }));
 
 vi.mock("@/lib/notifications/core/notification-logs", () => ({
@@ -51,7 +44,7 @@ const categoryCounts = {
   store: 1,
 };
 
-describe("notification-event-read-client read patch (Rebuild)", () => {
+describe("notification-event-read-client read path (Domain Bell)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubGlobal(
@@ -63,8 +56,7 @@ describe("notification-event-read-client read patch (Rebuild)", () => {
     );
   });
 
-  it("patches categoryCounts and always resyncs hub+badge after read-thread", async () => {
-    applyNotificationBadgeCountFromReadResponse.mockReturnValue(true);
+  it("does not apply events categoryCounts as Bell; always resyncs", async () => {
     vi.mocked(fetch).mockResolvedValueOnce({
       ok: true,
       json: async () => ({ ok: true, cleared: 1, categoryCounts }),
@@ -76,12 +68,11 @@ describe("notification-event-read-client read patch (Rebuild)", () => {
     });
 
     expect(ok).toBe(true);
-    expect(applyNotificationBadgeCountFromReadResponse).toHaveBeenCalledWith(categoryCounts);
     expect(resyncBadgesAfterNotificationEventsRead).toHaveBeenCalledWith("room_read");
+    expect(applyMissedCallNotificationReadOptimistic).toHaveBeenCalledWith(1);
   });
 
-  it("patches categoryCounts and always resyncs after room-read", async () => {
-    applyNotificationBadgeCountFromReadResponse.mockReturnValue(true);
+  it("resyncs after room-read without events SUM patch", async () => {
     vi.mocked(fetch).mockResolvedValueOnce({
       ok: true,
       json: async () => ({ ok: true, cleared: 0, categoryCounts }),
@@ -90,12 +81,10 @@ describe("notification-event-read-client read patch (Rebuild)", () => {
     const ok = await postNotificationRoomRead("room-2");
 
     expect(ok).toBe(true);
-    expect(applyNotificationBadgeCountFromReadResponse).toHaveBeenCalledWith(categoryCounts);
     expect(resyncBadgesAfterNotificationEventsRead).toHaveBeenCalledWith("room_read");
   });
 
   it("resyncs when categoryCounts is missing", async () => {
-    applyNotificationBadgeCountFromReadResponse.mockReturnValue(false);
     vi.mocked(fetch).mockResolvedValueOnce({
       ok: true,
       json: async () => ({ ok: true, cleared: 2 }),
@@ -107,7 +96,6 @@ describe("notification-event-read-client read patch (Rebuild)", () => {
     });
 
     expect(ok).toBe(true);
-    expect(applyNotificationBadgeCountFromReadResponse).not.toHaveBeenCalled();
     expect(resyncBadgesAfterNotificationEventsRead).toHaveBeenCalledWith("room_read");
     expect(applyMissedCallNotificationReadOptimistic).toHaveBeenCalledWith(2);
   });

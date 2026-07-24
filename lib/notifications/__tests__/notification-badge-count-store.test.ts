@@ -11,7 +11,7 @@ describe("notification-badge-count-store", () => {
     vi.unstubAllGlobals();
   });
 
-  it("keeps the last notification_events snapshot when badge fetch fails", async () => {
+  it("applies domain_badge authority and keeps last on fetch failure", async () => {
     vi.stubGlobal("window", {});
     vi.stubGlobal("document", { visibilityState: "visible" });
     const fetchMock = vi
@@ -20,6 +20,22 @@ describe("notification-badge-count-store", () => {
         status: 200,
         json: async () => ({
           ok: true,
+          authority: "domain_badge",
+          projectionVersionMs: 100,
+          domainUnreadRooms: {
+            general_direct: 2,
+            group: 0,
+            trade: 1,
+            store_order: 0,
+          },
+          domainAppIcon: { messenger: 2, trade: 1, storeOrder: 0, missedCall: 0 },
+          nonChatEventAttention: {
+            tradeStatus: 0,
+            orderStatus: 1,
+            deliveryStatus: 0,
+            communityActivity: 0,
+            adminNotice: 0,
+          },
           total: 4,
           chatMessage: 2,
           groupMessage: 0,
@@ -28,12 +44,12 @@ describe("notification-badge-count-store", () => {
           orderStatus: 1,
           deliveryStatus: 0,
           communityActivity: 0,
-          adminMarketingBanner: 9,
+          adminMarketingBanner: 0,
           adminNotice: 0,
           chat: 2,
           group: 0,
           trade: 1,
-          store: 1,
+          store: 0,
           missedCall: 0,
         }),
       })
@@ -43,17 +59,55 @@ describe("notification-badge-count-store", () => {
     const store = await import("@/lib/notifications/notification-badge-count-store");
     const unsubscribe = store.subscribeNotificationBadgeCount(() => {});
     await flush();
+    await flush();
 
     expect(store.getNotificationBadgeCountSnapshot()?.total).toBe(4);
 
     store.requestNotificationBadgeCountResync("test_failure");
+    await flush();
     await flush();
 
     expect(store.getNotificationBadgeCountSnapshot()?.total).toBe(4);
     unsubscribe();
   });
 
-  it("funnels patch through Bell projection and mirrors App Icon total", async () => {
+  it("rejects event-SUM-only payload without authority (no fallback)", async () => {
+    vi.stubGlobal("window", {});
+    vi.stubGlobal("document", { visibilityState: "visible" });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        status: 200,
+        json: async () => ({
+          ok: true,
+          total: 99,
+          chatMessage: 99,
+          groupMessage: 0,
+          tradeMessage: 0,
+          tradeStatus: 0,
+          orderStatus: 0,
+          deliveryStatus: 0,
+          communityActivity: 0,
+          adminMarketingBanner: 0,
+          adminNotice: 0,
+          chat: 99,
+          group: 0,
+          trade: 0,
+          store: 0,
+          missedCall: 0,
+        }),
+      })
+    );
+    const store = await import("@/lib/notifications/notification-badge-count-store");
+    store.resetNotificationBadgeCountStoreForTests();
+    const unsubscribe = store.subscribeNotificationBadgeCount(() => {});
+    await flush();
+    await flush();
+    expect(store.getNotificationBadgeCountSnapshot()).toBeNull();
+    unsubscribe();
+  });
+
+  it("funnels patch through Bell projection without App Icon mirror", async () => {
     const store = await import("@/lib/notifications/notification-badge-count-store");
     const bell = await import("@/lib/chat-domain/projections/bell-badge-projection");
     const appIcon = await import("@/lib/chat-domain/projections/app-icon-badge-projection");
@@ -81,7 +135,7 @@ describe("notification-badge-count-store", () => {
     expect(store.getNotificationBadgeCountSnapshot()?.total).toBe(5);
     expect(bell.getBellBadgeProjection()?.totalUnread).toBe(5);
     expect(bell.getBellBadgeProjection()?.source).toBe("read_patch");
-    expect(appIcon.getAppIconBadgeProjection()?.totalUnread).toBe(5);
-    expect(appIcon.getAppIconBadgeProjection()?.source).toBe("bell_mirror");
+    // Bell patch must not mirror App Icon
+    expect(appIcon.getAppIconBadgeProjection()?.source).not.toBe("bell_mirror");
   });
 });

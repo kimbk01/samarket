@@ -1,14 +1,17 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { countNotificationEventsBadge } from "@/lib/notifications/core/notification-event-repository";
-import type { NotificationBadgeCount } from "@/lib/notifications/core/notification-event-types";
-import { logNotifyBadge } from "@/lib/notifications/core/notification-logs";
 import { forgetSingleFlight, getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
 import { logRouteCacheHit, logRouteCacheMiss } from "@/lib/http/route-cache-log";
+import {
+  buildDomainBadgeAuthorityHttpPayload,
+  type DomainBadgeAuthorityHttpPayload,
+} from "@/lib/notifications/pipeline/build-domain-badge-authority-http";
+import { countNotificationEventsBadge } from "@/lib/notifications/core/notification-event-repository";
+import type { NotificationBadgeCount } from "@/lib/notifications/core/notification-event-types";
 
 /** hub(12s)·surface unread(20s) 사이 — badge-count 서버 단기 캐시 */
 export const NOTIFICATION_BADGE_SERVER_CACHE_MS = 15_000;
 
-const EMPTY: NotificationBadgeCount = {
+const EMPTY_EVENTS: NotificationBadgeCount = {
   total: 0,
   chatMessage: 0,
   groupMessage: 0,
@@ -26,18 +29,18 @@ const EMPTY: NotificationBadgeCount = {
   missedCall: 0,
 };
 
-type BadgeCacheEntry = { value: NotificationBadgeCount; expiresAt: number };
+type BadgeCacheEntry = { value: DomainBadgeAuthorityHttpPayload; expiresAt: number };
 
 type NotificationBadgeServerCacheGlobal = {
-  __samarketNotificationBadgeServerCache?: Map<string, BadgeCacheEntry>;
+  __samarketDomainBadgeAuthorityServerCache?: Map<string, BadgeCacheEntry>;
 };
 
 function badgeCacheMap(): Map<string, BadgeCacheEntry> {
   const g = globalThis as NotificationBadgeServerCacheGlobal;
-  if (!g.__samarketNotificationBadgeServerCache) {
-    g.__samarketNotificationBadgeServerCache = new Map();
+  if (!g.__samarketDomainBadgeAuthorityServerCache) {
+    g.__samarketDomainBadgeAuthorityServerCache = new Map();
   }
-  return g.__samarketNotificationBadgeServerCache;
+  return g.__samarketDomainBadgeAuthorityServerCache;
 }
 
 export function notificationBadgeRouteCacheKey(userId: string): string {
@@ -73,16 +76,22 @@ function pruneExpiredBadgeCache(now: number) {
   }
 }
 
-export async function fetchNotificationBadgeCount(
+/**
+ * Product badge-count — Domain projection authority.
+ * DO NOT use events chat SUM as Bell total.
+ */
+export async function fetchDomainBadgeAuthorityPayload(
   sb: SupabaseClient<any>,
   userId: string,
   opts?: { force?: boolean }
-): Promise<NotificationBadgeCount> {
+): Promise<DomainBadgeAuthorityHttpPayload> {
   const uid = userId.trim();
-  if (!uid) return EMPTY;
+  if (!uid) {
+    return buildDomainBadgeAuthorityHttpPayload(sb, "");
+  }
 
   if (opts?.force) {
-    return loadNotificationBadgeCount(sb, uid, { logMiss: true });
+    return loadDomainBadge(sb, uid);
   }
 
   const now = Date.now();
@@ -109,22 +118,34 @@ export async function fetchNotificationBadgeCount(
     if (again && again.expiresAt > Date.now()) {
       return again.value;
     }
-    return loadNotificationBadgeCount(sb, uid, { logMiss: false });
+    return loadDomainBadge(sb, uid);
   });
 }
 
-async function loadNotificationBadgeCount(
+async function loadDomainBadge(
   sb: SupabaseClient<any>,
-  uid: string,
-  opts: { logMiss: boolean }
-): Promise<NotificationBadgeCount> {
-  const value = await countNotificationEventsBadge(sb, uid);
+  uid: string
+): Promise<DomainBadgeAuthorityHttpPayload> {
+  const value = await buildDomainBadgeAuthorityHttpPayload(sb, uid);
   badgeCacheMap().set(uid, {
     value,
     expiresAt: Date.now() + NOTIFICATION_BADGE_SERVER_CACHE_MS,
   });
-  logNotifyBadge("server_count", { userId: uid, ...value, cache_refresh: opts.logMiss ? 1 : 0 });
   return value;
+}
+
+/**
+ * @deprecated Inbox/diagnostics events breakdown only — never Header Bell authority.
+ * Prefer `fetchDomainBadgeAuthorityPayload`.
+ */
+export async function fetchNotificationBadgeCount(
+  sb: SupabaseClient<any>,
+  userId: string,
+  _opts?: { force?: boolean }
+): Promise<NotificationBadgeCount> {
+  const uid = userId.trim();
+  if (!uid) return EMPTY_EVENTS;
+  return countNotificationEventsBadge(sb, uid);
 }
 
 export function invalidateNotificationBadgeCache(userId: string): void {

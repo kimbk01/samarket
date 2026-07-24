@@ -1,12 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const buildDomainBadgeAuthorityHttpPayload = vi.fn();
 const countNotificationEventsBadge = vi.fn();
+
+vi.mock("@/lib/notifications/pipeline/build-domain-badge-authority-http", () => ({
+  buildDomainBadgeAuthorityHttpPayload: (...args: unknown[]) =>
+    buildDomainBadgeAuthorityHttpPayload(...args),
+}));
 
 vi.mock("@/lib/notifications/core/notification-event-repository", () => ({
   countNotificationEventsBadge: (...args: unknown[]) => countNotificationEventsBadge(...args),
 }));
 
 import {
+  fetchDomainBadgeAuthorityPayload,
   fetchNotificationBadgeCount,
   invalidateNotificationBadgeCache,
   NOTIFICATION_BADGE_SERVER_CACHE_MS,
@@ -16,7 +23,7 @@ import {
 
 const sb = {} as never;
 
-const SAMPLE: Awaited<ReturnType<typeof countNotificationEventsBadge>> = {
+const SAMPLE_EVENTS = {
   total: 17,
   chatMessage: 4,
   groupMessage: 2,
@@ -34,44 +41,95 @@ const SAMPLE: Awaited<ReturnType<typeof countNotificationEventsBadge>> = {
   missedCall: 0,
 };
 
-describe("notify-badge-service", () => {
+const SAMPLE_DOMAIN = {
+  ok: true as const,
+  authority: "domain_badge" as const,
+  projectionVersionMs: 1,
+  projection: {
+    bellTotal: 5,
+    appIconTotal: 3,
+    bottomChatTotal: 2,
+    domainUnread: { general_direct: 1, group: 1, trade: 1, store_order: 0 },
+    orphanMissedCallCount: 0,
+    nonChatNotificationCount: 2,
+  },
+  domainUnreadRooms: { general_direct: 1, group: 1, trade: 1, store_order: 0 },
+  domainAppIcon: { messenger: 2, trade: 1, storeOrder: 0, missedCall: 0 },
+  storeOrderBuyerDeliveryUnread: 0,
+  nonChatEventAttention: {
+    tradeStatus: 0,
+    orderStatus: 0,
+    deliveryStatus: 0,
+    communityActivity: 0,
+    adminNotice: 2,
+  },
+  missedCallByRoom: {},
+  total: 5,
+  chatMessage: 1,
+  groupMessage: 1,
+  tradeMessage: 1,
+  tradeStatus: 0,
+  orderStatus: 0,
+  deliveryStatus: 0,
+  communityActivity: 0,
+  adminMarketingBanner: 0,
+  adminNotice: 2,
+  chat: 1,
+  group: 1,
+  trade: 1,
+  store: 0,
+  missedCall: 0,
+  categoryCounts: SAMPLE_EVENTS,
+};
+
+describe("notify-badge-service (Domain authority)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resetNotificationBadgeCacheForTests();
-    countNotificationEventsBadge.mockResolvedValue(SAMPLE);
+    buildDomainBadgeAuthorityHttpPayload.mockResolvedValue(SAMPLE_DOMAIN);
+    countNotificationEventsBadge.mockResolvedValue(SAMPLE_EVENTS);
   });
 
-  it("returns cached value within TTL without second RPC", async () => {
-    const first = await fetchNotificationBadgeCount(sb, "user-1");
-    const second = await fetchNotificationBadgeCount(sb, "user-1");
-    expect(first).toEqual(SAMPLE);
-    expect(second).toEqual(SAMPLE);
-    expect(countNotificationEventsBadge).toHaveBeenCalledTimes(1);
+  it("caches domain authority within TTL", async () => {
+    const first = await fetchDomainBadgeAuthorityPayload(sb, "user-1");
+    const second = await fetchDomainBadgeAuthorityPayload(sb, "user-1");
+    expect(first).toEqual(SAMPLE_DOMAIN);
+    expect(second).toEqual(SAMPLE_DOMAIN);
+    expect(buildDomainBadgeAuthorityHttpPayload).toHaveBeenCalledTimes(1);
     expect(peekNotificationBadgeCacheHit("user-1")).toBe(true);
   });
 
-  it("force bypasses cache and always hits RPC", async () => {
-    await fetchNotificationBadgeCount(sb, "user-1");
-    await fetchNotificationBadgeCount(sb, "user-1", { force: true });
-    expect(countNotificationEventsBadge).toHaveBeenCalledTimes(2);
+  it("force bypasses domain cache", async () => {
+    await fetchDomainBadgeAuthorityPayload(sb, "user-1");
+    await fetchDomainBadgeAuthorityPayload(sb, "user-1", { force: true });
+    expect(buildDomainBadgeAuthorityHttpPayload).toHaveBeenCalledTimes(2);
   });
 
-  it("singleflight merges concurrent misses into one RPC", async () => {
+  it("singleflight merges concurrent domain misses", async () => {
     const [a, b] = await Promise.all([
-      fetchNotificationBadgeCount(sb, "user-1"),
-      fetchNotificationBadgeCount(sb, "user-1"),
+      fetchDomainBadgeAuthorityPayload(sb, "user-1"),
+      fetchDomainBadgeAuthorityPayload(sb, "user-1"),
     ]);
-    expect(a).toEqual(SAMPLE);
-    expect(b).toEqual(SAMPLE);
-    expect(countNotificationEventsBadge).toHaveBeenCalledTimes(1);
+    expect(a).toEqual(SAMPLE_DOMAIN);
+    expect(b).toEqual(SAMPLE_DOMAIN);
+    expect(buildDomainBadgeAuthorityHttpPayload).toHaveBeenCalledTimes(1);
   });
 
-  it("invalidate clears cache so next fetch hits RPC again", async () => {
-    await fetchNotificationBadgeCount(sb, "user-1");
+  it("invalidate clears domain cache", async () => {
+    await fetchDomainBadgeAuthorityPayload(sb, "user-1");
     invalidateNotificationBadgeCache("user-1");
     expect(peekNotificationBadgeCacheHit("user-1")).toBe(false);
-    await fetchNotificationBadgeCount(sb, "user-1");
+    await fetchDomainBadgeAuthorityPayload(sb, "user-1");
+    expect(buildDomainBadgeAuthorityHttpPayload).toHaveBeenCalledTimes(2);
+  });
+
+  it("fetchNotificationBadgeCount is inbox/events-only (no domain cache)", async () => {
+    const a = await fetchNotificationBadgeCount(sb, "user-1");
+    const b = await fetchNotificationBadgeCount(sb, "user-1");
+    expect(a).toEqual(SAMPLE_EVENTS);
+    expect(b).toEqual(SAMPLE_EVENTS);
     expect(countNotificationEventsBadge).toHaveBeenCalledTimes(2);
+    expect(buildDomainBadgeAuthorityHttpPayload).not.toHaveBeenCalled();
   });
 
   it("uses 12-20s server cache TTL window", () => {

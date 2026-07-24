@@ -12,11 +12,17 @@ import {
   type BellBadgeProjectionSourceKind,
   __resetBellBadgeProjectionForTest,
 } from "@/lib/chat-domain/projections/bell-badge-projection";
+import {
+  applyAuthorityJsonAsProjection,
+  type BadgeCountAuthorityJson,
+} from "@/lib/notifications/apply-badge-count-authority-response";
 
 const POLL_MS = 45_000;
 const fetchUrl = "/api/me/notifications/badge-count";
 
 let snap: NotificationBadgeCount | null = null;
+/** Monotonic projection revision — stale poll must not overwrite newer realtime. */
+let lastProjectionVersionMs = 0;
 let subscriberCount = 0;
 let pollInterval: ReturnType<typeof setInterval> | null = null;
 let unauthorizedPaused = false;
@@ -47,7 +53,7 @@ function sameBadgeCount(a: NotificationBadgeCount, b: NotificationBadgeCount): b
   );
 }
 
-/** Projection sink — sole mutator of badge-count snap after Bell cutover. */
+/** Projection sink — Bell store only. DO NOT mirror to App Icon. */
 function sinkBellBadgeFromProjection(proj: {
   breakdown: NotificationBadgeCount;
   totalUnread: number;
@@ -58,11 +64,6 @@ function sinkBellBadgeFromProjection(proj: {
   if (snap && sameBadgeCount(snap, next)) return;
   snap = next;
   emit();
-  applyAppIconBadgeProjection({
-    totalUnread: Math.max(0, proj.totalUnread),
-    versionMs: proj.versionMs,
-    source: "bell_mirror",
-  });
 }
 
 registerBellBadgeProjectionSink(sinkBellBadgeFromProjection);
@@ -70,23 +71,21 @@ registerBellBadgeProjectionSink(sinkBellBadgeFromProjection);
 function applyBellFromStore(
   next: NotificationBadgeCount,
   source: BellBadgeProjectionSourceKind,
-): void {
+  versionMs?: number
+): boolean {
+  const v = Math.max(0, Math.floor(Number(versionMs) || Date.now()));
+  if (v < lastProjectionVersionMs) {
+    logNotifyBadge("ui_set", { stale_projection_skipped: 1, v, last: lastProjectionVersionMs, source });
+    return false;
+  }
+  lastProjectionVersionMs = v;
   applyBellBadgeProjection({
     breakdown: next,
-    versionMs: Date.now(),
+    versionMs: v,
     source,
     totalUnread: Math.max(0, next.total),
   });
-}
-
-function setSnap(next: NotificationBadgeCount | null, source: BellBadgeProjectionSourceKind = "network") {
-  if (next == null) {
-    snap = null;
-    emit();
-    applyAppIconBadgeProjection({ totalUnread: 0, versionMs: Date.now(), source: "clear" });
-    return;
-  }
-  applyBellFromStore(next, source);
+  return true;
 }
 
 /** badge-count API JSON · read-thread `categoryCounts` 공통 정규화 */
@@ -127,16 +126,17 @@ export function normalizeNotificationBadgeCountPayload(
   };
 }
 
-/** read-thread / room-read 응답 categoryCounts → BottomNav events snapshot 즉시 반영 */
+/**
+ * @deprecated Prefer Domain projection apply. Kept for transitional read responses that
+ * already carry Builder-shaped categoryCounts (domain rooms in chatMessage fields).
+ */
 export function applyNotificationBadgeCountFromReadResponse(categoryCounts: unknown): boolean {
   const payload =
     categoryCounts && typeof categoryCounts === "object" && !Array.isArray(categoryCounts)
       ? normalizeNotificationBadgeCountPayload(categoryCounts as Record<string, unknown>)
       : null;
   if (!payload) return false;
-  patchNotificationBadgeCountSnapshot(payload);
-  logNotifyBadge("ui_set_read_patch", payload);
-  return true;
+  return patchNotificationBadgeCountSnapshot(payload);
 }
 
 export function getNotificationBadgeCountSnapshot(): NotificationBadgeCount | null {
@@ -145,6 +145,10 @@ export function getNotificationBadgeCountSnapshot(): NotificationBadgeCount | nu
 
 export function getNotificationBadgeCountServerSnapshot(): NotificationBadgeCount | null {
   return null;
+}
+
+export function getNotificationBadgeProjectionVersionMs(): number {
+  return lastProjectionVersionMs;
 }
 
 export function subscribeNotificationBadgeCount(onStoreChange: () => void): () => void {
@@ -166,29 +170,45 @@ async function doFetch(force = false): Promise<void> {
   try {
     const res = await fetch(force ? `${fetchUrl}?fresh=1` : fetchUrl, { credentials: "include" });
     if (res.status === 401) {
-      setSnap(null);
+      snap = null;
+      lastProjectionVersionMs = 0;
+      emit();
+      applyAppIconBadgeProjection({ totalUnread: 0, versionMs: Date.now(), source: "clear" });
       unauthorizedPaused = true;
       return;
     }
     unauthorizedPaused = false;
-    const j = await res.json();
-    if (j?.ok) {
-      const next = normalizeNotificationBadgeCountPayload(j as Record<string, unknown>);
-      if (!next) {
-        logNotifyBadge("ui_set", { fetchFailed: true });
-        return;
-      }
-      setSnap(next);
-      logNotifyBadge("ui_set", next);
-      if (!pollInterval && subscriberCount > 0) {
-        pollInterval = setInterval(() => {
-          if (document.visibilityState === "visible") void doFetch();
-        }, POLL_MS);
-      }
-    } else {
-      // badge truth 는 notification_events 의 마지막 정상 snapshot 이다.
-      // 일시적 실패에서 null 로 내리면 owner-hub fallback 이 primary 처럼 보일 수 있다.
+    const j = (await res.json()) as BadgeCountAuthorityJson & { ok?: boolean };
+    if (!j?.ok) {
       logNotifyBadge("ui_set", { fetchFailed: true });
+      return;
+    }
+    if (j.authority !== "domain_badge") {
+      // DO NOT fall back to event SUM — keep last good projection.
+      logNotifyBadge("ui_set", { authority_missing: 1, kept_last_projection: snap ? 1 : 0 });
+      return;
+    }
+    const versionMs = Math.max(
+      0,
+      Math.floor(Number((j as { projectionVersionMs?: unknown }).projectionVersionMs) || Date.now())
+    );
+    if (versionMs < lastProjectionVersionMs) {
+      logNotifyBadge("ui_set", { stale_poll_skipped: 1, versionMs, last: lastProjectionVersionMs });
+      return;
+    }
+    const applied = applyAuthorityJsonAsProjection(j, {
+      applyBell: true,
+      projectionVersionMs: versionMs,
+    });
+    if (!applied) {
+      logNotifyBadge("ui_set", { projection_incomplete: 1, kept_last_projection: snap ? 1 : 0 });
+      return;
+    }
+    logNotifyBadge("ui_set", { authority: "domain_badge", total: snap?.total ?? 0 });
+    if (!pollInterval && subscriberCount > 0) {
+      pollInterval = setInterval(() => {
+        if (document.visibilityState === "visible") void doFetch();
+      }, POLL_MS);
     }
   } catch {
     logNotifyBadge("ui_set", { fetchFailed: true });
@@ -200,17 +220,19 @@ export function requestNotificationBadgeCountResync(reason?: string): void {
   if (reason) logNotifyBadge("ui_set", { resync: reason });
 }
 
-/** 읽음 mutation 직후 서버 fetch 전 로컬 missedCall 감소 — stale fetch 가 되살리지 않게 */
+/** Local Builder apply / optimistic — must pass same projection contract. */
 export function patchNotificationBadgeCountSnapshot(
   next: NotificationBadgeCount,
   source: BellBadgeProjectionSourceKind = "read_patch",
-): void {
-  if (snap && sameBadgeCount(snap, next)) return;
-  applyBellFromStore(next, source);
+  versionMs?: number
+): boolean {
+  if (snap && sameBadgeCount(snap, next)) return true;
+  return applyBellFromStore(next, source, versionMs);
 }
 
 export function resetNotificationBadgeCountStoreForTests(): void {
   snap = null;
+  lastProjectionVersionMs = 0;
   listeners.clear();
   subscriberCount = 0;
   unauthorizedPaused = false;

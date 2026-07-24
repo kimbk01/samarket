@@ -4,7 +4,6 @@ import {
   applyMissedCallNotificationReadOptimistic,
   resyncBadgesAfterNotificationEventsRead,
 } from "@/lib/notifications/client/notification-events-read-resync";
-import { applyNotificationBadgeCountFromReadResponse } from "@/lib/notifications/notification-badge-count-store";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 type ReadMutationResult = {
@@ -55,22 +54,21 @@ async function postJson(url: string, body: Record<string, unknown>): Promise<Rea
 }
 
 /**
- * Rebuild Read/Clear: hard-sync BottomNav hub (Chat room count) + badge-count (App icon)
- * after every successful notifications read. categoryCounts patch is optimistic for App icon
- * only — hub/room Chat tab must still resync even when patch succeeds.
- * DO NOT early-return before resync when categoryCounts is present (Chat≠event SUM).
+ * Rebuild Read/Clear: hub room count + Domain badge-count authority resync.
+ * DO NOT apply events categoryCounts as Header Bell (events SUM ≠ Domain projection).
  */
 function afterNotificationEventsRead(
   reason: MessengerHubBadgeResyncReason,
-  result?: Pick<ReadMutationResult, "cleared" | "categoryCounts">
-): void {
-  if (result?.categoryCounts != null) {
-    applyNotificationBadgeCountFromReadResponse(result.categoryCounts);
+  result?: Pick<ReadMutationResult, "cleared" | "categoryCounts"> & {
+    authority?: string;
+    domainUnreadRooms?: unknown;
   }
+): void {
+  void result?.categoryCounts;
   if (result?.cleared != null && result.cleared > 0) {
     applyMissedCallNotificationReadOptimistic(result.cleared);
   }
-  // Always: Chat tab room-count hub + App icon badge-count (even if categoryCounts absent).
+  // Always: Chat tab room-count hub + Domain Bell/App Icon authority resync.
   resyncBadgesAfterNotificationEventsRead(reason);
 }
 

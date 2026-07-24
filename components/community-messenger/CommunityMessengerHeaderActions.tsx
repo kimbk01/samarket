@@ -34,16 +34,8 @@ export function CommunityMessengerHeaderActions({
   const { t } = useI18n();
   const iconBtn = `${Sam.headerAction} relative h-10 w-10 shrink-0 text-sam-fg ${samTier1HeaderIconMicro}`;
 
-  const supplementalUnreadCount = useMemo(
-    () =>
-      Math.max(
-        0,
-        messengerAlertSummary.groupInviteCount +
-          messengerAlertSummary.missedCallCount +
-          messengerAlertSummary.importantCount
-      ),
-    [messengerAlertSummary]
-  );
+  // Header Bell digit = Domain projection only (no invite/missed/important re-add).
+  // Pinned alert UI remains for navigation affordance only.
 
   const pinnedSections = useMemo(
     () => (
@@ -64,9 +56,8 @@ export function CommunityMessengerHeaderActions({
         <Tier1HeaderSettingsGlyph />
       </button>
       <Tier1NotificationAnchor
-        surface="bottom_nav_chat"
+        surface="tier1_inbox_bell"
         pinnedSections={pinnedSections}
-        supplementalUnreadCount={supplementalUnreadCount}
       />
     </div>
   );

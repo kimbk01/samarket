@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { markNotificationThreadRead } from "@/lib/notifications/pipeline/notify-read-service";
-import { fetchNotificationBadgeCount } from "@/lib/notifications/pipeline/notify-badge-service";
+import { fetchDomainBadgeAuthorityPayload } from "@/lib/notifications/pipeline/notify-badge-service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -81,16 +81,22 @@ export async function POST(req: NextRequest) {
     threadType,
     readReason,
   });
-  const badge = await fetchNotificationBadgeCount(sb, userId, { force: true });
+  const domain = await fetchDomainBadgeAuthorityPayload(sb, userId, { force: true });
   return NextResponse.json({
     ok: true,
     cleared,
     updatedNotificationEventCount: cleared,
     updatedParticipantUnreadCount: null,
-    nextBadgeTotal: badge.total,
-    categoryCounts: badge,
+    nextBadgeTotal: domain.projection.bellTotal,
+    categoryCounts: domain.categoryCounts,
+    authority: "domain_badge",
+    domainUnreadRooms: domain.domainUnreadRooms,
+    domainAppIcon: domain.domainAppIcon,
+    nonChatEventAttention: domain.nonChatEventAttention,
+    storeOrderBuyerDeliveryUnread: domain.storeOrderBuyerDeliveryUnread,
+    projectionVersionMs: domain.projectionVersionMs,
     threadUnreadAfter: null,
-    nativeBadgeTotal: badge.total,
+    nativeBadgeTotal: domain.projection.appIconTotal,
     affectedThreadId: threadId,
     threadType,
     readReason,
