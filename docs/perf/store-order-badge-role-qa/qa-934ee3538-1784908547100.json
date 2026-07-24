@@ -1,0 +1,163 @@
+{
+  "commit": "934ee3538",
+  "prod": "https://samarket.vercel.app",
+  "startedAt": "2026-07-24T15:55:47.100Z",
+  "devices": [
+    {
+      "label": "Xiaomi",
+      "serial": "8b37179f7d94",
+      "login": "aaaa",
+      "expectedUserId": "11111111-1111-1111-1111-111111111111",
+      "cdpPort": 9223,
+      "lastUpdateTime": "2026-07-24 23:49:52",
+      "authUserId": "11111111-1111-1111-1111-111111111111",
+      "measure": {
+        "at": "2026-07-24T15:55:51.206Z",
+        "badgeStatus": 200,
+        "hubStatus": 200,
+        "listStatus": 200,
+        "facts": {
+          "generalDirectUnreadRoomCount": 0,
+          "groupUnreadRoomCount": 0,
+          "bottomChatExpected": 0,
+          "buyerOrderUnreadRoomCount": 2,
+          "ownerOrderChatUnreadRoomCount": 0,
+          "appIconStoreOrder": 2
+        },
+        "hub": {
+          "communityMessengerUnread": 0,
+          "buyerOrderAttention": 2,
+          "storeOrderChatUnread": 0
+        },
+        "list": {
+          "authority": "domain_store_order_customer_list_canary",
+          "unreadRoomCount": 2,
+          "unreadRowCount": 2,
+          "surfaceRole": "customer"
+        },
+        "checks": {
+          "bottomMatchesHub": true,
+          "customerPillarMatchesList": true,
+          "customerNotCombined": true,
+          "ownerNotCombined": true,
+          "ownerEqualsOwnerFact": true,
+          "customerEqualsBuyerFact": true,
+          "noCrossFive": true
+        }
+      },
+      "remount": {
+        "stable": true,
+        "buyers": [
+          2,
+          2,
+          2
+        ],
+        "owners": [
+          0,
+          0,
+          0
+        ],
+        "bottoms": [
+          0,
+          0,
+          0
+        ]
+      },
+      "ui": {
+        "ok": true,
+        "userId": "11111111-1111-1111-1111-111111111111",
+        "home": {
+          "path": "/community-messenger",
+          "pillarUnread": "2",
+          "pillarPresent": true
+        },
+        "list": {
+          "path": "/community-messenger/delivery-chats",
+          "unreadRooms": "2",
+          "unreadRowDom": 2,
+          "listMode": "domain"
+        }
+      },
+      "devicePass": true
+    },
+    {
+      "label": "Samsung",
+      "serial": "RFCY40PY2CA",
+      "login": "qqqq",
+      "expectedUserId": "9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8",
+      "cdpPort": 9224,
+      "lastUpdateTime": "2026-07-24 23:50:01",
+      "authUserId": "9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8",
+      "measure": {
+        "at": "2026-07-24T15:56:12.660Z",
+        "badgeStatus": 200,
+        "hubStatus": 200,
+        "listStatus": 200,
+        "facts": {
+          "generalDirectUnreadRoomCount": 0,
+          "groupUnreadRoomCount": 0,
+          "bottomChatExpected": 0,
+          "buyerOrderUnreadRoomCount": 2,
+          "ownerOrderChatUnreadRoomCount": 3,
+          "appIconStoreOrder": 5
+        },
+        "hub": {
+          "communityMessengerUnread": 0,
+          "buyerOrderAttention": 2,
+          "storeOrderChatUnread": 3
+        },
+        "list": {
+          "authority": "domain_store_order_customer_list_canary",
+          "unreadRoomCount": 2,
+          "unreadRowCount": 2,
+          "surfaceRole": "customer"
+        },
+        "checks": {
+          "bottomMatchesHub": true,
+          "customerPillarMatchesList": true,
+          "customerNotCombined": true,
+          "ownerNotCombined": true,
+          "ownerEqualsOwnerFact": true,
+          "customerEqualsBuyerFact": true,
+          "noCrossFive": true
+        }
+      },
+      "remount": {
+        "stable": true,
+        "buyers": [
+          2,
+          2,
+          2
+        ],
+        "owners": [
+          3,
+          3,
+          3
+        ],
+        "bottoms": [
+          0,
+          0,
+          0
+        ]
+      },
+      "ui": {
+        "ok": true,
+        "userId": "9259ab7d-ae5f-4d4a-819a-8d5bd568ecf8",
+        "home": {
+          "path": "/community-messenger",
+          "pillarUnread": "2",
+          "pillarPresent": true
+        },
+        "list": {
+          "path": "/community-messenger/delivery-chats",
+          "unreadRooms": "2",
+          "unreadRowDom": 2,
+          "listMode": "domain"
+        }
+      },
+      "devicePass": true
+    }
+  ],
+  "verdict": "PASS_STORE_ORDER_BADGE_ROLE_ALIGNED",
+  "endedAt": "2026-07-24T15:56:29.625Z"
+}

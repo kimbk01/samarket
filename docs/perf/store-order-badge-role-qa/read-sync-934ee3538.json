@@ -1,0 +1,40 @@
+{
+  "beforeA": {
+    "login": "aaaa",
+    "buyer": 2,
+    "owner": 0,
+    "hubBuyer": 2,
+    "hubOwner": 0,
+    "hubCm": 0,
+    "listUnread": 2
+  },
+  "beforeB": {
+    "login": "qqqq",
+    "buyer": 2,
+    "owner": 3,
+    "hubBuyer": 2,
+    "hubOwner": 3,
+    "hubCm": 0,
+    "listUnread": 2
+  },
+  "afterA": {
+    "login": "aaaa",
+    "buyer": 1,
+    "owner": 0,
+    "hubBuyer": 2,
+    "hubOwner": 0,
+    "hubCm": 0,
+    "listUnread": 1
+  },
+  "afterB": {
+    "login": "qqqq",
+    "buyer": 2,
+    "owner": 2,
+    "hubBuyer": 2,
+    "hubOwner": 3,
+    "hubCm": 0,
+    "listUnread": 2
+  },
+  "customerReadOk": true,
+  "ownerReadOk": true
+}
