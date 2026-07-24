@@ -1,8 +1,12 @@
-import type { ChatRoomSource } from "@/lib/types/chat";
+import {
+  newDomainSeparationCorrelationId,
+  traceDomainSeparation,
+} from "@/lib/chat-domain/domain-separation-trace";
 import { resolveLegacyProductChatCreateOrGet } from "./legacy-product-chat-create-or-get";
 import { resolveServiceSupabaseForApi } from "@/lib/supabase/resolve-service-supabase-for-api";
 import { runItemTradeChatStartCore } from "@/lib/trade/item-trade-chat-start-core";
 import type { TradeEntryPerfTrace } from "@/lib/trade/trade-entry-perf-log";
+import type { ChatRoomSource } from "@/lib/types/chat";
 
 type LegacyErrPayload = {
   ok?: boolean;
@@ -29,6 +33,15 @@ export async function resolveTradeChatEntry(
   productId: string,
   perf?: TradeEntryPerfTrace | null
 ): Promise<ResolveTradeChatEntryResult> {
+  const correlationId = newDomainSeparationCorrelationId();
+  traceDomainSeparation({
+    correlationId,
+    phase: "trade_entry_resolve_start",
+    surface: "trade_chat_entry_resolve",
+    viewerId: userId,
+    itemId: productId,
+    expectedDomain: "trade",
+  });
   perf?.mark("resolve_service_sb");
   const sb = resolveServiceSupabaseForApi();
   if (!sb) {
@@ -47,6 +60,17 @@ export async function resolveTradeChatEntry(
   if (core.ok) {
     const b = core.body;
     perf?.mark("resolve_response_chat_room");
+    traceDomainSeparation({
+      correlationId,
+      phase: "trade_entry_resolve_ok",
+      surface: "trade_chat_entry_resolve",
+      viewerId: userId,
+      itemId: productId,
+      expectedDomain: "trade",
+      roomId: b.roomId,
+      messengerRoomId: b.messengerRoomId ?? null,
+      createdOrReused: "item_trade_core",
+    });
     return {
       ok: true,
       roomId: b.roomId,

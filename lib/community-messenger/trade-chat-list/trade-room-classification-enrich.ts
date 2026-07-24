@@ -1,10 +1,18 @@
 /**
  * home-sync `deferTradeMetaEnrich` 경로 — pillar/inbox 분류에 필요한 최소 trade contextMeta 만 동기 적용.
  * 썸네일·category·seller hydrate 는 클라 `trade-chat-list-meta` 가 담당한다.
+ *
+ * CONTRACT (4 domain): general friend pair-key 방에는 trade contextMeta 를 절대 부여하지 않는다.
+ * orphan product_chat peer-pair fallback 로 GD 를 trade 로 재분류하는 경로 금지.
  */
+import {
+  newDomainSeparationCorrelationId,
+  traceDomainSeparation,
+} from "@/lib/chat-domain/domain-separation-trace";
 import {
   communityMessengerRoomIsConfirmedTrade,
   isMessengerCommerceDirectKey,
+  isMessengerGeneralFriendDirectKey,
 } from "@/lib/community-messenger/messenger-room-domain";
 import { parseTradeMessengerDirectKey } from "@/lib/messenger-policy/parse-trade-messenger-direct-key";
 import type { CommunityMessengerRoomContextMetaV1, CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
@@ -22,6 +30,11 @@ function assignMinimalTradeContextMeta(
   patch: { productChatId: string; postId?: string }
 ): void {
   if (communityMessengerRoomIsConfirmedTrade(summary)) return;
+  /** GD pair key — never stamp trade (friend room must stay general_direct). */
+  if (isMessengerGeneralFriendDirectKey(summary.messengerDirectKey)) return;
+  if (summary.chatDomain === "general_direct" || summary.chatDomain === "group" || summary.chatDomain === "store_order") {
+    return;
+  }
   const productChatId = trim(patch.productChatId);
   const postId = trim(patch.postId);
   if (!productChatId) return;
@@ -43,21 +56,30 @@ function directTargetsNeedingClassification(
     (s) =>
       s.roomType === "direct" &&
       !communityMessengerRoomIsConfirmedTrade(s) &&
-      s.contextMeta?.kind !== "delivery"
+      s.contextMeta?.kind !== "delivery" &&
+      !isMessengerGeneralFriendDirectKey(s.messengerDirectKey) &&
+      s.chatDomain !== "general_direct"
   );
 }
 
-/** 분류 전용 Phase D — general friend DM 도 peer-pair 로 trade kind 확정(썸네일 enrich Phase D 와 분리). */
+/**
+ * Classification Phase D — commerce-key / unknown direct only.
+ * DO NOT include general friend DM (pair key); that path stamped trade onto GF and hid it from inbox.
+ */
 function summaryEligibleForClassificationPhaseD(
-  room: Pick<CommunityMessengerRoomSummary, "roomType" | "contextMeta" | "messengerDirectKey">
+  room: Pick<CommunityMessengerRoomSummary, "roomType" | "contextMeta" | "messengerDirectKey" | "chatDomain">
 ): boolean {
   if (room.roomType !== "direct") return false;
   if (room.contextMeta?.kind === "delivery") return false;
+  if (room.chatDomain === "general_direct" || room.chatDomain === "group" || room.chatDomain === "store_order") {
+    return false;
+  }
+  if (isMessengerGeneralFriendDirectKey(room.messengerDirectKey)) return false;
   if (isMessengerCommerceDirectKey(room.messengerDirectKey)) return false;
   return true;
 }
 
-/** home-sync defer — product_chats.room_id / item_trade ledger / peer-pair 로 trade kind 확정 */
+/** home-sync defer — product_chats FK / item_trade ledger / trade_pc key 로만 trade kind 확정 */
 export async function enrichTradeRoomClassificationForDeferredHomeSync(
   sb: ClassificationSupabase | null | undefined,
   viewerUserId: string,
@@ -66,8 +88,18 @@ export async function enrichTradeRoomClassificationForDeferredHomeSync(
   const viewer = trim(viewerUserId);
   if (!sb || !viewer || summaries.length === 0) return;
 
+  const correlationId = newDomainSeparationCorrelationId();
   const targets = directTargetsNeedingClassification(summaries);
-  if (!targets.length) return;
+  if (!targets.length) {
+    traceDomainSeparation({
+      correlationId,
+      phase: "classification_enrich",
+      writer: "enrichTradeRoomClassificationForDeferredHomeSync",
+      reason: "no_targets",
+      viewer,
+    });
+    return;
+  }
 
   const roomIds = targets.map((s) => s.id).filter(Boolean);
   // Supabase query builder — duck-typed like commerce lifecycle enrich
@@ -109,9 +141,29 @@ export async function enrichTradeRoomClassificationForDeferredHomeSync(
 
   for (const summary of targets) {
     const rid = summary.id;
+    if (isMessengerGeneralFriendDirectKey(summary.messengerDirectKey)) {
+      traceDomainSeparation({
+        correlationId,
+        phase: "classification_enrich",
+        writer: "enrichTradeRoomClassificationForDeferredHomeSync",
+        reason: "skipped_general_key",
+        roomId: rid,
+      });
+      continue;
+    }
     const fromPc = pcByRoomId.get(rid);
     if (fromPc) {
       assignMinimalTradeContextMeta(summary, fromPc);
+      if (summary.contextMeta?.kind === "trade") {
+        traceDomainSeparation({
+          correlationId,
+          phase: "classification_enrich",
+          writer: "enrichTradeRoomClassificationForDeferredHomeSync",
+          reason: "pc_fk",
+          roomId: rid,
+          productChatId: fromPc.productChatId,
+        });
+      }
       continue;
     }
     const fromLedger = ledgerByRoomId.get(rid);
@@ -125,93 +177,24 @@ export async function enrichTradeRoomClassificationForDeferredHomeSync(
     }
   }
 
-  const phaseDTargets = summaries.filter(
+  /**
+   * Phase D peer-pair orphan fallback REMOVED.
+   * It stamped trade onto the sole general friend room when product_chats FK was still null.
+   * Remaining targets without commerce key stay unclassified (not trade).
+   */
+  const phaseDEligible = summaries.filter(
     (s) =>
       summaryEligibleForClassificationPhaseD(s) &&
       !communityMessengerRoomIsConfirmedTrade(s) &&
       trim(s.peerUserId)
   );
-  const peers = [...new Set(phaseDTargets.map((s) => trim(s.peerUserId)).filter(Boolean))];
-  if (!peers.length) return;
-
-  const [{ data: pcSellerMe }, { data: pcBuyerMe }] = await Promise.all([
-    sbAny
-      .from("product_chats")
-      .select("id, post_id, seller_id, buyer_id, updated_at, community_messenger_room_id")
-      .eq("seller_id", viewer)
-      .in("buyer_id", peers),
-    sbAny
-      .from("product_chats")
-      .select("id, post_id, seller_id, buyer_id, updated_at, community_messenger_room_id")
-      .eq("buyer_id", viewer)
-      .in("seller_id", peers),
-  ]);
-
-  type PcPairRow = {
-    id: string;
-    postId?: string;
-    updatedAt: string;
-    cmRoomId: string;
-  };
-  const byPeer = new Map<string, PcPairRow[]>();
-  const pushRow = (row: Record<string, unknown>) => {
-    const id = trim(row.id);
-    const postId = trim(row.post_id);
-    const sellerId = trim(row.seller_id);
-    const buyerId = trim(row.buyer_id);
-    if (!id || !sellerId || !buyerId) return;
-    const peer = viewer === sellerId ? buyerId : viewer === buyerId ? sellerId : "";
-    if (!peer || !peers.includes(peer)) return;
-    const rec: PcPairRow = {
-      id,
-      ...(postId ? { postId } : {}),
-      updatedAt: trim(row.updated_at) || "",
-      cmRoomId: trim(row.community_messenger_room_id),
-    };
-    const list = byPeer.get(peer) ?? [];
-    list.push(rec);
-    byPeer.set(peer, list);
-  };
-  for (const row of (pcSellerMe ?? []) as Array<Record<string, unknown>>) pushRow(row);
-  for (const row of (pcBuyerMe ?? []) as Array<Record<string, unknown>>) pushRow(row);
-
-  const pickPcForRoom = (
-    roomId: string,
-    peer: string,
-    opts?: { allowOrphanFallback?: boolean }
-  ): PcPairRow | null => {
-    const list = byPeer.get(peer);
-    if (!list?.length) return null;
-    const linked = list.find((r) => r.cmRoomId && r.cmRoomId === roomId);
-    if (linked) return linked;
-    if (opts?.allowOrphanFallback === false) return null;
-    /** 다른 CM 방에 이미 FK 된 product_chat 은 friend DM peer-pair fallback 대상에서 제외 */
-    const orphans = list.filter((r) => !r.cmRoomId);
-    if (!orphans.length) return null;
-    const sorted = [...orphans].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-    return sorted[0] ?? null;
-  };
-
-  const generalFriendRoomsByPeer = new Map<string, number>();
-  for (const summary of phaseDTargets) {
-    const peer = trim(summary.peerUserId);
-    if (!peer) continue;
-    generalFriendRoomsByPeer.set(peer, (generalFriendRoomsByPeer.get(peer) ?? 0) + 1);
-  }
-
-  for (const summary of phaseDTargets) {
-    if (communityMessengerRoomIsConfirmedTrade(summary)) continue;
-    const peer = trim(summary.peerUserId);
-    if (!peer) continue;
-    const peerGeneralFriendRoomCount = generalFriendRoomsByPeer.get(peer) ?? 0;
-    const pc = pickPcForRoom(summary.id, peer, {
-      allowOrphanFallback: peerGeneralFriendRoomCount === 1,
-    });
-    if (!pc) continue;
-    assignMinimalTradeContextMeta(summary, {
-      productChatId: pc.id,
-      ...(pc.postId ? { postId: pc.postId } : {}),
+  if (phaseDEligible.length > 0) {
+    traceDomainSeparation({
+      correlationId,
+      phase: "classification_enrich",
+      writer: "enrichTradeRoomClassificationForDeferredHomeSync",
+      reason: "orphan_peer_pair_disabled",
+      skippedCount: phaseDEligible.length,
     });
   }
 }
-

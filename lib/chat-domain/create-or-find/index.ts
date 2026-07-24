@@ -201,8 +201,14 @@ export async function findRoomIdByDomainIdentity(
     if (id) return { roomId: id, source: "legacy_direct_key" };
   }
 
-  if (identity.startsWith("so:order:")) {
-    const orderId = identity.slice("so:order:".length).trim();
+  const storeOrderIdentityPrefix =
+    identity.startsWith("store_order:")
+      ? "store_order:"
+      : identity.startsWith("so:order:")
+        ? "so:order:"
+        : null;
+  if (storeOrderIdentityPrefix) {
+    const orderId = identity.slice(storeOrderIdentityPrefix.length).trim();
     if (!orderId) return null;
     const keys = [`store_order:${orderId}`, `trade_order:${orderId}`];
     const { data } = await sb

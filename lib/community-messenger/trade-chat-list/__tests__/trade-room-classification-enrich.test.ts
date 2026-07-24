@@ -62,10 +62,15 @@ describe("enrichTradeRoomClassificationForDeferredHomeSync", () => {
     expect(trade.contextMeta?.kind).toBe("trade");
   });
 
-  it("B: product_chats.room_id link assigns minimal trade context before pillar classify", async () => {
-    const legacy = room({
+  it("B: product_chats FK on commerce/unknown room assigns trade; GF pair key never stamped", async () => {
+    const commerce = room({
       id: "room-legacy",
+      messengerDirectKey: "trade_pc:pc-legacy",
+    });
+    const gfPolluted = room({
+      id: "gf-polluted",
       messengerDirectKey: `${VIEWER}:${PEER}`,
+      peerUserId: PEER,
     });
     const sb = mockSb({
       product_chats: {
@@ -75,18 +80,19 @@ describe("enrichTradeRoomClassificationForDeferredHomeSync", () => {
             post_id: "post-legacy",
             community_messenger_room_id: "room-legacy",
           },
+          {
+            id: "pc-gf",
+            post_id: "post-gf",
+            community_messenger_room_id: "gf-polluted",
+          },
         ],
       },
       chat_rooms: { data: [] },
     });
-    await enrichTradeRoomClassificationForDeferredHomeSync(sb, VIEWER, [legacy]);
-    expect(communityMessengerRoomIsConfirmedTrade(legacy)).toBe(true);
-    expect(legacy.contextMeta).toMatchObject({
-      v: 1,
-      kind: "trade",
-      productChatId: "pc-legacy",
-      postId: "post-legacy",
-    });
+    await enrichTradeRoomClassificationForDeferredHomeSync(sb, VIEWER, [commerce, gfPolluted]);
+    expect(communityMessengerRoomIsConfirmedTrade(commerce)).toBe(true);
+    expect(communityMessengerRoomIsConfirmedTrade(gfPolluted)).toBe(false);
+    expect(gfPolluted.contextMeta?.kind).toBeUndefined();
   });
 
   it("B: item_trade ledger link assigns minimal trade context", async () => {
@@ -126,10 +132,10 @@ describe("enrichTradeRoomClassificationForDeferredHomeSync", () => {
     expect(general.contextMeta?.kind).toBeUndefined();
   });
 
-  it("B: product_chats.room_id link without post_id still assigns trade kind", async () => {
+  it("B: product_chats FK without post_id still assigns trade on non-GF room", async () => {
     const legacy = room({
       id: "room-no-post",
-      messengerDirectKey: `${VIEWER}:${PEER}`,
+      messengerDirectKey: null,
     });
     const sb = mockSb({
       product_chats: {
@@ -153,7 +159,7 @@ describe("enrichTradeRoomClassificationForDeferredHomeSync", () => {
     expect(legacy.contextMeta?.postId).toBeUndefined();
   });
 
-  it("E: general friend direct peer-pair assigns trade kind for classification", async () => {
+  it("E: general friend direct must NOT receive trade from orphan peer-pair product_chat", async () => {
     const gf = room({
       id: "room-gf",
       messengerDirectKey: `${VIEWER}:${PEER}`,
@@ -184,8 +190,8 @@ describe("enrichTradeRoomClassificationForDeferredHomeSync", () => {
       }),
     };
     await enrichTradeRoomClassificationForDeferredHomeSync(sb, VIEWER, [gf]);
-    expect(communityMessengerRoomIsConfirmedTrade(gf)).toBe(true);
-    expect(gf.contextMeta?.productChatId).toBe("pc-peer");
+    expect(communityMessengerRoomIsConfirmedTrade(gf)).toBe(false);
+    expect(gf.contextMeta?.kind).toBeUndefined();
   });
 
   it("does not steal product_chat already linked to another CM room via peer-pair fallback", async () => {
@@ -262,10 +268,10 @@ describe("enrichTradeRoomClassificationForDeferredHomeSync", () => {
     expect(tradeCount).toBe(0);
   });
 
-  it("D: Run1/Run2 fixture — defer path matches post-enrich classification", async () => {
+  it("D: Run1/Run2 fixture — defer path matches post-enrich classification on commerce room", async () => {
     const run1Shape = room({
       id: "room-run1",
-      messengerDirectKey: `${VIEWER}:${PEER}`,
+      messengerDirectKey: "trade_pc:pc-run",
       contextMeta: undefined,
     });
     const sb = mockSb({
@@ -283,9 +289,10 @@ describe("enrichTradeRoomClassificationForDeferredHomeSync", () => {
     await enrichTradeRoomClassificationForDeferredHomeSync(sb, VIEWER, [run1Shape]);
     const run2Shape = room({
       id: "room-run1",
-      messengerDirectKey: `${VIEWER}:${PEER}`,
+      messengerDirectKey: "trade_pc:pc-run",
       contextMeta: { v: 1, kind: "trade", productChatId: "pc-run", postId: "post-run" },
     });
+    expect(communityMessengerRoomIsConfirmedTrade(run1Shape)).toBe(true);
     expect(communityMessengerRoomIsConfirmedTrade(run1Shape)).toBe(
       communityMessengerRoomIsConfirmedTrade(run2Shape)
     );

@@ -1,43 +1,52 @@
 /**
- * Phase C — legacy direct_key / room_type ↔ freeze domain_identity.
- * DO NOT use as runtime Domain SSOT after columns are populated (fail-closed on mismatch).
+ * Phase C — legacy direct_key / room_type ↔ planned domain columns.
+ * Runtime SSOT identity = `lib/chat-domain/room-identity.ts` (long-form keys).
+ * DO NOT re-infer domain at list time after columns are populated.
  * docs/community-messenger/2026-07-23-four-domain-phase-c.md
  */
 
+import type { ChatDomain } from "@/lib/chat-domain/chat-domain";
 import {
-  buildGeneralDirectIdentity,
-  buildGroupIdentity,
-  buildStoreOrderRoomIdentity,
-  buildTradeIdentity,
-  type ChatDomain,
-} from "@/lib/chat-domain/four-domain-freeze";
+  generalDirectRoomIdentity,
+  groupRoomIdentity,
+  storeOrderRoomIdentity,
+  tradeRoomIdentity,
+} from "@/lib/chat-domain/room-identity";
 
 export type PlannedRoomDomainColumns = {
   chat_domain: ChatDomain;
   domain_identity: string;
 };
 
-/** GD: DB today stores sorted pair without `gd:` prefix. */
+/** GD: DB `direct_key` is sorted pair without domain prefix. Accept long-form + legacy `gd:`. */
 export function legacyGeneralDirectKeyFromIdentity(domainIdentity: string): string | null {
   const id = domainIdentity.trim();
-  if (!id.startsWith("gd:")) return null;
-  const rest = id.slice(3);
+  let rest = "";
+  if (id.startsWith("general_direct:")) {
+    rest = id.slice("general_direct:".length);
+  } else if (id.startsWith("gd:")) {
+    rest = id.slice(3);
+  } else {
+    return null;
+  }
   const parts = rest.split(":");
   if (parts.length !== 2 || !parts[0] || !parts[1]) return null;
   return [parts[0], parts[1]].sort().join(":");
 }
 
 export function plannedColumnsForGeneralDirect(userA: string, userB: string): PlannedRoomDomainColumns {
+  const id = generalDirectRoomIdentity(userA, userB);
   return {
-    chat_domain: "general_direct",
-    domain_identity: buildGeneralDirectIdentity(userA, userB),
+    chat_domain: id.domain,
+    domain_identity: id.identityKey,
   };
 }
 
 export function plannedColumnsForGroup(roomId: string): PlannedRoomDomainColumns {
+  const id = groupRoomIdentity(roomId);
   return {
-    chat_domain: "group",
-    domain_identity: buildGroupIdentity(roomId),
+    chat_domain: id.domain,
+    domain_identity: id.identityKey,
   };
 }
 
@@ -46,16 +55,18 @@ export function plannedColumnsForTrade(
   sellerId: string,
   buyerId: string,
 ): PlannedRoomDomainColumns {
+  const id = tradeRoomIdentity({ itemId, sellerId, buyerId });
   return {
-    chat_domain: "trade",
-    domain_identity: buildTradeIdentity(itemId, sellerId, buyerId),
+    chat_domain: id.domain,
+    domain_identity: id.identityKey,
   };
 }
 
 export function plannedColumnsForStoreOrderRoom(orderId: string): PlannedRoomDomainColumns {
+  const id = storeOrderRoomIdentity(orderId);
   return {
-    chat_domain: "store_order",
-    domain_identity: buildStoreOrderRoomIdentity(orderId),
+    chat_domain: id.domain,
+    domain_identity: id.identityKey,
   };
 }
 

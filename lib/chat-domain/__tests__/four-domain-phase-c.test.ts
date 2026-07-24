@@ -29,10 +29,11 @@ describe("four-domain-freeze identity builders", () => {
 });
 
 describe("domain-identity-legacy-map", () => {
-  it("round-trips GD identity ↔ legacy direct_key", () => {
+  it("round-trips GD identity ↔ legacy direct_key (long-form SSOT)", () => {
     const planned = plannedColumnsForGeneralDirect("u2", "u1");
-    expect(planned.domain_identity).toBe("gd:u1:u2");
+    expect(planned.domain_identity).toBe("general_direct:u1:u2");
     expect(legacyGeneralDirectKeyFromIdentity(planned.domain_identity)).toBe("u1:u2");
+    expect(legacyGeneralDirectKeyFromIdentity("gd:u1:u2")).toBe("u1:u2");
   });
 
   it("maps legacy GD / group / store_order; refuses trade_pc guess", () => {
@@ -59,6 +60,7 @@ describe("domain-identity-legacy-map", () => {
         direct_key: "store_order:ord-1",
       }),
     ).toEqual(plannedColumnsForStoreOrderRoom("ord-1"));
+    expect(plannedColumnsForStoreOrderRoom("ord-1").domain_identity).toBe("store_order:ord-1");
 
     expect(
       inferPlannedColumnsFromLegacyRoom({
@@ -69,9 +71,9 @@ describe("domain-identity-legacy-map", () => {
     ).toBeNull();
   });
 
-  it("trade planned columns require explicit triple", () => {
+  it("trade planned columns require explicit seller/buyer order (not sorted)", () => {
     expect(plannedColumnsForTrade("item", "seller", "buyer").domain_identity).toBe(
-      "trade:item:buyer:seller",
+      "trade:item:seller:buyer",
     );
   });
 });

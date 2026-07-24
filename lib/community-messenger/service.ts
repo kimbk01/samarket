@@ -135,6 +135,16 @@ import {
 import { listBootstrapAcceptedFriendRowsFromSsot } from "@/lib/community-messenger/friendship/bootstrap-accepted-friend-rows-from-ssot";
 import { listFriendshipSsotRowsForViewer } from "@/lib/community-messenger/friendship/community-messenger-friendships-ssot";
 import {
+  plannedColumnsForGeneralDirect,
+  plannedColumnsForStoreOrderRoom,
+  plannedColumnsForTrade,
+  type PlannedRoomDomainColumns,
+} from "@/lib/chat-domain/domain-identity-legacy-map";
+import {
+  newDomainSeparationCorrelationId,
+  traceDomainSeparation,
+} from "@/lib/chat-domain/domain-separation-trace";
+import {
   communityMessengerSummaryEligibleForPhaseDTradeEnrich,
   isMessengerGeneralFriendDirectKey,
   messengerDirectKeyForUserPair,
@@ -9857,6 +9867,7 @@ export async function ensureGeneralFriendDirectRoom(
       return { ok: true, roomId: existingId };
     }
 
+    const gdDomain = plannedColumnsForGeneralDirect(userId, peerId);
     const { data: room, error: roomError } = await (sb as any)
       .from("community_messenger_rooms")
       .insert({
@@ -9865,6 +9876,8 @@ export async function ensureGeneralFriendDirectRoom(
         is_readonly: false,
         created_by: userId,
         direct_key: basePairKey,
+        chat_domain: gdDomain.chat_domain,
+        domain_identity: gdDomain.domain_identity,
         title: "",
         last_message: "",
         last_message_type: "system",
@@ -9968,13 +9981,24 @@ export async function ensureGeneralFriendDirectRoom(
 export async function ensureCommunityMessengerDirectRoom(
   userId: string,
   peerUserId: string,
-  options?: { productChatId?: string; storeOrderId?: string; itemTradeChatRoomId?: string }
+  options?: {
+    productChatId?: string;
+    storeOrderId?: string;
+    itemTradeChatRoomId?: string;
+    /** trade domain identity — item × seller × buyer (long-form SSOT) */
+    tradeItemId?: string;
+    tradeSellerId?: string;
+    tradeBuyerId?: string;
+  }
 ): Promise<{ ok: boolean; roomId?: string; error?: string }> {
   const peerId = trimText(peerUserId);
   if (!peerId || peerId === userId) return { ok: false, error: "bad_peer" };
   const itemTradeChatRoomId = trimText(options?.itemTradeChatRoomId ?? "");
   const productChatId = trimText(options?.productChatId ?? "");
   const storeOrderId = trimText(options?.storeOrderId ?? "");
+  const tradeItemId = trimText(options?.tradeItemId ?? "");
+  const tradeSellerId = trimText(options?.tradeSellerId ?? "");
+  const tradeBuyerId = trimText(options?.tradeBuyerId ?? "");
   let allowWithoutFriend = false;
   if (itemTradeChatRoomId) {
     allowWithoutFriend = await verifyUserIsItemTradeRoomCounterpart(userId, peerId, itemTradeChatRoomId);
@@ -10007,6 +10031,16 @@ export async function ensureCommunityMessengerDirectRoom(
     ...(itemTradeChatRoomId ? [`trade_item:${itemTradeChatRoomId}`] : []),
     ...(productChatId ? [`trade_pc:${productChatId}`] : []),
   ]);
+  const isCommerceEnsure = tradeLookupKeys.length > 0 || storeOrderId !== "";
+  let plannedDomain: PlannedRoomDomainColumns | null = null;
+  if (storeOrderId) {
+    plannedDomain = plannedColumnsForStoreOrderRoom(storeOrderId);
+  } else if (tradeItemId && tradeSellerId && tradeBuyerId) {
+    plannedDomain = plannedColumnsForTrade(tradeItemId, tradeSellerId, tradeBuyerId);
+  } else if (!isCommerceEnsure) {
+    plannedDomain = plannedColumnsForGeneralDirect(userId, peerId);
+  }
+  const correlationId = newDomainSeparationCorrelationId();
   const sb = getSupabaseOrNull();
   if (sb) {
     const directKeyLookupSet = dedupeIds([
@@ -10014,20 +10048,33 @@ export async function ensureCommunityMessengerDirectRoom(
       ...(legacyStoreOrderDirectKey ? [directKey, legacyStoreOrderDirectKey] : [directKey]),
     ]);
     const pickCanonicalTradeRoomId = (
-      rows: Array<{ id?: unknown; direct_key?: unknown }>
+      rows: Array<{ id?: unknown; direct_key?: unknown; chat_domain?: unknown }>
     ): string | null => {
       if (!rows.length) return null;
-      const itemRow = rows.find((r) => trimText(r.direct_key).startsWith("trade_item:"));
+      const usable = rows.filter((r) => {
+        const dk = trimText(r.direct_key);
+        const domain = trimText(r.chat_domain);
+        if (domain === "general_direct" || domain === "group") return false;
+        if (isMessengerGeneralFriendDirectKey(dk)) return false;
+        return true;
+      });
+      const pool = usable.length ? usable : rows;
+      const itemRow = pool.find((r) => trimText(r.direct_key).startsWith("trade_item:"));
       if (itemRow?.id) return String(itemRow.id);
-      const pcRow = rows.find((r) => trimText(r.direct_key).startsWith("trade_pc:"));
+      const pcRow = pool.find((r) => trimText(r.direct_key).startsWith("trade_pc:"));
       if (pcRow?.id) return String(pcRow.id);
-      const first = rows[0]?.id;
+      const soRow = pool.find((r) => {
+        const dk = trimText(r.direct_key);
+        return dk.startsWith("store_order:") || dk.startsWith("trade_order:");
+      });
+      if (soRow?.id) return String(soRow.id);
+      const first = pool[0]?.id;
       return typeof first === "string" ? first : null;
     };
     const loadExistingRoomId = async () => {
       const { data } = await (sb as any)
         .from("community_messenger_rooms")
-        .select("id, direct_key")
+        .select("id, direct_key, chat_domain")
         .eq("room_type", "direct")
         .in("direct_key", directKeyLookupSet)
         .order("created_at", { ascending: true })
@@ -10035,12 +10082,13 @@ export async function ensureCommunityMessengerDirectRoom(
       const rows = (Array.isArray(data) ? data : data ? [data] : []) as Array<{
         id?: unknown;
         direct_key?: unknown;
+        chat_domain?: unknown;
       }>;
       return pickCanonicalTradeRoomId(rows);
     };
     const { data: existingRows, error: existingError } = await (sb as any)
       .from("community_messenger_rooms")
-      .select("id, direct_key")
+      .select("id, direct_key, chat_domain")
       .eq("room_type", "direct")
       .in("direct_key", directKeyLookupSet)
       .order("created_at", { ascending: true })
@@ -10048,27 +10096,58 @@ export async function ensureCommunityMessengerDirectRoom(
     const existingList = (Array.isArray(existingRows) ? existingRows : existingRows ? [existingRows] : []) as Array<{
       id?: unknown;
       direct_key?: unknown;
+      chat_domain?: unknown;
     }>;
     const existingId = pickCanonicalTradeRoomId(existingList);
     const existing = existingId ? { id: existingId } : null;
     if (existing?.id && !existingError) {
       const rid = existing.id as string;
-      await ensureDirectMessengerRoomParticipantsForPair(sb, rid, userId, peerId);
-      return { ok: true, roomId: rid };
+      const hit = existingList.find((r) => String(r.id) === rid);
+      if (isCommerceEnsure && hit && isMessengerGeneralFriendDirectKey(trimText(hit.direct_key))) {
+        traceDomainSeparation({
+          correlationId,
+          phase: "ensure_direct",
+          function: "ensureCommunityMessengerDirectRoom",
+          reason: "rejected_general_as_trade",
+          roomId: rid,
+          directKey: trimText(hit.direct_key),
+        });
+      } else {
+        await ensureDirectMessengerRoomParticipantsForPair(sb, rid, userId, peerId);
+        traceDomainSeparation({
+          correlationId,
+          phase: "ensure_direct",
+          function: "ensureCommunityMessengerDirectRoom",
+          created: false,
+          roomId: rid,
+          directKey,
+          chatDomain: plannedDomain?.chat_domain ?? (trimText(hit?.chat_domain) || null),
+          domainIdentity: plannedDomain?.domain_identity ?? null,
+        });
+        return { ok: true, roomId: rid };
+      }
     }
     if (!existing || isMissingTableError(existingError)) {
+      const insertRow: Record<string, unknown> = {
+        room_type: "direct",
+        room_status: "active",
+        is_readonly: false,
+        created_by: userId,
+        direct_key: directKey,
+        title: "",
+        last_message: "",
+        last_message_type: "system",
+      };
+      if (plannedDomain) {
+        insertRow.chat_domain = plannedDomain.chat_domain;
+        insertRow.domain_identity = plannedDomain.domain_identity;
+      } else if (isCommerceEnsure && (productChatId || itemTradeChatRoomId)) {
+        /** trade_pc/trade_item without item triple — still mark domain=trade; identity filled when triple known */
+        insertRow.chat_domain = "trade";
+      }
       const { data: room, error: roomError } = await (sb as any)
         .from("community_messenger_rooms")
-        .insert({
-          room_type: "direct",
-          room_status: "active",
-          is_readonly: false,
-          created_by: userId,
-          direct_key: directKey,
-          title: "",
-          last_message: "",
-          last_message_type: "system",
-        })
+        .insert(insertRow)
         .select("id")
         .single();
       if (!roomError) {
@@ -10078,6 +10157,16 @@ export async function ensureCommunityMessengerDirectRoom(
           { room_id: roomId, user_id: peerId, role: "member" },
         ]);
         if (!participantError) {
+          traceDomainSeparation({
+            correlationId,
+            phase: "ensure_direct",
+            function: "ensureCommunityMessengerDirectRoom",
+            created: true,
+            roomId,
+            directKey,
+            chatDomain: (insertRow.chat_domain as string) ?? null,
+            domainIdentity: (insertRow.domain_identity as string) ?? null,
+          });
           return { ok: true, roomId };
         }
         await (sb as any).from("community_messenger_rooms").delete().eq("id", roomId);
@@ -10212,9 +10301,13 @@ export async function ensureCommunityMessengerDirectRoomFromProductChat(
   if (userId !== seller && userId !== buyer) return { ok: false, error: "not_participant" };
   const peer = userId === seller ? buyer : seller;
   const ledgerCrId = trimText(tradeLink?.itemTradeChatRoomId ?? resolved.ledgerChatRoomId ?? "");
+  const tradeItemId = trimText((pc as { post_id?: unknown }).post_id);
   const out = await ensureCommunityMessengerDirectRoom(userId, peer, {
     productChatId,
     ...(ledgerCrId ? { itemTradeChatRoomId: ledgerCrId } : {}),
+    ...(tradeItemId
+      ? { tradeItemId, tradeSellerId: seller, tradeBuyerId: buyer }
+      : {}),
   });
   if (!out.ok || !out.roomId) return { ok: false, error: out.error ?? "room_failed" };
   /** `rooms.summary` 거래 메타 — 목록·방 카드. entry resolve 는 defer(응답 RTT 제외), 그 외는 동기 */
@@ -13394,6 +13487,29 @@ async function hydrateTradeMessengerRoomSummaryFromProductChat(
 ): Promise<void> {
   const sb = getSupabaseOrNull();
   if (!sb) return;
+  const { data: roomGate } = await (sb as any)
+    .from("community_messenger_rooms")
+    .select("direct_key, chat_domain")
+    .eq("id", cmRoomId)
+    .maybeSingle();
+  const gateDk = trimText((roomGate as { direct_key?: unknown } | null)?.direct_key);
+  const gateDomain = trimText((roomGate as { chat_domain?: unknown } | null)?.chat_domain);
+  if (
+    gateDomain === "general_direct" ||
+    gateDomain === "group" ||
+    gateDomain === "store_order" ||
+    isMessengerGeneralFriendDirectKey(gateDk)
+  ) {
+    traceDomainSeparation({
+      correlationId: newDomainSeparationCorrelationId(),
+      phase: "hydrate_trade_summary",
+      reason: "skipped_non_trade_room",
+      roomId: cmRoomId,
+      chatDomain: gateDomain || null,
+      directKey: gateDk || null,
+    });
+    return;
+  }
   const pc =
     prefetchedPc && String(prefetchedPc.id ?? "").trim() === productChatId.trim()
       ? prefetchedPc

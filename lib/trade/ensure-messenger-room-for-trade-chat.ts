@@ -1,7 +1,16 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  newDomainSeparationCorrelationId,
+  traceDomainSeparation,
+} from "@/lib/chat-domain/domain-separation-trace";
 import { ensureCommunityMessengerDirectRoomFromProductChat } from "@/lib/community-messenger/service";
+import {
+  isMessengerCommerceDirectKey,
+  isMessengerGeneralFriendDirectKey,
+} from "@/lib/community-messenger/messenger-room-domain";
 import { ensureProductChatRowForItemTrade } from "@/lib/trade/ensure-product-chat-for-item-trade";
 import {
+  persistProductChatMessengerRoomId,
   persistProductChatMessengerRoomIdIfNull,
   syncChatRoomMessengerLink,
 } from "@/lib/trade/persist-trade-messenger-room-link";
@@ -21,8 +30,32 @@ export type EnsureMessengerRoomIdForItemTradeOpts = {
 };
 
 /**
+ * CM room is safe to reuse as trade only when domain/direct_key is commerce (not general friend).
+ */
+export async function isTradeCapableCommunityMessengerRoom(
+  sb: SupabaseClient<any>,
+  roomId: string
+): Promise<boolean> {
+  const id = roomId.trim();
+  if (!id) return false;
+  const { data, error } = await sb
+    .from("community_messenger_rooms")
+    .select("direct_key, chat_domain")
+    .eq("id", id)
+    .maybeSingle();
+  if (error || !data) return false;
+  const domain = trimMid((data as { chat_domain?: unknown }).chat_domain);
+  if (domain === "trade") return true;
+  if (domain === "general_direct" || domain === "group" || domain === "store_order") return false;
+  const dk = trimMid((data as { direct_key?: unknown }).direct_key) ?? "";
+  if (isMessengerGeneralFriendDirectKey(dk)) return false;
+  return isMessengerCommerceDirectKey(dk) && (dk.startsWith("trade_pc:") || dk.startsWith("trade_item:"));
+}
+
+/**
  * 거래 채팅(item_trade / product_chats)에 대응하는 메신저 1:1 방 UUID.
- * `product_chats.community_messenger_room_id` 가 있으면 ensure 생략(원장 단일 경로).
+ * `product_chats.community_messenger_room_id` 가 있으면 ensure 생략(원장 단일 경로) —
+ * 단 general friend 방으로 오염된 FK 는 재사용하지 않는다.
  * `chatRoomId` 가 있으면 `chat_rooms` 행에도 FK 동기.
  */
 export async function ensureMessengerRoomIdForItemTrade(
@@ -34,6 +67,7 @@ export async function ensureMessengerRoomIdForItemTrade(
   opts?: EnsureMessengerRoomIdForItemTradeOpts
 ): Promise<string | undefined> {
   const perf = opts?.perf ?? null;
+  const correlationId = newDomainSeparationCorrelationId();
   try {
     const crId = chatRoomId?.trim() ?? "";
     const knownMid = trimMid(opts?.knownMessengerRoomId);
@@ -56,14 +90,30 @@ export async function ensureMessengerRoomIdForItemTrade(
       perf?.noteDbRoundTrip(1);
       if (!pc?.id) return undefined;
       if (onCr) {
-        const storedPc = trimMid((pc as ProductChatRow).community_messenger_room_id);
-        if (storedPc === onCr) {
+        const capable = await isTradeCapableCommunityMessengerRoom(sb, onCr);
+        perf?.noteDbRoundTrip(1);
+        if (!capable) {
+          traceDomainSeparation({
+            correlationId,
+            phase: "ensure_messenger_for_trade",
+            function: "ensureMessengerRoomIdForItemTrade",
+            reason: "rejected_polluted_fk",
+            roomId: onCr,
+            itemId,
+            sellerId,
+            buyerId,
+          });
+          /** fall through to create a real trade CM room */
+        } else {
+          const storedPc = trimMid((pc as ProductChatRow).community_messenger_room_id);
+          if (storedPc === onCr) {
+            return onCr;
+          }
+          /** `chat_rooms` 만 연결된 레거시 — `product_chats` 쪽 FK 가 비면 목록 enrich 가 실패한다 */
+          await persistProductChatMessengerRoomIdIfNull(sb, pc.id, onCr);
+          perf?.noteDbRoundTrip(2);
           return onCr;
         }
-        /** `chat_rooms` 만 연결된 레거시 — `product_chats` 쪽 FK 가 비면 목록 enrich 가 실패한다 */
-        await persistProductChatMessengerRoomIdIfNull(sb, pc.id, onCr);
-        perf?.noteDbRoundTrip(2);
-        return onCr;
       }
     } else {
       pc = (await ensureProductChatRowForItemTrade(sb, itemId, sellerId, buyerId)) as ProductChatRow | null;
@@ -77,7 +127,19 @@ export async function ensureMessengerRoomIdForItemTrade(
      */
     const storedPc = trimMid((pc as ProductChatRow).community_messenger_room_id);
     if (storedPc && !crId) {
-      return storedPc;
+      const capable = await isTradeCapableCommunityMessengerRoom(sb, storedPc);
+      perf?.noteDbRoundTrip(1);
+      if (capable) return storedPc;
+      traceDomainSeparation({
+        correlationId,
+        phase: "ensure_messenger_for_trade",
+        function: "ensureMessengerRoomIdForItemTrade",
+        reason: "rejected_polluted_pc_fk",
+        roomId: storedPc,
+        itemId,
+        sellerId,
+        buyerId,
+      });
     }
 
     perf?.mark("messenger_room_ensure_sync");
@@ -89,19 +151,36 @@ export async function ensureMessengerRoomIdForItemTrade(
     if (!out.ok || !out.roomId) return undefined;
 
     /**
-     * 절대 조건: 거래 채팅은 `product_chats.community_messenger_room_id` 가 NULL 이면 실패.
-     * ensure 성공 직후 원장 FK 를 반드시 고정한다.
-     *
-     * - item_trade(chat_rooms 경유)인 경우에도 목록 enrich 를 위해 product_chats 를 소스로 쓴다.
-     * - 운영 데이터 보호: 이미 값이 있으면 덮어쓰지 않는다(불일치 케이스는 별도 보정 대상).
+     * 거래 채팅은 `product_chats.community_messenger_room_id` 가 올바른 trade CM 이어야 한다.
+     * - null → write
+     * - polluted (general) → overwrite with trade room id
+     * - already valid trade → keep
      */
-    await persistProductChatMessengerRoomIdIfNull(sb, pc.id, out.roomId);
+    const curFk = trimMid((pc as ProductChatRow).community_messenger_room_id);
+    if (!curFk) {
+      await persistProductChatMessengerRoomIdIfNull(sb, pc.id, out.roomId);
+    } else if (curFk !== out.roomId) {
+      const curCapable = await isTradeCapableCommunityMessengerRoom(sb, curFk);
+      if (!curCapable) {
+        await persistProductChatMessengerRoomId(sb, pc.id, out.roomId);
+      }
+    }
     perf?.noteDbRoundTrip(2);
 
     if (crId) {
       await syncChatRoomMessengerLink(sb, crId, out.roomId);
       perf?.noteDbRoundTrip(1);
     }
+    traceDomainSeparation({
+      correlationId,
+      phase: "ensure_messenger_for_trade",
+      function: "ensureMessengerRoomIdForItemTrade",
+      roomId: out.roomId,
+      itemId,
+      sellerId,
+      buyerId,
+      expectedDomain: "trade",
+    });
     return out.roomId;
   } catch {
     return undefined;
