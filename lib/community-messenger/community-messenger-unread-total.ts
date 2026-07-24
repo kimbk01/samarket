@@ -19,6 +19,8 @@ import {
   scheduleCmUnreadSnapshotRevalidate,
   writeCmUnreadRoomCountMemory,
 } from "@/lib/community-messenger/cm-unread-room-count-memory-cache";
+import { roomSummaryCountsForBottomChat } from "@/lib/community-messenger/notifications/bottom-chat-live-room-count";
+import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
@@ -27,14 +29,10 @@ export { invalidateCommunityMessengerUnreadTotalCache };
 export const CM_UNREAD_ROOM_COUNT_RPC = "get_community_messenger_unread_room_count";
 
 /**
- * 하단 「메신저」탭 배지용 — `community_messenger_participants.unread_count > 0` 인 방 개수.
+ * 하단 「메신저」탭 / Hub CM 배지용 — unread **방 수** (메시지 합 아님).
+ * B3: general_direct + group 만 (trade / store_order · commerce direct_key 제외).
  *
- * 사용자 UX 규칙:
- * - 방 A unread 5
- * - 방 B unread 1
- * => 하단 메신저 배지 2
- *
- * 즉, unread 메시지 총합이 아니라 unread 방 수만 센다.
+ * 예: 방 A unread 5, 방 B unread 1 → 배지 2
  */
 
 type CmUnreadRpcProbe = {
@@ -77,23 +75,47 @@ async function sumCommunityMessengerParticipantUnreadViaRpc(
   return { result, wallMs, payloadBytes, parseMs };
 }
 
-/** Legacy PostgREST count head — RPC 실패 시만 */
+/**
+ * Legacy PostgREST — RPC 실패 시만.
+ * B3: head count 금지 — trade/store_order·commerce direct_key 제외 후 GD+group만.
+ */
 async function sumCommunityMessengerParticipantUnreadLegacy(
   sbAny: SupabaseClient<any>,
   uid: string
 ): Promise<{ result: number; error?: string; wallMs: number; payloadBytes: number }> {
   const legacy0 = devPerfNow();
-  const { count, error } = await sbAny
+  const { data, error } = await sbAny
     .from("community_messenger_participants")
-    .select("id", { count: "exact", head: true })
+    .select(
+      "id, room:community_messenger_rooms!inner(chat_domain, direct_key, room_type)"
+    )
     .eq("user_id", uid)
     .gt("unread_count", 0);
   const wallMs = devPerfNow() - legacy0;
-  const payloadBytes = Buffer.byteLength(JSON.stringify({ count, error: error?.message ?? null }), "utf8");
+  const payloadBytes = Buffer.byteLength(JSON.stringify({ data, error: error?.message ?? null }), "utf8");
   if (error) {
     return { result: 0, error: error.message, wallMs, payloadBytes };
   }
-  return { result: Math.max(0, Math.floor(Number(count) || 0)), wallMs, payloadBytes };
+  const rows = Array.isArray(data) ? data : [];
+  let result = 0;
+  for (const row of rows) {
+    const roomRaw = (row as { room?: unknown }).room;
+    const room = (Array.isArray(roomRaw) ? roomRaw[0] : roomRaw) as
+      | { chat_domain?: unknown; direct_key?: unknown; room_type?: unknown }
+      | null
+      | undefined;
+    if (
+      roomSummaryCountsForBottomChat({
+        chatDomain: (room?.chat_domain as CommunityMessengerRoomSummary["chatDomain"]) ?? null,
+        roomType: (room?.room_type as CommunityMessengerRoomSummary["roomType"]) ?? "direct",
+        messengerDirectKey: typeof room?.direct_key === "string" ? room.direct_key : null,
+        contextMeta: null,
+      })
+    ) {
+      result += 1;
+    }
+  }
+  return { result, wallMs, payloadBytes };
 }
 
 function scheduleCmUnreadAggregateUpsert(

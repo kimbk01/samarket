@@ -61,6 +61,22 @@ describe("roomSummaryCountsForBottomChat", () => {
     ).toBe(true);
     expect(roomSummaryCountsForBottomChat(room({ id: "c", chatDomain: "trade" }))).toBe(false);
     expect(roomSummaryCountsForBottomChat(room({ id: "d", chatDomain: "store_order" }))).toBe(false);
+    // B3 RPC/legacy mirror: null domain + commerce direct_key → exclude
+    expect(
+      roomSummaryCountsForBottomChat(
+        room({ id: "e", chatDomain: null, messengerDirectKey: "trade_pc:x" }),
+      ),
+    ).toBe(false);
+    expect(
+      roomSummaryCountsForBottomChat(
+        room({ id: "f", chatDomain: null, messengerDirectKey: "store_order:y" }),
+      ),
+    ).toBe(false);
+    expect(
+      roomSummaryCountsForBottomChat(
+        room({ id: "g", chatDomain: null, messengerDirectKey: "a:b", roomType: "direct" }),
+      ),
+    ).toBe(true);
   });
 
   it("excludes commerce directKey when chatDomain absent", () => {

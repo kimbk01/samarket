@@ -243,7 +243,7 @@ commit → push → **Vercel Ready를 CLI/대시보드로 확인** (추정 금�
 
 1. ~~A~~ … ~~Hub realtime room-count bump~~ · ~~B1 Bottom Chat live (GD+group)~~
 2. **사용자:** 다른 화면에서 GD/group 메시지 → **하단 채팅 즉시 +1** · trade/SO는 하단 불변
-3. 잔여: B2 리스트 · B3 Domain 허브 · B4 Bell/App Icon · backfill · R2 — **별도 승인**
+3. 잔여: ~~B3 Domain 허브~~ (RPC filter 코드 착수 · migration APPLY 별도) · B4 Bell/App Icon · Push/sound/read QA · projection 행 소스 · backfill · R2 — **별도 승인**
 
 ---
 
