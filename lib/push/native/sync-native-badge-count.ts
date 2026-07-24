@@ -7,19 +7,44 @@ function clampBadgeCount(count: number): number {
   return Math.max(0, Math.min(999, Math.floor(count)));
 }
 
-/** 앱 아이콘 badge — iOS/Android(launcher 지원 기기). OS API 위임, 실패 시 no-op. */
-export async function syncNativeBadgeCount(count: number): Promise<void> {
-  if (!isCapacitorNativePlatform()) return;
+/**
+ * App icon badge — absolute set of Domain appIconTotal (never Bell, never +1).
+ * Android launcher support is OEM-dependent (ShortcutBadger); failures are logged,
+ * not swallowed silently. Notification tray number still comes from FCM setNumber.
+ */
+export async function syncNativeBadgeCount(count: number): Promise<{
+  attempted: boolean;
+  supported: boolean | null;
+  applied: boolean;
+  error?: string;
+}> {
+  if (!isCapacitorNativePlatform()) {
+    return { attempted: false, supported: null, applied: false };
+  }
   const value = clampBadgeCount(count);
   try {
     const { Badge } = await import("@capawesome/capacitor-badge");
+    let supported: boolean | null = null;
+    try {
+      const result = await Badge.isSupported();
+      supported = Boolean(result?.isSupported);
+    } catch {
+      supported = null;
+    }
+    if (supported === false) {
+      console.warn("[native-badge] launcher_badge_unsupported count=", value);
+      return { attempted: true, supported: false, applied: false };
+    }
     if (value <= 0) {
       await Badge.clear();
-      return;
+      return { attempted: true, supported, applied: true };
     }
     await Badge.set({ count: value });
-  } catch {
-    /* plugin 미동기화·미지원 기기 */
+    return { attempted: true, supported, applied: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn("[native-badge] set_failed count=", value, message);
+    return { attempted: true, supported: null, applied: false, error: message };
   }
 }
 

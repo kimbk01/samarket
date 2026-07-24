@@ -21,6 +21,7 @@ import { isNotificationBlockedForRecipient } from "@/lib/notifications/policy/no
 import { isRoomMutedForUser } from "@/lib/notifications/policy/notification-mute-policy";
 import {
   loadRecipientPresenceSnapshot,
+  resolveOsPushAppStateFromPresence,
   resolvePresenceSuppressDecision,
 } from "@/lib/notifications/policy/notification-presence-policy";
 import { invalidateNotificationBadgeCache } from "@/lib/notifications/pipeline/notify-badge-service";
@@ -203,7 +204,7 @@ export async function notifyMessagePipeline(
       pushSuppressedReason,
       soundSuppressedReason,
       unread: decisionSnapshot.showBottomBadge,
-      appState: String(presence.appVisibility ?? "").toLowerCase() === "foreground" ? "foreground" : "background",
+      appState: resolveOsPushAppStateFromPresence(presence),
     });
 
     if (!created.ok) {

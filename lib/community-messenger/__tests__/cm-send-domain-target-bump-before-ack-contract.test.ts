@@ -17,9 +17,22 @@ describe("CM message send Domain target bump before ACK", () => {
     expect(syncBump).toBeLessThan(afterCall);
   });
 
-  it("keeps realtime publishMessengerRoomBumpAfterMutation in after()", () => {
+  it("keeps realtime publishMessengerRoomBumpAfterMutation in after() with skipBadgeTargetBump", () => {
     const afterCall = src.indexOf("after(async () => {");
     const publish = src.indexOf("publishMessengerRoomBumpAfterMutation", afterCall);
     expect(publish).toBeGreaterThan(afterCall);
+    expect(src).toContain("skipBadgeTargetBump: true");
+  });
+});
+
+const publishSrc = readFileSync(
+  join(process.cwd(), "lib/community-messenger/server/publish-messenger-room-bump.ts"),
+  "utf8"
+);
+
+describe("publishMessengerRoomBumpAfterMutation skipBadgeTargetBump", () => {
+  it("returns before target bump when skipBadgeTargetBump is true", () => {
+    expect(publishSrc).toContain("skipBadgeTargetBump?: boolean");
+    expect(publishSrc).toContain("if (args.skipBadgeTargetBump === true) return;");
   });
 });

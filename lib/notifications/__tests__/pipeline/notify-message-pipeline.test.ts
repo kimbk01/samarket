@@ -5,6 +5,7 @@ const isNotificationBlockedForRecipient = vi.fn();
 const isRoomMutedForUser = vi.fn();
 const loadRecipientPresenceSnapshot = vi.fn();
 const resolvePresenceSuppressDecision = vi.fn();
+const resolveOsPushAppStateFromPresence = vi.fn();
 const markRoomRead = vi.fn();
 const invalidateNotificationBadgeCache = vi.fn();
 const loadNotificationUserLanguage = vi.fn();
@@ -25,6 +26,7 @@ vi.mock("@/lib/notifications/policy/notification-mute-policy", () => ({
 vi.mock("@/lib/notifications/policy/notification-presence-policy", () => ({
   loadRecipientPresenceSnapshot: (...args: unknown[]) => loadRecipientPresenceSnapshot(...args),
   resolvePresenceSuppressDecision: (...args: unknown[]) => resolvePresenceSuppressDecision(...args),
+  resolveOsPushAppStateFromPresence: (...args: unknown[]) => resolveOsPushAppStateFromPresence(...args),
 }));
 
 vi.mock("@/lib/notifications/pipeline/notify-read-service", () => ({
@@ -89,6 +91,7 @@ describe("notify-message-pipeline", () => {
       lastPingAtMs: null,
     });
     resolvePresenceSuppressDecision.mockReturnValue(defaultPresenceDecision());
+    resolveOsPushAppStateFromPresence.mockReturnValue("background");
     loadNotificationUserLanguage.mockResolvedValue("ko");
     loadMessageNotificationDisplaySharedContext.mockResolvedValue({
       resolvedRoomKind: "direct",

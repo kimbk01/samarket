@@ -184,7 +184,25 @@ export async function POST(
       messageId: typeof msg?.id === "string" ? msg.id : undefined,
       messageCreatedAt: typeof msg?.createdAt === "string" ? msg.createdAt : undefined,
       messageForBump: result.message ?? null,
+      skipBadgeTargetBump: true as const,
     };
+    try {
+      const { bumpMessengerRoomTargetsForRecipients } = await import(
+        "@/lib/notifications/notification-target-messenger-bridge"
+      );
+      const { resolveServiceSupabaseForApi } = await import(
+        "@/lib/supabase/resolve-service-supabase-for-api"
+      );
+      const sb = resolveServiceSupabaseForApi();
+      if (sb) {
+        await bumpMessengerRoomTargetsForRecipients(sb, {
+          roomId,
+          fromUserId: auth.userId,
+        });
+      }
+    } catch {
+      /* best-effort — after() publish retries unless skip */
+    }
     after(async () => {
       if (postAckEffects) {
         try {

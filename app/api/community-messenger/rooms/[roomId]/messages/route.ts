@@ -251,6 +251,7 @@ export async function POST(
       messageId: typeof msg?.id === "string" ? msg.id : undefined,
       messageCreatedAt: typeof msg?.createdAt === "string" ? msg.createdAt : undefined,
       messageForBump: result.message ?? null,
+      skipBadgeTargetBump: true as const,
     };
     /**
      * Domain Badge Authority SSOT = notification_targets.

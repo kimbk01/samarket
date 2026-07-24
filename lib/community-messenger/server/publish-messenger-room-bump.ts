@@ -15,6 +15,11 @@ export async function publishMessengerRoomBumpAfterMutation(args: {
   messageCreatedAt?: string;
   /** 있으면 bump 페이로드에 실어 수신 측이 HTTP 전에 목록에 반영 가능 */
   messageForBump?: CommunityMessengerMessage | null;
+  /**
+   * Caller already awaited bumpMessengerRoomTargetsForRecipients before ACK.
+   * Skip post-response target write so mark_read cannot race a second bump.
+   */
+  skipBadgeTargetBump?: boolean;
 }): Promise<void> {
   const raw = args.rawRouteRoomId.trim();
   const canon = args.canonicalRoomId.trim();
@@ -99,6 +104,7 @@ export async function publishMessengerRoomBumpAfterMutation(args: {
   }
 
   if (!sbForBadge) return;
+  if (args.skipBadgeTargetBump === true) return;
   try {
     await bumpMessengerRoomTargetsForRecipients(sbForBadge, { roomId: canon, fromUserId });
     void import("@/lib/notifications/engine/adapters/legacy-target-bump-adapter").then((mod) =>

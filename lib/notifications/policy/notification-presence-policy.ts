@@ -66,3 +66,19 @@ export function resolvePresenceSuppressDecision(
     reason: null,
   };
 }
+
+/**
+ * OS tray FCM gate input. Stale "foreground" without a fresh presence ping must not
+ * block push (measured: aaaa stuck foreground with last_ping hours old →
+ * policy_profile_foreground_only while devices were background/killed).
+ */
+export function resolveOsPushAppStateFromPresence(
+  presence: RecipientPresenceSnapshot,
+  nowMs = Date.now()
+): "foreground" | "background" {
+  const vis = String(presence.appVisibility ?? "").toLowerCase();
+  const pingFresh =
+    presence.lastPingAtMs != null && nowMs - presence.lastPingAtMs <= ACTIVE_ROOM_STALE_MS;
+  if (vis === "foreground" && pingFresh) return "foreground";
+  return "background";
+}

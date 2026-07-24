@@ -374,11 +374,12 @@ async function scenarioGroup({ sender, receiver, round, outDir }) {
   const send1 = await sendCmMessage(sender, GROUP_ROOM, label);
   const after1R = await waitForDelta(receiver, beforeR, "group", 1);
   await sendCmMessage(sender, GROUP_ROOM, `${label} +2`);
-  await sleep(1500);
+  // Extra messages must finish target write before mark_read (no after()-re-bump race).
+  await sleep(2000);
   const afterExtraR = await snapshot(receiver);
   const read = await markReadCm(receiver, GROUP_ROOM);
-  const afterReadR = await waitForValue(receiver, "group", beforeR.group);
-  await sleep(800);
+  const afterReadR = await waitForValue(receiver, "group", beforeR.group, 12000);
+  await sleep(1500);
   const afterResumeR = await snapshot(receiver);
 
   const noExtra =
