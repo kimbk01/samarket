@@ -62,12 +62,20 @@ export function resolvePushRouteFromFcmData(data: FcmRouteData): string | null {
     return `/community-messenger/rooms/${encodeURIComponent(roomId)}`;
   }
   if (type === "trade_message" && roomId) {
-    return `/chats/${encodeURIComponent(roomId)}`;
+    return `/community-messenger/rooms/${encodeURIComponent(roomId)}`;
+  }
+  if (type === "group_message" && roomId) {
+    return `/community-messenger/rooms/${encodeURIComponent(roomId)}?type=group`;
   }
 
   const orderId = firstNonEmpty(data.orderId, data.order_id);
-  if (type === "delivery_order" && orderId) {
-    return `/orders/store/${encodeURIComponent(orderId)}`;
+  if (type === "delivery_order") {
+    if (roomId) {
+      return `/community-messenger/rooms/${encodeURIComponent(roomId)}`;
+    }
+    if (orderId) {
+      return `/orders/store/${encodeURIComponent(orderId)}`;
+    }
   }
 
   const postId = firstNonEmpty(data.postId, data.post_id);

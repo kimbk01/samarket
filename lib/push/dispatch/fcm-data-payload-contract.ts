@@ -101,6 +101,45 @@ function appendCallFields(
   fields.sessionId = sessionId;
   const roomId = meta ? trimText(meta.room_id ?? meta.roomId) : "";
   if (roomId) fields.roomId = roomId;
+  const chatDomain = meta ? trimText(meta.chat_domain ?? meta.chatDomain) : "";
+  const domainIdentityKey = meta
+    ? trimText(meta.domain_identity_key ?? meta.domainIdentityKey)
+    : "";
+  if (chatDomain) {
+    fields.chatDomain = chatDomain;
+    fields.chat_domain = chatDomain;
+  }
+  if (domainIdentityKey) {
+    fields.domainIdentityKey = domainIdentityKey;
+    fields.domain_identity_key = domainIdentityKey;
+  }
+  const itemId = meta ? trimText(meta.item_id ?? meta.itemId) : "";
+  const orderId = meta ? trimText(meta.order_id ?? meta.orderId) : "";
+  const storeId = meta ? trimText(meta.store_id ?? meta.storeId) : "";
+  const groupId = meta ? trimText(meta.group_id ?? meta.groupId) : "";
+  if (itemId) fields.itemId = itemId;
+  if (orderId) fields.orderId = orderId;
+  if (storeId) fields.storeId = storeId;
+  if (groupId) fields.groupId = groupId;
+}
+
+function appendDomainEnvelopeFields(
+  fields: Record<string, unknown>,
+  meta: Record<string, unknown> | null
+): void {
+  if (!meta) return;
+  const chatDomain = trimText(meta.chat_domain ?? meta.chatDomain);
+  const domainIdentityKey = trimText(meta.domain_identity_key ?? meta.domainIdentityKey);
+  const roomId = trimText(meta.room_id ?? meta.roomId);
+  if (chatDomain) {
+    fields.chatDomain = chatDomain;
+    fields.chat_domain = chatDomain;
+  }
+  if (domainIdentityKey) {
+    fields.domainIdentityKey = domainIdentityKey;
+    fields.domain_identity_key = domainIdentityKey;
+  }
+  if (roomId && !fields.roomId) fields.roomId = roomId;
 }
 
 function appendMessageDisplayFields(
@@ -283,7 +322,7 @@ export function buildFcmDataFields(
       const roomId = meta ? trimText(meta.room_id ?? meta.roomId) : "";
       if (roomId) {
         fields.roomId = roomId;
-        fields.url = `/chats/${encodeURIComponent(roomId)}`;
+        fields.url = `/community-messenger/rooms/${encodeURIComponent(roomId)}`;
         const tradeId = meta ? trimText(meta.trade_id ?? meta.tradeId ?? meta.product_id ?? meta.productId) : "";
         if (tradeId) fields.tradeId = tradeId;
         const messageId = meta ? trimText(meta.message_id ?? meta.messageId) : "";
@@ -328,6 +367,8 @@ export function buildFcmDataFields(
   ) {
     appendMessageDisplayFields(fields, meta);
   }
+
+  appendDomainEnvelopeFields(fields, meta);
 
   const eventKey = meta ? trimText(meta.event_key ?? meta.eventKey) : "";
   const androidChannelId = meta ? trimText(meta.android_channel_id ?? meta.androidChannelId) : "";

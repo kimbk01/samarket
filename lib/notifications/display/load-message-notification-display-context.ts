@@ -30,7 +30,13 @@ function resolveEffectiveRoomKind(input: {
   roomKind?: NotificationMessageRoomKind;
   directKey?: string | null;
   roomType?: string | null;
+  chatDomain?: string | null;
 }): NotificationMessageRoomKind {
+  const domain = trimText(input.chatDomain);
+  if (domain === "general_direct") return "direct";
+  if (domain === "group") return "group";
+  if (domain === "trade") return "trade";
+  if (domain === "store_order") return "store_order";
   if (input.roomKind) return input.roomKind;
   const roomType = trimText(input.roomType);
   if (roomType === "private_group" || roomType === "open_group") return "group";
@@ -94,13 +100,29 @@ async function loadRoomContext(
   roomId: string,
   roomKind: NotificationMessageRoomKind,
   language: Awaited<ReturnType<typeof loadNotificationUserLanguage>>
-): Promise<{ name: string | null; contextLabel: string | null; roomType: string | null; directKey: string | null }> {
+): Promise<{
+  name: string | null;
+  contextLabel: string | null;
+  roomType: string | null;
+  directKey: string | null;
+  chatDomain: string | null;
+  domainIdentityKey: string | null;
+}> {
   const id = roomId.trim();
-  if (!id) return { name: null, contextLabel: null, roomType: null, directKey: null };
+  if (!id) {
+    return {
+      name: null,
+      contextLabel: null,
+      roomType: null,
+      directKey: null,
+      chatDomain: null,
+      domainIdentityKey: null,
+    };
+  }
 
   const { data: cmRoom } = await sb
     .from("community_messenger_rooms")
-    .select("title, room_type, direct_key, summary")
+    .select("title, room_type, direct_key, summary, chat_domain, domain_identity_key, domain_identity")
     .eq("id", id)
     .maybeSingle();
   const row = cmRoom as {
@@ -108,6 +130,9 @@ async function loadRoomContext(
     room_type?: string | null;
     direct_key?: string | null;
     summary?: string | null;
+    chat_domain?: string | null;
+    domain_identity_key?: string | null;
+    domain_identity?: string | null;
   } | null;
 
   if (row) {
@@ -123,6 +148,9 @@ async function loadRoomContext(
       contextLabel,
       roomType: trimText(row.room_type) || null,
       directKey: trimText(row.direct_key) || null,
+      chatDomain: trimText(row.chat_domain) || null,
+      domainIdentityKey:
+        trimText(row.domain_identity_key) || trimText(row.domain_identity) || null,
     };
   }
 
@@ -134,6 +162,8 @@ async function loadRoomContext(
       contextLabel: null,
       roomType: "private_group",
       directKey: null,
+      chatDomain: "group",
+      domainIdentityKey: `group:${id}`,
     };
   }
 
@@ -143,11 +173,25 @@ async function loadRoomContext(
     if (itemId) {
       const { data: post } = await sb.from(POSTS_TABLE_READ).select("title").eq("id", itemId).maybeSingle();
       const headline = trimText((post as { title?: string | null } | null)?.title);
-      return { name: null, contextLabel: headline || null, roomType: "item_trade", directKey: null };
+      return {
+        name: null,
+        contextLabel: headline || null,
+        roomType: "item_trade",
+        directKey: null,
+        chatDomain: "trade",
+        domainIdentityKey: null,
+      };
     }
   }
 
-  return { name: null, contextLabel: null, roomType: null, directKey: null };
+  return {
+    name: null,
+    contextLabel: null,
+    roomType: null,
+    directKey: null,
+    chatDomain: null,
+    domainIdentityKey: null,
+  };
 }
 
 async function loadChatPreviewEnabledByUserIds(
@@ -186,6 +230,8 @@ export type MessageNotificationDisplaySharedContext = {
   sender: { displayName: string; avatarUrl: string | null };
   room: { name: string | null; contextLabel: string | null };
   chatPreviewByUserId: Map<string, boolean>;
+  chatDomain: string | null;
+  domainIdentityKey: string | null;
 };
 
 export async function loadMessageNotificationDisplaySharedContext(
@@ -205,6 +251,7 @@ export async function loadMessageNotificationDisplaySharedContext(
     roomKind: input.roomKind,
     directKey: input.directKey ?? bootstrapRoom.directKey,
     roomType: bootstrapRoom.roomType,
+    chatDomain: bootstrapRoom.chatDomain,
   });
 
   const [{ data: senderRow }, messageRow, chatPreviewByUserId, room] = await Promise.all([
@@ -240,6 +287,8 @@ export async function loadMessageNotificationDisplaySharedContext(
       contextLabel: room.contextLabel,
     },
     chatPreviewByUserId,
+    chatDomain: room.chatDomain ?? bootstrapRoom.chatDomain,
+    domainIdentityKey: room.domainIdentityKey ?? bootstrapRoom.domainIdentityKey,
   };
 }
 
@@ -272,5 +321,7 @@ export async function buildRecipientMessageNotificationDisplay(
     sender: ctx.sender,
     room: ctx.room,
     roomId: input.roomId,
+    chatDomain: ctx.chatDomain,
+    domainIdentityKey: ctx.domainIdentityKey,
   });
 }

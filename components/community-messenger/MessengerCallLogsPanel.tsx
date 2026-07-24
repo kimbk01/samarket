@@ -375,6 +375,28 @@ export function MessengerCallLogsPanel({
       hasOnStartDirectCall: Boolean(onStartDirectCall),
     });
 
+    /**
+     * Prefer call log roomId (preserves trade/SO/group domain).
+     * Peer-only home `onStartDirectCall` only when roomId is missing (legacy GD logs).
+     */
+    if (roomId) {
+      logCallV4("video_confirm_launch_with_room", {
+        kind: next.kind,
+        peerUserId: peerUserId || undefined,
+        roomId,
+      });
+      void (async () => {
+        try {
+          await launchOutgoingFallback(peerUserId, next.kind, next.peerLabel, roomId);
+        } catch {
+          showMessengerSnackbar(t("cm_ui_network_error_could_not_start_call"), { variant: "error" });
+        } finally {
+          setOutgoingBusy(false);
+        }
+      })();
+      return;
+    }
+
     if (peerUserId && onStartDirectCall?.(peerUserId, next.kind, next.peerLabel)) {
       logCallV4("video_confirm_start_direct_call", {
         kind: next.kind,

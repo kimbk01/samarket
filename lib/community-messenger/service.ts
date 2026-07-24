@@ -256,6 +256,10 @@ import {
 } from "@/lib/community-messenger/call-stale-ringing-cleanup";
 import { sendWebPushForCommunityMessengerIncomingCall } from "@/lib/push/send-community-messenger-incoming-call-push";
 import { sendWebPushForCommunityMessengerCallTerminal } from "@/lib/push/send-community-messenger-call-canceled-push";
+import {
+  roomDomainEnvelopeFromDbRow,
+  type RoomDomainEnvelope,
+} from "@/lib/chat-domain/room-domain-envelope";
 import { loadCommunityMessengerRoomSilentDeltaSnapshot } from "@/lib/community-messenger/server/load-community-messenger-room-silent-delta";
 import {
   loadMarkReadParticipantRowWithSnapshotCache,
@@ -17592,14 +17596,33 @@ export async function createCommunityMessengerCallLog(input: {
  * 방 메타·참가자 id·진행 중 세션만 병렬 조회해 TTFB 를 줄인다. 그룹방은 기존 스냅샷 경로 유지.
  */
 type CallSessionStartResolve =
-  | { kind: "fullSnapshot"; snapshot: CommunityMessengerRoomSnapshot }
+  | { kind: "fullSnapshot"; snapshot: CommunityMessengerRoomSnapshot; domainEnvelope: RoomDomainEnvelope | null }
   | {
       kind: "directLight";
       peerUserId: string;
       activeCall: CommunityMessengerCallSession | null;
       roomStatus: CommunityMessengerRoomStatus;
       isReadonly: boolean;
+      domainEnvelope: RoomDomainEnvelope | null;
     };
+
+function domainEnvelopeFromRoomSummary(
+  roomId: string,
+  room: {
+    chatDomain?: string | null;
+    domainIdentityKey?: string | null;
+    roomType?: string | null;
+    messengerDirectKey?: string | null;
+  }
+): RoomDomainEnvelope | null {
+  return roomDomainEnvelopeFromDbRow({
+    id: roomId,
+    chat_domain: room.chatDomain,
+    domain_identity_key: room.domainIdentityKey,
+    room_type: room.roomType,
+    direct_key: room.messengerDirectKey,
+  });
+}
 
 async function resolveRoomContextForCallSessionStart(
   userId: string,
@@ -17610,23 +17633,34 @@ async function resolveRoomContextForCallSessionStart(
   const sb = getSupabaseOrNull();
   if (!sb) {
     const snapshot = await getCommunityMessengerRoomSnapshot(userId, roomId);
-    return snapshot ? { kind: "fullSnapshot", snapshot } : null;
+    if (!snapshot) return null;
+    return {
+      kind: "fullSnapshot",
+      snapshot,
+      domainEnvelope: domainEnvelopeFromRoomSummary(id, snapshot.room),
+    };
   }
 
   const [{ data: roomData, error: roomErr }, activeCall] = await Promise.all([
     (sb as any)
       .from("community_messenger_rooms")
-      .select("id, room_type, room_status, is_readonly")
+      .select("id, room_type, room_status, is_readonly, chat_domain, domain_identity_key, domain_identity, direct_key")
       .eq("id", id)
       .maybeSingle(),
     getActiveCallSessionForRoom(userId, id),
   ]);
 
   if (roomErr || !roomData) return null;
+  const domainEnvelope = roomDomainEnvelopeFromDbRow(roomData as Record<string, unknown>);
   const roomType = (roomData as RoomRow).room_type;
   if (isCommunityMessengerGroupRoomType(roomType)) {
     const snapshot = await getCommunityMessengerRoomSnapshot(userId, roomId);
-    return snapshot ? { kind: "fullSnapshot", snapshot } : null;
+    if (!snapshot) return null;
+    return {
+      kind: "fullSnapshot",
+      snapshot,
+      domainEnvelope: domainEnvelope ?? domainEnvelopeFromRoomSummary(id, snapshot.room),
+    };
   }
 
   const { data: pRows } = await (sb as any)
@@ -17653,6 +17687,7 @@ async function resolveRoomContextForCallSessionStart(
     activeCall,
     roomStatus,
     isReadonly,
+    domainEnvelope,
   };
 }
 
@@ -17663,6 +17698,7 @@ export type IncomingCallPushBestEffortInput = {
   callerId: string;
   callKind: CommunityMessengerCallKind;
   startedAt: string;
+  domainEnvelope?: RoomDomainEnvelope | null;
 };
 
 export async function sendIncomingCallPushBestEffort(input: IncomingCallPushBestEffortInput): Promise<void> {
@@ -17688,6 +17724,7 @@ export async function sendIncomingCallPushBestEffort(input: IncomingCallPushBest
     callerDisplayName: callerLabel,
     callerAvatar: callerProfile?.avatar_url ?? null,
     startedAt: input.startedAt,
+    domainEnvelope: input.domainEnvelope ?? null,
   });
 }
 
@@ -17758,7 +17795,8 @@ async function waitLiveDirectCallSessionClearedInRoom(
 function resolveIncomingCallPushDispatchInput(
   session: CommunityMessengerCallSession,
   peerUserId: string | null,
-  callerUserId: string
+  callerUserId: string,
+  domainEnvelope?: RoomDomainEnvelope | null
 ): IncomingCallPushBestEffortInput | null {
   if (session.sessionMode !== "direct" || session.status !== "ringing") return null;
   const recipient = trimText(peerUserId ?? session.recipientUserId ?? "");
@@ -17770,6 +17808,7 @@ function resolveIncomingCallPushDispatchInput(
     callerId: callerUserId,
     callKind: session.callKind,
     startedAt: session.startedAt,
+    domainEnvelope: domainEnvelope ?? null,
   };
 }
 
@@ -17800,6 +17839,8 @@ export async function startCommunityMessengerCallSession(input: {
   const resolved = await resolveRoomContextForCallSessionStart(input.userId, roomId);
   if (recordTimings) timing.resolve_room_context_ms = Math.round(performance.now() - t0);
   if (!resolved) return { ok: false, error: "room_not_found" };
+
+  const callDomainEnvelope = resolved.domainEnvelope;
 
   let snapshot: CommunityMessengerRoomSnapshot | null = null;
   let isGroupRoom: boolean;
@@ -17869,7 +17910,8 @@ export async function startCommunityMessengerCallSession(input: {
       incomingCallPush: resolveIncomingCallPushDispatchInput(
         activeCallForReuse,
         reusePeerUserId,
-        input.userId
+        input.userId,
+        callDomainEnvelope
       ),
     };
   }
@@ -17950,22 +17992,41 @@ export async function startCommunityMessengerCallSession(input: {
     }
     if (recordTimings) timing.pre_insert_gate_ms = Math.round(performance.now() - tGateStart);
     const tDbStart = performance.now();
-    const { data, error } = await (sb as any)
+    const baseInsert = {
+      room_id: roomId,
+      initiator_user_id: input.userId,
+      recipient_user_id: peerUserId,
+      session_mode: isGroupRoom ? "group" : "direct",
+      max_participants: isGroupRoom ? 4 : 2,
+      call_kind: input.callKind,
+      status: "ringing",
+      started_at: startedAt,
+      updated_at: startedAt,
+    };
+    const insertWithDomain = callDomainEnvelope
+      ? {
+          ...baseInsert,
+          chat_domain: callDomainEnvelope.chatDomain,
+          domain_identity_key: callDomainEnvelope.domainIdentityKey,
+        }
+      : baseInsert;
+    let { data, error } = await (sb as any)
       .from("community_messenger_call_sessions")
-      .insert({
-        room_id: roomId,
-        initiator_user_id: input.userId,
-        recipient_user_id: peerUserId,
-        session_mode: isGroupRoom ? "group" : "direct",
-        max_participants: isGroupRoom ? 4 : 2,
-        call_kind: input.callKind,
-        status: "ringing",
-        started_at: startedAt,
-        updated_at: startedAt,
-      })
+      .insert(insertWithDomain)
       /** PostgREST 반환 최소화 — mapCallSession 은 insert 페이로드와 합쳐 구성 */
       .select("id, status, created_at")
       .single();
+    if (
+      error &&
+      callDomainEnvelope &&
+      /chat_domain|domain_identity_key|column/i.test(String(error.message ?? error.code ?? ""))
+    ) {
+      ({ data, error } = await (sb as any)
+        .from("community_messenger_call_sessions")
+        .insert(baseInsert)
+        .select("id, status, created_at")
+        .single());
+    }
     if (!error && data) {
       const rowMin = data as { id: string; status: string; created_at: string | null };
       const inserted: CallSessionRow = {
@@ -18074,7 +18135,12 @@ export async function startCommunityMessengerCallSession(input: {
         ...(recordTimings ? { _callStartTimingsMs: timing } : {}),
         incomingCallPush:
           !isGroupRoom && peerUserId
-            ? resolveIncomingCallPushDispatchInput(mappedSession, peerUserId, input.userId)
+            ? resolveIncomingCallPushDispatchInput(
+                mappedSession,
+                peerUserId,
+                input.userId,
+                callDomainEnvelope
+              )
             : null,
       };
     }
@@ -18102,7 +18168,12 @@ export async function startCommunityMessengerCallSession(input: {
           session: existing,
           reused: true,
           incomingCallPush: dialFresh
-            ? resolveIncomingCallPushDispatchInput(existing, peerUserId, input.userId)
+            ? resolveIncomingCallPushDispatchInput(
+                existing,
+                peerUserId,
+                input.userId,
+                callDomainEnvelope
+              )
             : undefined,
         };
       }

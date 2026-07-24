@@ -33,16 +33,32 @@ export type GroupChatListKindFilter = "all" | "direct" | "private_group" | "trad
 
 type ChatListFilterRoom = Pick<
   CommunityMessengerRoomSummary,
-  "roomType" | "contextMeta" | "messengerDirectKey"
+  "roomType" | "contextMeta" | "messengerDirectKey" | "chatDomain"
 >;
 
 function roomIsConfirmedTrade(room: ChatListFilterRoom): boolean {
+  if (room.chatDomain === "trade") return true;
+  if (
+    room.chatDomain === "general_direct" ||
+    room.chatDomain === "group" ||
+    room.chatDomain === "store_order"
+  ) {
+    return false;
+  }
   if (room.contextMeta?.kind === "trade") return true;
   const dk = (room.messengerDirectKey ?? "").trim();
   return dk.startsWith("trade_pc:") || dk.startsWith("trade_item:");
 }
 
 function roomIsConfirmedDelivery(room: ChatListFilterRoom): boolean {
+  if (room.chatDomain === "store_order") return true;
+  if (
+    room.chatDomain === "general_direct" ||
+    room.chatDomain === "group" ||
+    room.chatDomain === "trade"
+  ) {
+    return false;
+  }
   if (room.contextMeta?.kind === "delivery") return true;
   const dk = (room.messengerDirectKey ?? "").trim();
   if (dk.startsWith("trade_pc:") || dk.startsWith("trade_item:")) return false;
@@ -55,13 +71,23 @@ export function matchesGroupChatListKindFilter(
   chatKindFilter: GroupChatListKindFilter
 ): boolean {
   if (chatKindFilter === "all") {
-    if (room.roomType === "private_group") return true;
+    if (room.chatDomain === "trade" || room.chatDomain === "store_order") return false;
+    if (room.roomType === "private_group" || room.chatDomain === "group") return true;
     if (room.roomType !== "direct") return false;
     if (roomIsConfirmedTrade(room) || roomIsConfirmedDelivery(room)) return false;
     return true;
   }
-  if (chatKindFilter === "direct") return room.roomType === "direct";
-  if (chatKindFilter === "private_group") return room.roomType === "private_group";
+  if (chatKindFilter === "direct") {
+    if (room.chatDomain === "trade" || room.chatDomain === "store_order" || room.chatDomain === "group") {
+      return false;
+    }
+    if (room.roomType !== "direct") return false;
+    if (roomIsConfirmedTrade(room) || roomIsConfirmedDelivery(room)) return false;
+    return true;
+  }
+  if (chatKindFilter === "private_group") {
+    return room.roomType === "private_group" || room.chatDomain === "group";
+  }
   if (chatKindFilter === "trade") return roomIsConfirmedTrade(room);
   if (chatKindFilter === "delivery") return roomIsConfirmedDelivery(room);
   return true;

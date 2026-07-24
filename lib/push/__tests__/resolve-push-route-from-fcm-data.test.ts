@@ -45,11 +45,14 @@ describe("resolvePushRouteFromFcmData", () => {
       "/community-messenger/rooms/cm-1"
     );
     expect(resolvePushRouteFromFcmData({ type: "trade_message", roomId: "trade-room-1" })).toBe(
-      "/chats/trade-room-1"
+      "/community-messenger/rooms/trade-room-1"
     );
     expect(resolvePushRouteFromFcmData({ type: "delivery_order", orderId: "order-1" })).toBe(
       "/orders/store/order-1"
     );
+    expect(
+      resolvePushRouteFromFcmData({ type: "delivery_order", roomId: "so-room-1", orderId: "order-1" })
+    ).toBe("/community-messenger/rooms/so-room-1");
     expect(resolvePushRouteFromFcmData({ type: "community_comment", postId: "post-1" })).toBe(
       "/philife/posts/post-1"
     );

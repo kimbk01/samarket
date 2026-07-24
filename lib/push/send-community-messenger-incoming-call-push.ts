@@ -8,6 +8,8 @@ import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publi
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
 import { DEFAULT_INCOMING_RING_TIMEOUT_SECONDS } from "@/lib/community-messenger/messenger-call-ring-timeout";
 import { dispatchPushForUser } from "@/lib/push/dispatch/dispatch-push-for-user";
+import type { RoomDomainEnvelope } from "@/lib/chat-domain/room-domain-envelope";
+import { domainEnvelopeToPushMeta } from "@/lib/chat-domain/room-domain-envelope";
 
 const INCOMING_CALL_FCM_TTL_MS = 60_000;
 const INCOMING_CALL_SERVER_EXPIRES_SECONDS = 90;
@@ -36,6 +38,8 @@ export async function sendWebPushForCommunityMessengerIncomingCall(input: {
   callerDisplayName: string;
   callerAvatar?: string | null;
   startedAt: string;
+  /** Immutable domain snapshot — required for four-domain deep link. */
+  domainEnvelope?: RoomDomainEnvelope | null;
 }): Promise<void> {
   const recipient = input.recipientUserId.trim();
   const sessionId = input.sessionId.trim();
@@ -49,6 +53,10 @@ export async function sendWebPushForCommunityMessengerIncomingCall(input: {
   const callerAvatarRaw = input.callerAvatar?.trim() || null;
   const callerAvatar = absolutizeLink(callerAvatarRaw);
   const expiresAt = computeExpiresAtIso(startedAt || new Date().toISOString());
+  const domainMeta =
+    input.domainEnvelope && input.domainEnvelope.roomId === roomId
+      ? domainEnvelopeToPushMeta(input.domainEnvelope)
+      : {};
 
   const out: NotificationSideEffectPayloadOut = {
     user_id: recipient,
@@ -69,6 +77,7 @@ export async function sendWebPushForCommunityMessengerIncomingCall(input: {
       expires_at: expiresAt,
       ttl_ms: INCOMING_CALL_FCM_TTL_MS,
       ring_timeout_seconds: DEFAULT_INCOMING_RING_TIMEOUT_SECONDS,
+      ...domainMeta,
     },
     link_url_absolute: absolutizeLink(link_url),
     occurred_at: new Date().toISOString(),

@@ -490,10 +490,15 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCoreUnlocked(arg
   }
 
   if (!roomId && args.peerUserId?.trim()) {
+    /**
+     * Peer-only ensure = intentional general_direct start only.
+     * Call log / trade / SO / group redial MUST pass roomId (never land here).
+     */
     cmCallLatencyInfo("ensure_room_start", {
       peerUserId: args.peerUserId.trim(),
       callKind: args.kind,
       role: "initiator",
+      domainIntent: "general_direct",
     });
     const ensureT0 = typeof performance !== "undefined" ? performance.now() : 0;
     const res = await fetch(

@@ -81,6 +81,18 @@ function buildPushPayload(row: NotificationEventRow, badgeCount: number): Notifi
       sound_asset_id: soundResolved.assetId,
       android_channel_id: soundResolved.androidChannelId,
       ios_sound_name: soundResolved.iosSoundName,
+      ...(typeof display?.chatDomain === "string" && display.chatDomain
+        ? {
+            chat_domain: display.chatDomain,
+            chatDomain: display.chatDomain,
+          }
+        : {}),
+      ...(typeof display?.domainIdentityKey === "string" && display.domainIdentityKey
+        ? {
+            domain_identity_key: display.domainIdentityKey,
+            domainIdentityKey: display.domainIdentityKey,
+          }
+        : {}),
     },
   };
 }

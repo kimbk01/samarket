@@ -117,6 +117,18 @@ export function communityMessengerRoomIsDelivery(room: CommunityMessengerRoomSum
  */
 export function messengerDirectThreadListCollapseKey(room: CommunityMessengerRoomSummary): string {
   if (room.roomType !== "direct") return `id:${room.id}`;
+  /** Domain SSOT — never collapse trade/SO/group with peer GD. */
+  if (
+    room.chatDomain === "trade" ||
+    room.chatDomain === "store_order" ||
+    room.chatDomain === "group"
+  ) {
+    return `id:${room.id}`;
+  }
+  if (room.chatDomain === "general_direct") {
+    const peer = room.peerUserId?.trim();
+    return peer ? `direct:${peer}` : `id:${room.id}`;
+  }
   const peer = room.peerUserId?.trim();
   if (!peer) return `id:${room.id}`;
   if (communityMessengerRoomIsTrade(room) || communityMessengerRoomIsDelivery(room)) {

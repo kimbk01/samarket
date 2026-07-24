@@ -27,6 +27,9 @@ export type MessageNotificationDisplayPayload = {
   routeUrl: string;
   title: string;
   body: string;
+  /** Four-domain envelope — push / Bell / deep-link SSOT */
+  chatDomain?: string | null;
+  domainIdentityKey?: string | null;
 };
 
 export type BuildMessageNotificationDisplayInput = {
@@ -40,6 +43,8 @@ export type BuildMessageNotificationDisplayInput = {
   sender: { displayName: string; avatarUrl: string | null };
   room: { name: string | null; contextLabel: string | null };
   roomId: string;
+  chatDomain?: string | null;
+  domainIdentityKey?: string | null;
 };
 
 function trimText(v: unknown): string {
@@ -187,5 +192,7 @@ export function buildMessageNotificationDisplay(
     routeUrl,
     title,
     body,
+    chatDomain: trimText(input.chatDomain) || null,
+    domainIdentityKey: trimText(input.domainIdentityKey) || null,
   };
 }
