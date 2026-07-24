@@ -27,6 +27,8 @@ import {
 import { invalidateNotificationBadgeCache } from "@/lib/notifications/pipeline/notify-badge-service";
 import { createAndDispatchNotificationEvent } from "@/lib/notifications/pipeline/notification-event-dispatcher";
 import { markRoomRead } from "@/lib/notifications/pipeline/notify-read-service";
+import { isChatDomain } from "@/lib/chat-domain/realtime/domain-realtime-envelope";
+import { generalDirectRoomIdentity, groupRoomIdentity } from "@/lib/chat-domain/room-identity";
 
 export type NotifyMessagePipelineInput = {
   roomId: string;
@@ -50,6 +52,47 @@ type StoreOrderReceiverRole = "owner" | "user";
 function resolveEventType(input: NotifyMessagePipelineInput) {
   if (input.roomKind) return eventTypeForMessageRoomKind(input.roomKind);
   return resolveMessageEventTypeFromDirectKey(input.directKey);
+}
+
+function resolveMessageEventDomainPair(args: {
+  roomId: string;
+  roomKind?: NotificationMessageRoomKind | null;
+  directKey?: string | null;
+  chatDomain?: string | null;
+  domainIdentityKey?: string | null;
+  senderUserId: string;
+  recipientUserId: string;
+}): { chatDomain: string; domainIdentityKey: string } | null {
+  const fromDisplayDomain = String(args.chatDomain ?? "").trim();
+  const fromDisplayIdentity = String(args.domainIdentityKey ?? "").trim();
+  if (isChatDomain(fromDisplayDomain) && fromDisplayIdentity) {
+    return { chatDomain: fromDisplayDomain, domainIdentityKey: fromDisplayIdentity };
+  }
+
+  const kind = args.roomKind ?? "direct";
+  if (kind === "group") {
+    const id = groupRoomIdentity(args.roomId);
+    return { chatDomain: id.domain, domainIdentityKey: id.identityKey };
+  }
+  if (kind === "direct" || !kind) {
+    const direct = String(args.directKey ?? "").trim();
+    const parts = direct.split(":").map((p) => p.trim()).filter(Boolean);
+    if (parts.length === 2) {
+      const id = generalDirectRoomIdentity(parts[0]!, parts[1]!);
+      return { chatDomain: id.domain, domainIdentityKey: id.identityKey };
+    }
+    try {
+      const id = generalDirectRoomIdentity(args.senderUserId, args.recipientUserId);
+      return { chatDomain: id.domain, domainIdentityKey: id.identityKey };
+    } catch {
+      return null;
+    }
+  }
+  // trade / store_order / trade_legacy: require room authority snapshot on display
+  if (isChatDomain(fromDisplayDomain) && fromDisplayIdentity) {
+    return { chatDomain: fromDisplayDomain, domainIdentityKey: fromDisplayIdentity };
+  }
+  return null;
 }
 
 function resolvePushSoundSuppressedReason(
@@ -189,6 +232,28 @@ export async function notifyMessagePipeline(
           }
         : display;
 
+    const domainPair = resolveMessageEventDomainPair({
+      roomId,
+      roomKind: input.roomKind ?? displayShared.resolvedRoomKind,
+      directKey: input.directKey ?? null,
+      chatDomain:
+        (typeof display.chatDomain === "string" ? display.chatDomain : null) ??
+        displayShared.chatDomain,
+      domainIdentityKey:
+        (typeof display.domainIdentityKey === "string" ? display.domainIdentityKey : null) ??
+        displayShared.domainIdentityKey,
+      senderUserId,
+      recipientUserId,
+    });
+    if (!domainPair) {
+      logNotifyMessage("create_done", {
+        roomId,
+        recipientUserId,
+        error: "message_domain_required",
+      });
+      continue;
+    }
+
     const created = await createAndDispatchNotificationEvent(sb, {
       userId: recipientUserId,
       type: eventType,
@@ -205,6 +270,8 @@ export async function notifyMessagePipeline(
       soundSuppressedReason,
       unread: decisionSnapshot.showBottomBadge,
       appState: resolveOsPushAppStateFromPresence(presence),
+      chatDomain: domainPair.chatDomain,
+      domainIdentityKey: domainPair.domainIdentityKey,
     });
 
     if (!created.ok) {

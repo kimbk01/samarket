@@ -100,20 +100,43 @@ describe("notify-message-pipeline", () => {
       sender: { displayName: "sender-a", avatarUrl: null },
       room: { name: null, contextLabel: null },
       chatPreviewByUserId: new Map([["user-b", true]]),
+      chatDomain: "general_direct",
+      domainIdentityKey: "general_direct:user-a:user-b",
     });
-    buildRecipientMessageNotificationDisplay.mockImplementation(async (_sb, input) => ({
-      senderName: "sender-a",
-      senderAvatarUrl: null,
-      roomKind: input.roomKind ?? "direct",
-      roomName: input.roomKind === "group" ? "group-room" : null,
-      contextLabel: null,
-      previewText: input.preview ?? "hello",
-      previewKind: "text",
-      privacyRedacted: false,
-      routeUrl: `/community-messenger/rooms/${input.roomId}`,
-      title: input.roomKind === "group" ? "group-room" : "sender-a",
-      body: input.roomKind === "group" ? `sender-a: ${input.preview ?? "hello"}` : input.preview ?? "hello",
-    }));
+    buildRecipientMessageNotificationDisplay.mockImplementation(async (_sb, input) => {
+      const roomKind = input.roomKind ?? "direct";
+      const chatDomain =
+        roomKind === "group"
+          ? "group"
+          : roomKind === "store_order"
+            ? "store_order"
+            : roomKind === "trade" || roomKind === "trade_legacy"
+              ? "trade"
+              : "general_direct";
+      const domainIdentityKey =
+        roomKind === "group"
+          ? `group:${input.roomId}`
+          : roomKind === "store_order"
+            ? `store_order:${input.roomId}`
+            : roomKind === "trade" || roomKind === "trade_legacy"
+              ? `trade:${input.roomId}`
+              : "general_direct:user-a:user-b";
+      return {
+        senderName: "sender-a",
+        senderAvatarUrl: null,
+        roomKind,
+        roomName: roomKind === "group" ? "group-room" : null,
+        contextLabel: null,
+        previewText: input.preview ?? "hello",
+        previewKind: "text",
+        privacyRedacted: false,
+        routeUrl: `/community-messenger/rooms/${input.roomId}`,
+        title: roomKind === "group" ? "group-room" : "sender-a",
+        body: roomKind === "group" ? `sender-a: ${input.preview ?? "hello"}` : input.preview ?? "hello",
+        chatDomain,
+        domainIdentityKey,
+      };
+    });
     createAndDispatchNotificationEvent.mockResolvedValue({
       ok: true,
       row: { id: "evt-1", user_id: "user-b", push_suppressed_reason: null, display_payload: {} },
@@ -131,6 +154,13 @@ describe("notify-message-pipeline", () => {
       roomKind: "direct",
     });
     expect(createAndDispatchNotificationEvent).toHaveBeenCalledTimes(1);
+    expect(createAndDispatchNotificationEvent).toHaveBeenCalledWith(
+      sb,
+      expect.objectContaining({
+        chatDomain: "general_direct",
+        domainIdentityKey: "general_direct:user-a:user-b",
+      })
+    );
   });
 
   it("creates group_message event when roomKind is group", async () => {
@@ -149,6 +179,8 @@ describe("notify-message-pipeline", () => {
         category: "group_message",
         roomId: "room-g1",
         messageId: "msg-g1",
+        chatDomain: "group",
+        domainIdentityKey: "group:room-g1",
       })
     );
   });

@@ -39,6 +39,9 @@ export type CreateNotificationEventInput = {
   soundSuppressedReason?: SoundSuppressReason | null;
   deliveredAt?: string | null;
   unread?: boolean;
+  /** Required by DB for message event types (notification_events_message_domain_required_check). */
+  chatDomain?: string | null;
+  domainIdentityKey?: string | null;
 };
 
 export type NotificationEventRow = {
@@ -62,4 +65,6 @@ export type NotificationEventRow = {
   sound_suppressed_reason: string | null;
   dedupe_key: string;
   created_at: string;
+  chat_domain?: string | null;
+  domain_identity_key?: string | null;
 };

@@ -139,6 +139,9 @@ export async function createNotificationEvent(
   if (!userId || !dedupeKey) return { ok: false, error: "invalid_input" };
 
   const category = input.category ?? categoryForEventType(input.type);
+  const chatDomain = typeof input.chatDomain === "string" ? input.chatDomain.trim() : "";
+  const domainIdentityKey =
+    typeof input.domainIdentityKey === "string" ? input.domainIdentityKey.trim() : "";
   const insert = {
     user_id: userId,
     type: input.type,
@@ -156,6 +159,9 @@ export async function createNotificationEvent(
     sound_suppressed_reason: input.soundSuppressedReason ?? null,
     delivered_at: input.deliveredAt ?? new Date().toISOString(),
     dedupe_key: dedupeKey,
+    ...(chatDomain && domainIdentityKey
+      ? { chat_domain: chatDomain, domain_identity_key: domainIdentityKey }
+      : {}),
   };
 
   const { data, error } = await sb.from("notification_events").insert(insert).select("*").single();
