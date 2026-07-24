@@ -1,6 +1,9 @@
 /**
  * CM room → notification_targets bump/clear (badge SSOT write path).
  *
+ * Domain snapshot: always pass canonical roomId into bumpNotificationTarget;
+ * RPC loads rooms.chat_domain + domain_identity_key (pair fill only).
+ *
  * DO NOT: trade/delivery CM 방에 consumer `chat_room` bump — bottom_nav_chat 는 general 만.
  * trade → `trade` target, delivery customer → `buyer_order`, delivery owner → `owner_order_chat`.
  */
@@ -128,6 +131,7 @@ async function bumpDeliveryTargetForRecipient(
     targetType: "buyer_order",
     targetId: orderId,
     scope: "consumer",
+    roomId: rid,
   });
 }
 
@@ -260,6 +264,7 @@ export async function bumpTradeTargetForMessengerRoomRecipients(
       targetId,
       scope: "consumer",
       actorUserId: opts.senderUserId ?? null,
+      roomId,
     });
   }
 }

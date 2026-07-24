@@ -1,5 +1,9 @@
 /**
  * Map notification insert → notification_targets bump (badge SSOT).
+ *
+ * Domain snapshot: room-based messenger bumps pass roomId via messenger-bridge.
+ * Inbox commerce/review/status rows are non-room (or room-unresolved) — DO NOT invent
+ * chat_domain from meta/peer; leave Domain NULL until a room-authority bump fills the pair.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {

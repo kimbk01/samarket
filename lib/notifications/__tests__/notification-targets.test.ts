@@ -22,6 +22,7 @@ describe("notification-targets", () => {
       expect(args.p_user_id).toBe("user-a");
       expect(args.p_target_type).toBe("buyer_order");
       expect(args.p_target_id).toBe("order-1");
+      expect(args.p_room_id).toBeNull();
       return { data: null, error: null };
     });
     await bumpNotificationTarget(sb, {

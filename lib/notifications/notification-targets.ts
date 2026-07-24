@@ -64,6 +64,12 @@ export async function bumpNotificationTarget(
     meta?: Record<string, unknown> | null;
     /** 차단 관계면 badge bump 생략 */
     actorUserId?: string | null;
+    /**
+     * Canonical CM room id for Domain snapshot (RPC loads rooms.* authority).
+     * Required for trade/buyer_order; chat_room/owner_order_chat may omit (target_id = room).
+     * DO NOT pass invented domains — RPC never trusts client domain strings.
+     */
+    roomId?: string | null;
   }
 ): Promise<void> {
   const uid = opts.userId.trim();
@@ -76,6 +82,8 @@ export async function bumpNotificationTarget(
     if (isNotificationSuppressedForActor(relation)) return;
   }
 
+  const roomId = opts.roomId?.trim() || null;
+
   const { error } = await sb.rpc(UPSERT_NOTIFICATION_TARGET_RPC, {
     p_user_id: uid,
     p_target_type: opts.targetType,
@@ -83,6 +91,7 @@ export async function bumpNotificationTarget(
     p_scope: opts.scope ?? "consumer",
     p_store_id: opts.storeId?.trim() || null,
     p_meta: opts.meta ?? null,
+    p_room_id: roomId,
   });
 
   if (error && !isTargetRpcMissing(error)) {
@@ -192,7 +201,7 @@ export async function backfillNotificationTargets(
   return Math.max(0, Math.floor(Number(data) || 0));
 }
 
-/** CM participant unread bump — chat_room vs owner_order_chat */
+/** CM participant unread bump — chat_room vs owner_order_chat (+ Domain snapshot via roomId). */
 export async function bumpChatRoomTargetFromMessengerParticipant(
   sb: SupabaseClient<any>,
   opts: {
@@ -202,12 +211,14 @@ export async function bumpChatRoomTargetFromMessengerParticipant(
     storeId?: string | null;
   }
 ): Promise<void> {
+  const roomId = opts.roomId.trim();
   await bumpNotificationTarget(sb, {
     userId: opts.userId,
     targetType: opts.isOwnerOrderChat ? "owner_order_chat" : "chat_room",
-    targetId: opts.roomId,
+    targetId: roomId,
     scope: opts.isOwnerOrderChat ? "owner_store" : "consumer",
     storeId: opts.storeId,
+    roomId,
   });
 }
 
