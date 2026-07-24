@@ -257,9 +257,10 @@ import {
 import { sendWebPushForCommunityMessengerIncomingCall } from "@/lib/push/send-community-messenger-incoming-call-push";
 import { sendWebPushForCommunityMessengerCallTerminal } from "@/lib/push/send-community-messenger-call-canceled-push";
 import {
-  roomDomainEnvelopeFromDbRow,
+  provenCanonicalRoomDomainEnvelopeFromDbRow,
   type RoomDomainEnvelope,
 } from "@/lib/chat-domain/room-domain-envelope";
+import { isFourDomainPollutionQuarantineRoom } from "@/lib/chat-domain/four-domain-pollution-quarantine";
 import { loadCommunityMessengerRoomSilentDeltaSnapshot } from "@/lib/community-messenger/server/load-community-messenger-room-silent-delta";
 import {
   loadMarkReadParticipantRowWithSnapshotCache,
@@ -416,6 +417,7 @@ type RoomRow = {
   direct_key?: string | null;
   chat_domain?: string | null;
   domain_identity?: string | null;
+  domain_identity_key?: string | null;
 };
 
 type ParticipantRow = {
@@ -527,6 +529,8 @@ type CallSessionRow = {
   ended_reason?: string | null;
   updated_at?: string | null;
   created_at: string | null;
+  chat_domain?: string | null;
+  domain_identity_key?: string | null;
 };
 
 type CallSignalRow = {
@@ -17606,24 +17610,6 @@ type CallSessionStartResolve =
       domainEnvelope: RoomDomainEnvelope | null;
     };
 
-function domainEnvelopeFromRoomSummary(
-  roomId: string,
-  room: {
-    chatDomain?: string | null;
-    domainIdentityKey?: string | null;
-    roomType?: string | null;
-    messengerDirectKey?: string | null;
-  }
-): RoomDomainEnvelope | null {
-  return roomDomainEnvelopeFromDbRow({
-    id: roomId,
-    chat_domain: room.chatDomain,
-    domain_identity_key: room.domainIdentityKey,
-    room_type: room.roomType,
-    direct_key: room.messengerDirectKey,
-  });
-}
-
 async function resolveRoomContextForCallSessionStart(
   userId: string,
   roomId: string
@@ -17637,7 +17623,11 @@ async function resolveRoomContextForCallSessionStart(
     return {
       kind: "fullSnapshot",
       snapshot,
-      domainEnvelope: domainEnvelopeFromRoomSummary(id, snapshot.room),
+      domainEnvelope: provenCanonicalRoomDomainEnvelopeFromDbRow({
+        id,
+        chat_domain: snapshot.room.chatDomain,
+        domain_identity_key: snapshot.room.domainIdentityKey,
+      }),
     };
   }
 
@@ -17651,7 +17641,8 @@ async function resolveRoomContextForCallSessionStart(
   ]);
 
   if (roomErr || !roomData) return null;
-  const domainEnvelope = roomDomainEnvelopeFromDbRow(roomData as Record<string, unknown>);
+  /** Call-session insert SSOT: room columns only (no room_type/direct_key invent). */
+  const domainEnvelope = provenCanonicalRoomDomainEnvelopeFromDbRow(roomData as Record<string, unknown>);
   const roomType = (roomData as RoomRow).room_type;
   if (isCommunityMessengerGroupRoomType(roomType)) {
     const snapshot = await getCommunityMessengerRoomSnapshot(userId, roomId);
@@ -17659,7 +17650,7 @@ async function resolveRoomContextForCallSessionStart(
     return {
       kind: "fullSnapshot",
       snapshot,
-      domainEnvelope: domainEnvelope ?? domainEnvelopeFromRoomSummary(id, snapshot.room),
+      domainEnvelope,
     };
   }
 
@@ -17840,7 +17831,18 @@ export async function startCommunityMessengerCallSession(input: {
   if (recordTimings) timing.resolve_room_context_ms = Math.round(performance.now() - t0);
   if (!resolved) return { ok: false, error: "room_not_found" };
 
+  if (isFourDomainPollutionQuarantineRoom(roomId)) {
+    return { ok: false, error: "call_room_quarantined" };
+  }
+
   const callDomainEnvelope = resolved.domainEnvelope;
+  if (!callDomainEnvelope) {
+    /** Null envelope → refuse insert (no silent domain-less call_sessions). */
+    return { ok: false, error: "room_domain_required" };
+  }
+  if (callDomainEnvelope.roomId !== roomId) {
+    return { ok: false, error: "room_domain_mismatch" };
+  }
 
   let snapshot: CommunityMessengerRoomSnapshot | null = null;
   let isGroupRoom: boolean;
@@ -17992,7 +17994,8 @@ export async function startCommunityMessengerCallSession(input: {
     }
     if (recordTimings) timing.pre_insert_gate_ms = Math.round(performance.now() - tGateStart);
     const tDbStart = performance.now();
-    const baseInsert = {
+    /** CONTRACT: chat_domain + domain_identity_key required on same insert as room_id (no post-update attach). */
+    const insertWithDomain = {
       room_id: roomId,
       initiator_user_id: input.userId,
       recipient_user_id: peerUserId,
@@ -18002,31 +18005,16 @@ export async function startCommunityMessengerCallSession(input: {
       status: "ringing",
       started_at: startedAt,
       updated_at: startedAt,
+      chat_domain: callDomainEnvelope.chatDomain,
+      domain_identity_key: callDomainEnvelope.domainIdentityKey,
     };
-    const insertWithDomain = callDomainEnvelope
-      ? {
-          ...baseInsert,
-          chat_domain: callDomainEnvelope.chatDomain,
-          domain_identity_key: callDomainEnvelope.domainIdentityKey,
-        }
-      : baseInsert;
-    let { data, error } = await (sb as any)
+    const { data, error } = await (sb as any)
       .from("community_messenger_call_sessions")
       .insert(insertWithDomain)
       /** PostgREST 반환 최소화 — mapCallSession 은 insert 페이로드와 합쳐 구성 */
       .select("id, status, created_at")
       .single();
-    if (
-      error &&
-      callDomainEnvelope &&
-      /chat_domain|domain_identity_key|column/i.test(String(error.message ?? error.code ?? ""))
-    ) {
-      ({ data, error } = await (sb as any)
-        .from("community_messenger_call_sessions")
-        .insert(baseInsert)
-        .select("id, status, created_at")
-        .single());
-    }
+    /** No domain-less fallback insert — schema/domain errors fail closed. */
     if (!error && data) {
       const rowMin = data as { id: string; status: string; created_at: string | null };
       const inserted: CallSessionRow = {
@@ -18043,6 +18031,8 @@ export async function startCommunityMessengerCallSession(input: {
         ended_at: null,
         ended_reason: null,
         created_at: rowMin.created_at ?? startedAt,
+        chat_domain: callDomainEnvelope.chatDomain,
+        domain_identity_key: callDomainEnvelope.domainIdentityKey,
       };
       const participantRows = isGroupRoom
         ? snapshot!.members.map((member) => ({

@@ -600,6 +600,18 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCoreUnlocked(arg
     if (json.error === "room_unavailable" || json.error === "room_archived") {
       return fail("이 대화방에서는 지금 통화를 시작할 수 없습니다.", "create_failed");
     }
+    if (json.error === "room_domain_required" || json.error === "room_domain_mismatch") {
+      return fail(
+        "이 대화방의 도메인 정보가 없어 통화를 시작할 수 없습니다. 잠시 후 다시 시도해 주세요.",
+        "create_failed"
+      );
+    }
+    if (json.error === "call_room_quarantined") {
+      return fail(
+        "이 대화방은 점검 중이라 통화를 시작할 수 없습니다.",
+        "create_failed"
+      );
+    }
     if (json.error === "trade_chat_calls_disabled") {
       return fail("이 글의 판매자가 거래 채팅 통화를 허용하지 않았습니다.", "create_failed");
     }
