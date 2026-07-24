@@ -1,6 +1,7 @@
 /**
  * Phase R — pure DomainRoomState reducer (one event → list + unread fields).
- * No Surface writes here — store dispatcher applies Projection after reduce.
+ * No Surface writes here — DomainRoomStateStore notifies Projection Authority
+ * with room unread deltas only (never incomplete full Projection overwrite).
  */
 import type { ChatDomain } from "@/lib/chat-domain/chat-domain";
 import { requireChatDomain } from "@/lib/chat-domain/chat-domain";

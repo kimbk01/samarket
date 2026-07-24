@@ -1,7 +1,10 @@
 /**
  * Phase R — DomainRoomStateStore (app-global Realtime Spine SSOT).
  *
- * RoomEvent → reduce → (List cache mirror) → Projection Builder → Apply
+ * RoomEvent → reduce → (List cache mirror) → Projection Authority (room delta only)
+ *
+ * P0 LOCK: DO NOT call applyNotificationBadgeProjection with room-only Facts.
+ * Incomplete Realtime Facts must never overwrite a complete Projection.
  */
 "use client";
 
@@ -9,13 +12,10 @@ import type { CommunityMessengerBootstrap } from "@/lib/community-messenger/type
 import { peekBootstrapCache, primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import { applyHomeListPatch, findHomeListRoomRow } from "@/lib/community-messenger/home-list-patch";
 import { listPreviewFromMessengerMessageRow } from "@/lib/community-messenger/home/patch-bootstrap-room-list-from-realtime-message";
-import { buildNotificationBadgeProjection } from "@/lib/notifications/build-notification-badge-projection";
-import { getNotificationBadgeCountSnapshot } from "@/lib/notifications/notification-badge-count-store";
 import {
   createEmptyDomainRoomStateSnapshot,
   reduceDomainRoomEvent,
   countUnreadRoomsByDomain,
-  rowUnreadByRoomId,
 } from "@/lib/community-messenger/realtime/reduce-domain-room-event";
 import {
   normalizeDomainRoomId,
@@ -23,7 +23,7 @@ import {
   type DomainRoomListState,
   type DomainRoomStateSnapshot,
 } from "@/lib/community-messenger/realtime/domain-room-state-types";
-import { isChatDomain, requireChatDomain } from "@/lib/chat-domain/chat-domain";
+import { isChatDomain, requireChatDomain, type ChatDomain } from "@/lib/chat-domain/chat-domain";
 import { requireDomainIdentityKey } from "@/lib/chat-domain/room-identity";
 
 export const DOMAIN_ROOM_STATE_CHANGED_EVENT = "samarket:domain-room-state-changed";
@@ -59,27 +59,34 @@ function emit(next: DomainRoomStateSnapshot): void {
   }
 }
 
-function applyProjectionFromRoomState(state: DomainRoomStateSnapshot): void {
+/**
+ * P0: Realtime reduces room state only; Projection Authority merges room unread
+ * into the last complete snapshot. Never builds a Projection from room Facts alone.
+ * Dynamic import — keep community-messenger → lib/messenger static edge at 0.
+ */
+function notifyProjectionAuthorityRoomDelta(
+  state: DomainRoomStateSnapshot,
+  event: DomainRoomEvent
+): void {
   if (typeof window === "undefined") return;
-  const domainUnreadRooms = countUnreadRoomsByDomain(state.rooms);
-  const prevBell = getNotificationBadgeCountSnapshot();
-  const projection = buildNotificationBadgeProjection({
-    domainUnreadRooms,
-    orphanMissedCall: Math.max(0, Math.floor(Number(prevBell?.missedCall) || 0)),
-    nonChatEventAttention: {
-      tradeStatus: Math.max(0, Math.floor(Number(prevBell?.tradeStatus) || 0)),
-      orderStatus: Math.max(0, Math.floor(Number(prevBell?.orderStatus) || 0)),
-      deliveryStatus: Math.max(0, Math.floor(Number(prevBell?.deliveryStatus) || 0)),
-      communityActivity: Math.max(0, Math.floor(Number(prevBell?.communityActivity) || 0)),
-      adminNotice: Math.max(0, Math.floor(Number(prevBell?.adminNotice) || 0)),
-    },
-    rowUnreadByRoomId: rowUnreadByRoomId(state.rooms),
-  });
-  // Dynamic import — keep community-messenger → lib/messenger static import count at 0 (Phase 4.5/6/7/8A).
-  void import("@/lib/messenger/contracts/domain-badge-authority-product-bridge").then((mod) => {
-    mod.applyNotificationBadgeProjection(projection, {
-      applyBell: true,
-      projectionVersionMs: Date.now(),
+  const domainsToUpdate: ChatDomain[] = [];
+  if (event.type === "message" || event.type === "read") {
+    domainsToUpdate.push(event.chatDomain);
+  } else if (event.type === "snapshot") {
+    const seen = new Set<ChatDomain>();
+    for (const room of event.rooms) {
+      if (isChatDomain(room.chatDomain)) seen.add(room.chatDomain);
+    }
+    domainsToUpdate.push(...seen);
+  }
+  if (domainsToUpdate.length === 0) return;
+  const spineDomainCounts = countUnreadRoomsByDomain(state.rooms);
+  const rooms = state.rooms;
+  void import("@/lib/notifications/projection-authority").then((mod) => {
+    mod.commitRoomUnreadDeltaFromDomainSpine({
+      domainsToUpdate,
+      spineDomainCounts,
+      rooms,
     });
   });
 }
@@ -238,7 +245,7 @@ export function dispatchDomainRoomEvent(
   }
   snapshot = next;
   if (mirrorListCache) mirrorListCacheAfterEvent(event);
-  if (applySurfaces) applyProjectionFromRoomState(next);
+  if (applySurfaces) notifyProjectionAuthorityRoomDelta(next, event);
   emit(next);
   return next;
 }

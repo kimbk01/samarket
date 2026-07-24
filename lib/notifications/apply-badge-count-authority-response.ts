@@ -5,13 +5,12 @@
 "use client";
 
 import {
-  buildNotificationBadgeProjection,
   EMPTY_BELL_BADGE_FACTS,
   type NotificationBadgeProjectionInput,
   type NotificationNonChatEventAttentionFacts,
 } from "@/lib/notifications/build-notification-badge-projection";
 import { normalizeNotificationBadgeCountPayload } from "@/lib/notifications/notification-badge-count-store";
-import { applyNotificationBadgeProjection } from "@/lib/messenger/contracts/domain-badge-authority-product-bridge";
+import { commitCompleteProjectionSnapshot } from "@/lib/notifications/projection-authority";
 
 export type BadgeCountAuthorityJson = {
   authority?: string;
@@ -147,7 +146,6 @@ export function applyAuthorityJsonAsProjection(
 ): boolean {
   const input = projectionInputFromBadgeCountAuthorityJson(body as BadgeCountAuthorityJson);
   if (!input) return false;
-  const projection = buildNotificationBadgeProjection(input);
   const versionMs = Math.max(
     0,
     Math.floor(
@@ -155,9 +153,10 @@ export function applyAuthorityJsonAsProjection(
         Date.now()
     )
   );
-  applyNotificationBadgeProjection(projection, {
-    applyBell: opts?.applyBell !== false,
+  /** P0: complete HTTP snapshot registers in Projection Authority (sole apply gate). */
+  return commitCompleteProjectionSnapshot(input, {
     projectionVersionMs: versionMs,
+    source: "badge_count_http",
+    applyBell: opts?.applyBell !== false,
   });
-  return true;
 }

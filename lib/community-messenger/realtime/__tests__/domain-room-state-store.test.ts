@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach } from "vitest";
+import { describe, expect, it, beforeEach, vi } from "vitest";
 import {
   createEmptyDomainRoomStateSnapshot,
   reduceDomainRoomEvent,
@@ -10,6 +10,10 @@ import {
   resetDomainRoomStateStoreForTests,
   getDomainRoomStateSnapshot,
 } from "@/lib/community-messenger/realtime/domain-room-state-store";
+import {
+  getProjectionAuthorityCounters,
+  resetProjectionAuthorityForTests,
+} from "@/lib/notifications/projection-authority";
 
 describe("reduceDomainRoomEvent — Phase R spine", () => {
   it("message updates preview, order, and unread in one reduce", () => {
@@ -92,6 +96,7 @@ describe("reduceDomainRoomEvent — Phase R spine", () => {
 describe("dispatchDomainRoomEvent — dedupe", () => {
   beforeEach(() => {
     resetDomainRoomStateStoreForTests();
+    resetProjectionAuthorityForTests();
   });
 
   it("dedupes the same messageId", () => {
@@ -125,5 +130,32 @@ describe("dispatchDomainRoomEvent — dedupe", () => {
     );
     expect(getDomainRoomStateSnapshot().rooms.get("room-a")?.previewText).toBe("a");
     expect(getDomainRoomStateSnapshot().rooms.get("room-a")?.unreadCount).toBe(1);
+  });
+
+  it("P0: applySurfaces without complete snapshot rejects incomplete commit (no surface invent)", async () => {
+    vi.stubGlobal("window", {
+      dispatchEvent: vi.fn(),
+    });
+    resetProjectionAuthorityForTests();
+    dispatchDomainRoomEvent(
+      {
+        type: "message",
+        roomId: "room-a",
+        chatDomain: "general_direct",
+        domainIdentityKey: "gd:a",
+        messageId: "m2",
+        previewText: "hi",
+        lastMessageAt: "2026-01-01T00:00:00.000Z",
+        lastMessageType: "text",
+        boostUnread: true,
+      },
+      { applySurfaces: true, mirrorListCache: false }
+    );
+    expect(getDomainRoomStateSnapshot().rooms.get("room-a")?.unreadCount).toBe(1);
+    await vi.waitFor(() => {
+      expect(getProjectionAuthorityCounters().incomplete_commit_rejected).toBeGreaterThan(0);
+    });
+    expect(getProjectionAuthorityCounters().projection_commit_ok).toBe(0);
+    vi.unstubAllGlobals();
   });
 });
