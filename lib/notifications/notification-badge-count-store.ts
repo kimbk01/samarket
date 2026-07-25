@@ -627,3 +627,22 @@ export function resetNotificationBadgeCountStoreForTests(): void {
   __resetBellBadgeProjectionForTest();
   __resetAppIconBadgeProjectionForTest();
 }
+
+declare global {
+  interface Window {
+    __dibayBadgePoll?: {
+      markDirty: typeof markNotificationBadgePollDirty;
+      getDirtyState: typeof getNotificationBadgePollDirtyStateForTests;
+      tickForTests: typeof __tickNotificationBadgePollForTests;
+    };
+  }
+}
+
+/** Device QA / CDP — same pattern as `window.__dibayProjectionAuthority`. */
+if (typeof window !== "undefined") {
+  window.__dibayBadgePoll = {
+    markDirty: markNotificationBadgePollDirty,
+    getDirtyState: getNotificationBadgePollDirtyStateForTests,
+    tickForTests: __tickNotificationBadgePollForTests,
+  };
+}
