@@ -32,7 +32,7 @@ export function resolveBottomNavScrollHideEnabled(
   headerMessengerFromPhilife: boolean,
   search?: string | null
 ): boolean {
-  if (pathNoQuery === "/philife") return !headerMessengerFromPhilife;
+  if (pathNoQuery === "/philife" || pathNoQuery === "/") return !headerMessengerFromPhilife;
   if (isPhilifeNeighborhoodPostDetailPathname(pathNoQuery)) return true;
   if (pathNoQuery === "/mypage") return true;
   if (isTradeFloatingMenuSurface(pathNoQuery)) return true;

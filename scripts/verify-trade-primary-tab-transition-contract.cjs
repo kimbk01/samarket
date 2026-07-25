@@ -68,11 +68,13 @@ const mainTabLoadingFiles = [
   "app/(main)/philife/loading.tsx",
   "app/(main)/market/loading.tsx",
   "app/(main)/stores/loading.tsx",
-  "app/(stores)/stores/loading.tsx",
   "app/(main)/community-messenger/loading.tsx",
   "app/(main)/mypage/loading.tsx",
   "app/(main)/my/loading.tsx",
 ];
+if (fs.existsSync(path.join(root, "app/(stores)"))) {
+  fail("app/(stores) must be removed — /stores under (main) only");
+}
 for (const rel of mainTabLoadingFiles) {
   const source = read(rel);
   if (!source.includes("return null")) {

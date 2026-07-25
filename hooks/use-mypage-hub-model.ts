@@ -28,7 +28,9 @@ import { primeMeProfileDedupedFromKnownProfile } from "@/lib/profile/fetch-me-pr
 import type { ProfileRow } from "@/lib/profile/types";
 
 const MYPAGE_SESSION_KEY = "samarket:mypage-hub:v1";
+const MYPAGE_PERSISTENT_KEY = "samarket:mypage-hub:v2_persistent";
 const MYPAGE_SESSION_MAX_AGE_MS = 5 * 60 * 1000;
+const MYPAGE_PERSISTENT_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 7;
 
 type MypageSessionHubCounts = {
   overviewCounts: MyPageOverviewCounts;
@@ -57,15 +59,28 @@ function peekMypageSessionEnvelope(): MypageSessionEnvelope | null {
   try {
     const viewerId = getCurrentUser()?.id?.trim() ?? "";
     if (!viewerId) return null;
-    const raw = sessionStorage.getItem(MYPAGE_SESSION_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as MypageSessionEnvelope;
-    const ownerId = (parsed.viewerId ?? "").trim();
-    if (!ownerId || ownerId !== viewerId) return null;
-    const savedAt = Number(parsed.savedAt ?? 0);
-    if (!Number.isFinite(savedAt) || Date.now() - savedAt > MYPAGE_SESSION_MAX_AGE_MS) return null;
-    if (!parsed?.data?.profile) return null;
-    return parsed;
+    const tryParse = (raw: string | null, maxAge: number): MypageSessionEnvelope | null => {
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as MypageSessionEnvelope;
+      const ownerId = (parsed.viewerId ?? "").trim();
+      if (!ownerId || ownerId !== viewerId) return null;
+      const savedAt = Number(parsed.savedAt ?? 0);
+      if (!Number.isFinite(savedAt) || Date.now() - savedAt > maxAge) return null;
+      if (!parsed?.data?.profile) return null;
+      return parsed;
+    };
+    const sessionHit = tryParse(sessionStorage.getItem(MYPAGE_SESSION_KEY), MYPAGE_SESSION_MAX_AGE_MS);
+    if (sessionHit) return sessionHit;
+    const persistentHit = tryParse(localStorage.getItem(MYPAGE_PERSISTENT_KEY), MYPAGE_PERSISTENT_MAX_AGE_MS);
+    if (persistentHit) {
+      try {
+        sessionStorage.setItem(MYPAGE_SESSION_KEY, JSON.stringify(persistentHit));
+      } catch {
+        /* ignore */
+      }
+      return persistentHit;
+    }
+    return null;
   } catch {
     return null;
   }
@@ -100,6 +115,11 @@ function writeMypageSessionCache(
       payload.hubCounts = hubCounts;
     }
     sessionStorage.setItem(MYPAGE_SESSION_KEY, JSON.stringify(payload));
+    try {
+      localStorage.setItem(MYPAGE_PERSISTENT_KEY, JSON.stringify(payload));
+    } catch {
+      /* quota */
+    }
   } catch { /* quota/private */ }
 }
 

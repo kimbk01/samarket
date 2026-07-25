@@ -6,7 +6,7 @@
 
 | 필드 | 값 |
 |------|-----|
-| Last updated | 2026-06-20 (BOOT-P0 cold start 3-run 측정 · splash hotfix 검증) |
+| Last updated | 2026-07-26 (Bottom Tab Shell/Cache-First · `(stores)` remount·defer enter 제거) |
 | Owner | (선택) |
 
 ---
@@ -368,19 +368,11 @@ SAMARKET_BASE_URL=https://dibaY.vercel.app SAMARKET_PROD_PERF_MEASURE=1 npm run 
 ## 진행 중 트랙
 
 | 트랙 이름 | **BOOT-P0** 앱 cold start Fast First Paint + splash hotfix |
-| **트랙 상태** | **■ 1차 성공 · 측정 완료** — 앱 진입 복구 + cold start 3-run (2026-06-20) |
+| **트랙 상태** | **■ 구조 재구성 완료 (2026-07-26)** — Shell/Cache-First · `/` redirect 제거 · splash=`shellReady` · persistent feed · Suspense cold 제거 |
 | baseline commit | `67676fa9` (splash hotfix · boot metrics · P0 shell) |
-| 측정 commit (APK/Web) | Vercel prod web + debug APK `8b37179f7d94` |
-| 측정 명령 | `node scripts/measure-dibay-cold-start-adb.mjs 8b37179f7d94 --runs=3` · `node scripts/dibay-boot-verify-report.mjs docs/perf/dibay-boot-cold-start-67676fa9-verify-input.json` |
-| 결과 파일 | [dibay-boot-cold-start-67676fa9.json](./perf/dibay-boot-cold-start-67676fa9.json) |
-| **3-run median (performance.now ms)** | firstPaint **2190** · reactMounted **2153** · homeVisible **2840** · apiDone **3257** · thumbnailVisible **2898** |
-| **3-run p95** | firstPaint **3554** · reactMounted **3526** · homeVisible **4828** · apiDone **4454** · thumbnailVisible **4875** |
-| dismissSplash reason | 3/3 **`reactMounted`** |
-| native_fallback | **1/3** (run2 `native_fallback_elapsed_ms=3006` — reactMounted **3526ms** > 3s keep) |
-| **판정** | **splash 정책 현재 유지** (fallback 4~5s 조정 **보류**) — median reactMounted 2.15s · fallback 1회 outlier · 앱 진입 3/3 성공 · `homeVisible`/`apiDone` metric-only 확인 |
-| 다음 (데이터 기반) | fallback 재발 2/3+ 또는 median reactMounted ≥2.8s 시 **4~5s 조정 검토** · thumbnail P1 분리 |
-| build | `npm run build` **PASS** (2026-06-20) |
-| lock | `docs/trade-perf-hot-path-changelog.md` · `lib/app-boot/dibay-boot-metrics.ts` (homeVisible gate 금지) |
+| **후속** | 2026-07-26 Bottom Tab Cache-First — `verify:bottom-tab-*` · Local Shell(EPIC RC-1) 잔여 |
+| 측정 명령 | `node scripts/measure-dibay-cold-start-adb.mjs …` · `npm run verify:cold-boot-shell-cache-first` |
+| **판정** | 제품 구조: Network-First cold paint **제거**. RC-1 remote WebView HTML 하한은 Hybrid Local Shell EPIC |
 
 | 항목 | 내용 |
 |------|------|

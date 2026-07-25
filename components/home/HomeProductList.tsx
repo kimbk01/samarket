@@ -63,6 +63,37 @@ function normalizeTradeStateFromQuery(raw: string | null): HomeTradeStateFilter 
 
 const INITIAL_VISIBLE_CARD_COUNT = TRADE_CHAT_LIST_PAGE_SIZE;
 
+/** Background refresh — 동일 row 참조 유지 (전체 list replace 금지). */
+function isSameHomeTradePostRow(a: PostWithMeta, b: PostWithMeta): boolean {
+  return (
+    a.id === b.id &&
+    a.title === b.title &&
+    a.price === b.price &&
+    a.status === b.status &&
+    a.thumbnail_url === b.thumbnail_url &&
+    a.updated_at === b.updated_at &&
+    a.author_nickname === b.author_nickname &&
+    a.author_avatar_url === b.author_avatar_url &&
+    a.favorite_count === b.favorite_count &&
+    a.seller_listing_state === b.seller_listing_state &&
+    a.view_count === b.view_count &&
+    a.reserved_buyer_id === b.reserved_buyer_id
+  );
+}
+
+function patchHomeTradePostsRows(prev: PostWithMeta[], incoming: PostWithMeta[]): PostWithMeta[] {
+  if (prev === incoming) return prev;
+  if (prev.length === incoming.length && prev.every((row, i) => row === incoming[i])) return prev;
+  const prevById = new Map(prev.map((p) => [p.id, p]));
+  const out = incoming.map((row) => {
+    const old = prevById.get(row.id);
+    if (old && isSameHomeTradePostRow(old, row)) return old;
+    return row;
+  });
+  if (out.length === prev.length && out.every((row, i) => row === prev[i])) return prev;
+  return out;
+}
+
 /**
  * SSR + 클라이언트 첫 렌더에서만 사용 — 메모리/sessionStorage 캐시를 읽지 않음.
  * 그렇지 않으면 서버(캐시 없음) ≠ 클라(캐시 히트) 로 `<ul>` 트리가 달라져 hydration 오류가 난다.
@@ -151,7 +182,7 @@ export function HomeProductList({
     try {
       const res = await getPostsForHome(listOpts);
       if (requestId !== latestRequestIdRef.current) return;
-      setPosts(res.posts);
+      setPosts((prev) => patchHomeTradePostsRows(prev, res.posts));
       setFavoriteMap(res.favoriteMap);
       lastLoadedAtRef.current = Date.now();
       setListState(res.posts.length === 0 ? "empty" : "idle");
@@ -217,7 +248,7 @@ export function HomeProductList({
     const merged = boot ?? peekRecentHomePostsFallback();
 
     if (merged) {
-      setPosts(merged.posts);
+      setPosts((prev) => patchHomeTradePostsRows(prev, merged.posts));
       setFavoriteMap(merged.favoriteMap ?? {});
       setListState(merged.posts.length === 0 ? "empty" : "idle");
       lastLoadedAtRef.current = Date.now();
@@ -270,7 +301,7 @@ export function HomeProductList({
     try {
       const res = await getPostsForHome({ sort: "latest", type: null, tradeState });
       if (requestId !== silentRequestIdRef.current) return;
-      setPosts(res.posts);
+      setPosts((prev) => patchHomeTradePostsRows(prev, res.posts));
       setFavoriteMap(res.favoriteMap);
       lastLoadedAtRef.current = Date.now();
     } catch {

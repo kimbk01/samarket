@@ -11,7 +11,7 @@ export function resolveMainHubPtrDomain(pathname: string | null | undefined): Ma
     if (p === "/market/trade-meet-spot" || p.startsWith("/market/trade-meet-spot/")) return null;
     return "trade";
   }
-  if (p === "/philife") return "philife";
+  if (p === "/" || p === "/philife") return "philife";
   if (p === "/stores" || p === "/stores/") return "stores";
   if (p === "/community-messenger" || p.startsWith("/community-messenger/")) {
     if (/^\/community-messenger\/rooms\/[^/]+$/.test(p)) return null;

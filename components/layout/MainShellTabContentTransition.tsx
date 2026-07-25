@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useMemo } from "react";
 import { usePathname } from "next/navigation";
 
 import { AppRouteTransition } from "@/components/route-transition/AppRouteTransition";
@@ -13,14 +13,6 @@ import { useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext"
 import { isCommunityMessengerDeepRoutePath } from "@/lib/navigation/community-messenger-deep-route-path";
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 import { DeliveryTheme } from "@/lib/design/delivery-theme";
-import {
-  APK_MAIN_TAB_ENTER_DEFER_PERF_MARK_END,
-  APK_MAIN_TAB_ENTER_DEFER_PERF_MARK_START,
-  APK_MAIN_TAB_ENTER_DEFER_PERF_MS_KEY,
-  isApkRemoteWebViewShell,
-  resolveMainTabEnterPanelDeferMs,
-} from "@/lib/platform/apk-remote-webview-perf";
-import { recordAppWidePhaseLastMs } from "@/lib/runtime/samarket-runtime-debug";
 
 type Props = {
   children: React.ReactNode;
@@ -35,23 +27,11 @@ function isMarketMenuIntentPath(pathname: string | null | undefined): boolean {
   return p === "/market" || p.startsWith("/market/");
 }
 
-function StableMainTabEnterPanel() {
-  return <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-sam-app" aria-hidden />;
-}
-
-/** Philife 하단 탭 push — 거래와 동일하게 defer 없이 session cache instant boot */
-function PhilifeTabPushEnterPanel({ href }: { href: string }) {
-  return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-sam-app">
-      <Suspense fallback={null}>
-        <PhilifeFeedClientEntry tabEnterInstantBoot tabEnterHref={href} />
-      </Suspense>
-    </div>
-  );
-}
-
-function DeferredMainTabEnterPanel({ href }: { href: string }) {
-  const [ready, setReady] = useState(false);
+/**
+ * Bottom-nav pending enter — Cache-First instant mount.
+ * DO NOT: defer empty shell with timers (Telegram/Kakao: snapshot paint immediately).
+ */
+function InstantMainTabEnterPanel({ href }: { href: string }) {
   const { pathname, search } = useMemo(() => {
     try {
       const u = new URL(href, "https://samarket.local");
@@ -64,31 +44,19 @@ function DeferredMainTabEnterPanel({ href }: { href: string }) {
     }
   }, [href]);
 
-  useEffect(() => {
-    setReady(false);
-    const deferMs = resolveMainTabEnterPanelDeferMs();
-    if (isApkRemoteWebViewShell()) {
-      try {
-        performance.mark(APK_MAIN_TAB_ENTER_DEFER_PERF_MARK_START);
-      } catch {
-        /* ignore */
-      }
-    }
-    const timer = window.setTimeout(() => {
-      if (isApkRemoteWebViewShell()) {
-        recordAppWidePhaseLastMs(APK_MAIN_TAB_ENTER_DEFER_PERF_MS_KEY, deferMs);
-        try {
-          performance.mark(APK_MAIN_TAB_ENTER_DEFER_PERF_MARK_END);
-        } catch {
-          /* ignore */
-        }
-      }
-      setReady(true);
-    }, deferMs);
-    return () => window.clearTimeout(timer);
-  }, [href]);
+  if (isMarketMenuIntentPath(pathname)) {
+    return <TradeMarketTabPushEnterPanel href={href} />;
+  }
 
-  if (!ready) return <StableMainTabEnterPanel />;
+  if (pathname === "/philife" || pathname === "/") {
+    return (
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-sam-app">
+        <Suspense fallback={null}>
+          <PhilifeFeedClientEntry tabEnterInstantBoot tabEnterHref={href} />
+        </Suspense>
+      </div>
+    );
+  }
 
   if (pathname === "/stores") {
     return (
@@ -123,36 +91,6 @@ function DeferredMainTabEnterPanel({ href }: { href: string }) {
     );
   }
 
-  return <StableMainTabEnterPanel />;
-}
-
-function MainBottomNavPendingEnterPanel({ href }: { href: string }) {
-  const pathname = useMemo(() => {
-    try {
-      const u = new URL(href, "https://samarket.local");
-      return u.pathname.replace(/\/+$/, "") || "/";
-    } catch {
-      return "";
-    }
-  }, [href]);
-
-  if (isMarketMenuIntentPath(pathname)) {
-    return <TradeMarketTabPushEnterPanel href={href} />;
-  }
-
-  if (pathname === "/philife") {
-    return <PhilifeTabPushEnterPanel href={href} />;
-  }
-
-  if (
-    pathname === "/stores" ||
-    pathname === "/community-messenger" ||
-    pathname === "/mypage" ||
-    pathname === "/my"
-  ) {
-    return <DeferredMainTabEnterPanel href={href} />;
-  }
-
   return <div className="min-h-screen bg-sam-app" aria-hidden />;
 }
 
@@ -172,7 +110,7 @@ export function MainShellTabContentTransition({
     if (isCommunityMessengerDeepRoutePath(pathname ?? "")) return null;
     if (!isPendingMenuBlockingContent || !pendingMenuIntent) return null;
     if (pendingMenuIntent.source === "trade-primary" || pendingMenuIntent.source === "bottom-nav") {
-      return <MainBottomNavPendingEnterPanel href={pendingMenuIntent.href} />;
+      return <InstantMainTabEnterPanel href={pendingMenuIntent.href} />;
     }
     return null;
   }, [isPendingMenuBlockingContent, pathname, pendingMenuIntent]);

@@ -1,8 +1,10 @@
 import { MyContent } from "../my/MyContent";
-import { loadMypageServerShell } from "@/lib/my/load-mypage-server";
 
-/** RSC shell — 프로필·주소·홈 stat seed 로 첫 페인트 전체 로딩 카드 방지 */
-export default async function MypagePage() {
-  const initialMyPageData = await loadMypageServerShell();
-  return <MyContent initialMyPageData={initialMyPageData} />;
+/**
+ * `/mypage` — Cold Boot / Bottom Tab Cache-First.
+ * DO NOT: blocking RSC server shell await — first paint 를 RSC 에 묶지 않음.
+ * Snapshot: `useMypageHubModel` persistent/session peek → background load.
+ */
+export default function MypagePage() {
+  return <MyContent />;
 }

@@ -41,6 +41,8 @@ import { resetMessengerPresenceStore } from "@/lib/community-messenger/stores/us
 import { resetMessengerTypingStore } from "@/lib/community-messenger/stores/useMessengerTypingStore";
 import { resetMessengerRoomReaderStateStore } from "@/lib/community-messenger/notifications/messenger-room-reader-state-store";
 import { invalidateHomePostsCache } from "@/lib/posts/getPostsForHome";
+import { clearAllPhilifeFeedPersistentCaches } from "@/lib/community/philife-feed-session-cache";
+import { invalidatePhilifeNeighborhoodTopicOptionsCache } from "@/lib/philife/fetch-neighborhood-topic-options-client";
 import { resetAuthExitNavigateGuard } from "@/lib/auth/auth-exit-guard";
 import {
   clearBrowserCacheStorageBestEffort,
@@ -138,6 +140,8 @@ function resetInMemoryClientStores(): void {
   clearCommerceCartStorage();
   clearUserSettingsClientCache();
   invalidateHomePostsCache();
+  clearAllPhilifeFeedPersistentCaches();
+  invalidatePhilifeNeighborhoodTopicOptionsCache();
   clearPendingAuthActions();
   clearLoginBootstrapSnapshot();
 }

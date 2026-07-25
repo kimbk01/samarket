@@ -4,6 +4,7 @@ import { resolveMainHubPtrDomain } from "@/lib/layout/resolve-main-hub-ptr-domai
 describe("resolveMainHubPtrDomain", () => {
   it("returns single domain per pathname", () => {
     expect(resolveMainHubPtrDomain("/philife")).toBe("philife");
+    expect(resolveMainHubPtrDomain("/")).toBe("philife");
     expect(resolveMainHubPtrDomain("/market")).toBe("trade");
     expect(resolveMainHubPtrDomain("/stores")).toBe("stores");
     expect(resolveMainHubPtrDomain("/community-messenger")).toBe("messenger");

@@ -1,10 +1,18 @@
 import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 
-/** v2: 캐시 키에 뷰어(로그인) 구분 — 차단 필터·관심이웃과 불일치 방지 */
-const STORAGE_KEY = "philife_neighborhood_feed_v2";
+/**
+ * Philife feed persistent cache — Cold Boot Cache-First.
+ * localStorage so cold start (app kill) 에도 last snapshot 으로 첫 paint.
+ * DO NOT: sessionStorage only · SSR initial state 에 캐시 주입(하이드레이션 불일치).
+ */
+const STORAGE_KEY = "philife_neighborhood_feed_v3_persistent";
+/** legacy session key — one-shot migrate */
+const LEGACY_SESSION_KEY = "philife_neighborhood_feed_v2";
+/** Cold boot — auth restore 전 마지막 viewer (계정 섞임 방지용 힌트) */
+const LAST_VIEWER_SIG_KEY = "philife_feed_last_viewer_sig_v1";
 const MAX_AGE_MS = 1000 * 60 * 30;
-const MAX_STALE_AGE_MS = 1000 * 60 * 120;
+const MAX_STALE_AGE_MS = 1000 * 60 * 60 * 24 * 7;
 const MAX_CACHE_ENTRIES = 60;
 
 export type PhilifeFeedCacheSnapshot = {
@@ -37,6 +45,43 @@ export function philifeFeedViewerSig(): string {
   return id || "_anon";
 }
 
+/** Auth 복원 전 cold paint — live sig 우선, 없으면 마지막 로그인 viewer */
+export function resolvePhilifeColdBootViewerSig(): string {
+  const live = philifeFeedViewerSig();
+  if (live !== "_anon") {
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.setItem(LAST_VIEWER_SIG_KEY, live);
+      }
+    } catch {
+      /* ignore */
+    }
+    return live;
+  }
+  if (typeof window === "undefined") return "_anon";
+  try {
+    const last = localStorage.getItem(LAST_VIEWER_SIG_KEY)?.trim();
+    return last || "_anon";
+  } catch {
+    return "_anon";
+  }
+}
+
+/** 로그아웃·계정 전환 — feed/topic persistent 전부 제거 (viewer 혼선 방지) */
+export function clearAllPhilifeFeedPersistentCaches(): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(LAST_VIEWER_SIG_KEY);
+    localStorage.removeItem("philife_neighborhood_topic_options_v1");
+    localStorage.removeItem("samarket:mypage-hub:v2_persistent");
+    sessionStorage.removeItem(LEGACY_SESSION_KEY);
+    sessionStorage.removeItem("samarket:mypage-hub:v1");
+  } catch {
+    /* ignore */
+  }
+}
+
 function cacheId(
   locationKey: string,
   category: string,
@@ -48,6 +93,36 @@ function cacheId(
   return `${locationKey}\u001f${category}\u001f${neighborOnly ? "1" : "0"}\u001f${viewerSig}\u001f${sortKey}`;
 }
 
+function readStorageRaw(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const persistent = localStorage.getItem(STORAGE_KEY);
+    if (persistent) return persistent;
+    const legacy = sessionStorage.getItem(LEGACY_SESSION_KEY);
+    if (legacy) {
+      try {
+        localStorage.setItem(STORAGE_KEY, legacy);
+        sessionStorage.removeItem(LEGACY_SESSION_KEY);
+      } catch {
+        /* quota */
+      }
+      return legacy;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStorageRaw(raw: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(STORAGE_KEY, raw);
+  } catch {
+    /* quota / private mode */
+  }
+}
+
 export function readPhilifeFeedCache(
   locationKey: string,
   category: string,
@@ -57,7 +132,7 @@ export function readPhilifeFeedCache(
 ): PhilifeFeedCacheSnapshot | null {
   if (typeof window === "undefined" || !locationKey) return null;
   try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
+    const raw = readStorageRaw();
     if (!raw) return null;
     const all = JSON.parse(raw) as StoredShape;
     const snap = all[cacheId(locationKey, category, neighborOnly, viewerSig, sortKey)];
@@ -78,7 +153,7 @@ export function isPhilifeFeedCacheFresh(
 ): boolean {
   if (typeof window === "undefined" || !locationKey) return false;
   try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
+    const raw = readStorageRaw();
     if (!raw) return false;
     const all = JSON.parse(raw) as StoredShape;
     const snap = all[cacheId(locationKey, category, neighborOnly, viewerSig, sortKey)];
@@ -89,7 +164,7 @@ export function isPhilifeFeedCacheFresh(
   }
 }
 
-/** PTR·강제 새로고침 — 현재 쿼리 세션 캐시 제거 */
+/** PTR·강제 새로고침 — 현재 쿼리 캐시 제거 */
 export function clearPhilifeFeedCacheEntry(
   locationKey: string,
   category: string,
@@ -99,13 +174,13 @@ export function clearPhilifeFeedCacheEntry(
 ): void {
   if (typeof window === "undefined" || !locationKey) return;
   try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
+    const raw = readStorageRaw();
     if (!raw) return;
     const all = JSON.parse(raw) as StoredShape;
     const id = cacheId(locationKey, category, neighborOnly, viewerSig, sortKey);
     if (!(id in all)) return;
     delete all[id];
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+    writeStorageRaw(JSON.stringify(all));
   } catch {
     /* quota / private mode */
   }
@@ -121,14 +196,17 @@ export function writePhilifeFeedCache(
 ): void {
   if (typeof window === "undefined" || !locationKey || !snapshot.posts.length) return;
   try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (viewerSig && viewerSig !== "_anon") {
+      localStorage.setItem(LAST_VIEWER_SIG_KEY, viewerSig);
+    }
+    const raw = readStorageRaw();
     const now = Date.now();
     const all: StoredShape = raw ? pruneStoredShape(JSON.parse(raw) as StoredShape, now) : {};
     all[cacheId(locationKey, category, neighborOnly, viewerSig, sortKey)] = {
       ...snapshot,
       savedAt: now,
     };
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(pruneStoredShape(all, now)));
+    writeStorageRaw(JSON.stringify(pruneStoredShape(all, now)));
   } catch {
     /* quota / private mode */
   }

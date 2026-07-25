@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
 import { StoresHub } from "@/components/stores/StoresHub";
+import { StoresDeliveryLayoutShell } from "@/components/delivery/navigation/StoresDeliveryLayoutShell";
 import { DeliveryTheme } from "@/lib/design/delivery-theme";
 import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
 import { safeTranslate } from "@/lib/i18n/safe-translate";
@@ -23,15 +24,18 @@ export async function generateMetadata(): Promise<Metadata> {
 
 /**
  * CONTRACT — `/stores` 단일 client hub (`StoresHub` → `StoresHomeHub`).
- * DO NOT: legacy SSR initial shell / category seed — 구(1·2차 rail) 화면 재노출·hydration 불일치.
+ * Cold Boot / Bottom Tab: `(main)` layout 유지 — `(stores)` route group remount 금지.
+ * DO NOT: legacy SSR initial shell / category seed.
  */
 export default function StoresPage() {
   return (
-    <div
-      className={`delivery-ui ${DeliveryTheme.page} min-h-0`}
-      data-stores-layout-profile="stores-hub"
-    >
-      <StoresHub />
-    </div>
+    <StoresDeliveryLayoutShell>
+      <div
+        className={`delivery-ui ${DeliveryTheme.page} min-h-0`}
+        data-stores-layout-profile="stores-hub"
+      >
+        <StoresHub />
+      </div>
+    </StoresDeliveryLayoutShell>
   );
 }

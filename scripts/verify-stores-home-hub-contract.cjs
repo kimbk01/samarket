@@ -625,7 +625,7 @@ const storesPage = readStoresHubPage();
 assertIncludes(
   storesPage,
   'data-stores-layout-profile="stores-hub"',
-  "stores hub page must use (stores) route group marker"
+  "stores hub page must use stores-hub layout marker"
 );
 
 assertNotIncludes(

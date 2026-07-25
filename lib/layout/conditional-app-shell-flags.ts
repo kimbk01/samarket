@@ -203,6 +203,7 @@ export function resolveConditionalAppShellFlags(
   const isSearch = pathname === "/search";
   const isServicesSection = pathname === "/services" || (pathname?.startsWith("/services/") ?? false);
   const isCommunityApp =
+    pathname === "/" ||
     pathname === "/community" ||
     (pathname?.startsWith("/community/") ?? false) ||
     pathname === "/philife" ||

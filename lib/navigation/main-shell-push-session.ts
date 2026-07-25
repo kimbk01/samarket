@@ -30,18 +30,15 @@ export function pathFromHref(href: string): string {
   return normalizePath(q >= 0 ? raw.slice(0, q) : raw);
 }
 
-/** `(stores)` 허브 vs `(main)` — Provider·push surface remount 경계 */
+/**
+ * CONTRACT — 하단 탭은 모두 `(main)` 셸 유지 (Provider remount 금지).
+ * 과거 `(stores)` route group remount 경계는 제거됨 — 항상 false.
+ */
 export function isCrossMainShellRouteGroup(
-  fromPath: string | null | undefined,
-  toPath: string | null | undefined
+  _fromPath: string | null | undefined,
+  _toPath: string | null | undefined
 ): boolean {
-  const from = normalizePath(fromPath);
-  const to = normalizePath(toPath);
-  const fromStoresHub =
-    from === "/stores" || from.startsWith("/stores/browse") || from.startsWith("/stores/search");
-  const toStoresHub =
-    to === "/stores" || to.startsWith("/stores/browse") || to.startsWith("/stores/search");
-  return fromStoresHub !== toStoresHub;
+  return false;
 }
 
 export function armMainShellPushEnterSession(

@@ -2,11 +2,12 @@
 
 /**
  * Cold boot end-to-end timing — `window.__dibayBootMetrics`.
- * Native Android injects nativeStart/webviewReady/firstHtml via evaluateJavascript.
+ * Native Android may inject nativeStart/webviewReady/firstHtml via evaluateJavascript.
  *
- * Splash hide contract: dismiss on homeVisible (main shell ready).
+ * Splash hide contract (Cold Boot Shell-First):
+ * dismiss on **shellReady** (ConditionalAppShell mounted) — NOT feed/RSC/apiDone.
  * Auth/admin/account shell-less routes: firstPaint auth_shell_fallback.
- * Safety: 5s cap if homeVisible never fires. Native enforces 3s max keep with logged fallback.
+ * DO NOT: homeVisible-as-feed-gate · splash_safety_timeout · delay hide.
  */
 export type DibayBootMetrics = {
   nativeStart: number | null;
@@ -14,13 +15,15 @@ export type DibayBootMetrics = {
   firstHtml: number | null;
   firstPaint: number | null;
   reactMounted: number | null;
+  /** @deprecated alias kept for metrics readers — same as shellReady */
   homeVisible: number | null;
+  shellReady: number | null;
   apiDone: number | null;
   thumbnailVisible: number | null;
   thumbnailRequested: number | null;
   thumbnailLoaded: number | null;
   thumbnailDecoded: number | null;
-  /** Last splash dismiss signal reason (homeVisible | auth_shell_fallback | splash_safety_timeout | native_fallback). */
+  /** Last splash dismiss signal reason (shellReady | auth_shell_fallback | native_fallback). */
   splashDismissReason: string | null;
 };
 
@@ -31,7 +34,7 @@ declare global {
   }
 }
 
-/** Main shell 없는 경로 — homeVisible 미발화 infinite splash 방지 (JS only). */
+/** Main shell 없는 경로 — shellReady 미발화 시 firstPaint 에서 splash 해제 */
 const SPLASH_AUTH_SHELL_FALLBACK_PREFIXES = [
   "/login",
   "/signup",
@@ -41,9 +44,6 @@ const SPLASH_AUTH_SHELL_FALLBACK_PREFIXES = [
   "/terms",
   "/privacy",
 ] as const;
-
-/** homeVisible 미도달 시 Capacitor splash 강제 hide (infinite splash 재발 방지). */
-const SPLASH_SAFETY_TIMEOUT_MS = 5_000;
 
 function nowMs(): number {
   return typeof performance !== "undefined" ? performance.now() : Date.now();
@@ -79,6 +79,7 @@ function ensureMetrics(): DibayBootMetrics {
       firstPaint: null,
       reactMounted: null,
       homeVisible: null,
+      shellReady: null,
       apiDone: null,
       thumbnailVisible: null,
       thumbnailRequested: null,
@@ -95,6 +96,7 @@ function ensureMetrics(): DibayBootMetrics {
       firstPaint: null,
       reactMounted: null,
       homeVisible: null,
+      shellReady: null,
       apiDone: null,
       thumbnailVisible: null,
       thumbnailRequested: null,
@@ -120,6 +122,7 @@ export function mergeNativeBootMetrics(partial: Partial<DibayBootMetrics>): void
   if (partial.firstHtml != null && m.firstHtml == null) m.firstHtml = partial.firstHtml;
   if (partial.firstPaint != null && m.firstPaint == null) m.firstPaint = partial.firstPaint;
   if (partial.reactMounted != null && m.reactMounted == null) m.reactMounted = partial.reactMounted;
+  if (partial.shellReady != null && m.shellReady == null) m.shellReady = partial.shellReady;
   if (partial.homeVisible != null && m.homeVisible == null) m.homeVisible = partial.homeVisible;
   if (partial.apiDone != null && m.apiDone == null) m.apiDone = partial.apiDone;
   if (partial.thumbnailVisible != null && m.thumbnailVisible == null) {
@@ -140,13 +143,6 @@ export function mergeNativeBootMetrics(partial: Partial<DibayBootMetrics>): void
 }
 
 let splashDismissAttempted = false;
-let splashSafetyTimeoutId: number | null = null;
-
-function clearSplashSafetyTimeout(): void {
-  if (splashSafetyTimeoutId == null) return;
-  clearTimeout(splashSafetyTimeoutId);
-  splashSafetyTimeoutId = null;
-}
 
 function logSplashDismiss(reason: string, ok: boolean, detail?: string): void {
   const msg = `[dibay-boot] dismissSplash reason=${reason} ok=${ok}${detail ? ` detail=${detail}` : ""}`;
@@ -155,11 +151,10 @@ function logSplashDismiss(reason: string, ok: boolean, detail?: string): void {
   }
 }
 
-/** Splash hide — main shell homeVisible 또는 auth/safety fallback 경로에서만 호출. */
+/** Splash hide — shellReady 또는 auth shell fallback 에서만 호출. */
 export function tryDismissNativeSplash(reason: string): void {
   if (splashDismissAttempted) return;
   splashDismissAttempted = true;
-  clearSplashSafetyTimeout();
   setMetric("splashDismissReason", reason);
 
   if (typeof window === "undefined") return;
@@ -214,16 +209,6 @@ function tryAuthShellSplashFallback(): void {
   tryDismissNativeSplash("auth_shell_fallback");
 }
 
-function scheduleSplashSafetyTimeout(): void {
-  if (typeof window === "undefined") return;
-  if (splashSafetyTimeoutId != null) return;
-  splashSafetyTimeoutId = window.setTimeout(() => {
-    splashSafetyTimeoutId = null;
-    if (splashDismissAttempted || homeVisibleMarked) return;
-    tryDismissNativeSplash("splash_safety_timeout");
-  }, SPLASH_SAFETY_TIMEOUT_MS);
-}
-
 export function markBootMetricsFirstPaint(): void {
   setMetric("firstPaint", nowMs());
   tryAuthShellSplashFallback();
@@ -245,17 +230,26 @@ async function recordPaintTimingFromObserver(): Promise<void> {
 
 export function markBootMetricsReactMounted(): void {
   setMetric("reactMounted", nowMs());
-  scheduleSplashSafetyTimeout();
 }
 
-let homeVisibleMarked = false;
+let shellReadyMarked = false;
 
-/** Main shell paint — splash hide 트리거 (Boot P0 homeVisible gate). */
+/**
+ * Main App Shell mounted — splash hide (Cold Boot Shell-First).
+ * Feed/RSC/api 완료를 기다리지 않는다.
+ */
+export function markBootMetricsShellReady(): void {
+  if (shellReadyMarked) return;
+  shellReadyMarked = true;
+  const t = nowMs();
+  setMetric("shellReady", t);
+  setMetric("homeVisible", t);
+  tryDismissNativeSplash("shellReady");
+}
+
+/** @deprecated use markBootMetricsShellReady — kept for import stability */
 export function markBootMetricsHomeVisible(): void {
-  if (homeVisibleMarked) return;
-  homeVisibleMarked = true;
-  setMetric("homeVisible", nowMs());
-  tryDismissNativeSplash("homeVisible");
+  markBootMetricsShellReady();
 }
 
 export function markBootMetricsApiDone(): void {

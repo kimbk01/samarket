@@ -205,7 +205,12 @@
     "sql:copy:meeting-chat-rooms-rls": "node scripts/copy-sql-clipboard.mjs supabase/migrations/20260331160000_meeting_chat_private_rls.sql",
     "sql:copy:r2-d1-delivery-catchup": "node scripts/copy-sql-clipboard.mjs supabase/scripts/r2-d1-store-order-deliveries-schema-catchup.sql",
     "apply:r2-d1-delivery-schema": "node scripts/apply-r2-d1-delivery-schema-catchup.mjs",
-    "prepare": "node scripts/install-git-hooks.mjs"
+    "prepare": "node scripts/install-git-hooks.mjs",
+    "verify:cold-boot-shell-cache-first": "node scripts/verify-cold-boot-shell-cache-first.cjs",
+    "verify:bottom-tab-cache-first": "node scripts/verify-bottom-tab-cache-first.cjs",
+    "verify:no-tab-provider-remount": "node scripts/verify-no-tab-provider-remount.cjs",
+    "verify:no-duplicate-surface-subscriptions": "node scripts/verify-no-duplicate-surface-subscriptions.cjs",
+    "verify:no-tab-skeleton-blocking": "node scripts/verify-no-tab-skeleton-blocking.cjs"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.0",

@@ -7,9 +7,9 @@ import {
 } from "@/lib/navigation/main-shell-push-session";
 
 describe("isCrossMainShellRouteGroup", () => {
-  it("stores 허브 ↔ main 그룹", () => {
-    expect(isCrossMainShellRouteGroup("/stores", "/philife")).toBe(true);
-    expect(isCrossMainShellRouteGroup("/market", "/stores")).toBe(true);
+  it("always false — all bottom tabs share (main) shell (no Provider remount)", () => {
+    expect(isCrossMainShellRouteGroup("/stores", "/philife")).toBe(false);
+    expect(isCrossMainShellRouteGroup("/market", "/stores")).toBe(false);
     expect(isCrossMainShellRouteGroup("/philife", "/market")).toBe(false);
   });
 });

@@ -43,7 +43,7 @@ import { AdPostCard } from "@/components/ads/AdPostCard";
 import type { AdFeedPost } from "@/lib/ads/types";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { normalizeFeedSort } from "@/lib/community-feed/constants";
-import { readPhilifeFeedCache, writePhilifeFeedCache, clearPhilifeFeedCacheEntry } from "@/lib/community/philife-feed-session-cache";
+import { readPhilifeFeedCache, writePhilifeFeedCache, clearPhilifeFeedCacheEntry, resolvePhilifeColdBootViewerSig, philifeFeedViewerSig } from "@/lib/community/philife-feed-session-cache";
 import { usePhilifeWriteSheet } from "@/contexts/PhilifeWriteSheetContext";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import type { PhilifeGlobalFeedInitialRsc } from "@/lib/philife/resolve-philife-global-feed-initial-rsc";
@@ -99,7 +99,7 @@ function philifePerfDiagEnabled(): boolean {
   return (
     process.env.NODE_ENV === "development" &&
     typeof window !== "undefined" &&
-    window.location.pathname === "/philife" &&
+    (window.location.pathname === "/philife" || window.location.pathname === "/") &&
     isSamarketPhilifeFeedPerfDiagEnabled()
   );
 }
@@ -272,6 +272,28 @@ function dedupeNeighborhoodFeedById(list: NeighborhoodFeedPostDTO[]): Neighborho
   return out;
 }
 
+function isSameNeighborhoodFeedRow(
+  a: NeighborhoodFeedPostDTO,
+  b: NeighborhoodFeedPostDTO
+): boolean {
+  const ax = a as NeighborhoodFeedPostDTO & {
+    updated_at?: string;
+    created_at?: string;
+    content?: string;
+  };
+  const bx = b as NeighborhoodFeedPostDTO & {
+    updated_at?: string;
+    created_at?: string;
+    content?: string;
+  };
+  return (
+    ax.id === bx.id &&
+    (ax.updated_at ?? "") === (bx.updated_at ?? "") &&
+    (ax.created_at ?? "") === (bx.created_at ?? "") &&
+    (ax.content ?? "") === (bx.content ?? "")
+  );
+}
+
 function isSameNeighborhoodFeedRows(
   prev: NeighborhoodFeedPostDTO[],
   next: NeighborhoodFeedPostDTO[]
@@ -279,23 +301,39 @@ function isSameNeighborhoodFeedRows(
   if (prev === next) return true;
   if (prev.length !== next.length) return false;
   for (let i = 0; i < prev.length; i += 1) {
-    const a = prev[i] as NeighborhoodFeedPostDTO & {
-      updated_at?: string;
-      created_at?: string;
-      content?: string;
-    };
-    const b = next[i] as NeighborhoodFeedPostDTO & {
-      updated_at?: string;
-      created_at?: string;
-      content?: string;
-    };
+    const a = prev[i];
+    const b = next[i];
     if (!a || !b) return false;
-    if (a.id !== b.id) return false;
-    if ((a.updated_at ?? "") !== (b.updated_at ?? "")) return false;
-    if ((a.created_at ?? "") !== (b.created_at ?? "")) return false;
-    if ((a.content ?? "") !== (b.content ?? "")) return false;
+    if (!isSameNeighborhoodFeedRow(a, b)) return false;
   }
   return true;
+}
+
+/**
+ * Network/cache 적용 — 동일 row 객체 참조 재사용, 변경분만 새 참조.
+ * 전체 동일하면 prev 배열 반환 (setState skip).
+ */
+function patchNeighborhoodFeedRows(
+  prev: NeighborhoodFeedPostDTO[],
+  incoming: NeighborhoodFeedPostDTO[]
+): NeighborhoodFeedPostDTO[] {
+  const deduped = mergeNeighborhoodFeedById([], incoming, false);
+  if (isSameNeighborhoodFeedRows(prev, deduped)) return prev;
+  const prevById = new Map(prev.map((p) => [p.id, p]));
+  let reused = 0;
+  const out = deduped.map((row) => {
+    const old = prevById.get(row.id);
+    if (old && isSameNeighborhoodFeedRow(old, row)) {
+      reused += 1;
+      return old;
+    }
+    return row;
+  });
+  if (reused === out.length && out.length === prev.length) {
+    const sameOrder = out.every((row, i) => row === prev[i]);
+    if (sameOrder) return prev;
+  }
+  return out;
 }
 
 export function CommunityFeed({
@@ -327,8 +365,9 @@ export function CommunityFeed({
     initialGlobalFeedRsc.seededCategory === categoryParamNorm &&
     initialGlobalFeedRsc.seededSort === sortForCurrentQuery;
   /**
-   * 세션 스토리지 스냅샷은 서버에서 읽을 수 없음 — 초기 state 에 넣으면 SSR HTML(스켈레톤)과
-   * 클라 첫 렌더(캐시된 목록)가 달라 하이드레이션 오류가 난다. 복원은 아래 `useLayoutEffect` 가 담당.
+   * Persistent cache 는 서버에서 읽을 수 없음 — 초기 state 에 넣으면 SSR/클라 하이드레이션 불일치.
+   * Cold Boot Cache-First: `useLayoutEffect` 에서 snapshot 복원 후 paint (splash 는 shellReady 에서 이미 해제).
+   * DO NOT: Suspense skeleton · pending blank 로 첫 paint 차단.
    */
   const bootPosts = canBootFromInitialGlobalFeed
     ? mergeNeighborhoodFeedById([], initialGlobalFeedRsc?.posts ?? [], false)
@@ -342,6 +381,7 @@ export function CommunityFeed({
   const [neighborOnly, setNeighborOnly] = useState(false);
   const [posts, setPosts] = useState<NeighborhoodFeedPostDTO[]>(bootPosts);
   const [hasMore, setHasMore] = useState(bootHasMore);
+  /** cache/RSC 없으면 true — UI는 skeleton/blank 없이 셸만 유지, network 는 background */
   const [loading, setLoading] = useState(!bootPosts.length);
   const [loadingMore, setLoadingMore] = useState(false);
   const postsRef = useRef<NeighborhoodFeedPostDTO[]>(bootPosts);
@@ -709,7 +749,7 @@ export function CommunityFeed({
         let mergedForCache: NeighborhoodFeedPostDTO[] | null = null;
         if (!append) {
           mergedForCache = mergeNeighborhoodFeedById([], next, false);
-          setPosts((prev) => (isSameNeighborhoodFeedRows(prev, mergedForCache ?? []) ? prev : mergedForCache ?? []));
+          setPosts((prev) => patchNeighborhoodFeedRows(prev, mergedForCache ?? []));
         } else {
           setPosts((prev) => mergeNeighborhoodFeedById(prev, next, true));
         }
@@ -834,10 +874,14 @@ export function CommunityFeed({
       canUseRscSeedForCurrentQuery &&
       (viewerSig === initialGlobalFeedRsc.viewerKey || !neighborOnly);
 
+    /** Cold Boot: hook viewer 가 _anon 인 동안에도 last-viewer cache 사용 */
+    const cacheViewerSig =
+      viewerSig !== "_anon" ? viewerSig : resolvePhilifeColdBootViewerSig();
+
     if (canDisplayRscSeedForCurrentQuery) {
       const s = initialGlobalFeedRsc;
       const merged = mergeNeighborhoodFeedById([], s.posts, false);
-      setPosts(merged);
+      setPosts((prev) => patchNeighborhoodFeedRows(prev, merged));
       setHasMore(s.hasMore);
       const resolvedNext = typeof s.nextOffset === "number" ? s.nextOffset : 0;
       nextOffsetRef.current = resolvedNext;
@@ -847,7 +891,7 @@ export function CommunityFeed({
           PHILIFE_GLOBAL_FEED_SESSION_KEY,
           category,
           neighborOnly,
-          viewerSig,
+          cacheViewerSig !== "_anon" ? cacheViewerSig : philifeFeedViewerSig(),
           {
             posts: merged,
             hasMore: s.hasMore,
@@ -857,6 +901,8 @@ export function CommunityFeed({
         );
       }
       setLoading(false);
+      /** Cache/RSC first paint 후 background patch — first paint 차단 금지 */
+      void fetchPage(0, false, session, false);
       return () => {
         feedAbortRef.current?.abort();
       };
@@ -866,20 +912,22 @@ export function CommunityFeed({
       PHILIFE_GLOBAL_FEED_SESSION_KEY,
       category,
       neighborOnly,
-      viewerSig,
+      cacheViewerSig,
       recSortKey
     );
     if (snap?.posts?.length) {
-      setPosts(dedupeNeighborhoodFeedById(snap.posts));
+      setPosts((prev) => patchNeighborhoodFeedRows(prev, snap.posts));
       setHasMore(snap.hasMore);
       nextOffsetRef.current = snap.nextOffset;
       setErr("");
+      setLoading(false);
     } else {
       setErr("");
     }
 
     const hasRenderableRows =
       canDisplayRscSeedForCurrentQuery || !!snap?.posts?.length || postsRef.current.length > 0;
+    /** hasRenderableRows 면 loading UI 없이 background sync only */
     void fetchPage(0, false, session, !hasRenderableRows);
     return () => {
       feedAbortRef.current?.abort();
@@ -1523,9 +1571,7 @@ export function CommunityFeed({
             </div>
           </div>
         ) : null}
-        {loading && postsForList.length === 0 && !err ? (
-          <CommunityFeedPendingBlank />
-        ) : !err && postsForList.length === 0 ? (
+        {loading && postsForList.length === 0 && !err ? null : !err && postsForList.length === 0 ? (
           <div className={`${APP_MAIN_GUTTER_X_CLASS} py-12 text-center text-[14px] text-sam-muted`}>
             {t("community_feed_empty")}
             <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
@@ -1571,15 +1617,5 @@ export function CommunityFeed({
         </div>
       </div>
     </div>
-  );
-}
-
-function CommunityFeedPendingBlank() {
-  return (
-    <div
-      className="min-h-[min(42vh,360px)] bg-sam-app"
-      aria-busy="true"
-      data-community-feed-pending-blank="true"
-    />
   );
 }

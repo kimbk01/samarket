@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { Suspense, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { BootThumbnailObserver } from "@/components/app/BootThumbnailObserver";
-import { markBootMetricsHomeVisible } from "@/lib/app-boot/dibay-boot-metrics";
+import { markBootMetricsShellReady } from "@/lib/app-boot/dibay-boot-metrics";
 import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 import { resolveConditionalAppShellFlags } from "@/lib/layout/conditional-app-shell-flags";
 import { usePhilifeHeaderMessengerStack } from "@/contexts/PhilifeHeaderMessengerStackContext";
@@ -105,7 +105,8 @@ export function ConditionalAppShell({
   const routeSearch = searchParams.toString();
   useLayoutEffect(() => {
     logDevSafeModeProbeOnce("client");
-    markBootMetricsHomeVisible();
+    /** Cold Boot Shell-First — splash dismiss here; feed/RSC 대기 금지 */
+    markBootMetricsShellReady();
   }, []);
   useLayoutEffect(() => {
     invalidateMainAppScrollRootCache();
@@ -146,11 +147,12 @@ export function ConditionalAppShell({
   const tradeWriteSheet = useTradeWriteSheetOptional();
   const pathNoQuery = pathname?.split("?")[0] ?? "";
   const isMessengerStackSurface = isMessengerFromHeaderStackSurface(pathNoQuery);
-  const isPhilifeFeedPath = pathNoQuery === "/philife";
+  const isPhilifeFeedPath = pathNoQuery === "/philife" || pathNoQuery === "/";
   const isTradeWriteSheetSurface =
     Boolean(tradeWriteSheet?.isOpen) &&
     (pathNoQuery === "/market" ||
       pathNoQuery === "/philife" ||
+      pathNoQuery === "/" ||
       (pathNoQuery.startsWith("/market/") &&
         pathNoQuery !== "/market/trade-meet-spot" &&
         !pathNoQuery.startsWith("/market/trade-meet-spot/")));

@@ -183,7 +183,7 @@ describe("commitMainBottomNavRoute", () => {
     expect(push).toHaveBeenCalledWith("/stores");
   });
 
-  it("cross-group — session enter arm + crossGroup intent, exit·dual-panel 생략", () => {
+  it("하단 탭은 모두 (main) 셸 — cross-group enter session·intent 없음(Provider remount 제거)", () => {
     vi.mocked(armMainShellPushEnterSession).mockClear();
     const beginMenuNavigation = vi.fn();
 
@@ -200,16 +200,13 @@ describe("commitMainBottomNavRoute", () => {
       skipPerfMark: true,
     });
 
-    expect(armMainShellPushEnterSession).toHaveBeenCalledWith(
-      "rtl",
-      "/stores",
-      "/community-messenger"
-    );
+    expect(armMainShellPushEnterSession).not.toHaveBeenCalled();
     expect(beginMenuNavigation).toHaveBeenCalledWith(
       "/community-messenger?section=chats",
       "bottom-nav",
-      expect.objectContaining({ mainShellCrossGroupPush: true, mainShellPushAxis: "rtl" })
+      expect.objectContaining({ mainShellPushAxis: "rtl" })
     );
+    expect(beginMenuNavigation.mock.calls[0][2]).not.toHaveProperty("mainShellCrossGroupPush");
   });
 
   it("/stores → community-messenger — ambient store detail prewarm abort", () => {

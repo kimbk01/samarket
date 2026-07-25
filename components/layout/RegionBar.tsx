@@ -81,7 +81,7 @@ export function RegionBar({
     (isTradeFloatingMenuSurface(pathNoQuery) &&
       ruleSet.showRegionPicker &&
       !ruleSet.showTradeHubLeading) ||
-    pathNoQuery === "/philife";
+    pathNoQuery === "/philife" || pathNoQuery === "/";
 
   if (isUnifiedExplorationTier1) {
     return <RegionBarExplorationTier1Lazy pathNoQuery={pathNoQuery} />;
