@@ -91,6 +91,11 @@ export type MessengerHubBadgeResyncOptions = {
   messageId?: string;
   /** participant_unread_changed — 읽음 ack(감소) vs 새 메시지(증가) */
   participantUnreadDirection?: "decrease" | "increase";
+  /**
+   * P3-a — Read ACK already applied Domain snapshot to Projection.
+   * Skip `badge-count?fresh=1`; Hub shell refresh still follows projection-only rules.
+   */
+  skipBadgeCount?: boolean;
 };
 
 function isMarkReadHubResyncReason(reason: MessengerHubBadgeResyncReason): boolean {
@@ -146,6 +151,10 @@ export function requestMessengerHubBadgeResync(
       participantUnreadDirection: opts?.participantUnreadDirection,
       dedupeMs: 0,
     });
+  }
+
+  if (opts?.skipBadgeCount === true) {
+    return;
   }
 
   requestNotificationBadgeCountResync(reason);

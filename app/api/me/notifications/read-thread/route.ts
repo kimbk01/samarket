@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { markNotificationThreadRead } from "@/lib/notifications/pipeline/notify-read-service";
-import { fetchDomainBadgeAuthorityPayload } from "@/lib/notifications/pipeline/notify-badge-service";
+import {
+  domainBadgeReadMutationAckFields,
+  issueDomainBadgeAuthorityForAck,
+} from "@/lib/notifications/pipeline/domain-badge-read-ack";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -81,26 +84,18 @@ export async function POST(req: NextRequest) {
     threadType,
     readReason,
   });
-  const domain = await fetchDomainBadgeAuthorityPayload(sb, userId, { force: true });
+  /** P3-a: Generation Owner — one Domain rebuild on ACK. */
+  const domain = await issueDomainBadgeAuthorityForAck(sb, userId);
   return NextResponse.json({
     ok: true,
     cleared,
     updatedNotificationEventCount: cleared,
     updatedParticipantUnreadCount: null,
-    nextBadgeTotal: domain.projection.bellTotal,
-    categoryCounts: domain.categoryCounts,
-    authority: "domain_badge",
-    domainUnreadRooms: domain.domainUnreadRooms,
-    domainAppIcon: domain.domainAppIcon,
-    nonChatEventAttention: domain.nonChatEventAttention,
-    storeOrderBuyerDeliveryUnread: domain.storeOrderBuyerDeliveryUnread,
-    storeOrderOwnerChatUnread: domain.storeOrderOwnerChatUnread,
-    projectionVersionMs: domain.projectionVersionMs,
     threadUnreadAfter: null,
-    nativeBadgeTotal: domain.projection.appIconTotal,
     affectedThreadId: threadId,
     threadType,
     readReason,
     categories,
+    ...domainBadgeReadMutationAckFields(domain),
   });
 }

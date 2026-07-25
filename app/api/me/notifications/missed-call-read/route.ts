@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { markMissedCallsRead } from "@/lib/notifications/pipeline/notify-read-service";
+import {
+  domainBadgeReadMutationAckFields,
+  issueDomainBadgeAuthorityForAck,
+} from "@/lib/notifications/pipeline/domain-badge-read-ack";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,7 +30,12 @@ export async function POST(req: NextRequest) {
   const scope = String(body.scope ?? "").trim();
   if (scope === "call_logs") {
     const cleared = await markMissedCallsRead(sb, userId, { scope: "call_logs" });
-    return NextResponse.json({ ok: true, cleared });
+    const domain = await issueDomainBadgeAuthorityForAck(sb, userId);
+    return NextResponse.json({
+      ok: true,
+      cleared,
+      ...domainBadgeReadMutationAckFields(domain),
+    });
   }
 
   const roomId = String(body.roomId ?? "").trim();
@@ -39,5 +48,11 @@ export async function POST(req: NextRequest) {
     roomId: roomId || undefined,
     callSessionId: callSessionId || undefined,
   });
-  return NextResponse.json({ ok: true, cleared });
+  /** P3-a: Generation Owner — one Domain rebuild on ACK. */
+  const domain = await issueDomainBadgeAuthorityForAck(sb, userId);
+  return NextResponse.json({
+    ok: true,
+    cleared,
+    ...domainBadgeReadMutationAckFields(domain),
+  });
 }

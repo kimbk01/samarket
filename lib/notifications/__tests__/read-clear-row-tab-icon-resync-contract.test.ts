@@ -3,12 +3,13 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 describe("read-clear row/tab/icon resync contract", () => {
-  it("afterNotificationEventsRead always calls resyncBadgesAfterNotificationEventsRead", () => {
+  it("afterNotificationEventsRead always reconciles (ACK apply or resync fallback)", () => {
     const src = fs.readFileSync(
       path.join(process.cwd(), "lib/notifications/client/notification-event-read-client.ts"),
       "utf8"
     );
     expect(src).toContain("function afterNotificationEventsRead");
+    expect(src).toContain("applyDomainBadgeAuthorityFromReadAck");
     expect(src).toContain("resyncBadgesAfterNotificationEventsRead(reason)");
     // Early return after categoryCounts patch alone is forbidden (Chat room-count would stick).
     expect(src).not.toMatch(/if \(patched\) \{\s*requestMessengerHubBadgeResync/);

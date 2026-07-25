@@ -1,7 +1,11 @@
 import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
 import type { MessengerHubBadgeResyncReason } from "@/lib/community-messenger/notifications/messenger-notification-contract";
 import { commitNotificationEventReadFact } from "@/lib/notifications/projection-authority";
-import { requestNotificationBadgeCountResync } from "@/lib/notifications/notification-badge-count-store";
+import {
+  applyNotificationBadgeCountAuthorityAck,
+  requestNotificationBadgeCountResync,
+} from "@/lib/notifications/notification-badge-count-store";
+import type { BadgeCountAuthorityJson } from "@/lib/notifications/apply-badge-count-authority-response";
 
 /**
  * notification_events 읽음 mutation 이후 UI 배지 단일 진입점 (Reconcile).
@@ -15,9 +19,24 @@ import { requestNotificationBadgeCountResync } from "@/lib/notifications/notific
  * P1-a LOCK:
  * - `requestMessengerHubBadgeResync` 가 이미 badge-count resync 를 포함하므로
  *   여기서 `requestNotificationBadgeCountResync` 를 한 번 더 호출하지 않는다.
+ *
+ * P3-a LOCK:
+ * - Read ACK 가 Generation Owner. ACK 에 Domain snapshot 이 있으면 Projection 에 1회 적용하고
+ *   `badge-count?fresh=1` 을 호출하지 않는다.
  */
 export function resyncBadgesAfterNotificationEventsRead(reason: MessengerHubBadgeResyncReason): void {
   requestMessengerHubBadgeResync(reason);
+}
+
+/**
+ * Apply Domain snapshot from read-mutation ACK. Returns true when fresh GET must be skipped.
+ */
+export function applyDomainBadgeAuthorityFromReadAck(
+  body: BadgeCountAuthorityJson | Record<string, unknown> | null | undefined,
+  reason?: MessengerHubBadgeResyncReason
+): boolean {
+  if (!body || typeof body !== "object") return false;
+  return applyNotificationBadgeCountAuthorityAck(body, reason);
 }
 
 /** Monotonic sequence so same-ms event identities never collide. */

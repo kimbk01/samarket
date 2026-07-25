@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { markNotificationCategoryRead } from "@/lib/notifications/pipeline/notify-read-service";
+import {
+  domainBadgeReadMutationAckFields,
+  issueDomainBadgeAuthorityForAck,
+} from "@/lib/notifications/pipeline/domain-badge-read-ack";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,5 +33,11 @@ export async function POST(req: NextRequest) {
   }
 
   const cleared = await markNotificationCategoryRead(sb, userId, category);
-  return NextResponse.json({ ok: true, cleared });
+  /** P3-a: Generation Owner — one Domain rebuild on ACK. */
+  const domain = await issueDomainBadgeAuthorityForAck(sb, userId);
+  return NextResponse.json({
+    ok: true,
+    cleared,
+    ...domainBadgeReadMutationAckFields(domain),
+  });
 }

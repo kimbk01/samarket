@@ -224,6 +224,7 @@ async function runDoFetch(force = false): Promise<void> {
       logNotifyBadge("ui_set", { projection_incomplete: 1, kept_last_projection: snap ? 1 : 0 });
       return;
     }
+    lastProjectionVersionMs = versionMs;
     logNotifyBadge("ui_set", { authority: "domain_badge", total: snap?.total ?? 0 });
     if (!pollInterval && subscriberCount > 0) {
       pollInterval = setInterval(() => {
@@ -238,6 +239,59 @@ async function runDoFetch(force = false): Promise<void> {
 export function requestNotificationBadgeCountResync(reason?: string): void {
   void doFetch(true);
   if (reason) logNotifyBadge("ui_set", { resync: reason });
+}
+
+/**
+ * P3-a LOCK — apply Domain snapshot from a read-mutation ACK.
+ * Same `projectionVersionMs` → no Projection recommit (Authority same-facts skip) and no fresh GET.
+ * Returns true when the client must NOT call `badge-count?fresh=1`.
+ */
+export function applyNotificationBadgeCountAuthorityAck(
+  body: BadgeCountAuthorityJson | Record<string, unknown>,
+  reason?: string
+): boolean {
+  if (typeof window === "undefined") return false;
+  const j = body as BadgeCountAuthorityJson & { badgeGeneration?: unknown; ok?: boolean };
+  if (j.authority !== "domain_badge") return false;
+  const versionMs = Math.max(
+    0,
+    Math.floor(
+      Number(j.projectionVersionMs ?? j.badgeGeneration) || 0
+    )
+  );
+  if (versionMs <= 0) return false;
+  if (versionMs < lastProjectionVersionMs) {
+    logNotifyBadge("ui_set", {
+      ack_stale_skipped: 1,
+      versionMs,
+      last: lastProjectionVersionMs,
+      reason: reason ?? null,
+    });
+    return true;
+  }
+  if (versionMs === lastProjectionVersionMs && snap != null) {
+    logNotifyBadge("ui_set", {
+      ack_same_generation_noop: 1,
+      versionMs,
+      reason: reason ?? null,
+    });
+    return true;
+  }
+  const applied = applyAuthorityJsonAsProjection(j, {
+    applyBell: true,
+    projectionVersionMs: versionMs,
+  });
+  if (!applied) return false;
+  lastProjectionVersionMs = versionMs;
+  unauthorizedPaused = false;
+  logNotifyBadge("ui_set", {
+    authority: "domain_badge",
+    ack_apply: 1,
+    total: snap?.total ?? 0,
+    versionMs,
+    reason: reason ?? null,
+  });
+  return true;
 }
 
 /** Local Builder apply / optimistic — must pass same projection contract. */

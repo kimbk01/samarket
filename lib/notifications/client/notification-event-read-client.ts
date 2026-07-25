@@ -1,16 +1,27 @@
 import { logNotifyOpen } from "@/lib/notifications/core/notification-logs";
-import type { MessengerHubBadgeResyncReason } from "@/lib/community-messenger/notifications/messenger-notification-contract";
+import {
+  requestMessengerHubBadgeResync,
+  type MessengerHubBadgeResyncReason,
+} from "@/lib/community-messenger/notifications/messenger-notification-contract";
 import {
   applyCallLogsOrphanMissedReadFact,
+  applyDomainBadgeAuthorityFromReadAck,
   resyncBadgesAfterNotificationEventsRead,
 } from "@/lib/notifications/client/notification-events-read-resync";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import type { BadgeCountAuthorityJson } from "@/lib/notifications/apply-badge-count-authority-response";
 
 type ReadMutationResult = {
   ok: boolean;
   cleared?: number;
   categoryCounts?: unknown;
-};
+  authority?: string;
+  projectionVersionMs?: number;
+  badgeGeneration?: number;
+  domainUnreadRooms?: unknown;
+  domainAppIcon?: unknown;
+} & Partial<BadgeCountAuthorityJson>;
+
 type ReadThreadClientOptions = {
   threadType?: "chat_room" | "trade_room" | "order" | "community_post" | "call";
   roomId?: string;
@@ -37,16 +48,12 @@ async function postJson(url: string, body: Record<string, unknown>): Promise<Rea
       body: JSON.stringify(body),
     });
     if (!res.ok) return { ok: false };
-    const j = (await res.json()) as {
-      ok?: boolean;
-      cleared?: number;
-      categoryCounts?: unknown;
-    };
+    const j = (await res.json()) as ReadMutationResult;
     const cleared = Math.max(0, Math.floor(Number(j.cleared) || 0));
     return {
+      ...j,
       ok: j?.ok === true,
       cleared: cleared > 0 ? cleared : undefined,
-      categoryCounts: j.categoryCounts,
     };
   } catch {
     return { ok: false };
@@ -54,22 +61,26 @@ async function postJson(url: string, body: Record<string, unknown>): Promise<Rea
 }
 
 /**
- * Reconcile Read/Clear: hub room count + Domain badge-count authority resync.
+ * Reconcile Read/Clear: prefer ACK Domain snapshot (P3-a Generation Owner).
+ * Fallback: hub room count + Domain badge-count authority resync.
  * DO NOT apply events categoryCounts as Header Bell (events SUM ≠ Domain projection).
  *
  * P0-3 LOCK: `cleared` 숫자만으로 missed-call optimistic 을 추론하지 않는다.
  * orphan missed 감소는 missed-call 전용 API(`call_logs`)에서만 event fact 로 처리한다.
+ *
+ * P3-a LOCK: ACK snapshot apply 성공 시 `badge-count?fresh=1` 0.
  */
 function afterNotificationEventsRead(
   reason: MessengerHubBadgeResyncReason,
-  result?: Pick<ReadMutationResult, "cleared" | "categoryCounts"> & {
-    authority?: string;
-    domainUnreadRooms?: unknown;
-  }
+  result?: ReadMutationResult
 ): void {
   void result?.categoryCounts;
   void result?.cleared;
-  // Always: Chat tab room-count hub + Domain Bell/App Icon authority resync.
+  if (result && applyDomainBadgeAuthorityFromReadAck(result, reason)) {
+    // P3-a: ACK owns Projection — skip badge-count fresh GET; Hub shell may still refresh.
+    requestMessengerHubBadgeResync(reason, { skipBadgeCount: true });
+    return;
+  }
   resyncBadgesAfterNotificationEventsRead(reason);
 }
 

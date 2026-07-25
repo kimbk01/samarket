@@ -165,6 +165,12 @@ export async function publishCommunityMessengerRoomBumpFromServer(args: {
   chatDomain?: string | null;
   domainIdentity?: string | null;
   eventId?: string | null;
+  /**
+   * P3-a limited C — carry identity/generation on the wire for a future coordinator.
+   * DO NOT change RT subscribe flow or consume these fields in this PR.
+   */
+  eventIdentity?: string | null;
+  badgeGeneration?: number | null;
 }): Promise<void> {
   const channelKey = args.channelRoomId.trim();
   const canonicalRoomId = args.canonicalRoomId.trim();
@@ -177,12 +183,13 @@ export async function publishCommunityMessengerRoomBumpFromServer(args: {
   const messageId = typeof args.messageId === "string" ? args.messageId.trim() : "";
   const messageCreatedAt = typeof args.messageCreatedAt === "string" ? args.messageCreatedAt.trim() : "";
   const rawTagged = typeof args.rawRouteRoomId === "string" ? args.rawRouteRoomId.trim() : "";
+  const atIso = new Date().toISOString();
   const payload: Record<string, unknown> = {
     v: 2,
     roomId: canonicalRoomId,
     canonicalRoomId,
     fromUserId,
-    at: new Date().toISOString(),
+    at: atIso,
   };
   if (rawTagged && rawTagged.toLowerCase() !== canonicalRoomId.toLowerCase()) {
     payload.rawRouteRoomId = rawTagged;
@@ -197,15 +204,27 @@ export async function publishCommunityMessengerRoomBumpFromServer(args: {
   }
   const chatDomain = typeof args.chatDomain === "string" ? args.chatDomain.trim() : "";
   const domainIdentity = typeof args.domainIdentity === "string" ? args.domainIdentity.trim() : "";
+  const explicitEventId = typeof args.eventId === "string" ? args.eventId.trim() : "";
   if (chatDomain && domainIdentity) {
     payload.chatDomain = chatDomain;
     payload.domainIdentity = domainIdentity;
-    const eventId =
-      (typeof args.eventId === "string" && args.eventId.trim()) ||
-      messageId ||
-      (typeof payload.at === "string" ? payload.at : "");
+    const eventId = explicitEventId || messageId || atIso;
     if (eventId) payload.eventId = eventId;
   }
+
+  // P3-a limited C: always attach identity + generation for future dedupe (unused this PR).
+  const eventIdentity =
+    (typeof args.eventIdentity === "string" && args.eventIdentity.trim()) ||
+    explicitEventId ||
+    messageId ||
+    `${canonicalRoomId}:${atIso}`;
+  payload.eventIdentity = eventIdentity;
+  const badgeGeneration =
+    typeof args.badgeGeneration === "number" && Number.isFinite(args.badgeGeneration)
+      ? Math.max(0, Math.floor(args.badgeGeneration))
+      : Date.now();
+  payload.badgeGeneration = badgeGeneration;
+  payload.projectionVersionMs = badgeGeneration;
 
   try {
     await ch.send({

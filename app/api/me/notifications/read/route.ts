@@ -6,6 +6,10 @@ import {
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { markNotificationRead } from "@/lib/notifications/pipeline/notify-read-service";
+import {
+  domainBadgeReadMutationAckFields,
+  issueDomainBadgeAuthorityForAck,
+} from "@/lib/notifications/pipeline/domain-badge-read-ack";
 import { logNotifyOpen } from "@/lib/notifications/core/notification-logs";
 
 export const runtime = "nodejs";
@@ -34,16 +38,22 @@ export async function POST(req: NextRequest) {
   }
 
   const ok = await markNotificationRead(sb, userId, eventId, { openedAt: body.opened === true });
-  if (ok) {
-    if (body.dismissed === true) {
-      await markCampaignDeliveryDismissed(sb, eventId);
-    } else if (body.opened === true) {
-      await markCampaignDeliveryOpened(sb, eventId);
-    }
-    logNotifyOpen(body.dismissed === true ? "dismissed" : "read_marked", {
-      userId,
-      notificationEventId: eventId,
-    });
+  if (!ok) {
+    return NextResponse.json({ ok: false });
   }
-  return NextResponse.json({ ok });
+  if (body.dismissed === true) {
+    await markCampaignDeliveryDismissed(sb, eventId);
+  } else if (body.opened === true) {
+    await markCampaignDeliveryOpened(sb, eventId);
+  }
+  logNotifyOpen(body.dismissed === true ? "dismissed" : "read_marked", {
+    userId,
+    notificationEventId: eventId,
+  });
+  /** P3-a: Generation Owner — one Domain rebuild on ACK. */
+  const domain = await issueDomainBadgeAuthorityForAck(sb, userId);
+  return NextResponse.json({
+    ok: true,
+    ...domainBadgeReadMutationAckFields(domain),
+  });
 }
