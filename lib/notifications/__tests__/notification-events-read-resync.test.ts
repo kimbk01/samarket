@@ -33,8 +33,8 @@ describe("notification-events-read-resync (P0-3 event fact)", () => {
     resyncBadgesAfterNotificationEventsRead("call_logs_viewed");
     expect(requestMessengerHubBadgeResync).toHaveBeenCalledTimes(1);
     expect(requestMessengerHubBadgeResync).toHaveBeenCalledWith("call_logs_viewed");
-    expect(requestNotificationBadgeCountResync).toHaveBeenCalledTimes(1);
-    expect(requestNotificationBadgeCountResync).toHaveBeenCalledWith("call_logs_viewed");
+    // P1-a: duplicate badge-count removed — contract owns the single badge-count call.
+    expect(requestNotificationBadgeCountResync).not.toHaveBeenCalled();
   });
 
   it("tier1 mark-all commits admin_notice_absolute=0 event fact only (no surface rebuild)", () => {

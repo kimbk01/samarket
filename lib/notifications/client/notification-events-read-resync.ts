@@ -5,16 +5,19 @@ import { requestNotificationBadgeCountResync } from "@/lib/notifications/notific
 
 /**
  * notification_events 읽음 mutation 이후 UI 배지 단일 진입점 (Reconcile).
- * Hub room count + Domain badge-count authority resync.
+ * Domain badge-count authority resync (Hub projection 축은 Authority 경유).
  *
  * P0-3 LOCK:
  * - Surface(Hub/Bell/App Icon) 현재 값을 다시 읽어 Projection input 으로 재조립하지 않는다.
  * - Optimistic read 는 aggregate surface 숫자가 아니라 event fact 로만 Authority 에 입력한다.
  * - ACK 성공 후에만 fact commit; baseline(complete snapshot) 없으면 commit 하지 않고 resync 에 맡긴다.
+ *
+ * P1-a LOCK:
+ * - `requestMessengerHubBadgeResync` 가 이미 badge-count resync 를 포함하므로
+ *   여기서 `requestNotificationBadgeCountResync` 를 한 번 더 호출하지 않는다.
  */
 export function resyncBadgesAfterNotificationEventsRead(reason: MessengerHubBadgeResyncReason): void {
   requestMessengerHubBadgeResync(reason);
-  requestNotificationBadgeCountResync(reason);
 }
 
 /** Monotonic sequence so same-ms event identities never collide. */

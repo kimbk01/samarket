@@ -380,13 +380,20 @@ function noteNetworkFreshCommunityMessengerUnread(cm: number): void {
 /**
  * Funnel every hub surface write through Phase H applyHubBadgeProjection.
  * Sink (below) owns stale-CM guard + emit.
+ *
+ * P1-c LOCK:
+ * - Hub GET / broadcast / client_cache MUST NOT write Projection axes
+ *   (CM / Trade / storeOrderOwner / buyerOrder). Those come only from
+ *   Projection Authority via `applyDomainAuthorityHubBadgeOptimistic` (optimistic).
+ * - Hub Shell fields remain writable: philife, store-scoped FAB, order/inquiry/review
+ *   attention, storesTabAttention, storeDeepLink.
  */
 function applyOwnerHubBadgePayload(data: unknown, source: HubBadgeApplySource): void {
   const parsed = parseOwnerHubBadgeJson(data);
   const raw = data && typeof data === "object" ? (data as Record<string, unknown>) : null;
   /** Hub snapshot API omits global owner rooms — preserve Domain Authority value. */
   const hasExplicitOwnerRooms = raw != null && typeof raw.storeOrderOwnerUnreadRooms === "number";
-  const breakdown = hasExplicitOwnerRooms
+  let breakdown = hasExplicitOwnerRooms
     ? parsed
     : {
         ...parsed,
@@ -395,6 +402,31 @@ function applyOwnerHubBadgePayload(data: unknown, source: HubBadgeApplySource): 
           Math.floor(Number(snapshot.storeOrderOwnerUnreadRooms) || 0)
         ),
       };
+
+  if (source.kind !== "optimistic") {
+    const cm = Math.max(0, Math.floor(Number(snapshot.communityMessengerUnread) || 0));
+    const trade = Math.max(0, Math.floor(Number(snapshot.chatUnread) || 0));
+    const ownerRooms = Math.max(0, Math.floor(Number(snapshot.storeOrderOwnerUnreadRooms) || 0));
+    const buyer = Math.max(0, Math.floor(Number(snapshot.buyerOrderAttention) || 0));
+    const philife = Math.max(0, Math.floor(Number(breakdown.philifeChatUnread) || 0));
+    const storesTab = Math.max(0, Math.floor(Number(breakdown.storesTabAttention) || 0));
+    const social = cm + philife;
+    breakdown = {
+      ...breakdown,
+      communityMessengerUnread: cm,
+      chatUnread: trade,
+      storeOrderOwnerUnreadRooms: ownerRooms,
+      buyerOrderAttention: buyer,
+      socialChatUnread: social,
+      total: recalcHubBadgeTotal({
+        ...breakdown,
+        communityMessengerUnread: cm,
+        socialChatUnread: social,
+        storesTabAttention: storesTab,
+      }),
+    };
+  }
+
   applyHubBadgeProjection({
     breakdown,
     versionMs: Date.now(),
@@ -478,6 +510,8 @@ function applyFromNetwork(data: unknown) {
  * P0-2 LOCK: applyHubBadgeCmUnreadRoomCountAbsolute deleted.
  * Hub CM unread must come only from Projection Authority → applyDomainAuthorityHubBadgeOptimistic.
  * DO NOT revive absolute recount / ±1 Hub snapshot writers.
+ *
+ * P1-c LOCK: Hub GET / broadcast / cache must not write CM / Trade / owner / buyer axes.
  */
 
 

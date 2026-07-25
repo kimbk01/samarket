@@ -29,8 +29,10 @@
  * ---------------------------------------------------------------------------
  * 하단 탭 「메신저」뱃지 (`communityMessengerUnread`)
  * ---------------------------------------------------------------------------
- * - 소스 오브 트루스: `GET /api/me/notifications/badge-count` (`notification_events`).
- * - Realtime·읽음·알림 클릭 후 갱신: `requestMessengerHubBadgeResync` + `requestNotificationBadgeCountResync`.
+ * - 소스 오브 트루스: `GET /api/me/notifications/badge-count` → Projection Authority.
+ * - participant / mark_read: badge-count 만 (Hub GET 없음 — P1 Q3).
+ * - Hub shell(philife/FAB/attention): non-projection reason 만 Hub GET.
+ * - Realtime·읽음 후 갱신: `requestMessengerHubBadgeResync` (내부에서 badge-count 포함).
  *
  * ---------------------------------------------------------------------------
  * 읽음 (`mark_read`)
@@ -91,18 +93,26 @@ export type MessengerHubBadgeResyncOptions = {
   participantUnreadDirection?: "decrease" | "increase";
 };
 
-const MARK_READ_HUB_RESYNC_EVENT_DEDUPE_MS = 4_000;
-const PARTICIPANT_UNREAD_DECREASE_HUB_RESYNC_DEDUPE_MS = 4_000;
-/** browse `hub_sync_only` — participant increase CustomEvent 연속 → force fetch 루프 완화 */
-const PARTICIPANT_UNREAD_INCREASE_HUB_RESYNC_DEDUPE_MS = 2_500;
-
 function isMarkReadHubResyncReason(reason: MessengerHubBadgeResyncReason): boolean {
   return reason === "room_open_mark_read" || reason === "room_phase2_mark_read";
 }
 
 /**
- * 메신저 관련 변경 후 하단 탭 `communityMessengerUnread` 만 서버와 다시 맞춘다.
- * (이벤트 1종 — 기존 분산 `CustomEvent(KASAMA_OWNER_HUB_BADGE_REFRESH)` 호출을 이 함수로 통일)
+ * P1 Q3 — Projection axes (CM/Trade/Order/Bell/App Icon) need badge-count only.
+ * Hub GET would be wasted network after P1-c (Hub no longer writes those axes).
+ */
+function isProjectionOnlyHubResyncReason(reason: MessengerHubBadgeResyncReason): boolean {
+  return (
+    reason === "participant_unread_changed" ||
+    reason === "room_open_mark_read" ||
+    reason === "room_phase2_mark_read"
+  );
+}
+
+/**
+ * 메신저 관련 변경 후 배지를 서버와 다시 맞춘다.
+ * - projection-only reason: badge-count → Projection Authority 만 (Hub GET 0).
+ * - 그 외: Hub shell GET + badge-count.
  */
 export function requestMessengerHubBadgeResync(
   reason: MessengerHubBadgeResyncReason,
@@ -116,40 +126,27 @@ export function requestMessengerHubBadgeResync(
     at: Date.now(),
   };
   const roomId = opts?.roomId?.trim() || undefined;
-  const participantUnreadDirection = opts?.participantUnreadDirection;
   if (isMarkReadHubResyncReason(reason)) {
     logMarkReadRefreshChain({
       roomId: roomId ?? null,
       messageId: opts?.messageId?.trim() || null,
-      triggered_hub_refresh: true,
-      refresh_skipped: false,
+      triggered_hub_refresh: false,
+      refresh_skipped: true,
       same_snapshot: false,
       collapsed: false,
       reason,
     });
   }
-  let dedupeMs = 0;
-  if (isMarkReadHubResyncReason(reason)) {
-    dedupeMs = MARK_READ_HUB_RESYNC_EVENT_DEDUPE_MS;
-  } else if (
-    reason === "participant_unread_changed" &&
-    participantUnreadDirection === "decrease" &&
-    roomId
-  ) {
-    dedupeMs = PARTICIPANT_UNREAD_DECREASE_HUB_RESYNC_DEDUPE_MS;
-  } else if (
-    reason === "participant_unread_changed" &&
-    participantUnreadDirection === "increase" &&
-    roomId
-  ) {
-    dedupeMs = PARTICIPANT_UNREAD_INCREASE_HUB_RESYNC_DEDUPE_MS;
+
+  if (!isProjectionOnlyHubResyncReason(reason)) {
+    dispatchOwnerHubBadgeRefresh({
+      source: detail.source,
+      key: reason,
+      roomId,
+      participantUnreadDirection: opts?.participantUnreadDirection,
+      dedupeMs: 0,
+    });
   }
-  dispatchOwnerHubBadgeRefresh({
-    source: detail.source,
-    key: reason,
-    roomId,
-    participantUnreadDirection,
-    dedupeMs,
-  });
+
   requestNotificationBadgeCountResync(reason);
 }

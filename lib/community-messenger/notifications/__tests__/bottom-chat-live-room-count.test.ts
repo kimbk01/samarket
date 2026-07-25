@@ -6,10 +6,9 @@ import {
 } from "@/lib/chat-domain/list/domain-list-writers";
 import {
   __resetOwnerHubBadgeStoreForTest,
-  __testApplyOwnerHubBadgePayloadForTest,
+  applyDomainAuthorityHubBadgeOptimistic,
   getOwnerHubBadgeSnapshot,
 } from "@/lib/chats/owner-hub-badge-store";
-import { OWNER_HUB_BADGE_EMPTY } from "@/lib/chats/owner-hub-badge-types";
 import { clearBootstrapCache, primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import { roomSummaryCountsForBottomChat } from "@/lib/community-messenger/notifications/bottom-chat-live-room-count";
 import {
@@ -189,10 +188,12 @@ describe("messenger-room-unread-authority → Projection Authority", () => {
 
   it("excludes Domain-unknown from Authority but still stores local fact", () => {
     seedComplete(0, 0, 1_000);
-    __testApplyOwnerHubBadgePayloadForTest(
-      { ok: true, ...OWNER_HUB_BADGE_EMPTY, communityMessengerUnread: 5, total: 5 },
-      "network_fresh"
-    );
+    // P1-c: CM is Authority-only — seed via optimistic, not Hub network_fresh.
+    applyDomainAuthorityHubBadgeOptimistic({
+      communityMessengerUnread: 5,
+      tradeUnread: 0,
+      storeOrderOwnerUnreadRooms: 0,
+    });
     const out = applyMessengerRoomUnreadFactAndSyncBottom({
       roomId: "unknown-room",
       viewerUserId: "u1",

@@ -14,12 +14,17 @@ describe("read-clear row/tab/icon resync contract", () => {
     expect(src).not.toMatch(/if \(patched\) \{\s*requestMessengerHubBadgeResync/);
   });
 
-  it("resyncBadgesAfterNotificationEventsRead routes through hub (room) + badge-count", () => {
+  it("resyncBadgesAfterNotificationEventsRead routes through contract only (P1-a: no duplicate badge-count)", () => {
     const resyncSrc = fs.readFileSync(
       path.join(process.cwd(), "lib/notifications/client/notification-events-read-resync.ts"),
       "utf8"
     );
     expect(resyncSrc).toContain("requestMessengerHubBadgeResync");
+    expect(resyncSrc).toContain("P1-a LOCK");
+    // Duplicate badge-count after hub resync is forbidden (contract already includes one).
+    expect(resyncSrc).not.toMatch(
+      /requestMessengerHubBadgeResync\([^)]*\);\s*\n\s*requestNotificationBadgeCountResync/
+    );
     const contractSrc = fs.readFileSync(
       path.join(
         process.cwd(),
@@ -28,6 +33,7 @@ describe("read-clear row/tab/icon resync contract", () => {
       "utf8"
     );
     expect(contractSrc).toContain("requestNotificationBadgeCountResync");
+    expect(contractSrc).toContain("isProjectionOnlyHubResyncReason");
   });
 
   it("CommunityDetail posts community_post_opened on mount", () => {
