@@ -7,17 +7,19 @@ import {
   snapshotHomeListRoomUnreadById,
   resetHomeCatchupDirtyCoalesceForTests,
   HOME_REALTIME_CATCHUP_DIRTY_REASON,
+  HOME_VISIBILITY_RESUME_GAP_PROBE_DELAY_MS,
 } from "@/lib/community-messenger/home/use-community-messenger-home-realtime-bootstrap-list";
 
 /**
  * P4-a — Background dirty signal (gap-observed only).
  *
  * CONTRACT:
- *   reconnect/schedule alone → dirty 0
- *   catch-up same room unread → dirty 0
- *   catch-up room unread increase → dirty 1 (coalesced)
- *   plain onVis → dirty 0
- *   reuse P3-c2 markNotificationBadgePollDirty only (no fresh GET / new poll policy)
+ *   reconnect/schedule entry → dirty 0
+ *   visibility onVis → schedule probe after quiet (no immediate dirty)
+ *   catch-up same/decrease → dirty 0
+ *   catch-up room unread increase / new unread room → dirty 1 (coalesced)
+ *   visibility + reconnect probes coalesce → probe ≤1 / dirty ≤1 per resume
+ *   reuse P3-c2 markNotificationBadgePollDirty only (no fresh GET)
  *
  * EXCLUDED: RT health, reconnect policy, poll interval, ACK/Boot/Auth,
  * P3-c1/c3 decrease, merge_summary(R3), Builder, UI/i18n.
@@ -59,41 +61,55 @@ describe("P4-a background dirty signal (static)", () => {
     expect(entrySlice).not.toContain("markHomeCatchupDirtyOnce");
   });
 
-  it("marks dirty only after gap predicate inside catch-up runner", () => {
+  it("marks dirty only after gap predicate inside shared catch-up probe", () => {
     const code = stripComments(read(FILE));
     expect(code).toContain("hasHomeCatchupRoomUnreadIncrease");
-    expect(code).toContain("markHomeCatchupDirtyOnce");
-    const runIdx = code.indexOf("const runSilentHomeSync");
-    expect(runIdx).toBeGreaterThan(-1);
-    const runner = code.slice(runIdx, runIdx + 2200);
-    expect(runner).toContain("hasHomeCatchupRoomUnreadIncrease");
-    expect(runner).toContain("if (gap)");
-    expect(runner).toContain("markHomeCatchupDirtyOnce()");
-    const gapInRunner = runner.indexOf("hasHomeCatchupRoomUnreadIncrease");
-    const ifGapInRunner = runner.indexOf("if (gap)");
-    const dirtyInRunner = runner.indexOf("markHomeCatchupDirtyOnce()");
-    expect(dirtyInRunner).toBeGreaterThan(ifGapInRunner);
-    expect(ifGapInRunner).toBeGreaterThan(gapInRunner);
+    expect(code).toContain("runHomeCatchupGapProbe");
+    const probeIdx = code.indexOf("const runHomeCatchupGapProbe");
+    expect(probeIdx).toBeGreaterThan(-1);
+    const probe = code.slice(probeIdx, probeIdx + 1800);
+    expect(probe).toContain("hasHomeCatchupRoomUnreadIncrease");
+    expect(probe).toContain("if (gap)");
+    expect(probe).toContain("markHomeCatchupDirtyOnce()");
+    expect(probe).not.toContain("requestNotificationBadgeCountResync");
   });
 
-  it("calls the dirty producer exactly once in source (coalesced helper)", () => {
+  it("schedules visibility resume gap probe only after quiet window", () => {
     const code = stripComments(read(FILE));
-    expect(code.split("markNotificationBadgePollDirty(").length - 1).toBe(1);
-    // one definition + one call site inside `if (gap)`
-    expect(code.split("markHomeCatchupDirtyOnce(").length - 1).toBe(2);
-    expect(code).toContain("if (gap)");
-    expect(code).toContain("markHomeCatchupDirtyOnce()");
+    expect(HOME_VISIBILITY_RESUME_GAP_PROBE_DELAY_MS).toBe(4200);
+    expect(code).toContain("scheduleVisibilityResumeGapProbe");
+    expect(code).toContain("HOME_VISIBILITY_RESUME_GAP_PROBE_DELAY_MS");
+    const schedVisIdx = code.indexOf("const scheduleVisibilityResumeGapProbe");
+    expect(schedVisIdx).toBeGreaterThan(-1);
+    const schedVis = code.slice(schedVisIdx, schedVisIdx + 900);
+    expect(schedVis).toContain("setTimeout");
+    expect(schedVis).toContain("HOME_VISIBILITY_RESUME_GAP_PROBE_DELAY_MS");
+    expect(schedVis).toContain("runHomeCatchupGapProbe");
+    expect(schedVis).not.toContain("markHomeCatchupDirtyOnce");
+    expect(schedVis).not.toContain("markNotificationBadgePollDirty");
   });
 
-  it("does not mark dirty from the plain visibility handler", () => {
+  it("does not mark dirty from the plain visibility handler (schedules probe only)", () => {
     const code = stripComments(read(FILE));
     const onVisIdx = code.indexOf("const onVis = ()");
     expect(onVisIdx).toBeGreaterThan(-1);
-    const onVisBlock = code.slice(onVisIdx, onVisIdx + 400);
+    const onVisBlock = code.slice(onVisIdx, onVisIdx + 550);
     expect(onVisBlock).toContain("noteHomeVisibilityRestored");
+    expect(onVisBlock).toContain("scheduleVisibilityResumeGapProbe");
     expect(onVisBlock).not.toContain("markNotificationBadgePollDirty");
     expect(onVisBlock).not.toContain("markHomeCatchupDirtyOnce");
     expect(onVisBlock).not.toContain("requestNotificationBadgeCountResync");
+    expect(onVisBlock).not.toContain("runHomeCatchupGapProbe()");
+  });
+
+  it("coalesces probe + dirty producers to single call sites", () => {
+    const code = stripComments(read(FILE));
+    expect(code.split("markNotificationBadgePollDirty(").length - 1).toBe(1);
+    // definition + one call inside gap branch
+    expect(code.split("markHomeCatchupDirtyOnce(").length - 1).toBe(2);
+    expect(code).toContain("beginHomeCatchupGapProbeOrSkip");
+    // shared probe used from reconnect runner + visibility timer
+    expect(code.split("runHomeCatchupGapProbe()").length - 1).toBeGreaterThanOrEqual(2);
   });
 
   it("does not introduce a new poll policy or force fresh GET", () => {
@@ -143,7 +159,6 @@ describe("P4-a gap predicate (room unread)", () => {
       chats: [room("a", 1), room("b", 5)],
       groups: [room("g", 2)],
     });
-    // critical_patch-like partial: only room a — must not treat missing b/g as decrease noise
     expect(hasHomeCatchupRoomUnreadIncrease(before, [room("a", 2)])).toBe(true);
     expect(hasHomeCatchupRoomUnreadIncrease(before, [room("a", 1)])).toBe(false);
   });

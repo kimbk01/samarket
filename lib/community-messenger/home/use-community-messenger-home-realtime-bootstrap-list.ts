@@ -66,9 +66,17 @@ const HOME_SUMMARY_MIN_FETCH_GAP_MS = 1_500;
 const HOME_REALTIME_SILENT_REFRESH_MIN_GAP_MS = 2_400;
 /** P4-a — coalesce dirty set across reconnect burst / duplicate catch-up callbacks. */
 const HOME_CATCHUP_DIRTY_COALESCE_MS = 10_000;
+/**
+ * P4-a — must match `lite-merge-gate` HOME_VISIBILITY_RESTORE_QUIET_MS.
+ * Visibility resume gap probe runs only after this quiet window (never during quiet).
+ */
+export const HOME_VISIBILITY_RESUME_GAP_PROBE_DELAY_MS = 4_200;
+/** P4-a — resume당 catch-up gap probe 최대 1회 (visibility ↔ reconnect coalesce). */
+const HOME_CATCHUP_GAP_PROBE_COALESCE_MS = 10_000;
 export const HOME_REALTIME_CATCHUP_DIRTY_REASON = "home_realtime_reconnect_catchup";
 let cmHomeRealtimeRefreshScheduleOrdinal = 0;
 let lastHomeCatchupDirtyAtMs = 0;
+let lastHomeCatchupGapProbeAtMs = 0;
 
 export { clearHomeListServerUnreadIncreaseForTests };
 
@@ -114,9 +122,17 @@ function markHomeCatchupDirtyOnce(): void {
   markNotificationBadgePollDirty(HOME_REALTIME_CATCHUP_DIRTY_REASON);
 }
 
-/** @internal vitest — reset catch-up dirty coalesce. */
+function beginHomeCatchupGapProbeOrSkip(): boolean {
+  const now = Date.now();
+  if (now - lastHomeCatchupGapProbeAtMs < HOME_CATCHUP_GAP_PROBE_COALESCE_MS) return false;
+  lastHomeCatchupGapProbeAtMs = now;
+  return true;
+}
+
+/** @internal vitest — reset catch-up dirty / probe coalesce. */
 export function resetHomeCatchupDirtyCoalesceForTests(): void {
   lastHomeCatchupDirtyAtMs = 0;
+  lastHomeCatchupGapProbeAtMs = 0;
 }
 
 export type HomeListUnreadZeroBusContext = {
@@ -280,6 +296,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
   const homeRealtimeRefreshLastAtRef = useRef(0);
   const homeRealtimeRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const homeRealtimeSilentRefreshInFlightRef = useRef(false);
+  const visibilityResumeGapProbeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shadowGenerationRef = useRef(0);
   const nextShadowGeneration = useCallback(() => {
     shadowGenerationRef.current += 1;
@@ -301,18 +318,85 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
     return refreshRef.current(silent);
   };
 
+  /**
+   * P4-a — catch-up gap probe (shared by reconnect schedule + visibility resume).
+   * Snapshot chats+groups room unread → optional silent refresh → compare; if hydrated
+   * skip left same-facts, forceNetwork home-sync response once for the same taxonomy.
+   * Dirty only when room unread increased. Coalesce probe + dirty to 1/resume.
+   * DO NOT call fresh GET / requestNotificationBadgeCountResync.
+   */
+  const runHomeCatchupGapProbe = useCallback(async () => {
+    if (shouldBlockSilentHomeSyncForVisibilityRestore()) return;
+    if (homeRealtimeSilentRefreshInFlightRef.current) return;
+    if (!beginHomeCatchupGapProbeOrSkip()) return;
+    homeRealtimeSilentRefreshInFlightRef.current = true;
+    const beforeById = snapshotHomeListRoomUnreadById(peekBootstrapCache());
+    try {
+      await silentRefreshRef.current(true);
+      const applied = peekBootstrapCache();
+      let gap = hasHomeCatchupRoomUnreadIncrease(beforeById, [
+        ...(applied?.chats ?? []),
+        ...(applied?.groups ?? []),
+      ]);
+      if (!gap) {
+        invalidateCommunityMessengerHomeSilentListsReplay({ tier: "critical" });
+        try {
+          const { res, json } = await fetchCommunityMessengerHomeSilentLists({
+            tier: "critical",
+            forceNetwork: true,
+          });
+          if (res.ok && json?.ok) {
+            gap = hasHomeCatchupRoomUnreadIncrease(beforeById, [
+              ...(json.chats ?? []),
+              ...(json.groups ?? []),
+            ]);
+          }
+        } catch {
+          /* gap probe best-effort — leave dirty unset on failure */
+        }
+      }
+      if (gap) {
+        markHomeCatchupDirtyOnce();
+      }
+    } finally {
+      homeRealtimeSilentRefreshInFlightRef.current = false;
+    }
+  }, []);
+
+  const scheduleVisibilityResumeGapProbe = useCallback(() => {
+    if (visibilityResumeGapProbeTimerRef.current != null) {
+      clearTimeout(visibilityResumeGapProbeTimerRef.current);
+    }
+    /**
+     * P4-a — Android may resume without RT 2nd SUBSCRIBED, so reconnect schedule alone
+     * misses background unread. After visibility quiet window, run gap probe once.
+     * onVis itself stays badge-neutral (no dirty / no fresh).
+     */
+    visibilityResumeGapProbeTimerRef.current = setTimeout(() => {
+      visibilityResumeGapProbeTimerRef.current = null;
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+      void runHomeCatchupGapProbe();
+    }, HOME_VISIBILITY_RESUME_GAP_PROBE_DELAY_MS);
+  }, [runHomeCatchupGapProbe]);
+
   useEffect(() => {
     if (typeof document === "undefined") return;
     const onVis = () => {
       if (document.visibilityState === "hidden") {
         noteHomeVisibilityHidden();
+        if (visibilityResumeGapProbeTimerRef.current != null) {
+          clearTimeout(visibilityResumeGapProbeTimerRef.current);
+          visibilityResumeGapProbeTimerRef.current = null;
+        }
         return;
       }
       noteHomeVisibilityRestored();
+      scheduleVisibilityResumeGapProbe();
     };
     const onPageShow = () => {
       if (typeof document !== "undefined" && document.visibilityState === "visible") {
         noteHomeVisibilityRestored();
+        scheduleVisibilityResumeGapProbe();
       }
     };
     document.addEventListener("visibilitychange", onVis);
@@ -328,8 +412,12 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
         clearTimeout(homeRealtimeRefreshTimerRef.current);
         homeRealtimeRefreshTimerRef.current = null;
       }
+      if (visibilityResumeGapProbeTimerRef.current != null) {
+        clearTimeout(visibilityResumeGapProbeTimerRef.current);
+        visibilityResumeGapProbeTimerRef.current = null;
+      }
     };
-  }, []);
+  }, [scheduleVisibilityResumeGapProbe]);
 
   const scheduleHomeRealtimeRefresh = useCallback(() => {
     if (shouldBlockSilentHomeSyncForVisibilityRestore()) {
@@ -353,51 +441,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
       }
       homeRealtimeRefreshLastAtRef.current = Date.now();
       recordReconnectStressEvent("home", "silent_refresh");
-      homeRealtimeSilentRefreshInFlightRef.current = true;
-      /**
-       * P4-a — Background dirty signal (gap-observed only).
-       * Reconnect/catch-up itself is NOT a dirty reason (clean Android RT resubscribe
-       * burst must stay dirty 0 / badge poll HTTP 0). Snapshot local chats+groups room
-       * unread, run the existing silent home-sync catch-up, then dirty only when the
-       * applied list (or catch-up response when apply was a no-op/skip) shows a
-       * room-level unread increase. Coalesce to 1 dirty set per burst; P3-c2 poll
-       * fallback owns the single non-fresh recovery. DO NOT call fresh GET here.
-       */
-      const beforeById = snapshotHomeListRoomUnreadById(peekBootstrapCache());
-      void (async () => {
-        try {
-          await silentRefreshRef.current(true);
-          const applied = peekBootstrapCache();
-          let gap = hasHomeCatchupRoomUnreadIncrease(beforeById, [
-            ...(applied?.chats ?? []),
-            ...(applied?.groups ?? []),
-          ]);
-          if (!gap) {
-            // Hydrated-list silent path may skip network; probe catch-up response once
-            // for the same chats+groups unread taxonomy (no Bottom/Projection mix).
-            invalidateCommunityMessengerHomeSilentListsReplay({ tier: "critical" });
-            try {
-              const { res, json } = await fetchCommunityMessengerHomeSilentLists({
-                tier: "critical",
-                forceNetwork: true,
-              });
-              if (res.ok && json?.ok) {
-                gap = hasHomeCatchupRoomUnreadIncrease(beforeById, [
-                  ...(json.chats ?? []),
-                  ...(json.groups ?? []),
-                ]);
-              }
-            } catch {
-              /* gap probe best-effort — leave dirty unset on failure */
-            }
-          }
-          if (gap) {
-            markHomeCatchupDirtyOnce();
-          }
-        } finally {
-          homeRealtimeSilentRefreshInFlightRef.current = false;
-        }
-      })();
+      void runHomeCatchupGapProbe();
     };
     if (elapsed >= minGapMs) {
       scheduleWhenBrowserIdle(runSilentHomeSync, 520);
@@ -408,7 +452,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
       homeRealtimeRefreshTimerRef.current = null;
       scheduleWhenBrowserIdle(runSilentHomeSync, 520);
     }, minGapMs - elapsed);
-  }, [userId]);
+  }, [userId, runHomeCatchupGapProbe]);
 
   const scheduleHomeMissingRoomSummaryMerge = useCallback(
     (roomId: string) => {
