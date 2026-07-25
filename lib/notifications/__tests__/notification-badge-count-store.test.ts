@@ -191,12 +191,13 @@ describe("notification-badge-count-store", () => {
     store.resetNotificationBadgeCountStoreForTests();
     const unsubscribe = store.subscribeNotificationBadgeCount(() => {});
 
-    // The first fetch goes through the deferred scheduler, not a direct call.
+    // P3-b1: first subscriber still defers, but joins Boot Initial Authority entry.
     expect(scheduleStartupApiDeferred).toHaveBeenCalledTimes(1);
     expect(scheduleStartupApiDeferred.mock.calls[0][0]).toBe("notification-badge-count-first");
     await flush();
     await flush();
     expect(store.getNotificationBadgeCountSnapshot()?.total).toBe(1);
+    expect(String(fetchMock.mock.calls[0]?.[0] ?? "")).not.toContain("fresh=1");
     unsubscribe();
   });
 

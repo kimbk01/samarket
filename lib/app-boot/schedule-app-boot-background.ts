@@ -2,16 +2,20 @@
 
 import { isStoreOwnerHubPathname } from "@/lib/business/owner-hub-path";
 import { enableOwnerHubBadgeBackgroundHydration } from "@/lib/chats/owner-hub-badge-store";
-import { mergeAppBootProfileFull } from "@/lib/app-boot/app-boot-store";
+import { getAppBootSnapshot, mergeAppBootProfileFull } from "@/lib/app-boot/app-boot-store";
 import {
   fetchMeProfileFullBackground,
   isMeProfileFullFetchSkippable,
 } from "@/lib/profile/fetch-me-profile-deduped";
 import type { ProfileRow } from "@/lib/profile/types";
 import { scheduleStartupApiDeferred } from "@/lib/http/startup-api-scheduler";
+import { ensureInitialBadgeSnapshotForBoot } from "@/lib/notifications/notification-badge-count-store";
 
 let backgroundArmId = 0;
 let backgroundCancel: (() => void) | null = null;
+
+/** P3-b1 — same boot background arm must not double-schedule badge initial. */
+const APP_BOOT_INITIAL_BADGE_JOB = "app-boot-initial-badge";
 
 function scheduleAfterFirstPaint(run: () => void): void {
   if (typeof window === "undefined") return;
@@ -46,7 +50,12 @@ function scheduleAfterFirstPaint(run: () => void): void {
 }
 
 /**
- * Boot minimal 완료 후 — profile full·hub badge (first_paint_blocking=false).
+ * Boot minimal 완료 후 — initial badge COMPLETE · profile full · hub badge
+ * (first_paint_blocking=false).
+ *
+ * P3-b1 LOCK — Badge Initial Generation Owner is App Boot background, not Bell.
+ * Guest (no profile) skips badge ownership. Same `backgroundArmId` epoch joins
+ * via `ensureInitialBadgeSnapshotForBoot(armId)`.
  */
 export function scheduleAppBootBackgroundHydration(): void {
   backgroundCancel?.();
@@ -58,6 +67,17 @@ export function scheduleAppBootBackgroundHydration(): void {
     if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
 
     const onStoreOwnerHub = isStoreOwnerHubPathname();
+
+    // P3-b1 — authenticated cold boot: one non-fresh Domain snapshot (COMPLETE gen owner).
+    scheduleStartupApiDeferred(
+      APP_BOOT_INITIAL_BADGE_JOB,
+      () => {
+        if (armId !== backgroundArmId) return;
+        if (!getAppBootSnapshot().profile) return;
+        void ensureInitialBadgeSnapshotForBoot(armId);
+      },
+      { delayMs: 0, source: "app_boot_initial_badge" }
+    );
 
     if (!onStoreOwnerHub) {
       scheduleStartupApiDeferred(

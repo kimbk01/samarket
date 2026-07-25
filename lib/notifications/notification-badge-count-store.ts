@@ -21,8 +21,13 @@ import { scheduleStartupApiDeferred } from "@/lib/http/startup-api-scheduler";
 
 const POLL_MS = 45_000;
 const fetchUrl = "/api/me/notifications/badge-count";
-/** Boot/IO Authority: first subscriber fetch runs AFTER first paint (idle), deduped across remounts. */
+/**
+ * P3-b1 — Bell may still defer first paint, but must join Boot Initial Authority
+ * (`ensureInitialBadgeSnapshotForBoot`) instead of owning `doFetch`.
+ */
 const BADGE_COUNT_FIRST_FETCH_JOB = "notification-badge-count-first";
+/** Cold Boot COMPLETE owner reason — Device QA / contract marker. */
+export const APP_BOOT_INITIAL_BADGE_REASON = "app_boot_initial_badge";
 
 let snap: NotificationBadgeCount | null = null;
 /** Monotonic projection revision — stale poll must not overwrite newer realtime. */
@@ -33,6 +38,9 @@ let unauthorizedPaused = false;
 /** Single-flight — coalesce concurrent boot fetches (first-paint deferred + resync races). */
 let inflight: Promise<void> | null = null;
 let inflightForce = false;
+/** P3-b1 — Boot-owned initial snapshot flight (same boot epoch joins). */
+let bootOwnedInflight: Promise<void> | null = null;
+let bootOwnedEpoch: number | null = null;
 
 const listeners = new Set<() => void>();
 
@@ -149,14 +157,13 @@ export function subscribeNotificationBadgeCount(onStoreChange: () => void): () =
   listeners.add(onStoreChange);
   subscriberCount += 1;
   if (subscriberCount === 1) {
-    // First paint must not wait on badge IO. Defer to idle; the scheduler joins
-    // duplicate mounts (Strict Mode / navigation) and TTL-skips repeats, so the
-    // boot unread query runs at most once. Already-hydrated snap → skip entirely.
+    // P3-b1 LOCK — Bell is a consumer only. First paint still defers IO, but the
+    // fetch joins Boot Initial Generation Authority (no independent doFetch owner).
     scheduleStartupApiDeferred(
       BADGE_COUNT_FIRST_FETCH_JOB,
       () => {
         if (snap != null) return;
-        void doFetch();
+        void ensureInitialBadgeSnapshotForBoot();
       },
       { delayMs: 0, source: "badge-count-first-subscriber" }
     );
@@ -171,23 +178,65 @@ export function subscribeNotificationBadgeCount(onStoreChange: () => void): () =
   };
 }
 
-async function doFetch(force = false): Promise<void> {
+/**
+ * P3-b1 LOCK — Boot Initial Generation Authority.
+ * Sole Cold Boot owner of the first COMPLETE Domain snapshot (non-fresh, reason
+ * `app_boot_initial_badge`). Bell subscribers join this entry; they must not call
+ * `doFetch` directly for the initial COMPLETE.
+ *
+ * DO NOT change fresh/resync semantics here (P3-c).
+ * DO NOT reset store/authority on logout here (P3-b2).
+ */
+export function ensureInitialBadgeSnapshotForBoot(bootEpoch?: number): Promise<void> {
+  if (typeof window === "undefined") return Promise.resolve();
+  if (snap != null) {
+    logNotifyBadge("ui_set", {
+      boot_initial_skip_complete: 1,
+      bootEpoch: bootEpoch ?? bootOwnedEpoch,
+    });
+    return Promise.resolve();
+  }
+  if (bootEpoch != null && bootOwnedInflight && bootOwnedEpoch === bootEpoch) {
+    return bootOwnedInflight;
+  }
+  // Join any in-flight non-fresh (Bell↔Boot race on the same cold session).
+  if (inflight && !inflightForce) {
+    if (bootEpoch != null) {
+      bootOwnedEpoch = bootEpoch;
+      bootOwnedInflight = inflight;
+    }
+    return inflight;
+  }
+  const epoch = bootEpoch ?? bootOwnedEpoch ?? 0;
+  bootOwnedEpoch = epoch;
+  const p = doFetch(false, APP_BOOT_INITIAL_BADGE_REASON).finally(() => {
+    if (bootOwnedInflight === p) bootOwnedInflight = null;
+  });
+  bootOwnedInflight = p;
+  return p;
+}
+
+async function doFetch(force = false, waitReason?: string): Promise<void> {
   if (typeof window === "undefined") return;
   // Single-flight: a non-fresh call joins any inflight; a fresh call joins only an
   // inflight fresh call. Prevents duplicate concurrent badge-count fetches on boot.
+  // P3-b1: fresh bypass semantics unchanged (P3-c owns that contract).
   if (inflight && (!force || inflightForce)) return inflight;
   inflightForce = force;
-  inflight = runDoFetch(force).finally(() => {
+  inflight = runDoFetch(force, waitReason).finally(() => {
     inflight = null;
     inflightForce = false;
   });
   return inflight;
 }
 
-async function runDoFetch(force = false): Promise<void> {
+async function runDoFetch(force = false, waitReason?: string): Promise<void> {
   try {
     /** Authority state machine: EMPTY → WAITING_COMPLETE while the snapshot is in flight. */
-    markProjectionAuthorityWaitingComplete(force ? "badge_count_fresh" : "badge_count_fetch");
+    const waitingReason = force
+      ? "badge_count_fresh"
+      : waitReason ?? "badge_count_fetch";
+    markProjectionAuthorityWaitingComplete(waitingReason);
     const res = await fetch(force ? `${fetchUrl}?fresh=1` : fetchUrl, { credentials: "include" });
     if (res.status === 401) {
       snap = null;
@@ -225,7 +274,11 @@ async function runDoFetch(force = false): Promise<void> {
       return;
     }
     lastProjectionVersionMs = versionMs;
-    logNotifyBadge("ui_set", { authority: "domain_badge", total: snap?.total ?? 0 });
+    logNotifyBadge("ui_set", {
+      authority: "domain_badge",
+      total: snap?.total ?? 0,
+      ...(waitReason ? { reason: waitReason } : {}),
+    });
     if (!pollInterval && subscriberCount > 0) {
       pollInterval = setInterval(() => {
         if (document.visibilityState === "visible") void doFetch();
@@ -312,6 +365,8 @@ export function resetNotificationBadgeCountStoreForTests(): void {
   unauthorizedPaused = false;
   inflight = null;
   inflightForce = false;
+  bootOwnedInflight = null;
+  bootOwnedEpoch = null;
   if (pollInterval) {
     clearInterval(pollInterval);
     pollInterval = null;

@@ -169,6 +169,8 @@ async function runAppBootOnce(startEpoch: number): Promise<void> {
     deferred: [
       "/api/me/profile?lite=1",
       "/api/me/profile?mode=full",
+      /** P3-b1 — Boot Initial Generation Authority (COMPLETE owner; Bell joins). */
+      "/api/me/notifications/badge-count",
       "/api/me/store-owner-hub-badge",
       "/api/me/notification-settings",
       "/api/stores/browse",
