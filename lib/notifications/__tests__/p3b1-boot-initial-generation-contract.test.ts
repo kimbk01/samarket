@@ -140,7 +140,7 @@ describe("ensureInitialBadgeSnapshotForBoot runtime", () => {
     unsub();
   });
 
-  it("requestNotificationBadgeCountResync still uses fresh=1 (P3-c untouched)", async () => {
+  it("requestNotificationBadgeCountResync still uses fresh=1 (P3-c2 poll-only)", async () => {
     vi.stubGlobal("window", {});
     vi.stubGlobal("document", { visibilityState: "visible" });
     const fetchMock = vi.fn().mockResolvedValue({
