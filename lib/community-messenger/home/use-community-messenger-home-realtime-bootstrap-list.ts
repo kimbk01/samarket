@@ -15,6 +15,7 @@ import type { CommunityMessengerBootstrap, CommunityMessengerRoomSummary } from 
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
+import { markNotificationBadgePollDirty } from "@/lib/notifications/notification-badge-count-store";
 import { logCmSurfaceSync } from "@/lib/community-messenger/notifications/cm-participant-surface-sync";
 import { applyMessengerRoomUnreadFactAndSyncBottom } from "@/lib/community-messenger/unread/messenger-room-unread-authority";
 import { onCommunityMessengerBusEvent, type MessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
@@ -277,6 +278,19 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
   }, []);
 
   const scheduleHomeRealtimeRefresh = useCallback(() => {
+    /**
+     * P4-a intent — Background dirty signal (conditional, not every resume).
+     * This callback fires only when the existing code already decided a catch-up is
+     * needed: an RT resubscribe (2nd SUBSCRIBED after a drop) or a real RT change event
+     * that did not resolve to a participant delta. In those cases the app may have missed
+     * an unread fact while backgrounded, so wake the P3-c2 dirty poll fallback once.
+     * The next poll tick runs a single non-fresh fetch; success clears dirty.
+     *
+     * DO NOT set dirty on plain visibility resume (clean resume stays HTTP 0) — that path
+     * does not call this callback. DO NOT add a new RT health coordinator / poll policy;
+     * this only reuses the existing markNotificationBadgePollDirty entry point (P0~P3-c3 LOCK).
+     */
+    markNotificationBadgePollDirty("home_realtime_reconnect_catchup");
     if (shouldBlockSilentHomeSyncForVisibilityRestore()) {
       return;
     }
