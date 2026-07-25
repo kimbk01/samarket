@@ -54,6 +54,10 @@ import {
 
 const sb = {} as never;
 
+/**
+ * P3-a LOCK — mark* invalidates cache only.
+ * Domain snapshot rebuild is owned by the HTTP ACK route (`issueDomainBadgeAuthorityForAck`).
+ */
 describe("notify-read-service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -71,11 +75,11 @@ describe("notify-read-service", () => {
     clearNotificationTargetsAfterThreadRead.mockResolvedValue(undefined);
   });
 
-  it("marks single notification read and refreshes badge", async () => {
+  it("marks single notification read and invalidates badge cache (no force rebuild)", async () => {
     const ok = await markNotificationRead(sb, "user-1", "evt-1", { openedAt: true });
     expect(ok).toBe(true);
     expect(invalidateNotificationBadgeCache).toHaveBeenCalledWith("user-1");
-    expect(fetchDomainBadgeAuthorityPayload).toHaveBeenCalled();
+    expect(fetchDomainBadgeAuthorityPayload).not.toHaveBeenCalled();
   });
 
   it("marks room events read when count > 0", async () => {
@@ -83,29 +87,31 @@ describe("notify-read-service", () => {
     expect(count).toBe(2);
     expect(clearNotificationTargetsAfterRoomRead).toHaveBeenCalledWith(sb, "user-1", "room-1");
     expect(invalidateNotificationBadgeCache).toHaveBeenCalledWith("user-1");
-    expect(fetchDomainBadgeAuthorityPayload).toHaveBeenCalled();
+    expect(fetchDomainBadgeAuthorityPayload).not.toHaveBeenCalled();
   });
 
-  it("refreshes badge after room read target clear even when events are already read", async () => {
+  it("invalidates badge after room read target clear even when events are already read", async () => {
     markRoomNotificationEventsRead.mockResolvedValueOnce(0);
     const count = await markRoomRead(sb, "user-1", "room-1");
     expect(count).toBe(0);
     expect(clearNotificationTargetsAfterRoomRead).toHaveBeenCalledWith(sb, "user-1", "room-1");
     expect(invalidateNotificationBadgeCache).toHaveBeenCalledWith("user-1");
-    expect(fetchDomainBadgeAuthorityPayload).toHaveBeenCalled();
+    expect(fetchDomainBadgeAuthorityPayload).not.toHaveBeenCalled();
   });
 
   it("does not fail room read when target clear bridge fails", async () => {
     clearNotificationTargetsAfterRoomRead.mockRejectedValueOnce(new Error("target clear failed"));
     const count = await markRoomRead(sb, "user-1", "room-1");
     expect(count).toBe(2);
-    expect(fetchDomainBadgeAuthorityPayload).toHaveBeenCalled();
+    expect(invalidateNotificationBadgeCache).toHaveBeenCalledWith("user-1");
+    expect(fetchDomainBadgeAuthorityPayload).not.toHaveBeenCalled();
   });
 
   it("marks missed call events read", async () => {
     const count = await markMissedCallsRead(sb, "user-1", { callSessionId: "sess-1" });
     expect(count).toBe(1);
     expect(invalidateNotificationBadgeCache).toHaveBeenCalledWith("user-1");
+    expect(fetchDomainBadgeAuthorityPayload).not.toHaveBeenCalled();
   });
 
   it("marks all missed calls read on call_logs scope", async () => {
@@ -114,14 +120,15 @@ describe("notify-read-service", () => {
     expect(markAllMissedCallEventsRead).toHaveBeenCalledWith(sb, "user-1");
     expect(markMissedCallEventsRead).not.toHaveBeenCalled();
     expect(invalidateNotificationBadgeCache).toHaveBeenCalledWith("user-1");
+    expect(fetchDomainBadgeAuthorityPayload).not.toHaveBeenCalled();
   });
 
-  it("marks category read and refreshes badge immediately", async () => {
+  it("marks category read and invalidates badge cache (no force rebuild)", async () => {
     const count = await markNotificationCategoryRead(sb, "user-1", "admin_notice");
     expect(count).toBe(3);
     expect(markNotificationEventsReadByCategory).toHaveBeenCalledWith(sb, "user-1", "admin_notice");
     expect(invalidateNotificationBadgeCache).toHaveBeenCalledWith("user-1");
-    expect(fetchDomainBadgeAuthorityPayload).toHaveBeenCalled();
+    expect(fetchDomainBadgeAuthorityPayload).not.toHaveBeenCalled();
   });
 
   it("clears targets after thread read even when events are already read", async () => {
@@ -131,7 +138,8 @@ describe("notify-read-service", () => {
       readReason: "chat_room_visible",
     });
     expect(count).toBe(0);
-    expect(fetchDomainBadgeAuthorityPayload).toHaveBeenCalled();
+    expect(invalidateNotificationBadgeCache).toHaveBeenCalledWith("user-1");
+    expect(fetchDomainBadgeAuthorityPayload).not.toHaveBeenCalled();
     expect(clearNotificationTargetsAfterThreadRead).toHaveBeenCalledWith(sb, "user-1", {
       threadId: "room-1",
       threadType: "chat_room",
@@ -146,10 +154,11 @@ describe("notify-read-service", () => {
       readReason: "chat_room_visible",
     });
     expect(count).toBe(4);
-    expect(fetchDomainBadgeAuthorityPayload).toHaveBeenCalled();
+    expect(invalidateNotificationBadgeCache).toHaveBeenCalledWith("user-1");
+    expect(fetchDomainBadgeAuthorityPayload).not.toHaveBeenCalled();
   });
 
-  it("marks thread read and refreshes badge immediately", async () => {
+  it("marks thread read and invalidates badge cache (no force rebuild)", async () => {
     const count = await markNotificationThreadRead(sb, "user-1", "room-1", {
       categories: ["chat_message"],
       threadType: "trade_room",
@@ -162,7 +171,7 @@ describe("notify-read-service", () => {
       readReason: "chat_room_visible",
     });
     expect(invalidateNotificationBadgeCache).toHaveBeenCalledWith("user-1");
-    expect(fetchDomainBadgeAuthorityPayload).toHaveBeenCalled();
+    expect(fetchDomainBadgeAuthorityPayload).not.toHaveBeenCalled();
     expect(clearNotificationTargetsAfterThreadRead).toHaveBeenCalledWith(sb, "user-1", {
       threadId: "room-1",
       threadType: "trade_room",
@@ -204,11 +213,11 @@ describe("notify-read-service", () => {
     expect(markNotificationEventsReadByThread).not.toHaveBeenCalled();
   });
 
-  it("marks order notifications read and refreshes badge immediately", async () => {
+  it("marks order notifications read and invalidates badge cache (no force rebuild)", async () => {
     const count = await markOrderNotificationsRead(sb, "user-1", "order-1");
     expect(count).toBe(1);
     expect(markOrderNotificationEventsRead).toHaveBeenCalledWith(sb, "user-1", "order-1");
     expect(invalidateNotificationBadgeCache).toHaveBeenCalledWith("user-1");
-    expect(fetchDomainBadgeAuthorityPayload).toHaveBeenCalled();
+    expect(fetchDomainBadgeAuthorityPayload).not.toHaveBeenCalled();
   });
 });
