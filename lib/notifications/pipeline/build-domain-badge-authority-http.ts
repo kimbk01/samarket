@@ -4,15 +4,13 @@
  * Bell Contract B: bellTotal = unread approved notification_events (categoryCounts.total).
  * App Icon / Bottom / Hub = Domain unread room Facts (not Bell mirror).
  * categoryCounts also feeds inbox filter / diagnostics.
+ *
+ * P2-a/b LOCK (IO only):
+ * - Domain rooms: ONE notification_targets SELECT (not five).
+ * - Orphan missed: thin SELECT → in-memory COUNT + byRoom (byRoom required — canary/list).
+ * - Builder / Projection Authority / Hub / room-fact / event-fact unchanged.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { loadMessengerChatRoomUnreadTargetRoomIds } from "@/lib/messenger/contracts/chat-room-unread-from-notification-targets";
-import { loadTradeUnreadTargetIdentityKeys } from "@/lib/messenger/trade/unread-from-notification-targets";
-import {
-  loadStoreOrderOwnerUnreadTargetIndex,
-  loadStoreOrderUnreadTargetOrderIds,
-  STORE_ORDER_CUSTOMER_UNREAD_TARGET_TYPE,
-} from "@/lib/messenger/store-order/unread-from-notification-targets";
 import {
   buildNotificationBadgeProjection,
   type NotificationBadgeProjection,
@@ -21,6 +19,8 @@ import {
 import { countNotificationEventsBadge } from "@/lib/notifications/core/notification-event-repository";
 import type { NotificationBadgeCount } from "@/lib/notifications/core/notification-event-types";
 import { logNotifyBadge } from "@/lib/notifications/core/notification-logs";
+import { loadDomainBadgeTargetFacts } from "@/lib/notifications/load-domain-badge-target-facts";
+import { loadOrphanMissedCallFacts } from "@/lib/notifications/load-orphan-missed-call-facts";
 
 export type DomainBadgeAuthorityHttpPayload = {
   ok: true;
@@ -78,47 +78,6 @@ export type DomainBadgeAuthorityHttpPayload = {
   categoryCounts: NotificationBadgeCount;
 };
 
-async function countOrphanMissedCallEvents(
-  sb: SupabaseClient,
-  userId: string
-): Promise<{ orphan: number; byRoom: Record<string, number> }> {
-  const uid = userId.trim();
-  if (!uid) return { orphan: 0, byRoom: {} };
-  const { data, error } = await sb
-    .from("notification_events")
-    .select("room_id, muted_snapshot, display_payload")
-    .eq("user_id", uid)
-    .eq("unread", true)
-    .is("read_at", null)
-    .eq("category", "missed_call");
-  if (error || !data) return { orphan: 0, byRoom: {} };
-
-  let orphan = 0;
-  const byRoom: Record<string, number> = {};
-  for (const row of data as Array<{
-    room_id?: string | null;
-    muted_snapshot?: boolean | null;
-    display_payload?: unknown;
-  }>) {
-    // Match badge eligibility loosely — exclude muted badge flags in payload when present.
-    const payload = row.display_payload;
-    if (payload && typeof payload === "object") {
-      const p = payload as Record<string, unknown>;
-      if (p.badge_enabled === false || p.badgeEnabled === false) continue;
-      if (p.exclude_from_badge === true || p.excludeFromBadge === true) continue;
-      if (p.mute_badge === true || p.muteBadge === true) continue;
-      if (p.deleted === true || p.isDeleted === true) continue;
-    }
-    const roomId = typeof row.room_id === "string" ? row.room_id.trim() : "";
-    if (!roomId) {
-      orphan += 1;
-      continue;
-    }
-    byRoom[roomId] = (byRoom[roomId] ?? 0) + 1;
-  }
-  return { orphan, byRoom };
-}
-
 function nonChatFromCategoryCounts(c: NotificationBadgeCount): NotificationNonChatEventAttentionFacts {
   return {
     tradeStatus: Math.max(0, Math.floor(Number(c.tradeStatus) || 0)),
@@ -140,47 +99,15 @@ export async function buildDomainBadgeAuthorityHttpPayload(
   const uid = userId.trim();
   const projectionVersionMs = Date.now();
 
-  const [
-    gdRooms,
-    groupRooms,
-    tradeKeys,
-    buyerOrderIds,
-    ownerIndex,
-    missed,
-    categoryCounts,
-  ] = await Promise.all([
-    loadMessengerChatRoomUnreadTargetRoomIds(sb, {
-      viewerUserId: uid,
-      domains: ["general_direct"],
-    }),
-    loadMessengerChatRoomUnreadTargetRoomIds(sb, {
-      viewerUserId: uid,
-      domains: ["group"],
-    }),
-    loadTradeUnreadTargetIdentityKeys(sb, uid),
-    loadStoreOrderUnreadTargetOrderIds(sb, {
-      viewerUserId: uid,
-      targetType: STORE_ORDER_CUSTOMER_UNREAD_TARGET_TYPE,
-    }),
-    loadStoreOrderOwnerUnreadTargetIndex(sb, uid),
-    countOrphanMissedCallEvents(sb, uid),
+  const [targetFacts, missed, categoryCounts] = await Promise.all([
+    loadDomainBadgeTargetFacts(sb, uid),
+    loadOrphanMissedCallFacts(sb, uid),
     countNotificationEventsBadge(sb, uid),
   ]);
 
-  const storeOrderAttention = new Set<string>();
-  for (const id of buyerOrderIds) storeOrderAttention.add(`buyer:${id}`);
-  for (const id of ownerIndex.roomIds) storeOrderAttention.add(`owner_room:${id}`);
-  for (const id of ownerIndex.orderIds) storeOrderAttention.add(`owner_order:${id}`);
-
-  const domainUnreadRooms = {
-    general_direct: gdRooms.size,
-    group: groupRooms.size,
-    trade: tradeKeys.size,
-    store_order: storeOrderAttention.size,
-  };
-  const storeOrderBuyerDeliveryUnread = buyerOrderIds.size;
-  /** All-stores owner aggregate — owner_order_chat.target_id = room_id. */
-  const storeOrderOwnerChatUnread = ownerIndex.roomIds.size;
+  const domainUnreadRooms = targetFacts.domainUnreadRooms;
+  const storeOrderBuyerDeliveryUnread = targetFacts.storeOrderBuyerDeliveryUnread;
+  const storeOrderOwnerChatUnread = targetFacts.storeOrderOwnerChatUnread;
   const nonChatEventAttention = nonChatFromCategoryCounts(categoryCounts);
   const unreadApprovedNotificationEvents = Math.max(
     0,
@@ -206,6 +133,8 @@ export async function buildDomainBadgeAuthorityHttpPayload(
     appIconTotal: projection.appIconTotal,
     bottomChat: projection.bottomChat,
     ...domainUnreadRooms,
+    p2_target_select: 1,
+    p2_orphan_select: 1,
   });
 
   return {

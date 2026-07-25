@@ -68,6 +68,14 @@ function isBadgeEligibleNotificationEvent(row: {
   return true;
 }
 
+/** Exported for orphan missed COUNT aggregation (P2-b) — same predicate as Bell COUNT. */
+export function isNotificationEventBadgeEligible(row: {
+  display_payload?: unknown;
+  muted_snapshot?: boolean | null;
+}): boolean {
+  return isBadgeEligibleNotificationEvent(row);
+}
+
 function mapBadgeRpc(raw: Record<string, unknown> | null): NotificationBadgeCount {
   if (!raw) return EMPTY_BADGE;
   const chatMessage = Math.max(
