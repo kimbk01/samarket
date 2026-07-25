@@ -15,6 +15,8 @@ import type { CommunityMessengerBootstrap, CommunityMessengerRoomSummary } from 
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
+import { logCmSurfaceSync } from "@/lib/community-messenger/notifications/cm-participant-surface-sync";
+import { applyMessengerRoomUnreadFactAndSyncBottom } from "@/lib/community-messenger/unread/messenger-room-unread-authority";
 import { onCommunityMessengerBusEvent, type MessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { requestMessengerHomeListMergeFromHomeSummary } from "@/lib/community-messenger/request-messenger-home-list-merge-from-summary";
 import { resolveMessengerUnreadMerge } from "@/lib/community-messenger/consistency/messenger-consistency-merge";
@@ -473,15 +475,57 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
             cur = next;
             changed = true;
           }
+          const prevUnread = Math.max(0, Math.floor(Number(existing?.unreadCount) || 0));
+          const nextUnread = Math.max(0, Math.floor(Number(hint.unreadCount) || 0));
           queueMicrotask(() => {
             if (existing && communityMessengerRoomIsTrade(existing)) {
               scheduleHomeMissingRoomSummaryMerge(existing.id);
             }
-            requestMessengerHubBadgeResync("participant_unread_changed", {
+            /**
+             * P3-c3 LOCK intent — home list participant catch-up aligns with P3-c1 hub-sync:
+             * decrease/same-facts + room fact Authority commit → Domain fresh 0.
+             * increase keeps unconditional fresh. baseline/domain/apply fail → fallback 1.
+             * DO NOT change merge_summary / silent home-sync / resubscribe list catch-up itself.
+             */
+            if (nextUnread > prevUnread) {
+              requestMessengerHubBadgeResync("participant_unread_changed", {
+                roomId: rid,
+                participantUnreadDirection: "increase",
+              });
+              return;
+            }
+            const eventVersion = Date.now();
+            const applied = applyMessengerRoomUnreadFactAndSyncBottom({
               roomId: rid,
-              participantUnreadDirection:
-                hint.unreadCount <= (existing?.unreadCount ?? 0) ? "decrease" : "increase",
+              viewerUserId: me,
+              unreadCount: nextUnread,
+              prevUnreadHint: prevUnread,
+              lastMessageAt: existing?.lastMessageAt ?? null,
+              versionMs: eventVersion,
+              source: "participant_rt",
+              authoritySource: "participant_realtime",
+              eventIdentity: `participant_home_list:${rid}:${prevUnread}->${nextUnread}:${eventVersion}`,
             });
+            const decreaseFallback = !applied.authorityApplied;
+            logCmSurfaceSync({
+              phase: "participant_decrease",
+              roomId: rid,
+              t0: eventVersion,
+              bottom_ms: null,
+              list_cache_ms: null,
+              sound_schedule_ms: null,
+              banner_ms: null,
+              unread: applied.unreadCount,
+              prevUnread,
+              authorityApplied: applied.authorityApplied,
+              freshResync: decreaseFallback ? 1 : 0,
+            });
+            if (decreaseFallback) {
+              requestMessengerHubBadgeResync("participant_unread_changed", {
+                roomId: rid,
+                participantUnreadDirection: "decrease",
+              });
+            }
           });
         }
         if (!changed) return prev;
