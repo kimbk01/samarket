@@ -88,7 +88,7 @@ describe("P3-b1 Boot Initial Generation Authority contract", () => {
     expect(subscribeFn!).not.toContain("void doFetch(");
   });
 
-  it("P3-b1 does not touch logout wipe / surfaces-reset (P3-b2)", () => {
+  it("P3-b1 Boot entry is not owned by logout wipe / surfaces-reset", () => {
     const wipe = fs.readFileSync(path.join(ROOT, "lib/auth/client-session-wipe.ts"), "utf8");
     const surfaces = fs.readFileSync(
       path.join(ROOT, "lib/community-messenger/notifications/messenger-notification-surfaces-reset.ts"),

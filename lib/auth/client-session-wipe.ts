@@ -51,6 +51,8 @@ import { revokeNativeKakaoSessionIfAvailable } from "@/lib/auth/native/native-ka
 import { revokeNativeGoogleSessionIfAvailable } from "@/lib/auth/native/native-google-auth-plugin";
 import { disconnectNativeDevicesOnAccountSwitch } from "@/lib/push/disconnect-native-devices-for-logout-client";
 import { clearNativeBadgeCount } from "@/lib/push/native/sync-native-badge-count";
+import { resetNotificationBadgeCountForAuthEpoch } from "@/lib/notifications/notification-badge-count-store";
+import { resetProjectionAuthorityForAuthEpoch } from "@/lib/notifications/projection-authority";
 
 export type ClientSessionWipeReason = "user_logout" | "account_switched" | "pre_login_bootstrap";
 
@@ -147,13 +149,23 @@ function resetAddressClientCaches(): void {
 }
 
 function resetAuthClientCaches(previousUserId?: string | null): void {
+  /**
+   * P3-b2 LOCK — Auth Epoch Reset order (before new ensureAppBoot):
+   * 1) cancel Boot background arms
+   * 2) Badge store epoch bump + discard prior inflight
+   * 3) Projection Authority wipe
+   * 4) local surface clear (no network)
+   * 5) remaining auth/boot caches
+   */
   invalidateAppBootAll();
+  resetNotificationBadgeCountForAuthEpoch();
+  resetProjectionAuthorityForAuthEpoch();
+  resetMessengerNotificationSurfacesAfterSignOut();
   setSupabaseProfileCache(null);
   invalidateMeProfileDedupedCache();
   clearAuthSessionClientCache();
   clearBootstrapCache();
   resetAddressClientCaches();
-  resetMessengerNotificationSurfacesAfterSignOut();
   invalidateAuthExitClientCaches(previousUserId);
 }
 

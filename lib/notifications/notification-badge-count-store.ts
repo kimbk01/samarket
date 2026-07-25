@@ -17,6 +17,7 @@ import {
   type BadgeCountAuthorityJson,
 } from "@/lib/notifications/apply-badge-count-authority-response";
 import { markProjectionAuthorityWaitingComplete } from "@/lib/notifications/projection-authority";
+import { EMPTY_BELL_BADGE_FACTS } from "@/lib/notifications/build-notification-badge-projection";
 import { scheduleStartupApiDeferred } from "@/lib/http/startup-api-scheduler";
 
 const POLL_MS = 45_000;
@@ -41,6 +42,16 @@ let inflightForce = false;
 /** P3-b1 — Boot-owned initial snapshot flight (same boot epoch joins). */
 let bootOwnedInflight: Promise<void> | null = null;
 let bootOwnedEpoch: number | null = null;
+/**
+ * P3-b2 — Auth Epoch token. Logout bumps this; in-flight responses from prior
+ * epochs must discard before Projection / surface commit.
+ */
+let authEpoch = 0;
+/**
+ * P3-b2 — After Auth Epoch reset, block network until Boot Initial Authority
+ * re-opens the gate (prevents Bell deferred / guest fetch during wipe).
+ */
+let authEpochFetchOpen = true;
 
 const listeners = new Set<() => void>();
 
@@ -153,15 +164,24 @@ export function getNotificationBadgeProjectionVersionMs(): number {
   return lastProjectionVersionMs;
 }
 
+/** @internal vitest / device QA — current Auth Epoch token. */
+export function getNotificationBadgeAuthEpoch(): number {
+  return authEpoch;
+}
+
 export function subscribeNotificationBadgeCount(onStoreChange: () => void): () => void {
   listeners.add(onStoreChange);
   subscriberCount += 1;
   if (subscriberCount === 1) {
     // P3-b1 LOCK — Bell is a consumer only. First paint still defers IO, but the
     // fetch joins Boot Initial Generation Authority (no independent doFetch owner).
+    // P3-b2 — capture epoch; after Auth Epoch reset the deferred run must no-op.
+    const scheduledEpoch = authEpoch;
     scheduleStartupApiDeferred(
       BADGE_COUNT_FIRST_FETCH_JOB,
       () => {
+        if (authEpoch !== scheduledEpoch) return;
+        if (!authEpochFetchOpen) return;
         if (snap != null) return;
         void ensureInitialBadgeSnapshotForBoot();
       },
@@ -185,10 +205,12 @@ export function subscribeNotificationBadgeCount(onStoreChange: () => void): () =
  * `doFetch` directly for the initial COMPLETE.
  *
  * DO NOT change fresh/resync semantics here (P3-c).
- * DO NOT reset store/authority on logout here (P3-b2).
+ * P3-b2 — re-opens Auth Epoch fetch gate after logout wipe.
  */
 export function ensureInitialBadgeSnapshotForBoot(bootEpoch?: number): Promise<void> {
   if (typeof window === "undefined") return Promise.resolve();
+  // P3-b2 — Boot is the sole owner that may re-open network after Auth Epoch reset.
+  authEpochFetchOpen = true;
   if (snap != null) {
     logNotifyBadge("ui_set", {
       boot_initial_skip_complete: 1,
@@ -218,19 +240,32 @@ export function ensureInitialBadgeSnapshotForBoot(bootEpoch?: number): Promise<v
 
 async function doFetch(force = false, waitReason?: string): Promise<void> {
   if (typeof window === "undefined") return;
+  if (!authEpochFetchOpen) {
+    logNotifyBadge("ui_set", {
+      auth_epoch_fetch_blocked: 1,
+      authEpoch,
+      force: force ? 1 : 0,
+    });
+    return;
+  }
   // Single-flight: a non-fresh call joins any inflight; a fresh call joins only an
   // inflight fresh call. Prevents duplicate concurrent badge-count fetches on boot.
   // P3-b1: fresh bypass semantics unchanged (P3-c owns that contract).
   if (inflight && (!force || inflightForce)) return inflight;
   inflightForce = force;
-  inflight = runDoFetch(force, waitReason).finally(() => {
-    inflight = null;
-    inflightForce = false;
+  const flight = runDoFetch(force, waitReason);
+  inflight = flight;
+  void flight.finally(() => {
+    if (inflight === flight) {
+      inflight = null;
+      inflightForce = false;
+    }
   });
-  return inflight;
+  return flight;
 }
 
 async function runDoFetch(force = false, waitReason?: string): Promise<void> {
+  const epochAtStart = authEpoch;
   try {
     /** Authority state machine: EMPTY → WAITING_COMPLETE while the snapshot is in flight. */
     const waitingReason = force
@@ -238,6 +273,15 @@ async function runDoFetch(force = false, waitReason?: string): Promise<void> {
       : waitReason ?? "badge_count_fetch";
     markProjectionAuthorityWaitingComplete(waitingReason);
     const res = await fetch(force ? `${fetchUrl}?fresh=1` : fetchUrl, { credentials: "include" });
+    if (authEpoch !== epochAtStart) {
+      logNotifyBadge("ui_set", {
+        auth_epoch_stale_discard: 1,
+        epochAtStart,
+        authEpoch,
+        force: force ? 1 : 0,
+      });
+      return;
+    }
     if (res.status === 401) {
       snap = null;
       lastProjectionVersionMs = 0;
@@ -248,6 +292,15 @@ async function runDoFetch(force = false, waitReason?: string): Promise<void> {
     }
     unauthorizedPaused = false;
     const j = (await res.json()) as BadgeCountAuthorityJson & { ok?: boolean };
+    if (authEpoch !== epochAtStart) {
+      logNotifyBadge("ui_set", {
+        auth_epoch_stale_discard: 1,
+        epochAtStart,
+        authEpoch,
+        after: "json",
+      });
+      return;
+    }
     if (!j?.ok) {
       logNotifyBadge("ui_set", { fetchFailed: true });
       return;
@@ -273,6 +326,15 @@ async function runDoFetch(force = false, waitReason?: string): Promise<void> {
       logNotifyBadge("ui_set", { projection_incomplete: 1, kept_last_projection: snap ? 1 : 0 });
       return;
     }
+    if (authEpoch !== epochAtStart) {
+      logNotifyBadge("ui_set", {
+        auth_epoch_stale_discard: 1,
+        epochAtStart,
+        authEpoch,
+        after: "apply",
+      });
+      return;
+    }
     lastProjectionVersionMs = versionMs;
     logNotifyBadge("ui_set", {
       authority: "domain_badge",
@@ -285,6 +347,15 @@ async function runDoFetch(force = false, waitReason?: string): Promise<void> {
       }, POLL_MS);
     }
   } catch {
+    if (authEpoch !== epochAtStart) {
+      logNotifyBadge("ui_set", {
+        auth_epoch_stale_discard: 1,
+        epochAtStart,
+        authEpoch,
+        after: "catch",
+      });
+      return;
+    }
     logNotifyBadge("ui_set", { fetchFailed: true });
   }
 }
@@ -304,6 +375,7 @@ export function applyNotificationBadgeCountAuthorityAck(
   reason?: string
 ): boolean {
   if (typeof window === "undefined") return false;
+  const epochAtStart = authEpoch;
   const j = body as BadgeCountAuthorityJson & { badgeGeneration?: unknown; ok?: boolean };
   if (j.authority !== "domain_badge") return false;
   const versionMs = Math.max(
@@ -313,6 +385,16 @@ export function applyNotificationBadgeCountAuthorityAck(
     )
   );
   if (versionMs <= 0) return false;
+  if (authEpoch !== epochAtStart) {
+    logNotifyBadge("ui_set", {
+      auth_epoch_stale_discard: 1,
+      epochAtStart,
+      authEpoch,
+      reason: reason ?? null,
+      after: "ack",
+    });
+    return true;
+  }
   if (versionMs < lastProjectionVersionMs) {
     logNotifyBadge("ui_set", {
       ack_stale_skipped: 1,
@@ -335,6 +417,16 @@ export function applyNotificationBadgeCountAuthorityAck(
     projectionVersionMs: versionMs,
   });
   if (!applied) return false;
+  if (authEpoch !== epochAtStart) {
+    logNotifyBadge("ui_set", {
+      auth_epoch_stale_discard: 1,
+      epochAtStart,
+      authEpoch,
+      reason: reason ?? null,
+      after: "ack_apply",
+    });
+    return true;
+  }
   lastProjectionVersionMs = versionMs;
   unauthorizedPaused = false;
   logNotifyBadge("ui_set", {
@@ -357,7 +449,45 @@ export function patchNotificationBadgeCountSnapshot(
   return applyBellFromStore(next, source, versionMs);
 }
 
+/**
+ * P3-b2 LOCK — production Auth Epoch Reset for Badge store.
+ * Bumps epoch (stale in-flight discard), clears snap/inflight/bootOwned,
+ * closes fetch gate until Boot Initial Authority re-opens it,
+ * clears App Icon locally to 0 (no server fresh GET).
+ *
+ * DO NOT: start badge-count network here.
+ * DO NOT: stop/restart 45s poll policy (P3-c).
+ */
+export function resetNotificationBadgeCountForAuthEpoch(): void {
+  authEpoch += 1;
+  authEpochFetchOpen = false;
+  snap = null;
+  lastProjectionVersionMs = 0;
+  // Drop references only — in-flight Promise completions check authEpoch and discard.
+  inflight = null;
+  inflightForce = false;
+  bootOwnedInflight = null;
+  bootOwnedEpoch = null;
+  applyBellBadgeProjection({
+    breakdown: EMPTY_BELL_BADGE_FACTS,
+    versionMs: Date.now(),
+    source: "clear",
+    totalUnread: 0,
+  });
+  // Boot Initial Authority requires snap == null (skip_complete must not fire for next user).
+  snap = null;
+  applyAppIconBadgeProjection({ totalUnread: 0, versionMs: Date.now(), source: "clear" });
+  emit();
+  logNotifyBadge("ui_set", {
+    auth_epoch_reset: 1,
+    authEpoch,
+    network: 0,
+  });
+}
+
 export function resetNotificationBadgeCountStoreForTests(): void {
+  authEpoch = 0;
+  authEpochFetchOpen = true;
   snap = null;
   lastProjectionVersionMs = 0;
   listeners.clear();

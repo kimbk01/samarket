@@ -1,11 +1,16 @@
 "use client";
 
+import { applyHubBadgeProjection } from "@/lib/chat-domain/projections/hub-badge-projection";
 import { useMessengerInAppMessageBannerStore } from "@/lib/community-messenger/notifications/messenger-in-app-banner-store";
-import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
+import { OWNER_HUB_BADGE_EMPTY } from "@/lib/chats/owner-hub-badge-types";
+import { logNotifyBadge } from "@/lib/notifications/core/notification-logs";
 
 /**
- * 계정에서 빠질 때 메신저 **클라이언트 표면**만 초기화(서버 unread 는 그대로).
- * @see messenger-notification-contract.ts 정의
+ * P3-b2 LOCK — Auth Epoch local surface clear-only.
+ * Logout / account switch must NOT call badge-count?fresh=1 or Hub GET.
+ * Server unread is unchanged; prior-user client surfaces go to zero locally.
+ *
+ * DO NOT: requestMessengerHubBadgeResync / requestNotificationBadgeCountResync here.
  */
 export function resetMessengerNotificationSurfacesAfterSignOut(): void {
   if (typeof window === "undefined") return;
@@ -14,5 +19,11 @@ export function resetMessengerNotificationSurfacesAfterSignOut(): void {
   } catch {
     /* ignore */
   }
-  requestMessengerHubBadgeResync("auth_signed_out");
+  applyHubBadgeProjection({
+    breakdown: OWNER_HUB_BADGE_EMPTY,
+    versionMs: Date.now(),
+    source: "client_cache",
+    totalUnread: 0,
+  });
+  logNotifyBadge("ui_set", { auth_epoch_surface_clear: 1, network: 0 });
 }

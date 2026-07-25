@@ -268,7 +268,7 @@ export function markProjectionAuthorityWaitingComplete(reason: string): Projecti
   return state;
 }
 
-export function resetProjectionAuthorityForTests(): void {
+function clearProjectionAuthorityState(): void {
   state = "EMPTY";
   lastCompleteInput = null;
   lastMetadata = null;
@@ -295,6 +295,21 @@ export function resetProjectionAuthorityForTests(): void {
   counters.event_version_stale = 0;
   counters.event_kind_rejected = 0;
   counters.event_fact_noop = 0;
+}
+
+/**
+ * P3-b2 LOCK — Auth Epoch Reset for Projection Authority.
+ * Clears all prior-user baseline/generation/roomFacts/event dedupe.
+ * Does NOT change Builder formulas or COMPLETE state-machine semantics.
+ * Next Boot owner must go EMPTY → WAITING_COMPLETE → COMPLETE generation=1.
+ */
+export function resetProjectionAuthorityForAuthEpoch(): void {
+  clearProjectionAuthorityState();
+  logNotifyBadge("projection_state", { state: "EMPTY", reason: "auth_epoch_reset" });
+}
+
+export function resetProjectionAuthorityForTests(): void {
+  clearProjectionAuthorityState();
 }
 
 function reject(reason: ProjectionRejectReason, extra?: Record<string, unknown>): false {
