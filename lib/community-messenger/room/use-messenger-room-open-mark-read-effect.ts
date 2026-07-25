@@ -21,7 +21,7 @@ import { isMessengerRoomReadGateExtraBlocked } from "@/lib/community-messenger/r
 import { messengerMonitorUnreadListSync } from "@/lib/community-messenger/monitoring/client";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
-import { postNotificationRoomRead } from "@/lib/notifications/client/notification-event-read-client";
+import { postNotificationRoomReadWithAck } from "@/lib/notifications/client/notification-event-read-client";
 import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-events";
 import {
   cmReadBadgeLog,
@@ -445,9 +445,17 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
       if (notificationThreadReadDoneRef.current || notificationThreadReadInFlightRef.current) return true;
       notificationThreadReadInFlightRef.current = true;
       /** 성공 시에만 done — 실패 시 PATCH 경로에서 재시도 */
-      void postNotificationRoomRead(id).then((ok) => {
+      void postNotificationRoomReadWithAck(id).then((res) => {
         notificationThreadReadInFlightRef.current = false;
-        if (ok) notificationThreadReadDoneRef.current = true;
+        if (res.ok) notificationThreadReadDoneRef.current = true;
+        /**
+         * P3-c1: Read ACK = Generation Owner. ACK apply 성공 → phase2 fresh 0.
+         * ACK 미적용(응답 없음·형식 오류·apply 실패·baseline 미완)만 fallback 1회.
+         * 동일 mark_read 사실에 대한 추가 `badge-count?fresh=1` 은 이 경로에서만 발생한다.
+         */
+        if (res.requiresFallbackResync) {
+          reconcileUnreadFromServer();
+        }
       });
       return true;
     };
@@ -826,7 +834,7 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
                 reason: "scroll_ack_patch",
               });
             }
-            const notificationReadDone = readRoomNotificationEventsAfterServerRead();
+            readRoomNotificationEventsAfterServerRead();
             cmReadBadgeLog("mark_read_patch_done", { roomId: id, path: "scroll_ack" });
             if (peerTailMarkReadHintRef?.current && peerTailMarkReadHintRef.current === lastReadMessageId) {
               peerTailMarkReadHintRef.current = null;
@@ -848,12 +856,11 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
                 });
               }
             }
-            /** notification read 가 resync 를 이미 트리거 — participant hub 만 재정합 */
-            if (!notificationReadDone) {
-              reconcileUnreadFromServer();
-            } else {
-              requestMessengerHubBadgeResync("room_phase2_mark_read", { roomId: id });
-            }
+            /**
+             * P3-c1: mark_read 사실의 Generation Owner 는 room-read ACK 하나뿐이다.
+             * ACK apply 성공 → 추가 fresh 0 / ACK 미적용 → `readRoomNotificationEventsAfterServerRead`
+             * 내부에서 fallback 1회. 여기서 별도 `room_phase2_mark_read` fresh 를 발행하지 않는다.
+             */
             debugRoomReadAck({
               roomId: id,
               reason,

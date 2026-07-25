@@ -22,6 +22,18 @@ type ReadMutationResult = {
   domainAppIcon?: unknown;
 } & Partial<BadgeCountAuthorityJson>;
 
+/**
+ * P3-c1 — Read ACK 적용 결과. 호출부(방 진입 phase2)가 fresh 재조회 여부를 ACK 결과로 판정한다.
+ * - `applied`: ACK snapshot 을 Projection 에 적용(또는 same-generation noop 로 이미 반영).
+ * - `generationAccepted`: Generation Owner(ACK)로서 새 세대/재사용이 확정됨.
+ * - `requiresFallbackResync`: ACK 미적용(응답 없음·형식 오류·apply 실패·baseline 미완)만 true.
+ */
+export type AckApplyResult = {
+  applied: boolean;
+  generationAccepted: boolean;
+  requiresFallbackResync: boolean;
+};
+
 type ReadThreadClientOptions = {
   threadType?: "chat_room" | "trade_room" | "order" | "community_post" | "call";
   roomId?: string;
@@ -70,17 +82,31 @@ async function postJson(url: string, body: Record<string, unknown>): Promise<Rea
  *
  * P3-a LOCK: ACK snapshot apply 성공 시 `badge-count?fresh=1` 0.
  */
-function afterNotificationEventsRead(
+/**
+ * P3-a/P3-c1 — apply Read ACK Domain snapshot. Returns the ACK result WITHOUT firing
+ * the fallback fresh GET, so callers (room phase2) own exactly one fallback.
+ */
+function evaluateReadAckApply(
   reason: MessengerHubBadgeResyncReason,
   result?: ReadMutationResult
-): void {
+): AckApplyResult {
   void result?.categoryCounts;
   void result?.cleared;
   if (result && applyDomainBadgeAuthorityFromReadAck(result, reason)) {
     // P3-a: ACK owns Projection — skip badge-count fresh GET; Hub shell may still refresh.
     requestMessengerHubBadgeResync(reason, { skipBadgeCount: true });
-    return;
+    return { applied: true, generationAccepted: true, requiresFallbackResync: false };
   }
+  // ACK 미적용 — 응답 없음/형식 오류/apply 실패/baseline 미완. 호출부가 fallback 1회 담당.
+  return { applied: false, generationAccepted: false, requiresFallbackResync: true };
+}
+
+function afterNotificationEventsRead(
+  reason: MessengerHubBadgeResyncReason,
+  result?: ReadMutationResult
+): void {
+  const ack = evaluateReadAckApply(reason, result);
+  if (ack.applied) return;
   resyncBadgesAfterNotificationEventsRead(reason);
 }
 
@@ -103,15 +129,34 @@ export async function postNotificationEventOpenedRead(
   return result.ok;
 }
 
-export async function postNotificationRoomRead(roomId: string): Promise<boolean> {
+/**
+ * P3-c1 — room-read that reports the ACK apply result WITHOUT firing a fallback fresh GET.
+ * The caller (room phase2 mark_read) owns the single fallback so `mark_read` never
+ * produces an extra `badge-count?fresh=1` after the ACK Generation Owner reconciles.
+ */
+export async function postNotificationRoomReadWithAck(
+  roomId: string
+): Promise<AckApplyResult & { ok: boolean }> {
   const rid = roomId.trim();
-  if (!rid) return false;
-  const result = await postJson("/api/me/notifications/room-read", { roomId: rid });
-  if (result.ok) {
-    logNotifyOpen("room_opened", { roomId: rid });
-    afterNotificationEventsRead("room_read", result);
+  if (!rid) {
+    return { ok: false, applied: false, generationAccepted: false, requiresFallbackResync: false };
   }
-  return result.ok;
+  const result = await postJson("/api/me/notifications/room-read", { roomId: rid });
+  if (!result.ok) {
+    // ACK 응답 없음 → 호출부 fallback 1회.
+    return { ok: false, applied: false, generationAccepted: false, requiresFallbackResync: true };
+  }
+  logNotifyOpen("room_opened", { roomId: rid });
+  const ack = evaluateReadAckApply("room_read", result);
+  return { ok: true, ...ack };
+}
+
+export async function postNotificationRoomRead(roomId: string): Promise<boolean> {
+  const res = await postNotificationRoomReadWithAck(roomId);
+  if (res.ok && res.requiresFallbackResync) {
+    resyncBadgesAfterNotificationEventsRead("room_read");
+  }
+  return res.ok;
 }
 
 export async function postNotificationCategoryRead(category: string): Promise<boolean> {

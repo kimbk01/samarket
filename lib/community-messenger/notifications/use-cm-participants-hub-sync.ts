@@ -188,6 +188,13 @@ export function useCmParticipantsHubSync(
               dismissMessengerInAppBannerForRoom(nextRoomId);
               const banner_ms =
                 typeof performance !== "undefined" ? Math.round(performance.now() - t0) : 0;
+              /**
+               * P3-c1: 동일 unread 감소 사실은 room fact 로 이미 Projection Authority 에
+               * 반영된다(=Generation Owner). room fact 가 정상 커밋되면 `badge-count?fresh=1`
+               * 재조회를 금지하고 로컬 적용으로 종료한다.
+               * baseline 부재·도메인 미해결·커밋 실패(`authorityApplied === false`)만 fallback resync.
+               */
+              const decreaseFallback = !applied.authorityApplied;
               logCmSurfaceSync({
                 phase: "participant_decrease",
                 roomId: nextRoomId,
@@ -198,11 +205,15 @@ export function useCmParticipantsHubSync(
                 banner_ms,
                 unread: applied.unreadCount,
                 prevUnread,
+                authorityApplied: applied.authorityApplied,
+                freshResync: decreaseFallback ? 1 : 0,
               });
-              requestMessengerHubBadgeResync("participant_unread_changed", {
-                roomId: nextRoomId,
-                participantUnreadDirection: "decrease",
-              });
+              if (decreaseFallback) {
+                requestMessengerHubBadgeResync("participant_unread_changed", {
+                  roomId: nextRoomId,
+                  participantUnreadDirection: "decrease",
+                });
+              }
               return;
             }
 

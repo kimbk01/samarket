@@ -29,6 +29,10 @@ export type CmSurfaceSyncLog = {
   banner_ms: number | null;
   unread: number;
   prevUnread?: number;
+  /** P3-c1 — decrease 가 room fact 로 Projection Authority 에 커밋되었는지. */
+  authorityApplied?: boolean;
+  /** P3-c1 — 이 decrease 가 `badge-count?fresh=1` 재조회를 발행했는지(1) / 생략했는지(0). */
+  freshResync?: 0 | 1;
 };
 
 export function logCmSurfaceSync(payload: CmSurfaceSyncLog): void {
