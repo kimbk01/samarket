@@ -16,12 +16,6 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
   private var handoffErrorLabel: UILabel?
   private var bridgeScriptInstalled = false
 
-  override func viewDidLoad() {
-    super.viewDidLoad()
-    // P0: paint cream before WKWebView first frame — avoid black flash on cold start.
-    applyStartupBackground()
-  }
-
   override func viewDidAppear(_ animated: Bool) {
     super.viewDidAppear(animated)
     applyStartupBackground()
@@ -29,8 +23,6 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     if isBundledLocalRuntimeMode() {
       // Option A: Capacitor loads bundled webDir Local Runtime — do not inject Hybrid boot HTML.
       NSLog("DIBAY_WebView startup_boot_skip reason=local_runtime_mode")
-      // Re-apply after Cap WebView attach (opaque/black default on some iOS versions).
-      applyStartupBackground()
       return
     }
     attemptLocalStartupShellLoad()
@@ -39,29 +31,20 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
   private func applyStartupBackground() {
     let cream = UIColor(red: 1.0, green: 0.988, blue: 0.988, alpha: 1.0) // #FFFCFC
     view.backgroundColor = cream
-    view.window?.backgroundColor = cream
     webView?.isOpaque = false
     webView?.backgroundColor = cream
     webView?.scrollView.backgroundColor = cream
-    webView?.scrollView.isOpaque = false
   }
 
   private func isBundledLocalRuntimeMode() -> Bool {
-    let candidates: [URL?] = [
-      Bundle.main.url(forResource: "dibay-runtime-mode", withExtension: "json"),
-      Bundle.main.url(forResource: "dibay-runtime-mode", withExtension: "json", subdirectory: "public"),
-      Bundle.main.resourceURL?.appendingPathComponent("public/dibay-runtime-mode.json"),
-      Bundle.main.bundleURL.appendingPathComponent("public/dibay-runtime-mode.json"),
-    ]
-    for candidate in candidates {
-      guard let url = candidate, FileManager.default.fileExists(atPath: url.path),
-            let data = try? Data(contentsOf: url),
-            let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-            let local = obj["localRuntime"] as? Bool
-      else { continue }
-      return local
+    guard let url = Bundle.main.url(forResource: "dibay-runtime-mode", withExtension: "json"),
+          let data = try? Data(contentsOf: url),
+          let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+          let local = obj["localRuntime"] as? Bool
+    else {
+      return false
     }
-    return false
+    return local
   }
 
   private func installBootBridgeIfNeeded() {
@@ -101,10 +84,6 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
         // Capacitor SplashScreen.hide is driven from remote shellReady JS; local no-op ok.
         NSLog("[DIBAY_Startup] dismissSplash bridge")
       case "beginHandoffCover":
-        if self.isBundledLocalRuntimeMode() {
-          NSLog("[DIBAY_Startup] handoff_cover_begin_ignored reason=local_runtime_mode")
-          return
-        }
         let url = body["url"] as? String
         self.showNativeHandoffCover(pendingURL: url)
       case "endHandoffCover":

@@ -49,9 +49,6 @@ const config: CapacitorConfig = {
         cleartext: serverUrl.startsWith("http://"),
       },
   plugins: {
-    CapacitorHttp: {
-      enabled: true,
-    },
     SplashScreen: {
       launchAutoHide: false,
       launchShowDuration: 0,

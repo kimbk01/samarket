@@ -27180,6 +27180,10 @@ ${suffix}`;
                 const { CapacitorHttp: CapacitorHttp2 } = await Promise.resolve().then(() => (init_dist(), dist_exports));
                 await CapacitorHttp2.get({ url, headers: { Accept: "application/json" } });
               } catch {
+                try {
+                  await fetch(url, { method: "GET", credentials: "omit", cache: "no-store" });
+                } catch {
+                }
               }
             })();
           }

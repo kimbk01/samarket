@@ -3,13 +3,10 @@
 	"appName": "DIBAY",
 	"webDir": "capacitor-www",
 	"server": {
-		"androidScheme": "https",
+		"url": "https://samarket.vercel.app",
 		"cleartext": false
 	},
 	"plugins": {
-		"CapacitorHttp": {
-			"enabled": true
-		},
 		"SplashScreen": {
 			"launchAutoHide": false,
 			"launchShowDuration": 0,
@@ -23,6 +20,11 @@
 		"PushNotificationsPlugin",
 		"SharePlugin",
 		"SplashScreenPlugin",
-		"BadgePlugin"
+		"BadgePlugin",
+		"NativeCallServicePlugin",
+		"DibayVoipCallPlugin",
+		"DibayCallPipPlugin",
+		"NativeAppleAuthPlugin",
+		"NativeKakaoAuthPlugin"
 	]
 }
