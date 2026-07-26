@@ -24,6 +24,12 @@ import {
   __testApplyOwnerHubBadgePayloadForTest,
   subscribeOwnerHubBadge,
 } from "@/lib/chats/owner-hub-badge-store";
+import {
+  getOwnerFabOrderChatBadgeSnapshot,
+  getOwnerFabOrdersBadgeSnapshot,
+  getOwnerFabStoreBadgeSnapshot,
+  getOwnerHeaderOpsAttentionSnapshot,
+} from "@/lib/chats/use-owner-hub-badge-total";
 
 function ownerBreakdown(overrides: Partial<OwnerHubBadgeBreakdown> = {}): OwnerHubBadgeBreakdown {
   return {
@@ -140,5 +146,104 @@ describe("Owner hub store notify contract (FAB/Header source)", () => {
 
     __testApplyOwnerHubBadgePayloadForTest(hubPayload({ orderAttention: 6 }), "network_fresh");
     expect(onChange).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("Owner FAB / Header selector snapshots (re-render gate)", () => {
+  beforeEach(() => {
+    __resetOwnerHubBadgeStoreForTest();
+  });
+
+  function hubPayload(overrides: Partial<OwnerHubBadgeBreakdown> = {}) {
+    return { ok: true, ...ownerBreakdown(overrides) };
+  }
+
+  function selectorSnapshots() {
+    return {
+      fabOrders: getOwnerFabOrdersBadgeSnapshot(),
+      fabStore: getOwnerFabStoreBadgeSnapshot(),
+      fabOrderChat: getOwnerFabOrderChatBadgeSnapshot(),
+      header: getOwnerHeaderOpsAttentionSnapshot(),
+    };
+  }
+
+  it("Customer buyerOrderAttention change keeps FAB/Header selector snapshots identical", () => {
+    __testApplyOwnerHubBadgePayloadForTest(hubPayload({ buyerOrderAttention: 0 }), "network_fresh");
+    const before = selectorSnapshots();
+    __testApplyOwnerHubBadgePayloadForTest(hubPayload({ buyerOrderAttention: 7 }), "network_fresh");
+    expect(selectorSnapshots()).toEqual(before);
+  });
+
+  it("General/Group communityMessengerUnread change keeps FAB/Header snapshots identical", () => {
+    __testApplyOwnerHubBadgePayloadForTest(
+      hubPayload({ communityMessengerUnread: 0 }),
+      "network_fresh"
+    );
+    const before = selectorSnapshots();
+    __testApplyOwnerHubBadgePayloadForTest(
+      hubPayload({ communityMessengerUnread: 9 }),
+      "network_fresh"
+    );
+    expect(selectorSnapshots()).toEqual(before);
+  });
+
+  it("Trade chatUnread change keeps FAB/Header snapshots identical", () => {
+    __testApplyOwnerHubBadgePayloadForTest(hubPayload({ chatUnread: 0 }), "network_fresh");
+    const before = selectorSnapshots();
+    __testApplyOwnerHubBadgePayloadForTest(hubPayload({ chatUnread: 6 }), "network_fresh");
+    expect(selectorSnapshots()).toEqual(before);
+  });
+
+  it("App Icon aggregate axes change keeps FAB/Header snapshots identical", () => {
+    __testApplyOwnerHubBadgePayloadForTest(hubPayload(), "network_fresh");
+    const before = selectorSnapshots();
+    __testApplyOwnerHubBadgePayloadForTest(
+      hubPayload({
+        storeOrderOwnerUnreadRooms: 42,
+        socialChatUnread: 30,
+        total: 99,
+      }),
+      "network_fresh"
+    );
+    expect(selectorSnapshots()).toEqual(before);
+  });
+
+  it("Owner axis change updates only the matching selector", () => {
+    __testApplyOwnerHubBadgePayloadForTest(hubPayload(), "network_fresh");
+    const before = selectorSnapshots();
+
+    __testApplyOwnerHubBadgePayloadForTest(hubPayload({ orderAttention: 6 }), "network_fresh");
+    const afterOrders = selectorSnapshots();
+    expect(afterOrders.fabOrders).toBe(before.fabOrders + 1);
+    expect(afterOrders.fabStore).toBe(before.fabStore);
+    expect(afterOrders.fabOrderChat).toBe(before.fabOrderChat);
+    expect(afterOrders.header).toBe(before.header + 1);
+
+    __testApplyOwnerHubBadgePayloadForTest(
+      hubPayload({ orderAttention: 6, storeOrderChatUnread: 9 }),
+      "network_fresh"
+    );
+    const afterChat = selectorSnapshots();
+    expect(afterChat.fabOrderChat).toBe(before.fabOrderChat + 1);
+    expect(afterChat.fabOrders).toBe(afterOrders.fabOrders);
+    expect(afterChat.fabStore).toBe(before.fabStore);
+    expect(afterChat.header).toBe(afterOrders.header + 1);
+  });
+
+  it("same Owner values re-apply leave selector snapshots unchanged", () => {
+    __testApplyOwnerHubBadgePayloadForTest(hubPayload(), "network_fresh");
+    const before = selectorSnapshots();
+    __testApplyOwnerHubBadgePayloadForTest(hubPayload(), "network_fresh");
+    expect(selectorSnapshots()).toEqual(before);
+  });
+
+  it("selector snapshots match locked Owner FAB/Header numeric contract", () => {
+    __testApplyOwnerHubBadgePayloadForTest(hubPayload(), "network_fresh");
+    expect(selectorSnapshots()).toEqual({
+      fabOrders: 5,
+      fabStore: 3,
+      fabOrderChat: 8,
+      header: 5 + 3 + 8,
+    });
   });
 });

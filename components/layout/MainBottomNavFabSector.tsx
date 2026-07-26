@@ -43,13 +43,11 @@ import {
 import { localizeMainBottomNavFabDisplayItems } from "@/lib/main-menu/main-bottom-nav-fab-i18n";
 import { prefetchOwnerNavigationSummaryQuiet } from "@/lib/delivery/owner/projections/prefetch-owner-navigation-summary";
 import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-nav-intercept";
-import { useOwnerHubBadgeBreakdown } from "@/lib/chats/use-owner-hub-badge-total";
-import type { OwnerHubBadgeBreakdown } from "@/lib/chats/owner-hub-badge-types";
 import {
-  resolveFabOwnerOrderChatBadgeCount,
-  resolveFabOwnerOrdersBadgeCount,
-  resolveFabOwnerStoreBadgeCount,
-} from "@/lib/stores/owner-store-badge-display-policy";
+  useOwnerFabOrderChatBadgeCount,
+  useOwnerFabOrdersBadgeCount,
+  useOwnerFabStoreBadgeCount,
+} from "@/lib/chats/use-owner-hub-badge-total";
 
 /**
  * CONTRACT — 배달 하단 FAB (`docs/main-bottom-nav-fab-sector-contract.md`)
@@ -82,12 +80,12 @@ function isFabOrderChatItem(item: { id: string; icon: string }): boolean {
 
 function resolveFabItemBadgeCount(
   item: { id: string; icon: string; href: string },
-  bd: OwnerHubBadgeBreakdown
+  badges: { orders: number; store: number; chat: number }
 ): number {
   if (isFabCartItem(item)) return 0;
-  if (isMainBottomNavFabStoreAdminItem(item)) return resolveFabOwnerStoreBadgeCount(bd);
-  if (isFabOrderHistoryItem(item)) return resolveFabOwnerOrdersBadgeCount(bd);
-  if (isFabOrderChatItem(item)) return resolveFabOwnerOrderChatBadgeCount(bd);
+  if (isMainBottomNavFabStoreAdminItem(item)) return badges.store;
+  if (isFabOrderHistoryItem(item)) return badges.orders;
+  if (isFabOrderChatItem(item)) return badges.chat;
   return 0;
 }
 
@@ -105,7 +103,9 @@ export function MainBottomNavFabSector() {
     [pathname, tabs]
   );
   const approvedOwnerStore = useApprovedOwnerStoreForFab();
-  const ownerHubBreakdown = useOwnerHubBadgeBreakdown();
+  const fabOrdersRaw = useOwnerFabOrdersBadgeCount();
+  const fabStoreRaw = useOwnerFabStoreBadgeCount();
+  const fabOrderChatRaw = useOwnerFabOrderChatBadgeCount();
   const { openBlockedModalIfNeeded, hubBlockedModal } = useStoreBusinessHubEntryModal(t("common_confirm"));
   const fabConfig = useMemo(() => {
     if (!fabConfigResolved) return null;
@@ -121,12 +121,11 @@ export function MainBottomNavFabSector() {
     if (!fabConfigResolved) return;
     prefetchOwnerNavigationSummaryQuiet();
   }, [fabConfigResolved, approvedOwnerStore?.id]);
-  const fabOrdersBadge = approvedOwnerStore ? resolveFabOwnerOrdersBadgeCount(ownerHubBreakdown) : 0;
-  const fabStoreBadge = approvedOwnerStore ? resolveFabOwnerStoreBadgeCount(ownerHubBreakdown) : 0;
-  const fabOrderChatBadge = approvedOwnerStore
-    ? resolveFabOwnerOrderChatBadgeCount(ownerHubBreakdown)
-    : 0;
+  const fabOrdersBadge = approvedOwnerStore ? fabOrdersRaw : 0;
+  const fabStoreBadge = approvedOwnerStore ? fabStoreRaw : 0;
+  const fabOrderChatBadge = approvedOwnerStore ? fabOrderChatRaw : 0;
   const fabToggleAttention = Math.max(fabOrdersBadge, fabStoreBadge, fabOrderChatBadge);
+  const fabBadges = { orders: fabOrdersBadge, store: fabStoreBadge, chat: fabOrderChatBadge };
   const { href, cartCount, cartHydrated } = useCommerceCartNavHref(COMMERCE_CART_NAV_FALLBACK_AGGREGATE_CART);
   const enabled = fabConfig != null && fabConfig.items.length > 0;
   const [expandLocked, setExpandLocked] = useState(false);
@@ -305,7 +304,7 @@ export function MainBottomNavFabSector() {
                     const cartItem = isFabCartItem(item);
                     const storeAdminItem = isMainBottomNavFabStoreAdminItem(item);
                     const itemBadge = approvedOwnerStore
-                      ? resolveFabItemBadgeCount(item, ownerHubBreakdown)
+                      ? resolveFabItemBadgeCount(item, fabBadges)
                       : 0;
                     const showCartBadge = cartItem && cartHydrated && cartCount > 0;
                     const showItemBadge = !showCartBadge && itemBadge > 0;

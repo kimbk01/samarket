@@ -4,14 +4,13 @@ import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useStoreBusinessHubEntryModal } from "@/hooks/use-store-business-hub-entry-modal";
 import { useOwnerNavigationSummary } from "@/lib/delivery/owner/projections/use-owner-navigation-summary";
-import { useOwnerHubBadgeBreakdown } from "@/lib/chats/use-owner-hub-badge-total";
+import { useOwnerHeaderOpsAttentionCount } from "@/lib/chats/use-owner-hub-badge-total";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { resolveDeliveryOrderHistoryHref } from "@/lib/stores/delivery-order-history-nav";
 import {
   STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME,
   StoreCommerceCartStrokeIcon,
 } from "@/components/stores/StoreCommerceCartStrokeIcon";
-import { resolveOwnerOperationsCenterAttentionCount } from "@/lib/stores/owner-store-badge-display-policy";
 import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-nav-intercept";
 import { COMMERCE_CART_NAV_FALLBACK_AGGREGATE_CART } from "@/lib/stores/store-commerce-cart-nav";
 import { useCommerceCartNavHref } from "@/components/layout/use-commerce-cart-nav-href";
@@ -36,7 +35,7 @@ function OrderHistoryIcon({ className }: { className?: string }) {
 export function StoresRootTier1HeaderActions() {
   const { t } = useI18n();
   const ownerNav = useOwnerNavigationSummary();
-  const ownerHubBreakdown = useOwnerHubBadgeBreakdown();
+  const ownerOpsAttentionRaw = useOwnerHeaderOpsAttentionCount();
   const { openBlockedModalIfNeeded, hubBlockedModal } = useStoreBusinessHubEntryModal(t("common_confirm"));
 
   const { href: cartHref, cartCount: cartLineKindCount } = useCommerceCartNavHref(
@@ -45,9 +44,7 @@ export function StoresRootTier1HeaderActions() {
 
   const ownerStoreId = ownerNav.storeId?.trim() ?? "";
   const orderHistoryHref = resolveDeliveryOrderHistoryHref(ownerStoreId);
-  const ownerOpsAttention = ownerNav.hasPreferredStore
-    ? resolveOwnerOperationsCenterAttentionCount(ownerHubBreakdown)
-    : 0;
+  const ownerOpsAttention = ownerNav.hasPreferredStore ? ownerOpsAttentionRaw : 0;
   const opsHref = ownerStoreId ? OwnerRoutes.hub(ownerStoreId) : null;
 
   return (

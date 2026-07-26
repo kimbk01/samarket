@@ -17,6 +17,12 @@ import {
   getNotificationBadgeCountSnapshot,
 } from "@/lib/notifications/notification-badge-count-store";
 import { useOwnerNavigationHasPreferredStore } from "@/lib/delivery/owner/projections/use-owner-navigation-summary";
+import {
+  resolveFabOwnerOrderChatBadgeCount,
+  resolveFabOwnerOrdersBadgeCount,
+  resolveFabOwnerStoreBadgeCount,
+  resolveOwnerOperationsCenterAttentionCount,
+} from "@/lib/stores/owner-store-badge-display-policy";
 import { bumpMessengerRenderPerf } from "@/lib/runtime/samarket-runtime-debug";
 import { bumpRerenderTrace } from "@/lib/dibay/network-fetch-storm-trace";
 import { logHubBadgeRenderTrace } from "@/lib/dibay/shell-fetch-trace";
@@ -45,6 +51,68 @@ export function useOwnerHubBadgeBreakdownWhenEnabled(enabled: boolean): OwnerHub
 export function useOwnerHubBadgeTotal(): number {
   const { total } = useOwnerHubBadgeBreakdown();
   return total;
+}
+
+/**
+ * Owner FAB / Header selector snapshots — Owner-role axes only.
+ *
+ * Hub may still emit on Customer/CM/Trade/App Icon axis changes; these getters
+ * return the same number so `useSyncExternalStore` skips re-render (Object.is).
+ * DO NOT widen to full `OwnerHubBadgeBreakdown` for FAB / `/stores` tier-1 Header.
+ */
+export function getOwnerFabOrdersBadgeSnapshot(): number {
+  return resolveFabOwnerOrdersBadgeCount(getOwnerHubBadgeSnapshot());
+}
+
+export function getOwnerFabStoreBadgeSnapshot(): number {
+  return resolveFabOwnerStoreBadgeCount(getOwnerHubBadgeSnapshot());
+}
+
+export function getOwnerFabOrderChatBadgeSnapshot(): number {
+  return resolveFabOwnerOrderChatBadgeCount(getOwnerHubBadgeSnapshot());
+}
+
+export function getOwnerHeaderOpsAttentionSnapshot(): number {
+  return resolveOwnerOperationsCenterAttentionCount(getOwnerHubBadgeSnapshot());
+}
+
+/** FAB 주문내역 — `orderAttention` only */
+export function useOwnerFabOrdersBadgeCount(): number {
+  return useSyncExternalStore(
+    subscribeOwnerHubBadge,
+    getOwnerFabOrdersBadgeSnapshot,
+    () => 0
+  );
+}
+
+/** FAB 스토어 — `inquiryAttention + ownerReviewAttention` */
+export function useOwnerFabStoreBadgeCount(): number {
+  return useSyncExternalStore(
+    subscribeOwnerHubBadge,
+    getOwnerFabStoreBadgeSnapshot,
+    () => 0
+  );
+}
+
+/** FAB 주문채팅 — store-scoped `storeOrderChatUnread` */
+export function useOwnerFabOrderChatBadgeCount(): number {
+  return useSyncExternalStore(
+    subscribeOwnerHubBadge,
+    getOwnerFabOrderChatBadgeSnapshot,
+    () => 0
+  );
+}
+
+/**
+ * `/stores` tier-1 Owner Header — operations center attention sum.
+ * Reusable by Admin surfaces later; this batch only wires FAB + Stores Header.
+ */
+export function useOwnerHeaderOpsAttentionCount(): number {
+  return useSyncExternalStore(
+    subscribeOwnerHubBadge,
+    getOwnerHeaderOpsAttentionSnapshot,
+    () => 0
+  );
 }
 
 function tabUnreadFromBreakdown(

@@ -114,11 +114,21 @@ const FORBIDDEN_SURFACE_IMPORTS = [
 ];
 
 const ownerSurfaceFiles = [
-  "components/layout/MainBottomNavFabSector.tsx",
-  "components/stores/StoresRootTier1HeaderActions.tsx",
+  {
+    rel: "components/layout/MainBottomNavFabSector.tsx",
+    requiredHooks: [
+      "useOwnerFabOrdersBadgeCount",
+      "useOwnerFabStoreBadgeCount",
+      "useOwnerFabOrderChatBadgeCount",
+    ],
+  },
+  {
+    rel: "components/stores/StoresRootTier1HeaderActions.tsx",
+    requiredHooks: ["useOwnerHeaderOpsAttentionCount"],
+  },
 ];
 
-for (const rel of ownerSurfaceFiles) {
+for (const { rel, requiredHooks } of ownerSurfaceFiles) {
   if (!fs.existsSync(path.join(root, rel))) {
     failures.push(`missing Owner surface file: ${rel}`);
     continue;
@@ -132,6 +142,62 @@ for (const rel of ownerSurfaceFiles) {
   if (/appIconTotal/.test(src)) {
     failures.push(`${rel}: Owner surface must not read App Icon total`);
   }
+  if (src.includes("useOwnerHubBadgeBreakdown")) {
+    failures.push(
+      `${rel}: must use Owner-axis selector hooks — not useOwnerHubBadgeBreakdown (full hub object)`
+    );
+  }
+  for (const hook of requiredHooks) {
+    if (!src.includes(hook)) {
+      failures.push(`${rel}: missing Owner selector hook ${hook}`);
+    }
+  }
+}
+
+const hooksRel = "lib/chats/use-owner-hub-badge-total.ts";
+const hooksSrc = read(hooksRel);
+const SELECTOR_HOOKS = [
+  "useOwnerFabOrdersBadgeCount",
+  "useOwnerFabStoreBadgeCount",
+  "useOwnerFabOrderChatBadgeCount",
+  "useOwnerHeaderOpsAttentionCount",
+];
+for (const hook of SELECTOR_HOOKS) {
+  const body = bodyOf(hooksSrc, hook);
+  if (!body) {
+    failures.push(`${hooksRel}: missing selector hook ${hook}`);
+    continue;
+  }
+  if (!body.includes("subscribeOwnerHubBadge")) {
+    failures.push(`${hooksRel}: ${hook} must subscribe via subscribeOwnerHubBadge`);
+  }
+  if (body.includes("getOwnerHubBadgeSnapshot")) {
+    failures.push(
+      `${hooksRel}: ${hook} must read via dedicated Owner selector snapshot — not getOwnerHubBadgeSnapshot directly`
+    );
+  }
+}
+
+const SELECTOR_GETTERS = [
+  ["getOwnerFabOrdersBadgeSnapshot", "resolveFabOwnerOrdersBadgeCount"],
+  ["getOwnerFabStoreBadgeSnapshot", "resolveFabOwnerStoreBadgeCount"],
+  ["getOwnerFabOrderChatBadgeSnapshot", "resolveFabOwnerOrderChatBadgeCount"],
+  ["getOwnerHeaderOpsAttentionSnapshot", "resolveOwnerOperationsCenterAttentionCount"],
+];
+for (const [getter, resolver] of SELECTOR_GETTERS) {
+  const body = bodyOf(hooksSrc, getter);
+  if (!body) {
+    failures.push(`${hooksRel}: missing selector snapshot ${getter}`);
+    continue;
+  }
+  if (!body.includes(resolver)) {
+    failures.push(`${hooksRel}: ${getter} must use ${resolver}`);
+  }
+  for (const axis of FORBIDDEN_OWNER_AXES) {
+    if (body.includes(axis)) {
+      failures.push(`${hooksRel}: ${getter} must not read ${axis}`);
+    }
+  }
 }
 
 if (failures.length) {
@@ -140,5 +206,5 @@ if (failures.length) {
   process.exit(1);
 }
 console.log(
-  "[verify:owner-fab-header-contract] OK — Owner FAB/Header read Owner-role attention axes only"
+  "[verify:owner-fab-header-contract] OK — Owner FAB/Header meaning + selector subscription locked"
 );
