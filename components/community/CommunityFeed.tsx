@@ -44,7 +44,10 @@ import type { AdFeedPost } from "@/lib/ads/types";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { normalizeFeedSort } from "@/lib/community-feed/constants";
 import { readPhilifeFeedCache, writePhilifeFeedCache, clearPhilifeFeedCacheEntry, resolvePhilifeColdBootViewerSig, philifeFeedViewerSig } from "@/lib/community/philife-feed-session-cache";
-import { resolveInitialCommunityFeedSnapshot } from "@/lib/community/resolve-initial-community-feed-snapshot";
+import {
+  resolveCommunityFeedBootSelection,
+  resolveInitialCommunityFeedSnapshot,
+} from "@/lib/community/resolve-initial-community-feed-snapshot";
 import { usePhilifeWriteSheet } from "@/contexts/PhilifeWriteSheetContext";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import type { PhilifeGlobalFeedInitialRsc } from "@/lib/philife/resolve-philife-global-feed-initial-rsc";
@@ -360,10 +363,19 @@ export function CommunityFeed({
   const categoryParam = searchParams.get("category")?.trim() ?? "";
   const sortParam = searchParams.get("sort")?.trim() ?? "";
   const categoryParamNorm = categoryParam.trim().toLowerCase();
-  const sortForCurrentQuery = resolvePhilifeFeedSortForQuery(categoryParamNorm, sortParam);
+  const initialTopicOptions = initialGlobalFeedRsc?.topicOptionsSeed ?? null;
+  const initialBootSelection = resolveCommunityFeedBootSelection(
+    categoryParamNorm,
+    initialTopicOptions
+  );
+  const sortForCurrentQuery = resolvePhilifeFeedSortForQuery(
+    initialBootSelection.category,
+    sortParam
+  );
   const canBootFromInitialGlobalFeed =
     !!initialGlobalFeedRsc &&
-    initialGlobalFeedRsc.seededCategory === categoryParamNorm &&
+    initialBootSelection.authorityReady &&
+    initialGlobalFeedRsc.seededCategory === initialBootSelection.category &&
     initialGlobalFeedRsc.seededSort === sortForCurrentQuery;
   /**
    * Persistent cache 는 서버에서 읽을 수 없음 — 초기 state 에 넣으면 SSR/클라 하이드레이션 불일치.
@@ -378,13 +390,17 @@ export function CommunityFeed({
     canBootFromInitialGlobalFeed && typeof initialGlobalFeedRsc?.nextOffset === "number"
       ? initialGlobalFeedRsc.nextOffset
       : 0;
-  const [category, setCategory] = useState<string>(categoryParam);
+  const [category, setCategory] = useState<string>(initialBootSelection.category);
+  const [topicOptionsAuthority, setTopicOptionsAuthority] =
+    useState(initialTopicOptions);
   const [neighborOnly, setNeighborOnly] = useState(false);
   const [posts, setPosts] = useState<NeighborhoodFeedPostDTO[]>(bootPosts);
   const [hasMore, setHasMore] = useState(bootHasMore);
   /** cache/RSC 없으면 true — UI는 skeleton/blank 없이 셸만 유지, network 는 background */
   const [loading, setLoading] = useState(!bootPosts.length);
   const [loadingMore, setLoadingMore] = useState(false);
+  const categoryParamRef = useRef(categoryParam);
+  categoryParamRef.current = categoryParam;
   const postsRef = useRef<NeighborhoodFeedPostDTO[]>(bootPosts);
   const adjacentPrefetchAtRef = useRef<Record<string, number>>({});
   const initialPrewarmDoneRef = useRef(false);
@@ -407,12 +423,9 @@ export function CommunityFeed({
   const topicTabScrollGenRef = useRef(0);
 
   const [chips, setChips] = useState<PhilifeFeedTopicChip[]>(() => {
-    const peeked = peekPhilifeNeighborhoodTopicOptionsFromCache();
-    if (peeked) return buildFeedChipsFromPhilifeTopicOptionsJson(peeked).chips;
-    const seed = initialGlobalFeedRsc?.topicOptionsSeed;
-    if (seed) {
-      seedPhilifeNeighborhoodTopicOptionsCache(seed);
-      return buildFeedChipsFromPhilifeTopicOptionsJson(seed).chips;
+    if (initialTopicOptions) {
+      seedPhilifeNeighborhoodTopicOptionsCache(initialTopicOptions);
+      return buildFeedChipsFromPhilifeTopicOptionsJson(initialTopicOptions).chips;
     }
     return [];
   });
@@ -423,23 +436,34 @@ export function CommunityFeed({
   } | null>(null);
   const recommendMenuRef = useRef<HTMLButtonElement | null>(null);
   const recommendMenuPanelRef = useRef<HTMLUListElement | null>(null);
-  const [chipsLoadDone, setChipsLoadDone] = useState(
-    () =>
-      Boolean(peekPhilifeNeighborhoodTopicOptionsFromCache()) ||
-      Boolean(initialGlobalFeedRsc?.topicOptionsSeed)
-  );
+  const [chipsLoadDone, setChipsLoadDone] = useState(Boolean(initialTopicOptions));
   /** 주제 옵션 API: false면「관심이웃 글만 보기」띠(체크+문구) 전체 비노출. */
   const [showNeighborOnlyStrip, setShowNeighborOnlyStrip] = useState(() => {
-    const peeked = peekPhilifeNeighborhoodTopicOptionsFromCache();
-    if (peeked) return peeked.showNeighborOnlyFilter !== false;
-    const seed = initialGlobalFeedRsc?.topicOptionsSeed;
-    if (seed) return seed.showNeighborOnlyFilter !== false;
+    if (initialTopicOptions) return initialTopicOptions.showNeighborOnlyFilter !== false;
     return true;
   });
 
-  useEffect(() => {
-    setCategory((prev) => (prev === categoryParam ? prev : categoryParam));
-  }, [categoryParam]);
+  /**
+   * Persistent topic-options 는 hydration 완료 후, 첫 paint 전에만 적용한다.
+   * 서버 렌더 중 localStorage 를 읽지 않아 HTML/hydration tree 를 동일하게 유지한다.
+   */
+  useLayoutEffect(() => {
+    const options =
+      topicOptionsAuthority ?? peekPhilifeNeighborhoodTopicOptionsFromCache();
+    if (options && options !== topicOptionsAuthority) {
+      setTopicOptionsAuthority(options);
+      const built = buildFeedChipsFromPhilifeTopicOptionsJson(options);
+      setChips(built.chips);
+      setShowNeighborOnlyStrip(built.showNeighborOnlyStrip);
+      setChipsLoadDone(true);
+    }
+
+    const selection = resolveCommunityFeedBootSelection(categoryParam, options);
+    if (!selection.authorityReady) return;
+    setCategory((prev) => (
+      prev === selection.category ? prev : selection.category
+    ));
+  }, [categoryParam, topicOptionsAuthority]);
 
   useEffect(() => {
     postsRef.current = posts;
@@ -616,10 +640,12 @@ export function CommunityFeed({
         const { chips: next, showNeighborOnlyStrip: strip } = buildFeedChipsFromPhilifeTopicOptionsJson(j);
         setShowNeighborOnlyStrip(strip);
         setChips(next);
-        const allTab = j?.showAllFeedTab !== false;
-        /** 전역 칩 없이 주제만 올 때 — URL/상태가 전역(빈 category)이면 첫 주제로 */
-        if (!allTab && next.length) {
-          setCategory((c) => (c === "" || !next.some((t) => t.slug === c) ? next[0]!.slug : c));
+        setTopicOptionsAuthority(j);
+        const selection = resolveCommunityFeedBootSelection(categoryParamRef.current, j);
+        if (selection.authorityReady) {
+          setCategory((current) => (
+            current === selection.category ? current : selection.category
+          ));
         }
       } catch {
         if (!cancelled) {
@@ -859,8 +885,20 @@ export function CommunityFeed({
     [category, neighborOnly, viewerSig, recSortKey, isAllTabView, t]
   );
 
-  /** 주제·필터 시 피드 리셋. `categoryParam`은 deps에 넣지 않음 — `category` 낙관 갱신 후 URL이 따라올 때 이중 페치·목록 깜빡임 방지. */
+  /** 주제·필터 시 피드 리셋. URL category 와 확정된 topic-options 권한이 같은 cache/fetch 키를 사용한다. */
   useLayoutEffect(() => {
+    const bootSelection = resolveCommunityFeedBootSelection(
+      categoryParam,
+      topicOptionsAuthority
+    );
+    /**
+     * category 없는 cold boot 는 topic-options 권한이 정해질 때까지 전체 피드를 추측하지 않는다.
+     * category state 전환과 같은 commit 에서는 다음 layout pass 가 올바른 cache/fetch 키를 사용한다.
+     */
+    if (!bootSelection.authorityReady || bootSelection.category !== category) {
+      return;
+    }
+
     feedSessionRef.current += 1;
     const session = feedSessionRef.current;
     nextOffsetRef.current = 0;
@@ -918,6 +956,7 @@ export function CommunityFeed({
         typeof window !== "undefined"
           ? `${window.location.pathname}${window.location.search}`
           : "/philife",
+      topicOptions: topicOptionsAuthority,
     });
     const snapMeta =
       bootSnap?.posts?.length ?
@@ -947,7 +986,17 @@ export function CommunityFeed({
     return () => {
       feedAbortRef.current?.abort();
     };
-  }, [category, neighborOnly, viewerSig, recSortKey, fetchPage, initialGlobalFeedRsc]);
+  }, [
+    category,
+    categoryParam,
+    neighborOnly,
+    viewerSig,
+    recSortKey,
+    sortParam,
+    fetchPage,
+    initialGlobalFeedRsc,
+    topicOptionsAuthority,
+  ]);
 
   const ptrDomain = useMainHubPtrDomain();
   usePhilifePullRefresh(ptrDomain === "philife");

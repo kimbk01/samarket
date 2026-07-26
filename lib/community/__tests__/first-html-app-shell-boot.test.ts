@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { resolveCommunityFeedBootSelection } from "@/lib/community/resolve-initial-community-feed-snapshot";
 
 const root = join(__dirname, "../../..");
 
@@ -12,6 +13,7 @@ describe("first-html + single snapshot boot", () => {
   it("CommunityHomeSurface owns CommunityUiScope for First HTML", () => {
     const surface = read("components/community/CommunityHomeSurface.tsx");
     expect(surface).toContain("CommunityUiScope");
+    expect(surface).not.toMatch(/^\s*["']use client["'];/m);
     expect(read("components/community/PhilifeFeedClientEntry.tsx")).not.toContain("CommunityUiScope");
   });
 
@@ -39,5 +41,49 @@ describe("first-html + single snapshot boot", () => {
     const feed = read("components/community/CommunityFeed.tsx");
     expect(feed).toContain("patchNeighborhoodFeedRows(prev, next)");
     expect(feed).not.toMatch(/mergeNeighborhoodFeedById\(\s*\[\s*\]\s*,\s*next/);
+  });
+
+  it("does not guess the all-feed cache before topic authority is known", () => {
+    expect(resolveCommunityFeedBootSelection("", null)).toEqual({
+      category: "",
+      authorityReady: false,
+    });
+  });
+
+  it("uses the first visible topic when the all tab is disabled", () => {
+    expect(
+      resolveCommunityFeedBootSelection("", {
+        ok: true,
+        showAllFeedTab: false,
+        feedChips: [
+          {
+            slug: "recommended",
+            name: "추천",
+            is_feed_sort: true,
+            sort_slot: "recommend",
+          },
+          { slug: "philippines", name: "필리핀생활" },
+          { slug: "daily", name: "일상생활" },
+        ],
+        writeTopics: [],
+      })
+    ).toEqual({
+      category: "philippines",
+      authorityReady: true,
+    });
+  });
+
+  it("keeps an explicit URL category as the feed authority", () => {
+    expect(
+      resolveCommunityFeedBootSelection("daily", {
+        ok: true,
+        showAllFeedTab: false,
+        feedChips: [{ slug: "philippines", name: "필리핀생활" }],
+        writeTopics: [],
+      })
+    ).toEqual({
+      category: "daily",
+      authorityReady: true,
+    });
   });
 });
