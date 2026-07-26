@@ -46,9 +46,10 @@ public class MainActivity extends BridgeActivity {
   private static final long WEBVIEW_LOAD_TIMEOUT_MS = 10_000L;
   /**
    * Max splash keep — JS dismiss 미수신 시에만 native_fallback (최소 표시 시간 강제 아님).
-   * 앱 진입이 영구 block 되지 않게 하는 안전장치.
+   * Samsung cold firstHtml/reactMounted 가 ~4s 관측되어 3s 는 너무 짧아 WebView cream 전에 해제됨.
+   * shellReady 가 오면 즉시 해제되므로 이 값은 상한 안전장치만.
    */
-  private static final long SPLASH_MAX_KEEP_MS = 3_000L;
+  private static final long SPLASH_MAX_KEEP_MS = 8_000L;
   /** Transient DNS/net at cold start — same backoff ladder as ScreenAwakeBridge.apply retry. */
   private static final long[] WEBVIEW_LOAD_AUTO_RETRY_DELAYS_MS = {100L, 300L, 700L};
   private static final String ROUTE_PREFS = "dibay_push_route";
