@@ -435,6 +435,7 @@ export async function callV4CreateOutgoing(input: {
   signal?: AbortSignal;
   router: { push: (href: string) => void; replace?: (href: string) => void };
 }): Promise<CallV4OutgoingLaunchResult> {
+  logCallV4("MARKER_A", { mediaType: input.mediaType });
   const { canStartNewCall } = readCallV4Capabilities();
   if (!canStartNewCall) {
     logCallV4("outgoing_create_blocked_canStartNewCall", {
@@ -504,9 +505,20 @@ export async function callV4CreateOutgoing(input: {
       : input.mediaType === "video"
         ? await isIOSNativeVideoOutgoingShell()
         : await isIOSNativeOutgoingShell();
+    logCallV4("MARKER_B", {
+      callId: created.session.id,
+      iosNativeShell,
+      androidNativeShell,
+      mediaType: input.mediaType,
+    });
 
     if (androidNativeShell || iosNativeShell) {
       logCallV4("native_outgoing_handoff_start", {
+        callId: created.session.id,
+        mediaType: input.mediaType,
+        roomId: roomResolved.roomId,
+      });
+      logCallV4("MARKER_C", {
         callId: created.session.id,
         mediaType: input.mediaType,
         roomId: roomResolved.roomId,
