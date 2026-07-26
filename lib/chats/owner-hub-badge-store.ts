@@ -25,6 +25,9 @@ import {
   isDeliveryOwnerSurfaceActive,
   subscribeDeliveryOwnerSurfaceActive,
 } from "@/lib/delivery/owner/owner-surface-activity";
+import {
+  applyMessengerBottomChatUnread,
+} from "@/lib/notifications/messenger-bottom-chat-unread-projection";
 import { OWNER_DASHBOARD_API_PRIORITY } from "@/lib/business/owner-dashboard-api-priority";
 import {
   trackOwnerDashboardApiDone,
@@ -2304,6 +2307,8 @@ export function applyDomainAuthorityHubBadgeOptimistic(input: {
     input.buyerOrderAttention != null
       ? Math.max(0, Math.floor(input.buyerOrderAttention || 0))
       : Math.max(0, Math.floor(current.buyerOrderAttention || 0));
+  /** Bottom Chat reads Messenger projection only — same CM number, independent notify. */
+  applyMessengerBottomChatUnread(communityMessengerUnread);
   applyOwnerHubBadgePayload(
     {
       ok: true,

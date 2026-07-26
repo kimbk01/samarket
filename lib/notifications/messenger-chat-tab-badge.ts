@@ -4,22 +4,30 @@
  * Chat tab = general 1:1 + group unread **room** count (`communityMessengerUnread` /
  * `bottom_nav_chat` chat_room targets). DO NOT overlay notification_events message SUM.
  * Event chat/group SUM is App icon total only (`badge-count`), never Chat tab.
+ *
+ * CUTOVER: subscribe Messenger-only projection — not Owner hub aggregate.
+ * Formula unchanged: Math.max(0, floor(communityMessengerUnread)).
  */
-import type { OwnerHubBadgeBreakdown } from "@/lib/chats/owner-hub-badge-types";
 import {
-  getOwnerHubBadgeSnapshot,
-  subscribeOwnerHubBadge,
-} from "@/lib/chats/owner-hub-badge-store";
-import { resolveBottomNavMessengerTabBadgeForOwnerStore } from "@/lib/stores/owner-store-badge-display-policy";
+  getMessengerBottomChatUnreadCount,
+  subscribeMessengerBottomChatUnread,
+} from "@/lib/notifications/messenger-bottom-chat-unread-projection";
 
+/**
+ * Bottom Chat badge count.
+ * Optional `hub` keeps unit-test formula checks without touching the projection store.
+ * Production callers omit `hub` and read Messenger projection only.
+ */
 export function resolveMessengerChatTabBadgeCount(
-  hasOwnerStore: boolean,
-  hub: OwnerHubBadgeBreakdown = getOwnerHubBadgeSnapshot()
+  _hasOwnerStore: boolean = false,
+  input?: { communityMessengerUnread: number }
 ): number {
-  return resolveBottomNavMessengerTabBadgeForOwnerStore(hub, hasOwnerStore);
+  const raw =
+    input != null ? input.communityMessengerUnread : getMessengerBottomChatUnreadCount();
+  return Math.max(0, Math.floor(Number(raw) || 0));
 }
 
-/** Chat tab follows hub room-count only — hub store updates after mark_read / target clear. */
+/** Chat tab follows Messenger projection room-count only. */
 export function subscribeMessengerChatTabBadge(onStoreChange: () => void): () => void {
-  return subscribeOwnerHubBadge(onStoreChange);
+  return subscribeMessengerBottomChatUnread(onStoreChange);
 }

@@ -90,7 +90,7 @@ export function resolveBottomNavTabUnreadFromNotificationEvents(
 /**
  * 하단 탭 한 칸만 구독 — Legacy Authority.
  *
- * - chat: hub unread **room** count (`subscribeMessengerChatTabBadge`)
+ * - chat: Messenger projection unread **room** count (`subscribeMessengerChatTabBadge`)
  * - community / trade / stores: **0** (feed/browse entry — causes in tier1 bell / FAB / chat row)
  */
 export function useOwnerHubBadgeTabUnreadCount(icon: BottomNavIconKey): number {
@@ -111,7 +111,7 @@ export function useOwnerHubBadgeTabUnreadCount(icon: BottomNavIconKey): number {
   );
   const getSnapshot = useCallback(() => {
     if (icon === "chat") {
-      return resolveMessengerChatTabBadgeCount(hasOwnerStoreRef.current, getOwnerHubBadgeSnapshot());
+      return resolveMessengerChatTabBadgeCount(hasOwnerStoreRef.current);
     }
     if (LEGACY_BOTTOM_NAV_FEED_TAB_ICONS.has(icon)) {
       return 0;

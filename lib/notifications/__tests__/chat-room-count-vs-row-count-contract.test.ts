@@ -18,7 +18,7 @@ describe("chat room-count vs row-count contract", () => {
     expect(resolveMessengerChatTabBadgeCount(false, hubFiveRooms)).toBe(5);
   });
 
-  it("messenger-chat-tab-badge has no events SUM overlay", () => {
+  it("messenger-chat-tab-badge has no events SUM overlay and no Owner hub subscribe", () => {
     const src = fs.readFileSync(
       path.join(process.cwd(), "lib/notifications/messenger-chat-tab-badge.ts"),
       "utf8"
@@ -26,7 +26,9 @@ describe("chat room-count vs row-count contract", () => {
     expect(src).not.toContain("chatMessage");
     expect(src).not.toContain("groupMessage");
     expect(src).not.toContain("getNotificationBadgeCountSnapshot");
-    expect(src).toContain("resolveBottomNavMessengerTabBadgeForOwnerStore");
+    expect(src).not.toContain("subscribeOwnerHubBadge");
+    expect(src).not.toContain("getOwnerHubBadgeSnapshot");
+    expect(src).toContain("getMessengerBottomChatUnreadCount");
   });
 
   it("kind=all excludes trade and delivery from Chat list (row surface)", () => {
