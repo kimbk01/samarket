@@ -205,6 +205,10 @@ const listeners = new Set<() => void>();
 
 let pollInterval: ReturnType<typeof setInterval> | null = null;
 
+/** `startHub`/`stopHub` 사이클마다 Owner surface 구독이 쌓이지 않도록 해제 함수를 보관한다 */
+
+let ownerSurfaceActivityUnsubscribe: (() => void) | null = null;
+
 /** React Strict Mode·탭 전환: 리스너가 잠깐 0이 될 때 stopHub/startHub·listener 중복 등록 완화 */
 
 const HUB_STOP_DEBOUNCE_MS = 120;
@@ -1972,6 +1976,10 @@ function stopHub() {
 
   }
 
+  ownerSurfaceActivityUnsubscribe?.();
+
+  ownerSurfaceActivityUnsubscribe = null;
+
   detachGlobalEvents();
 
   teardownOwnerHubLeaderAndSync();
@@ -2069,7 +2077,8 @@ function startHub() {
   hubStarted = true;
 
   logHubBadgeLoopTrace({ reason: "start_hub" });
-  subscribeDeliveryOwnerSurfaceActive(() => {
+  ownerSurfaceActivityUnsubscribe?.();
+  ownerSurfaceActivityUnsubscribe = subscribeDeliveryOwnerSurfaceActive(() => {
     if (!hubStarted) return;
     ensureOwnerHubBadgeFallbackPoll("owner_surface_activity");
   });
