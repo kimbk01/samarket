@@ -307,15 +307,19 @@ function LocalRuntimeApp({ logoSrc }: { logoSrc: string }) {
         advance("REMOTE_DATA_SYNC");
         const origin = window.__DIBAY_REMOTE_API_ORIGIN__ || "";
         if (origin) {
-          try {
-            void fetch(`${origin}/api/app/startup-config`, {
-              method: "GET",
-              credentials: "omit",
-              cache: "no-store",
-            });
-          } catch {
-            /* offline ok */
-          }
+          const url = `${origin}/api/app/startup-config`;
+          void (async () => {
+            try {
+              const { CapacitorHttp } = await import("@capacitor/core");
+              await CapacitorHttp.get({ url, headers: { Accept: "application/json" } });
+            } catch {
+              try {
+                await fetch(url, { method: "GET", credentials: "omit", cache: "no-store" });
+              } catch {
+                /* offline ok — shell already painted */
+              }
+            }
+          })();
         }
       }
     })();
