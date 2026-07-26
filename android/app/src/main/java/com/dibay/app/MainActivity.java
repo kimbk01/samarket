@@ -1340,10 +1340,14 @@ public class MainActivity extends BridgeActivity {
   }
 
   /**
-   * Local First Startup — load remote-origin {@code /__dibay-startup} after interceptor attach.
-   * Capacitor may already be warming {@code server.url}/; we do not stopLoading (TLS warm).
+   * Hybrid path only: load remote-origin {@code /__dibay-startup} after interceptor attach.
+   * Option A Local Runtime: skip — Capacitor loads bundled {@code webDir} document (no replace).
    */
   private void loadLocalStartupShellIfReady() {
+    if (isBundledLocalRuntimeMode()) {
+      Log.i(WEBVIEW_LOG_TAG, "startup_boot_skip reason=local_runtime_mode");
+      return;
+    }
     Bridge bridge = getBridge();
     if (bridge == null) return;
     WebView webView = bridge.getWebView();
@@ -1363,6 +1367,19 @@ public class MainActivity extends BridgeActivity {
           Log.i(WEBVIEW_LOG_TAG, "startup_boot_load url=" + bootUrl);
           webView.loadUrl(bootUrl);
         });
+  }
+
+  /** Reads {@code assets/dibay-runtime-mode.json} — localRuntime XOR legacyRemoteRuntime. */
+  private boolean isBundledLocalRuntimeMode() {
+    try (java.io.InputStream in = getAssets().open("dibay-runtime-mode.json")) {
+      byte[] buf = new byte[512];
+      int n = in.read(buf);
+      if (n <= 0) return false;
+      String json = new String(buf, 0, n, java.nio.charset.StandardCharsets.UTF_8);
+      return json.contains("\"localRuntime\": true") || json.contains("\"localRuntime\":true");
+    } catch (Exception e) {
+      return false;
+    }
   }
 
   private final class DibayBootJsBridge {

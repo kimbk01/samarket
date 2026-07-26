@@ -29,14 +29,25 @@ const serverUrl = resolveCapacitorServerUrlFromEnv();
 const useLegacyAndroidBridge =
   process.env.CAPACITOR_ANDROID_USE_LEGACY_BRIDGE?.trim() === "1";
 
+/** Option A: bundled Local Runtime owns WebView document (no remote HTML boot). */
+const useLocalRuntime = ["1", "true", "on"].includes(
+  (process.env.DIBAY_LOCAL_RUNTIME ?? "").trim().toLowerCase()
+);
+
 const config: CapacitorConfig = {
   appId: "com.dibay.app",
   appName: "DIBAY",
   webDir: "capacitor-www",
-  server: {
-    url: normalizeCapacitorServerUrl(serverUrl),
-    cleartext: serverUrl.startsWith("http://"),
-  },
+  server: useLocalRuntime
+    ? {
+        // Document = capacitor-www (Local Runtime). Remote is API-only (see local-runtime markup).
+        androidScheme: "https",
+        cleartext: false,
+      }
+    : {
+        url: normalizeCapacitorServerUrl(serverUrl),
+        cleartext: serverUrl.startsWith("http://"),
+      },
   plugins: {
     SplashScreen: {
       launchAutoHide: false,

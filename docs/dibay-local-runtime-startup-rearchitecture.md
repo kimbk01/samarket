@@ -253,8 +253,8 @@ Local Runtime을 위해 domain authority 변경 필요 · Remote HTML nav 여전
 
 | 날짜 | 항목 | 결과 |
 |------|------|------|
-| 2026-07-27 | Hybrid WIP → `archive/startup-hybrid-handoff-wip` | preserved |
-| 2026-07-27 | Epic 정정 + 본 문서 | IN PROGRESS |
-| — | Local Runtime core | pending |
-| — | Android / iOS integration | pending |
-| — | Cutover / QA | pending |
+| 2026-07-27 | Hybrid WIP → `archive/startup-hybrid-handoff-wip` | preserved (`643e18a0d`) |
+| 2026-07-27 | Epic 정정 + 본 문서 | `da4ab481d` |
+| 2026-07-27 | Local Runtime core (state/flag/markup/build/verify) + native gates | IN PROGRESS — default still `legacyRemoteRuntime` until cutover QA |
+| — | `DIBAY_LOCAL_RUNTIME=1` device cutover | pending |
+| — | Hybrid Boot HTML / Cover / replace 제거 | pending (after Local PASS) |

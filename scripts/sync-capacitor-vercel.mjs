@@ -86,6 +86,14 @@ console.log(`[capacitor-vercel] build Local Boot Shell HTML`);
   if (build.status !== 0) {
     process.exit(build.status ?? 1);
   }
+  const buildLocal = spawnSync("node", ["scripts/build-local-runtime.mjs", `--origin=${serverUrl}`], {
+    cwd: ROOT,
+    stdio: "inherit",
+    env: process.env,
+  });
+  if (buildLocal.status !== 0) {
+    process.exit(buildLocal.status ?? 1);
+  }
 }
 
 const ping = await fetch(serverUrl, { method: "HEAD", redirect: "follow" }).catch(() => null);
@@ -120,7 +128,18 @@ for (const platform of targets) {
 
 const androidJson = readCapacitorJson("android/app/src/main/assets/capacitor.config.json");
 const androidUrl = androidJson?.server?.url ?? "";
-if (androidUrl !== serverUrl) {
+const localRuntimeOn = ["1", "true", "on"].includes(
+  (process.env.DIBAY_LOCAL_RUNTIME ?? "").trim().toLowerCase()
+);
+if (localRuntimeOn) {
+  if (androidUrl) {
+    console.error(
+      `[capacitor-vercel] FAIL: Local Runtime mode requires empty server.url, got=${androidUrl}`,
+    );
+    process.exit(1);
+  }
+  console.log("[capacitor-vercel] PASS — Local Runtime mode (no remote document server.url)");
+} else if (androidUrl !== serverUrl) {
   console.error(
     `[capacitor-vercel] FAIL: android assets url mismatch expected=${serverUrl} got=${androidUrl || "(missing)"}`,
   );
@@ -130,11 +149,20 @@ if (androidUrl !== serverUrl) {
 if (includeIos) {
   const iosJson = readCapacitorJson("ios/App/App/capacitor.config.json");
   const iosUrl = iosJson?.server?.url ?? "";
-  if (iosUrl !== serverUrl) {
+  if (localRuntimeOn) {
+    if (iosUrl) {
+      console.error(`[capacitor-vercel] FAIL: Local Runtime iOS requires empty server.url, got=${iosUrl}`);
+      process.exit(1);
+    }
+  } else if (iosUrl !== serverUrl) {
     console.error(`[capacitor-vercel] FAIL: ios assets url mismatch expected=${serverUrl} got=${iosUrl || "(missing)"}`);
     process.exit(1);
   }
 }
 
-console.log("[capacitor-vercel] PASS — native capacitor.config.json matches server.url");
+console.log(
+  localRuntimeOn
+    ? "[capacitor-vercel] PASS — native Local Runtime sync"
+    : "[capacitor-vercel] PASS — native capacitor.config.json matches server.url",
+);
 console.log("[capacitor-vercel] Android Studio: open android/ → Build APK (web changes on Vercel need no APK rebuild)");

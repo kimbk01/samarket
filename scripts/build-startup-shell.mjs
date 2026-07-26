@@ -81,8 +81,18 @@ async function main() {
     console.log(`[build-startup-shell] wrote ${path.relative(ROOT, t)} (${html.length} bytes)`);
   }
 
-  fs.writeFileSync(path.join(ROOT, "capacitor-www/index.html"), html, "utf8");
-  console.log(`[build-startup-shell] wrote capacitor-www/index.html origin=${origin}`);
+  // Hybrid boot HTML must not overwrite Local Runtime index when Option A flag is on.
+  const localRuntimeOn = ["1", "true", "on"].includes(
+    (process.env.DIBAY_LOCAL_RUNTIME ?? "").trim().toLowerCase()
+  );
+  if (!localRuntimeOn) {
+    fs.writeFileSync(path.join(ROOT, "capacitor-www/index.html"), html, "utf8");
+    console.log(`[build-startup-shell] wrote capacitor-www/index.html origin=${origin}`);
+  } else {
+    console.log(
+      "[build-startup-shell] skip capacitor-www/index.html (DIBAY_LOCAL_RUNTIME=1 — Local Runtime owns index)"
+    );
+  }
 }
 
 main().catch((err) => {

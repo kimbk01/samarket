@@ -18,8 +18,33 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
 
   override func viewDidAppear(_ animated: Bool) {
     super.viewDidAppear(animated)
+    applyStartupBackground()
     installBootBridgeIfNeeded()
+    if isBundledLocalRuntimeMode() {
+      // Option A: Capacitor loads bundled webDir Local Runtime — do not inject Hybrid boot HTML.
+      NSLog("DIBAY_WebView startup_boot_skip reason=local_runtime_mode")
+      return
+    }
     attemptLocalStartupShellLoad()
+  }
+
+  private func applyStartupBackground() {
+    let cream = UIColor(red: 1.0, green: 0.988, blue: 0.988, alpha: 1.0) // #FFFCFC
+    view.backgroundColor = cream
+    webView?.isOpaque = false
+    webView?.backgroundColor = cream
+    webView?.scrollView.backgroundColor = cream
+  }
+
+  private func isBundledLocalRuntimeMode() -> Bool {
+    guard let url = Bundle.main.url(forResource: "dibay-runtime-mode", withExtension: "json"),
+          let data = try? Data(contentsOf: url),
+          let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+          let local = obj["localRuntime"] as? Bool
+    else {
+      return false
+    }
+    return local
   }
 
   private func installBootBridgeIfNeeded() {

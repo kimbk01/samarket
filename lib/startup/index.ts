@@ -3,6 +3,8 @@ export {
   DIBAY_STARTUP_INTRO_DOM_ID,
   STARTUP_BOOT_PATH,
   STARTUP_HANDOFF_SESSION_KEY,
+  LOCAL_RUNTIME_ENTRY_PATH,
+  DIBAY_RUNTIME_MODE_ASSET,
   STARTUP_CACHE_KEYS,
 } from "@/lib/startup/startup-constants";
 export {
@@ -36,3 +38,18 @@ export {
   type StartupNavTabCache,
   type StartupRouteCache,
 } from "@/lib/startup/startup-cache";
+export {
+  resolveStartupRuntimeMode,
+  assertExclusiveStartupRuntimeMode,
+  readStartupRuntimeModeFromWindow,
+  type StartupRuntimeMode,
+} from "@/lib/startup/local-runtime-flag";
+export {
+  LOCAL_RUNTIME_STATES,
+  LOCAL_RUNTIME_FORBIDDEN_STATES,
+  transitionLocalRuntimeState,
+  resolveLocalRuntimeAppReady,
+  LocalRuntimeStateMachine,
+  type LocalRuntimeState,
+} from "@/lib/startup/local-runtime-state";
+export { buildLocalRuntimeDocumentHtml } from "@/lib/startup/local-runtime-markup";

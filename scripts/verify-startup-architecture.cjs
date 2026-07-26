@@ -67,10 +67,14 @@ if (!bootHtml.includes("dibay-startup-intro") && !bootHtml.includes("dibay-start
 }
 ok("boot HTML self-contained + single handoff");
 
-// --- server.url kept ---
+// --- server.url (Hybrid) OR Local Runtime branch (Option A) ---
 const capConfig = read("capacitor.config.ts");
-if (!/server:\s*\{[\s\S]*url:/.test(capConfig)) fail("capacitor.config.ts must keep server.url");
-ok("server.url retained");
+const hasHybridServerUrl = /server:\s*\{[\s\S]*url:/.test(capConfig);
+const hasLocalRuntimeBranch = capConfig.includes("useLocalRuntime") && capConfig.includes("DIBAY_LOCAL_RUNTIME");
+if (!hasHybridServerUrl && !hasLocalRuntimeBranch) {
+  fail("capacitor.config.ts must keep Hybrid server.url or Local Runtime branch");
+}
+ok(hasLocalRuntimeBranch ? "capacitor server: Hybrid url + Local Runtime branch" : "server.url retained");
 
 // --- Android intercept ---
 const client = read("android/app/src/main/java/com/dibay/app/DibayBridgeWebViewClient.java");
