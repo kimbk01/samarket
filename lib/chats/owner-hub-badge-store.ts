@@ -21,6 +21,10 @@ import {
 } from "@/lib/chats/owner-hub-badge-types";
 
 import { isStoreOwnerAdminPathname } from "@/lib/business/owner-hub-path";
+import {
+  isDeliveryOwnerSurfaceActive,
+  subscribeDeliveryOwnerSurfaceActive,
+} from "@/lib/delivery/owner/owner-surface-activity";
 import { OWNER_DASHBOARD_API_PRIORITY } from "@/lib/business/owner-dashboard-api-priority";
 import {
   trackOwnerDashboardApiDone,
@@ -152,6 +156,7 @@ const EVENT_FORCE_REFRESH_DEBOUNCE_MS = 120;
 
 /** 가시 탭 주기 폴링 — 포커스·이벤트 갱신과 별도 (`docs/messenger-realtime-policy.md`) */
 
+/** Owner-surface-scoped stale fallback only — not a global always-on poll. */
 const OWNER_HUB_BADGE_POLL_INTERVAL_MS = 180_000;
 
 const MIN_VISIBILITY_FETCH_GAP_MS = 45_000;
@@ -1848,31 +1853,7 @@ function onVisibility() {
 
     coalescedHubVisibilityFetch.schedule();
 
-    if (hubStarted && pollInterval == null) {
-
-      const createdAt = Date.now();
-      pollInterval = setInterval(() => {
-
-        if (typeof document !== "undefined" && document.visibilityState === "visible") {
-
-          scheduleDeferredHubBadgeFetch("poll_interval", false, {
-
-            callerComponent: "owner_hub_badge_poll",
-
-          });
-
-        }
-
-      }, OWNER_HUB_BADGE_POLL_INTERVAL_MS);
-      logPollingTrace({
-        api: "/api/me/store-owner-hub-badge",
-        intervalMs: OWNER_HUB_BADGE_POLL_INTERVAL_MS,
-        createdAt,
-        cleanup: false,
-        caller: "owner_hub_badge_visibility",
-      });
-
-    }
+    ensureOwnerHubBadgeFallbackPoll("owner_hub_badge_visibility");
 
   } else {
     coalescedHubVisibilityFetch.cancel();
@@ -2033,6 +2014,50 @@ function scheduleOwnerHubBadgeAfterFirstPaint(run: () => void): void {
 
 
 
+
+function shouldRunOwnerHubBadgeFallbackPoll(): boolean {
+  if (typeof document !== "undefined" && document.visibilityState !== "visible") return false;
+  return isDeliveryOwnerSurfaceActive();
+}
+
+function clearOwnerHubBadgePollInterval(caller: string): void {
+  if (pollInterval == null) return;
+  logPollingTrace({
+    api: "/api/me/store-owner-hub-badge",
+    intervalMs: OWNER_HUB_BADGE_POLL_INTERVAL_MS,
+    createdAt: Date.now(),
+    cleanup: true,
+    caller,
+  });
+  clearInterval(pollInterval);
+  pollInterval = null;
+}
+
+function ensureOwnerHubBadgeFallbackPoll(caller: string): void {
+  if (!shouldRunOwnerHubBadgeFallbackPoll()) {
+    clearOwnerHubBadgePollInterval(`${caller}_inactive`);
+    return;
+  }
+  if (pollInterval != null) return;
+  const createdAt = Date.now();
+  pollInterval = setInterval(() => {
+    if (!shouldRunOwnerHubBadgeFallbackPoll()) {
+      clearOwnerHubBadgePollInterval("fallback_poll_inactive");
+      return;
+    }
+    scheduleDeferredHubBadgeFetch("poll_interval", false, {
+      callerComponent: "owner_hub_badge_poll",
+    });
+  }, OWNER_HUB_BADGE_POLL_INTERVAL_MS);
+  logPollingTrace({
+    api: "/api/me/store-owner-hub-badge",
+    intervalMs: OWNER_HUB_BADGE_POLL_INTERVAL_MS,
+    createdAt,
+    cleanup: false,
+    caller,
+  });
+}
+
 function startHub() {
 
   if (!hubBadgeBackgroundEnabled) return;
@@ -2044,6 +2069,10 @@ function startHub() {
   hubStarted = true;
 
   logHubBadgeLoopTrace({ reason: "start_hub" });
+  subscribeDeliveryOwnerSurfaceActive(() => {
+    if (!hubStarted) return;
+    ensureOwnerHubBadgeFallbackPoll("owner_surface_activity");
+  });
 
   attachGlobalEventsOnce();
 
@@ -2065,33 +2094,7 @@ function startHub() {
 
   }
 
-  if (typeof document === "undefined" || document.visibilityState === "visible") {
-
-    if (pollInterval == null) {
-      const createdAt = Date.now();
-      pollInterval = setInterval(() => {
-
-        if (typeof document !== "undefined" && document.visibilityState === "visible") {
-
-          scheduleDeferredHubBadgeFetch("poll_interval", false, {
-
-            callerComponent: "owner_hub_badge_poll",
-
-          });
-
-        }
-
-      }, OWNER_HUB_BADGE_POLL_INTERVAL_MS);
-      logPollingTrace({
-        api: "/api/me/store-owner-hub-badge",
-        intervalMs: OWNER_HUB_BADGE_POLL_INTERVAL_MS,
-        createdAt,
-        cleanup: false,
-        caller: "owner_hub_badge_start_hub",
-      });
-    }
-
-  }
+  ensureOwnerHubBadgeFallbackPoll("owner_hub_badge_start_hub");
 
 }
 

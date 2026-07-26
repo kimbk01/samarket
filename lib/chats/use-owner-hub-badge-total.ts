@@ -16,7 +16,7 @@ import {
 import {
   getNotificationBadgeCountSnapshot,
 } from "@/lib/notifications/notification-badge-count-store";
-import { useOwnerLiteHasPreferredStore } from "@/lib/stores/use-owner-lite-store";
+import { useOwnerNavigationHasPreferredStore } from "@/lib/delivery/owner/projections/use-owner-navigation-summary";
 import { bumpMessengerRenderPerf } from "@/lib/runtime/samarket-runtime-debug";
 import { bumpRerenderTrace } from "@/lib/dibay/network-fetch-storm-trace";
 import { logHubBadgeRenderTrace } from "@/lib/dibay/shell-fetch-trace";
@@ -94,7 +94,7 @@ export function resolveBottomNavTabUnreadFromNotificationEvents(
  * - community / trade / stores: **0** (feed/browse entry — causes in tier1 bell / FAB / chat row)
  */
 export function useOwnerHubBadgeTabUnreadCount(icon: BottomNavIconKey): number {
-  const hasOwnerStore = useOwnerLiteHasPreferredStore();
+  const hasOwnerStore = useOwnerNavigationHasPreferredStore();
   const hasOwnerStoreRef = useRef(hasOwnerStore);
   hasOwnerStoreRef.current = hasOwnerStore;
   const subscribe = useCallback(

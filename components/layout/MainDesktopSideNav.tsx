@@ -7,7 +7,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MainBottomNavTabIcon } from "@/components/main-menu/MainBottomNavTabIcon";
 import { useMainBottomNavTabs } from "@/contexts/MainBottomNavTabsContext";
 import { useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
-import { useOwnerLitePreferredStoreRow } from "@/lib/stores/use-owner-lite-store";
+import { useOwnerNavigationSummary } from "@/lib/delivery/owner/projections/use-owner-navigation-summary";
 import { useOwnerHubBadgeTabUnreadCount } from "@/lib/chats/use-owner-hub-badge-total";
 import { composeMainBottomNavDisplayTabs, resolveMainBottomNavSecondaryRailKind } from "@/lib/main-menu/main-bottom-nav-split-layout";
 import {
@@ -40,7 +40,7 @@ function DesktopSideNavItem({
   const { safeT, tt, t } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const ownerStore = useOwnerLitePreferredStoreRow();
+  const ownerNav = useOwnerNavigationSummary();
   const tabBadgeCount = useOwnerHubBadgeTabUnreadCount(tab.icon);
   const tabLabel = tab.labelKey ? safeT(tab.labelKey) : tt(tab.label);
   const secondaryRail = useMemo(
@@ -58,9 +58,9 @@ function DesktopSideNavItem({
         emphasisKind,
         pathname,
         searchParams,
-        ownerStoreId: ownerStore?.id,
+        ownerStoreId: ownerNav.storeId,
       }),
-    [tab.id, tab.href, pathname, searchParams, ownerStore?.id, emphasisKind]
+    [tab.id, tab.href, pathname, searchParams, ownerNav.storeId, emphasisKind]
   );
 
   const onClick = (e: MouseEvent<HTMLAnchorElement>) => {

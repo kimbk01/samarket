@@ -41,7 +41,7 @@ import {
   isMainBottomNavFabStoreAdminItem,
 } from "@/lib/main-menu/main-bottom-nav-fab-store-admin";
 import { localizeMainBottomNavFabDisplayItems } from "@/lib/main-menu/main-bottom-nav-fab-i18n";
-import { prefetchOwnerLiteStoreQuiet } from "@/lib/stores/owner-lite-external-store";
+import { prefetchOwnerNavigationSummaryQuiet } from "@/lib/delivery/owner/projections/prefetch-owner-navigation-summary";
 import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-nav-intercept";
 import { useOwnerHubBadgeBreakdown } from "@/lib/chats/use-owner-hub-badge-total";
 import type { OwnerHubBadgeBreakdown } from "@/lib/chats/owner-hub-badge-types";
@@ -119,7 +119,7 @@ export function MainBottomNavFabSector() {
 
   useEffect(() => {
     if (!fabConfigResolved) return;
-    prefetchOwnerLiteStoreQuiet();
+    prefetchOwnerNavigationSummaryQuiet();
   }, [fabConfigResolved, approvedOwnerStore?.id]);
   const fabOrdersBadge = approvedOwnerStore ? resolveFabOwnerOrdersBadgeCount(ownerHubBreakdown) : 0;
   const fabStoreBadge = approvedOwnerStore ? resolveFabOwnerStoreBadgeCount(ownerHubBreakdown) : 0;

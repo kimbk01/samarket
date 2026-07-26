@@ -91,3 +91,21 @@
 - ⑧ 물리 파일 경계 정리
 
 **판정:** CUTOVER ①~③ 코드 완료 후보. 실기기 측정 전이므로 Phase F NOT READY.
+
+## 8. Delivery Runtime Cutover ④~⑧ (2026-07-26)
+
+| 단계 | 결과 | 권위 |
+|---|---|---|
+| ④ notification scope | Owner commerce invalidate는 `storeId` 필수. `append-user-notification` / Realtime bridge → `applyOwnerCommerceNotificationInvalidate`. storeId 없으면 Delivery cache no-op (Bell unread만). | `verify:delivery-notification-scope` |
+| ⑤ owner-lite | `pickPreferredOwnerStore` 순수 분리. 전역 셸은 `OwnerNavigationSummary`만 구독. Customer surface의 owner-lite raw import 차단. Owner 화면은 기존 Owner runtime 유지. | `verify:owner-badge-boundary` |
+| ⑥ badge | Bell/Bottom Chat이 Owner list cache를 직접 쓰지 않도록 게이트. Owner hub badge는 Owner-surface-scoped fallback만. App Icon 축 잔존 필드는 hub payload에 남음(후속 rename). | `verify:badge-domain-authority` |
+| ⑦ poll | 상시 180s 전역 poll 제거. `markDeliveryOwnerSurfaceActive`일 때만 fallback interval. | `verify:delivery-poll-authority` |
+| ⑧ physical | `lib/delivery/{shared,owner}` 계약·adapter 배치. cache namespace SSOT 이동. `lib/stores` 전면 이주는 잔여. | `verify:delivery-physical-boundary` |
+
+### 잔여 (Phase F 전)
+
+- `owner-hub-badge` 모듈 rename + App Icon 입력 projection 완전 분리
+- `lib/stores` Customer/Owner 물리 폴더 전면 이주
+- OrdersHub Owner-admin entry UI debt
+
+**판정:** CUTOVER ④~⑧ PARTIAL — 권위 분리 핵심은 반영, 물리 전면·hub-badge rename은 잔여. PHASE F NOT READY.

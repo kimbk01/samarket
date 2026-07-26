@@ -23,7 +23,8 @@ import {
   parseStoreRowsFromMeStoresJson,
   peekMeStoresListClientCache,
 } from "@/lib/me/fetch-me-stores-deduped";
-import { pickPreferredOwnerStore } from "@/lib/stores/owner-lite-external-store";
+import { pickPreferredOwnerStore } from "@/lib/stores/pick-preferred-owner-store";
+import { markDeliveryOwnerSurfaceActive } from "@/lib/delivery/owner/owner-surface-activity";
 import { parseOwnerStoreOpsSnapshotFromJson } from "@/lib/stores/owner-store-ops-snapshot";
 import {
   invalidateOwnerHubOrderCountsCache,
@@ -114,6 +115,7 @@ export function OwnerHubRuntimeProvider({
       cancelled = true;
     };
   }, []);
+  useEffect(() => markDeliveryOwnerSurfaceActive(), []);
   const selectedRow = useMemo(
     () => (stores?.length ? pickRow(stores, storeIdParam) : null),
     [stores, storeIdParam]

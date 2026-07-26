@@ -54,6 +54,7 @@ const customerRoots = [
   "app/(main)/mypage/store-orders",
   "components/orders",
   "components/mypage",
+  "components/stores",
   "hooks/delivery-customer",
 ].map((p) => path.join(root, p));
 
@@ -70,6 +71,9 @@ const customerForbidden = [
   /^@\/hooks\/stores\/useOwner/,
   /^@\/lib\/store-owner\//,
   /^@\/lib\/stores\/owner-store-orders/,
+  /^@\/lib\/stores\/use-owner-lite-store/,
+  /^@\/lib\/stores\/owner-lite-external-store/,
+  /^@\/lib\/stores\/owner-hub-/,
 ];
 const ownerForbidden = [
   /^@\/hooks\/delivery-customer\//,
@@ -81,9 +85,8 @@ const ownerForbidden = [
 ];
 
 /**
- * Explicit debt outside ①~③. Do not add glob entries.
- * - OrdersHubStoreAdminAccess: Customer hub exposes an Owner-admin entry card.
- *   Remove during owner-lite/hub-badge cutover ⑤~⑥.
+ * Exact debt: OrdersHub still mounts Owner admin nav UI from Customer hub.
+ * It uses pure pickPreferred — no owner-lite subscribe.
  */
 const exactRuntimeDebt = new Set([
   "components/orders/OrdersHubStoreAdminAccess.tsx",
@@ -102,6 +105,7 @@ function checkRoleImports(dirs, forbidden, role) {
   for (const dir of dirs) {
     for (const file of walk(dir)) {
       const rel = path.relative(root, file);
+      if (role === "Customer" && rel.includes(`${path.sep}stores${path.sep}owner${path.sep}`)) continue;
       if (exactRuntimeDebt.has(rel) || exactPureUiAllowed.has(rel)) continue;
       const text = fs.readFileSync(file, "utf8");
       for (const specifier of runtimeImports(text)) {

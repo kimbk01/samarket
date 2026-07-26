@@ -31,9 +31,7 @@ import {
   useOwnerHubBadgeTabUnreadCount,
 } from "@/lib/chats/use-owner-hub-badge-total";
 import { OWNER_HUB_BADGE_DOT_CLASS } from "@/lib/chats/hub-badge-ui";
-import {
-  useOwnerLitePreferredStoreRow,
-} from "@/lib/stores/use-owner-lite-store";
+import { useOwnerNavigationSummary } from "@/lib/delivery/owner/projections/use-owner-navigation-summary";
 import { useMainBottomNavTabs } from "@/contexts/MainBottomNavTabsContext";
 import { prewarmBottomNavTapTargetClientCache } from "@/lib/main-menu/bottom-nav-tap-prewarm-data";
 import { prewarmBottomNavTapHrefResolvingStoresRegion } from "@/lib/main-menu/bottom-nav-prewarm-href";
@@ -285,7 +283,7 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
   const router = useRouter();
   const tabBadgeCount = useOwnerHubBadgeTabUnreadCount(tab.icon);
   const tabLabel = tab.labelKey ? safeT(tab.labelKey) : tt(tab.label);
-  const ownerStore = useOwnerLitePreferredStoreRow();
+  const ownerNav = useOwnerNavigationSummary();
   const searchParams = useSearchParams();
   const secondaryRail = useMemo(
     () => resolveMainBottomNavSecondaryRailKind(pathname, searchParams),
@@ -303,9 +301,9 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
         emphasisKind,
         pathname,
         searchParams,
-        ownerStoreId: ownerStore?.id,
+        ownerStoreId: ownerNav.storeId,
       }),
-    [tab.id, tab.href, pathname, searchParams, ownerStore?.id, emphasisKind]
+    [tab.id, tab.href, pathname, searchParams, ownerNav.storeId, emphasisKind]
   );
 
   const className = [
@@ -957,7 +955,7 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
 }) {
   const { tt, t, safeT } = useI18n();
   const router = useRouter();
-  const ownerStore = useOwnerLitePreferredStoreRow();
+  const ownerNav = useOwnerNavigationSummary();
   const tabLabel = tab.labelKey ? safeT(tab.labelKey) : tt(tab.label);
   const { primaryRegion } = useRegion();
   const tabBadgeCount = useOwnerHubBadgeTabUnreadCount("stores");
@@ -976,7 +974,7 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
       }),
     [emphasisKind, tab.href, tab.id, pathname]
   );
-  const storesTabOwnerLite = !!ownerStore;
+  const storesTabOwnerLite = ownerNav.hasPreferredStore;
   const prewarmStoresTabClientCache = useCallback(() => {
     prewarmBottomNavTapHrefResolvingStoresRegion(storesTabHref, primaryRegion);
   }, [primaryRegion, storesTabHref]);
@@ -998,8 +996,8 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
   const ariaLbl =
     tabBadgeCount > 0
       ? t("nav_attention_needed", { label: tabLabel, count: tabBadgeCount })
-      : storesTabOwnerLite && ownerStore?.store_name
-        ? t("nav_store_owner", { label: tabLabel, storeName: ownerStore.store_name })
+      : storesTabOwnerLite && ownerNav.storeName
+        ? t("nav_store_owner", { label: tabLabel, storeName: ownerNav.storeName })
         : undefined;
 
   const inner = (
@@ -1144,18 +1142,18 @@ export function BottomNav({
    * 해당 Provider 가 담당하므로 여기서는 읽기만. (`initialTabs` prop 은 SSR hydrate 호환을 위해 시그니처 유지.)
    */
   const tabs = useMainBottomNavTabs();
-  const ownerStoreRow = useOwnerLitePreferredStoreRow();
+  const ownerNav = useOwnerNavigationSummary();
   const displayTabs = useMemo(
-    () => composeMainBottomNavDisplayTabs(pathname ?? null, tabs, searchParams, ownerStoreRow?.id),
-    [pathname, tabs, searchParams, ownerStoreRow?.id]
+    () => composeMainBottomNavDisplayTabs(pathname ?? null, tabs, searchParams, ownerNav.storeId),
+    [pathname, tabs, searchParams, ownerNav.storeId]
   );
   const usesDeliveryHubShell = useMemo(
     () => bottomNavUsesDeliveryHubShell(displayTabs),
     [displayTabs]
   );
   useLayoutEffect(() => {
-    bottomNavPickCtxRef.current = { searchParams, ownerStoreId: ownerStoreRow?.id };
-  }, [searchParams, ownerStoreRow?.id]);
+    bottomNavPickCtxRef.current = { searchParams, ownerStoreId: ownerNav.storeId };
+  }, [searchParams, ownerNav.storeId]);
   const [pendingActiveTabId, setPendingActiveTabId] = useState<string | null>(null);
   const tabsRef = useRef(displayTabs);
   /** 브라우저 `window.setTimeout` id — `@types/node` 의 `ReturnType<typeof setTimeout>` 과 분리 */
@@ -1301,7 +1299,7 @@ export function BottomNav({
           emphasisKind,
           pathname,
           searchParams,
-          ownerStoreId: ownerStoreRow?.id,
+          ownerStoreId: ownerNav.storeId,
         });
         if (!guardBeforeNavigate(targetHref)) return false;
         if (!targetHref.includes("/community-messenger")) return true;
@@ -1373,7 +1371,7 @@ export function BottomNav({
       pathname,
       navSearch,
       searchParams,
-      ownerStoreRow?.id,
+      ownerNav.storeId,
       pendingActiveTabId,
       markBottomNavIntent,
       beginBottomNavNavigation,

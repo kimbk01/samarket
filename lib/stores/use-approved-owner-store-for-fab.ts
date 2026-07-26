@@ -6,9 +6,9 @@ import { pickApprovedOwnerStoreForFab } from "@/lib/main-menu/main-bottom-nav-fa
 import {
   getOwnerLiteStoreServerSnapshot,
   getOwnerLiteStoreSnapshot,
-  pickPreferredOwnerStore,
   subscribeOwnerLiteStore,
 } from "@/lib/stores/owner-lite-external-store";
+import { pickPreferredOwnerStore } from "@/lib/stores/pick-preferred-owner-store";
 
 function resolveApprovedOwnerStoreForFab(): StoreRow | null {
   const snap = getOwnerLiteStoreSnapshot();

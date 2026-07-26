@@ -8,7 +8,6 @@ import {
   seedMeStoresListClientCacheFromStores,
 } from "@/lib/me/fetch-me-stores-deduped";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
-import { computeOwnerCanSell } from "@/lib/stores/owner-lite-store-shortcuts";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { pickApprovedOwnerStoreForFab } from "@/lib/main-menu/main-bottom-nav-fab-store-admin";
 import {
@@ -16,6 +15,7 @@ import {
   isConstrainedNetwork,
   scheduleWhenBrowserIdle,
 } from "@/lib/ui/network-policy";
+import { pickPreferredOwnerStore } from "@/lib/stores/pick-preferred-owner-store";
 
 export type OwnerLiteStoreState = {
   loading: boolean;
@@ -23,6 +23,8 @@ export type OwnerLiteStoreState = {
   /** 내 계정 소유 매장 전체 — 심사 중·승인 구분·허브 카드용 */
   ownerStores: StoreRow[];
 };
+
+export { pickPreferredOwnerStore } from "@/lib/stores/pick-preferred-owner-store";
 
 const EMPTY: OwnerLiteStoreState = { loading: true, ownerStore: null, ownerStores: [] };
 const OWNER_LITE_SESSION_KEY = "samarket:stores:owner-lite:snapshot:v1";
@@ -70,21 +72,6 @@ let initialHydrateIdleId: number | null = null;
 
 function emit() {
   for (const l of listeners) l();
-}
-
-export function pickPreferredOwnerStore(stores: StoreRow[]): StoreRow | null {
-  if (stores.length === 0) return null;
-  return (
-    stores.find(
-      (store) =>
-        String(store.approval_status) === "approved" &&
-        store.is_visible === true &&
-        computeOwnerCanSell(store.sales_permission)
-    ) ??
-    stores.find((store) => String(store.approval_status) === "approved") ??
-    stores[0] ??
-    null
-  );
 }
 
 async function loadFromNetwork(options?: { withLoadingSpinner?: boolean }): Promise<void> {

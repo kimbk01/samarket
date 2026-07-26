@@ -8,7 +8,7 @@ import { buildMyBusinessNavGroups } from "@/lib/business/my-business-nav";
 import { fetchStoreOrderCountsDeduped } from "@/lib/business/fetch-store-order-counts-deduped";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
-import { pickPreferredOwnerStore } from "@/lib/stores/owner-lite-external-store";
+import { pickPreferredOwnerStore } from "@/lib/stores/pick-preferred-owner-store";
 
 function computeCanSell(row: StoreRow): boolean {
   return (

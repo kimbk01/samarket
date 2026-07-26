@@ -28,7 +28,7 @@ import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { readCachedMeAddressList } from "@/lib/addresses/address-list-client-cache";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import { formatUserAddressListPlainLine } from "@/lib/addresses/format-user-address-list-line";
-import { pickPreferredOwnerStore } from "@/lib/stores/owner-lite-external-store";
+import { pickPreferredOwnerStore } from "@/lib/stores/pick-preferred-owner-store";
 import { BusinessAdminSidebar } from "@/components/business/admin/BusinessAdminSidebar";
 import { BusinessAdminOpenToggle } from "@/components/business/admin/BusinessAdminOpenToggle";
 import { BusinessAdminVisibleToggle } from "@/components/business/admin/BusinessAdminVisibleToggle";

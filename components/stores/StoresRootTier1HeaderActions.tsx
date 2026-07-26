@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useStoreBusinessHubEntryModal } from "@/hooks/use-store-business-hub-entry-modal";
+import { useOwnerNavigationSummary } from "@/lib/delivery/owner/projections/use-owner-navigation-summary";
 import { useOwnerHubBadgeBreakdown } from "@/lib/chats/use-owner-hub-badge-total";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { resolveDeliveryOrderHistoryHref } from "@/lib/stores/delivery-order-history-nav";
@@ -14,7 +15,6 @@ import { resolveOwnerOperationsCenterAttentionCount } from "@/lib/stores/owner-s
 import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-nav-intercept";
 import { COMMERCE_CART_NAV_FALLBACK_AGGREGATE_CART } from "@/lib/stores/store-commerce-cart-nav";
 import { useCommerceCartNavHref } from "@/components/layout/use-commerce-cart-nav-href";
-import { useOwnerLitePreferredStoreRow } from "@/lib/stores/use-owner-lite-store";
 import { StoreOpsCenterStrokeIcon } from "@/components/main-menu/MainBottomNavTabIcons";
 
 const HEADER_BADGE_CLASS = `absolute right-0.5 top-0.5 ${STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME}`;
@@ -35,7 +35,7 @@ function OrderHistoryIcon({ className }: { className?: string }) {
 /** `/stores` 루트 tier-1 헤더 우측 — 카트 · 주문내역 · (매장주) 운영센터 */
 export function StoresRootTier1HeaderActions() {
   const { t } = useI18n();
-  const ownerStore = useOwnerLitePreferredStoreRow();
+  const ownerNav = useOwnerNavigationSummary();
   const ownerHubBreakdown = useOwnerHubBadgeBreakdown();
   const { openBlockedModalIfNeeded, hubBlockedModal } = useStoreBusinessHubEntryModal(t("common_confirm"));
 
@@ -43,9 +43,11 @@ export function StoresRootTier1HeaderActions() {
     COMMERCE_CART_NAV_FALLBACK_AGGREGATE_CART
   );
 
-  const ownerStoreId = ownerStore?.id?.trim() ?? "";
+  const ownerStoreId = ownerNav.storeId?.trim() ?? "";
   const orderHistoryHref = resolveDeliveryOrderHistoryHref(ownerStoreId);
-  const ownerOpsAttention = ownerStore ? resolveOwnerOperationsCenterAttentionCount(ownerHubBreakdown) : 0;
+  const ownerOpsAttention = ownerNav.hasPreferredStore
+    ? resolveOwnerOperationsCenterAttentionCount(ownerHubBreakdown)
+    : 0;
   const opsHref = ownerStoreId ? OwnerRoutes.hub(ownerStoreId) : null;
 
   return (

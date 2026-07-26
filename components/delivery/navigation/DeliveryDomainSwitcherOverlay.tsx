@@ -44,7 +44,7 @@ import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import { useStoreBusinessHubEntryModal } from "@/hooks/use-store-business-hub-entry-modal";
 import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-nav-intercept";
-import { useOwnerLitePreferredStoreRow } from "@/lib/stores/use-owner-lite-store";
+import { useOwnerNavigationSummary } from "@/lib/delivery/owner/projections/use-owner-navigation-summary";
 import { triggerMobileSelectionFeedback } from "@/lib/ui/light-tap-feedback";
 import { markBottomNavRouteIntentForBackgroundWarm } from "@/lib/navigation/mark-bottom-nav-route-intent";
 import { navPerfMarkBottomNavClickStart } from "@/lib/navigation/nav-perf-browser";
@@ -74,8 +74,8 @@ export function DeliveryDomainSwitcherOverlay({
   const searchParams = useSearchParams();
   const navSearch = searchParams.toString();
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
-  const ownerStore = useOwnerLitePreferredStoreRow();
-  const ownerStoreId = ownerStore?.id?.trim() ?? "";
+  const ownerNav = useOwnerNavigationSummary();
+  const ownerStoreId = ownerNav.storeId?.trim() ?? "";
   const { goBusinessHubOrModal, hubBlockedModal } = useStoreBusinessHubEntryModal("확인", {
     eager: false,
   });

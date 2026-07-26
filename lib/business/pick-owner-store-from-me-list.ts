@@ -1,5 +1,5 @@
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
-import { pickPreferredOwnerStore } from "@/lib/stores/owner-lite-external-store";
+import { pickPreferredOwnerStore } from "@/lib/stores/pick-preferred-owner-store";
 
 /**
  * `GET /api/me/stores` 목록에서 URL `storeId` 와 일치하는 매장을 고른다.

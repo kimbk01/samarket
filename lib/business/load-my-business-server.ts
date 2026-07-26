@@ -3,7 +3,7 @@ import {
   dbStoreToBusinessProfile,
   type StoreRow,
 } from "@/lib/stores/db-store-mapper";
-import { pickPreferredOwnerStore } from "@/lib/stores/owner-lite-external-store";
+import { pickPreferredOwnerStore } from "@/lib/stores/pick-preferred-owner-store";
 import type { BusinessProduct, BusinessProfile } from "@/lib/types/business";
 import { loadOwnerStoresPackCached } from "@/lib/me/load-owner-stores-pack-cached";
 import {

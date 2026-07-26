@@ -16,7 +16,7 @@ import {
   type StoreProductRow,
   type StoreRow,
 } from "@/lib/stores/db-store-mapper";
-import { pickPreferredOwnerStore } from "@/lib/stores/owner-lite-external-store";
+import { pickPreferredOwnerStore } from "@/lib/stores/pick-preferred-owner-store";
 import { storeRowCanSell } from "@/lib/business/store-can-sell";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 import {
