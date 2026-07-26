@@ -25,4 +25,7 @@
     <color name="dibay_incoming_pill_stroke">#33FFFFFF</color>
     <color name="dibay_incoming_gradient_start">#F0121212</color>
     <color name="dibay_incoming_gradient_end">#F0006241</color>
+
+    <!-- App canvas — match web --sam-bg-app / --dibay-cream -->
+    <color name="dibay_app_bg">#FFFCFC</color>
 </resources>

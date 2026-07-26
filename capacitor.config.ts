@@ -41,7 +41,8 @@ const config: CapacitorConfig = {
     SplashScreen: {
       launchAutoHide: false,
       launchShowDuration: 0,
-      backgroundColor: "#F0F2F5",
+      /** Match web `--sam-bg-app` / `--dibay-cream` — avoid gray→cream flash after native splash. */
+      backgroundColor: "#FFFCFC",
       androidSplashResourceName: "splash",
     },
   },

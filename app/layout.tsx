@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Noto_Sans_KR } from "next/font/google";
 import { cookies, headers } from "next/headers";
 import { AppBootProvider } from "@/components/app/AppBootProvider";
+import { DibayColdBootIntroController } from "@/components/app/DibayColdBootIntro";
 import { OAuthReturnListener } from "@/components/auth/OAuthReturnListener";
 import { CapacitorNativeMarkerBootstrap } from "@/components/platform/CapacitorNativeMarkerBootstrap";
 import { SupabaseAuthSync } from "@/components/auth/SupabaseAuthSync";
@@ -16,6 +17,10 @@ import {
   DIBAY_FAVICON_PATH,
   dibayBrandAssetUrl,
 } from "@/lib/brand/brand-asset-paths";
+import {
+  COLD_BOOT_SESSION_KEY,
+  DIBAY_COLD_BOOT_INTRO_DOM_ID,
+} from "@/lib/app-boot/cold-boot-constants";
 import { APP_LANGUAGE_COOKIE, type AppLanguageCode } from "@/lib/i18n/config";
 import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
 import "./globals.css";
@@ -100,14 +105,65 @@ export default async function RootLayout({
       : "https";
   const appOrigin = host ? `${proto}://${host}` : "";
 
+  const introLogoSrc = dibayBrandAssetUrl(DIBAY_APP_ICON_180_PATH);
+
   return (
     <html lang={initialLanguage} suppressHydrationWarning>
       <head>
         {appOrigin ? <link rel="preconnect" href={appOrigin} /> : null}
       </head>
       <body className={`${notoSansKr.variable} font-sans antialiased`} suppressHydrationWarning>
+        {/* First HTML intro — paints before React; hide on shellReady / warm session. */}
+        <div
+          id={DIBAY_COLD_BOOT_INTRO_DOM_ID}
+          data-dibay-cold-boot-intro="1"
+          aria-hidden="true"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 2147483000,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 20,
+            background: "#FFFCFC",
+            pointerEvents: "none",
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- first-HTML cold intro; Thumbnail/Image would delay paint */}
+          <img
+            className="dibay-cold-boot-logo"
+            src={introLogoSrc}
+            alt=""
+            width={72}
+            height={72}
+            decoding="async"
+            fetchPriority="high"
+            style={{ width: 72, height: 72, objectFit: "contain" }}
+          />
+          <p className="dibay-cold-boot-wordmark" style={{ margin: 0, fontSize: 15, fontWeight: 700, letterSpacing: "0.08em", color: "#0B421A" }}>
+            DIBAY
+          </p>
+          <div
+            className="dibay-cold-boot-spinner"
+            style={{
+              width: 22,
+              height: 22,
+              borderRadius: 9999,
+              border: "2px solid rgba(11,66,26,0.22)",
+              borderTopColor: "#0B421A",
+            }}
+          />
+        </div>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{if(sessionStorage.getItem(${JSON.stringify(COLD_BOOT_SESSION_KEY)})==="1"){var el=document.getElementById(${JSON.stringify(DIBAY_COLD_BOOT_INTRO_DOM_ID)});if(el){el.setAttribute("data-ready","1");el.setAttribute("hidden","");}}}catch(e){}})();`,
+          }}
+        />
         <AppLanguageProvider initialLanguage={initialLanguage}>
           <AppBootProvider>
+            <DibayColdBootIntroController />
             <AppTitle />
             <SupabaseAuthSync />
             <CapacitorNativeMarkerBootstrap />

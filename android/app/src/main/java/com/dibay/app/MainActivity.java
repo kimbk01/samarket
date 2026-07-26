@@ -19,8 +19,12 @@ import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.TextView;
+import android.graphics.Color;
+import android.os.SystemClock;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
+import androidx.core.splashscreen.SplashScreen;
 import com.getcapacitor.BridgeWebViewClient;
 import android.app.PictureInPictureParams;
 import android.util.Rational;
@@ -40,6 +44,11 @@ public class MainActivity extends BridgeActivity {
   private static final String TAG = "DIBAY_OAuth";
   private static final String WEBVIEW_LOG_TAG = "DIBAY_WebView";
   private static final long WEBVIEW_LOAD_TIMEOUT_MS = 10_000L;
+  /**
+   * Max splash keep — JS dismiss 미수신 시에만 native_fallback (최소 표시 시간 강제 아님).
+   * 앱 진입이 영구 block 되지 않게 하는 안전장치.
+   */
+  private static final long SPLASH_MAX_KEEP_MS = 3_000L;
   /** Transient DNS/net at cold start — same backoff ladder as ScreenAwakeBridge.apply retry. */
   private static final long[] WEBVIEW_LOAD_AUTO_RETRY_DELAYS_MS = {100L, 300L, 700L};
   private static final String ROUTE_PREFS = "dibay_push_route";
@@ -65,6 +74,12 @@ public class MainActivity extends BridgeActivity {
   private static final long V4_ACCEPT_SCREEN_READY_FALLBACK_VERIFY_MS = 3_000L;
   private static volatile boolean appVisible = false;
   private static volatile MainActivity activeInstance = null;
+  /** Web dismissSplash / native fallback — keepOnScreenCondition false when true. */
+  private static volatile boolean webSplashDismissRequested = false;
+  private static volatile long splashKeepStartElapsedMs = 0L;
+  private static volatile String splashDismissSource = "none";
+  /** Match web `--sam-bg-app` (#FFFCFC) — avoid pure white WebView flash before first HTML. */
+  private static final int WEBVIEW_BACKGROUND_COLOR = Color.parseColor("#FFFCFC");
 
   private static final java.util.concurrent.ConcurrentHashMap<String, PendingCallV4NativeSurface>
       PENDING_CALL_V4_NATIVE_SURFACE = new java.util.concurrent.ConcurrentHashMap<>();
@@ -113,6 +128,7 @@ public class MainActivity extends BridgeActivity {
   private volatile boolean routeInjectedForCurrentPending = false;
   private volatile boolean dibayWebChromeClientAttached = false;
   private volatile boolean dibayWebViewClientAttached = false;
+  private volatile boolean dibayBootBridgeAttached = false;
   private volatile boolean callRouteLoadingVisible = false;
   private View callRouteLoadingOverlay = null;
   private String v4AcceptDirectCallId = null;
@@ -926,7 +942,19 @@ public class MainActivity extends BridgeActivity {
     registerPlugin(com.dibay.app.call.NativeCallServicePlugin.class);
     registerPlugin(com.dibay.app.call.DibayCallPipPlugin.class);
     registerPlugin(NotificationSoundBridgePlugin.class);
+    SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
+    injectBootMetricOnCreate();
     super.onCreate(savedInstanceState);
+    splashScreen.setKeepOnScreenCondition(
+        () -> {
+          if (webSplashDismissRequested) return false;
+          long elapsed = SystemClock.elapsedRealtime() - splashKeepStartElapsedMs;
+          if (elapsed >= SPLASH_MAX_KEEP_MS) {
+            requestWebSplashDismiss("native_fallback_elapsed_ms=" + elapsed);
+            return false;
+          }
+          return true;
+        });
     registerActiveCallBackPressedCallback();
     Log.i(WEBVIEW_LOG_TAG, "app_start package=" + getPackageName());
     String serverOrigin = DibayServerOrigin.resolve(this);
@@ -1136,6 +1164,7 @@ public class MainActivity extends BridgeActivity {
     } else if (dibayWebChromeClientAttached) {
       return;
     }
+    webView.setBackgroundColor(WEBVIEW_BACKGROUND_COLOR);
     webView.setWebChromeClient(new DibayDelegatingWebChromeClient(existing, webViewPermissionDelegate));
     dibayWebChromeClientAttached = true;
     Log.i("DIBAY_WebPerm", "delegating_web_chrome_client_attached");
@@ -1170,8 +1199,104 @@ public class MainActivity extends BridgeActivity {
               }
             });
     bridge.setWebViewClient(client);
+    WebView webView = bridge.getWebView();
+    if (webView != null) {
+      webView.setBackgroundColor(WEBVIEW_BACKGROUND_COLOR);
+      attachDibayBootBridge(webView);
+    }
     dibayWebViewClientAttached = true;
     Log.i(WEBVIEW_LOG_TAG, "dibay_bridge_webview_client_attached");
+  }
+
+  /** Web 또는 native fallback — splash overlay 해제. */
+  public static void requestWebSplashDismiss(String source) {
+    if (webSplashDismissRequested) return;
+    webSplashDismissRequested = true;
+    splashDismissSource = source != null ? source : "unknown";
+    Log.i(WEBVIEW_LOG_TAG, "dismissSplash success source=" + splashDismissSource);
+  }
+
+  private void injectBootMetricOnCreate() {
+    webSplashDismissRequested = false;
+    splashDismissSource = "none";
+    splashKeepStartElapsedMs = SystemClock.elapsedRealtime();
+  }
+
+  private void attachDibayBootBridge(WebView webView) {
+    if (dibayBootBridgeAttached) return;
+    webView.addJavascriptInterface(new DibayBootJsBridge(), "DibayBootBridge");
+    dibayBootBridgeAttached = true;
+  }
+
+  private final class DibayBootJsBridge {
+    @JavascriptInterface
+    public void dismissSplash() {
+      mainHandler.post(
+          () -> {
+            Log.i(WEBVIEW_LOG_TAG, "dismissSplash start bridge_js");
+            requestWebSplashDismiss("DibayBootBridge");
+          });
+    }
+  }
+
+  private void injectBootMetricField(String field) {
+    Bridge bridge = getBridge();
+    if (bridge == null) return;
+    WebView webView = bridge.getWebView();
+    if (webView == null) return;
+    String safeField = field.replaceAll("[^a-zA-Z]", "");
+    String js =
+        "(function(){try{var n=performance.now();var m=window.__dibayBootMetrics||{};"
+            + "window.__dibayBootMetrics=m;if(m."
+            + safeField
+            + "==null)m."
+            + safeField
+            + "=n;"
+            + "window.__dibayNativeSplashDismiss=function(){"
+            + "try{if(window.DibayBootBridge&&window.DibayBootBridge.dismissSplash)"
+            + "window.DibayBootBridge.dismissSplash();}catch(e){}"
+            + "};"
+            + "}catch(e){}})();";
+    webView.evaluateJavascript(js, null);
+  }
+
+  private void onWebViewMainFrameStarted(String url) {
+    mainHandler.post(
+        () -> {
+          cancelWebViewLoadAutoRetryPending();
+          mainFrameLoadFinished = false;
+          lastMainFrameLoadFailure = null;
+          pendingMainFrameUrl = url;
+          hideWebViewLoadErrorOverlay();
+          mainHandler.removeCallbacks(webViewLoadTimeoutRunnable);
+          mainHandler.postDelayed(webViewLoadTimeoutRunnable, WEBVIEW_LOAD_TIMEOUT_MS);
+          injectBootMetricField("nativeStart");
+          injectBootMetricField("webviewReady");
+          Log.i(WEBVIEW_LOG_TAG, "onPageStarted url=" + (url != null ? url : ""));
+        });
+  }
+
+  private void onWebViewMainFrameFinished(String url) {
+    mainHandler.post(
+        () -> {
+          if (lastMainFrameLoadFailure != null) {
+            Log.w(
+                WEBVIEW_LOG_TAG,
+                "webview_page_finished_ignored_after_failure url="
+                    + url
+                    + " reason="
+                    + lastMainFrameLoadFailure);
+            return;
+          }
+          mainFrameLoadFinished = true;
+          pendingMainFrameUrl = url;
+          webViewLoadAutoRetryIndex = 0;
+          cancelWebViewLoadAutoRetryPending();
+          mainHandler.removeCallbacks(webViewLoadTimeoutRunnable);
+          hideWebViewLoadErrorOverlay();
+          injectBootMetricField("firstHtml");
+          maybeReplayPendingV4AcceptRouteAfterWebHydration(url);
+        });
   }
 
   private void traceV4AcceptHandoffResume() {
@@ -1209,41 +1334,6 @@ public class MainActivity extends BridgeActivity {
             + (callId != null && !callId.isEmpty() ? callId : "none")
             + " url="
             + (url != null ? url : "null"));
-  }
-
-  private void onWebViewMainFrameStarted(String url) {
-    mainHandler.post(
-        () -> {
-          cancelWebViewLoadAutoRetryPending();
-          mainFrameLoadFinished = false;
-          lastMainFrameLoadFailure = null;
-          pendingMainFrameUrl = url;
-          hideWebViewLoadErrorOverlay();
-          mainHandler.removeCallbacks(webViewLoadTimeoutRunnable);
-          mainHandler.postDelayed(webViewLoadTimeoutRunnable, WEBVIEW_LOAD_TIMEOUT_MS);
-        });
-  }
-
-  private void onWebViewMainFrameFinished(String url) {
-    mainHandler.post(
-        () -> {
-          if (lastMainFrameLoadFailure != null) {
-            Log.w(
-                WEBVIEW_LOG_TAG,
-                "webview_page_finished_ignored_after_failure url="
-                    + url
-                    + " reason="
-                    + lastMainFrameLoadFailure);
-            return;
-          }
-          mainFrameLoadFinished = true;
-          pendingMainFrameUrl = url;
-          webViewLoadAutoRetryIndex = 0;
-          cancelWebViewLoadAutoRetryPending();
-          mainHandler.removeCallbacks(webViewLoadTimeoutRunnable);
-          hideWebViewLoadErrorOverlay();
-          maybeReplayPendingV4AcceptRouteAfterWebHydration(url);
-        });
   }
 
   private void maybeReplayPendingV4AcceptRouteAfterWebHydration(String finishedUrl) {

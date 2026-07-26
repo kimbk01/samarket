@@ -1,6 +1,6 @@
 "use client";
 
-const COLD_BOOT_SESSION_KEY = "dibay:cold-boot:session-marked";
+import { COLD_BOOT_SESSION_KEY } from "@/lib/app-boot/cold-boot-constants";
 
 /**
  * App icon cold start — not in-tab navigation (bottom-nav / trade-primary push).

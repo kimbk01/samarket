@@ -70,8 +70,53 @@ if (
   )
 ) {
   fail(
-    "splash dismiss must only use shellReady (or auth_shell_fallback), not homeVisible/apiDone/reactMounted"
+    "splash dismiss must only use shellReady (or auth_shell_fallback/error_boundary), not homeVisible/apiDone/reactMounted"
   );
+}
+
+if (
+  /minimumSplashDuration|setTimeout\s*\([^)]*hide|setTimeout\s*\([^)]*Splash|setTimeout\s*\([^)]*splash/.test(
+    bootMetrics
+  )
+) {
+  fail("dibay-boot-metrics must not use setTimeout/minimumSplashDuration to keep or hide splash");
+}
+
+if (!bootMetrics.includes("markAppReady") || !bootMetrics.includes("hideColdBootIntroDom")) {
+  fail("dibay-boot-metrics must markAppReady and hide cold-boot intro DOM");
+}
+
+const layout = read("app/layout.tsx");
+if (!layout.includes("DIBAY_COLD_BOOT_INTRO_DOM_ID") || !layout.includes("DibayColdBootIntroController")) {
+  fail("root layout must mount first-HTML cold boot intro + controller");
+}
+if (!layout.includes("DIBAY") || !/dibay-cold-boot-spinner|dibay-cold-boot-logo/.test(layout)) {
+  fail("root layout cold intro must include DIBAY mark and spinner/logo");
+}
+
+const introCtrl = read("components/app/DibayColdBootIntro.tsx");
+if (
+  /\bsetTimeout\s*\(|minimumSplashDuration|router\.refresh|location\.reload|\buseState\s*\(/.test(
+    introCtrl
+  )
+) {
+  fail("DibayColdBootIntro must not use setTimeout/min duration/reload/local state sync");
+}
+if (!introCtrl.includes("markAppReady") || !introCtrl.includes("subscribeAppReady")) {
+  fail("DibayColdBootIntro must hide via markAppReady/subscribeAppReady");
+}
+
+const mainActivity = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
+if (!mainActivity.includes("installSplashScreen") || !mainActivity.includes("DibayBootBridge")) {
+  fail("MainActivity must keep SplashScreen until JS dismiss and expose DibayBootBridge");
+}
+if (!mainActivity.includes("#FFFCFC")) {
+  fail("MainActivity WebView background must match app cream #FFFCFC");
+}
+
+const capConfig = read("capacitor.config.ts");
+if (!capConfig.includes('backgroundColor: "#FFFCFC"')) {
+  fail('capacitor SplashScreen backgroundColor must be "#FFFCFC"');
 }
 
 const shell = read("components/layout/ConditionalAppShell.tsx");

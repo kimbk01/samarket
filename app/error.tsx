@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { tryDismissNativeSplash } from "@/lib/app-boot/dibay-boot-metrics";
 
 interface ErrorProps {
   error: Error & { digest?: string };
@@ -14,6 +15,8 @@ export default function RootError({ error, reset }: ErrorProps) {
 
   useEffect(() => {
     console.error("[RootError]", error);
+    // Error UI must not sit under cold-boot intro; dismiss once (idempotent).
+    tryDismissNativeSplash("error_boundary");
   }, [error]);
 
   return (

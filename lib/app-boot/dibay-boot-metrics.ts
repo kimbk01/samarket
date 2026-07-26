@@ -1,5 +1,9 @@
 "use client";
 
+import { DIBAY_COLD_BOOT_INTRO_DOM_ID } from "@/lib/app-boot/cold-boot-constants";
+
+export { DIBAY_COLD_BOOT_INTRO_DOM_ID };
+
 /**
  * Cold boot end-to-end timing — `window.__dibayBootMetrics`.
  * Native Android may inject nativeStart/webviewReady/firstHtml via evaluateJavascript.
@@ -7,7 +11,8 @@
  * Splash hide contract (Cold Boot Shell-First):
  * dismiss on **shellReady** (ConditionalAppShell mounted) — NOT feed/RSC/apiDone.
  * Auth/admin/account shell-less routes: firstPaint auth_shell_fallback.
- * DO NOT: homeVisible-as-feed-gate · splash_safety_timeout · delay hide.
+ * Root error boundary: error_boundary (intro must not cover Error UI).
+ * DO NOT: homeVisible-as-feed-gate · splash_safety_timeout · delay hide · minimum display duration.
  */
 export type DibayBootMetrics = {
   nativeStart: number | null;
@@ -143,6 +148,49 @@ export function mergeNativeBootMetrics(partial: Partial<DibayBootMetrics>): void
 }
 
 let splashDismissAttempted = false;
+/** Web intro + native splash share one app-ready signal (shellReady / auth / error). */
+let appReady = false;
+const appReadyListeners = new Set<() => void>();
+
+function hideColdBootIntroDom(): void {
+  if (typeof document === "undefined") return;
+  const el = document.getElementById(DIBAY_COLD_BOOT_INTRO_DOM_ID);
+  if (!el) return;
+  el.setAttribute("data-ready", "1");
+  el.setAttribute("hidden", "");
+  el.setAttribute("aria-hidden", "true");
+}
+
+/**
+ * Single app-ready signal — web intro hide + (via tryDismissNativeSplash) native splash.
+ * Idempotent: repeated calls do not re-notify.
+ */
+export function markAppReady(reason: string): void {
+  if (appReady) return;
+  appReady = true;
+  hideColdBootIntroDom();
+  for (const listener of appReadyListeners) {
+    try {
+      listener();
+    } catch {
+      /* ignore subscriber errors */
+    }
+  }
+  if (typeof console !== "undefined" && typeof console.info === "function") {
+    console.info(`[dibay-boot] appReady reason=${reason}`);
+  }
+}
+
+export function subscribeAppReady(listener: () => void): () => void {
+  appReadyListeners.add(listener);
+  return () => {
+    appReadyListeners.delete(listener);
+  };
+}
+
+export function getAppReadySnapshot(): boolean {
+  return appReady;
+}
 
 function logSplashDismiss(reason: string, ok: boolean, detail?: string): void {
   const msg = `[dibay-boot] dismissSplash reason=${reason} ok=${ok}${detail ? ` detail=${detail}` : ""}`;
@@ -156,6 +204,7 @@ export function tryDismissNativeSplash(reason: string): void {
   if (splashDismissAttempted) return;
   splashDismissAttempted = true;
   setMetric("splashDismissReason", reason);
+  markAppReady(reason);
 
   if (typeof window === "undefined") return;
 

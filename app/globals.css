@@ -855,3 +855,72 @@ a,
     padding-bottom: max(0.5rem, var(--safe-bottom));
   }
 }
+
+/**
+ * Cold-boot web intro — first HTML paints this until shellReady/app-ready.
+ * Background matches --sam-bg-app (#FFFCFC light / dark token). Pure white (#fff) forbidden.
+ */
+#dibay-cold-boot-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  background: var(--sam-bg-app, #fffcfc);
+  pointer-events: none;
+}
+
+#dibay-cold-boot-intro[hidden],
+#dibay-cold-boot-intro[data-ready="1"] {
+  display: none !important;
+}
+
+#dibay-cold-boot-intro .dibay-cold-boot-logo {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+}
+
+#dibay-cold-boot-intro .dibay-cold-boot-wordmark {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--dibay-green, #0b421a);
+}
+
+#dibay-cold-boot-intro .dibay-cold-boot-spinner {
+  width: 22px;
+  height: 22px;
+  border-radius: 9999px;
+  border: 2px solid color-mix(in srgb, var(--dibay-green, #0b421a) 22%, transparent);
+  border-top-color: var(--dibay-green, #0b421a);
+  animation: dibay-cold-boot-spin 0.7s linear infinite;
+}
+
+@keyframes dibay-cold-boot-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #dibay-cold-boot-intro .dibay-cold-boot-spinner {
+    animation: none;
+    border-top-color: color-mix(in srgb, var(--dibay-green, #0b421a) 55%, transparent);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  #dibay-cold-boot-intro .dibay-cold-boot-wordmark {
+    color: #e8efe9;
+  }
+
+  #dibay-cold-boot-intro .dibay-cold-boot-spinner {
+    border-color: color-mix(in srgb, #e8efe9 22%, transparent);
+    border-top-color: #e8efe9;
+  }
+}
