@@ -1,6 +1,9 @@
 /**
- * Phase H extension — App Icon badge single writer.
- * Independent Domain App Icon projection — DO NOT mirror Header Bell total.
+ * Phase H contract mirror — App Icon total snapshot for freeze/tests.
+ *
+ * Runtime NativeBadgeSync authority is `domain-badge-surface-store` only.
+ * DO NOT use this store as a NativeBadgeSync reader/fallback.
+ * Independent of Header Bell total — DO NOT mirror Bell.
  */
 
 import type { SurfaceProjectionApplyResult } from "@/lib/chat-domain/projections/surface-projection-types";

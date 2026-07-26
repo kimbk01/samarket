@@ -8,21 +8,17 @@ import {
   getDomainBadgeSurfaceSnapshot,
   subscribeDomainBadgeSurface,
 } from "@/lib/messenger/contracts/domain-badge-surface-store";
-import { getAppIconBadgeProjection } from "@/lib/chat-domain/projections/app-icon-badge-projection";
 import { clearNativeBadgeCount, syncNativeBadgeCount } from "@/lib/push/native/sync-native-badge-count";
 import { logNotifyBadge } from "@/lib/notifications/core/notification-logs";
 
 /**
- * Domain App Icon projection → native app icon badge.
+ * Runtime App Icon authority = domain-badge-surface-store only.
+ * DO NOT read Phase H App Icon contract mirror as a runtime/fallback source.
  * DO NOT mirror Header Bell total.
  */
 function readAppIconTotal(): number {
   const surface = getDomainBadgeSurfaceSnapshot();
-  if (surface.authority === "domain_badge" && surface.generation > 0) {
-    return Math.max(0, surface.appIconTotal);
-  }
-  const proj = getAppIconBadgeProjection();
-  return Math.max(0, Math.floor(Number(proj?.totalUnread) || 0));
+  return Math.max(0, Math.floor(Number(surface.appIconTotal) || 0));
 }
 
 export function NativeBadgeSync() {

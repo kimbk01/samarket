@@ -83,6 +83,7 @@
     "verify:delivery-poll-authority": "node scripts/verify-delivery-poll-authority.cjs",
     "verify:delivery-physical-boundary": "node scripts/verify-delivery-physical-boundary.cjs",
     "verify:badge-domain-authority": "node scripts/verify-badge-domain-authority.cjs",
+    "verify:app-icon-runtime-authority": "node scripts/verify-app-icon-runtime-authority.cjs",
     "verify:owner-badge-boundary": "node scripts/verify-owner-badge-boundary.cjs",
     "verify:global-runtime-allowlist": "node scripts/verify-global-runtime-allowlist.cjs",
     "verify:messenger-legacy-route-ban": "node scripts/verify-messenger-legacy-route-ban.cjs",

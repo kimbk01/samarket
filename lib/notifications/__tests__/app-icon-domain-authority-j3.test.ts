@@ -15,6 +15,8 @@ describe("Phase J3 App Icon authority (Android / native)", () => {
     expect(src).not.toMatch(/useNotificationBadgeTotal/);
     expect(src).not.toMatch(/fetchNotificationBadgeCount/);
     expect(src).not.toMatch(/badgeCountSnap\?\.total/);
+    expect(src).not.toContain("getAppIconBadgeProjection");
+    expect(src).not.toContain("generation > 0");
   });
 
   it("push dispatcher FCM badge_count uses Domain appIconTotal", () => {
