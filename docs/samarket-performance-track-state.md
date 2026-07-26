@@ -2477,3 +2477,16 @@ harness: `milestone_poll_v6_bn14_s4_only` · origin `http://localhost:3001`
 - **harness** — 시나리오 간 session 미reset · navigation `waitForURL` 없음 → S1 pathname 잔류·chrome-error.
 - **회귀 아님** — v5 보강 후 3회 연속 PASS.
 
+---
+
+## Delivery Customer/Owner Runtime Cutover ①~③ (2026-07-26)
+
+| 항목 | 상태 |
+|---|---|
+| 현재 트랙 | Delivery role runtime authority |
+| 원인 1개 | Customer/Owner가 단일 row RT transport 이름과 role 없는 client cache/flight key를 사용해 정적 경계가 역할 권위를 증명하지 못함 |
+| 조치 | runtime import gate 강화 · `delivery-customer:*`/`delivery-owner:*` cache namespace · role row RT adapters |
+| 측정 | 코드/정적 게이트 단계. 실기기 3회 측정은 Phase F에서 수행 |
+| 판정 | **코드 완료 후보 / 체감 미판정** — Phase F NOT READY |
+| 다음 후보 1개 | ④ notifications → owner invalidate 스코프 분리 |
+

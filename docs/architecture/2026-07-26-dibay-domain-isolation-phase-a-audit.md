@@ -73,3 +73,21 @@
 6. owner-hub-badge → app hub badge rename + Delivery slice 분리
 7. lib/stores 물리 폴더 customer/owner/shared
 8. Zustand/Context mount 1:1
+
+## 7. Delivery Runtime Cutover ①~③ (2026-07-26)
+
+| 단계 | 결과 | 권위 |
+|---|---|---|
+| ① import boundary | Customer/Owner role root runtime import 게이트 강화. `import type` 허용, runtime Store/Cache/Realtime 금지. Owner-admin entry debt는 파일 1개 exact allowlist. | `verify:delivery-customer-owner-boundary` |
+| ② cache namespace | Customer detail/events/list → `delivery-customer:*`; Owner list/detail key contract → `delivery-owner:*`. 기존 `me:store-order:*` / `owner-orders-list:*` writer 제거, fallback read·dual-write 없음. | `delivery-order-cache-namespace.ts` |
+| ③ row realtime | 공통 transport 위 Customer/Owner/Admin adapter 분리. 채널 role prefix, Owner store identity 검증, 동일 payload signature 재적용 0. 각 adapter는 자기 surface refresh callback만 실행. | `useCustomerStoreOrderRowRealtime`, `useOwnerStoreOrderRowRealtime` |
+
+### 의도적으로 남은 다음 cutover
+
+- ④ notifications → owner invalidate 스코프
+- ⑤ owner-lite 역할 분리
+- ⑥ owner-hub-badge 권위 분리
+- ⑦ owner-hub 180초 poll 제거
+- ⑧ 물리 파일 경계 정리
+
+**판정:** CUTOVER ①~③ 코드 완료 후보. 실기기 측정 전이므로 Phase F NOT READY.
