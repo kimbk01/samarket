@@ -367,16 +367,13 @@ SAMARKET_BASE_URL=https://dibaY.vercel.app SAMARKET_PROD_PERF_MEASURE=1 npm run 
 
 ## 진행 중 트랙
 
-| 트랙 이름 | **BOOT-P0 / Phase E** Local Boot Shell Startup |
-| **트랙 상태** | **■ FAIL closeout (2026-07-27)** — fix `46311d6c3` push/APK/Prod 완료 · Xiaomi white blank(early cover hide via warm_or_non_cold) · Samsung cover 0 · iOS xcodebuild sandbox FAIL · runtime BLOCKED |
-| baseline commit | pre-Phase-E `41ca8012d` |
-| fix commit | `46311d6c3` Native Handoff Cover + Local shell paint order |
-| Production | Vercel `BbByppBxDzxAPgYxF9sYrCdziRHC` success for `46311d6c3` |
-| APK | `docs/perf/dibay-startup-handoff-cover-46311d6c3.apk` |
-| QA 보고서 | `docs/perf/startup-handoff-cover-46311d6c3-qa-report.md` |
-| **후속** | Cover hide를 shellReady 전용으로 분리 · Samsung local boot JS `triggerEvent` 오류 · 외부 Terminal에서 iOS xcodebuild |
-| 측정 명령 | `.qa-logs/tmp-startup-handoff-cover-qa.mjs --record` · `.qa-logs/run-ios-handoff-build.sh` |
-| **판정** | **FAIL** (blank frame 증거 f0138 · Samsung coverShow=0) |
+| 트랙 이름 | **BOOT-P0** Startup — Local Runtime recovery (Option A) |
+| **트랙 상태** | **▲ IN PROGRESS** — Hybrid Remote Startup 판정 고정 · Cover WIP `archive/startup-hybrid-handoff-wip` · SSOT `docs/dibay-local-runtime-startup-rearchitecture.md` · Local Runtime NOT IMPLEMENTED · PRODUCT PASS 금지 |
+| 이전 Hybrid closeout | FAIL (`46311d6c3` Cover QA · Xiaomi blank · Samsung cover 0 · iOS BLOCKED) — **최종 Local First로 승격 금지** |
+| baseline (Hybrid) | `41ca8012d` / fix `46311d6c3` / docs FAIL `873caeaeb` |
+| WIP archive | branch `archive/startup-hybrid-handoff-wip` @ `643e18a0d` |
+| **후속** | Local Runtime core → Android/iOS integration → cutover (Cover/replace 제거) → device QA |
+| **판정** | **HYBRID REMOTE STARTUP** / LOCAL RUNTIME NOT IMPLEMENTED (PASS 금지) |
 
 | 항목 | 내용 |
 |------|------|

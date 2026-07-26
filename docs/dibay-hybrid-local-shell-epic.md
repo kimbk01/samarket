@@ -1,55 +1,95 @@
-# DIBAY Hybrid Local Shell EPIC (P2)
+# DIBAY Hybrid Local Shell EPIC — 현황 정정 (P2)
 
-**상태:** Phase A–E **제품 적용** — Local Boot Shell(Intro+AppShell+BottomNav) APK 내장 · Remote React 단일 인계  
-**목표:** 카카오톡·배민처럼 아이콘 탭 즉시 로컬 셸 paint, API/피드 권위는 원격 유지.
+> **SSOT 승격:** 복구·최종 목표는 [`docs/dibay-local-runtime-startup-rearchitecture.md`](./dibay-local-runtime-startup-rearchitecture.md).  
+> 본 문서는 **과거에 만든 Hybrid 경로의 기록·잔존 계약**이다. Local First / Legacy-level Complete로 읽지 않는다.
 
-## 2026-07-26 — Cold Boot 계약 전환 (완료)
+## 현재 판정 (고정 · 2026-07-27)
 
-| RC | 조치 |
-|----|------|
-| RC-3 `/` redirect | `app/(main)/page.tsx` 가 Philife 홈 직접 렌더 — HTTP redirect 제거 |
-| RC-2 splash | dismiss = `shellReady` (`ConditionalAppShell`) — timeout gate 제거 |
-| RC-4 feed | Suspense/RSC first paint 제거 · persistent localStorage cache → background patch |
-| RC-1 remote WebView | **Phase E로 해소** — `/__dibay-startup` APK asset intercept (server.url 유지) |
+| 항목 | 판정 |
+|------|------|
+| 아키텍처 | **Hybrid Remote Startup** |
+| Local | first-pixel presentation only (`dibay-startup.html` 실루엣) |
+| Runtime primary | **Remote** Next document + `_next` JS |
+| Seam | `location.replace` + Native Handoff Cover (transition / mitigation) |
+| Android | **PARTIAL** (로컬 부트 HTML 존재, Runtime은 Remote) |
+| iOS | **FAIL / RUNTIME 미검증** (검은 화면·로고 미표시 보고 = Startup P0) |
+| Cross-platform parity | **FAIL** |
+| Local Runtime | **NOT IMPLEMENTED** |
+| PRODUCT PASS | **금지** |
 
-## 2026-07-27 — Phase E Local Boot Shell (완료) + Native Handoff Cover (코드)
+### 철회하는 표현
 
-- `server.url` 유지 (Capacitor 브릿지·쿠키·origin 보존)
-- Android: `DibayBridgeWebViewClient.shouldInterceptRequest` → `assets/dibay-startup.html`
-- iOS: `DibayStartupBridgeViewController.loadHTMLString(baseURL=origin/__dibay-startup)` — 기기 QA BLOCKED
-- Boot HTML: Intro 종료 → Local AppShell paint(rAF×2) → Native Handoff Cover → `location.replace` 1회 인계
-- Native Cover: 크림+DIBAY 로고+하단 nav 실루엣 · `beginHandoffCover`(pre-draw sync) / `endHandoffCover`(shellReady only, idempotent) · 로드 실패 시 Cover 위 재시도
-- Admin: `/admin/settings/startup-config` · `GET/PUT /api/.../startup-config` · PUT→DB E2E **BLOCKED**(세션 없음)
-- Legacy cold-boot-intro / dibay-boot-metrics 경로 삭제 · `verify:startup-architecture`
-- Windows: 타깃 없음 → **BLOCKED** (Web Cold PASS 대체 금지)
+다음 표현은 **증거 없이 사용하지 않는다** (과거 문서·커밋 메시지에 남아 있어도 현 상태로 승격하지 않음).
 
-## 현재 한계 (잔여)
+- Local First PASS
+- Startup Architecture Complete
+- Legacy App 수준 완료
+- Phase E Product Complete
+- Startup PASS / Legacy Startup PASS
 
-- Remote React HTML/JS 는 인계 후 Vercel 로드 (정적 `_next/static` APK 번들 미포함 — 버전 스큐 회피)
-- iOS / Tablet 실기기 QA **BLOCKED**
-- Local→Remote blank-frame 0 판정: Native Cover APK 재빌드·양기기 cold×5 프레임 QA 필요 (`46311d6c3`)
+## 실제 Boot chain (Hybrid — 현재 production 경로)
 
-## 목표 아키텍처 (Phase E — 적용)
+```text
+Native
+  → WebView (server.url origin)
+    → Local Boot HTML (APK intercept / iOS loadHTMLString)
+      → fake AppShell silhouette
+        → Native Cover (mitigation)
+          → location.replace(remote)
+            → Remote HTML
+              → Remote React
+                → ConditionalAppShell / Home
+```
 
 ```mermaid
 flowchart LR
   subgraph apk [APK assets]
-    BootHTML[dibay-startup.html]
+    BootHTML[dibay-startup.html silhouette]
   end
   subgraph remote [Vercel]
-    React[Remote React]
-    API[API routes]
+    React[Remote React Runtime]
+    API[API]
   end
   WebView --> BootHTML
-  BootHTML -->|location.replace once| React
+  BootHTML -->|location.replace seam| React
   React --> API
 ```
 
-## EPIC 종료 기준 (Local Shell)
+## Phase A–E가 실제로 한 일 (과대 해석 금지)
 
-| 항목 | 목표 | 상태 |
-|------|------|------|
-| 아이콘→local shell paint | 네트워크 HTML 대기 없이 | Android 구현 |
-| 단일 Intro | Native→Local→Remote 이중 인트로 0 | 계약+handoff 플래그 |
-| 첫 API / Feed authority | remote only | 유지 |
-| iOS/Tablet/Windows QA | 실기기 | BLOCKED |
+| Phase | 한 일 | 하지 않은 일 |
+|-------|--------|--------------|
+| A–D | splash/`shellReady`/redirect/feed first-paint 정리 | Local Runtime |
+| E | APK 부트 HTML + intercept + replace 인계 | Remote를 Data-only로 강등 |
+| Cover | blank-frame **완화 시도** | 최종 제품 계약 |
+
+Cover / `location.replace` / Boot HTML 실루엣은 **전이·응급**이다. 최종 구조로 잠그지 않는다.
+
+## Hybrid WIP 보존
+
+| 위치 | 내용 |
+|------|------|
+| Branch `archive/startup-hybrid-handoff-wip` (`643e18a0d`) | Cover / triggerEvent / paint-gate WIP |
+| `.qa-logs/startup-hybrid-handoff-wip.patch` (해당 브랜치) | 동일 diff 백업 |
+
+main에서 Hybrid 완화를 Local Runtime과 섞지 않는다. Hybrid 코드 **즉시 삭제 금지** — Local Runtime cutover 후 Reference Audit → 제거.
+
+## 복구 목표 (옵션 A)
+
+```text
+Native Host
+  → Bundled Local Runtime
+    → Local AppShell
+      → Remote Data / Config / API / Sync
+        → Interactive
+```
+
+상세·상태 머신·QA·제거 조건: **`docs/dibay-local-runtime-startup-rearchitecture.md`**.
+
+## 잔존 Hybrid 참고 (삭제 전까지)
+
+- Android: `DibayBridgeWebViewClient` → `assets/dibay-startup.html`
+- iOS: `DibayStartupBridgeViewController.loadHTMLString`
+- `server.url` 유지 (Hybrid 경로)
+- Admin startup-config API · 캐시 키 (`lib/startup/*`)
+- `verify:startup-architecture` — Hybrid 정적 계약 (Local Runtime verify로 교체 예정)
