@@ -1,7 +1,7 @@
 /**
  * OOL1 owner store orders list snapshot counter keys.
  */
-import { deliveryOwnerOrdersListCacheKey } from "@/lib/stores/delivery-order-cache-namespace";
+import { deliveryOwnerOrdersListCacheKey } from "@/lib/delivery/shared/contracts/delivery-order-cache-namespace";
 
 export const OWNER_STORE_ORDERS_LIST_SNAPSHOT_TABLE = "owner_store_orders_list_snapshots";
 export const OWNER_STORE_ORDERS_LIST_SNAPSHOT_RPC = "get_owner_store_orders_list_snapshot";

@@ -6,8 +6,7 @@ import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-e
 import { routeNotificationInsertSound } from "@/lib/notifications/notification-sound-gate";
 import { dispatchOwnerHubBadgeRefresh } from "@/lib/chats/chat-channel-events";
 import { createTrailingCoalescedCallback } from "@/lib/http/coalesce-trailing-callback";
-import { isOwnerStoreCommerceNotificationRow } from "@/lib/notifications/owner-store-commerce-notification-meta";
-import { invalidateOwnerStoreOrdersListCacheCoalesced } from "@/lib/stores/owner-store-orders-list-cache-invalidate-coalesce";
+import { applyOwnerCommerceNotificationInvalidate } from "@/lib/delivery/owner/apply-owner-commerce-notification-invalidate";
 
 /** Realtime UPDATE burst — unread 배지 CustomEvent trailing 1회 */
 const NOTIFICATIONS_RT_BADGE_COALESCE_MS = 1_200;
@@ -57,16 +56,16 @@ export function NotificationsBadgeRealtimeBridge({ enabled = true }: { enabled?:
   }, []);
 
   const onInsertSound = useCallback((row: Record<string, unknown>) => {
-    if (isOwnerStoreCommerceNotificationRow({ meta: row.meta })) {
-      const meta = row.meta as { store_id?: string } | null | undefined;
-      const storeId = String(meta?.store_id ?? "").trim();
-      if (storeId) {
-        invalidateOwnerStoreOrdersListCacheCoalesced(storeId, {
-          route: "NotificationsBadgeRealtimeBridge",
-          reason: "owner_commerce_notification_insert",
-        });
-      }
-    }
+    const meta =
+      row.meta && typeof row.meta === "object"
+        ? (row.meta as Record<string, unknown>)
+        : null;
+    applyOwnerCommerceNotificationInvalidate({
+      ownerUserId: String(row.user_id ?? "").trim(),
+      meta,
+      route: "NotificationsBadgeRealtimeBridge",
+      reason: "owner_commerce_notification_insert",
+    });
     return routeNotificationInsertSound(row);
   }, []);
 

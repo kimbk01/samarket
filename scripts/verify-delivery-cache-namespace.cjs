@@ -9,7 +9,7 @@ const path = require("path");
 
 const root = path.join(__dirname, "..");
 const failures = [];
-const namespaceFile = path.join(root, "lib/stores/delivery-order-cache-namespace.ts");
+const namespaceFile = path.join(root, "lib/delivery/shared/contracts/delivery-order-cache-namespace.ts");
 const namespaceSource = fs.readFileSync(namespaceFile, "utf8");
 
 for (const required of [

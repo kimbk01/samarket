@@ -6,7 +6,7 @@ import { forgetSingleFlight, getSingleFlightPromise, runSingleFlight } from "@/l
 import {
   deliveryCustomerOrderDetailCacheKey,
   deliveryCustomerOrderEventsCacheKey,
-} from "@/lib/stores/delivery-order-cache-namespace";
+} from "@/lib/delivery/shared/contracts/delivery-order-cache-namespace";
 import {
   markStoresHomeHubSummaryNetwork,
   resolveStoresHomePrewarmLanguage,

@@ -5,7 +5,7 @@ import {
   deliveryCustomerOrdersListCacheKey,
   deliveryOwnerOrderDetailCacheKey,
   deliveryOwnerOrdersListCacheKey,
-} from "@/lib/stores/delivery-order-cache-namespace";
+} from "@/lib/delivery/shared/contracts/delivery-order-cache-namespace";
 
 describe("delivery order cache namespaces", () => {
   it("separates Customer and Owner keys for the same order", () => {

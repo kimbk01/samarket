@@ -2,8 +2,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { publishNotificationSideEffect } from "@/lib/notifications/publish-notification-side-effect";
 import type { NotificationDomain } from "@/lib/notifications/notification-domains";
 import { invalidateNotificationUnreadCountCache } from "@/lib/notifications/notification-unread-count-cache";
-import { isOwnerStoreCommerceNotificationRow } from "@/lib/notifications/owner-store-commerce-notification-meta";
-import { invalidateOwnerStoreOrdersListCache } from "@/lib/stores/owner-store-orders-list-cache";
+import {
+  applyOwnerCommerceNotificationInvalidate,
+  resolveOwnerCommerceNotificationStoreId,
+} from "@/lib/delivery/owner/apply-owner-commerce-notification-invalidate";
 import { bumpNotificationTargetFromInboxRow } from "@/lib/notifications/notification-target-from-inbox-row";
 import { getBlockedRelation } from "@/lib/community-messenger/social-relations";
 import { isNotificationSuppressedForActor } from "@/lib/social/user-block-ssot";
@@ -13,25 +15,20 @@ import type { NotificationEventType } from "@/lib/notifications/core/notificatio
 
 const LEGACY_NOTIFICATIONS_FALLBACK_ENABLED = process.env.DIBAY_LEGACY_NOTIFICATIONS_MODE === "1";
 
-function notificationStoreIdFromMeta(meta: Record<string, unknown> | null | undefined): string | null {
-  if (!meta || typeof meta !== "object") return null;
-  const sid = String(meta.store_id ?? "").trim();
-  return sid || null;
-}
-
 function afterOwnerCommerceNotificationInserted(
   userId: string,
   meta: Record<string, unknown> | null | undefined
 ): void {
   const uid = userId.trim();
-  const storeId = notificationStoreIdFromMeta(meta);
+  const storeId = resolveOwnerCommerceNotificationStoreId(meta);
   invalidateNotificationUnreadCountCache(uid, storeId);
-  if (meta && isOwnerStoreCommerceNotificationRow({ meta })) {
-    invalidateOwnerStoreOrdersListCache(storeId ?? undefined, uid, {
-      route: "append-user-notification",
-      reason: "owner_commerce_notification",
-    });
-  }
+  applyOwnerCommerceNotificationInvalidate({
+    ownerUserId: uid,
+    storeId,
+    meta,
+    route: "append-user-notification",
+    reason: "owner_commerce_notification",
+  });
 }
 
 function afterNotificationInsertedSuccess(

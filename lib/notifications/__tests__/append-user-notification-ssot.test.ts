@@ -32,12 +32,9 @@ vi.mock("@/lib/notifications/notification-unread-count-cache", () => ({
   invalidateNotificationUnreadCountCache: vi.fn(),
 }));
 
-vi.mock("@/lib/stores/owner-store-orders-list-cache", () => ({
-  invalidateOwnerStoreOrdersListCache: vi.fn(),
-}));
-
-vi.mock("@/lib/notifications/owner-store-commerce-notification-meta", () => ({
-  isOwnerStoreCommerceNotificationRow: vi.fn(() => false),
+vi.mock("@/lib/delivery/owner/apply-owner-commerce-notification-invalidate", () => ({
+  applyOwnerCommerceNotificationInvalidate: vi.fn(() => false),
+  resolveOwnerCommerceNotificationStoreId: vi.fn(() => null),
 }));
 
 describe("appendUserNotification SSOT bridge", () => {
