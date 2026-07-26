@@ -970,6 +970,7 @@ public class MainActivity extends BridgeActivity {
     attachDibayWebChromeClient();
     attachDibayWebViewClient();
     loadLocalStartupShellIfReady();
+    ensureInitialRemotePathOnce();
     ensureWebViewLoadErrorOverlay();
     logNativeAuthBootState();
     Intent launchIntent = getIntent();
@@ -1340,12 +1341,23 @@ public class MainActivity extends BridgeActivity {
   }
 
   /**
-   * Hybrid path only: load remote-origin {@code /__dibay-startup} after interceptor attach.
-   * Option A Local Runtime: skip — Capacitor loads bundled {@code webDir} document (no replace).
+   * Hybrid path only — Product contract: skip. Cap loads remote `server.url` under Native Splash.
+   * No Boot HTML · no location.replace · no Handoff Cover on normal cold start.
    */
   private void loadLocalStartupShellIfReady() {
-    if (isBundledLocalRuntimeMode()) {
-      Log.i(WEBVIEW_LOG_TAG, "startup_boot_skip reason=local_runtime_mode");
+    Log.i(WEBVIEW_LOG_TAG, "startup_boot_skip reason=native_splash_direct_remote");
+  }
+
+  private boolean initialRemotePathApplied = false;
+
+  /**
+   * Cap loads origin `/` (community). If Admin cached a non-community surface and there is no
+   * deep-link pending, navigate once — never waits on network.
+   */
+  private void ensureInitialRemotePathOnce() {
+    if (initialRemotePathApplied) return;
+    if (pendingAppPath != null && !pendingAppPath.isEmpty()) {
+      initialRemotePathApplied = true;
       return;
     }
     Bridge bridge = getBridge();
@@ -1353,19 +1365,43 @@ public class MainActivity extends BridgeActivity {
     WebView webView = bridge.getWebView();
     if (webView == null) return;
     String origin = DibayServerOrigin.resolve(this);
-    if (origin == null || origin.isEmpty()) {
-      Log.w(WEBVIEW_LOG_TAG, "startup_boot_skip reason=missing_server_origin");
+    if (origin == null || origin.isEmpty()) return;
+    if (isForbiddenCapacitorServerUrl(origin)) return;
+
+    String surface =
+        getSharedPreferences("dibay_startup", MODE_PRIVATE)
+            .getString("initial_surface", "community");
+    if (surface == null || surface.isEmpty()) surface = "community";
+    surface = surface.trim().toLowerCase(java.util.Locale.US);
+    if ("community".equals(surface)) {
+      initialRemotePathApplied = true;
+      Log.i(WEBVIEW_LOG_TAG, "initial_remote_path skip surface=community (Cap /)");
       return;
     }
-    if (isForbiddenCapacitorServerUrl(origin)) {
-      Log.e(WEBVIEW_LOG_TAG, "startup_boot_skip reason=forbidden_server_origin");
-      return;
+    final String path;
+    switch (surface) {
+      case "trade":
+        path = "/market";
+        break;
+      case "food":
+        path = "/stores";
+        break;
+      case "chat":
+        path = "/community-messenger?section=chats";
+        break;
+      case "my":
+        path = "/mypage";
+        break;
+      default:
+        initialRemotePathApplied = true;
+        return;
     }
-    final String bootUrl = origin + DibayBridgeWebViewClient.STARTUP_BOOT_PATH;
+    initialRemotePathApplied = true;
+    final String url = origin + path;
     webView.post(
         () -> {
-          Log.i(WEBVIEW_LOG_TAG, "startup_boot_load url=" + bootUrl);
-          webView.loadUrl(bootUrl);
+          Log.i(WEBVIEW_LOG_TAG, "initial_remote_path url=" + url);
+          webView.loadUrl(url);
         });
   }
 
@@ -1393,53 +1429,30 @@ public class MainActivity extends BridgeActivity {
     }
 
     /**
-     * Activate Native Handoff Cover and block until overlay has at least one pre-draw.
-     * Must return only after cover is painted so JS location.replace cannot race blank frames.
+     * Product: Handoff Cover disabled — Native Splash is the only cold branded surface.
      */
     @JavascriptInterface
     public void beginHandoffCover(String pendingRemoteUrl) {
-      final CountDownLatch latch = new CountDownLatch(1);
-      mainHandler.post(
-          () -> {
-            try {
-              Log.i(WEBVIEW_LOG_TAG, "handoff_cover_begin bridge_js");
-              boolean shown = showNativeHandoffCover(pendingRemoteUrl);
-              if (!shown || handoffCoverOverlay == null) {
-                latch.countDown();
-                return;
-              }
-              final View cover = handoffCoverOverlay;
-              ViewTreeObserver observer = cover.getViewTreeObserver();
-              if (observer.isAlive()) {
-                observer.addOnPreDrawListener(
-                    new ViewTreeObserver.OnPreDrawListener() {
-                      @Override
-                      public boolean onPreDraw() {
-                        ViewTreeObserver obs = cover.getViewTreeObserver();
-                        if (obs.isAlive()) {
-                          obs.removeOnPreDrawListener(this);
-                        }
-                        latch.countDown();
-                        return true;
-                      }
-                    });
-                cover.invalidate();
-              } else {
-                latch.countDown();
-              }
-            } catch (RuntimeException e) {
-              Log.e(WEBVIEW_LOG_TAG, "handoff_cover_begin_failed", e);
-              latch.countDown();
-            }
-          });
-      try {
-        // Wait for UI paint only — never use as cover-hide timeout.
-        if (!latch.await(800, java.util.concurrent.TimeUnit.MILLISECONDS)) {
-          Log.w(WEBVIEW_LOG_TAG, "handoff_cover_begin_wait_timeout");
-        }
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
+      Log.i(WEBVIEW_LOG_TAG, "handoff_cover_begin_ignored reason=native_splash_direct_remote");
+    }
+
+    /** Persist Admin initial surface for next cold start (never blocks current paint). */
+    @JavascriptInterface
+    public void setInitialSurface(String surface) {
+      if (surface == null) return;
+      String s = surface.trim().toLowerCase(java.util.Locale.US);
+      if (!s.equals("community")
+          && !s.equals("trade")
+          && !s.equals("food")
+          && !s.equals("chat")
+          && !s.equals("my")) {
+        s = "community";
       }
+      getSharedPreferences("dibay_startup", MODE_PRIVATE)
+          .edit()
+          .putString("initial_surface", s)
+          .apply();
+      Log.i(WEBVIEW_LOG_TAG, "initial_surface_persisted surface=" + s);
     }
 
     /** Remove Native Handoff Cover — Remote App Ready / shellReady only. */

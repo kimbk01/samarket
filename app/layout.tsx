@@ -3,6 +3,7 @@ import { Noto_Sans_KR } from "next/font/google";
 import { cookies, headers } from "next/headers";
 import { AppBootProvider } from "@/components/app/AppBootProvider";
 import { DibayStartupIntroController } from "@/components/app/DibayStartupIntro";
+import { InitialSurfaceBootstrap } from "@/components/app/InitialSurfaceBootstrap";
 import { OAuthReturnListener } from "@/components/auth/OAuthReturnListener";
 import { CapacitorNativeMarkerBootstrap } from "@/components/platform/CapacitorNativeMarkerBootstrap";
 import { SupabaseAuthSync } from "@/components/auth/SupabaseAuthSync";
@@ -17,13 +18,6 @@ import {
   DIBAY_FAVICON_PATH,
   dibayBrandAssetUrl,
 } from "@/lib/brand/brand-asset-paths";
-import {
-  DIBAY_STARTUP_INTRO_DOM_ID,
-  STARTUP_HANDOFF_SESSION_KEY,
-  STARTUP_SESSION_KEY,
-} from "@/lib/startup/startup-constants";
-import { STARTUP_CONFIG_LOCAL_STORAGE_KEY } from "@/lib/startup/startup-config";
-import { buildStartupIntroMarkup } from "@/lib/startup/startup-shell-markup";
 import { APP_LANGUAGE_COOKIE, type AppLanguageCode } from "@/lib/i18n/config";
 import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
 import "./globals.css";
@@ -99,34 +93,15 @@ export default async function RootLayout({
     acceptLanguage,
   });
 
-  const forwardedHost = hdr.get("x-forwarded-host");
-  const host = (forwardedHost ?? hdr.get("host") ?? "").split(",")[0]?.trim() ?? "";
-  const forwardedProto = hdr.get("x-forwarded-proto");
-  const proto =
-    typeof forwardedProto === "string"
-      ? forwardedProto.split(",")[0]?.trim() || "https"
-      : "https";
-  const appOrigin = host ? `${proto}://${host}` : "";
-
-  const introLogoSrc = dibayBrandAssetUrl(DIBAY_APP_ICON_180_PATH);
-  const introMarkup = buildStartupIntroMarkup({ logoSrc: introLogoSrc });
-
   return (
     <html lang={initialLanguage} suppressHydrationWarning>
-      <head>
-        {appOrigin ? <link rel="preconnect" href={appOrigin} /> : null}
-      </head>
+      <head />
       <body className={`${notoSansKr.variable} font-sans antialiased`} suppressHydrationWarning>
-        {/* Single Startup Intro — same source as Local Boot Shell. Handoff skips second intro. */}
-        <div dangerouslySetInnerHTML={{ __html: introMarkup }} />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{var id=${JSON.stringify(DIBAY_STARTUP_INTRO_DOM_ID)};var sk=${JSON.stringify(STARTUP_SESSION_KEY)};var hk=${JSON.stringify(STARTUP_HANDOFF_SESSION_KEY)};var ck=${JSON.stringify(STARTUP_CONFIG_LOCAL_STORAGE_KEY)};var el=document.getElementById(id);if(!el)return;if(sessionStorage.getItem(hk)==="1"){sessionStorage.removeItem(hk);sessionStorage.setItem(sk,"1");el.setAttribute("data-ready","1");el.setAttribute("hidden","");el.setAttribute("aria-hidden","true");return;}if(sessionStorage.getItem(sk)==="1"){el.setAttribute("data-ready","1");el.setAttribute("hidden","");return;}var raw=localStorage.getItem(ck);if(!raw)return;var c=JSON.parse(raw);if(!c||typeof c!=="object")return;var dark=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;var bg=dark?(c.backgroundColorDark||"#12161d"):(c.backgroundColor||"#FFFCFC");if(c.forceDisable===true||c.enabled===false){el.setAttribute("data-ready","1");el.setAttribute("hidden","");return;}el.style.background=bg;var logo=el.querySelector(".dibay-startup-logo");if(logo){var src=dark&&c.darkLogoUrl?String(c.darkLogoUrl):(c.logoUrl?String(c.logoUrl):null);if(src)logo.setAttribute("src",src);}var wm=el.querySelector(".dibay-startup-wordmark");if(wm){if(c.wordmark)wm.textContent=String(c.wordmark);wm.style.display=c.showWordmark===false?"none":"";}var sub=el.querySelector(".dibay-startup-subtitle");if(sub){var t=(c.subtitle&&String(c.subtitle).trim())||"";sub.textContent=t;sub.style.display=t?"":"none";}var sp=el.querySelector(".dibay-startup-spinner");if(sp){sp.style.display=c.showSpinner===false?"none":"";}}catch(e){}})();`,
-          }}
-        />
+        {/* Web Startup Intro = 0 — Native splash is the only cold branded surface. */}
         <AppLanguageProvider initialLanguage={initialLanguage}>
           <AppBootProvider>
             <DibayStartupIntroController />
+            <InitialSurfaceBootstrap />
             <AppTitle />
             <SupabaseAuthSync />
             <CapacitorNativeMarkerBootstrap />

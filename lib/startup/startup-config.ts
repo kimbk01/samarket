@@ -8,6 +8,12 @@
  * DO NOT: minimum display duration · block first paint on remote fetch · badge/API wait.
  */
 
+import {
+  DEFAULT_INITIAL_APP_SURFACE,
+  normalizeInitialAppSurface,
+  type InitialAppSurface,
+} from "@/lib/startup/initial-app-surface";
+
 export const STARTUP_CONFIG_SETTINGS_KEY = "startup_config_v1" as const;
 export const STARTUP_CONFIG_LOCAL_STORAGE_KEY = "dibay:startup:config";
 
@@ -26,13 +32,16 @@ export type StartupConfig = {
   animation: "none" | "fade" | "pulse";
   season: string;
   priority: number;
+  /** Cold-start main tab — Admin enum only (see `initial-app-surface.ts`). */
+  initialSurface: InitialAppSurface;
   updatedAt: string;
 };
 
 export const BUNDLED_STARTUP_CONFIG: StartupConfig = {
   version: 1,
-  enabled: true,
-  forceDisable: false,
+  /** Web Startup Intro disabled — Native splash is the only cold intro surface. */
+  enabled: false,
+  forceDisable: true,
   logoUrl: "/images/brand/dibay-app-icon-180.png?v=20260614",
   darkLogoUrl: "",
   wordmark: "DIBAY",
@@ -44,6 +53,7 @@ export const BUNDLED_STARTUP_CONFIG: StartupConfig = {
   animation: "none",
   season: "",
   priority: 0,
+  initialSurface: DEFAULT_INITIAL_APP_SURFACE,
   updatedAt: "1970-01-01T00:00:00.000Z",
 };
 
@@ -111,6 +121,9 @@ export function normalizeStartupConfig(raw: unknown): StartupConfig {
     animation: asAnimation(payload.animation),
     season: asOptionalString(payload.season).slice(0, 40),
     priority: asPriority(payload.priority, base.priority),
+    initialSurface: normalizeInitialAppSurface(
+      payload.initialSurface ?? payload.initial_surface
+    ),
     updatedAt: asTrimmedString(payload.updatedAt, new Date().toISOString()),
   };
 }
@@ -129,7 +142,8 @@ export function startupConfigEquals(a: StartupConfig, b: StartupConfig): boolean
     a.showWordmark === b.showWordmark &&
     a.animation === b.animation &&
     a.season === b.season &&
-    a.priority === b.priority
+    a.priority === b.priority &&
+    a.initialSurface === b.initialSurface
   );
 }
 

@@ -188,8 +188,18 @@ export function markAppReady(reason: string): void {
       /* ignore subscriber errors */
     }
   }
+  if (typeof window !== "undefined") {
+    try {
+      window.dispatchEvent(
+        new CustomEvent("dibayAppReady", { detail: { reason } })
+      );
+    } catch {
+      /* ignore */
+    }
+  }
   if (typeof console !== "undefined" && typeof console.info === "function") {
     console.info(`[dibay-boot] appReady reason=${reason}`);
+    console.info(`[dibay-boot] dibayAppReady reason=${reason}`);
   }
 }
 

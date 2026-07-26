@@ -120,9 +120,9 @@ export function StartupConfigAdminPage() {
         })}
         description={safeT("admin_startup_config_desc", {
           fallbackKo:
-            "앱 아이콘 탭부터 첫 화면까지 보이는 DIBAY 시작 인트로·셸입니다. 원격 설정은 다음 실행부터 적용되며, 네트워크를 기다리지 않습니다.",
+            "앱 시작 화면·초기 탭을 관리합니다. Native 시작 화면만 사용하며, 원격 설정은 다음 실행부터 적용됩니다.",
           fallbackEn:
-            "DIBAY startup intro and shell from app icon tap to first screen. Remote config applies on the next launch and never blocks cold start.",
+            "Manage startup branding and the initial main tab. Native splash only; remote config applies on the next launch.",
         })}
       />
 
@@ -131,6 +131,62 @@ export function StartupConfigAdminPage() {
           <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>
         ) : (
           <div className="space-y-4">
+            <div>
+              <FieldLabel>
+                {safeT("admin_startup_config_initial_surface", {
+                  fallbackKo: "시작 화면",
+                  fallbackEn: "Initial screen",
+                })}
+              </FieldLabel>
+              <select
+                className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
+                value={draft.initialSurface}
+                onChange={(e) =>
+                  patch(
+                    "initialSurface",
+                    e.target.value as StartupConfig["initialSurface"]
+                  )
+                }
+              >
+                <option value="community">
+                  {safeT("admin_startup_config_surface_community", {
+                    fallbackKo: "커뮤니티",
+                    fallbackEn: "Community",
+                  })}
+                </option>
+                <option value="trade">
+                  {safeT("admin_startup_config_surface_trade", {
+                    fallbackKo: "거래",
+                    fallbackEn: "Trade",
+                  })}
+                </option>
+                <option value="food">
+                  {safeT("admin_startup_config_surface_food", {
+                    fallbackKo: "배달/푸드",
+                    fallbackEn: "Food / Delivery",
+                  })}
+                </option>
+                <option value="chat">
+                  {safeT("admin_startup_config_surface_chat", {
+                    fallbackKo: "채팅",
+                    fallbackEn: "Chat",
+                  })}
+                </option>
+                <option value="my">
+                  {safeT("admin_startup_config_surface_my", {
+                    fallbackKo: "마이",
+                    fallbackEn: "My",
+                  })}
+                </option>
+              </select>
+              <p className="mt-1 sam-text-caption text-sam-muted">
+                {safeT("admin_startup_config_initial_surface_hint", {
+                  fallbackKo: "기본값은 커뮤니티입니다. 저장 후 다음 앱 실행부터 적용됩니다.",
+                  fallbackEn: "Default is Community. Applies on the next app launch after save.",
+                })}
+              </p>
+            </div>
+
             <label className="flex items-center gap-2 sam-text-body text-sam-fg">
               <input
                 type="checkbox"
@@ -138,8 +194,8 @@ export function StartupConfigAdminPage() {
                 onChange={(e) => patch("enabled", e.target.checked)}
               />
               {safeT("admin_startup_config_enabled", {
-                fallbackKo: "인트로 사용",
-                fallbackEn: "Enable intro",
+                fallbackKo: "웹 인트로 사용 (비권장 — Native만 사용)",
+                fallbackEn: "Enable web intro (not recommended — Native only)",
               })}
             </label>
 

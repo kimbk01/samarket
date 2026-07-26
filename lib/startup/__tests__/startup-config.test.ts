@@ -72,6 +72,8 @@ describe("startup config client cache", () => {
   it("applies config to DOM", () => {
     applyStartupConfigToDom({
       ...BUNDLED_STARTUP_CONFIG,
+      enabled: true,
+      forceDisable: false,
       wordmark: "APPLIED",
       subtitle: "hi",
       showSpinner: false,
@@ -81,6 +83,12 @@ describe("startup config client cache", () => {
       "none"
     );
     expect((document.querySelector(".dibay-startup-spinner") as HTMLElement).style.display).toBe("none");
+  });
+
+  it("normalizes initialSurface enum", () => {
+    expect(normalizeStartupConfig({ initialSurface: "trade" }).initialSurface).toBe("trade");
+    expect(normalizeStartupConfig({ initial_surface: "food" }).initialSurface).toBe("food");
+    expect(normalizeStartupConfig({ initialSurface: "nope" }).initialSurface).toBe("community");
   });
 });
 
@@ -101,9 +109,19 @@ describe("startup-shell-markup", () => {
     expect(html).not.toContain("src=\"http");
   });
 
-  it("builds intro markup for remote layout", () => {
-    const frag = buildStartupIntroMarkup({ logoSrc: "/images/brand/x.png" });
+  it("builds intro markup for remote layout when explicitly enabled", () => {
+    const frag = buildStartupIntroMarkup({
+      logoSrc: "/images/brand/x.png",
+      config: { ...BUNDLED_STARTUP_CONFIG, enabled: true, forceDisable: false },
+    });
     expect(frag).toContain(DIBAY_STARTUP_INTRO_DOM_ID);
     expect(frag).toContain("/images/brand/x.png");
+  });
+
+  it("builds hidden intro stub when web intro disabled (product default)", () => {
+    const frag = buildStartupIntroMarkup({ logoSrc: "/images/brand/x.png" });
+    expect(frag).toContain(DIBAY_STARTUP_INTRO_DOM_ID);
+    expect(frag).toContain("hidden");
+    expect(frag).not.toContain("/images/brand/x.png");
   });
 });
