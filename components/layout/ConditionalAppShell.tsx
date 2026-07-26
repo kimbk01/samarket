@@ -4,7 +4,15 @@ import dynamic from "next/dynamic";
 import { Suspense, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { BootThumbnailObserver } from "@/components/app/BootThumbnailObserver";
-import { markBootMetricsShellReady } from "@/lib/app-boot/dibay-boot-metrics";
+import { markBootMetricsShellReady } from "@/lib/startup/startup-metrics";
+import {
+  BUNDLED_STARTUP_NAV,
+  scheduleStartupShellCachePersist,
+} from "@/lib/startup/startup-cache";
+import {
+  BOTTOM_NAV_ITEMS,
+  resolveBottomNavScrollHideOuterClass,
+} from "@/lib/main-menu/bottom-nav-config";
 import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 import { resolveConditionalAppShellFlags } from "@/lib/layout/conditional-app-shell-flags";
 import { usePhilifeHeaderMessengerStack } from "@/contexts/PhilifeHeaderMessengerStackContext";
@@ -18,9 +26,6 @@ import {
 } from "@/lib/layout/use-bottom-nav-scroll-hide-behavior";
 import { useBrowseScrollChromeHidden } from "@/lib/stores/use-browse-scroll-chrome-hidden";
 import { isMessengerFromHeaderStackSurface } from "@/lib/layout/messenger-from-header-stack-surface";
-import {
-  resolveBottomNavScrollHideOuterClass,
-} from "@/lib/main-menu/bottom-nav-config";
 import { shouldRenderMainBottomNav } from "@/lib/navigation/bottom-nav-route-policy";
 import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
 import {
@@ -91,10 +96,33 @@ const CommunityMessengerRoomOpeningOverlayHostLazy = dynamic(
 );
 
 /** First child layout effect — fires before BottomNav sibling layout work. */
-function MarkAppShellReadyOnce() {
+function MarkAppShellReadyOnce({
+  pathname,
+  routeSearch,
+}: {
+  pathname: string | null;
+  routeSearch: string;
+}) {
   useLayoutEffect(() => {
     markBootMetricsShellReady();
-  }, []);
+    const path =
+      (pathname && pathname.trim() ? pathname : "/") + (routeSearch ? `?${routeSearch}` : "");
+    const tab =
+      BOTTOM_NAV_ITEMS.find((t) => {
+        const hrefPath = t.href.split("?")[0] ?? t.href;
+        const cur = (pathname ?? "/").split("?")[0] || "/";
+        if (t.id === "community") return cur === "/" || cur === "/philife" || cur.startsWith("/philife/");
+        return cur === hrefPath || cur.startsWith(`${hrefPath}/`);
+      })?.id ?? "community";
+    const lang =
+      typeof document !== "undefined" && document.documentElement.lang === "en" ? "en" : "ko";
+    scheduleStartupShellCachePersist({
+      lang,
+      theme: "system",
+      nav: BUNDLED_STARTUP_NAV.map((t) => ({ ...t })),
+      route: { path, tabId: tab },
+    });
+  }, [pathname, routeSearch]);
   return null;
 }
 
@@ -291,7 +319,7 @@ export function ConditionalAppShell({
       } ${hubScrollColumn && !heroMenuSurface ? "bg-sam-app" : ""}`}
     >
       {/** App Ready before BottomNav/owner layout — children layout effects run depth-first first→last */}
-      <MarkAppShellReadyOnce />
+      <MarkAppShellReadyOnce pathname={pathname} routeSearch={routeSearch} />
       {f.mountPhilifeWarmPrefetch ? <PhilifeFeedWarmPrefetch /> : null}
       <MessagingGlobalChrome regionBarInLayout={regionBarInLayout} />
       <CommunityMessengerRoomOpeningOverlayHostLazy />

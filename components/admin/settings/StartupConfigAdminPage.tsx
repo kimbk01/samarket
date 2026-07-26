@@ -6,10 +6,10 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
-  DEFAULT_COLD_BOOT_INTRO_CONFIG,
-  normalizeColdBootIntroConfig,
-  type ColdBootIntroConfig,
-} from "@/lib/app-boot/cold-boot-intro-config";
+  BUNDLED_STARTUP_CONFIG,
+  normalizeStartupConfig,
+  type StartupConfig,
+} from "@/lib/startup/startup-config";
 
 function FieldLabel({ children }: { children: ReactNode }) {
   return <label className="mb-1 block sam-text-body font-medium text-sam-fg">{children}</label>;
@@ -24,13 +24,13 @@ function TextInput(props: InputHTMLAttributes<HTMLInputElement>) {
   );
 }
 
-export function ColdBootIntroAdminPage() {
+export function StartupConfigAdminPage() {
   const { t, safeT } = useI18n();
-  const [draft, setDraft] = useState<ColdBootIntroConfig>(() => ({
-    ...DEFAULT_COLD_BOOT_INTRO_CONFIG,
+  const [draft, setDraft] = useState<StartupConfig>(() => ({
+    ...BUNDLED_STARTUP_CONFIG,
   }));
-  const [baseline, setBaseline] = useState<ColdBootIntroConfig>(() => ({
-    ...DEFAULT_COLD_BOOT_INTRO_CONFIG,
+  const [baseline, setBaseline] = useState<StartupConfig>(() => ({
+    ...BUNDLED_STARTUP_CONFIG,
   }));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -40,10 +40,10 @@ export function ColdBootIntroAdminPage() {
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch("/api/admin/cold-boot-intro", { credentials: "same-origin" });
+        const res = await fetch("/api/admin/startup-config", { credentials: "same-origin" });
         const json = (await res.json()) as { ok?: boolean; config?: unknown };
         if (!cancelled && json.ok) {
-          const cfg = normalizeColdBootIntroConfig(json.config);
+          const cfg = normalizeStartupConfig(json.config);
           setDraft(cfg);
           setBaseline(cfg);
         }
@@ -60,7 +60,7 @@ export function ColdBootIntroAdminPage() {
 
   const dirty = useMemo(() => JSON.stringify(draft) !== JSON.stringify(baseline), [draft, baseline]);
 
-  const patch = useCallback(<K extends keyof ColdBootIntroConfig>(key: K, value: ColdBootIntroConfig[K]) => {
+  const patch = useCallback(<K extends keyof StartupConfig>(key: K, value: StartupConfig[K]) => {
     setDraft((prev) => ({ ...prev, [key]: value }));
     setMessage(null);
   }, []);
@@ -69,7 +69,7 @@ export function ColdBootIntroAdminPage() {
     setSaving(true);
     setMessage(null);
     try {
-      const res = await fetch("/api/admin/cold-boot-intro", {
+      const res = await fetch("/api/admin/startup-config", {
         method: "PUT",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
@@ -78,25 +78,25 @@ export function ColdBootIntroAdminPage() {
       const json = (await res.json()) as { ok?: boolean; config?: unknown; error?: string };
       if (!res.ok || !json.ok) {
         setMessage(
-          safeT("admin_cold_boot_intro_save_failed", {
+          safeT("admin_startup_config_save_failed", {
             fallbackKo: "저장에 실패했습니다. 잠시 후 다시 시도해 주세요.",
             fallbackEn: "Save failed. Please try again.",
           })
         );
         return;
       }
-      const cfg = normalizeColdBootIntroConfig(json.config);
+      const cfg = normalizeStartupConfig(json.config);
       setDraft(cfg);
       setBaseline(cfg);
       setMessage(
-        safeT("admin_cold_boot_intro_save_ok", {
+        safeT("admin_startup_config_save_ok", {
           fallbackKo: "저장했습니다. 다음 앱 실행부터 적용됩니다.",
           fallbackEn: "Saved. Applies on the next app launch.",
         })
       );
     } catch {
       setMessage(
-        safeT("admin_cold_boot_intro_save_failed", {
+        safeT("admin_startup_config_save_failed", {
           fallbackKo: "저장에 실패했습니다. 잠시 후 다시 시도해 주세요.",
           fallbackEn: "Save failed. Please try again.",
         })
@@ -107,22 +107,22 @@ export function ColdBootIntroAdminPage() {
   }, [draft, safeT]);
 
   const handleReset = useCallback(() => {
-    setDraft({ ...DEFAULT_COLD_BOOT_INTRO_CONFIG, updatedAt: new Date().toISOString() });
+    setDraft({ ...BUNDLED_STARTUP_CONFIG, updatedAt: new Date().toISOString() });
     setMessage(null);
   }, []);
 
   return (
     <div className="space-y-4">
       <AdminPageHeader
-        title={safeT("admin_cold_boot_intro_title", {
-          fallbackKo: "앱 시작 인트로",
-          fallbackEn: "Cold boot intro",
+        title={safeT("admin_startup_config_title", {
+          fallbackKo: "앱 시작 설정",
+          fallbackEn: "Startup config",
         })}
-        description={safeT("admin_cold_boot_intro_desc", {
+        description={safeT("admin_startup_config_desc", {
           fallbackKo:
-            "앱 아이콘 탭부터 첫 화면까지 보이는 DIBAY 브랜드 인트로입니다. 원격 설정은 다음 실행부터 적용되며, 네트워크를 기다리지 않습니다.",
+            "앱 아이콘 탭부터 첫 화면까지 보이는 DIBAY 시작 인트로·셸입니다. 원격 설정은 다음 실행부터 적용되며, 네트워크를 기다리지 않습니다.",
           fallbackEn:
-            "Brand intro from app icon tap to first screen. Remote config applies on the next launch and never blocks cold start.",
+            "DIBAY startup intro and shell from app icon tap to first screen. Remote config applies on the next launch and never blocks cold start.",
         })}
       />
 
@@ -137,15 +137,27 @@ export function ColdBootIntroAdminPage() {
                 checked={draft.enabled}
                 onChange={(e) => patch("enabled", e.target.checked)}
               />
-              {safeT("admin_cold_boot_intro_enabled", {
+              {safeT("admin_startup_config_enabled", {
                 fallbackKo: "인트로 사용",
                 fallbackEn: "Enable intro",
               })}
             </label>
 
+            <label className="flex items-center gap-2 sam-text-body text-sam-fg">
+              <input
+                type="checkbox"
+                checked={draft.forceDisable}
+                onChange={(e) => patch("forceDisable", e.target.checked)}
+              />
+              {safeT("admin_startup_config_force_disable", {
+                fallbackKo: "강제 비활성화",
+                fallbackEn: "Force disable",
+              })}
+            </label>
+
             <div>
               <FieldLabel>
-                {safeT("admin_cold_boot_intro_logo_url", {
+                {safeT("admin_startup_config_logo_url", {
                   fallbackKo: "로고 URL",
                   fallbackEn: "Logo URL",
                 })}
@@ -159,7 +171,20 @@ export function ColdBootIntroAdminPage() {
 
             <div>
               <FieldLabel>
-                {safeT("admin_cold_boot_intro_wordmark", {
+                {safeT("admin_startup_config_dark_logo_url", {
+                  fallbackKo: "다크 로고 URL (선택)",
+                  fallbackEn: "Dark logo URL (optional)",
+                })}
+              </FieldLabel>
+              <TextInput
+                value={draft.darkLogoUrl}
+                onChange={(e) => patch("darkLogoUrl", e.target.value)}
+              />
+            </div>
+
+            <div>
+              <FieldLabel>
+                {safeT("admin_startup_config_wordmark", {
                   fallbackKo: "메인 문구",
                   fallbackEn: "Wordmark",
                 })}
@@ -173,7 +198,7 @@ export function ColdBootIntroAdminPage() {
 
             <div>
               <FieldLabel>
-                {safeT("admin_cold_boot_intro_subtitle", {
+                {safeT("admin_startup_config_subtitle", {
                   fallbackKo: "서브 문구 (선택, 짧게)",
                   fallbackEn: "Subtitle (optional, short)",
                 })}
@@ -182,14 +207,13 @@ export function ColdBootIntroAdminPage() {
                 value={draft.subtitle}
                 onChange={(e) => patch("subtitle", e.target.value)}
                 maxLength={80}
-                placeholder="Merry Christmas"
               />
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <FieldLabel>
-                  {safeT("admin_cold_boot_intro_bg", {
+                  {safeT("admin_startup_config_bg", {
                     fallbackKo: "배경색 (라이트)",
                     fallbackEn: "Background (light)",
                   })}
@@ -201,7 +225,7 @@ export function ColdBootIntroAdminPage() {
               </div>
               <div>
                 <FieldLabel>
-                  {safeT("admin_cold_boot_intro_bg_dark", {
+                  {safeT("admin_startup_config_bg_dark", {
                     fallbackKo: "배경색 (다크)",
                     fallbackEn: "Background (dark)",
                   })}
@@ -213,13 +237,27 @@ export function ColdBootIntroAdminPage() {
               </div>
             </div>
 
+            <div>
+              <FieldLabel>
+                {safeT("admin_startup_config_season", {
+                  fallbackKo: "시즌 태그 (선택)",
+                  fallbackEn: "Season tag (optional)",
+                })}
+              </FieldLabel>
+              <TextInput
+                value={draft.season}
+                onChange={(e) => patch("season", e.target.value)}
+                maxLength={40}
+              />
+            </div>
+
             <label className="flex items-center gap-2 sam-text-body text-sam-fg">
               <input
                 type="checkbox"
                 checked={draft.showWordmark}
                 onChange={(e) => patch("showWordmark", e.target.checked)}
               />
-              {safeT("admin_cold_boot_intro_show_wordmark", {
+              {safeT("admin_startup_config_show_wordmark", {
                 fallbackKo: "메인 문구 표시",
                 fallbackEn: "Show wordmark",
               })}
@@ -231,7 +269,7 @@ export function ColdBootIntroAdminPage() {
                 checked={draft.showSpinner}
                 onChange={(e) => patch("showSpinner", e.target.checked)}
               />
-              {safeT("admin_cold_boot_intro_show_spinner", {
+              {safeT("admin_startup_config_show_spinner", {
                 fallbackKo: "스피너 표시",
                 fallbackEn: "Show spinner",
               })}
@@ -254,7 +292,7 @@ export function ColdBootIntroAdminPage() {
                 onClick={handleReset}
                 className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 sam-text-body font-medium text-sam-fg"
               >
-                {safeT("admin_cold_boot_intro_reset_defaults", {
+                {safeT("admin_startup_config_reset_defaults", {
                   fallbackKo: "기본값으로",
                   fallbackEn: "Reset to defaults",
                 })}

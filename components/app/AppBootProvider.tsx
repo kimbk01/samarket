@@ -12,7 +12,7 @@ import { markBootVerifyFirstPaint } from "@/lib/app-boot/client-boot-request-jou
 import {
   markBootMetricsFirstPaint,
   markBootMetricsReactMounted,
-} from "@/lib/app-boot/dibay-boot-metrics";
+} from "@/lib/startup/startup-metrics";
 import { ensureAppBoot, invalidateAppBootFlight } from "@/lib/app-boot/run-app-boot";
 import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
 import { clearAuthSessionClientCache } from "@/lib/auth/fetch-auth-session-client";

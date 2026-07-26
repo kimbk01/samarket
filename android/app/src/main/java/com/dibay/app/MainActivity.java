@@ -15,6 +15,7 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.FrameLayout;
@@ -39,6 +40,7 @@ import com.capacitorjs.plugins.browser.BrowserPlugin;
 import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeActivity;
 import java.security.MessageDigest;
+import java.util.concurrent.CountDownLatch;
 
 public class MainActivity extends BridgeActivity {
   private static final String TAG = "DIBAY_OAuth";
@@ -139,6 +141,13 @@ public class MainActivity extends BridgeActivity {
   private Runnable v4AcceptScreenReadyWatchdogRunnable = null;
   private View webViewLoadErrorOverlay = null;
   private TextView webViewLoadErrorDetail = null;
+  /** Local→Remote handoff cover — shown once before location.replace, removed on remote shellReady. */
+  private View handoffCoverOverlay = null;
+  private View handoffCoverErrorPanel = null;
+  private TextView handoffCoverErrorText = null;
+  private boolean handoffCoverShown = false;
+  private boolean handoffCoverRemoved = false;
+  private String handoffPendingRemoteUrl = null;
   private volatile boolean mainFrameLoadFinished = false;
   private volatile String lastMainFrameLoadFailure = null;
   private volatile String pendingMainFrameUrl = null;
@@ -960,6 +969,7 @@ public class MainActivity extends BridgeActivity {
     webViewPermissionDelegate = new DibayWebViewPermissionDelegate(this);
     attachDibayWebChromeClient();
     attachDibayWebViewClient();
+    loadLocalStartupShellIfReady();
     ensureWebViewLoadErrorOverlay();
     logNativeAuthBootState();
     Intent launchIntent = getIntent();
@@ -1199,7 +1209,7 @@ public class MainActivity extends BridgeActivity {
     Log.i(WEBVIEW_LOG_TAG, "dibay_bridge_webview_client_attached");
   }
 
-  /** Web 또는 native fallback — splash overlay 해제. */
+  /** Web 또는 native fallback — splash overlay 해제. Does NOT remove handoff cover. */
   public static void requestWebSplashDismiss(String source) {
     if (webSplashDismissRequested) return;
     webSplashDismissRequested = true;
@@ -1207,16 +1217,152 @@ public class MainActivity extends BridgeActivity {
     Log.i(WEBVIEW_LOG_TAG, "dismissSplash success source=" + splashDismissSource);
   }
 
+  /**
+   * Show Native Handoff Cover once — before Local {@code location.replace}.
+   * Idempotent: duplicate begin calls are ignored.
+   * @return true when overlay is attached and visible (caller may wait for pre-draw).
+   */
+  private boolean showNativeHandoffCover(String pendingRemoteUrl) {
+    if (handoffCoverRemoved) {
+      Log.w(WEBVIEW_LOG_TAG, "handoff_cover_begin_ignored reason=already_removed");
+      return false;
+    }
+    if (handoffCoverShown) {
+      Log.i(WEBVIEW_LOG_TAG, "handoff_cover_begin_idempotent");
+      return handoffCoverOverlay != null;
+    }
+    ensureHandoffCoverOverlay();
+    if (handoffCoverOverlay == null) return false;
+    handoffPendingRemoteUrl =
+        pendingRemoteUrl != null && !pendingRemoteUrl.isEmpty() ? pendingRemoteUrl.trim() : null;
+    if (handoffCoverErrorPanel != null) {
+      handoffCoverErrorPanel.setVisibility(View.GONE);
+    }
+    handoffCoverOverlay.setVisibility(View.VISIBLE);
+    handoffCoverOverlay.bringToFront();
+    handoffCoverOverlay.requestLayout();
+    handoffCoverOverlay.invalidate();
+    handoffCoverShown = true;
+    Log.i(
+        WEBVIEW_LOG_TAG,
+        "handoff_cover_show count=1 pending="
+            + (handoffPendingRemoteUrl != null ? handoffPendingRemoteUrl : "(none)"));
+    return true;
+  }
+
+  /**
+   * Remove Native Handoff Cover once — Remote shellReady / App Ready only.
+   * Idempotent. Never time-based.
+   */
+  private void hideNativeHandoffCover(String source) {
+    if (handoffCoverRemoved) {
+      Log.i(WEBVIEW_LOG_TAG, "handoff_cover_hide_idempotent source=" + source);
+      return;
+    }
+    if (!handoffCoverShown) {
+      // Remote ready without local cover (warm / web) — no-op.
+      handoffCoverRemoved = true;
+      return;
+    }
+    if (handoffCoverOverlay != null) {
+      handoffCoverOverlay.setVisibility(View.GONE);
+      if (handoffCoverErrorPanel != null) {
+        handoffCoverErrorPanel.setVisibility(View.GONE);
+      }
+    }
+    handoffCoverRemoved = true;
+    handoffCoverShown = false;
+    handoffPendingRemoteUrl = null;
+    Log.i(WEBVIEW_LOG_TAG, "handoff_cover_hide count=1 source=" + (source != null ? source : "unknown"));
+  }
+
+  private void ensureHandoffCoverOverlay() {
+    if (handoffCoverOverlay != null) return;
+    ViewGroup decor = (ViewGroup) getWindow().getDecorView();
+    handoffCoverOverlay =
+        LayoutInflater.from(this).inflate(R.layout.dibay_handoff_cover, decor, false);
+    handoffCoverErrorPanel = handoffCoverOverlay.findViewById(R.id.dibay_handoff_cover_error);
+    handoffCoverErrorText = handoffCoverOverlay.findViewById(R.id.dibay_handoff_cover_error_text);
+    Button retry = handoffCoverOverlay.findViewById(R.id.dibay_handoff_cover_retry);
+    if (retry != null) {
+      retry.setOnClickListener(
+          v -> {
+            Log.i(WEBVIEW_LOG_TAG, "handoff_cover_retry");
+            if (handoffCoverErrorPanel != null) {
+              handoffCoverErrorPanel.setVisibility(View.GONE);
+            }
+            String target = handoffPendingRemoteUrl;
+            if (target == null || target.isEmpty()) {
+              String origin = DibayServerOrigin.resolve(this);
+              target = origin != null ? origin + "/" : null;
+            }
+            if (target != null) {
+              reloadWebViewMainFrame(target);
+            }
+          });
+    }
+    decor.addView(handoffCoverOverlay);
+  }
+
+  private void showHandoffCoverLoadError(String url, String reason) {
+    if (!handoffCoverShown || handoffCoverRemoved) return;
+    ensureHandoffCoverOverlay();
+    if (handoffCoverErrorPanel == null) return;
+    if (url != null && !url.isEmpty()) {
+      handoffPendingRemoteUrl = url;
+    }
+    if (handoffCoverErrorText != null) {
+      String detail =
+          (reason != null && !reason.isEmpty())
+              ? ("연결에 실패했습니다. " + reason)
+              : "연결에 실패했습니다. 다시 시도해 주세요.";
+      handoffCoverErrorText.setText(detail);
+    }
+    handoffCoverErrorPanel.setVisibility(View.VISIBLE);
+    Log.e(
+        WEBVIEW_LOG_TAG,
+        "handoff_cover_error url=" + (url != null ? url : "") + " reason=" + (reason != null ? reason : ""));
+  }
+
   private void injectBootMetricOnCreate() {
     webSplashDismissRequested = false;
     splashDismissSource = "none";
     splashKeepStartElapsedMs = SystemClock.elapsedRealtime();
+    handoffCoverShown = false;
+    handoffCoverRemoved = false;
+    handoffPendingRemoteUrl = null;
   }
 
   private void attachDibayBootBridge(WebView webView) {
     if (dibayBootBridgeAttached) return;
     webView.addJavascriptInterface(new DibayBootJsBridge(), "DibayBootBridge");
     dibayBootBridgeAttached = true;
+  }
+
+  /**
+   * Local First Startup — load remote-origin {@code /__dibay-startup} after interceptor attach.
+   * Capacitor may already be warming {@code server.url}/; we do not stopLoading (TLS warm).
+   */
+  private void loadLocalStartupShellIfReady() {
+    Bridge bridge = getBridge();
+    if (bridge == null) return;
+    WebView webView = bridge.getWebView();
+    if (webView == null) return;
+    String origin = DibayServerOrigin.resolve(this);
+    if (origin == null || origin.isEmpty()) {
+      Log.w(WEBVIEW_LOG_TAG, "startup_boot_skip reason=missing_server_origin");
+      return;
+    }
+    if (isForbiddenCapacitorServerUrl(origin)) {
+      Log.e(WEBVIEW_LOG_TAG, "startup_boot_skip reason=forbidden_server_origin");
+      return;
+    }
+    final String bootUrl = origin + DibayBridgeWebViewClient.STARTUP_BOOT_PATH;
+    webView.post(
+        () -> {
+          Log.i(WEBVIEW_LOG_TAG, "startup_boot_load url=" + bootUrl);
+          webView.loadUrl(bootUrl);
+        });
   }
 
   private final class DibayBootJsBridge {
@@ -1227,6 +1373,83 @@ public class MainActivity extends BridgeActivity {
             Log.i(WEBVIEW_LOG_TAG, "dismissSplash start bridge_js");
             requestWebSplashDismiss("DibayBootBridge");
           });
+    }
+
+    /**
+     * Activate Native Handoff Cover and block until overlay has at least one pre-draw.
+     * Must return only after cover is painted so JS location.replace cannot race blank frames.
+     */
+    @JavascriptInterface
+    public void beginHandoffCover(String pendingRemoteUrl) {
+      final CountDownLatch latch = new CountDownLatch(1);
+      mainHandler.post(
+          () -> {
+            try {
+              Log.i(WEBVIEW_LOG_TAG, "handoff_cover_begin bridge_js");
+              boolean shown = showNativeHandoffCover(pendingRemoteUrl);
+              if (!shown || handoffCoverOverlay == null) {
+                latch.countDown();
+                return;
+              }
+              final View cover = handoffCoverOverlay;
+              ViewTreeObserver observer = cover.getViewTreeObserver();
+              if (observer.isAlive()) {
+                observer.addOnPreDrawListener(
+                    new ViewTreeObserver.OnPreDrawListener() {
+                      @Override
+                      public boolean onPreDraw() {
+                        ViewTreeObserver obs = cover.getViewTreeObserver();
+                        if (obs.isAlive()) {
+                          obs.removeOnPreDrawListener(this);
+                        }
+                        latch.countDown();
+                        return true;
+                      }
+                    });
+                cover.invalidate();
+              } else {
+                latch.countDown();
+              }
+            } catch (RuntimeException e) {
+              Log.e(WEBVIEW_LOG_TAG, "handoff_cover_begin_failed", e);
+              latch.countDown();
+            }
+          });
+      try {
+        // Wait for UI paint only — never use as cover-hide timeout.
+        if (!latch.await(800, java.util.concurrent.TimeUnit.MILLISECONDS)) {
+          Log.w(WEBVIEW_LOG_TAG, "handoff_cover_begin_wait_timeout");
+        }
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+      }
+    }
+
+    /** Remove Native Handoff Cover — Remote App Ready / shellReady only. */
+    @JavascriptInterface
+    public void endHandoffCover() {
+      mainHandler.post(
+          () -> {
+            Log.i(WEBVIEW_LOG_TAG, "handoff_cover_end bridge_js");
+            hideNativeHandoffCover("DibayBootBridge");
+          });
+    }
+
+    /** Pending deep-link / push path for Local Boot Shell handoff destination. */
+    @JavascriptInterface
+    public String getPendingRoute() {
+      String path = pendingAppPath;
+      if (path == null || path.isEmpty()) {
+        try {
+          restorePendingRouteFromPrefsIfNeeded();
+        } catch (Exception ignored) {
+          /* ignore */
+        }
+        path = pendingAppPath;
+      }
+      if (path == null || path.isEmpty()) return "";
+      if (!path.startsWith("/")) return "";
+      return path.trim();
     }
   }
 
@@ -1376,6 +1599,15 @@ public class MainActivity extends BridgeActivity {
           lastMainFrameLoadFailure = reason;
           pendingMainFrameUrl = url;
           mainHandler.removeCallbacks(webViewLoadTimeoutRunnable);
+          // While Native Handoff Cover is up, keep cover and show retry — never blank frame.
+          if (handoffCoverShown && !handoffCoverRemoved) {
+            boolean startupBoot =
+                url != null && url.contains(DibayBridgeWebViewClient.STARTUP_BOOT_PATH);
+            if (!startupBoot) {
+              showHandoffCoverLoadError(url, reason);
+              return;
+            }
+          }
           if (isTransientWebViewLoadFailure(reason)
               && webViewLoadAutoRetryIndex < WEBVIEW_LOAD_AUTO_RETRY_DELAYS_MS.length) {
             scheduleWebViewLoadAutoRetry(url, reason);

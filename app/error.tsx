@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { tryDismissNativeSplash } from "@/lib/app-boot/dibay-boot-metrics";
+import { tryDismissNativeSplash } from "@/lib/startup/startup-metrics";
 
 interface ErrorProps {
   error: Error & { digest?: string };

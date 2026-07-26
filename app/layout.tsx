@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Noto_Sans_KR } from "next/font/google";
 import { cookies, headers } from "next/headers";
 import { AppBootProvider } from "@/components/app/AppBootProvider";
-import { DibayColdBootIntroController } from "@/components/app/DibayColdBootIntro";
+import { DibayStartupIntroController } from "@/components/app/DibayStartupIntro";
 import { OAuthReturnListener } from "@/components/auth/OAuthReturnListener";
 import { CapacitorNativeMarkerBootstrap } from "@/components/platform/CapacitorNativeMarkerBootstrap";
 import { SupabaseAuthSync } from "@/components/auth/SupabaseAuthSync";
@@ -18,10 +18,12 @@ import {
   dibayBrandAssetUrl,
 } from "@/lib/brand/brand-asset-paths";
 import {
-  COLD_BOOT_SESSION_KEY,
-  DIBAY_COLD_BOOT_INTRO_DOM_ID,
-} from "@/lib/app-boot/cold-boot-constants";
-import { COLD_BOOT_INTRO_LOCAL_STORAGE_KEY } from "@/lib/app-boot/cold-boot-intro-config";
+  DIBAY_STARTUP_INTRO_DOM_ID,
+  STARTUP_HANDOFF_SESSION_KEY,
+  STARTUP_SESSION_KEY,
+} from "@/lib/startup/startup-constants";
+import { STARTUP_CONFIG_LOCAL_STORAGE_KEY } from "@/lib/startup/startup-config";
+import { buildStartupIntroMarkup } from "@/lib/startup/startup-shell-markup";
 import { APP_LANGUAGE_COOKIE, type AppLanguageCode } from "@/lib/i18n/config";
 import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
 import "./globals.css";
@@ -107,6 +109,7 @@ export default async function RootLayout({
   const appOrigin = host ? `${proto}://${host}` : "";
 
   const introLogoSrc = dibayBrandAssetUrl(DIBAY_APP_ICON_180_PATH);
+  const introMarkup = buildStartupIntroMarkup({ logoSrc: introLogoSrc });
 
   return (
     <html lang={initialLanguage} suppressHydrationWarning>
@@ -114,80 +117,16 @@ export default async function RootLayout({
         {appOrigin ? <link rel="preconnect" href={appOrigin} /> : null}
       </head>
       <body className={`${notoSansKr.variable} font-sans antialiased`} suppressHydrationWarning>
-        {/* First HTML intro — paints before React; hide on App Ready only. Cache-first (no network wait). */}
-        <div
-          id={DIBAY_COLD_BOOT_INTRO_DOM_ID}
-          data-dibay-cold-boot-intro="1"
-          aria-hidden="true"
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 2147483000,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 20,
-            background: "#FFFCFC",
-            pointerEvents: "none",
-          }}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element -- first-HTML cold intro; Thumbnail/Image would delay paint */}
-          <img
-            className="dibay-cold-boot-logo"
-            src={introLogoSrc}
-            alt=""
-            width={72}
-            height={72}
-            decoding="async"
-            fetchPriority="high"
-            style={{ width: 72, height: 72, objectFit: "contain" }}
-          />
-          <p
-            className="dibay-cold-boot-wordmark"
-            style={{
-              margin: 0,
-              fontSize: 15,
-              fontWeight: 700,
-              letterSpacing: "0.08em",
-              color: "#0B421A",
-            }}
-          >
-            DIBAY
-          </p>
-          <p
-            className="dibay-cold-boot-subtitle"
-            style={{
-              display: "none",
-              margin: 0,
-              fontSize: 13,
-              fontWeight: 500,
-              letterSpacing: "0.02em",
-              color: "#0B421A",
-              opacity: 0.72,
-              maxWidth: "80vw",
-              textAlign: "center",
-            }}
-          ></p>
-          <div
-            className="dibay-cold-boot-spinner"
-            style={{
-              width: 22,
-              height: 22,
-              borderRadius: 9999,
-              border: "2px solid rgba(11,66,26,0.22)",
-              borderTopColor: "#0B421A",
-            }}
-          />
-        </div>
+        {/* Single Startup Intro — same source as Local Boot Shell. Handoff skips second intro. */}
+        <div dangerouslySetInnerHTML={{ __html: introMarkup }} />
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var id=${JSON.stringify(DIBAY_COLD_BOOT_INTRO_DOM_ID)};var sk=${JSON.stringify(COLD_BOOT_SESSION_KEY)};var ck=${JSON.stringify(COLD_BOOT_INTRO_LOCAL_STORAGE_KEY)};var el=document.getElementById(id);if(!el)return;if(sessionStorage.getItem(sk)==="1"){el.setAttribute("data-ready","1");el.setAttribute("hidden","");return;}var raw=localStorage.getItem(ck);if(!raw)return;var c=JSON.parse(raw);if(!c||typeof c!=="object")return;var dark=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;var bg=dark?(c.backgroundColorDark||"#12161d"):(c.backgroundColor||"#FFFCFC");if(c.enabled===false){el.setAttribute("data-ready","1");el.setAttribute("hidden","");return;}el.style.background=bg;var logo=el.querySelector(".dibay-cold-boot-logo");if(logo&&c.logoUrl){logo.setAttribute("src",String(c.logoUrl));}var wm=el.querySelector(".dibay-cold-boot-wordmark");if(wm){if(c.wordmark)wm.textContent=String(c.wordmark);wm.style.display=c.showWordmark===false?"none":"";}var sub=el.querySelector(".dibay-cold-boot-subtitle");if(sub){var t=(c.subtitle&&String(c.subtitle).trim())||"";sub.textContent=t;sub.style.display=t?"":"none";}var sp=el.querySelector(".dibay-cold-boot-spinner");if(sp){sp.style.display=c.showSpinner===false?"none":"";}}catch(e){}})();`,
+            __html: `(function(){try{var id=${JSON.stringify(DIBAY_STARTUP_INTRO_DOM_ID)};var sk=${JSON.stringify(STARTUP_SESSION_KEY)};var hk=${JSON.stringify(STARTUP_HANDOFF_SESSION_KEY)};var ck=${JSON.stringify(STARTUP_CONFIG_LOCAL_STORAGE_KEY)};var el=document.getElementById(id);if(!el)return;if(sessionStorage.getItem(hk)==="1"){sessionStorage.removeItem(hk);sessionStorage.setItem(sk,"1");el.setAttribute("data-ready","1");el.setAttribute("hidden","");el.setAttribute("aria-hidden","true");return;}if(sessionStorage.getItem(sk)==="1"){el.setAttribute("data-ready","1");el.setAttribute("hidden","");return;}var raw=localStorage.getItem(ck);if(!raw)return;var c=JSON.parse(raw);if(!c||typeof c!=="object")return;var dark=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;var bg=dark?(c.backgroundColorDark||"#12161d"):(c.backgroundColor||"#FFFCFC");if(c.forceDisable===true||c.enabled===false){el.setAttribute("data-ready","1");el.setAttribute("hidden","");return;}el.style.background=bg;var logo=el.querySelector(".dibay-startup-logo");if(logo){var src=dark&&c.darkLogoUrl?String(c.darkLogoUrl):(c.logoUrl?String(c.logoUrl):null);if(src)logo.setAttribute("src",src);}var wm=el.querySelector(".dibay-startup-wordmark");if(wm){if(c.wordmark)wm.textContent=String(c.wordmark);wm.style.display=c.showWordmark===false?"none":"";}var sub=el.querySelector(".dibay-startup-subtitle");if(sub){var t=(c.subtitle&&String(c.subtitle).trim())||"";sub.textContent=t;sub.style.display=t?"":"none";}var sp=el.querySelector(".dibay-startup-spinner");if(sp){sp.style.display=c.showSpinner===false?"none":"";}}catch(e){}})();`,
           }}
         />
         <AppLanguageProvider initialLanguage={initialLanguage}>
           <AppBootProvider>
-            <DibayColdBootIntroController />
+            <DibayStartupIntroController />
             <AppTitle />
             <SupabaseAuthSync />
             <CapacitorNativeMarkerBootstrap />

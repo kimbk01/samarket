@@ -76,6 +76,18 @@ process.env.CAPACITOR_SERVER_URL = serverUrl;
 
 console.log(`[capacitor-vercel] server.url=${serverUrl}`);
 
+console.log(`[capacitor-vercel] build Local Boot Shell HTML`);
+{
+  const build = spawnSync("node", ["scripts/build-startup-shell.mjs", `--origin=${serverUrl}`], {
+    cwd: ROOT,
+    stdio: "inherit",
+    env: process.env,
+  });
+  if (build.status !== 0) {
+    process.exit(build.status ?? 1);
+  }
+}
+
 const ping = await fetch(serverUrl, { method: "HEAD", redirect: "follow" }).catch(() => null);
 if (!ping || !ping.ok) {
   console.warn(

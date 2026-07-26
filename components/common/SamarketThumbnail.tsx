@@ -6,7 +6,7 @@ import {
   markBootMetricsThumbnailDecoded,
   markBootMetricsThumbnailLoaded,
   markBootMetricsThumbnailRequested,
-} from "@/lib/app-boot/dibay-boot-metrics";
+} from "@/lib/startup/startup-metrics";
 import { buildFeedThumbnailFetchUrl } from "@/lib/media/feed-thumbnail-transform";
 import { buildStoreProductThumbnailFetchUrl } from "@/lib/media/store-product-image-transform";
 import {

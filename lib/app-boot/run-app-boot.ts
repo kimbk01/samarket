@@ -33,7 +33,7 @@ import {
   setAppBootProfile,
 } from "@/lib/app-boot/app-boot-store";
 import { scheduleAppBootBackgroundHydration } from "@/lib/app-boot/schedule-app-boot-background";
-import { markBootMetricsApiDone } from "@/lib/app-boot/dibay-boot-metrics";
+import { markBootMetricsApiDone } from "@/lib/startup/startup-metrics";
 import { logStartupApiPlan } from "@/lib/http/startup-api-scheduler";
 import { primeMeProfileDedupedFromBoot } from "@/lib/profile/fetch-me-profile-deduped";
 import { bumpAppWidePerf, recordAppWidePhaseLastMs } from "@/lib/runtime/samarket-runtime-debug";

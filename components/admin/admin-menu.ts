@@ -143,7 +143,7 @@ const ADMIN_MENU_TITLE_KEY_BY_ITEM_KEY: Partial<Record<string, MessageKey>> = {
   "settings-services": "admin_menu_settings_services",
   "settings-boards": "admin_menu_settings_boards",
   "settings-general": "admin_menu_settings_general",
-  "settings-cold-boot-intro": "admin_menu_settings_cold_boot_intro",
+  "settings-startup-config": "admin_menu_settings_startup_config",
   "settings-auth": "admin_menu_settings_auth",
   "settings-permissions": "admin_menu_settings_permissions",
   "settings-notifications": "admin_menu_settings_notifications",
@@ -401,7 +401,7 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
     children: [
       { key: "settings-services", title: "", path: "/admin/services", pendingRoute: true, status: "todo" },
       { key: "settings-general", title: "", path: "/admin/settings", status: "done" },
-      { key: "settings-cold-boot-intro", title: "", path: "/admin/settings/cold-boot-intro", status: "done" },
+      { key: "settings-startup-config", title: "", path: "/admin/settings/startup-config", status: "done" },
       { key: "settings-auth", title: "", path: "/admin/settings/auth", status: "done" },
       { key: "settings-permissions", title: "", path: "/admin/permissions", pendingRoute: true, status: "todo" },
       { key: "settings-notifications", title: "", path: "/admin/settings/notifications", status: "done" },

@@ -1,5 +1,6 @@
 package com.dibay.app;
 
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.net.http.SslError;
 import android.os.Build;
@@ -11,13 +12,21 @@ import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
 import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeWebViewClient;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Capacitor {@link BridgeWebViewClient} + DiBaY WebView load diagnostics (logcat).
+ * Local First Startup: intercept {@code /__dibay-startup} with APK asset HTML (same remote origin).
  * Main-frame failures surface retry UI via {@link MainActivity}.
  */
 public final class DibayBridgeWebViewClient extends BridgeWebViewClient {
   private static final String TAG = "DIBAY_WebView";
+  public static final String STARTUP_BOOT_PATH = "/__dibay-startup";
+  private static final String STARTUP_ASSET = "dibay-startup.html";
 
   public interface LoadMonitor {
     void onMainFramePageStarted(String url);
@@ -28,10 +37,64 @@ public final class DibayBridgeWebViewClient extends BridgeWebViewClient {
   }
 
   private final LoadMonitor loadMonitor;
+  private final Context appContext;
+  private volatile String cachedStartupHtml;
 
   public DibayBridgeWebViewClient(Bridge bridge, LoadMonitor loadMonitor) {
     super(bridge);
     this.loadMonitor = loadMonitor;
+    this.appContext = bridge.getContext() != null ? bridge.getContext().getApplicationContext() : null;
+  }
+
+  @Override
+  public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+    if (request != null && request.getUrl() != null) {
+      String path = request.getUrl().getPath();
+      if (STARTUP_BOOT_PATH.equals(path)) {
+        WebResourceResponse local = serveStartupAsset();
+        if (local != null) {
+          Log.i(TAG, "startup_boot_intercept path=" + path);
+          return local;
+        }
+      }
+    }
+    return super.shouldInterceptRequest(view, request);
+  }
+
+  private WebResourceResponse serveStartupAsset() {
+    try {
+      String html = cachedStartupHtml;
+      if (html == null) {
+        if (appContext == null) return null;
+        try (InputStream in = appContext.getAssets().open(STARTUP_ASSET)) {
+          byte[] bytes = readAll(in);
+          html = new String(bytes, StandardCharsets.UTF_8);
+          cachedStartupHtml = html;
+        }
+      }
+      Map<String, String> headers = new HashMap<>();
+      headers.put("Cache-Control", "no-store");
+      headers.put("Content-Type", "text/html; charset=utf-8");
+      ByteArrayInputStream stream =
+          new ByteArrayInputStream(html.getBytes(StandardCharsets.UTF_8));
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+        return new WebResourceResponse("text/html", "utf-8", 200, "OK", headers, stream);
+      }
+      return new WebResourceResponse("text/html", "utf-8", stream);
+    } catch (Exception e) {
+      Log.e(TAG, "startup_boot_asset_failed", e);
+      return null;
+    }
+  }
+
+  private static byte[] readAll(InputStream in) throws Exception {
+    byte[] buf = new byte[8192];
+    int n;
+    java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+    while ((n = in.read(buf)) >= 0) {
+      out.write(buf, 0, n);
+    }
+    return out.toByteArray();
   }
 
   @Override

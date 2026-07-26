@@ -1,15 +1,16 @@
 "use client";
 
-import { DIBAY_COLD_BOOT_INTRO_DOM_ID } from "@/lib/app-boot/cold-boot-constants";
+import { DIBAY_STARTUP_INTRO_DOM_ID } from "@/lib/startup/startup-constants";
 
-export { DIBAY_COLD_BOOT_INTRO_DOM_ID };
+export { DIBAY_STARTUP_INTRO_DOM_ID };
 
 /**
- * Cold boot end-to-end timing — `window.__dibayBootMetrics`.
+ * Startup end-to-end timing — `window.__dibayBootMetrics`.
  * Native Android may inject nativeStart/webviewReady/firstHtml via evaluateJavascript.
  *
- * Splash hide contract (Cold Boot Shell-First):
+ * Splash hide contract (Local First Startup):
  * dismiss on **shellReady** (ConditionalAppShell mounted) — NOT feed/RSC/apiDone.
+ * Local Boot Shell may dismiss native splash earlier via DibayBootBridge after shellPaint.
  * Auth/admin/account shell-less routes: firstPaint auth_shell_fallback.
  * Root error boundary: error_boundary (intro must not cover Error UI).
  * DO NOT: homeVisible-as-feed-gate · splash_safety_timeout · delay hide · minimum display duration.
@@ -18,6 +19,8 @@ export type DibayBootMetrics = {
   nativeStart: number | null;
   webviewReady: number | null;
   firstHtml: number | null;
+  shellPaint: number | null;
+  handoffStart: number | null;
   firstPaint: number | null;
   reactMounted: number | null;
   /** @deprecated alias kept for metrics readers — same as shellReady */
@@ -35,6 +38,7 @@ export type DibayBootMetrics = {
 declare global {
   interface Window {
     __dibayBootMetrics?: DibayBootMetrics;
+    __dibayStartupMetrics?: Partial<DibayBootMetrics>;
     __dibayNativeSplashDismiss?: () => void;
   }
 }
@@ -75,40 +79,46 @@ function isSplashAuthShellFallbackPath(pathname: string): boolean {
   return false;
 }
 
+function emptyMetrics(): DibayBootMetrics {
+  return {
+    nativeStart: null,
+    webviewReady: null,
+    firstHtml: null,
+    shellPaint: null,
+    handoffStart: null,
+    firstPaint: null,
+    reactMounted: null,
+    homeVisible: null,
+    shellReady: null,
+    apiDone: null,
+    thumbnailVisible: null,
+    thumbnailRequested: null,
+    thumbnailLoaded: null,
+    thumbnailDecoded: null,
+    splashDismissReason: null,
+  };
+}
+
 function ensureMetrics(): DibayBootMetrics {
   if (typeof window === "undefined") {
-    return {
-      nativeStart: null,
-      webviewReady: null,
-      firstHtml: null,
-      firstPaint: null,
-      reactMounted: null,
-      homeVisible: null,
-      shellReady: null,
-      apiDone: null,
-      thumbnailVisible: null,
-      thumbnailRequested: null,
-      thumbnailLoaded: null,
-      thumbnailDecoded: null,
-      splashDismissReason: null,
-    };
+    return emptyMetrics();
   }
   if (!window.__dibayBootMetrics) {
-    window.__dibayBootMetrics = {
-      nativeStart: null,
-      webviewReady: null,
-      firstHtml: null,
-      firstPaint: null,
-      reactMounted: null,
-      homeVisible: null,
-      shellReady: null,
-      apiDone: null,
-      thumbnailVisible: null,
-      thumbnailRequested: null,
-      thumbnailLoaded: null,
-      thumbnailDecoded: null,
-      splashDismissReason: null,
-    };
+    window.__dibayBootMetrics = emptyMetrics();
+  }
+  // Merge any metrics written by Local Boot Shell document.
+  try {
+    const s = window.__dibayStartupMetrics;
+    if (s) {
+      if (s.shellPaint != null && window.__dibayBootMetrics.shellPaint == null) {
+        window.__dibayBootMetrics.shellPaint = s.shellPaint;
+      }
+      if (s.handoffStart != null && window.__dibayBootMetrics.handoffStart == null) {
+        window.__dibayBootMetrics.handoffStart = s.handoffStart;
+      }
+    }
+  } catch {
+    /* ignore */
   }
   return window.__dibayBootMetrics;
 }
@@ -125,6 +135,8 @@ export function mergeNativeBootMetrics(partial: Partial<DibayBootMetrics>): void
   if (partial.nativeStart != null && m.nativeStart == null) m.nativeStart = partial.nativeStart;
   if (partial.webviewReady != null && m.webviewReady == null) m.webviewReady = partial.webviewReady;
   if (partial.firstHtml != null && m.firstHtml == null) m.firstHtml = partial.firstHtml;
+  if (partial.shellPaint != null && m.shellPaint == null) m.shellPaint = partial.shellPaint;
+  if (partial.handoffStart != null && m.handoffStart == null) m.handoffStart = partial.handoffStart;
   if (partial.firstPaint != null && m.firstPaint == null) m.firstPaint = partial.firstPaint;
   if (partial.reactMounted != null && m.reactMounted == null) m.reactMounted = partial.reactMounted;
   if (partial.shellReady != null && m.shellReady == null) m.shellReady = partial.shellReady;
@@ -152,9 +164,9 @@ let splashDismissAttempted = false;
 let appReady = false;
 const appReadyListeners = new Set<() => void>();
 
-function hideColdBootIntroDom(): void {
+function hideStartupIntroDom(): void {
   if (typeof document === "undefined") return;
-  const el = document.getElementById(DIBAY_COLD_BOOT_INTRO_DOM_ID);
+  const el = document.getElementById(DIBAY_STARTUP_INTRO_DOM_ID);
   if (!el) return;
   el.setAttribute("data-ready", "1");
   el.setAttribute("hidden", "");
@@ -168,7 +180,7 @@ function hideColdBootIntroDom(): void {
 export function markAppReady(reason: string): void {
   if (appReady) return;
   appReady = true;
-  hideColdBootIntroDom();
+  hideStartupIntroDom();
   for (const listener of appReadyListeners) {
     try {
       listener();
@@ -217,11 +229,23 @@ export function tryDismissNativeSplash(reason: string): void {
 
       let bridgeOk = false;
       try {
-        const bridge = (window as unknown as { DibayBootBridge?: { dismissSplash?: () => void } })
-          .DibayBootBridge;
+        const bridge = (
+          window as unknown as {
+            DibayBootBridge?: {
+              dismissSplash?: () => void;
+              endHandoffCover?: () => void;
+            };
+          }
+        ).DibayBootBridge;
         if (bridge?.dismissSplash) {
           bridge.dismissSplash();
           bridgeOk = true;
+        }
+        // Remote App Ready — remove Native Handoff Cover once (idempotent on native side).
+        try {
+          bridge?.endHandoffCover?.();
+        } catch {
+          /* ignore */
         }
       } catch (e) {
         logSplashDismiss(reason, false, `DibayBootBridge err=${String(e)}`);
@@ -284,7 +308,7 @@ export function markBootMetricsReactMounted(): void {
 let shellReadyMarked = false;
 
 /**
- * Main App Shell mounted — splash hide (Cold Boot Shell-First).
+ * Main App Shell mounted — splash hide (Local First Startup).
  * Feed/RSC/api 완료를 기다리지 않는다.
  */
 export function markBootMetricsShellReady(): void {

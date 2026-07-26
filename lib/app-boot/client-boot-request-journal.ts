@@ -1,6 +1,6 @@
 "use client";
 
-import type { DibayBootMetrics } from "@/lib/app-boot/dibay-boot-metrics";
+import type { DibayBootMetrics } from "@/lib/startup/startup-metrics";
 
 /** dev 검증 — `window.__dibayBootVerify` 에 부트 관련 fetch 누적 */
 export type BootJournalEntry = {

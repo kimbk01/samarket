@@ -4,14 +4,14 @@ import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import {
-  COLD_BOOT_INTRO_SETTINGS_KEY,
-  DEFAULT_COLD_BOOT_INTRO_CONFIG,
-  normalizeColdBootIntroConfig,
-} from "@/lib/app-boot/cold-boot-intro-config";
+  STARTUP_CONFIG_SETTINGS_KEY,
+  BUNDLED_STARTUP_CONFIG,
+  normalizeStartupConfig,
+} from "@/lib/startup/startup-config";
 import {
-  loadColdBootIntroConfigFromDb,
-  saveColdBootIntroConfigToDb,
-} from "@/lib/app-boot/cold-boot-intro-db";
+  loadStartupConfigFromDb,
+  saveStartupConfigToDb,
+} from "@/lib/startup/startup-config-db";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const runtime = "nodejs";
@@ -25,7 +25,7 @@ export async function GET() {
   if (!sb) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
-  const loaded = await loadColdBootIntroConfigFromDb(sb);
+  const loaded = await loadStartupConfigFromDb(sb);
   if (!loaded.ok) {
     if (loaded.reason === "missing_table") {
       return NextResponse.json({ ok: false, error: "table_missing" }, { status: 503 });
@@ -60,15 +60,15 @@ export async function PUT(req: NextRequest) {
     body && typeof body === "object" && "config" in (body as object)
       ? (body as { config: unknown }).config
       : body;
-  const config = normalizeColdBootIntroConfig(configRaw ?? DEFAULT_COLD_BOOT_INTRO_CONFIG);
+  const config = normalizeStartupConfig(configRaw ?? BUNDLED_STARTUP_CONFIG);
 
   const { data: beforeRow } = await sb
     .from("admin_settings")
     .select("value_json")
-    .eq("key", COLD_BOOT_INTRO_SETTINGS_KEY)
+    .eq("key", STARTUP_CONFIG_SETTINGS_KEY)
     .maybeSingle();
 
-  const saved = await saveColdBootIntroConfigToDb(sb, config);
+  const saved = await saveStartupConfigToDb(sb, config);
   if (!saved.ok) {
     return NextResponse.json({ ok: false, error: saved.error }, { status: 500 });
   }
@@ -77,16 +77,20 @@ export async function PUT(req: NextRequest) {
   void appendAuditLog(sb, {
     actor_type: "admin",
     actor_id: userId,
-    action: "cold_boot_intro.update",
+    action: "startup_config.update",
     target_type: "admin_settings",
-    target_id: COLD_BOOT_INTRO_SETTINGS_KEY,
+    target_id: STARTUP_CONFIG_SETTINGS_KEY,
     before_json: beforeRow?.value_json != null ? { value_json: beforeRow.value_json } : null,
-    after_json: { enabled: config.enabled, wordmark: config.wordmark },
+    after_json: {
+      enabled: config.enabled,
+      forceDisable: config.forceDisable,
+      wordmark: config.wordmark,
+    },
     ip: meta.ip,
     user_agent: meta.userAgent,
   });
 
-  const reloaded = await loadColdBootIntroConfigFromDb(sb);
+  const reloaded = await loadStartupConfigFromDb(sb);
   return NextResponse.json({
     ok: true as const,
     config: reloaded.ok ? reloaded.config : config,
