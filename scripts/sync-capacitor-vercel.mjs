@@ -73,11 +73,8 @@ loadEnvFile(".env.vercel.production");
 const includeIos = process.argv.includes("--ios");
 const serverUrl = resolveServerUrl(process.argv);
 process.env.CAPACITOR_SERVER_URL = serverUrl;
-if (!process.env.DIBAY_LOCAL_RUNTIME) {
-  process.env.DIBAY_LOCAL_RUNTIME = "1";
-}
 
-console.log(`[capacitor-vercel] server.url=${serverUrl} DIBAY_LOCAL_RUNTIME=${process.env.DIBAY_LOCAL_RUNTIME}`);
+console.log(`[capacitor-vercel] server.url=${serverUrl}`);
 
 console.log(`[capacitor-vercel] build Local Boot Shell HTML`);
 {

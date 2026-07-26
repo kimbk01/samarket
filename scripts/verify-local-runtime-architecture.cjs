@@ -29,10 +29,9 @@ for (const s of [
   "LOCAL_RUNTIME_PAINTED",
   "INTRO_VISIBLE",
   "LOCAL_SHELL_READY",
-  "SESSION_RESTORING",
+  "REMOTE_DATA_CONNECTING",
   "APP_READY",
   "INTRO_REMOVED",
-  "REMOTE_DATA_SYNC",
 ]) {
   if (!state.includes(s)) fail(`state machine missing ${s}`);
 }
@@ -65,36 +64,18 @@ ok("capacitor.config Local Runtime branch");
 
 const entry = path.join(ROOT, "capacitor-www/local-runtime/index.html");
 const mode = path.join(ROOT, "android/app/src/main/assets/dibay-runtime-mode.json");
-const bundle = path.join(ROOT, "capacitor-www/local-runtime/assets/local-runtime-app.js");
 if (!fs.existsSync(entry)) {
   fail("missing capacitor-www/local-runtime/index.html — run npm run build:local-runtime");
 } else {
   const html = fs.readFileSync(entry, "utf8");
   if (html.includes("beginHandoffCover")) fail("built local-runtime HTML contains Cover handoff");
   if (!html.includes("data-local-runtime")) fail("built local-runtime HTML missing root marker");
-  if (!html.includes("local-runtime-app.js")) fail("built local-runtime HTML missing React bundle");
   ok("built local-runtime HTML");
-}
-if (!fs.existsSync(bundle)) {
-  fail("missing local-runtime-app.js React bundle — run npm run build:local-runtime");
-} else {
-  ok("local-runtime React bundle present");
 }
 if (!fs.existsSync(mode)) {
   fail("missing android assets dibay-runtime-mode.json — run npm run build:local-runtime");
 } else {
-  const modeJson = JSON.parse(fs.readFileSync(mode, "utf8"));
-  if (modeJson.localRuntime !== true || modeJson.legacyRemoteRuntime !== false) {
-    fail("cutover requires dibay-runtime-mode.json localRuntime=true legacyRemoteRuntime=false");
-  }
-  ok("runtime mode asset cutover (local default)");
-}
-
-const indexWww = path.join(ROOT, "capacitor-www/index.html");
-if (!fs.existsSync(indexWww) || !fs.readFileSync(indexWww, "utf8").includes("__DIBAY_LOCAL_RUNTIME__")) {
-  fail("capacitor-www/index.html must be Local Runtime after cutover");
-} else {
-  ok("capacitor-www/index.html is Local Runtime");
+  ok("runtime mode asset present");
 }
 
 if (failed > 0) {

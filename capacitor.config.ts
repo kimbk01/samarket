@@ -29,9 +29,9 @@ const serverUrl = resolveCapacitorServerUrlFromEnv();
 const useLegacyAndroidBridge =
   process.env.CAPACITOR_ANDROID_USE_LEGACY_BRIDGE?.trim() === "1";
 
-/** Option A cutover: Local Runtime is default; set DIBAY_LOCAL_RUNTIME=0 for Hybrid rollback. */
-const useLocalRuntime = !["0", "false", "off", "legacy"].includes(
-  (process.env.DIBAY_LOCAL_RUNTIME ?? "1").trim().toLowerCase()
+/** Option A: bundled Local Runtime owns WebView document (no remote HTML boot). */
+const useLocalRuntime = ["1", "true", "on"].includes(
+  (process.env.DIBAY_LOCAL_RUNTIME ?? "").trim().toLowerCase()
 );
 
 const config: CapacitorConfig = {

@@ -1,11 +1,11 @@
 /**
  * DIBAY Local Runtime Startup — shared state machine (Android / iOS identical).
  *
- * @see docs/dibay-local-runtime-startup-rearchitecture.md §4 / product cutover
+ * @see docs/dibay-local-runtime-startup-rearchitecture.md §4
  *
  * CONTRACT:
  * - One-way transitions only.
- * - Duplicate events are idempotent.
+ * - Duplicate events are idempotent (no rewind, no double side-effects).
  * - Forbidden as normal path: REMOTE_DOCUMENT_LOADING, SECOND_INTRO,
  *   HANDOFF_COVER_AS_NORMAL_FLOW, BLANK, BLACK.
  * - No fixed-timeout transitions.
@@ -17,14 +17,14 @@ export const LOCAL_RUNTIME_STATES = [
   "LOCAL_RUNTIME_PAINTED",
   "INTRO_VISIBLE",
   "LOCAL_SHELL_READY",
-  "SESSION_RESTORING",
+  "REMOTE_DATA_CONNECTING",
   "APP_READY",
   "INTRO_REMOVED",
-  "REMOTE_DATA_SYNC",
 ] as const;
 
 export type LocalRuntimeState = (typeof LOCAL_RUNTIME_STATES)[number];
 
+/** States that must never appear on the Option A normal path. */
 export const LOCAL_RUNTIME_FORBIDDEN_STATES = [
   "REMOTE_DOCUMENT_LOADING",
   "SECOND_INTRO",
@@ -35,29 +35,27 @@ export const LOCAL_RUNTIME_FORBIDDEN_STATES = [
 
 export type LocalRuntimeForbiddenState = (typeof LOCAL_RUNTIME_FORBIDDEN_STATES)[number];
 
-const _STATE_INDEX: Record<LocalRuntimeState, number> = {
+const STATE_INDEX: Record<LocalRuntimeState, number> = {
   NATIVE_LAUNCH: 0,
   LOCAL_RUNTIME_LOADING: 1,
   LOCAL_RUNTIME_PAINTED: 2,
   INTRO_VISIBLE: 3,
   LOCAL_SHELL_READY: 4,
-  SESSION_RESTORING: 5,
+  REMOTE_DATA_CONNECTING: 5,
   APP_READY: 6,
   INTRO_REMOVED: 7,
-  REMOTE_DATA_SYNC: 8,
 };
-void _STATE_INDEX;
 
+/** Allowed next states (forward only, including self for idempotent re-entry). */
 const ALLOWED_NEXT: Record<LocalRuntimeState, ReadonlySet<LocalRuntimeState>> = {
   NATIVE_LAUNCH: new Set(["NATIVE_LAUNCH", "LOCAL_RUNTIME_LOADING"]),
   LOCAL_RUNTIME_LOADING: new Set(["LOCAL_RUNTIME_LOADING", "LOCAL_RUNTIME_PAINTED"]),
   LOCAL_RUNTIME_PAINTED: new Set(["LOCAL_RUNTIME_PAINTED", "INTRO_VISIBLE"]),
   INTRO_VISIBLE: new Set(["INTRO_VISIBLE", "LOCAL_SHELL_READY"]),
-  LOCAL_SHELL_READY: new Set(["LOCAL_SHELL_READY", "SESSION_RESTORING"]),
-  SESSION_RESTORING: new Set(["SESSION_RESTORING", "APP_READY"]),
+  LOCAL_SHELL_READY: new Set(["LOCAL_SHELL_READY", "REMOTE_DATA_CONNECTING"]),
+  REMOTE_DATA_CONNECTING: new Set(["REMOTE_DATA_CONNECTING", "APP_READY"]),
   APP_READY: new Set(["APP_READY", "INTRO_REMOVED"]),
-  INTRO_REMOVED: new Set(["INTRO_REMOVED", "REMOTE_DATA_SYNC"]),
-  REMOTE_DATA_SYNC: new Set(["REMOTE_DATA_SYNC"]),
+  INTRO_REMOVED: new Set(["INTRO_REMOVED"]),
 };
 
 export type LocalRuntimeTransitionResult =
@@ -72,6 +70,10 @@ export function isLocalRuntimeForbiddenState(value: unknown): value is LocalRunt
   return typeof value === "string" && (LOCAL_RUNTIME_FORBIDDEN_STATES as readonly string[]).includes(value);
 }
 
+/**
+ * Attempt a transition. Same-state calls succeed with advanced=false (idempotent).
+ * Rewinds and forbidden labels are rejected without mutating.
+ */
 export function transitionLocalRuntimeState(
   current: LocalRuntimeState,
   next: string
@@ -86,6 +88,9 @@ export function transitionLocalRuntimeState(
     return { ok: true, from: current, to: next, advanced: false };
   }
   if (!ALLOWED_NEXT[current].has(next)) {
+    if (STATE_INDEX[next] < STATE_INDEX[current]) {
+      return { ok: false, from: current, attempted: next, reason: "rewind" };
+    }
     return { ok: false, from: current, attempted: next, reason: "rewind" };
   }
   return { ok: true, from: current, to: next, advanced: true };
@@ -97,6 +102,10 @@ export type LocalRuntimeAppReadyInput = {
   fatalStartupError: boolean;
 };
 
+/**
+ * App Ready = Local root mounted + AppShell paintable + no fatal error.
+ * Does NOT wait for feed/messenger/badge/config/realtime/images.
+ */
 export function resolveLocalRuntimeAppReady(input: LocalRuntimeAppReadyInput): boolean {
   return input.localRootMounted && input.localAppShellPaintReady && !input.fatalStartupError;
 }
@@ -114,5 +123,22 @@ export class LocalRuntimeStateMachine {
       this.state = result.to;
     }
     return result;
+  }
+
+  /** Advance to APP_READY when App Ready predicates hold (idempotent). */
+  maybeMarkAppReady(input: LocalRuntimeAppReadyInput): LocalRuntimeTransitionResult {
+    if (!resolveLocalRuntimeAppReady(input)) {
+      return { ok: true, from: this.state, to: this.state, advanced: false };
+    }
+    if (STATE_INDEX[this.state] < STATE_INDEX.REMOTE_DATA_CONNECTING) {
+      return { ok: false, from: this.state, attempted: "APP_READY", reason: "rewind" };
+    }
+    if (this.state === "REMOTE_DATA_CONNECTING") {
+      return this.transition("APP_READY");
+    }
+    if (this.state === "APP_READY" || this.state === "INTRO_REMOVED") {
+      return { ok: true, from: this.state, to: this.state, advanced: false };
+    }
+    return { ok: false, from: this.state, attempted: "APP_READY", reason: "rewind" };
   }
 }

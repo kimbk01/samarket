@@ -11,17 +11,17 @@ import {
 import { buildLocalRuntimeDocumentHtml } from "@/lib/startup/local-runtime-markup";
 
 describe("local-runtime-flag", () => {
-  it("defaults to local runtime (product cutover)", () => {
+  it("defaults to legacy remote runtime", () => {
     expect(resolveStartupRuntimeMode({})).toEqual({
-      localRuntime: true,
-      legacyRemoteRuntime: false,
+      localRuntime: false,
+      legacyRemoteRuntime: true,
     });
   });
 
-  it("enables legacy only when forced off", () => {
-    expect(resolveStartupRuntimeMode({ dibayLocalRuntime: "0" })).toEqual({
-      localRuntime: false,
-      legacyRemoteRuntime: true,
+  it("enables local runtime from env", () => {
+    expect(resolveStartupRuntimeMode({ dibayLocalRuntime: "1" })).toEqual({
+      localRuntime: true,
+      legacyRemoteRuntime: false,
     });
   });
 
@@ -55,22 +55,21 @@ describe("local-runtime-state", () => {
     ).toBe(true);
   });
 
-  it("state machine reaches REMOTE_DATA_SYNC", () => {
+  it("state machine reaches INTRO_REMOVED", () => {
     const sm = new LocalRuntimeStateMachine();
     const path = [
       "LOCAL_RUNTIME_LOADING",
       "LOCAL_RUNTIME_PAINTED",
       "INTRO_VISIBLE",
       "LOCAL_SHELL_READY",
-      "SESSION_RESTORING",
+      "REMOTE_DATA_CONNECTING",
       "APP_READY",
       "INTRO_REMOVED",
-      "REMOTE_DATA_SYNC",
     ] as const;
     for (const s of path) {
       expect(sm.transition(s).ok).toBe(true);
     }
-    expect(sm.getState()).toBe("REMOTE_DATA_SYNC");
+    expect(sm.getState()).toBe("INTRO_REMOVED");
   });
 });
 
@@ -82,8 +81,9 @@ describe("local-runtime-markup", () => {
     });
     expect(html).toContain("__DIBAY_LOCAL_RUNTIME__");
     expect(html).toContain("data-local-runtime");
-    expect(html).toContain("local-runtime-app.js");
+    expect(html).toContain("dibay-startup-nav");
     expect(html).not.toContain("beginHandoffCover");
     expect(html).not.toContain("__dibay-startup");
+    expect(html).not.toMatch(/location\.replace\s*\(\s*url\s*\)/);
   });
 });
