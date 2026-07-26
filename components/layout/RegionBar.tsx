@@ -10,6 +10,7 @@ import {
   isTradeFloatingMenuSurface,
   type MobileTopTier1RuleSet,
 } from "@/lib/layout/mobile-top-tier1-rules";
+import { isCommunityHomeSurfacePath } from "@/lib/layout/resolve-main-surface";
 import {
   buildMessengerRoomListBackHref,
   shouldForceDirectDeliveryMessengerRoomBack,
@@ -76,12 +77,12 @@ export function RegionBar({
     return null;
   }
 
-  /** Trade home/market and Philife feed share the same tier-1 layout (title, region line, search, settings). */
+  /** Trade market + Community home hubs share exploration tier-1 layout. */
   const isUnifiedExplorationTier1 =
     (isTradeFloatingMenuSurface(pathNoQuery) &&
       ruleSet.showRegionPicker &&
       !ruleSet.showTradeHubLeading) ||
-    pathNoQuery === "/philife" || pathNoQuery === "/";
+    isCommunityHomeSurfacePath(pathNoQuery);
 
   if (isUnifiedExplorationTier1) {
     return <RegionBarExplorationTier1Lazy pathNoQuery={pathNoQuery} />;

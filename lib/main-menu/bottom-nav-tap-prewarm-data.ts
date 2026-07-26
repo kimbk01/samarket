@@ -53,7 +53,7 @@ export function prewarmBottomNavTapTargetClientCache(
     return;
   }
 
-  if (path === "/philife") {
+  if (path === "/philife" || path === "/" || path === "/community") {
     void import("@/lib/main-menu/bottom-nav-tap-prewarm-philife").then((m) => m.prewarmBottomNavPhilifeTab());
     return;
   }

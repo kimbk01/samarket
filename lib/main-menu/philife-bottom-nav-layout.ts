@@ -30,15 +30,15 @@ export function isPhilifeBottomNavRail(kind: MainBottomNavSecondaryRailKind): bo
   return kind === "philife";
 }
 
-/** `/philife`·레거시 `/community` — 커뮤니티 5탭 셸 표면 */
+/** `/` · `/philife` · 레거시 `/community` — 커뮤니티 5탭 셸 표면 */
 export function isPhilifeConsumerBottomNavSurface(pathname: string | null | undefined): boolean {
   const p = normalizeDeliveryBottomNavPath(pathname);
-  if (p === "/philife" || p.startsWith("/philife/")) return true;
+  if (p === "/" || p === "/philife" || p.startsWith("/philife/")) return true;
   if (p === "/community" || p.startsWith("/community/")) return true;
   return false;
 }
 
-/** 커뮤니티 홈(`/philife`·`/community`) — 하단 「홈」 탭 활성 */
+/** 커뮤니티 홈(`/` · `/philife` · `/community`) — 하단 「홈」 탭 활성 */
 export function isPhilifeHomeHubBottomNavActive(pathname: string | null): boolean {
   return isPhilifeConsumerBottomNavSurface(pathname);
 }

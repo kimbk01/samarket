@@ -36,8 +36,8 @@ for (const rel of [
   if (/redirect\s*\(/.test(src)) {
     fail(`${rel} must not redirect (render PhilifeHomeFeedPage directly)`);
   }
-  if (!src.includes("PhilifeHomeFeedPage")) {
-    fail(`${rel} must render PhilifeHomeFeedPage`);
+  if (!src.includes("PhilifeHomeFeedPage") && !src.includes("CommunityHomeSurface")) {
+    fail(`${rel} must render CommunityHomeSurface (or PhilifeHomeFeedPage alias)`);
   }
 }
 

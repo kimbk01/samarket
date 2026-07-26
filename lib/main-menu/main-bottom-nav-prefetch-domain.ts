@@ -21,7 +21,8 @@ export type MainBottomNavPrefetchDomain =
 export function mainBottomNavPrefetchTriggerKey(pathname: string | null): MainBottomNavPrefetchDomain {
   const raw = (pathname ?? "").split("?")[0]?.trim() ?? "";
   const p = raw.replace(/\/+$/, "") || "/";
-  if (p === "/" || !p) return "root";
+  /** `/` Cold Boot = Community shell (not a separate "root" prefetch domain) */
+  if (p === "/" || !p) return "philife";
   if (p === "/market" || p.startsWith("/market/")) return "trade";
   if (p === "/philife" || p.startsWith("/philife/")) return "philife";
   /** 레거시 커뮤니티 경로 — 필라이프와 동일 셸(스크롤·idle 프리페치 도메인 일치) */

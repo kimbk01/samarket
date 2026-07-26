@@ -41,6 +41,8 @@ export function isBottomNavTabActive(pathname: string | null, tabHref: string): 
   const h = tabHref.split("?")[0]?.trim() ?? "";
   if (!p || !h) return false;
   if (p === h || p.startsWith(`${h}/`)) return true;
+  /** Cold Boot `/` · legacy `/community` → Community tab (`/philife`) */
+  if (h === "/philife" && (p === "/" || p === "/community")) return true;
   return false;
 }
 

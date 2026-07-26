@@ -26,7 +26,8 @@ describe("composePhilifeBottomNavDisplayTabs", () => {
 });
 
 describe("isPhilifeConsumerBottomNavSurface", () => {
-  it("/philife·/community", () => {
+  it("/ · /philife · /community", () => {
+    expect(isPhilifeConsumerBottomNavSurface("/")).toBe(true);
     expect(isPhilifeConsumerBottomNavSurface("/philife")).toBe(true);
     expect(isPhilifeConsumerBottomNavSurface("/philife/board/x")).toBe(true);
     expect(isPhilifeConsumerBottomNavSurface("/community/post/x")).toBe(true);
@@ -36,6 +37,7 @@ describe("isPhilifeConsumerBottomNavSurface", () => {
 
 describe("isPhilifeHomeHubBottomNavActive", () => {
   it("커뮤니티 루트 접두", () => {
+    expect(isPhilifeHomeHubBottomNavActive("/")).toBe(true);
     expect(isPhilifeHomeHubBottomNavActive("/philife")).toBe(true);
     expect(isPhilifeHomeHubBottomNavActive("/community")).toBe(true);
     expect(isPhilifeHomeHubBottomNavActive("/market")).toBe(false);

@@ -22,6 +22,8 @@ describe("isBottomNavTabActive", () => {
     expect(isBottomNavTabActive("/market", homeHref)).toBe(false);
     expect(isBottomNavTabActive("/market/jobs", homeHref)).toBe(false);
     expect(isBottomNavTabActive("/philife", homeHref)).toBe(true);
+    expect(isBottomNavTabActive("/", homeHref)).toBe(true);
+    expect(isBottomNavTabActive("/community", homeHref)).toBe(true);
   });
 
   it("접두 경로 일치", () => {

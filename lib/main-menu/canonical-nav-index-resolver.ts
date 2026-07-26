@@ -40,7 +40,8 @@ function isBuiltinId(id: BottomNavTabId): id is BottomNavBuiltinTabId {
  * 신규 sub-route 가 생기면 이 표만 갱신한다 (정적 `resolveCanonicalNavIndex` 와 동기 유지).
  */
 export const BUILTIN_TAB_PATH_ALIASES: Record<BottomNavBuiltinTabId, readonly string[]> = {
-  community: ["/philife", "/community"],
+  /** `/` Cold Boot home = Community surface (same as `/philife`) */
+  community: ["/", "/philife", "/community"],
   home: ["/market", "/post", "/products", "/write", "/shop"],
   stores: ["/stores", "/orders"],
   chat: ["/community-messenger", "/chats", "/chat"],

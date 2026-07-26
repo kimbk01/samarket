@@ -1,10 +1,10 @@
-import { PhilifeHomeFeedPage } from "@/components/community/PhilifeHomeFeedPage";
+import { CommunityHomeSurface } from "@/components/community/CommunityHomeSurface";
 
 /**
- * App home (`/`) — `(main)` 셸 안에서 Philife 피드를 직접 렌더.
+ * App home (`/`) — `(main)` 셸 안에서 Community home surface 직접 렌더.
  * CONTRACT: `/` → `/philife` HTTP redirect 금지 (Cold Boot Shell-First).
- * `/philife` 와 동일 피드 엔트리 (`PhilifeHomeFeedPage`).
+ * AUTHORITY: `CommunityHomeSurface` only (same as `/philife` · `/community`).
  */
 export default function HomePage() {
-  return <PhilifeHomeFeedPage />;
+  return <CommunityHomeSurface />;
 }

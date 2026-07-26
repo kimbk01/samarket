@@ -210,7 +210,8 @@
     "verify:bottom-tab-cache-first": "node scripts/verify-bottom-tab-cache-first.cjs",
     "verify:no-tab-provider-remount": "node scripts/verify-no-tab-provider-remount.cjs",
     "verify:no-duplicate-surface-subscriptions": "node scripts/verify-no-duplicate-surface-subscriptions.cjs",
-    "verify:no-tab-skeleton-blocking": "node scripts/verify-no-tab-skeleton-blocking.cjs"
+    "verify:no-tab-skeleton-blocking": "node scripts/verify-no-tab-skeleton-blocking.cjs",
+    "verify:single-community-surface-authority": "node scripts/verify-single-community-surface-authority.cjs"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.0",

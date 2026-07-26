@@ -21,11 +21,15 @@ function UnifiedTier1Shell({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** `/philife`·`/market` 탐색 1단 — `RegionBar` 와 분리해 `/stores` 청크에서 제외 */
+/** `/philife`·`/`·`/community`·`/market` 탐색 1단 — `RegionBar` 와 분리해 `/stores` 청크에서 제외 */
 export function RegionBarExplorationTier1({ pathNoQuery }: { pathNoQuery: string }) {
   const { t } = useI18n();
-  const isPhilifeFeed = pathNoQuery === "/philife";
-  const segmentTitle = isPhilifeFeed ? t(BOTTOM_NAV_PHILIFE_TAB_LABEL_KEY) : t(BOTTOM_NAV_TRADE_TAB_LABEL_KEY);
+  /** SSOT: community home hubs share Community header — never Trade title on `/` */
+  const isCommunityHome =
+    pathNoQuery === "/" || pathNoQuery === "/philife" || pathNoQuery === "/community";
+  const segmentTitle = isCommunityHome
+    ? t(BOTTOM_NAV_PHILIFE_TAB_LABEL_KEY)
+    : t(BOTTOM_NAV_TRADE_TAB_LABEL_KEY);
 
   return (
     <UnifiedTier1Shell>
@@ -35,7 +39,7 @@ export function RegionBarExplorationTier1({ pathNoQuery }: { pathNoQuery: string
         title={segmentTitle}
         rightSlot={
           <div className={samTier1HeaderIconCluster}>
-            {isPhilifeFeed ?
+            {isCommunityHome ?
               <>
                 <PhilifeHeaderComposeButton />
                 <PhilifeHeaderMessengerButton />
