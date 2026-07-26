@@ -308,16 +308,13 @@ function LocalRuntimeApp({ logoSrc }: { logoSrc: string }) {
         const origin = window.__DIBAY_REMOTE_API_ORIGIN__ || "";
         if (origin) {
           const url = `${origin}/api/app/startup-config`;
+          // Local origin cannot use browser fetch to remote (CORS). Native Cap HTTP only.
           void (async () => {
             try {
               const { CapacitorHttp } = await import("@capacitor/core");
               await CapacitorHttp.get({ url, headers: { Accept: "application/json" } });
             } catch {
-              try {
-                await fetch(url, { method: "GET", credentials: "omit", cache: "no-store" });
-              } catch {
-                /* offline ok — shell already painted */
-              }
+              /* offline / probe fail ok — APP_READY already reached; shell stays */
             }
           })();
         }

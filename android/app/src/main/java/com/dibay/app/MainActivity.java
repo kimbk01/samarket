@@ -1398,6 +1398,10 @@ public class MainActivity extends BridgeActivity {
      */
     @JavascriptInterface
     public void beginHandoffCover(String pendingRemoteUrl) {
+      if (isBundledLocalRuntimeMode()) {
+        Log.i(WEBVIEW_LOG_TAG, "handoff_cover_begin_ignored reason=local_runtime_mode");
+        return;
+      }
       final CountDownLatch latch = new CountDownLatch(1);
       mainHandler.post(
           () -> {

@@ -148,6 +148,12 @@ async function main() {
     // Cap serves index at / — bundle path ./assets/...
     const indexHtml = html.replace("./assets/local-runtime-app.js", "./assets/local-runtime-app.js");
     fs.writeFileSync(path.join(ROOT, "capacitor-www/index.html"), indexHtml, "utf8");
+    // Hybrid boot document must not ship in Cap webDir for Local Runtime product path.
+    const hybridBoot = path.join(ROOT, "capacitor-www/dibay-startup.html");
+    if (fs.existsSync(hybridBoot)) {
+      fs.unlinkSync(hybridBoot);
+      console.log("[build-local-runtime] removed capacitor-www/dibay-startup.html");
+    }
     console.log("[build-local-runtime] cutover: capacitor-www/index.html = Local Runtime");
   }
 }
