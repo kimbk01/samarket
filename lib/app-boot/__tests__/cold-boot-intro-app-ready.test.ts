@@ -54,6 +54,14 @@ describe("dibay cold boot app-ready signal", () => {
     expect(mod.getDibayBootMetrics().shellReady).toBe(first);
     expect(mod.getAppReadySnapshot()).toBe(true);
   });
+
+  it("shellReady may be marked before firstPaint (render-enter contract)", async () => {
+    const mod = await import("@/lib/app-boot/dibay-boot-metrics");
+    mod.markBootMetricsShellReady();
+    expect(mod.getAppReadySnapshot()).toBe(true);
+    mod.markBootMetricsFirstPaint();
+    expect(mod.getDibayBootMetrics().splashDismissReason).toBe("shellReady");
+  });
 });
 
 describe("forbidden cold-boot intro patterns", () => {

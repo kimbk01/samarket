@@ -90,6 +90,14 @@ const CommunityMessengerRoomOpeningOverlayHostLazy = dynamic(
   { ssr: false }
 );
 
+/** First child layout effect — fires before BottomNav sibling layout work. */
+function MarkAppShellReadyOnce() {
+  useLayoutEffect(() => {
+    markBootMetricsShellReady();
+  }, []);
+  return null;
+}
+
 export function ConditionalAppShell({
   children,
   regionBarInLayout = false,
@@ -105,8 +113,6 @@ export function ConditionalAppShell({
   const routeSearch = searchParams.toString();
   useLayoutEffect(() => {
     logDevSafeModeProbeOnce("client");
-    /** Cold Boot Shell-First — splash dismiss here; feed/RSC 대기 금지 */
-    markBootMetricsShellReady();
   }, []);
   useLayoutEffect(() => {
     invalidateMainAppScrollRootCache();
@@ -284,6 +290,8 @@ export function ConditionalAppShell({
         hubScrollColumn ? `min-h-0 flex-1 ${MAIN_HUB_SCROLL_SHELL_ROOT_CLASS}` : mainShellInnerRootClass
       } ${hubScrollColumn && !heroMenuSurface ? "bg-sam-app" : ""}`}
     >
+      {/** App Ready before BottomNav/owner layout — children layout effects run depth-first first→last */}
+      <MarkAppShellReadyOnce />
       {f.mountPhilifeWarmPrefetch ? <PhilifeFeedWarmPrefetch /> : null}
       <MessagingGlobalChrome regionBarInLayout={regionBarInLayout} />
       <CommunityMessengerRoomOpeningOverlayHostLazy />

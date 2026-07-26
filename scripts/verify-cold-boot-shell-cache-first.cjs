@@ -160,6 +160,9 @@ const shell = read("components/layout/ConditionalAppShell.tsx");
 if (!shell.includes("markBootMetricsShellReady")) {
   fail("ConditionalAppShell must call markBootMetricsShellReady");
 }
+if (!shell.includes("MarkAppShellReadyOnce")) {
+  fail("ConditionalAppShell must mark shellReady via MarkAppShellReadyOnce (before BottomNav layout)");
+}
 
 const feedCache = read("lib/community/philife-feed-session-cache.ts");
 if (!feedCache.includes("localStorage") || !feedCache.includes("philife_neighborhood_feed_v3_persistent")) {

@@ -23,6 +23,7 @@ import {
  *
  * Hide on: shellReady / auth_shell_fallback / error_boundary / non-cold session.
  * DO NOT: forced minimum display delay · wait for badge/API/profile · block on remote fetch.
+ * shellReady is marked when ConditionalAppShell first renders (not after BottomNav layout).
  */
 export function DibayColdBootIntroController(): null {
   useLayoutEffect(() => {
