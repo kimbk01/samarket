@@ -50,8 +50,9 @@ function InstantMainTabEnterPanel({ href }: { href: string }) {
 
   if (pathname === "/philife" || pathname === "/") {
     return (
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-sam-app">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <Suspense fallback={null}>
+          {/* CommunityUiScope is owned by PhilifeFeedClientEntry — same as Cold `/` */}
           <PhilifeFeedClientEntry tabEnterInstantBoot tabEnterHref={href} />
         </Suspense>
       </div>

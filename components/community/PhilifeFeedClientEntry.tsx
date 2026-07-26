@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 
 import { Feed as PhilifeFeedClient } from "@/components/community/Feed";
+import { CommunityUiScope } from "@/components/community/CommunityUiScope";
 import { normalizeFeedSort } from "@/lib/community-feed/constants";
 import {
   philifeFeedViewerSig,
@@ -93,5 +94,9 @@ export function PhilifeFeedClientEntry({
     return resolvePhilifeTabEnterBootFromSessionCache(tabEnterHref);
   }, [initialGlobalFeed, tabEnterInstantBoot, tabEnterHref]);
 
-  return <PhilifeFeedClient initialGlobalFeedRsc={resolvedInitialGlobalFeed} />;
+  return (
+    <CommunityUiScope>
+      <PhilifeFeedClient initialGlobalFeedRsc={resolvedInitialGlobalFeed} />
+    </CommunityUiScope>
+  );
 }

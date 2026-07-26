@@ -274,7 +274,11 @@ function CardShell({ href, children }: { href: string; children: ReactNode }) {
   };
 
   return (
-    <article className={`min-h-0 ${CM_FEED_CARD_CLASS}`}>
+    <article
+      className={`min-h-0 ${CM_FEED_CARD_CLASS}`}
+      data-community-renderer="canonical-v1"
+      data-community-card="post"
+    >
       <Link
         href={href}
         prefetch

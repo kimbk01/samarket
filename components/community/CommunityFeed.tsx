@@ -1373,7 +1373,7 @@ export function CommunityFeed({
   }, [chips, activeTopicTabIndex, prefetchCategoryFeedByIntent, router]);
 
   return (
-    <div className={PHILIFE_PAGE_ROOT_CLASS}>
+    <div className={PHILIFE_PAGE_ROOT_CLASS} data-community-renderer="canonical-v1" data-community-feed="list">
       <PhilifePullRefreshRegister onRefresh={onPhilifePullRefresh} />
       <MySubpageHeader
         registerMainTier1={false}

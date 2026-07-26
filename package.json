@@ -211,7 +211,8 @@
     "verify:no-tab-provider-remount": "node scripts/verify-no-tab-provider-remount.cjs",
     "verify:no-duplicate-surface-subscriptions": "node scripts/verify-no-duplicate-surface-subscriptions.cjs",
     "verify:no-tab-skeleton-blocking": "node scripts/verify-no-tab-skeleton-blocking.cjs",
-    "verify:single-community-surface-authority": "node scripts/verify-single-community-surface-authority.cjs"
+    "verify:single-community-surface-authority": "node scripts/verify-single-community-surface-authority.cjs",
+    "verify:single-community-feed-renderer": "node scripts/verify-single-community-feed-renderer.cjs"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.0",
