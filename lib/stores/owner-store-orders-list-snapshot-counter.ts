@@ -1,6 +1,8 @@
 /**
  * OOL1 owner store orders list snapshot counter keys.
  */
+import { deliveryOwnerOrdersListCacheKey } from "@/lib/stores/delivery-order-cache-namespace";
+
 export const OWNER_STORE_ORDERS_LIST_SNAPSHOT_TABLE = "owner_store_orders_list_snapshots";
 export const OWNER_STORE_ORDERS_LIST_SNAPSHOT_RPC = "get_owner_store_orders_list_snapshot";
 export const OWNER_STORE_ORDERS_LIST_DEFAULT_SCOPE = "default";
@@ -42,5 +44,5 @@ export function ownerStoreOrdersListSnapshotCounterTtlMs(): number {
 export function ownerStoreOrdersListSnapshotMemoryCacheKey(
   parts: OwnerStoreOrdersListSnapshotKeyParts
 ): string {
-  return `owner-orders-list:${parts.store_id}:${parts.owner_user_id}:${parts.status_filter}:${parts.list_limit}:${parts.cursor_key}`;
+  return `${deliveryOwnerOrdersListCacheKey(parts.store_id, parts.owner_user_id)}:${parts.status_filter}:${parts.list_limit}:${parts.cursor_key}`;
 }

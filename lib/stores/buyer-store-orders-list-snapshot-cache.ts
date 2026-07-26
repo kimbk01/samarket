@@ -2,12 +2,13 @@
  * SOL1 buyer store orders list snapshot invalidation.
  */
 import { scheduleBuyerStoreOrdersListSnapshotRefresh } from "@/lib/stores/buyer-store-orders-list-snapshot-refresh";
+import { deliveryCustomerOrdersListCacheKey } from "@/lib/stores/delivery-order-cache-namespace";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 const invalidatedKeys = new Set<string>();
 
 function key(buyerUserId: string): string {
-  return buyerUserId.trim();
+  return deliveryCustomerOrdersListCacheKey(buyerUserId);
 }
 
 async function resolveBuyerUserIdFromOrder(orderId: string): Promise<string | null> {

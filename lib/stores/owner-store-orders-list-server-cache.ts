@@ -3,6 +3,7 @@
  * 클라이언트 `owner-store-orders-list-cache` 와 분리(서버 warm).
  */
 import type { OwnerStoreOrdersListCacheValue } from "@/lib/stores/owner-store-orders-list-cache";
+import { deliveryOwnerOrdersListCacheKey } from "@/lib/stores/delivery-order-cache-namespace";
 
 const TTL_MS = 30_000;
 
@@ -21,7 +22,7 @@ function cacheMap(): Map<string, Entry> {
 }
 
 function cacheKey(storeId: string, ownerUserId: string): string {
-  return `${ownerUserId.trim()}\0${storeId.trim()}`;
+  return deliveryOwnerOrdersListCacheKey(storeId, ownerUserId);
 }
 
 export function peekOwnerStoreOrdersListServerCache(
@@ -65,17 +66,21 @@ export function invalidateOwnerStoreOrdersListServerCache(storeId?: string, owne
     return n;
   }
   if (sid && uid) {
-    const k = cacheKey(sid, uid); // ownerUserId\0storeId
+    const k = cacheKey(sid, uid);
     const had = cacheMap().has(k) ? 1 : 0;
     cacheMap().delete(k);
     return had;
   }
   let removed = 0;
   for (const k of [...cacheMap().keys()]) {
-    if (uid && k.startsWith(`${uid}\0`)) {
+    const ownerPrefix = "delivery-owner:orders:";
+    const parts = k.startsWith(ownerPrefix) ? k.slice(ownerPrefix.length).split(":") : [];
+    const keyStoreId = parts[0] ?? "";
+    const keyOwnerUserId = parts.slice(1).join(":");
+    if (uid && keyOwnerUserId === uid) {
       cacheMap().delete(k);
       removed++;
-    } else if (sid && k.endsWith(`\0${sid}`)) {
+    } else if (sid && keyStoreId === sid) {
       cacheMap().delete(k);
       removed++;
     }

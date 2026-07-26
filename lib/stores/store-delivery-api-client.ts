@@ -4,6 +4,10 @@
  */
 import { forgetSingleFlight, getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
 import {
+  deliveryCustomerOrderDetailCacheKey,
+  deliveryCustomerOrderEventsCacheKey,
+} from "@/lib/stores/delivery-order-cache-namespace";
+import {
   markStoresHomeHubSummaryNetwork,
   resolveStoresHomePrewarmLanguage,
   type StoresHomeClientCallSource,
@@ -746,13 +750,13 @@ const meStoreOrderEventsCache = new Map<string, { expiresAt: number; value: Stor
 
 function peekMeStoreOrderResponseCache(
   map: Map<string, { expiresAt: number; value: StoreApiJsonResponse }>,
-  orderId: string
+  cacheKey: string
 ): StoreApiJsonResponse | null {
-  const id = orderId.trim();
-  if (!id) return null;
-  const hit = map.get(id);
+  const key = cacheKey.trim();
+  if (!key) return null;
+  const hit = map.get(key);
   if (!hit || hit.expiresAt <= Date.now()) {
-    if (hit) map.delete(id);
+    if (hit) map.delete(key);
     return null;
   }
   return hit.value;
@@ -760,21 +764,21 @@ function peekMeStoreOrderResponseCache(
 
 function primeMeStoreOrderResponseCache(
   map: Map<string, { expiresAt: number; value: StoreApiJsonResponse }>,
-  orderId: string,
+  cacheKey: string,
   value: StoreApiJsonResponse,
   ttlMs: number
 ): void {
-  const id = orderId.trim();
-  if (!id || value.status < 200 || value.status >= 300) {
-    if (id) map.delete(id);
+  const key = cacheKey.trim();
+  if (!key || value.status < 200 || value.status >= 300) {
+    if (key) map.delete(key);
     return;
   }
   const json = value.json as { ok?: boolean };
   if (json?.ok !== true) {
-    map.delete(id);
+    map.delete(key);
     return;
   }
-  map.set(id, { expiresAt: Date.now() + ttlMs, value });
+  map.set(key, { expiresAt: Date.now() + ttlMs, value });
 }
 
 /** 펼침 패널·리뷰 슬라이드 — 상세+이벤트 선로드 */
@@ -786,21 +790,31 @@ export function warmMeStoreOrderExpandDetail(orderId: string): void {
 }
 
 export function peekMeStoreOrderDetailCache(orderId: string): StoreApiJsonResponse | null {
-  return peekMeStoreOrderResponseCache(meStoreOrderDetailCache, orderId);
+  return peekMeStoreOrderResponseCache(
+    meStoreOrderDetailCache,
+    deliveryCustomerOrderDetailCacheKey(orderId)
+  );
 }
 
 export function peekMeStoreOrderEventsCache(orderId: string): StoreApiJsonResponse | null {
-  return peekMeStoreOrderResponseCache(meStoreOrderEventsCache, orderId);
+  return peekMeStoreOrderResponseCache(
+    meStoreOrderEventsCache,
+    deliveryCustomerOrderEventsCacheKey(orderId)
+  );
 }
 
 /** PATCH/DELETE 후 목록·펼침 캐시 무효화 */
 export function invalidateMeStoreOrderClientCaches(orderId: string): void {
   const id = orderId.trim();
   if (!id) return;
-  meStoreOrderDetailCache.delete(id);
-  meStoreOrderEventsCache.delete(id);
-  forgetSingleFlight(`me:store-order:detail:get:${id}`);
-  forgetSingleFlight(`me:store-order:events:get:${id}`);
+  const detailKey = deliveryCustomerOrderDetailCacheKey(id);
+  const eventsKey = deliveryCustomerOrderEventsCacheKey(id);
+  meStoreOrderDetailCache.delete(detailKey);
+  meStoreOrderEventsCache.delete(eventsKey);
+  forgetSingleFlight(`${detailKey}:get`);
+  forgetSingleFlight(`${detailKey}:get:fresh`);
+  forgetSingleFlight(`${eventsKey}:get`);
+  forgetSingleFlight(`${eventsKey}:get:fresh`);
 }
 
 export async function fetchMeStoreOrderDetailDeduped(
@@ -810,21 +824,22 @@ export async function fetchMeStoreOrderDetailDeduped(
   const id = orderId.trim();
   if (!id) return { status: 400, json: { ok: false } };
   const force = opts?.force === true;
+  const cacheKey = deliveryCustomerOrderDetailCacheKey(id);
   if (!force) {
-    const cached = peekMeStoreOrderResponseCache(meStoreOrderDetailCache, id);
+    const cached = peekMeStoreOrderResponseCache(meStoreOrderDetailCache, cacheKey);
     if (cached) return cached;
   }
   // force=true 시 별도 flight key로 스냅샷 bypass + ?fresh=1 요청
   const flightKey = force
-    ? `me:store-order:detail:get:${id}:fresh`
-    : `me:store-order:detail:get:${id}`;
+    ? `${cacheKey}:get:fresh`
+    : `${cacheKey}:get`;
   if (!force) {
     const inFlight = getSingleFlightPromise<StoreApiJsonResponse>(flightKey);
     if (inFlight) {
       const value = await inFlight;
       primeMeStoreOrderResponseCache(
         meStoreOrderDetailCache,
-        id,
+        cacheKey,
         value,
         ME_STORE_ORDER_DETAIL_CACHE_TTL_MS
       );
@@ -844,7 +859,7 @@ export async function fetchMeStoreOrderDetailDeduped(
     // 신선한 응답을 일반 캐시에도 반영 → 이후 non-force 호출에 재사용
     primeMeStoreOrderResponseCache(
       meStoreOrderDetailCache,
-      id,
+      cacheKey,
       value,
       ME_STORE_ORDER_DETAIL_CACHE_TTL_MS
     );
@@ -860,20 +875,21 @@ export async function fetchMeStoreOrderEventsDeduped(
   const id = orderId.trim();
   if (!id) return { status: 400, json: { ok: false } };
   const force = opts?.force === true;
+  const cacheKey = deliveryCustomerOrderEventsCacheKey(id);
   if (!force) {
-    const cached = peekMeStoreOrderResponseCache(meStoreOrderEventsCache, id);
+    const cached = peekMeStoreOrderResponseCache(meStoreOrderEventsCache, cacheKey);
     if (cached) return cached;
   }
   const flightKey = force
-    ? `me:store-order:events:get:${id}:fresh`
-    : `me:store-order:events:get:${id}`;
+    ? `${cacheKey}:get:fresh`
+    : `${cacheKey}:get`;
   if (!force) {
     const inFlight = getSingleFlightPromise<StoreApiJsonResponse>(flightKey);
     if (inFlight) {
       const value = await inFlight;
       primeMeStoreOrderResponseCache(
         meStoreOrderEventsCache,
-        id,
+        cacheKey,
         value,
         ME_STORE_ORDER_DETAIL_CACHE_TTL_MS
       );
@@ -892,7 +908,7 @@ export async function fetchMeStoreOrderEventsDeduped(
     const value = { status: res.status, json };
     primeMeStoreOrderResponseCache(
       meStoreOrderEventsCache,
-      id,
+      cacheKey,
       value,
       ME_STORE_ORDER_DETAIL_CACHE_TTL_MS
     );
