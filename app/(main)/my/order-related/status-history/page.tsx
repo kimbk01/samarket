@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
-export default function MyOrderStatusHistoryPage() {
-  redirect("/my/store-orders");
+/** Legacy `/my/order-related/status-history` — canonical `/mypage/store-orders`. */
+export default function LegacyMyRedirectPage() {
+  redirect("/mypage/store-orders");
 }

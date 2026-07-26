@@ -7,7 +7,7 @@ import type { MessageKey } from "@/lib/i18n/messages";
 const ITEMS: { labelKey: MessageKey; href: string; icon: React.ReactNode }[] = [
   { labelKey: "mypage_comp_business_store_apply", href: "/stores/owner/apply", icon: <BuildingIcon /> },
   { labelKey: "mypage_comp_business_store_manage", href: "/stores/owner", icon: <StoreManageIcon /> },
-  { labelKey: "mypage_comp_business_ads", href: "/my/ads", icon: <MegaphoneIcon /> },
+  { labelKey: "mypage_comp_business_ads", href: "/mypage/ads", icon: <MegaphoneIcon /> },
 ];
 
 export function MyBusinessSection() {

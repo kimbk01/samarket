@@ -1,15 +1,6 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { MyOffersView } from "@/components/offers/MyOffersView";
-
-export default function MyOffersReceivedPage() {
-  const { t } = useI18n();
-  return (
-    <MyOffersView
-      mode="received"
-      title={t("mypage_offers_received_title")}
-      emptyLabel={t("mypage_offers_received_empty")}
-    />
-  );
+/** Legacy `/my/offers/received` — canonical `/mypage/offers/received`. */
+export default function LegacyMyRedirectPage() {
+  redirect("/mypage/offers/received");
 }

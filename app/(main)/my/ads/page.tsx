@@ -1,5 +1,6 @@
-import MyAdsPageClient from "./MyAdsPageClient";
+import { redirect } from "next/navigation";
 
-export default function MyAdsPage() {
-  return <MyAdsPageClient />;
+/** Legacy `/my/ads` — canonical `/mypage/ads`. */
+export default function LegacyMyRedirectPage() {
+  redirect("/mypage/ads");
 }

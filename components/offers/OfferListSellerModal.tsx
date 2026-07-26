@@ -79,7 +79,7 @@ export function OfferListSellerModal({
             받은 가격 제안
           </h2>
           <Link
-            href="/my/offers/received"
+            href="/mypage/offers/received"
             className="sam-text-body shrink-0 font-semibold text-sam-primary"
             onClick={onClose}
           >

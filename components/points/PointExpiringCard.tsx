@@ -16,7 +16,7 @@ export function PointExpiringCard({ summary, className = "" }: PointExpiringCard
 
   return (
     <Link
-      href="/my/points/expiring"
+      href="/mypage/points/expiring"
       className={`block rounded-ui-rect border border-amber-200 bg-amber-50/80 p-4 ${className}`}
     >
       <p className="sam-text-body-secondary text-amber-800">{t("points_ui_expiring_label")}</p>

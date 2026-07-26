@@ -18,7 +18,7 @@ export const MYPAGE_HOME_COMMUNITY_POSTS_HREF = "/mypage/community-posts" as con
 export const MYPAGE_HOME_COMMUNITY_ACTIVITY_HREF = "/mypage/community-activity" as const;
 
 /** 가격 제안 */
-export const MYPAGE_HOME_TRADE_OFFERS_HREF = "/my/offers" as const;
+export const MYPAGE_HOME_TRADE_OFFERS_HREF = "/mypage/offers" as const;
 
 /** @deprecated section — legacy adapter only */
 export const MYPAGE_SECTION_COMMUNITY_COMMENTS_HREF =

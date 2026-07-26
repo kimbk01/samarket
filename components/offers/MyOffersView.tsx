@@ -81,9 +81,9 @@ export function MyOffersView({ mode, title, emptyLabel }: Props) {
       <div className="mx-auto max-w-2xl space-y-3">
         <nav className="flex flex-wrap gap-2">
           <Link
-            href="/my/offers/sent"
+            href="/mypage/offers/sent"
             className={`rounded-full px-3 py-1.5 text-[13px] font-semibold ${
-              pathname === "/my/offers" || pathname === "/my/offers/sent"
+              pathname === "/mypage/offers" || pathname === "/mypage/offers/sent"
                 ? "bg-sam-primary text-white"
                 : "border border-sam-border bg-sam-surface text-sam-fg"
             }`}
@@ -91,9 +91,9 @@ export function MyOffersView({ mode, title, emptyLabel }: Props) {
             내가 보낸 가격 제안
           </Link>
           <Link
-            href="/my/offers/received"
+            href="/mypage/offers/received"
             className={`rounded-full px-3 py-1.5 text-[13px] font-semibold ${
-              pathname === "/my/offers/received"
+              pathname === "/mypage/offers/received"
                 ? "bg-sam-primary text-white"
                 : "border border-sam-border bg-sam-surface text-sam-fg"
             }`}

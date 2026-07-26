@@ -232,7 +232,7 @@ export function OfferListSeller({
     variant === "modal" ? null : (
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-[14px] font-bold text-sam-fg">{t("ui_offer_received_title")}</h3>
-        <Link href="/my/offers/received" className="text-[12px] font-semibold text-sam-primary">
+        <Link href="/mypage/offers/received" className="text-[12px] font-semibold text-sam-primary">
           전체 보기
         </Link>
       </div>

@@ -251,7 +251,7 @@ function MannerTrustEmbed() {
           </div>
         </div>
         <Link
-          href="/my/trust"
+          href="/mypage/trust"
           className="mt-4 inline-flex min-h-[44px] items-center justify-center rounded-ui-rect border border-sam-border px-4 sam-text-body font-medium text-sam-fg"
         >
           {t("mypage_comp_manner_detail_link")}

@@ -120,25 +120,25 @@ export default function MypagePointsPage() {
         )}
         <div className="flex flex-wrap gap-2">
           <Link
-            href="/my/points/charge"
+            href="/mypage/points/charge"
             className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white"
           >
             {t("points_charge")}
           </Link>
           <Link
-            href="/my/points/ledger"
+            href="/mypage/points/ledger"
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 sam-text-body font-medium text-sam-fg"
           >
             {t("points_ledger")}
           </Link>
           <Link
-            href="/my/points/promotions"
+            href="/mypage/points/promotions"
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 sam-text-body font-medium text-sam-fg"
           >
             {t("points_promotion")}
           </Link>
           <Link
-            href="/my/points/expiring"
+            href="/mypage/points/expiring"
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 sam-text-body font-medium text-sam-fg"
           >
             {t("points_expiring")}

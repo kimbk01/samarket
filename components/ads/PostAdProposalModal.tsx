@@ -54,7 +54,7 @@ export function PostAdProposalModal({
               게시글 보기
             </button>
             <Link
-              href="/my/ads"
+              href="/mypage/ads"
               className="sam-text-body-secondary text-sky-700 underline"
             >
               광고 관리 페이지 바로가기

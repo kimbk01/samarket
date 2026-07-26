@@ -42,7 +42,7 @@ export function MyAdsApplyPageClient() {
         }
         return;
       }
-      router.push("/my/points/promotions");
+      router.push("/mypage/points/promotions");
     } finally {
       setBusy(false);
     }
@@ -53,7 +53,7 @@ export function MyAdsApplyPageClient() {
       <MySubpageHeader
         title={t("mypage_ads_apply_title")}
         subtitle={t("mypage_ads_apply_subtitle")}
-        backHref="/my/ads"
+        backHref="/mypage/ads"
         section="store"
         hideCtaStrip
       />

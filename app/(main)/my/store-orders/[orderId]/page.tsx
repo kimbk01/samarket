@@ -1,17 +1,13 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { useParams, useRouter } from "next/navigation";
-import { useEffect } from "react";
+type PageProps = {
+  params: Promise<{ orderId: string }>;
+};
 
-export default function MyStoreOrderDetailPage() {
-  const params = useParams();
-  const router = useRouter();
-  const orderId = typeof params?.orderId === "string" ? params.orderId : "";
-
-  useEffect(() => {
-    if (!orderId) return;
-    router.replace(`/mypage/store-orders/${encodeURIComponent(orderId)}`);
-  }, [orderId, router]);
-
-  return null;
+/** Legacy order detail — canonical /mypage/store-orders/:id. */
+export default async function LegacyMyRedirectPage({ params }: PageProps) {
+  const { orderId: raw } = await params;
+  const orderId = typeof raw === "string" ? raw.trim() : "";
+  if (!orderId) redirect("/mypage/store-orders");
+  redirect(`/mypage/store-orders/${encodeURIComponent(orderId)}`);
 }

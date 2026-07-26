@@ -10,10 +10,10 @@ const ITEMS: { labelKey: MessageKey; href: string; icon: React.ReactNode }[] = [
   { labelKey: "mypage_comp_trade_nav_sales", href: "/mypage/trade/sales", icon: <CartIcon /> },
   { labelKey: "mypage_comp_trade_nav_favorites", href: MYPAGE_TRADE_FAVORITES_HREF, icon: <HeartIcon /> },
   { labelKey: "mypage_comp_trade_nav_reviews", href: "/mypage/trade/reviews", icon: <StarIcon /> },
-  { labelKey: "mypage_comp_trade_nav_trust", href: "/my/trust", icon: <ThermoIcon /> },
+  { labelKey: "mypage_comp_trade_nav_trust", href: "/mypage/trust", icon: <ThermoIcon /> },
   { labelKey: "mypage_comp_trade_nav_products", href: "/my/products", icon: <DocIcon /> },
   { labelKey: "mypage_comp_trade_nav_search", href: "/search", icon: <SearchIcon /> },
-  { labelKey: "mypage_comp_trade_nav_points_ledger", href: "/my/points/ledger", icon: <BookIcon /> },
+  { labelKey: "mypage_comp_trade_nav_points_ledger", href: "/mypage/points/ledger", icon: <BookIcon /> },
 ];
 
 export function MyTradeSection() {

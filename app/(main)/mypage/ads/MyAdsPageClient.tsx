@@ -90,7 +90,7 @@ export default function MyAdsPageClient() {
             {t("ads_write_in_community")}
           </Link>
           <Link
-            href="/my/ads/apply"
+            href="/mypage/ads/apply"
             className="rounded-ui-rect bg-sam-surface-muted px-4 py-2 text-center sam-text-body font-medium text-sam-fg"
           >
             {t("ads_home_banner_beta")}
