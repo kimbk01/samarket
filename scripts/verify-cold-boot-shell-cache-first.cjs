@@ -93,6 +93,9 @@ if (!layout.includes("DIBAY_COLD_BOOT_INTRO_DOM_ID") || !layout.includes("DibayC
 if (!layout.includes("DIBAY") || !/dibay-cold-boot-spinner|dibay-cold-boot-logo/.test(layout)) {
   fail("root layout cold intro must include DIBAY mark and spinner/logo");
 }
+if (!layout.includes("COLD_BOOT_INTRO_LOCAL_STORAGE_KEY") || !layout.includes("dibay-cold-boot-subtitle")) {
+  fail("root layout must apply localStorage cache + subtitle node for seasonal copy");
+}
 
 const introCtrl = read("components/app/DibayColdBootIntro.tsx");
 if (
@@ -105,6 +108,9 @@ if (
 if (!introCtrl.includes("markAppReady") || !introCtrl.includes("subscribeAppReady")) {
   fail("DibayColdBootIntro must hide via markAppReady/subscribeAppReady");
 }
+if (!introCtrl.includes("scheduleColdBootIntroConfigRefresh")) {
+  fail("DibayColdBootIntro must schedule non-blocking config refresh");
+}
 
 const mainActivity = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
 if (!mainActivity.includes("installSplashScreen") || !mainActivity.includes("DibayBootBridge")) {
@@ -112,6 +118,37 @@ if (!mainActivity.includes("installSplashScreen") || !mainActivity.includes("Dib
 }
 if (!mainActivity.includes("#FFFCFC")) {
   fail("MainActivity WebView background must match app cream #FFFCFC");
+}
+if (/SPLASH_MAX_KEEP_MS|native_fallback_elapsed_ms/.test(mainActivity)) {
+  fail("MainActivity must not use timed splash dismiss (3/5/8s) — App Ready only");
+}
+if (!/setKeepOnScreenCondition\(\(\) -> !webSplashDismissRequested\)/.test(mainActivity)) {
+  fail("MainActivity keepOnScreenCondition must be App Ready (webSplashDismissRequested) only");
+}
+
+const introConfig = read("lib/app-boot/cold-boot-intro-config.ts");
+if (!introConfig.includes("DEFAULT_COLD_BOOT_INTRO_CONFIG") || !introConfig.includes("cold_boot_intro_v1")) {
+  fail("cold-boot-intro-config must export DEFAULT + settings key");
+}
+
+const introClient = read("lib/app-boot/cold-boot-intro-client.ts");
+if (!introClient.includes("scheduleColdBootIntroConfigRefresh") || !introClient.includes("localStorage")) {
+  fail("cold-boot-intro-client must cache-first + async refresh");
+}
+
+if (!fs.existsSync(path.join(ROOT, "app/api/app/cold-boot-intro/route.ts"))) {
+  fail("public GET /api/app/cold-boot-intro must exist");
+}
+if (!fs.existsSync(path.join(ROOT, "app/api/admin/cold-boot-intro/route.ts"))) {
+  fail("admin cold-boot-intro API must exist");
+}
+if (!fs.existsSync(path.join(ROOT, "app/admin/settings/cold-boot-intro/page.tsx"))) {
+  fail("admin cold-boot-intro settings page must exist");
+}
+
+const stylesXml = read("android/app/src/main/res/values/styles.xml");
+if (!stylesXml.includes("windowSplashScreenAnimatedIcon") || !stylesXml.includes("ic_dibay_splash_logo")) {
+  fail("Android SplashScreen theme must use cream bg + DIBAY splash logo icon");
 }
 
 const capConfig = read("capacitor.config.ts");

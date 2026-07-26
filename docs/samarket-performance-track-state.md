@@ -368,11 +368,11 @@ SAMARKET_BASE_URL=https://dibaY.vercel.app SAMARKET_PROD_PERF_MEASURE=1 npm run 
 ## 진행 중 트랙
 
 | 트랙 이름 | **BOOT-P0** 앱 cold start Fast First Paint + splash hotfix |
-| **트랙 상태** | **■ 구조 재구성 완료 (2026-07-26)** — Shell/Cache-First · `/` redirect 제거 · splash=`shellReady` · persistent feed · Suspense cold 제거 |
+| **트랙 상태** | **▶ 진행 (2026-07-27)** — Native→Web 연속 DIBAY 인트로 · App Ready only · admin cache-first · 3/5/8s 타이머 제거 |
 | baseline commit | `67676fa9` (splash hotfix · boot metrics · P0 shell) |
-| **후속** | 2026-07-26 Bottom Tab Cache-First — `verify:bottom-tab-*` · Local Shell(EPIC RC-1) 잔여 |
-| 측정 명령 | `node scripts/measure-dibay-cold-start-adb.mjs …` · `npm run verify:cold-boot-shell-cache-first` |
-| **판정** | 제품 구조: Network-First cold paint **제거**. RC-1 remote WebView HTML 하한은 Hybrid Local Shell EPIC |
+| **후속** | 양기기 3회 cold QA · iOS 실기기 BLOCKED 가능 |
+| 측정 명령 | `npm run verify:cold-boot-shell-cache-first` · Xiaomi/Samsung cold launch ×3 |
+| **판정** | 종료 기준=App Ready(shellReady) 하나. 원격 설정은 다음 실행 적용. Badge/Messenger/Delivery/Realtime/Authority 미변경 |
 
 | 항목 | 내용 |
 |------|------|

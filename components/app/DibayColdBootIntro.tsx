@@ -2,6 +2,11 @@
 
 import { useLayoutEffect } from "react";
 import { isColdAppLaunchNavigation } from "@/lib/app-boot/cold-boot-detect";
+import {
+  applyColdBootIntroConfigToDom,
+  getColdBootIntroConfigCached,
+  scheduleColdBootIntroConfigRefresh,
+} from "@/lib/app-boot/cold-boot-intro-client";
 import { DIBAY_COLD_BOOT_INTRO_DOM_ID } from "@/lib/app-boot/cold-boot-constants";
 import {
   getAppReadySnapshot,
@@ -13,13 +18,17 @@ import {
  * Cold-boot web intro controller.
  *
  * Markup lives in root layout (first HTML) so WebView paints logo+spinner before React.
- * This client only wires the hide signal — does not remount intro on route changes.
+ * Cached admin config is applied from localStorage (inline script + this mount).
+ * Remote fetch runs after paint for *next* launch — never blocks App Ready.
  *
  * Hide on: shellReady / auth_shell_fallback / error_boundary / non-cold session.
- * DO NOT: forced minimum display delay · wait for badge/API/profile.
+ * DO NOT: forced minimum display delay · wait for badge/API/profile · block on remote fetch.
  */
 export function DibayColdBootIntroController(): null {
   useLayoutEffect(() => {
+    applyColdBootIntroConfigToDom(getColdBootIntroConfigCached());
+    scheduleColdBootIntroConfigRefresh();
+
     const hideIfReady = () => {
       if (getAppReadySnapshot()) {
         const el = document.getElementById(DIBAY_COLD_BOOT_INTRO_DOM_ID);

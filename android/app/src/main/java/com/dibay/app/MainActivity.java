@@ -45,11 +45,10 @@ public class MainActivity extends BridgeActivity {
   private static final String WEBVIEW_LOG_TAG = "DIBAY_WebView";
   private static final long WEBVIEW_LOAD_TIMEOUT_MS = 10_000L;
   /**
-   * Max splash keep — JS dismiss 미수신 시에만 native_fallback (최소 표시 시간 강제 아님).
-   * Samsung cold firstHtml/reactMounted 가 ~4s 관측되어 3s 는 너무 짧아 WebView cream 전에 해제됨.
-   * shellReady 가 오면 즉시 해제되므로 이 값은 상한 안전장치만.
+   * Splash keep until App Ready (JS DibayBootBridge / tryDismissNativeSplash) only.
+   * DO NOT: 3/5/8s display timers — white/cream flash before Web intro.
+   * WebView fatal load failure may still dismiss via requestWebSplashDismiss elsewhere.
    */
-  private static final long SPLASH_MAX_KEEP_MS = 8_000L;
   /** Transient DNS/net at cold start — same backoff ladder as ScreenAwakeBridge.apply retry. */
   private static final long[] WEBVIEW_LOAD_AUTO_RETRY_DELAYS_MS = {100L, 300L, 700L};
   private static final String ROUTE_PREFS = "dibay_push_route";
@@ -946,16 +945,7 @@ public class MainActivity extends BridgeActivity {
     SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
     injectBootMetricOnCreate();
     super.onCreate(savedInstanceState);
-    splashScreen.setKeepOnScreenCondition(
-        () -> {
-          if (webSplashDismissRequested) return false;
-          long elapsed = SystemClock.elapsedRealtime() - splashKeepStartElapsedMs;
-          if (elapsed >= SPLASH_MAX_KEEP_MS) {
-            requestWebSplashDismiss("native_fallback_elapsed_ms=" + elapsed);
-            return false;
-          }
-          return true;
-        });
+    splashScreen.setKeepOnScreenCondition(() -> !webSplashDismissRequested);
     registerActiveCallBackPressedCallback();
     Log.i(WEBVIEW_LOG_TAG, "app_start package=" + getPackageName());
     String serverOrigin = DibayServerOrigin.resolve(this);
@@ -1458,6 +1448,8 @@ public class MainActivity extends BridgeActivity {
       webViewLoadErrorDetail.setVisibility(View.VISIBLE);
     }
     webViewLoadErrorOverlay.setVisibility(View.VISIBLE);
+    // Catastrophic path only — not a display timer. Reveal retry UI over splash.
+    requestWebSplashDismiss("webview_load_error");
     Log.e(WEBVIEW_LOG_TAG, "webview_load_error_ui_shown url=" + url + " reason=" + reason);
   }
 

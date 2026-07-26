@@ -67,5 +67,16 @@ describe("forbidden cold-boot intro patterns", () => {
     expect(src).not.toMatch(
       /\bsetTimeout\s*\(|minimumSplashDuration|router\.refresh|location\.reload|\buseState\s*\(/
     );
+    expect(src).toMatch(/scheduleColdBootIntroConfigRefresh/);
+  });
+
+  it("MainActivity has no timed splash max keep", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const src = fs.readFileSync(
+      path.join(process.cwd(), "android/app/src/main/java/com/dibay/app/MainActivity.java"),
+      "utf8"
+    );
+    expect(src).not.toMatch(/SPLASH_MAX_KEEP_MS|native_fallback_elapsed_ms/);
   });
 });
