@@ -1,7 +1,7 @@
 # DIBAY Hybrid Local Shell EPIC (P2)
 
-**상태:** Phase A–D (Shell/Cache-First Cold Boot) **제품 적용 완료** · Local Shell 번들화는 **잔여 상한**  
-**목표:** 카카오톡·배민처럼 APK 내 **앱 셸(JS/CSS)** 을 내장하고 API만 원격 로드.
+**상태:** Phase A–E **제품 적용** — Local Boot Shell(Intro+AppShell+BottomNav) APK 내장 · Remote React 단일 인계  
+**목표:** 카카오톡·배민처럼 아이콘 탭 즉시 로컬 셸 paint, API/피드 권위는 원격 유지.
 
 ## 2026-07-26 — Cold Boot 계약 전환 (완료)
 
@@ -10,49 +10,46 @@
 | RC-3 `/` redirect | `app/(main)/page.tsx` 가 Philife 홈 직접 렌더 — HTTP redirect 제거 |
 | RC-2 splash | dismiss = `shellReady` (`ConditionalAppShell`) — timeout gate 제거 |
 | RC-4 feed | Suspense/RSC first paint 제거 · persistent localStorage cache → background patch |
-| RC-1 remote WebView | **잔여** — 아래 EPIC. JS/HTML 은 여전히 Vercel 로드 |
+| RC-1 remote WebView | **Phase E로 해소** — `/__dibay-startup` APK asset intercept (server.url 유지) |
 
-## 현재 한계 (remote-only · RC-1)
+## 2026-07-27 — Phase E Local Boot Shell (완료) + Native Handoff Cover (코드)
 
-- `capacitor.config.ts` — `server.url` → Vercel HTML/JS 매 cold start 네트워크 의존
-- `capacitor-www` 는 `server.url` 없을 때만 쓰는 빈 index
-- Local shell 미내장 시 **아이콘→첫 HTML** 하한은 네트워크 RTT에 묶임 (Cache-First 피드와 별개)
+- `server.url` 유지 (Capacitor 브릿지·쿠키·origin 보존)
+- Android: `DibayBridgeWebViewClient.shouldInterceptRequest` → `assets/dibay-startup.html`
+- iOS: `DibayStartupBridgeViewController.loadHTMLString(baseURL=origin/__dibay-startup)` — 기기 QA BLOCKED
+- Boot HTML: Intro 종료 → Local AppShell paint(rAF×2) → Native Handoff Cover → `location.replace` 1회 인계
+- Native Cover: 크림+DIBAY 로고+하단 nav 실루엣 · `beginHandoffCover`(pre-draw sync) / `endHandoffCover`(shellReady only, idempotent) · 로드 실패 시 Cover 위 재시도
+- Admin: `/admin/settings/startup-config` · `GET/PUT /api/.../startup-config` · PUT→DB E2E **BLOCKED**(세션 없음)
+- Legacy cold-boot-intro / dibay-boot-metrics 경로 삭제 · `verify:startup-architecture`
+- Windows: 타깃 없음 → **BLOCKED** (Web Cold PASS 대체 금지)
 
-## 목표 아키텍처 (Phase E — 미완)
+## 현재 한계 (잔여)
+
+- Remote React HTML/JS 는 인계 후 Vercel 로드 (정적 `_next/static` APK 번들 미포함 — 버전 스큐 회피)
+- iOS / Tablet 실기기 QA **BLOCKED**
+- Local→Remote blank-frame 0 판정: Native Cover APK 재빌드·양기기 cold×5 프레임 QA 필요 (`46311d6c3`)
+
+## 목표 아키텍처 (Phase E — 적용)
 
 ```mermaid
 flowchart LR
   subgraph apk [APK assets]
-    ShellJS[shell JS/CSS]
-    ShellHTML[index shell]
+    BootHTML[dibay-startup.html]
   end
   subgraph remote [Vercel]
+    React[Remote React]
     API[API routes]
   end
-  WebView --> ShellHTML
-  ShellHTML --> ShellJS
-  ShellJS --> API
+  WebView --> BootHTML
+  BootHTML -->|location.replace once| React
+  React --> API
 ```
-
-## 단계 (제안)
-
-1. **Shell subset export** — AppShell·BottomNav·design tokens·i18n ko/en minimal 번들
-2. **`cap sync`** — `webDir` 에 shell static + API origin remote
-3. **Stale-while-revalidate** — SW 또는 Capacitor HTTP cache for `/_next/static/*`
-4. **계약** — shellReady splash · persistent feed cache 유지
-
-## 선행 완료 (제품 Cold Boot)
-
-- Splash hide = `shellReady` (not feed/apiDone) · safety timeout gate 제거
-- `/` = Philife home · redirect 없음
-- Feed first paint = persistent cache · network background patch
-- `(main)/layout` server await 제거
-- `window.__dibayBootMetrics` end-to-end
 
 ## EPIC 종료 기준 (Local Shell)
 
-| 항목 | 목표 |
-|------|------|
-| 아이콘→shell (offline shell only) | ≤500ms |
-| 첫 API | background after shell |
-| Feed first paint | persistent cache (이미 충족) |
+| 항목 | 목표 | 상태 |
+|------|------|------|
+| 아이콘→local shell paint | 네트워크 HTML 대기 없이 | Android 구현 |
+| 단일 Intro | Native→Local→Remote 이중 인트로 0 | 계약+handoff 플래그 |
+| 첫 API / Feed authority | remote only | 유지 |
+| iOS/Tablet/Windows QA | 실기기 | BLOCKED |

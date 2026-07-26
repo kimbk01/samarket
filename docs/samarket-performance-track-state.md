@@ -367,12 +367,16 @@ SAMARKET_BASE_URL=https://dibaY.vercel.app SAMARKET_PROD_PERF_MEASURE=1 npm run 
 
 ## 진행 중 트랙
 
-| 트랙 이름 | **BOOT-P0** 앱 cold start Fast First Paint + splash hotfix |
-| **트랙 상태** | **■ 마감 (2026-07-27)** — Native→Web 연속 DIBAY 인트로 · App Ready only · admin cache-first · Xiaomi/Samsung cold ×3 PASS |
-| baseline commit | `20a99b28e` |
-| **후속** | iOS 실기기 · Tablet 전용 실측 **BLOCKED** (기기 없음). Web prod 마커 확인됨 |
-| 측정 명령 | `npm run verify:cold-boot-shell-cache-first` · `.qa-logs/cold-boot-intro-ready-qa-v4` |
-| **판정** | Android 양기기 cold PASS. dismiss=`shellReady` only · `native_fallback` 0. Badge/Messenger/Delivery/Realtime/Authority 미변경 |
+| 트랙 이름 | **BOOT-P0 / Phase E** Local Boot Shell Startup |
+| **트랙 상태** | **■ FAIL closeout (2026-07-27)** — fix `46311d6c3` push/APK/Prod 완료 · Xiaomi white blank(early cover hide via warm_or_non_cold) · Samsung cover 0 · iOS xcodebuild sandbox FAIL · runtime BLOCKED |
+| baseline commit | pre-Phase-E `41ca8012d` |
+| fix commit | `46311d6c3` Native Handoff Cover + Local shell paint order |
+| Production | Vercel `BbByppBxDzxAPgYxF9sYrCdziRHC` success for `46311d6c3` |
+| APK | `docs/perf/dibay-startup-handoff-cover-46311d6c3.apk` |
+| QA 보고서 | `docs/perf/startup-handoff-cover-46311d6c3-qa-report.md` |
+| **후속** | Cover hide를 shellReady 전용으로 분리 · Samsung local boot JS `triggerEvent` 오류 · 외부 Terminal에서 iOS xcodebuild |
+| 측정 명령 | `.qa-logs/tmp-startup-handoff-cover-qa.mjs --record` · `.qa-logs/run-ios-handoff-build.sh` |
+| **판정** | **FAIL** (blank frame 증거 f0138 · Samsung coverShow=0) |
 
 | 항목 | 내용 |
 |------|------|
