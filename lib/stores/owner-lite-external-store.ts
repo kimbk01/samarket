@@ -15,7 +15,7 @@ import {
   isConstrainedNetwork,
   scheduleWhenBrowserIdle,
 } from "@/lib/ui/network-policy";
-import { pickPreferredOwnerStore } from "@/lib/stores/pick-preferred-owner-store";
+import { pickPreferredOwnerStore } from "@/lib/delivery/owner/pick-preferred-owner-store";
 
 export type OwnerLiteStoreState = {
   loading: boolean;
@@ -24,7 +24,7 @@ export type OwnerLiteStoreState = {
   ownerStores: StoreRow[];
 };
 
-export { pickPreferredOwnerStore } from "@/lib/stores/pick-preferred-owner-store";
+export { pickPreferredOwnerStore } from "@/lib/delivery/owner/pick-preferred-owner-store";
 
 const EMPTY: OwnerLiteStoreState = { loading: true, ownerStore: null, ownerStores: [] };
 const OWNER_LITE_SESSION_KEY = "samarket:stores:owner-lite:snapshot:v1";

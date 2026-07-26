@@ -22,18 +22,18 @@ import { triggerLightTapFeedback } from "@/lib/ui/light-tap-feedback";
 import {
   isOwnerBottomNavTabActive,
   type OwnerBottomNavTabId,
-} from "@/lib/stores/owner-bottom-nav-active";
+} from "@/lib/delivery/owner/owner-bottom-nav-active";
 import {
   isOwnerHomeHubBottomNavActive,
   runOwnerHomeHubShortTap,
-} from "@/lib/stores/owner-home-hub-navigation";
+} from "@/lib/delivery/owner/owner-home-hub-navigation";
 import {
   OWNER_MOBILE_BOTTOM_NAV_HOME_LABEL_KEY,
   OWNER_MOBILE_BOTTOM_NAV_SIDE_LEFT,
   OWNER_MOBILE_BOTTOM_NAV_SIDE_RIGHT,
   resolveOwnerMobileBottomNavHomeHref,
   type OwnerMobileBottomNavItem,
-} from "@/lib/stores/owner-mobile-bottom-nav-layout";
+} from "@/lib/delivery/owner/owner-mobile-bottom-nav-layout";
 import { OWNER_MOBILE_BOTTOM_NAV_ROOT_CLASS } from "@/lib/stores/owner-mobile-ui-tokens";
 import { useOwnerHubRuntime } from "@/components/business/owner/OwnerHubRuntimeProvider";
 import { buildOwnerOrdersEntryHref } from "@/lib/business/owner-orders-entry-policy";

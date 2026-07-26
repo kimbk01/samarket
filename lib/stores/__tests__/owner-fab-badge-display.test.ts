@@ -5,7 +5,7 @@ import {
   resolveFabOwnerOrderChatBadgeCount,
   resolveFabOwnerOrdersBadgeCount,
   resolveFabOwnerStoreBadgeCount,
-} from "@/lib/stores/owner-store-badge-display-policy";
+} from "@/lib/delivery/owner/owner-store-badge-display-policy";
 
 function sampleBreakdown(overrides: Partial<OwnerHubBadgeBreakdown> = {}): OwnerHubBadgeBreakdown {
   return {

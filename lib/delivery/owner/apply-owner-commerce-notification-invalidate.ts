@@ -2,7 +2,7 @@
  * Owner commerce notification → Owner order-list cache only.
  * Requires explicit storeId. Never clears all Owner stores or Customer caches.
  */
-import { invalidateOwnerStoreOrdersListCache } from "@/lib/stores/owner-store-orders-list-cache";
+import { invalidateOwnerStoreOrdersListCache } from "@/lib/delivery/owner/owner-store-orders-list-cache";
 import { isOwnerStoreCommerceNotificationRow } from "@/lib/notifications/owner-store-commerce-notification-meta";
 
 export type OwnerCommerceNotificationInvalidateInput = {

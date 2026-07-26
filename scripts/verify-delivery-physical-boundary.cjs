@@ -36,9 +36,27 @@ const required = [
   "lib/delivery/owner/apply-owner-commerce-notification-invalidate.ts",
   "lib/delivery/owner/projections/owner-navigation-summary.ts",
   "lib/delivery/owner/owner-surface-activity.ts",
+  "lib/delivery/owner/owner-store-badge-display-policy.ts",
+  "lib/delivery/owner/owner-store-orders-list-cache.ts",
+  "lib/delivery/customer/buyer-store-orders-list-snapshot.ts",
+  "lib/delivery/customer/delivery-order-history-nav.ts",
 ];
 for (const rel of required) {
   if (!fs.existsSync(path.join(root, rel))) failures.push(`missing ${rel}`);
+}
+
+/** Closeout: moved modules must not leave compatibility stubs under lib/stores. */
+const forbiddenCompat = [
+  "lib/stores/owner-store-badge-display-policy.ts",
+  "lib/stores/owner-store-orders-list-cache.ts",
+  "lib/stores/buyer-store-orders-list-snapshot.ts",
+  "lib/stores/delivery-order-history-nav.ts",
+  "lib/stores/pick-preferred-owner-store.ts",
+];
+for (const rel of forbiddenCompat) {
+  if (fs.existsSync(path.join(root, rel))) {
+    failures.push(`legacy path must be removed (no compatibility export): ${rel}`);
+  }
 }
 
 if (failures.length) {
@@ -46,4 +64,4 @@ if (failures.length) {
   for (const f of failures) console.error(" -", f);
   process.exit(1);
 }
-console.log("[verify:delivery-physical-boundary] OK — delivery shared/owner contracts present");
+console.log("[verify:delivery-physical-boundary] OK — delivery customer/owner/shared physical contracts present");

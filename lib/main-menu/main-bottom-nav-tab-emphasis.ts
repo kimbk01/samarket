@@ -8,7 +8,7 @@ import {
   resolveMainBottomNavHubHomeHref,
   type MainBottomNavHubDomain,
 } from "@/lib/main-menu/main-bottom-nav-domain";
-import { resolveDeliveryOrderHistoryHref } from "@/lib/stores/delivery-order-history-nav";
+import { resolveDeliveryOrderHistoryHref } from "@/lib/delivery/customer/delivery-order-history-nav";
 
 export type MainBottomNavTabEmphasisKind = "domain-hub" | "messenger-hub" | null;
 

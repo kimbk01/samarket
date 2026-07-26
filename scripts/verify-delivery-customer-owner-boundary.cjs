@@ -85,12 +85,10 @@ const ownerForbidden = [
 ];
 
 /**
- * Exact debt: OrdersHub still mounts Owner admin nav UI from Customer hub.
- * It uses pure pickPreferred — no owner-lite subscribe.
+ * Exact Customer→Owner runtime debt allowlist.
+ * Closeout 2026-07: OrdersHubStoreAdminAccess orphan removed — empty.
  */
-const exactRuntimeDebt = new Set([
-  "components/orders/OrdersHubStoreAdminAccess.tsx",
-]);
+const exactRuntimeDebt = new Set([]);
 
 /**
  * Pure UI primitive exception:

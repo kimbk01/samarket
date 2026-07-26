@@ -6,7 +6,7 @@ import { useStoreBusinessHubEntryModal } from "@/hooks/use-store-business-hub-en
 import { useOwnerNavigationSummary } from "@/lib/delivery/owner/projections/use-owner-navigation-summary";
 import { useOwnerHeaderOpsAttentionCount } from "@/lib/chats/use-owner-hub-badge-total";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
-import { resolveDeliveryOrderHistoryHref } from "@/lib/stores/delivery-order-history-nav";
+import { resolveDeliveryOrderHistoryHref } from "@/lib/delivery/customer/delivery-order-history-nav";
 import {
   STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME,
   StoreCommerceCartStrokeIcon,

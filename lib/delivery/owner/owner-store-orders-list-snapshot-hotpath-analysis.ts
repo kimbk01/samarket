@@ -1,7 +1,7 @@
 /**
  * OOL1 owner orders list hotpath analysis.
  */
-import type { OwnerStoreOrdersListSnapshotBreakdown } from "@/lib/stores/owner-store-orders-list-snapshot-regression-guard";
+import type { OwnerStoreOrdersListSnapshotBreakdown } from "@/lib/delivery/owner/owner-store-orders-list-snapshot-regression-guard";
 
 export type OwnerOrdersListHotpathAnalysis = {
   route: string;

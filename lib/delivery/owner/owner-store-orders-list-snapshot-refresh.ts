@@ -2,7 +2,7 @@
  * Event-driven owner store orders list snapshot refresh (OOL1).
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { refreshOwnerStoreOrdersListSnapshotFromRpc } from "@/lib/stores/owner-store-orders-list-snapshot";
+import { refreshOwnerStoreOrdersListSnapshotFromRpc } from "@/lib/delivery/owner/owner-store-orders-list-snapshot";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 const refreshInflight = new Map<string, Promise<unknown>>();

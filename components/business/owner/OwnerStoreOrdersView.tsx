@@ -76,10 +76,10 @@ import {
   r2d1KpiMetaTrace,
   r2d1KpiMetaTraceInstallCollector,
 } from "@/lib/dibay/r2-d1-kpi-meta-trace";
-import { deriveOwnerStoreOrderMetaCounts } from "@/lib/stores/derive-owner-store-order-meta-counts";
+import { deriveOwnerStoreOrderMetaCounts } from "@/lib/delivery/owner/derive-owner-store-order-meta-counts";
 import { setOwnerOrdersAttentionBridge } from "@/lib/business/owner-orders-attention-bridge";
 import { fetchStoreOrdersListDeduped } from "@/lib/stores/fetch-store-orders-list-deduped";
-import { invalidateOwnerStoreOrdersListCache } from "@/lib/stores/owner-store-orders-list-cache";
+import { invalidateOwnerStoreOrdersListCache } from "@/lib/delivery/owner/owner-store-orders-list-cache";
 import { OwnerStoreOrderDeepLinkMissBanner } from "@/components/business/owner/OwnerStoreOrderDeepLinkMissBanner";
 import { OwnerStoreOrderDeepLinkWrongTabBanner } from "@/components/business/owner/OwnerStoreOrderDeepLinkWrongTabBanner";
 import {

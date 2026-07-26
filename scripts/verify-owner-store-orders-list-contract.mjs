@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 const files = [
   "lib/stores/fetch-store-orders-list-deduped.ts",
   "lib/stores/owner-hub-dashboard-orders-cache.ts",
-  "lib/stores/owner-store-orders-list-cache.ts",
+  "lib/delivery/owner/owner-store-orders-list-cache.ts",
   "lib/business/owner-orders-entry-policy.ts",
   "components/business/owner/OwnerStoreOrdersView.tsx",
 ];

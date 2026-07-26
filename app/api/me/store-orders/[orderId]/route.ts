@@ -21,7 +21,7 @@ import {
   tryLoadBuyerStoreOrderDetailFromSnapshot,
 } from "@/lib/stores/store-order-detail-snapshot";
 import { invalidateStoreOrderDetailSnapshot } from "@/lib/stores/store-order-detail-snapshot-cache";
-import { invalidateBuyerStoreOrdersListSnapshot } from "@/lib/stores/buyer-store-orders-list-snapshot-cache";
+import { invalidateBuyerStoreOrdersListSnapshot } from "@/lib/delivery/customer/buyer-store-orders-list-snapshot-cache";
 import {
   jsonPayloadKb,
   logStoreOrderDetailPerf,

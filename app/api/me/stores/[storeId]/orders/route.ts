@@ -13,12 +13,12 @@ import {
   type StoreOrderCountsPayload,
 } from "@/lib/stores/store-order-counts-cache";
 import { jsonPayloadBytes, logOwnerDashboardPerf, perfNowMs } from "@/lib/stores/owner-dashboard-perf";
-import { logOwnerOrdersListPerf } from "@/lib/stores/owner-orders-list-perf";
+import { logOwnerOrdersListPerf } from "@/lib/delivery/owner/owner-orders-list-perf";
 import {
   peekOwnerStoreOrdersListServerCache,
   setOwnerStoreOrdersListServerCache,
-} from "@/lib/stores/owner-store-orders-list-server-cache";
-import { tryLoadOwnerStoreOrdersListFromSnapshot } from "@/lib/stores/owner-store-orders-list-snapshot";
+} from "@/lib/delivery/owner/owner-store-orders-list-server-cache";
+import { tryLoadOwnerStoreOrdersListFromSnapshot } from "@/lib/delivery/owner/owner-store-orders-list-snapshot";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

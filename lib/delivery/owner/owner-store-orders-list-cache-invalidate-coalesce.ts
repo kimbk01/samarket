@@ -1,7 +1,7 @@
 /**
  * 클라이언트 목록 캐시 무효화 — 동일 storeId 연속 호출 합류(알림·RT INSERT 겹침).
  */
-import { invalidateOwnerStoreOrdersListCache } from "@/lib/stores/owner-store-orders-list-cache";
+import { invalidateOwnerStoreOrdersListCache } from "@/lib/delivery/owner/owner-store-orders-list-cache";
 
 const pendingByStore = new Map<string, ReturnType<typeof setTimeout>>();
 

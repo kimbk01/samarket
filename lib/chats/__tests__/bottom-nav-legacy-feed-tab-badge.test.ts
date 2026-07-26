@@ -6,7 +6,7 @@ import { resolveMessengerChatTabBadgeCount } from "@/lib/notifications/messenger
 import {
   resolveFabOwnerOrdersBadgeCount,
   resolveFabOwnerOrderChatBadgeCount,
-} from "@/lib/stores/owner-store-badge-display-policy";
+} from "@/lib/delivery/owner/owner-store-badge-display-policy";
 import { resolveTier1BellListFetchOpts } from "@/lib/notifications/resolve-tier1-bell-surface";
 
 let eventsSnap: {

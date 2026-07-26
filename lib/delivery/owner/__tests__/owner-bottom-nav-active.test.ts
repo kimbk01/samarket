@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveOwnerBottomNavActiveTabId } from "@/lib/stores/owner-bottom-nav-active";
+import { resolveOwnerBottomNavActiveTabId } from "@/lib/delivery/owner/owner-bottom-nav-active";
 
 describe("resolveOwnerBottomNavActiveTabId", () => {
   const search = { get: () => null };

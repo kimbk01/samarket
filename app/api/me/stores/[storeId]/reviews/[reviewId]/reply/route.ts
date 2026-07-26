@@ -3,7 +3,7 @@ import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
-import { invalidateBuyerStoreOrdersListSnapshot } from "@/lib/stores/buyer-store-orders-list-snapshot-cache";
+import { invalidateBuyerStoreOrdersListSnapshot } from "@/lib/delivery/customer/buyer-store-orders-list-snapshot-cache";
 import { invalidateStoreOrderDetailSnapshot } from "@/lib/stores/store-order-detail-snapshot-cache";
 
 export const runtime = "nodejs";

@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { writeThroughStoreOrderEventsReadCache } from "@/lib/stores/store-order-events-read-cache";
 import { invalidateStoreOrderDetailSnapshot } from "@/lib/stores/store-order-detail-snapshot-cache";
-import { invalidateBuyerStoreOrdersListSnapshotForOrder } from "@/lib/stores/buyer-store-orders-list-snapshot-cache";
+import { invalidateBuyerStoreOrdersListSnapshotForOrder } from "@/lib/delivery/customer/buyer-store-orders-list-snapshot-cache";
 import { invalidateHomeSyncSnapshotForStoreOrderLifecycle } from "@/lib/community-messenger/home-sync-snapshot-commerce-invalidation";
 
 export type StoreOrderActorRole = "buyer" | "owner" | "rider" | "admin" | "system";

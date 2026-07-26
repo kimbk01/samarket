@@ -21,7 +21,7 @@ import {
 import { dispatchOwnerHubBadgeRefresh } from "@/lib/chats/chat-channel-events";
 import { usePullToRefreshAtDocumentTop } from "@/lib/ui/use-pull-to-refresh-document-top";
 import { useOwnerHubRuntime } from "@/components/business/owner/OwnerHubRuntimeProvider";
-import { useOwnerHubBadgeBreakdownWhenEnabled } from "@/lib/chats/use-owner-hub-badge-total";
+import { useOwnerFabOrderChatBadgeCount } from "@/lib/chats/use-owner-hub-badge-total";
 import {
   markOwnerDashboardFirstShellPaint,
   scheduleOwnerDashboardAfterFirstPaint,
@@ -51,8 +51,9 @@ export function BusinessAdminDashboard({
 }) {
   const { t } = useI18n();
   const hubRuntime = useOwnerHubRuntime();
-  const badge = useOwnerHubBadgeBreakdownWhenEnabled(!hubRuntime);
-  const orderChatUnread = badge.storeOrderChatUnread;
+  /** hubRuntime present → previous WhenEnabled(false) forced EMPTY; keep that contract. */
+  const fabOrderChatUnread = useOwnerFabOrderChatBadgeCount();
+  const orderChatUnread = hubRuntime ? 0 : fabOrderChatUnread;
 
   const [opsSnapshot, setOpsSnapshot] = useState<OwnerStoreOpsSnapshot | null>(() =>
     peekOwnerStoreOpsSnapshotFromHubCache(row.id)

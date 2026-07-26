@@ -3,7 +3,7 @@ import {
   type BottomNavItemConfig,
 } from "@/lib/main-menu/bottom-nav-config";
 import { mainBottomNavMessengerTabHref } from "@/lib/community-messenger/messenger-entry-origin";
-import { resolveDeliveryOrderHistoryHref } from "@/lib/stores/delivery-order-history-nav";
+import { resolveDeliveryOrderHistoryHref } from "@/lib/delivery/customer/delivery-order-history-nav";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { MainBottomNavSecondaryRailKind } from "@/lib/main-menu/main-bottom-nav-split-layout";
 

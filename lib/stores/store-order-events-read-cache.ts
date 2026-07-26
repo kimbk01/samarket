@@ -171,7 +171,7 @@ export function writeThroughStoreOrderEventsReadCache(
 }
 
 import { invalidateStoreOrderDetailSnapshot } from "@/lib/stores/store-order-detail-snapshot-cache";
-import { invalidateBuyerStoreOrdersListSnapshotForOrder } from "@/lib/stores/buyer-store-orders-list-snapshot-cache";
+import { invalidateBuyerStoreOrdersListSnapshotForOrder } from "@/lib/delivery/customer/buyer-store-orders-list-snapshot-cache";
 
 export function invalidateStoreOrderEventsReadCache(orderId?: string, reason?: string): void {
   const oid = orderId?.trim() ?? "";

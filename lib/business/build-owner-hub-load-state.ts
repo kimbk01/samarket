@@ -1,6 +1,6 @@
 import type { OwnerHubDashboardPack } from "@/lib/business/load-owner-hub-dashboard-server";
 import { dbStoreToBusinessProfile, type StoreRow } from "@/lib/stores/db-store-mapper";
-import { pickPreferredOwnerStore } from "@/lib/stores/pick-preferred-owner-store";
+import { pickPreferredOwnerStore } from "@/lib/delivery/owner/pick-preferred-owner-store";
 import type { BusinessProduct, BusinessProfile } from "@/lib/types/business";
 import {
   parseStoreRowsFromMeStoresJson,

@@ -2,7 +2,7 @@
  * Pure preferred-store picker — no sessionStorage, listeners, or network.
  */
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
-import { computeOwnerCanSell } from "@/lib/stores/owner-lite-store-shortcuts";
+import { computeOwnerCanSell } from "@/lib/delivery/owner/owner-lite-store-shortcuts";
 
 export function pickPreferredOwnerStore(stores: StoreRow[]): StoreRow | null {
   if (stores.length === 0) return null;

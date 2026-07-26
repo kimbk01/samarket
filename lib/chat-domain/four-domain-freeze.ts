@@ -71,12 +71,11 @@ export const TARGET_SURFACE_WRITERS = {
  * (구 Domain Authority / badge projection 덤프)
  */
 export const FORBIDDEN_RESTORE_PATHS = [
-  "lib/community-messenger/realtime/domain-room-state-store.ts",
-  "lib/community-messenger/realtime/reduce-domain-room-event.ts",
-  "lib/notifications/build-notification-badge-projection.ts",
-  "lib/messenger/contracts/domain-badge-surface-store.ts",
-  "lib/chat-domain/chat-domain.ts",
-  /** Phase J deleted — callers were 0 */
+  /**
+   * Phase J deleted chrome — restore FAIL.
+   * Domain Badge / Realtime ACTIVE AUTHORITY modules are NOT listed here
+   * (STALE Phase B trash ban reconciled 2026-07 Delivery Owner Authority Closeout).
+   */
   "components/community-messenger/room/CommunityMessengerRoomSegmentShellLayout.tsx",
   "components/community-messenger/room/CommunityMessengerRoomStableEntryShellLight.tsx",
   "components/community-messenger/room/CommunityMessengerRoomRouteEntryShell.tsx",

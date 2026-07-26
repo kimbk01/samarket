@@ -18,7 +18,7 @@ import {
   resolveFabOwnerOrdersBadgeCount,
   resolveFabOwnerStoreBadgeCount,
   resolveOwnerOperationsCenterAttentionCount,
-} from "@/lib/stores/owner-store-badge-display-policy";
+} from "@/lib/delivery/owner/owner-store-badge-display-policy";
 import {
   __resetOwnerHubBadgeStoreForTest,
   __testApplyOwnerHubBadgePayloadForTest,

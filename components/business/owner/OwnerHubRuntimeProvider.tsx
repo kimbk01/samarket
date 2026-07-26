@@ -23,7 +23,7 @@ import {
   parseStoreRowsFromMeStoresJson,
   peekMeStoresListClientCache,
 } from "@/lib/me/fetch-me-stores-deduped";
-import { pickPreferredOwnerStore } from "@/lib/stores/pick-preferred-owner-store";
+import { pickPreferredOwnerStore } from "@/lib/delivery/owner/pick-preferred-owner-store";
 import { markDeliveryOwnerSurfaceActive } from "@/lib/delivery/owner/owner-surface-activity";
 import { parseOwnerStoreOpsSnapshotFromJson } from "@/lib/stores/owner-store-ops-snapshot";
 import {
@@ -38,7 +38,7 @@ import {
 } from "@/lib/stores/owner-hub-dashboard-orders-cache";
 import { scheduleOwnerDashboardAfterFirstPaint } from "@/lib/business/owner-dashboard-waterfall";
 import { recordOwnerHubStoreOrderRealtimeRow } from "@/lib/business/owner-hub-pending-order-bridge";
-import { invalidateOwnerStoreOrdersListCacheCoalesced } from "@/lib/stores/owner-store-orders-list-cache-invalidate-coalesce";
+import { invalidateOwnerStoreOrdersListCacheCoalesced } from "@/lib/delivery/owner/owner-store-orders-list-cache-invalidate-coalesce";
 
 type OwnerHubRuntimeValue = {
   stores: StoreRow[] | null;

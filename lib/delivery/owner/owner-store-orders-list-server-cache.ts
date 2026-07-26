@@ -2,7 +2,7 @@
  * GET /api/me/stores/[storeId]/orders — process memory TTL + singleflight.
  * 클라이언트 `owner-store-orders-list-cache` 와 분리(서버 warm).
  */
-import type { OwnerStoreOrdersListCacheValue } from "@/lib/stores/owner-store-orders-list-cache";
+import type { OwnerStoreOrdersListCacheValue } from "@/lib/delivery/owner/owner-store-orders-list-cache";
 import { deliveryOwnerOrdersListCacheKey } from "@/lib/delivery/shared/contracts/delivery-order-cache-namespace";
 
 const TTL_MS = 30_000;

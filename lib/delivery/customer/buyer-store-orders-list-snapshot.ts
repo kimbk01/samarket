@@ -9,7 +9,7 @@ import {
   parseBuyerStoreOrdersListSnapshotRpcData,
   type BuyerStoreOrderListApiRow,
   type BuyerStoreOrdersListSnapshotPayloadJson,
-} from "@/lib/stores/buyer-store-orders-list-snapshot-assemble";
+} from "@/lib/delivery/customer/buyer-store-orders-list-snapshot-assemble";
 import {
   BUYER_STORE_ORDERS_LIST_DEFAULT_LIMIT,
   BUYER_STORE_ORDERS_LIST_DEFAULT_SCOPE,
@@ -17,20 +17,20 @@ import {
   BUYER_STORE_ORDERS_LIST_SNAPSHOT_TABLE,
   buyerStoreOrdersListSnapshotCacheKeyParts,
   buyerStoreOrdersListSnapshotCounterTtlMs,
-} from "@/lib/stores/buyer-store-orders-list-snapshot-counter";
+} from "@/lib/delivery/customer/buyer-store-orders-list-snapshot-counter";
 import {
   logBuyerOrdersListMonolithAnalysis,
   logBuyerStoreOrdersListSnapshotRpcDesignOnce,
-} from "@/lib/stores/buyer-store-orders-list-snapshot-hotpath-analysis";
+} from "@/lib/delivery/customer/buyer-store-orders-list-snapshot-hotpath-analysis";
 import {
   evaluateBuyerOrdersListRegressionGuards,
   type BuyerStoreOrdersListSnapshotBreakdown,
-} from "@/lib/stores/buyer-store-orders-list-snapshot-regression-guard";
+} from "@/lib/delivery/customer/buyer-store-orders-list-snapshot-regression-guard";
 import {
   clearBuyerStoreOrdersListSnapshotInvalidation,
   peekBuyerStoreOrdersListSnapshotInvalidated,
-} from "@/lib/stores/buyer-store-orders-list-snapshot-cache";
-import { scheduleBuyerStoreOrdersListSnapshotRefresh } from "@/lib/stores/buyer-store-orders-list-snapshot-refresh";
+} from "@/lib/delivery/customer/buyer-store-orders-list-snapshot-cache";
+import { scheduleBuyerStoreOrdersListSnapshotRefresh } from "@/lib/delivery/customer/buyer-store-orders-list-snapshot-refresh";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 

@@ -110,7 +110,7 @@ import {
   buildStoreOrderDetailSeedFromPostSuccess,
   setStoreOrderDetailSeed,
 } from "@/lib/stores/store-order-detail-seed-cache";
-import { navigateToBuyerStoreOrderDetail } from "@/lib/stores/navigate-to-buyer-store-order-detail";
+import { navigateToBuyerStoreOrderDetail } from "@/lib/delivery/customer/navigate-to-buyer-store-order-detail";
 import { checkoutPaymentOptionsForCart } from "@/lib/stores/payment-methods-config";
 import {
   STORE_ADDRESS_STREET_LABEL,

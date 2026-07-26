@@ -8,7 +8,7 @@ import {
   ownerStoreOrdersListSnapshotGateFromPayload,
   parseOwnerStoreOrdersListSnapshotRpcData,
   type OwnerStoreOrdersListSnapshotPayloadJson,
-} from "@/lib/stores/owner-store-orders-list-snapshot-assemble";
+} from "@/lib/delivery/owner/owner-store-orders-list-snapshot-assemble";
 import {
   OWNER_STORE_ORDERS_LIST_DEFAULT_LIMIT,
   OWNER_STORE_ORDERS_LIST_DEFAULT_SCOPE,
@@ -16,16 +16,16 @@ import {
   OWNER_STORE_ORDERS_LIST_SNAPSHOT_TABLE,
   ownerStoreOrdersListSnapshotCacheKeyParts,
   ownerStoreOrdersListSnapshotCounterTtlMs,
-} from "@/lib/stores/owner-store-orders-list-snapshot-counter";
+} from "@/lib/delivery/owner/owner-store-orders-list-snapshot-counter";
 import {
   logOwnerOrdersListHotpathAnalysis,
   logOwnerStoreOrdersListSnapshotRpcDesignOnce,
-} from "@/lib/stores/owner-store-orders-list-snapshot-hotpath-analysis";
+} from "@/lib/delivery/owner/owner-store-orders-list-snapshot-hotpath-analysis";
 import {
   evaluateOwnerOrdersListRegressionGuards,
   type OwnerStoreOrdersListSnapshotBreakdown,
-} from "@/lib/stores/owner-store-orders-list-snapshot-regression-guard";
-import { scheduleOwnerStoreOrdersListSnapshotRefresh } from "@/lib/stores/owner-store-orders-list-snapshot-refresh";
+} from "@/lib/delivery/owner/owner-store-orders-list-snapshot-regression-guard";
+import { scheduleOwnerStoreOrdersListSnapshotRefresh } from "@/lib/delivery/owner/owner-store-orders-list-snapshot-refresh";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 

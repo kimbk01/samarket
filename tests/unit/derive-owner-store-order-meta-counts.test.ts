@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveOwnerStoreOrderMetaCounts } from "@/lib/stores/derive-owner-store-order-meta-counts";
+import { deriveOwnerStoreOrderMetaCounts } from "@/lib/delivery/owner/derive-owner-store-order-meta-counts";
 
 describe("deriveOwnerStoreOrderMetaCounts", () => {
   it("matches server pending / delivery / refund conditions", () => {

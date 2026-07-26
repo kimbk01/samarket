@@ -31,7 +31,7 @@ function bodyOf(src, fnName) {
   return null;
 }
 
-const policyRel = "lib/stores/owner-store-badge-display-policy.ts";
+const policyRel = "lib/delivery/owner/owner-store-badge-display-policy.ts";
 const policy = read(policyRel);
 
 /** Axis that must never feed an Owner FAB/Header resolver. */

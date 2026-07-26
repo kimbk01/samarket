@@ -7,11 +7,11 @@ import {
   syncStoreOrderMessengerRoomContextMeta,
 } from "@/lib/community-messenger/store-order-chat-service";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
-import { invalidateOwnerStoreOrdersListCache } from "@/lib/stores/owner-store-orders-list-cache";
-import { deleteOwnerStoreOrdersListSnapshotCounter } from "@/lib/stores/owner-store-orders-list-snapshot";
+import { invalidateOwnerStoreOrdersListCache } from "@/lib/delivery/owner/owner-store-orders-list-cache";
+import { deleteOwnerStoreOrdersListSnapshotCounter } from "@/lib/delivery/owner/owner-store-orders-list-snapshot";
 import { invalidateStoreOrderCountsCache } from "@/lib/stores/store-order-counts-cache";
 import { invalidateStoreOrderDetailSnapshot } from "@/lib/stores/store-order-detail-snapshot-cache";
-import { invalidateBuyerStoreOrdersListSnapshot } from "@/lib/stores/buyer-store-orders-list-snapshot-cache";
+import { invalidateBuyerStoreOrdersListSnapshot } from "@/lib/delivery/customer/buyer-store-orders-list-snapshot-cache";
 import { applyStoreOrderStatusTransition } from "@/lib/stores/apply-store-order-status-transition";
 import { createStoreOrderEvent } from "@/lib/stores/store-order-events";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";

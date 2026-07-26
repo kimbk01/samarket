@@ -6,7 +6,7 @@ import { runSingleFlight } from "@/lib/http/run-single-flight";
 import {
   peekOwnerStoreOrdersListCache,
   seedOwnerStoreOrdersListCacheFromJson,
-} from "@/lib/stores/owner-store-orders-list-cache";
+} from "@/lib/delivery/owner/owner-store-orders-list-cache";
 
 export type StoreOrdersListResult = {
   status: number;

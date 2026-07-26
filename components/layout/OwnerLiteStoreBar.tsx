@@ -13,7 +13,7 @@ import {
   isStorePubliclyListed,
 } from "@/lib/stores/store-approval-label-ko";
 import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-nav-intercept";
-import { resolveOwnerLiteStoreShortcuts } from "@/lib/stores/owner-lite-store-shortcuts";
+import { resolveOwnerLiteStoreShortcuts } from "@/lib/delivery/owner/owner-lite-store-shortcuts";
 
 export function OwnerLiteStoreBar() {
   const { t } = useI18n();

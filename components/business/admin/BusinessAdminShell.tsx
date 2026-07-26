@@ -28,12 +28,11 @@ import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { readCachedMeAddressList } from "@/lib/addresses/address-list-client-cache";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import { formatUserAddressListPlainLine } from "@/lib/addresses/format-user-address-list-line";
-import { pickPreferredOwnerStore } from "@/lib/stores/pick-preferred-owner-store";
+import { pickPreferredOwnerStore } from "@/lib/delivery/owner/pick-preferred-owner-store";
 import { BusinessAdminSidebar } from "@/components/business/admin/BusinessAdminSidebar";
 import { BusinessAdminOpenToggle } from "@/components/business/admin/BusinessAdminOpenToggle";
 import { BusinessAdminVisibleToggle } from "@/components/business/admin/BusinessAdminVisibleToggle";
 import { BusinessStatusBadge } from "@/components/business/admin/BusinessStatusBadge";
-import { useOwnerHubBadgeBreakdownWhenEnabled } from "@/lib/chats/use-owner-hub-badge-total";
 import { useOwnerHubRuntime } from "@/components/business/owner/OwnerHubRuntimeProvider";
 import { BusinessAdminStoreProvider } from "@/components/business/admin/business-admin-store-context";
 import { OwnerMobileAdminHeader } from "@/components/business/owner/OwnerMobileAdminHeader";
@@ -57,7 +56,6 @@ import {
   isOwnerStoreAdminDirtyGuardPath,
   isOwnerStoreFormBottomNavHiddenPath,
 } from "@/lib/business/owner-basic-info-guard";
-import { isStoreOwnerAdminPathname } from "@/lib/business/owner-hub-path";
 import {
   peekOwnerOrdersAttentionBridge,
   subscribeOwnerOrdersAttentionBridge,
@@ -390,15 +388,12 @@ export function BusinessAdminShell({
     };
   }, [orderCountsStoreId, isHub, hubRuntime, isOwnerOrdersRoute]);
 
-  const isOwnerAdminRoute = isStoreOwnerAdminPathname(pathname);
-  const ownerHubBreakdown = useOwnerHubBadgeBreakdownWhenEnabled(!isOwnerAdminRoute);
   const hubOrderAlertsBadge = hubRuntime?.orderAlertsBadge ?? shellOrderAlertsBadge;
-  const ownerOrderAttentionCount = isHub
-    ? hubOrderAlertsBadge
-    : Math.max(
-        Math.floor(Number(ownerHubBreakdown.orderAttention) || 0),
-        shellOrderAlertsBadge
-      );
+  /**
+   * Admin surface only — hub WhenEnabled was always EMPTY on `/stores/owner*`.
+   * Display authority = shell order counts / hubRuntime (not Owner Header 3-axis sum).
+   */
+  const ownerOrderAttentionCount = isHub ? hubOrderAlertsBadge : shellOrderAlertsBadge;
   const ownerHeaderBellCount = ownerOrderAttentionCount;
 
   const ownerStoreIdForBell = (selectedRow?.id ?? storeIdParam).trim();

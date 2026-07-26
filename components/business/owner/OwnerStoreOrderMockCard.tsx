@@ -21,7 +21,7 @@ import {
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { dispatchOwnerHubBadgeRefresh } from "@/lib/chats/chat-channel-events";
-import { invalidateOwnerStoreOrdersListCache } from "@/lib/stores/owner-store-orders-list-cache";
+import { invalidateOwnerStoreOrdersListCache } from "@/lib/delivery/owner/owner-store-orders-list-cache";
 import { forgetSingleFlight } from "@/lib/http/run-single-flight";
 import { isDeliveryFulfillment } from "@/lib/stores/order-status-transitions";
 import {

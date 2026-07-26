@@ -10,7 +10,7 @@ import {
   EMPTY_NON_CHAT_EVENT_ATTENTION,
 } from "@/lib/notifications/build-notification-badge-projection";
 import { resolveMessengerTabTotalUnreadBadgeCount } from "@/lib/notifications/samarket-messenger-notification-regulations";
-import { resolveFabOwnerOrderChatBadgeCount } from "@/lib/stores/owner-store-badge-display-policy";
+import { resolveFabOwnerOrderChatBadgeCount } from "@/lib/delivery/owner/owner-store-badge-display-policy";
 import { OWNER_HUB_BADGE_EMPTY, type OwnerHubBadgeBreakdown } from "@/lib/chats/owner-hub-badge-types";
 import { resolveStoreOrderListUnreadCount } from "@/lib/messenger/store-order/unread-from-notification-targets";
 

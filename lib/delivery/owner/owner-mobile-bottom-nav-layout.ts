@@ -1,5 +1,5 @@
 import { OwnerRoutes } from "@/lib/business/owner-routes";
-import type { OwnerBottomNavTabId } from "@/lib/stores/owner-bottom-nav-active";
+import type { OwnerBottomNavTabId } from "@/lib/delivery/owner/owner-bottom-nav-active";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { LucideIcon } from "lucide-react";
 import { ClipboardList, MessageCircle, Settings, UtensilsCrossed } from "lucide-react";

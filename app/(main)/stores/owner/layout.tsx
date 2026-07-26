@@ -4,7 +4,7 @@ import { OwnerHubDashboardOrdersCacheSeed } from "@/components/business/owner/Ow
 import { OwnerHubMeStoresCacheSeed } from "@/components/business/owner/OwnerHubMeStoresCacheSeed";
 import { loadOwnerHubDashboardPackServer } from "@/lib/business/load-owner-hub-dashboard-server";
 import { loadOwnerStoresPackCached } from "@/lib/me/load-owner-stores-pack-cached";
-import { pickPreferredOwnerStore } from "@/lib/stores/pick-preferred-owner-store";
+import { pickPreferredOwnerStore } from "@/lib/delivery/owner/pick-preferred-owner-store";
 import { StoresOwnerLayoutClient } from "./StoresOwnerLayoutClient";
 
 /**

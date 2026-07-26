@@ -29,14 +29,14 @@ import { resolveStoreFrontOpen } from "@/lib/stores/store-auto-hours";
 import {
   ensureStoreOrderMessengerRoom,
 } from "@/lib/community-messenger/store-order-chat-service";
-import { loadBuyerStoreOrdersHubSummary } from "@/lib/stores/load-buyer-store-orders-hub-summary";
+import { loadBuyerStoreOrdersHubSummary } from "@/lib/delivery/customer/load-buyer-store-orders-hub-summary";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 import { invalidateStoreOrderCountsCache } from "@/lib/stores/store-order-counts-cache";
 import { invalidateStoreOrderDetailSnapshot } from "@/lib/stores/store-order-detail-snapshot-cache";
-import { invalidateBuyerStoreOrdersListSnapshot } from "@/lib/stores/buyer-store-orders-list-snapshot-cache";
+import { invalidateBuyerStoreOrdersListSnapshot } from "@/lib/delivery/customer/buyer-store-orders-list-snapshot-cache";
 import {
   tryLoadBuyerStoreOrdersListFromSnapshot,
-} from "@/lib/stores/buyer-store-orders-list-snapshot";
+} from "@/lib/delivery/customer/buyer-store-orders-list-snapshot";
 import { persistStoreOrderItemOptions } from "@/lib/stores/persist-store-order-item-options";
 import { normalizeStoreOrderClientKey } from "@/lib/stores/store-order-client-key";
 import { createStoreOrderEvent } from "@/lib/stores/store-order-events";

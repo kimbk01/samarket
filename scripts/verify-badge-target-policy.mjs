@@ -53,7 +53,7 @@ const badgeReadPaths = [
   "lib/chats/owner-hub-badge-snapshot.ts",
   "lib/notifications/fetch-segmented-unread-count-server.ts",
   "lib/notifications/samarket-messenger-notification-regulations.ts",
-  "lib/stores/owner-store-badge-display-policy.ts",
+  "lib/delivery/owner/owner-store-badge-display-policy.ts",
   "components/layout/MainBottomNavFabSector.tsx",
 ];
 

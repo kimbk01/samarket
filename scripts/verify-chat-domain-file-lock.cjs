@@ -12,11 +12,8 @@ const path = require("node:path");
 const ROOT = path.resolve(__dirname, "..");
 
 const FORBIDDEN_RESTORE = [
-  "lib/community-messenger/realtime/domain-room-state-store.ts",
-  "lib/community-messenger/realtime/reduce-domain-room-event.ts",
-  "lib/notifications/build-notification-badge-projection.ts",
-  "lib/messenger/contracts/domain-badge-surface-store.ts",
-  "lib/chat-domain/chat-domain.ts",
+  // ACTIVE AUTHORITY (Domain Badge / Realtime SSOT) — must exist; not trash restore.
+  // Phase B FORBIDDEN list was STALE vs post–Domain Authority product (2026-07 closeout).
   "components/community-messenger/room/CommunityMessengerRoomSegmentShellLayout.tsx",
   "components/community-messenger/room/CommunityMessengerRoomStableEntryShellLight.tsx",
   "components/community-messenger/room/CommunityMessengerRoomRouteEntryShell.tsx",

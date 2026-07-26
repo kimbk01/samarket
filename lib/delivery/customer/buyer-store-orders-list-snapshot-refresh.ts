@@ -2,7 +2,7 @@
  * Event-driven buyer store orders list snapshot refresh (SOL1).
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { refreshBuyerStoreOrdersListSnapshotFromRpc } from "@/lib/stores/buyer-store-orders-list-snapshot";
+import { refreshBuyerStoreOrdersListSnapshotFromRpc } from "@/lib/delivery/customer/buyer-store-orders-list-snapshot";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 const refreshInflight = new Map<string, Promise<unknown>>();

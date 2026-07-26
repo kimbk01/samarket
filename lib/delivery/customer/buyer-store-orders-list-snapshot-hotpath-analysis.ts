@@ -1,7 +1,7 @@
 /**
  * SOL1 buyer orders list monolith hotpath analysis.
  */
-import type { BuyerStoreOrdersListSnapshotBreakdown } from "@/lib/stores/buyer-store-orders-list-snapshot-regression-guard";
+import type { BuyerStoreOrdersListSnapshotBreakdown } from "@/lib/delivery/customer/buyer-store-orders-list-snapshot-regression-guard";
 
 export type BuyerOrdersListMonolithAnalysis = {
   route: string;

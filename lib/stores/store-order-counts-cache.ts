@@ -6,7 +6,7 @@
 import type { OwnerStoreOpsSnapshot } from "@/lib/stores/owner-store-ops-snapshot";
 import type { DeliverySummaryOrderCountsVia } from "@/lib/stores/delivery-summary-signoff-observability";
 import { invalidateDeliverySummarySnapshotCache } from "@/lib/stores/delivery-summary-snapshot-cache";
-import { scheduleOwnerStoreOrdersListSnapshotRefresh } from "@/lib/stores/owner-store-orders-list-snapshot-refresh";
+import { scheduleOwnerStoreOrdersListSnapshotRefresh } from "@/lib/delivery/owner/owner-store-orders-list-snapshot-refresh";
 
 export type StoreOrderCountsPayload = {
   ok: true;

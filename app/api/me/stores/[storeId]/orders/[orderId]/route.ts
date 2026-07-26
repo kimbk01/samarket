@@ -12,8 +12,8 @@ import { loadOwnerStoreOrderReviewForOrder } from "@/lib/stores/owner-store-orde
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { invalidateStoreOrderCountsCache } from "@/lib/stores/store-order-counts-cache";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
-import { invalidateOwnerStoreOrdersListCache } from "@/lib/stores/owner-store-orders-list-cache";
-import { deleteOwnerStoreOrdersListSnapshotCounter } from "@/lib/stores/owner-store-orders-list-snapshot";
+import { invalidateOwnerStoreOrdersListCache } from "@/lib/delivery/owner/owner-store-orders-list-cache";
+import { deleteOwnerStoreOrdersListSnapshotCounter } from "@/lib/delivery/owner/owner-store-orders-list-snapshot";
 import {
   jsonPayloadKb,
   logStoreOrderDetailPerf,

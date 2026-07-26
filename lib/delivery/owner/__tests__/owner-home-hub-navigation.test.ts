@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   isOwnerHomeHubBottomNavActive,
   runOwnerHomeHubShortTap,
-} from "@/lib/stores/owner-home-hub-navigation";
+} from "@/lib/delivery/owner/owner-home-hub-navigation";
 
 vi.mock("@/lib/layout/scroll-app-shell-to-top", () => ({
   scrollAppShellToTop: vi.fn(),

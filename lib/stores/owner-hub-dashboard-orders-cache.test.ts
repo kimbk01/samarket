@@ -4,7 +4,7 @@ import {
   peekOwnerHubDashboardOrdersCache,
   seedOwnerHubDashboardOrdersCache,
 } from "./owner-hub-dashboard-orders-cache";
-import { invalidateOwnerStoreOrdersListCache } from "./owner-store-orders-list-cache";
+import { invalidateOwnerStoreOrdersListCache } from "@/lib/delivery/owner/owner-store-orders-list-cache";
 
 const STORE = "store-a";
 

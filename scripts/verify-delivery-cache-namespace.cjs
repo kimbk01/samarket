@@ -24,7 +24,7 @@ for (const required of [
 }
 
 const cartStorage = path.join(root, "lib/stores/store-commerce-cart-storage.ts");
-const ownerList = path.join(root, "lib/stores/owner-store-orders-list-cache.ts");
+const ownerList = path.join(root, "lib/delivery/owner/owner-store-orders-list-cache.ts");
 
 if (fs.existsSync(cartStorage)) {
   const t = fs.readFileSync(cartStorage, "utf8");
@@ -66,7 +66,7 @@ for (const required of [
 }
 
 const ownerServer = fs.readFileSync(
-  path.join(root, "lib/stores/owner-store-orders-list-server-cache.ts"),
+  path.join(root, "lib/delivery/owner/owner-store-orders-list-server-cache.ts"),
   "utf8"
 );
 if (!ownerServer.includes("deliveryOwnerOrdersListCacheKey")) {
@@ -77,7 +77,7 @@ if (ownerServer.includes("ownerUserId.trim()}\\0${storeId.trim()")) {
 }
 
 const buyerInvalidation = fs.readFileSync(
-  path.join(root, "lib/stores/buyer-store-orders-list-snapshot-cache.ts"),
+  path.join(root, "lib/delivery/customer/buyer-store-orders-list-snapshot-cache.ts"),
   "utf8"
 );
 if (!buyerInvalidation.includes("deliveryCustomerOrdersListCacheKey")) {

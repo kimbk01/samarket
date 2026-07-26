@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const invalidateOwnerStoreOrdersListCache = vi.fn();
 
-vi.mock("@/lib/stores/owner-store-orders-list-cache", () => ({
+vi.mock("@/lib/delivery/owner/owner-store-orders-list-cache", () => ({
   invalidateOwnerStoreOrdersListCache: (...args: unknown[]) =>
     invalidateOwnerStoreOrdersListCache(...args),
 }));

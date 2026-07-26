@@ -1,7 +1,7 @@
 /**
  * SOL1 buyer store orders list snapshot invalidation.
  */
-import { scheduleBuyerStoreOrdersListSnapshotRefresh } from "@/lib/stores/buyer-store-orders-list-snapshot-refresh";
+import { scheduleBuyerStoreOrdersListSnapshotRefresh } from "@/lib/delivery/customer/buyer-store-orders-list-snapshot-refresh";
 import { deliveryCustomerOrdersListCacheKey } from "@/lib/delivery/shared/contracts/delivery-order-cache-namespace";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 

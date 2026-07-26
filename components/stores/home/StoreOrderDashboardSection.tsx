@@ -7,7 +7,7 @@ import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import {
   type StoreOrdersHubFilter,
   ordersHubHref,
-} from "@/lib/stores/store-orders-hub-filter";
+} from "@/lib/delivery/customer/store-orders-hub-filter";
 import type { MessageKey } from "@/lib/i18n/messages";
 
 const FILTER_CHIP_KEYS: { key: StoreOrdersHubFilter; labelKey: MessageKey }[] = [

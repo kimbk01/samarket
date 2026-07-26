@@ -7,7 +7,7 @@ import {
   shouldOwnerOrdersSkipCachePeek,
   type OwnerOrdersEntrySearchParams,
 } from "@/lib/business/owner-orders-entry-policy";
-import { peekOwnerStoreOrdersListCache } from "@/lib/stores/owner-store-orders-list-cache";
+import { peekOwnerStoreOrdersListCache } from "@/lib/delivery/owner/owner-store-orders-list-cache";
 import type { OwnerStoreOrderListRow } from "@/lib/business/owner-store-order-list-row-bridge";
 
 export type OwnerOrdersViewLoadState =
