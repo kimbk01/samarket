@@ -44,6 +44,7 @@ import type { AdFeedPost } from "@/lib/ads/types";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { normalizeFeedSort } from "@/lib/community-feed/constants";
 import { readPhilifeFeedCache, writePhilifeFeedCache, clearPhilifeFeedCacheEntry, resolvePhilifeColdBootViewerSig, philifeFeedViewerSig } from "@/lib/community/philife-feed-session-cache";
+import { resolveInitialCommunityFeedSnapshot } from "@/lib/community/resolve-initial-community-feed-snapshot";
 import { usePhilifeWriteSheet } from "@/contexts/PhilifeWriteSheetContext";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import type { PhilifeGlobalFeedInitialRsc } from "@/lib/philife/resolve-philife-global-feed-initial-rsc";
@@ -746,10 +747,13 @@ export function CommunityFeed({
         }
         const next = j.posts ?? [];
         const tMerge0 = performance.now();
-        let mergedForCache: NeighborhoodFeedPostDTO[] | null = null;
+        let patchedRows: NeighborhoodFeedPostDTO[] = next;
         if (!append) {
-          mergedForCache = mergeNeighborhoodFeedById([], next, false);
-          setPosts((prev) => patchNeighborhoodFeedRows(prev, mergedForCache ?? []));
+          /** incoming 만으로 빈 배열에서 merge 하지 않음 — prev row 참조 유지 후 삭제분만 제거 */
+          setPosts((prev) => {
+            patchedRows = patchNeighborhoodFeedRows(prev, next);
+            return patchedRows;
+          });
         } else {
           setPosts((prev) => mergeNeighborhoodFeedById(prev, next, true));
         }
@@ -765,14 +769,14 @@ export function CommunityFeed({
           typeof j.nextOffset === "number" ? j.nextOffset : nextOffset + advance;
         nextOffsetRef.current = resolvedNextOffset;
 
-        if (!append && session === feedSessionRef.current && mergedForCache && mergedForCache.length > 0) {
+        if (!append && session === feedSessionRef.current && patchedRows.length > 0) {
           writePhilifeFeedCache(
             PHILIFE_GLOBAL_FEED_SESSION_KEY,
             category,
             neighborOnly,
             viewerSig,
             {
-              posts: mergedForCache,
+              posts: patchedRows,
               hasMore: !!j.hasMore,
               nextOffset: resolvedNextOffset,
             },
@@ -908,25 +912,36 @@ export function CommunityFeed({
       };
     }
 
-    const snap = readPhilifeFeedCache(
-      PHILIFE_GLOBAL_FEED_SESSION_KEY,
-      category,
-      neighborOnly,
-      cacheViewerSig,
-      recSortKey
-    );
-    if (snap?.posts?.length) {
-      setPosts((prev) => patchNeighborhoodFeedRows(prev, snap.posts));
-      setHasMore(snap.hasMore);
-      nextOffsetRef.current = snap.nextOffset;
+    /** Cold=Warm 단일 snapshot — tabEnterInstantBoot 전용 경로와 동일 resolver */
+    const bootSnap = resolveInitialCommunityFeedSnapshot({
+      href:
+        typeof window !== "undefined"
+          ? `${window.location.pathname}${window.location.search}`
+          : "/philife",
+    });
+    const snapMeta =
+      bootSnap?.posts?.length ?
+        bootSnap
+      : readPhilifeFeedCache(
+          PHILIFE_GLOBAL_FEED_SESSION_KEY,
+          category,
+          neighborOnly,
+          cacheViewerSig,
+          recSortKey
+        );
+
+    if (snapMeta?.posts?.length) {
+      setPosts((prev) => patchNeighborhoodFeedRows(prev, snapMeta.posts));
+      setHasMore(snapMeta.hasMore);
+      nextOffsetRef.current =
+        typeof snapMeta.nextOffset === "number" ? snapMeta.nextOffset : 0;
       setErr("");
       setLoading(false);
     } else {
       setErr("");
     }
 
-    const hasRenderableRows =
-      canDisplayRscSeedForCurrentQuery || !!snap?.posts?.length || postsRef.current.length > 0;
+    const hasRenderableRows = !!snapMeta?.posts?.length || postsRef.current.length > 0;
     /** hasRenderableRows 면 loading UI 없이 background sync only */
     void fetchPage(0, false, session, !hasRenderableRows);
     return () => {

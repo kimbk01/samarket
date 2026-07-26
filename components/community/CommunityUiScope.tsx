@@ -21,6 +21,8 @@ export function CommunityUiScope({ children }: { children: ReactNode }) {
       className="sam-domain-shell flex min-h-0 min-w-0 flex-1 flex-col"
       data-community-ui
       data-community-renderer={COMMUNITY_RENDERER_ID}
+      data-dibay-first-html-shell="1"
+      data-app-shell="canonical-v1"
     >
       <div
         className={`mx-auto flex min-h-0 w-full max-w-[66rem] min-w-0 flex-1 flex-col ${CM_PAGE_CLASS} ${COMMUNITY_FONT_CLASS}`}

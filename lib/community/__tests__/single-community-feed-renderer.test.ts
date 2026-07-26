@@ -9,10 +9,9 @@ function read(rel: string) {
 }
 
 describe("single community feed renderer (attachment 2)", () => {
-  it("PhilifeFeedClientEntry always wraps CommunityUiScope", () => {
-    const src = read("components/community/PhilifeFeedClientEntry.tsx");
-    expect(src).toContain("CommunityUiScope");
-    expect(src).toMatch(/return\s*\(\s*<CommunityUiScope>/);
+  it("CommunityHomeSurface owns CommunityUiScope (not client entry)", () => {
+    expect(read("components/community/CommunityHomeSurface.tsx")).toContain("CommunityUiScope");
+    expect(read("components/community/PhilifeFeedClientEntry.tsx")).not.toContain("CommunityUiScope");
   });
 
   it("canonical card class uses scoped --cm-radius-card", () => {

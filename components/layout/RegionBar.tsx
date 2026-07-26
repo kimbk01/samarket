@@ -19,11 +19,11 @@ import { getMessengerRoomBackOverride } from "@/lib/community-messenger/room/mes
 import { resolveMainTier1Subpage } from "@/lib/layout/resolve-main-tier1";
 import { resolveTier1BarLabel } from "@/lib/layout/resolve-tier1-bar-label";
 import { useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
-import dynamic from "next/dynamic";
 import { MyHubHeaderActions } from "@/components/my/MyHubHeaderActions";
 import { DetailHeader } from "@/components/layout/sector-header";
 import { StoresBrowseHeaderChrome } from "@/components/stores/browse/StoresBrowseHeaderChrome";
 import { StoresHomeHeaderChrome } from "@/components/stores/home/hub/StoresHomeHeaderChrome";
+import { RegionBarExplorationTier1 } from "@/components/layout/RegionBarExplorationTier1";
 import {
   DELIVERY_CONSUMER_HEADER_BAR_CLASS,
   isDeliveryConsumerPath,
@@ -33,12 +33,6 @@ import {
 import { APP_TIER1_HEADER_BAR_CLASS } from "@/lib/layout/app-tier1-header";
 import { isStoreOwnerAdminReturnTo } from "@/lib/business/owner-hub-path";
 import type { ReactNode } from "react";
-
-const RegionBarExplorationTier1Lazy = dynamic(
-  () =>
-    import("@/components/layout/RegionBarExplorationTier1").then((m) => m.RegionBarExplorationTier1),
-  { ssr: false }
-);
 
 /** Main tier-1 chrome: 커뮤니티(`/philife`)·거래 탐색·배달 루트(`/stores`)는 `Tier1ExplorationTitleRow`(지역 한 줄·`/mypage/addresses`). */
 export function RegionBar({
@@ -85,7 +79,8 @@ export function RegionBar({
     isCommunityHomeSurfacePath(pathNoQuery);
 
   if (isUnifiedExplorationTier1) {
-    return <RegionBarExplorationTier1Lazy pathNoQuery={pathNoQuery} />;
+    /** SSR 포함 — `dynamic({ ssr:false })` 금지 (Cold Start 첫 HTML에 Header 없음 방지) */
+    return <RegionBarExplorationTier1 pathNoQuery={pathNoQuery} />;
   }
 
   if (pathNoQuery === "/stores") {

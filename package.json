@@ -212,7 +212,12 @@
     "verify:no-duplicate-surface-subscriptions": "node scripts/verify-no-duplicate-surface-subscriptions.cjs",
     "verify:no-tab-skeleton-blocking": "node scripts/verify-no-tab-skeleton-blocking.cjs",
     "verify:single-community-surface-authority": "node scripts/verify-single-community-surface-authority.cjs",
-    "verify:single-community-feed-renderer": "node scripts/verify-single-community-feed-renderer.cjs"
+    "verify:single-community-feed-renderer": "node scripts/verify-single-community-feed-renderer.cjs",
+    "verify:first-html-app-shell": "node scripts/verify-first-html-app-shell.cjs",
+    "verify:no-client-only-main-header": "node scripts/verify-no-client-only-main-header.cjs",
+    "verify:single-surface-snapshot-boot": "node scripts/verify-single-surface-snapshot-boot.cjs",
+    "verify:no-cold-warm-renderer-split": "node scripts/verify-no-cold-warm-renderer-split.cjs",
+    "verify:no-cache-network-full-replace": "node scripts/verify-no-cache-network-full-replace.cjs"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.0",

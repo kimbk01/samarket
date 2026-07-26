@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { AppRouteTransition } from "@/components/route-transition/AppRouteTransition";
 import { TradeMarketTabPushEnterPanel } from "@/components/market/TradeMarketTabPushEnterPanel";
 import { PhilifeFeedClientEntry } from "@/components/community/PhilifeFeedClientEntry";
+import { CommunityUiScope } from "@/components/community/CommunityUiScope";
 import { CommunityMessengerHome } from "@/components/community-messenger/CommunityMessengerHome";
 import { StoresHub } from "@/components/stores/StoresHub";
 import { MyContent } from "@/app/(main)/my/MyContent";
@@ -52,8 +53,10 @@ function InstantMainTabEnterPanel({ href }: { href: string }) {
     return (
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <Suspense fallback={null}>
-          {/* CommunityUiScope is owned by PhilifeFeedClientEntry — same as Cold `/` */}
-          <PhilifeFeedClientEntry tabEnterInstantBoot tabEnterHref={href} />
+          {/* Scope = CommunityHomeSurface 와 동일 CommunityUiScope (First HTML contract) */}
+          <CommunityUiScope>
+            <PhilifeFeedClientEntry tabEnterInstantBoot tabEnterHref={href} />
+          </CommunityUiScope>
         </Suspense>
       </div>
     );

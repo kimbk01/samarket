@@ -20,24 +20,24 @@ function fail(msg) {
 }
 
 const entry = read("components/community/PhilifeFeedClientEntry.tsx");
-if (!entry.includes("CommunityUiScope")) {
-  fail("PhilifeFeedClientEntry must wrap feed in CommunityUiScope (Cold `/` token scope)");
+if (entry.includes("CommunityUiScope")) {
+  fail("PhilifeFeedClientEntry must not wrap CommunityUiScope (server Surface owns scope)");
 }
-
-const scope = read("components/community/CommunityUiScope.tsx");
-if (!scope.includes("data-community-ui") || !scope.includes('data-community-renderer={COMMUNITY_RENDERER_ID}')) {
-  fail("CommunityUiScope must set data-community-ui + canonical renderer marker");
-}
-if (!scope.includes("CM_PAGE_CLASS")) {
-  fail("CommunityUiScope must apply CM_PAGE_CLASS");
+if (!entry.includes("resolveInitialCommunityFeedSnapshot")) {
+  fail("PhilifeFeedClientEntry must use resolveInitialCommunityFeedSnapshot");
 }
 
 const surface = read("components/community/CommunityHomeSurface.tsx");
-if (!surface.includes("PhilifeFeedClientEntry")) {
-  fail("CommunityHomeSurface must mount PhilifeFeedClientEntry only");
+if (!surface.includes("CommunityUiScope") || !surface.includes("PhilifeFeedClientEntry")) {
+  fail("CommunityHomeSurface must mount CommunityUiScope + PhilifeFeedClientEntry");
 }
 if (/^\s*(?!\/\/|\*|\/\*).*(?:posts\.map|CommunityCard|CM_FEED_CARD)/m.test(surface.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, ""))) {
   fail("CommunityHomeSurface must not map posts / compose cards directly");
+}
+
+const scope = read("components/community/CommunityUiScope.tsx");
+if (!scope.includes("data-community-ui") || !scope.includes("CM_PAGE_CLASS")) {
+  fail("CommunityUiScope must set data-community-ui + CM_PAGE_CLASS");
 }
 
 const layouts = read("components/community/feed-list-layouts.tsx");
