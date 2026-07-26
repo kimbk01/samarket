@@ -20,6 +20,11 @@
 		"PushNotificationsPlugin",
 		"SharePlugin",
 		"SplashScreenPlugin",
-		"BadgePlugin"
+		"BadgePlugin",
+		"NativeCallServicePlugin",
+		"DibayVoipCallPlugin",
+		"DibayCallPipPlugin",
+		"NativeAppleAuthPlugin",
+		"NativeKakaoAuthPlugin"
 	]
 }
