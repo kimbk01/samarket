@@ -141,6 +141,10 @@ public class MainActivity extends BridgeActivity {
   private Runnable v4AcceptScreenReadyWatchdogRunnable = null;
   private View webViewLoadErrorOverlay = null;
   private TextView webViewLoadErrorDetail = null;
+  /** Admin-driven Native Startup Intro (cache) — not Web Intro / not fake AppShell. */
+  private DibayStartupIntroSurface startupIntroSurface = null;
+  private static volatile DibayStartupIntroSurface startupIntroSurfaceStatic = null;
+  private static volatile boolean startupIntroAttached = false;
   /** Local→Remote handoff cover — shown once before location.replace, removed on remote shellReady. */
   private View handoffCoverOverlay = null;
   private View handoffCoverErrorPanel = null;
@@ -954,7 +958,12 @@ public class MainActivity extends BridgeActivity {
     SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
     injectBootMetricOnCreate();
     super.onCreate(savedInstanceState);
-    splashScreen.setKeepOnScreenCondition(() -> !webSplashDismissRequested);
+    // Theme splash until Native Intro overlay is attached (same cream/logo continuity).
+    splashScreen.setKeepOnScreenCondition(() -> !startupIntroAttached && !webSplashDismissRequested);
+    startupIntroSurface = new DibayStartupIntroSurface(this);
+    startupIntroSurface.attachIfNeeded();
+    startupIntroSurfaceStatic = startupIntroSurface;
+    startupIntroAttached = startupIntroSurface.isAttached();
     registerActiveCallBackPressedCallback();
     Log.i(WEBVIEW_LOG_TAG, "app_start package=" + getPackageName());
     String serverOrigin = DibayServerOrigin.resolve(this);
@@ -1210,12 +1219,18 @@ public class MainActivity extends BridgeActivity {
     Log.i(WEBVIEW_LOG_TAG, "dibay_bridge_webview_client_attached");
   }
 
-  /** Web 또는 native fallback — splash overlay 해제. Does NOT remove handoff cover. */
+  /** Web 또는 native fallback — exit Native Intro then release theme splash. Does NOT remove handoff cover. */
   public static void requestWebSplashDismiss(String source) {
     if (webSplashDismissRequested) return;
     webSplashDismissRequested = true;
     splashDismissSource = source != null ? source : "unknown";
     Log.i(WEBVIEW_LOG_TAG, "dismissSplash success source=" + splashDismissSource);
+    final DibayStartupIntroSurface intro = startupIntroSurfaceStatic;
+    final MainActivity act = activeInstance;
+    final Handler handler = act != null ? act.mainHandler : new Handler(Looper.getMainLooper());
+    if (intro != null) {
+      handler.post(() -> intro.dismissWithExit(null));
+    }
   }
 
   /**
@@ -1453,6 +1468,22 @@ public class MainActivity extends BridgeActivity {
           .putString("initial_surface", s)
           .apply();
       Log.i(WEBVIEW_LOG_TAG, "initial_surface_persisted surface=" + s);
+    }
+
+    /**
+     * Persist full StartupConfig JSON + download assets for next cold start.
+     * Never blocks App Ready / current Intro.
+     */
+    @JavascriptInterface
+    public void persistStartupConfig(String json) {
+      Log.i(WEBVIEW_LOG_TAG, "persistStartupConfig bridge bytes=" + (json != null ? json.length() : 0));
+      mainHandler.post(
+          () -> {
+            if (startupIntroSurface == null) {
+              startupIntroSurface = new DibayStartupIntroSurface(MainActivity.this);
+            }
+            startupIntroSurface.persistFromBridgeJson(json);
+          });
     }
 
     /** Remove Native Handoff Cover — Remote App Ready / shellReady only. */

@@ -51,8 +51,12 @@ export async function saveStartupConfigToDb(
   sb: SupabaseClient,
   config: StartupConfig
 ): Promise<{ ok: true } | { ok: false; error: string }> {
+  const previous = await loadStartupConfigFromDb(sb);
+  const prevVersion =
+    previous.ok && previous.source === "db" ? previous.config.version : BUNDLED_STARTUP_CONFIG.version;
   const next = normalizeStartupConfig({
     ...config,
+    version: Math.max(2, prevVersion + 1),
     updatedAt: new Date().toISOString(),
   });
   const { error } = await sb.from("admin_settings").upsert(

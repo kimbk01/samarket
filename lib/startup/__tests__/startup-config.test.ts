@@ -6,6 +6,7 @@ import {
   BUNDLED_STARTUP_CONFIG,
   normalizeStartupConfig,
   isStartupIntroActive,
+  toNativeStartupConfigPayload,
 } from "@/lib/startup/startup-config";
 import {
   applyStartupConfigToDom,
@@ -90,6 +91,38 @@ describe("startup config client cache", () => {
     expect(normalizeStartupConfig({ initial_surface: "food" }).initialSurface).toBe("food");
     expect(normalizeStartupConfig({ initialSurface: "nope" }).initialSurface).toBe("community");
   });
+
+  it("accepts nested logo/background/animation and maps native payload", () => {
+    const next = normalizeStartupConfig({
+      logo: { source: "uploaded", url: "https://cdn.example/logo.png", widthPreset: "large", verticalPosition: "upper" },
+      background: {
+        type: "gradient",
+        color: "#FFFCFC",
+        gradientFrom: "#FFEEDD",
+        gradientTo: "#FFFCFC",
+        gradientDirection: "horizontal",
+      },
+      introAnimation: {
+        enter: "scale_in",
+        exit: "fade_out",
+        ambient: "soft_pulse",
+        enterDurationMs: 50,
+        exitDurationMs: 5000,
+      },
+    });
+    expect(next.logo.source).toBe("uploaded");
+    expect(next.logo.url).toBe("https://cdn.example/logo.png");
+    expect(next.background.type).toBe("gradient");
+    expect(next.background.gradientFrom).toBe("#FFEEDD");
+    expect(next.introAnimation.enter).toBe("scale_in");
+    expect(next.introAnimation.enterDurationMs).toBe(150);
+    expect(next.introAnimation.exitDurationMs).toBe(1200);
+    const native = toNativeStartupConfigPayload(next);
+    expect(native.logoUrl).toBe("https://cdn.example/logo.png");
+    expect(native.enterAnimation).toBe("scale_in");
+    expect(native.backgroundType).toBe("gradient");
+    expect(isStartupIntroActive(next)).toBe(false);
+  });
 });
 
 describe("startup-shell-markup", () => {
@@ -109,13 +142,17 @@ describe("startup-shell-markup", () => {
     expect(html).not.toContain("src=\"http");
   });
 
-  it("builds intro markup for remote layout when explicitly enabled", () => {
+  it("keeps web intro markup stub even when legacy enabled flags are set (Web Intro = 0)", () => {
     const frag = buildStartupIntroMarkup({
       logoSrc: "/images/brand/x.png",
       config: { ...BUNDLED_STARTUP_CONFIG, enabled: true, forceDisable: false },
     });
     expect(frag).toContain(DIBAY_STARTUP_INTRO_DOM_ID);
-    expect(frag).toContain("/images/brand/x.png");
+    expect(frag).toContain("hidden");
+    expect(frag).not.toContain("/images/brand/x.png");
+    expect(isStartupIntroActive({ ...BUNDLED_STARTUP_CONFIG, enabled: true, forceDisable: false })).toBe(
+      false
+    );
   });
 
   it("builds hidden intro stub when web intro disabled (product default)", () => {

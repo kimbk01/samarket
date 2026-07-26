@@ -95,6 +95,10 @@ export function scheduleStartupConfigRefresh(): void {
         const next = normalizeStartupConfig(json.config);
         memory = next;
         writeStartupConfigCache(next);
+        const { syncStartupConfigToNative } = await import(
+          "@/lib/startup/startup-config-native-sync"
+        );
+        syncStartupConfigToNative(next);
       } catch {
         /* keep cached / default */
       }
@@ -111,4 +115,7 @@ export function scheduleStartupConfigRefresh(): void {
 export function persistStartupConfigCache(config: StartupConfig): void {
   memory = normalizeStartupConfig(config);
   writeStartupConfigCache(memory);
+  void import("@/lib/startup/startup-config-native-sync").then((m) => {
+    m.syncStartupConfigToNative(memory);
+  });
 }
