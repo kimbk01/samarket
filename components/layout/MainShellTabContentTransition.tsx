@@ -16,10 +16,10 @@ type Props = {
  * Bottom-nav transition host.
  *
  * CONTRACT — Single Surface Authority:
- * - Hub Surfaces live in `MainTabSurfaceKeepAlive` (one instance each).
+ * - `MainTabSurfaceKeepAlive` wraps (outside) `AppRouteTransition` so push/panel
+ *   swaps cannot remount hub Surfaces.
  * - DO NOT: InstantMainTabEnterPanel / pendingPushNode temporary Feed·List entry.
- * - DO NOT: dual-panel temporary Surface that remounts on route commit.
- * Transition layer = presentation/navigation only; Surface creation = keep-alive.
+ * - DO NOT: nest KeepAlive under dual-panel entering/exiting nodes.
  */
 export function MainShellTabContentTransition({
   children,
@@ -29,8 +29,16 @@ export function MainShellTabContentTransition({
   void _initialNavItems;
 
   return (
-    <AppRouteTransition contentStretchClass={contentStretchClass} overlay={null} pendingPushNode={null}>
-      <MainTabSurfaceKeepAlive>{children}</MainTabSurfaceKeepAlive>
-    </AppRouteTransition>
+    <div className={contentStretchClass || "min-w-0"}>
+      <MainTabSurfaceKeepAlive>
+        <AppRouteTransition
+          contentStretchClass="main-shell-push-host flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+          overlay={null}
+          pendingPushNode={null}
+        >
+          {children}
+        </AppRouteTransition>
+      </MainTabSurfaceKeepAlive>
+    </div>
   );
 }

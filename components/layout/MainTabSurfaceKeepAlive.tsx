@@ -21,6 +21,9 @@ type Props = {
   children: ReactNode;
 };
 
+/** Survives KeepAlive React remount — visited hubs stay in the set for this JS realm. */
+const visitedMainTabHubs = new Set<MainTabKeepAliveHubId>();
+
 function pathFromHref(href: string | null | undefined): string {
   const raw = (href ?? "").trim();
   if (!raw) return "";
@@ -104,21 +107,21 @@ export function MainTabSurfaceKeepAlive({ children }: Props) {
 
   const [mountedHubs, setMountedHubs] = useState<Set<MainTabKeepAliveHubId>>(() => {
     const h = resolveMainTabKeepAliveHub(pathname);
-    return h ? new Set<MainTabKeepAliveHubId>([h]) : new Set<MainTabKeepAliveHubId>();
+    if (h) visitedMainTabHubs.add(h);
+    return new Set(visitedMainTabHubs);
   });
 
   useLayoutEffect(() => {
     if (!activeHub) return;
+    visitedMainTabHubs.add(activeHub);
     setMountedHubs((prev) => {
-      if (prev.has(activeHub)) return prev;
-      const next = new Set(prev);
-      next.add(activeHub);
-      return next;
+      if (prev.has(activeHub) && prev.size === visitedMainTabHubs.size) return prev;
+      return new Set(visitedMainTabHubs);
     });
   }, [activeHub]);
 
   return (
-    <>
+    <div className="relative isolate flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden" data-main-tab-surface-host="1">
       {mountedHubs.has("community") ? (
         <HubSlot hub="community" active={activeHub === "community"}>
           <CommunityHomeSurface />
@@ -154,8 +157,8 @@ export function MainTabSurfaceKeepAlive({ children }: Props) {
           </Suspense>
         </HubSlot>
       ) : null}
-      {/* Detail / non-hub: route children. Hub paths: keep-alive only (page children suppressed). */}
+      {/* Detail / non-hub: route children (may include AppRouteTransition). Hub paths: keep-alive only. */}
       {routeHub == null ? children : null}
-    </>
+    </div>
   );
 }
