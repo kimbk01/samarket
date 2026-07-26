@@ -69,6 +69,21 @@ export function mapLegacyOwnerPath(legacy: string): string {
   return OWNER_ROUTES_BASE;
 }
 
+/**
+ * legacy owner URL → canonical `/stores/owner/*` (storeId 쿼리 보존).
+ * page.tsx 서버 리다이렉트 전용 — Owner View/Shell import 금지.
+ */
+export function buildLegacyOwnerRedirectHref(
+  legacyPath: string,
+  searchParams?: Record<string, string | string[] | undefined> | null
+): string {
+  const base = mapLegacyOwnerPath(legacyPath);
+  const raw = searchParams?.storeId;
+  const storeId = (Array.isArray(raw) ? raw[0] : raw)?.trim() ?? "";
+  if (!storeId) return base;
+  return withStoreId(base, storeId);
+}
+
 /** 매장 슬러그 충돌 방지를 위한 예약어. `/stores/owner` 와 정적 라우트들을 가린다. */
 export const RESERVED_STORE_SLUGS = new Set<string>([
   "owner",

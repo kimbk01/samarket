@@ -1,22 +1,10 @@
-"use client";
+import { redirectLegacyOwnerPage } from "@/lib/business/redirect-legacy-owner-page";
 
-import { Suspense } from "react";
-import { RouteLoadingInline } from "@/components/i18n/RouteLoadingInline";
-import { OwnerAdminPageScrollShell } from "@/components/business/owner/OwnerAdminPageScrollShell";
-import { OwnerStoreSettlementsView } from "@/components/business/owner/OwnerStoreSettlementsView";
+type PageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
 
-export default function MyBusinessSettlementsRoute() {
-  return (
-    <Suspense
-      fallback={
-        <OwnerAdminPageScrollShell>
-          <RouteLoadingInline className="sam-text-body text-sam-muted" />
-        </OwnerAdminPageScrollShell>
-      }
-    >
-      <OwnerAdminPageScrollShell>
-        <OwnerStoreSettlementsView />
-      </OwnerAdminPageScrollShell>
-    </Suspense>
-  );
+/** Legacy Owner URL — redirect-only. Canonical: /stores/owner/* */
+export default async function LegacyOwnerRedirectPage({ searchParams }: PageProps) {
+  return redirectLegacyOwnerPage("/my/business/settlements", searchParams);
 }

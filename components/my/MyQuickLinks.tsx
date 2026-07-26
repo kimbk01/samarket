@@ -28,7 +28,7 @@ export function MyQuickLinks({ favoriteCount, notificationUnreadCount }: MyQuick
         <span className="sam-text-body-secondary font-medium text-foreground">{t("my_quick_favorites")}</span>
       </Link>
       <Link
-        href="/my/recent-viewed"
+        href="/mypage/recent-viewed"
         className="flex flex-col items-center rounded-ui-rect border border-sam-border bg-sam-surface py-4 active:bg-sam-primary-soft"
       >
         <span className="mb-1 flex h-8 w-8 items-center justify-center text-foreground">
@@ -37,7 +37,7 @@ export function MyQuickLinks({ favoriteCount, notificationUnreadCount }: MyQuick
         <span className="sam-text-body-secondary font-medium text-foreground">{t("my_quick_recent")}</span>
       </Link>
       <Link
-        href="/my/benefits"
+        href="/mypage/benefits"
         className="flex flex-col items-center rounded-ui-rect border border-sam-border bg-sam-surface py-4 active:bg-sam-primary-soft"
       >
         <span className="mb-1 flex h-8 w-8 items-center justify-center text-foreground">

@@ -1,54 +1,10 @@
-import { Suspense } from "react";
-import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
-import { OwnerAdminPageScrollShell } from "@/components/business/owner/OwnerAdminPageScrollShell";
-import { OwnerProductsHubClient } from "@/components/business/owner/OwnerProductsHubClient";
-import { OwnerStoreNeedStoreIdRscMessage } from "@/components/business/owner/OwnerStoreNeedStoreIdRscMessage";
-import { loadOwnerProductsHubBootstrap } from "@/lib/stores/owner/load-owner-store-read-bootstrap";
+import { redirectLegacyOwnerPage } from "@/lib/business/redirect-legacy-owner-page";
 
-export default function OwnerProductsHubPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ storeId?: string }>;
-}) {
-  return (
-    <Suspense fallback={<MainFeedRouteLoading rows={5} />}>
-      <OwnerProductsHubPageBody searchParams={searchParams} />
-    </Suspense>
-  );
-}
+type PageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
 
-async function OwnerProductsHubPageBody({
-  searchParams,
-}: {
-  searchParams: Promise<{ storeId?: string }>;
-}) {
-  const sp = await searchParams;
-  const storeId = typeof sp.storeId === "string" ? sp.storeId.trim() : "";
-  if (!storeId) {
-    return (
-      <OwnerStoreNeedStoreIdRscMessage hintKey="owner_store_need_store_id_suffix_products" />
-    );
-  }
-  const bootstrap = await loadOwnerProductsHubBootstrap(storeId);
-  if (!bootstrap.ok) {
-    return (
-      <OwnerAdminPageScrollShell>
-        <OwnerProductsHubClient
-          key={storeId}
-          storeId={storeId}
-          rscBootstrapError={bootstrap.error}
-        />
-      </OwnerAdminPageScrollShell>
-    );
-  }
-  return (
-    <OwnerAdminPageScrollShell>
-      <OwnerProductsHubClient
-        key={storeId}
-        storeId={storeId}
-        initialSections={bootstrap.sections}
-        initialProducts={bootstrap.products}
-      />
-    </OwnerAdminPageScrollShell>
-  );
+/** Legacy Owner URL — redirect-only. Canonical: /stores/owner/* */
+export default async function LegacyOwnerRedirectPage({ searchParams }: PageProps) {
+  return redirectLegacyOwnerPage("/my/business/products", searchParams);
 }

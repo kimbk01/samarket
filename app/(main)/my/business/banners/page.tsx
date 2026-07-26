@@ -1,22 +1,10 @@
-"use client";
+import { redirectLegacyOwnerPage } from "@/lib/business/redirect-legacy-owner-page";
 
-import { Suspense } from "react";
-import { OwnerAdminPageScrollShell } from "@/components/business/owner/OwnerAdminPageScrollShell";
-import { OwnerStoreBannersView } from "@/components/business/owner/OwnerStoreBannersView";
-import { OwnerStoreSuspenseFallback } from "@/components/business/owner/OwnerStoreSuspenseFallback";
+type PageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
 
-export default function OwnerStoreBannersPage() {
-  return (
-    <Suspense
-      fallback={
-        <OwnerAdminPageScrollShell className="pt-4">
-          <OwnerStoreSuspenseFallback className="text-sm text-sam-muted" />
-        </OwnerAdminPageScrollShell>
-      }
-    >
-      <OwnerAdminPageScrollShell>
-        <OwnerStoreBannersView />
-      </OwnerAdminPageScrollShell>
-    </Suspense>
-  );
+/** Legacy Owner URL — redirect-only. Canonical: /stores/owner/* */
+export default async function LegacyOwnerRedirectPage({ searchParams }: PageProps) {
+  return redirectLegacyOwnerPage("/my/business/banners", searchParams);
 }

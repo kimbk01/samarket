@@ -167,7 +167,7 @@ export function MyPageItemScreen(
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
           <p className="sam-text-body text-sam-fg">{t("mypage_comp_settings_events_body")}</p>
           <Link
-            href="/my/benefits"
+            href="/mypage/benefits"
             className="mt-4 inline-flex min-h-[48px] items-center justify-center rounded-ui-rect bg-sam-ink px-4 sam-text-body font-medium text-white"
           >
             {t("mypage_comp_settings_events_cta")}

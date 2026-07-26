@@ -240,7 +240,7 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
     });
   }
 
-  if (p === "/my/benefits") {
+  if (p === "/my/benefits" || p === "/mypage/benefits") {
     return backMypage({ titleText: "tier1_member_benefits", subtitle: "tier1_member_benefits_subtitle", showHubQuickActions: true });
   }
 
@@ -341,7 +341,7 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
     return { ...DEFAULT, backHref: "/stores/owner", titleText: "tier1_business_apply", showHubQuickActions: true };
   }
 
-  if (p === "/my/recent-viewed") {
+  if (p === "/my/recent-viewed" || p === "/mypage/recent-viewed") {
     return backMypage({ titleText: "tier1_recent_viewed", subtitle: "tier1_recent_viewed_subtitle", showHubQuickActions: true });
   }
 

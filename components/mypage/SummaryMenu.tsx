@@ -11,8 +11,8 @@ const ITEMS: {
   showFavoriteBadge?: boolean;
 }[] = [
   { label: "관심목록", href: MYPAGE_TRADE_FAVORITES_HREF, icon: <HeartIcon />, showFavoriteBadge: true },
-  { label: "최근 본 글", href: "/my/recent-viewed", icon: <ClockIcon /> },
-  { label: "혜택", href: "/my/benefits", icon: <GiftIcon />, hasAlert: true },
+  { label: "최근 본 글", href: "/mypage/recent-viewed", icon: <ClockIcon /> },
+  { label: "혜택", href: "/mypage/benefits", icon: <GiftIcon />, hasAlert: true },
   { label: "배달 주문", href: "/my/store-orders", icon: <BagIcon /> },
 ];
 

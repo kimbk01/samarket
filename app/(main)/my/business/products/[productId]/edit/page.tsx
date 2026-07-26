@@ -1,51 +1,16 @@
-import Link from "next/link";
-import { Suspense } from "react";
-import { MainFormRouteLoading } from "@/components/layout/MainRouteLoading";
-import { OwnerProductForm } from "@/components/business/owner/OwnerProductForm";
-import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
-import { translate } from "@/lib/i18n/messages";
+import { redirect } from "next/navigation";
+import { OwnerRoutes } from "@/lib/business/owner-routes";
 
-export default function OwnerEditProductPage({
-  params,
-  searchParams,
-}: {
+type PageProps = {
   params: Promise<{ productId: string }>;
-  searchParams: Promise<{ storeId?: string }>;
-}) {
-  return (
-    <Suspense fallback={<MainFormRouteLoading />}>
-      <OwnerEditProductPageBody params={params} searchParams={searchParams} />
-    </Suspense>
-  );
-}
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
 
-async function OwnerEditProductPageBody({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ productId: string }>;
-  searchParams: Promise<{ storeId?: string }>;
-}) {
+/** Legacy Owner product edit — redirect-only. */
+export default async function LegacyOwnerProductEditRedirectPage({ params, searchParams }: PageProps) {
   const { productId } = await params;
   const sp = await searchParams;
-  const storeId = typeof sp.storeId === "string" ? sp.storeId.trim() : "";
-  const pid = typeof productId === "string" ? productId.trim() : "";
-
-  if (!storeId || !pid) {
-    const language = getRuntimeAppLanguage();
-    return (
-      <div className="min-h-screen bg-background px-4 py-8">
-        <p className="sam-text-body text-sam-fg">
-          {translate(language, "business_phase7_698")}{" "}
-          <code className="rounded bg-sam-surface-muted px-1">storeId</code>{" "}
-          <Link href="/stores/owner" className="font-medium text-signature underline">
-            {translate(language, "business_phase7_699")}
-          </Link>
-          {translate(language, "business_phase7_700")}
-        </p>
-      </div>
-    );
-  }
-
-  return <OwnerProductForm mode="edit" storeId={storeId} productId={pid} />;
+  const raw = sp.storeId;
+  const storeId = (Array.isArray(raw) ? raw[0] : raw)?.trim() ?? "";
+  redirect(OwnerRoutes.productEdit(productId, storeId || null));
 }

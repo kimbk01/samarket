@@ -1,0 +1,28 @@
+import { describe, expect, it } from "vitest";
+import {
+  buildLegacyOwnerRedirectHref,
+  mapLegacyOwnerPath,
+  OwnerRoutes,
+} from "@/lib/business/owner-routes";
+
+describe("legacy owner path mapping", () => {
+  it("maps /my/business hub and store-orders to canonical owner routes", () => {
+    expect(mapLegacyOwnerPath("/my/business")).toBe("/stores/owner");
+    expect(mapLegacyOwnerPath("/my/business/store-orders")).toBe("/stores/owner/orders");
+    expect(mapLegacyOwnerPath("/my/business/profile")).toBe("/stores/owner/profile");
+    expect(mapLegacyOwnerPath("/mypage/business/orders")).toBe("/stores/owner/orders");
+  });
+
+  it("preserves storeId on redirect href", () => {
+    expect(buildLegacyOwnerRedirectHref("/my/business/banners", { storeId: "s1" })).toBe(
+      "/stores/owner/banners?storeId=s1"
+    );
+    expect(buildLegacyOwnerRedirectHref("/my/business", {})).toBe("/stores/owner");
+  });
+
+  it("keeps OwnerRoutes.productEdit as canonical edit target", () => {
+    expect(OwnerRoutes.productEdit("p1", "s1")).toBe(
+      "/stores/owner/products/p1/edit?storeId=s1"
+    );
+  });
+});

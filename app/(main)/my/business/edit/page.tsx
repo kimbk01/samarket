@@ -1,6 +1,10 @@
-import { redirect } from "next/navigation";
+import { redirectLegacyOwnerPage } from "@/lib/business/redirect-legacy-owner-page";
 
-/** 레거시 mock 편집 — 실 매장 프로필 편집으로 통합 */
-export default function BusinessEditRoute() {
-  redirect("/stores/owner/profile");
+type PageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+/** Legacy Owner URL — redirect-only. Canonical: /stores/owner/* */
+export default async function LegacyOwnerRedirectPage({ searchParams }: PageProps) {
+  return redirectLegacyOwnerPage("/my/business/edit", searchParams);
 }

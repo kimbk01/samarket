@@ -1,19 +1,10 @@
-"use client";
+import { redirectLegacyOwnerPage } from "@/lib/business/redirect-legacy-owner-page";
 
-import { Suspense } from "react";
-import { OwnerStoreOrdersView } from "@/components/business/owner/OwnerStoreOrdersView";
-import { OwnerStoreSuspenseFallback } from "@/components/business/owner/OwnerStoreSuspenseFallback";
+type PageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
 
-export default function OwnerStoreOrdersPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="pt-4">
-          <OwnerStoreSuspenseFallback className="text-sm text-sam-muted" />
-        </div>
-      }
-    >
-      <OwnerStoreOrdersView />
-    </Suspense>
-  );
+/** Legacy Owner URL — redirect-only. Canonical: /stores/owner/* */
+export default async function LegacyOwnerRedirectPage({ searchParams }: PageProps) {
+  return redirectLegacyOwnerPage("/my/business/store-orders", searchParams);
 }
