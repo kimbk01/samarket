@@ -40,6 +40,13 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
     ".qa-logs/**",
+    // Option A Local Runtime esbuild IIFE bundles (not source)
+    "capacitor-www/**/*.js",
+    "android/app/src/main/assets/local-runtime/assets/**",
+    "android/app/src/main/assets/public/**",
+    "android/app/build/**",
+    "android/**/build/**",
+    "ios/App/App/public/local-runtime/assets/**",
   ]),
   {
     plugins: {

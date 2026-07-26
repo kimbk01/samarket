@@ -1,4 +1,4 @@
 {
-  "localRuntime": false,
-  "legacyRemoteRuntime": true
+  "localRuntime": true,
+  "legacyRemoteRuntime": false
 }

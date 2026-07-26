@@ -367,13 +367,12 @@ SAMARKET_BASE_URL=https://dibaY.vercel.app SAMARKET_PROD_PERF_MEASURE=1 npm run 
 
 ## 진행 중 트랙
 
-| 트랙 이름 | **BOOT-P0** Startup — Local Runtime recovery (Option A) |
-| **트랙 상태** | **▲ IN PROGRESS** — Hybrid Remote Startup 판정 고정 · Cover WIP `archive/startup-hybrid-handoff-wip` · SSOT `docs/dibay-local-runtime-startup-rearchitecture.md` · Local Runtime NOT IMPLEMENTED · PRODUCT PASS 금지 |
-| 이전 Hybrid closeout | FAIL (`46311d6c3` Cover QA · Xiaomi blank · Samsung cover 0 · iOS BLOCKED) — **최종 Local First로 승격 금지** |
-| baseline (Hybrid) | `41ca8012d` / fix `46311d6c3` / docs FAIL `873caeaeb` |
-| WIP archive | branch `archive/startup-hybrid-handoff-wip` @ `643e18a0d` |
-| **후속** | Local Runtime core → Android/iOS integration → cutover (Cover/replace 제거) → device QA |
-| **판정** | **HYBRID REMOTE STARTUP** / LOCAL RUNTIME NOT IMPLEMENTED (PASS 금지) |
+| 트랙 이름 | **BOOT-P0** Startup — Local Runtime Option A cutover |
+| **트랙 상태** | **▲ CUTOVER IN PROGRESS** — default `localRuntime=true` · Cap document = bundled Local React shell · Hybrid boot skipped · device QA / push / Prod pending |
+| scaffolding | `8b414490e` |
+| Hybrid archive | `archive/startup-hybrid-handoff-wip` @ `643e18a0d` |
+| SSOT | `docs/dibay-local-runtime-startup-rearchitecture.md` |
+| **판정** | Product PASS 금지 until Xiaomi/Samsung(/iOS) cold QA + push/Prod |
 
 | 항목 | 내용 |
 |------|------|
