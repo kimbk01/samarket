@@ -7,6 +7,7 @@ import {
 } from "@/contexts/MainTier1ExtrasContext";
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import type { ReadonlyURLSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import {
   isCommunityMessengerIncomingCallBannerEnabled,
@@ -107,6 +108,14 @@ export function useCommunityMessengerHomeShellEffects({
   mainSection,
   pillar = null,
 }: Args): void {
+  const pathname = usePathname() ?? "";
+  /**
+   * Keep-alive: inactive messenger hub stays mounted under other tabs.
+   * `useSearchParams` reflects the *current* URL — without this gate, empty
+   * `section` on `/market` etc. triggers replace back to `?section=chats`
+   * and blocks bottom-nav navigation.
+   */
+  const isMessengerHubRoute = pathname === "/community-messenger";
   const isMessengerSplit = useIsMessengerSplitViewport();
   const { t, tt } = useI18n();
   const lastRegisteredTier1ExtrasRef = useRef<MainTier1ExtrasState | null>(null);
@@ -169,6 +178,7 @@ export function useCommunityMessengerHomeShellEffects({
   }, [recentSearches]);
 
   useEffect(() => {
+    if (!isMessengerHubRoute) return;
     if (fromPhilifeHeaderStack || pillar != null) return;
     const preserveFrom = fromParam ? `&from=${encodeURIComponent(fromParam)}` : "";
     if (activeTab === "settings") {
@@ -216,6 +226,7 @@ export function useCommunityMessengerHomeShellEffects({
     activeTab,
     fromParam,
     fromPhilifeHeaderStack,
+    isMessengerHubRoute,
     openSettingsSheet,
     pillar,
     router,
@@ -237,6 +248,7 @@ export function useCommunityMessengerHomeShellEffects({
    * 새창·딥링크에서는 referrer 가 비어 영향이 없다(기본 백 href = `/philife`).
    */
   useEffect(() => {
+    if (!isMessengerHubRoute) return;
     if (fromPhilifeHeaderStack) return;
     if (entryOrigin) return;
     if (typeof window === "undefined") return;
@@ -253,9 +265,16 @@ export function useCommunityMessengerHomeShellEffects({
     });
     /** referrer 는 한 번만 사용 — 무한 replace 방지(ESLint 의존성: 마운트 시 한 번) */
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isMessengerHubRoute]);
 
   useLayoutEffect(() => {
+    if (!isMessengerHubRoute) {
+      if (setMainTier1Extras && lastRegisteredTier1ExtrasRef.current != null) {
+        lastRegisteredTier1ExtrasRef.current = null;
+        setMainTier1Extras(null);
+      }
+      return;
+    }
     if (fromPhilifeHeaderStack) return;
     if (!setMainTier1Extras) return;
     const fromUrl = parseMessengerEntryOrigin(fromParam || null);
@@ -309,6 +328,7 @@ export function useCommunityMessengerHomeShellEffects({
     pillar,
     fromParam,
     isMessengerSplit,
+    isMessengerHubRoute,
   ]);
 
   const splitTitleText =

@@ -129,6 +129,9 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
 
   /** 레거시 `?tab=&section=` → 계층형 경로 */
   useEffect(() => {
+    if (pathname !== "/mypage" && pathname !== "/my" && !pathname.startsWith("/mypage/") && !pathname.startsWith("/my/")) {
+      return;
+    }
     const target = resolveLegacyMyPageRedirectTarget({
       tab: legacyTabParam,
       nav: legacyNavParam,
