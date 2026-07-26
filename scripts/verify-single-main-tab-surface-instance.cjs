@@ -1,5 +1,6 @@
 /**
  * Single main-tab Surface instance — transition layer must not create hub Feed/List entries.
+ * Canonical Surfaces come from route pages only (no Instant enter / no multi-hub keep-alive host).
  */
 const fs = require("node:fs");
 const path = require("node:path");
@@ -29,6 +30,7 @@ const banned = [
   "MessengerHubRouteGate",
   "MyContent",
   "TradeMarketTabPushEnterPanel",
+  "MainTabSurfaceKeepAlive",
 ];
 for (const name of banned) {
   if (new RegExp(`\\b${name}\\b`).test(transitionCode)) {
@@ -38,32 +40,24 @@ for (const name of banned) {
 if (/\bfunction\s+InstantMainTabEnterPanel\b/.test(transition)) {
   fail("MainShellTabContentTransition must not define InstantMainTabEnterPanel");
 }
-if (!transition.includes("MainTabSurfaceKeepAlive")) {
-  fail("MainShellTabContentTransition must render MainTabSurfaceKeepAlive");
-}
 if (!/pendingPushNode=\{null\}/.test(transition)) {
   fail("pendingPushNode must be null (no temporary Surface)");
 }
-
-const keepAlive = read("components/layout/MainTabSurfaceKeepAlive.tsx");
-if (!keepAlive.includes("data-main-tab-surface")) {
-  fail("MainTabSurfaceKeepAlive must mark hub slots with data-main-tab-surface");
-}
-if (!keepAlive.includes("resolveMainTabKeepAliveHub")) {
-  fail("MainTabSurfaceKeepAlive must use resolveMainTabKeepAliveHub");
+if (fs.existsSync(path.join(ROOT, "components/layout/MainTabSurfaceKeepAlive.tsx"))) {
+  fail("MainTabSurfaceKeepAlive.tsx must be removed");
 }
 
 const appRoute = read("components/route-transition/AppRouteTransition.tsx");
 if (!appRoute.includes("isMainTabKeepAliveHubPath") && !appRoute.includes("isKeepAliveHubRouteTransition")) {
-  fail("AppRouteTransition must skip dual-panel for keep-alive hub transitions");
+  fail("AppRouteTransition must skip dual-panel for hub transitions");
 }
 if (/MAIN_SHELL_DUAL_PANEL_INTENT_SOURCES\s*=\s*new Set\(\s*\[\s*["']bottom-nav["']/.test(appRoute)) {
-  fail("MAIN_SHELL_DUAL_PANEL_INTENT_SOURCES must not include bottom-nav (temporary enter removed)");
+  fail("MAIN_SHELL_DUAL_PANEL_INTENT_SOURCES must not include bottom-nav");
 }
 
 const ssot = read("lib/layout/resolve-main-surface.ts");
 if (!ssot.includes("resolveMainTabKeepAliveHub") || !ssot.includes("isMainTabKeepAliveHubPath")) {
-  fail("resolve-main-surface must export keep-alive hub helpers");
+  fail("resolve-main-surface must export hub helpers for dual-panel skip");
 }
 
 if (failed) process.exit(1);

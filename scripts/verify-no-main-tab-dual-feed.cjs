@@ -1,6 +1,6 @@
 /**
- * No dual Feed/List roots — hub Surfaces only under MainTabSurfaceKeepAlive (+ SSR page for cold),
- * not under Instant enter panels.
+ * No dual Feed/List roots from transition enter panels.
+ * Hub Surfaces live on route pages only.
  */
 const fs = require("node:fs");
 const path = require("node:path");
@@ -18,33 +18,24 @@ function fail(msg) {
 }
 
 const transition = read("components/layout/MainShellTabContentTransition.tsx");
+const code = transition.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
 if (
-  transition.includes("PhilifeFeedClientEntry") ||
-  transition.includes("HomeProductList") ||
-  transition.includes("StoresHub") ||
-  transition.includes("CommunityMessengerHome") ||
-  transition.includes("MyContent")
+  /\bPhilifeFeedClientEntry\b/.test(code) ||
+  /\bHomeProductList\b/.test(code) ||
+  /\bStoresHub\b/.test(code) ||
+  /\bCommunityMessengerHome\b/.test(code) ||
+  /\bMyContent\b/.test(code) ||
+  /\bMainTabSurfaceKeepAlive\b/.test(code)
 ) {
   fail("transition must not render hub Feed/List entries (dual authority)");
 }
 
-const keepAlive = read("components/layout/MainTabSurfaceKeepAlive.tsx");
-const required = [
-  ["CommunityHomeSurface", "community"],
-  ["MarketContent", "trade"],
-  ["StoresHub", "delivery"],
-  ["MessengerHubRouteGate", "chat"],
-  ["MyContent", "mypage"],
-];
-for (const [sym, hub] of required) {
-  if (!keepAlive.includes(sym)) {
-    fail(`MainTabSurfaceKeepAlive missing ${hub} Surface (${sym})`);
-  }
+if (/\bTradeMarketTabPushEnterPanel\b/.test(code) || /\bfunction\s+InstantMainTabEnterPanel\b/.test(transition)) {
+  fail("Instant/Trade enter panels must not be wired from MainShellTabContentTransition");
 }
 
-/** Instant enter panel file may exist but must not be wired from transition */
-if (/\bTradeMarketTabPushEnterPanel\b/.test(transition) || /\bfunction\s+InstantMainTabEnterPanel\b/.test(transition)) {
-  fail("Instant/Trade enter panels must not be wired from MainShellTabContentTransition");
+if (fs.existsSync(path.join(ROOT, "components/layout/MainTabSurfaceKeepAlive.tsx"))) {
+  fail("MainTabSurfaceKeepAlive.tsx must be removed (caused inactive-hub URL hijack)");
 }
 
 const communityPages = [
@@ -56,7 +47,7 @@ const communityPages = [
 for (const rel of communityPages) {
   const src = read(rel);
   if (!src.includes("CommunityHomeSurface") && !src.includes("PhilifeHomeFeedPage")) {
-    fail(`${rel} must still declare CommunityHomeSurface for Cold SSR`);
+    fail(`${rel} must declare CommunityHomeSurface for Cold SSR`);
   }
 }
 

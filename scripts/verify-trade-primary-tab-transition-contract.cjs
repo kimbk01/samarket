@@ -32,19 +32,14 @@ const mainShell = read("components/layout/MainShellTabContentTransition.tsx");
 if (/\bTradeMarketTabPushEnterPanel\b/.test(mainShell) || /\bfunction\s+InstantMainTabEnterPanel\b/.test(mainShell)) {
   fail("MainShellTabContentTransition must not render temporary Trade/Instant enter panels");
 }
-if (!mainShell.includes("MainTabSurfaceKeepAlive")) {
-  fail("MainShellTabContentTransition must host MainTabSurfaceKeepAlive");
+if (!mainShell.includes("pendingPushNode={null}") && !/pendingPushNode=\{null\}/.test(mainShell)) {
+  fail("MainShellTabContentTransition must pass pendingPushNode={null}");
 }
 if (mainShell.includes("MainFeedRouteLoading")) {
   fail("MainShellTabContentTransition must not import/render MainFeedRouteLoading for menu transitions");
 }
 if (mainShell.includes("CommunityMessengerHomeShellSkeleton")) {
   fail("MainShellTabContentTransition must not render messenger skeleton during main bottom-nav transitions");
-}
-
-const keepAlive = read("components/layout/MainTabSurfaceKeepAlive.tsx");
-if (!keepAlive.includes("MarketContent") || !keepAlive.includes("CommunityHomeSurface")) {
-  fail("MainTabSurfaceKeepAlive must own trade + community hub Surfaces");
 }
 
 const tradeTabs = read("components/trade/TradePrimaryTabs.tsx");

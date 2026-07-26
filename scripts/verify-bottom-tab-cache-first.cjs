@@ -1,6 +1,6 @@
 /**
- * Bottom tab Cache-First — keep-alive hub Surfaces, no Instant dual-feed enter panel,
- * no (stores) remount group.
+ * Bottom tab Cache-First — no Instant dual-feed enter panel, no (stores) remount group.
+ * Hub Surfaces come from route children only (single authority).
  */
 const fs = require("node:fs");
 const path = require("node:path");
@@ -38,26 +38,14 @@ const transition = read("components/layout/MainShellTabContentTransition.tsx");
 if (transition.includes("DeferredMainTabEnterPanel") || /\bsetTimeout\s*\(/.test(transition) || transition.includes("resolveMainTabEnterPanelDeferMs")) {
   fail("MainShellTabContentTransition must not defer tab enter with setTimeout");
 }
-if (
-  /\bfunction\s+InstantMainTabEnterPanel\b/.test(transition) ||
-  /\bTradeMarketTabPushEnterPanel\b/.test(transition) ||
-  /from\s+["']@\/components\/market\/TradeMarketTabPushEnterPanel["']/.test(transition)
-) {
+if (/\bfunction\s+InstantMainTabEnterPanel\b/.test(transition) || /\bTradeMarketTabPushEnterPanel\b/.test(transition)) {
   fail("MainShellTabContentTransition must not create Instant/Trade enter Feed panels");
-}
-if (!transition.includes("MainTabSurfaceKeepAlive")) {
-  fail("MainShellTabContentTransition must host MainTabSurfaceKeepAlive");
 }
 if (!/pendingPushNode=\{null\}/.test(transition)) {
   fail("MainShellTabContentTransition must pass pendingPushNode={null}");
 }
-
-const keepAlive = read("components/layout/MainTabSurfaceKeepAlive.tsx");
-if (!keepAlive.includes("CommunityHomeSurface") || !keepAlive.includes("MarketContent") || !keepAlive.includes("StoresHub")) {
-  fail("MainTabSurfaceKeepAlive must own community/trade/delivery hub Surfaces");
-}
-if (!keepAlive.includes("MessengerHubRouteGate") || !keepAlive.includes("MyContent")) {
-  fail("MainTabSurfaceKeepAlive must own chat/mypage hub Surfaces");
+if (transition.includes("MainTabSurfaceKeepAlive") || fs.existsSync(path.join(ROOT, "components/layout/MainTabSurfaceKeepAlive.tsx"))) {
+  fail("MainTabSurfaceKeepAlive multi-hub host removed — inactive hub URL sync broke bottom-nav");
 }
 
 const cross = read("lib/navigation/main-shell-push-session.ts");

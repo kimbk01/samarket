@@ -92,16 +92,8 @@ const tabEnter = read("components/layout/MainShellTabContentTransition.tsx");
 if (/\bPhilifeFeedClientEntry\b/.test(tabEnter) || /\bfunction\s+InstantMainTabEnterPanel\b/.test(tabEnter)) {
   fail("MainShellTabContentTransition must not create PhilifeFeedClientEntry / Instant enter panel");
 }
-if (!tabEnter.includes("MainTabSurfaceKeepAlive")) {
-  fail("MainShellTabContentTransition must host MainTabSurfaceKeepAlive");
-}
-
-const keepAlive = read("components/layout/MainTabSurfaceKeepAlive.tsx");
-if (!keepAlive.includes("CommunityHomeSurface")) {
-  fail("MainTabSurfaceKeepAlive must mount CommunityHomeSurface for community hub");
-}
-if (keepAlive.includes("PhilifeFeedClientEntry") && !keepAlive.includes("CommunityHomeSurface")) {
-  fail("keep-alive must use CommunityHomeSurface authority, not raw PhilifeFeedClientEntry");
+if (tabEnter.includes("MainTabSurfaceKeepAlive") || fs.existsSync(path.join(ROOT, "components/layout/MainTabSurfaceKeepAlive.tsx"))) {
+  fail("MainTabSurfaceKeepAlive removed — Community surface is route CommunityHomeSurface only");
 }
 
 const writeForm = read("components/write/community/CommunityWriteForm.tsx");

@@ -37,10 +37,10 @@ if (transition.includes("DeferredMainTabEnterPanel")) {
   fail("DeferredMainTabEnterPanel remount pattern removed");
 }
 if (/\bfunction\s+InstantMainTabEnterPanel\b/.test(transition) || /\bTradeMarketTabPushEnterPanel\b/.test(transition)) {
-  fail("InstantMainTabEnterPanel temporary Surface removed — use MainTabSurfaceKeepAlive");
+  fail("InstantMainTabEnterPanel temporary Surface removed — route children only");
 }
-if (!transition.includes("MainTabSurfaceKeepAlive")) {
-  fail("MainShellTabContentTransition must mount MainTabSurfaceKeepAlive");
+if (transition.includes("MainTabSurfaceKeepAlive") || fs.existsSync(path.join(ROOT, "components/layout/MainTabSurfaceKeepAlive.tsx"))) {
+  fail("MainTabSurfaceKeepAlive removed — caused bottom-nav URL hijack");
 }
 
 if (failed) process.exit(1);

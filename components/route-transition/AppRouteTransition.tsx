@@ -25,8 +25,7 @@ type Props = {
   children: ReactNode;
   overlay?: ReactNode;
   /**
-   * @deprecated Single Surface cutover — hub tabs use MainTabSurfaceKeepAlive.
-   * Temporary enter Feed/List panels are forbidden; always pass null for bottom tabs.
+   * @deprecated Temporary enter Feed/List panels are forbidden; always pass null for bottom tabs.
    */
   pendingPushNode?: ReactNode;
   /** `ConditionalAppShell` — push 호스트 flex 연장 */
@@ -63,8 +62,7 @@ const PUSH_HANDOFF_NON_MESSENGER_FALLBACK_MS = 1_200;
 
 /**
  * Dual-panel temporary enter — DISABLED for bottom-nav / trade-primary.
- * Those hubs keep a single Surface via MainTabSurfaceKeepAlive; Instant enter panels
- * created a second Feed that remounted on push end (MutationObserver: feeds=2).
+ * Instant enter panels created a second Feed that remounted on push end.
  */
 const MAIN_SHELL_DUAL_PANEL_INTENT_SOURCES = new Set<string>();
 
@@ -108,9 +106,8 @@ function pushTargetReached(pathname: string | null | undefined, targetPath: stri
 
 /**
  * CONTRACT — 메인 5탭 push surface.
- * Hub↔hub (bottom-nav): MainTabSurfaceKeepAlive 가 visibility 만 전환 — dual-panel /
- * InstantMainTabEnterPanel temporary Surface 금지 (단일 Feed DOM 수명).
- * Non-hub routes may still use subtle enter / legacy dual-panel when armed.
+ * Hub↔hub (bottom-nav): dual-panel / InstantMainTabEnterPanel temporary Surface 금지.
+ * Route children 가 단일 Surface — push session 으로 Feed 를 복제하지 않음.
  */
 export function AppRouteTransition({
   children,
