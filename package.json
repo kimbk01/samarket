@@ -213,6 +213,8 @@
     "verify:no-tab-skeleton-blocking": "node scripts/verify-no-tab-skeleton-blocking.cjs",
     "verify:single-community-surface-authority": "node scripts/verify-single-community-surface-authority.cjs",
     "verify:single-community-feed-renderer": "node scripts/verify-single-community-feed-renderer.cjs",
+    "verify:single-main-tab-surface-instance": "node scripts/verify-single-main-tab-surface-instance.cjs",
+    "verify:no-main-tab-dual-feed": "node scripts/verify-no-main-tab-dual-feed.cjs",
     "verify:first-html-app-shell": "node scripts/verify-first-html-app-shell.cjs",
     "verify:no-client-only-main-header": "node scripts/verify-no-client-only-main-header.cjs",
     "verify:single-surface-snapshot-boot": "node scripts/verify-single-surface-snapshot-boot.cjs",

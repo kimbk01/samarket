@@ -19,8 +19,12 @@ const transition = read("components/layout/MainShellTabContentTransition.tsx");
 if (transition.includes("MainFeedRouteLoading") || transition.includes("CommunityFeedSkeleton")) {
   fail("MainShellTabContentTransition must not import skeleton shells");
 }
-if (transition.includes("pendingShell = null") === false && !transition.includes("const pendingShell = null")) {
-  fail("pendingShell must be null");
+if (
+  !transition.includes("pendingShell = null") &&
+  !transition.includes("const pendingShell = null") &&
+  !/overlay=\{null\}/.test(transition)
+) {
+  fail("tab transition overlay/pendingShell must be null");
 }
 if (/\bsetTimeout\s*\(/.test(transition)) {
   fail("tab enter must not use setTimeout defer (empty shell flash)");

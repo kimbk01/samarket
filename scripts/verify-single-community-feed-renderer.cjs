@@ -89,11 +89,19 @@ for (const rel of [
 }
 
 const tabEnter = read("components/layout/MainShellTabContentTransition.tsx");
-if (!tabEnter.includes("PhilifeFeedClientEntry")) {
-  fail("InstantMainTabEnterPanel must use PhilifeFeedClientEntry for community");
+if (/\bPhilifeFeedClientEntry\b/.test(tabEnter) || /\bfunction\s+InstantMainTabEnterPanel\b/.test(tabEnter)) {
+  fail("MainShellTabContentTransition must not create PhilifeFeedClientEntry / Instant enter panel");
 }
-if (/pathname === "\/philife"[\s\S]{0,200}bg-sam-app/.test(tabEnter)) {
-  fail("community tab-enter panel must not paint bg-sam-app outside CommunityUiScope");
+if (!tabEnter.includes("MainTabSurfaceKeepAlive")) {
+  fail("MainShellTabContentTransition must host MainTabSurfaceKeepAlive");
+}
+
+const keepAlive = read("components/layout/MainTabSurfaceKeepAlive.tsx");
+if (!keepAlive.includes("CommunityHomeSurface")) {
+  fail("MainTabSurfaceKeepAlive must mount CommunityHomeSurface for community hub");
+}
+if (keepAlive.includes("PhilifeFeedClientEntry") && !keepAlive.includes("CommunityHomeSurface")) {
+  fail("keep-alive must use CommunityHomeSurface authority, not raw PhilifeFeedClientEntry");
 }
 
 const writeForm = read("components/write/community/CommunityWriteForm.tsx");

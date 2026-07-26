@@ -69,6 +69,29 @@ export function isCommunityHomeSurfacePath(pathname: string | null | undefined):
   return p === "/" || p === "/philife" || p === "/community";
 }
 
+/** Bottom-tab hub ids kept alive under Main App Shell (exact hubs only — not detail routes). */
+export type MainTabKeepAliveHubId = "community" | "trade" | "delivery" | "chat" | "mypage";
+
+/**
+ * Exact bottom-tab hub paths that share one keep-alive Surface instance.
+ * Detail routes (`/philife/post/…`, `/market/jobs`, `/community-messenger/rooms/…`) are NOT hubs.
+ */
+export function resolveMainTabKeepAliveHub(
+  pathname: string | null | undefined
+): MainTabKeepAliveHubId | null {
+  const p = pathOnly(pathname);
+  if (p === "/" || p === "/philife" || p === "/community") return "community";
+  if (p === "/market") return "trade";
+  if (p === "/stores") return "delivery";
+  if (p === "/community-messenger") return "chat";
+  if (p === "/mypage" || p === "/my") return "mypage";
+  return null;
+}
+
+export function isMainTabKeepAliveHubPath(pathname: string | null | undefined): boolean {
+  return resolveMainTabKeepAliveHub(pathname) != null;
+}
+
 export function isCommunityMainSurface(pathname: string | null | undefined): boolean {
   return resolveMainSurface(pathname) === "community";
 }

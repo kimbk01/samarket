@@ -33,8 +33,8 @@ let tradePrimaryTabRouteCommitGeneration = 0;
 /**
  * CONTRACT — 거래 1차 탭 **단일 이동 커밋**.
  * DO NOT: Link 기본 navigation 만으로 `beginMenuNavigation` — push 축·2rAF navigate 없음.
- * DO NOT: `mainShellPushAxis` 없이 intent 만 — AppRouteTransition dual-panel 미시작.
- * 탭 하이라이트는 intent 즉시, 본문은 440ms push + `TradeMarketTabPushEnterPanel`(캐시 셸).
+ * Hub keep-alive: `MainTabSurfaceKeepAlive` 가 `/market` Surface 유지 — temporary enter panel 금지.
+ * 탭 하이라이트는 intent 즉시, 본문은 keep-alive visibility + cache-first MarketContent.
  */
 export function commitTradePrimaryTabRoute(
   args: CommitTradePrimaryTabRouteArgs

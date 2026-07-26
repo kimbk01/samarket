@@ -19,11 +19,15 @@ import {
   mainShellPushFromClassForAxis,
 } from "@/lib/navigation/main-shell-push-session";
 import { consumeMainShellPushAxisIntent } from "@/lib/navigation/main-shell-push-axis-intent-ref";
+import { isMainTabKeepAliveHubPath } from "@/lib/layout/resolve-main-surface";
 
 type Props = {
   children: ReactNode;
   overlay?: ReactNode;
-  /** 하단 탭 확인 직후 RSC 완료 전에도 들어오는 패널로 사용할 경량 셸 */
+  /**
+   * @deprecated Single Surface cutover — hub tabs use MainTabSurfaceKeepAlive.
+   * Temporary enter Feed/List panels are forbidden; always pass null for bottom tabs.
+   */
   pendingPushNode?: ReactNode;
   /** `ConditionalAppShell` — push 호스트 flex 연장 */
   contentStretchClass?: string;
@@ -57,8 +61,19 @@ const PUSH_SURFACE_CLASSES = [
 const MAX_PENDING_PUSH_HOLD_MS = 12_000;
 const PUSH_HANDOFF_NON_MESSENGER_FALLBACK_MS = 1_200;
 
-/** `beginMenuNavigation` 직후 dual-panel(440ms) — RSC 전 경량 셸을 들어오는 패널로 유지 */
-const MAIN_SHELL_DUAL_PANEL_INTENT_SOURCES = new Set(["bottom-nav", "trade-primary"]);
+/**
+ * Dual-panel temporary enter — DISABLED for bottom-nav / trade-primary.
+ * Those hubs keep a single Surface via MainTabSurfaceKeepAlive; Instant enter panels
+ * created a second Feed that remounted on push end (MutationObserver: feeds=2).
+ */
+const MAIN_SHELL_DUAL_PANEL_INTENT_SOURCES = new Set<string>();
+
+function isKeepAliveHubRouteTransition(
+  fromPath: string | null | undefined,
+  toPath: string | null | undefined
+): boolean {
+  return isMainTabKeepAliveHubPath(fromPath) && isMainTabKeepAliveHubPath(toPath);
+}
 
 function stripTransitionClasses(el: HTMLDivElement | null, classes: readonly string[]) {
   if (!el) return;
@@ -93,9 +108,9 @@ function pushTargetReached(pathname: string | null | undefined, targetPath: stri
 
 /**
  * CONTRACT — 메인 5탭 push surface.
- * same/cross-group: `beginMenuNavigation` 직후 dual-panel(440ms)을 시작하고,
- * RSC/pathname 이 늦어도 목적지 경량 셸을 들어오는 패널로 유지한다.
- * cross-group 은 remount 후 session enter 440ms 만 — dual-panel·즉시 exit 금지(이중 밀림).
+ * Hub↔hub (bottom-nav): MainTabSurfaceKeepAlive 가 visibility 만 전환 — dual-panel /
+ * InstantMainTabEnterPanel temporary Surface 금지 (단일 Feed DOM 수명).
+ * Non-hub routes may still use subtle enter / legacy dual-panel when armed.
  */
 export function AppRouteTransition({
   children,
@@ -158,8 +173,8 @@ export function AppRouteTransition({
   }, [pushSession]);
 
   /**
-   * 하단 탭 커밋 — pathname/RSC 대기 없이 dual-panel push 를 즉시 시작.
-   * 목적지 RSC 가 늦으면 `pendingPushNode` 를 들어오는 패널로 유지해 이전 화면 snapback 을 막는다.
+   * Legacy dual-panel arm — only when MAIN_SHELL_DUAL_PANEL_INTENT_SOURCES non-empty.
+   * Bottom-nav hubs: keep-alive visibility; do not clone children into entering/exiting panels.
    */
   useLayoutEffect(() => {
     const intent = pendingMenuIntent;
@@ -176,6 +191,7 @@ export function AppRouteTransition({
     const currentPath = normalizePathKeyForPush(pathname);
     const targetPath = intent.pathname;
     if (!targetPath || currentPath === targetPath) return;
+    if (isKeepAliveHubRouteTransition(currentPath, targetPath)) return;
     if (pushSessionActiveRef.current) return;
 
     const prev = renderedRef.current;
@@ -223,6 +239,26 @@ export function AppRouteTransition({
       const pushAxis =
         axisFromIntent ?? lastPushAxisRef.current ?? routeTransitionPushAxisForKind(kind);
       const enterClass = routeTransitionClassForKind(kind);
+
+      const hubKeepAliveTransition =
+        isKeepAliveHubRouteTransition(prev.pathname, pathKey) ||
+        pendingMenuIntent?.source === "bottom-nav" ||
+        pendingMenuIntent?.source === "trade-primary";
+
+      /** Hub keep-alive: no dual-panel clone of Surface tree (would remount Feed). */
+      if (hubKeepAliveTransition) {
+        lastPushAxisRef.current = null;
+        pushSessionActiveRef.current = false;
+        setPushSession(null);
+        setPushHandoff(null);
+        stripTransitionClasses(el, ROUTE_TRANSITION_ENTER_CLASSES);
+        stripTransitionClasses(el, PUSH_SURFACE_CLASSES);
+        renderedRef.current = { pathname: pathKey, node: children };
+        if (el?.dataset) {
+          el.dataset.routeTransitionKind = "none";
+        }
+        return undefined;
+      }
 
       if (pushAxis && !prefersReducedMotion() && !pendingMenuIntent?.mainShellCrossGroupPush) {
         if (pushSessionActiveRef.current) {

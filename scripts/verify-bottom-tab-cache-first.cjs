@@ -1,6 +1,6 @@
-#!/usr/bin/env node
 /**
- * Bottom tab Cache-First — instant enter panel, no defer empty shell, no (stores) remount group.
+ * Bottom tab Cache-First — keep-alive hub Surfaces, no Instant dual-feed enter panel,
+ * no (stores) remount group.
  */
 const fs = require("node:fs");
 const path = require("node:path");
@@ -38,8 +38,26 @@ const transition = read("components/layout/MainShellTabContentTransition.tsx");
 if (transition.includes("DeferredMainTabEnterPanel") || /\bsetTimeout\s*\(/.test(transition) || transition.includes("resolveMainTabEnterPanelDeferMs")) {
   fail("MainShellTabContentTransition must not defer tab enter with setTimeout");
 }
-if (!transition.includes("InstantMainTabEnterPanel") && !transition.includes("TradeMarketTabPushEnterPanel")) {
-  fail("MainShellTabContentTransition must instant-mount tab enter panels");
+if (
+  /\bfunction\s+InstantMainTabEnterPanel\b/.test(transition) ||
+  /\bTradeMarketTabPushEnterPanel\b/.test(transition) ||
+  /from\s+["']@\/components\/market\/TradeMarketTabPushEnterPanel["']/.test(transition)
+) {
+  fail("MainShellTabContentTransition must not create Instant/Trade enter Feed panels");
+}
+if (!transition.includes("MainTabSurfaceKeepAlive")) {
+  fail("MainShellTabContentTransition must host MainTabSurfaceKeepAlive");
+}
+if (!/pendingPushNode=\{null\}/.test(transition)) {
+  fail("MainShellTabContentTransition must pass pendingPushNode={null}");
+}
+
+const keepAlive = read("components/layout/MainTabSurfaceKeepAlive.tsx");
+if (!keepAlive.includes("CommunityHomeSurface") || !keepAlive.includes("MarketContent") || !keepAlive.includes("StoresHub")) {
+  fail("MainTabSurfaceKeepAlive must own community/trade/delivery hub Surfaces");
+}
+if (!keepAlive.includes("MessengerHubRouteGate") || !keepAlive.includes("MyContent")) {
+  fail("MainTabSurfaceKeepAlive must own chat/mypage hub Surfaces");
 }
 
 const cross = read("lib/navigation/main-shell-push-session.ts");

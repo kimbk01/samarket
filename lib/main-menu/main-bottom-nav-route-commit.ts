@@ -105,7 +105,7 @@ export function abortPendingMainBottomNavRouteCommits(): void {
  * DO NOT: Link 기본 navigation·overlay 직접 push·tab.href 직접 push — 모두 여기 또는 resolver 경유.
  * DO NOT: `onNavigationIntent`·`beginMenuNavigation` 을 async(await) 뒤로 미루기 — push·orbit 즉시.
  * DO NOT: router replace/push 를 microtask·setTimeout 으로 미루기 — deep route 진입과 레이스.
- * same-group: `pendingMenuIntent` dual-panel + `mainShellPushAxis` (전 탭 `(main)` 유지).
+ * same-group: `pendingMenuIntent` + route sync; hub Surfaces = `MainTabSurfaceKeepAlive` (no Instant enter panel).
  */
 export function commitMainBottomNavRoute(args: MainBottomNavRouteCommitArgs): MainBottomNavRouteCommitResult {
   args.onCloseDomainSwitcher?.();

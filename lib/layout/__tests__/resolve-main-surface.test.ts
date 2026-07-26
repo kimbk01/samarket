@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   isCommunityHomeSurfacePath,
+  isMainTabKeepAliveHubPath,
   resolveMainSurface,
+  resolveMainTabKeepAliveHub,
 } from "@/lib/layout/resolve-main-surface";
 import { isTradeFloatingMenuSurface } from "@/lib/layout/mobile-top-tier1-rules";
 
@@ -37,6 +39,22 @@ describe("isCommunityHomeSurfacePath", () => {
     expect(isCommunityHomeSurfacePath("/community")).toBe(true);
     expect(isCommunityHomeSurfacePath("/philife/post/x")).toBe(false);
     expect(isCommunityHomeSurfacePath("/market")).toBe(false);
+  });
+});
+
+describe("resolveMainTabKeepAliveHub", () => {
+  it("exact bottom-tab hubs only", () => {
+    expect(resolveMainTabKeepAliveHub("/")).toBe("community");
+    expect(resolveMainTabKeepAliveHub("/philife")).toBe("community");
+    expect(resolveMainTabKeepAliveHub("/market")).toBe("trade");
+    expect(resolveMainTabKeepAliveHub("/stores")).toBe("delivery");
+    expect(resolveMainTabKeepAliveHub("/community-messenger")).toBe("chat");
+    expect(resolveMainTabKeepAliveHub("/mypage")).toBe("mypage");
+    expect(resolveMainTabKeepAliveHub("/philife/post/x")).toBe(null);
+    expect(resolveMainTabKeepAliveHub("/market/jobs")).toBe(null);
+    expect(resolveMainTabKeepAliveHub("/community-messenger/rooms/a")).toBe(null);
+    expect(isMainTabKeepAliveHubPath("/market")).toBe(true);
+    expect(isMainTabKeepAliveHubPath("/market/jobs")).toBe(false);
   });
 });
 

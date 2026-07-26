@@ -1,5 +1,5 @@
 /**
- * 거래 1차 탭 440ms push 계약 — 구조 역행 grep.
+ * 거래·하단 탭 Surface 계약 — Single Surface KeepAlive (임시 enter panel 금지).
  * 규칙: `.cursor/rules/trade-primary-tab-transition-contract.mdc`
  *
  * 사용: npm run verify:trade-primary-tab-transition
@@ -21,13 +21,19 @@ function fail(msg) {
 }
 
 const appTransition = read("components/route-transition/AppRouteTransition.tsx");
-if (!appTransition.includes('"trade-primary"') || !appTransition.includes("MAIN_SHELL_DUAL_PANEL_INTENT_SOURCES")) {
-  fail('AppRouteTransition must include trade-primary in MAIN_SHELL_DUAL_PANEL_INTENT_SOURCES');
+if (!appTransition.includes("isMainTabKeepAliveHubPath") && !appTransition.includes("isKeepAliveHubRouteTransition")) {
+  fail("AppRouteTransition must skip dual-panel for keep-alive hub transitions");
+}
+if (/MAIN_SHELL_DUAL_PANEL_INTENT_SOURCES\s*=\s*new Set\(\s*\[[^\]]*trade-primary/.test(appTransition)) {
+  fail("MAIN_SHELL_DUAL_PANEL_INTENT_SOURCES must not arm trade-primary temporary enter panels");
 }
 
 const mainShell = read("components/layout/MainShellTabContentTransition.tsx");
-if (!mainShell.includes("TradeMarketTabPushEnterPanel")) {
-  fail("MainShellTabContentTransition must render TradeMarketTabPushEnterPanel for trade-primary");
+if (/\bTradeMarketTabPushEnterPanel\b/.test(mainShell) || /\bfunction\s+InstantMainTabEnterPanel\b/.test(mainShell)) {
+  fail("MainShellTabContentTransition must not render temporary Trade/Instant enter panels");
+}
+if (!mainShell.includes("MainTabSurfaceKeepAlive")) {
+  fail("MainShellTabContentTransition must host MainTabSurfaceKeepAlive");
 }
 if (mainShell.includes("MainFeedRouteLoading")) {
   fail("MainShellTabContentTransition must not import/render MainFeedRouteLoading for menu transitions");
@@ -35,16 +41,10 @@ if (mainShell.includes("MainFeedRouteLoading")) {
 if (mainShell.includes("CommunityMessengerHomeShellSkeleton")) {
   fail("MainShellTabContentTransition must not render messenger skeleton during main bottom-nav transitions");
 }
-if (!mainShell.includes('"trade-primary"')) {
-  fail('MainShellTabContentTransition must exempt trade-primary from blocking overlay');
-}
-if (!mainShell.includes("isMarketMenuIntentPath") || !mainShell.includes("pendingMenuIntent.href")) {
-  fail("bottom-nav navigation to /market must use TradeMarketTabPushEnterPanel, not MainFeedRouteLoading");
-}
-for (const token of ["PhilifeFeedClientEntry", "StoresHub", "CommunityMessengerHome", "MyContent"]) {
-  if (!mainShell.includes(token)) {
-    fail(`MainShellTabContentTransition must provide a non-skeleton pending enter panel for ${token}`);
-  }
+
+const keepAlive = read("components/layout/MainTabSurfaceKeepAlive.tsx");
+if (!keepAlive.includes("MarketContent") || !keepAlive.includes("CommunityHomeSurface")) {
+  fail("MainTabSurfaceKeepAlive must own trade + community hub Surfaces");
 }
 
 const tradeTabs = read("components/trade/TradePrimaryTabs.tsx");

@@ -34,7 +34,13 @@ const bus = read("lib/community-messenger/home/bootstrap-cache-bus-writer.ts");
 
 const transition = read("components/layout/MainShellTabContentTransition.tsx");
 if (transition.includes("DeferredMainTabEnterPanel")) {
-  fail("DeferredMainTabEnterPanel remount pattern removed — instant enter only");
+  fail("DeferredMainTabEnterPanel remount pattern removed");
+}
+if (/\bfunction\s+InstantMainTabEnterPanel\b/.test(transition) || /\bTradeMarketTabPushEnterPanel\b/.test(transition)) {
+  fail("InstantMainTabEnterPanel temporary Surface removed — use MainTabSurfaceKeepAlive");
+}
+if (!transition.includes("MainTabSurfaceKeepAlive")) {
+  fail("MainShellTabContentTransition must mount MainTabSurfaceKeepAlive");
 }
 
 if (failed) process.exit(1);
