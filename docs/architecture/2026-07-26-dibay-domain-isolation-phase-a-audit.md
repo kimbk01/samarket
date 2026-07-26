@@ -57,12 +57,19 @@
 | A | DONE | 본 문서 |
 | B | DONE | `verify:legacy-owner-render-ban`, `verify:canonical-owner-routes` |
 | C-owner | DONE | `/stores/owner` 구현 소유 · `/my/business/**` 19/19 redirect-only · layout shell 제거 |
-| C-mypage-partial | PARTIAL | `/my/benefits`, `/my/recent-viewed` → `/mypage/*` redirect + hub 링크 교정 |
-| C-mypage-full | TODO | 나머지 `/my/*` 실렌더(~offers/points/ads/trust/…) 대응표·이관 |
-| D+ | TODO | Customer/Owner Store·cache·RT 분리, root RT allowlist 재평가 |
+| C2-mypage | DONE | `/my/**` REAL_RENDER **0** — ads/trust/offers/points*/store-inquiries/blocked-users + client→server store-orders |
+| Gates | DONE | mypage-legacy / delivery-customer-owner / delivery-cache / global-runtime / messenger-legacy |
+| D Store FULL split | **BLOCKED** | owner-hub-badge·owner-lite·lib/stores 혼재 — cutover ①~⑧ 필요. 이번: cart mount `/stores/owner` 제외만 |
+| group-chat/[roomId] | KEEP experimental | CM private_group과 다른 축 — index만 CM redirect |
+| Phase F | NOT READY | 실기기 QA 전; FULL delivery split 미완 |
 
-## 6. 회귀 위험
+## 6. Delivery FULL split cutover (후속)
 
-- `/stores/owner`가 `my/business` re-export인 채 redirect만 적용하면 **무한 리다이렉트** → **반전 완료로 해소**
-- `my/business/layout`의 `BusinessAdminShell`이 redirect 페이지에서도 마운트되면 Owner shell 누수 → **passthrough layout으로 해소**
-- hub 링크가 계속 `/my/benefits`를 가리키면 hop 1회 남음 → **주요 진입 링크를 `/mypage/*`로 교정**
+1. Import/verify bans 강화 + cart mount exclude (부분 완료)
+2. Role-prefixed client caches
+3. Row RT 훅 buyer/owner 분기
+4. Notifications→owner invalidate를 Owner surface로 이전
+5. owner-lite facade 분리
+6. owner-hub-badge → app hub badge rename + Delivery slice 분리
+7. lib/stores 물리 폴더 customer/owner/shared
+8. Zustand/Context mount 1:1

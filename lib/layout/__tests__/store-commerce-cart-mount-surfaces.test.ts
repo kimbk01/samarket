@@ -11,8 +11,10 @@ describe("shouldMountStoreCommerceCartProvider", () => {
     expect(shouldMountStoreCommerceCartProvider("/my/store-orders")).toBe(true);
   });
 
-  it("거래·커뮤니티 등에서는 마운트 생략", () => {
+  it("거래·커뮤니티·오너 어드민에서는 마운트 생략", () => {
     expect(shouldMountStoreCommerceCartProvider("/market")).toBe(false);
     expect(shouldMountStoreCommerceCartProvider("/philife")).toBe(false);
+    expect(shouldMountStoreCommerceCartProvider("/stores/owner")).toBe(false);
+    expect(shouldMountStoreCommerceCartProvider("/stores/owner/orders")).toBe(false);
   });
 });
