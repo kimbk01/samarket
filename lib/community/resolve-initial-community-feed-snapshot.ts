@@ -81,6 +81,29 @@ export function resolveCommunityFeedBootSelection(
 }
 
 /**
+ * topic-options 객체가 새로 와도 feed authority 가 같으면 state 교체·feed reset 금지.
+ * DO NOT: 참조 비교만으로 setTopicOptionsAuthority — 동일 칩/탭이면 neighborhood-feed 재요청됨.
+ */
+export function isSameCommunityTopicOptionsAuthority(
+  a: PhilifeNeighborhoodTopicOptionsJson | null | undefined,
+  b: PhilifeNeighborhoodTopicOptionsJson | null | undefined
+): boolean {
+  if (a == null && b == null) return true;
+  if (a == null || b == null) return false;
+  if ((a.showAllFeedTab !== false) !== (b.showAllFeedTab !== false)) return false;
+  if ((a.showNeighborOnlyFilter !== false) !== (b.showNeighborOnlyFilter !== false)) return false;
+  const aChips = buildFeedChipsFromPhilifeTopicOptionsJson(a).chips;
+  const bChips = buildFeedChipsFromPhilifeTopicOptionsJson(b).chips;
+  if (aChips.length !== bChips.length) return false;
+  for (let i = 0; i < aChips.length; i += 1) {
+    if ((aChips[i]?.slug ?? "").trim().toLowerCase() !== (bChips[i]?.slug ?? "").trim().toLowerCase()) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
  * Persistent snapshot → RSC-shaped seed (cache · network 동일 CommunityFeed 경로).
  * `href` 생략 시 `window.location` (cold `/` · `/philife`).
  */

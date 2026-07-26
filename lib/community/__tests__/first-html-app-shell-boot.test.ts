@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { resolveCommunityFeedBootSelection } from "@/lib/community/resolve-initial-community-feed-snapshot";
+import {
+  isSameCommunityTopicOptionsAuthority,
+  resolveCommunityFeedBootSelection,
+} from "@/lib/community/resolve-initial-community-feed-snapshot";
 
 const root = join(__dirname, "../../..");
 
@@ -85,5 +88,27 @@ describe("first-html + single snapshot boot", () => {
       category: "daily",
       authorityReady: true,
     });
+  });
+
+  it("treats same topic authority payload as equal even with new object identity", () => {
+    const a = {
+      ok: true,
+      showAllFeedTab: false,
+      feedChips: [{ slug: "philippines", name: "필리핀생활" }],
+      writeTopics: [],
+    };
+    const b = {
+      ok: true,
+      showAllFeedTab: false,
+      feedChips: [{ slug: "philippines", name: "필리핀생활" }],
+      writeTopics: [],
+    };
+    expect(isSameCommunityTopicOptionsAuthority(a, b)).toBe(true);
+    expect(
+      isSameCommunityTopicOptionsAuthority(a, {
+        ...b,
+        feedChips: [{ slug: "daily", name: "일상생활" }],
+      })
+    ).toBe(false);
   });
 });

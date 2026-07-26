@@ -45,6 +45,7 @@ import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { normalizeFeedSort } from "@/lib/community-feed/constants";
 import { readPhilifeFeedCache, writePhilifeFeedCache, clearPhilifeFeedCacheEntry, resolvePhilifeColdBootViewerSig, philifeFeedViewerSig } from "@/lib/community/philife-feed-session-cache";
 import {
+  isSameCommunityTopicOptionsAuthority,
   resolveCommunityFeedBootSelection,
   resolveInitialCommunityFeedSnapshot,
 } from "@/lib/community/resolve-initial-community-feed-snapshot";
@@ -393,6 +394,12 @@ export function CommunityFeed({
   const [category, setCategory] = useState<string>(initialBootSelection.category);
   const [topicOptionsAuthority, setTopicOptionsAuthority] =
     useState(initialTopicOptions);
+  const topicOptionsAuthorityRef = useRef(topicOptionsAuthority);
+  topicOptionsAuthorityRef.current = topicOptionsAuthority;
+  /** category 가 비어 있어도 authority 확정(전체 탭) 시 feed bootstrap 1회 트리거 */
+  const [topicAuthorityReady, setTopicAuthorityReady] = useState(
+    initialBootSelection.authorityReady
+  );
   const [neighborOnly, setNeighborOnly] = useState(false);
   const [posts, setPosts] = useState<NeighborhoodFeedPostDTO[]>(bootPosts);
   const [hasMore, setHasMore] = useState(bootHasMore);
@@ -446,13 +453,14 @@ export function CommunityFeed({
   /**
    * Persistent topic-options 는 hydration 완료 후, 첫 paint 전에만 적용한다.
    * 서버 렌더 중 localStorage 를 읽지 않아 HTML/hydration tree 를 동일하게 유지한다.
+   * 동일 authority(칩/전체탭)면 state 를 바꾸지 않아 neighborhood-feed reset 을 막는다.
    */
   useLayoutEffect(() => {
-    const options =
-      topicOptionsAuthority ?? peekPhilifeNeighborhoodTopicOptionsFromCache();
-    if (options && options !== topicOptionsAuthority) {
-      setTopicOptionsAuthority(options);
-      const built = buildFeedChipsFromPhilifeTopicOptionsJson(options);
+    const peeked = peekPhilifeNeighborhoodTopicOptionsFromCache();
+    const options = peeked ?? topicOptionsAuthorityRef.current;
+    if (peeked && !isSameCommunityTopicOptionsAuthority(topicOptionsAuthorityRef.current, peeked)) {
+      setTopicOptionsAuthority(peeked);
+      const built = buildFeedChipsFromPhilifeTopicOptionsJson(peeked);
       setChips(built.chips);
       setShowNeighborOnlyStrip(built.showNeighborOnlyStrip);
       setChipsLoadDone(true);
@@ -460,10 +468,11 @@ export function CommunityFeed({
 
     const selection = resolveCommunityFeedBootSelection(categoryParam, options);
     if (!selection.authorityReady) return;
+    setTopicAuthorityReady(true);
     setCategory((prev) => (
       prev === selection.category ? prev : selection.category
     ));
-  }, [categoryParam, topicOptionsAuthority]);
+  }, [categoryParam]);
 
   useEffect(() => {
     postsRef.current = posts;
@@ -640,9 +649,12 @@ export function CommunityFeed({
         const { chips: next, showNeighborOnlyStrip: strip } = buildFeedChipsFromPhilifeTopicOptionsJson(j);
         setShowNeighborOnlyStrip(strip);
         setChips(next);
-        setTopicOptionsAuthority(j);
+        if (!isSameCommunityTopicOptionsAuthority(topicOptionsAuthorityRef.current, j)) {
+          setTopicOptionsAuthority(j);
+        }
         const selection = resolveCommunityFeedBootSelection(categoryParamRef.current, j);
         if (selection.authorityReady) {
+          setTopicAuthorityReady(true);
           setCategory((current) => (
             current === selection.category ? current : selection.category
           ));
@@ -887,15 +899,13 @@ export function CommunityFeed({
 
   /** 주제·필터 시 피드 리셋. URL category 와 확정된 topic-options 권한이 같은 cache/fetch 키를 사용한다. */
   useLayoutEffect(() => {
-    const bootSelection = resolveCommunityFeedBootSelection(
-      categoryParam,
-      topicOptionsAuthority
-    );
+    const options = topicOptionsAuthorityRef.current;
+    const bootSelection = resolveCommunityFeedBootSelection(categoryParam, options);
     /**
      * category 없는 cold boot 는 topic-options 권한이 정해질 때까지 전체 피드를 추측하지 않는다.
      * category state 전환과 같은 commit 에서는 다음 layout pass 가 올바른 cache/fetch 키를 사용한다.
      */
-    if (!bootSelection.authorityReady || bootSelection.category !== category) {
+    if (!topicAuthorityReady || !bootSelection.authorityReady || bootSelection.category !== category) {
       return;
     }
 
@@ -956,7 +966,7 @@ export function CommunityFeed({
         typeof window !== "undefined"
           ? `${window.location.pathname}${window.location.search}`
           : "/philife",
-      topicOptions: topicOptionsAuthority,
+      topicOptions: options,
     });
     const snapMeta =
       bootSnap?.posts?.length ?
@@ -986,6 +996,10 @@ export function CommunityFeed({
     return () => {
       feedAbortRef.current?.abort();
     };
+    /**
+     * topicOptionsAuthority 객체 참조는 deps 금지 — 동일 authority 재할당이 feed abort/refetch 를 만든다.
+     * authority 확정은 `category` state 로만 전파한다.
+     */
   }, [
     category,
     categoryParam,
@@ -995,7 +1009,7 @@ export function CommunityFeed({
     sortParam,
     fetchPage,
     initialGlobalFeedRsc,
-    topicOptionsAuthority,
+    topicAuthorityReady,
   ]);
 
   const ptrDomain = useMainHubPtrDomain();
