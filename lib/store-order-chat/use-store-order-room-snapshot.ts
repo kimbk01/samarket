@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useSupabaseStoreOrderRowRealtime } from "@/hooks/useSupabaseStoreOrderRowRealtime";
+import { useCustomerStoreOrderRowRealtime } from "@/hooks/delivery-customer/useCustomerStoreOrderRowRealtime";
+import { useOwnerStoreOrderRowRealtime } from "@/hooks/delivery-owner/useOwnerStoreOrderRowRealtime";
 import type {
   StoreOrderBuyerItemPayload,
   StoreOrderBuyerOrderPayload,
@@ -230,13 +231,26 @@ export function useStoreOrderRoomSnapshot(input: {
     void refresh();
   }, [refresh]);
 
-  /** 매장 상태 PATCH → `store_orders` 행 갱신 시 채팅 chrome·요약 카드 스냅샷 동기화 (구매자 상세와 동일) */
-  useSupabaseStoreOrderRowRealtime(input.enabled ? input.storeOrderId.trim() || null : null, {
+  /** Customer/Owner room surfaces bind separate role-prefixed channels and projection triggers. */
+  const realtimeOrderId = input.enabled ? input.storeOrderId.trim() || null : null;
+  useCustomerStoreOrderRowRealtime(input.isOwner ? null : realtimeOrderId, {
     debounceMs: 350,
     onChange: () => {
       void refresh();
     },
   });
+  useOwnerStoreOrderRowRealtime(
+    {
+      storeId: input.isOwner ? input.storeId : null,
+      orderId: input.isOwner ? realtimeOrderId : null,
+    },
+    {
+      debounceMs: 350,
+      onChange: () => {
+        void refresh();
+      },
+    }
+  );
 
   return { snapshot, loading, error, refresh };
 }

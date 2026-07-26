@@ -17,7 +17,7 @@ import { OrderAmountCard } from "./OrderAmountCard";
 import { OrderDetailCard } from "./OrderDetailCard";
 import { OrderItemsTable } from "./OrderItemsTable";
 import { formatMoneyPhp } from "@/lib/utils/format";
-import { useSupabaseStoreOrderRowRealtime } from "@/hooks/useSupabaseStoreOrderRowRealtime";
+import { useAdminStoreOrderRowRealtime } from "@/hooks/admin/useAdminStoreOrderRowRealtime";
 import { useSupabaseStoreOrderDeliveriesRealtime } from "@/hooks/useSupabaseStoreOrderDeliveriesRealtime";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
@@ -55,7 +55,7 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
     }
   }, [orderId]);
 
-  useSupabaseStoreOrderRowRealtime(orderId.trim() || null, {
+  useAdminStoreOrderRowRealtime(orderId.trim() || null, {
     debounceMs: 400,
     onChange: () => void reload({ silent: true }),
   });

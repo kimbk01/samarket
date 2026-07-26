@@ -7,7 +7,7 @@ import { fetchOwnerOrderRemote } from "@/lib/store-owner/owner-order-remote";
 import type { OwnerOrder } from "@/lib/store-owner/types";
 import { useMeStoreBySlug } from "@/hooks/useMeStoreBySlug";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
-import { useSupabaseStoreOrderRowRealtime } from "@/hooks/useSupabaseStoreOrderRowRealtime";
+import { useOwnerStoreOrderRowRealtime } from "@/hooks/delivery-owner/useOwnerStoreOrderRowRealtime";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
 
@@ -50,10 +50,13 @@ export function OwnerOrderDetailPageClient({ slug, orderId }: { slug: string; or
     void load();
   }, [load]);
 
-  useSupabaseStoreOrderRowRealtime(storeId && safeOrderId ? safeOrderId : null, {
-    debounceMs: 380,
-    onChange: () => void load(),
-  });
+  useOwnerStoreOrderRowRealtime(
+    { storeId, orderId: safeOrderId || null },
+    {
+      debounceMs: 380,
+      onChange: () => void load(),
+    }
+  );
 
   if (gate.kind === "loading" || gate.kind === "idle") {
     return (

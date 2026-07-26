@@ -43,7 +43,7 @@ import {
   getStoreOrderDetailSeed,
   type StoreOrderDetailSeed,
 } from "@/lib/stores/store-order-detail-seed-cache";
-import { useSupabaseStoreOrderRowRealtime } from "@/hooks/useSupabaseStoreOrderRowRealtime";
+import { useCustomerStoreOrderRowRealtime } from "@/hooks/delivery-customer/useCustomerStoreOrderRowRealtime";
 import { useSupabaseStoreOrderDeliveriesRealtime } from "@/hooks/useSupabaseStoreOrderDeliveriesRealtime";
 import {
   buyerFulfillmentLabel,
@@ -282,7 +282,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
     }
   }, [orderId]);
 
-  useSupabaseStoreOrderRowRealtime(orderId.trim() || null, {
+  useCustomerStoreOrderRowRealtime(orderId.trim() || null, {
     debounceMs: 350,
     onChange: () => void load({ silent: true, force: true }),
   });

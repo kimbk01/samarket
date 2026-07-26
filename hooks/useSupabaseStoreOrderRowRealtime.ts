@@ -3,15 +3,76 @@
 import { useEffect, useRef } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import type { StoreOrdersRealtimeHandlers } from "@/hooks/useSupabaseStoreOrdersRealtime";
+
+export type StoreOrderRowRealtimeDomain = "delivery-customer" | "delivery-owner" | "platform-admin";
+
+export type StoreOrderRowRealtimeHandlers = {
+  debounceMs?: number;
+  onChange?: () => void;
+};
+
+export function storeOrderRowRealtimeChannelName(input: {
+  domain: StoreOrderRowRealtimeDomain;
+  orderId: string;
+  storeId?: string | null;
+}): string {
+  const oid = input.orderId.trim();
+  const sid = input.storeId?.trim() ?? "";
+  if (input.domain === "delivery-owner") {
+    return `${input.domain}-order-row-rt:${sid}:${oid}`;
+  }
+  return `${input.domain}-order-row-rt:${oid}`;
+}
+
+export function storeOrderRowRealtimeEventSignature(payload: {
+  eventType: string;
+  new?: Record<string, unknown> | null;
+  old?: Record<string, unknown> | null;
+}): string {
+  const row = payload.new ?? payload.old ?? {};
+  const stableEntries = Object.entries(row).sort(([a], [b]) => a.localeCompare(b));
+  return JSON.stringify([payload.eventType, stableEntries]);
+}
+
+export function storeOrderRowEventMatchesDomain(input: {
+  domain: StoreOrderRowRealtimeDomain;
+  storeId?: string | null;
+  row?: Record<string, unknown> | null;
+}): boolean {
+  if (input.domain !== "delivery-owner") return true;
+  const expectedStoreId = input.storeId?.trim() ?? "";
+  if (!expectedStoreId) return false;
+  return String(input.row?.store_id ?? "").trim() === expectedStoreId;
+}
+
+export function applyStoreOrderRowRealtimeEvent(input: {
+  boundDomain: StoreOrderRowRealtimeDomain;
+  eventDomain: StoreOrderRowRealtimeDomain;
+  payload: {
+    eventType: string;
+    new?: Record<string, unknown> | null;
+    old?: Record<string, unknown> | null;
+  };
+  lastSignature: string;
+  onApply: () => void;
+}): { applied: boolean; signature: string } {
+  const signature = storeOrderRowRealtimeEventSignature(input.payload);
+  if (input.boundDomain !== input.eventDomain || signature === input.lastSignature) {
+    return { applied: false, signature: input.lastSignature };
+  }
+  input.onApply();
+  return { applied: true, signature };
+}
 
 /**
- * 단일 주문 행 `store_orders` 변경 구독 — 구매자 상세·관리자 상세 등.
- * RLS 범위 내에서만 이벤트 수신.
+ * Shared transport only. Product surfaces must use role adapters:
+ * `useCustomerStoreOrderRowRealtime` / `useOwnerStoreOrderRowRealtime`.
  */
-export function useSupabaseStoreOrderRowRealtime(
+export function useStoreOrderRowRealtimeTransport(
+  domain: StoreOrderRowRealtimeDomain,
   orderId: string | null,
-  handlers: Pick<StoreOrdersRealtimeHandlers, "debounceMs" | "onChange">
+  handlers: StoreOrderRowRealtimeHandlers,
+  opts?: { storeId?: string | null }
 ) {
   const handlersRef = useRef(handlers);
   handlersRef.current = handlers;
@@ -26,6 +87,7 @@ export function useSupabaseStoreOrderRowRealtime(
     let ch: RealtimeChannel | null = null;
     let cancelled = false;
     let debTimer: ReturnType<typeof setTimeout> | null = null;
+    let lastEventSignature = "";
 
     const clearDebounce = () => {
       if (debTimer) {
@@ -48,7 +110,13 @@ export function useSupabaseStoreOrderRowRealtime(
       if (ch) void sb.removeChannel(ch);
       clearDebounce();
       ch = sb
-        .channel(`store-order-row-rt:${oid}`)
+        .channel(
+          storeOrderRowRealtimeChannelName({
+            domain,
+            orderId: oid,
+            storeId: opts?.storeId,
+          })
+        )
         .on(
           "postgres_changes",
           {
@@ -60,7 +128,22 @@ export function useSupabaseStoreOrderRowRealtime(
           (payload) => {
             const eventType = payload.eventType;
             if (eventType === "INSERT" || eventType === "UPDATE" || eventType === "DELETE") {
-              scheduleChange();
+              const row = (payload.new ?? payload.old) as Record<string, unknown> | null;
+              if (!storeOrderRowEventMatchesDomain({ domain, storeId: opts?.storeId, row })) {
+                return;
+              }
+              const result = applyStoreOrderRowRealtimeEvent({
+                boundDomain: domain,
+                eventDomain: domain,
+                payload: {
+                  eventType,
+                  new: payload.new as Record<string, unknown> | null,
+                  old: payload.old as Record<string, unknown> | null,
+                },
+                lastSignature: lastEventSignature,
+                onApply: scheduleChange,
+              });
+              lastEventSignature = result.signature;
             }
           }
         )
@@ -88,5 +171,5 @@ export function useSupabaseStoreOrderRowRealtime(
       subscription.unsubscribe();
       if (ch) void sb.removeChannel(ch);
     };
-  }, [orderId]);
+  }, [domain, orderId, opts?.storeId]);
 }

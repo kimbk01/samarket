@@ -25,7 +25,7 @@ import {
   peekMeStoreOrderDetailCache,
   peekMeStoreOrderEventsCache,
 } from "@/lib/stores/store-delivery-api-client";
-import { useSupabaseStoreOrderRowRealtime } from "@/hooks/useSupabaseStoreOrderRowRealtime";
+import { useCustomerStoreOrderRowRealtime } from "@/hooks/delivery-customer/useCustomerStoreOrderRowRealtime";
 import { useSupabaseStoreOrderDeliveriesRealtime } from "@/hooks/useSupabaseStoreOrderDeliveriesRealtime";
 import {
   buyerStoreOrderProgressCopy,
@@ -361,7 +361,7 @@ export function MyStoreOrderExpandPanel({
     void load({ silent: initial.kind === "ok" });
   }, [orderId, load]);
 
-  useSupabaseStoreOrderRowRealtime(orderId, {
+  useCustomerStoreOrderRowRealtime(orderId, {
     debounceMs: 350,
     onChange: () => void load({ silent: true, force: true }),
   });
