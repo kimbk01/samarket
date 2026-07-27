@@ -55,7 +55,15 @@ function run(cmd, args, label) {
 run("node", ["scripts/verify-call-v4-incoming-fsi-fallback-boundary.cjs"], "boundary + structure-lock + push-delivery");
 run(
   "npx",
-  ["vitest", "run", manifest.importGuardTest],
+  [
+    "vitest",
+    "run",
+    "--exclude",
+    "**/.qa-logs/**",
+    "--exclude",
+    "**/.worktrees/**",
+    manifest.importGuardTest,
+  ],
   "call-v4-import-guard",
 );
 console.log("[verify:staged-call-v4-incoming] PASS");

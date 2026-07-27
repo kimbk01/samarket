@@ -197,12 +197,37 @@ describe("call-v4 import isolation", () => {
     expect(bridge).toContain("surface_owner_bridge_injected");
     expect(voip).toContain('owner: "native_fsi"');
     expect(voip).toContain('owner: "terminal"');
-    expect(voip).toContain("reportOrphanTerminalVoipPushAndEnd");
-    expect(callkit).toContain("reportOrphanTerminalVoipPushAndEnd");
-    expect(callkit).toContain("ios_voip_terminal_orphan_reported_and_ended");
     expect(callkit).toContain('owner: "accepted_transition"');
     expect(callkit).toContain('owner: "terminal"');
     expect(plugin).toContain("claimForegroundWebIncomingOwner");
+  });
+
+  it("iOS VoIP orphan terminal is safe no-op (no invent / ghost redial)", () => {
+    const voip = read("ios/App/App/Push/VoIPPushRegistry.swift");
+    const callkit = read("ios/App/App/Push/CallKitProvider.swift");
+
+    // Tracked terminal kinds still end CallKit via reportCallEnded.
+    expect(voip).toContain('kind == "call_canceled"');
+    expect(voip).toContain('kind == "call_rejected"');
+    expect(voip).toContain('kind == "call_ended"');
+    expect(voip).toContain('kind == "missed_call"');
+    expect(voip).toContain("reportCallEnded");
+    expect(voip).toContain("hasTrackedCallKitSession");
+
+    // Orphan: log + completion only — no invent API.
+    expect(voip).toContain("ios_voip_terminal_orphan_ignored");
+    expect(voip).not.toContain("reportOrphanTerminalVoipPushAndEnd");
+    expect(voip).not.toContain("ios_voip_terminal_orphan_clear");
+    expect(callkit).not.toContain("reportOrphanTerminalVoipPushAndEnd");
+    expect(callkit).not.toContain("ios_voip_terminal_orphan_reported_and_ended");
+    expect(callkit).not.toContain("ios_voip_terminal_orphan_dedup_end");
+
+    // reportNewIncomingCall remains only for real incoming (reportIncomingCall).
+    const incomingIdx = callkit.indexOf("func reportIncomingCall");
+    const reportIdx = callkit.indexOf("reportNewIncomingCall");
+    expect(incomingIdx).toBeGreaterThanOrEqual(0);
+    expect(reportIdx).toBeGreaterThan(incomingIdx);
+    expect(callkit.indexOf("reportNewIncomingCall", reportIdx + 1)).toBe(-1);
   });
 
   it("Legacy Web Call establishment removed on Android Capacitor (Track ①)", () => {

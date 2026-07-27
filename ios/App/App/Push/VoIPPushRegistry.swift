@@ -67,23 +67,14 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
         )
         callProvider.reportCallEnded(uuidString: sessionId)
       } else {
+        // Unknown/orphan terminal: do NOT invent CallKit UUID / reportNewIncomingCall
+        // (ae486 invent → ghost redial). PushKit completion still required.
         DibayCallLog.infoCallV4(
-          "ios_voip_terminal_orphan_clear",
+          "ios_voip_terminal_orphan_ignored",
           callId: sessionId,
           owner: "terminal",
           reason: terminalReason
         )
-        let caller = (data["title"] as? String) ?? "통화"
-        let hasVideo = (data["kind"] as? String) == "video"
-        callProvider.reportOrphanTerminalVoipPushAndEnd(
-          sessionId: sessionId,
-          handle: caller,
-          hasVideo: hasVideo,
-          logDetail: terminalReason
-        ) {
-          completion()
-        }
-        return
       }
       completion()
       return

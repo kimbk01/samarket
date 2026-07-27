@@ -30,6 +30,9 @@ export default defineConfig({
       "**/scripts/**/*.spec.cjs",
       /** Node `node:test` only — run via `node --test scripts/__tests__/…` (see verify-ci-stability.mjs) */
       "**/scripts/__tests__/**",
+      /** Local QA copies / nested worktrees must not be collected as duplicate suites. */
+      "**/.qa-logs/**",
+      "**/.worktrees/**",
     ],
   },
 });
