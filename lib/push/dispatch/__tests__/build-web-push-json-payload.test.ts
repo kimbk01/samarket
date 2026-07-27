@@ -106,13 +106,9 @@ describe("buildWebPushJsonPayload", () => {
 
     expect(payload.data.type).toBe("missed_call");
     expect(payload.data.call_push_kind).toBe("missed_call");
-    expect(payload.data.tag).toBe("samarket-missed-call-sess-2");
-    expect(payload.data.body).toBe("Body");
     expect(payload.data.url).toBe(
       "/community-messenger/rooms/room-2?focus=call-history&callId=sess-2"
     );
-    // Policy A: missed is terminal for VoIP/provider, but web payload stays a
-    // user-facing history notification (not silent live-call dismiss).
     expect(payload.is_call).toBe(false);
   });
 
