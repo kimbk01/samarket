@@ -329,14 +329,9 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
         markCmScrollRun(reason, "chrome_resize_preserve");
         return;
       }
-      /**
-       * CONTRACT: stickToBottomRef 가 하단이면 Composer 바로 위에 붙인다.
-       * engine.stick 과 불일치해도 notifyLayoutResize(preserve) 로 빠지지 않는다.
-       * (실측: keyboard open 시 Timeline 축소 + scrollTop 고정 → lastBubbleGap 음수)
-       */
-      engine.scrollToBottomExplicit(buildCtx());
+      engine.notifyLayoutResize(buildCtx());
       stickToBottomRef.current = true;
-      markCmScrollRun(reason, "keyboard_bottom_preserve");
+      markCmScrollRun(reason, "keyboard_preserve");
     },
     [
       activeSheet,
@@ -545,8 +540,6 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
   }, [engine, roomMessages, scrollMessengerToBottom]);
 
   useLayoutEffect(() => {
-    /** Timeline DOM 이 생긴 뒤에만 구독 — mount 전 early-return 후 재구독 누락 금지 */
-    if (!timelineViewportMounted) return;
     const el = messagesViewportRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
 
@@ -566,7 +559,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     window.addEventListener("resize", onLayoutViewport);
     window.addEventListener("orientationchange", onLayoutViewport);
 
-    /** Platform adapter input — scroll write 는 applyLayoutPreserve → engine 만 */
+    /** Platform adapter input — scroll decision은 engine notifyLayoutResize 만 */
     const vv = typeof window !== "undefined" ? window.visualViewport : null;
     const onVv = () => {
       if (engine.getPhase() === "entryPendingLayout") return;
@@ -582,14 +575,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
       window.removeEventListener("resize", onLayoutViewport);
       window.removeEventListener("orientationchange", onLayoutViewport);
     };
-  }, [
-    applyLayoutPreserve,
-    engine,
-    loadingOlderMessages,
-    messagesViewportRef,
-    timelineViewportMounted,
-    tryCompleteEntry,
-  ]);
+  }, [applyLayoutPreserve, engine, loadingOlderMessages, messagesViewportRef, tryCompleteEntry]);
 
   useEffect(() => {
     return () => {

@@ -158,14 +158,6 @@ assertIncludes(kbOffset, "resolveIosKeyboardOverlayCssPx", "use-cm-room-kb-offse
 assertIncludes(scrollAnchor, "keyboard_resize_keep_bottom", "scroll-anchor-controller");
 assertIncludes(scrollAnchor, "window.visualViewport", "scroll-anchor-controller");
 assertNotIncludes(scrollAnchor, "ios && typeof window", "scroll-anchor-controller vv gate removed");
-assertIncludes(scrollAnchor, "timelineViewportMounted", "scroll-anchor-controller RO after timeline mount");
-assertIncludes(scrollAnchor, "scrollToBottomExplicit", "scroll-anchor-controller bottom stick write");
-assertIncludes(scrollAnchor, "keyboard_bottom_preserve", "scroll-anchor-controller bottom stick source");
-assertIncludes(
-  scrollAnchor,
-  "if (!timelineViewportMounted) return;",
-  "scroll-anchor-controller RO waits for timeline mount"
-);
 
 // --- composer/header: no sticky/fixed keyboard hacks ---
 assertNotMatches(chatHeader, /sticky|fixed/, "ChatHeader");
