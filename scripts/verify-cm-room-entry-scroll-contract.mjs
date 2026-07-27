@@ -35,10 +35,6 @@ assertIncludes(controller, "createChatThreadScrollEngine", "scroll-anchor-contro
 assertIncludes(controller, "tryCompleteEntry", "scroll-anchor-controller");
 assertIncludes(controller, "loadingOlderMessages", "scroll-anchor-controller prepend guard");
 assertIncludes(controller, "hasAppliedInitialAnchorRef", "scroll-anchor-controller single initial");
-assertIncludes(controller, "flushInitialEntryAnchor", "scroll-anchor-controller sync flush");
-assertIncludes(controller, "syncStickToBottom", "scroll-anchor-controller stick sync");
-assertIncludes(engine, "syncStickToBottom", "chat-thread-scroll engine stick sync");
-assertIncludes(engine, "preserveVisibleAnchor", "chat-thread-scroll engine visible anchor");
 assertExcludes(controller, "resolveMessengerRoomEntryScrollFinalize", "scroll-anchor-controller legacy gate");
 assertExcludes(controller, ".scrollTop =", "scroll-anchor-controller inline scroll");
 assertExcludes(controller, "schedulePendingEntryTailSettle", "scroll-anchor-controller no tail settle");

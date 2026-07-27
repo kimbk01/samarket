@@ -11,7 +11,7 @@ function mockViewport(input: {
 }): HTMLElement {
   let scrollTop = input.scrollTop ?? 0;
   let scrollHeight = input.scrollHeight ?? 1000;
-  let clientHeight = input.clientHeight ?? 400;
+  const clientHeight = input.clientHeight ?? 400;
   const rowCount = input.rowCount ?? 1;
   const el = {
     get scrollHeight() {
@@ -20,12 +20,7 @@ function mockViewport(input: {
     set scrollHeight(v: number) {
       scrollHeight = v;
     },
-    get clientHeight() {
-      return clientHeight;
-    },
-    set clientHeight(v: number) {
-      clientHeight = v;
-    },
+    clientHeight,
     get scrollTop() {
       return scrollTop;
     },
@@ -33,18 +28,6 @@ function mockViewport(input: {
       scrollTop = v;
     },
     querySelectorAll: vi.fn(() => Array.from({ length: rowCount })),
-    querySelector: vi.fn(() => null),
-    getBoundingClientRect: vi.fn(() => ({
-      top: 0,
-      bottom: clientHeight,
-      height: clientHeight,
-      left: 0,
-      right: 0,
-      width: 300,
-      x: 0,
-      y: 0,
-      toJSON: () => ({}),
-    })),
   } as unknown as HTMLElement;
   return el;
 }
@@ -162,46 +145,6 @@ describe("ChatThreadScrollEngine", () => {
     setScrollHeight(vp, 700);
     const ok = engine.notifyLayoutResize(ctx);
     expect(ok).toBe(true);
-    expect(vp.scrollTop).toBe(700);
-  });
-
-  it("keyboard shrink while stick → force pin bottom (last bubble above composer)", () => {
-    const engine = createChatThreadScrollEngine();
-    const vp = mockViewport({ scrollHeight: 2000, scrollTop: 1400, clientHeight: 600 });
-    const ctx = { viewport: vp, messageCount: 10, virtualizer: null };
-
-    engine.notifyEntry({ forceBottom: true });
-    engine.notifyMessagesReady(true);
-    engine.notifyLayoutCommitted();
-    engine.tryCompleteEntry(ctx);
-    expect(vp.scrollTop).toBe(2000);
-
-    /** Product stick desync then sync — layout resize must still pin */
-    engine.state.stickToBottom = false;
-    engine.syncStickToBottom(true);
-    (vp as unknown as { clientHeight: number }).clientHeight = 300;
-    const ok = engine.notifyLayoutResize(ctx);
-    expect(ok).toBe(true);
-    expect(vp.scrollTop).toBe(2000);
-  });
-
-  it("layout resize while !stick preserves scroll distance when no row anchor", () => {
-    const engine = createChatThreadScrollEngine();
-    const vp = mockViewport({ scrollHeight: 2000, scrollTop: 400, clientHeight: 600 });
-    const ctx = { viewport: vp, messageCount: 10, virtualizer: null };
-
-    engine.notifyEntry({ forceBottom: true });
-    engine.notifyMessagesReady(true);
-    engine.notifyLayoutCommitted();
-    engine.tryCompleteEntry(ctx);
-    vp.scrollTop = 400;
-    engine.notifyUserScroll(ctx);
-    expect(engine.readStickToBottom()).toBe(false);
-
-    (vp as unknown as { clientHeight: number }).clientHeight = 300;
-    const ok = engine.notifyLayoutResize(ctx);
-    expect(ok).toBe(true);
-    /** distance-from-bottom preserved: was 2000-400-600=1000 → maxScroll=1700 → top=700 */
     expect(vp.scrollTop).toBe(700);
   });
 

@@ -45,10 +45,6 @@
 - viewport shell CSS/훅: height/composer/keyboard 변수만 — **scrollTop 금지**
 - keyboard LOCK: `verify:cm-room-keyboard-layout-contract` (별도 계약)
 - shell `style.height` 는 viewport **adapter 입력** — scroll authority 가 아님
-- layout/keyboard resize: controller `applyLayoutPreserve` → `engine.syncStickToBottom` → `notifyLayoutResize` **한 transaction**
-  - stick → pin bottom (force)
-  - !stick → visible message id+offset preserve
-- Timeline ref attach 시 `flushInitialEntryAnchor` 동기 1회 (setState mount cross-commit paint 금지)
 
 ## CM 위임
 
@@ -61,4 +57,3 @@
 - P3+P4: 4갈래 scroll → `lib/chat-thread-scroll/` 단일 엔진, stick 96px 통일
 - P3+P4.1: CM composer paint gate + tail settle 2단계 (legacy)
 - **2026-07-28**: paint-then-correct 제거 — initial anchor 1회, composer/fingerprint/tail settle writer 제거, last-read/unread entry plan
-- **2026-07-28**: **Unified viewport/scroll** — entry sync flush + layout-resize stick pin/visible-anchor preserve; stickRef↔engine sync; keyboard/entry 단일 authority (revert 사이클 중단)

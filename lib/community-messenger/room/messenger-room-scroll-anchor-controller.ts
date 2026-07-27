@@ -114,17 +114,15 @@ function mapInitialSource(reason: CmScrollOwnerReason, forceBottom: boolean, has
 
 /**
  * Single scroll authority for CM rooms (Telegram/Kakao contract).
- * - Initial anchor: room generation 당 1회 — viewport attach sync flush + layoutEffect backup
- * - Resize/keyboard/chrome: one notifyLayoutResize transaction (stick pin / preserve anchor)
- * - scrollTop 조작은 ChatThreadScrollEngine 만 — 플랫폼 adapter는 이벤트만 전달
+ * - Initial anchor: room generation 당 1회, useLayoutEffect (paint 전)
+ * - Resize/keyboard/chrome: settled 이후 preserve/follow 만 — 재 entry·tail settle 금지
+ * - scrollTop 조작은 ChatThreadScrollEngine 만
  */
 export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControllerOpts): {
   scrollMessengerToBottom: (request?: { reason?: CmScrollOwnerReason; force?: boolean }) => void;
   updateStickToBottomFromScroll: () => void;
   persistScrollPosition: () => void;
   enqueueScrollAnchor: (request: MessengerRoomScrollAnchorRequest) => void;
-  /** Timeline ref attach 시 paint 전 동기 1회 — setState mount gate cross-commit 금지 */
-  flushInitialEntryAnchor: () => boolean;
 } {
   const {
     roomId,
@@ -312,61 +310,15 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
 
   const applyLayoutPreserve = useCallback(
     (reason: CmScrollOwnerReason) => {
-      const vp = messagesViewportRef.current;
-      if (loadingOlderMessages) {
-        noteCmScrollAuthorityEvent("scroll_command", {
-          roomId,
-          source: "resize_guard_skip",
-          detail: { reason, guard: "loadingOlderMessages" },
-          scrollTop: vp?.scrollTop,
-          scrollHeight: vp?.scrollHeight,
-          clientHeight: vp?.clientHeight,
-          roomGeneration: roomGenerationRef.current,
-        });
-        return;
-      }
+      if (loadingOlderMessages) return;
       if (!engine.isSettled() || !hasAppliedInitialAnchorRef.current) {
-        noteCmScrollAuthorityEvent("scroll_command", {
-          roomId,
-          source: "resize_guard_skip",
-          detail: {
-            reason,
-            guard: "not_settled_or_no_initial",
-            phase: engine.getPhase(),
-            hasAppliedInitialAnchor: hasAppliedInitialAnchorRef.current,
-          },
-          scrollTop: vp?.scrollTop,
-          clientHeight: vp?.clientHeight,
-          roomGeneration: roomGenerationRef.current,
-        });
         if (engine.getPhase() === "entryPendingLayout") {
           tryCompleteEntry("initial_load", "initial_latest");
         }
         return;
       }
-
-      /** Product stick ↔ engine stick 동기화 — desync 시 preserve no-op로 last bubble 숨김 방지 */
-      const stick = stickToBottomRef.current;
-      engine.syncStickToBottom(stick);
-
-      noteCmScrollAuthorityEvent("scroll_command", {
-        roomId,
-        source: "resize_signal",
-        detail: {
-          reason,
-          stick,
-          phase: engine.getPhase(),
-          bottomDistance:
-            vp != null ? Math.max(0, vp.scrollHeight - vp.scrollTop - vp.clientHeight) : null,
-        },
-        scrollTop: vp?.scrollTop,
-        scrollHeight: vp?.scrollHeight,
-        clientHeight: vp?.clientHeight,
-        roomGeneration: roomGenerationRef.current,
-      });
-
-      const wrote = engine.notifyLayoutResize(buildCtx());
-      if (!stick) {
+      if (!stickToBottomRef.current) {
+        engine.notifyLayoutResize(buildCtx());
         syncMessengerRoomStickToBottomFromViewport({
           viewport: messagesViewportRef.current,
           stickToBottomRef,
@@ -374,11 +326,12 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
           activeSheet,
         });
         persistScrollPosition();
-        if (wrote) markCmScrollRun(reason, "chrome_resize_preserve");
+        markCmScrollRun(reason, "chrome_resize_preserve");
         return;
       }
+      engine.notifyLayoutResize(buildCtx());
       stickToBottomRef.current = true;
-      if (wrote) markCmScrollRun(reason, "keyboard_resize_follow");
+      markCmScrollRun(reason, "keyboard_preserve");
     },
     [
       activeSheet,
@@ -492,77 +445,55 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     }
   }, [engine, roomId, stickToBottomRef]);
 
-  /** Initial anchor — room generation 당 1회. viewport attach sync + layoutEffect backup. */
-  const runInitialAnchorIfReady = useCallback(
-    (flushSource: string): boolean => {
-      if (deferEntryScrollToDeliveryDirectTimeline || roomMessages.length <= 0) return false;
-      if (!messagesViewportRef.current) return false;
-      if (!timelineInitialLoadComplete) return false;
-      /** heavy 없이도 direct rows paint 가능 — heavy는 virtualizer 보조만 */
-      if (!timelineHeavyReady && messageCount <= 0) return false;
-      if (entryScrollScheduledRef.current || hasAppliedInitialAnchorRef.current) return false;
-
-      const rid = roomId.trim();
-      const hasPersisted = Boolean(peekMessengerRoomScrollPosition(rid));
-      const plan = resolveMessengerRoomEntryScrollPlan({
-        intent: entryIntentRef.current,
-        hasPersisted,
-        unreadCount,
-        lastReadMessageId,
-      });
-      if (plan.clearPersist && rid) clearMessengerRoomScrollPosition(rid);
-      if (plan.forceBottom) stickToBottomRef.current = true;
-
-      entryScrollScheduledRef.current = true;
-      notifyEntryFromPlan(plan.reason, plan.forceBottom, plan.anchorMessageId ?? null);
-      engine.notifyMessagesReady(true);
-      engine.notifyLayoutCommitted();
-      const source = mapInitialSource(
-        plan.reason,
-        plan.forceBottom,
-        Boolean(plan.anchorMessageId || pendingAnchorMessageIdRef.current)
-      );
-      noteCmScrollAuthorityEvent("scroll_command", {
-        roomId: rid,
-        source: "initial_anchor_request",
-        detail: { flushSource, planReason: plan.reason, forceBottom: plan.forceBottom },
-        scrollTop: messagesViewportRef.current?.scrollTop,
-        clientHeight: messagesViewportRef.current?.clientHeight,
-        roomGeneration: roomGenerationRef.current,
-      });
-      const applied = tryCompleteEntry(plan.reason, source);
-      if (!applied) {
-        /** viewport 높이 미확정 — 다음 RO/layout에서 1회만 완료 (중첩 rAF settle 금지) */
-        entryScrollScheduledRef.current = true;
-      }
-      return applied;
-    },
-    [
-      deferEntryScrollToDeliveryDirectTimeline,
-      engine,
-      lastReadMessageId,
-      messageCount,
-      messagesViewportRef,
-      notifyEntryFromPlan,
-      roomId,
-      roomMessages.length,
-      stickToBottomRef,
-      timelineHeavyReady,
-      timelineInitialLoadComplete,
-      tryCompleteEntry,
-      unreadCount,
-    ]
-  );
-
-  const flushInitialEntryAnchor = useCallback((): boolean => {
-    return runInitialAnchorIfReady("viewport_attach_sync");
-  }, [runInitialAnchorIfReady]);
-
+  /** Initial anchor — room generation 당 1회, layoutEffect(paint 전). composer/fingerprint 재실행 금지. */
   useLayoutEffect(() => {
-    /** setState mounted gate 대신 ref 존재 + 상태 게이트 — sync flush 실패 시 paint 전 backup */
-    if (!timelineViewportMounted && !messagesViewportRef.current) return;
-    runInitialAnchorIfReady("layout_effect_backup");
-  }, [messagesViewportRef, runInitialAnchorIfReady, timelineViewportMounted]);
+    if (deferEntryScrollToDeliveryDirectTimeline || roomMessages.length <= 0) return;
+    if (!timelineViewportMounted) return;
+    if (!timelineInitialLoadComplete) return;
+    /** heavy 없이도 direct rows paint 가능 — heavy는 virtualizer 보조만 */
+    if (!timelineHeavyReady && messageCount <= 0) return;
+    if (entryScrollScheduledRef.current || hasAppliedInitialAnchorRef.current) return;
+
+    const rid = roomId.trim();
+    const hasPersisted = Boolean(peekMessengerRoomScrollPosition(rid));
+    const plan = resolveMessengerRoomEntryScrollPlan({
+      intent: entryIntentRef.current,
+      hasPersisted,
+      unreadCount,
+      lastReadMessageId,
+    });
+    if (plan.clearPersist && rid) clearMessengerRoomScrollPosition(rid);
+    if (plan.forceBottom) stickToBottomRef.current = true;
+
+    entryScrollScheduledRef.current = true;
+    notifyEntryFromPlan(plan.reason, plan.forceBottom, plan.anchorMessageId ?? null);
+    engine.notifyMessagesReady(true);
+    engine.notifyLayoutCommitted();
+    const source = mapInitialSource(
+      plan.reason,
+      plan.forceBottom,
+      Boolean(plan.anchorMessageId || pendingAnchorMessageIdRef.current)
+    );
+    const applied = tryCompleteEntry(plan.reason, source);
+    if (!applied) {
+      /** viewport 높이 미확정 — 다음 RO/layout에서 1회만 완료 (중첩 rAF settle 금지) */
+      entryScrollScheduledRef.current = true;
+    }
+  }, [
+    deferEntryScrollToDeliveryDirectTimeline,
+    engine,
+    lastReadMessageId,
+    messageCount,
+    notifyEntryFromPlan,
+    roomId,
+    roomMessages.length,
+    stickToBottomRef,
+    timelineHeavyReady,
+    timelineInitialLoadComplete,
+    timelineViewportMounted,
+    tryCompleteEntry,
+    unreadCount,
+  ]);
 
   useEffect(() => {
     engine.notifyPrependInFlight(loadingOlderMessages);
@@ -609,8 +540,6 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
   }, [engine, roomMessages, scrollMessengerToBottom]);
 
   useLayoutEffect(() => {
-    /** Timeline DOM 부착 후에만 구독 — mount 전 early-return 후 재구독 누락 금지 */
-    if (!timelineViewportMounted) return;
     const el = messagesViewportRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
 
@@ -630,7 +559,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     window.addEventListener("resize", onLayoutViewport);
     window.addEventListener("orientationchange", onLayoutViewport);
 
-    /** Platform adapter input — scroll write 는 applyLayoutPreserve → engine 만 */
+    /** Platform adapter input — scroll decision은 engine notifyLayoutResize 만 */
     const vv = typeof window !== "undefined" ? window.visualViewport : null;
     const onVv = () => {
       if (engine.getPhase() === "entryPendingLayout") return;
@@ -646,14 +575,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
       window.removeEventListener("resize", onLayoutViewport);
       window.removeEventListener("orientationchange", onLayoutViewport);
     };
-  }, [
-    applyLayoutPreserve,
-    engine,
-    loadingOlderMessages,
-    messagesViewportRef,
-    timelineViewportMounted,
-    tryCompleteEntry,
-  ]);
+  }, [applyLayoutPreserve, engine, loadingOlderMessages, messagesViewportRef, tryCompleteEntry]);
 
   useEffect(() => {
     return () => {
@@ -666,6 +588,5 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     updateStickToBottomFromScroll,
     persistScrollPosition,
     enqueueScrollAnchor,
-    flushInitialEntryAnchor,
   };
 }
