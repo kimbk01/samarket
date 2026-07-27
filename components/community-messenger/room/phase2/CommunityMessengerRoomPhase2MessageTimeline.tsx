@@ -1361,8 +1361,15 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     (node: HTMLDivElement | null) => {
       vm.messagesViewportRef.current = node;
       vm.notifyTimelineViewportMounted(Boolean(node));
+      /**
+       * Paint 전 동기 initial anchor — setState(mounted) 다음 commit까지 미루면
+       * scrollTop=0 첫 프레임이 사용자에게 노출된다 (Telegram/Kakao FAIL).
+       */
+      if (node) {
+        vm.flushInitialEntryAnchor?.();
+      }
     },
-    [vm.messagesViewportRef, vm.notifyTimelineViewportMounted]
+    [vm.flushInitialEntryAnchor, vm.messagesViewportRef, vm.notifyTimelineViewportMounted]
   );
 
   const attachPass2FirstRowProbe = useCallback(

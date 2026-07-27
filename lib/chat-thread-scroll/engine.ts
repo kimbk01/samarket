@@ -34,6 +34,14 @@ export type NotifyPrependCompleteInput = {
   estimatedPrependPx?: number;
 };
 
+type VisibleAnchor = { id: string; offset: number };
+
+/**
+ * Single scroll authority for all chat threads.
+ * Entry: tryCompleteEntry once → settled.
+ * Layout/keyboard resize: stick → pin bottom (force); else preserve visible message anchor.
+ * DO NOT add platform-specific scroll writers outside this engine.
+ */
 export class ChatThreadScrollEngine {
   private config: Required<Omit<ChatThreadScrollEngineConfig, "resolveEntryPaintReady">> & {
     resolveEntryPaintReady?: ChatThreadScrollEngineConfig["resolveEntryPaintReady"];
@@ -49,6 +57,7 @@ export class ChatThreadScrollEngine {
   };
   private restoreSnapshot: ChatThreadScrollRestoreSnapshot | null = null;
   private lastGeom: { sh: number; st: number; ch: number } | null = null;
+  private visibleAnchor: VisibleAnchor | null = null;
 
   constructor(config: ChatThreadScrollEngineConfig = {}) {
     this.config = {
@@ -70,6 +79,7 @@ export class ChatThreadScrollEngine {
     };
     this.restoreSnapshot = null;
     this.lastGeom = null;
+    this.visibleAnchor = null;
   }
 
   getPhase(): ChatThreadScrollPhase {
@@ -78,6 +88,11 @@ export class ChatThreadScrollEngine {
 
   isSettled(): boolean {
     return this.state.phase === "settled";
+  }
+
+  /** Product stick (ref) → engine stick — layout resize must not desync */
+  syncStickToBottom(stick: boolean): void {
+    this.state.stickToBottom = stick;
   }
 
   notifyEntry(input: NotifyEntryInput = {}): void {
@@ -144,8 +159,10 @@ export class ChatThreadScrollEngine {
   }
 
   /**
-   * layout/keyboard resize — settled + stick 일 때만 follow.
-   * entryPendingLayout 중에는 no-op.
+   * Unified layout/keyboard/chrome resize transaction.
+   * - entryPendingLayout → tryCompleteEntry only
+   * - settled + stick → pin bottom (force) so Timeline shrink keeps last bubble above Composer
+   * - settled + !stick → preserve visible message id+offset
    */
   notifyLayoutResize(ctx: ChatThreadScrollViewportContext): boolean {
     if (this.state.phase === "entryPendingLayout") {
@@ -153,9 +170,9 @@ export class ChatThreadScrollEngine {
     }
     if (this.state.phase !== "settled" || this.state.prependInFlight) return false;
     if (!this.state.stickToBottom) {
-      return this.preserveScrollDistance(ctx);
+      return this.preserveVisibleAnchor(ctx);
     }
-    return this.applyScrollToBottom(ctx, { force: false });
+    return this.applyScrollToBottom(ctx, { force: true });
   }
 
   tryCompleteEntry(ctx: ChatThreadScrollViewportContext): boolean {
@@ -231,6 +248,16 @@ export class ChatThreadScrollEngine {
     if (!vp) return false;
     if (!opts.force && !this.state.stickToBottom) return false;
 
+    const maxScroll = Math.max(0, vp.scrollHeight - vp.clientHeight);
+    const geometryUnchanged =
+      this.lastGeom != null &&
+      this.lastGeom.sh === vp.scrollHeight &&
+      this.lastGeom.ch === vp.clientHeight;
+    if (geometryUnchanged && Math.abs(vp.scrollTop - maxScroll) <= 1) {
+      this.captureGeom(vp);
+      return true;
+    }
+
     const count = ctx.messageCount;
     const virtualizer = ctx.virtualizer;
     if (count > 0 && virtualizer?.scrollToIndex) {
@@ -244,6 +271,30 @@ export class ChatThreadScrollEngine {
     this.state.stickToBottom = true;
     this.captureGeom(vp);
     return vp.scrollHeight > 0 || count === 0;
+  }
+
+  private preserveVisibleAnchor(ctx: ChatThreadScrollViewportContext): boolean {
+    const vp = ctx.viewport;
+    const anchor = this.visibleAnchor;
+    if (!vp || !anchor) return this.preserveScrollDistance(ctx);
+    const escaped =
+      typeof CSS !== "undefined" && typeof CSS.escape === "function"
+        ? CSS.escape(anchor.id)
+        : anchor.id.replace(/["\\]/g, "\\$&");
+    const row = vp.querySelector<HTMLElement>(
+      `${this.config.messageRowSelector}[data-cm-message-id="${escaped}"]`
+    );
+    if (!row || typeof row.getBoundingClientRect !== "function") {
+      return this.preserveScrollDistance(ctx);
+    }
+    const currentOffset =
+      row.getBoundingClientRect().top - vp.getBoundingClientRect().top;
+    const delta = currentOffset - anchor.offset;
+    if (Math.abs(delta) > 0.5) {
+      vp.scrollTop = vp.scrollTop + delta;
+    }
+    this.captureGeom(vp);
+    return true;
   }
 
   private preserveScrollDistance(ctx: ChatThreadScrollViewportContext): boolean {
@@ -266,6 +317,29 @@ export class ChatThreadScrollEngine {
       st: viewport.scrollTop,
       ch: viewport.clientHeight,
     };
+    this.captureVisibleAnchor(viewport);
+  }
+
+  private captureVisibleAnchor(viewport: HTMLElement): void {
+    if (
+      typeof viewport.getBoundingClientRect !== "function" ||
+      typeof viewport.querySelectorAll !== "function"
+    ) {
+      return;
+    }
+    const viewportRect = viewport.getBoundingClientRect();
+    const rows = viewport.querySelectorAll<HTMLElement>(this.config.messageRowSelector);
+    for (const row of rows) {
+      if (!row || typeof row.getBoundingClientRect !== "function") continue;
+      const id = row.getAttribute?.("data-cm-message-id")?.trim();
+      if (!id) continue;
+      const rect = row.getBoundingClientRect();
+      if (rect.height <= 0 || rect.bottom <= viewportRect.top || rect.top >= viewportRect.bottom) {
+        continue;
+      }
+      this.visibleAnchor = { id, offset: rect.top - viewportRect.top };
+      return;
+    }
   }
 
   /** @internal test helper */
@@ -277,6 +351,11 @@ export class ChatThreadScrollEngine {
   syncStickFromViewport(ctx: ChatThreadScrollViewportContext): void {
     const metrics = readChatThreadNearBottom(ctx.viewport, this.config.stickThresholdPx);
     if (metrics) this.state.stickToBottom = metrics.nearBottom;
+  }
+
+  /** @internal test helper */
+  readVisibleAnchor(): VisibleAnchor | null {
+    return this.visibleAnchor;
   }
 }
 

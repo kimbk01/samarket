@@ -59,6 +59,7 @@ export function useMessengerRoomReaderScrollBottom({
 }): {
   scrollMessengerToBottom: (opts?: { reason?: string }) => void;
   updateStickToBottomFromScroll: () => void;
+  flushInitialEntryAnchor: () => boolean;
 } {
   void messageEndRef;
   const controller = useMessengerRoomScrollAnchorController({
@@ -82,5 +83,6 @@ export function useMessengerRoomReaderScrollBottom({
   return {
     scrollMessengerToBottom: controller.scrollMessengerToBottom,
     updateStickToBottomFromScroll: controller.updateStickToBottomFromScroll,
+    flushInitialEntryAnchor: controller.flushInitialEntryAnchor,
   };
 }

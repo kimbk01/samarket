@@ -12,7 +12,9 @@ export type CmScrollAuthorityEvent = {
     | "rows_paint"
     | "scroll_command"
     | "initial_anchor_applied"
-    | "stable";
+    | "stable"
+    | "resize_signal"
+    | "resize_guard_skip";
   source?: string;
   scrollTop?: number;
   scrollHeight?: number;

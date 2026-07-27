@@ -1679,7 +1679,8 @@ export function useMessengerRoomClientPhase1({
     (req?: { reason?: string; force?: boolean }) => void
   >(() => {});
 
-  const { scrollMessengerToBottom, updateStickToBottomFromScroll } = useMessengerRoomReaderScrollBottom({
+  const { scrollMessengerToBottom, updateStickToBottomFromScroll, flushInitialEntryAnchor } =
+    useMessengerRoomReaderScrollBottom({
     roomId,
     activeSheet,
     stickToBottomRef,
@@ -1850,6 +1851,7 @@ export function useMessengerRoomClientPhase1({
   return {
   timelineHeavyLive,
   notifyTimelineViewportMounted,
+  flushInitialEntryAnchor,
   onTimelineHeavyReady,
   timelineHeavyHostInput: {
     roomId,
