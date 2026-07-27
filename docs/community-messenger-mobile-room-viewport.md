@@ -170,5 +170,6 @@ Composer: `padding-bottom: calc(var(--safe-bottom) + var(--kb-offset, 0px))` **�
 | 2026-07-27 | **Telegram parity** — iOS keyboard open 시 `.messenger-page`를 vv band(top+height)로 pin; document overflow lock; WK input accessory(^/v/✓) 네이티브 숨김; Android 변경 0 | `use-cm-room-visible-viewport-shell`, `cm-room-visible-viewport-contract`, `DibayWebViewKeyboardChrome.swift` |
 
 | 2026-07-28 | **Initial anchor SSOT** — paint-then-correct 제거: composer/fingerprint/`entry_tail_settle` 이중 scroll 금지; initial anchor room generation 1회(useLayoutEffect); unread+lastRead entry plan; after-rows rAF loop 제거; resize/vv/chrome → `notifyLayoutResize` preserve만 | `messenger-room-scroll-anchor-controller`, `messenger-room-entry-scroll-ready`, `messenger-room-entry-intent`, `messenger-timeline-layout-mode`, `docs/chat-thread-scroll-contract.md` |
+| 2026-07-28 | **keyboard bottom stick** — Timeline mount 후 RO/vv 재구독; `stickToBottomRef` 하단이면 `scrollToBottomExplicit`으로 Composer 위 고정 (engine stick 불일치로 preserve 빠짐 금지) | `messenger-room-scroll-anchor-controller` |
 
 **규칙:** 이 영역을 고치면 **반드시 한 줄이라도 §7 변경 이력 테이블에 추가**한다. 되돌리기 전에 이전 행과 diff를 비교한다. 숫자만 바꿀 때는 **`lib/ui/messenger-chat-viewport-tuning.ts`** 만 수정했는지 확인한다.
