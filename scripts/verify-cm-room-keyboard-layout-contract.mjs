@@ -106,8 +106,12 @@ assertIncludes(
   "padding-bottom: var(--cm-room-composer-bottom-padding, var(--safe-bottom))",
   "chat-viewport-shell.css bottom single authority"
 );
-assertIncludes(shellCss, "--cm-room-timeline-height", "chat-viewport-shell.css timeline height");
+assertIncludes(shellCss, "flex: 1 1 0", "chat-viewport-shell.css timeline flex fill");
 assertIncludes(shellCss, 'data-cm-keyboard-open="true"', "chat-viewport-shell.css keyboard open");
+assertNotIncludes(shellCss, "--cm-room-timeline-height", "chat-viewport-shell.css no timeline height writer var");
+assertNotIncludes(viewportShell, "cm-room-timeline-height", "viewport shell hook no timeline height writer");
+assertNotIncludes(viewportContract, "resolveCmRoomTimelineHeightPx", "contract no timeline height resolver");
+assertIncludes(shellCss, ".cm-room-shell > *:not(.cm-room-timeline)", "chat-viewport-shell.css chrome shrink lock");
 assertNotMatches(shellCss, /position:\s*fixed/, "chat-viewport-shell.css");
 assertNotMatches(shellCss, /position:\s*sticky/, "chat-viewport-shell.css");
 

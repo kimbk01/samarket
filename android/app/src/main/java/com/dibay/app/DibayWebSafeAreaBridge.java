@@ -14,13 +14,27 @@ import com.getcapacitor.BridgeActivity;
  * Main WebView safe-area SSOT — injects {@code --dibay-safe-*} on {@code document.documentElement}.
  * Web layer: {@code app/app-shell.css} {@code --safe-* = max(env, var(--dibay-safe-*))}.
  * Does not modify WebView padding (CSS variables only).
+ *
+ * Bottom layout padding uses {@link #BOTTOM_LAYOUT_INSET_TYPES} only — actual navigation
+ * chrome (+ display cutout). Gesture exclusion ({@code systemGestures}/
+ * {@code mandatorySystemGestures}) and {@code tappableElement} are not layout padding.
+ * Top/left/right keep the legacy edge mask. IME is not consumed here (Keyboard Adapter).
  */
 public final class DibayWebSafeAreaBridge {
   private static final String TAG = "DIBAY_SafeArea";
-  private static final int INSET_TYPES =
+
+  /** Top / left / right — unchanged legacy edge mask. */
+  private static final int EDGE_INSET_TYPES =
       WindowInsetsCompat.Type.systemBars()
           | WindowInsetsCompat.Type.systemGestures()
           | WindowInsetsCompat.Type.displayCutout();
+
+  /**
+   * Bottom layout padding for Composer / BottomNav / {@code --safe-bottom}.
+   * Navigation chrome only — not gesture exclusion, not tappableElement.
+   */
+  private static final int BOTTOM_LAYOUT_INSET_TYPES =
+      WindowInsetsCompat.Type.navigationBars() | WindowInsetsCompat.Type.displayCutout();
 
   private static volatile int lastTopCss;
   private static volatile int lastBottomCss;
@@ -61,26 +75,28 @@ public final class DibayWebSafeAreaBridge {
   }
 
   private static void applyInsets(BridgeActivity activity, WindowInsetsCompat windowInsets) {
-    Insets inset = windowInsets.getInsets(INSET_TYPES);
+    Insets edge = windowInsets.getInsets(EDGE_INSET_TYPES);
+    Insets bottomLayout = windowInsets.getInsets(BOTTOM_LAYOUT_INSET_TYPES);
     float density = activity.getResources().getDisplayMetrics().density;
-    lastTopCss = pxToCssPx(inset.top, density);
-    lastBottomCss = pxToCssPx(inset.bottom, density);
-    lastLeftCss = pxToCssPx(inset.left, density);
-    lastRightCss = pxToCssPx(inset.right, density);
+    lastTopCss = pxToCssPx(edge.top, density);
+    lastLeftCss = pxToCssPx(edge.left, density);
+    lastRightCss = pxToCssPx(edge.right, density);
+    lastBottomCss = pxToCssPx(bottomLayout.bottom, density);
     Log.i(
         TAG,
         "insets_px top="
-            + inset.top
+            + edge.top
             + " bottom="
-            + inset.bottom
+            + bottomLayout.bottom
             + " left="
-            + inset.left
+            + edge.left
             + " right="
-            + inset.right
+            + edge.right
             + " css_top="
             + lastTopCss
             + " css_bottom="
-            + lastBottomCss);
+            + lastBottomCss
+            + " bottom_mask=navigationBars|displayCutout");
     injectCachedSafeAreaCss(activity);
   }
 

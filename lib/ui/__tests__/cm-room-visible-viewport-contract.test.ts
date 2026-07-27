@@ -5,7 +5,6 @@ import {
   resolveCmRoomComposerBottomPaddingPx,
   resolveCmRoomKeyboardOpenFromViewport,
   resolveCmRoomShellVisualFramePx,
-  resolveCmRoomTimelineHeightPx,
   resolveCmRoomVisibleViewportHeightPx,
   resolveCmRoomVisualViewportOverlayGapPx,
   resolveIosMessengerPageVisualBandPx,
@@ -67,16 +66,6 @@ describe("cm-room-visible-viewport-contract", () => {
     });
     expect(resolveCmRoomKeyboardOpenFromViewport(800)).toBe(true);
     expect(resolveCmRoomKeyboardOpenFromViewport(700)).toBe(false);
-  });
-
-  it("timeline height = visible - top chrome - footer chrome", () => {
-    expect(
-      resolveCmRoomTimelineHeightPx({
-        visibleHeightPx: 800,
-        timelineTopOffsetPx: 56,
-        footerChromeHeightPx: 52,
-      })
-    ).toBe(692);
   });
 
   it("composer padding null when keyboard closed → CSS safe-bottom", () => {

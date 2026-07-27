@@ -52,7 +52,9 @@ describe("chat chrome layout contract", () => {
     expect(css).toContain(".cm-room-composer");
     expect(css).toContain("padding-top: var(--safe-top)");
     expect(css).toContain("padding-bottom: var(--cm-room-composer-bottom-padding, var(--safe-bottom))");
-    expect(css).toContain("--cm-room-timeline-height");
+    expect(css).toMatch(/\.cm-room-timeline[\s\S]*flex:\s*1/);
+    expect(css).toMatch(/\.cm-room-timeline[\s\S]*min-height:\s*0/);
+    expect(css).not.toContain("--cm-room-timeline-height");
     expect(css).toContain('data-cm-keyboard-open="true"');
     expect(css).not.toContain("--chat-viewport-height");
     expect(css).not.toContain("--chat-bottom-inset");

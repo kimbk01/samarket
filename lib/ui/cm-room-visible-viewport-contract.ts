@@ -112,18 +112,6 @@ export function resolveCmRoomComposerBottomPaddingPx(args: {
   return 0;
 }
 
-/** timeline scroll box = visible − (shell top→timeline top) − (trade dock + composer) */
-export function resolveCmRoomTimelineHeightPx(args: {
-  visibleHeightPx: number;
-  timelineTopOffsetPx: number;
-  footerChromeHeightPx: number;
-  minTimelinePx?: number;
-}): number {
-  const minTimelinePx = args.minTimelinePx ?? 1;
-  const raw = args.visibleHeightPx - args.timelineTopOffsetPx - args.footerChromeHeightPx;
-  return Math.max(minTimelinePx, Math.round(raw));
-}
-
 export function buildCmRoomVisibleViewportSnapshot(
   baselineClosedHeightPx: number
 ): CmRoomVisibleViewportSnapshot {

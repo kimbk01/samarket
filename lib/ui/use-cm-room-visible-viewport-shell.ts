@@ -9,7 +9,6 @@ import {
   CM_ROOM_TAIL_COMPOSER_GAP_DEFAULT_PX,
   resolveCmRoomComposerBottomPaddingPx,
   resolveCmRoomShellVisualFramePx,
-  resolveCmRoomTimelineHeightPx,
   resolveIosMessengerPageVisualBandPx,
 } from "@/lib/ui/cm-room-visible-viewport-contract";
 import { isLikelyIosWebKit } from "@/lib/ui/is-likely-ios-webkit";
@@ -106,6 +105,7 @@ function applyIosDocumentScrollLock(keyboardOpen: boolean): void {
  * Telegram/KakaoTalk-style CM room viewport shell.
  * Android: adjustResize + vv.height + open padding 0.
  * iOS: keyboard open → pin `.messenger-page` to vv band; open padding 0; no focus document scroll.
+ * Timeline height is flex (`flex:1; min-height:0`) — do not write a fixed timeline height CSS variable.
  */
 export function useCmRoomVisibleViewportShell(opts: Options): void {
   const { enabled, shellRef } = opts;
@@ -128,7 +128,6 @@ export function useCmRoomVisibleViewportShell(opts: Options): void {
       const timelineTopOffsetPx = measureTimelineTopOffsetPx(shell);
       const composerBlockPx = measureBlockHeight(composerBlockEl);
       const tradeDockPx = measureBlockHeight(tradeDockEl);
-      const footerChromePx = composerBlockPx + tradeDockPx;
       const tailGapPx = CM_ROOM_TAIL_COMPOSER_GAP_DEFAULT_PX;
 
       shell.style.setProperty("--cm-room-header-height", `${timelineTopOffsetPx}px`);
@@ -154,13 +153,6 @@ export function useCmRoomVisibleViewportShell(opts: Options): void {
       applyIosDocumentScrollLock(snapshot.keyboardOpen);
       applyShellHeightAuthority(shell, frame.heightPx);
       emitCmRoomKbProbe("shell_style_apply", shell, { keyboardOpen: snapshot.keyboardOpen });
-
-      const timelinePx = resolveCmRoomTimelineHeightPx({
-        visibleHeightPx: frame.heightPx,
-        timelineTopOffsetPx,
-        footerChromeHeightPx: footerChromePx,
-      });
-      shell.style.setProperty("--cm-room-timeline-height", `${timelinePx}px`);
 
       const composerPadPx = resolveCmRoomComposerBottomPaddingPx({
         keyboardOpen: snapshot.keyboardOpen,
@@ -255,7 +247,6 @@ export function useCmRoomVisibleViewportShell(opts: Options): void {
       shell.style.removeProperty("maxHeight");
       shell.style.removeProperty("minHeight");
       shell.style.removeProperty("--cm-room-visible-height");
-      shell.style.removeProperty("--cm-room-timeline-height");
       shell.style.removeProperty("--cm-room-header-height");
       shell.style.removeProperty("--cm-room-composer-bottom-padding");
       shell.style.removeProperty("--chat-composer-height");

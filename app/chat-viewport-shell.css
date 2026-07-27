@@ -1,6 +1,7 @@
 /**
  * DIBAY CM room — Telegram/KakaoTalk-style flex shell.
- * Height SSOT: `visualViewport.height` (use-cm-room-visible-viewport-shell.ts).
+ * Shell height SSOT: `visualViewport.height` (use-cm-room-visible-viewport-shell.ts).
+ * Timeline: flex:1 + min-height:0 (no JS px height writer).
  * keyboard closed: composer `safe-bottom` only.
  * keyboard open: safe-bottom / nav gap 제거 — composer는 키보드 바로 위.
  */
@@ -25,11 +26,13 @@
   padding-top: 0;
 }
 
+/**
+ * Timeline fills remaining shell space — no JS px height writer.
+ * Dynamic chrome (PeerNotice, trade dock) mount/unmount resizes timeline via flex.
+ */
 .cm-room-timeline {
-  flex: 1 1 auto;
-  min-height: 1px;
-  height: var(--cm-room-timeline-height, auto);
-  max-height: var(--cm-room-timeline-height, none);
+  flex: 1 1 0;
+  min-height: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -37,7 +40,16 @@
 
 .cm-room-composer {
   flex: 0 0 auto;
+  flex-shrink: 0;
   padding-bottom: var(--cm-room-composer-bottom-padding, var(--safe-bottom));
+}
+
+/**
+ * Dynamic chrome siblings (header / notice / trade dock / composer) must not shrink.
+ * Timeline is the only flex:1 child.
+ */
+.cm-room-shell > *:not(.cm-room-timeline) {
+  flex-shrink: 0;
 }
 
 [data-cm-room].cm-room-shell[data-cm-keyboard-open="true"] .cm-room-composer {
