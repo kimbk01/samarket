@@ -575,7 +575,14 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
       window.removeEventListener("resize", onLayoutViewport);
       window.removeEventListener("orientationchange", onLayoutViewport);
     };
-  }, [applyLayoutPreserve, engine, loadingOlderMessages, messagesViewportRef, tryCompleteEntry]);
+  }, [
+    applyLayoutPreserve,
+    engine,
+    loadingOlderMessages,
+    messagesViewportRef,
+    timelineViewportMounted,
+    tryCompleteEntry,
+  ]);
 
   useEffect(() => {
     return () => {

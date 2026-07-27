@@ -148,6 +148,80 @@ describe("ChatThreadScrollEngine", () => {
     expect(vp.scrollTop).toBe(700);
   });
 
+  it("same bottom geometry does not emit a duplicate scroll write", () => {
+    let scrollTop = 600;
+    let writes = 0;
+    const vp = {
+      scrollHeight: 1000,
+      clientHeight: 400,
+      get scrollTop() {
+        return scrollTop;
+      },
+      set scrollTop(value: number) {
+        writes += 1;
+        scrollTop = Math.min(value, 600);
+      },
+      querySelectorAll: () => [{}],
+      getBoundingClientRect: () => ({ top: 0, bottom: 400 }),
+    } as unknown as HTMLElement;
+    const engine = createChatThreadScrollEngine();
+    const ctx = { viewport: vp, messageCount: 1, virtualizer: null };
+
+    engine.notifyEntry();
+    engine.notifyMessagesReady(true);
+    engine.notifyLayoutCommitted();
+    engine.tryCompleteEntry(ctx);
+    expect(writes).toBe(1);
+
+    engine.notifyLayoutResize(ctx);
+    expect(writes).toBe(1);
+  });
+
+  it("keyboard resize preserves visible message id and offset away from bottom", () => {
+    let scrollTop = 500;
+    let clientHeight = 400;
+    const rowContentTop = 540;
+    const row = {
+      getAttribute: (name: string) => (name === "data-cm-message-id" ? "anchor-1" : null),
+      getBoundingClientRect: () => ({
+        top: rowContentTop - scrollTop,
+        bottom: rowContentTop - scrollTop + 80,
+        height: 80,
+      }),
+    };
+    const vp = {
+      scrollHeight: 2000,
+      get clientHeight() {
+        return clientHeight;
+      },
+      get scrollTop() {
+        return scrollTop;
+      },
+      set scrollTop(value: number) {
+        scrollTop = value;
+      },
+      querySelectorAll: () => [row],
+      querySelector: () => row,
+      getBoundingClientRect: () => ({ top: 0, bottom: clientHeight }),
+    } as unknown as HTMLElement;
+    const engine = createChatThreadScrollEngine();
+    const ctx = { viewport: vp, messageCount: 20, virtualizer: null };
+
+    engine.notifyEntry();
+    engine.notifyMessagesReady(true);
+    engine.notifyLayoutCommitted();
+    engine.tryCompleteEntry(ctx);
+
+    scrollTop = 500;
+    engine.notifyUserScroll(ctx);
+    expect(engine.readStickToBottom()).toBe(false);
+
+    clientHeight = 250;
+    engine.notifyLayoutResize(ctx);
+    expect(scrollTop).toBe(500);
+    expect(row.getBoundingClientRect().top).toBe(40);
+  });
+
   it("prepend in flight blocks layout follow", () => {
     const engine = createChatThreadScrollEngine();
     const vp = mockViewport({ scrollHeight: 600, scrollTop: 200, clientHeight: 400 });
