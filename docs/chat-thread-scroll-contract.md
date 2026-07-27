@@ -50,11 +50,10 @@
 
 - 주문 채팅 `ChatDetailView` → `/community-messenger/rooms/...` redirect — scroll 은 CM 엔진 경로만 사용
 - CM controller: `resolveMessengerRoomEntryScrollPaintReady` (composer 비게이트)
-- chrome/composer/vv resize → `notifyLayoutResize` — **prev geom near-bottom 또는 stick** 이면 keep-bottom pin (0841/May)
+- chrome/composer/vv resize → `notifyLayoutResize` preserve/follow 만
 
 ## 변경 이력
 
 - P3+P4: 4갈래 scroll → `lib/chat-thread-scroll/` 단일 엔진, stick 96px 통일
 - P3+P4.1: CM composer paint gate + tail settle 2단계 (legacy)
 - **2026-07-28**: paint-then-correct 제거 — initial anchor 1회, composer/fingerprint/tail settle writer 제거, last-read/unread entry plan
-- **2026-07-28**: restore 0841/May keep-bottom — `notifyLayoutResize` prev-near pin; height-only scroll ignore; layout preserve entry-anchor 게이트 해제

@@ -311,28 +311,14 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
   const applyLayoutPreserve = useCallback(
     (reason: CmScrollOwnerReason) => {
       if (loadingOlderMessages) return;
-      /**
-       * 0841: resize keep-bottom 은 entry-anchor 게이트에 묶지 않음.
-       * hasAppliedInitialAnchor 로 막으면 키보드 pin 이 영구 no-op 됨.
-       */
-      if (engine.getPhase() === "entryPendingLayout" && !hasAppliedInitialAnchorRef.current) {
-        tryCompleteEntry("initial_load", "initial_latest");
-      }
-      if (!engine.isSettled()) return;
-
-      engine.notifyLayoutResize(buildCtx());
-      stickToBottomRef.current = engine.readStickToBottom();
-      /** 0841 2×rAF 재 pin */
-      if (stickToBottomRef.current && typeof requestAnimationFrame === "function") {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            if (!stickToBottomRef.current) return;
-            engine.notifyLayoutResize(buildCtx());
-            stickToBottomRef.current = engine.readStickToBottom();
-          });
-        });
+      if (!engine.isSettled() || !hasAppliedInitialAnchorRef.current) {
+        if (engine.getPhase() === "entryPendingLayout") {
+          tryCompleteEntry("initial_load", "initial_latest");
+        }
+        return;
       }
       if (!stickToBottomRef.current) {
+        engine.notifyLayoutResize(buildCtx());
         syncMessengerRoomStickToBottomFromViewport({
           viewport: messagesViewportRef.current,
           stickToBottomRef,
@@ -343,7 +329,8 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
         markCmScrollRun(reason, "chrome_resize_preserve");
         return;
       }
-      persistScrollPosition();
+      engine.notifyLayoutResize(buildCtx());
+      stickToBottomRef.current = true;
       markCmScrollRun(reason, "keyboard_preserve");
     },
     [

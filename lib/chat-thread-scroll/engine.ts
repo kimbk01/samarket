@@ -107,24 +107,10 @@ export class ChatThreadScrollEngine {
   }
 
   notifyUserScroll(ctx: ChatThreadScrollViewportContext): void {
-    const vp = ctx.viewport;
-    if (!vp) return;
-    /**
-     * IME: clientHeight만 줄고 scrollTop 거의 그대로인 가짜 scroll — stick/lastGeom 오염 금지.
-     * 높이 변화는 notifyLayoutResize(prev near → pin)가 처리. @see 0841b289d
-     */
-    const prev = this.lastGeom;
-    if (prev && Math.abs(vp.clientHeight - prev.ch) > 6) {
-      const stDelta = Math.abs(vp.scrollTop - prev.st);
-      const shDelta = Math.abs(vp.scrollHeight - prev.sh);
-      if (shDelta <= 1 && stDelta <= Math.max(48, this.config.stickThresholdPx)) {
-        return;
-      }
-    }
-    const metrics = readChatThreadNearBottom(vp, this.config.stickThresholdPx);
+    const metrics = readChatThreadNearBottom(ctx.viewport, this.config.stickThresholdPx);
     if (!metrics) return;
     this.state.stickToBottom = metrics.nearBottom;
-    this.captureGeom(vp);
+    this.captureGeom(ctx.viewport);
   }
 
   scrollToBottomExplicit(ctx: ChatThreadScrollViewportContext): boolean {
@@ -158,31 +144,18 @@ export class ChatThreadScrollEngine {
   }
 
   /**
-   * layout/keyboard resize — restore 0841/May keep-bottom:
-   * stick 이거나 lastGeom(prev) near-bottom 이면 pin (`scrollTop = maxScroll`).
-   * live dist(축소 후)로 판정하지 않음.
+   * layout/keyboard resize — settled + stick 일 때만 follow.
+   * entryPendingLayout 중에는 no-op.
    */
   notifyLayoutResize(ctx: ChatThreadScrollViewportContext): boolean {
     if (this.state.phase === "entryPendingLayout") {
       return this.tryCompleteEntry(ctx);
     }
     if (this.state.phase !== "settled" || this.state.prependInFlight) return false;
-
-    const prev = this.lastGeom;
-    const wasNearBottom =
-      this.state.stickToBottom ||
-      (prev != null &&
-        isChatThreadNearBottomFromMetrics(
-          { scrollHeight: prev.sh, scrollTop: prev.st, clientHeight: prev.ch },
-          this.config.stickThresholdPx
-        ));
-
-    if (wasNearBottom) {
-      this.state.stickToBottom = true;
-      /** 0841 keep-bottom: DOM pin only — virtualizer.scrollToIndex 레이스 금지 */
-      return this.applyScrollToBottom(ctx, { force: true, skipVirtualizer: true });
+    if (!this.state.stickToBottom) {
+      return this.preserveScrollDistance(ctx);
     }
-    return this.preserveScrollDistance(ctx);
+    return this.applyScrollToBottom(ctx, { force: false });
   }
 
   tryCompleteEntry(ctx: ChatThreadScrollViewportContext): boolean {
@@ -252,7 +225,7 @@ export class ChatThreadScrollEngine {
 
   private applyScrollToBottom(
     ctx: ChatThreadScrollViewportContext,
-    opts: { force: boolean; skipVirtualizer?: boolean }
+    opts: { force: boolean }
   ): boolean {
     const vp = ctx.viewport;
     if (!vp) return false;
@@ -260,19 +233,14 @@ export class ChatThreadScrollEngine {
 
     const count = ctx.messageCount;
     const virtualizer = ctx.virtualizer;
-    if (count > 0 && virtualizer?.scrollToIndex && !opts.skipVirtualizer) {
+    if (count > 0 && virtualizer?.scrollToIndex) {
       try {
         virtualizer.scrollToIndex(count - 1, { align: "end" });
       } catch {
         /* virtualizer not ready */
       }
     }
-    /** keep-bottom: May `maxScroll`; else legacy scrollHeight (unit mocks do not clamp) */
-    if (opts.skipVirtualizer) {
-      vp.scrollTop = Math.max(0, vp.scrollHeight - vp.clientHeight);
-    } else {
-      vp.scrollTop = vp.scrollHeight;
-    }
+    vp.scrollTop = vp.scrollHeight;
     this.state.stickToBottom = true;
     this.captureGeom(vp);
     return vp.scrollHeight > 0 || count === 0;
