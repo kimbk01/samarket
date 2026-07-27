@@ -1,15 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
   MESSENGER_MAIN_SECTION_TAB_ORDER,
   type MessengerMainSection,
 } from "@/lib/community-messenger/messenger-ia";
-import { MESSENGER_HOME_SECTION_ENTER_MS } from "@/lib/community-messenger/messenger-home-section-slide";
+import {
+  planMessengerHomeSectionTransition,
+  type MessengerHomeSectionSlideDirection,
+} from "@/lib/community-messenger/messenger-home-section-slide";
 
 const SECTION_TAB_ENTER_SET = new Set<MessengerMainSection>(MESSENGER_MAIN_SECTION_TAB_ORDER);
-
-type AnimPhase = "enter" | "enter-active" | "idle";
 
 type Props = {
   section: MessengerMainSection;
@@ -18,7 +19,7 @@ type Props = {
 
 function usePrefersReducedMotion(): boolean {
   const [reduced, setReduced] = useState(false);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) return;
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
     const apply = () => setReduced(mq.matches);
@@ -30,61 +31,76 @@ function usePrefersReducedMotion(): boolean {
 }
 
 /**
- * 2단 탭 본문 — 우→좌 370ms.
- * 채팅방(`MessengerRoomSwipeBackShell`)과 동일하게 enter → rAF → enter-active transition 으로
- * keyframe 재시작·첫 프레임 플래시를 피한다.
+ * 2단 탭 본문 — 탭 인덱스 차로 forward/backward 1회 animation.
+ *
+ * CONTRACT:
+ * - section 1회 변경 → transition generation ≤ 1
+ * - idle→enter→enter-active 점프 경로 금지 (layoutEffect + keyframe 1 lifecycle)
+ * - URL sync 는 이 컴포넌트 밖에서 pending no-op 로 generation 을 올리지 않아야 함
+ * - MessengerRoomSwipeBackShell 과 경로 분리 (방 진입 슬라이드 수정 금지)
  */
 export function MessengerHomeSectionTransition({ section, children }: Props) {
   const reducedMotion = usePrefersReducedMotion();
-  const skipEnterRef = useRef(true);
-  const [phase, setPhase] = useState<AnimPhase>("idle");
+  const prevSectionRef = useRef<MessengerMainSection | null>(null);
+  const skipInitialRef = useRef(true);
+  const [direction, setDirection] = useState<MessengerHomeSectionSlideDirection | null>(null);
+  const [generation, setGeneration] = useState(0);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!SECTION_TAB_ENTER_SET.has(section)) {
-      setPhase("idle");
-      return;
-    }
-    if (skipEnterRef.current) {
-      skipEnterRef.current = false;
-      setPhase("idle");
-      return;
-    }
-    if (reducedMotion) {
-      setPhase("idle");
+      prevSectionRef.current = section;
+      setDirection(null);
       return;
     }
 
-    setPhase("enter");
-    let raf2 = 0;
-    const raf1 = window.requestAnimationFrame(() => {
-      raf2 = window.requestAnimationFrame(() => {
-        setPhase((current) => (current === "enter" ? "enter-active" : current));
-      });
+    if (skipInitialRef.current) {
+      skipInitialRef.current = false;
+      prevSectionRef.current = section;
+      return;
+    }
+
+    const previous = prevSectionRef.current;
+    if (previous === section) {
+      // Strict Mode double-invoke 또는 동일 section: in-flight animation 유지
+      if (reducedMotion) setDirection(null);
+      return;
+    }
+
+    const plan = planMessengerHomeSectionTransition({
+      previous,
+      next: section,
+      reducedMotion,
+      isInitialMount: false,
     });
-    const timer = window.setTimeout(() => {
-      setPhase((current) => (current === "enter-active" ? "idle" : current));
-    }, MESSENGER_HOME_SECTION_ENTER_MS + 48);
+    prevSectionRef.current = section;
 
-    return () => {
-      window.cancelAnimationFrame(raf1);
-      if (raf2) window.cancelAnimationFrame(raf2);
-      window.clearTimeout(timer);
-    };
+    if (!plan.bumpGeneration || !plan.direction) {
+      setDirection(null);
+      return;
+    }
+
+    setGeneration((current) => current + 1);
+    setDirection(plan.direction);
   }, [reducedMotion, section]);
 
-  const motionEnabled = SECTION_TAB_ENTER_SET.has(section) && !reducedMotion && phase !== "idle";
-  const surfaceClassName = [
-    "min-w-0 overflow-x-hidden",
-    phase === "enter" ? "messenger-section-enter" : "",
-    phase === "enter-active" ? "messenger-section-enter-active" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const animClass =
+    direction === "forward"
+      ? "messenger-section-anim-forward"
+      : direction === "backward"
+        ? "messenger-section-anim-backward"
+        : "";
 
   return (
     <div
-      className={surfaceClassName}
-      data-messenger-section-animation-phase={motionEnabled ? phase : "idle"}
+      key={generation === 0 ? "section-idle" : `section-g-${generation}`}
+      className={["min-w-0 overflow-x-hidden", animClass].filter(Boolean).join(" ")}
+      data-messenger-section-animation-phase={direction ? "enter-active" : "idle"}
+      data-messenger-section-slide-direction={direction ?? "none"}
+      data-messenger-section-transition-generation={String(generation)}
+      onAnimationEnd={(event) => {
+        if (event.target !== event.currentTarget) return;
+        setDirection(null);
+      }}
     >
       {children}
     </div>

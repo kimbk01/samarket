@@ -256,19 +256,40 @@ html[data-call-v4-outgoing-presentation] [data-call-screen-shell] {
   will-change: transform;
 }
 
-/* 메신저 홈 2단 탭 본문 — 친구·통화·대화·보관함: 우→좌 (transition, keyframe 아님) */
-.messenger-section-enter {
-  transform: translate3d(100%, 0, 0);
+/*
+ * 메신저 홈 2단 탭 본문 — 친구·통화·대화·보관함
+ * 단일 keyframe lifecycle (enter 점프 → enter-active 이중 펄스 금지).
+ * forward: 우→좌 / backward: 좌→우 (탭 인덱스 차).
+ */
+@keyframes messenger-section-slide-forward {
+  from {
+    transform: translate3d(100%, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
 }
 
-.messenger-section-enter-active {
-  transform: translate3d(0, 0, 0);
-  transition: transform var(--sam-messenger-home-section-enter-duration)
-    var(--sam-messenger-home-section-enter-easing);
+@keyframes messenger-section-slide-backward {
+  from {
+    transform: translate3d(-100%, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
 }
 
-.messenger-section-enter,
-.messenger-section-enter-active {
+.messenger-section-anim-forward {
+  animation: messenger-section-slide-forward var(--sam-messenger-home-section-enter-duration)
+    var(--sam-messenger-home-section-enter-easing) both;
+  contain: paint;
+  will-change: transform;
+}
+
+.messenger-section-anim-backward {
+  animation: messenger-section-slide-backward var(--sam-messenger-home-section-enter-duration)
+    var(--sam-messenger-home-section-enter-easing) both;
+  contain: paint;
   will-change: transform;
 }
 
@@ -281,8 +302,8 @@ html[data-call-v4-outgoing-presentation] [data-call-screen-shell] {
   .messenger-call-peer-detail-exit-active,
   .messenger-call-peer-detail-anim-enter,
   .messenger-call-peer-detail-anim-exit,
-  .messenger-section-enter,
-  .messenger-section-enter-active,
+  .messenger-section-anim-forward,
+  .messenger-section-anim-backward,
   .sam-messenger-pillar-list-enter,
   html[data-call-v4-outgoing-presentation] [data-call-screen-shell] {
     transition-duration: 1ms !important;

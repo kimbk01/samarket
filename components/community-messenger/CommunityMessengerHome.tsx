@@ -428,6 +428,7 @@ type CommunityMessengerHomeRouterEffectsHostProps = {
   data: CommunityMessengerBootstrap | null;
   fromPhilifeHeaderStack: boolean;
   mainSection: MessengerMainSection;
+  pendingUserSectionRef: MutableRefObject<MessengerMainSection | null>;
   pillar: "trade" | "delivery" | null;
 };
 
@@ -454,6 +455,7 @@ function CommunityMessengerHomeRouterEffectsHost({
   data,
   fromPhilifeHeaderStack,
   mainSection,
+  pendingUserSectionRef,
   pillar,
 }: CommunityMessengerHomeRouterEffectsHostProps): null {
   const router = useRouter();
@@ -489,6 +491,7 @@ function CommunityMessengerHomeRouterEffectsHost({
     data,
     fromPhilifeHeaderStack,
     mainSection,
+    pendingUserSectionRef,
     pillar,
   });
 
@@ -694,6 +697,8 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   const [mainSection, setMainSection] = useState<MessengerMainSection>(() =>
     pillar ? "chats" : resolveMessengerSection(initialSection, initialTab)
   );
+  /** 사용자 탭 → URL sync 사이 section authority. soft-nav 중간값이 transition 을 재기동하지 않게 함 */
+  const pendingUserSectionRef = useRef<MessengerMainSection | null>(null);
   const [chatInboxFilter, setChatInboxFilter] = useState<MessengerChatInboxFilter>(() => {
     const { inbox } = resolveMessengerChatFilters(initialFilter, initialKind, initialTab);
     return inbox;
@@ -816,6 +821,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       setChatKindFilter,
       pathname: messengerListPathname,
       messengerEntryOrigin: entryOriginQuery,
+      pendingUserSectionRef,
     });
   const messengerViewerUserId = data?.me?.id?.trim() || null;
   const navigateToCommunityRoomWithViewer = useCallback(
@@ -2907,6 +2913,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         data={data}
         fromPhilifeHeaderStack={fromPhilifeHeaderStack}
         mainSection={mainSection}
+        pendingUserSectionRef={pendingUserSectionRef}
         pillar={pillar}
       />
       {fromPhilifeHeaderStack ? (

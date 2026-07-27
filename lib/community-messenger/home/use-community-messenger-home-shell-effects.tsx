@@ -1,6 +1,6 @@
 "use client";
 
-import type { Dispatch, ReactNode, SetStateAction } from "react";
+import type { Dispatch, MutableRefObject, ReactNode, SetStateAction } from "react";
 import {
   sameMainTier1ExtrasState,
   type MainTier1ExtrasState,
@@ -32,6 +32,7 @@ import {
   type MessengerChatKindFilter,
   type MessengerMainSection,
 } from "@/lib/community-messenger/messenger-ia";
+import { shouldApplyMessengerUrlSectionSync } from "@/lib/community-messenger/messenger-home-section-slide";
 import {
   inferMessengerEntryOriginFromReferrer,
   parseMessengerEntryOrigin,
@@ -75,6 +76,8 @@ type Args = {
   /** `/philife` 헤더 푸시 스택: URL `section` 동기화·1단 `rightSlot` 은 별도 처리 */
   fromPhilifeHeaderStack?: boolean;
   mainSection: MessengerMainSection;
+  /** 사용자 탭 pending — URL sync 가 제품 transition 을 재기동하지 않게 함 */
+  pendingUserSectionRef: MutableRefObject<MessengerMainSection | null>;
   /**
    * 거래/배달 전용 서브 라우트 모드.
    * - `null` 이면 인박스: `?from=community|trade|delivery` 로 1단 헤더 뒤로가기 분기.
@@ -106,6 +109,7 @@ export function useCommunityMessengerHomeShellEffects({
   data,
   fromPhilifeHeaderStack = false,
   mainSection,
+  pendingUserSectionRef,
   pillar = null,
 }: Args): void {
   const pathname = usePathname() ?? "";
@@ -191,7 +195,20 @@ export function useCommunityMessengerHomeShellEffects({
       return;
     }
     if (activeTab === "friends") {
-      setMainSection((prev) => (prev === "friends" ? prev : "friends"));
+      setMainSection((prev) => {
+        const decision = shouldApplyMessengerUrlSectionSync({
+          urlSection: "friends",
+          localSection: prev,
+          pendingUserSection: pendingUserSectionRef.current,
+        });
+        if (decision === "clear_pending") {
+          pendingUserSectionRef.current = null;
+          return prev;
+        }
+        if (decision === "noop") return prev;
+        pendingUserSectionRef.current = null;
+        return "friends";
+      });
       guardedRouterReplace(router, `/community-messenger?section=friends${preserveFrom}`, {
         source: "messenger-home-shell",
         reason: "legacy_tab_friends",
@@ -205,10 +222,24 @@ export function useCommunityMessengerHomeShellEffects({
       activeKind || undefined,
       activeTab || undefined
     );
-    setMainSection((prev) => (prev === resolvedSection ? prev : resolvedSection));
+    setMainSection((prev) => {
+      const decision = shouldApplyMessengerUrlSectionSync({
+        urlSection: resolvedSection,
+        localSection: prev,
+        pendingUserSection: pendingUserSectionRef.current,
+      });
+      if (decision === "clear_pending") {
+        pendingUserSectionRef.current = null;
+        return prev;
+      }
+      if (decision === "noop") return prev;
+      pendingUserSectionRef.current = null;
+      return resolvedSection;
+    });
     setChatInboxFilter((prev) => (prev === inbox ? prev : inbox));
     setChatKindFilter((prev) => (prev === nextKind ? prev : nextKind));
-    if (!activeSection.trim() && !activeTab.trim()) {
+    // 사용자 탭 pending 중에는 빈 section → 기본 chats replace 로 싸움을 만들지 않는다.
+    if (!activeSection.trim() && !activeTab.trim() && pendingUserSectionRef.current == null) {
       const qs = new URLSearchParams();
       qs.set("section", "chats");
       messengerChatFiltersToSearchParams(inbox, nextKind).forEach((value, key) => qs.set(key, value));
@@ -228,6 +259,7 @@ export function useCommunityMessengerHomeShellEffects({
     fromPhilifeHeaderStack,
     isMessengerHubRoute,
     openSettingsSheet,
+    pendingUserSectionRef,
     pillar,
     router,
     setChatInboxFilter,

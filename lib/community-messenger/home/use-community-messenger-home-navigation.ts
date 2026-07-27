@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, type MutableRefObject } from "react";
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { runCommunityMessengerRoomForwardNavigation } from "@/lib/community-messenger/community-messenger-room-forward-navigation";
 import { messengerRoomListSourceFromPathname } from "@/lib/community-messenger/messenger-entry-origin";
@@ -34,6 +34,11 @@ type Args = {
   pathname: string;
   /** 방 진입 시 `?from=` 유지 */
   messengerEntryOrigin?: string | null;
+  /**
+   * 사용자 탭이 소유한 section. URL sync 가 soft-nav 중간값으로
+   * 두 번째 transition 을 시작하지 않도록 shell effect 와 공유한다.
+   */
+  pendingUserSectionRef: MutableRefObject<MessengerMainSection | null>;
 };
 
 export function useCommunityMessengerHomeNavigation({
@@ -47,6 +52,7 @@ export function useCommunityMessengerHomeNavigation({
   setChatKindFilter,
   pathname,
   messengerEntryOrigin = null,
+  pendingUserSectionRef,
 }: Args) {
   const replaceMessengerSectionUrl = useCallback(
     (
@@ -94,11 +100,21 @@ export function useCommunityMessengerHomeNavigation({
   const onPrimarySectionChange = useCallback(
     (next: MessengerMainSection) => {
       if (next === mainSection) return;
+      // 클릭이 section·transition authority. URL replace 는 side effect.
+      pendingUserSectionRef.current = next;
       resetMessengerTransientUi({ bumpOverlayGeneration: false });
       setMainSection(next);
       replaceMessengerSectionUrl(next, chatInboxFilter, chatKindFilter, { history: "replace" });
     },
-    [chatInboxFilter, chatKindFilter, mainSection, replaceMessengerSectionUrl, resetMessengerTransientUi, setMainSection]
+    [
+      chatInboxFilter,
+      chatKindFilter,
+      mainSection,
+      pendingUserSectionRef,
+      replaceMessengerSectionUrl,
+      resetMessengerTransientUi,
+      setMainSection,
+    ]
   );
 
   const onChatListChipChange = useCallback(
