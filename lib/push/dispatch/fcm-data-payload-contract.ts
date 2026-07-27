@@ -267,8 +267,6 @@ export function buildFcmDataFields(
         fields.url = `/community-messenger/calls/${encodeURIComponent(sessionId)}`;
         fields.call_push_kind = type;
         fields.tag = `samarket-incoming-call-${sessionId}`;
-        fields.occurred_at = out.occurred_at;
-        fields.occurredAt = out.occurred_at;
       }
       break;
     }

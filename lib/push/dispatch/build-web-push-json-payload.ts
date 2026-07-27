@@ -6,13 +6,8 @@ import type { BuiltPushPayload, DispatchPushOptions } from "@/lib/push/dispatch/
 
 const MAX_BYTES = 3500;
 
-function isCallTerminalDismissKind(kind: unknown): kind is "call_canceled" | "call_rejected" | "call_ended" | "missed_call" {
-  return (
-    kind === "call_canceled" ||
-    kind === "call_rejected" ||
-    kind === "call_ended" ||
-    kind === "missed_call"
-  );
+function isCallTerminalDismissKind(kind: unknown): kind is "call_canceled" | "call_rejected" | "call_ended" {
+  return kind === "call_canceled" || kind === "call_rejected" || kind === "call_ended";
 }
 
 export function buildWebPushJsonPayload(

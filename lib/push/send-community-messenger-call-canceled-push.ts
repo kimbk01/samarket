@@ -43,11 +43,7 @@ export async function sendWebPushForCommunityMessengerCallTerminal(input: {
     title: "통화",
     body: "",
     link_url,
-    meta: {
-      session_id: sessionId,
-      status: input.status,
-      occurred_at: new Date().toISOString(),
-    },
+    meta: { session_id: sessionId, status: input.status },
     link_url_absolute: absolutizeLink(link_url),
     occurred_at: new Date().toISOString(),
   };

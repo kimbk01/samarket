@@ -28,19 +28,11 @@ function apnsTopic(): string | null {
   return process.env.APNS_BUNDLE_ID?.trim() || process.env.APNS_VOIP_TOPIC?.trim() || null;
 }
 
-async function apnsPost(
-  path: string,
-  body: unknown,
-  topic: string,
-  opts?: { pushType?: "alert" | "background"; priority?: "5" | "10" }
-): Promise<SendPushResult> {
+async function apnsPost(path: string, body: unknown, topic: string): Promise<SendPushResult> {
   const token = apnsJwt();
   if (!token) {
     return { status: "skipped", provider_response: { reason: "apns_not_configured" } };
   }
-
-  const pushType = opts?.pushType ?? "alert";
-  const priority = opts?.priority ?? "10";
 
   return await new Promise((resolve) => {
     const client = http2.connect(`https://${apnsHost()}`);
@@ -49,8 +41,8 @@ async function apnsPost(
       ":path": path,
       authorization: `bearer ${token}`,
       "apns-topic": topic,
-      "apns-push-type": pushType,
-      "apns-priority": priority,
+      "apns-push-type": "alert",
+      "apns-priority": "10",
       "content-type": "application/json",
     });
 
@@ -66,22 +58,14 @@ async function apnsPost(
     req.on("end", () => {
       client.close();
       if (status === 200) {
-        resolve({
-          status: "sent",
-          provider_response: { provider: "apns", http_status: status, push_type: pushType },
-        });
+        resolve({ status: "sent", provider_response: { provider: "apns", http_status: status } });
         return;
       }
       const badToken = status === 410 || status === 400;
       resolve({
         status: "failed",
         error_message: responseBody || `apns_http_${status}`,
-        provider_response: {
-          provider: "apns",
-          http_status: status,
-          bad_device_token: badToken,
-          push_type: pushType,
-        },
+        provider_response: { provider: "apns", http_status: status, bad_device_token: badToken },
       });
     });
     req.on("error", (e) => {
@@ -104,51 +88,15 @@ function apnsCategory(data: Record<string, unknown>): string | null {
   return typeof raw === "string" && raw.trim() ? raw.trim() : null;
 }
 
-function resolveApnsCallPushKind(data: Record<string, unknown>): string | null {
-  const raw = data.call_push_kind ?? data.type;
-  return typeof raw === "string" && raw.trim() ? raw.trim() : null;
-}
-
-/** Silent/background wake for CallKit dismiss — no new user-facing alert. */
-function isSilentTerminalDismissKind(kind: string | null): boolean {
-  return kind === "call_canceled" || kind === "call_rejected" || kind === "call_ended";
-}
-
-function isMissedTerminalKind(kind: string | null): boolean {
-  return kind === "missed_call";
-}
-
 export function buildApnsAlertBody(input: {
   title: string;
   body: string;
   data: Record<string, unknown>;
 }): Record<string, unknown> {
-  const kind = resolveApnsCallPushKind(input.data);
-
-  // cancel/reject/ended — wake app for CallKit dismiss without a new banner (policy §3).
-  if (isSilentTerminalDismissKind(kind)) {
-    return {
-      aps: {
-        "content-available": 1,
-      },
-      ...input.data,
-      call_push_kind: kind,
-      ...(typeof input.data.occurred_at === "string"
-        ? {}
-        : typeof input.data.occurredAt === "string"
-          ? { occurred_at: input.data.occurredAt }
-          : {}),
-    };
-  }
-
   const aps: Record<string, unknown> = {
     alert: { title: input.title, body: input.body },
     sound: "default",
   };
-  // missed — visible history alert + content-available so CallKit can dismiss in parallel.
-  if (isMissedTerminalKind(kind)) {
-    aps["content-available"] = 1;
-  }
   const badge = apnsBadgeCount(input.data);
   if (badge != null) aps.badge = badge;
   const category = apnsCategory(input.data);
@@ -172,14 +120,11 @@ export async function sendApnsAlertImpl(input: {
   const token = input.deviceToken.trim();
   if (!token) return { status: "failed", error_message: "empty_device_token" };
 
-  const kind = resolveApnsCallPushKind(input.data);
-  const silentTerminal = isSilentTerminalDismissKind(kind);
-  const body = buildApnsAlertBody(input);
-
-  return apnsPost(`/3/device/${token}`, body, topic, {
-    pushType: silentTerminal ? "background" : "alert",
-    priority: silentTerminal ? "5" : "10",
-  });
+  return apnsPost(
+    `/3/device/${token}`,
+    buildApnsAlertBody(input),
+    topic
+  );
 }
 
 export async function sendVoipApnsImpl(input: {

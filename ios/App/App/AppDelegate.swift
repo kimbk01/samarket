@@ -17,9 +17,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             }
         }
         VoIPPushRegistry.shared.start()
-        if let remote = launchOptions?[.remoteNotification] as? [AnyHashable: Any] {
-            CallTerminalEventHandler.shared.handleIfTerminal(userInfo: remote, source: .apnsColdLaunch)
-        }
         return true
     }
 
@@ -40,19 +37,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         DibayActiveCallSessionManager.shared.onAppForeground()
         ScreenAwakeBridge.shared.reapplyOnBecomeActive()
         CallV4SurfaceOwnerBridge.flushPending()
-        CallTerminalBootstrap.installPushHandlerChain()
-    }
-
-    func application(
-        _ application: UIApplication,
-        didReceiveRemoteNotification userInfo: [AnyHashable: Any],
-        fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
-    ) {
-        let handled = CallTerminalEventHandler.shared.handleIfTerminal(
-            userInfo: userInfo,
-            source: .apnsRemoteFetch
-        )
-        completionHandler(handled ? .newData : .noData)
     }
 
     func applicationWillTerminate(_ application: UIApplication) {
