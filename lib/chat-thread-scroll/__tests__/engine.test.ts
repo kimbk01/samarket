@@ -11,7 +11,7 @@ function mockViewport(input: {
 }): HTMLElement {
   let scrollTop = input.scrollTop ?? 0;
   let scrollHeight = input.scrollHeight ?? 1000;
-  const clientHeight = input.clientHeight ?? 400;
+  let clientHeight = input.clientHeight ?? 400;
   const rowCount = input.rowCount ?? 1;
   const el = {
     get scrollHeight() {
@@ -20,7 +20,12 @@ function mockViewport(input: {
     set scrollHeight(v: number) {
       scrollHeight = v;
     },
-    clientHeight,
+    get clientHeight() {
+      return clientHeight;
+    },
+    set clientHeight(v: number) {
+      clientHeight = v;
+    },
     get scrollTop() {
       return scrollTop;
     },
@@ -34,6 +39,10 @@ function mockViewport(input: {
 
 function setScrollHeight(el: HTMLElement, height: number): void {
   (el as unknown as { scrollHeight: number }).scrollHeight = height;
+}
+
+function setClientHeight(el: HTMLElement, height: number): void {
+  (el as unknown as { clientHeight: number }).clientHeight = height;
 }
 
 describe("ChatThreadScrollEngine", () => {
@@ -145,7 +154,34 @@ describe("ChatThreadScrollEngine", () => {
     setScrollHeight(vp, 700);
     const ok = engine.notifyLayoutResize(ctx);
     expect(ok).toBe(true);
-    expect(vp.scrollTop).toBe(700);
+    expect(vp.scrollTop).toBe(700 - 400);
+  });
+
+  it("IME shrink + prev near → pin bottom (0841 wasNearBottom)", () => {
+    const engine = createChatThreadScrollEngine();
+    const vp = mockViewport({
+      scrollHeight: 4756,
+      scrollTop: 0,
+      clientHeight: 854,
+      rowCount: 80,
+    });
+    const ctx = { viewport: vp, messageCount: 80, virtualizer: null };
+
+    engine.notifyEntry({ forceBottom: true });
+    engine.notifyMessagesReady(true);
+    engine.notifyLayoutCommitted();
+    engine.tryCompleteEntry(ctx);
+    vp.scrollTop = 3902;
+    engine.notifyUserScroll(ctx);
+    expect(engine.readStickToBottom()).toBe(true);
+
+    setClientHeight(vp, 549);
+    engine.notifyUserScroll(ctx);
+    expect(engine.readStickToBottom()).toBe(true);
+
+    const ok = engine.notifyLayoutResize(ctx);
+    expect(ok).toBe(true);
+    expect(vp.scrollTop).toBe(4756 - 549);
   });
 
   it("prepend in flight blocks layout follow", () => {
