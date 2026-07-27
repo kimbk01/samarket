@@ -116,10 +116,10 @@ describe("chat chrome layout contract", () => {
     expect(viewMemo).not.toMatch(/\n\s+room,\s*\n/);
   });
 
-  it("Phase2 composer does not call scrollIntoView on focus (iOS vv offsetTop fight)", () => {
-    const src = readSrc(
-      "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2Composer.tsx"
-    );
-    expect(src).not.toContain("scrollIntoView(");
+  it("scroll anchor listens to visualViewport on Android WebView and iOS", () => {
+    const src = readSrc("lib/community-messenger/room/messenger-room-scroll-anchor-controller.ts");
+    expect(src).toContain("keyboard_resize_keep_bottom");
+    expect(src).toContain("window.visualViewport");
+    expect(src).not.toMatch(/ios && typeof window[\s\S]*visualViewport/);
   });
 });
