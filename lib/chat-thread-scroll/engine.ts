@@ -49,7 +49,6 @@ export class ChatThreadScrollEngine {
   };
   private restoreSnapshot: ChatThreadScrollRestoreSnapshot | null = null;
   private lastGeom: { sh: number; st: number; ch: number } | null = null;
-  private visibleAnchor: { id: string; offset: number } | null = null;
 
   constructor(config: ChatThreadScrollEngineConfig = {}) {
     this.config = {
@@ -71,7 +70,6 @@ export class ChatThreadScrollEngine {
     };
     this.restoreSnapshot = null;
     this.lastGeom = null;
-    this.visibleAnchor = null;
   }
 
   getPhase(): ChatThreadScrollPhase {
@@ -155,7 +153,7 @@ export class ChatThreadScrollEngine {
     }
     if (this.state.phase !== "settled" || this.state.prependInFlight) return false;
     if (!this.state.stickToBottom) {
-      return this.preserveVisibleAnchor(ctx);
+      return this.preserveScrollDistance(ctx);
     }
     return this.applyScrollToBottom(ctx, { force: false });
   }
@@ -235,15 +233,6 @@ export class ChatThreadScrollEngine {
 
     const count = ctx.messageCount;
     const virtualizer = ctx.virtualizer;
-    const maxScroll = Math.max(0, vp.scrollHeight - vp.clientHeight);
-    const geometryUnchanged =
-      this.lastGeom != null &&
-      this.lastGeom.sh === vp.scrollHeight &&
-      this.lastGeom.ch === vp.clientHeight;
-    if (geometryUnchanged && Math.abs(vp.scrollTop - maxScroll) <= 1) {
-      this.captureGeom(vp);
-      return true;
-    }
     if (count > 0 && virtualizer?.scrollToIndex) {
       try {
         virtualizer.scrollToIndex(count - 1, { align: "end" });
@@ -255,30 +244,6 @@ export class ChatThreadScrollEngine {
     this.state.stickToBottom = true;
     this.captureGeom(vp);
     return vp.scrollHeight > 0 || count === 0;
-  }
-
-  private preserveVisibleAnchor(ctx: ChatThreadScrollViewportContext): boolean {
-    const vp = ctx.viewport;
-    const anchor = this.visibleAnchor;
-    if (!vp || !anchor) return this.preserveScrollDistance(ctx);
-    const escaped =
-      typeof CSS !== "undefined" && typeof CSS.escape === "function"
-        ? CSS.escape(anchor.id)
-        : anchor.id.replace(/["\\]/g, "\\$&");
-    const row = vp.querySelector<HTMLElement>(
-      `${this.config.messageRowSelector}[data-cm-message-id="${escaped}"]`
-    );
-    if (!row || typeof row.getBoundingClientRect !== "function") {
-      return this.preserveScrollDistance(ctx);
-    }
-    const currentOffset =
-      row.getBoundingClientRect().top - vp.getBoundingClientRect().top;
-    const delta = currentOffset - anchor.offset;
-    if (Math.abs(delta) > 0.5) {
-      vp.scrollTop = vp.scrollTop + delta;
-    }
-    this.captureGeom(vp);
-    return true;
   }
 
   private preserveScrollDistance(ctx: ChatThreadScrollViewportContext): boolean {
@@ -301,29 +266,6 @@ export class ChatThreadScrollEngine {
       st: viewport.scrollTop,
       ch: viewport.clientHeight,
     };
-    this.captureVisibleAnchor(viewport);
-  }
-
-  private captureVisibleAnchor(viewport: HTMLElement): void {
-    if (
-      typeof viewport.getBoundingClientRect !== "function" ||
-      typeof viewport.querySelectorAll !== "function"
-    ) {
-      return;
-    }
-    const viewportRect = viewport.getBoundingClientRect();
-    const rows = viewport.querySelectorAll<HTMLElement>(this.config.messageRowSelector);
-    for (const row of rows) {
-      if (typeof row.getBoundingClientRect !== "function") continue;
-      const id = row.getAttribute?.("data-cm-message-id")?.trim();
-      if (!id) continue;
-      const rect = row.getBoundingClientRect();
-      if (rect.height <= 0 || rect.bottom <= viewportRect.top || rect.top >= viewportRect.bottom) {
-        continue;
-      }
-      this.visibleAnchor = { id, offset: rect.top - viewportRect.top };
-      return;
-    }
   }
 
   /** @internal test helper */
