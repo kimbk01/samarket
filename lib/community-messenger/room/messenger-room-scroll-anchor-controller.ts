@@ -562,7 +562,9 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     /** setState mounted gate 대신 ref 존재 + 상태 게이트 — sync flush 실패 시 paint 전 backup */
     if (!timelineViewportMounted && !messagesViewportRef.current) return;
     runInitialAnchorIfReady("layout_effect_backup");
-  }, [messagesViewportRef, runInitialAnchorIfReady, timelineViewportMounted]);
+    // messagesViewportRef is stable; read .current only inside effect
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ref identity stable
+  }, [runInitialAnchorIfReady, timelineViewportMounted]);
 
   useEffect(() => {
     engine.notifyPrependInFlight(loadingOlderMessages);
