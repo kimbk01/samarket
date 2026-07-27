@@ -1,4 +1,3 @@
-import { isLikelyIosWebKit } from "@/lib/ui/is-likely-ios-webkit";
 import { CM_ROOM_KB_OFFSET_MIN_PX } from "@/lib/ui/messenger-chat-viewport-tuning";
 
 /** Samsung OneUI 등 gesture nav 여유 — keyboard open 시 safe-bottom 과 중복되면 제거 */
@@ -21,8 +20,14 @@ export type CmRoomVisibleViewportSnapshot = {
   baselineClosedHeightPx: number;
 };
 
+export type CmRoomShellVisualFramePx = {
+  heightPx: number;
+  offsetTopPx: number;
+  visualBottomPx: number;
+};
+
 /**
- * CM room layout height SSOT — `window.visualViewport.height` only.
+ * CM room layout height — `window.visualViewport.height` (Android adjustResize / iOS vv).
  * Native shell inset / innerHeight 차감 금지 (이중 subtraction 방지).
  */
 export function resolveCmRoomVisibleViewportHeightPx(minHeightPx = CM_ROOM_VISIBLE_VIEWPORT_MIN_PX): number {
@@ -30,6 +35,26 @@ export function resolveCmRoomVisibleViewportHeightPx(minHeightPx = CM_ROOM_VISIB
   const vv = window.visualViewport;
   const raw = vv ? vv.height : window.innerHeight;
   return Math.max(minHeightPx, Math.round(raw));
+}
+
+/**
+ * Visual viewport band in layout coords.
+ * iOS may raise offsetTop on keyboard/focus — height alone at y=0 is insufficient.
+ */
+export function resolveCmRoomShellVisualFramePx(
+  minHeightPx = CM_ROOM_VISIBLE_VIEWPORT_MIN_PX
+): CmRoomShellVisualFramePx {
+  if (typeof window === "undefined") {
+    return { heightPx: minHeightPx, offsetTopPx: 0, visualBottomPx: minHeightPx };
+  }
+  const vv = window.visualViewport;
+  if (!vv) {
+    const heightPx = Math.max(minHeightPx, Math.round(window.innerHeight));
+    return { heightPx, offsetTopPx: 0, visualBottomPx: heightPx };
+  }
+  const heightPx = Math.max(minHeightPx, Math.round(vv.height));
+  const offsetTopPx = Math.max(0, Math.round(vv.offsetTop));
+  return { heightPx, offsetTopPx, visualBottomPx: offsetTopPx + heightPx };
 }
 
 export function resolveCmRoomVisualViewportOverlayGapPx(): number {
@@ -54,19 +79,15 @@ export function resolveCmRoomKeyboardOpenFromViewport(baselineClosedHeightPx: nu
   return false;
 }
 
+/**
+ * Composer bottom padding — matches Android open contract (0).
+ * Shell already tracks visualViewport; never re-apply overlay gap as padding (iOS double compensation).
+ * closed → null → CSS `--safe-bottom`.
+ */
 export function resolveCmRoomComposerBottomPaddingPx(args: {
   keyboardOpen: boolean;
-  iosOverlayKbOffsetPx: number;
-  overlayGapPx: number;
 }): number | null {
   if (!args.keyboardOpen) return null;
-  if (
-    isLikelyIosWebKit() &&
-    args.iosOverlayKbOffsetPx >= CM_ROOM_KB_OFFSET_MIN_PX &&
-    args.overlayGapPx >= CM_ROOM_KB_OFFSET_MIN_PX
-  ) {
-    return args.iosOverlayKbOffsetPx;
-  }
   return 0;
 }
 

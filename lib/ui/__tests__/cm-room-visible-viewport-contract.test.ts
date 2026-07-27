@@ -4,6 +4,7 @@ import {
   CM_ROOM_NAVIGATION_GAP_PX,
   resolveCmRoomComposerBottomPaddingPx,
   resolveCmRoomKeyboardOpenFromViewport,
+  resolveCmRoomShellVisualFramePx,
   resolveCmRoomTimelineHeightPx,
   resolveCmRoomVisibleViewportHeightPx,
   resolveCmRoomVisualViewportOverlayGapPx,
@@ -20,6 +21,18 @@ describe("cm-room-visible-viewport-contract", () => {
       visualViewport: { offsetTop: 0, height: 640 },
     });
     expect(resolveCmRoomVisibleViewportHeightPx()).toBe(640);
+  });
+
+  it("shell visual frame includes offsetTop for iOS visible band", () => {
+    vi.stubGlobal("window", {
+      innerHeight: 900,
+      visualViewport: { offsetTop: 280, height: 520 },
+    });
+    expect(resolveCmRoomShellVisualFramePx()).toEqual({
+      heightPx: 520,
+      offsetTopPx: 280,
+      visualBottomPx: 800,
+    });
   });
 
   it("detects keyboard open from overlay gap", () => {
@@ -50,14 +63,27 @@ describe("cm-room-visible-viewport-contract", () => {
     ).toBe(692);
   });
 
-  it("composer padding null when keyboard closed", () => {
-    expect(
-      resolveCmRoomComposerBottomPaddingPx({
-        keyboardOpen: false,
-        iosOverlayKbOffsetPx: 300,
-        overlayGapPx: 300,
-      })
-    ).toBeNull();
+  it("composer padding null when keyboard closed → CSS safe-bottom", () => {
+    expect(resolveCmRoomComposerBottomPaddingPx({ keyboardOpen: false })).toBeNull();
+  });
+
+  it("composer padding 0 when keyboard open (Android contract; no iOS overlay double apply)", () => {
+    expect(resolveCmRoomComposerBottomPaddingPx({ keyboardOpen: true })).toBe(0);
+  });
+
+  it("does not double apply overlay gap after shell sized to visualViewport", () => {
+    vi.stubGlobal("window", {
+      innerHeight: 900,
+      visualViewport: { offsetTop: 0, height: 600 },
+    });
+    expect(resolveCmRoomVisualViewportOverlayGapPx()).toBe(300);
+    expect(resolveCmRoomComposerBottomPaddingPx({ keyboardOpen: true })).toBe(0);
+  });
+
+  it("composer padding toggles closed→open→closed", () => {
+    expect(resolveCmRoomComposerBottomPaddingPx({ keyboardOpen: false })).toBeNull();
+    expect(resolveCmRoomComposerBottomPaddingPx({ keyboardOpen: true })).toBe(0);
+    expect(resolveCmRoomComposerBottomPaddingPx({ keyboardOpen: false })).toBeNull();
   });
 
   it("baseline advances when keyboard closed", () => {

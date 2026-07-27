@@ -90,6 +90,8 @@ import {
 } from "@/components/community-messenger/group/GroupMentionAutocomplete";
 import { MessengerComposerSector } from "@/components/community-messenger/line-ui";
 import { ChatComposer } from "@/components/chat/ChatComposer";
+import { emitCmRoomKbProbe } from "@/lib/ui/cm-room-kb-viewport-probe";
+import { isLikelyIosWebKit } from "@/lib/ui/is-likely-ios-webkit";
 import { resolveCommunityMessengerDeliveryContextMeta } from "@/lib/community-messenger/room-context-meta";
 import {
   messengerRoomShowsConfirmedDeliveryPresentation,
@@ -534,6 +536,8 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
           onTextareaFocus={(e) => {
             useMessengerRoomUiStore.getState().setComposerFocused(true);
             const ta = e.currentTarget;
+            const shell = ta.closest<HTMLElement>("[data-cm-room].cm-room-shell");
+            emitCmRoomKbProbe("before_focus", shell);
             const t0 = typeof performance !== "undefined" ? performance.now() : 0;
             window.requestAnimationFrame(() => {
               window.requestAnimationFrame(() => {
@@ -546,11 +550,19 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
                         : String(vm.snapshot.room.id ?? ""),
                   });
                 }
-                try {
-                  ta.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "auto" });
-                } catch {
-                  ta.scrollIntoView({ block: "nearest" });
+                // Android: keep nearest scrollIntoView (harmless with adjustResize).
+                // iOS: skip — fights visualViewport band / leaves composer at visual top
+                // (padding-only 124fa92d0 still FAIL; band + no focus scroll required).
+                if (!isLikelyIosWebKit()) {
+                  emitCmRoomKbProbe("scrollIntoView_before", shell);
+                  try {
+                    ta.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "auto" });
+                  } catch {
+                    ta.scrollIntoView({ block: "nearest" });
+                  }
+                  emitCmRoomKbProbe("scrollIntoView_after", shell);
                 }
+                emitCmRoomKbProbe("after_focus", shell);
               });
             });
           }}
