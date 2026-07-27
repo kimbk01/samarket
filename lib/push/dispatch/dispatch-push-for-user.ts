@@ -9,6 +9,7 @@ import {
 } from "@/lib/push/dispatch/load-active-push-targets";
 import {
   isCallPush,
+  isTerminalDismissCallPushKind,
   resolveCallPushProviderPolicy,
   resolveEventType,
   type DispatchDeliveryAudit,
@@ -204,10 +205,7 @@ export async function dispatchPushForUser(
   await ensureNotificationSoundSsotHydratedForServer(svc);
   const enrichedOut = enrichPushPayloadWithSoundSsotMeta(out, opts);
   const callPush = isCallPush(enrichedOut, opts);
-  const terminalDismiss =
-    opts?.call_push_kind === "call_canceled" ||
-    opts?.call_push_kind === "call_rejected" ||
-    opts?.call_push_kind === "call_ended";
+  const terminalDismiss = isTerminalDismissCallPushKind(opts?.call_push_kind ?? null);
 
   if (!opts?.skip_settings_gate && !terminalDismiss) {
     const allowed = await shouldSendWebPushForUser(svc, enrichedOut.user_id, enrichedOut).catch(() => true);

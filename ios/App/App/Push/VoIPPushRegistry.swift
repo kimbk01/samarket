@@ -11,11 +11,15 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
   private let callProvider = CallKitProvider.shared
 
   func start() {
-    if registry != nil { return }
+    if registry != nil {
+      CallTerminalBootstrap.start()
+      return
+    }
     let reg = PKPushRegistry(queue: DispatchQueue.main)
     reg.delegate = self
     reg.desiredPushTypes = [.voIP]
     registry = reg
+    CallTerminalBootstrap.start()
   }
 
   func pushRegistry(_ registry: PKPushRegistry, didUpdate pushCredentials: PKPushCredentials, for type: PKPushType) {
@@ -43,6 +47,21 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
     let kind = data["call_push_kind"] as? String
     if kind == "call_canceled" || kind == "call_rejected" || kind == "call_ended" || kind == "missed_call" {
       let terminalReason = "ios_voip_terminal_\(kind ?? "unknown")"
+      // Prefer canonical authority for tracked incoming CallKit dismiss.
+      if isVoipTerminalIncomingSession(sessionId: sessionId),
+         CallKitProvider.shared.hasTrackedCallKitSession(sessionId: sessionId),
+         let terminalKind = CallTerminalKind(rawValue: kind ?? "")
+      {
+        CallTerminalEventHandler.shared.handleTerminalCallEvent(
+          callSessionId: sessionId,
+          kind: terminalKind,
+          source: .voipPush,
+          occurredAt: nil,
+          revision: nil
+        )
+        completion()
+        return
+      }
       if isVoipTerminalIncomingSession(sessionId: sessionId) {
         CallV4SurfaceOwnerBridge.deliver(
           callId: sessionId,
