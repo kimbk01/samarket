@@ -9,7 +9,6 @@ import {
   resolveCmRoomComposerBottomPaddingPx,
   resolveCmRoomTimelineHeightPx,
 } from "@/lib/ui/cm-room-visible-viewport-contract";
-import { resolveIosKeyboardOverlayCssPx } from "@/lib/ui/use-cm-room-kb-offset";
 
 export { CM_ROOM_CHROME_HEIGHT_SYNC_EVENT };
 
@@ -17,6 +16,30 @@ type Options = {
   enabled: boolean;
   shellRef: RefObject<HTMLElement | null>;
 };
+
+declare global {
+  interface Window {
+    /** Explicit opt-in for CM room keyboard viewport debug logs (never on by default in prod). */
+    __DIBAY_CM_ROOM_KB_DEBUG__?: boolean;
+  }
+}
+
+function isCmRoomKbDebugEnabled(): boolean {
+  if (typeof window === "undefined") return false;
+  if (window.__DIBAY_CM_ROOM_KB_DEBUG__ === true) return true;
+  return process.env.NODE_ENV !== "production";
+}
+
+function rectSnapshot(el: Element | null | undefined) {
+  if (!el) return null;
+  const r = el.getBoundingClientRect();
+  return {
+    top: Math.round(r.top),
+    bottom: Math.round(r.bottom),
+    height: Math.round(r.height),
+    width: Math.round(r.width),
+  };
+}
 
 function measureBlockHeight(el: HTMLElement | null | undefined): number {
   if (!el) return 0;
@@ -35,6 +58,7 @@ function measureTimelineTopOffsetPx(shell: HTMLElement): number {
  * Telegram/KakaoTalk-style CM room viewport shell.
  * SSOT: `visualViewport.height` — shell height + timeline box height.
  * keyboard open: safe-bottom / nav gap padding 제거 (composer는 키보드 바로 위).
+ * DO NOT re-apply overlay keyboard gap as composer padding (iOS double offset).
  */
 export function useCmRoomVisibleViewportShell(opts: Options): void {
   const { enabled, shellRef } = opts;
@@ -52,6 +76,7 @@ export function useCmRoomVisibleViewportShell(opts: Options): void {
       chromeSyncPending = false;
       const composerBlockEl = shell.querySelector<HTMLElement>(".cm-room-composer");
       const tradeDockEl = shell.querySelector<HTMLElement>("[data-cm-trade-dock]");
+      const timelineEl = shell.querySelector<HTMLElement>(".cm-room-timeline");
       const timelineTopOffsetPx = measureTimelineTopOffsetPx(shell);
       const composerBlockPx = measureBlockHeight(composerBlockEl);
       const tradeDockPx = measureBlockHeight(tradeDockEl);
@@ -69,7 +94,6 @@ export function useCmRoomVisibleViewportShell(opts: Options): void {
       const snapshot = buildCmRoomVisibleViewportSnapshot(baselineClosedHeightPx);
       baselineClosedHeightPx = snapshot.baselineClosedHeightPx;
 
-      const iosKbPx = resolveIosKeyboardOverlayCssPx();
       shell.dataset.cmKeyboardOpen = snapshot.keyboardOpen ? "true" : "false";
 
       shell.style.height = `${snapshot.visibleHeightPx}px`;
@@ -86,13 +110,31 @@ export function useCmRoomVisibleViewportShell(opts: Options): void {
 
       const composerPadPx = resolveCmRoomComposerBottomPaddingPx({
         keyboardOpen: snapshot.keyboardOpen,
-        iosOverlayKbOffsetPx: iosKbPx,
-        overlayGapPx: snapshot.overlayGapPx,
       });
       if (composerPadPx == null) {
         shell.style.removeProperty("--cm-room-composer-bottom-padding");
       } else {
         shell.style.setProperty("--cm-room-composer-bottom-padding", `${composerPadPx}px`);
+      }
+
+      if (isCmRoomKbDebugEnabled()) {
+        const vv = window.visualViewport;
+        // Layout metrics only — never log message text / PII.
+        console.info("[cm-room-kb-viewport]", {
+          platform: /iPhone|iPad|iPod/i.test(navigator.userAgent) ? "ios" : "other",
+          innerHeight: window.innerHeight,
+          clientHeight: document.documentElement.clientHeight,
+          vvHeight: vv?.height ?? null,
+          vvOffsetTop: vv?.offsetTop ?? null,
+          keyboardOpen: snapshot.keyboardOpen,
+          overlayGapPx: snapshot.overlayGapPx,
+          visibleHeightPx: snapshot.visibleHeightPx,
+          composerPadPx,
+          safeBottomFallback: composerPadPx == null,
+          shell: rectSnapshot(shell),
+          timeline: rectSnapshot(timelineEl),
+          composer: rectSnapshot(composerBlockEl),
+        });
       }
 
       shell.dispatchEvent(

@@ -50,14 +50,33 @@ describe("cm-room-visible-viewport-contract", () => {
     ).toBe(692);
   });
 
-  it("composer padding null when keyboard closed", () => {
-    expect(
-      resolveCmRoomComposerBottomPaddingPx({
-        keyboardOpen: false,
-        iosOverlayKbOffsetPx: 300,
-        overlayGapPx: 300,
-      })
-    ).toBeNull();
+  it("composer padding null when keyboard closed → CSS safe-bottom", () => {
+    expect(resolveCmRoomComposerBottomPaddingPx({ keyboardOpen: false })).toBeNull();
+  });
+
+  it("composer padding 0 when keyboard open on Android-style path", () => {
+    expect(resolveCmRoomComposerBottomPaddingPx({ keyboardOpen: true })).toBe(0);
+  });
+
+  it("does not double apply iOS keyboard height after shell is sized to visualViewport", () => {
+    // Legacy callers passed large overlay values; padding must stay 0 (shell height = vv.height).
+    expect(resolveCmRoomComposerBottomPaddingPx({ keyboardOpen: true })).toBe(0);
+    expect(resolveCmRoomVisualViewportOverlayGapPx).toBeTypeOf("function");
+  });
+
+  it("composer padding toggles closed→open→closed without leftover overlay", () => {
+    expect(resolveCmRoomComposerBottomPaddingPx({ keyboardOpen: false })).toBeNull();
+    expect(resolveCmRoomComposerBottomPaddingPx({ keyboardOpen: true })).toBe(0);
+    expect(resolveCmRoomComposerBottomPaddingPx({ keyboardOpen: false })).toBeNull();
+  });
+
+  it("large visualViewport overlay gap does not become composer padding", () => {
+    vi.stubGlobal("window", {
+      innerHeight: 900,
+      visualViewport: { offsetTop: 0, height: 600 },
+    });
+    expect(resolveCmRoomVisualViewportOverlayGapPx()).toBe(300);
+    expect(resolveCmRoomComposerBottomPaddingPx({ keyboardOpen: true })).toBe(0);
   });
 
   it("baseline advances when keyboard closed", () => {

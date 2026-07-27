@@ -1,4 +1,3 @@
-import { isLikelyIosWebKit } from "@/lib/ui/is-likely-ios-webkit";
 import { CM_ROOM_KB_OFFSET_MIN_PX } from "@/lib/ui/messenger-chat-viewport-tuning";
 
 /** Samsung OneUI 등 gesture nav 여유 — keyboard open 시 safe-bottom 과 중복되면 제거 */
@@ -54,19 +53,15 @@ export function resolveCmRoomKeyboardOpenFromViewport(baselineClosedHeightPx: nu
   return false;
 }
 
+/**
+ * Composer bottom padding authority.
+ * - keyboard closed → null (CSS `--safe-bottom`)
+ * - keyboard open → 0 (shell already sized to `visualViewport.height`; never re-apply overlay gap)
+ */
 export function resolveCmRoomComposerBottomPaddingPx(args: {
   keyboardOpen: boolean;
-  iosOverlayKbOffsetPx: number;
-  overlayGapPx: number;
 }): number | null {
   if (!args.keyboardOpen) return null;
-  if (
-    isLikelyIosWebKit() &&
-    args.iosOverlayKbOffsetPx >= CM_ROOM_KB_OFFSET_MIN_PX &&
-    args.overlayGapPx >= CM_ROOM_KB_OFFSET_MIN_PX
-  ) {
-    return args.iosOverlayKbOffsetPx;
-  }
   return 0;
 }
 
