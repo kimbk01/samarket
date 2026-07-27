@@ -1,6 +1,6 @@
 /**
  * DIBAY CM room — Telegram/KakaoTalk-style flex shell.
- * Height SSOT: `visualViewport.height` (use-cm-room-visible-viewport-shell.ts).
+ * Height SSOT: visualViewport band (`offsetTop` + `height`) via use-cm-room-visible-viewport-shell.ts.
  * keyboard closed: composer `safe-bottom` only.
  * keyboard open: safe-bottom / nav gap 제거 — composer는 키보드 바로 위.
  */

@@ -7,6 +7,8 @@ import {
   CM_ROOM_CHROME_HEIGHT_SYNC_EVENT,
   CM_ROOM_TAIL_COMPOSER_GAP_DEFAULT_PX,
   resolveCmRoomComposerBottomPaddingPx,
+  resolveCmRoomComposerToVisualBottomGapPx,
+  resolveCmRoomShellVisualFramePx,
   resolveCmRoomTimelineHeightPx,
 } from "@/lib/ui/cm-room-visible-viewport-contract";
 
@@ -19,14 +21,21 @@ type Options = {
 
 declare global {
   interface Window {
-    /** Explicit opt-in for CM room keyboard viewport debug logs (never on by default in prod). */
+    /** Explicit opt-in for CM room keyboard viewport debug logs. */
     __DIBAY_CM_ROOM_KB_DEBUG__?: boolean;
+    /** Last metrics snapshot (debug only) — layout numbers, never message text. */
+    __DIBAY_CM_ROOM_KB_LAST__?: Record<string, unknown>;
   }
 }
 
 function isCmRoomKbDebugEnabled(): boolean {
   if (typeof window === "undefined") return false;
   if (window.__DIBAY_CM_ROOM_KB_DEBUG__ === true) return true;
+  try {
+    if (window.localStorage?.getItem("__DIBAY_CM_ROOM_KB_DEBUG__") === "1") return true;
+  } catch {
+    /* ignore */
+  }
   return process.env.NODE_ENV !== "production";
 }
 
@@ -39,6 +48,10 @@ function rectSnapshot(el: Element | null | undefined) {
     height: Math.round(r.height),
     width: Math.round(r.width),
   };
+}
+
+function readCssPx(el: Element, prop: string): string {
+  return getComputedStyle(el).getPropertyValue(prop).trim() || "";
 }
 
 function measureBlockHeight(el: HTMLElement | null | undefined): number {
@@ -54,9 +67,39 @@ function measureTimelineTopOffsetPx(shell: HTMLElement): number {
   return Math.max(0, Math.round(timelineTop - shellTop));
 }
 
+function clearShellVisualFramePosition(shell: HTMLElement): void {
+  shell.style.removeProperty("position");
+  shell.style.removeProperty("top");
+  shell.style.removeProperty("left");
+  shell.style.removeProperty("right");
+  shell.style.removeProperty("width");
+}
+
+/**
+ * Pin shell into the visual viewport band (layout coords inside transformed `.messenger-page`).
+ * Height-only at y=0 fails when iOS raises visualViewport.offsetTop (composer jumps to visual top).
+ * Uses top/height — not CSS transform keyboard patches (LOCK).
+ */
+function applyShellVisualFrame(shell: HTMLElement, frame: { heightPx: number; offsetTopPx: number }): void {
+  const pinToVisualBand = frame.offsetTopPx > 0;
+  if (pinToVisualBand) {
+    shell.style.position = "absolute";
+    shell.style.top = `${frame.offsetTopPx}px`;
+    shell.style.left = "0";
+    shell.style.right = "0";
+    shell.style.width = "100%";
+  } else {
+    clearShellVisualFramePosition(shell);
+  }
+  shell.style.height = `${frame.heightPx}px`;
+  shell.style.maxHeight = `${frame.heightPx}px`;
+  shell.style.minHeight = `${frame.heightPx}px`;
+  shell.style.setProperty("--cm-room-visible-height", `${frame.heightPx}px`);
+}
+
 /**
  * Telegram/KakaoTalk-style CM room viewport shell.
- * SSOT: `visualViewport.height` — shell height + timeline box height.
+ * SSOT: visualViewport band = offsetTop + height (not height alone at layout y=0).
  * keyboard open: safe-bottom / nav gap padding 제거 (composer는 키보드 바로 위).
  * DO NOT re-apply overlay keyboard gap as composer padding (iOS double offset).
  */
@@ -68,11 +111,73 @@ export function useCmRoomVisibleViewportShell(opts: Options): void {
     const shell = shellRef.current;
     if (!shell || typeof window === "undefined") return;
 
-    let baselineClosedHeightPx = resolveCmRoomVisibleViewportHeightPxFromWindow();
+    let baselineClosedHeightPx = resolveCmRoomShellVisualFramePx().heightPx;
     let syncRaf = 0;
     let chromeSyncPending = false;
+    let lastKeyboardOpen: boolean | null = null;
 
-    const applyChromeHeights = () => {
+    const emitDebug = (event: string, extra?: Record<string, unknown>) => {
+      if (!isCmRoomKbDebugEnabled()) return;
+      const vv = window.visualViewport;
+      const frame = resolveCmRoomShellVisualFramePx();
+      const composerBlockEl = shell.querySelector<HTMLElement>(".cm-room-composer");
+      const timelineEl = shell.querySelector<HTMLElement>(".cm-room-timeline");
+      const headerEl = shell.querySelector<HTMLElement>(".chat-header");
+      const composerRect = composerBlockEl?.getBoundingClientRect();
+      const composerBottom = composerRect ? Math.round(composerRect.bottom) : null;
+      const gap =
+        composerBottom == null ? null : resolveCmRoomComposerToVisualBottomGapPx(composerBottom);
+      const cs = getComputedStyle(shell);
+      const ccs = composerBlockEl ? getComputedStyle(composerBlockEl) : null;
+      const payload = {
+        event,
+        href: typeof location !== "undefined" ? location.pathname : "",
+        activeElement:
+          document.activeElement instanceof HTMLElement
+            ? document.activeElement.tagName.toLowerCase()
+            : null,
+        windowInnerHeight: window.innerHeight,
+        documentClientHeight: document.documentElement.clientHeight,
+        bodyScrollTop: document.body.scrollTop,
+        documentScrollTop: document.documentElement.scrollTop,
+        visualViewport: vv
+          ? {
+              height: vv.height,
+              width: vv.width,
+              offsetTop: vv.offsetTop,
+              offsetLeft: vv.offsetLeft,
+              pageTop: vv.pageTop,
+              scale: vv.scale,
+            }
+          : null,
+        shellRect: rectSnapshot(shell),
+        headerRect: rectSnapshot(headerEl),
+        timelineRect: rectSnapshot(timelineEl),
+        composerRect: rectSnapshot(composerBlockEl),
+        composerPosition: ccs?.position ?? null,
+        composerBottom: ccs?.bottom ?? null,
+        composerTransform: ccs?.transform ?? null,
+        composerPaddingBottom: ccs?.paddingBottom ?? null,
+        shellDisplay: cs.display,
+        shellPosition: cs.position,
+        shellHeight: cs.height,
+        shellMinHeight: cs.minHeight,
+        shellMaxHeight: cs.maxHeight,
+        shellOverflow: cs.overflow,
+        shellTopInline: shell.style.top || null,
+        cssVisibleViewportHeight: readCssPx(shell, "--cm-room-visible-height"),
+        cssComposerBottomPadding: readCssPx(shell, "--cm-room-composer-bottom-padding"),
+        visualBottom: frame.visualBottomPx,
+        frameOffsetTop: frame.offsetTopPx,
+        frameHeight: frame.heightPx,
+        composerToVisualBottomGap: gap,
+        ...extra,
+      };
+      window.__DIBAY_CM_ROOM_KB_LAST__ = payload;
+      console.info("[cm-room-kb-viewport]", payload);
+    };
+
+    const applyChromeHeights = (event: string) => {
       chromeSyncPending = false;
       const composerBlockEl = shell.querySelector<HTMLElement>(".cm-room-composer");
       const tradeDockEl = shell.querySelector<HTMLElement>("[data-cm-trade-dock]");
@@ -93,16 +198,13 @@ export function useCmRoomVisibleViewportShell(opts: Options): void {
 
       const snapshot = buildCmRoomVisibleViewportSnapshot(baselineClosedHeightPx);
       baselineClosedHeightPx = snapshot.baselineClosedHeightPx;
+      const frame = resolveCmRoomShellVisualFramePx();
 
       shell.dataset.cmKeyboardOpen = snapshot.keyboardOpen ? "true" : "false";
-
-      shell.style.height = `${snapshot.visibleHeightPx}px`;
-      shell.style.maxHeight = `${snapshot.visibleHeightPx}px`;
-      shell.style.minHeight = `${snapshot.visibleHeightPx}px`;
-      shell.style.setProperty("--cm-room-visible-height", `${snapshot.visibleHeightPx}px`);
+      applyShellVisualFrame(shell, frame);
 
       const timelinePx = resolveCmRoomTimelineHeightPx({
-        visibleHeightPx: snapshot.visibleHeightPx,
+        visibleHeightPx: frame.heightPx,
         timelineTopOffsetPx,
         footerChromeHeightPx: footerChromePx,
       });
@@ -117,23 +219,20 @@ export function useCmRoomVisibleViewportShell(opts: Options): void {
         shell.style.setProperty("--cm-room-composer-bottom-padding", `${composerPadPx}px`);
       }
 
-      if (isCmRoomKbDebugEnabled()) {
-        const vv = window.visualViewport;
-        // Layout metrics only — never log message text / PII.
-        console.info("[cm-room-kb-viewport]", {
-          platform: /iPhone|iPad|iPod/i.test(navigator.userAgent) ? "ios" : "other",
-          innerHeight: window.innerHeight,
-          clientHeight: document.documentElement.clientHeight,
-          vvHeight: vv?.height ?? null,
-          vvOffsetTop: vv?.offsetTop ?? null,
+      if (lastKeyboardOpen !== snapshot.keyboardOpen) {
+        lastKeyboardOpen = snapshot.keyboardOpen;
+        emitDebug(snapshot.keyboardOpen ? "keyboard_open_changed_true" : "keyboard_open_changed_false", {
           keyboardOpen: snapshot.keyboardOpen,
           overlayGapPx: snapshot.overlayGapPx,
-          visibleHeightPx: snapshot.visibleHeightPx,
           composerPadPx,
           safeBottomFallback: composerPadPx == null,
-          shell: rectSnapshot(shell),
-          timeline: rectSnapshot(timelineEl),
-          composer: rectSnapshot(composerBlockEl),
+        });
+      } else {
+        emitDebug(event, {
+          keyboardOpen: snapshot.keyboardOpen,
+          overlayGapPx: snapshot.overlayGapPx,
+          composerPadPx,
+          safeBottomFallback: composerPadPx == null,
         });
       }
 
@@ -144,23 +243,23 @@ export function useCmRoomVisibleViewportShell(opts: Options): void {
       );
     };
 
-    const scheduleSync = () => {
+    const scheduleSync = (event: string) => {
       if (chromeSyncPending) return;
       chromeSyncPending = true;
       cancelAnimationFrame(syncRaf);
       syncRaf = requestAnimationFrame(() => {
         syncRaf = requestAnimationFrame(() => {
           syncRaf = 0;
-          applyChromeHeights();
+          applyChromeHeights(event);
         });
       });
     };
 
-    scheduleSync();
+    scheduleSync("room_mount");
 
     const ro =
       typeof ResizeObserver !== "undefined"
-        ? new ResizeObserver(scheduleSync)
+        ? new ResizeObserver(() => scheduleSync("resize_observer"))
         : null;
     const timelineEl = shell.querySelector(".cm-room-timeline");
     const composerEl = shell.querySelector(".cm-room-composer");
@@ -172,24 +271,33 @@ export function useCmRoomVisibleViewportShell(opts: Options): void {
     if (headerEl) ro?.observe(headerEl);
 
     const vv = window.visualViewport;
-    vv?.addEventListener("resize", scheduleSync);
-    vv?.addEventListener("scroll", scheduleSync);
-    window.addEventListener("resize", scheduleSync);
-    window.addEventListener("orientationchange", scheduleSync);
-    document.addEventListener("focusin", scheduleSync, true);
-    document.addEventListener("focusout", scheduleSync, true);
-    const unsubNativeKeyboard = subscribeSamarketShellKeyboardInsets(scheduleSync);
+    const onVvResize = () => scheduleSync("visualViewport_resize");
+    const onVvScroll = () => scheduleSync("visualViewport_scroll");
+    const onWinResize = () => scheduleSync("window_resize");
+    const onOrientation = () => scheduleSync("orientationchange");
+    const onFocusIn = () => scheduleSync("focusin");
+    const onFocusOut = () => scheduleSync("focusout");
+    vv?.addEventListener("resize", onVvResize);
+    vv?.addEventListener("scroll", onVvScroll);
+    window.addEventListener("resize", onWinResize);
+    window.addEventListener("orientationchange", onOrientation);
+    document.addEventListener("focusin", onFocusIn, true);
+    document.addEventListener("focusout", onFocusOut, true);
+    const unsubNativeKeyboard = subscribeSamarketShellKeyboardInsets(() =>
+      scheduleSync("native_keyboard")
+    );
 
     return () => {
       cancelAnimationFrame(syncRaf);
       ro?.disconnect();
-      vv?.removeEventListener("resize", scheduleSync);
-      vv?.removeEventListener("scroll", scheduleSync);
-      window.removeEventListener("resize", scheduleSync);
-      window.removeEventListener("orientationchange", scheduleSync);
-      document.removeEventListener("focusin", scheduleSync, true);
-      document.removeEventListener("focusout", scheduleSync, true);
+      vv?.removeEventListener("resize", onVvResize);
+      vv?.removeEventListener("scroll", onVvScroll);
+      window.removeEventListener("resize", onWinResize);
+      window.removeEventListener("orientationchange", onOrientation);
+      document.removeEventListener("focusin", onFocusIn, true);
+      document.removeEventListener("focusout", onFocusOut, true);
       unsubNativeKeyboard();
+      clearShellVisualFramePosition(shell);
       shell.style.removeProperty("height");
       shell.style.removeProperty("maxHeight");
       shell.style.removeProperty("minHeight");
@@ -203,10 +311,4 @@ export function useCmRoomVisibleViewportShell(opts: Options): void {
       delete shell.dataset.cmKeyboardOpen;
     };
   }, [enabled, shellRef]);
-}
-
-function resolveCmRoomVisibleViewportHeightPxFromWindow(): number {
-  const vv = window.visualViewport;
-  const raw = vv ? vv.height : window.innerHeight;
-  return Math.max(240, Math.round(raw));
 }

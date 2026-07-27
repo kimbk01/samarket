@@ -20,6 +20,15 @@ export type CmRoomVisibleViewportSnapshot = {
   baselineClosedHeightPx: number;
 };
 
+export type CmRoomShellVisualFramePx = {
+  /** `visualViewport.height` (fallback: innerHeight) */
+  heightPx: number;
+  /** `visualViewport.offsetTop` — layout 좌표에서 가시 band 시작 */
+  offsetTopPx: number;
+  /** offsetTop + height — layout 좌표에서 가시 band 하단 */
+  visualBottomPx: number;
+};
+
 /**
  * CM room layout height SSOT — `window.visualViewport.height` only.
  * Native shell inset / innerHeight 차감 금지 (이중 subtraction 방지).
@@ -29,6 +38,30 @@ export function resolveCmRoomVisibleViewportHeightPx(minHeightPx = CM_ROOM_VISIB
   const vv = window.visualViewport;
   const raw = vv ? vv.height : window.innerHeight;
   return Math.max(minHeightPx, Math.round(raw));
+}
+
+/**
+ * Shell must fill the *visual* viewport band, not only use vv.height at layout y=0.
+ * iOS keyboard often raises `offsetTop` (focus scroll) — height-only leaves composer at visual top.
+ */
+export function resolveCmRoomShellVisualFramePx(
+  minHeightPx = CM_ROOM_VISIBLE_VIEWPORT_MIN_PX
+): CmRoomShellVisualFramePx {
+  if (typeof window === "undefined") {
+    return { heightPx: minHeightPx, offsetTopPx: 0, visualBottomPx: minHeightPx };
+  }
+  const vv = window.visualViewport;
+  if (!vv) {
+    const heightPx = Math.max(minHeightPx, Math.round(window.innerHeight));
+    return { heightPx, offsetTopPx: 0, visualBottomPx: heightPx };
+  }
+  const heightPx = Math.max(minHeightPx, Math.round(vv.height));
+  const offsetTopPx = Math.max(0, Math.round(vv.offsetTop));
+  return {
+    heightPx,
+    offsetTopPx,
+    visualBottomPx: offsetTopPx + heightPx,
+  };
 }
 
 export function resolveCmRoomVisualViewportOverlayGapPx(): number {
@@ -56,7 +89,7 @@ export function resolveCmRoomKeyboardOpenFromViewport(baselineClosedHeightPx: nu
 /**
  * Composer bottom padding authority.
  * - keyboard closed → null (CSS `--safe-bottom`)
- * - keyboard open → 0 (shell already sized to `visualViewport.height`; never re-apply overlay gap)
+ * - keyboard open → 0 (shell already sized to visual viewport band; never re-apply overlay gap)
  */
 export function resolveCmRoomComposerBottomPaddingPx(args: {
   keyboardOpen: boolean;
@@ -93,4 +126,10 @@ export function buildCmRoomVisibleViewportSnapshot(
     overlayGapPx,
     baselineClosedHeightPx: nextBaseline,
   };
+}
+
+/** composer.bottom vs visual viewport bottom — PASS when |gap| is small */
+export function resolveCmRoomComposerToVisualBottomGapPx(composerBottomCssPx: number): number {
+  const frame = resolveCmRoomShellVisualFramePx();
+  return Math.round(frame.visualBottomPx - composerBottomCssPx);
 }

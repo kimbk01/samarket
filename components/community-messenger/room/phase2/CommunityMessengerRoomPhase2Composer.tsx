@@ -531,9 +531,8 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
             e.preventDefault();
             commitTextSend();
           }}
-          onTextareaFocus={(e) => {
+          onTextareaFocus={() => {
             useMessengerRoomUiStore.getState().setComposerFocused(true);
-            const ta = e.currentTarget;
             const t0 = typeof performance !== "undefined" ? performance.now() : 0;
             window.requestAnimationFrame(() => {
               window.requestAnimationFrame(() => {
@@ -546,11 +545,10 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
                         : String(vm.snapshot.room.id ?? ""),
                   });
                 }
-                try {
-                  ta.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "auto" });
-                } catch {
-                  ta.scrollIntoView({ block: "nearest" });
-                }
+                // DO NOT bring the focused textarea into view via DOM scroll APIs —
+                // iOS raises visualViewport.offsetTop and leaves composer at visual top
+                // while a height-only shell sits at layout y=0.
+                // Shell pin uses visualViewport offsetTop+height (useCmRoomVisibleViewportShell).
               });
             });
           }}

@@ -126,12 +126,17 @@ const viewMemo = body.slice(body.indexOf("const view = useMemo"), body.indexOf("
 assertNotIncludes(viewMemo, "room.message,", "Phase2Body view memo");
 assertNotMatches(viewMemo, /\n\s+room,\s*\n/, "Phase2Body view memo whole-room dep");
 
-// --- visible viewport shell (vv.height SSOT) ---
+// --- visible viewport shell (vv band = offsetTop + height) ---
 assertIncludes(viewportShell, "visualViewport", "use-cm-room-visible-viewport-shell");
 assertIncludes(viewportShell, "subscribeSamarketShellKeyboardInsets", "use-cm-room-visible-viewport-shell");
+assertIncludes(viewportShell, "resolveCmRoomShellVisualFramePx", "use-cm-room-visible-viewport-shell");
+assertIncludes(viewportShell, "applyShellVisualFrame", "use-cm-room-visible-viewport-shell");
+assertNotIncludes(viewportShell, "translateY(", "use-cm-room-visible-viewport-shell");
 assertIncludes(viewportContract, "resolveCmRoomVisibleViewportHeightPx", "cm-room-visible-viewport-contract");
+assertIncludes(viewportContract, "resolveCmRoomShellVisualFramePx", "cm-room-visible-viewport-contract");
 assertIncludes(viewportContract, "CM_ROOM_NAVIGATION_GAP_PX", "cm-room-visible-viewport-contract");
 assertIncludes(viewportShell, "--cm-room-visible-height", "use-cm-room-visible-viewport-shell");
+assertNotIncludes(phase2Composer, "scrollIntoView(", "Phase2Composer");
 
 // --- iOS kb-offset helper (overlay only, consumed by viewport shell) ---
 assertIncludes(kbOffset, "resolveIosKeyboardOverlayCssPx", "use-cm-room-kb-offset");

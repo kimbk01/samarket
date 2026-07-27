@@ -3,7 +3,9 @@ import {
   buildCmRoomVisibleViewportSnapshot,
   CM_ROOM_NAVIGATION_GAP_PX,
   resolveCmRoomComposerBottomPaddingPx,
+  resolveCmRoomComposerToVisualBottomGapPx,
   resolveCmRoomKeyboardOpenFromViewport,
+  resolveCmRoomShellVisualFramePx,
   resolveCmRoomTimelineHeightPx,
   resolveCmRoomVisibleViewportHeightPx,
   resolveCmRoomVisualViewportOverlayGapPx,
@@ -20,6 +22,29 @@ describe("cm-room-visible-viewport-contract", () => {
       visualViewport: { offsetTop: 0, height: 640 },
     });
     expect(resolveCmRoomVisibleViewportHeightPx()).toBe(640);
+  });
+
+  it("shell visual frame includes offsetTop so height-only at y=0 is not enough", () => {
+    vi.stubGlobal("window", {
+      innerHeight: 900,
+      visualViewport: { offsetTop: 280, height: 520 },
+    });
+    expect(resolveCmRoomShellVisualFramePx()).toEqual({
+      heightPx: 520,
+      offsetTopPx: 280,
+      visualBottomPx: 800,
+    });
+  });
+
+  it("composer gap uses visual bottom = offsetTop + height", () => {
+    vi.stubGlobal("window", {
+      innerHeight: 900,
+      visualViewport: { offsetTop: 280, height: 520 },
+    });
+    // Composer stuck at top of visual band (~composer height 60 under offsetTop)
+    expect(resolveCmRoomComposerToVisualBottomGapPx(340)).toBe(460);
+    // Composer at visual bottom
+    expect(resolveCmRoomComposerToVisualBottomGapPx(800)).toBe(0);
   });
 
   it("detects keyboard open from overlay gap", () => {
@@ -59,7 +84,6 @@ describe("cm-room-visible-viewport-contract", () => {
   });
 
   it("does not double apply iOS keyboard height after shell is sized to visualViewport", () => {
-    // Legacy callers passed large overlay values; padding must stay 0 (shell height = vv.height).
     expect(resolveCmRoomComposerBottomPaddingPx({ keyboardOpen: true })).toBe(0);
     expect(resolveCmRoomVisualViewportOverlayGapPx).toBeTypeOf("function");
   });
