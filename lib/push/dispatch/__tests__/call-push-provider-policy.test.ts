@@ -4,7 +4,7 @@ import {
   resolveCallPushProviderPolicy,
 } from "@/lib/push/dispatch/push-payload-types";
 
-describe("call push provider policy — VoIP ghost-redial fix", () => {
+describe("call push provider policy — Jul 11 CallKit dismiss PASS restore", () => {
   it("allows incoming_call over voip_apns", () => {
     expect(
       resolveCallPushProviderPolicy({
@@ -15,34 +15,34 @@ describe("call push provider policy — VoIP ghost-redial fix", () => {
     ).toEqual({ allow: true });
   });
 
-  it("blocks call_ended over voip_apns (terminal_voip_disallowed)", () => {
+  it("allows call_ended over voip_apns (PASS VoIP terminal restore)", () => {
     expect(
       resolveCallPushProviderPolicy({
         callPushKind: "call_ended",
         provider: "voip_apns",
         hasNativeCallTarget: true,
       })
-    ).toEqual({ allow: false, reason: "terminal_voip_disallowed" });
+    ).toEqual({ allow: true });
   });
 
-  it("blocks call_rejected over voip_apns", () => {
+  it("allows call_rejected over voip_apns (PASS VoIP terminal restore)", () => {
     expect(
       resolveCallPushProviderPolicy({
         callPushKind: "call_rejected",
         provider: "voip_apns",
         hasNativeCallTarget: true,
       })
-    ).toEqual({ allow: false, reason: "terminal_voip_disallowed" });
+    ).toEqual({ allow: true });
   });
 
-  it("blocks call_canceled over voip_apns", () => {
+  it("allows call_canceled over voip_apns (PASS VoIP terminal restore)", () => {
     expect(
       resolveCallPushProviderPolicy({
         callPushKind: "call_canceled",
         provider: "voip_apns",
         hasNativeCallTarget: true,
       })
-    ).toEqual({ allow: false, reason: "terminal_voip_disallowed" });
+    ).toEqual({ allow: true });
   });
 
   it("keeps terminal dismiss on non-VoIP providers (apns/fcm/web_push)", () => {
@@ -80,7 +80,7 @@ describe("call push provider policy — VoIP ghost-redial fix", () => {
     ).toEqual({ allow: true });
   });
 
-  it("leaves missed_call VoIP routing unchanged (out of terminal-dismiss scope)", () => {
+  it("leaves missed_call VoIP routing unchanged", () => {
     expect(isTerminalDismissCallPushKind("missed_call")).toBe(false);
     expect(
       resolveCallPushProviderPolicy({
@@ -96,6 +96,7 @@ describe("call push provider policy — VoIP ghost-redial fix", () => {
     expect(isTerminalDismissCallPushKind("call_rejected")).toBe(true);
     expect(isTerminalDismissCallPushKind("call_canceled")).toBe(true);
     expect(isTerminalDismissCallPushKind("incoming_call")).toBe(false);
+    expect(isTerminalDismissCallPushKind("missed_call")).toBe(false);
     expect(isTerminalDismissCallPushKind(null)).toBe(false);
     expect(isTerminalDismissCallPushKind(undefined)).toBe(false);
   });
