@@ -62,7 +62,7 @@ describe("messenger-room-entry-scroll-ready", () => {
     ).toBe(false);
   });
 
-  it("allows when rows exist and composer synced", () => {
+  it("allows when rows exist — composer sync flag ignored", () => {
     const vp = mockViewport({ rowCount: 1, composerHeightPx: "52px" });
     expect(
       resolveMessengerRoomEntryScrollPaintReady({
@@ -74,7 +74,7 @@ describe("messenger-room-entry-scroll-ready", () => {
     expect(isMessengerRoomComposerHeightSynced(vp)).toBe(true);
   });
 
-  it("requires composer sync when flagged", () => {
+  it("does not require composer sync for initial paint-ready", () => {
     const vp = mockViewport({ rowCount: 1, composerHeightPx: "0px" });
     expect(
       resolveMessengerRoomEntryScrollPaintReady({
@@ -82,7 +82,7 @@ describe("messenger-room-entry-scroll-ready", () => {
         messageCount: 1,
         composerHeightSynced: true,
       })
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("snapshot probe exposes row count and parent hidden", () => {

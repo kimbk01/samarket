@@ -65,6 +65,23 @@ describe("messenger-room-entry-intent", () => {
       reason: "initial_load",
       clearPersist: false,
       forceBottom: true,
+      anchorMessageId: null,
+    });
+  });
+
+  it("unread + lastRead → restore with anchorMessageId", () => {
+    expect(
+      resolveMessengerRoomEntryScrollPlan({
+        intent: "default",
+        hasPersisted: false,
+        unreadCount: 4,
+        lastReadMessageId: "lr-1",
+      })
+    ).toEqual({
+      reason: "room_entry_restore",
+      clearPersist: false,
+      forceBottom: false,
+      anchorMessageId: "lr-1",
     });
   });
 

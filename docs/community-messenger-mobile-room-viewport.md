@@ -169,4 +169,6 @@ Composer: `padding-bottom: calc(var(--safe-bottom) + var(--kb-offset, 0px))` **�
 | 2026-07-27 | **iOS vv-band + no focus scroll** — Android 경로 유지; iOS offsetTop>0 시 shell top pin; open padding=0; iOS scrollIntoView skip; probe 모듈 | `cm-room-visible-viewport-contract`, `use-cm-room-visible-viewport-shell`, `cm-room-kb-viewport-probe`, Phase2Composer |
 | 2026-07-27 | **Telegram parity** — iOS keyboard open 시 `.messenger-page`를 vv band(top+height)로 pin; document overflow lock; WK input accessory(^/v/✓) 네이티브 숨김; Android 변경 0 | `use-cm-room-visible-viewport-shell`, `cm-room-visible-viewport-contract`, `DibayWebViewKeyboardChrome.swift` |
 
+| 2026-07-28 | **Initial anchor SSOT** — paint-then-correct 제거: composer/fingerprint/`entry_tail_settle` 이중 scroll 금지; initial anchor room generation 1회(useLayoutEffect); unread+lastRead entry plan; after-rows rAF loop 제거; resize/vv/chrome → `notifyLayoutResize` preserve만 | `messenger-room-scroll-anchor-controller`, `messenger-room-entry-scroll-ready`, `messenger-room-entry-intent`, `messenger-timeline-layout-mode`, `docs/chat-thread-scroll-contract.md` |
+
 **규칙:** 이 영역을 고치면 **반드시 한 줄이라도 §7 변경 이력 테이블에 추가**한다. 되돌리기 전에 이전 행과 diff를 비교한다. 숫자만 바꿀 때는 **`lib/ui/messenger-chat-viewport-tuning.ts`** 만 수정했는지 확인한다.

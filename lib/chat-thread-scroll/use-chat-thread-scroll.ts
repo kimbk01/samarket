@@ -8,9 +8,6 @@ import {
   type RefObject,
 } from "react";
 import {
-  CHAT_THREAD_ENTRY_SCROLL_MAX_ATTEMPTS,
-} from "@/lib/chat-thread-scroll/constants";
-import {
   ChatThreadScrollEngine,
   createChatThreadScrollEngine,
   type NotifyEntryInput,
@@ -81,17 +78,7 @@ export function useChatThreadScroll(
   );
 
   const tryCompleteEntry = useCallback(() => {
-    const ok = engine.tryCompleteEntry(ctx());
-    if (!ok && engine.getPhase() === "entryPendingLayout") {
-      const attempts = engine.state.entryAttempts;
-      if (attempts < CHAT_THREAD_ENTRY_SCROLL_MAX_ATTEMPTS) {
-        if (typeof requestAnimationFrame === "function") {
-          requestAnimationFrame(() => {
-            engine.tryCompleteEntry(ctx());
-          });
-        }
-      }
-    }
+    engine.tryCompleteEntry(ctx());
   }, [engine, ctx]);
 
   const notifyLayoutCommitted = useCallback(() => {

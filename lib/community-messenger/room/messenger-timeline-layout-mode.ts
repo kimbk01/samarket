@@ -61,79 +61,42 @@ type ScheduleScrollAfterRowsOpts = {
   scroll: (opts?: { reason?: string }) => void;
   reason: string;
   stickToBottomRef?: MutableRefObject<boolean>;
-  maxAttempts?: number;
 };
 
-const scrollAfterRowsRafByRoom = new Map<string, number>();
-
 /**
- * viewport·첫 말풍선 DOM 이후 1회 스크롤. 동일 roomId 재호출 시 이전 rAF 체인 취소(중복 scrollTop 방지).
+ * Delivery/store-order entry — single synchronous handoff to scroll authority.
+ * DO NOT rAF-loop scroll (paint-then-correct). Engine completes when paint-ready.
  */
 export function scheduleMessengerScrollToBottomAfterRowsPainted(
   opts: ScheduleScrollAfterRowsOpts
 ): () => void {
   const rid = opts.roomId.trim();
-  if (!rid || typeof requestAnimationFrame !== "function") return () => {};
+  if (!rid) return () => {};
 
-  const cancelPending = () => {
-    const id = scrollAfterRowsRafByRoom.get(rid);
-    if (id != null) cancelAnimationFrame(id);
-    scrollAfterRowsRafByRoom.delete(rid);
-  };
-  cancelPending();
+  const vp = opts.messagesViewportRef.current;
+  if (opts.stickToBottomRef && vp) {
+    const nearBottom = isMessengerRoomNearBottomFromMetrics(
+      { scrollHeight: vp.scrollHeight, scrollTop: vp.scrollTop, clientHeight: vp.clientHeight },
+      MESSENGER_STICK_TO_BOTTOM_THRESHOLD_PX
+    );
+    opts.stickToBottomRef.current = nearBottom;
+    if (!nearBottom) return () => {};
+  } else if (opts.stickToBottomRef && !opts.stickToBottomRef.current) {
+    return () => {};
+  }
 
-  let cancelled = false;
-  let attempts = 0;
-  const maxAttempts = opts.maxAttempts ?? 24;
+  if (vp && messengerTimelineViewportHasMessageRows(vp) && canRunMessengerRoomScrollOwner(rid, opts.reason)) {
+    markMessengerRoomScrollOwnerRun(rid, opts.reason, {
+      scrollTop: vp.scrollTop,
+      scrollHeight: vp.scrollHeight,
+      clientHeight: vp.clientHeight,
+    });
+    opts.scroll({ reason: opts.reason });
+  } else if (canRunMessengerRoomScrollOwner(rid, opts.reason)) {
+    /** rows not yet in DOM — one authority call; engine waits for paint-ready via RO */
+    opts.scroll({ reason: opts.reason });
+  }
 
-  const tick = () => {
-    if (cancelled) return;
-    attempts += 1;
-    const vp = opts.messagesViewportRef.current;
-    if (opts.stickToBottomRef && vp) {
-      const nearBottom = isMessengerRoomNearBottomFromMetrics(
-        { scrollHeight: vp.scrollHeight, scrollTop: vp.scrollTop, clientHeight: vp.clientHeight },
-        MESSENGER_STICK_TO_BOTTOM_THRESHOLD_PX
-      );
-      opts.stickToBottomRef.current = nearBottom;
-      if (!nearBottom) {
-        cancelPending();
-        return;
-      }
-    } else if (opts.stickToBottomRef && !opts.stickToBottomRef.current) {
-      cancelPending();
-      return;
-    }
-    if (vp && messengerTimelineViewportHasMessageRows(vp)) {
-      cancelPending();
-      if (canRunMessengerRoomScrollOwner(rid, opts.reason)) {
-        markMessengerRoomScrollOwnerRun(rid, opts.reason, {
-          scrollTop: vp.scrollTop,
-          scrollHeight: vp.scrollHeight,
-          clientHeight: vp.clientHeight,
-        });
-        opts.scroll({ reason: opts.reason });
-      }
-      return;
-    }
-    if (attempts < maxAttempts) {
-      const id = requestAnimationFrame(tick);
-      scrollAfterRowsRafByRoom.set(rid, id);
-    } else {
-      cancelPending();
-    }
-  };
-
-  const outer = requestAnimationFrame(() => {
-    if (cancelled) return;
-    const inner = requestAnimationFrame(tick);
-    scrollAfterRowsRafByRoom.set(rid, inner);
-  });
-  scrollAfterRowsRafByRoom.set(rid, outer);
-
-  return () => {
-    cancelled = true;
-    cancelPending();
-  };
+  return () => {};
 }
 

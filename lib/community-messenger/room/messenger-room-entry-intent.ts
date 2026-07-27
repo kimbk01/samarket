@@ -10,6 +10,8 @@ export type MessengerRoomEntryScrollPlan = {
   reason: CmScrollOwnerReason;
   clearPersist: boolean;
   forceBottom: boolean;
+  /** unread boundary / last-read — restoreSnapshot firstVisibleMessageId */
+  anchorMessageId?: string | null;
 };
 
 const PUSH_INTENT_STORAGE_KEY = "samarket:cm:push_entry_intent.v1";
@@ -165,10 +167,24 @@ export function clearMessengerPushEntryIntentStorage(): void {
   }
 }
 
-export function resolveMessengerRoomEntryScrollPlan(input: {
+export type MessengerRoomEntryScrollPlanInput = {
   intent: MessengerRoomEntryIntent;
   hasPersisted: boolean;
-}): MessengerRoomEntryScrollPlan {
+  /** unread > 0 이고 lastRead 가 있으면 unread boundary 복원 (bottom 강제 금지) */
+  unreadCount?: number;
+  lastReadMessageId?: string | null;
+};
+
+/**
+ * Telegram/Kakao 제품 계약:
+ * push → latest bottom
+ * persisted visible → restore
+ * unread + lastRead → unread boundary (restore, not force bottom)
+ * else → latest bottom
+ */
+export function resolveMessengerRoomEntryScrollPlan(
+  input: MessengerRoomEntryScrollPlanInput
+): MessengerRoomEntryScrollPlan {
   if (input.intent === "push") {
     return {
       reason: "push_entry_initial_load",
@@ -183,10 +199,21 @@ export function resolveMessengerRoomEntryScrollPlan(input: {
       forceBottom: false,
     };
   }
+  const unread = Math.max(0, Number(input.unreadCount) || 0);
+  const lastRead = typeof input.lastReadMessageId === "string" ? input.lastReadMessageId.trim() : "";
+  if (unread > 0 && lastRead) {
+    return {
+      reason: "room_entry_restore",
+      clearPersist: false,
+      forceBottom: false,
+      anchorMessageId: lastRead,
+    };
+  }
   return {
     reason: "initial_load",
     clearPersist: false,
     forceBottom: true,
+    anchorMessageId: null,
   };
 }
 

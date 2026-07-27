@@ -73,7 +73,22 @@ describe("messenger room scroll anchor policy", () => {
     ).toBe("push_entry_initial_load");
   });
 
-  it("entry bottom load and tail settle reason helpers", () => {
+  it("unread + lastRead uses restore plan with anchorMessageId", () => {
+    expect(
+      resolveMessengerRoomEntryScrollPlan({
+        intent: "default",
+        hasPersisted: false,
+        unreadCount: 2,
+        lastReadMessageId: "msg-last-read",
+      })
+    ).toMatchObject({
+      reason: "room_entry_restore",
+      forceBottom: false,
+      anchorMessageId: "msg-last-read",
+    });
+  });
+
+  it("entry bottom load reason helpers", () => {
     expect(isMessengerEntryBottomLoadReason("push_entry_initial_load")).toBe(true);
     expect(isMessengerEntryBottomLoadReason("initial_load")).toBe(true);
     expect(isMessengerEntryBottomLoadReason("room_entry_restore")).toBe(false);

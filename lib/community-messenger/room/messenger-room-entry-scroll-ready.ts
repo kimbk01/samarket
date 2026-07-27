@@ -10,7 +10,9 @@ export type MessengerRoomEntryScrollPaintReadyInput = {
   viewport: HTMLElement | null;
   virtualizer?: VirtualizerSizeLike;
   messageCount: number;
-  /** shell `--chat-composer-height` 실측 완료 여부 (tail settle·entry bottom) */
+  /**
+   * @deprecated Ignored — composer height must not gate initial anchor (paint-then-correct).
+   */
   composerHeightSynced?: boolean;
 };
 
@@ -48,7 +50,10 @@ export function isMessengerRoomComposerHeightSynced(viewport: HTMLElement | null
 }
 
 /**
- * entry bottom / tail settle — viewport·row·virtualizer·(tail 시 composer) 준비 후 scrollTop 이동.
+ * Initial anchor paint gate — viewport + rows/virtualizer only.
+ *
+ * DO NOT gate on composer height: that forces paint-then-correct (wrong scrollTop first,
+ * then entry_tail_settle). Composer/chrome resize must use preserve/follow after settle.
  */
 export function resolveMessengerRoomEntryScrollPaintReady(
   input: MessengerRoomEntryScrollPaintReadyInput
@@ -62,9 +67,8 @@ export function resolveMessengerRoomEntryScrollPaintReady(
   const rowsOrVirtualReady = rowCount > 0 || totalSize > 0;
   if (!rowsOrVirtualReady) return false;
 
-  if (input.composerHeightSynced === true) {
-    return isMessengerRoomComposerHeightSynced(vp);
-  }
+  /** Legacy flag ignored — kept for call-site compatibility; never blocks initial anchor. */
+  void input.composerHeightSynced;
 
   return true;
 }

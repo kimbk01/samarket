@@ -23,7 +23,6 @@ import {
 } from "@/lib/store-order-chat/messenger-delivery-progress";
 import { formatStoreOrderDeliveryAddressPlain } from "@/lib/addresses/store-order-delivery-address-display";
 import { formatMoneyPhp } from "@/lib/utils/format";
-import { scheduleMessengerScrollToBottomAfterRowsPainted } from "@/lib/community-messenger/room/messenger-timeline-layout-mode";
 import {
   resolveDeliveryChromePrimaryLabel,
   resolveDeliveryPeerUserId,
@@ -148,17 +147,11 @@ export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }
     setDetailDrawerOpen(true);
   }, [setDetailDrawerOpen]);
 
-  /** 키보드로 chrome 1줄 접힐 때만 스크롤 — 진입·상태 변경은 timeline_delivery_direct_paint·dock ResizeObserver 가 담당 */
+  /** 키보드로 chrome 1줄 접힘 — scroll authority layout preserve (rAF after-rows 금지) */
   useEffect(() => {
     if (!keyboardCompact) return;
-    return scheduleMessengerScrollToBottomAfterRowsPainted({
-      roomId: vm.streamRoomId,
-      messagesViewportRef: vm.messagesViewportRef,
-      scroll: vm.scrollMessengerToBottom,
-      reason: "store_order_chrome_keyboard_compact",
-      stickToBottomRef: vm.stickToBottomRef,
-    });
-  }, [keyboardCompact, vm.messagesViewportRef, vm.scrollMessengerToBottom, vm.stickToBottomRef, vm.streamRoomId]);
+    vm.scrollMessengerToBottom({ reason: "store_order_chrome_keyboard_compact" });
+  }, [keyboardCompact, vm]);
 
   const buyerCanCancel =
     !!snapshot?.buyerOrder &&
