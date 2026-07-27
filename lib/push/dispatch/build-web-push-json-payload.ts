@@ -6,13 +6,15 @@ import type { BuiltPushPayload, DispatchPushOptions } from "@/lib/push/dispatch/
 
 const MAX_BYTES = 3500;
 
-function isCallTerminalDismissKind(kind: unknown): kind is "call_canceled" | "call_rejected" | "call_ended" | "missed_call" {
-  return (
-    kind === "call_canceled" ||
-    kind === "call_rejected" ||
-    kind === "call_ended" ||
-    kind === "missed_call"
-  );
+/**
+ * Silent CallKit/incoming-tag dismiss only (cancel/reject/ended).
+ * `missed_call` is Policy A terminal for VoIP/provider routing, but remains a
+ * user-facing history notification on web/APNs alert — do not wipe body/tag here.
+ */
+function isSilentCallTerminalDismissKind(
+  kind: unknown
+): kind is "call_canceled" | "call_rejected" | "call_ended" {
+  return kind === "call_canceled" || kind === "call_rejected" || kind === "call_ended";
 }
 
 export function buildWebPushJsonPayload(
@@ -74,7 +76,11 @@ export function buildWebPushJsonPayload(
     base.call_push_kind = opts?.call_push_kind ?? "missed_call";
   }
 
-  if (isCallTerminalDismissKind(opts?.call_push_kind) && typeof base.sessionId === "string" && base.sessionId.trim()) {
+  if (
+    isSilentCallTerminalDismissKind(opts?.call_push_kind) &&
+    typeof base.sessionId === "string" &&
+    base.sessionId.trim()
+  ) {
     base.call_push_kind = opts.call_push_kind;
     base.tag = `samarket-incoming-call-${base.sessionId.trim()}`;
     base.title = base.title ?? "통화";
@@ -83,8 +89,9 @@ export function buildWebPushJsonPayload(
 
   const body = buildFcmDataFields(out, opts, base);
   const callPushKind = body.call_push_kind;
+  // Live call / silent terminal dismiss only — missed_call stays history (`is_call: false`).
   const isCallRelatedPush =
-    callPushKind === "incoming_call" || isCallTerminalDismissKind(callPushKind);
+    callPushKind === "incoming_call" || isSilentCallTerminalDismissKind(callPushKind);
 
   let s = JSON.stringify(body);
   if (s.length <= MAX_BYTES) {
@@ -100,7 +107,9 @@ export function buildWebPushJsonPayload(
     return {
       json: s,
       data: trim,
-      is_call: trim.call_push_kind === "incoming_call" || isCallTerminalDismissKind(trim.call_push_kind),
+      is_call:
+        trim.call_push_kind === "incoming_call" ||
+        isSilentCallTerminalDismissKind(trim.call_push_kind),
     };
   }
   const minimal = buildFcmDataFields(out, opts, {
@@ -116,6 +125,7 @@ export function buildWebPushJsonPayload(
     json: JSON.stringify(minimal),
     data: minimal,
     is_call:
-      opts?.call_push_kind === "incoming_call" || isCallTerminalDismissKind(opts?.call_push_kind),
+      opts?.call_push_kind === "incoming_call" ||
+      isSilentCallTerminalDismissKind(opts?.call_push_kind),
   };
 }
