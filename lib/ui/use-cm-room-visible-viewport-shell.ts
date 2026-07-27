@@ -9,6 +9,7 @@ import {
   resolveCmRoomComposerBottomPaddingPx,
   resolveCmRoomTimelineHeightPx,
 } from "@/lib/ui/cm-room-visible-viewport-contract";
+import { resolveIosKeyboardOverlayCssPx } from "@/lib/ui/use-cm-room-kb-offset";
 
 export { CM_ROOM_CHROME_HEIGHT_SYNC_EVENT };
 
@@ -16,122 +17,6 @@ type Options = {
   enabled: boolean;
   shellRef: RefObject<HTMLElement | null>;
 };
-
-declare global {
-  interface Window {
-    /** Explicit opt-in for CM room keyboard viewport debug logs (never on by default in prod). */
-    __DIBAY_CM_ROOM_KB_DEBUG__?: boolean;
-    /** Last layout metrics snapshot when debug is on — never message text / PII. */
-    __DIBAY_CM_ROOM_KB_LAST__?: Record<string, unknown>;
-  }
-}
-
-function isCmRoomKbDebugEnabled(): boolean {
-  if (typeof window === "undefined") return false;
-  if (window.__DIBAY_CM_ROOM_KB_DEBUG__ === true) return true;
-  try {
-    if (window.localStorage?.getItem("__DIBAY_CM_ROOM_KB_DEBUG__") === "1") return true;
-  } catch {
-    /* private mode */
-  }
-  return process.env.NODE_ENV !== "production";
-}
-
-function rectSnapshot(el: Element | null | undefined) {
-  if (!el) return null;
-  const r = el.getBoundingClientRect();
-  return {
-    top: Math.round(r.top),
-    bottom: Math.round(r.bottom),
-    height: Math.round(r.height),
-    width: Math.round(r.width),
-  };
-}
-
-function readCssProp(el: Element, prop: string): string {
-  return getComputedStyle(el).getPropertyValue(prop).trim() || "";
-}
-
-/** Debug-only metrics — distinguishes visualViewport band vs document scroll. */
-function buildCmRoomKbDebugPayload(args: {
-  event: string;
-  shell: HTMLElement;
-  timelineEl: HTMLElement | null;
-  composerBlockEl: HTMLElement | null;
-  headerEl: HTMLElement | null;
-  keyboardOpen: boolean;
-  overlayGapPx: number;
-  visibleHeightPx: number;
-  composerPadPx: number | null;
-}): Record<string, unknown> {
-  const vv = window.visualViewport;
-  const composerRect = args.composerBlockEl?.getBoundingClientRect() ?? null;
-  const vvOffsetTop = vv ? Math.round(vv.offsetTop) : null;
-  const vvHeight = vv ? Math.round(vv.height) : null;
-  const visualBottom =
-    vvOffsetTop != null && vvHeight != null ? vvOffsetTop + vvHeight : null;
-  const composerBottom = composerRect ? Math.round(composerRect.bottom) : null;
-  const composerToVisualBottomGap =
-    visualBottom != null && composerBottom != null ? visualBottom - composerBottom : null;
-  const shellCs = getComputedStyle(args.shell);
-  const composerCs = args.composerBlockEl ? getComputedStyle(args.composerBlockEl) : null;
-  const messengerPage = args.shell.closest(".messenger-page");
-
-  return {
-    event: args.event,
-    href: typeof location !== "undefined" ? location.pathname : "",
-    activeElement:
-      document.activeElement instanceof HTMLElement
-        ? `${document.activeElement.tagName.toLowerCase()}${
-            document.activeElement.getAttribute("data-cm-composer") != null ||
-            document.activeElement.getAttribute("data-chat-composer") != null
-              ? "[composer]"
-              : ""
-          }`
-        : null,
-    windowInnerHeight: window.innerHeight,
-    documentClientHeight: document.documentElement.clientHeight,
-    // REQUIRED: separate document scroll from visualViewport.offsetTop
-    documentScrollTop: document.documentElement.scrollTop,
-    bodyScrollTop: document.body.scrollTop,
-    windowScrollY: window.scrollY,
-    visualViewport: vv
-      ? {
-          height: vv.height,
-          width: vv.width,
-          offsetTop: vv.offsetTop,
-          offsetLeft: vv.offsetLeft,
-          pageTop: vv.pageTop,
-          scale: vv.scale,
-        }
-      : null,
-    shellRect: rectSnapshot(args.shell),
-    headerRect: rectSnapshot(args.headerEl),
-    timelineRect: rectSnapshot(args.timelineEl),
-    composerRect: rectSnapshot(args.composerBlockEl),
-    messengerPageRect: rectSnapshot(messengerPage),
-    composerPosition: composerCs?.position ?? null,
-    composerBottomCss: composerCs?.bottom ?? null,
-    composerTransform: composerCs?.transform ?? null,
-    composerPaddingBottom: composerCs?.paddingBottom ?? null,
-    shellDisplay: shellCs.display,
-    shellPosition: shellCs.position,
-    shellHeight: shellCs.height,
-    shellMinHeight: shellCs.minHeight,
-    shellMaxHeight: shellCs.maxHeight,
-    shellOverflow: shellCs.overflow,
-    shellTransform: shellCs.transform,
-    keyboardOpen: args.keyboardOpen,
-    overlayGapPx: args.overlayGapPx,
-    visibleHeightPx: args.visibleHeightPx,
-    composerPadPx: args.composerPadPx,
-    safeBottomFallback: args.composerPadPx == null,
-    cssVisibleViewportHeight: readCssProp(args.shell, "--cm-room-visible-height"),
-    cssComposerBottomPadding: readCssProp(args.shell, "--cm-room-composer-bottom-padding"),
-    visualBottom,
-    composerToVisualBottomGap,
-  };
-}
 
 function measureBlockHeight(el: HTMLElement | null | undefined): number {
   if (!el) return 0;
@@ -150,7 +35,6 @@ function measureTimelineTopOffsetPx(shell: HTMLElement): number {
  * Telegram/KakaoTalk-style CM room viewport shell.
  * SSOT: `visualViewport.height` — shell height + timeline box height.
  * keyboard open: safe-bottom / nav gap padding 제거 (composer는 키보드 바로 위).
- * DO NOT re-apply overlay keyboard gap as composer padding (iOS double offset).
  */
 export function useCmRoomVisibleViewportShell(opts: Options): void {
   const { enabled, shellRef } = opts;
@@ -163,14 +47,11 @@ export function useCmRoomVisibleViewportShell(opts: Options): void {
     let baselineClosedHeightPx = resolveCmRoomVisibleViewportHeightPxFromWindow();
     let syncRaf = 0;
     let chromeSyncPending = false;
-    let lastKeyboardOpen: boolean | null = null;
 
-    const applyChromeHeights = (event: string) => {
+    const applyChromeHeights = () => {
       chromeSyncPending = false;
       const composerBlockEl = shell.querySelector<HTMLElement>(".cm-room-composer");
       const tradeDockEl = shell.querySelector<HTMLElement>("[data-cm-trade-dock]");
-      const timelineEl = shell.querySelector<HTMLElement>(".cm-room-timeline");
-      const headerEl = shell.querySelector<HTMLElement>(".chat-header");
       const timelineTopOffsetPx = measureTimelineTopOffsetPx(shell);
       const composerBlockPx = measureBlockHeight(composerBlockEl);
       const tradeDockPx = measureBlockHeight(tradeDockEl);
@@ -188,6 +69,7 @@ export function useCmRoomVisibleViewportShell(opts: Options): void {
       const snapshot = buildCmRoomVisibleViewportSnapshot(baselineClosedHeightPx);
       baselineClosedHeightPx = snapshot.baselineClosedHeightPx;
 
+      const iosKbPx = resolveIosKeyboardOverlayCssPx();
       shell.dataset.cmKeyboardOpen = snapshot.keyboardOpen ? "true" : "false";
 
       shell.style.height = `${snapshot.visibleHeightPx}px`;
@@ -204,37 +86,13 @@ export function useCmRoomVisibleViewportShell(opts: Options): void {
 
       const composerPadPx = resolveCmRoomComposerBottomPaddingPx({
         keyboardOpen: snapshot.keyboardOpen,
+        iosOverlayKbOffsetPx: iosKbPx,
+        overlayGapPx: snapshot.overlayGapPx,
       });
       if (composerPadPx == null) {
         shell.style.removeProperty("--cm-room-composer-bottom-padding");
       } else {
         shell.style.setProperty("--cm-room-composer-bottom-padding", `${composerPadPx}px`);
-      }
-
-      if (isCmRoomKbDebugEnabled()) {
-        const debugEvent =
-          lastKeyboardOpen !== snapshot.keyboardOpen
-            ? snapshot.keyboardOpen
-              ? "keyboard_open_changed_true"
-              : "keyboard_open_changed_false"
-            : event;
-        lastKeyboardOpen = snapshot.keyboardOpen;
-        // Layout metrics only — never log message text / PII.
-        const payload = buildCmRoomKbDebugPayload({
-          event: debugEvent,
-          shell,
-          timelineEl,
-          composerBlockEl,
-          headerEl,
-          keyboardOpen: snapshot.keyboardOpen,
-          overlayGapPx: snapshot.overlayGapPx,
-          visibleHeightPx: snapshot.visibleHeightPx,
-          composerPadPx,
-        });
-        window.__DIBAY_CM_ROOM_KB_LAST__ = payload;
-        console.info("[cm-room-kb-viewport]", payload);
-      } else {
-        lastKeyboardOpen = snapshot.keyboardOpen;
       }
 
       shell.dispatchEvent(
@@ -244,23 +102,23 @@ export function useCmRoomVisibleViewportShell(opts: Options): void {
       );
     };
 
-    const scheduleSync = (event = "sync") => {
+    const scheduleSync = () => {
       if (chromeSyncPending) return;
       chromeSyncPending = true;
       cancelAnimationFrame(syncRaf);
       syncRaf = requestAnimationFrame(() => {
         syncRaf = requestAnimationFrame(() => {
           syncRaf = 0;
-          applyChromeHeights(event);
+          applyChromeHeights();
         });
       });
     };
 
-    scheduleSync("room_mount");
+    scheduleSync();
 
     const ro =
       typeof ResizeObserver !== "undefined"
-        ? new ResizeObserver(() => scheduleSync("resize_observer"))
+        ? new ResizeObserver(scheduleSync)
         : null;
     const timelineEl = shell.querySelector(".cm-room-timeline");
     const composerEl = shell.querySelector(".cm-room-composer");
@@ -272,31 +130,23 @@ export function useCmRoomVisibleViewportShell(opts: Options): void {
     if (headerEl) ro?.observe(headerEl);
 
     const vv = window.visualViewport;
-    const onVvResize = () => scheduleSync("visualViewport_resize");
-    const onVvScroll = () => scheduleSync("visualViewport_scroll");
-    const onWinResize = () => scheduleSync("window_resize");
-    const onOrientation = () => scheduleSync("orientationchange");
-    const onFocusIn = () => scheduleSync("focusin");
-    const onFocusOut = () => scheduleSync("focusout");
-    vv?.addEventListener("resize", onVvResize);
-    vv?.addEventListener("scroll", onVvScroll);
-    window.addEventListener("resize", onWinResize);
-    window.addEventListener("orientationchange", onOrientation);
-    document.addEventListener("focusin", onFocusIn, true);
-    document.addEventListener("focusout", onFocusOut, true);
-    const unsubNativeKeyboard = subscribeSamarketShellKeyboardInsets(() =>
-      scheduleSync("native_keyboard")
-    );
+    vv?.addEventListener("resize", scheduleSync);
+    vv?.addEventListener("scroll", scheduleSync);
+    window.addEventListener("resize", scheduleSync);
+    window.addEventListener("orientationchange", scheduleSync);
+    document.addEventListener("focusin", scheduleSync, true);
+    document.addEventListener("focusout", scheduleSync, true);
+    const unsubNativeKeyboard = subscribeSamarketShellKeyboardInsets(scheduleSync);
 
     return () => {
       cancelAnimationFrame(syncRaf);
       ro?.disconnect();
-      vv?.removeEventListener("resize", onVvResize);
-      vv?.removeEventListener("scroll", onVvScroll);
-      window.removeEventListener("resize", onWinResize);
-      window.removeEventListener("orientationchange", onOrientation);
-      document.removeEventListener("focusin", onFocusIn, true);
-      document.removeEventListener("focusout", onFocusOut, true);
+      vv?.removeEventListener("resize", scheduleSync);
+      vv?.removeEventListener("scroll", scheduleSync);
+      window.removeEventListener("resize", scheduleSync);
+      window.removeEventListener("orientationchange", scheduleSync);
+      document.removeEventListener("focusin", scheduleSync, true);
+      document.removeEventListener("focusout", scheduleSync, true);
       unsubNativeKeyboard();
       shell.style.removeProperty("height");
       shell.style.removeProperty("maxHeight");
