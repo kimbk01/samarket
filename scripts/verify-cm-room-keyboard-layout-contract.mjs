@@ -130,13 +130,22 @@ assertNotMatches(viewMemo, /\n\s+room,\s*\n/, "Phase2Body view memo whole-room d
 assertIncludes(viewportShell, "visualViewport", "use-cm-room-visible-viewport-shell");
 assertIncludes(viewportShell, "subscribeSamarketShellKeyboardInsets", "use-cm-room-visible-viewport-shell");
 assertIncludes(viewportShell, "resolveCmRoomShellVisualFramePx", "use-cm-room-visible-viewport-shell");
+assertIncludes(viewportShell, "resolveIosMessengerPageVisualBandPx", "use-cm-room-visible-viewport-shell");
+assertIncludes(viewportShell, "data-cm-ios-vv-band", "use-cm-room-visible-viewport-shell");
+assertIncludes(viewportShell, "--cm-ios-vv-band-height", "use-cm-room-visible-viewport-shell");
 assertIncludes(viewportShell, "isLikelyIosWebKit", "use-cm-room-visible-viewport-shell");
 assertNotIncludes(viewportShell, "translateY(", "use-cm-room-visible-viewport-shell");
 assertIncludes(viewportContract, "resolveCmRoomVisibleViewportHeightPx", "cm-room-visible-viewport-contract");
 assertIncludes(viewportContract, "resolveCmRoomShellVisualFramePx", "cm-room-visible-viewport-contract");
+assertIncludes(viewportContract, "resolveIosMessengerPageVisualBandPx", "cm-room-visible-viewport-contract");
 assertIncludes(viewportContract, "CM_ROOM_NAVIGATION_GAP_PX", "cm-room-visible-viewport-contract");
 assertIncludes(viewportShell, "--cm-room-visible-height", "use-cm-room-visible-viewport-shell");
 assertIncludes(phase2Composer, "isLikelyIosWebKit", "Phase2Composer");
+
+const messengerVt = read("app/messenger-view-transitions.css");
+assertIncludes(messengerVt, "data-cm-ios-vv-band", "messenger-view-transitions.css");
+assertIncludes(messengerVt, "--cm-ios-vv-band-height", "messenger-view-transitions.css");
+assertIncludes(messengerVt, "--cm-ios-vv-band-top", "messenger-view-transitions.css");
 
 // --- iOS kb-offset helper (overlay only, consumed by viewport shell) ---
 assertIncludes(kbOffset, "resolveIosKeyboardOverlayCssPx", "use-cm-room-kb-offset");

@@ -8,6 +8,7 @@ import {
   resolveCmRoomTimelineHeightPx,
   resolveCmRoomVisibleViewportHeightPx,
   resolveCmRoomVisualViewportOverlayGapPx,
+  resolveIosMessengerPageVisualBandPx,
 } from "@/lib/ui/cm-room-visible-viewport-contract";
 
 describe("cm-room-visible-viewport-contract", () => {
@@ -33,6 +34,21 @@ describe("cm-room-visible-viewport-contract", () => {
       offsetTopPx: 280,
       visualBottomPx: 800,
     });
+  });
+
+  it("iOS messenger-page band pins on keyboard open (Telegram-style); clears when closed", () => {
+    const frame = { heightPx: 520, offsetTopPx: 280, visualBottomPx: 800 };
+    expect(resolveIosMessengerPageVisualBandPx({ keyboardOpen: true, frame })).toEqual({
+      topPx: 280,
+      heightPx: 520,
+    });
+    expect(resolveIosMessengerPageVisualBandPx({ keyboardOpen: false, frame })).toBeNull();
+    expect(
+      resolveIosMessengerPageVisualBandPx({
+        keyboardOpen: true,
+        frame: { heightPx: 640, offsetTopPx: 0, visualBottomPx: 640 },
+      })
+    ).toEqual({ topPx: 0, heightPx: 640 });
   });
 
   it("detects keyboard open from overlay gap", () => {

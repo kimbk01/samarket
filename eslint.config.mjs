@@ -40,6 +40,7 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
     ".qa-logs/**",
+    ".worktrees/**",
   ]),
   {
     plugins: {

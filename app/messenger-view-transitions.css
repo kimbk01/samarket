@@ -35,6 +35,18 @@
   contain: layout paint;
 }
 
+/**
+ * iOS keyboard open — Telegram-style: page tracks visualViewport band.
+ * Vars written by useCmRoomVisibleViewportShell (Android never sets data-cm-ios-vv-band).
+ */
+.messenger-page[data-cm-ios-vv-band="1"] {
+  top: var(--cm-ios-vv-band-top, 0px);
+  bottom: auto;
+  height: var(--cm-ios-vv-band-height, 100dvh);
+  max-height: var(--cm-ios-vv-band-height, 100dvh);
+  min-height: var(--cm-ios-vv-band-height, 100dvh);
+}
+
 .messenger-room-page {
   z-index: 60;
 }

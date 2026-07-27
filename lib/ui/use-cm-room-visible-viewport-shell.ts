@@ -10,6 +10,7 @@ import {
   resolveCmRoomComposerBottomPaddingPx,
   resolveCmRoomShellVisualFramePx,
   resolveCmRoomTimelineHeightPx,
+  resolveIosMessengerPageVisualBandPx,
 } from "@/lib/ui/cm-room-visible-viewport-contract";
 import { isLikelyIosWebKit } from "@/lib/ui/is-likely-ios-webkit";
 
@@ -19,6 +20,8 @@ type Options = {
   enabled: boolean;
   shellRef: RefObject<HTMLElement | null>;
 };
+
+const IOS_PAGE_VV_BAND_ATTR = "data-cm-ios-vv-band";
 
 function measureBlockHeight(el: HTMLElement | null | undefined): number {
   if (!el) return 0;
@@ -33,41 +36,76 @@ function measureTimelineTopOffsetPx(shell: HTMLElement): number {
   return Math.max(0, Math.round(timelineTop - shellTop));
 }
 
-function clearIosShellBandPin(shell: HTMLElement): void {
-  shell.style.removeProperty("position");
-  shell.style.removeProperty("top");
-  shell.style.removeProperty("left");
-  shell.style.removeProperty("right");
-  shell.style.removeProperty("width");
+function resolveMessengerPage(shell: HTMLElement): HTMLElement | null {
+  return shell.closest<HTMLElement>(".messenger-page");
+}
+
+function clearIosMessengerPageVisualBand(page: HTMLElement | null): void {
+  if (typeof document !== "undefined") {
+    const root = document.documentElement;
+    root.style.removeProperty("--cm-ios-vv-band-top");
+    root.style.removeProperty("--cm-ios-vv-band-height");
+    delete root.dataset.cmIosVvBand;
+  }
+  if (!page) return;
+  page.removeAttribute(IOS_PAGE_VV_BAND_ATTR);
 }
 
 /**
- * iOS only: pin shell into visualViewport band (top=offsetTop, height=vv.height).
- * Android keep height-only flex flow (adjustResize). No translateY.
- * Controlled experiment: padding-only (124fa92d0) left composer at visual top — band pin required.
+ * iOS keyboard open: pin `.messenger-page` to visualViewport band via CSS vars
+ * (React `style={{ transform }}` on the page must not wipe layout — avoid inline top/height).
+ * Android: never touch the page — adjustResize + shell height only.
  */
-function applyShellHeightAuthority(shell: HTMLElement, heightPx: number, offsetTopPx: number): void {
-  const ios = isLikelyIosWebKit();
-  if (ios && offsetTopPx > 0) {
-    shell.style.position = "absolute";
-    shell.style.top = `${offsetTopPx}px`;
-    shell.style.left = "0";
-    shell.style.right = "0";
-    shell.style.width = "100%";
-  } else if (ios) {
-    clearIosShellBandPin(shell);
+function applyIosMessengerPageVisualBand(
+  page: HTMLElement | null,
+  keyboardOpen: boolean,
+  heightPx: number,
+  offsetTopPx: number
+): void {
+  if (!isLikelyIosWebKit() || typeof document === "undefined") return;
+  const band = resolveIosMessengerPageVisualBandPx({
+    keyboardOpen,
+    frame: { heightPx, offsetTopPx, visualBottomPx: offsetTopPx + heightPx },
+  });
+  if (!band) {
+    clearIosMessengerPageVisualBand(page);
+    return;
   }
+  const root = document.documentElement;
+  root.dataset.cmIosVvBand = "1";
+  root.style.setProperty("--cm-ios-vv-band-top", `${band.topPx}px`);
+  root.style.setProperty("--cm-ios-vv-band-height", `${band.heightPx}px`);
+  page?.setAttribute(IOS_PAGE_VV_BAND_ATTR, "1");
+}
 
+function applyShellHeightAuthority(shell: HTMLElement, heightPx: number): void {
   shell.style.height = `${heightPx}px`;
   shell.style.maxHeight = `${heightPx}px`;
   shell.style.minHeight = `${heightPx}px`;
   shell.style.setProperty("--cm-room-visible-height", `${heightPx}px`);
 }
 
+function applyIosDocumentScrollLock(keyboardOpen: boolean): void {
+  if (!isLikelyIosWebKit() || typeof document === "undefined") return;
+  const root = document.documentElement;
+  const body = document.body;
+  if (!keyboardOpen) {
+    if (root.dataset.cmIosKbScrollLock === "1") {
+      root.style.removeProperty("overflow");
+      body?.style.removeProperty("overflow");
+      delete root.dataset.cmIosKbScrollLock;
+    }
+    return;
+  }
+  root.dataset.cmIosKbScrollLock = "1";
+  root.style.overflow = "hidden";
+  if (body) body.style.overflow = "hidden";
+}
+
 /**
  * Telegram/KakaoTalk-style CM room viewport shell.
  * Android: adjustResize + vv.height + open padding 0.
- * iOS: vv band (offsetTop+height) when offsetTop>0; open padding 0 (no overlay double apply).
+ * iOS: keyboard open → pin `.messenger-page` to vv band; open padding 0; no focus document scroll.
  */
 export function useCmRoomVisibleViewportShell(opts: Options): void {
   const { enabled, shellRef } = opts;
@@ -76,6 +114,7 @@ export function useCmRoomVisibleViewportShell(opts: Options): void {
     if (!enabled) return;
     const shell = shellRef.current;
     if (!shell || typeof window === "undefined") return;
+    const messengerPage = resolveMessengerPage(shell);
 
     let baselineClosedHeightPx = resolveCmRoomShellVisualFramePx().heightPx;
     let syncRaf = 0;
@@ -106,7 +145,14 @@ export function useCmRoomVisibleViewportShell(opts: Options): void {
 
       shell.dataset.cmKeyboardOpen = snapshot.keyboardOpen ? "true" : "false";
 
-      applyShellHeightAuthority(shell, frame.heightPx, frame.offsetTopPx);
+      applyIosMessengerPageVisualBand(
+        messengerPage,
+        snapshot.keyboardOpen,
+        frame.heightPx,
+        frame.offsetTopPx
+      );
+      applyIosDocumentScrollLock(snapshot.keyboardOpen);
+      applyShellHeightAuthority(shell, frame.heightPx);
       emitCmRoomKbProbe("shell_style_apply", shell, { keyboardOpen: snapshot.keyboardOpen });
 
       const timelinePx = resolveCmRoomTimelineHeightPx({
@@ -203,7 +249,8 @@ export function useCmRoomVisibleViewportShell(opts: Options): void {
       document.removeEventListener("focusin", onFocusIn, true);
       document.removeEventListener("focusout", onFocusOut, true);
       unsubNativeKeyboard();
-      clearIosShellBandPin(shell);
+      clearIosMessengerPageVisualBand(messengerPage);
+      applyIosDocumentScrollLock(false);
       shell.style.removeProperty("height");
       shell.style.removeProperty("maxHeight");
       shell.style.removeProperty("minHeight");

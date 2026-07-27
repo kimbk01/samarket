@@ -1,6 +1,7 @@
 import UIKit
 import Capacitor
 import WebKit
+import os.log
 
 /**
  * Product Startup (iOS):
@@ -9,6 +10,14 @@ import WebKit
  * No Hybrid boot HTML · no location.replace · no second Web Intro.
  */
 class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessageHandler {
+  private static let startupLog = OSLog(subsystem: "com.dibay.app", category: "startup")
+
+  private func startupInfo(_ message: String) {
+    let line = "[DIBAY_Startup] " + message
+    os_log("%{public}@", log: Self.startupLog, type: .info, line)
+    NSLog("%@", line)
+  }
+
   private var handoffCoverView: UIView?
   private var handoffCoverShown = false
   private var handoffCoverRemoved = false
@@ -17,20 +26,32 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
   private var introOverlay: UIView?
   private var introContent: UIView?
   private var introDismissing = false
+  /// One cold-startup Intro per VC lifetime. After dismiss, never reattach on viewDidAppear
+  /// (call UI present/dismiss must not bring Intro back or block WebView touches).
+  private enum IntroLifecycle: String {
+    case pending
+    case attached
+    case dismissing
+    case dismissed
+  }
+  private var introLifecycle: IntroLifecycle = .pending
   private var activeConfig: [String: Any] = [:]
 
   override func viewDidLoad() {
     super.viewDidLoad()
     applyStartupBackground()
-    attachNativeIntroIfNeeded()
+    DibayWebViewKeyboardChrome.install(on: webView)
+    attachNativeIntroIfNeeded(source: "viewDidLoad")
   }
 
   override func viewDidAppear(_ animated: Bool) {
     super.viewDidAppear(animated)
     applyStartupBackground()
+    DibayWebViewKeyboardChrome.install(on: webView)
     installBootBridgeIfNeeded()
-    attachNativeIntroIfNeeded()
-    NSLog("DIBAY_WebView startup_boot_skip reason=native_splash_direct_remote")
+    // First appear may run before viewDidLoad attach completes; after dismiss, must not reattach.
+    attachNativeIntroIfNeeded(source: "viewDidAppear")
+    startupInfo("startup_boot_skip reason=native_splash_direct_remote intro_lifecycle=\(introLifecycle.rawValue)")
   }
 
   private func applyStartupBackground() {
@@ -83,7 +104,7 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     DispatchQueue.main.async {
       switch action {
       case "dismissSplash":
-        NSLog("[DIBAY_Startup] dismissSplash bridge → Native Intro exit + Cap SplashScreen.hide")
+        self.startupInfo("intro_dismiss_requested source=bridge lifecycle=\(self.introLifecycle.rawValue)")
         self.dismissNativeIntroThenHideSplash()
       case "beginHandoffCover":
         NSLog("[DIBAY_Startup] handoff_cover_begin_ignored reason=native_splash_direct_remote")
@@ -102,8 +123,25 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     }
   }
 
-  private func attachNativeIntroIfNeeded() {
-    if introOverlay != nil { return }
+  private func attachNativeIntroIfNeeded(source: String) {
+    switch introLifecycle {
+    case .attached:
+      startupInfo("intro_attach_skipped source=\(source) reason=already_attached")
+      return
+    case .dismissing:
+      startupInfo("intro_reattach_blocked source=\(source) reason=dismissing")
+      return
+    case .dismissed:
+      startupInfo("intro_reattach_blocked source=\(source) reason=terminal_dismissed")
+      return
+    case .pending:
+      break
+    }
+    if introOverlay != nil {
+      introLifecycle = .attached
+      startupInfo("intro_attach_skipped source=\(source) reason=overlay_present")
+      return
+    }
     activeConfig = DibayStartupConfigCache.loadActive()
     let overlay = UIView(frame: view.bounds)
     overlay.autoresizingMask = [.flexibleWidth, .flexibleHeight]
@@ -122,28 +160,47 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
     view.addSubview(overlay)
     introOverlay = overlay
     introContent = content
+    introLifecycle = .attached
     playEnter(on: content, config: activeConfig)
-    NSLog("[DIBAY_Startup] intro_attach version=%@", String(describing: activeConfig["version"] ?? 0))
+    startupInfo("intro_attach source=\(source) version=\(String(describing: activeConfig["version"] ?? 0))")
+  }
+
+  private func finalizeIntroRemoved(overlay: UIView, source: String) {
+    overlay.isUserInteractionEnabled = false
+    overlay.layer.removeAllAnimations()
+    overlay.removeFromSuperview()
+    introOverlay = nil
+    introContent = nil
+    introDismissing = false
+    introLifecycle = .dismissed
+    startupInfo("intro_removed source=\(source) interaction=0 superview=nil lifecycle=dismissed")
   }
 
   private func dismissNativeIntroThenHideSplash() {
-    if introDismissing {
+    if introLifecycle == .dismissed {
+      hideCapacitorSplash()
+      return
+    }
+    if introDismissing || introLifecycle == .dismissing {
       hideCapacitorSplash()
       return
     }
     introDismissing = true
+    introLifecycle = .dismissing
     let exit = (activeConfig["exitAnimation"] as? String) ?? "fade_out"
     let durMs = DibayStartupConfigCache.clampDuration(activeConfig["exitDurationMs"] as? Int ?? 220)
     let seconds = TimeInterval(durMs) / 1000.0
     let target = introContent ?? introOverlay
     guard let target = target, let overlay = introOverlay else {
+      // No overlay (warm / race) — still terminal so viewDidAppear cannot create one.
+      introDismissing = false
+      introLifecycle = .dismissed
+      startupInfo("intro_removed source=dismiss_no_overlay lifecycle=dismissed")
       hideCapacitorSplash()
       return
     }
     if exit == "none" || durMs <= 0 {
-      overlay.removeFromSuperview()
-      introOverlay = nil
-      introContent = nil
+      finalizeIntroRemoved(overlay: overlay, source: "dismiss_immediate")
       hideCapacitorSplash()
       return
     }
@@ -151,10 +208,7 @@ class DibayStartupBridgeViewController: CAPBridgeViewController, WKScriptMessage
       self.applyExitTransform(exit, on: target)
       target.alpha = 0
     }, completion: { _ in
-      overlay.removeFromSuperview()
-      self.introOverlay = nil
-      self.introContent = nil
-      NSLog("[DIBAY_Startup] intro_removed")
+      self.finalizeIntroRemoved(overlay: overlay, source: "dismiss_animated")
       self.hideCapacitorSplash()
     })
   }
