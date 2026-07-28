@@ -263,8 +263,9 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
               );
             }
           }
-          if (event.eventType === "INSERT" && !isOwnInsert) {
+          if (event.eventType === "INSERT") {
             if (
+              !isOwnInsert &&
               peerTailMarkReadHintRef &&
               typeof document !== "undefined" &&
               document.visibilityState === "visible"
@@ -274,32 +275,35 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
             }
             /**
              * B body: timeline commit → hub tip projection (Home unmount-safe).
-             * Bus remains for Home React sync / Domain spine; same eventId → no-op.
+             * Own INSERT also projects — covers ACK-miss / non-composer send; same eventId → no-op after ACK.
+             * Bus remains for Home React sync / Domain spine (peer only).
              */
             const tipActivity = roomActivityFromMessengerMessage({
               message: mapped,
-              source: "remote_message_realtime",
-              boostUnread: true,
+              source: isOwnInsert ? "local_send_ack" : "remote_message_realtime",
+              boostUnread: !isOwnInsert,
               viewerUserId: snap.viewerUserId,
             });
             if (tipActivity) {
               projectRoomActivityToHomeList(tipActivity);
             }
-            postCommunityMessengerBusEvent({
-              type: "cm.room.incoming_message",
-              roomId: streamRoomId.trim(),
-              viewerUserId: snap.viewerUserId,
-              messageRow: {
-                id: event.message.id,
-                room_id: event.message.roomId,
-                sender_id: event.message.senderId,
-                message_type: event.message.messageType,
-                content: event.message.content,
-                metadata: event.message.metadata,
-                created_at: event.message.createdAt,
-              },
-              at: Date.now(),
-            });
+            if (!isOwnInsert) {
+              postCommunityMessengerBusEvent({
+                type: "cm.room.incoming_message",
+                roomId: streamRoomId.trim(),
+                viewerUserId: snap.viewerUserId,
+                messageRow: {
+                  id: event.message.id,
+                  room_id: event.message.roomId,
+                  sender_id: event.message.senderId,
+                  message_type: event.message.messageType,
+                  content: event.message.content,
+                  metadata: event.message.metadata,
+                  created_at: event.message.createdAt,
+                },
+                at: Date.now(),
+              });
+            }
           }
           incomingToMerge.push(mapped);
         }
