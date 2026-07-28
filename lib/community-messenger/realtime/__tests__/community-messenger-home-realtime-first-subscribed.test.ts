@@ -27,6 +27,8 @@ import { bindCommunityMessengerHomeRealtimeChannels } from "@/lib/community-mess
 function bind() {
   const onRefreshRef = { current: () => {} };
   const messageInsertHintRef = { current: undefined };
+  const messageUpdateHintRef = { current: undefined };
+  const roomTipUpdateHintRef = { current: undefined };
   const participantUnreadDeltaRef = { current: undefined };
   return bindCommunityMessengerHomeRealtimeChannels({
     sb: { channel: () => ({}), removeChannel: () => {} } as never,
@@ -36,6 +38,8 @@ function bind() {
     channelBindRole: "home_rooms_in",
     includeMeta: true,
     messageInsertHintRef: messageInsertHintRef as never,
+    messageUpdateHintRef: messageUpdateHintRef as never,
+    roomTipUpdateHintRef: roomTipUpdateHintRef as never,
     participantUnreadDeltaRef: participantUnreadDeltaRef as never,
     onRefreshRef: onRefreshRef as never,
   });

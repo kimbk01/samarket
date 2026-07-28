@@ -10,7 +10,9 @@ import {
 } from "@/lib/community-messenger/realtime/global-messenger-room-bundle-channel";
 import type {
   CommunityMessengerHomeRealtimeMessageInsertHint,
+  CommunityMessengerHomeRealtimeMessageUpdateHint,
   CommunityMessengerHomeRealtimeParticipantUnreadHint,
+  CommunityMessengerHomeRealtimeRoomTipUpdateHint,
   CommunityMessengerRoomRealtimeMessageEvent,
 } from "@/lib/community-messenger/realtime/community-messenger-realtime-types";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -79,7 +81,9 @@ function messengerHomeRealtimeRoomIdsContentKey(ids: string[] | undefined): stri
 
 export type {
   CommunityMessengerHomeRealtimeMessageInsertHint,
+  CommunityMessengerHomeRealtimeMessageUpdateHint,
   CommunityMessengerHomeRealtimeParticipantUnreadHint,
+  CommunityMessengerHomeRealtimeRoomTipUpdateHint,
   CommunityMessengerRoomRealtimeMessageEvent,
   CommunityMessengerRoomRealtimeMessageRow,
 } from "@/lib/community-messenger/realtime/community-messenger-realtime-types";
@@ -89,6 +93,8 @@ type HomeRealtimeListener = {
   onRealtimeMessageInsert?: (hint: CommunityMessengerHomeRealtimeMessageInsertHint) => void;
   /** 등록 시 단일 콜백보다 우선 — 프레임당 1회 배치 전달로 `setState` 병합에 사용 */
   onRealtimeMessageInsertBatch?: (hints: CommunityMessengerHomeRealtimeMessageInsertHint[]) => void;
+  onRealtimeMessageUpdateBatch?: (hints: CommunityMessengerHomeRealtimeMessageUpdateHint[]) => void;
+  onRealtimeRoomTipUpdateBatch?: (hints: CommunityMessengerHomeRealtimeRoomTipUpdateHint[]) => void;
   onParticipantUnreadDelta?: (hint: CommunityMessengerHomeRealtimeParticipantUnreadHint) => void;
 };
 
@@ -108,6 +114,10 @@ type HomeRealtimeEntry = {
   listeners: Set<MutableRefObject<HomeRealtimeListener>>;
   insertHintBatchQueue: CommunityMessengerHomeRealtimeMessageInsertHint[];
   insertBatchRafId: number | null;
+  updateHintBatchQueue: CommunityMessengerHomeRealtimeMessageUpdateHint[];
+  updateBatchRafId: number | null;
+  roomTipHintBatchQueue: CommunityMessengerHomeRealtimeRoomTipUpdateHint[];
+  roomTipBatchRafId: number | null;
   participantUnreadBatchQueue: CommunityMessengerHomeRealtimeParticipantUnreadHint[];
   participantUnreadBatchRafId: number | null;
   stop: () => void;
@@ -246,6 +256,34 @@ function flushHomeMessageInsertBatch(entry: HomeRealtimeEntry): void {
   }
 }
 
+function flushHomeMessageUpdateBatch(entry: HomeRealtimeEntry): void {
+  const batch = entry.updateHintBatchQueue.splice(0, HOME_REALTIME_MESSAGE_INSERT_FLUSH_MAX_BATCH);
+  if (batch.length === 0) return;
+  for (const listener of entry.listeners) {
+    listener.current.onRealtimeMessageUpdateBatch?.(batch);
+  }
+  if (entry.updateHintBatchQueue.length > 0) {
+    entry.updateBatchRafId = requestAnimationFrame(() => {
+      entry.updateBatchRafId = null;
+      flushHomeMessageUpdateBatch(entry);
+    });
+  }
+}
+
+function flushHomeRoomTipUpdateBatch(entry: HomeRealtimeEntry): void {
+  const batch = entry.roomTipHintBatchQueue.splice(0, HOME_REALTIME_MESSAGE_INSERT_FLUSH_MAX_BATCH);
+  if (batch.length === 0) return;
+  for (const listener of entry.listeners) {
+    listener.current.onRealtimeRoomTipUpdateBatch?.(batch);
+  }
+  if (entry.roomTipHintBatchQueue.length > 0) {
+    entry.roomTipBatchRafId = requestAnimationFrame(() => {
+      entry.roomTipBatchRafId = null;
+      flushHomeRoomTipUpdateBatch(entry);
+    });
+  }
+}
+
 function flushHomeParticipantUnreadBatch(entry: HomeRealtimeEntry): void {
   const batch = entry.participantUnreadBatchQueue.splice(0, HOME_REALTIME_MESSAGE_INSERT_FLUSH_MAX_BATCH);
   if (batch.length === 0) return;
@@ -271,6 +309,30 @@ function enqueueHomeMessageInsertForEntry(
   entry.insertBatchRafId = requestAnimationFrame(() => {
     entry.insertBatchRafId = null;
     flushHomeMessageInsertBatch(entry);
+  });
+}
+
+function enqueueHomeMessageUpdateForEntry(
+  entry: HomeRealtimeEntry,
+  hint: CommunityMessengerHomeRealtimeMessageUpdateHint
+): void {
+  entry.updateHintBatchQueue.push(hint);
+  if (entry.updateBatchRafId != null) return;
+  entry.updateBatchRafId = requestAnimationFrame(() => {
+    entry.updateBatchRafId = null;
+    flushHomeMessageUpdateBatch(entry);
+  });
+}
+
+function enqueueHomeRoomTipUpdateForEntry(
+  entry: HomeRealtimeEntry,
+  hint: CommunityMessengerHomeRealtimeRoomTipUpdateHint
+): void {
+  entry.roomTipHintBatchQueue.push(hint);
+  if (entry.roomTipBatchRafId != null) return;
+  entry.roomTipBatchRafId = requestAnimationFrame(() => {
+    entry.roomTipBatchRafId = null;
+    flushHomeRoomTipUpdateBatch(entry);
   });
 }
 
@@ -398,6 +460,10 @@ function createHomeRealtimeEntry(args: {
     listeners: new Set(),
     insertHintBatchQueue: [],
     insertBatchRafId: null,
+    updateHintBatchQueue: [],
+    updateBatchRafId: null,
+    roomTipHintBatchQueue: [],
+    roomTipBatchRafId: null,
     participantUnreadBatchQueue: [],
     participantUnreadBatchRafId: null,
     stop: () => undefined,
@@ -438,6 +504,16 @@ function createHomeRealtimeEntry(args: {
         current: (hint) => {
           notifyMessengerHomeRealtimeMessageInsert({ viewerUserId: args.userId, hint });
           enqueueHomeMessageInsertForEntry(entry, hint);
+        },
+      },
+      messageUpdateHintRef: {
+        current: (hint) => {
+          enqueueHomeMessageUpdateForEntry(entry, hint);
+        },
+      },
+      roomTipUpdateHintRef: {
+        current: (hint) => {
+          enqueueHomeRoomTipUpdateForEntry(entry, hint);
         },
       },
       participantUnreadDeltaRef: { current: (hint) => enqueueHomeParticipantUnreadForEntry(entry, hint) },
@@ -518,11 +594,21 @@ function createHomeRealtimeEntry(args: {
       cancelAnimationFrame(entry.insertBatchRafId);
       entry.insertBatchRafId = null;
     }
+    if (entry.updateBatchRafId != null) {
+      cancelAnimationFrame(entry.updateBatchRafId);
+      entry.updateBatchRafId = null;
+    }
+    if (entry.roomTipBatchRafId != null) {
+      cancelAnimationFrame(entry.roomTipBatchRafId);
+      entry.roomTipBatchRafId = null;
+    }
     if (entry.participantUnreadBatchRafId != null) {
       cancelAnimationFrame(entry.participantUnreadBatchRafId);
       entry.participantUnreadBatchRafId = null;
     }
     entry.insertHintBatchQueue.length = 0;
+    entry.updateHintBatchQueue.length = 0;
+    entry.roomTipHintBatchQueue.length = 0;
     entry.participantUnreadBatchQueue.length = 0;
     authBridgeCleanup?.();
     authBridgeCleanup = null;
@@ -558,6 +644,8 @@ export function useCommunityMessengerHomeRealtime(args: {
   onRefresh: () => void;
   onRealtimeMessageInsert?: (hint: CommunityMessengerHomeRealtimeMessageInsertHint) => void;
   onRealtimeMessageInsertBatch?: (hints: CommunityMessengerHomeRealtimeMessageInsertHint[]) => void;
+  onRealtimeMessageUpdateBatch?: (hints: CommunityMessengerHomeRealtimeMessageUpdateHint[]) => void;
+  onRealtimeRoomTipUpdateBatch?: (hints: CommunityMessengerHomeRealtimeRoomTipUpdateHint[]) => void;
   onParticipantUnreadDelta?: (hint: CommunityMessengerHomeRealtimeParticipantUnreadHint) => void;
 }) {
   useCmDevRenderTrace("useCommunityMessengerHomeRealtime");
@@ -565,6 +653,8 @@ export function useCommunityMessengerHomeRealtime(args: {
     onRefresh: args.onRefresh,
     onRealtimeMessageInsert: args.onRealtimeMessageInsert,
     onRealtimeMessageInsertBatch: args.onRealtimeMessageInsertBatch,
+    onRealtimeMessageUpdateBatch: args.onRealtimeMessageUpdateBatch,
+    onRealtimeRoomTipUpdateBatch: args.onRealtimeRoomTipUpdateBatch,
     onParticipantUnreadDelta: args.onParticipantUnreadDelta,
   });
   const roomIdsContentKey = messengerHomeRealtimeRoomIdsContentKey(args.roomIds);
@@ -674,11 +764,15 @@ export function useCommunityMessengerHomeRealtime(args: {
     listenerRef.current.onRefresh = args.onRefresh;
     listenerRef.current.onRealtimeMessageInsert = args.onRealtimeMessageInsert;
     listenerRef.current.onRealtimeMessageInsertBatch = args.onRealtimeMessageInsertBatch;
+    listenerRef.current.onRealtimeMessageUpdateBatch = args.onRealtimeMessageUpdateBatch;
+    listenerRef.current.onRealtimeRoomTipUpdateBatch = args.onRealtimeRoomTipUpdateBatch;
     listenerRef.current.onParticipantUnreadDelta = args.onParticipantUnreadDelta;
   }, [
     args.onRefresh,
     args.onRealtimeMessageInsert,
     args.onRealtimeMessageInsertBatch,
+    args.onRealtimeMessageUpdateBatch,
+    args.onRealtimeRoomTipUpdateBatch,
     args.onParticipantUnreadDelta,
   ]);
 

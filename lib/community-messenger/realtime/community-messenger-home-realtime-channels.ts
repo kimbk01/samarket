@@ -5,8 +5,14 @@ import { createRefreshScheduler } from "@/lib/community-messenger/realtime/commu
 import { MESSENGER_HOME_META_DEBOUNCE_MS } from "@/lib/community-messenger/messenger-latency-config";
 import type {
   CommunityMessengerHomeRealtimeMessageInsertHint,
+  CommunityMessengerHomeRealtimeMessageUpdateHint,
   CommunityMessengerHomeRealtimeParticipantUnreadHint,
+  CommunityMessengerHomeRealtimeRoomTipUpdateHint,
 } from "@/lib/community-messenger/realtime/community-messenger-realtime-types";
+import {
+  normalizeHomeMessageUpdateLivePatch,
+  normalizeHomeRoomTipUpdateLivePatch,
+} from "@/lib/community-messenger/home/home-room-live-patch-from-realtime";
 import { cmRtReadSyncLog } from "@/lib/community-messenger/read/cm-rt-read-sync-log";
 import {
   cmRtRoomSubLog,
@@ -38,6 +44,8 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
   /** `extraRoomIds`(거래·배달 리스트 visible) 개수 — 구독 집합 진단용 */
   visibleTradeRoomCount?: number;
   messageInsertHintRef: MutableRefObject<((hint: CommunityMessengerHomeRealtimeMessageInsertHint) => void) | undefined>;
+  messageUpdateHintRef: MutableRefObject<((hint: CommunityMessengerHomeRealtimeMessageUpdateHint) => void) | undefined>;
+  roomTipUpdateHintRef: MutableRefObject<((hint: CommunityMessengerHomeRealtimeRoomTipUpdateHint) => void) | undefined>;
   participantUnreadDeltaRef: MutableRefObject<
     ((hint: CommunityMessengerHomeRealtimeParticipantUnreadHint) => void) | undefined
   >;
@@ -292,8 +300,34 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
               table: "community_messenger_rooms",
               filter: roomsFilter,
             },
-            () => {
-              if (!cancelled()) refreshScheduler.schedule();
+            (payload) => {
+              if (cancelled()) return;
+              if (payload.eventType === "UPDATE" && payload.new) {
+                const row = payload.new as Record<string, unknown>;
+                const oldRow =
+                  payload.old && typeof payload.old === "object"
+                    ? (payload.old as Record<string, unknown>)
+                    : null;
+                const tip = normalizeHomeRoomTipUpdateLivePatch(oldRow, row);
+                if (tip) {
+                  cmRtReadSyncLog("room_tip_update_received", {
+                    channelScope: "home_rooms_in",
+                    roomId: tip.roomId,
+                    viewerUserId: args.userId,
+                    lastMessageAt: tip.preview.lastMessageAt,
+                  });
+                  args.roomTipUpdateHintRef.current?.({
+                    roomId: tip.roomId,
+                    tip: {
+                      lastMessage: tip.preview.lastMessage,
+                      lastMessageType: String(tip.preview.lastMessageType ?? "text"),
+                      lastMessageAt: tip.preview.lastMessageAt,
+                    },
+                  });
+                  return;
+                }
+              }
+              // tip 무관 rooms 변경 — hydrated silent refresh no-op; live tip 외 catch-up 금지
             }
           )
           .on(
@@ -305,7 +339,8 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
               filter: messagesFilter,
             },
             (payload) => {
-              if (!cancelled() && payload.eventType === "INSERT" && payload.new) {
+              if (cancelled()) return;
+              if (payload.eventType === "INSERT" && payload.new) {
                 const row = payload.new as Record<string, unknown>;
                 const rid = typeof row.room_id === "string" ? row.room_id.trim() : "";
                 const mid = typeof row.id === "string" ? row.id.trim() : "";
@@ -328,7 +363,30 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
                 }
                 return;
               }
-              if (!cancelled()) refreshScheduler.schedule();
+              if (payload.eventType === "UPDATE" && payload.new) {
+                const row = payload.new as Record<string, unknown>;
+                const oldRow =
+                  payload.old && typeof payload.old === "object"
+                    ? (payload.old as Record<string, unknown>)
+                    : null;
+                const tip = normalizeHomeMessageUpdateLivePatch(oldRow, row);
+                if (tip) {
+                  const mid = tip.messageId ?? null;
+                  cmRtReadSyncLog("message_update_received", {
+                    channelScope: "home_rooms_in",
+                    roomId: tip.roomId,
+                    messageId: mid,
+                    viewerUserId: args.userId,
+                  });
+                  args.messageUpdateHintRef.current?.({
+                    roomId: tip.roomId,
+                    newRecord: row,
+                    oldRecord: oldRow,
+                  });
+                }
+                return;
+              }
+              // DELETE 등 — silent full list catch-up 금지 (Telegram list authority)
             }
           ),
     });

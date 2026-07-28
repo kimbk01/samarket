@@ -15,6 +15,10 @@ import {
 } from "@/lib/community-messenger/home/merge-bootstrap-lists-preserve-refs";
 import { mergeBootstrapRoomSummaryIntoLists } from "@/lib/community-messenger/home/merge-bootstrap-room-summary-into-lists";
 import {
+  patchBootstrapRoomListForRealtimeMessageUpdate,
+  patchBootstrapRoomListForRoomTipUpdate,
+} from "@/lib/community-messenger/home/home-room-live-patch-from-realtime";
+import {
   patchBootstrapRoomListForCallStubPreviewUpdate,
   patchBootstrapRoomListForRealtimeMessageInsert,
   patchBootstrapRoomListForSenderLocalEcho,
@@ -69,6 +73,16 @@ export type HomeListPatch =
       roomId: string;
       messageRow: Record<string, unknown>;
       boostUnreadCount?: boolean;
+    }
+  | {
+      kind: "realtime_message_update";
+      roomId: string;
+      messageRow: Record<string, unknown>;
+    }
+  | {
+      kind: "room_tip_update";
+      roomId: string;
+      tip: Pick<CommunityMessengerRoomSummary, "lastMessage" | "lastMessageType" | "lastMessageAt">;
     }
   | {
       kind: "sender_local_echo";
@@ -803,6 +817,18 @@ export function applyHomeListPatch(
           next = patchBootstrapRoomListForRealtimeMessageInsert(base, patch.roomId, patch.messageRow, {
             boostUnreadCount: patch.boostUnreadCount,
           });
+          appliedRooms = next === base ? 0 : 1;
+          break;
+        }
+        case "realtime_message_update": {
+          incomingPatchRooms = 1;
+          next = patchBootstrapRoomListForRealtimeMessageUpdate(base, patch.roomId, patch.messageRow);
+          appliedRooms = next === base ? 0 : 1;
+          break;
+        }
+        case "room_tip_update": {
+          incomingPatchRooms = 1;
+          next = patchBootstrapRoomListForRoomTipUpdate(base, patch.roomId, patch.tip);
           appliedRooms = next === base ? 0 : 1;
           break;
         }

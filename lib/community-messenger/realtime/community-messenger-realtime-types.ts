@@ -3,6 +3,23 @@ export type CommunityMessengerHomeRealtimeMessageInsertHint = {
   newRecord: Record<string, unknown>;
 };
 
+/** messages UPDATE — tip preview 의미 변경만 (normalize 이후) */
+export type CommunityMessengerHomeRealtimeMessageUpdateHint = {
+  roomId: string;
+  newRecord: Record<string, unknown>;
+  oldRecord?: Record<string, unknown> | null;
+};
+
+/** rooms tip UPDATE — last_message / last_message_at / last_message_type 실변경만 */
+export type CommunityMessengerHomeRealtimeRoomTipUpdateHint = {
+  roomId: string;
+  tip: {
+    lastMessage: string;
+    lastMessageType: string;
+    lastMessageAt: string;
+  };
+};
+
 export type CommunityMessengerHomeRealtimeParticipantUnreadHint = {
   roomId: string;
   unreadCount: number;
