@@ -65,6 +65,7 @@ import { isMessengerRoomTimelineBootstrapSeedComplete } from "@/lib/community-me
 import { isMessengerRoomBootstrapReadySnapshot } from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
 import { noteCmRoomR5BootstrapFingerprintSkip } from "@/lib/community-messenger/room/cm-room-r5-timeline-mount-instrumentation";
 import { mergeRoomMessages } from "@/components/community-messenger/room/community-messenger-room-helpers";
+import { applyRoomMessagesMutation } from "@/lib/community-messenger/room/messenger-room-messages-mutation";
 import { roomMessagesTimelineFingerprint } from "@/lib/community-messenger/room/messenger-room-timeline-paint-model";
 import {
   isCmRoomEntryPriorityModeActive,
@@ -165,7 +166,8 @@ function applyPrimedTimelineSeed(
   if (!setRoomMessages) return false;
   const msgs = primed.messages ?? [];
   if (msgs.length === 0) return false;
-  setRoomMessages((prev) => {
+  // primed seed: replace (empty→seed or merge). silent setRoomMessages 금지.
+  applyRoomMessagesMutation(setRoomMessages, "replace", (prev) => {
     if (prev.length === 0) {
       return msgs as Array<CommunityMessengerMessage & { pending?: boolean }>;
     }

@@ -39,7 +39,8 @@ const kbOffset = read("lib/ui/use-cm-room-kb-offset.ts");
 const viewportShell = read("lib/ui/use-cm-room-visible-viewport-shell.ts");
 const viewportContract = read("lib/ui/cm-room-visible-viewport-contract.ts");
 const tuning = read("lib/ui/messenger-chat-viewport-tuning.ts");
-const scrollAnchor = read("lib/community-messenger/room/messenger-room-scroll-anchor-controller.ts");
+const phase1 = read("lib/community-messenger/room/use-messenger-room-client-phase1.ts");
+const threadScrollHook = read("lib/chat-thread-scroll/use-chat-thread-scroll.ts");
 const chatHeader = read("components/chat/ChatHeader.tsx");
 const chatComposer = read("components/chat/ChatComposer.tsx");
 const phase2Composer = read(
@@ -53,7 +54,8 @@ const cmRoomSources = [
   viewportShell,
   viewportContract,
   tuning,
-  scrollAnchor,
+  phase1,
+  threadScrollHook,
   chatHeader,
   chatComposer,
   phase2Composer,
@@ -154,10 +156,16 @@ assertIncludes(messengerVt, "--cm-ios-vv-band-top", "messenger-view-transitions.
 // --- iOS kb-offset helper (overlay only, consumed by viewport shell) ---
 assertIncludes(kbOffset, "resolveIosKeyboardOverlayCssPx", "use-cm-room-kb-offset");
 
-// --- scroll anchor: vv on Android + iOS for keyboard keep-bottom ---
-assertIncludes(scrollAnchor, "keyboard_resize_keep_bottom", "scroll-anchor-controller");
-assertIncludes(scrollAnchor, "window.visualViewport", "scroll-anchor-controller");
-assertNotIncludes(scrollAnchor, "ios && typeof window", "scroll-anchor-controller vv gate removed");
+// --- scroll: chrome/vv → useChatThreadScroll layout commit (no CM ScrollAnchorController) ---
+assertIncludes(phase1, "useChatThreadScroll", "phase1");
+assertIncludes(phase1, "CM_ROOM_CHROME_HEIGHT_SYNC_EVENT", "phase1 chrome→scroll");
+assertIncludes(phase1, "entryForceBottom: true", "phase1 latest bottom");
+assertIncludes(threadScrollHook, "layoutCommittedEventName", "useChatThreadScroll");
+assertIncludes(threadScrollHook, "notifyLayoutResize", "useChatThreadScroll");
+assertIncludes(viewportShell, "window.visualViewport", "use-cm-room-visible-viewport-shell");
+assertIncludes(viewportShell, "CM_ROOM_CHROME_HEIGHT_SYNC_EVENT", "use-cm-room-visible-viewport-shell");
+assertNotIncludes(phase1, "useMessengerRoomScrollAnchorController", "phase1");
+assertNotIncludes(phase1, "keyboard_resize_keep_bottom", "phase1 no legacy vv scroll writer");
 
 // --- composer/header: no sticky/fixed keyboard hacks ---
 assertNotMatches(chatHeader, /sticky|fixed/, "ChatHeader");

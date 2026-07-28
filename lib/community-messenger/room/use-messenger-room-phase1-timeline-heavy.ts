@@ -1,13 +1,11 @@
 "use client";
 
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useMemo, type MutableRefObject, type RefObject } from "react";
+import { useMemo, type RefObject } from "react";
 import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
 import { MESSENGER_TIMELINE_VIRTUAL_OVERSCAN } from "@/lib/community-messenger/room/messenger-room-ui-constants";
 import { estimateMessengerTimelineRowPx } from "@/lib/store-order-chat/messenger-timeline-row-estimate";
 import { useMessengerRoomDerivedMessageLists } from "@/lib/community-messenger/room/use-messenger-room-derived-message-lists";
-import { useMessengerRoomTradeDockScrollAnchor } from "@/lib/community-messenger/room/use-messenger-room-trade-dock-scroll-anchor";
-import { useMessengerRoomStoreOrderDockScrollAnchor } from "@/lib/community-messenger/room/use-messenger-room-store-order-dock-scroll-anchor";
 import { messengerTimelineVirtualRowKey } from "@/components/community-messenger/room/community-messenger-room-helpers";
 
 type RoomMsg = CommunityMessengerMessage & { pending?: boolean };
@@ -27,29 +25,22 @@ export type MessengerRoomPhase1TimelineHeavyBundle = {
 };
 
 export function useMessengerRoomPhase1TimelineHeavy({
-  roomId,
   roomMessages,
   hiddenCallStubIds,
   roomSearchQuery,
   messagesViewportRef,
-  tradeDockScrollAnchorEnabled,
-  storeOrderDockScrollAnchorEnabled,
-  messageEndRef,
-  stickToBottomRef,
-  scrollMessengerToBottomRef,
 }: {
-  roomId: string;
+  roomId?: string;
   roomMessages: RoomMsg[];
   hiddenCallStubIds: Set<string>;
   roomSearchQuery: string;
   messagesViewportRef: RefObject<HTMLDivElement | null>;
-  tradeDockScrollAnchorEnabled: boolean;
-  storeOrderDockScrollAnchorEnabled: boolean;
-  messageEndRef: RefObject<HTMLDivElement | null>;
-  stickToBottomRef: MutableRefObject<boolean>;
-  scrollMessengerToBottomRef: MutableRefObject<
-    (req?: { reason?: string; force?: boolean }) => void
-  >;
+  /** @deprecated dock scroll anchors removed — chrome sync → useChatThreadScroll */
+  tradeDockScrollAnchorEnabled?: boolean;
+  storeOrderDockScrollAnchorEnabled?: boolean;
+  messageEndRef?: RefObject<HTMLDivElement | null>;
+  stickToBottomRef?: unknown;
+  scrollMessengerToBottomRef?: unknown;
 }): MessengerRoomPhase1TimelineHeavyBundle {
   const derived = useMessengerRoomDerivedMessageLists(roomMessages, hiddenCallStubIds, roomSearchQuery);
   const { displayRoomMessages } = derived;
@@ -61,26 +52,6 @@ export function useMessengerRoomPhase1TimelineHeavy({
     overscan: MESSENGER_TIMELINE_VIRTUAL_OVERSCAN,
     getItemKey: (index) =>
       messengerTimelineVirtualRowKey(displayRoomMessages[index]) || `__cm_timeline_${index}`,
-  });
-
-  useMessengerRoomTradeDockScrollAnchor({
-    enabled: tradeDockScrollAnchorEnabled,
-    roomId,
-    messagesViewportRef,
-    messageEndRef,
-    messageCount: displayRoomMessages.length,
-    stickToBottomRef,
-    scrollMessengerToBottomRef,
-  });
-
-  useMessengerRoomStoreOrderDockScrollAnchor({
-    enabled: storeOrderDockScrollAnchorEnabled,
-    roomId,
-    messagesViewportRef,
-    messageEndRef,
-    messageCount: displayRoomMessages.length,
-    stickToBottomRef,
-    scrollMessengerToBottomRef,
   });
 
   return useMemo(

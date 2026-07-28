@@ -1,5 +1,6 @@
 "use client";
 
+import { applyRoomMessagesMutation } from "@/lib/community-messenger/room/messenger-room-messages-mutation";
 import { useEffect, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { mergeRoomMessages } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
@@ -185,7 +186,7 @@ export function useMessengerRoomBumpBroadcastSubscription({
           const member = roomMembersDisplayRef.current.find((m) => messengerUserIdsEqual(m.id, pre.senderId ?? ""));
           const enriched =
             member?.label && member.label.trim().length > 0 ? { ...pre, senderLabel: member.label } : pre;
-          setRoomMessages((prev) => mergeRoomMessages(prev, [enriched]));
+          applyRoomMessagesMutation(setRoomMessages, "append", (prev) => mergeRoomMessages(prev, [enriched]));
           catchUpHint = catchUpHint || String(pre.id ?? "").trim();
           mergedSnapshot = true;
         }

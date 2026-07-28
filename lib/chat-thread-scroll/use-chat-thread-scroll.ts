@@ -31,6 +31,8 @@ export type UseChatThreadScrollOptions = ChatThreadScrollEngineConfig & {
   prependInFlight?: boolean;
   /** 진입 1회 트리거 */
   entryActive?: boolean;
+  /** CM 등 외부에서 viewport ref 를 공유할 때 */
+  viewportRef?: RefObject<HTMLDivElement | null>;
 };
 
 export type ChatThreadScrollController = {
@@ -62,10 +64,12 @@ export function useChatThreadScroll(
     messagesReady = false,
     prependInFlight = false,
     entryActive = true,
+    viewportRef: viewportRefOption,
     ...engineConfig
   } = options;
 
-  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const viewportRefInternal = useRef<HTMLDivElement | null>(null);
+  const viewportRef = viewportRefOption ?? viewportRefInternal;
   const engineRef = useRef<ChatThreadScrollEngine | null>(null);
   if (!engineRef.current) {
     engineRef.current = createChatThreadScrollEngine(engineConfig);

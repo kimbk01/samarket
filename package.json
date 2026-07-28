@@ -114,6 +114,7 @@
     "verify:main-bottom-nav-fab-sector-contract": "node scripts/verify-main-bottom-nav-fab-sector-contract.mjs",
     "verify:cm-room-keyboard-layout-contract": "node scripts/verify-cm-room-keyboard-layout-contract.mjs",
     "verify:cm-room-entry-scroll-contract": "node scripts/verify-cm-room-entry-scroll-contract.mjs",
+    "verify:cm-room-message-mutation-sites": "node scripts/verify-cm-room-message-mutation-sites.mjs",
     "verify:chat-thread-scroll-contract": "node scripts/verify-chat-thread-scroll-contract.mjs",
     "verify:badge-target-policy": "node scripts/verify-badge-target-policy.mjs",
     "verify:badge-import-ban": "node scripts/verify-badge-import-ban.mjs",

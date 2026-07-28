@@ -169,18 +169,18 @@ export function clearMessengerPushEntryIntentStorage(): void {
 
 export type MessengerRoomEntryScrollPlanInput = {
   intent: MessengerRoomEntryIntent;
-  hasPersisted: boolean;
-  /** unread > 0 이고 lastRead 가 있으면 unread boundary 복원 (bottom 강제 금지) */
+  /** @deprecated ignored — entry always latest bottom (Telegram/Kakao parity) */
+  hasPersisted?: boolean;
+  /** @deprecated ignored — unread jump is not an entry scroll plan */
   unreadCount?: number;
+  /** @deprecated ignored */
   lastReadMessageId?: string | null;
 };
 
 /**
- * Telegram/Kakao 제품 계약:
- * push → latest bottom
- * persisted visible → restore
- * unread + lastRead → unread boundary (restore, not force bottom)
- * else → latest bottom
+ * Telegram/Kakao 제품 계약 (CM parity redesign):
+ * push · default(list-tap) → 항상 latest bottom.
+ * persisted restore · unread/lastRead jump 금지.
  */
 export function resolveMessengerRoomEntryScrollPlan(
   input: MessengerRoomEntryScrollPlanInput
@@ -192,26 +192,9 @@ export function resolveMessengerRoomEntryScrollPlan(
       forceBottom: true,
     };
   }
-  if (input.hasPersisted) {
-    return {
-      reason: "room_entry_restore",
-      clearPersist: false,
-      forceBottom: false,
-    };
-  }
-  const unread = Math.max(0, Number(input.unreadCount) || 0);
-  const lastRead = typeof input.lastReadMessageId === "string" ? input.lastReadMessageId.trim() : "";
-  if (unread > 0 && lastRead) {
-    return {
-      reason: "room_entry_restore",
-      clearPersist: false,
-      forceBottom: false,
-      anchorMessageId: lastRead,
-    };
-  }
   return {
     reason: "initial_load",
-    clearPersist: false,
+    clearPersist: true,
     forceBottom: true,
     anchorMessageId: null,
   };

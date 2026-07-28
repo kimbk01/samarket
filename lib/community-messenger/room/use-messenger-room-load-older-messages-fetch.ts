@@ -23,8 +23,7 @@ import {
   logCmScrollAnalysis,
 } from "@/lib/community-messenger/monitoring/cm-scroll-analysis";
 import { logChatRoomScroll } from "@/lib/community-messenger/room/messenger-room-timeline-log";
-import { restoreChatThreadPrependAnchor } from "@/lib/chat-thread-scroll/prepend-anchor";
-import { estimateMessengerRoomTimelineTotalHeight } from "@/lib/community-messenger/room/messenger-room-timeline-paint-model";
+import { applyRoomMessagesMutation } from "@/lib/community-messenger/room/messenger-room-messages-mutation";
 
 type PrependVirtualizerLike = {
   scrollOffset?: number;
@@ -130,9 +129,6 @@ export function useMessengerRoomLoadOlderMessagesFetch({
     const apiRoomId = (snapshotRef.current?.room?.id?.trim() || roomId?.trim() || "").trim();
     if (!apiRoomId) return;
     const run = async () => {
-      const vp = messagesViewportRef.current;
-      const prevScrollHeight = vp?.scrollHeight ?? 0;
-      const prevScrollTop = vp?.scrollTop ?? 0;
       setLoadingOlderMessages(true);
       try {
         const res = await fetch(
@@ -158,50 +154,24 @@ export function useMessengerRoomLoadOlderMessagesFetch({
           deferredHistoryMilestoneRecordedRef.current = true;
           recordCmRoomEntryMilestone("deferred_history_ms");
         }
-        setRoomMessages((prev) => mergeRoomMessages(prev, json.messages ?? []));
+        const t0 = performance.now();
+        applyRoomMessagesMutation(setRoomMessages, "prepend", (prev) =>
+          mergeRoomMessages(prev, json.messages ?? [])
+        );
         if (!json.hasMore) {
           olderMessagesExhaustedRef.current = true;
         }
         setHasMoreOlderMessages(Boolean(json.hasMore));
-        const prependedMessages = json.messages ?? [];
-        const runPrependScrollRestore = () => {
-          const el = messagesViewportRef.current;
-          if (!el || prevScrollHeight <= 0) return;
-          const t0 = performance.now();
-          const estimatedPrependPx =
-            prependedMessages.length > 0
-              ? estimateMessengerRoomTimelineTotalHeight(prependedMessages)
-              : 0;
-          const { heightDelta, anchorErrorPx } = restoreChatThreadPrependAnchor({
-            viewport: el,
-            virtualizer: chatVirtualizerRef.current,
-            prevScrollTop,
-            prevScrollHeight,
-            estimatedPrependPx,
+        if (cmScrollAnalysisEnabled()) {
+          logCmScrollAnalysis({
+            prepend_scroll_restore_ms: Math.round((performance.now() - t0) * 1000) / 1000,
+            auto_scroll_triggered: false,
+            auto_scroll_reason: "prepend_history_anchor",
+            room_id_suffix: apiRoomId.length > 8 ? apiRoomId.slice(-8) : apiRoomId,
           });
-          const restoreMs = performance.now() - t0;
-          if (cmScrollAnalysisEnabled()) {
-            logCmScrollAnalysis({
-              prepend_scroll_restore_ms: Math.round(restoreMs * 1000) / 1000,
-              visible_window_jump_px: anchorErrorPx,
-              auto_scroll_triggered: false,
-              auto_scroll_reason: "prepend_history_anchor",
-              room_id_suffix: apiRoomId.length > 8 ? apiRoomId.slice(-8) : apiRoomId,
-            });
-          }
-          logChatRoomScroll("prepend_older_preserve_position", {
-            roomIdSuffix: apiRoomId.length > 8 ? apiRoomId.slice(-8) : apiRoomId,
-            heightDelta: Math.round(heightDelta),
-            anchorErrorPx,
-          });
-        };
-        window.requestAnimationFrame(() => {
-          window.requestAnimationFrame(() => {
-            runPrependScrollRestore();
-            if (prependedMessages.length > 0) {
-              window.requestAnimationFrame(runPrependScrollRestore);
-            }
-          });
+        }
+        logChatRoomScroll("prepend_older_preserve_position", {
+          roomIdSuffix: apiRoomId.length > 8 ? apiRoomId.slice(-8) : apiRoomId,
         });
       } finally {
         setLoadingOlderMessages(false);

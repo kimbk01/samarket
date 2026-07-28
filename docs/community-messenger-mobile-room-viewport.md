@@ -95,9 +95,9 @@ Composer: `padding-bottom: calc(var(--safe-bottom) + var(--kb-offset, 0px))` **�
 | 셸 CSS | `app/chat-viewport-shell.css` | `cm-room-shell` / `cm-room-timeline` / `cm-room-composer` flex-only |
 | iOS keyboard offset | `lib/ui/use-cm-room-kb-offset.ts` | overlay WebView만 `--kb-offset`; Android no-op |
 | Phase2 셸 마운트 | `CommunityMessengerRoomClientPhase2Body.tsx` | flex shell; timeline 항상 mount (hydration pass로 hidden 금지) |
-| 스크롤 앵커 | `use-messenger-room-reader-scroll-bottom.ts` | scrollTop 보존/하단 고정 — layout shell과 **분리** |
+| 스크롤 | `lib/chat-thread-scroll/use-chat-thread-scroll.ts` | CM = 레거시와 동일 hook (`entryForceBottom`); chrome sync → layout commit |
 | 거래 도크 UI | `CommunityMessengerRoomPhase2AttachmentsAndTrade` | narrow + composerFocused → `keyboardCompact` — vv/layout 구독 **금지** |
-| 가상 리스트 | `useMessengerRoomClientPhase1` | **훅 순서** `useVirtualizer` → `useMessengerRoomReaderScrollBottom` 유지 |
+| 가상 리스트 | `useMessengerRoomClientPhase1` | virtualizer + `useChatThreadScroll` (공유 `messagesViewportRef`) |
 | 타임라인 스크롤 박스 | `CommunityMessengerRoomPhase2MessageTimeline.tsx` | `.chat-timeline-scroll`; trade dock만 `scrollPaddingBottom` |
 
 ---
@@ -105,7 +105,7 @@ Composer: `padding-bottom: calc(var(--safe-bottom) + var(--kb-offset, 0px))` **�
 ## 4. 레이어 분리
 
 - **`useCmRoomKbOffset`**: iOS `--kb-offset` only.
-- **`useMessengerRoomReaderScrollBottom`**: 타임라인 scrollTop 보존/하단 고정 (RO + window; iOS만 vv).
+- **`useChatThreadScroll`**: 타임라인 scrollTop (RO + `CM_ROOM_CHROME_HEIGHT_SYNC_EVENT`); vv는 shell만.
 - **거래 도크 compact**: `composerFocused` + narrow viewport — 별도 keyboard chrome hook 없음.
 - **`MessengerRoomPhase2ViewProvider`**: Timeline·Sheets용 — **`room` 전체 dep 금지**; `message` 타이핑은 Composer slice context만 갱신.
 
@@ -171,5 +171,6 @@ Composer: `padding-bottom: calc(var(--safe-bottom) + var(--kb-offset, 0px))` **�
 
 | 2026-07-28 | **Initial anchor SSOT** — paint-then-correct 제거: composer/fingerprint/`entry_tail_settle` 이중 scroll 금지; initial anchor room generation 1회(useLayoutEffect); unread+lastRead entry plan; after-rows rAF loop 제거; resize/vv/chrome → `notifyLayoutResize` preserve만 | `messenger-room-scroll-anchor-controller`, `messenger-room-entry-scroll-ready`, `messenger-room-entry-intent`, `messenger-timeline-layout-mode`, `docs/chat-thread-scroll-contract.md` |
 | 2026-07-28 | **Keyboard resize stale-flag fix** — `notifyLayoutResize`의 하단 근접 판정을 `state.stickToBottom` 단독 신뢰에서 resize 직전 `lastGeom` 실측 재확인으로 교체. Xiaomi 실기기에서 키보드 open 시 scrollTop 미보정(마지막 말풍선 최대 297px 가림, 3개 커밋 연속 재현)의 구조적 대응. `prependInFlight` 시 여전히 scroll 미변경(geometry만 갱신). 4개 도메인(CM 위임) 공통 적용, 엔진 1곳만 수정. **실기기 재검증 전까지 결과 미확정** — 확인되면 이 행에 실기기 결과 추가 | `lib/chat-thread-scroll/engine.ts` |
+| 2026-07-28 | **CM Telegram/Kakao scroll redesign** — CM scroll = `useChatThreadScroll` only (`entryForceBottom`); mutation kind bus; persist/unread entry jump 제거; ScrollAnchorController·dock scroll anchors·position store 삭제; shell LOCK 유지 | `use-messenger-room-client-phase1`, `messenger-room-messages-mutation`, `docs/cm-room-telegram-kakao-parity-redesign.md` |
 
 **규칙:** 이 영역을 고치면 **반드시 한 줄이라도 §7 변경 이력 테이블에 추가**한다. 되돌리기 전에 이전 행과 diff를 비교한다. 숫자만 바꿀 때는 **`lib/ui/messenger-chat-viewport-tuning.ts`** 만 수정했는지 확인한다.

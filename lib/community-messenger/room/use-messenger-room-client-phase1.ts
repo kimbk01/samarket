@@ -146,8 +146,14 @@ import { useMessengerRoomRemoteCatchup } from "@/lib/community-messenger/room/us
 import { useMessengerRoomLoadOlderMessagesFetch } from "@/lib/community-messenger/room/use-messenger-room-load-older-messages-fetch";
 import { useMessengerRoomLoadOlderMessagesIntersection } from "@/lib/community-messenger/room/use-messenger-room-load-older-messages-intersection";
 import { useMessengerRoomEagerOlderHistoryHydration } from "@/lib/community-messenger/room/use-messenger-room-eager-older-history-hydration";
-import { useMessengerRoomReaderScrollBottom } from "@/lib/community-messenger/room/use-messenger-room-reader-scroll-bottom";
 import { roomMessagesTimelineFingerprint } from "@/lib/community-messenger/room/messenger-room-timeline-paint-model";
+import { useChatThreadScroll } from "@/lib/chat-thread-scroll";
+import { CM_ROOM_CHROME_HEIGHT_SYNC_EVENT } from "@/lib/ui/cm-room-visible-viewport-contract";
+import {
+  applyRoomMessagesMutation,
+  registerMessengerRoomScrollBridge,
+} from "@/lib/community-messenger/room/messenger-room-messages-mutation";
+import { resolveChatThreadMessagesAutoScroll } from "@/lib/chat-thread-scroll/resolve-messages-auto-scroll";
 import { useMessengerRoomReaderScrollRoomLifecycle } from "@/lib/community-messenger/room/use-messenger-room-reader-scroll-room-lifecycle";
 import { useMessengerRoomVisibilityBusCatchup } from "@/lib/community-messenger/room/use-messenger-room-visibility-bus-catchup";
 import {
@@ -377,7 +383,7 @@ export function useMessengerRoomClientPhase1({
       if ((prev.messages?.length ?? 0) >= msgCount) return prev;
       return seeded;
     });
-    setRoomMessages((prev) => {
+    applyRoomMessagesMutation(setRoomMessages, "prepend", (prev) => {
       if (msgCount <= 0) return prev;
       return mergeRoomMessages(
         prev,
@@ -412,7 +418,7 @@ export function useMessengerRoomClientPhase1({
     if (!rid) return;
     const live = getMessengerRealtimeRoomMessages(rid);
     if (live.length <= 0) return;
-    setRoomMessages((prev) => {
+    applyRoomMessagesMutation(setRoomMessages, "append", (prev) => {
       if (live.length <= prev.length) return prev;
       return mergeRoomMessages(prev, live);
     });
@@ -449,7 +455,7 @@ export function useMessengerRoomClientPhase1({
     if (!snap || snap.clientShellPlaceholder) return;
     const snapMsgs = snap.messages ?? [];
     if (snapMsgs.length === 0 && !snap.room.lastMessage?.trim()) return;
-    setRoomMessages((prev) => {
+    applyRoomMessagesMutation(setRoomMessages, "prepend", (prev) => {
       if (snapMsgs.length === 0) return prev;
       if (prev.length === 0) return snapMsgs;
       return mergeRoomMessages(prev, snapMsgs);
@@ -551,7 +557,7 @@ export function useMessengerRoomClientPhase1({
       }
       const mergedMessages = getMessengerRealtimeRoomMessages(rid);
       if (mergedMessages.length > 0) {
-        setRoomMessages((prev) => mergeRoomMessages(prev, mergedMessages));
+        applyRoomMessagesMutation(setRoomMessages, "prepend", (prev) => mergeRoomMessages(prev, mergedMessages));
       }
     });
   }, [initialServerSnapshot?.room, initialServerSnapshot?.viewerUserId, roomId, setSnapshot]);
@@ -1434,7 +1440,7 @@ export function useMessengerRoomClientPhase1({
       });
       return;
     }
-    setRoomMessages((prev) => {
+    applyRoomMessagesMutation(setRoomMessages, "prepend", (prev) => {
       let next: Array<CommunityMessengerMessage & { pending?: boolean }>;
       if (prev.length === 0) {
         recordRouteEntryMetric("messenger_room_entry", "initial_messages_merge_map_index_ms", 0);
@@ -1659,43 +1665,90 @@ export function useMessengerRoomClientPhase1({
     chatVirtualizerRef.current = (timelineHeavyBundle?.chatVirtualizer ?? null) as typeof chatVirtualizerRef.current;
   }, [timelineHeavyBundle?.chatVirtualizer]);
 
-  const tradeDockScrollAnchorEnabled = useMemo(() => {
-    const room = snapshot?.room;
-    const meta = room?.contextMeta;
-    if (!room || room.roomType !== "direct" || !meta || meta.kind !== "trade") return false;
-    const pcid = typeof meta.productChatId === "string" ? meta.productChatId.trim() : "";
-    return pcid.length > 0;
-  }, [snapshot?.room]);
-
-  const storeOrderDockScrollAnchorEnabled = useMemo(() => {
-    const room = snapshot?.room;
-    const meta = room?.contextMeta;
-    if (!room || room.roomType !== "direct" || !meta || meta.kind !== "delivery") return false;
-    const orderId = typeof meta.storeOrderId === "string" ? meta.storeOrderId.trim() : "";
-    return orderId.length > 0;
-  }, [snapshot?.room]);
-
   const scrollMessengerToBottomRef = useRef<
     (req?: { reason?: string; force?: boolean }) => void
   >(() => {});
 
-  const { scrollMessengerToBottom, updateStickToBottomFromScroll } = useMessengerRoomReaderScrollBottom({
-    roomId,
-    activeSheet,
-    stickToBottomRef,
-    messagesViewportRef,
-    messageEndRef,
-    roomMessages,
-    virtualizer: chatVirtualizer,
+  const threadScrollEntryActive =
+    timelineViewportMounted &&
+    timelineInitialLoadComplete &&
+    displayRoomMessages.length > 0;
+
+  const threadScroll = useChatThreadScroll({
     messageCount: displayRoomMessages.length,
-    deferEntryScrollToDeliveryDirectTimeline: storeOrderDockScrollAnchorEnabled,
-    timelineViewportMounted,
-    timelineHeavyReady: Boolean(timelineHeavyBundle),
-    loadingOlderMessages,
-    timelineInitialLoadComplete,
-    unreadCount: snapshot?.room.unreadCount ?? 0,
-    lastReadMessageId: snapshot?.readReceipt?.lastReadMessageId ?? null,
+    messagesReady: threadScrollEntryActive,
+    entryActive: threadScrollEntryActive,
+    entryForceBottom: true,
+    prependInFlight: loadingOlderMessages,
+    layoutCommittedEventName: CM_ROOM_CHROME_HEIGHT_SYNC_EVENT,
+    viewportRef: messagesViewportRef,
+    messageRowSelector: "[data-cm-timeline-message-row]",
+    virtualizer: chatVirtualizer
+      ? {
+          scrollToIndex: chatVirtualizer.scrollToIndex?.bind(chatVirtualizer),
+          getTotalSize: chatVirtualizer.getTotalSize?.bind(chatVirtualizer),
+          scrollOffset: (chatVirtualizer as { scrollOffset?: number }).scrollOffset,
+          scrollToOffset: (chatVirtualizer as { scrollToOffset?: (o: number, opts?: { align?: string }) => void })
+            .scrollToOffset,
+        }
+      : null,
   });
+
+  useEffect(() => {
+    registerMessengerRoomScrollBridge({
+      getViewport: () => messagesViewportRef.current,
+      notifyPrependInFlight: (inFlight) => threadScroll.engine.notifyPrependInFlight(inFlight),
+      notifyPrependComplete: (input) => threadScroll.notifyPrependComplete(input),
+    });
+    return () => registerMessengerRoomScrollBridge(null);
+  }, [threadScroll]);
+
+  const scrollMessengerToBottom = useCallback(
+    (req?: { reason?: string; force?: boolean }) => {
+      if (req?.force === true || req?.reason === "own_message_append" || req?.reason === "explicit") {
+        threadScroll.scrollToBottomExplicit();
+        stickToBottomRef.current = true;
+        return;
+      }
+      if (threadScroll.engine.readStickToBottom()) {
+        threadScroll.scrollToBottomExplicit();
+        stickToBottomRef.current = true;
+      }
+    },
+    [threadScroll]
+  );
+
+  const updateStickToBottomFromScroll = useCallback(() => {
+    threadScroll.notifyUserScroll();
+    stickToBottomRef.current = threadScroll.engine.readStickToBottom();
+  }, [threadScroll]);
+
+  const prevTailMessageIdRef = useRef<string | null>(null);
+  const prevTailClientMessageIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const last = displayRoomMessages[displayRoomMessages.length - 1] as
+      | { id?: string; isMine?: boolean; clientMessageId?: string | null }
+      | undefined;
+    const decision = resolveChatThreadMessagesAutoScroll({
+      previousTailMessageId: prevTailMessageIdRef.current,
+      currentTailMessageId: last?.id ?? null,
+      currentTailIsMine: Boolean(last?.isMine),
+      previousTailClientMessageId: prevTailClientMessageIdRef.current,
+      currentTailClientMessageId: last?.clientMessageId ?? null,
+    });
+    if (decision.scroll) {
+      if (decision.reason === "own_message_append") {
+        scrollMessengerToBottom({ reason: "own_message_append", force: true });
+      } else if (threadScroll.engine.readStickToBottom()) {
+        scrollMessengerToBottom({ reason: "peer_message_near_bottom" });
+      }
+    }
+    if (last?.id) {
+      prevTailMessageIdRef.current = last.id;
+      prevTailClientMessageIdRef.current = last.clientMessageId ?? null;
+    }
+  }, [displayRoomMessages, scrollMessengerToBottom, threadScroll.engine]);
+
   scrollMessengerToBottomRef.current = scrollMessengerToBottom;
 
   useEffect(() => {
@@ -1857,11 +1910,6 @@ export function useMessengerRoomClientPhase1({
     hiddenCallStubIds,
     roomSearchQuery,
     messagesViewportRef,
-    tradeDockScrollAnchorEnabled,
-    storeOrderDockScrollAnchorEnabled,
-    messageEndRef,
-    stickToBottomRef,
-    scrollMessengerToBottomRef,
   },
   roomId,
   streamRoomId,
