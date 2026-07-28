@@ -115,34 +115,3 @@ export function cmResizeCycleReadViewport(viewport: HTMLElement | null | undefin
     maxScroll: Math.round(maxScroll),
   };
 }
-
-const ENTRY_GATE_PREFIX = "[cm-entry-gate]";
-
-/**
- * CM_ENTRY_GATE_PROBE (read-only) — initial-anchor early-return lock only.
- * Removable with CM_RESIZE_CYCLE_PROBE call sites.
- */
-export function cmEntryGateNote(
-  step: string,
-  payload: Record<string, unknown> = {}
-): void {
-  if (typeof window === "undefined") return;
-  const note = {
-    t: Date.now(),
-    step,
-    ...payload,
-  };
-  try {
-    // eslint-disable-next-line no-console -- measure-only probe
-    console.log(ENTRY_GATE_PREFIX, JSON.stringify(note));
-  } catch {
-    /* ignore */
-  }
-  try {
-    const w = window as unknown as { __cmEntryGateNotes?: Array<Record<string, unknown>> };
-    if (Array.isArray(w.__cmEntryGateNotes)) w.__cmEntryGateNotes.push(note);
-    else w.__cmEntryGateNotes = [note];
-  } catch {
-    /* ignore */
-  }
-}
