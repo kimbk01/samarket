@@ -43,6 +43,10 @@ import {
   syncMessengerRoomStickToBottomFromViewport,
 } from "@/lib/community-messenger/room/messenger-room-scroll-near-bottom";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
+import {
+  projectRoomActivityToHomeList,
+  roomActivityFromMessengerMessage,
+} from "@/lib/community-messenger/home/project-room-activity-to-home-list";
 import { applyIncomingMessageEvent } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import {
   cmReceiveLatencyKey,
@@ -267,6 +271,19 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
             ) {
               const mid = String(event.message.id ?? "").trim();
               if (mid) peerTailMarkReadHintRef.current = mid;
+            }
+            /**
+             * B body: timeline commit → hub tip projection (Home unmount-safe).
+             * Bus remains for Home React sync / Domain spine; same eventId → no-op.
+             */
+            const tipActivity = roomActivityFromMessengerMessage({
+              message: mapped,
+              source: "remote_message_realtime",
+              boostUnread: true,
+              viewerUserId: snap.viewerUserId,
+            });
+            if (tipActivity) {
+              projectRoomActivityToHomeList(tipActivity);
             }
             postCommunityMessengerBusEvent({
               type: "cm.room.incoming_message",

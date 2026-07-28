@@ -4,8 +4,11 @@ import {
 } from "@/lib/community-messenger/bootstrap-cache";
 import { applyHomeListPatch, findHomeListRoomRow } from "@/lib/community-messenger/home-list-patch";
 import { applyHomeListSummaryPatchUnread } from "@/lib/community-messenger/home/use-community-messenger-home-realtime-bootstrap-list";
-import { shouldApplyCallStubListPreviewPatch } from "@/lib/community-messenger/home/patch-bootstrap-room-list-from-realtime-message";
 import type { HomeListPatch, HomeListPatchSource } from "@/lib/community-messenger/home-list-patch";
+import {
+  projectRoomActivityToHomeList,
+  wasRoomActivityEventProjected,
+} from "@/lib/community-messenger/home/project-room-activity-to-home-list";
 import {
   buildCommunityMessengerBusEventId,
   type MessengerBusEvent,
@@ -68,18 +71,6 @@ export function noteBootstrapCacheBusWriterViewerUserId(viewerUserId: string | n
    * room→list return painted empty and memoryFresh skipped refetch.
    * Logout / explicit pull-refresh must clear the bootstrap cache themselves.
    */
-}
-
-function shouldSkipStaleSenderPreview(
-  room: ReturnType<typeof findHomeListRoomRow>,
-  previewAt: string
-): string | null {
-  if (!room) return null;
-  const incomingMs = lastEventAtMs(previewAt);
-  const cachedMs = lastEventAtMs(room.lastMessageAt);
-  if (incomingMs <= 0) return "invalid_incoming_timestamp";
-  if (cachedMs > incomingMs) return "stale_last_message_at";
-  return null;
 }
 
 function resolveBusPatch(
@@ -145,7 +136,8 @@ function previewFields(
 }
 
 /**
- * 단일 bootstrap cache writer — sessionStorage full cache 만 갱신한다 (React state 는 Home hook).
+ * 단일 bootstrap cache writer — tip kinds go through Room Activity Projection (B).
+ * merge/summary_patch keep direct applyHomeListPatch (non-tip ownership).
  */
 export function applyBootstrapCacheBusEvent(
   ev: MessengerBusEvent,
@@ -191,19 +183,98 @@ export function applyBootstrapCacheBusEvent(
   baseResult.previousLastMessageAt = before.lastMessageAt;
   baseResult.previousPreview = before.preview;
 
-  if (patch.kind === "sender_local_echo" && patch.preview?.lastMessageAt) {
-    const existing = findHomeListRoomRow(prevBootstrap, roomId);
-    const staleReason = shouldSkipStaleSenderPreview(existing, patch.preview.lastMessageAt);
-    if (staleReason) {
-      return { ...baseResult, cacheWriteSkipReason: staleReason };
+  /** Tip ownership: Room Activity Projection only (ACK / receive / call already wrote → no-op). */
+  if (patch.kind === "sender_local_echo") {
+    const preview = patch.preview;
+    if (!preview?.lastMessageAt || !preview.lastMessage) {
+      processedEventIds.add(eventId);
+      return { ...baseResult, cacheWriteSkipReason: "patch_noop" };
     }
+    const tipEventId =
+      (ev.type === "cm.room.message_sent" && (ev.messageId?.trim() || ev.clientMessageId?.trim())) ||
+      `bus_sent:${roomId}:${preview.lastMessageAt}:${preview.lastMessage}`;
+    if (
+      wasRoomActivityEventProjected(tipEventId) ||
+      (ev.type === "cm.room.message_sent" &&
+        ev.messageId?.trim() &&
+        wasRoomActivityEventProjected(ev.messageId.trim()))
+    ) {
+      processedEventIds.add(eventId);
+      return { ...baseResult, cacheWriteSkipReason: "projection_already_applied" };
+    }
+    const projected = projectRoomActivityToHomeList({
+      roomId,
+      eventId: tipEventId,
+      eventKind: "text",
+      previewText: preview.lastMessage,
+      activityAt: preview.lastMessageAt,
+      lastMessageType: preview.lastMessageType,
+      boostUnread: false,
+      source: "local_send_ack",
+      viewerUserId: me,
+    });
+    processedEventIds.add(eventId);
+    if (!projected.accepted) {
+      const skip =
+        projected.reason === "call_stub_guard"
+          ? "call_stub_preview_guard"
+          : projected.reason === "stale_activity_at"
+            ? "stale_last_message_at"
+            : projected.reason;
+      return { ...baseResult, cacheWriteSkipReason: skip };
+    }
+    const after = previewFields(projected.nextBootstrap, roomId);
+    cacheWriteCountForTests += 1;
+    const result: BootstrapCacheWriteResult = {
+      ...baseResult,
+      nextLastMessageAt: after.lastMessageAt,
+      nextPreview: after.preview,
+      cacheWriteApplied: true,
+      cacheWriteSkipReason: null,
+    };
+    logBootstrapCacheWrite(result);
+    return result;
   }
 
   if (patch.kind === "call_stub_preview") {
-    const existing = findHomeListRoomRow(prevBootstrap, roomId);
-    if (existing && !shouldApplyCallStubListPreviewPatch(existing, patch.preview)) {
-      return { ...baseResult, cacheWriteSkipReason: "call_stub_preview_guard" };
+    const tipEventId = `bus_call:${roomId}:${patch.preview.lastMessageAt}:${patch.preview.lastMessage}`;
+    if (wasRoomActivityEventProjected(tipEventId)) {
+      processedEventIds.add(eventId);
+      return { ...baseResult, cacheWriteSkipReason: "projection_already_applied" };
     }
+    const projected = projectRoomActivityToHomeList({
+      roomId,
+      eventId: tipEventId,
+      eventKind: "call",
+      previewText: patch.preview.lastMessage,
+      activityAt: patch.preview.lastMessageAt,
+      lastMessageType: "call_stub",
+      boostUnread: false,
+      source: "call_event",
+      viewerUserId: me,
+      revision: patch.preview.lastMessage,
+    });
+    processedEventIds.add(eventId);
+    if (!projected.accepted) {
+      const skip =
+        projected.reason === "call_stub_guard"
+          ? "call_stub_preview_guard"
+          : projected.reason === "stale_activity_at"
+            ? "stale_last_message_at"
+            : projected.reason;
+      return { ...baseResult, cacheWriteSkipReason: skip };
+    }
+    const after = previewFields(projected.nextBootstrap, roomId);
+    cacheWriteCountForTests += 1;
+    const result: BootstrapCacheWriteResult = {
+      ...baseResult,
+      nextLastMessageAt: after.lastMessageAt,
+      nextPreview: after.preview,
+      cacheWriteApplied: true,
+      cacheWriteSkipReason: null,
+    };
+    logBootstrapCacheWrite(result);
+    return result;
   }
 
   if (patch.kind === "merge_room_summary") {

@@ -1,5 +1,6 @@
 import { messengerMonitorRecord } from "@/lib/community-messenger/monitoring/client";
 import { endCmRoomEntryPriorityMode } from "@/lib/community-messenger/room/cm-room-entry-priority-mode";
+import { reconcileExitedRoomSummary } from "@/lib/community-messenger/home/reconcile-exited-room-summary";
 
 const STORAGE_KEY = "samarket:cm:home_return_t0.v1";
 /**
@@ -8,6 +9,7 @@ const STORAGE_KEY = "samarket:cm:home_return_t0.v1";
  * 치유용 flag·refresh 제어로 쓰지 말 것.
  */
 const COLD_BOOTSTRAP_KEY = "samarket:cm:home_return_cold.v1";
+const EXITED_ROOM_KEY = "samarket:cm:home_return_exited_room.v1";
 const TTL_MS = 20_000;
 
 type Row = { at: number };
@@ -30,16 +32,28 @@ function safeParse(raw: string | null): Row | null {
   }
 }
 
-/** 방 화면에서 홈(리스트)로 돌아가는 순간을 마킹한다. */
-export function markCommunityMessengerHomeReturn(): void {
+/** 방 화면에서 홈(리스트)로 돌아가는 순간을 마킹한다. A: room 1개 tip reconcile (no-op 우선). */
+export function markCommunityMessengerHomeReturn(opts?: {
+  roomId?: string | null;
+  viewerUserId?: string | null;
+}): void {
   if (typeof window === "undefined") return;
   /** 나가기 직후 목록 freeze/빈 placeholder 간섭 제거 */
   endCmRoomEntryPriorityMode("room_unmount");
+  const roomId = typeof opts?.roomId === "string" ? opts.roomId.trim() : "";
   try {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ at: nowMs() } satisfies Row));
     sessionStorage.setItem(COLD_BOOTSTRAP_KEY, "1");
+    if (roomId) sessionStorage.setItem(EXITED_ROOM_KEY, roomId);
+    else sessionStorage.removeItem(EXITED_ROOM_KEY);
   } catch {
     /* ignore */
+  }
+  if (roomId) {
+    reconcileExitedRoomSummary({
+      roomId,
+      viewerUserId: opts?.viewerUserId ?? null,
+    });
   }
 }
 
@@ -54,6 +68,18 @@ export function consumeCommunityMessengerHomeReturnColdBootstrap(): boolean {
     return v === "1";
   } catch {
     return false;
+  }
+}
+
+/** Optional exited room id for diagnostics / secondary reconcile. */
+export function consumeCommunityMessengerHomeReturnExitedRoomId(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const v = sessionStorage.getItem(EXITED_ROOM_KEY);
+    sessionStorage.removeItem(EXITED_ROOM_KEY);
+    return v?.trim() || null;
+  } catch {
+    return null;
   }
 }
 

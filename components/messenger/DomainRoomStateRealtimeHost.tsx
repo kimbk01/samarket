@@ -25,12 +25,15 @@ import {
   seedDomainRoomStateFromBootstrap,
 } from "@/lib/community-messenger/realtime/domain-room-state-store";
 import { peekBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
+import { findHomeListRoomRow } from "@/lib/community-messenger/home-list-patch";
 import {
   applyDomainListCanaryReadPatchByRoomId,
   applyDomainListCanaryUnreadOnlyPatchByRoomId,
-  applyDomainStoreOrderListRealtimeMessagePatch,
-  applyDomainTradeListRealtimeMessagePatch,
 } from "@/components/community-messenger/domain-shell-canary/domain-list-canary-realtime-patch";
+import {
+  projectRoomActivityToHomeList,
+  roomActivityFromMessageRow,
+} from "@/lib/community-messenger/home/project-room-activity-to-home-list";
 
 const LEGACY_CACHE_BUS_TYPES = new Set<MessengerBusEvent["type"]>([
   "cm.room.message_sent",
@@ -86,38 +89,34 @@ export function DomainRoomStateRealtimeHost() {
 
       if (ev.type === "cm.room.incoming_message") {
         if (String(ev.viewerUserId) !== me) return;
-        if (!ev.chatDomain || !ev.domainIdentityKey) return;
+        const cached = findHomeListRoomRow(peekBootstrapCache(), ev.roomId);
+        const chatDomain = ev.chatDomain ?? (cached?.chatDomain as typeof ev.chatDomain) ?? null;
+        const domainIdentityKey = ev.domainIdentityKey ?? cached?.domainIdentityKey ?? null;
+        const tip = roomActivityFromMessageRow({
+          roomId: ev.roomId,
+          messageRow: ev.messageRow,
+          source: "remote_message_realtime",
+          boostUnread: true,
+          viewerUserId: me,
+          chatDomain: chatDomain ?? undefined,
+          domainIdentityKey: domainIdentityKey ?? undefined,
+        });
+        if (tip) {
+          projectRoomActivityToHomeList(tip);
+        }
+        if (!chatDomain || !domainIdentityKey) {
+          return;
+        }
         const event = domainRoomMessageEventFromBusIncoming({
           roomId: ev.roomId,
-          chatDomain: ev.chatDomain,
-          domainIdentityKey: ev.domainIdentityKey,
+          chatDomain,
+          domainIdentityKey,
           messageRow: ev.messageRow,
           boostUnread: true,
         });
         if (event) {
-          dispatchDomainRoomEvent(event);
-          /**
-           * 2026-07-23: 거래/주문 Domain List canary(전용 리스트 화면)는 realtime 구독이 없어
-           * 마운트 중 새 메시지가 반영되지 않았다(재진입/새로고침 필요 — 확인된 갭).
-           * 여기서 같은 이벤트로 그 화면의 세션 캐시도 patch — 서버/DB는 그대로.
-           */
-          if (event.type === "message" && event.chatDomain === "trade") {
-            applyDomainTradeListRealtimeMessagePatch({
-              viewerUserId: me,
-              roomId: event.roomId,
-              previewText: event.previewText,
-              lastMessageAt: event.lastMessageAt,
-              boostUnread: event.boostUnread,
-            });
-          } else if (event.type === "message" && event.chatDomain === "store_order") {
-            applyDomainStoreOrderListRealtimeMessagePatch({
-              viewerUserId: me,
-              roomId: event.roomId,
-              previewText: event.previewText,
-              lastMessageAt: event.lastMessageAt,
-              boostUnread: event.boostUnread,
-            });
-          }
+          /** Hub tip already via projection — mirrorListCache would dual-write. Canary also via projection. */
+          dispatchDomainRoomEvent(event, { mirrorListCache: false });
         }
         return;
       }
@@ -127,34 +126,22 @@ export function DomainRoomStateRealtimeHost() {
         const identity = domainRoomReadEventFromRoom({ roomId: ev.roomId });
         if (!identity || identity.type !== "read") return;
         if (ev.listPreview) {
-          dispatchDomainRoomEvent({
-            type: "message",
-            roomId: ev.roomId,
-            chatDomain: identity.chatDomain,
-            domainIdentityKey: identity.domainIdentityKey,
-            messageId: ev.clientMessageId?.trim() || `sent:${ev.at}`,
-            previewText: ev.listPreview.lastMessage,
-            lastMessageAt: ev.listPreview.lastMessageAt,
-            lastMessageType: String(ev.listPreview.lastMessageType ?? "text"),
-            boostUnread: false,
-          });
-          if (identity.chatDomain === "trade") {
-            applyDomainTradeListRealtimeMessagePatch({
-              viewerUserId: me,
+          const tipEventId = ev.clientMessageId?.trim() || `sent:${ev.roomId}:${ev.at}`;
+          /** Tip via LEGACY applyBootstrapCacheBusEvent → projection; spine only here. */
+          dispatchDomainRoomEvent(
+            {
+              type: "message",
               roomId: ev.roomId,
+              chatDomain: identity.chatDomain,
+              domainIdentityKey: identity.domainIdentityKey,
+              messageId: tipEventId,
               previewText: ev.listPreview.lastMessage,
               lastMessageAt: ev.listPreview.lastMessageAt,
+              lastMessageType: String(ev.listPreview.lastMessageType ?? "text"),
               boostUnread: false,
-            });
-          } else if (identity.chatDomain === "store_order") {
-            applyDomainStoreOrderListRealtimeMessagePatch({
-              viewerUserId: me,
-              roomId: ev.roomId,
-              previewText: ev.listPreview.lastMessage,
-              lastMessageAt: ev.listPreview.lastMessageAt,
-              boostUnread: false,
-            });
-          }
+            },
+            { mirrorListCache: false }
+          );
         } else {
           dispatchDomainRoomEvent(identity);
         }

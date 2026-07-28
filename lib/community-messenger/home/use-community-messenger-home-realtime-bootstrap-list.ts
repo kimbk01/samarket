@@ -8,6 +8,10 @@ import { useCmDevRenderTrace, useCmStrictModeEffectProbe } from "@/lib/community
 import { scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
 import { peekBootstrapCache, primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import { applyHomeListPatch, findHomeListRoomRow } from "@/lib/community-messenger/home-list-patch";
+import {
+  projectRoomActivityToHomeList,
+  roomActivityFromMessageRow,
+} from "@/lib/community-messenger/home/project-room-activity-to-home-list";
 import { cmRtReadSyncLog } from "@/lib/community-messenger/read/cm-rt-read-sync-log";
 import { HOME_MISSING_ROOM_SUMMARY_DEBOUNCE_MS } from "@/lib/community-messenger/home/community-messenger-home-constants";
 import { communityMessengerRoomIsTrade } from "@/lib/community-messenger/messenger-room-domain";
@@ -538,21 +542,56 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
               ? hint.newRecord.sender_id.trim()
               : "";
           const isMine = Boolean(me && senderRaw && messengerUserIdsEqual(senderRaw, me));
-          const next = applyHomeListPatch(
-            cur,
-            {
-              kind: "realtime_message_insert",
-              roomId: hint.roomId,
-              messageRow: hint.newRecord,
-              boostUnreadCount: !isMine,
-            },
-            "realtime"
-          );
-          if (!next || next === cur) {
-            if (rid && !bootstrapHasRoomRow(cur, rid)) missedRooms.add(rid);
-          } else {
-            cur = next;
+          const tip = roomActivityFromMessageRow({
+            roomId: rid,
+            messageRow: hint.newRecord,
+            source: isMine ? "local_send_ack" : "remote_message_realtime",
+            boostUnread: !isMine,
+            viewerUserId: me || null,
+          });
+          const projected = tip ? projectRoomActivityToHomeList(tip) : null;
+          if (projected?.accepted && projected.nextBootstrap) {
+            cur = projected.nextBootstrap;
+            continue;
           }
+          /** Projection no-op (already applied) — still sync React row from cache tip. */
+          const cacheRow = findHomeListRoomRow(peekBootstrapCache(), rid);
+          const prevRow = findHomeListRoomRow(cur, rid);
+          if (
+            cacheRow &&
+            prevRow &&
+            (prevRow.lastMessageAt !== cacheRow.lastMessageAt || prevRow.lastMessage !== cacheRow.lastMessage)
+          ) {
+            const synced = isMine
+              ? applyHomeListPatch(
+                  cur,
+                  {
+                    kind: "sender_local_echo",
+                    roomId: rid,
+                    preview: {
+                      lastMessage: cacheRow.lastMessage,
+                      lastMessageType: cacheRow.lastMessageType,
+                      lastMessageAt: cacheRow.lastMessageAt,
+                    },
+                  },
+                  "realtime"
+                )
+              : applyHomeListPatch(
+                  cur,
+                  {
+                    kind: "realtime_message_insert",
+                    roomId: rid,
+                    messageRow: hint.newRecord,
+                    boostUnreadCount: true,
+                  },
+                  "realtime"
+                );
+            if (synced && synced !== cur) {
+              cur = synced;
+              continue;
+            }
+          }
+          if (rid && !bootstrapHasRoomRow(cur, rid)) missedRooms.add(rid);
         }
         const resolved = resolveMessengerHomeBootstrapSetData(
           "realtime-message",
@@ -937,24 +976,40 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
           messageRow: ev.messageRow,
         });
         shadowDispatch?.dispatchPatch("realtime", nextShadowGeneration(), patchFromRealtimeMessageRow(ev.roomId, ev.messageRow));
+        const tip = roomActivityFromMessageRow({
+          roomId: ev.roomId,
+          messageRow: ev.messageRow,
+          source: "remote_message_realtime",
+          boostUnread: true,
+          viewerUserId: me,
+        });
+        const projected = tip ? projectRoomActivityToHomeList(tip) : null;
         let missedIncoming = false;
         scheduleListPatch((prev) => {
-          const next = applyHomeListPatch(
-            prev,
-            {
-              kind: "realtime_message_insert",
-              roomId: ev.roomId,
-              messageRow: ev.messageRow,
-              boostUnreadCount: true,
-            },
-            "realtime"
-          );
-          if (!next || next === prev) {
-            missedIncoming = true;
-            return prev;
+          if (projected?.accepted && projected.nextBootstrap) {
+            return projected.nextBootstrap;
           }
-          primeBootstrapCache(next);
-          return next;
+          const cacheRow = findHomeListRoomRow(peekBootstrapCache(), ev.roomId);
+          const prevRow = findHomeListRoomRow(prev, ev.roomId);
+          if (
+            cacheRow &&
+            prevRow &&
+            (prevRow.lastMessageAt !== cacheRow.lastMessageAt || prevRow.lastMessage !== cacheRow.lastMessage)
+          ) {
+            const synced = applyHomeListPatch(
+              prev,
+              {
+                kind: "realtime_message_insert",
+                roomId: ev.roomId,
+                messageRow: ev.messageRow,
+                boostUnreadCount: true,
+              },
+              "realtime"
+            );
+            if (synced && synced !== prev) return synced;
+          }
+          if (!prevRow) missedIncoming = true;
+          return prev;
         }, "bus");
         if (missedIncoming) scheduleHomeMissingRoomSummaryMerge(ev.roomId);
         return;
@@ -1011,19 +1066,39 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
           latestMessageType: ev.preview.lastMessageType,
           lastMessageAt: ev.preview.lastMessageAt,
         });
+        const callEventId = `call_stub:${ev.roomId}:${ev.preview.lastMessageAt}:${ev.preview.lastMessage}`;
+        const projected = projectRoomActivityToHomeList({
+          roomId: ev.roomId,
+          eventId: callEventId,
+          eventKind: "call",
+          previewText: ev.preview.lastMessage,
+          activityAt: ev.preview.lastMessageAt,
+          lastMessageType: "call_stub",
+          boostUnread: false,
+          source: "call_event",
+          viewerUserId: me,
+          revision: ev.preview.lastMessage,
+        });
         let missedPreview = false;
         scheduleListPatch(
           (prev) => {
-            const next = applyHomeListPatch(
-              prev,
-              { kind: "call_stub_preview", roomId: ev.roomId, preview: ev.preview },
-              "multi-tab"
-            );
-            if (!next || next === prev) {
-              missedPreview = true;
-              return prev;
+            if (projected.accepted && projected.nextBootstrap) return projected.nextBootstrap;
+            const cacheRow = findHomeListRoomRow(peekBootstrapCache(), ev.roomId);
+            const prevRow = findHomeListRoomRow(prev, ev.roomId);
+            if (
+              cacheRow &&
+              prevRow &&
+              (prevRow.lastMessage !== cacheRow.lastMessage || prevRow.lastMessageAt !== cacheRow.lastMessageAt)
+            ) {
+              const synced = applyHomeListPatch(
+                prev,
+                { kind: "call_stub_preview", roomId: ev.roomId, preview: ev.preview },
+                "multi-tab"
+              );
+              if (synced && synced !== prev) return synced;
             }
-            return next;
+            if (!prevRow) missedPreview = true;
+            return prev;
           },
           "bus",
           { bypassRenderPause: true }
@@ -1106,9 +1181,31 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
         let missedEcho = false;
         scheduleListPatch(
           (prev) => {
+            /** Tip authority already ran at ACK (`projectRoomActivityToHomeList`); sync React only. */
+            const cacheRow = findHomeListRoomRow(peekBootstrapCache(), ev.roomId);
+            const prevRow = findHomeListRoomRow(prev, ev.roomId);
+            if (!cacheRow || !prevRow) {
+              missedEcho = true;
+              return prev;
+            }
+            if (
+              prevRow.lastMessage === cacheRow.lastMessage &&
+              prevRow.lastMessageAt === cacheRow.lastMessageAt &&
+              (prevRow.unreadCount ?? 0) === 0
+            ) {
+              return prev;
+            }
             const next = applyHomeListPatch(
               prev,
-              { kind: "sender_local_echo", roomId: ev.roomId, preview: ev.listPreview ?? null },
+              {
+                kind: "sender_local_echo",
+                roomId: ev.roomId,
+                preview: {
+                  lastMessage: cacheRow.lastMessage,
+                  lastMessageType: cacheRow.lastMessageType,
+                  lastMessageAt: cacheRow.lastMessageAt,
+                },
+              },
               "optimistic-read"
             );
             if (!next || next === prev) {

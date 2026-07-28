@@ -111,7 +111,7 @@ export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Prop
   const commitNavigation = useCallback(() => {
     if (committedNavRef.current) return;
     committedNavRef.current = true;
-    markCommunityMessengerHomeReturn();
+    markCommunityMessengerHomeReturn({ roomId });
     if (roomType === "open_group") {
       router.replace(SAMARKET_ROUTES.chat.messengerMeetingsHub, { scroll: false });
       return;
@@ -120,11 +120,11 @@ export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Prop
       router,
       splitPaneMode ? { ...backPlan, forceDirect: true } : backPlan
     );
-  }, [router, backPlan, roomType]);
+  }, [router, backPlan, roomType, roomId]);
 
   const requestAnimatedBack = useCallback(() => {
     if (committedNavRef.current || pendingNavRef.current) return;
-    markCommunityMessengerHomeReturn();
+    markCommunityMessengerHomeReturn({ roomId });
     /**
      * exit-active 애니 후 navigate 하면 방 아래 흰 레이어가 먼저 보임(흰 목록 형태).
      * 나가기: 방 → 목록 직행 (중간 빈 화면 금지).

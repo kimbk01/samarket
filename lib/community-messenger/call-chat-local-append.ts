@@ -134,9 +134,11 @@ export function appendLocalCallChatMessageFromTerminalSession(input: {
   });
 
   if (callStartedAt) {
+    const sessionKey = sessionKeyForDedupe(input.sessionId, input.tmpSessionId);
     postCommunityMessengerCallStubPreviewBusEvent({
       roomId,
       viewerUserId,
+      eventId: sessionKey ? `call:${sessionKey}` : undefined,
       preview: {
         lastMessage: text,
         lastMessageType: "call_stub",

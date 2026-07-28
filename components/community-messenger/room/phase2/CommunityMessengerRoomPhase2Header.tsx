@@ -244,7 +244,10 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
       return;
     }
     if (isMessengerSplit) {
-      markCommunityMessengerHomeReturn();
+      markCommunityMessengerHomeReturn({
+        roomId: vm.snapshot.room.id,
+        viewerUserId: vm.snapshot.viewerUserId,
+      });
       if (vm.snapshot.room.roomType === "open_group") {
         vm.router.replace(SAMARKET_ROUTES.chat.messengerMeetingsHub, { scroll: false });
         return;
@@ -260,7 +263,10 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
       requestAnimatedBack();
       return;
     }
-    markCommunityMessengerHomeReturn();
+    markCommunityMessengerHomeReturn({
+      roomId: vm.snapshot.room.id,
+      viewerUserId: vm.snapshot.viewerUserId,
+    });
     if (vm.snapshot.room.roomType === "open_group") {
       vm.router.replace(SAMARKET_ROUTES.chat.messengerMeetingsHub, { scroll: false });
       return;

@@ -11,6 +11,7 @@ import {
   getBootstrapCacheWriteCountForTests,
   noteBootstrapCacheBusWriterViewerUserId,
 } from "@/lib/community-messenger/home/bootstrap-cache-bus-writer";
+import { clearRoomActivityProjectionStateForTests } from "@/lib/community-messenger/home/project-room-activity-to-home-list";
 import {
   buildCommunityMessengerBusEventId,
   clearCommunityMessengerBusLocalHandlersForTests,
@@ -71,6 +72,7 @@ describe("bootstrap-cache-bus-writer", () => {
   beforeEach(() => {
     clearBootstrapCache();
     clearBootstrapCacheBusWriterStateForTests();
+    clearRoomActivityProjectionStateForTests();
     clearCommunityMessengerBusLocalHandlersForTests();
     clearLocalReadGuardsForTests();
     noteBootstrapCacheBusWriterViewerUserId("user-a");

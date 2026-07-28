@@ -9,6 +9,10 @@ import {
   listPreviewFromMessengerMessageRow,
   messengerClientMessageToInsertRow,
 } from "@/lib/community-messenger/home/patch-bootstrap-room-list-from-realtime-message";
+import {
+  projectRoomActivityToHomeList,
+  roomActivityFromMessengerMessage,
+} from "@/lib/community-messenger/home/project-room-activity-to-home-list";
 import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
 import { acceptChatDomainRealtimePayload } from "@/lib/chat-domain/realtime/domain-realtime-registry";
 import { requireChatDomain, type ChatDomain } from "@/lib/chat-domain/chat-domain";
@@ -25,6 +29,8 @@ export type MessengerBusEvent =
       type: "cm.room.message_sent";
       roomId: string;
       clientMessageId?: string;
+      /** Canonical server message id — tip projection dedupe key */
+      messageId?: string;
       at: number;
       /** 신규 클라: 발신자 즉시 목록 동기화 */
       senderUserId?: string;
@@ -185,7 +191,8 @@ function getChannel(): BroadcastChannel | null {
 }
 
 /**
- * 전송 확정 직후 — 홈 부트스트랩(다른 탭 포함) + 하단 「메신저」뱃지를 Realtime 대기 없이 맞춘다.
+ * 전송 확정 직후 — Room Activity Projection(B) → bootstrap tip, then bus for other tabs / Home React sync.
+ * Tip write authority is `projectRoomActivityToHomeList` only (bus consumers no-op on same eventId).
  */
 export function syncMessengerHomeAfterOutboundSend(args: {
   roomId: string;
@@ -195,10 +202,20 @@ export function syncMessengerHomeAfterOutboundSend(args: {
 }): void {
   const row = messengerClientMessageToInsertRow(args.message);
   const preview = listPreviewFromMessengerMessageRow(row);
+  const activity = roomActivityFromMessengerMessage({
+    message: args.message,
+    source: "local_send_ack",
+    boostUnread: false,
+    viewerUserId: args.senderUserId,
+  });
+  if (activity) {
+    projectRoomActivityToHomeList(activity);
+  }
   postCommunityMessengerBusEvent({
     type: "cm.room.message_sent",
     roomId: args.roomId,
     clientMessageId: args.clientMessageId,
+    messageId: String(args.message.id ?? "").trim() || undefined,
     at: Date.now(),
     senderUserId: args.senderUserId,
     ...(preview ? { listPreview: preview } : {}),
@@ -209,15 +226,32 @@ export function syncMessengerHomeAfterOutboundSend(args: {
   });
 }
 
-/** 통화 터미널·동일 stub preview 갱신 — Realtime UPDATE 미수신 보완 */
+/** 통화 터미널·동일 stub preview 갱신 — Projection(B) first; bus for cross-tab / Home React. */
 export function postCommunityMessengerCallStubPreviewBusEvent(args: {
   roomId: string;
   viewerUserId: string;
   preview: MessengerBusListPreview;
+  /** call session id — tip event identity (required for dedupe) */
+  eventId?: string;
 }): void {
   const roomId = args.roomId.trim();
   const viewerUserId = args.viewerUserId.trim();
   if (!roomId || !viewerUserId) return;
+  const eventId =
+    (typeof args.eventId === "string" && args.eventId.trim()) ||
+    `call_stub:${roomId}:${args.preview.lastMessageAt}:${args.preview.lastMessage}`;
+  projectRoomActivityToHomeList({
+    roomId,
+    eventId,
+    eventKind: "call",
+    previewText: args.preview.lastMessage,
+    activityAt: args.preview.lastMessageAt,
+    lastMessageType: "call_stub",
+    boostUnread: false,
+    source: "call_event",
+    viewerUserId,
+    revision: args.preview.lastMessage,
+  });
   postCommunityMessengerBusEvent({
     type: "cm.room.call_stub_preview",
     roomId,

@@ -9,11 +9,13 @@ function read(rel: string): string {
 }
 
 describe("Domain List canary realtime patch — wiring contract (2026-07-23)", () => {
-  it("DomainRoomStateRealtimeHost patches both list caches from cm.room.incoming_message", () => {
-    const src = read("components/messenger/DomainRoomStateRealtimeHost.tsx");
-    expect(src).toContain("applyDomainTradeListRealtimeMessagePatch");
-    expect(src).toContain("applyDomainStoreOrderListRealtimeMessagePatch");
-    expect(src).toContain("applyDomainListCanaryReadPatchByRoomId");
+  it("trade/SO tip canary routes through Room Activity Projection (not DomainHost direct dual-write)", () => {
+    const host = read("components/messenger/DomainRoomStateRealtimeHost.tsx");
+    const projection = read("lib/community-messenger/home/project-room-activity-to-home-list.ts");
+    expect(host).toContain("projectRoomActivityToHomeList");
+    expect(host).toContain("applyDomainListCanaryReadPatchByRoomId");
+    expect(projection).toContain("applyDomainTradeListRealtimeMessagePatch");
+    expect(projection).toContain("applyDomainStoreOrderListRealtimeMessagePatch");
   });
 
   it("DomainTradeListCanaryGate subscribes to live patches instead of staying fetch-once", () => {
