@@ -112,12 +112,9 @@ export class ChatThreadScrollEngine {
     this.captureGeom(ctx.viewport);
   }
 
-  scrollToBottomExplicit(
-    ctx: ChatThreadScrollViewportContext,
-    opts?: { behavior?: "auto" | "smooth" }
-  ): boolean {
+  scrollToBottomExplicit(ctx: ChatThreadScrollViewportContext): boolean {
     this.state.stickToBottom = true;
-    return this.applyScrollToBottom(ctx, { force: true, behavior: opts?.behavior ?? "auto" });
+    return this.applyScrollToBottom(ctx, { force: true });
   }
 
   /** append tail — near bottom 일 때만 follow */
@@ -269,33 +266,13 @@ export class ChatThreadScrollEngine {
 
   private applyScrollToBottom(
     ctx: ChatThreadScrollViewportContext,
-    opts: { force: boolean; behavior?: "auto" | "smooth" }
+    opts: { force: boolean }
   ): boolean {
     const vp = ctx.viewport;
     if (!vp) return false;
     if (!opts.force && !this.state.stickToBottom) return false;
 
     const count = ctx.messageCount;
-    const maxScroll = Math.max(0, vp.scrollHeight - vp.clientHeight);
-    const distance = Math.max(0, maxScroll - vp.scrollTop);
-    /**
-     * Smooth only for explicit jump-to-latest — cap distance so long histories
-     * do not crawl. Entry / append / keyboard keep instant pin.
-     */
-    const SMOOTH_MAX_DISTANCE_PX = 2800;
-    const useSmooth =
-      opts.behavior === "smooth" &&
-      distance > 8 &&
-      distance <= SMOOTH_MAX_DISTANCE_PX &&
-      typeof vp.scrollTo === "function";
-
-    if (useSmooth) {
-      vp.scrollTo({ top: maxScroll, behavior: "smooth" });
-      this.state.stickToBottom = true;
-      this.captureGeom(vp);
-      return vp.scrollHeight > 0 || count === 0;
-    }
-
     const virtualizer = ctx.virtualizer;
     if (count > 0 && virtualizer?.scrollToIndex) {
       try {

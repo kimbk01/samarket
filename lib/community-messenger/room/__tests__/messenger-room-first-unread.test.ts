@@ -71,20 +71,20 @@ describe("messenger-room-first-unread", () => {
     expect(formatUnreadBadgeCount(100)).toBe("99+");
   });
 
-  it("FAB: room.unreadCount badge authority (list-identical)", () => {
-    expect(resolveJumpToLatestFabState({ atLatest: true, roomUnreadCount: 0 })).toEqual({
+  it("FAB: history no unread → arrow only; at latest → hide; unread below → badge", () => {
+    expect(resolveJumpToLatestFabState({ atLatest: true, unreadBelow: 0 })).toEqual({
       visible: false,
       badgeCount: 0,
     });
-    expect(resolveJumpToLatestFabState({ atLatest: false, roomUnreadCount: 0 })).toEqual({
+    expect(resolveJumpToLatestFabState({ atLatest: false, unreadBelow: 0 })).toEqual({
       visible: true,
       badgeCount: 0,
     });
-    expect(resolveJumpToLatestFabState({ atLatest: false, roomUnreadCount: 93 })).toEqual({
+    expect(resolveJumpToLatestFabState({ atLatest: false, unreadBelow: 93 })).toEqual({
       visible: true,
       badgeCount: 93,
     });
-    expect(resolveJumpToLatestFabState({ atLatest: true, roomUnreadCount: 3 })).toEqual({
+    expect(resolveJumpToLatestFabState({ atLatest: true, unreadBelow: 3 })).toEqual({
       visible: true,
       badgeCount: 3,
     });

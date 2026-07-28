@@ -28,10 +28,6 @@ function mockViewport(input: {
       scrollTop = v;
     },
     querySelectorAll: vi.fn(() => Array.from({ length: rowCount })),
-    scrollTo: vi.fn(({ top, behavior }: { top?: number; behavior?: string }) => {
-      if (typeof top === "number") scrollTop = top;
-      void behavior;
-    }),
   } as unknown as HTMLElement;
   return el;
 }
@@ -225,25 +221,5 @@ describe("ChatThreadScrollEngine", () => {
     expect(ok).toBe(true);
     expect(engine.readStickToBottom()).toBe(true);
     expect(vp.scrollTop).toBe(900);
-  });
-
-  it("scrollToBottomExplicit smooth uses scrollTo within distance cap", () => {
-    const engine = createChatThreadScrollEngine();
-    const vp = mockViewport({ scrollHeight: 1200, scrollTop: 0, clientHeight: 400 });
-    const ctx = { viewport: vp, messageCount: 4, virtualizer: null };
-    const ok = engine.scrollToBottomExplicit(ctx, { behavior: "smooth" });
-    expect(ok).toBe(true);
-    expect(vp.scrollTo).toHaveBeenCalledWith({ top: 800, behavior: "smooth" });
-    expect(engine.readStickToBottom()).toBe(true);
-  });
-
-  it("scrollToBottomExplicit smooth falls back to instant when distance too large", () => {
-    const engine = createChatThreadScrollEngine();
-    const vp = mockViewport({ scrollHeight: 8000, scrollTop: 0, clientHeight: 400 });
-    const ctx = { viewport: vp, messageCount: 4, virtualizer: null };
-    const ok = engine.scrollToBottomExplicit(ctx, { behavior: "smooth" });
-    expect(ok).toBe(true);
-    expect(vp.scrollTo).not.toHaveBeenCalled();
-    expect(vp.scrollTop).toBe(8000);
   });
 });

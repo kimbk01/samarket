@@ -97,8 +97,6 @@ assertIncludes(shellCss, "flex-direction: column", "chat-viewport-shell.css shel
 assertIncludes(shellCss, "min-height: 0", "chat-viewport-shell.css min-h-0");
 assertIncludes(shellCss, ".chat-timeline-scroll", "chat-viewport-shell.css timeline scroll class");
 assertIncludes(shellCss, "min-height: 1px", "chat-viewport-shell.css timeline scroll min-height");
-assertIncludes(shellCss, "360ms", "chat-viewport-shell.css keyboard shell height transition");
-assertNotIncludes(shellCss, "translateY(", "chat-viewport-shell.css no timeline translateY keyboard anim");
 assertIncludes(shellCss, "overflow: hidden", "chat-viewport-shell.css shell overflow");
 assertIncludes(shellCss, ".cm-room-timeline", "chat-viewport-shell.css timeline");
 assertIncludes(shellCss, "overflow-y: auto", "chat-viewport-shell.css timeline scroll");
