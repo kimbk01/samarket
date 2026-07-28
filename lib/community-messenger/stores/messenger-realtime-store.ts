@@ -11,6 +11,10 @@ import type {
   CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
 import { listPreviewFromMessengerMessageRow } from "@/lib/community-messenger/home/patch-bootstrap-room-list-from-realtime-message";
+import {
+  projectRoomActivityToHomeList,
+  roomActivityFromMessengerMessage,
+} from "@/lib/community-messenger/home/project-room-activity-to-home-list";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import { useMessengerRoomReaderStateStore } from "@/lib/community-messenger/notifications/messenger-room-reader-state-store";
 import {
@@ -326,6 +330,10 @@ export const useMessengerRealtimeStore = create<MessengerRealtimeState>((set, ge
     const t0 = cmReceiveLatencyNow();
     const viewerFromInput = input.viewerUserId?.trim() || null;
     let wroteMessages = false;
+    let projectedMessage: CommunityMessengerMessage | null = null;
+    let projectedIsMine = false;
+    let projectedSameRoomReadable = false;
+    let projectedViewer: string | null = null;
     set((state) => {
       const tApply0 = cmReceiveLatencyNow();
       const viewer = viewerFromInput || state.viewerUserId;
@@ -368,6 +376,10 @@ export const useMessengerRealtimeStore = create<MessengerRealtimeState>((set, ge
       let messagesByRoomId = state.messagesByRoomId;
       if (fallbackMessage != null) {
         wroteMessages = true;
+        projectedMessage = fallbackMessage;
+        projectedIsMine = isMine;
+        projectedSameRoomReadable = sameRoomReadable;
+        projectedViewer = viewer;
         messagesByRoomId = {
           ...messagesByRoomId,
           [rid]: mergeMessages(messagesByRoomId[rid] ?? [], fallbackMessage),
@@ -421,6 +433,19 @@ export const useMessengerRealtimeStore = create<MessengerRealtimeState>((set, ge
         activeRoomId: state.activeRoomId,
       };
     });
+    /**
+     * B body SSOT: timeline canonical commit → hub tip projection.
+     * Home React may also project the same eventId → no-op. Store itself still does not mutate chats[].
+     */
+    if (wroteMessages && projectedMessage) {
+      const tip = roomActivityFromMessengerMessage({
+        message: projectedMessage,
+        source: projectedIsMine ? "local_send_ack" : "remote_message_realtime",
+        boostUnread: !projectedIsMine && !projectedSameRoomReadable,
+        viewerUserId: projectedViewer,
+      });
+      if (tip) projectRoomActivityToHomeList(tip);
+    }
     cmRtStoreScopeLog({
       eventType: "applyIncomingMessageEvent",
       wroteActiveMessages: wroteMessages,

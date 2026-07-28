@@ -43,10 +43,6 @@ import {
   syncMessengerRoomStickToBottomFromViewport,
 } from "@/lib/community-messenger/room/messenger-room-scroll-near-bottom";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
-import {
-  projectRoomActivityToHomeList,
-  roomActivityFromMessengerMessage,
-} from "@/lib/community-messenger/home/project-room-activity-to-home-list";
 import { applyIncomingMessageEvent } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import {
   cmReceiveLatencyKey,
@@ -274,19 +270,9 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
               if (mid) peerTailMarkReadHintRef.current = mid;
             }
             /**
-             * B body: timeline commit → hub tip projection (Home unmount-safe).
-             * Own INSERT also projects — covers ACK-miss / non-composer send; same eventId → no-op after ACK.
-             * Bus remains for Home React sync / Domain spine (peer only).
+             * Tip projection SSOT: `applyIncomingMessageEvent` (above) → projectRoomActivityToHomeList.
+             * Peer bus remains for Domain spine / Home React sync.
              */
-            const tipActivity = roomActivityFromMessengerMessage({
-              message: mapped,
-              source: isOwnInsert ? "local_send_ack" : "remote_message_realtime",
-              boostUnread: !isOwnInsert,
-              viewerUserId: snap.viewerUserId,
-            });
-            if (tipActivity) {
-              projectRoomActivityToHomeList(tipActivity);
-            }
             if (!isOwnInsert) {
               postCommunityMessengerBusEvent({
                 type: "cm.room.incoming_message",

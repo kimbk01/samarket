@@ -20,11 +20,16 @@ describe("room activity projection wiring contract", () => {
     expect(src).toContain("syncMessengerHomeAfterOutboundSend");
   });
 
-  it("room ingest projects peer INSERT before bus", () => {
+  it("room ingest defers tip projection to applyIncomingMessageEvent SSOT", () => {
     const src = read("lib/community-messenger/room/use-messenger-room-realtime-message-ingest.ts");
+    expect(src).toContain("applyIncomingMessageEvent");
+    expect(src).toContain("cm.room.incoming_message");
+  });
+
+  it("applyIncomingMessageEvent projects hub tip after timeline commit", () => {
+    const src = read("lib/community-messenger/stores/messenger-realtime-store.ts");
     expect(src).toContain("projectRoomActivityToHomeList");
     expect(src).toContain("roomActivityFromMessengerMessage");
-    expect(src).toContain("remote_message_realtime");
   });
 
   it("call stub posts projection before bus", () => {
