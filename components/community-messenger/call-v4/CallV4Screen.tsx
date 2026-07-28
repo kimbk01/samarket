@@ -28,6 +28,7 @@ import {
 } from "@/lib/community-messenger/call-v4/call-v4-route";
 import { syncCallV4OutgoingRingback } from "@/lib/community-messenger/call-v4/call-v4-outgoing-ringback-sync";
 import { stopOutgoingRingback } from "@/lib/community-messenger/call-outgoing-ringback-controller";
+import { invalidateWebOutgoingRingbackOwnership } from "@/lib/community-messenger/call-outgoing-ringback-ownership";
 import { useCallV4VideoPresenter } from "@/lib/community-messenger/call-v4/call-v4-video-presenter";
 import { buildCallV4ScreenViewModel } from "@/lib/community-messenger/call-v4/call-v4-view-model";
 import { readCallV4Identity, readCallV4Phase, useCallV4Store } from "@/lib/community-messenger/call-v4/call-v4-store";
@@ -311,6 +312,7 @@ export function CallV4Screen({ callId }: CallV4ScreenProps) {
       outgoingPresentation: isCallV4OutgoingPresentationSource(source),
     });
     return () => {
+      invalidateWebOutgoingRingbackOwnership(callId);
       stopOutgoingRingback(callId, "call_v4_screen_unmount");
     };
   }, [callId, identity, phase, source]);

@@ -13,10 +13,12 @@ import {
   CALL_V4_OUTGOING_RINGBACK_SOURCE,
   syncCallV4OutgoingRingback,
 } from "@/lib/community-messenger/call-v4/call-v4-outgoing-ringback-sync";
+import { resetWebOutgoingRingbackOwnershipForTests } from "@/lib/community-messenger/call-outgoing-ringback-ownership";
 
 describe("call-v4-outgoing-ringback-sync", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetWebOutgoingRingbackOwnershipForTests();
   });
 
   it("starts ringback once for outgoing_ringing + outgoing + outgoing presentation", () => {
@@ -75,18 +77,26 @@ describe("call-v4-outgoing-ringback-sync", () => {
     });
   });
 
-  it.each(["connected", "ended", "missed", "joining", "accepting", "ending", "cancelled", "rejected", "failed", "idle"] as const)(
-    "stops ringback on phase %s",
-    (phase) => {
-      syncCallV4OutgoingRingback({
-        callId: "call-a",
-        phase,
-        direction: "outgoing",
-        mediaType: "audio",
-        outgoingPresentation: true,
-      });
-      expect(startOutgoingRingback).not.toHaveBeenCalled();
-      expect(stopOutgoingRingback).toHaveBeenCalledWith("call-a", `call_v4_phase_${phase}`);
-    }
-  );
+  it.each([
+    "connected",
+    "ended",
+    "missed",
+    "joining",
+    "accepting",
+    "ending",
+    "cancelled",
+    "rejected",
+    "failed",
+    "idle",
+  ] as const)("stops ringback on phase %s", (phase) => {
+    syncCallV4OutgoingRingback({
+      callId: "call-a",
+      phase,
+      direction: "outgoing",
+      mediaType: "audio",
+      outgoingPresentation: true,
+    });
+    expect(startOutgoingRingback).not.toHaveBeenCalled();
+    expect(stopOutgoingRingback).toHaveBeenCalledWith("call-a", `call_v4_phase_${phase}`);
+  });
 });

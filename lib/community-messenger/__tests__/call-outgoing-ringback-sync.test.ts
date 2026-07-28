@@ -14,6 +14,7 @@ import {
   stopOutgoingRingbackForSessionId,
   syncOutgoingRingbackFromCallSession,
 } from "@/lib/community-messenger/call-outgoing-ringback-sync";
+import { resetWebOutgoingRingbackOwnershipForTests } from "@/lib/community-messenger/call-outgoing-ringback-ownership";
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 
 function ringingOutgoingSession(id = "session-a"): CommunityMessengerCallSession {
@@ -39,6 +40,7 @@ function ringingOutgoingSession(id = "session-a"): CommunityMessengerCallSession
 describe("call-outgoing-ringback-sync", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetWebOutgoingRingbackOwnershipForTests();
   });
 
   it("starts ringback for outgoing ringing before join", () => {

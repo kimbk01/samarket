@@ -10,7 +10,10 @@ import {
   stopOutgoingRingback,
   stopAllOutgoingRingback,
 } from "@/lib/community-messenger/call-outgoing-ringback-controller";
-import { shouldSkipWebOutgoingRingbackSync } from "@/lib/community-messenger/call-outgoing-ringback-ownership";
+import {
+  invalidateWebOutgoingRingbackOwnership,
+  startWebOutgoingRingbackIfAllowed,
+} from "@/lib/community-messenger/call-outgoing-ringback-ownership";
 import {
   isCallEngineTerminalConsumed,
   isCallEngineRingbackOwner,
@@ -88,17 +91,31 @@ export function startCallEngineOutgoingRingback(args: {
   const sid = args.callId.trim();
   if (!sid || isCallEngineTerminalConsumed(sid)) return false;
   const kind = args.kind === "video" ? "video" : "voice";
-  if (shouldSkipWebOutgoingRingbackSync(kind)) return false;
-  if (!tryLockCallEngineRingbackOwnerOnce(sid)) return false;
-  startOutgoingRingback({ callId: sid, kind: args.kind, source: args.source });
-  return true;
+  // Ownership before lock/start — native skip must not hold Web ringback lock.
+  // Signaling already progressed; only Web tone waits on iOS Async.
+  const gate = startWebOutgoingRingbackIfAllowed({
+    kind,
+    callId: sid,
+    isStillValid: () =>
+      !isCallEngineTerminalConsumed(sid) && getCallEngineState(sid) === "outgoing_ringing",
+    start: () => {
+      if (!tryLockCallEngineRingbackOwnerOnce(sid)) return;
+      if (isCallEngineTerminalConsumed(sid) || getCallEngineState(sid) !== "outgoing_ringing") {
+        return;
+      }
+      startOutgoingRingback({ callId: sid, kind: args.kind, source: args.source });
+    },
+  });
+  return gate === "started" || gate === "pending";
 }
 
 export function stopCallEngineOutgoingRingback(callId: string | null | undefined, reason: string): void {
   const sid = callId?.trim() ?? "";
   if (sid) {
+    invalidateWebOutgoingRingbackOwnership(sid);
     stopOutgoingRingback(sid, reason);
     return;
   }
+  invalidateWebOutgoingRingbackOwnership();
   stopAllOutgoingRingback(reason);
 }

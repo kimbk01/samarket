@@ -34,7 +34,10 @@ import {
   startOutgoingRingback,
   stopOutgoingRingback,
 } from "@/lib/community-messenger/call-outgoing-ringback-controller";
-import { shouldSkipWebOutgoingRingbackSync } from "@/lib/community-messenger/call-outgoing-ringback-ownership";
+import {
+  invalidateWebOutgoingRingbackOwnership,
+  startWebOutgoingRingbackIfAllowed,
+} from "@/lib/community-messenger/call-outgoing-ringback-ownership";
 import { stopIncomingCallRing, syncIncomingCallRing } from "@/lib/community-messenger/incoming-call/ring-owner";
 import { primeOutgoingCallMediaBeforeNavigate } from "@/lib/community-messenger/call-media-bootstrap";
 import { ensureCallMediaForUserGesture } from "@/lib/community-messenger/call-media-permission-preflight";
@@ -2343,15 +2346,23 @@ export function useMessengerRoomPhase2Controller() {
       };
     }
     const kind = callPanel.kind === "video" ? "video" : "voice";
-    if (shouldSkipWebOutgoingRingbackSync(kind)) {
-      return;
-    }
-    startOutgoingRingback({
+    let cancelled = false;
+    startWebOutgoingRingbackIfAllowed({
+      kind,
       callId: sid,
-      kind: callPanel.kind,
-      source: "phase2_group_dialing",
+      isStillValid: () => !cancelled,
+      start: () => {
+        if (cancelled) return;
+        startOutgoingRingback({
+          callId: sid,
+          kind: callPanel.kind,
+          source: "phase2_group_dialing",
+        });
+      },
     });
     return () => {
+      cancelled = true;
+      invalidateWebOutgoingRingbackOwnership(sid);
       stopOutgoingRingback(sid, "phase2_panel_cleanup");
     };
   }, [isGroupRoom, callPanel?.sessionId, callPanel?.mode, callPanel?.kind]);
