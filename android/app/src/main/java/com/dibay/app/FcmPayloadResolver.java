@@ -76,6 +76,8 @@ public final class FcmPayloadResolver {
             data.get("event_key"));
     String ringtoneUrl = firstNonEmpty(data.get("ringtoneUrl"), data.get("ringtone_url"));
     String soundAssetId = firstNonEmpty(data.get("soundAssetId"), data.get("sound_asset_id"));
+    String ringtonePolicy =
+        firstNonEmpty(data.get("ringtonePolicy"), data.get("ringtone_policy"));
     String invalid = null;
     if (callId == null) invalid = "missing_call_id";
     else if (roomId == null) invalid = "missing_room_id";
@@ -97,6 +99,7 @@ public final class FcmPayloadResolver {
         callSoundEventKey,
         ringtoneUrl,
         soundAssetId,
+        ringtonePolicy,
         null);
   }
 
@@ -238,6 +241,8 @@ final class IncomingCallPayload {
   final String callSoundEventKey;
   final String ringtoneUrl;
   final String soundAssetId;
+  /** SSOT: custom | default | silent — never treat URL-null alone as silent. */
+  final String ringtonePolicy;
   final String invalidReason;
 
   IncomingCallPayload(
@@ -264,6 +269,7 @@ final class IncomingCallPayload {
         null,
         null,
         null,
+        null,
         invalidReason);
   }
 
@@ -281,6 +287,38 @@ final class IncomingCallPayload {
       String ringtoneUrl,
       String soundAssetId,
       String invalidReason) {
+    this(
+        callId,
+        roomId,
+        callerId,
+        callerName,
+        callerAvatarUrl,
+        callType,
+        expiresAt,
+        title,
+        body,
+        callSoundEventKey,
+        ringtoneUrl,
+        soundAssetId,
+        null,
+        invalidReason);
+  }
+
+  IncomingCallPayload(
+      String callId,
+      String roomId,
+      String callerId,
+      String callerName,
+      String callerAvatarUrl,
+      String callType,
+      String expiresAt,
+      String title,
+      String body,
+      String callSoundEventKey,
+      String ringtoneUrl,
+      String soundAssetId,
+      String ringtonePolicy,
+      String invalidReason) {
     this.callId = callId;
     this.roomId = roomId;
     this.callerId = callerId;
@@ -293,6 +331,7 @@ final class IncomingCallPayload {
     this.callSoundEventKey = callSoundEventKey;
     this.ringtoneUrl = ringtoneUrl;
     this.soundAssetId = soundAssetId;
+    this.ringtonePolicy = ringtonePolicy;
     this.invalidReason = invalidReason;
   }
 
@@ -318,6 +357,7 @@ final class IncomingCallPayload {
         callSoundEventKey,
         ringtoneUrl,
         soundAssetId,
+        ringtonePolicy,
         invalidReason);
   }
 }

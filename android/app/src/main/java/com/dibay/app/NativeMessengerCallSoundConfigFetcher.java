@@ -11,19 +11,51 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import org.json.JSONObject;
 
-/** Native read-only caller for Admin call sound settings. Outgoing ringback only. */
+/**
+ * Native read-only caller for Admin call sound settings (SSOT-derived config).
+ * Outgoing ringback — consumes enabled + mode + URL per media type.
+ */
 public final class NativeMessengerCallSoundConfigFetcher {
   public interface Callback {
     void onDone(Config config);
   }
 
+  public static final class TonePolicy {
+    public final boolean enabled;
+    public final String mode;
+    public final String url;
+    public final String eventKey;
+
+    TonePolicy(boolean enabled, String mode, String url, String eventKey) {
+      this.enabled = enabled;
+      this.mode = mode != null ? mode : IncomingCallRingtoneSsotCache.POLICY_DEFAULT;
+      this.url = url;
+      this.eventKey = eventKey;
+    }
+
+    static TonePolicy silent(String eventKey) {
+      return new TonePolicy(false, IncomingCallRingtoneSsotCache.POLICY_SILENT, null, eventKey);
+    }
+  }
+
   public static final class Config {
     public final String voiceOutgoingRingbackUrl;
     public final String videoOutgoingRingbackUrl;
+    public final TonePolicy voiceOutgoing;
+    public final TonePolicy videoOutgoing;
+    public final String updatedAt;
 
-    Config(String voiceOutgoingRingbackUrl, String videoOutgoingRingbackUrl) {
+    Config(
+        String voiceOutgoingRingbackUrl,
+        String videoOutgoingRingbackUrl,
+        TonePolicy voiceOutgoing,
+        TonePolicy videoOutgoing,
+        String updatedAt) {
       this.voiceOutgoingRingbackUrl = voiceOutgoingRingbackUrl;
       this.videoOutgoingRingbackUrl = videoOutgoingRingbackUrl;
+      this.voiceOutgoing = voiceOutgoing;
+      this.videoOutgoing = videoOutgoing;
+      this.updatedAt = updatedAt;
     }
   }
 
@@ -43,7 +75,18 @@ public final class NativeMessengerCallSoundConfigFetcher {
     String sid = normalize(callId);
     Config cached = cachedConfig;
     if (cached != null && System.currentTimeMillis() - cachedAtMs < CACHE_MS) {
-      Log.i(TAG, "[DIBAY_CALL] native_outgoing_ringback_config_fetch_ok callId=" + safe(sid) + " source=cache hasVoiceUrl=" + has(cached.voiceOutgoingRingbackUrl) + " hasVideoUrl=" + has(cached.videoOutgoingRingbackUrl));
+      Log.i(
+          TAG,
+          "[DIBAY_CALL] native_outgoing_ringback_config_fetch_ok callId="
+              + safe(sid)
+              + " source=cache hasVoiceUrl="
+              + has(cached.voiceOutgoingRingbackUrl)
+              + " hasVideoUrl="
+              + has(cached.videoOutgoingRingbackUrl)
+              + " voiceMode="
+              + safe(cached.voiceOutgoing != null ? cached.voiceOutgoing.mode : null)
+              + " videoMode="
+              + safe(cached.videoOutgoing != null ? cached.videoOutgoing.mode : null));
       finish(callback, cached);
       return;
     }
@@ -70,13 +113,43 @@ public final class NativeMessengerCallSoundConfigFetcher {
                   finish(callback, null);
                   return;
                 }
+                TonePolicy voice =
+                    parseTonePolicy(
+                        config,
+                        "voice_outgoing",
+                        "call_outgoing_voice",
+                        "voice_outgoing_ringback_enabled",
+                        "voice_outgoing_ringback_url",
+                        "voice_outgoing_mode");
+                TonePolicy video =
+                    parseTonePolicy(
+                        config,
+                        "video_outgoing",
+                        "call_outgoing_video",
+                        "video_outgoing_ringback_enabled",
+                        "video_outgoing_ringback_url",
+                        "video_outgoing_mode");
                 Config next =
                     new Config(
-                        normalize(config.optString("voice_outgoing_ringback_url", "")),
-                        normalize(config.optString("video_outgoing_ringback_url", "")));
+                        voice.url,
+                        video.url,
+                        voice,
+                        video,
+                        normalize(config.optString("updated_at", "")));
                 cachedConfig = next;
                 cachedAtMs = System.currentTimeMillis();
-                Log.i(TAG, "[DIBAY_CALL] native_outgoing_ringback_config_fetch_ok callId=" + safe(sid) + " source=network hasVoiceUrl=" + has(next.voiceOutgoingRingbackUrl) + " hasVideoUrl=" + has(next.videoOutgoingRingbackUrl));
+                Log.i(
+                    TAG,
+                    "[DIBAY_CALL] native_outgoing_ringback_config_fetch_ok callId="
+                        + safe(sid)
+                        + " source=network hasVoiceUrl="
+                        + has(next.voiceOutgoingRingbackUrl)
+                        + " hasVideoUrl="
+                        + has(next.videoOutgoingRingbackUrl)
+                        + " voiceMode="
+                        + safe(voice.mode)
+                        + " videoMode="
+                        + safe(video.mode));
                 finish(callback, next);
               } catch (Exception error) {
                 logFail(sid, error.getClass().getSimpleName());
@@ -86,6 +159,42 @@ public final class NativeMessengerCallSoundConfigFetcher {
               }
             })
         .start();
+  }
+
+  private static TonePolicy parseTonePolicy(
+      JSONObject config,
+      String policyPrefix,
+      String eventKey,
+      String enabledKey,
+      String urlKey,
+      String modeKey) {
+    JSONObject policies = config.optJSONObject("policies");
+    if (policies != null) {
+      JSONObject p = policies.optJSONObject(eventKey);
+      if (p != null) {
+        boolean enabled = p.optBoolean("enabled", true);
+        String mode = normalize(p.optString("mode", p.optString("ringtone_policy", "")));
+        String url = normalize(p.optString("url", ""));
+        if (!enabled || IncomingCallRingtoneSsotCache.POLICY_SILENT.equals(mode)) {
+          return TonePolicy.silent(eventKey);
+        }
+        if (IncomingCallRingtoneSsotCache.POLICY_CUSTOM.equals(mode) && url != null) {
+          return new TonePolicy(true, IncomingCallRingtoneSsotCache.POLICY_CUSTOM, url, eventKey);
+        }
+        return new TonePolicy(true, IncomingCallRingtoneSsotCache.POLICY_DEFAULT, url, eventKey);
+      }
+    }
+
+    boolean enabled = config.optBoolean(enabledKey, true);
+    String url = normalize(config.optString(urlKey, ""));
+    String mode = normalize(config.optString(modeKey, ""));
+    if (!enabled || IncomingCallRingtoneSsotCache.POLICY_SILENT.equals(mode)) {
+      return TonePolicy.silent(eventKey);
+    }
+    if (url != null) {
+      return new TonePolicy(true, IncomingCallRingtoneSsotCache.POLICY_CUSTOM, url, eventKey);
+    }
+    return new TonePolicy(true, IncomingCallRingtoneSsotCache.POLICY_DEFAULT, null, eventKey);
   }
 
   private static HttpURLConnection open(String origin, URL url) throws Exception {
@@ -119,7 +228,12 @@ public final class NativeMessengerCallSoundConfigFetcher {
   }
 
   private static void logFail(String callId, String reason) {
-    Log.w(TAG, "[DIBAY_CALL] native_outgoing_ringback_config_fetch_fail callId=" + safe(callId) + " reason=" + safe(reason));
+    Log.w(
+        TAG,
+        "[DIBAY_CALL] native_outgoing_ringback_config_fetch_fail callId="
+            + safe(callId)
+            + " reason="
+            + safe(reason));
   }
 
   private static void finish(Callback callback, Config config) {

@@ -5,18 +5,27 @@ import android.media.AudioAttributes;
 import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
+import android.media.ToneGenerator;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 
 /** Single owner for native outgoing ringback. Never owns incoming ringtone. */
 public final class NativeOutgoingRingbackOwner {
   private static final String TAG = "DIBAY_CALL";
   private static final Object LOCK = new Object();
+  /** Matches WebAudio outgoing cadence (~2s on / 4s cycle) — not OS ringtone. */
+  private static final int DEFAULT_TONE_ON_MS = 2000;
+  private static final int DEFAULT_TONE_CYCLE_MS = 4000;
 
   private static String activeCallId;
   private static String activeMediaType;
   private static MediaPlayer activePlayer;
+  private static ToneGenerator activeTone;
+  private static Handler toneHandler;
+  private static Runnable tonePulse;
   private static int generation;
   private static Context ringbackAppContext;
   private static boolean communicationRoutePinned;
@@ -45,14 +54,27 @@ public final class NativeOutgoingRingbackOwner {
         app,
         sid,
         config -> {
-          String url = selectUrl(config, media);
-          if (url == null) {
-            if (isStillActive(sid, gen)) {
-              Log.i(TAG, "[DIBAY_CALL] native_outgoing_ringback_config_fetch_fail callId=" + sid + " reason=no_outgoing_url mediaType=" + media);
-            }
+          if (!isStillActive(sid, gen)) return;
+          NativeMessengerCallSoundConfigFetcher.TonePolicy policy = selectPolicy(config, media);
+          if (policy == null || !policy.enabled
+              || IncomingCallRingtoneSsotCache.POLICY_SILENT.equals(policy.mode)) {
+            Log.i(
+                TAG,
+                "[DIBAY_CALL] native_outgoing_ringback_silent callId="
+                    + sid
+                    + " mediaType="
+                    + media
+                    + " reason=admin_disabled");
             return;
           }
-          startPlayer(app, sid, media, url, gen);
+          if (IncomingCallRingtoneSsotCache.POLICY_CUSTOM.equals(policy.mode)
+              && policy.url != null
+              && !policy.url.trim().isEmpty()) {
+            startPlayer(app, sid, media, policy.url.trim(), gen);
+            return;
+          }
+          // default — synthetic dial cadence (WebAudio parity); never OS TYPE_RINGTONE
+          startDefaultSyntheticRingback(app, sid, media, gen);
         });
   }
 
@@ -60,10 +82,67 @@ public final class NativeOutgoingRingbackOwner {
     String sid = callId != null ? callId.trim() : "";
     synchronized (LOCK) {
       if (!sid.isEmpty() && activeCallId != null && !sid.equals(activeCallId)) return;
-      if (activeCallId == null && activePlayer == null) return;
+      if (activeCallId == null && activePlayer == null && activeTone == null) return;
       String stoppedId = activeCallId != null ? activeCallId : sid;
       releaseLocked(reason);
       Log.i(TAG, "[DIBAY_CALL] native_outgoing_ringback_stop callId=" + safe(stoppedId) + " reason=" + safe(reason));
+    }
+  }
+
+  private static void startDefaultSyntheticRingback(
+      Context app, String callId, String mediaType, int gen) {
+    if (!isStillActive(callId, gen)) return;
+    try {
+      int stream = AudioManager.STREAM_VOICE_CALL;
+      ToneGenerator tone = new ToneGenerator(stream, 60);
+      Handler handler = new Handler(Looper.getMainLooper());
+      final int toneType =
+          "video".equals(mediaType) ? ToneGenerator.TONE_SUP_RINGTONE : ToneGenerator.TONE_SUP_DIAL;
+      Runnable pulse =
+          new Runnable() {
+            @Override
+            public void run() {
+              if (!isStillActive(callId, gen)) return;
+              try {
+                tone.startTone(toneType, DEFAULT_TONE_ON_MS);
+              } catch (Exception error) {
+                Log.w(
+                    TAG,
+                    "[DIBAY_CALL] native_outgoing_ringback_config_fetch_fail callId="
+                        + callId
+                        + " reason=default_tone_failed mediaType="
+                        + mediaType);
+                stop(callId, "default_tone_failed");
+                return;
+              }
+              handler.postDelayed(this, DEFAULT_TONE_CYCLE_MS);
+            }
+          };
+      synchronized (LOCK) {
+        if (!isStillActiveLocked(callId, gen)) {
+          tone.release();
+          return;
+        }
+        releaseToneLocked();
+        activeTone = tone;
+        toneHandler = handler;
+        tonePulse = pulse;
+      }
+      Log.i(
+          TAG,
+          "[DIBAY_CALL] native_outgoing_ringback_start callId="
+              + callId
+              + " mediaType="
+              + mediaType
+              + " source=default_synthetic deduped=false");
+      handler.post(pulse);
+    } catch (Exception error) {
+      Log.w(
+          TAG,
+          "[DIBAY_CALL] native_outgoing_ringback_config_fetch_fail callId="
+              + callId
+              + " reason=DEFAULT_RINGBACK_ASSET_BLOCKED mediaType="
+              + mediaType);
     }
   }
 
@@ -96,16 +175,24 @@ public final class NativeOutgoingRingbackOwner {
             try {
               pinRingbackBeforeStart(app, prepared, callId);
               prepared.start();
-              Log.i(TAG, "[DIBAY_CALL] native_outgoing_ringback_start callId=" + callId + " mediaType=" + mediaType + " deduped=false");
+              Log.i(
+                  TAG,
+                  "[DIBAY_CALL] native_outgoing_ringback_start callId="
+                      + callId
+                      + " mediaType="
+                      + mediaType
+                      + " source=custom_url deduped=false");
             } catch (Exception error) {
               Log.w(TAG, "[DIBAY_CALL] native_outgoing_ringback_config_fetch_fail callId=" + callId + " reason=start_failed mediaType=" + mediaType);
-              stop(callId, "start_failed");
+              // custom load fail → default synthetic
+              startDefaultSyntheticRingback(app, callId, mediaType, gen);
             }
           });
       player.setOnErrorListener(
           (mp, what, extra) -> {
             Log.w(TAG, "[DIBAY_CALL] native_outgoing_ringback_config_fetch_fail callId=" + callId + " reason=player_error mediaType=" + mediaType);
-            stop(callId, "player_error");
+            releasePrepared(mp);
+            startDefaultSyntheticRingback(app, callId, mediaType, gen);
             return true;
           });
       synchronized (LOCK) {
@@ -263,14 +350,23 @@ public final class NativeOutgoingRingbackOwner {
         .build();
   }
 
+  private static NativeMessengerCallSoundConfigFetcher.TonePolicy selectPolicy(
+      NativeMessengerCallSoundConfigFetcher.Config config, String mediaType) {
+    if (config == null) {
+      return new NativeMessengerCallSoundConfigFetcher.TonePolicy(
+          true,
+          IncomingCallRingtoneSsotCache.POLICY_DEFAULT,
+          null,
+          "video".equals(mediaType) ? "call_outgoing_video" : "call_outgoing_voice");
+    }
+    return "video".equals(mediaType) ? config.videoOutgoing : config.voiceOutgoing;
+  }
+
   private static String selectUrl(
       NativeMessengerCallSoundConfigFetcher.Config config, String mediaType) {
-    if (config == null) return null;
-    String url =
-        "video".equals(mediaType)
-            ? config.videoOutgoingRingbackUrl
-            : config.voiceOutgoingRingbackUrl;
-    return url != null && !url.trim().isEmpty() ? url.trim() : null;
+    NativeMessengerCallSoundConfigFetcher.TonePolicy policy = selectPolicy(config, mediaType);
+    if (policy == null || policy.url == null || policy.url.trim().isEmpty()) return null;
+    return policy.url.trim();
   }
 
   private static boolean isStillActive(String callId, int gen) {
@@ -287,9 +383,29 @@ public final class NativeOutgoingRingbackOwner {
     generation += 1;
     Context app = ringbackAppContext;
     releasePinnedCommunicationRoute(app, reason);
+    releaseToneLocked();
     releasePlayerLocked();
     activeCallId = null;
     activeMediaType = null;
+  }
+
+  private static void releaseToneLocked() {
+    if (toneHandler != null && tonePulse != null) {
+      toneHandler.removeCallbacks(tonePulse);
+    }
+    toneHandler = null;
+    tonePulse = null;
+    if (activeTone != null) {
+      try {
+        activeTone.stopTone();
+      } catch (Exception ignored) {
+      }
+      try {
+        activeTone.release();
+      } catch (Exception ignored) {
+      }
+      activeTone = null;
+    }
   }
 
   private static void releasePlayerLocked() {

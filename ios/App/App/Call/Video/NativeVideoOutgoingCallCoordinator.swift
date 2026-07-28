@@ -80,6 +80,7 @@ final class NativeVideoOutgoingCallCoordinator: NativeVideoCallAgoraEngineListen
 
     DibayCallAudioSessionController.shared.resetOutgoingJoinGate()
     CallKitProvider.shared.reportOutgoingCallStarted(sessionId: sid, hasVideo: true, peerName: peerName)
+    NativeOutgoingRingbackOwner.shared.start(callId: sid, mediaType: "video")
 
     DibayCallAudioSessionController.shared.registerPendingOutgoingJoin(
       sessionId: sid,
@@ -103,6 +104,7 @@ final class NativeVideoOutgoingCallCoordinator: NativeVideoCallAgoraEngineListen
       return
     }
     cancelConnectingTimeout()
+    NativeOutgoingRingbackOwner.shared.stop(callId: sid, reason: "call_connected")
     do {
       try NativeVideoCallRuntime.shared.markConnected(sessionId: sid)
       log("ios_native_video_connected", sid)
@@ -181,6 +183,7 @@ final class NativeVideoOutgoingCallCoordinator: NativeVideoCallAgoraEngineListen
   private func terminateOutgoing(sessionId: String, reason: String) {
     let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
     cancelConnectingTimeout()
+    NativeOutgoingRingbackOwner.shared.stop(callId: sid, reason: reason)
     DibayCallAudioSessionController.shared.resetOutgoingJoinGate()
     log("ios_native_video_outgoing_terminal", sid, "reason=\(reason)")
     syncQueue.sync {

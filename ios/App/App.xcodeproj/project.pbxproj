@@ -32,6 +32,7 @@
 		C7P100042FED79650016851F /* NativeVoiceCallBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7P1000312FED79650016851F /* NativeVoiceCallBridge.swift */; };
 		C7P4O0022FED79650016851F /* NativeVoiceCallOwner.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7P4O0012FED79650016851F /* NativeVoiceCallOwner.swift */; };
 		C7P4C0022FED79650016851F /* NativeVoiceOutgoingCallCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7P4C0012FED79650016851F /* NativeVoiceOutgoingCallCoordinator.swift */; };
+		C7RING0022FED79650016851F /* NativeOutgoingRingbackOwner.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7RING0012FED79650016851F /* NativeOutgoingRingbackOwner.swift */; };
 		C7NVL0022FED79650016851F /* NativeVoiceCallLane.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NVL0012FED79650016851F /* NativeVoiceCallLane.swift */; };
 		C7NVU0022FED79650016851F /* NativeVoiceCallUiHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NVU0012FED79650016851F /* NativeVoiceCallUiHost.swift */; };
 		C7NVU0122FED79650016851F /* NativeVoiceCallUiPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7NVU0112FED79650016851F /* NativeVoiceCallUiPresenter.swift */; };
@@ -91,6 +92,7 @@
 		C7P1000312FED79650016851F /* NativeVoiceCallBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceCallBridge.swift; sourceTree = "<group>"; };
 		C7P4O0012FED79650016851F /* NativeVoiceCallOwner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceCallOwner.swift; sourceTree = "<group>"; };
 		C7P4C0012FED79650016851F /* NativeVoiceOutgoingCallCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceOutgoingCallCoordinator.swift; sourceTree = "<group>"; };
+		C7RING0012FED79650016851F /* NativeOutgoingRingbackOwner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeOutgoingRingbackOwner.swift; sourceTree = "<group>"; };
 		C7NVL0012FED79650016851F /* NativeVoiceCallLane.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceCallLane.swift; sourceTree = "<group>"; };
 		C7NVU0012FED79650016851F /* NativeVoiceCallUiHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceCallUiHost.swift; sourceTree = "<group>"; };
 		C7NVU0112FED79650016851F /* NativeVoiceCallUiPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVoiceCallUiPresenter.swift; sourceTree = "<group>"; };
@@ -210,6 +212,7 @@
 				C7NVE0012FED79650016851F /* NativeVoiceCallAgoraEngine.swift */,
 				C7NVC0012FED79650016851F /* NativeVoiceIncomingCallCoordinator.swift */,
 				C7P4C0012FED79650016851F /* NativeVoiceOutgoingCallCoordinator.swift */,
+				C7RING0012FED79650016851F /* NativeOutgoingRingbackOwner.swift */,
 				C7P1000312FED79650016851F /* NativeVoiceCallBridge.swift */,
 				C7P4O0012FED79650016851F /* NativeVoiceCallOwner.swift */,
 				C7NVU0012FED79650016851F /* NativeVoiceCallUiHost.swift */,
@@ -360,6 +363,7 @@
 				C7NVE0022FED79650016851F /* NativeVoiceCallAgoraEngine.swift in Sources */,
 				C7NVC0022FED79650016851F /* NativeVoiceIncomingCallCoordinator.swift in Sources */,
 				C7P4C0022FED79650016851F /* NativeVoiceOutgoingCallCoordinator.swift in Sources */,
+				C7RING0022FED79650016851F /* NativeOutgoingRingbackOwner.swift in Sources */,
 				C7P100042FED79650016851F /* NativeVoiceCallBridge.swift in Sources */,
 				C7P4O0022FED79650016851F /* NativeVoiceCallOwner.swift in Sources */,
 				C7NVL0022FED79650016851F /* NativeVoiceCallLane.swift in Sources */,

@@ -21,6 +21,7 @@ import {
 } from "@/lib/community-messenger/call-ssot-notification-sound";
 import { cmCallAudioCleanup, cmCallLatencyInfo } from "@/lib/community-messenger/cm-call-debug";
 import { closePrimedWebAudioCallToneContext } from "@/lib/community-messenger/call-tone-web-audio";
+import { resolveCallSoundPolicy } from "@/lib/notifications/call-sound-policy";
 import { ensureNotificationSoundSsotHydratedForClient } from "@/lib/notifications/notification-sound-ssot-client-hydrate";
 
 type CallToneMode = "incoming" | "outgoing";
@@ -222,8 +223,16 @@ export async function startCommunityMessengerCallTone(
     typeof volCfg === "number" && Number.isFinite(volCfg) ? Math.min(1, Math.max(0, volCfg)) : 0.72;
   const vOut = Math.min(1, vIn * 0.625);
   const ssotEventKey = callSsotEventKeyForTone(mode, callKind);
-  const ssotUrl = resolveCallNotificationSsotWebUrlSync(ssotEventKey);
-  const adminUrl = ssotUrl ?? resolveMessengerCallToneUrl(cfg, mode, callKind);
+
+  const policy = resolveCallSoundPolicy(ssotEventKey, { platform: "web" });
+  if (policy.mode === "silent" || !policy.enabled) {
+    return noopCallToneController();
+  }
+
+  const ssotUrl = policy.mode === "custom" ? policy.webUrl : null;
+  const adminUrl =
+    ssotUrl ??
+    (policy.mode === "custom" ? resolveMessengerCallToneUrl(cfg, mode, callKind) : null);
   if (adminUrl) {
     let audio: HTMLAudioElement | null = null;
     const clear = () => {
@@ -258,8 +267,10 @@ export async function startCommunityMessengerCallTone(
         clear();
       }
     }
+    // custom URL load failed → default WebAudio (same as Android custom→default)
   }
 
+  // enabled + default (or custom load fail): WebAudio synthesis — CONTRACT explicit fallback
   const web = startWebAudioCallTone(mode, callKind);
   if (web) {
     const stop = () => {

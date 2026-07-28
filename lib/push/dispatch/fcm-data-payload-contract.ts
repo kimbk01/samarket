@@ -375,6 +375,7 @@ export function buildFcmDataFields(
   const iosSoundName = meta ? trimText(meta.ios_sound_name ?? meta.iosSoundName) : "";
   const soundAssetId = meta ? trimText(meta.sound_asset_id ?? meta.soundAssetId) : "";
   const ringtoneUrl = meta ? trimText(meta.ringtone_url ?? meta.ringtoneUrl) : "";
+  const ringtonePolicy = meta ? trimText(meta.ringtone_policy ?? meta.ringtonePolicy) : "";
   if (eventKey) fields.eventKey = eventKey;
   if (androidChannelId) fields.androidChannelId = androidChannelId;
   if (iosSoundName) fields.sound = iosSoundName;
@@ -384,7 +385,11 @@ export function buildFcmDataFields(
     fields.event_key = eventKey;
   }
   if (type === "incoming_call" && soundAssetId) fields.sound_asset_id = soundAssetId;
-  if (type === "incoming_call" && ringtoneUrl) {
+  if (type === "incoming_call" && ringtonePolicy) {
+    fields.ringtone_policy = ringtonePolicy;
+    fields.ringtonePolicy = ringtonePolicy;
+  }
+  if (type === "incoming_call" && ringtoneUrl && ringtonePolicy !== "silent") {
     fields.ringtoneUrl = ringtoneUrl;
     fields.ringtone_url = ringtoneUrl;
   }

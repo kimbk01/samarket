@@ -116,6 +116,26 @@ assertContains(
   "FCM data includes ringtoneUrl"
 );
 assertContains(
+  "lib/push/dispatch/fcm-data-payload-contract.ts",
+  "ringtone_policy",
+  "FCM data includes ringtone_policy for silent/custom/default"
+);
+assertContains(
+  "android/app/src/main/java/com/dibay/app/IncomingCallRingtoneSsotCache.java",
+  "POLICY_SILENT",
+  "SSOT cache defines silent policy"
+);
+assertContains(
+  "android/app/src/main/java/com/dibay/app/DibayForegroundRingtone.java",
+  "admin_disabled",
+  "silent path logs admin_disabled and skips player"
+);
+assertContains(
+  "lib/notifications/call-sound-policy.ts",
+  "resolveCallSoundPolicy",
+  "normalized call sound policy resolver exists"
+);
+assertContains(
   "lib/push/dispatch/__tests__/push-sound-ssot-enrichment.test.ts",
   "call_incoming_voice",
   "call_incoming_voice eventKey test coverage exists"

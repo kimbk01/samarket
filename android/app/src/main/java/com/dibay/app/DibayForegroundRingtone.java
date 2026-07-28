@@ -18,19 +18,43 @@ public final class DibayForegroundRingtone {
   private DibayForegroundRingtone() {}
 
   public static void start(Context context, String callId) {
-    start(context, callId, null);
+    start(context, callId, null, IncomingCallRingtoneSsotCache.POLICY_DEFAULT);
   }
 
   public static void start(Context context, String callId, String ringtoneUrl) {
+    start(context, callId, ringtoneUrl, null);
+  }
+
+  public static void start(Context context, String callId, String ringtoneUrl, String policy) {
     if (context == null) return;
     stop(null);
     String sid = callId != null ? callId.trim() : "";
     Context app = context.getApplicationContext();
-    if (ringtoneUrl != null && !ringtoneUrl.trim().isEmpty()) {
+    String resolvedPolicy =
+        IncomingCallRingtoneSsotCache.normalizePolicy(policy, ringtoneUrl);
+
+    if (IncomingCallRingtoneSsotCache.POLICY_SILENT.equals(resolvedPolicy)) {
+      Log.i(
+          TAG,
+          "[DIBAY_CALL] native_call_ringtone_silent callId="
+              + sid
+              + " reason=admin_disabled source=native_foreground");
+      return;
+    }
+
+    if (IncomingCallRingtoneSsotCache.POLICY_CUSTOM.equals(resolvedPolicy)
+        && ringtoneUrl != null
+        && !ringtoneUrl.trim().isEmpty()) {
       if (startAdminRingtone(app, sid, ringtoneUrl.trim())) {
         return;
       }
+      Log.i(
+          TAG,
+          "[DIBAY_CALL] native_call_ringtone_custom_load_failed_fallback callId="
+              + sid
+              + " reason=custom_load_failed");
     }
+
     startDefaultRingtone(app, sid);
   }
 

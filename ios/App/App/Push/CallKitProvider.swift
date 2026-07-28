@@ -10,6 +10,8 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
   private var callUuidBySessionId: [String: UUID] = [:]
   private var hasVideoBySessionId: [String: Bool] = [:]
   private var outgoingSessionIds: Set<String> = []
+  /** Last applied bundle ringtone filename (nil = system default). */
+  private var appliedRingtoneSound: String?
 
   private override init() {
     let config = CXProviderConfiguration(localizedName: "DIBAY")
@@ -19,9 +21,53 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
     if let icon = UIImage(named: "AppIcon") {
       config.iconTemplateImageData = icon.pngData()
     }
+    // ringtoneSound unset → iOS system CallKit default.
+    // Custom remote Admin URLs are never set here (CallKit requires bundle resource only).
     provider = CXProvider(configuration: config)
     super.init()
     provider.setDelegate(self, queue: nil)
+  }
+
+  /**
+   * Apply SSOT ios_sound_name before reporting incoming.
+   * - custom bundle name present → CXProviderConfiguration.ringtoneSound
+   * - nil / "default" → system CallKit ringtone
+   * - silent policy: IOS_CALLKIT_SILENT_POLICY_BLOCKED — Apple does not guarantee silence
+   *   while presenting CallKit UI; we only avoid setting a custom sound (no AVAudioPlayer overlay).
+   */
+  func applyIncomingRingtoneSsot(iosSoundName: String?, policy: String?) {
+    let mode = (policy ?? "default").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    if mode == "silent" {
+      DibayCallLog.info(
+        "ios_callkit_ringtone_policy",
+        sessionId: "",
+        detail: "mode=silent blocked=IOS_CALLKIT_SILENT_POLICY_BLOCKED"
+      )
+      // Keep system default presentation; do not dual-play AVAudioPlayer.
+      setProviderRingtoneSound(nil)
+      return
+    }
+    let name = iosSoundName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    if name.isEmpty || name.lowercased() == "default" {
+      setProviderRingtoneSound(nil)
+      DibayCallLog.info("ios_callkit_ringtone_policy", sessionId: "", detail: "mode=default source=system")
+      return
+    }
+    // Bundle resource must exist — CallKit will fall back if missing.
+    setProviderRingtoneSound(name)
+    DibayCallLog.info(
+      "ios_callkit_ringtone_policy",
+      sessionId: "",
+      detail: "mode=custom source=bundle name=\(name)"
+    )
+  }
+
+  private func setProviderRingtoneSound(_ soundName: String?) {
+    if appliedRingtoneSound == soundName { return }
+    let config = provider.configuration
+    config.ringtoneSound = soundName
+    provider.configuration = config
+    appliedRingtoneSound = soundName
   }
 
   func reportIncomingCall(
@@ -30,9 +76,12 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
     hasVideo: Bool,
     roomId: String? = nil,
     callerId: String? = nil,
+    iosSoundName: String? = nil,
+    ringtonePolicy: String? = nil,
     completion: @escaping (Error?) -> Void
   ) {
     let sessionId = uuidString.trimmingCharacters(in: .whitespacesAndNewlines)
+    applyIncomingRingtoneSsot(iosSoundName: iosSoundName, policy: ringtonePolicy)
     reconcileStaleSessionsBeforeIncoming(newSessionId: sessionId, hasVideo: hasVideo)
     let uuid = uuidFromSession(sessionId: sessionId)
     callUuidBySessionId[sessionId] = uuid

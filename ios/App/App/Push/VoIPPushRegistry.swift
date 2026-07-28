@@ -98,12 +98,16 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
         reason: "ios_callkit_incoming"
       )
     }
+    let iosSoundName = stringField(data, keys: ["ios_sound_name", "iosSoundName", "sound"])
+    let ringtonePolicy = stringField(data, keys: ["ringtone_policy", "ringtonePolicy"])
     callProvider.reportIncomingCall(
       uuidString: sessionId,
       handle: caller,
       hasVideo: hasVideo,
       roomId: roomId,
-      callerId: callerId
+      callerId: callerId,
+      iosSoundName: iosSoundName,
+      ringtonePolicy: ringtonePolicy
     ) { error in
       if let error = error {
         DibayCallLog.infoCallV4(

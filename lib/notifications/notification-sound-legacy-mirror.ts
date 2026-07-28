@@ -44,6 +44,16 @@ export const EVENT_TO_CALL_COLUMN: Record<string, string> = {
   call_rejected: "call_end_sound_url",
 };
 
+/** URL column → enabled boolean column on admin_messenger_call_sound_settings */
+export const CALL_URL_TO_ENABLED_COLUMN: Record<string, string> = {
+  voice_incoming_sound_url: "voice_incoming_enabled",
+  video_incoming_sound_url: "video_incoming_enabled",
+  voice_outgoing_ringback_url: "voice_outgoing_ringback_enabled",
+  video_outgoing_ringback_url: "video_outgoing_ringback_enabled",
+  missed_notification_sound_url: "missed_notification_enabled",
+  call_end_sound_url: "call_end_enabled",
+};
+
 export const EVENT_TO_ADMIN_SETTINGS_KEY: Record<string, string> = {
   delivery_order_created_owner: "store_delivery_alert_sound",
   delivery_order_cancelled_owner: "store_delivery_alert_sound",
@@ -87,7 +97,8 @@ export async function mirrorNotificationSoundToLegacy(
   patches: LegacyMirrorPatch[]
 ): Promise<void> {
   const domainUrls = new Map<string, { url: string | null; enabled: boolean }>();
-  const callPatch: Record<string, string | null> = {};
+  const callPatch: Record<string, string | null | boolean> = {};
+  const callEnabledPatch: Record<string, boolean> = {};
   const settingsPatch = new Map<string, string | null>();
 
   for (const p of patches) {
@@ -111,6 +122,10 @@ export async function mirrorNotificationSoundToLegacy(
     const callCol = EVENT_TO_CALL_COLUMN[p.event_key];
     if (callCol) {
       callPatch[callCol] = url;
+      const enabledCol = CALL_URL_TO_ENABLED_COLUMN[callCol];
+      if (enabledCol) {
+        callEnabledPatch[enabledCol] = enabled;
+      }
     }
 
     const settingsKey = EVENT_TO_ADMIN_SETTINGS_KEY[p.event_key];
@@ -132,10 +147,14 @@ export async function mirrorNotificationSoundToLegacy(
     if (error) throwMirrorError("admin_notification_settings", error.message);
   }
 
-  if (Object.keys(callPatch).length > 0) {
+  if (Object.keys(callPatch).length > 0 || Object.keys(callEnabledPatch).length > 0) {
     const { error } = await sb
       .from("admin_messenger_call_sound_settings")
-      .update({ ...callPatch, updated_at: new Date().toISOString() })
+      .update({
+        ...callPatch,
+        ...callEnabledPatch,
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", "default");
     if (error) throwMirrorError("admin_messenger_call_sound_settings", error.message);
   }

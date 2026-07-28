@@ -34,6 +34,7 @@ import {
   startOutgoingRingback,
   stopOutgoingRingback,
 } from "@/lib/community-messenger/call-outgoing-ringback-controller";
+import { shouldSkipWebOutgoingRingbackSync } from "@/lib/community-messenger/call-outgoing-ringback-ownership";
 import { stopIncomingCallRing, syncIncomingCallRing } from "@/lib/community-messenger/incoming-call/ring-owner";
 import { primeOutgoingCallMediaBeforeNavigate } from "@/lib/community-messenger/call-media-bootstrap";
 import { ensureCallMediaForUserGesture } from "@/lib/community-messenger/call-media-permission-preflight";
@@ -2340,6 +2341,10 @@ export function useMessengerRoomPhase2Controller() {
       return () => {
         stopIncomingCallRing("phase2_panel_cleanup", sid);
       };
+    }
+    const kind = callPanel.kind === "video" ? "video" : "voice";
+    if (shouldSkipWebOutgoingRingbackSync(kind)) {
+      return;
     }
     startOutgoingRingback({
       callId: sid,

@@ -10,6 +10,7 @@ import {
   stopOutgoingRingback,
   stopAllOutgoingRingback,
 } from "@/lib/community-messenger/call-outgoing-ringback-controller";
+import { shouldSkipWebOutgoingRingbackSync } from "@/lib/community-messenger/call-outgoing-ringback-ownership";
 import {
   isCallEngineTerminalConsumed,
   isCallEngineRingbackOwner,
@@ -86,6 +87,8 @@ export function startCallEngineOutgoingRingback(args: {
 }): boolean {
   const sid = args.callId.trim();
   if (!sid || isCallEngineTerminalConsumed(sid)) return false;
+  const kind = args.kind === "video" ? "video" : "voice";
+  if (shouldSkipWebOutgoingRingbackSync(kind)) return false;
   if (!tryLockCallEngineRingbackOwnerOnce(sid)) return false;
   startOutgoingRingback({ callId: sid, kind: args.kind, source: args.source });
   return true;

@@ -16,6 +16,7 @@ import {
   type NotificationSoundRowInput,
 } from "@/lib/notifications/notification-sound-event-key-from-row";
 import { isNotificationDomain } from "@/lib/notifications/notification-domains";
+import { resolveCallSoundPolicy } from "@/lib/notifications/call-sound-policy";
 import { resolveNotificationSoundForEvent } from "@/lib/notifications/notification-sound-resolver";
 import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publish-notification-side-effect";
 import { resolveEventType, type DispatchPushOptions } from "@/lib/push/dispatch/push-payload-types";
@@ -133,9 +134,26 @@ export function enrichPushPayloadWithSoundSsotMeta(
       trimText(meta?.android_channel_id ?? meta?.androidChannelId) || soundResolved.androidChannelId,
     ios_sound_name: trimText(meta?.ios_sound_name ?? meta?.iosSoundName) || soundResolved.iosSoundName,
   };
-  const existingRingtoneUrl = trimText(meta?.ringtone_url ?? meta?.ringtoneUrl);
-  if (existingRingtoneUrl || ringtoneUrl) {
-    nextMeta.ringtone_url = existingRingtoneUrl || ringtoneUrl;
+
+  if (isIncomingCallPush(out, opts)) {
+    const policy = resolveCallSoundPolicy(eventKey, { platform: "android" });
+    nextMeta.ringtone_policy = policy.mode;
+    if (policy.mode === "silent") {
+      delete nextMeta.ringtone_url;
+      delete nextMeta.ringtoneUrl;
+    } else if (policy.mode === "custom") {
+      const existingRingtoneUrl = trimText(meta?.ringtone_url ?? meta?.ringtoneUrl);
+      nextMeta.ringtone_url = existingRingtoneUrl || policy.androidUrl || ringtoneUrl || null;
+    } else {
+      // default — omit custom URL so native does not treat empty miss as ambiguous
+      delete nextMeta.ringtone_url;
+      delete nextMeta.ringtoneUrl;
+    }
+  } else {
+    const existingRingtoneUrl = trimText(meta?.ringtone_url ?? meta?.ringtoneUrl);
+    if (existingRingtoneUrl || ringtoneUrl) {
+      nextMeta.ringtone_url = existingRingtoneUrl || ringtoneUrl;
+    }
   }
 
   return {

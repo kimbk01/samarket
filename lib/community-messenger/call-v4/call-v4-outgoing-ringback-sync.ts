@@ -2,6 +2,7 @@ import {
   startOutgoingRingback,
   stopOutgoingRingback,
 } from "@/lib/community-messenger/call-outgoing-ringback-controller";
+import { shouldSkipWebOutgoingRingbackSync } from "@/lib/community-messenger/call-outgoing-ringback-ownership";
 import type { CallV4Direction, CallV4MediaType, CallV4Phase } from "@/lib/community-messenger/call-v4/call-v4-types";
 
 export const CALL_V4_OUTGOING_RINGBACK_SOURCE = "call_v4_outgoing_screen";
@@ -18,6 +19,7 @@ export type SyncCallV4OutgoingRingbackArgs = {
 /**
  * V4 Web 발신 화면 — outgoing_ringing 링백 start/stop (legacy controller SSOT).
  * DO NOT: resolver/SSOT 경로 추가 — startOutgoingRingback 내부 read만 사용.
+ * DO NOT: native outgoing shell 에서 Web ringback (이중 재생 금지).
  */
 export function syncCallV4OutgoingRingback(args: SyncCallV4OutgoingRingbackArgs): void {
   if (args.direction !== "outgoing" || !args.outgoingPresentation) {
@@ -29,6 +31,9 @@ export function syncCallV4OutgoingRingback(args: SyncCallV4OutgoingRingbackArgs)
   const kind = args.mediaType === "video" ? "video" : "voice";
 
   if (args.phase === "outgoing_ringing") {
+    if (shouldSkipWebOutgoingRingbackSync(kind)) {
+      return;
+    }
     startOutgoingRingback({
       callId,
       kind,

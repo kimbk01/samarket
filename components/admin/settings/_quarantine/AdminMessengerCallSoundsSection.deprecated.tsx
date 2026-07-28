@@ -1,3 +1,10 @@
+/**
+ * QUARANTINE — dead product UI (2026-07-28).
+ * Import count was 0. Call sound authority is Admin Notification Sound SSOT only:
+ * `/admin/settings/notifications` → AdminNotificationSoundSsotTable.
+ * DO NOT remount this component as an admin settings entry.
+ * Legacy table `admin_messenger_call_sound_settings` remains a derived mirror for native config API.
+ */
 "use client";
 
 import { type ChangeEvent, useCallback, useEffect, useRef, useState } from "react";

@@ -78,6 +78,7 @@ final class NativeVoiceOutgoingCallCoordinator: NativeVoiceCallAgoraEngineListen
 
     CallKitProvider.shared.reportOutgoingCallStarted(sessionId: sid, hasVideo: false, peerName: peerName)
     DibayCallAudioSessionController.shared.prepareForNativeVoiceCall()
+    NativeOutgoingRingbackOwner.shared.start(callId: sid, mediaType: "voice")
 
     do {
       try NativeVoiceCallRuntime.shared.beginOutgoingConnect(sessionId: sid)
@@ -118,6 +119,7 @@ final class NativeVoiceOutgoingCallCoordinator: NativeVoiceCallAgoraEngineListen
       log("ios_native_voice_stale_callback_ignored", sid, "stage=outgoing_connected")
       return
     }
+    NativeOutgoingRingbackOwner.shared.stop(callId: sid, reason: "call_connected")
     NativeVoiceCallBridge.publishConnectedState(sessionId: sid, source: "outgoing_agora_connected")
   }
 
@@ -180,6 +182,7 @@ final class NativeVoiceOutgoingCallCoordinator: NativeVoiceCallAgoraEngineListen
   private func fail(sessionId: String, reason: NativeVoiceCallFailure) {
     let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
     log("ios_native_voice_outgoing_failed", sid, "reason=\(String(describing: reason))")
+    NativeOutgoingRingbackOwner.shared.stop(callId: sid, reason: "call_failed")
     DibayCallAudioSessionController.shared.resetOutgoingJoinGate()
     try? NativeVoiceCallRuntime.shared.markPipelineFailed(sessionId: sid, reason: reason)
     NativeVoiceIncomingCallCoordinator.shared.handleRejectOrEnd(sessionId: sid) {}

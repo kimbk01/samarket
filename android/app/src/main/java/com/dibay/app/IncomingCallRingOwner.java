@@ -6,6 +6,7 @@ import android.util.Log;
 /**
  * Single owner for foreground incoming OS ringtone.
  * All native start/stop must go through here — consumed tombstone checked before start.
+ * SSOT policy: custom | default | silent (silent never falls back to OS ringtone).
  */
 public final class IncomingCallRingOwner {
   private static final String TAG = "DIBAY_CALL";
@@ -14,10 +15,14 @@ public final class IncomingCallRingOwner {
   private IncomingCallRingOwner() {}
 
   public static boolean start(Context context, String callId) {
-    return start(context, callId, null);
+    return start(context, callId, null, null);
   }
 
   public static boolean start(Context context, String callId, String ringtoneUrl) {
+    return start(context, callId, ringtoneUrl, null);
+  }
+
+  public static boolean start(Context context, String callId, String ringtoneUrl, String ringtonePolicy) {
     if (context == null || callId == null || callId.trim().isEmpty()) return false;
     Context app = context.getApplicationContext();
     String sid = callId.trim();
@@ -30,11 +35,27 @@ public final class IncomingCallRingOwner {
       return false;
     }
     stop(app, null);
+
+    String policy =
+        ringtonePolicy != null && !ringtonePolicy.trim().isEmpty()
+            ? IncomingCallRingtoneSsotCache.normalizePolicy(ringtonePolicy.trim(), ringtoneUrl)
+            : IncomingCallRingtoneSsotCache.policyForCallId(sid);
     String resolvedRingtoneUrl =
         ringtoneUrl != null && !ringtoneUrl.trim().isEmpty()
             ? ringtoneUrl.trim()
             : IncomingCallRingtoneSsotCache.ringtoneUrlForCallId(sid);
-    DibayForegroundRingtone.start(app, sid, resolvedRingtoneUrl);
+
+    if (IncomingCallRingtoneSsotCache.POLICY_SILENT.equals(policy)) {
+      Log.i(
+          TAG,
+          "[DIBAY_CALL] native_call_ringtone_silent callId="
+              + sid
+              + " reason=admin_disabled source=ring_owner");
+      activeCallId = sid;
+      return true;
+    }
+
+    DibayForegroundRingtone.start(app, sid, resolvedRingtoneUrl, policy);
     activeCallId = sid;
     return true;
   }

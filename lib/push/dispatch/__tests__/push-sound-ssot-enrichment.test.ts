@@ -264,6 +264,7 @@ describe("push-sound-ssot-enrichment", () => {
     });
     expect(incomingEnriched.meta?.event_key).toBe("call_incoming_voice");
     expect(incomingEnriched.meta?.sound_asset_id).toBe("ADMIN-CALL-VOICE-99");
+    expect(incomingEnriched.meta?.ringtone_policy).toBe("custom");
     expect(resolveNotificationSoundForEvent("call_incoming_voice").resolvedFrom).toBe("admin_mapping");
 
     const missedOut = baseOut({
@@ -275,6 +276,54 @@ describe("push-sound-ssot-enrichment", () => {
     });
     expect(missedEnriched.meta?.event_key).toBe("call_missed");
     expect(missedEnriched.meta?.sound_asset_id).toBe("ADMIN-CALL-MISSED-99");
+  });
+
+  it("incoming call disabled mapping → ringtone_policy silent without url", async () => {
+    await hydrateNotificationSoundSnapshotFromRows({
+      assets: [
+        {
+          id: "ADMIN-CALL-OFF",
+          label: "off",
+          kind: "dibay_custom",
+          domain: "call_voice",
+          file_path: null,
+          file_url: "https://cdn.example.com/off.mp3",
+          ios_sound_name: null,
+          android_channel_base: "dibay_calls_incoming_v7",
+          legacy_source: null,
+          enabled: true,
+        },
+      ],
+      events: [],
+      mappings: [
+        {
+          event_key: "call_incoming_voice",
+          asset_id: "ADMIN-CALL-OFF",
+          use_device_default: false,
+          volume: 1,
+          repeat_count: 1,
+          cooldown_seconds: 0,
+          vibration_enabled: null,
+          priority: null,
+          enabled: false,
+        },
+      ],
+    });
+
+    const incomingOut = baseOut({
+      notification_type: "community_messenger_incoming_call",
+      meta: { session_id: "sess-silent", kind: "voice" },
+    });
+    const enriched = enrichPushPayloadWithSoundSsotMeta(incomingOut, {
+      event_type: "call_ringing",
+      call_push_kind: "incoming_call",
+    });
+    expect(enriched.meta?.ringtone_policy).toBe("silent");
+    expect(enriched.meta?.ringtone_url).toBeUndefined();
+
+    const fields = buildFcmDataFields(enriched, { call_push_kind: "incoming_call" }, {});
+    expect(fields.ringtone_policy).toBe("silent");
+    expect(fields.ringtoneUrl).toBeUndefined();
   });
 
   it("maps call rejected and canceled push to SSOT event keys", () => {
