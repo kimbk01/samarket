@@ -1,5 +1,11 @@
 /**
- * R2-M1 — 홈 room list (`chats` / `groups`) 유일 patch reducer.
+ * QUARANTINED (Conversation Engine) — hub list tip live path.
+ * Product tips: ConversationStore / applyConversationEvent.
+ * DO NOT add new tip writers here. Delete after device PASS + zero product tip imports.
+ * @see docs/community-messenger/conversation-engine-legacy-inventory.md
+ */
+/**
+ * R2-M1 — 홈 room list (`chats` / `groups`) 유일 patch reducer (legacy / structural ops).
  * CONTRACT: list 행 변경은 본 모듈 `applyHomeListPatch` 만. 직접 `setData` 로 chats/groups mutate 금지.
  */
 
@@ -23,6 +29,7 @@ import {
   patchBootstrapRoomListForRealtimeMessageInsert,
   patchBootstrapRoomListForSenderLocalEcho,
 } from "@/lib/community-messenger/home/patch-bootstrap-room-list-from-realtime-message";
+import { removeConversationFromStore } from "@/lib/community-messenger/conversation-engine/reconcile-from-bootstrap";
 import {
   mergeMessengerRoomSummaryForHomeSyncCriticalPatch,
   mergeMessengerRoomSummaryMonotonicLastEventForHomeList,
@@ -1026,6 +1033,9 @@ export function commitHomeListPatch(
   options?: { primeCache?: boolean }
 ): void {
   const setDataSource = mapHomeListPatchSourceToSetDataSource(source);
+  if (patch.kind === "remove_room") {
+    removeConversationFromStore(patch.roomId);
+  }
   setData((prev) => {
     const next = applyHomeListPatch(prev, patch, source);
     const resolved = resolveMessengerHomeBootstrapSetData(setDataSource, prev, next, {

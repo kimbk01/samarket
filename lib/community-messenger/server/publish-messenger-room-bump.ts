@@ -103,6 +103,42 @@ export async function publishMessengerRoomBumpAfterMutation(args: {
     });
   }
 
+  try {
+    const { publishConversationUpsertAfterTipWrite } = await import(
+      "@/lib/community-messenger/conversation-engine/publish-conversation-upsert"
+    );
+    const snap = args.messageForBump;
+    const previewText =
+      (snap && typeof snap.content === "string" && snap.content.trim()) || "새 메시지";
+    const mt = snap?.messageType ?? "text";
+    const previewKind =
+      mt === "call_stub"
+        ? "call"
+        : mt === "image" ||
+            mt === "file" ||
+            mt === "system" ||
+            mt === "voice" ||
+            mt === "sticker" ||
+            mt === "community_post_share"
+          ? mt
+          : "text";
+    const lastActivityAt =
+      args.messageCreatedAt?.trim() ||
+      (snap && typeof snap.createdAt === "string" ? snap.createdAt : "") ||
+      new Date().toISOString();
+    const eventId = args.messageId?.trim() || `tip:${canon}:${lastActivityAt}`;
+    await publishConversationUpsertAfterTipWrite({
+      roomId: canon,
+      eventId,
+      lastActivityAt,
+      previewText,
+      previewKind,
+      messageId: args.messageId ?? null,
+    });
+  } catch {
+    /* conversation upsert best-effort */
+  }
+
   if (!sbForBadge) return;
   if (args.skipBadgeTargetBump === true) return;
   try {

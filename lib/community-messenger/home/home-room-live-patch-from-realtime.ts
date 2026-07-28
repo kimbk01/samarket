@@ -1,4 +1,8 @@
 /**
+ * QUARANTINED (Conversation Engine) — tip UPDATE normalizers for legacy applyHomeListPatch.
+ * Live product tips use conversation-engine. DO NOT extend. Delete after device PASS.
+ */
+/**
  * Home list live tip delta — messages UPDATE / rooms tip UPDATE → applyHomeListPatch 입력 정규화.
  * CONTRACT: silent refresh / full bootstrap 금지. tip 의미 변경만 통과.
  */
