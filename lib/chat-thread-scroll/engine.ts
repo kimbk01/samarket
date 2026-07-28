@@ -5,10 +5,6 @@ import {
   readChatThreadNearBottom,
 } from "@/lib/chat-thread-scroll/near-bottom";
 import { restoreChatThreadPrependAnchor } from "@/lib/chat-thread-scroll/prepend-anchor";
-import {
-  cmResizeCycleNote,
-  cmResizeCycleReadViewport,
-} from "@/lib/chat-thread-scroll/resize-cycle-instrumentation";
 import type {
   ChatThreadScrollEngineConfig,
   ChatThreadScrollPhase,
@@ -159,48 +155,16 @@ export class ChatThreadScrollEngine {
    * 의존하는 실행부는 없음.
    */
   notifyLayoutResize(ctx: ChatThreadScrollViewportContext): boolean {
-    // CM_RESIZE_CYCLE_PROBE (read-only)
-    cmResizeCycleNote("notifyLayoutResize_enter", {
-      phase: this.state.phase,
-      settled: this.state.phase === "settled",
-      engineStickToBottom: this.state.stickToBottom,
-      prependInFlight: this.state.prependInFlight,
-      viewport: cmResizeCycleReadViewport(ctx.viewport),
-    });
     if (this.state.phase === "entryPendingLayout") {
-      // CM_RESIZE_CYCLE_PROBE (read-only)
-      cmResizeCycleNote("notifyLayoutResize_return", {
-        path: "return",
-        returnReason: "phase_entryPendingLayout_tryCompleteEntry",
-        phase: this.state.phase,
-        engineStickToBottom: this.state.stickToBottom,
-      });
       return this.tryCompleteEntry(ctx);
     }
-    if (this.state.phase !== "settled") {
-      // CM_RESIZE_CYCLE_PROBE (read-only)
-      cmResizeCycleNote("notifyLayoutResize_return", {
-        path: "return",
-        returnReason: "phase_not_settled",
-        phase: this.state.phase,
-        engineStickToBottom: this.state.stickToBottom,
-      });
-      return false;
-    }
+    if (this.state.phase !== "settled") return false;
 
     const vp = ctx.viewport;
     if (this.state.prependInFlight) {
       /** 과거 메시지 로딩 중엔 하단으로 끌어당기지 않는다 — 다만 geometry는 갱신해
        * prepend 종료 직후 다음 resize가 stale 값을 보지 않게 한다. */
       if (vp) this.captureGeom(vp);
-      // CM_RESIZE_CYCLE_PROBE (read-only)
-      cmResizeCycleNote("notifyLayoutResize_return", {
-        path: "return",
-        returnReason: "prependInFlight",
-        phase: this.state.phase,
-        engineStickToBottom: this.state.stickToBottom,
-        viewport: cmResizeCycleReadViewport(vp),
-      });
       return false;
     }
 
@@ -213,32 +177,10 @@ export class ChatThreadScrollEngine {
 
     if (!wasNearBottom) {
       this.state.stickToBottom = false;
-      // CM_RESIZE_CYCLE_PROBE (read-only)
-      cmResizeCycleNote("notifyLayoutResize_path", {
-        path: "preserveScrollDistance",
-        wasNearBottom: false,
-        engineStickToBottom: this.state.stickToBottom,
-        viewportBefore: cmResizeCycleReadViewport(vp),
-      });
       return this.preserveScrollDistance(ctx);
     }
-    // CM_RESIZE_CYCLE_PROBE (read-only)
-    cmResizeCycleNote("notifyLayoutResize_path", {
-      path: "applyScrollToBottom",
-      wasNearBottom: true,
-      force: false,
-      engineStickToBottom: this.state.stickToBottom,
-      viewportBefore: cmResizeCycleReadViewport(vp),
-    });
     const scrolled = this.applyScrollToBottom(ctx, { force: false });
     this.state.stickToBottom = true;
-    // CM_RESIZE_CYCLE_PROBE (read-only)
-    cmResizeCycleNote("notifyLayoutResize_applyScrollToBottom_result", {
-      path: "applyScrollToBottom",
-      result: scrolled,
-      engineStickToBottom: this.state.stickToBottom,
-      viewportAfter: cmResizeCycleReadViewport(vp),
-    });
     return scrolled;
   }
 
@@ -312,27 +254,8 @@ export class ChatThreadScrollEngine {
     opts: { force: boolean }
   ): boolean {
     const vp = ctx.viewport;
-    if (!vp) {
-      // CM_RESIZE_CYCLE_PROBE (read-only)
-      cmResizeCycleNote("applyScrollToBottom_return", {
-        path: "return",
-        returnReason: "no_viewport",
-        force: opts.force,
-        engineStickToBottom: this.state.stickToBottom,
-      });
-      return false;
-    }
-    if (!opts.force && !this.state.stickToBottom) {
-      // CM_RESIZE_CYCLE_PROBE (read-only)
-      cmResizeCycleNote("applyScrollToBottom_return", {
-        path: "return",
-        returnReason: "blocked_by_stickToBottom_false",
-        force: opts.force,
-        engineStickToBottom: this.state.stickToBottom,
-        viewport: cmResizeCycleReadViewport(vp),
-      });
-      return false;
-    }
+    if (!vp) return false;
+    if (!opts.force && !this.state.stickToBottom) return false;
 
     const count = ctx.messageCount;
     const virtualizer = ctx.virtualizer;
@@ -343,17 +266,7 @@ export class ChatThreadScrollEngine {
         /* virtualizer not ready */
       }
     }
-    const before = cmResizeCycleReadViewport(vp);
     vp.scrollTop = vp.scrollHeight;
-    const after = cmResizeCycleReadViewport(vp);
-    // CM_RESIZE_CYCLE_PROBE (read-only)
-    cmResizeCycleNote("applyScrollToBottom_write", {
-      path: "applyScrollToBottom",
-      force: opts.force,
-      engineStickToBottom: true,
-      viewportBefore: before,
-      viewportAfter: after,
-    });
     this.state.stickToBottom = true;
     this.captureGeom(vp);
     return vp.scrollHeight > 0 || count === 0;
@@ -362,31 +275,12 @@ export class ChatThreadScrollEngine {
   private preserveScrollDistance(ctx: ChatThreadScrollViewportContext): boolean {
     const vp = ctx.viewport;
     const prev = this.lastGeom;
-    if (!vp || !prev) {
-      // CM_RESIZE_CYCLE_PROBE (read-only)
-      cmResizeCycleNote("preserveScrollDistance_return", {
-        path: "return",
-        returnReason: !vp ? "no_viewport" : "no_lastGeom",
-        engineStickToBottom: this.state.stickToBottom,
-        viewport: cmResizeCycleReadViewport(vp),
-      });
-      return false;
-    }
+    if (!vp || !prev) return false;
     const sh = vp.scrollHeight;
     const ch = vp.clientHeight;
     const maxScroll = Math.max(0, sh - ch);
     const distFromBottom = Math.max(0, prev.sh - prev.st - prev.ch);
-    const before = cmResizeCycleReadViewport(vp);
     vp.scrollTop = Math.max(0, Math.min(maxScroll, maxScroll - distFromBottom));
-    const after = cmResizeCycleReadViewport(vp);
-    // CM_RESIZE_CYCLE_PROBE (read-only)
-    cmResizeCycleNote("preserveScrollDistance_write", {
-      path: "preserveScrollDistance",
-      distFromBottom,
-      engineStickToBottom: this.state.stickToBottom,
-      viewportBefore: before,
-      viewportAfter: after,
-    });
     this.captureGeom(vp);
     return true;
   }
