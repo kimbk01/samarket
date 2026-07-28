@@ -586,15 +586,6 @@ export function useMessengerRoomClientPhase1({
     setTimelineViewportMounted(false);
     setTimelineHeavyLive(false);
     setTimelineHeavyBundle(null);
-    /**
-     * Child timeline ref callback may already have attached the scroll root in this
-     * commit (refs run before layout effects). Resetting mounted→false without
-     * re-sync leaves timelineViewportMounted stuck false while DOM is present, so
-     * initial-anchor never reaches notifyEntryFromPlan (1:1 entry idle lock).
-     */
-    if (messagesViewportRef.current) {
-      setTimelineViewportMounted(true);
-    }
   }, [roomId]);
 
   /** scroll root 부착 직후 heavy virtualizer — rAF 지연 없이 동일 layout commit (fallback→virtual 2paint 방지). */

@@ -629,16 +629,6 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
       Boolean(plan.anchorMessageId || pendingAnchorMessageIdRef.current)
     );
     const applied = tryCompleteEntry(plan.reason, source);
-    // CM_ENTRY_GATE_PROBE (read-only)
-    cmEntryGateNote("initial_anchor_after_tryCompleteEntry", {
-      roomId: rid || null,
-      applied,
-      phase: engine.getPhase(),
-      hasAppliedInitialAnchorRef: hasAppliedInitialAnchorRef.current,
-      entryScrollScheduled: entryScrollScheduledRef.current,
-      timelineViewportMounted,
-      stickToBottomRef: stickToBottomRef.current,
-    });
     if (!applied) {
       /** viewport 높이 미확정 — 다음 RO/layout에서 1회만 완료 (중첩 rAF settle 금지) */
       entryScrollScheduledRef.current = true;
