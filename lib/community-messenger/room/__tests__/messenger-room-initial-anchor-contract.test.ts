@@ -65,7 +65,8 @@ describe("chat room initial anchor contract (legacy-class)", () => {
         return scrollTop;
       },
       set scrollTop(v: number) {
-        scrollTop = v;
+        const max = Math.max(0, 1200 - 400);
+        scrollTop = Math.max(0, Math.min(max, v));
       },
       querySelectorAll: () => [{}, {}, {}],
     } as unknown as HTMLElement;
@@ -77,7 +78,7 @@ describe("chat room initial anchor contract (legacy-class)", () => {
     engine.notifyLayoutCommitted();
     expect(engine.tryCompleteEntry(ctx)).toBe(true);
     expect(engine.getPhase()).toBe("settled");
-    expect(scrollTop).toBe(1200);
+    expect(scrollTop).toBe(800);
 
     /** second "entry" attempt must be no-op once settled */
     expect(engine.tryCompleteEntry(ctx)).toBe(false);

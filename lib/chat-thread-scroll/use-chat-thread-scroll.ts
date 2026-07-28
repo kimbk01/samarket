@@ -150,7 +150,8 @@ export function useChatThreadScroll(
   useEffect(() => {
     const vp = viewportRef.current;
     if (!vp || typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(() => {
+
+    const onResize = () => {
       if (engine.getPhase() === "entryPendingLayout") {
         tryCompleteEntry();
         return;
@@ -158,10 +159,40 @@ export function useChatThreadScroll(
       if (engine.isSettled()) {
         engine.notifyLayoutResize(ctx());
       }
-    });
+    };
+
+    const ro = new ResizeObserver(onResize);
     ro.observe(vp);
+    /** viewport 박스만이 아니라 내부 시트 높이 변화(가상행 measure)도 pin/entry 재시도 대상 */
+    const sheet = vp.firstElementChild;
+    if (sheet) ro.observe(sheet);
+
     return () => ro.disconnect();
-  }, [engine, ctx, tryCompleteEntry]);
+  }, [engine, ctx, tryCompleteEntry, messageCount]);
+
+  /**
+   * entry: virtualizer scrollToIndex 가 한 프레임 늦게 scrollTop 을 덮을 수 있음.
+   * layout 커밋 후 1회 더 tryComplete — 무한 settle 루프 아님.
+   */
+  useEffect(() => {
+    if (!entryActive || !messagesReady) return;
+    if (typeof requestAnimationFrame !== "function") return;
+    let cancelled = false;
+    const id = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (cancelled) return;
+        if (engine.getPhase() === "entryPendingLayout") {
+          tryCompleteEntry();
+        } else if (engine.isSettled() && engine.readStickToBottom()) {
+          engine.notifyLayoutResize(ctx());
+        }
+      });
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(id);
+    };
+  }, [entryActive, messagesReady, messageCount, engine, ctx, tryCompleteEntry]);
 
   return useMemo(
     () => ({
