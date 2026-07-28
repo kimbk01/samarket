@@ -228,19 +228,25 @@ describe("projectRoomActivityToHomeList", () => {
         }),
       ])
     );
-    applyIncomingMessageEvent({
+    /** Seed timeline without tip projection (simulate B-path miss). */
+    useMessengerRealtimeStore.setState({
       viewerUserId: "user-a",
-      roomId: "room-a",
-      message: {
-        id: "m-recover",
-        roomId: "room-a",
-        senderId: "user-b",
-        senderLabel: "peer",
-        messageType: "text",
-        content: "timeline only",
-        createdAt: "2026-07-01T16:00:00.000Z",
-        isMine: false,
+      messagesByRoomId: {
+        "room-a": [
+          {
+            id: "m-recover",
+            roomId: "room-a",
+            senderId: "user-b",
+            senderLabel: "peer",
+            messageType: "text",
+            content: "timeline only",
+            createdAt: "2026-07-01T16:00:00.000Z",
+            isMine: false,
+          },
+        ],
       },
+      lastReadByRoomId: {},
+      activeRoomId: null,
     });
 
     const beforeB = findHomeListRoomRow(peekBootstrapCache(), "room-b");
