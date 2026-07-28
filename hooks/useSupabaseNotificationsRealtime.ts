@@ -3,7 +3,6 @@
 import { useEffect, useRef } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
-import { playCoalescedChatNotificationSound } from "@/lib/notifications/coalesced-chat-alert-sound";
 import {
   resolveNotificationSoundEventKeyFromRow,
   type NotificationSoundRowInput,
@@ -52,9 +51,8 @@ function playRowEventSound(row: Record<string, unknown>): void {
   const eventKey = resolveNotificationSoundEventKeyFromRow(rowInputFromRecord(row));
   if (eventKey) {
     void playEventNotificationSound(eventKey);
-    return;
   }
-  void playEventNotificationSound("system_default");
+  /** CONTRACT: eventKey 없는 채팅/행은 system_default 위장 재생 금지 */
 }
 
 /**
@@ -113,20 +111,13 @@ export function useSupabaseNotificationsRealtime(
               return;
             }
           }
-          const nid = row?.id != null && String(row.id).trim() ? String(row.id).trim() : "";
           const eventKey = resolveNotificationSoundEventKeyFromRow(rowInputFromRecord(row));
           if (eventKey) {
             playRowEventSound(row);
           } else if (row?.notification_type === "chat") {
-            const meta = row?.meta as { kind?: string } | undefined;
-            const chatKind = typeof meta?.kind === "string" ? meta.kind : "";
-            if (chatKind === "trade_chat" || chatKind === "community_chat" || chatKind === "group_chat") {
-              playRowEventSound(row);
-            } else if (nid) {
-              playCoalescedChatNotificationSound(`notif:${nid}`);
-            } else {
-              void playEventNotificationSound("system_default");
-            }
+            /**
+             * CONTRACT: 채팅 INSERT 에 eventKey 가 없으면 system_default 로 위장 재생하지 않음.
+             */
           } else {
             playRowEventSound(row);
           }

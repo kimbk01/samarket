@@ -78,6 +78,21 @@ export async function playCoalescedOrderMatchChatAlert(dedupeKey: string): Promi
   return slot;
 }
 
+/**
+ * 주문 채팅 등 — Admin SSOT eventKey 직접 재생 (수신 coalescing 슬롯만 공유, 발신음과 분리).
+ */
+export function playCoalescedEventNotificationSound(
+  dedupeKey: string,
+  eventKey: string
+): ChatAlertSoundScheduleResult {
+  const key = eventKey.trim();
+  if (!key) return { status: "skipped", reason: "empty_dedupe_key" };
+  const slot = tryConsumeChatAlertSlot(dedupeKey);
+  if (slot.status !== "scheduled") return slot;
+  void playEventNotificationSound(key);
+  return slot;
+}
+
 /** @internal vitest */
 export function clearCoalescedChatAlertSoundForTests(): void {
   seenDedupeKeys.clear();

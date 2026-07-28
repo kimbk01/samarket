@@ -37,6 +37,7 @@ import {
 } from "@/lib/community-messenger/notifications/cm-participant-surface-sync";
 import { playCoalescedChatNotificationSound } from "@/lib/notifications/coalesced-chat-alert-sound";
 import { getNotificationSoundGateSnapshot } from "@/lib/notifications/notification-sound-gate";
+import { resolveCmInAppSoundNotificationDomain } from "@/lib/community-messenger/notifications/cm-in-app-sound-domain";
 import {
   MESSENGER_ENTRY_ORIGIN_QUERY_KEY,
   messengerRoomListSourceFromPathname,
@@ -113,6 +114,8 @@ export type CmParticipantUnreadFullEffectsArgs = {
   nextUnread: number;
   prevUnread: number;
   latencyKey: string;
+  /** Domain resolve — snapshot/bootstrap chatDomain. 없으면 재생 생략. */
+  viewerUserId?: string | null;
   pathnameRef: RefObject<string | null>;
   visibilityRef: RefObject<DocumentVisibilityState>;
   surfaceRef: RefObject<ReturnType<typeof useNotificationSurface>>;
@@ -126,12 +129,15 @@ export function applyCmParticipantUnreadFullEffects(args: CmParticipantUnreadFul
     nextUnread,
     prevUnread,
     latencyKey: key,
+    viewerUserId,
     pathnameRef,
     visibilityRef,
     surfaceRef,
     tRef,
     routerRef,
   } = args;
+
+  const soundDomain = resolveCmInAppSoundNotificationDomain(nextRoomId, viewerUserId ?? null);
 
   const t0 = typeof performance !== "undefined" ? performance.now() : Date.now();
   let sound_schedule_ms: number | null = null;
@@ -151,14 +157,18 @@ export function applyCmParticipantUnreadFullEffects(args: CmParticipantUnreadFul
       });
       return;
     }
-    const scheduled = playCoalescedChatNotificationSound(
-      `community-messenger:${nextRoomId}:${prevUnread}->${nextUnread}:${Date.now()}`,
-      "community_direct_chat"
-    );
-    if (scheduled.status === "scheduled") {
+    if (soundDomain) {
+      const scheduled = playCoalescedChatNotificationSound(
+        `community-messenger:${nextRoomId}:${prevUnread}->${nextUnread}:${Date.now()}`,
+        soundDomain
+      );
+      if (scheduled.status === "scheduled") {
+        noteCmParticipantSurfaceSoundHandled(nextRoomId);
+        sound_schedule_ms =
+          typeof performance !== "undefined" ? Math.round(performance.now() - t0) : 0;
+      }
+    } else {
       noteCmParticipantSurfaceSoundHandled(nextRoomId);
-      sound_schedule_ms =
-        typeof performance !== "undefined" ? Math.round(performance.now() - t0) : 0;
     }
     tryShowMessengerWebDesktopNotification({
       roomId: nextRoomId,
@@ -223,10 +233,10 @@ export function applyCmParticipantUnreadFullEffects(args: CmParticipantUnreadFul
    * allowSound = domain/room/user 정책만 (pathname `/market` 억제 금지).
    * 배너와 소리는 같은 decision 에서 파생하되 결과가 다를 수 있음(현재 방 등).
    */
-  const allowSound = playInAppMessageSound;
-  if (dedupeKey && allowSound) {
+  const allowSound = playInAppMessageSound && soundDomain != null;
+  if (dedupeKey && allowSound && soundDomain) {
     cmReceiveLatencyMark(key, { notification_sound_start_ms: cmReceiveLatencyNow() });
-    const scheduled = playCoalescedChatNotificationSound(dedupeKey, "community_direct_chat");
+    const scheduled = playCoalescedChatNotificationSound(dedupeKey, soundDomain);
     if (scheduled.status === "scheduled") {
       noteCmParticipantSurfaceSoundHandled(nextRoomId);
       sound_schedule_ms =
@@ -234,8 +244,7 @@ export function applyCmParticipantUnreadFullEffects(args: CmParticipantUnreadFul
     }
   } else if (dedupeKey && !allowSound) {
     /**
-     * 현재 방·음소거·설정 OFF 등 의도적 억제 — notif INSERT 가 늦게 울리지 않게 handled.
-     * (재생하지 않았는데 market 억제만으로 handled 하던 패턴과 구분)
+     * 현재 방·음소거·설정 OFF·도메인 미상 — notif INSERT 가 늦게 울리지 않게 handled.
      */
     noteCmParticipantSurfaceSoundHandled(nextRoomId);
   }

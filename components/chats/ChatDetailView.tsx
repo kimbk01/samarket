@@ -105,7 +105,14 @@ import { useTradePostListingBroadcast } from "@/lib/chats/use-trade-post-listing
 import type { TradePostListingBroadcastPayload } from "@/lib/trade/trade-post-listing-broadcast-channel";
 import { ChatRealtimeAppBarIcons } from "@/components/chats/ChatRealtimeAppBarIcons";
 import { STORE_ORDER_MATCH_ACK_MESSAGE } from "@/lib/chats/store-order-match-ack-text";
-import { playCoalescedOrderMatchChatAlert } from "@/lib/notifications/coalesced-chat-alert-sound";
+import {
+  playCoalescedEventNotificationSound,
+  playCoalescedOrderMatchChatAlert,
+} from "@/lib/notifications/coalesced-chat-alert-sound";
+import {
+  isChatRoomMessageSoundMuted,
+  setChatRoomMessageSoundMuted,
+} from "@/lib/chats/chat-room-message-sound-mute";
 import { TrustSummaryCard } from "@/components/reviews/TrustSummaryCard";
 import type { UserTrustSummary } from "@/lib/types/review";
 import { clampTrustScore } from "@/lib/trust/trust-score-core";
@@ -669,7 +676,29 @@ export function ChatDetailView({
   const [chatRealtimeConnState, setChatRealtimeConnState] =
     useState<ChatRoomRealtimeConnectionState>("disabled");
   const [chatRealtimeLive, setChatRealtimeLive] = useState(false);
-  const [chatMessageSoundMuted, setChatMessageSoundMuted] = useState(false);
+  const [chatMessageSoundMuted, setChatMessageSoundMutedState] = useState(() =>
+    typeof window !== "undefined" ? isChatRoomMessageSoundMuted(room.id) : false
+  );
+  const chatMessageSoundMutedRef = useRef(chatMessageSoundMuted);
+
+  useEffect(() => {
+    const muted = isChatRoomMessageSoundMuted(room.id);
+    setChatMessageSoundMutedState(muted);
+    chatMessageSoundMutedRef.current = muted;
+  }, [room.id]);
+
+  useEffect(() => {
+    chatMessageSoundMutedRef.current = chatMessageSoundMuted;
+  }, [chatMessageSoundMuted]);
+
+  const toggleChatMessageSoundMuted = useCallback(() => {
+    setChatMessageSoundMutedState((prev) => {
+      const next = !prev;
+      setChatRoomMessageSoundMuted(room.id, next);
+      chatMessageSoundMutedRef.current = next;
+      return next;
+    });
+  }, [room.id]);
 
   const appendOptimisticMessage = useCallback(
     (message: Omit<ChatMessage, "id">) => {
@@ -1284,12 +1313,11 @@ export function ChatDetailView({
         if (allowIncomingAlerts) {
           for (const m of newly) {
             const isFromPartner = m.senderId !== currentUserId;
-            if (
-              isStoreOrderChat &&
-              amISeller &&
-              isFromPartner &&
-              (m.message || "").includes(STORE_ORDER_MATCH_ACK_MESSAGE)
-            ) {
+            if (!isFromPartner || !isStoreOrderChat) continue;
+            if (chatMessageSoundMutedRef.current) continue;
+
+            const isMatchAck = (m.message || "").includes(STORE_ORDER_MATCH_ACK_MESSAGE);
+            if (amISeller && isMatchAck) {
               void playCoalescedOrderMatchChatAlert(`msg:${m.id}:match-ack`);
               if (typeof window !== "undefined" && "Notification" in window) {
                 const showNote = () => {
@@ -1304,14 +1332,26 @@ export function ChatDetailView({
                 };
                 if (Notification.permission === "granted") showNote();
               }
+              continue;
             }
+
+            if (amISeller && !isMatchAck) {
+              playCoalescedEventNotificationSound(
+                `msg:${m.id}:order-owner`,
+                "delivery_chat_message_received_owner"
+              );
+              continue;
+            }
+
             if (
-              isStoreOrderChat &&
               room.buyerId === currentUserId &&
-              isFromPartner &&
-              buyerOrderChatSoundOnRef.current
+              buyerOrderChatSoundOnRef.current &&
+              !isMatchAck
             ) {
-              void playCoalescedOrderMatchChatAlert(`msg:${m.id}:order-chat`);
+              playCoalescedEventNotificationSound(
+                `msg:${m.id}:order-user`,
+                "delivery_chat_message_received_user"
+              );
             }
           }
         }
@@ -2162,7 +2202,7 @@ export function ChatDetailView({
                     state={chatRealtimeConnState}
                     messagesLoading={messagesLoading}
                     messageSoundMuted={chatMessageSoundMuted}
-                    onToggleMessageSound={() => setChatMessageSoundMuted((v) => !v)}
+                    onToggleMessageSound={toggleChatMessageSoundMuted}
                     variant={isStoreOrderChat ? "instagram" : "default"}
                   />
                 ) : null}

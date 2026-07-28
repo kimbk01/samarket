@@ -3,8 +3,8 @@
  * 브라우저 전용.
  *
  * CONTRACT: 수신 알림음(playEvent) 은 hydrate 중 일반 stop 으로 취소하지 않는다.
- * 방 진입(종/푸시) 만 `invalidatePendingNotificationSoundPlayback` 으로 pending 을 끊는다.
- * (dffab904e 가 stop≡invalidate 로 묶어 수신음까지 죽인 회귀 방지)
+ * 채팅 상세 진입은 `invalidateChatRoomEntryInAppSound` → `invalidatePendingNotificationSoundPlayback`
+ * 으로 pending 을 끊는다.
  */
 import type { NotificationDomain } from "@/lib/notifications/notification-domains";
 import { eventKeyForNotificationDomain } from "@/lib/notifications/notification-sound-event-map";

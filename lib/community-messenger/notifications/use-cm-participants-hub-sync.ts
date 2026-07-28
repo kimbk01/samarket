@@ -240,6 +240,7 @@ export function useCmParticipantsHubSync(
               nextUnread,
               prevUnread,
               latencyKey: key,
+              viewerUserId: userId,
               pathnameRef,
               visibilityRef,
               surfaceRef,

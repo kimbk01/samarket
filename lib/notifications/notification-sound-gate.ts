@@ -9,6 +9,7 @@ import {
   isNotificationDomain,
   type NotificationDomain,
 } from "@/lib/notifications/notification-domains";
+import { isChatRoomMessageSoundMuted } from "@/lib/chats/chat-room-message-sound-mute";
 
 /** `NotificationSurfaceProvider` 가 매 렌더 동기 갱신 — Realtime 콜백은 컨텍스트 리렌더 없이 읽는다. */
 export type NotificationSoundGateSnapshot = {
@@ -128,15 +129,27 @@ export function routeNotificationInsertSound(row: Record<string, unknown>): bool
   const roomRef =
     metaAny?.room_id && typeof metaAny.room_id === "string" ? metaAny.room_id : refId;
 
+  /** 해당 방 세션/로컬 mute — polling 과 INSERT 공통 */
+  if (roomRef && isChatRoomMessageSoundMuted(String(roomRef))) {
+    return false;
+  }
+
   /**
    * CM participants Realtime 이 이미 인앱 음을 냈으면 notifications INSERT 중복음 스킵.
    * (INSERT 가 participants 보다 늦게 도착해 "늦게 울림"으로 체감되는 경로)
    * 방 URL 진입 직후·동일 방 화면이면 Provider 스냅샷 지연과 무관하게 INSERT 음 차단.
+   * activeRoom store(gate) + pathname 둘 다 검사.
    */
   const pathActiveRoom = communityRoomIdFromWindowPath();
   const roomRefNorm = roomRef != null ? String(roomRef).trim() : "";
-  if (pathActiveRoom && roomRefNorm && pathActiveRoom === roomRefNorm) {
-    return false;
+  const gateActiveCm =
+    surface.activeCommunityChatRoomId != null ? String(surface.activeCommunityChatRoomId).trim() : "";
+  const gateActiveTrade =
+    surface.activeTradeChatRoomId != null ? String(surface.activeTradeChatRoomId).trim() : "";
+  if (roomRefNorm) {
+    if (pathActiveRoom && pathActiveRoom === roomRefNorm) return false;
+    if (gateActiveCm && gateActiveCm === roomRefNorm) return false;
+    if (gateActiveTrade && gateActiveTrade === roomRefNorm) return false;
   }
   const gateDomainEarly = resolveNotificationSoundGateDomainFromRow(rowInput);
   if (

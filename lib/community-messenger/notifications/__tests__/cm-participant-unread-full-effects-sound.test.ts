@@ -16,6 +16,10 @@ vi.mock("@/lib/notifications/coalesced-chat-alert-sound", () => ({
   clearCoalescedChatAlertSoundForTests: vi.fn(),
 }));
 
+vi.mock("@/lib/community-messenger/notifications/cm-in-app-sound-domain", () => ({
+  resolveCmInAppSoundNotificationDomain: vi.fn(() => "community_direct_chat"),
+}));
+
 vi.mock("@/lib/community-messenger/notifications/messenger-notification-contract", () => ({
   requestMessengerHubBadgeResync: vi.fn(),
   MESSENGER_CHAT_ALERT_MIN_GAP_MS: 800,
@@ -72,6 +76,7 @@ describe("applyCmParticipantUnreadFullEffects — sound with null surface (root 
       nextUnread: 1,
       prevUnread: 0,
       latencyKey: "lat",
+      viewerUserId: "user-1",
       pathnameRef: { current: "/community-messenger" },
       visibilityRef: { current: "visible" },
       surfaceRef: { current: null },
@@ -80,7 +85,67 @@ describe("applyCmParticipantUnreadFullEffects — sound with null surface (root 
     });
 
     expect(playCoalescedMock).toHaveBeenCalled();
+    expect(playCoalescedMock).toHaveBeenCalledWith(
+      expect.any(String),
+      "community_direct_chat"
+    );
     expect(shouldSkipNotificationInsertSoundForCmParticipant("room-other")).toBe(true);
+  });
+
+  it("uses community_group_chat domain for group rooms", async () => {
+    const { resolveCmInAppSoundNotificationDomain } = await import(
+      "@/lib/community-messenger/notifications/cm-in-app-sound-domain"
+    );
+    vi.mocked(resolveCmInAppSoundNotificationDomain).mockReturnValueOnce("community_group_chat");
+
+    const { applyCmParticipantUnreadFullEffects } = await import(
+      "@/lib/community-messenger/notifications/cm-participant-unread-full-effects"
+    );
+
+    applyCmParticipantUnreadFullEffects({
+      nextRoomId: "room-group",
+      nextUnread: 2,
+      prevUnread: 1,
+      latencyKey: "lat-g",
+      viewerUserId: "user-1",
+      pathnameRef: { current: "/community-messenger" },
+      visibilityRef: { current: "visible" },
+      surfaceRef: { current: null },
+      tRef: { current: (key: string) => key },
+      routerRef: { current: { push: vi.fn(), replace: vi.fn() } as unknown as AppRouterInstance },
+    });
+
+    expect(playCoalescedMock).toHaveBeenCalled();
+    expect(playCoalescedMock).toHaveBeenCalledWith(
+      expect.any(String),
+      "community_group_chat"
+    );
+  });
+
+  it("skips sound when domain is unknown (no direct disguise)", async () => {
+    const { resolveCmInAppSoundNotificationDomain } = await import(
+      "@/lib/community-messenger/notifications/cm-in-app-sound-domain"
+    );
+    vi.mocked(resolveCmInAppSoundNotificationDomain).mockReturnValueOnce(null);
+
+    const { applyCmParticipantUnreadFullEffects } = await import(
+      "@/lib/community-messenger/notifications/cm-participant-unread-full-effects"
+    );
+
+    applyCmParticipantUnreadFullEffects({
+      nextRoomId: "room-unknown",
+      nextUnread: 2,
+      prevUnread: 1,
+      latencyKey: "lat-u",
+      viewerUserId: "user-1",
+      pathnameRef: { current: "/community-messenger" },
+      visibilityRef: { current: "visible" },
+      surfaceRef: { current: null },
+      tRef: { current: (key: string) => key },
+      routerRef: { current: { push: vi.fn(), replace: vi.fn() } as unknown as AppRouterInstance },
+    });
+
+    expect(playCoalescedMock).not.toHaveBeenCalled();
   });
 
   it("does not treat missing settings as sound OFF when surface and gate are both empty", async () => {
@@ -93,6 +158,7 @@ describe("applyCmParticipantUnreadFullEffects — sound with null surface (root 
       nextUnread: 2,
       prevUnread: 1,
       latencyKey: "lat2",
+      viewerUserId: "user-1",
       pathnameRef: { current: "/market" },
       visibilityRef: { current: "visible" },
       surfaceRef: { current: null },
@@ -128,6 +194,7 @@ describe("applyCmParticipantUnreadFullEffects — sound with null surface (root 
       nextUnread: 3,
       prevUnread: 2,
       latencyKey: "lat3",
+      viewerUserId: "user-1",
       pathnameRef: { current: "/community-messenger/rooms/room-open" },
       visibilityRef: { current: "visible" },
       surfaceRef: { current: null },

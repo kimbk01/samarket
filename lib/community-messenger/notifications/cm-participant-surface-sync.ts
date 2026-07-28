@@ -84,7 +84,7 @@ export function communityMessengerRoomIdFromHref(href: string | null | undefined
 
 /**
  * 종·푸시·배너에서 방 진입 직전 동기 호출 — INSERT 중복음만 막는다.
- * 수신 hydrate play 는 cancel 하지 않음 (54cd/06e392 · c359 계약 — invalidate 금지).
+ * pending hydrate 무효화는 `invalidateChatRoomEntryInAppSound` (NotificationSurface 방 진입) 권위.
  */
 export function suppressCmRoomEntryNotificationSound(hrefOrRoomId: string | null | undefined): void {
   const asPath = communityMessengerRoomIdFromHref(hrefOrRoomId);

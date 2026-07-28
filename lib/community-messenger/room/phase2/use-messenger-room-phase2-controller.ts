@@ -110,6 +110,7 @@ import { registerMessengerRoomComposerPhase2Bridge } from "@/lib/community-messe
 import { scheduleMessengerComposerFocusRetain } from "@/lib/community-messenger/room/messenger-composer-focus-after-send";
 import { translateCmUi } from "@/lib/community-messenger/cm-ui-translate";
 import { playEventNotificationSound } from "@/lib/notifications/notification-sound-engine";
+import { getNotificationSoundGateSnapshot } from "@/lib/notifications/notification-sound-gate";
 
 export type MessengerRoomPhase2ControllerState = ReturnType<typeof useMessengerRoomPhase2Controller>;
 
@@ -148,6 +149,11 @@ function optimisticOutboundSender(
   return { senderId: CM_OPTIMISTIC_SENDER_FALLBACK_ID, senderLabel: translateCmUi("common_me") };
 }
 
+/**
+ * CONTRACT: 텍스트 전송 성공 ACK 1회만. 수신 coalescing 과 분리.
+ * 사용자 인앱 sound OFF 또는 Admin disabled/silent(엔진)이면 재생 안 함.
+ * 이미지·파일·스티커·음성 경로는 호출하지 않음 (텍스트 전용 제품 계약).
+ */
 export function playMessengerMessageSentFeedbackOnce(
   playedClientMessageIds: Set<string>,
   clientMessageId: string | null | undefined,
@@ -157,6 +163,9 @@ export function playMessengerMessageSentFeedbackOnce(
   const cid = trimCmText(clientMessageId);
   const mid = trimCmText(confirmedMessageId);
   if (!cid || !mid || playedClientMessageIds.has(cid)) return false;
+  const gate = getNotificationSoundGateSnapshot();
+  if (gate?.userNotificationSettings.sound_enabled === false) return false;
+  if (gate?.userNotificationSettings.community_chat_enabled === false) return false;
   playedClientMessageIds.add(cid);
   void play(MESSENGER_MESSAGE_SENT_EVENT_KEY);
   return true;

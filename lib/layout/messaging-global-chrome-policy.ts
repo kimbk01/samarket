@@ -5,6 +5,7 @@ import type { MessageNotificationBridgePlayback } from "@/lib/community-messenge
 export type MessagingGlobalChromePolicy = {
   /** `notifications` 테이블 Realtime — 메신저 참가자 브리지는 `MainShellMessengerParticipantBridge` 가 전역 단일로 담당 */
   mountNotificationsBadgeRealtimeBridge: boolean;
+  /** @deprecated hub snapshot 채팅음 제거 — 항상 false */
   mountGlobalOrderChatUnreadSound: boolean;
   communityMessengerParticipantPlayback: MessageNotificationBridgePlayback;
   mountNotificationSoundPrime: boolean;
@@ -55,7 +56,8 @@ export function resolveMessagingGlobalChromeFromPath(
 
   const policy: MessagingGlobalChromePolicy = {
     mountNotificationsBadgeRealtimeBridge: mountMainShellNotificationsRealtime,
-    mountGlobalOrderChatUnreadSound: f.mountGlobalRealtimeChrome,
+    /** hub aggregate unread 증가음 제거 — INSERT/participants 가 권위 */
+    mountGlobalOrderChatUnreadSound: false,
     communityMessengerParticipantPlayback,
     mountNotificationSoundPrime: f.mountNotificationSoundPrime,
     mountMessengerInAppBannerHost,

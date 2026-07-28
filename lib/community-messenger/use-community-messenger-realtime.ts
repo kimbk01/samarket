@@ -28,6 +28,7 @@ import {
   samarketMessengerHomeDebugEvent,
 } from "@/lib/runtime/samarket-runtime-debug";
 import { playCoalescedChatNotificationSound } from "@/lib/notifications/coalesced-chat-alert-sound";
+import { resolveCmInAppSoundNotificationDomain } from "@/lib/community-messenger/notifications/cm-in-app-sound-domain";
 import { cmReceiveBadgeLog } from "@/lib/community-messenger/read/cm-receive-badge-log";
 import { cmRtReadSyncLog } from "@/lib/community-messenger/read/cm-rt-read-sync-log";
 import {
@@ -376,7 +377,10 @@ function notifyMessengerHomeRealtimeMessageInsert(args: {
   /** 포그라운드 톤·배너는 participants hub-sync 단일 경로 — 탭 숨김만 여기서 즉시 톤 (pathname 무관) */
   const bg = typeof document !== "undefined" && document.visibilityState !== "visible";
   if (bg) {
-    playCoalescedChatNotificationSound(dedupeKey, "community_direct_chat");
+    const soundDomain = resolveCmInAppSoundNotificationDomain(roomRaw, viewer);
+    if (soundDomain) {
+      playCoalescedChatNotificationSound(dedupeKey, soundDomain);
+    }
   }
 }
 

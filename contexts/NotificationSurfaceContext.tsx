@@ -9,7 +9,7 @@ import {
   useState,
 } from "react";
 import { usePathname } from "next/navigation";
-import { stopNotificationPlayback } from "@/lib/notifications/notification-sound-engine";
+import { invalidateChatRoomEntryInAppSound } from "@/lib/notifications/chat-room-entry-sound";
 import type { NotificationDomain } from "@/lib/notifications/notification-domains";
 import {
   fetchMeNotificationSettingsSnapshot,
@@ -154,12 +154,15 @@ export function NotificationSurfaceProvider({ children }: { children: React.Reac
     };
   }, []);
 
-  /** 경로·명시 채팅방 진입 시 재생 중 알림음 종료 (수신 hydrate 는 끊지 않음 — 06e392d1a) */
+  /**
+   * 채팅 상세 진입·전환 — pending hydrate 포함 완전 무효화.
+   * Community direct/group · Trade · Store-order(`/chats`) · legacy group-chat.
+   */
   useEffect(() => {
-    if (activeTradeChatRoomId || activeCommunityChatRoomId) {
-      stopNotificationPlayback();
+    if (activeTradeChatRoomId || activeCommunityChatRoomId || activeGroupChatRoomId) {
+      invalidateChatRoomEntryInAppSound();
     }
-  }, [activeTradeChatRoomId, activeCommunityChatRoomId]);
+  }, [activeTradeChatRoomId, activeCommunityChatRoomId, activeGroupChatRoomId]);
 
   const soundGateSnapshot = useMemo(
     () => ({
