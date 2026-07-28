@@ -34,6 +34,7 @@ import {
   noteCmScrollAuthorityEvent,
 } from "@/lib/community-messenger/room/cm-room-scroll-authority-instrumentation";
 import {
+  cmEntryGateNote,
   cmResizeCycleBegin,
   cmResizeCycleNote,
   cmResizeCycleReadViewport,
@@ -528,12 +529,76 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
 
   /** Initial anchor — room generation 당 1회, layoutEffect(paint 전). composer/fingerprint 재실행 금지. */
   useLayoutEffect(() => {
-    if (deferEntryScrollToDeliveryDirectTimeline || roomMessages.length <= 0) return;
-    if (!timelineViewportMounted) return;
-    if (!timelineInitialLoadComplete) return;
+    // CM_ENTRY_GATE_PROBE (read-only) — values only; return order unchanged
+    const entryGateValues = {
+      roomId: roomId.trim() || null,
+      deferEntryScrollToDeliveryDirectTimeline,
+      roomMessagesLength: roomMessages.length,
+      timelineViewportMounted,
+      timelineInitialLoadComplete,
+      timelineHeavyReady,
+      messageCount,
+      entryScrollScheduled: entryScrollScheduledRef.current,
+      hasAppliedInitialAnchorRef: hasAppliedInitialAnchorRef.current,
+      phase: engine.getPhase(),
+    };
+    cmEntryGateNote("initial_anchor_effect_enter", entryGateValues);
+    if (deferEntryScrollToDeliveryDirectTimeline || roomMessages.length <= 0) {
+      // CM_ENTRY_GATE_PROBE (read-only)
+      cmEntryGateNote("initial_anchor_gate_return", {
+        ...entryGateValues,
+        gate: "defer_or_no_messages",
+        gateLine: 546,
+        firstBreak:
+          deferEntryScrollToDeliveryDirectTimeline
+            ? "deferEntryScrollToDeliveryDirectTimeline"
+            : "roomMessages.length<=0",
+      });
+      return;
+    }
+    if (!timelineViewportMounted) {
+      // CM_ENTRY_GATE_PROBE (read-only)
+      cmEntryGateNote("initial_anchor_gate_return", {
+        ...entryGateValues,
+        gate: "timelineViewportMounted_false",
+        gateLine: 559,
+        firstBreak: "timelineViewportMounted",
+      });
+      return;
+    }
+    if (!timelineInitialLoadComplete) {
+      // CM_ENTRY_GATE_PROBE (read-only)
+      cmEntryGateNote("initial_anchor_gate_return", {
+        ...entryGateValues,
+        gate: "timelineInitialLoadComplete_false",
+        gateLine: 569,
+        firstBreak: "timelineInitialLoadComplete",
+      });
+      return;
+    }
     /** heavy 없이도 direct rows paint 가능 — heavy는 virtualizer 보조만 */
-    if (!timelineHeavyReady && messageCount <= 0) return;
-    if (entryScrollScheduledRef.current || hasAppliedInitialAnchorRef.current) return;
+    if (!timelineHeavyReady && messageCount <= 0) {
+      // CM_ENTRY_GATE_PROBE (read-only)
+      cmEntryGateNote("initial_anchor_gate_return", {
+        ...entryGateValues,
+        gate: "heavy_not_ready_and_messageCount_le_0",
+        gateLine: 580,
+        firstBreak: "timelineHeavyReady&&messageCount",
+      });
+      return;
+    }
+    if (entryScrollScheduledRef.current || hasAppliedInitialAnchorRef.current) {
+      // CM_ENTRY_GATE_PROBE (read-only)
+      cmEntryGateNote("initial_anchor_gate_return", {
+        ...entryGateValues,
+        gate: "already_scheduled_or_applied",
+        gateLine: 590,
+        firstBreak: entryScrollScheduledRef.current
+          ? "entryScrollScheduledRef"
+          : "hasAppliedInitialAnchorRef",
+      });
+      return;
+    }
 
     const rid = roomId.trim();
     const hasPersisted = Boolean(peekMessengerRoomScrollPosition(rid));
@@ -547,6 +612,14 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     if (plan.forceBottom) stickToBottomRef.current = true;
 
     entryScrollScheduledRef.current = true;
+    // CM_ENTRY_GATE_PROBE (read-only)
+    cmEntryGateNote("initial_anchor_reached_notifyEntryFromPlan", {
+      ...entryGateValues,
+      gate: null,
+      firstBreak: null,
+      planReason: plan.reason,
+      planForceBottom: plan.forceBottom,
+    });
     notifyEntryFromPlan(plan.reason, plan.forceBottom, plan.anchorMessageId ?? null);
     engine.notifyMessagesReady(true);
     engine.notifyLayoutCommitted();
