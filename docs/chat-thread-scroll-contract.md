@@ -4,10 +4,8 @@
 
 ## Stick 임계값
 
-- `CHAT_THREAD_STICK_THRESHOLD_PX = 96` — **사용자가 아직 하단에 붙어 있는지** 판정용 (entry PASS 기준 아님)
+- `CHAT_THREAD_STICK_THRESHOLD_PX = 96` — 전 표면 통일
 - near-bottom 판정: `lib/chat-thread-scroll/near-bottom.ts`
-- pin 목표: `scrollTop = max(0, scrollHeight - clientHeight)` (maxScroll). entry 는 at-max 전 settle 금지.
-- layout/keyboard resize: lastGeom 이 near-bottom 이면 **force pin** (stick 플래그 단독에 막히지 않음)
 
 ## 상태 머신
 

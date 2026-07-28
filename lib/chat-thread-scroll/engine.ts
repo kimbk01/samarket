@@ -179,13 +179,7 @@ export class ChatThreadScrollEngine {
       this.state.stickToBottom = false;
       return this.preserveScrollDistance(ctx);
     }
-    /**
-     * lastGeom 이 near-bottom 이면 pin 강제.
-     * force:false 는 stick 플래그에 막힐 수 있음 — 키보드 전환 중 브라우저가
-     * 쏘는 과도기 scroll 이벤트가 stick 을 false 로 뒤집어도 keep-bottom 이
-     * 무력화되면 안 된다 (실측: scrollTop 고정 + clientHeight 만 감소).
-     */
-    const scrolled = this.applyScrollToBottom(ctx, { force: true });
+    const scrolled = this.applyScrollToBottom(ctx, { force: false });
     this.state.stickToBottom = true;
     return scrolled;
   }
@@ -202,12 +196,6 @@ export class ChatThreadScrollEngine {
 
     const scrolled = this.applyScrollToBottom(ctx, { force: this.state.forceBottomOnEntry });
     if (!scrolled) {
-      this.state.entryAttempts += 1;
-      return false;
-    }
-    const vp = ctx.viewport;
-    if (this.state.forceBottomOnEntry && vp && !isAtMaxScroll(vp)) {
-      /** virtualizer/measure 가 아직 max 에 안 붙였으면 settle 금지 — 다음 layout/RO 에서 재시도 */
       this.state.entryAttempts += 1;
       return false;
     }
@@ -278,8 +266,7 @@ export class ChatThreadScrollEngine {
         /* virtualizer not ready */
       }
     }
-    /** scrollTop SSOT = maxScroll. scrollHeight 대입은 브라우저 clamp 에만 의존하지 않는다. */
-    pinViewportToMaxScroll(vp);
+    vp.scrollTop = vp.scrollHeight;
     this.state.stickToBottom = true;
     this.captureGeom(vp);
     return vp.scrollHeight > 0 || count === 0;
@@ -317,16 +304,6 @@ export class ChatThreadScrollEngine {
     const metrics = readChatThreadNearBottom(ctx.viewport, this.config.stickThresholdPx);
     if (metrics) this.state.stickToBottom = metrics.nearBottom;
   }
-}
-
-function pinViewportToMaxScroll(vp: HTMLElement): void {
-  const maxScroll = Math.max(0, vp.scrollHeight - vp.clientHeight);
-  vp.scrollTop = maxScroll;
-}
-
-function isAtMaxScroll(vp: HTMLElement, epsilonPx = 1): boolean {
-  const maxScroll = Math.max(0, vp.scrollHeight - vp.clientHeight);
-  return Math.abs(vp.scrollTop - maxScroll) <= epsilonPx;
 }
 
 export function createChatThreadScrollEngine(

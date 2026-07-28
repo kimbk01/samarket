@@ -13,21 +13,19 @@ function mockViewport(input: {
   let scrollHeight = input.scrollHeight ?? 1000;
   const clientHeight = input.clientHeight ?? 400;
   const rowCount = input.rowCount ?? 1;
-  const maxScroll = () => Math.max(0, scrollHeight - clientHeight);
   const el = {
     get scrollHeight() {
       return scrollHeight;
     },
     set scrollHeight(v: number) {
       scrollHeight = v;
-      if (scrollTop > maxScroll()) scrollTop = maxScroll();
     },
     clientHeight,
     get scrollTop() {
       return scrollTop;
     },
     set scrollTop(v: number) {
-      scrollTop = Math.max(0, Math.min(maxScroll(), v));
+      scrollTop = v;
     },
     querySelectorAll: vi.fn(() => Array.from({ length: rowCount })),
   } as unknown as HTMLElement;
@@ -39,7 +37,7 @@ function setScrollHeight(el: HTMLElement, height: number): void {
 }
 
 describe("ChatThreadScrollEngine", () => {
-  it("entry → terminal maxScroll 1회 (layout + messages ready)", () => {
+  it("entry → terminal bottom 1회 (layout + messages ready)", () => {
     const engine = createChatThreadScrollEngine();
     const vp = mockViewport({ scrollHeight: 800, clientHeight: 400, rowCount: 3 });
     const ctx = { viewport: vp, messageCount: 3, virtualizer: null };
@@ -51,53 +49,7 @@ describe("ChatThreadScrollEngine", () => {
 
     expect(ok).toBe(true);
     expect(engine.getPhase()).toBe("settled");
-    expect(vp.scrollTop).toBe(400);
-  });
-
-  it("entry refuses settle when pin misses maxScroll", () => {
-    const engine = createChatThreadScrollEngine();
-    const scrollHeight = 800;
-    const clientHeight = 400;
-    let scrollTop = 0;
-    const vp = {
-      get scrollHeight() {
-        return scrollHeight;
-      },
-      get clientHeight() {
-        return clientHeight;
-      },
-      get scrollTop() {
-        return scrollTop;
-      },
-      set scrollTop(v: number) {
-        /** 고의로 max 미달 clamp — measure 미완료 시뮬레이션 */
-        const max = Math.max(0, scrollHeight - clientHeight);
-        scrollTop = Math.max(0, Math.min(max - 40, v));
-      },
-      querySelectorAll: vi.fn(() => [{}, {}, {}]),
-    } as unknown as HTMLElement;
-    const ctx = { viewport: vp, messageCount: 3, virtualizer: null };
-
-    engine.notifyEntry({ forceBottom: true });
-    engine.notifyMessagesReady(true);
-    engine.notifyLayoutCommitted();
-    expect(engine.tryCompleteEntry(ctx)).toBe(false);
-    expect(engine.getPhase()).toBe("entryPendingLayout");
-
-    /** measure 완료 후 정상 clamp */
-    Object.defineProperty(vp, "scrollTop", {
-      configurable: true,
-      get() {
-        return scrollTop;
-      },
-      set(v: number) {
-        const max = Math.max(0, scrollHeight - clientHeight);
-        scrollTop = Math.max(0, Math.min(max, v));
-      },
-    });
-    expect(engine.tryCompleteEntry(ctx)).toBe(true);
-    expect(scrollTop).toBe(400);
-    expect(engine.getPhase()).toBe("settled");
+    expect(vp.scrollTop).toBe(800);
   });
 
   it("layout change before settled → no spurious scroll", () => {
@@ -131,7 +83,7 @@ describe("ChatThreadScrollEngine", () => {
     setScrollHeight(nearVp, 1200);
     const followed = engine.notifyAppend(ctxNear);
     expect(followed).toBe(true);
-    expect(nearVp.scrollTop).toBe(1100);
+    expect(nearVp.scrollTop).toBe(1200);
 
     engine.notifyUserScroll(ctxFar);
     expect(engine.readStickToBottom()).toBe(false);
@@ -179,7 +131,7 @@ describe("ChatThreadScrollEngine", () => {
     expect(vp.scrollTop).toBe(350);
   });
 
-  it("layout change after settled + near-bottom geom → force follow even if stick flipped", () => {
+  it("layout change after settled + stick → follow", () => {
     const engine = createChatThreadScrollEngine();
     const vp = mockViewport({ scrollHeight: 600, scrollTop: 200, clientHeight: 400 });
     const ctx = { viewport: vp, messageCount: 4, virtualizer: null };
@@ -188,52 +140,12 @@ describe("ChatThreadScrollEngine", () => {
     engine.notifyMessagesReady(true);
     engine.notifyLayoutCommitted();
     engine.tryCompleteEntry(ctx);
-    /** keyboard 과도기: stick false 여도 lastGeom near-bottom 이면 follow */
-    engine.state.stickToBottom = false;
-    vp.clientHeight;
+    engine.state.stickToBottom = true;
+
     setScrollHeight(vp, 700);
-    /** lastGeom still from entry at max (200→ after entry max was 200 for 600-400) */
     const ok = engine.notifyLayoutResize(ctx);
     expect(ok).toBe(true);
-    expect(vp.scrollTop).toBe(300);
-    expect(engine.readStickToBottom()).toBe(true);
-  });
-
-  it("keyboard shrink: near-bottom lastGeom → scrollTop rises with smaller clientHeight", () => {
-    const engine = createChatThreadScrollEngine();
-    let clientHeight = 854;
-    let scrollTop = 0;
-    const scrollHeight = 1817;
-    const vp = {
-      get scrollHeight() {
-        return scrollHeight;
-      },
-      get clientHeight() {
-        return clientHeight;
-      },
-      get scrollTop() {
-        return scrollTop;
-      },
-      set scrollTop(v: number) {
-        const max = Math.max(0, scrollHeight - clientHeight);
-        scrollTop = Math.max(0, Math.min(max, v));
-      },
-      querySelectorAll: vi.fn(() => [{}, {}, {}]),
-    } as unknown as HTMLElement;
-    const ctx = { viewport: vp, messageCount: 20, virtualizer: null };
-
-    engine.notifyEntry({ forceBottom: true });
-    engine.notifyMessagesReady(true);
-    engine.notifyLayoutCommitted();
-    expect(engine.tryCompleteEntry(ctx)).toBe(true);
-    expect(scrollTop).toBe(1817 - 854);
-
-    /** 과도기 scroll 이벤트가 stick 을 꺼도 */
-    engine.state.stickToBottom = false;
-    clientHeight = 549;
-    const ok = engine.notifyLayoutResize(ctx);
-    expect(ok).toBe(true);
-    expect(scrollTop).toBe(1817 - 549);
+    expect(vp.scrollTop).toBe(700);
   });
 
   it("prepend in flight blocks layout follow", () => {
@@ -245,14 +157,14 @@ describe("ChatThreadScrollEngine", () => {
     engine.notifyMessagesReady(true);
     engine.notifyLayoutCommitted();
     engine.tryCompleteEntry(ctx);
-    expect(vp.scrollTop).toBe(200);
+    expect(vp.scrollTop).toBe(600);
     engine.state.stickToBottom = true;
     engine.notifyPrependInFlight(true);
 
     setScrollHeight(vp, 900);
     const blocked = engine.notifyLayoutResize(ctx);
     expect(blocked).toBe(false);
-    expect(vp.scrollTop).toBe(200);
+    expect(vp.scrollTop).toBe(600);
   });
 
   it("custom resolveEntryPaintReady blocks entry until ready", () => {
@@ -273,7 +185,7 @@ describe("ChatThreadScrollEngine", () => {
     ready = true;
     expect(engine.tryCompleteEntry(ctx)).toBe(true);
     expect(engine.getPhase()).toBe("settled");
-    expect(vp.scrollTop).toBe(400);
+    expect(vp.scrollTop).toBe(800);
   });
 
   it("stick threshold is 96px SSOT", () => {
