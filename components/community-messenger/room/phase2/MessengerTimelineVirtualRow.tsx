@@ -88,6 +88,7 @@ export type MessengerTimelineVirtualRowProps = {
   showBubbleTail: boolean;
   showMessageTime: boolean;
   dayDividerLabel: string | null;
+  unreadDividerLabel?: string | null;
   peerAvatar: ReturnType<typeof communityMessengerMemberAvatar> | null;
   streamRoomId: string;
   /** 상대 읽음 표시 — 해당 행에만 변함 → 전 행 memo 깨짐 방지 */
@@ -140,6 +141,7 @@ function messengerTimelineVirtualRowPropsAreEqual(
     a.showBubbleTail === b.showBubbleTail &&
     a.showMessageTime === b.showMessageTime &&
     a.dayDividerLabel === b.dayDividerLabel &&
+    a.unreadDividerLabel === b.unreadDividerLabel &&
     a.peerAvatar === b.peerAvatar &&
     a.streamRoomId === b.streamRoomId &&
     a.mineUnreadBadgeVisible === b.mineUnreadBadgeVisible &&
@@ -181,6 +183,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
   showBubbleTail,
   showMessageTime,
   dayDividerLabel,
+  unreadDividerLabel = null,
   peerAvatar,
   streamRoomId,
   mineUnreadBadgeVisible,
@@ -537,6 +540,20 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
           <span className="rounded-full bg-[#e4e6eb] px-2.5 py-1 text-center text-[12px] leading-tight text-[#65676b]">
             {dayDividerLabel}
           </span>
+        </div>
+      ) : null}
+      {unreadDividerLabel ? (
+        <div
+          data-cm-unread-divider="1"
+          className="flex w-full items-center gap-2 px-1 pb-2 pt-1"
+          role="separator"
+          aria-label={unreadDividerLabel}
+        >
+          <div className="h-px flex-1 bg-[color:var(--cm-room-primary,#2AABEE)]/35" />
+          <span className="shrink-0 text-[12px] font-medium leading-none text-[color:var(--cm-room-primary,#2AABEE)]">
+            {unreadDividerLabel}
+          </span>
+          <div className="h-px flex-1 bg-[color:var(--cm-room-primary,#2AABEE)]/35" />
         </div>
       ) : null}
       {isStoreOrderSummary ? (

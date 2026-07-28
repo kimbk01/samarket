@@ -73,18 +73,19 @@ describe("messenger room scroll anchor policy", () => {
     ).toBe("push_entry_initial_load");
   });
 
-  it("unread + lastRead uses restore plan with anchorMessageId", () => {
+  it("unread + firstUnread uses restore plan with firstUnread id", () => {
     expect(
       resolveMessengerRoomEntryScrollPlan({
         intent: "default",
         hasPersisted: false,
         unreadCount: 2,
         lastReadMessageId: "msg-last-read",
+        firstUnreadMessageId: "msg-first-unread",
       })
     ).toMatchObject({
       reason: "room_entry_restore",
       forceBottom: false,
-      anchorMessageId: "msg-last-read",
+      anchorMessageId: "msg-first-unread",
     });
   });
 

@@ -1,36 +1,102 @@
 "use client";
 
+import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMessengerRoomReaderStateStore } from "@/lib/community-messenger/notifications/messenger-room-reader-state-store";
 import { messengerRoomShowsNewMessagesBelowChip } from "@/lib/community-messenger/notifications/messenger-notification-rollout";
+import {
+  countUnreadMessagesBelow,
+  formatUnreadBadgeCount,
+  resolveJumpToLatestFabState,
+  type FirstUnreadMessageRow,
+} from "@/lib/community-messenger/room/messenger-room-first-unread";
 
+/**
+ * Telegram-style jump-to-latest FAB (bottom-right).
+ * Badge = unread remaining below viewport (not app-wide / other rooms).
+ * Tap → existing scrollMessengerToBottom only (no new scroll writer).
+ */
 export function MessengerRoomNewMessagesBelowChip({
   roomId,
   onJumpToLatest,
+  messages,
+  lastReadMessageId,
+  lastVisibleMessageId,
 }: {
   roomId: string;
   onJumpToLatest: () => void;
+  messages?: readonly FirstUnreadMessageRow[];
+  lastReadMessageId?: string | null;
+  /** Last message id considered in/above the viewport; unread after this = badge. */
+  lastVisibleMessageId?: string | null;
 }) {
   const { safeT } = useI18n();
   const rid = roomId.trim();
-  const count = useMessengerRoomReaderStateStore((s) => (rid ? (s.byRoom[rid]?.pendingNewBelow ?? 0) : 0));
+  const scrollPosition = useMessengerRoomReaderStateStore((s) =>
+    rid ? (s.byRoom[rid]?.scrollPosition ?? null) : null
+  );
+  const pendingNewBelow = useMessengerRoomReaderStateStore((s) =>
+    rid ? (s.byRoom[rid]?.pendingNewBelow ?? 0) : 0
+  );
 
-  if (!messengerRoomShowsNewMessagesBelowChip() || count < 1) return null;
+  const atLatest = scrollPosition === "at-bottom" || scrollPosition === "near-bottom";
 
-  const label = safeT("cm_ui_new_messages_below_chip", {
-    fallbackKo: `새 메시지 ${count}개`,
-    fallbackEn: `${count} new message${count === 1 ? "" : "s"}`,
-    vars: { count },
-  });
+  const unreadBelow = useMemo(() => {
+    if (!messages || messages.length === 0) {
+      return Math.max(0, pendingNewBelow);
+    }
+    const fromTimeline = countUnreadMessagesBelow({
+      messages,
+      lastReadMessageId,
+      afterMessageId: lastVisibleMessageId ?? null,
+    });
+    /** New arrivals while away from bottom also count as below-viewport unread. */
+    return Math.max(fromTimeline, pendingNewBelow);
+  }, [lastReadMessageId, lastVisibleMessageId, messages, pendingNewBelow]);
+
+  const fab = resolveJumpToLatestFabState({ atLatest, unreadBelow });
+
+  if (!messengerRoomShowsNewMessagesBelowChip() || !fab.visible) return null;
+
+  const badge = formatUnreadBadgeCount(fab.badgeCount);
+  const aria = badge
+    ? safeT("cm_ui_jump_latest_unread_aria", {
+        fallbackKo: `최신으로 이동, 읽지 않은 메시지 ${badge}개`,
+        fallbackEn: `Jump to latest, ${badge} unread`,
+        vars: { count: badge },
+      })
+    : safeT("cm_ui_jump_latest_aria", {
+        fallbackKo: "최신 메시지로 이동",
+        fallbackEn: "Jump to latest",
+      });
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex justify-center px-3">
+    <div className="pointer-events-none absolute bottom-[calc(0.5rem+env(safe-area-inset-bottom,0px))] right-3 z-10 sm:right-4">
       <button
         type="button"
+        data-cm-jump-latest-fab="1"
+        data-cm-jump-latest-badge={badge || "0"}
         onClick={onJumpToLatest}
-        className="pointer-events-auto rounded-full border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-3 py-1.5 sam-text-helper font-semibold text-[color:var(--cm-room-text)] shadow-none active:opacity-90"
+        aria-label={aria}
+        className="pointer-events-auto relative flex h-11 w-11 items-center justify-center rounded-full border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] text-[color:var(--cm-room-text)] shadow-sm active:opacity-90"
       >
-        {label}
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+          <path
+            d="M6 9l6 6 6-6"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+        {badge ? (
+          <span
+            data-cm-jump-latest-badge-label={badge}
+            className="absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[color:var(--cm-room-primary,#2AABEE)] px-1 text-[10px] font-bold leading-none text-white"
+          >
+            {badge}
+          </span>
+        ) : null}
       </button>
     </div>
   );

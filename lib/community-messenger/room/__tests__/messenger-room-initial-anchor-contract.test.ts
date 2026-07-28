@@ -32,19 +32,20 @@ describe("chat room initial anchor contract (legacy-class)", () => {
     ).toBe(true);
   });
 
-  it("entry plan: unread+lastRead restores; push forces latest; default latest", () => {
+  it("entry plan: firstUnread anchors; push forces latest; default latest", () => {
     expect(
       resolveMessengerRoomEntryScrollPlan({
         intent: "default",
         hasPersisted: false,
         unreadCount: 3,
         lastReadMessageId: "m-read",
+        firstUnreadMessageId: "m-first-unread",
       })
     ).toEqual({
       reason: "room_entry_restore",
       clearPersist: true,
       forceBottom: false,
-      anchorMessageId: "m-read",
+      anchorMessageId: "m-first-unread",
     });
     expect(
       resolveMessengerRoomEntryScrollPlan({ intent: "push", hasPersisted: true }).forceBottom

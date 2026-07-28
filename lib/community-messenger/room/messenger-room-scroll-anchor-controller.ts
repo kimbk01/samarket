@@ -18,6 +18,7 @@ import {
   resetMessengerRoomEntryScrollOwner,
   type CmScrollOwnerReason,
 } from "@/lib/community-messenger/room/messenger-room-entry-scroll-owner";
+import { resolveFirstUnreadMessageId } from "@/lib/community-messenger/room/messenger-room-first-unread";
 import {
   clearMessengerRoomScrollPosition,
   peekMessengerRoomScrollPosition,
@@ -431,11 +432,24 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
 
     const rid = roomId.trim();
     const hasPersisted = Boolean(peekMessengerRoomScrollPosition(rid));
+    const firstUnreadMessageId = resolveFirstUnreadMessageId({
+      messages: roomMessages,
+      lastReadMessageId,
+    });
+    const lastReadTrim =
+      typeof lastReadMessageId === "string" ? lastReadMessageId.trim() : "";
+    const lastReadIdx = lastReadTrim
+      ? roomMessages.findIndex((m) => m.id === lastReadTrim)
+      : -1;
+    /** lastRead in window but no unread after → treat as caught up (latest bottom) */
+    const effectiveUnread =
+      unreadCount > 0 && !firstUnreadMessageId && lastReadIdx >= 0 ? 0 : unreadCount;
     const plan = resolveMessengerRoomEntryScrollPlan({
       intent: entryIntentRef.current,
       hasPersisted,
-      unreadCount,
+      unreadCount: effectiveUnread,
       lastReadMessageId,
+      firstUnreadMessageId,
     });
     if (plan.clearPersist && rid) clearMessengerRoomScrollPosition(rid);
     if (plan.forceBottom) stickToBottomRef.current = true;

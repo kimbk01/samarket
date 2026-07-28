@@ -70,19 +70,37 @@ describe("messenger-room-entry-intent", () => {
     });
   });
 
-  it("unread + lastRead → restore with anchorMessageId (clearPersist)", () => {
+  it("unread + firstUnread → restore with firstUnread anchor (not lastRead)", () => {
     expect(
       resolveMessengerRoomEntryScrollPlan({
         intent: "default",
         hasPersisted: true,
         unreadCount: 4,
         lastReadMessageId: "lr-1",
+        firstUnreadMessageId: "fu-1",
       })
     ).toEqual({
       reason: "room_entry_restore",
       clearPersist: true,
       forceBottom: false,
-      anchorMessageId: "lr-1",
+      anchorMessageId: "fu-1",
+    });
+  });
+
+  it("unread without firstUnread → not force bottom (no fake lastRead)", () => {
+    expect(
+      resolveMessengerRoomEntryScrollPlan({
+        intent: "default",
+        hasPersisted: false,
+        unreadCount: 2,
+        lastReadMessageId: "lr-1",
+        firstUnreadMessageId: null,
+      })
+    ).toEqual({
+      reason: "room_entry_restore",
+      clearPersist: true,
+      forceBottom: false,
+      anchorMessageId: null,
     });
   });
 

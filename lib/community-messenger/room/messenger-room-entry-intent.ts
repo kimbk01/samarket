@@ -172,20 +172,19 @@ export type MessengerRoomEntryScrollPlanInput = {
   /**
    * Legacy peek flag — **ignored for default list-tap re-entry**.
    * Persist restore must not override Enter policy (latest / first-unread).
-   * Kept on the input type so call sites stay stable.
    */
   hasPersisted: boolean;
-  /** unread > 0 이고 lastRead 가 있으면 첫 unread(lastRead 경계) — bottom 강제 금지 */
   unreadCount?: number;
   lastReadMessageId?: string | null;
+  /** Resolved first unread id (message after lastRead). Prefer over lastRead. */
+  firstUnreadMessageId?: string | null;
 };
 
 /**
  * Enter = sole scroll policy decision (Telegram benchmark contract):
  * - push → latest above composer
- * - unread + lastRead → first-unread boundary (not force bottom)
+ * - unread + firstUnread → first-unread boundary (not force bottom, not lastRead itself)
  * - else → latest above composer
- * Persisted scroll restore on normal re-entry is cleared / not applied.
  */
 export function resolveMessengerRoomEntryScrollPlan(
   input: MessengerRoomEntryScrollPlanInput
@@ -199,13 +198,23 @@ export function resolveMessengerRoomEntryScrollPlan(
     };
   }
   const unread = Math.max(0, Number(input.unreadCount) || 0);
-  const lastRead = typeof input.lastReadMessageId === "string" ? input.lastReadMessageId.trim() : "";
-  if (unread > 0 && lastRead) {
+  const firstUnread =
+    typeof input.firstUnreadMessageId === "string" ? input.firstUnreadMessageId.trim() : "";
+  if (unread > 0 && firstUnread) {
     return {
       reason: "room_entry_restore",
       clearPersist: true,
       forceBottom: false,
-      anchorMessageId: lastRead,
+      anchorMessageId: firstUnread,
+    };
+  }
+  /** unread>0 but firstUnread unresolved — do not force latest bottom; wait/correct without faking lastRead */
+  if (unread > 0) {
+    return {
+      reason: "room_entry_restore",
+      clearPersist: true,
+      forceBottom: false,
+      anchorMessageId: null,
     };
   }
   return {
