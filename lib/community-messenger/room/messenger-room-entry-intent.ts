@@ -176,22 +176,42 @@ export type MessengerRoomEntryScrollPlanInput = {
 };
 
 /**
- * 가벼운 채팅창 계약 (레거시 `/chats` 동일, 2026-07-28 §6 결정):
+ * Telegram/Kakao 제품 계약:
  * push → latest bottom
- * default(목록 탭 재진입 포함) → latest bottom — 예전 스크롤 위치 복원, unread 첫 지점 점프 모두 제거.
- * 안 읽은 메시지 수는 배지로만 표시(별도 UI 경로) — 진입 스크롤 계획에는 관여하지 않는다.
- * `hasPersisted`/`unreadCount`/`lastReadMessageId` 는 과거 계약의 흔적으로 시그니처만 유지 —
- * 더 이상 목록/딥링크 진입 경로에서 persisted 위치를 조회(consume)하지 않는다.
+ * persisted visible → restore
+ * unread + lastRead → unread boundary (restore, not force bottom)
+ * else → latest bottom
  */
 export function resolveMessengerRoomEntryScrollPlan(
   input: MessengerRoomEntryScrollPlanInput
 ): MessengerRoomEntryScrollPlan {
-  void input.hasPersisted;
-  void input.unreadCount;
-  void input.lastReadMessageId;
+  if (input.intent === "push") {
+    return {
+      reason: "push_entry_initial_load",
+      clearPersist: true,
+      forceBottom: true,
+    };
+  }
+  if (input.hasPersisted) {
+    return {
+      reason: "room_entry_restore",
+      clearPersist: false,
+      forceBottom: false,
+    };
+  }
+  const unread = Math.max(0, Number(input.unreadCount) || 0);
+  const lastRead = typeof input.lastReadMessageId === "string" ? input.lastReadMessageId.trim() : "";
+  if (unread > 0 && lastRead) {
+    return {
+      reason: "room_entry_restore",
+      clearPersist: false,
+      forceBottom: false,
+      anchorMessageId: lastRead,
+    };
+  }
   return {
-    reason: input.intent === "push" ? "push_entry_initial_load" : "initial_load",
-    clearPersist: true,
+    reason: "initial_load",
+    clearPersist: false,
     forceBottom: true,
     anchorMessageId: null,
   };

@@ -32,8 +32,7 @@ describe("chat room initial anchor contract (legacy-class)", () => {
     ).toBe(true);
   });
 
-  /** 2026-07-28 §6: 재진입 위치 복원·unread 점프 제거 — push/default 모두 항상 최신(bottom). */
-  it("entry plan: unread+lastRead no longer restores; push and default both force latest", () => {
+  it("entry plan: unread+lastRead restores; push forces latest; default latest", () => {
     expect(
       resolveMessengerRoomEntryScrollPlan({
         intent: "default",
@@ -42,10 +41,10 @@ describe("chat room initial anchor contract (legacy-class)", () => {
         lastReadMessageId: "m-read",
       })
     ).toEqual({
-      reason: "initial_load",
-      clearPersist: true,
-      forceBottom: true,
-      anchorMessageId: null,
+      reason: "room_entry_restore",
+      clearPersist: false,
+      forceBottom: false,
+      anchorMessageId: "m-read",
     });
     expect(
       resolveMessengerRoomEntryScrollPlan({ intent: "push", hasPersisted: true }).forceBottom
