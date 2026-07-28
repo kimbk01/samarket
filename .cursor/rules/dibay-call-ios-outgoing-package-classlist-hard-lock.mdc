@@ -1,0 +1,39 @@
+---
+description: HARD LOCK — iOS Cap packageClassList App-target plugins for native outgoing
+alwaysApply: true
+---
+
+# iOS Outgoing packageClassList HARD LOCK
+
+**HARD LOCK (2026-07-28).** Full doc: `docs/dibay-call-ios-outgoing-package-classlist-hard-lock.md`.
+
+## Why
+
+`npx cap sync ios` overwrites `ios/App/App/capacitor.config.json` `packageClassList` with node_modules plugins only. Dropping `NativeCallServicePlugin` breaks **iOS outgoing** (`Error loading plugin NativeCallService`) while **incoming** CallKit/VoIP can still work.
+
+Regression: `95e8100bc`. Restore: `a8cc203ec`.
+
+## Required (always present)
+
+- `NativeCallServicePlugin`
+- `DibayVoipCallPlugin`
+- `DibayCallPipPlugin`
+- `NativeAppleAuthPlugin`
+- `NativeKakaoAuthPlugin`
+
+Merge SSOT: `scripts/patch-ios-capacitor-package-class-list.mjs`.
+
+## DO NOT (without explicit user approval)
+
+- Remove the above from `packageClassList`
+- Run bare `npx cap sync ios` and commit without running the patch
+- Change `cap:sync:ios` to omit the patch step
+- “Fix” outgoing by web/Vercel-only redeploy when the plugin is missing from the installed App.app
+
+## After every iOS sync
+
+```bash
+npm run cap:sync:ios
+# or: npx cap sync ios && node scripts/patch-ios-capacitor-package-class-list.mjs
+npm run verify:ios-call-package-classlist-contract
+```

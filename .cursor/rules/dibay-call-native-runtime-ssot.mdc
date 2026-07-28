@@ -52,3 +52,7 @@ Native Runtime code must not import or depend on:
 ## LOCK Protection
 
 Without explicit user approval, do not modify Native Voice Runtime, existing Voice LOCK, Native Voice docs, Native Video Runtime (lifecycle LOCK 2026-06-27), Native Video lifecycle LOCK docs, existing QA docs, or existing LOCK logs.
+
+## iOS Outgoing Cap Bridge LOCK (2026-07-28)
+
+`ios/App/App/capacitor.config.json` `packageClassList` **must** keep App-target plugins (`NativeCallServicePlugin`, VoIP, PiP, Apple/Kakao auth). Bare `npx cap sync ios` drops them and breaks **outgoing only**. Use `npm run cap:sync:ios` + `verify:ios-call-package-classlist-contract`. Doc: `docs/dibay-call-ios-outgoing-package-classlist-hard-lock.md`.
