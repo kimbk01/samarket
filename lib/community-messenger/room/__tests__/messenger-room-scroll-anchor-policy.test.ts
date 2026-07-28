@@ -73,7 +73,8 @@ describe("messenger room scroll anchor policy", () => {
     ).toBe("push_entry_initial_load");
   });
 
-  it("unread + lastRead uses restore plan with anchorMessageId", () => {
+  /** 2026-07-28 §6: unread → 첫 안읽음 지점 점프 제거 — 안 읽음은 배지로만, 진입은 항상 최신. */
+  it("unread + lastRead no longer restores — entry stays latest bottom", () => {
     expect(
       resolveMessengerRoomEntryScrollPlan({
         intent: "default",
@@ -82,9 +83,9 @@ describe("messenger room scroll anchor policy", () => {
         lastReadMessageId: "msg-last-read",
       })
     ).toMatchObject({
-      reason: "room_entry_restore",
-      forceBottom: false,
-      anchorMessageId: "msg-last-read",
+      reason: "initial_load",
+      forceBottom: true,
+      anchorMessageId: null,
     });
   });
 

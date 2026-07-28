@@ -45,16 +45,19 @@ describe("messenger-room-entry-intent", () => {
       reason: "push_entry_initial_load",
       clearPersist: true,
       forceBottom: true,
+      anchorMessageId: null,
     });
   });
 
-  it("default + hasPersisted → room_entry_restore", () => {
+  /** 2026-07-28 §6: 재진입 위치 복원 제거 — persisted 여부와 무관하게 항상 최신(bottom). */
+  it("default + hasPersisted → initial_load (persisted restore removed)", () => {
     expect(
       resolveMessengerRoomEntryScrollPlan({ intent: "default", hasPersisted: true })
     ).toEqual({
-      reason: "room_entry_restore",
-      clearPersist: false,
-      forceBottom: false,
+      reason: "initial_load",
+      clearPersist: true,
+      forceBottom: true,
+      anchorMessageId: null,
     });
   });
 
@@ -63,13 +66,14 @@ describe("messenger-room-entry-intent", () => {
       resolveMessengerRoomEntryScrollPlan({ intent: "default", hasPersisted: false })
     ).toEqual({
       reason: "initial_load",
-      clearPersist: false,
+      clearPersist: true,
       forceBottom: true,
       anchorMessageId: null,
     });
   });
 
-  it("unread + lastRead → restore with anchorMessageId", () => {
+  /** 2026-07-28 §6: unread → 첫 안읽음 지점 점프 제거 — 안 읽음은 배지로만, 진입은 항상 최신. */
+  it("unread + lastRead → still latest bottom (unread jump removed)", () => {
     expect(
       resolveMessengerRoomEntryScrollPlan({
         intent: "default",
@@ -78,10 +82,10 @@ describe("messenger-room-entry-intent", () => {
         lastReadMessageId: "lr-1",
       })
     ).toEqual({
-      reason: "room_entry_restore",
-      clearPersist: false,
-      forceBottom: false,
-      anchorMessageId: "lr-1",
+      reason: "initial_load",
+      clearPersist: true,
+      forceBottom: true,
+      anchorMessageId: null,
     });
   });
 
