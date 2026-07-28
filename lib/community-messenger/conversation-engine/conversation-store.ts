@@ -26,6 +26,9 @@ const EMPTY_METRICS: ConversationEngineMetrics = {
 
 /**
  * In-memory conversation list store. Sole mutation path: seedConversations / applyEvent / clear.
+ *
+ * CONTRACT: `getSnapshot()` must return a stable reference until mutate+emit
+ * (React `useSyncExternalStore` Object.is — unstable snapshot → infinite re-render / blank messenger).
  */
 export class ConversationStore {
   private conversations: readonly ConversationSummary[] = [];
@@ -33,6 +36,11 @@ export class ConversationStore {
   private seenEventIds = new Set<string>();
   private metrics: ConversationEngineMetrics = { ...EMPTY_METRICS };
   private listeners = new Set<Listener>();
+  private snapshot: ConversationStoreSnapshot = {
+    conversations: this.conversations,
+    hydrated: this.hydrated,
+    metrics: this.metrics,
+  };
 
   subscribe(listener: Listener): () => void {
     this.listeners.add(listener);
@@ -41,16 +49,21 @@ export class ConversationStore {
     };
   }
 
-  private emit() {
-    for (const l of this.listeners) l();
-  }
-
-  getSnapshot(): ConversationStoreSnapshot {
-    return {
+  private refreshSnapshot(): void {
+    this.snapshot = {
       conversations: this.conversations,
       hydrated: this.hydrated,
       metrics: this.metrics,
     };
+  }
+
+  private emit() {
+    this.refreshSnapshot();
+    for (const l of this.listeners) l();
+  }
+
+  getSnapshot(): ConversationStoreSnapshot {
+    return this.snapshot;
   }
 
   getConversations(): readonly ConversationSummary[] {
