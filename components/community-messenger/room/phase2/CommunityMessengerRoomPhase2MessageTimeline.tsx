@@ -79,6 +79,13 @@ import {
 } from "@/lib/community-messenger/room/cm-room-entry-timing-session";
 import { resolveFirstUnreadMessageId } from "@/lib/community-messenger/room/messenger-room-first-unread";
 import {
+  captureMessengerRoomEntryUnread,
+  clearMessengerRoomEntryUnread,
+  clearMessengerRoomEntryUnreadSession,
+  useMessengerRoomEntryUnreadStore,
+} from "@/lib/community-messenger/room/messenger-room-entry-unread-snapshot";
+import { useMessengerRoomReaderStateStore } from "@/lib/community-messenger/notifications/messenger-room-reader-state-store";
+import {
   noteCmRoomSubtreeAttach,
   shouldBlockCmRoomStrictEffectReRun,
   shouldSkipCmRoomSubtreeSurfaceAttach,
@@ -955,13 +962,58 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
       }),
     [lastReadMessageId, vm.displayRoomMessages]
   );
-  const unreadDividerLabel = useMemo(() => {
-    if (roomUnreadCount <= 0 || !firstUnreadMessageId) return null;
-    return vm.t("cm_ui_unread_messages_divider");
-  }, [firstUnreadMessageId, roomUnreadCount, vm.t]);
 
-  const [lastVisibleMessageId, setLastVisibleMessageId] = useState<string | null>(null);
-  const lastVisibleMessageIdRef = useRef<string | null>(null);
+  /** Capture list unread before/despite optimistic clear — FAB/divider authority. */
+  useLayoutEffect(() => {
+    const rid = vm.streamRoomId.trim();
+    if (!rid) return;
+    captureMessengerRoomEntryUnread({
+      roomId: rid,
+      unreadCount: roomUnreadCount,
+      firstUnreadMessageId,
+    });
+  }, [firstUnreadMessageId, roomUnreadCount, vm.streamRoomId]);
+
+  useEffect(() => {
+    const rid = vm.streamRoomId.trim();
+    return () => {
+      if (rid) clearMessengerRoomEntryUnreadSession(rid);
+    };
+  }, [vm.streamRoomId]);
+
+  const entryUnreadCount = useMessengerRoomEntryUnreadStore((s) => {
+    const rid = vm.streamRoomId.trim();
+    if (!rid) return 0;
+    const snap = s.byRoom[rid];
+    if (!snap || snap.cleared) return 0;
+    return snap.entryUnreadCount;
+  });
+  const entryFirstUnreadId = useMessengerRoomEntryUnreadStore((s) => {
+    const rid = vm.streamRoomId.trim();
+    if (!rid) return null;
+    const snap = s.byRoom[rid];
+    if (!snap || snap.cleared) return null;
+    return snap.firstUnreadMessageId;
+  });
+  const dividerFirstUnreadId = entryFirstUnreadId || firstUnreadMessageId;
+
+  const unreadDividerLabel = useMemo(() => {
+    if (entryUnreadCount <= 0 || !dividerFirstUnreadId) return null;
+    return vm.t("cm_ui_unread_messages_divider");
+  }, [dividerFirstUnreadId, entryUnreadCount, vm.t]);
+
+  const scrollPosition = useMessengerRoomReaderStateStore((s) => {
+    const rid = vm.streamRoomId.trim();
+    return rid ? (s.byRoom[rid]?.scrollPosition ?? null) : null;
+  });
+  const atLatest = scrollPosition === "at-bottom" || scrollPosition === "near-bottom";
+
+  /** Reached latest → clear entry FAB/divider session (mark_read already handled elsewhere). */
+  useEffect(() => {
+    const rid = vm.streamRoomId.trim();
+    if (!rid || !atLatest || entryUnreadCount <= 0) return;
+    clearMessengerRoomEntryUnread(rid, "reached_latest");
+  }, [atLatest, entryUnreadCount, vm.streamRoomId]);
 
   useLayoutEffect(() => {
     if (!cmRenderAnalysisEnabled()) return;
@@ -1019,21 +1071,6 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
       scrollRafRef.current = null;
       onScrollDeferred();
       sampleMessengerScrollFrameBudget(vmRef.current.streamRoomId);
-      const root = vmRef.current.messagesViewportRef.current;
-      if (!root) return;
-      const vpBottom = root.getBoundingClientRect().bottom;
-      const rows = root.querySelectorAll<HTMLElement>("[data-cm-message-id]");
-      let lastId: string | null = null;
-      for (let i = 0; i < rows.length; i += 1) {
-        const row = rows[i]!;
-        if (row.getBoundingClientRect().top <= vpBottom - 4) {
-          lastId = row.getAttribute("data-cm-message-id");
-        }
-      }
-      if (lastId && lastId !== lastVisibleMessageIdRef.current) {
-        lastVisibleMessageIdRef.current = lastId;
-        setLastVisibleMessageId(lastId);
-      }
     });
   }, [onScrollDeferred]);
 
@@ -1045,15 +1082,6 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
       }
     };
   }, []);
-
-  /** Seed FAB badge authority once rows are painted (scroll may not fire yet). */
-  useEffect(() => {
-    if (vm.displayRoomMessages.length <= 0) return;
-    const id = window.requestAnimationFrame(() => {
-      scheduleScroll();
-    });
-    return () => cancelAnimationFrame(id);
-  }, [scheduleScroll, vm.displayRoomMessages.length, firstUnreadMessageId]);
 
   useEffect(() => {
     const key = messengerRoomReadBlockKeyImageLightbox(vm.streamRoomId);
@@ -1973,7 +2001,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                     showMessageTime={showMessageTime}
                     dayDividerLabel={dayDividerLabel}
                     unreadDividerLabel={
-                      firstUnreadMessageId && item.id === firstUnreadMessageId ? unreadDividerLabel : null
+                      dividerFirstUnreadId && item.id === dividerFirstUnreadId ? unreadDividerLabel : null
                     }
                     peerAvatar={peerAvatar}
                     streamRoomId={vm.streamRoomId}
@@ -2086,9 +2114,6 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
       <MessengerRoomNewMessagesBelowChip
         roomId={vm.streamRoomId}
         onJumpToLatest={vm.scrollMessengerToBottom}
-        messages={vm.displayRoomMessages}
-        lastReadMessageId={lastReadMessageId}
-        lastVisibleMessageId={lastVisibleMessageId}
       />
       <MessengerImageLightbox
         open={imageLightbox != null}

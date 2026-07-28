@@ -19,6 +19,7 @@ import {
   type CmScrollOwnerReason,
 } from "@/lib/community-messenger/room/messenger-room-entry-scroll-owner";
 import { resolveFirstUnreadMessageId } from "@/lib/community-messenger/room/messenger-room-first-unread";
+import { captureMessengerRoomEntryUnread } from "@/lib/community-messenger/room/messenger-room-entry-unread-snapshot";
 import {
   clearMessengerRoomScrollPosition,
   peekMessengerRoomScrollPosition,
@@ -436,6 +437,13 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
       messages: roomMessages,
       lastReadMessageId,
     });
+    if (rid && unreadCount > 0) {
+      captureMessengerRoomEntryUnread({
+        roomId: rid,
+        unreadCount,
+        firstUnreadMessageId,
+      });
+    }
     const lastReadTrim =
       typeof lastReadMessageId === "string" ? lastReadMessageId.trim() : "";
     const lastReadIdx = lastReadTrim

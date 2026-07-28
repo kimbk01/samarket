@@ -31,6 +31,7 @@ import {
 import { applyCmReadUiBadgeZero } from "@/lib/community-messenger/read/cm-read-ui-patch";
 import { cmRtReadSyncLog } from "@/lib/community-messenger/read/cm-rt-read-sync-log";
 import { patchMessengerRoomReadSnapshotRuntime } from "@/lib/community-messenger/realtime/messenger-realtime-snapshot-runtime";
+import { captureMessengerRoomEntryUnread } from "@/lib/community-messenger/room/messenger-room-entry-unread-snapshot";
 import { recordRouteEntryElapsedMetric, recordRouteEntryMetric } from "@/lib/runtime/samarket-runtime-debug";
 import { noteTradeChatRoomReadEffectReadyForShellBreakdown } from "@/lib/trade/trade-chat-room-shell-breakdown-perf";
 import { messengerVerboseTraceConsoleEnabled } from "@/lib/community-messenger/messenger-trace-console";
@@ -474,6 +475,11 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
       });
       /** 라우트 클릭만으로 읽음 금지 — bootstrap·메시지 렌더·활성 라우트 후에만 */
       if (!readableState.readable) return;
+      /** FAB entry snapshot — capture list N before optimistic unread→0 */
+      const entryN = Math.max(0, Math.floor(Number(snap.room.unreadCount) || 0));
+      if (entryN > 0) {
+        captureMessengerRoomEntryUnread({ roomId: id, unreadCount: entryN });
+      }
       immediateOpenFlushDoneThisMount = true;
       const refLm = String(snap.room.lastMessageAt ?? "");
       setLocalReadGuard({ roomId: id, referenceLastMessageAt: refLm, source: "room_enter" });
@@ -589,6 +595,12 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
       if (preOptimisticUnreadRef.current === null) {
         const u = readableSnapshot.room.unreadCount;
         preOptimisticUnreadRef.current = typeof u === "number" && Number.isFinite(u) ? Math.max(0, Math.floor(u)) : null;
+      }
+      const entryN =
+        preOptimisticUnreadRef.current ??
+        Math.max(0, Math.floor(Number(readableSnapshot.room.unreadCount) || 0));
+      if (entryN > 0) {
+        captureMessengerRoomEntryUnread({ roomId: id, unreadCount: entryN });
       }
       const alignMs = applyOptimisticRoomRead(readableSnapshot, candidate);
       earlyOptimisticMessageIdRef.current = candidate;

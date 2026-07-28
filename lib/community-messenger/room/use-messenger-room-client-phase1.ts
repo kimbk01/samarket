@@ -82,6 +82,7 @@ import {
   type MessengerRoomBootstrapRefreshFn,
 } from "@/lib/community-messenger/room/use-messenger-room-bootstrap-lifecycle";
 import { clearCmRoomForegroundBootstrapLock } from "@/lib/community-messenger/room/cm-room-bootstrap-lock";
+import { captureMessengerRoomEntryUnread } from "@/lib/community-messenger/room/messenger-room-entry-unread-snapshot";
 import { useMessengerRoomUrlSyncEffects } from "@/lib/community-messenger/room/use-messenger-room-url-sync-effects";
 import { CM_ROOM_EMPTY_VIRTUALIZER_STUB } from "@/lib/community-messenger/room/cm-room-empty-virtualizer-stub";
 import { finalizeStoreOrderChatDisplayMessages } from "@/lib/store-order-chat/collapse-duplicate-order-summaries";
@@ -507,7 +508,15 @@ export function useMessengerRoomClientPhase1({
           viewerUserId: viewerId,
           roomId: rid,
         });
-        setSnapshot((prev) => (prev ? { ...prev, room: { ...prev.room, unreadCount: 0 } } : prev));
+        setSnapshot((prev) => {
+          if (prev?.room.unreadCount && prev.room.unreadCount > 0) {
+            captureMessengerRoomEntryUnread({
+              roomId: rid,
+              unreadCount: prev.room.unreadCount,
+            });
+          }
+          return prev ? { ...prev, room: { ...prev.room, unreadCount: 0 } } : prev;
+        });
         return;
       } else if (ev.type === "cm.room.summary_patch") {
         patchMessengerRoomSnapshotRuntime({
@@ -537,11 +546,23 @@ export function useMessengerRoomClientPhase1({
         });
         setSnapshot((prev) => {
           if (!prev) return prev;
+          const nextUnread = Math.max(0, Math.floor(Number(ev.unreadCount) || 0));
+          if (nextUnread === 0 && (prev.room.unreadCount ?? 0) > 0) {
+            captureMessengerRoomEntryUnread({
+              roomId: rid,
+              unreadCount: prev.room.unreadCount ?? 0,
+            });
+          } else if (nextUnread > 0) {
+            captureMessengerRoomEntryUnread({
+              roomId: rid,
+              unreadCount: nextUnread,
+            });
+          }
           return {
             ...prev,
             room: {
               ...prev.room,
-              unreadCount: Math.max(0, Math.floor(Number(ev.unreadCount) || 0)),
+              unreadCount: nextUnread,
             },
           };
         });

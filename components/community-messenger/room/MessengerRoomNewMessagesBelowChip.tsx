@@ -1,60 +1,43 @@
 "use client";
 
-import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMessengerRoomReaderStateStore } from "@/lib/community-messenger/notifications/messenger-room-reader-state-store";
 import { messengerRoomShowsNewMessagesBelowChip } from "@/lib/community-messenger/notifications/messenger-notification-rollout";
 import {
-  countUnreadMessagesBelow,
   formatUnreadBadgeCount,
   resolveJumpToLatestFabState,
-  type FirstUnreadMessageRow,
 } from "@/lib/community-messenger/room/messenger-room-first-unread";
+import {
+  clearMessengerRoomEntryUnread,
+  useMessengerRoomEntryUnreadStore,
+} from "@/lib/community-messenger/room/messenger-room-entry-unread-snapshot";
 
 /**
  * Telegram-style jump-to-latest FAB (bottom-right).
- * Badge = unread remaining below viewport (not app-wide / other rooms).
- * Tap → existing scrollMessengerToBottom only (no new scroll writer).
+ * Badge authority = entryUnreadCount snapshot (survives list optimistic clear).
+ * Tap → existing scrollMessengerToBottom only (no new scroll writer / no smooth).
  */
 export function MessengerRoomNewMessagesBelowChip({
   roomId,
   onJumpToLatest,
-  messages,
-  lastReadMessageId,
-  lastVisibleMessageId,
 }: {
   roomId: string;
   onJumpToLatest: () => void;
-  messages?: readonly FirstUnreadMessageRow[];
-  lastReadMessageId?: string | null;
-  /** Last message id considered in/above the viewport; unread after this = badge. */
-  lastVisibleMessageId?: string | null;
 }) {
   const { safeT } = useI18n();
   const rid = roomId.trim();
   const scrollPosition = useMessengerRoomReaderStateStore((s) =>
     rid ? (s.byRoom[rid]?.scrollPosition ?? null) : null
   );
-  const pendingNewBelow = useMessengerRoomReaderStateStore((s) =>
-    rid ? (s.byRoom[rid]?.pendingNewBelow ?? 0) : 0
-  );
+  const entryUnreadCount = useMessengerRoomEntryUnreadStore((s) => {
+    if (!rid) return 0;
+    const snap = s.byRoom[rid];
+    if (!snap || snap.cleared) return 0;
+    return snap.entryUnreadCount;
+  });
 
   const atLatest = scrollPosition === "at-bottom" || scrollPosition === "near-bottom";
-
-  const unreadBelow = useMemo(() => {
-    if (!messages || messages.length === 0) {
-      return Math.max(0, pendingNewBelow);
-    }
-    const fromTimeline = countUnreadMessagesBelow({
-      messages,
-      lastReadMessageId,
-      afterMessageId: lastVisibleMessageId ?? null,
-    });
-    /** New arrivals while away from bottom also count as below-viewport unread. */
-    return Math.max(fromTimeline, pendingNewBelow);
-  }, [lastReadMessageId, lastVisibleMessageId, messages, pendingNewBelow]);
-
-  const fab = resolveJumpToLatestFabState({ atLatest, unreadBelow });
+  const fab = resolveJumpToLatestFabState({ atLatest, entryUnreadCount });
 
   if (!messengerRoomShowsNewMessagesBelowChip() || !fab.visible) return null;
 
@@ -76,7 +59,13 @@ export function MessengerRoomNewMessagesBelowChip({
         type="button"
         data-cm-jump-latest-fab="1"
         data-cm-jump-latest-badge={badge || "0"}
-        onClick={onJumpToLatest}
+        data-cm-jump-latest-entry-unread={String(entryUnreadCount)}
+        onClick={() => {
+          onJumpToLatest();
+          if (rid && entryUnreadCount > 0) {
+            clearMessengerRoomEntryUnread(rid, "fab_jump");
+          }
+        }}
         aria-label={aria}
         className="pointer-events-auto relative flex h-11 w-11 items-center justify-center rounded-full border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] text-[color:var(--cm-room-text)] shadow-sm active:opacity-90"
       >

@@ -54,7 +54,7 @@ describe("messenger-room-first-unread", () => {
     ).toBeNull();
   });
 
-  it("counts unread below afterMessageId", () => {
+  it("counts unread below afterMessageId (helper only — not FAB authority)", () => {
     expect(
       countUnreadMessagesBelow({
         messages: msgs,
@@ -71,20 +71,20 @@ describe("messenger-room-first-unread", () => {
     expect(formatUnreadBadgeCount(100)).toBe("99+");
   });
 
-  it("FAB: history no unread → arrow only; at latest → hide; unread below → badge", () => {
-    expect(resolveJumpToLatestFabState({ atLatest: true, unreadBelow: 0 })).toEqual({
+  it("FAB: entryUnreadCount authority (not viewport-below)", () => {
+    expect(resolveJumpToLatestFabState({ atLatest: true, entryUnreadCount: 0 })).toEqual({
       visible: false,
       badgeCount: 0,
     });
-    expect(resolveJumpToLatestFabState({ atLatest: false, unreadBelow: 0 })).toEqual({
+    expect(resolveJumpToLatestFabState({ atLatest: false, entryUnreadCount: 0 })).toEqual({
       visible: true,
       badgeCount: 0,
     });
-    expect(resolveJumpToLatestFabState({ atLatest: false, unreadBelow: 93 })).toEqual({
+    expect(resolveJumpToLatestFabState({ atLatest: false, entryUnreadCount: 93 })).toEqual({
       visible: true,
       badgeCount: 93,
     });
-    expect(resolveJumpToLatestFabState({ atLatest: true, unreadBelow: 3 })).toEqual({
+    expect(resolveJumpToLatestFabState({ atLatest: true, entryUnreadCount: 3 })).toEqual({
       visible: true,
       badgeCount: 3,
     });

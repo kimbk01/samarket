@@ -75,18 +75,21 @@ export function formatUnreadBadgeCount(count: number): string {
 }
 
 /**
- * FAB visibility:
- * - at latest + no unread below → hide
- * - away from latest, no unread below → arrow only
- * - unread below → arrow + badge
+ * FAB visibility + badge from entryUnreadCount (list N captured at enter).
+ * - entryUnreadCount > 0 → arrow + badge (even if live room.unreadCount already 0)
+ * - entryUnreadCount 0 + past scroll → arrow only
+ * - entryUnreadCount 0 + at latest → hide
  */
 export function resolveJumpToLatestFabState(input: {
   atLatest: boolean;
-  unreadBelow: number;
+  entryUnreadCount: number;
 }): { visible: boolean; badgeCount: number } {
-  const unreadBelow = Math.max(0, Math.floor(Number(input.unreadBelow) || 0));
-  if (input.atLatest && unreadBelow <= 0) {
+  const entry = Math.max(0, Math.floor(Number(input.entryUnreadCount) || 0));
+  if (entry > 0) {
+    return { visible: true, badgeCount: entry };
+  }
+  if (input.atLatest) {
     return { visible: false, badgeCount: 0 };
   }
-  return { visible: true, badgeCount: unreadBelow };
+  return { visible: true, badgeCount: 0 };
 }
