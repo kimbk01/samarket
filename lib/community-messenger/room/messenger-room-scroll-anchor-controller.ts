@@ -163,6 +163,8 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
   const roomGenerationRef = useRef(0);
   const prevTailMessageIdRef = useRef<string | null>(null);
   const prevTailClientMessageIdRef = useRef<string | null>(null);
+  /** seeded/silent backfill 감지용 — pagination(loadOlderMessages)과는 별개 신호 */
+  const prevHeadMessageIdRef = useRef<string | null>(null);
   const pendingAnchorMessageIdRef = useRef<string | null>(null);
 
   const toVirtualizer = useCallback((): ChatThreadVirtualizer | null => {
@@ -429,6 +431,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     pendingAnchorMessageIdRef.current = null;
     prevTailMessageIdRef.current = null;
     prevTailClientMessageIdRef.current = null;
+    prevHeadMessageIdRef.current = null;
     roomGenerationRef.current += 1;
     if (rid) beginCmScrollAuthoritySession(rid, roomGenerationRef.current);
 
@@ -538,6 +541,24 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
       prevTailClientMessageIdRef.current = last.clientMessageId ?? null;
     }
   }, [engine, roomMessages, scrollMessengerToBottom]);
+
+  /**
+   * Seeded snapshot merge(BootstrapGate 캐시 → background refresh)가 상단에 과거 메시지를
+   * 끼워 넣을 때, explicit load-older(pagination)가 아닌데도 DOM만 커지고 scrollTop 보정이
+   * 없으면 "최신이 잠깐 보였다가 예전 위치로 밀리는" 것처럼 보인다 — 첫 message id 변화를
+   * append(tail)와 별개로 감지해, 이미 anchor 가 자리 잡은 뒤라면 즉시 재정렬(engine 재확인)한다.
+   * loadingOlderMessages/prependInFlight 중이면 기존 explicit prepend 경로가 처리하므로 skip.
+   */
+  useLayoutEffect(() => {
+    const head = roomMessages[0];
+    const headId = head?.id ?? null;
+    const prevHeadId = prevHeadMessageIdRef.current;
+    prevHeadMessageIdRef.current = headId;
+    if (prevHeadId === null || headId === prevHeadId) return;
+    if (!hasAppliedInitialAnchorRef.current || !engine.isSettled()) return;
+    if (loadingOlderMessages || engine.state.prependInFlight) return;
+    engine.notifyLayoutResize(buildCtx());
+  }, [buildCtx, engine, loadingOlderMessages, roomMessages]);
 
   useLayoutEffect(() => {
     const el = messagesViewportRef.current;
