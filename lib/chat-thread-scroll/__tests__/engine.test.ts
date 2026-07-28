@@ -188,13 +188,38 @@ describe("ChatThreadScrollEngine", () => {
     expect(vp.scrollTop).toBe(800);
   });
 
-  it("stick threshold is 96px SSOT", () => {
-    expect(CHAT_THREAD_STICK_THRESHOLD_PX).toBe(96);
-    expect(
-      isChatThreadNearBottomFromMetrics({ scrollHeight: 500, scrollTop: 404, clientHeight: 100 })
-    ).toBe(true);
-    expect(
-      isChatThreadNearBottomFromMetrics({ scrollHeight: 500, scrollTop: 300, clientHeight: 100 })
-    ).toBe(false);
+  it("correctLayoutPreserve pins bottom even when entry not yet settled", () => {
+    const engine = createChatThreadScrollEngine();
+    const vp = mockViewport({ scrollHeight: 800, scrollTop: 0, clientHeight: 400 });
+    const ctx = { viewport: vp, messageCount: 4, virtualizer: null };
+
+    engine.notifyEntry({ forceBottom: true });
+    engine.state.stickToBottom = true;
+    engine.state.messagesReady = true;
+    engine.state.layoutReady = true;
+    // paint not ready → tryCompleteEntry would fail; correction still pins
+    const ok = engine.correctLayoutPreserve(ctx);
+    expect(ok).toBe(true);
+    expect(engine.getPhase()).toBe("settled");
+    expect(vp.scrollTop).toBe(800);
+  });
+
+  it("notifyLayoutResize does not flip stick from lastGeom", () => {
+    const engine = createChatThreadScrollEngine();
+    const vp = mockViewport({ scrollHeight: 600, scrollTop: 200, clientHeight: 400 });
+    const ctx = { viewport: vp, messageCount: 4, virtualizer: null };
+
+    engine.notifyEntry();
+    engine.notifyMessagesReady(true);
+    engine.notifyLayoutCommitted();
+    engine.tryCompleteEntry(ctx);
+    engine.state.stickToBottom = true;
+    // stale lastGeom would look "not near bottom" if re-judged
+    setScrollHeight(vp, 900);
+    vp.scrollTop = 0;
+    const ok = engine.notifyLayoutResize(ctx);
+    expect(ok).toBe(true);
+    expect(engine.readStickToBottom()).toBe(true);
+    expect(vp.scrollTop).toBe(900);
   });
 });

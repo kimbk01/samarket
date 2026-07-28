@@ -169,22 +169,28 @@ export function clearMessengerPushEntryIntentStorage(): void {
 
 export type MessengerRoomEntryScrollPlanInput = {
   intent: MessengerRoomEntryIntent;
+  /**
+   * Legacy peek flag — **ignored for default list-tap re-entry**.
+   * Persist restore must not override Enter policy (latest / first-unread).
+   * Kept on the input type so call sites stay stable.
+   */
   hasPersisted: boolean;
-  /** unread > 0 이고 lastRead 가 있으면 unread boundary 복원 (bottom 강제 금지) */
+  /** unread > 0 이고 lastRead 가 있으면 첫 unread(lastRead 경계) — bottom 강제 금지 */
   unreadCount?: number;
   lastReadMessageId?: string | null;
 };
 
 /**
- * Telegram/Kakao 제품 계약:
- * push → latest bottom
- * persisted visible → restore
- * unread + lastRead → unread boundary (restore, not force bottom)
- * else → latest bottom
+ * Enter = sole scroll policy decision (Telegram benchmark contract):
+ * - push → latest above composer
+ * - unread + lastRead → first-unread boundary (not force bottom)
+ * - else → latest above composer
+ * Persisted scroll restore on normal re-entry is cleared / not applied.
  */
 export function resolveMessengerRoomEntryScrollPlan(
   input: MessengerRoomEntryScrollPlanInput
 ): MessengerRoomEntryScrollPlan {
+  void input.hasPersisted;
   if (input.intent === "push") {
     return {
       reason: "push_entry_initial_load",
@@ -192,26 +198,19 @@ export function resolveMessengerRoomEntryScrollPlan(
       forceBottom: true,
     };
   }
-  if (input.hasPersisted) {
-    return {
-      reason: "room_entry_restore",
-      clearPersist: false,
-      forceBottom: false,
-    };
-  }
   const unread = Math.max(0, Number(input.unreadCount) || 0);
   const lastRead = typeof input.lastReadMessageId === "string" ? input.lastReadMessageId.trim() : "";
   if (unread > 0 && lastRead) {
     return {
       reason: "room_entry_restore",
-      clearPersist: false,
+      clearPersist: true,
       forceBottom: false,
       anchorMessageId: lastRead,
     };
   }
   return {
     reason: "initial_load",
-    clearPersist: false,
+    clearPersist: true,
     forceBottom: true,
     anchorMessageId: null,
   };

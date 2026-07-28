@@ -42,7 +42,7 @@ describe("chat room initial anchor contract (legacy-class)", () => {
       })
     ).toEqual({
       reason: "room_entry_restore",
-      clearPersist: false,
+      clearPersist: true,
       forceBottom: false,
       anchorMessageId: "m-read",
     });

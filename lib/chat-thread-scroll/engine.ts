@@ -10,7 +10,6 @@ import type {
   ChatThreadScrollPhase,
   ChatThreadScrollRestoreSnapshot,
   ChatThreadScrollViewportContext,
-  ChatThreadVirtualizer,
 } from "@/lib/chat-thread-scroll/types";
 
 export type ChatThreadScrollEngineState = {
@@ -144,15 +143,10 @@ export class ChatThreadScrollEngine {
   }
 
   /**
-   * layout/keyboard resize — settled + stick 일 때만 follow.
-   * entryPendingLayout 중에는 no-op.
-   *
-   * "하단에 있었는가"는 `state.stickToBottom`(마지막 실제 user scroll 이벤트가
-   * 갱신) 하나만 믿지 않는다 — 키보드 전환 중 브라우저가 쏘는 과도기적 scroll
-   * 이벤트가 이 플래그를 잘못 뒤집어도, resize 시점의 진짜 판단은 resize
-   * *직전* 에 안정적으로 캡처해 둔 geometry(`lastGeom`)로 다시 확인한다.
-   * Telegram/Kakao 계약: 판단은 항상 "지금 이 순간의 실측값" 기준, 기억에
-   * 의존하는 실행부는 없음.
+   * layout/keyboard resize — **policy is not re-decided here**.
+   * Enter / user scroll / own-send set `stickToBottom`; resize only preserves that
+   * relationship (bottom follow vs distance preserve). Do not flip stick from
+   * transient lastGeom / keyboard scroll noise.
    */
   notifyLayoutResize(ctx: ChatThreadScrollViewportContext): boolean {
     if (this.state.phase === "entryPendingLayout") {
@@ -168,20 +162,41 @@ export class ChatThreadScrollEngine {
       return false;
     }
 
-    const wasNearBottom = this.lastGeom
-      ? isChatThreadNearBottomFromMetrics(
-          { scrollHeight: this.lastGeom.sh, scrollTop: this.lastGeom.st, clientHeight: this.lastGeom.ch },
-          this.config.stickThresholdPx
-        )
-      : this.state.stickToBottom;
-
-    if (!wasNearBottom) {
-      this.state.stickToBottom = false;
+    if (!this.state.stickToBottom) {
       return this.preserveScrollDistance(ctx);
     }
-    const scrolled = this.applyScrollToBottom(ctx, { force: false });
-    this.state.stickToBottom = true;
-    return scrolled;
+    return this.applyScrollToBottom(ctx, { force: false });
+  }
+
+  /**
+   * Single keyboard/chrome correction writer.
+   * Does not re-decide stick / entry policy. May complete a pending entry pin
+   * when paint becomes ready, or force one end/preserve write if stick is already set.
+   */
+  correctLayoutPreserve(ctx: ChatThreadScrollViewportContext): boolean {
+    if (this.state.prependInFlight) {
+      if (ctx.viewport) this.captureGeom(ctx.viewport);
+      return false;
+    }
+
+    if (this.state.phase === "entryPendingLayout") {
+      if (this.tryCompleteEntry(ctx)) return true;
+    }
+
+    if (this.state.stickToBottom) {
+      const ok = this.applyScrollToBottom(ctx, { force: true });
+      if (ok) {
+        this.state.phase = "settled";
+        this.restoreSnapshot = null;
+      }
+      return ok;
+    }
+
+    const preserved = this.preserveScrollDistance(ctx);
+    if (preserved && this.state.phase === "entryPendingLayout") {
+      this.state.phase = "settled";
+    }
+    return preserved;
   }
 
   tryCompleteEntry(ctx: ChatThreadScrollViewportContext): boolean {

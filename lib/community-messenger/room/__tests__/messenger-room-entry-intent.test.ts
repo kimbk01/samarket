@@ -48,13 +48,14 @@ describe("messenger-room-entry-intent", () => {
     });
   });
 
-  it("default + hasPersisted → room_entry_restore", () => {
+  it("default + hasPersisted → still latest bottom (persist must not override Enter)", () => {
     expect(
       resolveMessengerRoomEntryScrollPlan({ intent: "default", hasPersisted: true })
     ).toEqual({
-      reason: "room_entry_restore",
-      clearPersist: false,
-      forceBottom: false,
+      reason: "initial_load",
+      clearPersist: true,
+      forceBottom: true,
+      anchorMessageId: null,
     });
   });
 
@@ -63,23 +64,23 @@ describe("messenger-room-entry-intent", () => {
       resolveMessengerRoomEntryScrollPlan({ intent: "default", hasPersisted: false })
     ).toEqual({
       reason: "initial_load",
-      clearPersist: false,
+      clearPersist: true,
       forceBottom: true,
       anchorMessageId: null,
     });
   });
 
-  it("unread + lastRead → restore with anchorMessageId", () => {
+  it("unread + lastRead → restore with anchorMessageId (clearPersist)", () => {
     expect(
       resolveMessengerRoomEntryScrollPlan({
         intent: "default",
-        hasPersisted: false,
+        hasPersisted: true,
         unreadCount: 4,
         lastReadMessageId: "lr-1",
       })
     ).toEqual({
       reason: "room_entry_restore",
-      clearPersist: false,
+      clearPersist: true,
       forceBottom: false,
       anchorMessageId: "lr-1",
     });

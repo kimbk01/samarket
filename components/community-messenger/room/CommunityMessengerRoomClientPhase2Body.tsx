@@ -100,7 +100,6 @@ import {
 } from "@/lib/community-messenger/room/cm-room-r5-timeline-mount-instrumentation";
 import { entryTimingT0 } from "@/lib/community-messenger/room/cm-room-entry-timing";
 import {
-  markMessengerRoomEntryScrollSettled,
   setMessengerRoomEntryHydrationPass,
 } from "@/lib/community-messenger/room/messenger-room-entry-scroll-owner";
 import {
@@ -196,7 +195,7 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
     const persisted = bumpCmRoomHydrationPassFromPersisted(rid, hydrationPass);
     if (persisted >= 3) {
       setHydrationPass(persisted as CmRoomPhase2HydrationPass);
-      markMessengerRoomEntryScrollSettled(rid, "reentry_hydration_restored");
+      /** Do not mark entry scroll settled here — only the scroll engine/controller may. */
       return;
     }
     const hasTimelineSeed = hasMessengerRoomHydrationTimelineSeed({

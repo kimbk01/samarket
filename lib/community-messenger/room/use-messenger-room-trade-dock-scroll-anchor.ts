@@ -5,7 +5,6 @@ import {
   CM_TRADE_DOCK_LAYOUT_EVENT,
   notifyCmTradeDockLayoutChange,
 } from "@/lib/community-messenger/room/cm-trade-dock-layout";
-import { syncMessengerRoomStickToBottomFromViewport } from "@/lib/community-messenger/room/messenger-room-scroll-near-bottom";
 import { entryTimingT0 } from "@/lib/community-messenger/room/cm-room-entry-timing";
 import type { CmScrollOwnerReason } from "@/lib/community-messenger/room/messenger-room-entry-scroll-owner";
 
@@ -62,12 +61,8 @@ export function useMessengerRoomTradeDockScrollAnchor(opts: {
     const anchorTimeline = () => {
       cancelAnimationFrame(rafId);
       rafId = requestAnimationFrame(() => {
-        const nearBottom = syncMessengerRoomStickToBottomFromViewport({
-          viewport: messagesViewportRef.current,
-          stickToBottomRef,
-          roomId: roomId ?? "",
-        });
-        if (!nearBottom) return;
+        /** Do not re-judge stick from viewport — Enter/user-scroll/send own that. */
+        if (!stickToBottomRef.current) return;
         const upgradeBag = (window as Window & {
           __cmR9UpgradeStateByRoom?: Record<string, { scrollAnchorDeferred?: boolean }>;
         }).__cmR9UpgradeStateByRoom;

@@ -20,7 +20,6 @@ import {
 } from "@/lib/community-messenger/room/messenger-room-entry-scroll-owner";
 import {
   clearMessengerRoomScrollPosition,
-  consumeMessengerRoomScrollPosition,
   peekMessengerRoomScrollPosition,
   resolveScrollTopForAnchorMessage,
   saveMessengerRoomScrollPosition,
@@ -256,35 +255,11 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
       forceBottom: boolean,
       planAnchorMessageId?: string | null
     ) => {
-      const rid = roomId.trim();
       const vp = messagesViewportRef.current;
       let restoreSnapshot: ChatThreadScrollRestoreSnapshot | null = null;
 
-      if (reason === "room_entry_restore" && rid) {
-        const persisted = consumeMessengerRoomScrollPosition(rid);
-        if (persisted) {
-          if (persisted.stickToBottom) {
-            engine.notifyEntry({ forceBottom: true });
-            stickToBottomRef.current = true;
-            pendingAnchorMessageIdRef.current = null;
-            return;
-          }
-          let scrollTop = persisted.scrollTop;
-          if (persisted.firstVisibleMessageId && vp) {
-            const anchorTop = resolveScrollTopForAnchorMessage(vp, persisted.firstVisibleMessageId);
-            if (anchorTop != null) scrollTop = anchorTop;
-          }
-          restoreSnapshot = {
-            stickToBottom: false,
-            scrollTop,
-            firstVisibleMessageId: persisted.firstVisibleMessageId,
-          };
-          stickToBottomRef.current = false;
-          pendingAnchorMessageIdRef.current = persisted.firstVisibleMessageId;
-          engine.notifyEntry({ forceBottom: false, restoreSnapshot });
-          return;
-        }
-
+      /** Unread Enter only — persist scroll restore is not an Enter policy. */
+      if (reason === "room_entry_restore") {
         const anchorId = planAnchorMessageId?.trim() || "";
         if (anchorId && vp) {
           const anchorTop = resolveScrollTopForAnchorMessage(vp, anchorId);
@@ -299,7 +274,6 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
             engine.notifyEntry({ forceBottom: false, restoreSnapshot });
             return;
           }
-          /** DOM 아직 없으면 index 기반 복원은 settle 시 bottom 보다 lastRead 우선 — 메시지 미존재면 latest */
         }
       }
 
@@ -307,45 +281,43 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
       engine.notifyEntry({ forceBottom: forceBottom && !restoreSnapshot, restoreSnapshot });
       if (forceBottom) stickToBottomRef.current = true;
     },
-    [engine, messagesViewportRef, roomId, stickToBottomRef]
+    [engine, messagesViewportRef, stickToBottomRef]
   );
 
+  /**
+   * Single layout/keyboard correction writer.
+   * Does **not** re-decide Enter policy or flip stick from viewport noise —
+   * only preserves stick (bottom) vs non-stick (distance) set at Enter / user scroll / send.
+   */
   const applyLayoutPreserve = useCallback(
     (reason: CmScrollOwnerReason) => {
       if (loadingOlderMessages) return;
-      if (!engine.isSettled() || !hasAppliedInitialAnchorRef.current) {
-        if (engine.getPhase() === "entryPendingLayout") {
-          tryCompleteEntry("initial_load", "initial_latest");
-        }
-        return;
+
+      engine.notifyMessagesReady(messageCount > 0);
+      engine.notifyLayoutCommitted();
+      const ok = engine.correctLayoutPreserve(buildCtx());
+      stickToBottomRef.current = engine.readStickToBottom();
+      if (ok && engine.isSettled() && !hasAppliedInitialAnchorRef.current) {
+        completeEntryPhase(
+          reason === "keyboard_resize_keep_bottom" ? "initial_load" : reason,
+          "layout_correct_settle"
+        );
       }
-      if (!stickToBottomRef.current) {
-        engine.notifyLayoutResize(buildCtx());
-        syncMessengerRoomStickToBottomFromViewport({
-          viewport: messagesViewportRef.current,
-          stickToBottomRef,
-          roomId,
-          activeSheet,
-        });
-        persistScrollPosition();
-        markCmScrollRun(reason, "chrome_resize_preserve");
-        return;
-      }
-      engine.notifyLayoutResize(buildCtx());
-      stickToBottomRef.current = true;
-      markCmScrollRun(reason, "keyboard_preserve");
+      markCmScrollRun(
+        reason,
+        stickToBottomRef.current ? "keyboard_preserve" : "chrome_resize_preserve"
+      );
+      if (!stickToBottomRef.current) persistScrollPosition();
     },
     [
-      activeSheet,
       buildCtx,
+      completeEntryPhase,
       engine,
       loadingOlderMessages,
       markCmScrollRun,
-      messagesViewportRef,
+      messageCount,
       persistScrollPosition,
-      roomId,
       stickToBottomRef,
-      tryCompleteEntry,
     ]
   );
 
