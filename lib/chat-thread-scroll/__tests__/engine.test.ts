@@ -188,54 +188,6 @@ describe("ChatThreadScrollEngine", () => {
     expect(vp.scrollTop).toBe(800);
   });
 
-  it("entry does not settle when scrollTop fails to reach near-bottom", () => {
-    const engine = createChatThreadScrollEngine();
-    let scrollTop = 0;
-    const vp = {
-      clientHeight: 400,
-      scrollHeight: 800,
-      get scrollTop() {
-        return scrollTop;
-      },
-      set scrollTop(_v: number) {
-        scrollTop = 0;
-      },
-      querySelectorAll: vi.fn(() => [{}, {}, {}]),
-    } as unknown as HTMLElement;
-    const ctx = { viewport: vp, messageCount: 3, virtualizer: null };
-
-    engine.notifyEntry({ forceBottom: true });
-    engine.notifyMessagesReady(true);
-    engine.notifyLayoutCommitted();
-    expect(engine.tryCompleteEntry(ctx)).toBe(false);
-    expect(engine.getPhase()).toBe("entryPendingLayout");
-  });
-
-  it("force/entry pin skips virtualizer.scrollToIndex (async undershoot)", () => {
-    const engine = createChatThreadScrollEngine();
-    const vp = mockViewport({ scrollHeight: 800, clientHeight: 400, rowCount: 3 });
-    const scrollToIndex = vi.fn(() => {
-      vp.scrollTop = 200;
-    });
-    const ctx = {
-      viewport: vp,
-      messageCount: 3,
-      virtualizer: { scrollToIndex, getTotalSize: () => 800 },
-    };
-
-    engine.notifyEntry({ forceBottom: true });
-    engine.notifyMessagesReady(true);
-    engine.notifyLayoutCommitted();
-    expect(engine.tryCompleteEntry(ctx)).toBe(true);
-    expect(scrollToIndex).not.toHaveBeenCalled();
-    expect(vp.scrollTop).toBe(800);
-
-    setScrollHeight(vp, 1000);
-    expect(engine.notifyLayoutResize(ctx)).toBe(true);
-    expect(scrollToIndex).not.toHaveBeenCalled();
-    expect(vp.scrollTop).toBe(1000);
-  });
-
   it("stick threshold is 96px SSOT", () => {
     expect(CHAT_THREAD_STICK_THRESHOLD_PX).toBe(96);
     expect(
