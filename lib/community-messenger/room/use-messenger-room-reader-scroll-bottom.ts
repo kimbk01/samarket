@@ -23,6 +23,7 @@ export function useMessengerRoomReaderScrollBottom({
   messageCount,
   deferEntryScrollToDeliveryDirectTimeline = false,
   timelineViewportMounted = false,
+  timelineViewportAttachGen = 0,
   timelineHeavyReady = false,
   loadingOlderMessages = false,
   timelineInitialLoadComplete = false,
@@ -51,6 +52,8 @@ export function useMessengerRoomReaderScrollBottom({
   messageCount?: number;
   deferEntryScrollToDeliveryDirectTimeline?: boolean;
   timelineViewportMounted?: boolean;
+  /** viewport DOM remount 감지 (mounted 배치 스킵 보정) */
+  timelineViewportAttachGen?: number;
   timelineHeavyReady?: boolean;
   loadingOlderMessages?: boolean;
   timelineInitialLoadComplete?: boolean;
@@ -72,6 +75,7 @@ export function useMessengerRoomReaderScrollBottom({
     messageCount: messageCount ?? roomMessages.length,
     deferEntryScrollToDeliveryDirectTimeline,
     timelineViewportMounted,
+    timelineViewportAttachGen,
     timelineHeavyReady,
     loadingOlderMessages,
     timelineInitialLoadComplete,

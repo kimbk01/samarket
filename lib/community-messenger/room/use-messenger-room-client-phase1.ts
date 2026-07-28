@@ -563,6 +563,8 @@ export function useMessengerRoomClientPhase1({
   const [roomReadyForRealtime, setRoomReadyForRealtime] = useState(false);
   /** R2-M8: viewport DOM 부착 후에만 virtualizer·파생 목록 마운트 (scroll root 없이 getVirtualItems()=[] 방지) */
   const [timelineViewportMounted, setTimelineViewportMounted] = useState(false);
+  /** remount 시 mounted true→true 배치로 effect 스킵 방지 — attach 마다 +1 */
+  const [timelineViewportAttachGen, setTimelineViewportAttachGen] = useState(0);
   const [timelineHeavyLive, setTimelineHeavyLive] = useState(false);
   const [timelineHeavyBundle, setTimelineHeavyBundle] = useState<MessengerRoomPhase1TimelineHeavyBundle | null>(
     null
@@ -578,12 +580,16 @@ export function useMessengerRoomClientPhase1({
 
   const notifyTimelineViewportMounted = useCallback((mounted: boolean) => {
     setTimelineViewportMounted(mounted);
+    if (mounted) {
+      setTimelineViewportAttachGen((n) => n + 1);
+    }
   }, []);
 
   useLayoutEffect(() => {
     const rid = roomId.trim();
     if (!rid) return;
     setTimelineViewportMounted(false);
+    setTimelineViewportAttachGen(0);
     setTimelineHeavyLive(false);
     setTimelineHeavyBundle(null);
   }, [roomId]);
@@ -1690,6 +1696,7 @@ export function useMessengerRoomClientPhase1({
     messageCount: displayRoomMessages.length,
     deferEntryScrollToDeliveryDirectTimeline: storeOrderDockScrollAnchorEnabled,
     timelineViewportMounted,
+    timelineViewportAttachGen,
     timelineHeavyReady: Boolean(timelineHeavyBundle),
     loadingOlderMessages,
     timelineInitialLoadComplete,

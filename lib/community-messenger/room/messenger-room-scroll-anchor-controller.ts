@@ -65,6 +65,8 @@ type ScrollAnchorControllerOpts = {
   messageCount: number;
   deferEntryScrollToDeliveryDirectTimeline?: boolean;
   timelineViewportMounted?: boolean;
+  /** viewport DOM remount — mounted true 배치 스킵 보정 */
+  timelineViewportAttachGen?: number;
   timelineHeavyReady?: boolean;
   loadingOlderMessages?: boolean;
   /** bootstrap initial fetch 완료 — 진입 scroll 1회 게이트 */
@@ -115,7 +117,8 @@ function mapInitialSource(reason: CmScrollOwnerReason, forceBottom: boolean, has
 /**
  * Single scroll authority for CM rooms (Telegram/Kakao contract).
  * - Initial anchor: room generation 당 1회, useLayoutEffect (paint 전)
- * - Resize/keyboard/chrome: settled 이후 preserve/follow 만 — 재 entry·tail settle 금지
+ * - Settle only when engine reports near-bottom (not scrollHeight>0 alone)
+ * - Resize/keyboard/chrome/content/remount: settled+stick → same pin path (notifyLayoutResize)
  * - scrollTop 조작은 ChatThreadScrollEngine 만
  */
 export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControllerOpts): {
@@ -134,6 +137,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     messageCount,
     deferEntryScrollToDeliveryDirectTimeline = false,
     timelineViewportMounted = false,
+    timelineViewportAttachGen = 0,
     timelineHeavyReady = false,
     loadingOlderMessages = false,
     timelineInitialLoadComplete = false,
@@ -164,6 +168,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
   const prevTailMessageIdRef = useRef<string | null>(null);
   const prevTailClientMessageIdRef = useRef<string | null>(null);
   const pendingAnchorMessageIdRef = useRef<string | null>(null);
+  const observedViewportElRef = useRef<HTMLDivElement | null>(null);
 
   const toVirtualizer = useCallback((): ChatThreadVirtualizer | null => {
     if (!virtualizer) return null;
@@ -429,6 +434,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     pendingAnchorMessageIdRef.current = null;
     prevTailMessageIdRef.current = null;
     prevTailClientMessageIdRef.current = null;
+    observedViewportElRef.current = null;
     roomGenerationRef.current += 1;
     if (rid) beginCmScrollAuthoritySession(rid, roomGenerationRef.current);
 
@@ -499,7 +505,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     engine.notifyPrependInFlight(loadingOlderMessages);
   }, [engine, loadingOlderMessages]);
 
-  /** Chrome height — layout preserve only (no entry_tail_settle) */
+  /** Chrome height — stick follow via layout preserve (same pin path as keyboard) */
   useEffect(() => {
     const onChromeHeightSynced = (ev: Event) => {
       const rid = roomId.trim();
@@ -539,11 +545,19 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     }
   }, [engine, roomMessages, scrollMessengerToBottom]);
 
+  /**
+   * Viewport RO + content RO + remount rebind.
+   * Viewport border-box alone misses scrollHeight growth (30→80 rows).
+   * Shell remount replaces `.chat-timeline-scroll` — must re-observe and re-pin if stick.
+   */
   useLayoutEffect(() => {
     const el = messagesViewportRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
 
-    const onViewportResize = () => {
+    const remounted = observedViewportElRef.current != null && observedViewportElRef.current !== el;
+    observedViewportElRef.current = el;
+
+    const onViewportOrContentResize = () => {
       if (loadingOlderMessages) return;
       if (engine.getPhase() === "entryPendingLayout" && !hasAppliedInitialAnchorRef.current) {
         tryCompleteEntry("initial_load", "initial_latest");
@@ -552,10 +566,16 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
       applyLayoutPreserve("viewport_resize_keep_bottom");
     };
 
-    const roTimeline = new ResizeObserver(onViewportResize);
-    roTimeline.observe(el);
+    if (remounted && hasAppliedInitialAnchorRef.current && stickToBottomRef.current) {
+      onViewportOrContentResize();
+    }
 
-    const onLayoutViewport = () => onViewportResize();
+    const roTimeline = new ResizeObserver(onViewportOrContentResize);
+    roTimeline.observe(el);
+    const content = el.firstElementChild;
+    if (content) roTimeline.observe(content);
+
+    const onLayoutViewport = () => onViewportOrContentResize();
     window.addEventListener("resize", onLayoutViewport);
     window.addEventListener("orientationchange", onLayoutViewport);
 
@@ -575,7 +595,17 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
       window.removeEventListener("resize", onLayoutViewport);
       window.removeEventListener("orientationchange", onLayoutViewport);
     };
-  }, [applyLayoutPreserve, engine, loadingOlderMessages, messagesViewportRef, tryCompleteEntry]);
+  }, [
+    applyLayoutPreserve,
+    engine,
+    loadingOlderMessages,
+    messageCount,
+    messagesViewportRef,
+    stickToBottomRef,
+    timelineViewportAttachGen,
+    timelineViewportMounted,
+    tryCompleteEntry,
+  ]);
 
   useEffect(() => {
     return () => {

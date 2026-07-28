@@ -175,6 +175,7 @@ export class ChatThreadScrollEngine {
     }
     this.state.phase = "settled";
     this.state.entryAttempts = 0;
+    this.restoreSnapshot = null;
     return true;
   }
 
@@ -232,18 +233,22 @@ export class ChatThreadScrollEngine {
     if (!opts.force && !this.state.stickToBottom) return false;
 
     const count = ctx.messageCount;
-    const virtualizer = ctx.virtualizer;
-    if (count > 0 && virtualizer?.scrollToIndex) {
-      try {
-        virtualizer.scrollToIndex(count - 1, { align: "end" });
-      } catch {
-        /* virtualizer not ready */
-      }
-    }
+    /**
+     * Native pin only. `virtualizer.scrollToIndex` can async-undershoot and overwrite
+     * a correct `scrollTop = scrollHeight` (entry + stick follow / keyboard).
+     */
+    void ctx.virtualizer;
+    void count;
     vp.scrollTop = vp.scrollHeight;
     this.state.stickToBottom = true;
     this.captureGeom(vp);
-    return vp.scrollHeight > 0 || count === 0;
+
+    if (count === 0) return true;
+    /** content fits viewport — already “at bottom” */
+    if (vp.scrollHeight <= vp.clientHeight + 1) return true;
+    const metrics = readChatThreadNearBottom(vp, this.config.stickThresholdPx);
+    /** DO NOT settle on scrollHeight>0 alone — false settle blocked remount/content re-pin */
+    return Boolean(metrics?.nearBottom);
   }
 
   private preserveScrollDistance(ctx: ChatThreadScrollViewportContext): boolean {
