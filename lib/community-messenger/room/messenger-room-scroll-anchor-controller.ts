@@ -119,7 +119,11 @@ function mapInitialSource(reason: CmScrollOwnerReason, forceBottom: boolean, has
  * - scrollTop 조작은 ChatThreadScrollEngine 만
  */
 export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControllerOpts): {
-  scrollMessengerToBottom: (request?: { reason?: CmScrollOwnerReason; force?: boolean }) => void;
+  scrollMessengerToBottom: (request?: {
+    reason?: CmScrollOwnerReason;
+    force?: boolean;
+    behavior?: "auto" | "smooth";
+  }) => void;
   updateStickToBottomFromScroll: () => void;
   persistScrollPosition: () => void;
   enqueueScrollAnchor: (request: MessengerRoomScrollAnchorRequest) => void;
@@ -323,9 +327,10 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
   );
 
   const scrollMessengerToBottom = useCallback(
-    (req?: { reason?: CmScrollOwnerReason; force?: boolean }) => {
+    (req?: { reason?: CmScrollOwnerReason; force?: boolean; behavior?: "auto" | "smooth" }) => {
       const reason = req?.reason ?? "explicit";
       const force = req?.force === true || isExplicitScrollReason(reason);
+      const behavior = req?.behavior === "smooth" ? "smooth" : "auto";
 
       /** legacy tail settle / after-rows → layout preserve only (never re-entry) */
       if (isLayoutPreserveReason(reason) && !isEntryScrollReason(reason)) {
@@ -346,7 +351,7 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
       }
 
       if (force) {
-        engine.scrollToBottomExplicit(buildCtx());
+        engine.scrollToBottomExplicit(buildCtx(), { behavior });
         stickToBottomRef.current = true;
         markCmScrollRun(reason, reason === "own_message_append" ? "self_send_follow" : "explicit");
         return;

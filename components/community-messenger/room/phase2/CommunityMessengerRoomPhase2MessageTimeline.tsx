@@ -960,9 +960,6 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     return vm.t("cm_ui_unread_messages_divider");
   }, [firstUnreadMessageId, roomUnreadCount, vm.t]);
 
-  const [lastVisibleMessageId, setLastVisibleMessageId] = useState<string | null>(null);
-  const lastVisibleMessageIdRef = useRef<string | null>(null);
-
   useLayoutEffect(() => {
     if (!cmRenderAnalysisEnabled()) return;
     const msgLen = vm.displayRoomMessages.length;
@@ -1019,21 +1016,6 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
       scrollRafRef.current = null;
       onScrollDeferred();
       sampleMessengerScrollFrameBudget(vmRef.current.streamRoomId);
-      const root = vmRef.current.messagesViewportRef.current;
-      if (!root) return;
-      const vpBottom = root.getBoundingClientRect().bottom;
-      const rows = root.querySelectorAll<HTMLElement>("[data-cm-message-id]");
-      let lastId: string | null = null;
-      for (let i = 0; i < rows.length; i += 1) {
-        const row = rows[i]!;
-        if (row.getBoundingClientRect().top <= vpBottom - 4) {
-          lastId = row.getAttribute("data-cm-message-id");
-        }
-      }
-      if (lastId && lastId !== lastVisibleMessageIdRef.current) {
-        lastVisibleMessageIdRef.current = lastId;
-        setLastVisibleMessageId(lastId);
-      }
     });
   }, [onScrollDeferred]);
 
@@ -1045,15 +1027,6 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
       }
     };
   }, []);
-
-  /** Seed FAB badge authority once rows are painted (scroll may not fire yet). */
-  useEffect(() => {
-    if (vm.displayRoomMessages.length <= 0) return;
-    const id = window.requestAnimationFrame(() => {
-      scheduleScroll();
-    });
-    return () => cancelAnimationFrame(id);
-  }, [scheduleScroll, vm.displayRoomMessages.length, firstUnreadMessageId]);
 
   useEffect(() => {
     const key = messengerRoomReadBlockKeyImageLightbox(vm.streamRoomId);
@@ -2085,10 +2058,10 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
       </div>
       <MessengerRoomNewMessagesBelowChip
         roomId={vm.streamRoomId}
-        onJumpToLatest={vm.scrollMessengerToBottom}
-        messages={vm.displayRoomMessages}
-        lastReadMessageId={lastReadMessageId}
-        lastVisibleMessageId={lastVisibleMessageId}
+        roomUnreadCount={roomUnreadCount}
+        onJumpToLatest={() =>
+          vm.scrollMessengerToBottom({ reason: "explicit", force: true, behavior: "smooth" })
+        }
       />
       <MessengerImageLightbox
         open={imageLightbox != null}
