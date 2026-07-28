@@ -33,6 +33,11 @@ import {
   beginCmScrollAuthoritySession,
   noteCmScrollAuthorityEvent,
 } from "@/lib/community-messenger/room/cm-room-scroll-authority-instrumentation";
+import {
+  cmResizeCycleBegin,
+  cmResizeCycleNote,
+  cmResizeCycleReadViewport,
+} from "@/lib/chat-thread-scroll/resize-cycle-instrumentation";
 
 export type MessengerRoomScrollAnchorRequest = {
   reason: CmScrollOwnerReason;
@@ -312,14 +317,58 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
 
   const applyLayoutPreserve = useCallback(
     (reason: CmScrollOwnerReason) => {
-      if (loadingOlderMessages) return;
+      // CM_RESIZE_CYCLE_PROBE (read-only)
+      cmResizeCycleNote("applyLayoutPreserve_enter", {
+        reason,
+        phase: engine.getPhase(),
+        settled: engine.isSettled(),
+        hasAppliedInitialAnchorRef: hasAppliedInitialAnchorRef.current,
+        stickToBottomRef: stickToBottomRef.current,
+        engineStickToBottom: engine.readStickToBottom(),
+        loadingOlderMessages,
+        viewport: cmResizeCycleReadViewport(messagesViewportRef.current),
+      });
+      if (loadingOlderMessages) {
+        // CM_RESIZE_CYCLE_PROBE (read-only)
+        cmResizeCycleNote("applyLayoutPreserve_return", {
+          reason,
+          path: "return",
+          returnReason: "loadingOlderMessages",
+          ownerCreated: false,
+        });
+        return;
+      }
       if (!engine.isSettled() || !hasAppliedInitialAnchorRef.current) {
+        // CM_RESIZE_CYCLE_PROBE (read-only)
+        cmResizeCycleNote("applyLayoutPreserve_return", {
+          reason,
+          path: "return",
+          returnReason: "B_notSettled_or_noInitialAnchor",
+          branchLock: "B",
+          phase: engine.getPhase(),
+          settled: engine.isSettled(),
+          hasAppliedInitialAnchorRef: hasAppliedInitialAnchorRef.current,
+          stickToBottomRef: stickToBottomRef.current,
+          engineStickToBottom: engine.readStickToBottom(),
+          ownerCreated: false,
+        });
         if (engine.getPhase() === "entryPendingLayout") {
           tryCompleteEntry("initial_load", "initial_latest");
         }
         return;
       }
       if (!stickToBottomRef.current) {
+        // CM_RESIZE_CYCLE_PROBE (read-only)
+        cmResizeCycleNote("applyLayoutPreserve_path", {
+          reason,
+          path: "notifyLayoutResize_via_not_stick",
+          ownerCreated: true,
+          stickToBottomRef: false,
+          engineStickToBottom: engine.readStickToBottom(),
+          phase: engine.getPhase(),
+          settled: engine.isSettled(),
+          hasAppliedInitialAnchorRef: hasAppliedInitialAnchorRef.current,
+        });
         engine.notifyLayoutResize(buildCtx());
         syncMessengerRoomStickToBottomFromViewport({
           viewport: messagesViewportRef.current,
@@ -329,11 +378,40 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
         });
         persistScrollPosition();
         markCmScrollRun(reason, "chrome_resize_preserve");
+        // CM_RESIZE_CYCLE_PROBE (read-only)
+        cmResizeCycleNote("applyLayoutPreserve_owner_marked", {
+          reason,
+          ownerCreated: true,
+          ownerSource: "chrome_resize_preserve",
+          stickToBottomRef: stickToBottomRef.current,
+          engineStickToBottom: engine.readStickToBottom(),
+          viewport: cmResizeCycleReadViewport(messagesViewportRef.current),
+        });
         return;
       }
+      // CM_RESIZE_CYCLE_PROBE (read-only)
+      cmResizeCycleNote("applyLayoutPreserve_path", {
+        reason,
+        path: "notifyLayoutResize_via_stick",
+        ownerCreated: true,
+        stickToBottomRef: true,
+        engineStickToBottom: engine.readStickToBottom(),
+        phase: engine.getPhase(),
+        settled: engine.isSettled(),
+        hasAppliedInitialAnchorRef: hasAppliedInitialAnchorRef.current,
+      });
       engine.notifyLayoutResize(buildCtx());
       stickToBottomRef.current = true;
       markCmScrollRun(reason, "keyboard_preserve");
+      // CM_RESIZE_CYCLE_PROBE (read-only)
+      cmResizeCycleNote("applyLayoutPreserve_owner_marked", {
+        reason,
+        ownerCreated: true,
+        ownerSource: "keyboard_preserve",
+        stickToBottomRef: stickToBottomRef.current,
+        engineStickToBottom: engine.readStickToBottom(),
+        viewport: cmResizeCycleReadViewport(messagesViewportRef.current),
+      });
     },
     [
       activeSheet,
@@ -565,8 +643,38 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     if (!el || typeof ResizeObserver === "undefined") return;
 
     const onViewportResize = () => {
-      if (loadingOlderMessages) return;
+      // CM_RESIZE_CYCLE_PROBE (read-only)
+      const resizeCycleId = cmResizeCycleBegin({
+        source: "ResizeObserver_or_window",
+        roomId,
+      });
+      cmResizeCycleNote("onViewportResize_enter", {
+        resizeCycleId,
+        phase: engine.getPhase(),
+        settled: engine.isSettled(),
+        hasAppliedInitialAnchorRef: hasAppliedInitialAnchorRef.current,
+        stickToBottomRef: stickToBottomRef.current,
+        engineStickToBottom: engine.readStickToBottom(),
+        loadingOlderMessages,
+        viewport: cmResizeCycleReadViewport(messagesViewportRef.current),
+      });
+      if (loadingOlderMessages) {
+        cmResizeCycleNote("onViewportResize_return", {
+          path: "return",
+          returnReason: "loadingOlderMessages",
+          ownerCreated: false,
+        });
+        return;
+      }
       if (engine.getPhase() === "entryPendingLayout" && !hasAppliedInitialAnchorRef.current) {
+        cmResizeCycleNote("onViewportResize_return", {
+          path: "return",
+          returnReason: "A_or_entry_tryComplete",
+          branchLock: "A_candidate",
+          phase: engine.getPhase(),
+          hasAppliedInitialAnchorRef: hasAppliedInitialAnchorRef.current,
+          ownerCreated: false,
+        });
         tryCompleteEntry("initial_load", "initial_latest");
         return;
       }
@@ -583,7 +691,36 @@ export function useMessengerRoomScrollAnchorController(opts: ScrollAnchorControl
     /** Platform adapter input — scroll decision은 engine notifyLayoutResize 만 */
     const vv = typeof window !== "undefined" ? window.visualViewport : null;
     const onVv = () => {
-      if (engine.getPhase() === "entryPendingLayout") return;
+      // CM_RESIZE_CYCLE_PROBE (read-only)
+      const resizeCycleId = cmResizeCycleBegin({
+        source: "visualViewport",
+        roomId,
+      });
+      const phase = engine.getPhase();
+      cmResizeCycleNote("onVv_enter", {
+        resizeCycleId,
+        phase,
+        settled: engine.isSettled(),
+        hasAppliedInitialAnchorRef: hasAppliedInitialAnchorRef.current,
+        stickToBottomRef: stickToBottomRef.current,
+        engineStickToBottom: engine.readStickToBottom(),
+        viewport: cmResizeCycleReadViewport(messagesViewportRef.current),
+      });
+      if (phase === "entryPendingLayout") {
+        // CM_RESIZE_CYCLE_PROBE (read-only)
+        cmResizeCycleNote("onVv_return", {
+          path: "return",
+          returnReason: "A_phase_entryPendingLayout",
+          branchLock: "A",
+          phase,
+          settled: engine.isSettled(),
+          hasAppliedInitialAnchorRef: hasAppliedInitialAnchorRef.current,
+          stickToBottomRef: stickToBottomRef.current,
+          engineStickToBottom: engine.readStickToBottom(),
+          ownerCreated: false,
+        });
+        return;
+      }
       applyLayoutPreserve("keyboard_resize_keep_bottom");
     };
     vv?.addEventListener("resize", onVv);
