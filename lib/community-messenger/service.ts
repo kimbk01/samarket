@@ -5103,22 +5103,6 @@ export async function appendCommunityMessengerCallStubMessage(input: {
     const existing = await findCallStubRowBySessionId(input.roomId, sessionId);
     if (existing) {
       await updateExistingStub(existing);
-      try {
-        const { publishConversationUpsertAfterTipWrite } = await import(
-          "@/lib/community-messenger/conversation-engine/publish-conversation-upsert"
-        );
-        await publishConversationUpsertAfterTipWrite({
-          roomId: String(input.roomId),
-          eventId: `call:${sessionId}:${input.status}`,
-          lastActivityAt: input.createdAt,
-          previewText: label,
-          previewKind: "call",
-          callStatus: input.status,
-          sessionId,
-        });
-      } catch {
-        /* best-effort */
-      }
       return;
     }
   }
@@ -5126,22 +5110,6 @@ export async function appendCommunityMessengerCallStubMessage(input: {
     const existingByTmp = await findCallStubRowBySessionId(input.roomId, tmp);
     if (existingByTmp) {
       await updateExistingStub(existingByTmp);
-      try {
-        const { publishConversationUpsertAfterTipWrite } = await import(
-          "@/lib/community-messenger/conversation-engine/publish-conversation-upsert"
-        );
-        await publishConversationUpsertAfterTipWrite({
-          roomId: String(input.roomId),
-          eventId: `call:${tmp}:${input.status}`,
-          lastActivityAt: input.createdAt,
-          previewText: label,
-          previewKind: "call",
-          callStatus: input.status,
-          sessionId: tmp,
-        });
-      } catch {
-        /* best-effort */
-      }
       return;
     }
   }
@@ -5183,25 +5151,7 @@ export async function appendCommunityMessengerCallStubMessage(input: {
       .from("community_messenger_participants")
       .select("id, user_id, unread_count")
       .eq("room_id", input.roomId);
-    if (!shouldIncrementUnread) {
-      try {
-        const { publishConversationUpsertAfterTipWrite } = await import(
-          "@/lib/community-messenger/conversation-engine/publish-conversation-upsert"
-        );
-        await publishConversationUpsertAfterTipWrite({
-          roomId: String(input.roomId),
-          eventId: `call:${sessionId || tmp || input.createdAt}:${input.status}`,
-          lastActivityAt: String(roomPatch.last_message_at ?? input.createdAt),
-          previewText: label,
-          previewKind: "call",
-          callStatus: input.status,
-          sessionId: sessionId || tmp || null,
-        });
-      } catch {
-        /* best-effort */
-      }
-      return;
-    }
+    if (!shouldIncrementUnread) return;
     for (const participant of (participants ?? []) as Array<{ id: string; user_id: string; unread_count?: number | null }>) {
       await (sb as any)
         .from("community_messenger_participants")
@@ -5210,22 +5160,6 @@ export async function appendCommunityMessengerCallStubMessage(input: {
           last_read_at: participant.user_id === input.userId ? input.createdAt : null,
         })
         .eq("id", participant.id);
-    }
-    try {
-      const { publishConversationUpsertAfterTipWrite } = await import(
-        "@/lib/community-messenger/conversation-engine/publish-conversation-upsert"
-      );
-      await publishConversationUpsertAfterTipWrite({
-        roomId: String(input.roomId),
-        eventId: `call:${sessionId || tmp || input.createdAt}:${input.status}`,
-        lastActivityAt: String(roomPatch.last_message_at ?? input.createdAt),
-        previewText: label,
-        previewKind: "call",
-        callStatus: input.status,
-        sessionId: sessionId || tmp || null,
-      });
-    } catch {
-      /* best-effort */
     }
     return;
   }

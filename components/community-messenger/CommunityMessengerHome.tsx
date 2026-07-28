@@ -68,7 +68,6 @@ import {
 } from "@/lib/community-messenger/app-shell-fast-path-log";
 import { commitHomeListPatch } from "@/lib/community-messenger/home-list-patch";
 import { useCommunityMessengerHomeRealtimeBootstrapList } from "@/lib/community-messenger/home/use-community-messenger-home-realtime-bootstrap-list";
-import { useConversationEngineHomePaint } from "@/lib/community-messenger/conversation-engine/use-conversation-engine-home-paint";
 import { useCommunityMessengerTradePostListingRealtime } from "@/lib/community-messenger/home/use-community-messenger-trade-post-listing-realtime";
 import {
   onCommunityMessengerBusEvent,
@@ -630,21 +629,13 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   const dataRef = useRef(data);
   dataRef.current = data;
   /**
-   * Telegram list authority → Conversation Engine cutover:
-   * hub chats/groups paint from ConversationStore; legacy bootstrap remains seed + friends/meta.
+   * Telegram list authority: hub paint is always legacy bootstrap `data` (applyHomeListPatch).
+   * Phase3 canonical/dual overlay is a second paint SSOT — product list forces `legacy`.
+   * Writer/Realtime still use `data` (homeRoomIds 등).
    */
   const { pillarScope: projectionPillarScope } = useMessengerHomeProjectionFlags();
-  const homeRouteIdsForEngine = useMemo(() => {
-    if (!data) return [] as string[];
-    return [...(data.chats ?? []), ...(data.groups ?? [])].map((r) => String(r.id)).filter(Boolean);
-  }, [data]);
-  const enginePaintData = useConversationEngineHomePaint({
-    legacyData: data,
-    listAwaitingCritical,
-    roomIds: homeRouteIdsForEngine,
-  });
   const homeListRenderData = useMessengerHomeCanonicalListData({
-    legacyData: enginePaintData,
+    legacyData: data,
     dispatch: shadowDispatch,
     source: "legacy",
     pillarScope: projectionPillarScope,

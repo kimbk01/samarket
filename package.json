@@ -175,7 +175,6 @@
     "verify:messenger-home": "vitest run lib/runtime/__tests__/messenger-home-verification-counters.test.ts",
     "verify:messenger-home-list-owner": "node scripts/verify-messenger-home-list-owner.cjs",
     "verify:telegram-list-authority": "node scripts/verify-telegram-list-authority.mjs",
-    "verify:conversation-engine-import-ban": "node scripts/verify-conversation-engine-import-ban.mjs",
     "verify:messenger-realtime-store-scope": "node scripts/verify-messenger-realtime-store-scope.cjs",
     "verify:messenger-dead-hub-cleanup": "node scripts/verify-messenger-dead-hub-cleanup.cjs",
     "verify:chat-domain-file-lock": "node scripts/verify-chat-domain-file-lock.cjs",

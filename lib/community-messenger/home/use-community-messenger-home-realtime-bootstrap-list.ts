@@ -66,13 +66,6 @@ import {
 } from "@/lib/community-messenger/cm-home-silent-lists-fetch";
 import type { MessengerHomeShadowDispatch } from "@/lib/community-messenger/home/inbox-pipeline/shadow";
 import type { CanonicalMessengerHomeRoomPatch } from "@/lib/community-messenger/home/inbox-pipeline/types";
-import { CONVERSATION_ENGINE_PRODUCT_PAINT } from "@/lib/community-messenger/conversation-engine/flags";
-import {
-  applyConversationEngineMessageInsert,
-  applyConversationEngineMessageUpdate,
-  applyConversationEngineRoomTip,
-  applyConversationEngineUnread,
-} from "@/lib/community-messenger/conversation-engine/use-conversation-engine-home-lifecycle";
 
 const HOME_SUMMARY_MIN_FETCH_GAP_MS = 1_500;
 /** Realtime meta → home-sync silent refresh 최소 간격(부트스트랩 debounce 와 정렬) */
@@ -534,20 +527,6 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
           roomId: rid,
           messageRow: hint.newRecord,
         });
-        if (CONVERSATION_ENGINE_PRODUCT_PAINT) {
-          applyConversationEngineMessageInsert(hint.newRecord);
-        }
-      }
-      if (CONVERSATION_ENGINE_PRODUCT_PAINT) {
-        const cache = peekBootstrapCache();
-        for (const hint of batch) {
-          const rid = String(hint.roomId ?? "").trim();
-          if (rid && (!cache || !bootstrapHasRoomRow(cache, rid))) missedRooms.add(rid);
-        }
-        for (const rid of missedRooms) {
-          if (rid) scheduleHomeMissingRoomSummaryMerge(rid);
-        }
-        return;
       }
       setData((prev) => {
         if (!prev) return prev;
@@ -596,45 +575,36 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
       if (batch.length === 0) return;
       const missedRooms = new Set<string>();
       const me = String(userId ?? "").trim();
-      if (CONVERSATION_ENGINE_PRODUCT_PAINT) {
+      setData((prev) => {
+        if (!prev) return prev;
+        let cur = prev;
         for (const hint of batch) {
-          applyConversationEngineMessageUpdate(hint.newRecord);
           const rid = String(hint.roomId ?? "").trim();
-          const cache = peekBootstrapCache();
-          if (rid && (!cache || !bootstrapHasRoomRow(cache, rid))) missedRooms.add(rid);
-        }
-      } else {
-        setData((prev) => {
-          if (!prev) return prev;
-          let cur = prev;
-          for (const hint of batch) {
-            const rid = String(hint.roomId ?? "").trim();
-            if (!rid) continue;
-            const next = applyHomeListPatch(
-              cur,
-              {
-                kind: "realtime_message_update",
-                roomId: hint.roomId,
-                messageRow: hint.newRecord,
-              },
-              "realtime"
-            );
-            if (!next || next === cur) {
-              if (rid && !bootstrapHasRoomRow(cur, rid)) missedRooms.add(rid);
-            } else {
-              cur = next;
-            }
-          }
-          const resolved = resolveMessengerHomeBootstrapSetData(
-            "realtime-message",
-            prev,
-            cur === prev ? prev : cur,
-            { reason: "realtime_message_update_batch", roomId: batch[0]?.roomId }
+          if (!rid) continue;
+          const next = applyHomeListPatch(
+            cur,
+            {
+              kind: "realtime_message_update",
+              roomId: hint.roomId,
+              messageRow: hint.newRecord,
+            },
+            "realtime"
           );
-          if (resolved && resolved !== prev) primeBootstrapCache(resolved);
-          return resolved;
-        });
-      }
+          if (!next || next === cur) {
+            if (rid && !bootstrapHasRoomRow(cur, rid)) missedRooms.add(rid);
+          } else {
+            cur = next;
+          }
+        }
+        const resolved = resolveMessengerHomeBootstrapSetData(
+          "realtime-message",
+          prev,
+          cur === prev ? prev : cur,
+          { reason: "realtime_message_update_batch", roomId: batch[0]?.roomId }
+        );
+        if (resolved && resolved !== prev) primeBootstrapCache(resolved);
+        return resolved;
+      });
       for (const hint of batch) {
         const rid = String(hint.roomId ?? "").trim();
         if (!rid || !me) continue;
@@ -670,7 +640,9 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
       if (batch.length === 0) return;
       const missedRooms = new Set<string>();
       const me = String(userId ?? "").trim();
-      if (CONVERSATION_ENGINE_PRODUCT_PAINT) {
+      setData((prev) => {
+        if (!prev) return prev;
+        let cur = prev;
         for (const hint of batch) {
           const rid = String(hint.roomId ?? "").trim();
           if (!rid) continue;
@@ -686,62 +658,34 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
               ? mtRaw
               : "text"
           ) as CommunityMessengerMessageType;
-          applyConversationEngineRoomTip(rid, {
-            lastMessage: hint.tip.lastMessage,
-            lastMessageType,
-            lastMessageAt: hint.tip.lastMessageAt,
-          });
-          const cache = peekBootstrapCache();
-          if (!cache || !bootstrapHasRoomRow(cache, rid)) missedRooms.add(rid);
-        }
-      } else {
-        setData((prev) => {
-          if (!prev) return prev;
-          let cur = prev;
-          for (const hint of batch) {
-            const rid = String(hint.roomId ?? "").trim();
-            if (!rid) continue;
-            const mtRaw = String(hint.tip.lastMessageType ?? "text").trim();
-            const lastMessageType = (
-              mtRaw === "image" ||
-              mtRaw === "file" ||
-              mtRaw === "system" ||
-              mtRaw === "call_stub" ||
-              mtRaw === "voice" ||
-              mtRaw === "sticker" ||
-              mtRaw === "community_post_share"
-                ? mtRaw
-                : "text"
-            ) as CommunityMessengerMessageType;
-            const next = applyHomeListPatch(
-              cur,
-              {
-                kind: "room_tip_update",
-                roomId: hint.roomId,
-                tip: {
-                  lastMessage: hint.tip.lastMessage,
-                  lastMessageType,
-                  lastMessageAt: hint.tip.lastMessageAt,
-                },
+          const next = applyHomeListPatch(
+            cur,
+            {
+              kind: "room_tip_update",
+              roomId: hint.roomId,
+              tip: {
+                lastMessage: hint.tip.lastMessage,
+                lastMessageType,
+                lastMessageAt: hint.tip.lastMessageAt,
               },
-              "realtime"
-            );
-            if (!next || next === cur) {
-              if (rid && !bootstrapHasRoomRow(cur, rid)) missedRooms.add(rid);
-            } else {
-              cur = next;
-            }
-          }
-          const resolved = resolveMessengerHomeBootstrapSetData(
-            "realtime-message",
-            prev,
-            cur === prev ? prev : cur,
-            { reason: "realtime_room_tip_update_batch", roomId: batch[0]?.roomId }
+            },
+            "realtime"
           );
-          if (resolved && resolved !== prev) primeBootstrapCache(resolved);
-          return resolved;
-        });
-      }
+          if (!next || next === cur) {
+            if (rid && !bootstrapHasRoomRow(cur, rid)) missedRooms.add(rid);
+          } else {
+            cur = next;
+          }
+        }
+        const resolved = resolveMessengerHomeBootstrapSetData(
+          "realtime-message",
+          prev,
+          cur === prev ? prev : cur,
+          { reason: "realtime_room_tip_update_batch", roomId: batch[0]?.roomId }
+        );
+        if (resolved && resolved !== prev) primeBootstrapCache(resolved);
+        return resolved;
+      });
       for (const hint of batch) {
         const rid = String(hint.roomId ?? "").trim();
         if (!rid || !me) continue;
@@ -820,9 +764,6 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
           if (next && next !== cur) {
             cur = next;
             changed = true;
-          }
-          if (CONVERSATION_ENGINE_PRODUCT_PAINT && rid) {
-            applyConversationEngineUnread(rid, hint.unreadCount);
           }
           const prevUnread = Math.max(0, Math.floor(Number(existing?.unreadCount) || 0));
           const nextUnread = Math.max(0, Math.floor(Number(hint.unreadCount) || 0));
@@ -1070,17 +1011,6 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
           latestMessageType: ev.preview.lastMessageType,
           lastMessageAt: ev.preview.lastMessageAt,
         });
-        if (CONVERSATION_ENGINE_PRODUCT_PAINT) {
-          applyConversationEngineRoomTip(ev.roomId, {
-            lastMessage: ev.preview.lastMessage,
-            lastMessageType: ev.preview.lastMessageType,
-            lastMessageAt: ev.preview.lastMessageAt,
-          });
-          if (!findHomeListRoomRow(peekBootstrapCache(), ev.roomId)) {
-            scheduleHomeMissingRoomSummaryMerge(ev.roomId);
-          }
-          return;
-        }
         let missedPreview = false;
         scheduleListPatch(
           (prev) => {
