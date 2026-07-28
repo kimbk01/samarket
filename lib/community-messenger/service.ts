@@ -4943,7 +4943,9 @@ function isCallStubRecord(value: unknown): value is Record<string, unknown> {
 
 function hasMatchingCallStubSessionId(metadata: unknown, sessionId: string | null | undefined): boolean {
   if (!sessionId || !isCallStubRecord(metadata)) return false;
-  return trimText(metadata.sessionId) === sessionId;
+  const sid = trimText(sessionId);
+  if (!sid) return false;
+  return trimText(metadata.sessionId) === sid || trimText(metadata.tmpSessionId) === sid;
 }
 
 type CallStubExistingRow = { id: string; createdAt: string };
@@ -5104,6 +5106,13 @@ export async function appendCommunityMessengerCallStubMessage(input: {
       return;
     }
   }
+  if (tmp) {
+    const existingByTmp = await findCallStubRowBySessionId(input.roomId, tmp);
+    if (existingByTmp) {
+      await updateExistingStub(existingByTmp);
+      return;
+    }
+  }
 
   const sb = getSupabaseOrNull();
   if (sb) {
@@ -5123,8 +5132,19 @@ export async function appendCommunityMessengerCallStubMessage(input: {
       last_message_type: "call_stub",
     };
     if (bumpRoomLastMessageAt) {
-      roomPatch.last_message_at = input.createdAt;
-      roomPatch.updated_at = input.createdAt;
+      /** lastActivityAt SSOT — rooms.last_message_at 은 앞으로만 이동 */
+      const { data: roomRow } = await (sb as any)
+        .from("community_messenger_rooms")
+        .select("last_message_at")
+        .eq("id", input.roomId)
+        .maybeSingle();
+      const currentAt = trimText((roomRow as { last_message_at?: string } | null)?.last_message_at);
+      const currentMs = new Date(currentAt).getTime();
+      const nextMs = new Date(input.createdAt).getTime();
+      if (!Number.isFinite(currentMs) || !Number.isFinite(nextMs) || nextMs >= currentMs) {
+        roomPatch.last_message_at = input.createdAt;
+        roomPatch.updated_at = input.createdAt;
+      }
     }
     await (sb as any).from("community_messenger_rooms").update(roomPatch).eq("id", input.roomId);
     const { data: participants } = await (sb as any)
@@ -18418,7 +18438,8 @@ export async function updateCommunityMessengerCallSession(input: {
       createdAt: stubCreatedAt,
       replaceExisting: mapped.sessionMode === "direct",
       incrementUnread: false,
-      bumpRoomLastMessageAt: false,
+      /** INSERT 복구 시에만 lastActivityAt bump; UPDATE 경로는 append 내부에서 시각 불변 */
+      bumpRoomLastMessageAt: true,
       durationSeconds,
     });
   };

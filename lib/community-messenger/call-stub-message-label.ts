@@ -1,8 +1,9 @@
 /**
  * 채팅 `call_stub` 한 줄 라벨 — 클라·서버 공통 (클라는 `service.ts` 직접 import 금지 시 사용).
+ * SSOT: `call-event-presentation.formatCallEventSharedListLabel`
  */
 import type { CommunityMessengerCallKind, CommunityMessengerCallStatus } from "@/lib/community-messenger/types";
-import { formatCommunityMessengerCallDurationLabel } from "@/lib/community-messenger/call-duration-label";
+import { formatCallEventSharedListLabel } from "@/lib/community-messenger/call-event-presentation";
 
 export function formatCommunityMessengerCallStubStatus(status: CommunityMessengerCallStatus): string {
   if (status === "missed") return "부재중";
@@ -18,10 +19,5 @@ export function buildCommunityMessengerCallStubLabel(
   status: CommunityMessengerCallStatus,
   durationSeconds?: number
 ): string {
-  const kindLabel = callKind === "video" ? "영상 통화" : "음성 통화";
-  const dur = Math.max(0, Math.floor(Number(durationSeconds ?? 0)));
-  if (status === "ended" && dur > 0) {
-    return `${kindLabel} · ${formatCommunityMessengerCallDurationLabel(dur)}`;
-  }
-  return `${kindLabel} · ${formatCommunityMessengerCallStubStatus(status)}`;
+  return formatCallEventSharedListLabel(callKind, status, durationSeconds);
 }

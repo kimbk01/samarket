@@ -87,6 +87,7 @@ export function appendLocalCallChatMessageFromTerminalSession(input: {
     eventType: resolved,
     viewerUserId: viewerUserId || ini,
     initiatorUserId: ini,
+    durationSeconds: input.durationSeconds,
   });
   const status = mapResolvedEventToCallStatus(resolved);
   const callStartedAt = typeof input.startedAt === "string" ? input.startedAt.trim() : "";

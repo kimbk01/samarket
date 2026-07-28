@@ -156,6 +156,13 @@ function mergeMessages(
   return next;
 }
 
+function callStubStatusRank(status: CommunityMessengerCallStatus | null | undefined): number {
+  if (status === "ended" || status === "missed" || status === "cancelled" || status === "rejected") return 2;
+  if (status === "dialing" || status === "incoming") return 1;
+  return 0;
+}
+
+/** callId(session) 당 1행 — terminal 이 dialing 보다 우선, 서버 행이 로컬보다 우선 */
 function mergeCallStubDuplicates(messages: CommunityMessengerMessage[]): CommunityMessengerMessage[] {
   let changed = false;
   const byKey = new Map<string, CommunityMessengerMessage>();
@@ -175,7 +182,12 @@ function mergeCallStubDuplicates(messages: CommunityMessengerMessage[]): Communi
     changed = true;
     const existingIsLocal = String(existing.id ?? "").startsWith("cm-cevt-");
     const incomingIsLocal = String(message.id ?? "").startsWith("cm-cevt-");
-    if (existingIsLocal && !incomingIsLocal) {
+    const preferIncoming =
+      callStubStatusRank(message.callStatus) > callStubStatusRank(existing.callStatus) ||
+      (callStubStatusRank(message.callStatus) === callStubStatusRank(existing.callStatus) &&
+        existingIsLocal &&
+        !incomingIsLocal);
+    if (preferIncoming) {
       const idx = out.findIndex((item) => item.id === existing.id);
       if (idx >= 0) out[idx] = message;
       for (const key of keys) byKey.set(key, message);
@@ -478,7 +490,7 @@ export function removeRingingCallStubsForSessionKeys(input: {
   });
 }
 
-/** terminal call_stub — 동일 sessionId 말풍선 content/status만 갱신(신규 bubble 생성 금지) */
+/** terminal call_stub — 동일 sessionId 행 content/status만 갱신(신규 bubble 생성 금지) */
 export function reconcileCallStubMessageBySession(input: {
   roomId: string;
   sessionId?: string | null;
@@ -489,16 +501,32 @@ export function reconcileCallStubMessageBySession(input: {
 }): boolean {
   const rid = normalizeRoomId(input.roomId);
   if (!rid) return false;
+  /** terminal 도달 시 동일 session 의 dialing/incoming 잔존 행 제거 → callId 당 1행 */
+  if (
+    input.callStatus === "ended" ||
+    input.callStatus === "missed" ||
+    input.callStatus === "cancelled" ||
+    input.callStatus === "rejected"
+  ) {
+    removeRingingCallStubsForSessionKeys({
+      roomId: input.roomId,
+      sessionId: input.sessionId,
+      tmpSessionId: input.tmpSessionId,
+    });
+  }
   let updated = false;
   useMessengerRealtimeStore.setState((state) => {
     const list = state.messagesByRoomId[rid] ?? [];
-    const idx = list.findIndex(
-      (m) =>
-        m.messageType === "call_stub" &&
-        sessionKeysMatchMessage(input.sessionId, input.tmpSessionId, m.callSessionId, m.callTmpSessionId ?? null)
-    );
-    if (idx < 0) return state;
-    const cur = list[idx]!;
+    const matches = list
+      .map((m, index) => ({ m, index }))
+      .filter(
+        ({ m }) =>
+          m.messageType === "call_stub" &&
+          sessionKeysMatchMessage(input.sessionId, input.tmpSessionId, m.callSessionId, m.callTmpSessionId ?? null)
+      );
+    if (matches.length === 0) return state;
+    const keep = matches[0]!;
+    const cur = keep.m;
     const nextMessage: CommunityMessengerMessage = {
       ...cur,
       content: input.content,
@@ -506,16 +534,17 @@ export function reconcileCallStubMessageBySession(input: {
       callStatus: input.callStatus,
       messageType: "call_stub",
     };
-    if (
-      cur.content === nextMessage.content &&
-      cur.callStatus === nextMessage.callStatus &&
-      cur.callKind === nextMessage.callKind
-    ) {
-      return state;
-    }
+    const dropIds = new Set(matches.slice(1).map(({ m }) => m.id));
+    const contentChanged =
+      cur.content !== nextMessage.content ||
+      cur.callStatus !== nextMessage.callStatus ||
+      cur.callKind !== nextMessage.callKind ||
+      dropIds.size > 0;
+    if (!contentChanged) return state;
     updated = true;
-    const next = [...list];
-    next[idx] = nextMessage;
+    const next = list
+      .filter((m) => !dropIds.has(m.id))
+      .map((m) => (m.id === cur.id ? nextMessage : m));
     return { ...state, messagesByRoomId: { ...state.messagesByRoomId, [rid]: next } };
   });
   return updated;

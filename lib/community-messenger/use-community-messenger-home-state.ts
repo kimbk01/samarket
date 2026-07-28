@@ -414,7 +414,7 @@ export function useCommunityMessengerHomeState({
       roomMap.set(room.id, {
         room,
         preview: getRoomPreviewText(room),
-        previewKind: "message",
+        previewKind: room.lastMessageType === "call_stub" ? "call" : "message",
         callStatus: null,
         callKind: null,
         lastEventAt: room.lastMessageAt,

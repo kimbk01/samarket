@@ -10,6 +10,6 @@ describe("peer_busy call stub text", () => {
         viewerUserId: "caller-1",
         initiatorUserId: "caller-1",
       })
-    ).toContain("상대방이 통화 중");
+    ).toBe("음성 통화 · 통화 중");
   });
 });

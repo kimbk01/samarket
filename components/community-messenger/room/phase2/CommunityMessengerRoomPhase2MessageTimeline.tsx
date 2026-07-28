@@ -2031,6 +2031,10 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                             callStatusFallback: item.callStatus,
                             viewerUserId: vm.snapshot.viewerUserId ?? "",
                             senderUserId: item.senderId,
+                            durationSeconds:
+                              typeof item.metadata?.durationSeconds === "number"
+                                ? item.metadata.durationSeconds
+                                : null,
                           })
                         : vm.tt(formatRoomCallStatus(item.callStatus))
                     }

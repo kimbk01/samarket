@@ -6,6 +6,7 @@ import type {
   CommunityMessengerCallStatus,
   CommunityMessengerMessage,
 } from "@/lib/community-messenger/types";
+import { formatCallEventForViewer } from "@/lib/community-messenger/call-event-presentation";
 
 export type CallSessionViewerRole = "caller" | "callee";
 
@@ -101,17 +102,18 @@ export function mapResolvedEventToCallStatus(ev: CallSessionResolvedEvent): Comm
   }
 }
 
-const KIND_VOICE = "음성 통화";
-const KIND_VIDEO = "영상 통화";
-
-function kindLabel(kind: CommunityMessengerCallKind): string {
-  return kind === "video" ? KIND_VIDEO : KIND_VOICE;
+function resolveViewerRoleFromSender(
+  viewerUserId: string,
+  senderUserId: string | null | undefined
+): CallSessionViewerRole | null {
+  const viewer = viewerUserId.trim();
+  const sender = senderUserId?.trim() ?? "";
+  if (!viewer || !sender) return null;
+  return viewer === sender ? "caller" : "callee";
 }
 
 /**
- * 타임라인 두 번째 줄(발신 중 / 수신 중 / 취소됨 …) — 세션 역할 반영.
- * — dialing: 발신자만 「발신 중」, 상대는 「수신 중」
- * — 그 외 터미널: 발신·수신 동일 문구
+ * 타임라인 한 줄 — viewer 관점 SSOT (`call-event-presentation`).
  */
 export function getCallStubTimelineSecondLine(args: {
   callKind: CommunityMessengerCallKind;
@@ -119,44 +121,35 @@ export function getCallStubTimelineSecondLine(args: {
   callStatusFallback: CommunityMessengerCallStatus | string | null | undefined;
   viewerUserId: string;
   senderUserId: string | null | undefined;
+  durationSeconds?: number | null;
 }): string {
-  const kind = kindLabel(args.callKind);
-  const viewer = args.viewerUserId.trim();
-  const sender = args.senderUserId?.trim() ?? "";
   const inferred = args.resolvedEvent ?? inferResolvedEventFromStoredCallStatus(args.callStatusFallback);
-  const fs = trimLower(args.callStatusFallback);
-
-  if (
-    fs === "dialing" ||
-    fs === "incoming" ||
-    inferred === "outgoing_started" ||
-    inferred === "incoming_received"
-  ) {
-    if (viewer && sender && viewer === sender) return `${kind} 발신 중`;
-    return `${kind} 수신 중`;
-  }
-
-  if (inferred === "peer_busy") return `${kind} — 상대방이 통화 중`;
-  if (inferred === "cancelled_by_caller" || fs === "cancelled") return `${kind} 취소됨`;
-  if (inferred === "rejected_by_callee" || fs === "rejected") return `${kind} 거절됨`;
-  if (inferred === "missed" || fs === "missed") return `${kind} 부재중`;
-  if (inferred === "ended" || fs === "ended") return `${kind} 통화 종료`;
-
-  return `${kind} 상태 확인 중`;
+  return formatCallEventForViewer({
+    callKind: args.callKind,
+    resolvedEvent: inferred,
+    callStatusFallback: args.callStatusFallback,
+    viewerRole: resolveViewerRoleFromSender(args.viewerUserId, args.senderUserId),
+    durationSeconds: args.durationSeconds,
+  }).fullLabel;
 }
 
-/** 타임라인 두 번째 줄만 (첫 줄 `음성 통화` 라벨과 중복되지 않게) */
+/** 타임라인 결과 줄만 (종류 라벨과 분리) */
 export function getCallStubTimelineStatusLine(args: {
   callKind: CommunityMessengerCallKind;
   resolvedEvent: CallSessionResolvedEvent | null;
   callStatusFallback: CommunityMessengerCallStatus | string | null | undefined;
   viewerUserId: string;
   senderUserId: string | null | undefined;
+  durationSeconds?: number | null;
 }): string {
-  const full = getCallStubTimelineSecondLine(args);
-  const prefix = `${kindLabel(args.callKind)} `;
-  if (full.startsWith(prefix)) return full.slice(prefix.length);
-  return full;
+  const inferred = args.resolvedEvent ?? inferResolvedEventFromStoredCallStatus(args.callStatusFallback);
+  return formatCallEventForViewer({
+    callKind: args.callKind,
+    resolvedEvent: inferred,
+    callStatusFallback: args.callStatusFallback,
+    viewerRole: resolveViewerRoleFromSender(args.viewerUserId, args.senderUserId),
+    durationSeconds: args.durationSeconds,
+  }).resultLabel;
 }
 
 /** 단일 진입 — 타임라인·로컬 스텁 content 공통 */
@@ -165,6 +158,7 @@ export function getCallMessageText(input: {
   eventType: CallSessionResolvedEvent;
   viewerUserId: string;
   initiatorUserId: string | null | undefined;
+  durationSeconds?: number | null;
 }): string {
   return getCallStubTimelineSecondLine({
     callKind: input.callKind,
@@ -172,6 +166,7 @@ export function getCallMessageText(input: {
     callStatusFallback: mapResolvedEventToCallStatus(input.eventType),
     viewerUserId: input.viewerUserId,
     senderUserId: input.initiatorUserId,
+    durationSeconds: input.durationSeconds,
   });
 }
 
@@ -238,6 +233,10 @@ export function callStubResolvedEventKey(
   return callStubMetaString(message, "callResolvedEvent") || message.callStatus?.trim() || "";
 }
 
+/**
+ * callId(session) 당 타임라인 1행 — status 를 키에 넣지 않는다.
+ * (dialing → terminal UPDATE 가 동일 항목으로 collapse 되어야 함)
+ */
 export function callStubSessionDedupeKey(
   message: Pick<
     CommunityMessengerMessage,
@@ -246,8 +245,7 @@ export function callStubSessionDedupeKey(
 ): string {
   const sessionKey = callStubSessionKey(message);
   if (!sessionKey) return "";
-  const eventKey = callStubResolvedEventKey(message);
-  return `call_stub:${sessionKey}:${eventKey || "status_unknown"}`;
+  return `call_stub:${sessionKey}`;
 }
 
 export function callStubSessionDedupeKeys(
@@ -258,8 +256,7 @@ export function callStubSessionDedupeKeys(
 ): string[] {
   const sessionKeys = callStubSessionKeys(message);
   if (sessionKeys.length === 0) return [];
-  const eventKey = callStubResolvedEventKey(message) || "status_unknown";
-  return sessionKeys.map((sessionKey) => `call_stub:${sessionKey}:${eventKey}`);
+  return sessionKeys.map((sessionKey) => `call_stub:${sessionKey}`);
 }
 
 export function callStubHiddenKeys(

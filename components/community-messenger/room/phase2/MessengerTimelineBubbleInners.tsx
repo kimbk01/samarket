@@ -141,31 +141,63 @@ export const TimelineViberInnerCallStub = memo(function TimelineViberInnerCallSt
   callStatusLabel: string;
 }) {
   const CallGlyph = item.callKind === "video" ? VideoCallIcon : VoiceCallIcon;
-  const fallbackLabel = `${item.callKind === "video" ? videoCallLabel : voiceCallLabel} · ${callStatusLabel}`;
-  const displayLabel = item.content.trim() || fallbackLabel;
-  const bubbleToneClass = item.isMine
-    ? "border-transparent bg-[color:var(--cm-room-bubble-outgoing)] text-[color:var(--cm-room-bubble-outgoing-fg)] shadow-[0_1px_0_rgba(0,0,0,0.08)]"
-    : "border-transparent bg-[color:var(--cm-room-bubble-incoming)] text-[color:var(--cm-room-bubble-incoming-fg)] shadow-[0_1px_0_rgba(0,0,0,0.04)]";
-  const iconToneClass = item.isMine
-    ? "bg-white/22 text-[color:var(--cm-room-bubble-outgoing-fg)]"
-    : "bg-white/80 text-[color:var(--cm-room-bubble-incoming-fg)]";
-  const labelToneClass = item.isMine
-    ? "text-[color:var(--cm-room-bubble-outgoing-fg)]"
-    : "text-[color:var(--cm-room-bubble-incoming-fg)]";
+  const kindLabel = item.callKind === "video" ? videoCallLabel : voiceCallLabel;
+  const resultLabel = callStatusLabel.trim();
+  const displayLabel = resultLabel
+    ? `${kindLabel} · ${resultLabel}`
+    : item.content.trim() || `${kindLabel} · ${resultLabel || ""}`;
+  const isMissed = item.callStatus === "missed" || /부재중/.test(resultLabel);
+  const isMine = Boolean(item.isMine);
+
+  /**
+   * CallEventBubble — 일반 텍스트 sam-bubble 과 분리.
+   * 발신=우측 톤 / 수신=좌측 톤 / 부재중=강조. 텍스트 메시지 bubble 과 동일 클래스 재사용 금지.
+   */
+  const cardToneClass = isMissed
+    ? isMine
+      ? "border-[#c45c5c]/35 bg-[#c45c5c] text-white shadow-[0_1px_0_rgba(0,0,0,0.08)]"
+      : "border-[#c45c5c]/40 bg-[#fde8e8] text-[#8b1e1e] shadow-[0_1px_0_rgba(0,0,0,0.04)]"
+    : isMine
+      ? "border-transparent bg-[color:var(--cm-room-bubble-outgoing)] text-[color:var(--cm-room-bubble-outgoing-fg)] shadow-[0_1px_0_rgba(0,0,0,0.08)]"
+      : "border-[color:var(--cm-room-border,#d0d3d8)] bg-[color:var(--cm-room-surface,#fff)] text-[color:var(--cm-room-bubble-incoming-fg)] shadow-[0_1px_0_rgba(0,0,0,0.04)]";
+  const iconToneClass = isMissed
+    ? isMine
+      ? "bg-white/22 text-white"
+      : "bg-[#c45c5c]/15 text-[#8b1e1e]"
+    : isMine
+      ? "bg-white/22 text-[color:var(--cm-room-bubble-outgoing-fg)]"
+      : "bg-[color:var(--cm-room-primary,#006B43)]/12 text-[color:var(--cm-room-primary,#006B43)]";
+
   return (
     <div
-      className={`sam-bubble ${item.isMine ? "sam-bubble--outgoing" : "sam-bubble--incoming"} inline-flex min-h-[40px] max-w-[min(76vw,420px)] items-center gap-2 rounded-[18px] border px-3 py-1.5 text-left shadow-none ${bubbleToneClass} ${
+      data-cm-call-event-bubble=""
+      data-cm-call-missed={isMissed ? "true" : "false"}
+      data-cm-call-direction={isMine ? "outgoing" : "incoming"}
+      className={`inline-flex min-h-[44px] max-w-[min(76vw,420px)] items-center gap-2.5 rounded-[16px] border px-3.5 py-2 text-left ${cardToneClass} ${
         stubBusy ? "opacity-45" : ""
       }`}
     >
       <span
-        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${iconToneClass}`}
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${iconToneClass}`}
         aria-hidden
       >
-        <CallGlyph className="h-3.5 w-3.5" />
+        <CallGlyph className="h-4 w-4" />
       </span>
-      <span className={`min-w-0 truncate sam-text-helper font-semibold leading-snug ${labelToneClass}`}>
-        {displayLabel}
+      <span className="min-w-0 flex flex-col gap-0.5">
+        <span className="truncate text-[13px] font-semibold leading-snug tracking-tight">{displayLabel}</span>
+        <span
+          className={`text-[11px] font-medium leading-none ${
+            isMissed
+              ? isMine
+                ? "text-white/80"
+                : "text-[#8b1e1e]/80"
+              : isMine
+                ? "text-white/75"
+                : "text-[color:var(--cm-room-text-muted,#65676b)]"
+          }`}
+        >
+          {isMine ? "발신" : "수신"}
+        </span>
       </span>
     </div>
   );
