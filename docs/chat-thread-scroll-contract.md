@@ -57,3 +57,4 @@
 - P3+P4: 4갈래 scroll → `lib/chat-thread-scroll/` 단일 엔진, stick 96px 통일
 - P3+P4.1: CM composer paint gate + tail settle 2단계 (legacy)
 - **2026-07-28**: paint-then-correct 제거 — initial anchor 1회, composer/fingerprint/tail settle writer 제거, last-read/unread entry plan
+- **2026-07-28**: `notifyLayoutResize`의 "하단에 있었는가" 판단을 `state.stickToBottom`(스크롤 이벤트로만 갱신되는 플래그) 단독 의존에서, resize 직전 캡처된 `lastGeom` 기준 실측 재확인으로 변경 — 키보드 open 시 과도기적 scroll 이벤트로 플래그가 잘못 뒤집혀도 실제 위치로 다시 판단. `prependInFlight` 중에도 geometry는 계속 갱신(스크롤은 여전히 손대지 않음). 실기기(Xiaomi) 재현: 키보드 open 시 scrollTop 미보정으로 마지막 말풍선이 최대 297px 가려지던 것의 구조적 원인 대응 — 실기기 재검증 전까지 미확정

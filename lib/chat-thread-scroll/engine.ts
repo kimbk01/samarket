@@ -146,16 +146,42 @@ export class ChatThreadScrollEngine {
   /**
    * layout/keyboard resize — settled + stick 일 때만 follow.
    * entryPendingLayout 중에는 no-op.
+   *
+   * "하단에 있었는가"는 `state.stickToBottom`(마지막 실제 user scroll 이벤트가
+   * 갱신) 하나만 믿지 않는다 — 키보드 전환 중 브라우저가 쏘는 과도기적 scroll
+   * 이벤트가 이 플래그를 잘못 뒤집어도, resize 시점의 진짜 판단은 resize
+   * *직전* 에 안정적으로 캡처해 둔 geometry(`lastGeom`)로 다시 확인한다.
+   * Telegram/Kakao 계약: 판단은 항상 "지금 이 순간의 실측값" 기준, 기억에
+   * 의존하는 실행부는 없음.
    */
   notifyLayoutResize(ctx: ChatThreadScrollViewportContext): boolean {
     if (this.state.phase === "entryPendingLayout") {
       return this.tryCompleteEntry(ctx);
     }
-    if (this.state.phase !== "settled" || this.state.prependInFlight) return false;
-    if (!this.state.stickToBottom) {
+    if (this.state.phase !== "settled") return false;
+
+    const vp = ctx.viewport;
+    if (this.state.prependInFlight) {
+      /** 과거 메시지 로딩 중엔 하단으로 끌어당기지 않는다 — 다만 geometry는 갱신해
+       * prepend 종료 직후 다음 resize가 stale 값을 보지 않게 한다. */
+      if (vp) this.captureGeom(vp);
+      return false;
+    }
+
+    const wasNearBottom = this.lastGeom
+      ? isChatThreadNearBottomFromMetrics(
+          { scrollHeight: this.lastGeom.sh, scrollTop: this.lastGeom.st, clientHeight: this.lastGeom.ch },
+          this.config.stickThresholdPx
+        )
+      : this.state.stickToBottom;
+
+    if (!wasNearBottom) {
+      this.state.stickToBottom = false;
       return this.preserveScrollDistance(ctx);
     }
-    return this.applyScrollToBottom(ctx, { force: false });
+    const scrolled = this.applyScrollToBottom(ctx, { force: false });
+    this.state.stickToBottom = true;
+    return scrolled;
   }
 
   tryCompleteEntry(ctx: ChatThreadScrollViewportContext): boolean {
