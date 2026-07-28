@@ -1,15 +1,15 @@
 /** prepend(과거) vs append(신규 tail) — tail id 불변 시 auto-scroll 금지 */
-export type ChatThreadMessagesAutoScrollDecision =
+export type MessengerRoomMessagesAutoScrollDecision =
   | { scroll: true; reason: "own_message_append" | "peer_message_append" }
   | { scroll: false; reason: "skip_tail_unchanged" | "empty_timeline" | "skip_ack_id_replace" };
 
-export function resolveChatThreadMessagesAutoScroll(input: {
+export function resolveMessengerRoomMessagesAutoScroll(input: {
   previousTailMessageId: string | null;
   currentTailMessageId: string | null;
   currentTailIsMine: boolean;
   previousTailClientMessageId?: string | null;
   currentTailClientMessageId?: string | null;
-}): ChatThreadMessagesAutoScrollDecision {
+}): MessengerRoomMessagesAutoScrollDecision {
   if (!input.currentTailMessageId) {
     return { scroll: false, reason: "empty_timeline" };
   }
@@ -33,7 +33,3 @@ export function resolveChatThreadMessagesAutoScroll(input: {
   }
   return { scroll: true, reason: "peer_message_append" };
 }
-
-/** @deprecated alias — CM redesign moved SSOT to chat-thread-scroll */
-export const resolveMessengerRoomMessagesAutoScroll = resolveChatThreadMessagesAutoScroll;
-export type MessengerRoomMessagesAutoScrollDecision = ChatThreadMessagesAutoScrollDecision;

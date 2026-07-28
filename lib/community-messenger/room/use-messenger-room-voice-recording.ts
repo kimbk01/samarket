@@ -1,6 +1,5 @@
 "use client";
 
-import { applyRoomMessagesMutation } from "@/lib/community-messenger/room/messenger-room-messages-mutation";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import {
@@ -192,7 +191,7 @@ export function useMessengerRoomVoiceRecording({
       const roundedDur = Math.max(1, Math.min(600, Math.round(wallDurationSeconds)));
       const blobUrl = URL.createObjectURL(blob);
       const tempId = `pending:${apiRoom}:voice:${pendingMessageIdRef.current++}`;
-      applyRoomMessagesMutation(setRoomMessages, "append", (prev) => {
+      setRoomMessages((prev) => {
         const optimisticMessage: CommunityMessengerMessage & { pending?: boolean } = {
           id: tempId,
           roomId: apiRoom,
@@ -224,7 +223,7 @@ export function useMessengerRoomVoiceRecording({
             : wallDurationSeconds;
         const uploadDurationSeconds = Math.max(1, Math.min(600, Math.round(durationSeconds)));
         if (uploadDurationSeconds !== roundedDur) {
-          applyRoomMessagesMutation(setRoomMessages, "append", (prev) =>
+          setRoomMessages((prev) =>
             prev.map((item) => (item.id === tempId ? { ...item, voiceDurationSeconds: uploadDurationSeconds } : item))
           );
         }
@@ -253,7 +252,7 @@ export function useMessengerRoomVoiceRecording({
         }
         if (!res.ok || !json.ok) {
           URL.revokeObjectURL(blobUrl);
-          applyRoomMessagesMutation(setRoomMessages, "append", (prev) => prev.filter((item) => item.id !== tempId));
+          setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
           if (tryRedirectAuthBlocked?.(res, json)) return;
           showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
           return;
@@ -261,7 +260,7 @@ export function useMessengerRoomVoiceRecording({
         const confirmedVoice = json.message;
         if (confirmedVoice) {
           URL.revokeObjectURL(blobUrl);
-          applyRoomMessagesMutation(setRoomMessages, "append", (prev) =>
+          setRoomMessages((prev) =>
             mergeRoomMessages(
               prev.filter((item) => item.id !== tempId),
               [confirmedVoice]
@@ -272,7 +271,7 @@ export function useMessengerRoomVoiceRecording({
           return;
         }
         URL.revokeObjectURL(blobUrl);
-        applyRoomMessagesMutation(setRoomMessages, "append", (prev) => prev.map((item) => (item.id === tempId ? { ...item, pending: false } : item)));
+        setRoomMessages((prev) => prev.map((item) => (item.id === tempId ? { ...item, pending: false } : item)));
       } finally {
         voiceFinalizingRef.current = false;
       }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveChatThreadMessagesAutoScroll as resolveMessengerRoomMessagesAutoScroll } from "@/lib/chat-thread-scroll/resolve-messages-auto-scroll";
+import { resolveMessengerRoomMessagesAutoScroll } from "@/lib/community-messenger/room/messenger-room-messages-auto-scroll";
 import {
   hasMessengerRoomHydrationTimelineSeed,
   isMessengerRoomTimelinePaintableBootstrapSeed,

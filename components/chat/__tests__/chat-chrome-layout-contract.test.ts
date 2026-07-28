@@ -118,14 +118,10 @@ describe("chat chrome layout contract", () => {
     expect(viewMemo).not.toMatch(/\n\s+room,\s*\n/);
   });
 
-  it("keyboard chrome sync drives useChatThreadScroll layout path (not CM ScrollAnchorController)", () => {
-    const phase1 = readSrc("lib/community-messenger/room/use-messenger-room-client-phase1.ts");
-    const hook = readSrc("lib/chat-thread-scroll/use-chat-thread-scroll.ts");
-    const shell = readSrc("lib/ui/use-cm-room-visible-viewport-shell.ts");
-    expect(phase1).toContain("useChatThreadScroll");
-    expect(phase1).toContain("CM_ROOM_CHROME_HEIGHT_SYNC_EVENT");
-    expect(hook).toContain("layoutCommittedEventName");
-    expect(shell).toContain("window.visualViewport");
-    expect(phase1).not.toContain("useMessengerRoomScrollAnchorController");
+  it("scroll anchor listens to visualViewport on Android WebView and iOS", () => {
+    const src = readSrc("lib/community-messenger/room/messenger-room-scroll-anchor-controller.ts");
+    expect(src).toContain("keyboard_resize_keep_bottom");
+    expect(src).toContain("window.visualViewport");
+    expect(src).not.toMatch(/ios && typeof window[\s\S]*visualViewport/);
   });
 });

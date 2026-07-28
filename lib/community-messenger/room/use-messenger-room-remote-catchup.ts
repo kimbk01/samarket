@@ -1,6 +1,5 @@
 "use client";
 
-import { applyRoomMessagesMutation } from "@/lib/community-messenger/room/messenger-room-messages-mutation";
 import { useCallback, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { mergeRoomMessages } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
@@ -71,7 +70,7 @@ export function useMessengerRoomRemoteCatchup({
         messages?: CommunityMessengerMessage[];
       };
       if (!res.ok || !json.ok || !Array.isArray(json.messages) || json.messages.length === 0) return false;
-      applyRoomMessagesMutation(setRoomMessages, "append", (prev) => mergeRoomMessages(prev, json.messages ?? []));
+      setRoomMessages((prev) => mergeRoomMessages(prev, json.messages ?? []));
       return true;
     } catch {
       /* ignore */
@@ -102,7 +101,7 @@ export function useMessengerRoomRemoteCatchup({
         };
         if (res.ok && json.ok && json.message) {
           const row = json.message;
-          applyRoomMessagesMutation(setRoomMessages, "append", (prev) => mergeRoomMessages(prev, [row]));
+          setRoomMessages((prev) => mergeRoomMessages(prev, [row]));
           return true;
         }
         const retryable = res.status === 404 || res.status === 503 || res.status >= 500;

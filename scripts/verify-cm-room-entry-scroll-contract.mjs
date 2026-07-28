@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * CM Room Entry Scroll contract — useChatThreadScroll + latest-bottom entry.
- * 정본: docs/chat-thread-scroll-contract.md · docs/cm-room-telegram-kakao-parity-redesign.md
+ * CM Room Entry Scroll contract — single initial anchor, no paint-then-correct.
+ * 정본: docs/chat-thread-scroll-contract.md
  */
 import { existsSync, readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -22,37 +22,35 @@ function assertExcludes(source, needle, context) {
   if (source.includes(needle)) errors.push(`${context}: must not include "${needle}"`);
 }
 
+const controller = read("lib/community-messenger/room/messenger-room-scroll-anchor-controller.ts");
+const reader = read("lib/community-messenger/room/use-messenger-room-reader-scroll-bottom.ts");
 const phase1 = read("lib/community-messenger/room/use-messenger-room-client-phase1.ts");
-const hook = read("lib/chat-thread-scroll/use-chat-thread-scroll.ts");
-const entryIntent = read("lib/community-messenger/room/messenger-room-entry-intent.ts");
 const groupChat = read("components/group-chat/GroupChatRoomClient.tsx");
 const contractDoc = read("docs/chat-thread-scroll-contract.md");
 const engine = read("lib/chat-thread-scroll/engine.ts");
 const entryReady = read("lib/community-messenger/room/messenger-room-entry-scroll-ready.ts");
 const layoutMode = read("lib/community-messenger/room/messenger-timeline-layout-mode.ts");
-const mutation = read("lib/community-messenger/room/messenger-room-messages-mutation.ts");
 
-assertIncludes(phase1, "useChatThreadScroll", "phase1 scroll wiring");
-assertIncludes(phase1, "entryForceBottom: true", "phase1 always latest bottom");
-assertIncludes(phase1, "CM_ROOM_CHROME_HEIGHT_SYNC_EVENT", "phase1 chrome layout commit");
-assertIncludes(phase1, "applyRoomMessagesMutation", "phase1 mutation bus");
-assertExcludes(phase1, "useMessengerRoomReaderScrollBottom", "phase1 no legacy reader scroll");
-assertExcludes(phase1, "useMessengerRoomScrollAnchorController", "phase1 no scroll-anchor-controller");
+assertIncludes(controller, "createChatThreadScrollEngine", "scroll-anchor-controller");
+assertIncludes(controller, "tryCompleteEntry", "scroll-anchor-controller");
+assertIncludes(controller, "loadingOlderMessages", "scroll-anchor-controller prepend guard");
+assertIncludes(controller, "hasAppliedInitialAnchorRef", "scroll-anchor-controller single initial");
+assertExcludes(controller, "resolveMessengerRoomEntryScrollFinalize", "scroll-anchor-controller legacy gate");
+assertExcludes(controller, ".scrollTop =", "scroll-anchor-controller inline scroll");
+assertExcludes(controller, "schedulePendingEntryTailSettle", "scroll-anchor-controller no tail settle");
+assertExcludes(controller, "requestAnimationFrame(() => {\n          entryRetryRafRef", "scroll-anchor-controller no nested entry rAF");
+assertExcludes(controller, "roomMessagesFingerprint", "scroll-anchor-controller no fingerprint settle");
 
-assertIncludes(hook, "layoutCommittedEventName", "useChatThreadScroll");
-assertIncludes(hook, "entryForceBottom", "useChatThreadScroll");
-
-assertIncludes(entryIntent, "forceBottom: true", "entry-intent always bottom");
-assertExcludes(entryIntent, 'reason: "room_entry_restore"', "entry-intent no restore plan");
-
-assertIncludes(mutation, 'kind: RoomMessagesMutationKind', "mutation bus kinds");
-assertIncludes(mutation, "notifyPrependComplete", "mutation prepend bridge");
+assertIncludes(reader, "useMessengerRoomScrollAnchorController", "reader-scroll-bottom");
+assertIncludes(phase1, "loadingOlderMessages,", "phase1 scroll wiring");
+assertIncludes(phase1, "lastReadMessageId:", "phase1 last-read entry");
 
 assertIncludes(groupChat, "useChatThreadScroll", "GroupChatRoomClient");
 assertExcludes(groupChat, "runChatThreadEntryScrollToBottom", "GroupChatRoomClient legacy entry");
 
 assertIncludes(contractDoc, "CHAT_THREAD_STICK_THRESHOLD_PX", "contract doc");
-assertIncludes(contractDoc, "항상 latest bottom", "contract doc entry policy");
+assertIncludes(contractDoc, "initial anchor once", "contract doc single initial");
+assertIncludes(controller, "resolveMessengerRoomEntryScrollPaintReady", "scroll-anchor-controller paint gate");
 assertIncludes(engine, "resolveEntryPaintReady", "chat-thread-scroll engine paint hook");
 
 assertExcludes(entryReady, "isMessengerRoomComposerHeightSynced(vp)", "entry-scroll-ready no composer gate");
@@ -61,9 +59,6 @@ assertExcludes(layoutMode, "maxAttempts", "timeline-layout-mode no rAF retry loo
 if (!existsSync(join(root, "lib/chat-thread-scroll/__tests__/engine.test.ts"))) {
   errors.push("missing lib/chat-thread-scroll/__tests__/engine.test.ts");
 }
-if (!existsSync(join(root, "docs/cm-room-telegram-kakao-parity-redesign.md"))) {
-  errors.push("missing docs/cm-room-telegram-kakao-parity-redesign.md");
-}
 
 if (errors.length > 0) {
   console.error("verify:cm-room-entry-scroll-contract FAIL\n");
@@ -71,4 +66,4 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-console.log("verify:cm-room-entry-scroll-contract PASS (useChatThreadScroll + latest-bottom SSOT)");
+console.log("verify:cm-room-entry-scroll-contract PASS (single initial anchor SSOT)");

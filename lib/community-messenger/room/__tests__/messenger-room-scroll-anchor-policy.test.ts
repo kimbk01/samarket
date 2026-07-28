@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveChatThreadMessagesAutoScroll as resolveMessengerRoomMessagesAutoScroll } from "@/lib/chat-thread-scroll/resolve-messages-auto-scroll";
+import { resolveMessengerRoomMessagesAutoScroll } from "@/lib/community-messenger/room/messenger-room-messages-auto-scroll";
 import { isMessengerRoomNearBottomFromMetrics } from "@/lib/community-messenger/room/messenger-room-timeline-ssot";
 import {
   isMessengerEntryBottomLoadReason,
@@ -67,13 +67,13 @@ describe("messenger room scroll anchor policy", () => {
     expect(decision.reason).toBe("peer_message_append");
   });
 
-  it("push entry scroll plan forces latest", () => {
+  it("push entry scroll plan ignores persisted restore", () => {
     expect(
       resolveMessengerRoomEntryScrollPlan({ intent: "push", hasPersisted: true }).reason
     ).toBe("push_entry_initial_load");
   });
 
-  it("unread + lastRead does not restore — latest bottom", () => {
+  it("unread + lastRead uses restore plan with anchorMessageId", () => {
     expect(
       resolveMessengerRoomEntryScrollPlan({
         intent: "default",
@@ -82,8 +82,9 @@ describe("messenger room scroll anchor policy", () => {
         lastReadMessageId: "msg-last-read",
       })
     ).toMatchObject({
-      reason: "initial_load",
-      forceBottom: true,
+      reason: "room_entry_restore",
+      forceBottom: false,
+      anchorMessageId: "msg-last-read",
     });
   });
 

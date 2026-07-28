@@ -7,7 +7,6 @@
  * @see docs/messenger-vs-native-chat-apps.md
  * @see docs/messenger-realtime-policy.md
  */
-import { applyRoomMessagesMutation } from "@/lib/community-messenger/room/messenger-room-messages-mutation";
 import {
   useCallback,
   useEffect,
@@ -193,7 +192,7 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
       }
     }
     const mergeCandidateCount = batch.filter((e) => e.eventType !== "DELETE").length;
-    applyRoomMessagesMutation(setRoomMessages, "append", (prev) => {
+    setRoomMessages((prev) => {
       let cur = prev;
       const incomingToMerge: CommunityMessengerMessage[] = [];
       for (const event of batch) {

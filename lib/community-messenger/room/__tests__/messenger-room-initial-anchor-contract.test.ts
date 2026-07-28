@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import { createChatThreadScrollEngine } from "@/lib/chat-thread-scroll/engine";
 import { resolveMessengerRoomEntryScrollPlan } from "@/lib/community-messenger/room/messenger-room-entry-intent";
 import { resolveMessengerRoomEntryScrollPaintReady } from "@/lib/community-messenger/room/messenger-room-entry-scroll-ready";
+import {
+  summarizeCmScrollAuthorityBag,
+  type CmScrollAuthorityEvent,
+} from "@/lib/community-messenger/room/cm-room-scroll-authority-instrumentation";
 
 /**
  * Proves the legacy paint-then-correct failure mode and the new single-initial contract.
@@ -28,7 +32,7 @@ describe("chat room initial anchor contract (legacy-class)", () => {
     ).toBe(true);
   });
 
-  it("entry plan: always latest bottom (unread/persist ignored)", () => {
+  it("entry plan: unread+lastRead restores; push forces latest; default latest", () => {
     expect(
       resolveMessengerRoomEntryScrollPlan({
         intent: "default",
@@ -37,10 +41,10 @@ describe("chat room initial anchor contract (legacy-class)", () => {
         lastReadMessageId: "m-read",
       })
     ).toEqual({
-      reason: "initial_load",
-      clearPersist: true,
-      forceBottom: true,
-      anchorMessageId: null,
+      reason: "room_entry_restore",
+      clearPersist: false,
+      forceBottom: false,
+      anchorMessageId: "m-read",
     });
     expect(
       resolveMessengerRoomEntryScrollPlan({ intent: "push", hasPersisted: true }).forceBottom
@@ -48,7 +52,7 @@ describe("chat room initial anchor contract (legacy-class)", () => {
     expect(
       resolveMessengerRoomEntryScrollPlan({
         intent: "default",
-        hasPersisted: true,
+        hasPersisted: false,
         unreadCount: 0,
       }).reason
     ).toBe("initial_load");
@@ -88,15 +92,19 @@ describe("chat room initial anchor contract (legacy-class)", () => {
     expect(engine.getPhase()).toBe("settled");
   });
 
-  it("phase1 must not import legacy ScrollAnchorController", async () => {
-    const fs = await import("node:fs");
-    const path = await import("node:path");
-    const src = fs.readFileSync(
-      path.join(process.cwd(), "lib/community-messenger/room/use-messenger-room-client-phase1.ts"),
-      "utf8"
-    );
-    expect(src).toContain("useChatThreadScroll");
-    expect(src).not.toContain("useMessengerRoomScrollAnchorController");
-    expect(src).not.toContain("useMessengerRoomReaderScrollBottom");
+  it("authority bag: fingerprint/tail_settle sources count as legacy FAIL", () => {
+    const bag = {
+      roomId: "r1",
+      roomGeneration: 1,
+      events: [] as CmScrollAuthorityEvent[],
+      scrollCommandCount: 0,
+      initialAnchorCount: 0,
+      sources: ["initial_latest", "legacy_tail_settle", "entry_tail_settle"],
+    };
+    bag.scrollCommandCount = 3;
+    bag.initialAnchorCount = 1;
+    const summary = summarizeCmScrollAuthorityBag(bag);
+    expect(summary.initialAnchorCount).toBe(1);
+    expect(summary.legacySettleCount).toBe(2);
   });
 });

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  __resetMessengerRoomScrollPositionStoreForTest,
+  peekMessengerRoomScrollPosition,
+  saveMessengerRoomScrollPosition,
+} from "@/lib/community-messenger/room/messenger-room-scroll-position-store";
+import {
   buildMessengerRoomFallbackVirtualRows,
   buildMessengerRoomTimelinePaintModel,
   MESSENGER_VIRTUAL_FALLBACK_TAIL_ROWS,
@@ -21,6 +26,21 @@ function msg(id: string): CommunityMessengerMessage {
     isMine: false,
   };
 }
+
+describe("messenger-room-scroll-position-store", () => {
+  it("persists and peeks scroll anchor within TTL", () => {
+    __resetMessengerRoomScrollPositionStoreForTest();
+    saveMessengerRoomScrollPosition("room-a", {
+      scrollTop: 420,
+      firstVisibleMessageId: "m-1",
+      stickToBottom: false,
+    });
+    const row = peekMessengerRoomScrollPosition("room-a");
+    expect(row?.scrollTop).toBe(420);
+    expect(row?.firstVisibleMessageId).toBe("m-1");
+    expect(row?.stickToBottom).toBe(false);
+  });
+});
 
 describe("messenger-room-timeline-paint-model", () => {
   it("uses direct layout for normal rooms (Telegram contiguous flow)", () => {

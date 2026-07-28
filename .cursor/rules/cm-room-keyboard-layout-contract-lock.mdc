@@ -10,8 +10,8 @@ globs:
   - components/community-messenger/room/phase2/**
   - components/chat/ChatHeader.tsx
   - components/chat/ChatComposer.tsx
-  - lib/chat-thread-scroll/use-chat-thread-scroll.ts
-  - lib/ui/use-cm-room-visible-viewport-shell.ts
+  - lib/community-messenger/room/messenger-room-scroll-anchor-controller.ts
+  - lib/community-messenger/room/use-messenger-room-reader-scroll-bottom.ts
 ---
 
 # CM Room Keyboard Layout Contract (LOCK)

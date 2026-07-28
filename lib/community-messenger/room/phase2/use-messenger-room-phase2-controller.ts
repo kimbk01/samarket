@@ -10,7 +10,6 @@ function trimCmText(v: unknown): string {
  * UI(`CommunityMessengerRoomPhase2.tsx`)는 이 훅의 반환값만 구조 분해해 렌더한다.
  */
 
-import { applyRoomMessagesMutation } from "@/lib/community-messenger/room/messenger-room-messages-mutation";
 import {
   type ChangeEvent,
   useCallback,
@@ -898,7 +897,7 @@ export function useMessengerRoomPhase2Controller() {
             }
           : {}),
       };
-      applyRoomMessagesMutation(setRoomMessages, "append", (prev) => mergeRoomMessages(prev, [optimisticMessage]));
+      setRoomMessages((prev) => mergeRoomMessages(prev, [optimisticMessage]));
       stickToBottomRef.current = true;
       scrollMessengerToBottom({ reason: "own_message_append" });
       cmReceiveLatencyMark(latencyKey, { send_api_start_ms: cmReceiveLatencyNow() });
@@ -927,7 +926,7 @@ export function useMessengerRoomPhase2Controller() {
         messengerMonitorMessageRtt(streamRoomId, elapsed, "text");
       }
       if (!res.ok || !json.ok) {
-        applyRoomMessagesMutation(setRoomMessages, "append", (prev) => prev.filter((item) => item.id !== tempId));
+        setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
         if (restoreOnFail !== undefined) setMessage(restoreOnFail);
         if (redirectIfMessengerAuthBlocked(res, json)) return false;
         showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
@@ -940,7 +939,7 @@ export function useMessengerRoomPhase2Controller() {
           !trimCmText(confirmedMessage.clientMessageId) && clientMessageId
             ? { ...confirmedMessage, clientMessageId }
             : confirmedMessage;
-        applyRoomMessagesMutation(setRoomMessages, "append", (prev) =>
+        setRoomMessages((prev) =>
           mergeRoomMessages(
             prev.filter(
               (item) =>
@@ -1018,7 +1017,7 @@ export function useMessengerRoomPhase2Controller() {
           showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
           return;
         }
-        applyRoomMessagesMutation(setRoomMessages, "append", (prev) => prev.map((m) => (m.id === mid ? { ...m, ...json.message } : m)));
+        setRoomMessages((prev) => prev.map((m) => (m.id === mid ? { ...m, ...json.message } : m)));
         setEditingMessage(null);
         setMessage("");
       } finally {
@@ -1102,7 +1101,7 @@ export function useMessengerRoomPhase2Controller() {
         callKind: null,
         callStatus: null,
       };
-      applyRoomMessagesMutation(setRoomMessages, "append", (prev) => mergeRoomMessages(prev, [optimisticMessage]));
+      setRoomMessages((prev) => mergeRoomMessages(prev, [optimisticMessage]));
       stickToBottomRef.current = true;
       scrollMessengerToBottom({ reason: "own_message_append" });
       setBusy("send-sticker");
@@ -1129,7 +1128,7 @@ export function useMessengerRoomPhase2Controller() {
           messengerMonitorMessageRtt(streamRoomId, elapsed, "sticker");
         }
         if (!res.ok || !json.ok) {
-          applyRoomMessagesMutation(setRoomMessages, "append", (prev) => prev.filter((item) => item.id !== tempId));
+          setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
           if (redirectIfMessengerAuthBlocked(res, json)) return;
           showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
           return;
@@ -1138,7 +1137,7 @@ export function useMessengerRoomPhase2Controller() {
         touchRecentStickerUrl(path);
         const confirmedSticker = json.message;
         if (confirmedSticker) {
-          applyRoomMessagesMutation(setRoomMessages, "append", (prev) =>
+          setRoomMessages((prev) =>
             mergeRoomMessages(
               prev.filter((item) => item.id !== tempId),
               [confirmedSticker]
@@ -1147,7 +1146,7 @@ export function useMessengerRoomPhase2Controller() {
           onMessengerOutboundConfirmed(confirmedSticker, clientMessageId);
           return;
         }
-        applyRoomMessagesMutation(setRoomMessages, "append", (prev) => prev.map((item) => (item.id === tempId ? { ...item, pending: false } : item)));
+        setRoomMessages((prev) => prev.map((item) => (item.id === tempId ? { ...item, pending: false } : item)));
         void refresh(true);
         forgetRoomBootstrapClientFlightsAfterMutation();
       } finally {
@@ -1232,7 +1231,7 @@ export function useMessengerRoomPhase2Controller() {
         callKind: null,
         callStatus: null,
       };
-      applyRoomMessagesMutation(setRoomMessages, "append", (prev) => mergeRoomMessages(prev, [optimisticMessage]));
+      setRoomMessages((prev) => mergeRoomMessages(prev, [optimisticMessage]));
       stickToBottomRef.current = true;
       scrollMessengerToBottom({ reason: "own_message_append" });
       setBusy("send-image");
@@ -1256,7 +1255,7 @@ export function useMessengerRoomPhase2Controller() {
           messengerMonitorMessageRtt(streamRoomId, elapsed, "image");
         }
         if (!res.ok || !json.ok) {
-          applyRoomMessagesMutation(setRoomMessages, "append", (prev) => prev.filter((item) => item.id !== tempId));
+          setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
           if (redirectIfMessengerAuthBlocked(res, json)) return;
           showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
           return;
@@ -1264,7 +1263,7 @@ export function useMessengerRoomPhase2Controller() {
         bumpCommunityMessengerPresenceActivity("message_sent");
         const serverImageMsg = json.message;
         if (serverImageMsg) {
-          applyRoomMessagesMutation(setRoomMessages, "append", (prev) =>
+          setRoomMessages((prev) =>
             mergeRoomMessages(
               prev.filter((item) => item.id !== tempId),
               [serverImageMsg]
@@ -1273,7 +1272,7 @@ export function useMessengerRoomPhase2Controller() {
           onMessengerOutboundConfirmed(serverImageMsg);
           return;
         }
-        applyRoomMessagesMutation(setRoomMessages, "append", (prev) => prev.filter((item) => item.id !== tempId));
+        setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
         void refresh(true);
         forgetRoomBootstrapClientFlightsAfterMutation();
       } finally {
@@ -1343,7 +1342,7 @@ export function useMessengerRoomPhase2Controller() {
         fileMimeType: file.type || "application/octet-stream",
         fileSizeBytes: file.size,
       };
-      applyRoomMessagesMutation(setRoomMessages, "append", (prev) => mergeRoomMessages(prev, [optimisticMessage]));
+      setRoomMessages((prev) => mergeRoomMessages(prev, [optimisticMessage]));
       stickToBottomRef.current = true;
       scrollMessengerToBottom({ reason: "own_message_append" });
       setBusy("send-file");
@@ -1367,7 +1366,7 @@ export function useMessengerRoomPhase2Controller() {
           messengerMonitorMessageRtt(streamRoomId, elapsed, "file");
         }
         if (!res.ok || !json.ok) {
-          applyRoomMessagesMutation(setRoomMessages, "append", (prev) => prev.filter((item) => item.id !== tempId));
+          setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
           if (redirectIfMessengerAuthBlocked(res, json)) return;
           showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
           return;
@@ -1375,7 +1374,7 @@ export function useMessengerRoomPhase2Controller() {
         bumpCommunityMessengerPresenceActivity("message_sent");
         const serverFileMsg = json.message;
         if (serverFileMsg) {
-          applyRoomMessagesMutation(setRoomMessages, "append", (prev) =>
+          setRoomMessages((prev) =>
             mergeRoomMessages(
               prev.filter((item) => item.id !== tempId),
               [serverFileMsg]
@@ -1384,7 +1383,7 @@ export function useMessengerRoomPhase2Controller() {
           onMessengerOutboundConfirmed(serverFileMsg);
           return;
         }
-        applyRoomMessagesMutation(setRoomMessages, "append", (prev) => prev.filter((item) => item.id !== tempId));
+        setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
         void refresh(true);
         forgetRoomBootstrapClientFlightsAfterMutation();
       } finally {
@@ -1481,7 +1480,7 @@ export function useMessengerRoomPhase2Controller() {
         }
         setReplyToMessage((prev) => (prev?.id === messageId ? null : prev));
         setEditingMessage((prev) => (prev?.id === messageId ? null : prev));
-        applyRoomMessagesMutation(setRoomMessages, "append", (prev) => prev.filter((item) => item.id !== messageId));
+        setRoomMessages((prev) => prev.filter((item) => item.id !== messageId));
       } finally {
         setBusy(null);
       }
@@ -1551,7 +1550,7 @@ export function useMessengerRoomPhase2Controller() {
           return;
         }
         if (Array.isArray(json.reactions)) {
-          applyRoomMessagesMutation(setRoomMessages, "append", (prev) => prev.map((m) => (m.id === mid ? { ...m, reactions: json.reactions } : m)));
+          setRoomMessages((prev) => prev.map((m) => (m.id === mid ? { ...m, reactions: json.reactions } : m)));
         }
       } finally {
         busy.delete(mid);
@@ -1578,7 +1577,7 @@ export function useMessengerRoomPhase2Controller() {
           return;
         }
         setReplyToMessage((prev) => (prev?.id === messageId ? null : prev));
-        applyRoomMessagesMutation(setRoomMessages, "append", (prev) => prev.filter((item) => item.id !== messageId));
+        setRoomMessages((prev) => prev.filter((item) => item.id !== messageId));
         void refresh(true);
       } finally {
         setBusy(null);

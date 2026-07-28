@@ -6,7 +6,6 @@ import {
   type CommunityMessengerMessage,
   type CommunityMessengerMessageActionAnchorRect,
 } from "@/lib/community-messenger/types";
-import { applyRoomMessagesMutation } from "@/lib/community-messenger/room/messenger-room-messages-mutation";
 import {
   CM_CLUSTER_GAP_MS,
   MESSENGER_TIMELINE_MESSAGES_CAP,
@@ -1021,7 +1020,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
 
   useEffect(() => {
     if (vm.displayRoomMessages.length <= MESSENGER_TIMELINE_MESSAGES_CAP) return;
-    applyRoomMessagesMutation(vm.setRoomMessages, "replace", (prev) =>
+    vm.setRoomMessages((prev) =>
       prev.length > MESSENGER_TIMELINE_MESSAGES_CAP ? prev.slice(-MESSENGER_TIMELINE_MESSAGES_CAP) : prev
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 길이·방 전환 시에만 상한 재적용(vm 객체 참조는 매 렌더 갱신)

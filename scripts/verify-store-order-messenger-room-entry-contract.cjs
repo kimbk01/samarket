@@ -65,11 +65,8 @@ if (!timeline.includes("resolveUseDirectMessengerTimelineLayout")) {
 if (timeline.includes("mt-auto flex w-full flex-col space-y-2.5")) {
   fail("mt-auto timeline anchor must not return (empty viewport on entry)");
 }
-if (!read("lib/community-messenger/room/use-messenger-room-client-phase1.ts").includes("useChatThreadScroll")) {
-  fail("store-order CM room must use useChatThreadScroll (dock scroll anchors removed)");
-}
-if (!read("lib/community-messenger/room/use-messenger-room-client-phase1.ts").includes("CM_ROOM_CHROME_HEIGHT_SYNC_EVENT")) {
-  fail("store-order CM room chrome sync must drive useChatThreadScroll layout path");
+if (!read("lib/community-messenger/room/use-messenger-room-store-order-dock-scroll-anchor.ts").includes("prev === 0")) {
+  fail("store order dock anchor must skip scroll on first chrome measure");
 }
 
 const phase2Header = read("components/community-messenger/room/phase2/CommunityMessengerRoomPhase2Header.tsx");

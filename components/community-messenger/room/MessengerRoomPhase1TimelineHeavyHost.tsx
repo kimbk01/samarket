@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useLayoutEffect, useRef, type RefObject } from "react";
+import { memo, useLayoutEffect, useRef, type MutableRefObject, type RefObject } from "react";
 import {
   useMessengerRoomPhase1TimelineHeavy,
   type MessengerRoomPhase1TimelineHeavyBundle,
@@ -16,6 +16,13 @@ type Props = {
   hiddenCallStubIds: Set<string>;
   roomSearchQuery: string;
   messagesViewportRef: RefObject<HTMLDivElement | null>;
+  tradeDockScrollAnchorEnabled: boolean;
+  storeOrderDockScrollAnchorEnabled: boolean;
+  messageEndRef: RefObject<HTMLDivElement | null>;
+  stickToBottomRef: MutableRefObject<boolean>;
+  scrollMessengerToBottomRef: MutableRefObject<
+    (req?: { reason?: string; force?: boolean }) => void
+  >;
   onReady: (bundle: MessengerRoomPhase1TimelineHeavyBundle) => void;
 };
 
@@ -23,13 +30,7 @@ type Props = {
 export const MessengerRoomPhase1TimelineHeavyHost = memo(function MessengerRoomPhase1TimelineHeavyHost(
   props: Props
 ) {
-  const bundle = useMessengerRoomPhase1TimelineHeavy({
-    roomId: props.roomId,
-    roomMessages: props.roomMessages,
-    hiddenCallStubIds: props.hiddenCallStubIds,
-    roomSearchQuery: props.roomSearchQuery,
-    messagesViewportRef: props.messagesViewportRef,
-  });
+  const bundle = useMessengerRoomPhase1TimelineHeavy(props);
   const onReadyRef = useRef(props.onReady);
   onReadyRef.current = props.onReady;
 
