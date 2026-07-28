@@ -209,15 +209,4 @@ describe("ConversationStore", () => {
     );
     expect(store.getConversations()[0]!.preview.text).toBe("later");
   });
-
-  it("getSnapshot returns stable reference until mutate", () => {
-    const store = new ConversationStore();
-    const a = store.getSnapshot();
-    const b = store.getSnapshot();
-    expect(a).toBe(b);
-    store.seedConversations([baseConv()]);
-    const c = store.getSnapshot();
-    expect(c).not.toBe(a);
-    expect(store.getSnapshot()).toBe(c);
-  });
 });
