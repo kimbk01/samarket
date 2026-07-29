@@ -867,8 +867,14 @@ assertIncludes(
 
 assertIncludes(
   hub,
-  "commitFeedUi",
-  "hub must sync-commit empty→first feed paint (Phase 4 cold blank)"
+  "enableVisibilityRefetch: true",
+  "hub must silent-refetch on Capacitor visibility resume (residual P0)"
+);
+
+assertIncludes(
+  foodCard,
+  "deliveryStoreMenusPrewarm",
+  "food rail must force-prewarm store menus on pointer intent (residual P0)"
 );
 
 assertIncludes(

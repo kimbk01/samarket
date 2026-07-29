@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { memo, useLayoutEffect } from "react";
+import { deliveryStoreMenusPrewarm } from "@/lib/dibay/delivery-store-menus-prewarm";
 import { markStoresHomePerf } from "@/lib/stores/stores-home-perf-marks";
 import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
 import type { StoresHomeFoodEntry } from "@/lib/stores/stores-home-feed-sections";
@@ -30,11 +31,17 @@ function StoresHomeFoodCardInner({
     if (markStoreCardPerf) markStoresHomePerf("store-card");
   }, [markStoreCardPerf]);
 
+  const warmMenus = () => {
+    deliveryStoreMenusPrewarm(entry.storeSlug, { force: true });
+  };
+
   return (
     <Link
       href={href}
       prefetch={false}
       data-stores-perf={markStoreCardPerf ? "store-card" : undefined}
+      onPointerDown={warmMenus}
+      onFocus={warmMenus}
       className={`flex w-[7.5rem] shrink-0 flex-col overflow-hidden ${STORES_HOME_CARD}`}
     >
       <div className="relative aspect-square w-full bg-[color:var(--delivery-bg-thumb)]">

@@ -225,9 +225,10 @@ export function StoresHomeHub({
 
   useRefetchOnPageShowRestore(() => {
     if (!feedReady) return;
-    void loadFeed({ silent: true, fromBfcacheRestore: true });
+    void loadFeed({ silent: true });
   }, {
-    enableVisibilityRefetch: false,
+    /** Capacitor resume ≈ visibilitychange — keep silent so fresh TTL still early-returns. */
+    enableVisibilityRefetch: true,
   });
 
   const openNowStores = useMemo(() => pickStoresHomeOpenNow(stores), [stores]);
