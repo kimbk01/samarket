@@ -22,15 +22,16 @@ Full doc: `docs/push/push-device-identity-ssot-lock.md`
 
 ## Fixed invariant
 
-- **One active FCM token per user** — register deactivates stale rows; dispatch selects single FCM target (`filterUserDevicePushTargets`).
+- **Chat / non-call:** one FCM target per user at dispatch (`single_fcm`).
+- **Call multi-device (2026-07-29):** `incoming_call` / terminal / `call_answered_elsewhere` fan-out one FCM per `device_id`. Register **must not** wipe other devices' FCM. See `docs/dibay-call-multi-device-policy.md`.
 - Register **must not** hard-depend on notification onboarding UI settled (P0-1).
 - Legacy `dibay-*` `device_id` **must not** re-activate when fresher UUID FCM peer exists (30d).
 
 ## Without explicit user approval — DO NOT
 
-1. Modify Native Call LOCK files, Android Java push/register paths, or DB `user_devices` migrations for identity.
+1. Modify Native Call LOCK files unrelated to multi-device call policy, or DB `user_devices` schema for chat identity alone.
 2. Start **P3-2** (MissedCallNotificationHelper, APNS, admin push UI, P3-2 scope).
-3. Revert multi-active FCM dispatch or remove stale-token deactivate on register success.
+3. Revert call multi-device FCM fan-out or restore user-wide FCM deactivate on register without product approval.
 4. Re-block register on `waitForNotificationOnboardingSettled()`.
 5. Touch notification sound SSOT LOCK (`docs/notifications/notification-sound-ssot-phase1-lock.md`).
 

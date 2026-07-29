@@ -24,6 +24,7 @@ public final class FcmPayloadResolver {
     if ("call_canceled".equals(callPushKind)) return "call_canceled";
     if ("call_ended".equals(callPushKind)) return "call_ended";
     if ("call_rejected".equals(callPushKind)) return "call_rejected";
+    if ("call_answered_elsewhere".equals(callPushKind)) return "call_answered_elsewhere";
     if ("call_missed".equals(callPushKind)) return "call_missed";
     if ("1".equals(data.get("dibay_call"))) return "incoming_call";
 

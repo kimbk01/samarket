@@ -79,7 +79,14 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
         return
       }
       if !ok {
-        self.log("ios_native_voice_accept_failed", sid, "status=\(status) err=\(error ?? "")")
+        let err = error ?? ""
+        if err.contains("answered_elsewhere") {
+          self.log("ios_native_voice_answered_elsewhere", sid, "status=\(status)")
+          CallKitProvider.shared.reportCallEnded(uuidString: sid)
+          completion()
+          return
+        }
+        self.log("ios_native_voice_accept_failed", sid, "status=\(status) err=\(err)")
         self.failBeforeFulfill(
           sessionId: sid,
           generation: runtimeGen,

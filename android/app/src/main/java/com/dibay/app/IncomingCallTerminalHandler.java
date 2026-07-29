@@ -54,6 +54,7 @@ public final class IncomingCallTerminalHandler {
       case "call_cancelled":
       case "call_ended":
       case "call_rejected":
+      case "call_answered_elsewhere":
       case "call_missed":
       case "missed_call":
         return true;
@@ -70,6 +71,8 @@ public final class IncomingCallTerminalHandler {
         return "cancelled";
       case "call_rejected":
         return "rejected";
+      case "call_answered_elsewhere":
+        return "answered_elsewhere";
       case "call_missed":
       case "missed_call":
         return "missed";
@@ -102,6 +105,8 @@ public final class IncomingCallTerminalHandler {
         return "missed";
       case "ended":
         return "ended";
+      case "answered_elsewhere":
+        return "answered_elsewhere";
       case "cancelled":
       case "canceled":
       default:
@@ -117,6 +122,8 @@ public final class IncomingCallTerminalHandler {
         return "missed";
       case "ended":
         return "ended";
+      case "answered_elsewhere":
+        return "answered_elsewhere";
       default:
         return "cancelled";
     }

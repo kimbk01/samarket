@@ -82,6 +82,8 @@ export async function PATCH(
       durationSeconds?: number;
       clientEndedReason?: string;
       reconnecting?: boolean;
+      deviceId?: string;
+      answeredDeviceId?: string;
     };
     try {
       body = await req.json();
@@ -158,6 +160,12 @@ export async function PATCH(
       durationSeconds: Number(body.durationSeconds ?? 0),
       clientEndedReason:
         typeof body.clientEndedReason === "string" ? body.clientEndedReason : undefined,
+      answeredDeviceId:
+        typeof body.answeredDeviceId === "string"
+          ? body.answeredDeviceId
+          : typeof body.deviceId === "string"
+            ? body.deviceId
+            : undefined,
     });
     if (!result.ok) {
       console.error("[call-session-patch] failed", {

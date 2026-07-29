@@ -63,6 +63,11 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
       String callId = FcmPayloadResolver.resolveCallId(data);
       if (callId != null) {
         String kind = IncomingCallTerminalHandler.normalizeTerminalKind(type);
+        if ("answered_elsewhere".equals(kind)
+            && isAnsweredOnThisDevice(data)) {
+          Log.i(TAG, "[DIBAY_CALL] answered_elsewhere_ignored_winner callId=" + callId);
+          return;
+        }
         IncomingCallTerminalHandler.handle(this, callId, kind, "fcm:" + type);
       }
       if ("missed_call".equals(type)) {
@@ -181,7 +186,11 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
             "incoming_late_terminal_blocked",
             callId,
             "status=" + serverStatus + " deliveryDelayMs=" + expiry.deliveryDelayMs);
-        IncomingCallTerminalHandler.handle(this, callId, serverStatus, "incoming_status_probe");
+        String kind =
+            "active".equalsIgnoreCase(serverStatus)
+                ? "call_answered_elsewhere"
+                : serverStatus;
+        IncomingCallTerminalHandler.handle(this, callId, kind, "incoming_status_probe");
         return;
       }
     }
@@ -333,5 +342,26 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
               + " badge="
               + badgeCount);
     }
+  }
+
+  /** Winner device must not tear down its own active call on answered_elsewhere fan-out. */
+  private boolean isAnsweredOnThisDevice(Map<String, String> data) {
+    if (data == null) return false;
+    String answered =
+        firstNonEmpty(data.get("answeredDeviceId"), data.get("answered_device_id"));
+    if (answered == null) return false;
+    String local = resolveLocalDeviceId();
+    return local != null && local.equals(answered);
+  }
+
+  private String resolveLocalDeviceId() {
+    try {
+      String androidId =
+          android.provider.Settings.Secure.getString(
+              getContentResolver(), android.provider.Settings.Secure.ANDROID_ID);
+      if (androidId != null && !androidId.trim().isEmpty()) return androidId.trim();
+    } catch (Exception ignored) {
+    }
+    return android.os.Build.MANUFACTURER + ":" + android.os.Build.MODEL;
   }
 }

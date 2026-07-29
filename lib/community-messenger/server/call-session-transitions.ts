@@ -34,7 +34,8 @@ export function isIdempotentCallSessionPatch(
   currentStatus: string,
   action: "accept" | "reject" | "cancel" | "end" | "missed" | "leave",
 ): boolean {
-  if (action === "accept" && currentStatus === "active") return true;
+  // accept + active must go through device claim (answered_elsewhere).
+  if (action === "accept" && currentStatus === "active") return false;
   if (action === "reject" && currentStatus === "rejected") return true;
   if (action === "cancel" && currentStatus === "cancelled") return true;
   if (action === "end" && currentStatus === "ended") return true;

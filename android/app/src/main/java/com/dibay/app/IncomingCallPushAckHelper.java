@@ -90,7 +90,11 @@ public final class IncomingCallPushAckHelper {
         String sessionStatus = parseSessionStatus(responseBody);
         if (IncomingCallSessionStatusProbe.isTerminalStatus(sessionStatus)) {
           DibayCallPushLog.info("push_ack_terminal_status", payload.callId, "status=" + sessionStatus);
-          IncomingCallTerminalHandler.handle(context, payload.callId, sessionStatus, "push_ack_status");
+          String kind =
+              "active".equalsIgnoreCase(sessionStatus)
+                  ? "call_answered_elsewhere"
+                  : sessionStatus;
+          IncomingCallTerminalHandler.handle(context, payload.callId, kind, "push_ack_status");
         }
       } else {
         DibayCallPushLog.warn("push_ack_failed", payload.callId, "status=" + status);

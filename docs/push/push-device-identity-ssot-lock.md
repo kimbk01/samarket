@@ -29,11 +29,12 @@
 
 ## 1. Fixed goal (do not regress)
 
-1. **One active FCM target per user** — production dispatch must not fan out to multiple FCM tokens for the same `user_id`.
-2. **Register is not blocked by notification onboarding UI** — authenticated + permission ready → register may proceed (P0-1).
-3. **Last successful register wins** — stale rows (other `device_id` / other `push_token`) are deactivated server-side on FCM register success (P0-2).
-4. **Legacy `dibay-*` client_instance_id cannot steal active slot** from a fresher UUID row (30-day window).
-5. **No Android Java / DB migration changes** for this LOCK — app-layer + API route SSOT only.
+1. **Chat / non-call:** One active FCM target per user at dispatch (`filterUserDevicePushTargets` `single_fcm`).
+2. **Call push kinds (2026-07-29 multi-device LOCK):** fan-out one FCM **per `device_id`** for `incoming_call` / terminal dismiss / `call_answered_elsewhere`. See `docs/dibay-call-multi-device-policy.md`.
+3. **Register is not blocked by notification onboarding UI** — authenticated + permission ready → register may proceed (P0-1).
+4. **Register must not wipe other devices' FCM** on success (multi-device login). Same-device stale tokens still deactivated by `device_id` + token.
+5. **Legacy `dibay-*` client_instance_id cannot steal active slot** from a fresher UUID row (30-day window) via `shouldActivateFcmDeviceRegister`.
+6. **No Android Java / DB migration changes for chat identity alone** — call `answered_device_id` migration is owned by multi-device call policy.
 
 ---
 
@@ -71,7 +72,8 @@ The surviving row is the upserted row (`device_id` + `push_token` from the curre
 
 `loadActivePushTargets` loads active rows ordered by `last_seen_at DESC`, `updated_at DESC`, then `filterUserDevicePushTargets`:
 
-- **FCM:** first row only (latest wins).
+- **FCM (chat / default):** first row only (latest wins).
+- **FCM (call multi-device kinds):** one row per `device_id` (`fcmMode: multi_device_fcm`).
 - **Other providers (apns / voip_apns):** dedupe by `device_id` (unchanged).
 - **web_push_subscriptions:** legacy path unchanged.
 

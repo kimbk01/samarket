@@ -340,7 +340,13 @@ public final class NativeVideoCallRuntime {
             if (acceptFailed[0]) return;
             if (!ok) {
               acceptFailed[0] = true;
-              fail(app, sid, "accept_patch_failed " + safe(error));
+              String err = safe(error);
+              if (err != null && err.contains("answered_elsewhere")) {
+                NativeVideoCallLog.warn("answered_elsewhere", sid, "err=" + err);
+                onRemoteTerminal(app, sid, "answered_elsewhere", "accept_elsewhere");
+                return;
+              }
+              fail(app, sid, "accept_patch_failed " + err);
               return;
             }
             acceptOk[0] = true;
@@ -524,6 +530,9 @@ public final class NativeVideoCallRuntime {
     if ("call_missed".equals(kind) || "missed_call".equals(kind) || "missed".equals(kind)) return "missed";
     if ("call_canceled".equals(kind) || "call_cancelled".equals(kind) || "cancelled".equals(kind) || "canceled".equals(kind)) {
       return "cancelled";
+    }
+    if ("call_answered_elsewhere".equals(kind) || "answered_elsewhere".equals(kind)) {
+      return "answered_elsewhere";
     }
     return kind;
   }

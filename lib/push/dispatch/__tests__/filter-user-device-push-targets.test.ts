@@ -18,7 +18,7 @@ const row = (
 });
 
 describe("filterUserDevicePushTargets", () => {
-  it("keeps only the first FCM row when multiple active tokens exist", () => {
+  it("keeps only the first FCM row when multiple active tokens exist (chat / single_fcm)", () => {
     const targets = filterUserDevicePushTargets([
       row("new", "cabc4186", "eIeEExQe-new", "fcm", "2026-06-30T12:00:00.000Z"),
       row("old", "dibay-mr00", "dvDcuB9H-old", "fcm", "2026-06-30T07:00:00.000Z"),
@@ -26,6 +26,19 @@ describe("filterUserDevicePushTargets", () => {
     expect(targets).toHaveLength(1);
     expect(targets[0]?.id).toBe("new");
     expect(targets[0]?.push_token).toBe("eIeEExQe-new");
+  });
+
+  it("fans out one FCM per device_id for multi_device_fcm call mode", () => {
+    const targets = filterUserDevicePushTargets(
+      [
+        row("new", "android-a", "token-a", "fcm", "2026-06-30T12:00:00.000Z"),
+        row("old", "android-b", "token-b", "fcm", "2026-06-30T07:00:00.000Z"),
+        row("dup", "android-a", "token-a-old", "fcm", "2026-06-30T06:00:00.000Z"),
+      ],
+      { fcmMode: "multi_device_fcm" },
+    );
+    expect(targets).toHaveLength(2);
+    expect(targets.map((t) => t.device_id).sort()).toEqual(["android-a", "android-b"]);
   });
 
   it("allows multiple non-FCM providers with distinct device_id", () => {

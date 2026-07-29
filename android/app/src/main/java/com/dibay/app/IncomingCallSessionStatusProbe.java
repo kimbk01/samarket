@@ -65,10 +65,16 @@ public final class IncomingCallSessionStatusProbe {
       case "rejected":
       case "missed":
       case "ended":
+      case "active":
         return true;
       default:
         return false;
     }
+  }
+
+  /** Late incoming must not present after another device accepted. */
+  public static boolean shouldDismissIncomingForStatus(String status) {
+    return isTerminalStatus(status);
   }
 
   private static String readBody(InputStream input) throws Exception {

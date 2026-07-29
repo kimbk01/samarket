@@ -155,19 +155,39 @@ public final class NativeVideoCallApi {
                 conn = open(origin, url);
                 conn.setRequestMethod("PATCH");
                 conn.setDoOutput(true);
-                byte[] body = ("{\"action\":\"" + action + "\"}").getBytes(StandardCharsets.UTF_8);
+                String deviceId = resolveDeviceId(app);
+                JSONObject bodyJson = new JSONObject();
+                bodyJson.put("action", action);
+                if (deviceId != null && !deviceId.isEmpty()) {
+                  bodyJson.put("deviceId", deviceId);
+                }
+                byte[] body = bodyJson.toString().getBytes(StandardCharsets.UTF_8);
                 conn.setFixedLengthStreamingMode(body.length);
                 try (OutputStream os = conn.getOutputStream()) {
                   os.write(body);
                 }
                 int status = conn.getResponseCode();
+                String responseBody = readBody(conn, status);
                 boolean ok = status >= 200 && status < 300;
-                if (ok) {
-                  NativeVideoCallLog.info(doneMarker, sid, "status=" + status);
+                String error = null;
+                if (!ok) {
+                  error = "status=" + status;
+                  try {
+                    if (responseBody != null && !responseBody.isEmpty()) {
+                      JSONObject json = new JSONObject(responseBody);
+                      String apiError = json.optString("error", "");
+                      if (apiError != null && !apiError.trim().isEmpty()) {
+                        error = apiError.trim();
+                      }
+                    }
+                  } catch (Exception ignored) {
+                  }
+                  NativeVideoCallLog.warn(
+                      "error_terminal", sid, "action=" + action + " status=" + status + " err=" + error);
                 } else {
-                  NativeVideoCallLog.warn("error_terminal", sid, "action=" + action + " status=" + status);
+                  NativeVideoCallLog.info(doneMarker, sid, "status=" + status);
                 }
-                finishPatch(callback, ok, status, ok ? null : "status=" + status);
+                finishPatch(callback, ok, status, ok ? null : error);
               } catch (Exception error) {
                 NativeVideoCallLog.warn(
                     "error_terminal", sid, "action=" + action + " err=" + error.getClass().getSimpleName());
@@ -177,6 +197,17 @@ public final class NativeVideoCallApi {
               }
             })
         .start();
+  }
+
+  private static String resolveDeviceId(Context context) {
+    try {
+      String androidId =
+          android.provider.Settings.Secure.getString(
+              context.getContentResolver(), android.provider.Settings.Secure.ANDROID_ID);
+      if (androidId != null && !androidId.trim().isEmpty()) return androidId.trim();
+    } catch (Exception ignored) {
+    }
+    return android.os.Build.MANUFACTURER + ":" + android.os.Build.MODEL;
   }
 
   private static HttpURLConnection open(String origin, URL url) throws Exception {

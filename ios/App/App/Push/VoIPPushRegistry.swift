@@ -41,7 +41,26 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
     let data = payload.dictionaryPayload
     let sessionId = (data["sessionId"] as? String) ?? (data["session_id"] as? String) ?? UUID().uuidString
     let kind = data["call_push_kind"] as? String
-    if kind == "call_canceled" || kind == "call_rejected" || kind == "call_ended" || kind == "missed_call" {
+    if kind == "call_canceled" || kind == "call_rejected" || kind == "call_ended" || kind == "missed_call"
+      || kind == "call_answered_elsewhere"
+    {
+      if kind == "call_answered_elsewhere" {
+        let answered =
+          (data["answeredDeviceId"] as? String)
+          ?? (data["answered_device_id"] as? String)
+          ?? ""
+        let local = UIDevice.current.identifierForVendor?.uuidString ?? ""
+        if !answered.isEmpty, !local.isEmpty, answered == local {
+          DibayCallLog.infoCallV4(
+            "ios_voip_answered_elsewhere_ignored_winner",
+            callId: sessionId,
+            owner: "terminal",
+            reason: "winner_device"
+          )
+          completion()
+          return
+        }
+      }
       let terminalReason = "ios_voip_terminal_\(kind ?? "unknown")"
       if isVoipTerminalIncomingSession(sessionId: sessionId) {
         CallV4SurfaceOwnerBridge.deliver(

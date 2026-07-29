@@ -19,10 +19,19 @@ function normalizePlatform(raw: string | null | undefined): PushTarget["platform
   return "web";
 }
 
+export type LoadActivePushTargetsOptions = {
+  /** Call ringing / terminal dismiss — one FCM per device. Chat stays single_fcm. */
+  fcmMode?: "single_fcm" | "multi_device_fcm";
+};
+
 /**
  * Active push targets for a user — `user_devices` + legacy `web_push_subscriptions`.
  */
-export async function loadActivePushTargets(svc: SupabaseClient, userId: string): Promise<PushTarget[]> {
+export async function loadActivePushTargets(
+  svc: SupabaseClient,
+  userId: string,
+  options?: LoadActivePushTargetsOptions,
+): Promise<PushTarget[]> {
   const uid = userId.trim();
   if (!uid) return [];
 
@@ -37,7 +46,7 @@ export async function loadActivePushTargets(svc: SupabaseClient, userId: string)
     .order("updated_at", { ascending: false });
 
   if (!deviceErr && deviceRows?.length) {
-    targets.push(...filterUserDevicePushTargets(deviceRows));
+    targets.push(...filterUserDevicePushTargets(deviceRows, { fcmMode: options?.fcmMode }));
   }
 
   const { data: webRows, error: webErr } = await svc

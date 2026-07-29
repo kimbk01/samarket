@@ -256,6 +256,13 @@ import {
 } from "@/lib/community-messenger/call-stale-ringing-cleanup";
 import { sendWebPushForCommunityMessengerIncomingCall } from "@/lib/push/send-community-messenger-incoming-call-push";
 import { sendWebPushForCommunityMessengerCallTerminal } from "@/lib/push/send-community-messenger-call-canceled-push";
+import { sendWebPushForCommunityMessengerCallAnsweredElsewhere } from "@/lib/push/send-community-messenger-call-answered-elsewhere-push";
+import {
+  CALL_ANSWERED_ELSEWHERE_ERROR,
+  evaluateAcceptDeviceClaim,
+  hasMissedCallPresentationEvidence,
+  normalizeAnswerClaimDeviceId,
+} from "@/lib/community-messenger/call-multi-device-authority";
 import {
   provenCanonicalRoomDomainEnvelopeFromDbRow,
   type RoomDomainEnvelope,
@@ -525,6 +532,7 @@ type CallSessionRow = {
   status: CommunityMessengerCallSessionStatus;
   started_at: string | null;
   answered_at: string | null;
+  answered_device_id?: string | null;
   ended_at: string | null;
   ended_reason?: string | null;
   updated_at?: string | null;
@@ -18393,6 +18401,8 @@ export async function updateCommunityMessengerCallSession(input: {
   durationSeconds?: number;
   /** Agora/P2P 조인 실패 등 — `ended` 시 DB `ended_reason` (CHECK 없음) */
   clientEndedReason?: string;
+  /** First-answer-wins claim — callee deviceId (`user_devices.device_id` or native stable id) */
+  answeredDeviceId?: string | null;
 }): Promise<{ ok: boolean; session?: CommunityMessengerCallSession; error?: string }> {
   const sessionId = trimText(input.sessionId);
   if (!sessionId) return { ok: false, error: "session_required" };
@@ -18566,7 +18576,7 @@ export async function updateCommunityMessengerCallSession(input: {
     const { data: row } = await (sb as any)
       .from("community_messenger_call_sessions")
       .select(
-        "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
+        "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, answered_device_id, ended_at, ended_reason, created_at"
       )
       .eq("id", sessionId)
       .maybeSingle();
@@ -18883,13 +18893,37 @@ export async function updateCommunityMessengerCallSession(input: {
         }
         return { ok: false, error: "bad_action" };
       }
-      const alreadyActiveRecipient =
+      const requestDeviceId = normalizeAnswerClaimDeviceId(input.answeredDeviceId);
+      if (input.action === "accept" && messengerUserIdsEqual(session.recipient_user_id, input.userId)) {
+        const claim = evaluateAcceptDeviceClaim({
+          sessionStatus: session.status,
+          claimedDeviceId: session.answered_device_id,
+          requestDeviceId,
+        });
+        if (claim.kind === "answered_elsewhere") {
+          return { ok: false, error: CALL_ANSWERED_ELSEWHERE_ERROR };
+        }
+      }
+      const softClaimActiveWithoutDevice =
         input.action === "accept" &&
         session.status === "active" &&
-        messengerUserIdsEqual(session.recipient_user_id, input.userId);
+        messengerUserIdsEqual(session.recipient_user_id, input.userId) &&
+        !normalizeAnswerClaimDeviceId(session.answered_device_id) &&
+        !!requestDeviceId;
+      const alreadyActiveSameDevice =
+        input.action === "accept" &&
+        session.status === "active" &&
+        messengerUserIdsEqual(session.recipient_user_id, input.userId) &&
+        !softClaimActiveWithoutDevice &&
+        evaluateAcceptDeviceClaim({
+          sessionStatus: session.status,
+          claimedDeviceId: session.answered_device_id,
+          requestDeviceId,
+        }).kind === "idempotent_same_device";
       let updated: CallSessionRow | null = null;
       let error: unknown = null;
-      if (alreadyActiveRecipient) {
+      let acceptClaimWon = false;
+      if (alreadyActiveSameDevice) {
         updated = session;
       } else {
         const updatePayload: Record<string, unknown> = {
@@ -18916,6 +18950,9 @@ export async function updateCommunityMessengerCallSession(input: {
           updatePayload.caller_last_heartbeat_at = hbSeed;
           updatePayload.callee_last_heartbeat_at = hbSeed;
         }
+        if (input.action === "accept" && (next.nextStatus === "active" || softClaimActiveWithoutDevice)) {
+          if (requestDeviceId) updatePayload.answered_device_id = requestDeviceId;
+        }
         const currentStatus = trimText(session.status);
         let updateBuilder = (sb as any)
           .from("community_messenger_call_sessions")
@@ -18927,18 +18964,24 @@ export async function updateCommunityMessengerCallSession(input: {
         ) {
           updateBuilder = updateBuilder.eq("status", "ringing");
         }
+        if (input.action === "accept" && (currentStatus === "ringing" || softClaimActiveWithoutDevice)) {
+          updateBuilder = updateBuilder.is("answered_device_id", null);
+        }
         const result = await updateBuilder
           .select(
-            "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
+            "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, answered_device_id, ended_at, ended_reason, created_at"
           )
           .maybeSingle();
         updated = (result.data as CallSessionRow | null) ?? null;
         error = result.error;
+        if (!error && updated && input.action === "accept" && next.nextStatus === "active") {
+          acceptClaimWon = true;
+        }
         if (!error && !updated) {
           const { data: freshRow } = await (sb as any)
             .from("community_messenger_call_sessions")
             .select(
-              "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
+              "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, answered_device_id, ended_at, ended_reason, created_at"
             )
             .eq("id", sessionId)
             .maybeSingle();
@@ -18950,6 +18993,14 @@ export async function updateCommunityMessengerCallSession(input: {
               freshStatus === "active" &&
               messengerUserIdsEqual(fresh.recipient_user_id, input.userId)
             ) {
+              const lateClaim = evaluateAcceptDeviceClaim({
+                sessionStatus: fresh.status,
+                claimedDeviceId: fresh.answered_device_id,
+                requestDeviceId,
+              });
+              if (lateClaim.kind === "answered_elsewhere") {
+                return { ok: false, error: CALL_ANSWERED_ELSEWHERE_ERROR };
+              }
               updated = fresh;
             } else if (
               (input.action === "missed" && freshStatus === "missed") ||
@@ -19055,6 +19106,22 @@ export async function updateCommunityMessengerCallSession(input: {
           );
         }
         invalidateActiveCallSessionByUserRoomCacheForRoom(mapped.roomId);
+        if (
+          acceptClaimWon &&
+          input.action === "accept" &&
+          next.nextStatus === "active" &&
+          (updated.session_mode ?? "direct") === "direct"
+        ) {
+          const calleeId = trimText(updated.recipient_user_id ?? "");
+          if (calleeId) {
+            void sendWebPushForCommunityMessengerCallAnsweredElsewhere({
+              recipientUserId: calleeId,
+              sessionId: updated.id,
+              answeredDeviceId:
+                normalizeAnswerClaimDeviceId(updated.answered_device_id) ?? requestDeviceId,
+            }).catch(() => {});
+          }
+        }
         if (isTerminalCallSessionStatus(next.nextStatus)) {
           const peerUserId = messengerUserIdsEqual(updated.initiator_user_id, input.userId)
             ? updated.recipient_user_id
@@ -19072,12 +19139,32 @@ export async function updateCommunityMessengerCallSession(input: {
                     : "cancelled",
             }).catch(() => {});
           }
+          // Reject/cancel: also dismiss other callee devices (account-level reject / cancel-all).
+          if (
+            (next.nextStatus === "rejected" || next.nextStatus === "cancelled") &&
+            (updated.session_mode ?? "direct") === "direct"
+          ) {
+            const calleeId = trimText(updated.recipient_user_id ?? "");
+            if (calleeId && !messengerUserIdsEqual(calleeId, peerUserId ?? "")) {
+              void sendWebPushForCommunityMessengerCallTerminal({
+                recipientUserId: calleeId,
+                sessionId: updated.id,
+                status: next.nextStatus === "rejected" ? "rejected" : "cancelled",
+              }).catch(() => {});
+            }
+          }
         }
         await appendCommunityMessengerCallSessionEvent(sb, {
           sessionId,
           actorUserId: input.userId,
           eventType: auditEventTypeForAction(input.action, next.nextStatus),
-          payload: { next_status: next.nextStatus, scope: "direct" },
+          payload: {
+            next_status: next.nextStatus,
+            scope: "direct",
+            ...(input.action === "accept" && requestDeviceId
+              ? { answered_device_id: requestDeviceId }
+              : {}),
+          },
         });
         if (
           next.nextStatus === "missed" &&
@@ -19089,6 +19176,28 @@ export async function updateCommunityMessengerCallSession(input: {
           if (roomIdM && initM && recipM) {
             void (async () => {
               try {
+                const { data: deliveryRows } = await (sb as any)
+                  .from("notification_deliveries")
+                  .select("status, provider_response")
+                  .eq("user_id", recipM)
+                  .eq("target_type", "call_session")
+                  .eq("target_id", updated.id)
+                  .eq("event_type", "call_ringing")
+                  .limit(20);
+                if (
+                  !hasMissedCallPresentationEvidence(
+                    (deliveryRows ?? []) as Array<{
+                      status?: string | null;
+                      provider_response?: Record<string, unknown> | null;
+                    }>,
+                  )
+                ) {
+                  console.info("[DIBAY_CALL] missed_skipped_no_delivery_evidence", {
+                    sessionId: updated.id,
+                    recipientUserId: recipM,
+                  });
+                  return;
+                }
                 const profileMap = await fetchProfilesByIds([initM, recipM]);
                 await notifyMissedCallPipeline(sb as SupabaseLike, {
                   sessionId: updated.id,

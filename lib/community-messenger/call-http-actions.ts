@@ -60,7 +60,7 @@ export type PatchCommunityCallSessionAction =
 export async function patchCommunityMessengerCallSession(
   sessionId: string,
   action: PatchCommunityCallSessionAction,
-  init?: { durationSeconds?: number; clientEndedReason?: string },
+  init?: { durationSeconds?: number; clientEndedReason?: string; deviceId?: string },
   debugContext?: CommunityMessengerCallSessionPatchDebugContext
 ): Promise<{ ok: boolean; session?: CommunityMessengerCallSession; error?: string }> {
   if (process.env.NODE_ENV === "development" && typeof performance !== "undefined") {
@@ -70,6 +70,15 @@ export async function patchCommunityMessengerCallSession(
       sessionIdSuffix: sessionId.slice(-8),
       t: performance.now(),
     });
+  }
+  let deviceId = typeof init?.deviceId === "string" ? init.deviceId.trim() : "";
+  if (!deviceId && typeof window !== "undefined") {
+    try {
+      const { ensureClientInstanceId } = await import("@/lib/auth/client-instance-id");
+      deviceId = ensureClientInstanceId();
+    } catch {
+      deviceId = "";
+    }
   }
   const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
     method: "PATCH",
@@ -81,6 +90,7 @@ export async function patchCommunityMessengerCallSession(
       ...(init?.clientEndedReason != null && init.clientEndedReason !== ""
         ? { clientEndedReason: init.clientEndedReason }
         : {}),
+      ...(deviceId ? { deviceId } : {}),
     }),
   });
   const json = (await res.json().catch(() => ({}))) as {

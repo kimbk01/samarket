@@ -192,22 +192,36 @@ enum NativeVideoCallApi {
       if let cookieHeader, !cookieHeader.isEmpty {
         request.setValue(cookieHeader, forHTTPHeaderField: "Cookie")
       }
-      let body = "{\"action\":\"\(action)\"}"
-      request.httpBody = body.data(using: .utf8)
+      let deviceId = UIDevice.current.identifierForVendor?.uuidString ?? ""
+      var bodyObj: [String: Any] = ["action": action]
+      if !deviceId.isEmpty {
+        bodyObj["deviceId"] = deviceId
+      }
+      request.httpBody = try? JSONSerialization.data(withJSONObject: bodyObj)
 
-      let task = session.dataTask(with: request) { _, response, error in
+      let task = session.dataTask(with: request) { data, response, error in
         if let error {
           once.run { completion(false, 0, (error as NSError).domain) }
           return
         }
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         let ok = status >= 200 && status < 300
+        var errMsg: String? = ok ? nil : "status=\(status)"
+        if !ok, let data, let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+          if let apiError = json["error"] as? String, !apiError.isEmpty {
+            errMsg = apiError
+          }
+        }
         if ok {
           NativeVideoCallLog.info(doneMarker, callId: sid, details: "status=\(status)")
         } else {
-          NativeVideoCallLog.warn("error_terminal", callId: sid, details: "action=\(action) status=\(status)")
+          NativeVideoCallLog.warn(
+            "error_terminal",
+            callId: sid,
+            details: "action=\(action) status=\(status) err=\(errMsg ?? "")"
+          )
         }
-        once.run { completion(ok, status, ok ? nil : "status=\(status)") }
+        once.run { completion(ok, status, errMsg) }
       }
       task.resume()
     }

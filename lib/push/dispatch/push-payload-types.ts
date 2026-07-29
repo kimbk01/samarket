@@ -29,7 +29,13 @@ export type DispatchPushOptions = {
   target_type?: string | null;
   target_id?: string | null;
   /** Call-specific: incoming_call | missed_call | terminal dismiss signals. */
-  call_push_kind?: "incoming_call" | "missed_call" | "call_canceled" | "call_rejected" | "call_ended";
+  call_push_kind?:
+    | "incoming_call"
+    | "missed_call"
+    | "call_canceled"
+    | "call_rejected"
+    | "call_ended"
+    | "call_answered_elsewhere";
   /** Skip user settings gate (system/cancel dismiss only) */
   skip_settings_gate?: boolean;
   /** Admin test — bypass PUSH_DISPATCH_ENABLED gate and always audit-log attempts */
@@ -76,6 +82,7 @@ export function resolveEventType(out: NotificationSideEffectPayloadOut, opts?: D
   if (opts?.call_push_kind === "call_canceled") return "call_cancel";
   if (opts?.call_push_kind === "call_rejected") return "call_reject";
   if (opts?.call_push_kind === "call_ended") return "call_end";
+  if (opts?.call_push_kind === "call_answered_elsewhere") return "call_answered_elsewhere";
   return nt || "notification";
 }
 
@@ -89,7 +96,22 @@ const TERMINAL_DISMISS_CALL_PUSH_KINDS: ReadonlySet<NonNullable<DispatchPushOpti
   "call_canceled",
   "call_rejected",
   "call_ended",
+  "call_answered_elsewhere",
 ]);
+
+/** Call kinds that must fan out to every eligible mobile device (one FCM per device_id). */
+export function isMultiDeviceCallPushKind(
+  kind: DispatchPushOptions["call_push_kind"] | null | undefined,
+): boolean {
+  if (!kind) return false;
+  return (
+    kind === "incoming_call" ||
+    kind === "call_canceled" ||
+    kind === "call_rejected" ||
+    kind === "call_ended" ||
+    kind === "call_answered_elsewhere"
+  );
+}
 
 /** call_ended / call_rejected / call_canceled — 이미 끝난 통화의 UI 정리용 dismiss 신호. */
 export function isTerminalDismissCallPushKind(
