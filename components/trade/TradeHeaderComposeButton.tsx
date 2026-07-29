@@ -52,26 +52,27 @@ export function TradeHeaderComposeButton() {
       });
     };
     updateMenuPos();
+    const close = () => setMenuOpen(false);
     const onPointerDown = (e: PointerEvent) => {
       const target = e.target as Node;
       const clickedTriggerArea = menuRef.current?.contains(target) ?? false;
       const clickedMenuPanel = menuPanelRef.current?.contains(target) ?? false;
       if (!clickedTriggerArea && !clickedMenuPanel) {
-        setMenuOpen(false);
+        close();
       }
     };
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMenuOpen(false);
+      if (e.key === "Escape") close();
     };
     window.addEventListener("pointerdown", onPointerDown);
     window.addEventListener("keydown", onKeyDown);
-    window.addEventListener("resize", updateMenuPos);
-    window.addEventListener("scroll", updateMenuPos, true);
+    window.addEventListener("resize", close);
+    window.addEventListener("scroll", close, true);
     return () => {
       window.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("resize", updateMenuPos);
-      window.removeEventListener("scroll", updateMenuPos, true);
+      window.removeEventListener("resize", close);
+      window.removeEventListener("scroll", close, true);
     };
   }, [menuOpen]);
 

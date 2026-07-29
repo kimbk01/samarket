@@ -19,7 +19,6 @@ import {
 } from "@/lib/trade/ui/trade-primary-tabs-classes";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
-import { useLongPressOrTap } from "@/lib/ui/use-long-press-or-tap";
 import { menuHrefMatchesIntent, useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
 import { prewarmBottomNavMarketTab } from "@/lib/main-menu/bottom-nav-tap-prewarm-trade";
 import { commitTradePrimaryTabRoute } from "@/lib/trade/tabs/commit-trade-primary-tab-route";
@@ -108,7 +107,8 @@ function TradePrimaryTabsInner({
       if (next === "latest") sp.delete("tradeState");
       else sp.set("tradeState", next);
       const qs = sp.toString();
-      const nextHref = qs ? `/market?${qs}` : "/market";
+      /** 현재 pathname 유지 — `/market` 루트 이탈 금지 */
+      const nextHref = qs ? `${pathname}?${qs}` : pathname;
       if (next === tradeState) {
         setAllSortOpen(false);
         return;
@@ -119,7 +119,7 @@ function TradePrimaryTabsInner({
       void router.replace(nextHref, { scroll: false });
       setAllSortOpen(false);
     },
-    [beginMenuNavigation, router, searchParams, tradeState, guardBeforeNavigate]
+    [beginMenuNavigation, router, searchParams, pathname, tradeState, guardBeforeNavigate]
   );
   /** navigation 중에는 pathname 기반 `isActive`와 intent 기반 하이라이트가 동시에 켜져 옆 탭까지 선택처럼 보임 → trade-primary pending 일 때는 intent만 신뢰 */
   const displayTabs = useMemo(
@@ -179,20 +179,14 @@ function TradePrimaryTabsInner({
     setAllSortMenuPos({ top: rect.bottom + 6, left: rect.left });
   }, []);
 
-  const onTradeAllSortChipTap = useCallback(() => {
-    setAllSortOpen(false);
-    setTradeState("latest");
-  }, [setTradeState]);
-
-  const onTradeAllSortChipLongPress = useCallback(() => {
-    updateAllSortMenuPos();
-    setAllSortOpen(true);
-  }, [updateAllSortMenuPos]);
-
-  const tradeAllSortChipGestures = useLongPressOrTap({
-    onTap: onTradeAllSortChipTap,
-    onLongPress: onTradeAllSortChipLongPress,
-  });
+  const onTradeAllSortChipClick = useCallback(() => {
+    if (allSortOpen) {
+      setAllSortOpen(false);
+    } else {
+      updateAllSortMenuPos();
+      setAllSortOpen(true);
+    }
+  }, [allSortOpen, updateAllSortMenuPos]);
 
   useLayoutEffect(() => {
     const activeTab = displayTabs.find((t) => t.isDisplayActive);
@@ -205,23 +199,22 @@ function TradePrimaryTabsInner({
   useEffect(() => {
     if (!allSortOpen) return;
     updateAllSortMenuPos();
-    const onResize = () => updateAllSortMenuPos();
-    const onScroll = () => updateAllSortMenuPos();
+    const close = () => setAllSortOpen(false);
     const onDown = (e: MouseEvent) => {
       const target = e.target as Node;
       if (allSortButtonRef.current?.contains(target) || allSortMenuRef.current?.contains(target)) return;
-      setAllSortOpen(false);
+      close();
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setAllSortOpen(false);
+      if (e.key === "Escape") close();
     };
-    window.addEventListener("resize", onResize);
-    document.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", close);
+    document.addEventListener("scroll", close, true);
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
     return () => {
-      window.removeEventListener("resize", onResize);
-      document.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", close);
+      document.removeEventListener("scroll", close, true);
       document.removeEventListener("mousedown", onDown);
       document.removeEventListener("keydown", onKey);
     };
@@ -257,7 +250,7 @@ function TradePrimaryTabsInner({
                 aria-expanded={allSortOpen}
                 aria-label={t("trade_market_sort_chip_aria", { label: allSortLabel })}
                 ref={allSortButtonRef}
-                {...tradeAllSortChipGestures.buttonProps}
+                onClick={onTradeAllSortChipClick}
                 onKeyDown={(e) => {
                   if (e.key === "ArrowDown") {
                     e.preventDefault();

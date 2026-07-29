@@ -36,6 +36,10 @@ export const postListPreviewMessages = {
 
     post_preview_direct_deal: "직거래",
 
+    post_preview_for_sale: "팝니다",
+
+    post_preview_wanted: "삽니다",
+
     post_preview_term_short: "단기",
 
     post_preview_pay_discuss: "협의",
@@ -81,6 +85,10 @@ export const postListPreviewMessages = {
     post_preview_sell_peso: "Sell pesos",
 
     post_preview_direct_deal: "In-person deal",
+
+    post_preview_for_sale: "For sale",
+
+    post_preview_wanted: "Wanted",
 
     post_preview_term_short: "Short-term",
 

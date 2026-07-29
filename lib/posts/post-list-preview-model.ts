@@ -373,7 +373,7 @@ export function buildPostListPreviewModel(
   const isFree = post.is_free_share === true;
 
   const skinLabel = skinKey ? postPreviewSkinLabel(locale, skinKey) : null;
-  const isDirectDeal = isTradePost && meta.direct_deal === true;
+  const _isDirectDeal = isTradePost && meta.direct_deal === true;
 
   const isRealEstate = skinKey === "real-estate" || (!skinKey && hasRealEstateMeta(meta));
   const isUsedCar = skinKey === "used-car" || (!skinKey && hasUsedCarMeta(meta));
@@ -661,9 +661,20 @@ export function buildPostListPreviewModel(
   if (skinLabel && skinLabel !== generalSkinLabel) {
     listingChips.push({ text: skinLabel, className: POST_LIST_CHIP_GRAY });
   }
-  if (isDirectDeal) {
+
+  /** 팝니다 / 삽니다 칩 — meta.want_to_buy 우선, 없으면 제목 추론 */
+  if (isTradePost) {
+    const wantToBuyMeta = meta.want_to_buy;
+    const title = str(post.title);
+    const isBuyListing =
+      wantToBuyMeta === true ||
+      wantToBuyMeta === "true" ||
+      wantToBuyMeta === "buy" ||
+      (wantToBuyMeta === undefined && title.includes("삽니다"));
     listingChips.push({
-      text: postPreviewT(locale, "post_preview_direct_deal"),
+      text: isBuyListing
+        ? postPreviewT(locale, "post_preview_wanted")
+        : postPreviewT(locale, "post_preview_for_sale"),
       className: POST_LIST_CHIP_BLUE,
     });
   }
