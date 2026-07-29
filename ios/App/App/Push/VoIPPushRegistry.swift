@@ -49,8 +49,10 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
           (data["answeredDeviceId"] as? String)
           ?? (data["answered_device_id"] as? String)
           ?? ""
-        let local = UIDevice.current.identifierForVendor?.uuidString ?? ""
-        if !answered.isEmpty, !local.isEmpty, answered == local {
+        if let local = DibayCanonicalDeviceIdStore.resolveCached(),
+          !answered.isEmpty,
+          answered == local
+        {
           DibayCallLog.infoCallV4(
             "ios_voip_answered_elsewhere_ignored_winner",
             callId: sessionId,

@@ -2,6 +2,7 @@ package com.dibay.app.call;
 
 import android.content.Context;
 import com.dibay.app.DibayCallLog;
+import com.dibay.app.DibayCanonicalDeviceIdStore;
 import com.dibay.app.nativevideo.NativeVideoCallApi;
 import com.dibay.app.nativevideo.NativeVideoCallLane;
 import com.dibay.app.nativevideo.NativeVideoCallOwner;
@@ -347,6 +348,18 @@ public class NativeCallServicePlugin extends Plugin {
       return;
     }
     ScreenAwakeBridge.notifyPresentationChanged(callId, presentation);
+    call.resolve(new JSObject().put("ok", true));
+  }
+
+  /** Persist user_devices.device_id for Native accept / answered_elsewhere claim. */
+  @PluginMethod
+  public void persistCanonicalDeviceId(PluginCall call) {
+    String deviceId = call.getString("deviceId", "").trim();
+    if (deviceId.isEmpty()) {
+      call.reject("invalid_device_id");
+      return;
+    }
+    DibayCanonicalDeviceIdStore.save(getContext(), deviceId);
     call.resolve(new JSObject().put("ok", true));
   }
 }

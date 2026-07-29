@@ -355,6 +355,8 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
   }
 
   private String resolveLocalDeviceId() {
+    String canonical = DibayCanonicalDeviceIdStore.resolveOrEmpty(this);
+    if (!canonical.isEmpty()) return canonical;
     try {
       String androidId =
           android.provider.Settings.Secure.getString(

@@ -69,6 +69,7 @@ export type NativeCallServicePlugin = {
   acquireScreenAwake(options: { callId: string; reason?: string }): Promise<{ ok: boolean }>;
   releaseScreenAwake(options: { callId: string; reason?: string }): Promise<{ ok: boolean }>;
   notifyScreenAwakePresentation(options: { callId: string; presentation?: string }): Promise<{ ok: boolean }>;
+  persistCanonicalDeviceId(options: { deviceId: string }): Promise<{ ok: boolean }>;
   addListener(
     eventName: string,
     listenerFunc: (data: unknown) => void,

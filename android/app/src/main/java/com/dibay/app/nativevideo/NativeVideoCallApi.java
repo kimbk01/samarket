@@ -2,6 +2,7 @@ package com.dibay.app.nativevideo;
 
 import android.content.Context;
 import android.webkit.CookieManager;
+import com.dibay.app.DibayCanonicalDeviceIdStore;
 import com.dibay.app.DibayServerOrigin;
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -200,6 +201,8 @@ public final class NativeVideoCallApi {
   }
 
   private static String resolveDeviceId(Context context) {
+    String canonical = DibayCanonicalDeviceIdStore.resolveOrEmpty(context);
+    if (!canonical.isEmpty()) return canonical;
     try {
       String androidId =
           android.provider.Settings.Secure.getString(

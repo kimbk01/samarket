@@ -107,6 +107,8 @@ public final class IncomingCallPushAckHelper {
   }
 
   private static String resolveDeviceId(Context context) {
+    String canonical = DibayCanonicalDeviceIdStore.resolveOrEmpty(context);
+    if (!canonical.isEmpty()) return canonical;
     try {
       String androidId =
           Settings.Secure.getString(context.getContentResolver(), Settings.Secure.ANDROID_ID);

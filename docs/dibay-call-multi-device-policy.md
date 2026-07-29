@@ -49,9 +49,29 @@ This document **explicitly overrides** `docs/push/push-device-identity-ssot-lock
 
 Register **must not** deactivate other users’ FCM rows on successful FCM register (multi-device login allowed).
 
+## Device identity for accept / answered_elsewhere
+
+Canonical id is `user_devices.device_id` (= Web `dibay:client_instance_id`).
+
+| Layer | Source |
+|-------|--------|
+| Register | `device_id` posted to `/api/me/devices/register` |
+| Android Native | `DibayCanonicalDeviceIdStore` (NativePushRegister + `persistCanonicalDeviceId`) |
+| iOS Native | `DibayCanonicalDeviceIdStore` (UserDefaults + WebView localStorage fallback) |
+| Accept PATCH | `deviceId` body = canonical store |
+| answered_elsewhere | payload `answeredDeviceId` compared to canonical store |
+
+**Forbidden as primary claim id after register:** raw ANDROID_ID / IDFV.
+
 ## Out of scope (this phase)
 
 - Call waiting / handoff between devices mid-call
 - Full `call_deliveries` table
 - Web/Desktop as ringing targets
 - Speculative Web fallback timers
+- Complex presence / mute / primary-device preference
+
+## Incoming push durable claim
+
+`incoming_push_claimed_at` CAS on `community_messenger_call_sessions` — one serverless instance wins fan-out.
+

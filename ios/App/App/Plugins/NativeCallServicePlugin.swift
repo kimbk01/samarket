@@ -33,6 +33,7 @@ public class NativeCallServicePlugin: CAPPlugin, CAPBridgedPlugin {
     CAPPluginMethod(name: "isNativeVoiceIncomingLaneEnabled", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "requestCallMediaPermissions", returnType: CAPPluginReturnPromise),
     CAPPluginMethod(name: "checkCallMediaPermissions", returnType: CAPPluginReturnPromise),
+    CAPPluginMethod(name: "persistCanonicalDeviceId", returnType: CAPPluginReturnPromise),
   ]
 
   public override func load() {
@@ -459,5 +460,15 @@ public class NativeCallServicePlugin: CAPPlugin, CAPBridgedPlugin {
       return
     }
     DibayVoiceMicrophonePermission.ensureGranted(sessionId: callId, context: context, completion: complete)
+  }
+
+  @objc func persistCanonicalDeviceId(_ call: CAPPluginCall) {
+    let deviceId = (call.getString("deviceId") ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !deviceId.isEmpty else {
+      call.reject("invalid_device_id")
+      return
+    }
+    DibayCanonicalDeviceIdStore.save(deviceId)
+    call.resolve(["ok": true])
   }
 }

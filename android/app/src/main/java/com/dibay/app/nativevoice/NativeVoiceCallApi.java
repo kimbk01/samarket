@@ -3,6 +3,7 @@ package com.dibay.app.nativevoice;
 import android.content.Context;
 import android.webkit.CookieManager;
 import com.dibay.app.DibayServerOrigin;
+import com.dibay.app.DibayCanonicalDeviceIdStore;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -266,6 +267,9 @@ public final class NativeVoiceCallApi {
   }
 
   private static String resolveDeviceId(Context context) {
+    String canonical = DibayCanonicalDeviceIdStore.resolveOrEmpty(context);
+    if (!canonical.isEmpty()) return canonical;
+    // Legacy fallback only when register never ran — claim may not match push device_id.
     try {
       String androidId =
           android.provider.Settings.Secure.getString(

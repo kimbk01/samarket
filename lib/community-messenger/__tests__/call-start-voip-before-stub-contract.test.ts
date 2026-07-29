@@ -15,6 +15,7 @@ import { listPreviewFromMessengerMessageRow } from "@/lib/community-messenger/ho
 import {
   dispatchIncomingCallVoipOnCriticalPath,
   resetIncomingCallVoipDispatchIdempotencyForTests,
+  setIncomingCallVoipClaimForTests,
   setIncomingCallVoipPushSenderForTests,
 } from "@/lib/community-messenger/incoming-call-voip-dispatch";
 
@@ -263,6 +264,22 @@ describe("VoIP dispatch idempotency + failure contract", () => {
     expect(first.skippedDuplicate).toBe(false);
     expect(second.skippedDuplicate).toBe(true);
     expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  it("durable claim loser skips push even without process-local prior", async () => {
+    const send = vi.fn().mockResolvedValue(undefined);
+    setIncomingCallVoipPushSenderForTests(send);
+    setIncomingCallVoipClaimForTests(async () => ({ claimed: false }));
+    const result = await dispatchIncomingCallVoipOnCriticalPath({
+      recipientUserId: "callee",
+      sessionId: "sess-claim-lose",
+      roomId: "room-1",
+      callerId: "caller",
+      callKind: "voice",
+      startedAt: STARTED_AT,
+    });
+    expect(result.skippedDuplicate).toBe(true);
+    expect(send).not.toHaveBeenCalled();
   });
 
   it("dispatch failure does not throw (session create stays ok)", async () => {

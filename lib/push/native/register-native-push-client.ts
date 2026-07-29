@@ -21,6 +21,7 @@ import {
 import { subscribeDibayAuthStateChange } from "@/lib/auth/dibay-session-manager";
 import { logPushRegister, logPushRegisterFail } from "@/lib/push/native/native-push-register-log";
 import { registerPushDeviceViaNative } from "@/lib/push/native/native-push-register-bridge";
+import { persistCanonicalDeviceIdToNative } from "@/lib/push/native/persist-canonical-device-id";
 
 type RegisterResult = { ok: true } | { ok: false; error: string };
 
@@ -131,6 +132,9 @@ async function postDeviceRegistration(
     device_row_id: j.device_row_id ?? null,
     orchestration_settled: orchestrationSettled,
   });
+  if (typeof body.device_id === "string") {
+    void persistCanonicalDeviceIdToNative(body.device_id);
+  }
   if (orchestrationSettled) {
     logPushRegister("api_post_late_after_timeout", {
       ...baseDetail,
@@ -196,6 +200,7 @@ async function postDeviceRegistrationWithNativeFirst(
           opts.instrumentation.jsonParsed = true;
         }
         markDeviceRegisterNativeSuccess(id, callsite);
+        void persistCanonicalDeviceIdToNative(id.deviceId);
         logPushRegister("success", {
           http_status: nativeResult.http_status ?? 200,
           device_row_id: nativeResult.device_row_id ?? null,

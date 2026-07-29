@@ -5,13 +5,16 @@
  * - `call_sessions` 생성 이후 호출
  * - 수신자용 in-flight (dialing) call_stub publish 이전에 시작
  * - dispatch 실패는 session 생성 rollback 금지
- * - 동일 sessionId 에 대해 process 내 idempotent (중복 VoIP 방지)
+ * - Durable CAS claim on `incoming_push_claimed_at` (serverless-safe)
+ * - process-local Map as secondary same-instance guard
  * - APNs 를 무기한 await 하지 않음 (budget 후 응답; in-flight work 는 완료까지 유지)
  */
+import { tryClaimIncomingCallPushDispatch } from "@/lib/community-messenger/incoming-call-push-claim";
 import {
   sendIncomingCallPushBestEffort,
   type IncomingCallPushBestEffortInput,
 } from "@/lib/community-messenger/service";
+import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 const DISPATCH_BUDGET_MS = 2_000;
 const IDEMPOTENCY_TTL_MS = 5 * 60_000;
@@ -21,6 +24,7 @@ const dispatchedAtBySessionId = new Map<string, number>();
 type IncomingCallPushSender = (input: IncomingCallPushBestEffortInput) => Promise<void>;
 
 let pushSenderForTests: IncomingCallPushSender | null = null;
+let claimFnForTests: ((sessionId: string) => Promise<{ claimed: boolean }>) | null = null;
 
 function pruneIdempotency(now: number): void {
   if (dispatchedAtBySessionId.size < 64) return;
@@ -73,6 +77,7 @@ export async function dispatchIncomingCallVoipOnCriticalPath(
       sessionId,
       recipientUserId: input.recipientUserId,
       priorAt: prior,
+      layer: "process_local",
     });
     return {
       started: false,
@@ -84,6 +89,49 @@ export async function dispatchIncomingCallVoipOnCriticalPath(
       voip_dispatch_completed_at: startedAt,
     };
   }
+
+  if (claimFnForTests) {
+    const claim = await claimFnForTests(sessionId);
+    if (!claim.claimed) {
+      console.info("[cm-call-voip] voip_dispatch_skipped_duplicate", {
+        sessionId,
+        recipientUserId: input.recipientUserId,
+        layer: "durable_claim_test",
+      });
+      return {
+        started: false,
+        skippedDuplicate: true,
+        completedWithinBudget: true,
+        failed: false,
+        sessionId,
+        voip_dispatch_started_at: startedAt,
+        voip_dispatch_completed_at: startedAt,
+      };
+    }
+  } else {
+    const svc = tryCreateSupabaseServiceClient();
+    if (svc) {
+      const claim = await tryClaimIncomingCallPushDispatch(svc, sessionId);
+      if (!claim.claimed) {
+        console.info("[cm-call-voip] voip_dispatch_skipped_duplicate", {
+          sessionId,
+          recipientUserId: input.recipientUserId,
+          layer: "durable_claim",
+          reason: claim.reason,
+        });
+        return {
+          started: false,
+          skippedDuplicate: true,
+          completedWithinBudget: true,
+          failed: false,
+          sessionId,
+          voip_dispatch_started_at: startedAt,
+          voip_dispatch_completed_at: startedAt,
+        };
+      }
+    }
+  }
+
   dispatchedAtBySessionId.set(sessionId, startedAt);
 
   console.info("[cm-call-voip] voip_dispatch_started", {
@@ -158,9 +206,17 @@ export async function dispatchIncomingCallVoipOnCriticalPath(
 /** Test / recovery — clear process-local idempotency. */
 export function resetIncomingCallVoipDispatchIdempotencyForTests(): void {
   dispatchedAtBySessionId.clear();
+  claimFnForTests = null;
 }
 
 /** Test only — inject push sender. */
 export function setIncomingCallVoipPushSenderForTests(sender: IncomingCallPushSender | null): void {
   pushSenderForTests = sender;
+}
+
+/** Test only — inject durable claim. */
+export function setIncomingCallVoipClaimForTests(
+  claim: ((sessionId: string) => Promise<{ claimed: boolean }>) | null,
+): void {
+  claimFnForTests = claim;
 }

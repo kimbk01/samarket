@@ -3,6 +3,7 @@ package com.dibay.app.nativepush;
 import android.content.Context;
 import android.util.Log;
 import android.webkit.CookieManager;
+import com.dibay.app.DibayCanonicalDeviceIdStore;
 import com.dibay.app.DibayServerOrigin;
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -80,6 +81,9 @@ public final class NativePushRegisterHelper {
           "invalid_device");
       return new RegisterResult(false, 0, "invalid_device", null);
     }
+
+    // Always persist the register device_id as canonical call identity (matches user_devices).
+    DibayCanonicalDeviceIdStore.save(context, request.deviceId);
 
     String origin = DibayServerOrigin.resolve(context);
     if (origin == null || origin.isEmpty()) {
