@@ -89,7 +89,8 @@
 
 [data-cm-messenger-search-input] {
   min-height: var(--cm-list-search-h);
-  font-size: 16px;
+  /* parent `[&_input]:text-[14px] input` specificity wins over text-[16px] — force floor */
+  font-size: 16px !important;
   line-height: 1.25;
   border-radius: 12px;
   padding-left: 12px;
