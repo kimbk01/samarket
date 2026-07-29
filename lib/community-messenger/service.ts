@@ -263,6 +263,11 @@ import {
   hasMissedCallPresentationEvidence,
   normalizeAnswerClaimDeviceId,
 } from "@/lib/community-messenger/call-multi-device-authority";
+import { resolveAuthoritativeCallDurationSeconds } from "@/lib/community-messenger/call-authority/call-duration-authority";
+import {
+  isTrustedClientEndedReason,
+  resolveTerminalEndedReason,
+} from "@/lib/community-messenger/call-authority/call-terminal-reason-authority";
 import {
   provenCanonicalRoomDomainEnvelopeFromDbRow,
   type RoomDomainEnvelope,
@@ -1052,16 +1057,10 @@ async function appendCommunityMessengerCallSessionEvent(
 
 function endedReasonForSessionDelta(
   action: "accept" | "reject" | "cancel" | "end" | "leave" | "missed",
-  nextStatus: CommunityMessengerCallSessionStatus
+  nextStatus: CommunityMessengerCallSessionStatus,
+  clientEndedReason?: string | null,
 ): string | null {
-  if (nextStatus === "active" || nextStatus === "ringing") return null;
-  if (nextStatus === "rejected") return "declined";
-  if (nextStatus === "cancelled") return "canceled";
-  if (nextStatus === "missed") return "missed";
-  if (nextStatus === "ended") {
-    return action === "cancel" ? "canceled" : "ended";
-  }
-  return null;
+  return resolveTerminalEndedReason({ action, nextStatus, clientEndedReason });
 }
 
 function auditEventTypeForAction(
@@ -17779,18 +17778,31 @@ async function terminateLiveDirectCallSessionsInRoom(
 async function forceEndLiveDirectCallSessionsInRoom(sb: SupabaseLike, roomId: string): Promise<void> {
   const rid = trimText(roomId);
   if (!rid) return;
-  const now = nowIso();
-  await (sb as any)
+  const { data } = await (sb as any)
     .from("community_messenger_call_sessions")
-    .update({
-      status: "ended",
-      ended_at: now,
-      ended_reason: "redial_replaced",
-      updated_at: now,
-    })
+    .select("id, status, initiator_user_id, recipient_user_id")
     .eq("room_id", rid)
     .eq("session_mode", "direct")
     .in("status", ["ringing", "active"]);
+  const rows = (data ?? []) as Array<{
+    id?: string | null;
+    status?: string | null;
+    initiator_user_id?: string | null;
+    recipient_user_id?: string | null;
+  }>;
+  for (const row of rows) {
+    const sid = trimText(row.id);
+    const initiator = trimText(row.initiator_user_id);
+    if (!sid || !initiator) continue;
+    const status = trimText(row.status);
+    const action: "cancel" | "end" = status === "ringing" ? "cancel" : "end";
+    await updateCommunityMessengerCallSession({
+      userId: initiator,
+      sessionId: sid,
+      action,
+      clientEndedReason: "redial_replaced",
+    }).catch(() => {});
+  }
 }
 
 function waitCommunityMessengerCallSessionStart(ms: number): Promise<void> {
@@ -18406,7 +18418,29 @@ export async function updateCommunityMessengerCallSession(input: {
 }): Promise<{ ok: boolean; session?: CommunityMessengerCallSession; error?: string }> {
   const sessionId = trimText(input.sessionId);
   if (!sessionId) return { ok: false, error: "session_required" };
-  const durationSeconds = Math.max(0, Number(input.durationSeconds ?? 0));
+  const clientDurationSeconds = Math.max(0, Number(input.durationSeconds ?? 0));
+  const resolveTerminalDurationSeconds = (
+    session: CallSessionRow | DevCallSession,
+    mapped: CommunityMessengerCallSession,
+  ): number => {
+    const answeredAt =
+      mapped.answeredAt ||
+      ("answered_at" in session
+        ? trimText(session.answered_at ?? "")
+        : trimText((session as DevCallSession).answeredAt ?? "")) ||
+      null;
+    const endedAt =
+      mapped.endedAt ||
+      ("ended_at" in session
+        ? trimText(session.ended_at ?? "")
+        : trimText((session as DevCallSession).endedAt ?? "")) ||
+      null;
+    return resolveAuthoritativeCallDurationSeconds({
+      clientDurationSeconds,
+      answeredAt,
+      endedAt,
+    });
+  };
   const terminalLogStatus = (mapped: CommunityMessengerCallSession): CommunityMessengerCallStatus =>
     mapped.status === "ended"
       ? "ended"
@@ -18441,7 +18475,7 @@ export async function updateCommunityMessengerCallSession(input: {
       incrementUnread: false,
       /** INSERT 복구 시에만 lastActivityAt bump; UPDATE 경로는 append 내부에서 시각 불변 */
       bumpRoomLastMessageAt: true,
-      durationSeconds,
+      durationSeconds: resolveTerminalDurationSeconds(session, mapped),
     });
   };
   const finalizeLog = async (session: CallSessionRow | DevCallSession, mapped: CommunityMessengerCallSession) => {
@@ -18457,7 +18491,7 @@ export async function updateCommunityMessengerCallSession(input: {
       peerUserId: mapped.sessionMode === "direct" ? mapped.peerUserId : null,
       callKind: "call_kind" in session ? session.call_kind : session.callKind,
       status,
-      durationSeconds,
+      durationSeconds: resolveTerminalDurationSeconds(session, mapped),
       replaceExistingStub: mapped.sessionMode === "direct",
       startedAt: sessionStartedAt || undefined,
     });
@@ -18498,12 +18532,7 @@ export async function updateCommunityMessengerCallSession(input: {
     }
     if (input.action === "end") {
       const fr = trimText(input.clientEndedReason ?? "");
-      const isFailedJoin =
-        fr === "failed_permission" ||
-        fr === "failed_insecure_context" ||
-        fr === "failed_ice" ||
-        fr === "failed_network" ||
-        fr === "failed_signaling";
+      const isFailedJoin = isTrustedClientEndedReason(fr) && fr.startsWith("failed_");
       if (status === "ringing" && messengerUserIdsEqual(initiatorUserId, input.userId) && isFailedJoin) {
         return { nextStatus: "ended", endedAt: nowIso() };
       }
@@ -18773,7 +18802,11 @@ export async function updateCommunityMessengerCallSession(input: {
         };
         if (nextStatus === "active" && !session.answered_at) updatePayload.answered_at = now;
         if (isTerminalCallSessionStatus(nextStatus)) updatePayload.ended_at = now;
-        const erG = endedReasonForSessionDelta(input.action, nextStatus as CommunityMessengerCallSessionStatus);
+        const erG = endedReasonForSessionDelta(
+          input.action,
+          nextStatus as CommunityMessengerCallSessionStatus,
+          input.clientEndedReason,
+        );
         if (erG) updatePayload.ended_reason = erG;
         else if (nextStatus === "active") updatePayload.ended_reason = null;
         const { data: updated } = await (sb as any)
@@ -18932,16 +18965,12 @@ export async function updateCommunityMessengerCallSession(input: {
         };
         if (next.answeredAt) updatePayload.answered_at = next.answeredAt;
         if (next.endedAt) updatePayload.ended_at = next.endedAt;
-        const er = endedReasonForSessionDelta(input.action, next.nextStatus);
+        const er = endedReasonForSessionDelta(input.action, next.nextStatus, input.clientEndedReason);
         const fr = trimText(input.clientEndedReason ?? "");
         const useClientFailure =
           input.action === "end" &&
           next.nextStatus === "ended" &&
-          (fr === "failed_permission" ||
-            fr === "failed_insecure_context" ||
-            fr === "failed_ice" ||
-            fr === "failed_network" ||
-            fr === "failed_signaling");
+          isTrustedClientEndedReason(fr);
         if (useClientFailure) updatePayload.ended_reason = fr;
         else if (er) updatePayload.ended_reason = er;
         else if (next.nextStatus === "active") updatePayload.ended_reason = null;
@@ -18959,10 +18988,14 @@ export async function updateCommunityMessengerCallSession(input: {
           .update(updatePayload)
           .eq("id", sessionId);
         if (
-          (input.action === "accept" || input.action === "reject" || input.action === "missed") &&
-          currentStatus === "ringing"
+          (input.action === "accept" ||
+            input.action === "reject" ||
+            input.action === "missed" ||
+            input.action === "cancel" ||
+            input.action === "end") &&
+          (currentStatus === "ringing" || currentStatus === "active")
         ) {
-          updateBuilder = updateBuilder.eq("status", "ringing");
+          updateBuilder = updateBuilder.eq("status", currentStatus);
         }
         if (input.action === "accept" && (currentStatus === "ringing" || softClaimActiveWithoutDevice)) {
           updateBuilder = updateBuilder.is("answered_device_id", null);
@@ -19207,12 +19240,16 @@ export async function updateCommunityMessengerCallSession(input: {
                   initiatorDisplayName: profileLabel(profileMap.get(initM), initM),
                   recipientDisplayName: profileLabel(profileMap.get(recipM), recipM),
                 });
-              } catch {
-                await notifyMissedCallPipeline(sb as SupabaseLike, {
+              } catch (missedErr) {
+                console.info("[DIBAY_CALL] missed_notify_skipped_after_error", {
                   sessionId: updated.id,
-                  roomId: roomIdM,
-                  initiatorUserId: initM,
                   recipientUserId: recipM,
+                  err:
+                    missedErr instanceof Error
+                      ? missedErr.message
+                      : typeof missedErr === "string"
+                        ? missedErr
+                        : "unknown",
                 });
               }
             })().catch(() => {});
@@ -19327,19 +19364,12 @@ export async function updateCommunityMessengerCallSession(input: {
   session.status = next.nextStatus;
   if (typeof next.answeredAt !== "undefined") session.answeredAt = next.answeredAt;
   if (typeof next.endedAt !== "undefined") session.endedAt = next.endedAt;
-  if (next.nextStatus === "ended") {
-    const fr = trimText(input.clientEndedReason ?? "");
-    if (
-      fr === "failed_permission" ||
-      fr === "failed_insecure_context" ||
-      fr === "failed_ice" ||
-      fr === "failed_network" ||
-      fr === "failed_signaling"
-    ) {
-      session.endedReason = fr;
-    } else {
-      session.endedReason = endedReasonForSessionDelta(input.action, next.nextStatus);
-    }
+  if (next.nextStatus === "ended" || next.nextStatus === "cancelled" || next.nextStatus === "missed") {
+    session.endedReason = endedReasonForSessionDelta(
+      input.action,
+      next.nextStatus,
+      input.clientEndedReason,
+    );
   }
   for (const participant of session.participants) {
     if (!messengerUserIdsEqual(participant.userId, input.userId)) continue;

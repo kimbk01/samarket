@@ -83,7 +83,7 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
         if err.contains("answered_elsewhere") {
           self.log("ios_native_voice_answered_elsewhere", sid, "status=\(status)")
           CallKitProvider.shared.reportCallEnded(uuidString: sid)
-          completion()
+          completion(false)
           return
         }
         self.log("ios_native_voice_accept_failed", sid, "status=\(status) err=\(err)")
@@ -362,11 +362,13 @@ final class NativeVoiceIncomingCallCoordinator: NativeVoiceCallAgoraEngineListen
       DibayActiveCallSessionManager.shared.clearSession()
     }
 
-    CallKitProvider.shared.endCallKitSession(
-      sessionId: sid,
-      reason: .remoteEnded,
-      logDetail: reason
-    )
+    if reportCallKitEnded {
+      CallKitProvider.shared.endCallKitSession(
+        sessionId: sid,
+        reason: .remoteEnded,
+        logDetail: reason
+      )
+    }
     NativeVoiceCallOwner.release(callId: sid, reason: reason)
 
     syncQueue.sync {

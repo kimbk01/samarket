@@ -120,7 +120,7 @@ final class NativeVideoIncomingCallCoordinator: NativeVideoCallAgoraEngineListen
         if err.contains("answered_elsewhere") {
           self.log("ios_native_video_answered_elsewhere", sid, "status=\(status)")
           CallKitProvider.shared.reportCallEnded(uuidString: sid)
-          completion()
+          completion(false)
           return
         }
         self.log("ios_native_video_accept_failed", sid, "status=\(status) err=\(err)")

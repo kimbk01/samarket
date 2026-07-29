@@ -76,7 +76,7 @@ describe("call-log-row-copy", () => {
     expect(cancelled.durationLabel).toBeNull();
   });
 
-  it("computes displayType for legacy payloads missing displayType", () => {
+  it("does not invent duration from ringing startedAt when durationSeconds is 0", () => {
     const normalized = normalizeCommunityMessengerCallLog({
       id: "1",
       sessionId: null,
@@ -99,7 +99,7 @@ describe("call-log-row-copy", () => {
     });
     expect(normalized.displayType).toBe("outgoing");
     const subtitle = buildCallHistorySubtitle(normalized);
-    expect(subtitle.durationLabel).toBeTruthy();
+    expect(subtitle.durationLabel).toBeNull();
   });
 
   it("enriches peerPublicId and peerAvatarUrl from friend profiles", () => {

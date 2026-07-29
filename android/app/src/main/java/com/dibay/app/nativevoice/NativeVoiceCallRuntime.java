@@ -15,6 +15,7 @@ import com.dibay.app.NativeOutgoingRingbackOwner;
 import com.dibay.app.call.DibayActiveCallSessionManager;
 import com.dibay.app.nativecall.NativeCallEngineOwnership;
 import com.dibay.app.nativecall.NativeCallVisibleSurfaceOwner;
+import com.dibay.app.nativevideo.NativeVideoCallRuntime;
 import java.util.concurrent.ConcurrentHashMap;
 
 /** Voice-only call runtime. It must not route through MainActivity or WebView before connected. */
@@ -76,6 +77,21 @@ public final class NativeVoiceCallRuntime {
         "incoming_fcm_received",
         sid,
         "roomId=" + safe(roomId) + " mediaType=" + safe(mediaType));
+    /**
+     * CONTRACT: single active/connecting/ringing call per process.
+     * Second incoming must not present UI (callee_busy) — server peer_busy is primary;
+     * this blocks same-device FCM races.
+     */
+    String busyVoice = findOtherLiveSessionCallId(sid);
+    String busyVideo = NativeVideoCallRuntime.findOtherLiveSessionCallId(sid);
+    if (busyVoice != null || busyVideo != null) {
+      NativeVoiceCallLog.info(
+          "incoming_busy_suppressed",
+          sid,
+          "otherVoice=" + safe(busyVoice) + " otherVideo=" + safe(busyVideo));
+      NativeVoiceCallApi.rejectAsync(app, sid, (ok, status, error) -> {});
+      return false;
+    }
     if (!NativeVoiceCallOwner.claimNative(sid, "incoming_fcm")) return false;
     NativeCallVisibleSurfaceOwner.logCallOwnerClaimed(sid, "voice", "incoming_fcm");
     NativeVoiceCallLog.info("legacy_web_handoff_blocked", sid, "reason=native_voice_runtime");
@@ -123,13 +139,14 @@ public final class NativeVoiceCallRuntime {
     return SESSIONS.get(callId.trim());
   }
 
-  /** Guard-only: another callId with live session state. */
+  /** Guard-only: another callId with live session state (ringing through connected). */
   public static String findOtherLiveSessionCallId(String incomingCallId) {
     if (incomingCallId == null || incomingCallId.trim().isEmpty()) return null;
     String incoming = incomingCallId.trim();
     for (Session session : SESSIONS.values()) {
       if (incoming.equals(session.callId)) continue;
-      if (session.state == State.ACCEPTING
+      if (session.state == State.RINGING
+          || session.state == State.ACCEPTING
           || session.state == State.CONNECTING
           || session.state == State.CONNECTED) {
         return session.callId;

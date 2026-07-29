@@ -1,5 +1,6 @@
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { resolveAuthoritativeCallDurationSeconds } from "@/lib/community-messenger/call-authority/call-duration-authority";
 import { formatCallHistoryDurationSeconds } from "@/lib/community-messenger/call-history/call-duration";
 import type {
   CommunityMessengerCallKind,
@@ -57,16 +58,13 @@ export function shouldShowCallLogDuration(
   return false;
 }
 
-/** DB duration 이 0 일 때 ended−started 로 연결 통화 시간 보강 */
+/** DB duration 이 Authority. 연결 전 종료는 0 — startedAt(링) fallback 금지 */
 export function resolveCallLogDurationSeconds(call: CommunityMessengerCallLog): number {
-  const explicit = Number(call.durationSeconds ?? 0);
-  if (explicit > 0) return explicit;
-  const displayType = resolveNormalizedCallLogDisplayType(call);
-  if (displayType !== "incoming" && displayType !== "outgoing" && call.status !== "ended") return 0;
-  const started = new Date(call.startedAt?.trim() ?? "").getTime();
-  const ended = new Date(call.endedAt?.trim() ?? "").getTime();
-  if (!Number.isFinite(started) || !Number.isFinite(ended) || ended <= started) return 0;
-  return Math.max(1, Math.round((ended - started) / 1000));
+  return resolveAuthoritativeCallDurationSeconds({
+    clientDurationSeconds: call.durationSeconds,
+    answeredAt: null,
+    endedAt: call.endedAt,
+  });
 }
 
 export type CallHistorySubtitleModel = {

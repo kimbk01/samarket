@@ -63,8 +63,18 @@ public class NativeVoiceCallService extends Service {
 
   @Override
   public int onStartCommand(Intent intent, int flags, int startId) {
-    String action = intent != null ? intent.getAction() : "";
-    String callId = intent != null ? intent.getStringExtra(EXTRA_CALL_ID) : "unknown";
+    if (intent == null) {
+      // START_STICKY restart with null intent — do not re-promote ghost FGS.
+      releaseAudioFocus();
+      stopForeground(true);
+      stopSelf();
+      return START_NOT_STICKY;
+    }
+    String action = intent.getAction() != null ? intent.getAction() : "";
+    String callId = intent.getStringExtra(EXTRA_CALL_ID);
+    if (callId == null || callId.trim().isEmpty()) {
+      callId = "unknown";
+    }
     if (ACTION_STOP.equals(action)) {
       releaseAudioFocus();
       stopForeground(true);
@@ -76,7 +86,7 @@ public class NativeVoiceCallService extends Service {
       requestAudioFocus(callId);
     }
     startForeground(NOTIFICATION_ID, buildNotification(callId, action));
-    return START_STICKY;
+    return START_NOT_STICKY;
   }
 
   @Override

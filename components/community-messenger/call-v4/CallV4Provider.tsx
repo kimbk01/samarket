@@ -405,10 +405,26 @@ export function CallV4Provider({ children }: CallV4ProviderProps) {
     });
 
     const offBus = onCommunityMessengerBusEvent((ev) => {
-      if (ev.type !== "cm.call.session_terminal") return;
-      const callId = ev.sessionId?.trim();
-      if (!callId) return;
-      void callV4HandleRemoteTerminal(callId, ev.status ?? "cancelled", readCallV4ExitRouter() ?? router, "bus");
+      if (ev.type === "cm.call.session_terminal") {
+        const callId = ev.sessionId?.trim();
+        if (!callId) return;
+        void callV4HandleRemoteTerminal(callId, ev.status ?? "cancelled", readCallV4ExitRouter() ?? router, "bus");
+        return;
+      }
+      if (ev.type === "cm.call.incoming_consumed") {
+        const callId = ev.sessionId?.trim();
+        if (!callId) return;
+        const reason = (ev.reason ?? "").trim().toLowerCase();
+        const status =
+          reason.includes("accept")
+            ? "ended"
+            : reason.includes("reject") || reason.includes("declin")
+              ? "rejected"
+              : reason.includes("miss")
+                ? "missed"
+                : "cancelled";
+        void callV4HandleRemoteTerminal(callId, status, readCallV4ExitRouter() ?? router, "bus");
+      }
     });
 
     return () => {
