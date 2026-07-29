@@ -26,6 +26,19 @@ describe("messenger split BottomNav left-pane contract", () => {
     expect(css).toContain("min-width: 360px");
   });
 
+  it("messenger-split BottomNav left tracks APP_MAIN_COLUMN mx-auto max-w chain", () => {
+    const css = read("app/app-bottom-nav.css");
+    const layout = read("lib/ui/app-content-layout.ts");
+    expect(layout).toContain("max-w-[52rem]");
+    expect(layout).toContain("lg:max-w-[60rem]");
+    expect(layout).toContain("xl:max-w-[66rem]");
+    // fixed bodyPortal nav must not use bare left:0 under split (list inset FAIL)
+    expect(css).toContain("calc((100vw - min(100vw, 52rem)) / 2)");
+    expect(css).toContain("calc((100vw - min(100vw, 60rem)) / 2)");
+    expect(css).toContain("calc((100vw - min(100vw, 66rem)) / 2)");
+    expect(css).toContain("APP_MAIN_COLUMN_MAX_WIDTH_CLASS");
+  });
+
   it("ConditionalAppShell applies messenger-split BottomNav class on messenger path (SSR-safe)", () => {
     const src = read("components/layout/ConditionalAppShell.tsx");
     expect(src).toContain("APP_BOTTOM_NAV_MESSENGER_SPLIT_LIST_CLASS");
