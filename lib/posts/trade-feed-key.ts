@@ -7,6 +7,7 @@ export type TradeFeedKeyExtras = {
   todayAvailable?: boolean;
   jobRegionSlug?: string;
   jobIndustrySlug?: string;
+  tradeState?: "latest" | "active" | "reserved" | "sold";
 };
 
 /** 서버 bootstrap 과 클라이언트 `PostListByCategory` 가 동일한지 판별 */
@@ -21,7 +22,13 @@ export function computeTradeFeedKey(
   const av = extras?.todayAvailable ? "1" : "";
   const jr = extras?.jobRegionSlug?.trim().toLowerCase() ?? "";
   const jc = extras?.jobIndustrySlug?.trim().toLowerCase() ?? "";
-  return `${ids.join(",")}|${sort}|${jobsListingKind ?? ""}|je:${je}|av:${av}|jr:${jr}|jc:${jc}`;
+  const ts =
+    extras?.tradeState === "active" ||
+    extras?.tradeState === "reserved" ||
+    extras?.tradeState === "sold"
+      ? extras.tradeState
+      : "latest";
+  return `${ids.join(",")}|${sort}|${jobsListingKind ?? ""}|je:${je}|av:${av}|jr:${jr}|jc:${jc}|ts:${ts}`;
 }
 
 /**
@@ -41,5 +48,11 @@ export function computeTradeFeedKeyForMarketParent(
   const av = extras?.todayAvailable ? "1" : "";
   const jr = extras?.jobRegionSlug?.trim().toLowerCase() ?? "";
   const jc = extras?.jobIndustrySlug?.trim().toLowerCase() ?? "";
-  return `mp:${p}|t:${t}|${sort}|${jobsListingKind ?? ""}|je:${je}|av:${av}|jr:${jr}|jc:${jc}`;
+  const ts =
+    extras?.tradeState === "active" ||
+    extras?.tradeState === "reserved" ||
+    extras?.tradeState === "sold"
+      ? extras.tradeState
+      : "latest";
+  return `mp:${p}|t:${t}|${sort}|${jobsListingKind ?? ""}|je:${je}|av:${av}|jr:${jr}|jc:${jc}|ts:${ts}`;
 }

@@ -26,6 +26,8 @@ export type TradeFeedPageOptions = {
   todayAvailable?: boolean;
   jobRegionSlug?: JobListRegionSlug;
   jobIndustrySlug?: JobListIndustrySlug;
+  /** `resolveHomePostsStatusOrByTradeState` 결과 */
+  statusOr?: string;
 };
 
 function buildQueryExtras(opts: TradeFeedPageOptions): TradeFeedQueryExtras | undefined {
@@ -34,13 +36,15 @@ function buildQueryExtras(opts: TradeFeedPageOptions): TradeFeedQueryExtras | un
   const todayAvailable = opts.todayAvailable === true;
   const jr = opts.jobRegionSlug;
   const jc = opts.jobIndustrySlug;
-  if (!restrictTradeTypeJob && !je && !todayAvailable && !jr && !jc) return undefined;
+  const statusOr = opts.statusOr?.trim();
+  if (!restrictTradeTypeJob && !je && !todayAvailable && !jr && !jc && !statusOr) return undefined;
   return {
     restrictTradeTypeJob: restrictTradeTypeJob || undefined,
     jobEmploymentType: je || undefined,
     todayAvailable: todayAvailable || undefined,
     jobRegionSlug: jr || undefined,
     jobIndustrySlug: jc || undefined,
+    statusOr: statusOr || undefined,
   };
 }
 

@@ -87,6 +87,11 @@ export function PostListByCategory({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const tradeStateRaw = searchParams.get("tradeState")?.trim() ?? "";
+  const tradeState: "latest" | "active" | "reserved" | "sold" =
+    tradeStateRaw === "active" || tradeStateRaw === "reserved" || tradeStateRaw === "sold"
+      ? tradeStateRaw
+      : "latest";
   const effectiveIds = useMemo(() => {
     if (tradeFeedServerResolution) return [categoryId];
     if (filterCategoryIds && filterCategoryIds.length > 0) return filterCategoryIds;
@@ -99,8 +104,9 @@ export function PostListByCategory({
       todayAvailable: todayAvailable === true,
       jobRegionSlug: jobRegionSlug?.trim() || undefined,
       jobIndustrySlug: jobIndustrySlug?.trim() || undefined,
+      tradeState,
     }),
-    [jobEmploymentType, todayAvailable, jobRegionSlug, jobIndustrySlug]
+    [jobEmploymentType, todayAvailable, jobRegionSlug, jobIndustrySlug, tradeState]
   );
 
   /**
@@ -115,6 +121,7 @@ export function PostListByCategory({
         todayAvailable: feedExtras.todayAvailable,
         jobRegionSlug: feedExtras.jobRegionSlug,
         jobIndustrySlug: feedExtras.jobIndustrySlug,
+        tradeState: feedExtras.tradeState,
       };
       if (!tradeFeedServerResolution) {
         return { page, sort, jobsListingKind, ...extras };

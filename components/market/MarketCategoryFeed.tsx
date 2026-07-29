@@ -175,10 +175,17 @@ export function MarketCategoryFeed({
   const postSort: TradeFeedClientSort = parseTradeFeedSortQuery(
     searchParams.get("sort") ?? searchParams.get("fs")
   );
+  const tradeStateRaw = searchParams.get("tradeState")?.trim() ?? "";
+  const tradeState: "latest" | "active" | "reserved" | "sold" =
+    tradeStateRaw === "active" || tradeStateRaw === "reserved" || tradeStateRaw === "sold"
+      ? tradeStateRaw
+      : "latest";
 
   const feedKey = useMemo(() => {
-    return computeTradeFeedKeyForMarketParent(category.id, topicRaw, postSort, undefined, {});
-  }, [category.id, topicRaw, postSort]);
+    return computeTradeFeedKeyForMarketParent(category.id, topicRaw, postSort, undefined, {
+      tradeState,
+    });
+  }, [category.id, topicRaw, postSort, tradeState]);
   const initialTradeFeed =
     bootstrapFeed && feedKey && bootstrapFeed.feedKey === feedKey ? bootstrapFeed : null;
 
@@ -318,11 +325,12 @@ export function MarketCategoryFeed({
           sort: postSort,
           tradeMarketParent: category.id,
           topic,
+          tradeState,
         })
       )
         return;
       const now = Date.now();
-      const throttleKey = `${category.id}\u001f${topic}\u001f${postSort}`;
+      const throttleKey = `${category.id}\u001f${topic}\u001f${postSort}\u001f${tradeState}`;
       const last = topicPrefetchAtRef.current[throttleKey] ?? 0;
       if (now - last < 10_000) return;
       topicPrefetchAtRef.current[throttleKey] = now;
@@ -332,9 +340,10 @@ export function MarketCategoryFeed({
         sort: postSort,
         tradeMarketParent: category.id,
         topic,
+        tradeState,
       });
     },
-    [category.id, postSort]
+    [category.id, postSort, tradeState]
   );
 
   /**
@@ -429,8 +438,8 @@ export function MarketCategoryFeed({
 
   const tradeSecondaryTabsSyncKey = useMemo(
     () =>
-      `${category.id}\u0000${topicKeyForChips ?? ""}\u0000${children.map((c) => c.id).join(",")}\u0000${postSort}`,
-    [category.id, topicKeyForChips, children, postSort]
+      `${category.id}\u0000${topicKeyForChips ?? ""}\u0000${children.map((c) => c.id).join(",")}\u0000${postSort}\u0000${tradeState}`,
+    [category.id, topicKeyForChips, children, postSort, tradeState]
   );
 
   const hasSecondaryBar = children.length > 0;

@@ -19,6 +19,7 @@ export type TradeFeedOpenRequestOptions = {
   todayAvailable?: boolean;
   jobRegionSlug?: JobListRegionSlug;
   jobIndustrySlug?: JobListIndustrySlug;
+  statusOr?: string;
 };
 
 export type TradeFeedOpenPayload = {
@@ -48,6 +49,7 @@ export async function resolveTradeFeedOpenPayload(
     todayAvailable: opts.todayAvailable,
     jobRegionSlug: opts.jobRegionSlug,
     jobIndustrySlug: opts.jobIndustrySlug,
+    statusOr: opts.statusOr,
   });
   if (
     result.posts.length === 0 &&
@@ -63,6 +65,7 @@ export async function resolveTradeFeedOpenPayload(
       todayAvailable: opts.todayAvailable,
       jobRegionSlug: opts.jobRegionSlug,
       jobIndustrySlug: opts.jobIndustrySlug,
+      statusOr: opts.statusOr,
     });
     if (alt.posts.length > 0) {
       result = alt;

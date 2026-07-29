@@ -110,6 +110,13 @@ export async function getPostsByTradeCategoryIds(
     if (jr) params.set("jr", jr);
     const jc = options.jobIndustrySlug?.trim().toLowerCase();
     if (jc) params.set("jc", jc);
+    if (
+      options.tradeState === "active" ||
+      options.tradeState === "reserved" ||
+      options.tradeState === "sold"
+    ) {
+      params.set("tradeState", options.tradeState);
+    }
 
     try {
       const res = await fetch(`/api/trade/feed?${params.toString()}`, {

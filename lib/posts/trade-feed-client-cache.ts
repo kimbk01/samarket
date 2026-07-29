@@ -19,6 +19,8 @@ export type TradeFeedClientOptions = {
   todayAvailable?: boolean;
   jobRegionSlug?: string;
   jobIndustrySlug?: string;
+  /** 거래 상태 필터 — 홈 `tradeState` 와 동일 */
+  tradeState?: "latest" | "active" | "reserved" | "sold";
 };
 
 export type TradeFeedClientResult = {
@@ -63,6 +65,12 @@ export function buildTradeFeedClientCacheKey(
   const av = options.todayAvailable === true ? "1" : "";
   const jr = options.jobRegionSlug?.trim().toLowerCase() ?? "";
   const jc = options.jobIndustrySlug?.trim().toLowerCase() ?? "";
+  const ts =
+    options.tradeState === "active" ||
+    options.tradeState === "reserved" ||
+    options.tradeState === "sold"
+      ? options.tradeState
+      : "latest";
   const parent = options.tradeMarketParent?.trim();
   if (parent) {
     const topic = (options.topic ?? "").trim().normalize("NFC");
@@ -70,14 +78,14 @@ export function buildTradeFeedClientCacheKey(
       options.jobsListingKind === "hire" || options.jobsListingKind === "work"
         ? options.jobsListingKind
         : "";
-    return `mp:${parent}|t:${topic}|${sort}|jk:${jk}|je:${je}|av:${av}|jr:${jr}|jc:${jc}|p:${page}|u:${u}:v4`;
+    return `mp:${parent}|t:${topic}|${sort}|jk:${jk}|je:${je}|av:${av}|jr:${jr}|jc:${jc}|ts:${ts}|p:${page}|u:${u}:v4`;
   }
   const ids = [...new Set(categoryIds.map((x) => x.trim()).filter(Boolean))].sort();
   const jk =
     options.jobsListingKind === "hire" || options.jobsListingKind === "work"
       ? options.jobsListingKind
       : "";
-  return `ids:${ids.join(",")}|${sort}|jk:${jk}|je:${je}|av:${av}|jr:${jr}|jc:${jc}|p:${page}|u:${u}:v4`;
+  return `ids:${ids.join(",")}|${sort}|jk:${jk}|je:${je}|av:${av}|jr:${jr}|jc:${jc}|ts:${ts}|p:${page}|u:${u}:v4`;
 }
 
 /** 글 등록·수정 직후 등 — `/api/trade/feed` 클라이언트 캐시 전부 비움 */

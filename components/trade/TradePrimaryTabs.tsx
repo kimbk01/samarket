@@ -103,10 +103,13 @@ function TradePrimaryTabsInner({
   const allTradeHref = tradeState === "latest" ? "/market" : `/market?tradeState=${encodeURIComponent(tradeState)}`;
   const setTradeState = useCallback(
     (next: "latest" | "active" | "reserved" | "sold") => {
-      /** 「전체」보기 — 카테고리·topic 버리고 `/market` 홈 피드 + tradeState 만 */
-      const nextHref =
-        next === "latest" ? "/market" : `/market?tradeState=${encodeURIComponent(next)}`;
-      if (pathname === "/market" && next === tradeState) {
+      const sp = new URLSearchParams(searchParams.toString());
+      if (next === "latest") sp.delete("tradeState");
+      else sp.set("tradeState", next);
+      const qs = sp.toString();
+      /** 현재 1차 카테고리 경로·topic 등 유지 — 해당 카테고리 전체 목록에 tradeState 적용 */
+      const nextHref = qs ? `${pathname}?${qs}` : pathname;
+      if (next === tradeState) {
         setAllSortOpen(false);
         return;
       }
@@ -115,7 +118,7 @@ function TradePrimaryTabsInner({
       void router.replace(nextHref, { scroll: false });
       setAllSortOpen(false);
     },
-    [beginMenuNavigation, router, pathname, tradeState, guardBeforeNavigate]
+    [beginMenuNavigation, router, searchParams, pathname, tradeState, guardBeforeNavigate]
   );
   /** navigation 중에는 pathname 기반 `isActive`와 intent 기반 하이라이트가 동시에 켜져 옆 탭까지 선택처럼 보임 → trade-primary pending 일 때는 intent만 신뢰 */
   const displayTabs = useMemo(

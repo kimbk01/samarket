@@ -14,11 +14,21 @@ import { resolveTradeMarketParentParam } from "@/lib/posts/resolve-trade-market-
 import { resolveTradeFeedOpenPayload } from "@/lib/posts/resolve-trade-feed-open-payload";
 import { parseTradeFeedSortQuery } from "@/lib/posts/parse-trade-feed-sort-query";
 import type { TradeFeedPageSort } from "@/lib/posts/fetch-trade-feed-page";
+import {
+  resolveHomePostsStatusOrByTradeState,
+  type HomePostsTradeStateFilter,
+} from "@/lib/posts/home-posts-query-server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { jsonErrorWithRequest, jsonOkWithRequest } from "@/lib/http/api-route";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+function parseTradeState(raw: string | null): HomePostsTradeStateFilter {
+  const t = (raw ?? "").trim();
+  if (t === "active" || t === "reserved" || t === "sold") return t;
+  return "latest";
+}
 
 function parseCategoryIds(raw: string | null): string[] {
   if (!raw?.trim()) return [];
@@ -110,6 +120,9 @@ export async function GET(req: NextRequest) {
     ? parseJobListIndustryParam(searchParams.get("jc"))
     : undefined;
 
+  const tradeState = parseTradeState(searchParams.get("tradeState"));
+  const statusOr = resolveHomePostsStatusOrByTradeState(tradeState);
+
   const viewerId = await getOptionalAuthenticatedUserId();
   const open = await resolveTradeFeedOpenPayload(
     clients,
@@ -123,6 +136,7 @@ export async function GET(req: NextRequest) {
       todayAvailable,
       jobRegionSlug,
       jobIndustrySlug,
+      statusOr,
     },
     viewerId
   );

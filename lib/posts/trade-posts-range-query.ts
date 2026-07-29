@@ -124,10 +124,15 @@ export type TradeFeedQueryExtras = {
   jobRegionSlug?: JobListRegionSlug;
   /** 일자리 마켓 `jc=` */
   jobIndustrySlug?: JobListIndustrySlug;
+  /**
+   * PostgREST status OR 절 내부 — `resolveHomePostsStatusOrByTradeState` 결과.
+   * 미지정 시 기본(hidden/sold 제외).
+   */
+  statusOr?: string;
 };
 
-function buildTradeFeedAndFilter(ids: string[]): string {
-  return buildTradePostsStatusAndCategoryAndFilter(ids);
+function buildTradeFeedAndFilter(ids: string[], statusOr?: string): string {
+  return buildTradePostsStatusAndCategoryAndFilter(ids, statusOr);
 }
 
 /** Supabase 클라이언트(브라우저·서버) 공통 — 내부 구현 타입 회피용 any */
@@ -145,7 +150,7 @@ export async function fetchPostsRangeForTradeCategories(
       select: (c: string) => unknown;
     };
   };
-  const andGroup = buildTradeFeedAndFilter(ids);
+  const andGroup = buildTradeFeedAndFilter(ids, extras?.statusOr);
   if (!andGroup) return [];
 
   const applyJobFilters = (q: any) => {
@@ -228,7 +233,7 @@ export async function fetchPostsRangeForTradeCategories(
     }
     /** 스키마에 category_id 가 없는 경우 trade_category_id 만 사용 */
     if (error && typeof error?.message === "string" && /category_id/i.test(error.message)) {
-      const fallbackAnd = buildTradePostsStatusAndTradeCategoryOnlyAndFilter(ids);
+      const fallbackAnd = buildTradePostsStatusAndTradeCategoryOnlyAndFilter(ids, extras?.statusOr);
       if (!fallbackAnd) return [];
       let q = (sb.from(POSTS_TABLE_READ) as any).select(selectCols);
       applyPostgrestAndGroup(q, fallbackAnd);

@@ -5,7 +5,7 @@
 import { formatPrice, formatTimeAgo, parseMetaAmount } from "@/lib/utils/format";
 import { getLocationLabel } from "@/lib/products/form-options";
 import { resolveTradePostListingLocationLine } from "@/lib/posts/post-listing-location-label";
-import { postPreviewSkinLabel } from "@/lib/posts/post-list-preview-i18n";
+import { postPreviewT } from "@/lib/posts/post-list-preview-i18n";
 import {
   EXPERIENCE_LEVEL_OPTIONS,
   HIRE_WEEKDAY_OPTIONS,
@@ -21,7 +21,6 @@ import {
 import type { MessageKey } from "@/lib/i18n/messages";
 import { translate } from "@/lib/i18n/messages";
 import { DEFAULT_APP_LANGUAGE, normalizeAppLanguage } from "@/lib/i18n/config";
-import { postPreviewT } from "@/lib/posts/post-list-preview-i18n";
 import { CURRENCY_SYMBOLS } from "@/lib/exchange/form-options";
 import { getExchangeFeedLines } from "@/lib/exchange/exchange-feed-lines";
 import {
@@ -52,6 +51,8 @@ const POST_LIST_ROW1_CHIP_BASE = APP_FEED_LIST_ROW1_PILL_LIST;
 export const POST_LIST_CHIP_GRAY = `${POST_LIST_ROW1_CHIP_BASE} bg-gray-100 text-gray-700`;
 export const POST_LIST_CHIP_AMBER = `${POST_LIST_ROW1_CHIP_BASE} bg-amber-100 text-amber-800`;
 export const POST_LIST_CHIP_BLUE = `${POST_LIST_ROW1_CHIP_BASE} bg-blue-50 text-blue-700`;
+/** 1단 유형 칩 — 중고·중고차·부동산·환전·일자리 공통 모양 */
+export const POST_LIST_TYPE_CHIP = POST_LIST_CHIP_BLUE;
 
 /** 피드 카드 본문 타이포 — 커뮤니티 `ListTitleOnly`와 정렬(15px semibold #050505) */
 export const POST_LIST_TITLE_CLASS =
@@ -371,8 +372,6 @@ export function buildPostListPreviewModel(
   const priceOk = price != null && !Number.isNaN(price) ? price : null;
   const isFree = post.is_free_share === true;
 
-  const skinLabel = skinKey ? postPreviewSkinLabel(locale, skinKey) : null;
-
   const isRealEstate = skinKey === "real-estate" || (!skinKey && hasRealEstateMeta(meta));
   const isUsedCar = skinKey === "used-car" || (!skinKey && hasUsedCarMeta(meta));
   const isJobs = skinKey === "jobs" || skinKey === "job" || (!skinKey && hasJobsMeta(meta));
@@ -392,7 +391,7 @@ export function buildPostListPreviewModel(
 
     const listingChips: ListingChip[] = [];
     if (dealType) {
-      listingChips.push({ text: dealType, className: POST_LIST_CHIP_GRAY });
+      listingChips.push({ text: dealType, className: POST_LIST_TYPE_CHIP });
     }
 
     const blocks: PostListBodyBlock[] = [
@@ -449,7 +448,7 @@ export function buildPostListPreviewModel(
           ? postPreviewT(locale, "post_preview_for_sale")
           : null;
     const listingChips: ListingChip[] = [];
-    if (tradeLabel) listingChips.push({ text: tradeLabel, className: POST_LIST_CHIP_BLUE });
+    if (tradeLabel) listingChips.push({ text: tradeLabel, className: POST_LIST_TYPE_CHIP });
 
     const blocks: PostListBodyBlock[] = [];
     if (carSpecLine) {
@@ -514,7 +513,7 @@ export function buildPostListPreviewModel(
 
     const listingChips: ListingChip[] = [];
     if (listingKindLabel) {
-      listingChips.push({ text: listingKindLabel, className: POST_LIST_CHIP_AMBER });
+      listingChips.push({ text: listingKindLabel, className: POST_LIST_TYPE_CHIP });
     }
 
     const titleLine = str(post.title) || postPreviewT(locale, "post_preview_product_default");
@@ -620,18 +619,14 @@ export function buildPostListPreviewModel(
       ? postPreviewT(locale, "post_preview_rate_line", { rate: rateLine })
       : postPreviewT(locale, "post_preview_rate_unset");
 
-    /** 1단 — 타 스킨 칩·상태 배지와 동일 pill 규격(`APP_FEED_LIST_ROW1_PILL_LIST`) */
-    const titleStr = str(post.title);
-    const isBuy = exchangeListingIsBuy(meta, titleStr);
-    const exchangeHeadline =
-      titleStr ||
-      (isBuy
-        ? postPreviewT(locale, "post_preview_buy_peso")
-        : postPreviewT(locale, "post_preview_sell_peso"));
+    /** 1단 유형 칩 — 제목이 아니라 환전 방향(페소 팝니다/삽니다) */
+    const isBuy = exchangeListingIsBuy(meta, str(post.title));
     const listingChips: ListingChip[] = [
       {
-        text: exchangeHeadline,
-        className: POST_LIST_CHIP_GRAY,
+        text: isBuy
+          ? postPreviewT(locale, "post_preview_buy_peso")
+          : postPreviewT(locale, "post_preview_sell_peso"),
+        className: POST_LIST_TYPE_CHIP,
       },
     ];
 
@@ -660,24 +655,18 @@ export function buildPostListPreviewModel(
   }
 
   const listingChips: ListingChip[] = [];
-  const generalSkinLabel = postPreviewSkinLabel(locale, "general");
-  if (skinLabel && skinLabel !== generalSkinLabel) {
-    listingChips.push({ text: skinLabel, className: POST_LIST_CHIP_GRAY });
-  }
-
   /**
-   * 일반 중고 유형 칩 — `In-person deal`(direct_deal) 대신 판매/구매 유형.
-   * 중고차는 `car_trade` 분기에서 동일 의미의 팝니다/삽니다 칩을 이미 표시.
-   * 일반 글쓰기에는 buy/sell meta 가 없으므로 제목의 삽니다·팝니다만 구분, 기본은 팝니다.
+   * 일반 중고 유형 칩 — `In-person deal` 대신 팝니다/삽니다.
+   * 글쓰기 authority: 일반 폼은 판매 글. 주제/카테고리명에 삽니다가 있으면 구매.
    */
   if (isTradePost) {
-    const title = str(post.title);
-    const isBuyListing = title.includes("삽니다") && !title.includes("팝니다");
+    const categoryName = str(post.category_name);
+    const isBuyListing = /삽니다/.test(categoryName);
     listingChips.push({
       text: isBuyListing
         ? postPreviewT(locale, "post_preview_wanted")
         : postPreviewT(locale, "post_preview_for_sale"),
-      className: POST_LIST_CHIP_BLUE,
+      className: POST_LIST_TYPE_CHIP,
     });
   }
 

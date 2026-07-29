@@ -49,6 +49,11 @@ function peekOrWarmMarketCategoryFeedFromHref(href: string): void {
 
   const topicRaw = (url.searchParams.get("topic") ?? "").trim().normalize("NFC");
   const sort = parseTradeFeedSortQuery(url.searchParams.get("sort") ?? url.searchParams.get("fs"));
+  const tradeStateRaw = (url.searchParams.get("tradeState") ?? "").trim();
+  const tradeState: "latest" | "active" | "reserved" | "sold" =
+    tradeStateRaw === "active" || tradeStateRaw === "reserved" || tradeStateRaw === "sold"
+      ? tradeStateRaw
+      : "latest";
 
   const useUnfilteredMarketParentFeed = !topicRaw;
 
@@ -56,6 +61,7 @@ function peekOrWarmMarketCategoryFeedFromHref(href: string): void {
     page: 1,
     sort,
     tradeMarketParent: parent,
+    tradeState,
   };
 
   const options: GetPostsByCategoryOptions = useUnfilteredMarketParentFeed
