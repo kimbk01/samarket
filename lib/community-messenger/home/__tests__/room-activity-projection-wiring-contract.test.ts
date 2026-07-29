@@ -79,10 +79,13 @@ describe("room activity projection wiring contract", () => {
     expect(src).toMatch(/dispatchDomainRoomBump[\s\S]*mirrorListCache:\s*false/);
   });
 
-  it("dial seed tip uses projection-first call stub helper", () => {
+  it("dial seed does not publish mid-call stub tip (Native ringing authority)", () => {
     const src = read("lib/community-messenger/call-session-navigation-seed.ts");
-    expect(src).toContain("postCommunityMessengerCallStubPreviewBusEvent");
+    // CONTRACT: terminal-only messenger history — no outgoing_started / dialing tip on start.
+    expect(src).not.toContain("postCommunityMessengerCallStubPreviewBusEvent");
+    expect(src).not.toContain("outgoing_started");
     expect(src).not.toMatch(/type:\s*"cm\.room\.message_sent"[\s\S]{0,200}?lastMessageType:\s*"call_stub"/);
+    expect(src).toContain("ringing mid-call tip/stub is Native UI only");
   });
 
   it("bootstrap cache tip bus kinds route through projection", () => {

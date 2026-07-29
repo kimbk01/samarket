@@ -8,7 +8,7 @@
  * - dual-write tip revival
  * - Home UPDATE/TIP batches that author tip via applyHomeListPatch kinds directly
  * - Domain soft bump mirroring hub tip
- * - Dial seed publishing tip via raw message_sent listPreview
+ * - Dial seed must not publish mid-call tip (Native ringing authority; terminal-only history)
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -76,11 +76,18 @@ if (exists("lib/chat-domain/list/dual-write-domain-list-from-rooms.ts")) {
 {
   const seed = "lib/community-messenger/call-session-navigation-seed.ts";
   const text = read(seed);
-  if (!text.includes("postCommunityMessengerCallStubPreviewBusEvent")) {
-    fail(`${seed}: dial tip must use projection-first call stub helper`);
+  // Native ringing authority: no mid-call dial tip / stub preview from navigation seed.
+  if (text.includes("postCommunityMessengerCallStubPreviewBusEvent")) {
+    fail(`${seed}: must not publish mid-call dial tip via call stub helper`);
+  }
+  if (text.includes("outgoing_started")) {
+    fail(`${seed}: must not publish outgoing_started tip on dial seed`);
   }
   if (/type:\s*"cm\.room\.message_sent"[\s\S]{0,200}?lastMessageType:\s*"call_stub"/.test(text)) {
     fail(`${seed}: must not publish dial tip via raw message_sent listPreview`);
+  }
+  if (!text.includes("ringing mid-call tip/stub is Native UI only")) {
+    fail(`${seed}: must document Native-only mid-call tip contract`);
   }
 }
 
