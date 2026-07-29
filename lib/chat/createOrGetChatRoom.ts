@@ -7,6 +7,7 @@ import {
 } from "@/lib/auth/member-access";
 import { warmChatRoomEntryById } from "@/lib/chats/prewarm-chat-room-route";
 import { scheduleTradeHubRoomRoutePrefetch } from "@/lib/chats/trade-chat-room-route-prefetch";
+import { pruneByExpiresAtAndMaxSize } from "@/lib/http/memory-map-prune";
 import { safeTranslate } from "@/lib/i18n/safe-translate";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import {
@@ -18,6 +19,7 @@ import { noteTradeChatEntryJourneyMilestone } from "@/lib/trade/trade-chat-entry
 import type { ChatRoomSource } from "@/lib/types/chat";
 
 const CHAT_ROOM_CACHE_TTL_MS = 60_000;
+const ITEM_ROOM_CACHE_MAX_KEYS = 80;
 const itemRoomCache = new Map<
   string,
   { roomId: string; messengerRoomId?: string; source: ChatRoomSource; expiresAt: number }
@@ -99,11 +101,7 @@ export async function createOrGetChatRoom(
   }
 
   const key = inflightKey(user.id, productId);
-  for (const [k, entry] of itemRoomCache) {
-    if (entry.expiresAt <= Date.now()) {
-      itemRoomCache.delete(k);
-    }
-  }
+  pruneByExpiresAtAndMaxSize(itemRoomCache, Date.now(), ITEM_ROOM_CACHE_MAX_KEYS);
   const cached = itemRoomCache.get(key);
     if (cached && cached.expiresAt > Date.now()) {
     const guardT0 = performance.now();
@@ -177,6 +175,7 @@ async function executeTradeChatStart(
         source,
         expiresAt: Date.now() + CHAT_ROOM_CACHE_TTL_MS,
       });
+      pruneByExpiresAtAndMaxSize(itemRoomCache, Date.now(), ITEM_ROOM_CACHE_MAX_KEYS);
       warmChatRoomEntryById(chatRoomId, source);
       scheduleTradeHubRoomRoutePrefetch({
         roomId: chatRoomId,

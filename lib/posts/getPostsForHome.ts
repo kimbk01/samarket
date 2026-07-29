@@ -111,7 +111,14 @@ function readHomePostsLocalCache(cacheKey: string): GetPostsForHomeResult | null
       data?: GetPostsForHomeResult;
     };
     if (!parsed || typeof parsed.expiresAt !== "number" || !parsed.data) return null;
-    if (parsed.expiresAt < Date.now()) return null;
+    if (parsed.expiresAt < Date.now()) {
+      try {
+        window.localStorage.removeItem(makeLocalCacheKey(cacheKey));
+      } catch {
+        /* ignore */
+      }
+      return null;
+    }
     const data = parsed.data;
     if (!Array.isArray(data.posts) || typeof data.favoriteMap !== "object") return null;
     return {

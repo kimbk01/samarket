@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { pruneByExpiresAtAndMaxSize } from "@/lib/http/memory-map-prune";
 import { postNotificationThreadRead } from "@/lib/notifications/client/notification-event-read-client";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import type { PostWithMeta } from "@/lib/posts/schema";
@@ -18,6 +19,7 @@ import type { TradeItemDetailPageData } from "@/services/trade/trade-detail.serv
 /** 가시성·포커스·복원이 겹쳐도 연속 `GET /api/posts/:id` 폭주 방지 — 홈 사일런트 갱신과 유사한 레이트 */
 const MIN_LISTING_FIELDS_REFRESH_GAP_MS = 2_500;
 const TRADE_DETAIL_LISTING_FIELDS_CACHE_TTL_MS = 15_000;
+const TRADE_DETAIL_LISTING_FIELDS_CACHE_MAX_KEYS = 80;
 
 type ApiPostRow = {
   status?: string;
@@ -102,6 +104,7 @@ export function PostDetailPageClient({ initialBundle, initialRouteTotalMs, child
   );
   const hasRelatedSlot = Boolean(children);
   const lastListingFieldsRefreshAtRef = useRef(0);
+  const detailMountedRef = useRef(true);
   const tradeStatusNotificationReadOnceRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -126,8 +129,10 @@ export function PostDetailPageClient({ initialBundle, initialRouteTotalMs, child
     if (!id) return;
     const now = Date.now();
     if (now - lastListingFieldsRefreshAtRef.current < MIN_LISTING_FIELDS_REFRESH_GAP_MS) return;
+    pruneByExpiresAtAndMaxSize(tradeDetailListingFieldsCache, now, TRADE_DETAIL_LISTING_FIELDS_CACHE_MAX_KEYS);
     const cached = tradeDetailListingFieldsCache.get(id);
     if (cached && cached.expiresAt > now) {
+      if (!detailMountedRef.current) return;
       setPost((prev) => applyListingFieldsRow(prev, cached, id));
       lastListingFieldsRefreshAtRef.current = now;
       return;
@@ -137,8 +142,10 @@ export function PostDetailPageClient({ initialBundle, initialRouteTotalMs, child
         lastListingFieldsRefreshAtRef.current = Date.now();
         return fetch(`/api/posts/${id}`, { cache: "no-store" });
       });
+      if (!detailMountedRef.current) return;
       if (!res.ok) return;
       const row = (await res.clone().json()) as ApiPostRow;
+      if (!detailMountedRef.current) return;
       tradeDetailListingFieldsCache.set(id, {
         status: row.status,
         seller_listing_state: row.seller_listing_state,
@@ -147,10 +154,22 @@ export function PostDetailPageClient({ initialBundle, initialRouteTotalMs, child
         updated_at: row.updated_at,
         expiresAt: Date.now() + TRADE_DETAIL_LISTING_FIELDS_CACHE_TTL_MS,
       });
+      pruneByExpiresAtAndMaxSize(
+        tradeDetailListingFieldsCache,
+        Date.now(),
+        TRADE_DETAIL_LISTING_FIELDS_CACHE_MAX_KEYS
+      );
       setPost((prev) => applyListingFieldsRow(prev, row, id));
     } catch {
       /* ignore */
     }
+  }, [id]);
+
+  useEffect(() => {
+    detailMountedRef.current = true;
+    return () => {
+      detailMountedRef.current = false;
+    };
   }, [id]);
 
   useEffect(() => {

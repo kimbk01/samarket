@@ -104,6 +104,16 @@ describe("home posts session expiresAt (Fix 3)", () => {
     expect(sessionStore.getItem(sessionKey())).toBeNull();
   });
 
+  it("expired local → miss and key removed", () => {
+    localStore.setItem(
+      localKey(),
+      JSON.stringify({ expiresAt: Date.now() - 1, data: sample })
+    );
+    const hit = peekCachedPostsForHome({ sort: "latest", type: null, tradeState: "latest" });
+    expect(hit).toBeNull();
+    expect(localStore.getItem(localKey())).toBeNull();
+  });
+
   it("expired session falls through to valid local", () => {
     sessionStore.setItem(
       sessionKey(),

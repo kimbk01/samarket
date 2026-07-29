@@ -1658,6 +1658,12 @@ export function PostDetailView({
     };
   }, [post.id]);
 
+  /** 상품 변경 시 CTA once-guard 해제 — 페이지 key remount 외 soft 전환 대비 */
+  useEffect(() => {
+    chatNavStartedRef.current = false;
+    setChatCtaBusy(false);
+  }, [post.id]);
+
   /** 탭 직전에 resolve 선행 — 호버 180ms 없이도 첫 탭 체감 지연 완화 */
   const onTradeChatCtaPointerDown = useCallback(() => {
     cancelTradeChatPrepare();

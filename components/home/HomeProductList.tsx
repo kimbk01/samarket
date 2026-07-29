@@ -156,6 +156,7 @@ export function HomeProductList({
   const lastLoadedAtRef = useRef(0);
   const latestRequestIdRef = useRef(0);
   const silentRequestIdRef = useRef(0);
+  const listMountedRef = useRef(true);
   /** 글 등록 직후 `router.refresh()` 등으로 RSC 시드가 늦게 와도, 클라 `load()` 결과를 덮어쓰지 않게 함 */
   const allowRscHomeListSeedRef = useRef(true);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -181,7 +182,7 @@ export function HomeProductList({
     }
     try {
       const res = await getPostsForHome(listOpts);
-      if (requestId !== latestRequestIdRef.current) return;
+      if (!listMountedRef.current || requestId !== latestRequestIdRef.current) return;
       setPosts((prev) => patchHomeTradePostsRows(prev, res.posts));
       setFavoriteMap(res.favoriteMap);
       lastLoadedAtRef.current = Date.now();
@@ -194,9 +195,11 @@ export function HomeProductList({
         tryTrackFirstMenuListRender();
         const paintT0 = tradeFetchT0;
         queueMicrotask(() => {
+          if (!listMountedRef.current) return;
           if (typeof requestAnimationFrame !== "function") return;
           requestAnimationFrame(() => {
             requestAnimationFrame(() => {
+              if (!listMountedRef.current) return;
               const totalMs = Math.round(performance.now() - paintT0);
               recordAppWidePhaseLastMs("trade_list_to_paint_ms", totalMs);
               recordTradeListTotalMs(totalMs);
@@ -206,7 +209,7 @@ export function HomeProductList({
         });
       }
     } catch {
-      if (requestId !== latestRequestIdRef.current) return;
+      if (!listMountedRef.current || requestId !== latestRequestIdRef.current) return;
       /* 실패 시 빈 목록으로 오인하지 않음 — 직전 성공 데이터 유지 */
       setListState("error");
     } finally {
@@ -300,12 +303,12 @@ export function HomeProductList({
     const requestId = ++silentRequestIdRef.current;
     try {
       const res = await getPostsForHome({ sort: "latest", type: null, tradeState });
-      if (requestId !== silentRequestIdRef.current) return;
+      if (!listMountedRef.current || requestId !== silentRequestIdRef.current) return;
       setPosts((prev) => patchHomeTradePostsRows(prev, res.posts));
       setFavoriteMap(res.favoriteMap);
       lastLoadedAtRef.current = Date.now();
     } catch {
-      if (requestId !== silentRequestIdRef.current) return;
+      if (!listMountedRef.current || requestId !== silentRequestIdRef.current) return;
       /* 기존 목록 유지 */
     }
   }, [tradeState]);
@@ -317,6 +320,15 @@ export function HomeProductList({
     enableWindowFocusRefetch: true,
     windowFocusDebounceMs: 400,
   });
+
+  useEffect(() => {
+    listMountedRef.current = true;
+    return () => {
+      listMountedRef.current = false;
+      latestRequestIdRef.current += 1;
+      silentRequestIdRef.current += 1;
+    };
+  }, []);
 
   /** 다른 화면(상세·시트 등)에서 찜 변경 시 하트 표시 동기화 */
   useEffect(() => {
