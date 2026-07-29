@@ -69,8 +69,20 @@
 
 /**
  * CONTRACT — 탭은 컨테이너 전폭에 `flex:1` 비율 분배.
- * 모든 viewport 에서 BottomNav shell·container 는 viewport 전폭 (max-width 금지).
+ * 기본: BottomNav shell·container 는 viewport 전폭 (max-width 금지).
+ * 예외: ≥768 메신저 split — `.app-bottom-nav-shell--messenger-split-list` 만 좌측 pane 폭
+ * (`--cm-split-list-pane-width` = `MESSENGER_SPLIT_LIST_PANE_WIDTH_CSS`). 우측 채팅 composer 를 가리지 않음.
  */
+@media (min-width: 768px) {
+  .app-bottom-nav-shell.app-bottom-nav-shell--messenger-split-list {
+    --cm-split-list-pane-width: clamp(360px, 35vw, 470px);
+    right: auto;
+    width: var(--cm-split-list-pane-width);
+    max-width: 470px;
+    justify-content: stretch;
+  }
+}
+
 .app-bottom-nav-container {
   position: relative;
   z-index: 2;

@@ -5,6 +5,8 @@ globs:
   - "**/ConditionalAppShell.tsx"
   - "**/useMessengerUIStore.ts"
   - "**/CommunityMessengerRoomPhase2.tsx"
+  - "**/bottom-nav-route-policy.ts"
+  - "**/app-bottom-nav.css"
 alwaysApply: false
 ---
 
@@ -12,10 +14,10 @@ alwaysApply: false
 
 ## 불변조건
 
-1. **메인 하단 탭(`BottomNav`) 노출은 `resolveConditionalAppShellFlags` 한 곳으로만 결정한다.**  
-   `suppressBottomNavForChatDetail` ↔ `showBottomNav` 경로 규칙이다.
-   - **`isChatRoomDetail`** (예: `/community-messenger/rooms/[roomId]`, 레거시 `/chats/[id]` 등): 메인 탭 **비표시**.
-   - **메신저 허브 `/community-messenger`** (목록·친구·거래채팅 필터 등): 메인 탭 **표시** — 하단 내비는 전역 통합 **`BottomNav`** 만 사용한다.
+1. **메인 하단 탭(`BottomNav`) 노출은 `resolveConditionalAppShellFlags` + `shouldRenderMainBottomNav` / `isBottomNavEligibleRoute` 경로 규칙으로만 결정한다.**
+   - **모바일 방 상세** (`/community-messenger/rooms/[roomId]` 등, split viewport 아님): 메인 탭 **비표시**.
+   - **메신저 허브** `/community-messenger` · trade/delivery 목록: 메인 탭 **표시**.
+   - **≥768 메신저 split + room path**: 탭 **유지**하되 셸 클래스로 **좌측 목록 pane 폭만** (`app-bottom-nav-shell--messenger-split-list` = `MESSENGER_SPLIT_LIST_PANE_WIDTH_CSS`). 우측 채팅·composer 위에 전폭 탭을 올리지 않는다.
 
 2. **키보드·입력 포커스는 메인 탭 노출과 분리한다.**  
    방 내부에서는 `composerFocused`(Zustand)·iOS `useCmRoomKbOffset`(`--kb-offset`)·flex shell safe-area만 다루고, **`BottomNav` 마운트 여부를 Zustand·Phase 이펙트로 덮어쓰지 않는다.**  
@@ -24,17 +26,21 @@ alwaysApply: false
 
    **예외(통화)**: 허브 pathname 에서 전역 수신 벨·풀스크린 통화는 `lib/layout/messenger-call-main-bottom-nav-suppress.ts` → `ConditionalAppShell` `showBottomNavEffective` 한 경로로만 억제한다. `BottomNav` 내부 별도 숨김 스위치 금지.
 
-3. **메신저 방 상세 분류**는 `isCommunityMessengerRoomPathname` 등과 함께 확인한다. 허브는 전역 `BottomNav`를 쓰고, 방·통화 상세는 메인 `BottomNav`를 끈다.
+3. **메신저 방 상세 분류**는 `isCommunityMessengerRoomPathname` 등과 함께 확인한다.
 
 ## 수정 시 체크
 
 - `suppressBottomNavForChatDetail` 에서 **특정 채팅 상세만 예외로 탭 유지**하는 분기를 넣으면, 런타임 휴리스틱과 다시 충돌한다. 예외가 필요하면 제품 결정·문서화 후 **한 규칙 안에서**만 허용한다.
 - `ConditionalAppShell` 에서 pathname 플래그를 우회하는 **두 번째 탭 표시 스위치**를 두지 않는다.
+- ≥768 split 에서 BottomNav 를 다시 **뷰포트 전폭**으로 되돌리면 우측 composer 가림이 재발한다.
 
 ## 관련 코드
 
 - `lib/layout/conditional-app-shell-flags.ts` — `suppressBottomNavForChatDetail`, `showBottomNav`, `isChatRoomDetail`
-- `components/layout/ConditionalAppShell.tsx` — `showBottomNavBase` / `BottomNav` 마운트
+- `lib/navigation/bottom-nav-route-policy.ts` — `messengerSplitViewport`
+- `components/layout/ConditionalAppShell.tsx` — `APP_BOTTOM_NAV_MESSENGER_SPLIT_LIST_CLASS`
+- `app/app-bottom-nav.css` — `.app-bottom-nav-shell--messenger-split-list`
+- `lib/ui/messenger-split-pane-layout.ts` — 좌측 pane 폭 SSOT
 
 ## 연계 (거래 상세·채팅 진입)
 

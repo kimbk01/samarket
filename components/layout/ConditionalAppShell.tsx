@@ -28,6 +28,7 @@ import { useBrowseScrollChromeHidden } from "@/lib/stores/use-browse-scroll-chro
 import { isMessengerFromHeaderStackSurface } from "@/lib/layout/messenger-from-header-stack-surface";
 import { shouldRenderMainBottomNav } from "@/lib/navigation/bottom-nav-route-policy";
 import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
+import { APP_BOTTOM_NAV_MESSENGER_SPLIT_LIST_CLASS } from "@/lib/ui/messenger-split-pane-layout";
 import {
   mainBottomNavPrefetchTriggerKey,
   type MainBottomNavPrefetchDomain,
@@ -337,11 +338,18 @@ export function ConditionalAppShell({
         <BottomNav
           initialTabs={initialMainBottomNavItems}
           bodyPortal={isMessengerStackSurface}
-          extraOuterClassName={
-            bottomNavScrollHideEnabled ?
-              resolveBottomNavScrollHideOuterClass(bottomNavHiddenByScroll)
-            : ""
-          }
+          extraOuterClassName={[
+            bottomNavScrollHideEnabled
+              ? resolveBottomNavScrollHideOuterClass(bottomNavHiddenByScroll)
+              : "",
+            isMessengerSplitViewport &&
+            (pathname === "/community-messenger" ||
+              (pathname?.startsWith("/community-messenger/") ?? false))
+              ? APP_BOTTOM_NAV_MESSENGER_SPLIT_LIST_CLASS
+              : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
         />
       ) : null}
       {showBottomNavMounted && f.showHomeTradeHubFloatingBar && !isTradeWriteSheetSurface ? (

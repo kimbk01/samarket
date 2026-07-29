@@ -18,8 +18,12 @@ const SPLIT_MIN_TW = "min-[768px]";
 
 const HUB_SHELL_HEIGHT_WITH_BOTTOM_NAV =
   "md:min-h-[calc(100dvh-var(--app-bottom-nav-height,60px)-var(--sam-header-row-height,52px)-var(--safe-top,0px))]";
-const SPLIT_SHELL_HEIGHT_WITH_BOTTOM_NAV =
-  "min-h-0 flex-1 min-h-[calc(100dvh-var(--app-bottom-nav-height,60px)-var(--sector-header-h,52px)-var(--safe-top,0px))]";
+/**
+ * Split: BottomNav 는 좌측 pane 만 — 셸 전체 높이에서 탭을 빼지 않음.
+ * 좌측 목록 clearance 는 list 본문 `MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS` 가 담당.
+ */
+const SPLIT_SHELL_HEIGHT_FULL =
+  "min-h-0 flex-1 min-h-[calc(100dvh-var(--sector-header-h,52px)-var(--safe-top,0px))]";
 
 export function CommunityMessengerHomeMasterDetail({
   list,
@@ -30,9 +34,7 @@ export function CommunityMessengerHomeMasterDetail({
 }: Props) {
   const isSplitRoom = splitMode === "split";
   const shellHeightClass = isSplitRoom
-    ? reserveBottomNavClearance
-      ? SPLIT_SHELL_HEIGHT_WITH_BOTTOM_NAV
-      : "min-h-0 flex-1"
+    ? SPLIT_SHELL_HEIGHT_FULL
     : `min-h-0 w-full flex-1 ${reserveBottomNavClearance ? HUB_SHELL_HEIGHT_WITH_BOTTOM_NAV : ""}`;
 
   /** Split: pane 자체 스크롤 금지(탭·검색 sticky). Hub: pane 스크롤 + sticky chrome. */

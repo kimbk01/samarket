@@ -27,6 +27,7 @@ import {
   filterTradeListRowsByRole,
   type TradeListRoleFilter,
 } from "@/lib/messenger/trade/list-sort-filter";
+import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
 
 export type TradeListDto = {
   authority: "domain_trade_list_canary";
@@ -279,15 +280,17 @@ export function DomainTradeListCanaryGate({
   if (mode === "loading" && !dto) {
     return (
       <div
-        className="flex h-full min-h-0 flex-col bg-sam-app"
+        className={`flex h-full min-h-0 flex-col bg-sam-app ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`}
         data-domain-trade-list="loading"
         data-domain-list-mode="domain"
         data-tablet-split={tabletSplitListOnly ? "1" : "0"}
       >
-        <div className="border-b border-sam-border px-4 py-3">
-          <div className="text-base font-semibold text-sam-fg">{title}</div>
-        </div>
-      <div className="min-h-0 flex-1 overflow-y-auto" data-messenger-hub-list-scroll="">
+        {!tabletSplitListOnly ? (
+          <div className="border-b border-sam-border px-4 py-3">
+            <div className="text-base font-semibold text-sam-fg">{title}</div>
+          </div>
+        ) : null}
+        <div className="min-h-0 flex-1 overflow-y-auto" data-messenger-hub-list-scroll="">
           <DomainListRowSkeleton />
         </div>
       </div>
@@ -297,14 +300,16 @@ export function DomainTradeListCanaryGate({
   if ((mode === "error" && !dto) || (!dto && mode !== "loading")) {
     return (
       <div
-        className="flex h-full min-h-0 flex-col bg-sam-app"
+        className={`flex h-full min-h-0 flex-col bg-sam-app ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`}
         data-domain-trade-list="error"
         data-domain-list-mode="domain"
       >
         {reason ? <div className="sr-only" data-domain-trade-error={reason} /> : null}
-        <div className="border-b border-sam-border px-4 py-3">
-          <div className="text-base font-semibold text-sam-fg">{title}</div>
-        </div>
+        {!tabletSplitListOnly ? (
+          <div className="border-b border-sam-border px-4 py-3">
+            <div className="text-base font-semibold text-sam-fg">{title}</div>
+          </div>
+        ) : null}
         <div className="flex min-h-[40vh] flex-col items-center justify-center gap-2 px-4 text-sm text-sam-muted">
           <p>{language === "en" ? "Couldn’t load trade chats." : "거래 채팅을 불러오지 못했습니다."}</p>
           <button
@@ -327,7 +332,7 @@ export function DomainTradeListCanaryGate({
 
   return (
     <div
-      className="flex h-full min-h-0 flex-col bg-sam-app"
+      className={`flex h-full min-h-0 flex-col bg-sam-app ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`}
       data-domain-trade-list="1"
       data-domain-list-mode="domain"
       data-domain-unread-rooms={String(unreadRoomCount)}
@@ -335,13 +340,21 @@ export function DomainTradeListCanaryGate({
       data-tablet-split={tabletSplitListOnly ? "1" : "0"}
     >
       <div className="border-b border-sam-border px-4 py-3">
-        <div className="text-base font-semibold text-sam-fg">{title}</div>
-        {unreadRoomCount > 0 ? (
-          <div className="text-xs text-sam-muted">
-            {language === "en" ? `${unreadRoomCount} unread` : `읽지 않음 ${unreadRoomCount}`}
-          </div>
+        {!tabletSplitListOnly ? (
+          <>
+            <div className="text-base font-semibold text-sam-fg">{title}</div>
+            {unreadRoomCount > 0 ? (
+              <div className="text-xs text-sam-muted">
+                {language === "en" ? `${unreadRoomCount} unread` : `읽지 않음 ${unreadRoomCount}`}
+              </div>
+            ) : null}
+          </>
         ) : null}
-        <div className="mt-2 flex gap-1.5" role="tablist" aria-label={t("cm_trade_chat_filter_all")}>
+        <div
+          className={!tabletSplitListOnly ? "mt-2 flex gap-1.5" : "flex gap-1.5"}
+          role="tablist"
+          aria-label={t("cm_trade_chat_filter_all")}
+        >
           {ROLE_FILTERS.map((id) => {
             const active = roleFilter === id;
             return (

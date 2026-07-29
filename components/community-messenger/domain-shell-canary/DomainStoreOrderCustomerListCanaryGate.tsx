@@ -27,6 +27,7 @@ import {
   stabilizeSoCustomerListDto,
 } from "@/components/community-messenger/domain-shell-canary/domain-list-canary-stabilize";
 import { subscribeDomainListCanaryPatch } from "@/components/community-messenger/domain-shell-canary/domain-list-canary-realtime-patch";
+import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
 
 export type { SoCustomerListDto };
 
@@ -199,14 +200,16 @@ export function DomainStoreOrderCustomerListCanaryGate({
   if (mode === "loading" && !dto) {
     return (
       <div
-        className="flex h-full min-h-0 flex-col bg-sam-app"
+        className={`flex h-full min-h-0 flex-col bg-sam-app ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`}
         data-domain-so-customer-list="loading"
         data-domain-list-mode="domain"
         data-tablet-split={tabletSplitListOnly ? "1" : "0"}
       >
-        <div className="border-b border-sam-border px-4 py-3">
-          <div className="text-base font-semibold text-sam-fg">{title}</div>
-        </div>
+        {!tabletSplitListOnly ? (
+          <div className="border-b border-sam-border px-4 py-3">
+            <div className="text-base font-semibold text-sam-fg">{title}</div>
+          </div>
+        ) : null}
         <div className="min-h-0 flex-1 overflow-y-auto" data-messenger-hub-list-scroll="">
           <DomainListRowSkeleton />
         </div>
@@ -217,14 +220,16 @@ export function DomainStoreOrderCustomerListCanaryGate({
   if ((mode === "error" && !dto) || (!dto && mode !== "loading")) {
     return (
       <div
-        className="flex h-full min-h-0 flex-col bg-sam-app"
+        className={`flex h-full min-h-0 flex-col bg-sam-app ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`}
         data-domain-so-customer-list="error"
         data-domain-list-mode="domain"
       >
         {reason ? <div className="sr-only" data-domain-so-customer-error={reason} /> : null}
-        <div className="border-b border-sam-border px-4 py-3">
-          <div className="text-base font-semibold text-sam-fg">{title}</div>
-        </div>
+        {!tabletSplitListOnly ? (
+          <div className="border-b border-sam-border px-4 py-3">
+            <div className="text-base font-semibold text-sam-fg">{title}</div>
+          </div>
+        ) : null}
         <div className="flex min-h-[40vh] flex-col items-center justify-center gap-2 px-4 text-sm text-sam-muted">
           <p>{language === "en" ? "Couldn’t load order chats." : "주문 채팅을 불러오지 못했습니다."}</p>
           <button
@@ -247,20 +252,22 @@ export function DomainStoreOrderCustomerListCanaryGate({
 
   return (
     <div
-      className="flex h-full min-h-0 flex-col bg-sam-app"
+      className={`flex h-full min-h-0 flex-col bg-sam-app ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`}
       data-domain-so-customer-list="1"
       data-domain-list-mode="domain"
       data-domain-unread-rooms={String(unreadRoomCount)}
       data-tablet-split={tabletSplitListOnly ? "1" : "0"}
     >
-      <div className="border-b border-sam-border px-4 py-3">
-        <div className="text-base font-semibold text-sam-fg">{title}</div>
-        {unreadRoomCount > 0 ? (
-          <div className="text-xs text-sam-muted">
-            {language === "en" ? `${unreadRoomCount} unread` : `읽지 않음 ${unreadRoomCount}`}
-          </div>
-        ) : null}
-      </div>
+      {!tabletSplitListOnly ? (
+        <div className="border-b border-sam-border px-4 py-3">
+          <div className="text-base font-semibold text-sam-fg">{title}</div>
+          {unreadRoomCount > 0 ? (
+            <div className="text-xs text-sam-muted">
+              {language === "en" ? `${unreadRoomCount} unread` : `읽지 않음 ${unreadRoomCount}`}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       <div className="min-h-0 flex-1 overflow-y-auto" data-messenger-hub-list-scroll="">
         {dto.rows.map((row) => (
           <DomainCanaryShellRow
