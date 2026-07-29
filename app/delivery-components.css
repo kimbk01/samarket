@@ -1674,3 +1674,12 @@ html:has([data-stores-browse-ptr-hint]) .main-hub-scroll-body[data-stores-browse
     opacity: 1;
   }
 }
+
+/**
+ * CONTRACT — 배달 focus 입력 ≥16px (iOS zoom).
+ * `text-[16px]` Tailwind arbitrary 는 번들에서 purge 되어 computed 14px(body)로 떨어지는 경우가 있음.
+ * DO NOT: Tailwind text-[16px] 만으로 16px 계약을 만족했다고 보지 말 것.
+ */
+.delivery-ui [data-delivery-fs-16] {
+  font-size: 16px;
+}

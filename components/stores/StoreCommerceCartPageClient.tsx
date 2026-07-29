@@ -2024,7 +2024,8 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             value={buyerNote}
             disabled={busy}
             onChange={(e) => setBuyerNote(e.target.value)}
-            className="mt-2 w-full min-h-[96px] resize-none rounded-[var(--delivery-radius)] border border-[var(--delivery-border-section)] bg-[color:var(--delivery-bg-card)] px-3 py-2.5 text-[16px] text-[color:var(--delivery-text-main)] outline-none focus:border-[color:var(--delivery-primary)] focus:ring-2 focus:ring-[color:var(--delivery-primary)]/20 disabled:bg-[color:var(--delivery-bg-muted)]"
+            data-delivery-fs-16=""
+            className="mt-2 w-full min-h-[96px] resize-none rounded-[var(--delivery-radius)] border border-[var(--delivery-border-section)] bg-[color:var(--delivery-bg-card)] px-3 py-2.5 text-[color:var(--delivery-text-main)] outline-none focus:border-[color:var(--delivery-primary)] focus:ring-2 focus:ring-[color:var(--delivery-primary)]/20 disabled:bg-[color:var(--delivery-bg-muted)]"
             maxLength={500}
           />
           <p className="mt-1 sam-text-xxs leading-snug text-sam-muted">

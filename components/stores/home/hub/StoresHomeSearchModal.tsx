@@ -248,7 +248,8 @@ export function StoresHomeSearchModal({
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder={t("store_search_placeholder")}
-                className="min-w-0 flex-1 bg-transparent text-[16px] text-[color:var(--delivery-text-main)] placeholder:text-[color:var(--delivery-text-muted)] focus:outline-none"
+                data-delivery-fs-16=""
+                className="min-w-0 flex-1 bg-transparent text-[color:var(--delivery-text-main)] placeholder:text-[color:var(--delivery-text-muted)] focus:outline-none"
                 aria-label={t("ui_delivery_search_input_aria")}
               />
               {q.trim().length > 0 ?

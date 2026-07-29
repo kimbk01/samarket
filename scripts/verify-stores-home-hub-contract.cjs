@@ -866,9 +866,15 @@ assertIncludes(
 );
 
 assertIncludes(
-  read("lib/stores/stores-home-ui.ts"),
-  "STORES_HOME_CONTENT_COLUMN_CLASS",
-  "home content column must cap at 768px for tablet L/R parity with header"
+  read("app/delivery-components.css"),
+  "data-delivery-fs-16",
+  "delivery focus inputs must use CSS 16px contract (Tailwind text-[16px] may purge)"
+);
+
+assertIncludes(
+  read("components/stores/home/hub/StoresHomeSearchModal.tsx"),
+  "data-delivery-fs-16",
+  "stores search input must opt into 16px delivery font contract"
 );
 
 assertIncludes(
