@@ -23,6 +23,7 @@ describe("messenger split BottomNav left-pane contract", () => {
     expect(css).toContain(".app-bottom-nav-shell--messenger-split-list");
     expect(css).toContain("clamp(360px, 35vw, 470px)");
     expect(css).toContain("right: auto");
+    expect(css).toContain("min-width: 360px");
   });
 
   it("ConditionalAppShell applies messenger-split BottomNav class on wide messenger", () => {

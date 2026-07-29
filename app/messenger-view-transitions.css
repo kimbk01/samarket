@@ -8,9 +8,9 @@
 }
 
 :root {
-  /* Telegram 실측: room ~100ms · section ~160–200ms — 100vw full-slide 금지 */
-  --sam-messenger-room-enter-duration: 100ms;
-  --sam-messenger-room-exit-duration: 90ms;
+  /* 방 진입: 우→좌 440ms (제품 SSOT — `MESSENGER_LIST_ROOM_ENTER_MS`) */
+  --sam-messenger-room-enter-duration: 440ms;
+  --sam-messenger-room-exit-duration: 360ms;
   --sam-messenger-call-enter-duration: 180ms;
   --sam-messenger-call-exit-duration: 160ms;
   --sam-messenger-call-peer-detail-enter-duration: 180ms;
@@ -18,7 +18,7 @@
   --sam-messenger-pillar-list-enter-duration: 180ms;
   --sam-messenger-home-section-enter-duration: 180ms;
   --sam-messenger-home-section-enter-easing: cubic-bezier(0.2, 0, 0, 1);
-  --sam-messenger-room-enter-easing: cubic-bezier(0.2, 0, 0, 1);
+  --sam-messenger-room-enter-easing: cubic-bezier(0.25, 0.1, 0.25, 1);
   --sam-messenger-room-exit-easing: cubic-bezier(0.4, 0, 1, 1);
   --sam-messenger-pillar-list-enter-easing: cubic-bezier(0.2, 0, 0, 1);
   --sam-call-outgoing-overlay-enter-duration: 180ms;
@@ -67,8 +67,20 @@
   z-index: auto;
 }
 
-[data-messenger-responsive-shell="wide"] .messenger-enter,
-[data-messenger-responsive-shell="wide"] .messenger-enter-active,
+/* 768px+ split — 우측 pane 안에서 우→좌 진입 (애니 끄면 깜빡임으로 보임 — tablet CDP) */
+[data-messenger-responsive-shell="wide"] .messenger-enter {
+  transform: translate3d(100%, 0, 0) !important;
+  opacity: 1 !important;
+  transition: none !important;
+}
+
+[data-messenger-responsive-shell="wide"] .messenger-enter-active {
+  transform: translate3d(0, 0, 0) !important;
+  opacity: 1 !important;
+  transition:
+    transform var(--sam-messenger-room-enter-duration) var(--sam-messenger-room-enter-easing) !important;
+}
+
 [data-messenger-responsive-shell="wide"] .messenger-exit,
 [data-messenger-responsive-shell="wide"] .messenger-exit-active {
   transform: none !important;
@@ -149,16 +161,15 @@
 }
 
 .messenger-enter {
-  transform: translate3d(12px, 0, 0);
-  opacity: 0.92;
+  transform: translate3d(100%, 0, 0);
+  opacity: 1;
 }
 
 .messenger-enter-active {
   transform: translate3d(0, 0, 0);
   opacity: 1;
   transition:
-    transform var(--sam-messenger-room-enter-duration) var(--sam-messenger-room-enter-easing),
-    opacity var(--sam-messenger-room-enter-duration) var(--sam-messenger-room-enter-easing);
+    transform var(--sam-messenger-room-enter-duration) var(--sam-messenger-room-enter-easing);
 }
 
 .messenger-exit {

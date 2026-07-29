@@ -133,7 +133,8 @@ export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Prop
   }, [commitNavigation]);
 
   useEffect(() => {
-    if (reducedMotion || splitPaneMode) {
+    /** split 에서도 우→좌 enter 유지 — 끄면 우측 pane 팝인(=깜빡임). 스와이프만 split 에서 비활성. */
+    if (reducedMotion) {
       setPhase("idle");
       return;
     }
@@ -141,7 +142,7 @@ export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Prop
       setPhase((current) => (current === "enter" ? "enter-active" : current));
     });
     return () => window.cancelAnimationFrame(raf);
-  }, [reducedMotion, splitPaneMode]);
+  }, [reducedMotion]);
 
   useEffect(() => {
     if (phase !== "enter-active") return;

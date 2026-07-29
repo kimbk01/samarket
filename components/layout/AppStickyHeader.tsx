@@ -17,6 +17,7 @@ import { getMobileTopTier1RuleSet } from "@/lib/layout/mobile-top-tier1-rules";
 import { useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { MyManagedCtaStrip } from "@/components/my/MyManagedCtaStrip";
 import { isDeliveryConsumerPath } from "@/lib/design/delivery-chrome";
+import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
 import { RegionBar } from "./RegionBar";
 import { TradeMarketPullRefreshHint } from "@/components/trade/TradeMarketPullRefreshHint";
 import { TradeMarketPullRefreshHost } from "@/components/trade/TradeMarketPullRefreshHost";
@@ -27,6 +28,7 @@ import { TradeMarketPullRefreshHost } from "@/components/trade/TradeMarketPullRe
  */
 export function AppStickyHeader() {
   const pathname = usePathname();
+  const isMessengerSplit = useIsMessengerSplitViewport();
   const categorySticky = useCategoryListStickyConfig();
   const tradeSecondaryTabs = useTradeSecondaryTabs();
   /** tier1 규칙 + 거래 탭 스택 노출 여부를 pathname 당 한 번에 계산 */
@@ -40,6 +42,15 @@ export function AppStickyHeader() {
   const extrasOpt = useMainTier1ExtrasOptional();
   const extras = extrasOpt?.extras ?? null;
   const hideRegionBar = !topTier1RuleSet.showRegionBar;
+  const isCommunityMessengerSurface =
+    pathname === "/community-messenger" || (pathname?.startsWith("/community-messenger/") ?? false);
+
+  /**
+   * ≥768 메신저: `RegionBar` 가 null 이어도 이 래퍼가 `pt-[var(--safe-top)]` 만 남겨
+   * `MessengerSplitTopBar` 와 이중 inset 이 됨 (Android tablet CDP: stickyH≈29, children=0).
+   * SplitTopBar 가 safe-top 단일 담당.
+   */
+  if (isMessengerSplit && isCommunityMessengerSurface) return null;
 
   /** 허브·피드: `MainHubScrollColumn` 헤더 슬롯 — 스크롤 밖 `shrink-0` (상단·업종 탭 항상 노출) */
   if (hideRegionBar) return null;

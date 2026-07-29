@@ -1,28 +1,28 @@
 /**
- * 메신저 허브 스크롤 목록 — 아래로 스크롤 시 전역 `BottomNav` 접기 표면.
- * 허브 `?section=` (friends · call_logs · chats · archive) · 독립 `/community-messenger/calls/logs`
- * · wide sticky room `/community-messenger/rooms/[id]?section=…`.
+ * 메신저 채팅 표면 — 아래로 스크롤 시 전역 `BottomNav` 접기.
+ * 허브(모든 section)·trade/delivery 목록·room·통화 기록.
  */
 
-const MESSENGER_HUB_SCROLL_HIDE_SECTIONS = new Set([
-  "call_logs",
-  "friends",
-  "chats",
-  "archive",
-]);
+export function isMessengerBottomNavScrollHideSurface(
+  pathNoQuery: string,
+  _search?: string | null | undefined
+): boolean {
+  const path = pathNoQuery.trim().replace(/\/+$/, "") || "/";
+  if (path === "/community-messenger") return true;
+  if (path === "/community-messenger/trade-chats") return true;
+  if (path === "/community-messenger/delivery-chats") return true;
+  if (path === "/community-messenger/calls/logs") return true;
+  if (/^\/community-messenger\/rooms\/[^/]+$/.test(path)) return true;
+  if (/^\/community-messenger\/calls\/[^/]+$/.test(path) && path !== "/community-messenger/calls/outgoing") {
+    return false;
+  }
+  return false;
+}
 
+/** @deprecated use {@link isMessengerBottomNavScrollHideSurface} */
 export function isMessengerCallLogsBottomNavScrollHideSurface(
   pathNoQuery: string,
   search: string | null | undefined
 ): boolean {
-  const path = pathNoQuery.trim().replace(/\/+$/, "") || "/";
-  if (path === "/community-messenger/calls/logs") return true;
-  const section = new URLSearchParams(search ?? "").get("section")?.trim();
-  if (path === "/community-messenger") {
-    return section != null && MESSENGER_HUB_SCROLL_HIDE_SECTIONS.has(section);
-  }
-  if (/^\/community-messenger\/rooms\/[^/]+$/.test(path)) {
-    return section != null && MESSENGER_HUB_SCROLL_HIDE_SECTIONS.has(section);
-  }
-  return false;
+  return isMessengerBottomNavScrollHideSurface(pathNoQuery, search);
 }

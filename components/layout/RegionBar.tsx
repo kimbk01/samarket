@@ -46,11 +46,10 @@ export function RegionBar({
   const searchParams = useSearchParams();
   const pathNoQuery = normalizeAppPathnameForTier1(pathname);
   const isMessengerSplit = useIsMessengerSplitViewport();
-  const isMessengerSplitHub =
+  /** ≥768 메신저 전 표면 — SplitTopBar SSOT (허브·trade/delivery·room 포함). RegionBar 이중 헤더 금지. */
+  const isMessengerSplitSurface =
     isMessengerSplit &&
-    (pathNoQuery === "/community-messenger" ||
-      pathNoQuery === "/community-messenger/trade-chats" ||
-      pathNoQuery === "/community-messenger/delivery-chats");
+    (pathNoQuery === "/community-messenger" || pathNoQuery.startsWith("/community-messenger/"));
   const ruleSet = useMemo(
     () => tier1RuleSetProp ?? getMobileTopTier1RuleSet(pathname),
     [tier1RuleSetProp, pathname]
@@ -58,7 +57,7 @@ export function RegionBar({
   const tier1Subpage = useMemo(() => resolveMainTier1Subpage(pathNoQuery), [pathNoQuery]);
   const extrasOpt = useMainTier1ExtrasOptional();
   const extras = extrasOpt?.extras ?? null;
-  if (!ruleSet.showRegionBar || isMessengerSplitHub) {
+  if (!ruleSet.showRegionBar || isMessengerSplitSurface) {
     return null;
   }
 

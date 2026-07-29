@@ -10,17 +10,15 @@ import { MESSENGER_SPLIT_LIST_PANE_CLASS } from "@/lib/ui/messenger-split-pane-l
 
 const root = resolve(process.cwd());
 
-describe("messenger telegram presentation contract", () => {
+describe("messenger presentation contract", () => {
   it("section transition is short fade window (160–200ms)", () => {
     expect(MESSENGER_HOME_SECTION_ENTER_MS).toBeGreaterThanOrEqual(160);
     expect(MESSENGER_HOME_SECTION_ENTER_MS).toBeLessThanOrEqual(200);
   });
 
-  it("mobile room enter/exit are Telegram-short (not 100vw 440ms)", () => {
-    expect(MESSENGER_LIST_ROOM_ENTER_MS).toBeGreaterThanOrEqual(80);
-    expect(MESSENGER_LIST_ROOM_ENTER_MS).toBeLessThanOrEqual(120);
-    expect(MESSENGER_LIST_ROOM_EXIT_MS).toBeGreaterThanOrEqual(70);
-    expect(MESSENGER_LIST_ROOM_EXIT_MS).toBeLessThanOrEqual(110);
+  it("room enter is 440ms right-to-left (product SSOT)", () => {
+    expect(MESSENGER_LIST_ROOM_ENTER_MS).toBe(440);
+    expect(MESSENGER_LIST_ROOM_EXIT_MS).toBe(360);
   });
 
   it("wide list pane uses clamp(360px, 35vw, 470px)", () => {
@@ -30,20 +28,22 @@ describe("messenger telegram presentation contract", () => {
     expect(MESSENGER_SPLIT_LIST_PANE_CLASS).not.toContain("420px");
   });
 
-  it("CSS durations match TS SSOT and forbid full-width section/room slide", () => {
+  it("CSS durations match TS SSOT and room enter slides from 100%", () => {
     const css = readFileSync(resolve(root, "app/messenger-view-transitions.css"), "utf8");
     expect(css).toContain("--sam-messenger-home-section-enter-duration: 180ms");
-    expect(css).toContain("--sam-messenger-room-enter-duration: 100ms");
-    expect(css).toContain("--sam-messenger-room-exit-duration: 90ms");
+    expect(css).toContain("--sam-messenger-room-enter-duration: 440ms");
+    expect(css).toContain("--sam-messenger-room-exit-duration: 360ms");
     expect(css).toContain("--sam-messenger-call-enter-duration: 180ms");
     expect(css).toContain("--sam-messenger-call-peer-detail-enter-duration: 180ms");
     expect(css).toContain("--sam-messenger-pillar-list-enter-duration: 180ms");
-    expect(css).toContain("translate3d(10px, 0, 0)");
-    expect(css).toContain("translate3d(12px, 0, 0)");
-    expect(css).not.toMatch(/messenger-section-slide-forward[\s\S]*translate3d\(100%/);
-    expect(css).not.toMatch(/\.messenger-enter \{\s*transform: translate3d\(100%/);
-    expect(css).not.toMatch(/\.messenger-call-enter \{\s*transform: translate3d\(100%/);
-    expect(css).not.toMatch(/sam-messenger-call-peer-detail-enter[\s\S]*translate3d\(100%/);
+    expect(css).toMatch(/\.messenger-enter \{\s*transform: translate3d\(100%/);
+    expect(css).toContain(
+      '[data-messenger-responsive-shell="wide"] .messenger-enter'
+    );
+    expect(css).toContain("translate3d(100%, 0, 0)");
+    expect(css).not.toMatch(
+      /\[data-messenger-responsive-shell="wide"\] \.messenger-enter,\s*\[data-messenger-responsive-shell="wide"\] \.messenger-enter-active,\s*\[data-messenger-responsive-shell="wide"\] \.messenger-exit/
+    );
   });
 
   it("call slide SSOT stays in Telegram short band", async () => {
@@ -65,5 +65,11 @@ describe("messenger telegram presentation contract", () => {
     expect(css).toContain("font-size: 16px");
     expect(css).toContain(".cm-messenger-wallpaper");
     expect(css).not.toContain("border-radius: 16px");
+  });
+
+  it("AppStickyHeader skips messenger split to avoid double safe-top", () => {
+    const src = readFileSync(resolve(root, "components/layout/AppStickyHeader.tsx"), "utf8");
+    expect(src).toContain("isMessengerSplit && isCommunityMessengerSurface");
+    expect(src).toContain("return null");
   });
 });
