@@ -77,6 +77,7 @@ export function clearAllPhilifeFeedPersistentCaches(): void {
     localStorage.removeItem("samarket:mypage-hub:v2_persistent");
     sessionStorage.removeItem(LEGACY_SESSION_KEY);
     sessionStorage.removeItem("samarket:mypage-hub:v1");
+    sessionStorage.removeItem("samarket:mypage-home:v1");
   } catch {
     /* ignore */
   }

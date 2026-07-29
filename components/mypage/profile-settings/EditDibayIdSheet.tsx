@@ -10,6 +10,7 @@ import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-prof
 import { setSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
 import { MypageBottomSheetShell } from "./MypageBottomSheetShell";
 import { useMypageProfileSheets } from "./mypage-profile-sheets-context";
+import { getMypageHomeProjection, patchMypageHomeProjection } from "@/lib/mypage/mypage-home-store";
 
 export function EditDibayIdSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { t } = useI18n();
@@ -40,6 +41,11 @@ export function EditDibayIdSheet({ open, onClose }: { open: boolean; onClose: ()
       if (fresh) {
         setProfile(fresh);
         setSupabaseProfileCache(profileRowToClientProfile(fresh));
+        const current = getMypageHomeProjection();
+        patchMypageHomeProjection({
+          profile: fresh,
+          addressStatus: current?.addressStatus ?? "unknown",
+        });
       }
       onProfileUpdated();
       if (confirmedDibayId) onClose();

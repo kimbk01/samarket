@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * Section / console routes only — NOT `/mypage` root.
+ * Root uses `useMypageHomeModel` (no trade-counts / CMS / PII localStorage).
+ */
+
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { getMyPageData } from "@/lib/my/getMyPageData";
 import type { MyPageData } from "@/lib/my/types";
@@ -26,24 +31,7 @@ import { fetchAddressDefaultsSnapshot, seedAddressDefaultsSnapshotCache } from "
 import { useAddressDefaultsBootRetry } from "@/lib/addresses/use-address-defaults-boot-retry";
 import { primeMeProfileDedupedFromKnownProfile } from "@/lib/profile/fetch-me-profile-deduped";
 import type { ProfileRow } from "@/lib/profile/types";
-
-const MYPAGE_SESSION_KEY = "samarket:mypage-hub:v1";
-const MYPAGE_PERSISTENT_KEY = "samarket:mypage-hub:v2_persistent";
-const MYPAGE_SESSION_MAX_AGE_MS = 5 * 60 * 1000;
-const MYPAGE_PERSISTENT_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 7;
-
-type MypageSessionHubCounts = {
-  overviewCounts: MyPageOverviewCounts;
-  ownerHubStoreId: string | null;
-  ownerStoreGateFirstId: string | null;
-};
-
-type MypageSessionEnvelope = {
-  data?: MyPageData;
-  viewerId?: string;
-  savedAt?: number;
-  hubCounts?: MypageSessionHubCounts;
-};
+import { clearMypageHomeCaches } from "@/lib/mypage/mypage-home-snapshot";
 
 function hasCompleteOverviewCounts(
   counts: MyPageOverviewCounts,
@@ -54,82 +42,12 @@ function hasCompleteOverviewCounts(
   return true;
 }
 
-function peekMypageSessionEnvelope(): MypageSessionEnvelope | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const viewerId = getCurrentUser()?.id?.trim() ?? "";
-    if (!viewerId) return null;
-    const tryParse = (raw: string | null, maxAge: number): MypageSessionEnvelope | null => {
-      if (!raw) return null;
-      const parsed = JSON.parse(raw) as MypageSessionEnvelope;
-      const ownerId = (parsed.viewerId ?? "").trim();
-      if (!ownerId || ownerId !== viewerId) return null;
-      const savedAt = Number(parsed.savedAt ?? 0);
-      if (!Number.isFinite(savedAt) || Date.now() - savedAt > maxAge) return null;
-      if (!parsed?.data?.profile) return null;
-      return parsed;
-    };
-    const sessionHit = tryParse(sessionStorage.getItem(MYPAGE_SESSION_KEY), MYPAGE_SESSION_MAX_AGE_MS);
-    if (sessionHit) return sessionHit;
-    const persistentHit = tryParse(localStorage.getItem(MYPAGE_PERSISTENT_KEY), MYPAGE_PERSISTENT_MAX_AGE_MS);
-    if (persistentHit) {
-      try {
-        sessionStorage.setItem(MYPAGE_SESSION_KEY, JSON.stringify(persistentHit));
-      } catch {
-        /* ignore */
-      }
-      return persistentHit;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-function peekMypageSessionCache(): MyPageData | null {
-  return peekMypageSessionEnvelope()?.data ?? null;
-}
-
-function peekMypageSessionHubCounts(): MypageSessionHubCounts | null {
-  const env = peekMypageSessionEnvelope();
-  if (!env?.hubCounts) return null;
-  const hasOwner = env.data?.hasOwnerStore === true;
-  if (!hasCompleteOverviewCounts(env.hubCounts.overviewCounts, hasOwner)) return null;
-  return env.hubCounts;
-}
-
-function writeMypageSessionCache(
-  data: MyPageData,
-  hubCounts?: MypageSessionHubCounts | null,
-): void {
-  if (typeof window === "undefined" || !data?.profile) return;
-  try {
-    const viewerId = data.profile.id?.trim();
-    if (!viewerId) return;
-    const payload: MypageSessionEnvelope = {
-      data,
-      viewerId,
-      savedAt: Date.now(),
-    };
-    if (hubCounts && hasCompleteOverviewCounts(hubCounts.overviewCounts, data.hasOwnerStore === true)) {
-      payload.hubCounts = hubCounts;
-    }
-    sessionStorage.setItem(MYPAGE_SESSION_KEY, JSON.stringify(payload));
-    try {
-      localStorage.setItem(MYPAGE_PERSISTENT_KEY, JSON.stringify(payload));
-    } catch {
-      /* quota */
-    }
-  } catch { /* quota/private */ }
-}
-
 function primeProfileDedupeFromRow(profile: ProfileRow | null | undefined): void {
   if (!profile?.id?.trim()) return;
   primeMeProfileDedupedFromKnownProfile(profile);
 }
 
 export type UseMypageHubModelOptions = {
-  /** false — 비회원·membership 확인 중: `getMyPageData` 등 허브 fetch 생략 */
   enabled?: boolean;
 };
 
@@ -138,57 +56,61 @@ export function useMypageHubModel(
   options: UseMypageHubModelOptions = {},
 ) {
   const enabled = options.enabled !== false;
-  const sessionEnvelope =
-    initialMyPageData === undefined ? peekMypageSessionEnvelope() : null;
-  const sessionCached = sessionEnvelope?.data ?? null;
-  const sessionHubCounts =
-    initialMyPageData === undefined ? peekMypageSessionHubCounts() : null;
-  const boot = initialMyPageData !== undefined ? initialMyPageData : sessionCached;
-  const hub0 = boot?.hubServerExtras;
-  const [data, setData] = useState<MyPageData | null>(() => boot ?? null);
-  const [loading, setLoading] = useState(() => boot == null);
+  const hub0 = initialMyPageData?.hubServerExtras;
+  const [data, setData] = useState<MyPageData | null>(() =>
+    initialMyPageData !== undefined ? initialMyPageData : null,
+  );
+  const [loading, setLoading] = useState(() =>
+    initialMyPageData === undefined ? true : initialMyPageData == null,
+  );
   const [overviewCounts, setOverviewCounts] = useState<MyPageOverviewCounts>(() => {
     if (hub0) return { ...hub0.overviewCounts };
-    if (sessionHubCounts) return { ...sessionHubCounts.overviewCounts };
     return { purchases: null, sales: null, storeAttention: null };
   });
   const [ownerHubStoreId, setOwnerHubStoreId] = useState<string | null>(
-    () => hub0?.ownerHubStoreId ?? sessionHubCounts?.ownerHubStoreId ?? null,
+    () => hub0?.ownerHubStoreId ?? null,
   );
   const [ownerStoreGate, setOwnerStoreGate] = useState<OwnerStoreGateState | null>(
     () => hub0?.ownerStoreGate ?? null,
   );
   const [ownerStoreGateFirstId, setOwnerStoreGateFirstId] = useState<string | null>(
-    () => hub0?.ownerStoreGateFirstId ?? sessionHubCounts?.ownerStoreGateFirstId ?? null,
+    () => hub0?.ownerStoreGateFirstId ?? null,
   );
   const [addressDefaults, setAddressDefaults] = useState<AddressDefaultsFlags>(() => hub0?.addressDefaults ?? null);
   const [neighborhoodFromLife, setNeighborhoodFromLife] = useState<LifeDefaultLocationSummary | null>(
     () => hub0?.neighborhoodFromLife ?? null,
   );
-  const skipInitialAddressFetchRef = useRef(Boolean(hub0));
-  const skipInitialCountsFetchRef = useRef(Boolean(hub0 || sessionHubCounts));
-  const hubCountsSnapshotRef = useRef<MypageSessionHubCounts | null>(sessionHubCounts);
+  const skipInitialAddressFetchRef = useRef(Boolean(hub0 || initialMyPageData?.addressDefaultsSnapshot));
+  const skipInitialCountsFetchRef = useRef(Boolean(hub0));
   const initialLoadRequestedRef = useRef(false);
   const addressDefaultsRef = useRef(addressDefaults);
   const neighborhoodFromLifeRef = useRef(neighborhoodFromLife);
+  const loadGenRef = useRef(0);
+
+  useEffect(() => {
+    /* purge legacy full MyPageData PII caches */
+    clearMypageHomeCaches();
+  }, []);
+
   const load = useCallback(
     async (opts?: { silent?: boolean; force?: boolean }) => {
       const silent = opts?.silent === true;
       const force = opts?.force === true;
       const shouldToggleLoading = !silent || data == null;
       if (shouldToggleLoading) setLoading(true);
+      const gen = ++loadGenRef.current;
       try {
         if (!force && data?.profile) {
           primeProfileDedupeFromRow(data.profile);
         }
         const d = await getMyPageData();
+        if (gen !== loadGenRef.current) return;
         setData(d);
-        writeMypageSessionCache(d, hubCountsSnapshotRef.current);
       } finally {
-        if (shouldToggleLoading) setLoading(false);
+        if (gen === loadGenRef.current && shouldToggleLoading) setLoading(false);
       }
     },
-    [data]
+    [data],
   );
 
   const loadAddressDefaults = useCallback(async (opts?: { force?: boolean }) => {
@@ -231,35 +153,34 @@ export function useMypageHubModel(
       const uid = getCurrentUser()?.id?.trim();
       if (!uid) return false;
       return addressDefaultsRef.current == null && neighborhoodFromLifeRef.current == null;
-    }
+    },
   );
 
-  const sessionHubCountsRef = useRef(sessionHubCounts);
-  sessionHubCountsRef.current = sessionHubCounts;
-
   useLayoutEffect(() => {
-    primeProfileDedupeFromRow(initialMyPageData?.profile ?? boot?.profile ?? null);
-    const hub = sessionHubCountsRef.current;
-    const profileId = (initialMyPageData?.profile ?? boot?.profile)?.id?.trim();
+    primeProfileDedupeFromRow(initialMyPageData?.profile ?? data?.profile ?? null);
+    const hub = initialMyPageData?.hubServerExtras;
+    const profileId = (initialMyPageData?.profile ?? data?.profile)?.id?.trim();
     if (hub && profileId) {
       primeTradeHistoryCountsCache(profileId, {
         purchaseCount: hub.overviewCounts.purchases ?? 0,
         salesCount: hub.overviewCounts.sales ?? 0,
       });
     }
-  }, [initialMyPageData?.profile?.id, boot?.profile?.id]);
+  }, [initialMyPageData?.profile?.id, data?.profile?.id, initialMyPageData?.hubServerExtras]);
 
   useEffect(() => {
     if (!enabled) {
       initialLoadRequestedRef.current = false;
       return;
     }
-    if (initialMyPageData !== undefined) return;
     if (initialLoadRequestedRef.current) return;
     initialLoadRequestedRef.current = true;
-    if (boot?.profile) return;
+    if (initialMyPageData?.profile) {
+      void load({ silent: true });
+      return;
+    }
     void load();
-  }, [enabled, load, initialMyPageData, boot?.profile]);
+  }, [enabled, load, initialMyPageData?.profile]);
 
   useLayoutEffect(() => {
     const snap = initialMyPageData?.addressDefaultsSnapshot;
@@ -292,7 +213,7 @@ export function useMypageHubModel(
   }, [initialMyPageData?.hubServerExtras, data?.profile?.id]);
 
   useEffect(() => {
-    if (initialMyPageData === undefined || !data?.profile?.id) return;
+    if (!data?.profile?.id) return;
     const uid = data.profile.id.trim();
     if (!uid) return;
     const applyHidden = () => {
@@ -306,7 +227,7 @@ export function useMypageHubModel(
         applyHidden();
       }
     });
-  }, [initialMyPageData, data?.profile?.id]);
+  }, [data?.profile?.id]);
 
   const loadAddressDefaultsRef = useRef(loadAddressDefaults);
 
@@ -373,10 +294,6 @@ export function useMypageHubModel(
 
     if (skipInitialCountsFetchRef.current) {
       skipInitialCountsFetchRef.current = false;
-      return;
-    }
-
-    if (hubCountsSnapshotRef.current) {
       return;
     }
 
@@ -464,22 +381,13 @@ export function useMypageHubModel(
           };
           setOwnerHubStoreId(hubStoreId);
           setOverviewCounts(nextOverview);
-          if (hasCompleteOverviewCounts(nextOverview, hasOwnerStoreFlag)) {
-            const hubCounts: MypageSessionHubCounts = {
-              overviewCounts: nextOverview,
-              ownerHubStoreId: hubStoreId,
-              ownerStoreGateFirstId: gateFirstId,
-            };
-            hubCountsSnapshotRef.current = hubCounts;
-            if (data?.profile) writeMypageSessionCache(data, hubCounts);
-          }
+          void hasCompleteOverviewCounts(nextOverview, hasOwnerStoreFlag);
         }
       } catch {
         if (!cancelled) {
           setOwnerHubStoreId(null);
           setOwnerStoreGate(null);
           setOwnerStoreGateFirstId(null);
-          setOverviewCounts((prev) => prev);
         }
       }
     };

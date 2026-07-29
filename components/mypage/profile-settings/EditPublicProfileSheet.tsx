@@ -15,6 +15,7 @@ import { PROFILE_EDIT_PRIMARY_BTN_CLASS } from "@/lib/ui/profile-edit-starbucks-
 import { validateOptionalNickname } from "@/lib/profile/profile-edit-form-helpers";
 import { MypageBottomSheetShell } from "./MypageBottomSheetShell";
 import { useMypageProfileSheets } from "./mypage-profile-sheets-context";
+import { getMypageHomeProjection, patchMypageHomeProjection } from "@/lib/mypage/mypage-home-store";
 
 export function EditPublicProfileSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { t, safeT } = useI18n();
@@ -70,10 +71,17 @@ export function EditPublicProfileSheet({ open, onClose }: { open: boolean; onClo
     }
     invalidateMeProfileDedupedCache();
     const fresh = await getMyProfile();
-    if (fresh) setSupabaseProfileCache(profileRowToClientProfile(fresh));
+    if (fresh) {
+      setSupabaseProfileCache(profileRowToClientProfile(fresh));
+      const current = getMypageHomeProjection();
+      patchMypageHomeProjection({
+        profile: fresh,
+        addressStatus: current?.addressStatus ?? "unknown",
+      });
+    }
     setMessage(t("profile_edit_saved"));
     onProfileUpdated();
-    window.setTimeout(() => onClose(), 400);
+    onClose();
   };
 
   return (

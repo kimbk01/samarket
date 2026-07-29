@@ -1,37 +1,30 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import type { MyPageData } from "@/lib/my/types";
 import { MyPageHeader } from "@/components/my/MyPageHeader";
 import { MyPageHomeDashboard } from "@/components/mypage/MyPageHomeDashboard";
-import { useMypageHubModel } from "@/hooks/use-mypage-hub-model";
+import { useMypageHomeModel } from "@/hooks/use-mypage-home-model";
 import { MYPAGE_MOBILE_NAV_QUERY, normalizeMyPageTab } from "@/components/mypage/mypage-nav";
 import { mapLegacyMyPageItemSlug } from "@/lib/mypage/mypage-mobile-nav-registry";
-import { APP_MAIN_COLUMN_CLASS, APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
-import {
-  PHILIFE_FB_CARD_CLASS,
-  PHILIFE_FEED_INSET_X_CLASS,
-} from "@/lib/philife/philife-flat-ui-classes";
+import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 import { MYPAGE_HOME_PAGE_BG_CLASS } from "@/lib/ui/mypage-home-starbucks-styles";
 import {
   MYPAGE_INFO_HUB_SHEET_PARAM,
   MYPAGE_INFO_HUB_SHEET_VALUE,
 } from "@/lib/my/mypage-info-hub";
 import { MYPAGE_SETTINGS_HREF } from "@/lib/mypage/mypage-profile-routes";
-import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
-import { fetchMeProfileDeduped } from "@/lib/profile/fetch-me-profile-deduped";
 import {
   dibayMyInfoPerfMark,
   dibayMyInfoPerfMaybeLogTotal,
   dibayMyInfoPerfNavClick,
 } from "@/lib/runtime/dibay-myinfo-perf";
 import { guardedRouterReplace, logNetworkLoopGuardReplace } from "@/lib/dev/network-loop-guard";
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MyPageGuestHomeDashboard } from "@/components/mypage/MyPageGuestHomeDashboard";
 import { MypageProfileSheetsHost } from "@/components/mypage/profile-settings/MypageProfileSheetsHost";
 import { MypageProfileSheetsProvider } from "@/components/mypage/profile-settings/mypage-profile-sheets-context";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
 
 function resolveLegacyMyPageRedirectTarget(args: {
   tab: string;
@@ -50,27 +43,29 @@ function resolveLegacyMyPageRedirectTarget(args: {
   return `/mypage/section/${encodeURIComponent(normalizedTab)}/${encodeURIComponent(item)}`;
 }
 
-export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageData | null } = {}) {
-  const { t } = useI18n();
+/**
+ * `/mypage` root shell.
+ * CONTRACT: no full-page spinner; session member → home shell immediately;
+ * guest only after membership confirms guest (not during checking with cached user).
+ */
+export function MyContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname() ?? "";
-  /** `useSearchParams` 객체는 렌더마다 참조가 바뀔 수 있어 router.replace effect 가 무한 재실행됨 → 문자열만 의존 */
   const searchQueryString = searchParams.toString();
   const legacyTabParam = searchParams.get("tab")?.trim() ?? "";
   const legacySectionParam = searchParams.get("section");
   const legacyNavParam = searchParams.get(MYPAGE_MOBILE_NAV_QUERY);
   const infoHubOpen =
     searchParams.get(MYPAGE_INFO_HUB_SHEET_PARAM) === MYPAGE_INFO_HUB_SHEET_VALUE;
-  const recoveryTriggeredRef = useRef(false);
-  const ensureRetriedRef = useRef(false);
 
+  const sessionUser = getCurrentUser();
   const membership = useClientMembershipState("mypage-root");
-  const hasServerProfile = Boolean(initialMyPageData?.profile);
-  const hubEnabled = hasServerProfile || membership.status === "member";
-  const { data, loading, load } = useMypageHubModel(initialMyPageData ?? undefined, {
-    enabled: hubEnabled,
-  });
+  const treatAsMember =
+    Boolean(sessionUser?.id) || membership.status === "member";
+  const isConfirmedGuest = !sessionUser?.id && membership.status === "guest";
+
+  const { projection, refresh } = useMypageHomeModel(treatAsMember);
 
   useEffect(() => {
     if (!pathname) return;
@@ -91,33 +86,8 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
       dibayMyInfoPerfNavClick(href);
     };
     window.addEventListener("pointerdown", handler, { capture: true });
-    return () => window.removeEventListener("pointerdown", handler, { capture: true } as any);
+    return () => window.removeEventListener("pointerdown", handler, { capture: true } as AddEventListenerOptions);
   }, []);
-
-  useEffect(() => {
-    if (!hasServerProfile && membership.status !== "member") return;
-    if (loading || recoveryTriggeredRef.current) return;
-    if (data?.profile) return;
-    /**
-     * 세션은 있으나 `profiles` 행이 비어 있는 첫 진입을 자동 회복.
-     * `GET /api/me/profile` 단일 파이프라인(`runMeProfileReadPipeline`)으로 행이 만들어지면
-     * 메인 데이터를 다시 로드해 화면을 정상화한다.
-     */
-    if (data && !data.profile && !ensureRetriedRef.current) {
-      ensureRetriedRef.current = true;
-      (async () => {
-        try {
-          await fetchMeProfileDeduped();
-          invalidateMeProfileDedupedCache();
-          await load({ silent: true });
-        } catch {
-          /* guest 또는 일시 실패 — 허브 UI fallback */
-        }
-      })();
-      return;
-    }
-    recoveryTriggeredRef.current = true;
-  }, [hasServerProfile, membership.status, loading, data, load]);
 
   useEffect(() => {
     if (!infoHubOpen) return;
@@ -127,7 +97,6 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
     });
   }, [infoHubOpen, router]);
 
-  /** 레거시 `?tab=&section=` → 계층형 경로 */
   useEffect(() => {
     if (pathname !== "/mypage" && pathname !== "/my" && !pathname.startsWith("/mypage/") && !pathname.startsWith("/my/")) {
       return;
@@ -153,36 +122,15 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
   }, [router, legacyTabParam, legacyNavParam, legacySectionParam, pathname, searchQueryString]);
 
   useEffect(() => {
-    if (loading) {
-      dibayMyInfoPerfMark("first_shell_visible_ms", { kind: "loading_shell" });
-      return;
-    }
-    if (data?.profile) {
-      dibayMyInfoPerfMark("rsc_done_ms", { hasProfile: true });
+    if (!treatAsMember) return;
+    dibayMyInfoPerfMark("first_shell_visible_ms", { kind: "home_shell" });
+    if (projection) {
       dibayMyInfoPerfMark("first_content_visible_ms", { surface: "mypage_root" });
       dibayMyInfoPerfMaybeLogTotal({ surface: "mypage_root" });
-      return;
     }
-    if (data) {
-      dibayMyInfoPerfMark("rsc_done_ms", { hasProfile: false });
-    }
-  }, [loading, data]);
+  }, [treatAsMember, projection]);
 
-  if (!hasServerProfile && membership.status === "checking") {
-    return (
-      <div className={`flex min-h-0 min-w-0 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
-        <MyPageHeader />
-        <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS}>
-          <div className={`${PHILIFE_FB_CARD_CLASS} sam-card__body py-10 text-center sam-text-body-secondary`}>
-            {t("mypage_comp_loading_hub")}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  /** 비회원 — 허브 레이아웃만. 진입 시 AuthModal 자동 오픈 금지(메뉴·CTA 탭 시만). */
-  if (!hasServerProfile && membership.status === "guest") {
+  if (isConfirmedGuest) {
     return (
       <div className={`flex min-h-0 min-w-0 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
         <MyPageHeader />
@@ -193,61 +141,19 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
     );
   }
 
-  /** RSC 프로필이 있으면 백그라운드 refresh 중에도 셸 유지 */
-  if (loading && !(hasServerProfile && data?.profile)) {
-    return (
-      <div className={`flex min-h-0 min-w-0 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
-        <MyPageHeader />
-        <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS}>
-          <div className={`${PHILIFE_FB_CARD_CLASS} sam-card__body py-10 text-center sam-text-body-secondary`}>
-            {t("mypage_comp_loading_hub")}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!data) {
-    return (
-      <div className={`flex min-h-0 min-w-0 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
-        <MyPageHeader />
-        <div className={`${PHILIFE_FEED_INSET_X_CLASS} pt-1 ${APP_MAIN_TAB_SCROLL_BODY_CLASS}`}>
-          <div className={`${PHILIFE_FB_CARD_CLASS} sam-card__body py-10 text-center sam-text-body-secondary`}>
-            {t("mypage_comp_profile_load_failed_short")}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const { profile } = data;
-
-  if (!profile) {
-    return (
-      <div className={`flex min-h-0 min-w-0 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
-        <MyPageHeader />
-        <div className={`${PHILIFE_FEED_INSET_X_CLASS} pt-1 ${APP_MAIN_TAB_SCROLL_BODY_CLASS}`}>
-          <div className={`${PHILIFE_FB_CARD_CLASS} sam-card__body py-10 text-center sam-text-body-secondary`}>
-            {t("mypage_comp_profile_load_failed_short")}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
+  /** member or checking-with-session: always show home shell (menus static; profile may skeleton) */
   return (
     <MypageProfileSheetsProvider>
-      <div className={`flex min-h-0 min-w-0 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
+      <div className={`flex min-h-0 min-w-0 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`} data-mypage-home-shell="1">
         <MyPageHeader />
         <div className={`${APP_MAIN_COLUMN_CLASS} min-h-0 min-w-0 ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
           <MyPageHomeDashboard
-            profile={profile}
-            profileCompletion={data.profileCompletion ?? null}
-            onProfileRefresh={() => void load({ silent: true })}
+            projection={projection}
+            onProfileRefresh={() => void refresh()}
           />
         </div>
       </div>
-      <MypageProfileSheetsHost profile={profile} />
+      <MypageProfileSheetsHost profile={projection?.profile ?? null} />
     </MypageProfileSheetsProvider>
   );
 }

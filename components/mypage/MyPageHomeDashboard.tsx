@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
-import { MyInfoProfileSection } from "@/components/mypage/myinfo/MyInfoProfileSection";
-import { RequiredInfoList } from "@/components/mypage/myinfo/RequiredInfoList";
+import { MypageProfileSummary } from "@/components/mypage/home/MypageProfileSummary";
+import { MypageRequiredInfoSummary } from "@/components/mypage/home/MypageRequiredInfoSummary";
 import { MyPageAdminMenuEntry } from "@/components/mypage/MyPageAdminMenuEntry";
 import {
   MyInfoAccountMenuSection,
@@ -11,28 +11,20 @@ import {
   MyInfoSupportMenuSection,
 } from "@/components/mypage/myinfo/MyInfoHomeMenuSections";
 import { MYPAGE_HOME_BODY_CLASS } from "@/lib/ui/mypage-home-starbucks-styles";
-import type { ProfileCompletionState } from "@/lib/profile/profile-completion-state";
-import type { ProfileRow } from "@/lib/profile/types";
-import { useMypageHomeDashboardModel } from "@/hooks/use-mypage-home-dashboard-model";
+import type { MypageHomeProjection } from "@/lib/mypage/mypage-home-store";
+import { MYPAGE_ADDRESSES_HREF } from "@/lib/mypage/mypage-profile-routes";
 import { useMypageProfileSheets } from "@/components/mypage/profile-settings/mypage-profile-sheets-context";
 
 const COLUMN_STACK_CLASS = "flex min-w-0 flex-col gap-3 md:gap-4";
 
-/** /mypage 메인 — 프로필(보기·수정) + 필수 정보 + lazy 메뉴 */
+/** /mypage 메인 — 프로필 요약 + 필수 정보 + 정적 메뉴 (편집 form 미마운트) */
 export function MyPageHomeDashboard({
-  profile,
-  profileCompletion = null,
+  projection,
   onProfileRefresh,
 }: {
-  profile: ProfileRow;
-  profileCompletion?: ProfileCompletionState | null;
+  projection: MypageHomeProjection | null;
   onProfileRefresh?: () => void;
 }) {
-  const { completion, addressesMenuHref } = useMypageHomeDashboardModel({
-    profile,
-    initialCompletion: profileCompletion,
-    onProfileRefresh,
-  });
   const { setOnProfileUpdated } = useMypageProfileSheets();
 
   useEffect(() => {
@@ -43,16 +35,12 @@ export function MyPageHomeDashboard({
   return (
     <div className={MYPAGE_HOME_BODY_CLASS}>
       <div className="flex min-h-0 min-w-0 flex-col gap-3 sm:gap-4">
-        <MyInfoProfileSection profile={profile} onProfileRefresh={onProfileRefresh} />
-        <RequiredInfoList
-          profile={profile}
-          completion={completion}
-          onProfileRefresh={onProfileRefresh}
-        />
+        <MypageProfileSummary projection={projection} />
+        <MypageRequiredInfoSummary projection={projection} />
 
         <div className="flex flex-col gap-3 md:hidden">
           <MyInfoStoreMenuSection />
-          <MyInfoAccountMenuSection addressesMenuHref={addressesMenuHref} />
+          <MyInfoAccountMenuSection addressesMenuHref={MYPAGE_ADDRESSES_HREF} />
           <MyInfoServiceMenuSection />
           <MyInfoSupportMenuSection />
           <MyPageAdminMenuEntry starbucks />
@@ -65,7 +53,7 @@ export function MyPageHomeDashboard({
           </div>
           <div className={COLUMN_STACK_CLASS}>
             <MyInfoStoreMenuSection />
-            <MyInfoAccountMenuSection addressesMenuHref={addressesMenuHref} />
+            <MyInfoAccountMenuSection addressesMenuHref={MYPAGE_ADDRESSES_HREF} />
           </div>
           <div className="md:max-[1025px]:col-span-2">
             <MyPageAdminMenuEntry starbucks />
@@ -81,7 +69,7 @@ export function MyPageHomeDashboard({
             <MyPageAdminMenuEntry starbucks />
           </div>
           <div className={COLUMN_STACK_CLASS}>
-            <MyInfoAccountMenuSection addressesMenuHref={addressesMenuHref} />
+            <MyInfoAccountMenuSection addressesMenuHref={MYPAGE_ADDRESSES_HREF} />
             <MyInfoServiceMenuSection />
           </div>
         </div>
