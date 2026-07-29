@@ -5,8 +5,8 @@ import { OwnerStoreNeedStoreIdRscMessage } from "@/components/business/owner/Own
 import { loadOwnerProductsHubBootstrap } from "@/lib/stores/owner/load-owner-store-read-bootstrap";
 
 /**
- * CONTRACT — do not Suspense-fallback to `MainFeedRouteLoading` / pulse skeleton.
- * Client already session-peeks products; RSC wait must not cover a warm shell with feed pulse.
+ * CONTRACT — do not Suspense-fallback to feed-route pulse skeleton.
+ * Client already session-peeks products; RSC wait must not cover a warm shell with pulse.
  */
 export default function OwnerProductsHubPage({
   searchParams,
