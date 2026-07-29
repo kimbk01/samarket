@@ -63,6 +63,8 @@ export function appendLocalCallChatMessageFromTerminalSession(input: {
   callKind: CommunityMessengerCallKind;
   status: string;
   startedAt?: string | null;
+  /** terminal occurred_at — 목록 tip lastMessageAt 권위 (startedAt 보다 우선) */
+  endedAt?: string | null;
   answeredAt?: string | null;
   hangupReason?: string | null;
   endedReason?: string | null;
@@ -91,6 +93,9 @@ export function appendLocalCallChatMessageFromTerminalSession(input: {
   });
   const status = mapResolvedEventToCallStatus(resolved);
   const callStartedAt = typeof input.startedAt === "string" ? input.startedAt.trim() : "";
+  const callEndedAt = typeof input.endedAt === "string" ? input.endedAt.trim() : "";
+  /** 목록 tip — terminal occurred_at. started_at 만 쓰면 dial 제거 후 stale guard 에 막힘. */
+  const tipActivityAt = callEndedAt || new Date().toISOString();
 
   if (process.env.NODE_ENV !== "production") {
     console.info("[cm-call-message-resolve]", {
@@ -133,7 +138,7 @@ export function appendLocalCallChatMessageFromTerminalSession(input: {
     callKind: input.callKind,
   });
 
-  if (callStartedAt) {
+  {
     const sessionKey = sessionKeyForDedupe(input.sessionId, input.tmpSessionId);
     postCommunityMessengerCallStubPreviewBusEvent({
       roomId,
@@ -142,7 +147,7 @@ export function appendLocalCallChatMessageFromTerminalSession(input: {
       preview: {
         lastMessage: text,
         lastMessageType: "call_stub",
-        lastMessageAt: callStartedAt,
+        lastMessageAt: tipActivityAt,
       },
     });
   }
@@ -156,6 +161,7 @@ export function appendLocalCallChatMessageFromTerminalSession(input: {
     status,
     replaceExisting: true,
     callStartedAt: callStartedAt || null,
+    callEndedAt: callEndedAt || tipActivityAt,
     durationSeconds: input.durationSeconds,
   }).then((src) => {
     if (process.env.NODE_ENV !== "production" && src) {
@@ -233,6 +239,7 @@ async function persistCallStubMessageBestEffort(input: {
   status: CommunityMessengerCallStatus;
   replaceExisting: boolean;
   callStartedAt: string | null;
+  callEndedAt?: string | null;
   durationSeconds?: number;
 }): Promise<"db" | null> {
   try {
@@ -249,6 +256,7 @@ async function persistCallStubMessageBestEffort(input: {
         status: input.status,
         replaceExisting: input.replaceExisting,
         callStartedAt: input.callStartedAt ?? undefined,
+        callEndedAt: input.callEndedAt ?? undefined,
         durationSeconds: input.durationSeconds ?? 0,
       }),
     });

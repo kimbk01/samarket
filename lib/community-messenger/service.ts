@@ -5041,11 +5041,21 @@ export async function appendCommunityMessengerCallStubMessage(input: {
   tmpSessionId?: string | null;
   callKind: CommunityMessengerCallKind;
   status: CommunityMessengerCallStatus;
+  /** 타임라인 행 created_at — 보통 session.started_at (dial→terminal UPDATE 시 불변) */
   createdAt: string;
+  /**
+   * 목록 lastActivityAt 권위 — terminal occurred_at(ended_at).
+   * 없으면 createdAt. forward-only max(current, listActivityAt).
+   */
+  listActivityAt?: string | null;
   replaceExisting?: boolean;
   incrementUnread?: boolean;
   durationSeconds?: number;
-  /** false — terminal UPDATE·동일 sessionId 재처리 시 rooms.last_message_at 유지 */
+  /**
+   * true — rooms.last_message_at 을 listActivityAt 기준으로 forward-only bump + preview 갱신.
+   * false — 레거시 dial stub 이후 terminal UPDATE(시각 유지, preview는 stub 시각 이내만).
+   * CONTRACT: 1:1 은 dialing stub 미발행(2026-07-29) → terminal INSERT/UPDATE 는 true 필수.
+   */
   bumpRoomLastMessageAt?: boolean;
 }) {
   if (!input.roomId) return;
@@ -5064,6 +5074,19 @@ export async function appendCommunityMessengerCallStubMessage(input: {
   const shouldIncrementUnread = input.incrementUnread ?? true;
   const sessionId = trimText(input.sessionId ?? "");
   const bumpRoomLastMessageAt = input.bumpRoomLastMessageAt !== false;
+  const listActivityAt =
+    trimText(input.listActivityAt ?? "") || trimText(input.createdAt) || nowIso();
+
+  const applyForwardOnlyRoomLastMessageAt = (
+    currentAt: string,
+    nextAt: string
+  ): string | null => {
+    const currentMs = new Date(currentAt).getTime();
+    const nextMs = new Date(nextAt).getTime();
+    if (!Number.isFinite(nextMs)) return null;
+    if (!Number.isFinite(currentMs) || nextMs >= currentMs) return nextAt;
+    return null;
+  };
 
   const updateExistingStub = async (existing: CallStubExistingRow) => {
     const stubStartedAt = trimText(existing.createdAt) || trimText(input.createdAt);
@@ -5084,6 +5107,19 @@ export async function appendCommunityMessengerCallStubMessage(input: {
       const roomAt = trimText((roomRow as { last_message_at?: string } | null)?.last_message_at);
       const roomMs = new Date(roomAt).getTime();
       const stubMs = new Date(stubStartedAt).getTime();
+      if (bumpRoomLastMessageAt) {
+        const roomPatch: Record<string, unknown> = {
+          last_message: label,
+          last_message_type: "call_stub",
+        };
+        const bumped = applyForwardOnlyRoomLastMessageAt(roomAt, listActivityAt);
+        if (bumped) {
+          roomPatch.last_message_at = bumped;
+          roomPatch.updated_at = bumped;
+        }
+        await (sb as any).from("community_messenger_rooms").update(roomPatch).eq("id", input.roomId);
+        return;
+      }
       const roomPreviewStillFromThisCall =
         Number.isFinite(roomMs) && Number.isFinite(stubMs) && roomMs <= stubMs;
       if (roomPreviewStillFromThisCall) {
@@ -5105,6 +5141,13 @@ export async function appendCommunityMessengerCallStubMessage(input: {
     }
     const room = dev.rooms.find((item) => item.id === input.roomId);
     if (room) {
+      if (bumpRoomLastMessageAt) {
+        room.lastMessage = label;
+        room.lastMessageType = "call_stub";
+        const bumped = applyForwardOnlyRoomLastMessageAt(trimText(room.lastMessageAt), listActivityAt);
+        if (bumped) room.lastMessageAt = bumped;
+        return;
+      }
       const roomMs = new Date(trimText(room.lastMessageAt)).getTime();
       const stubMs = new Date(stubStartedAt).getTime();
       if (Number.isFinite(roomMs) && Number.isFinite(stubMs) && roomMs > stubMs) {
@@ -5148,18 +5191,17 @@ export async function appendCommunityMessengerCallStubMessage(input: {
       last_message_type: "call_stub",
     };
     if (bumpRoomLastMessageAt) {
-      /** lastActivityAt SSOT — rooms.last_message_at 은 앞으로만 이동 */
+      /** lastActivityAt SSOT — terminal occurred_at 기준 forward-only */
       const { data: roomRow } = await (sb as any)
         .from("community_messenger_rooms")
         .select("last_message_at")
         .eq("id", input.roomId)
         .maybeSingle();
       const currentAt = trimText((roomRow as { last_message_at?: string } | null)?.last_message_at);
-      const currentMs = new Date(currentAt).getTime();
-      const nextMs = new Date(input.createdAt).getTime();
-      if (!Number.isFinite(currentMs) || !Number.isFinite(nextMs) || nextMs >= currentMs) {
-        roomPatch.last_message_at = input.createdAt;
-        roomPatch.updated_at = input.createdAt;
+      const bumped = applyForwardOnlyRoomLastMessageAt(currentAt, listActivityAt);
+      if (bumped) {
+        roomPatch.last_message_at = bumped;
+        roomPatch.updated_at = bumped;
       }
     }
     await (sb as any).from("community_messenger_rooms").update(roomPatch).eq("id", input.roomId);
@@ -5195,7 +5237,8 @@ export async function appendCommunityMessengerCallStubMessage(input: {
     room.lastMessage = label;
     room.lastMessageType = "call_stub";
     if (bumpRoomLastMessageAt) {
-      room.lastMessageAt = input.createdAt;
+      const bumped = applyForwardOnlyRoomLastMessageAt(trimText(room.lastMessageAt), listActivityAt);
+      if (bumped) room.lastMessageAt = bumped;
     }
   }
   if (!shouldIncrementUnread) return;
@@ -17548,6 +17591,8 @@ export async function createCommunityMessengerCallLog(input: {
   durationSeconds?: number;
   replaceExistingStub?: boolean;
   startedAt?: string | null;
+  /** terminal occurred_at — 목록 last_message_at forward-only 권위 */
+  endedAt?: string | null;
 }): Promise<{ ok: boolean; error?: string }> {
   const roomId = trimText(input.roomId ?? "") || null;
   const sessionId = trimText(input.sessionId ?? "") || null;
@@ -17557,6 +17602,7 @@ export async function createCommunityMessengerCallLog(input: {
     explicitStartedAt: input.startedAt,
     context: "createCommunityMessengerCallLog",
   });
+  const listActivityAt = trimText(input.endedAt ?? "") || startedAt;
   const payload = {
     session_id: sessionId,
     room_id: roomId,
@@ -17578,9 +17624,14 @@ export async function createCommunityMessengerCallLog(input: {
         callKind: input.callKind,
         status: input.status,
         createdAt: startedAt,
+        listActivityAt,
         replaceExisting: input.replaceExistingStub,
         incrementUnread: !input.replaceExistingStub,
-        bumpRoomLastMessageAt: !input.replaceExistingStub,
+        /**
+         * CONTRACT: dialing stub 미발행 이후 direct terminal 도 last_message_at bump 필수.
+         * (구: replaceExistingStub 이면 bump false — dial 선 bump 전제, 2026-07-29 회귀)
+         */
+        bumpRoomLastMessageAt: true,
         durationSeconds: input.durationSeconds,
       });
       return { ok: true };
@@ -17594,9 +17645,10 @@ export async function createCommunityMessengerCallLog(input: {
         callKind: input.callKind,
         status: input.status,
         createdAt: startedAt,
+        listActivityAt,
         replaceExisting: input.replaceExistingStub ?? true,
         incrementUnread: false,
-        bumpRoomLastMessageAt: false,
+        bumpRoomLastMessageAt: true,
         durationSeconds: input.durationSeconds,
       });
       return { ok: true };
@@ -17623,9 +17675,10 @@ export async function createCommunityMessengerCallLog(input: {
     callKind: input.callKind,
     status: input.status,
     createdAt: startedAt,
+    listActivityAt,
     replaceExisting: input.replaceExistingStub,
     incrementUnread: !input.replaceExistingStub,
-    bumpRoomLastMessageAt: !input.replaceExistingStub,
+    bumpRoomLastMessageAt: true,
     durationSeconds: input.durationSeconds,
   });
   return { ok: true };
@@ -18473,6 +18526,12 @@ export async function updateCommunityMessengerCallSession(input: {
         sessionId,
         context: "ensureTerminalCallStub",
       }));
+    const listActivityAt =
+      trimText(mapped.endedAt ?? "") ||
+      ("ended_at" in session
+        ? trimText(session.ended_at ?? "")
+        : trimText(session.endedAt ?? "")) ||
+      nowIso();
     await appendCommunityMessengerCallStubMessage({
       userId: "initiator_user_id" in session ? session.initiator_user_id : session.initiatorUserId,
       roomId: "room_id" in session ? session.room_id : session.roomId,
@@ -18480,9 +18539,10 @@ export async function updateCommunityMessengerCallSession(input: {
       callKind: "call_kind" in session ? session.call_kind : session.callKind,
       status: terminalLogStatus(mapped),
       createdAt: stubCreatedAt,
+      listActivityAt,
       replaceExisting: mapped.sessionMode === "direct",
       incrementUnread: false,
-      /** INSERT 복구 시에만 lastActivityAt bump; UPDATE 경로는 append 내부에서 시각 불변 */
+      /** INSERT·UPDATE 모두 listActivityAt(terminal) forward-only bump */
       bumpRoomLastMessageAt: true,
       durationSeconds: resolveTerminalDurationSeconds(session, mapped),
     });
@@ -18507,6 +18567,10 @@ export async function updateCommunityMessengerCallSession(input: {
             recipientUserId,
           })
         : null;
+    const endedAt =
+      trimText(mapped.endedAt ?? "") ||
+      (isDbSession ? trimText(session.ended_at ?? "") : trimText(session.endedAt ?? "")) ||
+      undefined;
     await createCommunityMessengerCallLog({
       userId: initiatorUserId,
       roomId: "room_id" in session ? session.room_id : session.roomId,
@@ -18517,6 +18581,7 @@ export async function updateCommunityMessengerCallSession(input: {
       durationSeconds: resolveTerminalDurationSeconds(session, mapped),
       replaceExistingStub: mapped.sessionMode === "direct",
       startedAt: sessionStartedAt || undefined,
+      endedAt,
     });
   };
 
@@ -19453,8 +19518,8 @@ export async function updateCommunityMessengerCallSession(input: {
     "labels_only"
   );
   if (isTerminalCallSessionStatus(mapped.status)) {
-    if (!dev.calls.some((item) => item.sessionId === sessionId)) void finalizeLog(session, mapped);
-    else void ensureTerminalCallStub(session, mapped);
+    if (!dev.calls.some((item) => item.sessionId === sessionId)) await finalizeLog(session, mapped);
+    else await ensureTerminalCallStub(session, mapped);
   }
   if (isTerminalCallSessionStatus(next.nextStatus)) {
     const peerUserId = messengerUserIdsEqual(session.initiatorUserId, input.userId)

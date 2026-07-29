@@ -798,7 +798,11 @@ export function CommunityMessengerCallClient({
     (
       source: CommunityMessengerCallSession,
       status: CommunityMessengerCallSession["status"],
-      opts?: { hangupReason?: string | null; endedReason?: string | null }
+      opts?: {
+        hangupReason?: string | null;
+        endedReason?: string | null;
+        durationSeconds?: number;
+      }
     ) => {
       if (source.sessionMode !== "direct") return;
       if (!isTerminalCallSessionStatus(status)) return;
@@ -811,9 +815,14 @@ export function CommunityMessengerCallClient({
         callKind: source.callKind,
         status,
         startedAt: source.startedAt,
+        endedAt: source.endedAt ?? new Date().toISOString(),
         answeredAt: source.answeredAt ?? null,
         hangupReason: opts?.hangupReason ?? null,
         endedReason: opts?.endedReason ?? source.endedReason ?? null,
+        durationSeconds:
+          typeof opts?.durationSeconds === "number"
+            ? opts.durationSeconds
+            : elapsedSecondsRef.current,
       });
     },
     []

@@ -92,6 +92,29 @@ if (exists("lib/chat-domain/list/dual-write-domain-list-from-rooms.ts")) {
 }
 
 {
+  const localAppend = "lib/community-messenger/call-chat-local-append.ts";
+  const text = read(localAppend);
+  if (!text.includes("postCommunityMessengerCallStubPreviewBusEvent")) {
+    fail(`${localAppend}: terminal tip projection via call stub preview bus must exist`);
+  }
+  if (!text.includes("tipActivityAt") && !text.includes("endedAt")) {
+    fail(`${localAppend}: terminal tip must prefer endedAt/tipActivityAt over startedAt-only`);
+  }
+}
+
+{
+  const service = "lib/community-messenger/service.ts";
+  const text = read(service);
+  if (!text.includes("listActivityAt")) {
+    fail(`${service}: terminal stub must bump rooms.last_message_at via listActivityAt`);
+  }
+  // Regression: replaceExistingStub must not disable terminal list bump.
+  if (/bumpRoomLastMessageAt:\s*!input\.replaceExistingStub/.test(text)) {
+    fail(`${service}: must not disable terminal bump when replaceExistingStub (dial stub removed)`);
+  }
+}
+
+{
   const bump = "lib/community-messenger/room/use-messenger-room-bump-broadcast-subscription.ts";
   const catchup = "lib/community-messenger/room/use-messenger-room-remote-catchup.ts";
   for (const rel of [bump, catchup]) {

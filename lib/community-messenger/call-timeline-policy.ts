@@ -13,9 +13,11 @@
  *
  * ## lastActivityAt (목록 정렬)
  * - DB 컬럼 `rooms.last_message_at` 이 lastActivityAt 권위
- * - = max(마지막 노출 메시지 createdAt, 마지막 노출 통화 eventAt)
- * - terminal stub INSERT 시 bump; terminal UPDATE 는 preview 갱신 + 시각은 forward-only
+ * - = max(이전 last_message_at, terminal occurred_at[=ended_at])
+ * - terminal stub INSERT/UPDATE 시 listActivityAt(ended_at) 으로 forward-only bump
+ * - 타임라인 행 `created_at` 은 session.started_at 유지(동일 callId UPDATE 시 불변)
  * - 동일 callId 상태 변화로 lastActivityAt rollback 금지
+ * - dialing stub 미발행(2026-07-29) 이후 terminal 이 유일한 bump 지점 — bump 생략 금지
  *
  * ## In-flight (ringing / dialing) — 2026-07-29
  * - **1:1 direct: 링 중 dialing call_stub 를 DB/Realtime 에 publish 하지 않음**
@@ -24,6 +26,7 @@
  * - terminal(연결 종료·거절·취소·부재중) 도달 시 sessionId 당 이력 1행만 확정
  * - 레거시 dialing 잔존 + terminal 이 함께 있으면 projection merge 로 session 당 1행
  * - VoIP dispatch 는 `dispatchIncomingCallVoipOnCriticalPath` (HTTP `after()` 금지)
+ * - Native-only mid-call tip 이 terminal stub/list projection 을 차단하면 안 됨
  */
 
 export const CM_ROOM_TIMELINE_CALL_SSOT = "community_messenger_messages.call_stub" as const;

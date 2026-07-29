@@ -87,6 +87,8 @@ export async function POST(req: NextRequest) {
   if (!createdAt) {
     return NextResponse.json({ ok: false, error: "call_started_at_required" }, { status: 400 });
   }
+  const callEndedAt = trimText(body.callEndedAt);
+  const listActivityAt = callEndedAt || new Date().toISOString();
 
   await appendCommunityMessengerCallStubMessage({
     userId: senderId,
@@ -96,20 +98,20 @@ export async function POST(req: NextRequest) {
     callKind,
     status,
     createdAt,
+    listActivityAt,
     replaceExisting,
     incrementUnread: !replaceExisting,
-    bumpRoomLastMessageAt: !replaceExisting,
+    /** terminal-only API — dialing blocked above; always bump list to terminal time */
+    bumpRoomLastMessageAt: true,
     durationSeconds,
   });
 
-  if (!replaceExisting) {
-    await publishMessengerRoomBumpAfterMutation({
-      rawRouteRoomId: roomId,
-      canonicalRoomId: roomId,
-      fromUserId: senderId,
-      messageCreatedAt: createdAt,
-    });
-  }
+  await publishMessengerRoomBumpAfterMutation({
+    rawRouteRoomId: roomId,
+    canonicalRoomId: roomId,
+    fromUserId: senderId,
+    messageCreatedAt: listActivityAt,
+  });
 
   return NextResponse.json({ ok: true });
 }

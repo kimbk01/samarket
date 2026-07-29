@@ -83,6 +83,25 @@ describe("call stub home list preview patch", () => {
     expect(patched.chats?.[0]?.lastMessageType).toBe("text");
   });
 
+  it("applies terminal tip when ended_at is newer than prior text", () => {
+    const textAt = "2026-06-09T10:00:05.000Z";
+    const endedAt = "2026-06-09T10:05:00.000Z";
+    const data = bootstrap({
+      id: "room-1",
+      lastMessage: "안녕하세요",
+      lastMessageAt: textAt,
+      lastMessageType: "text",
+    });
+    const patched = patchBootstrapRoomListForCallStubPreviewUpdate(data, "room-1", {
+      lastMessage: "음성 통화 · 00:12",
+      lastMessageType: "call_stub",
+      lastMessageAt: endedAt,
+    });
+    expect(patched.chats?.[0]?.lastMessage).toBe("음성 통화 · 00:12");
+    expect(patched.chats?.[0]?.lastMessageAt).toBe(endedAt);
+    expect(patched.chats?.[0]?.lastMessageType).toBe("call_stub");
+  });
+
   it("TEST 10: call_stub_preview patch does not change sort key", () => {
     const older = {
       id: "room-old",

@@ -163,4 +163,93 @@ describe("appendCommunityMessengerCallStubMessage (dev SSOT)", () => {
     const sessionIds = dev.messages.map((m) => m.metadata.sessionId).sort();
     expect(sessionIds).toEqual([SESSION_A, SESSION_B].sort());
   });
+
+  it("terminal-only INSERT (no dial stub) bumps last_message_at to ended_at", async () => {
+    const endedAt = "2026-06-09T10:05:00.000Z";
+    await appendCommunityMessengerCallStubMessage({
+      userId: "user-1",
+      roomId: "room-1",
+      sessionId: SESSION_A,
+      callKind: "voice",
+      status: "ended",
+      createdAt: STARTED_AT,
+      listActivityAt: endedAt,
+      replaceExisting: true,
+      incrementUnread: false,
+      bumpRoomLastMessageAt: true,
+      durationSeconds: 12,
+    });
+    const room = devState().rooms[0]!;
+    expect(devState().messages).toHaveLength(1);
+    expect(room.lastMessageType).toBe("call_stub");
+    expect(room.lastMessageAt).toBe(endedAt);
+  });
+
+  it("terminal UPDATE with bump + listActivityAt moves past newer text without rollback", async () => {
+    const textAt = "2026-06-09T10:00:05.000Z";
+    const endedAt = "2026-06-09T10:05:00.000Z";
+    const newerAt = "2026-06-09T10:06:00.000Z";
+    await appendCommunityMessengerCallStubMessage({
+      userId: "user-1",
+      roomId: "room-1",
+      sessionId: SESSION_A,
+      callKind: "voice",
+      status: "ended",
+      createdAt: STARTED_AT,
+      listActivityAt: endedAt,
+      replaceExisting: true,
+      incrementUnread: false,
+      bumpRoomLastMessageAt: true,
+      durationSeconds: 8,
+    });
+    const room = devState().rooms[0]!;
+    room.lastMessageAt = newerAt;
+    room.lastMessage = "later";
+    room.lastMessageType = "text";
+
+    await appendCommunityMessengerCallStubMessage({
+      userId: "user-1",
+      roomId: "room-1",
+      sessionId: SESSION_A,
+      callKind: "voice",
+      status: "ended",
+      createdAt: STARTED_AT,
+      listActivityAt: endedAt,
+      replaceExisting: true,
+      incrementUnread: false,
+      bumpRoomLastMessageAt: true,
+      durationSeconds: 8,
+    });
+
+    expect(devState().rooms[0]!.lastMessageAt).toBe(newerAt);
+    expect(devState().rooms[0]!.lastMessage).toBeTruthy();
+    expect(devState().messages).toHaveLength(1);
+  });
+
+  it("terminal UPDATE bump applies when ended_at is newer than room tip", async () => {
+    const textAt = "2026-06-09T10:00:05.000Z";
+    const endedAt = "2026-06-09T10:05:00.000Z";
+    const room = devState().rooms[0]!;
+    room.lastMessageAt = textAt;
+    room.lastMessage = "안녕";
+    room.lastMessageType = "text";
+
+    await appendCommunityMessengerCallStubMessage({
+      userId: "user-1",
+      roomId: "room-1",
+      sessionId: SESSION_A,
+      callKind: "voice",
+      status: "ended",
+      createdAt: STARTED_AT,
+      listActivityAt: endedAt,
+      replaceExisting: true,
+      incrementUnread: false,
+      bumpRoomLastMessageAt: true,
+      durationSeconds: 8,
+    });
+
+    expect(devState().rooms[0]!.lastMessageAt).toBe(endedAt);
+    expect(devState().rooms[0]!.lastMessageType).toBe("call_stub");
+    expect(devState().messages).toHaveLength(1);
+  });
 });

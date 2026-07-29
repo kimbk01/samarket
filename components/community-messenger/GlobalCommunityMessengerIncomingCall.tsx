@@ -718,6 +718,12 @@ export function GlobalCommunityMessengerIncomingCall() {
         : typeof raw.started_at === "string"
           ? raw.started_at.trim()
           : "";
+    const endedAtRaw =
+      typeof raw.endedAt === "string"
+        ? raw.endedAt.trim()
+        : typeof raw.ended_at === "string"
+          ? raw.ended_at.trim()
+          : "";
 
     if (roomId && initiatorUserId && callKind) {
       appendLocalCallChatMessageFromTerminalSession({
@@ -729,6 +735,7 @@ export function GlobalCommunityMessengerIncomingCall() {
         callKind,
         status: statusNorm,
         startedAt: startedAtRaw || null,
+        endedAt: endedAtRaw || new Date().toISOString(),
         answeredAt: answeredAtRaw,
         hangupReason: hangupReasonRaw,
         endedReason: endedReasonRaw,
@@ -2136,6 +2143,7 @@ export function GlobalCommunityMessengerIncomingCall() {
         callKind: session.callKind,
         status: "rejected",
         startedAt: session.startedAt,
+        endedAt: session.endedAt ?? new Date().toISOString(),
         answeredAt: session.answeredAt ?? null,
         hangupReason: "reject",
         endedReason: session.endedReason ?? null,
