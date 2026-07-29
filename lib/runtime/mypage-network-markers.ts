@@ -85,8 +85,9 @@ function ensureRouteGenerationHook(w: MarkerHost): void {
   const bump = () => {
     w[ROUTE_GEN_KEY] = (w[ROUTE_GEN_KEY] ?? 0) + 1;
   };
-  w.addEventListener("popstate", bump);
+  w.addEventListener?.("popstate", bump);
   try {
+    if (typeof history === "undefined" || typeof history.pushState !== "function") return;
     const origPush = history.pushState.bind(history);
     const origReplace = history.replaceState.bind(history);
     history.pushState = (...args: Parameters<History["pushState"]>) => {

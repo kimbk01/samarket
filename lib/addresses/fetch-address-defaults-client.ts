@@ -1,6 +1,5 @@
 "use client";
 
-import { forgetSingleFlight, getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
 import type { LifeDefaultLocationSummary } from "@/lib/addresses/life-default-location-summary";
 import {
   ADDRESS_DEFAULTS_SNAPSHOT_TTL_MS,
@@ -18,13 +17,31 @@ import {
 } from "@/lib/runtime/mypage-network-markers";
 
 const ADDRESS_DEFAULTS_SNAPSHOT_FLIGHT = "me:address-defaults:snapshot";
+const GLOBAL_KEY = "__SAMARKET_ADDRESS_DEFAULTS_CANONICAL__" as const;
 
-let cachedSnapshot:
+type Cached =
   | {
       expiresAt: number;
       value: AddressDefaultsSnapshot;
     }
-  | null = null;
+  | null;
+
+type AddressDefaultsCanonical = {
+  cached: Cached;
+  flight: Promise<AddressDefaultsSnapshot> | null;
+};
+
+type GlobalHost = typeof globalThis & {
+  [GLOBAL_KEY]?: AddressDefaultsCanonical;
+};
+
+function canonical(): AddressDefaultsCanonical {
+  const g = globalThis as GlobalHost;
+  if (!g[GLOBAL_KEY]) {
+    g[GLOBAL_KEY] = { cached: null, flight: null };
+  }
+  return g[GLOBAL_KEY]!;
+}
 
 function cloneSnapshot(value: AddressDefaultsSnapshot): AddressDefaultsSnapshot {
   return {
@@ -36,13 +53,14 @@ function cloneSnapshot(value: AddressDefaultsSnapshot): AddressDefaultsSnapshot 
 }
 
 export function invalidateAddressDefaultsSnapshotCache(): void {
-  cachedSnapshot = null;
-  forgetSingleFlight(ADDRESS_DEFAULTS_SNAPSHOT_FLIGHT);
+  const c = canonical();
+  c.cached = null;
+  c.flight = null;
 }
 
 /** RSC·프로필 편집 직후 — 클라 TTL 캐시에 서버 스냅샷 주입(첫 페인트 깜빡임 방지). */
 export function seedAddressDefaultsSnapshotCache(snapshot: AddressDefaultsSnapshot): void {
-  cachedSnapshot = {
+  canonical().cached = {
     value: cloneSnapshot(snapshot),
     expiresAt: Date.now() + ADDRESS_DEFAULTS_SNAPSHOT_TTL_MS,
   };
@@ -51,8 +69,9 @@ export function seedAddressDefaultsSnapshotCache(snapshot: AddressDefaultsSnapsh
 /** TTL 안 스냅샷 — 동기 읽기(탭 전환 시 주소 알약 깜빡임 방지). */
 export function peekFreshAddressDefaultsSnapshot(): AddressDefaultsSnapshot | null {
   const now = Date.now();
-  if (!cachedSnapshot || cachedSnapshot.expiresAt <= now) return null;
-  return cloneSnapshot(cachedSnapshot.value);
+  const cached = canonical().cached;
+  if (!cached || cached.expiresAt <= now) return null;
+  return cloneSnapshot(cached.value);
 }
 
 export type FetchAddressDefaultsOpts = {
@@ -69,41 +88,20 @@ export async function fetchAddressDefaultsSnapshot(
   const reason = opts?.reason ?? "unspecified";
   const force = opts?.force === true;
   const viewerId = getCurrentUser()?.id?.trim() ?? null;
-  const inflightBefore = getSingleFlightPromise<AddressDefaultsSnapshot>(ADDRESS_DEFAULTS_SNAPSHOT_FLIGHT);
+  const store = canonical();
   const cacheAgeMs =
-    cachedSnapshot != null ? Math.max(0, cachedSnapshot.expiresAt - Date.now()) : null;
+    store.cached != null ? Math.max(0, store.cached.expiresAt - Date.now()) : null;
 
   if (force) {
     /**
-     * Clear TTL only — do not forget an in-flight GET (that created parallel
-     * `/api/me/address-defaults` when several force callers raced).
-     * Join the current flight, then start one refresh flight.
+     * Clear TTL only. Never drop an in-flight GET — parallel force callers must
+     * await the same network (Xiaomi cold address-defaults ×4 at identical ts).
      */
-    cachedSnapshot = null;
-    const inflight = inflightBefore;
-    if (inflight) {
-      pushMypageNetMarker({
-        event: "address_defaults_deduped",
-        viewerId,
-        caller,
-        reason,
-        force: true,
-        hasInflight: true,
-        inflightKey: ADDRESS_DEFAULTS_SNAPSHOT_FLIGHT,
-        detail: "force_await_inflight",
-      });
-      try {
-        await inflight;
-      } catch {
-        /* ignore */
-      }
-      cachedSnapshot = null;
-    }
-    forgetSingleFlight(ADDRESS_DEFAULTS_SNAPSHOT_FLIGHT);
+    store.cached = null;
   }
 
   const now = Date.now();
-  if (cachedSnapshot && cachedSnapshot.expiresAt > now) {
+  if (!force && store.cached && store.cached.expiresAt > now) {
     pushMypageNetMarker({
       event: "address_defaults_cache_hit",
       viewerId,
@@ -111,15 +109,14 @@ export async function fetchAddressDefaultsSnapshot(
       reason,
       force,
       hasFreshMemorySnapshot: true,
-      cacheAgeMs: Math.max(0, cachedSnapshot.expiresAt - now),
-      hasInflight: Boolean(getSingleFlightPromise(ADDRESS_DEFAULTS_SNAPSHOT_FLIGHT)),
+      cacheAgeMs: Math.max(0, store.cached.expiresAt - now),
+      hasInflight: Boolean(store.flight),
       inflightKey: ADDRESS_DEFAULTS_SNAPSHOT_FLIGHT,
     });
-    return cloneSnapshot(cachedSnapshot.value);
+    return cloneSnapshot(store.cached.value);
   }
 
-  const existing = getSingleFlightPromise<AddressDefaultsSnapshot>(ADDRESS_DEFAULTS_SNAPSHOT_FLIGHT);
-  if (existing) {
+  if (store.flight) {
     pushMypageNetMarker({
       event: "address_defaults_deduped",
       viewerId,
@@ -131,9 +128,10 @@ export async function fetchAddressDefaultsSnapshot(
       hasFreshMemorySnapshot: false,
       cacheAgeMs,
       stack: captureCallerStack(),
+      detail: force ? "force_await_inflight" : "await_inflight",
     });
     try {
-      const snapshot = await existing;
+      const snapshot = await store.flight;
       return cloneSnapshot(snapshot);
     } catch {
       pushMypageNetMarker({
@@ -149,7 +147,7 @@ export async function fetchAddressDefaultsSnapshot(
   }
 
   try {
-    const snapshot = await runSingleFlight(ADDRESS_DEFAULTS_SNAPSHOT_FLIGHT, async () => {
+    const flight = (async () => {
       const requestId = nextMypageNetRequestId("addr");
       pushMypageNetMarker({
         event: "address_defaults_network_start",
@@ -214,7 +212,7 @@ export async function fetchAddressDefaultsSnapshot(
         neighborhoodFromLife,
       };
       if (value.ok && value.status === 200) {
-        cachedSnapshot = {
+        store.cached = {
           value,
           expiresAt: Date.now() + ADDRESS_DEFAULTS_SNAPSHOT_TTL_MS,
         };
@@ -229,8 +227,15 @@ export async function fetchAddressDefaultsSnapshot(
         detail: `status=${value.status};ok=${value.ok};master=${value.defaults?.master != null}`,
       });
       return value;
-    });
-    return cloneSnapshot(snapshot);
+    })();
+
+    store.flight = flight;
+    try {
+      const snapshot = await flight;
+      return cloneSnapshot(snapshot);
+    } finally {
+      if (store.flight === flight) store.flight = null;
+    }
   } catch {
     return null;
   }

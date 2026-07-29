@@ -57,6 +57,17 @@ const ownerLite = read("lib/stores/owner-lite-external-store.ts");
 if (!/isMypageRootSurfacePathname/.test(ownerLite)) {
   failures.push("owner-lite-external-store must gate auto-hydrate off mypage root");
 }
+if (!/cancelPendingOwnerLiteAutoHydrate/.test(ownerLite)) {
+  failures.push("owner-lite-external-store must export cancelPendingOwnerLiteAutoHydrate");
+}
+if (!/cancelPendingOwnerLiteAutoHydrate/.test(homeModel)) {
+  failures.push("useMypageHomeModel must cancel pending owner-lite hydrate on mount");
+}
+
+const addressFetch = read("lib/addresses/fetch-address-defaults-client.ts");
+if (!/__SAMARKET_ADDRESS_DEFAULTS_CANONICAL__/.test(addressFetch)) {
+  failures.push("address-defaults fetch must use globalThis canonical inflight/cache");
+}
 
 const resolveProfile = codeOnly(read("lib/mypage/resolve-mypage-home-profile.ts"));
 if (/profile\?lite|lite=1|mode=lite/.test(resolveProfile)) {

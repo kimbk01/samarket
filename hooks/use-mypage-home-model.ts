@@ -27,6 +27,7 @@ import {
 import { resolveMypageHomeProfileRow } from "@/lib/mypage/resolve-mypage-home-profile";
 import { dibayMyInfoPerfMark, dibayMyInfoPerfMaybeLogTotal } from "@/lib/runtime/dibay-myinfo-perf";
 import { bumpMypageMountGeneration } from "@/lib/runtime/mypage-network-markers";
+import { cancelPendingOwnerLiteAutoHydrate } from "@/lib/stores/owner-lite-external-store";
 
 /**
  * Address status for root summary — one address-defaults read max.
@@ -117,6 +118,7 @@ export function useMypageHomeModel(enabled: boolean) {
       return;
     }
     bumpMypageMountGeneration();
+    cancelPendingOwnerLiteAutoHydrate("mypage_home_model_enabled");
     const viewerId = getCurrentUser()?.id?.trim() ?? "";
     if (!viewerId) return;
 
