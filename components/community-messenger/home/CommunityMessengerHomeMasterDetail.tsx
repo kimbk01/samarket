@@ -21,10 +21,10 @@ const HUB_SHELL_HEIGHT_WITH_BOTTOM_NAV =
 /**
  * Split: BottomNav 는 좌측 pane 만 — 셸 전체 높이에서 탭을 빼지 않음.
  * 좌측 목록 clearance 는 list 본문 `MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS` 가 담당.
+ * DO NOT use unbounded min-h only — list scroll (`data-messenger-hub-list-scroll`) must stay
+ * viewport-bounded (scrollHeight > clientHeight). Hub body must not become the scroller.
  */
-const SPLIT_SHELL_HEIGHT_FULL =
-  "min-h-0 flex-1 min-h-[calc(100dvh-var(--sector-header-h,52px)-var(--safe-top,0px))]";
-
+const SPLIT_SHELL_HEIGHT_FULL = "min-h-0 h-full max-h-full flex-1 overflow-hidden";
 export function CommunityMessengerHomeMasterDetail({
   list,
   detail,

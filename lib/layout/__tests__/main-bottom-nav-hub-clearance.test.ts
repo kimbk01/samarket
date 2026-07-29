@@ -79,6 +79,17 @@ describe("hub shell bottom padding", () => {
     expect(f.mainBottomClass).toBe("pb-0");
   });
 
+  it("/community-messenger hub locks viewport so list scroll owns overflow", () => {
+    const f = resolveConditionalAppShellFlags("/community-messenger", false);
+    expect(f.isMainColumnViewportLocked).toBe(true);
+    expect(f.appShellRootClass).toContain("h-[100dvh]");
+    expect(f.appShellRootClass).toContain("overflow-hidden");
+    const trade = resolveConditionalAppShellFlags("/community-messenger/trade-chats", false);
+    expect(trade.isMainColumnViewportLocked).toBe(true);
+    const delivery = resolveConditionalAppShellFlags("/community-messenger/delivery-chats", false);
+    expect(delivery.isMainColumnViewportLocked).toBe(true);
+  });
+
   it("delivery consumer surfaces with bottom nav use pb-0 on shell", () => {
     for (const path of [
       "/stores/browse/food",

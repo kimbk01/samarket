@@ -29,6 +29,8 @@ function readMessengerHubListScrollTop(): number | null {
   if (typeof document === "undefined") return null;
   const el = document.querySelector(MESSENGER_HUB_LIST_SCROLL_SELECTOR);
   if (!(el instanceof HTMLElement)) return null;
+  // List mounted but not the active scroller (expanded to content) — fall through to main root.
+  if (el.scrollHeight <= el.clientHeight + 1) return null;
   return el.scrollTop;
 }
 
