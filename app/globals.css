@@ -936,6 +936,6 @@ a,
     textarea,
     select
   ) {
-    font-size: max(16px, 1em) !important;
+    font-size: max(16px, var(--sm-font-input, 16px), 1em) !important;
   }
 }
