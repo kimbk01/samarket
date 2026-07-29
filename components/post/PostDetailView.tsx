@@ -88,6 +88,7 @@ import { pickBuyerPrimaryOffer } from "@/lib/offers/pick-buyer-primary-offer";
 import type { PriceOfferListItem } from "@/lib/offers/types";
 import { broadcastPriceOfferCreatedForProduct } from "@/lib/offers/normalize-offer-product-id";
 import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
+import { clearTradeChatPrepareTimer } from "@/lib/chats/clear-trade-chat-prepare-timer";
 import {
   openCreateTradeChat,
   openExistingTradeChat,
@@ -1622,9 +1623,7 @@ export function PostDetailView({
     if (chatBlockedByListingState) return;
     if (chatBlockedByOtherReservation) return;
     if (isSold && !allowChatAfterSold) return;
-    if (tradeChatPrepareTimerRef.current) {
-      clearTimeout(tradeChatPrepareTimerRef.current);
-    }
+    clearTradeChatPrepareTimer(tradeChatPrepareTimerRef);
     tradeChatPrepareTimerRef.current = setTimeout(() => {
       tradeChatPrepareTimerRef.current = null;
       prefetchTradeChatEntry(router, {
@@ -1649,11 +1648,15 @@ export function PostDetailView({
   ]);
 
   const cancelTradeChatPrepare = useCallback(() => {
-    if (tradeChatPrepareTimerRef.current) {
-      clearTimeout(tradeChatPrepareTimerRef.current);
-      tradeChatPrepareTimerRef.current = null;
-    }
+    clearTradeChatPrepareTimer(tradeChatPrepareTimerRef);
   }, []);
+
+  /** unmount·상품 변경 시 hover prepare timer 잔여 callback 차단 */
+  useEffect(() => {
+    return () => {
+      clearTradeChatPrepareTimer(tradeChatPrepareTimerRef);
+    };
+  }, [post.id]);
 
   /** 탭 직전에 resolve 선행 — 호버 180ms 없이도 첫 탭 체감 지연 완화 */
   const onTradeChatCtaPointerDown = useCallback(() => {

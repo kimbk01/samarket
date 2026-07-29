@@ -75,9 +75,22 @@ function readHomePostsSessionCache(cacheKey: string): GetPostsForHomeResult | nu
       expiresAt?: number;
       data?: GetPostsForHomeResult;
     };
-    if (!parsed || typeof parsed.expiresAt !== "number" || !parsed.data) return null;
+    if (!parsed || typeof parsed.expiresAt !== "number" || !Number.isFinite(parsed.expiresAt) || !parsed.data) {
+      return null;
+    }
+    /** local reader 와 동일: `expiresAt < now` 만료(ms). `=== now` 는 아직 hit. */
+    if (parsed.expiresAt < Date.now()) {
+      try {
+        window.sessionStorage.removeItem(makeSessionCacheKey(cacheKey));
+      } catch {
+        /* ignore */
+      }
+      return null;
+    }
     const data = parsed.data;
-    if (!Array.isArray(data.posts) || typeof data.favoriteMap !== "object") return null;
+    if (!Array.isArray(data.posts) || typeof data.favoriteMap !== "object" || data.favoriteMap == null) {
+      return null;
+    }
     return {
       posts: data.posts,
       hasMore: data.hasMore === true,
@@ -391,6 +404,7 @@ export async function getPostsForHome(
       });
       capHomePostsClientCache();
       writeHomePostsSessionCache(cacheKey, result);
+      writeHomePostsLocalCache(cacheKey, result);
       if (dbg) {
         recordAppWidePhaseLastMs("trade_home_posts_result_build_ms", Math.round(performance.now() - tBuild0));
         recordAppWidePhaseLastMs("trade_home_posts_fetch_wall_ms", Math.round(performance.now() - wallT0));
@@ -468,6 +482,7 @@ export async function getPostsForHome(
       });
       capHomePostsClientCache();
       writeHomePostsSessionCache(cacheKey, result);
+      writeHomePostsLocalCache(cacheKey, result);
       if (dbg) {
         recordAppWidePhaseLastMs("trade_home_posts_result_build_ms", Math.round(performance.now() - tBuild0));
         recordAppWidePhaseLastMs("trade_home_posts_fetch_wall_ms", Math.round(performance.now() - wallT0));
