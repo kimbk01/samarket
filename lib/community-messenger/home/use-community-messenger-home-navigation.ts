@@ -15,6 +15,7 @@ import {
 
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 import type { MessengerResetTransientUiFn } from "@/lib/community-messenger/messenger-reset-transient-ui";
+import { parseCommunityMessengerRoomIdFromPathname } from "@/lib/community-messenger/messenger-room-pathname";
 
 export type NavigateToCommunityRoomOptions = {
   viewerUserId?: string | null;
@@ -32,6 +33,11 @@ type Args = {
   setChatKindFilter: (next: MessengerChatKindFilter) => void;
   /** 현재 메신저 목록 URL — 거래·배달·인박스와 리스트 행의 `cm_list` 를 동일 규칙으로 맞춤 */
   pathname: string;
+  /**
+   * ≥768 split list — 섹션 전환 시 `/rooms/[id]` 유지 (Telegram 우측 마지막 대화).
+   * `tabletSplitListOnly` 일 때 true.
+   */
+  retainRoomPathOnSectionChange?: boolean;
   /** 방 진입 시 `?from=` 유지 */
   messengerEntryOrigin?: string | null;
   /**
@@ -51,6 +57,7 @@ export function useCommunityMessengerHomeNavigation({
   setChatInboxFilter,
   setChatKindFilter,
   pathname,
+  retainRoomPathOnSectionChange = false,
   messengerEntryOrigin = null,
   pendingUserSectionRef,
 }: Args) {
@@ -71,7 +78,14 @@ export function useCommunityMessengerHomeNavigation({
         const from = new URLSearchParams(window.location.search).get("from")?.trim();
         if (from) qs.set("from", from);
       }
-      const nextUrl = `/community-messenger?${qs.toString()}`;
+      const stickyRoomId =
+        retainRoomPathOnSectionChange && typeof window !== "undefined"
+          ? parseCommunityMessengerRoomIdFromPathname(window.location.pathname)
+          : null;
+      const basePath = stickyRoomId
+        ? `/community-messenger/rooms/${encodeURIComponent(stickyRoomId)}`
+        : "/community-messenger";
+      const nextUrl = `${basePath}?${qs.toString()}`;
       if (typeof window !== "undefined") {
         const cur = `${window.location.pathname}${window.location.search}`;
         if (cur === nextUrl) return;
@@ -79,7 +93,7 @@ export function useCommunityMessengerHomeNavigation({
       const navigate = options?.history === "push" ? router.push.bind(router) : router.replace.bind(router);
       void navigate(nextUrl, { scroll: false });
     },
-    [router]
+    [retainRoomPathOnSectionChange, router]
   );
 
   const navigateToCommunityRoom = useCallback(

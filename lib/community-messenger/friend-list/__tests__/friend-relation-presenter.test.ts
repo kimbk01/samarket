@@ -56,4 +56,23 @@ describe("friend-relation-presenter", () => {
     });
     expect(row.publicId).toBe("aa11");
   });
+
+  it("uses plain display name without duplicated (@username) in title", () => {
+    const row = presentFriendListRow({
+      profile: {
+        id: "peer",
+        label: "김광수 (@gggggg)",
+        subtitle: "@gggggg",
+        avatarUrl: null,
+        isFriend: true,
+        isFavoriteFriend: false,
+        blocked: false,
+        isHiddenFriend: false,
+        following: false,
+      },
+      viewerUserId: "me",
+    });
+    expect(row.displayName).toBe("김광수");
+    expect(row.publicId).toBe("gggggg");
+  });
 });

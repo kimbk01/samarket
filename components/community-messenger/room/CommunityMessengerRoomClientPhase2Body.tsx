@@ -11,6 +11,7 @@ import { useMatchMaxWidthMd } from "@/lib/ui/use-match-max-width";
 import { useCmRoomVisibleViewportShell } from "@/lib/ui/use-cm-room-visible-viewport-shell";
 import { useOwnerOrderChatSlideHost } from "@/components/business/owner/OwnerOrderChatSlideHostContext";
 import { useBuyerOrderChatSlideHost } from "@/components/mypage/BuyerOrderChatSlideHostContext";
+import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
 import { useMessengerRoomPhase2Controller } from "@/lib/community-messenger/room/phase2";
 import { MessengerRoomPhase2ViewProvider } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
 import { MessengerRoomPhase2HeaderProvider } from "@/components/community-messenger/room/phase2/messenger-room-phase2-header-context";
@@ -341,7 +342,9 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
   const isDeliveryKindRoom = isCommunityMessengerStoreOrderDeliveryRoom(view.snapshot.room);
   const ownerSlideHost = useOwnerOrderChatSlideHost();
   const buyerSlideHost = useBuyerOrderChatSlideHost();
-  const isEmbeddedShell = Boolean(ownerSlideHost || buyerSlideHost);
+  const isMessengerSplitViewport = useIsMessengerSplitViewport();
+  /** wide split / order slide — safe-top 은 MessengerSplitTopBar·슬라이드 셸이 담당 */
+  const isEmbeddedShell = Boolean(ownerSlideHost || buyerSlideHost || isMessengerSplitViewport);
   const shellLayoutEnabled = narrowViewport && !isEmbeddedShell;
 
   useCmRoomVisibleViewportShell({

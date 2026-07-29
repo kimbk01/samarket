@@ -82,7 +82,6 @@ export function CommunityMessengerCallHistory({
 
   return (
     <ul
-      className="overflow-y-auto"
       onScrollCapture={() => {
         if (!openedSwipeItemId) return;
         onListScrollStart?.();

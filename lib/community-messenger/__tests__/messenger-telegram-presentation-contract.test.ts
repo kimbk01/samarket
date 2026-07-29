@@ -17,10 +17,10 @@ describe("messenger telegram presentation contract", () => {
   });
 
   it("mobile room enter/exit are Telegram-short (not 100vw 440ms)", () => {
-    expect(MESSENGER_LIST_ROOM_ENTER_MS).toBeGreaterThanOrEqual(120);
-    expect(MESSENGER_LIST_ROOM_ENTER_MS).toBeLessThanOrEqual(180);
-    expect(MESSENGER_LIST_ROOM_EXIT_MS).toBeGreaterThanOrEqual(100);
-    expect(MESSENGER_LIST_ROOM_EXIT_MS).toBeLessThanOrEqual(160);
+    expect(MESSENGER_LIST_ROOM_ENTER_MS).toBeGreaterThanOrEqual(80);
+    expect(MESSENGER_LIST_ROOM_ENTER_MS).toBeLessThanOrEqual(120);
+    expect(MESSENGER_LIST_ROOM_EXIT_MS).toBeGreaterThanOrEqual(70);
+    expect(MESSENGER_LIST_ROOM_EXIT_MS).toBeLessThanOrEqual(110);
   });
 
   it("wide list pane uses clamp(360px, 35vw, 470px)", () => {
@@ -33,12 +33,27 @@ describe("messenger telegram presentation contract", () => {
   it("CSS durations match TS SSOT and forbid full-width section/room slide", () => {
     const css = readFileSync(resolve(root, "app/messenger-view-transitions.css"), "utf8");
     expect(css).toContain("--sam-messenger-home-section-enter-duration: 180ms");
-    expect(css).toContain("--sam-messenger-room-enter-duration: 150ms");
-    expect(css).toContain("--sam-messenger-room-exit-duration: 130ms");
+    expect(css).toContain("--sam-messenger-room-enter-duration: 100ms");
+    expect(css).toContain("--sam-messenger-room-exit-duration: 90ms");
+    expect(css).toContain("--sam-messenger-call-enter-duration: 180ms");
+    expect(css).toContain("--sam-messenger-call-peer-detail-enter-duration: 180ms");
+    expect(css).toContain("--sam-messenger-pillar-list-enter-duration: 180ms");
     expect(css).toContain("translate3d(10px, 0, 0)");
-    expect(css).toContain("translate3d(24px, 0, 0)");
+    expect(css).toContain("translate3d(12px, 0, 0)");
     expect(css).not.toMatch(/messenger-section-slide-forward[\s\S]*translate3d\(100%/);
     expect(css).not.toMatch(/\.messenger-enter \{\s*transform: translate3d\(100%/);
+    expect(css).not.toMatch(/\.messenger-call-enter \{\s*transform: translate3d\(100%/);
+    expect(css).not.toMatch(/sam-messenger-call-peer-detail-enter[\s\S]*translate3d\(100%/);
+  });
+
+  it("call slide SSOT stays in Telegram short band", async () => {
+    const { MESSENGER_CALL_SLIDE_ENTER_MS, MESSENGER_CALL_SLIDE_EXIT_MS } = await import(
+      "@/lib/community-messenger/messenger-call-slide"
+    );
+    expect(MESSENGER_CALL_SLIDE_ENTER_MS).toBeGreaterThanOrEqual(150);
+    expect(MESSENGER_CALL_SLIDE_ENTER_MS).toBeLessThanOrEqual(250);
+    expect(MESSENGER_CALL_SLIDE_EXIT_MS).toBeGreaterThanOrEqual(130);
+    expect(MESSENGER_CALL_SLIDE_EXIT_MS).toBeLessThanOrEqual(220);
   });
 
   it("presentation density tokens stay in messenger scope", () => {
@@ -46,7 +61,9 @@ describe("messenger telegram presentation contract", () => {
     expect(css).toContain("--cm-list-row-min-h: 72px");
     expect(css).toContain("--cm-list-avatar: 52px");
     expect(css).toContain("--cm-list-title-size: 15px");
+    expect(css).toContain("--cm-list-row-selected");
     expect(css).toContain("font-size: 16px");
     expect(css).toContain(".cm-messenger-wallpaper");
+    expect(css).not.toContain("border-radius: 16px");
   });
 });

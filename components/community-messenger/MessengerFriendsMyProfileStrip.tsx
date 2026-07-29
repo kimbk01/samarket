@@ -6,6 +6,7 @@ import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultA
 import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
 import { MYPAGE_PROFILE_EDIT_HREF } from "@/lib/mypage/mypage-mobile-nav-registry";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
+import { incomingCallPeerNicknameLabel } from "@/lib/users/user-label";
 
 type Props = {
   me: CommunityMessengerProfileLite | null;
@@ -20,6 +21,7 @@ export function MessengerFriendsMyProfileStrip({ me }: Props) {
     me?.id && !handleLine ? `ID · ${me.id.slice(0, 8)}…` : "";
   const secondLine = handleLine || fallbackId;
   const bioLine = me?.bio?.trim() ?? "";
+  const titleName = incomingCallPeerNicknameLabel(me?.label) || me?.label || "내 프로필";
 
   return (
     <div className="flex items-center gap-2.5 border-b border-[color:var(--messenger-divider)] bg-[color:var(--messenger-bg)] px-1 py-2">
@@ -33,7 +35,7 @@ export function MessengerFriendsMyProfileStrip({ me }: Props) {
       />
       <div className="min-w-0 flex-1">
         <p className="truncate sam-text-body font-semibold" style={{ color: "var(--messenger-text)" }}>
-          {me?.label ?? "내 프로필"}
+          {titleName}
         </p>
         {secondLine ? (
           <p className="truncate sam-text-helper leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>

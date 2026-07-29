@@ -8,21 +8,21 @@
 }
 
 :root {
-  /* Telegram 실측: room ~100–150ms · section ~160–200ms — 100vw full-slide 금지 */
-  --sam-messenger-room-enter-duration: 150ms;
-  --sam-messenger-room-exit-duration: 130ms;
-  --sam-messenger-call-enter-duration: 440ms;
-  --sam-messenger-call-exit-duration: 400ms;
-  --sam-messenger-call-peer-detail-enter-duration: 440ms;
-  --sam-messenger-call-peer-detail-exit-duration: 400ms;
-  --sam-messenger-pillar-list-enter-duration: 360ms;
+  /* Telegram 실측: room ~100ms · section ~160–200ms — 100vw full-slide 금지 */
+  --sam-messenger-room-enter-duration: 100ms;
+  --sam-messenger-room-exit-duration: 90ms;
+  --sam-messenger-call-enter-duration: 180ms;
+  --sam-messenger-call-exit-duration: 160ms;
+  --sam-messenger-call-peer-detail-enter-duration: 180ms;
+  --sam-messenger-call-peer-detail-exit-duration: 160ms;
+  --sam-messenger-pillar-list-enter-duration: 180ms;
   --sam-messenger-home-section-enter-duration: 180ms;
   --sam-messenger-home-section-enter-easing: cubic-bezier(0.2, 0, 0, 1);
   --sam-messenger-room-enter-easing: cubic-bezier(0.2, 0, 0, 1);
   --sam-messenger-room-exit-easing: cubic-bezier(0.4, 0, 1, 1);
-  --sam-messenger-pillar-list-enter-easing: cubic-bezier(0.32, 0.72, 0, 1);
-  --sam-call-outgoing-overlay-enter-duration: 280ms;
-  --sam-call-outgoing-overlay-enter-easing: cubic-bezier(0.32, 0.72, 0, 1);
+  --sam-messenger-pillar-list-enter-easing: cubic-bezier(0.2, 0, 0, 1);
+  --sam-call-outgoing-overlay-enter-duration: 180ms;
+  --sam-call-outgoing-overlay-enter-easing: cubic-bezier(0.2, 0, 0, 1);
 }
 
 .messenger-page {
@@ -122,6 +122,21 @@
     contain: none !important;
   }
 
+  /* SplitTopBar 가 safe-top 담당 — 우측 방 헤더 이중 inset / 뒤로가기 밀림 방지 */
+  [data-messenger-responsive-shell="wide"] [data-cm-room].cm-room-shell {
+    padding-top: 0 !important;
+  }
+
+  [data-messenger-responsive-shell="wide"] [data-cm-room].cm-room-shell > .chat-header,
+  [data-messenger-responsive-shell="wide"] [data-cm-room].cm-room-shell > [data-chat-header],
+  [data-messenger-responsive-shell="wide"] [data-cm-room].cm-room-shell [data-chat-header].chat-header {
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
   /* segment inline shell — z-0 배경; 본문(z-1) 로드 전 split 우측 빈 화면 방지 */
   [data-messenger-responsive-shell="wide"] [data-cm-room-segment-shell-host] {
     display: flex !important;
@@ -134,7 +149,7 @@
 }
 
 .messenger-enter {
-  transform: translate3d(24px, 0, 0);
+  transform: translate3d(12px, 0, 0);
   opacity: 0.92;
 }
 
@@ -160,21 +175,29 @@
 }
 
 .messenger-call-enter {
-  transform: translate3d(100%, 0, 0);
+  transform: translate3d(24px, 0, 0);
+  opacity: 0.92;
 }
 
 .messenger-call-enter-active {
   transform: translate3d(0, 0, 0);
-  transition: transform var(--sam-messenger-call-enter-duration) var(--sam-messenger-room-enter-easing);
+  opacity: 1;
+  transition:
+    transform var(--sam-messenger-call-enter-duration) var(--sam-messenger-room-enter-easing),
+    opacity var(--sam-messenger-call-enter-duration) var(--sam-messenger-room-enter-easing);
 }
 
 .messenger-call-exit {
   transform: translate3d(0, 0, 0);
+  opacity: 1;
 }
 
 .messenger-call-exit-active {
-  transform: translate3d(100%, 0, 0);
-  transition: transform var(--sam-messenger-call-exit-duration) var(--sam-messenger-room-exit-easing);
+  transform: translate3d(20px, 0, 0);
+  opacity: 0.92;
+  transition:
+    transform var(--sam-messenger-call-exit-duration) var(--sam-messenger-room-exit-easing),
+    opacity var(--sam-messenger-call-exit-duration) var(--sam-messenger-room-exit-easing);
 }
 
 @keyframes sam-call-outgoing-overlay-enter {
@@ -195,12 +218,16 @@ html[data-call-v4-outgoing-presentation] [data-call-screen-shell] {
 }
 
 .messenger-call-peer-detail-enter {
-  transform: translate3d(100%, 0, 0);
+  transform: translate3d(24px, 0, 0);
+  opacity: 0.92;
 }
 
 .messenger-call-peer-detail-enter-active {
   transform: translate3d(0, 0, 0);
-  transition: transform var(--sam-messenger-call-peer-detail-enter-duration) var(--sam-messenger-room-enter-easing);
+  opacity: 1;
+  transition:
+    transform var(--sam-messenger-call-peer-detail-enter-duration) var(--sam-messenger-room-enter-easing),
+    opacity var(--sam-messenger-call-peer-detail-enter-duration) var(--sam-messenger-room-enter-easing);
 }
 
 .messenger-call-peer-detail-exit {
@@ -213,19 +240,23 @@ html[data-call-v4-outgoing-presentation] [data-call-screen-shell] {
 
 @keyframes sam-messenger-call-peer-detail-enter {
   from {
-    transform: translate3d(100%, 0, 0);
+    transform: translate3d(24px, 0, 0);
+    opacity: 0.92;
   }
   to {
     transform: translate3d(0, 0, 0);
+    opacity: 1;
   }
 }
 
 @keyframes sam-messenger-call-peer-detail-exit {
   from {
     transform: translate3d(0, 0, 0);
+    opacity: 1;
   }
   to {
-    transform: translate3d(100%, 0, 0);
+    transform: translate3d(20px, 0, 0);
+    opacity: 0.92;
   }
 }
 
@@ -246,16 +277,21 @@ html[data-call-v4-outgoing-presentation] [data-call-screen-shell] {
 }
 
 .messenger-call-peer-detail-exit-active {
-  transform: translate3d(100%, 0, 0);
-  transition: transform var(--sam-messenger-call-peer-detail-exit-duration) var(--sam-messenger-room-exit-easing);
+  transform: translate3d(20px, 0, 0);
+  opacity: 0.92;
+  transition:
+    transform var(--sam-messenger-call-peer-detail-exit-duration) var(--sam-messenger-room-exit-easing),
+    opacity var(--sam-messenger-call-peer-detail-exit-duration) var(--sam-messenger-room-exit-easing);
 }
 
 @keyframes sam-messenger-pillar-list-enter-rtl {
   from {
-    transform: translate3d(100%, 0, 0);
+    transform: translate3d(24px, 0, 0);
+    opacity: 0.92;
   }
   to {
     transform: translate3d(0, 0, 0);
+    opacity: 1;
   }
 }
 

@@ -3,6 +3,7 @@ import {
   MESSENGER_NEW_FRIEND_WINDOW_MS,
 } from "@/lib/community-messenger/messenger-new-friend-window";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
+import { incomingCallPeerNicknameLabel } from "@/lib/users/user-label";
 
 export type FriendRelationDisplayStatus =
   | "me"
@@ -92,7 +93,7 @@ export function presentFriendListRow(input: FriendRelationPresenterInput): Frien
 
   return {
     profileId: input.profile.id,
-    displayName: input.profile.label,
+    displayName: incomingCallPeerNicknameLabel(input.profile.label) || input.profile.label,
     publicId: input.profile.subtitle?.trim().replace(/^@+/, "") || null,
     avatarUrl: input.profile.avatarUrl ?? null,
     status,

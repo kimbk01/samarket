@@ -820,6 +820,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       setChatInboxFilter,
       setChatKindFilter,
       pathname: messengerListPathname,
+      retainRoomPathOnSectionChange: tabletSplitListOnly,
       messengerEntryOrigin: entryOriginQuery,
       pendingUserSectionRef,
     });

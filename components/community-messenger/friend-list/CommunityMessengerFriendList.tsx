@@ -60,7 +60,7 @@ export function CommunityMessengerFriendList({
     ));
 
   return (
-    <div className="overflow-y-auto">
+    <div>
       {me ? <MessengerFriendsMyProfileStrip me={me} /> : null}
       {favorites.length ? (
         <CommunityMessengerFriendSection titleKey="cm_friend_section_favorites">{renderRows(favorites)}</CommunityMessengerFriendSection>

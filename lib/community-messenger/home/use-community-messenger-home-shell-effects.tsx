@@ -46,6 +46,7 @@ import { guardedRouterReplace } from "@/lib/dev/network-loop-guard";
 import { MessengerPullRefreshStickyBelow } from "@/components/community-messenger/MessengerPullRefreshStickyBelow";
 import { useRegisterMessengerSplitChrome } from "@/components/community-messenger/MessengerSplitChromeContext";
 import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
+import { parseCommunityMessengerRoomIdFromPathname } from "@/lib/community-messenger/messenger-room-pathname";
 import type {
   MessengerNotificationSettings,
   FriendSheetState,
@@ -120,7 +121,14 @@ export function useCommunityMessengerHomeShellEffects({
    * and blocks bottom-nav navigation.
    */
   const isMessengerHubRoute = pathname === "/community-messenger";
+  const roomIdFromPath = parseCommunityMessengerRoomIdFromPathname(pathname);
   const isMessengerSplit = useIsMessengerSplitViewport();
+  const isMessengerStickyRoomSectionRoute =
+    isMessengerSplit && roomIdFromPath != null && pathname.startsWith("/community-messenger/rooms/");
+  const shouldSyncSectionFromUrl = isMessengerHubRoute || isMessengerStickyRoomSectionRoute;
+  const sectionUrlBasePath = isMessengerStickyRoomSectionRoute
+    ? `/community-messenger/rooms/${encodeURIComponent(roomIdFromPath!)}`
+    : "/community-messenger";
   const { t, tt } = useI18n();
   const lastRegisteredTier1ExtrasRef = useRef<MainTier1ExtrasState | null>(null);
   /** `useSearchParams` 객체는 렌더마다 참조가 바뀔 수 있음 → primitive deps 만 사용 */
@@ -182,12 +190,12 @@ export function useCommunityMessengerHomeShellEffects({
   }, [recentSearches]);
 
   useEffect(() => {
-    if (!isMessengerHubRoute) return;
+    if (!shouldSyncSectionFromUrl) return;
     if (fromPhilifeHeaderStack || pillar != null) return;
     const preserveFrom = fromParam ? `&from=${encodeURIComponent(fromParam)}` : "";
     if (activeTab === "settings") {
       openSettingsSheet();
-      guardedRouterReplace(router, `/community-messenger?section=chats${preserveFrom}`, {
+      guardedRouterReplace(router, `${sectionUrlBasePath}?section=chats${preserveFrom}`, {
         source: "messenger-home-shell",
         reason: "legacy_tab_settings",
         scroll: false,
@@ -209,7 +217,7 @@ export function useCommunityMessengerHomeShellEffects({
         pendingUserSectionRef.current = null;
         return "friends";
       });
-      guardedRouterReplace(router, `/community-messenger?section=friends${preserveFrom}`, {
+      guardedRouterReplace(router, `${sectionUrlBasePath}?section=friends${preserveFrom}`, {
         source: "messenger-home-shell",
         reason: "legacy_tab_friends",
         scroll: false,
@@ -244,7 +252,7 @@ export function useCommunityMessengerHomeShellEffects({
       qs.set("section", "chats");
       messengerChatFiltersToSearchParams(inbox, nextKind).forEach((value, key) => qs.set(key, value));
       if (fromParam) qs.set("from", fromParam);
-      guardedRouterReplace(router, `/community-messenger?${qs.toString()}`, {
+      guardedRouterReplace(router, `${sectionUrlBasePath}?${qs.toString()}`, {
         source: "messenger-home-shell",
         reason: "default_section_chats",
         scroll: false,
@@ -257,14 +265,15 @@ export function useCommunityMessengerHomeShellEffects({
     activeTab,
     fromParam,
     fromPhilifeHeaderStack,
-    isMessengerHubRoute,
     openSettingsSheet,
     pendingUserSectionRef,
     pillar,
     router,
+    sectionUrlBasePath,
     setChatInboxFilter,
     setChatKindFilter,
     setMainSection,
+    shouldSyncSectionFromUrl,
   ]);
 
   const entryOrigin: MessengerEntryOrigin = useMemo(

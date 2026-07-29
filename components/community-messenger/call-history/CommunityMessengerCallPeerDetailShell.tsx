@@ -5,12 +5,15 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type AnimationEvent as ReactAnimationEvent,
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
+import { useMessengerSplitDetailOverride } from "@/components/community-messenger/MessengerSplitDetailOverrideContext";
+import { useIsMessengerSplitViewport } from "@/hooks/use-is-messenger-split-viewport";
 
 type Props = {
   open: boolean;
@@ -37,9 +40,12 @@ function usePrefersReducedMotion(): boolean {
   return reduced;
 }
 
-/** 통화 상대 상세 — 440ms 우→좌 슬라이드 오버레이 (body portal, CSS animation) */
+/** 통화 상대 상세 — <768: body portal · ≥768: 우측 split pane 임베드 */
 export function CommunityMessengerCallPeerDetailShell({ open, onClosed, children }: Props) {
   const reducedMotion = usePrefersReducedMotion();
+  const isWide = useIsMessengerSplitViewport();
+  const detailOverride = useMessengerSplitDetailOverride();
+  const setDetailOverride = detailOverride?.setDetailOverride;
   const [mounted, setMounted] = useState(open);
   const [portalReady, setPortalReady] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -77,20 +83,69 @@ export function CommunityMessengerCallPeerDetailShell({ open, onClosed, children
     setClosing(true);
   }, [onClosed, reducedMotion]);
 
+  const finishClose = useCallback(() => {
+    setMounted(false);
+    setClosing(false);
+    onClosed();
+  }, [onClosed]);
+
   const onAnimationEnd = useCallback(
     (e: ReactAnimationEvent<HTMLDivElement>) => {
       if (e.target !== e.currentTarget) return;
       if (!closing) return;
-      setMounted(false);
-      setClosing(false);
-      onClosed();
+      finishClose();
     },
-    [closing, onClosed]
+    [closing, finishClose]
   );
+
+  useLayoutEffect(() => {
+    if (!isWide || !setDetailOverride) return;
+    if (!mounted) {
+      setDetailOverride(null);
+      return;
+    }
+    const surfaceClassName = [
+      closing ? "messenger-call-peer-detail-anim-exit" : "messenger-call-peer-detail-anim-enter",
+      reducedMotion ? "messenger-call-peer-detail-anim-reduced" : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+    setDetailOverride(
+      <div
+        className={`pointer-events-auto flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-sam-app ${surfaceClassName}`}
+        onAnimationEnd={onAnimationEnd}
+        data-call-peer-detail-shell="pane"
+      >
+        <CommunityMessengerCallPeerDetailCloseContext.Provider value={requestClose}>
+          {children}
+        </CommunityMessengerCallPeerDetailCloseContext.Provider>
+      </div>
+    );
+  }, [
+    children,
+    closing,
+    isWide,
+    mounted,
+    onAnimationEnd,
+    reducedMotion,
+    requestClose,
+    setDetailOverride,
+  ]);
+
+  useEffect(() => {
+    if (!isWide || !setDetailOverride) return;
+    return () => {
+      setDetailOverride(null);
+    };
+  }, [isWide, setDetailOverride]);
+
+  if (isWide) {
+    return null;
+  }
 
   if (!mounted || !portalReady) return null;
 
-  const surfaceClassName = [
+  const overlayClassName = [
     "pointer-events-auto fixed inset-0 z-[1280] flex h-dvh max-h-dvh flex-col overflow-hidden bg-sam-app",
     closing ? "messenger-call-peer-detail-anim-exit" : "messenger-call-peer-detail-anim-enter",
     reducedMotion ? "messenger-call-peer-detail-anim-reduced" : "",
@@ -100,9 +155,9 @@ export function CommunityMessengerCallPeerDetailShell({ open, onClosed, children
 
   return createPortal(
     <div
-      className={surfaceClassName}
+      className={overlayClassName}
       onAnimationEnd={onAnimationEnd}
-      data-call-peer-detail-shell="true"
+      data-call-peer-detail-shell="overlay"
     >
       <CommunityMessengerCallPeerDetailCloseContext.Provider value={requestClose}>
         {children}

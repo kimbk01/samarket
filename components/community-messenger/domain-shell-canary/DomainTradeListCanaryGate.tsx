@@ -287,7 +287,7 @@ export function DomainTradeListCanaryGate({
         <div className="border-b border-sam-border px-4 py-3">
           <div className="text-base font-semibold text-sam-fg">{title}</div>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto" data-messenger-hub-list-scroll="">
           <DomainListRowSkeleton />
         </div>
       </div>
@@ -363,7 +363,7 @@ export function DomainTradeListCanaryGate({
           })}
         </div>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto" data-messenger-hub-list-scroll="">
         {visibleRows.map((row) => (
           <TradeDomainShellRow
             key={row.roomId}

@@ -163,27 +163,36 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
     mainSection === "archive";
 
   return (
-    <section data-cm-messenger-main className="space-y-2">
-      {showSectionTabs && onPrimarySectionChange ? (
-        <MessengerHomeSectionTabs
-          mainSection={mainSection}
-          onPrimarySectionChange={onPrimarySectionChange}
-          onOpenGroupCreate={onOpenGroupCreate}
-        />
-      ) : null}
-      {showInlineFriendSearch ? (
-        <div
-          className={
-            showSectionTabs
-              ? "box-border pb-1 pl-[max(0.75rem,var(--safe-left))] pr-[max(0.75rem,var(--safe-right))]"
-              : "px-0 pb-1"
-          }
-        >
-          <MessengerHomeInlineFriendSearch busyId={busyId} onSelectUser={onFriendRowChat} />
-        </div>
-      ) : null}
+    <section
+      data-cm-messenger-main
+      className="flex min-h-0 min-w-0 flex-1 flex-col space-y-0"
+    >
       <div
-        className={`min-h-0 min-w-0 space-y-2 overflow-x-hidden ${showSectionTabs ? "px-0" : "px-3"}`}
+        className="sticky top-0 z-20 shrink-0 space-y-2 bg-[color:var(--messenger-bg,#fff)]"
+        data-messenger-hub-sticky-chrome=""
+      >
+        {showSectionTabs && onPrimarySectionChange ? (
+          <MessengerHomeSectionTabs
+            mainSection={mainSection}
+            onPrimarySectionChange={onPrimarySectionChange}
+            onOpenGroupCreate={onOpenGroupCreate}
+          />
+        ) : null}
+        {showInlineFriendSearch ? (
+          <div
+            className={
+              showSectionTabs
+                ? "box-border pb-1 pl-[max(0.75rem,var(--safe-left))] pr-[max(0.75rem,var(--safe-right))]"
+                : "px-0 pb-1"
+            }
+          >
+            <MessengerHomeInlineFriendSearch busyId={busyId} onSelectUser={onFriendRowChat} />
+          </div>
+        ) : null}
+      </div>
+      <div
+        className={`min-h-0 min-w-0 flex-1 space-y-2 overflow-x-hidden overflow-y-auto overscroll-contain ${showSectionTabs ? "px-0" : "px-3"}`}
+        data-messenger-hub-list-scroll=""
         data-messenger-scrolling={isScrolling ? "true" : "false"}
         data-messenger-pending-call={pendingCallTarget ? "true" : "false"}
       >

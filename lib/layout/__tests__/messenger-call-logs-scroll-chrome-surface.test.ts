@@ -18,11 +18,26 @@ describe("messenger call logs scroll chrome surface", () => {
     );
   });
 
-  it("disables on other messenger hub sections", () => {
+  it("enables on hub chats and archive sections", () => {
     expect(isMessengerCallLogsBottomNavScrollHideSurface("/community-messenger", "section=chats")).toBe(
-      false
+      true
     );
+    expect(
+      isMessengerCallLogsBottomNavScrollHideSurface("/community-messenger", "section=archive")
+    ).toBe(true);
+  });
+
+  it("disables when hub has no section", () => {
     expect(isMessengerCallLogsBottomNavScrollHideSurface("/community-messenger", "")).toBe(false);
+  });
+
+  it("enables on sticky room path with section query", () => {
+    expect(
+      isMessengerCallLogsBottomNavScrollHideSurface(
+        "/community-messenger/rooms/abc-123",
+        "section=friends"
+      )
+    ).toBe(true);
   });
 
   it("enables on dedicated call logs route", () => {

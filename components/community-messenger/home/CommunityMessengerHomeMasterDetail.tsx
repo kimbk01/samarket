@@ -35,8 +35,9 @@ export function CommunityMessengerHomeMasterDetail({
       : "min-h-0 flex-1"
     : `min-h-0 w-full flex-1 ${reserveBottomNavClearance ? HUB_SHELL_HEIGHT_WITH_BOTTOM_NAV : ""}`;
 
+  /** Split: pane 자체 스크롤 금지(탭·검색 sticky). Hub: pane 스크롤 + sticky chrome. */
   const listPaneClass = isSplitRoom
-    ? `${MESSENGER_SPLIT_LIST_PANE_BORDER_CLASS} flex min-h-0 flex-col border-sam-border shrink-0 overflow-y-auto overflow-x-hidden`
+    ? `${MESSENGER_SPLIT_LIST_PANE_BORDER_CLASS} flex min-h-0 flex-col border-sam-border shrink-0 overflow-hidden`
     : `${MESSENGER_SPLIT_LIST_PANE_BORDER_CLASS} flex min-h-0 flex-col shrink-0 overflow-y-auto overflow-x-hidden`;
 
   const rightPaneClass = isSplitRoom

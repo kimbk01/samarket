@@ -17,13 +17,13 @@ export function MessengerPillarChatsSegment({
   if (pillar === "trade") {
     return (
       <div data-domain-pillar-segment="trade" className="flex h-full min-h-0 flex-col">
-        <DomainTradeListCanaryGate filter={filter} />
+        <DomainTradeListCanaryGate filter={filter} tabletSplitListOnly />
       </div>
     );
   }
   return (
     <div data-domain-pillar-segment="delivery" className="flex h-full min-h-0 flex-col">
-      <DomainStoreOrderCustomerListCanaryGate filter={filter} />
+      <DomainStoreOrderCustomerListCanaryGate filter={filter} tabletSplitListOnly />
     </div>
   );
 }

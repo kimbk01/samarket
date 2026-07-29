@@ -23,6 +23,22 @@ import {
 /** 마지막 스크롤 이후 이 시간이 지나면 (탭이 접혀 있을 때) 다시 펼침 */
 export const BOTTOM_NAV_REVEAL_AFTER_SCROLL_IDLE_MS = 1800;
 
+const MESSENGER_HUB_LIST_SCROLL_SELECTOR = "[data-messenger-hub-list-scroll]";
+
+function readMessengerHubListScrollTop(): number | null {
+  if (typeof document === "undefined") return null;
+  const el = document.querySelector(MESSENGER_HUB_LIST_SCROLL_SELECTOR);
+  if (!(el instanceof HTMLElement)) return null;
+  return el.scrollTop;
+}
+
+function isMessengerHubListOverflowing(): boolean {
+  if (typeof document === "undefined") return false;
+  const el = document.querySelector(MESSENGER_HUB_LIST_SCROLL_SELECTOR);
+  if (!(el instanceof HTMLElement)) return false;
+  return el.scrollHeight > el.clientHeight + 1;
+}
+
 /**
  * `/philife`(헤더 메신저 푸시가 아닐 때)·거래 플로팅면·배달(`/stores`)·내정보 홈·메신저 통화 기록·친구 목록 :
  * 아래로 스크롤 시 하단 탭을 접기.
@@ -62,7 +78,7 @@ export function useBottomNavScrollHide(enabled: boolean, routeScrollKey = ""): b
       return;
     }
     invalidateMainAppScrollRootCache();
-    lastYRef.current = getMainAppScrollTop();
+    lastYRef.current = readMessengerHubListScrollTop() ?? getMainAppScrollTop();
     setHidden(false);
 
     const clearIdleReveal = () => {
@@ -72,8 +88,13 @@ export function useBottomNavScrollHide(enabled: boolean, routeScrollKey = ""): b
       }
     };
 
+    const resolveScrollY = () => readMessengerHubListScrollTop() ?? getMainAppScrollTop();
+
+    const resolveOverflowing = () =>
+      isMessengerHubListOverflowing() || isMainAppScrollBodyOverflowing();
+
     const applyScrollChrome = (y: number) => {
-      if (!isMainAppScrollBodyOverflowing()) {
+      if (!resolveOverflowing()) {
         setHidden(false);
         lastYRef.current = y;
         return;
@@ -91,9 +112,9 @@ export function useBottomNavScrollHide(enabled: boolean, routeScrollKey = ""): b
     /** 피드 로드·push 후 overflow 생길 때 — 이미 아래로 스크롤한 상태면 즉시 hide */
     const syncScrollChromeFromLayout = () => {
       invalidateMainAppScrollRootCache();
-      const y = getMainAppScrollTop();
+      const y = resolveScrollY();
       if (
-        isMainAppScrollBodyOverflowing() &&
+        resolveOverflowing() &&
         y >= FAB_SCROLL_TOP_REVEAL_Y_PX + FAB_SCROLL_MOVE_THRESHOLD_PX
       ) {
         setHidden(true);
@@ -104,7 +125,7 @@ export function useBottomNavScrollHide(enabled: boolean, routeScrollKey = ""): b
     };
 
     const onScroll = () => {
-      const y = getMainAppScrollTop();
+      const y = resolveScrollY();
       applyScrollChrome(y);
 
       clearIdleReveal();
@@ -127,6 +148,13 @@ export function useBottomNavScrollHide(enabled: boolean, routeScrollKey = ""): b
       passive: true,
       onTargetsChanged: syncScrollChromeFromLayout,
     });
+
+    const hubListEl = document.querySelector(MESSENGER_HUB_LIST_SCROLL_SELECTOR);
+    const onHubListScroll = () => onScroll();
+    if (hubListEl instanceof HTMLElement) {
+      hubListEl.addEventListener("scroll", onHubListScroll, { passive: true });
+    }
+
     window.addEventListener("resize", onResize, { passive: true });
     syncScrollChromeFromLayout();
 
@@ -174,6 +202,9 @@ export function useBottomNavScrollHide(enabled: boolean, routeScrollKey = ""): b
 
     return () => {
       unsubScroll();
+      if (hubListEl instanceof HTMLElement) {
+        hubListEl.removeEventListener("scroll", onHubListScroll);
+      }
       window.removeEventListener("resize", onResize);
       if (resizeTimer != null) clearTimeout(resizeTimer);
       if (syncRaf) window.cancelAnimationFrame(syncRaf);

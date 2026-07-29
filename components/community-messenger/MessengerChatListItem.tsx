@@ -912,11 +912,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
 
   const rowSurfaceClass = `transition-colors duration-100 ${
     pressVisualActive ? "bg-[color:var(--messenger-surface-muted)]" : ""
-  } ${
-    isRouteActiveRoom
-      ? "bg-[color:var(--messenger-primary-soft)]"
-      : ""
-  }`;
+  } ${isRouteActiveRoom ? "bg-[color:var(--cm-list-row-selected)]" : ""}`;
 
   const rowContent =
     isDeliveryChatListVisual && deliveryRowModel ? (
@@ -1078,6 +1074,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         ref={setMainRowRef}
         className={`relative w-full min-w-0 ${tradeListRowShellClass}`}
         data-messenger-chat-row="true"
+        data-cm-list-row-selected={isRouteActiveRoom ? "1" : undefined}
         data-messenger-trade-row-role={tradeViewerRoleForTint ?? undefined}
       >
         <Link
@@ -1107,6 +1104,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       ref={setMainRowRef}
       className={`relative w-full min-w-0 overflow-hidden ${tradeListRowShellClass}`}
       data-messenger-chat-row="true"
+      data-cm-list-row-selected={isRouteActiveRoom ? "1" : undefined}
       data-messenger-trade-row-role={tradeViewerRoleForTint ?? undefined}
     >
       <div className="absolute inset-y-0 right-0 flex" aria-hidden={dragX === 0}>
