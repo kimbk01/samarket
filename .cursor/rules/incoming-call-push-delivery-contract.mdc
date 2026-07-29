@@ -37,24 +37,26 @@ alwaysApply: false
 
 ```
 FCM/debug → IncomingCallPushDelivery.deliver()
-              ├─ Ring: IncomingCallRingOwner (1회, source=push_delivery)
-              ├─ V4: IncomingCallSurfaceOwner claim (web_in_app | native_fsi | native_activity)
-              ├─ Foreground unlocked: Web owner only — dibay:call-event → CallV4IncomingSheet (native pill 금지)
-              ├─ Lock/sleep: WakeLock(lock) → FGS → silent notify/FSI → IncomingCallActivity (owner native_fsi)
-              └─ Background home: PendingPresentation → FGS startForeground → Activity (owner native_activity)
-Web Android: syncIncomingCallRing — WebAudio 금지, native blind-stop 금지
+              ├─ Native Runtime ON: NativeVoice/VideoCallRuntime.handleIncoming
+              │    ├─ Ring: IncomingCallRingOwner (1회)
+              │    ├─ Surface owner: native_activity | native_fsi (Web banner 금지)
+              │    └─ Activity / FSI / heads-up notification
+              ├─ Native Runtime OFF (legacy V4): see V4 A/B/C notifier path
+              └─ Capacitor WebView: sync-only — no IncomingCallBanner / ringtone
+iOS VoIP → PushKit → CallKit reportNewIncomingCall (native_fsi)
+Web Android: syncIncomingCallRing — WebAudio 금지; Capacitor 1:1 banner 금지
 Terminal: IncomingCallTerminalHandler — ring stop + consumed + UI dismiss
 ```
 
 ## DO NOT
 
-1. **`MainActivity`에서 `IncomingCallRingOwner.start`** — ring은 PushDelivery만.
-2. **`IncomingCallBackgroundNotifier`에서 ring start** — PushDelivery가 이미 시작함.
+1. **`MainActivity`에서 `IncomingCallRingOwner.start`** — ring은 PushDelivery/Native Runtime만.
+2. **`IncomingCallBackgroundNotifier`에서 ring start** — PushDelivery/Native Runtime가 이미 시작함.
 3. **notification channel에 ring sound / `DEFAULT_ALL`** — `dibay_calls_incoming_v7` silent.
 4. **Web `sync(null)` → `stopNativeIncomingRingtone()` without sessionId** — tombstone/terminal/sync_clear(sessionId)만.
-5. **foreground unlocked에서 `IncomingCallActivity`(full-screen lock UI) 또는 native pill Activity** — Web `web_in_app` owner + `CallV4IncomingSheet` only.
+5. **Capacitor Android/iOS에서 WebView ringing banner / ringtone** — Native surface 권위.
 6. **DibayFirebaseMessagingService / debug receiver에 분기 로직 복제** — `IncomingCallPushDelivery`만.
-
+7. **setTimeout 으로 WebView fallback 배너 띄우기** — Native failure 명시 상태 없이 금지.
 ## 수정 후 필수
 
 1. `npm run verify:incoming-call-push-delivery-contract`

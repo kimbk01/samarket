@@ -12,6 +12,8 @@ import com.dibay.app.callv4.CallV4IntentHelper;
 import com.dibay.app.callv4.CallV4Lane;
 import com.dibay.app.nativevoice.NativeVoiceCallOwner;
 import com.dibay.app.nativevoice.NativeVoiceCallRuntime;
+import com.dibay.app.nativevideo.NativeVideoCallOwner;
+import com.dibay.app.nativevideo.NativeVideoCallRuntime;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -97,6 +99,10 @@ public final class IncomingCallActionCoordinator {
       NativeVoiceCallRuntime.accept(context, sid);
       return;
     }
+    if (NativeVideoCallOwner.isNativeOwned(sid)) {
+      NativeVideoCallRuntime.accept(context, sid);
+      return;
+    }
     if (CallV4Lane.isTelegramLaneEnabled(context)) {
       Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] coordinator_accept_enter callId=" + sid);
       Log.i(CallV4Lane.TAG, "[DIBAY_CALL_V4] coordinator_accept_call_id callId=" + sid);
@@ -180,6 +186,10 @@ public final class IncomingCallActionCoordinator {
     String sid = callId.trim();
     if (NativeVoiceCallOwner.isNativeOwned(sid)) {
       NativeVoiceCallRuntime.reject(context, sid);
+      return;
+    }
+    if (NativeVideoCallOwner.isNativeOwned(sid)) {
+      NativeVideoCallRuntime.reject(context, sid);
       return;
     }
     if (!tryBegin(sid, "reject")) return;

@@ -1861,6 +1861,7 @@ export function GlobalCommunityMessengerIncomingCall() {
         preferNativeAndroidForegroundIncoming:
           isCmCallPhase0BasicsOnly() || !nativeForegroundIncomingCallId,
         nativeForegroundIncomingCallId,
+        suppressWebIncomingBannerForNativeAuthority: isCapacitorNativePlatform(),
       }),
     [
       foregroundWakeSessionIds,

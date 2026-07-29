@@ -10,6 +10,10 @@ function read(path: string): string {
 describe("call-v4 Telegram incoming surface contract", () => {
   it("documents foreground banner vs native fullscreen split", () => {
     expect(CALL_V4_TELEGRAM_INCOMING_SURFACE_CONTRACT.foreground).toBe("web_top_banner");
+    expect(CALL_V4_TELEGRAM_INCOMING_SURFACE_CONTRACT.webDesktopForeground).toBe("web_top_banner");
+    expect(CALL_V4_TELEGRAM_INCOMING_SURFACE_CONTRACT.capacitorNativeForeground).toBe(
+      "native_incoming_surface"
+    );
     expect(CALL_V4_TELEGRAM_INCOMING_SURFACE_CONTRACT.nonForeground).toBe("native_activity_or_callstyle_fallback");
     expect(CALL_V4_TELEGRAM_INCOMING_SURFACE_CONTRACT.fgsNotification).toBe("carrier_only");
   });

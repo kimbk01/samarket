@@ -9,7 +9,7 @@
 |------|--------------|------|
 | Start | `runCallStartGuard` / `bootstrapCommunityMessengerOutgoingCallSession` | Create the server session once, then enter `/community-messenger/calls/:realSessionId` once. No `tmp_*` call route. |
 | Incoming | `syncIncomingCallRing` / `sealIncomingCallTerminal` | Global owns ring and incoming terminal. FCM is signal, not state. |
-| Accept | `runCallAcceptGuard` / `acceptIncomingCallOnce` | Exactly one `accept` PATCH. CallClient may only request the gateway. |
+| Accept | `acceptIncomingCallOnce` / `incoming-call-accept-gateway` | Exactly one `accept` PATCH via CallEngine gateway. CallClient may only request the gateway. |
 | Active call | `CommunityMessengerCallClient` | Agora, media, PiP, heartbeat, and UI only. No lifecycle PATCH. |
 | End | `runCallEndGuard` | Exactly one `end` / `cancel` / `reject` / `missed` PATCH. |
 | Local cleanup | `releaseLocalCallSession` | Local session, tones, heartbeat, native UI/FGS cleanup only. No peer terminal. |
@@ -18,9 +18,9 @@
 
 | Action | Allowed file |
 |--------|--------------|
-| `accept` | `lib/call/actions/call-accept-guard.ts`, `lib/community-messenger/incoming-call-accept-gateway.ts` |
+| `accept` | `lib/community-messenger/incoming-call-accept-gateway.ts` (CallEngine `user_accept`) |
 | `end` / `cancel` / `reject` / `missed` | `lib/call/actions/call-end-guard.ts` and incoming reject gateway wrapper |
-| `upgrade_to_video` / `downgrade_to_voice` | `lib/call/actions/call-media-mode-guard.ts` |
+| `upgrade_to_video` / `downgrade_to_voice` | session PATCH API (`upgradeCommunityMessengerCallSessionToVideo` / CallClient scoped) |
 | raw HTTP PATCH transport | `lib/call/call-actions.ts`, `lib/community-messenger/call-http-actions.ts`, server route handlers |
 
 ## DO NOT

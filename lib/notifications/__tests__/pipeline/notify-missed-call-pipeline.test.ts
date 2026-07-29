@@ -1,15 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const createNotificationEvent = vi.fn();
-const dispatchNotificationPushIfAllowed = vi.fn();
+const createAndDispatchNotificationEvent = vi.fn();
 const invalidateNotificationBadgeCache = vi.fn();
 
-vi.mock("@/lib/notifications/core/notification-event-repository", () => ({
-  createNotificationEvent: (...args: unknown[]) => createNotificationEvent(...args),
-}));
-
-vi.mock("@/lib/notifications/pipeline/notify-push-dispatcher", () => ({
-  dispatchNotificationPushIfAllowed: (...args: unknown[]) => dispatchNotificationPushIfAllowed(...args),
+vi.mock("@/lib/notifications/pipeline/notification-event-dispatcher", () => ({
+  createAndDispatchNotificationEvent: (...args: unknown[]) => createAndDispatchNotificationEvent(...args),
 }));
 
 vi.mock("@/lib/notifications/pipeline/notify-badge-service", () => ({
@@ -23,14 +18,13 @@ const sb = {} as never;
 describe("notify-missed-call-pipeline", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    createNotificationEvent.mockResolvedValue({
+    createAndDispatchNotificationEvent.mockResolvedValue({
       ok: true,
-      row: { id: "evt-missed", user_id: "user-a", type: "missed_call", category: "missed_call" },
+      row: { id: "evt-missed", user_id: "user-b", type: "missed_call", category: "missed_call" },
     });
-    dispatchNotificationPushIfAllowed.mockResolvedValue(undefined);
   });
 
-  it("creates missed_call events for both parties", async () => {
+  it("creates missed_call event for callee only (not caller)", async () => {
     await notifyMissedCallPipeline(sb, {
       sessionId: "sess-1",
       roomId: "room-1",
@@ -39,25 +33,20 @@ describe("notify-missed-call-pipeline", () => {
       initiatorDisplayName: "Alice",
       recipientDisplayName: "Bob",
     });
-    expect(createNotificationEvent).toHaveBeenCalledTimes(2);
-    expect(createNotificationEvent).toHaveBeenCalledWith(
+    expect(createAndDispatchNotificationEvent).toHaveBeenCalledTimes(1);
+    expect(createAndDispatchNotificationEvent).toHaveBeenCalledWith(
       sb,
       expect.objectContaining({
         type: "missed_call",
         category: "missed_call",
         unread: true,
-        userId: "user-a",
+        userId: "user-b",
+        actorUserId: "user-a",
       })
     );
-    expect(createNotificationEvent).toHaveBeenCalledWith(
+    expect(createAndDispatchNotificationEvent).not.toHaveBeenCalledWith(
       sb,
-      expect.objectContaining({ type: "missed_call", userId: "user-b" })
-    );
-    expect(dispatchNotificationPushIfAllowed).toHaveBeenCalledTimes(2);
-    expect(dispatchNotificationPushIfAllowed).toHaveBeenCalledWith(
-      sb,
-      expect.objectContaining({ id: "evt-missed" }),
-      { callPushKind: "missed_call" }
+      expect.objectContaining({ userId: "user-a" })
     );
   });
 });

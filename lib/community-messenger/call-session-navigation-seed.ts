@@ -9,10 +9,6 @@ import {
 import { isPhoneVerificationRequiredApiPayload } from "@/lib/auth/phone-verification-required-detect";
 import { openPhoneVerificationRequiredSheet } from "@/lib/auth/phone-verification-required-client";
 import { isOutgoingCallPhoneVerificationRequired } from "@/lib/call/outgoing-call-start-guard";
-import { getCallMessageText } from "@/lib/community-messenger/call-event-message";
-import {
-  postCommunityMessengerCallStubPreviewBusEvent,
-} from "@/lib/community-messenger/multi-tab-bus";
 import { isCmCallVideoEnabled } from "@/lib/community-messenger/call-phase0-basics";
 import {
   primeOutgoingRingbackWebAudioFromUserGesture,
@@ -135,27 +131,11 @@ export function finalizeOutgoingCallSessionBootstrap(
     void notifyCommunityMessengerCallInviteRingBestEffort(session, {
       dialTmpSessionId: dialTmp ?? undefined,
     });
-    const viewerUserId = getSyncViewerUserIdForClient()?.trim() || "";
-    const startedAt = session.startedAt?.trim() || "";
-    if (viewerUserId && startedAt && session.initiatorUserId.trim() === viewerUserId) {
-      const lastMessage = getCallMessageText({
-        callKind: session.callKind,
-        eventType: "outgoing_started",
-        viewerUserId,
-        initiatorUserId: session.initiatorUserId,
-      });
-      /** Tip SSOT first (call_event) — no raw message_sent tip publisher. */
-      postCommunityMessengerCallStubPreviewBusEvent({
-        roomId: session.roomId,
-        viewerUserId,
-        preview: {
-          lastMessage,
-          lastMessageType: "call_stub",
-          lastMessageAt: startedAt,
-        },
-        eventId: session.id,
-      });
-    }
+    /**
+     * CONTRACT: ringing mid-call tip/stub is Native UI only.
+     * Do not publish 「발신 중」 room preview via multi-tab bus on start
+     * (callee Realtime + caller list tip raced CallKit/FSI).
+     */
   }
 }
 

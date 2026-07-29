@@ -6,7 +6,7 @@
 
 - 발신 POST: `runCallStartGuard` / `bootstrapCommunityMessengerOutgoingCallSession`
 - 수신 ring/terminal: `syncIncomingCallRing` / `sealIncomingCallTerminal`
-- 수락 PATCH: `runCallAcceptGuard` / `acceptIncomingCallOnce`
+- 수락 PATCH: `acceptIncomingCallOnce` / `incoming-call-accept-gateway`
 - 종료 PATCH: `runCallEndGuard`
 - 로컬 정리: `releaseLocalCallSession`
 

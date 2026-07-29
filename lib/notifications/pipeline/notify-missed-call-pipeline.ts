@@ -56,6 +56,10 @@ async function createMissedEventForUser(
   });
 }
 
+/**
+ * 부재중 통화 — **수신자(callee)만** Bell / notification_events.
+ * CONTRACT: caller 에게 missed Bell·App icon 을 올리지 않는다 (제품: 부재중은 수신자 unread).
+ */
 export async function notifyMissedCallPipeline(
   sb: SupabaseClient<any>,
   input: NotifyMissedCallPipelineInput
@@ -67,20 +71,11 @@ export async function notifyMissedCallPipeline(
   if (!sessionId || !roomId || !initiatorId || !recipientId) return;
   if (initiatorId === recipientId) return;
 
-  await Promise.all([
-    createMissedEventForUser(sb, {
-      userId: initiatorId,
-      peerUserId: recipientId,
-      peerDisplayName: input.recipientDisplayName?.trim() || "",
-      sessionId,
-      roomId,
-    }),
-    createMissedEventForUser(sb, {
-      userId: recipientId,
-      peerUserId: initiatorId,
-      peerDisplayName: input.initiatorDisplayName?.trim() || "",
-      sessionId,
-      roomId,
-    }),
-  ]);
+  await createMissedEventForUser(sb, {
+    userId: recipientId,
+    peerUserId: initiatorId,
+    peerDisplayName: input.initiatorDisplayName?.trim() || "",
+    sessionId,
+    roomId,
+  });
 }

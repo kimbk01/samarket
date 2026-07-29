@@ -10,6 +10,7 @@ import com.dibay.app.DibayKeyguardHelper;
 import com.dibay.app.IncomingCallActionCoordinator;
 import com.dibay.app.IncomingCallNotificationBuilder;
 import com.dibay.app.IncomingCallRingOwner;
+import com.dibay.app.IncomingCallSurfaceOwner;
 import com.dibay.app.NativeOutgoingRingbackOwner;
 import com.dibay.app.call.DibayActiveCallSessionManager;
 import com.dibay.app.nativecall.NativeCallEngineOwnership;
@@ -78,6 +79,16 @@ public final class NativeVoiceCallRuntime {
     if (!NativeVoiceCallOwner.claimNative(sid, "incoming_fcm")) return false;
     NativeCallVisibleSurfaceOwner.logCallOwnerClaimed(sid, "voice", "incoming_fcm");
     NativeVoiceCallLog.info("legacy_web_handoff_blocked", sid, "reason=native_voice_runtime");
+    /**
+     * CONTRACT: Native Runtime owns ringing UI — claim surface owner so WebView cannot open
+     * web_in_app banner / dual accept while Activity/FSI/notification is presenting.
+     */
+    IncomingCallSurfaceOwner.SurfaceOwner surfaceOwner =
+        DibayKeyguardHelper.isKeyguardLocked(app) || !DibayKeyguardHelper.isInteractive(app)
+            ? IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_FSI
+            : IncomingCallSurfaceOwner.SurfaceOwner.NATIVE_ACTIVITY;
+    IncomingCallSurfaceOwner.tryClaimIncomingOwner(
+        app, sid, surfaceOwner, "native_voice_runtime_incoming");
 
     Session session =
         new Session(

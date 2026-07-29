@@ -43,6 +43,11 @@ export type ForegroundIncomingPresenterInput = {
   preferNativeAndroidForegroundIncoming?: boolean;
   /** Native {@link ForegroundIncomingCallActivity} 가 표시 중인 callId */
   nativeForegroundIncomingCallId?: string | null;
+  /**
+   * Capacitor Android/iOS — Native Runtime / CallKit owns ringing.
+   * When true, WebView top-banner must not render (even if Global remounts).
+   */
+  suppressWebIncomingBannerForNativeAuthority?: boolean;
 };
 
 function emptyDecision(reason: string): ForegroundIncomingPresenterDecision {
@@ -203,6 +208,19 @@ export function resolveForegroundIncomingPresentation(
       session,
       surface: "none",
       reason: "can_show_incoming_false",
+      shouldRender: false,
+      selectedRingingSessionId,
+    };
+  }
+
+  if (
+    input.suppressWebIncomingBannerForNativeAuthority === true
+  ) {
+    return {
+      sessionId: session.id,
+      session,
+      surface: "none",
+      reason: "native_incoming_authority_suppresses_web_banner",
       shouldRender: false,
       selectedRingingSessionId,
     };

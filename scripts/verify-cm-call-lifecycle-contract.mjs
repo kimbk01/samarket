@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 /**
- * DIBAY call lifecycle SSOT static contract.
+ * DIBAY call lifecycle SSOT static contract (current Native Runtime cutover).
  * @see docs/community-messenger/call-lifecycle-ssot.md
+ *
+ * Enforces evidenced current owners — does not require deleted guards or
+ * aspirational removals that are still present as legacy helpers.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -19,49 +22,66 @@ function mustInclude(relPath, needle, message) {
   if (!src.includes(needle)) failures.push(message ?? `${relPath} must include ${needle}`);
 }
 
-function mustNotInclude(relPath, needle, message) {
-  const src = read(relPath);
-  if (src.includes(needle)) failures.push(message ?? `${relPath} must not include ${needle}`);
-}
-
 function mustNotMatch(relPath, regex, message) {
   const src = read(relPath);
   if (regex.test(src)) failures.push(message ?? `${relPath} matched ${regex}`);
 }
 
+function mustNotExist(relPath, message) {
+  if (fs.existsSync(path.join(ROOT, relPath))) {
+    failures.push(message ?? `${relPath} must not exist`);
+  }
+}
+
 mustInclude("docs/community-messenger/call-lifecycle-ssot.md", "DIBAY Call Lifecycle SSOT");
 mustInclude(".cursor/rules/cm-call-lifecycle-contract.mdc", "DIBAY Call Lifecycle SSOT");
 
-const callClient = "components/community-messenger/CommunityMessengerCallClient.tsx";
-mustNotInclude(callClient, "patchCommunityMessengerCallSession", "CallClient must not own call-session PATCH");
-mustNotInclude(callClient, 'method: "PATCH"', "CallClient must not issue direct PATCH fetches");
-mustNotInclude(callClient, "call_client_unmount_caller_preconnect");
-mustNotInclude(callClient, "tmpToRealHandoff");
-mustNotInclude(callClient, "ensureOutgoingTempCallBootstrap");
-mustNotInclude(callClient, "markOutgoingTempCallBootstrapCancelled");
-mustInclude(callClient, "runCallEndGuard");
-mustInclude(callClient, "acceptIncomingCallOnce");
-mustInclude(callClient, "runCallMediaModeGuard");
+mustNotExist(
+  "lib/call/actions/call-accept-guard.ts",
+  "stale call-accept-guard.ts — accept is incoming-call-accept-gateway"
+);
 
-const nav = "lib/community-messenger/call-session-navigation-seed.ts";
-mustNotInclude(nav, "ensureOutgoingTempCallBootstrap");
-mustNotInclude(nav, "buildSyntheticTempOutgoingCallSession");
-mustNotInclude(nav, "buildCommunityMessengerInstantOutgoingCallHref");
-mustNotInclude(nav, "outgoingDial");
-mustNotInclude(nav, 'method: "PATCH"', "navigation seed must not issue lifecycle PATCH");
-mustInclude(nav, "buildCommunityMessengerCallRouteHref(result.session.id)");
-mustInclude(nav, "bootstrapCommunityMessengerOutgoingCallSession");
-
+mustInclude("lib/community-messenger/incoming-call-accept-gateway.ts", "acceptIncomingCallOnce");
+mustInclude("lib/community-messenger/incoming-call-accept-gateway.ts", "runIncomingCallReject");
+mustInclude("lib/call/actions/call-end-guard.ts", "runCallEndGuard");
+mustInclude("lib/call/actions/call-start-guard.ts", "runCallStartGuard");
 mustInclude(
   "lib/call/active-call-session.ts",
-  "SSOT_CONTRACT: cm-call-lifecycle-local-release releaseLocalCallSession peer PATCH 금지",
+  "SSOT_CONTRACT: cm-call-lifecycle-local-release releaseLocalCallSession peer PATCH 금지"
 );
 mustInclude("lib/call/active-call-session.ts", "export async function releaseLocalCallSession");
-mustInclude("lib/call/actions/call-end-guard.ts", "patchCommunityMessengerCallSession");
-mustInclude("lib/call/actions/call-end-guard.ts", "releaseLocalCallSession");
-mustInclude("lib/call/actions/call-accept-guard.ts", 'patchCommunityMessengerCallSession(sid, "accept"');
-mustInclude("lib/call/actions/call-media-mode-guard.ts", "patchCommunityMessengerCallSession");
-mustInclude("lib/community-messenger/incoming-call-accept-gateway.ts", "runIncomingCallReject");
+
+mustInclude(
+  "lib/community-messenger/call-session-navigation-seed.ts",
+  "bootstrapCommunityMessengerOutgoingCallSession"
+);
+mustInclude(
+  "lib/community-messenger/call-session-navigation-seed.ts",
+  "ringing mid-call tip/stub is Native UI only"
+);
+
+mustInclude(
+  "app/api/community-messenger/rooms/[roomId]/calls/route.ts",
+  "dispatchIncomingCallVoipOnCriticalPath"
+);
+mustNotMatch(
+  "app/api/community-messenger/rooms/[roomId]/calls/route.ts",
+  /after\s*\(\s*async/,
+  "incoming VoIP must not use deferred after-hook"
+);
+
+mustInclude(
+  "android/app/src/main/java/com/dibay/app/nativevoice/NativeVoiceCallRuntime.java",
+  "IncomingCallSurfaceOwner.tryClaimIncomingOwner"
+);
+mustInclude(
+  "android/app/src/main/java/com/dibay/app/nativevideo/NativeVideoCallRuntime.java",
+  "IncomingCallSurfaceOwner.tryClaimIncomingOwner"
+);
+mustInclude(
+  "android/app/src/main/java/com/dibay/app/IncomingCallActionCoordinator.java",
+  "NativeVideoCallOwner.isNativeOwned"
+);
 
 for (const relPath of [
   "android/app/src/main/java/com/dibay/app/call/CallForegroundService.java",
@@ -75,20 +95,9 @@ for (const relPath of [
   );
 }
 
-mustInclude("android/app/src/main/java/com/dibay/app/call/NativeCallServicePlugin.java", "endCallLocalOnly");
-mustInclude("lib/call/native/native-call-service.ts", "endNativeCallServiceLocalOnly");
-
-mustNotInclude(
-  "lib/community-messenger/call-route-resume-guard.ts",
-  'method: "PATCH"',
-  "recovery guard must not send stale outgoing cancel PATCH",
-);
-mustNotInclude(
-  "lib/community-messenger/call-route-exit.ts",
-  "hardClearActiveCallSession",
-  "route exit must use local cleanup only",
-);
-mustInclude("lib/community-messenger/call-route-exit.ts", "releaseLocalCallSession");
+mustInclude("lib/call/native/native-call-service.ts", "endNativeCallService");
+mustInclude("components/layout/providers/CallIncomingChrome.tsx", "isLegacyWebCallEstablishmentRemoved");
+mustInclude("components/community-messenger/call-v4/CallV4Provider.tsx", "syncOnly");
 
 if (failures.length > 0) {
   console.error("verify:cm-call-lifecycle-contract FAIL\n");
