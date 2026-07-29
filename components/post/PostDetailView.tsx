@@ -905,8 +905,13 @@ export function PostDetailView({
   const [reportReason, setReportReason] = useState("");
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [reportError, setReportError] = useState("");
-  /** 신규 채팅은 `openCreateTradeChat` → compose 에서 방 생성 후 메신저 방으로 이동 */
-  const chatCtaBusy = false;
+  /**
+   * 채팅 CTA navigation once-guard.
+   * 연타 시 `openCreateTradeChat`/`openExistingTradeChat` 이 replace·push 를 반복하지 않게 한다.
+   * API create-or-get inflight 와 별개 — 네비만 1회.
+   */
+  const [chatCtaBusy, setChatCtaBusy] = useState(false);
+  const chatNavStartedRef = useRef(false);
   const tradeChatPrepareTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [chatError, setChatError] = useState("");
   /** 거래 글: 이 글·본인·판매자 기준으로 이미 열린 채팅방 (상품↔채팅 연동) */
@@ -1326,55 +1331,69 @@ export function PostDetailView({
   }, [router, existingTradeRoomId, existingTradeRoomSource, existingTradeMessengerId, post.id]);
 
   const handleChat = useCallback(async () => {
+    if (chatNavStartedRef.current) return;
+    chatNavStartedRef.current = true;
+    setChatCtaBusy(true);
     setChatError("");
-    await requireAction("trade_chat", async () => {
-      const uid = (await getCurrentUserIdForDb())?.trim() || null;
-      if (!uid) return;
-      if (chatBlockedByCompleted) {
-        setChatError(t("trade_detail_chat_blocked_completed"));
-        return;
-      }
-      if (chatBlockedByReservedState) {
-        setChatError(t("trade_detail_chat_blocked_reserved"));
-        return;
-      }
-      if (existingTradeRoomId) {
-        openExistingTradeChat(router, {
+    let navigated = false;
+    try {
+      await requireAction("trade_chat", async () => {
+        if (navigated) return;
+        const uid = (await getCurrentUserIdForDb())?.trim() || null;
+        if (!uid) return;
+        if (chatBlockedByCompleted) {
+          setChatError(t("trade_detail_chat_blocked_completed"));
+          return;
+        }
+        if (chatBlockedByReservedState) {
+          setChatError(t("trade_detail_chat_blocked_reserved"));
+          return;
+        }
+        if (existingTradeRoomId) {
+          openExistingTradeChat(router, {
+            productId: post.id,
+            roomId: existingTradeRoomId,
+            messengerRoomId: existingTradeMessengerId,
+            sourceHint: existingTradeRoomSource,
+          });
+          navigated = true;
+          return;
+        }
+        if (postOwnedByUserId(post as unknown as Record<string, unknown>, uid)) {
+          setChatError(t("trade_detail_chat_error_own_product"));
+          return;
+        }
+        if (chatBlockedByOtherReservation) {
+          setChatError(t("trade_detail_chat_error_reserved_buyer"));
+          return;
+        }
+        const thumbs = imageResolveTradePostDetailImageUrls(post);
+        const productThumbnail = thumbs[0] ?? "";
+        const productTitle = (post.title ?? t("trade_detail_product_fallback")).trim();
+        const priceText = post.is_free_share
+          ? t("trade_detail_free_share")
+          : post.price != null
+            ? formatPrice(post.price, defaultCurrency)
+            : t("trade_detail_price_inquiry");
+        const sellerName = author?.nickname?.trim() || t("trade_detail_seller_fallback");
+        const sellerNameDisplay = author?.display_name?.trim() || sellerName;
+        openCreateTradeChat(router, {
           productId: post.id,
-          roomId: existingTradeRoomId,
-          messengerRoomId: existingTradeMessengerId,
-          sourceHint: existingTradeRoomSource,
+          composePreview: {
+            productTitle,
+            productThumbnail,
+            priceText,
+            sellerName: sellerNameDisplay,
+          },
         });
-        return;
-      }
-      if (postOwnedByUserId(post as unknown as Record<string, unknown>, uid)) {
-        setChatError(t("trade_detail_chat_error_own_product"));
-        return;
-      }
-      if (chatBlockedByOtherReservation) {
-        setChatError(t("trade_detail_chat_error_reserved_buyer"));
-        return;
-      }
-      const thumbs = imageResolveTradePostDetailImageUrls(post);
-      const productThumbnail = thumbs[0] ?? "";
-      const productTitle = (post.title ?? t("trade_detail_product_fallback")).trim();
-      const priceText = post.is_free_share
-        ? t("trade_detail_free_share")
-        : post.price != null
-          ? formatPrice(post.price, defaultCurrency)
-          : t("trade_detail_price_inquiry");
-      const sellerName = author?.nickname?.trim() || t("trade_detail_seller_fallback");
-      const sellerNameDisplay = author?.display_name?.trim() || sellerName;
-      openCreateTradeChat(router, {
-        productId: post.id,
-        composePreview: {
-          productTitle,
-          productThumbnail,
-          priceText,
-          sellerName: sellerNameDisplay,
-        },
+        navigated = true;
       });
-    });
+    } finally {
+      if (!navigated) {
+        chatNavStartedRef.current = false;
+        setChatCtaBusy(false);
+      }
+    }
   }, [
     post,
     post.id,
