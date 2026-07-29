@@ -1,0 +1,527 @@
+{
+  "phase": "0",
+  "measured_at": "2026-07-29T17:10:17.989Z",
+  "base_url": "https://samarket.vercel.app",
+  "head": "db9f079e4346328ab38f6bf8c5a52c77fd970929",
+  "head_short": "db9f079e4",
+  "origin_main": "db9f079e4346328ab38f6bf8c5a52c77fd970929",
+  "auth_email": "qqqq@manual.local",
+  "cycles": 3,
+  "note": "Phase 0 evidence only. Old store-checksheet-audit-latest.json is NOT used as PASS.",
+  "devices_attached": null,
+  "consumer_cycles": [
+    {
+      "cycle": 1,
+      "wall_ms": 7799,
+      "httpStatus": 200,
+      "markers": {
+        "shellMs": 101,
+        "categoryMs": 101,
+        "firstCardMs": 821,
+        "pendingBlankSeen": true,
+        "pendingBlankMs": 707,
+        "skeletonCount": 38,
+        "pulseCount": 38,
+        "duplicateHub": 1,
+        "storeCountHint": {
+          "storeAnchors": [
+            "/stores/browse/restaurant?sub=korean",
+            "/stores/browse/restaurant?sub=chinese",
+            "/stores/browse/restaurant?sub=western",
+            "/stores/browse/restaurant?sub=snack",
+            "/stores/browse/restaurant?sub=chicken",
+            "/stores/browse/restaurant?sub=pizza",
+            "/stores/browse/restaurant?sub=dessert",
+            "/stores/browse/restaurant?sub=all",
+            "/stores/browse/restaurant?sub=all&sort=fast",
+            "/stores/%EB%A7%9B%EC%97%85%EB%8A%94%EC%8B%9D%EB%8B%B9-8db1803b/p/9c205a36-e6db-46c4-bea6-b41d83fa59e8",
+            "/stores/aa11/p/5c3800d3-675b-4edd-a7dc-ac91252a473b",
+            "/stores/zxzx22/p/0b7cbd04-0a9c-4321-9829-123a0a05ee7b",
+            "/stores/zxzx44/p/7363e933-f95c-4a89-b77c-596ebb37b56a",
+            "/stores/jtv-4cd1e71c/p/655573cc-3826-41a6-9375-dca10119a549",
+            "/stores/zxzx33/p/3c9818e3-e848-48c1-8541-828792fd6a15",
+            "/stores/zxzx11/p/34f6b6ac-05c2-497b-8c8e-35c1c5c80337"
+          ],
+          "storeCardPerf": 1,
+          "pendingBlank": false,
+          "pulseAtEnd": 38,
+          "hubCount": 1,
+          "emptyCopy": false,
+          "bodySnippet": "222, 18 Don Mariano Marcos Ave, Quezon City, 1126 Metro Manila\n99+\n\n땡겨서 새로고침\n\n한식\n중식\n양식\n분식\n치킨·고기\n피자·양식\n카페·디저트\n식당\n마트\n공구류\n펫샵\n카페\n미용\n학원\n서비스\n\n한눈에\n\n업종 골라 바로 들어가기\n\n식당·마트·생활까지 탭만 바꾸면 세부가 바뀌어요.\n\n지금 주문 가능\n전체 보기\n\n김찌찌게\n\n₱150\n\n맛업는식당\n\n김치김밥\n\n₱150\n\n나의 오른손딸방\n\nGATORADE\n\n₱100\n\nMARKET MARKET\n\nhonda cb tires\n\n₱4,000\n\nMOTORTRADE CENTER\n\nYOPO"
+        },
+        "path": "/stores",
+        "title": "매장",
+        "elapsedMs": 821,
+        "warmFirstCardMs": 0,
+        "warmSkeletonMax": 41,
+        "warmBlankFrames": 0,
+        "warmBlankMs": 0,
+        "wallMs": null,
+        "navWallMs": 284,
+        "apiGetsAfterWarmNav": 7,
+        "detailHeaderMs": null,
+        "detailMenuMs": null,
+        "detailHref": null
+      },
+      "api": {
+        "total_get_hits": 69,
+        "aborted": 24,
+        "home_feed": [
+          {
+            "url": "/api/stores/home-feed",
+            "n": 2
+          },
+          {
+            "url": "/api/stores/home-feed?region=Manila",
+            "n": 1
+          },
+          {
+            "url": "/api/stores/home-feed?region=Manila&district=1234",
+            "n": 1
+          }
+        ],
+        "taxonomy": [
+          {
+            "url": "/api/stores/taxonomy",
+            "n": 3
+          }
+        ],
+        "menus": [
+          {
+            "url": "/api/stores/%EB%A7%9B%EC%97%85%EB%8A%94%EC%8B%9D%EB%8B%B9-8db1803b/menus",
+            "n": 2
+          }
+        ],
+        "summary": [
+          {
+            "url": "/api/stores/%EB%A7%9B%EC%97%85%EB%8A%94%EC%8B%9D%EB%8B%B9-8db1803b/summary",
+            "n": 2
+          }
+        ],
+        "top_dupes": [
+          {
+            "url": "/api/me/stores",
+            "n": 5
+          },
+          {
+            "url": "/api/app-settings",
+            "n": 4
+          },
+          {
+            "url": "/api/me/profile?lite=1",
+            "n": 4
+          },
+          {
+            "url": "/api/app/main-bottom-nav",
+            "n": 4
+          },
+          {
+            "url": "/api/app/startup-config",
+            "n": 4
+          },
+          {
+            "url": "/api/me/notifications/badge-count",
+            "n": 4
+          },
+          {
+            "url": "/api/me/address-defaults",
+            "n": 3
+          },
+          {
+            "url": "/api/stores/taxonomy",
+            "n": 3
+          },
+          {
+            "url": "/api/favorites/list",
+            "n": 3
+          },
+          {
+            "url": "/api/auth/session",
+            "n": 3
+          },
+          {
+            "url": "/api/me/profile?mode=full",
+            "n": 3
+          },
+          {
+            "url": "/api/app/notification-sound-ssot",
+            "n": 3
+          },
+          {
+            "url": "/api/me/store-owner-hub-badge",
+            "n": 3
+          },
+          {
+            "url": "/api/me/store-orders?hub_summary=1",
+            "n": 2
+          },
+          {
+            "url": "/api/stores/home-feed",
+            "n": 2
+          }
+        ]
+      }
+    },
+    {
+      "cycle": 2,
+      "wall_ms": 7005,
+      "httpStatus": 200,
+      "markers": {
+        "shellMs": 103,
+        "categoryMs": 103,
+        "firstCardMs": 1858,
+        "pendingBlankSeen": true,
+        "pendingBlankMs": 1742,
+        "skeletonCount": 38,
+        "pulseCount": 38,
+        "duplicateHub": 1,
+        "storeCountHint": {
+          "storeAnchors": [
+            "/stores/browse/restaurant?sub=korean",
+            "/stores/browse/restaurant?sub=chinese",
+            "/stores/browse/restaurant?sub=western",
+            "/stores/browse/restaurant?sub=snack",
+            "/stores/browse/restaurant?sub=chicken",
+            "/stores/browse/restaurant?sub=pizza",
+            "/stores/browse/restaurant?sub=dessert",
+            "/stores/browse/restaurant?sub=all",
+            "/stores/browse/restaurant?sub=all&sort=fast",
+            "/stores/%EB%A7%9B%EC%97%85%EB%8A%94%EC%8B%9D%EB%8B%B9-8db1803b/p/9c205a36-e6db-46c4-bea6-b41d83fa59e8",
+            "/stores/aa11/p/5c3800d3-675b-4edd-a7dc-ac91252a473b",
+            "/stores/zxzx22/p/0b7cbd04-0a9c-4321-9829-123a0a05ee7b",
+            "/stores/zxzx44/p/7363e933-f95c-4a89-b77c-596ebb37b56a",
+            "/stores/jtv-4cd1e71c/p/655573cc-3826-41a6-9375-dca10119a549",
+            "/stores/zxzx33/p/3c9818e3-e848-48c1-8541-828792fd6a15",
+            "/stores/zxzx11/p/34f6b6ac-05c2-497b-8c8e-35c1c5c80337"
+          ],
+          "storeCardPerf": 1,
+          "pendingBlank": false,
+          "pulseAtEnd": 38,
+          "hubCount": 1,
+          "emptyCopy": false,
+          "bodySnippet": "222, 18 Don Mariano Marcos Ave, Quezon City, 1126 Metro Manila\n99+\n\n땡겨서 새로고침\n\n한식\n중식\n양식\n분식\n치킨·고기\n피자·양식\n카페·디저트\n식당\n마트\n공구류\n펫샵\n카페\n미용\n학원\n서비스\n\n한눈에\n\n업종 골라 바로 들어가기\n\n식당·마트·생활까지 탭만 바꾸면 세부가 바뀌어요.\n\n지금 주문 가능\n전체 보기\n\n김찌찌게\n\n₱150\n\n맛업는식당\n\n김치김밥\n\n₱150\n\n나의 오른손딸방\n\nGATORADE\n\n₱100\n\nMARKET MARKET\n\nhonda cb tires\n\n₱4,000\n\nMOTORTRADE CENTER\n\nYOPO"
+        },
+        "path": "/stores",
+        "title": "매장",
+        "elapsedMs": 1858,
+        "warmFirstCardMs": 0,
+        "warmSkeletonMax": 35,
+        "warmBlankFrames": 0,
+        "warmBlankMs": 0,
+        "wallMs": null,
+        "navWallMs": 342,
+        "apiGetsAfterWarmNav": 7,
+        "detailHeaderMs": null,
+        "detailMenuMs": null,
+        "detailHref": null
+      },
+      "api": {
+        "total_get_hits": 74,
+        "aborted": 32,
+        "home_feed": [
+          {
+            "url": "/api/stores/home-feed",
+            "n": 2
+          },
+          {
+            "url": "/api/stores/home-feed?region=Manila",
+            "n": 2
+          },
+          {
+            "url": "/api/stores/home-feed?region=Manila&district=1234",
+            "n": 1
+          }
+        ],
+        "taxonomy": [
+          {
+            "url": "/api/stores/taxonomy",
+            "n": 3
+          }
+        ],
+        "menus": [
+          {
+            "url": "/api/stores/%EB%A7%9B%EC%97%85%EB%8A%94%EC%8B%9D%EB%8B%B9-8db1803b/menus",
+            "n": 2
+          }
+        ],
+        "summary": [
+          {
+            "url": "/api/stores/%EB%A7%9B%EC%97%85%EB%8A%94%EC%8B%9D%EB%8B%B9-8db1803b/summary",
+            "n": 2
+          }
+        ],
+        "top_dupes": [
+          {
+            "url": "/api/me/stores",
+            "n": 5
+          },
+          {
+            "url": "/api/app-settings",
+            "n": 4
+          },
+          {
+            "url": "/api/me/profile?lite=1",
+            "n": 4
+          },
+          {
+            "url": "/api/app/main-bottom-nav",
+            "n": 4
+          },
+          {
+            "url": "/api/app/startup-config",
+            "n": 4
+          },
+          {
+            "url": "/api/me/notifications/badge-count",
+            "n": 4
+          },
+          {
+            "url": "/api/favorites/list",
+            "n": 4
+          },
+          {
+            "url": "/api/me/address-defaults",
+            "n": 3
+          },
+          {
+            "url": "/api/stores/taxonomy",
+            "n": 3
+          },
+          {
+            "url": "/api/app/notification-sound-ssot",
+            "n": 3
+          },
+          {
+            "url": "/api/me/notifications?exclude_owner_store_commerce=1&exclude_chat_message=1&push_kind=delivery",
+            "n": 3
+          },
+          {
+            "url": "/api/auth/session",
+            "n": 3
+          },
+          {
+            "url": "/api/me/profile?mode=full",
+            "n": 3
+          },
+          {
+            "url": "/api/me/store-owner-hub-badge",
+            "n": 3
+          },
+          {
+            "url": "/api/me/store-orders?hub_summary=1",
+            "n": 2
+          }
+        ]
+      }
+    },
+    {
+      "cycle": 3,
+      "wall_ms": 6411,
+      "httpStatus": 200,
+      "markers": {
+        "shellMs": 100,
+        "categoryMs": 100,
+        "firstCardMs": 1920,
+        "pendingBlankSeen": true,
+        "pendingBlankMs": 1812,
+        "skeletonCount": 41,
+        "pulseCount": 41,
+        "duplicateHub": 1,
+        "storeCountHint": {
+          "storeAnchors": [
+            "/stores/browse/restaurant?sub=all",
+            "/stores/browse/restaurant?sub=all&sort=fast",
+            "/stores/%EB%A7%9B%EC%97%85%EB%8A%94%EC%8B%9D%EB%8B%B9-8db1803b/p/9c205a36-e6db-46c4-bea6-b41d83fa59e8",
+            "/stores/aa11/p/5c3800d3-675b-4edd-a7dc-ac91252a473b",
+            "/stores/zxzx22/p/0b7cbd04-0a9c-4321-9829-123a0a05ee7b",
+            "/stores/zxzx44/p/7363e933-f95c-4a89-b77c-596ebb37b56a",
+            "/stores/jtv-4cd1e71c/p/655573cc-3826-41a6-9375-dca10119a549",
+            "/stores/zxzx33/p/3c9818e3-e848-48c1-8541-828792fd6a15",
+            "/stores/zxzx11/p/34f6b6ac-05c2-497b-8c8e-35c1c5c80337",
+            "/stores/asas22/p/b66bfa9d-efa3-4017-af99-7c26e455a2c8",
+            "/stores/asas55/p/7d19584d-817d-43ac-8995-9b625f9cb911",
+            "/stores/asas44/p/d976b09a-0f4a-4702-87f5-59ff9676382b",
+            "/stores/browse/restaurant?sub=all&sort=fast",
+            "/stores/owner?storeId=076bffda-3048-4bfb-80ae-985a69105f4a",
+            "/stores/cart"
+          ],
+          "storeCardPerf": 1,
+          "pendingBlank": false,
+          "pulseAtEnd": 41,
+          "hubCount": 1,
+          "emptyCopy": false,
+          "bodySnippet": "222, 18 Don Mariano Marcos Ave, Quezon City, 1126 Metro Manila\n99+\n\n땡겨서 새로고침\n\n한눈에\n\n업종 골라 바로 들어가기\n\n식당·마트·생활까지 탭만 바꾸면 세부가 바뀌어요.\n\n지금 주문 가능\n전체 보기\n\n김찌찌게\n\n₱150\n\n맛업는식당\n\n김치김밥\n\n₱150\n\n나의 오른손딸방\n\nGATORADE\n\n₱100\n\nMARKET MARKET\n\nhonda cb tires\n\n₱4,000\n\nMOTORTRADE CENTER\n\nYOPOKKI CHEESE RAPOKKI\n\n₱120\n\nJTV\n\nLOPERAMIDE HYDROCHLORIDE CA"
+        },
+        "path": "/stores",
+        "title": "매장",
+        "elapsedMs": 1921,
+        "warmFirstCardMs": 0,
+        "warmSkeletonMax": 41,
+        "warmBlankFrames": 0,
+        "warmBlankMs": 0,
+        "wallMs": null,
+        "navWallMs": 301,
+        "apiGetsAfterWarmNav": 8,
+        "detailHeaderMs": null,
+        "detailMenuMs": null,
+        "detailHref": null
+      },
+      "api": {
+        "total_get_hits": 73,
+        "aborted": 21,
+        "home_feed": [
+          {
+            "url": "/api/stores/home-feed",
+            "n": 2
+          },
+          {
+            "url": "/api/stores/home-feed?region=Manila",
+            "n": 2
+          },
+          {
+            "url": "/api/stores/home-feed?region=Manila&district=1234",
+            "n": 1
+          }
+        ],
+        "taxonomy": [
+          {
+            "url": "/api/stores/taxonomy",
+            "n": 3
+          }
+        ],
+        "menus": [
+          {
+            "url": "/api/stores/%EB%A7%9B%EC%97%85%EB%8A%94%EC%8B%9D%EB%8B%B9-8db1803b/menus",
+            "n": 2
+          }
+        ],
+        "summary": [
+          {
+            "url": "/api/stores/%EB%A7%9B%EC%97%85%EB%8A%94%EC%8B%9D%EB%8B%B9-8db1803b/summary",
+            "n": 2
+          }
+        ],
+        "top_dupes": [
+          {
+            "url": "/api/me/stores",
+            "n": 5
+          },
+          {
+            "url": "/api/app-settings",
+            "n": 4
+          },
+          {
+            "url": "/api/me/profile?lite=1",
+            "n": 4
+          },
+          {
+            "url": "/api/app/main-bottom-nav",
+            "n": 4
+          },
+          {
+            "url": "/api/app/startup-config",
+            "n": 4
+          },
+          {
+            "url": "/api/favorites/list",
+            "n": 4
+          },
+          {
+            "url": "/api/me/notifications/badge-count",
+            "n": 4
+          },
+          {
+            "url": "/api/me/address-defaults",
+            "n": 3
+          },
+          {
+            "url": "/api/stores/taxonomy",
+            "n": 3
+          },
+          {
+            "url": "/api/app/notification-sound-ssot",
+            "n": 3
+          },
+          {
+            "url": "/api/auth/session",
+            "n": 3
+          },
+          {
+            "url": "/api/me/profile?mode=full",
+            "n": 3
+          },
+          {
+            "url": "/api/me/store-owner-hub-badge",
+            "n": 3
+          },
+          {
+            "url": "/api/me/store-orders?hub_summary=1",
+            "n": 2
+          },
+          {
+            "url": "/api/stores/home-feed",
+            "n": 2
+          }
+        ]
+      }
+    }
+  ],
+  "owner_orders_probe": {
+    "wall_ms": 5113,
+    "markers": {
+      "path": "/stores/owner/orders",
+      "pulse": 0,
+      "hasLogin": false,
+      "hasOrdersHint": true
+    },
+    "api_dupes": [],
+    "api_total": 11
+  },
+  "summary": {
+    "cold_first_card_ms": {
+      "count": 3,
+      "values": [
+        821,
+        1858,
+        1920
+      ],
+      "min": 821,
+      "max": 1920,
+      "median": 1858
+    },
+    "warm_first_card_ms": {
+      "count": 3,
+      "values": [
+        0,
+        0,
+        0
+      ],
+      "min": 0,
+      "max": 0,
+      "median": 0
+    },
+    "detail_first_menu_ms": {
+      "count": 0,
+      "values": [],
+      "min": null,
+      "max": null,
+      "median": null
+    },
+    "home_feed_max_same_url_hits": 2,
+    "warm_blank_frames_max": 0,
+    "warm_skeleton_max": 41,
+    "duplicate_hub_max": 1
+  },
+  "findings_preliminary": [
+    {
+      "id": "home_feed_duplicate_get",
+      "severity": "P0",
+      "evidence": "same home-feed URL hit up to 2 times per /stores entry cycle"
+    },
+    {
+      "id": "warm_list_skeleton_or_pulse",
+      "severity": "P0",
+      "evidence": "warm reentry animate-pulse max=41"
+    }
+  ]
+}

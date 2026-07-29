@@ -693,16 +693,9 @@ assertNotIncludes(
 
 
 
-const feedSkeleton = read("components/stores/home/hub/StoresHomeSkeleton.tsx");
-
-assertNotIncludes(
-
-  feedSkeleton,
-
-  "delivery-home-category-icon",
-
-  "feed skeleton must not include legacy category rail"
-
+assertFileAbsent(
+  "components/stores/home/hub/StoresHomeSkeleton.tsx",
+  "legacy stores home feed skeleton must stay deleted (blank/pending surface only)"
 );
 
 
@@ -860,6 +853,16 @@ function assertFileAbsent(rel, context) {
   "components/stores/home/hub/stores-home-hero-banner-view.tsx",
   "components/stores/home/hub/stores-home-feed-skeleton-view.tsx",
   "lib/stores/stores-home-category-seed-panel-model.ts",
+  // Phase 1 — orphan / legacy duplicate home surfaces (live SSOT = StoresHomeHub)
+  "components/stores/home/StoreNearbyFeedSection.tsx",
+  "components/stores/home/hub/StoresHomeSkeleton.tsx",
+  "components/stores/home/StorePromoHeroBanner.tsx",
+  "components/stores/home/StoreHubMyZoneSection.tsx",
+  "components/stores/home/StoreHorizontalRail.tsx",
+  "components/stores/home/StoreCategoryExploreSection.tsx",
+  "components/stores/home/StoreCategoryTabBar.tsx",
+  "components/stores/home/StorePrimaryIndustrySwitcher.tsx",
+  "components/stores/home/hub/StoresHomeBuyerMyZone.tsx",
 ].forEach((rel) => assertFileAbsent(rel, "legacy stores home shell"));
 
 assertNotIncludes(hub, "typeof window", "hub feed state must not use typeof window (hydration)");
