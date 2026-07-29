@@ -15,6 +15,7 @@ import {
 import { reconcileExitedRoomSummary } from "@/lib/community-messenger/home/reconcile-exited-room-summary";
 import {
   applyIncomingMessageEvent,
+  resetMessengerRealtimeStore,
   useMessengerRealtimeStore,
 } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import type { CommunityMessengerBootstrap, CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
@@ -72,11 +73,12 @@ describe("projectRoomActivityToHomeList", () => {
   beforeEach(() => {
     clearBootstrapCache();
     clearRoomActivityProjectionStateForTests();
+    resetMessengerRealtimeStore();
     useMessengerRealtimeStore.setState({
       viewerUserId: "user-a",
       messagesByRoomId: {},
       lastReadByRoomId: {},
-      activeRoomId: null,
+      activeRoomId: "room-a",
     });
   });
 
@@ -125,6 +127,49 @@ describe("projectRoomActivityToHomeList", () => {
     const stats = getRoomActivityProjectionStatsForTests();
     expect(stats.accepted).toBe(1);
     expect(stats.dropped).toBe(1);
+  });
+
+  it("bump↔postgres duplicate applyIncomingMessageEvent: 1 tip accepted + 1 no-op", () => {
+    primeBootstrapCache(
+      bootstrap([
+        room({
+          id: "room-a",
+          lastMessage: "stale",
+          lastMessageAt: "2026-06-01T00:00:00.000Z",
+        }),
+      ])
+    );
+    const msg = {
+      id: "peer-bump-1",
+      roomId: "room-a",
+      senderId: "user-b",
+      senderLabel: "peer",
+      messageType: "text" as const,
+      content: "in-room peer",
+      createdAt: "2026-07-01T16:00:00.000Z",
+      isMine: false,
+    };
+    applyIncomingMessageEvent({
+      viewerUserId: "user-a",
+      roomId: "room-a",
+      message: msg,
+    });
+    expect(findHomeListRoomRow(peekBootstrapCache(), "room-a")?.lastMessage).toBe("in-room peer");
+    expect(getRoomActivityProjectionStatsForTests().accepted).toBe(1);
+
+    applyIncomingMessageEvent({
+      viewerUserId: "user-a",
+      roomId: "room-a",
+      message: msg,
+    });
+    expect(findHomeListRoomRow(peekBootstrapCache(), "room-a")?.lastMessage).toBe("in-room peer");
+    const stats = getRoomActivityProjectionStatsForTests();
+    expect(stats.accepted).toBe(1);
+    expect(stats.dropped).toBe(1);
+    expect(wasRoomActivityEventProjected("peer-bump-1")).toBe(true);
+
+    const reconciled = reconcileExitedRoomSummary({ roomId: "room-a", viewerUserId: "user-a" });
+    expect(reconciled.reconcile).toBe("noop_aligned");
   });
 
   it("remote receive updates tip without Home React mount", () => {

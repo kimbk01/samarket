@@ -5,8 +5,36 @@ import { mergeRoomMessages } from "@/components/community-messenger/room/communi
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
 import type { CommunityMessengerMessage, CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { isUuidLikeString } from "@/lib/shared/uuid-string";
+import { applyIncomingMessageEvent } from "@/lib/community-messenger/stores/messenger-realtime-store";
 
 import type { MessengerRoomBootstrapRefreshFn } from "@/lib/community-messenger/room/use-messenger-room-bootstrap-lifecycle";
+
+/** Hub tip after catch-up timeline merge — SSOT via applyIncomingMessageEvent → projectRoomActivityToHomeList. */
+function projectHubTipAfterCatchUpMerge(args: {
+  viewerUserId: string | null | undefined;
+  roomId: string;
+  message: CommunityMessengerMessage;
+  roomSummary?: CommunityMessengerRoomSnapshot["room"] | null;
+}): void {
+  const rid = String(args.roomId ?? "").trim();
+  const mid = String(args.message?.id ?? "").trim();
+  if (!rid || !mid) return;
+  applyIncomingMessageEvent({
+    viewerUserId: args.viewerUserId?.trim() || null,
+    roomId: rid,
+    roomSummary: args.roomSummary ?? undefined,
+    message: args.message,
+    messageRow: {
+      id: args.message.id,
+      room_id: rid,
+      sender_id: args.message.senderId,
+      message_type: args.message.messageType,
+      content: args.message.content,
+      metadata: args.message.metadata ?? null,
+      created_at: args.message.createdAt,
+    },
+  });
+}
 
 export type MessengerRoomBootstrapRefresh = MessengerRoomBootstrapRefreshFn;
 
@@ -70,7 +98,18 @@ export function useMessengerRoomRemoteCatchup({
         messages?: CommunityMessengerMessage[];
       };
       if (!res.ok || !json.ok || !Array.isArray(json.messages) || json.messages.length === 0) return false;
-      setRoomMessages((prev) => mergeRoomMessages(prev, json.messages ?? []));
+      const incoming = json.messages ?? [];
+      setRoomMessages((prev) => mergeRoomMessages(prev, incoming));
+      const viewer = snapshotRef.current?.viewerUserId?.trim() || null;
+      const roomSummary = snapshotRef.current?.room ?? null;
+      for (const row of incoming) {
+        projectHubTipAfterCatchUpMerge({
+          viewerUserId: viewer,
+          roomId: id,
+          message: row,
+          roomSummary,
+        });
+      }
       return true;
     } catch {
       /* ignore */
@@ -102,6 +141,12 @@ export function useMessengerRoomRemoteCatchup({
         if (res.ok && json.ok && json.message) {
           const row = json.message;
           setRoomMessages((prev) => mergeRoomMessages(prev, [row]));
+          projectHubTipAfterCatchUpMerge({
+            viewerUserId: snapshotRef.current?.viewerUserId,
+            roomId: rid,
+            message: row,
+            roomSummary: snapshotRef.current?.room ?? null,
+          });
           return true;
         }
         const retryable = res.status === 404 || res.status === 503 || res.status >= 500;

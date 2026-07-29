@@ -349,16 +349,26 @@ export const useMessengerRealtimeStore = create<MessengerRealtimeState>((set, ge
           messageRow: input.messageRow ?? null,
         });
       const incomingMessageId = String(explicitMessage?.id ?? fallbackMessage?.id ?? "").trim();
-      const duplicate = incomingMessageId ? messageIdAlreadyApplied(rid, incomingMessageId) : false;
-      if (duplicate) {
-        return state;
-      }
       const senderId =
         explicitMessage?.senderId ??
         (typeof input.messageRow?.sender_id === "string" ? input.messageRow.sender_id.trim() : null);
       const isMine = Boolean(viewer && senderId && messengerUserIdsEqual(senderId, viewer));
       const routeRoomNorm = messengerRoomRouteRoomIdNormFromPathname();
       const sameRoomReadable = activeRoomActuallyReadable(rid, state.activeRoomId);
+      /**
+       * Tip candidate is captured even on timeline duplicate so bump/catch-up/ACK
+       * can still hit projectRoomActivityToHomeList (eventId no-op when already applied).
+       */
+      if (fallbackMessage != null) {
+        projectedMessage = fallbackMessage;
+        projectedIsMine = isMine;
+        projectedSameRoomReadable = sameRoomReadable;
+        projectedViewer = viewer;
+      }
+      const duplicate = incomingMessageId ? messageIdAlreadyApplied(rid, incomingMessageId) : false;
+      if (duplicate) {
+        return state;
+      }
       cmReceiveBadgeLog("sender_check", {
         roomId: rid,
         messageId: incomingMessageId || null,
@@ -376,10 +386,6 @@ export const useMessengerRealtimeStore = create<MessengerRealtimeState>((set, ge
       let messagesByRoomId = state.messagesByRoomId;
       if (fallbackMessage != null) {
         wroteMessages = true;
-        projectedMessage = fallbackMessage;
-        projectedIsMine = isMine;
-        projectedSameRoomReadable = sameRoomReadable;
-        projectedViewer = viewer;
         messagesByRoomId = {
           ...messagesByRoomId,
           [rid]: mergeMessages(messagesByRoomId[rid] ?? [], fallbackMessage),
@@ -435,9 +441,10 @@ export const useMessengerRealtimeStore = create<MessengerRealtimeState>((set, ge
     });
     /**
      * B body SSOT: timeline canonical commit → hub tip projection.
+     * Also runs on timeline duplicate (bump ↔ postgres) — projector eventId no-op.
      * Home React may also project the same eventId → no-op. Store itself still does not mutate chats[].
      */
-    if (wroteMessages && projectedMessage) {
+    if (projectedMessage) {
       const tip = roomActivityFromMessengerMessage({
         message: projectedMessage,
         source: projectedIsMine ? "local_send_ack" : "remote_message_realtime",

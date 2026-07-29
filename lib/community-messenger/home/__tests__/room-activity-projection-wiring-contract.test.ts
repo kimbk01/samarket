@@ -30,6 +30,21 @@ describe("room activity projection wiring contract", () => {
     const src = read("lib/community-messenger/stores/messenger-realtime-store.ts");
     expect(src).toContain("projectRoomActivityToHomeList");
     expect(src).toContain("roomActivityFromMessengerMessage");
+    expect(src).toContain("Tip candidate is captured even on timeline duplicate");
+  });
+
+  it("bump snapshot merge projects hub tip via applyIncomingMessageEvent SSOT", () => {
+    const src = read("lib/community-messenger/room/use-messenger-room-bump-broadcast-subscription.ts");
+    expect(src).toContain("applyIncomingMessageEvent");
+    expect(src).toContain("mergeRoomMessages");
+    expect(src).toMatch(/setRoomMessages[\s\S]*applyIncomingMessageEvent/);
+  });
+
+  it("remote catch-up merge projects hub tip via applyIncomingMessageEvent SSOT", () => {
+    const src = read("lib/community-messenger/room/use-messenger-room-remote-catchup.ts");
+    expect(src).toContain("applyIncomingMessageEvent");
+    expect(src).toContain("projectHubTipAfterCatchUpMerge");
+    expect(src).not.toMatch(/applyHomeListPatch\s*\(/);
   });
 
   it("call stub posts projection before bus", () => {

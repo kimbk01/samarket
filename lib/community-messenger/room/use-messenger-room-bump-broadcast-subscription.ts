@@ -12,6 +12,7 @@ import { parseCommunityMessengerBumpMessageSnapshot } from "@/lib/community-mess
 import { resolveRoomBumpDedupeKey } from "@/lib/chat-domain/realtime/domain-realtime-envelope";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { subscribeCommunityMessengerRoomBumpBroadcast } from "@/lib/community-messenger/realtime/room-bump-broadcast";
+import { applyIncomingMessageEvent } from "@/lib/community-messenger/stores/messenger-realtime-store";
 
 type RoomBumpListener = {
   onBump: (payload: Record<string, unknown>) => void;
@@ -186,6 +187,29 @@ export function useMessengerRoomBumpBroadcastSubscription({
           const enriched =
             member?.label && member.label.trim().length > 0 ? { ...pre, senderLabel: member.label } : pre;
           setRoomMessages((prev) => mergeRoomMessages(prev, [enriched]));
+          /**
+           * S2: bump snapshot merge is the in-room canonical receive path.
+           * Tip SSOT lives in applyIncomingMessageEvent → projectRoomActivityToHomeList
+           * (same eventId from postgres/ACK/bus → no-op).
+           */
+          const tipRoomId = String(enriched.roomId || streamRoomId || roomId).trim();
+          if (tipRoomId) {
+            applyIncomingMessageEvent({
+              viewerUserId: viewer,
+              roomId: tipRoomId,
+              roomSummary: snapshotRef.current?.room ?? undefined,
+              message: enriched,
+              messageRow: {
+                id: enriched.id,
+                room_id: tipRoomId,
+                sender_id: enriched.senderId,
+                message_type: enriched.messageType,
+                content: enriched.content,
+                metadata: enriched.metadata ?? null,
+                created_at: enriched.createdAt,
+              },
+            });
+          }
           catchUpHint = catchUpHint || String(pre.id ?? "").trim();
           mergedSnapshot = true;
         }
