@@ -1,11 +1,12 @@
 /**
- * DEAD PROVEN 후보: `components/chats/ChatButton.tsx` 정적 import 0.
+ * DEAD PROVEN 제거 후: `components/chats/ChatButton.tsx` 재도입·정적 import 금지.
  */
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const ROOT = path.resolve(__dirname, "../../..");
+const CHAT_BUTTON = path.join(ROOT, "components/chats/ChatButton.tsx");
 const SCAN_DIRS = ["app", "components", "lib"] as const;
 const IMPORT_RE =
   /from\s+["']@\/components\/chats\/ChatButton["']|from\s+["'][^"']*\/chats\/ChatButton["']/;
@@ -31,13 +32,16 @@ function walkTsFiles(dir: string, out: string[]): void {
       continue;
     }
     if (!/\.(ts|tsx)$/.test(name)) continue;
-    if (name === "ChatButton.tsx") continue;
     out.push(full);
   }
 }
 
-describe("trade ChatButton dead-import scan", () => {
-  it("no static import of components/chats/ChatButton outside its own file", () => {
+describe("trade ChatButton dead removal", () => {
+  it("components/chats/ChatButton.tsx is removed", () => {
+    expect(existsSync(CHAT_BUTTON)).toBe(false);
+  });
+
+  it("no static import of components/chats/ChatButton remains", () => {
     const files: string[] = [];
     for (const d of SCAN_DIRS) {
       walkTsFiles(path.join(ROOT, d), files);
