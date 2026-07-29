@@ -6,6 +6,16 @@ import {
   ADDRESS_DEFAULTS_SNAPSHOT_TTL_MS,
   type AddressDefaultsSnapshot,
 } from "@/lib/addresses/address-defaults-snapshot";
+import type {
+  AddressDefaultsFetchCaller,
+  AddressDefaultsFetchReason,
+} from "@/lib/addresses/address-defaults-fetch-caller";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
+import {
+  captureCallerStack,
+  nextMypageNetRequestId,
+  pushMypageNetMarker,
+} from "@/lib/runtime/mypage-network-markers";
 
 const ADDRESS_DEFAULTS_SNAPSHOT_FLIGHT = "me:address-defaults:snapshot";
 
@@ -45,18 +55,43 @@ export function peekFreshAddressDefaultsSnapshot(): AddressDefaultsSnapshot | nu
   return cloneSnapshot(cachedSnapshot.value);
 }
 
+export type FetchAddressDefaultsOpts = {
+  force?: boolean;
+  timeoutMs?: number;
+  caller?: AddressDefaultsFetchCaller;
+  reason?: AddressDefaultsFetchReason;
+};
+
 export async function fetchAddressDefaultsSnapshot(
-  opts?: { force?: boolean; timeoutMs?: number }
+  opts?: FetchAddressDefaultsOpts
 ): Promise<AddressDefaultsSnapshot | null> {
-  if (opts?.force) {
+  const caller = opts?.caller ?? "unknown";
+  const reason = opts?.reason ?? "unspecified";
+  const force = opts?.force === true;
+  const viewerId = getCurrentUser()?.id?.trim() ?? null;
+  const inflightBefore = getSingleFlightPromise<AddressDefaultsSnapshot>(ADDRESS_DEFAULTS_SNAPSHOT_FLIGHT);
+  const cacheAgeMs =
+    cachedSnapshot != null ? Math.max(0, cachedSnapshot.expiresAt - Date.now()) : null;
+
+  if (force) {
     /**
      * Clear TTL only — do not forget an in-flight GET (that created parallel
      * `/api/me/address-defaults` when several force callers raced).
      * Join the current flight, then start one refresh flight.
      */
     cachedSnapshot = null;
-    const inflight = getSingleFlightPromise<AddressDefaultsSnapshot>(ADDRESS_DEFAULTS_SNAPSHOT_FLIGHT);
+    const inflight = inflightBefore;
     if (inflight) {
+      pushMypageNetMarker({
+        event: "address_defaults_deduped",
+        viewerId,
+        caller,
+        reason,
+        force: true,
+        hasInflight: true,
+        inflightKey: ADDRESS_DEFAULTS_SNAPSHOT_FLIGHT,
+        detail: "force_await_inflight",
+      });
       try {
         await inflight;
       } catch {
@@ -66,12 +101,69 @@ export async function fetchAddressDefaultsSnapshot(
     }
     forgetSingleFlight(ADDRESS_DEFAULTS_SNAPSHOT_FLIGHT);
   }
+
   const now = Date.now();
   if (cachedSnapshot && cachedSnapshot.expiresAt > now) {
+    pushMypageNetMarker({
+      event: "address_defaults_cache_hit",
+      viewerId,
+      caller,
+      reason,
+      force,
+      hasFreshMemorySnapshot: true,
+      cacheAgeMs: Math.max(0, cachedSnapshot.expiresAt - now),
+      hasInflight: Boolean(getSingleFlightPromise(ADDRESS_DEFAULTS_SNAPSHOT_FLIGHT)),
+      inflightKey: ADDRESS_DEFAULTS_SNAPSHOT_FLIGHT,
+    });
     return cloneSnapshot(cachedSnapshot.value);
   }
+
+  const existing = getSingleFlightPromise<AddressDefaultsSnapshot>(ADDRESS_DEFAULTS_SNAPSHOT_FLIGHT);
+  if (existing) {
+    pushMypageNetMarker({
+      event: "address_defaults_deduped",
+      viewerId,
+      caller,
+      reason,
+      force,
+      hasInflight: true,
+      inflightKey: ADDRESS_DEFAULTS_SNAPSHOT_FLIGHT,
+      hasFreshMemorySnapshot: false,
+      cacheAgeMs,
+      stack: captureCallerStack(),
+    });
+    try {
+      const snapshot = await existing;
+      return cloneSnapshot(snapshot);
+    } catch {
+      pushMypageNetMarker({
+        event: "address_defaults_result_dropped",
+        viewerId,
+        caller,
+        reason,
+        force,
+        detail: "inflight_rejected",
+      });
+      return null;
+    }
+  }
+
   try {
     const snapshot = await runSingleFlight(ADDRESS_DEFAULTS_SNAPSHOT_FLIGHT, async () => {
+      const requestId = nextMypageNetRequestId("addr");
+      pushMypageNetMarker({
+        event: "address_defaults_network_start",
+        requestId,
+        viewerId,
+        caller,
+        reason,
+        force,
+        hasInflight: false,
+        inflightKey: ADDRESS_DEFAULTS_SNAPSHOT_FLIGHT,
+        hasFreshMemorySnapshot: false,
+        cacheAgeMs,
+        stack: captureCallerStack(),
+      });
       const timeoutMs = Math.max(1_000, Number(opts?.timeoutMs ?? 8_000));
       const ac = new AbortController();
       const t = globalThis.setTimeout(() => ac.abort(), timeoutMs);
@@ -82,6 +174,18 @@ export async function fetchAddressDefaultsSnapshot(
           cache: "no-store",
           signal: ac.signal,
         });
+      } catch (err) {
+        const aborted = ac.signal.aborted;
+        pushMypageNetMarker({
+          event: aborted ? "address_defaults_network_abort" : "address_defaults_network_error",
+          requestId,
+          viewerId,
+          caller,
+          reason,
+          force,
+          detail: aborted ? "timeout_or_abort" : "fetch_throw",
+        });
+        throw err;
       } finally {
         globalThis.clearTimeout(t);
       }
@@ -115,6 +219,15 @@ export async function fetchAddressDefaultsSnapshot(
           expiresAt: Date.now() + ADDRESS_DEFAULTS_SNAPSHOT_TTL_MS,
         };
       }
+      pushMypageNetMarker({
+        event: "address_defaults_network_success",
+        requestId,
+        viewerId,
+        caller,
+        reason,
+        force,
+        detail: `status=${value.status};ok=${value.ok};master=${value.defaults?.master != null}`,
+      });
       return value;
     });
     return cloneSnapshot(snapshot);

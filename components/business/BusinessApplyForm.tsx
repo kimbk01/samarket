@@ -227,6 +227,8 @@ export function BusinessApplyForm({
         const snap = await fetchAddressDefaultsSnapshot({
           timeoutMs: 8_000,
           force: Boolean(opts?.force),
+          caller: "business_apply_form",
+          reason: opts?.force ? "force_addresses_updated" : "apply_form_seed",
         });
         if (cancelled || seq !== addressLoadSeqRef.current) return;
         const master = (snap?.ok && snap.defaults ? (snap.defaults.master as any) : null) as UserAddressDTO | null;

@@ -16,6 +16,12 @@ import {
   scheduleWhenBrowserIdle,
 } from "@/lib/ui/network-policy";
 import { pickPreferredOwnerStore } from "@/lib/delivery/owner/pick-preferred-owner-store";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
+import {
+  captureCallerStack,
+  nextMypageNetRequestId,
+  pushMypageNetMarker,
+} from "@/lib/runtime/mypage-network-markers";
 
 export type OwnerLiteStoreState = {
   loading: boolean;
@@ -28,6 +34,7 @@ export { pickPreferredOwnerStore } from "@/lib/delivery/owner/pick-preferred-own
 
 const EMPTY: OwnerLiteStoreState = { loading: true, ownerStore: null, ownerStores: [] };
 const OWNER_LITE_SESSION_KEY = "samarket:stores:owner-lite:snapshot:v1";
+const OWNER_LITE_HYDRATE_FLIGHT = "owner-lite:hydrate" as const;
 
 function readOwnerLiteSessionSnapshot(): OwnerLiteStoreState | null {
   if (typeof window === "undefined") return null;
@@ -69,46 +76,12 @@ let subscriberCount = 0;
 /** 첫 응답 후에는 재구독(Strict Mode)·백그라운드 갱신 시 로딩 스피너를 다시 켜지 않음 */
 let hasLoadedOnce = hydratedFromSession != null;
 let initialHydrateIdleId: number | null = null;
+/** Pathname when idle hydrate was scheduled — compared again at execution. */
+let scheduledHydratePathname: string | null = null;
+let snapshotLoadedAtMs: number | null = hydratedFromSession != null ? Date.now() : null;
 
 function emit() {
   for (const l of listeners) l();
-}
-
-async function loadFromNetwork(options?: { withLoadingSpinner?: boolean }): Promise<void> {
-  const showSpinner = options?.withLoadingSpinner === true || !hasLoadedOnce;
-
-  if (showSpinner) {
-    snapshot = { loading: true, ownerStore: snapshot.ownerStore, ownerStores: snapshot.ownerStores };
-    emit();
-  }
-
-  try {
-    const { status, json: raw } = await fetchMeStoresListDeduped();
-    if (status === 401 || status === 503) {
-      hasLoadedOnce = true;
-      snapshot = { loading: false, ownerStore: null, ownerStores: [] };
-      writeOwnerLiteSessionSnapshot(snapshot);
-      emit();
-      return;
-    }
-    const json = raw as { ok?: boolean; stores?: StoreRow[] };
-    const stores = Array.isArray(json?.stores) ? json.stores : [];
-    if (json?.ok && stores.length > 0) {
-      seedMeStoresListClientCacheFromStores(stores);
-    }
-    hasLoadedOnce = true;
-    snapshot = {
-      loading: false,
-      ownerStore: json?.ok ? pickPreferredOwnerStore(stores) : null,
-      ownerStores: json?.ok ? stores : [],
-    };
-    writeOwnerLiteSessionSnapshot(snapshot);
-  } catch {
-    hasLoadedOnce = true;
-    snapshot = { loading: false, ownerStore: null, ownerStores: [] };
-    writeOwnerLiteSessionSnapshot(snapshot);
-  }
-  emit();
 }
 
 /** `/mypage` root must not trigger `GET /api/me/stores` — store admin routes own that fetch. */
@@ -117,17 +90,138 @@ function isMypageRootSurfacePathname(pathname: string | null | undefined): boole
   return p === "/mypage" || p === "/my";
 }
 
+function currentPathname(): string {
+  if (typeof window === "undefined") return "";
+  return window.location.pathname.split("?")[0]!.trim();
+}
+
+async function loadFromNetwork(options?: {
+  withLoadingSpinner?: boolean;
+  subscriber?: string;
+  subscribeReason?: string;
+}): Promise<void> {
+  const showSpinner = options?.withLoadingSpinner === true || !hasLoadedOnce;
+  const viewerId = getCurrentUser()?.id?.trim() ?? null;
+
+  if (showSpinner) {
+    snapshot = { loading: true, ownerStore: snapshot.ownerStore, ownerStores: snapshot.ownerStores };
+    emit();
+  }
+
+  const requestId = nextMypageNetRequestId("stores");
+  pushMypageNetMarker({
+    event: "owner_lite_store_network_start",
+    requestId,
+    viewerId,
+    subscriber: options?.subscriber ?? "owner_lite_external_store",
+    subscribeReason: options?.subscribeReason ?? "hydrate",
+    autoHydrate: true,
+    activeSubscriberCount: subscriberCount,
+    hasSnapshot: hasLoadedOnce,
+    snapshotAgeMs: snapshotLoadedAtMs != null ? Date.now() - snapshotLoadedAtMs : null,
+    schedulePathname: scheduledHydratePathname ?? undefined,
+    executionPathname: currentPathname(),
+    stack: captureCallerStack(),
+  });
+
+  try {
+    const { status, json: raw } = await fetchMeStoresListDeduped();
+    if (status === 401 || status === 503) {
+      hasLoadedOnce = true;
+      snapshotLoadedAtMs = Date.now();
+      snapshot = { loading: false, ownerStore: null, ownerStores: [] };
+      writeOwnerLiteSessionSnapshot(snapshot);
+      emit();
+      pushMypageNetMarker({
+        event: "owner_lite_store_network_success",
+        requestId,
+        viewerId,
+        detail: `status=${status};empty`,
+      });
+      return;
+    }
+    const json = raw as { ok?: boolean; stores?: StoreRow[] };
+    const stores = Array.isArray(json?.stores) ? json.stores : [];
+    if (json?.ok && stores.length > 0) {
+      seedMeStoresListClientCacheFromStores(stores);
+    }
+    hasLoadedOnce = true;
+    snapshotLoadedAtMs = Date.now();
+    snapshot = {
+      loading: false,
+      ownerStore: json?.ok ? pickPreferredOwnerStore(stores) : null,
+      ownerStores: json?.ok ? stores : [],
+    };
+    writeOwnerLiteSessionSnapshot(snapshot);
+    pushMypageNetMarker({
+      event: "owner_lite_store_network_success",
+      requestId,
+      viewerId,
+      detail: `status=${status};count=${stores.length}`,
+    });
+  } catch {
+    hasLoadedOnce = true;
+    snapshotLoadedAtMs = Date.now();
+    snapshot = { loading: false, ownerStore: null, ownerStores: [] };
+    writeOwnerLiteSessionSnapshot(snapshot);
+  }
+  emit();
+}
+
+function cancelScheduledOwnerLiteHydrate(reason: string): void {
+  if (initialHydrateIdleId == null) return;
+  cancelScheduledWhenBrowserIdle(initialHydrateIdleId);
+  initialHydrateIdleId = null;
+  pushMypageNetMarker({
+    event: "owner_lite_store_auto_hydrate_skipped",
+    viewerId: getCurrentUser()?.id?.trim() ?? null,
+    detail: `cancel_scheduled:${reason}`,
+    schedulePathname: scheduledHydratePathname ?? undefined,
+    executionPathname: currentPathname(),
+    activeSubscriberCount: subscriberCount,
+  });
+  scheduledHydratePathname = null;
+}
+
 export function subscribeOwnerLiteStore(listener: () => void) {
   listeners.add(listener);
   subscriberCount += 1;
+  const schedulePath = currentPathname();
+  pushMypageNetMarker({
+    event: "owner_lite_store_subscribe",
+    viewerId: getCurrentUser()?.id?.trim() ?? null,
+    subscriber: "subscribeOwnerLiteStore",
+    subscribeReason: "first_or_additional_subscriber",
+    autoHydrate: subscriberCount === 1,
+    activeSubscriberCount: subscriberCount,
+    hasSnapshot: hasLoadedOnce,
+    snapshotAgeMs: snapshotLoadedAtMs != null ? Date.now() - snapshotLoadedAtMs : null,
+    schedulePathname: schedulePath,
+    stack: captureCallerStack(6),
+  });
   if (subscriberCount === 1) {
     if (initialHydrateIdleId != null) {
       cancelScheduledWhenBrowserIdle(initialHydrateIdleId);
       initialHydrateIdleId = null;
     }
+    scheduledHydratePathname = schedulePath;
     initialHydrateIdleId = scheduleWhenBrowserIdle(() => {
+      const executionPath = currentPathname();
+      const scheduled = scheduledHydratePathname;
       initialHydrateIdleId = null;
-      if (typeof window !== "undefined" && isMypageRootSurfacePathname(window.location.pathname)) {
+      scheduledHydratePathname = null;
+      if (isMypageRootSurfacePathname(executionPath)) {
+        pushMypageNetMarker({
+          event: "owner_lite_store_auto_hydrate_skipped",
+          viewerId: getCurrentUser()?.id?.trim() ?? null,
+          subscriber: "subscribeOwnerLiteStore",
+          subscribeReason: "execution_pathname_mypage_root",
+          autoHydrate: true,
+          activeSubscriberCount: subscriberCount,
+          hasSnapshot: hasLoadedOnce,
+          schedulePathname: scheduled ?? undefined,
+          executionPathname: executionPath,
+        });
         /* keep session/memory snapshot — no stores network on mypage root */
         if (!hasLoadedOnce && snapshot.ownerStores.length === 0 && !snapshot.loading) {
           snapshot = { loading: false, ownerStore: null, ownerStores: [] };
@@ -135,19 +229,33 @@ export function subscribeOwnerLiteStore(listener: () => void) {
         }
         return;
       }
-      void runSingleFlight("owner-lite:hydrate", () =>
-        loadFromNetwork({ withLoadingSpinner: !isConstrainedNetwork() })
+      void runSingleFlight(OWNER_LITE_HYDRATE_FLIGHT, () =>
+        loadFromNetwork({
+          withLoadingSpinner: !isConstrainedNetwork(),
+          subscriber: "subscribeOwnerLiteStore",
+          subscribeReason: "idle_auto_hydrate",
+        })
       );
     }, isConstrainedNetwork() ? 2600 : 1000);
   }
   return () => {
     listeners.delete(listener);
     subscriberCount = Math.max(0, subscriberCount - 1);
+    pushMypageNetMarker({
+      event: "owner_lite_store_unsubscribe",
+      viewerId: getCurrentUser()?.id?.trim() ?? null,
+      activeSubscriberCount: subscriberCount,
+      executionPathname: currentPathname(),
+    });
     if (subscriberCount === 0 && initialHydrateIdleId != null) {
-      cancelScheduledWhenBrowserIdle(initialHydrateIdleId);
-      initialHydrateIdleId = null;
+      cancelScheduledOwnerLiteHydrate("last_subscriber_unsubscribed");
     }
   };
+}
+
+/** Cancel pending idle hydrate when leaving any surface — used by mypage route entry. */
+export function cancelPendingOwnerLiteAutoHydrate(reason = "route_change"): void {
+  cancelScheduledOwnerLiteHydrate(reason);
 }
 
 export function getOwnerLiteStoreSnapshot(): OwnerLiteStoreState {
@@ -161,12 +269,35 @@ export function getOwnerLiteStoreServerSnapshot(): OwnerLiteStoreState {
 /** 매장 신청·수정 직후 등 — 스피너와 함께 서버에서 다시 가져옴 */
 export function refreshOwnerLiteStore(): void {
   invalidateMeStoresListDedupedCache();
-  void runSingleFlight("owner-lite:hydrate", () => loadFromNetwork({ withLoadingSpinner: true }));
+  void runSingleFlight(OWNER_LITE_HYDRATE_FLIGHT, () =>
+    loadFromNetwork({
+      withLoadingSpinner: true,
+      subscriber: "refreshOwnerLiteStore",
+      subscribeReason: "explicit_refresh",
+    })
+  );
 }
 
 /** FAB·헤더 등 — 승인 매장이 아직 없을 때만 무음 선로드 */
 export function prefetchOwnerLiteStoreQuiet(): void {
   if (pickApprovedOwnerStoreForFab(snapshot.ownerStores)) return;
+  if (isMypageRootSurfacePathname(currentPathname())) {
+    pushMypageNetMarker({
+      event: "owner_lite_store_auto_hydrate_skipped",
+      viewerId: getCurrentUser()?.id?.trim() ?? null,
+      subscriber: "prefetchOwnerLiteStoreQuiet",
+      subscribeReason: "mypage_root_block",
+      autoHydrate: false,
+      executionPathname: currentPathname(),
+    });
+    return;
+  }
   invalidateMeStoresListDedupedCache();
-  void runSingleFlight("owner-lite:hydrate", () => loadFromNetwork({ withLoadingSpinner: false }));
+  void runSingleFlight(OWNER_LITE_HYDRATE_FLIGHT, () =>
+    loadFromNetwork({
+      withLoadingSpinner: false,
+      subscriber: "prefetchOwnerLiteStoreQuiet",
+      subscribeReason: "quiet_prefetch",
+    })
+  );
 }

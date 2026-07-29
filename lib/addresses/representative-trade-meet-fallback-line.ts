@@ -41,7 +41,10 @@ export function buildTradeMeetFallbackLineFromAddressDTO(a: UserAddressDTO): str
 
 /** 글쓰기 거래 희망 장소 미지정 시 — 지도 핀과 동일 우선순위 주소 행의 공개 한 줄 */
 export async function fetchRepresentativeTradeMeetFallbackLine(): Promise<string | null> {
-  const snap = await fetchAddressDefaultsSnapshot();
+  const snap = await fetchAddressDefaultsSnapshot({
+    caller: "trade_meet_fallback_line",
+    reason: "fallback_line",
+  });
   if (!snap?.ok || !snap.defaults) return null;
   const addr = pickUserAddressRowAlignedWithMeetSpotPin(snap.defaults);
   if (addr?.id) {

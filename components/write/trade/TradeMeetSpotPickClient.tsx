@@ -380,7 +380,10 @@ export function TradeMeetSpotPickClient() {
     let cancelled = false;
     void (async () => {
       try {
-        const snap = await fetchAddressDefaultsSnapshot();
+        const snap = await fetchAddressDefaultsSnapshot({
+          caller: "trade_meet_spot_pick",
+          reason: "meet_spot_seed",
+        });
         if (cancelled) return;
         const fromBook = pickTradeMeetSpotCenterFromAddressDefaults(snap);
         if (fromBook) {
@@ -494,7 +497,10 @@ export function TradeMeetSpotPickClient() {
     let cancelled = false;
     void (async () => {
       try {
-        const snap = await fetchAddressDefaultsSnapshot();
+        const snap = await fetchAddressDefaultsSnapshot({
+          caller: "trade_meet_spot_pick",
+          reason: "meet_spot_seed",
+        });
         if (cancelled) return;
         const fromBook = pickTradeMeetSpotCenterFromAddressDefaults(snap);
         if (fromBook) {

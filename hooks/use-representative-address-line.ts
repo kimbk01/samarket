@@ -71,7 +71,11 @@ export function useRepresentativeAddressPresentation(opts?: {
     const silent = opts?.silent === true;
     if (!silent) setState({ status: "loading" });
     try {
-      const snapshot = await fetchAddressDefaultsSnapshot({ force: opts?.force === true });
+      const snapshot = await fetchAddressDefaultsSnapshot({
+        force: opts?.force === true,
+        caller: "representative_address_presentation",
+        reason: opts?.force === true ? "force_addresses_updated" : "pathname_silent_refresh",
+      });
       if (snapshot == null) {
         if (!silent) setState({ status: "ready", presentation: null });
         return;
@@ -147,7 +151,11 @@ export function useRepresentativeAddressLine(): RepresentativeAddressLineState {
     const silent = opts?.silent === true;
     if (!silent) setState({ status: "loading" });
     try {
-      const snapshot = await fetchAddressDefaultsSnapshot({ force: opts?.force === true });
+      const snapshot = await fetchAddressDefaultsSnapshot({
+        force: opts?.force === true,
+        caller: "representative_address_line",
+        reason: opts?.force === true ? "force_addresses_updated" : "pathname_silent_refresh",
+      });
       if (snapshot == null) {
         if (!silent) setState({ status: "ready", line: null });
         return;
@@ -223,7 +231,11 @@ export function useRepresentativeFullAddressLine(): RepresentativeAddressLineSta
     const silent = opts?.silent === true;
     if (!silent) setState({ status: "loading" });
     try {
-      const snapshot = await fetchAddressDefaultsSnapshot({ force: opts?.force === true });
+      const snapshot = await fetchAddressDefaultsSnapshot({
+        force: opts?.force === true,
+        caller: "representative_full_address_line",
+        reason: opts?.force === true ? "force_addresses_updated" : "pathname_silent_refresh",
+      });
       if (snapshot == null) {
         if (!silent) setState({ status: "ready", line: null });
         return;

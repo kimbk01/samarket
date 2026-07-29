@@ -47,7 +47,10 @@ export async function fetchProfileLatLngForMeetSpotMap(): Promise<{ lat: number;
 /** 지도 핀 폴백 — 주소록 기본 → 프로필 (`TradeMeetSpotPickClient` · 지오코딩 실패 시) */
 export async function fetchMeetSpotPinFallbackCenter(): Promise<{ lat: number; lng: number } | null> {
   try {
-    const snap = await fetchAddressDefaultsSnapshot();
+    const snap = await fetchAddressDefaultsSnapshot({
+      caller: "trade_meet_spot_pick",
+      reason: "meet_spot_seed",
+    });
     const fromBook = pickTradeMeetSpotCenterFromAddressDefaults(snap);
     if (fromBook) return fromBook;
     return fetchProfileLatLngForMeetSpotMap();

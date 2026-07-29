@@ -115,7 +115,11 @@ export function useMypageHubModel(
 
   const loadAddressDefaults = useCallback(async (opts?: { force?: boolean }) => {
     try {
-      const snapshot = await fetchAddressDefaultsSnapshot({ force: opts?.force === true });
+      const snapshot = await fetchAddressDefaultsSnapshot({
+        force: opts?.force === true,
+        caller: "mypage_hub_model",
+        reason: opts?.force === true ? "force_addresses_updated" : "hub_model_refresh",
+      });
       if (snapshot?.ok && snapshot.defaults) {
         setAddressDefaults({
           master: snapshot.defaults.master != null,

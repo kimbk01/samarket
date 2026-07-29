@@ -58,7 +58,10 @@ export function tryBrowserGeolocation(): Promise<BrowseListUserOriginCoords | nu
 
 export async function tryCoordsFromAddressDefaults(): Promise<BrowseListUserOriginCoords | null> {
   try {
-    const snapshot = await fetchAddressDefaultsSnapshot();
+    const snapshot = await fetchAddressDefaultsSnapshot({
+      caller: "browse_list_user_origin",
+      reason: "browse_origin",
+    });
     if (snapshot == null || !snapshot.ok || snapshot.defaults == null) return null;
     const row = pickAddressRowForDeliveryRouting(snapshot.defaults as UserAddressDefaultsDTO);
     if (!row) return null;

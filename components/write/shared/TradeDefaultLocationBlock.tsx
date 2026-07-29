@@ -87,7 +87,11 @@ export function TradeDefaultLocationBlock({
 
   const load = useCallback(async (opts?: { force?: boolean }) => {
     try {
-      const snapshot = await fetchAddressDefaultsSnapshot({ force: opts?.force === true });
+      const snapshot = await fetchAddressDefaultsSnapshot({
+        force: opts?.force === true,
+        caller: "trade_default_location_block",
+        reason: opts?.force === true ? "force_addresses_updated" : "composer_default_location",
+      });
       if (!snapshot?.ok || !snapshot.defaults) {
         displayLineRef.current = null;
         setDisplayLine(null);

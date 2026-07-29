@@ -56,7 +56,11 @@ export function useDeliveryHomeHeaderAddress(): DeliveryHomeHeaderAddressView {
       }
 
       try {
-        const snapshot = await fetchAddressDefaultsSnapshot({ force: opts?.force === true });
+        const snapshot = await fetchAddressDefaultsSnapshot({
+          force: opts?.force === true,
+          caller: "delivery_home_header_address",
+          reason: opts?.force === true ? "force_addresses_updated" : "header_address_load",
+        });
         if (snapshot == null) {
           if (!silent || !hasResolvedOnceRef.current) {
             commitState({ status: "ready", line: null, hasLinkedAddress: false });

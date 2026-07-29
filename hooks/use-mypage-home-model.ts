@@ -26,6 +26,7 @@ import {
 } from "@/lib/mypage/mypage-home-store";
 import { resolveMypageHomeProfileRow } from "@/lib/mypage/resolve-mypage-home-profile";
 import { dibayMyInfoPerfMark, dibayMyInfoPerfMaybeLogTotal } from "@/lib/runtime/dibay-myinfo-perf";
+import { bumpMypageMountGeneration } from "@/lib/runtime/mypage-network-markers";
 
 /**
  * Address status for root summary — one address-defaults read max.
@@ -34,8 +35,16 @@ import { dibayMyInfoPerfMark, dibayMyInfoPerfMaybeLogTotal } from "@/lib/runtime
 async function resolveAddressStatus(opts?: { force?: boolean }): Promise<RequiredInfoStatus> {
   const snap =
     opts?.force === true
-      ? await fetchAddressDefaultsSnapshot({ force: true })
-      : peekFreshAddressDefaultsSnapshot() ?? (await fetchAddressDefaultsSnapshot());
+      ? await fetchAddressDefaultsSnapshot({
+          force: true,
+          caller: "mypage_home_model",
+          reason: "force_addresses_updated",
+        })
+      : peekFreshAddressDefaultsSnapshot() ??
+        (await fetchAddressDefaultsSnapshot({
+          caller: "mypage_home_model",
+          reason: "initial_required_info_resolution",
+        }));
   if (snap?.ok && snap.status === 200) {
     return snap.defaults?.master != null ? "complete" : "required";
   }
@@ -107,6 +116,7 @@ export function useMypageHomeModel(enabled: boolean) {
       seededRef.current = false;
       return;
     }
+    bumpMypageMountGeneration();
     const viewerId = getCurrentUser()?.id?.trim() ?? "";
     if (!viewerId) return;
 
