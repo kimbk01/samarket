@@ -3,6 +3,7 @@
  * 네이티브는 동일 엔드포인트·페이로드를 재사용.
  */
 
+import { ensureClientInstanceId } from "@/lib/auth/client-instance-id";
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 
 /** `patchCommunityMessengerCallSession` · 세션 PATCH fetch 직후 개발 전용 디버그에만 사용 */
@@ -73,8 +74,9 @@ export async function patchCommunityMessengerCallSession(
   }
   let deviceId = typeof init?.deviceId === "string" ? init.deviceId.trim() : "";
   if (!deviceId && typeof window !== "undefined") {
+    // Sync resolve — pagehide keepalive must start fetch before unload kills the tab.
+    // Do not await dynamic import here (breaks leave teardown + dual fetch contract).
     try {
-      const { ensureClientInstanceId } = await import("@/lib/auth/client-instance-id");
       deviceId = ensureClientInstanceId();
     } catch {
       deviceId = "";
