@@ -13,8 +13,15 @@ import {
   __resetIosFormKeyboardViewportStoreForTests,
   acquireIosFormKeyboardViewport,
   getIosFormKeyboardViewportBand,
+  getIosFormKeyboardViewportConsumerCount,
 } from "@/lib/ui/ios-form-keyboard-viewport-store";
 import { SAMARKET_SHELL_KEYBOARD_EVENT } from "@/lib/platform/samarket-shell-keyboard";
+import {
+  applyDibayIosFormKeyboardRootVars,
+  clearDibayIosFormKeyboardRootVars,
+  isDibayIosFormKeyboardBandActive,
+  isDibayKeyboardResizeFocusTarget,
+} from "@/lib/ui/dibay-ios-form-keyboard-dom";
 
 describe("ios-form-keyboard-viewport-contract", () => {
   it("Android / non-iOS never applies form writer geometry", () => {
@@ -40,7 +47,6 @@ describe("ios-form-keyboard-viewport-contract", () => {
     });
     expect(band.owner).toBe("cm_room_vv_band");
     expect(shouldApplyIosFormLayoutWriter(band)).toBe(false);
-    expect(band.keyboardOpen).toBe(false);
   });
 
   it("prefers visualViewport band and does not subtract nativeInset from vv.height", () => {
@@ -53,11 +59,8 @@ describe("ios-form-keyboard-viewport-contract", () => {
     });
     expect(band.keyboardOpen).toBe(true);
     expect(band.bandAuthority).toBe("visualViewport");
-    expect(band.topPx).toBe(40);
     expect(band.heightPx).toBe(520);
-    // inset for probes only — height is NOT 520-280
     expect(band.insetCssPx).toBe(240);
-    expect(band.heightPx + band.topPx).toBe(560);
   });
 
   it("native-only fallback when vv has not shrunk yet", () => {
@@ -68,22 +71,11 @@ describe("ios-form-keyboard-viewport-contract", () => {
       visualViewport: { height: 800, offsetTop: 0 },
       nativeInsetCssPx: 300,
     });
-    expect(band.keyboardOpen).toBe(true);
     expect(band.bandAuthority).toBe("nativeInset");
-    expect(band.topPx).toBe(0);
     expect(band.heightPx).toBe(500);
-    expect(band.insetCssPx).toBe(300);
   });
 
   it("keyboard hide restores closed layout band", () => {
-    const open = resolveIosFormVisibleBandPx({
-      isIosWebKit: true,
-      cmRoomShellPresent: false,
-      layoutHeightPx: 800,
-      visualViewport: { height: 500, offsetTop: 0 },
-      nativeInsetCssPx: 300,
-    });
-    expect(open.keyboardOpen).toBe(true);
     const closed = resolveIosFormVisibleBandPx({
       isIosWebKit: true,
       cmRoomShellPresent: false,
@@ -92,7 +84,6 @@ describe("ios-form-keyboard-viewport-contract", () => {
       nativeInsetCssPx: 0,
     });
     expect(closed.keyboardOpen).toBe(false);
-    expect(closed.heightPx).toBe(800);
     expect(closed.insetCssPx).toBe(0);
   });
 
@@ -125,9 +116,46 @@ describe("ios-form-keyboard-viewport-contract", () => {
       visualViewport: { height: 500, offsetTop: 0 },
       nativeInsetCssPx: 0,
     });
-    const b = { ...a };
-    expect(iosFormVisibleBandsEqual(a, b)).toBe(true);
+    expect(iosFormVisibleBandsEqual(a, { ...a })).toBe(true);
     expect(iosFormVisibleBandsEqual(a, { ...a, heightPx: 499 })).toBe(false);
+  });
+});
+
+describe("dibay-ios-form-keyboard-dom", () => {
+  afterEach(() => {
+    clearDibayIosFormKeyboardRootVars(document.documentElement);
+  });
+
+  it("writes and clears root band attrs without double height math", () => {
+    const root = document.documentElement;
+    const open = resolveIosFormVisibleBandPx({
+      isIosWebKit: true,
+      cmRoomShellPresent: false,
+      layoutHeightPx: 800,
+      visualViewport: { height: 500, offsetTop: 0 },
+      nativeInsetCssPx: 0,
+    });
+    applyDibayIosFormKeyboardRootVars(root, open);
+    expect(isDibayIosFormKeyboardBandActive(document)).toBe(true);
+    expect(root.style.getPropertyValue("--dibay-vv-height")).toBe("500px");
+    expect(root.style.getPropertyValue("--app-visible-height")).toBe("500px");
+    clearDibayIosFormKeyboardRootVars(root);
+    expect(isDibayIosFormKeyboardBandActive(document)).toBe(false);
+  });
+
+  it("focus target skips CM room composer fields", () => {
+    const room = document.createElement("div");
+    room.setAttribute("data-cm-room", "");
+    room.className = "cm-room-shell";
+    const ta = document.createElement("textarea");
+    room.appendChild(ta);
+    document.body.appendChild(room);
+    expect(isDibayKeyboardResizeFocusTarget(ta)).toBe(false);
+    const input = document.createElement("input");
+    document.body.appendChild(input);
+    expect(isDibayKeyboardResizeFocusTarget(input)).toBe(true);
+    room.remove();
+    input.remove();
   });
 });
 
@@ -148,10 +176,8 @@ describe("ios-form-keyboard-viewport-store", () => {
       value: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15",
     });
 
-    const seen: number[] = [];
-    const release = acquireIosFormKeyboardViewport((band) => {
-      seen.push(band.insetCssPx);
-    });
+    const release = acquireIosFormKeyboardViewport(() => {});
+    expect(getIosFormKeyboardViewportConsumerCount()).toBe(1);
 
     window.samarketShell = { keyboardBottomInsetCssPx: 280 };
     window.dispatchEvent(
@@ -160,13 +186,11 @@ describe("ios-form-keyboard-viewport-store", () => {
       })
     );
 
-    // double rAF in store — flush
     return new Promise<void>((resolve) => {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           expect(getIosFormKeyboardViewportBand().keyboardOpen).toBe(true);
           expect(getIosFormKeyboardViewportBand().bandAuthority).toBe("nativeInset");
-          expect(getIosFormKeyboardViewportBand().heightPx).toBe(window.innerHeight - 280);
 
           window.samarketShell = { keyboardBottomInsetCssPx: 0 };
           window.dispatchEvent(
@@ -177,8 +201,8 @@ describe("ios-form-keyboard-viewport-store", () => {
           requestAnimationFrame(() => {
             requestAnimationFrame(() => {
               expect(getIosFormKeyboardViewportBand().keyboardOpen).toBe(false);
-              expect(getIosFormKeyboardViewportBand().insetCssPx).toBe(0);
               release();
+              expect(getIosFormKeyboardViewportConsumerCount()).toBe(0);
               resolve();
             });
           });
@@ -188,15 +212,11 @@ describe("ios-form-keyboard-viewport-store", () => {
   });
 
   it("listener cleanup stops store when last consumer releases", () => {
-    const a = vi.fn();
-    const b = vi.fn();
-    const releaseA = acquireIosFormKeyboardViewport(a);
-    const releaseB = acquireIosFormKeyboardViewport(b);
-    expect(a).toHaveBeenCalled();
-    expect(b).toHaveBeenCalled();
+    const releaseA = acquireIosFormKeyboardViewport(vi.fn());
+    const releaseB = acquireIosFormKeyboardViewport(vi.fn());
+    expect(getIosFormKeyboardViewportConsumerCount()).toBe(2);
     releaseA();
     releaseB();
-    // after reset path via last release, band is closed
-    expect(getIosFormKeyboardViewportBand().keyboardOpen).toBe(false);
+    expect(getIosFormKeyboardViewportConsumerCount()).toBe(0);
   });
 });

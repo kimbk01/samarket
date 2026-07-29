@@ -39,8 +39,11 @@ export function MessengerHomeBottomSheetShell({
   const [mounted, setMounted] = useState(false);
   const [entered, setEntered] = useState(false);
   const center = anchor === "center";
-  /** iOS center sheet — subscribe to shared form vv band (no-op on Android / CM room). */
-  useIosFormKeyboardVisibleBand({ enabled: mounted && center });
+  /**
+   * iOS sheet — keep band consumer while sheet is open (covers focus before/after).
+   * Global AppKeyboardResizeBootstrap also activates on focus; store is single-flight.
+   */
+  useIosFormKeyboardVisibleBand({ enabled: mounted });
 
   useEffect(() => {
     setMounted(true);
@@ -81,6 +84,7 @@ export function MessengerHomeBottomSheetShell({
         center ? " messenger-home-center-sheet-overlay" : ""
       }`}
       role="presentation"
+      data-dibay-kb-overlay-shell="1"
       data-dibay-center-sheet-overlay={center ? "1" : undefined}
     >
       <button

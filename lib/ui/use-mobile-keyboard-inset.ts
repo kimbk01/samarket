@@ -5,6 +5,7 @@ import {
   readSamarketShellKeyboardBottomInsetCssPx,
   subscribeSamarketShellKeyboardInsets,
 } from "@/lib/platform/samarket-shell-keyboard";
+import { isDibayIosFormKeyboardBandActive } from "@/lib/ui/dibay-ios-form-keyboard-dom";
 
 type UseMobileKeyboardInsetOptions = {
   /** false 면 측정·리스너를 붙이지 않고 0 유지 (입장 직후 composer 경량화) */
@@ -51,6 +52,14 @@ export function useMobileKeyboardInset(options?: UseMobileKeyboardInsetOptions):
     const vv = window.visualViewport;
 
     const measure = () => {
+      /**
+       * iOS form/app-shell band already sized the layout to visualViewport —
+       * never add a second padding inset (double compensation).
+       */
+      if (isDibayIosFormKeyboardBandActive(document)) {
+        setInset(0);
+        return;
+      }
       /** 네이티브·WebView 셸이 있으면 `visualViewport` 보다 우선 (기기별 키보드 정확도) */
       const shellInset = readSamarketShellKeyboardBottomInsetCssPx();
       if (shellInset != null) {

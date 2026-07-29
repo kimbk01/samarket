@@ -1,16 +1,23 @@
 "use client";
 
+import { useRef, type ReactNode } from "react";
+import { useIosFormKeyboardVisibleBand } from "@/lib/ui/use-ios-form-keyboard-visible-band";
+
 interface WritePageShellProps {
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
-/**
- * 글쓰기 공통 레이아웃 (헤더는 각 페이지/폼에서 사용)
- */
+/** Trade/community write shell — iOS keyboard visible-band; Android adjustResize. */
 export function WritePageShell({ children }: WritePageShellProps) {
+  const shellRef = useRef<HTMLDivElement | null>(null);
+  useIosFormKeyboardVisibleBand({ enabled: true, shellRef });
   return (
-    <div className="min-h-screen bg-sam-app pb-24">
-      {children}
+    <div
+      ref={shellRef}
+      data-dibay-ios-form-shell=""
+      className="dibay-ios-form-shell flex min-h-screen flex-col bg-sam-app"
+    >
+      <div className="dibay-ios-form-shell__scroll flex-1 pb-24">{children}</div>
     </div>
   );
 }

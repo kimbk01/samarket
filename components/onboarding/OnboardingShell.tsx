@@ -1,7 +1,8 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import { SectionHeader } from "@/components/layout/sector-header";
+import { useIosFormKeyboardVisibleBand } from "@/lib/ui/use-ios-form-keyboard-visible-band";
 
 /**
  * 온보딩 단계 공통 셸 — 로그인 직후 강제 단계에서 사용한다 (스펙 9).
@@ -9,6 +10,7 @@ import { SectionHeader } from "@/components/layout/sector-header";
  * - 상단 `뒤로가기` 없음 (스펙 2: browser back 금지)
  * - 우측 `나중에 하기` 옵션 — 부모가 onSkip 전달 시에만 노출
  * - 본문은 자식 컴포넌트가 채운다 (주소·프로필 등)
+ * - iOS keyboard: dibay form visible-band (Android adjustResize untouched)
  */
 export function OnboardingShell({
   title,
@@ -25,8 +27,14 @@ export function OnboardingShell({
   children: ReactNode;
   footer?: ReactNode;
 }) {
+  const shellRef = useRef<HTMLDivElement | null>(null);
+  useIosFormKeyboardVisibleBand({ enabled: true, shellRef });
   return (
-    <div className="flex min-h-screen w-full min-w-0 flex-col bg-sam-app">
+    <div
+      ref={shellRef}
+      data-dibay-ios-form-shell=""
+      className="dibay-ios-form-shell flex min-h-screen w-full min-w-0 flex-col bg-sam-app"
+    >
       <SectionHeader
         title={title}
         titleAlign="left"
@@ -42,13 +50,13 @@ export function OnboardingShell({
           ) : undefined
         }
       />
-      <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-4 px-4 py-5">
+      <main className="dibay-ios-form-shell__scroll mx-auto flex w-full max-w-xl flex-1 flex-col gap-4 px-4 py-5">
         {description ? (
           <p className="sam-text-body text-sam-muted">{description}</p>
         ) : null}
         {children}
       </main>
-      {footer ? <footer className="px-4 pb-5">{footer}</footer> : null}
+      {footer ? <footer className="shrink-0 px-4 pb-5">{footer}</footer> : null}
     </div>
   );
 }

@@ -46,7 +46,7 @@ export function MypageBottomSheetShell({
   if (!open || !mounted || typeof document === "undefined" || !document.body) return null;
 
   return createPortal(
-    <div className={`fixed inset-0 ${MAIN_BOTTOM_NAV_SHEET_Z_CLASS}`} role="presentation">
+    <div className={`fixed inset-0 ${MAIN_BOTTOM_NAV_SHEET_Z_CLASS}`} role="presentation" data-dibay-kb-overlay-shell="1">
       <button
         type="button"
         className="absolute inset-0 cursor-default bg-black/30"

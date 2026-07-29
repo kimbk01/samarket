@@ -131,6 +131,10 @@ export function getIosFormKeyboardViewportBand(): IosFormVisibleBandPx {
   return state.band;
 }
 
+export function getIosFormKeyboardViewportConsumerCount(): number {
+  return state.consumerCount;
+}
+
 /** Test-only reset */
 export function __resetIosFormKeyboardViewportStoreForTests(): void {
   listeners.clear();

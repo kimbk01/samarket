@@ -5,14 +5,13 @@ import {
   shouldApplyIosFormLayoutWriter,
   type IosFormVisibleBandPx,
 } from "@/lib/ui/ios-form-keyboard-viewport-contract";
-import { acquireIosFormKeyboardViewport } from "@/lib/ui/ios-form-keyboard-viewport-store";
+import { acquireIosFormKeyboardViewport, getIosFormKeyboardViewportConsumerCount } from "@/lib/ui/ios-form-keyboard-viewport-store";
 import { isLikelyIosWebKit } from "@/lib/ui/is-likely-ios-webkit";
-
-const ROOT_OWNER_ATTR = "data-dibay-kb-owner";
-const ROOT_KB_ATTR = "data-dibay-ios-form-kb";
-const VV_TOP_VAR = "--dibay-vv-top";
-const VV_HEIGHT_VAR = "--dibay-vv-height";
-const KB_INSET_VAR = "--dibay-keyboard-inset";
+import {
+  applyDibayIosFormKeyboardRootVars,
+  applyDibayIosFormShellBand,
+  clearDibayIosFormKeyboardRootVars,
+} from "@/lib/ui/dibay-ios-form-keyboard-dom";
 
 type Options = {
   /** Mount as a form / sheet keyboard consumer */
@@ -23,54 +22,10 @@ type Options = {
   clampDocumentScroll?: boolean;
 };
 
-function clearRootKeyboardVars(root: HTMLElement): void {
-  root.style.removeProperty(VV_TOP_VAR);
-  root.style.removeProperty(VV_HEIGHT_VAR);
-  root.style.removeProperty(KB_INSET_VAR);
-  root.removeAttribute(ROOT_KB_ATTR);
-  if (root.getAttribute(ROOT_OWNER_ATTR) === "ios_form_visible_band") {
-    root.removeAttribute(ROOT_OWNER_ATTR);
-  }
-}
-
-function applyRootKeyboardVars(root: HTMLElement, band: IosFormVisibleBandPx): void {
-  if (!shouldApplyIosFormLayoutWriter(band) || !band.keyboardOpen) {
-    clearRootKeyboardVars(root);
-    if (band.owner === "ios_form_visible_band") {
-      root.setAttribute(ROOT_OWNER_ATTR, "ios_form_visible_band");
-    }
-    return;
-  }
-  root.setAttribute(ROOT_OWNER_ATTR, "ios_form_visible_band");
-  root.setAttribute(ROOT_KB_ATTR, "1");
-  root.style.setProperty(VV_TOP_VAR, `${band.topPx}px`);
-  root.style.setProperty(VV_HEIGHT_VAR, `${band.heightPx}px`);
-  root.style.setProperty(KB_INSET_VAR, `${band.insetCssPx}px`);
-}
-
-function applyShellBand(shell: HTMLElement | null, band: IosFormVisibleBandPx): void {
-  if (!shell) return;
-  if (!shouldApplyIosFormLayoutWriter(band) || !band.keyboardOpen) {
-    shell.style.removeProperty("height");
-    shell.style.removeProperty("max-height");
-    shell.style.removeProperty("min-height");
-    shell.style.removeProperty("top");
-    shell.dataset.dibayIosFormKb = "0";
-    return;
-  }
-  shell.dataset.dibayIosFormKb = "1";
-  shell.style.height = `${band.heightPx}px`;
-  shell.style.maxHeight = `${band.heightPx}px`;
-  shell.style.minHeight = `${band.heightPx}px`;
-  if (band.topPx > 0) {
-    shell.style.top = `${band.topPx}px`;
-  } else {
-    shell.style.removeProperty("top");
-  }
-}
-
 /**
- * iOS form / center-sheet keyboard visible band.
+ * iOS form / center-sheet keyboard visible band (explicit surface consumer).
+ * Prefer AppKeyboardResizeBootstrap for global focus coverage; use this when a
+ * dedicated shellRef must be pinned (login) or sheet mounts before focus.
  * Android: no-op (adjustResize). CM room present: no layout writes.
  */
 export function useIosFormKeyboardVisibleBand(opts: Options): IosFormVisibleBandPx | null {
@@ -94,8 +49,8 @@ export function useIosFormKeyboardVisibleBand(opts: Options): IosFormVisibleBand
 
     const release = acquireIosFormKeyboardViewport((next) => {
       setBand(next);
-      applyRootKeyboardVars(root, next);
-      applyShellBand(shellRef?.current ?? shellEl, next);
+      applyDibayIosFormKeyboardRootVars(root, next);
+      applyDibayIosFormShellBand(shellRef?.current ?? shellEl, next);
 
       if (clampDocumentScroll && shouldApplyIosFormLayoutWriter(next) && next.keyboardOpen) {
         if (lastOpen !== true) {
@@ -109,8 +64,7 @@ export function useIosFormKeyboardVisibleBand(opts: Options): IosFormVisibleBand
 
     return () => {
       release();
-      clearRootKeyboardVars(root);
-      applyShellBand(shellEl, {
+      applyDibayIosFormShellBand(shellEl, {
         keyboardOpen: false,
         topPx: 0,
         heightPx: window.innerHeight,
@@ -118,6 +72,10 @@ export function useIosFormKeyboardVisibleBand(opts: Options): IosFormVisibleBand
         bandAuthority: "layout",
         owner: "none",
       });
+      // Other consumers (global bootstrap) may still own root vars.
+      if (getIosFormKeyboardViewportConsumerCount() === 0) {
+        clearDibayIosFormKeyboardRootVars(root);
+      }
     };
   }, [enabled, shellRef, clampDocumentScroll]);
 
