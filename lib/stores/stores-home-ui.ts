@@ -1,5 +1,8 @@
 /** `/stores` 홈 hub — delivery 토큰 기반 Tailwind 묶음 */
 
+/** 헤더 `max-w-[768px]` 과 동일 — 태블릿에서 상단 3단·피드 좌우 여백 대칭 */
+export const STORES_HOME_CONTENT_COLUMN_CLASS = "mx-auto w-full min-w-0 max-w-[768px]";
+
 export const STORES_HOME_STACK = "flex flex-col gap-[var(--delivery-section-gap)]";
 
 export const STORES_HOME_SECTION_TITLE =
@@ -33,9 +36,12 @@ export const STORES_HOME_SUB_CATEGORY_RAIL =
 /** @deprecated — `STORES_HOME_SUB_CATEGORY_RAIL` */
 export const STORES_HOME_SUB_CATEGORY_GRID = STORES_HOME_SUB_CATEGORY_RAIL;
 
-/** 2차 업종 — 스크롤 본문 최상단(헤더 바로 아래, 여백·translate 없음) */
+/** 2차 업종 — full-bleed 배경; 패딩·폭은 INNER */
 export const STORES_HOME_SUB_CATEGORY_SECTION_BODY =
-  "bg-[color:var(--delivery-bg-card)] px-[var(--delivery-page-x)] pb-2 pt-0 border-b border-[color:var(--delivery-border-section)] w-full shrink-0";
+  "bg-[color:var(--delivery-bg-card)] border-b border-[color:var(--delivery-border-section)] w-full shrink-0";
+
+export const STORES_HOME_SUB_CATEGORY_SECTION_INNER =
+  `${STORES_HOME_CONTENT_COLUMN_CLASS} px-[var(--delivery-page-x)] pb-2 pt-0`;
 
 /** 2차 슬라이드 전환 래퍼 */
 export const STORES_HOME_SUB_CATEGORY_SLIDE_STAGE =
@@ -64,9 +70,12 @@ export const STORES_HOME_SUB_CATEGORY_LABEL =
 export const STORES_HOME_CATEGORY_LABEL =
   "block w-full min-w-0 px-0.5 text-center text-[length:var(--delivery-home-category-label-fs)] font-medium leading-[1.25] line-clamp-2";
 
-/** 1차 업종 — 탭 하단·세로 스크롤 우선 */
+/** 1차 업종 — full-bleed gold; 레일은 INNER */
 export const STORES_HOME_PRIMARY_CATEGORY_SECTION_STICKY =
-  "relative z-[2] flex items-center border-t border-[color:var(--delivery-border-section)] bg-[color:var(--dibay-gold)] px-[var(--delivery-page-x)] pt-1.5 pb-1";
+  "relative z-[2] w-full shrink-0 border-t border-[color:var(--delivery-border-section)] bg-[color:var(--dibay-gold)]";
+
+export const STORES_HOME_PRIMARY_CATEGORY_SECTION_INNER =
+  `${STORES_HOME_CONTENT_COLUMN_CLASS} flex items-center px-[var(--delivery-page-x)] pt-1.5 pb-1`;
 
 /** 1차 업종 — 스크롤 본문(2차 바로 아래, 2차 보일 때만) */
 export const STORES_HOME_PRIMARY_CATEGORY_SECTION_SCROLL_BODY = "w-full shrink-0";

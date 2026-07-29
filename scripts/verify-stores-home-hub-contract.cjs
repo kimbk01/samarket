@@ -866,9 +866,15 @@ assertIncludes(
 );
 
 assertIncludes(
-  hub,
-  "enableVisibilityRefetch: true",
-  "hub must silent-refetch on Capacitor visibility resume (residual P0)"
+  read("lib/stores/stores-home-ui.ts"),
+  "STORES_HOME_CONTENT_COLUMN_CLASS",
+  "home content column must cap at 768px for tablet L/R parity with header"
+);
+
+assertIncludes(
+  read("lib/stores/stores-home-ui.ts"),
+  "STORES_HOME_PRIMARY_CATEGORY_SECTION_INNER",
+  "primary category rail must use centered inner column"
 );
 
 assertIncludes(

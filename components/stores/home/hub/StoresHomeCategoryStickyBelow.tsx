@@ -24,6 +24,7 @@ import {
   STORES_HOME_PRIMARY_CATEGORY_SCROLL,
   STORES_HOME_PRIMARY_CATEGORY_SCROLL_LOCKED,
   STORES_HOME_PRIMARY_CATEGORY_SECTION_SCROLL_BODY,
+  STORES_HOME_PRIMARY_CATEGORY_SECTION_INNER,
   STORES_HOME_PRIMARY_CATEGORY_SECTION_STICKY,
   STORES_HOME_PRIMARY_CATEGORY_TAB_BUTTON,
   STORES_HOME_PRIMARY_CATEGORY_TAB_INDICATOR,
@@ -107,8 +108,10 @@ function StoresHomePrimaryCategoryRail({
 
   return (
     <div className={STORES_HOME_PRIMARY_CATEGORY_SECTION_STICKY}>
-      <div ref={scrollRef} className={scrollClassName} role="tablist" aria-label={ariaLabel}>
-        {tabs}
+      <div className={STORES_HOME_PRIMARY_CATEGORY_SECTION_INNER}>
+        <div ref={scrollRef} className={scrollClassName} role="tablist" aria-label={ariaLabel}>
+          {tabs}
+        </div>
       </div>
     </div>
   );

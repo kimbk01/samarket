@@ -27,7 +27,7 @@ import { pickStoresHomePrimaryRowList } from "@/lib/stores/stores-home-feed-disp
 import { useBrowseFeaturedItemsHydration } from "@/lib/stores/use-browse-featured-items-hydration";
 import { markStoresHomePerf } from "@/lib/stores/stores-home-perf-marks";
 import { getMainAppScrollRootCached } from "@/lib/layout/main-app-scroll-root";
-import { STORES_HOME_RAIL_SCROLL, STORES_HOME_STACK } from "@/lib/stores/stores-home-ui";
+import { STORES_HOME_CONTENT_COLUMN_CLASS, STORES_HOME_RAIL_SCROLL, STORES_HOME_STACK } from "@/lib/stores/stores-home-ui";
 import { MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS } from "@/lib/layout/main-bottom-nav-hub-clearance";
 import { StoresHomeCategorySeedPanelClient } from "@/components/stores/home/hub/StoresHomeCategorySeedPanel.client";
 import { StoresHomeQuickCategories } from "@/components/stores/home/hub/StoresHomeQuickCategories";
@@ -296,7 +296,7 @@ export function StoresHomeHub({
         }}
       />
       <StoresHomeCategorySeedPanelClient />
-      <div className={`${STORES_HOME_STACK} px-[var(--delivery-page-x)] pt-1`}>
+      <div className={`${STORES_HOME_CONTENT_COLUMN_CLASS} ${STORES_HOME_STACK} px-[var(--delivery-page-x)] pt-1`}>
         <StoresHomeHeroBanner />
 
         {showBlockingFeedSkeleton ?

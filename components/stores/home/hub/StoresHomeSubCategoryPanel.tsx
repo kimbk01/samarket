@@ -31,6 +31,7 @@ import {
   STORES_HOME_SUB_CATEGORY_LINK,
   STORES_HOME_SUB_CATEGORY_RAIL,
   STORES_HOME_SUB_CATEGORY_SECTION_BODY,
+  STORES_HOME_SUB_CATEGORY_SECTION_INNER,
   STORES_HOME_SUB_CATEGORY_SLIDE_LAYER,
   STORES_HOME_SUB_CATEGORY_SLIDE_STAGE,
 } from "@/lib/stores/stores-home-ui";
@@ -207,6 +208,7 @@ export function StoresHomeSubCategoryPanel() {
       aria-label="store sub categories"
       data-stores-perf="category"
     >
+      <div className={STORES_HOME_SUB_CATEGORY_SECTION_INNER}>
       <div className={STORES_HOME_SUB_CATEGORY_SLIDE_STAGE}>
         {transition ?
           <>
@@ -233,6 +235,7 @@ export function StoresHomeSubCategoryPanel() {
             />
           </div>
         }
+      </div>
       </div>
     </section>
   );
