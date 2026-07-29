@@ -47,7 +47,8 @@
   --sm-font-body-compact: 13px;
   --sm-font-meta: 13px;
   --sm-font-caption: 12px;
-  --sm-font-input: 15px;
+  /** iOS WKWebView: focus zoom if computed size < 16px — keep inputs at least 16px */
+  --sm-font-input: 16px;
   --sm-font-placeholder: 14px;
   --sm-font-button: 14px;
   --sm-font-tab: 14px;
