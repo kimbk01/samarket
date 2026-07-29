@@ -177,7 +177,6 @@ enum NativeVoiceCallApi {
           task.resume()
         }
       }
-    }
   }
 
   private static func resolveServerOrigin() -> String? {
