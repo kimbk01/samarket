@@ -21,9 +21,6 @@ export const SAMARKET_SHELL_KEYBOARD_EVENT = "samarket:shell-keyboard" as const;
 
 export type SamarketShellKeyboardDetail = {
   bottomInsetCssPx: number;
-  /** iOS native bridge may include visibility + animation duration */
-  visible?: boolean;
-  durationMs?: number;
 };
 
 declare global {

@@ -6,7 +6,6 @@ import { DibayStartupIntroController } from "@/components/app/DibayStartupIntro"
 import { InitialSurfaceBootstrap } from "@/components/app/InitialSurfaceBootstrap";
 import { OAuthReturnListener } from "@/components/auth/OAuthReturnListener";
 import { CapacitorNativeMarkerBootstrap } from "@/components/platform/CapacitorNativeMarkerBootstrap";
-import { AppKeyboardResizeBootstrap } from "@/components/platform/AppKeyboardResizeBootstrap";
 import { SupabaseAuthSync } from "@/components/auth/SupabaseAuthSync";
 import { AppLanguageProvider } from "@/components/i18n/AppLanguageProvider";
 import { AppTitle } from "@/components/layout/AppTitle";
@@ -22,7 +21,6 @@ import {
 import { APP_LANGUAGE_COOKIE, type AppLanguageCode } from "@/lib/i18n/config";
 import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
 import "./globals.css";
-import "./ios-form-keyboard-viewport.css";
 
 const notoSansKr = Noto_Sans_KR({
   weight: ["400", "500", "700"],
@@ -107,7 +105,6 @@ export default async function RootLayout({
             <AppTitle />
             <SupabaseAuthSync />
             <CapacitorNativeMarkerBootstrap />
-            <AppKeyboardResizeBootstrap />
             <OAuthReturnListener />
             <CallIncomingChromeRoot />
             <DeferredMainShellMessengerParticipantBridge regionBarInLayout={true} />

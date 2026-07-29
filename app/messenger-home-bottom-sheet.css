@@ -50,11 +50,7 @@ html:not(:has(.app-bottom-nav-shell)) .messenger-home-bottom-sheet-panel {
   transition: transform 360ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-/** 친구 추가 등 — 화면 중앙 팝업 (closed). Keyboard open: ios-form-keyboard-viewport.css */
-.messenger-home-center-sheet-overlay {
-  /* closed: full layout viewport; open: --dibay-vv-* via html[data-dibay-ios-form-kb] */
-}
-
+/** 친구 추가 등 — 화면 중앙 팝업 */
 .messenger-home-center-sheet-panel {
   position: fixed;
   left: 50%;

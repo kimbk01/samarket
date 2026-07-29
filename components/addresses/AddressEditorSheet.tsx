@@ -976,7 +976,6 @@ export function AddressEditorSheet(props: {
       <div
         className="fixed inset-0 z-[95] flex items-center justify-center bg-black/55 p-4"
         role="presentation"
-        data-dibay-kb-overlay-shell="1"
         onClick={(e) => {
           if (e.target === e.currentTarget && !busy) setPreflightSave(null);
         }}
@@ -1088,7 +1087,6 @@ export function AddressEditorSheet(props: {
       <div
         className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4 sm:p-6"
         role="presentation"
-        data-dibay-kb-overlay-shell="1"
         onClick={(e) => {
           if (e.target === e.currentTarget) onClose();
         }}

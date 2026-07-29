@@ -28,12 +28,7 @@ export function AppModal({ open, onClose, title, children, footer, className }: 
   if (!open) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
-      role="dialog"
-      aria-modal="true"
-      data-dibay-kb-overlay-shell="1"
-    >
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" role="dialog" aria-modal="true">
       <div className="sam-sheet-backdrop" role="presentation" onClick={onClose} />
       <div className={`sam-sheet-panel relative z-[60] mx-auto w-full max-w-lg border-b sm:rounded-sam-md ${className ?? ""}`.trim()}>
         <div className="sam-sheet-handle sm:hidden" aria-hidden />
