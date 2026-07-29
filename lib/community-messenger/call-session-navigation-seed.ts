@@ -10,7 +10,9 @@ import { isPhoneVerificationRequiredApiPayload } from "@/lib/auth/phone-verifica
 import { openPhoneVerificationRequiredSheet } from "@/lib/auth/phone-verification-required-client";
 import { isOutgoingCallPhoneVerificationRequired } from "@/lib/call/outgoing-call-start-guard";
 import { getCallMessageText } from "@/lib/community-messenger/call-event-message";
-import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
+import {
+  postCommunityMessengerCallStubPreviewBusEvent,
+} from "@/lib/community-messenger/multi-tab-bus";
 import { isCmCallVideoEnabled } from "@/lib/community-messenger/call-phase0-basics";
 import {
   primeOutgoingRingbackWebAudioFromUserGesture,
@@ -142,16 +144,16 @@ export function finalizeOutgoingCallSessionBootstrap(
         viewerUserId,
         initiatorUserId: session.initiatorUserId,
       });
-      postCommunityMessengerBusEvent({
-        type: "cm.room.message_sent",
+      /** Tip SSOT first (call_event) — no raw message_sent tip publisher. */
+      postCommunityMessengerCallStubPreviewBusEvent({
         roomId: session.roomId,
-        senderUserId: viewerUserId,
-        listPreview: {
+        viewerUserId,
+        preview: {
           lastMessage,
           lastMessageType: "call_stub",
           lastMessageAt: startedAt,
         },
-        at: Date.now(),
+        eventId: session.id,
       });
     }
   }

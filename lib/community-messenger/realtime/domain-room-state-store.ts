@@ -11,6 +11,7 @@
 import type { CommunityMessengerBootstrap } from "@/lib/community-messenger/types";
 import { peekBootstrapCache, primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import { applyHomeListPatch, findHomeListRoomRow } from "@/lib/community-messenger/home-list-patch";
+import { projectRoomActivityToHomeList } from "@/lib/community-messenger/home/project-room-activity-to-home-list";
 import { listPreviewFromMessengerMessageRow } from "@/lib/community-messenger/home/patch-bootstrap-room-list-from-realtime-message";
 import {
   createEmptyDomainRoomStateSnapshot,
@@ -113,44 +114,33 @@ export function roomSummaryToListState(
 }
 
 /**
- * Telegram list authority: hub session cache mirror MUST go through applyHomeListPatch only.
- * DO NOT call patchBootstrapRoomList* / chats.map here.
+ * Telegram list authority: hub tip mirror MUST go through projectRoomActivityToHomeList.
+ * Unread/read may still use applyHomeListPatch. DO NOT call patchBootstrapRoomList* here.
  */
 function mirrorListCacheAfterEvent(event: DomainRoomEvent): void {
   const cache = peekBootstrapCache();
   if (!cache) return;
   if (event.type === "message") {
-    const messageRow = {
-      id: event.messageId,
-      content: event.previewText,
-      message_type: event.lastMessageType,
-      created_at: event.lastMessageAt,
-    };
-    const next = event.boostUnread
-      ? applyHomeListPatch(
-          cache,
-          {
-            kind: "realtime_message_insert",
-            roomId: event.roomId,
-            messageRow,
-            boostUnreadCount: true,
-          },
-          "realtime"
-        )
-      : applyHomeListPatch(
-          cache,
-          {
-            kind: "sender_local_echo",
-            roomId: event.roomId,
-            preview: {
-              lastMessage: event.previewText,
-              lastMessageType: event.lastMessageType as never,
-              lastMessageAt: event.lastMessageAt,
-            },
-          },
-          "realtime"
-        );
-    if (next && next !== cache) primeBootstrapCache(next);
+    const mt = String(event.lastMessageType ?? "text");
+    projectRoomActivityToHomeList({
+      roomId: event.roomId,
+      eventId: event.messageId,
+      eventKind: mt === "call_stub" ? "call" : "text",
+      previewText: event.previewText,
+      activityAt: event.lastMessageAt,
+      lastMessageType: mt as never,
+      boostUnread: event.boostUnread === true,
+      source:
+        mt === "call_stub"
+          ? "call_event"
+          : event.boostUnread
+            ? "remote_message_realtime"
+            : "local_send_ack",
+      viewerUserId: snapshot.viewerUserId,
+      chatDomain: event.chatDomain,
+      domainIdentityKey: event.domainIdentityKey,
+      revision: event.previewText,
+    });
     return;
   }
   if (event.type === "read") {
@@ -250,7 +240,7 @@ export function dispatchDomainRoomEvent(
   return next;
 }
 
-/** Soft bump without message payload — unread+sort only when recent message reduce missing. */
+/** Soft bump without message payload — Domain spine only (no hub tip rewrite). */
 export function dispatchDomainRoomBump(roomId: string, at = Date.now()): DomainRoomStateSnapshot {
   const key = normalizeDomainRoomId(roomId);
   if (!key) return snapshot;
@@ -261,31 +251,37 @@ export function dispatchDomainRoomBump(roomId: string, at = Date.now()): DomainR
     const cached = findHomeListRoomRow(peekBootstrapCache(), roomId);
     const seeded = cached ? roomSummaryToListState(cached) : null;
     if (!seeded) return snapshot;
-    return dispatchDomainRoomEvent({
-      type: "message",
-      roomId: seeded.roomId,
-      chatDomain: seeded.chatDomain,
-      domainIdentityKey: seeded.domainIdentityKey,
-      messageId: `bump:${at}`,
-      previewText: seeded.previewText,
-      lastMessageAt: new Date(at).toISOString(),
-      lastMessageType: seeded.lastMessageType,
-      boostUnread: true,
-      title: seeded.title,
-    });
+    return dispatchDomainRoomEvent(
+      {
+        type: "message",
+        roomId: seeded.roomId,
+        chatDomain: seeded.chatDomain,
+        domainIdentityKey: seeded.domainIdentityKey,
+        messageId: `bump:${at}`,
+        previewText: seeded.previewText,
+        lastMessageAt: new Date(at).toISOString(),
+        lastMessageType: seeded.lastMessageType,
+        boostUnread: true,
+        title: seeded.title,
+      },
+      { mirrorListCache: false }
+    );
   }
-  return dispatchDomainRoomEvent({
-    type: "message",
-    roomId: cur.roomId,
-    chatDomain: cur.chatDomain,
-    domainIdentityKey: cur.domainIdentityKey,
-    messageId: `bump:${at}`,
-    previewText: cur.previewText,
-    lastMessageAt: new Date(at).toISOString(),
-    lastMessageType: cur.lastMessageType,
-    boostUnread: true,
-    title: cur.title,
-  });
+  return dispatchDomainRoomEvent(
+    {
+      type: "message",
+      roomId: cur.roomId,
+      chatDomain: cur.chatDomain,
+      domainIdentityKey: cur.domainIdentityKey,
+      messageId: `bump:${at}`,
+      previewText: cur.previewText,
+      lastMessageAt: new Date(at).toISOString(),
+      lastMessageType: cur.lastMessageType,
+      boostUnread: true,
+      title: cur.title,
+    },
+    { mirrorListCache: false }
+  );
 }
 
 export function seedDomainRoomStateFromBootstrap(

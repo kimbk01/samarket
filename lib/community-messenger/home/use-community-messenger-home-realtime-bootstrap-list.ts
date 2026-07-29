@@ -47,10 +47,6 @@ import {
   type CommunityMessengerHomeRealtimeRoomTipUpdateHint,
   useCommunityMessengerHomeRealtime,
 } from "@/lib/community-messenger/use-community-messenger-realtime";
-import {
-  applyDomainStoreOrderListRealtimeMessagePatch,
-  applyDomainTradeListRealtimeMessagePatch,
-} from "@/components/community-messenger/domain-shell-canary/domain-list-canary-realtime-patch";
 import { cmRtStableSubLog } from "@/lib/community-messenger/realtime/cm-rt-stable-sub-log";
 import { messengerIncomingMessageAlreadyTracked } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import {
@@ -614,59 +610,46 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
       if (batch.length === 0) return;
       const missedRooms = new Set<string>();
       const me = String(userId ?? "").trim();
+      let lastProjected: CommunityMessengerBootstrap | null = null;
+      for (const hint of batch) {
+        const rid = String(hint.roomId ?? "").trim();
+        if (!rid) continue;
+        const mt =
+          typeof hint.newRecord.message_type === "string" ? hint.newRecord.message_type.trim() : "text";
+        const tip = roomActivityFromMessageRow({
+          roomId: rid,
+          messageRow: hint.newRecord,
+          source: mt === "call_stub" ? "call_event" : "remote_message_realtime",
+          boostUnread: false,
+          viewerUserId: me || null,
+          revision:
+            typeof hint.newRecord.content === "string" ? hint.newRecord.content.trim() : undefined,
+        });
+        const projected = tip ? projectRoomActivityToHomeList(tip) : null;
+        if (projected?.accepted && projected.nextBootstrap) {
+          lastProjected = projected.nextBootstrap;
+        } else {
+          const cache = peekBootstrapCache();
+          if (rid && (!cache || !bootstrapHasRoomRow(cache, rid))) missedRooms.add(rid);
+        }
+      }
       setData((prev) => {
         if (!prev) return prev;
-        let cur = prev;
-        for (const hint of batch) {
-          const rid = String(hint.roomId ?? "").trim();
-          if (!rid) continue;
-          const next = applyHomeListPatch(
-            cur,
-            {
-              kind: "realtime_message_update",
-              roomId: hint.roomId,
-              messageRow: hint.newRecord,
-            },
-            "realtime"
-          );
-          if (!next || next === cur) {
-            if (rid && !bootstrapHasRoomRow(cur, rid)) missedRooms.add(rid);
-          } else {
-            cur = next;
-          }
+        const fromCache = peekBootstrapCache();
+        const cur = lastProjected ?? fromCache;
+        if (!cur || cur === prev) {
+          return resolveMessengerHomeBootstrapSetData("realtime-message", prev, prev, {
+            reason: "realtime_message_update_batch",
+            roomId: batch[0]?.roomId,
+          });
         }
-        const resolved = resolveMessengerHomeBootstrapSetData(
-          "realtime-message",
-          prev,
-          cur === prev ? prev : cur,
-          { reason: "realtime_message_update_batch", roomId: batch[0]?.roomId }
-        );
+        const resolved = resolveMessengerHomeBootstrapSetData("realtime-message", prev, cur, {
+          reason: "realtime_message_update_batch",
+          roomId: batch[0]?.roomId,
+        });
         if (resolved && resolved !== prev) primeBootstrapCache(resolved);
         return resolved;
       });
-      for (const hint of batch) {
-        const rid = String(hint.roomId ?? "").trim();
-        if (!rid || !me) continue;
-        const content =
-          typeof hint.newRecord.content === "string" ? hint.newRecord.content.trim() : "";
-        const createdAt =
-          typeof hint.newRecord.created_at === "string" ? hint.newRecord.created_at.trim() : "";
-        if (!content || !createdAt) continue;
-        applyDomainTradeListRealtimeMessagePatch({
-          viewerUserId: me,
-          roomId: rid,
-          previewText: content,
-          lastMessageAt: createdAt,
-          boostUnread: false,
-        });
-        applyDomainStoreOrderListRealtimeMessagePatch({
-          viewerUserId: me,
-          roomId: rid,
-          previewText: content,
-          lastMessageAt: createdAt,
-          boostUnread: false,
-        });
-      }
       for (const rid of missedRooms) {
         if (rid) scheduleHomeMissingRoomSummaryMerge(rid);
       }
@@ -679,73 +662,65 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
       if (batch.length === 0) return;
       const missedRooms = new Set<string>();
       const me = String(userId ?? "").trim();
+      let lastProjected: CommunityMessengerBootstrap | null = null;
+      for (const hint of batch) {
+        const rid = String(hint.roomId ?? "").trim();
+        if (!rid) continue;
+        const mtRaw = String(hint.tip.lastMessageType ?? "text").trim();
+        const lastMessageType = (
+          mtRaw === "image" ||
+          mtRaw === "file" ||
+          mtRaw === "system" ||
+          mtRaw === "call_stub" ||
+          mtRaw === "voice" ||
+          mtRaw === "sticker" ||
+          mtRaw === "community_post_share"
+            ? mtRaw
+            : "text"
+        ) as CommunityMessengerMessageType;
+        const preview = String(hint.tip.lastMessage ?? "").trim();
+        const activityAt = String(hint.tip.lastMessageAt ?? "").trim();
+        if (!preview || !activityAt) {
+          const cache = peekBootstrapCache();
+          if (!cache || !bootstrapHasRoomRow(cache, rid)) missedRooms.add(rid);
+          continue;
+        }
+        const projected = projectRoomActivityToHomeList({
+          roomId: rid,
+          eventId: `room_tip:${rid}:${activityAt}:${preview}`,
+          eventKind: lastMessageType === "call_stub" ? "call" : "text",
+          previewText: preview,
+          activityAt,
+          lastMessageType,
+          boostUnread: false,
+          source: lastMessageType === "call_stub" ? "call_event" : "remote_message_realtime",
+          viewerUserId: me || null,
+          revision: preview,
+        });
+        if (projected.accepted && projected.nextBootstrap) {
+          lastProjected = projected.nextBootstrap;
+        } else {
+          const cache = peekBootstrapCache();
+          if (!cache || !bootstrapHasRoomRow(cache, rid)) missedRooms.add(rid);
+        }
+      }
       setData((prev) => {
         if (!prev) return prev;
-        let cur = prev;
-        for (const hint of batch) {
-          const rid = String(hint.roomId ?? "").trim();
-          if (!rid) continue;
-          const mtRaw = String(hint.tip.lastMessageType ?? "text").trim();
-          const lastMessageType = (
-            mtRaw === "image" ||
-            mtRaw === "file" ||
-            mtRaw === "system" ||
-            mtRaw === "call_stub" ||
-            mtRaw === "voice" ||
-            mtRaw === "sticker" ||
-            mtRaw === "community_post_share"
-              ? mtRaw
-              : "text"
-          ) as CommunityMessengerMessageType;
-          const next = applyHomeListPatch(
-            cur,
-            {
-              kind: "room_tip_update",
-              roomId: hint.roomId,
-              tip: {
-                lastMessage: hint.tip.lastMessage,
-                lastMessageType,
-                lastMessageAt: hint.tip.lastMessageAt,
-              },
-            },
-            "realtime"
-          );
-          if (!next || next === cur) {
-            if (rid && !bootstrapHasRoomRow(cur, rid)) missedRooms.add(rid);
-          } else {
-            cur = next;
-          }
+        const fromCache = peekBootstrapCache();
+        const cur = lastProjected ?? fromCache;
+        if (!cur || cur === prev) {
+          return resolveMessengerHomeBootstrapSetData("realtime-message", prev, prev, {
+            reason: "realtime_room_tip_update_batch",
+            roomId: batch[0]?.roomId,
+          });
         }
-        const resolved = resolveMessengerHomeBootstrapSetData(
-          "realtime-message",
-          prev,
-          cur === prev ? prev : cur,
-          { reason: "realtime_room_tip_update_batch", roomId: batch[0]?.roomId }
-        );
+        const resolved = resolveMessengerHomeBootstrapSetData("realtime-message", prev, cur, {
+          reason: "realtime_room_tip_update_batch",
+          roomId: batch[0]?.roomId,
+        });
         if (resolved && resolved !== prev) primeBootstrapCache(resolved);
         return resolved;
       });
-      for (const hint of batch) {
-        const rid = String(hint.roomId ?? "").trim();
-        if (!rid || !me) continue;
-        const preview = String(hint.tip.lastMessage ?? "").trim();
-        const at = String(hint.tip.lastMessageAt ?? "").trim();
-        if (!preview || !at) continue;
-        applyDomainTradeListRealtimeMessagePatch({
-          viewerUserId: me,
-          roomId: rid,
-          previewText: preview,
-          lastMessageAt: at,
-          boostUnread: false,
-        });
-        applyDomainStoreOrderListRealtimeMessagePatch({
-          viewerUserId: me,
-          roomId: rid,
-          previewText: preview,
-          lastMessageAt: at,
-          boostUnread: false,
-        });
-      }
       for (const rid of missedRooms) {
         if (rid) scheduleHomeMissingRoomSummaryMerge(rid);
       }

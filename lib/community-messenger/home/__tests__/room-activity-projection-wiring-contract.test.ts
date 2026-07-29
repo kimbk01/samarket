@@ -66,6 +66,25 @@ describe("room activity projection wiring contract", () => {
     expect(src).toContain("roomId");
   });
 
+  it("Home UPDATE/TIP batches route tip through projectRoomActivityToHomeList", () => {
+    const src = read("lib/community-messenger/home/use-community-messenger-home-realtime-bootstrap-list.ts");
+    expect(src).toContain("projectRoomActivityToHomeList");
+    expect(src).not.toMatch(/kind:\s*"realtime_message_update"/);
+    expect(src).not.toMatch(/kind:\s*"room_tip_update"/);
+  });
+
+  it("Domain message tip mirror uses projection; soft bump does not mirror tip", () => {
+    const src = read("lib/community-messenger/realtime/domain-room-state-store.ts");
+    expect(src).toContain("projectRoomActivityToHomeList");
+    expect(src).toMatch(/dispatchDomainRoomBump[\s\S]*mirrorListCache:\s*false/);
+  });
+
+  it("dial seed tip uses projection-first call stub helper", () => {
+    const src = read("lib/community-messenger/call-session-navigation-seed.ts");
+    expect(src).toContain("postCommunityMessengerCallStubPreviewBusEvent");
+    expect(src).not.toMatch(/type:\s*"cm\.room\.message_sent"[\s\S]{0,200}?lastMessageType:\s*"call_stub"/);
+  });
+
   it("bootstrap cache tip bus kinds route through projection", () => {
     const src = read("lib/community-messenger/home/bootstrap-cache-bus-writer.ts");
     expect(src).toContain("projectRoomActivityToHomeList");
