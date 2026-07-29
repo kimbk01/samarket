@@ -693,9 +693,28 @@ assertNotIncludes(
 
 
 
-assertFileAbsent(
-  "components/stores/home/hub/StoresHomeSkeleton.tsx",
-  "legacy stores home feed skeleton must stay deleted (blank/pending surface only)"
+assertNotIncludes(
+  read("components/stores/home/hub/StoresHomeFoodCard.tsx"),
+  "animate-pulse",
+  "home food cards must not use pulse skeleton after feed paint (list skeleton ban)"
+);
+
+assertNotIncludes(
+  read("components/stores/home/hub/StoresHomeCategoriesSkeleton.tsx"),
+  "animate-pulse",
+  "home category pending chrome must be static size-stable surface (no pulse)"
+);
+
+assertNotIncludes(
+  read("components/stores/browse/StoreBrowseFeaturedMenuSkeleton.tsx"),
+  "animate-pulse",
+  "browse featured menu pending must not pulse (list skeleton ban)"
+);
+
+assertIncludes(
+  read("components/stores/home/hub/StoresHomeHub.tsx"),
+  "StoresHomeFeedPendingBlank",
+  "cold cache-miss feed must use size-stable blank not card skeleton"
 );
 
 

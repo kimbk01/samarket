@@ -18,8 +18,9 @@ export function StoreBrowseFeaturedMenuSkeleton() {
             `shrink-0 snap-start overflow-hidden ${STORES_HOME_MENU_TILE}`,
             "w-[calc((100%-8px)/3)]",
             BROWSE_MENU_BAND_H_CLASS,
-            "animate-pulse",
+            "bg-[color:var(--delivery-bg-muted)]",
           ].join(" ")}
+          data-store-browse-menu-pending="true"
         />
       ))}
     </div>

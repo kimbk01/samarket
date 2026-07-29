@@ -9,8 +9,13 @@ import {
 
 export function StoresHomePrimaryCategoriesSkeleton() {
   return (
-    <div className={STORES_HOME_PRIMARY_CATEGORY_SECTION_STICKY} aria-busy aria-hidden>
-      <div className={`${STORES_HOME_PRIMARY_CATEGORY_SCROLL} animate-pulse`}>
+    <div
+      className={STORES_HOME_PRIMARY_CATEGORY_SECTION_STICKY}
+      aria-busy
+      aria-hidden
+      data-stores-home-category-pending="true"
+    >
+      <div className={STORES_HOME_PRIMARY_CATEGORY_SCROLL}>
         {Array.from({ length: 6 }, (_, i) => (
           <div key={i} className="flex w-[56px] shrink-0 flex-col items-center gap-1">
             <span className="h-[var(--delivery-home-category-icon-compact)] w-[var(--delivery-home-category-icon-compact)] rounded-full bg-[color:var(--delivery-bg-muted)]/70" />
@@ -22,11 +27,16 @@ export function StoresHomePrimaryCategoriesSkeleton() {
   );
 }
 
-/** taxonomy load placeholder — 2차(본문 상단) */
+/** taxonomy load placeholder — 2차(본문 상단). Static size-stable surface only (list skeleton ban). */
 export function StoresHomeCategoriesSkeleton() {
   return (
-    <section className="animate-pulse border-b border-[color:var(--delivery-border-section)] pb-2 pt-0" aria-busy aria-hidden>
-      <div className={`${STORES_HOME_SUB_CATEGORY_RAIL} animate-pulse`}>
+    <section
+      className="border-b border-[color:var(--delivery-border-section)] pb-2 pt-0"
+      aria-busy
+      aria-hidden
+      data-stores-home-category-pending="true"
+    >
+      <div className={STORES_HOME_SUB_CATEGORY_RAIL}>
         {Array.from({ length: 10 }, (_, i) => (
           <div
             key={i}
