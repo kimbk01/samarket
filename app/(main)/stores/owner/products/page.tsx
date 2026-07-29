@@ -1,17 +1,20 @@
 import { Suspense } from "react";
-import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { OwnerAdminPageScrollShell } from "@/components/business/owner/OwnerAdminPageScrollShell";
 import { OwnerProductsHubClient } from "@/components/business/owner/OwnerProductsHubClient";
 import { OwnerStoreNeedStoreIdRscMessage } from "@/components/business/owner/OwnerStoreNeedStoreIdRscMessage";
 import { loadOwnerProductsHubBootstrap } from "@/lib/stores/owner/load-owner-store-read-bootstrap";
 
+/**
+ * CONTRACT — do not Suspense-fallback to `MainFeedRouteLoading` / pulse skeleton.
+ * Client already session-peeks products; RSC wait must not cover a warm shell with feed pulse.
+ */
 export default function OwnerProductsHubPage({
   searchParams,
 }: {
   searchParams: Promise<{ storeId?: string }>;
 }) {
   return (
-    <Suspense fallback={<MainFeedRouteLoading rows={5} />}>
+    <Suspense fallback={null}>
       <OwnerProductsHubPageBody searchParams={searchParams} />
     </Suspense>
   );

@@ -20,8 +20,11 @@ One persistent tree for non-apply owner routes: Runtime + Guard(`enforce={!isHub
 - `npm run verify:owner-admin-scroll-shell-contract`
 - `vitest run lib/business/__tests__/owner-admin-scroll-shell-contract.test.ts`
 
+## Deferred → closed when products follow-up lands
+
+- ~~Products `MainFeedRouteLoading` Suspense pulse~~ → see commit after Phase 5 shell
+
 ## Deferred
 
-- Products `MainFeedRouteLoading` Suspense pulse
 - Residual P0 (detail first-menu, resume, keyboard)
 - Deploy / APK / device QA

@@ -49,6 +49,14 @@ if (!guard.includes("enforce")) {
   errors.push("StoreBusinessGuard: must accept enforce prop for persistent owner shell");
 }
 
+const productsPage = readFileSync("app/(main)/stores/owner/products/page.tsx", "utf8");
+if (productsPage.includes("MainFeedRouteLoading")) {
+  errors.push("owner products page must not Suspense-fallback to MainFeedRouteLoading (pulse ban)");
+}
+if (!productsPage.includes("fallback={null}")) {
+  errors.push("owner products page Suspense fallback must be null (cache-first shell)");
+}
+
 if (errors.length) {
   console.error("verify-owner-admin-scroll-shell-contract FAILED:\n" + errors.join("\n"));
   process.exit(1);
