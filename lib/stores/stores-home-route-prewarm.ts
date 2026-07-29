@@ -31,79 +31,59 @@ import {
 
 
 export type StoresHomeRoutePrewarmOptions = {
-
-  /** home-feed keys: always includes `""`; add region suffix like `"?region=..."` when set */
-
+  /**
+   * home-feed query suffixes to warm (e.g. `"?region=…&district=…"`).
+   * When non-empty, **only** those keys are warmed — do not also force `""`
+   * (Phase 0: empty+region fan-out duplicated `/api/stores/home-feed`).
+   * When omitted/empty, warm root `""` only.
+   */
   storeHomeFeedSuffixes?: readonly string[];
-
   language?: string;
-
   clientCallSource?: StoresHomeClientCallSource;
-
 };
 
-
-
 function scheduleStoresHomeNonCriticalPrewarm(run: () => void): void {
-
   if (typeof requestIdleCallback === "function") {
-
     requestIdleCallback(run, { timeout: 2500 });
-
     return;
-
   }
-
   window.setTimeout(run, 0);
-
 }
 
-
+/** CONTRACT — regional suffixes replace root `""`; never union both. */
+export function resolveStoresHomePrewarmFeedSuffixes(
+  storeHomeFeedSuffixes?: readonly string[]
+): string[] {
+  const requested = (storeHomeFeedSuffixes ?? []).filter((s) => typeof s === "string");
+  if (requested.length > 0) return Array.from(new Set(requested));
+  return [""];
+}
 
 function runStoresHomeRoutePrewarm(
-
   language: AppLanguageCode,
-
   opts: StoresHomeRoutePrewarmOptions
-
 ): void {
-
   const clientCallSource = opts.clientCallSource ?? "stores_home_prewarm";
-
-  const feedSuffixes = Array.from(new Set(["", ...(opts.storeHomeFeedSuffixes ?? [])]));
+  const feedSuffixes = resolveStoresHomePrewarmFeedSuffixes(opts.storeHomeFeedSuffixes);
 
   for (const suffix of feedSuffixes) {
-
     void prewarmStoreHomeFeedClientCache(suffix, { language, clientCallSource }).catch(() => {
-
       /* stores 홈 피드 prewarm 실패는 무시 */
-
     });
-
   }
 
   if (!isStoresTaxonomyClientCacheFresh(language)) {
-
     void fetchStoresTaxonomyDeduped({ language, clientCallSource }).catch(() => {
-
       /* taxonomy prewarm 실패 무시 */
-
     });
-
   }
 
   scheduleStoresHomeNonCriticalPrewarm(() => {
-
     if (shouldSkipStoresHomeHubSummaryFetch()) return;
-
     void fetchMeStoreOrdersHubSummaryDeduped().catch(() => {
-
       /* 허브 요약 prewarm 실패 무시 */
-
     });
-
   });
-
 }
 
 

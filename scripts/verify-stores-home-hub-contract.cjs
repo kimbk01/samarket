@@ -712,6 +712,18 @@ assertNotIncludes(
 );
 
 assertIncludes(
+  read("lib/stores/stores-home-route-prewarm.ts"),
+  "resolveStoresHomePrewarmFeedSuffixes",
+  "home route prewarm must use suffix resolver (no forced empty+region union)"
+);
+
+assertNotIncludes(
+  read("lib/stores/stores-home-route-prewarm.ts"),
+  'new Set(["", ...(opts.storeHomeFeedSuffixes',
+  "home route prewarm must not force empty suffix alongside region keys"
+);
+
+assertIncludes(
   read("components/stores/home/hub/StoresHomeHub.tsx"),
   "StoresHomeFeedPendingBlank",
   "cold cache-miss feed must use size-stable blank not card skeleton"
