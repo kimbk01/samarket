@@ -1,6 +1,5 @@
 "use client";
 
-import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, startTransition } from "react";
 import { buildDeliveryListScrollRouteKey } from "@/lib/dibay/delivery-list-scroll-restore";
@@ -8,7 +7,8 @@ import { useDeliveryListScrollRestore } from "@/lib/dibay/use-delivery-list-scro
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useRegion } from "@/contexts/RegionContext";
-import { getRegionName } from "@/lib/regions/region-utils";
+import { APP_BOOT_READY_EVENT, APP_BOOT_PROFILE_UPDATED_EVENT } from "@/lib/app-boot/app-boot-types";
+import { isAppBootReady } from "@/lib/app-boot/app-boot-store";
 import { KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH } from "@/lib/chats/chat-channel-events";
 import type {
   RecentOrderPreview,
@@ -19,6 +19,7 @@ import {
   fetchMeStoreOrdersHubSummaryDeduped,
   readMeStoreOrdersHubSummaryCache,
 } from "@/lib/stores/store-delivery-api-client";
+import { resolveStoresHomeFeedQueryGate } from "@/lib/stores/stores-home-feed-query-gate";
 import { prewarmStoresHomeRoute } from "@/lib/stores/stores-home-route-prewarm";
 import { addStoresHomePullRefreshHandler } from "@/lib/stores/stores-home-pull-refresh-store";
 import { shouldSkipStoresHomeHubSummaryFetch } from "@/lib/stores/stores-home-network-guards";
@@ -77,22 +78,33 @@ export function StoresHub() {
   const [recentOrder, setRecentOrder] = useState<RecentOrderPreview | null>(() => initialHub?.recentOrder ?? null);
   const buyerHubRequestIdRef = useRef(0);
   const buyerHubAbortRef = useRef<AbortController | null>(null);
-  const querySuffix = useMemo(() => {
-    const r = primaryRegion?.regionId ? getRegionName(primaryRegion.regionId).trim() : "";
-    const d = primaryRegion?.barangay?.trim() ?? "";
-    const q = new URLSearchParams();
-    if (r) q.set("region", r);
-    if (d) q.set("district", d);
-    const s = q.toString();
-    return s ? `?${s}` : "";
-  }, [primaryRegion]);
+  /** Re-resolve when boot profile lands — avoids ""→region→district cold fan-out. */
+  const [bootEpoch, setBootEpoch] = useState(0);
+  useLayoutEffect(() => {
+    const bump = () => setBootEpoch((n) => n + 1);
+    if (!isAppBootReady()) {
+      window.addEventListener(APP_BOOT_READY_EVENT, bump);
+    }
+    window.addEventListener(APP_BOOT_PROFILE_UPDATED_EVENT, bump);
+    return () => {
+      window.removeEventListener(APP_BOOT_READY_EVENT, bump);
+      window.removeEventListener(APP_BOOT_PROFILE_UPDATED_EVENT, bump);
+    };
+  }, []);
+  const feedGate = useMemo(
+    () => resolveStoresHomeFeedQueryGate(primaryRegion),
+    [primaryRegion, bootEpoch]
+  );
+  const querySuffix = feedGate.querySuffix;
+  const feedReady = feedGate.ready;
 
   useLayoutEffect(() => {
+    if (!feedReady) return;
     prewarmStoresHomeRoute({
       storeHomeFeedSuffixes: querySuffix ? [querySuffix] : [],
       language,
     });
-  }, [language, querySuffix]);
+  }, [language, querySuffix, feedReady]);
 
   const loadBuyerHub = useCallback(async (opts?: { force?: boolean; fromBfcacheRestore?: boolean }) => {
     if (shouldSkipStoresHomeHubSummaryFetch(opts)) {
@@ -163,6 +175,7 @@ export function StoresHub() {
   return (
     <StoresHomeHub
       querySuffix={querySuffix}
+      feedReady={feedReady}
       buyerState={buyerOrderSummary}
       recentOrder={recentOrder}
     />

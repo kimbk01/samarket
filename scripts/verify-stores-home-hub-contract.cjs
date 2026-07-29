@@ -867,8 +867,32 @@ assertIncludes(
 
 assertIncludes(
   hub,
-  "for (const entry of fastFood)",
-  "hub must eager-hydrate food rail store ids"
+  "commitFeedUi",
+  "hub must sync-commit empty→first feed paint (Phase 4 cold blank)"
+);
+
+assertIncludes(
+  hub,
+  "storesRef.current.length === 0",
+  "hub cold first paint must bypass startTransition when list empty"
+);
+
+assertIncludes(
+  hub,
+  "feedReady",
+  "hub must gate home-feed until boot-stable query suffix (Phase 4)"
+);
+
+assertIncludes(
+  hub,
+  "min-h-[min(48vh,420px)]",
+  "hub pending blank must reserve first-fold height (Phase 4 CLS)"
+);
+
+assertIncludes(
+  read("lib/stores/stores-home-feed-query-gate.ts"),
+  "storeHomeFeedRegionOnlySuffix",
+  "home-feed client key must be region-only (Phase 4 key split)"
 );
 
 function assertFileAbsent(rel, context) {
@@ -920,6 +944,16 @@ assertIncludes(
   storesHub,
   "useLayoutEffect",
   "stores hub route prewarm must run in layout effect before paint"
+);
+assertIncludes(
+  storesHub,
+  "resolveStoresHomeFeedQueryGate",
+  "stores hub must resolve boot-stable feed suffix before prewarm/load (Phase 4)"
+);
+assertIncludes(
+  storesHub,
+  "feedReady={feedReady}",
+  "stores hub must pass feedReady into StoresHomeHub (Phase 4)"
 );
 assertIncludes(
   read("lib/stores/stores-home-route-prewarm.ts"),

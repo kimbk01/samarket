@@ -1,0 +1,182 @@
+{
+  "phase": "4",
+  "measured_at": "2026-07-29T17:52:06.075Z",
+  "base_url": "http://127.0.0.1:3000",
+  "head": "2c6117e20bba59c6dae8800a8d60607a47ee07ed",
+  "head_short": "2c6117e20",
+  "auth_email": "qqqq@manual.local",
+  "cycles": [
+    {
+      "cycle": 1,
+      "wall_ms": 3106,
+      "markers": {
+        "blankFirstMs": 0,
+        "blankGoneMs": 2422,
+        "blankDurationMs": 2422,
+        "firstCardMs": 2422,
+        "hubMountMax": 1,
+        "listTopBefore": 364,
+        "listTopAfter": 413,
+        "listTopDelta": 49,
+        "cls": 0.044058150550820435,
+        "maxShift": 0.030666515493768712,
+        "shifts": [
+          {
+            "v": 0.013391635057051727,
+            "t": 1212
+          },
+          {
+            "v": 0.030666515493768712,
+            "t": 1994
+          }
+        ],
+        "pulseCount": 16,
+        "path": "/stores"
+      },
+      "home_feed": {
+        "starts": 1,
+        "ends": 1,
+        "by_url": [
+          {
+            "url": "/api/stores/home-feed?region=Manila",
+            "n": 1
+          }
+        ]
+      }
+    },
+    {
+      "cycle": 2,
+      "wall_ms": 1230,
+      "markers": {
+        "blankFirstMs": 0,
+        "blankGoneMs": 744,
+        "blankDurationMs": 744,
+        "firstCardMs": 744,
+        "hubMountMax": 2,
+        "listTopBefore": 0,
+        "listTopAfter": 413,
+        "listTopDelta": 413,
+        "cls": 0.027995459386711195,
+        "maxShift": 0.014603824329659468,
+        "shifts": [
+          {
+            "v": 0.013391635057051727,
+            "t": 395
+          },
+          {
+            "v": 0.014603824329659468,
+            "t": 870
+          }
+        ],
+        "pulseCount": 41,
+        "path": "/stores"
+      },
+      "home_feed": {
+        "starts": 1,
+        "ends": 1,
+        "by_url": [
+          {
+            "url": "/api/stores/home-feed?region=Manila",
+            "n": 1
+          }
+        ]
+      }
+    },
+    {
+      "cycle": 3,
+      "wall_ms": 1398,
+      "markers": {
+        "blankFirstMs": 0,
+        "blankGoneMs": 907,
+        "blankDurationMs": 907,
+        "firstCardMs": 907,
+        "hubMountMax": 2,
+        "listTopBefore": 0,
+        "listTopAfter": 413,
+        "listTopDelta": 413,
+        "cls": 0.027995459386711195,
+        "maxShift": 0.014603824329659468,
+        "shifts": [
+          {
+            "v": 0.013391635057051727,
+            "t": 395
+          },
+          {
+            "v": 0.014603824329659468,
+            "t": 1037
+          }
+        ],
+        "pulseCount": 61,
+        "path": "/stores"
+      },
+      "home_feed": {
+        "starts": 1,
+        "ends": 1,
+        "by_url": [
+          {
+            "url": "/api/stores/home-feed?region=Manila",
+            "n": 1
+          }
+        ]
+      }
+    }
+  ],
+  "summary": {
+    "blank_duration_ms": {
+      "count": 3,
+      "values": [
+        2422,
+        744,
+        907
+      ],
+      "min": 744,
+      "max": 2422,
+      "median": 907
+    },
+    "first_card_ms": {
+      "count": 3,
+      "values": [
+        2422,
+        744,
+        907
+      ],
+      "min": 744,
+      "max": 2422,
+      "median": 907
+    },
+    "cls": {
+      "count": 3,
+      "values": [
+        0.044058150550820435,
+        0.027995459386711195,
+        0.027995459386711195
+      ],
+      "min": 0.027995459386711195,
+      "max": 0.044058150550820435,
+      "median": 0.027995459386711195
+    },
+    "list_top_delta": {
+      "count": 3,
+      "values": [
+        49,
+        413,
+        413
+      ],
+      "min": 49,
+      "max": 413,
+      "median": 413
+    },
+    "home_feed_starts": {
+      "count": 3,
+      "values": [
+        1,
+        1,
+        1
+      ],
+      "min": 1,
+      "max": 1,
+      "median": 1
+    },
+    "hub_mount_max": 2
+  }
+}

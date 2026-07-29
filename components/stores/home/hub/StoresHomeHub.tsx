@@ -53,10 +53,13 @@ import {
 /** CONTRACT: `StoresHomeQuickCategories` 는 피드 로딩과 분리·항상 마운트 — `verify:stores-home-hub-contract`. */
 export function StoresHomeHub({
   querySuffix,
+  feedReady = true,
   buyerState: _buyerState,
   recentOrder: _recentOrder,
 }: {
   querySuffix: string;
+  /** Phase 4 — false until boot-stable feed key; show height-stable blank, no home-feed yet. */
+  feedReady?: boolean;
   buyerState: StoreOrderDashboardBuyerState;
   recentOrder: RecentOrderPreview | null;
 }) {
@@ -86,6 +89,10 @@ export function StoresHomeHub({
   }, [querySuffix]);
 
   useLayoutEffect(() => {
+    if (!feedReady) {
+      setLoading(true);
+      return;
+    }
     if (feedSnapshotSeededRef.current) return;
     feedSnapshotSeededRef.current = true;
     const snap = readStoresHomeFeedInitialSnapshot(querySuffix);
@@ -101,7 +108,7 @@ export function StoresHomeHub({
     storesRef.current = snap.stores;
     metaRef.current = snap.meta;
     markStoresHomePerf("store-card");
-  }, [language, querySuffix]);
+  }, [language, querySuffix, feedReady]);
 
   useLayoutEffect(() => {
     markStoresHomePerf("shell");
@@ -139,9 +146,18 @@ export function StoresHomeHub({
       const cachedSnapshot = resolveStoresHomeFeedCacheForLoad(querySuffix);
       const cachedEntry = cachedSnapshot.entry;
       const hasFreshCache = cachedSnapshot.isFresh;
+      /**
+       * CONTRACT (Phase 4) — empty → first content must commit **synchronously**.
+       * `startTransition` defers card paint after home-feed returns and extends cold blank
+       * (Phase 0 blank 0.7–1.8s / first-card pop-in). Background refresh may stay deferred.
+       */
+      const commitFeedUi = (fn: () => void) => {
+        if (storesRef.current.length === 0) fn();
+        else startTransition(fn);
+      };
       if (!force && cachedEntry && cachedEntry.stores.length > 0) {
         writeStoresHomeFeedLiveStore(querySuffix, cachedEntry.stores, cachedEntry.meta);
-        startTransition(() => {
+        commitFeedUi(() => {
           setStores(cachedEntry.stores);
           setMeta(cachedEntry.meta);
           setLoading(false);
@@ -160,7 +176,7 @@ export function StoresHomeHub({
             clientCallSource: "stores_home_mount",
           }));
         if (requestId !== requestIdRef.current || controller.signal.aborted) return;
-        startTransition(() => {
+        commitFeedUi(() => {
           setStores((prevStores) => {
             const applied = applyStoresHomeFeedNetworkResult({
               querySuffix,
@@ -176,6 +192,7 @@ export function StoresHomeHub({
             }
             return applied.stores;
           });
+          setLoading(false);
         });
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;
@@ -183,15 +200,17 @@ export function StoresHomeHub({
         const cached = resolveStoresHomeFeedCacheForLoad(querySuffix);
         if (cached.entryStores.length > 0) {
           writeStoresHomeFeedLiveStore(querySuffix, cached.entryStores, cached.entry?.meta ?? null);
-          startTransition(() => {
+          commitFeedUi(() => {
             setStores(cached.entryStores);
             setMeta(cached.entry?.meta ?? null);
+            setLoading(false);
           });
         }
       } finally {
         if (abortRef.current === controller) abortRef.current = null;
         if (!silent && requestId === requestIdRef.current) {
-          startTransition(() => setLoading(false));
+          // Error/empty paths that skipped commitFeedUi still clear the blocking blank.
+          commitFeedUi(() => setLoading(false));
         }
       }
     },
@@ -199,11 +218,15 @@ export function StoresHomeHub({
   );
 
   useLayoutEffect(() => {
+    if (!feedReady) return;
     void loadFeed();
     return () => abortRef.current?.abort();
-  }, [loadFeed]);
+  }, [loadFeed, feedReady]);
 
-  useRefetchOnPageShowRestore(() => void loadFeed({ silent: true, fromBfcacheRestore: true }), {
+  useRefetchOnPageShowRestore(() => {
+    if (!feedReady) return;
+    void loadFeed({ silent: true, fromBfcacheRestore: true });
+  }, {
     enableVisibilityRefetch: false,
   });
 
@@ -261,6 +284,8 @@ export function StoresHomeHub({
     <div
       className={`stores-home-hub delivery-ui flex flex-col ${MAIN_BOTTOM_NAV_BODY_CLEARANCE_CLASS}`}
       data-stores-perf="shell"
+      data-stores-home-feed-ready={feedReady ? "1" : "0"}
+      data-stores-home-query-suffix={querySuffix || ""}
     >
       <StoresHomePerfBoot />
       <StoresHomeQuickCategories />
@@ -324,7 +349,7 @@ export function StoresHomeHub({
 function StoresHomeFeedPendingBlank() {
   return (
     <div
-      className="min-h-[min(34vh,320px)]"
+      className="min-h-[min(48vh,420px)]"
       aria-busy="true"
       data-stores-home-feed-pending-blank="true"
     />

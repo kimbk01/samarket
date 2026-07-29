@@ -1,0 +1,206 @@
+{
+  "phase": "4",
+  "measured_at": "2026-07-29T17:33:31.966Z",
+  "base_url": "http://127.0.0.1:3000",
+  "head": "2c6117e20bba59c6dae8800a8d60607a47ee07ed",
+  "head_short": "2c6117e20",
+  "auth_email": "qqqq@manual.local",
+  "cycles": [
+    {
+      "cycle": 1,
+      "wall_ms": 4042,
+      "markers": {
+        "blankFirstMs": 0,
+        "blankGoneMs": 262,
+        "blankDurationMs": 262,
+        "firstCardMs": 3517,
+        "hubMountMax": 2,
+        "listTopBefore": 0,
+        "listTopAfter": 413,
+        "listTopDelta": 413,
+        "cls": 0.04150407582344459,
+        "maxShift": 0.030666515493768712,
+        "shifts": [
+          {
+            "v": 0.010837560329675882,
+            "t": 1067
+          },
+          {
+            "v": 0.030666515493768712,
+            "t": 2329
+          }
+        ],
+        "pulseCount": 16,
+        "path": "/stores"
+      },
+      "home_feed": {
+        "starts": 4,
+        "ends": 2,
+        "by_url": [
+          {
+            "url": "/api/stores/home-feed",
+            "n": 2
+          },
+          {
+            "url": "/api/stores/home-feed?region=Manila",
+            "n": 1
+          },
+          {
+            "url": "/api/stores/home-feed?region=Manila&district=1234",
+            "n": 1
+          }
+        ]
+      }
+    },
+    {
+      "cycle": 2,
+      "wall_ms": 1522,
+      "markers": {
+        "blankFirstMs": 0,
+        "blankGoneMs": 290,
+        "blankDurationMs": 290,
+        "firstCardMs": 1030,
+        "hubMountMax": 2,
+        "listTopBefore": 0,
+        "listTopAfter": 413,
+        "listTopDelta": 413,
+        "cls": 0.025441384659335348,
+        "maxShift": 0.014603824329659468,
+        "shifts": [
+          {
+            "v": 0.010837560329675882,
+            "t": 399
+          },
+          {
+            "v": 0.014603824329659468,
+            "t": 1167
+          }
+        ],
+        "pulseCount": 61,
+        "path": "/stores"
+      },
+      "home_feed": {
+        "starts": 4,
+        "ends": 2,
+        "by_url": [
+          {
+            "url": "/api/stores/home-feed",
+            "n": 2
+          },
+          {
+            "url": "/api/stores/home-feed?region=Manila",
+            "n": 1
+          },
+          {
+            "url": "/api/stores/home-feed?region=Manila&district=1234",
+            "n": 1
+          }
+        ]
+      }
+    },
+    {
+      "cycle": 3,
+      "wall_ms": 1295,
+      "markers": {
+        "blankFirstMs": 0,
+        "blankGoneMs": 284,
+        "blankDurationMs": 284,
+        "firstCardMs": 801,
+        "hubMountMax": 2,
+        "listTopBefore": 0,
+        "listTopAfter": 413,
+        "listTopDelta": 413,
+        "cls": 0.02525730720150646,
+        "maxShift": 0.014603824329659468,
+        "shifts": [
+          {
+            "v": 0.010653482871846993,
+            "t": 750
+          },
+          {
+            "v": 0.014603824329659468,
+            "t": 982
+          }
+        ],
+        "pulseCount": 33,
+        "path": "/stores"
+      },
+      "home_feed": {
+        "starts": 4,
+        "ends": 3,
+        "by_url": [
+          {
+            "url": "/api/stores/home-feed",
+            "n": 2
+          },
+          {
+            "url": "/api/stores/home-feed?region=Manila",
+            "n": 1
+          },
+          {
+            "url": "/api/stores/home-feed?region=Manila&district=1234",
+            "n": 1
+          }
+        ]
+      }
+    }
+  ],
+  "summary": {
+    "blank_duration_ms": {
+      "count": 3,
+      "values": [
+        262,
+        290,
+        284
+      ],
+      "min": 262,
+      "max": 290,
+      "median": 284
+    },
+    "first_card_ms": {
+      "count": 3,
+      "values": [
+        3517,
+        1030,
+        801
+      ],
+      "min": 801,
+      "max": 3517,
+      "median": 1030
+    },
+    "cls": {
+      "count": 3,
+      "values": [
+        0.04150407582344459,
+        0.025441384659335348,
+        0.02525730720150646
+      ],
+      "min": 0.02525730720150646,
+      "max": 0.04150407582344459,
+      "median": 0.025441384659335348
+    },
+    "list_top_delta": {
+      "count": 3,
+      "values": [
+        413,
+        413,
+        413
+      ],
+      "min": 413,
+      "max": 413,
+      "median": 413
+    },
+    "home_feed_starts": {
+      "count": 3,
+      "values": [
+        4,
+        4,
+        4
+      ],
+      "min": 4,
+      "max": 4,
+      "median": 4
+    },
+    "hub_mount_max": 2
+  }
+}
