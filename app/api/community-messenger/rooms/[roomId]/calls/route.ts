@@ -1,12 +1,12 @@
-import { after, NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { requirePhoneVerified } from "@/lib/auth/server-guards";
 import {
   reconcileUserLiveCallSessions,
-  sendIncomingCallPushBestEffort,
   startCommunityMessengerCallSession,
 } from "@/lib/community-messenger/service";
 /** SSOT_CONTRACT: messenger-call-init-route startCommunityMessengerCallSession */
+import { dispatchIncomingCallVoipOnCriticalPath } from "@/lib/community-messenger/incoming-call-voip-dispatch";
 import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 
@@ -66,19 +66,15 @@ export async function POST(
   if (!session?.id) {
     return NextResponse.json({ ok: false, error: "session_missing" }, { status: 500 });
   }
+  /**
+   * CONTRACT: VoIP/FCM on critical path after session insert, before HTTP 200.
+   * No deferred Next.js after-hook — CallKit must not lose to messenger dialing stub Realtime.
+   * In-flight dialing call_stub is not published on start (terminal history only).
+   * Dispatch failure must not rollback the session (dispatch never throws).
+   */
   const incomingCallPush = result.incomingCallPush;
   if (incomingCallPush) {
-    after(async () => {
-      try {
-        await sendIncomingCallPushBestEffort(incomingCallPush);
-      } catch (e) {
-        console.error("[room-call-start] incoming call push after failed", {
-          sessionId: incomingCallPush.sessionId,
-          recipientUserId: incomingCallPush.recipientUserId,
-          message: e instanceof Error ? e.message : String(e),
-        });
-      }
-    });
+    await dispatchIncomingCallVoipOnCriticalPath(incomingCallPush);
   }
   return NextResponse.json(
     {

@@ -123,12 +123,14 @@ export function getCallStubTimelineSecondLine(args: {
   senderUserId: string | null | undefined;
   durationSeconds?: number | null;
 }): string {
-  const inferred = args.resolvedEvent ?? inferResolvedEventFromStoredCallStatus(args.callStatusFallback);
+  const viewerRole = resolveViewerRoleFromSender(args.viewerUserId, args.senderUserId);
+  const inferred =
+    args.resolvedEvent ?? inferResolvedEventFromStoredCallStatus(args.callStatusFallback, viewerRole);
   return formatCallEventForViewer({
     callKind: args.callKind,
     resolvedEvent: inferred,
     callStatusFallback: args.callStatusFallback,
-    viewerRole: resolveViewerRoleFromSender(args.viewerUserId, args.senderUserId),
+    viewerRole,
     durationSeconds: args.durationSeconds,
   }).fullLabel;
 }
@@ -142,12 +144,14 @@ export function getCallStubTimelineStatusLine(args: {
   senderUserId: string | null | undefined;
   durationSeconds?: number | null;
 }): string {
-  const inferred = args.resolvedEvent ?? inferResolvedEventFromStoredCallStatus(args.callStatusFallback);
+  const viewerRole = resolveViewerRoleFromSender(args.viewerUserId, args.senderUserId);
+  const inferred =
+    args.resolvedEvent ?? inferResolvedEventFromStoredCallStatus(args.callStatusFallback, viewerRole);
   return formatCallEventForViewer({
     callKind: args.callKind,
     resolvedEvent: inferred,
     callStatusFallback: args.callStatusFallback,
-    viewerRole: resolveViewerRoleFromSender(args.viewerUserId, args.senderUserId),
+    viewerRole,
     durationSeconds: args.durationSeconds,
   }).resultLabel;
 }
@@ -171,10 +175,13 @@ export function getCallMessageText(input: {
 }
 
 export function inferResolvedEventFromStoredCallStatus(
-  status: CommunityMessengerCallStatus | string | null | undefined
+  status: CommunityMessengerCallStatus | string | null | undefined,
+  viewerRole?: CallSessionViewerRole | null
 ): CallSessionResolvedEvent | null {
   const s = trimLower(status);
-  if (s === "dialing") return "outgoing_started";
+  if (s === "dialing") {
+    return viewerRole === "callee" ? "incoming_received" : "outgoing_started";
+  }
   if (s === "incoming") return "incoming_received";
   if (s === "cancelled") return "cancelled_by_caller";
   if (s === "rejected") return "rejected_by_callee";

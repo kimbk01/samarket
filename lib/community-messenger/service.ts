@@ -18091,25 +18091,12 @@ export async function startCommunityMessengerCallSession(input: {
         await (sb as any).from("community_messenger_call_sessions").delete().eq("id", inserted.id);
         return { ok: false, error: String(participantInsertError.message ?? "call_session_participants_insert_failed") };
       }
-      if (!isGroupRoom) {
-        try {
-          await appendCommunityMessengerCallStubMessage({
-            userId: input.userId,
-            roomId,
-            sessionId: inserted.id,
-            callKind: input.callKind,
-            status: "dialing",
-            createdAt: startedAt,
-            bumpRoomLastMessageAt: true,
-          });
-        } catch (stubError) {
-          logCallTimelineDevWarning("call_stub_start_failed", {
-            sessionId: inserted.id,
-            roomId,
-            error: String(stubError),
-          });
-        }
-      }
+      /**
+       * CONTRACT (1:1 direct): do NOT publish in-flight dialing call_stub on start.
+       * Realtime dialing stub reached iOS messenger before VoIP/CallKit ("발신 중" race).
+       * Outgoing UI uses Native session state; messenger history is written on terminal only
+       * (`ensureTerminalCallStub` / `createCommunityMessengerCallLog`).
+       */
       await appendCommunityMessengerCallSessionEvent(sb, {
         sessionId: inserted.id,
         actorUserId: input.userId,
@@ -18234,17 +18221,21 @@ export async function startCommunityMessengerCallSession(input: {
   };
   session.participants = session.participants.map((item) => ({ ...item, sessionId: session.id }));
   dev.callSessions.unshift(session);
-  if (!isGroupRoom) {
-    await appendCommunityMessengerCallStubMessage({
-      userId: input.userId,
-      roomId,
-      sessionId: session.id,
-      callKind: input.callKind,
-      status: "dialing",
-      createdAt: startedAt,
-    });
-  }
-  return { ok: true, session: await mapCallSession(input.userId, session) };
+  /** Dev path mirrors prod — no dialing stub on start (terminal history only). */
+  const mappedDevSession = await mapCallSession(input.userId, session);
+  return {
+    ok: true,
+    session: mappedDevSession,
+    incomingCallPush:
+      !isGroupRoom && peerUserId
+        ? resolveIncomingCallPushDispatchInput(
+            mappedDevSession,
+            peerUserId,
+            input.userId,
+            callDomainEnvelope
+          )
+        : null,
+  };
 }
 
 /** 1:1 voice → video: `call_kind` 를 video 로 (링 중 발신자가 바꾸거나, 연결 후 인콜 업그레이드). */

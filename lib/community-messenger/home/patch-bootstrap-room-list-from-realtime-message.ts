@@ -61,6 +61,17 @@ export function listPreviewFromMessengerMessageRow(row: Record<string, unknown>)
   const messageType = normalizeMessageType(mtRaw);
   const createdAt = trimText(row.created_at);
   if (!createdAt) return null;
+  /** CONTRACT: in-flight dialing/incoming must not tip the home list ahead of CallKit. */
+  if (messageType === "call_stub") {
+    const meta = row.metadata;
+    const callStatus =
+      typeof meta === "object" && meta !== null && typeof (meta as { callStatus?: unknown }).callStatus === "string"
+        ? String((meta as { callStatus: string }).callStatus).trim().toLowerCase()
+        : "";
+    if (callStatus === "dialing" || callStatus === "incoming" || callStatus === "ringing") {
+      return null;
+    }
+  }
   let lastMessage = content;
   if (messageType === "image") lastMessage = lastMessage || "사진";
   if (messageType === "file") {

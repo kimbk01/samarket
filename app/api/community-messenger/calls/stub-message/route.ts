@@ -50,13 +50,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "bad_call_kind" }, { status: 400 });
   }
   const okStatus =
-    status === "dialing" ||
-    status === "incoming" ||
     status === "missed" ||
     status === "cancelled" ||
     status === "rejected" ||
     status === "ended";
   if (!okStatus) {
+    /** CONTRACT: in-flight dialing/incoming stub publish blocked (CallKit-before-messenger). */
     return NextResponse.json({ ok: false, error: "bad_status" }, { status: 400 });
   }
 

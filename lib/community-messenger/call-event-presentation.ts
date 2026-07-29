@@ -55,8 +55,14 @@ export function resolveCallEventCanonical(input: {
   const fs =
     typeof input.callStatusFallback === "string" ? input.callStatusFallback.trim().toLowerCase() : "";
 
-  if (ev === "outgoing_started" || fs === "dialing") return "outgoing_started";
-  if (ev === "incoming_received" || fs === "incoming") return "incoming_received";
+  if (ev === "outgoing_started") return "outgoing_started";
+  if (ev === "incoming_received") return "incoming_received";
+  /** dialing shared status alone is not direction — viewer role decides. */
+  if (fs === "dialing") {
+    if (role === "callee") return "incoming_received";
+    return "outgoing_started";
+  }
+  if (fs === "incoming") return "incoming_received";
   if (ev === "peer_busy") return "remote_busy";
   if (ev === "ended" || fs === "ended") return "connected_ended";
   if (ev === "rejected_by_callee" || fs === "rejected") {
