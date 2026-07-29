@@ -13,7 +13,7 @@ import {
   type MessengerMainSection,
 } from "@/lib/community-messenger/messenger-ia";
 
-const SECTION_PILL_LABEL_KEYS: Record<MessengerMainSection, MessageKey> = {
+const SECTION_TAB_LABEL_KEYS: Record<MessengerMainSection, MessageKey> = {
   friends: "cm_ia_messenger_tab_friends_list",
   call_logs: "cm_ia_messenger_tab_call_logs",
   chats: "cm_ia_messenger_tab_home",
@@ -22,17 +22,17 @@ const SECTION_PILL_LABEL_KEYS: Record<MessengerMainSection, MessageKey> = {
 };
 
 /**
- * 알약 탭 — 테두리·배경·호버가 동일한 rounded-full 틀 안에서만 변함.
- * 카운트 뱃지는 라벨 옆 pill 내부(inline)에 두어 clip·겹침 없이 유지한다.
+ * 사각 탭 — DIBAY `rounded-ui-rect` 토큰. 알약(rounded-full) 금지.
+ * 선택/비선택 상태만 테두리·배경·색으로 구분. min-h-11 터치 영역 유지.
  */
-const SECTION_TAB_PILL_FRAME =
-  "relative box-border inline-flex shrink-0 items-center justify-center gap-1 min-h-11 overflow-hidden whitespace-nowrap rounded-full border border-solid px-3.5 text-[12px] leading-none touch-manipulation transition-[background-color,border-color,color,transform] duration-150 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sam-primary/25";
+const SECTION_TAB_RECT_FRAME =
+  "relative box-border inline-flex shrink-0 items-center justify-center gap-1 min-h-11 overflow-hidden whitespace-nowrap rounded-ui-rect border border-solid px-3.5 text-[12px] leading-none touch-manipulation transition-[background-color,border-color,color,transform] duration-150 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sam-primary/25";
 
-function sectionTabPillClass(active: boolean): string {
+function sectionTabRectClass(active: boolean): string {
   if (active) {
-    return `${SECTION_TAB_PILL_FRAME} border-sam-primary bg-sam-primary-soft font-bold text-sam-primary`;
+    return `${SECTION_TAB_RECT_FRAME} border-sam-primary bg-sam-primary-soft font-bold text-sam-primary`;
   }
-  return `${SECTION_TAB_PILL_FRAME} border-sam-border bg-sam-surface font-semibold text-sam-fg hover:border-sam-primary-border hover:bg-sam-primary-soft hover:text-sam-primary`;
+  return `${SECTION_TAB_RECT_FRAME} border-sam-border bg-sam-surface font-semibold text-sam-fg hover:border-sam-primary-border hover:bg-sam-primary-soft hover:text-sam-primary`;
 }
 
 type Props = {
@@ -76,11 +76,11 @@ export function MessengerHomeSectionTabs({
                   aria-selected={active}
                   aria-current={active ? "page" : undefined}
                   data-active={active ? "true" : "false"}
-                  className={sectionTabPillClass(active)}
+                  className={sectionTabRectClass(active)}
                   onClick={() => onPrimarySectionChange(section)}
                 >
                   <span className="min-w-0 max-w-[min(9rem,38vw)] truncate">
-                    {t(SECTION_PILL_LABEL_KEYS[section])}
+                    {t(SECTION_TAB_LABEL_KEYS[section])}
                   </span>
                 </button>
               );
@@ -89,7 +89,7 @@ export function MessengerHomeSectionTabs({
           <button
             type="button"
             onClick={onOpenGroupCreate}
-            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-sam-border bg-sam-surface text-sam-fg transition active:scale-[0.98] hover:border-sam-primary-border hover:bg-sam-primary-soft hover:text-sam-primary"
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface text-sam-fg transition active:scale-[0.98] hover:border-sam-primary-border hover:bg-sam-primary-soft hover:text-sam-primary"
             aria-label={t("cm_ui_create_group")}
           >
             <UserPlus2

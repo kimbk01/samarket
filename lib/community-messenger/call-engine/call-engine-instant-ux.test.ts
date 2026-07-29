@@ -88,7 +88,7 @@ describe("call-engine instant telegram UX contracts", () => {
     const nav = read("lib/community-messenger/call-session-navigation-seed.ts");
     const fn = nav.slice(nav.indexOf("export async function launchOutgoingDirectCall"));
     expect(indexBefore(fn, "go(href)", "primeOutgoingCallMediaBeforeNavigate")).toBe(true);
-    expect(indexBefore(fn, 'logCallUxEvent("call_route_enter"', 'logCallUxEvent("call_media_prepare_start"')).toBe(
+    expect(indexBefore(fn, 'logCallUxEvent("call_route_enter"', 'logCallUxEvent("media_prime_started"')).toBe(
       true
     );
   });

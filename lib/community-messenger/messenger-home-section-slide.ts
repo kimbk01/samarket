@@ -3,9 +3,9 @@ import {
   type MessengerMainSection,
 } from "@/lib/community-messenger/messenger-ia";
 
-/** 메신저 홈 2단 탭(친구·통화·대화·보관함) 본문 전환 — CSS animation 과 동기 (Telegram급 short fade) */
-export const MESSENGER_HOME_SECTION_ENTER_MS = 180;
-export const MESSENGER_HOME_SECTION_ENTER_EASING = "cubic-bezier(0.2, 0, 0, 1)";
+/** 메신저 홈 2단 탭(친구·통화·대화·보관함) 본문 전환 — CSS animation 과 동기 (제품: 440ms full pane slide) */
+export const MESSENGER_HOME_SECTION_ENTER_MS = 440;
+export const MESSENGER_HOME_SECTION_ENTER_EASING = "cubic-bezier(0.25, 0.1, 0.25, 1)";
 
 /** 탭 인덱스 증가 = forward(우→좌), 감소 = backward(좌→우) */
 export type MessengerHomeSectionSlideDirection = "forward" | "backward";

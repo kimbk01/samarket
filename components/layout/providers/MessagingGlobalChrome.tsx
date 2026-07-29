@@ -63,6 +63,15 @@ export function MessagingGlobalChrome({ regionBarInLayout }: { regionBarInLayout
     return () => window.clearTimeout(t);
   }, [isStoresHubRoot]);
 
+  useEffect(() => {
+    const path = (pathname ?? "").split("?")[0] ?? "";
+    if (path === "/community-messenger" || path.startsWith("/community-messenger/")) {
+      void import("@/lib/community-messenger/preload-outgoing-call-modules").then((m) => {
+        m.preloadOutgoingCallLaunchModules();
+      });
+    }
+  }, [pathname]);
+
   if (
     !p.mountNotificationSoundPrime &&
     !p.mountNotificationsBadgeRealtimeBridge &&

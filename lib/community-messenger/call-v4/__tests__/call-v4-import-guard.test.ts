@@ -378,10 +378,12 @@ describe("call-v4 import isolation", () => {
     expect(launch).toContain("callV4LaunchOutgoingDirectCall");
     const iosBypass = launch.indexOf("isIOSNativeOutgoingShell");
     const telegramLane = launch.indexOf("isCallV4TelegramLaneEnabled()");
-    const legacyTap = launch.indexOf('logCallUxEvent("call_outgoing_tap"');
+    const outgoingTap = launch.indexOf('logCallUxEvent("call_outgoing_tap"');
     expect(iosBypass).toBeGreaterThan(-1);
     expect(telegramLane).toBeGreaterThan(iosBypass);
-    expect(legacyTap).toBeGreaterThan(telegramLane);
+    // Tap instrumentation fires at launch entry (before path selection).
+    expect(outgoingTap).toBeGreaterThan(-1);
+    expect(outgoingTap).toBeLessThan(iosBypass);
   });
 
   it("CallIncomingChrome lazy-loads V4 provider and active call host", () => {

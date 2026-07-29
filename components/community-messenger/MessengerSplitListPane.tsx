@@ -38,7 +38,9 @@ function MessengerSplitListPaneBody({ scope }: { scope: MessengerSplitListScope 
 export function MessengerSplitListPane({ scope }: { scope: MessengerSplitListScope }) {
   return (
     <Suspense fallback={<CommunityMessengerHomeReturnConsume />}>
-      <MessengerSplitListPaneBody key={scope} scope={scope} />
+      <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <MessengerSplitListPaneBody key={scope} scope={scope} />
+      </div>
     </Suspense>
   );
 }

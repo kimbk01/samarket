@@ -35,7 +35,7 @@ function usePrefersReducedMotion(): boolean {
  *
  * CONTRACT:
  * - section 1회 변경 → transition generation ≤ 1
- * - idle→enter→enter-active 점프 경로 금지 (layoutEffect + keyframe 1 lifecycle)
+ * - wrapper 에만 anim class — children remount 금지 (hydrate/목록 재조회 유발 금지)
  * - URL sync 는 이 컴포넌트 밖에서 pending no-op 로 generation 을 올리지 않아야 함
  * - MessengerRoomSwipeBackShell 과 경로 분리 (방 진입 슬라이드 수정 금지)
  */
@@ -61,7 +61,6 @@ export function MessengerHomeSectionTransition({ section, children }: Props) {
 
     const previous = prevSectionRef.current;
     if (previous === section) {
-      // Strict Mode double-invoke 또는 동일 section: in-flight animation 유지
       if (reducedMotion) setDirection(null);
       return;
     }
@@ -92,7 +91,6 @@ export function MessengerHomeSectionTransition({ section, children }: Props) {
 
   return (
     <div
-      key={generation === 0 ? "section-idle" : `section-g-${generation}`}
       className={["min-w-0 overflow-x-hidden", animClass].filter(Boolean).join(" ")}
       data-messenger-section-animation-phase={direction ? "enter-active" : "idle"}
       data-messenger-section-slide-direction={direction ?? "none"}

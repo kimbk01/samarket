@@ -798,6 +798,19 @@ export async function launchOutgoingDirectCall(
   },
   router: { push: (href: string) => void; replace?: (href: string) => void }
 ): Promise<OutgoingCallSessionBootstrapResult> {
+  const t0 =
+    typeof performance !== "undefined" && typeof performance.now === "function"
+      ? performance.now()
+      : Date.now();
+  const wall0 = Date.now();
+  const latencyBase = {
+    mediaType: input.kind,
+    roomId: input.roomId?.trim() || undefined,
+    peerUserId: input.peerUserId?.trim() || undefined,
+    wall_ms: wall0,
+    mono_ms: t0,
+  };
+  logCallUxEvent("call_outgoing_tap", latencyBase);
   if (!assertPhoneVerifiedForMessengerActionOrOpenSheet(resolveMessengerActionReturnPath())) {
     return { ok: false, userMessage: "", phoneVerificationRequired: true };
   }
@@ -809,6 +822,12 @@ export async function launchOutgoingDirectCall(
     if (isCapacitorNativePlatform() && resolveCapacitorShellPlatform() === "ios") {
       const { isIOSNativeOutgoingShell } = await import("@/lib/call/native/native-outgoing-bridge");
       if (await isIOSNativeOutgoingShell()) {
+        logCallUxEvent("call_shell_or_route_requested", {
+          ...latencyBase,
+          selectedPath: "ios_native_v4",
+          elapsed_ms:
+            (typeof performance !== "undefined" ? performance.now() : Date.now()) - t0,
+        });
         const { callV4LaunchOutgoingDirectCall } = await import(
           "@/lib/community-messenger/call-v4/call-v4-actions"
         );
@@ -824,6 +843,12 @@ export async function launchOutgoingDirectCall(
     if (isCapacitorNativePlatform() && resolveCapacitorShellPlatform() === "ios") {
       const { isIOSNativeVideoOutgoingShell } = await import("@/lib/call/native/native-outgoing-bridge");
       if (await isIOSNativeVideoOutgoingShell()) {
+        logCallUxEvent("call_shell_or_route_requested", {
+          ...latencyBase,
+          selectedPath: "ios_native_v4_video",
+          elapsed_ms:
+            (typeof performance !== "undefined" ? performance.now() : Date.now()) - t0,
+        });
         const { callV4LaunchOutgoingDirectCall } = await import(
           "@/lib/community-messenger/call-v4/call-v4-actions"
         );
@@ -832,6 +857,11 @@ export async function launchOutgoingDirectCall(
     }
   }
   if (isCallV4TelegramLaneEnabled()) {
+    logCallUxEvent("call_shell_or_route_requested", {
+      ...latencyBase,
+      selectedPath: "v4_telegram_lane",
+      elapsed_ms: (typeof performance !== "undefined" ? performance.now() : Date.now()) - t0,
+    });
     const { callV4LaunchOutgoingDirectCall } = await import(
       "@/lib/community-messenger/call-v4/call-v4-actions"
     );
@@ -848,17 +878,17 @@ export async function launchOutgoingDirectCall(
     return { ok: false, userMessage: "" };
   }
   if (isDibayCallV3SafeLaneEnabled()) {
+    logCallUxEvent("call_shell_or_route_requested", {
+      ...latencyBase,
+      selectedPath: "v3_safe_lane",
+      elapsed_ms: (typeof performance !== "undefined" ? performance.now() : Date.now()) - t0,
+    });
     const { callV3LaunchOutgoingDirectCall } = await import(
       "@/lib/community-messenger/call-v3/call-v3-actions"
     );
     return callV3LaunchOutgoingDirectCall(input, router);
   }
   unlockCommunityMessengerCallPlaybackFromUserGesture();
-  logCallUxEvent("call_outgoing_tap", {
-    callKind: input.kind,
-    roomId: input.roomId?.trim() || undefined,
-    peerUserId: input.peerUserId?.trim() || undefined,
-  });
   if (typeof window !== "undefined") {
     rememberCallNavigationReturnPath();
   }
@@ -868,9 +898,20 @@ export async function launchOutgoingDirectCall(
     peerUserId: input.peerUserId?.trim() || undefined,
     peerLabel: input.peerLabel?.trim() || undefined,
   });
+  logCallUxEvent("call_shell_or_route_requested", {
+    ...latencyBase,
+    selectedPath: "web_tmp_shell",
+    href,
+    elapsed_ms: (typeof performance !== "undefined" ? performance.now() : Date.now()) - t0,
+  });
   const go = router.replace ?? router.push;
   go(href);
-  logCallUxEvent("call_route_enter", { callKind: input.kind, href });
+  logCallUxEvent("call_route_enter", {
+    ...latencyBase,
+    selectedPath: "web_tmp_shell",
+    href,
+    elapsed_ms: (typeof performance !== "undefined" ? performance.now() : Date.now()) - t0,
+  });
   const tempSessionId = decodeURIComponent(
     href.split("/community-messenger/calls/")[1]?.split("?")[0] ?? ""
   );
@@ -881,9 +922,21 @@ export async function launchOutgoingDirectCall(
     source: "launch_outgoing_direct",
   });
   /** Telegram-style — 셸 먼저, GUM·mic 프라임은 tmp 셸·bootstrap 과 병렬 */
-  logCallUxEvent("call_media_prepare_start", { callKind: input.kind, sessionId: tempSessionId });
+  logCallUxEvent("media_prime_started", {
+    ...latencyBase,
+    callId: tempSessionId,
+    sessionId: tempSessionId,
+    elapsed_ms: (typeof performance !== "undefined" ? performance.now() : Date.now()) - t0,
+  });
   void (async () => {
     const prime = await primeOutgoingCallMediaBeforeNavigate(input.kind);
+    logCallUxEvent(prime.ok ? "media_prime_resolved" : "call_media_prepare_failed", {
+      ...latencyBase,
+      callId: tempSessionId,
+      sessionId: tempSessionId,
+      ok: prime.ok,
+      elapsed_ms: (typeof performance !== "undefined" ? performance.now() : Date.now()) - t0,
+    });
     if (prime.ok) {
       logCallUxEvent("call_media_preview_ready", { callKind: input.kind, sessionId: tempSessionId });
     }

@@ -559,9 +559,22 @@ export async function callV4CreateOutgoing(input: {
     }
 
     if (shouldRouteToWebOutgoingPresentation) {
+      logCallV4("call_route_enter", {
+        callId: created.session.id,
+        roomId: roomResolved.roomId,
+        wall_ms: Date.now(),
+        mono_ms: typeof performance !== "undefined" ? performance.now() : Date.now(),
+      });
       routeToCallV4Screen(input.router, created.session.id, "outgoing");
       logCallV4("outgoing_ringing", { callId: created.session.id, roomId: roomResolved.roomId });
     }
+
+    logCallV4("native_create_resolved", {
+      callId: created.session.id,
+      routedWeb: shouldRouteToWebOutgoingPresentation,
+      wall_ms: Date.now(),
+      mono_ms: typeof performance !== "undefined" ? performance.now() : Date.now(),
+    });
 
     return { ok: true as const, session: created.session, roomId: roomResolved.roomId };
   })();
@@ -608,7 +621,18 @@ export async function callV4LaunchOutgoingDirectCall(
   }
   {
     logCallV4("call_v4_media_preflight_start", { kind: input.kind });
+    logCallV4("media_prime_started", {
+      kind: input.kind,
+      wall_ms: Date.now(),
+      mono_ms: typeof performance !== "undefined" ? performance.now() : Date.now(),
+    });
     const perm = await ensureCallMediaForUserGesture(input.kind);
+    logCallV4("media_prime_resolved", {
+      kind: input.kind,
+      ok: perm.ok,
+      wall_ms: Date.now(),
+      mono_ms: typeof performance !== "undefined" ? performance.now() : Date.now(),
+    });
     if (!perm.ok) {
       logCallV4("call_v4_media_preflight_failed", {
         kind: input.kind,
@@ -644,6 +668,11 @@ export async function callV4LaunchOutgoingDirectCall(
     roomId: input.roomId?.trim() || undefined,
     peerUserId: input.peerUserId?.trim() || undefined,
     mediaType: callV4MediaTypeFromKind(input.kind),
+  });
+  logCallV4("native_create_started", {
+    kind: input.kind,
+    wall_ms: Date.now(),
+    mono_ms: typeof performance !== "undefined" ? performance.now() : Date.now(),
   });
 
   return callV4CreateOutgoing({

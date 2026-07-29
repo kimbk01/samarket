@@ -342,9 +342,12 @@ export function ConditionalAppShell({
             bottomNavScrollHideEnabled
               ? resolveBottomNavScrollHideOuterClass(bottomNavHiddenByScroll)
               : "",
-            isMessengerSplitViewport &&
-            (pathname === "/community-messenger" ||
-              (pathname?.startsWith("/community-messenger/") ?? false))
+            /**
+             * Path-based (not JS matchMedia) — CSS `@media (min-width:768px)` owns width.
+             * Avoids SSR false → full-width flash then shrink.
+             */
+            pathname === "/community-messenger" ||
+            (pathname?.startsWith("/community-messenger/") ?? false)
               ? APP_BOTTOM_NAV_MESSENGER_SPLIT_LIST_CLASS
               : "",
           ]

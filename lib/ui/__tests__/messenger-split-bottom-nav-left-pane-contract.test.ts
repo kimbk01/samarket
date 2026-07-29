@@ -26,10 +26,14 @@ describe("messenger split BottomNav left-pane contract", () => {
     expect(css).toContain("min-width: 360px");
   });
 
-  it("ConditionalAppShell applies messenger-split BottomNav class on wide messenger", () => {
+  it("ConditionalAppShell applies messenger-split BottomNav class on messenger path (SSR-safe)", () => {
     const src = read("components/layout/ConditionalAppShell.tsx");
     expect(src).toContain("APP_BOTTOM_NAV_MESSENGER_SPLIT_LIST_CLASS");
-    expect(src).toContain("isMessengerSplitViewport");
+    expect(src).toContain('pathname === "/community-messenger"');
+    expect(src).toContain("Avoids SSR false");
+    expect(src).not.toMatch(
+      /isMessengerSplitViewport\s*&&\s*\n?\s*\(pathname === "\/community-messenger"/
+    );
   });
 
   it("trade/delivery pillar registers SplitTopBar chrome", () => {
