@@ -55,10 +55,17 @@ export type MissedDeliveryEvidenceRow = {
 export function hasMissedCallPresentationEvidence(rows: MissedDeliveryEvidenceRow[]): boolean {
   for (const row of rows) {
     const status = String(row.status ?? "").trim().toLowerCase();
-    if (status === "sent") return true;
+    if (status === "sent" || status === "delivered") return true;
     const pr = row.provider_response;
     if (pr && typeof pr === "object") {
       if (pr.nativeAck === true || pr.nativeReceivedAt != null || pr.receivedAt != null) return true;
+      if (pr.nativeAckReceivedAt != null) return true;
+      // FCM call path stores nested object: provider_response.nativeAck.{ receivedAt, ... }
+      const nestedAck = pr.nativeAck;
+      if (nestedAck && typeof nestedAck === "object") {
+        const a = nestedAck as Record<string, unknown>;
+        if (a.receivedAt != null || a.nativeReceivedAt != null) return true;
+      }
       const ack = pr.ack;
       if (ack && typeof ack === "object") {
         const a = ack as Record<string, unknown>;

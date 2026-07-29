@@ -18,8 +18,9 @@ SSOT modules:
 | Duration | `ended_at − answered_at` via `resolveAuthoritativeCallDurationSeconds` (DB has no `connected_at`; `answered_at` is connectedAt proxy) |
 | Busy | Server `peer_busy` on start + unique live indexes; Android native suppresses 2nd incoming UI **without** `reject`/`declined` |
 | Concurrent ringing (incoming policy) | `missed` + `incoming_policy_superseded` (not `reject`/`declined`); missed Bell skipped for that reason |
-| Missed Bell | Only on transition to `status=missed` + delivery evidence gate (no catch bypass) |
+| Missed Bell | Only on transition to `status=missed` + delivery/claim evidence; **await Bell** write before PATCH returns (no fire-and-forget) |
 | History row | One `call_logs` row per `session_id` (unique index); created in finalizeLog |
+| History peer | `caller_user_id=initiator`, `peer_user_id=recipient` via `resolveCanonicalCallLogPeerUserId` — never viewer-relative `mapCallSession.peerUserId` |
 | Android establishment | Native Voice/Video Runtime (O2–O4 unchanged for happy path) |
 | iOS establishment | CallKit + Native Voice/Video coordinators |
 | Desktop | CallV4 web establishment only (Capacitor sync-only) |
@@ -55,11 +56,27 @@ SSOT modules:
 ## Missed policy (LOCKED)
 
 - `ring_timeout` / `status=missed` → callee missed Bell (evidence required)
+- Evidence = `notification_deliveries` call_ringing sent/nativeAck **or** `incoming_push_claimed_at`
+- Writer must **await Bell** (`notifyMissedCallPipeline`) — serverless freeze must not drop the event
 - `answered_elsewhere` → not missed
 - `callee_busy` / `peer_busy` → not missed
 - connected → not missed
 - `callee_rejected` → not missed
 - `caller_cancelled` → not missed (terminal dismiss push only)
+- `incoming_policy_superseded` → status may be missed but Bell skipped
+
+## History peer (LOCKED)
+
+```text
+caller_user_id = initiator
+peer_user_id   = recipient   (canonical other participant)
+viewer display peer = resolveCallLogDisplayPeerUserId (read path only)
+DO NOT write mapCallSession(actor).peerUserId into call_logs
+```
+
+Contaminated rows (`peer_user_id = caller_user_id`) are backfilled only when
+`caller_user_id = session.initiator` and `recipient` is known (see migration
+`20260729140000_cm_call_logs_peer_user_id_backfill.sql`).
 
 ## Conflicts with prior LOCKs
 
@@ -90,4 +107,5 @@ caller cancel → status=cancelled + call_canceled VoIP
 npm run verify:call-authority-contract
 vitest run lib/community-messenger/call-authority
 vitest run lib/community-messenger/__tests__/call-log-row-copy.test.ts
+vitest run lib/community-messenger/__tests__/call-multi-device-authority.test.ts
 ```

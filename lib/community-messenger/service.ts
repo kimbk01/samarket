@@ -260,10 +260,13 @@ import { sendWebPushForCommunityMessengerCallAnsweredElsewhere } from "@/lib/pus
 import {
   CALL_ANSWERED_ELSEWHERE_ERROR,
   evaluateAcceptDeviceClaim,
-  hasMissedCallPresentationEvidence,
   normalizeAnswerClaimDeviceId,
 } from "@/lib/community-messenger/call-multi-device-authority";
 import { resolveAuthoritativeCallDurationSeconds } from "@/lib/community-messenger/call-authority/call-duration-authority";
+import {
+  resolveCanonicalCallLogPeerUserId,
+} from "@/lib/community-messenger/call-authority/call-history-peer-authority";
+import { decideMissedCallBellNotify } from "@/lib/community-messenger/call-authority/call-missed-bell-authority";
 import {
   isTrustedClientEndedReason,
   resolveTerminalEndedReason,
@@ -18490,11 +18493,25 @@ export async function updateCommunityMessengerCallSession(input: {
       "started_at" in session
         ? trimText(session.started_at ?? "")
         : trimText(session.startedAt ?? "");
+    const isDbSession = "initiator_user_id" in session;
+    const initiatorUserId = isDbSession ? session.initiator_user_id : session.initiatorUserId;
+    const recipientUserId = isDbSession ? session.recipient_user_id : session.recipientUserId;
+    /**
+     * CONTRACT: call_logs peer is session recipient (canonical), never mapCallSession peer
+     * (viewer-relative — reject path contaminates peer_user_id == caller_user_id).
+     */
+    const peerUserId =
+      mapped.sessionMode === "direct"
+        ? resolveCanonicalCallLogPeerUserId({
+            initiatorUserId,
+            recipientUserId,
+          })
+        : null;
     await createCommunityMessengerCallLog({
-      userId: "initiator_user_id" in session ? session.initiator_user_id : session.initiatorUserId,
+      userId: initiatorUserId,
       roomId: "room_id" in session ? session.room_id : session.roomId,
       sessionId,
-      peerUserId: mapped.sessionMode === "direct" ? mapped.peerUserId : null,
+      peerUserId,
       callKind: "call_kind" in session ? session.call_kind : session.callKind,
       status,
       durationSeconds: resolveTerminalDurationSeconds(session, mapped),
@@ -19213,40 +19230,67 @@ export async function updateCommunityMessengerCallSession(input: {
           const initM = trimText(updated.initiator_user_id ?? "");
           const recipM = trimText(updated.recipient_user_id ?? "");
           if (roomIdM && initM && recipM) {
-            void (async () => {
-              try {
-                const endedReasonM = trimText(
-                  (updated as { ended_reason?: string | null }).ended_reason ?? ""
-                );
-                if (endedReasonM === "incoming_policy_superseded") {
+            /**
+             * CONTRACT: await Bell write before returning — fire-and-forget races serverless
+             * freeze and drops notification_events (observed 1/30 QA-05 miss).
+             */
+            try {
+              const endedReasonM = trimText(
+                (updated as { ended_reason?: string | null }).ended_reason ?? ""
+              );
+              const { data: deliveryRows } = await (sb as any)
+                .from("notification_deliveries")
+                .select("status, provider_response")
+                .eq("user_id", recipM)
+                .eq("target_type", "call_session")
+                .eq("target_id", updated.id)
+                .eq("event_type", "call_ringing")
+                .limit(20);
+              let claimedAt =
+                trimText(
+                  (updated as { incoming_push_claimed_at?: string | null }).incoming_push_claimed_at ??
+                    ""
+                ) || null;
+              if (!claimedAt) {
+                const { data: claimRow } = await (sb as any)
+                  .from("community_messenger_call_sessions")
+                  .select("incoming_push_claimed_at")
+                  .eq("id", updated.id)
+                  .maybeSingle();
+                claimedAt =
+                  trimText(
+                    (claimRow as { incoming_push_claimed_at?: string | null } | null)
+                      ?.incoming_push_claimed_at ?? ""
+                  ) || null;
+              }
+              const decision = decideMissedCallBellNotify({
+                sessionMode: updated.session_mode ?? "direct",
+                endedReason: endedReasonM,
+                deliveryRows: (deliveryRows ?? []) as Array<{
+                  status?: string | null;
+                  provider_response?: Record<string, unknown> | null;
+                }>,
+                incomingPushClaimedAt: claimedAt,
+              });
+              if (!decision.notify) {
+                if (decision.skipReason === "incoming_policy_superseded") {
                   console.info("[DIBAY_CALL] missed_notify_skipped_policy_superseded", {
                     sessionId: updated.id,
                     recipientUserId: recipM,
                   });
-                  return;
-                }
-                const { data: deliveryRows } = await (sb as any)
-                  .from("notification_deliveries")
-                  .select("status, provider_response")
-                  .eq("user_id", recipM)
-                  .eq("target_type", "call_session")
-                  .eq("target_id", updated.id)
-                  .eq("event_type", "call_ringing")
-                  .limit(20);
-                if (
-                  !hasMissedCallPresentationEvidence(
-                    (deliveryRows ?? []) as Array<{
-                      status?: string | null;
-                      provider_response?: Record<string, unknown> | null;
-                    }>,
-                  )
-                ) {
+                } else if (decision.skipReason === "no_delivery_evidence") {
                   console.info("[DIBAY_CALL] missed_skipped_no_delivery_evidence", {
                     sessionId: updated.id,
                     recipientUserId: recipM,
                   });
-                  return;
+                } else {
+                  console.info("[DIBAY_CALL] missed_notify_skipped", {
+                    sessionId: updated.id,
+                    recipientUserId: recipM,
+                    skipReason: decision.skipReason,
+                  });
                 }
+              } else {
                 const profileMap = await fetchProfilesByIds([initM, recipM]);
                 await notifyMissedCallPipeline(sb as SupabaseLike, {
                   sessionId: updated.id,
@@ -19256,19 +19300,19 @@ export async function updateCommunityMessengerCallSession(input: {
                   initiatorDisplayName: profileLabel(profileMap.get(initM), initM),
                   recipientDisplayName: profileLabel(profileMap.get(recipM), recipM),
                 });
-              } catch (missedErr) {
-                console.info("[DIBAY_CALL] missed_notify_skipped_after_error", {
-                  sessionId: updated.id,
-                  recipientUserId: recipM,
-                  err:
-                    missedErr instanceof Error
-                      ? missedErr.message
-                      : typeof missedErr === "string"
-                        ? missedErr
-                        : "unknown",
-                });
               }
-            })().catch(() => {});
+            } catch (missedErr) {
+              console.info("[DIBAY_CALL] missed_notify_skipped_after_error", {
+                sessionId: updated.id,
+                recipientUserId: recipM,
+                err:
+                  missedErr instanceof Error
+                    ? missedErr.message
+                    : typeof missedErr === "string"
+                      ? missedErr
+                      : "unknown",
+              });
+            }
           }
         }
         if (isTerminalCallSessionStatus(mapped.status)) {
@@ -19277,8 +19321,8 @@ export async function updateCommunityMessengerCallSession(input: {
             .select("id")
             .eq("session_id", sessionId)
             .maybeSingle();
-          if (!existingLog) void finalizeLog(session, mapped);
-          else void ensureTerminalCallStub(session, mapped);
+          if (!existingLog) await finalizeLog(session, mapped);
+          else await ensureTerminalCallStub(session, mapped);
         }
         return { ok: true, session: mapped };
       }

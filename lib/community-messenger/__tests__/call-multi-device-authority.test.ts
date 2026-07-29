@@ -53,5 +53,10 @@ describe("call-multi-device-authority", () => {
         { status: "pending", provider_response: { ack: { receivedAt: 1 } } },
       ]),
     ).toBe(true);
+    expect(
+      hasMissedCallPresentationEvidence([
+        { status: "pending", provider_response: { nativeAck: { receivedAt: 99 } } },
+      ]),
+    ).toBe(true);
   });
 });

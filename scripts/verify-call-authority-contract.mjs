@@ -130,6 +130,26 @@ mustContain(
   'clientEndedReason: "incoming_policy_superseded"',
   "incoming-policy-supersede-reason",
 );
+mustContain(
+  "lib/community-messenger/service.ts",
+  "decideMissedCallBellNotify",
+  "missed-bell-authority",
+);
+mustContain(
+  "lib/community-messenger/service.ts",
+  "resolveCanonicalCallLogPeerUserId",
+  "history-peer-authority",
+);
+mustContain(
+  "lib/community-messenger/service.ts",
+  "await notifyMissedCallPipeline",
+  "missed-bell-awaited",
+);
+mustNotContain(
+  "lib/community-messenger/service.ts",
+  'peerUserId: mapped.sessionMode === "direct" ? mapped.peerUserId : null',
+  "no-viewer-relative-call-log-peer",
+);
 
 mustContain(
   "ios/App/App/Push/VoIPPushRegistry.swift",
@@ -150,6 +170,8 @@ mustContain(
 // LOCK doc present
 mustContain("docs/dibay-call-authority-lock.md", "Final Authority", "lock-doc");
 mustContain("docs/dibay-call-authority-lock.md", "iOS caller-cancel while ringing", "lock-ios-cancel");
+mustContain("docs/dibay-call-authority-lock.md", "History peer", "lock-history-peer");
+mustContain("docs/dibay-call-authority-lock.md", "await Bell", "lock-await-bell");
 
 if (failures.length) {
   console.error("verify:call-authority-contract FAIL");
