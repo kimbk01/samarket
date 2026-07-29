@@ -70,6 +70,18 @@ SSOT modules:
 | Track① Legacy Web Shutdown | No | Desktop CallV4 quarantine kept |
 | Track③ Dead code | No | No bulk delete this round |
 | Multi-device policy | No | answered_elsewhere completion(false) compile fix |
+| CallKit orphan invent ban | Extended | Untracked cancel: `markTerminalSuppressed` + UUID-safe end (no random UUID invent); late incoming report-then-end |
+
+## iOS caller-cancel while ringing (LOCKED)
+
+```text
+caller cancel → status=cancelled + call_canceled VoIP
+→ tracked: reportCallEnded → CallKit dismiss + runtime cleanup
+→ untracked race: terminalSuppressed + endCallKitSessionIfUuidKnown
+→ late incoming: reportNewIncomingCall then immediate end (PushKit rule)
+→ history: cancelled (not missed)
+→ missed Bell / App Icon: not created
+```
 
 ## Static verify
 

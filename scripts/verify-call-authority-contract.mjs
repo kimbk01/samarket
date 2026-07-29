@@ -111,8 +111,25 @@ mustContain(
   "android-video-busy-suppress",
 );
 
+mustContain(
+  "ios/App/App/Push/VoIPPushRegistry.swift",
+  "endCallKitSessionIfUuidKnown",
+  "ios-cancel-orphan-safe-end",
+);
+mustContain(
+  "ios/App/App/Push/CallKitProvider.swift",
+  "markTerminalSuppressed",
+  "ios-terminal-suppress",
+);
+mustContain(
+  "ios/App/App/Push/CallKitProvider.swift",
+  "terminal_suppress_after_incoming",
+  "ios-late-incoming-after-cancel",
+);
+
 // LOCK doc present
 mustContain("docs/dibay-call-authority-lock.md", "Final Authority", "lock-doc");
+mustContain("docs/dibay-call-authority-lock.md", "iOS caller-cancel while ringing", "lock-ios-cancel");
 
 if (failures.length) {
   console.error("verify:call-authority-contract FAIL");

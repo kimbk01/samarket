@@ -214,10 +214,14 @@ describe("call-v4 import isolation", () => {
     expect(voip).toContain("reportCallEnded");
     expect(voip).toContain("hasTrackedCallKitSession");
 
-    // Orphan: log + completion only — no invent API.
-    expect(voip).toContain("ios_voip_terminal_orphan_ignored");
+    // Orphan cancel race: suppress + UUID-safe end — never invent random CallKit UUID.
+    expect(voip).toContain("ios_voip_terminal_orphan_suppressed");
+    expect(voip).toContain("endCallKitSessionIfUuidKnown");
+    expect(callkit).toContain("markTerminalSuppressed");
+    expect(callkit).toContain("terminalSuppressedSessionIds");
+    expect(callkit).toContain("ios_voip_terminal_safe_uuid_end");
+    expect(callkit).toContain("ios_callkit_incoming_after_terminal_suppress");
     expect(voip).not.toContain("reportOrphanTerminalVoipPushAndEnd");
-    expect(voip).not.toContain("ios_voip_terminal_orphan_clear");
     expect(callkit).not.toContain("reportOrphanTerminalVoipPushAndEnd");
     expect(callkit).not.toContain("ios_voip_terminal_orphan_reported_and_ended");
     expect(callkit).not.toContain("ios_voip_terminal_orphan_dedup_end");

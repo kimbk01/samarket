@@ -88,13 +88,18 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
         )
         callProvider.reportCallEnded(uuidString: sessionId)
       } else {
-        // Unknown/orphan terminal: do NOT invent CallKit UUID / reportNewIncomingCall
-        // (ae486 invent → ghost redial). PushKit completion still required.
+        // Untracked terminal (cancel before map / race): suppress late incoming + safe UUID end.
+        // DO NOT invent a random CallKit UUID / reportNewIncomingCall (ae486 ghost redial ban).
         DibayCallLog.infoCallV4(
-          "ios_voip_terminal_orphan_ignored",
+          "ios_voip_terminal_orphan_suppressed",
           callId: sessionId,
           owner: "terminal",
           reason: terminalReason
+        )
+        callProvider.endCallKitSessionIfUuidKnown(
+          sessionId: sessionId,
+          reason: .remoteEnded,
+          logDetail: terminalReason
         )
       }
       completion()

@@ -10,6 +10,12 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
   private var callUuidBySessionId: [String: UUID] = [:]
   private var hasVideoBySessionId: [String: Bool] = [:]
   private var outgoingSessionIds: Set<String> = []
+  /**
+   * CONTRACT: caller cancel / reject / end / missed / answered_elsewhere arrived before or without
+   * a tracked CallKit map entry. Late incoming for the same sessionId must not leave a ghost ring.
+   * DO NOT invent a random CallKit UUID for orphan terminals (ae486 ghost redial).
+   */
+  private var terminalSuppressedSessionIds: Set<String> = []
   /** Last applied bundle ringtone filename (nil = system default). */
   private var appliedRingtoneSound: String?
 
@@ -86,6 +92,7 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
     let uuid = uuidFromSession(sessionId: sessionId)
     callUuidBySessionId[sessionId] = uuid
     hasVideoBySessionId[sessionId] = hasVideo
+    let terminalAlreadySeen = isTerminalSuppressed(sessionId: sessionId)
 
     // Phase 2 — voice only: register Native Voice Runtime before CallKit presents.
     if !hasVideo {
@@ -132,11 +139,38 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
     update.remoteHandle = CXHandle(type: .generic, value: handle)
     update.hasVideo = hasVideo
     update.localizedCallerName = handle
-    provider.reportNewIncomingCall(with: uuid, update: update, completion: completion)
+    if terminalAlreadySeen {
+      DibayCallLog.info(
+        "ios_callkit_incoming_after_terminal_suppress",
+        sessionId: sessionId,
+        detail: "will_report_then_end"
+      )
+    }
+    provider.reportNewIncomingCall(with: uuid, update: update) { [weak self] error in
+      guard let self else {
+        completion(error)
+        return
+      }
+      if terminalAlreadySeen {
+        // PushKit required an incoming CallKit report for this wake; dismiss immediately — no ghost ring.
+        if !hasVideo {
+          NativeVoiceIncomingCallCoordinator.shared.handleRemoteTerminal(sessionId: sessionId)
+        } else if NativeVideoCallLane.isEnabled() {
+          NativeVideoIncomingCallCoordinator.shared.handleRemoteTerminal(sessionId: sessionId)
+        }
+        self.endCallKitSession(
+          sessionId: sessionId,
+          reason: .remoteEnded,
+          logDetail: "terminal_suppress_after_incoming"
+        )
+      }
+      completion(error)
+    }
   }
 
   func reportCallEnded(uuidString: String) {
     let sid = uuidString.trimmingCharacters(in: .whitespacesAndNewlines)
+    markTerminalSuppressed(sessionId: sid, reason: "report_call_ended")
     let isVideo = hasVideoBySessionId[sid] ?? false
     // Terminal VoIP / remote cleanup — Native Voice path only when Runtime still owns session.
     if !isVideo {
@@ -151,6 +185,63 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
       }
     }
     endCallKitSession(sessionId: sid, reason: .remoteEnded, logDetail: "report_call_ended")
+  }
+
+  /**
+   * Mark session terminal so a late incoming VoIP cannot leave CallKit ringing.
+   * Safe for cancel/reject/timeout races without inventing CallKit UUIDs.
+   */
+  func markTerminalSuppressed(sessionId: String, reason: String) {
+    let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !sid.isEmpty else { return }
+    terminalSuppressedSessionIds.insert(sid)
+    DibayCallLog.info(
+      "ios_callkit_terminal_suppressed",
+      sessionId: sid,
+      detail: "reason=\(reason)"
+    )
+  }
+
+  func isTerminalSuppressed(sessionId: String) -> Bool {
+    let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !sid.isEmpty else { return false }
+    return terminalSuppressedSessionIds.contains(sid)
+  }
+
+  /**
+   * End CallKit when map-tracked OR sessionId is the same UUID used at reportIncomingCall.
+   * Never invents a random UUID (orphan invent ban).
+   */
+  func endCallKitSessionIfUuidKnown(
+    sessionId: String,
+    reason: CXCallEndedReason = .remoteEnded,
+    logDetail: String
+  ) {
+    let sid = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !sid.isEmpty else { return }
+    markTerminalSuppressed(sessionId: sid, reason: logDetail)
+    if callUuidBySessionId[sid] != nil {
+      endCallKitSession(sessionId: sid, reason: reason, logDetail: logDetail)
+      return
+    }
+    guard let uuid = UUID(uuidString: sid) else {
+      DibayCallLog.info(
+        "ios_voip_terminal_orphan_no_uuid",
+        sessionId: sid,
+        detail: "reason=\(logDetail)"
+      )
+      return
+    }
+    // Product session ids are UUIDs — same value as uuidFromSession without random fallback.
+    provider.reportCall(with: uuid, endedAt: Date(), reason: reason)
+    callUuidBySessionId.removeValue(forKey: sid)
+    hasVideoBySessionId.removeValue(forKey: sid)
+    outgoingSessionIds.remove(sid)
+    DibayCallLog.info(
+      "ios_voip_terminal_safe_uuid_end",
+      sessionId: sid,
+      detail: "reason=\(logDetail)"
+    )
   }
 
   /**
@@ -309,6 +400,7 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
     callUuidBySessionId.removeAll()
     hasVideoBySessionId.removeAll()
     outgoingSessionIds.removeAll()
+    // Keep terminalSuppressedSessionIds — reset must not revive a cancelled session ring.
   }
 
   func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
