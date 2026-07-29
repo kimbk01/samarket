@@ -1,0 +1,61 @@
+/**
+ * iOS form / center-sheet keyboard visible band.
+ * Vars written only when html[data-dibay-kb-owner="ios_form_visible_band"]
+ * and html[data-dibay-ios-form-kb="1"] — never on Android / CM room owner.
+ */
+
+html[data-dibay-kb-owner="ios_form_visible_band"][data-dibay-ios-form-kb="1"] {
+  /* Form surfaces read these; CM room uses its own --cm-ios-vv-band-* vars. */
+}
+
+/* Login (and similar) full-page form shell */
+.dibay-ios-form-shell {
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.dibay-ios-form-shell[data-dibay-ios-form-kb="1"] {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.dibay-ios-form-shell__scroll {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/**
+ * Friend-add center sheet — keyboard open: overlay tracks visible band;
+ * panel stays inside band (no layout-viewport top:50% pin).
+ */
+html[data-dibay-kb-owner="ios_form_visible_band"][data-dibay-ios-form-kb="1"]
+  .messenger-home-center-sheet-overlay {
+  top: var(--dibay-vv-top, 0px) !important;
+  right: 0;
+  bottom: auto !important;
+  left: 0;
+  height: var(--dibay-vv-height, 100dvh) !important;
+  max-height: var(--dibay-vv-height, 100dvh) !important;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 12px 0;
+  box-sizing: border-box;
+}
+
+html[data-dibay-kb-owner="ios_form_visible_band"][data-dibay-ios-form-kb="1"]
+  .messenger-home-center-sheet-panel {
+  position: relative !important;
+  top: auto !important;
+  left: auto !important;
+  transform: none !important;
+  width: min(calc(100vw - 2rem), 420px);
+  max-height: calc(var(--dibay-vv-height, 80dvh) - 24px) !important;
+  margin: 0 auto;
+}

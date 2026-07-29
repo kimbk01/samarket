@@ -34,6 +34,7 @@ import {
   mapPasswordResolveErrorCodeToMessage,
   mapSupabaseFetchFailureToMessage,
 } from "@/lib/auth/login-error-i18n";
+import { useIosFormKeyboardVisibleBand } from "@/lib/ui/use-ios-form-keyboard-visible-band";
 
 const AUTH_REQUEST_TIMEOUT_MS = 25_000;
 const LOGIN_IDENTIFIER_RESOLVE_TIMEOUT_MS = 10_000;
@@ -72,6 +73,9 @@ function LoginPageContent() {
     [searchParams]
   );
   const blockedFromLogoutLandingRef = useRef(loginReason === "logout");
+  const loginFormShellRef = useRef<HTMLDivElement | null>(null);
+  /** iOS only — pin shell to visible viewport; Android adjustResize untouched. */
+  useIosFormKeyboardVisibleBand({ enabled: true, shellRef: loginFormShellRef });
   const postLoginDestination =
     sanitizeFreshLoginLandingPath(next) ?? POST_LOGIN_PATH;
   const [providers, setProviders] = useState<AuthProviderPublic[]>([]);
@@ -462,51 +466,57 @@ function LoginPageContent() {
 
   return (
     <>
-      <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background px-4 py-10">
-      <div className="w-full max-w-sm rounded-ui-rect border border-sam-border bg-sam-surface p-6 shadow-sm">
-        <div className="mx-auto flex justify-center" aria-hidden>
-          <DibayAuthLogo size={56} />
+      <div
+        ref={loginFormShellRef}
+        data-dibay-ios-form-shell=""
+        className="dibay-ios-form-shell flex min-h-screen flex-col bg-background"
+      >
+        <div className="dibay-ios-form-shell__scroll flex flex-1 flex-col items-center justify-center gap-6 px-4 py-10">
+          <div className="w-full max-w-sm rounded-ui-rect border border-sam-border bg-sam-surface p-6 shadow-sm">
+            <div className="mx-auto flex justify-center" aria-hidden>
+              <DibayAuthLogo size={56} />
+            </div>
+            <h1 className="mt-3 text-center text-lg font-semibold text-sam-fg">{t("auth_login_title")}</h1>
+            <div className="mt-5">
+              <LoginProviderButtons
+                providers={providers}
+                disabled={loading}
+                pendingOAuthProvider={pendingOAuthProvider}
+                emptyText={
+                  providersLoading ? t("auth_sns_providers_loading") : t("auth_sns_providers_none")
+                }
+                showEmailEntry={passwordEnabled}
+                onEmailLoginClick={() => setShowEmailLogin(true)}
+                onSelectProvider={(provider) => void handleOAuthLogin(provider)}
+              />
+              <OAuthInlineLoginHint status={oauthInlineStatus} className="mt-3" />
+            </div>
+            {providersError ? (
+              <p className="mt-4 sam-text-body-secondary text-red-600">{providersError}</p>
+            ) : null}
+            {!passwordEnabled && !oauthEnabled && !providersError ? (
+              <p className="mt-4 sam-text-body-secondary text-amber-700">
+                {t("auth_no_login_methods")}
+              </p>
+            ) : null}
+            {passwordEnabled && showEmailLogin ? (
+              <PasswordLoginForm
+                identifier={identifier}
+                password={password}
+                error={displayError}
+                loading={loading}
+                loadingText={passwordLoginStatus}
+                disabled={loading || pendingOAuthProvider != null}
+                className="mt-4 space-y-4"
+                onIdentifierChange={setIdentifier}
+                onPasswordChange={setPassword}
+                onSubmit={handleEmailSubmit}
+              />
+            ) : displayError ? (
+              <p className="mt-4 sam-text-body-secondary text-red-600">{displayError}</p>
+            ) : null}
+          </div>
         </div>
-        <h1 className="mt-3 text-center text-lg font-semibold text-sam-fg">{t("auth_login_title")}</h1>
-        <div className="mt-5">
-          <LoginProviderButtons
-            providers={providers}
-            disabled={loading}
-            pendingOAuthProvider={pendingOAuthProvider}
-            emptyText={
-              providersLoading ? t("auth_sns_providers_loading") : t("auth_sns_providers_none")
-            }
-            showEmailEntry={passwordEnabled}
-            onEmailLoginClick={() => setShowEmailLogin(true)}
-            onSelectProvider={(provider) => void handleOAuthLogin(provider)}
-          />
-          <OAuthInlineLoginHint status={oauthInlineStatus} className="mt-3" />
-        </div>
-        {providersError ? (
-          <p className="mt-4 sam-text-body-secondary text-red-600">{providersError}</p>
-        ) : null}
-        {!passwordEnabled && !oauthEnabled && !providersError ? (
-          <p className="mt-4 sam-text-body-secondary text-amber-700">
-            {t("auth_no_login_methods")}
-          </p>
-        ) : null}
-        {passwordEnabled && showEmailLogin ? (
-          <PasswordLoginForm
-            identifier={identifier}
-            password={password}
-            error={displayError}
-            loading={loading}
-            loadingText={passwordLoginStatus}
-            disabled={loading || pendingOAuthProvider != null}
-            className="mt-4 space-y-4"
-            onIdentifierChange={setIdentifier}
-            onPasswordChange={setPassword}
-            onSubmit={handleEmailSubmit}
-          />
-        ) : displayError ? (
-          <p className="mt-4 sam-text-body-secondary text-red-600">{displayError}</p>
-        ) : null}
-      </div>
       </div>
       <AuthProviderEmailConflictHost />
     </>

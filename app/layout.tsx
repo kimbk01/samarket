@@ -21,6 +21,7 @@ import {
 import { APP_LANGUAGE_COOKIE, type AppLanguageCode } from "@/lib/i18n/config";
 import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
 import "./globals.css";
+import "./ios-form-keyboard-viewport.css";
 
 const notoSansKr = Noto_Sans_KR({
   weight: ["400", "500", "700"],

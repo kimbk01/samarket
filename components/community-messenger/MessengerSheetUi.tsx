@@ -8,6 +8,7 @@ import {
   MESSENGER_HOME_BOTTOM_SHEET_PANEL_CLASS,
   MESSENGER_SETTINGS_SHEET_DEVICE_HEIGHT_RATIO,
 } from "@/lib/main-menu/bottom-nav-config";
+import { useIosFormKeyboardVisibleBand } from "@/lib/ui/use-ios-form-keyboard-visible-band";
 
 export type MessengerHomeBottomSheetAnchor = "above-bottom-nav" | "device-bottom" | "center";
 
@@ -37,6 +38,9 @@ export function MessengerHomeBottomSheetShell({
 }) {
   const [mounted, setMounted] = useState(false);
   const [entered, setEntered] = useState(false);
+  const center = anchor === "center";
+  /** iOS center sheet — subscribe to shared form vv band (no-op on Android / CM room). */
+  useIosFormKeyboardVisibleBand({ enabled: mounted && center });
 
   useEffect(() => {
     setMounted(true);
@@ -59,7 +63,6 @@ export function MessengerHomeBottomSheetShell({
   if (!mounted || typeof document === "undefined" || !document.body) return null;
 
   const deviceBottom = anchor === "device-bottom";
-  const center = anchor === "center";
   const panelAnchorClass = deviceBottom
     ? MESSENGER_HOME_BOTTOM_SHEET_DEVICE_BOTTOM_CLASS
     : center
@@ -73,7 +76,13 @@ export function MessengerHomeBottomSheetShell({
     : "";
 
   return createPortal(
-    <div className={`fixed inset-0 ${MAIN_BOTTOM_NAV_SHEET_Z_CLASS} bg-black/30`} role="presentation">
+    <div
+      className={`fixed inset-0 ${MAIN_BOTTOM_NAV_SHEET_Z_CLASS} bg-black/30${
+        center ? " messenger-home-center-sheet-overlay" : ""
+      }`}
+      role="presentation"
+      data-dibay-center-sheet-overlay={center ? "1" : undefined}
+    >
       <button
         type="button"
         className="absolute inset-0 cursor-default"
