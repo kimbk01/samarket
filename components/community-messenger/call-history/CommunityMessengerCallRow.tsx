@@ -183,7 +183,7 @@ export function CommunityMessengerCallRow({
   const avatarNode = (
     <SamarketThumbnail
       src={resolveUserAvatarImageSrc(vm.peerAvatarUrl)}
-      size={48}
+      size={52}
       roundedClassName="rounded-full"
       className="shrink-0 bg-sam-surface-muted ring-1 ring-sam-border"
       fallbackSrc=""
@@ -226,7 +226,7 @@ export function CommunityMessengerCallRow({
       </div>
 
       <div
-        className={`relative z-[1] flex min-h-[64px] w-full touch-pan-y items-stretch bg-white dark:bg-[#1F1F1F]`}
+        className={`relative z-[1] flex min-h-[72px] w-full touch-pan-y items-stretch bg-white dark:bg-[#1F1F1F]`}
         data-call-log-swipe-surface={swipeSurfaceDataAttr}
         style={{
           transform: `translate3d(${dragX}px,0,0)`,
@@ -245,13 +245,14 @@ export function CommunityMessengerCallRow({
             if (isDragging || swipeActionTapRef.current) return;
             handleNavigate();
           }}
-          className={`flex min-w-0 flex-1 items-center gap-3 px-3 py-2 text-left transition-transform duration-100 active:scale-[0.98] ${CALL_UI_CALL_LIST_ROW_ACTIVE_CLASS} ${
+          data-cm-messenger-list-row=""
+          className={`flex min-w-0 flex-1 items-center gap-3 px-[14px] py-2 text-left transition-transform duration-100 active:scale-[0.98] ${CALL_UI_CALL_LIST_ROW_ACTIVE_CLASS} ${
             vm.canNavigate ? "cursor-pointer" : "cursor-default"
           }`}
         >
-          {avatarNode}
+          <div data-cm-list-avatar-slot="">{avatarNode}</div>
           <div className="min-w-0 flex-1">
-            <p className="truncate sam-text-body font-semibold text-sam-fg">
+            <p data-cm-list-title="" className="truncate font-semibold text-sam-fg">
               {vm.peerName}
               {vm.peerPublicId && vm.peerName.toLowerCase() !== vm.peerPublicId.toLowerCase() ? (
                 <span className="font-medium text-sam-fg-muted"> (@{vm.peerPublicId})</span>
@@ -264,7 +265,7 @@ export function CommunityMessengerCallRow({
                 </span>
               ) : null}
               <CommunityMessengerCallDirectionBadge displayType={vm.displayType} />
-              <p className="truncate sam-text-body-secondary" style={{ color: vm.subtitleColor }}>
+              <p data-cm-list-preview="" className="truncate" style={{ color: vm.subtitleColor }}>
                 {subtitleText}
                 {vm.durationLabel ? (
                   <>
@@ -278,7 +279,11 @@ export function CommunityMessengerCallRow({
         </button>
 
         <aside className="flex shrink-0 flex-col items-end justify-center gap-1.5 px-3 py-2">
-          {timeLabel ? <span className="sam-text-helper tabular-nums text-sam-fg-muted">{timeLabel}</span> : null}
+          {timeLabel ? (
+            <span data-cm-list-meta="" className="tabular-nums text-sam-fg-muted">
+              {timeLabel}
+            </span>
+          ) : null}
           {vm.canRedial ? (
             <div onPointerDown={(e) => e.stopPropagation()}>
               <CommunityMessengerCallActionButton

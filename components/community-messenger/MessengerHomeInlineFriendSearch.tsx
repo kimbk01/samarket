@@ -64,7 +64,8 @@ export function MessengerHomeInlineFriendSearch({ busyId, onSelectUser }: Props)
         autoCapitalize="none"
         autoCorrect="off"
         spellCheck={false}
-        className="w-full rounded-ui-rect border border-transparent bg-[color:var(--messenger-primary-soft)] px-2 py-2 text-[14px] outline-none focus:border-[color:var(--messenger-primary)] focus:bg-[color:var(--messenger-surface)] focus:ring-1 focus:ring-[color:var(--messenger-primary)]"
+        className="w-full rounded-[12px] border border-transparent bg-[color:var(--messenger-primary-soft)] px-3 py-2 text-[16px] outline-none focus:border-[color:var(--messenger-primary)] focus:bg-[color:var(--messenger-surface)] focus:ring-1 focus:ring-[color:var(--messenger-primary)]"
+        data-cm-messenger-search-input=""
         style={{ color: "var(--messenger-text)" }}
       />
       {showResults ? (

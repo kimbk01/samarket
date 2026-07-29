@@ -815,7 +815,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
           src={room.avatarUrl}
           label={listDisplayTitle}
           roomType={room.roomType}
-          sizeClassName="h-12 w-12"
+          sizeClassName="h-[52px] w-[52px]"
           textClassName="sam-text-body"
         />
         {presencePeerUserId ? <MessengerChatListItemPresenceDot peerUserId={presencePeerUserId} /> : null}
@@ -831,6 +831,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     isDeliveryChatListVisual && deliveryRowModel ? (
       <>
         <span
+          data-cm-list-meta=""
           className="whitespace-nowrap text-right sam-text-helper font-normal tabular-nums leading-none"
           style={{ color: "var(--messenger-text-secondary)" }}
         >
@@ -839,17 +840,18 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         {displayedUnreadCount > 0 ? (
           <span
             data-cm-unread-badge="true"
-            className="mt-1.5 flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#006241] px-1 text-center sam-text-xxs font-semibold leading-[18px] text-white"
+            className="mt-1.5 flex min-h-[20px] min-w-[20px] items-center justify-center rounded-full bg-[#006241] px-1.5 text-center sam-text-xxs font-semibold leading-[20px] text-white"
           >
             {displayedUnreadCount > 999 ? "999+" : displayedUnreadCount}
           </span>
         ) : (
-          <span className="mt-1.5 block h-[18px]" aria-hidden />
+          <span className="mt-1.5 block h-[20px]" aria-hidden />
         )}
       </>
     ) : isTradeChatListVisual && tradeRowModel ? (
       <>
         <span
+          data-cm-list-meta=""
           className="whitespace-nowrap text-right sam-text-helper font-normal tabular-nums leading-none"
           style={{ color: "var(--messenger-text-secondary)" }}
         >
@@ -858,17 +860,21 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         {displayedUnreadCount > 0 ? (
           <span
             data-cm-unread-badge="true"
-            className="mt-1.5 flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#006241] px-1 text-center sam-text-xxs font-semibold leading-[18px] text-white"
+            className="mt-1.5 flex min-h-[20px] min-w-[20px] items-center justify-center rounded-full bg-[#006241] px-1.5 text-center sam-text-xxs font-semibold leading-[20px] text-white"
           >
             {displayedUnreadCount > 999 ? "999+" : displayedUnreadCount}
           </span>
         ) : (
-          <span className="mt-1.5 block h-[18px]" aria-hidden />
+          <span className="mt-1.5 block h-[20px]" aria-hidden />
         )}
       </>
     ) : (
       <>
-        <span className="sam-text-helper font-normal tabular-nums" style={{ color: "var(--messenger-text-secondary)" }}>
+        <span
+          data-cm-list-meta=""
+          className="sam-text-helper font-normal tabular-nums"
+          style={{ color: "var(--messenger-text-secondary)" }}
+        >
           {formatConversationTimestamp(item.lastEventAt)}
         </span>
         <div className="flex flex-col items-end gap-0.5">
@@ -886,7 +892,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
             {displayedUnreadCount > 0 ? (
               <span
                 data-cm-unread-badge="true"
-                className="min-h-[18px] min-w-[18px] rounded-full bg-[color:var(--messenger-primary)] px-1 text-center sam-text-xxs font-semibold leading-[18px] text-white"
+                className="min-h-[20px] min-w-[20px] rounded-full bg-[color:var(--messenger-primary)] px-1.5 text-center sam-text-xxs font-semibold leading-[20px] text-white"
               >
                 {displayedUnreadCount > 999 ? "999+" : displayedUnreadCount}
               </span>
@@ -905,8 +911,12 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     );
 
   const rowSurfaceClass = `transition-colors duration-100 ${
-    pressVisualActive || isRouteActiveRoom ? "bg-[color:var(--messenger-surface-muted)]" : ""
-  } ${isRouteActiveRoom ? "ring-1 ring-inset ring-[color:var(--messenger-primary)]/35" : ""}`;
+    pressVisualActive ? "bg-[color:var(--messenger-surface-muted)]" : ""
+  } ${
+    isRouteActiveRoom
+      ? "bg-[color:var(--messenger-primary-soft)]"
+      : ""
+  }`;
 
   const rowContent =
     isDeliveryChatListVisual && deliveryRowModel ? (
@@ -936,7 +946,11 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     ) : (
       <MessengerListRow className={rowSurfaceClass} avatar={avatarBlock} trailing={trailingBlock}>
         <div className="flex min-w-0 items-center gap-1">
-          <p className="min-w-0 truncate sam-text-body font-semibold leading-tight" style={{ color: "var(--messenger-text)" }}>
+          <p
+            data-cm-list-title=""
+            className="min-w-0 truncate font-semibold leading-tight"
+            style={{ color: "var(--messenger-text)" }}
+          >
             {listDisplayTitle}
           </p>
           {titleSuffix ? (
@@ -995,7 +1009,8 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
             </span>
           ) : null}
           <p
-            className={`min-w-0 truncate sam-text-body-secondary font-normal leading-snug ${displayedUnreadCount > 0 ? "font-medium" : ""}`}
+            data-cm-list-preview=""
+            className={`min-w-0 truncate font-normal leading-snug ${displayedUnreadCount > 0 ? "font-medium" : ""}`}
             style={{
               color: displayedUnreadCount > 0 ? "var(--messenger-text)" : "var(--messenger-text-secondary)",
             }}
@@ -1180,25 +1195,25 @@ function CommerceThumb({
     return (
       <SamarketUserAvatarThumb
         avatarUrl={fallbackAvatarUrl}
-        size={48}
+        size={52}
         roundedClassName="rounded-full"
-        className="border border-[color:var(--messenger-divider)] bg-ui-hover h-12 w-12"
+        className="border border-[color:var(--messenger-divider)] bg-ui-hover h-[52px] w-[52px]"
       />
     );
   }
   return (
     <SamarketThumbnail
       src={src}
-      size={48}
+      size={52}
       roundedClassName="rounded-[8px]"
       className="border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)]"
       fallbackSrc=""
       fallbackNode={
         <SamarketUserAvatarThumb
           avatarUrl={fallbackAvatarUrl}
-          size={48}
+          size={52}
           roundedClassName="rounded-full"
-          className="border border-[color:var(--messenger-divider)] bg-ui-hover h-12 w-12"
+          className="border border-[color:var(--messenger-divider)] bg-ui-hover h-[52px] w-[52px]"
         />
       }
       onImageError={() => setFailed(true)}
@@ -1223,7 +1238,7 @@ function AvatarCircle({
     return (
       <SamarketUserAvatarThumb
         avatarUrl={src}
-        size={48}
+        size={52}
         roundedClassName="rounded-full"
         className={`bg-ui-hover ${sizeClassName}`}
       />
@@ -1241,7 +1256,7 @@ function AvatarCircle({
   return (
     <SamarketThumbnail
       src={safeSrc && !imageFailed ? safeSrc : null}
-      size={48}
+      size={52}
       roundedClassName="rounded-full"
       className={`bg-ui-hover ${sizeClassName}`}
       fallbackSrc=""

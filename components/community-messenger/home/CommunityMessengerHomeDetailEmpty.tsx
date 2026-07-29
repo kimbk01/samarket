@@ -10,10 +10,15 @@ export function CommunityMessengerHomeDetailEmpty() {
   });
   return (
     <div
-      className="flex flex-1 items-center justify-center bg-sam-app p-8 text-center"
+      className="cm-messenger-wallpaper flex flex-1 items-center justify-center p-8 text-center"
       data-messenger-detail-empty=""
     >
-      <p className="sam-text-body text-sam-fg-muted">{label}</p>
+      <p
+        data-messenger-detail-empty-pill=""
+        className="sam-text-body text-sam-fg-muted"
+      >
+        {label}
+      </p>
     </div>
   );
 }

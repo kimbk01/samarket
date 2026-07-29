@@ -262,6 +262,7 @@ export function MessengerPillarSummaryRow({ variant, summary, entryOriginQuery =
         trailing={
           <>
             <span
+              data-cm-list-meta=""
               className="sam-text-helper font-normal tabular-nums"
               style={{ color: "var(--messenger-text-secondary)" }}
             >
@@ -269,7 +270,7 @@ export function MessengerPillarSummaryRow({ variant, summary, entryOriginQuery =
             </span>
             <div className="flex items-center gap-1">
               {unread > 0 ? (
-                <span className="min-h-[18px] min-w-[18px] rounded-full bg-[color:var(--messenger-primary)] px-1 text-center sam-text-xxs font-semibold leading-[18px] text-white">
+                <span className="min-h-[20px] min-w-[20px] rounded-full bg-[color:var(--messenger-primary)] px-1.5 text-center sam-text-xxs font-semibold leading-[20px] text-white">
                   {unread > 999 ? "999+" : unread}
                 </span>
               ) : null}
@@ -282,7 +283,8 @@ export function MessengerPillarSummaryRow({ variant, summary, entryOriginQuery =
       >
         <div className="flex min-w-0 items-center gap-1">
           <p
-            className="min-w-0 truncate sam-text-body font-semibold leading-tight"
+            data-cm-list-title=""
+            className="min-w-0 truncate font-semibold leading-tight"
             style={{ color: "var(--messenger-text)" }}
           >
             {copy.title}

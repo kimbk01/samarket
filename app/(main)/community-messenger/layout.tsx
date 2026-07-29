@@ -1,4 +1,5 @@
 import "@/app/messenger-view-transitions.css";
+import "@/app/messenger-presentation.css";
 import "@/app/messenger-home-bottom-sheet.css";
 import "@/app/delivery-chat-room.css";
 import { CommunityMessengerGuestGate } from "@/components/community-messenger/CommunityMessengerGuestGate";

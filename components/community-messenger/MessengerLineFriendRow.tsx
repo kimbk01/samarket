@@ -342,10 +342,10 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
             centerWithAvatar
             trailingLayout="center"
             avatar={
-              <div className="relative h-12 w-12">
+              <div className="relative h-[52px] w-[52px]">
                 <SamarketThumbnail
                   src={resolveUserAvatarImageSrc(avatarSrc)}
-                  size={48}
+                  size={52}
                   roundedClassName="rounded-full"
                   className="bg-[color:var(--messenger-surface-muted)] ring-1 ring-[color:var(--messenger-divider)]"
                   fallbackSrc=""
@@ -384,7 +384,11 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
             }
           >
             <div className="flex min-w-0 items-center gap-1">
-              <p className="truncate sam-text-body font-semibold" style={{ color: "var(--messenger-text)" }}>
+              <p
+                data-cm-list-title=""
+                className="truncate font-semibold"
+                style={{ color: "var(--messenger-text)" }}
+              >
                 {friend.label}
               </p>
               <span
@@ -403,7 +407,8 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
             </div>
             {bioLine ? (
               <p
-                className="line-clamp-2 whitespace-pre-wrap break-words sam-text-helper font-normal leading-snug"
+                data-cm-list-preview=""
+                className="truncate font-normal leading-snug"
                 style={{ color: "var(--messenger-text-secondary)" }}
               >
                 {bioLine}

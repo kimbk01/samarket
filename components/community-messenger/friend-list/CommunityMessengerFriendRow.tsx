@@ -23,12 +23,15 @@ export function CommunityMessengerFriendRow({ row, onPress, onLongPress, disable
         e.preventDefault();
         onLongPress?.();
       }}
-      className="flex w-full min-h-[64px] max-h-[76px] items-center gap-3 border-b border-sam-border px-3 py-2 text-left transition-transform duration-100 active:scale-[0.98] disabled:opacity-50"
+      className="flex w-full min-h-[72px] max-h-[74px] items-center gap-3 border-b border-sam-border px-[14px] py-2 text-left transition-transform duration-100 active:scale-[0.98] disabled:opacity-50"
+      data-cm-messenger-list-row=""
     >
-      <SamarketUserAvatarThumb avatarUrl={row.avatarUrl} size={48} roundedClassName="rounded-full" />
+      <SamarketUserAvatarThumb avatarUrl={row.avatarUrl} size={52} roundedClassName="rounded-full" />
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-center gap-1.5">
-          <p className="truncate sam-text-body font-semibold text-sam-fg">{row.displayName}</p>
+          <p data-cm-list-title="" className="truncate font-semibold text-sam-fg">
+            {row.displayName}
+          </p>
           {row.isFavorite ? <Star className="h-3.5 w-3.5 shrink-0 fill-sam-primary text-sam-primary" aria-hidden /> : null}
           <CommunityMessengerFriendStatusBadge
             labelKey={row.statusBadgeKey}
@@ -37,9 +40,13 @@ export function CommunityMessengerFriendRow({ row, onPress, onLongPress, disable
           />
         </div>
         {row.publicId ? (
-          <p className="truncate sam-text-helper text-sam-fg-muted">{formatAtUsername(row.publicId)}</p>
+          <p data-cm-list-preview="" className="truncate text-sam-fg-muted">
+            {formatAtUsername(row.publicId)}
+          </p>
         ) : row.subtitle ? (
-          <p className="truncate sam-text-helper text-sam-fg-muted">{row.subtitle}</p>
+          <p data-cm-list-preview="" className="truncate text-sam-fg-muted">
+            {row.subtitle}
+          </p>
         ) : null}
       </div>
     </button>
