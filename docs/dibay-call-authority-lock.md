@@ -16,7 +16,8 @@ SSOT modules:
 |---|---|
 | Session status / ended_at / ended_reason / answered_at | `updateCommunityMessengerCallSession` (single HTTP PATCH path) |
 | Duration | `ended_at − answered_at` via `resolveAuthoritativeCallDurationSeconds` (DB has no `connected_at`; `answered_at` is connectedAt proxy) |
-| Busy | Server `peer_busy` on start + unique live indexes; Android native suppresses 2nd incoming UI |
+| Busy | Server `peer_busy` on start + unique live indexes; Android native suppresses 2nd incoming UI **without** `reject`/`declined` |
+| Concurrent ringing (incoming policy) | `missed` + `incoming_policy_superseded` (not `reject`/`declined`); missed Bell skipped for that reason |
 | Missed Bell | Only on transition to `status=missed` + delivery evidence gate (no catch bypass) |
 | History row | One `call_logs` row per `session_id` (unique index); created in finalizeLog |
 | Android establishment | Native Voice/Video Runtime (O2–O4 unchanged for happy path) |

@@ -84,15 +84,22 @@ public final class NativeVideoCallRuntime {
     /**
      * CONTRACT: single active/connecting/ringing call per process.
      * Second incoming must not present UI (callee_busy).
+     *
+     * DO NOT rejectAsync — Busy ≠ Reject (declined). Suppress UI only.
      */
+    reclaimConsumedLiveSessions(app, sid);
     String busyVideo = findOtherLiveSessionCallId(sid);
     String busyVoice = NativeVoiceCallRuntime.findOtherLiveSessionCallId(sid);
     if (busyVideo != null || busyVoice != null) {
       NativeVideoCallLog.info(
           "incoming_busy_suppressed",
           sid,
-          "otherVideo=" + safe(busyVideo) + " otherVoice=" + safe(busyVoice));
-      NativeVideoCallApi.rejectAsync(app, sid, (ok, status, error) -> {});
+          "otherVideo="
+              + safe(busyVideo)
+              + " otherVoice="
+              + safe(busyVoice)
+              + " action=suppress_no_reject");
+      DibayCallConsumedStore.mark(app, sid, "busy_suppressed");
       return false;
     }
     if (!NativeVideoCallOwner.claimNative(sid, "incoming_fcm")) return false;
@@ -169,6 +176,22 @@ public final class NativeVideoCallRuntime {
       }
     }
     return null;
+  }
+
+  private static void reclaimConsumedLiveSessions(Context app, String incomingCallId) {
+    if (app == null) return;
+    String stale = findStaleSessionCallId(incomingCallId);
+    if (stale != null) {
+      cleanup(app, stale, "stale_state_reclaim");
+    }
+    String other = findOtherLiveSessionCallId(incomingCallId);
+    if (other != null && DibayCallConsumedStore.isConsumed(app, other)) {
+      cleanup(app, other, "stale_busy_reclaim");
+    }
+    String otherVoice = NativeVoiceCallRuntime.findOtherLiveSessionCallId(incomingCallId);
+    if (otherVoice != null && DibayCallConsumedStore.isConsumed(app, otherVoice)) {
+      NativeVoiceCallRuntime.onRemoteTerminal(app, otherVoice, "cancelled", "stale_busy_reclaim");
+    }
   }
 
   /** Outgoing caller path — token fetch and Agora join without WebView establishment. */

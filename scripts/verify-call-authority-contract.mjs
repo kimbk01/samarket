@@ -106,9 +106,29 @@ mustContain(
   "android-voice-busy-suppress",
 );
 mustContain(
+  "android/app/src/main/java/com/dibay/app/nativevoice/NativeVoiceCallRuntime.java",
+  "action=suppress_no_reject",
+  "android-voice-busy-no-reject",
+);
+mustContain(
   "android/app/src/main/java/com/dibay/app/nativevideo/NativeVideoCallRuntime.java",
   "incoming_busy_suppressed",
   "android-video-busy-suppress",
+);
+mustContain(
+  "android/app/src/main/java/com/dibay/app/nativevideo/NativeVideoCallRuntime.java",
+  "action=suppress_no_reject",
+  "android-video-busy-no-reject",
+);
+mustContain(
+  "lib/community-messenger/service.ts",
+  "missed_notify_skipped_policy_superseded",
+  "incoming-policy-busy-not-declined-bell",
+);
+mustContain(
+  "lib/community-messenger/service.ts",
+  'clientEndedReason: "incoming_policy_superseded"',
+  "incoming-policy-supersede-reason",
 );
 
 mustContain(

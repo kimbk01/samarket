@@ -81,15 +81,24 @@ public final class NativeVoiceCallRuntime {
      * CONTRACT: single active/connecting/ringing call per process.
      * Second incoming must not present UI (callee_busy) — server peer_busy is primary;
      * this blocks same-device FCM races.
+     *
+     * DO NOT rejectAsync here: that writes status=rejected / ended_reason=declined
+     * (callee_rejected) for a call the user never declined — corrupts timeout/cancel QA
+     * and History (Busy ≠ Reject).
      */
+    reclaimConsumedLiveSessions(app, sid);
     String busyVoice = findOtherLiveSessionCallId(sid);
     String busyVideo = NativeVideoCallRuntime.findOtherLiveSessionCallId(sid);
     if (busyVoice != null || busyVideo != null) {
       NativeVoiceCallLog.info(
           "incoming_busy_suppressed",
           sid,
-          "otherVoice=" + safe(busyVoice) + " otherVideo=" + safe(busyVideo));
-      NativeVoiceCallApi.rejectAsync(app, sid, (ok, status, error) -> {});
+          "otherVoice="
+              + safe(busyVoice)
+              + " otherVideo="
+              + safe(busyVideo)
+              + " action=suppress_no_reject");
+      DibayCallConsumedStore.mark(app, sid, "busy_suppressed");
       return false;
     }
     if (!NativeVoiceCallOwner.claimNative(sid, "incoming_fcm")) return false;
@@ -166,6 +175,26 @@ public final class NativeVoiceCallRuntime {
       }
     }
     return null;
+  }
+
+  /**
+   * Drop in-memory live sessions that are already terminal-consumed (cancel/reject/end race)
+   * so a new incoming is not busy-suppressed forever.
+   */
+  private static void reclaimConsumedLiveSessions(Context app, String incomingCallId) {
+    if (app == null) return;
+    String stale = findStaleSessionCallId(incomingCallId);
+    if (stale != null) {
+      cleanup(app, stale, "stale_state_reclaim");
+    }
+    String other = findOtherLiveSessionCallId(incomingCallId);
+    if (other != null && DibayCallConsumedStore.isConsumed(app, other)) {
+      cleanup(app, other, "stale_busy_reclaim");
+    }
+    String otherVideo = NativeVideoCallRuntime.findOtherLiveSessionCallId(incomingCallId);
+    if (otherVideo != null && DibayCallConsumedStore.isConsumed(app, otherVideo)) {
+      NativeVideoCallRuntime.onRemoteTerminal(app, otherVideo, "cancelled", "stale_busy_reclaim");
+    }
   }
 
   /** Outgoing caller path — token fetch and Agora join without WebView establishment. */

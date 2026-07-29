@@ -1108,7 +1108,13 @@ async function filterDirectIncomingRowsForPolicy(
     for (const row of rows) {
       if (row.id === viewerLiveSessionId) continue;
       if (row.status !== "ringing") continue;
-      void updateCommunityMessengerCallSession({ userId, sessionId: row.id, action: "reject" }).catch(() => {});
+      /** Busy / concurrent ringing — NOT callee_rejected (declined). */
+      void updateCommunityMessengerCallSession({
+        userId,
+        sessionId: row.id,
+        action: "missed",
+        clientEndedReason: "incoming_policy_superseded",
+      }).catch(() => {});
     }
     /** 본인 live(ringing 수신 등) 세션은 목록에 남긴다 — `return []` 는 GET refresh 가 Broadcast UI 를 지움 */
     const liveRow = rows.find((row) => row.id === viewerLiveSessionId);
@@ -19209,6 +19215,16 @@ export async function updateCommunityMessengerCallSession(input: {
           if (roomIdM && initM && recipM) {
             void (async () => {
               try {
+                const endedReasonM = trimText(
+                  (updated as { ended_reason?: string | null }).ended_reason ?? ""
+                );
+                if (endedReasonM === "incoming_policy_superseded") {
+                  console.info("[DIBAY_CALL] missed_notify_skipped_policy_superseded", {
+                    sessionId: updated.id,
+                    recipientUserId: recipM,
+                  });
+                  return;
+                }
                 const { data: deliveryRows } = await (sb as any)
                   .from("notification_deliveries")
                   .select("status, provider_response")
