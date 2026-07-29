@@ -7,7 +7,9 @@ import type { MeProfileGetResult } from "@/lib/profile/fetch-me-profile-deduped"
 import { recordBootVerifyFetch } from "@/lib/app-boot/client-boot-request-journal";
 import { logShellFetchTrace } from "@/lib/dibay/shell-fetch-trace";
 
-const BOOT_MINIMAL_FLIGHT = "app-boot:profile:minimal" as const;
+/** Shared with `fetchMeProfileFullBackground` — wait instead of parallel lite+full. */
+export const APP_BOOT_PROFILE_MINIMAL_FLIGHT = "app-boot:profile:minimal" as const;
+const BOOT_MINIMAL_FLIGHT = APP_BOOT_PROFILE_MINIMAL_FLIGHT;
 const BOOT_MINIMAL_TTL_MS = 4_000;
 
 let cached: { expiresAt: number; value: MeProfileGetResult } | null = null;

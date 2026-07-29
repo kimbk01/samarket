@@ -1,6 +1,6 @@
 "use client";
 
-import { forgetSingleFlight, runSingleFlight } from "@/lib/http/run-single-flight";
+import { forgetSingleFlight, getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
 import type { LifeDefaultLocationSummary } from "@/lib/addresses/life-default-location-summary";
 import {
   ADDRESS_DEFAULTS_SNAPSHOT_TTL_MS,
@@ -49,7 +49,22 @@ export async function fetchAddressDefaultsSnapshot(
   opts?: { force?: boolean; timeoutMs?: number }
 ): Promise<AddressDefaultsSnapshot | null> {
   if (opts?.force) {
-    invalidateAddressDefaultsSnapshotCache();
+    /**
+     * Clear TTL only — do not forget an in-flight GET (that created parallel
+     * `/api/me/address-defaults` when several force callers raced).
+     * Join the current flight, then start one refresh flight.
+     */
+    cachedSnapshot = null;
+    const inflight = getSingleFlightPromise<AddressDefaultsSnapshot>(ADDRESS_DEFAULTS_SNAPSHOT_FLIGHT);
+    if (inflight) {
+      try {
+        await inflight;
+      } catch {
+        /* ignore */
+      }
+      cachedSnapshot = null;
+    }
+    forgetSingleFlight(ADDRESS_DEFAULTS_SNAPSHOT_FLIGHT);
   }
   const now = Date.now();
   if (cachedSnapshot && cachedSnapshot.expiresAt > now) {

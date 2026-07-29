@@ -111,6 +111,12 @@ async function loadFromNetwork(options?: { withLoadingSpinner?: boolean }): Prom
   emit();
 }
 
+/** `/mypage` root must not trigger `GET /api/me/stores` — store admin routes own that fetch. */
+function isMypageRootSurfacePathname(pathname: string | null | undefined): boolean {
+  const p = (pathname ?? "").split("?")[0]!.trim();
+  return p === "/mypage" || p === "/my";
+}
+
 export function subscribeOwnerLiteStore(listener: () => void) {
   listeners.add(listener);
   subscriberCount += 1;
@@ -121,6 +127,14 @@ export function subscribeOwnerLiteStore(listener: () => void) {
     }
     initialHydrateIdleId = scheduleWhenBrowserIdle(() => {
       initialHydrateIdleId = null;
+      if (typeof window !== "undefined" && isMypageRootSurfacePathname(window.location.pathname)) {
+        /* keep session/memory snapshot — no stores network on mypage root */
+        if (!hasLoadedOnce && snapshot.ownerStores.length === 0 && !snapshot.loading) {
+          snapshot = { loading: false, ownerStore: null, ownerStores: [] };
+          emit();
+        }
+        return;
+      }
       void runSingleFlight("owner-lite:hydrate", () =>
         loadFromNetwork({ withLoadingSpinner: !isConstrainedNetwork() })
       );

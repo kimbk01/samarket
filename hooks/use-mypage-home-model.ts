@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { getMyProfile } from "@/lib/profile/getMyProfile";
 import { PROFILE_UPDATED_EVENT } from "@/lib/profile/profile-update-events";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
@@ -10,10 +9,6 @@ import {
   fetchAddressDefaultsSnapshot,
   peekFreshAddressDefaultsSnapshot,
 } from "@/lib/addresses/fetch-address-defaults-client";
-import {
-  invalidateMandatoryAddressGateClientCache,
-  readMandatoryAddressGateNeedsBlock,
-} from "@/lib/addresses/mandatory-address-gate-client";
 import {
   clearMypageHomeCaches,
   peekMypageHomeSessionLite,
@@ -29,28 +24,35 @@ import {
   subscribeMypageHomeStore,
   type MypageHomeProjection,
 } from "@/lib/mypage/mypage-home-store";
+import { resolveMypageHomeProfileRow } from "@/lib/mypage/resolve-mypage-home-profile";
 import { dibayMyInfoPerfMark, dibayMyInfoPerfMaybeLogTotal } from "@/lib/runtime/dibay-myinfo-perf";
 
-async function resolveAddressStatus(): Promise<RequiredInfoStatus> {
-  const snap = peekFreshAddressDefaultsSnapshot();
-  if (snap?.ok && snap.defaults?.master != null) return "complete";
-  try {
-    const needsBlock = await readMandatoryAddressGateNeedsBlock();
-    return needsBlock ? "required" : "complete";
-  } catch {
-    return "unknown";
+/**
+ * Address status for root summary — one address-defaults read max.
+ * DO NOT: call mandatory-address-gate as a second address network on root.
+ */
+async function resolveAddressStatus(opts?: { force?: boolean }): Promise<RequiredInfoStatus> {
+  const snap =
+    opts?.force === true
+      ? await fetchAddressDefaultsSnapshot({ force: true })
+      : peekFreshAddressDefaultsSnapshot() ?? (await fetchAddressDefaultsSnapshot());
+  if (snap?.ok && snap.status === 200) {
+    return snap.defaults?.master != null ? "complete" : "required";
   }
+  return "unknown";
 }
 
 function seedAddressStatusFromCache(): RequiredInfoStatus {
   const snap = peekFreshAddressDefaultsSnapshot();
   if (snap?.ok && snap.defaults?.master != null) return "complete";
+  if (snap?.ok && snap.status === 200 && snap.defaults?.master == null) return "required";
   return "unknown";
 }
 
 /**
  * `/mypage` root only — profile + required-info status.
  * DO NOT: trade-counts / stores / order-counts / CMS.
+ * DO NOT: lite+full parallel profile; DO NOT child address fetch hooks on root.
  */
 export function useMypageHomeModel(enabled: boolean) {
   const projection = useSyncExternalStore(
@@ -79,13 +81,9 @@ export function useMypageHomeModel(enabled: boolean) {
     const gen = ++refreshGenRef.current;
     const run = (async () => {
       try {
-        if (opts?.forceAddress) {
-          invalidateMandatoryAddressGateClientCache();
-          await fetchAddressDefaultsSnapshot({ force: true });
-        }
         const [profile, addressStatus] = await Promise.all([
-          getMyProfile(),
-          resolveAddressStatus(),
+          resolveMypageHomeProfileRow(),
+          resolveAddressStatus({ force: opts?.forceAddress === true }),
         ]);
         if (gen !== refreshGenRef.current) return;
         const currentViewer = getCurrentUser()?.id?.trim() ?? "";
@@ -129,11 +127,7 @@ export function useMypageHomeModel(enabled: boolean) {
             addressStatus: addr,
           });
         } else {
-          const addr = seedAddressStatusFromCache();
-          /* no snapshot — stay null until refresh; UI shows mini skeleton */
-          if (addr === "complete") {
-            /* keep unknown phone/id until profile arrives */
-          }
+          seedAddressStatusFromCache();
         }
       }
     }

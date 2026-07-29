@@ -9,12 +9,17 @@ import { DEFAULT_PROFILE_ROW } from "./types";
 import { fetchProfileRowSafe } from "./fetch-profile-row-safe";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getCurrentUser, getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
+import { peekAppBootProfile } from "@/lib/app-boot/app-boot-store";
 import { fetchMeProfileDeduped } from "@/lib/profile/fetch-me-profile-deduped";
 
 export async function getMyProfile(): Promise<ProfileRow | null> {
   /** 브라우저: 쿠키 세션 기준 API를 먼저 호출 — SupabaseAuthSync·프로필 캐시보다 앞서서 호출되던 레이스(미로그인으로 오인) 방지 */
   const hasSupabaseProject = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL?.trim());
   if (typeof window !== "undefined" && hasSupabaseProject) {
+    const boot = peekAppBootProfile();
+    if (boot?.id?.trim()) {
+      return boot;
+    }
     try {
       const { status, json: raw } = await fetchMeProfileDeduped();
       const json = raw as { ok?: boolean; profile?: ProfileRow | null; error?: string } | null;

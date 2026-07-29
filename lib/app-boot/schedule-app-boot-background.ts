@@ -85,6 +85,15 @@ export function scheduleAppBootBackgroundHydration(): void {
         () => {
           if (armId !== backgroundArmId) return;
           if (isMeProfileFullFetchSkippable()) return;
+          /**
+           * `/mypage` root — boot lite snapshot is enough for summary;
+           * skip background full so enter window stays at most 1 profile network (lite).
+           * Other surfaces still schedule full as before.
+           */
+          if (typeof window !== "undefined") {
+            const p = window.location.pathname.split("?")[0]!.trim();
+            if (p === "/mypage" || p === "/my") return;
+          }
           void fetchMeProfileFullBackground("app_boot_background")
             .then(({ status, json }) => {
               const data = json as { ok?: boolean; profile?: ProfileRow } | null;

@@ -1,7 +1,6 @@
 "use client";
 
 import { CheckCircle2 } from "lucide-react";
-import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { renderMypageHomeMenuIcon } from "@/components/mypage/myinfo/myinfo-menu-icon";
 import { useMypageProfileSheets } from "@/components/mypage/profile-settings/mypage-profile-sheets-context";
@@ -10,7 +9,6 @@ import { formatProfilePhoneForDisplay } from "@/lib/profile/admin-phone-verifica
 import type { MypageHomeProjection } from "@/lib/mypage/mypage-home-store";
 import type { RequiredInfoStatus } from "@/lib/mypage/mypage-home-snapshot";
 import type { MypageHomeMenuIconId } from "@/lib/mypage/mypage-home-menu-config";
-import { useRepresentativeAddressPresentation } from "@/hooks/use-representative-address-line";
 import { resolveRepresentativeFullAddressLineFromSnapshot } from "@/lib/addresses/address-defaults-snapshot-resolvers";
 import { peekFreshAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
 import {
@@ -134,7 +132,9 @@ export function MypageRequiredInfoSummary({
 }) {
   const { safeT } = useI18n();
   const { openSheet } = useMypageProfileSheets();
-  const addressPresentationState = useRepresentativeAddressPresentation();
+  /** Projection-only — DO NOT fetch address-defaults here (parent `useMypageHomeModel` owns network). */
+  const addressValueText =
+    resolveRepresentativeFullAddressLineFromSnapshot(peekFreshAddressDefaultsSnapshot())?.trim() ?? "";
 
   const phoneStatus: RequiredInfoStatus = projection?.phoneStatus ?? "unknown";
   const addressStatus: RequiredInfoStatus = projection?.addressStatus ?? "unknown";
@@ -152,15 +152,6 @@ export function MypageRequiredInfoSummary({
   const completeCount = [dibayStatus, phoneStatus, addressStatus].filter((s) => s === "complete").length;
   const knownCount = [dibayStatus, phoneStatus, addressStatus].filter((s) => s !== "unknown").length;
   const bundleComplete = knownCount === 3 && completeCount === 3;
-
-  const addressValueText = useMemo(() => {
-    if (addressPresentationState.status === "ready" && addressPresentationState.presentation) {
-      const p = addressPresentationState.presentation;
-      return [p.gatePrefix, p.streetBody].filter(Boolean).join(", ").trim();
-    }
-    const snap = peekFreshAddressDefaultsSnapshot();
-    return resolveRepresentativeFullAddressLineFromSnapshot(snap)?.trim() ?? "";
-  }, [addressPresentationState]);
 
   const checkingLabel = safeT("mypage_required_status_checking", {
     fallbackKo: "확인 중",

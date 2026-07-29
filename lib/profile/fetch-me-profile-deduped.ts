@@ -1,7 +1,8 @@
 /**
  * GET /api/me/profile — RegionProvider·getMyProfile·내정보 등 동시 호출 시 한 번으로 합침.
  */
-import { forgetSingleFlight, runSingleFlight } from "@/lib/http/run-single-flight";
+import { forgetSingleFlight, getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
+import { peekAppBootProfile } from "@/lib/app-boot/app-boot-store";
 import { recordBootVerifyFetch } from "@/lib/app-boot/client-boot-request-journal";
 import { logShellFetchTrace } from "@/lib/dibay/shell-fetch-trace";
 import { recoverFrom401Once } from "@/lib/auth/api-auth-recovery";
@@ -12,10 +13,28 @@ import {
 } from "@/lib/auth/guest-auth-state";
 import type { ProfileRow } from "@/lib/profile/types";
 
+/** Must match `APP_BOOT_PROFILE_MINIMAL_FLIGHT` in fetch-app-boot-profile (no circular import). */
+const APP_BOOT_PROFILE_MINIMAL_FLIGHT = "app-boot:profile:minimal" as const;
+
 export type MeProfileGetResult = {
   status: number;
   json: unknown;
 };
+
+function isMypageRootPathname(): boolean {
+  if (typeof window === "undefined") return false;
+  const p = window.location.pathname.split("?")[0]!.trim();
+  return p === "/mypage" || p === "/my";
+}
+
+/** Ephemeral mypage reuse of boot lite — do not write cachedFull (consent 계약). */
+function meProfileResultFromBootLite(): MeProfileGetResult | null {
+  if (!isMypageRootPathname()) return null;
+  const boot = peekAppBootProfile();
+  const id = boot?.id?.trim();
+  if (!id || !boot) return null;
+  return { status: 200, json: { ok: true, profile: boot } };
+}
 
 /** background·Region — 서버 route TTL(15s)와 맞춰 짧은 4s 재네트워크 burst 완화 */
 const TTL_MS = 15_000;
@@ -183,6 +202,20 @@ export function fetchMeProfileFullBackground(clientCallSource?: string): Promise
     const primed: MeProfileGetResult = { status: 200, json: { ok: true, profile: primedProfile } };
     cachedFull = { value: primed, expiresAt: now + TTL_MS };
     return Promise.resolve(primed);
+  }
+  const bootLite = meProfileResultFromBootLite();
+  if (bootLite) {
+    return Promise.resolve(bootLite);
+  }
+  /**
+   * Viewer authority: do not start `mode=full` while boot `lite=1` is in flight —
+   * wait, then re-check (mypage may reuse boot lite; other surfaces may fetch full).
+   */
+  const liteInflight = getSingleFlightPromise<Response>(APP_BOOT_PROFILE_MINIMAL_FLIGHT);
+  if (liteInflight) {
+    return liteInflight
+      .catch(() => null)
+      .then(() => fetchMeProfileFullBackground(clientCallSource));
   }
   return runSingleFlight(FLIGHT_KEY_FULL, () => fetchMeProfileWith401Recovery(clientCallSource));
 }
