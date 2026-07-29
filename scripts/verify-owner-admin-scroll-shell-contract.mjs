@@ -31,6 +31,24 @@ if (!scrollHost.includes("basic-info")) {
   errors.push("owner-stack-scroll-host-path: document basic-info inclusion in comment or logic");
 }
 
+const layoutClient = readFileSync("app/(main)/stores/owner/StoresOwnerLayoutClient.tsx", "utf8");
+if (!layoutClient.includes("OwnerHubRuntimeProvider")) {
+  errors.push("StoresOwnerLayoutClient: must keep OwnerHubRuntimeProvider on hub+stack");
+}
+if (!layoutClient.includes("initialStores={initialStores}")) {
+  errors.push("StoresOwnerLayoutClient: BusinessAdminShell must receive initialStores on hub+stack");
+}
+if (!layoutClient.includes("enforce={!isHub}")) {
+  errors.push("StoresOwnerLayoutClient: StoreBusinessGuard must stay mounted with enforce={!isHub}");
+}
+if (/if \(isHub\) \{\s*return \(/.test(layoutClient) && layoutClient.includes("<StoreBusinessGuard>\n")) {
+  errors.push("StoresOwnerLayoutClient: must not fork hub vs guarded into separate remount trees");
+}
+
+if (!guard.includes("enforce")) {
+  errors.push("StoreBusinessGuard: must accept enforce prop for persistent owner shell");
+}
+
 if (errors.length) {
   console.error("verify-owner-admin-scroll-shell-contract FAILED:\n" + errors.join("\n"));
   process.exit(1);

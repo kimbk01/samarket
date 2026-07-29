@@ -81,13 +81,30 @@ async function resolveStoreBusinessPhase(): Promise<ResolvedPhase> {
   }
 }
 
-export function StoreBusinessGuard({ children }: { children: React.ReactNode }) {
+export function StoreBusinessGuard({
+  children,
+  enforce = true,
+}: {
+  children: React.ReactNode;
+  /**
+   * Owner hub (`/stores/owner`) must stay ungated so pending stores still render.
+   * Keep this component mounted with `enforce={false}` so hub↔stack navigation does not
+   * remount Guard/Shell and flash pulse / re-hit `/api/me/stores`.
+   */
+  enforce?: boolean;
+}) {
   const { t } = useI18n();
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>(() => resolvedPhaseFromPeek() ?? { kind: "loading" });
 
   useEffect(() => {
+    if (!enforce) return;
     if (phase.kind !== "loading") return;
+    const fromPeek = resolvedPhaseFromPeek();
+    if (fromPeek) {
+      setPhase(fromPeek);
+      return;
+    }
     let cancelled = false;
     void resolveStoreBusinessPhase().then((p) => {
       if (!cancelled) setPhase(p);
@@ -95,12 +112,16 @@ export function StoreBusinessGuard({ children }: { children: React.ReactNode }) 
     return () => {
       cancelled = true;
     };
-  }, [phase.kind]);
+  }, [phase.kind, enforce]);
 
   const retry = () => {
     invalidateMeStoresListDedupedCache();
     setPhase({ kind: "loading" });
   };
+
+  if (!enforce) {
+    return <>{children}</>;
+  }
 
   if (phase.kind === "loading") {
     return (

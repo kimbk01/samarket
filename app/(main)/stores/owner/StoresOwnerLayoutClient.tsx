@@ -13,6 +13,11 @@ import type { StoreRow } from "@/lib/stores/db-store-mapper";
 /**
  * `/stores/owner/*` 클라이언트 분기 — 서버 `layout.tsx` 가 매장 목록 시드 후에도
  * 클라 내비게이션·쿼리 변화에 맞춰 apply / hub / guarded 를 구분한다.
+ *
+ * CONTRACT (Phase 5) — hub ↔ stack must **not** remount Runtime/Shell/Guard as separate trees.
+ * Leaving hub used to swap `OwnerHubRuntimeProvider+Shell(initialStores)` for
+ * `StoreBusinessGuard+Shell(no seed)` → Guard pulse, `/api/me/stores` remount fan-out,
+ * Runtime tear-down. Keep one persistent tree; only `enforce` / `entry` / waterfall toggle.
  */
 export function StoresOwnerLayoutClient({
   children,
@@ -35,20 +40,14 @@ export function StoresOwnerLayoutClient({
     return <StoresOwnerApplyShell>{children}</StoresOwnerApplyShell>;
   }
 
-  if (isHub) {
-    return (
-      <OwnerHubRuntimeProvider initialStores={initialStores}>
-        <OwnerDashboardWaterfallMount />
-        <BusinessAdminShell entry="hub" initialStores={initialStores}>
+  return (
+    <OwnerHubRuntimeProvider initialStores={initialStores}>
+      {isHub ? <OwnerDashboardWaterfallMount /> : null}
+      <StoreBusinessGuard enforce={!isHub}>
+        <BusinessAdminShell entry={isHub ? "hub" : "guarded"} initialStores={initialStores}>
           {children}
         </BusinessAdminShell>
-      </OwnerHubRuntimeProvider>
-    );
-  }
-
-  return (
-    <StoreBusinessGuard>
-      <BusinessAdminShell>{children}</BusinessAdminShell>
-    </StoreBusinessGuard>
+      </StoreBusinessGuard>
+    </OwnerHubRuntimeProvider>
   );
 }
