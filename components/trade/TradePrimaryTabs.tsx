@@ -103,23 +103,19 @@ function TradePrimaryTabsInner({
   const allTradeHref = tradeState === "latest" ? "/market" : `/market?tradeState=${encodeURIComponent(tradeState)}`;
   const setTradeState = useCallback(
     (next: "latest" | "active" | "reserved" | "sold") => {
-      const sp = new URLSearchParams(searchParams.toString());
-      if (next === "latest") sp.delete("tradeState");
-      else sp.set("tradeState", next);
-      const qs = sp.toString();
-      /** 현재 pathname 유지 — `/market` 루트 이탈 금지 */
-      const nextHref = qs ? `${pathname}?${qs}` : pathname;
-      if (next === tradeState) {
+      /** 「전체」보기 — 카테고리·topic 버리고 `/market` 홈 피드 + tradeState 만 */
+      const nextHref =
+        next === "latest" ? "/market" : `/market?tradeState=${encodeURIComponent(next)}`;
+      if (pathname === "/market" && next === tradeState) {
         setAllSortOpen(false);
         return;
       }
       if (!guardBeforeNavigate(nextHref)) return;
-      /** 정렬 칩 — 동일「전체」탭·쿼리만 변경. 440ms push 축 없음 */
       beginMenuNavigation(nextHref, "trade-primary");
       void router.replace(nextHref, { scroll: false });
       setAllSortOpen(false);
     },
-    [beginMenuNavigation, router, searchParams, pathname, tradeState, guardBeforeNavigate]
+    [beginMenuNavigation, router, pathname, tradeState, guardBeforeNavigate]
   );
   /** navigation 중에는 pathname 기반 `isActive`와 intent 기반 하이라이트가 동시에 켜져 옆 탭까지 선택처럼 보임 → trade-primary pending 일 때는 intent만 신뢰 */
   const displayTabs = useMemo(

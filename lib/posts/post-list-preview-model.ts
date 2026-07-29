@@ -30,7 +30,6 @@ import {
   hasJobsMeta,
   hasExchangeMeta,
 } from "@/lib/posts/post-variant";
-import { getCarTradeLabelKo } from "@/lib/posts/car-trade-label";
 import { labelForUsedCarBodyTypeKey } from "@/lib/trade/used-car-form-catalog";
 import { APP_FEED_LIST_ROW1_PILL_LIST } from "@/lib/ui/app-feed-list-row1";
 
@@ -373,7 +372,6 @@ export function buildPostListPreviewModel(
   const isFree = post.is_free_share === true;
 
   const skinLabel = skinKey ? postPreviewSkinLabel(locale, skinKey) : null;
-  const _isDirectDeal = isTradePost && meta.direct_deal === true;
 
   const isRealEstate = skinKey === "real-estate" || (!skinKey && hasRealEstateMeta(meta));
   const isUsedCar = skinKey === "used-car" || (!skinKey && hasUsedCarMeta(meta));
@@ -444,9 +442,14 @@ export function buildPostListPreviewModel(
         ? formatPrice(priceOk, currency)
         : null;
 
-    const tradeLabel = getCarTradeLabelKo(meta);
+    const tradeLabel =
+      meta.car_trade === "buy"
+        ? postPreviewT(locale, "post_preview_wanted")
+        : meta.car_trade === "sell"
+          ? postPreviewT(locale, "post_preview_for_sale")
+          : null;
     const listingChips: ListingChip[] = [];
-    if (tradeLabel) listingChips.push({ text: tradeLabel, className: POST_LIST_CHIP_GRAY });
+    if (tradeLabel) listingChips.push({ text: tradeLabel, className: POST_LIST_CHIP_BLUE });
 
     const blocks: PostListBodyBlock[] = [];
     if (carSpecLine) {
@@ -662,15 +665,14 @@ export function buildPostListPreviewModel(
     listingChips.push({ text: skinLabel, className: POST_LIST_CHIP_GRAY });
   }
 
-  /** 팝니다 / 삽니다 칩 — meta.want_to_buy 우선, 없으면 제목 추론 */
+  /**
+   * 일반 중고 유형 칩 — `In-person deal`(direct_deal) 대신 판매/구매 유형.
+   * 중고차는 `car_trade` 분기에서 동일 의미의 팝니다/삽니다 칩을 이미 표시.
+   * 일반 글쓰기에는 buy/sell meta 가 없으므로 제목의 삽니다·팝니다만 구분, 기본은 팝니다.
+   */
   if (isTradePost) {
-    const wantToBuyMeta = meta.want_to_buy;
     const title = str(post.title);
-    const isBuyListing =
-      wantToBuyMeta === true ||
-      wantToBuyMeta === "true" ||
-      wantToBuyMeta === "buy" ||
-      (wantToBuyMeta === undefined && title.includes("삽니다"));
+    const isBuyListing = title.includes("삽니다") && !title.includes("팝니다");
     listingChips.push({
       text: isBuyListing
         ? postPreviewT(locale, "post_preview_wanted")
