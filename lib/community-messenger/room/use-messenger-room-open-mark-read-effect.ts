@@ -270,6 +270,10 @@ function debugRoomReadAck(payload: {
   console.debug("[cm-read-ack]", payload);
 }
 
+function isDeliveryOrderRoomSnapshot(snap: CommunityMessengerRoomSnapshot | null | undefined): boolean {
+  return snap?.room.contextMeta?.kind === "delivery";
+}
+
 function resolveOrderChatReadInput(
   snap: CommunityMessengerRoomSnapshot,
   roomId: string,
@@ -486,6 +490,18 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
       const tailId = lastMarkableMessageId(roomMessagesRef.current, snap.messages);
       const orderReadInput = resolveOrderChatReadInput(snap, id, tailId);
       if (orderReadInput) {
+        /**
+         * OrderDomain sole authority (Customer + Owner).
+         * Official success = `readOrderChat` ok:true only after participant+target+events are all clear
+         * (partial → 409 order_chat_read_incomplete). Do not optimistic-clear on HTTP-ish partial.
+         * No CM mark_read, no notification room-read, no early list clear before ACK.
+         */
+        if (roomOpenMarkReadRef.current.phase !== "idle") return;
+        roomOpenMarkReadRef.current = {
+          roomId: id,
+          phase: "in_flight",
+          lastMarkedMessageId: roomOpenMarkReadRef.current.lastMarkedMessageId,
+        };
         cmReadBadgeLog("order_read_api_start", { roomId: id, path: "immediate_open" });
         void (async () => {
           try {
@@ -493,14 +509,28 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
             if (json.ok === true) {
               refreshLocalReadGuardServerAck(id);
               const alignMs = applyOptimisticRoomRead(snap, tailId);
-              readRoomNotificationEventsAfterServerRead();
               dispatchOrderChatReadRefresh(id, json.role);
+              earlyOptimisticMessageIdRef.current = null;
+              preOptimisticUnreadRef.current = null;
+              roomOpenMarkReadRef.current = {
+                roomId: id,
+                phase: "done",
+                lastMarkedMessageId: tailId,
+              };
               cmReadBadgeLog("order_read_api_done", { roomId: id, path: "immediate_open", role: json.role ?? null });
               if (typeof performance !== "undefined" && unreadReadSyncRecordedRoomRef.current !== id) {
                 unreadReadSyncRecordedRoomRef.current = id;
                 recordRouteEntryMetric("messenger_room_entry", "unread_read_sync_ms", alignMs);
               }
             } else {
+              earlyOptimisticMessageIdRef.current = null;
+              preOptimisticUnreadRef.current = null;
+              const cur = roomOpenMarkReadRef.current;
+              roomOpenMarkReadRef.current = {
+                roomId: id,
+                phase: "idle",
+                lastMarkedMessageId: cur.lastMarkedMessageId,
+              };
               cmReadBadgeLog("order_read_api_fail", {
                 roomId: id,
                 path: "immediate_open",
@@ -508,6 +538,14 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
               });
             }
           } catch (err) {
+            earlyOptimisticMessageIdRef.current = null;
+            preOptimisticUnreadRef.current = null;
+            const cur = roomOpenMarkReadRef.current;
+            roomOpenMarkReadRef.current = {
+              roomId: id,
+              phase: "idle",
+              lastMarkedMessageId: cur.lastMarkedMessageId,
+            };
             cmReadBadgeLog("order_read_api_fail", {
               roomId: id,
               path: "immediate_open",
@@ -591,6 +629,8 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
       candidate: string,
       readableSnapshot: CommunityMessengerRoomSnapshot
     ) => {
+      /** delivery: OrderDomain ACK 전 list clear 금지 — success 후 applyOptimisticRoomRead 만 */
+      if (isDeliveryOrderRoomSnapshot(readableSnapshot)) return;
       if (earlyOptimisticMessageIdRef.current === candidate) return;
       if (preOptimisticUnreadRef.current === null) {
         const u = readableSnapshot.room.unreadCount;
@@ -690,6 +730,11 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
       const previousReadCursor = roomOpenMarkReadRef.current.lastMarkedMessageId ?? null;
       const orderReadInput = resolveOrderChatReadInput(snap, id, lastReadMessageId);
       if (orderReadInput) {
+        /**
+         * scroll_ack = immediate_open 과 동일 OrderDomain authority.
+         * json.ok === true 만 optimistic clear (partial incomplete → clear 0).
+         * 실패 시 early clear 가 없으므로 unread 유지 · Messenger fresh resync 금지.
+         */
         debugRoomReadAck({
           roomId: id,
           reason,
@@ -754,6 +799,7 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
               lastReadMessageId,
             });
           }
+          /** delivery: success 전 clear 0 → 복원 불필요 · fresh resync 금지 */
           earlyOptimisticMessageIdRef.current = null;
           preOptimisticUnreadRef.current = null;
           const cur = roomOpenMarkReadRef.current;
@@ -1012,8 +1058,14 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
       /**
        * Telegram list authority: room open readable → list unread 0 must fire even if
        * viewport blocks server cursor PATCH. Do not let viewport early-return suppress list store.
+       * delivery 예외: OrderDomain ok 전 early clear 금지.
        */
-      if (state.readable && lastId && earlyOptimisticMessageIdRef.current !== lastId) {
+      if (
+        state.readable &&
+        lastId &&
+        earlyOptimisticMessageIdRef.current !== lastId &&
+        !isDeliveryOrderRoomSnapshot(snap)
+      ) {
         tryEarlyOptimisticListBadgeClear(reason, lastId, snap);
       }
       if (!state.readable || !viewportOk) {
@@ -1070,7 +1122,11 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
           return;
         }
         const snapEarly = snapshotRef.current;
-        if (snapEarly && String(snapEarly.room.id) === String(id)) {
+        if (
+          snapEarly &&
+          String(snapEarly.room.id) === String(id) &&
+          !isDeliveryOrderRoomSnapshot(snapEarly)
+        ) {
           tryEarlyOptimisticListBadgeClear(reason, candidate, snapEarly);
         }
         /**
